@@ -118,6 +118,24 @@
 | Find All References | Show all usages of a symbol | Right-click identifier |
 | Go to Definition | Jump to declaration (Ctrl+Click/F12) | Any identifier |
 | Rename Refactoring | Scope-aware renaming (Ctrl+R) | Any identifier |
+| Move Lines Up/Down | Shift selected line(s) (Alt+Up/Down) | Code editor |
+| Duplicate Lines | Copy current line(s) below (Ctrl+Shift+D) | Code editor |
+| Delete Lines | Remove entire line(s) (Ctrl+Shift+K) | Code editor |
+| Multi-Caret Editing | Select next occurrence (Ctrl+D), edit multiple locations | Code editor |
+| Word Wrap Toggle | Wrap long lines at the editor boundary | Right-click context menu |
+| Show Whitespace Toggle | Render spaces as dots and tabs as arrows | Right-click context menu |
+| Code Regions | Fold/unfold with 'Region / 'End Region comments | Code editor |
+| Line Length Guideline | Vertical guide at column 80 | Code editor |
+| Overtype Mode | Toggle insert/overwrite typing (Insert key) | Code editor |
+| Select Line | Select entire current line (Ctrl+L) | Code editor |
+| Join Lines | Merge selected lines into one (Ctrl+J) | Code editor |
+| Transform Case | UPPERCASE (Ctrl+Shift+U) or lowercase (Ctrl+U) | Code editor |
+| Sort Lines | Alphabetically sort selected lines | Right-click context menu |
+| Go to Matching Block | Jump between If↔End If, Sub↔End Sub, etc. (Ctrl+Shift+]) | Code editor |
+| Surround With | Wrap selection in If, For, Sub, Try, With, or Select Case | Right-click → Surround With |
+| Expand / Shrink Selection | Widen/narrow selection by scope (Alt+Shift+Up/Down) | Code editor |
+| Highlight Current Line | Subtle background tint on the active line | Code editor |
+| Code Minimap | Zoomed-out file overview on the right edge | Code editor / context menu toggle |
 
 ### Visual Gasic IDE Tools
 | Tool | Description | Location |
@@ -138,6 +156,9 @@
 | Property Tooltips | Hover descriptions on all labels | Properties panel |
 | Save All | Save form + code together (Ctrl+Shift+S) | File menu |
 | Go To Line | Jump to line number (Ctrl+G) | Code editor |
+| Scroll Past End | Scroll past the last line for bottom-of-file editing | Code editor |
+| Smooth Scrolling | Animated scroll transitions | Code editor |
+| Drag & Drop Text | Select and drag text to reposition | Code editor |
 | Dirty Indicator | Asterisk `*` for unsaved changes | Status bar |
 
 ### Toolbox Controls

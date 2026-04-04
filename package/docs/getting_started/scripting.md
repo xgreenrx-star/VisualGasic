@@ -9,7 +9,7 @@ The VisualGasic IDE is the primary way to write code:
 1. Open your project in Godot with the VisualGasic addon installed.
 2. Open the **VG IDE** from the editor.
 3. Use **File → New** or the Form Designer to create a new `.vg` file.
-4. The code editor provides syntax highlighting, IntelliSense, and auto-indent.
+4. The code editor provides syntax highlighting, IntelliSense, auto-indent, multi-caret editing (`Ctrl+D`), Ctrl+Click Go To Definition, and line manipulation shortcuts (`Alt+Up/Down` to move lines, `Ctrl+Shift+D` to duplicate, `Ctrl+Shift+K` to delete).
 
 ### Attaching to a Node
 

@@ -33,8 +33,11 @@ const PLACEHOLDER_REGEX = "\\$\\{(\\d+)(?::([^}]*))?\\}|\\$(\\d+)"
 # BUILT-IN SNIPPETS
 # =============================================================================
 
-static var _builtin_snippets: Array[Snippet] = []
-static var _user_snippets: Array[Snippet] = []
+# NOTE: Do NOT use Array[Snippet] here. Typed arrays of inner classes in
+# static vars of @tool + class_name scripts crash on editor script reloads
+# (stale inner-class type identity after reload → segfault in append_array).
+static var _builtin_snippets: Array = []
+static var _user_snippets: Array = []
 static var _initialized: bool = false
 
 static func _ensure_initialized() -> void:
@@ -226,29 +229,29 @@ static func _add_builtin(name: String, prefix: String, category: String, body: S
 # =============================================================================
 
 ## Get all snippets (builtin + user)
-static func get_all_snippets() -> Array[Snippet]:
+static func get_all_snippets() -> Array:
 	_ensure_initialized()
-	var all: Array[Snippet] = []
+	var all: Array = []
 	all.append_array(_builtin_snippets)
 	all.append_array(_user_snippets)
 	return all
 
 ## Get snippets by category
-static func get_snippets_by_category(category: String) -> Array[Snippet]:
+static func get_snippets_by_category(category: String) -> Array:
 	_ensure_initialized()
-	var result: Array[Snippet] = []
+	var result: Array = []
 	for s in _builtin_snippets + _user_snippets:
 		if s.category == category:
 			result.append(s)
 	return result
 
 ## Get all categories
-static func get_categories() -> Array[String]:
+static func get_categories() -> Array:
 	_ensure_initialized()
 	var cats: Dictionary = {}
 	for s in _builtin_snippets + _user_snippets:
 		cats[s.category] = true
-	var result: Array[String] = []
+	var result: Array = []
 	for c in cats:
 		result.append(c)
 	result.sort()
@@ -266,9 +269,9 @@ static func find_by_prefix(prefix: String) -> Snippet:
 	return null
 
 ## Find snippets matching partial prefix
-static func find_matching(partial: String) -> Array[Snippet]:
+static func find_matching(partial: String) -> Array:
 	_ensure_initialized()
-	var matches: Array[Snippet] = []
+	var matches: Array = []
 	var partial_lower = partial.to_lower()
 	for s in _builtin_snippets + _user_snippets:
 		if s.prefix.to_lower().begins_with(partial_lower) or \
@@ -340,8 +343,8 @@ static func expand_snippet(snippet: Snippet, indent: String = "") -> Dictionary:
 	}
 
 ## Get placeholder positions from raw snippet body
-static func get_placeholders(snippet_body: String) -> Array[Dictionary]:
-	var placeholders: Array[Dictionary] = []
+static func get_placeholders(snippet_body: String) -> Array:
+	var placeholders: Array = []
 	var regex = RegEx.new()
 	regex.compile(PLACEHOLDER_REGEX)
 	

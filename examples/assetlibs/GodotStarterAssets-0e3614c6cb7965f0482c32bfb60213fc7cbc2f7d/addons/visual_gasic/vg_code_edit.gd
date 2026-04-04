@@ -23,6 +23,7 @@ signal tracepoint_set(line: int, message: String) ## Emitted when user sets/chan
 signal edit_and_continue_requested()             ## Emitted for Edit & Continue (Ctrl+Shift+Enter)
 signal pin_inline_value_requested(line: int, variable: String) ## Emitted when user pins an inline value
 signal bookmark_toggled(line: int, enabled: bool)              ## Emitted when user toggles a bookmark
+signal go_to_definition_requested(symbol: String, line: int)   ## Emitted for Ctrl+Click Go To Definition
 
 # =============================================================================
 # VARIABLES
@@ -61,6 +62,7 @@ var _semantic_params: Dictionary = {}    # param_name(lower) → true — parame
 var _semantic_locals: Dictionary = {}    # var_name(lower) → line_idx — Dim inside a Sub/Function
 var _semantic_module_vars: Dictionary = {} # var_name(lower) → true — Dim/Public at module level
 var _semantic_consts: Dictionary = {}    # const_name(lower) → true — Const declarations
+var _selection_stack: Array = []          # Stack of [from_line, from_col, to_line, to_col] for expand/shrink selection
 
 # VB6-style yellow arrow (Set Next Statement) state
 var _executing_line: int = -1         # Current executing line (0-based), -1 = none
@@ -87,6 +89,7 @@ var _pin_overlay: Control = null      # Overlay drawn ON TOP of CodeEdit for pin
 # Bookmarks — VB6-style code bookmarks (Ctrl+B to toggle)
 var _bookmarks: Dictionary = {}       # line_number(0-based) → true
 var _bookmark_overlay: Control = null  # Overlay drawn in gutter for bookmark icons
+var _features_overlay: Control = null  # Overlay for rainbow brackets, highlights, change tracking
 
 # VB6 keywords with correct casing (for auto-capitalize on line leave)
 const VB6_KEYWORD_CASING: Dictionary = {
@@ -212,6 +215,7 @@ func _ready() -> void:
 	_setup_sticky_scroll()
 	_setup_change_tracking_gutter()
 	_connect_signals()
+	_setup_features_overlay()
 	_prev_line_count = get_line_count()
 
 func _setup_syntax_highlighter() -> void:
@@ -316,6 +320,40 @@ func _setup_auto_indent() -> void:
 	# Disable built-in executing line gutter — we draw our own yellow arrow overlay
 	gutters_draw_executing_lines = false
 
+	# ── Feature #5: Multiple Cursors / Multi-Caret Editing ──
+	# Alt+Click adds a cursor; Ctrl+D selects next occurrence
+	set("caret_multiple", true)
+
+	# ── Feature #6: Line Length Guideline (80 columns — VB6 convention) ──
+	line_length_guidelines = [80]
+
+	# ── Feature #7: Code Regions ('Region / 'End Region — VB.NET style) ──
+	set_code_region_tags("Region", "End Region")
+
+	# ── Feature #8: Scroll Past End of File ──
+	scroll_past_end_of_file = true
+
+	# ── Feature #11: Smooth Scrolling ──
+	scroll_smooth = true
+	scroll_v_scroll_speed = 80.0
+
+	# ── Feature #13: Drag and Drop Text Selection ──
+	drag_and_drop_selection_enabled = true
+
+	# ── Feature #4: Ctrl+Click Go To Definition ──
+	symbol_lookup_on_click = true
+
+	# ── Feature #14: Highlight Current Line ──
+	highlight_current_line = true
+
+	# ── Feature #15: Code Minimap ──
+	minimap_draw = true
+	minimap_width = 80
+
+	# ── Feature #16: Caret Blink ──
+	caret_blink = true
+	caret_blink_interval = 0.5
+
 	# ── Add custom gutter for change tracking (leftmost, before line numbers) ──
 	add_gutter(0)
 	set_gutter_type(0, TextEdit.GUTTER_TYPE_CUSTOM)
@@ -332,10 +370,25 @@ enum ContextMenuItem {
 	FIX_INDENTATION,
 	COMMENT_TOGGLE,
 	GOTO_LINE,
+	GOTO_DEFINITION,
 	TOGGLE_BREAKPOINT,
 	TOGGLE_BOOKMARK,
 	FOLD_ALL,
 	UNFOLD_ALL,
+	MOVE_LINES_UP,
+	MOVE_LINES_DOWN,
+	DUPLICATE_LINES,
+	DELETE_LINES,
+	TOGGLE_WORD_WRAP,
+	TOGGLE_WHITESPACE,
+	SORT_LINES,
+	SURROUND_IF,
+	SURROUND_FOR,
+	SURROUND_SUB,
+	SURROUND_TRY,
+	SURROUND_WITH_BLOCK,
+	SURROUND_SELECT_CASE,
+	TOGGLE_MINIMAP,
 }
 
 func _setup_context_menu() -> void:
@@ -351,11 +404,36 @@ func _setup_context_menu() -> void:
 	_context_menu.add_item("Comment/Uncomment     Ctrl+'", ContextMenuItem.COMMENT_TOGGLE)
 	_context_menu.add_separator()
 	_context_menu.add_item("Go To Line...           Ctrl+G", ContextMenuItem.GOTO_LINE)
+	_context_menu.add_item("Go To Definition     Ctrl+Click", ContextMenuItem.GOTO_DEFINITION)
 	_context_menu.add_item("Toggle Breakpoint       F9", ContextMenuItem.TOGGLE_BREAKPOINT)
 	_context_menu.add_item("Toggle Bookmark         Ctrl+B", ContextMenuItem.TOGGLE_BOOKMARK)
 	_context_menu.add_separator()
+	_context_menu.add_item("Move Lines Up         Alt+Up", ContextMenuItem.MOVE_LINES_UP)
+	_context_menu.add_item("Move Lines Down       Alt+Down", ContextMenuItem.MOVE_LINES_DOWN)
+	_context_menu.add_item("Duplicate Lines    Ctrl+Shift+D", ContextMenuItem.DUPLICATE_LINES)
+	_context_menu.add_item("Delete Lines       Ctrl+Shift+K", ContextMenuItem.DELETE_LINES)
+	_context_menu.add_separator()
 	_context_menu.add_item("Fold All Procedures", ContextMenuItem.FOLD_ALL)
 	_context_menu.add_item("Unfold All", ContextMenuItem.UNFOLD_ALL)
+	_context_menu.add_separator()
+	_context_menu.add_item("Sort Lines", ContextMenuItem.SORT_LINES)
+	_context_menu.add_separator()
+	# ── Surround With submenu ──
+	var surround_menu := PopupMenu.new()
+	surround_menu.name = "SurroundWithMenu"
+	surround_menu.add_item("If...End If", ContextMenuItem.SURROUND_IF)
+	surround_menu.add_item("For...Next", ContextMenuItem.SURROUND_FOR)
+	surround_menu.add_item("Sub...End Sub", ContextMenuItem.SURROUND_SUB)
+	surround_menu.add_item("Try...Catch", ContextMenuItem.SURROUND_TRY)
+	surround_menu.add_item("With...End With", ContextMenuItem.SURROUND_WITH_BLOCK)
+	surround_menu.add_item("Select Case...End Select", ContextMenuItem.SURROUND_SELECT_CASE)
+	surround_menu.id_pressed.connect(_on_context_menu_item)
+	_context_menu.add_child(surround_menu)
+	_context_menu.add_submenu_item("Surround With", "SurroundWithMenu")
+	_context_menu.add_separator()
+	_context_menu.add_check_item("Word Wrap", ContextMenuItem.TOGGLE_WORD_WRAP)
+	_context_menu.add_check_item("Show Whitespace", ContextMenuItem.TOGGLE_WHITESPACE)
+	_context_menu.add_check_item("Minimap", ContextMenuItem.TOGGLE_MINIMAP)
 	_context_menu.id_pressed.connect(_on_context_menu_item)
 	add_child(_context_menu)
 
@@ -379,16 +457,61 @@ func _on_context_menu_item(id: int) -> void:
 			toggle_breakpoint(get_caret_line())
 		ContextMenuItem.TOGGLE_BOOKMARK:
 			toggle_bookmark(get_caret_line())
+		ContextMenuItem.GOTO_DEFINITION:
+			_go_to_definition_at_caret()
+		ContextMenuItem.MOVE_LINES_UP:
+			move_lines_up()
+		ContextMenuItem.MOVE_LINES_DOWN:
+			move_lines_down()
+		ContextMenuItem.DUPLICATE_LINES:
+			duplicate_lines()
+		ContextMenuItem.DELETE_LINES:
+			delete_lines()
 		ContextMenuItem.FOLD_ALL:
 			fold_all_procedures()
 		ContextMenuItem.UNFOLD_ALL:
 			unfold_all()
+		ContextMenuItem.TOGGLE_WORD_WRAP:
+			_toggle_word_wrap()
+		ContextMenuItem.TOGGLE_WHITESPACE:
+			_toggle_whitespace()
+		ContextMenuItem.SORT_LINES:
+			_sort_selected_lines()
+		ContextMenuItem.SURROUND_IF:
+			_surround_with("If ${1:condition} Then", "End If")
+		ContextMenuItem.SURROUND_FOR:
+			_surround_with("For ${1:i} = ${2:0} To ${3:10}", "Next")
+		ContextMenuItem.SURROUND_SUB:
+			_surround_with("Sub ${1:Name}()", "End Sub")
+		ContextMenuItem.SURROUND_TRY:
+			_surround_with("Try", "Catch ex As Exception\nEnd Try")
+		ContextMenuItem.SURROUND_WITH_BLOCK:
+			_surround_with("With ${1:object}", "End With")
+		ContextMenuItem.SURROUND_SELECT_CASE:
+			_surround_with("Select Case ${1:expression}", "End Select")
+		ContextMenuItem.TOGGLE_MINIMAP:
+			_toggle_minimap()
 
 func _show_context_menu(at_position: Vector2) -> void:
 	# Enable/disable items based on context
 	var sel_active := has_selection()
 	_context_menu.set_item_disabled(_context_menu.get_item_index(ContextMenuItem.CUT), not sel_active)
 	_context_menu.set_item_disabled(_context_menu.get_item_index(ContextMenuItem.COPY), not sel_active)
+	# Update check states for toggle items
+	var wrap_idx := _context_menu.get_item_index(ContextMenuItem.TOGGLE_WORD_WRAP)
+	if wrap_idx >= 0:
+		_context_menu.set_item_checked(wrap_idx, get_line_wrapping_mode() != TextEdit.LINE_WRAPPING_NONE)
+	var ws_idx := _context_menu.get_item_index(ContextMenuItem.TOGGLE_WHITESPACE)
+	if ws_idx >= 0:
+		_context_menu.set_item_checked(ws_idx, draw_spaces or draw_tabs)
+	var mm_idx := _context_menu.get_item_index(ContextMenuItem.TOGGLE_MINIMAP)
+	if mm_idx >= 0:
+		_context_menu.set_item_checked(mm_idx, minimap_draw)
+	# Disable Sort Lines when no multi-line selection
+	var sort_idx := _context_menu.get_item_index(ContextMenuItem.SORT_LINES)
+	if sort_idx >= 0:
+		var multi_line_sel := sel_active and get_selection_from_line() != get_selection_to_line()
+		_context_menu.set_item_disabled(sort_idx, not multi_line_sel)
 	_context_menu.position = Vector2i(global_position + at_position)
 	_context_menu.popup()
 
@@ -600,11 +723,33 @@ func mark_saved() -> void:
 	_change_saved_lines = get_text().split("\n")
 	queue_redraw()
 
+func _setup_features_overlay() -> void:
+	_features_overlay = Control.new()
+	_features_overlay.name = "FeaturesOverlay"
+	_features_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_features_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_features_overlay)
+	_features_overlay.draw.connect(_on_features_overlay_draw)
+
+func _on_features_overlay_draw() -> void:
+	var first_visible: int = get_first_visible_line()
+	var last_visible: int = first_visible + get_visible_line_count() + 1
+	last_visible = mini(last_visible, get_line_count())
+	_draw_procedure_separators(first_visible, last_visible)
+	_draw_occurrence_highlights(first_visible, last_visible)
+	_draw_rainbow_brackets(first_visible, last_visible)
+	_draw_semantic_underlines(first_visible, last_visible)
+	_draw_change_tracking(first_visible, last_visible)
+	_draw_minimap_markers()
+
 func _connect_signals() -> void:
 	text_changed.connect(_on_text_changed)
 	code_completion_requested.connect(_on_code_completion_requested)
 	caret_changed.connect(_on_caret_changed)
 	breakpoint_toggled.connect(_on_breakpoint_toggled)
+	# Feature #4: Ctrl+Click Go To Definition
+	symbol_validate.connect(_on_symbol_validate)
+	symbol_lookup.connect(_on_symbol_lookup)
 
 # =============================================================================
 # CODE COMPLETION
@@ -2001,6 +2146,67 @@ func _gui_input(event: InputEvent) -> void:
 					# Ctrl+Alt+B = Go to Previous Bookmark
 					goto_prev_bookmark()
 					accept_event()
+			# ── Feature #1: Move Lines Up/Down (Alt+Up / Alt+Down) ──
+			# ── Feature #23: Expand Selection (Alt+Shift+Up) ──
+			KEY_UP:
+				if event.alt_pressed and not event.ctrl_pressed and not event.shift_pressed:
+					move_lines_up()
+					accept_event()
+				elif event.alt_pressed and event.shift_pressed and not event.ctrl_pressed:
+					_expand_selection()
+					accept_event()
+			# ── Feature #23: Shrink Selection (Alt+Shift+Down) ──
+			KEY_DOWN:
+				if event.alt_pressed and not event.ctrl_pressed and not event.shift_pressed:
+					move_lines_down()
+					accept_event()
+				elif event.alt_pressed and event.shift_pressed and not event.ctrl_pressed:
+					_shrink_selection()
+					accept_event()
+			# ── Feature #2: Duplicate Lines (Ctrl+Shift+D) ──
+			KEY_D:
+				if event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
+					duplicate_lines()
+					accept_event()
+				elif event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+					# Feature #5: Ctrl+D = Select Next Occurrence (multi-cursor)
+					add_selection_for_next_occurrence()
+					accept_event()
+			# ── Feature #3: Delete Entire Line (Ctrl+Shift+K) ──
+			KEY_K:
+				if event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
+					delete_lines()
+					accept_event()
+			# ── Feature #12: Overtype/Insert Mode Toggle (Insert key) ──
+			KEY_INSERT:
+				if not event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+					set_overtype_mode_enabled(not is_overtype_mode_enabled())
+					accept_event()
+			# ── Feature #17: Select Line (Ctrl+L) ──
+			KEY_L:
+				if event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+					_select_line()
+					accept_event()
+			# ── Feature #18: Join Lines (Ctrl+J) ──
+			KEY_J:
+				if event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+					_join_lines()
+					accept_event()
+			# ── Feature #19: Transform Case (Ctrl+Shift+U = upper, Ctrl+U = lower) ──
+			KEY_U:
+				if event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
+					_transform_case_upper()
+					accept_event()
+				elif event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+					_transform_case_lower()
+					accept_event()
+			# ── Feature #21: Go to Matching Block (Ctrl+Shift+]) ──
+			KEY_BRACKETRIGHT:
+				if event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
+					_go_to_matching_block()
+					accept_event()
+			# ── Feature #23: Expand / Shrink Selection (Alt+Shift+Up / Alt+Shift+Down) ──
+			# Note: Alt+Up without shift is Move Lines (feature #1)
 
 # ── Data Tips: forward mouse motion to VGDataTips for hover-to-inspect ──
 	if event is InputEventMouseMotion and _is_debug_paused and _data_tips_ref and not _arrow_dragging:
@@ -2205,49 +2411,13 @@ func _ready_separators() -> void:
 	_proc_separator_regex.compile("^\\s*(?:(?:Public|Private|Static)\\s+)?(?:Sub|Function|Property)\\s+")
 
 func _draw() -> void:
-	if _proc_separator_regex == null:
-		_ready_separators()
-	
-	# Draw thin gray separator lines above each procedure declaration
-	var first_visible: int = get_first_visible_line()
-	var last_visible: int = first_visible + get_visible_line_count() + 1
-	last_visible = mini(last_visible, get_line_count())
-	
-	var separator_color: Color = Color(0.35, 0.35, 0.4, 0.6)
-	var line_width: float = 1.0
-	
-	for line_idx in range(first_visible, last_visible):
-		var line_text: String = get_line(line_idx)
-		if _proc_separator_regex.search(line_text):
-			# Don't draw separator above the very first line
-			if line_idx == 0:
-				continue
-			# get_pos_at_line_column returns the BOTTOM of the line; subtract
-			# row_height to get the TOP (which is where the separator goes).
-			var row_height: float = get_line_height()
-			var sep_pos := get_pos_at_line_column(line_idx, 0)
-			if sep_pos.y < 0:
-				continue
-			var y_offset: float = float(sep_pos.y) - row_height
-			# Draw the separator line across the full width
-			var from_x: float = get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
-			var to_x: float = size.x
-			draw_line(Vector2(from_x, y_offset), Vector2(to_x, y_offset), separator_color, line_width)
-	
-	# ── Scope-aware occurrence highlighting ──
-	_draw_occurrence_highlights(first_visible, last_visible)
-	
-	# ── Rainbow brackets ──
-	_draw_rainbow_brackets(first_visible, last_visible)
-	
-	# ── Semantic token underlines ──
-	_draw_semantic_underlines(first_visible, last_visible)
-	
-	# ── Change tracking gutter ──
-	_draw_change_tracking(first_visible, last_visible)
-	
-	# ── Minimap occurrence markers (right edge) ──
-	_draw_minimap_markers()
+	# ── Features overlay: trigger redraw of the child overlay that draws
+	#    ON TOP of text (separator lines, rainbow brackets, highlights, etc.) ──
+	# NOTE: _draw() in a CodeEdit subclass renders UNDERNEATH the text
+	# (CanvasItem._draw() fires before TextEdit._notification), so all
+	# visible overlays must be drawn on _features_overlay instead.
+	if _features_overlay:
+		_features_overlay.queue_redraw()
 	
 	# ── Keep overlay in sync with scrolling / redraws ──
 	if _arrow_overlay and (_is_debug_paused or _arrow_dragging):
@@ -2282,15 +2452,53 @@ func _get_word_under_caret() -> String:
 ## Draw semi-transparent highlight rectangles behind every visible occurrence
 ## of _highlight_word.  Scope-aware: local variables only highlight within
 ## the enclosing Sub/Function; module-level variables highlight everywhere.
+func _draw_procedure_separators(first_visible: int, last_visible: int) -> void:
+	if _proc_separator_regex == null:
+		_ready_separators()
+	
+	var separator_color: Color = Color(0.35, 0.35, 0.4, 0.6)
+	var line_width: float = 1.0
+	
+	for line_idx in range(first_visible, last_visible):
+		var line_text: String = get_line(line_idx)
+		if _proc_separator_regex.search(line_text):
+			# Don't draw separator above the very first line
+			if line_idx == 0:
+				continue
+			var row_height: float = get_line_height()
+			# get_pos_at_line_column returns the BOTTOM of the line (caret
+			# baseline); subtract row_height to get the TOP of the line,
+			# which is where the separator goes.
+			var sep_pos := get_pos_at_line_column(line_idx, 0)
+			if sep_pos.y < 0:
+				continue
+			var y_offset: float = float(sep_pos.y) - row_height
+			# Draw the separator line across the full width
+			var from_x: float = get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
+			var to_x: float = size.x
+			_features_overlay.draw_line(Vector2(from_x, y_offset), Vector2(to_x, y_offset), separator_color, line_width)
+
 func _draw_occurrence_highlights(first_visible: int, last_visible: int) -> void:
-	if _highlight_word.is_empty() or _highlight_word.length() < 2:
+	if _highlight_word.is_empty():
 		return
 	
 	var hw_lower := _highlight_word.to_lower()
 	var hw_len := _highlight_word.length()
 	var row_height := get_line_height()
-	var highlight_color := Color(1.0, 0.85, 0.3, 0.22)
-	var border_color := Color(1.0, 0.85, 0.3, 0.45)
+	# Adaptive colours: use a visible tint on both light and dark backgrounds
+	var bg_lum := 0.15
+	if has_theme_color("background_color"):
+		bg_lum = get_theme_color("background_color").get_luminance()
+	var highlight_color: Color
+	var border_color: Color
+	if bg_lum > 0.5:
+		# Light background — use a warm peach/amber tint
+		highlight_color = Color(0.95, 0.75, 0.2, 0.3)
+		border_color = Color(0.8, 0.55, 0.1, 0.7)
+	else:
+		# Dark background — use a brighter gold tint
+		highlight_color = Color(1.0, 0.85, 0.3, 0.25)
+		border_color = Color(1.0, 0.85, 0.3, 0.6)
 	
 	# Scope-awareness: if the word is a local variable/param, restrict to procedure scope
 	var scope_start := first_visible
@@ -2327,16 +2535,21 @@ func _is_caret_inside(line_idx: int, col_start: int, col_end: int) -> bool:
 
 func _draw_word_rect(line_idx: int, col_start: int, col_end: int,
 					 row_height: float, bg_color: Color, border_color: Color) -> void:
-	var pos_start := get_pos_at_line_column(line_idx, col_start)
-	var pos_end := get_pos_at_line_column(line_idx, col_end)
+	# Workaround: Godot's shaped_text_get_grapheme_bounds has an inclusive-end
+	# boundary check (end >= pos) that causes get_pos_at_line_column(line, col)
+	# to return the position of character col-1 for col >= 1.  Adding +1 fixes it.
+	var line_len := get_line(line_idx).length()
+	var pos_start := get_pos_at_line_column(line_idx, mini(col_start + 1, line_len))
+	var pos_end := get_pos_at_line_column(line_idx, mini(col_end + 1, line_len))
 	if pos_start.y < 0 and pos_end.y < 0:
 		return
 	var x0 := float(pos_start.x)
 	var x1 := float(pos_end.x)
+	# pos.y is the BOTTOM (baseline) of the line; subtract row_height to get top
 	var y := float(pos_start.y) - row_height
 	var rect := Rect2(x0, y, x1 - x0, row_height)
-	draw_rect(rect, bg_color)
-	draw_rect(rect, border_color, false, 1.0)
+	_features_overlay.draw_rect(rect, bg_color)
+	_features_overlay.draw_rect(rect, border_color, false, 1.5)
 
 # =============================================================================
 # RAINBOW BRACKETS — colour () [] at different nesting depths
@@ -2344,9 +2557,19 @@ func _draw_word_rect(line_idx: int, col_start: int, col_end: int,
 
 ## Rainbow colour palette for bracket nesting depths.
 const RAINBOW_COLORS: Array[Color] = [
+	Color(0.85, 0.65, 0.1),  # Dark gold
+	Color(0.45, 0.3, 0.85),  # Deep purple
+	Color(0.1, 0.65, 0.65),  # Teal
+	Color(0.85, 0.3, 0.3),   # Crimson
+	Color(0.2, 0.7, 0.2),    # Forest green
+	Color(0.85, 0.45, 0.1),  # Burnt orange
+]
+
+## Rainbow colour palette for dark backgrounds.
+const RAINBOW_COLORS_DARK: Array[Color] = [
 	Color(1.0, 0.85, 0.3),   # Gold
-	Color(0.6, 0.5, 1.0),    # Purple
-	Color(0.3, 0.85, 0.85),  # Cyan
+	Color(0.7, 0.6, 1.0),    # Purple
+	Color(0.3, 0.9, 0.9),    # Cyan
 	Color(1.0, 0.5, 0.5),    # Red-pink
 	Color(0.5, 1.0, 0.5),    # Green
 	Color(1.0, 0.65, 0.3),   # Orange
@@ -2380,6 +2603,10 @@ func _draw_rainbow_brackets(first_visible: int, last_visible: int) -> void:
 	var font := get_theme_font("font") if has_theme_font("font") else ThemeDB.fallback_font
 	var font_size := get_theme_font_size("font_size") if has_theme_font_size("font_size") else 14
 	
+	# Choose palette based on background luminance
+	var bg_color := get_theme_color("background_color") if has_theme_color("background_color") else Color(0.12, 0.12, 0.15)
+	var palette := RAINBOW_COLORS if bg_color.get_luminance() > 0.5 else RAINBOW_COLORS_DARK
+	
 	for line_idx in range(first_visible, last_visible):
 		var line_text := get_line(line_idx)
 		in_string = false
@@ -2397,31 +2624,36 @@ func _draw_rainbow_brackets(first_visible: int, last_visible: int) -> void:
 				continue
 			
 			if ch == "(" or ch == "[":
-				var color := RAINBOW_COLORS[depth % RAINBOW_COLORS.size()]
+				var color := palette[depth % palette.size()]
 				_draw_bracket_overlay(line_idx, col, ch, row_height, font, font_size, color)
 				depth += 1
 			elif ch == ")" or ch == "]":
 				depth = maxi(0, depth - 1)
-				var color := RAINBOW_COLORS[depth % RAINBOW_COLORS.size()]
+				var color := palette[depth % palette.size()]
 				_draw_bracket_overlay(line_idx, col, ch, row_height, font, font_size, color)
 
 func _draw_bracket_overlay(line_idx: int, col: int, ch: String,
 						   row_height: float, font: Font, font_size: int,
 						   color: Color) -> void:
-	var pos := get_pos_at_line_column(line_idx, col)
+	# +1 workaround: see _draw_word_rect comment for details.
+	var line_len := get_line(line_idx).length()
+	var pos := get_pos_at_line_column(line_idx, mini(col + 1, line_len))
+	var pos_next := get_pos_at_line_column(line_idx, mini(col + 2, line_len))
 	if pos.y < 0:
 		return
 	var x := float(pos.x)
-	var y := float(pos.y)  # baseline (bottom of line)
-	# Draw a solid background rect to cover the default symbol colour, then draw coloured text
-	var char_width := font.get_char_size(ch.unicode_at(0), font_size).x
-	var bg_rect := Rect2(x, y - row_height, char_width, row_height)
-	# Use the editor background colour to "erase" the default text
-	var bg := Color(0.12, 0.12, 0.15, 1.0)
-	draw_rect(bg_rect, bg)
-	# Draw the coloured bracket
-	draw_string(font, Vector2(x, y - row_height * 0.18), ch, HORIZONTAL_ALIGNMENT_LEFT,
-				-1, font_size, color)
+	var w := float(pos_next.x) - x
+	if w < 2.0:
+		w = font.get_char_size(ch.unicode_at(0), font_size).x  # fallback
+	# pos.y is the baseline (bottom of line); top = pos.y - row_height
+	var top := float(pos.y) - row_height
+	# Draw a thick coloured underline at the bottom of the bracket character
+	var underline_y := float(pos.y) - 2.0
+	_features_overlay.draw_line(Vector2(x, underline_y), Vector2(x + w, underline_y),
+							   color, 2.5)
+	# Draw a subtle coloured background tint behind the bracket
+	var tint := Color(color.r, color.g, color.b, 0.15)
+	_features_overlay.draw_rect(Rect2(x, top, w, row_height), tint)
 
 # =============================================================================
 # SEMANTIC TOKEN COLOURING — underlines for locals, params, module vars, consts
@@ -2557,14 +2789,17 @@ func _draw_semantic_underlines(first_visible: int, last_visible: int) -> void:
 
 func _draw_underline(line_idx: int, col_start: int, col_end: int,
 					 row_height: float, color: Color) -> void:
-	var pos_start := get_pos_at_line_column(line_idx, col_start)
-	var pos_end := get_pos_at_line_column(line_idx, col_end)
+	# +1 workaround: see _draw_word_rect comment for details.
+	var line_len := get_line(line_idx).length()
+	var pos_start := get_pos_at_line_column(line_idx, mini(col_start + 1, line_len))
+	var pos_end := get_pos_at_line_column(line_idx, mini(col_end + 1, line_len))
 	if pos_start.y < 0 and pos_end.y < 0:
 		return
 	var x0 := float(pos_start.x)
 	var x1 := float(pos_end.x)
-	var y := float(pos_start.y) - 1.0  # Just above baseline
-	draw_line(Vector2(x0, y), Vector2(x1, y), color, 1.5)
+	# pos.y is the baseline; draw underline just above it
+	var y := float(pos_start.y) - 1.0
+	_features_overlay.draw_line(Vector2(x0, y), Vector2(x1, y), color, 1.5)
 
 # =============================================================================
 # CHANGE TRACKING GUTTER — yellow (unsaved) / green (saved-since-open)
@@ -2576,7 +2811,8 @@ func _draw_change_tracking(first_visible: int, last_visible: int) -> void:
 	
 	var current_lines := get_text().split("\n")
 	var row_height := get_line_height()
-	var gutter_x := 1.0  # Left edge of our custom gutter
+	# Draw the change bar in the leftmost custom gutter (change_tracking, index 0, width=4)
+	var gutter_x := 1.0
 	var gutter_w := 3.0
 	
 	for line_idx in range(first_visible, last_visible):
@@ -2592,19 +2828,19 @@ func _draw_change_tracking(first_visible: int, last_visible: int) -> void:
 		if current_text != base_text:
 			if current_text == saved_text and saved_text != base_text:
 				# Green: changed and saved (different from original, matches last save)
-				draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
-						  Color(0.3, 0.8, 0.3, 0.8))
+				_features_overlay.draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
+						  Color(0.3, 0.8, 0.3, 0.9))
 			else:
 				# Yellow: unsaved change (different from both base and last save)
-				draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
-						  Color(0.9, 0.8, 0.2, 0.8))
+				_features_overlay.draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
+						  Color(0.9, 0.8, 0.2, 0.9))
 
 # =============================================================================
 # MINIMAP OCCURRENCE MARKERS — thin markers on right edge showing all matches
 # =============================================================================
 
 func _draw_minimap_markers() -> void:
-	if _highlight_word.is_empty() or _highlight_word.length() < 2:
+	if _highlight_word.is_empty():
 		return
 	
 	var hw_lower := _highlight_word.to_lower()
@@ -2632,7 +2868,7 @@ func _draw_minimap_markers() -> void:
 			var after_ok := (after_pos >= line_text.length()) or not _is_word_char(line_text[after_pos])
 			if before_ok and after_ok:
 				var y := 2.0 + (float(line_idx) / float(total_lines)) * usable_height
-				draw_rect(Rect2(marker_x, y, marker_w, marker_h), marker_color)
+				_features_overlay.draw_rect(Rect2(marker_x, y, marker_w, marker_h), marker_color)
 
 # =============================================================================
 # STICKY SCROLL — shows enclosing Sub/Function at top of editor
@@ -3237,3 +3473,515 @@ func load_bookmarks(file_path: String) -> void:
 	_ensure_bookmark_overlay()
 	if _bookmark_overlay:
 		_bookmark_overlay.queue_redraw()
+
+# =============================================================================
+# FEATURE #4: CTRL+CLICK GO TO DEFINITION
+# =============================================================================
+
+## Called when user hovers over a word with Ctrl held — validate it as a symbol.
+func _on_symbol_validate(symbol: String) -> void:
+	# Accept any word that matches a known Sub/Function, variable, enum, UDT,
+	# control name, or label in the current code.
+	var sym_lower := symbol.to_lower()
+	# Check procedures (Sub/Function declarations)
+	var proc_re := RegEx.new()
+	proc_re.compile("(?i)^\\s*(?:Public\\s+|Private\\s+|Static\\s+|Friend\\s+)?(?:Sub|Function|Property)\\s+" + symbol + "\\b")
+	for i in range(get_line_count()):
+		if proc_re.search(get_line(i)):
+			set_symbol_lookup_word_as_valid(true)
+			return
+	# Check Dim / Public / Private / Const variable declarations
+	if sym_lower in _semantic_locals or sym_lower in _semantic_module_vars or sym_lower in _semantic_consts or sym_lower in _semantic_params:
+		set_symbol_lookup_word_as_valid(true)
+		return
+	# Check Enum / Type names
+	if sym_lower in _known_enums or sym_lower in _known_udts:
+		set_symbol_lookup_word_as_valid(true)
+		return
+	# Check control names
+	for ctrl_name in _known_controls:
+		if ctrl_name.to_lower() == sym_lower:
+			set_symbol_lookup_word_as_valid(true)
+			return
+	# Check labels (e.g. "ErrorHandler:")
+	var label_re := RegEx.new()
+	label_re.compile("(?i)^\\s*" + symbol + "\\s*:")
+	for i in range(get_line_count()):
+		if label_re.search(get_line(i)):
+			set_symbol_lookup_word_as_valid(true)
+			return
+	set_symbol_lookup_word_as_valid(false)
+
+## Called when user Ctrl+Clicks on a validated symbol — navigate to its definition.
+func _on_symbol_lookup(symbol: String, line: int, column: int) -> void:
+	_go_to_definition(symbol)
+
+## Navigate to the definition of a symbol (Sub/Function, variable, enum, label).
+func _go_to_definition(symbol: String) -> void:
+	var sym_lower := symbol.to_lower()
+	# 1) Check procedures (Sub/Function/Property declarations)
+	var proc_re := RegEx.new()
+	proc_re.compile("(?i)^\\s*(?:Public\\s+|Private\\s+|Static\\s+|Friend\\s+)?(?:Sub|Function|Property)\\s+" + symbol + "\\b")
+	for i in range(get_line_count()):
+		if proc_re.search(get_line(i)):
+			set_caret_line(i)
+			set_caret_column(get_line(i).to_lower().find(sym_lower))
+			center_viewport_to_caret()
+			go_to_definition_requested.emit(symbol, i)
+			return
+	# 2) Check variable declarations (Dim, Public, Private, Const)
+	var var_re := RegEx.new()
+	var_re.compile("(?i)^\\s*(?:Dim|Public|Private|Static|Const|ReDim)\\s+.*\\b" + symbol + "\\b")
+	for i in range(get_line_count()):
+		if var_re.search(get_line(i)):
+			set_caret_line(i)
+			set_caret_column(get_line(i).to_lower().find(sym_lower))
+			center_viewport_to_caret()
+			go_to_definition_requested.emit(symbol, i)
+			return
+	# 3) Check Enum / Type blocks
+	var block_re := RegEx.new()
+	block_re.compile("(?i)^\\s*(?:Public\\s+|Private\\s+)?(?:Enum|Type)\\s+" + symbol + "\\b")
+	for i in range(get_line_count()):
+		if block_re.search(get_line(i)):
+			set_caret_line(i)
+			set_caret_column(get_line(i).to_lower().find(sym_lower))
+			center_viewport_to_caret()
+			go_to_definition_requested.emit(symbol, i)
+			return
+	# 4) Check labels (ErrorHandler:)
+	var label_re := RegEx.new()
+	label_re.compile("(?i)^\\s*" + symbol + "\\s*:")
+	for i in range(get_line_count()):
+		if label_re.search(get_line(i)):
+			set_caret_line(i)
+			set_caret_column(0)
+			center_viewport_to_caret()
+			go_to_definition_requested.emit(symbol, i)
+			return
+	# Not found — push a warning
+	push_warning("Go To Definition: could not find declaration for '%s'" % symbol)
+
+## Go To Definition for the word currently under the caret (context menu version).
+func _go_to_definition_at_caret() -> void:
+	var word := _get_word_under_caret()
+	if not word.is_empty():
+		_go_to_definition(word)
+
+# =============================================================================
+# FEATURE #9: WORD WRAP TOGGLE
+# =============================================================================
+
+func _toggle_word_wrap() -> void:
+	if get_line_wrapping_mode() == TextEdit.LINE_WRAPPING_NONE:
+		set_line_wrapping_mode(TextEdit.LINE_WRAPPING_BOUNDARY)
+	else:
+		set_line_wrapping_mode(TextEdit.LINE_WRAPPING_NONE)
+
+# =============================================================================
+# FEATURE #10: SHOW WHITESPACE TOGGLE
+# =============================================================================
+
+func _toggle_whitespace() -> void:
+	var show := not draw_spaces
+	draw_spaces = show
+	draw_tabs = show
+
+# =============================================================================
+# FEATURE #15: MINIMAP TOGGLE
+# =============================================================================
+
+func _toggle_minimap() -> void:
+	minimap_draw = not minimap_draw
+
+# =============================================================================
+# FEATURE #17: SELECT LINE (Ctrl+L)
+# =============================================================================
+
+func _select_line() -> void:
+	var line := get_caret_line()
+	if line < get_line_count() - 1:
+		# Select from start of current line to start of next line (includes newline)
+		select(line, 0, line + 1, 0)
+	else:
+		# Last line — select from start to end of line
+		select(line, 0, line, get_line(line).length())
+
+# =============================================================================
+# FEATURE #18: JOIN LINES (Ctrl+J)
+# =============================================================================
+
+func _join_lines() -> void:
+	var from_line := get_caret_line()
+	var to_line := from_line
+	if has_selection():
+		from_line = get_selection_from_line()
+		to_line = get_selection_to_line()
+	# Need at least two lines to join
+	if to_line <= from_line:
+		to_line = from_line + 1
+	if to_line >= get_line_count():
+		return
+	begin_complex_operation()
+	# Join lines from bottom up — append each next line to the line above
+	for i in range(to_line, from_line, -1):
+		var prev_text := get_line(i - 1).rstrip(" \t")
+		var next_text := get_line(i).lstrip(" \t")
+		var joined := prev_text
+		if not joined.is_empty() and not next_text.is_empty():
+			joined += " "
+		joined += next_text
+		set_line(i - 1, joined)
+		# Remove the merged line
+		set_caret_line(i)
+		set_caret_column(0)
+		select(i - 1, get_line(i - 1).length(), i, get_line(i).length())
+		delete_selection()
+	set_caret_line(from_line)
+	end_complex_operation()
+
+# =============================================================================
+# FEATURE #19: TRANSFORM CASE (Ctrl+Shift+U = upper, Ctrl+U = lower)
+# =============================================================================
+
+func _transform_case_upper() -> void:
+	if not has_selection():
+		return
+	var sel := get_selected_text()
+	begin_complex_operation()
+	insert_text_at_caret(sel.to_upper())
+	end_complex_operation()
+
+func _transform_case_lower() -> void:
+	if not has_selection():
+		return
+	var sel := get_selected_text()
+	begin_complex_operation()
+	insert_text_at_caret(sel.to_lower())
+	end_complex_operation()
+
+# =============================================================================
+# FEATURE #20: SORT LINES (Context Menu)
+# =============================================================================
+
+func _sort_selected_lines() -> void:
+	if not has_selection():
+		return
+	var from_line := get_selection_from_line()
+	var to_line := get_selection_to_line()
+	if from_line == to_line:
+		return
+	begin_complex_operation()
+	var lines: Array[String] = []
+	for i in range(from_line, to_line + 1):
+		lines.append(get_line(i))
+	lines.sort()
+	for i in range(from_line, to_line + 1):
+		set_line(i, lines[i - from_line])
+	end_complex_operation()
+
+# =============================================================================
+# FEATURE #21: GO TO MATCHING BLOCK (Ctrl+Shift+])
+# =============================================================================
+
+## Jump between matching VB6 block pairs:
+## Sub ↔ End Sub, Function ↔ End Function, If ↔ End If, For ↔ Next,
+## Do ↔ Loop, While ↔ Wend, Select Case ↔ End Select, With ↔ End With,
+## Enum ↔ End Enum, Type ↔ End Type, Property ↔ End Property.
+func _go_to_matching_block() -> void:
+	var cur_line := get_caret_line()
+	var line_text := get_line(cur_line).strip_edges().to_lower()
+
+	# Block opener → closer patterns (case-insensitive)
+	var openers := {
+		"sub ": "end sub",
+		"function ": "end function",
+		"property ": "end property",
+		"if ": "end if",
+		"for ": "next",
+		"for each ": "next",
+		"do ": "loop",
+		"do while ": "loop",
+		"do until ": "loop",
+		"while ": "wend",
+		"select case ": "end select",
+		"with ": "end with",
+		"enum ": "end enum",
+		"type ": "end type",
+	}
+	# Check some prefixed openers
+	var prefixed_openers := {
+		"public sub ": "end sub",
+		"private sub ": "end sub",
+		"static sub ": "end sub",
+		"friend sub ": "end sub",
+		"public function ": "end function",
+		"private function ": "end function",
+		"static function ": "end function",
+		"friend function ": "end function",
+		"public property ": "end property",
+		"private property ": "end property",
+		"public enum ": "end enum",
+		"private enum ": "end enum",
+		"public type ": "end type",
+		"private type ": "end type",
+	}
+
+	# Check if we're on a closer — search backwards for the opener
+	var closers := {
+		"end sub": ["sub ", "public sub ", "private sub ", "static sub ", "friend sub "],
+		"end function": ["function ", "public function ", "private function ", "static function ", "friend function "],
+		"end property": ["property ", "public property ", "private property "],
+		"end if": ["if "],
+		"next": ["for ", "for each "],
+		"loop": ["do ", "do while ", "do until "],
+		"wend": ["while "],
+		"end select": ["select case "],
+		"end with": ["with "],
+		"end enum": ["enum ", "public enum ", "private enum "],
+		"end type": ["type ", "public type ", "private type "],
+	}
+
+	# Try opener → search forward for closer
+	var all_openers := {}
+	all_openers.merge(openers)
+	all_openers.merge(prefixed_openers)
+	for opener_prefix in all_openers:
+		if line_text.begins_with(opener_prefix):
+			var closer_kw: String = all_openers[opener_prefix]
+			# Search forward for matching closer
+			var depth := 1
+			for i in range(cur_line + 1, get_line_count()):
+				var lt := get_line(i).strip_edges().to_lower()
+				# Check if this line opens a nested block of the same type
+				for op in all_openers:
+					if lt.begins_with(op) and all_openers[op] == closer_kw:
+						depth += 1
+						break
+				if lt.begins_with(closer_kw) or lt == closer_kw:
+					depth -= 1
+					if depth <= 0:
+						set_caret_line(i)
+						set_caret_column(0)
+						center_viewport_to_caret()
+						return
+			return  # No match found
+
+	# Try closer → search backward for opener
+	for closer_kw in closers:
+		if line_text.begins_with(closer_kw) or line_text == closer_kw:
+			var opener_list: Array = closers[closer_kw]
+			var depth := 1
+			for i in range(cur_line - 1, -1, -1):
+				var lt := get_line(i).strip_edges().to_lower()
+				# Check if this is a nested closer
+				if lt.begins_with(closer_kw) or lt == closer_kw:
+					depth += 1
+				# Check if this is an opener
+				for op in opener_list:
+					if lt.begins_with(op):
+						depth -= 1
+						if depth <= 0:
+							set_caret_line(i)
+							set_caret_column(0)
+							center_viewport_to_caret()
+							return
+			return  # No match found
+
+# =============================================================================
+# FEATURE #22: SURROUND WITH (Context Menu Submenu)
+# =============================================================================
+
+## Wrap the current selection in a VB6 block structure.
+## `header` is the opening line (e.g. "If condition Then"), `footer` is the closer.
+## Placeholders like ${1:name} are stripped for clean output.
+func _surround_with(header: String, footer: String) -> void:
+	# Strip placeholder markers from header/footer
+	var re := RegEx.new()
+	re.compile("\\$\\{\\d+:([^}]+)\\}")
+	var clean_header := re.sub(header, "$1", true)
+	var clean_footer := re.sub(footer, "$1", true)
+
+	if not has_selection():
+		# No selection — insert empty block at caret
+		var line := get_caret_line()
+		var indent := _get_line_indent(line)
+		var inner_indent := indent + "\t"
+		var block_text := clean_header + "\n" + inner_indent + "\n" + indent + clean_footer
+		begin_complex_operation()
+		set_caret_column(0)
+		insert_text_at_caret(indent + block_text + "\n")
+		set_caret_line(line + 1)
+		set_caret_column(inner_indent.length())
+		end_complex_operation()
+		return
+
+	var from_line := get_selection_from_line()
+	var to_line := get_selection_to_line()
+	var indent := _get_line_indent(from_line)
+	var inner_indent := indent + "\t"
+
+	begin_complex_operation()
+	# Collect selected lines and increase their indent
+	var selected_lines: Array[String] = []
+	for i in range(from_line, to_line + 1):
+		var orig := get_line(i)
+		var stripped := orig.lstrip(" \t")
+		selected_lines.append(inner_indent + stripped)
+
+	# Build block
+	var block_lines: Array[String] = []
+	block_lines.append(indent + clean_header)
+	block_lines.append_array(selected_lines)
+	# Footer may contain multiple lines separated by \n
+	for footer_line in clean_footer.split("\n"):
+		block_lines.append(indent + footer_line)
+
+	# Replace the selected line range
+	for i in range(from_line, to_line + 1):
+		set_line(i, "")
+	# Delete the now-empty lines (except the first one we'll overwrite)
+	select(from_line, 0, to_line, get_line(to_line).length())
+	delete_selection()
+
+	# Insert the block
+	set_caret_line(from_line)
+	set_caret_column(0)
+	insert_text_at_caret(block_lines.reduce(func(a, b): return a + "\n" + b) + "\n")
+	set_caret_line(from_line + 1)
+	end_complex_operation()
+
+## Helper: get the leading whitespace of a line.
+func _get_line_indent(line_idx: int) -> String:
+	var text := get_line(line_idx)
+	var indent := ""
+	for ch in text:
+		if ch == "\t" or ch == " ":
+			indent += ch
+		else:
+			break
+	return indent
+
+# =============================================================================
+# FEATURE #23: EXPAND / SHRINK SELECTION (Alt+Shift+Up / Alt+Shift+Down)
+# =============================================================================
+
+## Progressively expand the selection: word → line → block → procedure → all.
+func _expand_selection() -> void:
+	# Save current selection state
+	if has_selection():
+		_selection_stack.append([
+			get_selection_from_line(), get_selection_from_column(),
+			get_selection_to_line(), get_selection_to_column()
+		])
+	else:
+		_selection_stack.clear()
+		_selection_stack.append([get_caret_line(), get_caret_column(), get_caret_line(), get_caret_column()])
+
+	if not has_selection():
+		# Step 1: Select current word
+		var word := _get_word_under_caret()
+		if not word.is_empty():
+			var line := get_caret_line()
+			var col := get_caret_column()
+			var line_text := get_line(line)
+			# Find word boundaries around caret
+			var start := col
+			var end_pos := col
+			while start > 0 and _is_word_char(line_text[start - 1]):
+				start -= 1
+			while end_pos < line_text.length() and _is_word_char(line_text[end_pos]):
+				end_pos += 1
+			select(line, start, line, end_pos)
+		else:
+			# No word — select line
+			_select_line()
+		return
+
+	var from_line := get_selection_from_line()
+	var to_line := get_selection_to_line()
+	var from_col := get_selection_from_column()
+	var to_col := get_selection_to_column()
+
+	# If selection is within a single line and doesn't cover the whole line
+	if from_line == to_line and not (from_col == 0 and to_col == get_line(to_line).length()):
+		# Step 2: Expand to whole line
+		select(from_line, 0, from_line, get_line(from_line).length())
+		return
+
+	# If selection covers exactly one line, expand to enclosing block
+	# Find the enclosing block (If...End If, Sub...End Sub, etc.)
+	var block := _find_enclosing_block(from_line, to_line)
+	if block.size() == 2 and (block[0] < from_line or block[1] > to_line):
+		# Step 3: Select the enclosing block
+		select(block[0], 0, block[1], get_line(block[1]).length())
+		return
+
+	# If already at block level, expand to enclosing procedure
+	var proc_range := _get_enclosing_procedure_range(from_line)
+	if proc_range.x >= 0 and proc_range.y >= 0 and (proc_range.x < from_line or proc_range.y > to_line):
+		select(proc_range.x, 0, proc_range.y, get_line(proc_range.y).length())
+		return
+
+	# Step 4: Select all
+	select(0, 0, get_line_count() - 1, get_line(get_line_count() - 1).length())
+
+## Shrink the selection back to the previous level.
+func _shrink_selection() -> void:
+	if _selection_stack.is_empty():
+		deselect()
+		return
+	var prev: Array = _selection_stack.pop_back()
+	if prev[0] == prev[2] and prev[1] == prev[3]:
+		# Was a caret position with no selection
+		deselect()
+		set_caret_line(prev[0])
+		set_caret_column(prev[1])
+	else:
+		select(prev[0], prev[1], prev[2], prev[3])
+
+## Helper: check if a character is a word character (letter, digit, underscore).
+func _is_word_char(ch: String) -> bool:
+	if ch.is_empty():
+		return false
+	var c := ch.unicode_at(0)
+	return (c >= 65 and c <= 90) or (c >= 97 and c <= 122) or (c >= 48 and c <= 57) or c == 95
+
+## Find the innermost VB6 block enclosing the given line range.
+## Returns [start_line, end_line] or [] if no enclosing block found.
+func _find_enclosing_block(from_line: int, to_line: int) -> Array:
+	# Search backwards from from_line for a block opener
+	var block_pairs := [
+		["(?i)^\\s*(?:public\\s+|private\\s+|static\\s+|friend\\s+)?sub\\s+", "(?i)^\\s*end\\s+sub"],
+		["(?i)^\\s*(?:public\\s+|private\\s+|static\\s+|friend\\s+)?function\\s+", "(?i)^\\s*end\\s+function"],
+		["(?i)^\\s*(?:public\\s+|private\\s+)?property\\s+", "(?i)^\\s*end\\s+property"],
+		["(?i)^\\s*if\\s+.+\\s+then\\s*$", "(?i)^\\s*end\\s+if"],
+		["(?i)^\\s*for\\s+", "(?i)^\\s*next"],
+		["(?i)^\\s*do\\b", "(?i)^\\s*loop"],
+		["(?i)^\\s*while\\s+", "(?i)^\\s*wend"],
+		["(?i)^\\s*select\\s+case\\s+", "(?i)^\\s*end\\s+select"],
+		["(?i)^\\s*with\\s+", "(?i)^\\s*end\\s+with"],
+	]
+	for pair in block_pairs:
+		var open_re := RegEx.new()
+		open_re.compile(pair[0])
+		var close_re := RegEx.new()
+		close_re.compile(pair[1])
+		# Search backwards for opener
+		for start_idx in range(from_line, -1, -1):
+			if open_re.search(get_line(start_idx)):
+				# Found opener — search forward for matching closer
+				var depth := 1
+				for end_idx in range(start_idx + 1, get_line_count()):
+					if open_re.search(get_line(end_idx)):
+						depth += 1
+					if close_re.search(get_line(end_idx)):
+						depth -= 1
+						if depth <= 0:
+							# Check if this block actually encloses our range
+							if start_idx <= from_line and end_idx >= to_line and \
+							   (start_idx < from_line or end_idx > to_line):
+								return [start_idx, end_idx]
+							break
+				break  # Only check the nearest opener for this pattern
+	return []

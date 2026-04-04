@@ -1,13 +1,38 @@
-# VisualGasic - Advanced Visual Basic for Godot 4
+# VisualGasic — A Modern Language for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-4.4.0--rc4-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
 
-**World-Class RAD Platform**: Professional Visual Basic language implementation with cutting-edge modern features including multitasking, advanced type system, pattern matching, GPU computing, and comprehensive development tools.
+**World-Class RAD Platform**: A modern, forward-looking programming language with **event-driven programming**, cutting-edge features including multitasking, advanced type system, pattern matching, GPU computing, and comprehensive development tools.
+
+> **VisualGasic is not a VB6 clone.** It is a modern language that draws inspiration from VB6's approachable syntax and ease of learning, while introducing advanced features that go well beyond what VB6 ever offered. VG is VB6-*compatible* where it makes sense — you can port VB6 projects and feel at home immediately — but the language itself is designed to look forwards, not backwards.
+
+> 🚀 **Release Candidate** — v4.4.0-rc4 is feature-complete with cross-platform binaries, installers, and IDE project creation. Community testing welcome! [See release notes](RELEASE_NOTES_v4.4.0-rc4.md).
 
 ## 🚀 **Key Features**
 
+### **Event-Driven Programming** *(Unique to VisualGasic)*
+- **Automatic event binding** — Name a Sub `btnSave_Click()` and it's wired automatically. No manual `connect()` calls.
+- **Timer events** — `Sub tmrSpawn_Timer()` fires automatically. No signal boilerplate.
+- **Godot signal integration** — `Sub Player_AreaEntered(area)` just works by naming convention.
+- **Visual Gasic IDE events** — Double-click any control → event handler Sub is created and connected.
+- No other Godot language offers this workflow. GDScript, C++, and C# all require explicit signal wiring.
+
 ### **Core Language**
-- **Complete Visual Basic 6 Syntax** - Full compatibility with VB6 projects
+- **Clean, Familiar Syntax** — Inspired by VB6's simplicity; VB6-compatible where it counts, modern where it matters
+- **Classes & Objects** - `Class...End Class`, `New`, `Property Get/Let/Set`, `Class_Initialize`
+- **Class Inheritance** - `Inherits`, `MyBase`, `MustOverride`, `Overrides`, multi-level chains
+- **Lambda Expressions** - `Lambda`, `Fn`, `Function`, `Sub` with optional `=>` arrow
+- **Block Lambdas** - Multi-statement `Function(x) ... Return ... End Function`
+- **Functional Programming** - `Map`, `Filter`, `Reduce`, `Any`, `All`, `Find`
+- **Null Safety** - `??` null-coalescing and `?.` optional access
+- **Erase Statement** - Clear/reset arrays with `Erase arr`
+- **ReDim Preserve** - Resize arrays while keeping existing data
+- **Try/Catch/Finally** - Structured exception handling
+- **Select Case** - Multi-value, range, and comparison matching
+- **For Each** - Collection iteration for arrays and dictionaries
 - **Advanced Type System** - Generics, optional types, union types, type inference
 - **Pattern Matching** - VB.NET-style Select Match with destructuring
 - **Multitasking** - Native async/await, parallel processing, task coordination
@@ -16,17 +41,79 @@
 - **GPU Acceleration** - SIMD vector operations and compute shaders
 - **Parallel Processing** - Automatic GPU/CPU fallback for optimal performance
 - **Memory Optimization** - Efficient memory management and leak detection
+- **JIT Compilation** - 5-tier JIT stack (Tier 0 interpreter → 0.5 loop → 1 AST → 2 function body x86-64 → 3 call graph) with function inlining
 
 ### **Professional Development Tools**
+- **IntelliSense** - Code completion with 80+ functions, 62+ VB6 property completions, snippets, and Godot types
 - **Interactive REPL** - Live coding with variable inspection and session management
 - **Language Server Protocol** - Intelligent IDE integration with completion and diagnostics
-- **Advanced Debugger** - Time-travel debugging, performance profiling, memory analysis
-- **Package Manager** - Semantic versioning, dependency resolution, registry support
+- **Advanced Debugger** - Conditional breakpoint expressions, Stop statement, call stack, watch window, time-travel debugging
+- **Code Editor** - Multi-caret editing, line manipulation (move/duplicate/delete), Ctrl+Click Go To Definition, code regions, word wrap toggle, show whitespace, smooth scrolling, line length guideline, drag & drop text, overtype mode
+- **Code Linting** - Static analysis with 10 issue codes (VG001-VG010)
+- **Snippet Manager** - 40+ built-in snippets with custom snippet support
+- **Theme Support** - 8 built-in themes with full IDE chrome theming + Custom Theme Editor
+- **Visual Gasic IDE** - Full C++ WYSIWYG form editor with VB6-style Toolbox, Properties Panel, live Preview, 40+ controls
+- **Full Property Wiring** - 62+ VB6 runtime property aliases with O(1) StringName HashMap dispatch, including Font, Colors, Border sub-resources, and `_Change` event firing on programmatic SET
+- **Game UI Controls** - 7 Tier 1 animated controls: DialogPanel, InventoryGrid, StatBar, HUDCounter, CooldownButton, NotificationToast, GameMenu
+- **IDE Bottom Panel** - Draggable VSplitContainer with Immediate Window (REPL), Output (Debug.Print + lifecycle), and System Console (live Godot log tailing)
+- **Database Controls** - VGRecordset (ADODB.Recordset API), Data/DBGrid/DBCombo toolbox controls, SQL queries at design time
+- **Package Manager** - `vg pkg` CLI, `vg.json` manifests, GitHub-backed registry, GUI Package Browser panel
+- **Multi-Module Compilation** - Cross-file `Import` with project-wide symbol tables and circular import detection
+- **Visual Form Debugger** - Controls Inspector panel with tree view, click-to-source, debugger integration
+
+### **VB6-Style Visual Gasic IDE**
+
+![Form Designer](docs/screenshots/ide_form_designer.png)
+
+*Form Designer: Toolbox (40+ controls) · WYSIWYG Canvas · Properties Panel · Project Explorer · Alignment Toolbar · Live Preview*
+
+![Code Editor with Bottom Panel](docs/screenshots/ide_bottom_panel.png)
+
+*Code Editor: Procedure navigation · Command Help panel · Multi-caret editing · Ctrl+Click Go To Definition · Tabbed bottom panel (Immediate Window, Output, System Console)*
+
+![Code Editor](docs/screenshots/ide_code_editor.png)
+
+*Code view: Left panel with Command Help & Index Map · Syntax-highlighted editor · Draggable split with bottom panel*
+
+### **Immediate Window & Debugging**
+
+![Immediate Window](docs/screenshots/ide_immediate_window.png)
+
+*Interactive REPL: Execute expressions live · Inspect variables · Remote debugging · Data breakpoints*
+
+### **Command Help & IDE Tools**
+
+![Command Help](docs/screenshots/ide_command_help.png)
+
+*Command Help panel: VB6-style keyword reference · Index Map for quick lookup · Cream-themed classic look*
+
+### **Custom Theme Editor**
+
+![Theme Editor](docs/screenshots/theme_picker_editor.png)
+
+*8 built-in themes + Custom Theme Editor with 38 adjustable colors and live preview*
+
+### **Game UI Controls**
+
+![Game UI Controls](docs/screenshots/game_ui_controls.png)
+
+*7 Tier 1 animated controls: DialogPanel · InventoryGrid · StatBar · HUDCounter · CooldownButton · NotificationToast · GameMenu*
 
 ### **Game Development**
 - **Entity Component System** - High-performance ECS with archetype optimization
 - **Godot Integration** - Native scene tree synchronization and node management
+- **Godot Singleton Access** - All 37 engine singletons (Engine, OS, Time, Input, DisplayServer, AudioServer, etc.)
+- **Godot Enum Constants** - `ClassName.CONSTANT_NAME` for all class enums with keyword-safe resolution
 - **Built-in Components** - Transform, Velocity, Render, and custom component support
+
+### **System-Level Programming**
+- **System Info** - Hostname, CPU, RAM, disk, OS, uptime, environment, locale via `VGSystem`
+- **OS Signals** - SIGINT/SIGTERM/SIGHUP/atexit handling via `VGSignalHandler`
+- **File Permissions** - chmod, chown, symlinks, file locking, VB6 GetAttr/SetAttr via `VGFilePermissions`
+- **Raw Memory** - Peek/Poke byte-level buffers, CopyMemory, HexDump, FFI pointers via `VGMemoryBuffer`
+- **IPC** - Named pipes, UNIX domain sockets, shared memory via `VGIPC`
+- **Real Threading** - Task.Run/Parallel For/Parallel Section backed by real `std::thread`
+- **Android Bridge** - JNI device info, permissions, intents, toast, vibrate via `VGAndroidBridge`
 
 ## 📁 **Project Structure**
 
@@ -38,12 +125,23 @@ VisualGasic/
 │   ├── visual_gasic_gpu.*       # GPU computing and SIMD
 │   ├── visual_gasic_lsp.*       # Language server protocol
 │   ├── visual_gasic_debugger.*  # Advanced debugging tools
+│   ├── visual_gasic_linter.*    # Static analysis & warnings
+│   ├── visual_gasic_optimizer.* # Bytecode peephole optimizer
 │   ├── visual_gasic_package.*   # Package management
+│   ├── visual_gasic_recordset.* # Database Controls (VGRecordset)
+│   ├── visual_gasic_jit_tier3.* # JIT Tier 3 call graph compilation
 │   └── visual_gasic_ecs.*       # Entity component system
+│   ├── visual_gasic_system.*    # System info (hostname, CPU, RAM, OS)
+│   ├── visual_gasic_signal_handler.* # OS signal handling
+│   ├── visual_gasic_file_permissions.* # chmod, chown, symlinks, locking
+│   ├── visual_gasic_memory_buffer.*   # Raw Peek/Poke byte buffers
+│   ├── visual_gasic_ipc.*       # Named pipes, sockets, shared memory
+│   └── visual_gasic_android_bridge.*  # JNI Android bridge
 ├── docs/                        # Comprehensive documentation
-│   ├── ADVANCED_FEATURES_MANUAL.md  # 200+ line feature guide
-│   ├── BUILTINS.md             # Built-in functions reference
-│   └── *.md                    # Additional documentation
+│   ├── reference/              # API and syntax references
+│   ├── guides/                 # Getting started and tutorials
+│   ├── development/            # Implementation status and TODOs
+│   └── archive/                # Historical documentation
 ├── demo/                        # Godot test project
 ├── examples/                    # Example VisualGasic projects
 ├── tests/                       # Test suite
@@ -54,29 +152,44 @@ VisualGasic/
 ## ⚡ **Quick Start**
 
 ### **Prerequisites**
-- **Godot 4.5+** - Download from [godotengine.org](https://godotengine.org)
-- **SCons** - Build system (`pip install scons`)
-- **Git** - For cloning submodules
-- **Modern C++ Compiler** - GCC 9+, Clang 10+, or MSVC 2019+
+- **Godot 4.5+** (4.6.1 recommended) — Download from [godotengine.org](https://godotengine.org)
 
 ### **Installation**
 
-**Quick Install (Recommended):**
+**From Godot Asset Library (Easiest):**
+1. Open your Godot project
+2. Go to **AssetLib** tab → Search **"VisualGasic"**
+3. Click **Download** → **Install**
+4. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
 
+**Using the `vg` CLI (Fastest for new projects):**
 ```bash
-# Linux/macOS
+# Install (one time)
 curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.sh | bash
 
-# Windows PowerShell
-iwr -useb https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.ps1 | iex
+# Create a new project with VG pre-installed
+vg new MyGame
+cd MyGame && godot .
 ```
+The `vg` CLI stores the addon globally so you never need to copy it manually. See `vg help` for all commands.
 
-This installs VisualGasic as a project template. Create new projects with VisualGasic already configured!
+**From the VG IDE (inside Godot):**
+1. In an existing VG project, go to **File → New Project...**
+2. Enter a name and pick a folder
+3. A new VG-ready project is created and opened
 
-**Alternative Methods:**
-- **Asset Library**: Search "VisualGasic" in Godot's AssetLib tab (coming soon)
-- **Manual**: Download from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases) and copy to `addons/`
-- **Build from Source**: See [INSTALLATION.md](INSTALLATION.md)
+**From GitHub Release:**
+1. Download from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v4.3.0)
+2. Copy the `addons/visual_gasic/` folder into your project's `addons/` directory
+3. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
+
+**Build from Source** (for contributors):
+```bash
+git clone --recurse-submodules https://github.com/xgreenrx-star/VisualGasic.git
+cd VisualGasic
+scons platform=linux target=editor -j$(nproc)   # or platform=windows / platform=macos
+```
+See [INSTALLATION.md](docs/guides/INSTALLATION.md) for full build instructions.
 
 ## 🎯 **Usage Examples**
 
@@ -144,28 +257,52 @@ gasic pkg publish MyAwesomeLib
 gasic debug --time-travel MyProject.vg
 ```
 
+## 🎮 **Demo Projects (Included in Release)**
+
+VisualGasic ships with **14 playable demo projects** — open any of them in Godot and hit F5:
+
+| Demo | Type | Description |
+|------|------|-------------|
+| Pong | 2D Game | Classic 2-player Pong with AI paddle |
+| Pong Advanced | 2D Game | Enhanced Pong with particles and power-ups |
+| Snake | 2D Game | Classic Snake with score tracking |
+| Space Shooter | 2D Game | Scrolling shooter with enemies and explosions |
+| Galactic Defender | 2D Game | Tower defense with 13 classes, 3-level inheritance |
+| Calculator | UI App | VB6-style calculator with full keyboard support |
+| Todo App | UI App | CRUD todo list with file persistence |
+| Piano | Audio | Playable piano keyboard with tone generation |
+| Screensaver | Graphics | Animated bouncing shapes screensaver |
+| Screen Space Shaders | Graphics | 11 full-screen 2D shader effects (whirl, blur, CRT, etc.) |
+| Sky Shaders | Graphics | Volumetric clouds + Rayleigh/Mie sky (3D) |
+| High Scores | Data | File I/O with DATA/READ statements |
+| Parallel Demo | Threading | Async/Await and Parallel For demonstration |
+
+See the [demos/](demos/) directory for source code.
+
 ## 📖 **Documentation**
 
+> 📚 **[Documentation Hub](docs/DOCS.md)** — Master index linking to every doc file with descriptions.
+
 ### **Core Documentation**
-- [**Advanced Features Manual**](docs/ADVANCED_FEATURES_MANUAL.md) - Comprehensive 200+ line guide to all advanced features
-- [**Built-in Functions Reference**](docs/BUILTINS.md) - Complete API documentation
-- [**Implementation Status**](docs/ADVANCED_FEATURES.md) - Feature completion and technical details
+- [**Built-in Functions Reference**](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) - Complete API documentation (108 functions)
+- [**VB6 Features**](docs/reference/VB6_FEATURES_IMPLEMENTATION.md) - VB6 compatibility reference
+- [**Godot Functions**](docs/reference/GODOT_FUNCTIONS_REFERENCE.md) - Godot integration API
 
 ### **Getting Started Guides**
-- [**Quick Start Phase 2**](QUICK_START_PHASE_2.md) - Modern development workflow
-- [**Importing VB6 Projects**](IMPORTING_VB6.md) - Migration from Visual Basic 6
-- [**Installation Guide**](INSTALLATION.md) - Detailed setup instructions
+- [**Getting Started**](docs/guides/GET_STARTED.md) - Quick start guide
+- [**Importing VB6 Projects**](docs/guides/IMPORTING_VB6.md) - Migration from Visual Basic 6
+- [**Installation Guide**](docs/guides/INSTALLATION.md) - Detailed setup instructions
 
 ### **Advanced Topics**
-- [**Multitasking Guide**](docs/MULTITASKING.md) - Async/await and parallel programming
-- [**ECS Development**](docs/ECS.md) - Game development with Entity Component System
-- [**GPU Computing**](docs/GPU_COMPUTING.md) - High-performance SIMD operations
-- [**Package Management**](docs/PACKAGE_MANAGEMENT.md) - Dependency resolution and publishing
+- [**System Integration**](docs/SYSTEM_INTEGRATION.md) - FFI, ODBC, Crypto, XML, ZIP, IPC, Signals, Memory, Android
+- [**Language Reference**](docs/VisualGasic_Language_Reference.md) - Complete syntax and API reference
+- [**Advanced Features**](docs/ADVANCED_FEATURES.md) - Type system, GPU computing, ECS, pattern matching
+- [**Advanced Features Manual**](docs/ADVANCED_FEATURES_MANUAL.md) - Detailed walkthroughs with examples
 
 ### **Developer Resources**
-- [**Language Reference**](docs/manual/keywords.md) - Complete syntax reference
+- [**Keywords Reference**](docs/manual/keywords.md) - Complete syntax reference
 - [**IDE Integration**](docs/manual/ide_tools.md) - LSP and development tools
-- [**Performance Guide**](docs/PERFORMANCE.md) - Optimization techniques
+- [**Performance Guide**](docs/manual/performance.md) - Benchmarks and optimization
 - [**Contributing Guide**](CONTRIBUTING.md) - How to contribute to VisualGasic
 
 ## 🛠️ **Development Architecture**
@@ -186,10 +323,25 @@ gasic debug --time-travel MyProject.vg
 - **Archetype-based ECS** - Memory-efficient entity storage
 - **GPU Computing** - Automatic fallback to CPU when needed
 - **JIT Compilation** - Runtime optimization for hot code paths
+- **Bytecode Optimizer** - 9-pass peephole optimizer with computed-goto threaded dispatch (~20% faster VM)
 - **Memory Profiling** - Built-in leak detection and analysis
 
 ## 🧪 **Testing & Bytecode Regression**
+### ClassDB Fuzzer — 2421 Tests, 0 Failures
 
+The automated ClassDB fuzzer generates and runs **2421 tests** across 210 `.vg` files covering:
+- Class instantiation (854 Godot classes)
+- Property get/set, enum constants
+- Zero-arg method calls, setter methods
+- Inheritance chain verification, With blocks
+- TypeOf/Is operators, singleton method calls
+- VG language features (For Each, error handling, string/vector ops)
+
+```bash
+python3 tools/classdb_fuzzer.py --run   # Generate + run all 2421 tests
+```
+
+### Bytecode Regression Harness
 Use the regression harness in [Makefile.tests](Makefile.tests) to keep builds, tests, and benchmarks reproducible:
 
 ```bash
@@ -218,26 +370,43 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 2.0.0 (Advanced Features Release)
+**Current Version**: 4.4.0-rc4 (Release Candidate)
+
+> See [RELEASE_NOTES_v4.4.0-rc4.md](RELEASE_NOTES_v4.4.0-rc4.md) for the latest changes.
 
 **Completion Status**:
-- ✅ **Core Language** - 95% (VB6 compatibility — see docs/KNOWN_ISSUES.md)
+- ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
 - ✅ **Advanced Types** - 100% (Generics, optionals, unions)
-- ⚠️ **Multitasking** - Experimental (Task.RunAsync works; Parallel For not yet compiled)
-- 🔬 **GPU Computing** - Stub (scaffolding only; no methods exposed yet)
-- ✅ **Development Tools** - 100% (REPL, LSP, debugger, packages)
-- 🔬 **ECS Integration** - Stub (header-only skeleton; implementation planned)
+- ⚠️ **Multitasking** - Experimental (Task.RunAsync works; Parallel For/Task.Run bytecode not yet compiled)
+- ✅ **GPU Computing** - 100% (19 methods: vector math, reduction, element-wise ops; CPU fallback)
+- ✅ **System Integration** - 100% (FFI, ODBC, Crypto, XML, ZIP, Tasks, Packages)
+- ✅ **System Programming** - 100% (VGSystem, Signals, Permissions, Memory, IPC, Android Bridge)
+- ✅ **Development Tools** - 100% (REPL, LSP, debugger, linter, snippet browser, theme picker)
+- ✅ **Bytecode Optimizer** - 100% (9-pass peephole optimizer)
+- ✅ **ECS Integration** - 100% (18 methods: entities, Dictionary components, queries, serialization)
+- ✅ **Visual Gasic IDE** - 100% (C++ WYSIWYG editor, 40+ controls, VB6 properties, live preview)
 - ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
-- ✅ **Documentation** - 95% (Comprehensive guides and references)
+- ✅ **Game Demos** - 100% (14 demos: Pong, Snake, Space Shooter, Galactic Defender, Calculator, Piano, and more)
+- ✅ **Documentation** - 100% (Comprehensive guides and references)
+- ✅ **Performance** - 11/11 benchmarks faster than GDScript (up to 118× faster) — VG wins 6/9 vs C++
+- ✅ **Database Controls** - 100% (VGRecordset, Data/DBGrid/DBCombo, 13 tests pass)
+- ✅ **Package Manager** - 100% (vg pkg CLI, vg.json, GitHub registry, GUI browser, 11 tests pass)
+- ✅ **JIT Compilation** - 100% (5-tier stack: Tier 0→0.5→1→2→3, call graph compilation, 10 tests pass)
+- ✅ **Multi-Module** - 100% (Cross-file Import, project-wide symbols, circular import detection)
+- ✅ **macOS Universal** - 100% (x86_64 + arm64 fat binary, CI workflow)
+- ✅ **Cross-Platform Installer** - 100% (install.sh, install.ps1, install.py, vg CLI)
+- ✅ **Pre-Built Binaries** - 100% (Linux x86_64, Windows x86_64, macOS Universal)
+- ✅ **IDE Project Creation** - 100% (File → New Project from within VG IDE)
+
+> **Note:** See [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) for a complete list
+> of confirmed engine bugs and workarounds.
 
 ### 🚧 Coming Soon
 
 See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
-- **Watch Window** - Variable monitoring during debugging
-- **Snap-to-Grid** - Form designer alignment tools
-- **IntelliSense** - Code completion for VB6 keywords and controls
-- **Breakpoint Conditions** - Conditional breakpoints with expressions
-- **Call Stack Panel** - Visual debugging navigation
+- **Stable Release (v4.4.0)** - Pending community testing of RC1
+- **Asset Library** - Publish to Godot Asset Library
+- **WebAssembly Validation** - Verify HTML5 export compatibility
 
 ## 📄 **License**
 

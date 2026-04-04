@@ -3,7 +3,9 @@ extends Window
 ## VG Snippet Browser — Visual dialog for browsing, inserting, and managing code snippets.
 ## Launched from the script editor toolbar or Ctrl+Shift+S shortcut.
 
-const VGSnippetManager = preload("res://addons/visual_gasic/vg_snippet_manager.gd")
+# VGSnippetManager is available globally via class_name — do NOT preload it
+# (preloading a class_name script creates a duplicate identity that crashes
+#  typed arrays of inner classes after editor script reloads).
 const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
 
 signal snippet_insert_requested(text: String)
@@ -238,8 +240,8 @@ func _on_add_snippet():
 	
 	dlg.confirmed.connect(func():
 		VGSnippetManager.add_user_snippet(
-			name_field.text, prefix_field.text, desc_field.text,
-			cat_field.text, body_edit.text
+			name_field.text, prefix_field.text, cat_field.text,
+			body_edit.text, desc_field.text
 		)
 		_populate_categories()
 		dlg.queue_free()

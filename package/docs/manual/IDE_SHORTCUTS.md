@@ -163,12 +163,40 @@ Click any color swatch to open a full **ColorPicker** dialog with alpha channel 
 
 ## Code Editor
 
+### Editing Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| **Alt+Up** | **Move Lines Up** — shift selected line(s) up |
+| **Alt+Down** | **Move Lines Down** — shift selected line(s) down |
+| **Ctrl+Shift+D** | **Duplicate Lines** — copy current line(s) below |
+| **Ctrl+Shift+K** | **Delete Lines** — remove entire current line(s) |
+| **Ctrl+D** | **Select Next Occurrence** — add a caret at the next match of the current word (multi-caret) |
+| **Ctrl+L** | **Select Line** — select the entire current line |
+| **Ctrl+J** | **Join Lines** — merge selected lines into one |
+| **Ctrl+Shift+U** | **UPPERCASE** — convert selected text to upper case |
+| **Ctrl+U** | **lowercase** — convert selected text to lower case |
+| **Insert** | **Toggle Overtype Mode** — switch between insert and overwrite mode |
+
+### Navigation Shortcuts
+
 | Shortcut | Action |
 |----------|--------|
 | **Ctrl+G** | **Go To Line** — opens a dialog to jump to any line number |
+| **Ctrl+Click** / **F12** | **Go to Definition** — jump to the declaration of a Sub, Function, variable, Enum, Type, or label |
+| **Ctrl+Shift+]** | **Go to Matching Block** — jump between `If`↔`End If`, `Sub`↔`End Sub`, `For`↔`Next`, etc. |
+| **Alt+Shift+Up** | **Expand Selection** — progressively widen selection (word → line → block → procedure → all) |
+| **Alt+Shift+Down** | **Shrink Selection** — reverse the last expand step |
+| **Ctrl+R** | **Rename** refactoring (scope-aware) |
+| **Ctrl+B** | **Toggle Bookmark** on current line |
+| **Ctrl+Shift+B** | **Next Bookmark** — jump to next bookmark |
+| **Ctrl+Alt+B** | **Previous Bookmark** — jump to previous bookmark |
+
+### IntelliSense & Debugging
+
+| Shortcut | Action |
+|----------|--------|
 | **Ctrl+Space** | IntelliSense autocomplete |
-| **Ctrl+Click** / **F12** | Go to Definition |
-| **Ctrl+R** | Rename refactoring (scope-aware) |
 | **F9** | **Toggle Breakpoint** on current line |
 | **Ctrl+Shift+F9** | **Conditional Breakpoint** — set/edit a condition expression |
 | **Type `(`** | Parameter hint for built-in functions |
@@ -181,6 +209,43 @@ Click any color swatch to open a full **ColorPicker** dialog with alpha channel 
 | **Procedure Separator Lines** | A horizontal rule is drawn above each `Sub` / `Function` / `Property` header — the classic VB6 blue separator line |
 | **Parameter Info Popup** | When typing inside function call parentheses, a tooltip shows the function signature with the current parameter highlighted |
 | **Pretty Listing** | On save, keywords are auto-capitalized, operators are spaced, and indentation is normalized (VB6-style auto-format) |
+| **Multiple Cursors** | Place multiple carets to edit several locations simultaneously; use **Ctrl+D** to add the next matching word |
+| **Highlight Current Line** | The active line has a subtle background tint for easy orientation |
+| **Code Minimap** | A zoomed-out overview of the entire file on the right side of the editor |
+| **Caret Blink** | The cursor blinks for visibility |
+| **Line Length Guideline** | A vertical guide line at column 80 helps keep code readable |
+| **Code Regions** | Fold and unfold code blocks with `'Region` / `'End Region` comments (VB.NET-style) |
+| **Scroll Past End** | The editor allows scrolling past the last line for comfortable editing at the bottom of a file |
+| **Smooth Scrolling** | Animated scroll for a polished editing experience |
+| **Drag & Drop Text** | Select text and drag it to a different location within the editor |
+
+### Context Menu (Right-Click)
+
+Right-click in the code editor to access these actions:
+
+| Menu Item | Shortcut | Action |
+|-----------|----------|--------|
+| Cut | Ctrl+X | Cut selected text |
+| Copy | Ctrl+C | Copy selected text |
+| Paste | Ctrl+V | Paste from clipboard |
+| Select All | Ctrl+A | Select all code |
+| Fix Indentation | Ctrl+Shift+I | Re-indent selected lines using VB6 block rules |
+| Comment/Uncomment | Ctrl+' | Toggle comment prefix |
+| Go To Line… | Ctrl+G | Jump to a line number |
+| Go To Definition | Ctrl+Click | Navigate to symbol declaration |
+| Toggle Breakpoint | F9 | Set or remove breakpoint |
+| Toggle Bookmark | Ctrl+B | Set or remove bookmark |
+| Move Lines Up | Alt+Up | Shift line(s) up |
+| Move Lines Down | Alt+Down | Shift line(s) down |
+| Duplicate Lines | Ctrl+Shift+D | Copy line(s) below |
+| Delete Lines | Ctrl+Shift+K | Remove entire line(s) |
+| Fold All Procedures | — | Collapse all Sub/Function bodies |
+| Unfold All | — | Expand all folded regions |
+| Sort Lines | — | Alphabetically sort the selected lines |
+| Surround With ▶ | — | Wrap selection in If, For, Sub, Try, With, or Select Case block |
+| Word Wrap ✓ | — | Toggle word wrapping at the editor boundary |
+| Show Whitespace ✓ | — | Toggle visible spaces and tab characters |
+| Minimap ✓ | — | Toggle the code minimap on the right edge |
 
 ### Go To Line Dialog
 

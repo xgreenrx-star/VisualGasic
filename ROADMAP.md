@@ -804,6 +804,7 @@ Potential features for the next major version, pending community feedback:
 |---------|-------------|----------|
 | **Godot Asset Library** | Publish VisualGasic to the official Godot Asset Library | High |
 | **WebAssembly Export** | Validate and ensure HTML5 export compatibility | High |
+| **Multi-Provider AI Help** | Add support for cloud AI providers (OpenAI/ChatGPT, Anthropic/Claude, Google Gemini) alongside the existing local Ollama backend. Includes provider selector dropdown, API key settings dialog, HTTPS/TLS transport, and per-provider request/response adapters. OpenAI-compatible API format as the first cloud backend. | Medium |
 | **Visual Debugger v2** | Graphical call flow visualization, flame graphs | Medium |
 | **WebSocket Controls** | Networking controls for multiplayer games | Medium |
 | **Android/iOS Validation** | Test and fix mobile platform builds | Medium |

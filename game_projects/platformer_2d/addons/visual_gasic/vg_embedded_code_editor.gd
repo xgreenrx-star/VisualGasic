@@ -1285,7 +1285,6 @@ func _on_code_changed() -> void:
 	_dirty = true
 	# Rebuild procedure list (debounced via call_deferred to avoid per-keystroke cost)
 	_rebuild_proc_list.call_deferred()
-	_update_procedure_separators.call_deferred()
 
 func _on_caret_moved() -> void:
 	_update_proc_selection()
@@ -2015,29 +2014,10 @@ func _scan_type_members(lines: PackedStringArray, type_line: int) -> Array:
 # =============================================================================
 # PROCEDURE SEPARATOR LINES
 # =============================================================================
-
-## Draws horizontal separator lines between Sub/Function/Property blocks.
-## Uses CodeEdit's executing line gutter to mark lines just before each
-## procedure header (the classic VB6 blue separator line).
-func _update_procedure_separators() -> void:
-	if not _code_edit:
-		return
-	# Clear old separator lines (we use line_background_color for this)
-	for i in _code_edit.get_line_count():
-		_code_edit.set_line_background_color(i, Color(0, 0, 0, 0))
-	
-	# Draw separator lines: color the line BEFORE each procedure declaration
-	var lines := _code_edit.text.split("\n")
-	var rx := RegEx.new()
-	rx.compile("^\\s*(?:(?:Public|Private|Static)\\s+)?(?:Sub|Function|Property\\s+(?:Get|Let|Set))\\s+")
-	for i in lines.size():
-		if i == 0:
-			continue
-		var m := rx.search(lines[i])
-		if m:
-			# Color the line above the procedure header as a separator
-			# Use a subtle dark blue/gray line
-			_code_edit.set_line_background_color(i - 1, Color(0.72, 0.72, 0.78, 0.3))
+# NOTE: Procedure separator lines are now drawn by vg_code_edit.gd's
+# _features_overlay (via _draw_procedure_separators).  The old approach
+# using set_line_background_color was invisible because the text
+# background painted over it; the overlay draws ON TOP of the text.
 
 # =============================================================================
 # PARAMETER INFO POPUP (Signature Help)

@@ -93,10 +93,13 @@ Show all usages of a variable, Sub, or Function.
 **Location**: Ctrl+Click or F12 on identifier
 
 Navigate to Sub/Function/Variable declarations.
-*   **Ctrl+Click**: Jump to definition
-*   **F12 Key**: Alternative shortcut
+*   **Ctrl+Click**: Hold Ctrl and click an identifier to jump to its definition
+*   **F12 Key**: Alternative keyboard shortcut
+*   **Context Menu**: Right-click → Go To Definition for the word under the caret
 *   **Cross-File**: Works across all .vg files
-*   **Symbol Types**: Sub, Function, Property, Class, Variable, Const
+*   **Symbol Types**: Sub, Function, Property, Enum, Type (UDT), Variable, Const, Label
+*   **Symbol Validation**: Hovering with Ctrl highlights recognized symbols as clickable links
+*   **Viewport Centering**: The editor scrolls to center the definition after navigation
 
 ### Form Preview Toolbar
 **Location**: `2D Canvas Editor Toolbar`
@@ -106,6 +109,69 @@ Quick form testing without full game launch.
 *   **F5 Shortcut**: Quick preview
 *   **Preview + Debug**: Connect to Immediate Window
 *   **Form Events**: Fires Form_Load, Form_Shown
+
+### Line Editing Tools
+**Location**: Code Editor — keyboard shortcuts and right-click context menu
+
+Fast line manipulation shortcuts that work on the current line or selection.
+*   **Move Lines Up/Down** (`Alt+Up` / `Alt+Down`): Shift the selected line(s) up or down without cutting and pasting
+*   **Duplicate Lines** (`Ctrl+Shift+D`): Insert a copy of the current line(s) immediately below
+*   **Delete Lines** (`Ctrl+Shift+K`): Remove the entire current line(s) in one keystroke
+*   **Context Menu**: All three actions are also available from the right-click menu
+
+### Multi-Caret Editing
+**Location**: Code Editor — `Ctrl+D` and mouse
+
+Edit multiple locations simultaneously with multiple cursors.
+*   **Ctrl+D**: Select the current word, then press again to add the next matching occurrence as an additional caret
+*   **Multiple Selections**: Type, delete, or paste at all caret positions at once
+*   **Use Cases**: Rename a local variable in-place, edit repeated patterns, bulk-change formatting
+
+### Code Editor View Options
+**Location**: Code Editor — right-click context menu
+
+Toggle visual preferences from the context menu.
+*   **Word Wrap** (check item): Wrap long lines at the editor boundary instead of scrolling horizontally
+*   **Show Whitespace** (check item): Make spaces and tabs visible as dots and arrows
+*   **Line Length Guideline**: A vertical guide at column 80 for readable line widths
+*   **Code Regions**: Fold and unfold sections with `'Region` / `'End Region` comments
+*   **Scroll Past End**: Continue scrolling past the last line for comfortable bottom-of-file editing
+*   **Smooth Scrolling**: Animated scroll transitions
+*   **Drag & Drop Text**: Select text and drag it to reposition within the editor
+*   **Overtype Mode** (`Insert` key): Toggle between insert and overwrite typing
+
+### Sort Lines
+**Location**: Code Editor — right-click context menu
+
+Alphabetically sort the currently selected lines. Useful for organizing blocks of `Dim` declarations, `Const` lists, or `Enum` members.
+*   **Multi-Line Selection Required**: The item is disabled when fewer than two lines are selected
+*   **Alphabetic Sort**: Lines are sorted in ascending A–Z order
+
+### Go to Matching Block
+**Location**: Code Editor — `Ctrl+Shift+]`
+
+Jump between matching VB6 block keywords.
+*   **Supported Pairs**: `Sub`↔`End Sub`, `Function`↔`End Function`, `Property`↔`End Property`, `If`↔`End If`, `For`↔`Next`, `Do`↔`Loop`, `While`↔`Wend`, `Select Case`↔`End Select`, `With`↔`End With`, `Enum`↔`End Enum`, `Type`↔`End Type`
+*   **Depth-Aware**: Correctly handles nested blocks of the same type
+
+### Surround With
+**Location**: Code Editor — right-click → Surround With submenu
+
+Wrap the current selection (or insert an empty block at the caret) in a VB6 block structure.
+*   **If...End If**: Wrap in a conditional block
+*   **For...Next**: Wrap in a counting loop
+*   **Sub...End Sub**: Extract into a subroutine skeleton
+*   **Try...Catch**: Wrap in error handling
+*   **With...End With**: Wrap in a With block
+*   **Select Case...End Select**: Wrap in a multi-branch selector
+*   **Auto-Indent**: The wrapped code is automatically re-indented inside the block
+
+### Expand / Shrink Selection
+**Location**: Code Editor — `Alt+Shift+Up` (expand) / `Alt+Shift+Down` (shrink)
+
+Progressively widen or narrow the selection by semantic scope.
+*   **Expand Steps**: Word → Line → Enclosing Block → Enclosing Procedure → Entire File
+*   **Shrink**: Reverses the last expand step, returning to the previous selection
 
 ### Visual Gasic IDE Canvas Enhancements
 **Location**: Visual Gasic IDE canvas

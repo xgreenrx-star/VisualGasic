@@ -48,6 +48,7 @@
 - **Interactive REPL** - Live coding with variable inspection and session management
 - **Language Server Protocol** - Intelligent IDE integration with completion and diagnostics
 - **Advanced Debugger** - Conditional breakpoint expressions, Stop statement, call stack, watch window, time-travel debugging
+- **Code Editor** - Multi-caret editing, line manipulation (move/duplicate/delete/join/sort), Ctrl+Click Go To Definition, Go to Matching Block, Surround With refactoring, expand/shrink selection, code minimap, code regions, word wrap toggle, show whitespace, highlight current line, smooth scrolling, line length guideline, drag & drop text, overtype mode
 - **Code Linting** - Static analysis with 10 issue codes (VG001-VG010)
 - **Snippet Manager** - 40+ built-in snippets with custom snippet support
 - **Theme Support** - 8 built-in themes with full IDE chrome theming + Custom Theme Editor
@@ -68,7 +69,7 @@
 
 ![Code Editor with Bottom Panel](docs/screenshots/ide_bottom_panel.png)
 
-*Code Editor: Procedure navigation · Command Help panel · Tabbed bottom panel (Immediate Window, Output, System Console)*
+*Code Editor: Procedure navigation · Command Help panel · Multi-caret editing · Ctrl+Click Go To Definition · Tabbed bottom panel (Immediate Window, Output, System Console)*
 
 ![Code Editor](docs/screenshots/ide_code_editor.png)
 

@@ -8,52 +8,159 @@ signal ai_panel_ready
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-const OLLAMA_URL := "http://localhost:11434/api/generate"
+const OLLAMA_URL := "http://127.0.0.1:11434/api/generate"
+const OLLAMA_HOST := "127.0.0.1"
+const OLLAMA_PORT := 11434
 const DEFAULT_MODEL := "qwen2.5-coder:7b"
 const CONNECT_TIMEOUT := 3.0
 const REQUEST_TIMEOUT := 300.0  # Cold model load can take 60-120s
 const WARMUP_TIMEOUT := 180.0
+const STREAM_POLL_INTERVAL := 0.016  # ~60 fps polling for streaming chunks
 
-const SYSTEM_PROMPT := """You are a VisualGasic programming assistant. VisualGasic is a VB6-syntax language that compiles to bytecode and runs inside the Godot 4 game engine via GDExtension.
+const SYSTEM_PROMPT := """You are a VisualGasic (VG) programming assistant. VisualGasic is a VB6-syntax \
+language that compiles to bytecode (with optional multi-tier JIT) and runs inside the \
+Godot 4 game engine via GDExtension.
 
-Key syntax rules:
-- Variables: Dim x As Integer, Dim name As String
-- Subroutines: Sub name() ... End Sub
-- Functions: Function name() As Type ... End Function
-- Conditionals: If ... Then ... ElseIf ... Else ... End If
-- Loops: For i = 1 To 10 ... Next, Do While ... Loop, Do ... Loop Until
-- Select: Select Case x ... Case 1 ... Case Else ... End Select
-- Classes: Class MyClass ... End Class
-- Error handling: On Error GoTo handler / On Error Resume Next
-- String concat: & operator
-- Print to console: Print "text"
-- Comments: ' single-line comment
+=== CORE SYNTAX ===
+Variables:     Dim x As Integer  |  Dim name As String  |  Dim v As Variant
+Subroutines:   Sub Name() ... End Sub
+Functions:     Function Name(a As Integer) As String ... End Function
+Conditionals:  If ... Then ... ElseIf ... Else ... End If
+Loops:         For i = 1 To 10 Step 2 ... Next
+               For Each item In collection ... Next
+               Do While cond ... Loop  |  Do ... Loop Until cond
+               While cond ... Wend
+Select:        Select Case x ... Case 1 ... Case 2, 3 ... Case Is > 10 ... Case Else ... End Select
+Comments:      ' single-line comment
+String concat: & operator
+Print:         Print "text"  (stdout)  |  Debug.Print "text" (Immediate Window)
+Assertions:    Debug.Assert condition, "optional message"
 
-VB6 property aliases on Godot nodes:
-- Caption/Text → text, Left → position.x, Top → position.y
-- Width → size.x, Height → size.y, Visible → visible
-- Enabled → !disabled, BackColor → self_modulate, ForeColor → font_color
-- FontSize, FontBold, FontItalic, FontName, Name, Tag, hWnd, Opacity, ZOrder
+=== SCOPE & DECLARATIONS ===
+Public x As Integer     ' module-level, visible everywhere
+Private y As String     ' module-level, internal only
+Global z As Single      ' global across all modules
+Static counter As Integer  ' retains value between calls inside a Sub/Function
+Const PI = 3.14159
 
-Events use auto-wiring — name the Sub ControlName_EventName():
-- Sub btnStart_Click()  — button clicked
-- Sub Timer1_Timer()    — timer fires
-- Sub txtName_Change()  — text changed
-- Sub Form_Load()       — form loaded
+=== CLASSES ===
+Class Person
+    Private _name As String
+    Private _age As Integer
 
-Access nodes: GetNode("name"), Me.controlName, Me.Name
-Load scenes: LoadForm "res://Scene.tscn"
-Create controls: CreateButton, CreateLabel, CreateTimer, CreateTextBox, CreateSprite2D
+    Sub Class_Initialize()   ' constructor — called by New
+        _age = 0
+    End Sub
 
-Built-in constants: vbRed, vbBlue, vbGreen, vbWhite, vbBlack, vbCrLf, vbTab, True, False
-Built-in functions: Len, Left, Right, Mid, InStr, Replace, Split, Join, Trim, UCase, LCase, Val, Str, CInt, CLng, CDbl, Abs, Int, Rnd, Timer, Now, Format, MsgBox, InputBox, Print
+    Property Get Name() As String
+        Name = _name
+    End Property
 
-Keep answers concise and use VB6/VisualGasic syntax in all code examples. Never use GDScript syntax unless the user explicitly asks for a translation."""
+    Property Let Name(value As String)
+        _name = value
+    End Property
+
+    Public Function Greet() As String
+        Greet = "Hi, I'm " & _name
+    End Function
+End Class
+
+Dim p = New Person
+p.Name = "Alice"
+
+Inherits:     Class Enemy  /  Inherits CharacterBody2D  /  End Class
+Implements:   Implements IComparable
+
+=== TYPE (User-Defined Structs) ===
+Type Vector2D
+    X As Integer
+    Y As Integer
+End Type
+Dim pos As Vector2D
+pos.X = 10 : pos.Y = 20
+
+=== ENUM ===
+Enum Direction
+    North = 0
+    East = 1
+    South = 2
+    West = 3
+End Enum
+
+=== FUNCTIONAL PROGRAMMING ===
+Dim doubled  = Map(arr, Fn(x) => x * 2)
+Dim evens    = Filter(arr, Fn(x) => x Mod 2 = 0)
+Dim total    = Reduce(arr, Fn(acc, x) => acc + x, 0)
+Dim hasLarge = Any(arr, Fn(x) => x > 100)
+Dim allPos   = All(arr, Fn(x) => x > 0)
+Dim first    = Find(arr, Fn(x) => x > 5)
+
+Lambda forms:  Fn(x) => x * 2  |  Fn(x, y) => x + y
+Block lambda:  Function(x) ... Return x * 2 ... End Function
+Block sub:     Sub(x) ... Print x ... End Sub
+
+=== MODERN OPERATORS ===
+Compound:           +=  -=  *=  /=  &=  \\=  ^=  <<=  >>=
+Increment/Decrement: ++  --
+Null coalescing:     result = x ?? defaultValue
+Optional chaining:   value = obj?.Property
+String interpolation: msg = $"Hello {name}, you are {age} years old"
+Range:               arr = [1..10]
+Short-circuit:       If x > 0 AndAlso y / x > 2 Then ...
+IIf:                 result = IIf(score >= 60, "Pass", "Fail")
+Swap:                Swap a, b
+
+=== ERROR HANDLING ===
+On Error GoTo handler  |  On Error Resume Next  |  On Error GoTo 0
+Try ... Catch ex As Exception ... Finally ... End Try
+GoSub label ... Return  |  On expr GoTo label1, label2
+On expr GoSub label1, label2
+
+=== DATA / READ / RESTORE (classic BASIC) ===
+Data 10, "Hello", 3.14
+Read a, b, c
+Restore        ' reset data pointer
+
+=== GODOT INTEGRATION ===
+Access nodes:     GetNode("name")  |  Me.controlName  |  Me.Name
+Load scenes:      LoadForm "res://Scene.tscn"
+Create controls:  CreateButton, CreateLabel, CreateTimer, CreateTextBox, CreateSprite2D
+Signals:          ConnectSignal "body_entered", "OnBodyEntered"
+                  DisconnectSignal "ready", "OnReady"
+WithEvents:       Dim WithEvents obj As MyClass  ' auto-connects signal handlers
+
+VB6 property aliases on Godot nodes (62+ aliases):
+  Caption/Text → text,  Left → position.x,  Top → position.y
+  Width → size.x,  Height → size.y,  Visible → visible
+  Enabled → !disabled,  BackColor → self_modulate,  ForeColor → font_color
+  FontSize, FontBold, FontItalic, FontName, Name, Tag, hWnd, Opacity, ZOrder
+
+Events (auto-wired by naming convention  ControlName_EventName):
+  Sub btnStart_Click()    ' button clicked
+  Sub Timer1_Timer()      ' timer fires
+  Sub txtName_Change()    ' text changed
+  Sub Form_Load()         ' form loaded
+
+Godot virtual callbacks:
+  Sub _Ready()                 ' node enters scene tree
+  Sub _Process(delta)          ' every graphics frame
+  Sub _PhysicsProcess(delta)   ' every physics tick (60 Hz)
+  Sub _Input(event)            ' input event received
+  Sub _Draw()                  ' custom drawing
+
+=== BUILT-INS ===
+Constants: vbRed, vbBlue, vbGreen, vbWhite, vbBlack, vbCrLf, vbTab, True, False
+Functions: Len, Left, Right, Mid, InStr, Replace, Split, Join, Trim, UCase, LCase,
+           Val, Str, CInt, CLng, CDbl, Abs, Int, Rnd, Timer, Now, Format,
+           MsgBox, InputBox, Print, Array(), Dictionary()
+
+=== RULES ===
+Keep answers concise. Always use VB6/VisualGasic syntax in code examples. \
+Never use GDScript syntax unless the user explicitly asks for a translation."""
 
 # ---------------------------------------------------------------------------
 # UI nodes
 # ---------------------------------------------------------------------------
-var _http: HTTPRequest
 var _ping_http: HTTPRequest
 var _warmup_http: HTTPRequest
 var _output: RichTextLabel
@@ -72,49 +179,415 @@ var _history: PackedStringArray = PackedStringArray()
 var _history_idx := -1
 var _accumulated_response := ""
 
+# Thread-based streaming state
+var _worker_thread: Thread
+var _stream_mutex: Mutex
+var _poll_timer: Timer
+var _token_buffer: PackedStringArray  # Tokens queued by thread, drained by timer
+var _stream_done := false             # Thread sets true when Ollama sends done
+var _stream_error := ""               # Thread sets non-empty on error
+var _stream_started := false          # True once we've printed the "AI:" header
+var _stream_token_count := 0          # Tokens received so far (main thread)
+var _stream_start_time := 0.0         # Time.get_ticks_msec() when query sent
+var _stream_first_token_time := 0.0   # Time of first token (0 = not yet)
+var _abort_requested := false         # Main thread signals worker to stop
+
 # Preset quick-action buttons
 var _explain_error_btn: Button
 var _explain_code_btn: Button
 var _translate_btn: Button
 
+# Queued query — sent automatically once model warmup finishes
+var _queued_query := ""
+
+# Conversation history — last few exchanges for context-aware replies
+# Each entry is { "role": "user"|"assistant", "content": "..." }
+var _conversation_history: Array = []
+const MAX_HISTORY_EXCHANGES := 3  # Keep last N user+assistant pairs (6 entries max)
+var _current_prompt := ""  # Tracks the prompt of the in-flight query
+
 # External context (set by plugin.gd)
 var _last_error_context := {}
 var _last_selected_code := ""
+
+## Grab the current selection from the embedded VB6 code editor.
+## Falls back to the text of the Sub/Function surrounding the caret,
+## or _last_selected_code if the editor isn't reachable.
+func _get_editor_selected_code() -> String:
+	# 1. Try to reach the embedded code editor through the plugin instance
+	var code_edit: CodeEdit = null
+	if Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base and base.has_meta("visual_gasic_plugin_instance"):
+			var plugin = base.get_meta("visual_gasic_plugin_instance")
+			if plugin and is_instance_valid(plugin):
+				# The plugin stores the embedded code editor in _embedded_code_editor
+				if "_embedded_code_editor" in plugin:
+					var ece = plugin._embedded_code_editor
+					if is_instance_valid(ece) and ece.has_method("get_code_edit"):
+						code_edit = ece.get_code_edit()
+
+	if code_edit == null:
+		return _last_selected_code
+
+	# 2. If user has an active selection, use it
+	if code_edit.has_selection():
+		var sel := code_edit.get_selected_text()
+		if not sel.strip_edges().is_empty():
+			_last_selected_code = sel
+			return sel
+
+	# 3. No selection → extract the Sub/Function block the caret is inside
+	var caret_line := code_edit.get_caret_line()
+	var line_count := code_edit.get_line_count()
+
+	# Walk upward to find "Sub " or "Function "
+	var start_line := -1
+	for i in range(caret_line, -1, -1):
+		var lt := code_edit.get_line(i).strip_edges()
+		if lt.begins_with("Sub ") or lt.begins_with("Private Sub ") or lt.begins_with("Public Sub ") \
+			or lt.begins_with("Function ") or lt.begins_with("Private Function ") or lt.begins_with("Public Function "):
+			start_line = i
+			break
+
+	if start_line < 0:
+		return _last_selected_code  # caret isn't inside a Sub/Function
+
+	# Walk downward to find "End Sub" or "End Function"
+	var end_line := -1
+	for i in range(start_line, line_count):
+		var lt := code_edit.get_line(i).strip_edges()
+		if lt == "End Sub" or lt == "End Function":
+			end_line = i
+			break
+
+	if end_line < 0:
+		return _last_selected_code
+
+	# Collect the lines
+	var lines := PackedStringArray()
+	for i in range(start_line, end_line + 1):
+		lines.append(code_edit.get_line(i))
+	var result := "\n".join(lines)
+	_last_selected_code = result
+	return result
 
 # ---------------------------------------------------------------------------
 # Lifecycle
 # ---------------------------------------------------------------------------
 func _ready() -> void:
+	_stream_mutex = Mutex.new()
+	_token_buffer = PackedStringArray()
 	_setup_ui()
+	_setup_poll_timer()
 	_setup_http()
 	_ping_ollama()
 
 func _enter_tree() -> void:
-	# When the panel is reparented (e.g. from plugin → bottom tab),
-	# _ready() doesn't fire again, but the pending HTTP requests were
-	# cancelled when the node exited the tree.  Re-ping to recover.
-	if _ping_http:  # Guard: skip the very first _enter_tree (before _ready)
+	if _ping_http:
 		_reinit_after_reparent.call_deferred()
 
-## Cancel stale HTTP state and re-ping Ollama after reparent.
 func _reinit_after_reparent() -> void:
 	_ping_http.cancel_request()
 	if _is_generating:
-		_http.cancel_request()
+		_stop_generation()
 	_warmup_http.cancel_request()
 	_is_generating = false
 	_ollama_available = false
 	_model_warm = false
 	_ping_ollama()
 
-func _setup_http() -> void:
-	_http = HTTPRequest.new()
-	_http.name = "AIRequest"
-	_http.timeout = REQUEST_TIMEOUT
-	_http.use_threads = true  # Required: Ollama uses chunked encoding for long responses
-	add_child(_http)
-	_http.request_completed.connect(_on_response)
+func _exit_tree() -> void:
+	_stop_generation()
 
+func _setup_poll_timer() -> void:
+	_poll_timer = Timer.new()
+	_poll_timer.name = "StreamPollTimer"
+	_poll_timer.wait_time = 0.05  # 20 Hz — fast enough for smooth token display
+	_poll_timer.one_shot = false
+	_poll_timer.autostart = false
+	add_child(_poll_timer)
+	_poll_timer.timeout.connect(_on_poll_timer)
+
+## Main-thread timer callback — drains tokens from the shared buffer.
+func _on_poll_timer() -> void:
+	if not _is_generating:
+		_poll_timer.stop()
+		return
+
+	# Safely grab everything the worker thread has queued
+	var tokens: PackedStringArray
+	var done := false
+	var error := ""
+	_stream_mutex.lock()
+	tokens = _token_buffer.duplicate()
+	_token_buffer.clear()
+	done = _stream_done
+	error = _stream_error
+	_stream_mutex.unlock()
+
+	# Display tokens
+	for token in tokens:
+		if not _stream_started:
+			_stream_started = true
+			_output.append_text("\n[color=#44bb88][b]AI:[/b][/color]\n[color=#dddddd]")
+			_stream_first_token_time = Time.get_ticks_msec()
+		_stream_token_count += 1
+		_accumulated_response += token
+		_output.append_text(_escape_bbcode(token))
+
+	# Check for completion or error
+	if done or not error.is_empty():
+		if _stream_started:
+			_output.append_text("[/color]\n")
+		if not error.is_empty():
+			_append_system("[color=red]%s[/color]\n" % error)
+		else:
+			# Show timing stats
+			var elapsed_ms := Time.get_ticks_msec() - _stream_start_time
+			var elapsed_s := elapsed_ms / 1000.0
+			if _stream_token_count > 0 and elapsed_s > 0:
+				var tok_per_sec := _stream_token_count / elapsed_s
+				var ttft := _stream_first_token_time - _stream_start_time if _stream_first_token_time > 0 else 0
+				_append_system("[color=gray](%d tokens in %.1fs — %.1f tok/s, first token %.0fms)[/color]\n\n" % [
+					_stream_token_count, elapsed_s, tok_per_sec, ttft])
+			elif not _stream_started:
+				_append_system("[color=gray](Empty response)[/color]\n")
+		_finish_generation()
+		return
+
+	# Safety timeout
+	var elapsed := (Time.get_ticks_msec() - _stream_start_time) / 1000.0
+	if _is_generating and elapsed > REQUEST_TIMEOUT:
+		_stop_generation()
+		_append_system("[color=red]Request timed out after %ds.[/color]\n" % int(REQUEST_TIMEOUT))
+
+## Worker thread entry point — uses raw TCP with HTTP/1.1 and chunked
+## transfer encoding decoding for streaming Ollama responses.
+func _worker_thread_func(json_body: String) -> void:
+	var tcp := StreamPeerTCP.new()
+	var err := tcp.connect_to_host(OLLAMA_HOST, OLLAMA_PORT)
+	if err != OK:
+		_stream_mutex.lock()
+		_stream_error = "Failed to connect to Ollama: " + error_string(err)
+		_stream_done = true
+		_stream_mutex.unlock()
+		return
+
+	# Wait for TCP connection (with timeout)
+	var connect_start := Time.get_ticks_msec()
+	while tcp.get_status() == StreamPeerTCP.STATUS_CONNECTING:
+		tcp.poll()
+		OS.delay_msec(20)
+		_stream_mutex.lock()
+		var abort := _abort_requested
+		_stream_mutex.unlock()
+		if abort:
+			tcp.disconnect_from_host()
+			return
+		if (Time.get_ticks_msec() - connect_start) / 1000.0 > CONNECT_TIMEOUT:
+			_stream_mutex.lock()
+			_stream_error = "TCP connection timed out after %ds" % int(CONNECT_TIMEOUT)
+			_stream_done = true
+			_stream_mutex.unlock()
+			tcp.disconnect_from_host()
+			return
+
+	if tcp.get_status() != StreamPeerTCP.STATUS_CONNECTED:
+		_stream_mutex.lock()
+		_stream_error = "TCP connection failed (status=%d)" % tcp.get_status()
+		_stream_done = true
+		_stream_mutex.unlock()
+		return
+
+	# Build HTTP/1.1 request (Ollama requires HTTP/1.1; responds with chunked encoding)
+	var body_bytes := json_body.to_utf8_buffer()
+	var request_str := "POST /api/generate HTTP/1.1\r\n"
+	request_str += "Host: %s:%d\r\n" % [OLLAMA_HOST, OLLAMA_PORT]
+	request_str += "Content-Type: application/json\r\n"
+	request_str += "Content-Length: %d\r\n" % body_bytes.size()
+	request_str += "Connection: close\r\n"
+	request_str += "\r\n"
+	request_str += json_body
+
+	tcp.put_data(request_str.to_utf8_buffer())
+
+	# Read and parse the response.
+	# Strategy: accumulate raw bytes, skip HTTP headers, then scan for JSON
+	# lines directly in the raw stream. Chunked framing (hex sizes, \r\n) is
+	# harmlessly ignored because those lines don't parse as JSON.
+	var raw_buf := ""
+	var headers_done := false
+
+	while tcp.get_status() == StreamPeerTCP.STATUS_CONNECTED:
+		# Check abort FIRST every iteration
+		_stream_mutex.lock()
+		var abort_early := _abort_requested
+		_stream_mutex.unlock()
+		if abort_early:
+			tcp.disconnect_from_host()
+			return
+
+		tcp.poll()
+		var avail := tcp.get_available_bytes()
+		if avail > 0:
+			var result := tcp.get_data(avail)
+			if result[0] == OK:
+				raw_buf += result[1].get_string_from_utf8()
+		elif avail == 0:
+			OS.delay_msec(10)
+			tcp.poll()
+			if tcp.get_status() != StreamPeerTCP.STATUS_CONNECTED and tcp.get_available_bytes() == 0:
+				break
+			continue
+
+		# --- Strip HTTP headers once ---
+		if not headers_done:
+			var header_end := raw_buf.find("\r\n\r\n")
+			if header_end < 0:
+				continue
+			var header_block := raw_buf.left(header_end)
+			raw_buf = raw_buf.substr(header_end + 4)
+			headers_done = true
+			# Check for non-200 status
+			if header_block.find(" 200 ") < 0:
+				var first_line := header_block.left(header_block.find("\r\n")) if header_block.find("\r\n") >= 0 else header_block
+				_stream_mutex.lock()
+				_stream_error = "Ollama error: " + first_line
+				_stream_done = true
+				_stream_mutex.unlock()
+				tcp.disconnect_from_host()
+				return
+
+		# --- Scan for JSON lines in the raw stream ---
+		# Works with both chunked and non-chunked responses: hex chunk
+		# markers like "69\r" simply fail JSON.parse_string() and are skipped.
+		while raw_buf.find("\n") >= 0:
+			var nl := raw_buf.find("\n")
+			var line := raw_buf.left(nl).strip_edges()
+			raw_buf = raw_buf.substr(nl + 1)
+			if line.is_empty() or line[0] != "{":
+				continue  # Skip chunk markers, empty lines, etc.
+			var json = JSON.parse_string(line)
+			if json == null:
+				continue
+			var token: String = json.get("response", "")
+			if not token.is_empty():
+				_stream_mutex.lock()
+				_token_buffer.append(token)
+				_stream_mutex.unlock()
+			if json.get("done", false):
+				_stream_mutex.lock()
+				_stream_done = true
+				_stream_mutex.unlock()
+				tcp.disconnect_from_host()
+				return
+
+	# Connection closed — try to parse any remaining data in the buffer
+	if headers_done:
+		for line in raw_buf.split("\n"):
+			line = line.strip_edges()
+			if line.is_empty() or line[0] != "{":
+				continue
+			var json = JSON.parse_string(line)
+			if json == null:
+				continue
+			var token: String = json.get("response", "")
+			if not token.is_empty():
+				_stream_mutex.lock()
+				_token_buffer.append(token)
+				_stream_mutex.unlock()
+
+	_stream_mutex.lock()
+	_stream_done = true
+	_stream_mutex.unlock()
+	tcp.disconnect_from_host()
+
+## Clean up after generation completes normally.
+func _finish_generation() -> void:
+	_poll_timer.stop()
+	_is_generating = false
+	if _worker_thread != null and _worker_thread.is_started():
+		_worker_thread.wait_to_finish()
+	_worker_thread = null
+
+	# Save this exchange to conversation history for context-aware follow-ups
+	if not _current_prompt.is_empty() and not _accumulated_response.is_empty():
+		_conversation_history.append({"role": "user", "content": _current_prompt})
+		_conversation_history.append({"role": "assistant", "content": _accumulated_response})
+		# Trim to last N exchanges (N user + N assistant = 2N entries)
+		while _conversation_history.size() > MAX_HISTORY_EXCHANGES * 2:
+			_conversation_history.pop_front()
+	_current_prompt = ""
+
+	if is_instance_valid(_send_btn):
+		_send_btn.visible = true
+	if is_instance_valid(_stop_btn):
+		_stop_btn.visible = false
+	if is_instance_valid(_status_label):
+		_status_label.text = "✅ Ollama connected" if _ollama_available else "❌ Ollama not found"
+		_status_label.add_theme_color_override("font_color",
+			Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
+
+## Force-stop generation (abort button or reparent).
+## Uses a non-blocking approach: signals the thread to exit, then defers the
+## join so the main thread is never frozen.
+var _zombie_thread: Thread  # Holds thread ref while waiting to join
+
+func _stop_generation() -> void:
+	# Signal the worker to abort immediately
+	_stream_mutex.lock()
+	_abort_requested = true
+	_stream_mutex.unlock()
+
+	# Stop the poll timer right away
+	if is_instance_valid(_poll_timer):
+		_poll_timer.stop()
+
+	# Try a quick join (worker checks abort every ~10 ms, so 100 ms is generous)
+	if _worker_thread != null and _worker_thread.is_started():
+		# Wait briefly — if the thread responds within 100ms, great
+		var wait_start := Time.get_ticks_msec()
+		while _worker_thread.is_started() and (Time.get_ticks_msec() - wait_start) < 100:
+			OS.delay_msec(5)
+		if _worker_thread.is_started():
+			# Thread is still running — defer the join so we don't block the UI
+			_zombie_thread = _worker_thread
+			_worker_thread = null
+			_join_zombie_thread.call_deferred()
+		else:
+			_worker_thread.wait_to_finish()
+			_worker_thread = null
+	else:
+		_worker_thread = null
+
+	_is_generating = false
+	_abort_requested = false
+	_stream_done = false
+	_stream_error = ""
+	_stream_started = false
+	_stream_token_count = 0
+	_accumulated_response = ""
+	_stream_mutex.lock()
+	_token_buffer.clear()
+	_stream_mutex.unlock()
+	if is_instance_valid(_send_btn):
+		_send_btn.visible = true
+	if is_instance_valid(_stop_btn):
+		_stop_btn.visible = false
+	if is_instance_valid(_status_label):
+		_status_label.text = "✅ Ollama connected" if _ollama_available else "❌ Ollama not found"
+		_status_label.add_theme_color_override("font_color",
+			Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
+
+## Deferred join for a zombie thread that didn't exit quickly.
+func _join_zombie_thread() -> void:
+	if _zombie_thread != null:
+		if _zombie_thread.is_started():
+			_zombie_thread.wait_to_finish()
+		_zombie_thread = null
+
+func _setup_http() -> void:
 	_ping_http = HTTPRequest.new()
 	_ping_http.name = "PingRequest"
 	_ping_http.timeout = CONNECT_TIMEOUT
@@ -124,6 +597,7 @@ func _setup_http() -> void:
 	_warmup_http = HTTPRequest.new()
 	_warmup_http.name = "WarmupRequest"
 	_warmup_http.timeout = WARMUP_TIMEOUT
+	_warmup_http.use_threads = true  # Warmup can take a while
 	add_child(_warmup_http)
 	_warmup_http.request_completed.connect(_on_warmup_response)
 
@@ -283,13 +757,17 @@ func _make_separator() -> VSeparator:
 
 func _style_small_button(btn: Button) -> void:
 	btn.add_theme_font_size_override("font_size", 11)
+	btn.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.2, 0.2, 0.25, 1.0)
-	style.set_corner_radius_all(3)
-	style.set_content_margin_all(4)
+	style.bg_color = Color(0.25, 0.25, 0.32, 1.0)
+	style.border_color = Color(0.45, 0.45, 0.55, 0.6)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(5)
 	btn.add_theme_stylebox_override("normal", style)
 	var hover := style.duplicate()
-	hover.bg_color = Color(0.3, 0.3, 0.35, 1.0)
+	hover.bg_color = Color(0.35, 0.35, 0.42, 1.0)
+	hover.border_color = Color(0.55, 0.55, 0.65, 0.8)
 	btn.add_theme_stylebox_override("hover", hover)
 
 func _style_action_button(btn: Button, color: Color) -> void:
@@ -330,6 +808,21 @@ func _style_stop_button(btn: Button) -> void:
 
 func _style_option_button(opt: OptionButton) -> void:
 	opt.add_theme_font_size_override("font_size", 11)
+	opt.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.18, 0.18, 0.24, 1.0)
+	style.border_color = Color(0.4, 0.4, 0.5, 0.7)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(5)
+	opt.add_theme_stylebox_override("normal", style)
+	var hover := style.duplicate()
+	hover.bg_color = Color(0.25, 0.25, 0.32, 1.0)
+	hover.border_color = Color(0.5, 0.5, 0.6, 0.8)
+	opt.add_theme_stylebox_override("hover", hover)
+	var pressed := style.duplicate()
+	pressed.bg_color = Color(0.22, 0.22, 0.30, 1.0)
+	opt.add_theme_stylebox_override("pressed", pressed)
 
 # ---------------------------------------------------------------------------
 # Ollama connectivity
@@ -337,7 +830,7 @@ func _style_option_button(opt: OptionButton) -> void:
 func _ping_ollama() -> void:
 	_status_label.text = "⏳ Checking Ollama..."
 	_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-	var err := _ping_http.request("http://localhost:11434/api/tags")
+	var err := _ping_http.request("http://127.0.0.1:11434/api/tags")
 	if err != OK:
 		_set_offline()
 
@@ -386,8 +879,11 @@ func _set_offline() -> void:
 func _warmup_model() -> void:
 	if _model_warm or not _ollama_available:
 		return
-	_status_label.text = "🔥 Loading model..."
+	_status_label.text = "🔥 Loading model (first query may be queued)..."
 	_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+	# Disable Send while model loads — queries will be queued instead
+	if is_instance_valid(_send_btn):
+		_send_btn.disabled = true
 	var body := JSON.stringify({
 		"model": _current_model,
 		"prompt": "hi",
@@ -411,6 +907,15 @@ func _on_warmup_response(result: int, _code: int, _headers: PackedStringArray, _
 		# Warmup failed — non-critical, just reset status
 		_status_label.text = "✅ Ollama connected"
 		_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+	# Enable Send button now that the model is ready
+	if is_instance_valid(_send_btn):
+		_send_btn.disabled = false
+	# Fire any queued query that the user typed while the model was loading
+	if not _queued_query.is_empty():
+		var pending := _queued_query
+		_queued_query = ""
+		_append_system("[color=#44bb88]Sending queued query now...[/color]\n")
+		_send_query(pending)
 
 # ---------------------------------------------------------------------------
 # Input handling
@@ -450,6 +955,15 @@ func _send_query(prompt: String) -> void:
 	if _is_generating:
 		_append_system("[color=yellow]Already generating — click Stop first.[/color]\n")
 		return
+	# If the model is still loading into memory, queue the query
+	if not _model_warm:
+		_queued_query = prompt
+		_history.append(prompt)
+		_history_idx = _history.size()
+		_input.text = ""
+		_append_user(prompt)
+		_append_system("[color=#ffcc44]⏳ Model is still loading — your query will be sent automatically when ready...[/color]\n")
+		return
 
 	# Save to history
 	_history.append(prompt)
@@ -459,80 +973,61 @@ func _send_query(prompt: String) -> void:
 	# Show the user's question
 	_append_user(prompt)
 
-	# Build the request
+	# Build context-aware prompt with conversation history
+	var full_prompt := ""
+	if _conversation_history.size() > 0:
+		full_prompt += "Previous conversation:\n"
+		for entry in _conversation_history:
+			if entry["role"] == "user":
+				full_prompt += "User: " + entry["content"] + "\n"
+			else:
+				full_prompt += "Assistant: " + entry["content"] + "\n"
+		full_prompt += "\nCurrent question:\n"
+	full_prompt += prompt
+	_current_prompt = prompt
+
+	# Build the request body — streaming mode
 	var body := {
 		"model": _current_model,
-		"prompt": prompt,
+		"prompt": full_prompt,
 		"system": SYSTEM_PROMPT,
-		"stream": false,
+		"stream": true,
 		"options": {
 			"temperature": 0.3,
 			"num_predict": 2048,
 		}
 	}
-
-	var headers := ["Content-Type: application/json"]
 	var json_body := JSON.stringify(body)
-	var err := _http.request(OLLAMA_URL, headers, HTTPClient.METHOD_POST, json_body)
-	if err != OK:
-		_append_system("[color=red]Failed to send request: %s[/color]\n" % error_string(err))
-		return
 
+	# Reset state
+	_stream_mutex.lock()
+	_token_buffer.clear()
+	_stream_done = false
+	_stream_error = ""
+	_abort_requested = false
+	_stream_mutex.unlock()
+
+	_stream_started = false
+	_stream_token_count = 0
+	_stream_start_time = Time.get_ticks_msec()
+	_stream_first_token_time = 0.0
+	_accumulated_response = ""
+
+	# Launch background thread
 	_is_generating = true
 	_send_btn.visible = false
 	_stop_btn.visible = true
 	_status_label.text = "💭 Thinking..."
 	_status_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 
+	_worker_thread = Thread.new()
+	_worker_thread.start(_worker_thread_func.bind(json_body))
+	_poll_timer.start()
+
 func _on_stop() -> void:
 	if _is_generating:
-		_http.cancel_request()
-		_is_generating = false
-		_send_btn.visible = true
-		_stop_btn.visible = false
-		_status_label.text = "✅ Ollama connected"
-		_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+		_stop_generation()
 		_append_system("[color=gray](Generation stopped)[/color]\n")
-
-# ---------------------------------------------------------------------------
-# Response handling
-# ---------------------------------------------------------------------------
-func _on_response(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
-	_is_generating = false
-	_send_btn.visible = true
-	_stop_btn.visible = false
-	_status_label.text = "✅ Ollama connected"
-	_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
-
-	if result != HTTPRequest.RESULT_SUCCESS:
-		_append_system("[color=red]Request failed (result=%d). Is Ollama still running?[/color]\n" % result)
-		_ping_ollama()
-		return
-
-	if code != 200:
-		var error_text := body.get_string_from_utf8()
-		_append_system("[color=red]Ollama returned HTTP %d: %s[/color]\n" % [code, error_text.left(200)])
-		return
-
-	var json = JSON.parse_string(body.get_string_from_utf8())
-	if json == null:
-		_append_system("[color=red]Failed to parse Ollama response.[/color]\n")
-		return
-
-	var response_text: String = json.get("response", "")
-	if response_text.is_empty():
-		_append_system("[color=gray](Empty response)[/color]\n")
-		return
-
-	_append_ai(response_text)
-
-	# Show timing info
-	var total_ns: int = json.get("total_duration", 0)
-	var eval_count: int = json.get("eval_count", 0)
-	if total_ns > 0:
-		var secs := total_ns / 1_000_000_000.0
-		var tok_per_sec := eval_count / secs if secs > 0 else 0
-		_append_system("[color=gray](%d tokens in %.1fs — %.1f tok/s)[/color]\n\n" % [eval_count, secs, tok_per_sec])
 
 # ---------------------------------------------------------------------------
 # Output formatting
@@ -629,17 +1124,19 @@ func _on_explain_error() -> void:
 	_send_query(prompt)
 
 func _on_explain_code() -> void:
-	if _last_selected_code.strip_edges().is_empty():
+	var code := _get_editor_selected_code()
+	if code.strip_edges().is_empty():
 		_append_system("[color=yellow]No code selected. Select code in the editor first, or it will use the current Sub.[/color]\n")
 		return
-	var prompt := "Explain this VisualGasic code line by line:\n\n```vb\n%s\n```" % _last_selected_code
+	var prompt := "Explain this VisualGasic code line by line:\n\n```vb\n%s\n```" % code
 	_send_query(prompt)
 
 func _on_translate() -> void:
-	if _last_selected_code.strip_edges().is_empty():
+	var code := _get_editor_selected_code()
+	if code.strip_edges().is_empty():
 		_append_system("[color=yellow]Select GDScript code in the editor first.[/color]\n")
 		return
-	var prompt := "Translate this GDScript code to VisualGasic (VB6 syntax):\n\n```gdscript\n%s\n```\n\nProvide only the VisualGasic translation." % _last_selected_code
+	var prompt := "Translate this GDScript code to VisualGasic (VB6 syntax):\n\n```gdscript\n%s\n```\n\nProvide only the VisualGasic translation." % code
 	_send_query(prompt)
 
 func _on_model_selected(idx: int) -> void:
@@ -648,6 +1145,7 @@ func _on_model_selected(idx: int) -> void:
 
 func _on_clear() -> void:
 	_output.clear()
+	_conversation_history.clear()
 	_append_system("Conversation cleared.\n")
 
 # ---------------------------------------------------------------------------

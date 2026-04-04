@@ -4949,22 +4949,29 @@ func _on_tip_checkbox_toggled(pressed: bool) -> void:
 	_show_tips_on_startup = pressed
 	_save_tip_config()
 
-## Config file path for Tip of the Day preference.
-const _TIP_CFG_PATH = "user://vg_tip_config.cfg"
-
-## Loads Tip of the Day preferences from disk.
+## Loads Tip of the Day preferences from EditorSettings (global, cross-project).
+## Falls back to legacy per-project config file for migration, then deletes it.
 func _load_tip_config() -> void:
-	var config = ConfigFile.new()
-	if config.load(_TIP_CFG_PATH) == OK:
-		_show_tips_on_startup = config.get_value("tip_of_day", "show_on_startup", true)
-		_tip_index = config.get_value("tip_of_day", "last_index", 0)
+	var es := EditorInterface.get_editor_settings()
+	if es.has_setting("visual_gasic/tip_of_day/show_on_startup"):
+		_show_tips_on_startup = es.get_setting("visual_gasic/tip_of_day/show_on_startup")
+		_tip_index = es.get_setting("visual_gasic/tip_of_day/last_index") if es.has_setting("visual_gasic/tip_of_day/last_index") else 0
+	else:
+		# Migrate from legacy per-project config file (user://vg_tip_config.cfg)
+		var config = ConfigFile.new()
+		if config.load("user://vg_tip_config.cfg") == OK:
+			_show_tips_on_startup = config.get_value("tip_of_day", "show_on_startup", true)
+			_tip_index = config.get_value("tip_of_day", "last_index", 0)
+			# Save to EditorSettings so we never need the file again
+			_save_tip_config()
+			# Clean up legacy file
+			DirAccess.remove_absolute(ProjectSettings.globalize_path("user://vg_tip_config.cfg"))
 
-## Saves Tip of the Day preferences to disk.
+## Saves Tip of the Day preferences to EditorSettings (global, cross-project).
 func _save_tip_config() -> void:
-	var config = ConfigFile.new()
-	config.set_value("tip_of_day", "show_on_startup", _show_tips_on_startup)
-	config.set_value("tip_of_day", "last_index", _tip_index)
-	config.save(_TIP_CFG_PATH)
+	var es := EditorInterface.get_editor_settings()
+	es.set_setting("visual_gasic/tip_of_day/show_on_startup", _show_tips_on_startup)
+	es.set_setting("visual_gasic/tip_of_day/last_index", _tip_index)
 
 # =============================================================================
 # VB6 STATUS BAR
@@ -6599,7 +6606,7 @@ func _on_toggle_vb6_layout():
 
 ## Opens the Snippet Browser dialog (v2.4.1)
 func _on_open_snippet_browser():
-	if _snippet_browser:
+	if _snippet_browser and is_instance_valid(_snippet_browser):
 		_snippet_browser.popup_centered()
 
 ## Inserts a snippet at the current cursor position in the code editor.
@@ -6621,7 +6628,7 @@ func _on_snippet_insert(text: String):
 
 ## Opens the Theme Picker dialog (v2.4.1)
 func _on_open_theme_picker():
-	if _theme_picker:
+	if _theme_picker and is_instance_valid(_theme_picker):
 		_theme_picker.popup_centered()
 
 ## Applies a new theme to the active code editor AND IDE chrome (v3.5)
