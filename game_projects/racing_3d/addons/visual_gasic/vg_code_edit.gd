@@ -3940,13 +3940,6 @@ func _shrink_selection() -> void:
 	else:
 		select(prev[0], prev[1], prev[2], prev[3])
 
-## Helper: check if a character is a word character (letter, digit, underscore).
-func _is_word_char(ch: String) -> bool:
-	if ch.is_empty():
-		return false
-	var c := ch.unicode_at(0)
-	return (c >= 65 and c <= 90) or (c >= 97 and c <= 122) or (c >= 48 and c <= 57) or c == 95
-
 ## Find the innermost VB6 block enclosing the given line range.
 ## Returns [start_line, end_line] or [] if no enclosing block found.
 func _find_enclosing_block(from_line: int, to_line: int) -> Array:
