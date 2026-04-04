@@ -3805,7 +3805,7 @@ func _surround_with(header: String, footer: String) -> void:
 	if not has_selection():
 		# No selection — insert empty block at caret
 		var line := get_caret_line()
-		var indent := _get_line_indent(line)
+		var indent := _get_line_indent_str(line)
 		var inner_indent := indent + "\t"
 		var block_text := clean_header + "\n" + inner_indent + "\n" + indent + clean_footer
 		begin_complex_operation()
@@ -3818,7 +3818,7 @@ func _surround_with(header: String, footer: String) -> void:
 
 	var from_line := get_selection_from_line()
 	var to_line := get_selection_to_line()
-	var indent := _get_line_indent(from_line)
+	var indent := _get_line_indent_str(from_line)
 	var inner_indent := indent + "\t"
 
 	begin_complex_operation()
@@ -3851,8 +3851,8 @@ func _surround_with(header: String, footer: String) -> void:
 	set_caret_line(from_line + 1)
 	end_complex_operation()
 
-## Helper: get the leading whitespace of a line.
-func _get_line_indent(line_idx: int) -> String:
+## Helper: get the leading whitespace of a line as a string.
+func _get_line_indent_str(line_idx: int) -> String:
 	var text := get_line(line_idx)
 	var indent := ""
 	for ch in text:
