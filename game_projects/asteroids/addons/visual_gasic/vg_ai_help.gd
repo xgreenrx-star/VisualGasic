@@ -374,11 +374,11 @@ func _on_poll_timer() -> void:
 			_stop_generation()
 			_append_system("[color=red]Request timed out after %ds.[/color]\n" % int(REQUEST_TIMEOUT))
 
-## Worker thread entry point — uses raw TCP with HTTP/1.1 and chunked
-## transfer encoding decoding for streaming Ollama responses.
+## Worker thread entry point — uses Godot's HTTPClient for proper HTTP
+## protocol handling (chunked transfer encoding, connection management, etc.).
 func _worker_thread_func(json_body: String) -> void:
-	var tcp := StreamPeerTCP.new()
-	var err := tcp.connect_to_host(OLLAMA_HOST, OLLAMA_PORT)
+	var http := HTTPClient.new()
+	var err := http.connect_to_host(OLLAMA_HOST, OLLAMA_PORT)
 	if err != OK:
 		_stream_mutex.lock()
 		_stream_error = "Failed to connect to Ollama: " + error_string(err)
@@ -386,100 +386,100 @@ func _worker_thread_func(json_body: String) -> void:
 		_stream_mutex.unlock()
 		return
 
-	# Wait for TCP connection (with timeout)
+	# Wait for connection to establish
 	var connect_start := Time.get_ticks_msec()
-	while tcp.get_status() == StreamPeerTCP.STATUS_CONNECTING:
-		tcp.poll()
+	while http.get_status() == HTTPClient.STATUS_CONNECTING or http.get_status() == HTTPClient.STATUS_RESOLVING:
+		http.poll()
 		OS.delay_msec(20)
 		_stream_mutex.lock()
 		var abort := _abort_requested
 		_stream_mutex.unlock()
 		if abort:
-			tcp.disconnect_from_host()
+			http.close()
 			return
 		if (Time.get_ticks_msec() - connect_start) / 1000.0 > CONNECT_TIMEOUT:
 			_stream_mutex.lock()
-			_stream_error = "TCP connection timed out after %ds" % int(CONNECT_TIMEOUT)
+			_stream_error = "Connection timed out after %ds" % int(CONNECT_TIMEOUT)
 			_stream_done = true
 			_stream_mutex.unlock()
-			tcp.disconnect_from_host()
+			http.close()
 			return
 
-	if tcp.get_status() != StreamPeerTCP.STATUS_CONNECTED:
+	if http.get_status() != HTTPClient.STATUS_CONNECTED:
 		_stream_mutex.lock()
-		_stream_error = "TCP connection failed (status=%d)" % tcp.get_status()
+		_stream_error = "Connection failed (status=%d)" % http.get_status()
 		_stream_done = true
 		_stream_mutex.unlock()
+		http.close()
 		return
 
-	# Build HTTP/1.1 request (Ollama requires HTTP/1.1; responds with chunked encoding)
-	var body_bytes := json_body.to_utf8_buffer()
-	var request_str := "POST /api/generate HTTP/1.1\r\n"
-	request_str += "Host: %s:%d\r\n" % [OLLAMA_HOST, OLLAMA_PORT]
-	request_str += "Content-Type: application/json\r\n"
-	request_str += "Content-Length: %d\r\n" % body_bytes.size()
-	request_str += "Connection: close\r\n"
-	request_str += "\r\n"
-	request_str += json_body
-
-	tcp.put_data(request_str.to_utf8_buffer())
-
-	# Read and parse the response.
-	# Strategy: accumulate raw bytes, skip HTTP headers, then scan for JSON
-	# lines directly in the raw stream. Chunked framing (hex sizes, \r\n) is
-	# harmlessly ignored because those lines don't parse as JSON.
-	var raw_buf := ""
-	var headers_done := false
-
-	while tcp.get_status() == StreamPeerTCP.STATUS_CONNECTED:
-		# Check abort FIRST every iteration
+	# Send the HTTP request
+	var headers := [
+		"Content-Type: application/json",
+		"Accept: */*",
+	]
+	err = http.request(HTTPClient.METHOD_POST, "/api/generate", headers, json_body)
+	if err != OK:
 		_stream_mutex.lock()
-		var abort_early := _abort_requested
+		_stream_error = "Failed to send request: " + error_string(err)
+		_stream_done = true
 		_stream_mutex.unlock()
-		if abort_early:
-			tcp.disconnect_from_host()
+		http.close()
+		return
+
+	# Wait for response headers
+	while http.get_status() == HTTPClient.STATUS_REQUESTING:
+		http.poll()
+		OS.delay_msec(10)
+		_stream_mutex.lock()
+		var abort := _abort_requested
+		_stream_mutex.unlock()
+		if abort:
+			http.close()
 			return
 
-		tcp.poll()
-		var avail := tcp.get_available_bytes()
-		if avail > 0:
-			var result := tcp.get_data(avail)
-			if result[0] == OK:
-				raw_buf += result[1].get_string_from_utf8()
-		elif avail == 0:
+	if not http.has_response():
+		_stream_mutex.lock()
+		_stream_error = "No response from Ollama (status=%d)" % http.get_status()
+		_stream_done = true
+		_stream_mutex.unlock()
+		http.close()
+		return
+
+	var response_code := http.get_response_code()
+	if response_code != 200:
+		_stream_mutex.lock()
+		_stream_error = "Ollama error: HTTP %d" % response_code
+		_stream_done = true
+		_stream_mutex.unlock()
+		http.close()
+		return
+
+	# Stream the response body — HTTPClient handles chunked encoding for us
+	var raw_buf := ""
+	while http.get_status() == HTTPClient.STATUS_BODY:
+		_stream_mutex.lock()
+		var abort := _abort_requested
+		_stream_mutex.unlock()
+		if abort:
+			http.close()
+			return
+
+		http.poll()
+		var chunk := http.read_response_body_chunk()
+		if chunk.size() == 0:
 			OS.delay_msec(10)
-			tcp.poll()
-			if tcp.get_status() != StreamPeerTCP.STATUS_CONNECTED and tcp.get_available_bytes() == 0:
-				break
 			continue
 
-		# --- Strip HTTP headers once ---
-		if not headers_done:
-			var header_end := raw_buf.find("\r\n\r\n")
-			if header_end < 0:
-				continue
-			var header_block := raw_buf.left(header_end)
-			raw_buf = raw_buf.substr(header_end + 4)
-			headers_done = true
-			# Check for non-200 status
-			if header_block.find(" 200 ") < 0:
-				var first_line := header_block.left(header_block.find("\r\n")) if header_block.find("\r\n") >= 0 else header_block
-				_stream_mutex.lock()
-				_stream_error = "Ollama error: " + first_line
-				_stream_done = true
-				_stream_mutex.unlock()
-				tcp.disconnect_from_host()
-				return
+		raw_buf += chunk.get_string_from_utf8()
 
-		# --- Scan for JSON lines in the raw stream ---
-		# Works with both chunked and non-chunked responses: hex chunk
-		# markers like "69\r" simply fail JSON.parse_string() and are skipped.
+		# Scan for complete JSON lines
 		while raw_buf.find("\n") >= 0:
 			var nl := raw_buf.find("\n")
 			var line := raw_buf.left(nl).strip_edges()
 			raw_buf = raw_buf.substr(nl + 1)
 			if line.is_empty() or line[0] != "{":
-				continue  # Skip chunk markers, empty lines, etc.
+				continue
 			var json = JSON.parse_string(line)
 			if json == null:
 				continue
@@ -492,28 +492,27 @@ func _worker_thread_func(json_body: String) -> void:
 				_stream_mutex.lock()
 				_stream_done = true
 				_stream_mutex.unlock()
-				tcp.disconnect_from_host()
+				http.close()
 				return
 
-	# Connection closed — try to parse any remaining data in the buffer
-	if headers_done:
-		for line in raw_buf.split("\n"):
-			line = line.strip_edges()
-			if line.is_empty() or line[0] != "{":
-				continue
-			var json = JSON.parse_string(line)
-			if json == null:
-				continue
-			var token: String = json.get("response", "")
-			if not token.is_empty():
-				_stream_mutex.lock()
-				_token_buffer.append(token)
-				_stream_mutex.unlock()
+	# Parse any remaining data in the buffer
+	for line in raw_buf.split("\n"):
+		line = line.strip_edges()
+		if line.is_empty() or line[0] != "{":
+			continue
+		var json = JSON.parse_string(line)
+		if json == null:
+			continue
+		var token: String = json.get("response", "")
+		if not token.is_empty():
+			_stream_mutex.lock()
+			_token_buffer.append(token)
+			_stream_mutex.unlock()
 
 	_stream_mutex.lock()
 	_stream_done = true
 	_stream_mutex.unlock()
-	tcp.disconnect_from_host()
+	http.close()
 
 ## Clean up after generation completes normally.
 func _finish_generation() -> void:
@@ -1010,6 +1009,8 @@ func _send_query(prompt: String) -> void:
 		_input.text = ""
 		_append_user(prompt)
 		_append_system("[color=#ffcc44]⏳ Model is still loading — your query will be sent automatically when ready...[/color]\n")
+		# Re-trigger warmup so queued query doesn't sit forever
+		_warmup_model()
 		return
 
 	# Run a fast health check before sending the real query
