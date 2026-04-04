@@ -180,18 +180,17 @@ var _history: PackedStringArray = PackedStringArray()
 var _history_idx := -1
 var _accumulated_response := ""
 
-# Thread-based streaming state
-var _worker_thread: Thread
-var _stream_mutex: Mutex
+# Main-thread HTTPClient streaming state (no threads — polls in timer)
+var _stream_http: HTTPClient           # Persistent HTTP connection for streaming
+var _stream_buf := ""                  # Partial JSON line buffer
 var _poll_timer: Timer
-var _token_buffer: PackedStringArray  # Tokens queued by thread, drained by timer
-var _stream_done := false             # Thread sets true when Ollama sends done
-var _stream_error := ""               # Thread sets non-empty on error
-var _stream_started := false          # True once we've printed the "AI:" header
-var _stream_token_count := 0          # Tokens received so far (main thread)
-var _stream_start_time := 0.0         # Time.get_ticks_msec() when query sent
-var _stream_first_token_time := 0.0   # Time of first token (0 = not yet)
-var _abort_requested := false         # Main thread signals worker to stop
+var _stream_done := false              # True when Ollama sends done
+var _stream_error := ""                # Non-empty on error
+var _stream_started := false           # True once we've printed the "AI:" header
+var _stream_token_count := 0           # Tokens received so far
+var _stream_start_time := 0.0          # Time.get_ticks_msec() when query sent
+var _stream_first_token_time := 0.0    # Time of first token (0 = not yet)
+var _stream_http_phase := 0            # 0=idle, 1=connecting, 2=requesting, 3=body
 
 # Preset quick-action buttons
 var _explain_error_btn: Button
@@ -277,8 +276,6 @@ func _get_editor_selected_code() -> String:
 # Lifecycle
 # ---------------------------------------------------------------------------
 func _ready() -> void:
-	_stream_mutex = Mutex.new()
-	_token_buffer = PackedStringArray()
 	_setup_ui()
 	_setup_poll_timer()
 	_setup_http()
@@ -295,10 +292,14 @@ func _reinit_after_reparent() -> void:
 	_warmup_http.cancel_request()
 	if _health_check_http != null:
 		_health_check_http.cancel_request()
+	if _stream_http != null:
+		_stream_http.close()
+		_stream_http = null
 	_health_pending_prompt = ""
 	_is_generating = false
 	_ollama_available = false
 	_model_warm = false
+	_stream_http_phase = 0
 	_ping_ollama()
 
 func _exit_tree() -> void:
@@ -313,39 +314,78 @@ func _setup_poll_timer() -> void:
 	add_child(_poll_timer)
 	_poll_timer.timeout.connect(_on_poll_timer)
 
-## Main-thread timer callback — drains tokens from the shared buffer.
+## Main-thread timer callback — polls HTTPClient and processes tokens directly.
 func _on_poll_timer() -> void:
 	if not _is_generating:
 		_poll_timer.stop()
 		return
 
-	# Safely grab everything the worker thread has queued
-	var tokens: PackedStringArray
-	var done := false
-	var error := ""
-	_stream_mutex.lock()
-	tokens = _token_buffer.duplicate()
-	_token_buffer.clear()
-	done = _stream_done
-	error = _stream_error
-	_stream_mutex.unlock()
+	if _stream_http == null:
+		_stream_error = "HTTPClient was closed unexpectedly"
+		_stream_done = true
 
-	# Display tokens
-	for token in tokens:
-		if not _stream_started:
-			_stream_started = true
-			_output.append_text("\n[color=#44bb88][b]AI:[/b][/color]\n[color=#dddddd]")
-			_stream_first_token_time = Time.get_ticks_msec()
-		_stream_token_count += 1
-		_accumulated_response += token
-		_output.append_text(_escape_bbcode(token))
+	# --- Drive the HTTPClient state machine ---
+	if not _stream_done and _stream_error.is_empty() and _stream_http != null:
+		_stream_http.poll()
+		var status := _stream_http.get_status()
 
-	# Check for completion or error
-	if done or not error.is_empty():
+		if _stream_http_phase == 1:  # Connecting
+			if status == HTTPClient.STATUS_CONNECTED:
+				# Connection established — send the request
+				var headers := ["Content-Type: application/json", "Accept: */*"]
+				var err := _stream_http.request(HTTPClient.METHOD_POST, "/api/generate", headers, _stream_json_body)
+				if err != OK:
+					_stream_error = "Failed to send request: " + error_string(err)
+					_stream_done = true
+				else:
+					_stream_http_phase = 2
+			elif status != HTTPClient.STATUS_CONNECTING and status != HTTPClient.STATUS_RESOLVING:
+				_stream_error = "Connection failed (status=%d)" % status
+				_stream_done = true
+
+		elif _stream_http_phase == 2:  # Requesting (waiting for response headers)
+			if _stream_http.has_response():
+				var code := _stream_http.get_response_code()
+				if code != 200:
+					_stream_error = "Ollama error: HTTP %d" % code
+					_stream_done = true
+				else:
+					_stream_http_phase = 3
+			elif status != HTTPClient.STATUS_REQUESTING and status != HTTPClient.STATUS_CONNECTED:
+				_stream_error = "Lost connection waiting for response (status=%d)" % status
+				_stream_done = true
+
+		elif _stream_http_phase == 3:  # Reading body
+			if status == HTTPClient.STATUS_BODY:
+				var chunk := _stream_http.read_response_body_chunk()
+				if chunk.size() > 0:
+					_stream_buf += chunk.get_string_from_utf8()
+					# Parse complete JSON lines
+					while _stream_buf.find("\n") >= 0:
+						var nl := _stream_buf.find("\n")
+						var line := _stream_buf.left(nl).strip_edges()
+						_stream_buf = _stream_buf.substr(nl + 1)
+						if line.is_empty() or line[0] != "{":
+							continue
+						var json = JSON.parse_string(line)
+						if json == null:
+							continue
+						var token: String = json.get("response", "")
+						if not token.is_empty():
+							_display_token(token)
+						if json.get("done", false):
+							_stream_done = true
+							break
+			elif status == HTTPClient.STATUS_CONNECTED or status == HTTPClient.STATUS_DISCONNECTED:
+				# Body finished (connection closed or no more body)
+				_stream_done = true
+
+	# --- Check for completion or error ---
+	if _stream_done or not _stream_error.is_empty():
 		if _stream_started:
 			_output.append_text("[/color]\n")
-		if not error.is_empty():
-			_append_system("[color=red]%s[/color]\n" % error)
+		if not _stream_error.is_empty():
+			_append_system("[color=red]%s[/color]\n" % _stream_error)
 		else:
 			# Show timing stats
 			var elapsed_ms := Time.get_ticks_msec() - _stream_start_time
@@ -374,153 +414,24 @@ func _on_poll_timer() -> void:
 			_stop_generation()
 			_append_system("[color=red]Request timed out after %ds.[/color]\n" % int(REQUEST_TIMEOUT))
 
-## Worker thread entry point — uses Godot's HTTPClient for proper HTTP
-## protocol handling (chunked transfer encoding, connection management, etc.).
-func _worker_thread_func(json_body: String) -> void:
-	var http := HTTPClient.new()
-	var err := http.connect_to_host(OLLAMA_HOST, OLLAMA_PORT)
-	if err != OK:
-		_stream_mutex.lock()
-		_stream_error = "Failed to connect to Ollama: " + error_string(err)
-		_stream_done = true
-		_stream_mutex.unlock()
-		return
-
-	# Wait for connection to establish
-	var connect_start := Time.get_ticks_msec()
-	while http.get_status() == HTTPClient.STATUS_CONNECTING or http.get_status() == HTTPClient.STATUS_RESOLVING:
-		http.poll()
-		OS.delay_msec(20)
-		_stream_mutex.lock()
-		var abort := _abort_requested
-		_stream_mutex.unlock()
-		if abort:
-			http.close()
-			return
-		if (Time.get_ticks_msec() - connect_start) / 1000.0 > CONNECT_TIMEOUT:
-			_stream_mutex.lock()
-			_stream_error = "Connection timed out after %ds" % int(CONNECT_TIMEOUT)
-			_stream_done = true
-			_stream_mutex.unlock()
-			http.close()
-			return
-
-	if http.get_status() != HTTPClient.STATUS_CONNECTED:
-		_stream_mutex.lock()
-		_stream_error = "Connection failed (status=%d)" % http.get_status()
-		_stream_done = true
-		_stream_mutex.unlock()
-		http.close()
-		return
-
-	# Send the HTTP request
-	var headers := [
-		"Content-Type: application/json",
-		"Accept: */*",
-	]
-	err = http.request(HTTPClient.METHOD_POST, "/api/generate", headers, json_body)
-	if err != OK:
-		_stream_mutex.lock()
-		_stream_error = "Failed to send request: " + error_string(err)
-		_stream_done = true
-		_stream_mutex.unlock()
-		http.close()
-		return
-
-	# Wait for response headers
-	while http.get_status() == HTTPClient.STATUS_REQUESTING:
-		http.poll()
-		OS.delay_msec(10)
-		_stream_mutex.lock()
-		var abort := _abort_requested
-		_stream_mutex.unlock()
-		if abort:
-			http.close()
-			return
-
-	if not http.has_response():
-		_stream_mutex.lock()
-		_stream_error = "No response from Ollama (status=%d)" % http.get_status()
-		_stream_done = true
-		_stream_mutex.unlock()
-		http.close()
-		return
-
-	var response_code := http.get_response_code()
-	if response_code != 200:
-		_stream_mutex.lock()
-		_stream_error = "Ollama error: HTTP %d" % response_code
-		_stream_done = true
-		_stream_mutex.unlock()
-		http.close()
-		return
-
-	# Stream the response body — HTTPClient handles chunked encoding for us
-	var raw_buf := ""
-	while http.get_status() == HTTPClient.STATUS_BODY:
-		_stream_mutex.lock()
-		var abort := _abort_requested
-		_stream_mutex.unlock()
-		if abort:
-			http.close()
-			return
-
-		http.poll()
-		var chunk := http.read_response_body_chunk()
-		if chunk.size() == 0:
-			OS.delay_msec(10)
-			continue
-
-		raw_buf += chunk.get_string_from_utf8()
-
-		# Scan for complete JSON lines
-		while raw_buf.find("\n") >= 0:
-			var nl := raw_buf.find("\n")
-			var line := raw_buf.left(nl).strip_edges()
-			raw_buf = raw_buf.substr(nl + 1)
-			if line.is_empty() or line[0] != "{":
-				continue
-			var json = JSON.parse_string(line)
-			if json == null:
-				continue
-			var token: String = json.get("response", "")
-			if not token.is_empty():
-				_stream_mutex.lock()
-				_token_buffer.append(token)
-				_stream_mutex.unlock()
-			if json.get("done", false):
-				_stream_mutex.lock()
-				_stream_done = true
-				_stream_mutex.unlock()
-				http.close()
-				return
-
-	# Parse any remaining data in the buffer
-	for line in raw_buf.split("\n"):
-		line = line.strip_edges()
-		if line.is_empty() or line[0] != "{":
-			continue
-		var json = JSON.parse_string(line)
-		if json == null:
-			continue
-		var token: String = json.get("response", "")
-		if not token.is_empty():
-			_stream_mutex.lock()
-			_token_buffer.append(token)
-			_stream_mutex.unlock()
-
-	_stream_mutex.lock()
-	_stream_done = true
-	_stream_mutex.unlock()
-	http.close()
+## Display a single token on screen (called from poll timer).
+func _display_token(token: String) -> void:
+	if not _stream_started:
+		_stream_started = true
+		_output.append_text("\n[color=#44bb88][b]AI:[/b][/color]\n[color=#dddddd]")
+		_stream_first_token_time = Time.get_ticks_msec()
+	_stream_token_count += 1
+	_accumulated_response += token
+	_output.append_text(_escape_bbcode(token))
 
 ## Clean up after generation completes normally.
 func _finish_generation() -> void:
 	_poll_timer.stop()
 	_is_generating = false
-	if _worker_thread != null and _worker_thread.is_started():
-		_worker_thread.wait_to_finish()
-	_worker_thread = null
+	if _stream_http != null:
+		_stream_http.close()
+		_stream_http = null
+	_stream_http_phase = 0
 
 	# Save this exchange to conversation history for context-aware follow-ups
 	if not _current_prompt.is_empty() and not _accumulated_response.is_empty():
@@ -541,47 +452,24 @@ func _finish_generation() -> void:
 			Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
 
 ## Force-stop generation (abort button or reparent).
-## Uses a non-blocking approach: signals the thread to exit, then defers the
-## join so the main thread is never frozen.
-var _zombie_thread: Thread  # Holds thread ref while waiting to join
-
 func _stop_generation() -> void:
-	# Signal the worker to abort immediately
-	_stream_mutex.lock()
-	_abort_requested = true
-	_stream_mutex.unlock()
-
 	# Stop the poll timer right away
 	if is_instance_valid(_poll_timer):
 		_poll_timer.stop()
 
-	# Try a quick join (worker checks abort every ~10 ms, so 100 ms is generous)
-	if _worker_thread != null and _worker_thread.is_started():
-		# Wait briefly — if the thread responds within 100ms, great
-		var wait_start := Time.get_ticks_msec()
-		while _worker_thread.is_started() and (Time.get_ticks_msec() - wait_start) < 100:
-			OS.delay_msec(5)
-		if _worker_thread.is_started():
-			# Thread is still running — defer the join so we don't block the UI
-			_zombie_thread = _worker_thread
-			_worker_thread = null
-			_join_zombie_thread.call_deferred()
-		else:
-			_worker_thread.wait_to_finish()
-			_worker_thread = null
-	else:
-		_worker_thread = null
+	# Close the streaming HTTP connection
+	if _stream_http != null:
+		_stream_http.close()
+		_stream_http = null
 
 	_is_generating = false
-	_abort_requested = false
+	_stream_http_phase = 0
 	_stream_done = false
 	_stream_error = ""
 	_stream_started = false
 	_stream_token_count = 0
+	_stream_buf = ""
 	_accumulated_response = ""
-	_stream_mutex.lock()
-	_token_buffer.clear()
-	_stream_mutex.unlock()
 	if is_instance_valid(_send_btn):
 		_send_btn.visible = true
 	if is_instance_valid(_stop_btn):
@@ -590,13 +478,6 @@ func _stop_generation() -> void:
 		_status_label.text = "✅ Ollama connected" if _ollama_available else "❌ Ollama not found"
 		_status_label.add_theme_color_override("font_color",
 			Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
-
-## Deferred join for a zombie thread that didn't exit quickly.
-func _join_zombie_thread() -> void:
-	if _zombie_thread != null:
-		if _zombie_thread.is_started():
-			_zombie_thread.wait_to_finish()
-		_zombie_thread = null
 
 func _setup_http() -> void:
 	_ping_http = HTTPRequest.new()
@@ -1029,6 +910,8 @@ func _send_query(prompt: String) -> void:
 	return
 
 ## Internal: actually sends the query (called after health check passes).
+var _stream_json_body := ""  # Stored for deferred sending after connect
+
 func _send_query_internal(prompt: String) -> void:
 	if _is_generating:
 		return
@@ -1057,31 +940,35 @@ func _send_query_internal(prompt: String) -> void:
 			"num_predict": 2048,
 		}
 	}
-	var json_body := JSON.stringify(body)
+	_stream_json_body = JSON.stringify(body)
 
 	# Reset state
-	_stream_mutex.lock()
-	_token_buffer.clear()
 	_stream_done = false
 	_stream_error = ""
-	_abort_requested = false
-	_stream_mutex.unlock()
-
+	_stream_buf = ""
 	_stream_started = false
 	_stream_token_count = 0
 	_stream_start_time = Time.get_ticks_msec()
 	_stream_first_token_time = 0.0
 	_accumulated_response = ""
 
-	# Launch background thread
+	# Create HTTPClient and start non-blocking connect
+	# The poll timer will drive the state machine (connect → request → read body)
+	if _stream_http != null:
+		_stream_http.close()
+	_stream_http = HTTPClient.new()
+	var err := _stream_http.connect_to_host(OLLAMA_HOST, OLLAMA_PORT)
+	if err != OK:
+		_stream_error = "Failed to connect to Ollama: " + error_string(err)
+		_stream_done = true
+		_stream_http = null
+
+	_stream_http_phase = 1  # Connecting
 	_is_generating = true
 	_send_btn.visible = false
 	_stop_btn.visible = true
 	_status_label.text = "💭 Thinking..."
 	_status_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
-
-	_worker_thread = Thread.new()
-	_worker_thread.start(_worker_thread_func.bind(json_body))
 	_poll_timer.start()
 
 func _on_stop() -> void:
