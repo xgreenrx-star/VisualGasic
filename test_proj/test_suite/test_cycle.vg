@@ -1,0 +1,83 @@
+' Test: Cycle Through loop command
+' Tests cycling through arrays with wrap-around
+Attribute VB_Name = "TestCycle"
+
+Sub _Ready()
+    ' ── Test 1: Basic Cycle Through ──
+    Dim colors(2) As String
+    colors(0) = "R"
+    colors(1) = "G"
+    colors(2) = "B"
+
+    Dim result As String
+    result = ""
+    Cycle Through colors For 6 As c
+        result = result & c
+    End Cycle
+    ' Should cycle: R,G,B,R,G,B
+    If result = "RGBRGB" Then
+        Print "PASS: cycle_basic"
+    Else
+        Print "FAIL: cycle_basic: got '" & result & "'"
+    End If
+
+    ' ── Test 2: Cycle fewer than array length ──
+    result = ""
+    Cycle Through colors For 2 As c
+        result = result & c
+    End Cycle
+    If result = "RG" Then
+        Print "PASS: cycle_partial"
+    Else
+        Print "FAIL: cycle_partial: got '" & result & "'"
+    End If
+
+    ' ── Test 3: Cycle zero times ──
+    result = "untouched"
+    Cycle Through colors For 0 As c
+        result = "changed"
+    End Cycle
+    If result = "untouched" Then
+        Print "PASS: cycle_zero"
+    Else
+        Print "FAIL: cycle_zero: got '" & result & "'"
+    End If
+
+    ' ── Test 4: Exit Cycle ──
+    result = ""
+    Cycle Through colors For 10 As c
+        If c = "B" Then Exit Cycle
+        result = result & c
+    End Cycle
+    If result = "RG" Then
+        Print "PASS: cycle_exit"
+    Else
+        Print "FAIL: cycle_exit: got '" & result & "'"
+    End If
+
+    ' ── Test 5: Continue Cycle ──
+    result = ""
+    Cycle Through colors For 6 As c
+        If c = "G" Then Continue Cycle
+        result = result & c
+    End Cycle
+    ' Skips G each time: R,B,R,B
+    If result = "RBRB" Then
+        Print "PASS: cycle_continue"
+    Else
+        Print "FAIL: cycle_continue: got '" & result & "'"
+    End If
+
+    ' ── Test 6: Single-element array cycle ──
+    Dim single(0) As String
+    single(0) = "X"
+    result = ""
+    Cycle Through single For 4 As s
+        result = result & s
+    End Cycle
+    If result = "XXXX" Then
+        Print "PASS: cycle_single_element"
+    Else
+        Print "FAIL: cycle_single_element: got '" & result & "'"
+    End If
+End Sub

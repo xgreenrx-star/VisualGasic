@@ -119,6 +119,11 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
                         if (all_vars.has(fes->variable_name))
                             vars[fes->variable_name] = all_vars[fes->variable_name];
                         scan(fes->body, vars, all_vars);
+                    } else if (stmts[i]->type == STMT_OSCILLATE) {
+                        OscillateStatement* oss = (OscillateStatement*)stmts[i];
+                        if (all_vars.has(oss->variable_name))
+                            vars[oss->variable_name] = all_vars[oss->variable_name];
+                        scan(oss->body, vars, all_vars);
                     }
                 }
             }
@@ -568,7 +573,7 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
              
              bool found = false;
              call_internal(sub_name, sub_args, found);
-             
+
              // VB6-style: show native error dialog for unhandled runtime errors
              if (error_state.has_error && error_state.mode == ErrorState::NONE) {
                  String err_msg = "Run-time error '" + String::num_int64(error_state.code) + "':\n\n"
@@ -596,6 +601,19 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
          if (args.size() >= 2) {
              Ref<InputEvent> event = args[0];
              String ctrl_name = args[args.size() - 1];
+
+             // Check if the source control is a LineEdit (TextBox).
+             // LineEdit already has text_submitted wired to _KeyPress, so we
+             // must NOT fire _KeyPress from gui_input (every keystroke) — that
+             // would cause each typed character to be treated as a submission.
+             bool is_line_edit = false;
+             Node *owner_node = Object::cast_to<Node>(owner);
+             if (owner_node) {
+                 Node *ctrl_node = owner_node->find_child(ctrl_name, true, false);
+                 if (ctrl_node && ctrl_node->is_class("LineEdit")) {
+                     is_line_edit = true;
+                 }
+             }
 
              if (event.is_valid()) {
                  Ref<InputEventMouseButton> mb = event;
@@ -679,8 +697,9 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
                          call_internal(ctrl_name + "_KeyDown", kd_args, found);
 
                          // KeyPress(KeyAscii) — only for printable characters
+                         // Skip for LineEdit: text_submitted already wires _KeyPress on Enter
                          int unicode = (int)key->get_unicode();
-                         if (unicode > 0) {
+                         if (unicode > 0 && !is_line_edit) {
                              Array kp_args;
                              kp_args.push_back(unicode);
                              call_internal(ctrl_name + "_KeyPress", kp_args, found);
@@ -821,7 +840,7 @@ void VisualGasicInstance::raise_error(String msg, int code, const String &source
 // ---------------------------------------------------------------------------
 static bool _try_wire(Node* node, const String& name, const String& evt_name,
                       const String& signal_name, VisualGasicScript* vs,
-                      Node* instance_owner) {
+                      Node* instance_owner, uint32_t flags = 0) {
     String sub_name = name + String("_") + evt_name;
     if (!vs->_has_method(sub_name)) return false;
 
@@ -832,7 +851,7 @@ static bool _try_wire(Node* node, const String& name, const String& evt_name,
     Callable bound = target.bindv(binds);
 
     if (!node->is_connected(signal_name, target)) {
-        node->connect(signal_name, bound);
+        node->connect(signal_name, bound, flags);
     }
     return true;
 }
@@ -878,7 +897,10 @@ static void _connect_vb_signals_recursive(Node* node, VisualGasicInstance* insta
     // --- LineEdit (TextBox) ---
     else if (node->is_class("LineEdit")) {
         _try_wire(node, name, "Change",   "text_changed",   vs, instance_owner);
-        _try_wire(node, name, "KeyPress", "text_submitted",  vs, instance_owner);
+        // CONNECT_DEFERRED (1): run the VB6 KeyPress handler on the next
+        // idle frame so that Godot's gui_input has fully returned first.
+        // This prevents the LineEdit from losing focus after submission.
+        _try_wire(node, name, "KeyPress", "text_submitted",  vs, instance_owner, 1);
         _try_wire(node, name, "GotFocus", "focus_entered",   vs, instance_owner);
         _try_wire(node, name, "LostFocus","focus_exited",    vs, instance_owner);
     }
@@ -989,10 +1011,12 @@ static void _connect_vb_signals_recursive(Node* node, VisualGasicInstance* insta
 
         // gui_input for KeyDown, KeyUp, MouseDown, MouseUp, DblClick, MouseMove
         // We connect gui_input → _OnGuiInput which demuxes InputEvent types
+        // Note: For LineEdit, _KeyPress is already handled by text_submitted signal,
+        // so don't count it as a reason to wire gui_input.
         bool needs_gui_input = (
             vs->_has_method(name + "_KeyDown") ||
             vs->_has_method(name + "_KeyUp") ||
-            vs->_has_method(name + "_KeyPress") ||
+            (!node->is_class("LineEdit") && vs->_has_method(name + "_KeyPress")) ||
             vs->_has_method(name + "_MouseDown") ||
             vs->_has_method(name + "_MouseUp") ||
             vs->_has_method(name + "_DblClick") ||

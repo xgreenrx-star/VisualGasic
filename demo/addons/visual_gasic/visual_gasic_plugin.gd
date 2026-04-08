@@ -166,6 +166,9 @@ var _package_browser = null
 ## AI Help Panel (v4.4.0) — local Ollama-powered code assistant
 var _ai_help_panel = null
 
+## "↩ Back to VG IDE" button injected into Godot's 3D editor toolbar
+var _back_to_vg_3d_btn: Button = null
+
 ## Tip of the Day dialog (v3.5)
 var _tip_of_day_dialog: Window = null
 var _tip_label: Label = null
@@ -387,6 +390,17 @@ func _enter_tree():
 	# Register custom .vg file icon in the editor theme
 	call_deferred("_register_vg_file_icon")
 	
+	# Inject "↩ Back to VG IDE" button into Godot's 3D editor toolbar
+	_back_to_vg_3d_btn = Button.new()
+	_back_to_vg_3d_btn.text = "\u21a9 Back to VG IDE"
+	_back_to_vg_3d_btn.tooltip_text = "Return to Visual Gasic IDE"
+	_back_to_vg_3d_btn.flat = true
+	_back_to_vg_3d_btn.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	_back_to_vg_3d_btn.add_theme_color_override("font_hover_color", Color(0.4, 0.7, 1.0))
+	_back_to_vg_3d_btn.pressed.connect(_on_back_to_vg_from_3d)
+	add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_MENU, _back_to_vg_3d_btn)
+	print("VisualGasic: 'Back to VG IDE' button added to 3D editor toolbar")
+
 	# Create VB6 Project Explorer (right-upper dock in VB6 mode)
 	var proj_explorer_script = load("res://addons/visual_gasic/vb6_project_explorer.gd")
 	if proj_explorer_script:
@@ -532,6 +546,21 @@ func _enter_tree():
 		show_idx_btn.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 		show_idx_btn.toggled.connect(_on_show_indexes_toggled)
 		toolbar_row.add_child(show_idx_btn)
+
+		# ── 3D View button — switches to Godot's native 3D editor ──
+		var view_3d_sep = VSeparator.new()
+		toolbar_row.add_child(view_3d_sep)
+
+		var view_3d_btn = Button.new()
+		view_3d_btn.name = "View3DBtn"
+		view_3d_btn.text = "\U0001f3b2 3D View"
+		view_3d_btn.tooltip_text = "Switch to Godot 3D Editor"
+		view_3d_btn.flat = true
+		view_3d_btn.add_theme_font_size_override("font_size", 11)
+		view_3d_btn.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+		view_3d_btn.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
+		view_3d_btn.pressed.connect(_on_3d_view_pressed)
+		toolbar_row.add_child(view_3d_btn)
 
 		# Spacer to push "Godot Editor" button to the right
 		var spacer = Control.new()
@@ -848,6 +877,16 @@ func _make_visible(p_visible: bool) -> void:
 func _on_back_to_godot_pressed() -> void:
 	EditorInterface.set_main_screen_editor("2D")
 
+## Called when user clicks the "🎲 3D View" button in the VG toolbar.
+## Switches from Form Designer to Godot's native 3D editor.
+func _on_3d_view_pressed() -> void:
+	EditorInterface.set_main_screen_editor("3D")
+
+## Called when user clicks "↩ Back to VG IDE" in the 3D editor toolbar.
+## Returns to the Visual Gasic IDE main screen.
+func _on_back_to_vg_from_3d() -> void:
+	EditorInterface.set_main_screen_editor(_get_plugin_name())
+
 ## Called by the editor after restoring saved window layout.
 func _set_window_layout(config: ConfigFile):
 	if is_instance_valid(_layout_manager):
@@ -1015,6 +1054,12 @@ func _exit_tree():
 		_code_navigator.queue_free()
 		_code_navigator = null
 	_nav_injected_parent = null
+	
+	# Cleanup "Back to VG IDE" button from 3D editor toolbar
+	if is_instance_valid(_back_to_vg_3d_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_MENU, _back_to_vg_3d_btn)
+		_back_to_vg_3d_btn.queue_free()
+		_back_to_vg_3d_btn = null
 	
 	# Cleanup alignment toolbar
 	if is_instance_valid(alignment_toolbar):
@@ -4184,6 +4229,22 @@ func _sync_form_state_to_scene_tree() -> void:
 		if not is_equal_approx(bg.offset_right, new_right) or not is_equal_approx(bg.offset_bottom, new_bottom):
 			bg.offset_right = new_right
 			bg.offset_bottom = new_bottom
+
+	# ── Ensure root Control anchors are explicit (prevents null serialization) ──
+	# When Godot's ResourceSaver writes the scene, uninitialized anchor/offset
+	# properties serialize as "null" in .tscn, which resets floats to 0 and
+	# breaks full-rect layouts.  Explicitly setting them prevents this.
+	if scene_root is Control and not scene_root is Window:
+		if scene_root.anchors_preset == Control.PRESET_FULL_RECT or \
+		   (is_equal_approx(scene_root.anchor_right, 1.0) and is_equal_approx(scene_root.anchor_bottom, 1.0)):
+			scene_root.anchor_left = 0.0
+			scene_root.anchor_top = 0.0
+			scene_root.anchor_right = 1.0
+			scene_root.anchor_bottom = 1.0
+			scene_root.offset_left = 0.0
+			scene_root.offset_top = 0.0
+			scene_root.offset_right = 0.0
+			scene_root.offset_bottom = 0.0
 
 	# ── Sync each child control's position + size (only if changed) ──
 	var ctrl_count = _form_designer.get_control_count()

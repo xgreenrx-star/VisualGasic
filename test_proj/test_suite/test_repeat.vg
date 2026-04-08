@@ -1,0 +1,101 @@
+' Test: Repeat N Times loop command
+' Tests basic counted looping, counter variable, zero, exit, continue
+Attribute VB_Name = "TestRepeat"
+
+Sub _Ready()
+    ' ── Test 1: Basic Repeat ──
+    Dim result As String
+    result = ""
+    Repeat 5 Times
+        result = result & "X"
+    End Repeat
+    If result = "XXXXX" Then
+        Print "PASS: repeat_basic"
+    Else
+        Print "FAIL: repeat_basic: got '" & result & "'"
+    End If
+
+    ' ── Test 2: Repeat with counter (As i) ──
+    result = ""
+    Repeat 5 Times As i
+        result = result & CStr(i)
+    End Repeat
+    If result = "12345" Then
+        Print "PASS: repeat_with_counter"
+    Else
+        Print "FAIL: repeat_with_counter: got '" & result & "'"
+    End If
+
+    ' ── Test 3: Repeat 0 times ──
+    result = "untouched"
+    Repeat 0 Times
+        result = "changed"
+    End Repeat
+    If result = "untouched" Then
+        Print "PASS: repeat_zero"
+    Else
+        Print "FAIL: repeat_zero: got '" & result & "'"
+    End If
+
+    ' ── Test 4: Exit Repeat ──
+    result = ""
+    Repeat 10 Times As i
+        If i = 4 Then Exit Repeat
+        result = result & CStr(i)
+    End Repeat
+    If result = "123" Then
+        Print "PASS: repeat_exit"
+    Else
+        Print "FAIL: repeat_exit: got '" & result & "'"
+    End If
+
+    ' ── Test 5: Continue Repeat ──
+    result = ""
+    Repeat 5 Times As i
+        If i = 3 Then Continue Repeat
+        result = result & CStr(i)
+    End Repeat
+    If result = "1245" Then
+        Print "PASS: repeat_continue"
+    Else
+        Print "FAIL: repeat_continue: got '" & result & "'"
+    End If
+
+    ' ── Test 6: Expression count ──
+    Dim n As Integer
+    n = 3
+    result = ""
+    Repeat n + 2 Times As i
+        result = result & CStr(i)
+    End Repeat
+    If result = "12345" Then
+        Print "PASS: repeat_expression_count"
+    Else
+        Print "FAIL: repeat_expression_count: got '" & result & "'"
+    End If
+
+    ' ── Test 7: Repeat 1 time ──
+    Dim count As Integer
+    count = 0
+    Repeat 1 Times
+        count = count + 1
+    End Repeat
+    If count = 1 Then
+        Print "PASS: repeat_single"
+    Else
+        Print "FAIL: repeat_single: got " & CStr(count)
+    End If
+
+    ' ── Test 8: Nested Repeat ──
+    result = ""
+    Repeat 3 Times As i
+        Repeat 2 Times As j
+            result = result & CStr(i) & CStr(j) & " "
+        End Repeat
+    End Repeat
+    If result = "11 12 21 22 31 32 " Then
+        Print "PASS: repeat_nested"
+    Else
+        Print "FAIL: repeat_nested: got '" & result & "'"
+    End If
+End Sub

@@ -251,6 +251,16 @@ void VisualGasicLinter::collect_references_from_statements(const Vector<Statemen
                 collect_references_from_statements(ds->body);
                 break;
             }
+            case STMT_OSCILLATE: {
+                const OscillateStatement* os = static_cast<const OscillateStatement*>(stmt);
+                referenced_names.insert(os->variable_name.to_lower());
+                collect_references_from_expression(os->from_val);
+                collect_references_from_expression(os->to_val);
+                if (os->step_val) collect_references_from_expression(os->step_val);
+                if (os->cycles_val) collect_references_from_expression(os->cycles_val);
+                collect_references_from_statements(os->body);
+                break;
+            }
             case STMT_CALL: {
                 const CallStatement* cs = static_cast<const CallStatement*>(stmt);
                 referenced_names.insert(cs->method_name.to_lower());
@@ -591,6 +601,16 @@ void VisualGasicLinter::collect_local_refs(const Statement* stmt, HashSet<String
             const DoStatement* d = static_cast<const DoStatement*>(stmt);
             if (d->condition) collect_expr_refs(d->condition, refs);
             for (int i = 0; i < d->body.size(); i++) collect_local_refs(d->body[i], refs);
+            break;
+        }
+        case STMT_OSCILLATE: {
+            const OscillateStatement* os = static_cast<const OscillateStatement*>(stmt);
+            refs.insert(os->variable_name.to_lower());
+            collect_expr_refs(os->from_val, refs);
+            collect_expr_refs(os->to_val, refs);
+            if (os->step_val) collect_expr_refs(os->step_val, refs);
+            if (os->cycles_val) collect_expr_refs(os->cycles_val, refs);
+            for (int i = 0; i < os->body.size(); i++) collect_local_refs(os->body[i], refs);
             break;
         }
         case STMT_WHILE: {

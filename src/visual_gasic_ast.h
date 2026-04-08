@@ -76,6 +76,11 @@ enum StatementType {
     STMT_PUT_FILE,     // Put #n, [recno], var (v3.3.0)
     STMT_SWAP,         // Swap a, b (v3.3.0)
     STMT_MODULE,       // Module ModuleName ... End Module (v3.3.0)
+    STMT_OSCILLATE,    // Oscillate i = 0 To 10 [Step 1] [Cycles 3] ... Loop (v4.5.0)
+    STMT_REPEAT,       // Repeat N Times [As counter] ... End Repeat (v4.6.0)
+    STMT_CYCLE,        // Cycle Through collection For N As var ... End Cycle (v4.6.0)
+    STMT_EVERY,        // Every N Frames/Seconds ... End Every (v4.6.0)
+    STMT_TWEEN,        // Tween target.prop [From val] To val Over dur [Ease type] [Trans type] (v4.6.0)
     STMT_UNKNOWN
 };
 
@@ -317,7 +322,7 @@ struct InputStatement : public Statement {
 };
 
 struct ExitStatement : public Statement {
-    enum ExitType { EXIT_SUB, EXIT_FUNCTION, EXIT_FOR, EXIT_DO };
+    enum ExitType { EXIT_SUB, EXIT_FUNCTION, EXIT_FOR, EXIT_DO, EXIT_OSCILLATE, EXIT_REPEAT, EXIT_CYCLE };
     ExitType exit_type;
     ExitStatement() : Statement(STMT_EXIT) {}
 };
@@ -329,7 +334,7 @@ struct ReturnStatement : public Statement {
 };
 
 struct ContinueStatement : public Statement {
-    enum LoopType { FOR, DO, WHILE, UNKNOWN } loop_type;
+    enum LoopType { FOR, DO, WHILE, OSCILLATE, REPEAT, CYCLE, UNKNOWN } loop_type;
     ContinueStatement() : Statement(STMT_CONTINUE) { loop_type = UNKNOWN; }
 };
 
@@ -490,6 +495,85 @@ struct DoStatement : public Statement {
     virtual ~DoStatement() {
         if(condition) delete condition;
         for(int i=0; i<body.size(); i++) delete body[i];
+    }
+};
+
+struct OscillateStatement : public Statement {
+    String variable_name;
+    ExpressionNode* from_val;    // start value
+    ExpressionNode* to_val;      // upper bound
+    ExpressionNode* step_val;    // optional Step (default 1)
+    ExpressionNode* cycles_val;  // optional Cycles count (default infinite)
+    Vector<Statement*> body;
+
+    OscillateStatement() : Statement(STMT_OSCILLATE), from_val(nullptr), to_val(nullptr), step_val(nullptr), cycles_val(nullptr) {}
+    virtual ~OscillateStatement() {
+        if (from_val) delete from_val;
+        if (to_val) delete to_val;
+        if (step_val) delete step_val;
+        if (cycles_val) delete cycles_val;
+        for (int i = 0; i < body.size(); i++) delete body[i];
+    }
+};
+
+struct RepeatStatement : public Statement {
+    ExpressionNode* count_val;       // number of times to repeat
+    String counter_name;             // optional counter variable name (from "As i")
+    Vector<Statement*> body;
+
+    RepeatStatement() : Statement(STMT_REPEAT), count_val(nullptr) {}
+    virtual ~RepeatStatement() {
+        if (count_val) delete count_val;
+        for (int i = 0; i < body.size(); i++) delete body[i];
+    }
+};
+
+struct CycleStatement : public Statement {
+    ExpressionNode* collection;      // the array/collection to cycle through
+    ExpressionNode* count_val;       // total number of iterations (For N)
+    String element_name;             // variable name for current element (As var)
+    Vector<Statement*> body;
+
+    CycleStatement() : Statement(STMT_CYCLE), collection(nullptr), count_val(nullptr) {}
+    virtual ~CycleStatement() {
+        if (collection) delete collection;
+        if (count_val) delete count_val;
+        for (int i = 0; i < body.size(); i++) delete body[i];
+    }
+};
+
+struct EveryStatement : public Statement {
+    ExpressionNode* interval_val;    // N (frames or seconds)
+    enum IntervalType { FRAMES, SECONDS } interval_type;
+    Vector<Statement*> body;
+    int unique_id;                   // compiler-assigned unique ID for hidden globals
+
+    EveryStatement() : Statement(STMT_EVERY), interval_val(nullptr), interval_type(FRAMES), unique_id(0) {}
+    virtual ~EveryStatement() {
+        if (interval_val) delete interval_val;
+        for (int i = 0; i < body.size(); i++) delete body[i];
+    }
+};
+
+// Tween target.property [From startval] To endval Over duration [Ease type] [Trans type]
+// Compiles to: CreateTween() → tween_property(node, path, to_val, dur) [.set_ease()] [.set_trans()]
+struct TweenStatement : public Statement {
+    ExpressionNode* target_node;     // The node being tweened (base of dot chain)
+    String property_path;            // Godot property path, e.g. "position:x"
+    ExpressionNode* from_val;        // Optional starting value (null = current value)
+    ExpressionNode* to_val;          // Target value
+    ExpressionNode* duration;        // Duration in seconds
+    int ease_type;                   // -1 = not specified, 0=IN, 1=OUT, 2=IN_OUT, 3=OUT_IN
+    int trans_type;                  // -1 = not specified, 0..11 = Godot Tween::TransitionType
+
+    TweenStatement() : Statement(STMT_TWEEN), target_node(nullptr),
+        from_val(nullptr), to_val(nullptr), duration(nullptr),
+        ease_type(-1), trans_type(-1) {}
+    virtual ~TweenStatement() {
+        if (target_node) delete target_node;
+        if (from_val) delete from_val;
+        if (to_val) delete to_val;
+        if (duration) delete duration;
     }
 };
 

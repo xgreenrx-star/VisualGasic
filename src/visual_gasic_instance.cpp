@@ -1373,6 +1373,10 @@ void VisualGasicInstance::collect_data_from_block(const Vector<Statement*>& bloc
         if (s->type == STMT_FOR) collect_data_from_block(((ForStatement*)s)->body);
         if (s->type == STMT_WHILE) collect_data_from_block(((WhileStatement*)s)->body);
         if (s->type == STMT_DO) collect_data_from_block(((DoStatement*)s)->body);
+        if (s->type == STMT_OSCILLATE) collect_data_from_block(((OscillateStatement*)s)->body);
+        if (s->type == STMT_REPEAT) collect_data_from_block(((RepeatStatement*)s)->body);
+        if (s->type == STMT_CYCLE) collect_data_from_block(((CycleStatement*)s)->body);
+        if (s->type == STMT_EVERY) collect_data_from_block(((EveryStatement*)s)->body);
         if (s->type == STMT_WITH) collect_data_from_block(((WithStatement*)s)->body);
         if (s->type == STMT_SELECT) {
             SelectStatement* sel = (SelectStatement*)s;
@@ -2568,6 +2572,45 @@ Dictionary VisualGasicInstance::evaluate_immediate(const String &p_code) {
             result["success"] = true;
             result["result"] = _vb6_format_variant(val);
             return result;
+        }
+        // Array indexing: e.g. filtered(1), Objects("key")
+        if (arg.contains("(") && arg.ends_with(")")) {
+            int paren_pos = arg.find("(");
+            String base_name = arg.substr(0, paren_pos);
+            String index_str = arg.substr(paren_pos + 1, arg.length() - paren_pos - 2).strip_edges();
+            Variant base_val;
+            if (get_variable(base_name, base_val)) {
+                if (base_val.get_type() == Variant::ARRAY && index_str.is_valid_int()) {
+                    Array arr = base_val;
+                    int idx = index_str.to_int();
+                    if (idx >= 0 && idx < arr.size()) {
+                        result["success"] = true;
+                        result["result"] = _vb6_format_variant(arr[idx]);
+                        return result;
+                    } else {
+                        result["success"] = false;
+                        result["result"] = "Subscript out of range: " + String::num_int64(idx);
+                        return result;
+                    }
+                } else if (base_val.get_type() == Variant::DICTIONARY) {
+                    Dictionary dict = base_val;
+                    // Try string key (strip quotes) or numeric key
+                    Variant key;
+                    if ((index_str.begins_with("\"") && index_str.ends_with("\"")) ||
+                        (index_str.begins_with("'") && index_str.ends_with("'"))) {
+                        key = index_str.substr(1, index_str.length() - 2);
+                    } else if (index_str.is_valid_int()) {
+                        key = index_str.to_int();
+                    } else {
+                        key = index_str;
+                    }
+                    if (dict.has(key)) {
+                        result["success"] = true;
+                        result["result"] = _vb6_format_variant(dict[key]);
+                        return result;
+                    }
+                }
+            }
         }
         // Try evaluating as a numeric literal or simple expression
         // For numeric literals, return directly

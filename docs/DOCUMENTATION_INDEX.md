@@ -108,6 +108,16 @@
 | Breakpoint Conditions | Conditional breakpoints, hit counts, tracepoints | Right-click breakpoint gutter |
 | Immediate Window | Interactive REPL for debugging | Bottom Panel |
 
+### 3D Game Development Tools
+| Tool | Description | Location |
+|------|-------------|----------|
+| Asset Import | Import `.glb`/`.gltf`/`.obj`/`.fbx` models | 📦 Import button (3D toolbar) |
+| 3D Properties Inspector | Edit transform, materials, lights, cameras, physics | Properties panel (auto for Node3D) |
+| Input Map Editor | Keyboard/mouse/gamepad binding dialog | Tools → Input Map Editor |
+| Environment Presets | One-click sky + lighting setups (Day/Night/Indoor/Space) | 🌍 Env button (3D toolbar) |
+| Animation Editor | Create animations, keyframes, playback, .glb import | Tools → Animation Editor |
+| Make EXE | One-click game export with auto export presets | File → Make EXE |
+
 ### Code Editing Tools
 | Tool | Description | Location |
 |------|-------------|----------|

@@ -1,0 +1,84 @@
+' Test: Oscillate loop command
+' Tests basic ping-pong looping, Step, Cycles, Exit Oscillate, Continue Oscillate
+Attribute VB_Name = "TestOscillate"
+
+Sub _Ready()
+    ' ── Test 1: Basic Oscillate with Cycles ──
+    Dim result As String
+    result = ""
+    Oscillate i = 0 To 3 Cycles 2
+        result = result & CStr(i) & ","
+    Loop
+    ' Trace: start i=0
+    ' iter0: body(0), i+=1=1, ok
+    ' iter1: body(1), i+=1=2, ok
+    ' iter2: body(2), i+=1=3, 3>=3 → i=3,dir=-1,cyc=1
+    ' iter3: body(3), i+=(-1)=2, ok
+    ' iter4: body(2), i+=(-1)=1, ok
+    ' iter5: body(1), i+=(-1)=0, 0<=0 → i=0,dir=1,cyc=2 → exit
+    If result = "0,1,2,3,2,1," Then
+        Print "PASS: oscillate_basic_cycles"
+    Else
+        Print "FAIL: oscillate_basic_cycles: got '" & result & "'"
+    End If
+
+    ' ── Test 2: Oscillate with Step ──
+    result = ""
+    Oscillate j = 0 To 10 Step 5 Cycles 2
+        result = result & CStr(j) & ","
+    Loop
+    ' iter0: body(0), j+=5=5, ok
+    ' iter1: body(5), j+=5=10, 10>=10 → j=10,dir=-1,cyc=1
+    ' iter2: body(10), j+=5*(-1)=5, ok
+    ' iter3: body(5), j+=(-5)=0, 0<=0 → j=0,dir=1,cyc=2 → exit
+    If result = "0,5,10,5," Then
+        Print "PASS: oscillate_step"
+    Else
+        Print "FAIL: oscillate_step: got '" & result & "'"
+    End If
+
+    ' ── Test 3: Exit Oscillate ──
+    result = ""
+    Oscillate k = 0 To 5 Cycles 10
+        result = result & CStr(k) & ","
+        If k = 3 Then Exit Oscillate
+    Loop
+    If result = "0,1,2,3," Then
+        Print "PASS: oscillate_exit"
+    Else
+        Print "FAIL: oscillate_exit: got '" & result & "'"
+    End If
+
+    ' ── Test 4: Continue Oscillate ──
+    result = ""
+    Oscillate m = 0 To 4 Cycles 1
+        If m = 2 Then
+            Continue Oscillate
+        End If
+        result = result & CStr(m) & ","
+    Loop
+    ' 0→print, 1→print, 2→skip+inc to 3, 3→print, 4(inc to 5>=4→clamp 4,dir=-1,cyc=1)→exit
+    ' Wait: Continue skips rest of body, then goes to increment
+    ' m=0: print, m+=1=1
+    ' m=1: print, m+=1=2
+    ' m=2: skip(Continue), m+=1=3
+    ' m=3: print, m+=1=4, 4>=4 → m=4,dir=-1,cyc=1 → exit (cyc>=Cycles)
+    ' So result = "0,1,3,"
+    If result = "0,1,3," Then
+        Print "PASS: oscillate_continue"
+    Else
+        Print "FAIL: oscillate_continue: got '" & result & "'"
+    End If
+
+    ' ── Test 5: Single value range ──
+    Dim count As Integer
+    count = 0
+    Oscillate n = 5 To 5 Cycles 3
+        count = count + 1
+    Loop
+    If count = 3 Then
+        Print "PASS: oscillate_single_value"
+    Else
+        Print "FAIL: oscillate_single_value: got " & CStr(count)
+    End If
+End Sub

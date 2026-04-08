@@ -2580,6 +2580,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = arr[idx];
                     }
+                } else if (base.get_type() == Variant::PACKED_STRING_ARRAY && arg_count == 1) {
+                    PackedStringArray psa = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= psa.size()) {
+                        if (op == OP_GET_ARRAY_UNCHECKED) {
+                            result = Variant();
+                        } else {
+                            raise_error("Array subscript out of range", 9);
+                            if (try_recover_error(Variant())) break;
+                            success = false;
+                            goto cleanup;
+                        }
+                    } else {
+                        result = psa[idx];
+                    }
                 } else if (base.get_type() == Variant::DICTIONARY && arg_count == 1) {
                     Dictionary dict = base;
                     result = dict.get(indices[0], Variant());
@@ -2606,6 +2621,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 Variant index_var = pop_value();
                 Variant base = pop_value();
+                if (base.get_type() == Variant::PACKED_STRING_ARRAY) {
+                    // Convert PackedStringArray to Array for uniform handling
+                    PackedStringArray psa = base;
+                    Array converted;
+                    converted.resize(psa.size());
+                    for (int i = 0; i < psa.size(); i++) { converted[i] = psa[i]; }
+                    base = converted;
+                }
                 if (base.get_type() != Variant::ARRAY) {
                     raise_error("Fast array base is not an array");
                     if (try_recover_error(Variant())) break;

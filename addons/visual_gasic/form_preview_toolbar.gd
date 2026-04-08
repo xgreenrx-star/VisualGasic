@@ -78,6 +78,10 @@ func _preview_current_form(with_debug: bool) -> void:
 	# Always save breakpoints so the game process can check them at startup
 	_save_breakpoints_for_preview()
 
+	# ── Pre-launch error gate ──────────────────────────────────────
+	if not _pre_launch_validate():
+		return
+
 	# Find the scene to run: currently edited scene first
 	var scene_path := ""
 	var scene_root = editor.get_edited_scene_root()
@@ -97,96 +101,143 @@ func _preview_current_form(with_debug: bool) -> void:
 	editor.play_custom_scene(scene_path)
 
 func _build_project() -> void:
-	"""Validate all .vg files in the project by scanning for syntax issues"""
+	"""Validate all .vg files in the project using the C++ parser/linter"""
 	if not _editor_plugin:
 		push_error("FormPreviewToolbar: No editor plugin set")
 		return
-	
-	print("VisualGasic: Building project - validating .vg files...")
-	
-	var errors = 0
-	var warnings = 0
-	var files_checked = 0
+
+	print("VisualGasic: Building project — validating .vg files…")
+
+	var total_errors := 0
+	var total_warnings := 0
+	var files_checked := 0
 	var error_messages: Array[String] = []
-	
+
+	# Check if the C++ validation API is available
+	var has_vg_validate := ClassDB.class_exists(&"VisualGasicLanguage") and ClassDB.class_has_method(&"VisualGasicLanguage", &"vg_validate_code")
+
 	# Scan for all .vg files
 	var vg_files = _find_vg_files("res://")
-	
+
 	for vg_path in vg_files:
 		files_checked += 1
 		var file = FileAccess.open(vg_path, FileAccess.READ)
 		if not file:
-			errors += 1
+			total_errors += 1
 			error_messages.append("Cannot open: " + vg_path)
 			continue
-		
+
 		var content = file.get_as_text()
 		file.close()
-		
-		# Basic validation checks
-		var line_num = 0
-		var open_blocks: Array[String] = []
-		
-		for line in content.split("\n"):
-			line_num += 1
-			var trimmed = line.strip_edges()
-			var upper = trimmed.to_upper()
-			
-			# Track block openings
-			if upper.begins_with("SUB ") and not upper.begins_with("SUB = "):
-				open_blocks.append("Sub")
-			elif upper.begins_with("FUNCTION "):
-				open_blocks.append("Function")
-			elif upper.begins_with("IF ") and upper.ends_with(" THEN") and not trimmed.contains(":"):
-				# Multi-line If (not single-line)
-				open_blocks.append("If")
-			elif upper.begins_with("FOR ") or upper.begins_with("FOR EACH "):
-				open_blocks.append("For")
-			elif upper.begins_with("DO ") or upper == "DO":
-				open_blocks.append("Do")
-			elif upper.begins_with("SELECT CASE"):
-				open_blocks.append("Select")
-			elif upper.begins_with("WHILE ") and not upper.begins_with("WHILE WEND"):
-				open_blocks.append("While")
-			
-			# Track block closings
-			elif upper == "END SUB":
-				if open_blocks.size() > 0 and open_blocks[-1] == "Sub":
-					open_blocks.pop_back()
-			elif upper == "END FUNCTION":
-				if open_blocks.size() > 0 and open_blocks[-1] == "Function":
-					open_blocks.pop_back()
-			elif upper == "END IF":
-				if open_blocks.size() > 0 and open_blocks[-1] == "If":
-					open_blocks.pop_back()
-			elif upper.begins_with("NEXT"):
-				if open_blocks.size() > 0 and open_blocks[-1] == "For":
-					open_blocks.pop_back()
-			elif upper == "LOOP" or upper.begins_with("LOOP "):
-				if open_blocks.size() > 0 and open_blocks[-1] == "Do":
-					open_blocks.pop_back()
-			elif upper == "END SELECT":
-				if open_blocks.size() > 0 and open_blocks[-1] == "Select":
-					open_blocks.pop_back()
-			elif upper == "WEND":
-				if open_blocks.size() > 0 and open_blocks[-1] == "While":
-					open_blocks.pop_back()
-		
-		# Check for unclosed blocks
-		if open_blocks.size() > 0:
-			warnings += 1
-			for block in open_blocks:
-				error_messages.append("%s: Possibly unclosed '%s' block" % [vg_path, block])
-	
-	# Print build results
-	if errors == 0 and warnings == 0:
-		print("VisualGasic: Build succeeded - %d files checked, no issues found ✅" % files_checked)
+
+		if has_vg_validate:
+			# Use the C++ parser via the static ClassDB-bound method
+			var result: Dictionary = VisualGasicLanguage.vg_validate_code(content, vg_path)
+			var file_errors: Array = result.get("errors", [])
+			var file_warnings: Array = result.get("warnings", [])
+			for err in file_errors:
+				total_errors += 1
+				var line_num: int = err.get("line", 0)
+				var msg: String = err.get("message", "Unknown error")
+				error_messages.append("%s(%d): ✖ %s" % [vg_path, line_num, msg])
+			for warn in file_warnings:
+				total_warnings += 1
+				var line_num: int = warn.get("line", 0)
+				var msg: String = warn.get("message", "Unknown warning")
+				error_messages.append("%s(%d): ⚠ %s" % [vg_path, line_num, msg])
+		else:
+			# Fallback: try reload and check error code
+			var script = load(vg_path) as Script
+			if script and script.reload() != OK:
+				total_errors += 1
+				error_messages.append("%s: Parse error (details in Output)" % vg_path)
+
+	# Route results to the Errors tab if the embedded code editor is available
+	if "_embedded_code_editor" in _editor_plugin:
+		var ece = _editor_plugin._embedded_code_editor
+		if ece and is_instance_valid(ece):
+			# Log build results to the Output tab
+			if ece.has_method("append_output"):
+				ece.append_output("")
+				ece.append_output("═══ Build Results ═══")
+				if error_messages.is_empty():
+					ece.append_output("Build succeeded — %d files checked, no issues found ✓" % files_checked)
+				else:
+					ece.append_output("Build: %d files, %d errors, %d warnings" % [files_checked, total_errors, total_warnings])
+					for msg in error_messages:
+						ece.append_output("  " + msg)
+			# Switch to the Errors tab if there are problems
+			if total_errors > 0 and ece.has_method("focus_errors"):
+				ece.focus_errors()
+
+	# Console summary
+	if total_errors == 0 and total_warnings == 0:
+		print("VisualGasic: Build succeeded — %d files checked, no issues found ✅" % files_checked)
 	else:
-		print("VisualGasic: Build completed - %d files, %d errors, %d warnings" % [files_checked, errors, warnings])
+		print("VisualGasic: Build completed — %d files, %d errors, %d warnings" % [files_checked, total_errors, total_warnings])
 		for msg in error_messages:
-			print("  ⚠ " + msg)
-	
+			print("  " + msg)
+
 	print("VisualGasic: Build complete.")
+
+func _pre_launch_validate() -> bool:
+	"""Pre-launch error gate — validates the current .vg file before running.
+	Returns true if OK to launch, false if errors block launch."""
+	# Get the embedded code editor
+	if not "_embedded_code_editor" in _editor_plugin:
+		return true  # No code editor → nothing to validate
+	var ece = _editor_plugin._embedded_code_editor
+	if not ece or not is_instance_valid(ece):
+		return true
+	if not ece.has_method("validate_code"):
+		return true
+
+	var is_valid: bool = ece.validate_code()
+	if is_valid:
+		return true
+
+	# Errors found — collect the first few for the dialog message
+	var err_count: int = 0
+	var first_errors: Array[String] = []
+	if ece.has_method("get_current_errors"):
+		var errors: Array = ece.get_current_errors()
+		err_count = errors.size()
+		for i in mini(errors.size(), 5):
+			var e: Dictionary = errors[i]
+			var line_num: int = e.get("line", 0)
+			var msg: String = e.get("message", "Unknown error")
+			first_errors.append("Line %d: %s" % [line_num, msg])
+
+	# Build the VB6-style error message
+	var dialog_text := "There %s %d compile error%s. Please fix %s before running.\n\n" % [
+		"is" if err_count == 1 else "are",
+		err_count,
+		"" if err_count == 1 else "s",
+		"it" if err_count == 1 else "them",
+	]
+	for line_text in first_errors:
+		dialog_text += "  ✖ " + line_text + "\n"
+	if err_count > 5:
+		dialog_text += "  … and %d more\n" % (err_count - 5)
+
+	# Show a blocking dialog
+	var dlg := AcceptDialog.new()
+	dlg.title = "VisualGasic — Compile Error"
+	dlg.dialog_text = dialog_text
+	dlg.ok_button_text = "OK"
+	dlg.min_size = Vector2i(460, 200)
+	# Focus the Errors tab when the dialog is dismissed
+	dlg.confirmed.connect(func():
+		if ece.has_method("focus_errors"):
+			ece.focus_errors()
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func(): dlg.queue_free())
+	EditorInterface.get_base_control().add_child(dlg)
+	dlg.popup_centered()
+
+	print("VisualGasic: Launch blocked — %d compile error(s)" % err_count)
+	return false
 
 func _find_vg_files(dir_path: String) -> Array[String]:
 	"""Recursively find all .vg files in a directory"""
@@ -222,6 +273,10 @@ func _run_project() -> void:
 
 	# Save breakpoints so the game process can check them at startup
 	_save_breakpoints_for_preview()
+
+	# ── Pre-launch error gate ──────────────────────────────────────
+	if not _pre_launch_validate():
+		return
 
 	# 1. Check for project main scene (explicit setting always wins)
 	var main_scene = ProjectSettings.get_setting("application/run/main_scene", "")

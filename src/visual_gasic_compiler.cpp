@@ -256,6 +256,9 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     expr_cache.clear();
     loop_vars.clear();
     loop_bound_vars.clear();
+    loop_exit_jumps.clear();
+    loop_continue_targets.clear();
+    loop_continue_forward_jumps.clear();
     temp_local_id = 0;
     current_sub = nullptr;
     
@@ -585,6 +588,51 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
             }
             break;
         }
+        case STMT_OSCILLATE: {
+            OscillateStatement* os = (OscillateStatement*)stmt;
+            get_or_add_local(os->variable_name, VT_UNKNOWN);
+            // Hidden compiler-generated direction variable
+            get_or_add_local("__osc_dir_" + os->variable_name.to_lower(), VT_INT);
+            if (os->cycles_val) get_or_add_local("__osc_cyc_" + os->variable_name.to_lower(), VT_INT);
+            for (int i = 0; i < os->body.size(); i++) {
+                collect_locals(os->body[i]);
+            }
+            break;
+        }
+        case STMT_REPEAT: {
+            RepeatStatement* rp = (RepeatStatement*)stmt;
+            // Hidden counter variable (or user-named if "As varname" was used)
+            if (!rp->counter_name.is_empty()) {
+                get_or_add_local(rp->counter_name, VT_INT);
+            }
+            get_or_add_local("__repeat_i_" + String::num_int64(temp_local_id), VT_INT);
+            get_or_add_local("__repeat_n_" + String::num_int64(temp_local_id), VT_INT);
+            for (int i = 0; i < rp->body.size(); i++) {
+                collect_locals(rp->body[i]);
+            }
+            break;
+        }
+        case STMT_CYCLE: {
+            CycleStatement* cy = (CycleStatement*)stmt;
+            if (!cy->element_name.is_empty()) {
+                get_or_add_local(cy->element_name, VT_UNKNOWN);
+            }
+            for (int i = 0; i < cy->body.size(); i++) {
+                collect_locals(cy->body[i]);
+            }
+            break;
+        }
+        case STMT_EVERY: {
+            EveryStatement* ev = (EveryStatement*)stmt;
+            for (int i = 0; i < ev->body.size(); i++) {
+                collect_locals(ev->body[i]);
+            }
+            break;
+        }
+        case STMT_TWEEN: {
+            // No locals to register — Tween is a single statement
+            break;
+        }
         case STMT_FOR_EACH: {
             ForEachStatement* s = (ForEachStatement*)stmt;
             for (int i = 0; i < s->body.size(); i++) {
@@ -776,6 +824,30 @@ void VisualGasicCompiler::collect_assigned_vars_stmt(Statement* stmt, HashSet<St
             for (int i = 0; i < s->body.size(); i++) collect_assigned_vars_stmt(s->body[i], out);
             break;
         }
+        case STMT_OSCILLATE: {
+            OscillateStatement* os = (OscillateStatement*)stmt;
+            for (int i = 0; i < os->body.size(); i++) collect_assigned_vars_stmt(os->body[i], out);
+            break;
+        }
+        case STMT_REPEAT: {
+            RepeatStatement* rp = (RepeatStatement*)stmt;
+            for (int i = 0; i < rp->body.size(); i++) collect_assigned_vars_stmt(rp->body[i], out);
+            break;
+        }
+        case STMT_CYCLE: {
+            CycleStatement* cy = (CycleStatement*)stmt;
+            for (int i = 0; i < cy->body.size(); i++) collect_assigned_vars_stmt(cy->body[i], out);
+            break;
+        }
+        case STMT_EVERY: {
+            EveryStatement* ev = (EveryStatement*)stmt;
+            for (int i = 0; i < ev->body.size(); i++) collect_assigned_vars_stmt(ev->body[i], out);
+            break;
+        }
+        case STMT_TWEEN: {
+            // No assignments in a Tween statement
+            break;
+        }
         case STMT_FOR_EACH: {
             ForEachStatement* s = (ForEachStatement*)stmt;
             for (int i = 0; i < s->body.size(); i++) collect_assigned_vars_stmt(s->body[i], out);
@@ -848,6 +920,42 @@ void VisualGasicCompiler::collect_used_vars_stmt(Statement* stmt) {
             DoStatement* s = (DoStatement*)stmt;
             collect_used_vars_expr(s->condition);
             for (int i = 0; i < s->body.size(); i++) collect_used_vars_stmt(s->body[i]);
+            break;
+        }
+        case STMT_OSCILLATE: {
+            OscillateStatement* os = (OscillateStatement*)stmt;
+            collect_used_vars_expr(os->from_val);
+            collect_used_vars_expr(os->to_val);
+            collect_used_vars_expr(os->step_val);
+            if (os->cycles_val) collect_used_vars_expr(os->cycles_val);
+            for (int i = 0; i < os->body.size(); i++) collect_used_vars_stmt(os->body[i]);
+            break;
+        }
+        case STMT_REPEAT: {
+            RepeatStatement* rp = (RepeatStatement*)stmt;
+            collect_used_vars_expr(rp->count_val);
+            for (int i = 0; i < rp->body.size(); i++) collect_used_vars_stmt(rp->body[i]);
+            break;
+        }
+        case STMT_CYCLE: {
+            CycleStatement* cy = (CycleStatement*)stmt;
+            collect_used_vars_expr(cy->collection);
+            collect_used_vars_expr(cy->count_val);
+            for (int i = 0; i < cy->body.size(); i++) collect_used_vars_stmt(cy->body[i]);
+            break;
+        }
+        case STMT_EVERY: {
+            EveryStatement* ev = (EveryStatement*)stmt;
+            collect_used_vars_expr(ev->interval_val);
+            for (int i = 0; i < ev->body.size(); i++) collect_used_vars_stmt(ev->body[i]);
+            break;
+        }
+        case STMT_TWEEN: {
+            TweenStatement* tw = (TweenStatement*)stmt;
+            collect_used_vars_expr(tw->target_node);
+            if (tw->from_val) collect_used_vars_expr(tw->from_val);
+            collect_used_vars_expr(tw->to_val);
+            collect_used_vars_expr(tw->duration);
             break;
         }
         case STMT_PRINT: {
@@ -1052,6 +1160,24 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
     switch (stmt->type) {
         case STMT_ASSIGNMENT: {
             AssignmentStatement* s = (AssignmentStatement*)stmt;
+            // If a sole_owner_dict variable itself is reassigned from an external
+            // source (e.g. Set o = Objects(id)), the VGDict optimisation is invalid
+            // because the variable now points to an existing Godot Dictionary,
+            // not the compiler-created VGDict fast-dict.
+            if (s->target && s->target->type == ExpressionNode::VARIABLE) {
+                String lhs = ((VariableNode*)s->target)->name.to_lower();
+                if (sole_owner_dict_vars.has(lhs)) {
+                    // Only keep sole-ownership if RHS is self-assignment
+                    bool safe_rhs = false;
+                    if (s->value && s->value->type == ExpressionNode::VARIABLE) {
+                        String rhs = ((VariableNode*)s->value)->name.to_lower();
+                        if (rhs == lhs) safe_rhs = true;
+                    }
+                    if (!safe_rhs) {
+                        escaped.insert(lhs);
+                    }
+                }
+            }
             // If dict is assigned TO a different variable: dict escapes
             if (s->value && s->value->type == ExpressionNode::VARIABLE) {
                 String rhs = ((VariableNode*)s->value)->name.to_lower();
@@ -1101,6 +1227,42 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
             DoStatement* s = (DoStatement*)stmt;
             _check_expr_escapes(s->condition, escaped);
             for (int i = 0; i < s->body.size(); i++) _check_dict_escapes(s->body[i], escaped);
+            break;
+        }
+        case STMT_OSCILLATE: {
+            OscillateStatement* os = (OscillateStatement*)stmt;
+            _check_expr_escapes(os->from_val, escaped);
+            _check_expr_escapes(os->to_val, escaped);
+            _check_expr_escapes(os->step_val, escaped);
+            if (os->cycles_val) _check_expr_escapes(os->cycles_val, escaped);
+            for (int i = 0; i < os->body.size(); i++) _check_dict_escapes(os->body[i], escaped);
+            break;
+        }
+        case STMT_REPEAT: {
+            RepeatStatement* rp = (RepeatStatement*)stmt;
+            _check_expr_escapes(rp->count_val, escaped);
+            for (int i = 0; i < rp->body.size(); i++) _check_dict_escapes(rp->body[i], escaped);
+            break;
+        }
+        case STMT_CYCLE: {
+            CycleStatement* cy = (CycleStatement*)stmt;
+            _check_expr_escapes(cy->collection, escaped);
+            _check_expr_escapes(cy->count_val, escaped);
+            for (int i = 0; i < cy->body.size(); i++) _check_dict_escapes(cy->body[i], escaped);
+            break;
+        }
+        case STMT_EVERY: {
+            EveryStatement* ev = (EveryStatement*)stmt;
+            _check_expr_escapes(ev->interval_val, escaped);
+            for (int i = 0; i < ev->body.size(); i++) _check_dict_escapes(ev->body[i], escaped);
+            break;
+        }
+        case STMT_TWEEN: {
+            TweenStatement* tw = (TweenStatement*)stmt;
+            _check_expr_escapes(tw->target_node, escaped);
+            if (tw->from_val) _check_expr_escapes(tw->from_val, escaped);
+            _check_expr_escapes(tw->to_val, escaped);
+            _check_expr_escapes(tw->duration, escaped);
             break;
         }
         case STMT_FOR_EACH: {
@@ -3942,6 +4104,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             loop_bound_vars.push_back(loop_bound);
             loop_exit_jumps.push_back(Vector<int>());
             loop_continue_targets.push_back(-1); // placeholder, updated after body
+            loop_continue_forward_jumps.push_back(Vector<int>());
 
             ValueType declared_type = get_local_type(f->variable_name);
             ValueType init_type = declared_type != VT_UNKNOWN ? declared_type : infer_type(f->from_val);
@@ -4148,6 +4311,13 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             if (!loop_continue_targets.is_empty()) {
                 loop_continue_targets.write[loop_continue_targets.size() - 1] = continue_target;
             }
+            // Patch any forward Continue jumps emitted during the body
+            if (!loop_continue_forward_jumps.is_empty()) {
+                const Vector<int> &fwd = loop_continue_forward_jumps[loop_continue_forward_jumps.size() - 1];
+                for (int fi = 0; fi < fwd.size(); fi++) {
+                    patch_jump(fwd[fi]);
+                }
+            }
 
             bool inc_local_fast = (var_slot >= 0 && has_step_const && step_const_is_one && loop_type == VT_INT);
 
@@ -4213,6 +4383,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             if (!loop_continue_targets.is_empty()) {
                 loop_continue_targets.remove_at(loop_continue_targets.size() - 1);
             }
+            if (!loop_continue_forward_jumps.is_empty()) {
+                loop_continue_forward_jumps.remove_at(loop_continue_forward_jumps.size() - 1);
+            }
             loop_vars.remove_at(loop_vars.size() - 1);
             loop_bound_vars.remove_at(loop_bound_vars.size() - 1);
             break;
@@ -4226,6 +4399,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             
             loop_exit_jumps.push_back(Vector<int>());
             loop_continue_targets.push_back(-1); // will be set to loop_start
+            loop_continue_forward_jumps.push_back(Vector<int>());
             int loop_start = current_chunk->code.size();
             // Continue While jumps back to condition check
             loop_continue_targets.write[loop_continue_targets.size() - 1] = loop_start;
@@ -4248,6 +4422,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
             if (!loop_continue_targets.is_empty()) {
                 loop_continue_targets.remove_at(loop_continue_targets.size() - 1);
+            }
+            if (!loop_continue_forward_jumps.is_empty()) {
+                loop_continue_forward_jumps.remove_at(loop_continue_forward_jumps.size() - 1);
             }
             break;
         }
@@ -4365,7 +4542,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             ExitStatement *s = (ExitStatement *)stmt;
             if (s->exit_type == ExitStatement::EXIT_FUNCTION || s->exit_type == ExitStatement::EXIT_SUB) {
                 emit_return();
-            } else if ((s->exit_type == ExitStatement::EXIT_FOR || s->exit_type == ExitStatement::EXIT_DO) &&
+            } else if ((s->exit_type == ExitStatement::EXIT_FOR || s->exit_type == ExitStatement::EXIT_DO ||
+                       s->exit_type == ExitStatement::EXIT_OSCILLATE || s->exit_type == ExitStatement::EXIT_REPEAT ||
+                       s->exit_type == ExitStatement::EXIT_CYCLE) &&
                        !loop_exit_jumps.is_empty()) {
                 // Emit an unconditional jump; the address will be patched
                 // when the enclosing loop finishes compiling.
@@ -4556,6 +4735,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             
             loop_exit_jumps.push_back(Vector<int>());
             loop_continue_targets.push_back(-1); // placeholder
+            loop_continue_forward_jumps.push_back(Vector<int>());
             int loop_start = current_chunk->code.size();
             
             if (!s->is_post_condition && s->condition_type != DoStatement::NONE) {
@@ -4623,6 +4803,588 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             if (!loop_continue_targets.is_empty()) {
                 loop_continue_targets.remove_at(loop_continue_targets.size() - 1);
             }
+            if (!loop_continue_forward_jumps.is_empty()) {
+                loop_continue_forward_jumps.remove_at(loop_continue_forward_jumps.size() - 1);
+            }
+            break;
+        }
+        case STMT_OSCILLATE: {
+            // Oscillate i = from To to [Step s] [Cycles n]
+            //   ... body ...
+            // Loop
+            //
+            // Ping-pong loop: counter bounces between from_val and to_val.
+            // Hidden variables: __osc_dir_<var> (1 or -1), __osc_cyc_<var> (cycle count)
+            OscillateStatement* os = (OscillateStatement*)stmt;
+            if (!os->from_val || !os->to_val) {
+                compile_ok = false;
+                break;
+            }
+
+            loop_exit_jumps.push_back(Vector<int>());
+            loop_continue_targets.push_back(-1);
+            loop_continue_forward_jumps.push_back(Vector<int>());
+
+            String var_lower = os->variable_name.to_lower();
+            String dir_name = "__osc_dir_" + var_lower;
+            String cyc_name = "__osc_cyc_" + var_lower;
+
+            int var_slot = get_or_add_local(os->variable_name, VT_UNKNOWN);
+            int dir_slot = get_or_add_local(dir_name, VT_INT);
+            int cyc_slot = os->cycles_val ? get_or_add_local(cyc_name, VT_INT) : -1;
+
+            // Cache from_val and to_val into locals for boundary checks
+            int from_slot = get_or_add_local(String("__osc_from_") + String::num_int64(temp_local_id++), VT_UNKNOWN);
+            int to_slot = get_or_add_local(String("__osc_to_") + String::num_int64(temp_local_id++), VT_UNKNOWN);
+
+            // Initialize from_val → from_slot and var_slot
+            compile_expression(os->from_val);
+            if (from_slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)from_slot);
+            if (var_slot >= 0) {
+                if (from_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)from_slot);
+                else compile_expression(os->from_val);
+                emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
+            }
+
+            // Initialize to_val → to_slot
+            compile_expression(os->to_val);
+            if (to_slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)to_slot);
+
+            // Initialize direction = 1
+            emit_constant(Variant((int64_t)1));
+            if (dir_slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)dir_slot);
+
+            // Initialize cycle counter = 0
+            if (cyc_slot >= 0) {
+                emit_constant(Variant((int64_t)0));
+                emit_bytes(OP_SET_LOCAL, (uint8_t)cyc_slot);
+            }
+
+            // Cache step into a local
+            int step_slot = get_or_add_local(String("__osc_step_") + String::num_int64(temp_local_id++), VT_UNKNOWN);
+            if (os->step_val) {
+                compile_expression(os->step_val);
+            } else {
+                emit_constant(Variant((int64_t)1));
+            }
+            if (step_slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)step_slot);
+
+            // ── Loop start ──
+            int loop_start = current_chunk->code.size();
+
+            // Compile body
+            for (int i = 0; i < os->body.size(); i++) {
+                compile_statement(os->body[i]);
+            }
+
+            // ── Continue target: increment and boundary logic ──
+            int continue_target = current_chunk->code.size();
+            if (!loop_continue_targets.is_empty()) {
+                loop_continue_targets.write[loop_continue_targets.size() - 1] = continue_target;
+            }
+            // Patch any forward Continue jumps emitted during the body
+            if (!loop_continue_forward_jumps.is_empty()) {
+                const Vector<int> &fwd = loop_continue_forward_jumps[loop_continue_forward_jumps.size() - 1];
+                for (int fi = 0; fi < fwd.size(); fi++) {
+                    patch_jump(fwd[fi]);
+                }
+            }
+
+            // var += step * dir
+            if (var_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
+            if (step_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)step_slot);
+            else emit_constant(Variant((int64_t)1));
+            if (dir_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)dir_slot);
+            else emit_constant(Variant((int64_t)1));
+            emit_byte(OP_MULTIPLY);  // step * dir
+            emit_byte(OP_ADD);  // var + (step * dir)
+            if (var_slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
+
+            // ── Upper boundary check: if var >= to_val → clamp & reverse ──
+            if (var_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
+            if (to_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)to_slot);
+            emit_byte(OP_GREATER_EQUAL);
+            int skip_upper = emit_jump(OP_JUMP_IF_FALSE);
+            {
+                // var = to_val
+                if (to_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)to_slot);
+                if (var_slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
+                // dir = -1
+                emit_constant(Variant((int64_t)-1));
+                if (dir_slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)dir_slot);
+                // cyc++
+                if (cyc_slot >= 0) {
+                    emit_bytes(OP_GET_LOCAL, (uint8_t)cyc_slot);
+                    emit_constant(Variant((int64_t)1));
+                    emit_byte(OP_ADD);
+                    emit_bytes(OP_SET_LOCAL, (uint8_t)cyc_slot);
+                }
+            }
+            int skip_lower_entirely = emit_jump(OP_JUMP); // else-if: skip lower check if upper fired
+            patch_jump(skip_upper);
+
+            // ── Lower boundary check: if var <= from_val → clamp & reverse ──
+            if (var_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
+            if (from_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)from_slot);
+            emit_byte(OP_LESS_EQUAL);
+            int skip_lower = emit_jump(OP_JUMP_IF_FALSE);
+            {
+                // var = from_val
+                if (from_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)from_slot);
+                if (var_slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
+                // dir = 1
+                emit_constant(Variant((int64_t)1));
+                if (dir_slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)dir_slot);
+                // cyc++
+                if (cyc_slot >= 0) {
+                    emit_bytes(OP_GET_LOCAL, (uint8_t)cyc_slot);
+                    emit_constant(Variant((int64_t)1));
+                    emit_byte(OP_ADD);
+                    emit_bytes(OP_SET_LOCAL, (uint8_t)cyc_slot);
+                }
+            }
+            patch_jump(skip_lower);
+            patch_jump(skip_lower_entirely); // join point for both branches
+
+            // ── Cycles exit check: if cyc >= cycles_val → exit ──
+            if (os->cycles_val && cyc_slot >= 0) {
+                emit_bytes(OP_GET_LOCAL, (uint8_t)cyc_slot);
+                compile_expression(os->cycles_val);
+                emit_byte(OP_GREATER_EQUAL);
+                int cycles_exit = emit_jump(OP_JUMP_IF_TRUE);
+                // Record this exit jump so it gets patched at the end
+                if (!loop_exit_jumps.is_empty()) {
+                    loop_exit_jumps.write[loop_exit_jumps.size() - 1].push_back(cycles_exit);
+                }
+            }
+
+            emit_loop(loop_start);
+
+            // Patch exit jumps
+            if (!loop_exit_jumps.is_empty()) {
+                const Vector<int> &exits = loop_exit_jumps[loop_exit_jumps.size() - 1];
+                for (int ei = 0; ei < exits.size(); ei++) {
+                    patch_jump(exits[ei]);
+                }
+                loop_exit_jumps.remove_at(loop_exit_jumps.size() - 1);
+            }
+            if (!loop_continue_targets.is_empty()) {
+                loop_continue_targets.remove_at(loop_continue_targets.size() - 1);
+            }
+            if (!loop_continue_forward_jumps.is_empty()) {
+                loop_continue_forward_jumps.remove_at(loop_continue_forward_jumps.size() - 1);
+            }
+            break;
+        }
+        case STMT_REPEAT: {
+            // Repeat N Times [As counter]
+            //   ... body ...
+            // End Repeat
+            //
+            // Simple counted loop.  Hidden __repeat_i counts from 1 to N.
+            // If "As counter" is used, the user variable mirrors __repeat_i.
+            RepeatStatement* rp = (RepeatStatement*)stmt;
+            if (!rp->count_val) {
+                compile_ok = false;
+                break;
+            }
+
+            loop_exit_jumps.push_back(Vector<int>());
+            loop_continue_targets.push_back(-1);
+            loop_continue_forward_jumps.push_back(Vector<int>());
+
+            // Allocate hidden locals for counter and limit
+            int i_slot = get_or_add_local(String("__repeat_i_") + String::num_int64(temp_local_id), VT_INT);
+            int n_slot = get_or_add_local(String("__repeat_n_") + String::num_int64(temp_local_id), VT_INT);
+            temp_local_id++;
+
+            int user_slot = -1;
+            if (!rp->counter_name.is_empty()) {
+                user_slot = get_or_add_local(rp->counter_name, VT_INT);
+            }
+
+            // Initialize: __repeat_n = count_val
+            compile_expression(rp->count_val);
+            emit_bytes(OP_SET_LOCAL, (uint8_t)n_slot);
+
+            // Initialize: __repeat_i = 1
+            emit_constant(Variant((int64_t)1));
+            emit_bytes(OP_SET_LOCAL, (uint8_t)i_slot);
+
+            // If user counter, set it too: counter = 1
+            if (user_slot >= 0) {
+                emit_bytes(OP_GET_LOCAL, (uint8_t)i_slot);
+                emit_bytes(OP_SET_LOCAL, (uint8_t)user_slot);
+            }
+
+            // ── Loop start: condition check ──
+            int loop_start = current_chunk->code.size();
+
+            // if __repeat_i > __repeat_n then exit
+            emit_bytes(OP_GET_LOCAL, (uint8_t)i_slot);
+            emit_bytes(OP_GET_LOCAL, (uint8_t)n_slot);
+            emit_byte(OP_GREATER);
+            int exit_jump = emit_jump(OP_JUMP_IF_TRUE);
+            if (!loop_exit_jumps.is_empty()) {
+                loop_exit_jumps.write[loop_exit_jumps.size() - 1].push_back(exit_jump);
+            }
+
+            // Compile body
+            for (int i = 0; i < rp->body.size(); i++) {
+                compile_statement(rp->body[i]);
+            }
+
+            // ── Continue target: increment counter ──
+            int continue_target = current_chunk->code.size();
+            if (!loop_continue_targets.is_empty()) {
+                loop_continue_targets.write[loop_continue_targets.size() - 1] = continue_target;
+            }
+            // Patch forward Continue jumps
+            if (!loop_continue_forward_jumps.is_empty()) {
+                const Vector<int> &fwd = loop_continue_forward_jumps[loop_continue_forward_jumps.size() - 1];
+                for (int fi = 0; fi < fwd.size(); fi++) {
+                    patch_jump(fwd[fi]);
+                }
+            }
+
+            // __repeat_i = __repeat_i + 1
+            emit_bytes(OP_GET_LOCAL, (uint8_t)i_slot);
+            emit_constant(Variant((int64_t)1));
+            emit_byte(OP_ADD);
+            emit_bytes(OP_SET_LOCAL, (uint8_t)i_slot);
+
+            // Update user counter if present
+            if (user_slot >= 0) {
+                emit_bytes(OP_GET_LOCAL, (uint8_t)i_slot);
+                emit_bytes(OP_SET_LOCAL, (uint8_t)user_slot);
+            }
+
+            emit_loop(loop_start);
+
+            // Patch exit jumps
+            if (!loop_exit_jumps.is_empty()) {
+                const Vector<int> &exits = loop_exit_jumps[loop_exit_jumps.size() - 1];
+                for (int ei = 0; ei < exits.size(); ei++) {
+                    patch_jump(exits[ei]);
+                }
+                loop_exit_jumps.remove_at(loop_exit_jumps.size() - 1);
+            }
+            if (!loop_continue_targets.is_empty()) {
+                loop_continue_targets.remove_at(loop_continue_targets.size() - 1);
+            }
+            if (!loop_continue_forward_jumps.is_empty()) {
+                loop_continue_forward_jumps.remove_at(loop_continue_forward_jumps.size() - 1);
+            }
+            break;
+        }
+        case STMT_CYCLE: {
+            // Cycle Through collection For N As element
+            //   ... body ...
+            // End Cycle
+            //
+            // Iterates N times through a collection, wrapping around using
+            // modular indexing: element = collection[i Mod Len(collection)]
+            CycleStatement* cy = (CycleStatement*)stmt;
+            if (!cy->collection || !cy->count_val || cy->element_name.is_empty()) {
+                compile_ok = false;
+                break;
+            }
+
+            loop_exit_jumps.push_back(Vector<int>());
+            loop_continue_targets.push_back(-1);
+            loop_continue_forward_jumps.push_back(Vector<int>());
+
+            // Allocate locals: collection cache, length cache, counter, limit, element
+            int coll_slot = get_or_add_local(String("__cycle_coll_") + String::num_int64(temp_local_id), VT_UNKNOWN);
+            int len_slot  = get_or_add_local(String("__cycle_len_") + String::num_int64(temp_local_id), VT_INT);
+            int i_slot    = get_or_add_local(String("__cycle_i_") + String::num_int64(temp_local_id), VT_INT);
+            int n_slot    = get_or_add_local(String("__cycle_n_") + String::num_int64(temp_local_id), VT_INT);
+            temp_local_id++;
+            int elem_slot = get_or_add_local(cy->element_name, VT_UNKNOWN);
+
+            // Initialize collection → coll_slot
+            compile_expression(cy->collection);
+            emit_byte(OP_DICT_KEYS_CALL); // convert Dict→keys array, pass arrays through
+            emit_bytes(OP_SET_LOCAL, (uint8_t)coll_slot);
+
+            // len_slot = Len(collection)
+            emit_bytes(OP_GET_LOCAL, (uint8_t)coll_slot);
+            emit_byte(OP_LEN);
+            emit_bytes(OP_SET_LOCAL, (uint8_t)len_slot);
+
+            // n_slot = count_val (total iterations)
+            compile_expression(cy->count_val);
+            emit_bytes(OP_SET_LOCAL, (uint8_t)n_slot);
+
+            // i_slot = 0 (iteration counter)
+            emit_constant(Variant((int64_t)0));
+            emit_bytes(OP_SET_LOCAL, (uint8_t)i_slot);
+
+            // ── Loop start ──
+            int loop_start = current_chunk->code.size();
+
+            // if i >= n then exit
+            emit_bytes(OP_GET_LOCAL, (uint8_t)i_slot);
+            emit_bytes(OP_GET_LOCAL, (uint8_t)n_slot);
+            emit_byte(OP_GREATER_EQUAL);
+            int exit_jump = emit_jump(OP_JUMP_IF_TRUE);
+            if (!loop_exit_jumps.is_empty()) {
+                loop_exit_jumps.write[loop_exit_jumps.size() - 1].push_back(exit_jump);
+            }
+
+            // element = collection[i Mod len]
+            emit_bytes(OP_GET_LOCAL, (uint8_t)coll_slot);
+            emit_bytes(OP_GET_LOCAL, (uint8_t)i_slot);
+            emit_bytes(OP_GET_LOCAL, (uint8_t)len_slot);
+            emit_byte(OP_MOD);  // i Mod len
+            emit_byte(OP_GET_ARRAY);
+            emit_byte(1);  // 1 index dimension
+            emit_bytes(OP_SET_LOCAL, (uint8_t)elem_slot);
+
+            // Compile body
+            for (int i = 0; i < cy->body.size(); i++) {
+                compile_statement(cy->body[i]);
+            }
+
+            // ── Continue target: increment ──
+            int continue_target = current_chunk->code.size();
+            if (!loop_continue_targets.is_empty()) {
+                loop_continue_targets.write[loop_continue_targets.size() - 1] = continue_target;
+            }
+            if (!loop_continue_forward_jumps.is_empty()) {
+                const Vector<int> &fwd = loop_continue_forward_jumps[loop_continue_forward_jumps.size() - 1];
+                for (int fi = 0; fi < fwd.size(); fi++) {
+                    patch_jump(fwd[fi]);
+                }
+            }
+
+            // i = i + 1
+            if (i_slot >= 0 && i_slot < 256) {
+                emit_bytes(OP_INC_LOCAL_I64, (uint8_t)i_slot);
+            } else {
+                emit_bytes(OP_GET_LOCAL, (uint8_t)i_slot);
+                emit_constant(Variant((int64_t)1));
+                emit_byte(OP_ADD);
+                emit_bytes(OP_SET_LOCAL, (uint8_t)i_slot);
+            }
+
+            emit_loop(loop_start);
+
+            // Patch exit jumps
+            if (!loop_exit_jumps.is_empty()) {
+                const Vector<int> &exits = loop_exit_jumps[loop_exit_jumps.size() - 1];
+                for (int ei = 0; ei < exits.size(); ei++) {
+                    patch_jump(exits[ei]);
+                }
+                loop_exit_jumps.remove_at(loop_exit_jumps.size() - 1);
+            }
+            if (!loop_continue_targets.is_empty()) {
+                loop_continue_targets.remove_at(loop_continue_targets.size() - 1);
+            }
+            if (!loop_continue_forward_jumps.is_empty()) {
+                loop_continue_forward_jumps.remove_at(loop_continue_forward_jumps.size() - 1);
+            }
+            break;
+        }
+        case STMT_EVERY: {
+            // Every N Frames/Seconds ... End Every
+            //
+            // NOT a loop — a conditional guard using hidden persistent globals.
+            // Frames mode: hidden counter increments each entry, fires when >= N.
+            // Seconds mode: tracks last-fire time, fires when elapsed >= N.
+            EveryStatement* ev = (EveryStatement*)stmt;
+            if (!ev->interval_val) {
+                compile_ok = false;
+                break;
+            }
+
+            String id_str = String::num_int64(ev->unique_id);
+
+            if (ev->interval_type == EveryStatement::FRAMES) {
+                // __every_frame_<id> counter stored as a global
+                String counter_name = "__every_frame_" + id_str;
+                int counter_idx = current_chunk->add_constant(counter_name);
+
+                // Initialize counter to 0 if Nil (first call).
+                // OP_GET_GLOBAL returns Nil for unset globals;
+                // OP_ADD crashes on Nil + Int, so we must guard.
+                emit_byte(OP_GET_GLOBAL);
+                emit_const_index(counter_idx);
+                emit_byte(OP_NIL);
+                emit_byte(OP_EQUAL);
+                int skip_init = emit_jump(OP_JUMP_IF_FALSE);
+                {
+                    emit_constant(Variant((int64_t)0));
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(counter_idx);
+                }
+                patch_jump(skip_init);
+
+                // counter = counter + 1  (get, add 1, set)
+                emit_byte(OP_GET_GLOBAL);
+                emit_const_index(counter_idx);
+                emit_constant(Variant((int64_t)1));
+                emit_byte(OP_ADD);
+                emit_byte(OP_SET_GLOBAL);
+                emit_const_index(counter_idx);
+
+                // if counter >= N then ...
+                emit_byte(OP_GET_GLOBAL);
+                emit_const_index(counter_idx);
+                compile_expression(ev->interval_val);
+                emit_byte(OP_GREATER_EQUAL);
+                int skip_jump = emit_jump(OP_JUMP_IF_FALSE);
+
+                // counter = 0 (reset)
+                emit_constant(Variant((int64_t)0));
+                emit_byte(OP_SET_GLOBAL);
+                emit_const_index(counter_idx);
+
+                // Compile body
+                for (int i = 0; i < ev->body.size(); i++) {
+                    compile_statement(ev->body[i]);
+                }
+
+                patch_jump(skip_jump);
+
+            } else {
+                // Seconds mode
+                String last_name = "__every_last_" + id_str;
+                int last_idx = current_chunk->add_constant(last_name);
+                int timer_fn_idx = current_chunk->add_constant(String("Timer"));
+
+                // current_time = Timer()
+                emit_byte(OP_CALL);
+                emit_const_index(timer_fn_idx);
+                emit_byte((uint8_t)0);
+
+                // We need to keep current_time on the stack for later use.
+                // Use a temp local to hold it.
+                int time_slot = get_or_add_local(String("__every_now_") + id_str, VT_UNKNOWN);
+                emit_bytes(OP_SET_LOCAL, (uint8_t)time_slot);
+
+                // If __every_last is Nil (uninitialized), set it to current_time
+                emit_byte(OP_GET_GLOBAL);
+                emit_const_index(last_idx);
+                emit_byte(OP_NIL);
+                emit_byte(OP_EQUAL);
+                int skip_init = emit_jump(OP_JUMP_IF_FALSE);
+                {
+                    emit_bytes(OP_GET_LOCAL, (uint8_t)time_slot);
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(last_idx);
+                }
+                patch_jump(skip_init);
+
+                // elapsed = current_time - __every_last
+                emit_bytes(OP_GET_LOCAL, (uint8_t)time_slot);
+                emit_byte(OP_GET_GLOBAL);
+                emit_const_index(last_idx);
+                emit_byte(OP_SUBTRACT);
+
+                // if elapsed >= N then ...
+                compile_expression(ev->interval_val);
+                emit_byte(OP_GREATER_EQUAL);
+                int skip_jump = emit_jump(OP_JUMP_IF_FALSE);
+
+                // __every_last = current_time
+                emit_bytes(OP_GET_LOCAL, (uint8_t)time_slot);
+                emit_byte(OP_SET_GLOBAL);
+                emit_const_index(last_idx);
+
+                // Compile body
+                for (int i = 0; i < ev->body.size(); i++) {
+                    compile_statement(ev->body[i]);
+                }
+
+                patch_jump(skip_jump);
+            }
+            break;
+        }
+        case STMT_TWEEN: {
+            // Tween target.prop [From val] To val Over dur [Ease type] [Trans type]
+            //
+            // Compiles to a chain of OP_METHOD_CALL operations:
+            //   1. target_node.create_tween()             → Ref<Tween>
+            //   2. tween.tween_property(node, path, to, dur)  → PropertyTweener
+            //   3. .from(from_val)                        (if From specified)
+            //   4. .set_ease(ease_type)                   (if Ease specified)
+            //   5. .set_trans(trans_type)                  (if Trans specified)
+            //   6. OP_POP (discard final return)
+            TweenStatement* tw = (TweenStatement*)stmt;
+            if (!tw->target_node || !tw->to_val || !tw->duration) {
+                compile_ok = false;
+                break;
+            }
+
+            // VB6 property aliasing for the property path string
+            String prop_path = tw->property_path;
+            // Single-segment aliases (e.g., Tween Me.Left To ...)
+            if (prop_path.nocasecmp_to("Left") == 0) prop_path = "position:x";
+            else if (prop_path.nocasecmp_to("Top") == 0) prop_path = "position:y";
+            else if (prop_path.nocasecmp_to("Width") == 0) prop_path = "size:x";
+            else if (prop_path.nocasecmp_to("Height") == 0) prop_path = "size:y";
+            else if (prop_path.nocasecmp_to("Caption") == 0) prop_path = "text";
+            else if (prop_path.nocasecmp_to("Text") == 0) prop_path = "text";
+            else if (prop_path.nocasecmp_to("Visible") == 0) prop_path = "visible";
+            else if (prop_path.nocasecmp_to("Value") == 0) prop_path = "value";
+            else {
+                // Multi-segment: convert to lowercase for Godot (Position:X → position:x)
+                prop_path = prop_path.to_lower();
+            }
+
+            int create_tween_idx = current_chunk->add_constant(String("create_tween"));
+            int tween_prop_idx = current_chunk->add_constant(String("tween_property"));
+            int path_idx = current_chunk->add_constant(prop_path);
+
+            // Step 1: target_node.create_tween() → Tween on stack
+            compile_expression(tw->target_node);
+            emit_byte(OP_METHOD_CALL);
+            emit_const_index(create_tween_idx);
+            emit_byte((uint8_t)0); // 0 args
+
+            // Step 2: tween.tween_property(target_node, path, to_val, duration)
+            // Stack: [tween]
+            // Push 4 args: node, path_string, final_value, duration
+            compile_expression(tw->target_node);             // arg0: node
+            emit_byte(OP_CONSTANT);
+            emit_const_index(path_idx);                      // arg1: property path
+            compile_expression(tw->to_val);                  // arg2: final value
+            compile_expression(tw->duration);                // arg3: duration
+            emit_byte(OP_METHOD_CALL);
+            emit_const_index(tween_prop_idx);
+            emit_byte((uint8_t)4); // 4 args
+            // Stack: [PropertyTweener]
+
+            // Step 3: .from(from_val) if From specified
+            if (tw->from_val) {
+                int from_idx = current_chunk->add_constant(String("from"));
+                compile_expression(tw->from_val);
+                emit_byte(OP_METHOD_CALL);
+                emit_const_index(from_idx);
+                emit_byte((uint8_t)1);
+            }
+
+            // Step 4: .set_ease(ease_type) if Ease specified
+            if (tw->ease_type >= 0) {
+                int set_ease_idx = current_chunk->add_constant(String("set_ease"));
+                emit_constant(Variant((int64_t)tw->ease_type));
+                emit_byte(OP_METHOD_CALL);
+                emit_const_index(set_ease_idx);
+                emit_byte((uint8_t)1);
+            }
+
+            // Step 5: .set_trans(trans_type) if Trans specified
+            if (tw->trans_type >= 0) {
+                int set_trans_idx = current_chunk->add_constant(String("set_trans"));
+                emit_constant(Variant((int64_t)tw->trans_type));
+                emit_byte(OP_METHOD_CALL);
+                emit_const_index(set_trans_idx);
+                emit_byte((uint8_t)1);
+            }
+
+            // Discard final return value (statement context)
+            emit_byte(OP_POP);
             break;
         }
         case STMT_RETURN: {
@@ -4833,6 +5595,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             // Push Exit For jump list
             loop_exit_jumps.push_back(Vector<int>());
             loop_continue_targets.push_back(-1); // placeholder
+            loop_continue_forward_jumps.push_back(Vector<int>());
 
             // --- loop header ---
             int loop_start = current_chunk->code.size();
@@ -4866,6 +5629,13 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             if (!loop_continue_targets.is_empty()) {
                 loop_continue_targets.write[loop_continue_targets.size() - 1] = current_chunk->code.size();
             }
+            // Patch any forward Continue jumps emitted during the body
+            if (!loop_continue_forward_jumps.is_empty()) {
+                const Vector<int> &fwd = loop_continue_forward_jumps[loop_continue_forward_jumps.size() - 1];
+                for (int fi = 0; fi < fwd.size(); fi++) {
+                    patch_jump(fwd[fi]);
+                }
+            }
 
             // idx = idx + 1
             if (idx_slot >= 0 && idx_slot < 256) {
@@ -4892,6 +5662,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             if (!loop_continue_targets.is_empty()) {
                 loop_continue_targets.remove_at(loop_continue_targets.size() - 1);
             }
+            if (!loop_continue_forward_jumps.is_empty()) {
+                loop_continue_forward_jumps.remove_at(loop_continue_forward_jumps.size() - 1);
+            }
             break;
         }
         case STMT_WITH: {
@@ -4915,7 +5688,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             break;
         }
         case STMT_CONTINUE: {
-            // Continue For / Continue Do / Continue While
+            // Continue For / Continue Do / Continue While / Continue Oscillate
             ContinueStatement* cont = (ContinueStatement*)stmt;
             if (loop_continue_targets.is_empty()) {
                 compile_ok = false;
@@ -4923,8 +5696,11 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
             int target = loop_continue_targets[loop_continue_targets.size() - 1];
             if (target < 0) {
-                // Target not yet known (shouldn't happen since body is compiled first for For)
-                compile_ok = false;
+                // Target not yet known — emit a forward jump and record it for patching
+                int fwd = emit_jump(OP_JUMP);
+                if (!loop_continue_forward_jumps.is_empty()) {
+                    loop_continue_forward_jumps.write[loop_continue_forward_jumps.size() - 1].push_back(fwd);
+                }
                 break;
             }
             emit_loop(target);

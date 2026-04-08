@@ -58,6 +58,11 @@ private:
     Statement* parse_for();
     WhileStatement* parse_while();
     DoStatement* parse_do();
+    OscillateStatement* parse_oscillate();
+    RepeatStatement* parse_repeat();
+    CycleStatement* parse_cycle();
+    EveryStatement* parse_every();
+    TweenStatement* parse_tween();
     SelectStatement* parse_select();
     Statement* parse_return();
     Statement* parse_continue();

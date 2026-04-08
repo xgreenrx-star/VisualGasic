@@ -27,22 +27,22 @@ Dim GameOver As Boolean
 Dim LevelComplete As Boolean
 
 ' Level objects
-ReDim Platforms(30) As Object
-ReDim PlatformX(30) As Single
-ReDim PlatformY(30) As Single
-ReDim PlatformW(30) As Single
-ReDim PlatformH(30) As Single
+Dim Platforms(30) As Object
+Dim PlatformX(30) As Single
+Dim PlatformY(30) As Single
+Dim PlatformW(30) As Single
+Dim PlatformH(30) As Single
 
-ReDim Coins(20) As Object
-ReDim CoinX(20) As Single
-ReDim CoinY(20) As Single
-ReDim CoinCollected(20) As Boolean
+Dim Coins(20) As Object
+Dim CoinX(20) As Single
+Dim CoinY(20) As Single
+Dim CoinCollected(20) As Boolean
 
-ReDim Enemies(10) As Object
-ReDim EnemyX(10) As Single
-ReDim EnemyY(10) As Single
-ReDim EnemyVelX(10) As Single
-ReDim EnemyActive(10) As Boolean
+Dim Enemies(10) As Object
+Dim EnemyX(10) As Single
+Dim EnemyY(10) As Single
+Dim EnemyVelX(10) As Single
+Dim EnemyActive(10) As Boolean
 
 ' Constants
 Const Gravity As Single = 980
@@ -238,7 +238,7 @@ Sub _Process(delta As Single)
     OnGround = False
     Dim i As Integer
     For i = 0 To 5
-        If Platforms(i) IsNot Nothing Then
+        If Not Platforms(i) Is Nothing Then
             ' Check if player is above platform and falling
             If PlayerVelY >= 0 Then
                 If PlayerX + 15 > PlatformX(i) And PlayerX - 15 < PlatformX(i) + PlatformW(i) Then

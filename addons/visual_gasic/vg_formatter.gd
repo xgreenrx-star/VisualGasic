@@ -225,7 +225,15 @@ static func format_text(text: String, options: FormatOptions = null) -> String:
 		
 		# Check for indent (Sub, If, For, etc.) - excluding single-line If
 		for keyword in INDENT_KEYWORDS:
-			if stripped_upper.begins_with(keyword.to_upper()):
+			var kw_upper = keyword.to_upper()
+			if stripped_upper.begins_with(kw_upper):
+				# Word boundary check: keyword must be the whole line,
+				# or followed by a space/tab/paren — not part of an identifier
+				var kw_len = kw_upper.length()
+				if stripped_upper.length() > kw_len:
+					var next_char = stripped_upper[kw_len]
+					if next_char != " " and next_char != "\t" and next_char != "(":
+						continue
 				# Special case: single-line If (If x Then y)
 				if keyword == "If" and "THEN" in stripped_upper:
 					var after_then = stripped_upper.split("THEN", true, 1)

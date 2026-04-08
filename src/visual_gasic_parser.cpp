@@ -937,6 +937,11 @@ Statement* VisualGasicParser::parse_statement() {
         if (val == "for") return set_line(parse_for());
         if (val == "while") return set_line(parse_while());
         if (val == "do") return set_line(parse_do());
+        if (val == "oscillate") return set_line(parse_oscillate());
+        if (val == "repeat") return set_line(parse_repeat());
+        if (val == "cycle") return set_line(parse_cycle());
+        if (val == "every") return set_line(parse_every());
+        if (val == "tween") return set_line(parse_tween());
         if (val == "select") {
             // Peek ahead: "Select Match" → pattern matching, "Select Case" → normal select
             if (peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD || peek(1).type == VisualGasicTokenizer::TOKEN_IDENTIFIER) {
@@ -2968,6 +2973,487 @@ DoStatement* VisualGasicParser::parse_do() {
     return stmt;
 }
 
+// ── Oscillate i = start To end [Step s] [Cycles n] ... Loop ──
+// A ping-pong loop: counts from start → end, then end → start, repeating.
+// The variable oscillates between the two bounds, reversing direction each time
+// it reaches either limit.  Optional Cycles limits the number of one-way sweeps.
+OscillateStatement* VisualGasicParser::parse_oscillate() {
+    advance(); // Eat Oscillate
+
+    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        error("Expected variable name after Oscillate");
+        return nullptr;
+    }
+    OscillateStatement* stmt = static_cast<OscillateStatement*>(register_node(new OscillateStatement()));
+    stmt->variable_name = peek().value;
+    advance(); // Eat variable name
+
+    // Optional "As Type" declaration
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
+        advance();
+        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) advance();
+    }
+
+    // Expect "="
+    if (!match(VisualGasicTokenizer::TOKEN_OPERATOR)) {
+        error("Expected '=' in Oscillate");
+        while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) advance();
+        return stmt;
+    }
+
+    // Parse start value
+    {
+        ExpressionNode* _tmp = parse_expression();
+        if (_tmp) { stmt->from_val = _tmp; unregister_node(_tmp); }
+        else { error("Failed to parse Oscillate start value"); return stmt; }
+    }
+
+    // Expect "To"
+    if (!check(VisualGasicTokenizer::TOKEN_KEYWORD) || String(peek().value).nocasecmp_to("To") != 0) {
+        error("Expected 'To' in Oscillate");
+        while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) advance();
+        return stmt;
+    }
+    advance(); // Eat To
+
+    // Parse end value
+    {
+        ExpressionNode* _tmp = parse_expression();
+        if (_tmp) { stmt->to_val = _tmp; unregister_node(_tmp); }
+        else { error("Failed to parse Oscillate end value"); return stmt; }
+    }
+
+    // Optional "Step" clause
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Step") == 0) {
+        advance(); // Eat Step
+        ExpressionNode* _tmp = parse_expression();
+        if (_tmp) { stmt->step_val = _tmp; unregister_node(_tmp); }
+    }
+
+    // Optional "Cycles" clause
+    if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) &&
+        String(peek().value).nocasecmp_to("Cycles") == 0) {
+        advance(); // Eat Cycles
+        ExpressionNode* _tmp = parse_expression();
+        if (_tmp) { stmt->cycles_val = _tmp; unregister_node(_tmp); }
+    }
+
+    match(VisualGasicTokenizer::TOKEN_NEWLINE);
+
+    // Parse body until "Loop"
+    while (!is_at_end()) {
+        VisualGasicTokenizer::Token t_loop = peek();
+        if ((t_loop.type == VisualGasicTokenizer::TOKEN_KEYWORD || t_loop.type == VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            String kw = String(t_loop.value);
+            if (kw.nocasecmp_to("Loop") == 0) {
+                advance();
+                break;
+            }
+            if (kw.nocasecmp_to("End") == 0 || kw.nocasecmp_to("Next") == 0 ||
+                kw.nocasecmp_to("Wend") == 0 || kw.nocasecmp_to("Else") == 0 ||
+                kw.nocasecmp_to("ElseIf") == 0 || kw.nocasecmp_to("Case") == 0) {
+                UtilityFunctions::print("Parser Error: Missing 'Loop' statement for Oscillate block (found '", kw, "')");
+                break;
+            }
+        }
+        Statement* s = parse_statement();
+        if (s) { stmt->body.push_back(s); unregister_node(s); }
+        else if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+        else current_pos++;
+    }
+
+    if (is_at_end()) {
+        UtilityFunctions::print("Parser Error: Missing 'Loop' statement for Oscillate block (reached end of file)");
+    }
+
+    return stmt;
+}
+
+// ── Repeat N Times [As counter] ... End Repeat ──
+// A simple counted loop that executes the body exactly N times.
+// Optional "As varname" exposes a 1-based counter to the body.
+RepeatStatement* VisualGasicParser::parse_repeat() {
+    advance(); // Eat Repeat
+
+    RepeatStatement* stmt = static_cast<RepeatStatement*>(register_node(new RepeatStatement()));
+
+    // Parse the count expression (e.g., 5, or a variable, or an expression)
+    {
+        ExpressionNode* _tmp = parse_expression();
+        if (_tmp) { stmt->count_val = _tmp; unregister_node(_tmp); }
+        else { error("Expected count expression after Repeat"); return stmt; }
+    }
+
+    // Expect "Times"
+    if (!check(VisualGasicTokenizer::TOKEN_KEYWORD) ||
+        String(peek().value).nocasecmp_to("Times") != 0) {
+        error("Expected 'Times' after Repeat count");
+        while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) advance();
+        return stmt;
+    }
+    advance(); // Eat Times
+
+    // Optional "As varname" for the counter variable
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) &&
+        String(peek().value).nocasecmp_to("As") == 0) {
+        advance(); // Eat As
+        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            stmt->counter_name = peek().value;
+            advance();
+        } else {
+            error("Expected variable name after 'As' in Repeat");
+        }
+    }
+
+    match(VisualGasicTokenizer::TOKEN_NEWLINE);
+
+    // Parse body until "End Repeat"
+    while (!is_at_end()) {
+        VisualGasicTokenizer::Token t_loop = peek();
+        if ((t_loop.type == VisualGasicTokenizer::TOKEN_KEYWORD || t_loop.type == VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            String kw = String(t_loop.value);
+            if (kw.nocasecmp_to("End") == 0) {
+                // Check for "End Repeat"
+                if (peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD || peek(1).type == VisualGasicTokenizer::TOKEN_IDENTIFIER) {
+                    String next_kw = String(peek(1).value);
+                    if (next_kw.nocasecmp_to("Repeat") == 0) {
+                        advance(); // Eat End
+                        advance(); // Eat Repeat
+                        break;
+                    }
+                }
+            }
+            // Error recovery: bail on unexpected block terminators
+            if (kw.nocasecmp_to("Loop") == 0 || kw.nocasecmp_to("Next") == 0 ||
+                kw.nocasecmp_to("Wend") == 0) {
+                UtilityFunctions::print("Parser Error: Missing 'End Repeat' for Repeat block (found '", kw, "')");
+                break;
+            }
+        }
+        Statement* s = parse_statement();
+        if (s) { stmt->body.push_back(s); unregister_node(s); }
+        else if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+        else current_pos++;
+    }
+
+    if (is_at_end()) {
+        UtilityFunctions::print("Parser Error: Missing 'End Repeat' for Repeat block (reached end of file)");
+    }
+
+    return stmt;
+}
+
+// ── Cycle Through collection For N As element ... End Cycle ──
+// Iterates through a collection in round-robin fashion for a total of N iterations.
+// The element variable receives collection[i Mod Len(collection)] each iteration.
+CycleStatement* VisualGasicParser::parse_cycle() {
+    advance(); // Eat Cycle
+
+    // Expect "Through"
+    if (!check(VisualGasicTokenizer::TOKEN_KEYWORD) ||
+        String(peek().value).nocasecmp_to("Through") != 0) {
+        error("Expected 'Through' after Cycle");
+        return nullptr;
+    }
+    advance(); // Eat Through
+
+    CycleStatement* stmt = static_cast<CycleStatement*>(register_node(new CycleStatement()));
+
+    // Parse collection expression
+    {
+        ExpressionNode* _tmp = parse_expression();
+        if (_tmp) { stmt->collection = _tmp; unregister_node(_tmp); }
+        else { error("Expected collection expression after 'Cycle Through'"); return stmt; }
+    }
+
+    // Expect "For"
+    if (!check(VisualGasicTokenizer::TOKEN_KEYWORD) ||
+        String(peek().value).nocasecmp_to("For") != 0) {
+        error("Expected 'For' after collection in Cycle Through");
+        while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) advance();
+        return stmt;
+    }
+    advance(); // Eat For
+
+    // Parse count expression
+    {
+        ExpressionNode* _tmp = parse_expression();
+        if (_tmp) { stmt->count_val = _tmp; unregister_node(_tmp); }
+        else { error("Expected count expression after 'For' in Cycle Through"); return stmt; }
+    }
+
+    // Expect "As varname"
+    if (!check(VisualGasicTokenizer::TOKEN_KEYWORD) ||
+        String(peek().value).nocasecmp_to("As") != 0) {
+        error("Expected 'As variable_name' in Cycle Through");
+        while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) advance();
+        return stmt;
+    }
+    advance(); // Eat As
+
+    if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        stmt->element_name = peek().value;
+        advance();
+    } else {
+        error("Expected variable name after 'As' in Cycle Through");
+    }
+
+    match(VisualGasicTokenizer::TOKEN_NEWLINE);
+
+    // Parse body until "End Cycle"
+    while (!is_at_end()) {
+        VisualGasicTokenizer::Token t_loop = peek();
+        if ((t_loop.type == VisualGasicTokenizer::TOKEN_KEYWORD || t_loop.type == VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            String kw = String(t_loop.value);
+            if (kw.nocasecmp_to("End") == 0) {
+                if (peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD || peek(1).type == VisualGasicTokenizer::TOKEN_IDENTIFIER) {
+                    String next_kw = String(peek(1).value);
+                    if (next_kw.nocasecmp_to("Cycle") == 0) {
+                        advance(); // Eat End
+                        advance(); // Eat Cycle
+                        break;
+                    }
+                }
+            }
+            if (kw.nocasecmp_to("Loop") == 0 || kw.nocasecmp_to("Next") == 0 ||
+                kw.nocasecmp_to("Wend") == 0) {
+                UtilityFunctions::print("Parser Error: Missing 'End Cycle' for Cycle Through block (found '", kw, "')");
+                break;
+            }
+        }
+        Statement* s = parse_statement();
+        if (s) { stmt->body.push_back(s); unregister_node(s); }
+        else if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+        else current_pos++;
+    }
+
+    if (is_at_end()) {
+        UtilityFunctions::print("Parser Error: Missing 'End Cycle' for Cycle Through block (reached end of file)");
+    }
+
+    return stmt;
+}
+
+// ── Every N Frames/Seconds ... End Every ──
+// A conditional guard that executes its body at a regular interval.
+// Uses hidden persistent counters to track frame count or elapsed time.
+static int every_unique_counter = 0;
+
+EveryStatement* VisualGasicParser::parse_every() {
+    advance(); // Eat Every
+
+    EveryStatement* stmt = static_cast<EveryStatement*>(register_node(new EveryStatement()));
+    stmt->unique_id = every_unique_counter++;
+
+    // Parse the interval expression
+    {
+        ExpressionNode* _tmp = parse_expression();
+        if (_tmp) { stmt->interval_val = _tmp; unregister_node(_tmp); }
+        else { error("Expected interval value after Every"); return stmt; }
+    }
+
+    // Expect "Frames" or "Seconds"
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        String unit = String(peek().value);
+        if (unit.nocasecmp_to("Frames") == 0 || unit.nocasecmp_to("Frame") == 0) {
+            stmt->interval_type = EveryStatement::FRAMES;
+            advance();
+        } else if (unit.nocasecmp_to("Seconds") == 0 || unit.nocasecmp_to("Second") == 0) {
+            stmt->interval_type = EveryStatement::SECONDS;
+            advance();
+        } else {
+            error("Expected 'Frames' or 'Seconds' after interval in Every");
+            while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) advance();
+            return stmt;
+        }
+    } else {
+        error("Expected 'Frames' or 'Seconds' after interval in Every");
+        return stmt;
+    }
+
+    match(VisualGasicTokenizer::TOKEN_NEWLINE);
+
+    // Parse body until "End Every"
+    while (!is_at_end()) {
+        VisualGasicTokenizer::Token t = peek();
+        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            String kw = String(t.value);
+            if (kw.nocasecmp_to("End") == 0) {
+                if (peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD || peek(1).type == VisualGasicTokenizer::TOKEN_IDENTIFIER) {
+                    String next_kw = String(peek(1).value);
+                    if (next_kw.nocasecmp_to("Every") == 0) {
+                        advance(); // Eat End
+                        advance(); // Eat Every
+                        break;
+                    }
+                }
+            }
+            if (kw.nocasecmp_to("Loop") == 0 || kw.nocasecmp_to("Next") == 0 ||
+                kw.nocasecmp_to("Wend") == 0) {
+                UtilityFunctions::print("Parser Error: Missing 'End Every' for Every block (found '", kw, "')");
+                break;
+            }
+        }
+        Statement* s = parse_statement();
+        if (s) { stmt->body.push_back(s); unregister_node(s); }
+        else if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+        else current_pos++;
+    }
+
+    if (is_at_end()) {
+        UtilityFunctions::print("Parser Error: Missing 'End Every' for Every block (reached end of file)");
+    }
+
+    return stmt;
+}
+
+// ── Tween target.prop [From val] To val Over dur [Ease type] [Trans type] ──
+TweenStatement* VisualGasicParser::parse_tween() {
+    advance(); // Eat Tween
+
+    TweenStatement* stmt = static_cast<TweenStatement*>(register_node(new TweenStatement()));
+
+    // Parse the property path as a dot-chain expression.
+    // E.g. Me.Position.X, sprite.Modulate.A, label.Left
+    // This produces nested MemberAccessNodes.
+    ExpressionNode* prop_expr = parse_expression();
+    if (!prop_expr) {
+        error("Expected property path after 'Tween'");
+        return stmt;
+    }
+
+    // Decompose the MemberAccess chain into (target_node, property_path).
+    // The leftmost base is the target node; remaining members joined with ":"
+    // form the Godot property path.
+    if (prop_expr->type != ExpressionNode::MEMBER_ACCESS) {
+        error("Tween requires a property path (e.g. Me.Position or sprite.Left)");
+        if (prop_expr) { unregister_node(prop_expr); delete prop_expr; }
+        return stmt;
+    }
+
+    // Walk the MemberAccess chain to extract segments
+    Vector<String> segments;
+    ExpressionNode* base = prop_expr;
+    while (base && base->type == ExpressionNode::MEMBER_ACCESS) {
+        MemberAccessNode* ma = (MemberAccessNode*)base;
+        segments.push_back(ma->member_name);
+        base = ma->base_object;
+    }
+    // segments is in reverse order (innermost first), base is the root
+
+    if (segments.size() < 1) {
+        error("Tween requires at least one property (e.g. Me.Position)");
+        if (prop_expr) { unregister_node(prop_expr); delete prop_expr; }
+        return stmt;
+    }
+
+    // Detach the base from the chain so it won't be deleted with prop_expr
+    // Walk down to the deepest MemberAccessNode and detach its base_object
+    {
+        ExpressionNode* walk = prop_expr;
+        ExpressionNode* prev = nullptr;
+        while (walk && walk->type == ExpressionNode::MEMBER_ACCESS) {
+            MemberAccessNode* ma = (MemberAccessNode*)walk;
+            prev = walk;
+            walk = ma->base_object;
+        }
+        // 'prev' is the deepest MemberAccessNode; its base_object is the target node
+        if (prev && prev->type == ExpressionNode::MEMBER_ACCESS) {
+            MemberAccessNode* deepest = (MemberAccessNode*)prev;
+            stmt->target_node = deepest->base_object;
+            deepest->base_object = nullptr; // detach so prop_expr delete won't free it
+        }
+    }
+
+    // Build property path from segments (reversed): "position:x"
+    // VB6 property aliasing happens at compile time
+    // segments[0] is innermost (e.g. "X"), segments[last] is outermost property (e.g. "Position")
+    String prop_path;
+    for (int i = segments.size() - 1; i >= 0; i--) {
+        if (!prop_path.is_empty()) prop_path += ":";
+        prop_path += segments[i];
+    }
+    stmt->property_path = prop_path;
+
+    // Clean up the MemberAccess chain (target_node was detached)
+    unregister_node(prop_expr);
+    delete prop_expr;
+
+    // Optional: From <expr>
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("From") == 0) {
+        advance(); // Eat From
+        ExpressionNode* from_expr = parse_expression();
+        if (from_expr) { stmt->from_val = from_expr; unregister_node(from_expr); }
+        else { error("Expected expression after 'From'"); return stmt; }
+    }
+
+    // Required: To <expr>
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("To") == 0) {
+        advance(); // Eat To
+        ExpressionNode* to_expr = parse_expression();
+        if (to_expr) { stmt->to_val = to_expr; unregister_node(to_expr); }
+        else { error("Expected expression after 'To'"); return stmt; }
+    } else {
+        error("Expected 'To' in Tween statement");
+        return stmt;
+    }
+
+    // Required: Over <expr>
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Over") == 0) {
+        advance(); // Eat Over
+        ExpressionNode* dur_expr = parse_expression();
+        if (dur_expr) { stmt->duration = dur_expr; unregister_node(dur_expr); }
+        else { error("Expected duration expression after 'Over'"); return stmt; }
+    } else {
+        error("Expected 'Over' in Tween statement");
+        return stmt;
+    }
+
+    // Optional: Ease <type>  (In, Out, InOut, OutIn)
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Ease") == 0) {
+        advance(); // Eat Ease
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            String ease = peek().value;
+            if (ease.nocasecmp_to("In") == 0) stmt->ease_type = 0;
+            else if (ease.nocasecmp_to("Out") == 0) stmt->ease_type = 1;
+            else if (ease.nocasecmp_to("InOut") == 0) stmt->ease_type = 2;
+            else if (ease.nocasecmp_to("OutIn") == 0) stmt->ease_type = 3;
+            else { error("Unknown Ease type '" + ease + "' — expected In, Out, InOut, or OutIn"); return stmt; }
+            advance();
+        } else {
+            error("Expected ease type after 'Ease'");
+            return stmt;
+        }
+    }
+
+    // Optional: Trans <type>  (Linear, Sine, Quint, Quart, Quad, Expo, Elastic, Cubic, Circ, Bounce, Back, Spring)
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Trans") == 0) {
+        advance(); // Eat Trans
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            String tr = peek().value;
+            if (tr.nocasecmp_to("Linear") == 0) stmt->trans_type = 0;
+            else if (tr.nocasecmp_to("Sine") == 0) stmt->trans_type = 1;
+            else if (tr.nocasecmp_to("Quint") == 0) stmt->trans_type = 2;
+            else if (tr.nocasecmp_to("Quart") == 0) stmt->trans_type = 3;
+            else if (tr.nocasecmp_to("Quad") == 0) stmt->trans_type = 4;
+            else if (tr.nocasecmp_to("Expo") == 0) stmt->trans_type = 5;
+            else if (tr.nocasecmp_to("Elastic") == 0) stmt->trans_type = 6;
+            else if (tr.nocasecmp_to("Cubic") == 0) stmt->trans_type = 7;
+            else if (tr.nocasecmp_to("Circ") == 0) stmt->trans_type = 8;
+            else if (tr.nocasecmp_to("Bounce") == 0) stmt->trans_type = 9;
+            else if (tr.nocasecmp_to("Back") == 0) stmt->trans_type = 10;
+            else if (tr.nocasecmp_to("Spring") == 0) stmt->trans_type = 11;
+            else { error("Unknown Trans type '" + tr + "'"); return stmt; }
+            advance();
+        } else {
+            error("Expected transition type after 'Trans'");
+            return stmt;
+        }
+    }
+
+    return stmt;
+}
+
 // In parse_statement, handle Return and Continue.
 // Since parse_statement is likely defined before, I need to check where it is.
 // I'll search for parse_statement body first or assume I am inserting helper methods or adding to the switch/if chain in parse_statement.
@@ -3003,6 +3489,15 @@ Statement* VisualGasicParser::parse_continue() {
             advance();
         } else if (val.nocasecmp_to("While") == 0) {
             c->loop_type = ContinueStatement::WHILE;
+            advance();
+        } else if (val.nocasecmp_to("Oscillate") == 0) {
+            c->loop_type = ContinueStatement::OSCILLATE;
+            advance();
+        } else if (val.nocasecmp_to("Repeat") == 0) {
+            c->loop_type = ContinueStatement::REPEAT;
+            advance();
+        } else if (val.nocasecmp_to("Cycle") == 0) {
+            c->loop_type = ContinueStatement::CYCLE;
             advance();
         }
     }
@@ -4039,6 +4534,15 @@ ExitStatement* VisualGasicParser::parse_exit() {
             valid = true;
         } else if (type == "do") {
             s->exit_type = ExitStatement::EXIT_DO;
+            valid = true;
+        } else if (type == "oscillate") {
+            s->exit_type = ExitStatement::EXIT_OSCILLATE;
+            valid = true;
+        } else if (type == "repeat") {
+            s->exit_type = ExitStatement::EXIT_REPEAT;
+            valid = true;
+        } else if (type == "cycle") {
+            s->exit_type = ExitStatement::EXIT_CYCLE;
             valid = true;
         }
         

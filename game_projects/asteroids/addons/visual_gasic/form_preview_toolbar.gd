@@ -69,133 +69,175 @@ func _preview_current_form(with_debug: bool) -> void:
 	if not _editor_plugin:
 		push_error("FormPreviewToolbar: No editor plugin set")
 		return
-	
-	# Get the form designer from the plugin
-	var designer = _editor_plugin.get("_form_designer") if "_form_designer" in _editor_plugin else null
-	if not designer:
-		push_warning("No form designer active — open a form first")
+
+	var editor = _editor_plugin.get_editor_interface()
+
+	# Save all scenes / scripts so the latest code is on disk
+	editor.save_all_scenes()
+
+	# Always save breakpoints so the game process can check them at startup
+	_save_breakpoints_for_preview()
+
+	# ── Pre-launch error gate ──────────────────────────────────────
+	if not _pre_launch_validate():
 		return
-	
-	if not designer.has_method("get_control_count"):
-		push_warning("Form designer does not support preview (missing get_control_count)")
+
+	# Find the scene to run: currently edited scene first
+	var scene_path := ""
+	var scene_root = editor.get_edited_scene_root()
+	if scene_root and not scene_root.scene_file_path.is_empty():
+		scene_path = scene_root.scene_file_path
+	else:
+		# Fallback: ask the form designer
+		var designer = _editor_plugin.get("_form_designer") if "_form_designer" in _editor_plugin else null
+		if designer and designer.has_method("get_form_scene_path"):
+			scene_path = designer.get_form_scene_path()
+
+	if scene_path.is_empty():
+		push_warning("No form is open — open a form first, then click Preview.")
 		return
-	
-	# Close any existing preview window
-	if is_instance_valid(_preview_window):
-		_preview_window.queue_free()
-		_preview_window = null
-	
-	# Load and instantiate the preview window
-	var preview_script = load("res://addons/visual_gasic/form_preview_window.gd")
-	if not preview_script:
-		push_error("FormPreviewToolbar: Cannot load form_preview_window.gd")
-		return
-	
-	_preview_window = Window.new()
-	_preview_window.set_script(preview_script)
-	
-	# Add to the editor tree so it can display
-	_editor_plugin.get_editor_interface().get_base_control().add_child(_preview_window)
-	
-	# Build the preview from the designer data
-	_preview_window.build_from_designer(designer)
-	
-	# Show it
-	_preview_window.popup_centered()
-	
-	print("VisualGasic: Form preview opened — ", designer.get_form_name())
+
+	print("VisualGasic: Running form preview: ", scene_path)
+	editor.play_custom_scene(scene_path)
 
 func _build_project() -> void:
-	"""Validate all .vg files in the project by scanning for syntax issues"""
+	"""Validate all .vg files in the project using the C++ parser/linter"""
 	if not _editor_plugin:
 		push_error("FormPreviewToolbar: No editor plugin set")
 		return
-	
-	print("VisualGasic: Building project - validating .vg files...")
-	
-	var errors = 0
-	var warnings = 0
-	var files_checked = 0
+
+	print("VisualGasic: Building project — validating .vg files…")
+
+	var total_errors := 0
+	var total_warnings := 0
+	var files_checked := 0
 	var error_messages: Array[String] = []
-	
+
+	# Check if the C++ validation API is available
+	var has_vg_validate := ClassDB.class_exists(&"VisualGasicLanguage") and ClassDB.class_has_method(&"VisualGasicLanguage", &"vg_validate_code")
+
 	# Scan for all .vg files
 	var vg_files = _find_vg_files("res://")
-	
+
 	for vg_path in vg_files:
 		files_checked += 1
 		var file = FileAccess.open(vg_path, FileAccess.READ)
 		if not file:
-			errors += 1
+			total_errors += 1
 			error_messages.append("Cannot open: " + vg_path)
 			continue
-		
+
 		var content = file.get_as_text()
 		file.close()
-		
-		# Basic validation checks
-		var line_num = 0
-		var open_blocks: Array[String] = []
-		
-		for line in content.split("\n"):
-			line_num += 1
-			var trimmed = line.strip_edges()
-			var upper = trimmed.to_upper()
-			
-			# Track block openings
-			if upper.begins_with("SUB ") and not upper.begins_with("SUB = "):
-				open_blocks.append("Sub")
-			elif upper.begins_with("FUNCTION "):
-				open_blocks.append("Function")
-			elif upper.begins_with("IF ") and upper.ends_with(" THEN") and not trimmed.contains(":"):
-				# Multi-line If (not single-line)
-				open_blocks.append("If")
-			elif upper.begins_with("FOR ") or upper.begins_with("FOR EACH "):
-				open_blocks.append("For")
-			elif upper.begins_with("DO ") or upper == "DO":
-				open_blocks.append("Do")
-			elif upper.begins_with("SELECT CASE"):
-				open_blocks.append("Select")
-			elif upper.begins_with("WHILE ") and not upper.begins_with("WHILE WEND"):
-				open_blocks.append("While")
-			
-			# Track block closings
-			elif upper == "END SUB":
-				if open_blocks.size() > 0 and open_blocks[-1] == "Sub":
-					open_blocks.pop_back()
-			elif upper == "END FUNCTION":
-				if open_blocks.size() > 0 and open_blocks[-1] == "Function":
-					open_blocks.pop_back()
-			elif upper == "END IF":
-				if open_blocks.size() > 0 and open_blocks[-1] == "If":
-					open_blocks.pop_back()
-			elif upper.begins_with("NEXT"):
-				if open_blocks.size() > 0 and open_blocks[-1] == "For":
-					open_blocks.pop_back()
-			elif upper == "LOOP" or upper.begins_with("LOOP "):
-				if open_blocks.size() > 0 and open_blocks[-1] == "Do":
-					open_blocks.pop_back()
-			elif upper == "END SELECT":
-				if open_blocks.size() > 0 and open_blocks[-1] == "Select":
-					open_blocks.pop_back()
-			elif upper == "WEND":
-				if open_blocks.size() > 0 and open_blocks[-1] == "While":
-					open_blocks.pop_back()
-		
-		# Check for unclosed blocks
-		if open_blocks.size() > 0:
-			warnings += 1
-			for block in open_blocks:
-				error_messages.append("%s: Possibly unclosed '%s' block" % [vg_path, block])
-	
-	# Print build results
-	if errors == 0 and warnings == 0:
-		print("VisualGasic: Build succeeded - %d files checked, no issues found ✅" % files_checked)
+
+		if has_vg_validate:
+			# Use the C++ parser via the static ClassDB-bound method
+			var result: Dictionary = VisualGasicLanguage.vg_validate_code(content, vg_path)
+			var file_errors: Array = result.get("errors", [])
+			var file_warnings: Array = result.get("warnings", [])
+			for err in file_errors:
+				total_errors += 1
+				var line_num: int = err.get("line", 0)
+				var msg: String = err.get("message", "Unknown error")
+				error_messages.append("%s(%d): ✖ %s" % [vg_path, line_num, msg])
+			for warn in file_warnings:
+				total_warnings += 1
+				var line_num: int = warn.get("line", 0)
+				var msg: String = warn.get("message", "Unknown warning")
+				error_messages.append("%s(%d): ⚠ %s" % [vg_path, line_num, msg])
+		else:
+			# Fallback: try reload and check error code
+			var script = load(vg_path) as Script
+			if script and script.reload() != OK:
+				total_errors += 1
+				error_messages.append("%s: Parse error (details in Output)" % vg_path)
+
+	# Route results to the Errors tab if the embedded code editor is available
+	if "_embedded_code_editor" in _editor_plugin:
+		var ece = _editor_plugin._embedded_code_editor
+		if ece and is_instance_valid(ece):
+			# Log build results to the Output tab
+			if ece.has_method("append_output"):
+				ece.append_output("")
+				ece.append_output("═══ Build Results ═══")
+				if error_messages.is_empty():
+					ece.append_output("Build succeeded — %d files checked, no issues found ✓" % files_checked)
+				else:
+					ece.append_output("Build: %d files, %d errors, %d warnings" % [files_checked, total_errors, total_warnings])
+					for msg in error_messages:
+						ece.append_output("  " + msg)
+			# Switch to the Errors tab if there are problems
+			if total_errors > 0 and ece.has_method("focus_errors"):
+				ece.focus_errors()
+
+	# Console summary
+	if total_errors == 0 and total_warnings == 0:
+		print("VisualGasic: Build succeeded — %d files checked, no issues found ✅" % files_checked)
 	else:
-		print("VisualGasic: Build completed - %d files, %d errors, %d warnings" % [files_checked, errors, warnings])
+		print("VisualGasic: Build completed — %d files, %d errors, %d warnings" % [files_checked, total_errors, total_warnings])
 		for msg in error_messages:
-			print("  ⚠ " + msg)
-	
+			print("  " + msg)
+
 	print("VisualGasic: Build complete.")
+
+func _pre_launch_validate() -> bool:
+	"""Pre-launch error gate — validates the current .vg file before running.
+	Returns true if OK to launch, false if errors block launch."""
+	# Get the embedded code editor
+	if not "_embedded_code_editor" in _editor_plugin:
+		return true  # No code editor → nothing to validate
+	var ece = _editor_plugin._embedded_code_editor
+	if not ece or not is_instance_valid(ece):
+		return true
+	if not ece.has_method("validate_code"):
+		return true
+
+	var is_valid: bool = ece.validate_code()
+	if is_valid:
+		return true
+
+	# Errors found — collect the first few for the dialog message
+	var err_count: int = 0
+	var first_errors: Array[String] = []
+	if ece.has_method("get_current_errors"):
+		var errors: Array = ece.get_current_errors()
+		err_count = errors.size()
+		for i in mini(errors.size(), 5):
+			var e: Dictionary = errors[i]
+			var line_num: int = e.get("line", 0)
+			var msg: String = e.get("message", "Unknown error")
+			first_errors.append("Line %d: %s" % [line_num, msg])
+
+	# Build the VB6-style error message
+	var dialog_text := "There %s %d compile error%s. Please fix %s before running.\n\n" % [
+		"is" if err_count == 1 else "are",
+		err_count,
+		"" if err_count == 1 else "s",
+		"it" if err_count == 1 else "them",
+	]
+	for line_text in first_errors:
+		dialog_text += "  ✖ " + line_text + "\n"
+	if err_count > 5:
+		dialog_text += "  … and %d more\n" % (err_count - 5)
+
+	# Show a blocking dialog
+	var dlg := AcceptDialog.new()
+	dlg.title = "VisualGasic — Compile Error"
+	dlg.dialog_text = dialog_text
+	dlg.ok_button_text = "OK"
+	dlg.min_size = Vector2i(460, 200)
+	# Focus the Errors tab when the dialog is dismissed
+	dlg.confirmed.connect(func():
+		if ece.has_method("focus_errors"):
+			ece.focus_errors()
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func(): dlg.queue_free())
+	EditorInterface.get_base_control().add_child(dlg)
+	dlg.popup_centered()
+
+	print("VisualGasic: Launch blocked — %d compile error(s)" % err_count)
+	return false
 
 func _find_vg_files(dir_path: String) -> Array[String]:
 	"""Recursively find all .vg files in a directory"""
@@ -223,32 +265,41 @@ func _run_project() -> void:
 	if not _editor_plugin:
 		push_error("FormPreviewToolbar: No editor plugin set")
 		return
-	
+
 	var editor = _editor_plugin.get_editor_interface()
-	
+
 	# Save all open scenes first
 	editor.save_all_scenes()
-	
-	# Check for project main scene
+
+	# Save breakpoints so the game process can check them at startup
+	_save_breakpoints_for_preview()
+
+	# ── Pre-launch error gate ──────────────────────────────────────
+	if not _pre_launch_validate():
+		return
+
+	# 1. Check for project main scene (explicit setting always wins)
 	var main_scene = ProjectSettings.get_setting("application/run/main_scene", "")
-	
 	if main_scene is String and not main_scene.is_empty():
 		print("VisualGasic: Running project main scene: ", main_scene)
 		editor.play_main_scene()
-	else:
-		# Try to find a startup form
-		var startup = _find_startup_form()
-		if not startup.is_empty():
-			print("VisualGasic: Running startup form: ", startup)
-			editor.play_custom_scene(startup)
-		else:
-			# Fall back to currently edited scene
-			var scene_root = editor.get_edited_scene_root()
-			if scene_root and not scene_root.scene_file_path.is_empty():
-				print("VisualGasic: Running current scene: ", scene_root.scene_file_path)
-				editor.play_custom_scene(scene_root.scene_file_path)
-			else:
-				push_warning("No main scene set and no form is open. Set a main scene in Project Settings.")
+		return
+
+	# 2. Prefer the currently edited scene (the user is looking at it)
+	var scene_root = editor.get_edited_scene_root()
+	if scene_root and not scene_root.scene_file_path.is_empty():
+		print("VisualGasic: Running current scene: ", scene_root.scene_file_path)
+		editor.play_custom_scene(scene_root.scene_file_path)
+		return
+
+	# 3. Try to find a startup form
+	var startup = _find_startup_form()
+	if not startup.is_empty():
+		print("VisualGasic: Running startup form: ", startup)
+		editor.play_custom_scene(startup)
+		return
+
+	push_warning("No main scene set and no form is open. Set a main scene in Project Settings.")
 
 func _find_startup_form() -> String:
 	"""Find a startup form - looks for Form1.tscn or first .tscn in res://"""
@@ -272,32 +323,50 @@ func _find_startup_form() -> String:
 
 func _save_breakpoints_for_preview() -> void:
 	"""Save breakpoints to file so they're available during preview.
-	Writes breakpoints from the debugger plugin to a JSON file that
-	vg_debug_handler.gd can load on the game side."""
+	Collects breakpoints from the embedded VG code editor (primary source)
+	and the debugger plugin (ScriptEditor fallback), then writes to a JSON
+	file that the C++ runtime reads at game startup."""
 	if not _editor_plugin:
 		return
-	
-	# Try to get the debugger plugin's breakpoints
-	var breakpoints = {}
-	
-	# Get breakpoints from the debugger plugin (which polls them from ScriptEditor)
+
+	var breakpoints: Dictionary = {}
+
+	# Source 1: Embedded VG code editor — this is where the user actually sets
+	# breakpoints (the red dots in the code view). CodeEdit line indices are
+	# 0-based; the parser/runtime uses 1-based, so we add 1.
+	if "_embedded_code_editor" in _editor_plugin:
+		var ece = _editor_plugin._embedded_code_editor
+		if ece and is_instance_valid(ece) and ece.has_method("get_file_path") and ece.has_method("get_code_edit"):
+			var vg_path: String = ece.get_file_path()
+			var code_edit = ece.get_code_edit()
+			if not vg_path.is_empty() and code_edit:
+				var bp_lines = code_edit.get_breakpointed_lines()
+				if not bp_lines.is_empty():
+					var lines_array: Array = []
+					for line_idx in bp_lines:
+						lines_array.append(line_idx + 1)  # 0-based → 1-based
+					breakpoints[vg_path] = lines_array
+
+	# Source 2: Debugger plugin (polls ScriptEditor — rarely has .vg entries
+	# but merge them in just in case)
 	if _editor_plugin.has_method("get_debugger_breakpoints"):
-		breakpoints = _editor_plugin.get_debugger_breakpoints()
-	else:
-		# Fallback: check if the debugger plugin already saved a breakpoints file
-		var bp_path = "res://.vg_breakpoints.json"
-		if FileAccess.file_exists(bp_path):
-			print("VisualGasic: Using existing breakpoints file for debug session")
-			return
-	
-	# Save to the same JSON path that vg_debug_handler.gd reads on game startup
-	if not breakpoints.is_empty():
-		var bp_path = "res://.vg_breakpoints.json"
-		var f = FileAccess.open(bp_path, FileAccess.WRITE)
-		if f:
-			f.store_string(JSON.stringify(breakpoints, "\t"))
-			f.close()
-			print("VisualGasic: Saved breakpoints for debug preview")
+		var dbg_bps: Dictionary = _editor_plugin.get_debugger_breakpoints()
+		for path in dbg_bps:
+			if not breakpoints.has(path):
+				breakpoints[path] = dbg_bps[path]
+			else:
+				for l in dbg_bps[path]:
+					if l not in breakpoints[path]:
+						breakpoints[path].append(l)
+
+	# Always write the file (even if empty — clears stale breakpoints)
+	var bp_path := "res://.vg_breakpoints.json"
+	var f = FileAccess.open(bp_path, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(breakpoints, "\t"))
+		f.close()
+		if not breakpoints.is_empty():
+			print("VisualGasic: Saved ", breakpoints.size(), " script breakpoint set(s) for debug session")
 
 func _input(event: InputEvent) -> void:
 	# F5 to preview current form

@@ -217,6 +217,36 @@ const PROPERTY_DESCRIPTIONS: Dictionary = {
 	"Indeterminate": "Returns/sets whether the ProgressBar shows an indeterminate (marquee) animation.",
 	"ComboStyle": "Returns/sets the style of the ComboBox. 0=Dropdown Combo, 1=Simple Combo, 2=Dropdown List.",
 	"ListStyle": "Returns/sets the style of the ListBox. 0=Standard, 1=Checkbox.",
+	# 3D Node properties
+	"pos3d_x": "Returns/sets the X position of the 3D object in world units.",
+	"pos3d_y": "Returns/sets the Y position (height) of the 3D object in world units.",
+	"pos3d_z": "Returns/sets the Z position (depth) of the 3D object in world units.",
+	"rot3d_x": "Returns/sets the X rotation (pitch) of the 3D object in degrees.",
+	"rot3d_y": "Returns/sets the Y rotation (yaw) of the 3D object in degrees.",
+	"rot3d_z": "Returns/sets the Z rotation (roll) of the 3D object in degrees.",
+	"scl3d_x": "Returns/sets the X scale factor of the 3D object.",
+	"scl3d_y": "Returns/sets the Y scale factor of the 3D object.",
+	"scl3d_z": "Returns/sets the Z scale factor of the 3D object.",
+	"visible3d": "Returns/sets whether the 3D object is visible in the scene.",
+	"cast_shadow": "Returns/sets the shadow casting mode for the mesh (Off, On, DoubleSided, ShadowsOnly).",
+	"transparency3d": "Returns/sets the transparency value for the 3D object (0.0 = opaque, 1.0 = invisible).",
+	"gi_mode": "Returns/sets how the mesh contributes to global illumination (Disabled, Static, Dynamic).",
+	"mesh_color": "Returns/sets the albedo (base) color of the mesh's material.",
+	"mesh_metallic": "Returns/sets how metallic the mesh surface appears (0.0 = dielectric, 1.0 = metal).",
+	"mesh_roughness": "Returns/sets how rough the mesh surface is (0.0 = mirror, 1.0 = diffuse).",
+	"mesh_emission": "Returns/sets the emission (glow) color of the mesh material.",
+	"light_color": "Returns/sets the color of the light source.",
+	"light_energy": "Returns/sets the brightness multiplier of the light.",
+	"light_range": "Returns/sets the maximum range (distance) of the light.",
+	"light_shadows": "Returns/sets whether the light casts shadows.",
+	"cam_fov": "Returns/sets the camera's field of view angle in degrees.",
+	"cam_near": "Returns/sets the camera's near clipping plane distance.",
+	"cam_far": "Returns/sets the camera's far clipping plane distance.",
+	"cam_current": "Returns/sets whether this camera is the active camera.",
+	"body_mass": "Returns/sets the mass of a RigidBody3D in kilograms.",
+	"body_friction": "Returns/sets the friction coefficient of a physics body.",
+	"body_bounce": "Returns/sets the bounciness (restitution) of a physics body.",
+	"body_gravity_scale": "Returns/sets the gravity scale multiplier for a RigidBody3D.",
 }
 
 func _init():
@@ -1295,6 +1325,73 @@ func _collect_properties(node: Node):
 	var tag_value = node.get_meta("vb_tag", "") if node.has_meta("vb_tag") else ""
 	_property_entries.append({"label": "Tag", "value": str(tag_value), "prop_key": "tag", "type": "string", "category": CATEGORY_MISC})
 
+	# ===== Node3D Properties =====
+	if node is Node3D:
+		# -- 3D Transform --
+		_property_entries.append({"label": "X", "value": snappedf(node.position.x, 0.001), "prop_key": "pos3d_x", "type": "number", "category": "3D Position"})
+		_property_entries.append({"label": "Y", "value": snappedf(node.position.y, 0.001), "prop_key": "pos3d_y", "type": "number", "category": "3D Position"})
+		_property_entries.append({"label": "Z", "value": snappedf(node.position.z, 0.001), "prop_key": "pos3d_z", "type": "number", "category": "3D Position"})
+
+		_property_entries.append({"label": "RotationX", "value": snappedf(rad_to_deg(node.rotation.x), 0.1), "prop_key": "rot3d_x", "type": "number", "category": "3D Rotation"})
+		_property_entries.append({"label": "RotationY", "value": snappedf(rad_to_deg(node.rotation.y), 0.1), "prop_key": "rot3d_y", "type": "number", "category": "3D Rotation"})
+		_property_entries.append({"label": "RotationZ", "value": snappedf(rad_to_deg(node.rotation.z), 0.1), "prop_key": "rot3d_z", "type": "number", "category": "3D Rotation"})
+
+		_property_entries.append({"label": "ScaleX", "value": snappedf(node.scale.x, 0.001), "prop_key": "scl3d_x", "type": "number", "category": "3D Scale"})
+		_property_entries.append({"label": "ScaleY", "value": snappedf(node.scale.y, 0.001), "prop_key": "scl3d_y", "type": "number", "category": "3D Scale"})
+		_property_entries.append({"label": "ScaleZ", "value": snappedf(node.scale.z, 0.001), "prop_key": "scl3d_z", "type": "number", "category": "3D Scale"})
+
+		# -- Visibility --
+		_property_entries.append({"label": "Visible", "value": node.visible, "prop_key": "visible3d", "type": "bool", "category": "3D Appearance"})
+
+		# -- MeshInstance3D properties --
+		if node is MeshInstance3D:
+			var shadow_val = node.cast_shadow
+			_property_entries.append({"label": "CastShadow", "value": shadow_val, "prop_key": "cast_shadow", "type": "number", "category": "3D Appearance"})
+			_property_entries.append({"label": "Transparency", "value": snappedf(node.transparency, 0.01), "prop_key": "transparency3d", "type": "number", "category": "3D Appearance"})
+			_property_entries.append({"label": "GI Mode", "value": node.gi_mode, "prop_key": "gi_mode", "type": "number", "category": "3D Appearance"})
+
+			# Material properties (if mesh has a surface material)
+			var mat: Material = null
+			if node.mesh and node.mesh.get_surface_count() > 0:
+				mat = node.get_active_material(0)
+			if mat and mat is StandardMaterial3D:
+				_property_entries.append({"label": "Color", "value": mat.albedo_color, "prop_key": "mesh_color", "type": "color", "category": "3D Material"})
+				_property_entries.append({"label": "Metallic", "value": snappedf(mat.metallic, 0.01), "prop_key": "mesh_metallic", "type": "number", "category": "3D Material"})
+				_property_entries.append({"label": "Roughness", "value": snappedf(mat.roughness, 0.01), "prop_key": "mesh_roughness", "type": "number", "category": "3D Material"})
+				if mat.emission_enabled:
+					_property_entries.append({"label": "Emission", "value": mat.emission, "prop_key": "mesh_emission", "type": "color", "category": "3D Material"})
+
+		# -- CSGShape3D properties (also mesh-like) --
+		if node is CSGShape3D:
+			var csg_mat = node.material if "material" in node else null
+			if csg_mat and csg_mat is StandardMaterial3D:
+				_property_entries.append({"label": "Color", "value": csg_mat.albedo_color, "prop_key": "mesh_color", "type": "color", "category": "3D Material"})
+				_property_entries.append({"label": "Metallic", "value": snappedf(csg_mat.metallic, 0.01), "prop_key": "mesh_metallic", "type": "number", "category": "3D Material"})
+				_property_entries.append({"label": "Roughness", "value": snappedf(csg_mat.roughness, 0.01), "prop_key": "mesh_roughness", "type": "number", "category": "3D Material"})
+
+		# -- Light3D properties --
+		if node is Light3D:
+			_property_entries.append({"label": "LightColor", "value": node.light_color, "prop_key": "light_color", "type": "color", "category": "3D Light"})
+			_property_entries.append({"label": "Energy", "value": snappedf(node.light_energy, 0.01), "prop_key": "light_energy", "type": "number", "category": "3D Light"})
+			_property_entries.append({"label": "Shadows", "value": node.shadow_enabled, "prop_key": "light_shadows", "type": "bool", "category": "3D Light"})
+			if node is OmniLight3D or node is SpotLight3D:
+				_property_entries.append({"label": "Range", "value": snappedf(node.omni_range if node is OmniLight3D else node.spot_range, 0.1), "prop_key": "light_range", "type": "number", "category": "3D Light"})
+
+		# -- Camera3D properties --
+		if node is Camera3D:
+			_property_entries.append({"label": "FOV", "value": snappedf(node.fov, 0.1), "prop_key": "cam_fov", "type": "number", "category": "3D Camera"})
+			_property_entries.append({"label": "Near", "value": snappedf(node.near, 0.001), "prop_key": "cam_near", "type": "number", "category": "3D Camera"})
+			_property_entries.append({"label": "Far", "value": snappedf(node.far, 0.1), "prop_key": "cam_far", "type": "number", "category": "3D Camera"})
+			_property_entries.append({"label": "Current", "value": node.current, "prop_key": "cam_current", "type": "bool", "category": "3D Camera"})
+
+		# -- RigidBody3D physics properties --
+		if node is RigidBody3D:
+			_property_entries.append({"label": "Mass", "value": snappedf(node.mass, 0.01), "prop_key": "body_mass", "type": "number", "category": "3D Physics"})
+			_property_entries.append({"label": "GravityScale", "value": snappedf(node.gravity_scale, 0.01), "prop_key": "body_gravity_scale", "type": "number", "category": "3D Physics"})
+			if node.physics_material_override:
+				_property_entries.append({"label": "Friction", "value": snappedf(node.physics_material_override.friction, 0.01), "prop_key": "body_friction", "type": "number", "category": "3D Physics"})
+				_property_entries.append({"label": "Bounce", "value": snappedf(node.physics_material_override.bounce, 0.01), "prop_key": "body_bounce", "type": "number", "category": "3D Physics"})
+
 func _render_categorized():
 	"""Render properties grouped by category with section headers."""
 	_prop_row_index = 0
@@ -2275,6 +2372,92 @@ func _apply_prop(prop_key: String, value):
 		"spinbox_suffix":
 			if current_node is SpinBox:
 				current_node.suffix = value
+		# ===== Node3D properties =====
+		"pos3d_x":
+			if current_node is Node3D:
+				current_node.position.x = float(value)
+		"pos3d_y":
+			if current_node is Node3D:
+				current_node.position.y = float(value)
+		"pos3d_z":
+			if current_node is Node3D:
+				current_node.position.z = float(value)
+		"rot3d_x":
+			if current_node is Node3D:
+				current_node.rotation.x = deg_to_rad(float(value))
+		"rot3d_y":
+			if current_node is Node3D:
+				current_node.rotation.y = deg_to_rad(float(value))
+		"rot3d_z":
+			if current_node is Node3D:
+				current_node.rotation.z = deg_to_rad(float(value))
+		"scl3d_x":
+			if current_node is Node3D:
+				current_node.scale.x = float(value)
+		"scl3d_y":
+			if current_node is Node3D:
+				current_node.scale.y = float(value)
+		"scl3d_z":
+			if current_node is Node3D:
+				current_node.scale.z = float(value)
+		"visible3d":
+			if current_node is Node3D:
+				current_node.visible = value
+		"cast_shadow":
+			if current_node is MeshInstance3D:
+				current_node.cast_shadow = int(value)
+		"transparency3d":
+			if current_node is MeshInstance3D:
+				current_node.transparency = float(value)
+		"gi_mode":
+			if current_node is MeshInstance3D:
+				current_node.gi_mode = int(value)
+		"mesh_color":
+			_apply_mesh_material_prop("albedo_color", value)
+		"mesh_metallic":
+			_apply_mesh_material_prop("metallic", float(value))
+		"mesh_roughness":
+			_apply_mesh_material_prop("roughness", float(value))
+		"mesh_emission":
+			_apply_mesh_material_prop("emission", value)
+		"light_color":
+			if current_node is Light3D:
+				current_node.light_color = value
+		"light_energy":
+			if current_node is Light3D:
+				current_node.light_energy = float(value)
+		"light_range":
+			if current_node is OmniLight3D:
+				current_node.omni_range = float(value)
+			elif current_node is SpotLight3D:
+				current_node.spot_range = float(value)
+		"light_shadows":
+			if current_node is Light3D:
+				current_node.shadow_enabled = value
+		"cam_fov":
+			if current_node is Camera3D:
+				current_node.fov = float(value)
+		"cam_near":
+			if current_node is Camera3D:
+				current_node.near = float(value)
+		"cam_far":
+			if current_node is Camera3D:
+				current_node.far = float(value)
+		"cam_current":
+			if current_node is Camera3D:
+				current_node.current = value
+		"body_mass":
+			if current_node is RigidBody3D:
+				current_node.mass = float(value)
+		"body_gravity_scale":
+			if current_node is RigidBody3D:
+				current_node.gravity_scale = float(value)
+		"body_friction":
+			if current_node is RigidBody3D and current_node.physics_material_override:
+				current_node.physics_material_override.friction = float(value)
+		"body_bounce":
+			if current_node is RigidBody3D and current_node.physics_material_override:
+				current_node.physics_material_override.bounce = float(value)
 
 # ==========================================================================
 # Form Designer property application
@@ -2340,6 +2523,33 @@ func _apply_fd_prop(prop_key: String, value) -> void:
 			_fd_designer.set_control_property(_fd_control_index, prop_key, value)
 
 	print("VisualGasic Inspector: Set FD property '", prop_key, "' = ", value, " on control #", _fd_control_index)
+
+## Apply a material property to the current MeshInstance3D or CSGShape3D.
+## Ensures the material is unique (not shared) before modifying it.
+func _apply_mesh_material_prop(mat_prop: String, value) -> void:
+	if not is_instance_valid(current_node):
+		return
+	var mat: StandardMaterial3D = null
+	if current_node is MeshInstance3D and current_node.mesh and current_node.mesh.get_surface_count() > 0:
+		mat = current_node.get_active_material(0)
+		if mat and not mat is StandardMaterial3D:
+			return
+		if mat == null:
+			mat = StandardMaterial3D.new()
+			current_node.set_surface_override_material(0, mat)
+		elif not current_node.get_surface_override_material(0):
+			# Make it unique so we don't modify the shared resource
+			mat = mat.duplicate()
+			current_node.set_surface_override_material(0, mat)
+	elif current_node is CSGShape3D and "material" in current_node:
+		mat = current_node.material
+		if mat and not mat is StandardMaterial3D:
+			return
+		if mat == null:
+			mat = StandardMaterial3D.new()
+			current_node.material = mat
+	if mat:
+		mat.set(mat_prop, value)
 
 ## Get the current background color of a control
 func _get_back_color(node: Control) -> Color:

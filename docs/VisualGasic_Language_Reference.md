@@ -206,6 +206,75 @@ Loop
 Do
     ProcessInput()
 Loop Until gameOver
+
+' Oscillate (ping-pong loop)
+' Bounces a variable back and forth between two values.
+' Great for patrol paths, wave effects, and animations.
+Oscillate x = 0 To 10 Cycles 3
+    Print x   ' 0,1,2,...,10,9,8,...,0,1,...,10
+Loop
+
+' Oscillate with Step
+Oscillate alpha = 0 To 1 Step 0.25 Cycles 2
+    SetOpacity(alpha)
+Loop
+
+' Exit Oscillate - break out early
+Oscillate i = 1 To 100 Cycles 5
+    If EnemyDefeated() Then Exit Oscillate
+    MoveEnemy(i)
+Loop
+
+' Continue Oscillate - skip to next iteration
+Oscillate frame = 0 To 30 Cycles 2
+    If frame = 15 Then Continue Oscillate
+    DrawFrame(frame)
+Loop
+
+' Repeat N Times - execute a block exactly N times
+Repeat 5 Times
+    Print "Hello!"
+End Repeat
+
+' Repeat with a 1-based counter variable
+Repeat 10 Times As i
+    Print "Iteration " & Str(i)   ' 1, 2, 3, ..., 10
+End Repeat
+
+' Cycle Through - take N items from a collection with wrap-around
+Dim colors() As String
+colors = Array("Red", "Green", "Blue")
+Cycle Through colors For 7 As c
+    Print c   ' Red, Green, Blue, Red, Green, Blue, Red
+End Cycle
+
+' Every N Frames/Seconds - conditional guard for _Process
+' Fires body once every N frames or N seconds
+Sub _Process(delta As Single)
+    Every 3 Frames
+        UpdateParticles()   ' Called every 3rd frame
+    End Every
+
+    Every 0.5 Seconds
+        CheckSpawns()       ' Called every half second
+    End Every
+End Sub
+
+' Tween - one-liner property animation
+' Tweens a node property to a target value over time
+Tween sprite.Position To Vector2(400, 300) Over 2.0
+
+' Tween with starting value
+Tween panel.Position From Vector2(0, -200) To Vector2(0, 50) Over 0.8
+
+' Tween with easing and transition curve
+Tween label.Modulate.A To 0.0 Over 0.5 Ease Out Trans Sine
+
+' Tween with all options
+Tween btn.Position From Vector2(0, 0) To Vector2(200, 100) Over 1.0 Ease InOut Trans Cubic
+
+' VB6 property aliases work with Tween
+Tween ctrl.Left To 100 Over 0.3 Ease Out Trans Back
 ```
 
 **Subroutines and Functions:**
@@ -1295,6 +1364,20 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `Do` - Start Do loop
 - `Loop` - End Do loop
 - `Until` - Loop until condition
+- `Oscillate` - Start ping-pong loop
+- `Cycles` - Number of oscillation cycles
+- `Repeat` - Start repeat loop (`Repeat N Times`)
+- `Times` - Repeat count keyword
+- `Cycle` - Start cycle-through loop (`Cycle Through`)
+- `Through` - Cycle through keyword
+- `Every` - Start conditional guard (`Every N Frames/Seconds`)
+- `Frames` - Frame-based interval
+- `Seconds` - Time-based interval
+- `Tween` - One-liner property animation
+- `Over` - Tween duration keyword
+- `Ease` - Tween easing type (In, Out, InOut, OutIn)
+- `Trans` - Tween transition curve (Linear, Sine, Bounce, etc.)
+- `From` - Optional starting value for Tween
 - `Exit` - Exit current loop/procedure
 - `Continue` - Skip to next iteration
 - `Return` - Return from function
@@ -1821,6 +1904,374 @@ Loop While input <> "quit"
 ```
 
 **See Also:** [While-Wend Loop](#while-wend-loop) - Alternative loop syntax with similar `While` condition syntax.
+
+#### Repeat N Times
+
+Executes a block exactly N times. Simpler than a `For` loop when you just need repetition without managing a counter variable. An optional `As counter` clause provides a 1-based iteration variable.
+
+**Syntax:**
+```
+Repeat <count> Times [As <counter>]
+    ' body
+End Repeat
+```
+
+**Basic usage:**
+```vb
+' Fire three bullets in a burst
+Repeat 3 Times
+    SpawnBullet()
+End Repeat
+```
+
+**With a counter variable (1-based):**
+```vb
+' Spawn 5 enemies at increasing heights
+Repeat 5 Times As i
+    Dim y As Single = i * 64.0
+    SpawnEnemy(0, y)
+    Print "Spawned enemy #" & Str(i) & " at y=" & Str(y)
+Next
+```
+Output:
+```
+Spawned enemy #1 at y=64
+Spawned enemy #2 at y=128
+Spawned enemy #3 at y=192
+Spawned enemy #4 at y=256
+Spawned enemy #5 at y=320
+```
+
+**Expression as count:**
+```vb
+Dim difficulty As Integer = 3
+Repeat difficulty * 2 Times As wave
+    Print "Wave " & Str(wave)
+End Repeat
+' Prints: Wave 1, Wave 2, Wave 3, Wave 4, Wave 5, Wave 6
+```
+
+**Exit Repeat — break out early:**
+```vb
+Repeat 100 Times As attempt
+    Dim roll As Integer = Int(Rnd() * 6) + 1
+    If roll = 6 Then
+        Print "Rolled a 6 on attempt " & Str(attempt) & "!"
+        Exit Repeat
+    End If
+End Repeat
+```
+
+**Continue Repeat — skip to next iteration:**
+```vb
+Repeat 10 Times As n
+    If n Mod 2 = 0 Then Continue Repeat
+    Print n   ' Prints only odd numbers: 1, 3, 5, 7, 9
+End Repeat
+```
+
+**Nested Repeat:**
+```vb
+Repeat 3 Times As row
+    Dim line As String = ""
+    Repeat 4 Times As col
+        line = line & "[" & Str(row) & "," & Str(col) & "] "
+    End Repeat
+    Print line
+End Repeat
+```
+Output:
+```
+[1,1] [1,2] [1,3] [1,4]
+[2,1] [2,2] [2,3] [2,4]
+[3,1] [3,2] [3,3] [3,4]
+```
+
+**Zero count — body never executes:**
+```vb
+Repeat 0 Times
+    Print "This never prints"
+End Repeat
+```
+
+**See Also:** [For-Next Loop](#for-next-loop) - Use `For` when you need a custom start/end range or step value.
+
+---
+
+#### Cycle Through
+
+Takes N items from a collection, wrapping around automatically when the end is reached. Ideal for repeating patterns, color cycling, tile assignment, or round-robin distribution.
+
+**Syntax:**
+```
+Cycle Through <collection> For <count> As <element>
+    ' body — element holds the current item
+End Cycle
+```
+
+**Basic — repeating a color pattern:**
+```vb
+Dim colors As Array = ["Red", "Green", "Blue"]
+Cycle Through colors For 7 As c
+    Print c
+End Cycle
+' Output: Red, Green, Blue, Red, Green, Blue, Red
+```
+
+**Round-robin team assignment:**
+```vb
+Dim teams As Array = ["Alpha", "Bravo", "Charlie"]
+Dim players As Array = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hank"]
+
+Cycle Through teams For Len(players) As team
+    ' Each player gets the next team in rotation
+    Print players(i) & " → " & team
+End Cycle
+```
+
+**Tile pattern for a game board:**
+```vb
+Dim tiles As Array = ["grass", "dirt", "stone"]
+Cycle Through tiles For 12 As t
+    PlaceTile(t)   ' grass, dirt, stone, grass, dirt, stone, ...
+End Cycle
+```
+
+**Exit Cycle — break out early:**
+```vb
+Dim notes As Array = ["C", "E", "G"]
+Cycle Through notes For 20 As note
+    PlayNote(note)
+    If PlayerPressedStop() Then Exit Cycle
+End Cycle
+```
+
+**Continue Cycle — skip an iteration:**
+```vb
+Dim items As Array = ["sword", "shield", "potion"]
+Cycle Through items For 9 As item
+    If item = "shield" Then Continue Cycle
+    Print item   ' Prints: sword, potion, sword, potion, sword, potion
+End Cycle
+```
+
+**Single-element collection:**
+```vb
+Dim only As Array = ["echo"]
+Cycle Through only For 5 As word
+    Print word   ' echo, echo, echo, echo, echo
+End Cycle
+```
+
+**See Also:** [For-Each Loop](#for-each-loop) - Use `For Each` when you want to iterate a collection exactly once without wrap-around.
+
+---
+
+#### Every N Frames / Every N Seconds
+
+A conditional guard for use inside `_Process`. Executes its body once every N frames or once every N seconds, skipping all other calls. Eliminates the boilerplate of manual frame counters or elapsed-time accumulators.
+
+**Syntax:**
+```
+Every <N> Frames
+    ' body — runs once every N frames
+End Every
+
+Every <N> Seconds
+    ' body — runs once every N seconds
+End Every
+```
+
+> **Note:** `Every` blocks must be placed inside a `_Process(delta)` subroutine. Each `Every` block maintains its own internal counter automatically.
+
+**Frame-based — update particles every 3 frames:**
+```vb
+Sub _Process(delta As Single)
+    Every 3 Frames
+        UpdateParticles()
+    End Every
+End Sub
+```
+
+**Time-based — check for spawns every half second:**
+```vb
+Sub _Process(delta As Single)
+    Every 0.5 Seconds
+        CheckSpawns()
+    End Every
+End Sub
+```
+
+**Multiple guards in the same `_Process`:**
+```vb
+Sub _Process(delta As Single)
+    ' Fast update: every other frame
+    Every 2 Frames
+        UpdateAnimations()
+    End Every
+
+    ' Medium update: every 10 frames
+    Every 10 Frames
+        UpdateMinimap()
+    End Every
+
+    ' Slow update: once per second
+    Every 1.0 Seconds
+        AutoSave()
+    End Every
+End Sub
+```
+
+**Game HUD refresh — update score display every 5 frames:**
+```vb
+Sub _Process(delta As Single)
+    Every 5 Frames
+        lblScore.Text = "Score: " & Str(score)
+    End Every
+End Sub
+```
+
+**Network sync — send position to server every 100ms:**
+```vb
+Sub _Process(delta As Single)
+    Every 0.1 Seconds
+        SendPositionToServer(Me.Position)
+    End Every
+End Sub
+```
+
+**Enemy AI — re-evaluate target once per second:**
+```vb
+Sub _Process(delta As Single)
+    ' Pathfinding is expensive — only run once per second
+    Every 1.0 Seconds
+        target = FindNearestPlayer()
+        path = NavigationServer.GetPath(Me.Position, target.Position)
+    End Every
+
+    ' Movement runs every frame as usual
+    MoveAlongPath(path, delta)
+End Sub
+```
+
+**See Also:** [Timer Node](https://docs.godotengine.org/en/stable/classes/class_timer.html) - For one-shot or independently scheduled timers outside `_Process`.
+
+---
+
+#### Tween (One-Liner Animation)
+
+Animates a node property from its current value (or a specified starting value) to a target value over a duration, with optional easing and transition curves. Compiles to Godot's `SceneTreeTween` chain (`create_tween → tween_property → set_ease → set_trans`).
+
+**Syntax:**
+```
+Tween <target.Property> To <value> Over <duration>
+Tween <target.Property> From <start> To <end> Over <duration> [Ease <type>] [Trans <type>]
+```
+
+**Basic — slide a sprite to a position:**
+```vb
+Tween sprite.Position To Vector2(400, 300) Over 2.0
+```
+
+**With starting value — slide a panel in from off-screen:**
+```vb
+Tween panel.Position From Vector2(0, -200) To Vector2(0, 50) Over 0.8
+```
+
+**Fade out a label:**
+```vb
+Tween label.Modulate:a To 0.0 Over 0.5
+```
+
+**Easing and transition curves:**
+```vb
+' Smooth deceleration
+Tween enemy.Position To Vector2(100, 200) Over 1.0 Ease Out Trans Sine
+
+' Overshoot bounce
+Tween button.Scale To Vector2(1.2, 1.2) Over 0.3 Ease Out Trans Back
+
+' Smooth start and end
+Tween camera.Position To target Over 0.6 Ease InOut Trans Cubic
+```
+
+**Full example — all options:**
+```vb
+Tween healthBar.Size From Vector2(200, 20) To Vector2(50, 20) Over 1.5 Ease InOut Trans Cubic
+```
+
+**VB6 property aliases:**
+
+Classic VB6 property names are automatically translated to their Godot equivalents:
+
+```vb
+Tween ctrl.Left To 100 Over 0.3              ' → position:x
+Tween ctrl.Top To 200 Over 0.3               ' → position:y
+Tween ctrl.Width To 400 Over 0.5             ' → size:x
+Tween ctrl.Height To 300 Over 0.5            ' → size:y
+Tween ctrl.Visible To True Over 0.2          ' → visible
+Tween ctrl.BackColor To Color.RED Over 1.0   ' → modulate
+```
+
+**Practical game examples:**
+
+```vb
+' Damage flash — tween to red and back
+Sub TakeDamage(amount As Integer)
+    health = health - amount
+    Tween sprite.Modulate To Color.RED Over 0.1
+    Tween sprite.Modulate From Color.RED To Color.WHITE Over 0.3
+End Sub
+
+' UI pop-in animation
+Sub ShowDialog()
+    dialog.Scale = Vector2(0, 0)
+    dialog.Visible = True
+    Tween dialog.Scale From Vector2(0, 0) To Vector2(1, 1) Over 0.4 Ease Out Trans Back
+End Sub
+
+' Smooth camera follow
+Sub _Process(delta As Single)
+    Every 2 Frames
+        Tween camera.Position To player.Position Over 0.3 Ease Out Trans Quad
+    End Every
+End Sub
+
+' Coin collect — float up and fade out
+Sub CollectCoin(coin As Node2D)
+    score = score + 10
+    Tween coin.Position To coin.Position - Vector2(0, 50) Over 0.5 Ease Out Trans Quad
+    Tween coin.Modulate:a To 0.0 Over 0.5
+End Sub
+```
+
+**Ease Types:**
+| Ease | Description |
+| :--- | :--- |
+| `In` | Starts slow, accelerates |
+| `Out` | Starts fast, decelerates |
+| `InOut` | Smooth start and end |
+| `OutIn` | Fast start and end, slow middle |
+
+**Trans Types (Transition Curves):**
+| Trans | Description |
+| :--- | :--- |
+| `Linear` | Constant speed (no curve) |
+| `Sine` | Gentle sine-wave curve |
+| `Quad` | Quadratic (power of 2) |
+| `Cubic` | Cubic (power of 3) |
+| `Quart` | Quartic (power of 4) |
+| `Quint` | Quintic (power of 5) |
+| `Expo` | Exponential |
+| `Circ` | Circular |
+| `Elastic` | Springy overshoot |
+| `Bounce` | Bouncing ball effect |
+| `Back` | Slight overshoot and return |
+| `Spring` | Damped spring oscillation |
+
+**See Also:** [Godot Tween Documentation](https://docs.godotengine.org/en/stable/classes/class_tween.html) - Underlying Godot Tween API for advanced chaining and callbacks.
+
+---
 
 ### Select Case
 

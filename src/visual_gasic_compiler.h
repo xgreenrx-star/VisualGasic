@@ -50,6 +50,9 @@ private:
     // Stack of bytecode offsets where Continue should jump to (the
     // increment/re-test point of each enclosing loop).
     Vector<int> loop_continue_targets;
+    // Stack of forward-jump addresses emitted by Continue when the
+    // target is not yet known (body compiled before increment).
+    Vector<Vector<int>> loop_continue_forward_jumps;
     // GoTo label support: label_name → bytecode offset (filled in first pass)
     HashMap<String, int> label_positions;
     // Forward GoTo jumps that need patching: label_name → list of jump offsets

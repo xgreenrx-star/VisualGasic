@@ -89,6 +89,24 @@ VisualGasicLanguage *VisualGasicLanguage::get_singleton() {
     return singleton;
 }
 
+Dictionary VisualGasicLanguage::vg_validate_code(const String &p_code, const String &p_path) {
+    VisualGasicLanguage *lang = get_singleton();
+    if (!lang) {
+        Dictionary result;
+        result["valid"] = false;
+        Array errors;
+        Dictionary err;
+        err["line"] = 1;
+        err["column"] = 0;
+        err["message"] = "VisualGasic language not loaded";
+        errors.push_back(err);
+        result["errors"] = errors;
+        result["warnings"] = Array();
+        return result;
+    }
+    return lang->_validate(p_code, p_path, true, true, true, false);
+}
+
 VisualGasicLanguage::VisualGasicLanguage() {
     singleton = this;
 }
@@ -1455,6 +1473,9 @@ Dictionary VisualGasicLanguage::_lookup_code(const String &p_code, const String 
 
 void VisualGasicLanguage::_bind_methods() {
     ClassDB::bind_method(D_METHOD("format_source_code", "code"), &VisualGasicLanguage::format_source_code);
+
+    // Code validation — callable from GDScript as VisualGasicLanguage.vg_validate_code(source, path)
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_validate_code", "code", "path"), &VisualGasicLanguage::vg_validate_code);
     
     // Step debugging methods - these are instance methods that delegate to static methods
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_debug_continue"), &VisualGasicLanguage::debug_continue);
@@ -1575,16 +1596,16 @@ String VisualGasicLanguage::format_source_code(const String &p_code) const {
                 core.begins_with("class ") || core == "class" ||
                 line_lower.begins_with("for ") ||
                 line_lower.begins_with("while ") ||
-                line_lower.begins_with("do") ||
+                (line_lower.begins_with("do") && (line_lower == "do" || line_lower[2] == ' ' || line_lower[2] == '\n')) ||
                 line_lower.begins_with("select case ") ||
                 line_lower.begins_with("with ") ||
                 core.begins_with("type ") || core == "type" ||
                 core.begins_with("enum ") || core == "enum" ||
                 line_lower.begins_with("whenever ") ||
-                line_lower.begins_with("try") ||
+                line_lower == "try" || line_lower.begins_with("try ") ||
                 (line_lower.begins_with("if ") && line_lower.ends_with(" then")) ||
-                line_lower.begins_with("else") ||
-                line_lower.begins_with("elseif") ||
+                line_lower == "else" || line_lower.begins_with("else ") ||
+                line_lower.begins_with("elseif ") ||
                 line_lower.begins_with("case ") ||
                 line_lower == "case else") {
                 current_indent++;
@@ -2340,6 +2361,38 @@ String VisualGasicLanguage::evaluate_expression_in_context(const String& express
                 if (member == "x") return String::num(v.x);
                 if (member == "y") return String::num(v.y);
                 if (member == "z") return String::num(v.z);
+            }
+        }
+    }
+    
+    // Check for array/dictionary indexing (e.g., filtered(1), Objects("key"))
+    if (trimmed.contains("(") && trimmed.ends_with(")")) {
+        int paren_pos = trimmed.find("(");
+        String base_name = trimmed.substr(0, paren_pos);
+        String index_str = trimmed.substr(paren_pos + 1, trimmed.length() - paren_pos - 2).strip_edges();
+        
+        Variant base_value;
+        if (instance->get(StringName(base_name), base_value)) {
+            if (base_value.get_type() == Variant::ARRAY && index_str.is_valid_int()) {
+                Array arr = base_value;
+                int idx = index_str.to_int();
+                if (idx >= 0 && idx < arr.size()) {
+                    return String(arr[idx]);
+                }
+            } else if (base_value.get_type() == Variant::DICTIONARY) {
+                Dictionary dict = base_value;
+                Variant key;
+                if ((index_str.begins_with("\"") && index_str.ends_with("\"")) ||
+                    (index_str.begins_with("'") && index_str.ends_with("'"))) {
+                    key = index_str.substr(1, index_str.length() - 2);
+                } else if (index_str.is_valid_int()) {
+                    key = index_str.to_int();
+                } else {
+                    key = index_str;
+                }
+                if (dict.has(key)) {
+                    return String(dict[key]);
+                }
             }
         }
     }

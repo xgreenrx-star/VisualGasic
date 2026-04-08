@@ -1,7 +1,7 @@
 # VisualGasic — A Modern Language for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-4.4.0--rc4-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-4.4.0--rc7-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
 
@@ -105,6 +105,14 @@
 - **Godot Singleton Access** - All 37 engine singletons (Engine, OS, Time, Input, DisplayServer, AudioServer, etc.)
 - **Godot Enum Constants** - `ClassName.CONSTANT_NAME` for all class enums with keyword-safe resolution
 - **Built-in Components** - Transform, Velocity, Render, and custom component support
+
+### **3D Game Development** *(New in rc7)*
+- **Asset Import** - One-click `.glb`/`.gltf`/`.obj`/`.fbx` model import from the 3D editor toolbar
+- **3D Properties Inspector** - Edit position, rotation, scale, materials (color/metallic/roughness), lights, cameras, and physics bodies directly in the VB6-style Properties panel
+- **Input Map Editor** - Visual dialog for configuring keyboard, mouse, and gamepad bindings with live key capture
+- **Environment Presets** - One-click lighting setups: Outdoor Day, Outdoor Night, Indoor, Space — with sky, ambient light, tonemap, and post-processing
+- **Animation Timeline** - Create animations, insert keyframes, control playback, and import animations from `.glb` model files
+- **Make EXE** - One-click game export from File → Make EXE with auto-generated export presets
 
 ### **System-Level Programming**
 - **System Info** - Hostname, CPU, RAM, disk, OS, uptime, environment, locale via `VGSystem`
@@ -370,9 +378,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 4.4.0-rc4 (Release Candidate)
+**Current Version**: 4.4.0-rc7 (Release Candidate)
 
-> See [RELEASE_NOTES_v4.4.0-rc4.md](RELEASE_NOTES_v4.4.0-rc4.md) for the latest changes.
+> See [RELEASE_NOTES_v4.4.0-rc5.md](RELEASE_NOTES_v4.4.0-rc5.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
@@ -385,6 +393,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 - ✅ **Bytecode Optimizer** - 100% (9-pass peephole optimizer)
 - ✅ **ECS Integration** - 100% (18 methods: entities, Dictionary components, queries, serialization)
 - ✅ **Visual Gasic IDE** - 100% (C++ WYSIWYG editor, 40+ controls, VB6 properties, live preview)
+- ✅ **3D Game Development** - 100% (Asset import, 3D properties inspector, input mapping, environment presets, animation editor, Make EXE export)
 - ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
 - ✅ **Game Demos** - 100% (14 demos: Pong, Snake, Space Shooter, Galactic Defender, Calculator, Piano, and more)
 - ✅ **Documentation** - 100% (Comprehensive guides and references)

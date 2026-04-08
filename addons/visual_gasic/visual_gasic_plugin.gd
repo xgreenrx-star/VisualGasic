@@ -144,6 +144,12 @@ var _data_tips = null
 var _embedded_code_editor = null
 ## Whether the IDE is currently showing the code view (vs form view)
 var _showing_code_view: bool = false
+## Whether the IDE is currently showing the 3D view (vs form/code view)
+var _showing_3d_view: bool = false
+## Embedded 3D Scene Editor (replaces canvas in-place)
+var _vg_3d_editor = null
+## Pending 3D double-click info: stashed when scene needs saving first
+var _pending_3d_dblclick: Dictionary = {}  # {node_name, event_suffix, event_params}
 
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
@@ -165,6 +171,9 @@ var _package_browser = null
 
 ## AI Help Panel (v4.4.0) — local Ollama-powered code assistant
 var _ai_help_panel = null
+
+## "↩ Back to VG IDE" button injected into Godot's 3D editor toolbar
+var _back_to_vg_3d_btn: Button = null
 
 ## Tip of the Day dialog (v3.5)
 var _tip_of_day_dialog: Window = null
@@ -387,6 +396,17 @@ func _enter_tree():
 	# Register custom .vg file icon in the editor theme
 	call_deferred("_register_vg_file_icon")
 	
+	# Inject "↩ Back to VG IDE" button into Godot's 3D editor toolbar
+	_back_to_vg_3d_btn = Button.new()
+	_back_to_vg_3d_btn.text = "\u21a9 Back to VG IDE"
+	_back_to_vg_3d_btn.tooltip_text = "Return to Visual Gasic IDE"
+	_back_to_vg_3d_btn.flat = true
+	_back_to_vg_3d_btn.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	_back_to_vg_3d_btn.add_theme_color_override("font_hover_color", Color(0.4, 0.7, 1.0))
+	_back_to_vg_3d_btn.pressed.connect(_on_back_to_vg_from_3d)
+	add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_MENU, _back_to_vg_3d_btn)
+	print("VisualGasic: 'Back to VG IDE' button added to 3D editor toolbar")
+
 	# Create VB6 Project Explorer (right-upper dock in VB6 mode)
 	var proj_explorer_script = load("res://addons/visual_gasic/vb6_project_explorer.gd")
 	if proj_explorer_script:
@@ -533,6 +553,35 @@ func _enter_tree():
 		show_idx_btn.toggled.connect(_on_show_indexes_toggled)
 		toolbar_row.add_child(show_idx_btn)
 
+		# ── 3D View button — switches to embedded 3D Scene Editor ──
+		var view_3d_sep = VSeparator.new()
+		toolbar_row.add_child(view_3d_sep)
+
+		var view_3d_btn = Button.new()
+		view_3d_btn.name = "View3DBtn"
+		view_3d_btn.text = "  \U0001f3b2 3D Scene Editor  "
+		view_3d_btn.tooltip_text = "Switch to 3D Scene Editor (edit 3D scenes inside the VG IDE)"
+		view_3d_btn.flat = false
+		view_3d_btn.add_theme_font_size_override("font_size", 12)
+		view_3d_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+		view_3d_btn.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 0.7))
+		var view_3d_style = StyleBoxFlat.new()
+		view_3d_style.bg_color = Color(0.2, 0.35, 0.55)
+		view_3d_style.set_corner_radius_all(4)
+		view_3d_style.content_margin_left = 8
+		view_3d_style.content_margin_right = 8
+		view_3d_style.content_margin_top = 2
+		view_3d_style.content_margin_bottom = 2
+		view_3d_btn.add_theme_stylebox_override("normal", view_3d_style)
+		var view_3d_hover = view_3d_style.duplicate()
+		view_3d_hover.bg_color = Color(0.25, 0.45, 0.7)
+		view_3d_btn.add_theme_stylebox_override("hover", view_3d_hover)
+		var view_3d_pressed = view_3d_style.duplicate()
+		view_3d_pressed.bg_color = Color(0.15, 0.25, 0.45)
+		view_3d_btn.add_theme_stylebox_override("pressed", view_3d_pressed)
+		view_3d_btn.pressed.connect(_on_3d_view_pressed)
+		toolbar_row.add_child(view_3d_btn)
+
 		# Spacer to push "Godot Editor" button to the right
 		var spacer = Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -613,6 +662,18 @@ func _enter_tree():
 			_wire_output_tabs.call_deferred()
 			# Embed VG panels (Profiler, Controls, Packages, AI Help) into IDE bottom tabs
 			_embed_ide_bottom_panels.call_deferred()
+
+		# ── Embedded 3D Scene Editor (hidden by default, replaces canvas on 3D View) ──
+		var vg3d_script = load("res://addons/visual_gasic/vg_3d_editor.gd")
+		if vg3d_script:
+			_vg_3d_editor = vg3d_script.new()
+			_vg_3d_editor.visible = false
+			_vg_3d_editor.back_to_form_requested.connect(_show_form_view)
+			_vg_3d_editor.node_double_clicked.connect(_on_3d_node_double_clicked)
+			_vg_3d_editor.view_code_requested.connect(_on_3d_node_double_clicked)
+			_vg_3d_editor.scene_saved.connect(_on_3d_scene_saved)
+			canvas_right_split.add_child(_vg_3d_editor)
+			print("VisualGasic: 3D Scene Editor created")
 
 		# -- RIGHT: Project Explorer + Properties (resizable VSplitContainer) --
 		var right_vsplit = VSplitContainer.new()
@@ -848,6 +909,16 @@ func _make_visible(p_visible: bool) -> void:
 func _on_back_to_godot_pressed() -> void:
 	EditorInterface.set_main_screen_editor("2D")
 
+## Called when user clicks the "🎲 3D View" button in the VG toolbar.
+## Switches to the embedded 3D Scene Editor within the VG IDE.
+func _on_3d_view_pressed() -> void:
+	_show_3d_view()
+
+## Called when user clicks "↩ Back to VG IDE" in the 3D editor toolbar.
+## Returns to the Visual Gasic IDE main screen.
+func _on_back_to_vg_from_3d() -> void:
+	EditorInterface.set_main_screen_editor(_get_plugin_name())
+
 ## Called by the editor after restoring saved window layout.
 func _set_window_layout(config: ConfigFile):
 	if is_instance_valid(_layout_manager):
@@ -1015,6 +1086,12 @@ func _exit_tree():
 		_code_navigator.queue_free()
 		_code_navigator = null
 	_nav_injected_parent = null
+	
+	# Cleanup "Back to VG IDE" button from 3D editor toolbar
+	if is_instance_valid(_back_to_vg_3d_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_MENU, _back_to_vg_3d_btn)
+		_back_to_vg_3d_btn.queue_free()
+		_back_to_vg_3d_btn = null
 	
 	# Cleanup alignment toolbar
 	if is_instance_valid(alignment_toolbar):
@@ -3218,6 +3295,8 @@ func _create_vb6_menu_bar() -> MenuBar:
 	file_menu.add_item("Import VB6 Form...", 20)
 	file_menu.add_item("Import VB6 Project...", 21)
 	file_menu.add_separator()
+	file_menu.add_item("Make EXE...", 30)
+	file_menu.add_separator()
 	file_menu.add_item("Exit to Godot Editor", 99)
 	file_menu.id_pressed.connect(_on_vb6_file_menu)
 	mb.add_child(file_menu)
@@ -3374,6 +3453,9 @@ func _create_vb6_menu_bar() -> MenuBar:
 	tools_menu.add_item("Theme Picker...", 11)
 	tools_menu.add_separator()
 	tools_menu.add_item("Generate Documentation...", 12)
+	tools_menu.add_separator()
+	tools_menu.add_item("Input Map Editor...", 30)
+	tools_menu.add_item("Animation Editor...", 31)
 	tools_menu.id_pressed.connect(_on_vb6_tools_menu)
 	mb.add_child(tools_menu)
 
@@ -3480,6 +3562,7 @@ func _on_vb6_file_menu(id: int) -> void:
 		12: _do_save_all()
 		20: _on_import_vb6_form()
 		21: _on_import_vb6_project()
+		30: _on_make_exe()
 		99: _on_back_to_godot_pressed()
 
 ## Save all open forms and code files.
@@ -4185,6 +4268,22 @@ func _sync_form_state_to_scene_tree() -> void:
 			bg.offset_right = new_right
 			bg.offset_bottom = new_bottom
 
+	# ── Ensure root Control anchors are explicit (prevents null serialization) ──
+	# When Godot's ResourceSaver writes the scene, uninitialized anchor/offset
+	# properties serialize as "null" in .tscn, which resets floats to 0 and
+	# breaks full-rect layouts.  Explicitly setting them prevents this.
+	if scene_root is Control and not scene_root is Window:
+		if scene_root.anchors_preset == Control.PRESET_FULL_RECT or \
+		   (is_equal_approx(scene_root.anchor_right, 1.0) and is_equal_approx(scene_root.anchor_bottom, 1.0)):
+			scene_root.anchor_left = 0.0
+			scene_root.anchor_top = 0.0
+			scene_root.anchor_right = 1.0
+			scene_root.anchor_bottom = 1.0
+			scene_root.offset_left = 0.0
+			scene_root.offset_top = 0.0
+			scene_root.offset_right = 0.0
+			scene_root.offset_bottom = 0.0
+
 	# ── Sync each child control's position + size (only if changed) ──
 	var ctrl_count = _form_designer.get_control_count()
 	for i in ctrl_count:
@@ -4370,6 +4469,8 @@ func _on_vb6_tools_menu(id: int) -> void:
 		12: _on_generate_docs()
 		20: _on_new_custom_control()
 		21: _on_edit_custom_control()
+		30: _on_open_input_map_editor()
+		31: _on_open_animation_editor()
 
 func _on_vb6_window_menu(id: int) -> void:
 	match id:
@@ -4380,6 +4481,166 @@ func _on_vb6_help_menu(id: int) -> void:
 		0: OS.shell_open("https://github.com/nickshouse/VisualGasic")
 		1: pass # About dialog
 		2: _show_tip_of_day()
+
+# =============================================================================
+# INPUT MAP EDITOR
+# =============================================================================
+func _on_open_input_map_editor() -> void:
+	var InputMapEditor = load("res://addons/visual_gasic/vg_input_map_editor.gd")
+	var dialog = InputMapEditor.new()
+	EditorInterface.get_base_control().add_child(dialog)
+	dialog.popup_centered()
+
+# =============================================================================
+# ANIMATION EDITOR
+# =============================================================================
+func _on_open_animation_editor() -> void:
+	var AnimEditor = load("res://addons/visual_gasic/vg_animation_editor.gd")
+	var dialog = AnimEditor.new()
+
+	# If 3D editor is active and has a selected node, use it
+	if is_instance_valid(_vg_3d_editor) and _vg_3d_editor.visible:
+		var sel = _vg_3d_editor.get_selected_node() if _vg_3d_editor.has_method("get_selected_node") else null
+		if is_instance_valid(sel):
+			dialog.set_target(sel)
+
+	EditorInterface.get_base_control().add_child(dialog)
+	dialog.popup_centered()
+
+# =============================================================================
+# MAKE EXE — One-click export
+# =============================================================================
+var _export_dialog: FileDialog = null
+
+func _on_make_exe() -> void:
+	# Save everything first
+	_do_save_all()
+
+	if not is_instance_valid(_export_dialog):
+		_export_dialog = FileDialog.new()
+		_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+		_export_dialog.title = "Make EXE — Choose Output Location"
+		_export_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		# Determine platform-specific defaults
+		var platform := OS.get_name()
+		if platform == "Windows":
+			_export_dialog.filters = PackedStringArray(["*.exe ; Windows Executable"])
+			_export_dialog.current_file = ProjectSettings.get_setting("application/config/name", "Game") + ".exe"
+		elif platform == "macOS":
+			_export_dialog.filters = PackedStringArray(["*.app ; macOS Application", "*.zip ; macOS Archive"])
+			_export_dialog.current_file = ProjectSettings.get_setting("application/config/name", "Game") + ".app"
+		else:
+			_export_dialog.filters = PackedStringArray(["*.x86_64 ; Linux Executable", "* ; All Files"])
+			_export_dialog.current_file = ProjectSettings.get_setting("application/config/name", "Game") + ".x86_64"
+		_export_dialog.size = Vector2i(700, 500)
+		_export_dialog.file_selected.connect(_on_export_path_selected)
+		EditorInterface.get_base_control().add_child(_export_dialog)
+
+	_export_dialog.popup_centered()
+
+func _on_export_path_selected(path: String) -> void:
+	if path.is_empty():
+		return
+
+	_log_output("📦 Building export to: " + path, Color(0.0, 0.4, 0.0))
+
+	# Find or create an export preset
+	var export_plugin := EditorInterface.get_editor_settings()
+	var platform := OS.get_name()
+
+	# Determine the export preset name based on platform
+	var preset_name := ""
+	if platform == "Windows" or path.ends_with(".exe"):
+		preset_name = "Windows Desktop"
+	elif platform == "macOS" or path.ends_with(".app"):
+		preset_name = "macOS"
+	else:
+		preset_name = "Linux"
+
+	# Use the EditorExportPlatform API if available
+	# For now, use Godot's command-line export as a reliable fallback
+	var godot_path := OS.get_executable_path()
+	var args := PackedStringArray([
+		"--headless",
+		"--export-release",
+		preset_name,
+		path,
+	])
+
+	_log_output("Running: " + godot_path + " " + " ".join(args), Color(0.5, 0.5, 0.5))
+
+	# Check if the export preset exists
+	var presets_path := "res://export_presets.cfg"
+	if not FileAccess.file_exists(presets_path):
+		# Create a minimal export_presets.cfg
+		_create_default_export_preset(preset_name, path)
+
+	var output := []
+	var exit_code := OS.execute(godot_path, args, output, true, false)
+
+	if exit_code == 0:
+		_log_output("✅ Export complete: " + path, Color(0.0, 0.5, 0.0))
+		# Open the output folder
+		OS.shell_show_in_file_manager(path)
+	else:
+		var error_text := "\n".join(output) if output.size() > 0 else "Unknown error"
+		_log_output("❌ Export failed (code %d): %s" % [exit_code, error_text], Color(0.8, 0.0, 0.0))
+		push_error("[VG] Export failed: " + error_text)
+
+func _create_default_export_preset(preset_name: String, output_path: String) -> void:
+	var content := ""
+	match preset_name:
+		"Windows Desktop":
+			content = """[preset.0]
+
+name="Windows Desktop"
+platform="Windows Desktop"
+runnable=true
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+
+[preset.0.options]
+
+"""
+		"Linux":
+			content = """[preset.0]
+
+name="Linux"
+platform="Linux"
+runnable=true
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+
+[preset.0.options]
+
+"""
+		"macOS":
+			content = """[preset.0]
+
+name="macOS"
+platform="macOS"
+runnable=true
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+
+[preset.0.options]
+
+"""
+
+	var file := FileAccess.open("res://export_presets.cfg", FileAccess.WRITE)
+	if file:
+		file.store_string(content)
+		file.close()
+		print("[VG] Created default export preset: ", preset_name)
 
 # =============================================================================
 # EDIT MENU HELPERS — Code editor operations
@@ -5755,6 +6016,135 @@ func _on_fd_control_double_clicked(index: int) -> void:
 		_open_or_create_event_handler(vg_path, sub_name)
 
 # =============================================================================
+# 3D SCENE EDITOR — Double-click / View Code → VG event handler (v4.4.0)
+# =============================================================================
+
+## Signal: A 3D object was double-clicked (or "View Code" chosen) — generate
+## the default event handler stub and switch to the code editor, exactly like
+## the form designer does for 2D controls.
+##
+## If the 3D scene hasn't been saved yet (no .tscn path), the user is prompted
+## to save first via a "Save Scene As" dialog.  The pending double-click info
+## is stashed and replayed automatically after the save completes.
+func _on_3d_node_double_clicked(node: Node3D) -> void:
+	if not is_instance_valid(node):
+		return
+
+	var node_name: String = node.name
+	if node_name.is_empty():
+		return
+
+	# ── Determine default event and parameters based on 3D node type ──
+	# Event names use PascalCase to match VB6_CONTROL_EVENTS in VGIntelliSense.
+	# Parameters come from _get_event_params() in the embedded code editor.
+	var event_suffix := "Ready"
+	var event_params := ""
+
+	if node is RigidBody3D:
+		event_suffix = "BodyEntered"
+		event_params = "Body As Node"
+	elif node is CharacterBody3D:
+		event_suffix = "Process"
+		event_params = "Delta As Single"
+	elif node is Area3D:
+		event_suffix = "BodyEntered"
+		event_params = "Body As Node"
+	else:
+		event_suffix = "Ready"
+
+	# ── Check whether the 3D scene has been saved ──
+	# Each 3D scene needs its own .tscn (and therefore its own .vg).
+	# If the scene has never been saved, prompt the user now.
+	var scene_path := ""
+	if is_instance_valid(_vg_3d_editor) and _vg_3d_editor.has_method("get_scene_path"):
+		scene_path = _vg_3d_editor.get_scene_path()
+
+	if scene_path.is_empty():
+		# Stash the double-click info so we can replay it after saving
+		_pending_3d_dblclick = {
+			"node_name": node_name,
+			"event_suffix": event_suffix,
+			"event_params": event_params,
+		}
+		print("VisualGasic: 3D scene not saved yet — prompting Save As before opening code")
+		if _vg_3d_editor.has_method("save_scene_as"):
+			_vg_3d_editor.save_scene_as()
+		else:
+			push_warning("VisualGasic: 3D editor does not support save_scene_as()")
+		return
+
+	# ── Scene is saved — derive .vg path from the .tscn ──
+	var vg_path: String = scene_path.get_basename() + ".vg"
+
+	var sub_name = node_name + "_" + event_suffix
+	print("VisualGasic: 3D double-click → opening ", sub_name, " in ", vg_path)
+
+	# ── Open in embedded code editor ──
+	if is_instance_valid(_embedded_code_editor):
+		_open_in_embedded_editor(vg_path, sub_name, event_params)
+		# Feed 3D node names AFTER open so they override any form designer names
+		_feed_3d_node_names_to_editor()
+		# Explicitly select the correct object and event in the dropdowns
+		if _embedded_code_editor.has_method("select_object_and_event"):
+			_embedded_code_editor.select_object_and_event(node_name, event_suffix)
+	else:
+		_switching_to_code_editor = true
+		_open_or_create_event_handler(vg_path, sub_name)
+
+## Called when the 3D editor successfully saves a scene (Save or Save As).
+## If there was a pending double-click, replay it now that we have a path.
+func _on_3d_scene_saved(path: String) -> void:
+	if _pending_3d_dblclick.is_empty():
+		return
+	var info = _pending_3d_dblclick
+	_pending_3d_dblclick = {}
+
+	var vg_path: String = path.get_basename() + ".vg"
+	var node_name: String = info.get("node_name", "")
+	var event_suffix: String = info.get("event_suffix", "Ready")
+	var event_params: String = info.get("event_params", "")
+	var sub_name = node_name + "_" + event_suffix
+
+	print("VisualGasic: 3D scene saved → resuming code-open: ", sub_name, " in ", vg_path)
+
+	if is_instance_valid(_embedded_code_editor):
+		_open_in_embedded_editor(vg_path, sub_name, event_params)
+		_feed_3d_node_names_to_editor()
+		if _embedded_code_editor.has_method("select_object_and_event"):
+			_embedded_code_editor.select_object_and_event(node_name, event_suffix)
+	else:
+		_switching_to_code_editor = true
+		_open_or_create_event_handler(vg_path, sub_name)
+
+## Feed 3D scene node names to the embedded code editor's Object dropdown,
+## so the user can navigate between objects just like form controls.
+func _feed_3d_node_names_to_editor() -> void:
+	if not is_instance_valid(_embedded_code_editor) or not is_instance_valid(_vg_3d_editor):
+		return
+	# Use get_scene_node_info() which returns name + type in one call
+	if _vg_3d_editor.has_method("get_scene_node_info"):
+		var node_info: Array = _vg_3d_editor.get_scene_node_info()
+		if node_info.size() > 0:
+			var names: Array[String] = []
+			var info_list: Array[Dictionary] = []
+			for entry in node_info:
+				var n: String = entry.get("name", "")
+				var t: String = entry.get("type", "Node3D")
+				names.append(n)
+				info_list.append({"name": n, "type": t})
+			_embedded_code_editor.set_control_names(names)
+			_embedded_code_editor.set_control_info_list(info_list)
+			return
+	# Fallback: names only (no type info)
+	if _vg_3d_editor.has_method("get_scene_node_names"):
+		var names: Array = _vg_3d_editor.get_scene_node_names()
+		if names.size() > 0:
+			var combined: Array[String] = []
+			for n in names:
+				combined.append(n)
+			_embedded_code_editor.set_control_names(combined)
+
+# =============================================================================
 # CONTROLS INSPECTOR — Visual Form Debugger callbacks (v4.3.0)
 # =============================================================================
 
@@ -6281,11 +6671,14 @@ func _show_code_view() -> void:
 	if _showing_code_view:
 		return
 	_showing_code_view = true
+	_showing_3d_view = false
 
-	# Hide the canvas scroll, show the code editor
+	# Hide the canvas scroll and 3D editor, show the code editor
 	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
+	if is_instance_valid(_vg_3d_editor):
+		_vg_3d_editor.visible = false
 	if is_instance_valid(_embedded_code_editor):
 		_embedded_code_editor.visible = true
 		# Deferred focus so layout settles
@@ -6294,6 +6687,7 @@ func _show_code_view() -> void:
 	# Swap left panel: hide Toolbox (wrapper + header), show Command Help + Index Map
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
 	if toolbox_panel:
+		toolbox_panel.visible = true  # Ensure panel is visible (3D view hides it)
 		# Hide the ToolboxWrapper (contains VB6 header + toolbox content)
 		var wrapper = toolbox_panel.get_node_or_null("ToolboxWrapper")
 		if wrapper:
@@ -6317,9 +6711,9 @@ func _show_code_view() -> void:
 
 	print("VisualGasic: Switched to Code View")
 
-## Switch the center panel from code editor back to form canvas.
+## Switch the center panel from code editor or 3D editor back to form canvas.
 func _show_form_view() -> void:
-	if not _showing_code_view:
+	if not _showing_code_view and not _showing_3d_view:
 		return
 
 	# Save any unsaved code first
@@ -6327,17 +6721,21 @@ func _show_form_view() -> void:
 		_embedded_code_editor.save_file()
 
 	_showing_code_view = false
+	_showing_3d_view = false
 
-	# Show the canvas scroll, hide the code editor
+	# Show the canvas scroll, hide the code editor and 3D editor
 	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = true
 	if is_instance_valid(_embedded_code_editor):
 		_embedded_code_editor.visible = false
+	if is_instance_valid(_vg_3d_editor):
+		_vg_3d_editor.visible = false
 
 	# Swap left panel: hide Command Help, show Toolbox (wrapper + header)
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
 	if toolbox_panel:
+		toolbox_panel.visible = true  # Ensure panel is visible (3D view hides it)
 		# Hide the help panel
 		if is_instance_valid(_embedded_code_editor):
 			var help_panel = _embedded_code_editor.get_help_panel()
@@ -6356,9 +6754,52 @@ func _show_form_view() -> void:
 
 	print("VisualGasic: Switched to Form View")
 
+## Switch the center panel to the embedded 3D Scene Editor.
+func _show_3d_view() -> void:
+	if _showing_3d_view:
+		return
+
+	# If we're in code view, save first
+	if _showing_code_view:
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+			_embedded_code_editor.save_file()
+		_showing_code_view = false
+
+	_showing_3d_view = true
+
+	# Hide the canvas scroll and code editor, show the 3D editor
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	if canvas_scroll:
+		canvas_scroll.visible = false
+	if is_instance_valid(_embedded_code_editor):
+		_embedded_code_editor.visible = false
+	if is_instance_valid(_vg_3d_editor):
+		_vg_3d_editor.visible = true
+
+	# Swap left panel: hide Toolbox and Command Help — the 3D editor has its own toolbox
+	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
+	if toolbox_panel:
+		var wrapper = toolbox_panel.get_node_or_null("ToolboxWrapper")
+		if wrapper:
+			wrapper.visible = false
+		elif is_instance_valid(toolbox):
+			toolbox.visible = false
+		if is_instance_valid(_embedded_code_editor):
+			var help_panel = _embedded_code_editor.get_help_panel()
+			if help_panel:
+				help_panel.visible = false
+		# Hide the entire left panel since the 3D editor has its own left panel
+		toolbox_panel.visible = false
+
+	# Update status bar
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  3D Scene Editor"
+
+	print("VisualGasic: Switched to 3D View")
+
 ## Toggle between code view and form view (VB6 F7 behavior).
 func _toggle_code_form_view() -> void:
-	if _showing_code_view:
+	if _showing_code_view or _showing_3d_view:
 		_show_form_view()
 	else:
 		# If no file loaded yet, try to derive from current form

@@ -181,7 +181,7 @@ class VisualGasicInstance {
     Vector<CoroutineState> coroutine_stack;
 
     struct ErrorState {
-        enum Mode { NONE, RESUME_NEXT, GOTO_LABEL, EXIT_SUB, EXIT_FOR, EXIT_DO, CONTINUE_FOR, CONTINUE_DO, CONTINUE_WHILE };
+        enum Mode { NONE, RESUME_NEXT, GOTO_LABEL, EXIT_SUB, EXIT_FOR, EXIT_DO, EXIT_OSCILLATE, CONTINUE_FOR, CONTINUE_DO, CONTINUE_WHILE, CONTINUE_OSCILLATE };
         Mode mode;
         String label;
         bool has_error;

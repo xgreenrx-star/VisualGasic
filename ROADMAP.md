@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: March 2026  
-**Current Version**: 4.4.0-rc1 (Release Candidate)
+**Last Updated**: April 2026  
+**Current Version**: 4.4.0-rc7 (Release Candidate)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
@@ -773,7 +773,7 @@ These features shipped between March 10–21, 2026:
 
 ## 🚀 v4.4.0 Release Candidate (Current)
 
-v4.4.0-rc1 adds release engineering, cross-platform distribution, and installer tooling:
+v4.4.0-rc7 adds release engineering, cross-platform distribution, installer tooling, and full 3D game development workflow:
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -783,6 +783,12 @@ v4.4.0-rc1 adds release engineering, cross-platform distribution, and installer 
 | IDE Project Creation | ✅ Complete | File → New Project, Tools menu integration |
 | CI/CD Pipeline | ✅ Complete | GitHub Actions builds all 3 platforms |
 | Screenshot Gallery | ✅ Complete | 50+ screenshots in docs/screenshots/ |
+| 3D Asset Import | ✅ Complete | `.glb`/`.gltf`/`.obj`/`.fbx` import from 3D editor toolbar |
+| 3D Properties Inspector | ✅ Complete | Transform, material, light, camera, physics editing |
+| Input Map Editor | ✅ Complete | Keyboard/mouse/gamepad binding dialog |
+| Environment Presets | ✅ Complete | 4 one-click lighting presets (Day/Night/Indoor/Space) |
+| Animation Editor | ✅ Complete | Timeline, keyframes, playback, .glb import |
+| Make EXE Export | ✅ Complete | File → Make EXE with auto-generated export presets |
 | Community Testing | 🟡 In Progress | Need feedback before stable release |
 
 ### Road to Stable (v4.4.0)
@@ -790,9 +796,10 @@ v4.4.0-rc1 adds release engineering, cross-platform distribution, and installer 
 1. ✅ All features implemented and tested
 2. ✅ Cross-platform binaries building
 3. ✅ Installer scripts working
-4. 🟡 Community testing of RC1
-5. 🔲 Fix any reported issues
-6. 🔲 Tag stable v4.4.0 release
+4. ✅ 3D game development workflow complete
+5. 🟡 Community testing of RC7
+6. 🔲 Fix any reported issues
+7. 🔲 Tag stable v4.4.0 release
 
 ---
 

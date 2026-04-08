@@ -24,14 +24,14 @@ Dim GameOver As Boolean
 Dim Level As Integer
 
 ' Arrays
-ReDim Asteroids(30) As Object
-ReDim AsteroidVelX(30) As Single
-ReDim AsteroidVelY(30) As Single
-ReDim AsteroidSize(30) As Integer
-ReDim Bullets(10) As Object
-ReDim BulletVelX(10) As Single
-ReDim BulletVelY(10) As Single
-ReDim BulletLife(10) As Single
+Dim Asteroids(30) As Object
+Dim AsteroidVelX(30) As Single
+Dim AsteroidVelY(30) As Single
+Dim AsteroidSize(30) As Integer
+Dim Bullets(10) As Object
+Dim BulletVelX(10) As Single
+Dim BulletVelY(10) As Single
+Dim BulletLife(10) As Single
 
 ' Timers
 Dim ShootCooldown As Single

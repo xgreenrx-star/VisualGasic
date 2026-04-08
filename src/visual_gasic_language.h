@@ -93,6 +93,11 @@ protected:
 public:
     String format_source_code(const String &p_code) const;
 
+    /// Validate a .vg code string and return {"valid": bool, "errors": [...], "warnings": [...]}.
+    /// Bound as a static ClassDB method so GDScript can call it directly:
+    ///   VisualGasicLanguage.vg_validate_code(source, path)
+    static Dictionary vg_validate_code(const String &p_code, const String &p_path);
+
     static VisualGasicLanguage *get_singleton();
 
     VisualGasicLanguage();

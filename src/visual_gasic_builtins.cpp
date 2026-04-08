@@ -456,7 +456,7 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     if (name.nocasecmp_to("CStr") == 0 && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
     if (name == "Val" && args.size() == 1) { r_handled = true; String s = args[0]; if (s.is_valid_float()) return s.to_float(); if (s.is_valid_int()) return s.to_int(); return 0.0; }
     if (METHOD_IS("strcomp") && args.size() >= 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int mode = (args.size() >= 3) ? (int)args[2] : 0; int cmp = (mode == 1) ? s1.nocasecmp_to(s2) : s1.casecmp_to(s2); if (cmp < 0) return (int64_t)-1; if (cmp > 0) return (int64_t)1; return (int64_t)0; }
-    if (METHOD_IS("instr") && args.size() == 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int pos = s1.find(s2); if (pos==-1) return 0; return pos+1; }
+    if (METHOD_IS("instr") && args.size() >= 2) { r_handled = true; if (args.size() == 2) { String s1 = args[0]; String s2 = args[1]; int pos = s1.find(s2); if (pos==-1) return 0; return pos+1; } else { int start = (int)args[0]; String s1 = args[1]; String s2 = args[2]; if (start < 1) start = 1; if (start > s1.length()) return 0; int pos = s1.find(s2, start - 1); if (pos==-1) return 0; return pos+1; } }
     if (METHOD_IS("instrrev") && args.size() >= 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int start = (args.size() >= 3) ? (int)args[2] - 1 : s1.length() - 1; if (start < 0 || start >= s1.length()) start = s1.length() - 1; int pos = s1.rfind(s2, start); if (pos == -1) return 0; return pos + 1; }
     if (METHOD_IS("replace") && args.size() == 3) { r_handled = true; return String(args[0]).replace(String(args[1]), String(args[2])); }
     if (METHOD_IS("trim") && args.size() == 1) { r_handled = true; return String(args[0]).strip_edges(); }
@@ -465,7 +465,7 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     if (METHOD_IS("strreverse") && args.size() == 1) { r_handled = true; String s = args[0]; String res=""; for(int i=s.length()-1;i>=0;i--) res += s[i]; return res; }
     if (METHOD_IS("hex") && args.size() == 1) { r_handled = true; int64_t val = (int64_t)args[0]; return String::num_int64(val,16).to_upper(); }
     if (METHOD_IS("oct") && args.size() == 1) { r_handled = true; int64_t val = (int64_t)args[0]; return String::num_int64(val,8); }
-    if (METHOD_IS("split") && args.size() >= 2) { r_handled = true; return String(args[0]).split(String(args[1])); }
+    if (METHOD_IS("split") && args.size() >= 2) { r_handled = true; PackedStringArray psa = String(args[0]).split(String(args[1])); Array ret; for (int i = 0; i < psa.size(); i++) { ret.push_back(psa[i]); } return ret; }
     if (METHOD_IS("join") && args.size() == 2) {
         r_handled = true;
         Variant v = args[0];
@@ -1081,7 +1081,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("cstr") && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
     if (METHOD_IS("val") && args.size() == 1) { r_handled = true; String s = args[0]; if (s.is_valid_float()) return s.to_float(); if (s.is_valid_int()) return s.to_int(); return 0.0; }
     if (METHOD_IS("strcomp") && args.size() >= 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int mode = (args.size() >= 3) ? (int)args[2] : 0; int cmp = (mode == 1) ? s1.nocasecmp_to(s2) : s1.casecmp_to(s2); if (cmp < 0) return (int64_t)-1; if (cmp > 0) return (int64_t)1; return (int64_t)0; }
-    if (METHOD_IS("instr") && args.size() == 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int pos = s1.find(s2); if (pos==-1) return 0; return pos+1; }
+    if (METHOD_IS("instr") && args.size() >= 2) { r_handled = true; if (args.size() == 2) { String s1 = args[0]; String s2 = args[1]; int pos = s1.find(s2); if (pos==-1) return 0; return pos+1; } else { int start = (int)args[0]; String s1 = args[1]; String s2 = args[2]; if (start < 1) start = 1; if (start > s1.length()) return 0; int pos = s1.find(s2, start - 1); if (pos==-1) return 0; return pos+1; } }
     if (METHOD_IS("instrrev") && args.size() >= 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int start = (args.size() >= 3) ? (int)args[2] - 1 : s1.length() - 1; if (start < 0 || start >= s1.length()) start = s1.length() - 1; int pos = s1.rfind(s2, start); if (pos == -1) return 0; return pos + 1; }
     if (METHOD_IS("replace") && args.size() == 3) { r_handled = true; return String(args[0]).replace(String(args[1]), String(args[2])); }
     if (METHOD_IS("trim") && args.size() == 1) { r_handled = true; return String(args[0]).strip_edges(); }
@@ -1090,7 +1090,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("strreverse") && args.size() == 1) { r_handled = true; String s = args[0]; String res=""; for(int i=s.length()-1;i>=0;i--) res += s[i]; return res; }
     if (METHOD_IS("hex") && args.size() == 1) { r_handled = true; int64_t val = (int64_t)args[0]; return String::num_int64(val,16).to_upper(); }
     if (METHOD_IS("oct") && args.size() == 1) { r_handled = true; int64_t val = (int64_t)args[0]; return String::num_int64(val,8); }
-    if (METHOD_IS("split") && args.size() >= 2) { r_handled = true; return String(args[0]).split(String(args[1])); }
+    if (METHOD_IS("split") && args.size() >= 2) { r_handled = true; PackedStringArray psa = String(args[0]).split(String(args[1])); Array ret; for (int i = 0; i < psa.size(); i++) { ret.push_back(psa[i]); } return ret; }
     if (METHOD_IS("join") && args.size() == 2) {
         r_handled = true;
         Variant v = args[0];

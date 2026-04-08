@@ -1,13 +1,23 @@
 ; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
+
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
 config/name="3D Racing Game"
 config/description="Simple 3D racing game made with VisualGasic"
 run/main_scene="res://main.tscn"
-config/features=PackedStringArray("4.5")
+config/features=PackedStringArray("4.6")
 config/icon="res://icon.svg"
 
 [display]
@@ -15,6 +25,10 @@ config/icon="res://icon.svg"
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="viewport"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
 
 [rendering]
 

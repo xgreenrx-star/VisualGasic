@@ -5,6 +5,79 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0-rc7] - 2026-04-07
+
+### 🎮 Release Candidate 7 — 3D Game Self-Sufficiency
+
+Six-phase implementation enabling full 3D game development without leaving the VisualGasic IDE. Import models, edit materials, set up environments, configure input, animate objects, and export — all from within VG.
+
+#### Added — Phase 1: Asset Import System (`vg_3d_editor.gd`)
+- **📦 Import toolbar button** — one-click model import from the 3D editor toolbar
+- **FileDialog** for `.glb`, `.gltf`, `.obj`, `.fbx` model files
+- Copies source files + sidecars (`.bin`, `.mtl`) to `res://models/`
+- Triggers `EditorFileSystem.scan()` and awaits reimport before instantiation
+- Instantiates imported model at the current orbit target position
+- **Context menu** — "📦 Import Model..." item (id 20) in right-click menu
+
+#### Added — Phase 2: 3D Properties Inspector (`simple_inspector.gd`)
+- **7 new property categories**: 3D Position, 3D Rotation, 3D Scale, 3D Appearance, 3D Material, 3D Light, 3D Camera, 3D Physics
+- **Node3D transform** — X/Y/Z position, rotation (degrees), and scale with live editing
+- **MeshInstance3D** — CastShadow mode, Transparency, GI Mode, surface material properties
+- **StandardMaterial3D** — Albedo Color, Metallic, Roughness, Emission (with unique material duplication)
+- **CSGShape3D** — Material color/metallic/roughness for CSG primitives
+- **Light3D** — Color, Energy, Range (Omni/Spot), Shadow toggle
+- **Camera3D** — FOV, Near/Far clip planes, Current camera toggle
+- **RigidBody3D** — Mass, Gravity Scale, Friction, Bounce (via PhysicsMaterial)
+- **35 property descriptions** added to `PROPERTY_DESCRIPTIONS` dictionary
+- **`_apply_mesh_material_prop()`** helper — ensures unique material before modifying shared resources
+
+#### Added — Phase 3: Input Map Editor (`vg_input_map_editor.gd`)
+- **New standalone dialog** — VB6-themed AcceptDialog accessible from Tools → Input Map Editor
+- **Action management** — Add/remove input actions, reads existing `input/*` ProjectSettings (skips `ui_*` built-ins)
+- **Key capture** — Press-a-key dialog for keyboard binding (InputEventKey)
+- **Mouse binding popup** — Left/Right/Middle/Wheel Up/Wheel Down (InputEventMouseButton)
+- **Gamepad binding popup** — A/B/X/Y/LB/RB/LT/RT/DPad directions (InputEventJoypadButton)
+- **Deadzone slider** — Per-action deadzone configuration (0.0–1.0)
+- **Auto-save** — All changes immediately saved to `ProjectSettings`
+
+#### Added — Phase 4: Environment Presets (`vg_3d_editor.gd`)
+- **🌍 Env toolbar MenuButton** — one-click environment setup from the 3D editor
+- **4 presets**: Outdoor Day, Outdoor Night, Indoor, Space
+- Each preset creates `WorldEnvironment` + `DirectionalLight3D` with full configuration:
+  - ProceduralSkyMaterial with per-preset sky/ground colors
+  - Ambient light source and energy
+  - Tonemap mode (ACES/Filmic)
+  - Post-processing (SSAO, Glow with intensity)
+  - Sun direction, color, and energy
+- **Remove Environment** option to clean up preset nodes
+- **Context menu** — "🌍 Add Environment..." item (id 21)
+
+#### Added — Phase 5: Animation Timeline (`vg_animation_editor.gd`)
+- **New standalone dialog** — VB6-themed AcceptDialog accessible from Tools → Animation Editor
+- **AnimationPlayer management** — finds or creates AnimationPlayer on target node
+- **Animation list** — Create, delete, and select animations (skips RESET)
+- **Track viewer** — TreeView showing all tracks with type and key count
+- **Playback controls** — Play/Pause/Stop with speed control and loop toggle
+- **Timeline slider** — Seek to any point in the animation with time display
+- **Keyframe insertion** — Adds Position + Rotation + Scale tracks at current time
+- **Import from .glb** — FileDialog to import animations from 3D model files, copies and extracts AnimationPlayer library
+
+#### Added — Phase 6: Make EXE (`visual_gasic_plugin.gd`)
+- **File → Make EXE...** menu item — one-click game export
+- **Platform-aware FileDialog** — `.exe` on Windows, `.x86_64` on Linux, `.app` on macOS
+- Auto-creates `export_presets.cfg` with correct platform preset if missing
+- Invokes Godot's `--export-release` with the matching preset name
+- Opens the output folder on successful export
+- **Error reporting** — logs success/failure to the Output panel
+
+#### Fixed — Formatter Word Boundary (`vg_formatter.gd`, `visual_gasic_language.cpp`)
+- **`Do` keyword** no longer matches function names like `DoTurnOn`, `DoAttack` — added word boundary check after `begins_with()` match
+- **`Try`, `Else`, `ElseIf`** keywords tightened with same boundary pattern in C++ formatter
+- Prevents escalating indentation when procedures start with reserved-word prefixes
+
+#### Fixed — Environment Enum Names (`vg_3d_editor.gd`)
+- `TONE_MAP_ACES` → `TONE_MAPPER_ACES`, `TONE_MAP_FILMIC` → `TONE_MAPPER_FILMIC` — corrected for Godot 4.6 API
+
 ## [4.4.0-rc6] - 2026-03-30
 
 ### 🧹 Release Candidate 6 — Repository Cleanup

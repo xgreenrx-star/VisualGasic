@@ -619,6 +619,74 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             if (safety >= 10000000) UtilityFunctions::print("Runtime: Do loop limit reached.");
             break;
         }
+        case STMT_OSCILLATE: {
+            OscillateStatement* os = (OscillateStatement*)stmt;
+            if (!os->from_val || !os->to_val) {
+                raise_error("Invalid Oscillate statement");
+                break;
+            }
+            Variant from_v = evaluate_expression(os->from_val);
+            Variant to_v = evaluate_expression(os->to_val);
+            Variant step_v = os->step_val ? evaluate_expression(os->step_val) : Variant(1);
+            Variant cycles_v = os->cycles_val ? evaluate_expression(os->cycles_val) : Variant(-1);
+
+            assign_variable(os->variable_name, from_v);
+            int dir = 1; // 1 = forward, -1 = backward
+            int cyc = 0;
+            int safety = 0;
+            while (safety < 10000000) {
+                for (int i = 0; i < os->body.size(); i++) {
+                    execute_statement(os->body[i]);
+                    if (error_state.has_error) break;
+                }
+                if (error_state.has_error) {
+                    if (error_state.mode == ErrorState::CONTINUE_OSCILLATE) {
+                        error_state.has_error = false;
+                        error_state.mode = ErrorState::NONE;
+                        // Fall through to increment logic
+                    } else if (error_state.mode == ErrorState::EXIT_OSCILLATE) {
+                        error_state.has_error = false;
+                        error_state.mode = ErrorState::NONE;
+                        break;
+                    } else {
+                        break; // Propagate other errors
+                    }
+                }
+                // Increment: var += step * dir
+                Variant current = variables[os->variable_name];
+                Variant inc_res; bool inc_valid;
+                Variant dir_v = Variant(dir);
+                Variant step_dir; bool sd_valid;
+                Variant::evaluate(Variant::OP_MULTIPLY, step_v, dir_v, step_dir, sd_valid);
+                Variant::evaluate(Variant::OP_ADD, current, step_dir, inc_res, inc_valid);
+                current = inc_res;
+
+                // Upper boundary check
+                Variant ge_res; bool ge_valid;
+                Variant::evaluate(Variant::OP_GREATER_EQUAL, current, to_v, ge_res, ge_valid);
+                if (ge_res.booleanize()) {
+                    current = to_v;
+                    dir = -1;
+                    cyc++;
+                } else {
+                    // Lower boundary check (only if upper didn't fire)
+                    Variant le_res; bool le_valid;
+                    Variant::evaluate(Variant::OP_LESS_EQUAL, current, from_v, le_res, le_valid);
+                    if (le_res.booleanize()) {
+                        current = from_v;
+                        dir = 1;
+                        cyc++;
+                    }
+                }
+                assign_variable(os->variable_name, current);
+
+                // Cycles exit check
+                if ((int)cycles_v >= 0 && cyc >= (int)cycles_v) break;
+                safety++;
+            }
+            if (safety >= 10000000) UtilityFunctions::print("Runtime: Oscillate loop limit reached.");
+            break;
+        }
 
         case STMT_RETURN: {
             ReturnStatement* ret = (ReturnStatement*)stmt;
@@ -644,6 +712,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             if (cont->loop_type == ContinueStatement::FOR) error_state.mode = ErrorState::CONTINUE_FOR;
             else if (cont->loop_type == ContinueStatement::DO) error_state.mode = ErrorState::CONTINUE_DO;
             else if (cont->loop_type == ContinueStatement::WHILE) error_state.mode = ErrorState::CONTINUE_WHILE;
+            else if (cont->loop_type == ContinueStatement::OSCILLATE) error_state.mode = ErrorState::CONTINUE_OSCILLATE;
             else error_state.mode = ErrorState::NONE; // Unknown?
             break;
         }
@@ -814,21 +883,59 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                              }
                          }
 
-                         // UtilityFunctions::print("Call on object: ", s->method_name);
-                         if (obj->has_method(s->method_name)) {
+                         // ── VB6 → Godot method alias translation ──
+                         // Map VB6-style method names to their Godot equivalents
+                         // before attempting dispatch.
+                         String resolved_method = s->method_name;
+                         if (s->method_name.nocasecmp_to("SetFocus") == 0) {
+                             resolved_method = "grab_focus";
+                         } else if (s->method_name.nocasecmp_to("Refresh") == 0) {
+                             resolved_method = "queue_redraw";
+                         } else if (s->method_name.nocasecmp_to("ZOrder") == 0) {
+                             // ZOrder(0) = BringToFront, ZOrder(1) = SendToBack
+                             Control *ctrl = Object::cast_to<Control>(obj);
+                             if (ctrl) {
+                                 int pos = (call_args.size() > 0) ? (int)call_args[0] : 0;
+                                 if (pos == 0) {
+                                     ctrl->move_to_front();
+                                 } else {
+                                     // Send to back — move_child not available on self
+                                     Node *parent = ctrl->get_parent();
+                                     if (parent) parent->move_child(ctrl, 0);
+                                 }
+                                 break;
+                             }
+                         } else if (s->method_name.nocasecmp_to("Move") == 0) {
+                             // Move(Left, Top, [Width], [Height])
+                             Control *ctrl = Object::cast_to<Control>(obj);
+                             if (ctrl && call_args.size() >= 2) {
+                                 ctrl->set_position(Vector2(call_args[0], call_args[1]));
+                                 if (call_args.size() >= 4) {
+                                     ctrl->set_size(Vector2(call_args[2], call_args[3]));
+                                 } else if (call_args.size() == 3) {
+                                     ctrl->set_size(Vector2(call_args[2], ctrl->get_size().y));
+                                 }
+                                 break;
+                             }
+                         } else if (s->method_name.nocasecmp_to("SelectAll") == 0) {
+                             resolved_method = "select_all";
+                         }
+
+                         if (obj->has_method(resolved_method)) {
+                             obj->callv(resolved_method, call_args);
+                         } else if (obj->has_method(s->method_name)) {
                              obj->callv(s->method_name, call_args);
                          } else {
                              String snake = s->method_name.to_snake_case();
                              if (obj->has_method(snake)) {
                                  obj->callv(snake, call_args);
                              } else {
-                                 // Handle 3D Shape special method calls?
-                                 // e.g. Cube.LookAt(x,y,z) -> look_at
+                                 // Handle 3D Shape special method calls
                                  if (s->method_name == "LookAt" && call_args.size() == 3) {
                                      Node3D *n3d = Object::cast_to<Node3D>(obj);
                                      if (n3d) {
                                          n3d->look_at(Vector3(call_args[0], call_args[1], call_args[2]));
-                                         break; // Handled
+                                         break;
                                      }
                                  }
                                  raise_error("Object does not have method " + s->method_name);
@@ -2507,6 +2614,8 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 error_state.mode = ErrorState::EXIT_FOR;
             } else if (s->exit_type == ExitStatement::EXIT_DO) {
                 error_state.mode = ErrorState::EXIT_DO;
+            } else if (s->exit_type == ExitStatement::EXIT_OSCILLATE) {
+                error_state.mode = ErrorState::EXIT_OSCILLATE;
             }
             error_state.has_error = true; // Signal interruption flow
             break;

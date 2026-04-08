@@ -72,6 +72,21 @@ The Visual Basic 6-style integrated development environment.
 
 ---
 
+## 🎮 3D Game Development
+
+Tools for building complete 3D games without leaving the VisualGasic IDE.
+
+| Feature | Menu / Location | Description |
+|---------|----------------|-------------|
+| Asset Import | 📦 Import button (3D toolbar) | Import `.glb`/`.gltf`/`.obj`/`.fbx` models into the scene with one click |
+| 3D Properties Inspector | Properties panel (auto) | Edit Node3D transform, MeshInstance3D materials (color/metallic/roughness), Light3D settings, Camera3D FOV/clip, RigidBody3D physics |
+| Input Map Editor | Tools → Input Map Editor | Visual dialog for adding keyboard, mouse, and gamepad bindings with live key capture |
+| Environment Presets | 🌍 Env button (3D toolbar) | One-click sky + lighting: Outdoor Day, Outdoor Night, Indoor, Space |
+| Animation Editor | Tools → Animation Editor | Create animations, insert keyframes, control playback, import from `.glb` |
+| Make EXE | File → Make EXE | One-click game export with auto-generated platform export presets |
+
+---
+
 ## 🔧 Runtime Properties & Events
 
 How VB6 properties and events work at runtime on Godot nodes.
@@ -219,7 +234,7 @@ Internal docs for contributors and maintainers.
 | Document | Description |
 |----------|-------------|
 | [README](../README.md) | Project overview, feature list, screenshots, and quick start |
-| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v4.4.0-rc4) |
+| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v4.4.0-rc7) |
 | [Roadmap](../ROADMAP.md) | Development roadmap and feature timeline |
 | [Project Status](../PROJECT_STATUS.md) | Current project status summary |
 | [Security Policy](../SECURITY.md) | Security policy and vulnerability reporting |
@@ -292,4 +307,4 @@ These older index files are preserved but this document (`DOCS.md`) supersedes t
 
 ---
 
-*Last updated: March 29, 2026 — v4.4.0-rc4*
+*Last updated: April 7, 2026 — v4.4.0-rc7*

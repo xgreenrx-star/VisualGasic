@@ -187,6 +187,20 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Eqv");
     keywords.push_back("Imp");
     keywords.push_back("Reset");
+    keywords.push_back("Oscillate");
+    keywords.push_back("Cycles");
+    keywords.push_back("Repeat");
+    keywords.push_back("Times");
+    keywords.push_back("Cycle");
+    keywords.push_back("Through");
+    keywords.push_back("Every");
+    keywords.push_back("Frames");
+    keywords.push_back("Seconds");
+    keywords.push_back("Tween");
+    keywords.push_back("Over");
+    keywords.push_back("Ease");
+    keywords.push_back("Trans");
+    keywords.push_back("From");
 
     while (current < length) {
         char32_t c = p_source_code[current];
@@ -550,34 +564,48 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
                     t.type = TOKEN_OPERATOR; t.value = "^";
                 }
                 break;   // Exponentiation
-            case '>': 
+            case '>': {
+                // Check for >> or >>= (no whitespace skip for shift operators)
                 if (current + 1 < length && p_source_code[current+1] == '>') {
                     if (current + 2 < length && p_source_code[current+2] == '=') {
                         t.type = TOKEN_OPERATOR; t.value = ">>="; current += 2;
                     } else {
                         t.type = TOKEN_OPERATOR; t.value = ">>"; current++;
                     }
-                } else if (current + 1 < length && p_source_code[current+1] == '=') {
-                    t.type = TOKEN_OPERATOR; t.value = ">="; current++;
                 } else {
-                    t.type = TOKEN_OPERATOR; t.value = ">";
+                    // VB6 allows spaces in compound operators: > = means >=
+                    int look = current + 1;
+                    while (look < length && p_source_code[look] == ' ') look++;
+                    if (look < length && p_source_code[look] == '=') {
+                        t.type = TOKEN_OPERATOR; t.value = ">="; current = look;
+                    } else {
+                        t.type = TOKEN_OPERATOR; t.value = ">";
+                    }
                 }
                 break;
-            case '<': 
+            }
+            case '<': {
+                // Check for << or <<= (no whitespace skip for shift operators)
                 if (current + 1 < length && p_source_code[current+1] == '<') {
                     if (current + 2 < length && p_source_code[current+2] == '=') {
                         t.type = TOKEN_OPERATOR; t.value = "<<="; current += 2;
                     } else {
                         t.type = TOKEN_OPERATOR; t.value = "<<"; current++;
                     }
-                } else if (current + 1 < length && p_source_code[current+1] == '=') {
-                    t.type = TOKEN_OPERATOR; t.value = "<="; current++;
-                } else if (current + 1 < length && p_source_code[current+1] == '>') {
-                    t.type = TOKEN_OPERATOR; t.value = "<>"; current++;
                 } else {
-                    t.type = TOKEN_OPERATOR; t.value = "<";
+                    // VB6 allows spaces in compound operators: < = means <=, < > means <>
+                    int look = current + 1;
+                    while (look < length && p_source_code[look] == ' ') look++;
+                    if (look < length && p_source_code[look] == '=') {
+                        t.type = TOKEN_OPERATOR; t.value = "<="; current = look;
+                    } else if (look < length && p_source_code[look] == '>') {
+                        t.type = TOKEN_OPERATOR; t.value = "<>"; current = look;
+                    } else {
+                        t.type = TOKEN_OPERATOR; t.value = "<";
+                    }
                 }
                 break;
+            }
             case '!':
                 if (current + 1 < length && p_source_code[current+1] == '=') {
                     t.type = TOKEN_OPERATOR; t.value = "!="; current++;

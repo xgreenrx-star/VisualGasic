@@ -1125,34 +1125,99 @@ func _rebuild_proc_list() -> void:
 		if m:
 			_procedures.append({ "name": m.get_string(1), "line": i, "full": lines[i].strip_edges() })
 
-	# Populate the procedure combo
-	_proc_combo.clear()
-	_proc_combo.add_item("(Declarations)", 0)
-	for idx in _procedures.size():
-		var p = _procedures[idx]
-		_proc_combo.add_item(p["name"], idx + 1)
+	# Check which object is selected — show event-aware proc list if applicable
+	var selected_obj := ""
+	if _object_combo and _object_combo.selected >= 0:
+		selected_obj = _object_combo.get_item_text(_object_combo.selected)
 
-	# Select current procedure based on caret position
-	_update_proc_selection()
+	if selected_obj != "" and selected_obj != "(General)":
+		_rebuild_event_list_for_object(selected_obj)
+	else:
+		# (General) — show all procedures, same as before
+		_proc_combo.clear()
+		_proc_combo.add_item("(Declarations)", 0)
+		for idx in _procedures.size():
+			var p = _procedures[idx]
+			_proc_combo.add_item(p["name"], idx + 1)
+		_update_proc_selection()
+
+## Rebuilds the procedure dropdown to show ALL available events for the given
+## control, with existing (implemented) events shown in bold.  Events that
+## don't have code yet are shown in normal weight — selecting them creates a
+## stub and navigates there (VB6/TwinBasic/RADBasic behaviour).
+func _rebuild_event_list_for_object(obj_name: String) -> void:
+	_proc_combo.clear()
+
+	# Determine the control's Godot type
+	var godot_type := "Control"
+	if obj_name == "Form":
+		godot_type = "Form"
+	else:
+		var info := _find_control_info(obj_name)
+		if not info.is_empty():
+			var vb6_type: String = info.get("type", "")
+			if not vb6_type.is_empty():
+				godot_type = VGIntelliSense.resolve_control_type(vb6_type)
+
+	# Get all available events for this type
+	var events: Array = VGIntelliSense.get_control_events(godot_type)
+
+	# Build a set of existing procedures for this object
+	var existing_events: Dictionary = {}  # event_name → proc index
+	for idx in _procedures.size():
+		var p_name: String = _procedures[idx]["name"]
+		if p_name.begins_with(obj_name + "_"):
+			var event_part: String = p_name.substr(obj_name.length() + 1)
+			existing_events[event_part] = idx
+
+	# Populate the dropdown — existing events shown bold, others normal
+	for event_name in events:
+		var ev_str: String = str(event_name)
+		var full_proc_name: String = obj_name + "_" + ev_str
+		var is_implemented: bool = existing_events.has(ev_str)
+		if is_implemented:
+			_proc_combo.add_item("● " + ev_str)
+		else:
+			_proc_combo.add_item("  " + ev_str)
+		var item_idx: int = _proc_combo.item_count - 1
+		# Store the event name and implemented flag as metadata
+		_proc_combo.set_item_metadata(item_idx, {
+			"obj_name": obj_name,
+			"event_name": ev_str,
+			"full_name": full_proc_name,
+			"implemented": is_implemented
+		})
+		# Bold implemented events by using a different font style
+		if is_implemented:
+			_proc_combo.set_item_disabled(item_idx, false)
+
+	# Also add any object procedures that aren't in the standard event list
+	# (user-created Subs like CmdInput_CustomHandler)
+	for extra_event in existing_events:
+		var extra_str: String = str(extra_event)
+		if extra_str not in events:
+			_proc_combo.add_item("● " + extra_str)
+			var item_idx2: int = _proc_combo.item_count - 1
+			_proc_combo.set_item_metadata(item_idx2, {
+				"obj_name": obj_name,
+				"event_name": extra_str,
+				"full_name": obj_name + "_" + extra_str,
+				"implemented": true
+			})
+
+	# Try to select the event matching current caret position
+	_update_proc_selection_for_object(obj_name)
 
 func _rebuild_object_combo() -> void:
 	_object_combo.clear()
 	_object_combo.add_item("(General)")
 
+	# Always add Form as an option (it's the form itself)
+	_object_combo.add_item("Form")
+
 	# Add form controls
 	for ctrl_name in _control_names:
 		_object_combo.add_item(ctrl_name)
-
-	# If file has Form_ events, add "Form" as an object
-	if _code_edit and _code_edit.text.find("Form_") != -1:
-		# Check it's not already listed
-		var has_form := false
-		for i in _object_combo.item_count:
-			if _object_combo.get_item_text(i) == "Form":
-				has_form = true
-				break
-		if not has_form:
-			_object_combo.add_item("Form")
 
 ## Sets the list of form control names for the Object dropdown.
 func set_control_names(names: Array[String]) -> void:
@@ -1216,24 +1281,116 @@ func _update_proc_selection() -> void:
 			best_idx = i
 
 	if best_idx >= 0:
-		# +1 because item 0 is "(Declarations)"
-		_proc_combo.select(best_idx + 1)
+		var proc_name: String = _procedures[best_idx]["name"]
 
 		# Also update object combo to match
-		var proc_name: String = _procedures[best_idx]["name"]
 		if "_" in proc_name:
 			var obj_name := proc_name.get_slice("_", 0)
+			var obj_found := false
 			for i in _object_combo.item_count:
 				if _object_combo.get_item_text(i) == obj_name:
-					_object_combo.select(i)
+					if _object_combo.selected != i:
+						_object_combo.select(i)
+						# Rebuild event list for this object
+						_rebuild_event_list_for_object(obj_name)
+					obj_found = true
 					break
+			if not obj_found:
+				# Not a control event — stay on (General)
+				if _object_combo.selected != 0:
+					_object_combo.select(0)
+					_rebuild_general_proc_list()
+
+		# If we're in event-aware mode, find matching event
+		var selected_obj := _object_combo.get_item_text(_object_combo.selected)
+		if selected_obj != "(General)":
+			_update_proc_selection_for_object(selected_obj)
+		else:
+			# General mode — +1 because item 0 is "(Declarations)"
+			_proc_combo.select(best_idx + 1)
+
 		# Update Index Map for the current object
 		_update_index_map_for_current_object()
 	else:
-		_proc_combo.select(0)
+		if _object_combo.selected != 0:
+			_object_combo.select(0)
+			_rebuild_general_proc_list()
+		elif _proc_combo.item_count > 0:
+			_proc_combo.select(0)
 		_update_index_map_for_current_object()
 
+## Rebuilds the proc combo for (General) — shows all procedures.
+func _rebuild_general_proc_list() -> void:
+	_proc_combo.clear()
+	_proc_combo.add_item("(Declarations)", 0)
+	for idx in _procedures.size():
+		var p = _procedures[idx]
+		_proc_combo.add_item(p["name"], idx + 1)
+
+## Selects the matching event in the proc dropdown when in event-aware mode.
+func _update_proc_selection_for_object(obj_name: String) -> void:
+	if not _code_edit or _proc_combo.item_count == 0:
+		return
+	var caret_line := _code_edit.get_caret_line()
+
+	# Find the procedure we're currently inside
+	var current_proc := ""
+	for i in _procedures.size():
+		if _procedures[i]["line"] <= caret_line:
+			current_proc = _procedures[i]["name"]
+
+	if current_proc.is_empty():
+		# Not inside any proc — select first item
+		_proc_combo.select(0)
+		return
+
+	# If current proc belongs to this object, find its event
+	if current_proc.begins_with(obj_name + "_"):
+		var event_part := current_proc.substr(obj_name.length() + 1)
+		for i in _proc_combo.item_count:
+			var meta = _proc_combo.get_item_metadata(i)
+			if meta is Dictionary and meta.get("event_name", "") == event_part:
+				_proc_combo.select(i)
+				return
+
+	# Current proc doesn't belong to this object — select first implemented event
+	for i in _proc_combo.item_count:
+		var meta = _proc_combo.get_item_metadata(i)
+		if meta is Dictionary and meta.get("implemented", false):
+			_proc_combo.select(i)
+			return
+
+	# No implemented events — just select first
+	if _proc_combo.item_count > 0:
+		_proc_combo.select(0)
+
 func _on_proc_selected(index: int) -> void:
+	# Check if this is an event-aware item (has metadata)
+	var meta = _proc_combo.get_item_metadata(index) if index >= 0 and index < _proc_combo.item_count else null
+	if meta is Dictionary:
+		# Event-aware mode
+		var full_name: String = meta.get("full_name", "")
+		var event_name: String = meta.get("event_name", "")
+		var is_implemented: bool = meta.get("implemented", false)
+
+		if is_implemented:
+			# Jump to existing handler
+			for p in _procedures:
+				if p["name"] == full_name:
+					_code_edit.set_caret_line(p["line"] + 1)
+					_code_edit.set_caret_column(4)
+					_code_edit.center_viewport_to_caret()
+					_code_edit.grab_focus()
+					return
+		else:
+			# Create a stub for this event and navigate to it
+			var params := _get_event_params(event_name)
+			ensure_event_handler(full_name, params)
+			# Rebuild to update the implemented status
+			_rebuild_proc_list()
+		return
+
+	# Legacy mode (General view)
 	if index == 0:
 		# (Declarations) — go to top of file
 		_code_edit.set_caret_line(0)
@@ -1250,10 +1407,44 @@ func _on_proc_selected(index: int) -> void:
 		_code_edit.center_viewport_to_caret()
 		_code_edit.grab_focus()
 
+## Returns the VB6-style parameter string for a given event name.
+## Used when generating Sub stubs for unimplemented events.
+static func _get_event_params(event_name: String) -> String:
+	match event_name:
+		"KeyPress":
+			return "KeyAscii As Integer"
+		"KeyDown", "KeyUp":
+			return "KeyCode As Integer, Shift As Integer"
+		"MouseDown", "MouseUp":
+			return "Button As Integer, Shift As Integer, X As Single, Y As Single"
+		"MouseMove":
+			return "Button As Integer, Shift As Integer, X As Single, Y As Single"
+		"Validate":
+			return "Cancel As Boolean"
+		"Unload", "QueryUnload":
+			return "Cancel As Integer"
+		"Scroll", "Change":
+			return ""
+		"Timer":
+			return ""
+		"Resize":
+			return ""
+		"Paint":
+			return ""
+		"Expand", "Collapse":
+			return ""
+		"NodeClick":
+			return ""
+		"SelChange":
+			return ""
+		_:
+			return ""
+
 func _on_object_selected(index: int) -> void:
 	var obj_name := _object_combo.get_item_text(index)
 	if obj_name == "(General)":
-		# Jump to declarations area (top)
+		# Switch to general mode — show all procedures
+		_rebuild_general_proc_list()
 		_code_edit.set_caret_line(0)
 		_code_edit.set_caret_column(0)
 		_code_edit.center_viewport_to_caret()
@@ -1261,18 +1452,29 @@ func _on_object_selected(index: int) -> void:
 		_update_index_map_for_current_object()
 		return
 
-	# Filter procedures for this object and update proc combo
-	var filtered: Array = []
-	for p in _procedures:
-		if p["name"].begins_with(obj_name + "_"):
-			filtered.append(p)
+	# Switch to event-aware mode for this object
+	_rebuild_event_list_for_object(obj_name)
 
-	if filtered.size() > 0:
-		# Jump to first event for this object
-		_code_edit.set_caret_line(filtered[0]["line"] + 1)
-		_code_edit.set_caret_column(4)
-		_code_edit.center_viewport_to_caret()
-		_code_edit.grab_focus()
+	# Jump to the first implemented event for this object, if any
+	for i in _proc_combo.item_count:
+		var meta = _proc_combo.get_item_metadata(i)
+		if meta is Dictionary and meta.get("implemented", false):
+			_proc_combo.select(i)
+			# Navigate to that handler
+			var full_name: String = meta.get("full_name", "")
+			for p in _procedures:
+				if p["name"] == full_name:
+					_code_edit.set_caret_line(p["line"] + 1)
+					_code_edit.set_caret_column(4)
+					_code_edit.center_viewport_to_caret()
+					_code_edit.grab_focus()
+					break
+			_update_index_map_for_current_object()
+			return
+
+	# No implemented events — just select the first event
+	if _proc_combo.item_count > 0:
+		_proc_combo.select(0)
 
 	# Update Index Map for the selected object
 	_update_index_map_for_current_object()
@@ -1440,6 +1642,23 @@ func _update_command_help() -> void:
 	# ── Description ──
 	_help_label.append_text("[b][color=#00006B]Description[/color][/b]\n")
 	_help_label.append_text("[color=#222222]" + entry.get("desc", "") + "[/color]\n\n")
+
+	# ── User-defined symbol badge + Go to Definition link ──
+	var symbol_kind: String = entry.get("symbol_kind", "")
+	if not symbol_kind.is_empty():
+		var kind_labels := {
+			"sub": "Subroutine",
+			"function": "Function",
+			"variable": "Variable",
+			"const": "Constant",
+			"type": "Type",
+		}
+		var kind_label: String = kind_labels.get(symbol_kind, symbol_kind.capitalize())
+		_help_label.append_text("[color=#555555]🏷️ User-Defined " + kind_label + "[/color]\n")
+		var def_line: int = entry.get("defined_on_line", 0)
+		if def_line > 0:
+			_help_label.append_text("[color=#555555]📍 [/color][url=goto:" + str(def_line) + "][color=#0000CC][b]Go to Definition (line " + str(def_line) + ")[/b][/color][/url]\n")
+		_help_label.append_text("\n")
 
 	# ── Developer Note — inline comment (#1) ──
 	var comment: String = entry.get("comment", "")
@@ -1750,6 +1969,7 @@ func _lookup_user_symbol(keyword: String) -> Dictionary:
 					"code": "",
 					"ref_line": 0,
 					"symbol_kind": "variable",
+					"defined_on_line": i + 1,
 					"comment": comment,
 					"scope_info": scope_info,
 					"used_on_lines": used_on,
@@ -1792,6 +2012,7 @@ func _lookup_user_symbol(keyword: String) -> Dictionary:
 					"code": "",
 					"ref_line": 0,
 					"symbol_kind": "const",
+					"defined_on_line": i + 1,
 					"comment": comment,
 					"scope_info": scope_info,
 					"used_on_lines": used_on,
@@ -1839,6 +2060,7 @@ func _lookup_user_symbol(keyword: String) -> Dictionary:
 				"code": "",
 				"ref_line": 0,
 				"symbol_kind": kind.to_lower(),
+				"defined_on_line": i + 1,
 				"comment": comment,
 				"called_from_lines": called_from,
 			}
@@ -1862,6 +2084,7 @@ func _lookup_user_symbol(keyword: String) -> Dictionary:
 				"code": "",
 				"ref_line": 0,
 				"symbol_kind": "type",
+				"defined_on_line": i + 1,
 				"comment": comment,
 				"scope_info": "Module-level",
 				"used_on_lines": used_on,

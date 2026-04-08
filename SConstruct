@@ -135,6 +135,20 @@ else:
 
 Default(library)
 
+# Post-build: mirror the .so into addons/visual_gasic/bin/ (canonical location
+# used by symlinked game projects and the install scripts).
+import shutil as _shutil, glob as _glob
+def _mirror_to_addons(target, source, env):
+    """Copy built libraries from demo/bin/ → addons/visual_gasic/bin/."""
+    dst = "addons/visual_gasic/bin"
+    import os
+    os.makedirs(dst, exist_ok=True)
+    for t in target:
+        src_path = str(t)
+        if os.path.isfile(src_path):
+            _shutil.copy2(src_path, os.path.join(dst, os.path.basename(src_path)))
+env.AddPostAction(library, _mirror_to_addons)
+
 # Additional helper target: parser harness (link against same objects)
 # NOTE: Tool builds disabled - missing headers and incomplete implementations
 # To enable, create the missing tools/standalone_tokenizer.h and tools/parser_harness.cpp

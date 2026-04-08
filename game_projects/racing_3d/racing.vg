@@ -27,9 +27,9 @@ Dim RaceFinished As Boolean
 Dim LastCheckpoint As Integer
 
 ' Track checkpoints (simple oval track)
-ReDim CheckpointX(8) As Single
-ReDim CheckpointZ(8) As Single
-ReDim CheckpointPassed(8) As Boolean
+Dim CheckpointX(8) As Single
+Dim CheckpointZ(8) As Single
+Dim CheckpointPassed(8) As Boolean
 
 ' Constants
 Const MaxSpeed As Single = 50
@@ -173,7 +173,6 @@ Sub _Process(delta As Single)
         ' Hit inner wall - slow down
         CarSpeed = CarSpeed * 0.5
         ' Push back toward track
-        Dim angle As Single
         angle = Atan2(CarX, CarZ)
         CarX = Sin(angle) * 25
         CarZ = Cos(angle) * 25

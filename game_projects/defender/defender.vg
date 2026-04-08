@@ -24,10 +24,10 @@ Dim CameraX As Single
 Dim WorldWidth As Single
 
 ' Arrays for game objects
-ReDim Enemies(20) As Object
-ReDim Bullets(50) As Object
-ReDim EnemyBullets(50) As Object
-ReDim Stars(100) As Object
+Dim Enemies(20) As Object
+Dim Bullets(50) As Object
+Dim EnemyBullets(50) As Object
+Dim Stars(100) As Object
 
 ' Timers
 Dim SpawnTimer As Single
@@ -135,7 +135,7 @@ Sub _Process(delta As Single)
     ' Parallax stars
     Dim i As Integer
     For i = 0 To 99
-        If Stars(i) IsNot Nothing Then
+        If Not Stars(i) Is Nothing Then
             Dim starPos As Object
             starPos = Stars(i).position
             ' Wrap stars
@@ -155,7 +155,7 @@ Sub _Process(delta As Single)
     
     ' Update enemies
     For i = 0 To 19
-        If Enemies(i) IsNot Nothing Then
+        If Not Enemies(i) Is Nothing Then
             Dim ePos As Object
             ePos = Enemies(i).position
             Dim ex As Single
@@ -200,7 +200,7 @@ Sub _Process(delta As Single)
     
     ' Update bullets
     For i = 0 To 49
-        If Bullets(i) IsNot Nothing Then
+        If Not Bullets(i) Is Nothing Then
             Dim bPos As Object
             bPos = Bullets(i).position
             Dim bx As Single
@@ -210,7 +210,7 @@ Sub _Process(delta As Single)
             ' Check collision with enemies
             Dim j As Integer
             For j = 0 To 19
-                If Enemies(j) IsNot Nothing Then
+                If Not Enemies(j) Is Nothing Then
                     Dim ePos2 As Object
                     ePos2 = Enemies(j).position
                     Dim dist2 As Single
@@ -233,7 +233,7 @@ Sub _Process(delta As Single)
     
     ' Update enemy bullets
     For i = 0 To 49
-        If EnemyBullets(i) IsNot Nothing Then
+        If Not EnemyBullets(i) Is Nothing Then
             Dim ebPos As Object
             ebPos = EnemyBullets(i).position
             Dim ebx As Single
@@ -276,7 +276,7 @@ Sub SpawnEnemy()
 End Sub
 
 Sub DestroyEnemy(index As Integer)
-    If Enemies(index) IsNot Nothing Then
+    If Not Enemies(index) Is Nothing Then
         Enemies(index).visible = False
         Enemies(index) = Nothing
     End If
@@ -297,7 +297,7 @@ Sub SpawnBullet(x As Single, y As Single)
 End Sub
 
 Sub DestroyBullet(index As Integer)
-    If Bullets(index) IsNot Nothing Then
+    If Not Bullets(index) Is Nothing Then
         Bullets(index).visible = False
         Bullets(index) = Nothing
     End If
@@ -318,7 +318,7 @@ Sub SpawnEnemyBullet(x As Single, y As Single)
 End Sub
 
 Sub DestroyEnemyBullet(index As Integer)
-    If EnemyBullets(index) IsNot Nothing Then
+    If Not EnemyBullets(index) Is Nothing Then
         EnemyBullets(index).visible = False
         EnemyBullets(index) = Nothing
     End If

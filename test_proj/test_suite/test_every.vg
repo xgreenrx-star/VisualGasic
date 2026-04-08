@@ -1,0 +1,104 @@
+' Test: Every N Frames / Seconds
+' MAX_FRAMES: 120
+' Tests Every N Frames and Every N Seconds conditional guard blocks
+
+Dim frameCount As Integer
+Dim everyThreeCount As Integer
+Dim everyFiveCount As Integer
+Dim everyOneCount As Integer
+Dim nestedOuterCount As Integer
+Dim nestedInnerCount As Integer
+Dim secondsCount As Integer
+Dim testsRun As Boolean
+
+Sub _Ready()
+    frameCount = 0
+    everyThreeCount = 0
+    everyFiveCount = 0
+    everyOneCount = 0
+    nestedOuterCount = 0
+    nestedInnerCount = 0
+    secondsCount = 0
+    testsRun = False
+End Sub
+
+Sub _Process(delta As Single)
+    frameCount = frameCount + 1
+
+    ' Every 3 Frames — should fire on frames 3, 6, 9, ...
+    Every 3 Frames
+        everyThreeCount = everyThreeCount + 1
+    End Every
+
+    ' Every 5 Frames — should fire on frames 5, 10, 15, ...
+    Every 5 Frames
+        everyFiveCount = everyFiveCount + 1
+    End Every
+
+    ' Every 1 Frame — should fire every frame
+    Every 1 Frame
+        everyOneCount = everyOneCount + 1
+    End Every
+
+    ' Nested Every blocks — outer fires every 2, inner fires every 3
+    Every 2 Frames
+        nestedOuterCount = nestedOuterCount + 1
+        Every 3 Frames
+            nestedInnerCount = nestedInnerCount + 1
+        End Every
+    End Every
+
+    ' Every N Seconds — should fire at least once over many frames
+    ' At 60fps, 120 frames ~= 2 seconds, so 0.01 seconds should fire often
+    Every 0.01 Seconds
+        secondsCount = secondsCount + 1
+    End Every
+
+    ' Run assertions at frame 60
+    If frameCount = 60 And Not testsRun Then
+        testsRun = True
+
+        ' every_frames_basic: Every 3 Frames fires 20 times in 60 frames
+        If everyThreeCount = 20 Then
+            Print "PASS: every_frames_basic"
+        Else
+            Print "FAIL: every_frames_basic: expected 20 fires in 60 frames, got " & Str(everyThreeCount)
+        End If
+
+        ' every_frames_different_interval: Every 5 Frames fires 12 times in 60 frames
+        If everyFiveCount = 12 Then
+            Print "PASS: every_frames_different_interval"
+        Else
+            Print "FAIL: every_frames_different_interval: expected 12 fires in 60 frames, got " & Str(everyFiveCount)
+        End If
+
+        ' every_frames_one: Every 1 Frame fires every frame (60 times)
+        If everyOneCount = 60 Then
+            Print "PASS: every_frames_one"
+        Else
+            Print "FAIL: every_frames_one: expected 60 fires in 60 frames, got " & Str(everyOneCount)
+        End If
+
+        ' every_nested: outer fires 30 times (60/2), inner fires 10 times (30/3)
+        If nestedOuterCount = 30 Then
+            Print "PASS: every_nested_outer"
+        Else
+            Print "FAIL: every_nested_outer: expected 30, got " & Str(nestedOuterCount)
+        End If
+
+        If nestedInnerCount = 10 Then
+            Print "PASS: every_nested_inner"
+        Else
+            Print "FAIL: every_nested_inner: expected 10, got " & Str(nestedInnerCount)
+        End If
+
+        ' every_seconds: With 0.01s interval over ~1 second of runtime, should fire multiple times
+        If secondsCount > 0 Then
+            Print "PASS: every_seconds"
+        Else
+            Print "FAIL: every_seconds: expected > 0 fires, got " & Str(secondsCount)
+        End If
+
+        Print "TEST_COMPLETE"
+    End If
+End Sub

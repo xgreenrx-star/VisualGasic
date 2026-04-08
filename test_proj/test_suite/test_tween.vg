@@ -1,0 +1,95 @@
+' Test: Tween one-liner statement
+' MAX_FRAMES: 240
+' Tests Tween parsing, compilation, and execution
+
+Dim frameCount As Integer
+Dim testsRun As Boolean
+
+Sub _Ready()
+    frameCount = 0
+    testsRun = False
+
+    ' --- Test 1: Tween compiles with basic syntax ---
+    ' Create a Control child node (not Me — Me is a plain Node)
+    Dim ctrl As Object
+    Set ctrl = ClassDB.Instantiate("Control")
+    ctrl.Name = "TweenTarget1"
+    ctrl.Set "position", Vector2(0, 0)
+    Me.AddChild ctrl
+
+    Tween ctrl.Position To Vector2(200, 100) Over 0.5
+    Print "PASS: tween_basic_compiles"
+
+    ' --- Test 2: Tween with From clause ---
+    Dim ctrl2 As Object
+    Set ctrl2 = ClassDB.Instantiate("Control")
+    ctrl2.Name = "TweenTarget2"
+    ctrl2.Set "position", Vector2(0, 0)
+    Me.AddChild ctrl2
+
+    Tween ctrl2.Position From Vector2(10, 10) To Vector2(300, 150) Over 0.5
+    Print "PASS: tween_from_compiles"
+
+    ' --- Test 3: Tween with Ease and Trans ---
+    Dim ctrl3 As Object
+    Set ctrl3 = ClassDB.Instantiate("Control")
+    ctrl3.Name = "TweenTarget3"
+    ctrl3.Set "position", Vector2(0, 0)
+    Me.AddChild ctrl3
+
+    Tween ctrl3.Position To Vector2(100, 50) Over 0.3 Ease Out Trans Bounce
+    Print "PASS: tween_ease_trans_compiles"
+
+    ' --- Test 4: Tween with all options ---
+    Dim ctrl4 As Object
+    Set ctrl4 = ClassDB.Instantiate("Control")
+    ctrl4.Name = "TweenTarget4"
+    ctrl4.Set "position", Vector2(0, 0)
+    Me.AddChild ctrl4
+
+    Tween ctrl4.Position From Vector2(0, 0) To Vector2(500, 250) Over 1.0 Ease InOut Trans Cubic
+    Print "PASS: tween_all_options_compiles"
+
+    ' --- Test 5: Tween with VB6 alias (Left -> position:x) ---
+    Dim ctrl5 As Object
+    Set ctrl5 = ClassDB.Instantiate("Control")
+    ctrl5.Name = "TweenTarget5"
+    ctrl5.Set "position", Vector2(0, 0)
+    Me.AddChild ctrl5
+
+    Tween ctrl5.Left To 100 Over 0.3
+    Print "PASS: tween_vb6_alias_compiles"
+End Sub
+
+Sub _Process(delta As Single)
+    frameCount = frameCount + 1
+
+    ' At frame 120 (~2s), verify the tweens actually animated
+    If frameCount = 120 And Not testsRun Then
+        testsRun = True
+
+        ' Test that the first tween reached its target
+        Dim t1 As Object
+        Set t1 = Me.GetNode("TweenTarget1")
+        Dim p1 As Vector2
+        p1 = t1.Get("position")
+        If Abs(p1.X - 200) < 2 And Abs(p1.Y - 100) < 2 Then
+            Print "PASS: tween_basic_result"
+        Else
+            Print "FAIL: tween_basic_result: expected ~(200,100) got (" & Str(p1.X) & "," & Str(p1.Y) & ")"
+        End If
+
+        ' Test that Ease/Trans tween reached its target
+        Dim t3 As Object
+        Set t3 = Me.GetNode("TweenTarget3")
+        Dim p3 As Vector2
+        p3 = t3.Get("position")
+        If Abs(p3.X - 100) < 2 And Abs(p3.Y - 50) < 2 Then
+            Print "PASS: tween_ease_trans_result"
+        Else
+            Print "FAIL: tween_ease_trans_result: expected ~(100,50) got (" & Str(p3.X) & "," & Str(p3.Y) & ")"
+        End If
+
+        Print "TEST_COMPLETE"
+    End If
+End Sub

@@ -4281,43 +4281,73 @@ void VisualGasicFormDesigner::_init_vb6_defaults(FormControlItem &item) const {
         p["Default"]    = false;
         p["Cancel"]     = false;
         p["Style"]      = 0;  // Standard
+        p["Flat"]       = false;
+        p["ClipText"]   = false;
         p["BackColor"]  = Color(0.85, 0.85, 0.85);
     }
     else if (t == "Label") {
-        p["Alignment"]   = 0;  // Left
-        p["AutoSize"]    = false;
-        p["WordWrap"]    = false;
-        p["BackColor"]   = Color(0.753, 0.753, 0.753, 0.0); // Transparent
-        p["BorderStyle"] = 0;
-        p["TabStop"]     = false;
+        p["Alignment"]         = 0;  // Left
+        p["VerticalAlignment"] = 0;  // Top
+        p["AutoSize"]          = false;
+        p["WordWrap"]          = false;
+        p["BackStyle"]         = 0;  // Transparent (VB6 default)
+        p["MaxLinesVisible"]   = -1; // Unlimited
+        p["ClipText"]          = false;
+        p["BackColor"]         = Color(0.753, 0.753, 0.753, 0.0); // Transparent
+        p["BorderStyle"]       = 0;
+        p["TabStop"]           = false;
     }
     else if (t == "LineEdit") {
         p["Locked"]          = false;
         p["MaxLength"]       = 0;
         p["PasswordChar"]    = String("");
         p["PlaceholderText"] = String("");
+        p["Alignment"]       = 0;
+        p["SelectAllOnFocus"]= false;
+        p["ClearButton"]     = false;
+        p["RightToLeft"]     = false;
+        p["VirtualKeyboardEnabled"] = true;
         p["BackColor"]       = Color(1.0, 1.0, 1.0);
         p["BorderStyle"]     = 1; // Fixed Single
     }
     else if (t == "TextEdit") {
-        p["MultiLine"]   = true;
-        p["ScrollBars"]  = 3;  // Both
-        p["Locked"]      = false;
-        p["BackColor"]   = Color(1.0, 1.0, 1.0);
-        p["BorderStyle"] = 1;
+        p["MultiLine"]       = true;
+        p["ScrollBars"]      = 3;  // Both
+        p["Locked"]          = false;
+        p["Editable"]        = true;
+        p["Alignment"]       = 0;
+        p["PlaceholderText"] = String("");
+        p["RightToLeft"]     = false;
+        p["BackColor"]       = Color(1.0, 1.0, 1.0);
+        p["BorderStyle"]     = 1;
     }
     else if (t == "CheckBox" || t == "CheckButton") {
         p["Value"]      = false;
+        p["Alignment"]  = 0;  // Left
+        p["Style"]      = 0;  // Standard
     }
     else if (t == "OptionButton") {
-        p["Value"]      = false;
+        p["Value"]             = false;
+        p["ListItems"]         = String("");
+        p["ComboStyle"]        = 0;     // Dropdown combo
+        p["Selected"]          = -1;    // Nothing selected
+        p["Sorted"]            = false;
+        p["Locked"]            = false;
+        p["FitToLongestItem"]  = true;
     }
     else if (t == "ItemList") {
-        p["Sorted"]      = false;
-        p["MultiSelect"] = 0;  // None
-        p["Columns"]     = 0;
-        p["BackColor"]   = Color(1.0, 1.0, 1.0);
-        p["BorderStyle"] = 1;
+        p["Sorted"]           = false;
+        p["MultiSelect"]      = 0;  // None
+        p["Columns"]          = 0;
+        p["List"]             = String("");
+        p["ListStyle"]        = 0;
+        p["IconMode"]         = 1;
+        p["MaxColumns"]       = 1;
+        p["FixedColumnWidth"] = 0;
+        p["AllowReselect"]    = false;
+        p["AutoHeight"]       = false;
+        p["BackColor"]        = Color(1.0, 1.0, 1.0);
+        p["BorderStyle"]      = 1;
     }
     else if (t == "Tree") {
         p["Sorted"]      = false;
@@ -4362,8 +4392,13 @@ void VisualGasicFormDesigner::_init_vb6_defaults(FormControlItem &item) const {
         p["BorderStyle"] = 1;
     }
     else if (t == "RichTextLabel") {
-        p["BackColor"]   = Color(1.0, 1.0, 1.0);
-        p["BorderStyle"] = 1;
+        p["BackColor"]        = Color(1.0, 1.0, 1.0);
+        p["BorderStyle"]      = 1;
+        p["BbcodeEnabled"]    = true;   // Enable BBCode by default
+        p["ScrollActive"]     = true;   // Scrollbars on
+        p["SelectionEnabled"] = false;
+        p["FitContent"]       = false;
+        p["WordWrap"]         = true;   // VB6 RichTextBox wraps by default
     }
     else if (t == "TabContainer") {
         p["BackColor"] = Color(0.85, 0.85, 0.85);
@@ -5380,6 +5415,10 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
 
         if (!ctrl.text.is_empty()) {
             out += "text = \"" + ctrl.text + "\"\n";
+        } else if (!sp.is_empty() && sp.begins_with(proto_prefix)) {
+            // Prototype-instanced controls: explicitly clear text so that any
+            // default text baked into the prototype .tscn doesn't leak through.
+            out += "text = \"\"\n";
         }
 
         // VB6 control array index (persisted as metadata)
@@ -5661,6 +5700,9 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
                 Vector2i v = val;
                 out += godot_key + " = Vector2i(" + String::num_int64(v.x) + ", " + String::num_int64(v.y) + ")\n";
             } else {
+                // Skip NIL values — they serialize as "null" in .tscn and can
+                // reset numeric properties (anchors, offsets) to 0, breaking layouts.
+                if (val.get_type() == Variant::NIL) continue;
                 out += godot_key + " = " + String(val) + "\n";
             }
         }

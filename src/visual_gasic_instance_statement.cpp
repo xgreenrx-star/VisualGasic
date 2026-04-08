@@ -111,6 +111,45 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 			}
 			break;
 		}
+		case STMT_OSCILLATE: {
+			OscillateStatement* os = static_cast<OscillateStatement*>(stmt);
+			if (!os->from_val || !os->to_val) break;
+			Variant from_v = _evaluate_expression_impl(os->from_val);
+			Variant to_v = _evaluate_expression_impl(os->to_val);
+			Variant step_v = os->step_val ? _evaluate_expression_impl(os->step_val) : Variant(1);
+			int cycles_limit = os->cycles_val ? (int)_evaluate_expression_impl(os->cycles_val) : -1;
+			assign_variable(os->variable_name, from_v);
+			int dir = 1;
+			int cyc = 0;
+			for (int safety = 0; safety < 10000000; safety++) {
+				for (Statement* s : os->body) _execute_statement_impl(s);
+				if (error_state.mode == ErrorState::EXIT_OSCILLATE) {
+					error_state.mode = ErrorState::NONE;
+					goto osc_done;
+				}
+				if (error_state.mode == ErrorState::CONTINUE_OSCILLATE) {
+					error_state.mode = ErrorState::NONE;
+				}
+				Variant current;
+				get_variable(os->variable_name, current);
+				Variant dir_v(dir), step_dir, inc_res;
+				bool v1, v2;
+				Variant::evaluate(Variant::OP_MULTIPLY, step_v, dir_v, step_dir, v1);
+				Variant::evaluate(Variant::OP_ADD, current, step_dir, inc_res, v2);
+				current = inc_res;
+				Variant cmp; bool cv;
+				Variant::evaluate(Variant::OP_GREATER_EQUAL, current, to_v, cmp, cv);
+				if (cmp.booleanize()) { current = to_v; dir = -1; cyc++; }
+				else {
+					Variant::evaluate(Variant::OP_LESS_EQUAL, current, from_v, cmp, cv);
+					if (cmp.booleanize()) { current = from_v; dir = 1; cyc++; }
+				}
+				assign_variable(os->variable_name, current);
+				if (cycles_limit >= 0 && cyc >= cycles_limit) break;
+			}
+			osc_done:;
+			break;
+		}
 		case STMT_SELECT: {
 			SelectStatement* sel = static_cast<SelectStatement*>(stmt);
 			Variant val = _evaluate_expression_impl(sel->expression);
@@ -166,6 +205,9 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 					break;
 				case ExitStatement::EXIT_DO:
 					error_state.mode = ErrorState::EXIT_DO;
+					break;
+				case ExitStatement::EXIT_OSCILLATE:
+					error_state.mode = ErrorState::EXIT_OSCILLATE;
 					break;
 			}
 			break;

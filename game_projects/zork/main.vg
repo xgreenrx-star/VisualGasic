@@ -1,0 +1,2906 @@
+' Visual Gasic Form Script
+' ==========================================================
+' ZORK I: THE GREAT UNDERGROUND EMPIRE
+' A VisualGasic Text Adventure
+' ==========================================================
+' Based on the original Infocom classic by Marc Blank, Dave
+' Lebling, Bruce Daniels, and Tim Anderson.
+' Room/object data from historicalsource/zork1 (MIT License).
+' ==========================================================
+
+Option Explicit
+
+' --- Constants ---
+Const MAX_SCORE As Integer = 350
+Const LAMP_TURNS_MAX As Integer = 200
+Const CANDLE_TURNS_MAX As Integer = 40
+Const STRENGTH_MIN As Integer = 2
+Const STRENGTH_MAX As Integer = 7
+
+' --- UI Node References ---
+Dim GameOutput As Object
+Dim CmdInput As Object
+Dim StatusBar As Object
+
+' --- Core Game State ---
+Dim CurrentRoom As String
+Dim Score As Integer
+Dim Moves As Integer
+Dim Verbose As Boolean
+Dim GameRunning As Boolean
+Dim TtsEnabled As Boolean
+
+' --- Player State ---
+Dim Deaths As Integer
+Dim LampTurns As Integer
+Dim CandleTurns As Integer
+Dim MaxCarry As Integer
+Dim PlayerWounds As Integer
+Dim CureTimer As Integer
+
+' --- World Data ---
+Dim Rooms As Dictionary
+Dim Objects As Dictionary
+Dim VerbMap As Dictionary
+Dim DirMap As Dictionary
+
+' --- Game Flags ---
+Dim TrapDoorOpen As Boolean
+Dim GratingOpen As Boolean
+Dim WindowOpen As Boolean
+Dim DamGatesOpen As Boolean
+Dim LowTide As Boolean
+Dim TrollDead As Boolean
+Dim ThiefDead As Boolean
+Dim CyclopsFled As Boolean
+Dim MagicFlag As Boolean
+Dim RainbowSolid As Boolean
+Dim DomeRoped As Boolean
+Dim BoatInflated As Boolean
+Dim WonGame As Boolean
+Dim LldFlag As Boolean
+Dim CoalInMachine As Boolean
+Dim SpiritsBanished As Boolean
+Dim RugMoved As Boolean
+Dim LampOn As Boolean
+Dim CandlesLit As Boolean
+Dim LampDead As Boolean
+Dim CandleDead As Boolean
+
+' --- NPC State ---
+Dim ThiefRoom As String
+Dim TrollUnconscious As Integer
+
+' --- Parse Results ---
+Dim ParsedVerb As String
+Dim ParsedNoun1 As String
+Dim ParsedNoun2 As String
+Dim ParsedPrep As String
+Dim RawInput As String
+
+' ==========================================================
+' INITIALIZATION
+' ==========================================================
+
+Sub _Ready()
+	GameOutput = GetNode("Output")
+	CmdInput = GetNode("CmdInput")
+	StatusBar = GetNode("StatusBar")
+
+	Set Rooms = New Dictionary
+	Set Objects = New Dictionary
+	Set VerbMap = New Dictionary
+	Set DirMap = New Dictionary
+
+	BuildDirMap
+	BuildVerbMap
+	BuildRooms
+	BuildObjects
+
+	CurrentRoom = "WEST-OF-HOUSE"
+	Score = 0
+	Moves = 0
+	Deaths = 0
+	Verbose = True
+	GameRunning = True
+	TtsEnabled = False
+	LampTurns = LAMP_TURNS_MAX
+	CandleTurns = CANDLE_TURNS_MAX
+	MaxCarry = 100
+	PlayerWounds = 0
+	CureTimer = 0
+	TrapDoorOpen = False
+	GratingOpen = False
+	WindowOpen = False
+	DamGatesOpen = False
+	LowTide = False
+	TrollDead = False
+	ThiefDead = False
+	CyclopsFled = False
+	MagicFlag = False
+	RainbowSolid = False
+	DomeRoped = False
+	BoatInflated = False
+	WonGame = False
+	LldFlag = False
+	CoalInMachine = False
+	SpiritsBanished = False
+	RugMoved = False
+	LampOn = False
+	CandlesLit = False
+	LampDead = False
+	CandleDead = False
+	ThiefRoom = "TREASURE-ROOM"
+	TrollUnconscious = 0
+
+	StartGame
+	CmdInput.SetFocus
+End Sub
+
+Sub CmdInput_KeyPress(inputText As String)
+	Dim cmd As String
+	cmd = inputText
+	CmdInput.text = ""
+	If Len(Trim(cmd)) > 0 And GameRunning Then
+		GamePrint ""
+		GamePrint "[color=cyan]> " & cmd & "[/color]"
+		ProcessCommand Trim(cmd)
+	End If
+	CmdInput.SetFocus
+End Sub
+
+' ==========================================================
+' WORLD BUILDING HELPERS
+' ==========================================================
+
+Sub R(id As String, nm As String, desc As String, fl As String, sv As Integer, ex As String)
+	Dim room As Object
+	Dim exitDict As Object
+	Dim pairs As Array
+	Dim i As Integer
+	Dim kv As Array
+
+	Set room = New Dictionary
+	Set exitDict = New Dictionary
+
+	room("name") = nm
+	room("desc") = desc
+	room("flags") = fl
+	room("score") = sv
+	room("visited") = False
+	room("exits") = exitDict
+
+	If Len(ex) > 0 Then
+		pairs = Split(ex, ",")
+		Dim pairCount As Integer
+		pairCount = UBound(pairs)
+		For i = 0 To pairCount
+			Dim pairStr As String
+			pairStr = Trim(CStr(pairs(i)))
+			If Len(pairStr) > 0 And InStr(pairStr, ":") > 0 Then
+				kv = Split(pairStr, ":")
+				If UBound(kv) > = 1 Then
+					exitDict(Trim(kv(0))) = Trim(kv(1))
+				End If
+			End If
+		Next i
+	End If
+
+	Rooms(id) = room
+End Sub
+
+Sub O(id As String, nm As String, loc As String, fl As String, v As Integer, tv As Integer, sz As Integer, syns As String)
+	Dim obj As Object
+	Set obj = New Dictionary
+	obj("name") = nm
+	obj("location") = loc
+	obj("flags") = fl
+	obj("value") = v
+	obj("tvalue") = tv
+	obj("size") = sz
+	obj("fdesc") = ""
+	obj("ldesc") = ""
+	obj("text") = ""
+	obj("synonyms") = syns
+	obj("strength") = 0
+	Objects(id) = obj
+End Sub
+
+Sub OD(id As String, fd As String, ld As String)
+	Dim obj As Object
+	Set obj = Objects(id)
+	obj("fdesc") = fd
+	obj("ldesc") = ld
+End Sub
+
+Sub OT(id As String, txt As String)
+	Dim obj As Object
+	Set obj = Objects(id)
+	obj("text") = txt
+End Sub
+
+' ==========================================================
+' DICTIONARY ACCESS HELPERS
+' ==========================================================
+
+Function ObjProp(id As String, prop As String) As Variant
+	Dim o As Dictionary
+	Set o = Objects(id)
+	ObjProp = o(prop)
+End Function
+
+' ==========================================================
+' BUILD ALL ROOMS
+' ==========================================================
+
+Sub BuildRooms()
+	' --- Overworld / Forest ---
+	R "WEST-OF-HOUSE", "West of House", "You are standing in an open field west of a white house, with a boarded front door.", "RLANDBIT", 0, "N:NORTH-OF-HOUSE,S:SOUTH-OF-HOUSE,NE:NORTH-OF-HOUSE,SE:SOUTH-OF-HOUSE,W:FOREST-1"
+	R "NORTH-OF-HOUSE", "North of House", "You are facing the north side of a white house. There is no door here, and all the windows are boarded up. To the north a narrow path winds through the trees.", "RLANDBIT", 0, "SW:WEST-OF-HOUSE,SE:EAST-OF-HOUSE,W:WEST-OF-HOUSE,E:EAST-OF-HOUSE,N:PATH"
+	R "SOUTH-OF-HOUSE", "South of House", "You are facing the south side of a white house. There is no door here, and all the windows are boarded.", "RLANDBIT", 0, "W:WEST-OF-HOUSE,E:EAST-OF-HOUSE,NE:EAST-OF-HOUSE,NW:WEST-OF-HOUSE,S:FOREST-3"
+	R "EAST-OF-HOUSE", "Behind House", "You are behind the white house. A path leads into the forest to the east. In one corner of the house there is a small window which is slightly ajar.", "RLANDBIT", 0, "N:NORTH-OF-HOUSE,S:SOUTH-OF-HOUSE,SW:SOUTH-OF-HOUSE,NW:NORTH-OF-HOUSE,E:CLEARING,W:KITCHEN"
+	R "FOREST-1", "Forest", "This is a forest, with trees in all directions. To the east, there appears to be sunlight.", "RLANDBIT", 0, "N:GRATING-CLEARING,E:PATH,S:FOREST-3,W:FOREST-1"
+	R "FOREST-2", "Forest", "This is a dimly lit forest, with large trees all around.", "RLANDBIT", 0, "E:MOUNTAINS,S:CLEARING,W:PATH"
+	R "FOREST-3", "Forest", "This is a large forest, with trees obstructing all views.", "RLANDBIT", 0, "N:CLEARING,W:FOREST-1,NW:SOUTH-OF-HOUSE"
+	R "MOUNTAINS", "Forest", "The forest thins out, revealing impassable mountains.", "RLANDBIT", 0, "N:FOREST-2,S:FOREST-2,W:FOREST-2"
+	R "PATH", "Forest Path", "This is a path winding through a dimly lit forest. The path heads north-south here. One particularly large tree with some low branches stands at the edge of the path.", "RLANDBIT", 0, "U:UP-A-TREE,N:GRATING-CLEARING,E:FOREST-2,S:NORTH-OF-HOUSE,W:FOREST-1"
+	R "UP-A-TREE", "Up a Tree", "You are about 10 feet above the ground nestled among some large branches. The nearest branch above you is beyond your reach. Beside you on the branch is a small bird's nest.", "RLANDBIT", 0, "D:PATH"
+	R "GRATING-CLEARING", "Clearing", "You are in a small clearing in a well-marked forest path that extends to the east and west. There is an iron grating set into the ground.", "RLANDBIT", 0, "E:FOREST-2,W:FOREST-1,S:PATH,D:GRATING-ROOM"
+	R "CLEARING", "Clearing", "You are in a clearing, with a forest surrounding you on all sides. A path leads south. To the east is an impressive canyon view.", "RLANDBIT", 0, "E:CANYON-VIEW,N:FOREST-2,S:FOREST-3,W:EAST-OF-HOUSE"
+	R "CANYON-VIEW", "Canyon View", "You are at the top of the Great Canyon, on its west wall. From here there is a marvelous view of the canyon and parts of the Frigid River below.", "RLANDBIT", 0, "NW:CLEARING,W:FOREST-3,E:CLIFF-MIDDLE,D:CLIFF-MIDDLE"
+	R "CLIFF-MIDDLE", "Rocky Ledge", "You are on a ledge about halfway up the wall of the river canyon. You can see from here that the weights can be seen at the bottom of the canyon.", "RLANDBIT", 0, "U:CANYON-VIEW,D:CANYON-BOTTOM"
+	R "CANYON-BOTTOM", "Canyon Bottom", "You are beneath the walls of the river canyon which may be climbable here. The bottom of the canyon contains a gravel streambed.", "RLANDBIT", 0, "U:CLIFF-MIDDLE,N:END-OF-RAINBOW"
+	R "END-OF-RAINBOW", "End of Rainbow", "You are on a small, rocky beach on the continuation of the Frigid River past the falls. The beach is narrow due to the presence of the White Cliffs. The river canyon opens here and sunlight shines in from above. A rainbow crosses over the falls to the east.", "RLANDBIT", 0, "SW:CANYON-BOTTOM,E:ON-RAINBOW"
+	R "ON-RAINBOW", "On the Rainbow", "You are on top of a rainbow spanning the falls, which cascades to a rocky beach far below.", "RLANDBIT", 0, "W:END-OF-RAINBOW,E:ARAGAIN-FALLS"
+	R "ARAGAIN-FALLS", "Aragain Falls", "You are at the top of Aragain Falls, an enormous waterfall with a drop of about 450 feet. The falls roar loudly. On the east shore far below is a sandy beach. A rainbow appears over the falls.", "RLANDBIT", 0, "N:SHORE,W:ON-RAINBOW"
+	R "SHORE", "Shore", "You are on a rocky shore at the edge of a large, underground river. The Frigid River flows by here.", "RLANDBIT", 0, "N:SANDY-BEACH,S:ARAGAIN-FALLS"
+	R "SANDY-BEACH", "Sandy Beach", "You are on a large sandy beach at the south end of a large underground cavern. A path runs to the northeast.", "RLANDBIT", 0, "NE:SANDY-CAVE,S:SHORE"
+	R "SANDY-CAVE", "Sandy Cave", "This is a sand-filled cave whose exit is to the southwest.", "RLANDBIT", 0, "SW:SANDY-BEACH"
+	R "STONE-BARROW", "Stone Barrow", "You are standing inside a stone barrow. Exits lead northeast.", "RLANDBIT", 0, "NE:WEST-OF-HOUSE"
+
+	' --- House Interior ---
+	R "KITCHEN", "Kitchen", "You are in the kitchen of the white house. A table seems to have been used recently for the preparation of food. A passage leads to the west and a dark staircase can be seen leading upward. A dark chimney leads down and to the east is a small window.", "RLANDBIT", 10, "W:LIVING-ROOM,U:ATTIC,E:EAST-OF-HOUSE"
+	R "ATTIC", "Attic", "This is the attic. The only exit is a stairway leading down. A large coil of rope is lying in the corner. On a table is a nasty-looking knife.", "RLANDBIT", 0, "D:KITCHEN"
+	R "LIVING-ROOM", "Living Room", "You are in the living room. There is a doorway to the east, a wooden door with strange gothic lettering to the west, which appears to be nailed shut, and a large oriental rug in the center of the room. Above the trophy case hangs an elvish sword of great antiquity.", "RLANDBIT", 0, "E:KITCHEN"
+
+	' --- Cellar & Troll ---
+	R "CELLAR", "Cellar", "You are in a dark and damp cellar with a narrow passageway leading north, and a crawlway to the south. On the west is the bottom of a steep metal ramp which is unclimbable.", "RLANDBIT", 25, "N:TROLL-ROOM,S:EAST-OF-CHASM,U:LIVING-ROOM"
+	R "TROLL-ROOM", "Troll Room", "This is a small room with passages to the east and south and a forbidding hole leading west. Bloodstains and deep scratches (perhaps made by strng claws) mar the walls.", "RLANDBIT", 0, "S:CELLAR,E:EW-PASSAGE,W:MAZE-1"
+	R "EAST-OF-CHASM", "East of Chasm", "You are on the east edge of a chasm, the bottom of which cannot be seen. A narrow passage leads north, and the path you are on continues to the east.", "RLANDBIT", 0, "N:CELLAR,E:GALLERY"
+	R "GALLERY", "Gallery", "This is an art gallery. Most of the paintings have been stolen by vandals with exceptional taste. A doorway leads south and a hallway leads west.", "RLANDBIT", 0, "W:EAST-OF-CHASM,N:STUDIO"
+	R "STUDIO", "Studio", "This appears to have been an artist's studio. The walls and floors are covered with paintings. A chimney leads up from a fireplace; other exits are to the south.", "RLANDBIT", 0, "S:GALLERY,U:KITCHEN"
+
+	' --- Round Room & Vicinity ---
+	R "EW-PASSAGE", "East-West Passage", "This is a narrow east-west passageway. There is a narrow stairway leading down at the north end of the room.", "RLANDBIT", 5, "E:ROUND-ROOM,W:TROLL-ROOM,D:CHASM-ROOM,N:CHASM-ROOM"
+	R "ROUND-ROOM", "Round Room", "This is a circular room with passages in all directions. Several have been blocked by cave-ins.", "RLANDBIT", 0, "E:LOUD-ROOM,W:EW-PASSAGE,N:NS-PASSAGE,S:NARROW-PASSAGE,SE:ENGRAVINGS-CAVE"
+	R "LOUD-ROOM", "Loud Room", "This is a large room with a ceiling which cannot be detected from the ground. There is a narrow passage from east to west and a stone stairway leading upward. The room is deafeningly loud with an� unidentifiable roaring noise.", "RLANDBIT", 0, "E:DAMP-CAVE,W:ROUND-ROOM,U:DEEP-CANYON"
+	R "DAMP-CAVE", "Damp Cave", "This cave has a faint light coming from the east and passages going west and east.", "RLANDBIT", 0, "W:LOUD-ROOM,E:WHITE-CLIFFS-NORTH"
+	R "WHITE-CLIFFS-NORTH", "White Cliffs Beach", "You are on a narrow strip of beach between the Cliffs and the river. A steep path leads up.", "RLANDBIT", 0, "W:DAMP-CAVE"
+	R "NS-PASSAGE", "North-South Passage", "This is a high north-south passage which meets the east-west passage here.", "RLANDBIT", 0, "N:CHASM-ROOM,NE:DEEP-CANYON,S:ROUND-ROOM"
+	R "CHASM-ROOM", "Chasm", "A chasm runs southwest to northeast and the path follows it. You are on the east side of the chasm, which continues down into darkness.", "RLANDBIT", 0, "NE:RESERVOIR-SOUTH,SW:EW-PASSAGE,U:EW-PASSAGE,S:NS-PASSAGE"
+	R "DEEP-CANYON", "Deep Canyon", "You are on the south side of a deep canyon. Passages lead to the northwest, east, and up a steep incline to the southwest.", "RLANDBIT", 0, "NW:RESERVOIR-SOUTH,E:DAM-ROOM,SW:NS-PASSAGE,D:LOUD-ROOM"
+
+	' --- Reservoir & Dam ---
+	R "RESERVOIR-SOUTH", "Reservoir South", "You are in a long room on the south shore of a large lake, far underground.", "RLANDBIT", 0, "SE:DEEP-CANYON,SW:CHASM-ROOM,E:DAM-ROOM,W:STREAM-VIEW,N:RESERVOIR"
+	R "RESERVOIR", "Reservoir", "You are on what used to be a large reservoir, but it appears all the water has drained away.", "NONLANDBIT", 0, "N:RESERVOIR-NORTH,S:RESERVOIR-SOUTH"
+	R "RESERVOIR-NORTH", "Reservoir North", "You are in a large cavernous room, the north end of which was formerly a reservoir.", "RLANDBIT", 0, "N:ATLANTIS-ROOM,S:RESERVOIR"
+	R "STREAM-VIEW", "Stream View", "You are in a small room near the south end of the reservoir. A stream flows out of the room to the south.", "RLANDBIT", 0, "E:RESERVOIR-SOUTH"
+	R "DAM-ROOM", "Dam", "You are standing on the top of Flood Control Dam #3, which was quite a feat of engineering. To the north is the administration building, and to the south is the deep canyon.", "RLANDBIT", 0, "S:DEEP-CANYON,D:DAM-BASE,E:DAM-BASE,N:DAM-LOBBY,W:RESERVOIR-SOUTH"
+	R "DAM-LOBBY", "Dam Lobby", "This room appears to have been the waiting room for Flood Control Dam #3. There are doors to the north and east, and a corridor to the south.", "RLANDBIT", 0, "S:DAM-ROOM,N:MAINTENANCE-ROOM,E:MAINTENANCE-ROOM"
+	R "MAINTENANCE-ROOM", "Maintenance Room", "This is what appears to have been the maintenance room for Flood Control Dam #3. Faded posters on the walls depict the day-to-day operation of the dam. An open doorway leads south.", "RLANDBIT", 0, "S:DAM-LOBBY,W:DAM-LOBBY"
+	R "DAM-BASE", "Dam Base", "You are at the base of Flood Control Dam #3. A pile of plastic is here.", "RLANDBIT", 0, "N:DAM-ROOM,U:DAM-ROOM"
+
+	' --- Mirror Rooms & Hades ---
+	R "MIRROR-ROOM-1", "Mirror Room", "You are in a large square room with tall ceilings. On the south wall is an enormous mirror which fills the entire wall. Exits lead north, east, and west.", "RLANDBIT", 0, "N:COLD-PASSAGE,W:TWISTING-PASSAGE,E:SMALL-CAVE"
+	R "MIRROR-ROOM-2", "Mirror Room", "You are in a large square room with tall ceilings. On the south wall is an enormous mirror. Exits lead north, east, and west.", "RLANDBIT", 0, "W:WINDING-PASSAGE,N:NARROW-PASSAGE,E:TINY-CAVE"
+	R "SMALL-CAVE", "Small Cave", "This is a small cave with an exit to the north and a staircase going down.", "RLANDBIT", 0, "N:MIRROR-ROOM-1,D:ATLANTIS-ROOM,S:ATLANTIS-ROOM,W:TWISTING-PASSAGE"
+	R "TINY-CAVE", "Tiny Cave", "This is a tiny cave with entrances west and north, and a dark, forbidding staircase leading down.", "RLANDBIT", 0, "N:MIRROR-ROOM-2,W:WINDING-PASSAGE,D:ENTRANCE-TO-HADES"
+	R "COLD-PASSAGE", "Cold Passage", "This is a cold and damp corridor where a chilling wind blows.", "RLANDBIT", 0, "S:MIRROR-ROOM-1,W:SLIDE-ROOM"
+	R "NARROW-PASSAGE", "Narrow Passage", "This is a narrow passage. The walls here are formed by ancient brick and mortar.", "RLANDBIT", 0, "N:ROUND-ROOM,S:MIRROR-ROOM-2"
+	R "WINDING-PASSAGE", "Winding Passage", "This is a winding passage. It seems like you've been here before.", "RLANDBIT", 0, "N:MIRROR-ROOM-2,E:TINY-CAVE"
+	R "TWISTING-PASSAGE", "Twisting Passage", "This is a twisting passage through oddly shaped rock.", "RLANDBIT", 0, "N:MIRROR-ROOM-1,E:SMALL-CAVE"
+	R "ATLANTIS-ROOM", "Atlantis Room", "This is an ancient room, long ago combrolled with debris. One wall has a mural depicting a ancient kingdom, perhaps the legendary Atlantis.", "RLANDBIT", 0, "U:SMALL-CAVE,S:RESERVOIR-NORTH"
+	R "ENTRANCE-TO-HADES", "Entrance to Hades", "You are outside a large gateway, on which is inscribed 'Abandon every hope all ye who enter here.' The gate is made of thick iron. Below the inscription is a small, ancient keyhole.", "RLANDBIT", 0, "U:TINY-CAVE,S:LAND-OF-LIVING-DEAD"
+	R "LAND-OF-LIVING-DEAD", "Land of the Dead", "You have entered the Land of the Living Dead. Eerie lights and selphic voices fill the room.", "RLANDBIT", 0, "N:ENTRANCE-TO-HADES"
+
+	' --- Dome, Temple, Egypt ---
+	R "ENGRAVINGS-CAVE", "Engravings Cave", "You have entered a cave with writings on all the walls. The writings are a mixture of Flathead lore and meaningless graffiti. The games of the Flatheads are depicted on the walls.", "RLANDBIT", 0, "NW:ROUND-ROOM,E:DOME-ROOM"
+	R "DOME-ROOM", "Dome Room", "You are at the periphery of a large dome, which forms the ceiling of another room below. Protecting you from a precipitous drop is a wooden railing.", "RLANDBIT", 0, "W:ENGRAVINGS-CAVE,D:TORCH-ROOM"
+	R "TORCH-ROOM", "Torch Room", "This is a large room with a prominent doorway leading south. Above you is a large dome. In the center of the room there is a small white pedestal.", "RLANDBIT", 0, "S:NORTH-TEMPLE,D:NORTH-TEMPLE"
+	R "NORTH-TEMPLE", "Temple", "This is the north end of a large temple. On the east wall is an ancient inscription. On the floor near the southeast corner is a small hole, through which you can feel a draft.", "RLANDBIT", 0, "D:EGYPT-ROOM,E:EGYPT-ROOM,N:TORCH-ROOM,U:TORCH-ROOM,S:SOUTH-TEMPLE"
+	R "SOUTH-TEMPLE", "Altar", "This is the south end of a large temple. In the center of the room sits a white marble altar.", "RLANDBIT", 0, "N:NORTH-TEMPLE,D:TINY-CAVE"
+	R "EGYPT-ROOM", "Egyptian Room", "This is a room which looks like an Egyptian tomb. There is an ascending staircase to the west.", "RLANDBIT", 0, "W:NORTH-TEMPLE,U:NORTH-TEMPLE"
+
+	' --- Cyclops & Treasure ---
+	R "CYCLOPS-ROOM", "Cyclops Room", "This room has an exit to the south and a staircase leading up.", "RLANDBIT", 0, "NW:MAZE-15,E:STRANGE-PASSAGE,U:TREASURE-ROOM"
+	R "STRANGE-PASSAGE", "Strange Passage", "This is a long, dimly lit corridor with an ornate doorway at each end.", "RLANDBIT", 0, "W:CYCLOPS-ROOM,E:LIVING-ROOM"
+	R "TREASURE-ROOM", "Treasure Room", "This is a large room, bare on all sides. A narrow stairway leads down.", "RLANDBIT", 25, "D:CYCLOPS-ROOM"
+
+	' --- Coal Mine ---
+	R "SLIDE-ROOM", "Slide Room", "This is a small chamber at the top of a smooth slide which descends to the cellar. A passage leads north.", "RLANDBIT", 0, "E:COLD-PASSAGE,N:MINE-ENTRANCE,D:CELLAR"
+	R "MINE-ENTRANCE", "Mine Entrance", "You are standing at the entrance to what appears to be an old coal mine. Passages lead north and south.", "RLANDBIT", 0, "S:SLIDE-ROOM,W:SQUEEKY-ROOM"
+	R "SQUEEKY-ROOM", "Squeaky Room", "You are in a small room. Strange squeaky sounds can be heard coming from the north.", "RLANDBIT", 0, "N:BAT-ROOM,E:MINE-ENTRANCE"
+	R "BAT-ROOM", "Bat Room", "You are in a large room, with passages to the south and east. The room has an exit to the east and a forbidding passage leading west. High above is a wooden door.", "RLANDBIT", 0, "S:SQUEEKY-ROOM,E:SHAFT-ROOM"
+	R "SHAFT-ROOM", "Shaft Room", "This is a large room, in the middle of which is a small shaft descending through the floor into darkness below. To the north is a small passage.", "RLANDBIT", 0, "W:BAT-ROOM,N:SMELLY-ROOM"
+	R "SMELLY-ROOM", "Smelly Room", "This is a small room from which an awful smell emanates. The room is otherwise featureless except for passages to the south and down.", "RLANDBIT", 0, "D:GAS-ROOM,S:SHAFT-ROOM"
+	R "GAS-ROOM", "Gas Room", "This is a small room which smells strongly of coal gas. A passage leads up and to the east.", "RLANDBIT", 0, "U:SMELLY-ROOM,E:MINE-1"
+	R "MINE-1", "Coal Mine", "You are in a nondescript part of a coal mine.", "RLANDBIT", 0, "W:GAS-ROOM,NW:MINE-2,SE:MINE-3"
+	R "MINE-2", "Coal Mine", "You are in a nondescript part of a coal mine.", "RLANDBIT", 0, "SE:MINE-1,N:MINE-4"
+	R "MINE-3", "Coal Mine", "You are in a nondescript part of a coal mine.", "RLANDBIT", 0, "NW:MINE-1"
+	R "MINE-4", "Coal Mine", "You are in a nondescript part of a coal mine.", "RLANDBIT", 0, "S:MINE-2,W:LADDER-TOP"
+	R "LADDER-TOP", "Ladder Top", "This is a very small room. In the floor there is a small square opening with a ladder leading down.", "RLANDBIT", 0, "D:LADDER-BOTTOM,U:MINE-4"
+	R "LADDER-BOTTOM", "Ladder Bottom", "This is the bottom of a ladder. Exits lead south and west.", "RLANDBIT", 0, "S:DEAD-END-5,W:TIMBER-ROOM,U:LADDER-TOP"
+	R "DEAD-END-5", "Dead End", "Dead end.", "RLANDBIT", 0, "N:LADDER-BOTTOM"
+	R "TIMBER-ROOM", "Timber Room", "This is a long and narrow passage, which is cluttered with broken timbers from a ceiling collapse. From the east comes a breeze.", "RLANDBIT", 0, "E:LADDER-BOTTOM,W:LOWER-SHAFT"
+	R "LOWER-SHAFT", "Lower Shaft", "This is the bottom of a long shaft. To the south is a passage and to the east a tunnel.", "RLANDBIT", 0, "S:MACHINE-ROOM,E:TIMBER-ROOM"
+	R "MACHINE-ROOM", "Machine Room", "This is a large room full of old and rusty mining equipment. In the center of the room there is a massive old machine. Passages lead north and west.", "RLANDBIT", 0, "N:LOWER-SHAFT"
+
+	' --- Maze ---
+	R "MAZE-1", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "E:MAZE-1,N:MAZE-1,S:MAZE-2,W:MAZE-11"
+	R "MAZE-2", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "S:MAZE-3,E:MAZE-1,W:DEAD-END-2"
+	R "MAZE-3", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "W:MAZE-3,N:MAZE-4,U:DEAD-END-3"
+	R "MAZE-4", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "E:DEAD-END-4,W:MAZE-4,S:MAZE-3"
+	R "MAZE-5", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "NE:MAZE-3,N:MAZE-6,E:DEAD-END-1"
+	R "MAZE-6", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "SE:MAZE-5,E:DEAD-END-1,W:MAZE-7,D:MAZE-9"
+	R "MAZE-7", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "U:MAZE-12,W:MAZE-8,S:MAZE-14,E:DEAD-END-1"
+	R "MAZE-8", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "NE:MAZE-6,W:MAZE-11"
+	R "MAZE-9", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "S:MAZE-7,W:MAZE-10,NW:MAZE-12"
+	R "MAZE-10", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "W:MAZE-13,U:MAZE-11"
+	R "MAZE-11", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "N:MAZE-8,SE:MAZE-11,NE:GRATING-ROOM,NW:MAZE-12,S:MAZE-1,E:DEAD-END-1,D:MAZE-10"
+	R "MAZE-12", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "S:MAZE-5,E:MAZE-7,D:MAZE-9,SW:MAZE-12"
+	R "MAZE-13", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "D:MAZE-10,N:DEAD-END-1"
+	R "MAZE-14", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "NW:MAZE-15"
+	R "MAZE-15", "Maze", "You are in a maze of twisty little passages, all alike.", "RLANDBIT,MAZEBIT", 0, "W:MAZE-14,SE:CYCLOPS-ROOM"
+	R "DEAD-END-1", "Dead End", "Dead end.", "RLANDBIT,MAZEBIT", 0, "S:MAZE-5"
+	R "DEAD-END-2", "Dead End", "Dead end.", "RLANDBIT,MAZEBIT", 0, "SE:MAZE-2"
+	R "DEAD-END-3", "Dead End", "Dead end.", "RLANDBIT,MAZEBIT", 0, "D:MAZE-3"
+	R "DEAD-END-4", "Dead End", "Dead end.", "RLANDBIT,MAZEBIT", 0, "W:MAZE-4"
+	R "GRATING-ROOM", "Grating Room", "You are in a small room near the surface. Above you is a grating with sunlight pouring in.", "RLANDBIT", 0, "SW:MAZE-11,U:GRATING-CLEARING"
+
+	' --- River (simplified land access) ---
+	R "WHITE-CLIFFS-SOUTH", "White Cliffs Beach", "You are on a narrow strip of white sand beach between the river and the cliffs.", "RLANDBIT", 0, "N:WHITE-CLIFFS-NORTH"
+End Sub
+
+' ==========================================================
+' BUILD ALL OBJECTS
+' ==========================================================
+
+Sub BuildObjects()
+	' --- Treasures ---
+	O "LAMP", "brass lantern", "LIVING-ROOM", "TAKEBIT", 0, 0, 15, "lantern,lamp,light"
+	OD "LAMP", "A battery-powered brass lantern is on the trophy case.", "There is a brass lantern here."
+
+	O "SWORD", "elvish sword", "LIVING-ROOM", "TAKEBIT,WEAPONBIT", 0, 0, 10, "sword,blade,elvish"
+	OD "SWORD", "Above the trophy case hangs an elvish sword of great antiquity.", "There is an elvish sword here."
+
+	O "KNIFE", "nasty knife", "ATTIC", "TAKEBIT,WEAPONBIT", 0, 0, 5, "knife"
+	OD "KNIFE", "On a table is a nasty-looking knife.", "There is a knife here."
+
+	O "ROPE", "coil of rope", "ATTIC", "TAKEBIT", 0, 0, 10, "rope,coil"
+	OD "ROPE", "A large coil of rope is lying in the corner.", "There is a coil of rope here."
+
+	O "MAILBOX", "small mailbox", "WEST-OF-HOUSE", "CONTBIT", 0, 0, 0, "mailbox,box"
+	OD "MAILBOX", "There is a small mailbox here.", "There is a small mailbox here."
+
+	O "LEAFLET", "leaflet", "MAILBOX", "TAKEBIT,READBIT", 0, 0, 2, "leaflet,paper,mail"
+	OT "LEAFLET", "WELCOME TO ZORK! ZORK is a game of adventure, danger, and low cunning. In it you will explore some of the most amazing territory ever seen by mortals. No computer should be without one!"
+
+	O "TROPHY-CASE", "trophy case", "LIVING-ROOM", "CONTBIT,SURFACEBIT", 0, 0, 0, "case,trophy"
+	OD "TROPHY-CASE", "There is an elongated mahogany trophy case here.", "There is a trophy case here."
+
+	O "BOTTLE", "glass bottle", "KITCHEN", "TAKEBIT,CONTBIT,OPENBIT,TRANSBIT", 0, 0, 5, "bottle,glass"
+	OD "BOTTLE", "A bottle is sitting on the kitchen table.", "There is a glass bottle here."
+
+	O "WATER", "quantity of water", "BOTTLE", "TAKEBIT,DRINKBIT", 0, 0, 4, "water"
+
+	O "SACK", "brown sack", "KITCHEN", "TAKEBIT,CONTBIT,OPENBIT", 0, 0, 5, "sack,bag,brown"
+	OD "SACK", "On the table is an elongated brown sack, smelling of hot peppers.", "A brown sack is here."
+
+	O "LUNCH", "hot pepper sandwich", "SACK", "TAKEBIT,FOODBIT", 0, 0, 3, "lunch,sandwich,food,pepper"
+	O "GARLIC", "clove of garlic", "SACK", "TAKEBIT,FOODBIT", 0, 0, 2, "garlic,clove"
+
+	O "MATCHES", "matchbook", "DAM-LOBBY", "TAKEBIT", 0, 0, 2, "match,matches,matchbook"
+	OD "MATCHES", "There is a matchbook whose cover says 'Visit Beautiful FCD#3' here.", "There is a matchbook here."
+	OT "MATCHES", "Visit Beautiful FCD#3 (Strstrng, strstrng, strstrng...)"
+
+	O "CANDLES", "pair of candles", "SOUTH-TEMPLE", "TAKEBIT,LIGHTBIT", 0, 0, 5, "candles,candle,pair"
+	OD "CANDLES", "On the two ends of the altar are two white candles.", "There is a pair of candles here."
+
+	O "BELL", "brass bell", "NORTH-TEMPLE", "TAKEBIT", 0, 0, 5, "bell,brass"
+	OD "BELL", "On a table is a small brass bell.", "There is a brass bell here."
+
+	O "BOOK", "black book", "NORTH-TEMPLE", "TAKEBIT,READBIT", 0, 0, 5, "book,black"
+	OD "BOOK", "On the altar is a large black book, open to page 569.", "There is a black book here."
+	OT "BOOK", "The book contains an old exorcism ritual: First, ring the bell. Then, light the candles. Finally, read the book aloud."
+
+	O "KEYS", "set of skeleton keys", "MAZE-5", "TAKEBIT,TOOLBIT", 0, 0, 3, "keys,key,skeleton"
+	OD "KEYS", "There is a set of skeleton keys here.", "There is a set of skeleton keys here."
+
+	O "SHOVEL", "shovel", "SANDY-BEACH", "TAKEBIT,TOOLBIT", 0, 0, 10, "shovel"
+	OD "SHOVEL", "There is a shovel here.", "There is a shovel here."
+
+	O "PUMP", "hand-held air pump", "RESERVOIR-NORTH", "TAKEBIT,TOOLBIT", 0, 0, 5, "pump,air"
+	OD "PUMP", "There is a small pump here.", "There is a hand-held air pump here."
+
+	O "WRENCH", "wrench", "MAINTENANCE-ROOM", "TAKEBIT,TOOLBIT", 0, 0, 5, "wrench"
+	OD "WRENCH", "There is a wrench here.", "There is a wrench here."
+
+	O "SCREWDRIVER", "screwdriver", "MAINTENANCE-ROOM", "TAKEBIT,TOOLBIT", 0, 0, 3, "screwdriver"
+	OD "SCREWDRIVER", "There is a screwdriver here.", "There is a screwdriver here."
+
+	O "COAL", "small lump of coal", "DEAD-END-5", "TAKEBIT", 0, 0, 5, "coal,lump"
+	OD "COAL", "There is a small lump of coal here.", "There is a small lump of coal here."
+
+	O "BOAT", "pile of plastic", "DAM-BASE", "TAKEBIT", 0, 0, 20, "boat,plastic,pile,raft"
+	OD "BOAT", "There is a folded pile of plastic here which has a valve.", "There is a pile of plastic here."
+
+	O "BUOY", "buoy", "DAM-BASE", "TAKEBIT,CONTBIT", 0, 0, 8, "buoy"
+	OD "BUOY", "There is a red buoy here (probably a warning).", "There is a red buoy here."
+
+	O "MACHINE", "machine", "MACHINE-ROOM", "", 0, 0, 0, "machine,device"
+	OD "MACHINE", "There is a large machine here with a lid, which is closed.", "There is a machine here."
+
+	O "MACHINE-LID", "machine lid", "MACHINE-ROOM", "", 0, 0, 0, "lid,switch,button"
+	OD "MACHINE-LID", "", ""
+
+	O "GRATING", "iron grating", "GRATING-CLEARING", "", 0, 0, 0, "grating,grate,iron"
+
+	O "PEDESTAL", "stone pedestal", "TORCH-ROOM", "SURFACEBIT", 0, 0, 0, "pedestal,stone"
+
+	O "RUG", "oriental rug", "LIVING-ROOM", "", 0, 0, 0, "rug,carpet,oriental"
+
+	O "TRAP-DOOR", "trap door", "LIVING-ROOM", "DOORBIT", 0, 0, 0, "trapdoor,door,trap"
+
+	' --- Treasures ---
+	O "BAR", "platinum bar", "LOUD-ROOM", "TAKEBIT", 10, 5, 15, "bar,platinum"
+	OD "BAR", "On the ground is a large platinum bar.", "There is a platinum bar here."
+
+	O "COINS", "bag of coins", "MAZE-5", "TAKEBIT", 10, 5, 8, "coins,bag,money"
+	OD "COINS", "A leather bag, filled with coins, is here.", "There is a bag of coins here."
+
+	O "EGG", "jewel-encrusted egg", "UP-A-TREE", "TAKEBIT,CONTBIT", 5, 5, 6, "egg,jewel"
+	OD "EGG", "In the bird's nest is a large egg, beautifully encrusted with precious jewels.", "There is a jewel-encrusted egg here."
+
+	O "CANARY", "clockwork canary", "EGG", "TAKEBIT", 6, 4, 3, "canary,bird,clockwork"
+
+	O "PAINTING", "painting", "GALLERY", "TAKEBIT", 4, 6, 8, "painting,art,canvas"
+	OD "PAINTING", "Fortunately, there is still one chance painting, a delicately refined portrait, here.", "There is a painting here."
+
+	O "JADE", "jade figurine", "BAT-ROOM", "TAKEBIT", 5, 5, 4, "jade,figurine,statue"
+	OD "JADE", "On the ground is a beautiful jade figurine.", "There is a jade figurine here."
+
+	O "BRACELET", "sapphire bracelet", "GAS-ROOM", "TAKEBIT", 5, 5, 3, "bracelet,sapphire"
+	OD "BRACELET", "There is a beautiful sapphire-encrusted bracelet here.", "There is a sapphire bracelet here."
+
+	O "POT-OF-GOLD", "pot of gold", "END-OF-RAINBOW", "TAKEBIT", 10, 10, 12, "pot,gold"
+	OD "POT-OF-GOLD", "At the end of the rainbow is a pot of gold.", "There is a pot of gold here."
+
+	O "TORCH-TREASURE", "ivory torch", "TORCH-ROOM", "TAKEBIT,LIGHTBIT,ONBIT,FLAMEBIT", 14, 6, 8, "torch,ivory"
+	OD "TORCH-TREASURE", "Sitting on the pedestal is a flaming torch, made of ivory.", "There is a flaming ivory torch here."
+
+	O "SCARAB", "jeweled scarab", "SANDY-CAVE", "TAKEBIT", 5, 5, 3, "scarab,jewel"
+	OD "SCARAB", "A beautiful jeweled scarab is half-buried in the sand.", "There is a jeweled scarab here."
+
+	O "CHALICE", "silver chalice", "TREASURE-ROOM", "TAKEBIT", 10, 5, 5, "chalice,silver,cup"
+	OD "CHALICE", "There is a silver chalice here, intricately engraved.", "There is a silver chalice here."
+
+	O "TRIDENT", "crystal trident", "ATLANTIS-ROOM", "TAKEBIT,WEAPONBIT", 4, 11, 8, "trident,crystal"
+	OD "TRIDENT", "On the far wall is a crystal trident.", "There is a crystal trident here."
+
+	O "COFFIN", "gold coffin", "EGYPT-ROOM", "TAKEBIT,CONTBIT", 10, 15, 15, "coffin,gold,sarcophagus"
+	OD "COFFIN", "In the center of the room is a beautifully painted gold coffin.", "There is a gold coffin here."
+
+	O "SCEPTRE", "sceptre", "COFFIN", "TAKEBIT", 4, 6, 4, "sceptre,scepter,wand"
+
+	O "SKULL", "crystal skull", "LAND-OF-LIVING-DEAD", "TAKEBIT", 10, 10, 6, "skull,crystal"
+	OD "SKULL", "Resting on one of the shelves is a beautifully carved crystal skull.", "There is a crystal skull here."
+
+	O "TRUNK", "trunk of jewels", "RESERVOIR", "TAKEBIT", 15, 5, 12, "trunk,jewels"
+	OD "TRUNK", "Lying half-buried in the mud is a trunk, bulging with jewels.", "There is a trunk of jewels here."
+
+	O "EMERALD", "large emerald", "BUOY", "TAKEBIT", 5, 10, 4, "emerald,gem"
+
+	O "DIAMOND", "huge diamond", "LIMBO", "TAKEBIT", 10, 10, 4, "diamond,gem"
+	OD "DIAMOND", "There is an enormous diamond here.", "There is a huge diamond here."
+
+	O "BAUBLE", "brass bauble", "LIMBO", "TAKEBIT", 1, 1, 2, "bauble,brass"
+
+	' --- NPCs ---
+	O "TROLL", "troll", "TROLL-ROOM", "ACTORBIT", 0, 0, 0, "troll"
+	OD "TROLL", "A nasty-looking troll, brandishing a bloody axe, blocks all passages out of the room.", "An unconscious troll is sprawled on the floor."
+	Dim t As Object
+	Set t = Objects("TROLL")
+	t("strength") = 2
+
+	O "AXE", "bloody axe", "TROLL", "TAKEBIT,WEAPONBIT", 0, 0, 10, "axe"
+	OD "AXE", "", "There is a bloody axe here."
+
+	O "THIEF", "thief", "TREASURE-ROOM", "ACTORBIT", 0, 0, 0, "thief,gentleman,robber"
+	OD "THIEF", "A lean and hungry-looking gentleman is leaning against the wall. He is armed with a deadly stiletto.", "The thief is sprawled on the floor, unconscious."
+	Dim th As Object
+	Set th = Objects("THIEF")
+	th("strength") = 5
+
+	O "STILETTO", "stiletto", "THIEF", "TAKEBIT,WEAPONBIT", 0, 0, 4, "stiletto,knife"
+
+	O "CYCLOPS", "cyclops", "CYCLOPS-ROOM", "ACTORBIT", 0, 0, 0, "cyclops,monster"
+	OD "CYCLOPS", "A huge cyclops, standing over ten feet tall, blocks passage to the north. The cyclops seems rather hostile.", "The cyclops has fled in terror."
+	Dim cy As Object
+	Set cy = Objects("CYCLOPS")
+	cy("strength") = 10000
+
+	O "BAT", "vampire bat", "BAT-ROOM", "ACTORBIT", 0, 0, 0, "bat,vampire"
+	OD "BAT", "A large vampire bat is hanging from the ceiling, its eyes glowing red.", "A large bat is sleeping here."
+
+	O "GHOSTS", "evil spirits", "ENTRANCE-TO-HADES", "ACTORBIT", 0, 0, 0, "spirits,ghost,ghosts,evil"
+	OD "GHOSTS", "The way is barred by evil spirits who jeer at your futile attempts to pass.", ""
+End Sub
+
+' ==========================================================
+' BUILD VERB MAP
+' ==========================================================
+
+Sub BuildVerbMap()
+	' Movement
+	VerbMap("go") = "GO"
+	VerbMap("walk") = "GO"
+	VerbMap("run") = "GO"
+	VerbMap("move") = "MOVE"
+	' Look
+	VerbMap("look") = "LOOK"
+	VerbMap("l") = "LOOK"
+	VerbMap("examine") = "EXAMINE"
+	VerbMap("x") = "EXAMINE"
+	VerbMap("describe") = "EXAMINE"
+	' Take / Drop
+	VerbMap("take") = "TAKE"
+	VerbMap("get") = "TAKE"
+	VerbMap("grab") = "TAKE"
+	VerbMap("pick") = "TAKE"
+	VerbMap("carry") = "TAKE"
+	VerbMap("drop") = "DROP"
+	VerbMap("discard") = "DROP"
+	VerbMap("throw") = "THROW"
+	VerbMap("toss") = "THROW"
+	' Open / Close
+	VerbMap("open") = "OPEN"
+	VerbMap("close") = "CLOSE"
+	VerbMap("shut") = "CLOSE"
+	' Inventory
+	VerbMap("inventory") = "INVENTORY"
+	VerbMap("i") = "INVENTORY"
+	' Turn on/off
+	VerbMap("turn") = "TURN"
+	VerbMap("light") = "TURNON"
+	VerbMap("activate") = "TURNON"
+	VerbMap("extinguish") = "TURNOFF"
+	VerbMap("douse") = "TURNOFF"
+	' Read
+	VerbMap("read") = "READ"
+	' Eat / Drink
+	VerbMap("eat") = "EAT"
+	VerbMap("taste") = "EAT"
+	VerbMap("consume") = "EAT"
+	VerbMap("drink") = "DRINK"
+	' Attack
+	VerbMap("attack") = "ATTACK"
+	VerbMap("fight") = "ATTACK"
+	VerbMap("kill") = "ATTACK"
+	VerbMap("hit") = "ATTACK"
+	VerbMap("strike") = "ATTACK"
+	VerbMap("slay") = "ATTACK"
+	' Put
+	VerbMap("put") = "PUT"
+	VerbMap("place") = "PUT"
+	VerbMap("insert") = "PUT"
+	VerbMap("stuff") = "PUT"
+	' Give
+	VerbMap("give") = "GIVE"
+	VerbMap("offer") = "GIVE"
+	VerbMap("feed") = "GIVE"
+	' Say
+	VerbMap("say") = "SAY"
+	VerbMap("shout") = "SAY"
+	VerbMap("yell") = "SAY"
+	' Wave
+	VerbMap("wave") = "WAVE"
+	VerbMap("brandish") = "WAVE"
+	' Dig
+	VerbMap("dig") = "DIG"
+	' Tie
+	VerbMap("tie") = "TIE"
+	VerbMap("fasten") = "TIE"
+	VerbMap("secure") = "TIE"
+	' Pray
+	VerbMap("pray") = "PRAY"
+	' Unlock / Lock
+	VerbMap("unlock") = "UNLOCK"
+	VerbMap("lock") = "LOCK"
+	' Inflate
+	VerbMap("inflate") = "INFLATE"
+	VerbMap("blow") = "INFLATE"
+	' Climb
+	VerbMap("climb") = "CLIMB"
+	' Score / Meta
+	VerbMap("score") = "SCORE"
+	VerbMap("quit") = "QUIT"
+	VerbMap("q") = "QUIT"
+	VerbMap("verbose") = "VERBOSE"
+	VerbMap("brief") = "BRIEF"
+	VerbMap("tts") = "TTS"
+	VerbMap("help") = "HELP"
+	VerbMap("wait") = "WAIT"
+	VerbMap("z") = "WAIT"
+	VerbMap("swim") = "SWIM"
+	VerbMap("ring") = "RING"
+	VerbMap("diagnose") = "DIAGNOSE"
+	VerbMap("save") = "SAVE"
+	VerbMap("restore") = "RESTORE"
+	VerbMap("odysseus") = "ODYSSEUS"
+	VerbMap("ulysses") = "ODYSSEUS"
+	VerbMap("echo") = "ECHO"
+End Sub
+
+' ==========================================================
+' BUILD DIRECTION MAP
+' ==========================================================
+
+Sub BuildDirMap()
+	DirMap("north") = "N"
+	DirMap("n") = "N"
+	DirMap("south") = "S"
+	DirMap("s") = "S"
+	DirMap("east") = "E"
+	DirMap("e") = "E"
+	DirMap("west") = "W"
+	DirMap("w") = "W"
+	DirMap("northeast") = "NE"
+	DirMap("ne") = "NE"
+	DirMap("northwest") = "NW"
+	DirMap("nw") = "NW"
+	DirMap("southeast") = "SE"
+	DirMap("se") = "SE"
+	DirMap("southwest") = "SW"
+	DirMap("sw") = "SW"
+	DirMap("up") = "U"
+	DirMap("u") = "U"
+	DirMap("down") = "D"
+	DirMap("d") = "D"
+	DirMap("in") = "IN"
+	DirMap("enter") = "IN"
+	DirMap("out") = "OUT"
+	DirMap("exit") = "OUT"
+	DirMap("land") = "LAND"
+End Sub
+
+' ==========================================================
+' START GAME
+' ==========================================================
+
+Sub StartGame()
+	GamePrint "[b][color=yellow]ZORK I: The Great Underground Empire[/color][/b]"
+	GamePrint "[color=yellow]Copyright (c) 1980 by Infocom, Inc.[/color]"
+	GamePrint "[color=yellow]VG reimplementation by VisualGasic.[/color]"
+	GamePrint ""
+	ShowRoom True
+End Sub
+
+' ==========================================================
+' OUTPUT HELPERS
+' ==========================================================
+
+Sub GamePrint(text As String)
+	GameOutput.append_text(text & Chr(10))
+	Speak text
+End Sub
+
+Sub Speak(text As String)
+	If Not TtsEnabled Then Return
+	Dim clean As String
+	clean = text
+	' Strip BBCode tags
+	Do While InStr(clean, "[") > 0
+		Dim s As Integer
+		Dim e As Integer
+		s = InStr(clean, "[")
+		e = InStr(s, clean, "]")
+		If e > 0 Then
+			clean = Left(clean, s - 1) & Mid(clean, e + 1)
+		Else
+			Exit Do
+		End If
+	Loop
+	If Len(Trim(clean)) > 0 Then
+		DisplayServer.tts_speak(clean, "", 50, 1.0, 1.0)
+	End If
+End Sub
+
+Sub UpdateStatus()
+	Dim room As Object
+	Set room = Rooms(CurrentRoom)
+	StatusBar.text = room("name") & " Score: " & CStr(Score) & " Moves: " & CStr(Moves)
+End Sub
+
+' ==========================================================
+' SHOW ROOM
+' ==========================================================
+
+Sub ShowRoom(forceLong As Boolean)
+	If Not IsLit() Then
+		GamePrint "[b]Darkness[/b]"
+		GamePrint "It is pitch black. You are likely to be eaten by a grue."
+		UpdateStatus
+		Return
+	End If
+
+	Dim room As Object
+	Set room = Rooms(CurrentRoom)
+
+	GamePrint "[b][color=white]" & room("name") & "[/color][/b]"
+
+	If forceLong Or Verbose Or Not room("visited") Then
+		GamePrint room("desc")
+		room("visited") = True
+	End If
+
+	' Show objects in room
+	Dim objKeys As Array
+	Dim k As Variant
+	objKeys = Objects.Keys()
+	For Each k In objKeys
+		Dim obj As Object
+		Set obj = Objects(CStr(k))
+		If obj("location") = CurrentRoom Then
+			If HasFlag(CStr(k), "ACTORBIT") Then
+				' NPC
+				If CStr(k) = "TROLL" And TrollDead Then
+					GamePrint obj("ldesc")
+				ElseIf CStr(k) = "CYCLOPS" And CyclopsFled Then
+					' Cyclops fled, don't show
+				ElseIf CStr(k) = "GHOSTS" And SpiritsBanished Then
+					' Ghosts banished
+				ElseIf Len(obj("fdesc")) > 0 Then
+					GamePrint obj("fdesc")
+				End If
+			ElseIf Len(obj("fdesc")) > 0 Then
+				GamePrint obj("fdesc")
+			ElseIf Len(obj("ldesc")) > 0 Then
+				GamePrint obj("ldesc")
+			Else
+				If HasFlag(CStr(k), "TAKEBIT") Then
+					GamePrint "There is a " & obj("name") & " here."
+				End If
+			End If
+
+			' Show contents of open containers
+			If HasFlag(CStr(k), "CONTBIT") And (HasFlag(CStr(k), "OPENBIT") Or HasFlag(CStr(k), "TRANSBIT")) Then
+				ShowContents CStr(k), " "
+			End If
+		End If
+	Next
+
+	' Award room score
+	If room("score") > 0 Then
+		Dim oldScore As Integer
+		oldScore = Score
+		Score = Score + room("score")
+		room("score") = 0
+		If Score > oldScore Then
+			GamePrint "[color=yellow](Your score just went up.)[/color]"
+		End If
+	End If
+
+	UpdateStatus
+End Sub
+
+Sub ShowContents(containerId As String, indent As String)
+	Dim objKeys As Array
+	Dim k As Variant
+	objKeys = Objects.Keys()
+	For Each k In objKeys
+		Dim obj As Object
+		Set obj = Objects(CStr(k))
+		If obj("location") = containerId Then
+			GamePrint indent & " " & UCase(Left(obj("name"), 1)) & Mid(obj("name"), 2)
+		End If
+	Next
+End Sub
+
+' ==========================================================
+' PARSER
+' ==========================================================
+
+Sub ParseCommand(cmd As String)
+	Dim words As Array
+	Dim cleaned As String
+	Dim i As Integer
+	Dim w As String
+
+	ParsedVerb = ""
+	ParsedNoun1 = ""
+	ParsedNoun2 = ""
+	ParsedPrep = ""
+
+	cleaned = LCase(Trim(cmd))
+	RawInput = cleaned
+	words = Split(cleaned, " ")
+
+	' Remove articles
+	Dim filtered() As String
+	Dim fc As Integer
+	fc = 0
+	ReDim filtered(UBound(words))
+	For i = 0 To UBound(words)
+		w = Trim(words(i))
+		If w < > "the" And w < > "a" And w < > "an" And w < > "my" And Len(w) > 0 Then
+			filtered(fc) = w
+			fc = fc + 1
+		End If
+	Next i
+
+	If fc = 0 Then Return
+
+	' First word is the verb (or direction)
+	Dim verb As String
+	verb = filtered(0)
+
+	' Check if it's a direction
+	If DirMap.Exists(verb) Then
+		ParsedVerb = "GO"
+		ParsedNoun1 = DirMap(verb)
+		Return
+	End If
+
+	' Handle "turn on/off"
+	If verb = "turn" And fc > = 2 Then
+		If filtered(1) = "on" Then
+			ParsedVerb = "TURNON"
+			If fc > = 3 Then ParsedNoun1 = filtered(2)
+			Return
+		ElseIf filtered(1) = "off" Then
+			ParsedVerb = "TURNOFF"
+			If fc > = 3 Then ParsedNoun1 = filtered(2)
+			Return
+		End If
+	End If
+
+	' Handle "pick up"
+	If verb = "pick" And fc > = 2 Then
+		If filtered(1) = "up" Then
+			ParsedVerb = "TAKE"
+			If fc > = 3 Then ParsedNoun1 = filtered(2)
+			Return
+		End If
+	End If
+
+	' Handle "look at" / "look in"
+	If verb = "look" And fc > = 2 Then
+		If filtered(1) = "at" Or filtered(1) = "in" Or filtered(1) = "inside" Then
+			ParsedVerb = "EXAMINE"
+			If fc > = 3 Then ParsedNoun1 = filtered(2)
+			Return
+		End If
+	End If
+
+	' Map verb
+	If VerbMap.Exists(verb) Then
+		ParsedVerb = VerbMap(verb)
+	Else
+		ParsedVerb = UCase(verb)
+	End If
+
+	' Find preposition and split nouns
+	Dim prepIdx As Integer
+	prepIdx = - 1
+	For i = 1 To fc - 1
+		w = filtered(i)
+		If w = "in" Or w = "on" Or w = "with" Or w = "to" Or w = "from" Or w = "at" Or w = "into" Or w = "onto" Or w = "about" Or w = "under" Then
+			prepIdx = i
+			ParsedPrep = w
+			Exit For
+		End If
+	Next i
+
+	If prepIdx > 0 Then
+		' Noun1 is between verb and prep
+		If prepIdx > 1 Then
+			ParsedNoun1 = filtered(1)
+			' Handle multi-word noun1
+			For i = 2 To prepIdx - 1
+				ParsedNoun1 = ParsedNoun1 & " " & filtered(i)
+			Next i
+		End If
+		' Noun2 is after prep
+		If prepIdx < fc - 1 Then
+			ParsedNoun2 = filtered(prepIdx + 1)
+			For i = prepIdx + 2 To fc - 1
+				ParsedNoun2 = ParsedNoun2 & " " & filtered(i)
+			Next i
+		End If
+	Else
+		' No preposition - everything after verb is noun1
+		If fc > = 2 Then
+			ParsedNoun1 = filtered(1)
+			For i = 2 To fc - 1
+				ParsedNoun1 = ParsedNoun1 & " " & filtered(i)
+			Next i
+		End If
+	End If
+End Sub
+
+Function FindObject(noun As String) As String
+	If Len(noun) = 0 Then
+		FindObject = ""
+		Return ""
+	End If
+
+	Dim nounLower As String
+	nounLower = LCase(Trim(noun))
+	Dim nounWords As Array
+	nounWords = Split(nounLower, " ")
+	Dim firstWord As String
+	firstWord = nounWords(0)
+
+	' Check each visible object
+	Dim objKeys As Array
+	Dim k As Variant
+	Dim bestMatch As String
+	bestMatch = ""
+
+	objKeys = Objects.Keys()
+	For Each k In objKeys
+		Dim obj As Object
+		Set obj = Objects(CStr(k))
+		Dim loc As String
+		loc = obj("location")
+
+		' Is this object visible?
+		Dim visible As Boolean
+		visible = False
+		If loc = CurrentRoom Then visible = True
+		If loc = "PLAYER" Then visible = True
+		' Check if in an open container in room or inventory
+		If Objects.Exists(loc) Then
+			Dim parent As Object
+			Set parent = Objects(loc)
+			If parent("location") = CurrentRoom Or parent("location") = "PLAYER" Then
+				If HasFlag(loc, "CONTBIT") Then
+					visible = True
+				End If
+			End If
+		End If
+
+		If Not visible Then GoTo NextObj
+
+		' Check synonyms
+		Dim syns As String
+		syns = obj("synonyms")
+		Dim synArr As Array
+		synArr = Split(syns, ",")
+		Dim s As Variant
+		For Each s In synArr
+			If Trim(LCase(CStr(s))) = firstWord Then
+				bestMatch = CStr(k)
+				FindObject = bestMatch
+				Return bestMatch
+			End If
+		Next
+
+		' Check object name contains the noun
+		If InStr(LCase(obj("name")), firstWord) > 0 Then
+			bestMatch = CStr(k)
+		End If
+
+	NextObj:
+Next
+
+FindObject = bestMatch
+Return bestMatch
+End Function
+
+' ==========================================================
+' COMMAND PROCESSOR
+' ==========================================================
+
+Sub ProcessCommand(cmd As String)
+	If Not GameRunning Then
+		GamePrint "The game is over. Type QUIT to exit."
+		Return
+	End If
+
+	ParseCommand cmd
+
+	If Len(ParsedVerb) = 0 Then
+		GamePrint "I don't understand that."
+		Return
+	End If
+
+	Select Case ParsedVerb
+	Case "GO"
+		DoGo ParsedNoun1
+	Case "LOOK"
+		DoLook
+	Case "EXAMINE"
+		DoExamine ParsedNoun1
+	Case "TAKE"
+		DoTake ParsedNoun1
+	Case "DROP"
+		DoDrop ParsedNoun1
+	Case "OPEN"
+		DoOpen ParsedNoun1
+	Case "CLOSE"
+		DoClose ParsedNoun1
+	Case "INVENTORY"
+		DoInventory
+	Case "TURNON"
+		DoTurnOn ParsedNoun1
+	Case "TURNOFF"
+		DoTurnOff ParsedNoun1
+	Case "READ"
+		DoRead ParsedNoun1
+	Case "EAT"
+		DoEat ParsedNoun1
+	Case "DRINK"
+		DoDrink ParsedNoun1
+	Case "ATTACK"
+		DoAttack ParsedNoun1, ParsedNoun2
+	Case "PUT"
+		DoPut ParsedNoun1, ParsedNoun2
+	Case "THROW"
+		DoThrow ParsedNoun1
+	Case "SAY"
+		DoSay ParsedNoun1
+	Case "WAVE"
+		DoWave ParsedNoun1
+	Case "DIG"
+		DoDig
+	Case "TIE"
+		DoTie ParsedNoun1, ParsedNoun2
+	Case "PRAY"
+		DoPray
+	Case "UNLOCK"
+		DoUnlock ParsedNoun1, ParsedNoun2
+	Case "LOCK"
+		GamePrint "You can't lock that."
+	Case "INFLATE"
+		DoInflate ParsedNoun1, ParsedNoun2
+	Case "CLIMB"
+		DoClimb ParsedNoun1
+	Case "RING"
+		DoRing ParsedNoun1
+	Case "SCORE"
+		DoScore
+	Case "DIAGNOSE"
+		DoDiagnose
+	Case "QUIT"
+		DoQuit
+	Case "VERBOSE"
+		Verbose = True
+		GamePrint "Maximum verbosity."
+	Case "BRIEF"
+		Verbose = False
+		GamePrint "Brief descriptions."
+	Case "TTS"
+		TtsEnabled = Not TtsEnabled
+		If TtsEnabled Then
+			GamePrint "[color=yellow]Text-to-speech enabled.[/color]"
+		Else
+			GamePrint "Text-to-speech disabled."
+		End If
+	Case "HELP"
+		DoHelp
+	Case "WAIT"
+		GamePrint "Time passes..."
+		AdvanceTurn
+	Case "SWIM"
+		GamePrint "You'd need a boat for that."
+	Case "SAVE"
+		GamePrint "Sorry, save is not yet implemented in this version."
+	Case "RESTORE"
+		GamePrint "Sorry, restore is not yet implemented in this version."
+	Case "ODYSSEUS"
+		DoSay "odysseus"
+	Case "ECHO"
+		DoSay "echo"
+	Case "MOVE"
+		DoMove ParsedNoun1
+	Case "GIVE"
+		DoGive ParsedNoun1, ParsedNoun2
+	Case "TURN"
+		GamePrint "Turn what?"
+	Case Else
+		GamePrint "I don't know how to do that."
+	End Select
+End Sub
+
+' ==========================================================
+' MOVEMENT
+' ==========================================================
+
+Sub DoGo(direction As String)
+	If Len(direction) = 0 Then
+		GamePrint "Which direction?"
+		Return
+	End If
+
+	Dim dir As String
+	dir = UCase(direction)
+	If DirMap.Exists(LCase(direction)) Then
+		dir = DirMap(LCase(direction))
+	End If
+
+	' Check conditional exits
+	Dim blocked As String
+	blocked = CheckConditionalExit(dir)
+	If Len(blocked) > 0 Then
+		GamePrint blocked
+		Return
+	End If
+
+	' Check normal exits
+	Dim room As Object
+	Set room = Rooms(CurrentRoom)
+	Dim exits As Object
+	Set exits = room("exits")
+
+	If Not exits.Exists(dir) Then
+		GamePrint "You can't go that way."
+		Return
+	End If
+
+	Dim target As String
+	target = exits(dir)
+
+	' Check if target room exists
+	If Not Rooms.Exists(target) Then
+		GamePrint "You can't go that way."
+		Return
+	End If
+
+	' Special: moving in dark
+	If Not IsLit() Then
+		' 80% chance of grue death in dark
+		Dim roll As Integer
+		roll = Int(Rnd() * 5)
+		If roll < 4 Then
+			GamePrint "Oh no! You have walked into the slavering fangs of a lurking grue!"
+			DoJigsUp "grue"
+			Return
+		End If
+	End If
+
+	' Move
+	CurrentRoom = target
+
+	' Advance turn
+	AdvanceTurn
+	ShowRoom False
+End Sub
+
+Function CheckConditionalExit(dir As String) As String
+	CheckConditionalExit = ""
+
+	Select Case CurrentRoom
+	Case "EAST-OF-HOUSE"
+		If dir = "W" Then
+			If Not WindowOpen Then
+				CheckConditionalExit = "The window is closed."
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "KITCHEN"
+		If dir = "E" Then
+			If Not WindowOpen Then
+				CheckConditionalExit = "The window is closed."
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "LIVING-ROOM"
+		If dir = "D" Then
+			If Not TrapDoorOpen Then
+				CheckConditionalExit = "You can't go that way."
+				Return CheckConditionalExit
+			End If
+		End If
+		If dir = "W" Then
+			If Not MagicFlag Then
+				CheckConditionalExit = "The door is nailed shut."
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "CELLAR"
+		If dir = "U" Then
+			If Not TrapDoorOpen Then
+				CheckConditionalExit = "The trap door above you is closed."
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "TROLL-ROOM"
+		If dir = "E" Or dir = "W" Then
+			If Not TrollDead And TrollUnconscious < = 0 Then
+				GamePrint "The troll fends you off with a menacing gesture."
+				CheckConditionalExit = " "
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "GRATING-CLEARING"
+		If dir = "D" Then
+			If Not GratingOpen Then
+				CheckConditionalExit = "The grating is locked."
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "GRATING-ROOM"
+		If dir = "U" Then
+			If Not GratingOpen Then
+				CheckConditionalExit = "The grating is locked."
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "DOME-ROOM"
+		If dir = "D" Then
+			If Not DomeRoped Then
+				CheckConditionalExit = "You cannot go down without a rope tied to the railing."
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "ENTRANCE-TO-HADES"
+		If dir = "S" Or dir = "IN" Then
+			If Not SpiritsBanished Then
+				CheckConditionalExit = "The spirits block your way with an unearthly shriek!"
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "CYCLOPS-ROOM"
+		If dir = "E" Then
+			If Not MagicFlag Then
+				CheckConditionalExit = "The east wall is solid rock."
+				Return CheckConditionalExit
+			End If
+		End If
+		If dir = "U" Then
+			If Not CyclopsFled Then
+				CheckConditionalExit = "The cyclops doesn't look like he'd let you up there."
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "RESERVOIR-SOUTH"
+		If dir = "N" Then
+			If Not LowTide Then
+				CheckConditionalExit = "You would drown."
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "RESERVOIR-NORTH"
+		If dir = "S" Then
+			If Not LowTide Then
+				CheckConditionalExit = "You would drown."
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "RESERVOIR"
+		If Not LowTide Then
+			CheckConditionalExit = "You are in the water and likely to drown!"
+			Return CheckConditionalExit
+		End If
+	Case "END-OF-RAINBOW"
+		If dir = "E" Then
+			If Not RainbowSolid Then
+				CheckConditionalExit = "You can't walk on a rainbow!"
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "ARAGAIN-FALLS"
+		If dir = "W" Then
+			If Not RainbowSolid Then
+				CheckConditionalExit = "You can't walk on a rainbow!"
+				Return CheckConditionalExit
+			End If
+		End If
+	Case "WEST-OF-HOUSE"
+		If dir = "E" Then
+			CheckConditionalExit = "The door is boarded and you can't remove the boards."
+			Return CheckConditionalExit
+		End If
+		If dir = "SW" Then
+			If Not WonGame Then
+				CheckConditionalExit = "You can't go that way."
+				Return CheckConditionalExit
+			End If
+		End If
+	End Select
+
+	Return ""
+End Function
+
+' ==========================================================
+' LOOK & EXAMINE
+' ==========================================================
+
+Sub DoLook()
+	ShowRoom True
+End Sub
+
+Sub DoExamine(noun As String)
+	If Len(noun) = 0 Then
+		ShowRoom True
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun)
+
+	If Len(objId) = 0 Then
+		GamePrint "You can't see any " & noun & " here."
+		Return
+	End If
+
+	Dim obj As Object
+	Set obj = Objects(objId)
+
+	' Show readable text if any
+	If Len(obj("text")) > 0 Then
+		GamePrint obj("text")
+		Return
+	End If
+
+	' Show description
+	If Len(obj("fdesc")) > 0 Then
+		GamePrint obj("fdesc")
+	ElseIf Len(obj("ldesc")) > 0 Then
+		GamePrint obj("ldesc")
+	Else
+		GamePrint "You see nothing special about the " & obj("name") & "."
+	End If
+
+	' Show contents of containers
+	If HasFlag(objId, "CONTBIT") Then
+		If HasFlag(objId, "OPENBIT") Or HasFlag(objId, "TRANSBIT") Then
+			Dim hasContents As Boolean
+			hasContents = False
+			Dim objKeys As Array
+			Dim k As Variant
+			objKeys = Objects.Keys()
+			For Each k In objKeys
+				Dim child As Object
+				Set child = Objects(CStr(k))
+				If child("location") = objId Then
+					If Not hasContents Then
+						GamePrint "The " & obj("name") & " contains:"
+						hasContents = True
+					End If
+					GamePrint " " & child("name")
+				End If
+			Next
+			If Not hasContents Then
+				GamePrint "The " & obj("name") & " is empty."
+			End If
+		Else
+			GamePrint "The " & obj("name") & " is closed."
+		End If
+	End If
+End Sub
+
+' ==========================================================
+' TAKE & DROP
+' ==========================================================
+
+Sub DoTake(noun As String)
+	If Len(noun) = 0 Then
+		GamePrint "Take what?"
+		Return
+	End If
+
+	' Handle "take all"
+	If noun = "all" Or noun = "everything" Then
+		Dim tookSomething As Boolean
+		tookSomething = False
+		Dim allKeys As Array
+		Dim ak As Variant
+		allKeys = Objects.Keys()
+		For Each ak In allKeys
+			Dim aObj As Object
+			Set aObj = Objects(CStr(ak))
+			If aObj("location") = CurrentRoom And HasFlag(CStr(ak), "TAKEBIT") Then
+				aObj("location") = "PLAYER"
+				GamePrint aObj("name") & ": Taken."
+				AwardPickupScore CStr(ak)
+				tookSomething = True
+			End If
+		Next
+		If Not tookSomething Then
+			GamePrint "There is nothing here to take."
+		End If
+		AdvanceTurn
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun)
+
+	If Len(objId) = 0 Then
+		GamePrint "You can't see any " & noun & " here."
+		Return
+	End If
+
+	Dim obj As Object
+	Set obj = Objects(objId)
+
+	If obj("location") = "PLAYER" Then
+		GamePrint "You already have that."
+		Return
+	End If
+
+	If Not HasFlag(objId, "TAKEBIT") Then
+		' Special responses for non-takeable items
+		Select Case objId
+		Case "TROPHY-CASE"
+			GamePrint "The trophy case is securely fastened to the wall."
+		Case "MACHINE"
+			GamePrint "It is far too heavy to lift."
+		Case "TROLL"
+			GamePrint "The troll is not amused."
+		Case "CYCLOPS"
+			GamePrint "The cyclops does not take kindly to that."
+		Case "GRATING"
+			GamePrint "It is securely fastened."
+		Case Else
+			GamePrint "You can't take the " & obj("name") & "."
+		End Select
+		Return
+	End If
+
+	' Check weight
+	If CarriedWeight() + obj("size") > MaxCarry Then
+		GamePrint "Your load is too heavy."
+		Return
+	End If
+
+	' Remove from container if inside one
+	obj("location") = "PLAYER"
+	GamePrint "Taken."
+	AwardPickupScore objId
+	AdvanceTurn
+End Sub
+
+Sub DoDrop(noun As String)
+	If Len(noun) = 0 Then
+		GamePrint "Drop what?"
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun)
+
+	If Len(objId) = 0 Then
+		GamePrint "You don't have any " & noun & "."
+		Return
+	End If
+
+	Dim obj As Object
+	Set obj = Objects(objId)
+
+	If obj("location") < > "PLAYER" Then
+		GamePrint "You're not carrying that."
+		Return
+	End If
+
+	obj("location") = CurrentRoom
+	GamePrint "Dropped."
+
+	' Special: drop bar in loud room
+	If objId = "BAR" And CurrentRoom = "LOUD-ROOM" Then
+		GamePrint "The sound of the platinum bar landing on the ground is deafening."
+	End If
+
+	AdvanceTurn
+End Sub
+
+' ==========================================================
+' OPEN & CLOSE
+' ==========================================================
+
+Sub DoOpen(noun As String)
+	If Len(noun) = 0 Then
+		GamePrint "Open what?"
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun)
+
+	' Special: trap door
+	If noun = "trapdoor" Or noun = "door" Or noun = "trap" Then
+		If CurrentRoom = "LIVING-ROOM" Then
+			objId = "TRAP-DOOR"
+		End If
+	End If
+
+	' Special: window
+	If noun = "window" Then
+		If CurrentRoom = "EAST-OF-HOUSE" Or CurrentRoom = "KITCHEN" Then
+			WindowOpen = True
+			GamePrint "With great effort, you open the window far enough to allow entry."
+			AdvanceTurn
+			Return
+		End If
+	End If
+
+	' Special: grating
+	If noun = "grating" Or noun = "grate" Then
+		If CurrentRoom = "GRATING-CLEARING" Or CurrentRoom = "GRATING-ROOM" Then
+			If IsCarrying("KEYS") Then
+				GratingOpen = True
+				GamePrint "The grating opens to reveal a dark passage below."
+			Else
+				GamePrint "The grating is locked."
+			End If
+			AdvanceTurn
+			Return
+		End If
+	End If
+
+	If Len(objId) = 0 Then
+		GamePrint "You can't see any " & noun & " here."
+		Return
+	End If
+
+	' Special: trap door
+	If objId = "TRAP-DOOR" Then
+		If Not RugMoved Then
+			GamePrint "You don't see a trap door here."
+			Return
+		End If
+		TrapDoorOpen = True
+		GamePrint "The trap door opens to reveal a dark passage below."
+		AdvanceTurn
+		Return
+	End If
+
+	' Special: egg
+	If objId = "EGG" Then
+		If IsCarrying("EGG") Then
+			GamePrint "You have neither the tools nor the expertise to open the egg without damaging it."
+		Else
+			GamePrint "You can't open the egg."
+		End If
+		Return
+	End If
+
+	' Special: coffin
+	If objId = "COFFIN" Then
+		SetFlag objId, "OPENBIT"
+		GamePrint "The gold coffin opens."
+		' Reveal sceptre
+		Dim scObj As Object
+		Set scObj = Objects("SCEPTRE")
+		If scObj("location") = "COFFIN" Then
+			GamePrint "A sceptre falls out of the coffin!"
+			scObj("location") = CurrentRoom
+		End If
+		AdvanceTurn
+		Return
+	End If
+
+	' Generic container
+	If HasFlag(objId, "CONTBIT") Then
+		If HasFlag(objId, "OPENBIT") Then
+			GamePrint "It's already open."
+		Else
+			SetFlag objId, "OPENBIT"
+			Dim oobj As Object
+			Set oobj = Objects(objId)
+			GamePrint "Opened."
+			' Show contents
+			ShowContents objId, ""
+		End If
+		AdvanceTurn
+		Return
+	End If
+
+	GamePrint "You can't open that."
+End Sub
+
+Sub DoClose(noun As String)
+	If Len(noun) = 0 Then
+		GamePrint "Close what?"
+		Return
+	End If
+
+	' Special: window
+	If noun = "window" Then
+		If CurrentRoom = "EAST-OF-HOUSE" Or CurrentRoom = "KITCHEN" Then
+			WindowOpen = False
+			GamePrint "The window is now closed."
+			AdvanceTurn
+			Return
+		End If
+	End If
+
+	' Special: trap door
+	If noun = "trapdoor" Or noun = "door" Or noun = "trap" Then
+		If CurrentRoom = "LIVING-ROOM" Then
+			TrapDoorOpen = False
+			GamePrint "The trap door is now closed."
+			AdvanceTurn
+			Return
+		End If
+	End If
+
+	' Special: grating
+	If noun = "grating" Or noun = "grate" Then
+		GratingOpen = False
+		GamePrint "The grating is now closed."
+		AdvanceTurn
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun)
+
+	If Len(objId) = 0 Then
+		GamePrint "You can't see any " & noun & " here."
+		Return
+	End If
+
+	If HasFlag(objId, "CONTBIT") Then
+		If Not HasFlag(objId, "OPENBIT") Then
+			GamePrint "It's already closed."
+		Else
+			ClearFlag objId, "OPENBIT"
+			GamePrint "Closed."
+		End If
+		AdvanceTurn
+		Return
+	End If
+
+	GamePrint "You can't close that."
+End Sub
+
+' ==========================================================
+' TURN ON / TURN OFF
+' ==========================================================
+
+Sub DoTurnOn(noun As String)
+	If Len(noun) = 0 Then
+		' Default: lamp
+		If IsCarrying("LAMP") Then
+			noun = "lamp"
+		Else
+			GamePrint "Turn on what?"
+			Return
+		End If
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun)
+
+	If Len(objId) = 0 Then
+		GamePrint "You can't see any " & noun & " here."
+		Return
+	End If
+
+	If objId = "LAMP" Then
+		If Not IsCarrying("LAMP") And ObjProp("LAMP", "location") < > CurrentRoom Then
+			GamePrint "You don't have the lamp."
+			Return
+		End If
+		If LampDead Then
+			GamePrint "The lamp has run out of power."
+			Return
+		End If
+		LampOn = True
+		SetFlag "LAMP", "ONBIT"
+		GamePrint "The brass lantern is now on."
+		If Not IsLit() Then
+			GamePrint "The room is now lit."
+		End If
+		ShowRoom False
+		AdvanceTurn
+		Return
+	End If
+
+	If objId = "CANDLES" Then
+		If Not IsCarrying("CANDLES") And ObjProp("CANDLES", "location") < > CurrentRoom Then
+			GamePrint "You don't have the candles."
+			Return
+		End If
+		If CandleDead Then
+			GamePrint "The candles have burned out."
+			Return
+		End If
+		If Not IsCarrying("MATCHES") Then
+			GamePrint "You have no source of fire."
+			Return
+		End If
+		CandlesLit = True
+		SetFlag "CANDLES", "ONBIT"
+		GamePrint "The candles are now lit."
+		AdvanceTurn
+		Return
+	End If
+
+	GamePrint "You can't turn that on."
+End Sub
+
+Sub DoTurnOff(noun As String)
+	If Len(noun) = 0 Then
+		GamePrint "Turn off what?"
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun)
+
+	If Len(objId) = 0 Then
+		GamePrint "You can't see any " & noun & " here."
+		Return
+	End If
+
+	If objId = "LAMP" Then
+		LampOn = False
+		ClearFlag "LAMP", "ONBIT"
+		GamePrint "The brass lantern is now off."
+		If Not IsLit() Then
+			GamePrint "It is now pitch dark."
+		End If
+		AdvanceTurn
+		Return
+	End If
+
+	If objId = "CANDLES" Then
+		CandlesLit = False
+		ClearFlag "CANDLES", "ONBIT"
+		GamePrint "The candles are extinguished."
+		AdvanceTurn
+		Return
+	End If
+
+	GamePrint "You can't turn that off."
+End Sub
+
+' ==========================================================
+' READ & EAT & DRINK
+' ==========================================================
+
+Sub DoRead(noun As String)
+	If Len(noun) = 0 Then
+		GamePrint "Read what?"
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun)
+
+	If Len(objId) = 0 Then
+		GamePrint "You can't see any " & noun & " here."
+		Return
+	End If
+
+	Dim obj As Object
+	Set obj = Objects(objId)
+
+	If Len(obj("text")) > 0 Then
+		GamePrint obj("text")
+	Else
+		GamePrint "There's nothing written on the " & obj("name") & "."
+	End If
+	AdvanceTurn
+End Sub
+
+Sub DoEat(noun As String)
+	If Len(noun) = 0 Then
+		GamePrint "Eat what?"
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun)
+
+	If Len(objId) = 0 Then
+		GamePrint "You don't have any " & noun & "."
+		Return
+	End If
+
+	If Not IsCarrying(objId) Then
+		GamePrint "You're not carrying that."
+		Return
+	End If
+
+	If HasFlag(objId, "FOODBIT") Then
+		Dim obj As Object
+		Set obj = Objects(objId)
+		obj("location") = "LIMBO"
+		If objId = "GARLIC" Then
+			GamePrint "What a waste of a perfectly good garlic clove!"
+		ElseIf objId = "LUNCH" Then
+			GamePrint "Thank you very much. It really hit the spot."
+		Else
+			GamePrint "That tasted terrible."
+		End If
+		AdvanceTurn
+		Return
+	End If
+
+	GamePrint "I don't think the " & ObjProp(objId, "name") & " would agree with you."
+End Sub
+
+Sub DoDrink(noun As String)
+	If Len(noun) = 0 Then
+		GamePrint "Drink what?"
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun)
+
+	If objId = "WATER" Then
+		If IsCarrying("WATER") Or IsCarrying("BOTTLE") Then
+			Objects("WATER")("location") = "LIMBO"
+			GamePrint "Thank you very much. I was very thirsty (probably from all this strenuousness)."
+			AdvanceTurn
+			Return
+		End If
+	End If
+
+	GamePrint "You can't drink that."
+End Sub
+
+' ==========================================================
+' INVENTORY
+' ==========================================================
+
+Sub DoInventory()
+	Dim hasItems As Boolean
+	hasItems = False
+	Dim objKeys As Array
+	Dim k As Variant
+
+	GamePrint "You are carrying:"
+	objKeys = Objects.Keys()
+	For Each k In objKeys
+		Dim obj As Object
+		Set obj = Objects(CStr(k))
+		If obj("location") = "PLAYER" Then
+			Dim extra As String
+			extra = ""
+			If CStr(k) = "LAMP" Then
+				If LampOn Then
+					extra = " (providing light)"
+				End If
+			End If
+			GamePrint " " & obj("name") & extra
+			hasItems = True
+			' Show contents
+			If HasFlag(CStr(k), "CONTBIT") Then
+				ShowContents CStr(k), " "
+			End If
+		End If
+	Next
+
+	If Not hasItems Then
+		GamePrint " nothing"
+	End If
+End Sub
+
+' ==========================================================
+' PUT
+' ==========================================================
+
+Sub DoPut(noun1 As String, noun2 As String)
+	If Len(noun1) = 0 Then
+		GamePrint "Put what?"
+		Return
+	End If
+
+	If Len(noun2) = 0 Then
+		GamePrint "Put it where?"
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun1)
+
+	If Len(objId) = 0 Then
+		GamePrint "You don't have any " & noun1 & "."
+		Return
+	End If
+
+	If Not IsCarrying(objId) Then
+		GamePrint "You're not carrying the " & ObjProp(objId, "name") & "."
+		Return
+	End If
+
+	Dim targetId As String
+	targetId = FindObject(noun2)
+
+	If Len(targetId) = 0 Then
+		GamePrint "You can't see any " & noun2 & " here."
+		Return
+	End If
+
+	' Special: put in trophy case
+	If targetId = "TROPHY-CASE" Then
+		Dim obj As Object
+		Set obj = Objects(objId)
+		obj("location") = "TROPHY-CASE"
+		GamePrint "Done."
+		' Score for placing treasure
+		AwardTrophyScore objId
+		AdvanceTurn
+		Return
+	End If
+
+	' Special: put coal in machine
+	If targetId = "MACHINE" And objId = "COAL" Then
+		Objects("COAL")("location") = "MACHINE"
+		CoalInMachine = True
+		GamePrint "Done."
+		AdvanceTurn
+		Return
+	End If
+
+	If HasFlag(targetId, "CONTBIT") Then
+		If Not HasFlag(targetId, "OPENBIT") Then
+			GamePrint "The " & ObjProp(targetId, "name") & " is closed."
+			Return
+		End If
+		Objects(objId)("location") = targetId
+		GamePrint "Done."
+		AdvanceTurn
+		Return
+	End If
+
+	GamePrint "You can't put anything in the " & ObjProp(targetId, "name") & "."
+End Sub
+
+' ==========================================================
+' ATTACK / COMBAT
+' ==========================================================
+
+Sub DoAttack(noun1 As String, noun2 As String)
+	If Len(noun1) = 0 Then
+		GamePrint "Attack what?"
+		Return
+	End If
+
+	Dim targetId As String
+	targetId = FindObject(noun1)
+
+	If Len(targetId) = 0 Then
+		GamePrint "You can't see any " & noun1 & " here."
+		Return
+	End If
+
+	If Not HasFlag(targetId, "ACTORBIT") Then
+		GamePrint "I've known strange people, but fighting a " & ObjProp(targetId, "name") & " is beyond my comprehension."
+		Return
+	End If
+
+	' Find weapon
+	Dim weaponId As String
+	weaponId = ""
+	If Len(noun2) > 0 Then
+		weaponId = FindObject(noun2)
+		If Len(weaponId) > 0 And Not IsCarrying(weaponId) Then
+			GamePrint "You're not holding the " & ObjProp(weaponId, "name") & "."
+			Return
+		End If
+	Else
+		' Auto-select weapon
+		If IsCarrying("SWORD") Then
+			weaponId = "SWORD"
+		ElseIf IsCarrying("KNIFE") Then
+			weaponId = "KNIFE"
+		ElseIf IsCarrying("AXE") Then
+			weaponId = "AXE"
+		End If
+	End If
+
+	If Len(weaponId) = 0 Or Not HasFlag(weaponId, "WEAPONBIT") Then
+		GamePrint "Strstrnggling with the " & ObjProp(targetId, "name") & " bare-handed is suicidal."
+		Return
+	End If
+
+	' Combat!
+	Select Case targetId
+	Case "TROLL"
+		CombatTroll weaponId
+	Case "THIEF"
+		CombatThief weaponId
+	Case "CYCLOPS"
+		GamePrint "The cyclops laughs at your puny weapon and knocks you across the room."
+		PlayerWounds = PlayerWounds + 1
+	Case Else
+		GamePrint "Attacking the " & ObjProp(targetId, "name") & " is pointless."
+	End Select
+
+	AdvanceTurn
+End Sub
+
+Sub CombatTroll(weaponId As String)
+	If TrollDead Then
+		GamePrint "The troll is already dead."
+		Return
+	End If
+
+	Dim playerStr As Integer
+	playerStr = GetPlayerStrength()
+	Dim roll As Integer
+	roll = Int(Rnd() * 10)
+
+	If roll < playerStr Then
+		' Hit!
+		Dim damage As Integer
+		damage = Int(Rnd() * 3) + 1
+		If damage > = 2 Then
+			TrollDead = True
+			GamePrint "It's a decisive blow! The troll staggers, tumbles to the ground, and dies."
+			GamePrint "Almost immediately, a passageway opens to the east and west."
+			Objects("AXE")("location") = CurrentRoom
+		Else
+			TrollUnconscious = 3
+			GamePrint "A good stroke! The troll staggers and falls unconscious."
+		End If
+	Else
+		' Troll attacks back
+		GamePrint "The troll parries your blow and swings his axe!"
+		Dim trollRoll As Integer
+		trollRoll = Int(Rnd() * 10)
+		If trollRoll < 4 Then
+			PlayerWounds = PlayerWounds + 1
+			CureTimer = 30
+			GamePrint "The axe cuts your arm! You are wounded."
+		Else
+			GamePrint "The axe narrowly misses you."
+		End If
+	End If
+End Sub
+
+Sub CombatThief(weaponId As String)
+	If ThiefDead Then
+		GamePrint "The thief is already dead."
+		Return
+	End If
+
+	Dim playerStr As Integer
+	playerStr = GetPlayerStrength()
+	Dim roll As Integer
+	roll = Int(Rnd() * 10)
+
+	If roll < playerStr Then
+		Dim damage As Integer
+		damage = Int(Rnd() * 4) + 1
+		If damage > = 3 Then
+			ThiefDead = True
+			GamePrint "A fatal blow! The thief crumples to the floor."
+			' Drop thief's inventory
+			Dim objKeys As Array
+			Dim k As Variant
+			objKeys = Objects.Keys()
+			For Each k In objKeys
+				If ObjProp(CStr(k), "location") = "THIEF" Then
+					Objects(CStr(k))("location") = CurrentRoom
+				End If
+			Next
+		Else
+			GamePrint "The thief reels from a good blow, but recovers."
+		End If
+	Else
+		GamePrint "The thief easily dodges your attack and lunges!"
+		Dim thiefRoll As Integer
+		thiefRoll = Int(Rnd() * 10)
+		If thiefRoll < 5 Then
+			PlayerWounds = PlayerWounds + 1
+			CureTimer = 30
+			GamePrint "The stiletto slices you! You are wounded."
+		Else
+			GamePrint "The thief's stiletto misses."
+		End If
+	End If
+End Sub
+
+' ==========================================================
+' SAY
+' ==========================================================
+
+Sub DoSay(word As String)
+	If Len(word) = 0 Then
+		GamePrint "Say what?"
+		Return
+	End If
+
+	Dim said As String
+	said = LCase(Trim(word))
+
+	GamePrint "You say " & Chr(34) & word & Chr(34) & "."
+
+	' Odysseus puzzle
+	If (said = "odysseus" Or said = "ulysses") And CurrentRoom = "CYCLOPS-ROOM" Then
+		If Not CyclopsFled Then
+			GamePrint "The cyclops, hearing the name of his bane, flees the room in terror!"
+			GamePrint "As he leaves, the wall to the east crumbles, revealing a passage."
+			CyclopsFled = True
+			MagicFlag = True
+			Objects("CYCLOPS")("location") = "LIMBO"
+			AdvanceTurn
+			Return
+		End If
+	End If
+
+	' Echo in loud room
+	If said = "echo" And CurrentRoom = "LOUD-ROOM" Then
+		GamePrint "The acoustics of the room change subtly. The roaring noise is silenced."
+		AdvanceTurn
+		Return
+	End If
+
+	AdvanceTurn
+End Sub
+
+' ==========================================================
+' WAVE
+' ==========================================================
+
+Sub DoWave(noun As String)
+	If Len(noun) = 0 Then
+		GamePrint "Wave what?"
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun)
+
+	If Len(objId) = 0 Then
+		GamePrint "You don't have any " & noun & "."
+		Return
+	End If
+
+	If Not IsCarrying(objId) Then
+		GamePrint "You aren't holding the " & ObjProp(objId, "name") & "."
+		Return
+	End If
+
+	' Wave sceptre at rainbow
+	If objId = "SCEPTRE" Then
+		If CurrentRoom = "ON-RAINBOW" Or CurrentRoom = "ARAGAIN-FALLS" Or CurrentRoom = "END-OF-RAINBOW" Then
+			If Not RainbowSolid Then
+				RainbowSolid = True
+				GamePrint "Suddenly, the rainbow appears to become solid and is now climbable!"
+			Else
+				RainbowSolid = False
+				GamePrint "The rainbow seems to dim and becomes unclimbable."
+				If CurrentRoom = "ON-RAINBOW" Then
+					GamePrint "You fall off the rainbow!"
+					CurrentRoom = "CANYON-BOTTOM"
+					ShowRoom False
+				End If
+			End If
+			AdvanceTurn
+			Return
+		End If
+	End If
+
+	GamePrint "You wave the " & ObjProp(objId, "name") & ". Nothing happens."
+	AdvanceTurn
+End Sub
+
+' ==========================================================
+' DIG
+' ==========================================================
+
+Sub DoDig()
+	If Not IsCarrying("SHOVEL") Then
+		GamePrint "You have nothing to dig with."
+		Return
+	End If
+
+	If CurrentRoom = "SANDY-BEACH" Or CurrentRoom = "SANDY-CAVE" Then
+		If ObjProp("SCARAB", "location") = "SANDY-CAVE" Then
+			GamePrint "You uncover a beautiful jeweled scarab!"
+			Objects("SCARAB")("location") = CurrentRoom
+		Else
+			GamePrint "You dig, but find nothing."
+		End If
+	Else
+		GamePrint "The ground is too hard to dig here."
+	End If
+	AdvanceTurn
+End Sub
+
+' ==========================================================
+' TIE
+' ==========================================================
+
+Sub DoTie(noun1 As String, noun2 As String)
+	If Len(noun1) = 0 Then
+		GamePrint "Tie what?"
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun1)
+
+	If objId = "ROPE" And CurrentRoom = "DOME-ROOM" Then
+		If IsCarrying("ROPE") Then
+			DomeRoped = True
+			Objects("ROPE")("location") = "DOME-ROOM"
+			GamePrint "The rope is now tied to the railing. You can climb down."
+		Else
+			GamePrint "You don't have the rope."
+		End If
+		AdvanceTurn
+		Return
+	End If
+
+	GamePrint "You can't tie that to anything useful here."
+	AdvanceTurn
+End Sub
+
+' ==========================================================
+' PRAY
+' ==========================================================
+
+Sub DoPray()
+	If CurrentRoom = "SOUTH-TEMPLE" Then
+		GamePrint "From the gather of your prayer, there is a flash of light. You feel revitalized."
+		PlayerWounds = 0
+		CureTimer = 0
+	Else
+		GamePrint "If you pray hard enough, something might happen."
+	End If
+	AdvanceTurn
+End Sub
+
+' ==========================================================
+' UNLOCK
+' ==========================================================
+
+Sub DoUnlock(noun1 As String, noun2 As String)
+	If Len(noun1) = 0 Then
+		GamePrint "Unlock what?"
+		Return
+	End If
+
+	' Grating
+	If noun1 = "grating" Or noun1 = "grate" Then
+		If CurrentRoom = "GRATING-CLEARING" Or CurrentRoom = "GRATING-ROOM" Then
+			If IsCarrying("KEYS") Then
+				GratingOpen = True
+				GamePrint "The grating is now unlocked and open."
+			Else
+				GamePrint "You don't have the key."
+			End If
+			AdvanceTurn
+			Return
+		End If
+	End If
+
+	GamePrint "You can't unlock that."
+	AdvanceTurn
+End Sub
+
+' ==========================================================
+' INFLATE
+' ==========================================================
+
+Sub DoInflate(noun1 As String, noun2 As String)
+	If Len(noun1) = 0 Then
+		GamePrint "Inflate what?"
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun1)
+
+	If objId = "BOAT" Then
+		If IsCarrying("PUMP") Then
+			BoatInflated = True
+			Objects("BOAT")("flags") = "VEHBIT"
+			Dim bObj As Object
+			Set bObj = Objects("BOAT")
+			bObj("name") = "inflated boat"
+			bObj("fdesc") = "There is an inflated boat here."
+			bObj("ldesc") = "There is an inflated boat here."
+			GamePrint "The boat inflates and appears seaworthy."
+		Else
+			GamePrint "You don't have anything to inflate it with."
+		End If
+		AdvanceTurn
+		Return
+	End If
+
+	GamePrint "You can't inflate that."
+	AdvanceTurn
+End Sub
+
+' ==========================================================
+' CLIMB
+' ==========================================================
+
+Sub DoClimb(noun As String)
+	If CurrentRoom = "UP-A-TREE" Then
+		GamePrint "You cannot climb any higher."
+		Return
+	End If
+
+	If CurrentRoom = "PATH" Then
+		DoGo "U"
+		Return
+	End If
+
+	If CurrentRoom = "DOME-ROOM" Then
+		If DomeRoped Then
+			DoGo "D"
+		Else
+			GamePrint "There's no way down without a rope."
+		End If
+		Return
+	End If
+
+	GamePrint "There's nothing here to climb."
+End Sub
+
+' ==========================================================
+' RING
+' ==========================================================
+
+Sub DoRing(noun As String)
+	Dim objId As String
+	objId = FindObject(noun)
+
+	If objId = "BELL" Then
+		If IsCarrying("BELL") Then
+			GamePrint "Ding, dong."
+			' Exorcism step 1
+			If CurrentRoom = "ENTRANCE-TO-HADES" And Not SpiritsBanished Then
+				GamePrint "The bell makes a terrible clanging sound, and the spirits cower!"
+				' Bell becomes hot
+				AdvanceTurn
+				Return
+			End If
+		Else
+			GamePrint "You don't have the bell."
+		End If
+		AdvanceTurn
+		Return
+	End If
+
+	GamePrint "You can't ring that."
+	AdvanceTurn
+End Sub
+
+' ==========================================================
+' THROW
+' ==========================================================
+
+Sub DoThrow(noun As String)
+	If Len(noun) = 0 Then
+		GamePrint "Throw what?"
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun)
+
+	If Len(objId) = 0 Then
+		GamePrint "You don't have any " & noun & "."
+		Return
+	End If
+
+	If Not IsCarrying(objId) Then
+		GamePrint "You're not carrying that."
+		Return
+	End If
+
+	Objects(objId)("location") = CurrentRoom
+	GamePrint "Thrown."
+	AdvanceTurn
+End Sub
+
+' ==========================================================
+' MOVE
+' ==========================================================
+
+Sub DoMove(noun As String)
+	If Len(noun) = 0 Then
+		GamePrint "Move what?"
+		Return
+	End If
+
+	' Move rug
+	If noun = "rug" Or noun = "carpet" Then
+		If CurrentRoom = "LIVING-ROOM" Then
+			If Not RugMoved Then
+				RugMoved = True
+				GamePrint "With a great effort, you move the rug to one side of the room. With the rug moved, the dusty cover of a closed trap door appears."
+			Else
+				GamePrint "The rug is already moved."
+			End If
+			AdvanceTurn
+			Return
+		End If
+	End If
+
+	GamePrint "You can't move that."
+End Sub
+
+' ==========================================================
+' GIVE
+' ==========================================================
+
+Sub DoGive(noun1 As String, noun2 As String)
+	If Len(noun1) = 0 Then
+		GamePrint "Give what?"
+		Return
+	End If
+
+	Dim objId As String
+	objId = FindObject(noun1)
+
+	If Len(objId) = 0 Then
+		GamePrint "You don't have any " & noun1 & "."
+		Return
+	End If
+
+	If Not IsCarrying(objId) Then
+		GamePrint "You're not carrying that."
+		Return
+	End If
+
+	' Give to troll
+	If CurrentRoom = "TROLL-ROOM" And Not TrollDead Then
+		Objects(objId)("location") = "LIMBO"
+		GamePrint "The troll, with a look of satisfaction, takes the " & ObjProp(objId, "name") & " and devours it."
+		AdvanceTurn
+		Return
+	End If
+
+	' Give to cyclops
+	If CurrentRoom = "CYCLOPS-ROOM" And Not CyclopsFled Then
+		If objId = "LUNCH" Then
+			Objects(objId)("location") = "LIMBO"
+			GamePrint "The cyclops takes the food and wolfs it down. He then falls asleep."
+			GamePrint "The cyclops's loud snoring echoes through the room."
+			CyclopsFled = True
+			MagicFlag = True
+			Objects("CYCLOPS")("location") = "LIMBO"
+		Else
+			GamePrint "The cyclops is not interested in that."
+		End If
+		AdvanceTurn
+		Return
+	End If
+
+	GamePrint "There's no one here to give it to."
+	AdvanceTurn
+End Sub
+
+' ==========================================================
+' SCORE & STATUS
+' ==========================================================
+
+Sub DoScore()
+	CalculateScore
+	GamePrint "Your score is " & CStr(Score) & " (total of " & CStr(MAX_SCORE) & " points), in " & CStr(Moves) & " moves."
+	GamePrint "This gives you the rank of " & GetRank() & "."
+End Sub
+
+Sub CalculateScore()
+	Dim total As Integer
+	total = 0
+
+	' Room scores are already added in ShowRoom
+	total = Score
+
+	' Check trophy case contents
+	Dim objKeys As Array
+	Dim k As Variant
+	objKeys = Objects.Keys()
+	For Each k In objKeys
+		Dim obj As Object
+		Set obj = Objects(CStr(k))
+		' Score for placing in trophy case
+		If obj("location") = "TROPHY-CASE" And obj("tvalue") > 0 Then
+			' tvalue score is tracked when placed
+		End If
+	Next
+
+	Score = total
+End Sub
+
+Function GetRank() As String
+	If Score > = 350 Then
+		GetRank = "Master Adventurer"
+	ElseIf Score > = 330 Then
+		GetRank = "Wizard"
+	ElseIf Score > = 300 Then
+		GetRank = "Master"
+	ElseIf Score > = 200 Then
+		GetRank = "Adventurer"
+	ElseIf Score > = 100 Then
+		GetRank = "Junior Adventurer"
+	ElseIf Score > = 50 Then
+		GetRank = "Novice Adventurer"
+	ElseIf Score > = 25 Then
+		GetRank = "Amateur Adventurer"
+	Else
+		GetRank = "Beginner"
+	End If
+	Return GetRank
+End Function
+
+Sub AwardPickupScore(objId As String)
+	Dim obj As Object
+	Set obj = Objects(objId)
+	If obj("value") > 0 Then
+		Score = Score + obj("value")
+		obj("value") = 0
+		GamePrint "[color=yellow](Your score just went up.)[/color]"
+		UpdateStatus
+	End If
+End Sub
+
+Sub AwardTrophyScore(objId As String)
+	Dim obj As Object
+	Set obj = Objects(objId)
+	If obj("tvalue") > 0 Then
+		Score = Score + obj("tvalue")
+		obj("tvalue") = 0
+		GamePrint "[color=yellow](Your score just went up.)[/color]"
+		UpdateStatus
+		' Check for win
+		If Score > = MAX_SCORE Then
+			WonGame = True
+			GamePrint ""
+			GamePrint "[b][color=yellow]*** CONGRATULATIONS! ***[/color][/b]"
+			GamePrint "[color=yellow]You have achieved the maximum score! You are now a Master Adventurer![/color]"
+			GamePrint "[color=yellow]A secret path has opened to the southwest of the house...[/color]"
+		End If
+	End If
+End Sub
+
+Sub DoDiagnose()
+	If PlayerWounds = 0 Then
+		GamePrint "You are in perfect health."
+	ElseIf PlayerWounds = 1 Then
+		GamePrint "You have a light wound."
+	ElseIf PlayerWounds = 2 Then
+		GamePrint "You have serious wounds."
+	Else
+		GamePrint "You are badly wounded and near death."
+	End If
+	GamePrint "You are carrying " & CStr(CarriedWeight()) & " units of weight."
+End Sub
+
+' ==========================================================
+' ADVANCE TURN / TIMERS
+' ==========================================================
+
+Sub AdvanceTurn()
+	Moves = Moves + 1
+
+	' Lamp timer
+	If LampOn Then
+		LampTurns = LampTurns - 1
+		If LampTurns = 20 Then
+			GamePrint "[color=yellow]The lamp is getting dim.[/color]"
+		ElseIf LampTurns = 5 Then
+			GamePrint "[color=yellow]The lamp is almost out of power![/color]"
+		ElseIf LampTurns < = 0 Then
+			LampOn = False
+			LampDead = True
+			ClearFlag "LAMP", "ONBIT"
+			GamePrint "[color=red]The lamp has run out of power.[/color]"
+			If Not IsLit() Then
+				GamePrint "It is now pitch dark."
+			End If
+		End If
+	End If
+
+	' Candle timer
+	If CandlesLit Then
+		CandleTurns = CandleTurns - 1
+		If CandleTurns = 10 Then
+			GamePrint "[color=yellow]The candles are getting short.[/color]"
+		ElseIf CandleTurns < = 0 Then
+			CandlesLit = False
+			CandleDead = True
+			ClearFlag "CANDLES", "ONBIT"
+			GamePrint "[color=red]The candles have burned out.[/color]"
+		End If
+	End If
+
+	' Cure timer
+	If PlayerWounds > 0 And CureTimer > 0 Then
+		CureTimer = CureTimer - 1
+		If CureTimer < = 0 Then
+			PlayerWounds = PlayerWounds - 1
+			If PlayerWounds > 0 Then
+				CureTimer = 30
+			End If
+			GamePrint "Your wounds are slowly healing."
+		End If
+	End If
+
+	' Troll unconsciousness
+	If TrollUnconscious > 0 Then
+		TrollUnconscious = TrollUnconscious - 1
+		If TrollUnconscious < = 0 And Not TrollDead Then
+			If CurrentRoom = "TROLL-ROOM" Then
+				GamePrint "The troll stirs and regains consciousness."
+			End If
+		End If
+	End If
+
+	' Thief movement (simplified)
+	HandleThief
+
+	' Check for darkness death
+	If Not IsLit() And CurrentRoom < > "LIVING-ROOM" And CurrentRoom < > "KITCHEN" Then
+		' Small chance of grue in dark
+		If Int(Rnd() * 10) < 2 Then
+			GamePrint "[color=red]Oh no! A lurking grue has found you![/color]"
+			DoJigsUp "grue"
+		End If
+	End If
+
+	UpdateStatus
+End Sub
+
+' ==========================================================
+' THIEF AI (SIMPLIFIED)
+' ==========================================================
+
+Sub HandleThief()
+	If ThiefDead Then Return
+
+	' Move thief occasionally
+	If Int(Rnd() * 5) = 0 Then
+		' Move to a random connected room
+		Dim thiefRm As Object
+		If Not Rooms.Exists(ThiefRoom) Then Return
+		Set thiefRm = Rooms(ThiefRoom)
+		Dim exits As Object
+		Set exits = thiefRm("exits")
+		Dim exitKeys As Array
+		exitKeys = exits.Keys()
+		If UBound(exitKeys) > = 0 Then
+			Dim ri As Integer
+			ri = Int(Rnd() * (UBound(exitKeys) + 1))
+			Dim newRoom As String
+			newRoom = exits(exitKeys(ri))
+			If Rooms.Exists(newRoom) Then
+				' Don't enter certain rooms
+				If newRoom < > "LIMBO" Then
+					ThiefRoom = newRoom
+					Objects("THIEF")("location") = ThiefRoom
+					Objects("STILETTO")("location") = "THIEF"
+				End If
+			End If
+		End If
+	End If
+
+	' If thief is in same room as player
+	If ThiefRoom = CurrentRoom Then
+		' Chance to steal something
+		If Int(Rnd() * 3) = 0 Then
+			' Try to steal a treasure from the room
+			Dim objKeys As Array
+			Dim k As Variant
+			objKeys = Objects.Keys()
+			For Each k In objKeys
+				Dim obj As Object
+				Set obj = Objects(CStr(k))
+				If obj("location") = CurrentRoom And obj("tvalue") > 0 And CStr(k) < > "THIEF" And CStr(k) < > "STILETTO" Then
+					obj("location") = "THIEF"
+					GamePrint "[color=yellow]A lean and hungry gentleman just snatched the " & obj("name") & "![/color]"
+					Exit For
+				End If
+			Next
+		End If
+	End If
+End Sub
+
+' ==========================================================
+' DEATH
+' ==========================================================
+
+Sub DoJigsUp(cause As String)
+	Deaths = Deaths + 1
+	Score = Score - 10
+
+	If Deaths > = 3 Then
+		GamePrint ""
+		GamePrint "[b][color=red]*** You have died ***[/color][/b]"
+		GamePrint "You have been killed " & CStr(Deaths) & " times. That's the limit."
+		GamePrint "[color=red]*** Game Over ***[/color]"
+		GamePrint "Your final score is " & CStr(Score) & " out of " & CStr(MAX_SCORE) & "."
+		GameRunning = False
+		Return
+	End If
+
+	GamePrint ""
+	GamePrint "[b][color=red]*** You have died ***[/color][/b]"
+	GamePrint ""
+	GamePrint "You wake up in the forest clearing, dazed and confused."
+	GamePrint "Your possessions have been scattered."
+
+	' Move player to forest
+	CurrentRoom = "FOREST-1"
+
+	' Drop all items randomly
+	Dim objKeys As Array
+	Dim k As Variant
+	objKeys = Objects.Keys()
+	For Each k In objKeys
+		Dim obj As Object
+		Set obj = Objects(CStr(k))
+		If obj("location") = "PLAYER" Then
+			obj("location") = "FOREST-1"
+		End If
+	Next
+
+	PlayerWounds = 0
+	CureTimer = 0
+	ShowRoom True
+End Sub
+
+' ==========================================================
+' UTILITY FUNCTIONS
+' ==========================================================
+
+Function HasFlag(objId As String, flag As String) As Boolean
+	If Not Objects.Exists(objId) Then
+		HasFlag = False
+		Return False
+	End If
+	Dim obj As Object
+	Set obj = Objects(objId)
+	Dim flags As String
+	flags = "," & obj("flags") & ","
+	HasFlag = (InStr(flags, "," & flag & ",") > 0)
+	Return HasFlag
+End Function
+
+Sub SetFlag(objId As String, flag As String)
+	If Not Objects.Exists(objId) Then Return
+	Dim obj As Object
+	Set obj = Objects(objId)
+	If Not HasFlag(objId, flag) Then
+		If Len(obj("flags")) > 0 Then
+			obj("flags") = obj("flags") & "," & flag
+		Else
+			obj("flags") = flag
+		End If
+	End If
+End Sub
+
+Sub ClearFlag(objId As String, flag As String)
+	If Not Objects.Exists(objId) Then Return
+	Dim obj As Object
+	Set obj = Objects(objId)
+	Dim flags As String
+	flags = obj("flags")
+	flags = Replace(flags, flag, "")
+	flags = Replace(flags, ",,", ",")
+	If Left(flags, 1) = "," Then flags = Mid(flags, 2)
+	If Right(flags, 1) = "," Then flags = Left(flags, Len(flags) - 1)
+	obj("flags") = flags
+End Sub
+
+Function IsLit() As Boolean
+	' Some rooms are always lit
+	Dim room As Object
+	Set room = Rooms(CurrentRoom)
+	If InStr(room("flags"), "RLANDBIT") > 0 Then
+		' Check if above ground (rooms before cellar are generally lit)
+		Select Case CurrentRoom
+		Case "WEST-OF-HOUSE", "NORTH-OF-HOUSE", "SOUTH-OF-HOUSE", "EAST-OF-HOUSE"
+			IsLit = True
+			Return True
+		Case "FOREST-1", "FOREST-2", "FOREST-3", "MOUNTAINS", "PATH", "UP-A-TREE"
+			IsLit = True
+			Return True
+		Case "GRATING-CLEARING", "CLEARING", "CANYON-VIEW", "CLIFF-MIDDLE", "CANYON-BOTTOM"
+			IsLit = True
+			Return True
+		Case "END-OF-RAINBOW", "ON-RAINBOW", "ARAGAIN-FALLS", "SHORE", "SANDY-BEACH"
+			IsLit = True
+			Return True
+		Case "STONE-BARROW"
+			IsLit = True
+			Return True
+		End Select
+	End If
+
+	' Check if player has a lit light source
+	If LampOn And (IsCarrying("LAMP") Or ObjProp("LAMP", "location") = CurrentRoom) Then
+		IsLit = True
+		Return True
+	End If
+
+	' Ivory torch (always lit)
+	If IsCarrying("TORCH-TREASURE") Or ObjProp("TORCH-TREASURE", "location") = CurrentRoom Then
+		IsLit = True
+		Return True
+	End If
+
+	' Candles
+	If CandlesLit And (IsCarrying("CANDLES") Or ObjProp("CANDLES", "location") = CurrentRoom) Then
+		IsLit = True
+		Return True
+	End If
+
+	' Matches (very briefly)
+	If IsCarrying("MATCHES") And ObjProp("MATCHES", "location") = "PLAYER" Then
+		' Matches provide light only when first lit, not persistent
+	End If
+
+	IsLit = False
+	Return False
+End Function
+
+Function IsCarrying(objId As String) As Boolean
+	If Not Objects.Exists(objId) Then
+		IsCarrying = False
+		Return False
+	End If
+	IsCarrying = (ObjProp(objId, "location") = "PLAYER")
+	Return IsCarrying
+End Function
+
+Function CarriedWeight() As Integer
+	Dim total As Integer
+	total = 0
+	Dim objKeys As Array
+	Dim k As Variant
+	objKeys = Objects.Keys()
+	For Each k In objKeys
+		If ObjProp(CStr(k), "location") = "PLAYER" Then
+			total = total + ObjProp(CStr(k), "size")
+		End If
+	Next
+	CarriedWeight = total
+	Return total
+End Function
+
+Function GetPlayerStrength() As Integer
+	Dim base As Integer
+	base = STRENGTH_MIN
+	If Score > 0 Then
+		base = STRENGTH_MIN + (Score * (STRENGTH_MAX - STRENGTH_MIN)) / MAX_SCORE
+	End If
+	base = base - PlayerWounds
+	If base < 1 Then base = 1
+	GetPlayerStrength = base
+	Return base
+End Function
+
+' ==========================================================
+' META COMMANDS
+' ==========================================================
+
+Sub DoQuit()
+	CalculateScore
+	GamePrint ""
+	GamePrint "Your final score is " & CStr(Score) & " out of " & CStr(MAX_SCORE) & ", in " & CStr(Moves) & " moves."
+	GamePrint "This gives you the rank of " & GetRank() & "."
+	GamePrint ""
+	GamePrint "[color=yellow]Thank you for playing ZORK I![/color]"
+	GameRunning = False
+End Sub
+
+Sub DoHelp()
+	GamePrint "[color=yellow]--- ZORK I Help ---[/color]"
+	GamePrint "Move: [b]north[/b] (n), [b]south[/b] (s), [b]east[/b] (e), [b]west[/b] (w), [b]up[/b] (u), [b]down[/b] (d)"
+	GamePrint "Also: [b]ne[/b], [b]nw[/b], [b]se[/b], [b]sw[/b], [b]in[/b], [b]out[/b]"
+	GamePrint ""
+	GamePrint "Actions: [b]look[/b] (l), [b]inventory[/b] (i), [b]take[/b], [b]drop[/b], [b]open[/b], [b]close[/b]"
+	GamePrint "[b]examine[/b] (x), [b]read[/b], [b]eat[/b], [b]drink[/b], [b]attack[/b] [target] [b]with[/b] [weapon]"
+	GamePrint "[b]put[/b] [item] [b]in[/b] [container], [b]turn on[/b]/[b]off[/b], [b]unlock[/b] [item] [b]with[/b] key"
+	GamePrint "[b]wave[/b], [b]dig[/b], [b]tie[/b], [b]pray[/b], [b]say[/b], [b]inflate[/b], [b]climb[/b], [b]ring[/b]"
+	GamePrint ""
+	GamePrint "Meta: [b]score[/b], [b]diagnose[/b], [b]verbose[/b], [b]brief[/b], [b]tts[/b], [b]wait[/b] (z), [b]help[/b], [b]quit[/b]"
+End Sub
+
