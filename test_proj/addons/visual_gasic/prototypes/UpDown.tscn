@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[node name="UpDown" type="SpinBox"]
+offset_right = 80.0
+offset_bottom = 24.0
+min_value = -100.0
+max_value = 100.0

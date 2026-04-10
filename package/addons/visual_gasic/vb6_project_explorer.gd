@@ -433,8 +433,11 @@ func _on_item_activated():
 			else:
 				_open_script(file_path)
 		"component":
-			# Double-clicking a component opens its code.
-			if editor_plugin.has_method("open_module_in_embedded_editor"):
+			# Double-clicking a component opens its scene in the 3D/2D editor.
+			var scene_path = file_path.get_basename() + ".tscn"
+			if FileAccess.file_exists(scene_path):
+				_open_scene_in_editor(scene_path)
+			elif editor_plugin.has_method("open_module_in_embedded_editor"):
 				editor_plugin.open_module_in_embedded_editor(file_path)
 			else:
 				_open_script(file_path)
@@ -445,7 +448,7 @@ func _on_item_activated():
 			else:
 				_open_script(file_path)
 		"scene":
-			editor_plugin.get_editor_interface().open_scene_from_path(file_path)
+			_open_scene_in_editor(file_path)
 		"resource":
 			# Open in inspector
 			var res = load(file_path)
@@ -487,7 +490,8 @@ func _on_view_code():
 			else:
 				_open_script(vg_path)
 
-## View Object button — open selected item's scene in the 2D editor.
+## View Object button — open selected item's scene in the appropriate editor.
+## For forms, opens in Form Designer. For components/scenes, opens in 2D/3D editor.
 func _on_view_object():
 	var item = tree.get_selected()
 	if not item:
@@ -496,21 +500,28 @@ func _on_view_object():
 	if not meta or not meta is Dictionary:
 		return
 
+	var file_type = meta.get("type", "")
 	var file_path = meta.get("path", "")
 	if file_path == "":
 		return
 
-	# Try to find a scene
+	# Try to find the scene
 	var scene_path = file_path
 	if file_path.ends_with(".vg"):
 		scene_path = file_path.get_basename() + ".tscn"
 
-	if FileAccess.file_exists(scene_path) and (scene_path.ends_with(".tscn") or scene_path.ends_with(".scn")):
+	if not FileAccess.file_exists(scene_path) or not (scene_path.ends_with(".tscn") or scene_path.ends_with(".scn")):
+		return
+
+	# Forms open in the Form Designer, components/scenes in the 3D/2D editor
+	if file_type == "form":
 		if editor_plugin.has_method("open_form_in_designer"):
 			editor_plugin.open_form_in_designer(scene_path)
 		else:
 			editor_plugin.get_editor_interface().open_scene_from_path(scene_path)
-			EditorInterface.set_main_screen_editor("Visual Gasic IDE")
+	else:
+		# Open in the 3D or 2D scene editor
+		_open_scene_in_editor(scene_path)
 
 ## Toggle folder grouping on/off.
 func _on_toggle_folders(toggled: bool):
@@ -718,3 +729,56 @@ func _search_tree_for_type(item: TreeItem, target_type: String) -> String:
 			return result
 		child = child.get_next()
 	return ""
+
+## Open a .tscn scene in the appropriate embedded editor (3D or 2D).
+## Checks whether the scene contains 3D or 2D content and switches to the
+## matching editor tab, loading the scene automatically.
+func _open_scene_in_editor(scene_path: String) -> void:
+	if not FileAccess.file_exists(scene_path):
+		return
+	# Determine if the scene is 3D or 2D by checking the root node type in the .tscn
+	var is_3d := _scene_is_3d(scene_path)
+	if is_3d:
+		# Load into the 3D editor
+		if editor_plugin.has_method("_on_3d_view_pressed"):
+			editor_plugin._on_3d_view_pressed()
+		var editor_3d = editor_plugin.get("_vg_3d_editor")
+		if editor_3d and editor_3d.has_method("load_scene"):
+			editor_3d.load_scene(scene_path)
+	else:
+		# Load into the 2D editor
+		if editor_plugin.has_method("_on_2d_view_pressed"):
+			editor_plugin._on_2d_view_pressed()
+		var editor_2d = editor_plugin.get("_vg_2d_editor")
+		if editor_2d and editor_2d.has_method("load_scene"):
+			editor_2d.load_scene(scene_path)
+
+## Check if a .tscn file contains a 3D scene (Node3D root or 3D children).
+func _scene_is_3d(scene_path: String) -> bool:
+	var f = FileAccess.open(scene_path, FileAccess.READ)
+	if not f:
+		return false
+	var content = f.get_as_text()
+	f.close()
+	# Check for Node3D-based root type or 3D node types in the scene
+	if content.find("type=\"Node3D\"") != -1:
+		return true
+	if content.find("type=\"CSGBox3D\"") != -1:
+		return true
+	if content.find("type=\"CSGSphere3D\"") != -1:
+		return true
+	if content.find("type=\"CSGCylinder3D\"") != -1:
+		return true
+	if content.find("type=\"MeshInstance3D\"") != -1:
+		return true
+	if content.find("type=\"Camera3D\"") != -1:
+		return true
+	if content.find("type=\"DirectionalLight3D\"") != -1:
+		return true
+	if content.find("type=\"CharacterBody3D\"") != -1:
+		return true
+	if content.find("type=\"RigidBody3D\"") != -1:
+		return true
+	if content.find("type=\"StaticBody3D\"") != -1:
+		return true
+	return false

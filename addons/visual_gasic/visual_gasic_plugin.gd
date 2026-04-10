@@ -106,6 +106,10 @@ var _form_designer: Control = null
 ## Composite VB6 IDE layout: Toolbox | Canvas | Properties — all in one main screen
 var _ide_layout: VBoxContainer = null
 
+## Saved split offsets for IDE panels (persist across restarts)
+var _saved_main_split_offset: int = 200       ## Toolbox | rest
+var _saved_canvas_right_offset: int = -280    ## Canvas | right panels
+
 ## Tracks Godot editor chrome visibility for Form Designer mode.
 ## Docks are hidden via EditorInterface.set_distraction_free_mode();
 ## these 3 bars need additional manual hiding in _process().
@@ -150,6 +154,21 @@ var _showing_3d_view: bool = false
 var _vg_3d_editor = null
 ## Pending 3D double-click info: stashed when scene needs saving first
 var _pending_3d_dblclick: Dictionary = {}  # {node_name, event_suffix, event_params}
+## Whether the IDE is currently showing the 2D scene view (vs form/code/3D view)
+var _showing_2d_view: bool = false
+## Embedded 2D Scene Editor (replaces canvas in-place)
+var _vg_2d_editor = null
+## Pending 2D double-click info: stashed when scene needs saving first
+var _pending_2d_dblclick: Dictionary = {}  # {node_name, event_suffix, event_params}
+## Whether the IDE is currently showing the Sprite Editor view
+var _showing_sprite_view: bool = false
+## Embedded Sprite Editor (Piskel-style pixel art editor)
+var _vg_sprite_editor = null
+
+## Whether the IDE is currently showing a plugin view (e.g. AGCK)
+var _showing_plugin_view: bool = false
+## Plugin Manager — discovers & manages VG IDE plugins from plugins/ directory
+var _vg_plugin_manager = null
 
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
@@ -582,6 +601,58 @@ func _enter_tree():
 		view_3d_btn.pressed.connect(_on_3d_view_pressed)
 		toolbar_row.add_child(view_3d_btn)
 
+		# ── 2D Scene Editor button — switches to embedded 2D Scene Editor ──
+		var view_2d_btn = Button.new()
+		view_2d_btn.name = "View2DBtn"
+		view_2d_btn.text = "  \U0001f3ae 2D Scene Editor  "
+		view_2d_btn.tooltip_text = "Switch to 2D Scene Editor (edit 2D game scenes inside the VG IDE)"
+		view_2d_btn.flat = false
+		view_2d_btn.add_theme_font_size_override("font_size", 12)
+		view_2d_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+		view_2d_btn.add_theme_color_override("font_hover_color", Color(0.7, 1.0, 0.7))
+		var view_2d_style = StyleBoxFlat.new()
+		view_2d_style.bg_color = Color(0.2, 0.45, 0.3)
+		view_2d_style.set_corner_radius_all(4)
+		view_2d_style.content_margin_left = 8
+		view_2d_style.content_margin_right = 8
+		view_2d_style.content_margin_top = 2
+		view_2d_style.content_margin_bottom = 2
+		view_2d_btn.add_theme_stylebox_override("normal", view_2d_style)
+		var view_2d_hover = view_2d_style.duplicate()
+		view_2d_hover.bg_color = Color(0.25, 0.55, 0.35)
+		view_2d_btn.add_theme_stylebox_override("hover", view_2d_hover)
+		var view_2d_pressed = view_2d_style.duplicate()
+		view_2d_pressed.bg_color = Color(0.15, 0.35, 0.2)
+		view_2d_btn.add_theme_stylebox_override("pressed", view_2d_pressed)
+		view_2d_btn.pressed.connect(_on_2d_view_pressed)
+		toolbar_row.add_child(view_2d_btn)
+
+		# ── Sprite Editor button — switches to embedded Piskel-style pixel art editor ──
+		var view_sprite_btn = Button.new()
+		view_sprite_btn.name = "ViewSpriteBtn"
+		view_sprite_btn.text = "  \U0001f3a8 Sprite Editor  "
+		view_sprite_btn.tooltip_text = "Switch to Sprite Editor (Piskel-style pixel art for 8-bit/16-bit game graphics)"
+		view_sprite_btn.flat = false
+		view_sprite_btn.add_theme_font_size_override("font_size", 12)
+		view_sprite_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+		view_sprite_btn.add_theme_color_override("font_hover_color", Color(1.0, 0.85, 0.7))
+		var view_sprite_style = StyleBoxFlat.new()
+		view_sprite_style.bg_color = Color(0.45, 0.25, 0.45)
+		view_sprite_style.set_corner_radius_all(4)
+		view_sprite_style.content_margin_left = 8
+		view_sprite_style.content_margin_right = 8
+		view_sprite_style.content_margin_top = 2
+		view_sprite_style.content_margin_bottom = 2
+		view_sprite_btn.add_theme_stylebox_override("normal", view_sprite_style)
+		var view_sprite_hover = view_sprite_style.duplicate()
+		view_sprite_hover.bg_color = Color(0.55, 0.30, 0.55)
+		view_sprite_btn.add_theme_stylebox_override("hover", view_sprite_hover)
+		var view_sprite_pressed = view_sprite_style.duplicate()
+		view_sprite_pressed.bg_color = Color(0.35, 0.15, 0.35)
+		view_sprite_btn.add_theme_stylebox_override("pressed", view_sprite_pressed)
+		view_sprite_btn.pressed.connect(_on_sprite_view_pressed)
+		toolbar_row.add_child(view_sprite_btn)
+
 		# Spacer to push "Godot Editor" button to the right
 		var spacer = Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -672,8 +743,46 @@ func _enter_tree():
 			_vg_3d_editor.node_double_clicked.connect(_on_3d_node_double_clicked)
 			_vg_3d_editor.view_code_requested.connect(_on_3d_node_double_clicked)
 			_vg_3d_editor.scene_saved.connect(_on_3d_scene_saved)
+			# Wire 3D selection → Properties Inspector live update
+			_vg_3d_editor.node_selected.connect(_on_3d_node_selected)
+			_vg_3d_editor.selection_cleared.connect(_on_3d_selection_cleared)
 			canvas_right_split.add_child(_vg_3d_editor)
 			print("VisualGasic: 3D Scene Editor created")
+
+		# ── Embedded 2D Scene Editor (hidden by default, replaces canvas on 2D View) ──
+		var vg2d_script = load("res://addons/visual_gasic/vg_2d_editor.gd")
+		if vg2d_script:
+			_vg_2d_editor = vg2d_script.new()
+			_vg_2d_editor.visible = false
+			_vg_2d_editor.back_to_form_requested.connect(_show_form_view)
+			_vg_2d_editor.node_double_clicked.connect(_on_2d_node_double_clicked)
+			_vg_2d_editor.view_code_requested.connect(_on_2d_node_double_clicked)
+			_vg_2d_editor.scene_saved.connect(_on_2d_scene_saved)
+			# Wire 2D selection → Properties Inspector live update
+			_vg_2d_editor.node_selected.connect(_on_2d_node_selected)
+			_vg_2d_editor.selection_cleared.connect(_on_2d_selection_cleared)
+			canvas_right_split.add_child(_vg_2d_editor)
+			print("VisualGasic: 2D Scene Editor created")
+
+		# ── Embedded Sprite Editor (hidden by default, Piskel-style pixel art) ──
+		var vgsprite_script = load("res://addons/visual_gasic/vg_sprite_editor.gd")
+		if vgsprite_script:
+			_vg_sprite_editor = vgsprite_script.new()
+			_vg_sprite_editor.visible = false
+			_vg_sprite_editor.back_to_form_requested.connect(_show_form_view)
+			_vg_sprite_editor.sprite_saved.connect(_on_sprite_saved)
+			canvas_right_split.add_child(_vg_sprite_editor)
+			print("VisualGasic: Sprite Editor created")
+
+		# ── Plugin Manager — discovers plugins from addons/visual_gasic/plugins/ ──
+		var vg_pm_script = load("res://addons/visual_gasic/vg_plugin_manager.gd")
+		if vg_pm_script:
+			_vg_plugin_manager = vg_pm_script.new()
+			_vg_plugin_manager.setup(self, toolbar_row, canvas_right_split)
+			_vg_plugin_manager.discover_plugins()
+			_vg_plugin_manager.plugin_activated.connect(_on_vg_plugin_activated)
+			_vg_plugin_manager.all_plugins_deactivated.connect(_on_vg_plugins_deactivated)
+			print("VisualGasic: Plugin Manager initialized")
 
 		# -- RIGHT: Project Explorer + Properties (resizable VSplitContainer) --
 		var right_vsplit = VSplitContainer.new()
@@ -873,9 +982,9 @@ func _make_visible(p_visible: bool) -> void:
 		# Leaving Form Designer → save embedded code editor if dirty
 		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
 			_embedded_code_editor.save_file()
-		# If we were showing code view, switch back to form view state
+		# If we were showing code/3D/2D view, switch back to form view state
 		# (so next time Form Designer opens it shows the form canvas)
-		if _showing_code_view:
+		if _showing_code_view or _showing_3d_view or _showing_2d_view or _showing_sprite_view or _showing_plugin_view:
 			_show_form_view()
 		# Leaving Form Designer → patch in-memory tree so Godot's own saver
 		# writes correct data.  Do NOT write to disk here — writing via C++
@@ -914,6 +1023,73 @@ func _on_back_to_godot_pressed() -> void:
 func _on_3d_view_pressed() -> void:
 	_show_3d_view()
 
+## Called when user clicks the "🎮 2D Scene Editor" button in the VG toolbar.
+## Switches to the embedded 2D Scene Editor within the VG IDE.
+func _on_2d_view_pressed() -> void:
+	_show_2d_view()
+
+## Called when user clicks the "🎨 Sprite Editor" button in the VG toolbar.
+## Switches to the embedded Piskel-style pixel art Sprite Editor.
+func _on_sprite_view_pressed() -> void:
+	_show_sprite_view()
+
+## Called when the sprite editor saves a file.
+func _on_sprite_saved(path: String) -> void:
+	print("VisualGasic: Sprite saved to ", path)
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  Sprite saved: " + path.get_file()
+
+## Called when a VG plugin is activated (e.g. AGCK button clicked).
+## Hides all built-in views and shows the plugin's view.
+func _on_vg_plugin_activated(plugin_id: String) -> void:
+	# Save any unsaved code first
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+		_embedded_code_editor.save_file()
+
+	_showing_code_view = false
+	_showing_3d_view = false
+	_showing_2d_view = false
+	_showing_sprite_view = false
+	_showing_plugin_view = true
+
+	# Hide all built-in editors
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	if canvas_scroll:
+		canvas_scroll.visible = false
+	if is_instance_valid(_embedded_code_editor):
+		_embedded_code_editor.visible = false
+	if is_instance_valid(_vg_3d_editor):
+		_vg_3d_editor.visible = false
+	if is_instance_valid(_vg_2d_editor):
+		_vg_2d_editor.visible = false
+	if is_instance_valid(_vg_sprite_editor):
+		_vg_sprite_editor.visible = false
+
+	# Hide left toolbox panel — plugin has its own UI
+	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
+	if toolbox_panel:
+		var wrapper = toolbox_panel.get_node_or_null("ToolboxWrapper")
+		if wrapper:
+			wrapper.visible = false
+		elif is_instance_valid(toolbox):
+			toolbox.visible = false
+		if is_instance_valid(_embedded_code_editor):
+			var help_panel = _embedded_code_editor.get_help_panel()
+			if help_panel:
+				help_panel.visible = false
+		toolbox_panel.visible = false
+
+	# Update status bar
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  Plugin: " + plugin_id.to_upper()
+
+	print("VisualGasic: Switched to plugin view: ", plugin_id)
+
+## Called when all VG plugins are deactivated (back-to-form request from a plugin).
+func _on_vg_plugins_deactivated() -> void:
+	_showing_plugin_view = false
+	_show_form_view()
+
 ## Called when user clicks "↩ Back to VG IDE" in the 3D editor toolbar.
 ## Returns to the Visual Gasic IDE main screen.
 func _on_back_to_vg_from_3d() -> void:
@@ -923,6 +1099,17 @@ func _on_back_to_vg_from_3d() -> void:
 func _set_window_layout(config: ConfigFile):
 	if is_instance_valid(_layout_manager):
 		_layout_manager.on_window_layout_restored(config)
+	# Restore saved split offsets (panel sizes)
+	_saved_main_split_offset = config.get_value("VisualGasic", "main_split_offset", 200)
+	_saved_canvas_right_offset = config.get_value("VisualGasic", "canvas_right_split_offset", -280)
+	# Apply restored offsets to live split containers
+	if is_instance_valid(_ide_layout):
+		var main_split = _ide_layout.get_node_or_null("MainHSplit")
+		if main_split and main_split is HSplitContainer:
+			main_split.split_offset = _saved_main_split_offset
+			var canvas_right = main_split.get_node_or_null("CanvasRightSplit")
+			if canvas_right and canvas_right is HSplitContainer:
+				canvas_right.split_offset = _saved_canvas_right_offset
 	# Restore the form path from last session so the designer isn't blank
 	var saved_form_path = config.get_value("VisualGasic", "form_path", "")
 	if not saved_form_path.is_empty() and is_instance_valid(_form_designer):
@@ -947,6 +1134,9 @@ func _set_window_layout(config: ConfigFile):
 func _get_window_layout(config: ConfigFile):
 	if is_instance_valid(_layout_manager):
 		_layout_manager.on_window_layout_saving(config)
+	# Persist split offsets so the user's panel sizes survive editor restart
+	config.set_value("VisualGasic", "main_split_offset", _saved_main_split_offset)
+	config.set_value("VisualGasic", "canvas_right_split_offset", _saved_canvas_right_offset)
 	# Persist the current form path so it survives editor restart
 	if is_instance_valid(_form_designer):
 		var fpath = _form_designer.get_form_path()
@@ -997,6 +1187,11 @@ func _exit_tree():
 			print("[VisualGasic] _exit_tree → form auto-saved")
 	# Restore any hidden Godot docks before cleanup
 	_show_godot_panels()
+
+	# Cleanup plugin manager
+	if _vg_plugin_manager:
+		_vg_plugin_manager.cleanup()
+		_vg_plugin_manager = null
 	
 	get_editor_interface().get_base_control().remove_meta("visual_gasic_plugin_instance")
 	
@@ -2081,18 +2276,28 @@ func open_form_in_designer(tscn_path: String) -> void:
 func _setup_ide_split_ratios() -> void:
 	if not is_instance_valid(_ide_layout):
 		return
-	# Main horizontal split: Toolbox gets ~200px
+	# Main horizontal split: Toolbox panel width
 	var main_split = _ide_layout.get_node_or_null("MainHSplit")
 	if main_split and main_split is HSplitContainer:
-		main_split.split_offset = 200
-		# Canvas-Right split: right panel gets ~280px from the right
+		main_split.split_offset = _saved_main_split_offset
+		if not main_split.dragged.is_connected(_on_main_split_dragged):
+			main_split.dragged.connect(_on_main_split_dragged)
+		# Canvas-Right split: right panel width
 		var canvas_right = main_split.get_node_or_null("CanvasRightSplit")
 		if canvas_right and canvas_right is HSplitContainer:
-			canvas_right.split_offset = -280
+			canvas_right.split_offset = _saved_canvas_right_offset
+			if not canvas_right.dragged.is_connected(_on_canvas_right_split_dragged):
+				canvas_right.dragged.connect(_on_canvas_right_split_dragged)
 	# Apply VB6 visual styling
 	_apply_vb6_theme()
 	_restyle_toolbox_buttons()
 	_apply_designer_theme()
+
+func _on_main_split_dragged(offset: int) -> void:
+	_saved_main_split_offset = offset
+
+func _on_canvas_right_split_dragged(offset: int) -> void:
+	_saved_canvas_right_offset = offset
 
 # =============================================================================
 # VB6 IDE STYLING — Hide Godot panels, VB6 colors, panel headers
@@ -4503,6 +4708,11 @@ func _on_open_animation_editor() -> void:
 		var sel = _vg_3d_editor.get_selected_node() if _vg_3d_editor.has_method("get_selected_node") else null
 		if is_instance_valid(sel):
 			dialog.set_target(sel)
+	# If 2D editor is active and has a selected node, use it
+	elif is_instance_valid(_vg_2d_editor) and _vg_2d_editor.visible:
+		var sel = _vg_2d_editor.get_selected_node() if _vg_2d_editor.has_method("get_selected_node") else null
+		if is_instance_valid(sel):
+			dialog.set_target(sel)
 
 	EditorInterface.get_base_control().add_child(dialog)
 	dialog.popup_centered()
@@ -6091,6 +6301,16 @@ func _on_3d_node_double_clicked(node: Node3D) -> void:
 		_switching_to_code_editor = true
 		_open_or_create_event_handler(vg_path, sub_name)
 
+## Called when a node is selected in the 3D editor — update Properties panel.
+func _on_3d_node_selected(node: Node3D) -> void:
+	if is_instance_valid(_properties_inspector) and is_instance_valid(node):
+		_properties_inspector.update_properties(node)
+
+## Called when the 3D editor clears its selection — clear Properties panel.
+func _on_3d_selection_cleared() -> void:
+	if is_instance_valid(_properties_inspector):
+		_properties_inspector.clear_properties()
+
 ## Called when the 3D editor successfully saves a scene (Save or Save As).
 ## If there was a pending double-click, replay it now that we have a path.
 func _on_3d_scene_saved(path: String) -> void:
@@ -6138,6 +6358,126 @@ func _feed_3d_node_names_to_editor() -> void:
 	# Fallback: names only (no type info)
 	if _vg_3d_editor.has_method("get_scene_node_names"):
 		var names: Array = _vg_3d_editor.get_scene_node_names()
+		if names.size() > 0:
+			var combined: Array[String] = []
+			for n in names:
+				combined.append(n)
+			_embedded_code_editor.set_control_names(combined)
+
+# =============================================================================
+# 2D SCENE EDITOR CALLBACKS
+# =============================================================================
+
+## Called when user double-clicks a node in the 2D editor — open code.
+func _on_2d_node_double_clicked(node: Node2D) -> void:
+	if not is_instance_valid(node):
+		return
+
+	var node_name: String = node.name
+	if node_name.is_empty():
+		return
+
+	# ── Determine default event and parameters based on 2D node type ──
+	var event_suffix := "Ready"
+	var event_params := ""
+
+	if node is RigidBody2D:
+		event_suffix = "BodyEntered"
+		event_params = "Body As Node"
+	elif node is CharacterBody2D:
+		event_suffix = "Process"
+		event_params = "Delta As Single"
+	elif node is Area2D:
+		event_suffix = "BodyEntered"
+		event_params = "Body As Node"
+	elif node is AnimatedSprite2D:
+		event_suffix = "AnimationFinished"
+	else:
+		event_suffix = "Ready"
+
+	# ── Check whether the 2D scene has been saved ──
+	var scene_path := ""
+	if is_instance_valid(_vg_2d_editor) and _vg_2d_editor.has_method("get_scene_path"):
+		scene_path = _vg_2d_editor.get_scene_path()
+
+	if scene_path.is_empty():
+		_pending_2d_dblclick = {
+			"node_name": node_name,
+			"event_suffix": event_suffix,
+			"event_params": event_params,
+		}
+		print("VisualGasic: 2D scene not saved yet — prompting Save As before opening code")
+		if _vg_2d_editor.has_method("save_scene_as"):
+			_vg_2d_editor.save_scene_as()
+		return
+
+	# ── Scene is saved — derive .vg path from the .tscn ──
+	var vg_path: String = scene_path.get_basename() + ".vg"
+	var sub_name = node_name + "_" + event_suffix
+	print("VisualGasic: 2D double-click → opening ", sub_name, " in ", vg_path)
+
+	if is_instance_valid(_embedded_code_editor):
+		_open_in_embedded_editor(vg_path, sub_name, event_params)
+		_feed_2d_node_names_to_editor()
+		if _embedded_code_editor.has_method("select_object_and_event"):
+			_embedded_code_editor.select_object_and_event(node_name, event_suffix)
+	else:
+		_switching_to_code_editor = true
+		_open_or_create_event_handler(vg_path, sub_name)
+
+## Called when a node is selected in the 2D editor — update Properties panel.
+func _on_2d_node_selected(node: Node2D) -> void:
+	if is_instance_valid(_properties_inspector) and is_instance_valid(node):
+		_properties_inspector.update_properties(node)
+
+## Called when the 2D editor clears its selection — clear Properties panel.
+func _on_2d_selection_cleared() -> void:
+	if is_instance_valid(_properties_inspector):
+		_properties_inspector.clear_properties()
+
+## Called when the 2D editor successfully saves a scene.
+func _on_2d_scene_saved(path: String) -> void:
+	if _pending_2d_dblclick.is_empty():
+		return
+	var info = _pending_2d_dblclick
+	_pending_2d_dblclick = {}
+
+	var vg_path: String = path.get_basename() + ".vg"
+	var node_name: String = info.get("node_name", "")
+	var event_suffix: String = info.get("event_suffix", "Ready")
+	var event_params: String = info.get("event_params", "")
+	var sub_name = node_name + "_" + event_suffix
+
+	print("VisualGasic: 2D scene saved → resuming code-open: ", sub_name, " in ", vg_path)
+
+	if is_instance_valid(_embedded_code_editor):
+		_open_in_embedded_editor(vg_path, sub_name, event_params)
+		_feed_2d_node_names_to_editor()
+		if _embedded_code_editor.has_method("select_object_and_event"):
+			_embedded_code_editor.select_object_and_event(node_name, event_suffix)
+	else:
+		_switching_to_code_editor = true
+		_open_or_create_event_handler(vg_path, sub_name)
+
+## Feed 2D scene node names to the embedded code editor's Object dropdown.
+func _feed_2d_node_names_to_editor() -> void:
+	if not is_instance_valid(_embedded_code_editor) or not is_instance_valid(_vg_2d_editor):
+		return
+	if _vg_2d_editor.has_method("get_scene_node_info"):
+		var node_info: Array = _vg_2d_editor.get_scene_node_info()
+		if node_info.size() > 0:
+			var names: Array[String] = []
+			var info_list: Array[Dictionary] = []
+			for entry in node_info:
+				var n: String = entry.get("name", "")
+				var t: String = entry.get("type", "Node2D")
+				names.append(n)
+				info_list.append({"name": n, "type": t})
+			_embedded_code_editor.set_control_names(names)
+			_embedded_code_editor.set_control_info_list(info_list)
+			return
+	if _vg_2d_editor.has_method("get_scene_node_names"):
+		var names: Array = _vg_2d_editor.get_scene_node_names()
 		if names.size() > 0:
 			var combined: Array[String] = []
 			for n in names:
@@ -6672,13 +7012,24 @@ func _show_code_view() -> void:
 		return
 	_showing_code_view = true
 	_showing_3d_view = false
+	_showing_2d_view = false
+	_showing_sprite_view = false
+	_showing_plugin_view = false
 
-	# Hide the canvas scroll and 3D editor, show the code editor
+	# Deactivate any active plugin
+	if _vg_plugin_manager:
+		_vg_plugin_manager.deactivate_all()
+
+	# Hide the canvas scroll, 3D editor, 2D editor, and sprite editor — show the code editor
 	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
 	if is_instance_valid(_vg_3d_editor):
 		_vg_3d_editor.visible = false
+	if is_instance_valid(_vg_2d_editor):
+		_vg_2d_editor.visible = false
+	if is_instance_valid(_vg_sprite_editor):
+		_vg_sprite_editor.visible = false
 	if is_instance_valid(_embedded_code_editor):
 		_embedded_code_editor.visible = true
 		# Deferred focus so layout settles
@@ -6713,7 +7064,7 @@ func _show_code_view() -> void:
 
 ## Switch the center panel from code editor or 3D editor back to form canvas.
 func _show_form_view() -> void:
-	if not _showing_code_view and not _showing_3d_view:
+	if not _showing_code_view and not _showing_3d_view and not _showing_2d_view and not _showing_sprite_view and not _showing_plugin_view:
 		return
 
 	# Save any unsaved code first
@@ -6722,8 +7073,15 @@ func _show_form_view() -> void:
 
 	_showing_code_view = false
 	_showing_3d_view = false
+	_showing_2d_view = false
+	_showing_sprite_view = false
+	_showing_plugin_view = false
 
-	# Show the canvas scroll, hide the code editor and 3D editor
+	# Deactivate any active plugin
+	if _vg_plugin_manager:
+		_vg_plugin_manager.deactivate_all()
+
+	# Show the canvas scroll, hide the code editor, 3D editor, 2D editor, and sprite editor
 	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = true
@@ -6731,6 +7089,10 @@ func _show_form_view() -> void:
 		_embedded_code_editor.visible = false
 	if is_instance_valid(_vg_3d_editor):
 		_vg_3d_editor.visible = false
+	if is_instance_valid(_vg_2d_editor):
+		_vg_2d_editor.visible = false
+	if is_instance_valid(_vg_sprite_editor):
+		_vg_sprite_editor.visible = false
 
 	# Swap left panel: hide Command Help, show Toolbox (wrapper + header)
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
@@ -6756,7 +7118,10 @@ func _show_form_view() -> void:
 
 ## Switch the center panel to the embedded 3D Scene Editor.
 func _show_3d_view() -> void:
+	# If already in 3D view, still try auto-load in case the scene
+	# failed to load on the first attempt, then return.
 	if _showing_3d_view:
+		_auto_load_3d_scene()
 		return
 
 	# If we're in code view, save first
@@ -6766,8 +7131,15 @@ func _show_3d_view() -> void:
 		_showing_code_view = false
 
 	_showing_3d_view = true
+	_showing_2d_view = false
+	_showing_sprite_view = false
+	_showing_plugin_view = false
 
-	# Hide the canvas scroll and code editor, show the 3D editor
+	# Deactivate any active plugin
+	if _vg_plugin_manager:
+		_vg_plugin_manager.deactivate_all()
+
+	# Hide the canvas scroll, code editor, 2D editor, and sprite editor — show the 3D editor
 	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
@@ -6775,6 +7147,10 @@ func _show_3d_view() -> void:
 		_embedded_code_editor.visible = false
 	if is_instance_valid(_vg_3d_editor):
 		_vg_3d_editor.visible = true
+	if is_instance_valid(_vg_2d_editor):
+		_vg_2d_editor.visible = false
+	if is_instance_valid(_vg_sprite_editor):
+		_vg_sprite_editor.visible = false
 
 	# Swap left panel: hide Toolbox and Command Help — the 3D editor has its own toolbox
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
@@ -6791,15 +7167,164 @@ func _show_3d_view() -> void:
 		# Hide the entire left panel since the 3D editor has its own left panel
 		toolbox_panel.visible = false
 
+	# Auto-load the project scene if the 3D editor has nothing loaded yet
+	_auto_load_3d_scene()
+
 	# Update status bar
 	if is_instance_valid(_status_bar):
 		_status_bar.text = "  3D Scene Editor"
 
 	print("VisualGasic: Switched to 3D View")
 
+## Try to auto-load the main .tscn into the 3D editor if nothing is loaded yet.
+func _auto_load_3d_scene() -> void:
+	print("[VG-AUTOLOAD-3D] _auto_load_3d_scene called")
+	if is_instance_valid(_vg_3d_editor) and _vg_3d_editor.get_scene_path().is_empty():
+		var scene_path := _find_first_scene_in_project()
+		print("[VG-AUTOLOAD-3D]   scene_path: '", scene_path, "'")
+		if not scene_path.is_empty():
+			print("[VG-AUTOLOAD-3D]   Calling _vg_3d_editor.load_scene(...)")
+			_vg_3d_editor.load_scene(scene_path)
+	else:
+		print("[VG-AUTOLOAD-3D]   Skipped: editor invalid or scene already loaded")
+
+## Switch the center panel to the embedded 2D Scene Editor.
+func _show_2d_view() -> void:
+	print("[VG-SHOW2D] _show_2d_view called. _showing_2d_view=", _showing_2d_view)
+	# If already in 2D view, still try auto-load in case the scene
+	# failed to load on the first attempt, then return.
+	if _showing_2d_view:
+		print("[VG-SHOW2D]   Already showing — calling _auto_load_2d_scene")
+		_auto_load_2d_scene()
+		return
+
+	# If we're in code view, save first
+	if _showing_code_view:
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+			_embedded_code_editor.save_file()
+		_showing_code_view = false
+
+	_showing_2d_view = true
+	_showing_3d_view = false
+	_showing_sprite_view = false
+	_showing_plugin_view = false
+
+	# Deactivate any active plugin
+	if _vg_plugin_manager:
+		_vg_plugin_manager.deactivate_all()
+
+	# Hide the canvas scroll, code editor, 3D editor, and sprite editor — show the 2D editor
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	if canvas_scroll:
+		canvas_scroll.visible = false
+	if is_instance_valid(_embedded_code_editor):
+		_embedded_code_editor.visible = false
+	if is_instance_valid(_vg_3d_editor):
+		_vg_3d_editor.visible = false
+	if is_instance_valid(_vg_2d_editor):
+		_vg_2d_editor.visible = true
+	if is_instance_valid(_vg_sprite_editor):
+		_vg_sprite_editor.visible = false
+
+	# Swap left panel: hide Toolbox and Command Help — the 2D editor has its own toolbox
+	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
+	if toolbox_panel:
+		var wrapper = toolbox_panel.get_node_or_null("ToolboxWrapper")
+		if wrapper:
+			wrapper.visible = false
+		elif is_instance_valid(toolbox):
+			toolbox.visible = false
+		if is_instance_valid(_embedded_code_editor):
+			var help_panel = _embedded_code_editor.get_help_panel()
+			if help_panel:
+				help_panel.visible = false
+		# Hide the entire left panel since the 2D editor has its own left panel
+		toolbox_panel.visible = false
+
+	# Auto-load the project scene if the 2D editor has nothing loaded yet
+	call_deferred("_auto_load_2d_scene")
+
+	# Update status bar
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  2D Scene Editor"
+
+	print("VisualGasic: Switched to 2D View")
+
+## Try to auto-load the main .tscn into the 2D editor if nothing is loaded yet.
+func _auto_load_2d_scene() -> void:
+	print("[VG-AUTOLOAD-2D] _auto_load_2d_scene called")
+	print("[VG-AUTOLOAD-2D]   _vg_2d_editor valid: ", is_instance_valid(_vg_2d_editor))
+	if is_instance_valid(_vg_2d_editor):
+		print("[VG-AUTOLOAD-2D]   get_scene_path(): '", _vg_2d_editor.get_scene_path(), "'")
+	if is_instance_valid(_vg_2d_editor) and _vg_2d_editor.get_scene_path().is_empty():
+		var scene_path := _find_first_scene_in_project()
+		print("[VG-AUTOLOAD-2D]   _find_first_scene_in_project returned: '", scene_path, "'")
+		if not scene_path.is_empty():
+			print("[VG-AUTOLOAD-2D]   file_exists: ", FileAccess.file_exists(scene_path))
+			print("[VG-AUTOLOAD-2D]   Calling _vg_2d_editor.load_scene(...)")
+			_vg_2d_editor.load_scene(scene_path)
+			print("[VG-AUTOLOAD-2D]   After load_scene, get_scene_path(): '", _vg_2d_editor.get_scene_path(), "'")
+		else:
+			print("[VG-AUTOLOAD-2D]   No scene found in project!")
+	else:
+		print("[VG-AUTOLOAD-2D]   Skipped: editor invalid or scene already loaded")
+
+## Switch the center panel to the embedded Sprite Editor (pixel art).
+func _show_sprite_view() -> void:
+	if _showing_sprite_view:
+		return
+
+	# If we're in code view, save first
+	if _showing_code_view:
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+			_embedded_code_editor.save_file()
+		_showing_code_view = false
+
+	_showing_sprite_view = true
+	_showing_3d_view = false
+	_showing_2d_view = false
+	_showing_plugin_view = false
+
+	# Deactivate any active plugin
+	if _vg_plugin_manager:
+		_vg_plugin_manager.deactivate_all()
+
+	# Hide everything except the sprite editor
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	if canvas_scroll:
+		canvas_scroll.visible = false
+	if is_instance_valid(_embedded_code_editor):
+		_embedded_code_editor.visible = false
+	if is_instance_valid(_vg_3d_editor):
+		_vg_3d_editor.visible = false
+	if is_instance_valid(_vg_2d_editor):
+		_vg_2d_editor.visible = false
+	if is_instance_valid(_vg_sprite_editor):
+		_vg_sprite_editor.visible = true
+
+	# Hide the left toolbox panel — sprite editor has its own left panel
+	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
+	if toolbox_panel:
+		var wrapper = toolbox_panel.get_node_or_null("ToolboxWrapper")
+		if wrapper:
+			wrapper.visible = false
+		elif is_instance_valid(toolbox):
+			toolbox.visible = false
+		if is_instance_valid(_embedded_code_editor):
+			var help_panel = _embedded_code_editor.get_help_panel()
+			if help_panel:
+				help_panel.visible = false
+		toolbox_panel.visible = false
+
+	# Update status bar
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  Sprite Editor"
+
+	print("VisualGasic: Switched to Sprite Editor View")
+
 ## Toggle between code view and form view (VB6 F7 behavior).
 func _toggle_code_form_view() -> void:
-	if _showing_code_view or _showing_3d_view:
+	if _showing_code_view or _showing_3d_view or _showing_2d_view or _showing_sprite_view or _showing_plugin_view:
 		_show_form_view()
 	else:
 		# If no file loaded yet, try to derive from current form
@@ -6991,6 +7516,53 @@ func _scan_for_first_form(path: String) -> String:
 	# Recurse into subdirs
 	for subdir in subdirs:
 		var result = _scan_for_first_form(subdir)
+		if not result.is_empty():
+			return result
+	return ""
+
+## Find the first .tscn scene file in the project (for auto-loading into 2D/3D editors).
+## Prefers the Godot main scene, then scenes paired with .vg files, then any scene.
+func _find_first_scene_in_project() -> String:
+	# 1) Try the Godot main scene setting
+	var main_scene: String = ProjectSettings.get_setting("application/run/main_scene", "")
+	if not main_scene.is_empty() and FileAccess.file_exists(main_scene):
+		return main_scene
+	# 2) Try the currently edited scene in Godot editor
+	var scene_root = EditorInterface.get_edited_scene_root()
+	if scene_root and not scene_root.scene_file_path.is_empty():
+		return scene_root.scene_file_path
+	# 3) Scan for any .tscn paired with a .vg, then any .tscn
+	return _scan_for_first_tscn("res://")
+
+func _scan_for_first_tscn(path: String) -> String:
+	var dir = DirAccess.open(path)
+	if not dir:
+		return ""
+	var paired: String = ""
+	var any_scene: String = ""
+	var subdirs: PackedStringArray = []
+	dir.list_dir_begin()
+	var file_name = dir.get_next()
+	while file_name != "":
+		var full_path = path.path_join(file_name)
+		if dir.current_is_dir():
+			if not file_name.begins_with(".") and file_name != "addons" and file_name != ".godot":
+				subdirs.append(full_path)
+		elif file_name.ends_with(".tscn"):
+			if any_scene.is_empty():
+				any_scene = full_path
+			# Prefer scenes with a paired .vg
+			var vg_path = full_path.get_basename() + ".vg"
+			if paired.is_empty() and FileAccess.file_exists(vg_path):
+				paired = full_path
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	if not paired.is_empty():
+		return paired
+	if not any_scene.is_empty():
+		return any_scene
+	for subdir in subdirs:
+		var result = _scan_for_first_tscn(subdir)
 		if not result.is_empty():
 			return result
 	return ""
@@ -8164,6 +8736,13 @@ func _on_scene_changed(scene_root: Node):
 	# If the Form Designer is visible, sync the newly active scene into it
 	if _form_designer and is_instance_valid(_form_designer) and _form_designer.visible:
 		_sync_scene_to_form_designer()
+
+	# If the 2D editor is visible, sync it to the newly active scene tab
+	if _showing_2d_view and is_instance_valid(_vg_2d_editor) and scene_root:
+		var new_path: String = scene_root.scene_file_path
+		if not new_path.is_empty() and new_path != _vg_2d_editor.get_scene_path():
+			print("[VG-SYNC] scene_changed → loading '", new_path, "' into 2D editor")
+			_vg_2d_editor.load_scene(new_path)
 
 ## Determines if this plugin handles input for the given object.
 ## Always returns false — the Form Designer never auto-activates.

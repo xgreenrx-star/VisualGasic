@@ -253,6 +253,130 @@ Press **Ctrl+G** to open a small popup showing the valid line range (1–*N*). T
 
 ---
 
+## 3D Scene Editor
+
+Press **F1** inside the 3D Scene Editor to see the shortcuts overlay at any time.
+
+### Camera Controls (Mouse)
+
+| Shortcut | Action |
+|----------|--------|
+| **Middle Mouse Drag** | Orbit camera |
+| **Shift + MMB Drag** | Pan camera |
+| **Right Mouse Drag** | Orbit camera (alternate) |
+| **Mouse Wheel** | Zoom in / out |
+
+### Camera Controls (Laptop / Trackpad)
+
+| Shortcut | Action |
+|----------|--------|
+| **Alt + Left Drag** | Orbit camera |
+| **Alt + Shift + Left Drag** | Pan camera |
+| **Two-finger swipe** | Orbit camera |
+| **Shift + two-finger swipe** | Pan camera |
+| **Pinch** | Zoom in / out |
+
+### Tools
+
+| Shortcut | Action |
+|----------|--------|
+| **W** | Move mode |
+| **E** | Rotate mode |
+| **R** | Scale mode |
+| **F** | Focus on selected node |
+| **G** | Toggle grid |
+
+### Editing
+
+| Shortcut | Action |
+|----------|--------|
+| **Double-click** | Jump to VG code for object |
+| **Ctrl+D** | Duplicate selected node |
+| **Ctrl+Z / Ctrl+Y** | Undo / Redo |
+| **Ctrl+S** | Save scene |
+| **Delete / Backspace** | Delete selected node |
+| **F2** | Rename selected node |
+| **Right-click** | Context menu (incl. View Code) |
+
+### Camera Presets (Numpad)
+
+| Shortcut | Action |
+|----------|--------|
+| **7** | Top view |
+| **Ctrl+7** | Bottom view |
+| **1** | Front view |
+| **Ctrl+1** | Back view |
+| **3** | Right view |
+| **Ctrl+3** | Left view |
+| **5** | Toggle Ortho / Perspective |
+
+### View Options
+
+| Control | Action |
+|---------|--------|
+| **View Mode** button | Solid / Wireframe / Unshaded / Overdraw |
+| **Local/World** button | Toggle gizmo transform space |
+
+---
+
+## 2D Scene Editor
+
+The embedded 2D Scene Editor lets you build 2D game scenes visually — placing
+sprites, physics bodies, cameras, lights, tilemaps, and more. Access it via
+the **🎮 2D Scene Editor** button in the VG toolbar.
+
+### Camera Controls
+
+| Shortcut | Action |
+|----------|--------|
+| **Middle Mouse Drag** | Pan camera |
+| **Alt + Left Drag** | Pan camera (laptop) |
+| **Alt + Shift + Left Drag** | Pan camera (alt) |
+| **Mouse Wheel** | Zoom in / out |
+| **Two-finger swipe** | Pan camera (trackpad) |
+| **Pinch** | Zoom (trackpad) |
+
+### Tools
+
+| Shortcut | Action |
+|----------|--------|
+| **S** | Select tool |
+| **W** | Move tool |
+| **E** | Rotate tool |
+| **R** | Scale tool |
+| **F** | Focus on selected node |
+| **G** | Toggle grid snap |
+
+### Editing
+
+| Shortcut | Action |
+|----------|--------|
+| **Click** | Select object |
+| **Shift+Click** | Multi-select (toggle) |
+| **Drag on selected** | Move object(s) |
+| **Rubber-band** | Drag on empty = area select |
+| **Double-click** | Jump to VG code for object |
+| **Ctrl+D** | Duplicate |
+| **Ctrl+C / Ctrl+V** | Copy / Paste |
+| **Ctrl+A** | Select all |
+| **Delete** | Delete selected |
+| **F2** | Rename selected node |
+| **Ctrl+Z / Ctrl+Y** | Undo / Redo |
+| **Ctrl+S** | Save scene |
+| **Escape** | Deselect all |
+| **Right-click** | Context menu |
+
+### View Options
+
+| Control | Action |
+|---------|--------|
+| **🔲 Grid** button | Show / hide grid |
+| **🔷 Collisions** button | Show / hide collision shapes |
+| **Zoom 100%** button | Reset zoom to 100% |
+| **🔄 Reset** button | Reset camera to origin |
+
+---
+
 ## Visual Gasic IDE Workflow Tips
 
 1. **Resize the form first** — drag the small black squares on the form edges before placing controls.

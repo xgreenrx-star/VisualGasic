@@ -51,19 +51,15 @@ Const MoveSpeed As Single = 200
 Const MaxFallSpeed As Single = 600
 
 Sub _Ready()
-    ' Initialize player
+    ' Get references to scene objects (placed in 2D editor at design-time)
     Player = GetNode("Player")
-    PlayerX = 100
-    PlayerY = 400
+    PlayerX = Player.position.x
+    PlayerY = Player.position.y
     PlayerVelX = 0
     PlayerVelY = 0
     PlayerLives = 3
     OnGround = False
     PlayerDirection = 1
-    
-    Player.position = Vector2(PlayerX, PlayerY)
-    Player.color = Color(0.2, 0.8, 0.2)
-    Player.size = Vector2(30, 30)
     
     ' Initialize camera
     Camera = GetNode("Camera2D")
@@ -94,104 +90,41 @@ Sub _Ready()
 End Sub
 
 Sub InitializePlatforms()
-    ' Ground
-    Platforms(0) = GetNode("Platforms/Platform1")
-    PlatformX(0) = 0
-    PlatformY(0) = 500
-    PlatformW(0) = 400
-    PlatformH(0) = 40
-    Platforms(0).position = Vector2(PlatformX(0), PlatformY(0))
-    Platforms(0).size = Vector2(PlatformW(0), PlatformH(0))
-    Platforms(0).color = Color(0.4, 0.3, 0.2)
-    
-    ' Platform 2
-    Platforms(1) = GetNode("Platforms/Platform2")
-    PlatformX(1) = 450
-    PlatformY(1) = 450
-    PlatformW(1) = 150
-    PlatformH(1) = 20
-    Platforms(1).position = Vector2(PlatformX(1), PlatformY(1))
-    Platforms(1).size = Vector2(PlatformW(1), PlatformH(1))
-    Platforms(1).color = Color(0.4, 0.3, 0.2)
-    
-    ' Platform 3
-    Platforms(2) = GetNode("Platforms/Platform3")
-    PlatformX(2) = 700
-    PlatformY(2) = 400
-    PlatformW(2) = 150
-    PlatformH(2) = 20
-    Platforms(2).position = Vector2(PlatformX(2), PlatformY(2))
-    Platforms(2).size = Vector2(PlatformW(2), PlatformH(2))
-    Platforms(2).color = Color(0.4, 0.3, 0.2)
-    
-    ' Platform 4
-    Platforms(3) = GetNode("Platforms/Platform4")
-    PlatformX(3) = 900
-    PlatformY(3) = 350
-    PlatformW(3) = 200
-    PlatformH(3) = 20
-    Platforms(3).position = Vector2(PlatformX(3), PlatformY(3))
-    Platforms(3).size = Vector2(PlatformW(3), PlatformH(3))
-    Platforms(3).color = Color(0.4, 0.3, 0.2)
-    
-    ' Platform 5
-    Platforms(4) = GetNode("Platforms/Platform5")
-    PlatformX(4) = 1200
-    PlatformY(4) = 300
-    PlatformW(4) = 150
-    PlatformH(4) = 20
-    Platforms(4).position = Vector2(PlatformX(4), PlatformY(4))
-    Platforms(4).size = Vector2(PlatformW(4), PlatformH(4))
-    Platforms(4).color = Color(0.4, 0.3, 0.2)
-    
-    ' Platform 6 (end platform)
-    Platforms(5) = GetNode("Platforms/Platform6")
-    PlatformX(5) = 1450
-    PlatformY(5) = 400
-    PlatformW(5) = 300
-    PlatformH(5) = 40
-    Platforms(5).position = Vector2(PlatformX(5), PlatformY(5))
-    Platforms(5).size = Vector2(PlatformW(5), PlatformH(5))
-    Platforms(5).color = Color(0.8, 0.6, 0.2)
+    ' Read platform positions from scene (placed in 2D editor at design-time)
+    Dim i As Integer
+    For i = 0 To 5
+        Platforms(i) = GetNode("Platforms/Platform" & CStr(i + 1))
+        PlatformX(i) = Platforms(i).position.x
+        PlatformY(i) = Platforms(i).position.y
+        PlatformW(i) = Platforms(i).size.x
+        PlatformH(i) = Platforms(i).size.y
+    Next i
 End Sub
 
 Sub InitializeCoins()
     TotalCoins = 10
+    ' Read coin positions from scene (placed in 2D editor at design-time)
     Dim i As Integer
-    
-    ' Coins on platforms
-    CoinX(0) = 250: CoinY(0) = 450
-    CoinX(1) = 520: CoinY(1) = 400
-    CoinX(2) = 770: CoinY(2) = 350
-    CoinX(3) = 980: CoinY(3) = 300
-    CoinX(4) = 1270: CoinY(4) = 250
-    CoinX(5) = 650: CoinY(5) = 200
-    CoinX(6) = 150: CoinY(6) = 380
-    CoinX(7) = 1100: CoinY(7) = 280
-    CoinX(8) = 1580: CoinY(8) = 350
-    CoinX(9) = 1650: CoinY(9) = 350
-    
     For i = 0 To 9
         Coins(i) = GetNode("Coins").get_child(i)
-        Coins(i).position = Vector2(CoinX(i), CoinY(i))
-        Coins(i).color = Color(1, 0.8, 0)
-        Coins(i).size = Vector2(15, 15)
+        CoinX(i) = Coins(i).position.x
+        CoinY(i) = Coins(i).position.y
         Coins(i).visible = True
         CoinCollected(i) = False
     Next i
 End Sub
 
 Sub InitializeEnemies()
-    EnemyX(0) = 500: EnemyY(0) = 420: EnemyVelX(0) = 50
-    EnemyX(1) = 950: EnemyY(1) = 320: EnemyVelX(1) = -60
-    EnemyX(2) = 1250: EnemyY(2) = 270: EnemyVelX(2) = 40
+    ' Read enemy positions from scene (placed in 2D editor at design-time)
+    EnemyVelX(0) = 50
+    EnemyVelX(1) = -60
+    EnemyVelX(2) = 40
     
     Dim i As Integer
     For i = 0 To 2
         Enemies(i) = GetNode("Enemies").get_child(i)
-        Enemies(i).position = Vector2(EnemyX(i), EnemyY(i))
-        Enemies(i).color = Color(1, 0.2, 0.2)
-        Enemies(i).size = Vector2(25, 25)
+        EnemyX(i) = Enemies(i).position.x
+        EnemyY(i) = Enemies(i).position.y
         EnemyActive(i) = True
     Next i
 End Sub

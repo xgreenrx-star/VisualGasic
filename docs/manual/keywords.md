@@ -13,6 +13,12 @@ Standard flow control and declaration.
 | `If ... Then ... Else ... End If` | Conditional logic. |
 | `For ... To ... Next` | Counting loops. |
 | `Do ... Loop` | Condition loops. |
+| `Oscillate var = from To to [Step s] [Cycles n] ... Loop` | Ping-pong loop — bounces a variable back and forth between two bounds. |
+| `Repeat N Times [As counter] ... End Repeat` | Executes a block exactly N times with optional 1-based counter. |
+| `Cycle Through collection For N As var ... End Cycle` | Takes N items from a collection with automatic wrap-around. |
+| `Every N Frames ... End Every` | Conditional guard — runs body once every N frames inside `_Process`. |
+| `Every N Seconds ... End Every` | Conditional guard — runs body once every N seconds inside `_Process`. |
+| `Tween target.Property To value Over duration` | One-liner animation that tweens a property to a target value over time. |
 | `Sub ... End Sub` | Define a subroutine (void function). |
 | `Function ... End Function` | Define a function returning a value. |
 | `GoSub label` | Jump to a label and push return address. |

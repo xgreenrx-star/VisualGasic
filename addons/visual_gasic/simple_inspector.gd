@@ -40,12 +40,25 @@ var _property_entries: Array = []  # Array of {label, value, prop_key, type, cat
 var _description_label: RichTextLabel
 var _selected_prop_key: String = ""
 
+# === 3D Live Refresh ===
+# When a Node3D is selected, a timer polls its transform 4×/sec and updates
+# the SpinBox widgets in-place (no full rebuild, preserves scroll & focus).
+var _3d_refresh_timer: Timer = null
+var _3d_live_widgets: Dictionary = {}  # prop_key → SpinBox (tracked during render)
+
 # VB6-like property categories
 const CATEGORY_APPEARANCE = "Appearance"
 const CATEGORY_BEHAVIOR = "Behavior"
 const CATEGORY_FONT = "Font"
 const CATEGORY_POSITION = "Position"
 const CATEGORY_MISC = "Misc"
+
+# Property keys whose SpinBoxes are updated live during 3D viewport dragging.
+const _3D_LIVE_PROP_KEYS: Array = [
+	"pos3d_x", "pos3d_y", "pos3d_z",
+	"rot3d_x", "rot3d_y", "rot3d_z",
+	"scl3d_x", "scl3d_y", "scl3d_z",
+]
 
 # Property help descriptions (VB6-style)
 const PROPERTY_DESCRIPTIONS: Dictionary = {
@@ -372,6 +385,14 @@ func _init():
 	_description_label.add_theme_font_size_override("normal_font_size", 11)
 	add_child(_description_label)
 
+	# === 5. 3D Live Refresh Timer (4 Hz) ===
+	_3d_refresh_timer = Timer.new()
+	_3d_refresh_timer.wait_time = 0.25  # 4× per second
+	_3d_refresh_timer.one_shot = false
+	_3d_refresh_timer.autostart = false
+	_3d_refresh_timer.timeout.connect(_on_3d_refresh_tick)
+	add_child(_3d_refresh_timer)
+
 func setup(plugin: EditorPlugin):
 	editor_plugin = plugin
 	editor_plugin.get_editor_interface().get_selection().selection_changed.connect(_on_selection_changed)
@@ -510,6 +531,9 @@ func _on_selection_changed():
 		clear_properties()
 
 func clear_properties():
+	_3d_live_widgets.clear()
+	if is_instance_valid(_3d_refresh_timer):
+		_3d_refresh_timer.stop()
 	current_node = null
 	_fd_mode = false
 	_fd_form_mode = false
@@ -1188,11 +1212,42 @@ func _on_filter_changed(_new_text: String) -> void:
 func _rerender_properties() -> void:
 	for c in property_grid.get_children():
 		c.queue_free()
+	_3d_live_widgets.clear()
 	_prop_row_index = 0
 	if _view_mode == 0:
 		_render_alphabetic()
 	else:
 		_render_categorized()
+
+## Timer callback (4 Hz) — updates 3D transform SpinBoxes in-place.
+## Skips widgets whose LineEdit currently has keyboard focus (user is typing).
+func _on_3d_refresh_tick() -> void:
+	if not is_instance_valid(current_node) or not (current_node is Node3D):
+		if is_instance_valid(_3d_refresh_timer):
+			_3d_refresh_timer.stop()
+		return
+	var node: Node3D = current_node as Node3D
+	var values := {
+		"pos3d_x": snappedf(node.position.x, 0.001),
+		"pos3d_y": snappedf(node.position.y, 0.001),
+		"pos3d_z": snappedf(node.position.z, 0.001),
+		"rot3d_x": snappedf(rad_to_deg(node.rotation.x), 0.1),
+		"rot3d_y": snappedf(rad_to_deg(node.rotation.y), 0.1),
+		"rot3d_z": snappedf(rad_to_deg(node.rotation.z), 0.1),
+		"scl3d_x": snappedf(node.scale.x, 0.001),
+		"scl3d_y": snappedf(node.scale.y, 0.001),
+		"scl3d_z": snappedf(node.scale.z, 0.001),
+	}
+	for key in values:
+		var spin: SpinBox = _3d_live_widgets.get(key)
+		if not is_instance_valid(spin):
+			continue
+		# Don't clobber while the user is actively typing in this field
+		if spin.get_line_edit().has_focus():
+			continue
+		var new_val: float = values[key]
+		if not is_equal_approx(spin.value, new_val):
+			spin.set_value_no_signal(new_val)
 
 ## Check if a property entry matches the current filter text.
 func _entry_matches_filter(entry: Dictionary) -> bool:
@@ -1205,6 +1260,7 @@ func _entry_matches_filter(entry: Dictionary) -> bool:
 
 func update_properties(node: Node):
 	_property_entries.clear()
+	_3d_live_widgets.clear()
 	for c in property_grid.get_children():
 		c.queue_free()
 	current_node = node
@@ -1219,6 +1275,12 @@ func update_properties(node: Node):
 		_render_alphabetic()
 	else:
 		_render_categorized()
+	
+	# Start/stop 3D live-refresh timer based on node type
+	if node is Node3D and is_instance_valid(_3d_refresh_timer):
+		_3d_refresh_timer.start()
+	elif is_instance_valid(_3d_refresh_timer):
+		_3d_refresh_timer.stop()
 
 func _collect_properties(node: Node):
 	"""Collect all property entries into _property_entries array."""
@@ -2006,6 +2068,9 @@ func _add_prop_row(label_text: String, value, prop_key: String):
 					spin.value -= shift_step
 					spin.get_line_edit().accept_event()
 		)
+		# Track 3D transform SpinBoxes for live refresh
+		if prop_key in _3D_LIVE_PROP_KEYS:
+			_3d_live_widgets[prop_key] = spin
 		property_grid.add_child(spin)
 	else:
 		var placeholder = Label.new()

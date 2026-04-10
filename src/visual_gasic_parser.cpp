@@ -1354,6 +1354,12 @@ Statement* VisualGasicParser::parse_statement() {
         return set_line(parse_assignment_or_call());
     }
     
+    // Unrecognized keyword used as a variable name (e.g., Seconds, Frames, Over, etc.)
+    // Route to assignment/call handler so keywords can be used as identifiers
+    if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD) {
+        return set_line(parse_assignment_or_call());
+    }
+    
     current_pos++; // Skip unknown
     return nullptr;
 }
@@ -2059,8 +2065,13 @@ ExpressionNode* VisualGasicParser::parse_factor() {
     bool is_ident = check(VisualGasicTokenizer::TOKEN_IDENTIFIER);
     bool is_special_base = false;
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-         String kv = peek().value;
-         if (kv.nocasecmp_to("Input") == 0) is_special_base = true;
+         // Treat any unrecognized keyword as an identifier (variable name).
+         // Keywords like True, False, Me, Nothing, New, IIf, TypeOf, Lambda
+         // are already handled above; operator keywords (Mod, And, Or, Not)
+         // are consumed by higher-precedence parsers.  Anything reaching here
+         // can safely be treated as a user-defined variable name
+         // (e.g., Seconds, Frames, Over, Input, From, etc.).
+         is_special_base = true;
     }
 
     if (is_ident || is_special_base) {
@@ -2250,7 +2261,7 @@ DimStatement* VisualGasicParser::parse_dim() {
         advance(); // Eat WithEvents
     }
     
-    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER) && !check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
         UtilityFunctions::print("Parser Error: Expected variable name after Dim");
         // Skip to end of line to recover
         while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
@@ -2262,7 +2273,7 @@ DimStatement* VisualGasicParser::parse_dim() {
     // Helper to parse a single variable declaration (name, optional array bounds, optional type, optional initializer)
     // Returns nullptr on error
     auto parse_single_var = [this]() -> DimStatement* {
-        if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER) && !check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
             return nullptr;
         }
         

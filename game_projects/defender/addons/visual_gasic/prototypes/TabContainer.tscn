@@ -1,13 +1,55 @@
-[gd_scene format=3]
+[gd_scene load_steps=4 format=3]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.831, 0.816, 0.784, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.51, 0.51, 0.51, 1)
+content_margin_left = 4.0
+content_margin_top = 4.0
+content_margin_right = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_sel"]
+bg_color = Color(0.831, 0.816, 0.784, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_color = Color(0.51, 0.51, 0.51, 1)
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_unsel"]
+bg_color = Color(0.75, 0.74, 0.72, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.51, 0.51, 0.51, 1)
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
 
 [node name="TabContainer" type="TabContainer"]
 custom_minimum_size = Vector2(250, 150)
 offset_right = 250.0
 offset_bottom = 150.0
+theme_override_colors/font_selected_color = Color(0, 0, 0, 1)
+theme_override_colors/font_unselected_color = Color(0.51, 0.51, 0.51, 1)
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+theme_override_styles/tab_selected = SubResource("StyleBoxFlat_tab_sel")
+theme_override_styles/tab_unselected = SubResource("StyleBoxFlat_tab_unsel")
 
 [node name="Tab1" type="Panel" parent="."]
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
 [node name="Tab2" type="Panel" parent="."]
 visible = false
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")

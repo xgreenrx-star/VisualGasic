@@ -234,7 +234,7 @@ Internal docs for contributors and maintainers.
 | Document | Description |
 |----------|-------------|
 | [README](../README.md) | Project overview, feature list, screenshots, and quick start |
-| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v4.4.0-rc7) |
+| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.0.1-beta) |
 | [Roadmap](../ROADMAP.md) | Development roadmap and feature timeline |
 | [Project Status](../PROJECT_STATUS.md) | Current project status summary |
 | [Security Policy](../SECURITY.md) | Security policy and vulnerability reporting |
@@ -307,4 +307,4 @@ These older index files are preserved but this document (`DOCS.md`) supersedes t
 
 ---
 
-*Last updated: April 7, 2026 — v4.4.0-rc7*
+*Last updated: April 9, 2026 — v5.0.1-beta*

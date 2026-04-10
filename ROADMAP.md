@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: April 2026  
-**Current Version**: 4.4.0-rc7 (Release Candidate)
+**Current Version**: 5.0.1 Beta
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
@@ -771,9 +771,9 @@ These features shipped between March 10–21, 2026:
 
 ---
 
-## 🚀 v4.4.0 Release Candidate (Current)
+## 🚀 v5.0.1 Beta (Current)
 
-v4.4.0-rc7 adds release engineering, cross-platform distribution, installer tooling, and full 3D game development workflow:
+v5.0.1-beta adds plugin system, AGCK game construction kit, sprite editor, release engineering, cross-platform distribution, installer tooling, and full 3D game development workflow:
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -791,21 +791,23 @@ v4.4.0-rc7 adds release engineering, cross-platform distribution, installer tool
 | Make EXE Export | ✅ Complete | File → Make EXE with auto-generated export presets |
 | Community Testing | 🟡 In Progress | Need feedback before stable release |
 
-### Road to Stable (v4.4.0)
+### Road to Stable (v5.0.1)
 
 1. ✅ All features implemented and tested
 2. ✅ Cross-platform binaries building
 3. ✅ Installer scripts working
 4. ✅ 3D game development workflow complete
-5. 🟡 Community testing of RC7
-6. 🔲 Fix any reported issues
-7. 🔲 Tag stable v4.4.0 release
+5. ✅ Plugin system & AGCK game construction kit
+6. ✅ Piskel-style sprite editor
+7. 🟡 Community testing of Beta
+8. 🔲 Fix any reported issues
+9. 🔲 Tag stable v5.0.1 release
 
 ---
 
-## 💭 v5.0 Future Roadmap (Planned)
+## 💭 v5.1 / v6.0 Future Roadmap (Planned)
 
-Potential features for the next major version, pending community feedback:
+Potential features for the next version, pending community feedback:
 
 | Feature | Description | Priority |
 |---------|-------------|----------|

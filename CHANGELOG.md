@@ -5,6 +5,33 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.1-beta] - 2026-04-09
+
+### 🚀 v5.0.1 Beta — Plugin System, AGCK, & Major Version Bump
+
+Skipping the 4.x stable release — too many major features have landed since RC7 to call this a point release. VisualGasic jumps to **v5.0.1 Beta** with a full plugin system, the AGCK game construction kit, and comprehensive documentation.
+
+#### Added — Plugin System
+- **`vg_plugin_base.gd`** — RefCounted base class for VG IDE plugins with lifecycle signals, toolbar integration, and view management
+- **`vg_plugin_manager.gd`** — Plugin discovery from `plugins/<name>/plugin.cfg`, activation/deactivation lifecycle, automatic toolbar button placement, mutual-exclusion view switching
+- **Plugin architecture** — INI-based plugin.cfg, automatic Control view creation, signal-driven activation/deactivation
+
+#### Added — AGCK (Adventure Game Construction Kit)
+- **Game Settings Editor** — Game identity, world physics (gravity, friction, thrust, terminal velocity), screen behavior (wrap/bounce/block), player settings, display, FX channels
+- **Actor Editor** — 5 actor types (Player, Enemy, Bullet, Pickup, Scenery), movement states, collision modes, death/rebirth, awards, entrance, AI, auto-shoot, sound effects, FX scripts
+- **Sound Editor** — 4-voice polyphonic sound designer with bar graph note editor, 4 waveforms (Square, Sawtooth, Triangle, Noise), filter, tempo/transport controls
+- **Level Editor** — 24×20 tile grid with 7 block types, painting tools, actor placement, material properties, sentry paths, level management
+- **Game Builder** — Build targets (C64/Modern/HTML5), splash screen config, simulated build progress
+
+#### Added — Documentation
+- **Plugin System Developer Guide** (`docs/guides/PLUGIN_SYSTEM.md`) — Architecture, API reference, step-by-step plugin creation, AGCK example
+- **AGCK User Manual** (`docs/manual/AGCK_MANUAL.md`) — All 5 sub-editors documented, saving/loading, C64 comparison table, keyboard reference
+- **Documentation Index** updated with plugin system and AGCK entries
+
+#### Changed — Version Bump
+- Skipped v4.4.0 stable and all 4.x releases — jumped directly to v5.0.1-beta
+- Updated VERSION, all 63 plugin.cfg files, README, ROADMAP, DOCS, package README
+
 ## [4.4.0-rc7] - 2026-04-07
 
 ### 🎮 Release Candidate 7 — 3D Game Self-Sufficiency

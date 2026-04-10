@@ -65,6 +65,7 @@ var _var_sort_ascending: bool = true  # Sort direction
 var _var_filter_field: LineEdit = null  # Search/filter field for variables
 var _scene_poll_timer: Timer = null  # Polls EditorInterface.is_playing_scene()
 var _was_scene_playing: bool = false  # Last known state for edge detection
+var _scene_connect_retries: int = 0  # Retry counter for auto-connect
 const AUTO_REFRESH_INTERVAL: float = 0.5  # Update every 500ms
 
 func _ready():
@@ -91,14 +92,25 @@ func _setup_scene_poll_timer():
 
 func _on_scene_poll_timeout():
 	## Detect scene play/stop transitions and update Break/Stop buttons.
+	## Also auto-connect to running VG instances when not yet connected.
 	var playing = EditorInterface.is_playing_scene()
 	if playing and not _was_scene_playing:
 		# Scene just started — enable Break + Stop
 		set_debug_active(true, false)
+		_scene_connect_retries = 0  # Reset retry counter
 	elif not playing and _was_scene_playing:
 		# Scene just stopped — grey out everything
 		_debug_session_active = false
 		set_debug_active(false, false)
+		_scene_connect_retries = 0
+	
+	# Auto-discover and connect to running VG instances while not connected.
+	# Retry a few times with ~1s spacing (every 3rd poll at 0.3s interval).
+	if playing and _connected_remote_id < 0 and _scene_connect_retries < 10:
+		_scene_connect_retries += 1
+		if _scene_connect_retries % 3 == 0:  # every ~0.9s
+			_refresh_running_instances()
+	
 	_was_scene_playing = playing
 
 func _on_auto_refresh_timeout():
@@ -444,7 +456,9 @@ func _setup_ui():
 	_var_filter_field.add_theme_stylebox_override("normal", filter_normal)
 	_var_filter_field.add_theme_stylebox_override("focus", filter_focus)
 	_var_filter_field.add_theme_color_override("caret_color", Color(1.0, 1.0, 1.0, 1.0))
+	_var_filter_field.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9, 1.0))
 	_var_filter_field.add_theme_color_override("font_placeholder_color", Color(0.55, 0.55, 0.6, 1.0))
+	_var_filter_field.add_theme_color_override("selection_color", Color(0.3, 0.5, 0.8, 0.5))
 	_var_filter_field.caret_blink = true
 	_var_filter_field.caret_blink_interval = 0.5
 	var_panel.add_child(_var_filter_field)
@@ -944,6 +958,18 @@ func _eval_simple(expr: String) -> Variant:
 		return "[ERROR] Execution failed"
 	
 	return result
+
+## Evaluate an expression using the VB6 Immediate Window API (C++ engine).
+## Returns null if no VG instance is active or evaluation fails.
+func _eval_vg_immediate(expr: String) -> Variant:
+	if not ClassDB.class_has_method("VisualGasicLanguage", "vg_evaluate_immediate"):
+		return null
+	# Try instance 0 (the active VG script)
+	var code := "? " + expr
+	var r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, code)
+	if r is Dictionary and r.get("success", false):
+		return r.get("result", null)
+	return null
 
 func _get_type_name(value: Variant) -> String:
 	match typeof(value):
@@ -1906,7 +1932,12 @@ func _update_watch_expressions():
 			if _connected_remote_id >= 0 and _variables.has(watch["expr"]):
 				value = _variables[watch["expr"]]
 			else:
-				value = _eval_simple(watch["expr"])
+				# Try VB6 Immediate Window API first (handles btn.Caption etc.)
+				var vg_result = _eval_vg_immediate(watch["expr"])
+				if vg_result != null:
+					value = vg_result
+				else:
+					value = _eval_simple(watch["expr"])
 			value_str = str(value)
 			
 			# Color-code based on value changes

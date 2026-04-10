@@ -1315,6 +1315,25 @@ func get_code_edit() -> CodeEdit:
 
 ## Ensure a Sub stub exists for the given event, and navigate the caret to it.
 ## If it already exists, just jump to it.
+## Explicitly select an object in the Object dropdown and show its event list,
+## then highlight the specified event. Called from the 3D editor after double-click.
+func select_object_and_event(obj_name: String, event_name: String) -> void:
+	if not _object_combo:
+		return
+	# Find and select the object
+	for i in _object_combo.item_count:
+		if _object_combo.get_item_text(i) == obj_name:
+			_object_combo.select(i)
+			_rebuild_event_list_for_object(obj_name)
+			# Now highlight the specific event in the proc dropdown
+			for j in _proc_combo.item_count:
+				var meta = _proc_combo.get_item_metadata(j)
+				if meta is Dictionary and meta.get("event_name", "") == event_name:
+					_proc_combo.select(j)
+					break
+			_update_index_map_for_current_object()
+			return
+
 func ensure_event_handler(sub_name: String, params: String = "") -> void:
 	if not _code_edit:
 		return
@@ -1683,6 +1702,55 @@ static func _get_event_params(event_name: String) -> String:
 			return ""
 		"SelChange":
 			return ""
+		# ── 3D events ──
+		"Process", "PhysicsProcess":
+			return "Delta As Single"
+		"Ready", "EnterTree", "ExitTree":
+			return ""
+		"Input", "UnhandledInput":
+			return "Event As InputEvent"
+		"BodyEntered":
+			return "Body As Node"
+		"BodyExited":
+			return "Body As Node"
+		"AreaEntered":
+			return "Area As Area3D"
+		"AreaExited":
+			return "Area As Area3D"
+		"SleepingStateChanged":
+			return ""
+		"BodyShapeEntered":
+			return "BodyRID As RID, Body As Node, BodyShapeIndex As Integer, LocalShapeIndex As Integer"
+		"BodyShapeExited":
+			return "BodyRID As RID, Body As Node, BodyShapeIndex As Integer, LocalShapeIndex As Integer"
+		"AreaShapeEntered":
+			return "AreaRID As RID, Area As Area3D, AreaShapeIndex As Integer, LocalShapeIndex As Integer"
+		"AreaShapeExited":
+			return "AreaRID As RID, Area As Area3D, AreaShapeIndex As Integer, LocalShapeIndex As Integer"
+		"VisibilityChanged":
+			return ""
+		"Renamed":
+			return ""
+		"ChildEnteredTree":
+			return "Node As Node"
+		"ChildExitingTree":
+			return "Node As Node"
+		"AnimationFinished":
+			return ""
+		"FrameChanged":
+			return ""
+		"Finished":
+			return ""
+		"NavigationFinished":
+			return ""
+		"WaypointReached":
+			return "Details As Dictionary"
+		"TargetReached":
+			return ""
+		"PathChanged":
+			return ""
+		"VelocityComputed":
+			return "SafeVelocity As Vector3"
 		_:
 			return ""
 

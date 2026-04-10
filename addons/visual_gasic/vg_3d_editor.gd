@@ -51,6 +51,8 @@ var _orbit_distance: float = DEFAULT_DISTANCE
 var _orbit_target: Vector3 = Vector3.ZERO
 var _orbiting: bool = false
 var _panning: bool = false
+var _alt_orbiting: bool = false   # Alt+LMB orbit (laptop friendly)
+var _alt_panning: bool = false    # Alt+Shift+LMB pan (laptop friendly)
 var _last_mouse_pos: Vector2 = Vector2.ZERO
 var _is_orthographic: bool = false
 
@@ -120,8 +122,7 @@ var _color_picker_btn: ColorPickerButton = null
 var _undo_btn: Button = null
 var _redo_btn: Button = null
 var _help_dialog: AcceptDialog = null
-var _context_menu: PopupMenu = null
-var _tree_context_menu: PopupMenu = null
+var _popup_backdrop: Control = null  # Custom dark popup overlay (replaces native PopupMenu)
 
 # Transform panel spinboxes
 var _pos_x: SpinBox = null
@@ -190,6 +191,7 @@ func _build_ui() -> void:
 	var left_scroll = ScrollContainer.new()
 	left_scroll.size_flags_vertical = SIZE_EXPAND_FILL
 	left_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	left_scroll.theme = _build_dark_scrollbar_theme()
 	left_margin.add_child(left_scroll)
 
 	var left_vbox = VBoxContainer.new()
@@ -208,6 +210,7 @@ func _build_ui() -> void:
 	_toolbox_list.custom_minimum_size = Vector2(0, 170)
 	_toolbox_list.size_flags_horizontal = SIZE_EXPAND_FILL
 	_toolbox_list.item_activated.connect(_on_toolbox_item_activated)
+	_toolbox_list.theme = _build_dark_scrollbar_theme()
 	left_vbox.add_child(_toolbox_list)
 
 	# Add button
@@ -237,6 +240,7 @@ func _build_ui() -> void:
 	_scene_tree.item_selected.connect(_on_scene_tree_selected)
 	_scene_tree.item_activated.connect(_on_scene_tree_double_clicked)
 	_scene_tree.item_mouse_selected.connect(_on_scene_tree_rmb)
+	_scene_tree.theme = _build_dark_scrollbar_theme()
 	left_vbox.add_child(_scene_tree)
 
 	# Scene tree action buttons
@@ -421,6 +425,7 @@ func _build_ui() -> void:
 	_env_preset_menu.add_separator()
 	_env_preset_menu.add_item("🗑️  Remove Environment", 10)
 	_env_preset_menu.id_pressed.connect(_on_env_preset_selected)
+	_style_popup_dark(_env_preset_menu)
 	_toolbar_row1.add_child(env_menu_btn)
 
 	# Spacer
@@ -455,6 +460,7 @@ func _build_ui() -> void:
 	cam_popup.add_item("Left       (Num 3 Ctrl)", 5)
 	cam_popup.add_item("Right     (Num 3)", 6)
 	cam_popup.id_pressed.connect(_on_camera_preset_selected)
+	_style_popup_dark(cam_popup)
 	_toolbar_row2.add_child(_camera_preset_btn)
 
 	# Ortho/Perspective toggle
@@ -782,17 +788,133 @@ func _create_arrow_mesh(color: Color, direction: Vector3) -> MeshInstance3D:
 	return mesh_inst
 
 # ─────────────────────────────────────────────────────────────────────────────
+# DARK THEME — apply dark styling to popup menus, dialogs, and file dialogs
+# ─────────────────────────────────────────────────────────────────────────────
+func _build_dark_scrollbar_theme() -> Theme:
+	## Build a reusable Theme with dark-styled VScrollBar + HScrollBar.
+	var t = Theme.new()
+	# Track (background groove)
+	var track = StyleBoxFlat.new()
+	track.bg_color = Color(0.14, 0.14, 0.17)
+	track.set_corner_radius_all(3)
+	track.set_content_margin_all(2)
+	t.set_stylebox("scroll", "VScrollBar", track)
+	t.set_stylebox("scroll", "HScrollBar", track)
+	# Grabber (normal)
+	var grab = StyleBoxFlat.new()
+	grab.bg_color = Color(0.35, 0.35, 0.42)
+	grab.set_corner_radius_all(3)
+	grab.set_content_margin_all(2)
+	t.set_stylebox("grabber", "VScrollBar", grab)
+	t.set_stylebox("grabber", "HScrollBar", grab)
+	# Grabber (hover)
+	var grab_hl = StyleBoxFlat.new()
+	grab_hl.bg_color = Color(0.45, 0.45, 0.55)
+	grab_hl.set_corner_radius_all(3)
+	grab_hl.set_content_margin_all(2)
+	t.set_stylebox("grabber_highlight", "VScrollBar", grab_hl)
+	t.set_stylebox("grabber_highlight", "HScrollBar", grab_hl)
+	# Grabber (pressed)
+	var grab_pr = StyleBoxFlat.new()
+	grab_pr.bg_color = Color(0.5, 0.55, 0.7)
+	grab_pr.set_corner_radius_all(3)
+	grab_pr.set_content_margin_all(2)
+	t.set_stylebox("grabber_pressed", "VScrollBar", grab_pr)
+	t.set_stylebox("grabber_pressed", "HScrollBar", grab_pr)
+	return t
+
+func _style_popup_dark(popup: PopupMenu) -> void:
+	# Force dark styling on PopupMenu. Uses every mechanism available to
+	# override the editor theme: local overrides, a full Theme resource,
+	# transparent window background, and a forced theme-cache refresh.
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.18, 0.18, 0.22)
+	panel_style.set_border_width_all(1)
+	panel_style.border_color = Color(0.35, 0.35, 0.45)
+	panel_style.set_corner_radius_all(4)
+	panel_style.set_content_margin_all(4)
+
+	var hover_style = StyleBoxFlat.new()
+	hover_style.bg_color = Color(0.28, 0.38, 0.58)
+	hover_style.set_corner_radius_all(3)
+
+	var sep_style = StyleBoxFlat.new()
+	sep_style.bg_color = Color(0.3, 0.3, 0.38)
+	sep_style.set_content_margin_all(0)
+	sep_style.content_margin_top = 1
+	sep_style.content_margin_bottom = 1
+
+	# 1. Set a full Theme on the popup
+	var t = Theme.new()
+	t.set_stylebox("panel", "PopupMenu", panel_style)
+	t.set_stylebox("hover", "PopupMenu", hover_style)
+	t.set_stylebox("separator", "PopupMenu", sep_style)
+	t.set_stylebox("labeled_separator_left", "PopupMenu", sep_style)
+	t.set_stylebox("labeled_separator_right", "PopupMenu", sep_style)
+	t.set_color("font_color", "PopupMenu", Color(0.88, 0.88, 0.88))
+	t.set_color("font_hover_color", "PopupMenu", Color.WHITE)
+	t.set_color("font_disabled_color", "PopupMenu", Color(0.45, 0.45, 0.45))
+	t.set_color("font_separator_color", "PopupMenu", Color(0.55, 0.55, 0.55))
+	t.set_color("font_accelerator_color", "PopupMenu", Color(0.5, 0.6, 0.8))
+	t.set_stylebox("panel", "PopupPanel", panel_style)
+	popup.theme = t
+
+	# 2. Set local overrides (highest priority)
+	popup.add_theme_stylebox_override("panel", panel_style)
+	popup.add_theme_stylebox_override("hover", hover_style)
+	popup.add_theme_stylebox_override("separator", sep_style)
+	popup.add_theme_stylebox_override("labeled_separator_left", sep_style)
+	popup.add_theme_stylebox_override("labeled_separator_right", sep_style)
+	popup.add_theme_color_override("font_color", Color(0.88, 0.88, 0.88))
+	popup.add_theme_color_override("font_hover_color", Color.WHITE)
+	popup.add_theme_color_override("font_disabled_color", Color(0.45, 0.45, 0.45))
+	popup.add_theme_color_override("font_separator_color", Color(0.55, 0.55, 0.55))
+	popup.add_theme_color_override("font_accelerator_color", Color(0.5, 0.6, 0.8))
+
+	# 3. Kill any native OS window background
+	popup.transparent = true
+
+	# 4. Force the theme cache to update
+	popup.notification(Window.NOTIFICATION_THEME_CHANGED)
+
+func _style_dialog_dark(dialog: Window) -> void:
+	# Embedded panel background
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.18, 0.18, 0.22)
+	panel_style.set_border_width_all(1)
+	panel_style.border_color = Color(0.35, 0.35, 0.45)
+	panel_style.set_corner_radius_all(4)
+	panel_style.set_content_margin_all(8)
+	dialog.add_theme_stylebox_override("embedded_border", panel_style)
+	# If it's a native Godot dialog, try to force unbordered so our panel shows
+	if dialog is AcceptDialog:
+		var base_panel = StyleBoxFlat.new()
+		base_panel.bg_color = Color(0.18, 0.18, 0.22)
+		base_panel.set_content_margin_all(8)
+		base_panel.set_corner_radius_all(4)
+		dialog.add_theme_stylebox_override("panel", base_panel)
+	dialog.add_theme_color_override("title_color", Color(0.88, 0.88, 0.88))
+
+# ─────────────────────────────────────────────────────────────────────────────
 # HELP DIALOG — keyboard shortcuts overlay (F1)
 # ─────────────────────────────────────────────────────────────────────────────
 func _build_help_dialog() -> void:
 	_help_dialog = AcceptDialog.new()
 	_help_dialog.title = "🎮 VG 3D Scene Editor — Keyboard Shortcuts"
-	_help_dialog.min_size = Vector2(480, 520)
+	_help_dialog.min_size = Vector2(480, 600)
+	_style_dialog_dark(_help_dialog)
 	_help_dialog.dialog_text = """CAMERA CONTROLS
   Middle Mouse Drag    Orbit camera
   Shift + MMB Drag     Pan camera
   Right Mouse Drag     Orbit camera (alt)
   Mouse Wheel          Zoom in/out
+
+LAPTOP / TRACKPAD
+  Alt + Left Drag      Orbit camera
+  Alt + Shift + Left   Pan camera
+  Two-finger swipe     Orbit camera
+  Shift + swipe        Pan camera
+  Pinch                Zoom in/out
 
 TOOLS
   W                    Move mode
@@ -827,18 +949,104 @@ VIEW
 	add_child(_help_dialog)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CONTEXT MENUS — viewport + scene tree right-click
+# CONTEXT MENUS — custom dark panel-based (no native PopupMenu windows)
 # ─────────────────────────────────────────────────────────────────────────────
 func _build_context_menus() -> void:
-	# Viewport context menu
-	_context_menu = PopupMenu.new()
-	_context_menu.id_pressed.connect(_on_context_menu_selected)
-	add_child(_context_menu)
+	pass  # Menus are built inline at show time
 
-	# Scene tree context menu
-	_tree_context_menu = PopupMenu.new()
-	_tree_context_menu.id_pressed.connect(_on_tree_context_menu_selected)
-	add_child(_tree_context_menu)
+func _dismiss_popup() -> void:
+	if is_instance_valid(_popup_backdrop):
+		_popup_backdrop.queue_free()
+		_popup_backdrop = null
+
+func _show_dark_popup_menu(items: Array, callback: Callable) -> void:
+	_dismiss_popup()
+
+	# Full-screen transparent backdrop to catch outside clicks
+	_popup_backdrop = Control.new()
+	_popup_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_popup_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	_popup_backdrop.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed:
+			_dismiss_popup()
+	)
+
+	# Dark menu panel
+	var panel = PanelContainer.new()
+	var panel_sb = StyleBoxFlat.new()
+	panel_sb.bg_color = Color(0.16, 0.16, 0.20)
+	panel_sb.set_border_width_all(1)
+	panel_sb.border_color = Color(0.35, 0.38, 0.50)
+	panel_sb.set_corner_radius_all(6)
+	panel_sb.set_content_margin_all(6)
+	panel_sb.shadow_color = Color(0, 0, 0, 0.35)
+	panel_sb.shadow_size = 6
+	panel_sb.shadow_offset = Vector2(2, 2)
+	panel.add_theme_stylebox_override("panel", panel_sb)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 1)
+	panel.add_child(vbox)
+
+	for item in items:
+		if item.has("separator") and item.separator:
+			var sep = HSeparator.new()
+			var sep_sb = StyleBoxFlat.new()
+			sep_sb.bg_color = Color(0.28, 0.28, 0.35)
+			sep_sb.content_margin_top = 3
+			sep_sb.content_margin_bottom = 3
+			sep_sb.content_margin_left = 4
+			sep_sb.content_margin_right = 4
+			sep.add_theme_stylebox_override("separator", sep_sb)
+			vbox.add_child(sep)
+		else:
+			var btn = Button.new()
+			btn.text = "  " + item.text
+			btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			btn.add_theme_color_override("font_color", Color(0.88, 0.88, 0.88))
+			btn.add_theme_color_override("font_hover_color", Color.WHITE)
+			btn.add_theme_font_size_override("font_size", 13)
+			btn.custom_minimum_size = Vector2(210, 26)
+			var btn_normal = StyleBoxFlat.new()
+			btn_normal.bg_color = Color(0.16, 0.16, 0.20)
+			btn_normal.set_content_margin_all(3)
+			btn_normal.content_margin_left = 6
+			btn_normal.content_margin_right = 6
+			btn.add_theme_stylebox_override("normal", btn_normal)
+			var btn_hover = StyleBoxFlat.new()
+			btn_hover.bg_color = Color(0.24, 0.36, 0.58)
+			btn_hover.set_corner_radius_all(3)
+			btn_hover.set_content_margin_all(3)
+			btn_hover.content_margin_left = 6
+			btn_hover.content_margin_right = 6
+			btn.add_theme_stylebox_override("hover", btn_hover)
+			var btn_pressed = btn_hover.duplicate()
+			btn_pressed.bg_color = Color(0.20, 0.30, 0.48)
+			btn.add_theme_stylebox_override("pressed", btn_pressed)
+			var btn_focus = StyleBoxEmpty.new()
+			btn.add_theme_stylebox_override("focus", btn_focus)
+			var item_id = item.id
+			btn.pressed.connect(func():
+				callback.call(item_id)
+				_dismiss_popup()
+			)
+			vbox.add_child(btn)
+
+	_popup_backdrop.add_child(panel)
+	get_tree().root.add_child(_popup_backdrop)
+
+	# Position at mouse cursor within the root window
+	var mouse_pos = get_viewport().get_mouse_position()
+	panel.position = mouse_pos
+
+	# Clamp to screen on the next frame once size is known
+	panel.resized.connect(func():
+		var win_size = get_tree().root.size
+		if panel.position.x + panel.size.x > win_size.x - 8:
+			panel.position.x = win_size.x - panel.size.x - 8
+		if panel.position.y + panel.size.y > win_size.y - 8:
+			panel.position.y = win_size.y - panel.size.y - 8
+	, CONNECT_ONE_SHOT)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CAMERA CONTROL
@@ -949,6 +1157,10 @@ func _on_viewport_input(event: InputEvent) -> void:
 		_handle_mouse_button(event)
 	elif event is InputEventMouseMotion:
 		_handle_mouse_motion(event)
+	elif event is InputEventPanGesture:
+		_handle_pan_gesture(event)
+	elif event is InputEventMagnifyGesture:
+		_handle_magnify_gesture(event)
 	elif event is InputEventKey:
 		_handle_key(event)
 
@@ -983,6 +1195,16 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 
 		MOUSE_BUTTON_LEFT:
 			if event.pressed:
+				# Alt+LMB = orbit, Alt+Shift+LMB = pan  (laptop / no-MMB)
+				if event.alt_pressed:
+					_last_mouse_pos = event.position
+					if event.shift_pressed:
+						_alt_panning = true
+						_alt_orbiting = false
+					else:
+						_alt_orbiting = true
+						_alt_panning = false
+					return
 				# Double-click detection — jump to VG code (like form designer)
 				if event.double_click:
 					_pick_and_select(event.position)
@@ -1009,6 +1231,8 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 				# Otherwise, do click-to-select via AABB picking
 				_pick_and_select(event.position)
 			else:
+				_alt_orbiting = false
+				_alt_panning = false
 				if _gizmo_dragging:
 					_gizmo_dragging = false
 					_scene_dirty = true
@@ -1039,13 +1263,13 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 					_show_viewport_context_menu(event.position)
 
 func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
-	if _orbiting:
+	if _orbiting or _alt_orbiting:
 		var delta = event.position - _last_mouse_pos
 		_last_mouse_pos = event.position
 		_orbit_yaw += delta.x * ORBIT_SPEED
 		_orbit_pitch += delta.y * ORBIT_SPEED
 		_update_camera()
-	elif _panning:
+	elif _panning or _alt_panning:
 		var delta = event.position - _last_mouse_pos
 		_last_mouse_pos = event.position
 		var cam_right = _camera.global_basis.x
@@ -1055,6 +1279,26 @@ func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
 		_update_camera()
 	elif _gizmo_dragging:
 		_handle_gizmo_drag(event.position)
+
+func _handle_pan_gesture(event: InputEventPanGesture) -> void:
+	# Trackpad two-finger swipe:  Shift → pan,  otherwise → orbit
+	if event.shift_pressed or event.alt_pressed:
+		var cam_right = _camera.global_basis.x
+		var cam_up = _camera.global_basis.y
+		_orbit_target += cam_right * event.delta.x * PAN_SPEED * (_orbit_distance * 0.04)
+		_orbit_target -= cam_up * event.delta.y * PAN_SPEED * (_orbit_distance * 0.04)
+	else:
+		_orbit_yaw += event.delta.x * ORBIT_SPEED * 4.0
+		_orbit_pitch += event.delta.y * ORBIT_SPEED * 4.0
+	_update_camera()
+
+func _handle_magnify_gesture(event: InputEventMagnifyGesture) -> void:
+	# Trackpad pinch-to-zoom
+	if event.factor < 1.0:
+		_orbit_distance += ZOOM_SPEED * (_orbit_distance * 0.1)
+	else:
+		_orbit_distance -= ZOOM_SPEED * (_orbit_distance * 0.1)
+	_update_camera()
 
 func _handle_key(event: InputEventKey) -> void:
 	if not event.pressed:
@@ -1497,30 +1741,29 @@ func _show_viewport_context_menu(viewport_pos: Vector2) -> void:
 	# Do a pick first to select whatever is under the cursor
 	_pick_and_select(viewport_pos)
 
-	_context_menu.clear()
+	var items: Array = []
 	if is_instance_valid(_selected_node) and _selected_node != _scene_root:
-		_context_menu.add_item("📝 View Code  (DblClick)", 16)
-		_context_menu.add_separator()
-		_context_menu.add_item("Duplicate    (Ctrl+D)", 10)
-		_context_menu.add_item("Delete        (Del)", 11)
-		_context_menu.add_item("Focus          (F)", 12)
-		_context_menu.add_item("Drop to Floor", 13)
-		_context_menu.add_item("Reset Transform", 14)
-		_context_menu.add_item("Toggle Visibility", 15)
-		_context_menu.add_separator()
+		items.append({"text": "📝 View Code  (DblClick)", "id": 16})
+		items.append({"separator": true})
+		items.append({"text": "Duplicate    (Ctrl+D)", "id": 10})
+		items.append({"text": "Delete        (Del)", "id": 11})
+		items.append({"text": "Focus          (F)", "id": 12})
+		items.append({"text": "Drop to Floor", "id": 13})
+		items.append({"text": "Reset Transform", "id": 14})
+		items.append({"text": "Toggle Visibility", "id": 15})
+		items.append({"separator": true})
 
-	_context_menu.add_item("Add Box", 0)
-	_context_menu.add_item("Add Sphere", 1)
-	_context_menu.add_item("Add Cylinder", 2)
-	_context_menu.add_item("Add Light", 3)
-	_context_menu.add_item("Add Camera", 4)
-	_context_menu.add_item("Add Node3D", 5)
-	_context_menu.add_separator()
-	_context_menu.add_item("📦 Import Model...", 20)
-	_context_menu.add_item("🌍 Add Environment...", 21)
+	items.append({"text": "Add Box", "id": 0})
+	items.append({"text": "Add Sphere", "id": 1})
+	items.append({"text": "Add Cylinder", "id": 2})
+	items.append({"text": "Add Light", "id": 3})
+	items.append({"text": "Add Camera", "id": 4})
+	items.append({"text": "Add Node3D", "id": 5})
+	items.append({"separator": true})
+	items.append({"text": "📦 Import Model...", "id": 20})
+	items.append({"text": "🌍 Add Environment...", "id": 21})
 
-	_context_menu.position = DisplayServer.mouse_get_position()
-	_context_menu.popup()
+	_show_dark_popup_menu(items, _on_context_menu_selected)
 
 func _on_context_menu_selected(id: int) -> void:
 	match id:
@@ -1548,23 +1791,22 @@ func _on_scene_tree_rmb(position: Vector2, button: int) -> void:
 	_show_tree_context_menu()
 
 func _show_tree_context_menu() -> void:
-	_tree_context_menu.clear()
+	var items: Array = []
 	if is_instance_valid(_selected_node) and _selected_node != _scene_root:
-		_tree_context_menu.add_item("📝 View Code", 6)
-		_tree_context_menu.add_separator()
-		_tree_context_menu.add_item("Rename (F2)", 0)
-		_tree_context_menu.add_item("Duplicate", 1)
-		_tree_context_menu.add_item("Delete", 2)
-		_tree_context_menu.add_separator()
-		_tree_context_menu.add_item("Toggle Visibility", 3)
-		_tree_context_menu.add_item("Drop to Floor", 4)
-		_tree_context_menu.add_item("Reset Transform", 5)
+		items.append({"text": "📝 View Code", "id": 6})
+		items.append({"separator": true})
+		items.append({"text": "Rename (F2)", "id": 0})
+		items.append({"text": "Duplicate", "id": 1})
+		items.append({"text": "Delete", "id": 2})
+		items.append({"separator": true})
+		items.append({"text": "Toggle Visibility", "id": 3})
+		items.append({"text": "Drop to Floor", "id": 4})
+		items.append({"text": "Reset Transform", "id": 5})
 	else:
-		_tree_context_menu.add_item("Add Box", 10)
-		_tree_context_menu.add_item("Add Node3D", 11)
+		items.append({"text": "Add Box", "id": 10})
+		items.append({"text": "Add Node3D", "id": 11})
 
-	_tree_context_menu.position = DisplayServer.mouse_get_position()
-	_tree_context_menu.popup()
+	_show_dark_popup_menu(items, _on_tree_context_menu_selected)
 
 func _on_tree_context_menu_selected(id: int) -> void:
 	match id:
@@ -1695,6 +1937,7 @@ func _rename_selected() -> void:
 	var dialog = AcceptDialog.new()
 	dialog.title = "Rename Node"
 	dialog.min_size = Vector2(320, 100)
+	_style_dialog_dark(dialog)
 	var line_edit = LineEdit.new()
 	line_edit.text = _selected_node.name
 	line_edit.select_all()
@@ -1967,6 +2210,9 @@ func _on_scene_tree_selected() -> void:
 		var node = item.get_metadata(0)
 		if node is Node3D and node != _scene_root:
 			_select_node(node)
+			# Transfer focus to viewport so Delete / keyboard shortcuts work
+			if is_instance_valid(_viewport_container):
+				_viewport_container.grab_focus()
 
 ## Scene tree double-click → jump to VG code for that node (like form designer).
 func _on_scene_tree_double_clicked() -> void:
@@ -2011,6 +2257,7 @@ func _on_delete_selected() -> void:
 	_push_undo({type = "delete", stored_node = stored, node_ref = node_to_delete, node_name = node_name})
 
 	_deselect()
+	node_to_delete.get_parent().remove_child(node_to_delete)
 	node_to_delete.queue_free()
 	_rebuild_scene_tree()
 	_scene_dirty = true
@@ -2020,6 +2267,8 @@ func _on_delete_selected() -> void:
 # SCENE LOAD / SAVE
 # ─────────────────────────────────────────────────────────────────────────────
 ## Load a .tscn scene into the 3D editor viewport.
+## We parse the .tscn text first to strip VisualGasicScript references
+## so the C++ VG runtime never initialises inside the editor.
 func load_scene(path: String) -> void:
 	if path.is_empty():
 		return
@@ -2037,11 +2286,26 @@ func load_scene(path: String) -> void:
 		_cleanup_undo_action(a)
 	_redo_stack.clear()
 
-	# Load and instantiate the scene
-	var packed = load(path) as PackedScene
+	# --- Strip VG scripts from the .tscn text before loading -----------
+	print("[VG3D] load_scene: stripping VG scripts from: ", path)
+	var clean_path := _create_clean_scene_copy(path)
+	if clean_path.is_empty():
+		push_warning("[VG3D] Failed to create script-free copy of: " + path)
+		return
+
+	print("[VG3D] load_scene: loading cleaned scene from: ", clean_path)
+	var packed = ResourceLoader.load(clean_path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE) as PackedScene
+	print("[VG3D] load_scene: ResourceLoader returned: ", packed)
+
+	# Delete the temp file after loading
+	if FileAccess.file_exists(clean_path):
+		DirAccess.remove_absolute(clean_path)
+
 	if packed:
 		var instance = packed.instantiate()
+		print("[VG3D] load_scene: instantiate returned: ", instance)
 		if instance:
+			print("[VG3D] load_scene: instance type=", instance.get_class(), "  children=", instance.get_child_count())
 			# If the root is a Node3D, add its children directly
 			if instance is Node3D:
 				var children_to_move: Array = []
@@ -2054,13 +2318,96 @@ func load_scene(path: String) -> void:
 			else:
 				_scene_root.add_child(instance)
 
-			_loaded_scene_path = path
+			_loaded_scene_path = path  # store the REAL path, not the temp
 			_scene_dirty = false
 			_rebuild_scene_tree()
 			_update_status()
-			print("[VG3D] Loaded scene: ", path)
+			print("[VG3D] Loaded scene: ", path, "  nodes in _scene_root: ", _scene_root.get_child_count())
 	else:
 		push_warning("[VG3D] Failed to load scene: " + path)
+
+## Create a temporary copy of a .tscn with all VisualGasicScript /
+## .vg ext_resource entries and their script= assignments removed.
+## Also strips the uid= from the header so ResourceLoader won't
+## redirect back to the original (cached) scene.
+## Returns the temp file path, or "" on failure.
+static func _create_clean_scene_copy(original_path: String) -> String:
+	var text := FileAccess.get_file_as_string(original_path)
+	if text.is_empty():
+		push_warning("[VG] _create_clean_scene_copy: could not read " + original_path)
+		return ""
+
+	# Collect ext_resource IDs that point to .vg files
+	var vg_ids: Array[String] = []
+	var lines := text.split("\n")
+	var clean_lines: PackedStringArray = PackedStringArray()
+
+	for line in lines:
+		var stripped := line.strip_edges()
+
+		# --- Strip uid= from [gd_scene ...] header so Godot can't
+		#     redirect to the original cached resource via UID lookup.
+		if stripped.begins_with("[gd_scene"):
+			var uid_start := stripped.find(' uid="')
+			if uid_start != -1:
+				var uid_end := stripped.find('"', uid_start + 6)  # after uid="
+				if uid_end != -1:
+					stripped = stripped.substr(0, uid_start) + stripped.substr(uid_end + 1)
+			clean_lines.append(stripped)
+			continue
+
+		# Match:  [ext_resource type="VisualGasicScript" path="..." id="1"]
+		#     or  [ext_resource ... path="res://foo.vg" ...]
+		if stripped.begins_with("[ext_resource") and (".vg" in stripped or "VisualGasicScript" in stripped):
+			# Extract the id value (id="...")
+			var id_pos := stripped.find('id="')
+			if id_pos != -1:
+				var id_start := id_pos + 4
+				var id_end := stripped.find('"', id_start)
+				if id_end != -1:
+					vg_ids.append(stripped.substr(id_start, id_end - id_start))
+			continue  # skip this ext_resource line entirely
+
+		# Skip any  script = ExtResource("<vg_id>")  assignments
+		if stripped.begins_with("script") and "ExtResource" in stripped:
+			var skip := false
+			for vid in vg_ids:
+				if ('"' + vid + '"') in stripped:
+					skip = true
+					break
+			if skip:
+				continue
+
+		clean_lines.append(line)
+
+	# Also fix load_steps count (one fewer per stripped ext_resource)
+	var result := "\n".join(clean_lines)
+	if vg_ids.size() > 0:
+		# Decrement load_steps in the header
+		var ls_pos := result.find("load_steps=")
+		if ls_pos != -1:
+			var num_start := ls_pos + 11  # length of "load_steps="
+			var num_end := num_start
+			while num_end < result.length() and result[num_end].is_valid_int():
+				num_end += 1
+			if num_end > num_start:
+				var old_val := result.substr(num_start, num_end - num_start).to_int()
+				var new_val := max(old_val - vg_ids.size(), 1)
+				result = result.substr(0, num_start) + str(new_val) + result.substr(num_end)
+
+	# Write temp file next to the original so relative sub-resource paths resolve
+	var dir := original_path.get_base_dir()
+	var temp_name := "_vg_editor_temp_scene.tscn"
+	var temp_path := dir.path_join(temp_name)
+	var f := FileAccess.open(temp_path, FileAccess.WRITE)
+	if f == null:
+		push_warning("[VG] _create_clean_scene_copy: could not write " + temp_path)
+		return ""
+	f.store_string(result)
+	f.flush()
+	f.close()
+	print("[VG] Created clean scene copy: ", temp_path, "  (stripped ", vg_ids.size(), " VG script refs)")
+	return temp_path
 
 ## Save the current 3D scene to disk.  If no path has been set yet,
 ## automatically open a Save As dialog instead of silently failing.
@@ -2102,6 +2449,7 @@ func save_scene_as() -> void:
 		_save_file_dialog.filters = PackedStringArray(["*.tscn ; Godot Scene"])
 		_save_file_dialog.min_size = Vector2i(500, 400)
 		_save_file_dialog.file_selected.connect(_on_save_as_file_selected)
+		_style_dialog_dark(_save_file_dialog)
 		add_child(_save_file_dialog)
 	# Suggest a default name based on scene content
 	var suggested := "Level1.tscn"
@@ -2313,6 +2661,7 @@ func _show_import_model_dialog() -> void:
 	])
 	_import_file_dialog.size = Vector2i(700, 500)
 	_import_file_dialog.file_selected.connect(_on_import_model_selected)
+	_style_dialog_dark(_import_file_dialog)
 	add_child(_import_file_dialog)
 	_import_file_dialog.popup_centered()
 
@@ -2420,7 +2769,9 @@ func _update_status_text(text: String) -> void:
 # ─────────────────────────────────────────────────────────────────────────────
 func _show_env_preset_popup() -> void:
 	if is_instance_valid(_env_preset_menu):
+		_style_popup_dark(_env_preset_menu)
 		_env_preset_menu.position = DisplayServer.mouse_get_position()
+		_env_preset_menu.reset_size()
 		_env_preset_menu.popup()
 
 func _on_env_preset_selected(id: int) -> void:

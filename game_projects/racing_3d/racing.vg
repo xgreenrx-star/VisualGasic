@@ -38,224 +38,201 @@ Const Deceleration As Single = 10
 Const TurnSpeed As Single = 2.5
 
 Sub _Ready()
-    ' Initialize car
-    Car = GetNode("Car")
-    CarX = 0
-    CarZ = -40
-    CarSpeed = 0
-    CarRotation = 0
-    Steering = 0
-    
-    Car.position = Vector3(CarX, 0.5, CarZ)
-    Car.rotation = Vector3(0, CarRotation, 0)
-    
-    ' Initialize camera
-    Camera = GetNode("Camera3D")
-    
-    ' Initialize UI
-    SpeedLabel = GetNode("UI/SpeedLabel")
-    LapLabel = GetNode("UI/LapLabel")
-    TimeLabel = GetNode("UI/TimeLabel")
-    FinishLabel = GetNode("UI/FinishLabel")
-    FinishLabel.visible = False
-    
-    ' Game setup
-    CurrentLap = 0
-    TotalLaps = 3
-    RaceTime = 0
-    BestTime = 999
-    RaceFinished = False
-    LastCheckpoint = -1
-    
-    ' Setup oval track checkpoints
-    CheckpointX(0) = 0
-    CheckpointZ(0) = -40
-    
-    CheckpointX(1) = 30
-    CheckpointZ(1) = -30
-    
-    CheckpointX(2) = 40
-    CheckpointZ(2) = 0
-    
-    CheckpointX(3) = 30
-    CheckpointZ(3) = 30
-    
-    CheckpointX(4) = 0
-    CheckpointZ(4) = 40
-    
-    CheckpointX(5) = -30
-    CheckpointZ(5) = 30
-    
-    CheckpointX(6) = -40
-    CheckpointZ(6) = 0
-    
-    CheckpointX(7) = -30
-    CheckpointZ(7) = -30
-    
-    Dim i As Integer
-    For i = 0 To 7
-        CheckpointPassed(i) = False
-    Next i
-    
-    Print "3D Racing Ready! Arrow keys to drive, complete " & CStr(TotalLaps) & " laps!"
-    Set_Process(True)
+	' Get references to scene objects (placed in 3D editor at design-time)
+	Car = GetNode("Car")
+	CarX = Car.position.x
+	CarZ = Car.position.z
+	CarSpeed = 0
+	CarRotation = 0
+	Steering = 0
+	
+	' Initialize camera
+	Camera = GetNode("Camera3D")
+	
+	' Initialize UI
+	SpeedLabel = GetNode("UI/SpeedLabel")
+	LapLabel = GetNode("UI/LapLabel")
+	TimeLabel = GetNode("UI/TimeLabel")
+	FinishLabel = GetNode("UI/FinishLabel")
+	FinishLabel.visible = False
+	
+	' Game setup
+	CurrentLap = 0
+	TotalLaps = 3
+	RaceTime = 0
+	BestTime = 999
+	RaceFinished = False
+	LastCheckpoint = -1
+	
+	' Read checkpoint positions from scene (placed in 3D editor)
+	Dim i As Integer
+	For i = 0 To 7
+		Dim cp As Object
+		cp = GetNode("Checkpoints/Checkpoint" & CStr(i + 1))
+		CheckpointX(i) = cp.position.x
+		CheckpointZ(i) = cp.position.z
+		CheckpointPassed(i) = False
+	Next i
+	
+	Print "3D Racing Ready! Arrow keys to drive, complete " & CStr(TotalLaps) & " laps!"
+	Set_Process(True)
 End Sub
 
 Sub _Process(delta As Single)
-    If RaceFinished Then
-        If Input.IsActionJustPressed("ui_accept") Then
-            GetTree().reload_current_scene()
-        End If
-        Exit Sub
-    End If
-    
-    RaceTime = RaceTime + delta
-    
-    ' Input handling
-    Dim accelerate As Boolean
-    Dim brake As Boolean
-    accelerate = Input.IsActionPressed("ui_up")
-    brake = Input.IsActionPressed("ui_down")
-    
-    If Input.IsActionPressed("ui_left") Then
-        Steering = -1
-    ElseIf Input.IsActionPressed("ui_right") Then
-        Steering = 1
-    Else
-        Steering = 0
-    End If
-    
-    ' Update car speed
-    If accelerate Then
-        CarSpeed = CarSpeed + Acceleration * delta
-        If CarSpeed > MaxSpeed Then
-            CarSpeed = MaxSpeed
-        End If
-    ElseIf brake Then
-        CarSpeed = CarSpeed - Deceleration * 2 * delta
-        If CarSpeed < -MaxSpeed / 2 Then
-            CarSpeed = -MaxSpeed / 2
-        End If
-    Else
-        ' Natural deceleration
-        If CarSpeed > 0 Then
-            CarSpeed = CarSpeed - Deceleration * delta
-            If CarSpeed < 0 Then CarSpeed = 0
-        ElseIf CarSpeed < 0 Then
-            CarSpeed = CarSpeed + Deceleration * delta
-            If CarSpeed > 0 Then CarSpeed = 0
-        End If
-    End If
-    
-    ' Update car rotation based on steering and speed
-    If Abs(CarSpeed) > 1 Then
-        CarRotation = CarRotation + Steering * TurnSpeed * delta * (CarSpeed / MaxSpeed)
-    End If
-    
-    ' Update car position
-    CarX = CarX + Sin(CarRotation) * CarSpeed * delta
-    CarZ = CarZ + Cos(CarRotation) * CarSpeed * delta
-    
-    ' Keep car on track (simple boundary)
-    Dim distFromCenter As Single
-    distFromCenter = Sqr(CarX * CarX + CarZ * CarZ)
-    If distFromCenter > 50 Then
-        ' Hit outer wall - slow down
-        CarSpeed = CarSpeed * 0.5
-        ' Push back toward track
-        Dim angle As Single
-        angle = Atan2(CarX, CarZ)
-        CarX = Sin(angle) * 50
-        CarZ = Cos(angle) * 50
-    End If
-    
-    If distFromCenter < 25 Then
-        ' Hit inner wall - slow down
-        CarSpeed = CarSpeed * 0.5
-        ' Push back toward track
-        angle = Atan2(CarX, CarZ)
-        CarX = Sin(angle) * 25
-        CarZ = Cos(angle) * 25
-    End If
-    
-    ' Update car transform
-    Car.position = Vector3(CarX, 0.5, CarZ)
-    Car.rotation = Vector3(0, CarRotation, 0)
-    
-    ' Update camera to follow car
-    Dim camX As Single
-    Dim camY As Single
-    Dim camZ As Single
-    camX = CarX - Sin(CarRotation) * 15
-    camY = 8
-    camZ = CarZ - Cos(CarRotation) * 15
-    Camera.position = Vector3(camX, camY, camZ)
-    Camera.look_at(Vector3(CarX, 0.5, CarZ), Vector3(0, 1, 0))
-    
-    ' Check checkpoints
-    Call UpdateCheckpoints()
-    
-    ' Update UI
-    Dim speedKmh As Integer
-    speedKmh = CInt(Abs(CarSpeed) * 5)
-    SpeedLabel.text = "Speed: " & CStr(speedKmh) & " km/h"
-    LapLabel.text = "Lap: " & CStr(CurrentLap) & " / " & CStr(TotalLaps)
-    
-    Dim minutes As Integer
-    Dim seconds As Integer
-    minutes = CInt(RaceTime / 60)
-    seconds = CInt(RaceTime) Mod 60
-    TimeLabel.text = "Time: " & CStr(minutes) & ":" & Right("0" & CStr(seconds), 2)
+	If RaceFinished Then
+		If Input.IsActionJustPressed("ui_accept") Then
+			GetTree().reload_current_scene()
+		End If
+		Exit Sub
+	End If
+	
+	RaceTime = RaceTime + delta
+	
+	' Input handling
+	Dim accelerate As Boolean
+	Dim brake As Boolean
+	accelerate = Input.IsActionPressed("ui_up")
+	brake = Input.IsActionPressed("ui_down")
+	
+	If Input.IsActionPressed("ui_left") Then
+		Steering = 1
+	ElseIf Input.IsActionPressed("ui_right") Then
+		Steering = -1
+	Else
+		Steering = 0
+	End If
+	
+	' Update car speed
+	If accelerate Then
+		CarSpeed = CarSpeed + Acceleration * delta
+		If CarSpeed > MaxSpeed Then
+			CarSpeed = MaxSpeed
+		End If
+	ElseIf brake Then
+		CarSpeed = CarSpeed - Deceleration * 2 * delta
+		If CarSpeed < -MaxSpeed / 2 Then
+			CarSpeed = -MaxSpeed / 2
+		End If
+	Else
+		' Natural deceleration
+		If CarSpeed > 0 Then
+			CarSpeed = CarSpeed - Deceleration * delta
+			If CarSpeed < 0 Then CarSpeed = 0
+		ElseIf CarSpeed < 0 Then
+			CarSpeed = CarSpeed + Deceleration * delta
+			If CarSpeed > 0 Then CarSpeed = 0
+		End If
+	End If
+	
+	' Update car rotation based on steering and speed
+	If Abs(CarSpeed) > 1 Then
+		CarRotation = CarRotation + Steering * TurnSpeed * delta * (CarSpeed / MaxSpeed)
+	End If
+	
+	' Update car position
+	CarX = CarX + Sin(CarRotation) * CarSpeed * delta
+	CarZ = CarZ + Cos(CarRotation) * CarSpeed * delta
+	
+	' Keep car on track (simple boundary)
+	Dim distFromCenter As Single
+	distFromCenter = Sqr(CarX * CarX + CarZ * CarZ)
+	If distFromCenter > 50 Then
+		' Hit outer wall - slow down
+		CarSpeed = CarSpeed * 0.5
+		' Push back toward track
+		Dim angle As Single
+		angle = Atan2(CarX, CarZ)
+		CarX = Sin(angle) * 50
+		CarZ = Cos(angle) * 50
+	End If
+	
+	If distFromCenter < 25 Then
+		' Hit inner wall - slow down
+		CarSpeed = CarSpeed * 0.5
+		' Push back toward track
+		angle = Atan2(CarX, CarZ)
+		CarX = Sin(angle) * 25
+		CarZ = Cos(angle) * 25
+	End If
+	
+	' Update car transform
+	Car.position = Vector3(CarX, 0.5, CarZ)
+	Car.rotation = Vector3(0, CarRotation, 0)
+	
+	' Update camera to follow car
+	Dim camX As Single
+	Dim camY As Single
+	Dim camZ As Single
+	camX = CarX - Sin(CarRotation) * 15
+	camY = 8
+	camZ = CarZ - Cos(CarRotation) * 15
+	Camera.position = Vector3(camX, camY, camZ)
+	Camera.look_at(Vector3(CarX, 0.5, CarZ), Vector3(0, 1, 0))
+	
+	' Check checkpoints
+	Call UpdateCheckpoints()
+	
+	' Update UI
+	Dim speedKmh As Integer
+	speedKmh = CInt(Abs(CarSpeed) * 5)
+	SpeedLabel.text = "Speed: " & CStr(speedKmh) & " km/h"
+	LapLabel.text = "Lap: " & CStr(CurrentLap) & " / " & CStr(TotalLaps)
+	
+	Dim minutes As Integer
+	Dim seconds As Integer
+	minutes = CInt(RaceTime / 60)
+	seconds = CInt(RaceTime) Mod 60
+	TimeLabel.text = "Time: " & CStr(minutes) & ":" & Right("0" & CStr(seconds), 2)
 End Sub
 
 Sub UpdateCheckpoints()
-    Dim i As Integer
-    For i = 0 To 7
-        If Not CheckpointPassed(i) Then
-            Dim dist As Single
-            dist = Sqr((CarX - CheckpointX(i)) * (CarX - CheckpointX(i)) + (CarZ - CheckpointZ(i)) * (CarZ - CheckpointZ(i)))
-            
-            If dist < 10 Then
-                ' Check if this is the next checkpoint in sequence
-                If i = LastCheckpoint + 1 Or (LastCheckpoint = 7 And i = 0) Then
-                    CheckpointPassed(i) = True
-                    LastCheckpoint = i
-                    
-                    ' Check if completed a lap
-                    If i = 7 Then
-                        Call CompleteLap()
-                    End If
-                End If
-            End If
-        End If
-    Next i
+	Dim i As Integer
+	For i = 0 To 7
+		If Not CheckpointPassed(i) Then
+			Dim dist As Single
+			dist = Sqr((CarX - CheckpointX(i)) * (CarX - CheckpointX(i)) + (CarZ - CheckpointZ(i)) * (CarZ - CheckpointZ(i)))
+			
+			If dist < 10 Then
+				' Check if this is the next checkpoint in sequence
+				If i = LastCheckpoint + 1 Or (LastCheckpoint = 7 And i = 0) Then
+					CheckpointPassed(i) = True
+					LastCheckpoint = i
+					
+					' Check if completed a lap
+					If i = 7 Then
+						Call CompleteLap()
+					End If
+				End If
+			End If
+		End If
+	Next i
 End Sub
 
 Sub CompleteLap()
-    CurrentLap = CurrentLap + 1
-    
-    ' Reset checkpoints for next lap
-    Dim i As Integer
-    For i = 0 To 7
-        CheckpointPassed(i) = False
-    Next i
-    LastCheckpoint = -1
-    
-    If CurrentLap >= TotalLaps Then
-        ' Race finished!
-        RaceFinished = True
-        If RaceTime < BestTime Then
-            BestTime = RaceTime
-        End If
-        
-        Dim minutes As Integer
-        Dim seconds As Integer
-        minutes = CInt(RaceTime / 60)
-        seconds = CInt(RaceTime) Mod 60
-        
-        FinishLabel.visible = True
-        FinishLabel.text = "RACE COMPLETE!" & vbNewLine & "Time: " & CStr(minutes) & ":" & Right("0" & CStr(seconds), 2) & vbNewLine & vbNewLine & "Press SPACE to race again"
-    Else
-        Print "Lap " & CStr(CurrentLap) & " complete!"
-    End If
+	CurrentLap = CurrentLap + 1
+	
+	' Reset checkpoints for next lap
+	Dim i As Integer
+	For i = 0 To 7
+		CheckpointPassed(i) = False
+	Next i
+	LastCheckpoint = -1
+	
+	If CurrentLap >= TotalLaps Then
+		' Race finished!
+		RaceFinished = True
+		If RaceTime < BestTime Then
+			BestTime = RaceTime
+		End If
+		
+		Dim minutes As Integer
+		Dim seconds As Integer
+		minutes = CInt(RaceTime / 60)
+		seconds = CInt(RaceTime) Mod 60
+		
+		FinishLabel.visible = True
+		FinishLabel.text = "RACE COMPLETE!" & vbNewLine & "Time: " & CStr(minutes) & ":" & Right("0" & CStr(seconds), 2) & vbNewLine & vbNewLine & "Press SPACE to race again"
+	Else
+		Print "Lap " & CStr(CurrentLap) & " complete!"
+	End If
 End Sub

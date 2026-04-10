@@ -34,6 +34,10 @@
 - [BRACKET_COMPLETION_QUICK_REF.md](BRACKET_COMPLETION_QUICK_REF.md) - Quick reference for bracket completion
 - [IMMEDIATE_WINDOW.md](IMMEDIATE_WINDOW.md) - Interactive debugging console
 
+### Plugin System & AGCK
+- [PLUGIN_SYSTEM.md](guides/PLUGIN_SYSTEM.md) - **Plugin System Developer Guide** (architecture, base class API, plugin manager, creating plugins, AGCK as reference example)
+- [AGCK_MANUAL.md](manual/AGCK_MANUAL.md) - **Arcade Game Construction Kit Manual** (5 sub-editors: Game Settings, Actors, Sounds, Levels, Build — retro game construction)
+
 ### Modern Features
 - [MODERN_FEATURES_README.md](guides/MODERN_FEATURES_README.md) - Overview of modern extensions
 - [MODERN_FEATURES.md](guides/MODERN_FEATURES.md) - Detailed modern feature documentation
@@ -117,6 +121,13 @@
 | Environment Presets | One-click sky + lighting setups (Day/Night/Indoor/Space) | 🌍 Env button (3D toolbar) |
 | Animation Editor | Create animations, keyframes, playback, .glb import | Tools → Animation Editor |
 | Make EXE | One-click game export with auto export presets | File → Make EXE |
+
+### Plugins & Game Construction Tools
+| Tool | Description | Location |
+|------|-------------|----------|
+| Plugin System | Extensible plugin architecture for custom IDE tabs | `plugins/` directory (auto-discovered) |
+| AGCK | Arcade Game Construction Kit — 5-editor retro game builder | 🕹️ AGCK toolbar button |
+| Sprite Editor | Piskel-style pixel art editor with 15 tools, layers, animation | 🎨 Sprite Editor toolbar button |
 
 ### Code Editing Tools
 | Tool | Description | Location |
@@ -239,6 +250,23 @@
 | `vg_linter.gd` | Static code analysis |
 | `vg_snippet_manager.gd` | Code snippet management |
 | `vg_theme_manager.gd` | Syntax highlighting themes |
+
+### Plugin System Files
+| File | Description |
+|------|-------------|
+| `vg_plugin_base.gd` | Base class for all VG IDE plugins (extend this) |
+| `vg_plugin_manager.gd` | Plugin discovery, lifecycle, and toolbar integration manager |
+
+### AGCK Plugin Files (plugins/agck/)
+| File | Description |
+|------|-------------|
+| `plugin.cfg` | Plugin discovery configuration (name, script, enabled) |
+| `agck_plugin.gd` | Main AGCK plugin — TabContainer with 5 sub-editors, save/load |
+| `agck_game_settings.gd` | ⚙️ Game Settings — world physics, screen, lives, controls, FX |
+| `agck_actor_editor.gd` | 👾 Actor Editor — 16 actors, 5 types, collision, AI, sound |
+| `agck_sound_editor.gd` | 🔊 Sound Editor — 8 slots, 2 voices + filter, bar-graph synth |
+| `agck_level_editor.gd` | 🗺️ Level Editor — 50 levels, 20×12 grid, 7 block types |
+| `agck_game_builder.gd` | 🏗️ Game Builder — build targets, splash screen, export |
 
 ### Navigation & Refactoring Files
 | File | Description |

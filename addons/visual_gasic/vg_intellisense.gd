@@ -1260,6 +1260,12 @@ const SNIPPETS: Array[Dictionary] = [
 	{"trigger": "prop", "code": "Private _${1:name} As ${2:Type}\n\nPublic Property Get ${1:name}() As ${2:Type}\n\t${1:name} = _${1:name}\nEnd Property\n\nPublic Property Let ${1:name}(value As ${2:Type})\n\t_${1:name} = value\nEnd Property", "description": "Property with backing field"},
 	{"trigger": "async", "code": "Async Function ${1:Name}() As Task\n\t${0}\nEnd Function", "description": "Async function"},
 	{"trigger": "whenever", "code": "Whenever ${1:condition} Then\n\t${0}\nEnd Whenever", "description": "Whenever reactive block"},
+	{"trigger": "oscillate", "code": "Oscillate ${1:i} = ${2:0} To ${3:10} Cycles ${4:3}\n\t${0}\nLoop", "description": "Oscillate ping-pong loop"},
+	{"trigger": "repeat", "code": "Repeat ${1:5} Times As ${2:i}\n\t${0}\nEnd Repeat", "description": "Repeat N Times loop"},
+	{"trigger": "cycle", "code": "Cycle Through ${1:collection} For ${2:N} As ${3:item}\n\t${0}\nEnd Cycle", "description": "Cycle Through collection"},
+	{"trigger": "every", "code": "Every ${1:3} Frames\n\t${0}\nEnd Every", "description": "Every N Frames guard"},
+	{"trigger": "everysec", "code": "Every ${1:1.0} Seconds\n\t${0}\nEnd Every", "description": "Every N Seconds guard"},
+	{"trigger": "tween", "code": "Tween ${1:node}.${2:Position} To ${3:Vector2(0, 0)} Over ${4:1.0}", "description": "Tween one-liner animation"},
 ]
 
 # =============================================================================

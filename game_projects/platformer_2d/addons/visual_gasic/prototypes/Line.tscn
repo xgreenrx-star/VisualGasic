@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[node name="Line" type="ColorRect"]
+custom_minimum_size = Vector2(200, 2)
+offset_right = 200.0
+offset_bottom = 2.0
+color = Color(0, 0, 0, 1)

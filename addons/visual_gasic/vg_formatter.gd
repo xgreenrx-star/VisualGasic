@@ -66,13 +66,15 @@ class FormatOptions:
 const INDENT_KEYWORDS: Array[String] = [
 	"Sub", "Function", "Property", "Class", "Type", "Enum",
 	"If", "ElseIf", "Else", "For", "While", "Do", "Select Case", "Case",
-	"Try", "Catch", "Finally", "With", "Whenever"
+	"Try", "Catch", "Finally", "With", "Whenever",
+	"Oscillate", "Repeat", "Cycle", "Every"
 ]
 
 const DEDENT_KEYWORDS: Array[String] = [
 	"End Sub", "End Function", "End Property", "End Class", "End Type", "End Enum",
 	"End If", "Next", "Wend", "Loop", "End Select",
-	"End Try", "End With", "End Whenever", "End Class"
+	"End Try", "End With", "End Whenever", "End Class",
+	"End Repeat", "End Cycle", "End Every"
 ]
 
 const DEDENT_BEFORE_KEYWORDS: Array[String] = [
@@ -129,6 +131,17 @@ const VB6_KEYWORDS_PROPER_CASE: Dictionary = {
 	"changes": "Changes", "becomes": "Becomes", "exceeds": "Exceeds",
 	"below": "Below", "between": "Between", "contains": "Contains",
 	"suspend": "Suspend",
+	
+	# Game-Oriented Loop / Animation Commands
+	"oscillate": "Oscillate", "cycles": "Cycles",
+	"exit oscillate": "Exit Oscillate", "continue oscillate": "Continue Oscillate",
+	"repeat": "Repeat", "times": "Times", "end repeat": "End Repeat",
+	"exit repeat": "Exit Repeat", "continue repeat": "Continue Repeat",
+	"cycle": "Cycle", "through": "Through", "end cycle": "End Cycle",
+	"exit cycle": "Exit Cycle", "continue cycle": "Continue Cycle",
+	"every": "Every", "frames": "Frames", "seconds": "Seconds", "end every": "End Every",
+	"tween": "Tween", "over": "Over", "ease": "Ease", "trans": "Trans",
+	"from": "From",
 	
 	# Modern - Other
 	"with": "With", "end with": "End With",

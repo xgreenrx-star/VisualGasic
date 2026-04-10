@@ -5,110 +5,392 @@
 [node name="PlatformerGame" type="Node2D"]
 script = ExtResource("1")
 
+[node name="Background" type="ColorRect" parent="."]
+z_index = -100
+offset_right = 2000.0
+offset_bottom = 600.0
+color = Color(0.35, 0.55, 0.95, 1)
+
+[node name="Cloud1" type="ColorRect" parent="."]
+z_index = -90
+offset_left = 120.0
+offset_top = 60.0
+offset_right = 240.0
+offset_bottom = 100.0
+color = Color(0.95, 0.95, 1.0, 0.7)
+
+[node name="Cloud2" type="ColorRect" parent="."]
+z_index = -90
+offset_left = 500.0
+offset_top = 40.0
+offset_right = 650.0
+offset_bottom = 85.0
+color = Color(0.95, 0.95, 1.0, 0.6)
+
+[node name="Cloud3" type="ColorRect" parent="."]
+z_index = -90
+offset_left = 900.0
+offset_top = 70.0
+offset_right = 1080.0
+offset_bottom = 110.0
+color = Color(0.95, 0.95, 1.0, 0.65)
+
+[node name="Cloud4" type="ColorRect" parent="."]
+z_index = -90
+offset_left = 1350.0
+offset_top = 45.0
+offset_right = 1490.0
+offset_bottom = 80.0
+color = Color(0.95, 0.95, 1.0, 0.7)
+
+[node name="Cloud5" type="ColorRect" parent="."]
+z_index = -90
+offset_left = 1700.0
+offset_top = 80.0
+offset_right = 1850.0
+offset_bottom = 115.0
+color = Color(0.95, 0.95, 1.0, 0.55)
+
+[node name="DistantHill1" type="ColorRect" parent="."]
+z_index = -80
+offset_left = 0.0
+offset_top = 380.0
+offset_right = 350.0
+offset_bottom = 600.0
+color = Color(0.3, 0.5, 0.35, 0.4)
+
+[node name="DistantHill2" type="ColorRect" parent="."]
+z_index = -80
+offset_left = 280.0
+offset_top = 400.0
+offset_right = 700.0
+offset_bottom = 600.0
+color = Color(0.25, 0.45, 0.3, 0.35)
+
+[node name="DistantHill3" type="ColorRect" parent="."]
+z_index = -80
+offset_left = 650.0
+offset_top = 370.0
+offset_right = 1100.0
+offset_bottom = 600.0
+color = Color(0.3, 0.5, 0.35, 0.4)
+
+[node name="DistantHill4" type="ColorRect" parent="."]
+z_index = -80
+offset_left = 1050.0
+offset_top = 390.0
+offset_right = 1500.0
+offset_bottom = 600.0
+color = Color(0.25, 0.45, 0.3, 0.35)
+
+[node name="DistantHill5" type="ColorRect" parent="."]
+z_index = -80
+offset_left = 1400.0
+offset_top = 375.0
+offset_right = 2000.0
+offset_bottom = 600.0
+color = Color(0.3, 0.5, 0.35, 0.4)
+
+[node name="Bush1" type="ColorRect" parent="."]
+z_index = -10
+offset_left = 50.0
+offset_top = 470.0
+offset_right = 100.0
+offset_bottom = 500.0
+color = Color(0.15, 0.5, 0.15, 1)
+
+[node name="Bush2" type="ColorRect" parent="."]
+z_index = -10
+offset_left = 200.0
+offset_top = 475.0
+offset_right = 240.0
+offset_bottom = 500.0
+color = Color(0.12, 0.45, 0.12, 1)
+
+[node name="Bush3" type="ColorRect" parent="."]
+z_index = -10
+offset_left = 320.0
+offset_top = 472.0
+offset_right = 380.0
+offset_bottom = 500.0
+color = Color(0.15, 0.5, 0.15, 1)
+
+[node name="Tree1_Trunk" type="ColorRect" parent="."]
+z_index = -12
+offset_left = 140.0
+offset_top = 440.0
+offset_right = 155.0
+offset_bottom = 500.0
+color = Color(0.4, 0.25, 0.1, 1)
+
+[node name="Tree1_Leaves" type="ColorRect" parent="."]
+z_index = -11
+offset_left = 120.0
+offset_top = 410.0
+offset_right = 175.0
+offset_bottom = 450.0
+color = Color(0.1, 0.55, 0.1, 1)
+
+[node name="Tree2_Trunk" type="ColorRect" parent="."]
+z_index = -12
+offset_left = 1530.0
+offset_top = 350.0
+offset_right = 1545.0
+offset_bottom = 400.0
+color = Color(0.4, 0.25, 0.1, 1)
+
+[node name="Tree2_Leaves" type="ColorRect" parent="."]
+z_index = -11
+offset_left = 1510.0
+offset_top = 315.0
+offset_right = 1565.0
+offset_bottom = 360.0
+color = Color(0.1, 0.55, 0.1, 1)
+
+[node name="Signpost" type="ColorRect" parent="."]
+z_index = -5
+offset_left = 70.0
+offset_top = 455.0
+offset_right = 78.0
+offset_bottom = 500.0
+color = Color(0.5, 0.35, 0.15, 1)
+
+[node name="SignpostSign" type="ColorRect" parent="."]
+z_index = -5
+offset_left = 55.0
+offset_top = 448.0
+offset_right = 95.0
+offset_bottom = 462.0
+color = Color(0.7, 0.55, 0.2, 1)
+
+[node name="FlagPole" type="ColorRect" parent="."]
+z_index = -5
+offset_left = 1700.0
+offset_top = 340.0
+offset_right = 1706.0
+offset_bottom = 400.0
+color = Color(0.6, 0.6, 0.6, 1)
+
+[node name="Flag" type="ColorRect" parent="."]
+z_index = -5
+offset_left = 1706.0
+offset_top = 340.0
+offset_right = 1740.0
+offset_bottom = 358.0
+color = Color(0.9, 0.2, 0.2, 1)
+
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(480, 270)
 
 [node name="Player" type="ColorRect" parent="."]
-offset_left = -15.0
-offset_top = -15.0
-offset_right = 15.0
-offset_bottom = 15.0
+offset_left = 85.0
+offset_top = 470.0
+offset_right = 115.0
+offset_bottom = 500.0
+color = Color(0.2, 0.8, 0.2, 1)
 
 [node name="Platforms" type="Node2D" parent="."]
 
 [node name="Platform1" type="ColorRect" parent="Platforms"]
+offset_left = 0.0
+offset_top = 500.0
+offset_right = 400.0
+offset_bottom = 540.0
+color = Color(0.4, 0.3, 0.2, 1)
+
+[node name="Platform1_Grass" type="ColorRect" parent="Platforms"]
+z_index = 1
+offset_left = 0.0
+offset_top = 496.0
+offset_right = 400.0
+offset_bottom = 504.0
+color = Color(0.2, 0.6, 0.15, 1)
 
 [node name="Platform2" type="ColorRect" parent="Platforms"]
+offset_left = 450.0
+offset_top = 450.0
+offset_right = 600.0
+offset_bottom = 470.0
+color = Color(0.4, 0.3, 0.2, 1)
+
+[node name="Platform2_Grass" type="ColorRect" parent="Platforms"]
+z_index = 1
+offset_left = 450.0
+offset_top = 446.0
+offset_right = 600.0
+offset_bottom = 454.0
+color = Color(0.2, 0.6, 0.15, 1)
 
 [node name="Platform3" type="ColorRect" parent="Platforms"]
+offset_left = 700.0
+offset_top = 400.0
+offset_right = 850.0
+offset_bottom = 420.0
+color = Color(0.4, 0.3, 0.2, 1)
+
+[node name="Platform3_Grass" type="ColorRect" parent="Platforms"]
+z_index = 1
+offset_left = 700.0
+offset_top = 396.0
+offset_right = 850.0
+offset_bottom = 404.0
+color = Color(0.2, 0.6, 0.15, 1)
 
 [node name="Platform4" type="ColorRect" parent="Platforms"]
+offset_left = 900.0
+offset_top = 350.0
+offset_right = 1100.0
+offset_bottom = 370.0
+color = Color(0.4, 0.3, 0.2, 1)
+
+[node name="Platform4_Grass" type="ColorRect" parent="Platforms"]
+z_index = 1
+offset_left = 900.0
+offset_top = 346.0
+offset_right = 1100.0
+offset_bottom = 354.0
+color = Color(0.2, 0.6, 0.15, 1)
 
 [node name="Platform5" type="ColorRect" parent="Platforms"]
+offset_left = 1200.0
+offset_top = 300.0
+offset_right = 1350.0
+offset_bottom = 320.0
+color = Color(0.4, 0.3, 0.2, 1)
+
+[node name="Platform5_Grass" type="ColorRect" parent="Platforms"]
+z_index = 1
+offset_left = 1200.0
+offset_top = 296.0
+offset_right = 1350.0
+offset_bottom = 304.0
+color = Color(0.2, 0.6, 0.15, 1)
 
 [node name="Platform6" type="ColorRect" parent="Platforms"]
+offset_left = 1450.0
+offset_top = 400.0
+offset_right = 1750.0
+offset_bottom = 440.0
+color = Color(0.8, 0.6, 0.2, 1)
+
+[node name="Platform6_Grass" type="ColorRect" parent="Platforms"]
+z_index = 1
+offset_left = 1450.0
+offset_top = 396.0
+offset_right = 1750.0
+offset_bottom = 404.0
+color = Color(0.3, 0.7, 0.2, 1)
 
 [node name="Coins" type="Node2D" parent="."]
 
 [node name="Coin1" type="ColorRect" parent="Coins"]
-offset_left = -7.5
-offset_top = -7.5
-offset_right = 7.5
-offset_bottom = 7.5
+offset_left = 242.5
+offset_top = 442.5
+offset_right = 257.5
+offset_bottom = 457.5
+color = Color(1, 0.8, 0, 1)
 
 [node name="Coin2" type="ColorRect" parent="Coins"]
-offset_left = -7.5
-offset_top = -7.5
-offset_right = 7.5
-offset_bottom = 7.5
+offset_left = 512.5
+offset_top = 392.5
+offset_right = 527.5
+offset_bottom = 407.5
+color = Color(1, 0.8, 0, 1)
 
 [node name="Coin3" type="ColorRect" parent="Coins"]
-offset_left = -7.5
-offset_top = -7.5
-offset_right = 7.5
-offset_bottom = 7.5
+offset_left = 762.5
+offset_top = 342.5
+offset_right = 777.5
+offset_bottom = 357.5
+color = Color(1, 0.8, 0, 1)
 
 [node name="Coin4" type="ColorRect" parent="Coins"]
-offset_left = -7.5
-offset_top = -7.5
-offset_right = 7.5
-offset_bottom = 7.5
+offset_left = 972.5
+offset_top = 292.5
+offset_right = 987.5
+offset_bottom = 307.5
+color = Color(1, 0.8, 0, 1)
 
 [node name="Coin5" type="ColorRect" parent="Coins"]
-offset_left = -7.5
-offset_top = -7.5
-offset_right = 7.5
-offset_bottom = 7.5
+offset_left = 1262.5
+offset_top = 242.5
+offset_right = 1277.5
+offset_bottom = 257.5
+color = Color(1, 0.8, 0, 1)
 
 [node name="Coin6" type="ColorRect" parent="Coins"]
-offset_left = -7.5
-offset_top = -7.5
-offset_right = 7.5
-offset_bottom = 7.5
+offset_left = 642.5
+offset_top = 192.5
+offset_right = 657.5
+offset_bottom = 207.5
+color = Color(1, 0.8, 0, 1)
 
 [node name="Coin7" type="ColorRect" parent="Coins"]
-offset_left = -7.5
-offset_top = -7.5
-offset_right = 7.5
-offset_bottom = 7.5
+offset_left = 142.5
+offset_top = 372.5
+offset_right = 157.5
+offset_bottom = 387.5
+color = Color(1, 0.8, 0, 1)
 
 [node name="Coin8" type="ColorRect" parent="Coins"]
-offset_left = -7.5
-offset_top = -7.5
-offset_right = 7.5
-offset_bottom = 7.5
+offset_left = 1092.5
+offset_top = 272.5
+offset_right = 1107.5
+offset_bottom = 287.5
+color = Color(1, 0.8, 0, 1)
 
 [node name="Coin9" type="ColorRect" parent="Coins"]
-offset_left = -7.5
-offset_top = -7.5
-offset_right = 7.5
-offset_bottom = 7.5
+offset_left = 1572.5
+offset_top = 342.5
+offset_right = 1587.5
+offset_bottom = 357.5
+color = Color(1, 0.8, 0, 1)
 
 [node name="Coin10" type="ColorRect" parent="Coins"]
-offset_left = -7.5
-offset_top = -7.5
-offset_right = 7.5
-offset_bottom = 7.5
+offset_left = 1642.5
+offset_top = 342.5
+offset_right = 1657.5
+offset_bottom = 357.5
+color = Color(1, 0.8, 0, 1)
 
 [node name="Enemies" type="Node2D" parent="."]
 
 [node name="Enemy1" type="ColorRect" parent="Enemies"]
-offset_left = -12.5
-offset_top = -12.5
-offset_right = 12.5
-offset_bottom = 12.5
+offset_left = 487.5
+offset_top = 407.5
+offset_right = 512.5
+offset_bottom = 432.5
+color = Color(1, 0.2, 0.2, 1)
 
 [node name="Enemy2" type="ColorRect" parent="Enemies"]
-offset_left = -12.5
-offset_top = -12.5
-offset_right = 12.5
-offset_bottom = 12.5
+offset_left = 937.5
+offset_top = 307.5
+offset_right = 962.5
+offset_bottom = 332.5
+color = Color(1, 0.2, 0.2, 1)
 
 [node name="Enemy3" type="ColorRect" parent="Enemies"]
-offset_left = -12.5
-offset_top = -12.5
-offset_right = 12.5
-offset_bottom = 12.5
+offset_left = 1237.5
+offset_top = 257.5
+offset_right = 1262.5
+offset_bottom = 282.5
+color = Color(1, 0.2, 0.2, 1)
+
+[node name="Lava" type="ColorRect" parent="."]
+z_index = -1
+offset_left = 0.0
+offset_top = 570.0
+offset_right = 2000.0
+offset_bottom = 600.0
+color = Color(0.9, 0.3, 0.05, 1)
+
+[node name="LavaGlow" type="ColorRect" parent="."]
+z_index = -2
+offset_left = 0.0
+offset_top = 560.0
+offset_right = 2000.0
+offset_bottom = 575.0
+color = Color(1.0, 0.5, 0.1, 0.4)
 
 [node name="UI" type="CanvasLayer" parent="."]
 
@@ -137,9 +419,3 @@ theme_override_font_sizes/font_size = 32
 text = "GAME OVER"
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="Background" type="ColorRect" parent="."]
-z_index = -100
-offset_right = 2000.0
-offset_bottom = 600.0
-color = Color(0.4, 0.6, 1, 1)

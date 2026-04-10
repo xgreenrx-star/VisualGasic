@@ -20,6 +20,10 @@ run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.6")
 config/icon="res://icon.svg"
 
+[autoload]
+
+VGDebugHandler="*uid://b1rh8wxduem4j"
+
 [display]
 
 window/size/viewport_width=1280

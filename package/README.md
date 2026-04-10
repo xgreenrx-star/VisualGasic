@@ -1,7 +1,7 @@
 # VisualGasic — A Modern Language for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-4.4.0--rc4-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-5.0.1--beta-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
 
@@ -9,7 +9,7 @@
 
 > **VisualGasic is not a VB6 clone.** It is a modern language that draws inspiration from VB6's approachable syntax and ease of learning, while introducing advanced features that go well beyond what VB6 ever offered. VG is VB6-*compatible* where it makes sense — you can port VB6 projects and feel at home immediately — but the language itself is designed to look forwards, not backwards.
 
-> 🚀 **Release Candidate** — v4.4.0-rc4 is feature-complete with cross-platform binaries, installers, and IDE project creation. Community testing welcome! [See release notes](RELEASE_NOTES_v4.4.0-rc4.md).
+> 🚀 **Beta Release** — v5.0.1 Beta includes a full plugin system, AGCK game construction kit, Piskel-style sprite editor, 3D game development tools, and comprehensive IDE. [See changelog](CHANGELOG.md).
 
 ## 🚀 **Key Features**
 
@@ -370,9 +370,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 4.4.0-rc4 (Release Candidate)
+**Current Version**: 5.0.1 Beta
 
-> See [RELEASE_NOTES_v4.4.0-rc4.md](RELEASE_NOTES_v4.4.0-rc4.md) for the latest changes.
+> See [CHANGELOG.md](CHANGELOG.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
@@ -404,7 +404,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 ### 🚧 Coming Soon
 
 See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
-- **Stable Release (v4.4.0)** - Pending community testing of RC1
+- **Stable Release (v5.0.1)** - Pending community testing of Beta
 - **Asset Library** - Publish to Godot Asset Library
 - **WebAssembly Validation** - Verify HTML5 export compatibility
 

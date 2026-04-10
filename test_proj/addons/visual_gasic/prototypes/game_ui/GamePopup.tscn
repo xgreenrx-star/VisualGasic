@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/visual_gasic/prototypes/game_ui/GamePopup.gd" id="1_popup"]
+
+[node name="GamePopup" type="PanelContainer"]
+custom_minimum_size = Vector2(260, 160)
+offset_right = 260.0
+offset_bottom = 160.0
+script = ExtResource("1_popup")

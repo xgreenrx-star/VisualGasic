@@ -1,99 +1,382 @@
-[gd_scene load_steps=8 format=3 uid="uid://racing3d_main_scene"]
+[gd_scene load_steps=16 format=3 uid="uid://racing3d_main_scene"]
 
 [ext_resource type="VisualGasicScript" path="res://racing.vg" id="1"]
 
-[sub_resource type="BoxMesh" id="BoxMesh_car"]
-size = Vector3(2, 1, 3)
-
 [sub_resource type="StandardMaterial3D" id="Material_car"]
-albedo_color = Color(1, 0.2, 0.2, 1)
+albedo_color = Color(0.9, 0.15, 0.15, 1)
+metallic = 0.4
+roughness = 0.3
 
-[sub_resource type="CylinderMesh" id="CylinderMesh_track"]
-top_radius = 50.0
-bottom_radius = 50.0
-height = 0.1
+[sub_resource type="StandardMaterial3D" id="Material_cabin"]
+albedo_color = Color(0.2, 0.5, 0.9, 1)
+metallic = 0.5
+roughness = 0.2
 
 [sub_resource type="StandardMaterial3D" id="Material_track"]
-albedo_color = Color(0.3, 0.3, 0.3, 1)
+albedo_color = Color(0.25, 0.25, 0.28, 1)
+roughness = 0.9
 
-[sub_resource type="CylinderMesh" id="CylinderMesh_grass"]
-top_radius = 25.0
-bottom_radius = 25.0
-height = 0.05
+[sub_resource type="StandardMaterial3D" id="Material_grass_inner"]
+albedo_color = Color(0.2, 0.55, 0.15, 1)
+roughness = 1.0
 
-[sub_resource type="StandardMaterial3D" id="Material_grass"]
-albedo_color = Color(0.2, 0.6, 0.2, 1)
+[sub_resource type="StandardMaterial3D" id="Material_grass_outer"]
+albedo_color = Color(0.15, 0.45, 0.1, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="Material_barrier"]
+albedo_color = Color(0.85, 0.85, 0.85, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Material_barrier_stripe"]
+albedo_color = Color(0.9, 0.2, 0.1, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Material_kerb"]
+albedo_color = Color(0.9, 0.6, 0.1, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="Material_start_line"]
+albedo_color = Color(1.0, 1.0, 1.0, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="Material_tree_trunk"]
+albedo_color = Color(0.45, 0.3, 0.15, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="Material_tree_leaves"]
+albedo_color = Color(0.1, 0.5, 0.1, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="Material_building"]
+albedo_color = Color(0.6, 0.55, 0.5, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="Material_wheel"]
+albedo_color = Color(0.15, 0.15, 0.15, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Material_cone"]
+albedo_color = Color(1.0, 0.5, 0.0, 1)
+roughness = 0.8
 
 [node name="RacingGame" type="Node3D"]
 script = ExtResource("1")
 
-[node name="Car" type="MeshInstance3D" parent="."]
+[node name="Car" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -40)
-mesh = SubResource("BoxMesh_car")
-surface_material_override/0 = SubResource("Material_car")
+
+[node name="Body" type="CSGBox3D" parent="Car"]
+size = Vector3(2, 1, 3)
+material = SubResource("Material_car")
+
+[node name="Cabin" type="CSGBox3D" parent="Car"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, -0.2)
+size = Vector3(1.6, 0.6, 1.2)
+material = SubResource("Material_cabin")
+
+[node name="FrontWheel_L" type="CSGCylinder3D" parent="Car"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, -1.1, -0.3, 1.0)
+radius = 0.3
+height = 0.2
+material = SubResource("Material_wheel")
+
+[node name="FrontWheel_R" type="CSGCylinder3D" parent="Car"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 1.1, -0.3, 1.0)
+radius = 0.3
+height = 0.2
+material = SubResource("Material_wheel")
+
+[node name="RearWheel_L" type="CSGCylinder3D" parent="Car"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, -1.1, -0.3, -1.0)
+radius = 0.3
+height = 0.2
+material = SubResource("Material_wheel")
+
+[node name="RearWheel_R" type="CSGCylinder3D" parent="Car"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 1.1, -0.3, -1.0)
+radius = 0.3
+height = 0.2
+material = SubResource("Material_wheel")
 
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 8, -55)
 fov = 75.0
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 20, 0)
+transform = Transform3D(0.866, -0.25, 0.433, 0, 0.866, 0.5, -0.5, -0.433, 0.75, 0, 20, 0)
 shadow_enabled = true
+light_energy = 1.2
+light_color = Color(1.0, 0.98, 0.92, 1)
 
-[node name="Track" type="MeshInstance3D" parent="."]
-mesh = SubResource("CylinderMesh_track")
-surface_material_override/0 = SubResource("Material_track")
+[node name="FillLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866, 0.25, -0.433, 0, 0.866, 0.5, 0.5, -0.433, 0.75, 0, 10, 0)
+light_energy = 0.3
+light_color = Color(0.7, 0.8, 1.0, 1)
 
-[node name="InnerGrass" type="MeshInstance3D" parent="."]
-mesh = SubResource("CylinderMesh_grass")
-surface_material_override/0 = SubResource("Material_grass")
+[node name="Track" type="Node3D" parent="."]
 
-[node name="Checkpoint1" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -40)
-visible = false
-mesh = SubResource("BoxMesh_car")
+[node name="OuterGround" type="CSGCylinder3D" parent="Track"]
+radius = 60.0
+height = 0.1
+sides = 64
+material = SubResource("Material_grass_outer")
 
-[node name="Checkpoint2" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 1, -30)
-visible = false
-mesh = SubResource("BoxMesh_car")
+[node name="TrackSurface" type="CSGCylinder3D" parent="Track"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+radius = 52.0
+height = 0.12
+sides = 64
+material = SubResource("Material_track")
 
-[node name="Checkpoint3" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 1, 0)
-visible = false
-mesh = SubResource("BoxMesh_car")
+[node name="InnerGrass" type="CSGCylinder3D" parent="Track"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, 0)
+radius = 24.0
+height = 0.15
+sides = 64
+material = SubResource("Material_grass_inner")
 
-[node name="Checkpoint4" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 1, 30)
-visible = false
-mesh = SubResource("BoxMesh_car")
+[node name="StartFinishLine" type="CSGBox3D" parent="Track"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.13, -38)
+size = Vector3(28, 0.02, 2)
+material = SubResource("Material_start_line")
 
-[node name="Checkpoint5" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 40)
-visible = false
-mesh = SubResource("BoxMesh_car")
+[node name="InnerKerb_N" type="CSGBox3D" parent="Track"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, -25)
+size = Vector3(50, 0.06, 0.8)
+material = SubResource("Material_kerb")
 
-[node name="Checkpoint6" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 1, 30)
-visible = false
-mesh = SubResource("BoxMesh_car")
+[node name="InnerKerb_S" type="CSGBox3D" parent="Track"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, 25)
+size = Vector3(50, 0.06, 0.8)
+material = SubResource("Material_kerb")
 
-[node name="Checkpoint7" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 1, 0)
-visible = false
-mesh = SubResource("BoxMesh_car")
+[node name="InnerKerb_W" type="CSGBox3D" parent="Track"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25, 0.12, 0)
+size = Vector3(0.8, 0.06, 50)
+material = SubResource("Material_kerb")
 
-[node name="Checkpoint8" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 1, -30)
-visible = false
-mesh = SubResource("BoxMesh_car")
+[node name="InnerKerb_E" type="CSGBox3D" parent="Track"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 0.12, 0)
+size = Vector3(0.8, 0.06, 50)
+material = SubResource("Material_kerb")
+
+[node name="OuterBarriers" type="Node3D" parent="."]
+
+[node name="BarrierN" type="CSGBox3D" parent="OuterBarriers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -53)
+size = Vector3(108, 2, 0.5)
+material = SubResource("Material_barrier")
+
+[node name="BarrierN_Stripe" type="CSGBox3D" parent="OuterBarriers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, -53)
+size = Vector3(108, 0.4, 0.55)
+material = SubResource("Material_barrier_stripe")
+
+[node name="BarrierS" type="CSGBox3D" parent="OuterBarriers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 53)
+size = Vector3(108, 2, 0.5)
+material = SubResource("Material_barrier")
+
+[node name="BarrierS_Stripe" type="CSGBox3D" parent="OuterBarriers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 53)
+size = Vector3(108, 0.4, 0.55)
+material = SubResource("Material_barrier_stripe")
+
+[node name="BarrierW" type="CSGBox3D" parent="OuterBarriers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -53, 1, 0)
+size = Vector3(0.5, 2, 106)
+material = SubResource("Material_barrier")
+
+[node name="BarrierW_Stripe" type="CSGBox3D" parent="OuterBarriers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -53, 1.8, 0)
+size = Vector3(0.55, 0.4, 106)
+material = SubResource("Material_barrier_stripe")
+
+[node name="BarrierE" type="CSGBox3D" parent="OuterBarriers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53, 1, 0)
+size = Vector3(0.5, 2, 106)
+material = SubResource("Material_barrier")
+
+[node name="BarrierE_Stripe" type="CSGBox3D" parent="OuterBarriers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53, 1.8, 0)
+size = Vector3(0.55, 0.4, 106)
+material = SubResource("Material_barrier_stripe")
+
+[node name="InnerBarriers" type="Node3D" parent="."]
+
+[node name="InnerBarrierN" type="CSGBox3D" parent="InnerBarriers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, -24)
+size = Vector3(48, 1.6, 0.4)
+material = SubResource("Material_barrier")
+
+[node name="InnerBarrierS" type="CSGBox3D" parent="InnerBarriers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 24)
+size = Vector3(48, 1.6, 0.4)
+material = SubResource("Material_barrier")
+
+[node name="InnerBarrierW" type="CSGBox3D" parent="InnerBarriers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 0.8, 0)
+size = Vector3(0.4, 1.6, 48)
+material = SubResource("Material_barrier")
+
+[node name="InnerBarrierE" type="CSGBox3D" parent="InnerBarriers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0.8, 0)
+size = Vector3(0.4, 1.6, 48)
+material = SubResource("Material_barrier")
+
+[node name="Scenery" type="Node3D" parent="."]
+
+[node name="Tree1_Trunk" type="CSGCylinder3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+radius = 0.3
+height = 3.0
+material = SubResource("Material_tree_trunk")
+
+[node name="Tree1_Leaves" type="CSGSphere3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.0, 0)
+radius = 2.0
+material = SubResource("Material_tree_leaves")
+
+[node name="Tree2_Trunk" type="CSGCylinder3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 1.5, 8)
+radius = 0.3
+height = 3.0
+material = SubResource("Material_tree_trunk")
+
+[node name="Tree2_Leaves" type="CSGSphere3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 4.0, 8)
+radius = 1.8
+material = SubResource("Material_tree_leaves")
+
+[node name="Tree3_Trunk" type="CSGCylinder3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 1.5, 5)
+radius = 0.25
+height = 3.0
+material = SubResource("Material_tree_trunk")
+
+[node name="Tree3_Leaves" type="CSGSphere3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 3.8, 5)
+radius = 1.6
+material = SubResource("Material_tree_leaves")
+
+[node name="Tree4_Trunk" type="CSGCylinder3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 1.5, -8)
+radius = 0.35
+height = 3.0
+material = SubResource("Material_tree_trunk")
+
+[node name="Tree4_Leaves" type="CSGSphere3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 4.2, -8)
+radius = 2.2
+material = SubResource("Material_tree_leaves")
+
+[node name="Tree5_Trunk" type="CSGCylinder3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 1.5, -5)
+radius = 0.3
+height = 3.0
+material = SubResource("Material_tree_trunk")
+
+[node name="Tree5_Leaves" type="CSGSphere3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 4.0, -5)
+radius = 1.9
+material = SubResource("Material_tree_leaves")
+
+[node name="Building1" type="CSGBox3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -57, 3, -45)
+size = Vector3(4, 6, 8)
+material = SubResource("Material_building")
+
+[node name="Building2" type="CSGBox3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -57, 4, -30)
+size = Vector3(5, 8, 6)
+material = SubResource("Material_building")
+
+[node name="Building3" type="CSGBox3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 57, 2.5, 40)
+size = Vector3(4, 5, 10)
+material = SubResource("Material_building")
+
+[node name="Building4" type="CSGBox3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 57, 3.5, 25)
+size = Vector3(5, 7, 5)
+material = SubResource("Material_building")
+
+[node name="GrandstandBase" type="CSGBox3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 1.5, -56)
+size = Vector3(30, 3, 4)
+material = SubResource("Material_building")
+
+[node name="GrandstandRoof" type="CSGBox3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 4, -56)
+size = Vector3(32, 0.3, 5)
+material = SubResource("Material_barrier_stripe")
+
+[node name="PitBuilding" type="CSGBox3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 1, -56)
+size = Vector3(15, 2, 3)
+material = SubResource("Material_track")
+
+[node name="Cone1" type="CSGCylinder3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0.3, -40)
+radius = 0.2
+height = 0.6
+cone = true
+material = SubResource("Material_cone")
+
+[node name="Cone2" type="CSGCylinder3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0.3, -40)
+radius = 0.2
+height = 0.6
+cone = true
+material = SubResource("Material_cone")
+
+[node name="Cone3" type="CSGCylinder3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42, 0.3, 30)
+radius = 0.2
+height = 0.6
+cone = true
+material = SubResource("Material_cone")
+
+[node name="Cone4" type="CSGCylinder3D" parent="Scenery"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42, 0.3, -30)
+radius = 0.2
+height = 0.6
+cone = true
+material = SubResource("Material_cone")
+
+[node name="Checkpoints" type="Node3D" parent="."]
+
+[node name="Checkpoint1" type="Node3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -40)
+
+[node name="Checkpoint2" type="Node3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, -30)
+
+[node name="Checkpoint3" type="Node3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0, 0)
+
+[node name="Checkpoint4" type="Node3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, 30)
+
+[node name="Checkpoint5" type="Node3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 40)
+
+[node name="Checkpoint6" type="Node3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0, 30)
+
+[node name="Checkpoint7" type="Node3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 0, 0)
+
+[node name="Checkpoint8" type="Node3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0, -30)
 
 [node name="UI" type="CanvasLayer" parent="."]
 
 [node name="SpeedLabel" type="Label" parent="UI"]
 offset_left = 20.0
 offset_top = 20.0
-offset_right = 200.0
+offset_right = 250.0
 offset_bottom = 46.0
 theme_override_font_sizes/font_size = 24
 text = "Speed: 0 km/h"
@@ -101,7 +384,7 @@ text = "Speed: 0 km/h"
 [node name="LapLabel" type="Label" parent="UI"]
 offset_left = 20.0
 offset_top = 50.0
-offset_right = 200.0
+offset_right = 250.0
 offset_bottom = 76.0
 theme_override_font_sizes/font_size = 24
 text = "Lap: 0 / 3"
@@ -109,7 +392,7 @@ text = "Lap: 0 / 3"
 [node name="TimeLabel" type="Label" parent="UI"]
 offset_left = 20.0
 offset_top = 80.0
-offset_right = 200.0
+offset_right = 250.0
 offset_bottom = 106.0
 theme_override_font_sizes/font_size = 24
 text = "Time: 0:00"
@@ -125,39 +408,3 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-
-[node name="OuterWalls" type="Node3D" parent="."]
-
-[node name="Wall1" type="CSGBox3D" parent="OuterWalls"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -53)
-size = Vector3(106, 4, 1)
-
-[node name="Wall2" type="CSGBox3D" parent="OuterWalls"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 53)
-size = Vector3(106, 4, 1)
-
-[node name="Wall3" type="CSGBox3D" parent="OuterWalls"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -53, 2, 0)
-size = Vector3(1, 4, 106)
-
-[node name="Wall4" type="CSGBox3D" parent="OuterWalls"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53, 2, 0)
-size = Vector3(1, 4, 106)
-
-[node name="InnerWalls" type="Node3D" parent="."]
-
-[node name="Wall1" type="CSGBox3D" parent="InnerWalls"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -27)
-size = Vector3(54, 4, 1)
-
-[node name="Wall2" type="CSGBox3D" parent="InnerWalls"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 27)
-size = Vector3(54, 4, 1)
-
-[node name="Wall3" type="CSGBox3D" parent="InnerWalls"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27, 2, 0)
-size = Vector3(1, 4, 54)
-
-[node name="Wall4" type="CSGBox3D" parent="InnerWalls"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27, 2, 0)
-size = Vector3(1, 4, 54)
