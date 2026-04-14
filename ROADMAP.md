@@ -789,6 +789,7 @@ v5.0.1-beta adds plugin system, AGCK game construction kit, sprite editor, relea
 | Environment Presets | ✅ Complete | 4 one-click lighting presets (Day/Night/Indoor/Space) |
 | Animation Editor | ✅ Complete | Timeline, keyframes, playback, .glb import |
 | Make EXE Export | ✅ Complete | File → Make EXE with auto-generated export presets |
+| Web UI | 🔲 Not Started | Browser-based project dashboard, settings panel, and build monitor |
 | Community Testing | 🟡 In Progress | Need feedback before stable release |
 
 ### Road to Stable (v5.0.1)
@@ -800,8 +801,9 @@ v5.0.1-beta adds plugin system, AGCK game construction kit, sprite editor, relea
 5. ✅ Plugin system & AGCK game construction kit
 6. ✅ Piskel-style sprite editor
 7. 🟡 Community testing of Beta
-8. 🔲 Fix any reported issues
-9. 🔲 Tag stable v5.0.1 release
+8. 🔲 Web UI — browser-based project dashboard, settings panel, and build monitor
+9. 🔲 Fix any reported issues
+10. 🔲 Tag stable v5.0.1 release
 
 ---
 
@@ -812,6 +814,7 @@ Potential features for the next version, pending community feedback:
 | Feature | Description | Priority |
 |---------|-------------|----------|
 | **Godot Asset Library** | Publish VisualGasic to the official Godot Asset Library | High |
+| **Web UI** | Browser-based project dashboard, settings panel, and build monitor. Required before stable release. | High |
 | **WebAssembly Export** | Validate and ensure HTML5 export compatibility | High |
 | **Multi-Provider AI Help** | Add support for cloud AI providers (OpenAI/ChatGPT, Anthropic/Claude, Google Gemini) alongside the existing local Ollama backend. Includes provider selector dropdown, API key settings dialog, HTTPS/TLS transport, and per-provider request/response adapters. OpenAI-compatible API format as the first cloud backend. | Medium |
 | **Visual Debugger v2** | Graphical call flow visualization, flame graphs | Medium |

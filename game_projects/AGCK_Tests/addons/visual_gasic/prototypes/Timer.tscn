@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/visual_gasic/vg_timer.gd" id="1"]
+
+[node name="Timer" type="Timer"]
+wait_time = 1.0
+one_shot = false
+script = ExtResource("1")

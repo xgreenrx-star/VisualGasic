@@ -1,51 +1,144 @@
 @tool
-## AGCK Sound Editor
+## AGCK Sound Editor — bar-graph synth painter
 ##
-## Retro waveform synthesizer inspired by AGCK's Sound Editor.
-## 2 voices + 1 filter per sound, 4 waveforms (square/triangle/sawtooth/noise),
-## bar-graph note editor, tempo control, 8 sound slots.
-extends HSplitContainer
+## Big bar-graph canvas as hero element. Voice/filter toggle strip
+## across the top. Sound selector as compact dropdown.
+extends VBoxContainer
 
 signal sound_changed(sound_id: int)
 
-# ─── Constants ───────────────────────────────────────────────
-const BG_COLOR = Color(0.16, 0.16, 0.19)
-const SECTION_COLOR = Color(0.22, 0.26, 0.35)
-const HEADER_COLOR = Color(0.85, 0.9, 1.0)
-const LABEL_COLOR = Color(0.75, 0.8, 0.85)
-const VALUE_COLOR = Color(0.5, 0.85, 0.55)
-const ACCENT_COLOR = Color(0.65, 0.4, 0.85)
-const BAR_COLOR_V1 = Color(0.3, 0.7, 0.4)
-const BAR_COLOR_V2 = Color(0.3, 0.4, 0.7)
-const BAR_COLOR_FLT = Color(0.7, 0.4, 0.3)
-const BAR_BG = Color(0.1, 0.1, 0.12)
-const GRID_COLOR = Color(0.2, 0.2, 0.22)
+# ─── Theme ───────────────────────────────────────────────────
+const BG_COLOR   = Color(0.13, 0.13, 0.16)
+const HEADER_BG  = Color(0.10, 0.10, 0.13)
+const TOOLBAR_BG = Color(0.11, 0.11, 0.14)
+const WHITE      = Color(1.0, 1.0, 1.0)
+const LABEL_CLR  = Color(0.88, 0.86, 0.80)
+const ACCENT     = Color(1.0, 0.82, 0.35)
+const DIM        = Color(0.50, 0.50, 0.55)
+const V1_COLOR   = Color(0.30, 0.85, 0.40)   # Voice 1 — green
+const V2_COLOR   = Color(0.35, 0.55, 0.95)   # Voice 2 — blue
+const FLT_COLOR  = Color(0.95, 0.60, 0.20)   # Filter — orange
+const CANVAS_BG  = Color(0.06, 0.06, 0.08)
 
-const WAVEFORMS = ["Square", "Triangle", "Sawtooth", "Noise"]
-const WAVEFORM_ICONS = ["⬜", "🔺", "🔶", "〰️"]
-const FILTER_TYPES = ["Low Pass", "Band Pass", "High Pass", "Notch"]
-const FILTER_Q = ["Zero Q", "Low Q", "Med Q", "High Q"]
-const MAX_SOUNDS = 8
-const MAX_NOTES = 32
-const MAX_NOTE_VAL = 48   # 4 octaves
+const MAX_SOUNDS   = 8
+const NUM_NOTES    = 32
+const MAX_NOTE_VAL = 48
+const WAVEFORMS    = ["Square", "Triangle", "Sawtooth", "Noise"]
+const FILTER_TYPES = ["None", "LowPass", "HighPass", "BandPass"]
 
-# ─── Sound Data ──────────────────────────────────────────────
+# ─── Audio Synthesis ─────────────────────────────────────────
+const SAMPLE_RATE   = 22050
+const NOTE_BASE_HZ  = 65.41  # C2 base frequency
+const ENVELOPE_MS   = 5      # ms attack/release to prevent clicks
+
+# ─── Data ────────────────────────────────────────────────────
 var sounds: Array = []
 var selected_sound: int = 0
-var selected_voice: int = 0  # 0=Voice1, 1=Voice2, 2=Filter
+var active_voice: int = 0  # 0=Voice1, 1=Voice2, 2=Filter
+var is_painting: bool = false
+var _undo_stack: Array = []   # Array of {sound_idx, voice1, voice2, filter}
+var _redo_stack: Array = []
+var _stroke_snapshot = null
+const MAX_UNDO = 30
 
-# ─── UI ──────────────────────────────────────────────────────
-var _sound_list: ItemList = null
-var _bar_graph: Control = null
-var _waveform_btns: Array = []
-var _voice_btns: Array = []
+# ─── UI Refs ─────────────────────────────────────────────────
+var _bar_canvas: Control = null
+var _sound_opt: OptionButton = null
+var _wave_opt1: OptionButton = null
+var _wave_opt2: OptionButton = null
+var _filt_opt: OptionButton = null
+var _filt_q_slider: HSlider = null
 var _tempo_slider: HSlider = null
+var _voice_btns: Array = []
+var _status_lbl: Label = null
+var _audio_player: AudioStreamPlayer = null
 var _name_edit: LineEdit = null
-var _filter_type_opt: OptionButton = null
-var _filter_q_opt: OptionButton = null
-var _filter_v1_check: CheckButton = null
-var _filter_v2_check: CheckButton = null
-var _is_playing: bool = false
+var _vol1_slider: HSlider = null
+var _vol2_slider: HSlider = null
+
+
+func _ls(size: int, color: Color) -> LabelSettings:
+	var s = LabelSettings.new()
+	s.font_size = size
+	s.font_color = color
+	return s
+
+
+func _style_option(opt: OptionButton) -> void:
+	var nb = StyleBoxFlat.new()
+	nb.bg_color = Color(0.18, 0.18, 0.22)
+	nb.set_corner_radius_all(3)
+	nb.content_margin_left = 6
+	nb.content_margin_right = 6
+	nb.content_margin_top = 3
+	nb.content_margin_bottom = 3
+	opt.add_theme_stylebox_override("normal", nb)
+	var hb = nb.duplicate()
+	hb.bg_color = Color(0.22, 0.22, 0.28)
+	opt.add_theme_stylebox_override("hover", hb)
+	opt.add_theme_stylebox_override("pressed", hb)
+	opt.add_theme_stylebox_override("focus", hb)
+	opt.add_theme_color_override("font_color", LABEL_CLR)
+	opt.add_theme_color_override("font_hover_color", WHITE)
+	opt.add_theme_color_override("font_pressed_color", WHITE)
+	opt.add_theme_color_override("font_focus_color", LABEL_CLR)
+	# Dark popup — OPAQUE window (transparent=true breaks Linux X11 compositors)
+	# See POPUP_THEME_FIX.md for the full explanation.
+	var popup := opt.get_popup()
+	_apply_dark_popup(popup)
+	if not popup.has_meta("_agck_popup_styled"):
+		popup.set_meta("_agck_popup_styled", true)
+		popup.about_to_popup.connect(func():
+			_apply_dark_popup(popup)
+			_apply_dark_popup.call_deferred(popup)
+		)
+		popup.visibility_changed.connect(func():
+			if popup.visible:
+				_apply_dark_popup(popup)
+		)
+
+
+## Linux X11 popup fix — DO NOT use transparent viewports for popups.
+func _apply_dark_popup(popup: PopupMenu) -> void:
+	if not is_instance_valid(popup):
+		return
+	popup.transparent = false
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Color(0.15, 0.15, 0.19, 1.0)
+	ps.set_corner_radius_all(0)
+	ps.content_margin_left = 6; ps.content_margin_right = 6
+	ps.content_margin_top = 4;  ps.content_margin_bottom = 4
+	ps.border_width_bottom = 1; ps.border_width_top = 1
+	ps.border_width_left = 1;   ps.border_width_right = 1
+	ps.border_color = Color(0.30, 0.30, 0.35)
+	var hs := StyleBoxFlat.new()
+	hs.bg_color = Color(0.25, 0.35, 0.55)
+	hs.set_corner_radius_all(3)
+	hs.content_margin_left = 6; hs.content_margin_right = 6
+	hs.content_margin_top = 2;  hs.content_margin_bottom = 2
+	var t := Theme.new()
+	for type_name in ["PopupMenu", "PopupPanel", "Panel", "Control", "Window"]:
+		t.set_stylebox("panel", type_name, ps)
+	t.set_stylebox("hover", "PopupMenu", hs)
+	t.set_color("font_color", "PopupMenu", LABEL_CLR)
+	t.set_color("font_hover_color", "PopupMenu", WHITE)
+	t.set_color("font_disabled_color", "PopupMenu", DIM)
+	t.set_color("font_separator_color", "PopupMenu", DIM)
+	t.set_color("font_accelerator_color", "PopupMenu", DIM)
+	t.set_color("font_outline_color", "PopupMenu", Color.TRANSPARENT)
+	popup.theme = t
+	popup.add_theme_stylebox_override("panel", ps)
+	popup.add_theme_stylebox_override("hover", hs)
+	popup.add_theme_color_override("font_color", LABEL_CLR)
+	popup.add_theme_color_override("font_hover_color", WHITE)
+	popup.add_theme_color_override("font_disabled_color", DIM)
+	popup.add_theme_color_override("font_separator_color", DIM)
+	popup.add_theme_color_override("font_accelerator_color", DIM)
+	popup.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
+	for c in popup.get_children(true):
+		if c is Control:
+			c.add_theme_stylebox_override("panel", ps)
+			c.queue_redraw()
 
 
 func _ready() -> void:
@@ -56,369 +149,711 @@ func _ready() -> void:
 func _init_sounds() -> void:
 	sounds.clear()
 	for i in range(MAX_SOUNDS):
-		sounds.append({
-			"name": "Sound " + str(i + 1),
-			"tempo": 50,
-			"voice1_waveform": 0,  # Square
-			"voice1_notes": _make_empty_notes(),
-			"voice2_waveform": 1,  # Triangle
-			"voice2_notes": _make_empty_notes(),
-			"filter_type": 0,      # Low Pass
-			"filter_q": 1,         # Low Q
-			"filter_notes": _make_empty_notes(),
-			"filter_voice1": true,
-			"filter_voice2": false,
-		})
-	# Pre-populate Sound 1 with a simple laser blast pattern
-	var snd = sounds[0]
-	snd["name"] = "Laser"
-	for i in range(8):
-		snd["voice1_notes"][i] = MAX_NOTE_VAL - i * 5
+		sounds.append(_make_empty_sound(i + 1))
 
 
-func _make_empty_notes() -> Array:
-	var arr: Array = []
-	arr.resize(MAX_NOTES)
-	arr.fill(0)
-	return arr
+func _make_empty_sound(num: int) -> Dictionary:
+	var v1_notes: Array = []
+	var v2_notes: Array = []
+	var flt_notes: Array = []
+	v1_notes.resize(NUM_NOTES); v1_notes.fill(0)
+	v2_notes.resize(NUM_NOTES); v2_notes.fill(0)
+	flt_notes.resize(NUM_NOTES); flt_notes.fill(0)
+	return {
+		"name": "Sound " + str(num),
+		"tempo": 120,
+		"voice1_wave": 0,
+		"voice1_notes": v1_notes,
+		"voice2_wave": 1,
+		"voice2_notes": v2_notes,
+		"filter_type": 0,
+		"filter_q": 50,
+		"filter_notes": flt_notes,
+		"voice1_enabled": true,
+		"voice2_enabled": false,
+		"filter_enabled": false,
+		"voice1_volume": 80,
+		"voice2_volume": 60,
+	}
 
 
 func _build_ui() -> void:
-	# LEFT: Sound slot list
-	var left_panel = VBoxContainer.new()
-	left_panel.custom_minimum_size.x = 160
-	left_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_theme_constant_override("separation", 0)
 
-	var left_bg_style = StyleBoxFlat.new()
-	left_bg_style.bg_color = Color(0.13, 0.13, 0.16)
-	var left_wrap = PanelContainer.new()
-	left_wrap.add_theme_stylebox_override("panel", left_bg_style)
-	left_wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# ══════════════════════════════════════════════════════════
+	# TOP BAR: Sound selector + voice toggles
+	# ══════════════════════════════════════════════════════════
+	var top_bar = PanelContainer.new()
+	var tb_style = StyleBoxFlat.new()
+	tb_style.bg_color = TOOLBAR_BG
+	tb_style.content_margin_left = 8
+	tb_style.content_margin_right = 8
+	tb_style.content_margin_top = 6
+	tb_style.content_margin_bottom = 6
+	top_bar.add_theme_stylebox_override("panel", tb_style)
+	top_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(top_bar)
 
-	var header = Label.new()
-	header.text = "🔊  SOUNDS"
-	header.add_theme_font_size_override("font_size", 14)
-	header.add_theme_color_override("font_color", HEADER_COLOR)
-	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	left_panel.add_child(header)
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 8)
+	top_bar.add_child(hbox)
 
-	_sound_list = ItemList.new()
-	_sound_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_sound_list.add_theme_font_size_override("font_size", 12)
-	_sound_list.item_selected.connect(_on_sound_selected)
-	left_panel.add_child(_sound_list)
+	# Sound dropdown
+	var snd_lbl = Label.new()
+	snd_lbl.text = "🔊 Sound:"
+	snd_lbl.label_settings = _ls(12, LABEL_CLR)
+	hbox.add_child(snd_lbl)
 
-	left_wrap.add_child(left_panel)
-	add_child(left_wrap)
+	_sound_opt = OptionButton.new()
+	_sound_opt.add_theme_font_size_override("font_size", 11)
+	_sound_opt.custom_minimum_size.x = 130
+	_sound_opt.item_selected.connect(_on_sound_selected)
+	hbox.add_child(_sound_opt)
+	_style_option(_sound_opt)
 
-	# RIGHT: Sound editor
-	var right_panel = VBoxContainer.new()
-	right_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-
-	var right_bg_style = StyleBoxFlat.new()
-	right_bg_style.bg_color = BG_COLOR
-	var right_wrap = PanelContainer.new()
-	right_wrap.add_theme_stylebox_override("panel", right_bg_style)
-	right_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right_wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
-
-	# Sound name
-	var name_row = HBoxContainer.new()
-	name_row.add_theme_constant_override("separation", 8)
-	var name_lbl = Label.new()
-	name_lbl.text = "Name:"
-	name_lbl.add_theme_color_override("font_color", LABEL_COLOR)
-	name_lbl.add_theme_font_size_override("font_size", 12)
-	name_row.add_child(name_lbl)
 	_name_edit = LineEdit.new()
-	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_name_edit.add_theme_font_size_override("font_size", 12)
+	_name_edit.placeholder_text = "Sound name"
+	_name_edit.tooltip_text = "Give this sound a name so you remember what it is"
+	_name_edit.custom_minimum_size.x = 100
+	_name_edit.add_theme_font_size_override("font_size", 11)
+	var ne_style = StyleBoxFlat.new()
+	ne_style.bg_color = Color(0.12, 0.12, 0.15)
+	ne_style.set_corner_radius_all(3)
+	ne_style.content_margin_left = 6; ne_style.content_margin_right = 6
+	ne_style.content_margin_top = 2;  ne_style.content_margin_bottom = 2
+	ne_style.border_width_bottom = 1; ne_style.border_color = Color(0.30, 0.30, 0.35)
+	_name_edit.add_theme_stylebox_override("normal", ne_style)
+	_name_edit.add_theme_color_override("font_color", WHITE)
 	_name_edit.text_changed.connect(_on_name_changed)
-	name_row.add_child(_name_edit)
-	right_panel.add_child(name_row)
+	hbox.add_child(_name_edit)
 
-	# Voice selector tabs
-	var voice_row = HBoxContainer.new()
-	voice_row.add_theme_constant_override("separation", 4)
-	var voice_names = ["♩ Voice 1", "♫ Voice 2", "🎛️ Filter"]
-	var voice_colors = [BAR_COLOR_V1, BAR_COLOR_V2, BAR_COLOR_FLT]
-	for i in range(3):
+	hbox.add_child(VSeparator.new())
+
+	# Voice toggle buttons — color-coded
+	var voice_data = [
+		{"label": "🎵 Voice 1", "color": V1_COLOR},
+		{"label": "🎶 Voice 2", "color": V2_COLOR},
+		{"label": "🔧 Filter", "color": FLT_COLOR},
+	]
+	for i in range(voice_data.size()):
+		var vd = voice_data[i]
 		var btn = Button.new()
-		btn.text = voice_names[i]
-		btn.add_theme_font_size_override("font_size", 11)
+		btn.text = vd.label
 		btn.toggle_mode = true
-		btn.button_pressed = (i == 0)
-		btn.pressed.connect(_on_voice_selected.bind(i))
-		var style = StyleBoxFlat.new()
-		style.bg_color = voice_colors[i].darkened(0.4)
-		style.set_corner_radius_all(3)
-		style.content_margin_left = 6
-		style.content_margin_right = 6
-		style.content_margin_top = 2
-		style.content_margin_bottom = 2
-		btn.add_theme_stylebox_override("normal", style)
-		var pressed_s = style.duplicate()
-		pressed_s.bg_color = voice_colors[i]
-		btn.add_theme_stylebox_override("pressed", pressed_s)
-		voice_row.add_child(btn)
+		btn.button_pressed = (i == active_voice)
+		btn.add_theme_font_size_override("font_size", 11)
+		btn.pressed.connect(_on_voice_btn.bind(i))
+
+		var ns = StyleBoxFlat.new()
+		ns.bg_color = vd.color.darkened(0.6)
+		ns.set_corner_radius_all(4)
+		ns.content_margin_left = 8
+		ns.content_margin_right = 8
+		ns.content_margin_top = 3
+		ns.content_margin_bottom = 3
+		btn.add_theme_stylebox_override("normal", ns)
+
+		var ps = ns.duplicate()
+		ps.bg_color = vd.color
+		ps.border_width_bottom = 3
+		ps.border_color = WHITE
+		btn.add_theme_stylebox_override("pressed", ps)
+
+		var hs = ns.duplicate()
+		hs.bg_color = vd.color.darkened(0.3)
+		btn.add_theme_stylebox_override("hover", hs)
+
+		btn.add_theme_color_override("font_color", WHITE)
+		btn.add_theme_color_override("font_pressed_color", WHITE)
+		btn.add_theme_color_override("font_hover_color", WHITE)
+		hbox.add_child(btn)
 		_voice_btns.append(btn)
-	right_panel.add_child(voice_row)
 
-	# Bar graph (custom draw)
-	_bar_graph = Control.new()
-	_bar_graph.custom_minimum_size = Vector2(0, 200)
-	_bar_graph.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_bar_graph.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_bar_graph.draw.connect(_draw_bar_graph)
-	_bar_graph.gui_input.connect(_on_bar_graph_input)
-	right_panel.add_child(_bar_graph)
+	# Spacer
+	var spc = Control.new()
+	spc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(spc)
 
-	# Waveform buttons (for voices) / Filter type (for filter)
-	var wave_row = HBoxContainer.new()
-	wave_row.add_theme_constant_override("separation", 4)
-	var wave_lbl = Label.new()
-	wave_lbl.text = "Waveform:"
-	wave_lbl.add_theme_color_override("font_color", LABEL_COLOR)
-	wave_lbl.add_theme_font_size_override("font_size", 12)
-	wave_row.add_child(wave_lbl)
-	for i in range(WAVEFORMS.size()):
-		var btn = Button.new()
-		btn.text = WAVEFORM_ICONS[i] + " " + WAVEFORMS[i]
-		btn.add_theme_font_size_override("font_size", 11)
-		btn.toggle_mode = true
-		btn.button_pressed = (i == 0)
-		btn.pressed.connect(_on_waveform_selected.bind(i))
-		_waveform_btns.append(btn)
-		wave_row.add_child(btn)
-	right_panel.add_child(wave_row)
-
-	# Filter options
-	var filter_row = HBoxContainer.new()
-	filter_row.add_theme_constant_override("separation", 8)
-	var ft_lbl = Label.new()
-	ft_lbl.text = "Filter:"
-	ft_lbl.add_theme_color_override("font_color", LABEL_COLOR)
-	ft_lbl.add_theme_font_size_override("font_size", 12)
-	filter_row.add_child(ft_lbl)
-	_filter_type_opt = OptionButton.new()
-	_filter_type_opt.add_theme_font_size_override("font_size", 11)
-	for ft in FILTER_TYPES:
-		_filter_type_opt.add_item(ft)
-	_filter_type_opt.item_selected.connect(_on_filter_type_changed)
-	filter_row.add_child(_filter_type_opt)
-	_filter_q_opt = OptionButton.new()
-	_filter_q_opt.add_theme_font_size_override("font_size", 11)
-	for fq in FILTER_Q:
-		_filter_q_opt.add_item(fq)
-	_filter_q_opt.selected = 1
-	_filter_q_opt.item_selected.connect(_on_filter_q_changed)
-	filter_row.add_child(_filter_q_opt)
-	_filter_v1_check = CheckButton.new()
-	_filter_v1_check.text = "V1"
-	_filter_v1_check.button_pressed = true
-	_filter_v1_check.add_theme_font_size_override("font_size", 11)
-	_filter_v1_check.toggled.connect(_on_filter_v1_toggled)
-	filter_row.add_child(_filter_v1_check)
-	_filter_v2_check = CheckButton.new()
-	_filter_v2_check.text = "V2"
-	_filter_v2_check.add_theme_font_size_override("font_size", 11)
-	_filter_v2_check.toggled.connect(_on_filter_v2_toggled)
-	filter_row.add_child(_filter_v2_check)
-	right_panel.add_child(filter_row)
-
-	# Tempo + transport
-	var tempo_row = HBoxContainer.new()
-	tempo_row.add_theme_constant_override("separation", 8)
-	var tempo_lbl = Label.new()
-	tempo_lbl.text = "Tempo:"
-	tempo_lbl.add_theme_color_override("font_color", LABEL_COLOR)
-	tempo_lbl.add_theme_font_size_override("font_size", 12)
-	tempo_row.add_child(tempo_lbl)
+	# Tempo
+	var t_lbl = Label.new()
+	t_lbl.text = "Tempo:"
+	t_lbl.label_settings = _ls(11, DIM)
+	hbox.add_child(t_lbl)
 	_tempo_slider = HSlider.new()
-	_tempo_slider.min_value = 1
-	_tempo_slider.max_value = 100
-	_tempo_slider.value = 50
-	_tempo_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tempo_slider.min_value = 40
+	_tempo_slider.max_value = 300
+	_tempo_slider.value = 120
+	_tempo_slider.custom_minimum_size.x = 80
 	_tempo_slider.value_changed.connect(_on_tempo_changed)
-	tempo_row.add_child(_tempo_slider)
+	hbox.add_child(_tempo_slider)
 
-	# Transport buttons
+	hbox.add_child(VSeparator.new())
+
+	# ▶ Play button
 	var play_btn = Button.new()
-	play_btn.text = "▶ Listen"
-	play_btn.add_theme_font_size_override("font_size", 11)
-	play_btn.pressed.connect(_on_play_pressed)
-	tempo_row.add_child(play_btn)
-	var clear_btn = Button.new()
-	clear_btn.text = "✕ Clear"
-	clear_btn.add_theme_font_size_override("font_size", 11)
-	clear_btn.pressed.connect(_on_clear_pressed)
-	tempo_row.add_child(clear_btn)
-	right_panel.add_child(tempo_row)
+	play_btn.text = "▶ Play"
+	play_btn.add_theme_font_size_override("font_size", 12)
+	play_btn.pressed.connect(_on_play_sound)
+	var play_s = StyleBoxFlat.new()
+	play_s.bg_color = Color(0.25, 0.65, 0.35)
+	play_s.set_corner_radius_all(4)
+	play_s.content_margin_left = 10
+	play_s.content_margin_right = 10
+	play_s.content_margin_top = 3
+	play_s.content_margin_bottom = 3
+	play_btn.add_theme_stylebox_override("normal", play_s)
+	var play_h = play_s.duplicate()
+	play_h.bg_color = Color(0.30, 0.75, 0.40)
+	play_btn.add_theme_stylebox_override("hover", play_h)
+	play_btn.add_theme_color_override("font_color", WHITE)
+	play_btn.add_theme_color_override("font_hover_color", WHITE)
+	hbox.add_child(play_btn)
 
-	right_wrap.add_child(right_panel)
-	add_child(right_wrap)
+	# ⏹ Stop button
+	var stop_btn = Button.new()
+	stop_btn.text = "⏹ Stop"
+	stop_btn.add_theme_font_size_override("font_size", 12)
+	stop_btn.pressed.connect(_on_stop_sound)
+	var stop_s = StyleBoxFlat.new()
+	stop_s.bg_color = Color(0.65, 0.25, 0.25)
+	stop_s.set_corner_radius_all(4)
+	stop_s.content_margin_left = 10
+	stop_s.content_margin_right = 10
+	stop_s.content_margin_top = 3
+	stop_s.content_margin_bottom = 3
+	stop_btn.add_theme_stylebox_override("normal", stop_s)
+	var stop_h = stop_s.duplicate()
+	stop_h.bg_color = Color(0.75, 0.30, 0.30)
+	stop_btn.add_theme_stylebox_override("hover", stop_h)
+	stop_btn.add_theme_color_override("font_color", WHITE)
+	stop_btn.add_theme_color_override("font_hover_color", WHITE)
+	hbox.add_child(stop_btn)
+
+	# ══════════════════════════════════════════════════════════
+	# WAVEFORM / FILTER ROW
+	# ══════════════════════════════════════════════════════════
+	var wave_bar = PanelContainer.new()
+	var wbs = StyleBoxFlat.new()
+	wbs.bg_color = Color(0.09, 0.09, 0.11)
+	wbs.content_margin_left = 8
+	wbs.content_margin_right = 8
+	wbs.content_margin_top = 4
+	wbs.content_margin_bottom = 4
+	wave_bar.add_theme_stylebox_override("panel", wbs)
+	wave_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(wave_bar)
+
+	var w_hbox = HBoxContainer.new()
+	w_hbox.add_theme_constant_override("separation", 8)
+	wave_bar.add_child(w_hbox)
+
+	var w1_lbl = Label.new()
+	w1_lbl.text = "V1 Wave:"
+	w1_lbl.label_settings = _ls(11, V1_COLOR)
+	w_hbox.add_child(w1_lbl)
+	_wave_opt1 = OptionButton.new()
+	_wave_opt1.add_theme_font_size_override("font_size", 11)
+	for w in WAVEFORMS:
+		_wave_opt1.add_item(w)
+	_wave_opt1.item_selected.connect(_on_wave1_changed)
+	w_hbox.add_child(_wave_opt1)
+	_style_option(_wave_opt1)
+
+	w_hbox.add_child(VSeparator.new())
+
+	var w2_lbl = Label.new()
+	w2_lbl.text = "V2 Wave:"
+	w2_lbl.label_settings = _ls(11, V2_COLOR)
+	w_hbox.add_child(w2_lbl)
+	_wave_opt2 = OptionButton.new()
+	_wave_opt2.add_theme_font_size_override("font_size", 11)
+	for w in WAVEFORMS:
+		_wave_opt2.add_item(w)
+	_wave_opt2.selected = 1
+	_wave_opt2.item_selected.connect(_on_wave2_changed)
+	w_hbox.add_child(_wave_opt2)
+	_style_option(_wave_opt2)
+
+	w_hbox.add_child(VSeparator.new())
+
+	var fl_lbl = Label.new()
+	fl_lbl.text = "Filter:"
+	fl_lbl.label_settings = _ls(11, FLT_COLOR)
+	w_hbox.add_child(fl_lbl)
+	_filt_opt = OptionButton.new()
+	_filt_opt.add_theme_font_size_override("font_size", 11)
+	for ft in FILTER_TYPES:
+		_filt_opt.add_item(ft)
+	_filt_opt.item_selected.connect(_on_filt_changed)
+	w_hbox.add_child(_filt_opt)
+	_style_option(_filt_opt)
+
+	var fq_lbl = Label.new()
+	fq_lbl.text = "Q:"
+	fq_lbl.label_settings = _ls(11, DIM)
+	w_hbox.add_child(fq_lbl)
+	_filt_q_slider = HSlider.new()
+	_filt_q_slider.min_value = 0
+	_filt_q_slider.max_value = 100
+	_filt_q_slider.value = 50
+	_filt_q_slider.custom_minimum_size.x = 60
+	_filt_q_slider.value_changed.connect(_on_filt_q_changed)
+	w_hbox.add_child(_filt_q_slider)
+
+	w_hbox.add_child(VSeparator.new())
+
+	var v1v_lbl = Label.new()
+	v1v_lbl.text = "V1 Vol:"
+	v1v_lbl.label_settings = _ls(10, V1_COLOR)
+	w_hbox.add_child(v1v_lbl)
+	_vol1_slider = HSlider.new()
+	_vol1_slider.min_value = 0; _vol1_slider.max_value = 100
+	_vol1_slider.value = 80; _vol1_slider.custom_minimum_size.x = 50
+	_vol1_slider.tooltip_text = "Volume for Voice 1"
+	_vol1_slider.value_changed.connect(func(v): sounds[selected_sound]["voice1_volume"] = int(v); sound_changed.emit(selected_sound))
+	w_hbox.add_child(_vol1_slider)
+
+	var v2v_lbl = Label.new()
+	v2v_lbl.text = "V2 Vol:"
+	v2v_lbl.label_settings = _ls(10, V2_COLOR)
+	w_hbox.add_child(v2v_lbl)
+	_vol2_slider = HSlider.new()
+	_vol2_slider.min_value = 0; _vol2_slider.max_value = 100
+	_vol2_slider.value = 60; _vol2_slider.custom_minimum_size.x = 50
+	_vol2_slider.tooltip_text = "Volume for Voice 2"
+	_vol2_slider.value_changed.connect(func(v): sounds[selected_sound]["voice2_volume"] = int(v); sound_changed.emit(selected_sound))
+	w_hbox.add_child(_vol2_slider)
+
+	# ══════════════════════════════════════════════════════════
+	# BAR GRAPH CANVAS — the hero element
+	# ══════════════════════════════════════════════════════════
+	_bar_canvas = Control.new()
+	_bar_canvas.custom_minimum_size = Vector2(NUM_NOTES * 16, 200)
+	_bar_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bar_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_bar_canvas.draw.connect(_draw_bars)
+	_bar_canvas.gui_input.connect(_on_bar_input)
+	add_child(_bar_canvas)
+
+	# ══════════════════════════════════════════════════════════
+	# BOTTOM STATUS
+	# ══════════════════════════════════════════════════════════
+	var bot = PanelContainer.new()
+	var bot_s = StyleBoxFlat.new()
+	bot_s.bg_color = TOOLBAR_BG
+	bot_s.content_margin_left = 10
+	bot_s.content_margin_right = 10
+	bot_s.content_margin_top = 3
+	bot_s.content_margin_bottom = 3
+	bot.add_theme_stylebox_override("panel", bot_s)
+	bot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(bot)
+
+	_status_lbl = Label.new()
+	_status_lbl.text = "Click and drag to paint notes · Switch voices with the color buttons above"
+	_status_lbl.label_settings = _ls(10, LABEL_CLR)
+	bot.add_child(_status_lbl)
 
 	_refresh_sound_list()
 	_refresh_ui()
 
 
-# ─── Drawing ─────────────────────────────────────────────────
+# ─── Bar Graph Drawing ──────────────────────────────────────
 
-func _draw_bar_graph() -> void:
-	if not is_instance_valid(_bar_graph):
+func _draw_bars() -> void:
+	if not is_instance_valid(_bar_canvas):
 		return
-	var size = _bar_graph.size
-	if size.x < 10 or size.y < 10:
+	var sz = _bar_canvas.size
+	if sz.x < 10 or sz.y < 10:
 		return
 
 	# Background
-	_bar_graph.draw_rect(Rect2(Vector2.ZERO, size), BAR_BG)
+	_bar_canvas.draw_rect(Rect2(Vector2.ZERO, sz), CANVAS_BG)
 
-	# Grid lines (octave markers)
-	var octave_height: float = size.y / 4.0
-	for i in range(1, 4):
-		var y_pos: float = size.y - octave_height * float(i)
-		_bar_graph.draw_line(Vector2(0, y_pos), Vector2(size.x, y_pos), GRID_COLOR, 1.0)
+	var snd = sounds[selected_sound]
+	var bar_w: float = sz.x / float(NUM_NOTES)
+	var gap: float = 2.0
 
-	# Get current notes
-	var notes: Array = _get_current_notes()
-	var bar_w: float = size.x / float(MAX_NOTES)
-	var bar_colors = [BAR_COLOR_V1, BAR_COLOR_V2, BAR_COLOR_FLT]
-	var bar_color: Color = bar_colors[selected_voice]
+	# Draw all three layers (back to front: filter, voice2, voice1)
+	var layers = [
+		{"notes": snd["filter_notes"], "color": FLT_COLOR.darkened(0.3), "enabled": snd.get("filter_enabled", false)},
+		{"notes": snd["voice2_notes"], "color": V2_COLOR.darkened(0.2), "enabled": snd.get("voice2_enabled", false)},
+		{"notes": snd["voice1_notes"], "color": V1_COLOR.darkened(0.1), "enabled": snd.get("voice1_enabled", true)},
+	]
 
-	for i in range(MAX_NOTES):
-		if notes[i] > 0:
-			var h: float = (float(notes[i]) / float(MAX_NOTE_VAL)) * size.y
-			var x: float = float(i) * bar_w
-			var rect = Rect2(x + 1, size.y - h, bar_w - 2, h)
-			_bar_graph.draw_rect(rect, bar_color)
-			# Highlight outline
-			_bar_graph.draw_rect(rect, bar_color.lightened(0.3), false, 1.0)
+	for layer in layers:
+		if not layer.enabled:
+			continue
+		var notes: Array = layer.notes
+		var color: Color = layer.color
+		for i in range(NUM_NOTES):
+			if i >= notes.size():
+				continue
+			var val: int = notes[i]
+			if val <= 0:
+				continue
+			var h: float = (float(val) / float(MAX_NOTE_VAL)) * sz.y
+			var rect = Rect2(i * bar_w + gap, sz.y - h, bar_w - gap * 2, h)
+			_bar_canvas.draw_rect(rect, color)
 
-	# Vertical grid (every 8 notes)
-	for i in range(1, 4):
-		var x_pos: float = float(i * 8) * bar_w
-		_bar_graph.draw_line(Vector2(x_pos, 0), Vector2(x_pos, size.y), GRID_COLOR, 1.0)
+	# Active voice bars on top with full brightness
+	var active_colors = [V1_COLOR, V2_COLOR, FLT_COLOR]
+	var active_keys = ["voice1_notes", "voice2_notes", "filter_notes"]
+	var a_notes: Array = snd[active_keys[active_voice]]
+	var a_color: Color = active_colors[active_voice]
+	for i in range(NUM_NOTES):
+		if i >= a_notes.size():
+			continue
+		var val: int = a_notes[i]
+		if val <= 0:
+			continue
+		var h: float = (float(val) / float(MAX_NOTE_VAL)) * sz.y
+		var rect = Rect2(i * bar_w + gap, sz.y - h, bar_w - gap * 2, h)
+		_bar_canvas.draw_rect(rect, a_color)
+
+	# Grid lines
+	for i in range(NUM_NOTES + 1):
+		var x: float = i * bar_w
+		_bar_canvas.draw_line(Vector2(x, 0), Vector2(x, sz.y), Color(0.2, 0.2, 0.24), 1.0)
+	for j in range(0, MAX_NOTE_VAL + 1, 8):
+		var y: float = sz.y - (float(j) / float(MAX_NOTE_VAL)) * sz.y
+		_bar_canvas.draw_line(Vector2(0, y), Vector2(sz.x, y), Color(0.18, 0.18, 0.22), 1.0)
 
 
-func _on_bar_graph_input(event: InputEvent) -> void:
-	if not (event is InputEventMouseButton or event is InputEventMouseMotion):
-		return
+func _on_bar_input(event: InputEvent) -> void:
+	# Keyboard shortcuts: Ctrl+Z = Undo, Ctrl+Y = Redo
+	if event is InputEventKey and event.pressed:
+		if event.ctrl_pressed and event.keycode == KEY_Z and not event.shift_pressed:
+			_bar_undo()
+			return
+		if event.ctrl_pressed and (event.keycode == KEY_Y or (event.keycode == KEY_Z and event.shift_pressed)):
+			_bar_redo()
+			return
 	if event is InputEventMouseButton:
-		if not event.pressed:
-			return
-	elif event is InputEventMouseMotion:
-		if not (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
-			return
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				_begin_bar_stroke()
+				is_painting = true
+				_paint_bar(event.position)
+			else:
+				is_painting = false
+				_end_bar_stroke()
+		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			_begin_bar_stroke()
+			_erase_bar(event.position)
+			_end_bar_stroke()
+	elif event is InputEventMouseMotion and is_painting:
+		_paint_bar(event.position)
 
-	var size = _bar_graph.size
-	if size.x < 10 or size.y < 10:
+
+func _paint_bar(pos: Vector2) -> void:
+	var sz = _bar_canvas.size
+	var bar_w: float = sz.x / float(NUM_NOTES)
+	var idx: int = int(pos.x / bar_w)
+	if idx < 0 or idx >= NUM_NOTES:
 		return
+	var val: int = int((1.0 - pos.y / sz.y) * MAX_NOTE_VAL)
+	val = clampi(val, 0, MAX_NOTE_VAL)
 
-	var pos: Vector2 = event.position
-	var bar_w: float = size.x / float(MAX_NOTES)
-	var note_idx: int = int(pos.x / bar_w)
-	note_idx = clampi(note_idx, 0, MAX_NOTES - 1)
-
-	var note_val: int = int((1.0 - pos.y / size.y) * float(MAX_NOTE_VAL))
-	note_val = clampi(note_val, 0, MAX_NOTE_VAL)
-
-	var notes: Array = _get_current_notes()
-	notes[note_idx] = note_val
-	_bar_graph.queue_redraw()
+	var keys = ["voice1_notes", "voice2_notes", "filter_notes"]
+	sounds[selected_sound][keys[active_voice]][idx] = val
+	_bar_canvas.queue_redraw()
 	sound_changed.emit(selected_sound)
 
 
-# ─── Helpers ─────────────────────────────────────────────────
+func _erase_bar(pos: Vector2) -> void:
+	var sz = _bar_canvas.size
+	var bar_w: float = sz.x / float(NUM_NOTES)
+	var idx: int = int(pos.x / bar_w)
+	if idx < 0 or idx >= NUM_NOTES:
+		return
+	var keys = ["voice1_notes", "voice2_notes", "filter_notes"]
+	sounds[selected_sound][keys[active_voice]][idx] = 0
+	_bar_canvas.queue_redraw()
+	sound_changed.emit(selected_sound)
 
-func _get_current_notes() -> Array:
+
+# ─── Undo/Redo for bar painting ──────────────────────────────
+
+func _begin_bar_stroke() -> void:
 	var snd = sounds[selected_sound]
-	match selected_voice:
-		0: return snd["voice1_notes"]
-		1: return snd["voice2_notes"]
-		2: return snd["filter_notes"]
-	return snd["voice1_notes"]
+	_stroke_snapshot = {
+		"idx": selected_sound,
+		"v1": snd["voice1_notes"].duplicate(),
+		"v2": snd["voice2_notes"].duplicate(),
+		"flt": snd["filter_notes"].duplicate(),
+	}
 
-func _refresh_sound_list() -> void:
-	_sound_list.clear()
-	for i in range(sounds.size()):
-		_sound_list.add_item(str(i + 1) + ": " + sounds[i]["name"])
-	if selected_sound >= 0 and selected_sound < sounds.size():
-		_sound_list.select(selected_sound)
 
-func _refresh_ui() -> void:
-	if selected_sound < 0 or selected_sound >= sounds.size():
+func _end_bar_stroke() -> void:
+	if _stroke_snapshot == null:
 		return
 	var snd = sounds[selected_sound]
-	_name_edit.text = snd["name"]
-	_tempo_slider.value = snd["tempo"]
+	if snd["voice1_notes"] != _stroke_snapshot["v1"] or snd["voice2_notes"] != _stroke_snapshot["v2"] or snd["filter_notes"] != _stroke_snapshot["flt"]:
+		_undo_stack.append(_stroke_snapshot)
+		if _undo_stack.size() > MAX_UNDO:
+			_undo_stack.pop_front()
+		_redo_stack.clear()
+	_stroke_snapshot = null
 
-	# Update waveform buttons
-	var wf_idx: int = snd["voice1_waveform"] if selected_voice == 0 else snd["voice2_waveform"]
-	for i in range(_waveform_btns.size()):
-		_waveform_btns[i].button_pressed = (i == wf_idx)
 
-	# Filter options
-	_filter_type_opt.selected = snd["filter_type"]
-	_filter_q_opt.selected = snd["filter_q"]
-	_filter_v1_check.button_pressed = snd["filter_voice1"]
-	_filter_v2_check.button_pressed = snd["filter_voice2"]
+func _bar_undo() -> void:
+	if _undo_stack.is_empty():
+		_status_lbl.text = "Nothing to undo"
+		return
+	var snap = _undo_stack.pop_back()
+	var si: int = snap["idx"]
+	_redo_stack.append({
+		"idx": si,
+		"v1": sounds[si]["voice1_notes"].duplicate(),
+		"v2": sounds[si]["voice2_notes"].duplicate(),
+		"flt": sounds[si]["filter_notes"].duplicate(),
+	})
+	sounds[si]["voice1_notes"] = snap["v1"]
+	sounds[si]["voice2_notes"] = snap["v2"]
+	sounds[si]["filter_notes"] = snap["flt"]
+	if si == selected_sound:
+		_bar_canvas.queue_redraw()
+	_status_lbl.text = "Undo (" + str(_undo_stack.size()) + " remaining)"
 
-	if is_instance_valid(_bar_graph):
-		_bar_graph.queue_redraw()
 
+func _bar_redo() -> void:
+	if _redo_stack.is_empty():
+		_status_lbl.text = "Nothing to redo"
+		return
+	var snap = _redo_stack.pop_back()
+	var si: int = snap["idx"]
+	_undo_stack.append({
+		"idx": si,
+		"v1": sounds[si]["voice1_notes"].duplicate(),
+		"v2": sounds[si]["voice2_notes"].duplicate(),
+		"flt": sounds[si]["filter_notes"].duplicate(),
+	})
+	sounds[si]["voice1_notes"] = snap["v1"]
+	sounds[si]["voice2_notes"] = snap["v2"]
+	sounds[si]["filter_notes"] = snap["flt"]
+	if si == selected_sound:
+		_bar_canvas.queue_redraw()
+	_status_lbl.text = "Redo (" + str(_redo_stack.size()) + " remaining)"
 
 # ─── Callbacks ───────────────────────────────────────────────
-
-func _on_sound_selected(idx: int) -> void:
-	selected_sound = idx
-	_refresh_ui()
-
-func _on_voice_selected(idx: int) -> void:
-	selected_voice = idx
-	for i in range(_voice_btns.size()):
-		_voice_btns[i].button_pressed = (i == idx)
-	if is_instance_valid(_bar_graph):
-		_bar_graph.queue_redraw()
-
-func _on_waveform_selected(idx: int) -> void:
-	var snd = sounds[selected_sound]
-	if selected_voice == 0:
-		snd["voice1_waveform"] = idx
-	elif selected_voice == 1:
-		snd["voice2_waveform"] = idx
-	for i in range(_waveform_btns.size()):
-		_waveform_btns[i].button_pressed = (i == idx)
 
 func _on_name_changed(new_text: String) -> void:
 	sounds[selected_sound]["name"] = new_text
 	_refresh_sound_list()
 
+func _on_sound_selected(idx: int) -> void:
+	selected_sound = idx
+	_refresh_ui()
+
+func _on_voice_btn(idx: int) -> void:
+	active_voice = idx
+	# Enable the selected voice so it will be drawn and heard
+	var enable_keys = ["voice1_enabled", "voice2_enabled", "filter_enabled"]
+	sounds[selected_sound][enable_keys[idx]] = true
+	for i in range(_voice_btns.size()):
+		_voice_btns[i].button_pressed = (i == idx)
+	_bar_canvas.queue_redraw()
+	var names = ["Voice 1", "Voice 2", "Filter"]
+	_status_lbl.text = "Editing: " + names[idx]
+
 func _on_tempo_changed(val: float) -> void:
 	sounds[selected_sound]["tempo"] = int(val)
+	sound_changed.emit(selected_sound)
 
-func _on_filter_type_changed(idx: int) -> void:
+func _on_wave1_changed(idx: int) -> void:
+	sounds[selected_sound]["voice1_wave"] = idx
+	sound_changed.emit(selected_sound)
+
+func _on_wave2_changed(idx: int) -> void:
+	sounds[selected_sound]["voice2_wave"] = idx
+	sound_changed.emit(selected_sound)
+
+func _on_filt_changed(idx: int) -> void:
 	sounds[selected_sound]["filter_type"] = idx
+	sound_changed.emit(selected_sound)
 
-func _on_filter_q_changed(idx: int) -> void:
-	sounds[selected_sound]["filter_q"] = idx
+func _on_filt_q_changed(val: float) -> void:
+	sounds[selected_sound]["filter_q"] = int(val)
+	sound_changed.emit(selected_sound)
 
-func _on_filter_v1_toggled(pressed: bool) -> void:
-	sounds[selected_sound]["filter_voice1"] = pressed
 
-func _on_filter_v2_toggled(pressed: bool) -> void:
-	sounds[selected_sound]["filter_voice2"] = pressed
+# ─── Audio Playback ──────────────────────────────────────────
 
-func _on_play_pressed() -> void:
-	# TODO: Generate AudioStreamWAV from bar-graph data using Godot's AudioServer
-	print("AGCK Sound Editor: Play sound '", sounds[selected_sound]["name"], "' (audio synthesis TBD)")
+func _on_play_sound() -> void:
+	if not is_instance_valid(_audio_player):
+		_audio_player = AudioStreamPlayer.new()
+		_audio_player.finished.connect(_on_playback_finished)
+		add_child(_audio_player)
+	_audio_player.stop()
+	var stream = _generate_audio_stream()
+	if stream:
+		_audio_player.stream = stream
+		_audio_player.play()
+		_status_lbl.text = "▶ Playing Sound " + str(selected_sound + 1) + "…"
+	else:
+		_status_lbl.text = "⚠ No notes to play — paint some bars first!"
 
-func _on_clear_pressed() -> void:
-	var notes: Array = _get_current_notes()
-	notes.fill(0)
-	if is_instance_valid(_bar_graph):
-		_bar_graph.queue_redraw()
+
+func _on_stop_sound() -> void:
+	if is_instance_valid(_audio_player) and _audio_player.playing:
+		_audio_player.stop()
+	_status_lbl.text = "⏹ Stopped"
+
+
+func _on_playback_finished() -> void:
+	_status_lbl.text = "✓ Playback complete"
+
+
+func _note_to_freq(val: int) -> float:
+	if val <= 0:
+		return 0.0
+	# Chromatic scale: C2 (65 Hz) up 48 semitones to C6 (1047 Hz)
+	return NOTE_BASE_HZ * pow(2.0, float(val - 1) / 12.0)
+
+
+func _wave_sample(phase: float, waveform: int) -> float:
+	match waveform:
+		0:  # Square
+			return 1.0 if phase < 0.5 else -1.0
+		1:  # Triangle
+			if phase < 0.25:
+				return phase * 4.0
+			elif phase < 0.75:
+				return 2.0 - phase * 4.0
+			else:
+				return phase * 4.0 - 4.0
+		2:  # Sawtooth
+			return 2.0 * phase - 1.0
+		3:  # Noise
+			return randf_range(-1.0, 1.0)
+	return 0.0
+
+
+func _generate_audio_stream() -> AudioStreamWAV:
+	var snd = sounds[selected_sound]
+	var tempo: int = snd.get("tempo", 120)
+	var beats_per_sec: float = float(tempo) / 60.0
+	var note_dur: float = 1.0 / beats_per_sec
+	var samples_per_note: int = int(float(SAMPLE_RATE) * note_dur)
+	var total_samples: int = samples_per_note * NUM_NOTES
+	var env_samples: int = maxi(1, int(float(SAMPLE_RATE) * float(ENVELOPE_MS) / 1000.0))
+
+	var v1_notes: Array = snd["voice1_notes"]
+	var v2_notes: Array = snd["voice2_notes"]
+	var flt_notes: Array = snd["filter_notes"]
+	var v1_wave: int = snd.get("voice1_wave", 0)
+	var v2_wave: int = snd.get("voice2_wave", 1)
+	var flt_type: int = snd.get("filter_type", 0)
+	var flt_q_pct: int = snd.get("filter_q", 50)
+
+	# Auto-detect which voices have content (play anything with painted bars)
+	var v1_active: bool = false
+	var v2_active: bool = false
+	var flt_active: bool = false
+	for i in range(NUM_NOTES):
+		if v1_notes[i] > 0:
+			v1_active = true
+		if v2_notes[i] > 0:
+			v2_active = true
+		if flt_notes[i] > 0:
+			flt_active = true
+
+	if not v1_active and not v2_active:
+		return null
+
+	var pcm = PackedByteArray()
+	pcm.resize(total_samples * 2)  # 16-bit mono
+
+	var v1_phase: float = 0.0
+	var v2_phase: float = 0.0
+	var v1_vol: float = float(snd.get("voice1_volume", 80)) / 100.0
+	var v2_vol: float = float(snd.get("voice2_volume", 60)) / 100.0
+	var flt_prev: float = 0.0  # one-pole filter state
+
+	for ni in range(NUM_NOTES):
+		var v1_freq: float = _note_to_freq(v1_notes[ni]) if v1_active else 0.0
+		var v2_freq: float = _note_to_freq(v2_notes[ni]) if v2_active else 0.0
+		var flt_cutoff: float = 0.0
+		if flt_active and flt_type > 0 and ni < flt_notes.size() and flt_notes[ni] > 0:
+			flt_cutoff = _note_to_freq(flt_notes[ni])
+
+		for s in range(samples_per_note):
+			var sample: float = 0.0
+
+			if v1_freq > 0.0:
+				sample += _wave_sample(v1_phase, v1_wave) * 0.45 * v1_vol
+				v1_phase = fmod(v1_phase + v1_freq / float(SAMPLE_RATE), 1.0)
+
+			if v2_freq > 0.0:
+				sample += _wave_sample(v2_phase, v2_wave) * 0.35 * v2_vol
+				v2_phase = fmod(v2_phase + v2_freq / float(SAMPLE_RATE), 1.0)
+
+			# One-pole filter (when filter voice has content)
+			if flt_cutoff > 0.0:
+				var rc: float = 1.0 / (TAU * flt_cutoff)
+				var dt: float = 1.0 / float(SAMPLE_RATE)
+				var alpha: float = dt / (rc + dt)
+				var lp: float = flt_prev + alpha * (sample - flt_prev)
+				flt_prev = lp
+				match flt_type:
+					1:  sample = lp                                     # LowPass
+					2:  sample = sample - lp                              # HighPass
+					3:                                                     # BandPass
+						var res: float = 0.1 + float(flt_q_pct) / 100.0 * 4.0
+						sample = clampf((sample - lp) * res, -1.0, 1.0)
+			else:
+				flt_prev = sample
+
+			# Envelope — short attack/release to avoid clicks
+			var env: float = 1.0
+			if s < env_samples:
+				env = float(s) / float(env_samples)
+			elif s > samples_per_note - env_samples:
+				env = float(samples_per_note - s) / float(env_samples)
+			sample *= env
+
+			# 16-bit PCM little-endian signed
+			var pcm_val: int = int(clampf(sample, -1.0, 1.0) * 32767.0)
+			var off: int = (ni * samples_per_note + s) * 2
+			pcm[off] = pcm_val & 0xFF
+			pcm[off + 1] = (pcm_val >> 8) & 0xFF
+
+	var stream = AudioStreamWAV.new()
+	stream.data = pcm
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = SAMPLE_RATE
+	stream.stereo = false
+	return stream
+
+
+# ─── Refresh ─────────────────────────────────────────────────
+
+func _refresh_sound_list() -> void:
+	_sound_opt.clear()
+	for i in range(sounds.size()):
+		_sound_opt.add_item(str(i + 1) + ": " + sounds[i].get("name", "Sound"))
+	if selected_sound >= 0 and selected_sound < sounds.size():
+		_sound_opt.selected = selected_sound
+
+
+func _refresh_ui() -> void:
+	if selected_sound < 0 or selected_sound >= sounds.size():
+		return
+	var snd = sounds[selected_sound]
+	_tempo_slider.value = snd.get("tempo", 120)
+	_wave_opt1.selected = snd.get("voice1_wave", 0)
+	_wave_opt2.selected = snd.get("voice2_wave", 1)
+	_filt_opt.selected = snd.get("filter_type", 0)
+	_filt_q_slider.value = snd.get("filter_q", 50)
+	if is_instance_valid(_name_edit):
+		_name_edit.text = snd.get("name", "Sound")
+	if is_instance_valid(_vol1_slider):
+		_vol1_slider.value = snd.get("voice1_volume", 80)
+	if is_instance_valid(_vol2_slider):
+		_vol2_slider.value = snd.get("voice2_volume", 60)
+	if is_instance_valid(_bar_canvas):
+		_bar_canvas.queue_redraw()
 
 
 # ─── Serialization ───────────────────────────────────────────
@@ -429,14 +864,7 @@ func get_data() -> Array:
 func set_data(data: Array) -> void:
 	sounds = data.duplicate(true)
 	while sounds.size() < MAX_SOUNDS:
-		sounds.append({
-			"name": "Sound " + str(sounds.size() + 1),
-			"tempo": 50,
-			"voice1_waveform": 0, "voice1_notes": _make_empty_notes(),
-			"voice2_waveform": 1, "voice2_notes": _make_empty_notes(),
-			"filter_type": 0, "filter_q": 1, "filter_notes": _make_empty_notes(),
-			"filter_voice1": true, "filter_voice2": false,
-		})
+		sounds.append(_make_empty_sound(sounds.size() + 1))
 	selected_sound = 0
 	_refresh_sound_list()
 	_refresh_ui()

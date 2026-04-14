@@ -1,69 +1,199 @@
 @tool
-## AGCK Level Editor
+## AGCK Level Editor — WYSIWYG tile-based level designer
 ##
-## Tile-based screen painter with scenery blocks, actor placement,
-## building materials, and sentry path tracing.  Up to 50 levels per game.
-extends HSplitContainer
+## Visual tile palette with real pixel-art thumbnails. The grid renders
+## actual tile textures for a true What-You-See-Is-What-You-Get experience.
+## Double-click any tile in the palette to open the inline sprite editor
+## and customize it. Edited tiles update the grid in real-time.
+extends VBoxContainer
 
 signal level_changed(level_id: int)
+signal edit_tile_requested(block_type: int, tile_index: int)
 
-# ─── Constants ───────────────────────────────────────────────
-const BG_COLOR = Color(0.16, 0.16, 0.19)
-const SECTION_COLOR = Color(0.22, 0.26, 0.35)
-const HEADER_COLOR = Color(0.85, 0.9, 1.0)
-const LABEL_COLOR = Color(0.75, 0.8, 0.85)
-const GRID_COLOR = Color(0.25, 0.25, 0.28)
-const CURSOR_COLOR = Color(1.0, 1.0, 0.3, 0.6)
+# ─── Theme ───────────────────────────────────────────────────
+const BG_COLOR     = Color(0.13, 0.13, 0.16)
+const HEADER_BG    = Color(0.10, 0.10, 0.13)
+const TOOLBAR_BG   = Color(0.11, 0.11, 0.14)
+const WHITE        = Color(1.0, 1.0, 1.0)
+const LABEL_CLR    = Color(0.88, 0.86, 0.80)
+const ACCENT       = Color(1.0, 0.82, 0.35)
+const DIM          = Color(0.50, 0.50, 0.55)
+const GRID_LINE    = Color(0.22, 0.22, 0.26)
+const CURSOR_COLOR = Color(1.0, 1.0, 0.4, 0.7)
 
-const BLOCK_EMPTY = 0
-const BLOCK_BARRIER = 1
-const BLOCK_LADDER = 2
-const BLOCK_DEADLY = 3
+# Block types — Bloxels-style color-coded
+const BLOCK_EMPTY      = 0
+const BLOCK_BARRIER    = 1
+const BLOCK_LADDER     = 2
+const BLOCK_DEADLY     = 3
 const BLOCK_BACKGROUND = 4
-const BLOCK_TELEPORT = 5
-const BLOCK_SWITCH = 6
+const BLOCK_TELEPORT   = 5
+const BLOCK_SWITCH     = 6
 
-const BLOCK_NAMES = ["Empty", "Barrier", "Ladder", "Deadly", "Background", "Teleport", "Switch"]
+const BLOCK_NAMES  = ["Empty", "Barrier", "Ladder", "Deadly", "Background", "Teleport", "Switch"]
 const BLOCK_COLORS = [
-	Color(0.1, 0.1, 0.12),       # Empty
-	Color(0.5, 0.5, 0.55),       # Barrier
-	Color(0.3, 0.7, 0.3),        # Ladder
-	Color(0.8, 0.2, 0.2),        # Deadly
-	Color(0.25, 0.35, 0.5),      # Background
-	Color(0.6, 0.3, 0.8),        # Teleport
-	Color(0.9, 0.8, 0.2),        # Switch
+	Color(0.12, 0.12, 0.14),
+	Color(0.50, 0.55, 0.60),
+	Color(0.30, 0.75, 0.30),
+	Color(0.85, 0.20, 0.20),
+	Color(0.25, 0.40, 0.60),
+	Color(0.65, 0.30, 0.85),
+	Color(0.90, 0.80, 0.20),
 ]
-const BLOCK_ICONS = ["⬜", "🧱", "🪜", "💀", "🟦", "🌀", "⚡"]
+const BLOCK_ICONS = ["  ", "B ", "L ", "D ", "Bg", "T ", "S "]
 
 const MAX_LEVELS = 50
 const GRID_W = 20
 const GRID_H = 12
-const CELL_SIZE = 24
+const BASE_CELL_PX: float = 28.0
+const ZOOM_MIN: float = 0.5
+const ZOOM_MAX: float = 4.0
+const ZOOM_STEP: float = 0.25
 
-# ─── Level Data ──────────────────────────────────────────────
+# ─── Data ────────────────────────────────────────────────────
 var levels: Array = []
 var selected_level: int = 0
 var selected_block: int = BLOCK_BARRIER
-var selected_actor: int = -1  # -1 = painting blocks
+var selected_tile_index: int = 0
+var selected_actor: int = -1
 var is_painting: bool = false
+var actor_names: Array = ["Hero", "Enemy 1", "Bullet"]
+var _waypoint_mode: bool = false
+var _waypoint_actor_idx: int = -1  # actor index being path-edited
+var _flood_fill_mode: bool = false  # bucket-fill tool
+var _dirty: bool = false  # unsaved-changes indicator
+var _zoom: float = 1.0  # grid zoom level (Shift+Scroll)
 
-# ─── Actor Placement ─────────────────────────────────────────
-var actor_names: Array = ["Hero", "Enemy 1", "Bullet"]  # synced from actor editor
+# Reference to the tile library (set by agck_plugin.gd)
+var tile_library = null
 
-# ─── Sentry Paths ────────────────────────────────────────────
-var is_tracing_path: bool = false
-var trace_actor: int = -1
-var trace_points: Array = []
+# ─── Undo/Redo ───────────────────────────────────────────────
+var _undo_stack: Array = []   # Array of {level: int, grid: Array, actors: Array}
+var _redo_stack: Array = []
+var _stroke_snapshot = null    # snapshot taken on mouse-down, committed on mouse-up
+const MAX_UNDO = 50
+var _last_mouse_pos: Vector2 = Vector2.ZERO  # for Delete key
 
-# ─── UI ──────────────────────────────────────────────────────
-var _level_list: ItemList = null
+# ─── UI Refs ─────────────────────────────────────────────────
 var _grid_canvas: Control = null
+var _grid_scroll: ScrollContainer = null
+var _zoom_lbl: Label = null
 var _block_btns: Array = []
-var _actor_list_opt: OptionButton = null
+var _tile_palette_scroll: ScrollContainer = null
+var _tile_palette: HBoxContainer = null
+var _tile_btns: Array = []
+var _level_opt: OptionButton = null
+var _actor_opt: OptionButton = null
+var _waypoint_btn: Button = null
 var _status_lbl: Label = null
-var _material_friction: HSlider = null
-var _material_elasticity: HSlider = null
 var _name_edit: LineEdit = null
+var _fric_slider: HSlider = null
+var _elast_slider: HSlider = null
+var _flood_btn: Button = null
+var _tile_filter: LineEdit = null
+var _confirm_dialog: ConfirmationDialog = null
+var _pending_confirm_action: Callable
+var _dirty_lbl: Label = null
+
+# Inline editor popup
+var _edit_popup: Window = null
+var _edit_canvas: Control = null
+var _edit_image: Image = null
+var _edit_block_type: int = -1
+var _edit_tile_index: int = -1
+var _edit_color: Color = Color.WHITE
+var _edit_erasing: bool = false
+var _edit_name_edit: LineEdit = null
+var _edit_palette_btns: Array = []
+var _edit_palette_colors: Array = []
+
+
+func _ls(size: int, color: Color) -> LabelSettings:
+	var s = LabelSettings.new()
+	s.font_size = size
+	s.font_color = color
+	return s
+
+
+func _style_option(opt: OptionButton) -> void:
+	var nb = StyleBoxFlat.new()
+	nb.bg_color = Color(0.18, 0.18, 0.22)
+	nb.set_corner_radius_all(3)
+	nb.content_margin_left = 6
+	nb.content_margin_right = 6
+	nb.content_margin_top = 3
+	nb.content_margin_bottom = 3
+	opt.add_theme_stylebox_override("normal", nb)
+	var hb = nb.duplicate()
+	hb.bg_color = Color(0.22, 0.22, 0.28)
+	opt.add_theme_stylebox_override("hover", hb)
+	opt.add_theme_stylebox_override("pressed", hb)
+	opt.add_theme_stylebox_override("focus", hb)
+	opt.add_theme_color_override("font_color", LABEL_CLR)
+	opt.add_theme_color_override("font_hover_color", WHITE)
+	opt.add_theme_color_override("font_pressed_color", WHITE)
+	opt.add_theme_color_override("font_focus_color", LABEL_CLR)
+	# Dark popup — OPAQUE window (transparent=true breaks Linux X11 compositors)
+	# See POPUP_THEME_FIX.md for the full explanation.
+	var popup := opt.get_popup()
+	_apply_dark_popup(popup)
+	if not popup.has_meta("_agck_popup_styled"):
+		popup.set_meta("_agck_popup_styled", true)
+		popup.about_to_popup.connect(func():
+			_apply_dark_popup(popup)
+			_apply_dark_popup.call_deferred(popup)
+		)
+		popup.visibility_changed.connect(func():
+			if popup.visible:
+				_apply_dark_popup(popup)
+		)
+
+
+## Linux X11 popup fix — DO NOT use transparent viewports for popups.
+## Transparent ARGB visuals cause font rendering to break on X11 compositors
+## (text becomes invisible or unreadable). Instead, use an opaque window with
+## a dark Theme covering PopupMenu + Window + Panel type names, plus direct
+## theme_override calls for highest priority.
+func _apply_dark_popup(popup: PopupMenu) -> void:
+	if not is_instance_valid(popup):
+		return
+	popup.transparent = false
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Color(0.15, 0.15, 0.19, 1.0)
+	ps.set_corner_radius_all(0)
+	ps.content_margin_left = 6; ps.content_margin_right = 6
+	ps.content_margin_top = 4;  ps.content_margin_bottom = 4
+	ps.border_width_bottom = 1; ps.border_width_top = 1
+	ps.border_width_left = 1;   ps.border_width_right = 1
+	ps.border_color = Color(0.30, 0.30, 0.35)
+	var hs := StyleBoxFlat.new()
+	hs.bg_color = Color(0.25, 0.35, 0.55)
+	hs.set_corner_radius_all(3)
+	hs.content_margin_left = 6; hs.content_margin_right = 6
+	hs.content_margin_top = 2;  hs.content_margin_bottom = 2
+	var t := Theme.new()
+	for type_name in ["PopupMenu", "PopupPanel", "Panel", "Control", "Window"]:
+		t.set_stylebox("panel", type_name, ps)
+	t.set_stylebox("hover", "PopupMenu", hs)
+	t.set_color("font_color", "PopupMenu", LABEL_CLR)
+	t.set_color("font_hover_color", "PopupMenu", WHITE)
+	t.set_color("font_disabled_color", "PopupMenu", DIM)
+	t.set_color("font_separator_color", "PopupMenu", DIM)
+	t.set_color("font_accelerator_color", "PopupMenu", DIM)
+	t.set_color("font_outline_color", "PopupMenu", Color.TRANSPARENT)
+	popup.theme = t
+	popup.add_theme_stylebox_override("panel", ps)
+	popup.add_theme_stylebox_override("hover", hs)
+	popup.add_theme_color_override("font_color", LABEL_CLR)
+	popup.add_theme_color_override("font_hover_color", WHITE)
+	popup.add_theme_color_override("font_disabled_color", DIM)
+	popup.add_theme_color_override("font_separator_color", DIM)
+	popup.add_theme_color_override("font_accelerator_color", DIM)
+	popup.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
+	for c in popup.get_children(true):
+		if c is Control:
+			c.add_theme_stylebox_override("panel", ps)
+			c.queue_redraw()
 
 
 func _ready() -> void:
@@ -81,79 +211,172 @@ func _make_empty_level(num: int) -> Dictionary:
 	var grid: Array = []
 	for _y in range(GRID_H):
 		var row: Array = []
-		row.resize(GRID_W)
-		row.fill(BLOCK_EMPTY)
+		for _x in range(GRID_W):
+			row.append({"block_type": BLOCK_EMPTY, "tile_index": 0})
 		grid.append(row)
 	return {
 		"name": "Level " + str(num),
 		"grid": grid,
-		"actors": [],  # Array of {actor_id, x, y, path:[]}
+		"actors": [],
 		"material_friction": 50,
 		"material_elasticity": 50,
 	}
 
 
 func _build_ui() -> void:
-	# LEFT PANEL: Level list + block palette
-	var left_panel = VBoxContainer.new()
-	left_panel.custom_minimum_size.x = 170
-	left_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_theme_constant_override("separation", 0)
 
-	var left_style = StyleBoxFlat.new()
-	left_style.bg_color = Color(0.13, 0.13, 0.16)
-	var left_wrap = PanelContainer.new()
-	left_wrap.add_theme_stylebox_override("panel", left_style)
-	left_wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# ---- TOP BAR: Level selector + name ----
+	var top_bar = PanelContainer.new()
+	var tb_style = StyleBoxFlat.new()
+	tb_style.bg_color = TOOLBAR_BG
+	tb_style.content_margin_left = 8
+	tb_style.content_margin_right = 8
+	tb_style.content_margin_top = 6
+	tb_style.content_margin_bottom = 6
+	top_bar.add_theme_stylebox_override("panel", tb_style)
+	top_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(top_bar)
 
-	# Level list header
-	var hdr = Label.new()
-	hdr.text = "🗺️  LEVELS"
-	hdr.add_theme_font_size_override("font_size", 14)
-	hdr.add_theme_color_override("font_color", HEADER_COLOR)
-	hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	left_panel.add_child(hdr)
+	var top_hbox = HBoxContainer.new()
+	top_hbox.add_theme_constant_override("separation", 10)
+	top_bar.add_child(top_hbox)
 
-	# Level list
-	_level_list = ItemList.new()
-	_level_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_level_list.custom_minimum_size.y = 180
-	_level_list.add_theme_font_size_override("font_size", 11)
-	_level_list.item_selected.connect(_on_level_selected)
-	left_panel.add_child(_level_list)
+	var lv_lbl = Label.new()
+	lv_lbl.text = "Level:"
+	lv_lbl.label_settings = _ls(12, LABEL_CLR)
+	top_hbox.add_child(lv_lbl)
 
-	# Level buttons
-	var lv_btn_row = HBoxContainer.new()
-	lv_btn_row.add_theme_constant_override("separation", 2)
+	_level_opt = OptionButton.new()
+	_level_opt.add_theme_font_size_override("font_size", 11)
+	_level_opt.custom_minimum_size.x = 130
+	_level_opt.item_selected.connect(_on_level_selected)
+	top_hbox.add_child(_level_opt)
+	_style_option(_level_opt)
+
+	_name_edit = LineEdit.new()
+	_name_edit.placeholder_text = "Level name"
+	_name_edit.custom_minimum_size.x = 120
+	_name_edit.add_theme_font_size_override("font_size", 11)
+	_name_edit.text_changed.connect(_on_name_changed)
+	top_hbox.add_child(_name_edit)
+
+	top_hbox.add_child(VSeparator.new())
+
 	var add_btn = Button.new()
 	add_btn.text = "+"
-	add_btn.tooltip_text = "Initialize next empty level"
+	add_btn.tooltip_text = "Find next empty level"
 	add_btn.add_theme_font_size_override("font_size", 12)
 	add_btn.pressed.connect(_on_add_level)
-	lv_btn_row.add_child(add_btn)
+	top_hbox.add_child(add_btn)
 	var dup_btn = Button.new()
-	dup_btn.text = "⧉"
-	dup_btn.tooltip_text = "Duplicate current level"
+	dup_btn.text = "Dup"
+	dup_btn.tooltip_text = "Duplicate level"
 	dup_btn.add_theme_font_size_override("font_size", 12)
 	dup_btn.pressed.connect(_on_dup_level)
-	lv_btn_row.add_child(dup_btn)
+	top_hbox.add_child(dup_btn)
 	var clr_btn = Button.new()
-	clr_btn.text = "✕"
-	clr_btn.tooltip_text = "Clear current level"
+	clr_btn.text = "X"
+	clr_btn.tooltip_text = "Clear level"
 	clr_btn.add_theme_font_size_override("font_size", 12)
 	clr_btn.pressed.connect(_on_clear_level)
-	lv_btn_row.add_child(clr_btn)
-	left_panel.add_child(lv_btn_row)
+	top_hbox.add_child(clr_btn)
 
-	# Separator
-	left_panel.add_child(HSeparator.new())
+	top_hbox.add_child(VSeparator.new())
 
-	# Block palette header
-	var pal_hdr = Label.new()
-	pal_hdr.text = "BLOCKS"
-	pal_hdr.add_theme_font_size_override("font_size", 12)
-	pal_hdr.add_theme_color_override("font_color", HEADER_COLOR)
-	pal_hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	left_panel.add_child(pal_hdr)
+	var act_lbl = Label.new()
+	act_lbl.text = "Place Actor:"
+	act_lbl.label_settings = _ls(11, DIM)
+	top_hbox.add_child(act_lbl)
+
+	_actor_opt = OptionButton.new()
+	_actor_opt.add_theme_font_size_override("font_size", 11)
+	_actor_opt.add_item("(Tiles mode)")
+	for aname in actor_names:
+		_actor_opt.add_item("Actor: " + aname)
+	_actor_opt.item_selected.connect(_on_actor_tool_selected)
+	top_hbox.add_child(_actor_opt)
+	_style_option(_actor_opt)
+
+	top_hbox.add_child(VSeparator.new())
+
+	_waypoint_btn = Button.new()
+	_waypoint_btn.text = "\U0001F4CD Waypoints"
+	_waypoint_btn.tooltip_text = "Toggle waypoint mode — right-click to add patrol waypoints for the nearest actor"
+	_waypoint_btn.add_theme_font_size_override("font_size", 11)
+	_waypoint_btn.toggle_mode = true
+	_waypoint_btn.button_pressed = false
+	var wp_ns = StyleBoxFlat.new()
+	wp_ns.bg_color = Color(0.18, 0.18, 0.22)
+	wp_ns.set_corner_radius_all(4)
+	wp_ns.content_margin_left = 8; wp_ns.content_margin_right = 8
+	wp_ns.content_margin_top = 3;  wp_ns.content_margin_bottom = 3
+	_waypoint_btn.add_theme_stylebox_override("normal", wp_ns)
+	var wp_ps = wp_ns.duplicate()
+	wp_ps.bg_color = Color(0.85, 0.45, 0.10)
+	wp_ps.border_width_bottom = 2; wp_ps.border_color = Color(1.0, 0.6, 0.1)
+	_waypoint_btn.add_theme_stylebox_override("pressed", wp_ps)
+	var wp_hs = wp_ns.duplicate()
+	wp_hs.bg_color = Color(0.25, 0.22, 0.18)
+	_waypoint_btn.add_theme_stylebox_override("hover", wp_hs)
+	_waypoint_btn.add_theme_color_override("font_color", LABEL_CLR)
+	_waypoint_btn.add_theme_color_override("font_pressed_color", WHITE)
+	_waypoint_btn.add_theme_color_override("font_hover_color", WHITE)
+	_waypoint_btn.toggled.connect(_on_waypoint_mode_toggled)
+	top_hbox.add_child(_waypoint_btn)
+
+	# Flood-fill (bucket) button
+	_flood_btn = Button.new()
+	_flood_btn.text = "\U0001FAA3 Fill"
+	_flood_btn.tooltip_text = "Flood fill — click a tile and every connected tile of the same type gets replaced"
+	_flood_btn.add_theme_font_size_override("font_size", 11)
+	_flood_btn.toggle_mode = true
+	_flood_btn.button_pressed = false
+	var fl_ns = StyleBoxFlat.new()
+	fl_ns.bg_color = Color(0.18, 0.18, 0.22)
+	fl_ns.set_corner_radius_all(4)
+	fl_ns.content_margin_left = 8; fl_ns.content_margin_right = 8
+	fl_ns.content_margin_top = 3;  fl_ns.content_margin_bottom = 3
+	_flood_btn.add_theme_stylebox_override("normal", fl_ns)
+	var fl_ps = fl_ns.duplicate()
+	fl_ps.bg_color = Color(0.20, 0.55, 0.85)
+	fl_ps.border_width_bottom = 2; fl_ps.border_color = Color(0.3, 0.7, 1.0)
+	_flood_btn.add_theme_stylebox_override("pressed", fl_ps)
+	var fl_hs = fl_ns.duplicate()
+	fl_hs.bg_color = Color(0.18, 0.25, 0.30)
+	_flood_btn.add_theme_stylebox_override("hover", fl_hs)
+	_flood_btn.add_theme_color_override("font_color", LABEL_CLR)
+	_flood_btn.add_theme_color_override("font_pressed_color", WHITE)
+	_flood_btn.add_theme_color_override("font_hover_color", WHITE)
+	_flood_btn.toggled.connect(func(pressed: bool): _flood_fill_mode = pressed)
+	top_hbox.add_child(_flood_btn)
+
+	# Dirty indicator
+	_dirty_lbl = Label.new()
+	_dirty_lbl.text = ""
+	_dirty_lbl.label_settings = _ls(12, Color(1, 0.7, 0.2))
+	top_hbox.add_child(_dirty_lbl)
+
+	# ---- BLOCK TYPE TABS ----
+	var type_bar = PanelContainer.new()
+	var type_style = StyleBoxFlat.new()
+	type_style.bg_color = Color(0.08, 0.08, 0.10)
+	type_style.content_margin_left = 8
+	type_style.content_margin_right = 8
+	type_style.content_margin_top = 4
+	type_style.content_margin_bottom = 4
+	type_bar.add_theme_stylebox_override("panel", type_style)
+	type_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(type_bar)
+
+	var type_hbox = HBoxContainer.new()
+	type_hbox.add_theme_constant_override("separation", 4)
+	type_bar.add_child(type_hbox)
+
+	var type_lbl = Label.new()
+	type_lbl.text = "Block Type:"
+	type_lbl.label_settings = _ls(11, DIM)
+	type_hbox.add_child(type_lbl)
 
 	for i in range(BLOCK_NAMES.size()):
 		var btn = Button.new()
@@ -162,114 +385,287 @@ func _build_ui() -> void:
 		btn.toggle_mode = true
 		btn.button_pressed = (i == selected_block)
 		btn.pressed.connect(_on_block_selected.bind(i))
-		var style = StyleBoxFlat.new()
-		style.bg_color = BLOCK_COLORS[i].darkened(0.4)
-		style.set_corner_radius_all(2)
-		style.content_margin_left = 4
-		style.content_margin_right = 4
-		btn.add_theme_stylebox_override("normal", style)
-		var pressed_s = style.duplicate()
-		pressed_s.bg_color = BLOCK_COLORS[i]
-		btn.add_theme_stylebox_override("pressed", pressed_s)
-		left_panel.add_child(btn)
+		btn.custom_minimum_size = Vector2(0, 26)
+
+		var ns = StyleBoxFlat.new()
+		ns.bg_color = BLOCK_COLORS[i].darkened(0.5)
+		ns.set_corner_radius_all(4)
+		ns.content_margin_left = 6
+		ns.content_margin_right = 6
+		ns.content_margin_top = 2
+		ns.content_margin_bottom = 2
+		btn.add_theme_stylebox_override("normal", ns)
+
+		var ps = ns.duplicate()
+		ps.bg_color = BLOCK_COLORS[i]
+		ps.border_width_bottom = 3
+		ps.border_color = WHITE
+		btn.add_theme_stylebox_override("pressed", ps)
+
+		var hs = ns.duplicate()
+		hs.bg_color = BLOCK_COLORS[i].darkened(0.2)
+		btn.add_theme_stylebox_override("hover", hs)
+
+		btn.add_theme_color_override("font_color", WHITE)
+		btn.add_theme_color_override("font_pressed_color", WHITE)
+		btn.add_theme_color_override("font_hover_color", WHITE)
+
+		type_hbox.add_child(btn)
 		_block_btns.append(btn)
 
-	# Actor placement
-	left_panel.add_child(HSeparator.new())
-	var actor_hdr = Label.new()
-	actor_hdr.text = "ACTORS"
-	actor_hdr.add_theme_font_size_override("font_size", 12)
-	actor_hdr.add_theme_color_override("font_color", HEADER_COLOR)
-	actor_hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	left_panel.add_child(actor_hdr)
-	_actor_list_opt = OptionButton.new()
-	_actor_list_opt.add_theme_font_size_override("font_size", 11)
-	_actor_list_opt.add_item("(Blocks mode)")
-	for aname in actor_names:
-		_actor_list_opt.add_item("👾 " + aname)
-	_actor_list_opt.item_selected.connect(_on_actor_tool_selected)
-	left_panel.add_child(_actor_list_opt)
+	# ---- TILE PALETTE ----
+	var pal_bar = PanelContainer.new()
+	var pal_style = StyleBoxFlat.new()
+	pal_style.bg_color = Color(0.09, 0.09, 0.12)
+	pal_style.content_margin_left = 8
+	pal_style.content_margin_right = 8
+	pal_style.content_margin_top = 4
+	pal_style.content_margin_bottom = 4
+	pal_bar.add_theme_stylebox_override("panel", pal_style)
+	pal_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(pal_bar)
 
-	left_wrap.add_child(left_panel)
-	add_child(left_wrap)
+	var pal_vbox = VBoxContainer.new()
+	pal_vbox.add_theme_constant_override("separation", 2)
+	pal_bar.add_child(pal_vbox)
 
-	# RIGHT PANEL: Grid canvas + properties
-	var right_panel = VBoxContainer.new()
-	right_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var pal_header = HBoxContainer.new()
+	pal_header.add_theme_constant_override("separation", 6)
+	pal_vbox.add_child(pal_header)
 
-	var right_style = StyleBoxFlat.new()
-	right_style.bg_color = BG_COLOR
-	var right_wrap = PanelContainer.new()
-	right_wrap.add_theme_stylebox_override("panel", right_style)
-	right_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right_wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var pal_lbl = Label.new()
+	pal_lbl.text = "Tiles -- click to select, double-click to edit"
+	pal_lbl.label_settings = _ls(10, DIM)
+	pal_header.add_child(pal_lbl)
 
-	# Level name
-	var name_row = HBoxContainer.new()
-	name_row.add_theme_constant_override("separation", 8)
-	var name_lbl = Label.new()
-	name_lbl.text = "Level:"
-	name_lbl.add_theme_color_override("font_color", LABEL_COLOR)
-	name_lbl.add_theme_font_size_override("font_size", 12)
-	name_row.add_child(name_lbl)
-	_name_edit = LineEdit.new()
-	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_name_edit.add_theme_font_size_override("font_size", 12)
-	_name_edit.text_changed.connect(_on_name_changed)
-	name_row.add_child(_name_edit)
-	right_panel.add_child(name_row)
+	_tile_filter = LineEdit.new()
+	_tile_filter.placeholder_text = "\U0001F50D Search tiles..."
+	_tile_filter.tooltip_text = "Type a name to filter the tile palette"
+	_tile_filter.custom_minimum_size.x = 120
+	_tile_filter.add_theme_font_size_override("font_size", 10)
+	var tf_style = StyleBoxFlat.new()
+	tf_style.bg_color = Color(0.12, 0.12, 0.15)
+	tf_style.set_corner_radius_all(3)
+	tf_style.content_margin_left = 6; tf_style.content_margin_right = 6
+	tf_style.content_margin_top = 2;  tf_style.content_margin_bottom = 2
+	tf_style.border_width_bottom = 1; tf_style.border_color = Color(0.30, 0.30, 0.35)
+	_tile_filter.add_theme_stylebox_override("normal", tf_style)
+	_tile_filter.add_theme_color_override("font_color", WHITE)
+	_tile_filter.add_theme_color_override("font_placeholder_color", DIM)
+	_tile_filter.text_changed.connect(func(_t): _rebuild_tile_palette())
+	pal_header.add_child(_tile_filter)
 
-	# Grid canvas
+	_tile_palette_scroll = ScrollContainer.new()
+	_tile_palette_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tile_palette_scroll.custom_minimum_size.y = 52
+	_tile_palette_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	pal_vbox.add_child(_tile_palette_scroll)
+
+	_tile_palette = HBoxContainer.new()
+	_tile_palette.add_theme_constant_override("separation", 4)
+	_tile_palette_scroll.add_child(_tile_palette)
+
+	# ---- GRID CANVAS (scrollable + zoomable) ----
+	_grid_scroll = ScrollContainer.new()
+	_grid_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_grid_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_grid_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_grid_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	var gs_style = StyleBoxFlat.new()
+	gs_style.bg_color = Color(0.08, 0.08, 0.10)
+	_grid_scroll.add_theme_stylebox_override("panel", gs_style)
+	add_child(_grid_scroll)
+
 	_grid_canvas = Control.new()
-	_grid_canvas.custom_minimum_size = Vector2(GRID_W * CELL_SIZE + 2, GRID_H * CELL_SIZE + 2)
+	_grid_canvas.custom_minimum_size = Vector2(GRID_W * BASE_CELL_PX + 2, GRID_H * BASE_CELL_PX + 2)
 	_grid_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_grid_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_grid_canvas.draw.connect(_draw_grid)
 	_grid_canvas.gui_input.connect(_on_grid_input)
-	right_panel.add_child(_grid_canvas)
+	_grid_canvas.focus_mode = Control.FOCUS_CLICK
+	_grid_scroll.add_child(_grid_canvas)
 
-	# Material properties
-	var mat_row = HBoxContainer.new()
-	mat_row.add_theme_constant_override("separation", 8)
-	var fric_lbl = Label.new()
-	fric_lbl.text = "Friction:"
-	fric_lbl.add_theme_color_override("font_color", LABEL_COLOR)
-	fric_lbl.add_theme_font_size_override("font_size", 11)
-	mat_row.add_child(fric_lbl)
-	_material_friction = HSlider.new()
-	_material_friction.min_value = 0
-	_material_friction.max_value = 100
-	_material_friction.value = 50
-	_material_friction.custom_minimum_size.x = 80
-	_material_friction.value_changed.connect(_on_friction_changed)
-	mat_row.add_child(_material_friction)
-	var elast_lbl = Label.new()
-	elast_lbl.text = "Elasticity:"
-	elast_lbl.add_theme_color_override("font_color", LABEL_COLOR)
-	elast_lbl.add_theme_font_size_override("font_size", 11)
-	mat_row.add_child(elast_lbl)
-	_material_elasticity = HSlider.new()
-	_material_elasticity.min_value = 0
-	_material_elasticity.max_value = 100
-	_material_elasticity.value = 50
-	_material_elasticity.custom_minimum_size.x = 80
-	_material_elasticity.value_changed.connect(_on_elasticity_changed)
-	mat_row.add_child(_material_elasticity)
-	right_panel.add_child(mat_row)
+	# ---- BOTTOM BAR ----
+	var bot_bar = PanelContainer.new()
+	var bb_style = StyleBoxFlat.new()
+	bb_style.bg_color = TOOLBAR_BG
+	bb_style.content_margin_left = 10
+	bb_style.content_margin_right = 10
+	bb_style.content_margin_top = 4
+	bb_style.content_margin_bottom = 4
+	bot_bar.add_theme_stylebox_override("panel", bb_style)
+	bot_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(bot_bar)
 
-	# Status bar
+	var bot_hbox = HBoxContainer.new()
+	bot_hbox.add_theme_constant_override("separation", 8)
+	bot_bar.add_child(bot_hbox)
+
+	var f_lbl = Label.new()
+	f_lbl.text = "Friction:"
+	f_lbl.label_settings = _ls(11, DIM)
+	bot_hbox.add_child(f_lbl)
+	_fric_slider = HSlider.new()
+	_fric_slider.min_value = 0
+	_fric_slider.max_value = 100
+	_fric_slider.value = 50
+	_fric_slider.custom_minimum_size.x = 80
+	_fric_slider.value_changed.connect(_on_friction_changed)
+	bot_hbox.add_child(_fric_slider)
+
+	var e_lbl = Label.new()
+	e_lbl.text = "Elasticity:"
+	e_lbl.label_settings = _ls(11, DIM)
+	bot_hbox.add_child(e_lbl)
+	_elast_slider = HSlider.new()
+	_elast_slider.min_value = 0
+	_elast_slider.max_value = 100
+	_elast_slider.value = 50
+	_elast_slider.custom_minimum_size.x = 80
+	_elast_slider.value_changed.connect(_on_elasticity_changed)
+	bot_hbox.add_child(_elast_slider)
+
+	bot_hbox.add_child(VSeparator.new())
+
 	_status_lbl = Label.new()
-	_status_lbl.text = "Click grid to paint blocks — select block type on the left"
-	_status_lbl.add_theme_font_size_override("font_size", 10)
-	_status_lbl.add_theme_color_override("font_color", LABEL_COLOR)
-	right_panel.add_child(_status_lbl)
+	_status_lbl.text = "LClick=paint | RClick=place actor | Shift+RClick=add waypoint | Ctrl+RClick=remove"
+	_status_lbl.label_settings = _ls(10, LABEL_CLR)
+	_status_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bot_hbox.add_child(_status_lbl)
 
-	right_wrap.add_child(right_panel)
-	add_child(right_wrap)
+	bot_hbox.add_child(VSeparator.new())
+	_zoom_lbl = Label.new()
+	_zoom_lbl.text = "100%"
+	_zoom_lbl.label_settings = _ls(10, ACCENT)
+	_zoom_lbl.tooltip_text = "Zoom level — Shift+Scroll to zoom in/out"
+	bot_hbox.add_child(_zoom_lbl)
 
 	_refresh_level_list()
 	_refresh_ui()
+	_rebuild_tile_palette()
+
+	# Confirmation dialog (reusable)
+	_confirm_dialog = ConfirmationDialog.new()
+	_confirm_dialog.title = "Are you sure?"
+	_confirm_dialog.unresizable = true
+	_confirm_dialog.confirmed.connect(func():
+		if _pending_confirm_action.is_valid():
+			_pending_confirm_action.call()
+	)
+	add_child(_confirm_dialog)
+
+
+# ─── Tile Palette ────────────────────────────────────────────
+
+func _rebuild_tile_palette() -> void:
+	for c in _tile_palette.get_children():
+		c.queue_free()
+	_tile_btns.clear()
+
+	if not tile_library:
+		var lbl = Label.new()
+		lbl.text = "(Tile library loading...)"
+		lbl.label_settings = _ls(10, DIM)
+		_tile_palette.add_child(lbl)
+		return
+
+	if selected_block == BLOCK_EMPTY:
+		var lbl = Label.new()
+		lbl.text = "Empty -- eraser (click grid to clear tiles)"
+		lbl.label_settings = _ls(10, DIM)
+		_tile_palette.add_child(lbl)
+		return
+
+	var tile_count = tile_library.get_tile_count(selected_block)
+	if tile_count == 0:
+		var lbl = Label.new()
+		lbl.text = "(No tiles for " + BLOCK_NAMES[selected_block] + ")"
+		lbl.label_settings = _ls(10, DIM)
+		_tile_palette.add_child(lbl)
+		return
+
+	var filter_text: String = ""
+	if is_instance_valid(_tile_filter):
+		filter_text = _tile_filter.text.strip_edges().to_lower()
+
+	for i in range(tile_count):
+		var tex = tile_library.get_tile_texture(selected_block, i)
+		var tname = tile_library.get_tile_name(selected_block, i)
+
+		# Filter by name if search text is entered
+		if filter_text.length() > 0 and tname.to_lower().find(filter_text) < 0:
+			continue
+
+		var btn_container = VBoxContainer.new()
+		btn_container.add_theme_constant_override("separation", 1)
+
+		var btn = Button.new()
+		btn.toggle_mode = true
+		btn.button_pressed = (i == selected_tile_index)
+		btn.tooltip_text = tname + " -- Double-click to edit"
+		btn.custom_minimum_size = Vector2(40, 40)
+
+		var ns = StyleBoxFlat.new()
+		ns.bg_color = Color(0.15, 0.15, 0.18)
+		ns.set_corner_radius_all(4)
+		ns.content_margin_left = 2
+		ns.content_margin_right = 2
+		ns.content_margin_top = 2
+		ns.content_margin_bottom = 2
+		btn.add_theme_stylebox_override("normal", ns)
+
+		var ps = ns.duplicate()
+		ps.bg_color = BLOCK_COLORS[selected_block].darkened(0.2)
+		ps.border_width_bottom = 3
+		ps.border_color = ACCENT
+		btn.add_theme_stylebox_override("pressed", ps)
+
+		var hs = ns.duplicate()
+		hs.bg_color = Color(0.20, 0.20, 0.25)
+		btn.add_theme_stylebox_override("hover", hs)
+
+		if tex:
+			var tex_rect = TextureRect.new()
+			tex_rect.texture = tex
+			tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			tex_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+			tex_rect.custom_minimum_size = Vector2(36, 36)
+			tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn.add_child(tex_rect)
+
+		btn.pressed.connect(_on_tile_selected.bind(i))
+		btn.gui_input.connect(_on_tile_btn_input.bind(i))
+
+		btn_container.add_child(btn)
+
+		var name_lbl = Label.new()
+		name_lbl.text = tname
+		name_lbl.label_settings = _ls(8, DIM)
+		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_lbl.custom_minimum_size.x = 40
+		name_lbl.clip_text = true
+		btn_container.add_child(name_lbl)
+
+		_tile_palette.add_child(btn_container)
+		_tile_btns.append(btn)
+
+
+func _on_tile_selected(idx: int) -> void:
+	selected_tile_index = idx
+	selected_actor = -1
+	_actor_opt.selected = 0
+	for i in range(_tile_btns.size()):
+		_tile_btns[i].button_pressed = (i == idx)
+	var tname = ""
+	if tile_library:
+		tname = tile_library.get_tile_name(selected_block, idx)
+	_status_lbl.text = "Selected: " + BLOCK_NAMES[selected_block] + " -> " + tname
+
+
+func _on_tile_btn_input(event: InputEvent, tile_idx: int) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.double_click:
+			_open_inline_tile_editor(selected_block, tile_idx)
 
 
 # ─── Drawing ─────────────────────────────────────────────────
@@ -277,91 +673,488 @@ func _build_ui() -> void:
 func _draw_grid() -> void:
 	if not is_instance_valid(_grid_canvas):
 		return
+	var canvas_size = _grid_canvas.size
+	if canvas_size.x < 10 or canvas_size.y < 10:
+		return
+
+	var cw: float = canvas_size.x / float(GRID_W)
+	var ch: float = canvas_size.y / float(GRID_H)
+	var cs: float = minf(cw, ch)
+	var ox: float = (canvas_size.x - cs * GRID_W) * 0.5
+	var oy: float = (canvas_size.y - cs * GRID_H) * 0.5
+
+	_grid_canvas.draw_rect(Rect2(Vector2.ZERO, canvas_size), Color(0.08, 0.08, 0.10))
+
 	var lvl = levels[selected_level]
 	var grid: Array = lvl["grid"]
 
-	# Draw cells
+	# Draw cells with WYSIWYG textures
 	for y in range(GRID_H):
 		for x in range(GRID_W):
-			var block_id: int = grid[y][x]
-			var rect = Rect2(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-			_grid_canvas.draw_rect(rect, BLOCK_COLORS[block_id])
+			var cell = grid[y][x]
+			var block_type: int = 0
+			var tile_idx: int = 0
 
-	# Grid lines
-	for x in range(GRID_W + 1):
-		_grid_canvas.draw_line(Vector2(x * CELL_SIZE, 0), Vector2(x * CELL_SIZE, GRID_H * CELL_SIZE), GRID_COLOR, 1.0)
-	for y in range(GRID_H + 1):
-		_grid_canvas.draw_line(Vector2(0, y * CELL_SIZE), Vector2(GRID_W * CELL_SIZE, y * CELL_SIZE), GRID_COLOR, 1.0)
+			if cell is Dictionary:
+				block_type = cell.get("block_type", 0)
+				tile_idx = cell.get("tile_index", 0)
+			elif cell is int or cell is float:
+				block_type = int(cell)
+				tile_idx = 0
 
-	# Actor markers
+			var rect = Rect2(ox + x * cs, oy + y * cs, cs, cs)
+
+			if block_type == BLOCK_EMPTY:
+				_grid_canvas.draw_rect(rect, BLOCK_COLORS[BLOCK_EMPTY])
+			else:
+				var tex: Texture2D = null
+				if tile_library:
+					tex = tile_library.get_tile_texture(block_type, tile_idx)
+
+				if tex:
+					_grid_canvas.draw_texture_rect(tex, rect, false)
+					# Color-coded outline at 35% alpha for block type hints
+					var outline_color = BLOCK_COLORS[block_type]
+					outline_color.a = 0.35
+					_grid_canvas.draw_rect(rect, outline_color, false, 2.0)
+				else:
+					_grid_canvas.draw_rect(rect, BLOCK_COLORS[block_type])
+
+			_grid_canvas.draw_rect(rect, GRID_LINE, false, 1.0)
+
+	# Actor markers with sprites
 	for actor_data in lvl["actors"]:
 		var ax: int = actor_data.get("x", 0)
 		var ay: int = actor_data.get("y", 0)
 		var aid: int = actor_data.get("actor_id", 0)
-		var actor_rect = Rect2(ax * CELL_SIZE + 2, ay * CELL_SIZE + 2, CELL_SIZE - 4, CELL_SIZE - 4)
-		_grid_canvas.draw_rect(actor_rect, Color(1, 0.8, 0.2, 0.7))
-		# Draw actor number
-		# (Godot 4 draw_string is complex — use a colored rect + label overlay approach)
-		_grid_canvas.draw_rect(Rect2(ax * CELL_SIZE + 4, ay * CELL_SIZE + 4, CELL_SIZE - 8, CELL_SIZE - 8), Color(0, 0, 0, 0.5))
+		var m: float = cs * 0.08
+		var actor_rect = Rect2(ox + ax * cs + m, oy + ay * cs + m, cs - m * 2, cs - m * 2)
 
-		# Sentry paths
+		var actor_tex: Texture2D = null
+		if tile_library:
+			actor_tex = tile_library.get_actor_texture(aid)
+
+		if actor_tex:
+			_grid_canvas.draw_texture_rect(actor_tex, actor_rect, false)
+			_grid_canvas.draw_rect(actor_rect, Color(1.0, 0.9, 0.3, 0.6), false, 2.0)
+		else:
+			_grid_canvas.draw_rect(actor_rect, Color(1.0, 0.8, 0.2, 0.8))
+			_grid_canvas.draw_rect(actor_rect, Color(1.0, 0.9, 0.3), false, 2.0)
+
 		var path: Array = actor_data.get("path", [])
 		if path.size() > 1:
+			var path_color = Color(1, 0.5, 0, 0.8)
+			var dot_color = Color(1, 0.7, 0.2, 0.9)
 			for i in range(path.size() - 1):
-				var p1 = Vector2(path[i].x * CELL_SIZE + CELL_SIZE / 2, path[i].y * CELL_SIZE + CELL_SIZE / 2)
-				var p2 = Vector2(path[i + 1].x * CELL_SIZE + CELL_SIZE / 2, path[i + 1].y * CELL_SIZE + CELL_SIZE / 2)
-				_grid_canvas.draw_line(p1, p2, Color(1, 0.5, 0, 0.8), 2.0)
+				var p1x = path[i]["x"] if path[i] is Dictionary else path[i].x
+				var p1y = path[i]["y"] if path[i] is Dictionary else path[i].y
+				var p2x = path[i + 1]["x"] if path[i + 1] is Dictionary else path[i + 1].x
+				var p2y = path[i + 1]["y"] if path[i + 1] is Dictionary else path[i + 1].y
+				var p1 = Vector2(ox + p1x * cs + cs * 0.5, oy + p1y * cs + cs * 0.5)
+				var p2 = Vector2(ox + p2x * cs + cs * 0.5, oy + p2y * cs + cs * 0.5)
+				_grid_canvas.draw_line(p1, p2, path_color, 2.0)
+			# Draw waypoint dots
+			for i in range(path.size()):
+				var px = path[i]["x"] if path[i] is Dictionary else path[i].x
+				var py = path[i]["y"] if path[i] is Dictionary else path[i].y
+				var center = Vector2(ox + px * cs + cs * 0.5, oy + py * cs + cs * 0.5)
+				_grid_canvas.draw_circle(center, cs * 0.15, dot_color)
+				# Draw waypoint number
+				if i > 0:
+					_grid_canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-3, 4), str(i), HORIZONTAL_ALIGNMENT_CENTER, -1, 9, Color.BLACK)
 
-	# Trace in progress
-	if is_tracing_path and trace_points.size() > 1:
-		for i in range(trace_points.size() - 1):
-			var p1 = Vector2(trace_points[i].x * CELL_SIZE + CELL_SIZE / 2, trace_points[i].y * CELL_SIZE + CELL_SIZE / 2)
-			var p2 = Vector2(trace_points[i + 1].x * CELL_SIZE + CELL_SIZE / 2, trace_points[i + 1].y * CELL_SIZE + CELL_SIZE / 2)
-			_grid_canvas.draw_line(p1, p2, Color(1, 1, 0, 0.9), 2.0)
+	# Waypoint mode visual overlay
+	if _waypoint_mode and _last_mouse_pos != Vector2.ZERO:
+		var wp_gp = _grid_pos(_last_mouse_pos)
+		# Draw cursor cell with orange highlight
+		var wp_rect = Rect2(ox + wp_gp.x * cs, oy + wp_gp.y * cs, cs, cs)
+		_grid_canvas.draw_rect(wp_rect, Color(1.0, 0.5, 0.0, 0.3))
+		_grid_canvas.draw_rect(wp_rect, Color(1.0, 0.6, 0.1, 0.8), false, 2.0)
+		# Draw small pin icon in center
+		var wp_center = wp_rect.position + wp_rect.size * 0.5
+		_grid_canvas.draw_circle(wp_center - Vector2(0, cs * 0.1), cs * 0.12, Color(1.0, 0.5, 0.0, 0.9))
+		_grid_canvas.draw_circle(wp_center - Vector2(0, cs * 0.1), cs * 0.06, Color(1.0, 0.8, 0.3))
+		# Highlight the nearest actor with a pulsing outline
+		if not lvl["actors"].is_empty():
+			var near_idx = _find_nearest_actor(wp_gp)
+			if near_idx >= 0:
+				var na = lvl["actors"][near_idx]
+				var na_rect = Rect2(ox + na["x"] * cs, oy + na["y"] * cs, cs, cs)
+				_grid_canvas.draw_rect(na_rect, Color(1.0, 0.5, 0.0, 0.5), false, 3.0)
+				# Draw line from nearest actor (or its last waypoint) to cursor
+				var na_path: Array = na.get("path", [])
+				var line_start: Vector2
+				if na_path.size() > 0:
+					var last_wp = na_path[na_path.size() - 1]
+					var lwx = last_wp["x"] if last_wp is Dictionary else last_wp.x
+					var lwy = last_wp["y"] if last_wp is Dictionary else last_wp.y
+					line_start = Vector2(ox + lwx * cs + cs * 0.5, oy + lwy * cs + cs * 0.5)
+				else:
+					line_start = Vector2(ox + na["x"] * cs + cs * 0.5, oy + na["y"] * cs + cs * 0.5)
+				_grid_canvas.draw_dashed_line(line_start, wp_center, Color(1.0, 0.6, 0.1, 0.5), 2.0, 4.0)
+
+
+func _grid_pos(pixel_pos: Vector2) -> Vector2i:
+	var canvas_size = _grid_canvas.size
+	var cw: float = canvas_size.x / float(GRID_W)
+	var ch: float = canvas_size.y / float(GRID_H)
+	var cs: float = minf(cw, ch)
+	var ox: float = (canvas_size.x - cs * GRID_W) * 0.5
+	var oy: float = (canvas_size.y - cs * GRID_H) * 0.5
+	var gx: int = int((pixel_pos.x - ox) / cs)
+	var gy: int = int((pixel_pos.y - oy) / cs)
+	return Vector2i(clampi(gx, 0, GRID_W - 1), clampi(gy, 0, GRID_H - 1))
+
+
+func _apply_zoom() -> void:
+	if not is_instance_valid(_grid_canvas):
+		return
+	_grid_canvas.custom_minimum_size = Vector2(
+		GRID_W * BASE_CELL_PX * _zoom + 2,
+		GRID_H * BASE_CELL_PX * _zoom + 2
+	)
+	_grid_canvas.queue_redraw()
+	if is_instance_valid(_zoom_lbl):
+		_zoom_lbl.text = str(int(_zoom * 100)) + "%"
+	if is_instance_valid(_status_lbl):
+		_status_lbl.text = "Zoom: " + str(int(_zoom * 100)) + "% — Shift+Scroll to adjust"
 
 
 func _on_grid_input(event: InputEvent) -> void:
-	if not (event is InputEventMouseButton or event is InputEventMouseMotion):
+	if not (event is InputEventMouseButton or event is InputEventMouseMotion or event is InputEventKey):
 		return
-
+	# Keyboard shortcuts: Ctrl+Z = Undo, Ctrl+Y / Ctrl+Shift+Z = Redo
+	# Delete = remove actor or waypoint under cursor
+	if event is InputEventKey and event.pressed:
+		if event.ctrl_pressed and event.keycode == KEY_Z and not event.shift_pressed:
+			_undo()
+			return
+		if event.ctrl_pressed and (event.keycode == KEY_Y or (event.keycode == KEY_Z and event.shift_pressed)):
+			_redo()
+			return
+		if event.keycode == KEY_DELETE or event.keycode == KEY_BACKSPACE:
+			_delete_actor_or_waypoint_at_cursor()
+			return
 	if event is InputEventMouseButton:
+		# Shift+Scroll Wheel: zoom in/out
+		if event.shift_pressed and event.pressed:
+			if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+				_zoom = clampf(_zoom + ZOOM_STEP, ZOOM_MIN, ZOOM_MAX)
+				_apply_zoom()
+				_grid_canvas.accept_event()
+				return
+			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+				_zoom = clampf(_zoom - ZOOM_STEP, ZOOM_MIN, ZOOM_MAX)
+				_apply_zoom()
+				_grid_canvas.accept_event()
+				return
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			is_painting = event.pressed
 			if event.pressed:
-				_paint_at(event.position)
+				# Take snapshot before starting a paint stroke
+				_begin_stroke()
+				if _flood_fill_mode:
+					_flood_fill_at(event.position)
+					_end_stroke()
+				else:
+					is_painting = true
+					_paint_at(event.position)
+			else:
+				# End stroke — commit the snapshot if grid changed
+				is_painting = false
+				_end_stroke()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			# Right-click to place actor
-			if selected_actor >= 0:
+			if _waypoint_mode:
+				# Waypoint mode: right-click adds waypoints, ctrl+right removes
+				if event.ctrl_pressed:
+					_begin_stroke()
+					_remove_actor_at(event.position)
+					_end_stroke()
+				else:
+					_begin_stroke()
+					_add_waypoint(event.position)
+					_end_stroke()
+			elif event.shift_pressed:
+				# Shift+Right-click: add waypoint to nearest actor's path
+				_begin_stroke()
+				_add_waypoint(event.position)
+				_end_stroke()
+			elif event.ctrl_pressed:
+				# Ctrl+Right-click: remove actor or clear its path
+				_begin_stroke()
+				_remove_actor_at(event.position)
+				_end_stroke()
+			elif selected_actor >= 0:
+				_begin_stroke()
 				_place_actor(event.position)
+				_end_stroke()
 	elif event is InputEventMouseMotion:
 		if is_painting:
 			_paint_at(event.position)
+		# Track cursor position for Delete key
+		_last_mouse_pos = event.position
+		# Redraw for waypoint cursor overlay
+		if _waypoint_mode:
+			_grid_canvas.queue_redraw()
+
+
+## Take a snapshot of the current level's grid + actors for undo.
+func _begin_stroke() -> void:
+	var lvl = levels[selected_level]
+	_stroke_snapshot = {
+		"level": selected_level,
+		"grid": lvl["grid"].duplicate(true),
+		"actors": lvl["actors"].duplicate(true),
+	}
+
+
+## Commit the snapshot if the grid actually changed.
+func _end_stroke() -> void:
+	if _stroke_snapshot == null:
+		return
+	var lvl = levels[selected_level]
+	# Only push to undo if something changed
+	if lvl["grid"] != _stroke_snapshot["grid"] or lvl["actors"] != _stroke_snapshot["actors"]:
+		_undo_stack.append(_stroke_snapshot)
+		if _undo_stack.size() > MAX_UNDO:
+			_undo_stack.pop_front()
+		_redo_stack.clear()
+	_stroke_snapshot = null
+
+
+func _undo() -> void:
+	if _undo_stack.is_empty():
+		_status_lbl.text = "Nothing to undo"
+		return
+	var snap = _undo_stack.pop_back()
+	var lvl_idx: int = snap["level"]
+	# Push current state to redo
+	_redo_stack.append({
+		"level": lvl_idx,
+		"grid": levels[lvl_idx]["grid"].duplicate(true),
+		"actors": levels[lvl_idx]["actors"].duplicate(true),
+	})
+	# Restore
+	levels[lvl_idx]["grid"] = snap["grid"]
+	levels[lvl_idx]["actors"] = snap["actors"]
+	if lvl_idx == selected_level:
+		_grid_canvas.queue_redraw()
+	_status_lbl.text = "Undo (" + str(_undo_stack.size()) + " remaining)"
+	level_changed.emit(selected_level)
+
+
+func _redo() -> void:
+	if _redo_stack.is_empty():
+		_status_lbl.text = "Nothing to redo"
+		return
+	var snap = _redo_stack.pop_back()
+	var lvl_idx: int = snap["level"]
+	# Push current state to undo
+	_undo_stack.append({
+		"level": lvl_idx,
+		"grid": levels[lvl_idx]["grid"].duplicate(true),
+		"actors": levels[lvl_idx]["actors"].duplicate(true),
+	})
+	# Restore
+	levels[lvl_idx]["grid"] = snap["grid"]
+	levels[lvl_idx]["actors"] = snap["actors"]
+	if lvl_idx == selected_level:
+		_grid_canvas.queue_redraw()
+	_status_lbl.text = "Redo (" + str(_redo_stack.size()) + " remaining)"
+	level_changed.emit(selected_level)
 
 
 func _paint_at(pos: Vector2) -> void:
-	var gx: int = int(pos.x / float(CELL_SIZE))
-	var gy: int = int(pos.y / float(CELL_SIZE))
-	if gx < 0 or gx >= GRID_W or gy < 0 or gy >= GRID_H:
+	var gp = _grid_pos(pos)
+	if gp.x < 0 or gp.x >= GRID_W or gp.y < 0 or gp.y >= GRID_H:
 		return
 	var lvl = levels[selected_level]
-	lvl["grid"][gy][gx] = selected_block
+	var cell = lvl["grid"][gp.y][gp.x]
+
+	if cell is Dictionary:
+		cell["block_type"] = selected_block
+		cell["tile_index"] = selected_tile_index if selected_block != BLOCK_EMPTY else 0
+	else:
+		lvl["grid"][gp.y][gp.x] = {
+			"block_type": selected_block,
+			"tile_index": selected_tile_index if selected_block != BLOCK_EMPTY else 0,
+		}
+
 	_grid_canvas.queue_redraw()
-	_status_lbl.text = "Painted " + BLOCK_NAMES[selected_block] + " at (" + str(gx) + ", " + str(gy) + ")"
+	var tname = ""
+	if tile_library and selected_block != BLOCK_EMPTY:
+		tname = " (" + tile_library.get_tile_name(selected_block, selected_tile_index) + ")"
+	_status_lbl.text = "Painted " + BLOCK_NAMES[selected_block] + tname + " at (" + str(gp.x) + ", " + str(gp.y) + ")"
+	_mark_dirty()
+	level_changed.emit(selected_level)
+
+
+## Flood fill — BFS replacing all connected cells of the same block type.
+func _flood_fill_at(pos: Vector2) -> void:
+	var gp = _grid_pos(pos)
+	if gp.x < 0 or gp.x >= GRID_W or gp.y < 0 or gp.y >= GRID_H:
+		return
+	var lvl = levels[selected_level]
+	var grid: Array = lvl["grid"]
+	var target_cell = grid[gp.y][gp.x]
+	var target_bt: int = 0
+	var target_ti: int = 0
+	if target_cell is Dictionary:
+		target_bt = target_cell.get("block_type", 0)
+		target_ti = target_cell.get("tile_index", 0)
+	elif target_cell is int or target_cell is float:
+		target_bt = int(target_cell)
+	# Don't fill if target is already the selected block+tile
+	if target_bt == selected_block and target_ti == selected_tile_index:
+		return
+	var replace_ti: int = selected_tile_index if selected_block != BLOCK_EMPTY else 0
+	var queue: Array = [gp]
+	var visited: Dictionary = {}
+	visited[gp] = true
+	var filled: int = 0
+	while queue.size() > 0:
+		var p: Vector2i = queue.pop_front()
+		var c = grid[p.y][p.x]
+		var c_bt: int = 0
+		var c_ti: int = 0
+		if c is Dictionary:
+			c_bt = c.get("block_type", 0)
+			c_ti = c.get("tile_index", 0)
+		elif c is int or c is float:
+			c_bt = int(c)
+		if c_bt != target_bt or c_ti != target_ti:
+			continue
+		grid[p.y][p.x] = {"block_type": selected_block, "tile_index": replace_ti}
+		filled += 1
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var np: Vector2i = p + d
+			if np.x >= 0 and np.x < GRID_W and np.y >= 0 and np.y < GRID_H:
+				if not visited.has(np):
+					visited[np] = true
+					queue.append(np)
+	_grid_canvas.queue_redraw()
+	var tname = ""
+	if tile_library and selected_block != BLOCK_EMPTY:
+		tname = " (" + tile_library.get_tile_name(selected_block, selected_tile_index) + ")"
+	_status_lbl.text = "Flood-filled " + str(filled) + " tiles with " + BLOCK_NAMES[selected_block] + tname
+	_mark_dirty()
 	level_changed.emit(selected_level)
 
 
 func _place_actor(pos: Vector2) -> void:
-	var gx: int = int(pos.x / float(CELL_SIZE))
-	var gy: int = int(pos.y / float(CELL_SIZE))
-	if gx < 0 or gx >= GRID_W or gy < 0 or gy >= GRID_H:
+	var gp = _grid_pos(pos)
+	if gp.x < 0 or gp.x >= GRID_W or gp.y < 0 or gp.y >= GRID_H:
 		return
 	var lvl = levels[selected_level]
-	lvl["actors"].append({"actor_id": selected_actor, "x": gx, "y": gy, "path": []})
+	lvl["actors"].append({"actor_id": selected_actor, "x": gp.x, "y": gp.y, "path": []})
 	_grid_canvas.queue_redraw()
 	var aname = actor_names[selected_actor] if selected_actor < actor_names.size() else "Actor"
-	_status_lbl.text = "Placed " + aname + " at (" + str(gx) + ", " + str(gy) + ")"
+	_status_lbl.text = "Placed " + aname + " at (" + str(gp.x) + ", " + str(gp.y) + ")"
 	level_changed.emit(selected_level)
 
+
+## Find the nearest placed actor to a grid position.
+func _find_nearest_actor(gp: Vector2i) -> int:
+	var lvl = levels[selected_level]
+	var actors: Array = lvl["actors"]
+	var best_idx: int = -1
+	var best_dist: float = INF
+	for i in range(actors.size()):
+		var a = actors[i]
+		var dx: float = a["x"] - gp.x
+		var dy: float = a["y"] - gp.y
+		var d: float = dx * dx + dy * dy
+		if d < best_dist:
+			best_dist = d
+			best_idx = i
+	return best_idx
+
+
+## Shift+Right-click: add a waypoint to the nearest actor's path.
+func _add_waypoint(pos: Vector2) -> void:
+	var gp = _grid_pos(pos)
+	if gp.x < 0 or gp.x >= GRID_W or gp.y < 0 or gp.y >= GRID_H:
+		return
+	var lvl = levels[selected_level]
+	if lvl["actors"].is_empty():
+		_status_lbl.text = "No actors placed — right-click to place one first"
+		return
+	var idx = _find_nearest_actor(gp)
+	if idx < 0:
+		return
+	var actor_data = lvl["actors"][idx]
+	var path: Array = actor_data.get("path", [])
+	# First waypoint should be the actor's own position (start of path)
+	if path.is_empty():
+		path.append({"x": actor_data["x"], "y": actor_data["y"]})
+	path.append({"x": gp.x, "y": gp.y})
+	actor_data["path"] = path
+	_grid_canvas.queue_redraw()
+	var aname = actor_names[actor_data["actor_id"]] if actor_data["actor_id"] < actor_names.size() else "Actor"
+	_status_lbl.text = "Added waypoint " + str(path.size()) + " for " + aname + " at (" + str(gp.x) + ", " + str(gp.y) + ")"
+	level_changed.emit(selected_level)
+
+
+## Ctrl+Right-click: remove the actor at this position, or clear its path.
+func _remove_actor_at(pos: Vector2) -> void:
+	var gp = _grid_pos(pos)
+	var lvl = levels[selected_level]
+	# Find actor at exact grid position
+	for i in range(lvl["actors"].size()):
+		var a = lvl["actors"][i]
+		if a["x"] == gp.x and a["y"] == gp.y:
+			var aname = actor_names[a["actor_id"]] if a["actor_id"] < actor_names.size() else "Actor"
+			lvl["actors"].remove_at(i)
+			_grid_canvas.queue_redraw()
+			_status_lbl.text = "Removed " + aname + " from (" + str(gp.x) + ", " + str(gp.y) + ")"
+			level_changed.emit(selected_level)
+			return
+	# No actor at exact pos — try removing the last waypoint from nearest actor
+	if not lvl["actors"].is_empty():
+		var idx = _find_nearest_actor(gp)
+		if idx >= 0:
+			var actor_data = lvl["actors"][idx]
+			var path: Array = actor_data.get("path", [])
+			if path.size() > 0:
+				path.pop_back()
+				if path.size() <= 1:
+					actor_data["path"] = []
+				_grid_canvas.queue_redraw()
+				var aname = actor_names[actor_data["actor_id"]] if actor_data["actor_id"] < actor_names.size() else "Actor"
+				_status_lbl.text = "Removed last waypoint from " + aname + " (path: " + str(path.size()) + " pts)"
+				level_changed.emit(selected_level)
+				return
+	_status_lbl.text = "No actor at (" + str(gp.x) + ", " + str(gp.y) + ")"
+
+
+## Delete/Backspace key: remove actor or waypoint under cursor.
+func _delete_actor_or_waypoint_at_cursor() -> void:
+	if _last_mouse_pos == Vector2.ZERO:
+		return
+	_begin_stroke()
+	_remove_actor_at(_last_mouse_pos)
+	_end_stroke()
+
+# ─── Dirty indicator ─────────────────────────────────────────
+
+func _mark_dirty() -> void:
+	_dirty = true
+	if is_instance_valid(_dirty_lbl):
+		_dirty_lbl.text = "\u2022 unsaved"
+
+func mark_clean() -> void:
+	_dirty = false
+	if is_instance_valid(_dirty_lbl):
+		_dirty_lbl.text = ""
+
+# ─── Confirmation helper ─────────────────────────────────────
+
+func _ask_confirm(msg: String, action: Callable) -> void:
+	if not is_instance_valid(_confirm_dialog):
+		action.call()
+		return
+	_confirm_dialog.dialog_text = msg
+	_pending_confirm_action = action
+	_confirm_dialog.popup_centered()
 
 # ─── Callbacks ───────────────────────────────────────────────
 
@@ -371,19 +1164,36 @@ func _on_level_selected(idx: int) -> void:
 
 func _on_block_selected(idx: int) -> void:
 	selected_block = idx
+	selected_tile_index = 0
 	selected_actor = -1
-	_actor_list_opt.selected = 0
+	_actor_opt.selected = 0
 	for i in range(_block_btns.size()):
 		_block_btns[i].button_pressed = (i == idx)
-	_status_lbl.text = "Block: " + BLOCK_NAMES[idx]
+	_status_lbl.text = "Block type: " + BLOCK_ICONS[idx] + " " + BLOCK_NAMES[idx]
+	_rebuild_tile_palette()
+
+func _on_waypoint_mode_toggled(pressed: bool) -> void:
+	_waypoint_mode = pressed
+	if pressed:
+		_status_lbl.text = "\U0001F4CD WAYPOINT MODE — RClick=add waypoint to nearest actor | Ctrl+RClick=remove | LClick=paint tiles"
+		_grid_canvas.queue_redraw()
+	else:
+		_status_lbl.text = "LClick=paint | RClick=place actor | Shift+RClick=add waypoint | Ctrl+RClick=remove"
+		_grid_canvas.queue_redraw()
+
 
 func _on_actor_tool_selected(idx: int) -> void:
 	if idx == 0:
 		selected_actor = -1
-		_status_lbl.text = "Block painting mode"
+		_status_lbl.text = "Tile painting mode"
 	else:
 		selected_actor = idx - 1
-		_status_lbl.text = "Right-click grid to place actor — Left-click still paints blocks"
+		_status_lbl.text = "Right-click to place - Left-click still paints tiles"
+	# Turn off waypoint mode when switching actor tool
+	if _waypoint_mode:
+		_waypoint_mode = false
+		if _waypoint_btn:
+			_waypoint_btn.button_pressed = false
 
 func _on_name_changed(new_text: String) -> void:
 	levels[selected_level]["name"] = new_text
@@ -396,19 +1206,24 @@ func _on_elasticity_changed(val: float) -> void:
 	levels[selected_level]["material_elasticity"] = int(val)
 
 func _on_add_level() -> void:
-	# Find first empty level (all cells zero)
 	for i in range(levels.size()):
 		var all_empty = true
-		for row in levels[i]["grid"]:
+		var grid = levels[i]["grid"]
+		for row in grid:
 			for cell in row:
-				if cell != BLOCK_EMPTY:
+				var bt = 0
+				if cell is Dictionary:
+					bt = cell.get("block_type", 0)
+				elif cell is int or cell is float:
+					bt = int(cell)
+				if bt != BLOCK_EMPTY:
 					all_empty = false
 					break
 			if not all_empty:
 				break
 		if all_empty and levels[i]["actors"].size() == 0:
 			selected_level = i
-			_level_list.select(i)
+			_level_opt.selected = i
 			_refresh_ui()
 			_status_lbl.text = "Selected empty level " + str(i + 1)
 			return
@@ -417,60 +1232,397 @@ func _on_add_level() -> void:
 func _on_dup_level() -> void:
 	var next = selected_level + 1
 	if next >= MAX_LEVELS:
-		_status_lbl.text = "Cannot duplicate — at max level"
+		_status_lbl.text = "Cannot duplicate -- at max level"
 		return
 	levels[next] = levels[selected_level].duplicate(true)
 	levels[next]["name"] = levels[selected_level]["name"] + " (copy)"
 	selected_level = next
 	_refresh_level_list()
-	_level_list.select(selected_level)
+	_level_opt.selected = selected_level
 	_refresh_ui()
 
 func _on_clear_level() -> void:
-	levels[selected_level] = _make_empty_level(selected_level + 1)
-	_refresh_ui()
-	_status_lbl.text = "Level cleared"
+	_ask_confirm("Clear all tiles and actors from this level?", func():
+		levels[selected_level] = _make_empty_level(selected_level + 1)
+		_refresh_ui()
+		_mark_dirty()
+		_status_lbl.text = "Level cleared"
+	)
+
 
 # ─── Refresh ─────────────────────────────────────────────────
 
 func _refresh_level_list() -> void:
-	_level_list.clear()
+	_level_opt.clear()
 	for i in range(levels.size()):
 		var has_content = false
 		for row in levels[i]["grid"]:
 			for cell in row:
-				if cell != BLOCK_EMPTY:
+				var bt = 0
+				if cell is Dictionary:
+					bt = cell.get("block_type", 0)
+				elif cell is int or cell is float:
+					bt = int(cell)
+				if bt != BLOCK_EMPTY:
 					has_content = true
 					break
 			if has_content:
 				break
 		if not has_content and levels[i]["actors"].size() > 0:
 			has_content = true
-		var prefix = "● " if has_content else "○ "
-		_level_list.add_item(prefix + str(i + 1) + ": " + levels[i]["name"])
+		var prefix = "[*] " if has_content else "[ ] "
+		_level_opt.add_item(prefix + str(i + 1) + ": " + levels[i]["name"])
 	if selected_level >= 0 and selected_level < levels.size():
-		_level_list.select(selected_level)
+		_level_opt.selected = selected_level
 
 func _refresh_ui() -> void:
 	if selected_level < 0 or selected_level >= levels.size():
 		return
 	var lvl = levels[selected_level]
 	_name_edit.text = lvl["name"]
-	_material_friction.value = lvl["material_friction"]
-	_material_elasticity.value = lvl["material_elasticity"]
+	_fric_slider.value = lvl["material_friction"]
+	_elast_slider.value = lvl["material_elasticity"]
 	if is_instance_valid(_grid_canvas):
 		_grid_canvas.queue_redraw()
+
+
+# ─── Inline Tile Editor (popup pixel editor) ─────────────────
+
+func _open_inline_tile_editor(block_type: int, tile_idx: int) -> void:
+	if not tile_library:
+		return
+	var img = tile_library.get_tile_image(block_type, tile_idx)
+	if not img:
+		return
+
+	_edit_block_type = block_type
+	_edit_tile_index = tile_idx
+	_edit_image = img.duplicate()
+	_edit_color = BLOCK_COLORS[block_type].lightened(0.1)
+	_edit_erasing = false
+	_edit_palette_colors = _build_edit_palette(block_type)
+
+	if _edit_popup and is_instance_valid(_edit_popup):
+		_edit_popup.queue_free()
+
+	_edit_popup = Window.new()
+	_edit_popup.title = "Edit Tile: " + tile_library.get_tile_name(block_type, tile_idx)
+	_edit_popup.size = Vector2i(440, 480)
+	_edit_popup.unresizable = false
+	_edit_popup.close_requested.connect(_on_edit_popup_close)
+	add_child(_edit_popup)
+
+	# Dark background panel so the popup matches the AGCK dark theme
+	var bg_panel = PanelContainer.new()
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = BG_COLOR
+	bg_style.content_margin_left = 6
+	bg_style.content_margin_right = 6
+	bg_style.content_margin_top = 6
+	bg_style.content_margin_bottom = 6
+	bg_panel.add_theme_stylebox_override("panel", bg_style)
+	bg_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_edit_popup.add_child(bg_panel)
+
+	var main_vbox = VBoxContainer.new()
+	main_vbox.add_theme_constant_override("separation", 4)
+	bg_panel.add_child(main_vbox)
+
+	# Name row
+	var name_row = HBoxContainer.new()
+	name_row.add_theme_constant_override("separation", 6)
+	main_vbox.add_child(name_row)
+	var n_lbl = Label.new()
+	n_lbl.text = "Name:"
+	n_lbl.label_settings = _ls(11, LABEL_CLR)
+	name_row.add_child(n_lbl)
+	_edit_name_edit = LineEdit.new()
+	_edit_name_edit.text = tile_library.get_tile_name(block_type, tile_idx)
+	_edit_name_edit.add_theme_font_size_override("font_size", 11)
+	_edit_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var le_style = StyleBoxFlat.new()
+	le_style.bg_color = Color(0.10, 0.10, 0.13)
+	le_style.set_corner_radius_all(3)
+	le_style.content_margin_left = 6
+	le_style.content_margin_right = 6
+	le_style.content_margin_top = 4
+	le_style.content_margin_bottom = 4
+	le_style.border_width_bottom = 1
+	le_style.border_color = Color(0.30, 0.30, 0.35)
+	_edit_name_edit.add_theme_stylebox_override("normal", le_style)
+	_edit_name_edit.add_theme_color_override("font_color", WHITE)
+	_edit_name_edit.add_theme_color_override("caret_color", ACCENT)
+	name_row.add_child(_edit_name_edit)
+
+	# Toolbar
+	var tool_row = HBoxContainer.new()
+	tool_row.add_theme_constant_override("separation", 6)
+	main_vbox.add_child(tool_row)
+
+	var eraser_btn = Button.new()
+	eraser_btn.text = "Eraser"
+	eraser_btn.toggle_mode = true
+	eraser_btn.add_theme_font_size_override("font_size", 11)
+	var er_n = StyleBoxFlat.new()
+	er_n.bg_color = Color(0.22, 0.22, 0.28)
+	er_n.set_corner_radius_all(4)
+	er_n.content_margin_left = 8
+	er_n.content_margin_right = 8
+	er_n.content_margin_top = 3
+	er_n.content_margin_bottom = 3
+	eraser_btn.add_theme_stylebox_override("normal", er_n)
+	var er_p = er_n.duplicate()
+	er_p.bg_color = Color(0.85, 0.30, 0.30)
+	eraser_btn.add_theme_stylebox_override("pressed", er_p)
+	eraser_btn.add_theme_color_override("font_color", WHITE)
+	eraser_btn.add_theme_color_override("font_pressed_color", WHITE)
+	eraser_btn.toggled.connect(func(v): _edit_erasing = v)
+	tool_row.add_child(eraser_btn)
+
+	var spc = Control.new()
+	spc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tool_row.add_child(spc)
+
+	var save_btn = Button.new()
+	save_btn.text = "Save"
+	save_btn.add_theme_font_size_override("font_size", 12)
+	save_btn.pressed.connect(_on_edit_save)
+	var save_s = StyleBoxFlat.new()
+	save_s.bg_color = Color(0.25, 0.65, 0.30)
+	save_s.set_corner_radius_all(4)
+	save_s.content_margin_left = 10
+	save_s.content_margin_right = 10
+	save_s.content_margin_top = 3
+	save_s.content_margin_bottom = 3
+	save_btn.add_theme_stylebox_override("normal", save_s)
+	save_btn.add_theme_color_override("font_color", WHITE)
+	tool_row.add_child(save_btn)
+
+	var save_as_btn = Button.new()
+	save_as_btn.text = "Save As New"
+	save_as_btn.add_theme_font_size_override("font_size", 12)
+	save_as_btn.pressed.connect(_on_edit_save_as_new)
+	var sa_s = StyleBoxFlat.new()
+	sa_s.bg_color = Color(0.30, 0.50, 0.80)
+	sa_s.set_corner_radius_all(4)
+	sa_s.content_margin_left = 10
+	sa_s.content_margin_right = 10
+	sa_s.content_margin_top = 3
+	sa_s.content_margin_bottom = 3
+	save_as_btn.add_theme_stylebox_override("normal", sa_s)
+	save_as_btn.add_theme_color_override("font_color", WHITE)
+	tool_row.add_child(save_as_btn)
+
+	var cancel_btn = Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.add_theme_font_size_override("font_size", 11)
+	var cn_s = StyleBoxFlat.new()
+	cn_s.bg_color = Color(0.25, 0.25, 0.30)
+	cn_s.set_corner_radius_all(4)
+	cn_s.content_margin_left = 10
+	cn_s.content_margin_right = 10
+	cn_s.content_margin_top = 3
+	cn_s.content_margin_bottom = 3
+	cancel_btn.add_theme_stylebox_override("normal", cn_s)
+	cancel_btn.add_theme_color_override("font_color", LABEL_CLR)
+	cancel_btn.pressed.connect(_on_edit_popup_close)
+	tool_row.add_child(cancel_btn)
+
+	# Color palette
+	var palette_row = HBoxContainer.new()
+	palette_row.add_theme_constant_override("separation", 2)
+	main_vbox.add_child(palette_row)
+
+	var p_lbl = Label.new()
+	p_lbl.text = "Color:"
+	p_lbl.label_settings = _ls(10, DIM)
+	palette_row.add_child(p_lbl)
+
+	_edit_palette_btns.clear()
+	for ci in range(_edit_palette_colors.size()):
+		var cbtn = Button.new()
+		cbtn.custom_minimum_size = Vector2(18, 18)
+		cbtn.toggle_mode = true
+		cbtn.button_pressed = (ci == 0)
+		var cstyle = StyleBoxFlat.new()
+		cstyle.bg_color = _edit_palette_colors[ci]
+		cstyle.set_corner_radius_all(2)
+		cbtn.add_theme_stylebox_override("normal", cstyle)
+		var csp = cstyle.duplicate()
+		csp.border_width_bottom = 2
+		csp.border_width_top = 2
+		csp.border_width_left = 2
+		csp.border_width_right = 2
+		csp.border_color = ACCENT
+		cbtn.add_theme_stylebox_override("pressed", csp)
+		cbtn.pressed.connect(_on_edit_color_selected.bind(ci))
+		palette_row.add_child(cbtn)
+		_edit_palette_btns.append(cbtn)
+
+	# Big pixel canvas
+	_edit_canvas = Control.new()
+	_edit_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_edit_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_edit_canvas.custom_minimum_size = Vector2(200, 200)
+	_edit_canvas.draw.connect(_draw_edit_canvas)
+	_edit_canvas.gui_input.connect(_on_edit_canvas_input)
+	main_vbox.add_child(_edit_canvas)
+
+	_edit_popup.popup_centered()
+
+
+func _build_edit_palette(block_type: int) -> Array:
+	var base = BLOCK_COLORS[block_type]
+	var colors: Array = []
+	colors.append(base)
+	colors.append(base.lightened(0.15))
+	colors.append(base.lightened(0.30))
+	colors.append(base.lightened(0.45))
+	colors.append(base.darkened(0.15))
+	colors.append(base.darkened(0.30))
+	colors.append(base.darkened(0.45))
+	colors.append(Color.WHITE)
+	colors.append(Color(0.7, 0.7, 0.7))
+	colors.append(Color(0.4, 0.4, 0.4))
+	colors.append(Color(0.15, 0.15, 0.15))
+	colors.append(Color.BLACK)
+	colors.append(Color(0.85, 0.20, 0.15))
+	colors.append(Color(0.25, 0.70, 0.25))
+	colors.append(Color(0.20, 0.45, 0.85))
+	colors.append(Color(0.90, 0.75, 0.20))
+	colors.append(Color(0.65, 0.30, 0.85))
+	colors.append(Color(0.90, 0.55, 0.15))
+	colors.append(Color(0.45, 0.30, 0.18))
+	colors.append(Color(0.15, 0.35, 0.55))
+	return colors
+
+
+func _on_edit_color_selected(idx: int) -> void:
+	_edit_color = _edit_palette_colors[idx]
+	_edit_erasing = false
+	for i in range(_edit_palette_btns.size()):
+		_edit_palette_btns[i].button_pressed = (i == idx)
+
+
+func _draw_edit_canvas() -> void:
+	if not _edit_image or not is_instance_valid(_edit_canvas):
+		return
+	var canvas_size = _edit_canvas.size
+	var img_w = _edit_image.get_width()
+	var img_h = _edit_image.get_height()
+
+	var pixel_size = minf(canvas_size.x / float(img_w), canvas_size.y / float(img_h))
+	var ox_val = (canvas_size.x - pixel_size * img_w) * 0.5
+	var oy_val = (canvas_size.y - pixel_size * img_h) * 0.5
+
+	_edit_canvas.draw_rect(Rect2(Vector2.ZERO, canvas_size), Color(0.12, 0.12, 0.14))
+	for y in range(img_h):
+		for x in range(img_w):
+			var rect = Rect2(ox_val + x * pixel_size, oy_val + y * pixel_size, pixel_size, pixel_size)
+			if (x + y) % 2 == 0:
+				_edit_canvas.draw_rect(rect, Color(0.18, 0.18, 0.20))
+			else:
+				_edit_canvas.draw_rect(rect, Color(0.14, 0.14, 0.16))
+
+			var c = _edit_image.get_pixel(x, y)
+			if c.a > 0.01:
+				_edit_canvas.draw_rect(rect, c)
+
+	for y in range(img_h + 1):
+		_edit_canvas.draw_line(
+			Vector2(ox_val, oy_val + y * pixel_size),
+			Vector2(ox_val + img_w * pixel_size, oy_val + y * pixel_size),
+			Color(0.3, 0.3, 0.35, 0.3), 1.0)
+	for x in range(img_w + 1):
+		_edit_canvas.draw_line(
+			Vector2(ox_val + x * pixel_size, oy_val),
+			Vector2(ox_val + x * pixel_size, oy_val + img_h * pixel_size),
+			Color(0.3, 0.3, 0.35, 0.3), 1.0)
+
+
+func _on_edit_canvas_input(event: InputEvent) -> void:
+	if not _edit_image:
+		return
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			_edit_pixel_at(event.position)
+	elif event is InputEventMouseMotion:
+		if event.button_mask & MOUSE_BUTTON_MASK_LEFT:
+			_edit_pixel_at(event.position)
+
+
+func _edit_pixel_at(pos: Vector2) -> void:
+	if not _edit_image or not is_instance_valid(_edit_canvas):
+		return
+	var canvas_size = _edit_canvas.size
+	var img_w = _edit_image.get_width()
+	var img_h = _edit_image.get_height()
+	var pixel_size = minf(canvas_size.x / float(img_w), canvas_size.y / float(img_h))
+	var ox_val = (canvas_size.x - pixel_size * img_w) * 0.5
+	var oy_val = (canvas_size.y - pixel_size * img_h) * 0.5
+
+	var px = int((pos.x - ox_val) / pixel_size)
+	var py = int((pos.y - oy_val) / pixel_size)
+	if px >= 0 and px < img_w and py >= 0 and py < img_h:
+		if _edit_erasing:
+			_edit_image.set_pixel(px, py, Color.TRANSPARENT)
+		else:
+			_edit_image.set_pixel(px, py, _edit_color)
+		_edit_canvas.queue_redraw()
+
+
+func _on_edit_save() -> void:
+	if tile_library and _edit_block_type >= 0 and _edit_tile_index >= 0:
+		tile_library.update_tile(_edit_block_type, _edit_tile_index, _edit_image)
+		var tiles_arr = tile_library.get_tiles_for_type(_edit_block_type)
+		if _edit_tile_index < tiles_arr.size() and is_instance_valid(_edit_name_edit):
+			tiles_arr[_edit_tile_index]["name"] = _edit_name_edit.text
+		_rebuild_tile_palette()
+		_grid_canvas.queue_redraw()
+		_status_lbl.text = "Tile saved! Grid updated."
+	_close_edit_popup()
+
+
+func _on_edit_save_as_new() -> void:
+	if tile_library and _edit_block_type >= 0:
+		var new_name = _edit_name_edit.text if is_instance_valid(_edit_name_edit) else "Custom Tile"
+		if not new_name.ends_with(" (custom)"):
+			new_name += " (custom)"
+		var new_idx = tile_library.add_custom_tile(_edit_block_type, new_name, _edit_image)
+		selected_tile_index = new_idx
+		_rebuild_tile_palette()
+		_grid_canvas.queue_redraw()
+		_status_lbl.text = "New tile '" + new_name + "' created!"
+	_close_edit_popup()
+
+
+func _on_edit_popup_close() -> void:
+	_close_edit_popup()
+
+
+func _close_edit_popup() -> void:
+	if _edit_popup and is_instance_valid(_edit_popup):
+		_edit_popup.queue_free()
+		_edit_popup = null
+	_edit_image = null
 
 
 # ─── Actor Sync ──────────────────────────────────────────────
 
 func set_actor_names(names: Array) -> void:
 	actor_names = names.duplicate()
-	if is_instance_valid(_actor_list_opt):
-		_actor_list_opt.clear()
-		_actor_list_opt.add_item("(Blocks mode)")
+	if is_instance_valid(_actor_opt):
+		_actor_opt.clear()
+		_actor_opt.add_item("(Tiles mode)")
 		for aname in actor_names:
-			_actor_list_opt.add_item("👾 " + aname)
+			_actor_opt.add_item("Actor: " + aname)
+
+
+func refresh_all() -> void:
+	_rebuild_tile_palette()
+	if is_instance_valid(_grid_canvas):
+		_grid_canvas.queue_redraw()
+
 
 # ─── Serialization ───────────────────────────────────────────
 
@@ -481,6 +1633,15 @@ func set_data(data: Array) -> void:
 	levels = data.duplicate(true)
 	while levels.size() < MAX_LEVELS:
 		levels.append(_make_empty_level(levels.size() + 1))
+	# Migrate old int-based grids to new dict format
+	for lvl in levels:
+		var grid = lvl.get("grid", [])
+		for y in range(grid.size()):
+			for x in range(grid[y].size()):
+				var cell = grid[y][x]
+				if cell is int or cell is float:
+					grid[y][x] = {"block_type": int(cell), "tile_index": 0}
 	selected_level = 0
 	_refresh_level_list()
 	_refresh_ui()
+	_rebuild_tile_palette()

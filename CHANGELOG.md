@@ -5,6 +5,24 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.1-beta2] - 2026-04-13
+
+### 🔧 AGCK Polish & Web UI Roadmap
+
+#### Fixed — AGCK Level Editor
+- **Tile shader Save button** — Save no longer closes the edit popup (was behaving identically to Cancel). Now stays open with a "✓ Saved" title flash.
+- **Shader change persistence** — Shader FX dropdown and parameter slider changes now call `_mark_dirty()` and emit `level_changed`, so edits are auto-saved to the `.agck` file.
+
+#### Improved — AGCK Settings Panel
+- **Color picker** — BG Color field now uses a `ColorPickerButton` with live color wheel instead of a raw hex text input.
+- **Resolution presets** — Width/Height replaced with a preset dropdown (640×480, 800×600, 1024×768, 1280×720, 1920×1080, Custom…) plus W/H spinboxes.
+- **Slider value readouts** — All sliders (gravity, friction, elasticity, zoom, volume, etc.) now display their current value with appropriate suffixes (%, ×, HP).
+
+#### Planned — Web UI
+- 🔲 Browser-based project dashboard, settings panel, and build monitor — required before stable v5.0.1 release.
+
+---
+
 ## [5.0.1-beta] - 2026-04-09
 
 ### 🚀 v5.0.1 Beta — Plugin System, AGCK, & Major Version Bump

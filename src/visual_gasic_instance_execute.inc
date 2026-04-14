@@ -2061,15 +2061,40 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 }
                 
                 if (!found) {
-                    // Check if it's a lambda variable being called
+                    // Check if it's a variable used as array/dict access or lambda call
+                    Variant _stmt_var;
+                    bool _stmt_has_var = false;
                     if (variables.has(s->method_name)) {
-                        Variant var_val = variables[s->method_name];
-                        if (var_val.get_type() == Variant::DICTIONARY) {
-                            Dictionary d = var_val;
+                        _stmt_var = variables[s->method_name];
+                        _stmt_has_var = true;
+                    }
+                    // Case-insensitive fallback (VB identifiers are case-insensitive)
+                    if (!_stmt_has_var) {
+                        Array _vk = variables.keys();
+                        for (int _ki = 0; _ki < _vk.size(); _ki++) {
+                            String _kn = _vk[_ki];
+                            if (_kn.nocasecmp_to(s->method_name) == 0) {
+                                _stmt_var = variables[_kn];
+                                _stmt_has_var = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (_stmt_has_var) {
+                        if (_stmt_var.get_type() == Variant::DICTIONARY) {
+                            Dictionary d = _stmt_var;
                             if (d.has("__vg_lambda") && (bool)d["__vg_lambda"]) {
                                 invoke_lambda(d, call_args);
                                 found = true;
                             }
+                        }
+                        // Array/packed-array/dict indexing at statement level
+                        // — result is discarded, but prevents false error 35
+                        if (!found && (_stmt_var.get_type() == Variant::ARRAY ||
+                            (_stmt_var.get_type() >= Variant::PACKED_BYTE_ARRAY &&
+                             _stmt_var.get_type() <= Variant::PACKED_COLOR_ARRAY) ||
+                            _stmt_var.get_type() == Variant::DICTIONARY)) {
+                            found = true; // Silently consume — no side effects
                         }
                     }
                     if (!found) {

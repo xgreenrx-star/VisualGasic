@@ -658,7 +658,14 @@ func _build_toolbar(parent: VBoxContainer) -> void:
 	var tb_panel := PanelContainer.new()
 	tb_panel.add_theme_stylebox_override("panel", tb_style)
 	parent.add_child(tb_panel)
-	tb_panel.add_child(toolbar)
+	# Wrap toolbar in a horizontal ScrollContainer so buttons don't overflow off-screen
+	var tb_scroll := ScrollContainer.new()
+	tb_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	tb_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	tb_scroll.size_flags_horizontal = SIZE_EXPAND_FILL
+	tb_scroll.custom_minimum_size.y = 34
+	tb_panel.add_child(tb_scroll)
+	tb_scroll.add_child(toolbar)
 
 	# Back button
 	var back_btn := Button.new()
@@ -1832,6 +1839,12 @@ func _show_open_dialog() -> void:
 	_open_dialog.file_selected.connect(_on_open_file)
 	add_child(_open_dialog)
 	_open_dialog.popup_centered()
+
+
+## Public: open an image file directly (called by host plugin for double-click, AGCK, etc.)
+func open_file(path: String) -> void:
+	_on_open_file(path)
+
 
 func _on_open_file(path: String) -> void:
 	var img := Image.load_from_file(path)

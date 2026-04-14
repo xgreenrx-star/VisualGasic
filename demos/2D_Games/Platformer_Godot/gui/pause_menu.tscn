@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://cbxfkqpq2rynb" path="res://gui/coins_counter.tscn" id="4"]
 
 [node name="PauseMenu" type="Control"]
+visible = false
 process_mode = 3
 layout_mode = 3
 anchors_preset = 15

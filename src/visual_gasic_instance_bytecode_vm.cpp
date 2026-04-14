@@ -1151,6 +1151,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_AWAIT]              = &&vg_op_await;
         // Event system (v3.5.0)
         dispatch_table[OP_RAISE_EVENT]        = &&vg_op_raise_event;
+        dispatch_table[OP_ADDRESS_OF]         = &&vg_op_address_of;
         dispatch_table_init = true;
     }
 
@@ -2256,8 +2257,6 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     args[i] = pop_value();
                 }
                 String method = read_constant(name_idx);
-
-                // ── Tier 3 call graph recording ───────────────────────────
                 {
                     vgjit3::Tier3& t3 = vgjit3::thread_jit3();
                     if (t3.enabled() && func && !method.is_empty()) {
@@ -2422,21 +2421,127 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     handled = true;
                 }
 
+                // Connect(source, signal, method) — 3-arg unqualified form
+                // Matches the AST interpreter's explicit Connect handler.
+                if (!handled && method.nocasecmp_to("Connect") == 0 && args.size() == 3) {
+                    Object *source = args[0];
+                    String sig = args[1];
+                    String target = args[2];
+                    if (source && owner) {
+                        if (source->has_signal(sig)) {
+                            Callable callable = Callable(owner, target);
+                            if (!source->is_connected(sig, callable)) {
+                                Error err = source->connect(sig, callable);
+                                call_ret = (int)err;
+                            } else {
+                                call_ret = (int64_t)0;
+                            }
+                        } else {
+                            UtilityFunctions::print("Runtime Warning: Signal '", sig, "' not found on object");
+                            call_ret = (int64_t)0;
+                        }
+                    } else {
+                        call_ret = (int64_t)0;
+                    }
+                    handled = true;
+                }
+
                 if (!handled) {
                     bool found = false;
                     call_ret = call_internal(method, args, found);
                     if (!found) {
-                        // Check for lambda variable invocation (e.g. Collides(...), Distance(...))
+                        // Check if this is a variable used as array/dict index or lambda
+                        // (matches AST interpreter's CallExpression → variable fallback).
+                        // Must search BOTH the variables[] dict AND the local slot
+                        // array, because the fast-path (needs_var_sync==false) does
+                        // NOT sync locals into variables[].
+                        Variant v;
+                        bool have_var = false;
                         if (variables.has(method)) {
-                            Variant v = variables[method];
-                            if (v.get_type() == Variant::DICTIONARY) {
+                            v = variables[method];
+                            have_var = true;
+                        }
+                        // Case-insensitive fallback: VB identifiers are
+                        // case-insensitive, but Dictionary keys are not.
+                        if (!have_var) {
+                            Array keys = variables.keys();
+                            for (int ki = 0; ki < keys.size(); ki++) {
+                                String k = keys[ki];
+                                if (k.nocasecmp_to(method) == 0) {
+                                    v = variables[k];
+                                    have_var = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!have_var) {
+                            for (int li = 0; li < chunk->local_names.size() && li < locals.size(); li++) {
+                                if (chunk->local_names[li].nocasecmp_to(method) == 0) {
+                                    v = locals[li];
+                                    have_var = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (have_var) {
+                            if (v.get_type() == Variant::ARRAY) {
+                                // Array indexing: arr(idx) → arr[idx]
+                                Variant current = v;
+                                bool fail = false;
+                                for (int ai = 0; ai < args.size(); ai++) {
+                                    if (current.get_type() != Variant::ARRAY) {
+                                        fail = true;
+                                        break;
+                                    }
+                                    Array arr = current;
+                                    int idx = args[ai];
+                                    if (idx >= 0 && idx < arr.size()) {
+                                        current = arr[idx];
+                                    } else {
+                                        raise_error("Subscript out of range", 9);
+                                        if (try_recover_error(Variant())) {
+                                            current = Variant();
+                                            fail = true;
+                                        } else {
+                                            success = false;
+                                            goto cleanup;
+                                        }
+                                    }
+                                }
+                                if (!fail) {
+                                    call_ret = current;
+                                    found = true;
+                                }
+                            } else if (v.get_type() == Variant::DICTIONARY) {
                                 Dictionary d = v;
                                 if (d.has("__vg_lambda") && (bool)d["__vg_lambda"]) {
                                     call_ret = invoke_lambda(d, args);
                                     found = true;
+                                } else if (args.size() == 1) {
+                                    // Dictionary indexing: dict(key) → dict[key]
+                                    call_ret = d.get(args[0], Variant());
+                                    found = true;
+                                }
+                            } else if (v.get_type() >= Variant::PACKED_BYTE_ARRAY && v.get_type() <= Variant::PACKED_COLOR_ARRAY) {
+                                // Packed array indexing
+                                if (args.size() == 1) {
+                                    int idx = args[0];
+                                    bool valid = false;
+                                    bool oob = false;
+                                    Variant res = v.get_indexed(idx, valid, oob);
+                                    if (oob) {
+                                        raise_error("Subscript out of range", 9);
+                                        if (!try_recover_error(Variant())) {
+                                            success = false;
+                                            goto cleanup;
+                                        }
+                                    } else if (valid) {
+                                        call_ret = res;
+                                        found = true;
+                                    }
                                 }
                             }
-                        }
+                        } // have_var
                         if (!found) {
                             bool stmt_found = false;
                             dispatch_builtin_call(method, args, stmt_found);
@@ -6004,6 +6109,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else {
                     // No owner — just pop and discard args
                     for (int i = 0; i < arg_count; i++) pop_value();
+                }
+                VG_BREAK;
+            }
+
+            // AddressOf (v5.0.1) — create a Callable from a method name.
+            VG_CASE(vg_op_address_of, OP_ADDRESS_OF): {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                String method_name = pop_value();
+                if (owner) {
+                    push_value(Callable(owner, method_name));
+                } else {
+                    UtilityFunctions::printerr("VisualGasic: AddressOf requires an owner object");
+                    push_value(Variant());
                 }
                 VG_BREAK;
             }

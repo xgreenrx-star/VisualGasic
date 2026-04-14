@@ -136,10 +136,10 @@ func _create_toolbar_button(plugin_id: String, plugin_instance) -> void:
 
 	var btn = Button.new()
 	btn.name = "VGPluginBtn_" + plugin_id
-	btn.text = "  " + plugin_instance.get_toolbar_icon() + " " + plugin_instance.get_plugin_name() + "  "
+	btn.text = plugin_instance.get_toolbar_icon() + plugin_instance.get_plugin_name()
 	btn.tooltip_text = plugin_instance.get_toolbar_tooltip()
 	btn.flat = false
-	btn.add_theme_font_size_override("font_size", 12)
+	btn.add_theme_font_size_override("font_size", 11)
 	btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
 	btn.add_theme_color_override("font_hover_color", Color(1.0, 0.95, 0.8))
 
@@ -147,8 +147,8 @@ func _create_toolbar_button(plugin_id: String, plugin_instance) -> void:
 	var style = StyleBoxFlat.new()
 	style.bg_color = base_color
 	style.set_corner_radius_all(4)
-	style.content_margin_left = 8
-	style.content_margin_right = 8
+	style.content_margin_left = 6
+	style.content_margin_right = 6
 	style.content_margin_top = 2
 	style.content_margin_bottom = 2
 	btn.add_theme_stylebox_override("normal", style)
@@ -164,16 +164,8 @@ func _create_toolbar_button(plugin_id: String, plugin_instance) -> void:
 	# Bind the button press to activate this plugin
 	btn.pressed.connect(_on_plugin_button_pressed.bind(plugin_id))
 
-	# Insert before the spacer (second-to-last child = spacer, last = Godot btn)
-	# Find the spacer to insert before it
-	var insert_idx = _toolbar_row.get_child_count()
-	for i in range(_toolbar_row.get_child_count()):
-		var child = _toolbar_row.get_child(i)
-		if child.size_flags_horizontal == Control.SIZE_EXPAND_FILL:
-			insert_idx = i
-			break
+	# Append plugin button at the end of toolbar_row
 	_toolbar_row.add_child(btn)
-	_toolbar_row.move_child(btn, insert_idx)
 
 	_toolbar_buttons[plugin_id] = btn
 

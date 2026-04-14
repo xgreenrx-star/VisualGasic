@@ -2011,6 +2011,25 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         }
     }
     
+    // Check for AddressOf <SubName> (VB6 callable reference syntax)
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("AddressOf") == 0) {
+        advance(); // Eat AddressOf
+        if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER) && !check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+            error("Expected method name after 'AddressOf'");
+            return nullptr;
+        }
+        String method_name = peek().value;
+        advance();
+        // Create a UnaryOpNode with op="AddressOf", operand = variable holding method name
+        VariableNode* name_node = static_cast<VariableNode*>(register_node(new VariableNode()));
+        name_node->name = method_name;
+        UnaryOpNode* addr = static_cast<UnaryOpNode*>(register_node(new UnaryOpNode()));
+        addr->op = "AddressOf";
+        addr->operand = name_node;
+        unregister_node(name_node);
+        return addr;
+    }
+
     // Check for TypeOf ... Is ... (VB6 type checking syntax)
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("TypeOf") == 0) {
         advance(); // Eat TypeOf

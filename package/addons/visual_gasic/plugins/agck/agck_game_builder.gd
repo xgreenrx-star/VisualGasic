@@ -1,340 +1,475 @@
 @tool
-## AGCK Game Builder
+## AGCK Game Builder — build / preview dashboard
 ##
-## Assembles AGCK game data into a runnable Godot project.
-## Provides build settings, preview, and export functionality.
+## Big action buttons with build log output panel.
 extends VBoxContainer
 
 signal build_requested()
 signal preview_requested()
+signal template_requested(template_name: String)
 
-# ─── Constants ───────────────────────────────────────────────
-const BG_COLOR = Color(0.16, 0.16, 0.19)
-const SECTION_COLOR = Color(0.22, 0.26, 0.35)
-const HEADER_COLOR = Color(0.85, 0.9, 1.0)
-const LABEL_COLOR = Color(0.75, 0.8, 0.85)
-const VALUE_COLOR = Color(0.5, 0.85, 0.55)
-const WARNING_COLOR = Color(0.9, 0.7, 0.2)
-const ERROR_COLOR = Color(0.9, 0.3, 0.3)
-const SUCCESS_COLOR = Color(0.3, 0.85, 0.4)
+# ─── Theme ───────────────────────────────────────────────────
+const BG_COLOR   = Color(0.13, 0.13, 0.16)
+const HEADER_BG  = Color(0.10, 0.10, 0.13)
+const CARD_BG    = Color(0.15, 0.16, 0.20)
+const WHITE      = Color(1.0, 1.0, 1.0)
+const LABEL_CLR  = Color(0.88, 0.86, 0.80)
+const ACCENT     = Color(1.0, 0.82, 0.35)
+const DIM        = Color(0.50, 0.50, 0.55)
+const GREEN      = Color(0.30, 0.80, 0.35)
+const BLUE       = Color(0.35, 0.55, 0.95)
+const RED        = Color(0.85, 0.25, 0.25)
 
-const BUILD_TARGETS = ["Current Project (embedded)", "Standalone Scene Pack", "Export Template"]
-const SCREEN_MODES = ["Windowed", "Fullscreen", "Borderless Fullscreen"]
+# ─── Data ────────────────────────────────────────────────────
+var build_data: Dictionary = {}
 
-# ─── Build Settings ──────────────────────────────────────────
-var build_data: Dictionary = {
-	"target": 0,
-	"screen_mode": 0,
-	"output_path": "res://agck_builds/",
-	"include_debug": false,
-	"auto_run": true,
-	"splash_enabled": true,
-	"splash_text": "Made with AGCK + VisualGasic",
-	"splash_duration": 2.0,
-}
+# ─── UI Refs ─────────────────────────────────────────────────
+var _log_output: RichTextLabel = null
+var _target_opt: OptionButton = null
+var _mode_opt: OptionButton = null
+var _start_level_opt: OptionButton = null
+var _path_edit: LineEdit = null
+var _debug_chk: CheckButton = null
+var _auto_run_chk: CheckButton = null
 
-# ─── UI ──────────────────────────────────────────────────────
-var _scroll: ScrollContainer = null
-var _build_log: RichTextLabel = null
-var _progress: ProgressBar = null
-var _build_btn: Button = null
-var _preview_btn: Button = null
-var _status_icon: Label = null
+
+func _ls(size: int, color: Color) -> LabelSettings:
+	var s = LabelSettings.new()
+	s.font_size = size
+	s.font_color = color
+	return s
+
+
+func _style_option(opt: OptionButton) -> void:
+	var nb = StyleBoxFlat.new()
+	nb.bg_color = Color(0.18, 0.18, 0.22)
+	nb.set_corner_radius_all(3)
+	nb.content_margin_left = 6
+	nb.content_margin_right = 6
+	nb.content_margin_top = 3
+	nb.content_margin_bottom = 3
+	opt.add_theme_stylebox_override("normal", nb)
+	var hb = nb.duplicate()
+	hb.bg_color = Color(0.22, 0.22, 0.28)
+	opt.add_theme_stylebox_override("hover", hb)
+	opt.add_theme_stylebox_override("pressed", hb)
+	opt.add_theme_stylebox_override("focus", hb)
+	opt.add_theme_color_override("font_color", LABEL_CLR)
+	opt.add_theme_color_override("font_hover_color", WHITE)
+	opt.add_theme_color_override("font_pressed_color", WHITE)
+	opt.add_theme_color_override("font_focus_color", LABEL_CLR)
+	# Dark popup — OPAQUE window (transparent=true breaks Linux X11 compositors)
+	# See POPUP_THEME_FIX.md for the full explanation.
+	var popup := opt.get_popup()
+	_apply_dark_popup(popup)
+	if not popup.has_meta("_agck_popup_styled"):
+		popup.set_meta("_agck_popup_styled", true)
+		popup.about_to_popup.connect(func():
+			_apply_dark_popup(popup)
+			_apply_dark_popup.call_deferred(popup)
+		)
+		popup.visibility_changed.connect(func():
+			if popup.visible:
+				_apply_dark_popup(popup)
+		)
+
+
+## Linux X11 popup fix — DO NOT use transparent viewports for popups.
+## Transparent ARGB visuals cause font rendering to break on X11 compositors
+## (text becomes invisible or unreadable). Instead, use an opaque window with
+## a dark Theme covering PopupMenu + Window + Panel type names, plus direct
+## theme_override calls for highest priority.
+func _apply_dark_popup(popup: PopupMenu) -> void:
+	if not is_instance_valid(popup):
+		return
+	popup.transparent = false
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Color(0.15, 0.15, 0.19, 1.0)
+	ps.set_corner_radius_all(0)
+	ps.content_margin_left = 6; ps.content_margin_right = 6
+	ps.content_margin_top = 4;  ps.content_margin_bottom = 4
+	ps.border_width_bottom = 1; ps.border_width_top = 1
+	ps.border_width_left = 1;   ps.border_width_right = 1
+	ps.border_color = Color(0.30, 0.30, 0.35)
+	var hs := StyleBoxFlat.new()
+	hs.bg_color = Color(0.25, 0.35, 0.55)
+	hs.set_corner_radius_all(3)
+	hs.content_margin_left = 6; hs.content_margin_right = 6
+	hs.content_margin_top = 2;  hs.content_margin_bottom = 2
+	var t := Theme.new()
+	for type_name in ["PopupMenu", "PopupPanel", "Panel", "Control", "Window"]:
+		t.set_stylebox("panel", type_name, ps)
+	t.set_stylebox("hover", "PopupMenu", hs)
+	t.set_color("font_color", "PopupMenu", LABEL_CLR)
+	t.set_color("font_hover_color", "PopupMenu", WHITE)
+	t.set_color("font_disabled_color", "PopupMenu", DIM)
+	t.set_color("font_separator_color", "PopupMenu", DIM)
+	t.set_color("font_accelerator_color", "PopupMenu", DIM)
+	t.set_color("font_outline_color", "PopupMenu", Color.TRANSPARENT)
+	popup.theme = t
+	popup.add_theme_stylebox_override("panel", ps)
+	popup.add_theme_stylebox_override("hover", hs)
+	popup.add_theme_color_override("font_color", LABEL_CLR)
+	popup.add_theme_color_override("font_hover_color", WHITE)
+	popup.add_theme_color_override("font_disabled_color", DIM)
+	popup.add_theme_color_override("font_separator_color", DIM)
+	popup.add_theme_color_override("font_accelerator_color", DIM)
+	popup.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
+	for c in popup.get_children(true):
+		if c is Control:
+			c.add_theme_stylebox_override("panel", ps)
+			c.queue_redraw()
 
 
 func _ready() -> void:
+	_init_data()
 	_build_ui()
 
 
+func _init_data() -> void:
+	build_data = {
+		"target": "Desktop",
+		"screen_mode": "Windowed",
+		"output_path": "res://build/",
+		"debug": true,
+		"auto_run": true,
+		"splash_enabled": true,
+		"splash_duration": 2.0,
+		"compress_assets": false,
+		"start_level": 1,
+	}
+
+
 func _build_ui() -> void:
-	var bg_style = StyleBoxFlat.new()
-	bg_style.bg_color = BG_COLOR
-	var bg_wrap = PanelContainer.new()
-	bg_wrap.add_theme_stylebox_override("panel", bg_style)
-	bg_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bg_wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_theme_constant_override("separation", 0)
 
-	var root_vbox = VBoxContainer.new()
-	root_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# ══════════════════════════════════════════════════════════
+	# HEADER
+	# ══════════════════════════════════════════════════════════
+	var header = PanelContainer.new()
+	var h_style = StyleBoxFlat.new()
+	h_style.bg_color = HEADER_BG
+	h_style.content_margin_left = 10
+	h_style.content_margin_right = 10
+	h_style.content_margin_top = 6
+	h_style.content_margin_bottom = 6
+	header.add_theme_stylebox_override("panel", h_style)
+	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(header)
 
-	_scroll = ScrollContainer.new()
-	_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var h_hbox = HBoxContainer.new()
+	h_hbox.add_theme_constant_override("separation", 8)
+	header.add_child(h_hbox)
 
-	var content = VBoxContainer.new()
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_theme_constant_override("separation", 4)
-
-	# ─── Title ─────────────────────
 	var title = Label.new()
-	title.text = "🏗️  GAME BUILDER"
-	title.add_theme_font_size_override("font_size", 18)
-	title.add_theme_color_override("font_color", HEADER_COLOR)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	content.add_child(title)
+	title.text = "🚀 Build & Play"
+	title.label_settings = _ls(14, ACCENT)
+	h_hbox.add_child(title)
 
-	var subtitle = Label.new()
-	subtitle.text = "Assemble your AGCK game into a playable Godot project"
-	subtitle.add_theme_font_size_override("font_size", 11)
-	subtitle.add_theme_color_override("font_color", LABEL_COLOR)
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	content.add_child(subtitle)
-	content.add_child(HSeparator.new())
+	var spc = Control.new()
+	spc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h_hbox.add_child(spc)
 
-	# ─── Build Target ──────────────
-	_add_section_header(content, "BUILD TARGET")
-	var target_opt = OptionButton.new()
-	target_opt.add_theme_font_size_override("font_size", 12)
-	for t in BUILD_TARGETS:
-		target_opt.add_item(t)
-	target_opt.selected = build_data["target"]
-	target_opt.item_selected.connect(func(idx): build_data["target"] = idx)
-	content.add_child(target_opt)
+	var hint = Label.new()
+	hint.text = "Build your game or launch a preview"
+	hint.label_settings = _ls(10, DIM)
+	h_hbox.add_child(hint)
 
-	# ─── Output Path ──────────────
-	var path_row = HBoxContainer.new()
-	path_row.add_theme_constant_override("separation", 8)
-	var path_lbl = Label.new()
-	path_lbl.text = "Output:"
-	path_lbl.add_theme_color_override("font_color", LABEL_COLOR)
-	path_lbl.add_theme_font_size_override("font_size", 12)
-	path_row.add_child(path_lbl)
-	var path_edit = LineEdit.new()
-	path_edit.text = build_data["output_path"]
-	path_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	path_edit.add_theme_font_size_override("font_size", 12)
-	path_edit.text_changed.connect(func(t): build_data["output_path"] = t)
-	path_row.add_child(path_edit)
-	content.add_child(path_row)
+	# ══════════════════════════════════════════════════════════
+	# ACTION BUTTONS — big, colorful, center stage
+	# ══════════════════════════════════════════════════════════
+	var action_panel = PanelContainer.new()
+	var ap_style = StyleBoxFlat.new()
+	ap_style.bg_color = Color(0.09, 0.09, 0.11)
+	ap_style.content_margin_left = 20
+	ap_style.content_margin_right = 20
+	ap_style.content_margin_top = 16
+	ap_style.content_margin_bottom = 16
+	action_panel.add_theme_stylebox_override("panel", ap_style)
+	action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(action_panel)
 
-	# ─── Screen Mode ──────────────
-	_add_section_header(content, "DISPLAY")
-	var screen_opt = OptionButton.new()
-	screen_opt.add_theme_font_size_override("font_size", 12)
-	for sm in SCREEN_MODES:
-		screen_opt.add_item(sm)
-	screen_opt.selected = build_data["screen_mode"]
-	screen_opt.item_selected.connect(func(idx): build_data["screen_mode"] = idx)
-	content.add_child(screen_opt)
+	var btn_hbox = HBoxContainer.new()
+	btn_hbox.add_theme_constant_override("separation", 16)
+	btn_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	action_panel.add_child(btn_hbox)
 
-	# ─── Splash Screen ────────────
-	_add_section_header(content, "SPLASH SCREEN")
-	var splash_check = CheckButton.new()
-	splash_check.text = "Show Splash Screen"
-	splash_check.button_pressed = build_data["splash_enabled"]
-	splash_check.add_theme_font_size_override("font_size", 12)
-	splash_check.toggled.connect(func(p): build_data["splash_enabled"] = p)
-	content.add_child(splash_check)
+	# ▶ PLAY button
+	var play_btn = Button.new()
+	play_btn.text = "▶  PLAY PREVIEW"
+	play_btn.add_theme_font_size_override("font_size", 16)
+	play_btn.custom_minimum_size = Vector2(200, 52)
+	play_btn.pressed.connect(_on_play)
+	var play_s = StyleBoxFlat.new()
+	play_s.bg_color = BLUE
+	play_s.set_corner_radius_all(8)
+	play_s.content_margin_left = 16
+	play_s.content_margin_right = 16
+	play_s.content_margin_top = 8
+	play_s.content_margin_bottom = 8
+	play_btn.add_theme_stylebox_override("normal", play_s)
+	var play_h = play_s.duplicate()
+	play_h.bg_color = BLUE.lightened(0.15)
+	play_btn.add_theme_stylebox_override("hover", play_h)
+	var play_p = play_s.duplicate()
+	play_p.bg_color = BLUE.darkened(0.2)
+	play_btn.add_theme_stylebox_override("pressed", play_p)
+	play_btn.add_theme_color_override("font_color", WHITE)
+	play_btn.add_theme_color_override("font_hover_color", WHITE)
+	play_btn.add_theme_color_override("font_pressed_color", WHITE)
+	btn_hbox.add_child(play_btn)
 
-	var splash_row = HBoxContainer.new()
-	splash_row.add_theme_constant_override("separation", 8)
-	var splash_lbl = Label.new()
-	splash_lbl.text = "Text:"
-	splash_lbl.add_theme_color_override("font_color", LABEL_COLOR)
-	splash_lbl.add_theme_font_size_override("font_size", 12)
-	splash_row.add_child(splash_lbl)
-	var splash_edit = LineEdit.new()
-	splash_edit.text = build_data["splash_text"]
-	splash_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	splash_edit.add_theme_font_size_override("font_size", 12)
-	splash_edit.text_changed.connect(func(t): build_data["splash_text"] = t)
-	splash_row.add_child(splash_edit)
-	content.add_child(splash_row)
+	# 🔨 BUILD button
+	var build_btn = Button.new()
+	build_btn.text = "🔨  BUILD GAME"
+	build_btn.add_theme_font_size_override("font_size", 16)
+	build_btn.custom_minimum_size = Vector2(200, 52)
+	build_btn.pressed.connect(_on_build)
+	var build_s = StyleBoxFlat.new()
+	build_s.bg_color = GREEN
+	build_s.set_corner_radius_all(8)
+	build_s.content_margin_left = 16
+	build_s.content_margin_right = 16
+	build_s.content_margin_top = 8
+	build_s.content_margin_bottom = 8
+	build_btn.add_theme_stylebox_override("normal", build_s)
+	var build_h = build_s.duplicate()
+	build_h.bg_color = GREEN.lightened(0.15)
+	build_btn.add_theme_stylebox_override("hover", build_h)
+	var build_p = build_s.duplicate()
+	build_p.bg_color = GREEN.darkened(0.2)
+	build_btn.add_theme_stylebox_override("pressed", build_p)
+	build_btn.add_theme_color_override("font_color", WHITE)
+	build_btn.add_theme_color_override("font_hover_color", WHITE)
+	build_btn.add_theme_color_override("font_pressed_color", WHITE)
+	btn_hbox.add_child(build_btn)
 
-	var dur_row = HBoxContainer.new()
-	dur_row.add_theme_constant_override("separation", 8)
-	var dur_lbl = Label.new()
-	dur_lbl.text = "Duration:"
-	dur_lbl.add_theme_color_override("font_color", LABEL_COLOR)
-	dur_lbl.add_theme_font_size_override("font_size", 12)
-	dur_row.add_child(dur_lbl)
-	var dur_spin = SpinBox.new()
-	dur_spin.min_value = 0.5
-	dur_spin.max_value = 10.0
-	dur_spin.step = 0.5
-	dur_spin.value = build_data["splash_duration"]
-	dur_spin.suffix = "sec"
-	dur_spin.add_theme_font_size_override("font_size", 12)
-	dur_spin.value_changed.connect(func(v): build_data["splash_duration"] = v)
-	dur_row.add_child(dur_spin)
-	content.add_child(dur_row)
+	# ══════════════════════════════════════════════════════════
+	# PROJECT TEMPLATES — one-click starter kits
+	# ══════════════════════════════════════════════════════════
+	var tmpl_panel = PanelContainer.new()
+	var tp_style = StyleBoxFlat.new()
+	tp_style.bg_color = Color(0.11, 0.11, 0.14)
+	tp_style.content_margin_left = 12
+	tp_style.content_margin_right = 12
+	tp_style.content_margin_top = 6
+	tp_style.content_margin_bottom = 6
+	tmpl_panel.add_theme_stylebox_override("panel", tp_style)
+	tmpl_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(tmpl_panel)
 
-	# ─── Options ───────────────────
-	_add_section_header(content, "OPTIONS")
-	var debug_check = CheckButton.new()
-	debug_check.text = "Include Debug Info"
-	debug_check.button_pressed = build_data["include_debug"]
-	debug_check.add_theme_font_size_override("font_size", 12)
-	debug_check.toggled.connect(func(p): build_data["include_debug"] = p)
-	content.add_child(debug_check)
+	var tmpl_vbox = VBoxContainer.new()
+	tmpl_vbox.add_theme_constant_override("separation", 4)
+	tmpl_panel.add_child(tmpl_vbox)
 
-	var autorun_check = CheckButton.new()
-	autorun_check.text = "Auto-run After Build"
-	autorun_check.button_pressed = build_data["auto_run"]
-	autorun_check.add_theme_font_size_override("font_size", 12)
-	autorun_check.toggled.connect(func(p): build_data["auto_run"] = p)
-	content.add_child(autorun_check)
+	var tmpl_title = Label.new()
+	tmpl_title.text = "📋 Quick Start Templates"
+	tmpl_title.label_settings = _ls(11, ACCENT)
+	tmpl_vbox.add_child(tmpl_title)
 
-	content.add_child(HSeparator.new())
+	var tmpl_hbox = HBoxContainer.new()
+	tmpl_hbox.add_theme_constant_override("separation", 8)
+	tmpl_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	tmpl_vbox.add_child(tmpl_hbox)
 
-	# ─── Build Actions ─────────────
-	var action_row = HBoxContainer.new()
-	action_row.add_theme_constant_override("separation", 8)
-	action_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var templates = [
+		{"name": "Platformer", "icon": "🏃", "color": Color(0.35, 0.55, 0.95), "tip": "Side-scrolling platformer with player, enemies, coins"},
+		{"name": "Space Shooter", "icon": "🚀", "color": Color(0.85, 0.30, 0.30), "tip": "Vertical scrolling shooter with bullets and enemy waves"},
+		{"name": "Maze Game", "icon": "🧩", "color": Color(0.30, 0.75, 0.30), "tip": "Top-down maze with keys, doors, and collectibles"},
+	]
+	for tmpl in templates:
+		var tbtn = Button.new()
+		tbtn.text = tmpl["icon"] + " " + tmpl["name"]
+		tbtn.tooltip_text = tmpl["tip"]
+		tbtn.add_theme_font_size_override("font_size", 12)
+		tbtn.custom_minimum_size = Vector2(140, 34)
+		var ts = StyleBoxFlat.new()
+		ts.bg_color = tmpl["color"].darkened(0.3)
+		ts.set_corner_radius_all(6)
+		ts.content_margin_left = 10; ts.content_margin_right = 10
+		ts.content_margin_top = 4;   ts.content_margin_bottom = 4
+		tbtn.add_theme_stylebox_override("normal", ts)
+		var th = ts.duplicate()
+		th.bg_color = tmpl["color"].darkened(0.1)
+		tbtn.add_theme_stylebox_override("hover", th)
+		tbtn.add_theme_color_override("font_color", WHITE)
+		tbtn.add_theme_color_override("font_hover_color", WHITE)
+		var tname: String = tmpl["name"]
+		tbtn.pressed.connect(func(): template_requested.emit(tname))
+		tmpl_hbox.add_child(tbtn)
 
-	_build_btn = Button.new()
-	_build_btn.text = "🔨  BUILD GAME"
-	_build_btn.add_theme_font_size_override("font_size", 14)
-	var build_style = StyleBoxFlat.new()
-	build_style.bg_color = Color(0.2, 0.5, 0.3)
-	build_style.set_corner_radius_all(4)
-	build_style.content_margin_left = 16
-	build_style.content_margin_right = 16
-	build_style.content_margin_top = 6
-	build_style.content_margin_bottom = 6
-	_build_btn.add_theme_stylebox_override("normal", build_style)
-	var build_hover = build_style.duplicate()
-	build_hover.bg_color = Color(0.25, 0.6, 0.35)
-	_build_btn.add_theme_stylebox_override("hover", build_hover)
-	_build_btn.pressed.connect(_on_build_pressed)
-	action_row.add_child(_build_btn)
+	# ══════════════════════════════════════════════════════════
+	# BUILD OPTIONS — compact card
+	# ══════════════════════════════════════════════════════════
+	var opts_panel = PanelContainer.new()
+	var op_style = StyleBoxFlat.new()
+	op_style.bg_color = CARD_BG
+	op_style.set_corner_radius_all(6)
+	op_style.content_margin_left = 12
+	op_style.content_margin_right = 12
+	op_style.content_margin_top = 8
+	op_style.content_margin_bottom = 8
+	opts_panel.add_theme_stylebox_override("panel", op_style)
+	opts_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(opts_panel)
 
-	_preview_btn = Button.new()
-	_preview_btn.text = "▶  PREVIEW"
-	_preview_btn.add_theme_font_size_override("font_size", 14)
-	var preview_style = StyleBoxFlat.new()
-	preview_style.bg_color = Color(0.3, 0.3, 0.5)
-	preview_style.set_corner_radius_all(4)
-	preview_style.content_margin_left = 16
-	preview_style.content_margin_right = 16
-	preview_style.content_margin_top = 6
-	preview_style.content_margin_bottom = 6
-	_preview_btn.add_theme_stylebox_override("normal", preview_style)
-	var preview_hover = preview_style.duplicate()
-	preview_hover.bg_color = Color(0.35, 0.35, 0.6)
-	_preview_btn.add_theme_stylebox_override("hover", preview_hover)
-	_preview_btn.pressed.connect(_on_preview_pressed)
-	action_row.add_child(_preview_btn)
+	var opts_vbox = VBoxContainer.new()
+	opts_vbox.add_theme_constant_override("separation", 4)
+	opts_panel.add_child(opts_vbox)
 
-	content.add_child(action_row)
+	var opts_title = Label.new()
+	opts_title.text = "Build Options"
+	opts_title.label_settings = _ls(12, ACCENT)
+	opts_vbox.add_child(opts_title)
+	opts_vbox.add_child(HSeparator.new())
 
-	# ─── Progress ──────────────────
-	_progress = ProgressBar.new()
-	_progress.custom_minimum_size.y = 20
-	_progress.value = 0
-	_progress.visible = false
-	content.add_child(_progress)
+	var opts_grid = GridContainer.new()
+	opts_grid.columns = 4
+	opts_grid.add_theme_constant_override("h_separation", 12)
+	opts_grid.add_theme_constant_override("v_separation", 4)
+	opts_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	opts_vbox.add_child(opts_grid)
 
-	# ─── Status Icon ───────────────
-	_status_icon = Label.new()
-	_status_icon.text = ""
-	_status_icon.add_theme_font_size_override("font_size", 14)
-	_status_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	content.add_child(_status_icon)
+	# Target
+	var t_lbl = Label.new()
+	t_lbl.text = "Target:"
+	t_lbl.label_settings = _ls(11, DIM)
+	opts_grid.add_child(t_lbl)
+	_target_opt = OptionButton.new()
+	_target_opt.add_theme_font_size_override("font_size", 11)
+	for t in ["Desktop", "Web", "Mobile", "Console"]:
+		_target_opt.add_item(t)
+	_target_opt.item_selected.connect(func(i): build_data["target"] = _target_opt.get_item_text(i))
+	opts_grid.add_child(_target_opt)
+	_style_option(_target_opt)
 
-	# ─── Build Log ─────────────────
-	_add_section_header(content, "BUILD LOG")
-	_build_log = RichTextLabel.new()
-	_build_log.custom_minimum_size.y = 200
-	_build_log.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_build_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_build_log.bbcode_enabled = true
-	_build_log.scroll_following = true
-	var log_style = StyleBoxFlat.new()
-	log_style.bg_color = Color(0.08, 0.08, 0.1)
-	log_style.set_corner_radius_all(3)
-	log_style.content_margin_left = 6
-	log_style.content_margin_right = 6
-	log_style.content_margin_top = 4
-	log_style.content_margin_bottom = 4
-	_build_log.add_theme_stylebox_override("normal", log_style)
-	_build_log.add_theme_font_size_override("normal_font_size", 11)
-	content.add_child(_build_log)
+	# Screen Mode
+	var m_lbl = Label.new()
+	m_lbl.text = "Screen:"
+	m_lbl.label_settings = _ls(11, DIM)
+	opts_grid.add_child(m_lbl)
+	_mode_opt = OptionButton.new()
+	_mode_opt.add_theme_font_size_override("font_size", 11)
+	for m in ["Windowed", "Fullscreen", "Borderless"]:
+		_mode_opt.add_item(m)
+	_mode_opt.item_selected.connect(func(i): build_data["screen_mode"] = _mode_opt.get_item_text(i))
+	opts_grid.add_child(_mode_opt)
+	_style_option(_mode_opt)
 
-	_scroll.add_child(content)
-	root_vbox.add_child(_scroll)
-	bg_wrap.add_child(root_vbox)
-	add_child(bg_wrap)
+	# Output Path
+	var p_lbl = Label.new()
+	p_lbl.text = "Output:"
+	p_lbl.label_settings = _ls(11, DIM)
+	opts_grid.add_child(p_lbl)
+	_path_edit = LineEdit.new()
+	_path_edit.text = build_data.get("output_path", "res://build/")
+	_path_edit.add_theme_font_size_override("font_size", 11)
+	_path_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_path_edit.text_changed.connect(func(t): build_data["output_path"] = t)
+	opts_grid.add_child(_path_edit)
 
-	_log_info("AGCK Game Builder ready.  Configure settings and press BUILD GAME.")
+	# Start Level
+	var sl_lbl = Label.new()
+	sl_lbl.text = "Start Level:"
+	sl_lbl.label_settings = _ls(11, DIM)
+	opts_grid.add_child(sl_lbl)
+	_start_level_opt = OptionButton.new()
+	_start_level_opt.add_theme_font_size_override("font_size", 11)
+	_start_level_opt.add_item("Level 1")
+	_start_level_opt.item_selected.connect(func(i): build_data["start_level"] = i + 1)
+	opts_grid.add_child(_start_level_opt)
+	_style_option(_start_level_opt)
 
+	# Debug + Auto-run
+	_debug_chk = CheckButton.new()
+	_debug_chk.text = "Debug"
+	_debug_chk.add_theme_font_size_override("font_size", 11)
+	_debug_chk.button_pressed = build_data.get("debug", true)
+	_debug_chk.toggled.connect(func(v): build_data["debug"] = v)
+	opts_grid.add_child(_debug_chk)
+	_auto_run_chk = CheckButton.new()
+	_auto_run_chk.text = "Auto-Run"
+	_auto_run_chk.add_theme_font_size_override("font_size", 11)
+	_auto_run_chk.button_pressed = build_data.get("auto_run", true)
+	_auto_run_chk.toggled.connect(func(v): build_data["auto_run"] = v)
+	opts_grid.add_child(_auto_run_chk)
 
-# ─── Helpers ─────────────────────────────────────────────────
+	# ══════════════════════════════════════════════════════════
+	# BUILD LOG — fills remaining space
+	# ══════════════════════════════════════════════════════════
+	var log_panel = PanelContainer.new()
+	var lp_style = StyleBoxFlat.new()
+	lp_style.bg_color = Color(0.06, 0.06, 0.08)
+	lp_style.set_corner_radius_all(4)
+	lp_style.content_margin_left = 8
+	lp_style.content_margin_right = 8
+	lp_style.content_margin_top = 6
+	lp_style.content_margin_bottom = 6
+	log_panel.add_theme_stylebox_override("panel", lp_style)
+	log_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	log_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_child(log_panel)
 
-func _add_section_header(parent: Control, text: String) -> void:
-	var sec = PanelContainer.new()
-	var style = StyleBoxFlat.new()
-	style.bg_color = SECTION_COLOR
-	style.set_corner_radius_all(3)
-	style.content_margin_left = 8
-	style.content_margin_top = 4
-	style.content_margin_bottom = 4
-	sec.add_theme_stylebox_override("panel", style)
-	var lbl = Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", 12)
-	lbl.add_theme_color_override("font_color", HEADER_COLOR)
-	sec.add_child(lbl)
-	parent.add_child(sec)
+	var log_vbox = VBoxContainer.new()
+	log_vbox.add_theme_constant_override("separation", 4)
+	log_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	log_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	log_panel.add_child(log_vbox)
 
+	var log_hdr = HBoxContainer.new()
+	log_hdr.add_theme_constant_override("separation", 8)
+	log_vbox.add_child(log_hdr)
+	var log_title = Label.new()
+	log_title.text = "📋 Build Log"
+	log_title.label_settings = _ls(11, DIM)
+	log_hdr.add_child(log_title)
+	var clear_btn = Button.new()
+	clear_btn.text = "Clear"
+	clear_btn.add_theme_font_size_override("font_size", 10)
+	clear_btn.pressed.connect(func(): _log_output.clear())
+	log_hdr.add_child(clear_btn)
 
-func _log_info(msg: String) -> void:
-	if is_instance_valid(_build_log):
-		_build_log.append_text("[color=#bbc0dd]" + msg + "[/color]\n")
+	_log_output = RichTextLabel.new()
+	_log_output.bbcode_enabled = true
+	_log_output.scroll_following = true
+	_log_output.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_log_output.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_log_output.add_theme_font_size_override("normal_font_size", 11)
+	log_vbox.add_child(_log_output)
 
-func _log_success(msg: String) -> void:
-	if is_instance_valid(_build_log):
-		_build_log.append_text("[color=#4ddb6a]✔ " + msg + "[/color]\n")
-
-func _log_warning(msg: String) -> void:
-	if is_instance_valid(_build_log):
-		_build_log.append_text("[color=#dbba4d]⚠ " + msg + "[/color]\n")
-
-func _log_error(msg: String) -> void:
-	if is_instance_valid(_build_log):
-		_build_log.append_text("[color=#db4d4d]✖ " + msg + "[/color]\n")
+	log_msg("[color=#aaa]AGCK Build System ready.[/color]")
 
 
 # ─── Actions ─────────────────────────────────────────────────
 
-func _on_build_pressed() -> void:
-	_build_log.clear()
-	_progress.visible = true
-	_progress.value = 0
-	_status_icon.text = "🔨 Building..."
-	_status_icon.add_theme_color_override("font_color", WARNING_COLOR)
-	_log_info("Starting AGCK game build...")
-	_log_info("Target: " + BUILD_TARGETS[build_data["target"]])
-	_log_info("Output: " + build_data["output_path"])
+func _on_play() -> void:
+	log_msg("[color=#5599ff]▶ Starting preview build…[/color]")
+	preview_requested.emit()
 
-	# Simulate build steps (actual scene generation is future work)
-	_progress.value = 10
-	_log_info("Validating game settings...")
-	_progress.value = 25
-	_log_info("Compiling actor definitions...")
-	_progress.value = 40
-	_log_info("Processing sound data...")
-	_progress.value = 55
-	_log_info("Building level scenes...")
-	_progress.value = 70
-	_log_info("Generating collision shapes...")
-	_progress.value = 85
-	_log_info("Assembling project...")
-	_progress.value = 100
-
-	_log_success("Build complete!  Game assembled at " + build_data["output_path"])
-	_status_icon.text = "✅ Build Successful"
-	_status_icon.add_theme_color_override("font_color", SUCCESS_COLOR)
+func _on_build() -> void:
+	log_msg("[color=#44cc55]🔨 Starting full build…[/color]")
 	build_requested.emit()
 
 
-func _on_preview_pressed() -> void:
-	_log_info("Preview mode — launching game in embedded viewport (TBD)")
-	_status_icon.text = "▶ Preview mode (not yet implemented)"
-	_status_icon.add_theme_color_override("font_color", WARNING_COLOR)
-	preview_requested.emit()
+## Public: called by the plugin to forward build log messages from the backend
+func log_msg(bbcode: String) -> void:
+	if is_instance_valid(_log_output):
+		_log_output.append_text(bbcode + "\n")
+
+
+## Update the Start Level dropdown to reflect the current number of levels.
+## Called by the plugin when levels change.
+func update_level_count(count: int) -> void:
+	if not is_instance_valid(_start_level_opt):
+		return
+	var current: int = build_data.get("start_level", 1)
+	_start_level_opt.clear()
+	for i in range(maxi(count, 1)):
+		_start_level_opt.add_item("Level " + str(i + 1))
+	# Restore selection (clamp to valid range)
+	var sel: int = clampi(current - 1, 0, maxi(count - 1, 0))
+	_start_level_opt.selected = sel
+	build_data["start_level"] = sel + 1
 
 
 # ─── Serialization ───────────────────────────────────────────
@@ -344,5 +479,8 @@ func get_data() -> Dictionary:
 
 func set_data(data: Dictionary) -> void:
 	for key in data:
-		if build_data.has(key):
-			build_data[key] = data[key]
+		build_data[key] = data[key]
+	# Restore the start_level dropdown selection
+	if is_instance_valid(_start_level_opt) and _start_level_opt.item_count > 0:
+		var sel: int = clampi(build_data.get("start_level", 1) - 1, 0, _start_level_opt.item_count - 1)
+		_start_level_opt.selected = sel

@@ -201,6 +201,7 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Ease");
     keywords.push_back("Trans");
     keywords.push_back("From");
+    keywords.push_back("AddressOf");
 
     while (current < length) {
         char32_t c = p_source_code[current];

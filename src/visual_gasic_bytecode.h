@@ -212,6 +212,9 @@ enum OpCode {
     // Event system (v3.5.0)
     OP_RAISE_EVENT,    // [OP] [NAME_IDX] [ARG_COUNT] - emit_signal on owner
 
+    // Callable creation (v5.0.1)
+    OP_ADDRESS_OF,     // [OP] - Pop method name string, push Callable(owner, name)
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 

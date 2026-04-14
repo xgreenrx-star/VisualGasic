@@ -1,0 +1,36 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="AGCK Tests"
+config/description="Test project for AGCK (Arcade Game Construction Kit)"
+run/main_scene="res://build/Platformer_Adventure/Main.tscn"
+config/features=PackedStringArray("4.6")
+config/icon="res://icon.svg"
+
+[autoload]
+
+VGDebugHandler="*uid://bba4n02t2dx1g"
+
+[display]
+
+window/size/viewport_width=640
+window/size/viewport_height=384
+window/stretch/mode="viewport"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="gl_compatibility"

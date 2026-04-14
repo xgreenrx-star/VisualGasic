@@ -168,6 +168,7 @@ python install.py
 
 ## 🔜 Coming Next
 
+- **Web UI** — Browser-based project dashboard, settings panel, and build monitor
 - Community testing feedback integration
 - Full QA pass across all platforms
 - AGCK Game Builder — actual Godot scene generation (currently simulated)

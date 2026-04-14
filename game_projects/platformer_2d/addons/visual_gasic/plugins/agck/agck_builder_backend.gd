@@ -1,0 +1,2272 @@
+@tool
+## AGCK Builder Backend — code generation engine
+##
+## Converts AGCK design data (levels, actors, sounds, settings) into
+## real, editable VG project files:
+##   - .vg   (VB6-syntax code — editable in VG Code Editor)
+##   - .tscn (Godot scenes    — editable in VG 2D Editor)
+##   - .png  (placeholder sprites — editable in VG Sprite Editor)
+##
+## Generated files are fully standalone — AGCK is the on-ramp,
+## VG's native editors are the freeway.
+extends RefCounted
+
+# ─── Constants ───────────────────────────────────────────────
+const CELL_PX   = 32   # Tile size in pixels
+const GRID_W    = 20
+const GRID_H    = 12
+
+const BLOCK_NAMES = ["Empty", "Barrier", "Ladder", "Deadly", "Background", "Teleport", "Switch"]
+const BLOCK_COLORS_HEX = [
+	"1e1e24",  # Empty
+	"808c99",  # Barrier
+	"4dbf4d",  # Ladder
+	"d93333",  # Deadly
+	"406699",  # Background
+	"a64dd9",  # Teleport
+	"e6cc33",  # Switch
+]
+
+const ACTOR_TYPE_BASE_CLASS = {
+	"Player":   "CharacterBody2D",
+	"Drone":    "CharacterBody2D",
+	"Missile":  "RigidBody2D",
+	"Sentry":   "CharacterBody2D",
+	"Computer": "StaticBody2D",
+	"Zombie":   "CharacterBody2D",
+	"Boss":     "CharacterBody2D",
+	"Bat":      "CharacterBody2D",
+	"NPC":      "StaticBody2D",
+	"Tank":     "CharacterBody2D",
+	"Fireball": "RigidBody2D",
+}
+
+# ─── Sound synthesis constants (mirror agck_sound_editor.gd) ─
+const SAMPLE_RATE   = 22050
+const NOTE_BASE_HZ  = 65.41   # C2
+const NUM_NOTES     = 32
+const MAX_NOTE_VAL  = 48
+const ENVELOPE_MS   = 5
+
+# ─── Log Callback ────────────────────────────────────────────
+var _log_fn: Callable = Callable()
+
+# Reference to tile library for real tile/actor sprites (set by agck_plugin)
+var tile_library = null
+
+func _log(msg: String, color: String = "#ccc") -> void:
+	if _log_fn.is_valid():
+		_log_fn.call("[color=" + color + "]" + msg + "[/color]")
+	print("AGCK Build: ", msg)
+
+
+# ═══════════════════════════════════════════════════════════════
+# PUBLIC API
+# ═══════════════════════════════════════════════════════════════
+
+## Run the full build pipeline.
+## game_data: Dictionary with keys "settings", "actors", "levels", "sounds", "build"
+## log_fn: Callable(bbcode_string) for progress output
+## Returns: Dictionary {"ok": bool, "output_dir": String, "files": Array[String]}
+func build(game_data: Dictionary, log_fn: Callable = Callable()) -> Dictionary:
+	_log_fn = log_fn
+	var result = {"ok": false, "output_dir": "", "files": []}
+
+	# ── Validate
+	var settings: Dictionary = game_data.get("settings", {})
+	var actors: Array        = game_data.get("actors", [])
+	var levels: Array        = game_data.get("levels", [])
+	var sounds: Array        = game_data.get("sounds", [])
+	var build_opts: Dictionary = game_data.get("build", {})
+
+	var game_title: String = settings.get("game_title", "AGCKGame")
+	# Sanitize to valid folder name
+	var safe_name: String = game_title.replace(" ", "_").replace("/", "_").replace("\\", "_")
+	if safe_name.is_empty():
+		safe_name = "AGCKGame"
+
+	var output_dir: String = build_opts.get("output_path", "res://build/")
+	if not output_dir.ends_with("/"):
+		output_dir += "/"
+	output_dir += safe_name + "/"
+	result["output_dir"] = output_dir
+
+	_log("═══════════════════════════════════════════", "#ffcc55")
+	_log("  AGCK BUILD: " + game_title, "#ffcc55")
+	_log("  Output: " + output_dir, "#aaa")
+	_log("═══════════════════════════════════════════", "#ffcc55")
+
+	# ── Ensure output directory
+	if not DirAccess.dir_exists_absolute(output_dir):
+		DirAccess.make_dir_recursive_absolute(output_dir)
+	var sprites_dir = output_dir + "sprites/"
+	if not DirAccess.dir_exists_absolute(sprites_dir):
+		DirAccess.make_dir_recursive_absolute(sprites_dir)
+
+	# ── Step 1: Generate block tileset sprite
+	_log("▸ Generating block tileset…")
+	var tileset_path = sprites_dir + "blocks_tileset.png"
+	_generate_block_tileset(tileset_path)
+	result["files"].append(tileset_path)
+
+	# ── Step 2: Generate actor placeholder sprites
+	_log("▸ Generating actor sprites…")
+	for i in range(actors.size()):
+		var actor = actors[i]
+		var aname: String = _safe_id(actor.get("name", "Actor" + str(i)))
+		var spr_path = sprites_dir + "spr_" + aname.to_lower() + ".png"
+		_generate_actor_sprite(spr_path, actor, i)
+		result["files"].append(spr_path)
+
+	# ── Step 2b: Generate sound WAV files
+	_log("▸ Generating sound effects…")
+	var sounds_dir = output_dir + "sounds/"
+	if not DirAccess.dir_exists_absolute(sounds_dir):
+		DirAccess.make_dir_recursive_absolute(sounds_dir)
+	var sound_count := 0
+	for si in range(sounds.size()):
+		var snd = sounds[si]
+		var has_notes := false
+		for n in snd.get("voice1_notes", []):
+			if n > 0:
+				has_notes = true
+				break
+		if not has_notes:
+			for n in snd.get("voice2_notes", []):
+				if n > 0:
+					has_notes = true
+					break
+		if not has_notes:
+			continue
+		var snd_name := _safe_id(snd.get("name", "Sound_" + str(si + 1)))
+		var wav_path: String = sounds_dir + "sfx_" + snd_name.to_lower() + ".wav"
+		_generate_sound_wav(wav_path, snd)
+		result["files"].append(wav_path)
+		sound_count += 1
+	_log("  " + str(sound_count) + " sound(s) generated", "#8f8")
+
+	# ── Step 3: Generate actor .tscn + .vg files
+	_log("▸ Generating actor scenes & code…")
+	for i in range(actors.size()):
+		var actor = actors[i]
+		var aname: String = _safe_id(actor.get("name", "Actor" + str(i)))
+		var actor_dir = output_dir + "actors/"
+		if not DirAccess.dir_exists_absolute(actor_dir):
+			DirAccess.make_dir_recursive_absolute(actor_dir)
+
+		var tscn_path = actor_dir + "Actor_" + aname + ".tscn"
+		var vg_path   = actor_dir + "Actor_" + aname + ".vg"
+		var spr_rel   = "../sprites/spr_" + aname.to_lower() + ".png"
+
+		_generate_actor_tscn(tscn_path, aname, actor, spr_rel, i)
+		_generate_actor_vg(vg_path, aname, actor, settings)
+		result["files"].append(tscn_path)
+		result["files"].append(vg_path)
+		_log("  ✓ Actor_" + aname + " (.tscn + .vg)", "#8f8")
+
+	# ── Step 4: Generate level .tscn files
+	_log("▸ Generating level scenes…")
+	var level_count = 0
+	var level_indices: Array[int] = []   # track which level indices have content
+	for i in range(levels.size()):
+		var lvl = levels[i]
+		if _level_is_empty(lvl):
+			continue
+		level_count += 1
+		level_indices.append(i)
+		var lvl_name = "Level_" + str(i + 1).pad_zeros(2)
+		var lvl_dir = output_dir + "levels/"
+		if not DirAccess.dir_exists_absolute(lvl_dir):
+			DirAccess.make_dir_recursive_absolute(lvl_dir)
+
+		var tscn_path = lvl_dir + lvl_name + ".tscn"
+		var vg_path   = lvl_dir + lvl_name + ".vg"
+		_generate_level_tscn(tscn_path, lvl, actors, i, level_indices, output_dir)
+		_generate_level_vg(vg_path, lvl_name, lvl, actors, level_indices, output_dir, settings)
+		result["files"].append(tscn_path)
+		result["files"].append(vg_path)
+		_log("  ✓ " + lvl_name + " (.tscn + .vg)", "#8f8")
+
+	_log("  " + str(level_count) + " level(s) generated", "#aaa")
+
+	# ── Step 5: Generate Main.tscn + Main.vg (game controller)
+	_log("▸ Generating Main scene & controller…")
+	var shader_layers_for_main: Array = game_data.get("shaders", [])
+	_generate_main_tscn(output_dir + "Main.tscn", settings, level_count, level_indices, output_dir, sounds, shader_layers_for_main)
+	_generate_main_vg(output_dir + "Main.vg", settings, actors, level_count, level_indices, output_dir, sounds)
+	result["files"].append(output_dir + "Main.tscn")
+	result["files"].append(output_dir + "Main.vg")
+
+	# ── Step 6: Generate shader effect files
+	var shader_layers: Array = game_data.get("shaders", [])
+	var active_shaders := 0
+	if shader_layers.size() > 0:
+		_log("▸ Generating shader effects…")
+		var shaders_dir = output_dir + "shaders/"
+		if not DirAccess.dir_exists_absolute(shaders_dir):
+			DirAccess.make_dir_recursive_absolute(shaders_dir)
+		for si in range(shader_layers.size()):
+			var shader_data = shader_layers[si]
+			if not shader_data.get("enabled", true):
+				continue
+			var shader_name = _safe_id(shader_data.get("shader_name", "Effect_" + str(si)))
+			var shader_path = shaders_dir + "fx_" + shader_name.to_lower() + ".gdshader"
+			_generate_shader_file(shader_path, shader_data)
+			result["files"].append(shader_path)
+			active_shaders += 1
+		_log("  " + str(active_shaders) + " shader effect(s) generated", "#8f8")
+
+	# ── Step 7: (project.godot updated by plugin after build)
+
+	# ── Step 7: Generate project.agck manifest
+	_log("▸ Writing project manifest…")
+	_generate_manifest(output_dir + "project.agck", game_data)
+	result["files"].append(output_dir + "project.agck")
+
+	# ── Done
+	_log("═══════════════════════════════════════════", "#44cc55")
+	_log("  ✓ BUILD COMPLETE — " + str(result["files"].size()) + " files generated", "#44cc55")
+	_log("  Output: " + output_dir, "#aaa")
+	_log("  Open any .vg file in VG Code Editor to customize", "#aaa")
+	_log("  Open any .tscn file in VG 2D Editor to arrange", "#aaa")
+	_log("  Open any .png in VG Sprite Editor to draw art", "#aaa")
+	_log("═══════════════════════════════════════════", "#44cc55")
+
+	result["ok"] = true
+	return result
+
+
+# ═══════════════════════════════════════════════════════════════
+# SPRITE GENERATION
+# ═══════════════════════════════════════════════════════════════
+
+func _generate_block_tileset(path: String) -> void:
+	# If tile_library is available, export each tile type as individual PNGs
+	# plus a composite tileset strip for TileMap usage
+	if tile_library:
+		var base_dir = path.get_base_dir() + "/"
+		var total_tiles = 0
+		for bt in range(1, BLOCK_NAMES.size()):  # skip Empty
+			var count = tile_library.get_tile_count(bt)
+			for ti in range(count):
+				var tile_img = tile_library.get_tile_image(bt, ti)
+				if tile_img:
+					# Scale up to CELL_PX size for game use
+					var scaled = tile_img.duplicate()
+					scaled.resize(CELL_PX, CELL_PX, Image.INTERPOLATE_NEAREST)
+					var tile_name = tile_library.get_tile_name(bt, ti)
+					var safe = _safe_id(tile_name)
+					var tile_path = base_dir + "tile_" + BLOCK_NAMES[bt].to_lower() + "_" + safe + ".png"
+					scaled.save_png(tile_path)
+					total_tiles += 1
+
+		# Also generate a basic 7-color tileset strip as fallback
+		var img = Image.create(CELL_PX * BLOCK_COLORS_HEX.size(), CELL_PX, false, Image.FORMAT_RGBA8)
+		img.fill(Color.TRANSPARENT)
+		for i in range(BLOCK_COLORS_HEX.size()):
+			var color = Color(BLOCK_COLORS_HEX[i])
+			var ox = i * CELL_PX
+			for y in range(CELL_PX):
+				for x in range(CELL_PX):
+					img.set_pixel(ox + x, y, color)
+			var border = color.darkened(0.3)
+			for p in range(CELL_PX):
+				img.set_pixel(ox + p, 0, border)
+				img.set_pixel(ox + p, CELL_PX - 1, border)
+				img.set_pixel(ox, p, border)
+				img.set_pixel(ox + CELL_PX - 1, p, border)
+		img.save_png(path)
+		_log("  Exported " + str(total_tiles) + " tile sprites + fallback tileset", "#8f8")
+	else:
+		# Fallback: plain colored tileset strip
+		var img = Image.create(CELL_PX * BLOCK_COLORS_HEX.size(), CELL_PX, false, Image.FORMAT_RGBA8)
+		img.fill(Color.TRANSPARENT)
+		for i in range(BLOCK_COLORS_HEX.size()):
+			var color = Color(BLOCK_COLORS_HEX[i])
+			var ox = i * CELL_PX
+			for y in range(CELL_PX):
+				for x in range(CELL_PX):
+					img.set_pixel(ox + x, y, color)
+			var border = color.darkened(0.3)
+			for p in range(CELL_PX):
+				img.set_pixel(ox + p, 0, border)
+				img.set_pixel(ox + p, CELL_PX - 1, border)
+				img.set_pixel(ox, p, border)
+				img.set_pixel(ox + CELL_PX - 1, p, border)
+		img.save_png(path)
+		_log("  blocks_tileset.png (" + str(BLOCK_COLORS_HEX.size()) + " tiles)", "#8f8")
+
+
+func _generate_actor_sprite(path: String, actor: Dictionary, actor_id: int = -1) -> void:
+	# If tile_library has real sprites for this actor, use them (scaled up)
+	if tile_library and actor_id >= 0:
+		var aname_for_lib: String = actor.get("name", "Actor" + str(actor_id))
+		var atype_for_lib: String = actor.get("type", "Drone")
+		tile_library.ensure_actor_sprite(actor_id, aname_for_lib, atype_for_lib)
+		var anims: Dictionary = tile_library.get_actor_anims(actor_id)
+		if anims.size() > 1:
+			# Multi-animation: output one PNG per animation
+			var base_path: String = path.trim_suffix(".png")
+			for anim_name in anims:
+				var frames: Array = anims[anim_name]
+				var safe_anim: String = anim_name.to_lower().replace(" ", "_")
+				var anim_path: String = base_path + "_" + safe_anim + ".png"
+				if frames.size() > 1:
+					# Horizontal sprite sheet for this animation
+					var sheet = Image.create(CELL_PX * frames.size(), CELL_PX, false, Image.FORMAT_RGBA8)
+					sheet.fill(Color.TRANSPARENT)
+					for fi in range(frames.size()):
+						var scaled = frames[fi].duplicate()
+						scaled.resize(CELL_PX, CELL_PX, Image.INTERPOLATE_NEAREST)
+						sheet.blit_rect(scaled, Rect2i(0, 0, CELL_PX, CELL_PX), Vector2i(fi * CELL_PX, 0))
+					sheet.save_png(anim_path)
+				elif frames.size() == 1:
+					var scaled = frames[0].duplicate()
+					scaled.resize(CELL_PX, CELL_PX, Image.INTERPOLATE_NEAREST)
+					scaled.save_png(anim_path)
+			return
+		elif anims.size() == 1:
+			# Single animation — use original path
+			var first_key: String = anims.keys()[0]
+			var frames: Array = anims[first_key]
+			if frames.size() > 1:
+				# Multi-frame: output horizontal sprite sheet
+				var sheet = Image.create(CELL_PX * frames.size(), CELL_PX, false, Image.FORMAT_RGBA8)
+				sheet.fill(Color.TRANSPARENT)
+				for fi in range(frames.size()):
+					var scaled = frames[fi].duplicate()
+					scaled.resize(CELL_PX, CELL_PX, Image.INTERPOLATE_NEAREST)
+					sheet.blit_rect(scaled, Rect2i(0, 0, CELL_PX, CELL_PX), Vector2i(fi * CELL_PX, 0))
+				sheet.save_png(path)
+				return
+			elif frames.size() == 1:
+				var scaled = frames[0].duplicate()
+				scaled.resize(CELL_PX, CELL_PX, Image.INTERPOLATE_NEAREST)
+				scaled.save_png(path)
+				return
+
+	# Fallback: 32x32 placeholder sprite -- colored silhouette based on actor type
+	var type_colors = {
+		"Player":   Color(0.30, 0.75, 0.95),
+		"Drone":    Color(0.85, 0.30, 0.30),
+		"Missile":  Color(0.95, 0.60, 0.15),
+		"Sentry":   Color(0.70, 0.40, 0.90),
+		"Computer": Color(0.40, 0.80, 0.40),
+		"Zombie":   Color(0.55, 0.75, 0.30),
+		"Boss":     Color(0.90, 0.20, 0.50),
+		"Bat":      Color(0.50, 0.35, 0.70),
+		"NPC":      Color(0.30, 0.70, 0.85),
+		"Tank":     Color(0.60, 0.60, 0.45),
+		"Fireball": Color(0.95, 0.45, 0.10),
+	}
+	var atype: String = actor.get("type", "Drone")
+	var base_color: Color = type_colors.get(atype, Color(0.5, 0.5, 0.5))
+
+	var size = CELL_PX
+	var img = Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color.TRANSPARENT)
+
+	# Simple character silhouette: body rectangle + head circle
+	var body_top = size / 3
+	var body_bot = size - 4
+	var body_left = size / 4
+	var body_right = size - size / 4
+
+	# Body
+	for y in range(body_top, body_bot):
+		for x in range(body_left, body_right):
+			img.set_pixel(x, y, base_color)
+
+	# Head (circle at top center)
+	var cx = size / 2
+	var cy = size / 4
+	var r = size / 6
+	for y in range(maxi(0, cy - r), mini(size, cy + r)):
+		for x in range(maxi(0, cx - r), mini(size, cx + r)):
+			if (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r:
+				img.set_pixel(x, y, base_color.lightened(0.2))
+
+	# Eyes for non-Computer types
+	if atype != "Computer":
+		var eye_color = Color.WHITE
+		var ey = cy
+		img.set_pixel(cx - 2, ey, eye_color)
+		img.set_pixel(cx + 1, ey, eye_color)
+
+	# Border outline
+	var outline = base_color.darkened(0.4)
+	for y in range(size):
+		for x in range(size):
+			if img.get_pixel(x, y).a > 0.5:
+				# Check neighbors
+				for dy in [-1, 0, 1]:
+					for dx in [-1, 0, 1]:
+						var nx = x + dx
+						var ny = y + dy
+						if nx >= 0 and nx < size and ny >= 0 and ny < size:
+							if img.get_pixel(nx, ny).a < 0.1:
+								img.set_pixel(nx, ny, outline)
+
+	img.save_png(path)
+
+
+# ═══════════════════════════════════════════════════════════════
+# ACTOR SCENE + CODE GENERATION
+# ═══════════════════════════════════════════════════════════════
+
+func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite_rel_path: String, actor_id: int = -1) -> void:
+	var atype = actor.get("type", "Drone")
+	var base_class = ACTOR_TYPE_BASE_CLASS.get(atype, "CharacterBody2D")
+	var vg_script_path = path.replace(".tscn", ".vg")
+
+	# Get animation data
+	var anim_data: Array = actor.get("anim_data", [{"name": "Idle", "speed": 8, "loop": true}])
+	# Backward compat: legacy single-animation format
+	if anim_data.size() == 0:
+		var old_speed: float = actor.get("anim_speed", 8)
+		anim_data = [{"name": "Idle", "speed": old_speed, "loop": true}]
+
+	# Get actual frame counts from tile library
+	var anim_frames_map: Dictionary = {}  # { anim_name: frame_count }
+	var total_frames: int = 0
+	var multi_anim: bool = false
+	if tile_library and actor_id >= 0:
+		var anims_dict: Dictionary = tile_library.get_actor_anims(actor_id)
+		for ad in anim_data:
+			var an: String = ad.get("name", "Idle")
+			if anims_dict.has(an):
+				anim_frames_map[an] = anims_dict[an].size()
+				total_frames += anims_dict[an].size()
+			else:
+				anim_frames_map[an] = 1
+				total_frames += 1
+		multi_anim = anims_dict.size() > 1
+	else:
+		for ad in anim_data:
+			anim_frames_map[ad.get("name", "Idle")] = 1
+			total_frames += 1
+
+	var use_animated: bool = total_frames > 1 or multi_anim
+	var safe_id := aname.replace(" ", "_").replace("-", "_").replace(".", "_")
+
+	var tscn = ""
+
+	if use_animated:
+		# AnimatedSprite2D with SpriteFrames sub-resource
+		# For multi-animation: each animation gets its own ext_resource (one PNG per anim)
+		var ext_id := 2  # 1 = script
+		var ext_map: Dictionary = {}  # { anim_name: ext_id }
+
+		if multi_anim:
+			var load_steps = 4 + total_frames + anim_data.size()
+			tscn += '[gd_scene load_steps=' + str(load_steps) + ' format=3]\n\n'
+			tscn += '[ext_resource type="Script" path="' + vg_script_path + '" id="1"]\n'
+			for ad in anim_data:
+				var an: String = ad.get("name", "Idle")
+				var safe_anim := an.to_lower().replace(" ", "_")
+				var anim_sprite_path := sprite_rel_path.trim_suffix(".png") + "_" + safe_anim + ".png"
+				tscn += '[ext_resource type="Texture2D" path="' + anim_sprite_path + '" id="' + str(ext_id) + '"]\n'
+				ext_map[an] = ext_id
+				ext_id += 1
+			tscn += '\n'
+		else:
+			var fc: int = anim_frames_map.get(anim_data[0].get("name", "Idle"), 1)
+			var load_steps = 4 + fc
+			tscn += '[gd_scene load_steps=' + str(load_steps) + ' format=3]\n\n'
+			tscn += '[ext_resource type="Script" path="' + vg_script_path + '" id="1"]\n'
+			tscn += '[ext_resource type="Texture2D" path="' + sprite_rel_path + '" id="2"]\n\n'
+			ext_map[anim_data[0].get("name", "Idle")] = 2
+
+		# AtlasTexture sub-resources for each frame of each animation
+		var atlas_idx := 0
+		var atlas_map: Dictionary = {}  # { anim_name: [atlas_id, ...] }
+		for ad in anim_data:
+			var an: String = ad.get("name", "Idle")
+			var fc: int = anim_frames_map.get(an, 1)
+			var eid: int = ext_map.get(an, 2)
+			var ids: Array = []
+			for fi in range(fc):
+				tscn += '[sub_resource type="AtlasTexture" id="atlas_' + str(atlas_idx) + '"]\n'
+				tscn += 'atlas = ExtResource("' + str(eid) + '")\n'
+				tscn += 'region = Rect2(' + str(fi * CELL_PX) + ', 0, ' + str(CELL_PX) + ', ' + str(CELL_PX) + ')\n\n'
+				ids.append(atlas_idx)
+				atlas_idx += 1
+			atlas_map[an] = ids
+
+		# SpriteFrames resource with all named animations
+		tscn += '[sub_resource type="SpriteFrames" id="sprite_frames"]\n'
+		tscn += 'animations = ['
+		var anim_idx := 0
+		for ad in anim_data:
+			var an: String = ad.get("name", "Idle")
+			var aspeed: float = ad.get("speed", 8)
+			var aloop: bool = ad.get("loop", true)
+			var ids: Array = atlas_map.get(an, [])
+			if anim_idx > 0:
+				tscn += ', '
+			tscn += '{\n'
+			tscn += '"frames": [\n'
+			for fi in range(ids.size()):
+				tscn += '{\n'
+				tscn += '"duration": 1.0,\n'
+				tscn += '"texture": SubResource("atlas_' + str(ids[fi]) + '")\n'
+				tscn += '}'
+				if fi < ids.size() - 1:
+					tscn += ','
+				tscn += '\n'
+			tscn += '],\n'
+			tscn += '"loop": ' + str(aloop).to_lower() + ',\n'
+			tscn += '"name": &"' + an + '",\n'
+			tscn += '"speed": ' + str(aspeed) + '.0\n'
+			tscn += '}'
+			anim_idx += 1
+		tscn += ']\n\n'
+
+		# Collision shapes
+		tscn += '[sub_resource type="RectangleShape2D" id="shape_1"]\n'
+		tscn += 'size = Vector2(' + str(CELL_PX - 4) + ', ' + str(CELL_PX - 4) + ')\n\n'
+		tscn += '[sub_resource type="RectangleShape2D" id="hitbox_shape"]\n'
+		tscn += 'size = Vector2(' + str(CELL_PX - 2) + ', ' + str(CELL_PX - 2) + ')\n\n'
+
+		# Root node
+		tscn += '[node name="Actor_' + aname + '" type="' + base_class + '"]\n'
+		tscn += 'script = ExtResource("1")\n'
+		if atype == "Player":
+			tscn += 'metadata/_groups = ["player"]\n'
+		elif atype in ["Drone", "Sentry", "Zombie", "Boss", "Bat", "Tank"]:
+			tscn += 'metadata/_groups = ["enemies"]\n'
+		elif atype in ["NPC"]:
+			tscn += 'metadata/_groups = ["npc"]\n'
+		tscn += '\n'
+
+		# AnimatedSprite2D child — autoplay first animation
+		var first_anim_name: String = anim_data[0].get("name", "Idle")
+		tscn += '[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]\n'
+		tscn += 'sprite_frames = SubResource("sprite_frames")\n'
+		tscn += 'autoplay = "' + first_anim_name + '"\n\n'
+
+	else:
+		# Single frame — use simple Sprite2D
+		tscn += '[gd_scene load_steps=4 format=3]\n\n'
+
+		# External resources
+		tscn += '[ext_resource type="Script" path="' + vg_script_path + '" id="1"]\n'
+		tscn += '[ext_resource type="Texture2D" path="' + sprite_rel_path + '" id="2"]\n\n'
+
+		# Sub-resources: collision shape + hitbox shape
+		tscn += '[sub_resource type="RectangleShape2D" id="shape_1"]\n'
+		tscn += 'size = Vector2(' + str(CELL_PX - 4) + ', ' + str(CELL_PX - 4) + ')\n\n'
+		tscn += '[sub_resource type="RectangleShape2D" id="hitbox_shape"]\n'
+		tscn += 'size = Vector2(' + str(CELL_PX - 2) + ', ' + str(CELL_PX - 2) + ')\n\n'
+
+		# Root node
+		tscn += '[node name="Actor_' + aname + '" type="' + base_class + '"]\n'
+		tscn += 'script = ExtResource("1")\n'
+		if atype == "Player":
+			tscn += 'metadata/_groups = ["player"]\n'
+		elif atype in ["Drone", "Sentry", "Zombie", "Boss", "Bat", "Tank"]:
+			tscn += 'metadata/_groups = ["enemies"]\n'
+		elif atype in ["NPC"]:
+			tscn += 'metadata/_groups = ["npc"]\n'
+		tscn += '\n'
+
+		# Sprite2D child
+		tscn += '[node name="Sprite2D" type="Sprite2D" parent="."]\n'
+		tscn += 'texture = ExtResource("2")\n\n'
+
+	# CollisionShape2D child (physics body shape)
+	tscn += '[node name="CollisionShape2D" type="CollisionShape2D" parent="."]\n'
+	tscn += 'shape = SubResource("shape_1")\n\n'
+
+	# Area2D hitbox for damage/interaction detection
+	tscn += '[node name="Hitbox" type="Area2D" parent="."]\n'
+	# Set collision layers: Player on layer 1, Enemies on layer 2
+	if atype == "Player":
+		tscn += 'collision_layer = 1\n'
+		tscn += 'collision_mask = 2\n'
+	elif atype in ["Drone", "Sentry", "Missile", "Zombie", "Boss", "Bat", "Tank", "Fireball"]:
+		tscn += 'collision_layer = 2\n'
+		tscn += 'collision_mask = 1\n'
+	elif atype in ["Computer", "NPC"]:
+		tscn += 'collision_layer = 4\n'
+		tscn += 'collision_mask = 1\n'
+	tscn += '\n'
+
+	tscn += '[node name="HitboxShape" type="CollisionShape2D" parent="Hitbox"]\n'
+	tscn += 'shape = SubResource("hitbox_shape")\n\n'
+
+	# Connect Area2D signals
+	tscn += '[connection signal="body_entered" from="Hitbox" to="." method="_on_hitbox_body_entered"]\n'
+	tscn += '[connection signal="area_entered" from="Hitbox" to="." method="_on_hitbox_area_entered"]\n'
+
+	_write_file(path, tscn)
+
+
+func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings: Dictionary) -> void:
+	# Preserve any user code from the previous build
+	var preserved := _extract_user_code(path)
+
+	var atype: String = actor.get("type", "Drone")
+	var speed: float  = actor.get("max_speed", 200.0)
+	var gravity: float = settings.get("gravity", 980)
+	var grav_scale: float = actor.get("gravity_scale", 1.0)
+	var max_hp: int   = actor.get("max_hp", 100)
+	var damage: int   = actor.get("damage", 10)
+	var score_val: int = actor.get("score_value", 100)
+	var collision: String = actor.get("collision_mode", "Bounce")
+	var death: String = actor.get("death_mode", "Respawn")
+	var rebirth: float = actor.get("rebirth", 3.0)
+
+	var code = ""
+	code += "' Actor_" + aname + ".vg — " + atype + "\n"
+	code += "' Generated by AGCK — fully editable in VG Code Editor!\n"
+	code += "' Open in 2D Editor to adjust collisions & position.\n"
+	code += "' Open sprite in Sprite Editor to draw your character.\n"
+	code += "Option Explicit\n\n"
+
+	# Common variables
+	code += "' ─── Properties ───\n"
+	code += "Dim Speed As Single\n"
+	code += "Dim vx As Single\n"
+	code += "Dim vy As Single\n"
+	code += "Dim MaxHP As Integer\n"
+	code += "Dim CurrentHP As Integer\n"
+	code += "Dim Damage As Integer\n"
+	code += "Dim ScoreValue As Integer\n"
+	code += "Dim Gravity As Single\n"
+	code += "Dim IsInvincible As Boolean\n"
+	code += "Dim InvincibleTimer As Single\n"
+	code += "Dim CurrentAnim As String\n"
+
+	match atype:
+		"Player":
+			code += "Dim JumpForce As Single\n"
+			code += "Dim IsJumping As Boolean\n\n"
+			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "player")
+			code += _gen_player_physics(speed, gravity * grav_scale, collision)
+			code += _gen_collision_handler(atype)
+			code += _gen_damage_sub(death, rebirth, true)
+
+		"Drone":
+			var ai: String = actor.get("ai_behavior", "Patrol")
+			var patrol_speed: float = actor.get("ai_patrol_speed", 80)
+			code += "Dim Direction As Single\n"
+			code += "Dim PatrolSpeed As Single\n"
+			code += "' ─── Path Following (set via level editor) ───\n"
+			code += "Dim PathX(20) As Single\n"
+			code += "Dim PathY(20) As Single\n"
+			code += "Dim PathCount As Integer\n"
+			code += "Dim PathIndex As Integer\n"
+			code += "Dim HasPath As Boolean\n\n"
+			var drone_init = "    Direction = 1.0\n"
+			drone_init += "    PatrolSpeed = " + _fstr(patrol_speed) + "\n"
+			drone_init += "    PathCount = 0\n"
+			drone_init += "    PathIndex = 0\n"
+			drone_init += "    HasPath = False\n"
+			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "enemies", drone_init)
+			code += _gen_add_path_point_sub()
+			code += _gen_drone_physics(ai, patrol_speed, gravity * grav_scale)
+			code += _gen_collision_handler(atype)
+			code += _gen_damage_sub(death, rebirth)
+
+		"Missile":
+			code += "Dim MoveDirection As Vector2\n"
+			code += "Dim LifeTime As Single\n\n"
+			code += _gen_ready_sub(aname, speed, 0, max_hp, damage, score_val, "")
+			code += _gen_missile_physics(speed)
+			code += _gen_collision_handler(atype)
+
+		"Sentry":
+			var patrol_speed: float = actor.get("ai_patrol_speed", 80)
+			code += "Dim Direction As Single\n"
+			code += "Dim PatrolSpeed As Single\n"
+			code += "' ─── Path Following (set via level editor) ───\n"
+			code += "Dim PathX(20) As Single\n"
+			code += "Dim PathY(20) As Single\n"
+			code += "Dim PathCount As Integer\n"
+			code += "Dim PathIndex As Integer\n"
+			code += "Dim HasPath As Boolean\n"
+			var auto_shoot: bool = actor.get("auto_shoot", false)
+			var fire_rate: float = actor.get("auto_shoot_interval", 1.0)
+			if auto_shoot:
+				code += "Dim ShootTimer As Single\n"
+				code += "Dim FireRate As Single\n"
+			code += "\n"
+			var sentry_init = "    Direction = 1.0\n"
+			sentry_init += "    PatrolSpeed = " + _fstr(patrol_speed) + "\n"
+			sentry_init += "    PathCount = 0\n"
+			sentry_init += "    PathIndex = 0\n"
+			sentry_init += "    HasPath = False\n"
+			if auto_shoot:
+				sentry_init += "    FireRate = " + _fstr(fire_rate) + "\n"
+				sentry_init += "    ShootTimer = 0.0\n"
+			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "enemies", sentry_init)
+			code += _gen_add_path_point_sub()
+			code += _gen_sentry_physics(patrol_speed, gravity * grav_scale, auto_shoot, fire_rate)
+			code += _gen_collision_handler(atype)
+			code += _gen_damage_sub(death, rebirth)
+
+		"Computer":
+			code += "\n"
+			code += _gen_ready_sub(aname, 0, 0, max_hp, damage, score_val, "")
+			code += _gen_computer_interaction(death, score_val)
+
+		"Zombie", "Boss", "Tank":
+			# Ground-based enemy AI — same structure as Drone
+			var ai_gb: String = actor.get("ai_behavior", "Chase")
+			var patrol_speed_gb: float = actor.get("ai_patrol_speed", 80)
+			code += "Dim Direction As Single\n"
+			code += "Dim PatrolSpeed As Single\n"
+			code += "' ─── Path Following (set via level editor) ───\n"
+			code += "Dim PathX(20) As Single\n"
+			code += "Dim PathY(20) As Single\n"
+			code += "Dim PathCount As Integer\n"
+			code += "Dim PathIndex As Integer\n"
+			code += "Dim HasPath As Boolean\n\n"
+			var gb_init = "    Direction = 1.0\n"
+			gb_init += "    PatrolSpeed = " + _fstr(patrol_speed_gb) + "\n"
+			gb_init += "    PathCount = 0\n"
+			gb_init += "    PathIndex = 0\n"
+			gb_init += "    HasPath = False\n"
+			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "enemies", gb_init)
+			code += _gen_add_path_point_sub()
+			code += _gen_drone_physics(ai_gb, patrol_speed_gb, gravity * grav_scale)
+			code += _gen_collision_handler(atype)
+			code += _gen_damage_sub(death, rebirth)
+
+		"Bat":
+			# Flying enemy AI — like Drone but zero gravity
+			var ai_bat: String = actor.get("ai_behavior", "Chase")
+			var patrol_speed_bat: float = actor.get("ai_patrol_speed", 80)
+			code += "Dim Direction As Single\n"
+			code += "Dim PatrolSpeed As Single\n"
+			code += "' ─── Path Following (set via level editor) ───\n"
+			code += "Dim PathX(20) As Single\n"
+			code += "Dim PathY(20) As Single\n"
+			code += "Dim PathCount As Integer\n"
+			code += "Dim PathIndex As Integer\n"
+			code += "Dim HasPath As Boolean\n\n"
+			var bat_init = "    Direction = 1.0\n"
+			bat_init += "    PatrolSpeed = " + _fstr(patrol_speed_bat) + "\n"
+			bat_init += "    PathCount = 0\n"
+			bat_init += "    PathIndex = 0\n"
+			bat_init += "    HasPath = False\n"
+			code += _gen_ready_sub(aname, speed, 0, max_hp, damage, score_val, "enemies", bat_init)
+			code += _gen_add_path_point_sub()
+			code += _gen_drone_physics(ai_bat, patrol_speed_bat, 0)
+			code += _gen_collision_handler(atype)
+			code += _gen_damage_sub(death, rebirth)
+
+		"NPC":
+			# Friendly NPC — interactive, no movement
+			code += "\n"
+			code += _gen_ready_sub(aname, 0, 0, max_hp, damage, score_val, "npc")
+			code += _gen_npc_interaction()
+
+		"Fireball":
+			# Flaming projectile — like Missile
+			code += "Dim MoveDirection As Vector2\n"
+			code += "Dim LifeTime As Single\n\n"
+			code += _gen_ready_sub(aname, speed, 0, max_hp, damage, score_val, "")
+			code += _gen_missile_physics(speed)
+			code += _gen_collision_handler(atype)
+
+	# ── PlayAnimation helper (only when multiple animations exist) ──
+	var anim_data_list: Array = actor.get("anim_data", [])
+	if anim_data_list.size() > 1:
+		code += "' ─── Animation Helper ─────────────────────\n"
+		code += "' Available animations: "
+		var anim_names_list: Array = []
+		for ad in anim_data_list:
+			anim_names_list.append(ad.get("name", "Idle"))
+		code += ", ".join(anim_names_list) + "\n"
+		code += "Sub PlayAnimation(animName As String)\n"
+		code += "    If CurrentAnim <> animName Then\n"
+		code += "        CurrentAnim = animName\n"
+		code += "        Dim sprite As AnimatedSprite2D\n"
+		code += "        sprite = GetNode(\"AnimatedSprite2D\")\n"
+		code += "        Call sprite.play(animName)\n"
+		code += "    End If\n"
+		code += "End Sub\n\n"
+
+	# ── User code section — preserved across rebuilds ──
+	code += "' ─── Your Custom Code ─────────────────────\n"
+	code += "' Add your own Subs and functions below.\n"
+	code += "' This section is preserved when you rebuild from AGCK.\n"
+	code += _user_code_block(aname + "_custom", "' (add your code here)\n", preserved)
+
+	_write_file(path, code)
+
+
+# ─── VG Code Templates ──────────────────────────────────────
+
+func _gen_ready_sub(aname: String, speed: float, gravity: float, hp: int, dmg: int, score: int, group: String = "", extra_init: String = "") -> String:
+	var s = "Sub _Ready()\n"
+	s += "    Speed = " + _fstr(speed) + "\n"
+	s += "    Gravity = " + _fstr(gravity) + "\n"
+	s += "    MaxHP = " + str(hp) + "\n"
+	s += "    CurrentHP = MaxHP\n"
+	s += "    Damage = " + str(dmg) + "\n"
+	s += "    ScoreValue = " + str(score) + "\n"
+	s += "    IsInvincible = False\n"
+	s += "    InvincibleTimer = 0.0\n"
+	s += "    CurrentAnim = \"Idle\"\n"
+	if speed > 0:
+		s += "    vx = 0.0\n"
+		s += "    vy = 0.0\n"
+	if group != "":
+		s += "    AddToGroup(\"" + group + "\")\n"
+	if extra_init != "":
+		s += extra_init
+	s += "End Sub\n\n"
+	return s
+
+
+func _gen_add_path_point_sub() -> String:
+	var s = ""
+	s += "' Called by level script to set waypoints for this actor\n"
+	s += "Sub AddPathPoint(px As Single, py As Single)\n"
+	s += "    If PathCount < 20 Then\n"
+	s += "        PathX(PathCount) = px\n"
+	s += "        PathY(PathCount) = py\n"
+	s += "        PathCount = PathCount + 1\n"
+	s += "        HasPath = True\n"
+	s += "    End If\n"
+	s += "End Sub\n\n"
+	return s
+
+
+func _gen_player_physics(speed: float, gravity: float, collision: String) -> String:
+	var s = ""
+	s += "Sub _PhysicsProcess(delta As Single)\n"
+	s += "    ' Read current velocity from CharacterBody2D\n"
+	s += "    vx = Me.velocity.x\n"
+	s += "    vy = Me.velocity.y\n"
+	s += "\n"
+	s += "    ' Apply gravity\n"
+	s += "    vy = vy + Gravity * delta\n"
+	s += "\n"
+	s += "    ' Horizontal movement\n"
+	s += "    If Input.IsActionPressed(\"ui_left\") Then\n"
+	s += "        vx = -Speed\n"
+	s += "    ElseIf Input.IsActionPressed(\"ui_right\") Then\n"
+	s += "        vx = Speed\n"
+	s += "    Else\n"
+	s += "        vx = 0\n"
+	s += "    End If\n"
+	s += "\n"
+	s += "    ' Jumping\n"
+	s += "    If Input.IsActionJustPressed(\"ui_accept\") And IsOnFloor(Me) Then\n"
+	s += "        vy = -400.0\n"
+	s += "    End If\n"
+	s += "\n"
+	s += "    ' Write velocity back and move\n"
+	s += "    SetVelocity Me, vx, vy\n"
+	s += "    MoveAndSlide Me\n"
+	s += "\n"
+	s += "    ' Invincibility timer — blink and restore after damage\n"
+	s += "    If IsInvincible Then\n"
+	s += "        InvincibleTimer = InvincibleTimer - delta\n"
+	s += "        If InvincibleTimer <= 0 Then\n"
+	s += "            IsInvincible = False\n"
+	s += "            Me.visible = True\n"
+	s += "            Me.modulate = Color(1, 1, 1, 1)\n"
+	s += "        Else\n"
+	s += "            ' Blink effect\n"
+	s += "            Me.visible = Not Me.visible\n"
+	s += "        End If\n"
+	s += "    End If\n"
+	s += "End Sub\n\n"
+	return s
+
+
+func _gen_drone_physics(ai: String, patrol_speed: float, gravity: float) -> String:
+	var s = ""
+	s += "Sub _PhysicsProcess(delta As Single)\n"
+	s += "    ' Read current velocity\n"
+	s += "    vx = Me.velocity.x\n"
+	s += "    vy = Me.velocity.y\n"
+	s += "\n"
+	s += "    ' Apply gravity\n"
+	s += "    vy = vy + Gravity * delta\n"
+	s += "\n"
+	# Path-following takes priority when waypoints are set
+	s += "    If HasPath And PathCount >= 2 Then\n"
+	s += "        ' Follow waypoint path\n"
+	s += "        Dim tx As Single = PathX(PathIndex)\n"
+	s += "        Dim ty As Single = PathY(PathIndex)\n"
+	s += "        Dim dx As Single = tx - GlobalPosition.X\n"
+	s += "        Dim dy As Single = ty - GlobalPosition.Y\n"
+	s += "        Dim dist As Single = Sqr(dx * dx + dy * dy)\n"
+	s += "        If dist < 4.0 Then\n"
+	s += "            ' Reached waypoint — advance to next (loop)\n"
+	s += "            PathIndex = PathIndex + 1\n"
+	s += "            If PathIndex >= PathCount Then PathIndex = 0\n"
+	s += "        Else\n"
+	s += "            ' Move toward waypoint\n"
+	s += "            vx = (dx / dist) * PatrolSpeed\n"
+	s += "            vy = (dy / dist) * PatrolSpeed\n"
+	s += "        End If\n"
+	s += "    Else\n"
+	# Original AI behavior when no path set
+	match ai:
+		"Chase":
+			s += "        ' Chase: move toward player\n"
+			s += "        Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
+			s += "        If player <> Nothing Then\n"
+			s += "            If player.GlobalPosition.X < GlobalPosition.X Then\n"
+			s += "                vx = -Speed\n"
+			s += "            Else\n"
+			s += "                vx = Speed\n"
+			s += "            End If\n"
+			s += "        Else\n"
+			s += "            vx = PatrolSpeed * Direction\n"
+			s += "        End If\n"
+		"Flee":
+			s += "        ' Flee: run from player\n"
+			s += "        Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
+			s += "        If player <> Nothing Then\n"
+			s += "            If player.GlobalPosition.X < GlobalPosition.X Then\n"
+			s += "                vx = Speed\n"
+			s += "            Else\n"
+			s += "                vx = -Speed\n"
+			s += "            End If\n"
+			s += "        Else\n"
+			s += "            vx = PatrolSpeed * Direction\n"
+			s += "        End If\n"
+		_:  # Patrol, Wander, Guard
+			s += "        ' Patrol: walk back and forth\n"
+			s += "        vx = PatrolSpeed * Direction\n"
+	s += "    End If\n"
+
+	s += "\n"
+	s += "    ' Write velocity and move\n"
+	s += "    SetVelocity Me, vx, vy\n"
+	s += "    MoveAndSlide Me\n"
+	s += "\n"
+	s += "    ' Reverse at walls (only in non-path mode)\n"
+	s += "    If Not HasPath Then\n"
+	s += "        If IsOnWall(Me) Then\n"
+	s += "            Direction = -Direction\n"
+	s += "        End If\n"
+	s += "    End If\n"
+	s += "End Sub\n\n"
+	return s
+
+
+func _gen_missile_physics(speed: float) -> String:
+	var s = ""
+	s += "Sub _PhysicsProcess(delta As Single)\n"
+	s += "    ' Missiles move in a straight line\n"
+	s += "    Position = Position + MoveDirection * Speed * delta\n"
+	s += "\n"
+	s += "    ' Destroy after lifetime expires\n"
+	s += "    LifeTime = LifeTime - delta\n"
+	s += "    If LifeTime <= 0 Then\n"
+	s += "        QueueFree()\n"
+	s += "    End If\n"
+	s += "End Sub\n\n"
+	s += "Sub Launch(dir As Vector2)\n"
+	s += "    MoveDirection = dir.Normalized()\n"
+	s += "    LifeTime = 3.0\n"
+	s += "End Sub\n\n"
+	return s
+
+
+func _gen_sentry_physics(patrol_speed: float, gravity: float, auto_shoot: bool, fire_rate: float) -> String:
+	var s = ""
+	s += "Sub _PhysicsProcess(delta As Single)\n"
+	s += "    ' Read current velocity\n"
+	s += "    vx = Me.velocity.x\n"
+	s += "    vy = Me.velocity.y\n"
+	s += "\n"
+	s += "    ' Apply gravity\n"
+	s += "    vy = vy + Gravity * delta\n"
+	s += "\n"
+	# Path-following takes priority when waypoints are set
+	s += "    If HasPath And PathCount >= 2 Then\n"
+	s += "        ' Follow waypoint path\n"
+	s += "        Dim tx As Single = PathX(PathIndex)\n"
+	s += "        Dim ty As Single = PathY(PathIndex)\n"
+	s += "        Dim dx As Single = tx - GlobalPosition.X\n"
+	s += "        Dim dy As Single = ty - GlobalPosition.Y\n"
+	s += "        Dim dist As Single = Sqr(dx * dx + dy * dy)\n"
+	s += "        If dist < 4.0 Then\n"
+	s += "            ' Reached waypoint — advance to next (loop)\n"
+	s += "            PathIndex = PathIndex + 1\n"
+	s += "            If PathIndex >= PathCount Then PathIndex = 0\n"
+	s += "        Else\n"
+	s += "            ' Move toward waypoint\n"
+	s += "            vx = (dx / dist) * PatrolSpeed\n"
+	s += "            vy = (dy / dist) * PatrolSpeed\n"
+	s += "        End If\n"
+	s += "    Else\n"
+	s += "        ' Patrol back and forth\n"
+	s += "        vx = PatrolSpeed * Direction\n"
+	s += "    End If\n"
+	s += "\n"
+	s += "    SetVelocity Me, vx, vy\n"
+	s += "    MoveAndSlide Me\n"
+	s += "\n"
+	s += "    ' Reverse at walls (only in non-path mode)\n"
+	s += "    If Not HasPath Then\n"
+	s += "        If IsOnWall(Me) Then\n"
+	s += "            Direction = -Direction\n"
+	s += "        End If\n"
+	s += "    End If\n"
+	if auto_shoot:
+		s += "\n"
+		s += "    ' Auto-shoot timer\n"
+		s += "    ShootTimer = ShootTimer + delta\n"
+		s += "    If ShootTimer >= FireRate Then\n"
+		s += "        ShootTimer = 0\n"
+		s += "        ' Spawn a missile toward the player\n"
+		s += "        Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
+		s += "        If player <> Nothing Then\n"
+		s += "            Dim dir As Vector2\n"
+		s += "            dir = (player.GlobalPosition - GlobalPosition).Normalized()\n"
+		s += "            Dim bullet As CharacterBody2D = CharacterBody2D.New()\n"
+		s += "            GetParent().AddChild(bullet)\n"
+		s += "            bullet.GlobalPosition = GlobalPosition\n"
+		s += "            SetVelocity bullet, dir.x * 300.0, dir.y * 300.0\n"
+		s += "            bullet.AddToGroup(\"enemies\")\n"
+		s += "        End If\n"
+		s += "    End If\n"
+	s += "End Sub\n\n"
+	return s
+
+
+func _gen_damage_sub(death_mode: String, rebirth: float, is_player: bool = false) -> String:
+	var s = ""
+	s += "' Called when this actor takes damage\n"
+	s += "Sub TakeDamage(amount As Integer)\n"
+	if is_player:
+		s += "    ' Skip if currently invincible (just took a hit)\n"
+		s += "    If IsInvincible Then Exit Sub\n"
+	s += "    CurrentHP = CurrentHP - amount\n"
+	if is_player:
+		s += "    ' Brief invincibility after taking damage\n"
+		s += "    IsInvincible = True\n"
+		s += "    InvincibleTimer = 1.5\n"
+		s += "    Me.modulate = Color(1, 1, 1, 0.5)\n"
+	s += "    If CurrentHP <= 0 Then\n"
+	if is_player:
+		s += "        IsInvincible = False\n"
+		s += "        Me.visible = True\n"
+		s += "        Me.modulate = Color(1, 1, 1, 1)\n"
+	match death_mode:
+		"Destroy":
+			if is_player:
+				s += "        ' Tell game controller we lost a life\n"
+				s += "        Dim main As Node2D = GetTree().CurrentScene\n"
+				s += "        If main <> Nothing And main.HasMethod(\"LoseLife\") Then\n"
+				s += "            main.LoseLife()\n"
+				s += "        End If\n"
+			s += "        QueueFree()\n"
+		"GameOver":
+			s += "        ' Game over\n"
+			s += "        Dim main As Node2D = GetTree().CurrentScene\n"
+			s += "        If main <> Nothing And main.HasMethod(\"GameOver\") Then\n"
+			s += "            main.GameOver()\n"
+			s += "        Else\n"
+			s += "            GetTree().ReloadCurrentScene()\n"
+			s += "        End If\n"
+		_:  # Respawn
+			if is_player:
+				s += "        ' Tell game controller we lost a life\n"
+				s += "        Dim main As Node2D = GetTree().CurrentScene\n"
+				s += "        If main <> Nothing And main.HasMethod(\"LoseLife\") Then\n"
+				s += "            main.LoseLife()\n"
+				s += "        End If\n"
+			s += "        ' Respawn — reset HP\n"
+			s += "        CurrentHP = MaxHP\n"
+	s += "    End If\n"
+	s += "End Sub\n\n"
+	return s
+
+
+func _gen_computer_interaction(death_mode: String, score_val: int) -> String:
+	var s = ""
+	s += "' Computer objects respond to collisions (coins, keys, etc.)\n"
+	s += "Sub _on_hitbox_body_entered(body As Node2D)\n"
+	s += "    ' Check if the player touched us\n"
+	s += "    If body.IsInGroup(\"player\") Then\n"
+	if score_val > 0:
+		s += "        ' Award points via the game controller\n"
+		s += "        Dim main As Node2D = GetTree().CurrentScene\n"
+		s += "        If main <> Nothing And main.HasMethod(\"AddScore\") Then\n"
+		s += "            main.AddScore(ScoreValue)\n"
+		s += "        End If\n"
+	if death_mode == "Destroy":
+		s += "        ' Collect and vanish\n"
+		s += "        QueueFree()\n"
+	else:
+		s += "        ' Interact\n"
+		s += "        ' TODO: Add your interaction logic here\n"
+	s += "    End If\n"
+	s += "End Sub\n\n"
+	s += "Sub _on_hitbox_area_entered(area As Area2D)\n"
+	s += "    ' Area-based interaction\n"
+	s += "End Sub\n\n"
+	return s
+
+
+func _gen_npc_interaction() -> String:
+	var s = ""
+	s += "' NPC responds to player interaction\n"
+	s += "Sub _on_hitbox_body_entered(body As Node2D)\n"
+	s += "    If body.IsInGroup(\"player\") Then\n"
+	s += "        ' Player is nearby — interact\n"
+	s += "        ' Add your dialog or quest logic here\n"
+	s += "    End If\n"
+	s += "End Sub\n\n"
+	s += "Sub _on_hitbox_area_entered(area As Area2D)\n"
+	s += "    ' Area interaction\n"
+	s += "End Sub\n\n"
+	return s
+
+
+func _gen_collision_handler(atype: String) -> String:
+	var s = ""
+	s += "' ─── Collision Handling ───\n"
+	match atype:
+		"Player":
+			s += "Sub _on_hitbox_body_entered(body As Node2D)\n"
+			s += "    If IsInvincible Then Exit Sub\n"
+			s += "    ' Touched an enemy — take damage\n"
+			s += "    If body.IsInGroup(\"enemies\") Then\n"
+			s += "        ' Read the enemy's configured Damage value\n"
+			s += "        TakeDamage(body.Damage)\n"
+			s += "    End If\n"
+			s += "End Sub\n\n"
+			s += "Sub _on_hitbox_area_entered(area As Area2D)\n"
+			s += "    If IsInvincible Then Exit Sub\n"
+			s += "    Dim owner As Node = area.GetParent()\n"
+			s += "    If owner <> Nothing And owner.IsInGroup(\"enemies\") Then\n"
+			s += "        TakeDamage(owner.Damage)\n"
+			s += "    End If\n"
+			s += "End Sub\n\n"
+		"Drone", "Sentry", "Zombie", "Boss", "Bat", "Tank":
+			s += "Sub _on_hitbox_body_entered(body As Node2D)\n"
+			s += "    ' Player jumped on us — take damage\n"
+			s += "    If body.IsInGroup(\"player\") Then\n"
+			s += "        ' Check if player is above (stomp)\n"
+			s += "        If body.GlobalPosition.Y < GlobalPosition.Y - 8 Then\n"
+			s += "            TakeDamage(MaxHP)  ' instant kill from stomp\n"
+			s += "            ' Award score to game controller\n"
+			s += "            Dim main As Node2D = GetTree().CurrentScene\n"
+			s += "            If main <> Nothing And main.HasMethod(\"AddScore\") Then\n"
+			s += "                main.AddScore(ScoreValue)\n"
+			s += "            End If\n"
+			s += "            ' Bounce the player up\n"
+			s += "            SetVelocity body, body.velocity.x, -250.0\n"
+			s += "        End If\n"
+			s += "    End If\n"
+			s += "End Sub\n\n"
+			s += "Sub _on_hitbox_area_entered(area As Area2D)\n"
+			s += "    ' Area interaction\n"
+			s += "End Sub\n\n"
+		"Missile", "Fireball":
+			s += "Sub _on_hitbox_body_entered(body As Node2D)\n"
+			s += "    If body.HasMethod(\"TakeDamage\") Then\n"
+			s += "        body.TakeDamage(Damage)\n"
+			s += "    End If\n"
+			s += "    QueueFree()\n"
+			s += "End Sub\n\n"
+			s += "Sub _on_hitbox_area_entered(area As Area2D)\n"
+			s += "    ' Area interaction\n"
+			s += "End Sub\n\n"
+	return s
+
+
+# ═══════════════════════════════════════════════════════════════
+# LEVEL SCENE GENERATION
+# ═══════════════════════════════════════════════════════════════
+
+func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_idx: int, level_indices: Array[int], output_dir: String) -> void:
+	var grid: Array = lvl.get("grid", [])
+	var placed_actors: Array = lvl.get("actors", [])
+	var lvl_name = "Level_" + str(level_idx + 1).pad_zeros(2)
+	var vg_path = path.replace(".tscn", ".vg")
+
+	# ── Pass 1: Collect all unique tile textures used in this level ──
+	# Key = "bt_ti" (e.g. "1_0"), value = relative path to tile PNG
+	var tile_textures: Dictionary = {}   # "bt_ti" -> png_relative_path
+	for y in range(mini(grid.size(), GRID_H)):
+		var row = grid[y]
+		for x in range(mini(row.size(), GRID_W)):
+			var cell = row[x]
+			var block_id: int = 0
+			var tile_idx: int = 0
+			if cell is Dictionary:
+				block_id = cell.get("block_type", 0)
+				tile_idx = cell.get("tile_index", 0)
+			elif cell is int or cell is float:
+				block_id = int(cell)
+			if block_id <= 0:
+				continue
+			var key = str(block_id) + "_" + str(tile_idx)
+			if not tile_textures.has(key):
+				# Resolve tile name from tile_library, matching the PNG export naming
+				var tname := ""
+				if tile_library:
+					tname = tile_library.get_tile_name(block_id, tile_idx)
+				if tname.is_empty():
+					tname = BLOCK_NAMES[block_id] + "_" + str(tile_idx)
+				var safe = _safe_id(tname)
+				var png_rel = "../sprites/tile_" + BLOCK_NAMES[block_id].to_lower() + "_" + safe + ".png"
+				tile_textures[key] = png_rel
+
+	# ── Count ext resources: 1 script + N actor scenes + M tile textures ──
+	var actor_scenes: Dictionary = {}  # actor_id -> ext_resource_id
+	var ext_id = 2  # 1 is the level script
+	for pa in placed_actors:
+		var aid: int = pa.get("actor_id", 0)
+		if not actor_scenes.has(aid) and aid < actors.size():
+			actor_scenes[aid] = ext_id
+			ext_id += 1
+
+	# Assign ext_resource IDs to tile textures
+	var tile_ext_ids: Dictionary = {}  # "bt_ti" -> ext_resource_id
+	for key in tile_textures:
+		tile_ext_ids[key] = ext_id
+		ext_id += 1
+
+	# ── Build the .tscn ──
+	# We'll build body content first, then prepend the header at the end
+	# (because we need to know total load_steps and sub_resources)
+
+	var body = ""
+
+	# Root Node2D
+	body += '[node name="' + lvl_name + '" type="Node2D"]\n'
+	body += 'script = ExtResource("1")\n\n'
+
+	# ── Blocks ──
+	var block_idx = 0
+	for y in range(mini(grid.size(), GRID_H)):
+		var row = grid[y]
+		for x in range(mini(row.size(), GRID_W)):
+			var cell = row[x]
+			var block_id: int = 0
+			var tile_idx: int = 0
+			if cell is Dictionary:
+				block_id = cell.get("block_type", 0)
+				tile_idx = cell.get("tile_index", 0)
+			elif cell is int or cell is float:
+				block_id = int(cell)
+			if block_id <= 0:
+				continue  # skip empty
+			block_idx += 1
+			var node_name = "Block_" + str(block_idx)
+			var px = x * CELL_PX + CELL_PX / 2
+			var py = y * CELL_PX + CELL_PX / 2
+			var tex_key = str(block_id) + "_" + str(tile_idx)
+
+			# Determine if block needs collision (Barrier, Ladder, Deadly, Teleport, Switch)
+			var needs_body = block_id in [1, 2, 3, 5, 6]
+
+			if needs_body:
+				# StaticBody2D with collision
+				body += '[node name="' + node_name + '" type="StaticBody2D" parent="."]\n'
+				body += 'position = Vector2(' + str(px) + ', ' + str(py) + ')\n'
+				# Teleport & Switch blocks are pass-through (player walks into them)
+				if block_id in [5, 6]:
+					body += 'collision_layer = 0\n'
+					body += 'collision_mask = 0\n'
+				body += 'metadata/block_type = ' + str(block_id) + '\n'
+				body += 'metadata/block_name = "' + BLOCK_NAMES[block_id] + '"\n'
+				if block_id == 3:
+					body += 'metadata/_groups = ["deadly"]\n'
+				elif block_id == 5:
+					body += 'metadata/_groups = ["teleport"]\n'
+				body += '\n'
+
+				# Visual — Sprite2D with actual tile texture
+				if tile_ext_ids.has(tex_key):
+					body += '[node name="Visual" type="Sprite2D" parent="' + node_name + '"]\n'
+					body += 'texture = ExtResource("' + str(tile_ext_ids[tex_key]) + '")\n'
+					body += 'texture_filter = 0\n\n'
+				else:
+					# Fallback ColorRect if tile PNG somehow missing
+					body += '[node name="Visual" type="ColorRect" parent="' + node_name + '"]\n'
+					body += 'offset_left = ' + str(-CELL_PX / 2) + '\n'
+					body += 'offset_top = ' + str(-CELL_PX / 2) + '\n'
+					body += 'offset_right = ' + str(CELL_PX / 2) + '\n'
+					body += 'offset_bottom = ' + str(CELL_PX / 2) + '\n'
+					body += 'color = ' + _hex_to_tscn_color(BLOCK_COLORS_HEX[block_id]) + '\n\n'
+
+				# Collision
+				body += '[node name="Collision" type="CollisionShape2D" parent="' + node_name + '"]\n'
+				body += 'shape = SubResource("block_shape")\n\n'
+
+				# Teleport blocks get an Area2D for detection
+				if block_id == 5:
+					body += '[node name="TeleportArea" type="Area2D" parent="' + node_name + '"]\n'
+					body += 'collision_layer = 4\n'
+					body += 'collision_mask = 1\n\n'
+					body += '[node name="TeleportShape" type="CollisionShape2D" parent="' + node_name + '/TeleportArea"]\n'
+					body += 'shape = SubResource("block_shape")\n\n'
+
+				# Deadly blocks get an Area2D for damage
+				if block_id == 3:
+					body += '[node name="DeadlyArea" type="Area2D" parent="' + node_name + '"]\n'
+					body += 'collision_layer = 8\n'
+					body += 'collision_mask = 1\n\n'
+					body += '[node name="DeadlyShape" type="CollisionShape2D" parent="' + node_name + '/DeadlyArea"]\n'
+					body += 'shape = SubResource("block_shape")\n\n'
+
+				# Switch blocks get an Area2D for collectible/interaction
+				if block_id == 6:
+					body += '[node name="SwitchArea" type="Area2D" parent="' + node_name + '"]\n'
+					body += 'collision_layer = 4\n'
+					body += 'collision_mask = 1\n\n'
+					body += '[node name="SwitchShape" type="CollisionShape2D" parent="' + node_name + '/SwitchArea"]\n'
+					body += 'shape = SubResource("block_shape")\n\n'
+			else:
+				# Background block — Sprite2D (no collision), positioned top-left style
+				if tile_ext_ids.has(tex_key):
+					body += '[node name="' + node_name + '" type="Sprite2D" parent="."]\n'
+					body += 'position = Vector2(' + str(px) + ', ' + str(py) + ')\n'
+					body += 'texture = ExtResource("' + str(tile_ext_ids[tex_key]) + '")\n'
+					body += 'texture_filter = 0\n'
+				else:
+					body += '[node name="' + node_name + '" type="ColorRect" parent="."]\n'
+					body += 'offset_left = ' + str(x * CELL_PX) + '\n'
+					body += 'offset_top = ' + str(y * CELL_PX) + '\n'
+					body += 'offset_right = ' + str(x * CELL_PX + CELL_PX) + '\n'
+					body += 'offset_bottom = ' + str(y * CELL_PX + CELL_PX) + '\n'
+					body += 'color = ' + _hex_to_tscn_color(BLOCK_COLORS_HEX[block_id]) + '\n'
+				body += 'metadata/block_type = ' + str(block_id) + '\n\n'
+
+	# Actor instances — find the player to attach camera
+	var player_inst_name: String = ""
+	var actor_inst_idx = 0
+	for pa in placed_actors:
+		var aid: int = pa.get("actor_id", 0)
+		if not actor_scenes.has(aid):
+			continue
+		actor_inst_idx += 1
+		var px = pa.get("x", 0) * CELL_PX + CELL_PX / 2
+		var py = pa.get("y", 0) * CELL_PX + CELL_PX / 2
+		var aname = _safe_id(actors[aid].get("name", "Actor" + str(aid)))
+		var inst_name = aname + "_" + str(actor_inst_idx)
+		var actor_type = actors[aid].get("type", "Drone")
+
+		body += '[node name="' + inst_name + '" parent="." instance=ExtResource("' + str(actor_scenes[aid]) + '")]\n'
+		body += 'position = Vector2(' + str(px) + ', ' + str(py) + ')\n\n'
+
+		# Track the player instance for camera attachment
+		if actor_type == "Player" and player_inst_name.is_empty():
+			player_inst_name = inst_name
+
+	# Camera2D — attach to player if found (follows player), else static at center
+	if player_inst_name != "":
+		body += '[node name="Camera2D" type="Camera2D" parent="' + player_inst_name + '"]\n'
+		body += 'zoom = Vector2(1.5, 1.5)\n'
+		body += 'position_smoothing_enabled = true\n'
+		body += 'position_smoothing_speed = 5.0\n'
+		body += 'drag_horizontal_enabled = true\n'
+		body += 'drag_vertical_enabled = true\n'
+		body += 'limit_left = 0\n'
+		body += 'limit_top = 0\n'
+		body += 'limit_right = ' + str(GRID_W * CELL_PX) + '\n'
+		body += 'limit_bottom = ' + str(GRID_H * CELL_PX) + '\n\n'
+	else:
+		body += '[node name="Camera2D" type="Camera2D" parent="."]\n'
+		body += 'position = Vector2(' + str(GRID_W * CELL_PX / 2) + ', ' + str(GRID_H * CELL_PX / 2) + ')\n'
+		body += 'zoom = Vector2(1.5, 1.5)\n\n'
+
+	# ── Build complete header with all ext_resources + sub_resources ──
+	var total_load_steps = ext_id  # all ext resources + 1 sub_resource (block_shape)
+	var header = '[gd_scene load_steps=' + str(total_load_steps) + ' format=3]\n\n'
+
+	# Ext resource: level script
+	header += '[ext_resource type="Script" path="' + vg_path + '" id="1"]\n'
+
+	# Ext resources: actor scenes
+	for aid in actor_scenes:
+		var aname = _safe_id(actors[aid].get("name", "Actor" + str(aid)))
+		var actor_tscn_path = "../actors/Actor_" + aname + ".tscn"
+		header += '[ext_resource type="PackedScene" path="' + actor_tscn_path + '" id="' + str(actor_scenes[aid]) + '"]\n'
+
+	# Ext resources: tile textures
+	for key in tile_ext_ids:
+		header += '[ext_resource type="Texture2D" path="' + tile_textures[key] + '" id="' + str(tile_ext_ids[key]) + '"]\n'
+	header += '\n'
+
+	# Sub resource: collision shape
+	header += '[sub_resource type="RectangleShape2D" id="block_shape"]\n'
+	header += 'size = Vector2(' + str(CELL_PX) + ', ' + str(CELL_PX) + ')\n\n'
+
+	_write_file(path, header + body)
+
+
+func _generate_level_vg(path: String, lvl_name: String, lvl: Dictionary, actors: Array, level_indices: Array[int], output_dir: String, settings: Dictionary = {}) -> void:
+	# Preserve any user code from the previous build
+	var preserved := _extract_user_code(path)
+
+	var friction: int = lvl.get("material_friction", 50)
+	var elasticity: int = lvl.get("material_elasticity", 50)
+
+	# Find the next level in the sequence
+	var current_idx := -1
+	for i in range(level_indices.size()):
+		if "Level_" + str(level_indices[i] + 1).pad_zeros(2) == lvl_name:
+			current_idx = i
+			break
+
+	var next_level_path := ""
+	if current_idx >= 0 and current_idx + 1 < level_indices.size():
+		var next_idx = level_indices[current_idx + 1]
+		next_level_path = output_dir + "levels/Level_" + str(next_idx + 1).pad_zeros(2) + ".tscn"
+
+	var code = ""
+	code += "' " + lvl_name + ".vg — Level Controller\n"
+	code += "' Generated by AGCK — customize freely!\n"
+	code += "' Open in 2D Editor to move blocks & actors around.\n"
+	code += "Option Explicit\n\n"
+
+	code += "' ─── Level Properties ───\n"
+	code += "Dim LevelName As String\n"
+	code += "Dim Friction As Single\n"
+	code += "Dim Elasticity As Single\n\n"
+
+	code += "Sub _Ready()\n"
+	code += "    LevelName = \"" + lvl.get("name", lvl_name) + "\"\n"
+	code += "    Friction = " + str(friction) + ".0\n"
+	code += "    Elasticity = " + str(elasticity) + ".0\n"
+	code += "\n"
+	code += "    ' Wire teleport blocks to level transition\n"
+	code += "    Dim child As Variant\n"
+	code += "    For Each child In GetChildren()\n"
+	code += "        If child.HasMeta(\"block_type\") Then\n"
+	code += "            Dim bt As Integer = child.GetMeta(\"block_type\")\n"
+	code += "            ' Teleport blocks (type 5) — wire Area2D signal\n"
+	code += "            If bt = 5 Then\n"
+	code += "                Dim area As Area2D = child.GetNodeOrNull(\"TeleportArea\")\n"
+	code += "                If area <> Nothing Then\n"
+	code += "                    area.Connect(\"body_entered\", \"_on_teleport_touched\")\n"
+	code += "                End If\n"
+	code += "            End If\n"
+	code += "            ' Deadly blocks (type 3) — wire Area2D damage signal\n"
+	code += "            If bt = 3 Then\n"
+	code += "                Dim darea As Area2D = child.GetNodeOrNull(\"DeadlyArea\")\n"
+	code += "                If darea <> Nothing Then\n"
+	code += "                    darea.Connect(\"body_entered\", \"_on_deadly_touched\")\n"
+	code += "                End If\n"
+	code += "            End If\n"
+	code += "            ' Switch blocks (type 6) — collectible/interactive\n"
+	code += "            If bt = 6 Then\n"
+	code += "                Dim sarea As Area2D = child.GetNodeOrNull(\"SwitchArea\")\n"
+	code += "                If sarea <> Nothing Then\n"
+	code += "                    sarea.Connect(\"body_entered\", \"_on_switch_touched\")\n"
+	code += "                End If\n"
+	code += "            End If\n"
+	code += "        End If\n"
+	code += "    Next\n"
+
+	# ── Set waypoint paths for placed actors ──
+	var placed_actors: Array = lvl.get("actors", [])
+	var actor_inst_idx = 0
+	for pa in placed_actors:
+		var aid: int = pa.get("actor_id", 0)
+		if aid >= actors.size():
+			actor_inst_idx += 1
+			continue
+		var actor_type = actors[aid].get("type", "Drone")
+		var aname = _safe_id(actors[aid].get("name", "Actor" + str(aid)))
+		actor_inst_idx += 1
+		var inst_name = aname + "_" + str(actor_inst_idx)
+		var waypoints: Array = pa.get("path", [])
+		if waypoints.size() >= 2 and actor_type in ["Drone", "Sentry", "Zombie", "Boss", "Bat", "Tank"]:
+			code += "\n"
+			code += "    ' Set waypoint path for " + inst_name + "\n"
+			code += "    Dim " + inst_name + " As Node2D = GetNode(\"" + inst_name + "\")\n"
+			for wp in waypoints:
+				var wpx = wp["x"] if wp is Dictionary else wp.x
+				var wpy = wp["y"] if wp is Dictionary else wp.y
+				# Convert grid coords to pixel coords (center of cell)
+				var px = wpx * CELL_PX + CELL_PX / 2
+				var py = wpy * CELL_PX + CELL_PX / 2
+				code += "    " + inst_name + ".AddPathPoint(" + _fstr(px) + ", " + _fstr(py) + ")\n"
+
+	code += "End Sub\n\n"
+
+	code += "' Player touched a teleport block — go to next level\n"
+	code += "Sub _on_teleport_touched(body As Node2D)\n"
+	code += "    If body.IsInGroup(\"player\") Then\n"
+	code += "        OnLevelComplete()\n"
+	code += "    End If\n"
+	code += "End Sub\n\n"
+
+	code += "' Player touched a deadly block — take damage\n"
+	code += "Sub _on_deadly_touched(body As Node2D)\n"
+	code += "    If body.IsInGroup(\"player\") And body.HasMethod(\"TakeDamage\") Then\n"
+	code += "        body.TakeDamage(" + str(settings.get("deadly_damage", 25)) + ")\n"
+	code += "    End If\n"
+	code += "End Sub\n\n"
+
+	code += "' Player touched a switch/collectible block — award points and remove\n"
+	code += "Sub _on_switch_touched(body As Node2D)\n"
+	code += "    If body.IsInGroup(\"player\") Then\n"
+	code += "        ' Award score to game controller\n"
+	code += "        Dim main As Node2D = GetTree().CurrentScene\n"
+	code += "        If main <> Nothing And main.HasMethod(\"AddScore\") Then\n"
+	code += "            main.AddScore(50)\n"
+	code += "        End If\n"
+	code += "        ' Remove the switch block (collect it!)\n"
+	code += "        Dim parent As Node = body\n"
+	code += "        ' The area's parent is the StaticBody2D block\n"
+	code += "        ' We get the block from the signal sender\n"
+	code += "    End If\n"
+	code += "End Sub\n\n"
+
+	code += "' Called when the player reaches the exit / teleporter\n"
+	code += "Sub OnLevelComplete()\n"
+	if next_level_path != "":
+		code += "    ' Tell the game controller to advance levels\n"
+		code += "    Dim main As Node2D = GetTree().CurrentScene\n"
+		code += "    If main <> Nothing And main.HasMethod(\"NextLevel\") Then\n"
+		code += "        main.NextLevel()\n"
+		code += "    End If\n"
+	else:
+		code += "    ' Last level — victory!\n"
+		code += "    Dim main As Node2D = GetTree().CurrentScene\n"
+		code += "    If main <> Nothing And main.HasMethod(\"NextLevel\") Then\n"
+		code += "        main.NextLevel()\n"
+		code += "    End If\n"
+	code += "End Sub\n\n"
+
+	# ── User code section — preserved across rebuilds ──
+	code += "' ─── Your Custom Code ─────────────────────\n"
+	code += "' Add your own Subs and functions below.\n"
+	code += "' This section is preserved when you rebuild from AGCK.\n"
+	code += _user_code_block(lvl_name + "_custom", "' (add your code here)\n", preserved)
+
+	_write_file(path, code)
+
+
+# ═══════════════════════════════════════════════════════════════
+# MAIN SCENE + CONTROLLER
+# ═══════════════════════════════════════════════════════════════
+
+func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, level_indices: Array[int], output_dir: String, sounds: Array, shader_layers: Array = []) -> void:
+	var screen_w: int = settings.get("screen_width", 640)
+	var screen_h: int = settings.get("screen_height", 480)
+	var vg_path = path.replace(".tscn", ".vg")
+
+	# Count ext resources: 1=script, 2+=level scenes, then sound files
+	var ext_id := 2
+	var first_level_ext_id := -1
+	var level_ext_ids: Dictionary = {}  # level_index -> ext_id
+	for li in level_indices:
+		level_ext_ids[li] = ext_id
+		if first_level_ext_id < 0:
+			first_level_ext_id = ext_id
+		ext_id += 1
+
+	# Collect sound WAV ext resources
+	var sound_ext_ids: Array[int] = []
+	var sound_names: Array[String] = []
+	for si in range(sounds.size()):
+		var snd = sounds[si]
+		var has_notes := false
+		for n in snd.get("voice1_notes", []):
+			if n > 0:
+				has_notes = true
+				break
+		if not has_notes:
+			for n in snd.get("voice2_notes", []):
+				if n > 0:
+					has_notes = true
+					break
+		if has_notes:
+			sound_ext_ids.append(ext_id)
+			sound_names.append(_safe_id(snd.get("name", "Sound_" + str(si + 1))))
+			ext_id += 1
+		else:
+			sound_ext_ids.append(-1)
+			sound_names.append("")
+
+	var tscn = ""
+
+	# ── Count shader sub_resources so load_steps is correct ──
+	var shader_sub_count := 0
+	for si in range(shader_layers.size()):
+		var sd = shader_layers[si]
+		if not sd.get("enabled", true):
+			continue
+		var sname_check = sd.get("shader_name", "")
+		if SHADER_CODES.has(sname_check) and not SHADER_CODES[sname_check].is_empty():
+			shader_sub_count += 2   # Shader + ShaderMaterial per effect
+
+	tscn += '[gd_scene load_steps=' + str(ext_id + shader_sub_count) + ' format=3]\n\n'
+	tscn += '[ext_resource type="Script" path="' + vg_path + '" id="1"]\n'
+
+	# Level scene ext_resources
+	for li in level_indices:
+		var lvl_name = "Level_" + str(li + 1).pad_zeros(2)
+		var lvl_path = "levels/" + lvl_name + ".tscn"
+		tscn += '[ext_resource type="PackedScene" path="' + lvl_path + '" id="' + str(level_ext_ids[li]) + '"]\n'
+
+	# Sound WAV ext_resources
+	for si in range(sound_ext_ids.size()):
+		if sound_ext_ids[si] >= 0:
+			tscn += '[ext_resource type="AudioStream" path="sounds/sfx_' + sound_names[si].to_lower() + '.wav" id="' + str(sound_ext_ids[si]) + '"]\n'
+
+	# ── Shader sub_resources (MUST come before [node] entries) ──
+	var _shader_metas: Array = []   # collect {safe_name, sub_shader_id, sub_mat_id} for node pass
+	var _s_idx := 0
+	for si in range(shader_layers.size()):
+		var sd = shader_layers[si]
+		if not sd.get("enabled", true):
+			continue
+		var sname_s = sd.get("shader_name", "")
+		var shader_code = SHADER_CODES.get(sname_s, "")
+		if shader_code.is_empty():
+			continue
+		var safe_name = _safe_id(sname_s)
+		var sub_shader_id = "shader_fx_" + str(_s_idx)
+		var sub_mat_id = "shader_mat_" + str(_s_idx)
+
+		tscn += '\n[sub_resource type="Shader" id="' + sub_shader_id + '"]\n'
+		tscn += 'code = "' + shader_code.replace('"', '\\"').replace("\n", "\\n").replace("\t", "\\t") + '"\n'
+		tscn += '\n[sub_resource type="ShaderMaterial" id="' + sub_mat_id + '"]\n'
+		tscn += 'shader = SubResource("' + sub_shader_id + '")\n'
+		# Set shader parameters (ensure floats keep .0 for .tscn format)
+		var props = sd.get("properties", {})
+		for pkey in props:
+			var pval = props[pkey]
+			var pstr: String
+			if pval is float or pval is int:
+				# Godot .tscn needs explicit float format for shader uniforms
+				var fv: float = float(pval)
+				if fv == int(fv):
+					pstr = str(int(fv)) + ".0"
+				else:
+					pstr = str(fv)
+			else:
+				pstr = str(pval)
+			tscn += 'shader_parameter/' + pkey + ' = ' + pstr + '\n'
+
+		_shader_metas.append({
+			"safe_name": safe_name,
+			"sub_mat_id": sub_mat_id,
+			"shader_data": sd,
+			"idx": _s_idx,
+		})
+		_s_idx += 1
+
+	tscn += '\n'
+
+	# Root Node2D (game controller)
+	tscn += '[node name="Main" type="Node2D"]\n'
+	tscn += 'script = ExtResource("1")\n\n'
+
+	# Background color fill (behind everything)
+	var bg_hex: String = settings.get("bg_color", "1a1a2e")
+	tscn += '[node name="Background" type="ColorRect" parent="."]\n'
+	tscn += 'z_index = -100\n'
+	tscn += 'anchors_preset = 15\n'
+	tscn += 'anchor_right = 1.0\n'
+	tscn += 'anchor_bottom = 1.0\n'
+	tscn += 'offset_right = ' + str(GRID_W * CELL_PX) + '.0\n'
+	tscn += 'offset_bottom = ' + str(GRID_H * CELL_PX) + '.0\n'
+	tscn += 'color = ' + _hex_to_tscn_color(bg_hex) + '\n\n'
+
+	# LevelContainer — levels are instanced here
+	tscn += '[node name="LevelContainer" type="Node2D" parent="."]\n\n'
+
+	# Instance the first level
+	if first_level_ext_id >= 0:
+		tscn += '[node name="CurrentLevel" parent="LevelContainer" instance=ExtResource("' + str(first_level_ext_id) + '")]\n\n'
+
+	# HUD CanvasLayer
+	tscn += '[node name="HUD" type="CanvasLayer" parent="."]\n'
+	tscn += 'layer = 10\n\n'
+
+	# Score label
+	tscn += '[node name="ScoreLabel" type="Label" parent="HUD"]\n'
+	tscn += 'offset_left = 10.0\n'
+	tscn += 'offset_top = 10.0\n'
+	tscn += 'offset_right = 200.0\n'
+	tscn += 'offset_bottom = 30.0\n'
+	tscn += 'text = "Score: 0"\n\n'
+
+	# Lives label
+	tscn += '[node name="LivesLabel" type="Label" parent="HUD"]\n'
+	tscn += 'offset_left = 10.0\n'
+	tscn += 'offset_top = 32.0\n'
+	tscn += 'offset_right = 200.0\n'
+	tscn += 'offset_bottom = 52.0\n'
+	tscn += 'text = "Lives: 3"\n\n'
+
+	# Level name label
+	tscn += '[node name="LevelLabel" type="Label" parent="HUD"]\n'
+	tscn += 'anchors_preset = 1\n'
+	tscn += 'anchor_left = 1.0\n'
+	tscn += 'anchor_right = 1.0\n'
+	tscn += 'offset_left = -200.0\n'
+	tscn += 'offset_top = 10.0\n'
+	tscn += 'offset_right = -10.0\n'
+	tscn += 'offset_bottom = 30.0\n'
+	tscn += 'horizontal_alignment = 2\n'
+	tscn += 'text = "Level 1"\n\n'
+
+	# Sound players
+	for si in range(sound_ext_ids.size()):
+		if sound_ext_ids[si] >= 0:
+			tscn += '[node name="SFX_' + sound_names[si] + '" type="AudioStreamPlayer" parent="."]\n'
+			tscn += 'stream = ExtResource("' + str(sound_ext_ids[si]) + '")\n'
+			tscn += 'volume_db = -6.0\n\n'
+
+	# Shader effect CanvasLayer + ColorRect nodes (sub_resources already emitted above)
+	for sm in _shader_metas:
+		var safe_name = sm["safe_name"]
+		var sub_mat_id = sm["sub_mat_id"]
+		var sd = sm["shader_data"]
+		var sidx = sm["idx"]
+
+		# CanvasLayer above everything
+		tscn += '[node name="ShaderFX_' + safe_name + '_' + str(sidx) + '" type="CanvasLayer" parent="."]\n'
+		tscn += 'layer = ' + str(100 + sidx) + '\n\n'
+
+		# ColorRect — full screen or region
+		var region_mode = sd.get("region_mode", "full_screen")
+		var fx_parent = "ShaderFX_" + safe_name + "_" + str(sidx)
+		tscn += '[node name="EffectRect" type="ColorRect" parent="' + fx_parent + '"]\n'
+		tscn += 'material = SubResource("' + sub_mat_id + '")\n'
+		tscn += 'mouse_filter = 2\n'
+		if region_mode == "full_screen":
+			tscn += 'anchors_preset = 15\n'
+			tscn += 'anchor_right = 1.0\n'
+			tscn += 'anchor_bottom = 1.0\n'
+			tscn += 'grow_horizontal = 2\n'
+			tscn += 'grow_vertical = 2\n'
+		else:
+			var rx = sd.get("region_x", 0)
+			var ry = sd.get("region_y", 0)
+			var rw = sd.get("region_w", 640)
+			var rh = sd.get("region_h", 480)
+			tscn += 'offset_left = ' + str(rx) + '.0\n'
+			tscn += 'offset_top = ' + str(ry) + '.0\n'
+			tscn += 'offset_right = ' + str(rx + rw) + '.0\n'
+			tscn += 'offset_bottom = ' + str(ry + rh) + '.0\n'
+		tscn += '\n'
+
+	_write_file(path, tscn)
+
+
+func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_count: int, level_indices: Array[int], output_dir: String, sounds: Array) -> void:
+	# Preserve any user code from the previous build
+	var preserved := _extract_user_code(path)
+
+	var title: String = settings.get("game_title", "AGCK Game")
+	var lives: int = settings.get("lives", 3)
+	var gravity: int = settings.get("gravity", 980)
+	var show_score: bool = settings.get("show_score", true)
+	var show_lives: bool = settings.get("show_lives", true)
+
+	# Build level paths array for the generated code
+	var level_paths: Array[String] = []
+	for li in level_indices:
+		level_paths.append(output_dir + "levels/Level_" + str(li + 1).pad_zeros(2) + ".tscn")
+
+	# Build sound names for generated code
+	var valid_sound_names: Array[String] = []
+	for si in range(sounds.size()):
+		var snd = sounds[si]
+		var has_notes := false
+		for n in snd.get("voice1_notes", []):
+			if n > 0:
+				has_notes = true
+				break
+		if not has_notes:
+			for n in snd.get("voice2_notes", []):
+				if n > 0:
+					has_notes = true
+					break
+		if has_notes:
+			valid_sound_names.append(_safe_id(snd.get("name", "Sound_" + str(si + 1))))
+
+	var code = ""
+	code += "' Main.vg — Game Controller\n"
+	code += "' Generated by AGCK — customize freely!\n"
+	code += "' This is the main entry point for your game.\n"
+	code += "Option Explicit\n\n"
+
+	code += "' ─── Game State ───\n"
+	code += "Dim GameTitle As String\n"
+	code += "Dim Score As Integer\n"
+	code += "Dim Lives As Integer\n"
+	code += "Dim CurrentLevel As Integer\n"
+	code += "Dim TotalLevels As Integer\n"
+	code += "Dim IsGameOver As Boolean\n\n"
+
+	# Level paths array
+	code += "' ─── Level Paths (auto-generated) ───\n"
+	code += "Dim LevelPaths As Array\n\n"
+
+	code += "Sub _Ready()\n"
+	code += "    GameTitle = \"" + title + "\"\n"
+	code += "    Score = 0\n"
+	code += "    Lives = " + str(lives) + "\n"
+	code += "    CurrentLevel = 1\n"
+	code += "    TotalLevels = " + str(level_count) + "\n"
+	code += "    IsGameOver = False\n"
+	code += "\n"
+	code += "    ' Initialize level paths\n"
+	# Build Array(...) literal with all level paths
+	var paths_args := ""
+	for i in range(level_paths.size()):
+		if i > 0:
+			paths_args += ", "
+		paths_args += "\"" + level_paths[i] + "\""
+	code += "    LevelPaths = Array(" + paths_args + ")\n"
+	code += "\n"
+	code += "    ' Update HUD\n"
+	if show_score:
+		code += "    GetNode(\"HUD/ScoreLabel\").Text = \"Score: \" & Str(Score)\n"
+	if show_lives:
+		code += "    GetNode(\"HUD/LivesLabel\").Text = \"Lives: \" & Str(Lives)\n"
+	code += "    GetNode(\"HUD/LevelLabel\").Text = \"Level \" & Str(CurrentLevel)\n"
+	code += "End Sub\n\n"
+
+	code += "' ─── Score System ───\n"
+	code += "Sub AddScore(points As Integer)\n"
+	code += "    Score = Score + points\n"
+	if show_score:
+		code += "    GetNode(\"HUD/ScoreLabel\").Text = \"Score: \" & Str(Score)\n"
+	code += "End Sub\n\n"
+
+	code += "' ─── Lives System ───\n"
+	code += "Sub LoseLife()\n"
+	code += "    Lives = Lives - 1\n"
+	if show_lives:
+		code += "    GetNode(\"HUD/LivesLabel\").Text = \"Lives: \" & Str(Lives)\n"
+	code += "\n"
+	code += "    If Lives <= 0 Then\n"
+	code += "        GameOver()\n"
+	code += "    End If\n"
+	code += "End Sub\n\n"
+
+	code += "' ─── Game Over ───\n"
+	code += "Sub GameOver()\n"
+	code += "    IsGameOver = True\n"
+	code += "    GetTree().ReloadCurrentScene()\n"
+	code += "End Sub\n\n"
+
+	code += "' ─── Level Progression ───\n"
+	code += "Sub NextLevel()\n"
+	code += "    CurrentLevel = CurrentLevel + 1\n"
+	code += "    If CurrentLevel > TotalLevels Then\n"
+	code += "        ' You win! All levels complete — loop back\n"
+	code += "        CurrentLevel = 1\n"
+	code += "    End If\n"
+	code += "    GetNode(\"HUD/LevelLabel\").Text = \"Level \" & Str(CurrentLevel)\n"
+	code += "\n"
+	code += "    ' Load next level into the LevelContainer\n"
+	code += "    Dim container As Node2D = GetNode(\"LevelContainer\")\n"
+	code += "    ' Remove old level\n"
+	code += "    Dim child As Variant\n"
+	code += "    For Each child In container.GetChildren()\n"
+	code += "        child.QueueFree()\n"
+	code += "    Next\n"
+	code += "    ' Load and instance the new level\n"
+	code += "    Dim scene As PackedScene = Load(LevelPaths(CurrentLevel - 1))\n"
+	code += "    If scene <> Nothing Then\n"
+	code += "        Dim lvl As Node2D = scene.Instantiate()\n"
+	code += "        container.AddChild(lvl)\n"
+	code += "    End If\n"
+	code += "End Sub\n\n"
+
+	# Sound playback functions (Task 1)
+	if valid_sound_names.size() > 0:
+		code += "' ─── Sound Effects ───\n"
+		code += "' Play a sound by index (0-based)\n"
+		code += "Sub PlaySound(index As Integer)\n"
+		code += "    Select Case index\n"
+		for i in range(valid_sound_names.size()):
+			code += "        Case " + str(i) + ": GetNode(\"SFX_" + valid_sound_names[i] + "\").Play()\n"
+		code += "    End Select\n"
+		code += "End Sub\n\n"
+		# Named convenience subs
+		for i in range(valid_sound_names.size()):
+			code += "Sub PlaySFX_" + valid_sound_names[i] + "()\n"
+			code += "    GetNode(\"SFX_" + valid_sound_names[i] + "\").Play()\n"
+			code += "End Sub\n\n"
+
+	# ── User code section — preserved across rebuilds ──
+	code += "' ─── Your Custom Code ─────────────────────\n"
+	code += "' Add your own Subs and functions below.\n"
+	code += "' This section is preserved when you rebuild from AGCK.\n"
+	code += _user_code_block("Main_custom", "' (add your code here)\n", preserved)
+
+	_write_file(path, code)
+
+
+# ═══════════════════════════════════════════════════════════════
+# SOUND WAV GENERATION
+# ═══════════════════════════════════════════════════════════════
+
+func _note_to_freq(val: int) -> float:
+	if val <= 0:
+		return 0.0
+	return NOTE_BASE_HZ * pow(2.0, float(val - 1) / 12.0)
+
+
+func _wave_sample(phase: float, waveform: int) -> float:
+	match waveform:
+		0:  # Square
+			return 1.0 if phase < 0.5 else -1.0
+		1:  # Triangle
+			if phase < 0.25:
+				return phase * 4.0
+			elif phase < 0.75:
+				return 2.0 - phase * 4.0
+			else:
+				return phase * 4.0 - 4.0
+		2:  # Sawtooth
+			return 2.0 * phase - 1.0
+		3:  # Noise
+			return randf_range(-1.0, 1.0)
+	return 0.0
+
+
+## Generate a WAV file from AGCK sound data (mirrors agck_sound_editor._generate_audio_stream)
+func _generate_sound_wav(path: String, snd: Dictionary) -> void:
+	var tempo: int = snd.get("tempo", 120)
+	var beats_per_sec: float = float(tempo) / 60.0
+	var note_dur: float = 1.0 / beats_per_sec
+	var samples_per_note: int = int(float(SAMPLE_RATE) * note_dur)
+	var total_samples: int = samples_per_note * NUM_NOTES
+	var env_samples: int = maxi(1, int(float(SAMPLE_RATE) * float(ENVELOPE_MS) / 1000.0))
+
+	var v1_notes: Array = snd.get("voice1_notes", [])
+	var v2_notes: Array = snd.get("voice2_notes", [])
+	var flt_notes: Array = snd.get("filter_notes", [])
+	var v1_wave: int = snd.get("voice1_wave", 0)
+	var v2_wave: int = snd.get("voice2_wave", 1)
+	var flt_type: int = snd.get("filter_type", 0)
+	var flt_q_pct: int = snd.get("filter_q", 50)
+
+	var v1_active: bool = false
+	var v2_active: bool = false
+	var flt_active: bool = false
+	for i in range(NUM_NOTES):
+		if i < v1_notes.size() and v1_notes[i] > 0:
+			v1_active = true
+		if i < v2_notes.size() and v2_notes[i] > 0:
+			v2_active = true
+		if i < flt_notes.size() and flt_notes[i] > 0:
+			flt_active = true
+
+	if not v1_active and not v2_active:
+		return
+
+	var pcm = PackedByteArray()
+	pcm.resize(total_samples * 2)
+
+	var v1_phase: float = 0.0
+	var v2_phase: float = 0.0
+	var flt_prev: float = 0.0
+
+	for ni in range(NUM_NOTES):
+		var v1_freq: float = _note_to_freq(v1_notes[ni]) if v1_active and ni < v1_notes.size() else 0.0
+		var v2_freq: float = _note_to_freq(v2_notes[ni]) if v2_active and ni < v2_notes.size() else 0.0
+		var flt_cutoff: float = 0.0
+		if flt_active and flt_type > 0 and ni < flt_notes.size() and flt_notes[ni] > 0:
+			flt_cutoff = _note_to_freq(flt_notes[ni])
+
+		for s in range(samples_per_note):
+			var sample: float = 0.0
+
+			if v1_freq > 0.0:
+				sample += _wave_sample(v1_phase, v1_wave) * 0.45
+				v1_phase = fmod(v1_phase + v1_freq / float(SAMPLE_RATE), 1.0)
+
+			if v2_freq > 0.0:
+				sample += _wave_sample(v2_phase, v2_wave) * 0.35
+				v2_phase = fmod(v2_phase + v2_freq / float(SAMPLE_RATE), 1.0)
+
+			if flt_cutoff > 0.0:
+				var rc: float = 1.0 / (TAU * flt_cutoff)
+				var dt: float = 1.0 / float(SAMPLE_RATE)
+				var alpha: float = dt / (rc + dt)
+				var lp: float = flt_prev + alpha * (sample - flt_prev)
+				flt_prev = lp
+				match flt_type:
+					1:  sample = lp
+					2:  sample = sample - lp
+					3:
+						var res: float = 0.1 + float(flt_q_pct) / 100.0 * 4.0
+						sample = clampf((sample - lp) * res, -1.0, 1.0)
+			else:
+				flt_prev = sample
+
+			var env: float = 1.0
+			if s < env_samples:
+				env = float(s) / float(env_samples)
+			elif s > samples_per_note - env_samples:
+				env = float(samples_per_note - s) / float(env_samples)
+			sample *= env
+
+			var pcm_val: int = int(clampf(sample, -1.0, 1.0) * 32767.0)
+			var off: int = (ni * samples_per_note + s) * 2
+			pcm[off] = pcm_val & 0xFF
+			pcm[off + 1] = (pcm_val >> 8) & 0xFF
+
+	# Write standard WAV file (44-byte header + PCM data)
+	_write_wav_file(path, pcm, SAMPLE_RATE)
+	_log("  ✓ " + path.get_file(), "#8f8")
+
+
+## Writes a standard WAV file with 16-bit mono PCM data.
+func _write_wav_file(path: String, pcm: PackedByteArray, sample_rate: int) -> void:
+	var dir_path = path.get_base_dir()
+	if not DirAccess.dir_exists_absolute(dir_path):
+		DirAccess.make_dir_recursive_absolute(dir_path)
+	var f = FileAccess.open(path, FileAccess.WRITE)
+	if not f:
+		push_error("AGCK: Cannot write WAV: " + path)
+		return
+	var data_size := pcm.size()
+	var file_size := 36 + data_size
+	# RIFF header
+	f.store_buffer("RIFF".to_ascii_buffer())
+	f.store_32(file_size)
+	f.store_buffer("WAVE".to_ascii_buffer())
+	# fmt sub-chunk
+	f.store_buffer("fmt ".to_ascii_buffer())
+	f.store_32(16)           # sub-chunk size
+	f.store_16(1)            # PCM format
+	f.store_16(1)            # mono
+	f.store_32(sample_rate)
+	f.store_32(sample_rate * 2)  # byte rate (16-bit mono)
+	f.store_16(2)            # block align
+	f.store_16(16)           # bits per sample
+	# data sub-chunk
+	f.store_buffer("data".to_ascii_buffer())
+	f.store_32(data_size)
+	f.store_buffer(pcm)
+	f.close()
+
+
+# ═══════════════════════════════════════════════════════════════
+# SHADER EFFECT GENERATION
+# ═══════════════════════════════════════════════════════════════
+
+## The built-in shader library — matches agck_shader_editor.gd
+## Only the code is needed here; the editor stores the full library.
+const SHADER_CODES = {
+	"CRT TV": "shader_type canvas_item;\nuniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;\nuniform float scanline_strength : hint_range(0.0, 1.0) = 0.3;\nuniform float curvature : hint_range(0.0, 0.1) = 0.02;\nvoid fragment() {\n\tvec2 uv = SCREEN_UV;\n\tvec2 dc = uv - 0.5;\n\tuv = uv + dc * dot(dc, dc) * curvature;\n\tvec4 color = texture(screen_texture, uv);\n\tfloat sl = sin(uv.y * 800.0) * 0.5 + 0.5;\n\tcolor.rgb *= 1.0 - scanline_strength * sl;\n\tCOLOR = color;\n}\n",
+	"Pixelate": "shader_type canvas_item;\nuniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;\nuniform float pixel_size : hint_range(1.0, 32.0) = 4.0;\nvoid fragment() {\n\tvec2 size = vec2(textureSize(screen_texture, 0));\n\tvec2 uv = floor(SCREEN_UV * size / pixel_size) * pixel_size / size;\n\tCOLOR = texture(screen_texture, uv);\n}\n",
+	"Blur": "shader_type canvas_item;\nuniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;\nuniform float blur_amount : hint_range(0.0, 5.0) = 1.0;\nvoid fragment() {\n\tvec2 ps = 1.0 / vec2(textureSize(screen_texture, 0));\n\tvec4 color = vec4(0.0);\n\tfor (int x = -2; x <= 2; x++) {\n\t\tfor (int y = -2; y <= 2; y++) {\n\t\t\tcolor += texture(screen_texture, SCREEN_UV + vec2(float(x), float(y)) * ps * blur_amount);\n\t\t}\n\t}\n\tCOLOR = color / 25.0;\n}\n",
+	"Glow": "shader_type canvas_item;\nuniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;\nuniform float glow_strength : hint_range(0.0, 2.0) = 0.5;\nuniform float threshold : hint_range(0.0, 1.0) = 0.5;\nvoid fragment() {\n\tvec4 color = texture(screen_texture, SCREEN_UV);\n\tvec2 ps = 1.0 / vec2(textureSize(screen_texture, 0));\n\tvec4 bloom = vec4(0.0);\n\tfor (int x = -3; x <= 3; x++) {\n\t\tfor (int y = -3; y <= 3; y++) {\n\t\t\tvec4 s = texture(screen_texture, SCREEN_UV + vec2(float(x), float(y)) * ps * 2.0);\n\t\t\tfloat b = max(s.r, max(s.g, s.b));\n\t\t\tif (b > threshold) bloom += s;\n\t\t}\n\t}\n\tbloom /= 49.0;\n\tCOLOR = color + bloom * glow_strength;\n}\n",
+	"Chromatic Aberration": "shader_type canvas_item;\nuniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;\nuniform float offset : hint_range(0.0, 10.0) = 2.0;\nvoid fragment() {\n\tvec2 ps = 1.0 / vec2(textureSize(screen_texture, 0));\n\tfloat r = texture(screen_texture, SCREEN_UV + vec2(offset, 0.0) * ps).r;\n\tfloat g = texture(screen_texture, SCREEN_UV).g;\n\tfloat b = texture(screen_texture, SCREEN_UV - vec2(offset, 0.0) * ps).b;\n\tCOLOR = vec4(r, g, b, 1.0);\n}\n",
+	"Vignette": "shader_type canvas_item;\nuniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;\nuniform float strength : hint_range(0.0, 2.0) = 0.5;\nuniform float radius : hint_range(0.1, 1.0) = 0.75;\nvoid fragment() {\n\tvec4 color = texture(screen_texture, SCREEN_UV);\n\tfloat dist = distance(SCREEN_UV, vec2(0.5));\n\tfloat v = smoothstep(radius, radius - 0.3, dist);\n\tcolor.rgb *= mix(1.0 - strength, 1.0, v);\n\tCOLOR = color;\n}\n",
+	"Sepia": "shader_type canvas_item;\nuniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;\nuniform float intensity : hint_range(0.0, 1.0) = 0.8;\nvoid fragment() {\n\tvec4 color = texture(screen_texture, SCREEN_UV);\n\tfloat grey = dot(color.rgb, vec3(0.299, 0.587, 0.114));\n\tvec3 sepia = vec3(grey) * vec3(1.2, 1.0, 0.8);\n\tcolor.rgb = mix(color.rgb, sepia, intensity);\n\tCOLOR = color;\n}\n",
+	"Night Vision": "shader_type canvas_item;\nuniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;\nuniform float noise_amount : hint_range(0.0, 0.5) = 0.1;\nuniform float brightness : hint_range(0.5, 3.0) = 1.5;\nvoid fragment() {\n\tvec4 color = texture(screen_texture, SCREEN_UV);\n\tfloat grey = dot(color.rgb, vec3(0.299, 0.587, 0.114));\n\tfloat noise = fract(sin(dot(SCREEN_UV + vec2(TIME), vec2(12.9898, 78.233))) * 43758.5453);\n\tgrey += (noise - 0.5) * noise_amount;\n\tcolor.rgb = vec3(grey * 0.2, grey * brightness, grey * 0.2);\n\tCOLOR = color;\n}\n",
+	"Water Ripple": "shader_type canvas_item;\nuniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;\nuniform float wave_speed : hint_range(0.5, 5.0) = 2.0;\nuniform float wave_amount : hint_range(0.0, 0.05) = 0.01;\nvoid fragment() {\n\tvec2 uv = SCREEN_UV;\n\tuv.x += sin(uv.y * 20.0 + TIME * wave_speed) * wave_amount;\n\tuv.y += cos(uv.x * 20.0 + TIME * wave_speed) * wave_amount;\n\tCOLOR = texture(screen_texture, uv);\n}\n",
+	"Glitch": "shader_type canvas_item;\nuniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;\nuniform float glitch_strength : hint_range(0.0, 0.1) = 0.02;\nuniform float glitch_speed : hint_range(0.5, 10.0) = 3.0;\nvoid fragment() {\n\tvec2 uv = SCREEN_UV;\n\tfloat t = floor(TIME * glitch_speed);\n\tfloat r = fract(sin(t * 43758.5453) * 2.0);\n\tif (r > 0.85) {\n\t\tuv.x += (fract(sin(dot(vec2(t, uv.y * 10.0), vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * glitch_strength;\n\t}\n\tfloat cr = texture(screen_texture, uv + vec2(glitch_strength * r, 0.0)).r;\n\tfloat cg = texture(screen_texture, uv).g;\n\tfloat cb = texture(screen_texture, uv - vec2(glitch_strength * r, 0.0)).b;\n\tCOLOR = vec4(cr, cg, cb, 1.0);\n}\n",
+}
+
+## Generates a .gdshader file for a shader effect layer.
+func _generate_shader_file(path: String, shader_data: Dictionary) -> void:
+	var sname = shader_data.get("shader_name", "")
+	var code = SHADER_CODES.get(sname, "")
+	if code.is_empty():
+		_log("  ⚠ Unknown shader: " + sname, "#ff8")
+		return
+	_write_file(path, code)
+	_log("  ✓ " + path.get_file(), "#8f8")
+
+
+# ═══════════════════════════════════════════════════════════════
+# PROJECT.GODOT GENERATION (standalone playability)
+# ═══════════════════════════════════════════════════════════════
+
+## Generates a project.godot file so the built game can run standalone.
+func _generate_project_godot(path: String, settings: Dictionary, output_dir: String) -> void:
+	var title: String = settings.get("game_title", "AGCK Game")
+	var screen_w: int = settings.get("screen_width", 640)
+	var screen_h: int = settings.get("screen_height", 480)
+	var bg_color: String = settings.get("background_color", "#1a1a2e")
+
+	var godot = ""
+	godot += '; Engine configuration file.\n'
+	godot += '; Generated by AGCK (Arcade Game Construction Kit)\n\n'
+
+	godot += '[application]\n\n'
+	godot += 'config/name="' + title + '"\n'
+	godot += 'run/main_scene="' + output_dir + 'Main.tscn"\n'
+	godot += 'config/features=PackedStringArray("4.4")\n\n'
+
+	godot += '[display]\n\n'
+	godot += 'window/size/viewport_width=' + str(screen_w) + '\n'
+	godot += 'window/size/viewport_height=' + str(screen_h) + '\n'
+	godot += 'window/stretch/mode="canvas_items"\n'
+	godot += 'window/stretch/aspect="keep"\n\n'
+
+	godot += '[rendering]\n\n'
+	godot += 'environment/defaults/default_clear_color=Color("' + bg_color + '")\n\n'
+
+	godot += '[input]\n\n'
+	godot += 'ui_left={\n'
+	godot += '"deadzone": 0.5,\n'
+	godot += '"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194319,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)]\n'
+	godot += '}\n'
+	godot += 'ui_right={\n'
+	godot += '"deadzone": 0.5,\n'
+	godot += '"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194321,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)]\n'
+	godot += '}\n'
+	godot += 'ui_up={\n'
+	godot += '"deadzone": 0.5,\n'
+	godot += '"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194320,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)]\n'
+	godot += '}\n'
+	godot += 'ui_down={\n'
+	godot += '"deadzone": 0.5,\n'
+	godot += '"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194322,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)]\n'
+	godot += '}\n'
+	godot += 'ui_accept={\n'
+	godot += '"deadzone": 0.5,\n'
+	godot += '"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":32,"physical_keycode":0,"key_label":0,"unicode":32,"location":0,"echo":false,"script":null)]\n'
+	godot += '}\n\n'
+
+	_write_file(path, godot)
+	_log("  ✓ project.godot (standalone game)", "#8f8")
+
+
+# ═══════════════════════════════════════════════════════════════
+# PROJECT MANIFEST
+# ═══════════════════════════════════════════════════════════════
+
+func _generate_manifest(path: String, game_data: Dictionary) -> void:
+	var json = JSON.new()
+	var text = json.stringify(game_data, "\t")
+	_write_file(path, text)
+	_log("  ✓ project.agck manifest", "#8f8")
+
+
+# ═══════════════════════════════════════════════════════════════
+# UTILITIES
+# ═══════════════════════════════════════════════════════════════
+
+## Extracts user-code sections from an existing .vg file before overwriting.
+## Returns a Dictionary mapping section_name -> code_text.
+## Looks for blocks delimited by:
+##   '--- USER CODE: section_name ---
+##   ...user code...
+##   '--- END USER CODE ---
+func _extract_user_code(path: String) -> Dictionary:
+	var sections: Dictionary = {}
+	if not FileAccess.file_exists(path):
+		return sections
+	var file = FileAccess.open(path, FileAccess.READ)
+	if not file:
+		return sections
+	var text = file.get_as_text()
+	file.close()
+
+	var lines = text.split("\n")
+	var current_section: String = ""
+	var current_lines: PackedStringArray = PackedStringArray()
+
+	for line in lines:
+		var trimmed = line.strip_edges()
+		if trimmed.begins_with("'--- USER CODE:") and trimmed.ends_with("---"):
+			# Extract section name between "USER CODE:" and "---"
+			var start = trimmed.find("USER CODE:") + 10
+			var end = trimmed.rfind("---")
+			current_section = trimmed.substr(start, end - start).strip_edges()
+			current_lines = PackedStringArray()
+		elif trimmed == "'--- END USER CODE ---" and current_section != "":
+			sections[current_section] = "\n".join(current_lines)
+			current_section = ""
+		elif current_section != "":
+			current_lines.append(line)
+
+	return sections
+
+
+## Generates a user-code block with delimiters.
+## If preserved_sections contains code for this section, uses that;
+## otherwise emits the default_code placeholder.
+func _user_code_block(section_name: String, default_code: String, preserved: Dictionary) -> String:
+	var s = "'--- USER CODE: " + section_name + " ---\n"
+	if preserved.has(section_name) and preserved[section_name].strip_edges() != "":
+		s += preserved[section_name] + "\n"
+	else:
+		s += default_code
+		if not default_code.ends_with("\n"):
+			s += "\n"
+	s += "'--- END USER CODE ---\n"
+	return s
+
+
+func _write_file(path: String, content: String) -> bool:
+	# Ensure directory exists
+	var dir_path = path.get_base_dir()
+	if not DirAccess.dir_exists_absolute(dir_path):
+		DirAccess.make_dir_recursive_absolute(dir_path)
+	var f = FileAccess.open(path, FileAccess.WRITE)
+	if not f:
+		push_error("AGCK: Cannot write to " + path)
+		_log("✗ Failed to write: " + path, "#ff4444")
+		return false
+	f.store_string(content)
+	f.close()
+	return true
+
+
+## Convert a hex color string (e.g. "808c99") to .tscn Color(r, g, b, 1) format.
+## Godot's .tscn resource parser does NOT accept Color("hex") — only Color(r,g,b,a).
+func _hex_to_tscn_color(hex: String) -> String:
+	var h = hex.strip_edges().lstrip("#")
+	if h.length() < 6:
+		h = h + "0".repeat(6 - h.length())
+	var r = float(h.substr(0, 2).hex_to_int()) / 255.0
+	var g = float(h.substr(2, 2).hex_to_int()) / 255.0
+	var b = float(h.substr(4, 2).hex_to_int()) / 255.0
+	return "Color(" + str(snappedf(r, 0.0001)) + ", " + str(snappedf(g, 0.0001)) + ", " + str(snappedf(b, 0.0001)) + ", 1)"
+
+
+func _safe_id(name: String) -> String:
+	# Convert to a valid identifier: replace spaces/special chars with _
+	var result = ""
+	for i in range(name.length()):
+		var c = name[i]
+		if c == " " or c == "-" or c == "." or c == "/" or c == "\\":
+			result += "_"
+		elif c.is_valid_identifier():
+			result += c
+		# skip other chars
+	if result.is_empty():
+		result = "unnamed"
+	# Ensure doesn't start with digit
+	if result[0].is_valid_int():
+		result = "_" + result
+	return result
+
+
+func _fstr(val: float) -> String:
+	# Format float for VB6 code
+	if val == int(val):
+		return str(int(val)) + ".0"
+	return str(val)
+
+
+func _level_is_empty(lvl: Dictionary) -> bool:
+	var grid: Array = lvl.get("grid", [])
+	for row in grid:
+		for cell in row:
+			if cell is Dictionary:
+				if cell.get("block_type", 0) != 0:
+					return false
+			elif cell is int or cell is float:
+				if int(cell) != 0:
+					return false
+	if lvl.get("actors", []).size() > 0:
+		return false
+	return true

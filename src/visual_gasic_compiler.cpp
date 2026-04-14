@@ -346,6 +346,11 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         if (vtype == "dictionary") {
             dictionary_vars.insert(module->variables[i]->name.to_lower());
         }
+        // Register "Dim X As Array" — dynamic arrays typed as Array
+        // so the compiler emits OP_GET_ARRAY instead of OP_CALL
+        if (vtype == "array") {
+            array_vars.insert(module->variables[i]->name.to_lower());
+        }
     }
 
     if (current_sub && current_sub->name.nocasecmp_to("BenchFileIO") == 0 && sub->parameters.size() >= 2) {
@@ -523,6 +528,10 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
                     // Sole-ownership candidate: typed local dict declared with Dim
                     // Will be revoked if the dict escapes (passed as arg, assigned to another var, etc.)
                     sole_owner_dict_vars.insert(s->variable_name.to_lower());
+                }
+                // Register "Dim X As Array" — dynamic arrays typed as Array
+                else if (t == "array") {
+                    array_vars.insert(s->variable_name.to_lower());
                 }
                 get_or_add_local(s->variable_name, vt);
                 if (vt != VT_UNKNOWN) {
@@ -6019,6 +6028,18 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
         }
         case ExpressionNode::UNARY_OP: {
             UnaryOpNode* u = (UnaryOpNode*)expr;
+            if (u->op.nocasecmp_to("AddressOf") == 0) {
+                // AddressOf SubName — push method name string, then OP_ADDRESS_OF
+                if (u->operand && u->operand->type == ExpressionNode::VARIABLE) {
+                    String method_name = ((VariableNode*)u->operand)->name;
+                    emit_constant(method_name);
+                    emit_byte(OP_ADDRESS_OF);
+                } else {
+                    UtilityFunctions::print("Compiler: AddressOf requires a method name");
+                    compile_ok = false;
+                }
+                break;
+            }
             if (is_constant_expr(u)) {
                 emit_constant(eval_constant_expr(u));
                 break;

@@ -529,7 +529,7 @@ func _enter_tree():
 		_coord_label.text = "600 x 400"
 		_coord_label.add_theme_font_size_override("font_size", 11)
 		_coord_label.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
-		_coord_label.custom_minimum_size.x = 120
+		_coord_label.custom_minimum_size.x = 80
 		toolbar_row.add_child(_coord_label)
 
 		# ── View Code / View Object toggle buttons (like VB6 toolbar) ──
@@ -564,7 +564,7 @@ func _enter_tree():
 
 		var show_idx_btn = CheckButton.new()
 		show_idx_btn.name = "ShowIndexesBtn"
-		show_idx_btn.text = "🔢 Indexes"
+		show_idx_btn.text = "Indexes"
 		show_idx_btn.tooltip_text = "Show control array indexes and Game UI slot/button indexes on the form"
 		show_idx_btn.button_pressed = false
 		show_idx_btn.add_theme_font_size_override("font_size", 11)
@@ -578,17 +578,17 @@ func _enter_tree():
 
 		var view_3d_btn = Button.new()
 		view_3d_btn.name = "View3DBtn"
-		view_3d_btn.text = "  \U0001f3b2 3D Scene Editor  "
-		view_3d_btn.tooltip_text = "Switch to 3D Scene Editor (edit 3D scenes inside the VG IDE)"
+		view_3d_btn.text = "3D"
+		view_3d_btn.tooltip_text = "3D Scene Editor — edit 3D scenes inside the VG IDE"
 		view_3d_btn.flat = false
-		view_3d_btn.add_theme_font_size_override("font_size", 12)
+		view_3d_btn.add_theme_font_size_override("font_size", 11)
 		view_3d_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
 		view_3d_btn.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 0.7))
 		var view_3d_style = StyleBoxFlat.new()
 		view_3d_style.bg_color = Color(0.2, 0.35, 0.55)
 		view_3d_style.set_corner_radius_all(4)
-		view_3d_style.content_margin_left = 8
-		view_3d_style.content_margin_right = 8
+		view_3d_style.content_margin_left = 6
+		view_3d_style.content_margin_right = 6
 		view_3d_style.content_margin_top = 2
 		view_3d_style.content_margin_bottom = 2
 		view_3d_btn.add_theme_stylebox_override("normal", view_3d_style)
@@ -604,17 +604,17 @@ func _enter_tree():
 		# ── 2D Scene Editor button — switches to embedded 2D Scene Editor ──
 		var view_2d_btn = Button.new()
 		view_2d_btn.name = "View2DBtn"
-		view_2d_btn.text = "  \U0001f3ae 2D Scene Editor  "
-		view_2d_btn.tooltip_text = "Switch to 2D Scene Editor (edit 2D game scenes inside the VG IDE)"
+		view_2d_btn.text = "2D"
+		view_2d_btn.tooltip_text = "2D Scene Editor — edit 2D game scenes inside the VG IDE"
 		view_2d_btn.flat = false
-		view_2d_btn.add_theme_font_size_override("font_size", 12)
+		view_2d_btn.add_theme_font_size_override("font_size", 11)
 		view_2d_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
 		view_2d_btn.add_theme_color_override("font_hover_color", Color(0.7, 1.0, 0.7))
 		var view_2d_style = StyleBoxFlat.new()
 		view_2d_style.bg_color = Color(0.2, 0.45, 0.3)
 		view_2d_style.set_corner_radius_all(4)
-		view_2d_style.content_margin_left = 8
-		view_2d_style.content_margin_right = 8
+		view_2d_style.content_margin_left = 6
+		view_2d_style.content_margin_right = 6
 		view_2d_style.content_margin_top = 2
 		view_2d_style.content_margin_bottom = 2
 		view_2d_btn.add_theme_stylebox_override("normal", view_2d_style)
@@ -630,17 +630,17 @@ func _enter_tree():
 		# ── Sprite Editor button — switches to embedded Piskel-style pixel art editor ──
 		var view_sprite_btn = Button.new()
 		view_sprite_btn.name = "ViewSpriteBtn"
-		view_sprite_btn.text = "  \U0001f3a8 Sprite Editor  "
-		view_sprite_btn.tooltip_text = "Switch to Sprite Editor (Piskel-style pixel art for 8-bit/16-bit game graphics)"
+		view_sprite_btn.text = "Sprite"
+		view_sprite_btn.tooltip_text = "Sprite Editor — Piskel-style pixel art for 8-bit/16-bit game graphics"
 		view_sprite_btn.flat = false
-		view_sprite_btn.add_theme_font_size_override("font_size", 12)
+		view_sprite_btn.add_theme_font_size_override("font_size", 11)
 		view_sprite_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
 		view_sprite_btn.add_theme_color_override("font_hover_color", Color(1.0, 0.85, 0.7))
 		var view_sprite_style = StyleBoxFlat.new()
 		view_sprite_style.bg_color = Color(0.45, 0.25, 0.45)
 		view_sprite_style.set_corner_radius_all(4)
-		view_sprite_style.content_margin_left = 8
-		view_sprite_style.content_margin_right = 8
+		view_sprite_style.content_margin_left = 6
+		view_sprite_style.content_margin_right = 6
 		view_sprite_style.content_margin_top = 2
 		view_sprite_style.content_margin_bottom = 2
 		view_sprite_btn.add_theme_stylebox_override("normal", view_sprite_style)
@@ -653,22 +653,15 @@ func _enter_tree():
 		view_sprite_btn.pressed.connect(_on_sprite_view_pressed)
 		toolbar_row.add_child(view_sprite_btn)
 
-		# Spacer to push "Godot Editor" button to the right
-		var spacer = Control.new()
-		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		toolbar_row.add_child(spacer)
-
-		# "↩ Godot Editor" button — exits Form Designer, restores all Godot panels
-		var godot_btn = Button.new()
-		godot_btn.name = "BackToGodotBtn"
-		godot_btn.text = "\u21a9 Godot Editor"
-		godot_btn.tooltip_text = "Exit Visual Gasic IDE and return to Godot Editor"
-		godot_btn.flat = true
-		godot_btn.add_theme_color_override("font_color", Color(0.2, 0.2, 0.2))
-		godot_btn.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
-		godot_btn.pressed.connect(_on_back_to_godot_pressed)
-		toolbar_row.add_child(godot_btn)
-		toolbar_panel.add_child(toolbar_row)
+		# Wrap toolbar in a horizontal ScrollContainer so it doesn't overflow off-screen
+		var toolbar_scroll = ScrollContainer.new()
+		toolbar_scroll.name = "ToolbarScroll"
+		toolbar_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+		toolbar_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		toolbar_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		toolbar_scroll.custom_minimum_size.y = 34
+		toolbar_scroll.add_child(toolbar_row)
+		toolbar_panel.add_child(toolbar_scroll)
 		_ide_layout.add_child(toolbar_panel)
 
 		# ── Main 3-panel workspace: [Toolbox | Canvas | Properties] ──
@@ -3572,6 +3565,12 @@ func _create_vb6_menu_bar() -> MenuBar:
 	view_menu.add_item("Project Explorer", 11)
 	view_menu.add_item("Properties Window", 12)
 	view_menu.add_item("Immediate Window", 13)
+	view_menu.add_separator()
+	view_menu.add_item("3D Scene Editor", 20)
+	view_menu.add_item("2D Scene Editor", 21)
+	view_menu.add_item("Sprite Editor", 22)
+	view_menu.add_separator()
+	view_menu.add_item("Plugins...", 30)
 	view_menu.id_pressed.connect(_on_vb6_view_menu)
 	mb.add_child(view_menu)
 
@@ -4577,6 +4576,19 @@ func _on_vb6_view_menu(id: int) -> void:
 					_on_view_code()
 				if _embedded_code_editor.has_method("focus_immediate"):
 					_embedded_code_editor.focus_immediate()
+		20: # 3D Scene Editor
+			_on_3d_view_pressed()
+		21: # 2D Scene Editor
+			_on_2d_view_pressed()
+		22: # Sprite Editor
+			_on_sprite_view_pressed()
+		30: # Plugins — activate AGCK (or first available plugin)
+			if _vg_plugin_manager:
+				var ids = _vg_plugin_manager.get_plugin_ids()
+				if ids.size() > 0:
+					_vg_plugin_manager.activate_plugin(ids[0])
+				else:
+					_flash_status_message("No plugins installed. Add plugins to addons/visual_gasic/plugins/")
 
 func _on_vb6_project_menu(id: int) -> void:
 	match id:
@@ -8745,12 +8757,32 @@ func _on_scene_changed(scene_root: Node):
 			_vg_2d_editor.load_scene(new_path)
 
 ## Determines if this plugin handles input for the given object.
-## Always returns false — the Form Designer never auto-activates.
-## Users open it manually via the "Form Designer" tab when needed.
+## Returns true for image resources so double-clicking a PNG in the
+## filesystem dock opens VG's Sprite Editor.
 ## @param object: The object being edited
-## @returns: always false
-func _handles(_object):
+## @returns: true for Texture2D / CompressedTexture2D resources
+func _handles(object):
+	if object is Texture2D:
+		return true
 	return false
+
+
+## Called when the user double-clicks a resource that _handles() accepted.
+## Routes image resources to the Sprite Editor.
+func _edit(object):
+	if object is Texture2D:
+		var path: String = object.resource_path
+		if not path.is_empty():
+			open_sprite_editor(path)
+
+
+## Public API: switch to the Sprite Editor and optionally open a file.
+## Can be called by plugins (AGCK, etc.) via the host_plugin reference
+## or via EditorInterface.get_base_control().get_meta("visual_gasic_plugin_instance").
+func open_sprite_editor(path: String = "") -> void:
+	_show_sprite_view()
+	if not path.is_empty() and is_instance_valid(_vg_sprite_editor):
+		_vg_sprite_editor.open_file(path)
 
 ## Intercepts canvas GUI input for:
 ## 1. Custom vg_control drag-drop handling (avoids MenuBar issues)

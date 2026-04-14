@@ -1092,8 +1092,26 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         }
 
         // Check if it is an array access
+        // Case-insensitive lookup: VB identifiers are case-insensitive
+        Variant _expr_var;
+        bool _expr_has_var = false;
         if (variables.has(call->method_name)) {
-            Variant v = variables[call->method_name];
+            _expr_var = variables[call->method_name];
+            _expr_has_var = true;
+        }
+        if (!_expr_has_var) {
+            Array _ek = variables.keys();
+            for (int _ei = 0; _ei < _ek.size(); _ei++) {
+                String _ekn = _ek[_ei];
+                if (_ekn.nocasecmp_to(call->method_name) == 0) {
+                    _expr_var = variables[_ekn];
+                    _expr_has_var = true;
+                    break;
+                }
+            }
+        }
+        if (_expr_has_var) {
+            Variant v = _expr_var;
             bool is_array = (v.get_type() == Variant::ARRAY);
             bool is_packed = (v.get_type() >= Variant::PACKED_BYTE_ARRAY && v.get_type() <= Variant::PACKED_COLOR_ARRAY); // Range check for packed arrays?
             

@@ -29,7 +29,8 @@ var _last_variables := {}
 func _init() -> void:
 	title = "⚠️ VisualGasic Runtime Error"
 	exclusive = true
-	min_size = Vector2i(550, 400)
+	min_size = Vector2i(500, 280)
+	max_size = Vector2i(600, 450)
 	# Remove the default OK button — we'll add our own
 	get_ok_button().visible = false
 
@@ -88,9 +89,9 @@ func _setup_ui() -> void:
 	# ── Error message ──
 	_error_label = RichTextLabel.new()
 	_error_label.bbcode_enabled = true
-	_error_label.fit_content = true
-	_error_label.custom_minimum_size = Vector2(0, 60)
-	_error_label.scroll_active = false
+	_error_label.fit_content = false
+	_error_label.custom_minimum_size = Vector2(0, 40)
+	_error_label.scroll_active = true
 	main_vbox.add_child(_error_label)
 	
 	main_vbox.add_child(HSeparator.new())
@@ -107,7 +108,7 @@ func _setup_ui() -> void:
 	_vars_tree.set_column_title(0, "Variable")
 	_vars_tree.set_column_title(1, "Value")
 	_vars_tree.column_titles_visible = true
-	_vars_tree.custom_minimum_size = Vector2(0, 120)
+	_vars_tree.custom_minimum_size = Vector2(0, 80)
 	main_vbox.add_child(_vars_tree)
 	
 	main_vbox.add_child(HSeparator.new())
