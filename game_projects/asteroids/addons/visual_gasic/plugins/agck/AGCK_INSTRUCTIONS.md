@@ -24,6 +24,14 @@
 
 3c. **Search tiles** — Use the **🔍 Search** field in the tile palette header to filter tiles by name. Type "brick" to see only Brick tiles, for example.
 
+3d. **Import tiles** — Click the **📂 Import** button in the tile palette header to import PNG images as new tiles. Features:
+   - Select **one or multiple** PNG files from your filesystem
+   - Each image is automatically resized to 18×18 pixels (nearest-neighbor scaling)
+   - **Tilesheet detection** — if a PNG is wider than it is tall and the width is a multiple of the height, it's automatically split into individual tiles (e.g., a 72×18 image becomes 4 tiles)
+   - Imported tiles are added to the **currently selected block type** (Barrier, Ladder, Deadly, etc.)
+   - Tiles are named after the filename with "(imported)" suffix
+   - Imported tiles appear immediately in the palette and can be painted onto the grid
+
 4. **Edit tiles inline** — **Double-click any tile thumbnail** in the palette to open the built-in **Pixel Editor popup**. This editor appears as a window directly inside AGCK — you never leave the interface. Features:
    - 18×18 pixel canvas with large editing cells
    - 20-color palette including skin tones, metals, and nature colors
@@ -32,17 +40,82 @@
    - **Save As New** — keeps the original and adds your edit as a new custom tile in the same block type
    - Changes are reflected **immediately** in the level grid (WYSIWYG)
 
-5. **Place actors** — Use the **Place:** dropdown to select an actor (e.g. "Hero"). Then **right-click** on the grid to place it. Actor markers show the actual actor sprite texture (24×24 scaled up) so you can see who's who at a glance.
+5. **Place actors** — Use the **Place:** dropdown to select an actor (e.g. "Hero"). Then **right-click** on the grid to place it. **Ctrl+Right-click** an actor to remove it. Actor markers show the actual actor sprite texture (24×24 scaled up) so you can see who's who at a glance.
 
 6. **Set level properties** — The bottom bar has **Friction** and **Elasticity** sliders.
 
-7. **Manage levels** — The **Level:** dropdown at top-left lets you switch between up to 50 levels. Use **+** (find next empty), **Dup** (duplicate), and **X** (clear) buttons.
+7. **Set the death action** — Each level has its own **On Death:** dropdown in the bottom bar. This controls what happens when the hero dies *in this level*:
+   - **Restart Level** (default) — reload the current level
+   - **Go To Level…** — warp to a specific level number (set with the target spinner that appears)
+   - **Lose Item…** — remove an item from inventory (placeholder — coming soon)
+   - **End Game** — trigger Game Over immediately
 
-8. **Name your level** — Type a name in the text field next to the level dropdown.
+   This is configured per-level, so Level 1 can restart while Level 5 sends you back to Level 2, for example.
+
+8. **Manage levels** — The **Level:** dropdown at top-left lets you switch between up to 50 levels. Use **+** (find next empty), **Dup** (duplicate), and **X** (clear) buttons.
+
+9. **Name your level** — Type a name in the text field next to the level dropdown.
 
 ---
 
-## 👾 Editing Actor Sprites (WYSIWYG)
+## � Waypoint Patrol Paths
+
+Waypoints let actors follow a looping patrol route instead of wandering randomly. You can also assign waypoints to blocks to create **moving platforms**.
+
+### Entering Waypoint Mode
+
+1. Click the **📍 Waypoint** toggle button in the level editor toolbar (next to Fill). The status bar shows **"WAYPOINT MODE"**.
+2. In waypoint mode, tile painting is disabled — the grid is reserved for path editing.
+
+### Setting Waypoints for an Actor
+
+1. **Left-click an actor** on the grid to **lock** it as the waypoint target. The actor gets a glowing orange outline and the status bar shows which actor you're editing (e.g. "Locked to Enemy 1").
+2. **Right-click** anywhere on the grid to **add a waypoint**. The first waypoint is automatically set to the actor's own position (the start of the loop). Each subsequent right-click adds the next point.
+3. Waypoints appear as **orange dots with numbers** connected by orange lines, so you can see the full patrol route.
+4. **Ctrl+Right-click** to **remove the last waypoint** (undo one point at a time).
+5. **Left-click a different actor** to switch the lock to that actor and edit its path instead.
+6. Click the **📍 Waypoint** button again to exit waypoint mode.
+
+### Setting Waypoints for a Block (Moving Platforms)
+
+1. Enter waypoint mode as above.
+2. **Left-click any non-empty block** (Barrier, Ladder, etc.) to lock it as the target. The block gets a cyan outline.
+3. **Right-click** to add waypoints — the block will move along this path at runtime, looping continuously.
+4. Block waypoints appear as **cyan dots with numbers** connected by cyan lines.
+5. At build time, blocks with waypoints become **AnimatableBody2D** nodes (instead of StaticBody2D), so they push the player and other actors as they move.
+
+### Waypoint-Capable Actor Types
+
+Only these actor types use waypoints at build time:
+
+| Actor Type | Patrol Behavior |
+|------------|----------------|
+| **Drone** | Follows the path loop at patrol speed |
+| **Sentry** | Patrols the path and auto-shoots when it spots the player |
+| **Zombie** | Shambles along the path |
+| **Boss** | Patrols the path (large enemy) |
+| **Bat** | Flies along the path (zero gravity) |
+| **Tank** | Drives along the path (armored) |
+
+Other actor types (Player, Missile, NPC, Computer, Fireball) ignore waypoints — they have their own movement systems.
+
+### How Waypoints Work at Build Time
+
+Each waypoint-capable actor stores its path as `PathX(20)` / `PathY(20)` arrays in its generated VB script. The `_PhysicsProcess` moves the actor toward the current path point, advancing to the next when it gets close enough (< 4 px), and looping back to the first point after reaching the last.
+
+Moving blocks work similarly — the level's `_PhysicsProcess` moves each `AnimatableBody2D` block along its path at 60 px/sec. Blocks loop their path continuously, creating elevator and conveyor-style platforms.
+
+### Tips
+
+- A path needs **at least 2 points** to be active (the actor's home position + at least one destination).
+- Maximum **20 waypoints** per actor or block (the VB array cap).
+- Waypoints are saved per-level and preserved across rebuilds.
+- **Undo/Redo** (Ctrl+Z / Ctrl+Y) works for all waypoint operations.
+- Use **Delete** or **Backspace** while hovering over the grid in waypoint mode to remove the last waypoint from the locked target.
+
+---
+
+## �👾 Editing Actor Sprites (WYSIWYG)
 
 All sprite editing happens **inside AGCK** — no need to exit to Godot or VG's Sprite Editor.
 
@@ -63,9 +136,14 @@ All sprite editing happens **inside AGCK** — no need to exit to Godot or VG's 
 
 3. Alternatively, select an actor card and click the **"Edit Sprite"** button in the detail panel header.
 4. Use the **"⧉ Duplicate"** button to copy an actor to the next empty slot — great for making variants.
-5. **Right-click** on the pixel canvas to use the **eyedropper** — pick any color from the sprite.
-6. **Ctrl+Z** / **Ctrl+Y** in the sprite editor for undo/redo of paint strokes.
-7. Saved sprites are visible **immediately** on actor cards and in the level grid wherever that actor is placed.
+5. **Import sprites** — Two ways to import external PNG art:
+   - **From the detail panel**: Click **"📂 Import Sprite"** next to Duplicate. Select a PNG file — it replaces the first animation's frames. Spritesheets (width = N × height) are auto-split into animation frames.
+   - **From inside the sprite editor**: Click **"📂 Import"** in the frame toolbar. The imported frames are inserted into the **current animation** after the current frame.
+   - All imported images are resized to 24×24 pixels (nearest-neighbor) to match AGCK's actor sprite size.
+   - **Spritesheet example**: A 96×24 PNG is detected as 4 frames and imported as a 4-frame animation.
+6. **Right-click** on the pixel canvas to use the **eyedropper** — pick any color from the sprite.
+7. **Ctrl+Z** / **Ctrl+Y** in the sprite editor for undo/redo of paint strokes.
+8. Saved sprites are visible **immediately** on actor cards and in the level grid wherever that actor is placed.
 
 ### 🎞️ Frame Animation Editor
 
@@ -79,6 +157,7 @@ The sprite editor includes a full **frame animation toolbar** for creating multi
 | **⧉ Copy** | Duplicate the current frame (great for small tweaks) |
 | **✕ Del** | Delete the current frame (minimum 1 frame) |
 | **👻 Onion** | Toggle onion skin — shows the previous frame as a faint ghost behind the current frame for smooth animation |
+| **📂 Import** | Import frame(s) from a PNG file — single images or spritesheets are auto-detected |
 
 - The **Frame counter** (e.g. "Walk - Frame 2/4") shows which animation and frame you're editing.
 - An **animated preview** (48×48) in the top-right cycles through all frames in real time so you can see your animation as you draw.
@@ -179,13 +258,31 @@ Each actor's `On Death` setting (in the Combat card) controls what happens when 
 |------|----------------|----------------|
 | **Respawn** | HP resets to Max, `LoseLife()` called → lives decrease, game over if lives = 0 | HP resets to Max |
 | **Destroy** | Actor removed from scene, `LoseLife()` called | Actor removed from scene |
-| **GameOver** | Scene reloads immediately via `GameOver()` | — |
+| **GameOver** | `GameOver()` called immediately | — |
+
+### Per-Level Death Actions
+
+When the player dies and `LoseLife()` fires, the **per-level death action** (set in the Level Editor's "On Death:" dropdown) determines what happens next:
+
+| Action | Behavior |
+|--------|----------|
+| **Restart Level** | Reloads the current level scene |
+| **Go To Level…** | Warps to the specified target level number |
+| **Lose Item…** | Removes an item from inventory (coming soon) |
+| **End Game** | Calls `GameOver()` immediately regardless of remaining lives |
+
+If the death animation trigger is set (see Animation Triggers below), the hero's death animation plays before the action fires.
+
+### Fall-Off-Map Detection
+
+If the player falls below **Y = 512** (128 pixels below the bottom of the 640×384 level grid), `LoseLife()` is automatically called. This prevents the hero from falling infinitely into the void.
 
 ### HUD Integration
 
 The game controller (`Main.vg`) tracks **Score** and **Lives**:
 - `AddScore(points)` — called when stomping enemies or collecting items
-- `LoseLife()` — called when player dies; decrements lives counter and triggers Game Over at 0
+- `LoseLife()` — called when player dies; plays the death animation trigger, decrements lives counter, then dispatches the current level's death action. Triggers `GameOver()` when lives reach 0.
+- `GameOver()` — shows the Game Over screen (see below)
 - HUD labels update automatically
 
 ### Collision Layers
@@ -196,6 +293,72 @@ The game controller (`Main.vg`) tracks **Score** and **Lives**:
 | **2** | Enemies (Drone, Sentry, Zombie, Boss, Bat, Tank) + Projectiles (Missile, Fireball) |
 | **4** | Collectibles (Computer) + NPCs |
 | **8** | Deadly blocks (Spikes, Lava, etc.) |
+
+---
+
+## 🖼️ Game Over Screen
+
+When all lives are lost, `GameOver()` is called. The behavior depends on the **Game Over** setting in Settings → Screens:
+
+| Style | Behavior |
+|-------|----------|
+| **Default** | A dark overlay appears (semi-transparent black background) with a large **"GAME OVER"** label and a **RESTART** button. The game tree is paused so nothing moves in the background. Clicking RESTART unpauses and reloads the scene. |
+| **Custom** | The game changes to your custom `.tscn` scene (specified in Settings). You control the entire game-over experience. |
+
+The default Game Over overlay uses `CanvasLayer` at layer 50 with `process_mode = ALWAYS`, so the RESTART button remains interactive even while the tree is paused.
+
+---
+
+## 🎮 Main Menu
+
+When the game launches, a title screen is shown (unless disabled). The behavior depends on the **Game Menu** setting in Settings → Screens:
+
+| Style | Behavior |
+|-------|----------|
+| **Default** | A fullscreen overlay with a dark background, the **game title** (large text), a **PLAY** button, and an **EXIT** button. The game tree is paused until the player clicks PLAY. EXIT quits the application. |
+| **Custom** | The game starts with your custom `.tscn` scene as the menu. |
+| **None** | No menu — gameplay starts immediately. |
+
+The default Main Menu uses `CanvasLayer` at layer 60 with `process_mode = ALWAYS`. The generated `ShowMainMenu()` sub can be called from user code to re-display the menu at any time.
+
+---
+
+## �️ Splash Screen
+
+An optional splash screen can be shown before the main menu (or before gameplay if no menu is used). Configure it in **Settings → Screens**:
+
+| Setting | Description |
+|---------|-------------|
+| **Splash Screen** | Toggle on/off (default: **off**) |
+| **Splash Image** | Path to a custom image (e.g. `res://logo.png`). Leave blank for a default text splash showing the game title and "Made with AGCK". |
+| **Splash Duration** | How long the splash is displayed, in seconds (default: **3.0 s**, range 0.5–10.0) |
+
+The splash overlay uses `CanvasLayer` at layer 70 (above the main menu at layer 60). When the splash timer expires:
+- If a **Default** main menu is configured, the splash hides and the menu appears.
+- If the menu is **None** or **Custom**, the splash hides and the game unpauses immediately.
+
+The splash screen pauses the game tree while it is visible, so nothing moves in the background.
+
+---
+
+## �🎬 Animation Triggers
+
+Animation Triggers let you play a specific named animation on the hero when certain game events occur. Configure them in Settings → Animation Triggers:
+
+| Trigger | When It Fires |
+|---------|---------------|
+| **On Death** | When `LoseLife()` is called (before the death action executes) |
+| **On Hit** | When the player takes damage (during invincibility-frame activation) |
+| **On Power Loss** | When the player loses a power-up (coming soon) |
+| **On Item Loss** | When the player loses an inventory item (coming soon) |
+
+Each trigger is set to an animation name from the standard presets: Idle, Walk, Run, Jump, Fall, Fly, Hover, Crouch, Swim, Attack, **Death**, Custom — or **(None)** to skip.
+
+The generated `TriggerHeroAnim(trigger)` sub in `Main.vg` finds the hero node (in the "player" group) and calls its `PlayAnimation()` with the configured animation name. This only works if the hero actor actually has that animation defined in the Actor Editor.
+
+**Example:** Set "On Death" to **Death** and "On Hit" to **Crouch**. When the hero takes damage, it plays the Crouch animation; when the hero dies, it plays the Death animation before the level restarts.
+
+---
 
 ### Key Generated Properties
 
@@ -258,10 +421,17 @@ Click **Settings** in the sidebar. Configure global properties across these cate
 | **Input** | Joystick, Keyboard, Touch |
 | **Audio** | Music Volume, SFX Volume, FX Channels |
 | **HUD** | Show Score, Show Lives, Debug Overlay, Auto Save |
+| **🖼️ Screens** | Game Menu (Default / Custom / None), Custom Menu Scene, Game Over (Default / Custom), Custom Game Over Scene, Splash Screen (on/off), Splash Image, Splash Duration |
+| **🎬 Animation Triggers** | On Death, On Hit, On Power Loss, On Item Loss — each selects an animation name |
 | **Keyboard Shortcuts** | Reference card listing all AGCK keyboard shortcuts |
 
 - **Deadly Damage** — configurable per-game damage from deadly blocks (default 25). This value is used by the builder backend.
 - **Camera Zoom** — initial camera zoom for the game (1.0 = default, 2.0 = zoomed in).
+- **Start Level** — which level the game begins on (selectable on the Build screen, default 1).
+- **Game Menu** — controls the title screen shown when the game starts. "Default" generates a fullscreen overlay with the game title, a large **PLAY** button, and an **EXIT** button. "Custom" lets you specify your own `.tscn` scene. "None" skips the menu and starts gameplay immediately.
+- **Game Over** — controls what happens when the player runs out of lives. "Default" generates a dark overlay with a **GAME OVER** label and a **RESTART** button. "Custom" loads a custom `.tscn` scene instead.
+- **Splash Screen** — optional splash shown before the main menu. Off by default. When enabled, displays a custom image or a default title card for the configured duration (default 3 s).
+- **Animation Triggers** — choose which named animation to play on the hero when specific events occur. Options are drawn from the standard animation presets (Idle, Walk, Run, Jump, Fall, Fly, Hover, Crouch, Swim, Attack, Death, Custom) or "(None)" to skip.
 - **Reset All Settings to Defaults** — button at the bottom resets everything back to factory settings.
 
 ---
@@ -306,6 +476,49 @@ Click **Shaders** in the sidebar. The Shader Editor lets you add visual post-pro
 
 ---
 
+## 🔮 Per-Sprite & Per-Tile Shader FX
+
+In addition to the global screen-space shader effects above, AGCK supports **per-actor** and **per-tile** shader effects. These apply directly to individual sprite nodes — perfect for making enemies glow, lava tiles shimmer, or crystals sparkle.
+
+### Per-Actor Shader FX
+
+In the **Actors** panel, select an actor and scroll down to the **🔮 Shader FX** card:
+
+1. **Effect** dropdown — Choose from 8 texture-space effects:
+
+| Effect | Description |
+|--------|-------------|
+| **(None)** | No shader applied (default) |
+| **Outline** | White outline around the sprite edges |
+| **Glow** | Warm glow/aura effect around the sprite |
+| **Hologram** | Sci-fi scanline hologram with transparency |
+| **Flash** | White flash overlay (great for hit feedback) |
+| **Rainbow** | Animated color cycling / hue shift |
+| **Shimmer** | Sparkle/glitter effect on the sprite |
+| **Dissolve** | Dissolve/disintegrate with glowing edge |
+| **Pixelate** | Pixelate the sprite into larger blocks |
+
+2. **Parameter sliders** — When an effect is selected, sliders appear for its adjustable properties (e.g., Width for Outline, Speed for Rainbow, Amount for Dissolve).
+
+3. The shader is applied to the actor's `Sprite2D` or `AnimatedSprite2D` node as a `ShaderMaterial` at build time.
+
+### Per-Tile Shader FX
+
+In the **Levels** panel, double-click any tile in the palette to open the **Tile Editor** popup. Below the tile name you'll see:
+
+1. **🔮 Shader** dropdown — The same 8 effects as actors (Outline, Glow, Hologram, Flash, Rainbow, Shimmer, Dissolve, Pixelate).
+2. **Parameter sliders** — Adjust per the selected effect.
+3. Click **Save** to apply. All instances of that tile in the grid will get the shader.
+
+### How It Works At Build Time
+
+- Per-actor shaders: Each actor's `.tscn` file embeds inline `Shader` + `ShaderMaterial` sub-resources. The `material` property is set on the actor's sprite node.
+- Per-tile shaders: Each level's `.tscn` file generates shared `ShaderMaterial` sub-resources (one per unique effect type). All tile Visual Sprite2D nodes that use that effect reference the shared material.
+- These are **texture-space** shaders (`shader_type canvas_item` using `TEXTURE` and `UV`), unlike the global screen-space shaders which use `SCREEN_UV` and `hint_screen_texture`.
+- Both systems can be used together — e.g., glowing enemies + CRT scanline overlay.
+
+---
+
 ## 🚀 Building Your Game
 
 1. Fill in **Settings** — game title, screen size, physics, lives, etc.
@@ -334,8 +547,8 @@ build/<GameName>/
 │   ├── Level_01.tscn           ← level scene with tiles + actors
 │   ├── Level_01.vg             ← level controller code
 │   └── ...
-├── Main.tscn                   ← root scene with HUD
-├── Main.vg                     ← game state controller
+├── Main.tscn                   ← root scene with HUD, Game Over overlay, Main Menu overlay, Splash overlay
+├── Main.vg                     ← game state controller (score, lives, menus, splash, death actions, animation triggers)
 └── project.agck                ← JSON manifest of all AGCK data
 ```
 
@@ -396,4 +609,6 @@ Actor sprites are 24×24 pixels and follow the same edit-in-place workflow.
 - **Undo everything.** Ctrl+Z works in the level editor, sprite editor, and sound editor. Ctrl+Y to redo.
 - **Stack shader effects.** Combine CRT TV + Vignette + Sepia for a retro movie look, or Pixelate + Glow for a dreamy pixel art effect.
 - **The unsaved dot (•) reminds you.** The level editor shows a dot when you have unsaved changes.
+- **Waypoints create patrol routes.** Toggle waypoint mode, click an actor to lock it, then right-click to add points. Enemies will loop along the path.
+- **Moving platforms are easy.** In waypoint mode, click a Barrier block and add waypoints — the block becomes a moving platform at build time.
 - **Keyboard shortcuts save time.** Ctrl+1-6 switches between tabs. See the Shortcuts card in Settings for the full list.

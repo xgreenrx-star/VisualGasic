@@ -2289,13 +2289,22 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
     if (owner) {
         Node *n = Object::cast_to<Node>(owner);
         if (n) {
-            if (p_method.nocasecmp_to("PlaySound") == 0 && p_args.size() == 1) {
+            if (p_method.nocasecmp_to("PlaySound") == 0 && p_args.size() >= 1) {
                 String path = p_args[0];
                 Ref<AudioStream> stream = ResourceLoader::get_singleton()->load(path);
                 if (stream.is_valid()) {
                     AudioStreamPlayer *p = memnew(AudioStreamPlayer);
                     p->set_stream(stream);
                     p->set_autoplay(true);
+                    // Optional volume parameter (0-100 percent, default 100)
+                    if (p_args.size() >= 2) {
+                        double vol_pct = (double)p_args[1];
+                        if (vol_pct <= 0.0) {
+                            p->set_volume_db(-60.0);
+                        } else {
+                            p->set_volume_db(20.0 * log10(vol_pct / 100.0));
+                        }
+                    }
                     p->connect("finished", Callable(p, "queue_free"));
                     n->add_child(p);
                 }

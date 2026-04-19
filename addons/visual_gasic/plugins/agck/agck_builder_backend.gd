@@ -126,22 +126,41 @@ func build(game_data: Dictionary, log_fn: Callable = Callable()) -> Dictionary:
 	var sound_count := 0
 	for si in range(sounds.size()):
 		var snd = sounds[si]
-		var has_notes := false
-		for n in snd.get("voice1_notes", []):
-			if n > 0:
-				has_notes = true
-				break
-		if not has_notes:
+		var custom_wav: String = snd.get("custom_wav", "")
+		var has_content: bool = not custom_wav.is_empty()
+		if not has_content:
+			for n in snd.get("voice1_notes", []):
+				if n > 0:
+					has_content = true
+					break
+		if not has_content:
 			for n in snd.get("voice2_notes", []):
 				if n > 0:
-					has_notes = true
+					has_content = true
 					break
-		if not has_notes:
+		if not has_content:
 			continue
 		var snd_name := _safe_id(snd.get("name", "Sound_" + str(si + 1)))
-		var wav_path: String = sounds_dir + "sfx_" + snd_name.to_lower() + ".wav"
-		_generate_sound_wav(wav_path, snd)
-		result["files"].append(wav_path)
+		if not custom_wav.is_empty() and FileAccess.file_exists(custom_wav):
+			# Copy user's WAV file into the build
+			var ext := custom_wav.get_extension().to_lower()
+			if ext.is_empty():
+				ext = "wav"
+			var dest_path: String = sounds_dir + "sfx_" + snd_name.to_lower() + "." + ext
+			var src_bytes = FileAccess.get_file_as_bytes(custom_wav)
+			if src_bytes.size() > 0:
+				var out = FileAccess.open(dest_path, FileAccess.WRITE)
+				if out:
+					out.store_buffer(src_bytes)
+					out.close()
+					result["files"].append(dest_path)
+					_log("  Copied WAV: " + custom_wav.get_file(), "#8cf")
+			else:
+				_log("  ⚠ WAV file empty: " + custom_wav, "#f88")
+		else:
+			var wav_path: String = sounds_dir + "sfx_" + snd_name.to_lower() + ".wav"
+			_generate_sound_wav(wav_path, snd)
+			result["files"].append(wav_path)
 		sound_count += 1
 	_log("  " + str(sound_count) + " sound(s) generated", "#8f8")
 
@@ -524,7 +543,7 @@ func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite
 			tscn += '],\n'
 			tscn += '"loop": ' + str(aloop).to_lower() + ',\n'
 			tscn += '"name": &"' + an + '",\n'
-			tscn += '"speed": ' + str(aspeed) + '.0\n'
+			tscn += '"speed": ' + _fstr(aspeed) + '\n'
 			tscn += '}'
 			anim_idx += 1
 		tscn += ']\n\n'
@@ -650,8 +669,8 @@ func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite
 	tscn += 'shape = SubResource("hitbox_shape")\n\n'
 
 	# Connect Area2D signals
-	tscn += '[connection signal="body_entered" from="Hitbox" to="." method="_on_hitbox_body_entered"]\n'
-	tscn += '[connection signal="area_entered" from="Hitbox" to="." method="_on_hitbox_area_entered"]\n'
+	tscn += '[connection signal="body_entered" from="Hitbox" to="." method="Hitbox_BodyEntered"]\n'
+	tscn += '[connection signal="area_entered" from="Hitbox" to="." method="Hitbox_AreaEntered"]\n'
 
 	_write_file(path, tscn)
 
@@ -670,6 +689,16 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 	var collision: String = actor.get("collision_mode", "Bounce")
 	var death: String = actor.get("death_mode", "Respawn")
 	var rebirth: float = actor.get("rebirth", 3.0)
+
+	# Sound event mappings
+	var actor_sounds: Dictionary = {
+		"jump": actor.get("jump_sound", "(None)"),
+		"hit": actor.get("hit_sound", "(None)"),
+		"death": actor.get("death_sound", "(None)"),
+		"shoot": actor.get("shoot_sound", "(None)"),
+		"pickup": actor.get("pickup_sound", "(None)"),
+		"stomp": actor.get("stomp_sound", "(None)"),
+	}
 
 	var code = ""
 	code += "' Actor_" + aname + ".vg — " + atype + "\n"
@@ -697,9 +726,9 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 			code += "Dim JumpForce As Single\n"
 			code += "Dim IsJumping As Boolean\n\n"
 			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "player")
-			code += _gen_player_physics(speed, gravity * grav_scale, collision)
-			code += _gen_collision_handler(atype)
-			code += _gen_damage_sub(death, rebirth, true)
+			code += _gen_player_physics(speed, gravity * grav_scale, collision, actor_sounds)
+			code += _gen_collision_handler(atype, actor_sounds)
+			code += _gen_damage_sub(death, rebirth, true, actor_sounds)
 
 		"Drone":
 			var ai: String = actor.get("ai_behavior", "Patrol")
@@ -720,15 +749,15 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "enemies", drone_init)
 			code += _gen_add_path_point_sub()
 			code += _gen_drone_physics(ai, patrol_speed, gravity * grav_scale)
-			code += _gen_collision_handler(atype)
-			code += _gen_damage_sub(death, rebirth)
+			code += _gen_collision_handler(atype, actor_sounds)
+			code += _gen_damage_sub(death, rebirth, false, actor_sounds)
 
 		"Missile":
 			code += "Dim MoveDirection As Vector2\n"
 			code += "Dim LifeTime As Single\n\n"
 			code += _gen_ready_sub(aname, speed, 0, max_hp, damage, score_val, "")
 			code += _gen_missile_physics(speed)
-			code += _gen_collision_handler(atype)
+			code += _gen_collision_handler(atype, actor_sounds)
 
 		"Sentry":
 			var patrol_speed: float = actor.get("ai_patrol_speed", 80)
@@ -756,14 +785,14 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 				sentry_init += "    ShootTimer = 0.0\n"
 			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "enemies", sentry_init)
 			code += _gen_add_path_point_sub()
-			code += _gen_sentry_physics(patrol_speed, gravity * grav_scale, auto_shoot, fire_rate)
-			code += _gen_collision_handler(atype)
-			code += _gen_damage_sub(death, rebirth)
+			code += _gen_sentry_physics(patrol_speed, gravity * grav_scale, auto_shoot, fire_rate, actor_sounds)
+			code += _gen_collision_handler(atype, actor_sounds)
+			code += _gen_damage_sub(death, rebirth, false, actor_sounds)
 
 		"Computer":
 			code += "\n"
 			code += _gen_ready_sub(aname, 0, 0, max_hp, damage, score_val, "")
-			code += _gen_computer_interaction(death, score_val)
+			code += _gen_computer_interaction(death, score_val, actor_sounds)
 
 		"Zombie", "Boss", "Tank":
 			# Ground-based enemy AI — same structure as Drone
@@ -785,8 +814,8 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "enemies", gb_init)
 			code += _gen_add_path_point_sub()
 			code += _gen_drone_physics(ai_gb, patrol_speed_gb, gravity * grav_scale)
-			code += _gen_collision_handler(atype)
-			code += _gen_damage_sub(death, rebirth)
+			code += _gen_collision_handler(atype, actor_sounds)
+			code += _gen_damage_sub(death, rebirth, false, actor_sounds)
 
 		"Bat":
 			# Flying enemy AI — like Drone but zero gravity
@@ -808,8 +837,8 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 			code += _gen_ready_sub(aname, speed, 0, max_hp, damage, score_val, "enemies", bat_init)
 			code += _gen_add_path_point_sub()
 			code += _gen_drone_physics(ai_bat, patrol_speed_bat, 0)
-			code += _gen_collision_handler(atype)
-			code += _gen_damage_sub(death, rebirth)
+			code += _gen_collision_handler(atype, actor_sounds)
+			code += _gen_damage_sub(death, rebirth, false, actor_sounds)
 
 		"NPC":
 			# Friendly NPC — interactive, no movement
@@ -823,7 +852,7 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 			code += "Dim LifeTime As Single\n\n"
 			code += _gen_ready_sub(aname, speed, 0, max_hp, damage, score_val, "")
 			code += _gen_missile_physics(speed)
-			code += _gen_collision_handler(atype)
+			code += _gen_collision_handler(atype, actor_sounds)
 
 	# ── PlayAnimation helper (only when multiple animations exist) ──
 	var anim_data_list: Array = actor.get("anim_data", [])
@@ -853,6 +882,18 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 
 
 # ─── VG Code Templates ──────────────────────────────────────
+
+## Generate a VG code snippet that calls PlaySFX_<name>() on Main scene.
+## Returns empty string if sound is "(None)" or blank.
+func _gen_play_sfx_call(sound_name: String, indent: String = "    ") -> String:
+	if sound_name == "" or sound_name == "(None)":
+		return ""
+	var safe = _safe_id(sound_name)
+	var s = indent + "Dim _snd As Node2D = GetTree().CurrentScene\n"
+	s += indent + "If _snd <> Nothing And _snd.HasMethod(\"PlaySFX_" + safe + "\") Then\n"
+	s += indent + "    _snd.PlaySFX_" + safe + "()\n"
+	s += indent + "End If\n"
+	return s
 
 func _gen_ready_sub(aname: String, speed: float, gravity: float, hp: int, dmg: int, score: int, group: String = "", extra_init: String = "") -> String:
 	var s = "Sub _Ready()\n"
@@ -890,7 +931,7 @@ func _gen_add_path_point_sub() -> String:
 	return s
 
 
-func _gen_player_physics(speed: float, gravity: float, collision: String) -> String:
+func _gen_player_physics(speed: float, gravity: float, collision: String, actor_sounds: Dictionary = {}) -> String:
 	var s = ""
 	s += "Sub _PhysicsProcess(delta As Single)\n"
 	s += "    ' Read current velocity from CharacterBody2D\n"
@@ -912,6 +953,9 @@ func _gen_player_physics(speed: float, gravity: float, collision: String) -> Str
 	s += "    ' Jumping\n"
 	s += "    If Input.IsActionJustPressed(\"ui_accept\") And IsOnFloor(Me) Then\n"
 	s += "        vy = -400.0\n"
+	var jump_sfx = _gen_play_sfx_call(actor_sounds.get("jump", "(None)"), "        ")
+	if jump_sfx != "":
+		s += jump_sfx
 	s += "    End If\n"
 	s += "\n"
 	s += "    ' Write velocity back and move\n"
@@ -947,6 +991,27 @@ func _gen_player_physics(speed: float, gravity: float, collision: String) -> Str
 func _gen_drone_physics(ai: String, patrol_speed: float, gravity: float) -> String:
 	var s = ""
 	s += "Sub _PhysicsProcess(delta As Single)\n"
+	# ── Waypoint path mode: bypass all normal AI ──
+	s += "    If HasPath And PathCount >= 2 Then\n"
+	s += "        ' Follow waypoint path (overrides normal movement)\n"
+	s += "        Dim tx As Single = PathX(PathIndex)\n"
+	s += "        Dim ty As Single = PathY(PathIndex)\n"
+	s += "        Dim dx As Single = tx - Me.GlobalPosition.X\n"
+	s += "        Dim dy As Single = ty - Me.GlobalPosition.Y\n"
+	s += "        Dim dist As Single = Sqr(dx * dx + dy * dy)\n"
+	s += "        If dist < 4.0 Then\n"
+	s += "            ' Reached waypoint — advance to next (loop)\n"
+	s += "            PathIndex = PathIndex + 1\n"
+	s += "            If PathIndex >= PathCount Then PathIndex = 0\n"
+	s += "        Else\n"
+	s += "            ' Move toward waypoint via direct position\n"
+	s += "            Dim mx As Single = (dx / dist) * PatrolSpeed * delta\n"
+	s += "            Dim my As Single = (dy / dist) * PatrolSpeed * delta\n"
+	s += "            Me.GlobalPosition = Vector2(Me.GlobalPosition.X + mx, Me.GlobalPosition.Y + my)\n"
+	s += "        End If\n"
+	s += "        Exit Sub\n"
+	s += "    End If\n\n"
+	s += "    ' ── Normal AI movement ──\n"
 	s += "    ' Read current velocity\n"
 	s += "    vx = Me.velocity.x\n"
 	s += "    vy = Me.velocity.y\n"
@@ -954,65 +1019,43 @@ func _gen_drone_physics(ai: String, patrol_speed: float, gravity: float) -> Stri
 	s += "    ' Apply gravity\n"
 	s += "    vy = vy + Gravity * delta\n"
 	s += "\n"
-	# Path-following takes priority when waypoints are set
-	s += "    If HasPath And PathCount >= 2 Then\n"
-	s += "        ' Follow waypoint path\n"
-	s += "        Dim tx As Single = PathX(PathIndex)\n"
-	s += "        Dim ty As Single = PathY(PathIndex)\n"
-	s += "        Dim dx As Single = tx - GlobalPosition.X\n"
-	s += "        Dim dy As Single = ty - GlobalPosition.Y\n"
-	s += "        Dim dist As Single = Sqr(dx * dx + dy * dy)\n"
-	s += "        If dist < 4.0 Then\n"
-	s += "            ' Reached waypoint — advance to next (loop)\n"
-	s += "            PathIndex = PathIndex + 1\n"
-	s += "            If PathIndex >= PathCount Then PathIndex = 0\n"
-	s += "        Else\n"
-	s += "            ' Move toward waypoint\n"
-	s += "            vx = (dx / dist) * PatrolSpeed\n"
-	s += "            vy = (dy / dist) * PatrolSpeed\n"
-	s += "        End If\n"
-	s += "    Else\n"
 	# Original AI behavior when no path set
 	match ai:
 		"Chase":
-			s += "        ' Chase: move toward player\n"
-			s += "        Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
-			s += "        If player <> Nothing Then\n"
-			s += "            If player.GlobalPosition.X < GlobalPosition.X Then\n"
-			s += "                vx = -Speed\n"
-			s += "            Else\n"
-			s += "                vx = Speed\n"
-			s += "            End If\n"
+			s += "    ' Chase: move toward player\n"
+			s += "    Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
+			s += "    If player <> Nothing Then\n"
+			s += "        If player.GlobalPosition.X < GlobalPosition.X Then\n"
+			s += "            vx = -Speed\n"
 			s += "        Else\n"
-			s += "            vx = PatrolSpeed * Direction\n"
+			s += "            vx = Speed\n"
 			s += "        End If\n"
-		"Flee":
-			s += "        ' Flee: run from player\n"
-			s += "        Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
-			s += "        If player <> Nothing Then\n"
-			s += "            If player.GlobalPosition.X < GlobalPosition.X Then\n"
-			s += "                vx = Speed\n"
-			s += "            Else\n"
-			s += "                vx = -Speed\n"
-			s += "            End If\n"
-			s += "        Else\n"
-			s += "            vx = PatrolSpeed * Direction\n"
-			s += "        End If\n"
-		_:  # Patrol, Wander, Guard
-			s += "        ' Patrol: walk back and forth\n"
+			s += "    Else\n"
 			s += "        vx = PatrolSpeed * Direction\n"
-	s += "    End If\n"
-
+			s += "    End If\n"
+		"Flee":
+			s += "    ' Flee: run from player\n"
+			s += "    Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
+			s += "    If player <> Nothing Then\n"
+			s += "        If player.GlobalPosition.X < GlobalPosition.X Then\n"
+			s += "            vx = Speed\n"
+			s += "        Else\n"
+			s += "            vx = -Speed\n"
+			s += "        End If\n"
+			s += "    Else\n"
+			s += "        vx = PatrolSpeed * Direction\n"
+			s += "    End If\n"
+		_:  # Patrol, Wander, Guard
+			s += "    ' Patrol: walk back and forth\n"
+			s += "    vx = PatrolSpeed * Direction\n"
 	s += "\n"
 	s += "    ' Write velocity and move\n"
 	s += "    SetVelocity Me, vx, vy\n"
 	s += "    MoveAndSlide Me\n"
 	s += "\n"
-	s += "    ' Reverse at walls (only in non-path mode)\n"
-	s += "    If Not HasPath Then\n"
-	s += "        If IsOnWall(Me) Then\n"
-	s += "            Direction = -Direction\n"
-	s += "        End If\n"
+	s += "    ' Reverse at walls\n"
+	s += "    If IsOnWall(Me) Then\n"
+	s += "        Direction = -Direction\n"
 	s += "    End If\n"
 	s += "End Sub\n\n"
 	return s
@@ -1037,9 +1080,52 @@ func _gen_missile_physics(speed: float) -> String:
 	return s
 
 
-func _gen_sentry_physics(patrol_speed: float, gravity: float, auto_shoot: bool, fire_rate: float) -> String:
+func _gen_sentry_physics(patrol_speed: float, gravity: float, auto_shoot: bool, fire_rate: float, actor_sounds: Dictionary = {}) -> String:
 	var s = ""
 	s += "Sub _PhysicsProcess(delta As Single)\n"
+	# ── Waypoint path mode: bypass all normal AI ──
+	s += "    If HasPath And PathCount >= 2 Then\n"
+	s += "        ' Follow waypoint path (overrides normal movement)\n"
+	s += "        Dim tx As Single = PathX(PathIndex)\n"
+	s += "        Dim ty As Single = PathY(PathIndex)\n"
+	s += "        Dim dx As Single = tx - Me.GlobalPosition.X\n"
+	s += "        Dim dy As Single = ty - Me.GlobalPosition.Y\n"
+	s += "        Dim dist As Single = Sqr(dx * dx + dy * dy)\n"
+	s += "        If dist < 4.0 Then\n"
+	s += "            ' Reached waypoint — advance to next (loop)\n"
+	s += "            PathIndex = PathIndex + 1\n"
+	s += "            If PathIndex >= PathCount Then PathIndex = 0\n"
+	s += "        Else\n"
+	s += "            ' Move toward waypoint via direct position\n"
+	s += "            Dim mx As Single = (dx / dist) * PatrolSpeed * delta\n"
+	s += "            Dim my As Single = (dy / dist) * PatrolSpeed * delta\n"
+	s += "            Me.GlobalPosition = Vector2(Me.GlobalPosition.X + mx, Me.GlobalPosition.Y + my)\n"
+	s += "        End If\n"
+	if auto_shoot:
+		s += "\n"
+		s += "        ' Auto-shoot timer (still active during path mode)\n"
+		s += "        ShootTimer = ShootTimer + delta\n"
+		s += "        If ShootTimer >= FireRate Then\n"
+		s += "            ShootTimer = 0\n"
+		# Play shoot sound
+		var shoot_sfx_path = _gen_play_sfx_call(actor_sounds.get("shoot", "(None)"), "            ")
+		if shoot_sfx_path != "":
+			s += shoot_sfx_path
+		s += "            ' Spawn a missile toward the player\n"
+		s += "            Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
+		s += "            If player <> Nothing Then\n"
+		s += "                Dim dir As Vector2\n"
+		s += "                dir = (player.GlobalPosition - Me.GlobalPosition).Normalized()\n"
+		s += "                Dim bullet As CharacterBody2D = CharacterBody2D.New()\n"
+		s += "                GetParent().AddChild(bullet)\n"
+		s += "                bullet.GlobalPosition = Me.GlobalPosition\n"
+		s += "                SetVelocity bullet, dir.x * 300.0, dir.y * 300.0\n"
+		s += "                bullet.AddToGroup(\"enemies\")\n"
+		s += "            End If\n"
+		s += "        End If\n"
+	s += "        Exit Sub\n"
+	s += "    End If\n\n"
+	s += "    ' ── Normal AI movement ──\n"
 	s += "    ' Read current velocity\n"
 	s += "    vx = Me.velocity.x\n"
 	s += "    vy = Me.velocity.y\n"
@@ -1047,36 +1133,15 @@ func _gen_sentry_physics(patrol_speed: float, gravity: float, auto_shoot: bool, 
 	s += "    ' Apply gravity\n"
 	s += "    vy = vy + Gravity * delta\n"
 	s += "\n"
-	# Path-following takes priority when waypoints are set
-	s += "    If HasPath And PathCount >= 2 Then\n"
-	s += "        ' Follow waypoint path\n"
-	s += "        Dim tx As Single = PathX(PathIndex)\n"
-	s += "        Dim ty As Single = PathY(PathIndex)\n"
-	s += "        Dim dx As Single = tx - GlobalPosition.X\n"
-	s += "        Dim dy As Single = ty - GlobalPosition.Y\n"
-	s += "        Dim dist As Single = Sqr(dx * dx + dy * dy)\n"
-	s += "        If dist < 4.0 Then\n"
-	s += "            ' Reached waypoint — advance to next (loop)\n"
-	s += "            PathIndex = PathIndex + 1\n"
-	s += "            If PathIndex >= PathCount Then PathIndex = 0\n"
-	s += "        Else\n"
-	s += "            ' Move toward waypoint\n"
-	s += "            vx = (dx / dist) * PatrolSpeed\n"
-	s += "            vy = (dy / dist) * PatrolSpeed\n"
-	s += "        End If\n"
-	s += "    Else\n"
-	s += "        ' Patrol back and forth\n"
-	s += "        vx = PatrolSpeed * Direction\n"
-	s += "    End If\n"
+	s += "    ' Patrol back and forth\n"
+	s += "    vx = PatrolSpeed * Direction\n"
 	s += "\n"
 	s += "    SetVelocity Me, vx, vy\n"
 	s += "    MoveAndSlide Me\n"
 	s += "\n"
-	s += "    ' Reverse at walls (only in non-path mode)\n"
-	s += "    If Not HasPath Then\n"
-	s += "        If IsOnWall(Me) Then\n"
-	s += "            Direction = -Direction\n"
-	s += "        End If\n"
+	s += "    ' Reverse at walls\n"
+	s += "    If IsOnWall(Me) Then\n"
+	s += "        Direction = -Direction\n"
 	s += "    End If\n"
 	if auto_shoot:
 		s += "\n"
@@ -1084,14 +1149,18 @@ func _gen_sentry_physics(patrol_speed: float, gravity: float, auto_shoot: bool, 
 		s += "    ShootTimer = ShootTimer + delta\n"
 		s += "    If ShootTimer >= FireRate Then\n"
 		s += "        ShootTimer = 0\n"
+		# Play shoot sound
+		var shoot_sfx = _gen_play_sfx_call(actor_sounds.get("shoot", "(None)"), "        ")
+		if shoot_sfx != "":
+			s += shoot_sfx
 		s += "        ' Spawn a missile toward the player\n"
 		s += "        Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
 		s += "        If player <> Nothing Then\n"
 		s += "            Dim dir As Vector2\n"
-		s += "            dir = (player.GlobalPosition - GlobalPosition).Normalized()\n"
+		s += "            dir = (player.GlobalPosition - Me.GlobalPosition).Normalized()\n"
 		s += "            Dim bullet As CharacterBody2D = CharacterBody2D.New()\n"
 		s += "            GetParent().AddChild(bullet)\n"
-		s += "            bullet.GlobalPosition = GlobalPosition\n"
+		s += "            bullet.GlobalPosition = Me.GlobalPosition\n"
 		s += "            SetVelocity bullet, dir.x * 300.0, dir.y * 300.0\n"
 		s += "            bullet.AddToGroup(\"enemies\")\n"
 		s += "        End If\n"
@@ -1100,7 +1169,7 @@ func _gen_sentry_physics(patrol_speed: float, gravity: float, auto_shoot: bool, 
 	return s
 
 
-func _gen_damage_sub(death_mode: String, rebirth: float, is_player: bool = false) -> String:
+func _gen_damage_sub(death_mode: String, rebirth: float, is_player: bool = false, actor_sounds: Dictionary = {}) -> String:
 	var s = ""
 	s += "' Called when this actor takes damage\n"
 	s += "Sub TakeDamage(amount As Integer)\n"
@@ -1108,6 +1177,10 @@ func _gen_damage_sub(death_mode: String, rebirth: float, is_player: bool = false
 		s += "    ' Skip if currently invincible (just took a hit)\n"
 		s += "    If IsInvincible Then Exit Sub\n"
 	s += "    CurrentHP = CurrentHP - amount\n"
+	# Play hit sound effect
+	var hit_sfx = _gen_play_sfx_call(actor_sounds.get("hit", "(None)"), "    ")
+	if hit_sfx != "":
+		s += hit_sfx
 	if is_player:
 		s += "    ' Trigger hit animation\n"
 		s += "    Dim main As Node2D = GetTree().CurrentScene\n"
@@ -1119,6 +1192,10 @@ func _gen_damage_sub(death_mode: String, rebirth: float, is_player: bool = false
 		s += "    InvincibleTimer = 1.5\n"
 		s += "    Me.modulate = Color(1, 1, 1, 0.5)\n"
 	s += "    If CurrentHP <= 0 Then\n"
+	# Play death sound effect
+	var death_sfx = _gen_play_sfx_call(actor_sounds.get("death", "(None)"), "        ")
+	if death_sfx != "":
+		s += death_sfx
 	if is_player:
 		s += "        IsInvincible = False\n"
 		s += "        Me.visible = True\n"
@@ -1154,12 +1231,16 @@ func _gen_damage_sub(death_mode: String, rebirth: float, is_player: bool = false
 	return s
 
 
-func _gen_computer_interaction(death_mode: String, score_val: int) -> String:
+func _gen_computer_interaction(death_mode: String, score_val: int, actor_sounds: Dictionary = {}) -> String:
 	var s = ""
 	s += "' Computer objects respond to collisions (coins, keys, etc.)\n"
-	s += "Sub _on_hitbox_body_entered(body As Node2D)\n"
+	s += "Sub Hitbox_BodyEntered(body As Node2D)\n"
 	s += "    ' Check if the player touched us\n"
 	s += "    If body.IsInGroup(\"player\") Then\n"
+	# Play pickup sound
+	var pickup_sfx = _gen_play_sfx_call(actor_sounds.get("pickup", "(None)"), "        ")
+	if pickup_sfx != "":
+		s += pickup_sfx
 	if score_val > 0:
 		s += "        ' Award points via the game controller\n"
 		s += "        Dim main As Node2D = GetTree().CurrentScene\n"
@@ -1174,7 +1255,7 @@ func _gen_computer_interaction(death_mode: String, score_val: int) -> String:
 		s += "        ' TODO: Add your interaction logic here\n"
 	s += "    End If\n"
 	s += "End Sub\n\n"
-	s += "Sub _on_hitbox_area_entered(area As Area2D)\n"
+	s += "Sub Hitbox_AreaEntered(area As Area2D)\n"
 	s += "    ' Area-based interaction\n"
 	s += "End Sub\n\n"
 	return s
@@ -1183,24 +1264,24 @@ func _gen_computer_interaction(death_mode: String, score_val: int) -> String:
 func _gen_npc_interaction() -> String:
 	var s = ""
 	s += "' NPC responds to player interaction\n"
-	s += "Sub _on_hitbox_body_entered(body As Node2D)\n"
+	s += "Sub Hitbox_BodyEntered(body As Node2D)\n"
 	s += "    If body.IsInGroup(\"player\") Then\n"
 	s += "        ' Player is nearby — interact\n"
 	s += "        ' Add your dialog or quest logic here\n"
 	s += "    End If\n"
 	s += "End Sub\n\n"
-	s += "Sub _on_hitbox_area_entered(area As Area2D)\n"
+	s += "Sub Hitbox_AreaEntered(area As Area2D)\n"
 	s += "    ' Area interaction\n"
 	s += "End Sub\n\n"
 	return s
 
 
-func _gen_collision_handler(atype: String) -> String:
+func _gen_collision_handler(atype: String, actor_sounds: Dictionary = {}) -> String:
 	var s = ""
 	s += "' ─── Collision Handling ───\n"
 	match atype:
 		"Player":
-			s += "Sub _on_hitbox_body_entered(body As Node2D)\n"
+			s += "Sub Hitbox_BodyEntered(body As Node2D)\n"
 			s += "    If IsInvincible Then Exit Sub\n"
 			s += "    ' Touched an enemy — take damage\n"
 			s += "    If body.IsInGroup(\"enemies\") Then\n"
@@ -1208,7 +1289,7 @@ func _gen_collision_handler(atype: String) -> String:
 			s += "        TakeDamage(body.Damage)\n"
 			s += "    End If\n"
 			s += "End Sub\n\n"
-			s += "Sub _on_hitbox_area_entered(area As Area2D)\n"
+			s += "Sub Hitbox_AreaEntered(area As Area2D)\n"
 			s += "    If IsInvincible Then Exit Sub\n"
 			s += "    Dim owner As Node = area.GetParent()\n"
 			s += "    If owner <> Nothing And owner.IsInGroup(\"enemies\") Then\n"
@@ -1216,12 +1297,16 @@ func _gen_collision_handler(atype: String) -> String:
 			s += "    End If\n"
 			s += "End Sub\n\n"
 		"Drone", "Sentry", "Zombie", "Boss", "Bat", "Tank":
-			s += "Sub _on_hitbox_body_entered(body As Node2D)\n"
+			s += "Sub Hitbox_BodyEntered(body As Node2D)\n"
 			s += "    ' Player jumped on us — take damage\n"
 			s += "    If body.IsInGroup(\"player\") Then\n"
 			s += "        ' Check if player is above (stomp)\n"
 			s += "        If body.GlobalPosition.Y < GlobalPosition.Y - 8 Then\n"
 			s += "            TakeDamage(MaxHP)  ' instant kill from stomp\n"
+			# Play stomp sound
+			var stomp_sfx = _gen_play_sfx_call(actor_sounds.get("stomp", "(None)"), "            ")
+			if stomp_sfx != "":
+				s += stomp_sfx
 			s += "            ' Award score to game controller\n"
 			s += "            Dim main As Node2D = GetTree().CurrentScene\n"
 			s += "            If main <> Nothing And main.HasMethod(\"AddScore\") Then\n"
@@ -1232,17 +1317,17 @@ func _gen_collision_handler(atype: String) -> String:
 			s += "        End If\n"
 			s += "    End If\n"
 			s += "End Sub\n\n"
-			s += "Sub _on_hitbox_area_entered(area As Area2D)\n"
+			s += "Sub Hitbox_AreaEntered(area As Area2D)\n"
 			s += "    ' Area interaction\n"
 			s += "End Sub\n\n"
 		"Missile", "Fireball":
-			s += "Sub _on_hitbox_body_entered(body As Node2D)\n"
+			s += "Sub Hitbox_BodyEntered(body As Node2D)\n"
 			s += "    If body.HasMethod(\"TakeDamage\") Then\n"
 			s += "        body.TakeDamage(Damage)\n"
 			s += "    End If\n"
 			s += "    QueueFree()\n"
 			s += "End Sub\n\n"
-			s += "Sub _on_hitbox_area_entered(area As Area2D)\n"
+			s += "Sub Hitbox_AreaEntered(area As Area2D)\n"
 			s += "    ' Area interaction\n"
 			s += "End Sub\n\n"
 	return s
@@ -1331,6 +1416,8 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 
 	# ── Blocks ──
 	var block_idx = 0
+	var block_paths: Dictionary = lvl.get("block_paths", {})
+	var moving_block_nodes: Array = []  # track {node_name, path_arr} for level script
 	for y in range(mini(grid.size(), GRID_H)):
 		var row = grid[y]
 		for x in range(mini(row.size(), GRID_W)):
@@ -1350,13 +1437,20 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 			var py = y * CELL_PX + CELL_PX / 2
 			var tex_key = str(block_id) + "_" + str(tile_idx)
 
+			# Check if this block has a movement path
+			var bp_key = str(x) + "," + str(y)
+			var has_block_path: bool = block_paths.has(bp_key) and block_paths[bp_key].size() >= 2
+
 			# Determine if block needs collision (Barrier, Ladder, Deadly, Teleport, Switch)
 			var needs_body = block_id in [1, 2, 3, 5, 6]
 
 			if needs_body:
-				# StaticBody2D with collision
+				# StaticBody2D for all blocks (AnimatableBody2D has transform-revert
+				# issues with direct .Position assignment in _PhysicsProcess)
 				body += '[node name="' + node_name + '" type="StaticBody2D" parent="."]\n'
 				body += 'position = Vector2(' + str(px) + ', ' + str(py) + ')\n'
+				if has_block_path:
+					moving_block_nodes.append({"node_name": node_name, "path_key": bp_key, "path_arr": block_paths[bp_key]})
 				# Teleport & Switch blocks are pass-through (player walks into them)
 				if block_id in [5, 6]:
 					body += 'collision_layer = 0\n'
@@ -1397,13 +1491,16 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 					body += '[node name="TeleportShape" type="CollisionShape2D" parent="' + node_name + '/TeleportArea"]\n'
 					body += 'shape = SubResource("block_shape")\n\n'
 
-				# Deadly blocks get an Area2D for damage
+				# Deadly blocks get an Area2D for damage — shape is slightly larger
+				# than the solid collision so body_entered fires on contact
 				if block_id == 3:
 					body += '[node name="DeadlyArea" type="Area2D" parent="' + node_name + '"]\n'
 					body += 'collision_layer = 8\n'
-					body += 'collision_mask = 1\n\n'
+					body += 'collision_mask = 1\n'
+					body += 'monitorable = true\n'
+					body += 'monitoring = true\n\n'
 					body += '[node name="DeadlyShape" type="CollisionShape2D" parent="' + node_name + '/DeadlyArea"]\n'
-					body += 'shape = SubResource("block_shape")\n\n'
+					body += 'shape = SubResource("deadly_shape")\n\n'
 
 				# Switch blocks get an Area2D for collectible/interaction
 				if block_id == 6:
@@ -1470,7 +1567,7 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 
 	# ── Build complete header with all ext_resources + sub_resources ──
 	var tile_shader_sub_count: int = tile_shader_fx_set.size() * 2  # Shader + ShaderMaterial per unique effect
-	var total_load_steps = ext_id + tile_shader_sub_count  # ext resources + block_shape + tile shaders
+	var total_load_steps = ext_id + tile_shader_sub_count + 1  # ext resources + block_shape + deadly_shape + tile shaders
 	var header = '[gd_scene load_steps=' + str(total_load_steps) + ' format=3]\n\n'
 
 	# Ext resource: level script
@@ -1490,6 +1587,10 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 	# Sub resource: collision shape
 	header += '[sub_resource type="RectangleShape2D" id="block_shape"]\n'
 	header += 'size = Vector2(' + str(CELL_PX) + ', ' + str(CELL_PX) + ')\n\n'
+
+	# Deadly area shape — 4px larger per side so body_entered triggers on contact
+	header += '[sub_resource type="RectangleShape2D" id="deadly_shape"]\n'
+	header += 'size = Vector2(' + str(CELL_PX + 4) + ', ' + str(CELL_PX + 4) + ')\n\n'
 
 	# Sub resources: per-tile shader FX (one Shader + one ShaderMaterial per unique effect)
 	for sfx_name in tile_shader_fx_set:
@@ -1551,6 +1652,34 @@ func _generate_level_vg(path: String, lvl_name: String, lvl: Dictionary, actors:
 	code += "Dim Friction As Single\n"
 	code += "Dim Elasticity As Single\n\n"
 
+	# ── Module-level declarations for moving blocks ──
+	var grid: Array = lvl.get("grid", [])
+	var mblock_paths_decl: Dictionary = lvl.get("block_paths", {})
+	var mblock_decl_idx = 0
+	var mblock_decl_names: Array = []  # track names for later use
+	for y_d in range(mini(grid.size(), GRID_H)):
+		var row_d = grid[y_d]
+		for x_d in range(mini(row_d.size(), GRID_W)):
+			var cell_d = row_d[x_d]
+			var block_id_d: int = 0
+			if cell_d is Dictionary:
+				block_id_d = cell_d.get("block_type", 0)
+			elif cell_d is int or cell_d is float:
+				block_id_d = int(cell_d)
+			if block_id_d <= 0:
+				continue
+			mblock_decl_idx += 1
+			var bp_key_d = str(x_d) + "," + str(y_d)
+			if mblock_paths_decl.has(bp_key_d) and mblock_paths_decl[bp_key_d].size() >= 2:
+				var bn = "Block_" + str(mblock_decl_idx)
+				mblock_decl_names.append(bn)
+				code += "' Moving block: " + bn + "\n"
+				code += "Dim " + bn + " As StaticBody2D\n"
+				code += "Dim " + bn + "_PathX(20) As Single\n"
+				code += "Dim " + bn + "_PathY(20) As Single\n"
+				code += "Dim " + bn + "_PathCount As Integer\n"
+				code += "Dim " + bn + "_PathIndex As Integer\n\n"
+
 	code += "Sub _Ready()\n"
 	code += "    LevelName = \"" + lvl.get("name", lvl_name) + "\"\n"
 	code += "    Friction = " + str(friction) + ".0\n"
@@ -1565,21 +1694,21 @@ func _generate_level_vg(path: String, lvl_name: String, lvl: Dictionary, actors:
 	code += "            If bt = 5 Then\n"
 	code += "                Dim area As Area2D = child.GetNodeOrNull(\"TeleportArea\")\n"
 	code += "                If area <> Nothing Then\n"
-	code += "                    area.Connect(\"body_entered\", \"_on_teleport_touched\")\n"
+	code += "                    area.Connect(\"body_entered\", \"Teleport_BodyEntered\")\n"
 	code += "                End If\n"
 	code += "            End If\n"
 	code += "            ' Deadly blocks (type 3) — wire Area2D damage signal\n"
 	code += "            If bt = 3 Then\n"
 	code += "                Dim darea As Area2D = child.GetNodeOrNull(\"DeadlyArea\")\n"
 	code += "                If darea <> Nothing Then\n"
-	code += "                    darea.Connect(\"body_entered\", \"_on_deadly_touched\")\n"
+	code += "                    darea.Connect(\"body_entered\", \"Deadly_BodyEntered\")\n"
 	code += "                End If\n"
 	code += "            End If\n"
 	code += "            ' Switch blocks (type 6) — collectible/interactive\n"
 	code += "            If bt = 6 Then\n"
 	code += "                Dim sarea As Area2D = child.GetNodeOrNull(\"SwitchArea\")\n"
 	code += "                If sarea <> Nothing Then\n"
-	code += "                    sarea.Connect(\"body_entered\", \"_on_switch_touched\")\n"
+	code += "                    sarea.Connect(\"body_entered\", \"Switch_BodyEntered\")\n"
 	code += "                End If\n"
 	code += "            End If\n"
 	code += "        End If\n"
@@ -1610,24 +1739,64 @@ func _generate_level_vg(path: String, lvl_name: String, lvl: Dictionary, actors:
 				var py = wpy * CELL_PX + CELL_PX / 2
 				code += "    " + inst_name + ".AddPathPoint(" + _fstr(px) + ", " + _fstr(py) + ")\n"
 
+	# ── Set waypoint paths for moving blocks ──
+	var mblock_paths: Dictionary = lvl.get("block_paths", {})
+	var mblock_idx = 0
+	var mblock_grid_idx = 0
+	for y in range(mini(grid.size(), GRID_H)):
+		var row = grid[y]
+		for x in range(mini(row.size(), GRID_W)):
+			var cell = row[x]
+			var block_id: int = 0
+			if cell is Dictionary:
+				block_id = cell.get("block_type", 0)
+			elif cell is int or cell is float:
+				block_id = int(cell)
+			if block_id <= 0:
+				continue
+			mblock_grid_idx += 1
+			var bp_key = str(x) + "," + str(y)
+			if not mblock_paths.has(bp_key):
+				continue
+			var bp_arr: Array = mblock_paths[bp_key]
+			if bp_arr.size() < 2:
+				continue
+			mblock_idx += 1
+			var bnode_name = "Block_" + str(mblock_grid_idx)
+			code += "\n"
+			code += "    ' Moving block waypoints for " + bnode_name + "\n"
+			code += "    " + bnode_name + " = GetNode(\"" + bnode_name + "\")\n"
+			var bp_count = 0
+			for wp in bp_arr:
+				if bp_count >= 20:
+					break
+				var wpx = wp["x"] if wp is Dictionary else wp.x
+				var wpy = wp["y"] if wp is Dictionary else wp.y
+				var bpx = wpx * CELL_PX + CELL_PX / 2
+				var bpy = wpy * CELL_PX + CELL_PX / 2
+				code += "    " + bnode_name + "_PathX(" + str(bp_count) + ") = " + _fstr(bpx) + "\n"
+				code += "    " + bnode_name + "_PathY(" + str(bp_count) + ") = " + _fstr(bpy) + "\n"
+				bp_count += 1
+			code += "    " + bnode_name + "_PathCount = " + str(bp_count) + "\n"
+
 	code += "End Sub\n\n"
 
 	code += "' Player touched a teleport block — go to next level\n"
-	code += "Sub _on_teleport_touched(body As Node2D)\n"
+	code += "Sub Teleport_BodyEntered(body As Node2D)\n"
 	code += "    If body.IsInGroup(\"player\") Then\n"
-	code += "        OnLevelComplete()\n"
+	code += "        LevelComplete()\n"
 	code += "    End If\n"
 	code += "End Sub\n\n"
 
 	code += "' Player touched a deadly block — take damage\n"
-	code += "Sub _on_deadly_touched(body As Node2D)\n"
+	code += "Sub Deadly_BodyEntered(body As Node2D)\n"
 	code += "    If body.IsInGroup(\"player\") And body.HasMethod(\"TakeDamage\") Then\n"
 	code += "        body.TakeDamage(" + str(settings.get("deadly_damage", 25)) + ")\n"
 	code += "    End If\n"
 	code += "End Sub\n\n"
 
 	code += "' Player touched a switch/collectible block — award points and remove\n"
-	code += "Sub _on_switch_touched(body As Node2D)\n"
+	code += "Sub Switch_BodyEntered(body As Node2D)\n"
 	code += "    If body.IsInGroup(\"player\") Then\n"
 	code += "        ' Award score to game controller\n"
 	code += "        Dim main As Node2D = GetTree().CurrentScene\n"
@@ -1641,8 +1810,52 @@ func _generate_level_vg(path: String, lvl_name: String, lvl: Dictionary, actors:
 	code += "    End If\n"
 	code += "End Sub\n\n"
 
+	# ── Moving block physics (level-side _PhysicsProcess) ──
+	var mblock_paths2: Dictionary = lvl.get("block_paths", {})
+	var has_moving_blocks = false
+	# Rebuild moving block list (same order as tscn block numbering)
+	var mblock_list: Array = []
+	var mblock_grid_idx2 = 0
+	for y2 in range(mini(grid.size(), GRID_H)):
+		var row2 = grid[y2]
+		for x2 in range(mini(row2.size(), GRID_W)):
+			var cell2 = row2[x2]
+			var block_id2: int = 0
+			if cell2 is Dictionary:
+				block_id2 = cell2.get("block_type", 0)
+			elif cell2 is int or cell2 is float:
+				block_id2 = int(cell2)
+			if block_id2 <= 0:
+				continue
+			mblock_grid_idx2 += 1
+			var bp_key2 = str(x2) + "," + str(y2)
+			if mblock_paths2.has(bp_key2) and mblock_paths2[bp_key2].size() >= 2:
+				mblock_list.append("Block_" + str(mblock_grid_idx2))
+				has_moving_blocks = true
+
+	if has_moving_blocks:
+		code += "' Moving platform physics\n"
+		code += "Sub _PhysicsProcess(delta As Single)\n"
+		code += "    Dim speed As Single = 60.0\n"
+		for bnode_name in mblock_list:
+			code += "    If " + bnode_name + "_PathCount >= 2 Then\n"
+			code += "        Dim " + bnode_name + "_tx As Single = " + bnode_name + "_PathX(" + bnode_name + "_PathIndex)\n"
+			code += "        Dim " + bnode_name + "_ty As Single = " + bnode_name + "_PathY(" + bnode_name + "_PathIndex)\n"
+			code += "        Dim " + bnode_name + "_dx As Single = " + bnode_name + "_tx - " + bnode_name + ".Position.X\n"
+			code += "        Dim " + bnode_name + "_dy As Single = " + bnode_name + "_ty - " + bnode_name + ".Position.Y\n"
+			code += "        Dim " + bnode_name + "_dist As Single = Sqr(" + bnode_name + "_dx * " + bnode_name + "_dx + " + bnode_name + "_dy * " + bnode_name + "_dy)\n"
+			code += "        If " + bnode_name + "_dist > 2.0 Then\n"
+			code += "            Dim " + bnode_name + "_mx As Single = (" + bnode_name + "_dx / " + bnode_name + "_dist) * speed * delta\n"
+			code += "            Dim " + bnode_name + "_my As Single = (" + bnode_name + "_dy / " + bnode_name + "_dist) * speed * delta\n"
+			code += "            " + bnode_name + ".Position = Vector2(" + bnode_name + ".Position.X + " + bnode_name + "_mx, " + bnode_name + ".Position.Y + " + bnode_name + "_my)\n"
+			code += "        Else\n"
+			code += "            " + bnode_name + "_PathIndex = (" + bnode_name + "_PathIndex + 1) Mod " + bnode_name + "_PathCount\n"
+			code += "        End If\n"
+			code += "    End If\n"
+		code += "End Sub\n\n"
+
 	code += "' Called when the player reaches the exit / teleporter\n"
-	code += "Sub OnLevelComplete()\n"
+	code += "Sub LevelComplete()\n"
 	if next_level_path != "":
 		code += "    ' Tell the game controller to advance levels\n"
 		code += "    Dim main As Node2D = GetTree().CurrentScene\n"
@@ -1688,25 +1901,35 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 	# Collect sound WAV ext resources
 	var sound_ext_ids: Array[int] = []
 	var sound_names: Array[String] = []
+	var sound_exts: Array[String] = []  # file extension per sound
 	for si in range(sounds.size()):
 		var snd = sounds[si]
-		var has_notes := false
-		for n in snd.get("voice1_notes", []):
-			if n > 0:
-				has_notes = true
-				break
-		if not has_notes:
+		var custom_wav: String = snd.get("custom_wav", "")
+		var has_content: bool = not custom_wav.is_empty()
+		if not has_content:
+			for n in snd.get("voice1_notes", []):
+				if n > 0:
+					has_content = true
+					break
+		if not has_content:
 			for n in snd.get("voice2_notes", []):
 				if n > 0:
-					has_notes = true
+					has_content = true
 					break
-		if has_notes:
+		if has_content:
 			sound_ext_ids.append(ext_id)
 			sound_names.append(_safe_id(snd.get("name", "Sound_" + str(si + 1))))
+			var ext := "wav"
+			if not custom_wav.is_empty():
+				var cext = custom_wav.get_extension().to_lower()
+				if not cext.is_empty():
+					ext = cext
+			sound_exts.append(ext)
 			ext_id += 1
 		else:
 			sound_ext_ids.append(-1)
 			sound_names.append("")
+			sound_exts.append("")
 
 	# Splash image ext resource (if enabled with custom image)
 	var splash_ext_id := -1
@@ -1740,7 +1963,8 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 	# Sound WAV ext_resources
 	for si in range(sound_ext_ids.size()):
 		if sound_ext_ids[si] >= 0:
-			tscn += '[ext_resource type="AudioStream" path="sounds/sfx_' + sound_names[si].to_lower() + '.wav" id="' + str(sound_ext_ids[si]) + '"]\n'
+			var snd_ext: String = sound_exts[si] if si < sound_exts.size() else "wav"
+			tscn += '[ext_resource type="AudioStream" path="sounds/sfx_' + sound_names[si].to_lower() + '.' + snd_ext + '" id="' + str(sound_ext_ids[si]) + '"]\n'
 
 	# Splash image ext_resource
 	if splash_ext_id >= 0:
@@ -1802,8 +2026,8 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 	tscn += 'anchors_preset = 15\n'
 	tscn += 'anchor_right = 1.0\n'
 	tscn += 'anchor_bottom = 1.0\n'
-	tscn += 'offset_right = ' + str(GRID_W * CELL_PX) + '.0\n'
-	tscn += 'offset_bottom = ' + str(GRID_H * CELL_PX) + '.0\n'
+	tscn += 'offset_right = ' + _fstr(GRID_W * CELL_PX) + '\n'
+	tscn += 'offset_bottom = ' + _fstr(GRID_H * CELL_PX) + '\n'
 	tscn += 'color = ' + _hex_to_tscn_color(bg_hex) + '\n\n'
 
 	# LevelContainer — levels are instanced here
@@ -2016,12 +2240,14 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 			tscn += 'theme_override_font_sizes/font_size = 16\n'
 			tscn += 'theme_override_colors/font_color = Color(0.6, 0.6, 0.7, 0.8)\n\n'
 
-	# Sound players
+	# Sound players — apply sfx_volume from game settings
+	var sfx_vol_pct: float = float(settings.get("sfx_volume", 100))
+	var sfx_vol_db: float = -60.0 if sfx_vol_pct <= 0 else (20.0 * log(sfx_vol_pct / 100.0) / log(10.0))
 	for si in range(sound_ext_ids.size()):
 		if sound_ext_ids[si] >= 0:
 			tscn += '[node name="SFX_' + sound_names[si] + '" type="AudioStreamPlayer" parent="."]\n'
 			tscn += 'stream = ExtResource("' + str(sound_ext_ids[si]) + '")\n'
-			tscn += 'volume_db = -6.0\n\n'
+			tscn += 'volume_db = ' + str(snapped(sfx_vol_db, 0.1)) + '\n\n'
 
 	# Shader effect CanvasLayer + ColorRect nodes (sub_resources already emitted above)
 	for sm in _shader_metas:
@@ -2051,10 +2277,10 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 			var ry = sd.get("region_y", 0)
 			var rw = sd.get("region_w", 640)
 			var rh = sd.get("region_h", 480)
-			tscn += 'offset_left = ' + str(rx) + '.0\n'
-			tscn += 'offset_top = ' + str(ry) + '.0\n'
-			tscn += 'offset_right = ' + str(rx + rw) + '.0\n'
-			tscn += 'offset_bottom = ' + str(ry + rh) + '.0\n'
+			tscn += 'offset_left = ' + _fstr(rx) + '\n'
+			tscn += 'offset_top = ' + _fstr(ry) + '\n'
+			tscn += 'offset_right = ' + _fstr(rx + rw) + '\n'
+			tscn += 'offset_bottom = ' + _fstr(ry + rh) + '\n'
 		tscn += '\n'
 
 	_write_file(path, tscn)
@@ -2079,17 +2305,18 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	var valid_sound_names: Array[String] = []
 	for si in range(sounds.size()):
 		var snd = sounds[si]
-		var has_notes := false
-		for n in snd.get("voice1_notes", []):
-			if n > 0:
-				has_notes = true
-				break
-		if not has_notes:
+		var has_content: bool = not snd.get("custom_wav", "").is_empty()
+		if not has_content:
+			for n in snd.get("voice1_notes", []):
+				if n > 0:
+					has_content = true
+					break
+		if not has_content:
 			for n in snd.get("voice2_notes", []):
 				if n > 0:
-					has_notes = true
+					has_content = true
 					break
-		if has_notes:
+		if has_content:
 			valid_sound_names.append(_safe_id(snd.get("name", "Sound_" + str(si + 1))))
 
 	var code = ""
@@ -2168,11 +2395,11 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	var menu_style: String = settings.get("game_menu_style", "Default")
 	if go_style == "Default":
 		code += "    ' Wire Game Over restart button\n"
-		code += "    Connect(GetNode(\"GameOverOverlay/RestartBtn\"), \"pressed\", \"OnRestartPressed\")\n"
+		code += "    Connect(GetNode(\"GameOverOverlay/RestartBtn\"), \"pressed\", \"RestartBtn_Click\")\n"
 	if menu_style == "Default":
 		code += "    ' Wire Main Menu buttons\n"
-		code += "    Connect(GetNode(\"MainMenuOverlay/PlayBtn\"), \"pressed\", \"OnPlayPressed\")\n"
-		code += "    Connect(GetNode(\"MainMenuOverlay/ExitBtn\"), \"pressed\", \"OnExitPressed\")\n"
+		code += "    Connect(GetNode(\"MainMenuOverlay/PlayBtn\"), \"pressed\", \"PlayBtn_Click\")\n"
+		code += "    Connect(GetNode(\"MainMenuOverlay/ExitBtn\"), \"pressed\", \"ExitBtn_Click\")\n"
 		code += "    ' Pause the game tree while menu is showing\n"
 		code += "    GetTree().Paused = True\n"
 	elif menu_style == "None":
@@ -2188,7 +2415,7 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 			code += "    GetNode(\"MainMenuOverlay\").visible = False\n"
 		code += "    GetNode(\"SplashOverlay\").visible = True\n"
 		code += "    ' Wire the splash dismiss timer (auto-started in .tscn)\n"
-		code += "    Connect(GetNode(\"SplashOverlay/SplashTimer\"), \"timeout\", \"OnSplashDone\")\n"
+		code += "    Connect(GetNode(\"SplashOverlay/SplashTimer\"), \"timeout\", \"SplashTimer_Timeout\")\n"
 
 	code += "End Sub\n\n"
 
@@ -2255,7 +2482,7 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 
 	# ── Restart button handler ──
 	if go_style2 == "Default":
-		code += "Sub OnRestartPressed()\n"
+		code += "Sub RestartBtn_Click()\n"
 		code += "    GetTree().Paused = False\n"
 		code += "    GetTree().ReloadCurrentScene()\n"
 		code += "End Sub\n\n"
@@ -2264,11 +2491,11 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	var menu_style2: String = settings.get("game_menu_style", "Default")
 	if menu_style2 == "Default":
 		code += "' ─── Main Menu ───\n"
-		code += "Sub OnPlayPressed()\n"
+		code += "Sub PlayBtn_Click()\n"
 		code += "    GetNode(\"MainMenuOverlay\").visible = False\n"
 		code += "    GetTree().Paused = False\n"
 		code += "End Sub\n\n"
-		code += "Sub OnExitPressed()\n"
+		code += "Sub ExitBtn_Click()\n"
 		code += "    GetTree().Quit()\n"
 		code += "End Sub\n\n"
 		code += "Sub ShowMainMenu()\n"
@@ -2280,7 +2507,7 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	var splash_on: bool = settings.get("splash_enabled", false)
 	if splash_on:
 		code += "' ─── Splash Screen ───\n"
-		code += "Sub OnSplashDone()\n"
+		code += "Sub SplashTimer_Timeout()\n"
 		code += "    GetNode(\"SplashOverlay\").visible = False\n"
 		var menu_check: String = settings.get("game_menu_style", "Default")
 		if menu_check == "Default":
@@ -2453,6 +2680,12 @@ func _generate_sound_wav(path: String, snd: Dictionary) -> void:
 	var pcm = PackedByteArray()
 	pcm.resize(total_samples * 2)
 
+	# Read per-voice volumes (0-100) from sound data
+	var v1_vol_pct: float = float(snd.get("voice1_volume", 80)) / 100.0
+	var v2_vol_pct: float = float(snd.get("voice2_volume", 60)) / 100.0
+	var v1_gain: float = v1_vol_pct * 0.55  # scale to max ~0.55 to avoid clipping
+	var v2_gain: float = v2_vol_pct * 0.45
+
 	var v1_phase: float = 0.0
 	var v2_phase: float = 0.0
 	var flt_prev: float = 0.0
@@ -2468,11 +2701,11 @@ func _generate_sound_wav(path: String, snd: Dictionary) -> void:
 			var sample: float = 0.0
 
 			if v1_freq > 0.0:
-				sample += _wave_sample(v1_phase, v1_wave) * 0.45
+				sample += _wave_sample(v1_phase, v1_wave) * v1_gain
 				v1_phase = fmod(v1_phase + v1_freq / float(SAMPLE_RATE), 1.0)
 
 			if v2_freq > 0.0:
-				sample += _wave_sample(v2_phase, v2_wave) * 0.35
+				sample += _wave_sample(v2_phase, v2_wave) * v2_gain
 				v2_phase = fmod(v2_phase + v2_freq / float(SAMPLE_RATE), 1.0)
 
 			if flt_cutoff > 0.0:

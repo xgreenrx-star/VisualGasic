@@ -134,6 +134,7 @@ var _rot_z: SpinBox = null
 var _scl_x: SpinBox = null
 var _scl_y: SpinBox = null
 var _scl_z: SpinBox = null
+var _node_inspector = null  # VG Node Inspector panel
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TOOLBOX ITEMS — the object types available for placement
@@ -327,6 +328,19 @@ func _build_ui() -> void:
 	_scl_z.value = 1.0
 
 	left_vbox.add_child(transform_grid)
+
+	# ── Node Inspector (properties, collision, groups, signals) ──
+	left_vbox.add_child(HSeparator.new())
+	var InspectorScript = load("res://addons/visual_gasic/vg_node_inspector.gd")
+	if InspectorScript:
+		_node_inspector = InspectorScript.new()
+		_node_inspector.signal_connect_requested.connect(func(node_name, sig_name):
+			print("[VG3D] Generate Sub: ", node_name, "_", sig_name)
+		)
+		_node_inspector.property_changed.connect(func(_node, _prop, _old_val, _new_val):
+			pass  # 3D viewport auto-redraws
+		)
+		left_vbox.add_child(_node_inspector)
 
 	add_child(left_panel)
 
@@ -1435,6 +1449,8 @@ func _select_node(node: Node3D) -> void:
 	_gizmo_root.visible = true
 	_sync_scene_tree_selection()
 	_update_transform_panel()
+	if _node_inspector:
+		_node_inspector.inspect(node)
 	_update_status()
 	node_selected.emit(node)
 
@@ -1444,6 +1460,8 @@ func _deselect() -> void:
 	_clear_selection_highlight()
 	_sync_scene_tree_selection()
 	_clear_transform_panel()
+	if _node_inspector:
+		_node_inspector.clear()
 	_update_status()
 	selection_cleared.emit()
 

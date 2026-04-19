@@ -163,8 +163,10 @@ func _build_ui() -> void:
 	# Editor indices: 0=Levels, 1=Actors, 2=Sounds, 3=Shaders, 4=Settings, 5=Build
 	if _editors.size() > 1 and _editors[1] and _editors[1].has_signal("actor_changed"):
 		_editors[1].actor_changed.connect(_on_actor_changed)
+	if _editors.size() > 1 and _editors[1] and _editors[1].has_signal("switch_tab_requested"):
+		_editors[1].switch_tab_requested.connect(_switch_to)
 	if _editors.size() > 0 and _editors[0] and _editors[0].has_signal("level_changed"):
-		_editors[0].level_changed.connect(func(_id): _dirty = true; _restart_build_debounce())
+		_editors[0].level_changed.connect(func(_id): _dirty = true; _restart_build_debounce(); _sync_start_level_count())
 	if _editors.size() > 3 and _editors[3] and _editors[3].has_signal("data_changed"):
 		_editors[3].data_changed.connect(_on_data_changed)
 	if _editors.size() > 4 and _editors[4] and _editors[4].has_signal("settings_changed"):
@@ -175,8 +177,11 @@ func _build_ui() -> void:
 		_editors[5].preview_requested.connect(_on_preview_requested)
 	if _editors.size() > 5 and _editors[5] and _editors[5].has_signal("template_requested"):
 		_editors[5].template_requested.connect(_on_template_requested)
+	if _editors.size() > 5 and _editors[5] and _editors[5].has_signal("web_publish_requested"):
+		_editors[5].web_publish_requested.connect(_on_web_publish_requested)
 
 	_sync_actor_names()
+	_sync_start_level_count()
 
 	# Initialize tile library and wire to editors
 	_tile_lib = TileLibrary.new()
@@ -187,6 +192,8 @@ func _build_ui() -> void:
 			_editors[0].refresh_all()
 	if _editors.size() > 1 and _editors[1]:
 		_editors[1].tile_library = _tile_lib
+		if _editors.size() > 2 and _editors[2]:
+			_editors[1].sound_editor = _editors[2]
 		if _editors[1].has_method("refresh_all"):
 			_editors[1].refresh_all()
 
@@ -383,6 +390,16 @@ func _on_build_debounce_timeout() -> void:
 	var game_data: Dictionary = _collect_all_data()
 	_run_build_no_load(game_data)
 
+## Update the builder's Start Level dropdown to match the current level count.
+func _sync_start_level_count() -> void:
+	if _editors.size() < 6:
+		return
+	var level_ed = _editors[0]
+	var builder  = _editors[5]
+	if level_ed and builder and builder.has_method("update_level_count"):
+		var levels_data = level_ed.get_data()
+		builder.update_level_count(levels_data.size())
+
 func _sync_actor_names() -> void:
 	if _editors.size() < 2:
 		return
@@ -391,10 +408,12 @@ func _sync_actor_names() -> void:
 	if actor_ed and level_ed:
 		var actors_data = actor_ed.get_data()
 		var names: Array = []
+		var types: Array = []
 		for a in actors_data:
 			names.append(a.get("name", "Actor"))
+			types.append(a.get("type", "Drone"))
 		if level_ed.has_method("set_actor_names"):
-			level_ed.set_actor_names(names)
+			level_ed.set_actor_names(names, types)
 
 func _on_build_requested() -> void:
 	# Auto-save before building
@@ -407,6 +426,61 @@ func _on_preview_requested() -> void:
 	_auto_save()
 	var game_data: Dictionary = _collect_all_data()
 	_begin_build_and_play(game_data)
+
+func _on_web_publish_requested(web_cfg: Dictionary) -> void:
+	_auto_save()
+	_forward_build_log("[color=#5577cc]🌐 Publishing to Web (Flash-successor pipeline)…[/color]")
+
+	# Merge game settings into web config (canvas size, title)
+	var settings := {}
+	if _editors.size() > 4 and _editors[4]:
+		settings = _editors[4].get_data()
+	if not web_cfg.has("game_title") or web_cfg["game_title"] == "My Game":
+		web_cfg["game_title"] = settings.get("game_title", "My Game")
+	if not web_cfg.has("canvas_width") or web_cfg["canvas_width"] == 1280:
+		web_cfg["canvas_width"] = settings.get("screen_width", 1280)
+	if not web_cfg.has("canvas_height") or web_cfg["canvas_height"] == 720:
+		web_cfg["canvas_height"] = settings.get("screen_height", 720)
+
+	# Load the web export backend
+	var WebExport = load(AGCK_DIR + "agck_web_export.gd")
+	if not WebExport:
+		_forward_build_log("[color=#ff5555]✗ Cannot load agck_web_export.gd[/color]")
+		return
+
+	# Build the WebConfig
+	var config = WebExport.WebConfig.new()
+	config.game_title       = web_cfg.get("game_title", "My Game")
+	config.bg_color         = web_cfg.get("bg_color", "#0d0d14")
+	config.loading_style    = web_cfg.get("loading_style", "Bar")
+	config.loading_color    = web_cfg.get("loading_color", "#ffd159")
+	config.quality          = web_cfg.get("quality", "High")
+	config.scale_mode       = web_cfg.get("scale_mode", "Fit")
+	config.fullscreen_button = web_cfg.get("fullscreen_button", true)
+	config.right_click_menu = web_cfg.get("right_click_menu", true)
+	config.show_watermark   = web_cfg.get("show_watermark", true)
+	config.canvas_width     = web_cfg.get("canvas_width", 1280)
+	config.canvas_height    = web_cfg.get("canvas_height", 720)
+	config.embed_ready      = web_cfg.get("embed_ready", true)
+	config.splash_enabled   = web_cfg.get("splash_enabled", true)
+	config.description      = web_cfg.get("description", "")
+
+	# Output directory
+	var output_dir := "res://build/web/"
+
+	# Log callback
+	var log_fn := Callable(self, "_forward_build_log")
+
+	# Run the publish pipeline (no Godot export — generates wrapper + portal + embed)
+	var result = WebExport.publish_to_web(config, output_dir, false, log_fn)
+
+	# Trigger filesystem scan
+	if Engine.is_editor_hint():
+		var efs = EditorInterface.get_resource_filesystem()
+		if efs:
+			efs.scan()
+
+	_forward_build_log("[color=#8f8]🌐 Web publish complete! Files are in " + output_dir + "[/color]")
 
 
 # ─── Project Templates (Task 5) ─────────────────────────────
@@ -422,6 +496,7 @@ func _on_template_requested(template_name: String) -> void:
 			_apply_maze_template()
 	_dirty = true
 	_sync_actor_names()
+	_sync_start_level_count()
 	# Refresh editors
 	if _editors.size() > 0 and _editors[0] and _editors[0].has_method("refresh_all"):
 		_editors[0].refresh_all()
@@ -961,19 +1036,27 @@ func _load_build_result(result: Dictionary) -> void:
 				for _i in range(3):
 					await _view.get_tree().process_frame
 
-	# 1. Open Main.tscn in VG's 2D editor
+	# 1. Open Main.tscn in VG's 2D Editor (not the Form Designer — AGCK games
+	#    are Node2D-based scenes, not VB6-style forms, so the 2D Editor's
+	#    click-to-select / drag-to-move machinery is what we need here).
 	var main_tscn := output_dir + "Main.tscn"
 	if FileAccess.file_exists(main_tscn):
-		if _host_plugin and _host_plugin.has_method("_on_2d_view_pressed"):
-			# Open in VG's embedded 2D editor
+		# Also open in Godot's scene tab so the scene tree is available
+		if not main_tscn in EditorInterface.get_open_scenes():
+			EditorInterface.open_scene_from_path(main_tscn)
+		# Load into VG's embedded 2D editor
+		if _host_plugin:
 			var editor_2d = _host_plugin.get("_vg_2d_editor")
 			if editor_2d and editor_2d.has_method("load_scene"):
 				editor_2d.load_scene(main_tscn)
 				_forward_build_log("[color=#8f8]  ✓ Opened Main.tscn in 2D Editor[/color]")
 			else:
-				# Fallback: open via Godot's built-in scene tabs
 				EditorInterface.open_scene_from_path(main_tscn)
 				_forward_build_log("[color=#8f8]  ✓ Opened Main.tscn in Scene Editor[/color]")
+			# Switch VG IDE to the 2D view so the user sees the 2D editor
+			if _host_plugin.has_method("_on_2d_view_pressed"):
+				EditorInterface.set_main_screen_editor("Visual Gasic IDE")
+				_host_plugin._on_2d_view_pressed()
 		else:
 			EditorInterface.open_scene_from_path(main_tscn)
 			_forward_build_log("[color=#8f8]  ✓ Opened Main.tscn in Scene Editor[/color]")
@@ -1024,6 +1107,12 @@ func _collect_all_data() -> Dictionary:
 		game_data["build"] = _editors[5].get_data()
 	if _tile_lib and _tile_lib.has_method("get_data"):
 		game_data["tile_library"] = _tile_lib.get_data()
+	# Merge the build screen's Start Level into settings so the builder uses it
+	var build_sl: int = game_data.get("build", {}).get("start_level", 0)
+	if build_sl > 0:
+		if not game_data.has("settings"):
+			game_data["settings"] = {}
+		game_data["settings"]["start_level"] = build_sl
 	return game_data
 
 
@@ -1053,6 +1142,29 @@ func save_project(path: String) -> bool:
 	print("AGCK: Project saved to ", path)
 	return true
 
+
+## Auto-open a previously built Main.tscn into the VG 2D Editor.
+func _auto_open_built_scene(game_data: Dictionary) -> void:
+	var settings: Dictionary = game_data.get("settings", {})
+	var build_opts: Dictionary = game_data.get("build", {})
+	var game_title: String = settings.get("game_title", "AGCKGame")
+	var safe_name: String = game_title.replace(" ", "_").replace("/", "_").replace("\\", "_")
+	if safe_name.is_empty():
+		safe_name = "AGCKGame"
+	var output_dir: String = build_opts.get("output_path", "res://build/")
+	if not output_dir.ends_with("/"):
+		output_dir += "/"
+	output_dir += safe_name + "/"
+	var main_tscn := output_dir + "Main.tscn"
+	if not FileAccess.file_exists(main_tscn):
+		print("AGCK: No previous build found at ", main_tscn)
+		return
+	print("AGCK: Auto-opening built scene: ", main_tscn)
+	if _host_plugin:
+		var editor_2d = _host_plugin.get("_vg_2d_editor")
+		if editor_2d and editor_2d.has_method("load_scene"):
+			editor_2d.load_scene(main_tscn)
+			print("AGCK: Loaded Main.tscn into 2D Editor (background pre-load)")
 
 func load_project(path: String) -> bool:
 	var file = FileAccess.open(path, FileAccess.READ)
@@ -1098,5 +1210,10 @@ func load_project(path: String) -> bool:
 	_project_path = path
 	_dirty = false
 	_sync_actor_names()
+	_sync_start_level_count()
 	print("AGCK: Project loaded from ", path)
+
+	# Auto-open previously built Main.tscn into the VG 2D Editor
+	_auto_open_built_scene(game_data)
+
 	return true

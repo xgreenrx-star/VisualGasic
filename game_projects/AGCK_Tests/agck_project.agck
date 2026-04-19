@@ -11,17 +11,22 @@
 			"collision_mode": "Slide",
 			"damage": 0.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Hero",
+			"pickup_sound": "(None)",
 			"rebirth": 2.0,
 			"score_value": 0.0,
-			"shader_fx": "Hologram",
+			"shader_fx": "(None)",
 			"shader_params": {
-				"scan_density": 40.0,
-				"scan_speed": 2.0
+
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Player"
 		},
 		{
@@ -32,20 +37,31 @@
 					"loop": true,
 					"name": "Idle",
 					"speed": 8.0
+				},
+				{
+					"loop": true,
+					"name": "Walk",
+					"speed": 8.0
 				}
 			],
 			"collision_mode": "Bounce",
 			"damage": 20.0,
-			"death_mode": "Destroy",
+			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 50.0,
-			"max_speed": 60.0,
+			"max_speed": 73.0,
 			"name": "Slime",
+			"pickup_sound": "(None)",
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		},
 		{
@@ -59,15 +75,21 @@
 			"collision_mode": "None",
 			"damage": 0.0,
 			"death_mode": "Destroy",
+			"death_sound": "(None)",
 			"gravity_scale": 0.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 1.0,
 			"max_speed": 0.0,
 			"name": "Coin",
+			"pickup_sound": "(None)",
 			"score_value": 50.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Computer"
 		},
 		{
@@ -86,20 +108,26 @@
 			"collision_mode": "Bounce",
 			"damage": 10.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"entrance_mode": "Instant",
 			"fx_death": "",
 			"fx_hit": "",
 			"fx_spawn": "",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Actor 4",
+			"pickup_sound": "(None)",
 			"rebirth": 3.0,
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		},
 		{
@@ -118,20 +146,26 @@
 			"collision_mode": "Bounce",
 			"damage": 10.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"entrance_mode": "Instant",
 			"fx_death": "",
 			"fx_hit": "",
 			"fx_spawn": "",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Actor 5",
+			"pickup_sound": "(None)",
 			"rebirth": 3.0,
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		},
 		{
@@ -150,20 +184,26 @@
 			"collision_mode": "Bounce",
 			"damage": 10.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"entrance_mode": "Instant",
 			"fx_death": "",
 			"fx_hit": "",
 			"fx_spawn": "",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Actor 6",
+			"pickup_sound": "(None)",
 			"rebirth": 3.0,
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		},
 		{
@@ -182,20 +222,26 @@
 			"collision_mode": "Bounce",
 			"damage": 10.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"entrance_mode": "Instant",
 			"fx_death": "",
 			"fx_hit": "",
 			"fx_spawn": "",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Actor 7",
+			"pickup_sound": "(None)",
 			"rebirth": 3.0,
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		},
 		{
@@ -214,20 +260,26 @@
 			"collision_mode": "Bounce",
 			"damage": 10.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"entrance_mode": "Instant",
 			"fx_death": "",
 			"fx_hit": "",
 			"fx_spawn": "",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Actor 8",
+			"pickup_sound": "(None)",
 			"rebirth": 3.0,
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		},
 		{
@@ -246,20 +298,26 @@
 			"collision_mode": "Bounce",
 			"damage": 10.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"entrance_mode": "Instant",
 			"fx_death": "",
 			"fx_hit": "",
 			"fx_spawn": "",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Actor 9",
+			"pickup_sound": "(None)",
 			"rebirth": 3.0,
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		},
 		{
@@ -278,20 +336,26 @@
 			"collision_mode": "Bounce",
 			"damage": 10.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"entrance_mode": "Instant",
 			"fx_death": "",
 			"fx_hit": "",
 			"fx_spawn": "",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Actor 10",
+			"pickup_sound": "(None)",
 			"rebirth": 3.0,
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		},
 		{
@@ -310,20 +374,26 @@
 			"collision_mode": "Bounce",
 			"damage": 10.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"entrance_mode": "Instant",
 			"fx_death": "",
 			"fx_hit": "",
 			"fx_spawn": "",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Actor 11",
+			"pickup_sound": "(None)",
 			"rebirth": 3.0,
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		},
 		{
@@ -342,20 +412,26 @@
 			"collision_mode": "Bounce",
 			"damage": 10.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"entrance_mode": "Instant",
 			"fx_death": "",
 			"fx_hit": "",
 			"fx_spawn": "",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Actor 12",
+			"pickup_sound": "(None)",
 			"rebirth": 3.0,
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		},
 		{
@@ -374,20 +450,26 @@
 			"collision_mode": "Bounce",
 			"damage": 10.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"entrance_mode": "Instant",
 			"fx_death": "",
 			"fx_hit": "",
 			"fx_spawn": "",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Actor 13",
+			"pickup_sound": "(None)",
 			"rebirth": 3.0,
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		},
 		{
@@ -406,20 +488,26 @@
 			"collision_mode": "Bounce",
 			"damage": 10.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"entrance_mode": "Instant",
 			"fx_death": "",
 			"fx_hit": "",
 			"fx_spawn": "",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Actor 14",
+			"pickup_sound": "(None)",
 			"rebirth": 3.0,
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		},
 		{
@@ -438,20 +526,26 @@
 			"collision_mode": "Bounce",
 			"damage": 10.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"entrance_mode": "Instant",
 			"fx_death": "",
 			"fx_hit": "",
 			"fx_spawn": "",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Actor 15",
+			"pickup_sound": "(None)",
 			"rebirth": 3.0,
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		},
 		{
@@ -470,20 +564,26 @@
 			"collision_mode": "Bounce",
 			"damage": 10.0,
 			"death_mode": "Respawn",
+			"death_sound": "(None)",
 			"entrance_mode": "Instant",
 			"fx_death": "",
 			"fx_hit": "",
 			"fx_spawn": "",
 			"gravity_scale": 1.0,
+			"hit_sound": "(None)",
+			"jump_sound": "(None)",
 			"max_hp": 100.0,
 			"max_speed": 200.0,
 			"name": "Actor 16",
+			"pickup_sound": "(None)",
 			"rebirth": 3.0,
 			"score_value": 100.0,
 			"shader_fx": "(None)",
 			"shader_params": {
 
 			},
+			"shoot_sound": "(None)",
+			"stomp_sound": "(None)",
 			"type": "Drone"
 		}
 	],
@@ -496,7 +596,18 @@
 		"splash_duration": 2.0,
 		"splash_enabled": true,
 		"start_level": 1,
-		"target": "Desktop"
+		"target": "Desktop",
+		"web_bg_color": "#0d0d14",
+		"web_description": "",
+		"web_embed_ready": true,
+		"web_fullscreen_button": true,
+		"web_loading_color": "#ffd159",
+		"web_loading_style": "Bar",
+		"web_quality": "High",
+		"web_right_click_menu": true,
+		"web_scale_mode": "Fit",
+		"web_splash_enabled": true,
+		"web_watermark": true
 	},
 	"levels": [
 		{
@@ -509,13 +620,63 @@
 				},
 				{
 					"actor_id": 1.0,
-					"path": [],
+					"path": [
+						{
+							"x": 7.0,
+							"y": 7.0
+						},
+						{
+							"x": 7.0,
+							"y": 4.0
+						},
+						{
+							"x": 7.0,
+							"y": 7.0
+						}
+					],
 					"x": 7.0,
 					"y": 7.0
 				},
 				{
 					"actor_id": 1.0,
-					"path": [],
+					"path": [
+						{
+							"x": 14.0,
+							"y": 5.0
+						},
+						{
+							"x": 9.0,
+							"y": 5.0
+						},
+						{
+							"x": 9.0,
+							"y": 10.0
+						},
+						{
+							"x": 6.0,
+							"y": 10.0
+						},
+						{
+							"x": 11.0,
+							"y": 9.0
+						},
+						{
+							"x": 11.0,
+							"y": 6.0
+						},
+						{
+							"x": 11.0,
+							"y": 3.0
+						},
+						{
+							"x": 14.0,
+							"y": 3.0
+						},
+						{
+							"x": 14.0,
+							"y": 5.0
+						}
+					],
 					"x": 14.0,
 					"y": 5.0
 				},
@@ -538,6 +699,48 @@
 					"y": 5.0
 				}
 			],
+			"block_paths": {
+				"18,5": [
+					{
+						"x": 18.0,
+						"y": 5.0
+					},
+					{
+						"x": 18.0,
+						"y": 8.0
+					},
+					{
+						"x": 18.0,
+						"y": 5.0
+					},
+					{
+						"x": 16.0,
+						"y": 5.0
+					},
+					{
+						"x": 18.0,
+						"y": 5.0
+					},
+					{
+						"x": 16.0,
+						"y": 9.0
+					}
+				],
+				"5,8": [
+					{
+						"x": 5.0,
+						"y": 8.0
+					},
+					{
+						"x": 5.0,
+						"y": 10.0
+					},
+					{
+						"x": 5.0,
+						"y": 8.0
+					}
+				]
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -707,8 +910,8 @@
 				],
 				[
 					{
-						"block_type": 3.0,
-						"tile_index": 10.0
+						"block_type": 0.0,
+						"tile_index": 0.0
 					},
 					{
 						"block_type": 0.0,
@@ -789,8 +992,8 @@
 				],
 				[
 					{
-						"block_type": 3.0,
-						"tile_index": 10.0
+						"block_type": 0.0,
+						"tile_index": 0.0
 					},
 					{
 						"block_type": 0.0,
@@ -1297,88 +1500,6 @@
 						"tile_index": 0.0
 					},
 					{
-						"block_type": 1.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					}
-				],
-				[
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
-						"block_type": 0.0,
-						"tile_index": 0.0
-					},
-					{
 						"block_type": 0.0,
 						"tile_index": 0.0
 					},
@@ -1445,6 +1566,88 @@
 				],
 				[
 					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					},
+					{
+						"block_type": 0.0,
+						"tile_index": 0.0
+					}
+				],
+				[
+					{
 						"block_type": 1.0,
 						"tile_index": 0.0
 					},
@@ -1482,23 +1685,23 @@
 					},
 					{
 						"block_type": 3.0,
-						"tile_index": 10.0
+						"tile_index": 0.0
 					},
 					{
 						"block_type": 3.0,
-						"tile_index": 10.0
+						"tile_index": 0.0
 					},
 					{
-						"block_type": 3.0,
-						"tile_index": 10.0
+						"block_type": 1.0,
+						"tile_index": 0.0
 					},
 					{
-						"block_type": 3.0,
-						"tile_index": 10.0
+						"block_type": 1.0,
+						"tile_index": 0.0
 					},
 					{
-						"block_type": 3.0,
-						"tile_index": 10.0
+						"block_type": 1.0,
+						"tile_index": 0.0
 					},
 					{
 						"block_type": 1.0,
@@ -1545,6 +1748,9 @@
 					"y": 3.0
 				}
 			],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -2552,6 +2758,9 @@
 					"y": 2.0
 				}
 			],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -3546,6 +3755,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -4540,6 +4752,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -5534,6 +5749,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -6528,6 +6746,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -7522,6 +7743,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -8516,6 +8740,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -9510,6 +9737,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -10504,6 +10734,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -11498,6 +11731,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -12492,6 +12728,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -13486,6 +13725,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -14480,6 +14722,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -15474,6 +15719,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -16468,6 +16716,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -17462,6 +17713,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -18456,6 +18710,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -19450,6 +19707,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -20444,6 +20704,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -21438,6 +21701,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -22432,6 +22698,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -23426,6 +23695,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -24420,6 +24692,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -25414,6 +25689,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -26408,6 +26686,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -27402,6 +27683,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -28396,6 +28680,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -29390,6 +29677,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -30384,6 +30674,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -31378,6 +31671,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -32372,6 +32668,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -33366,6 +33665,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -34360,6 +34662,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -35354,6 +35659,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -36348,6 +36656,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -37342,6 +37653,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -38336,6 +38650,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -39330,6 +39647,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -40324,6 +40644,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -41318,6 +41641,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -42312,6 +42638,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -43306,6 +43635,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -44300,6 +44632,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -45294,6 +45629,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -46288,6 +46626,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -47282,6 +47623,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -48276,6 +48620,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -49270,6 +49617,9 @@
 		},
 		{
 			"actors": [],
+			"block_paths": {
+
+			},
 			"death_action": "Restart Level",
 			"death_action_target": 1.0,
 			"grid": [
@@ -50267,7 +50617,7 @@
 		"author": "",
 		"auto_save": true,
 		"background_color": "#1a1a2e",
-		"camera_zoom": 1.0,
+		"camera_zoom": 0.75,
 		"deadly_damage": 25.0,
 		"debug_overlay": false,
 		"difficulty": "Normal",
@@ -50280,7 +50630,7 @@
 		"game_over_style": "Default",
 		"game_title": "Platformer Adventure",
 		"gravity": 980.0,
-		"hero_death_anim": "(None)",
+		"hero_death_anim": "Death",
 		"hero_hit_anim": "(None)",
 		"hero_item_loss_anim": "(None)",
 		"hero_power_loss_anim": "(None)",
@@ -50289,9 +50639,9 @@
 		"level_order": "Sequential",
 		"lives": 3.0,
 		"max_score": 0.0,
-		"music_volume": 80.0,
-		"screen_height": 480,
-		"screen_width": 640,
+		"music_volume": 81.0,
+		"screen_height": 384.0,
+		"screen_width": 640.0,
 		"sfx_volume": 100.0,
 		"show_lives": true,
 		"show_score": true,
@@ -50305,7 +50655,7 @@
 	},
 	"shaders": [
 		{
-			"enabled": true,
+			"enabled": false,
 			"properties": {
 				"curvature": 0.1,
 				"scanline_strength": 0.35
@@ -50318,7 +50668,7 @@
 			"shader_name": "CRT TV"
 		},
 		{
-			"enabled": true,
+			"enabled": false,
 			"properties": {
 				"brightness": 2.7,
 				"noise_amount": 0.1
@@ -50370,7 +50720,7 @@
 			],
 			"filter_q": 50.0,
 			"filter_type": 0.0,
-			"name": "Sound 1",
+			"name": "Jump",
 			"tempo": 288,
 			"voice1_enabled": true,
 			"voice1_notes": [
@@ -50407,6 +50757,7 @@
 				0.0,
 				0.0
 			],
+			"voice1_volume": 80,
 			"voice1_wave": 1.0,
 			"voice2_enabled": true,
 			"voice2_notes": [
@@ -50483,14 +50834,90 @@
 			],
 			"filter_q": 50.0,
 			"filter_type": 0.0,
-			"name": "Sound 2",
-			"tempo": 120.0,
+			"name": "Coin",
+			"tempo": 280,
 			"voice1_enabled": true,
 			"voice1_notes": [
+				30.0,
+				30.0,
+				0.0,
+				42.0,
+				42.0,
 				0.0,
 				0.0,
 				0.0,
 				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0
+			],
+			"voice1_volume": 70,
+			"voice1_wave": 0.0,
+			"voice2_enabled": true,
+			"voice2_notes": [
+				18.0,
+				18.0,
+				0.0,
+				30.0,
+				30.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0
+			],
+			"voice2_volume": 40,
+			"voice2_wave": 1.0
+		},
+		{
+			"filter_enabled": true,
+			"filter_notes": [
+				30.0,
+				20.0,
+				12.0,
+				6.0,
 				0.0,
 				0.0,
 				0.0,
@@ -50520,7 +50947,47 @@
 				0.0,
 				0.0
 			],
-			"voice1_wave": 0.0,
+			"filter_q": 40,
+			"filter_type": 1.0,
+			"name": "Hit",
+			"tempo": 260,
+			"voice1_enabled": true,
+			"voice1_notes": [
+				36.0,
+				28.0,
+				16.0,
+				8.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0
+			],
+			"voice1_volume": 80,
+			"voice1_wave": 3.0,
 			"voice2_enabled": false,
 			"voice2_notes": [
 				0.0,
@@ -50556,6 +51023,7 @@
 				0.0,
 				0.0
 			],
+			"voice2_volume": 60,
 			"voice2_wave": 1.0
 		},
 		{
@@ -50596,26 +51064,26 @@
 			],
 			"filter_q": 50.0,
 			"filter_type": 0.0,
-			"name": "Sound 3",
-			"tempo": 120.0,
+			"name": "Hero Death",
+			"tempo": 160.0,
 			"voice1_enabled": true,
 			"voice1_notes": [
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
+				36.0,
+				34.0,
+				32.0,
+				30.0,
+				28.0,
+				26.0,
+				24.0,
+				22.0,
+				20.0,
+				18.0,
+				16.0,
+				14.0,
+				12.0,
+				10.0,
+				8.0,
+				6.0,
 				0.0,
 				0.0,
 				0.0,
@@ -50633,9 +51101,49 @@
 				0.0,
 				0.0
 			],
+			"voice1_volume": 80.0,
 			"voice1_wave": 0.0,
-			"voice2_enabled": false,
+			"voice2_enabled": true,
 			"voice2_notes": [
+				20.0,
+				18.0,
+				16.0,
+				14.0,
+				12.0,
+				10.0,
+				8.0,
+				6.0,
+				4.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0
+			],
+			"voice2_volume": 30.0,
+			"voice2_wave": 3.0
+		},
+		{
+			"filter_enabled": false,
+			"filter_notes": [
 				0.0,
 				0.0,
 				0.0,
@@ -50669,7 +51177,84 @@
 				0.0,
 				0.0
 			],
-			"voice2_wave": 1.0
+			"filter_q": 50,
+			"filter_type": 0.0,
+			"name": "Enemy Death",
+			"tempo": 280,
+			"voice1_enabled": true,
+			"voice1_notes": [
+				40.0,
+				30.0,
+				18.0,
+				8.0,
+				4.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0
+			],
+			"voice1_volume": 75,
+			"voice1_wave": 3.0,
+			"voice2_enabled": true,
+			"voice2_notes": [
+				32.0,
+				24.0,
+				16.0,
+				8.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0
+			],
+			"voice2_volume": 50,
+			"voice2_wave": 0.0
 		},
 		{
 			"filter_enabled": false,
@@ -50709,14 +51294,14 @@
 			],
 			"filter_q": 50.0,
 			"filter_type": 0.0,
-			"name": "Sound 4",
-			"tempo": 120.0,
+			"name": "Shoot",
+			"tempo": 300.0,
 			"voice1_enabled": true,
 			"voice1_notes": [
-				0.0,
-				0.0,
-				0.0,
-				0.0,
+				38.0,
+				32.0,
+				24.0,
+				16.0,
 				0.0,
 				0.0,
 				0.0,
@@ -50746,12 +51331,13 @@
 				0.0,
 				0.0
 			],
+			"voice1_volume": 65.0,
 			"voice1_wave": 0.0,
-			"voice2_enabled": false,
+			"voice2_enabled": true,
 			"voice2_notes": [
-				0.0,
-				0.0,
-				0.0,
+				24.0,
+				16.0,
+				8.0,
 				0.0,
 				0.0,
 				0.0,
@@ -50782,7 +51368,8 @@
 				0.0,
 				0.0
 			],
-			"voice2_wave": 1.0
+			"voice2_volume": 35.0,
+			"voice2_wave": 3.0
 		},
 		{
 			"filter_enabled": false,
@@ -50822,20 +51409,20 @@
 			],
 			"filter_q": 50.0,
 			"filter_type": 0.0,
-			"name": "Sound 5",
-			"tempo": 120.0,
+			"name": "Powerup",
+			"tempo": 260.0,
 			"voice1_enabled": true,
 			"voice1_notes": [
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
+				12.0,
+				16.0,
+				19.0,
+				24.0,
+				28.0,
+				31.0,
+				36.0,
+				40.0,
+				43.0,
+				48.0,
 				0.0,
 				0.0,
 				0.0,
@@ -50859,17 +51446,18 @@
 				0.0,
 				0.0
 			],
-			"voice1_wave": 0.0,
-			"voice2_enabled": false,
+			"voice1_volume": 75.0,
+			"voice1_wave": 1.0,
+			"voice2_enabled": true,
 			"voice2_notes": [
 				0.0,
 				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
+				12.0,
+				16.0,
+				19.0,
+				24.0,
+				28.0,
+				31.0,
 				0.0,
 				0.0,
 				0.0,
@@ -50895,7 +51483,8 @@
 				0.0,
 				0.0
 			],
-			"voice2_wave": 1.0
+			"voice2_volume": 40.0,
+			"voice2_wave": 0.0
 		},
 		{
 			"filter_enabled": false,
@@ -50935,26 +51524,26 @@
 			],
 			"filter_q": 50.0,
 			"filter_type": 0.0,
-			"name": "Sound 6",
+			"name": "Game Over",
 			"tempo": 120.0,
 			"voice1_enabled": true,
 			"voice1_notes": [
+				24.0,
+				24.0,
 				0.0,
+				22.0,
+				22.0,
 				0.0,
+				19.0,
+				19.0,
 				0.0,
+				17.0,
+				17.0,
 				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
+				12.0,
+				12.0,
+				12.0,
+				12.0,
 				0.0,
 				0.0,
 				0.0,
@@ -50972,63 +51561,26 @@
 				0.0,
 				0.0
 			],
+			"voice1_volume": 80.0,
 			"voice1_wave": 0.0,
-			"voice2_enabled": false,
+			"voice2_enabled": true,
 			"voice2_notes": [
+				12.0,
+				12.0,
 				0.0,
+				10.0,
+				10.0,
 				0.0,
+				7.0,
+				7.0,
 				0.0,
+				5.0,
+				5.0,
 				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0
-			],
-			"voice2_wave": 1.0
-		},
-		{
-			"filter_enabled": false,
-			"filter_notes": [
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
+				1.0,
+				1.0,
+				1.0,
+				1.0,
 				0.0,
 				0.0,
 				0.0,
@@ -51046,194 +51598,7 @@
 				0.0,
 				0.0
 			],
-			"filter_q": 50.0,
-			"filter_type": 0.0,
-			"name": "Sound 7",
-			"tempo": 120.0,
-			"voice1_enabled": true,
-			"voice1_notes": [
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0
-			],
-			"voice1_wave": 0.0,
-			"voice2_enabled": false,
-			"voice2_notes": [
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0
-			],
-			"voice2_wave": 1.0
-		},
-		{
-			"filter_enabled": false,
-			"filter_notes": [
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0
-			],
-			"filter_q": 50.0,
-			"filter_type": 0.0,
-			"name": "Sound 8",
-			"tempo": 120.0,
-			"voice1_enabled": true,
-			"voice1_notes": [
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0
-			],
-			"voice1_wave": 0.0,
-			"voice2_enabled": false,
-			"voice2_notes": [
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0,
-				0.0
-			],
+			"voice2_volume": 50.0,
 			"voice2_wave": 1.0
 		}
 	],
@@ -51254,7 +51619,7 @@
 						"iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAIlJREFUSIlj/P//PwMtARNNTR+1YNQCrOCmry9J6ZqRmHyAz1D1zZsZCVrwsLAQxQD5/n64JmJcDLMEmzk0jwOCQQTzgfrM5ww30yUZ0NkMDPiDCa8FpEQoLkvwBhGhCCRG3eDKB+qbN6PQxACa5wOG////k4Rv+Pj8J0U9UT6gBAyuSB61gCYAALS5huVPc/MDAAAAAElFTkSuQmCC"
 					]
 				},
-				"name": "Alien",
+				"name": "Slime",
 				"type": "Drone"
 			},
 			"2": {

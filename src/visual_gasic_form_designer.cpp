@@ -3821,6 +3821,7 @@ Dictionary VisualGasicFormDesigner::get_control_info(int p_index) const {
     info["name"] = item.name;
     info["type"] = item.type;
     info["scene_path"] = item.scene_path;
+    info["parent_path"] = item.parent_path;
     info["x"] = item.rect.position.x;
     info["y"] = item.rect.position.y;
     info["width"] = item.rect.size.x;
@@ -5394,12 +5395,20 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
         const FormControlItem &ctrl = controls[i];
         String sp = ctrl.scene_path;
 
+        // Use the control's own parent_path if it was imported from a nested scene
+        // (e.g. AGCK games with HUD/MainMenuOverlay/GameOverOverlay children).
+        // For flat VB6 forms, parent_path is always "." which matches previous behavior.
+        String ctrl_parent = ctrl.parent_path;
+        if (ctrl_parent == "." || ctrl_parent.is_empty()) {
+            ctrl_parent = parent_path;  // "." or "UI" depending on game_ui_mode
+        }
+
         if (!sp.is_empty() && path_to_idx.has(sp)) {
             // Instance from prototype scene
-            out += "[node name=\"" + ctrl.name + "\" parent=\"" + parent_path + "\" instance=ExtResource(\"" + String::num_int64(path_to_idx[sp]) + "\")]\n";
+            out += "[node name=\"" + ctrl.name + "\" parent=\"" + ctrl_parent + "\" instance=ExtResource(\"" + String::num_int64(path_to_idx[sp]) + "\")]\n";
         } else {
             // Fallback: bare type node
-            out += "[node name=\"" + ctrl.name + "\" type=\"" + ctrl.type + "\" parent=\"" + parent_path + "\"]\n";
+            out += "[node name=\"" + ctrl.name + "\" type=\"" + ctrl.type + "\" parent=\"" + ctrl_parent + "\"]\n";
         }
 
         out += "offset_left = " + String::num_int64((int)ctrl.rect.position.x) + ".0\n";
@@ -5809,30 +5818,49 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
     FormControlItem current_item;
     String current_raw_block;  // accumulates raw lines for MenuBar child storage
 
+    // Anchor tracking for anchor-based layouts (AGCK game scenes)
+    float cur_anchor_left = 0, cur_anchor_top = 0, cur_anchor_right = 0, cur_anchor_bottom = 0;
+    // Use a reasonable reference size for resolving anchors.
+    // For Window-based forms, form_size is parsed from root node.
+    // For Node2D-based AGCK scenes, we use 1152x648 (Godot default project resolution).
+    float ref_w = 1152.0f, ref_h = 648.0f;
+
     while (i < lines.size()) {
         String line = lines[i].strip_edges();
 
         if (line.begins_with("[node ")) {
             // Commit previous node (skip root node — it's not a control)
             if (in_node && !is_root_node) {
-                if (!current_node_name.begins_with("_") && current_node_parent == ".") {
-                    // Direct child of root Window
-                    if (current_node_type == "MenuBar" || current_node_name == "MainMenu") {
+                // Resolve anchor-based positions to absolute pixel coordinates
+                // for controls that use anchors (AGCK game scenes).
+                if (cur_anchor_left != 0 || cur_anchor_top != 0 || cur_anchor_right != 0 || cur_anchor_bottom != 0) {
+                    float abs_left = cur_anchor_left * ref_w + current_item.rect.position.x;
+                    float abs_top = cur_anchor_top * ref_h + current_item.rect.position.y;
+                    float abs_right = cur_anchor_right * ref_w + (current_item.rect.position.x + current_item.rect.size.x);
+                    float abs_bottom = cur_anchor_bottom * ref_h + (current_item.rect.position.y + current_item.rect.size.y);
+                    current_item.rect.position.x = abs_left;
+                    current_item.rect.position.y = abs_top;
+                    current_item.rect.size.x = abs_right - abs_left;
+                    current_item.rect.size.y = abs_bottom - abs_top;
+                }
+                if (!current_node_name.begins_with("_") && !current_node_parent.is_empty()) {
+                    // Store the parent path so we can serialize back correctly
+                    current_item.parent_path = current_node_parent;
+                    if (current_node_parent == "." && (current_node_type == "MenuBar" || current_node_name == "MainMenu")) {
                         has_menu_bar = true;
                         menu_bar_node_name = current_node_name;
-                    } else {
-                        controls.push_back(current_item);
-                    }
-                } else {
-                    if (!menu_bar_node_name.is_empty() && current_node_parent == menu_bar_node_name) {
+                    } else if (!menu_bar_node_name.is_empty() && current_node_parent == menu_bar_node_name) {
                         // Child of the MenuBar (PopupMenu) → store raw block + extract title
                         menu_child_raw_blocks.push_back(current_raw_block);
-                        // Derive display title from node name: "mnuFile" → "File", "Edit" → "Edit"
                         String title = current_node_name;
                         if (title.begins_with("mnu") && title.length() > 3) {
                             title = title.substr(3);
                         }
                         menu_titles.push_back(title);
+                    } else {
+                        // Import ALL non-internal nodes — including nested children
+                        // from AGCK game scenes (e.g. PlayBtn under MainMenuOverlay).
+                        controls.push_back(current_item);
                     }
                 }
             }
@@ -5843,6 +5871,7 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
             current_node_parent = "";
             current_node_type = "";
             current_instance_id = "";
+            cur_anchor_left = 0; cur_anchor_top = 0; cur_anchor_right = 0; cur_anchor_bottom = 0;
 
             // Extract name
             int name_start = line.find("name=\"");
@@ -5923,6 +5952,14 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                 } else if (key == "offset_bottom") {
                     float bottom = val.to_float();
                     current_item.rect.size.y = bottom - current_item.rect.position.y;
+                } else if (key == "anchor_left") {
+                    cur_anchor_left = val.to_float();
+                } else if (key == "anchor_top") {
+                    cur_anchor_top = val.to_float();
+                } else if (key == "anchor_right") {
+                    cur_anchor_right = val.to_float();
+                } else if (key == "anchor_bottom") {
+                    cur_anchor_bottom = val.to_float();
                 } else if (key == "text") {
                     // Strip quotes
                     if (val.begins_with("\"") && val.ends_with("\"")) {
@@ -5939,6 +5976,8 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                             if (parts.size() >= 2) {
                                 form_size.x = parts[0].strip_edges().to_int();
                                 form_size.y = parts[1].strip_edges().to_int();
+                                ref_w = (float)form_size.x;
+                                ref_h = (float)form_size.y;
                                 UtilityFunctions::print("FormDesigner: Parsed form_size = ", form_size, " from .tscn");
                             }
                         }
@@ -6283,21 +6322,32 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
 
     // Commit last node (skip root node — it's not a control)
     if (in_node && !is_root_node) {
-        if (!current_node_name.begins_with("_") && current_node_parent == ".") {
-            if (current_node_type == "MenuBar" || current_node_name == "MainMenu") {
+        // Resolve anchor-based positions (same as mid-parse commit)
+        if (cur_anchor_left != 0 || cur_anchor_top != 0 || cur_anchor_right != 0 || cur_anchor_bottom != 0) {
+            float abs_left = cur_anchor_left * ref_w + current_item.rect.position.x;
+            float abs_top = cur_anchor_top * ref_h + current_item.rect.position.y;
+            float abs_right = cur_anchor_right * ref_w + (current_item.rect.position.x + current_item.rect.size.x);
+            float abs_bottom = cur_anchor_bottom * ref_h + (current_item.rect.position.y + current_item.rect.size.y);
+            current_item.rect.position.x = abs_left;
+            current_item.rect.position.y = abs_top;
+            current_item.rect.size.x = abs_right - abs_left;
+            current_item.rect.size.y = abs_bottom - abs_top;
+        }
+        if (!current_node_name.begins_with("_") && !current_node_parent.is_empty()) {
+            current_item.parent_path = current_node_parent;
+            if (current_node_parent == "." && (current_node_type == "MenuBar" || current_node_name == "MainMenu")) {
                 has_menu_bar = true;
                 menu_bar_node_name = current_node_name;
+            } else if (!menu_bar_node_name.is_empty() && current_node_parent == menu_bar_node_name) {
+                menu_child_raw_blocks.push_back(current_raw_block);
+                String title = current_node_name;
+                if (title.begins_with("mnu") && title.length() > 3) {
+                    title = title.substr(3);
+                }
+                menu_titles.push_back(title);
             } else {
                 controls.push_back(current_item);
             }
-        } else if (!menu_bar_node_name.is_empty() && current_node_parent == menu_bar_node_name) {
-            // Child of the MenuBar (PopupMenu) → store raw block + extract title
-            menu_child_raw_blocks.push_back(current_raw_block);
-            String title = current_node_name;
-            if (title.begins_with("mnu") && title.length() > 3) {
-                title = title.substr(3);
-            }
-            menu_titles.push_back(title);
         }
     }
 

@@ -1170,7 +1170,7 @@ func _ls(size: int, color: Color) -> LabelSettings:
 	ls.font_size = size
 	ls.font_color = color
 	ls.outline_size = 0
-	ls.font_outline_color = Color.TRANSPARENT
+	ls.outline_color = Color.TRANSPARENT
 	return ls
 
 

@@ -1,7 +1,7 @@
 # VisualGasic v5.0.1 Beta 1 — Release Notes
 
-**Release Date**: April 9, 2026  
-**Tag**: `v5.0.1-beta1`  
+**Release Date**: April 9, 2026 (Updated: April 18, 2026 — Beta 3)  
+**Tag**: `v5.0.1-beta3`  
 **Status**: 🟡 **BETA — NOT FOR PRODUCTION USE**
 
 ---
@@ -168,12 +168,17 @@ python install.py
 
 ## 🔜 Coming Next
 
-- **Web UI** — Browser-based project dashboard, settings panel, and build monitor
+- **Browser Dashboard** — Browser-based project dashboard, settings panel, and build monitor
 - Community testing feedback integration
 - Full QA pass across all platforms
-- AGCK Game Builder — actual Godot scene generation (currently simulated)
-- Sound Editor — real AudioStreamWAV synthesis
 - Stable v5.0.1 release
+
+### ✅ Recently Added (Beta 2)
+
+- **🌐 Publish to Web** — Flash-successor HTML5 export with preloader, fullscreen, context menu, embed code, portal pages, and quality/scale controls
+- **🤖 Multi-Provider AI Help** — OpenAI (GPT-4o), Anthropic Claude, Google Gemini cloud providers alongside local Ollama
+- **🎬 Live Control Animation** — @tool custom controls animate in real-time in the Form Designer via per-instance SubViewports
+- **🔌 WebSocket Controls** — WebSocketClient, WebSocketServer, Lobby, and Chat controls for multiplayer game networking
 
 ---
 

@@ -55,6 +55,10 @@ var _audio_player: AudioStreamPlayer = null
 var _name_edit: LineEdit = null
 var _vol1_slider: HSlider = null
 var _vol2_slider: HSlider = null
+var _import_btn: Button = null
+var _clear_wav_btn: Button = null
+var _wav_label: Label = null
+var _file_dialog: FileDialog = null
 
 
 func _ls(size: int, color: Color) -> LabelSettings:
@@ -148,8 +152,157 @@ func _ready() -> void:
 
 func _init_sounds() -> void:
 	sounds.clear()
-	for i in range(MAX_SOUNDS):
-		sounds.append(_make_empty_sound(i + 1))
+	# Pre-load 8 retro game sound presets
+	sounds.append(_preset_jump())
+	sounds.append(_preset_coin())
+	sounds.append(_preset_hit())
+	sounds.append(_preset_hero_death())
+	sounds.append(_preset_enemy_death())
+	sounds.append(_preset_shoot())
+	sounds.append(_preset_powerup())
+	sounds.append(_preset_game_over())
+
+
+# ─── Sound Presets ────────────────────────────────────────────
+
+func _preset_jump() -> Dictionary:
+	var d = _make_empty_sound(1)
+	d["name"] = "Jump"
+	d["tempo"] = 240
+	d["voice1_wave"] = 1  # Triangle
+	d["voice1_enabled"] = true
+	d["voice1_volume"] = 75
+	# Rising chirp: quick ascending notes
+	var n = d["voice1_notes"]
+	n[0] = 12; n[1] = 18; n[2] = 24; n[3] = 30; n[4] = 36; n[5] = 40; n[6] = 44; n[7] = 48
+	return d
+
+func _preset_coin() -> Dictionary:
+	var d = _make_empty_sound(2)
+	d["name"] = "Coin"
+	d["tempo"] = 280
+	d["voice1_wave"] = 0  # Square
+	d["voice1_enabled"] = true
+	d["voice1_volume"] = 70
+	# Two-note ascending chime
+	var n = d["voice1_notes"]
+	n[0] = 30; n[1] = 30; n[2] = 0; n[3] = 42; n[4] = 42
+	d["voice2_enabled"] = true
+	d["voice2_wave"] = 1  # Triangle
+	d["voice2_volume"] = 40
+	var n2 = d["voice2_notes"]
+	n2[0] = 18; n2[1] = 18; n2[2] = 0; n2[3] = 30; n2[4] = 30
+	return d
+
+func _preset_hit() -> Dictionary:
+	var d = _make_empty_sound(3)
+	d["name"] = "Hit"
+	d["tempo"] = 260
+	d["voice1_wave"] = 3  # Noise
+	d["voice1_enabled"] = true
+	d["voice1_volume"] = 80
+	# Short noise burst
+	var n = d["voice1_notes"]
+	n[0] = 36; n[1] = 28; n[2] = 16; n[3] = 8
+	d["filter_enabled"] = true
+	d["filter_type"] = 1  # LowPass
+	d["filter_q"] = 40
+	var fn = d["filter_notes"]
+	fn[0] = 30; fn[1] = 20; fn[2] = 12; fn[3] = 6
+	return d
+
+func _preset_hero_death() -> Dictionary:
+	var d = _make_empty_sound(4)
+	d["name"] = "Hero Death"
+	d["tempo"] = 160
+	d["voice1_wave"] = 0  # Square
+	d["voice1_enabled"] = true
+	d["voice1_volume"] = 80
+	# Descending tone sweep
+	var n = d["voice1_notes"]
+	n[0] = 36; n[1] = 34; n[2] = 32; n[3] = 30; n[4] = 28; n[5] = 26
+	n[6] = 24; n[7] = 22; n[8] = 20; n[9] = 18; n[10] = 16; n[11] = 14
+	n[12] = 12; n[13] = 10; n[14] = 8; n[15] = 6
+	d["voice2_enabled"] = true
+	d["voice2_wave"] = 3  # Noise
+	d["voice2_volume"] = 30
+	var n2 = d["voice2_notes"]
+	n2[0] = 20; n2[1] = 18; n2[2] = 16; n2[3] = 14; n2[4] = 12; n2[5] = 10
+	n2[6] = 8; n2[7] = 6; n2[8] = 4
+	return d
+
+func _preset_enemy_death() -> Dictionary:
+	var d = _make_empty_sound(5)
+	d["name"] = "Enemy Death"
+	d["tempo"] = 280
+	d["voice1_wave"] = 3  # Noise
+	d["voice1_enabled"] = true
+	d["voice1_volume"] = 75
+	# Quick noise pop
+	var n = d["voice1_notes"]
+	n[0] = 40; n[1] = 30; n[2] = 18; n[3] = 8; n[4] = 4
+	d["voice2_enabled"] = true
+	d["voice2_wave"] = 0  # Square
+	d["voice2_volume"] = 50
+	var n2 = d["voice2_notes"]
+	n2[0] = 32; n2[1] = 24; n2[2] = 16; n2[3] = 8
+	return d
+
+func _preset_shoot() -> Dictionary:
+	var d = _make_empty_sound(6)
+	d["name"] = "Shoot"
+	d["tempo"] = 300
+	d["voice1_wave"] = 0  # Square
+	d["voice1_enabled"] = true
+	d["voice1_volume"] = 65
+	# Short blip
+	var n = d["voice1_notes"]
+	n[0] = 38; n[1] = 32; n[2] = 24; n[3] = 16
+	d["voice2_enabled"] = true
+	d["voice2_wave"] = 3  # Noise
+	d["voice2_volume"] = 35
+	var n2 = d["voice2_notes"]
+	n2[0] = 24; n2[1] = 16; n2[2] = 8
+	return d
+
+func _preset_powerup() -> Dictionary:
+	var d = _make_empty_sound(7)
+	d["name"] = "Powerup"
+	d["tempo"] = 260
+	d["voice1_wave"] = 1  # Triangle
+	d["voice1_enabled"] = true
+	d["voice1_volume"] = 75
+	# Rising arpeggio
+	var n = d["voice1_notes"]
+	n[0] = 12; n[1] = 16; n[2] = 19; n[3] = 24; n[4] = 28; n[5] = 31
+	n[6] = 36; n[7] = 40; n[8] = 43; n[9] = 48
+	d["voice2_enabled"] = true
+	d["voice2_wave"] = 0  # Square
+	d["voice2_volume"] = 40
+	var n2 = d["voice2_notes"]
+	n2[2] = 12; n2[3] = 16; n2[4] = 19; n2[5] = 24; n2[6] = 28; n2[7] = 31
+	return d
+
+func _preset_game_over() -> Dictionary:
+	var d = _make_empty_sound(8)
+	d["name"] = "Game Over"
+	d["tempo"] = 120
+	d["voice1_wave"] = 0  # Square
+	d["voice1_enabled"] = true
+	d["voice1_volume"] = 80
+	# Slow descending sad tones
+	var n = d["voice1_notes"]
+	n[0] = 24; n[1] = 24; n[2] = 0; n[3] = 22; n[4] = 22; n[5] = 0
+	n[6] = 19; n[7] = 19; n[8] = 0; n[9] = 17; n[10] = 17; n[11] = 0
+	n[12] = 12; n[13] = 12; n[14] = 12; n[15] = 12
+	d["voice2_enabled"] = true
+	d["voice2_wave"] = 1  # Triangle
+	d["voice2_volume"] = 50
+	var n2 = d["voice2_notes"]
+	n2[0] = 12; n2[1] = 12; n2[2] = 0; n2[3] = 10; n2[4] = 10; n2[5] = 0
+	n2[6] = 7; n2[7] = 7; n2[8] = 0; n2[9] = 5; n2[10] = 5; n2[11] = 0
+	n2[12] = 1; n2[13] = 1; n2[14] = 1; n2[15] = 1
+	return d
 
 
 func _make_empty_sound(num: int) -> Dictionary:
@@ -174,6 +327,7 @@ func _make_empty_sound(num: int) -> Dictionary:
 		"filter_enabled": false,
 		"voice1_volume": 80,
 		"voice2_volume": 60,
+		"custom_wav": "",
 	}
 
 
@@ -226,6 +380,50 @@ func _build_ui() -> void:
 	_name_edit.add_theme_color_override("font_color", WHITE)
 	_name_edit.text_changed.connect(_on_name_changed)
 	hbox.add_child(_name_edit)
+
+	# 📂 Import WAV button
+	_import_btn = Button.new()
+	_import_btn.text = "📂"
+	_import_btn.tooltip_text = "Import a .wav file for this sound slot"
+	_import_btn.add_theme_font_size_override("font_size", 13)
+	_import_btn.pressed.connect(_on_import_wav)
+	var imp_s = StyleBoxFlat.new()
+	imp_s.bg_color = Color(0.18, 0.18, 0.22)
+	imp_s.set_corner_radius_all(3)
+	imp_s.content_margin_left = 4; imp_s.content_margin_right = 4
+	imp_s.content_margin_top = 2;  imp_s.content_margin_bottom = 2
+	_import_btn.add_theme_stylebox_override("normal", imp_s)
+	var imp_h = imp_s.duplicate()
+	imp_h.bg_color = Color(0.25, 0.25, 0.30)
+	_import_btn.add_theme_stylebox_override("hover", imp_h)
+	_import_btn.add_theme_color_override("font_color", LABEL_CLR)
+	hbox.add_child(_import_btn)
+
+	# ✕ Clear WAV button (only visible when custom wav is set)
+	_clear_wav_btn = Button.new()
+	_clear_wav_btn.text = "✕"
+	_clear_wav_btn.tooltip_text = "Remove imported WAV — revert to synth"
+	_clear_wav_btn.add_theme_font_size_override("font_size", 11)
+	_clear_wav_btn.pressed.connect(_on_clear_wav)
+	var clr_s = StyleBoxFlat.new()
+	clr_s.bg_color = Color(0.55, 0.20, 0.20)
+	clr_s.set_corner_radius_all(3)
+	clr_s.content_margin_left = 4; clr_s.content_margin_right = 4
+	clr_s.content_margin_top = 2;  clr_s.content_margin_bottom = 2
+	_clear_wav_btn.add_theme_stylebox_override("normal", clr_s)
+	var clr_h = clr_s.duplicate()
+	clr_h.bg_color = Color(0.70, 0.25, 0.25)
+	_clear_wav_btn.add_theme_stylebox_override("hover", clr_h)
+	_clear_wav_btn.add_theme_color_override("font_color", WHITE)
+	_clear_wav_btn.visible = false
+	hbox.add_child(_clear_wav_btn)
+
+	# WAV file indicator label
+	_wav_label = Label.new()
+	_wav_label.text = ""
+	_wav_label.label_settings = _ls(10, Color(0.55, 0.85, 0.55))
+	_wav_label.visible = false
+	hbox.add_child(_wav_label)
 
 	hbox.add_child(VSeparator.new())
 
@@ -686,7 +884,16 @@ func _on_play_sound() -> void:
 		_audio_player.finished.connect(_on_playback_finished)
 		add_child(_audio_player)
 	_audio_player.stop()
-	var stream = _generate_audio_stream()
+	var snd = sounds[selected_sound]
+	var wav_path: String = snd.get("custom_wav", "")
+	var stream: AudioStream = null
+	if not wav_path.is_empty():
+		stream = _load_wav_file(wav_path)
+		if stream == null:
+			_status_lbl.text = "⚠ Cannot load WAV: " + wav_path.get_file()
+			return
+	else:
+		stream = _generate_audio_stream()
 	if stream:
 		_audio_player.stream = stream
 		_audio_player.play()
@@ -703,6 +910,88 @@ func _on_stop_sound() -> void:
 
 func _on_playback_finished() -> void:
 	_status_lbl.text = "✓ Playback complete"
+
+
+## Load a WAV file from disk and return an AudioStreamWAV.
+func _load_wav_file(path: String) -> AudioStreamWAV:
+	var f = FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return null
+	var riff = f.get_buffer(4)
+	if riff.size() < 4 or riff.get_string_from_ascii() != "RIFF":
+		return null
+	var _file_size = f.get_32()
+	var wave = f.get_buffer(4)
+	if wave.size() < 4 or wave.get_string_from_ascii() != "WAVE":
+		return null
+	var sample_rate := 44100
+	var bits_per_sample := 16
+	var channels := 1
+	var pcm_data := PackedByteArray()
+	while f.get_position() < f.get_length():
+		var chunk_id_buf = f.get_buffer(4)
+		if chunk_id_buf.size() < 4:
+			break
+		var chunk_id = chunk_id_buf.get_string_from_ascii()
+		var chunk_size = f.get_32()
+		if chunk_id == "fmt ":
+			var _audio_format = f.get_16()  # 1 = PCM
+			channels = f.get_16()
+			sample_rate = f.get_32()
+			var _byte_rate = f.get_32()
+			var _block_align = f.get_16()
+			bits_per_sample = f.get_16()
+			if chunk_size > 16:
+				f.get_buffer(chunk_size - 16)
+		elif chunk_id == "data":
+			pcm_data = f.get_buffer(chunk_size)
+		else:
+			f.get_buffer(chunk_size)
+		# WAV chunks are word-aligned
+		if chunk_size % 2 != 0 and f.get_position() < f.get_length():
+			f.get_8()
+	if pcm_data.is_empty():
+		return null
+	var stream = AudioStreamWAV.new()
+	stream.data = pcm_data
+	stream.format = AudioStreamWAV.FORMAT_16_BITS if bits_per_sample >= 16 else AudioStreamWAV.FORMAT_8_BITS
+	stream.mix_rate = sample_rate
+	stream.stereo = channels >= 2
+	return stream
+
+
+func _on_import_wav() -> void:
+	if _file_dialog == null:
+		_file_dialog = FileDialog.new()
+		_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+		_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_file_dialog.filters = PackedStringArray(["*.wav ; WAV Audio Files"])
+		_file_dialog.title = "Import WAV Sound"
+		_file_dialog.size = Vector2i(700, 450)
+		_file_dialog.file_selected.connect(_on_wav_selected)
+		add_child(_file_dialog)
+	_file_dialog.popup_centered()
+
+
+func _on_wav_selected(path: String) -> void:
+	# Verify it's a valid WAV file
+	var test_stream = _load_wav_file(path)
+	if test_stream == null:
+		_status_lbl.text = "⚠ Invalid WAV file — must be PCM format"
+		return
+	sounds[selected_sound]["custom_wav"] = path
+	_status_lbl.text = "📎 Imported: " + path.get_file()
+	sound_changed.emit(selected_sound)
+	_refresh_sound_list()
+	_refresh_ui()
+
+
+func _on_clear_wav() -> void:
+	sounds[selected_sound]["custom_wav"] = ""
+	_status_lbl.text = "✓ Custom WAV removed — using synth"
+	sound_changed.emit(selected_sound)
+	_refresh_sound_list()
+	_refresh_ui()
 
 
 func _note_to_freq(val: int) -> float:
@@ -832,7 +1121,9 @@ func _generate_audio_stream() -> AudioStreamWAV:
 func _refresh_sound_list() -> void:
 	_sound_opt.clear()
 	for i in range(sounds.size()):
-		_sound_opt.add_item(str(i + 1) + ": " + sounds[i].get("name", "Sound"))
+		var snd_name: String = sounds[i].get("name", "Sound")
+		var prefix: String = "📎 " if not sounds[i].get("custom_wav", "").is_empty() else ""
+		_sound_opt.add_item(str(i + 1) + ": " + prefix + snd_name)
 	if selected_sound >= 0 and selected_sound < sounds.size():
 		_sound_opt.selected = selected_sound
 
@@ -852,19 +1143,125 @@ func _refresh_ui() -> void:
 		_vol1_slider.value = snd.get("voice1_volume", 80)
 	if is_instance_valid(_vol2_slider):
 		_vol2_slider.value = snd.get("voice2_volume", 60)
+	# Custom WAV indicator
+	var wav_path: String = snd.get("custom_wav", "")
+	if is_instance_valid(_wav_label):
+		if wav_path.is_empty():
+			_wav_label.visible = false
+			_wav_label.text = ""
+		else:
+			_wav_label.visible = true
+			_wav_label.text = "📎 " + wav_path.get_file()
+	if is_instance_valid(_clear_wav_btn):
+		_clear_wav_btn.visible = not wav_path.is_empty()
 	if is_instance_valid(_bar_canvas):
 		_bar_canvas.queue_redraw()
 
 
+# ─── Public API for other editors ────────────────────────────
+
+## Returns an array of sound names, e.g. ["(None)", "Jump", "Coin", "Hit", ...]
+## Includes every sound that has at least one note painted OR has a
+## non-generic name (i.e. a preset name like "Jump" rather than "Sound 1").
+func get_sound_names(include_none: bool = true) -> Array:
+	var result: Array = []
+	if include_none:
+		result.append("(None)")
+	for si in range(sounds.size()):
+		var snd = sounds[si]
+		var snd_name: String = snd.get("name", "Sound " + str(si + 1))
+		var has_content: bool = not snd.get("custom_wav", "").is_empty()
+		if not has_content:
+			for n in snd.get("voice1_notes", []):
+				if n > 0:
+					has_content = true
+					break
+		if not has_content:
+			for n in snd.get("voice2_notes", []):
+				if n > 0:
+					has_content = true
+					break
+		# Include if it has notes/wav, OR if it has a real (non-generic) name
+		var is_generic := snd_name == "Sound " + str(si + 1) or snd_name == "Sound_" + str(si + 1) or snd_name.is_empty()
+		if has_content or not is_generic:
+			result.append(snd_name)
+	return result
+
+
+## Play a sound by name (for actor editor preview).
+func play_sound_by_name(snd_name: String) -> void:
+	for si in range(sounds.size()):
+		if sounds[si].get("name", "") == snd_name:
+			var prev_selected = selected_sound
+			selected_sound = si
+			_on_play_sound()
+			selected_sound = prev_selected
+			return
+	# Fallback: try case-insensitive match
+	var lower_name := snd_name.to_lower()
+	for si in range(sounds.size()):
+		if sounds[si].get("name", "").to_lower() == lower_name:
+			var prev_selected = selected_sound
+			selected_sound = si
+			_on_play_sound()
+			selected_sound = prev_selected
+			return
+
+
 # ─── Serialization ───────────────────────────────────────────
+
+## The 8 preset factory methods, indexed 0–7.
+func _get_preset(idx: int) -> Dictionary:
+	match idx:
+		0: return _preset_jump()
+		1: return _preset_coin()
+		2: return _preset_hit()
+		3: return _preset_hero_death()
+		4: return _preset_enemy_death()
+		5: return _preset_shoot()
+		6: return _preset_powerup()
+		7: return _preset_game_over()
+	return _make_empty_sound(idx + 1)
+
 
 func get_data() -> Array:
 	return sounds.duplicate(true)
+
 
 func set_data(data: Array) -> void:
 	sounds = data.duplicate(true)
 	while sounds.size() < MAX_SOUNDS:
 		sounds.append(_make_empty_sound(sounds.size() + 1))
+	# ── Restore presets for empty / generic-named slots ──────────
+	# Generic names ("Sound 1" … "Sound 8") are always upgraded:
+	#   • No notes → full preset replacement (notes + name)
+	#   • Has notes → rename to preset name, keep user's notes/wav
+	# This ensures actor sound references ("Jump", "Coin"…) resolve.
+	for i in range(mini(sounds.size(), MAX_SOUNDS)):
+		var snd: Dictionary = sounds[i]
+		var snd_name: String = snd.get("name", "")
+		var is_generic := snd_name == "Sound " + str(i + 1) or snd_name == "Sound_" + str(i + 1) or snd_name.is_empty()
+		if not is_generic:
+			continue
+		# Check whether ANY notes are painted or custom WAV is set
+		var has_content: bool = not snd.get("custom_wav", "").is_empty()
+		if not has_content:
+			for n in snd.get("voice1_notes", []):
+				if n > 0:
+					has_content = true
+					break
+		if not has_content:
+			for n in snd.get("voice2_notes", []):
+				if n > 0:
+					has_content = true
+					break
+		if not has_content:
+			# Empty slot → restore full preset
+			sounds[i] = _get_preset(i)
+		else:
+			# Has user content but generic name → rename to preset name
+			var preset = _get_preset(i)
+			sounds[i]["name"] = preset["name"]
 	selected_sound = 0
 	_refresh_sound_list()
 	_refresh_ui()

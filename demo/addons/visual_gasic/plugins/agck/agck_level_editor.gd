@@ -94,8 +94,11 @@ var selected_tile_index: int = 0
 var selected_actor: int = -1
 var is_painting: bool = false
 var actor_names: Array = ["Hero", "Enemy 1", "Bullet"]
+var actor_types: Array = ["Player", "Drone", "Missile"]
 var _waypoint_mode: bool = false
-var _waypoint_actor_idx: int = -1  # actor index being path-edited
+var _waypoint_actor_idx: int = -1  # placed-actor index being path-edited
+var _waypoint_target_type: String = ""  # "actor" or "block"
+var _waypoint_block_pos: Vector2i = Vector2i(-1, -1)  # block grid pos being edited
 var _flood_fill_mode: bool = false  # bucket-fill tool
 var _dirty: bool = false  # unsaved-changes indicator
 var _zoom: float = 1.0  # grid zoom level (Shift+Scroll)
@@ -119,8 +122,24 @@ var _tile_palette_scroll: ScrollContainer = null
 var _tile_palette: HBoxContainer = null
 var _tile_btns: Array = []
 var _level_opt: OptionButton = null
-var _actor_opt: OptionButton = null
+var _actor_picker_btn: Button = null
+var _actor_picker_popup: PopupPanel = null
+var _actor_picker_grid: GridContainer = null
 var _waypoint_btn: Button = null
+
+const ACTOR_TYPE_COLORS = {
+	"Player":   Color(0.30, 0.75, 0.95),
+	"Drone":    Color(0.85, 0.30, 0.30),
+	"Missile":  Color(0.95, 0.60, 0.15),
+	"Sentry":   Color(0.70, 0.40, 0.90),
+	"Computer": Color(0.40, 0.80, 0.40),
+	"Zombie":   Color(0.45, 0.65, 0.30),
+	"Boss":     Color(0.80, 0.20, 0.50),
+	"Bat":      Color(0.50, 0.35, 0.55),
+	"NPC":      Color(0.85, 0.70, 0.45),
+	"Tank":     Color(0.40, 0.50, 0.35),
+	"Fireball": Color(1.00, 0.45, 0.10),
+}
 var _status_lbl: Label = null
 var _name_edit: LineEdit = null
 var _fric_slider: HSlider = null
@@ -260,6 +279,7 @@ func _make_empty_level(num: int) -> Dictionary:
 		"name": "Level " + str(num),
 		"grid": grid,
 		"actors": [],
+		"block_paths": {},
 		"material_friction": 50,
 		"material_elasticity": 50,
 		"death_action": "Restart Level",
@@ -328,25 +348,50 @@ func _build_ui() -> void:
 
 	top_hbox.add_child(VSeparator.new())
 
-	var act_lbl = Label.new()
-	act_lbl.text = "Place Actor:"
-	act_lbl.label_settings = _ls(11, DIM)
-	top_hbox.add_child(act_lbl)
+	_actor_picker_btn = Button.new()
+	_actor_picker_btn.text = "Place Actor..."
+	_actor_picker_btn.tooltip_text = "Open the visual actor picker"
+	_actor_picker_btn.add_theme_font_size_override("font_size", 11)
+	var apb_s = StyleBoxFlat.new()
+	apb_s.bg_color = Color(0.20, 0.22, 0.28)
+	apb_s.set_corner_radius_all(4)
+	apb_s.content_margin_left = 10; apb_s.content_margin_right = 10
+	apb_s.content_margin_top = 3; apb_s.content_margin_bottom = 3
+	_actor_picker_btn.add_theme_stylebox_override("normal", apb_s)
+	_actor_picker_btn.add_theme_color_override("font_color", LABEL_CLR)
+	_actor_picker_btn.add_theme_color_override("font_hover_color", WHITE)
+	_actor_picker_btn.pressed.connect(_on_actor_picker_pressed)
+	top_hbox.add_child(_actor_picker_btn)
 
-	_actor_opt = OptionButton.new()
-	_actor_opt.add_theme_font_size_override("font_size", 11)
-	_actor_opt.add_item("(Tiles mode)")
-	for aname in actor_names:
-		_actor_opt.add_item("Actor: " + aname)
-	_actor_opt.item_selected.connect(_on_actor_tool_selected)
-	top_hbox.add_child(_actor_opt)
-	_style_option(_actor_opt)
+	_actor_picker_popup = PopupPanel.new()
+	var pp_sb = StyleBoxFlat.new()
+	pp_sb.bg_color = Color(0.12, 0.12, 0.16)
+	pp_sb.border_color = Color(0.35, 0.35, 0.45)
+	pp_sb.set_border_width_all(1)
+	pp_sb.set_corner_radius_all(6)
+	pp_sb.content_margin_left = 8; pp_sb.content_margin_right = 8
+	pp_sb.content_margin_top = 8; pp_sb.content_margin_bottom = 8
+	_actor_picker_popup.add_theme_stylebox_override("panel", pp_sb)
+	add_child(_actor_picker_popup)
+
+	var picker_scroll = ScrollContainer.new()
+	picker_scroll.custom_minimum_size = Vector2(440, 320)
+	_actor_picker_popup.add_child(picker_scroll)
+	_apply_dark_scrollbar_theme(picker_scroll)
+
+	_actor_picker_grid = GridContainer.new()
+	_actor_picker_grid.columns = 4
+	_actor_picker_grid.add_theme_constant_override("h_separation", 6)
+	_actor_picker_grid.add_theme_constant_override("v_separation", 6)
+	picker_scroll.add_child(_actor_picker_grid)
+
+	_rebuild_actor_picker()
 
 	top_hbox.add_child(VSeparator.new())
 
 	_waypoint_btn = Button.new()
 	_waypoint_btn.text = "\U0001F4CD Waypoints"
-	_waypoint_btn.tooltip_text = "Toggle waypoint mode — right-click to add patrol waypoints for the nearest actor"
+	_waypoint_btn.tooltip_text = "Toggle waypoint mode — click an actor or block to start editing its path, then right-click to place waypoints"
 	_waypoint_btn.add_theme_font_size_override("font_size", 11)
 	_waypoint_btn.toggle_mode = true
 	_waypoint_btn.button_pressed = false
@@ -647,6 +692,8 @@ func _build_ui() -> void:
 # ─── Tile Palette ────────────────────────────────────────────
 
 func _rebuild_tile_palette() -> void:
+	if not is_instance_valid(_tile_palette):
+		return
 	for c in _tile_palette.get_children():
 		c.queue_free()
 	_tile_btns.clear()
@@ -742,7 +789,9 @@ func _rebuild_tile_palette() -> void:
 func _on_tile_selected(idx: int) -> void:
 	selected_tile_index = idx
 	selected_actor = -1
-	_actor_opt.selected = 0
+	if is_instance_valid(_actor_picker_btn):
+		_actor_picker_btn.text = "Place Actor..."
+		_actor_picker_btn.icon = null
 	for i in range(_tile_btns.size()):
 		_tile_btns[i].button_pressed = (i == idx)
 	var tname = ""
@@ -852,6 +901,30 @@ func _draw_grid() -> void:
 				if i > 0:
 					_grid_canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-3, 4), str(i), HORIZONTAL_ALIGNMENT_CENTER, -1, 9, Color.BLACK)
 
+	# Draw block paths (moving platform waypoints)
+	var block_paths: Dictionary = lvl.get("block_paths", {})
+	for bp_key in block_paths:
+		var bp_path: Array = block_paths[bp_key]
+		if bp_path.size() < 2:
+			continue
+		var bp_color = Color(0.3, 0.7, 1.0, 0.8)
+		var bp_dot = Color(0.4, 0.85, 1.0, 0.9)
+		for i in range(bp_path.size() - 1):
+			var p1x = bp_path[i]["x"] if bp_path[i] is Dictionary else bp_path[i].x
+			var p1y = bp_path[i]["y"] if bp_path[i] is Dictionary else bp_path[i].y
+			var p2x = bp_path[i + 1]["x"] if bp_path[i + 1] is Dictionary else bp_path[i + 1].x
+			var p2y = bp_path[i + 1]["y"] if bp_path[i + 1] is Dictionary else bp_path[i + 1].y
+			var p1 = Vector2(ox + p1x * cs + cs * 0.5, oy + p1y * cs + cs * 0.5)
+			var p2 = Vector2(ox + p2x * cs + cs * 0.5, oy + p2y * cs + cs * 0.5)
+			_grid_canvas.draw_line(p1, p2, bp_color, 2.0)
+		for i in range(bp_path.size()):
+			var ppx = bp_path[i]["x"] if bp_path[i] is Dictionary else bp_path[i].x
+			var ppy = bp_path[i]["y"] if bp_path[i] is Dictionary else bp_path[i].y
+			var center = Vector2(ox + ppx * cs + cs * 0.5, oy + ppy * cs + cs * 0.5)
+			_grid_canvas.draw_circle(center, cs * 0.12, bp_dot)
+			if i > 0:
+				_grid_canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-3, 4), str(i), HORIZONTAL_ALIGNMENT_CENTER, -1, 9, Color.BLACK)
+
 	# Waypoint mode visual overlay
 	if _waypoint_mode and _last_mouse_pos != Vector2.ZERO:
 		var wp_gp = _grid_pos(_last_mouse_pos)
@@ -859,28 +932,40 @@ func _draw_grid() -> void:
 		var wp_rect = Rect2(ox + wp_gp.x * cs, oy + wp_gp.y * cs, cs, cs)
 		_grid_canvas.draw_rect(wp_rect, Color(1.0, 0.5, 0.0, 0.3))
 		_grid_canvas.draw_rect(wp_rect, Color(1.0, 0.6, 0.1, 0.8), false, 2.0)
-		# Draw small pin icon in center
 		var wp_center = wp_rect.position + wp_rect.size * 0.5
 		_grid_canvas.draw_circle(wp_center - Vector2(0, cs * 0.1), cs * 0.12, Color(1.0, 0.5, 0.0, 0.9))
 		_grid_canvas.draw_circle(wp_center - Vector2(0, cs * 0.1), cs * 0.06, Color(1.0, 0.8, 0.3))
-		# Highlight the nearest actor with a pulsing outline
-		if not lvl["actors"].is_empty():
-			var near_idx = _find_nearest_actor(wp_gp)
-			if near_idx >= 0:
-				var na = lvl["actors"][near_idx]
-				var na_rect = Rect2(ox + na["x"] * cs, oy + na["y"] * cs, cs, cs)
-				_grid_canvas.draw_rect(na_rect, Color(1.0, 0.5, 0.0, 0.5), false, 3.0)
-				# Draw line from nearest actor (or its last waypoint) to cursor
-				var na_path: Array = na.get("path", [])
-				var line_start: Vector2
-				if na_path.size() > 0:
-					var last_wp = na_path[na_path.size() - 1]
-					var lwx = last_wp["x"] if last_wp is Dictionary else last_wp.x
-					var lwy = last_wp["y"] if last_wp is Dictionary else last_wp.y
-					line_start = Vector2(ox + lwx * cs + cs * 0.5, oy + lwy * cs + cs * 0.5)
-				else:
-					line_start = Vector2(ox + na["x"] * cs + cs * 0.5, oy + na["y"] * cs + cs * 0.5)
-				_grid_canvas.draw_dashed_line(line_start, wp_center, Color(1.0, 0.6, 0.1, 0.5), 2.0, 4.0)
+		# Highlight locked target with glowing outline
+		if _waypoint_target_type == "actor" and _waypoint_actor_idx >= 0 and _waypoint_actor_idx < lvl["actors"].size():
+			var na = lvl["actors"][_waypoint_actor_idx]
+			var na_rect = Rect2(ox + na["x"] * cs, oy + na["y"] * cs, cs, cs)
+			_grid_canvas.draw_rect(na_rect, Color(1.0, 0.5, 0.0, 0.6), false, 3.0)
+			var na_path: Array = na.get("path", [])
+			var line_start: Vector2
+			if na_path.size() > 0:
+				var last_wp = na_path[na_path.size() - 1]
+				var lwx = last_wp["x"] if last_wp is Dictionary else last_wp.x
+				var lwy = last_wp["y"] if last_wp is Dictionary else last_wp.y
+				line_start = Vector2(ox + lwx * cs + cs * 0.5, oy + lwy * cs + cs * 0.5)
+			else:
+				line_start = Vector2(ox + na["x"] * cs + cs * 0.5, oy + na["y"] * cs + cs * 0.5)
+			_grid_canvas.draw_dashed_line(line_start, wp_center, Color(1.0, 0.6, 0.1, 0.5), 2.0, 4.0)
+		elif _waypoint_target_type == "block" and _waypoint_block_pos.x >= 0:
+			var bx = _waypoint_block_pos.x
+			var by = _waypoint_block_pos.y
+			var b_rect = Rect2(ox + bx * cs, oy + by * cs, cs, cs)
+			_grid_canvas.draw_rect(b_rect, Color(0.3, 0.7, 1.0, 0.6), false, 3.0)
+			var bp_key = str(bx) + "," + str(by)
+			var b_path: Array = lvl.get("block_paths", {}).get(bp_key, [])
+			var bline_start: Vector2
+			if b_path.size() > 0:
+				var last_bp = b_path[b_path.size() - 1]
+				var lbx = last_bp["x"] if last_bp is Dictionary else last_bp.x
+				var lby = last_bp["y"] if last_bp is Dictionary else last_bp.y
+				bline_start = Vector2(ox + lbx * cs + cs * 0.5, oy + lby * cs + cs * 0.5)
+			else:
+				bline_start = Vector2(ox + bx * cs + cs * 0.5, oy + by * cs + cs * 0.5)
+			_grid_canvas.draw_dashed_line(bline_start, wp_center, Color(0.3, 0.7, 1.0, 0.5), 2.0, 4.0)
 
 
 func _grid_pos(pixel_pos: Vector2) -> Vector2i:
@@ -939,12 +1024,16 @@ func _on_grid_input(event: InputEvent) -> void:
 				return
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
-				# Take snapshot before starting a paint stroke
-				_begin_stroke()
-				if _flood_fill_mode:
+				if _waypoint_mode:
+					# In waypoint mode: left-click selects target actor or block
+					_waypoint_select_target(event.position)
+				elif _flood_fill_mode:
+					_begin_stroke()
 					_flood_fill_at(event.position)
 					_end_stroke()
 				else:
+					# Take snapshot before starting a paint stroke
+					_begin_stroke()
 					is_painting = true
 					_paint_at(event.position)
 			else:
@@ -953,22 +1042,19 @@ func _on_grid_input(event: InputEvent) -> void:
 				_end_stroke()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			if _waypoint_mode:
-				# Waypoint mode: right-click adds waypoints, ctrl+right removes
-				if event.ctrl_pressed:
+				# Waypoint mode: must have a locked target
+				if _waypoint_target_type.is_empty():
+					_status_lbl.text = "📍 Click an actor or block first to lock waypoint target"
+				elif event.ctrl_pressed:
 					_begin_stroke()
-					_remove_actor_at(event.position)
+					_remove_last_waypoint()
 					_end_stroke()
 				else:
 					_begin_stroke()
 					_add_waypoint(event.position)
 					_end_stroke()
-			elif event.shift_pressed:
-				# Shift+Right-click: add waypoint to nearest actor's path
-				_begin_stroke()
-				_add_waypoint(event.position)
-				_end_stroke()
 			elif event.ctrl_pressed:
-				# Ctrl+Right-click: remove actor or clear its path
+				# Ctrl+Right-click: remove actor
 				_begin_stroke()
 				_remove_actor_at(event.position)
 				_end_stroke()
@@ -993,6 +1079,7 @@ func _begin_stroke() -> void:
 		"level": selected_level,
 		"grid": lvl["grid"].duplicate(true),
 		"actors": lvl["actors"].duplicate(true),
+		"block_paths": lvl.get("block_paths", {}).duplicate(true),
 	}
 
 
@@ -1002,7 +1089,7 @@ func _end_stroke() -> void:
 		return
 	var lvl = levels[selected_level]
 	# Only push to undo if something changed
-	if lvl["grid"] != _stroke_snapshot["grid"] or lvl["actors"] != _stroke_snapshot["actors"]:
+	if lvl["grid"] != _stroke_snapshot["grid"] or lvl["actors"] != _stroke_snapshot["actors"] or lvl.get("block_paths", {}) != _stroke_snapshot.get("block_paths", {}):
 		_undo_stack.append(_stroke_snapshot)
 		if _undo_stack.size() > MAX_UNDO:
 			_undo_stack.pop_front()
@@ -1021,10 +1108,12 @@ func _undo() -> void:
 		"level": lvl_idx,
 		"grid": levels[lvl_idx]["grid"].duplicate(true),
 		"actors": levels[lvl_idx]["actors"].duplicate(true),
+		"block_paths": levels[lvl_idx].get("block_paths", {}).duplicate(true),
 	})
 	# Restore
 	levels[lvl_idx]["grid"] = snap["grid"]
 	levels[lvl_idx]["actors"] = snap["actors"]
+	levels[lvl_idx]["block_paths"] = snap.get("block_paths", {})
 	if lvl_idx == selected_level:
 		_grid_canvas.queue_redraw()
 	_status_lbl.text = "Undo (" + str(_undo_stack.size()) + " remaining)"
@@ -1042,10 +1131,12 @@ func _redo() -> void:
 		"level": lvl_idx,
 		"grid": levels[lvl_idx]["grid"].duplicate(true),
 		"actors": levels[lvl_idx]["actors"].duplicate(true),
+		"block_paths": levels[lvl_idx].get("block_paths", {}).duplicate(true),
 	})
 	# Restore
 	levels[lvl_idx]["grid"] = snap["grid"]
 	levels[lvl_idx]["actors"] = snap["actors"]
+	levels[lvl_idx]["block_paths"] = snap.get("block_paths", {})
 	if lvl_idx == selected_level:
 		_grid_canvas.queue_redraw()
 	_status_lbl.text = "Redo (" + str(_redo_stack.size()) + " remaining)"
@@ -1141,14 +1232,24 @@ func _place_actor(pos: Vector2) -> void:
 	level_changed.emit(selected_level)
 
 
-## Find the nearest placed actor to a grid position.
-func _find_nearest_actor(gp: Vector2i) -> int:
+## Find the placed actor at an exact grid position, or -1.
+func _find_actor_at(gp: Vector2i) -> int:
 	var lvl = levels[selected_level]
-	var actors: Array = lvl["actors"]
+	for i in range(lvl["actors"].size()):
+		var a = lvl["actors"][i]
+		if a["x"] == gp.x and a["y"] == gp.y:
+			return i
+	return -1
+
+
+## Find the nearest placed actor within a max grid distance. Returns -1 if none close enough.
+func _find_nearest_actor(gp: Vector2i, max_dist: float = 3.0) -> int:
+	var lvl = levels[selected_level]
+	var actors_arr: Array = lvl["actors"]
 	var best_idx: int = -1
-	var best_dist: float = INF
-	for i in range(actors.size()):
-		var a = actors[i]
+	var best_dist: float = max_dist * max_dist  # compare squared
+	for i in range(actors_arr.size()):
+		var a = actors_arr[i]
 		var dx: float = a["x"] - gp.x
 		var dy: float = a["y"] - gp.y
 		var d: float = dx * dx + dy * dy
@@ -1158,36 +1259,117 @@ func _find_nearest_actor(gp: Vector2i) -> int:
 	return best_idx
 
 
-## Shift+Right-click: add a waypoint to the nearest actor's path.
+## Waypoint mode: left-click selects/locks target actor or block.
+func _waypoint_select_target(pos: Vector2) -> void:
+	var gp = _grid_pos(pos)
+	var lvl = levels[selected_level]
+	# First check for an actor at this exact position
+	var actor_idx = _find_actor_at(gp)
+	if actor_idx >= 0:
+		_waypoint_actor_idx = actor_idx
+		_waypoint_target_type = "actor"
+		_waypoint_block_pos = Vector2i(-1, -1)
+		var a = lvl["actors"][actor_idx]
+		var aname = actor_names[a["actor_id"]] if a["actor_id"] < actor_names.size() else "Actor"
+		_status_lbl.text = "📍 Locked to " + aname + " — RClick=add waypoint, Ctrl+RClick=undo last, click another to switch"
+		_grid_canvas.queue_redraw()
+		return
+	# Check for a non-empty block at this position
+	var cell = lvl["grid"][gp.y][gp.x]
+	var block_type: int = 0
+	if cell is Dictionary:
+		block_type = cell.get("block_type", 0)
+	elif cell is int or cell is float:
+		block_type = int(cell)
+	if block_type > 0:
+		_waypoint_target_type = "block"
+		_waypoint_block_pos = gp
+		_waypoint_actor_idx = -1
+		# Ensure block_paths dict exists
+		if not lvl.has("block_paths"):
+			lvl["block_paths"] = {}
+		_status_lbl.text = "📍 Locked to " + BLOCK_NAMES[block_type] + " block at (" + str(gp.x) + "," + str(gp.y) + ") — RClick=add waypoint"
+		_grid_canvas.queue_redraw()
+		return
+	_status_lbl.text = "📍 No actor or block at (" + str(gp.x) + ", " + str(gp.y) + ") — click on one to lock"
+
+
+## Right-click in waypoint mode: add a waypoint to the locked target.
 func _add_waypoint(pos: Vector2) -> void:
 	var gp = _grid_pos(pos)
 	if gp.x < 0 or gp.x >= GRID_W or gp.y < 0 or gp.y >= GRID_H:
 		return
 	var lvl = levels[selected_level]
-	if lvl["actors"].is_empty():
-		_status_lbl.text = "No actors placed — right-click to place one first"
-		return
-	var idx = _find_nearest_actor(gp)
-	if idx < 0:
-		return
-	var actor_data = lvl["actors"][idx]
-	var path: Array = actor_data.get("path", [])
-	# First waypoint should be the actor's own position (start of path)
-	if path.is_empty():
-		path.append({"x": actor_data["x"], "y": actor_data["y"]})
-	path.append({"x": gp.x, "y": gp.y})
-	actor_data["path"] = path
-	_grid_canvas.queue_redraw()
-	var aname = actor_names[actor_data["actor_id"]] if actor_data["actor_id"] < actor_names.size() else "Actor"
-	_status_lbl.text = "Added waypoint " + str(path.size()) + " for " + aname + " at (" + str(gp.x) + ", " + str(gp.y) + ")"
-	level_changed.emit(selected_level)
+
+	if _waypoint_target_type == "actor" and _waypoint_actor_idx >= 0 and _waypoint_actor_idx < lvl["actors"].size():
+		var actor_data = lvl["actors"][_waypoint_actor_idx]
+		var path: Array = actor_data.get("path", [])
+		# First waypoint = actor's own position (start of path)
+		if path.is_empty():
+			path.append({"x": actor_data["x"], "y": actor_data["y"]})
+		path.append({"x": gp.x, "y": gp.y})
+		actor_data["path"] = path
+		_grid_canvas.queue_redraw()
+		var aname = actor_names[actor_data["actor_id"]] if actor_data["actor_id"] < actor_names.size() else "Actor"
+		_status_lbl.text = "Added waypoint " + str(path.size()) + " for " + aname + " at (" + str(gp.x) + ", " + str(gp.y) + ")"
+		level_changed.emit(selected_level)
+
+	elif _waypoint_target_type == "block" and _waypoint_block_pos.x >= 0:
+		if not lvl.has("block_paths"):
+			lvl["block_paths"] = {}
+		var bp_key = str(_waypoint_block_pos.x) + "," + str(_waypoint_block_pos.y)
+		var path: Array = lvl["block_paths"].get(bp_key, [])
+		# First waypoint = block's own position
+		if path.is_empty():
+			path.append({"x": _waypoint_block_pos.x, "y": _waypoint_block_pos.y})
+		path.append({"x": gp.x, "y": gp.y})
+		lvl["block_paths"][bp_key] = path
+		_grid_canvas.queue_redraw()
+		_status_lbl.text = "Added waypoint " + str(path.size()) + " for block at (" + str(_waypoint_block_pos.x) + "," + str(_waypoint_block_pos.y) + ")"
+		level_changed.emit(selected_level)
+	else:
+		_status_lbl.text = "📍 No target locked — click an actor or block first"
 
 
-## Ctrl+Right-click: remove the actor at this position, or clear its path.
+## Ctrl+Right-click in waypoint mode: remove the last waypoint from locked target.
+func _remove_last_waypoint() -> void:
+	var lvl = levels[selected_level]
+	if _waypoint_target_type == "actor" and _waypoint_actor_idx >= 0 and _waypoint_actor_idx < lvl["actors"].size():
+		var actor_data = lvl["actors"][_waypoint_actor_idx]
+		var path: Array = actor_data.get("path", [])
+		if path.size() > 0:
+			path.pop_back()
+			if path.size() <= 1:
+				actor_data["path"] = []
+			_grid_canvas.queue_redraw()
+			var aname = actor_names[actor_data["actor_id"]] if actor_data["actor_id"] < actor_names.size() else "Actor"
+			_status_lbl.text = "Removed last waypoint from " + aname + " (" + str(path.size()) + " pts)"
+			level_changed.emit(selected_level)
+		else:
+			_status_lbl.text = "No waypoints to remove"
+	elif _waypoint_target_type == "block" and _waypoint_block_pos.x >= 0:
+		var bp_key = str(_waypoint_block_pos.x) + "," + str(_waypoint_block_pos.y)
+		var bp_dict: Dictionary = lvl.get("block_paths", {})
+		var path: Array = bp_dict.get(bp_key, [])
+		if path.size() > 0:
+			path.pop_back()
+			if path.size() <= 1:
+				bp_dict.erase(bp_key)
+			else:
+				bp_dict[bp_key] = path
+			_grid_canvas.queue_redraw()
+			_status_lbl.text = "Removed last waypoint from block (" + str(path.size()) + " pts)"
+			level_changed.emit(selected_level)
+		else:
+			_status_lbl.text = "No waypoints to remove"
+	else:
+		_status_lbl.text = "No target locked"
+
+
+## Ctrl+Right-click (non-waypoint mode): remove the actor at this position.
 func _remove_actor_at(pos: Vector2) -> void:
 	var gp = _grid_pos(pos)
 	var lvl = levels[selected_level]
-	# Find actor at exact grid position
 	for i in range(lvl["actors"].size()):
 		var a = lvl["actors"][i]
 		if a["x"] == gp.x and a["y"] == gp.y:
@@ -1197,30 +1379,18 @@ func _remove_actor_at(pos: Vector2) -> void:
 			_status_lbl.text = "Removed " + aname + " from (" + str(gp.x) + ", " + str(gp.y) + ")"
 			level_changed.emit(selected_level)
 			return
-	# No actor at exact pos — try removing the last waypoint from nearest actor
-	if not lvl["actors"].is_empty():
-		var idx = _find_nearest_actor(gp)
-		if idx >= 0:
-			var actor_data = lvl["actors"][idx]
-			var path: Array = actor_data.get("path", [])
-			if path.size() > 0:
-				path.pop_back()
-				if path.size() <= 1:
-					actor_data["path"] = []
-				_grid_canvas.queue_redraw()
-				var aname = actor_names[actor_data["actor_id"]] if actor_data["actor_id"] < actor_names.size() else "Actor"
-				_status_lbl.text = "Removed last waypoint from " + aname + " (path: " + str(path.size()) + " pts)"
-				level_changed.emit(selected_level)
-				return
 	_status_lbl.text = "No actor at (" + str(gp.x) + ", " + str(gp.y) + ")"
 
 
-## Delete/Backspace key: remove actor or waypoint under cursor.
+## Delete/Backspace key: remove actor under cursor, or last waypoint if in waypoint mode.
 func _delete_actor_or_waypoint_at_cursor() -> void:
 	if _last_mouse_pos == Vector2.ZERO:
 		return
 	_begin_stroke()
-	_remove_actor_at(_last_mouse_pos)
+	if _waypoint_mode and not _waypoint_target_type.is_empty():
+		_remove_last_waypoint()
+	else:
+		_remove_actor_at(_last_mouse_pos)
 	_end_stroke()
 
 # ─── Dirty indicator ─────────────────────────────────────────
@@ -1255,7 +1425,9 @@ func _on_block_selected(idx: int) -> void:
 	selected_block = idx
 	selected_tile_index = 0
 	selected_actor = -1
-	_actor_opt.selected = 0
+	if is_instance_valid(_actor_picker_btn):
+		_actor_picker_btn.text = "Place Actor..."
+		_actor_picker_btn.icon = null
 	for i in range(_block_btns.size()):
 		_block_btns[i].button_pressed = (i == idx)
 	_status_lbl.text = "Block type: " + BLOCK_ICONS[idx] + " " + BLOCK_NAMES[idx]
@@ -1264,25 +1436,174 @@ func _on_block_selected(idx: int) -> void:
 func _on_waypoint_mode_toggled(pressed: bool) -> void:
 	_waypoint_mode = pressed
 	if pressed:
-		_status_lbl.text = "\U0001F4CD WAYPOINT MODE — RClick=add waypoint to nearest actor | Ctrl+RClick=remove | LClick=paint tiles"
+		_waypoint_actor_idx = -1
+		_waypoint_target_type = ""
+		_waypoint_block_pos = Vector2i(-1, -1)
+		_status_lbl.text = "\U0001F4CD WAYPOINT MODE — Click an actor or block to lock, then RClick=add waypoints | Ctrl+RClick=undo last"
 		_grid_canvas.queue_redraw()
 	else:
-		_status_lbl.text = "LClick=paint | RClick=place actor | Shift+RClick=add waypoint | Ctrl+RClick=remove"
+		_waypoint_actor_idx = -1
+		_waypoint_target_type = ""
+		_waypoint_block_pos = Vector2i(-1, -1)
+		_status_lbl.text = "LClick=paint | RClick=place actor | Ctrl+RClick=remove"
 		_grid_canvas.queue_redraw()
 
 
-func _on_actor_tool_selected(idx: int) -> void:
-	if idx == 0:
+func _on_actor_picker_pressed() -> void:
+	if is_instance_valid(_actor_picker_popup):
+		_rebuild_actor_picker()
+		var btn_rect = _actor_picker_btn.get_global_rect()
+		_actor_picker_popup.popup(Rect2i(
+			int(btn_rect.position.x), int(btn_rect.position.y + btn_rect.size.y + 2),
+			460, 340
+		))
+
+func _on_actor_picked(actor_idx: int) -> void:
+	_actor_picker_popup.hide()
+	if actor_idx < 0:
 		selected_actor = -1
 		_status_lbl.text = "Tile painting mode"
+		_actor_picker_btn.text = "Place Actor..."
+		_actor_picker_btn.icon = null
 	else:
-		selected_actor = idx - 1
-		_status_lbl.text = "Right-click to place - Left-click still paints tiles"
+		selected_actor = actor_idx
+		var aname: String = actor_names[actor_idx] if actor_idx < actor_names.size() else "Actor"
+		_status_lbl.text = "Right-click to place " + aname + " - Left-click still paints tiles"
+		_actor_picker_btn.text = aname
+		if tile_library:
+			var tex: Texture2D = tile_library.get_actor_texture(actor_idx)
+			if tex:
+				_actor_picker_btn.icon = tex
+				_actor_picker_btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	# Turn off waypoint mode when switching actor tool
 	if _waypoint_mode:
 		_waypoint_mode = false
+		_waypoint_actor_idx = -1
+		_waypoint_target_type = ""
+		_waypoint_block_pos = Vector2i(-1, -1)
 		if _waypoint_btn:
 			_waypoint_btn.button_pressed = false
+
+func _rebuild_actor_picker() -> void:
+	if not is_instance_valid(_actor_picker_grid):
+		return
+	for c in _actor_picker_grid.get_children():
+		c.queue_free()
+
+	# -- Tiles mode card --
+	var tiles_card = _make_picker_card(-1, "Tiles Mode", "", null, Color(0.5, 0.5, 0.55), selected_actor == -1)
+	_actor_picker_grid.add_child(tiles_card)
+
+	# -- Actor cards --
+	for i in range(actor_names.size()):
+		var aname: String = actor_names[i] if i < actor_names.size() else "Actor"
+		var atype: String = actor_types[i] if i < actor_types.size() else "Drone"
+		var color: Color = ACTOR_TYPE_COLORS.get(atype, DIM)
+		var tex: Texture2D = null
+		if tile_library:
+			tile_library.ensure_actor_sprite(i, aname, atype)
+			tex = tile_library.get_actor_texture(i)
+		var is_sel: bool = (selected_actor == i)
+		var anim_info: String = ""
+		if tile_library:
+			var sprite_data: Dictionary = tile_library.actor_sprites.get(i, {})
+			var anims: Dictionary = sprite_data.get("anims", {})
+			if anims.size() > 0:
+				var parts: Array = []
+				for anim_key in anims.keys():
+					parts.append(str(anim_key) + "(" + str(anims[anim_key].size()) + ")")
+				anim_info = ", ".join(parts)
+		var card = _make_picker_card(i, aname, atype, tex, color, is_sel, anim_info)
+		_actor_picker_grid.add_child(card)
+
+func _make_picker_card(idx: int, aname: String, atype: String, tex: Texture2D, color: Color, is_selected: bool, anim_info: String = "") -> PanelContainer:
+	var card = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.22, 0.26, 0.40) if is_selected else Color(0.16, 0.16, 0.20)
+	style.set_corner_radius_all(6)
+	style.border_width_left = 3
+	style.border_color = color
+	style.content_margin_left = 6; style.content_margin_right = 6
+	style.content_margin_top = 6; style.content_margin_bottom = 6
+	card.add_theme_stylebox_override("panel", style)
+	card.custom_minimum_size = Vector2(100, 90)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	card.add_child(vbox)
+
+	# Sprite thumbnail
+	if tex:
+		var tex_rect = TextureRect.new()
+		tex_rect.texture = tex
+		tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tex_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		tex_rect.custom_minimum_size = Vector2(48, 48)
+		tex_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(tex_rect)
+	else:
+		# Placeholder for tiles mode
+		var placeholder = ColorRect.new()
+		placeholder.color = Color(0.25, 0.25, 0.30)
+		placeholder.custom_minimum_size = Vector2(48, 48)
+		placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(placeholder)
+		var grid_lbl = Label.new()
+		grid_lbl.text = "#"
+		grid_lbl.label_settings = _ls(20, DIM)
+		grid_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		grid_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		placeholder.add_child(grid_lbl)
+
+	# Name
+	var name_lbl = Label.new()
+	name_lbl.text = aname
+	name_lbl.label_settings = _ls(10, WHITE)
+	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(name_lbl)
+
+	# Type
+	if atype != "":
+		var type_lbl = Label.new()
+		type_lbl.text = atype
+		type_lbl.label_settings = _ls(9, color)
+		type_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		type_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(type_lbl)
+
+	# Anim info
+	if anim_info != "":
+		var anim_lbl = Label.new()
+		anim_lbl.text = anim_info
+		anim_lbl.label_settings = _ls(8, DIM)
+		anim_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		anim_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(anim_lbl)
+
+	# Invisible click button
+	var btn = Button.new()
+	btn.flat = true
+	btn.anchor_right = 1.0
+	btn.anchor_bottom = 1.0
+	btn.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	btn.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
+	btn.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
+	btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	btn.pressed.connect(_on_actor_picked.bind(idx))
+	btn.mouse_entered.connect(func():
+		style.bg_color = Color(0.28, 0.32, 0.48)
+		card.queue_redraw()
+	)
+	btn.mouse_exited.connect(func():
+		style.bg_color = Color(0.22, 0.26, 0.40) if (selected_actor == idx) else Color(0.16, 0.16, 0.20)
+		card.queue_redraw()
+	)
+	card.add_child(btn)
+
+	return card
 
 func _on_name_changed(new_text: String) -> void:
 	levels[selected_level]["name"] = new_text
@@ -1876,13 +2197,24 @@ func _on_tile_files_selected(paths: PackedStringArray) -> void:
 
 # ─── Actor Sync ──────────────────────────────────────────────
 
-func set_actor_names(names: Array) -> void:
+func set_actor_names(names: Array, types: Array = []) -> void:
 	actor_names = names.duplicate()
-	if is_instance_valid(_actor_opt):
-		_actor_opt.clear()
-		_actor_opt.add_item("(Tiles mode)")
-		for aname in actor_names:
-			_actor_opt.add_item("Actor: " + aname)
+	if types.size() > 0:
+		actor_types = types.duplicate()
+	else:
+		actor_types.resize(actor_names.size())
+		for i in range(actor_types.size()):
+			if actor_types[i] == null:
+				actor_types[i] = "Drone"
+	_rebuild_actor_picker()
+	# Update the button label if the currently selected actor was renamed
+	if selected_actor >= 0 and selected_actor < actor_names.size():
+		_actor_picker_btn.text = actor_names[selected_actor]
+		if tile_library:
+			tile_library.ensure_actor_sprite(selected_actor, actor_names[selected_actor], actor_types[selected_actor])
+			var tex: Texture2D = tile_library.get_actor_texture(selected_actor)
+			if tex:
+				_actor_picker_btn.icon = tex
 
 
 func refresh_all() -> void:
@@ -1913,7 +2245,48 @@ func set_data(data: Array) -> void:
 			lvl["death_action"] = "Restart Level"
 		if not lvl.has("death_action_target"):
 			lvl["death_action_target"] = 1
+		# Migrate: add block_paths if missing
+		if not lvl.has("block_paths"):
+			lvl["block_paths"] = {}
 	selected_level = 0
 	_refresh_level_list()
 	_refresh_ui()
 	_rebuild_tile_palette()
+
+
+# ─── Dark Scrollbar Theme (matches code editor) ─────────────
+func _apply_dark_scrollbar_theme(node: Control) -> void:
+	var grab := StyleBoxFlat.new()
+	grab.bg_color = Color(0.25, 0.25, 0.22)
+	grab.border_color = Color(0.15, 0.15, 0.12)
+	grab.set_border_width_all(1)
+	grab.set_corner_radius_all(2)
+	grab.content_margin_left = 3; grab.content_margin_right = 3
+	grab.content_margin_top = 3;  grab.content_margin_bottom = 3
+
+	var grab_hl := grab.duplicate()
+	grab_hl.bg_color = Color(0.18, 0.18, 0.16)
+
+	var grab_pr := grab.duplicate()
+	grab_pr.bg_color = Color(0.10, 0.10, 0.08)
+
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(0.14, 0.14, 0.18)
+
+	var t := Theme.new()
+	for sb_type in ["VScrollBar", "HScrollBar", "ScrollBar"]:
+		t.set_stylebox("grabber", sb_type, grab)
+		t.set_stylebox("grabber_highlight", sb_type, grab_hl)
+		t.set_stylebox("grabber_pressed", sb_type, grab_pr)
+		t.set_stylebox("scroll", sb_type, track)
+	node.theme = t
+
+	# Also override per-node on internal scrollbar children
+	for i in node.get_child_count(true):
+		var child = node.get_child(i, true)
+		if child is VScrollBar or child is HScrollBar:
+			child.add_theme_stylebox_override("grabber", grab)
+			child.add_theme_stylebox_override("grabber_highlight", grab_hl)
+			child.add_theme_stylebox_override("grabber_pressed", grab_pr)
+			child.add_theme_stylebox_override("scroll", track)
+			child.custom_minimum_size = Vector2(12, 12)

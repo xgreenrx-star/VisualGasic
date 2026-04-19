@@ -34,6 +34,24 @@ var _toolbar_buttons: Dictionary = {}
 ## Currently active plugin ID (empty string = none)
 var _active_plugin_id: String = ""
 
+## Whether the "🔌 Plugins" separator label has been added to toolbar
+var _plugin_separator_added: bool = false
+
+## Reference to plugin settings popup
+var _settings_popup: Window = null
+
+## Reference to the gear button on toolbar
+var _gear_btn: Button = null
+
+## Reference to the overflow "⋯" menu button for when plugins don't fit
+var _overflow_btn: MenuButton = null
+
+## Ordered list of plugin IDs for overflow management
+var _plugin_order: Array = []
+
+## Maximum number of visible plugin buttons before overflow kicks in
+const MAX_VISIBLE_PLUGINS = 6
+
 ## Reference to host IDE plugin
 var _host_plugin = null
 
@@ -130,44 +148,114 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 
 
 ## Create a styled toolbar button for a plugin.
+## Plugin buttons live in the menu-bar row (right-aligned PluginStrip).
+## If the strip gets too crowded, an overflow "⋯" menu collects extras.
 func _create_toolbar_button(plugin_id: String, plugin_instance) -> void:
 	if not is_instance_valid(_toolbar_row):
 		return
 
+	# Add gear settings button once (leftmost in the strip)
+	if not _plugin_separator_added:
+		_plugin_separator_added = true
+
+		_gear_btn = Button.new()
+		_gear_btn.name = "PluginSettingsBtn"
+		_gear_btn.text = "⚙"
+		_gear_btn.tooltip_text = "Plugin Settings — enable/disable or install plugins"
+		_gear_btn.flat = true
+		_gear_btn.add_theme_font_size_override("font_size", 12)
+		_gear_btn.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
+		_gear_btn.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0))
+		_gear_btn.pressed.connect(_show_settings_popup)
+		_toolbar_row.add_child(_gear_btn)
+
+		# Overflow "⋯" menu button (hidden until needed)
+		_overflow_btn = MenuButton.new()
+		_overflow_btn.name = "PluginOverflowBtn"
+		_overflow_btn.text = "⋯"
+		_overflow_btn.tooltip_text = "More plugins..."
+		_overflow_btn.flat = true
+		_overflow_btn.add_theme_font_size_override("font_size", 12)
+		_overflow_btn.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		_overflow_btn.visible = false
+		_toolbar_row.add_child(_overflow_btn)
+
 	var btn = Button.new()
 	btn.name = "VGPluginBtn_" + plugin_id
-	btn.text = plugin_instance.get_toolbar_icon() + plugin_instance.get_plugin_name()
+	btn.text = plugin_instance.get_toolbar_icon() + " " + plugin_instance.get_plugin_name()
 	btn.tooltip_text = plugin_instance.get_toolbar_tooltip()
 	btn.flat = false
-	btn.add_theme_font_size_override("font_size", 11)
+	btn.add_theme_font_size_override("font_size", 10)
 	btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
 	btn.add_theme_color_override("font_hover_color", Color(1.0, 0.95, 0.8))
 
 	var base_color: Color = plugin_instance.get_toolbar_color()
 	var style = StyleBoxFlat.new()
-	style.bg_color = base_color
-	style.set_corner_radius_all(4)
-	style.content_margin_left = 6
-	style.content_margin_right = 6
-	style.content_margin_top = 2
-	style.content_margin_bottom = 2
+	style.bg_color = base_color.darkened(0.1)
+	style.set_corner_radius_all(10)
+	style.border_color = base_color.lightened(0.35)
+	style.set_border_width_all(1)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 1
+	style.content_margin_bottom = 1
 	btn.add_theme_stylebox_override("normal", style)
 
 	var hover_style = style.duplicate()
-	hover_style.bg_color = base_color.lightened(0.15)
+	hover_style.bg_color = base_color.lightened(0.1)
+	hover_style.border_color = Color(1.0, 1.0, 1.0, 0.6)
 	btn.add_theme_stylebox_override("hover", hover_style)
 
 	var pressed_style = style.duplicate()
-	pressed_style.bg_color = base_color.darkened(0.2)
+	pressed_style.bg_color = base_color.darkened(0.25)
 	btn.add_theme_stylebox_override("pressed", pressed_style)
 
 	# Bind the button press to activate this plugin
 	btn.pressed.connect(_on_plugin_button_pressed.bind(plugin_id))
 
-	# Append plugin button at the end of toolbar_row
 	_toolbar_row.add_child(btn)
-
 	_toolbar_buttons[plugin_id] = btn
+	_plugin_order.append(plugin_id)
+
+	# Check overflow — hide excess buttons and populate ⋯ menu
+	_update_overflow()
+
+
+## Update overflow: show first N plugin buttons, hide rest into ⋯ dropdown.
+func _update_overflow() -> void:
+	if not is_instance_valid(_overflow_btn):
+		return
+	var total = _plugin_order.size()
+	var need_overflow = total > MAX_VISIBLE_PLUGINS
+
+	# Show/hide individual plugin buttons
+	for i in range(total):
+		var pid = _plugin_order[i]
+		if _toolbar_buttons.has(pid) and is_instance_valid(_toolbar_buttons[pid]):
+			_toolbar_buttons[pid].visible = (i < MAX_VISIBLE_PLUGINS)
+
+	# Update overflow menu
+	_overflow_btn.visible = need_overflow
+	if need_overflow:
+		var popup = _overflow_btn.get_popup()
+		popup.clear()
+		for i in range(MAX_VISIBLE_PLUGINS, total):
+			var pid = _plugin_order[i]
+			var meta = _plugin_meta.get(pid, {})
+			var label = meta.get("name", pid)
+			popup.add_item(label)
+			var idx = popup.item_count - 1
+			popup.set_item_metadata(idx, pid)
+		if not popup.id_pressed.is_connected(_on_overflow_item_pressed):
+			popup.id_pressed.connect(_on_overflow_item_pressed)
+
+
+## Handle overflow menu item selection.
+func _on_overflow_item_pressed(idx: int) -> void:
+	var popup = _overflow_btn.get_popup()
+	var pid = popup.get_item_metadata(idx)
+	if pid:
+		_on_plugin_button_pressed(pid)
 
 
 # ─── View Switching ──────────────────────────────────────────
@@ -228,10 +316,236 @@ func get_plugin_ids() -> Array:
 	return _plugins.keys()
 
 
+# ─── Plugin Settings ─────────────────────────────────────────
+
+## Show the plugin settings popup with enable/disable toggles + install option.
+func _show_settings_popup() -> void:
+	# Clean up previous popup
+	if is_instance_valid(_settings_popup):
+		_settings_popup.queue_free()
+		_settings_popup = null
+
+	_settings_popup = Window.new()
+	_settings_popup.title = "Plugin Settings"
+	_settings_popup.size = Vector2i(420, 340)
+	_settings_popup.unresizable = false
+	_settings_popup.transient = true
+	_settings_popup.exclusive = true
+
+	var panel = PanelContainer.new()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_settings_popup.add_child(panel)
+
+	var outer = VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 8)
+	var outer_margin = MarginContainer.new()
+	outer_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	outer_margin.add_theme_constant_override("margin_left", 12)
+	outer_margin.add_theme_constant_override("margin_right", 12)
+	outer_margin.add_theme_constant_override("margin_top", 12)
+	outer_margin.add_theme_constant_override("margin_bottom", 12)
+	outer_margin.add_child(outer)
+	panel.add_child(outer_margin)
+
+	# Header
+	var header = Label.new()
+	header.text = "🔌 Installed Plugins"
+	header.add_theme_font_size_override("font_size", 16)
+	header.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+	outer.add_child(header)
+
+	# Scrollable plugin list
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer.add_child(scroll)
+
+	var list_vbox = VBoxContainer.new()
+	list_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_vbox.add_theme_constant_override("separation", 4)
+	scroll.add_child(list_vbox)
+
+	# Build rows from all discovered plugin metadata (loaded + disabled)
+	var sorted_ids = _plugin_meta.keys()
+	sorted_ids.sort()
+	for pid in sorted_ids:
+		var meta = _plugin_meta[pid]
+		var row = _build_plugin_settings_row(pid, meta)
+		list_vbox.add_child(row)
+
+	if sorted_ids.is_empty():
+		var empty_lbl = Label.new()
+		empty_lbl.text = "No plugins installed."
+		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		list_vbox.add_child(empty_lbl)
+
+	# Bottom buttons
+	var btn_row = HBoxContainer.new()
+	btn_row.add_theme_constant_override("separation", 8)
+	btn_row.alignment = BoxContainer.ALIGNMENT_END
+
+	var install_btn = Button.new()
+	install_btn.text = "📁 Install Plugin..."
+	install_btn.tooltip_text = "Browse filesystem to install a plugin folder into VisualGasic"
+	install_btn.pressed.connect(_on_install_plugin_pressed)
+	btn_row.add_child(install_btn)
+
+	var close_btn = Button.new()
+	close_btn.text = "Close"
+	close_btn.pressed.connect(func(): _settings_popup.hide())
+	btn_row.add_child(close_btn)
+
+	outer.add_child(btn_row)
+
+	# Show centered
+	if is_instance_valid(_host_plugin):
+		var editor = _host_plugin.get_editor_interface()
+		var base = editor.get_base_control() if editor else null
+		if is_instance_valid(base):
+			base.add_child(_settings_popup)
+		else:
+			_toolbar_row.add_child(_settings_popup)
+	else:
+		_toolbar_row.add_child(_settings_popup)
+
+	_settings_popup.popup_centered()
+	_settings_popup.close_requested.connect(func(): _settings_popup.hide())
+
+
+## Build a single plugin row for the settings list.
+func _build_plugin_settings_row(plugin_id: String, meta: Dictionary) -> HBoxContainer:
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+
+	# Enabled toggle
+	var toggle = CheckButton.new()
+	toggle.button_pressed = meta.get("enabled", true)
+	toggle.tooltip_text = "Enable or disable this plugin (requires restart)"
+	toggle.toggled.connect(_on_plugin_toggle.bind(plugin_id))
+	row.add_child(toggle)
+
+	# Info column
+	var info = VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var name_lbl = Label.new()
+	name_lbl.text = meta.get("name", plugin_id)
+	name_lbl.add_theme_font_size_override("font_size", 13)
+	name_lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+	info.add_child(name_lbl)
+
+	var desc_lbl = Label.new()
+	desc_lbl.text = meta.get("description", "No description")
+	desc_lbl.add_theme_font_size_override("font_size", 11)
+	desc_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+	info.add_child(desc_lbl)
+
+	row.add_child(info)
+
+	# Status indicator
+	var is_loaded = _plugins.has(plugin_id)
+	var status = Label.new()
+	status.text = "● Active" if is_loaded else ("○ Disabled" if not meta.get("enabled", true) else "○ Idle")
+	status.add_theme_font_size_override("font_size", 10)
+	status.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4) if is_loaded else Color(0.5, 0.5, 0.5))
+	row.add_child(status)
+
+	return row
+
+
+## Toggle a plugin's enabled state in its plugin.cfg.
+func _on_plugin_toggle(enabled: bool, plugin_id: String) -> void:
+	var cfg_path = PLUGINS_DIR + plugin_id + "/plugin.cfg"
+	var cfg = ConfigFile.new()
+	var err = cfg.load(cfg_path)
+	if err != OK:
+		push_warning("VisualGasic: Could not load plugin config to toggle: " + cfg_path)
+		return
+	cfg.set_value("plugin", "enabled", enabled)
+	cfg.save(cfg_path)
+
+	# Update local meta
+	if _plugin_meta.has(plugin_id):
+		_plugin_meta[plugin_id]["enabled"] = enabled
+
+	print("VisualGasic: Plugin '", plugin_id, "' ", "enabled" if enabled else "disabled", " (restart to apply)")
+
+
+## Open a file dialog to install a plugin folder.
+func _on_install_plugin_pressed() -> void:
+	var fd = FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+	fd.title = "Select Plugin Folder (must contain plugin.cfg)"
+	fd.access = FileDialog.ACCESS_FILESYSTEM
+	fd.size = Vector2i(600, 400)
+
+	fd.dir_selected.connect(_on_install_dir_selected.bind(fd))
+	fd.canceled.connect(func(): fd.queue_free())
+
+	if is_instance_valid(_settings_popup):
+		_settings_popup.add_child(fd)
+	else:
+		_toolbar_row.add_child(fd)
+	fd.popup_centered()
+
+
+## Copy a selected plugin folder into the plugins directory.
+func _on_install_dir_selected(dir_path: String, dialog: FileDialog) -> void:
+	dialog.queue_free()
+
+	# Verify plugin.cfg exists in selected folder
+	var src_cfg = dir_path + "/plugin.cfg"
+	if not FileAccess.file_exists(src_cfg):
+		push_warning("VisualGasic: Selected folder has no plugin.cfg — not a valid VG plugin")
+		print("VisualGasic: Install failed — no plugin.cfg in: ", dir_path)
+		return
+
+	# Extract folder name for plugin_id
+	var folder_name = dir_path.get_file()
+	var dest_dir = PLUGINS_DIR + folder_name + "/"
+
+	# Copy all files from source to dest
+	var src_da = DirAccess.open(dir_path)
+	if not src_da:
+		push_warning("VisualGasic: Could not open source plugin directory: " + dir_path)
+		return
+
+	# Ensure destination exists
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dest_dir))
+
+	var copied = 0
+	src_da.list_dir_begin()
+	var fname = src_da.get_next()
+	while fname != "":
+		if not src_da.current_is_dir():
+			var src_file = dir_path + "/" + fname
+			var dst_file = ProjectSettings.globalize_path(dest_dir + fname)
+			var content = FileAccess.get_file_as_bytes(src_file)
+			if content.size() > 0:
+				var out = FileAccess.open(dest_dir + fname, FileAccess.WRITE)
+				if out:
+					out.store_buffer(content)
+					out.close()
+					copied += 1
+		fname = src_da.get_next()
+	src_da.list_dir_end()
+
+	print("VisualGasic: Installed plugin '", folder_name, "' (", copied, " files copied). Restart to load.")
+
+	# Refresh settings popup to show new plugin
+	if is_instance_valid(_settings_popup):
+		_settings_popup.hide()
+	_show_settings_popup()
+
+
 # ─── Cleanup ────────────────────────────────────────────────
 
 ## Clean up all plugins.
 func cleanup() -> void:
+	if is_instance_valid(_settings_popup):
+		_settings_popup.queue_free()
+		_settings_popup = null
 	for plugin_id in _plugins:
 		_plugins[plugin_id].cleanup()
 	_plugins.clear()
@@ -240,4 +554,6 @@ func cleanup() -> void:
 		if is_instance_valid(_toolbar_buttons[btn_id]):
 			_toolbar_buttons[btn_id].queue_free()
 	_toolbar_buttons.clear()
+	_plugin_order.clear()
 	_active_plugin_id = ""
+	_plugin_separator_added = false

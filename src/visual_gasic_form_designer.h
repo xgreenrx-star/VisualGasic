@@ -36,6 +36,11 @@ struct FormControlItem {
     bool   selected = false;
     bool   visible  = true;
 
+    // Parent node path in the .tscn hierarchy (".", "HUD", "MainMenuOverlay", etc.)
+    // Empty for root node. "." for direct children of root.
+    // Nested nodes from AGCK game scenes preserve their original parent.
+    String parent_path = ".";
+
     // VB6-style control array index (-1 = not a control array member)
     int    control_array_index = -1;
 

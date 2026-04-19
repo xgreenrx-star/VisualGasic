@@ -789,7 +789,11 @@ v5.0.1-beta adds plugin system, AGCK game construction kit, sprite editor, relea
 | Environment Presets | ✅ Complete | 4 one-click lighting presets (Day/Night/Indoor/Space) |
 | Animation Editor | ✅ Complete | Timeline, keyframes, playback, .glb import |
 | Make EXE Export | ✅ Complete | File → Make EXE with auto-generated export presets |
-| Web UI | 🔲 Not Started | Browser-based project dashboard, settings panel, and build monitor |
+| Publish to Web | ✅ Complete | Flash-successor HTML5 export with preloader, fullscreen, context menu, embed code, portal pages |
+| Live Control Animation | ✅ Complete | Live SubViewport rendering for @tool custom controls in Form Designer |
+| Multi-Provider AI Help | ✅ Complete | OpenAI, Claude, Gemini cloud providers + existing Ollama local backend |
+| WebSocket Controls | ✅ Complete | WebSocketClient, WebSocketServer, Lobby, Chat controls for multiplayer |
+| Browser Dashboard | 🔲 Not Started | Browser-based project dashboard, settings panel, and build monitor |
 | Community Testing | 🟡 In Progress | Need feedback before stable release |
 
 ### Road to Stable (v5.0.1)
@@ -801,9 +805,13 @@ v5.0.1-beta adds plugin system, AGCK game construction kit, sprite editor, relea
 5. ✅ Plugin system & AGCK game construction kit
 6. ✅ Piskel-style sprite editor
 7. 🟡 Community testing of Beta
-8. 🔲 Web UI — browser-based project dashboard, settings panel, and build monitor
-9. 🔲 Fix any reported issues
-10. 🔲 Tag stable v5.0.1 release
+8. ✅ Publish to Web — Flash-successor HTML5 export pipeline
+9. ✅ Live Control Animation — @tool custom controls animate at design time
+10. ✅ Multi-Provider AI Help — OpenAI/Claude/Gemini + Ollama
+11. ✅ WebSocket Controls — multiplayer networking
+12. 🔲 Browser Dashboard — browser-based project dashboard, settings panel, and build monitor
+13. 🔲 Fix any reported issues
+14. 🔲 Tag stable v5.0.1 release
 
 ---
 
@@ -816,12 +824,22 @@ Potential features for the next version, pending community feedback:
 | **Godot Asset Library** | Publish VisualGasic to the official Godot Asset Library | High |
 | **Web UI** | Browser-based project dashboard, settings panel, and build monitor. Required before stable release. | High |
 | **WebAssembly Export** | Validate and ensure HTML5 export compatibility | High |
-| **Multi-Provider AI Help** | Add support for cloud AI providers (OpenAI/ChatGPT, Anthropic/Claude, Google Gemini) alongside the existing local Ollama backend. Includes provider selector dropdown, API key settings dialog, HTTPS/TLS transport, and per-provider request/response adapters. OpenAI-compatible API format as the first cloud backend. | Medium |
+| **Multi-Provider AI Help** | ✅ Cloud AI providers (OpenAI, Claude, Gemini) alongside local Ollama. Provider selector, API key settings, HTTPS transport. | ✅ Done |
 | **Visual Debugger v2** | Graphical call flow visualization, flame graphs | Medium |
-| **WebSocket Controls** | Networking controls for multiplayer games | Medium |
+| **WebSocket Controls** | ✅ WebSocketClient, WebSocketServer, Lobby, Chat controls for multiplayer games. | ✅ Done |
 | **Android/iOS Validation** | Test and fix mobile platform builds | Medium |
 | **Plugin Marketplace** | In-IDE package browsing and one-click install | Low |
 | **Code Profiler** | Line-level performance profiling in the IDE | Low |
+| **VG3D Preview** | Limited 3D game kit demo — voxel-based level editor, basic first/third-person camera, CSG primitives. Proof-of-concept only, not production-ready. | Low |
+
+---
+
+## 🚀 v7.0 Future Roadmap (Long-Term)
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| **VG3D — 3D Game Kit** | Full 3D game creation kit plugin. Voxel/grid-based level editor, built-in voxel model editor (MagicaVoxel-style), pre-built camera modes (first-person, third-person, top-down), CSG/primitive environments, actor system ported from AGCK, procedural 3D actor models, animation support, build pipeline generating Godot 3D scenes. | High |
+| **VGVR — VR Game Kit** | VR mode add-on for VG3D. OpenXR integration, hand/controller input mapping, VR camera rig, teleport/smooth locomotion presets. Requires VG3D as foundation. | Low |
 
 > 💬 **Community input drives priorities.** Open a [GitHub Issue](https://github.com/xgreenrx-star/VisualGasic/issues) or discussion to vote on features.
 

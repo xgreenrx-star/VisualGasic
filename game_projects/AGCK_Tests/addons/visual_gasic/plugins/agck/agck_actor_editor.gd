@@ -6,6 +6,7 @@
 extends VBoxContainer
 
 signal actor_changed(actor_id: int)
+signal switch_tab_requested(tab_index: int)  # Request plugin to switch to another editor tab
 
 # ─── Theme ───────────────────────────────────────────────────
 const BG_COLOR   = Color(0.13, 0.13, 0.16)
@@ -69,18 +70,33 @@ const SPRITE_FX_UNIFORMS: Dictionary = {
 	],
 }
 
+# ─── Sound Event Presets ─────────────────────────────────────
+# Fallback list if no sound_editor reference is available
+const SOUND_PRESETS: Array = [
+	"(None)", "Jump", "Coin", "Hit", "Hero Death",
+	"Enemy Death", "Shoot", "Powerup", "Game Over",
+]
+
 # ─── Data ────────────────────────────────────────────────────
 var actors: Array = []
 var selected_actor: int = 0
 
 # Reference to tile library for actor sprite previews (set by agck_plugin.gd)
 var tile_library = null
+# Reference to sound editor for dynamic name list & preview (set by agck_plugin.gd)
+var sound_editor = null
 
 # ─── UI Refs ─────────────────────────────────────────────────
 var _card_grid: GridContainer = null
 var _detail_scroll: ScrollContainer = null
 var _detail_panel: VBoxContainer = null
 var _card_buttons: Array = []
+
+# Type picker popup
+var _type_picker_popup: PopupPanel = null
+var _type_picker_grid: GridContainer = null
+var _type_picker_btn: Button = null
+var _type_preview_textures: Dictionary = {}  # { "Player": ImageTexture, ... }
 
 # Inline sprite editor popup
 var _edit_popup: Window = null
@@ -253,6 +269,12 @@ func _make_actor(aname: String, atype: String) -> Dictionary:
 		"ai_patrol_speed": 80,
 		"shader_fx": "(None)",
 		"shader_params": {},
+		"jump_sound": "(None)",
+		"hit_sound": "(None)",
+		"death_sound": "(None)",
+		"shoot_sound": "(None)",
+		"pickup_sound": "(None)",
+		"stomp_sound": "(None)",
 	}
 
 
@@ -325,13 +347,203 @@ func _build_ui() -> void:
 	_detail_panel.add_theme_constant_override("separation", 2)
 	_detail_scroll.add_child(_detail_panel)
 
+	_build_type_picker_popup()
 	_rebuild_cards()
 	_rebuild_detail()
+
+
+# ─── Type Picker Popup ───────────────────────────────────────
+
+func _build_type_picker_popup() -> void:
+	_type_picker_popup = PopupPanel.new()
+	var pp_sb = StyleBoxFlat.new()
+	pp_sb.bg_color = Color(0.12, 0.12, 0.16)
+	pp_sb.border_color = Color(0.35, 0.35, 0.45)
+	pp_sb.set_border_width_all(1)
+	pp_sb.set_corner_radius_all(6)
+	pp_sb.content_margin_left = 8; pp_sb.content_margin_right = 8
+	pp_sb.content_margin_top = 8; pp_sb.content_margin_bottom = 8
+	_type_picker_popup.add_theme_stylebox_override("panel", pp_sb)
+	add_child(_type_picker_popup)
+
+	var picker_scroll = ScrollContainer.new()
+	picker_scroll.custom_minimum_size = Vector2(520, 260)
+	_type_picker_popup.add_child(picker_scroll)
+	_apply_dark_scrollbar_theme(picker_scroll)
+
+	_type_picker_grid = GridContainer.new()
+	_type_picker_grid.columns = 4
+	_type_picker_grid.add_theme_constant_override("h_separation", 6)
+	_type_picker_grid.add_theme_constant_override("v_separation", 6)
+	picker_scroll.add_child(_type_picker_grid)
+
+	_rebuild_type_picker()
+
+
+func _get_type_preview_texture(atype: String) -> ImageTexture:
+	if _type_preview_textures.has(atype):
+		return _type_preview_textures[atype]
+	if tile_library:
+		var color: Color = TYPE_COLORS.get(atype, DIM)
+		var img: Image = tile_library._generate_character_sprite(atype, color)
+		if img:
+			var tex := ImageTexture.create_from_image(img)
+			_type_preview_textures[atype] = tex
+			return tex
+	return null
+
+
+func _rebuild_type_picker() -> void:
+	if not is_instance_valid(_type_picker_grid):
+		return
+	for c in _type_picker_grid.get_children():
+		c.queue_free()
+
+	var current_type: String = ""
+	if selected_actor >= 0 and selected_actor < actors.size():
+		current_type = actors[selected_actor].get("type", "Drone")
+
+	for atype in ACTOR_TYPES:
+		var color: Color = TYPE_COLORS.get(atype, DIM)
+		var is_sel: bool = (atype == current_type)
+		var tex: ImageTexture = _get_type_preview_texture(atype)
+
+		var card = PanelContainer.new()
+		var style = StyleBoxFlat.new()
+		style.bg_color = Color(0.22, 0.26, 0.40) if is_sel else Color(0.16, 0.16, 0.20)
+		style.set_corner_radius_all(6)
+		style.border_width_left = 3
+		style.border_color = color
+		style.content_margin_left = 6; style.content_margin_right = 6
+		style.content_margin_top = 6; style.content_margin_bottom = 6
+		card.add_theme_stylebox_override("panel", style)
+		card.custom_minimum_size = Vector2(120, 100)
+
+		var vbox = VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", 3)
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		card.add_child(vbox)
+
+		# Sprite preview
+		var center = CenterContainer.new()
+		center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vbox.add_child(center)
+		if tex:
+			var tex_rect = TextureRect.new()
+			tex_rect.texture = tex
+			tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			tex_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+			tex_rect.custom_minimum_size = Vector2(48, 48)
+			tex_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			center.add_child(tex_rect)
+		else:
+			var ph = ColorRect.new()
+			ph.color = color.darkened(0.6)
+			ph.custom_minimum_size = Vector2(48, 48)
+			ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			center.add_child(ph)
+
+		# Type name
+		var name_lbl = Label.new()
+		name_lbl.text = atype
+		name_lbl.label_settings = _ls(11, color)
+		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(name_lbl)
+
+		# Selected checkmark
+		if is_sel:
+			var sel_lbl = Label.new()
+			sel_lbl.text = "✓ Current"
+			sel_lbl.label_settings = _ls(9, ACCENT)
+			sel_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			sel_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			vbox.add_child(sel_lbl)
+
+		# Click button overlay
+		var btn = Button.new()
+		btn.flat = true
+		btn.anchor_right = 1.0
+		btn.anchor_bottom = 1.0
+		btn.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+		btn.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
+		btn.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
+		btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+		btn.pressed.connect(_on_type_card_clicked.bind(atype))
+		var _s = style
+		var _c = card
+		var _at = atype
+		btn.mouse_entered.connect(func():
+			_s.bg_color = Color(0.28, 0.32, 0.48)
+			_c.queue_redraw()
+		)
+		btn.mouse_exited.connect(func():
+			var ct = ""
+			if selected_actor >= 0 and selected_actor < actors.size():
+				ct = actors[selected_actor].get("type", "")
+			_s.bg_color = Color(0.22, 0.26, 0.40) if (_at == ct) else Color(0.16, 0.16, 0.20)
+			_c.queue_redraw()
+		)
+		card.add_child(btn)
+
+		_type_picker_grid.add_child(card)
+
+
+func _on_type_picker_pressed() -> void:
+	if is_instance_valid(_type_picker_popup) and is_instance_valid(_type_picker_btn):
+		_rebuild_type_picker()
+		var btn_rect = _type_picker_btn.get_global_rect()
+		_type_picker_popup.popup(Rect2i(
+			int(btn_rect.position.x), int(btn_rect.position.y + btn_rect.size.y + 2),
+			540, 280
+		))
+
+
+func _on_type_card_clicked(type_name: String) -> void:
+	_type_picker_popup.hide()
+	var idx: int = ACTOR_TYPES.find(type_name)
+	if idx < 0:
+		return
+	_on_type_changed(idx)
+
+
+func _apply_dark_scrollbar_theme(node: Control) -> void:
+	var grab := StyleBoxFlat.new()
+	grab.bg_color = Color(0.25, 0.25, 0.22)
+	grab.border_color = Color(0.15, 0.15, 0.12)
+	grab.set_border_width_all(1)
+	grab.set_corner_radius_all(2)
+	grab.content_margin_left = 3; grab.content_margin_right = 3
+	grab.content_margin_top = 3;  grab.content_margin_bottom = 3
+	var grab_hl := grab.duplicate()
+	grab_hl.bg_color = Color(0.18, 0.18, 0.16)
+	var grab_pr := grab.duplicate()
+	grab_pr.bg_color = Color(0.10, 0.10, 0.08)
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(0.14, 0.14, 0.18)
+	var t := Theme.new()
+	for sb_type in ["VScrollBar", "HScrollBar", "ScrollBar"]:
+		t.set_stylebox("grabber", sb_type, grab)
+		t.set_stylebox("grabber_highlight", sb_type, grab_hl)
+		t.set_stylebox("grabber_pressed", sb_type, grab_pr)
+		t.set_stylebox("scroll", sb_type, track)
+	node.theme = t
+	for i in node.get_child_count(true):
+		var child = node.get_child(i, true)
+		if child is VScrollBar or child is HScrollBar:
+			child.add_theme_stylebox_override("grabber", grab)
+			child.add_theme_stylebox_override("grabber_highlight", grab_hl)
+			child.add_theme_stylebox_override("grabber_pressed", grab_pr)
+			child.add_theme_stylebox_override("scroll", track)
+			child.custom_minimum_size = Vector2(12, 12)
 
 
 # ─── Card Grid ───────────────────────────────────────────────
 
 func _rebuild_cards() -> void:
+	if not is_instance_valid(_card_grid):
+		return
 	for c in _card_grid.get_children():
 		_card_grid.remove_child(c)
 		c.queue_free()
@@ -353,18 +565,17 @@ func _rebuild_cards() -> void:
 		style.content_margin_top = 6
 		style.content_margin_bottom = 6
 		card.add_theme_stylebox_override("panel", style)
-		card.custom_minimum_size = Vector2(140, 56)
+		card.custom_minimum_size = Vector2(160, 120)
 
 		var vbox = VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", 2)
+		vbox.add_theme_constant_override("separation", 4)
 		card.add_child(vbox)
 
-		# Sprite preview row (thumbnail + name/type)
-		var top_row = HBoxContainer.new()
-		top_row.add_theme_constant_override("separation", 6)
-		vbox.add_child(top_row)
+		# Large centered sprite preview
+		var sprite_center = CenterContainer.new()
+		sprite_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vbox.add_child(sprite_center)
 
-		# Actor sprite thumbnail from tile library
 		if tile_library:
 			tile_library.ensure_actor_sprite(i, actor.get("name", "Actor"), atype)
 			var actor_tex = tile_library.get_actor_texture(i)
@@ -373,25 +584,93 @@ func _rebuild_cards() -> void:
 				tex_rect.texture = actor_tex
 				tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 				tex_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-				tex_rect.custom_minimum_size = Vector2(36, 36)
+				tex_rect.custom_minimum_size = Vector2(64, 64)
+				tex_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 				tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				top_row.add_child(tex_rect)
+				sprite_center.add_child(tex_rect)
+			else:
+				var placeholder = ColorRect.new()
+				placeholder.color = Color(0.20, 0.20, 0.25)
+				placeholder.custom_minimum_size = Vector2(64, 64)
+				placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				sprite_center.add_child(placeholder)
+				var q_lbl = Label.new()
+				q_lbl.text = "?"
+				q_lbl.label_settings = _ls(24, DIM)
+				q_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				q_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				q_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				placeholder.add_child(q_lbl)
+		else:
+			var placeholder = ColorRect.new()
+			placeholder.color = Color(0.20, 0.20, 0.25)
+			placeholder.custom_minimum_size = Vector2(64, 64)
+			placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			sprite_center.add_child(placeholder)
 
-		var info_vbox = VBoxContainer.new()
-		info_vbox.add_theme_constant_override("separation", 1)
-		top_row.add_child(info_vbox)
+		# Animation frame strip (show up to 6 small frames from first animation)
+		if tile_library:
+			var anims: Dictionary = tile_library.get_actor_anims(i)
+			if anims.size() > 0:
+				var first_anim_name: String = anims.keys()[0]
+				var frames: Array = anims[first_anim_name]
+				if frames.size() > 1:
+					var strip_hbox = HBoxContainer.new()
+					strip_hbox.add_theme_constant_override("separation", 2)
+					strip_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+					vbox.add_child(strip_hbox)
+					var show_count: int = mini(frames.size(), 6)
+					for fi in range(show_count):
+						var frame_img: Image = frames[fi]
+						if frame_img:
+							var ftex = ImageTexture.create_from_image(frame_img)
+							var frect = TextureRect.new()
+							frect.texture = ftex
+							frect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+							frect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+							frect.custom_minimum_size = Vector2(18, 18)
+							frect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+							frect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+							strip_hbox.add_child(frect)
+					if frames.size() > 6:
+						var more_lbl = Label.new()
+						more_lbl.text = "+" + str(frames.size() - 6)
+						more_lbl.label_settings = _ls(8, DIM)
+						more_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+						strip_hbox.add_child(more_lbl)
 
+		# Name label
 		var name_lbl = Label.new()
 		name_lbl.text = actor.get("name", "Actor")
-		name_lbl.label_settings = _ls(12, WHITE)
-		info_vbox.add_child(name_lbl)
+		name_lbl.label_settings = _ls(11, WHITE)
+		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(name_lbl)
 
+		# Type label
 		var type_lbl = Label.new()
 		type_lbl.text = atype
-		type_lbl.label_settings = _ls(10, color)
-		info_vbox.add_child(type_lbl)
+		type_lbl.label_settings = _ls(9, color)
+		type_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		type_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(type_lbl)
 
-		# Click handler
+		# Animation info (compact)
+		if tile_library:
+			var anims2: Dictionary = tile_library.get_actor_anims(i)
+			if anims2.size() > 0:
+				var anim_parts: Array = []
+				for anim_key in anims2.keys():
+					anim_parts.append(str(anim_key) + "(" + str(anims2[anim_key].size()) + "f)")
+				var anim_lbl = Label.new()
+				anim_lbl.text = ", ".join(anim_parts)
+				anim_lbl.label_settings = _ls(8, DIM)
+				anim_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				anim_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				anim_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+				vbox.add_child(anim_lbl)
+
+		# Click handler (invisible overlay)
 		var btn = Button.new()
 		btn.flat = true
 		btn.anchor_right = 1.0
@@ -399,8 +678,21 @@ func _rebuild_cards() -> void:
 		btn.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 		btn.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
 		btn.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
+		btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 		btn.pressed.connect(_on_card_clicked.bind(i))
 		btn.gui_input.connect(_on_card_gui_input.bind(i))
+		# Hover effect
+		var _style_ref = style
+		var _card_ref = card
+		var _idx = i
+		btn.mouse_entered.connect(func():
+			_style_ref.bg_color = Color(0.25, 0.30, 0.45)
+			_card_ref.queue_redraw()
+		)
+		btn.mouse_exited.connect(func():
+			_style_ref.bg_color = CARD_SEL if (selected_actor == _idx) else CARD_BG
+			_card_ref.queue_redraw()
+		)
 		card.add_child(btn)
 
 		_card_grid.add_child(card)
@@ -423,6 +715,8 @@ func _on_card_gui_input(event: InputEvent, idx: int) -> void:
 # ─── Detail Panel ────────────────────────────────────────────
 
 func _rebuild_detail() -> void:
+	if not is_instance_valid(_detail_panel):
+		return
 	for c in _detail_panel.get_children():
 		c.queue_free()
 
@@ -467,16 +761,24 @@ func _rebuild_detail() -> void:
 	name_edit.text_changed.connect(_on_prop_str.bind("name"))
 	h_hbox.add_child(name_edit)
 
-	var type_opt = OptionButton.new()
-	type_opt.add_theme_font_size_override("font_size", 12)
-	for t in ACTOR_TYPES:
-		type_opt.add_item(t)
-	type_opt.selected = ACTOR_TYPES.find(atype)
-	if type_opt.selected < 0:
-		type_opt.selected = 0
-	type_opt.item_selected.connect(_on_type_changed)
-	h_hbox.add_child(type_opt)
-	_style_option(type_opt)
+	_type_picker_btn = Button.new()
+	_type_picker_btn.text = atype
+	_type_picker_btn.tooltip_text = "Click to choose actor type visually"
+	_type_picker_btn.add_theme_font_size_override("font_size", 12)
+	var typb_s = StyleBoxFlat.new()
+	typb_s.bg_color = color.darkened(0.5)
+	typb_s.set_corner_radius_all(4)
+	typb_s.content_margin_left = 10; typb_s.content_margin_right = 10
+	typb_s.content_margin_top = 3;  typb_s.content_margin_bottom = 3
+	_type_picker_btn.add_theme_stylebox_override("normal", typb_s)
+	_type_picker_btn.add_theme_color_override("font_color", color)
+	_type_picker_btn.add_theme_color_override("font_hover_color", WHITE)
+	var type_tex = _get_type_preview_texture(atype)
+	if type_tex:
+		_type_picker_btn.icon = type_tex
+		_type_picker_btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_type_picker_btn.pressed.connect(_on_type_picker_pressed)
+	h_hbox.add_child(_type_picker_btn)
 
 	var edit_sprite_btn = Button.new()
 	edit_sprite_btn.text = "Edit Sprite"
@@ -521,6 +823,71 @@ func _rebuild_detail() -> void:
 	import_spr_btn.pressed.connect(_on_import_sprite_pressed.bind(selected_actor))
 	h_hbox.add_child(import_spr_btn)
 
+	# ── Sprite Preview Panel ─────────────────────────────────
+	var preview_panel = PanelContainer.new()
+	var pp_style = StyleBoxFlat.new()
+	pp_style.bg_color = Color(0.10, 0.10, 0.14)
+	pp_style.set_corner_radius_all(6)
+	pp_style.border_width_bottom = 2
+	pp_style.border_width_top = 2
+	pp_style.border_width_left = 2
+	pp_style.border_width_right = 2
+	pp_style.border_color = color.darkened(0.4)
+	pp_style.content_margin_left = 12
+	pp_style.content_margin_right = 12
+	pp_style.content_margin_top = 8
+	pp_style.content_margin_bottom = 8
+	preview_panel.add_theme_stylebox_override("panel", pp_style)
+	preview_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_detail_panel.add_child(preview_panel)
+
+	var preview_hbox = HBoxContainer.new()
+	preview_hbox.add_theme_constant_override("separation", 16)
+	preview_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	preview_panel.add_child(preview_hbox)
+
+	# Large sprite preview (nearest-neighbor for pixel art)
+	if tile_library:
+		var preview_tex: Texture2D = tile_library.get_actor_texture(selected_actor)
+		if preview_tex:
+			var large_preview = TextureRect.new()
+			large_preview.texture = preview_tex
+			large_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			large_preview.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+			large_preview.custom_minimum_size = Vector2(96, 96)
+			large_preview.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			preview_hbox.add_child(large_preview)
+
+	# Preview info labels
+	var preview_info = VBoxContainer.new()
+	preview_info.add_theme_constant_override("separation", 4)
+	preview_hbox.add_child(preview_info)
+
+	var pname_lbl = Label.new()
+	pname_lbl.text = actor.get("name", "Actor")
+	pname_lbl.label_settings = _ls(14, WHITE)
+	preview_info.add_child(pname_lbl)
+
+	var ptype_lbl = Label.new()
+	ptype_lbl.text = atype
+	ptype_lbl.label_settings = _ls(12, color)
+	preview_info.add_child(ptype_lbl)
+
+	# Show animation frame count if available
+	if tile_library:
+		var anim_names: Array = []
+		var sprite_data: Dictionary = tile_library.actor_sprites.get(selected_actor, {})
+		var anims: Dictionary = sprite_data.get("anims", {})
+		for anim_key in anims.keys():
+			var frames: Array = anims[anim_key]
+			anim_names.append(str(anim_key) + " (" + str(frames.size()) + "f)")
+		if anim_names.size() > 0:
+			var panim_lbl = Label.new()
+			panim_lbl.text = "Anims: " + ", ".join(anim_names)
+			panim_lbl.label_settings = _ls(10, DIM)
+			panim_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+			preview_info.add_child(panim_lbl)
+
 	# ── Property cards — 2-column grid layout
 	var prop_grid = GridContainer.new()
 	prop_grid.columns = 2
@@ -552,6 +919,47 @@ func _rebuild_detail() -> void:
 	prop_grid.add_child(coll_card)
 	var col_grid = _card_body(coll_card)
 	_add_option_row(col_grid, "Mode", "collision_mode", actor, ["Bounce", "Slide", "Stop", "Pass"])
+
+	# Sound card — assign sounds to game events
+	var snd_card = _card("🔊 Sounds")
+	prop_grid.add_child(snd_card)
+	var snd_grid = _card_body(snd_card)
+	# Get live sound names from sound editor (or fallback to presets)
+	var snd_names: Array = _get_sound_options()
+	match atype:
+		"Player":
+			_add_sound_row(snd_grid, "Jump", "jump_sound", actor, snd_names)
+			_add_sound_row(snd_grid, "Hit", "hit_sound", actor, snd_names)
+			_add_sound_row(snd_grid, "Death", "death_sound", actor, snd_names)
+		"Computer":
+			_add_sound_row(snd_grid, "Pickup", "pickup_sound", actor, snd_names)
+		"Sentry":
+			_add_sound_row(snd_grid, "Hit", "hit_sound", actor, snd_names)
+			_add_sound_row(snd_grid, "Death", "death_sound", actor, snd_names)
+			_add_sound_row(snd_grid, "Shoot", "shoot_sound", actor, snd_names)
+			_add_sound_row(snd_grid, "Stomp", "stomp_sound", actor, snd_names)
+		"Drone", "Zombie", "Boss", "Bat", "Tank":
+			_add_sound_row(snd_grid, "Hit", "hit_sound", actor, snd_names)
+			_add_sound_row(snd_grid, "Death", "death_sound", actor, snd_names)
+			_add_sound_row(snd_grid, "Stomp", "stomp_sound", actor, snd_names)
+		_:
+			_add_sound_row(snd_grid, "Hit", "hit_sound", actor, snd_names)
+			_add_sound_row(snd_grid, "Death", "death_sound", actor, snd_names)
+	# Edit Sounds button — navigate to Sound Editor
+	snd_grid.add_child(_prop_label(""))
+	var edit_snd_btn = Button.new()
+	edit_snd_btn.text = "🎵 Edit Sounds →"
+	edit_snd_btn.tooltip_text = "Open the Sound Editor to create and edit sounds"
+	edit_snd_btn.add_theme_font_size_override("font_size", 11)
+	var esb_s = StyleBoxFlat.new()
+	esb_s.bg_color = Color(0.55, 0.40, 0.70)
+	esb_s.set_corner_radius_all(4)
+	esb_s.content_margin_left = 8; esb_s.content_margin_right = 8
+	esb_s.content_margin_top = 2;  esb_s.content_margin_bottom = 2
+	edit_snd_btn.add_theme_stylebox_override("normal", esb_s)
+	edit_snd_btn.add_theme_color_override("font_color", WHITE)
+	edit_snd_btn.pressed.connect(func(): switch_tab_requested.emit(2))
+	snd_grid.add_child(edit_snd_btn)
 
 	# AI card (only for non-Player)
 	if atype != "Player":
@@ -753,6 +1161,60 @@ func _add_edit_row(grid: GridContainer, label: String, key: String, actor: Dicti
 	grid.add_child(edit)
 
 
+## Get current sound names from the sound editor, or fall back to preset list.
+func _get_sound_options() -> Array:
+	if sound_editor and sound_editor.has_method("get_sound_names"):
+		return sound_editor.get_sound_names(true)
+	return SOUND_PRESETS.duplicate()
+
+
+## Add a sound assignment row: dropdown + ▶ preview button.
+func _add_sound_row(grid: GridContainer, label: String, key: String, actor: Dictionary, options: Array) -> void:
+	grid.add_child(_prop_label(label))
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 4)
+	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	# Dropdown
+	var opt = OptionButton.new()
+	opt.add_theme_font_size_override("font_size", 11)
+	for o in options:
+		opt.add_item(o)
+	var current_val: String = actor.get(key, "(None)")
+	var idx = options.find(current_val)
+	# If the stored name isn't in the list, add it so nothing is lost
+	if idx < 0 and current_val != "(None)" and current_val != "":
+		opt.add_item(current_val)
+		idx = opt.item_count - 1
+	opt.selected = idx if idx >= 0 else 0
+	opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	opt.item_selected.connect(func(i):
+		var val: String = opt.get_item_text(i)
+		_on_prop_str.call(val, key))
+	_style_option(opt)
+	hbox.add_child(opt)
+
+	# ▶ Preview button
+	var play_btn = Button.new()
+	play_btn.text = "▶"
+	play_btn.tooltip_text = "Preview this sound"
+	play_btn.add_theme_font_size_override("font_size", 11)
+	play_btn.custom_minimum_size = Vector2(28, 0)
+	var pbs = StyleBoxFlat.new()
+	pbs.bg_color = Color(0.25, 0.65, 0.35)
+	pbs.set_corner_radius_all(4)
+	pbs.content_margin_left = 4; pbs.content_margin_right = 4
+	pbs.content_margin_top = 2;  pbs.content_margin_bottom = 2
+	play_btn.add_theme_stylebox_override("normal", pbs)
+	play_btn.add_theme_color_override("font_color", WHITE)
+	play_btn.pressed.connect(func():
+		var snd_name: String = opt.get_item_text(opt.selected)
+		if snd_name != "(None)" and sound_editor and sound_editor.has_method("play_sound_by_name"):
+			sound_editor.play_sound_by_name(snd_name))
+	hbox.add_child(play_btn)
+	grid.add_child(hbox)
+
+
 # ─── Property Callbacks ─────────────────────────────────────
 
 func _on_prop_str(val: String, key: String) -> void:
@@ -819,6 +1281,10 @@ func set_data(data: Array) -> void:
 		if not actor.has("shader_fx"):
 			actor["shader_fx"] = "(None)"
 			actor["shader_params"] = {}
+		# Migrate: add sound event fields for older projects
+		for snd_key in ["jump_sound", "hit_sound", "death_sound", "shoot_sound", "pickup_sound", "stomp_sound"]:
+			if not actor.has(snd_key):
+				actor[snd_key] = "(None)"
 	while actors.size() < MAX_ACTORS:
 		actors.append(_make_actor("Actor " + str(actors.size() + 1), "Drone"))
 	selected_actor = 0

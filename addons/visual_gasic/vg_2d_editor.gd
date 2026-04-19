@@ -16,10 +16,10 @@ extends HSplitContainer
 # SIGNALS
 # ─────────────────────────────────────────────────────────────────────────────
 signal back_to_form_requested
-signal node_selected(node: Node2D)
+signal node_selected(node: Node)
 signal selection_cleared
-signal node_double_clicked(node: Node2D)
-signal view_code_requested(node: Node2D)
+signal node_double_clicked(node: Node)
+signal view_code_requested(node: Node)
 signal scene_saved(path: String)  ## Emitted after a successful save (Save or Save As)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -61,11 +61,12 @@ var _cam_offset: Vector2 = Vector2.ZERO
 var _cam_zoom: float = DEFAULT_ZOOM
 var _panning: bool = false
 var _alt_panning: bool = false
+var _rmb_panning: bool = false
 var _last_mouse_pos: Vector2 = Vector2.ZERO
 
 # Selection
-var _selected_nodes: Array[Node2D] = []
-var _primary_selected: Node2D = null
+var _selected_nodes: Array[CanvasItem] = []
+var _primary_selected: CanvasItem = null
 
 # Tool state
 var _tool_mode: ToolMode = ToolMode.SELECT
@@ -135,6 +136,10 @@ var _undo_btn: Button = null
 var _redo_btn: Button = null
 var _help_dialog: AcceptDialog = null
 var _popup_backdrop: Control = null  # Custom dark popup overlay (replaces native PopupMenu)
+var _h_scrollbar: HScrollBar = null
+var _v_scrollbar: VScrollBar = null
+var _scrollbar_updating: bool = false  # prevent feedback loop
+const SCROLL_WORLD_RANGE := 5000.0  # total scrollable world range
 
 # Transform panel spinboxes
 var _pos_x: SpinBox = null
@@ -142,6 +147,7 @@ var _pos_y: SpinBox = null
 var _rot_z: SpinBox = null
 var _scl_x: SpinBox = null
 var _scl_y: SpinBox = null
+var _node_inspector = null  # VG Node Inspector panel
 
 # Rendering options
 var _show_grid: bool = true
@@ -561,6 +567,20 @@ func _build_ui() -> void:
 	_scl_y.value_changed.connect(_on_transform_value_changed)
 	xform_grid.add_child(_scl_y)
 
+	# ── Node Inspector (properties, collision, groups, signals) ──
+	left_vbox.add_child(HSeparator.new())
+	var InspectorScript = load("res://addons/visual_gasic/vg_node_inspector.gd")
+	if InspectorScript:
+		_node_inspector = InspectorScript.new()
+		_node_inspector.signal_connect_requested.connect(func(node_name, sig_name):
+			# Emit a signal that the code editor can pick up to generate a Sub stub
+			print("[VG2D] Generate Sub: ", node_name, "_", sig_name)
+		)
+		_node_inspector.property_changed.connect(func(node, prop, old_val, new_val):
+			_viewport_container.queue_redraw() if _viewport_container else null
+		)
+		left_vbox.add_child(_node_inspector)
+
 	add_child(left_panel)
 
 	# ── RIGHT PANEL ─────────────────────────────────────────────────────────
@@ -746,7 +766,18 @@ func _build_ui() -> void:
 	_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 	right_vbox.add_child(_status_label)
 
-	# ── Viewport ──
+	# ── Viewport + Scrollbars ──
+	# Use a VBoxContainer > [HBoxContainer > [viewport, v_scroll], h_scroll]
+	var vp_outer := VBoxContainer.new()
+	vp_outer.size_flags_horizontal = SIZE_EXPAND_FILL
+	vp_outer.size_flags_vertical = SIZE_EXPAND_FILL
+	right_vbox.add_child(vp_outer)
+
+	var vp_row := HBoxContainer.new()
+	vp_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	vp_row.size_flags_vertical = SIZE_EXPAND_FILL
+	vp_outer.add_child(vp_row)
+
 	_viewport_container = SubViewportContainer.new()
 	_viewport_container.stretch = true
 	_viewport_container.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -754,13 +785,33 @@ func _build_ui() -> void:
 	_viewport_container.focus_mode = Control.FOCUS_ALL
 	_viewport_container.mouse_filter = Control.MOUSE_FILTER_STOP
 	_viewport_container.gui_input.connect(_on_viewport_input)
-	right_vbox.add_child(_viewport_container)
+	vp_row.add_child(_viewport_container)
 
 	_viewport = SubViewport.new()
 	_viewport.size = Vector2i(1024, 768)
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_viewport.transparent_bg = false
 	_viewport_container.add_child(_viewport)
+
+	# Vertical scrollbar (right edge)
+	_v_scrollbar = VScrollBar.new()
+	_v_scrollbar.custom_minimum_size = Vector2(12, 0)
+	_v_scrollbar.min_value = -SCROLL_WORLD_RANGE
+	_v_scrollbar.max_value = SCROLL_WORLD_RANGE
+	_v_scrollbar.page = 800.0
+	_v_scrollbar.value = 0.0
+	_v_scrollbar.value_changed.connect(_on_v_scroll_changed)
+	vp_row.add_child(_v_scrollbar)
+
+	# Horizontal scrollbar (bottom edge)
+	_h_scrollbar = HScrollBar.new()
+	_h_scrollbar.custom_minimum_size = Vector2(0, 12)
+	_h_scrollbar.min_value = -SCROLL_WORLD_RANGE
+	_h_scrollbar.max_value = SCROLL_WORLD_RANGE
+	_h_scrollbar.page = 1000.0
+	_h_scrollbar.value = 0.0
+	_h_scrollbar.value_changed.connect(_on_h_scroll_changed)
+	vp_outer.add_child(_h_scrollbar)
 
 	add_child(right_vbox)
 
@@ -878,7 +929,7 @@ func _draw_origin_axes(vp_size: Vector2) -> void:
 	if origin_screen.x >= 0 and origin_screen.x <= vp_size.x:
 		_overlay.draw_line(Vector2(origin_screen.x, 0), Vector2(origin_screen.x, vp_size.y), ORIGIN_Y_COLOR, 2.0)
 
-func _draw_selection_handle(node: Node2D, vp_size: Vector2) -> void:
+func _draw_selection_handle(node: CanvasItem, vp_size: Vector2) -> void:
 	var screen_pos = _world_to_screen(node.global_position, vp_size)
 	var color = SELECTION_COLOR if node == _primary_selected else MULTI_SELECTION_COLOR
 
@@ -988,19 +1039,88 @@ func _update_camera() -> void:
 		return
 	_camera.position = _cam_offset
 	_camera.zoom = Vector2(_cam_zoom, _cam_zoom)
+	_update_scrollbars()
 	_update_status()
 
 func _reset_camera() -> void:
-	_cam_offset = Vector2.ZERO
-	_cam_zoom = DEFAULT_ZOOM
+	if is_instance_valid(_scene_root) and _scene_root.get_child_count() > 0:
+		_fit_scene_in_view()
+	else:
+		_cam_offset = Vector2.ZERO
+		_cam_zoom = DEFAULT_ZOOM
+		_update_camera()
+	if is_instance_valid(_overlay):
+		_overlay.queue_redraw()
+
+## Keep scrollbar positions in sync with _cam_offset / _cam_zoom.
+func _update_scrollbars() -> void:
+	if _scrollbar_updating:
+		return
+	_scrollbar_updating = true
+	if is_instance_valid(_h_scrollbar):
+		var vp_w := float(_viewport.size.x) if is_instance_valid(_viewport) else 1024.0
+		_h_scrollbar.page = vp_w / _cam_zoom
+		_h_scrollbar.value = _cam_offset.x
+	if is_instance_valid(_v_scrollbar):
+		var vp_h := float(_viewport.size.y) if is_instance_valid(_viewport) else 768.0
+		_v_scrollbar.page = vp_h / _cam_zoom
+		_v_scrollbar.value = _cam_offset.y
+	_scrollbar_updating = false
+
+func _on_h_scroll_changed(value: float) -> void:
+	if _scrollbar_updating:
+		return
+	_cam_offset.x = value
 	_update_camera()
-	_overlay.queue_redraw()
+	if is_instance_valid(_overlay):
+		_overlay.queue_redraw()
+
+func _on_v_scroll_changed(value: float) -> void:
+	if _scrollbar_updating:
+		return
+	_cam_offset.y = value
+	_update_camera()
+	if is_instance_valid(_overlay):
+		_overlay.queue_redraw()
 
 func _focus_selected() -> void:
 	if _primary_selected and is_instance_valid(_primary_selected):
 		_cam_offset = _primary_selected.global_position
 		_update_camera()
+		if is_instance_valid(_overlay):
+			_overlay.queue_redraw()
+	else:
+		_fit_scene_in_view()
+
+## Strip ShaderMaterial from all Sprite2D descendants so textures render
+## properly in the editor preview (shaders may not bind correctly in SubViewport).
+func _strip_shader_materials(root: Node) -> void:
+	for child in root.get_children():
+		if child is CanvasItem and child.material is ShaderMaterial:
+			child.material = null
+		_strip_shader_materials(child)
+
+## Compute the bounding rect of all visible nodes and center/zoom the camera
+## so everything fits in the viewport with some padding.
+func _fit_scene_in_view() -> void:
+	if not is_instance_valid(_scene_root) or _scene_root.get_child_count() == 0:
+		return
+	var vp_size := Vector2(_viewport.size)
+	# If viewport hasn't been laid out yet, defer until next frame
+	if vp_size.x < 100.0 or vp_size.y < 100.0:
+		call_deferred("_fit_scene_in_view")
+		return
+	# Mimic Godot's default 2D view: 100% zoom, origin in upper-left area.
+	# Camera position is the world-space center of the viewport.
+	# Place origin ~100px from left, ~50px from top so game content fills
+	# the viewport — exactly like Godot's 2D editor.
+	_cam_zoom = DEFAULT_ZOOM
+	_cam_offset.x = vp_size.x * 0.5 - 100.0
+	_cam_offset.y = vp_size.y * 0.5 - 50.0
+	_update_camera()
+	if is_instance_valid(_overlay):
 		_overlay.queue_redraw()
+	print("[VG2D] Fit scene in view: vp_size=", vp_size, " offset=", _cam_offset, " zoom=", _cam_zoom)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # INPUT HANDLING
@@ -1144,16 +1264,18 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 					_interact_mode = InteractMode.NONE
 					_scene_dirty = true
 				elif _interact_mode == InteractMode.RUBBER_BAND:
-					# Select nodes inside rubber band
+					# Select nodes inside rubber band (supports both Node2D and Control)
 					var screen_rect = Rect2(_rubber_band_start, _rubber_band_end - _rubber_band_start).abs()
 					if not event.shift_pressed:
 						_selected_nodes.clear()
-					for child in _scene_root.get_children():
-						if child is Node2D:
+					var rb_candidates: Array[Node] = []
+					_collect_pickable_nodes(_scene_root, rb_candidates)
+					for child in rb_candidates:
+						if child is CanvasItem:
 							var sp = _world_to_screen(child.global_position, vp_size)
 							if screen_rect.has_point(sp):
 								if child not in _selected_nodes:
-									_selected_nodes.append(child)
+									_selected_nodes.append(child as CanvasItem)
 					_primary_selected = _selected_nodes[0] if _selected_nodes.size() > 0 else null
 					_interact_mode = InteractMode.NONE
 					_on_selection_changed()
@@ -1199,8 +1321,12 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 		MOUSE_BUTTON_RIGHT:
 			if event.pressed:
 				_rmb_press_pos = event.position
+				_rmb_panning = true
+				_last_mouse_pos = event.position
 			else:
-				# Only show context menu if mouse didn't move much (not accidental)
+				var was_panning := _rmb_panning
+				_rmb_panning = false
+				# Only show context menu if mouse didn't move much (not a pan drag)
 				if event.position.distance_to(_rmb_press_pos) < 5.0:
 					var world_pos = _screen_to_world(event.position, vp_size)
 					var hit = _pick_node_at(world_pos)
@@ -1212,7 +1338,7 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
 	var vp_size = _viewport_container.size
 
-	if _panning or _alt_panning:
+	if _panning or _alt_panning or _rmb_panning:
 		var delta = event.position - _last_mouse_pos
 		_cam_offset -= delta / _cam_zoom
 		_last_mouse_pos = event.position
@@ -1460,7 +1586,7 @@ func _get_node_visual_rect(node) -> Rect2:
 # ─────────────────────────────────────────────────────────────────────────────
 # SELECTION MANAGEMENT
 # ─────────────────────────────────────────────────────────────────────────────
-func _select_node(node: Node2D) -> void:
+func _select_node(node: CanvasItem) -> void:
 	_selected_nodes.clear()
 	_selected_nodes.append(node)
 	_primary_selected = node
@@ -1473,9 +1599,11 @@ func _deselect_all() -> void:
 
 func _select_all() -> void:
 	_selected_nodes.clear()
-	for child in _scene_root.get_children():
-		if child is Node2D:
-			_selected_nodes.append(child)
+	var candidates: Array[Node] = []
+	_collect_pickable_nodes(_scene_root, candidates)
+	for node in candidates:
+		if node is CanvasItem:
+			_selected_nodes.append(node as CanvasItem)
 	_primary_selected = _selected_nodes[0] if _selected_nodes.size() > 0 else null
 	_on_selection_changed()
 
@@ -1484,8 +1612,12 @@ func _on_selection_changed() -> void:
 	_update_scene_tree_selection()
 	_overlay.queue_redraw()
 	if _primary_selected:
+		if _node_inspector:
+			_node_inspector.inspect(_primary_selected)
 		node_selected.emit(_primary_selected)
 	else:
+		if _node_inspector:
+			_node_inspector.clear()
 		selection_cleared.emit()
 	_update_status()
 
@@ -1563,7 +1695,7 @@ func _duplicate_selected() -> void:
 	if _selected_nodes.is_empty():
 		return
 
-	var new_nodes: Array[Node2D] = []
+	var new_nodes: Array[CanvasItem] = []
 	for node in _selected_nodes:
 		if is_instance_valid(node):
 			var dup = node.duplicate()
@@ -1596,7 +1728,7 @@ func _paste() -> void:
 	if _clipboard.is_empty():
 		return
 
-	var new_nodes: Array[Node2D] = []
+	var new_nodes: Array[CanvasItem] = []
 	for stored in _clipboard:
 		var dup = stored.duplicate()
 		dup.name = _unique_name(stored.name, _scene_root)
@@ -2272,22 +2404,61 @@ func load_scene(path: String) -> void:
 		print("[VG2D] load_scene: instantiate returned: ", instance)
 		if instance:
 			print("[VG2D] load_scene: instance type=", instance.get_class(), "  children=", instance.get_child_count())
-			# Move all children into our scene root
+			# Move all children into our scene root.
+			# CanvasLayer nodes are special — they create a separate rendering
+			# layer that breaks coordinate systems in our SubViewport editor.
+			# Flatten them: replace each CanvasLayer with a Control sized to
+			# the viewport so anchor-based children resolve correctly.
+			# Direct Control children of the root also need a Control parent
+			# for anchors to work (Node2D parents can't resolve anchors).
+			var vp_size := Vector2(_viewport.size)
 			var children_to_move: Array = []
 			for child in instance.get_children():
 				children_to_move.append(child)
 			for child in children_to_move:
-				child.owner = null  # clear owner to avoid re-parenting warning
+				child.owner = null
 				instance.remove_child(child)
-				_scene_root.add_child(child)
+				if child is CanvasLayer:
+					# Replace CanvasLayer with a Control container sized to viewport
+					var placeholder := Control.new()
+					placeholder.name = child.name
+					placeholder.size = vp_size
+					placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+					_scene_root.add_child(placeholder)
+					# Reparent all CanvasLayer children into the placeholder
+					var layer_children: Array = []
+					for lc in child.get_children():
+						layer_children.append(lc)
+					for lc in layer_children:
+						lc.owner = null
+						child.remove_child(lc)
+						placeholder.add_child(lc)
+					child.queue_free()
+					print("[VG2D] Flattened CanvasLayer '", placeholder.name, "' → Control(", vp_size, ") with ", placeholder.get_child_count(), " children")
+				elif child is Control:
+					# Control nodes need a Control parent for anchors to work.
+					# Wrap in a viewport-sized Control if there isn't one yet.
+					var wrapper := Control.new()
+					wrapper.name = child.name + "_Wrapper"
+					wrapper.size = vp_size
+					wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+					_scene_root.add_child(wrapper)
+					wrapper.add_child(child)
+					print("[VG2D] Wrapped Control '", child.name, "' in viewport-sized parent")
+				else:
+					_scene_root.add_child(child)
 			instance.queue_free()
 
+			# Strip shader materials so textures render properly in preview
+			_strip_shader_materials(_scene_root)
 			_loaded_scene_path = path  # store the REAL path, not the temp
 			_scene_dirty = false
 			_rebuild_scene_tree()
 			_update_status()
 			if is_instance_valid(_overlay):
 				_overlay.queue_redraw()
+			# Center and zoom to fit the entire scene
+			_fit_scene_in_view()
 			print("[VG2D] Loaded scene: ", path, "  nodes in _scene_root: ", _scene_root.get_child_count())
 		else:
 			push_warning("VG 2D Editor: Could not instantiate scene: " + path)

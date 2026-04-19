@@ -7,6 +7,7 @@ extends VBoxContainer
 signal build_requested()
 signal preview_requested()
 signal template_requested(template_name: String)
+signal web_publish_requested(web_config: Dictionary)
 
 # ─── Theme ───────────────────────────────────────────────────
 const BG_COLOR   = Color(0.13, 0.13, 0.16)
@@ -27,9 +28,13 @@ var build_data: Dictionary = {}
 var _log_output: RichTextLabel = null
 var _target_opt: OptionButton = null
 var _mode_opt: OptionButton = null
+var _start_level_opt: OptionButton = null
 var _path_edit: LineEdit = null
 var _debug_chk: CheckButton = null
 var _auto_run_chk: CheckButton = null
+
+# ─── Web Delegation Panel (web export moved to Web Publish plugin) ──
+var _web_panel: PanelContainer = null
 
 
 func _ls(size: int, color: Color) -> LabelSettings:
@@ -135,6 +140,19 @@ func _init_data() -> void:
 		"splash_enabled": true,
 		"splash_duration": 2.0,
 		"compress_assets": false,
+		"start_level": 1,
+		# Web-specific options (Flash-successor features)
+		"web_loading_style": "Bar",
+		"web_quality": "High",
+		"web_scale_mode": "Fit",
+		"web_bg_color": "#0d0d14",
+		"web_loading_color": "#ffd159",
+		"web_fullscreen_button": true,
+		"web_right_click_menu": true,
+		"web_watermark": true,
+		"web_embed_ready": true,
+		"web_splash_enabled": true,
+		"web_description": "",
 	}
 
 
@@ -366,6 +384,18 @@ func _build_ui() -> void:
 	_path_edit.text_changed.connect(func(t): build_data["output_path"] = t)
 	opts_grid.add_child(_path_edit)
 
+	# Start Level
+	var sl_lbl = Label.new()
+	sl_lbl.text = "Start Level:"
+	sl_lbl.label_settings = _ls(11, DIM)
+	opts_grid.add_child(sl_lbl)
+	_start_level_opt = OptionButton.new()
+	_start_level_opt.add_theme_font_size_override("font_size", 11)
+	_start_level_opt.add_item("Level 1")
+	_start_level_opt.item_selected.connect(func(i): build_data["start_level"] = i + 1)
+	opts_grid.add_child(_start_level_opt)
+	_style_option(_start_level_opt)
+
 	# Debug + Auto-run
 	_debug_chk = CheckButton.new()
 	_debug_chk.text = "Debug"
@@ -379,6 +409,81 @@ func _build_ui() -> void:
 	_auto_run_chk.button_pressed = build_data.get("auto_run", true)
 	_auto_run_chk.toggled.connect(func(v): build_data["auto_run"] = v)
 	opts_grid.add_child(_auto_run_chk)
+
+	# ══════════════════════════════════════════════════════════
+	# WEB DELEGATION — web export now lives in the Web Publish plugin
+	# Shows only when target is "Web"
+	# ══════════════════════════════════════════════════════════
+	_web_panel = PanelContainer.new()
+	var wp_style = StyleBoxFlat.new()
+	wp_style.bg_color = Color(0.12, 0.14, 0.20)
+	wp_style.set_corner_radius_all(6)
+	wp_style.border_width_top = 2
+	wp_style.border_color = Color(0.35, 0.55, 0.95)
+	wp_style.content_margin_left = 16
+	wp_style.content_margin_right = 16
+	wp_style.content_margin_top = 12
+	wp_style.content_margin_bottom = 12
+	_web_panel.add_theme_stylebox_override("panel", wp_style)
+	_web_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_web_panel.visible = (build_data.get("target", "Desktop") == "Web")
+	add_child(_web_panel)
+
+	var web_vbox = VBoxContainer.new()
+	web_vbox.add_theme_constant_override("separation", 8)
+	_web_panel.add_child(web_vbox)
+
+	var web_title = Label.new()
+	web_title.text = "🌐 Web Publishing"
+	web_title.label_settings = _ls(13, Color(0.35, 0.55, 0.95))
+	web_vbox.add_child(web_title)
+
+	var web_info = Label.new()
+	web_info.text = "Web export is now handled by the standalone Web Publish plugin.\nClick the 🌐 Web Publish button in the toolbar, or use Quick Publish below."
+	web_info.label_settings = _ls(11, DIM)
+	web_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	web_vbox.add_child(web_info)
+
+	web_vbox.add_child(HSeparator.new())
+
+	# Quick-publish button (delegates to web_publish plugin backend)
+	var pub_hbox = HBoxContainer.new()
+	pub_hbox.add_theme_constant_override("separation", 12)
+	pub_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	web_vbox.add_child(pub_hbox)
+
+	var pub_btn = Button.new()
+	pub_btn.text = "🌐  QUICK PUBLISH TO WEB"
+	pub_btn.add_theme_font_size_override("font_size", 14)
+	pub_btn.custom_minimum_size = Vector2(260, 42)
+	pub_btn.tooltip_text = "Publish with default web settings via the Web Publish plugin"
+	pub_btn.pressed.connect(_on_web_publish)
+	var pub_s = StyleBoxFlat.new()
+	pub_s.bg_color = Color(0.20, 0.40, 0.80)
+	pub_s.set_corner_radius_all(8)
+	pub_s.content_margin_left = 16
+	pub_s.content_margin_right = 16
+	pub_s.content_margin_top = 6
+	pub_s.content_margin_bottom = 6
+	pub_btn.add_theme_stylebox_override("normal", pub_s)
+	var pub_h = pub_s.duplicate()
+	pub_h.bg_color = Color(0.25, 0.50, 0.95)
+	pub_btn.add_theme_stylebox_override("hover", pub_h)
+	var pub_p = pub_s.duplicate()
+	pub_p.bg_color = Color(0.15, 0.30, 0.65)
+	pub_btn.add_theme_stylebox_override("pressed", pub_p)
+	pub_btn.add_theme_color_override("font_color", WHITE)
+	pub_btn.add_theme_color_override("font_hover_color", WHITE)
+	pub_btn.add_theme_color_override("font_pressed_color", WHITE)
+	pub_hbox.add_child(pub_btn)
+
+	var pub_hint = Label.new()
+	pub_hint.text = "Uses default settings — for full control\nuse the 🌐 Web Publish plugin"
+	pub_hint.label_settings = _ls(10, DIM)
+	pub_hbox.add_child(pub_hint)
+
+	# Hook target change to show/hide web panel
+	_target_opt.item_selected.connect(func(i): _toggle_web_panel(_target_opt.get_item_text(i) == "Web"))
 
 	# ══════════════════════════════════════════════════════════
 	# BUILD LOG — fills remaining space
@@ -436,11 +541,50 @@ func _on_build() -> void:
 	log_msg("[color=#44cc55]🔨 Starting full build…[/color]")
 	build_requested.emit()
 
+func _toggle_web_panel(show: bool) -> void:
+	if is_instance_valid(_web_panel):
+		_web_panel.visible = show
+
+func _on_web_publish() -> void:
+	log_msg("[color=#5577cc]🌐 Publishing to web…[/color]")
+	var web_cfg := {
+		"game_title":       build_data.get("game_title", "My Game"),
+		"bg_color":         build_data.get("web_bg_color", "#0d0d14"),
+		"loading_style":    build_data.get("web_loading_style", "Bar"),
+		"loading_color":    build_data.get("web_loading_color", "#ffd159"),
+		"quality":          build_data.get("web_quality", "High"),
+		"scale_mode":       build_data.get("web_scale_mode", "Fit"),
+		"fullscreen_button": build_data.get("web_fullscreen_button", true),
+		"right_click_menu": build_data.get("web_right_click_menu", true),
+		"show_watermark":   build_data.get("web_watermark", true),
+		"embed_ready":      build_data.get("web_embed_ready", true),
+		"splash_enabled":   build_data.get("web_splash_enabled", true),
+		"description":      build_data.get("web_description", ""),
+		"canvas_width":     build_data.get("canvas_width", 1280),
+		"canvas_height":    build_data.get("canvas_height", 720),
+	}
+	web_publish_requested.emit(web_cfg)
+
 
 ## Public: called by the plugin to forward build log messages from the backend
 func log_msg(bbcode: String) -> void:
 	if is_instance_valid(_log_output):
 		_log_output.append_text(bbcode + "\n")
+
+
+## Update the Start Level dropdown to reflect the current number of levels.
+## Called by the plugin when levels change.
+func update_level_count(count: int) -> void:
+	if not is_instance_valid(_start_level_opt):
+		return
+	var current: int = build_data.get("start_level", 1)
+	_start_level_opt.clear()
+	for i in range(maxi(count, 1)):
+		_start_level_opt.add_item("Level " + str(i + 1))
+	# Restore selection (clamp to valid range)
+	var sel: int = clampi(current - 1, 0, maxi(count - 1, 0))
+	_start_level_opt.selected = sel
+	build_data["start_level"] = sel + 1
 
 
 # ─── Serialization ───────────────────────────────────────────
@@ -451,3 +595,16 @@ func get_data() -> Dictionary:
 func set_data(data: Dictionary) -> void:
 	for key in data:
 		build_data[key] = data[key]
+	# Restore the start_level dropdown selection
+	if is_instance_valid(_start_level_opt) and _start_level_opt.item_count > 0:
+		var sel: int = clampi(build_data.get("start_level", 1) - 1, 0, _start_level_opt.item_count - 1)
+		_start_level_opt.selected = sel
+
+	# Restore target dropdown
+	if is_instance_valid(_target_opt):
+		var targets := ["Desktop", "Web", "Mobile", "Console"]
+		var tidx := targets.find(build_data.get("target", "Desktop"))
+		_target_opt.selected = maxi(tidx, 0)
+
+	# Restore web delegation panel visibility
+	_toggle_web_panel(build_data.get("target", "Desktop") == "Web")

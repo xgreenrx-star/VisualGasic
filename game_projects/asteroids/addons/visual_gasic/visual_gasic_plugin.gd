@@ -103,6 +103,9 @@ var _vb6_main_screen = null
 ## C++ Form Designer canvas — the custom form editor that bypasses Godot's scene tree
 var _form_designer: Control = null
 
+## Live animation preview manager for custom controls in the Form Designer
+var _live_preview_mgr: Node = null
+
 ## Composite VB6 IDE layout: Toolbox | Canvas | Properties — all in one main screen
 var _ide_layout: VBoxContainer = null
 
@@ -486,6 +489,12 @@ func _enter_tree():
 		# Keyboard fallback: catch shortcuts when canvas has focus
 		_form_designer.gui_input.connect(_on_canvas_gui_input)
 
+		# --- Live Preview Manager (animated custom controls) ---
+		var LivePreviewMgr = load("res://addons/visual_gasic/vg_live_preview_manager.gd")
+		if LivePreviewMgr:
+			_live_preview_mgr = LivePreviewMgr.new(self, _form_designer)
+			add_child(_live_preview_mgr)
+
 		# --- Build the composite layout ---
 		# VBoxContainer root: Menu | Toolbar | [Toolbox | Canvas | Properties] | Status
 		_ide_layout = VBoxContainer.new()
@@ -495,9 +504,20 @@ func _enter_tree():
 		# Apply VB6 light theme IMMEDIATELY so all children inherit it
 		_ide_layout.theme = _build_vb6_theme()
 
-		# ── VB6 Menu Bar (full width, like real VB6) ──
+		# ── VB6 Menu Bar row: [MenuBar ←left | spacer | Plugin buttons → right] ──
 		_vb6_menu_bar = _create_vb6_menu_bar()
-		_ide_layout.add_child(_vb6_menu_bar)
+		var menu_row = HBoxContainer.new()
+		menu_row.name = "MenuBarRow"
+		menu_row.add_child(_vb6_menu_bar)
+		var menu_spacer = Control.new()
+		menu_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		menu_row.add_child(menu_spacer)
+		# Plugin buttons container — right-aligned in the menu bar row
+		var plugin_strip = HBoxContainer.new()
+		plugin_strip.name = "PluginStrip"
+		plugin_strip.add_theme_constant_override("separation", 4)
+		menu_row.add_child(plugin_strip)
+		_ide_layout.add_child(menu_row)
 
 		# ── Top toolbar row (full width, with VB6 light grey background) ──
 		var toolbar_panel = PanelContainer.new()
@@ -653,6 +673,36 @@ func _enter_tree():
 		view_sprite_btn.pressed.connect(_on_sprite_view_pressed)
 		toolbar_row.add_child(view_sprite_btn)
 
+		# ── Freeze Previews toggle — pauses live custom control animation ──
+		var freeze_btn = Button.new()
+		freeze_btn.name = "FreezePreviewsBtn"
+		freeze_btn.text = "▶ Live"
+		freeze_btn.tooltip_text = "Toggle live animation for custom control previews (❄ Freeze / ▶ Live)"
+		freeze_btn.toggle_mode = true
+		freeze_btn.flat = false
+		freeze_btn.add_theme_font_size_override("font_size", 11)
+		freeze_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+		var freeze_style = StyleBoxFlat.new()
+		freeze_style.bg_color = Color(0.2, 0.4, 0.6)
+		freeze_style.set_corner_radius_all(4)
+		freeze_style.content_margin_left = 6
+		freeze_style.content_margin_right = 6
+		freeze_style.content_margin_top = 2
+		freeze_style.content_margin_bottom = 2
+		freeze_btn.add_theme_stylebox_override("normal", freeze_style)
+		var freeze_pressed = freeze_style.duplicate()
+		freeze_pressed.bg_color = Color(0.3, 0.3, 0.5)
+		freeze_btn.add_theme_stylebox_override("pressed", freeze_pressed)
+		var freeze_hover = freeze_style.duplicate()
+		freeze_hover.bg_color = Color(0.3, 0.5, 0.7)
+		freeze_btn.add_theme_stylebox_override("hover", freeze_hover)
+		freeze_btn.toggled.connect(func(pressed: bool):
+			if _live_preview_mgr:
+				_live_preview_mgr.set_frozen(pressed)
+				freeze_btn.text = "❄ Frozen" if pressed else "▶ Live"
+		)
+		toolbar_row.add_child(freeze_btn)
+
 		# Wrap toolbar in a horizontal ScrollContainer so it doesn't overflow off-screen
 		var toolbar_scroll = ScrollContainer.new()
 		toolbar_scroll.name = "ToolbarScroll"
@@ -771,7 +821,7 @@ func _enter_tree():
 		var vg_pm_script = load("res://addons/visual_gasic/vg_plugin_manager.gd")
 		if vg_pm_script:
 			_vg_plugin_manager = vg_pm_script.new()
-			_vg_plugin_manager.setup(self, toolbar_row, canvas_right_split)
+			_vg_plugin_manager.setup(self, plugin_strip, canvas_right_split)
 			_vg_plugin_manager.discover_plugins()
 			_vg_plugin_manager.plugin_activated.connect(_on_vg_plugin_activated)
 			_vg_plugin_manager.all_plugins_deactivated.connect(_on_vg_plugins_deactivated)
@@ -978,6 +1028,11 @@ func _make_visible(p_visible: bool) -> void:
 		# If we were showing code/3D/2D view, switch back to form view state
 		# (so next time Form Designer opens it shows the form canvas)
 		if _showing_code_view or _showing_3d_view or _showing_2d_view or _showing_sprite_view or _showing_plugin_view:
+			# If a plugin was active, clear its active state so the toolbar
+			# button won't early-return on the next click (the plugin manager
+			# still thinks it's active even though we've hidden its view).
+			if _showing_plugin_view and _vg_plugin_manager:
+				_vg_plugin_manager.deactivate_all()
 			_show_form_view()
 		# Leaving Form Designer → patch in-memory tree so Godot's own saver
 		# writes correct data.  Do NOT write to disk here — writing via C++
@@ -2391,10 +2446,21 @@ func _load_theme_config() -> void:
 		"window_title_prefix": "Visual Gasic",
 	}
 
-	# NOTE: Theme file overlay disabled — hardcoded defaults above are used.
-	# To revisit external theming later, re-enable loading from
-	# vg_form_designer_theme.gd here.
-	print("VisualGasic: Theme loaded (hardcoded defaults, %d values)" % _theme.size())
+	# Overlay VGThemeManager IDE-chrome values so the active theme
+	# (QBasic, Godot Dark, etc.) is honoured from the very first frame.
+	var td = VGThemeManager.get_current_theme()
+	if td:
+		_theme["panel_background"] = td.ide_panel_bg
+		_theme["panel_border"] = td.ide_panel_border
+		_theme["header_background"] = td.ide_header_bg
+		_theme["header_border"] = td.ide_header_border
+		_theme["header_text"] = td.ide_header_text
+		_theme["toolbox_btn_normal"] = td.ide_panel_bg
+		_theme["toolbox_btn_hover"] = td.ide_toolbox_btn_hover
+		_theme["toolbox_btn_pressed"] = td.ide_toolbox_btn_pressed
+		_theme["toolbox_text"] = td.ide_text_color
+		_theme["toolbox_text_pressed"] = td.ide_toolbox_text_pressed
+	print("VisualGasic: Theme loaded (%d values, VGThemeManager overlay: %s)" % [_theme.size(), "yes" if td else "no"])
 
 ## Builds a VB6-style light Theme resource for the entire IDE layout.
 ## When applied to _ide_layout, this propagates to ALL children — including
@@ -3186,18 +3252,22 @@ func _restyle_toolbox_buttons() -> void:
 	if not cpp_toolbox:
 		return
 
-	# ── Build a tooltip-only theme for the toolbox ──
-	# Tooltip popups inherit from the triggering control's theme owner,
-	# so we set a Theme on the C++ toolbox that includes TooltipPanel/TooltipLabel.
-	var tooltip_theme := Theme.new()
+	# ── Apply the FULL VB6 theme to the C++ toolbox ──
+	# Setting cpp_toolbox.theme creates a new "theme owner" boundary, which
+	# BLOCKS inheritance from _ide_layout's theme.  Previously this was a
+	# minimal tooltip-only Theme, so TabBar/TabContainer/Label/Button styles
+	# fell through to Godot's dark editor theme — making text unreadable.
+	# Fix: use the complete VB6 theme and add tooltip overrides on top.
+	var toolbox_theme := _build_vb6_theme()
+	# Add VB6-style tooltip overrides (light-yellow, black border/text)
 	var tooltip_sb := StyleBoxFlat.new()
 	tooltip_sb.bg_color = Color(1.0, 1.0, 0.94)   # Classic light-yellow
 	tooltip_sb.border_color = Color(0.0, 0.0, 0.0)
 	tooltip_sb.set_border_width_all(1)
 	tooltip_sb.set_content_margin_all(4)
-	tooltip_theme.set_stylebox("panel", "TooltipPanel", tooltip_sb)
-	tooltip_theme.set_color("font_color", "TooltipLabel", Color.BLACK)
-	cpp_toolbox.theme = tooltip_theme
+	toolbox_theme.set_stylebox("panel", "TooltipPanel", tooltip_sb)
+	toolbox_theme.set_color("font_color", "TooltipLabel", Color.BLACK)
+	cpp_toolbox.theme = toolbox_theme
 
 	# ── CRITICAL: Override C++ VisualGasicToolbox (PanelContainer) panel style ──
 	# Without this, Godot's dark editor theme draws over our light background.
@@ -3716,42 +3786,42 @@ func _style_popup_menu(popup: PopupMenu) -> void:
 		)
 
 func _apply_vb6_popup_theme(popup: PopupMenu) -> void:
-	# Light background panel (Win95 menu style)
+	# Light background panel — matches Project Explorer right-click menu
 	var panel_sb = StyleBoxFlat.new()
-	panel_sb.bg_color = Color("#F0F0F0")
-	panel_sb.border_width_top = 2
-	panel_sb.border_width_bottom = 2
-	panel_sb.border_width_left = 2
-	panel_sb.border_width_right = 2
-	panel_sb.border_color = Color("#808080")
-	panel_sb.content_margin_left = 20
-	panel_sb.content_margin_right = 12
-	panel_sb.content_margin_top = 2
-	panel_sb.content_margin_bottom = 2
+	panel_sb.bg_color = Color(0.96, 0.95, 0.93)
+	panel_sb.border_width_top = 1
+	panel_sb.border_width_bottom = 1
+	panel_sb.border_width_left = 1
+	panel_sb.border_width_right = 1
+	panel_sb.border_color = Color(0.55, 0.54, 0.52)
+	panel_sb.content_margin_left = 4
+	panel_sb.content_margin_right = 4
+	panel_sb.content_margin_top = 4
+	panel_sb.content_margin_bottom = 4
 	popup.add_theme_stylebox_override("panel", panel_sb)
 
-	# Hover / selection highlight (navy blue like classic Windows)
+	# Hover / selection highlight — blue, matching Project Explorer context menu
 	var hover_sb = StyleBoxFlat.new()
-	hover_sb.bg_color = Color("#000080")
-	hover_sb.content_margin_left = 20
-	hover_sb.content_margin_right = 12
-	hover_sb.content_margin_top = 1
-	hover_sb.content_margin_bottom = 1
+	hover_sb.bg_color = Color(0.0, 0.47, 0.84)
+	hover_sb.corner_radius_top_left = 2
+	hover_sb.corner_radius_top_right = 2
+	hover_sb.corner_radius_bottom_left = 2
+	hover_sb.corner_radius_bottom_right = 2
 	popup.add_theme_stylebox_override("hover", hover_sb)
 
 	# Separator style
 	var sep_sb = StyleBoxFlat.new()
-	sep_sb.bg_color = Color("#808080")
+	sep_sb.bg_color = Color(0.55, 0.54, 0.52)
 	sep_sb.content_margin_top = 0
 	sep_sb.content_margin_bottom = 0
 	popup.add_theme_stylebox_override("separator", sep_sb)
 
-	# Font colors — black on light gray, white on navy hover
-	popup.add_theme_color_override("font_color", Color("#000000"))
-	popup.add_theme_color_override("font_hover_color", Color("#FFFFFF"))
-	popup.add_theme_color_override("font_disabled_color", Color("#808080"))
-	popup.add_theme_color_override("font_separator_color", Color("#404040"))
-	popup.add_theme_color_override("font_accelerator_color", Color("#404040"))
+	# Font colors — matching Project Explorer context menu
+	popup.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+	popup.add_theme_color_override("font_hover_color", Color(1, 1, 1))
+	popup.add_theme_color_override("font_disabled_color", Color(0.55, 0.55, 0.55))
+	popup.add_theme_color_override("font_separator_color", Color(0.4, 0.4, 0.4))
+	popup.add_theme_color_override("font_accelerator_color", Color(0.4, 0.4, 0.4))
 
 # ── VB6 Menu Bar Handlers ──
 
@@ -6381,7 +6451,7 @@ func _feed_3d_node_names_to_editor() -> void:
 # =============================================================================
 
 ## Called when user double-clicks a node in the 2D editor — open code.
-func _on_2d_node_double_clicked(node: Node2D) -> void:
+func _on_2d_node_double_clicked(node: Node) -> void:
 	if not is_instance_valid(node):
 		return
 
@@ -6393,7 +6463,12 @@ func _on_2d_node_double_clicked(node: Node2D) -> void:
 	var event_suffix := "Ready"
 	var event_params := ""
 
-	if node is RigidBody2D:
+	if node is BaseButton:
+		event_suffix = "Pressed"
+	elif node is LineEdit or node is TextEdit:
+		event_suffix = "TextChanged"
+		event_params = "NewText As String"
+	elif node is RigidBody2D:
 		event_suffix = "BodyEntered"
 		event_params = "Body As Node"
 	elif node is CharacterBody2D:
@@ -6426,6 +6501,34 @@ func _on_2d_node_double_clicked(node: Node2D) -> void:
 	# ── Scene is saved — derive .vg path from the .tscn ──
 	var vg_path: String = scene_path.get_basename() + ".vg"
 	var sub_name = node_name + "_" + event_suffix
+
+	# ── Scan .vg for an existing Connect() wiring this node to a handler ──
+	# AGCK generates: Connect(GetNode("Path/NodeName"), "pressed", "OnHandler")
+	# We look for the actual handler name so double-click navigates to real code.
+	# Also check for Sub NodeName_Click / NodeName_Pressed as VB6 conventions.
+	if FileAccess.file_exists(vg_path):
+		var vg_text := FileAccess.open(vg_path, FileAccess.READ).get_as_text()
+		# 1) Look for Connect() wiring — handles AGCK-style and any explicit connect
+		var safe_name := node_name.replace("(", "\\(").replace(")", "\\)")
+		var rx := RegEx.new()
+		rx.compile("Connect\\s*\\(\\s*GetNode\\s*\\(\\s*\"(?:[^\"]*/)?%s\"\\s*\\)\\s*,\\s*\"[^\"]*\"\\s*,\\s*\"([^\"]+)\"" % safe_name)
+		var m = rx.search(vg_text)
+		if m:
+			sub_name = m.get_string(1)
+			print("VisualGasic: Found connected handler '", sub_name, "' for node '", node_name, "'")
+		else:
+			# 2) Fallback: look for Sub NodeName_Click (VB6 convention for buttons)
+			var candidates: Array[String] = [
+				node_name + "_Click",
+				node_name + "_Pressed",
+				node_name + "_" + event_suffix,
+			]
+			for candidate in candidates:
+				if vg_text.contains("Sub " + candidate):
+					sub_name = candidate
+					print("VisualGasic: Found existing sub '", sub_name, "' for node '", node_name, "'")
+					break
+
 	print("VisualGasic: 2D double-click → opening ", sub_name, " in ", vg_path)
 
 	if is_instance_valid(_embedded_code_editor):
@@ -6438,7 +6541,7 @@ func _on_2d_node_double_clicked(node: Node2D) -> void:
 		_open_or_create_event_handler(vg_path, sub_name)
 
 ## Called when a node is selected in the 2D editor — update Properties panel.
-func _on_2d_node_selected(node: Node2D) -> void:
+func _on_2d_node_selected(node: Node) -> void:
 	if is_instance_valid(_properties_inspector) and is_instance_valid(node):
 		_properties_inspector.update_properties(node)
 
@@ -7687,6 +7790,7 @@ func _on_theme_changed(theme_name: String):
 	if is_instance_valid(_ide_layout):
 		_ide_layout.theme = _build_vb6_theme()
 	_apply_vb6_theme()
+	_restyle_toolbox_buttons()
 	print("VisualGasic: Applied theme '", theme_name, "' (code + IDE)")
 
 
@@ -8504,8 +8608,11 @@ func _on_fd_scene_file_dropped(scene_path: String, control_name: String) -> void
 	_register_custom_control_in_config(control_name, scene_path)
 	# Refresh toolbox so the new control appears
 	_on_components_changed()
-	# Generate a preview texture for design-time rendering
-	_generate_preview_for_custom_control(control_name, scene_path)
+	# Generate a live preview for design-time rendering
+	if _live_preview_mgr:
+		_live_preview_mgr.register_control(control_name, scene_path)
+	else:
+		_generate_preview_for_custom_control(control_name, scene_path)
 
 # =============================================================================
 # THUMBNAIL / PREVIEW TEXTURE GENERATION
@@ -8614,8 +8721,11 @@ func _on_components_changed():
 	# Re-apply VB6 icons and labels to the new buttons
 	_restyle_toolbox_buttons()
 	
-	# Generate preview textures for all custom components
-	_generate_all_custom_previews()
+	# Generate live previews for all custom components
+	if _live_preview_mgr:
+		_live_preview_mgr.register_all_enabled()
+	else:
+		_generate_all_custom_previews()
 
 ## Registers the GDScript-extended tools (not in C++ defaults)
 func _register_extended_tools():
@@ -8715,8 +8825,11 @@ func _post_init():
 	# acts as a backup after _apply_vb6_theme() reparents the toolbox.
 	_restyle_toolbox_buttons()
 	
-	# Generate preview textures for custom controls (deferred so tree is ready)
-	call_deferred("_generate_all_custom_previews")
+	# Generate preview textures for custom controls (live animation)
+	if _live_preview_mgr:
+		_live_preview_mgr.register_all_enabled()
+	else:
+		call_deferred("_generate_all_custom_previews")
 	
 	# Connect to screen change signal
 	main_screen_changed.connect(_on_main_screen_changed)
@@ -9131,6 +9244,11 @@ func _on_main_screen_changed(screen_name: String):
 	# Refresh Project Explorer on screen change
 	if _project_explorer and is_instance_valid(_project_explorer) and _project_explorer.visible:
 		_project_explorer.refresh()
+
+	# Throttle live previews when Form Designer is not the active screen
+	if _live_preview_mgr:
+		var is_form_screen := (screen_name == "VisualGasic" or screen_name == "VB6")
+		_live_preview_mgr.set_focused(is_form_screen)
 
 ## Sets up the toolbox control palette.
 ## Instantiates the C++ VisualGasicToolbox class if available,

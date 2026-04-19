@@ -40,7 +40,7 @@
    - **Save As New** — keeps the original and adds your edit as a new custom tile in the same block type
    - Changes are reflected **immediately** in the level grid (WYSIWYG)
 
-5. **Place actors** — Use the **Place:** dropdown to select an actor (e.g. "Hero"). Then **right-click** on the grid to place it. Actor markers show the actual actor sprite texture (24×24 scaled up) so you can see who's who at a glance.
+5. **Place actors** — Use the **Place:** dropdown to select an actor (e.g. "Hero"). Then **right-click** on the grid to place it. **Ctrl+Right-click** an actor to remove it. Actor markers show the actual actor sprite texture (24×24 scaled up) so you can see who's who at a glance.
 
 6. **Set level properties** — The bottom bar has **Friction** and **Elasticity** sliders.
 
@@ -58,7 +58,64 @@
 
 ---
 
-## 👾 Editing Actor Sprites (WYSIWYG)
+## � Waypoint Patrol Paths
+
+Waypoints let actors follow a looping patrol route instead of wandering randomly. You can also assign waypoints to blocks to create **moving platforms**.
+
+### Entering Waypoint Mode
+
+1. Click the **📍 Waypoint** toggle button in the level editor toolbar (next to Fill). The status bar shows **"WAYPOINT MODE"**.
+2. In waypoint mode, tile painting is disabled — the grid is reserved for path editing.
+
+### Setting Waypoints for an Actor
+
+1. **Left-click an actor** on the grid to **lock** it as the waypoint target. The actor gets a glowing orange outline and the status bar shows which actor you're editing (e.g. "Locked to Enemy 1").
+2. **Right-click** anywhere on the grid to **add a waypoint**. The first waypoint is automatically set to the actor's own position (the start of the loop). Each subsequent right-click adds the next point.
+3. Waypoints appear as **orange dots with numbers** connected by orange lines, so you can see the full patrol route.
+4. **Ctrl+Right-click** to **remove the last waypoint** (undo one point at a time).
+5. **Left-click a different actor** to switch the lock to that actor and edit its path instead.
+6. Click the **📍 Waypoint** button again to exit waypoint mode.
+
+### Setting Waypoints for a Block (Moving Platforms)
+
+1. Enter waypoint mode as above.
+2. **Left-click any non-empty block** (Barrier, Ladder, etc.) to lock it as the target. The block gets a cyan outline.
+3. **Right-click** to add waypoints — the block will move along this path at runtime, looping continuously.
+4. Block waypoints appear as **cyan dots with numbers** connected by cyan lines.
+5. At build time, blocks with waypoints become **AnimatableBody2D** nodes (instead of StaticBody2D), so they push the player and other actors as they move.
+
+### Waypoint-Capable Actor Types
+
+Only these actor types use waypoints at build time:
+
+| Actor Type | Patrol Behavior |
+|------------|----------------|
+| **Drone** | Follows the path loop at patrol speed |
+| **Sentry** | Patrols the path and auto-shoots when it spots the player |
+| **Zombie** | Shambles along the path |
+| **Boss** | Patrols the path (large enemy) |
+| **Bat** | Flies along the path (zero gravity) |
+| **Tank** | Drives along the path (armored) |
+
+Other actor types (Player, Missile, NPC, Computer, Fireball) ignore waypoints — they have their own movement systems.
+
+### How Waypoints Work at Build Time
+
+Each waypoint-capable actor stores its path as `PathX(20)` / `PathY(20)` arrays in its generated VB script. The `_PhysicsProcess` moves the actor toward the current path point, advancing to the next when it gets close enough (< 4 px), and looping back to the first point after reaching the last.
+
+Moving blocks work similarly — the level's `_PhysicsProcess` moves each `AnimatableBody2D` block along its path at 60 px/sec. Blocks loop their path continuously, creating elevator and conveyor-style platforms.
+
+### Tips
+
+- A path needs **at least 2 points** to be active (the actor's home position + at least one destination).
+- Maximum **20 waypoints** per actor or block (the VB array cap).
+- Waypoints are saved per-level and preserved across rebuilds.
+- **Undo/Redo** (Ctrl+Z / Ctrl+Y) works for all waypoint operations.
+- Use **Delete** or **Backspace** while hovering over the grid in waypoint mode to remove the last waypoint from the locked target.
+
+---
+
+## �👾 Editing Actor Sprites (WYSIWYG)
 
 All sprite editing happens **inside AGCK** — no need to exit to Godot or VG's Sprite Editor.
 
@@ -552,4 +609,6 @@ Actor sprites are 24×24 pixels and follow the same edit-in-place workflow.
 - **Undo everything.** Ctrl+Z works in the level editor, sprite editor, and sound editor. Ctrl+Y to redo.
 - **Stack shader effects.** Combine CRT TV + Vignette + Sepia for a retro movie look, or Pixelate + Glow for a dreamy pixel art effect.
 - **The unsaved dot (•) reminds you.** The level editor shows a dot when you have unsaved changes.
+- **Waypoints create patrol routes.** Toggle waypoint mode, click an actor to lock it, then right-click to add points. Enemies will loop along the path.
+- **Moving platforms are easy.** In waypoint mode, click a Barrier block and add waypoints — the block becomes a moving platform at build time.
 - **Keyboard shortcuts save time.** Ctrl+1-6 switches between tabs. See the Shortcuts card in Settings for the full list.

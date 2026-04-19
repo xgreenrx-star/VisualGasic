@@ -5,21 +5,80 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.1-beta3] - 2026-04-18
+
+### 🎮 VG 2D Editor & AGCK Fixes
+
+#### Fixed — VG 2D Scene Editor
+- **Viewport positioning** — Scene now opens at 100% zoom with origin in the upper-left, matching Godot's 2D editor default view. Previously the viewport was mispositioned due to deferred layout timing.
+- **Viewport deferred layout** — `_fit_scene_in_view()` now defers via `call_deferred` when the SubViewport hasn't been laid out yet, preventing incorrect camera positioning on initial load.
+- **Array type mismatch** — Fixed `Array` vs `Array[Node]` type mismatch in `_fit_scene_in_view()` that caused `_collect_pickable_nodes()` to silently fail in Godot 4.x, resulting in no nodes being collected for bounds computation.
+
+#### Fixed — AGCK Plugin Activation
+- **Single-click AGCK button** — AGCK plugin now activates on the first click. Previously required two clicks because `_auto_open_built_scene()` called `_on_2d_view_pressed()` during activation, which immediately switched away from the AGCK view and called `deactivate_all()`, leaving the plugin manager in a stale state.
+- **Silent scene pre-load** — `_auto_open_built_scene()` now loads Main.tscn into the 2D editor in the background without switching views, so the scene is ready when the user manually navigates to the 2D editor.
+
+#### Fixed — AGCK Handler Naming (VB6 Convention)
+- **Standardized all AGCK handlers** to VB6 `ObjectName_EventName` convention:
+  - `_on_hitbox_body_entered` → `Hitbox_BodyEntered`
+  - `_on_hitbox_area_entered` → `Hitbox_AreaEntered`
+  - `_on_teleport_touched` → `Teleport_BodyEntered`
+  - `_on_deadly_touched` → `Deadly_BodyEntered`
+  - `_on_switch_touched` → `Switch_BodyEntered`
+  - `OnLevelComplete` → `LevelComplete`
+  - `OnSplashDone` → `SplashTimer_Timeout`
+  - Button handlers: `PlayBtn_Click`, `ExitBtn_Click`, `RestartBtn_Click`
+- **Connect() regex scanner** — Double-click code navigation now scans `.vg` files for `Connect("signal", "HandlerName")` patterns to resolve handler locations.
+
+---
+
 ## [5.0.1-beta2] - 2026-04-13
 
-### 🔧 AGCK Polish & Web UI Roadmap
+### 🔧 AGCK Polish & Web Publish & Major New Features
+
+#### Added — Publish to Web (Flash-Successor Pipeline)
+- **`agck_web_export.gd`** — Complete HTML5 publish backend (~500 lines) with Flash-era features:
+  - **4 preloader styles**: Bar, Spinner, Retro, None (Flash's iconic loading screens)
+  - **4 scale modes**: Fit (showAll), Fill (noBorder), Stretch (exactFit), Pixel-Perfect
+  - **Fullscreen toggle**: F11 key + button (Flash's `Stage.displayState`)
+  - **Custom right-click menu**: Replaces browser default (Flash's `ContextMenu` class)
+  - **Quality control**: Low/Medium/High/Best (Flash's `_quality` property)
+  - **Background color**: Configurable (Flash's `bgcolor` embed parameter)
+  - **Embed code generator**: Modern `<iframe>` replacing Flash's `<object>/<embed>`
+  - **Portal page generator**: Newgrounds-style game page with embed code display
+  - **Splash screen**: VisualGasic branding with auto-hide
+- **Build tab web options panel** — Appears when target is "Web": preloader, quality, scale, colors, toggles, description field
+- **🌐 PUBLISH TO WEB button** — One-click pipeline: HTML wrapper → portal page → embed code
+
+#### Added — Multi-Provider AI Help
+- **Cloud AI providers**: OpenAI (GPT-4o/GPT-4o-mini), Anthropic Claude (Sonnet/Haiku), Google Gemini (Flash/Pro) alongside existing local Ollama
+- **Provider selector dropdown** in AI Help toolbar — switch between Local (Ollama) and Cloud providers
+- **API key settings dialog** (⚙️ button) — per-provider API key storage via `user://vg_ai_keys.cfg`
+- **Streaming responses** for all cloud providers (SSE/chunked for OpenAI/Gemini, SSE for Claude)
+- **Auto-detection**: Falls back to Ollama if no cloud API key is configured
+- **Same VisualGasic system prompt** used across all providers for consistent responses
+
+#### Added — Live Animation for Custom Controls
+- **Live SubViewport rendering** — @tool custom controls now animate in real-time in the Form Designer
+- **Per-instance SubViewport** — Each custom control gets its own viewport running the `.tscn` scene
+- **`_process()` runs live** — Wobble, pulse, glow, particle, and shader animations visible at design time
+- **Freeze toggle** — "❄ Freeze Previews" button to switch back to static snapshots for performance
+- **15 FPS throttle** — Live viewports throttle when Form Designer tab is not focused
+
+#### Added — WebSocket Controls
+- **`VGWebSocketClient`** — Connect to WebSocket servers, send/receive text and binary messages
+- **`VGWebSocketServer`** — Accept incoming WebSocket connections with client management
+- **`VGWebSocketLobby`** — Game lobby with room creation, join/leave, ready states, player listing
+- **`VGWebSocketChat`** — Chat control with message history, user list, system messages
 
 #### Fixed — AGCK Level Editor
-- **Tile shader Save button** — Save no longer closes the edit popup (was behaving identically to Cancel). Now stays open with a "✓ Saved" title flash.
-- **Shader change persistence** — Shader FX dropdown and parameter slider changes now call `_mark_dirty()` and emit `level_changed`, so edits are auto-saved to the `.agck` file.
+- **Tile shader Save button** — Save no longer closes the edit popup (was behaving identically to Cancel)
+- **Shader change persistence** — Shader FX dropdown and parameter slider changes now call `_mark_dirty()` and emit `level_changed`
 
 #### Improved — AGCK Settings Panel
-- **Color picker** — BG Color field now uses a `ColorPickerButton` with live color wheel instead of a raw hex text input.
-- **Resolution presets** — Width/Height replaced with a preset dropdown (640×480, 800×600, 1024×768, 1280×720, 1920×1080, Custom…) plus W/H spinboxes.
-- **Slider value readouts** — All sliders (gravity, friction, elasticity, zoom, volume, etc.) now display their current value with appropriate suffixes (%, ×, HP).
-
-#### Planned — Web UI
-- 🔲 Browser-based project dashboard, settings panel, and build monitor — required before stable v5.0.1 release.
+- **Color picker** — BG Color field now uses a `ColorPickerButton` with live color wheel
+- **Resolution presets** — Width/Height replaced with a preset dropdown
+- **Slider value readouts** — All sliders now display their current value with appropriate suffixes
 
 ---
 

@@ -133,6 +133,9 @@ func _init():
 	tree.add_theme_stylebox_override("selected_focus", sel_sb)
 	add_child(tree)
 
+	# Scrollbar styling (deferred — children not ready until in tree)
+	call_deferred("_apply_tree_scrollbar_theme")
+
 	# --- Right-click context menu ---
 	_context_menu = PopupMenu.new()
 	_context_menu.add_item("Add Form...", 0)
@@ -254,6 +257,12 @@ func refresh():
 
 	_scan_directory("res://", forms, components, modules, resources)
 
+	# Deduplicate — multiple build outputs may contain the same filenames
+	forms = _deduplicate_by_name(forms)
+	components = _deduplicate_by_name(components)
+	modules = _deduplicate_by_name(modules)
+	resources = _deduplicate_by_name(resources)
+
 	if _show_folders:
 		_populate_with_folders(root, forms, components, modules, resources)
 	else:
@@ -301,6 +310,8 @@ func _scan_directory(path: String, forms: Array[Dictionary], components: Array[D
 					resources.append({"name": file_name.get_basename(), "path": full_path, "type": "scene"})
 			elif file_name.ends_with(".tres") or file_name.ends_with(".res"):
 				resources.append({"name": file_name.get_basename(), "path": full_path, "type": "resource"})
+			elif file_name.get_extension().to_lower() in ["png", "jpg", "jpeg", "svg", "webp", "bmp", "gif", "wav", "ogg", "mp3"]:
+				resources.append({"name": file_name.get_basename(), "path": full_path, "type": "image"})
 		file_name = dir.get_next()
 	dir.list_dir_end()
 
@@ -318,8 +329,41 @@ func _has_form_content(path: String) -> bool:
 			return true
 	return false
 
+## Remove duplicate entries (same base name) — keeps the first occurrence.
+func _deduplicate_by_name(arr: Array[Dictionary]) -> Array[Dictionary]:
+	var seen := {}
+	var result: Array[Dictionary] = []
+	for entry in arr:
+		if not seen.has(entry.name):
+			seen[entry.name] = true
+			result.append(entry)
+	return result
+
+## Add both .vg (code) and .tscn (design) entries for a paired item.
+## Like VB6: double-clicking .bas opens Code Editor, double-clicking .frm opens Form Designer.
+func _add_paired_item(parent: TreeItem, entry: Dictionary, item_type: String):
+	var code_item = tree.create_item(parent)
+	code_item.set_text(0, entry.name + "." + entry.path.get_extension())
+	code_item.set_tooltip_text(0, entry.path)
+	code_item.set_metadata(0, {"type": item_type, "path": entry.path})
+	# Show the paired .tscn alongside — like VB6 shows .frm next to .bas
+	var scene_path = entry.path.get_basename() + ".tscn"
+	if FileAccess.file_exists(scene_path):
+		var design_item = tree.create_item(parent)
+		design_item.set_text(0, entry.name + ".tscn")
+		design_item.set_tooltip_text(0, scene_path)
+		design_item.set_metadata(0, {"type": item_type, "path": scene_path})
+
 ## Populate tree with folder grouping (like VB6).
 func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], components: Array[Dictionary], modules: Array[Dictionary], resources: Array[Dictionary]):
+	# Sort all lists alphabetically
+	var _sort_by_name := func(a: Dictionary, b: Dictionary) -> bool:
+		return a.name.to_lower() < b.name.to_lower()
+	forms.sort_custom(_sort_by_name)
+	components.sort_custom(_sort_by_name)
+	modules.sort_custom(_sort_by_name)
+	resources.sort_custom(_sort_by_name)
+
 	# Forms folder — VB6-style forms with Form_Load, event handlers, etc.
 	if forms.size() > 0:
 		var folder = tree.create_item(root)
@@ -328,23 +372,71 @@ func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], components
 		folder.set_selectable(0, true)
 		folder.set_metadata(0, {"type": "folder", "folder": FOLDER_FORMS})
 		for entry in forms:
-			var item = tree.create_item(folder)
-			item.set_text(0, entry.name)
-			item.set_tooltip_text(0, entry.path)
-			item.set_metadata(0, {"type": "form", "path": entry.path})
+			_add_paired_item(folder, entry, "form")
 
 	# Components folder — .vg files paired with a visual scene (game entities, etc.)
+	# Sub-group into Actors / Levels / Main when AGCK-style names are detected.
 	if components.size() > 0:
-		var folder = tree.create_item(root)
-		folder.set_text(0, FOLDER_COMPONENTS + " (" + str(components.size()) + ")")
-		folder.set_tooltip_text(0, "Component files (.vg with visual scene)")
-		folder.set_selectable(0, true)
-		folder.set_metadata(0, {"type": "folder", "folder": FOLDER_COMPONENTS})
+		var actors: Array[Dictionary] = []
+		var levels: Array[Dictionary] = []
+		var main_items: Array[Dictionary] = []
+		var other: Array[Dictionary] = []
 		for entry in components:
-			var item = tree.create_item(folder)
-			item.set_text(0, entry.name)
-			item.set_tooltip_text(0, entry.path)
-			item.set_metadata(0, {"type": "component", "path": entry.path})
+			var lo_name: String = entry.name.to_lower()
+			if lo_name.begins_with("actor_"):
+				actors.append(entry)
+			elif lo_name.begins_with("level_"):
+				levels.append(entry)
+			elif lo_name == "main":
+				main_items.append(entry)
+			else:
+				other.append(entry)
+
+		# Use sub-folders if we detected AGCK structure
+		var has_agck := actors.size() > 0 or levels.size() > 0
+		if has_agck:
+			var comp_folder = tree.create_item(root)
+			comp_folder.set_text(0, FOLDER_COMPONENTS + " (" + str(components.size()) + ")")
+			comp_folder.set_tooltip_text(0, "Component files (.vg with visual scene)")
+			comp_folder.set_selectable(0, true)
+			comp_folder.set_metadata(0, {"type": "folder", "folder": FOLDER_COMPONENTS})
+
+			# Main (game controller) first
+			for entry in main_items:
+				_add_paired_item(comp_folder, entry, "component")
+
+			# Levels sub-folder
+			if levels.size() > 0:
+				var lvl_folder = tree.create_item(comp_folder)
+				lvl_folder.set_text(0, "Levels (" + str(levels.size()) + ")")
+				lvl_folder.set_tooltip_text(0, "Game levels")
+				lvl_folder.set_selectable(0, true)
+				lvl_folder.set_metadata(0, {"type": "folder", "folder": "Levels"})
+				for entry in levels:
+					_add_paired_item(lvl_folder, entry, "component")
+
+			# Actors sub-folder
+			if actors.size() > 0:
+				var act_folder = tree.create_item(comp_folder)
+				act_folder.set_text(0, "Actors (" + str(actors.size()) + ")")
+				act_folder.set_tooltip_text(0, "Game actors (players, enemies, items)")
+				act_folder.set_selectable(0, true)
+				act_folder.set_metadata(0, {"type": "folder", "folder": "Actors"})
+				for entry in actors:
+					_add_paired_item(act_folder, entry, "component")
+
+			# Other components (if any)
+			for entry in other:
+				_add_paired_item(comp_folder, entry, "component")
+		else:
+			# Non-AGCK project — flat Components folder
+			var folder = tree.create_item(root)
+			folder.set_text(0, FOLDER_COMPONENTS + " (" + str(components.size()) + ")")
+			folder.set_tooltip_text(0, "Component files (.vg with visual scene)")
+			folder.set_selectable(0, true)
+			folder.set_metadata(0, {"type": "folder", "folder": FOLDER_COMPONENTS})
+			for entry in components:
+				_add_paired_item(folder, entry, "component")
 
 	# Modules folder — expanded by default so standalone code files are easy to find
 	if modules.size() > 0:
@@ -356,7 +448,7 @@ func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], components
 		folder.set_collapsed(false)  # Always show modules
 		for entry in modules:
 			var item = tree.create_item(folder)
-			item.set_text(0, entry.name)
+			item.set_text(0, entry.name + "." + entry.path.get_extension())
 			item.set_tooltip_text(0, entry.path + "  (double-click to edit)")
 			item.set_metadata(0, {"type": "module", "path": entry.path})
 
@@ -370,22 +462,26 @@ func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], components
 		folder.set_collapsed(false)  # Expanded like VB6 Project Explorer
 		for entry in resources:
 			var item = tree.create_item(folder)
-			item.set_text(0, entry.name)
+			item.set_text(0, entry.name + "." + entry.path.get_extension())
 			item.set_tooltip_text(0, entry.path)
 			item.set_metadata(0, {"type": entry.get("type", "resource"), "path": entry.path})
 
 ## Populate tree flat (no folders) — alphabetical list.
 func _populate_flat(root: TreeItem, forms: Array[Dictionary], components: Array[Dictionary], modules: Array[Dictionary], resources: Array[Dictionary]):
 	var all_items: Array[Dictionary] = []
+	# Forms and components: add both .vg and paired .tscn (like VB6 shows .bas + .frm)
 	for entry in forms:
-		entry["type"] = "form"
-		all_items.append(entry)
+		all_items.append({"name": entry.name, "path": entry.path, "type": "form"})
+		var sp = entry.path.get_basename() + ".tscn"
+		if FileAccess.file_exists(sp):
+			all_items.append({"name": entry.name, "path": sp, "type": "form"})
 	for entry in components:
-		entry["type"] = "component"
-		all_items.append(entry)
+		all_items.append({"name": entry.name, "path": entry.path, "type": "component"})
+		var sp = entry.path.get_basename() + ".tscn"
+		if FileAccess.file_exists(sp):
+			all_items.append({"name": entry.name, "path": sp, "type": "component"})
 	for entry in modules:
-		entry["type"] = "module"
-		all_items.append(entry)
+		all_items.append({"name": entry.name, "path": entry.path, "type": "module"})
 	for entry in resources:
 		all_items.append(entry)
 
@@ -400,7 +496,9 @@ func _populate_flat(root: TreeItem, forms: Array[Dictionary], components: Array[
 			"module": suffix = " (Module)"
 			"scene": suffix = " (Scene)"
 			"resource": suffix = " (Resource)"
-		item.set_text(0, entry.name + suffix)
+			"image": suffix = " (Image)"
+		var ext = "." + entry.path.get_extension()
+		item.set_text(0, entry.name + ext + suffix)
 		item.set_tooltip_text(0, entry.path)
 		item.set_metadata(0, {"type": entry.get("type", ""), "path": entry.path})
 
@@ -422,37 +520,24 @@ func _on_item_activated():
 	if file_path == "":
 		return
 
-	match file_type:
-		"form":
-			# Double-clicking a form opens it in the Form Designer (like VB6).
-			var scene_path = file_path.get_basename() + ".tscn"
-			if FileAccess.file_exists(scene_path) and editor_plugin.has_method("open_form_in_designer"):
-				editor_plugin.open_form_in_designer(scene_path)
-			elif editor_plugin.has_method("open_module_in_embedded_editor"):
-				editor_plugin.open_module_in_embedded_editor(file_path)
-			else:
-				_open_script(file_path)
-		"component":
-			# Double-clicking a component opens its code.
-			if editor_plugin.has_method("open_module_in_embedded_editor"):
-				editor_plugin.open_module_in_embedded_editor(file_path)
-			else:
-				_open_script(file_path)
-		"module":
-			# Open standalone modules in the embedded VB6 code editor
-			if editor_plugin.has_method("open_module_in_embedded_editor"):
-				editor_plugin.open_module_in_embedded_editor(file_path)
-			else:
-				_open_script(file_path)
-		"scene":
-			editor_plugin.get_editor_interface().open_scene_from_path(file_path)
-		"resource":
-			# Open in inspector
-			var res = load(file_path)
-			if res:
-				editor_plugin.get_editor_interface().edit_resource(res)
-		_:
-			pass
+	# Route by file extension — like VB6: .bas opens Code, .frm opens Form Designer
+	if file_path.ends_with(".vg"):
+		# .vg files always open in the Code Editor (like double-clicking .bas in VB6)
+		if editor_plugin.has_method("open_module_in_embedded_editor"):
+			editor_plugin.open_module_in_embedded_editor(file_path)
+		else:
+			_open_script(file_path)
+	elif file_path.ends_with(".tscn") or file_path.ends_with(".scn"):
+		# .tscn files open the visual editor (like double-clicking .frm in VB6)
+		if file_type == "form" and editor_plugin.has_method("open_form_in_designer"):
+			editor_plugin.open_form_in_designer(file_path)
+		else:
+			_open_scene_in_editor(file_path)
+	else:
+		# Images, resources, etc. — open in inspector
+		var res = load(file_path)
+		if res:
+			editor_plugin.get_editor_interface().edit_resource(res)
 
 ## View Code button — open selected item's .vg script in the embedded code editor.
 ## If nothing is selected, opens the first available module.
@@ -464,9 +549,9 @@ func _on_view_code():
 		if meta is Dictionary:
 			file_path = meta.get("path", "")
 
-	# If nothing selected or selected item has no path, find the first .vg module
+	# If nothing selected or selected item has no path, find the first .vg file
 	if file_path.is_empty():
-		var first_vg := _find_first_module_path()
+		var first_vg := _find_first_vg_path()
 		if not first_vg.is_empty():
 			file_path = first_vg
 		else:
@@ -487,7 +572,8 @@ func _on_view_code():
 			else:
 				_open_script(vg_path)
 
-## View Object button — open selected item's scene in the 2D editor.
+## View Object button — open selected item's scene in the appropriate editor.
+## For forms, opens in Form Designer. For components/scenes, opens in 2D/3D editor.
 func _on_view_object():
 	var item = tree.get_selected()
 	if not item:
@@ -496,21 +582,28 @@ func _on_view_object():
 	if not meta or not meta is Dictionary:
 		return
 
+	var file_type = meta.get("type", "")
 	var file_path = meta.get("path", "")
 	if file_path == "":
 		return
 
-	# Try to find a scene
+	# Try to find the scene
 	var scene_path = file_path
 	if file_path.ends_with(".vg"):
 		scene_path = file_path.get_basename() + ".tscn"
 
-	if FileAccess.file_exists(scene_path) and (scene_path.ends_with(".tscn") or scene_path.ends_with(".scn")):
+	if not FileAccess.file_exists(scene_path) or not (scene_path.ends_with(".tscn") or scene_path.ends_with(".scn")):
+		return
+
+	# Forms open in the Form Designer, components/scenes in the 3D/2D editor
+	if file_type == "form":
 		if editor_plugin.has_method("open_form_in_designer"):
 			editor_plugin.open_form_in_designer(scene_path)
 		else:
 			editor_plugin.get_editor_interface().open_scene_from_path(scene_path)
-			EditorInterface.set_main_screen_editor("Visual Gasic IDE")
+	else:
+		# Open in the 3D or 2D scene editor
+		_open_scene_in_editor(scene_path)
 
 ## Toggle folder grouping on/off.
 func _on_toggle_folders(toggled: bool):
@@ -538,7 +631,7 @@ func _on_tree_gui_input(event: InputEvent):
 			var meta = item.get_metadata(0)
 			if meta is Dictionary:
 				var item_type = meta.get("type", "")
-				can_delete = item_type in ["form", "component", "module", "scene", "resource"]
+				can_delete = item_type in ["form", "component", "module", "scene", "resource", "image"]
 		# Find the Delete item index by id and set disabled state
 		for i in _context_menu.item_count:
 			if _context_menu.get_item_id(i) == 3:  # Delete
@@ -571,16 +664,18 @@ func _prompt_delete():
 		return
 	var item_type = meta.get("type", "")
 	var file_path = meta.get("path", "")
-	if file_path.is_empty() or item_type not in ["form", "component", "module", "scene", "resource"]:
+	if file_path.is_empty() or item_type not in ["form", "component", "module", "scene", "resource", "image"]:
 		return
 
 	var display_name = item.get_text(0)
 	var details := ""
 	if item_type in ["form", "component"]:
-		var scene_path = file_path.get_basename() + ".tscn"
-		details = "This will permanently delete:\n• %s\n• %s" % [file_path, scene_path]
+		# Paired items: determine both .vg and .tscn paths
+		var vg_path: String = file_path if file_path.ends_with(".vg") else file_path.get_basename() + ".vg"
+		var scene_path: String = file_path if file_path.ends_with(".tscn") else file_path.get_basename() + ".tscn"
+		details = "This will permanently delete:\n* %s\n* %s" % [vg_path, scene_path]
 	else:
-		details = "This will permanently delete:\n• %s" % file_path
+		details = "This will permanently delete:\n* %s" % file_path
 
 	_confirm_delete_dialog.dialog_text = "Delete '%s'?\n\n%s\n\nThis cannot be undone." % [display_name, details]
 	_confirm_delete_dialog.popup_centered()
@@ -610,30 +705,31 @@ func _on_delete_confirmed():
 	# Close the scene tab in the editor if it's currently open
 	var scene_path_to_close := ""
 	if item_type in ["form", "component"]:
-		scene_path_to_close = file_path.get_basename() + ".tscn"
+		if file_path.ends_with(".tscn"):
+			scene_path_to_close = file_path
+		else:
+			scene_path_to_close = file_path.get_basename() + ".tscn"
 	elif file_path.ends_with(".tscn"):
 		scene_path_to_close = file_path
 	if not scene_path_to_close.is_empty() and editor_plugin:
 		_close_scene_tab(scene_path_to_close)
 
-	# Delete the primary file
-	if FileAccess.file_exists(file_path):
-		DirAccess.remove_absolute(file_path)
-		print("VisualGasic: Deleted %s" % file_path)
-
-	# For forms and components, also delete the companion .tscn
+	# For paired items, delete both the .vg and .tscn
 	if item_type in ["form", "component"]:
-		var scene_path = file_path.get_basename() + ".tscn"
-		if FileAccess.file_exists(scene_path):
-			DirAccess.remove_absolute(scene_path)
-			print("VisualGasic: Deleted %s" % scene_path)
-		# Also remove any .uid file Godot may have created
-		var uid_path = file_path + ".uid"
-		if FileAccess.file_exists(uid_path):
-			DirAccess.remove_absolute(uid_path)
-		var scene_uid = scene_path + ".uid"
-		if FileAccess.file_exists(scene_uid):
-			DirAccess.remove_absolute(scene_uid)
+		var vg_path: String = file_path if file_path.ends_with(".vg") else file_path.get_basename() + ".vg"
+		var tscn_path: String = file_path if file_path.ends_with(".tscn") else file_path.get_basename() + ".tscn"
+		for p in [vg_path, tscn_path]:
+			if FileAccess.file_exists(p):
+				DirAccess.remove_absolute(p)
+				print("VisualGasic: Deleted %s" % p)
+			var uid_p = p + ".uid"
+			if FileAccess.file_exists(uid_p):
+				DirAccess.remove_absolute(uid_p)
+	else:
+		# Single file (module, resource, image)
+		if FileAccess.file_exists(file_path):
+			DirAccess.remove_absolute(file_path)
+			print("VisualGasic: Deleted %s" % file_path)
 
 	# Refresh the file system so Godot picks up the changes
 	if editor_plugin:
@@ -696,15 +792,21 @@ func _open_script(path: String):
 	if script:
 		editor_plugin.get_editor_interface().edit_script(script)
 
-## Find the first module (.vg) path in the tree.  Used by the Code button
-## when nothing is selected so the user can always get to code with one click.
-func _find_first_module_path() -> String:
+## Find the first .vg path in the tree — tries modules first, then
+## components, then forms.  Used by the Code button when nothing is
+## selected so the user can always get to code with one click.
+func _find_first_vg_path() -> String:
 	if not is_instance_valid(tree):
 		return ""
 	var root = tree.get_root()
 	if not root:
 		return ""
-	return _search_tree_for_type(root, "module")
+	# Prefer modules (standalone code), then components, then forms
+	for target in ["module", "component", "form"]:
+		var result = _search_tree_for_type(root, target)
+		if not result.is_empty():
+			return result
+	return ""
 
 ## Recursively search tree items for one with the given type metadata.
 func _search_tree_for_type(item: TreeItem, target_type: String) -> String:
@@ -718,3 +820,102 @@ func _search_tree_for_type(item: TreeItem, target_type: String) -> String:
 			return result
 		child = child.get_next()
 	return ""
+
+## Open a .tscn scene in the appropriate embedded editor (3D or 2D).
+## Checks whether the scene contains 3D or 2D content and switches to the
+## matching editor tab, loading the scene automatically.
+func _open_scene_in_editor(scene_path: String) -> void:
+	if not FileAccess.file_exists(scene_path):
+		return
+	# Determine if the scene is 3D or 2D by checking the root node type in the .tscn
+	var is_3d := _scene_is_3d(scene_path)
+	if is_3d:
+		# Load into the 3D editor
+		if editor_plugin.has_method("_on_3d_view_pressed"):
+			editor_plugin._on_3d_view_pressed()
+		var editor_3d = editor_plugin.get("_vg_3d_editor")
+		if editor_3d and editor_3d.has_method("load_scene"):
+			editor_3d.load_scene(scene_path)
+	else:
+		# Load into the 2D editor
+		if editor_plugin.has_method("_on_2d_view_pressed"):
+			editor_plugin._on_2d_view_pressed()
+		var editor_2d = editor_plugin.get("_vg_2d_editor")
+		if editor_2d and editor_2d.has_method("load_scene"):
+			editor_2d.load_scene(scene_path)
+
+## Check if a .tscn file contains a 3D scene (Node3D root or 3D children).
+func _scene_is_3d(scene_path: String) -> bool:
+	var f = FileAccess.open(scene_path, FileAccess.READ)
+	if not f:
+		return false
+	var content = f.get_as_text()
+	f.close()
+	# Check for Node3D-based root type or 3D node types in the scene
+	if content.find("type=\"Node3D\"") != -1:
+		return true
+	if content.find("type=\"CSGBox3D\"") != -1:
+		return true
+	if content.find("type=\"CSGSphere3D\"") != -1:
+		return true
+	if content.find("type=\"CSGCylinder3D\"") != -1:
+		return true
+	if content.find("type=\"MeshInstance3D\"") != -1:
+		return true
+	if content.find("type=\"Camera3D\"") != -1:
+		return true
+	if content.find("type=\"DirectionalLight3D\"") != -1:
+		return true
+	if content.find("type=\"CharacterBody3D\"") != -1:
+		return true
+	if content.find("type=\"RigidBody3D\"") != -1:
+		return true
+	if content.find("type=\"StaticBody3D\"") != -1:
+		return true
+	return false
+
+
+# ─── Scrollbar Theme ─────────────────────────────────────────
+func _apply_tree_scrollbar_theme() -> void:
+	if not is_instance_valid(tree):
+		return
+
+	# Match the code editor's scrollbar exactly — dark grabber on cream track
+	var scroll_grabber := StyleBoxFlat.new()
+	scroll_grabber.bg_color = Color(0.25, 0.25, 0.22)
+	scroll_grabber.border_color = Color(0.15, 0.15, 0.12)
+	scroll_grabber.set_border_width_all(1)
+	scroll_grabber.set_corner_radius_all(2)
+	scroll_grabber.content_margin_left = 3
+	scroll_grabber.content_margin_right = 3
+	scroll_grabber.content_margin_top = 3
+	scroll_grabber.content_margin_bottom = 3
+
+	var scroll_grabber_hl := scroll_grabber.duplicate()
+	scroll_grabber_hl.bg_color = Color(0.18, 0.18, 0.16)
+
+	var scroll_grabber_pr := scroll_grabber.duplicate()
+	scroll_grabber_pr.bg_color = Color(0.10, 0.10, 0.08)
+
+	var scroll_track := StyleBoxFlat.new()
+	scroll_track.bg_color = Color(0.88, 0.87, 0.84)
+
+	# Apply via Theme on the Tree (cascades to children)
+	var t := Theme.new()
+	for sb_type in ["VScrollBar", "HScrollBar", "ScrollBar"]:
+		t.set_stylebox("grabber", sb_type, scroll_grabber)
+		t.set_stylebox("grabber_highlight", sb_type, scroll_grabber_hl)
+		t.set_stylebox("grabber_pressed", sb_type, scroll_grabber_pr)
+		t.set_stylebox("scroll", sb_type, scroll_track)
+	tree.theme = t
+
+	# Override per-node on the INTERNAL scrollbar children
+	# (get_children() misses internal children — must use include_internal=true)
+	for i in tree.get_child_count(true):
+		var child = tree.get_child(i, true)
+		if child is VScrollBar or child is HScrollBar:
+			child.add_theme_stylebox_override("grabber", scroll_grabber)
+			child.add_theme_stylebox_override("grabber_highlight", scroll_grabber_hl)
+			child.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pr)
+			child.add_theme_stylebox_override("scroll", scroll_track)
+			child.custom_minimum_size = Vector2(14, 14)

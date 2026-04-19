@@ -1,6 +1,6 @@
 @tool
 extends MarginContainer
-## AI Help panel — talks to a local Ollama instance (free, no subscription).
+## AI Help panel — talks to local Ollama or cloud providers (OpenAI, Claude, Gemini).
 ## Provides VisualGasic-aware code help, error explanations, and GDScript↔VG translation.
 
 signal ai_panel_ready
@@ -17,6 +17,13 @@ const REQUEST_TIMEOUT := 300.0  # Cold model load can take 60-120s
 const FIRST_TOKEN_TIMEOUT := 90.0  # Abort if no tokens arrive within this window (model runner may be hung)
 const WARMUP_TIMEOUT := 180.0
 const STREAM_POLL_INTERVAL := 0.016  # ~60 fps polling for streaming chunks
+
+# Provider system
+var AIProviders = null  # Loaded dynamically
+var _provider_id := "ollama"
+var _provider_info = null  # current ProviderInfo
+var _provider_dropdown: OptionButton
+var _api_key_btn: Button
 
 const SYSTEM_PROMPT := """You are a VisualGasic (VG) programming assistant. VisualGasic is a VB6-syntax \
 language that compiles to bytecode (with optional multi-tier JIT) and runs inside the \
@@ -276,10 +283,18 @@ func _get_editor_selected_code() -> String:
 # Lifecycle
 # ---------------------------------------------------------------------------
 func _ready() -> void:
+	# Load the provider abstraction
+	AIProviders = load("res://addons/visual_gasic/vg_ai_providers.gd")
+	if AIProviders:
+		_provider_id = AIProviders.load_preferred_provider()
+		_provider_info = AIProviders.find_provider(_provider_id)
+	if _provider_info == null:
+		_provider_id = "ollama"
+		_provider_info = AIProviders.find_provider("ollama") if AIProviders else null
 	_setup_ui()
 	_setup_poll_timer()
 	_setup_http()
-	_ping_ollama()
+	_activate_provider()
 
 func _enter_tree() -> void:
 	if _ping_http:
@@ -332,8 +347,17 @@ func _on_poll_timer() -> void:
 		if _stream_http_phase == 1:  # Connecting
 			if status == HTTPClient.STATUS_CONNECTED:
 				# Connection established — send the request
-				var headers := ["Content-Type: application/json", "Accept: */*"]
-				var err := _stream_http.request(HTTPClient.METHOD_POST, "/api/generate", headers, _stream_json_body)
+				var headers: PackedStringArray
+				var path: String
+				if _provider_info and not _provider_info.is_local and not _cloud_request_headers.is_empty():
+					# Cloud provider — use provider-specific headers and path
+					headers = PackedStringArray(_cloud_request_headers)
+					path = _cloud_request_path
+				else:
+					# Local Ollama
+					headers = PackedStringArray(["Content-Type: application/json", "Accept: */*"])
+					path = "/api/generate"
+				var err := _stream_http.request(HTTPClient.METHOD_POST, path, headers, _stream_json_body)
 				if err != OK:
 					_stream_error = "Failed to send request: " + error_string(err)
 					_stream_done = true
@@ -347,7 +371,8 @@ func _on_poll_timer() -> void:
 			if _stream_http.has_response():
 				var code := _stream_http.get_response_code()
 				if code != 200:
-					_stream_error = "Ollama error: HTTP %d" % code
+					var pname: String = _provider_info.display_name if _provider_info else "API"
+					_stream_error = "%s error: HTTP %d" % [pname, code]
 					_stream_done = true
 				else:
 					_stream_http_phase = 3
@@ -360,22 +385,39 @@ func _on_poll_timer() -> void:
 				var chunk := _stream_http.read_response_body_chunk()
 				if chunk.size() > 0:
 					_stream_buf += chunk.get_string_from_utf8()
-					# Parse complete JSON lines
+					# Parse complete lines (JSON for Ollama, SSE for cloud)
 					while _stream_buf.find("\n") >= 0:
 						var nl := _stream_buf.find("\n")
 						var line := _stream_buf.left(nl).strip_edges()
 						_stream_buf = _stream_buf.substr(nl + 1)
-						if line.is_empty() or line[0] != "{":
+						if line.is_empty():
 							continue
-						var json = JSON.parse_string(line)
-						if json == null:
-							continue
-						var token: String = json.get("response", "")
-						if not token.is_empty():
-							_display_token(token)
-						if json.get("done", false):
-							_stream_done = true
-							break
+						# Use provider-aware parser
+						if AIProviders and _provider_info and not _provider_info.is_local:
+							var parsed: Dictionary = AIProviders.parse_stream_line(_provider_id, line)
+							var token: String = parsed.get("token", "")
+							if not token.is_empty():
+								_display_token(token)
+							if parsed.get("done", false):
+								_stream_done = true
+								break
+							if parsed.get("error", false):
+								_stream_error = parsed.get("message", "Unknown API error")
+								_stream_done = true
+								break
+						else:
+							# Ollama: raw JSON lines
+							if line[0] != "{":
+								continue
+							var json = JSON.parse_string(line)
+							if json == null:
+								continue
+							var token: String = json.get("response", "")
+							if not token.is_empty():
+								_display_token(token)
+							if json.get("done", false):
+								_stream_done = true
+								break
 			elif status == HTTPClient.STATUS_CONNECTED or status == HTTPClient.STATUS_DISCONNECTED:
 				# Body finished (connection closed or no more body)
 				_stream_done = true
@@ -407,8 +449,12 @@ func _on_poll_timer() -> void:
 	if _is_generating:
 		if not _stream_started and elapsed > FIRST_TOKEN_TIMEOUT:
 			_stop_generation()
-			_append_system("[color=red]No response from Ollama after %ds — the model runner may be stuck.[/color]\n" % int(FIRST_TOKEN_TIMEOUT))
-			_append_system("[color=yellow]Try: [color=gray]sudo systemctl restart ollama[/color] then click Send again.[/color]\n")
+			var pname: String = _provider_info.display_name if _provider_info else "AI provider"
+			_append_system("[color=red]No response from %s after %ds.[/color]\n" % [pname, int(FIRST_TOKEN_TIMEOUT)])
+			if _provider_info and _provider_info.is_local:
+				_append_system("[color=yellow]Try: [color=gray]sudo systemctl restart ollama[/color] then click Send again.[/color]\n")
+			else:
+				_append_system("[color=yellow]Check your API key and internet connection.[/color]\n")
 			_model_warm = false  # Force re-warmup on next query
 		elif elapsed > REQUEST_TIMEOUT:
 			_stop_generation()
@@ -447,7 +493,8 @@ func _finish_generation() -> void:
 	if is_instance_valid(_stop_btn):
 		_stop_btn.visible = false
 	if is_instance_valid(_status_label):
-		_status_label.text = "✅ Ollama connected" if _ollama_available else "❌ Ollama not found"
+		var pname: String = _provider_info.display_name if _provider_info else "Ollama"
+		_status_label.text = ("✅ %s ready" % pname) if _ollama_available else ("❌ %s not found" % pname)
 		_status_label.add_theme_color_override("font_color",
 			Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
 
@@ -475,7 +522,8 @@ func _stop_generation() -> void:
 	if is_instance_valid(_stop_btn):
 		_stop_btn.visible = false
 	if is_instance_valid(_status_label):
-		_status_label.text = "✅ Ollama connected" if _ollama_available else "❌ Ollama not found"
+		var pname: String = _provider_info.display_name if _provider_info else "Ollama"
+		_status_label.text = ("✅ %s ready" % pname) if _ollama_available else ("❌ %s not found" % pname)
 		_status_label.add_theme_color_override("font_color",
 			Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
 
@@ -515,15 +563,38 @@ func _setup_ui() -> void:
 
 	toolbar.add_child(_make_separator())
 
+	# ── Provider selector ──
+	_provider_dropdown = OptionButton.new()
+	_provider_dropdown.tooltip_text = "Select AI provider (Local or Cloud)"
+	if AIProviders:
+		for p in AIProviders.get_providers():
+			_provider_dropdown.add_item(p.display_name)
+		# Select saved provider
+		var providers = AIProviders.get_providers()
+		for i in range(providers.size()):
+			if providers[i].id == _provider_id:
+				_provider_dropdown.selected = i
+				break
+	else:
+		_provider_dropdown.add_item("🏠 Ollama (Local)")
+	_provider_dropdown.item_selected.connect(_on_provider_selected)
+	_style_option_button(_provider_dropdown)
+	toolbar.add_child(_provider_dropdown)
+
+	# ── API Key button ──
+	_api_key_btn = Button.new()
+	_api_key_btn.text = "⚙️"
+	_api_key_btn.tooltip_text = "Configure API keys for cloud providers"
+	_api_key_btn.pressed.connect(_show_api_key_dialog)
+	_style_small_button(_api_key_btn)
+	toolbar.add_child(_api_key_btn)
+
+	toolbar.add_child(_make_separator())
+
 	_model_dropdown = OptionButton.new()
-	_model_dropdown.add_item("qwen2.5-coder:7b")
-	_model_dropdown.add_item("deepseek-coder-v2:16b")
-	_model_dropdown.add_item("codellama:7b")
-	_model_dropdown.add_item("phi3:mini")
-	_model_dropdown.add_item("llama3.1:8b")
-	_model_dropdown.add_item("gemma2:9b")
+	_update_model_dropdown()
 	_model_dropdown.item_selected.connect(_on_model_selected)
-	_model_dropdown.tooltip_text = "Select Ollama model"
+	_model_dropdown.tooltip_text = "Select model"
 	_style_option_button(_model_dropdown)
 	toolbar.add_child(_model_dropdown)
 
@@ -589,7 +660,7 @@ func _setup_ui() -> void:
 	main_vbox.add_child(_output)
 
 	_append_system("AI Help is ready. Type a question below or use the quick actions.\n")
-	_append_system("Requires [color=cyan]Ollama[/color] running locally: [color=gray]curl -fsSL https://ollama.com/install.sh | sh[/color]\n")
+	_append_system("Providers: [color=cyan]Ollama[/color] (local), [color=green]OpenAI[/color], [color=#bb77ff]Claude[/color], [color=#4488ff]Gemini[/color]. Click ⚙️ to set API keys.\n")
 
 	# --- Input row ---
 	var input_row := HBoxContainer.new()
@@ -876,12 +947,26 @@ func _on_health_check_response(result: int, code: int, _h: PackedStringArray, _b
 
 func _send_query(prompt: String) -> void:
 	if not _ollama_available:
-		_append_system("[color=yellow]Ollama is not running. Start it first.[/color]\n")
-		_ping_ollama()
+		if _provider_info and _provider_info.is_local:
+			_append_system("[color=yellow]Ollama is not running. Start it first.[/color]\n")
+			_ping_ollama()
+		else:
+			_append_system("[color=yellow]%s is not ready. Check your API key (⚙️).[/color]\n" % (_provider_info.display_name if _provider_info else "Provider"))
+			_activate_provider()
 		return
 	if _is_generating:
 		_append_system("[color=yellow]Already generating — click Stop first.[/color]\n")
 		return
+
+	# Cloud providers — skip warmup and health check, send directly
+	if _provider_info and not _provider_info.is_local:
+		_history.append(prompt)
+		_history_idx = _history.size()
+		_input.text = ""
+		_append_user(prompt)
+		_send_cloud_query(prompt)
+		return
+
 	# If the model is still loading into memory, queue the query
 	if not _model_warm:
 		_queued_query = prompt
@@ -1119,4 +1204,207 @@ func ask(prompt: String) -> void:
 
 ## Retry Ollama connection
 func retry_connection() -> void:
-	_ping_ollama()
+	_activate_provider()
+
+# ---------------------------------------------------------------------------
+# Provider management
+# ---------------------------------------------------------------------------
+
+## Activate the currently selected provider — ping Ollama or verify API key.
+func _activate_provider() -> void:
+	if _provider_info == null:
+		return
+	if _provider_info.is_local:
+		_ping_ollama()
+	else:
+		# Cloud provider — check if API key exists
+		var key: String = AIProviders.load_api_key(_provider_id) if AIProviders else ""
+		if key.is_empty():
+			_ollama_available = false
+			_status_label.text = "🔑 API key needed"
+			_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+			_append_system("[color=yellow]%s requires an API key. Click ⚙️ to configure.[/color]\n" % _provider_info.display_name)
+		else:
+			_ollama_available = true
+			_model_warm = true  # Cloud providers don't need warmup
+			_status_label.text = "✅ %s ready" % _provider_info.display_name
+			_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+			_append_system("Connected to [color=cyan]%s[/color] — model: [color=cyan]%s[/color]\n" % [_provider_info.display_name, _current_model])
+			ai_panel_ready.emit()
+
+func _on_provider_selected(idx: int) -> void:
+	if not AIProviders:
+		return
+	var providers = AIProviders.get_providers()
+	if idx < 0 or idx >= providers.size():
+		return
+	_provider_id = providers[idx].id
+	_provider_info = providers[idx]
+	_current_model = _provider_info.default_model
+	_model_warm = false
+	_ollama_available = false
+	_conversation_history.clear()
+	AIProviders.save_preferred_provider(_provider_id)
+	_update_model_dropdown()
+	_append_system("\nSwitched to [color=cyan]%s[/color]\n" % _provider_info.display_name)
+	_activate_provider()
+
+func _update_model_dropdown() -> void:
+	if not is_instance_valid(_model_dropdown):
+		return
+	_model_dropdown.clear()
+	if _provider_info:
+		for m in _provider_info.models:
+			_model_dropdown.add_item(m)
+		# Select default
+		var didx: int = _provider_info.models.find(_provider_info.default_model)
+		_model_dropdown.selected = maxi(didx, 0)
+		_current_model = _provider_info.default_model
+
+# ---------------------------------------------------------------------------
+# API Key Settings Dialog
+# ---------------------------------------------------------------------------
+func _show_api_key_dialog() -> void:
+	if not AIProviders:
+		return
+	var dlg := AcceptDialog.new()
+	dlg.title = "⚙️  AI Provider API Keys"
+	dlg.size = Vector2(520, 400)
+	dlg.exclusive = true
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 10)
+	dlg.add_child(vbox)
+
+	var desc := Label.new()
+	desc.text = "Enter API keys for cloud AI providers.\nKeys are stored locally in user://vg_ai_keys.cfg"
+	desc.add_theme_font_size_override("font_size", 12)
+	desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(desc)
+
+	vbox.add_child(HSeparator.new())
+
+	var key_edits := {}  # provider_id -> LineEdit
+	for p in AIProviders.get_providers():
+		if p.is_local:
+			continue  # Skip Ollama
+		var hbox := HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 8)
+		vbox.add_child(hbox)
+
+		var lbl := Label.new()
+		lbl.text = p.display_name + ":"
+		lbl.custom_minimum_size.x = 120
+		lbl.add_theme_font_size_override("font_size", 12)
+		hbox.add_child(lbl)
+
+		var edit := LineEdit.new()
+		edit.text = AIProviders.load_api_key(p.id)
+		edit.placeholder_text = "sk-... / api-key-..."
+		edit.secret = true
+		edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		edit.add_theme_font_size_override("font_size", 12)
+		hbox.add_child(edit)
+		key_edits[p.id] = edit
+
+		# Show/hide toggle
+		var eye := Button.new()
+		eye.text = "👁"
+		eye.tooltip_text = "Show/hide key"
+		eye.pressed.connect(func(): edit.secret = not edit.secret)
+		hbox.add_child(eye)
+
+	vbox.add_child(HSeparator.new())
+
+	var hints := Label.new()
+	hints.text = "Get keys from:\n• OpenAI: platform.openai.com/api-keys\n• Claude: console.anthropic.com/settings/keys\n• Gemini: aistudio.google.com/apikey"
+	hints.add_theme_font_size_override("font_size", 11)
+	hints.add_theme_color_override("font_color", Color(0.5, 0.6, 0.7))
+	hints.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(hints)
+
+	dlg.confirmed.connect(func():
+		for pid in key_edits:
+			AIProviders.save_api_key(pid, key_edits[pid].text.strip_edges())
+		_append_system("[color=green]API keys saved.[/color]\n")
+		_activate_provider()
+		dlg.queue_free()
+	)
+
+	# Use EditorInterface if available to host the dialog
+	if Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base:
+			base.add_child(dlg)
+		else:
+			add_child(dlg)
+	else:
+		add_child(dlg)
+	dlg.popup_centered()
+
+# ---------------------------------------------------------------------------
+# Cloud provider streaming
+# ---------------------------------------------------------------------------
+
+## Override _send_query_internal for cloud providers.
+## Uses HTTPS via HTTPClient with TLS for cloud APIs.
+func _send_cloud_query(prompt: String) -> void:
+	if _is_generating:
+		return
+	if not AIProviders:
+		return
+
+	var api_key: String = AIProviders.load_api_key(_provider_id)
+	if api_key.is_empty() and not _provider_info.is_local:
+		_append_system("[color=yellow]No API key configured for %s. Click ⚙️ to set one.[/color]\n" % _provider_info.display_name)
+		return
+
+	var req_data: Dictionary = AIProviders.build_request(
+		_provider_id, _current_model, SYSTEM_PROMPT,
+		_conversation_history, prompt, api_key)
+
+	_stream_json_body = req_data["body"]
+	_current_prompt = prompt
+
+	# Reset stream state
+	_stream_done = false
+	_stream_error = ""
+	_stream_buf = ""
+	_stream_started = false
+	_stream_token_count = 0
+	_stream_start_time = Time.get_ticks_msec()
+	_stream_first_token_time = 0.0
+	_accumulated_response = ""
+
+	# Create HTTPClient and connect with TLS for cloud providers
+	if _stream_http != null:
+		_stream_http.close()
+	_stream_http = HTTPClient.new()
+
+	var host: String = _provider_info.api_host
+	var port: int = _provider_info.api_port
+	var err: int
+
+	if _provider_info.use_tls:
+		err = _stream_http.connect_to_host(host, port, TLSOptions.client())
+	else:
+		err = _stream_http.connect_to_host(host, port)
+
+	if err != OK:
+		_stream_error = "Failed to connect to %s: %s" % [host, error_string(err)]
+		_stream_done = true
+		_stream_http = null
+
+	_cloud_request_headers = req_data["headers"]
+	_cloud_request_path = req_data["path"]
+	_stream_http_phase = 1  # Connecting
+	_is_generating = true
+	_send_btn.visible = false
+	_stop_btn.visible = true
+	_status_label.text = "💭 Thinking... (%s)" % _provider_info.display_name
+	_status_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	_poll_timer.start()
+
+var _cloud_request_headers: Array = []
+var _cloud_request_path: String = ""
