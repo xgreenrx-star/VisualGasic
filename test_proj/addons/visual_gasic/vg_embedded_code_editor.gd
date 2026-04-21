@@ -1484,12 +1484,15 @@ func _rebuild_object_combo() -> void:
 		_object_combo.add_item(ctrl_name)
 
 ## Sets the list of form control names for the Object dropdown.
-func set_control_names(names: Array[String]) -> void:
-	_control_names = names
+func set_control_names(names: Array) -> void:
+	var typed_names: Array[String] = []
+	for n in names:
+		typed_names.append(str(n))
+	_control_names = typed_names
 	_rebuild_object_combo()
 	# Forward to VGCodeEdit so auto-complete can suggest control names
 	if _code_edit and _code_edit.has_method("set_known_controls"):
-		_code_edit.set_known_controls(names)
+		_code_edit.set_known_controls(typed_names)
 
 ## Sets the form name so Form1. works like Me. in IntelliSense.
 func set_form_name(form_name: String) -> void:

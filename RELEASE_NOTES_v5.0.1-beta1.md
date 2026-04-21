@@ -1,7 +1,7 @@
 # VisualGasic v5.0.1 Beta 1 — Release Notes
 
-**Release Date**: April 9, 2026 (Updated: April 18, 2026 — Beta 3)  
-**Tag**: `v5.0.1-beta3`  
+**Release Date**: April 9, 2026 (Updated: April 19, 2026 — Beta 4)  
+**Tag**: `v5.0.1-beta4`  
 **Status**: 🟡 **BETA — NOT FOR PRODUCTION USE**
 
 ---
@@ -47,11 +47,14 @@ A complete retro game construction kit inspired by the Commodore 64's *Adventure
 ### 🎨 Piskel-Style Sprite Editor
 
 - Pixel art editor built directly into the VG IDE
-- Drawing tools: Pencil, Eraser, Bucket Fill, Color Picker, Line, Rectangle
-- 16-color palette with custom color support
-- Canvas sizes from 8×8 to 128×128
-- Frame-based animation with preview playback
-- Export to PNG
+- **16 drawing tools**: Pencil, Eraser, Line, Rectangle, Filled Rectangle, Ellipse, Filled Ellipse, Fill Bucket, Color Picker, Select, Move, Mirror Pen, Dither Pen, Lighten, Darken, **Magic Wand** (W)
+- **9 retro palette presets**: NES (56 colors), GameBoy (4), GameBoy Pocket (4), C64 (16), CGA (16), SNES (16), PICO-8 (16), Endesga 32 (32), Grayscale (16)
+- **Palette import/export**: Load `.gpl`, `.hex`, `.pal`, `.txt` palette files; export as GIMP `.gpl`
+- Canvas sizes from 8×8 to 256×256
+- Frame-based animation with FPS control, onion skinning (prev + next), and live preview
+- Full layer system with visibility and opacity
+- Undo/redo (100 levels), recent colors, symmetry drawing
+- Export to PNG/spritesheet
 
 ### 🏗️ 3D Game Development Tools
 

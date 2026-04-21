@@ -33,6 +33,63 @@ const TYPE_COLORS = {
 }
 const ACTOR_TYPES    = ["Player", "Drone", "Missile", "Sentry", "Computer", "Zombie", "Boss", "Bat", "NPC", "Tank", "Fireball"]
 const MAX_ACTORS     = 16
+const FREESOUND_BROWSER_SCRIPT := preload("res://addons/visual_gasic/asset_browser/freesound_browser.gd")
+const OPENGAMEART_BROWSER_SCRIPT := preload("res://addons/visual_gasic/asset_browser/opengameart_browser.gd")
+const KENNEY_BROWSER_SCRIPT := preload("res://addons/visual_gasic/asset_browser/kenney_browser.gd")
+
+# ─── Built-in Palettes ──────────────────────────────────────
+const AGCK_PALETTES := {
+	"NES": [
+		"#7C7C7C", "#0000FC", "#0000BC", "#4428BC", "#940084", "#A80020", "#A81000",
+		"#881400", "#503000", "#007800", "#006800", "#005800", "#004058", "#000000",
+		"#BCBCBC", "#0078F8", "#0058F8", "#6844FC", "#D800CC", "#E40058", "#F83800",
+		"#E45C10", "#AC7C00", "#00B800", "#00A800", "#00A844", "#008888", "#000000",
+		"#F8F8F8", "#3CBCFC", "#6888FC", "#9878F8", "#F878F8", "#F85898", "#F87858",
+		"#FCA044", "#F8B800", "#B8F818", "#58D854", "#58F898", "#00E8D8", "#787878",
+		"#FCFCFC", "#A4E4FC", "#B8B8F8", "#D8B8F8", "#F8B8F8", "#F8A4C0", "#F0D0B0",
+		"#FCE0A8", "#F8D878", "#D8F878", "#B8F8B8", "#B8F8D8", "#00FCFC", "#D8D8D8",
+	],
+	"GameBoy": [
+		"#0F380F", "#306230", "#8BAC0F", "#9BBC0F",
+	],
+	"GameBoy Pocket": [
+		"#000000", "#545454", "#A9A9A9", "#FFFFFF",
+	],
+	"C64": [
+		"#000000", "#FFFFFF", "#880000", "#AAFFEE", "#CC44CC", "#00CC55",
+		"#0000AA", "#EEEE77", "#DD8855", "#664400", "#FF7777", "#333333",
+		"#777777", "#AAFF66", "#0088FF", "#BBBBBB",
+	],
+	"CGA": [
+		"#000000", "#0000AA", "#00AA00", "#00AAAA",
+		"#AA0000", "#AA00AA", "#AA5500", "#AAAAAA",
+		"#555555", "#5555FF", "#55FF55", "#55FFFF",
+		"#FF5555", "#FF55FF", "#FFFF55", "#FFFFFF",
+	],
+	"SNES": [
+		"#000000", "#1D2B53", "#7E2553", "#008751", "#AB5236", "#5F574F",
+		"#C2C3C7", "#FFF1E8", "#FF004D", "#FFA300", "#FFEC27", "#00E436",
+		"#29ADFF", "#83769C", "#FF77A8", "#FFCCAA",
+	],
+	"PICO-8": [
+		"#000000", "#1D2B53", "#7E2553", "#008751", "#AB5236", "#5F574F",
+		"#C2C3C7", "#FFF1E8", "#FF004D", "#FFA300", "#FFEC27", "#00E436",
+		"#29ADFF", "#83769C", "#FF77A8", "#FFCCAA",
+	],
+	"Endesga 32": [
+		"#BE4A2F", "#D77643", "#EAD4AA", "#E4A672", "#B86F50", "#733E39",
+		"#3E2731", "#A22633", "#E43B44", "#F77622", "#FEAE34", "#FEE761",
+		"#63C74D", "#3E8948", "#265C42", "#193C3E", "#124E89", "#0099DB",
+		"#2CE8F5", "#FFFFFF", "#C0CBDC", "#8B9BB4", "#5A6988", "#3A4466",
+		"#262B44", "#181425", "#FF0044", "#68386C", "#B55088", "#F6757A",
+		"#E8B796", "#C28569",
+	],
+	"Grayscale": [
+		"#000000", "#111111", "#222222", "#333333", "#444444", "#555555",
+		"#666666", "#777777", "#888888", "#999999", "#AAAAAA", "#BBBBBB",
+		"#CCCCCC", "#DDDDDD", "#EEEEEE", "#FFFFFF",
+	],
+}
 
 # ─── Per-Sprite Shader FX ────────────────────────────────────
 const SPRITE_FX_NAMES: Array = [
@@ -105,8 +162,34 @@ var _edit_image: Image = null
 var _edit_actor_id: int = -1
 var _edit_color: Color = Color.WHITE
 var _edit_erasing: bool = false
+var _edit_pen_size: int = 1
+var _edit_tool: int = 0  # 0=Pen, 1=Fill, 2=Line, 3=Rect
+var _edit_mirror_h: bool = false
+var _edit_line_start: Vector2i = Vector2i(-1, -1)
+var _edit_tool_buttons: Array = []
 var _edit_palette_btns: Array = []
 var _edit_palette_colors: Array = []
+var _edit_palette_row: HBoxContainer = null  # stored for Lospec rebuild
+# Custom palette persistence (shared file with VG sprite editor)
+const AGCK_CUSTOM_PALETTES_PATH := "user://vg_custom_palettes.json"
+var _agck_custom_palettes: Dictionary = {}  ## name → Array of "#RRGGBB"
+var _agck_palette_option: OptionButton = null
+var _agck_palette_remove_btn: Button = null
+# Lospec palette browser (AGCK)
+var _agck_lospec_http: HTTPRequest = null
+var _agck_lospec_dialog: AcceptDialog = null
+var _agck_lospec_results_box: VBoxContainer = null
+var _agck_lospec_search_edit: LineEdit = null
+var _agck_lospec_sort_option: OptionButton = null
+var _agck_lospec_page := 0
+var _agck_lospec_palettes: Array = []
+var _agck_lospec_total := 0
+var _agck_lospec_selected_index := -1
+var _agck_lospec_selected_row: PanelContainer = null
+var _agck_lospec_page_label: Label = null
+var _freesound_browser: RefCounted = null
+var _opengameart_browser: RefCounted = null
+var _kenney_browser: RefCounted = null
 var _edit_sprite_undo: Array = []  # Array of Image snapshots
 var _edit_sprite_redo: Array = []
 var _edit_stroke_snap: Image = null
@@ -119,6 +202,7 @@ var _edit_current_frame: int = 0    # Currently displayed frame index
 var _edit_frame_label: Label = null # "Frame 1/4" display
 var _edit_onion_skin: bool = false  # Show previous frame ghosted behind current
 var _edit_preview_rect: TextureRect = null  # Animated preview
+var _edit_frame_clipboard: Image = null   # Copied frame for paste
 # Named animation editor
 var _edit_anims: Dictionary = {}     # { "Idle": [Image,...], "Walk": [Image,...], ... }
 var _edit_current_anim: String = ""  # Currently selected animation name
@@ -1393,6 +1477,90 @@ func _open_actor_sprite_editor(actor_id: int) -> void:
 	eraser_btn.toggled.connect(func(v): _edit_erasing = v)
 	tool_row.add_child(eraser_btn)
 
+	var size_lbl = Label.new()
+	size_lbl.text = "Size:"
+	size_lbl.label_settings = _ls(10, DIM)
+	tool_row.add_child(size_lbl)
+	var size_spin = SpinBox.new()
+	size_spin.min_value = 1
+	size_spin.max_value = 6
+	size_spin.step = 1
+	size_spin.value = _edit_pen_size
+	size_spin.custom_minimum_size = Vector2(60, 0)
+	size_spin.add_theme_font_size_override("font_size", 11)
+	size_spin.tooltip_text = "Brush size in pixels"
+	size_spin.value_changed.connect(func(v): _edit_pen_size = int(v))
+	tool_row.add_child(size_spin)
+
+	# ── Drawing tool buttons ──
+	var tool_row2 = HBoxContainer.new()
+	tool_row2.add_theme_constant_override("separation", 3)
+	main_vbox.add_child(tool_row2)
+	var tool_defs = [[0, "✏️", "Pen"], [1, "🪣", "Fill"], [2, "📏", "Line"], [3, "▭", "Rect"]]
+	_edit_tool_buttons.clear()
+	for td in tool_defs:
+		var tbtn = Button.new()
+		tbtn.text = td[1]
+		tbtn.tooltip_text = td[2]
+		tbtn.toggle_mode = true
+		tbtn.button_pressed = (td[0] == _edit_tool)
+		tbtn.custom_minimum_size = Vector2(36, 28)
+		tbtn.add_theme_font_size_override("font_size", 14)
+		var t_n = StyleBoxFlat.new()
+		t_n.bg_color = Color(0.22, 0.22, 0.28)
+		t_n.set_corner_radius_all(4)
+		t_n.set_content_margin_all(3)
+		tbtn.add_theme_stylebox_override("normal", t_n)
+		var t_p = t_n.duplicate()
+		t_p.bg_color = Color(0.18, 0.28, 0.45)
+		tbtn.add_theme_stylebox_override("pressed", t_p)
+		tbtn.add_theme_color_override("font_color", WHITE)
+		tbtn.add_theme_color_override("font_pressed_color", Color(0.7, 0.85, 1.0))
+		var tid: int = td[0]
+		tbtn.pressed.connect(func():
+			_edit_tool = tid
+			for i in range(_edit_tool_buttons.size()):
+				if is_instance_valid(_edit_tool_buttons[i]):
+					_edit_tool_buttons[i].button_pressed = (i == tid)
+		)
+		tool_row2.add_child(tbtn)
+		_edit_tool_buttons.append(tbtn)
+
+	var sep1 = VSeparator.new()
+	sep1.custom_minimum_size = Vector2(2, 0)
+	tool_row2.add_child(sep1)
+
+	var mirror_btn = CheckButton.new()
+	mirror_btn.text = "↔ Mirror"
+	mirror_btn.button_pressed = _edit_mirror_h
+	mirror_btn.add_theme_font_size_override("font_size", 10)
+	mirror_btn.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	mirror_btn.toggled.connect(func(v): _edit_mirror_h = v)
+	tool_row2.add_child(mirror_btn)
+
+	var spc2 = Control.new()
+	spc2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tool_row2.add_child(spc2)
+
+	var clear_btn = Button.new()
+	clear_btn.text = "🗑️ Clear"
+	clear_btn.tooltip_text = "Clear entire canvas"
+	clear_btn.add_theme_font_size_override("font_size", 10)
+	var cl_s = StyleBoxFlat.new()
+	cl_s.bg_color = Color(0.55, 0.20, 0.20)
+	cl_s.set_corner_radius_all(4)
+	cl_s.set_content_margin_all(3)
+	clear_btn.add_theme_stylebox_override("normal", cl_s)
+	clear_btn.add_theme_color_override("font_color", WHITE)
+	clear_btn.pressed.connect(func():
+		if _edit_image:
+			_edit_stroke_snap = _edit_image.duplicate()
+			_edit_image.fill(Color.TRANSPARENT)
+			_commit_sprite_stroke()
+			_edit_canvas.queue_redraw()
+	)
+	tool_row2.add_child(clear_btn)
+
 	var save_btn = Button.new()
 	save_btn.text = "Save"
 	save_btn.add_theme_font_size_override("font_size", 12)
@@ -1457,17 +1625,21 @@ func _open_actor_sprite_editor(actor_id: int) -> void:
 	btn_next.pressed.connect(_on_frame_next)
 	frame_row.add_child(btn_next)
 
-	var sep1 = VSeparator.new()
-	sep1.add_theme_constant_override("separation", 8)
-	frame_row.add_child(sep1)
+	var sep_frame = VSeparator.new()
+	sep_frame.add_theme_constant_override("separation", 8)
+	frame_row.add_child(sep_frame)
 
 	var btn_add = _frame_btn("+ Add", "Add new blank frame after current")
 	btn_add.pressed.connect(_on_frame_add)
 	frame_row.add_child(btn_add)
 
-	var btn_dup = _frame_btn("⧉ Copy", "Duplicate current frame")
-	btn_dup.pressed.connect(_on_frame_duplicate)
+	var btn_dup = _frame_btn("⧉ Copy", "Copy current frame to clipboard")
+	btn_dup.pressed.connect(_on_frame_copy)
 	frame_row.add_child(btn_dup)
+
+	var btn_paste = _frame_btn("📋 Paste", "Paste copied frame after current")
+	btn_paste.pressed.connect(_on_frame_paste)
+	frame_row.add_child(btn_paste)
 
 	var btn_del = _frame_btn("✕ Del", "Delete current frame")
 	btn_del.pressed.connect(_on_frame_delete)
@@ -1522,6 +1694,26 @@ func _open_actor_sprite_editor(actor_id: int) -> void:
 	frame_row.add_child(frame_spc)
 
 	# Animated preview thumbnail
+	var fps_lbl = Label.new()
+	fps_lbl.text = "FPS:"
+	fps_lbl.label_settings = _ls(10, DIM)
+	frame_row.add_child(fps_lbl)
+
+	var fps_spin = SpinBox.new()
+	fps_spin.min_value = 1
+	fps_spin.max_value = 30
+	fps_spin.value = _edit_preview_fps
+	fps_spin.step = 1
+	fps_spin.custom_minimum_size = Vector2(60, 0)
+	fps_spin.add_theme_font_size_override("font_size", 11)
+	fps_spin.tooltip_text = "Animation preview frames per second"
+	fps_spin.value_changed.connect(func(v):
+		_edit_preview_fps = int(v)
+		if _preview_timer and is_instance_valid(_preview_timer):
+			_preview_timer.wait_time = 1.0 / maxf(_edit_preview_fps, 1)
+	)
+	frame_row.add_child(fps_spin)
+
 	var prev_lbl = Label.new()
 	prev_lbl.text = "Preview:"
 	prev_lbl.label_settings = _ls(10, DIM)
@@ -1535,9 +1727,76 @@ func _open_actor_sprite_editor(actor_id: int) -> void:
 	frame_row.add_child(_edit_preview_rect)
 
 	# Color palette
+	# Saved palettes dropdown
+	_agck_load_custom_palettes()
+	var saved_pal_row = HBoxContainer.new()
+	saved_pal_row.add_theme_constant_override("separation", 4)
+	main_vbox.add_child(saved_pal_row)
+	var pal_lbl = Label.new()
+	pal_lbl.text = "Palette:"
+	pal_lbl.label_settings = _ls(10, DIM)
+	saved_pal_row.add_child(pal_lbl)
+	_agck_palette_option = OptionButton.new()
+	_agck_palette_option.add_theme_font_size_override("font_size", 10)
+	_agck_palette_option.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	_agck_palette_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_agck_palette_option.add_item("(Default)")
+	for pname in AGCK_PALETTES:
+		_agck_palette_option.add_item(pname)
+	for cname in _agck_custom_palettes:
+		_agck_palette_option.add_item("★ " + cname)
+	_agck_palette_option.item_selected.connect(_on_agck_palette_selected)
+	saved_pal_row.add_child(_agck_palette_option)
+	_agck_palette_remove_btn = Button.new()
+	_agck_palette_remove_btn.text = "🗑️"
+	_agck_palette_remove_btn.tooltip_text = "Remove this custom palette"
+	_agck_palette_remove_btn.add_theme_font_size_override("font_size", 11)
+	_agck_palette_remove_btn.disabled = true
+	_agck_palette_remove_btn.pressed.connect(_on_agck_remove_palette_pressed)
+	saved_pal_row.add_child(_agck_palette_remove_btn)
+	var lospec_row_btn = Button.new()
+	lospec_row_btn.text = "🌐 Lospec"
+	lospec_row_btn.tooltip_text = "Browse 4000+ palettes on Lospec.com"
+	lospec_row_btn.add_theme_font_size_override("font_size", 10)
+	lospec_row_btn.pressed.connect(_show_agck_lospec_browser)
+	saved_pal_row.add_child(lospec_row_btn)
+
+	# Asset browser buttons (kid mode)
+	var asset_row := HBoxContainer.new()
+	asset_row.add_theme_constant_override("separation", 4)
+	main_vbox.add_child(asset_row)
+	var btn_freesound := Button.new()
+	btn_freesound.text = "🔊 Sounds"
+	btn_freesound.tooltip_text = "Find free sounds!"
+	btn_freesound.add_theme_font_size_override("font_size", 10)
+	btn_freesound.pressed.connect(func():
+		_freesound_browser = FREESOUND_BROWSER_SCRIPT.new()
+		_freesound_browser.open(self, true)
+	)
+	asset_row.add_child(btn_freesound)
+	var btn_oga := Button.new()
+	btn_oga.text = "🎨 Art"
+	btn_oga.tooltip_text = "Find free game art!"
+	btn_oga.add_theme_font_size_override("font_size", 10)
+	btn_oga.pressed.connect(func():
+		_opengameart_browser = OPENGAMEART_BROWSER_SCRIPT.new()
+		_opengameart_browser.open(self, true)
+	)
+	asset_row.add_child(btn_oga)
+	var btn_kenney := Button.new()
+	btn_kenney.text = "📦 Kenney"
+	btn_kenney.tooltip_text = "Free game asset packs!"
+	btn_kenney.add_theme_font_size_override("font_size", 10)
+	btn_kenney.pressed.connect(func():
+		_kenney_browser = KENNEY_BROWSER_SCRIPT.new()
+		_kenney_browser.open(self, true)
+	)
+	asset_row.add_child(btn_kenney)
+
 	var palette_row = HBoxContainer.new()
 	palette_row.add_theme_constant_override("separation", 2)
 	main_vbox.add_child(palette_row)
+	_edit_palette_row = palette_row
 
 	var p_lbl = Label.new()
 	p_lbl.text = "Color:"
@@ -1564,6 +1823,15 @@ func _open_actor_sprite_editor(actor_id: int) -> void:
 		cbtn.pressed.connect(_on_actor_edit_color.bind(ci))
 		palette_row.add_child(cbtn)
 		_edit_palette_btns.append(cbtn)
+
+	# Lospec browse button
+	var lospec_btn = Button.new()
+	lospec_btn.text = "🌐"
+	lospec_btn.tooltip_text = "Browse Lospec palettes (4000+ online palettes)"
+	lospec_btn.custom_minimum_size = Vector2(28, 18)
+	lospec_btn.add_theme_font_size_override("font_size", 11)
+	lospec_btn.pressed.connect(_show_agck_lospec_browser)
+	palette_row.add_child(lospec_btn)
 
 	# Big pixel canvas
 	_edit_canvas = Control.new()
@@ -1917,15 +2185,26 @@ func _on_frame_add() -> void:
 	_switch_to_frame(_edit_current_frame + 1)
 
 
-func _on_frame_duplicate() -> void:
+func _on_frame_copy() -> void:
+	# Save current frame, then copy to clipboard
+	if _edit_current_frame >= 0 and _edit_current_frame < _edit_frames.size():
+		_edit_frames[_edit_current_frame] = _edit_image
+	_edit_frame_clipboard = _edit_image.duplicate()
+	print("AGCK: Frame copied to clipboard")
+
+
+func _on_frame_paste() -> void:
+	if _edit_frame_clipboard == null:
+		print("AGCK: Nothing to paste — copy a frame first")
+		return
 	if _edit_frames.size() >= 32:
 		return
 	# Save current frame first
 	if _edit_current_frame >= 0 and _edit_current_frame < _edit_frames.size():
 		_edit_frames[_edit_current_frame] = _edit_image
-	# Duplicate current frame and insert after
-	var dup = _edit_image.duplicate()
-	_edit_frames.insert(_edit_current_frame + 1, dup)
+	# Insert pasted frame after current
+	var pasted = _edit_frame_clipboard.duplicate()
+	_edit_frames.insert(_edit_current_frame + 1, pasted)
 	_switch_to_frame(_edit_current_frame + 1)
 
 
@@ -1947,7 +2226,8 @@ func _update_preview_frame() -> void:
 	if _edit_frames.size() == 0:
 		return
 	# Cycle through frames for animated preview
-	var preview_idx = int(Time.get_ticks_msec() / 150) % _edit_frames.size()
+	var ms_per_frame = 1000.0 / maxf(_edit_preview_fps, 1)
+	var preview_idx = int(Time.get_ticks_msec() / ms_per_frame) % _edit_frames.size()
 	var fr = _edit_frames[preview_idx]
 	var scaled = fr.duplicate()
 	scaled.resize(48, 48, Image.INTERPOLATE_NEAREST)
@@ -1955,11 +2235,12 @@ func _update_preview_frame() -> void:
 
 
 var _preview_timer: Timer = null
+var _edit_preview_fps: int = 8  # Adjustable preview frame rate
 
 func _start_preview_timer() -> void:
 	_stop_preview_timer()
 	_preview_timer = Timer.new()
-	_preview_timer.wait_time = 0.15
+	_preview_timer.wait_time = 1.0 / maxf(_edit_preview_fps, 1)
 	_preview_timer.autostart = true
 	_preview_timer.timeout.connect(_update_preview_frame)
 	add_child(_preview_timer)
@@ -2039,17 +2320,50 @@ func _on_actor_edit_input(event: InputEvent) -> void:
 			return
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
+			var px = _pos_to_pixel(event.position)
 			if event.pressed:
 				_edit_stroke_snap = _edit_image.duplicate()
-				_actor_edit_pixel(event.position)
-			else:
-				_commit_sprite_stroke()
+				if _edit_tool == 1:  # Fill
+					if px.x >= 0:
+						_flood_fill(px.x, px.y)
+						_commit_sprite_stroke()
+				elif _edit_tool == 2 or _edit_tool == 3:  # Line / Rect
+					_edit_line_start = px
+				else:  # Pen
+					_actor_edit_pixel(event.position)
+			else:  # released
+				if _edit_tool == 2 and _edit_line_start.x >= 0:  # Line
+					_draw_line_tool(_edit_line_start, px)
+					_edit_line_start = Vector2i(-1, -1)
+					_commit_sprite_stroke()
+				elif _edit_tool == 3 and _edit_line_start.x >= 0:  # Rect
+					_draw_rect_tool(_edit_line_start, px)
+					_edit_line_start = Vector2i(-1, -1)
+					_commit_sprite_stroke()
+				else:
+					_commit_sprite_stroke()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			# Eyedropper — pick the color under cursor
 			_eyedropper_pick(event.position)
 	elif event is InputEventMouseMotion:
 		if event.button_mask & MOUSE_BUTTON_MASK_LEFT:
-			_actor_edit_pixel(event.position)
+			if _edit_tool == 0:  # Pen only does drag-paint
+				_actor_edit_pixel(event.position)
+
+
+func _pos_to_pixel(pos: Vector2) -> Vector2i:
+	if not _edit_image or not is_instance_valid(_edit_canvas):
+		return Vector2i(-1, -1)
+	var canvas_size = _edit_canvas.size
+	var img_w = _edit_image.get_width()
+	var img_h = _edit_image.get_height()
+	var pixel_size = minf(canvas_size.x / float(img_w), canvas_size.y / float(img_h))
+	var ox_val = (canvas_size.x - pixel_size * img_w) * 0.5
+	var oy_val = (canvas_size.y - pixel_size * img_h) * 0.5
+	var px = int((pos.x - ox_val) / pixel_size)
+	var py = int((pos.y - oy_val) / pixel_size)
+	if px >= 0 and px < img_w and py >= 0 and py < img_h:
+		return Vector2i(px, py)
+	return Vector2i(-1, -1)
 
 
 func _actor_edit_pixel(pos: Vector2) -> void:
@@ -2062,14 +2376,105 @@ func _actor_edit_pixel(pos: Vector2) -> void:
 	var ox_val = (canvas_size.x - pixel_size * img_w) * 0.5
 	var oy_val = (canvas_size.y - pixel_size * img_h) * 0.5
 
-	var px = int((pos.x - ox_val) / pixel_size)
-	var py = int((pos.y - oy_val) / pixel_size)
-	if px >= 0 and px < img_w and py >= 0 and py < img_h:
-		if _edit_erasing:
-			_edit_image.set_pixel(px, py, Color.TRANSPARENT)
-		else:
-			_edit_image.set_pixel(px, py, _edit_color)
+	var cx = int((pos.x - ox_val) / pixel_size)
+	var cy = int((pos.y - oy_val) / pixel_size)
+	var c = Color.TRANSPARENT if _edit_erasing else _edit_color
+	var half = (_edit_pen_size - 1) / 2
+	var painted := false
+	for dy in range(-half, -half + _edit_pen_size):
+		for dx in range(-half, -half + _edit_pen_size):
+			var px = cx + dx
+			var py = cy + dy
+			if px >= 0 and px < img_w and py >= 0 and py < img_h:
+				_set_pixel_safe(px, py, c)
+				painted = true
+	if painted:
 		_edit_canvas.queue_redraw()
+
+
+func _set_pixel_safe(px: int, py: int, c: Color) -> void:
+	if not _edit_image:
+		return
+	var w = _edit_image.get_width()
+	var h = _edit_image.get_height()
+	if px >= 0 and px < w and py >= 0 and py < h:
+		_edit_image.set_pixel(px, py, c)
+		if _edit_mirror_h:
+			var mx = w - 1 - px
+			if mx >= 0 and mx < w:
+				_edit_image.set_pixel(mx, py, c)
+
+
+func _flood_fill(start_x: int, start_y: int) -> void:
+	if not _edit_image:
+		return
+	var w = _edit_image.get_width()
+	var h = _edit_image.get_height()
+	var target_color = _edit_image.get_pixel(start_x, start_y)
+	var fill_color = Color.TRANSPARENT if _edit_erasing else _edit_color
+	if target_color.is_equal_approx(fill_color):
+		return
+	var stack: Array[Vector2i] = [Vector2i(start_x, start_y)]
+	var visited := {}
+	while stack.size() > 0:
+		var p = stack.pop_back()
+		var key = p.x * 10000 + p.y
+		if key in visited:
+			continue
+		visited[key] = true
+		if p.x < 0 or p.x >= w or p.y < 0 or p.y >= h:
+			continue
+		if not _edit_image.get_pixel(p.x, p.y).is_equal_approx(target_color):
+			continue
+		_edit_image.set_pixel(p.x, p.y, fill_color)
+		stack.append(Vector2i(p.x + 1, p.y))
+		stack.append(Vector2i(p.x - 1, p.y))
+		stack.append(Vector2i(p.x, p.y + 1))
+		stack.append(Vector2i(p.x, p.y - 1))
+	_edit_canvas.queue_redraw()
+
+
+func _draw_line_tool(from: Vector2i, to: Vector2i) -> void:
+	if not _edit_image:
+		return
+	var c = Color.TRANSPARENT if _edit_erasing else _edit_color
+	# Bresenham
+	var dx = absi(to.x - from.x)
+	var dy = -absi(to.y - from.y)
+	var sx = 1 if from.x < to.x else -1
+	var sy = 1 if from.y < to.y else -1
+	var err = dx + dy
+	var cx = from.x
+	var cy = from.y
+	while true:
+		_set_pixel_safe(cx, cy, c)
+		if cx == to.x and cy == to.y:
+			break
+		var e2 = 2 * err
+		if e2 >= dy:
+			err += dy
+			cx += sx
+		if e2 <= dx:
+			err += dx
+			cy += sy
+	_edit_canvas.queue_redraw()
+
+
+func _draw_rect_tool(from: Vector2i, to: Vector2i) -> void:
+	if not _edit_image:
+		return
+	var c = Color.TRANSPARENT if _edit_erasing else _edit_color
+	var x0 = mini(from.x, to.x)
+	var x1 = maxi(from.x, to.x)
+	var y0 = mini(from.y, to.y)
+	var y1 = maxi(from.y, to.y)
+	for x in range(x0, x1 + 1):
+		_set_pixel_safe(x, y0, c)
+		_set_pixel_safe(x, y1, c)
+	for y in range(y0 + 1, y1):
+		_set_pixel_safe(x0, y, c)
+		_set_pixel_safe(x1, y, c)
+	_edit_canvas.queue_redraw()
 
 
 ## Eyedropper — right-click picks the color under the cursor.
@@ -2291,3 +2696,427 @@ func _close_actor_edit() -> void:
 	_edit_sprite_undo.clear()
 	_edit_sprite_redo.clear()
 	_edit_stroke_snap = null
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LOSPEC PALETTE BROWSER (AGCK Actor Editor)
+# ─────────────────────────────────────────────────────────────────────────────
+func _show_agck_lospec_browser() -> void:
+	if _agck_lospec_dialog != null and is_instance_valid(_agck_lospec_dialog):
+		_agck_lospec_dialog.queue_free()
+		_agck_lospec_dialog = null
+	_agck_lospec_dialog = AcceptDialog.new()
+	_agck_lospec_dialog.title = "🌐 Browse Lospec Palettes"
+	_agck_lospec_dialog.min_size = Vector2(780, 700)
+	_agck_lospec_dialog.ok_button_text = "Close"
+	_agck_lospec_dialog.exclusive = true
+	_agck_lospec_dialog.popup_window = true
+	_agck_lospec_dialog.confirmed.connect(func(): _agck_lospec_dialog.queue_free(); _agck_lospec_dialog = null; _agck_lospec_results_box = null; _agck_lospec_selected_row = null; _agck_lospec_page_label = null)
+	_agck_lospec_dialog.canceled.connect(func(): _agck_lospec_dialog.queue_free(); _agck_lospec_dialog = null; _agck_lospec_results_box = null; _agck_lospec_selected_row = null; _agck_lospec_page_label = null)
+	add_child(_agck_lospec_dialog)
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	_agck_lospec_dialog.add_child(vbox)
+	var search_row = HBoxContainer.new()
+	search_row.add_theme_constant_override("separation", 6)
+	vbox.add_child(search_row)
+	var lbl_search = Label.new()
+	lbl_search.text = "Tag:"
+	lbl_search.add_theme_font_size_override("font_size", 13)
+	lbl_search.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9, 1.0))
+	search_row.add_child(lbl_search)
+	_agck_lospec_search_edit = LineEdit.new()
+	_agck_lospec_search_edit.placeholder_text = "e.g. gameboy, retro, fantasy..."
+	_agck_lospec_search_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_agck_lospec_search_edit.add_theme_font_size_override("font_size", 13)
+	search_row.add_child(_agck_lospec_search_edit)
+	var lbl_sort = Label.new()
+	lbl_sort.text = "Sort:"
+	lbl_sort.add_theme_font_size_override("font_size", 13)
+	lbl_sort.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9, 1.0))
+	search_row.add_child(lbl_sort)
+	_agck_lospec_sort_option = OptionButton.new()
+	_agck_lospec_sort_option.add_theme_font_size_override("font_size", 13)
+	_agck_lospec_sort_option.add_item("Popular", 0)
+	_agck_lospec_sort_option.add_item("Newest", 1)
+	_agck_lospec_sort_option.add_item("Default", 2)
+	search_row.add_child(_agck_lospec_sort_option)
+	var btn_search = Button.new()
+	btn_search.text = "🔍 Search"
+	btn_search.add_theme_font_size_override("font_size", 13)
+	btn_search.pressed.connect(_agck_lospec_do_search.bind(0))
+	search_row.add_child(btn_search)
+	_agck_lospec_search_edit.text_submitted.connect(func(_t): _agck_lospec_do_search(0))
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0, 480)
+	vbox.add_child(scroll)
+	var scroll_inner_panel = PanelContainer.new()
+	scroll_inner_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var scroll_inner_bg = StyleBoxFlat.new()
+	scroll_inner_bg.bg_color = Color(0.14, 0.14, 0.18, 1.0)
+	scroll_inner_bg.set_corner_radius_all(4)
+	scroll_inner_bg.set_content_margin_all(4)
+	scroll_inner_panel.add_theme_stylebox_override("panel", scroll_inner_bg)
+	scroll.add_child(scroll_inner_panel)
+	_agck_lospec_results_box = VBoxContainer.new()
+	_agck_lospec_results_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_agck_lospec_results_box.add_theme_constant_override("separation", 4)
+	scroll_inner_panel.add_child(_agck_lospec_results_box)
+
+	# Page info label — outside scroll so always visible
+	_agck_lospec_page_label = Label.new()
+	_agck_lospec_page_label.text = ""
+	_agck_lospec_page_label.add_theme_font_size_override("font_size", 13)
+	_agck_lospec_page_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9, 1.0))
+	_agck_lospec_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(_agck_lospec_page_label)
+
+	var bottom_row = HBoxContainer.new()
+	bottom_row.add_theme_constant_override("separation", 6)
+	vbox.add_child(bottom_row)
+	var btn_prev = Button.new()
+	btn_prev.text = "◀ Prev"
+	btn_prev.add_theme_font_size_override("font_size", 13)
+	btn_prev.pressed.connect(_agck_lospec_prev_page)
+	bottom_row.add_child(btn_prev)
+	var btn_next = Button.new()
+	btn_next.text = "Next ▶"
+	btn_next.add_theme_font_size_override("font_size", 13)
+	btn_next.pressed.connect(_agck_lospec_next_page)
+	bottom_row.add_child(btn_next)
+	var spacer = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom_row.add_child(spacer)
+	var btn_install = Button.new()
+	btn_install.text = "✅ Install Selected Palette"
+	btn_install.add_theme_font_size_override("font_size", 13)
+	btn_install.pressed.connect(_on_agck_lospec_install)
+	bottom_row.add_child(btn_install)
+	var hint = Label.new()
+	hint.text = "Click to select, double-click to install, right-click to open on lospec.com"
+	hint.add_theme_font_size_override("font_size", 10)
+	hint.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	vbox.add_child(hint)
+	_agck_lospec_dialog.popup_centered()
+	_agck_lospec_do_search(0)
+
+
+func _agck_lospec_clear_results() -> void:
+	if _agck_lospec_results_box == null:
+		return
+	for child in _agck_lospec_results_box.get_children():
+		child.queue_free()
+	_agck_lospec_selected_index = -1
+	_agck_lospec_selected_row = null
+
+
+func _agck_lospec_add_message(msg: String) -> void:
+	var lbl = Label.new()
+	lbl.text = msg
+	lbl.add_theme_font_size_override("font_size", 13)
+	lbl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9, 1.0))
+	_agck_lospec_results_box.add_child(lbl)
+
+
+func _agck_lospec_do_search(page: int) -> void:
+	_agck_lospec_page = page
+	var sort_map = ["downloads", "newest", "default"]
+	var sort_idx = _agck_lospec_sort_option.selected if _agck_lospec_sort_option else 0
+	var sort_str: String = sort_map[sort_idx] if sort_idx < sort_map.size() else "downloads"
+	var tag: String = _agck_lospec_search_edit.text.strip_edges() if _agck_lospec_search_edit else ""
+	var url = "https://lospec.com/palette-list/load?page=%d&tag=%s&sortingType=%s&colorNumberFilterType=any" % [page, tag.uri_encode(), sort_str]
+	_agck_lospec_clear_results()
+	_agck_lospec_add_message("⏳ Loading palettes from Lospec...")
+	if _agck_lospec_http != null and is_instance_valid(_agck_lospec_http):
+		_agck_lospec_http.cancel_request()
+		_agck_lospec_http.queue_free()
+	_agck_lospec_http = HTTPRequest.new()
+	_agck_lospec_http.request_completed.connect(_on_agck_lospec_response)
+	add_child(_agck_lospec_http)
+	var err = _agck_lospec_http.request(url)
+	if err != OK:
+		_agck_lospec_clear_results()
+		_agck_lospec_add_message("❌ HTTP request failed (error %d). Check internet connection and try again." % err)
+
+
+func _on_agck_lospec_response(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	if _agck_lospec_results_box == null or not is_instance_valid(_agck_lospec_results_box):
+		return
+	_agck_lospec_clear_results()
+	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
+		_agck_lospec_add_message("❌ Request failed (HTTP %d)" % response_code)
+		return
+	var json = JSON.new()
+	var parse_err = json.parse(body.get_string_from_utf8())
+	if parse_err != OK:
+		_agck_lospec_add_message("❌ Failed to parse JSON response")
+		return
+	var data: Dictionary = json.data if json.data is Dictionary else {}
+	_agck_lospec_palettes = data.get("palettes", [])
+	_agck_lospec_total = int(data.get("totalCount", data.get("totalPalettes", 0)))
+	if _agck_lospec_palettes.is_empty():
+		_agck_lospec_add_message("No palettes found. Try a different tag.")
+		return
+	for i in range(_agck_lospec_palettes.size()):
+		var pal: Dictionary = _agck_lospec_palettes[i]
+		var title: String = pal.get("title", "Untitled")
+		var n_colors: int = int(pal.get("numberOfColors", 0))
+		var downloads: String = str(pal.get("downloads", "0"))
+		var colors_arr: Array = pal.get("colors", [])
+		var panel = PanelContainer.new()
+		var style_normal = StyleBoxFlat.new()
+		style_normal.bg_color = Color(0.19, 0.20, 0.25, 1.0)
+		style_normal.set_corner_radius_all(4)
+		style_normal.set_content_margin_all(6)
+		panel.add_theme_stylebox_override("panel", style_normal)
+		panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		var idx = i
+		panel.gui_input.connect(_agck_lospec_row_input.bind(idx, panel))
+		_agck_lospec_results_box.add_child(panel)
+		var row_vbox = VBoxContainer.new()
+		row_vbox.add_theme_constant_override("separation", 3)
+		row_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_child(row_vbox)
+		var info_lbl = Label.new()
+		info_lbl.text = "%s  (%d colors)  ⬇%s" % [title, n_colors, downloads]
+		info_lbl.add_theme_font_size_override("font_size", 13)
+		info_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95, 1.0))
+		info_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row_vbox.add_child(info_lbl)
+		var swatch_row = HBoxContainer.new()
+		swatch_row.add_theme_constant_override("separation", 1)
+		swatch_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row_vbox.add_child(swatch_row)
+		var max_swatches = mini(colors_arr.size(), 24)
+		for ci in range(max_swatches):
+			var cr = ColorRect.new()
+			cr.custom_minimum_size = Vector2(18, 18)
+			cr.color = Color("#" + str(colors_arr[ci]).strip_edges())
+			cr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			swatch_row.add_child(cr)
+		if colors_arr.size() > 24:
+			var more_lbl = Label.new()
+			more_lbl.text = "+%d" % (colors_arr.size() - 24)
+			more_lbl.add_theme_font_size_override("font_size", 10)
+			more_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+			more_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			swatch_row.add_child(more_lbl)
+	# Page info footer — update the label outside the scroll
+	if _agck_lospec_page_label != null and is_instance_valid(_agck_lospec_page_label):
+		_agck_lospec_page_label.text = "— Page %d  |  %d palettes total —" % [_agck_lospec_page + 1, _agck_lospec_total]
+
+
+func _agck_lospec_row_input(event: InputEvent, index: int, panel: PanelContainer) -> void:
+	if not (event is InputEventMouseButton and event.pressed):
+		return
+	if event.button_index == MOUSE_BUTTON_RIGHT:
+		if index >= 0 and index < _agck_lospec_palettes.size():
+			var slug: String = _agck_lospec_palettes[index].get("slug", "")
+			if slug != "":
+				OS.shell_open("https://lospec.com/palette-list/" + slug)
+		return
+	if event.button_index == MOUSE_BUTTON_LEFT:
+		if _agck_lospec_selected_row != null and is_instance_valid(_agck_lospec_selected_row):
+			var old_style = StyleBoxFlat.new()
+			old_style.bg_color = Color(0.19, 0.20, 0.25, 1.0)
+			old_style.set_corner_radius_all(4)
+			old_style.set_content_margin_all(6)
+			_agck_lospec_selected_row.add_theme_stylebox_override("panel", old_style)
+		_agck_lospec_selected_index = index
+		_agck_lospec_selected_row = panel
+		var sel_style = StyleBoxFlat.new()
+		sel_style.bg_color = Color(0.22, 0.36, 0.56, 1.0)
+		sel_style.set_corner_radius_all(4)
+		sel_style.set_content_margin_all(6)
+		panel.add_theme_stylebox_override("panel", sel_style)
+		if event.double_click:
+			_agck_lospec_install_index(index)
+
+
+func _on_agck_lospec_install() -> void:
+	if _agck_lospec_selected_index < 0:
+		return
+	_agck_lospec_install_index(_agck_lospec_selected_index)
+
+
+func _agck_lospec_install_index(index: int) -> void:
+	if index < 0 or index >= _agck_lospec_palettes.size():
+		return
+	var pal: Dictionary = _agck_lospec_palettes[index]
+	var title: String = pal.get("title", "Lospec Palette")
+	var colors_raw: Array = pal.get("colors", [])
+	if colors_raw.is_empty():
+		return
+	var new_colors: Array = []
+	for hex_str in colors_raw:
+		var s: String = str(hex_str).strip_edges()
+		if not s.begins_with("#"):
+			s = "#" + s
+		new_colors.append(Color(s))
+	_edit_palette_colors = new_colors
+	_edit_color = new_colors[0]
+	_rebuild_agck_palette_row()
+	# Save to custom palettes
+	var hex_colors: Array = []
+	for c in new_colors:
+		hex_colors.append("#" + c.to_html(false))
+	_agck_add_custom_palette(title, hex_colors)
+	print("AGCK ActorEditor: Installed Lospec palette '%s' (%d colors)" % [title, new_colors.size()])
+
+
+func _rebuild_agck_palette_row() -> void:
+	if _edit_palette_row == null or not is_instance_valid(_edit_palette_row):
+		return
+	# Remove old palette buttons but keep first child (label) and last child (lospec btn)
+	var children = _edit_palette_row.get_children()
+	for i in range(children.size() - 1, 0, -1):
+		if i == children.size() - 1:
+			continue  # keep lospec button
+		children[i].queue_free()
+	_edit_palette_btns.clear()
+	var lospec_btn_ref = children[children.size() - 1] if children.size() > 0 else null
+	for ci in range(_edit_palette_colors.size()):
+		var cbtn = Button.new()
+		cbtn.custom_minimum_size = Vector2(18, 18)
+		cbtn.toggle_mode = true
+		cbtn.button_pressed = (ci == 0)
+		var cstyle = StyleBoxFlat.new()
+		cstyle.bg_color = _edit_palette_colors[ci]
+		cstyle.set_corner_radius_all(2)
+		cbtn.add_theme_stylebox_override("normal", cstyle)
+		var csp = cstyle.duplicate()
+		csp.border_width_bottom = 2
+		csp.border_width_top = 2
+		csp.border_width_left = 2
+		csp.border_width_right = 2
+		csp.border_color = ACCENT
+		cbtn.add_theme_stylebox_override("pressed", csp)
+		cbtn.pressed.connect(_on_actor_edit_color.bind(ci))
+		_edit_palette_row.add_child(cbtn)
+		_edit_palette_btns.append(cbtn)
+	if lospec_btn_ref and is_instance_valid(lospec_btn_ref):
+		_edit_palette_row.move_child(lospec_btn_ref, -1)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AGCK CUSTOM PALETTE PERSISTENCE
+# ─────────────────────────────────────────────────────────────────────────────
+func _agck_load_custom_palettes() -> void:
+	_agck_custom_palettes.clear()
+	if not FileAccess.file_exists(AGCK_CUSTOM_PALETTES_PATH):
+		return
+	var fa := FileAccess.open(AGCK_CUSTOM_PALETTES_PATH, FileAccess.READ)
+	if fa == null:
+		return
+	var text := fa.get_as_text()
+	fa.close()
+	var json := JSON.new()
+	if json.parse(text) != OK:
+		return
+	var data = json.data
+	if data is Dictionary:
+		for key in data:
+			if data[key] is Array:
+				_agck_custom_palettes[str(key)] = data[key]
+
+
+func _agck_save_custom_palettes() -> void:
+	var fa := FileAccess.open(AGCK_CUSTOM_PALETTES_PATH, FileAccess.WRITE)
+	if fa == null:
+		return
+	fa.store_string(JSON.stringify(_agck_custom_palettes, "\t"))
+	fa.close()
+
+
+func _agck_add_custom_palette(pname: String, colors: Array) -> void:
+	_agck_custom_palettes[pname] = colors
+	_agck_save_custom_palettes()
+	if _agck_palette_option == null or not is_instance_valid(_agck_palette_option):
+		return
+	var display_name := "★ " + pname
+	var found := false
+	for i in range(_agck_palette_option.item_count):
+		if _agck_palette_option.get_item_text(i) == display_name:
+			_agck_palette_option.selected = i
+			found = true
+			break
+	if not found:
+		_agck_palette_option.add_item(display_name)
+		_agck_palette_option.selected = _agck_palette_option.item_count - 1
+	_agck_update_remove_btn_state()
+
+
+func _on_agck_palette_selected(idx: int) -> void:
+	if _agck_palette_option == null:
+		return
+	var display_name := _agck_palette_option.get_item_text(idx)
+	if display_name == "(Default)":
+		# Restore default palette
+		_edit_palette_colors = _build_actor_palette("")
+	elif display_name in AGCK_PALETTES:
+		var hex_arr: Array = AGCK_PALETTES[display_name]
+		var new_colors: Array = []
+		for h in hex_arr:
+			new_colors.append(Color(str(h)))
+		_edit_palette_colors = new_colors
+	elif display_name.begins_with("★ "):
+		var cname := display_name.substr(2)
+		if cname in _agck_custom_palettes:
+			var hex_arr: Array = _agck_custom_palettes[cname]
+			var new_colors: Array = []
+			for h in hex_arr:
+				new_colors.append(Color(str(h)))
+			_edit_palette_colors = new_colors
+	if _edit_palette_colors.size() > 0:
+		_edit_color = _edit_palette_colors[0]
+	_rebuild_agck_palette_row()
+	_agck_update_remove_btn_state()
+
+
+func _on_agck_remove_palette_pressed() -> void:
+	if _agck_palette_option == null:
+		return
+	var sel := _agck_palette_option.selected
+	if sel < 0:
+		return
+	var display_name := _agck_palette_option.get_item_text(sel)
+	if not display_name.begins_with("★ "):
+		return
+	var cname := display_name.substr(2)
+	var confirm := ConfirmationDialog.new()
+	confirm.title = "Remove Palette"
+	confirm.dialog_text = "Remove custom palette '%s'?\nThis cannot be undone." % cname
+	confirm.ok_button_text = "Remove"
+	confirm.confirmed.connect(func():
+		_agck_custom_palettes.erase(cname)
+		_agck_save_custom_palettes()
+		_agck_palette_option.remove_item(sel)
+		_agck_palette_option.selected = 0
+		_on_agck_palette_selected(0)
+		print("AGCK ActorEditor: Removed custom palette '%s'" % cname)
+		confirm.queue_free()
+	)
+	confirm.canceled.connect(func(): confirm.queue_free())
+	add_child(confirm)
+	confirm.popup_centered()
+
+
+func _agck_update_remove_btn_state() -> void:
+	if _agck_palette_remove_btn == null or not is_instance_valid(_agck_palette_remove_btn):
+		return
+	if _agck_palette_option == null or _agck_palette_option.selected < 0:
+		_agck_palette_remove_btn.disabled = true
+		return
+	var name := _agck_palette_option.get_item_text(_agck_palette_option.selected)
+	_agck_palette_remove_btn.disabled = not name.begins_with("★ ")
+
+
+func _agck_lospec_prev_page() -> void:
+	if _agck_lospec_page > 0:
+		_agck_lospec_do_search(_agck_lospec_page - 1)
+
+
+func _agck_lospec_next_page() -> void:
+	_agck_lospec_do_search(_agck_lospec_page + 1)

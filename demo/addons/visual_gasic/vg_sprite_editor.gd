@@ -34,6 +34,9 @@ const SELECTION_BORDER := Color(1.0, 1.0, 1.0, 0.9)
 const ONION_PREV_COLOR := Color(1.0, 0.2, 0.2, 0.25)
 const ONION_NEXT_COLOR := Color(0.2, 0.2, 1.0, 0.25)
 const PREVIEW_BG := Color(0.12, 0.12, 0.14)
+const FREESOUND_BROWSER_SCRIPT := preload("res://addons/visual_gasic/asset_browser/freesound_browser.gd")
+const OPENGAMEART_BROWSER_SCRIPT := preload("res://addons/visual_gasic/asset_browser/opengameart_browser.gd")
+const KENNEY_BROWSER_SCRIPT := preload("res://addons/visual_gasic/asset_browser/kenney_browser.gd")
 
 # Default canvas sizes for common retro formats
 const PRESET_SIZES := {
@@ -68,6 +71,20 @@ enum Tool {
 	DITHER_PEN,
 	LIGHTEN,
 	DARKEN,
+	MAGIC_WAND,
+	OUTLINE,
+	GRADIENT,
+	LASSO,
+}
+
+# Blend modes for layers
+enum BlendMode {
+	NORMAL,
+	MULTIPLY,
+	SCREEN,
+	OVERLAY,
+	ADD,
+	SUBTRACT,
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -162,6 +179,50 @@ var _selection_rect := Rect2i()
 var _has_selection := false
 var _selection_image: Image = null  ## floating selection pixels
 var _selection_offset := Vector2i.ZERO
+var _clipboard_image: Image = null  ## copy/paste clipboard
+
+# Feature toggles
+var _pixel_grid_enabled := true       ## show pixel grid at high zoom
+var _contiguous_fill := true          ## fill only contiguous region
+var _checker_bg_enabled := true       ## show checkerboard transparency bg
+var _ink_opacity := 1.0               ## pen opacity (0.0 – 1.0)
+var _tiled_preview := false           ## show tiled/wrapping preview
+
+# Lasso selection
+var _lasso_points: Array[Vector2i] = []  ## polygon vertices for lasso
+var _lasso_drawing := false
+
+# Brush stamp (custom brush from selection)
+var _brush_stamp: Image = null
+
+# Animation tags  { "name": String, "from": int, "to": int, "color": Color }
+var _animation_tags: Array = []
+
+# Reference layer (non-exportable background reference image)
+var _reference_image: Image = null
+var _reference_visible := false
+var _reference_opacity := 0.4
+
+# Custom (downloaded/imported) palettes — persisted to disk
+const CUSTOM_PALETTES_PATH := "user://vg_custom_palettes.json"
+var _custom_palettes: Dictionary = {}  ## name → Array of "#RRGGBB"
+var _palette_remove_btn: Button = null
+
+# Lospec palette browser
+var _lospec_http: HTTPRequest = null
+var _lospec_dialog: AcceptDialog = null
+var _lospec_results_box: VBoxContainer = null  ## scroll container child
+var _lospec_search_edit: LineEdit = null
+var _lospec_sort_option: OptionButton = null
+var _lospec_page := 0
+var _lospec_palettes: Array = []  ## cached API response palette dicts
+var _lospec_total := 0
+var _lospec_selected_index := -1
+var _lospec_selected_row: PanelContainer = null
+var _lospec_page_label: Label = null
+var _freesound_browser: RefCounted = null
+var _opengameart_browser: RefCounted = null
+var _kenney_browser: RefCounted = null
 
 # Undo
 var _undo_stack: Array = []  ## Array of snapshots
@@ -218,6 +279,13 @@ var _open_dialog: FileDialog = null
 var _export_dialog: FileDialog = null
 var _new_dialog: AcceptDialog = null
 
+var _pixel_grid_btn: CheckButton = null
+var _checker_bg_btn: CheckButton = null
+var _contiguous_fill_btn: CheckButton = null
+var _ink_opacity_slider: HSlider = null
+var _ink_opacity_label: Label = null
+var _tiled_preview_btn: CheckButton = null
+
 # ─────────────────────────────────────────────────────────────────────────────
 # LIFECYCLE
 # ─────────────────────────────────────────────────────────────────────────────
@@ -228,7 +296,7 @@ func _ready() -> void:
 func _init_blank_sprite() -> void:
 	var img := Image.create(_canvas_size.x, _canvas_size.y, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
-	_layers = [{ "name": "Layer 1", "image": img, "visible": true, "opacity": 1.0 }]
+	_layers = [{ "name": "Layer 1", "image": img, "visible": true, "opacity": 1.0, "locked": false, "blend_mode": BlendMode.NORMAL }]
 	_active_layer_idx = 0
 	_frames = [{ "layers": [img.duplicate()], "duration": 1.0 / _fps }]
 	_active_frame_idx = 0
@@ -337,13 +405,17 @@ func _build_tool_panel(parent: VBoxContainer) -> void:
 		[Tool.DITHER_PEN,     "▤",  "Dither Pen (D)"],
 		[Tool.LIGHTEN,        "☀",  "Lighten (U)"],
 		[Tool.DARKEN,         "🌑", "Darken (J)"],
+		[Tool.MAGIC_WAND,     "🪄", "Magic Wand (W)"],
+		[Tool.OUTLINE,        "🔲", "Outline (Shift+L)"],
+		[Tool.GRADIENT,       "🌈", "Gradient (Shift+G)"],
+		[Tool.LASSO,          "⛏",  "Lasso Select (Shift+S)"],
 	]
 
 	for def in tool_defs:
 		var btn := Button.new()
 		btn.text = def[1]
 		btn.tooltip_text = def[2]
-		btn.custom_minimum_size = Vector2(40, 32)
+		btn.custom_minimum_size = Vector2(48, 40)
 		btn.toggle_mode = true
 		btn.button_pressed = (def[0] == _current_tool)
 		_style_tool_button(btn)
@@ -385,6 +457,71 @@ func _build_tool_panel(parent: VBoxContainer) -> void:
 	mirr_v_btn.add_theme_font_size_override("font_size", 10)
 	mirr_v_btn.toggled.connect(func(v): _mirror_v = v)
 	mirror_row.add_child(mirr_v_btn)
+
+	# ── Option toggles ──
+	var opts_row1 := HBoxContainer.new()
+	opts_row1.add_theme_constant_override("separation", 4)
+	parent.add_child(opts_row1)
+	_pixel_grid_btn = CheckButton.new()
+	_pixel_grid_btn.text = "Grid"
+	_pixel_grid_btn.button_pressed = _pixel_grid_enabled
+	_pixel_grid_btn.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	_pixel_grid_btn.add_theme_font_size_override("font_size", 10)
+	_pixel_grid_btn.toggled.connect(func(v): _pixel_grid_enabled = v; _refresh_canvas())
+	opts_row1.add_child(_pixel_grid_btn)
+	_checker_bg_btn = CheckButton.new()
+	_checker_bg_btn.text = "Checker"
+	_checker_bg_btn.button_pressed = _checker_bg_enabled
+	_checker_bg_btn.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	_checker_bg_btn.add_theme_font_size_override("font_size", 10)
+	_checker_bg_btn.toggled.connect(func(v): _checker_bg_enabled = v; _refresh_canvas())
+	opts_row1.add_child(_checker_bg_btn)
+
+	var opts_row2 := HBoxContainer.new()
+	opts_row2.add_theme_constant_override("separation", 4)
+	parent.add_child(opts_row2)
+	_contiguous_fill_btn = CheckButton.new()
+	_contiguous_fill_btn.text = "Contig Fill"
+	_contiguous_fill_btn.button_pressed = _contiguous_fill
+	_contiguous_fill_btn.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	_contiguous_fill_btn.add_theme_font_size_override("font_size", 10)
+	_contiguous_fill_btn.toggled.connect(func(v): _contiguous_fill = v)
+	opts_row2.add_child(_contiguous_fill_btn)
+	_tiled_preview_btn = CheckButton.new()
+	_tiled_preview_btn.text = "Tiled"
+	_tiled_preview_btn.button_pressed = _tiled_preview
+	_tiled_preview_btn.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	_tiled_preview_btn.add_theme_font_size_override("font_size", 10)
+	_tiled_preview_btn.toggled.connect(func(v): _tiled_preview = v; _refresh_canvas())
+	opts_row2.add_child(_tiled_preview_btn)
+
+	# Ink opacity slider
+	var opacity_row := HBoxContainer.new()
+	opacity_row.add_theme_constant_override("separation", 4)
+	parent.add_child(opacity_row)
+	var op_lbl := Label.new()
+	op_lbl.text = "Ink:"
+	op_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	op_lbl.add_theme_font_size_override("font_size", 11)
+	opacity_row.add_child(op_lbl)
+	_ink_opacity_slider = HSlider.new()
+	_ink_opacity_slider.min_value = 0.0
+	_ink_opacity_slider.max_value = 1.0
+	_ink_opacity_slider.step = 0.05
+	_ink_opacity_slider.value = _ink_opacity
+	_ink_opacity_slider.size_flags_horizontal = SIZE_EXPAND_FILL
+	_ink_opacity_slider.custom_minimum_size = Vector2(60, 0)
+	_ink_opacity_slider.value_changed.connect(func(v):
+		_ink_opacity = v
+		if is_instance_valid(_ink_opacity_label):
+			_ink_opacity_label.text = str(int(v * 100)) + "%"
+	)
+	opacity_row.add_child(_ink_opacity_slider)
+	_ink_opacity_label = Label.new()
+	_ink_opacity_label.text = "100%"
+	_ink_opacity_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	_ink_opacity_label.add_theme_font_size_override("font_size", 10)
+	opacity_row.add_child(_ink_opacity_label)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # COLOR PANEL
@@ -452,6 +589,25 @@ func _build_color_panel(parent: VBoxContainer) -> void:
 	_recent_color_grid.add_theme_constant_override("separation", 2)
 	parent.add_child(_recent_color_grid)
 
+	# HSV Picker + Color Ramp buttons
+	var color_btn_row := HBoxContainer.new()
+	color_btn_row.add_theme_constant_override("separation", 4)
+	parent.add_child(color_btn_row)
+	var hsv_btn := Button.new()
+	hsv_btn.text = "🎨 HSV"
+	hsv_btn.tooltip_text = "Open HSV Color Picker"
+	hsv_btn.add_theme_font_size_override("font_size", 10)
+	hsv_btn.size_flags_horizontal = SIZE_EXPAND_FILL
+	hsv_btn.pressed.connect(_show_hsv_picker)
+	color_btn_row.add_child(hsv_btn)
+	var ramp_btn := Button.new()
+	ramp_btn.text = "🌈 Ramp"
+	ramp_btn.tooltip_text = "Generate Color Ramp"
+	ramp_btn.add_theme_font_size_override("font_size", 10)
+	ramp_btn.size_flags_horizontal = SIZE_EXPAND_FILL
+	ramp_btn.pressed.connect(_show_color_ramp_dialog)
+	color_btn_row.add_child(ramp_btn)
+
 func _make_color_border(inner: ColorRect) -> PanelContainer:
 	var pc := PanelContainer.new()
 	var style := StyleBoxFlat.new()
@@ -468,17 +624,103 @@ func _make_color_border(inner: ColorRect) -> PanelContainer:
 func _build_palette_panel(parent: VBoxContainer) -> void:
 	parent.add_child(_make_section_header("🎮  Palette"))
 
+	# Load custom palettes from disk
+	_load_custom_palettes()
+
+	# Palette dropdown row with remove button
+	var pal_select_row := HBoxContainer.new()
+	pal_select_row.add_theme_constant_override("separation", 4)
+	parent.add_child(pal_select_row)
+
 	_palette_option = OptionButton.new()
 	_palette_option.add_theme_font_size_override("font_size", 11)
 	_palette_option.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	_palette_option.size_flags_horizontal = SIZE_EXPAND_FILL
 	var idx := 0
 	for pname in PALETTES:
 		_palette_option.add_item(pname)
 		if pname == "NES":
 			_palette_option.selected = idx
 		idx += 1
-	_palette_option.item_selected.connect(func(i): _load_palette(_palette_option.get_item_text(i)))
-	parent.add_child(_palette_option)
+	# Add custom palettes after built-ins (with ★ prefix)
+	for cname in _custom_palettes:
+		_palette_option.add_item("★ " + cname)
+	_palette_option.item_selected.connect(func(i): _load_palette(_palette_option.get_item_text(i)); _update_remove_btn_state())
+	pal_select_row.add_child(_palette_option)
+
+	_palette_remove_btn = Button.new()
+	_palette_remove_btn.text = "🗑️"
+	_palette_remove_btn.tooltip_text = "Remove this custom palette"
+	_palette_remove_btn.add_theme_font_size_override("font_size", 11)
+	_palette_remove_btn.disabled = true
+	_palette_remove_btn.pressed.connect(_on_remove_palette_pressed)
+	pal_select_row.add_child(_palette_remove_btn)
+
+	# Import / Export palette buttons
+	var pal_btn_row := HBoxContainer.new()
+	pal_btn_row.add_theme_constant_override("separation", 4)
+	parent.add_child(pal_btn_row)
+	var btn_import_pal := Button.new()
+	btn_import_pal.text = "📂 Import Palette"
+	btn_import_pal.tooltip_text = "Import palette from .gpl, .hex, or .pal file"
+	btn_import_pal.add_theme_font_size_override("font_size", 10)
+	btn_import_pal.size_flags_horizontal = SIZE_EXPAND_FILL
+	btn_import_pal.pressed.connect(_on_import_palette_pressed)
+	pal_btn_row.add_child(btn_import_pal)
+	var btn_export_pal := Button.new()
+	btn_export_pal.text = "💾 Export Palette"
+	btn_export_pal.tooltip_text = "Export current palette as .gpl file"
+	btn_export_pal.add_theme_font_size_override("font_size", 10)
+	btn_export_pal.size_flags_horizontal = SIZE_EXPAND_FILL
+	btn_export_pal.pressed.connect(_on_export_palette_pressed)
+	pal_btn_row.add_child(btn_export_pal)
+
+	# Lospec browse button
+	var lospec_btn_row := HBoxContainer.new()
+	lospec_btn_row.add_theme_constant_override("separation", 4)
+	parent.add_child(lospec_btn_row)
+	var btn_lospec := Button.new()
+	btn_lospec.text = "🌐 Browse Lospec (4000+ palettes)"
+	btn_lospec.tooltip_text = "Browse and install palettes from lospec.com"
+	btn_lospec.add_theme_font_size_override("font_size", 10)
+	btn_lospec.size_flags_horizontal = SIZE_EXPAND_FILL
+	btn_lospec.pressed.connect(_show_lospec_browser)
+	lospec_btn_row.add_child(btn_lospec)
+
+	# Asset browser buttons
+	var asset_btn_row := HBoxContainer.new()
+	asset_btn_row.add_theme_constant_override("separation", 4)
+	parent.add_child(asset_btn_row)
+	var btn_freesound := Button.new()
+	btn_freesound.text = "🔊 Freesound"
+	btn_freesound.tooltip_text = "Browse & download free sounds from Freesound.org"
+	btn_freesound.add_theme_font_size_override("font_size", 10)
+	btn_freesound.size_flags_horizontal = SIZE_EXPAND_FILL
+	btn_freesound.pressed.connect(func():
+		_freesound_browser = FREESOUND_BROWSER_SCRIPT.new()
+		_freesound_browser.open(self, false)
+	)
+	asset_btn_row.add_child(btn_freesound)
+	var btn_oga := Button.new()
+	btn_oga.text = "🎨 OpenGameArt"
+	btn_oga.tooltip_text = "Browse free game art from OpenGameArt.org"
+	btn_oga.add_theme_font_size_override("font_size", 10)
+	btn_oga.size_flags_horizontal = SIZE_EXPAND_FILL
+	btn_oga.pressed.connect(func():
+		_opengameart_browser = OPENGAMEART_BROWSER_SCRIPT.new()
+		_opengameart_browser.open(self, false)
+	)
+	asset_btn_row.add_child(btn_oga)
+	var btn_kenney := Button.new()
+	btn_kenney.text = "📦 Kenney"
+	btn_kenney.tooltip_text = "Browse free CC0 assets from Kenney.nl"
+	btn_kenney.add_theme_font_size_override("font_size", 10)
+	btn_kenney.size_flags_horizontal = SIZE_EXPAND_FILL
+	btn_kenney.pressed.connect(func():
+		_kenney_browser = KENNEY_BROWSER_SCRIPT.new()
+		_kenney_browser.open(self, false)
+	)
+	asset_btn_row.add_child(btn_kenney)
 
 	_palette_grid = GridContainer.new()
 	_palette_grid.columns = 8
@@ -491,10 +733,17 @@ func _load_palette(palette_name: String) -> void:
 	for c in _palette_grid.get_children():
 		c.queue_free()
 
-	if palette_name not in PALETTES:
+	var colors: Array = []
+	if palette_name in PALETTES:
+		colors = PALETTES[palette_name]
+	elif palette_name.begins_with("★ "):
+		var cname := palette_name.substr(2)
+		if cname in _custom_palettes:
+			colors = _custom_palettes[cname]
+	else:
 		return
-
-	var colors: Array = PALETTES[palette_name]
+	if colors.is_empty():
+		return
 	for hex in colors:
 		var color := Color(hex)
 		var swatch := ColorRect.new()
@@ -510,6 +759,549 @@ func _load_palette(palette_name: String) -> void:
 					_set_secondary_color(color)
 		)
 		_palette_grid.add_child(swatch)
+
+func _on_import_palette_pressed() -> void:
+	var dlg := FileDialog.new()
+	dlg.title = "Import Palette"
+	dlg.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	dlg.access = FileDialog.ACCESS_FILESYSTEM
+	dlg.filters = PackedStringArray(["*.gpl ; GIMP Palette", "*.hex ; Hex Color List", "*.pal ; Paint.NET Palette", "*.txt ; Text Palette"])
+	dlg.size = Vector2i(600, 400)
+	dlg.file_selected.connect(func(path: String):
+		var colors := _parse_palette_file(path)
+		if colors.size() > 0:
+			var pal_name := path.get_file().get_basename()
+			_load_palette_from_colors(colors, pal_name)
+			_add_custom_palette(pal_name, colors)
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func(): dlg.queue_free())
+	add_child(dlg)
+	dlg.popup_centered()
+
+func _on_export_palette_pressed() -> void:
+	var dlg := FileDialog.new()
+	dlg.title = "Export Palette as GPL"
+	dlg.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	dlg.access = FileDialog.ACCESS_FILESYSTEM
+	dlg.filters = PackedStringArray(["*.gpl ; GIMP Palette"])
+	dlg.size = Vector2i(600, 400)
+	dlg.file_selected.connect(func(path: String):
+		_export_palette_gpl(path)
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func(): dlg.queue_free())
+	add_child(dlg)
+	dlg.popup_centered()
+
+func _parse_palette_file(path: String) -> Array:
+	## Parse .gpl, .hex, .pal, or .txt palette files → Array of "#RRGGBB" strings
+	var fa := FileAccess.open(path, FileAccess.READ)
+	if fa == null:
+		push_warning("VG SpriteEditor: Cannot open palette file: " + path)
+		return []
+	var text := fa.get_as_text()
+	fa.close()
+	var colors: Array = []
+	var ext := path.get_extension().to_lower()
+
+	if ext == "gpl":
+		# GIMP Palette: skip header lines, parse "R G B" or "R G B\tName"
+		for line in text.split("\n"):
+			line = line.strip_edges()
+			if line.begins_with("GIMP Palette") or line.begins_with("Name:") or line.begins_with("Columns:") or line.begins_with("#") or line.is_empty():
+				continue
+			var parts := line.split("\t")[0].strip_edges()  # drop optional name
+			var nums := parts.split(" ", false)
+			if nums.size() >= 3:
+				var r := nums[0].to_int()
+				var g := nums[1].to_int()
+				var b := nums[2].to_int()
+				colors.append("#%02X%02X%02X" % [r, g, b])
+	elif ext == "hex":
+		# One hex color per line: "RRGGBB" or "#RRGGBB"
+		for line in text.split("\n"):
+			line = line.strip_edges()
+			if line.is_empty() or line.begins_with(";"):
+				continue
+			if not line.begins_with("#"):
+				line = "#" + line
+			if line.length() >= 7:
+				colors.append(line.substr(0, 7))
+	elif ext == "pal":
+		# Paint.NET / JASC palette: skip header, parse "R G B" lines
+		var lines := text.split("\n")
+		var start := 0
+		for i in range(lines.size()):
+			if lines[i].strip_edges().is_valid_int() and i > 0:
+				start = i + 1
+				break
+		for i in range(start, lines.size()):
+			var nums := lines[i].strip_edges().split(" ", false)
+			if nums.size() >= 3:
+				var r := nums[0].to_int()
+				var g := nums[1].to_int()
+				var b := nums[2].to_int()
+				colors.append("#%02X%02X%02X" % [r, g, b])
+	else:
+		# Generic: try to find hex colors or R G B lines
+		for line in text.split("\n"):
+			line = line.strip_edges()
+			if line.is_empty():
+				continue
+			if line.begins_with("#") and line.length() >= 7:
+				colors.append(line.substr(0, 7))
+			elif line.begins_with("0x") and line.length() >= 8:
+				colors.append("#" + line.substr(2, 6))
+
+	return colors
+
+func _load_palette_from_colors(colors: Array, name: String) -> void:
+	## Load an array of "#RRGGBB" strings into the palette grid
+	for c in _palette_grid.get_children():
+		c.queue_free()
+	for hex in colors:
+		var color := Color(hex)
+		var swatch := ColorRect.new()
+		swatch.color = color
+		swatch.custom_minimum_size = Vector2(22, 22)
+		swatch.mouse_filter = Control.MOUSE_FILTER_STOP
+		swatch.tooltip_text = hex
+		swatch.gui_input.connect(func(ev):
+			if ev is InputEventMouseButton and ev.pressed:
+				if ev.button_index == MOUSE_BUTTON_LEFT:
+					_set_primary_color(color)
+				elif ev.button_index == MOUSE_BUTTON_RIGHT:
+					_set_secondary_color(color)
+		)
+		_palette_grid.add_child(swatch)
+	print("VG SpriteEditor: Loaded palette '%s' with %d colors" % [name, colors.size()])
+
+func _export_palette_gpl(path: String) -> void:
+	## Export current palette swatches as a GIMP .gpl file
+	var fa := FileAccess.open(path, FileAccess.WRITE)
+	if fa == null:
+		push_warning("VG SpriteEditor: Cannot write to: " + path)
+		return
+	fa.store_line("GIMP Palette")
+	fa.store_line("Name: " + path.get_file().get_basename())
+	fa.store_line("Columns: 8")
+	fa.store_line("#")
+	for child in _palette_grid.get_children():
+		if child is ColorRect:
+			var cr: ColorRect = child as ColorRect
+			var c: Color = cr.color
+			var r := int(c.r * 255)
+			var g := int(c.g * 255)
+			var b := int(c.b * 255)
+			fa.store_line("%3d %3d %3d\tColor" % [r, g, b])
+	fa.close()
+	print("VG SpriteEditor: Exported palette to " + path)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LOSPEC PALETTE BROWSER
+# ─────────────────────────────────────────────────────────────────────────────
+func _show_lospec_browser() -> void:
+	## Open the Lospec palette browser dialog — recreate each time (matches other dialogs)
+	if _lospec_dialog != null and is_instance_valid(_lospec_dialog):
+		_lospec_dialog.queue_free()
+		_lospec_dialog = null
+
+	# Build dialog — simple pattern like every other working dialog
+	_lospec_dialog = AcceptDialog.new()
+	_lospec_dialog.title = "🌐 Browse Lospec Palettes"
+	_lospec_dialog.min_size = Vector2(780, 700)
+	_lospec_dialog.ok_button_text = "Close"
+	_lospec_dialog.exclusive = true
+	_lospec_dialog.popup_window = true
+	_lospec_dialog.confirmed.connect(func(): _lospec_dialog.queue_free(); _lospec_dialog = null; _lospec_results_box = null; _lospec_selected_row = null; _lospec_page_label = null)
+	_lospec_dialog.canceled.connect(func(): _lospec_dialog.queue_free(); _lospec_dialog = null; _lospec_results_box = null; _lospec_selected_row = null; _lospec_page_label = null)
+	add_child(_lospec_dialog)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	_lospec_dialog.add_child(vbox)
+
+	# Search row
+	var search_row := HBoxContainer.new()
+	search_row.add_theme_constant_override("separation", 6)
+	vbox.add_child(search_row)
+
+	var lbl_search := Label.new()
+	lbl_search.text = "Tag:"
+	lbl_search.add_theme_font_size_override("font_size", 13)
+	lbl_search.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9, 1.0))
+	search_row.add_child(lbl_search)
+
+	_lospec_search_edit = LineEdit.new()
+	_lospec_search_edit.placeholder_text = "e.g. gameboy, retro, fantasy..."
+	_lospec_search_edit.size_flags_horizontal = SIZE_EXPAND_FILL
+	_lospec_search_edit.add_theme_font_size_override("font_size", 13)
+	search_row.add_child(_lospec_search_edit)
+
+	var lbl_sort := Label.new()
+	lbl_sort.text = "Sort:"
+	lbl_sort.add_theme_font_size_override("font_size", 13)
+	lbl_sort.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9, 1.0))
+	search_row.add_child(lbl_sort)
+
+	_lospec_sort_option = OptionButton.new()
+	_lospec_sort_option.add_theme_font_size_override("font_size", 13)
+	_lospec_sort_option.add_item("Popular", 0)
+	_lospec_sort_option.add_item("Newest", 1)
+	_lospec_sort_option.add_item("Default", 2)
+	search_row.add_child(_lospec_sort_option)
+
+	var btn_search := Button.new()
+	btn_search.text = "🔍 Search"
+	btn_search.add_theme_font_size_override("font_size", 13)
+	btn_search.pressed.connect(_lospec_do_search.bind(0))
+	search_row.add_child(btn_search)
+
+	_lospec_search_edit.text_submitted.connect(func(_t): _lospec_do_search(0))
+
+	# Scrollable results area — use a Panel inside the scroll so bg covers full viewport
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0, 480)
+	vbox.add_child(scroll)
+
+	# PanelContainer as the single scroll child — its bg fills the entire scroll viewport
+	var scroll_inner_panel := PanelContainer.new()
+	scroll_inner_panel.size_flags_horizontal = SIZE_EXPAND_FILL
+	var scroll_inner_bg := StyleBoxFlat.new()
+	scroll_inner_bg.bg_color = Color(0.14, 0.14, 0.18, 1.0)
+	scroll_inner_bg.set_corner_radius_all(4)
+	scroll_inner_bg.set_content_margin_all(4)
+	scroll_inner_panel.add_theme_stylebox_override("panel", scroll_inner_bg)
+	scroll.add_child(scroll_inner_panel)
+
+	_lospec_results_box = VBoxContainer.new()
+	_lospec_results_box.size_flags_horizontal = SIZE_EXPAND_FILL
+	_lospec_results_box.add_theme_constant_override("separation", 4)
+	scroll_inner_panel.add_child(_lospec_results_box)
+
+	# Page info label — outside scroll so always visible
+	_lospec_page_label = Label.new()
+	_lospec_page_label.text = ""
+	_lospec_page_label.add_theme_font_size_override("font_size", 13)
+	_lospec_page_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9, 1.0))
+	_lospec_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(_lospec_page_label)
+
+	# Bottom row: page nav + install button
+	var bottom_row := HBoxContainer.new()
+	bottom_row.add_theme_constant_override("separation", 6)
+	vbox.add_child(bottom_row)
+
+	var btn_prev := Button.new()
+	btn_prev.text = "◀ Prev"
+	btn_prev.add_theme_font_size_override("font_size", 13)
+	btn_prev.pressed.connect(_lospec_prev_page)
+	bottom_row.add_child(btn_prev)
+
+	var btn_next := Button.new()
+	btn_next.text = "Next ▶"
+	btn_next.add_theme_font_size_override("font_size", 13)
+	btn_next.pressed.connect(_lospec_next_page)
+	bottom_row.add_child(btn_next)
+
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = SIZE_EXPAND_FILL
+	bottom_row.add_child(spacer)
+
+	var btn_install := Button.new()
+	btn_install.text = "✅ Install Selected Palette"
+	btn_install.add_theme_font_size_override("font_size", 13)
+	btn_install.pressed.connect(_on_lospec_install)
+	bottom_row.add_child(btn_install)
+
+	# Hint label
+	var hint := Label.new()
+	hint.text = "Click to select, double-click to install, right-click to open on lospec.com"
+	hint.add_theme_font_size_override("font_size", 10)
+	hint.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	vbox.add_child(hint)
+
+	_lospec_dialog.popup_centered()
+	# Auto-search popular on first open
+	_lospec_do_search(0)
+
+
+func _lospec_clear_results() -> void:
+	if _lospec_results_box == null:
+		return
+	for child in _lospec_results_box.get_children():
+		child.queue_free()
+	_lospec_selected_index = -1
+	_lospec_selected_row = null
+
+
+func _lospec_add_message(msg: String) -> void:
+	var lbl := Label.new()
+	lbl.text = msg
+	lbl.add_theme_font_size_override("font_size", 13)
+	lbl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9, 1.0))
+	_lospec_results_box.add_child(lbl)
+
+
+func _lospec_do_search(page: int) -> void:
+	## Send HTTP request to Lospec API
+	_lospec_page = page
+	var sort_map := ["downloads", "newest", "default"]
+	var sort_idx := _lospec_sort_option.selected if _lospec_sort_option else 0
+	var sort_str: String = sort_map[sort_idx] if sort_idx < sort_map.size() else "downloads"
+	var tag: String = _lospec_search_edit.text.strip_edges() if _lospec_search_edit else ""
+	var url := "https://lospec.com/palette-list/load?page=%d&tag=%s&sortingType=%s&colorNumberFilterType=any" % [page, tag.uri_encode(), sort_str]
+	_lospec_clear_results()
+	_lospec_add_message("⏳ Loading palettes from Lospec...")
+	# Cancel any pending request and recreate HTTPRequest to reset error state
+	if _lospec_http != null and is_instance_valid(_lospec_http):
+		_lospec_http.cancel_request()
+		_lospec_http.queue_free()
+	_lospec_http = HTTPRequest.new()
+	_lospec_http.request_completed.connect(_on_lospec_response)
+	add_child(_lospec_http)
+	var err := _lospec_http.request(url)
+	if err != OK:
+		_lospec_clear_results()
+		_lospec_add_message("❌ HTTP request failed (error %d). Check internet connection and try again." % err)
+
+
+func _on_lospec_response(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	## Handle Lospec API response
+	if _lospec_results_box == null or not is_instance_valid(_lospec_results_box):
+		return
+	_lospec_clear_results()
+	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
+		_lospec_add_message("❌ Request failed (HTTP %d)" % response_code)
+		return
+	var json := JSON.new()
+	var parse_err := json.parse(body.get_string_from_utf8())
+	if parse_err != OK:
+		_lospec_add_message("❌ Failed to parse JSON response")
+		return
+	var data: Dictionary = json.data if json.data is Dictionary else {}
+	_lospec_palettes = data.get("palettes", [])
+	_lospec_total = int(data.get("totalCount", data.get("totalPalettes", 0)))
+	if _lospec_palettes.is_empty():
+		_lospec_add_message("No palettes found. Try a different tag.")
+		return
+	for i in range(_lospec_palettes.size()):
+		var pal: Dictionary = _lospec_palettes[i]
+		var title: String = pal.get("title", "Untitled")
+		var n_colors: int = int(pal.get("numberOfColors", 0))
+		var downloads: String = str(pal.get("downloads", "0"))
+		var colors_arr: Array = pal.get("colors", [])
+		# Build row: PanelContainer > VBox > [info_row, swatch_row]
+		var panel := PanelContainer.new()
+		var style_normal := StyleBoxFlat.new()
+		style_normal.bg_color = Color(0.19, 0.20, 0.25, 1.0)
+		style_normal.set_corner_radius_all(4)
+		style_normal.set_content_margin_all(6)
+		panel.add_theme_stylebox_override("panel", style_normal)
+		panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		var idx := i  # capture
+		panel.gui_input.connect(_lospec_row_input.bind(idx, panel))
+		_lospec_results_box.add_child(panel)
+		var row_vbox := VBoxContainer.new()
+		row_vbox.add_theme_constant_override("separation", 3)
+		row_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_child(row_vbox)
+		# Info label
+		var info_lbl := Label.new()
+		info_lbl.text = "%s  (%d colors)  ⬇%s" % [title, n_colors, downloads]
+		info_lbl.add_theme_font_size_override("font_size", 13)
+		info_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95, 1.0))
+		info_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row_vbox.add_child(info_lbl)
+		# Color swatch row
+		var swatch_row := HBoxContainer.new()
+		swatch_row.add_theme_constant_override("separation", 1)
+		swatch_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row_vbox.add_child(swatch_row)
+		var max_swatches := mini(colors_arr.size(), 24)
+		for ci in range(max_swatches):
+			var cr := ColorRect.new()
+			cr.custom_minimum_size = Vector2(18, 18)
+			cr.color = Color("#" + str(colors_arr[ci]).strip_edges())
+			cr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			swatch_row.add_child(cr)
+		if colors_arr.size() > 24:
+			var more_lbl := Label.new()
+			more_lbl.text = "+%d" % (colors_arr.size() - 24)
+			more_lbl.add_theme_font_size_override("font_size", 10)
+			more_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+			more_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			swatch_row.add_child(more_lbl)
+	# Page info footer — update the label outside the scroll
+	if _lospec_page_label != null and is_instance_valid(_lospec_page_label):
+		_lospec_page_label.text = "— Page %d  |  %d palettes total —" % [_lospec_page + 1, _lospec_total]
+
+
+func _lospec_row_input(event: InputEvent, index: int, panel: PanelContainer) -> void:
+	## Handle click/double-click on a palette row
+	if not (event is InputEventMouseButton and event.pressed):
+		return
+	# Right-click → open palette page in default browser
+	if event.button_index == MOUSE_BUTTON_RIGHT:
+		if index >= 0 and index < _lospec_palettes.size():
+			var slug: String = _lospec_palettes[index].get("slug", "")
+			if slug != "":
+				OS.shell_open("https://lospec.com/palette-list/" + slug)
+		return
+	if event.button_index == MOUSE_BUTTON_LEFT:
+		# Deselect previous
+		if _lospec_selected_row != null and is_instance_valid(_lospec_selected_row):
+			var old_style := StyleBoxFlat.new()
+			old_style.bg_color = Color(0.19, 0.20, 0.25, 1.0)
+			old_style.set_corner_radius_all(4)
+			old_style.set_content_margin_all(6)
+			_lospec_selected_row.add_theme_stylebox_override("panel", old_style)
+		# Select this one
+		_lospec_selected_index = index
+		_lospec_selected_row = panel
+		var sel_style := StyleBoxFlat.new()
+		sel_style.bg_color = Color(0.22, 0.36, 0.56, 1.0)
+		sel_style.set_corner_radius_all(4)
+		sel_style.set_content_margin_all(6)
+		panel.add_theme_stylebox_override("panel", sel_style)
+		# Double-click = install
+		if event.double_click:
+			_lospec_install_index(index)
+
+
+func _on_lospec_install() -> void:
+	## Install button clicked
+	if _lospec_selected_index < 0:
+		return
+	_lospec_install_index(_lospec_selected_index)
+
+
+func _lospec_install_index(index: int) -> void:
+	## Install a palette from cached Lospec results
+	if index < 0 or index >= _lospec_palettes.size():
+		return
+	var pal: Dictionary = _lospec_palettes[index]
+	var title: String = pal.get("title", "Lospec Palette")
+	var colors_raw: Array = pal.get("colors", [])
+	if colors_raw.is_empty():
+		return
+	# Convert bare hex to #RRGGBB
+	var colors: Array = []
+	for hex_str in colors_raw:
+		var s: String = str(hex_str).strip_edges()
+		if not s.begins_with("#"):
+			s = "#" + s
+		colors.append(s)
+	_load_palette_from_colors(colors, title)
+	_add_custom_palette(title, colors)
+	print("VG SpriteEditor: Installed Lospec palette '%s' (%d colors)" % [title, colors.size()])
+
+
+func _lospec_prev_page() -> void:
+	if _lospec_page > 0:
+		_lospec_do_search(_lospec_page - 1)
+
+
+func _lospec_next_page() -> void:
+	_lospec_do_search(_lospec_page + 1)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CUSTOM PALETTE PERSISTENCE
+# ─────────────────────────────────────────────────────────────────────────────
+func _load_custom_palettes() -> void:
+	## Load custom palettes from user://vg_custom_palettes.json
+	_custom_palettes.clear()
+	if not FileAccess.file_exists(CUSTOM_PALETTES_PATH):
+		return
+	var fa := FileAccess.open(CUSTOM_PALETTES_PATH, FileAccess.READ)
+	if fa == null:
+		return
+	var text := fa.get_as_text()
+	fa.close()
+	var json := JSON.new()
+	if json.parse(text) != OK:
+		push_warning("VG SpriteEditor: Failed to parse custom palettes JSON")
+		return
+	var data = json.data
+	if data is Dictionary:
+		for key in data:
+			if data[key] is Array:
+				_custom_palettes[str(key)] = data[key]
+	print("VG SpriteEditor: Loaded %d custom palettes" % _custom_palettes.size())
+
+
+func _save_custom_palettes() -> void:
+	## Save custom palettes to user://vg_custom_palettes.json
+	var fa := FileAccess.open(CUSTOM_PALETTES_PATH, FileAccess.WRITE)
+	if fa == null:
+		push_warning("VG SpriteEditor: Cannot write to " + CUSTOM_PALETTES_PATH)
+		return
+	fa.store_string(JSON.stringify(_custom_palettes, "\t"))
+	fa.close()
+
+
+func _add_custom_palette(pname: String, colors: Array) -> void:
+	## Add/update a custom palette, save to disk, update dropdown
+	_custom_palettes[pname] = colors
+	_save_custom_palettes()
+	# Update dropdown — check if already present
+	var display_name := "★ " + pname
+	var found := false
+	for i in range(_palette_option.item_count):
+		if _palette_option.get_item_text(i) == display_name:
+			_palette_option.selected = i
+			found = true
+			break
+	if not found:
+		_palette_option.add_item(display_name)
+		_palette_option.selected = _palette_option.item_count - 1
+	_update_remove_btn_state()
+
+
+func _on_remove_palette_pressed() -> void:
+	## Remove the currently selected custom palette (with confirmation)
+	if _palette_option == null:
+		return
+	var sel := _palette_option.selected
+	if sel < 0:
+		return
+	var display_name := _palette_option.get_item_text(sel)
+	if not display_name.begins_with("★ "):
+		return  # built-in, can't remove
+	var cname := display_name.substr(2)
+	var confirm := ConfirmationDialog.new()
+	confirm.title = "Remove Palette"
+	confirm.dialog_text = "Remove custom palette '%s'?\nThis cannot be undone." % cname
+	confirm.ok_button_text = "Remove"
+	confirm.confirmed.connect(func():
+		_custom_palettes.erase(cname)
+		_save_custom_palettes()
+		_palette_option.remove_item(sel)
+		if _palette_option.item_count > 0:
+			_palette_option.selected = 0
+			_load_palette(_palette_option.get_item_text(0))
+		_update_remove_btn_state()
+		print("VG SpriteEditor: Removed custom palette '%s'" % cname)
+		confirm.queue_free()
+	)
+	confirm.canceled.connect(func(): confirm.queue_free())
+	add_child(confirm)
+	confirm.popup_centered()
+
+
+func _update_remove_btn_state() -> void:
+	## Enable remove button only when a custom (★) palette is selected
+	if _palette_remove_btn == null or not is_instance_valid(_palette_remove_btn):
+		return
+	if _palette_option == null or _palette_option.selected < 0:
+		_palette_remove_btn.disabled = true
+		return
+	var name := _palette_option.get_item_text(_palette_option.selected)
+	_palette_remove_btn.disabled = not name.begins_with("★ ")
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LAYER PANEL
@@ -583,6 +1375,69 @@ func _build_layer_panel(parent: VBoxContainer) -> void:
 	_style_tool_button(merge_btn)
 	merge_btn.pressed.connect(_merge_layer_down)
 	btn_row.add_child(merge_btn)
+
+	var lock_btn := Button.new()
+	lock_btn.text = "🔒"
+	lock_btn.tooltip_text = "Toggle Layer Lock"
+	lock_btn.custom_minimum_size = Vector2(30, 24)
+	_style_tool_button(lock_btn)
+	lock_btn.pressed.connect(_toggle_layer_lock)
+	btn_row.add_child(lock_btn)
+
+	var flatten_btn := Button.new()
+	flatten_btn.text = "≡"
+	flatten_btn.tooltip_text = "Flatten All Layers"
+	flatten_btn.custom_minimum_size = Vector2(30, 24)
+	_style_tool_button(flatten_btn)
+	flatten_btn.pressed.connect(_flatten_layers)
+	btn_row.add_child(flatten_btn)
+
+	# Blend mode row
+	var blend_row := HBoxContainer.new()
+	blend_row.add_theme_constant_override("separation", 4)
+	parent.add_child(blend_row)
+	var blend_lbl := Label.new()
+	blend_lbl.text = "Blend:"
+	blend_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	blend_lbl.add_theme_font_size_override("font_size", 10)
+	blend_row.add_child(blend_lbl)
+	var blend_opt := OptionButton.new()
+	blend_opt.add_theme_font_size_override("font_size", 10)
+	blend_opt.add_item("Normal")
+	blend_opt.add_item("Multiply")
+	blend_opt.add_item("Screen")
+	blend_opt.add_item("Overlay")
+	blend_opt.add_item("Add")
+	blend_opt.add_item("Subtract")
+	blend_opt.size_flags_horizontal = SIZE_EXPAND_FILL
+	blend_opt.item_selected.connect(func(i):
+		if _active_layer_idx >= 0 and _active_layer_idx < _layers.size():
+			_layers[_active_layer_idx]["blend_mode"] = i as BlendMode
+			_refresh_canvas()
+	)
+	blend_row.add_child(blend_opt)
+
+	# Layer opacity slider
+	var layer_op_row := HBoxContainer.new()
+	layer_op_row.add_theme_constant_override("separation", 4)
+	parent.add_child(layer_op_row)
+	var lop_lbl := Label.new()
+	lop_lbl.text = "Opacity:"
+	lop_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	lop_lbl.add_theme_font_size_override("font_size", 10)
+	layer_op_row.add_child(lop_lbl)
+	var lop_slider := HSlider.new()
+	lop_slider.min_value = 0.0
+	lop_slider.max_value = 1.0
+	lop_slider.step = 0.05
+	lop_slider.value = 1.0
+	lop_slider.size_flags_horizontal = SIZE_EXPAND_FILL
+	lop_slider.value_changed.connect(func(v):
+		if _active_layer_idx >= 0 and _active_layer_idx < _layers.size():
+			_layers[_active_layer_idx]["opacity"] = v
+			_refresh_canvas()
+	)
+	layer_op_row.add_child(lop_slider)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PREVIEW PANEL (animation preview)
@@ -759,6 +1614,52 @@ func _build_toolbar(parent: VBoxContainer) -> void:
 	rot_btn.pressed.connect(_rotate_90)
 	toolbar.add_child(rot_btn)
 
+	# Outline
+	var outline_btn := Button.new()
+	outline_btn.text = "🔲 Outline"
+	outline_btn.tooltip_text = "Outline non-transparent pixels"
+	_style_tool_button(outline_btn)
+	outline_btn.pressed.connect(_outline_pixels)
+	toolbar.add_child(outline_btn)
+
+	# Replace Color
+	var repcol_btn := Button.new()
+	repcol_btn.text = "🔄 Replace"
+	repcol_btn.tooltip_text = "Replace color (primary→secondary)"
+	_style_tool_button(repcol_btn)
+	repcol_btn.pressed.connect(_replace_color)
+	toolbar.add_child(repcol_btn)
+
+	# Selection transforms
+	var sel_flip_h := Button.new()
+	sel_flip_h.text = "↔ Sel"
+	sel_flip_h.tooltip_text = "Flip Selection Horizontal"
+	_style_tool_button(sel_flip_h)
+	sel_flip_h.pressed.connect(func(): _transform_selection("flip_h"))
+	toolbar.add_child(sel_flip_h)
+
+	var sel_flip_v := Button.new()
+	sel_flip_v.text = "↕ Sel"
+	sel_flip_v.tooltip_text = "Flip Selection Vertical"
+	_style_tool_button(sel_flip_v)
+	sel_flip_v.pressed.connect(func(): _transform_selection("flip_v"))
+	toolbar.add_child(sel_flip_v)
+
+	var sel_rot := Button.new()
+	sel_rot.text = "↻ Sel"
+	sel_rot.tooltip_text = "Rotate Selection 90° CW"
+	_style_tool_button(sel_rot)
+	sel_rot.pressed.connect(func(): _transform_selection("rot90"))
+	toolbar.add_child(sel_rot)
+
+	# Reference layer
+	var ref_btn := Button.new()
+	ref_btn.text = "📎 Ref"
+	ref_btn.tooltip_text = "Load Reference Image"
+	_style_tool_button(ref_btn)
+	ref_btn.pressed.connect(_load_reference_image)
+	toolbar.add_child(ref_btn)
+
 	# Spacer
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -851,6 +1752,22 @@ func _build_frame_strip(parent: VBoxContainer) -> void:
 	_style_tool_button(del_frame_btn)
 	del_frame_btn.pressed.connect(_delete_frame)
 	header.add_child(del_frame_btn)
+
+	var dur_btn := Button.new()
+	dur_btn.text = "⏱"
+	dur_btn.tooltip_text = "Set Frame Duration (F)"
+	dur_btn.custom_minimum_size = Vector2(24, 20)
+	_style_tool_button(dur_btn)
+	dur_btn.pressed.connect(_show_frame_duration_dialog)
+	header.add_child(dur_btn)
+
+	var tag_btn := Button.new()
+	tag_btn.text = "🏷"
+	tag_btn.tooltip_text = "Animation Tags"
+	tag_btn.custom_minimum_size = Vector2(24, 20)
+	_style_tool_button(tag_btn)
+	tag_btn.pressed.connect(_show_animation_tags_dialog)
+	header.add_child(tag_btn)
 
 	# Scroll container for frame thumbnails
 	_frame_scroll = ScrollContainer.new()
@@ -970,7 +1887,10 @@ func _on_canvas_draw() -> void:
 	var offset := (panel_size - canvas_px_size) * 0.5 + _pan_offset
 
 	# Draw transparency checkerboard
-	_draw_checkerboard(offset, canvas_px_size)
+	if _checker_bg_enabled:
+		_draw_checkerboard(offset, canvas_px_size)
+	else:
+		_canvas_panel.draw_rect(Rect2(offset, canvas_px_size), Color(0.15, 0.15, 0.18))
 
 	# Draw the composited sprite
 	_refresh_composite_texture()
@@ -981,13 +1901,24 @@ func _on_canvas_draw() -> void:
 	if _onion_skin_enabled and _frames.size() > 1:
 		_draw_onion_skin(offset, canvas_px_size)
 
-	# Pixel grid (only if zoomed enough)
-	if _zoom >= 4.0:
+	# Pixel grid (only if zoomed enough and enabled)
+	if _pixel_grid_enabled and _zoom >= 4.0:
 		_draw_pixel_grid(offset, canvas_px_size)
 
 	# Draw preview shapes (line, rect, ellipse in progress)
 	if _is_drawing and _current_tool in [Tool.LINE, Tool.RECT, Tool.RECT_FILLED, Tool.ELLIPSE, Tool.ELLIPSE_FILLED]:
 		_draw_shape_preview(offset)
+
+	# Lasso path preview
+	if _lasso_drawing and _lasso_points.size() >= 2:
+		for i in range(_lasso_points.size() - 1):
+			var p1 := offset + Vector2(_lasso_points[i]) * _zoom + Vector2(_zoom, _zoom) * 0.5
+			var p2 := offset + Vector2(_lasso_points[i + 1]) * _zoom + Vector2(_zoom, _zoom) * 0.5
+			_canvas_panel.draw_line(p1, p2, SELECTION_BORDER, 1.0)
+		# Close line back to start
+		var p_last := offset + Vector2(_lasso_points[-1]) * _zoom + Vector2(_zoom, _zoom) * 0.5
+		var p_first := offset + Vector2(_lasso_points[0]) * _zoom + Vector2(_zoom, _zoom) * 0.5
+		_canvas_panel.draw_line(p_last, p_first, Color(1, 1, 1, 0.4), 1.0)
 
 	# Selection rectangle
 	if _has_selection:
@@ -998,6 +1929,20 @@ func _on_canvas_draw() -> void:
 		_canvas_panel.draw_rect(sel_rect, SELECTION_BORDER, false, 1.0)
 		# Dashed inner
 		_canvas_panel.draw_rect(sel_rect.grow(-1), Color(0, 0, 0, 0.5), false, 1.0)
+
+	# Tiled preview (draw 8 copies around the main canvas)
+	if _tiled_preview and _canvas_texture != null:
+		for ty in range(-1, 2):
+			for tx in range(-1, 2):
+				if tx == 0 and ty == 0:
+					continue
+				var tile_off := offset + Vector2(tx * canvas_px_size.x, ty * canvas_px_size.y)
+				_canvas_panel.draw_texture_rect(_canvas_texture, Rect2(tile_off, canvas_px_size), false, Color(1, 1, 1, 0.4))
+
+	# Reference layer
+	if _reference_visible and _reference_image != null:
+		var ref_tex := ImageTexture.create_from_image(_reference_image)
+		_canvas_panel.draw_texture_rect(ref_tex, Rect2(offset, canvas_px_size), false, Color(1, 1, 1, _reference_opacity))
 
 	# Cursor crosshair
 	_draw_cursor_highlight(offset)
@@ -1087,18 +2032,38 @@ func _composite_layers() -> Image:
 		if not layer["visible"]:
 			continue
 		var img: Image = layer["image"]
-		var opacity: float = layer["opacity"]
-		if opacity >= 1.0:
+		var opacity: float = layer.get("opacity", 1.0)
+		var blend: int = layer.get("blend_mode", BlendMode.NORMAL)
+		if blend == BlendMode.NORMAL and opacity >= 1.0:
 			result.blend_rect(img, Rect2i(Vector2i.ZERO, _canvas_size), Vector2i.ZERO)
 		else:
-			# Blend with opacity
-			var tmp := img.duplicate()
+			# Per-pixel blend with mode and opacity
 			for y in range(_canvas_size.y):
 				for x in range(_canvas_size.x):
-					var c: Color = tmp.get_pixel(x, y)
-					c.a *= opacity
-					tmp.set_pixel(x, y, c)
-			result.blend_rect(tmp, Rect2i(Vector2i.ZERO, _canvas_size), Vector2i.ZERO)
+					var src: Color = img.get_pixel(x, y)
+					if src.a < 0.004:
+						continue
+					src.a *= opacity
+					var dst: Color = result.get_pixel(x, y)
+					var out := dst
+					match blend:
+						BlendMode.MULTIPLY:
+							out = Color(dst.r * src.r, dst.g * src.g, dst.b * src.b, dst.a)
+						BlendMode.SCREEN:
+							out = Color(1.0 - (1.0 - dst.r) * (1.0 - src.r), 1.0 - (1.0 - dst.g) * (1.0 - src.g), 1.0 - (1.0 - dst.b) * (1.0 - src.b), dst.a)
+						BlendMode.OVERLAY:
+							var _or := 2.0 * dst.r * src.r if dst.r < 0.5 else 1.0 - 2.0 * (1.0 - dst.r) * (1.0 - src.r)
+							var _og := 2.0 * dst.g * src.g if dst.g < 0.5 else 1.0 - 2.0 * (1.0 - dst.g) * (1.0 - src.g)
+							var _ob := 2.0 * dst.b * src.b if dst.b < 0.5 else 1.0 - 2.0 * (1.0 - dst.b) * (1.0 - src.b)
+							out = Color(_or, _og, _ob, dst.a)
+						BlendMode.ADD:
+							out = Color(minf(dst.r + src.r, 1.0), minf(dst.g + src.g, 1.0), minf(dst.b + src.b, 1.0), dst.a)
+						BlendMode.SUBTRACT:
+							out = Color(maxf(dst.r - src.r, 0.0), maxf(dst.g - src.g, 0.0), maxf(dst.b - src.b, 0.0), dst.a)
+						_:  # NORMAL with opacity
+							out = dst.lerp(src, src.a)
+					out.a = minf(dst.a + src.a, 1.0)
+					result.set_pixel(x, y, out)
 	return result
 
 func _composite_frame(frame_idx: int) -> Image:
@@ -1181,6 +2146,10 @@ func _on_canvas_mouse_button(ev: InputEventMouseButton) -> void:
 				_refresh_canvas()
 			Tool.COLOR_PICKER:
 				_pick_color(px)
+			Tool.MAGIC_WAND:
+				_push_undo()
+				_magic_wand_select(px)
+				_refresh_canvas()
 			Tool.SELECT:
 				if not ev.pressed:
 					return
@@ -1192,6 +2161,20 @@ func _on_canvas_mouse_button(ev: InputEventMouseButton) -> void:
 				if _has_selection:
 					_is_drawing = true
 					_draw_start = px
+			Tool.GRADIENT:
+				_push_undo()
+				_is_drawing = true
+				_draw_start = px
+				_draw_end = px
+			Tool.OUTLINE:
+				_outline_pixels()
+				_refresh_canvas()
+			Tool.LASSO:
+				if not _lasso_drawing:
+					_lasso_drawing = true
+					_lasso_points.clear()
+				_lasso_points.append(px)
+				_is_drawing = true
 	else:
 		# Button released
 		if _is_drawing:
@@ -1209,6 +2192,10 @@ func _on_canvas_mouse_button(ev: InputEventMouseButton) -> void:
 					_commit_ellipse(_draw_start, px, color, true)
 				Tool.SELECT:
 					_finalize_selection(_draw_start, px)
+				Tool.GRADIENT:
+					_apply_gradient(_draw_start, px)
+				Tool.LASSO:
+					_finalize_lasso()
 			_draw_preview_points.clear()
 			_refresh_canvas()
 
@@ -1247,6 +2234,8 @@ func _on_canvas_mouse_motion(ev: InputEventMouseMotion) -> void:
 					_selection_offset += px - _draw_start
 					_draw_start = px
 					_refresh_canvas()
+			Tool.LASSO:
+				_lasso_points.append(px)
 
 	_refresh_canvas()  # for cursor highlight
 
@@ -1256,6 +2245,8 @@ func _on_canvas_mouse_motion(ev: InputEventMouseMotion) -> void:
 func _draw_pen_stroke(pos: Vector2i, color: Color) -> void:
 	var img := _get_active_image()
 	if img == null:
+		return
+	if _active_layer_idx >= 0 and _active_layer_idx < _layers.size() and _layers[_active_layer_idx].get("locked", false):
 		return
 
 	var half := _pen_size / 2
@@ -1288,16 +2279,31 @@ func _set_pixel_safe(img: Image, x: int, y: int, color: Color) -> void:
 			if (x + y) % 2 == 0:
 				img.set_pixel(x, y, color)
 		_:
-			img.set_pixel(x, y, color)
+			if _ink_opacity < 1.0:
+				var existing := img.get_pixel(x, y)
+				var blended := existing.lerp(color, _ink_opacity)
+				blended.a = maxf(existing.a, color.a * _ink_opacity)
+				img.set_pixel(x, y, blended)
+			else:
+				img.set_pixel(x, y, color)
 
 func _flood_fill(start: Vector2i, fill_color: Color) -> void:
 	var img := _get_active_image()
 	if img == null:
 		return
+	if _active_layer_idx >= 0 and _active_layer_idx < _layers.size() and _layers[_active_layer_idx].get("locked", false):
+		return
 	if start.x < 0 or start.x >= _canvas_size.x or start.y < 0 or start.y >= _canvas_size.y:
 		return
 	var target_color := img.get_pixel(start.x, start.y)
 	if target_color.is_equal_approx(fill_color):
+		return
+	if not _contiguous_fill:
+		# Non-contiguous: replace ALL pixels of this color in the image
+		for y in range(_canvas_size.y):
+			for x in range(_canvas_size.x):
+				if img.get_pixel(x, y).is_equal_approx(target_color):
+					img.set_pixel(x, y, fill_color)
 		return
 	var stack: Array[Vector2i] = [start]
 	var visited := {}
@@ -1316,6 +2322,175 @@ func _flood_fill(start: Vector2i, fill_color: Color) -> void:
 		stack.append(Vector2i(p.x - 1, p.y))
 		stack.append(Vector2i(p.x, p.y + 1))
 		stack.append(Vector2i(p.x, p.y - 1))
+
+func _magic_wand_select(start: Vector2i) -> void:
+	## Select all contiguous pixels of the same color (tolerance-based flood select)
+	var img := _get_active_image()
+	if img == null:
+		return
+	if start.x < 0 or start.x >= _canvas_size.x or start.y < 0 or start.y >= _canvas_size.y:
+		return
+	var target_color := img.get_pixel(start.x, start.y)
+	var stack: Array[Vector2i] = [start]
+	var visited := {}
+	var min_x := start.x
+	var min_y := start.y
+	var max_x := start.x
+	var max_y := start.y
+	while stack.size() > 0:
+		var p: Vector2i = stack.pop_back()
+		if p.x < 0 or p.x >= _canvas_size.x or p.y < 0 or p.y >= _canvas_size.y:
+			continue
+		var key := p.x * 10000 + p.y
+		if key in visited:
+			continue
+		visited[key] = true
+		var pc := img.get_pixel(p.x, p.y)
+		# Tolerance: colors must be very similar (within ~5% per channel)
+		if absf(pc.r - target_color.r) > 0.05 or absf(pc.g - target_color.g) > 0.05 or absf(pc.b - target_color.b) > 0.05 or absf(pc.a - target_color.a) > 0.05:
+			continue
+		min_x = mini(min_x, p.x)
+		min_y = mini(min_y, p.y)
+		max_x = maxi(max_x, p.x)
+		max_y = maxi(max_y, p.y)
+		stack.append(Vector2i(p.x + 1, p.y))
+		stack.append(Vector2i(p.x - 1, p.y))
+		stack.append(Vector2i(p.x, p.y + 1))
+		stack.append(Vector2i(p.x, p.y - 1))
+	# Create a bounding-box selection around the wand result
+	_has_selection = true
+	_selection_rect = Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+	_selection_offset = Vector2i.ZERO
+	_selection_image = null  # No floating image, just a selection region
+
+## Copy the current selection (or entire canvas) to the internal clipboard.
+func _copy_selection() -> void:
+	var img := _get_active_image()
+	if img == null:
+		return
+	if _has_selection and _selection_rect.size.x > 0 and _selection_rect.size.y > 0:
+		var r := _selection_rect
+		# Clamp to canvas bounds
+		var x0 := clampi(r.position.x, 0, _canvas_size.x)
+		var y0 := clampi(r.position.y, 0, _canvas_size.y)
+		var x1 := clampi(r.position.x + r.size.x, 0, _canvas_size.x)
+		var y1 := clampi(r.position.y + r.size.y, 0, _canvas_size.y)
+		if x1 <= x0 or y1 <= y0:
+			return
+		_clipboard_image = img.get_region(Rect2i(x0, y0, x1 - x0, y1 - y0))
+	else:
+		# No selection — copy entire canvas
+		_clipboard_image = img.duplicate()
+	# Also push to system clipboard so other apps can paste it
+	_copy_image_to_system_clipboard(_clipboard_image)
+
+## Paste the clipboard onto the active layer at the top-left corner.
+func _paste_clipboard() -> void:
+	# Always try system clipboard first — allows pasting from external apps
+	var sys_img := _paste_image_from_system_clipboard()
+	if sys_img != null and not sys_img.is_empty():
+		_clipboard_image = sys_img
+	if _clipboard_image == null or _clipboard_image.is_empty():
+		return
+	var img := _get_active_image()
+	if img == null:
+		return
+	_push_undo()
+	# Blit pasted pixels onto the active layer at (0,0)
+	var src_size := _clipboard_image.get_size()
+	var dst_rect := Rect2i(Vector2i.ZERO, Vector2i(
+		mini(src_size.x, _canvas_size.x),
+		mini(src_size.y, _canvas_size.y)
+	))
+	img.blend_rect(_clipboard_image, Rect2i(Vector2i.ZERO, dst_rect.size), Vector2i.ZERO)
+	# Set selection around the pasted area so user can see / move it
+	_has_selection = true
+	_selection_rect = dst_rect
+	_selection_offset = Vector2i.ZERO
+	_selection_image = null
+	_refresh_canvas()
+
+## ── System clipboard helpers (OS.execute bridge) ──────────────
+## Uses xclip / xsel / wl-copy on Linux, pbcopy/pbpaste on macOS,
+## PowerShell on Windows.  Transfers PNG via temp file.
+## Will be replaced by native C++ GDExtension in v5.1.
+
+func _copy_image_to_system_clipboard(img: Image) -> void:
+	if img == null or img.is_empty():
+		return
+	var tmp_path := OS.get_cache_dir().path_join("vg_clipboard.png")
+	var err := img.save_png(tmp_path)
+	if err != OK:
+		push_warning("[VG Sprite] Could not save temp PNG for clipboard: ", err)
+		return
+	var os_name := OS.get_name()
+	if os_name == "Linux" or os_name == "FreeBSD":
+		# Use a background shell so xclip doesn't block Godot.
+		# xclip -selection clipboard forks to hold the selection; run via bash &
+		var output := []
+		if OS.execute("which", ["xclip"], output) == 0:
+			# Run in background: xclip needs to stay alive to own the X selection
+			OS.create_process("bash", ["-c", "xclip -selection clipboard -t image/png -i " + tmp_path + " &"])
+		elif OS.execute("which", ["wl-copy"], output) == 0:
+			OS.create_process("bash", ["-c", "wl-copy --type image/png < " + tmp_path + " &"])
+		elif OS.execute("which", ["xsel"], output) == 0:
+			OS.create_process("bash", ["-c", "xsel --clipboard --input < " + tmp_path + " &"])
+		else:
+			push_warning("[VG Sprite] No clipboard tool found (install xclip, xsel, or wl-copy)")
+	elif os_name == "macOS":
+		# osascript: each -e is one line of the script
+		OS.execute("osascript", [
+			"-e", 'set the clipboard to (read (POSIX file "' + tmp_path + '") as {«class PNGf»})'])
+	elif os_name == "Windows":
+		# PowerShell: load both assemblies, copy image to clipboard, then dispose
+		var ps_cmd := "Add-Type -AssemblyName System.Drawing; Add-Type -AssemblyName System.Windows.Forms; "
+		ps_cmd += "$i = [System.Drawing.Image]::FromFile('" + tmp_path.replace("/", "\\") + "'); "
+		ps_cmd += "[System.Windows.Forms.Clipboard]::SetImage($i); $i.Dispose()"
+		OS.execute("powershell.exe", ["-NoProfile", "-Command", ps_cmd])
+
+func _paste_image_from_system_clipboard() -> Image:
+	var tmp_path := OS.get_cache_dir().path_join("vg_clipboard_paste.png")
+	var os_name := OS.get_name()
+	var ok := false
+	if os_name == "Linux" or os_name == "FreeBSD":
+		var output := []
+		if OS.execute("which", ["xclip"], output) == 0:
+			var exit_code := OS.execute("bash", ["-c", "xclip -selection clipboard -t image/png -o > " + tmp_path + " 2>/dev/null"])
+			if exit_code == 0:
+				ok = true
+		elif OS.execute("which", ["wl-paste"], output) == 0:
+			var exit_code := OS.execute("bash", ["-c", "wl-paste --type image/png > " + tmp_path + " 2>/dev/null"])
+			if exit_code == 0:
+				ok = true
+	elif os_name == "macOS":
+		# Use osascript with separate -e lines to read PNG from clipboard
+		var exit_code := OS.execute("osascript", [
+			"-e", "try",
+			"-e", 'set img to the clipboard as «class PNGf»',
+			"-e", 'set f to open for access POSIX file "' + tmp_path + '" with write permission',
+			"-e", "set eof of f to 0",
+			"-e", "write img to f",
+			"-e", "close access f",
+			"-e", "end try"])
+		if exit_code == 0 and FileAccess.file_exists(tmp_path):
+			ok = true
+	elif os_name == "Windows":
+		# PowerShell: read image from clipboard and save as PNG
+		var ps_cmd := "Add-Type -AssemblyName System.Drawing; Add-Type -AssemblyName System.Windows.Forms; "
+		ps_cmd += "$i = [System.Windows.Forms.Clipboard]::GetImage(); "
+		ps_cmd += "if ($i) { $i.Save('" + tmp_path.replace("/", "\\") + "', [System.Drawing.Imaging.ImageFormat]::Png); $i.Dispose() }"
+		var exit_code := OS.execute("powershell.exe", ["-NoProfile", "-Command", ps_cmd])
+		if exit_code == 0:
+			ok = true
+	if not ok:
+		return null
+	if not FileAccess.file_exists(tmp_path):
+		return null
+	var img := Image.new()
+	var err := img.load(tmp_path)
+	if err != OK or img.is_empty():
+		return null
+	return img
 
 func _pick_color(pos: Vector2i) -> void:
 	if pos.x < 0 or pos.x >= _canvas_size.x or pos.y < 0 or pos.y >= _canvas_size.y:
@@ -1501,7 +2676,7 @@ func _add_layer() -> void:
 	var img := Image.create(_canvas_size.x, _canvas_size.y, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	var new_name := "Layer " + str(_layers.size() + 1)
-	_layers.insert(0, { "name": new_name, "image": img, "visible": true, "opacity": 1.0 })
+	_layers.insert(0, { "name": new_name, "image": img, "visible": true, "opacity": 1.0, "locked": false, "blend_mode": BlendMode.NORMAL })
 	_active_layer_idx = 0
 	_sync_frame_from_layers()
 	_refresh_layer_list()
@@ -1566,7 +2741,8 @@ func _refresh_layer_list() -> void:
 	for i in range(_layers.size()):
 		var layer: Dictionary = _layers[i]
 		var vis_icon := "👁" if layer["visible"] else "  "
-		_layer_list.add_item(vis_icon + " " + layer["name"])
+		var lock_icon := "🔒" if layer.get("locked", false) else ""
+		_layer_list.add_item(vis_icon + " " + lock_icon + layer["name"])
 	if _active_layer_idx >= 0 and _active_layer_idx < _layer_list.item_count:
 		_layer_list.select(_active_layer_idx)
 
@@ -1598,6 +2774,8 @@ func _switch_to_frame(idx: int) -> void:
 			"image": frame_layers[i],
 			"visible": true,
 			"opacity": 1.0,
+			"locked": false,
+			"blend_mode": BlendMode.NORMAL,
 		})
 	_active_layer_idx = 0
 	_refresh_layer_list()
@@ -1702,7 +2880,8 @@ func _process(delta: float) -> void:
 		return
 	if _playing and _frames.size() > 1:
 		_play_timer += delta
-		var frame_duration := 1.0 / _fps
+		# Use per-frame duration if available, otherwise fall back to global FPS
+		var frame_duration: float = _frames[_preview_frame_idx].get("duration", 1.0 / _fps)
 		if _play_timer >= frame_duration:
 			_play_timer -= frame_duration
 			_preview_frame_idx = (_preview_frame_idx + 1) % _frames.size()
@@ -1735,6 +2914,432 @@ func _rotate_90() -> void:
 		_update_size_label()
 	_sync_frame_from_layers()
 	_refresh_canvas()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CUT / DELETE SELECTION
+# ─────────────────────────────────────────────────────────────────────────────
+func _cut_selection() -> void:
+	## Copy selection to clipboard, then clear selected region to transparent.
+	_copy_selection()
+	_delete_selection()
+
+func _delete_selection() -> void:
+	## Clear selected region to transparent.
+	var img := _get_active_image()
+	if img == null or not _has_selection:
+		return
+	if _active_layer_idx >= 0 and _active_layer_idx < _layers.size() and _layers[_active_layer_idx].get("locked", false):
+		return
+	_push_undo()
+	var r := _selection_rect
+	var x0 := clampi(r.position.x + _selection_offset.x, 0, _canvas_size.x)
+	var y0 := clampi(r.position.y + _selection_offset.y, 0, _canvas_size.y)
+	var x1 := clampi(r.position.x + _selection_offset.x + r.size.x, 0, _canvas_size.x)
+	var y1 := clampi(r.position.y + _selection_offset.y + r.size.y, 0, _canvas_size.y)
+	for y in range(y0, y1):
+		for x in range(x0, x1):
+			img.set_pixel(x, y, Color(0, 0, 0, 0))
+	_refresh_canvas()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OUTLINE PIXELS
+# ─────────────────────────────────────────────────────────────────────────────
+func _outline_pixels() -> void:
+	## Draw a 1px outline around all non-transparent pixels using primary color.
+	var img := _get_active_image()
+	if img == null:
+		return
+	if _active_layer_idx >= 0 and _active_layer_idx < _layers.size() and _layers[_active_layer_idx].get("locked", false):
+		return
+	_push_undo()
+	# Find all edge pixels: transparent pixels adjacent to non-transparent
+	var outline_pixels: Array[Vector2i] = []
+	for y in range(_canvas_size.y):
+		for x in range(_canvas_size.x):
+			if img.get_pixel(x, y).a < 0.01:
+				# Check if any neighbor is non-transparent
+				for d in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
+					var nx: int = x + d.x
+					var ny: int = y + d.y
+					if nx >= 0 and nx < _canvas_size.x and ny >= 0 and ny < _canvas_size.y:
+						if img.get_pixel(nx, ny).a > 0.01:
+							outline_pixels.append(Vector2i(x, y))
+							break
+	for p in outline_pixels:
+		img.set_pixel(p.x, p.y, _primary_color)
+	_sync_frame_from_layers()
+	_refresh_canvas()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REPLACE COLOR
+# ─────────────────────────────────────────────────────────────────────────────
+func _replace_color() -> void:
+	## Replace all pixels of primary color with secondary color on active layer.
+	var img := _get_active_image()
+	if img == null:
+		return
+	if _active_layer_idx >= 0 and _active_layer_idx < _layers.size() and _layers[_active_layer_idx].get("locked", false):
+		return
+	_push_undo()
+	var count := 0
+	for y in range(_canvas_size.y):
+		for x in range(_canvas_size.x):
+			if img.get_pixel(x, y).is_equal_approx(_primary_color):
+				img.set_pixel(x, y, _secondary_color)
+				count += 1
+	_sync_frame_from_layers()
+	_refresh_canvas()
+	print("[VG Sprite Editor] Replaced %d pixels" % count)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FLATTEN LAYERS
+# ─────────────────────────────────────────────────────────────────────────────
+func _flatten_layers() -> void:
+	## Merge all layers into a single layer.
+	if _layers.size() <= 1:
+		return
+	_push_undo()
+	var composite := _composite_layers()
+	_layers = [{ "name": "Layer 1", "image": composite, "visible": true, "opacity": 1.0, "locked": false, "blend_mode": BlendMode.NORMAL }]
+	_active_layer_idx = 0
+	_sync_frame_from_layers()
+	_refresh_layer_list()
+	_refresh_canvas()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TOGGLE LAYER LOCK
+# ─────────────────────────────────────────────────────────────────────────────
+func _toggle_layer_lock() -> void:
+	if _active_layer_idx < 0 or _active_layer_idx >= _layers.size():
+		return
+	_layers[_active_layer_idx]["locked"] = not _layers[_active_layer_idx].get("locked", false)
+	_refresh_layer_list()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SELECTION TRANSFORMS (flip/rotate on selection only)
+# ─────────────────────────────────────────────────────────────────────────────
+func _transform_selection(op: String) -> void:
+	## Apply flip/rotate to the selected region only.
+	var img := _get_active_image()
+	if img == null or not _has_selection:
+		return
+	if _active_layer_idx >= 0 and _active_layer_idx < _layers.size() and _layers[_active_layer_idx].get("locked", false):
+		return
+	_push_undo()
+	var r := _selection_rect
+	var x0 := clampi(r.position.x, 0, _canvas_size.x)
+	var y0 := clampi(r.position.y, 0, _canvas_size.y)
+	var x1 := clampi(r.position.x + r.size.x, 0, _canvas_size.x)
+	var y1 := clampi(r.position.y + r.size.y, 0, _canvas_size.y)
+	var sub := img.get_region(Rect2i(x0, y0, x1 - x0, y1 - y0))
+	match op:
+		"flip_h":
+			sub.flip_x()
+		"flip_v":
+			sub.flip_y()
+		"rot90":
+			sub.rotate_90(CLOCKWISE)
+			# If selection is non-square, adjust selection rect
+			if r.size.x != r.size.y:
+				_selection_rect = Rect2i(x0, y0, r.size.y, r.size.x)
+		"rot180":
+			sub.rotate_180()
+		"scale_2x":
+			sub.resize(sub.get_width() * 2, sub.get_height() * 2, Image.INTERPOLATE_NEAREST)
+		"scale_half":
+			sub.resize(maxi(sub.get_width() / 2, 1), maxi(sub.get_height() / 2, 1), Image.INTERPOLATE_NEAREST)
+	# Clear original region
+	for y in range(y0, y1):
+		for x in range(x0, x1):
+			img.set_pixel(x, y, Color(0, 0, 0, 0))
+	# Blit transformed sub back
+	var blit_w := mini(sub.get_width(), _canvas_size.x - x0)
+	var blit_h := mini(sub.get_height(), _canvas_size.y - y0)
+	img.blend_rect(sub, Rect2i(0, 0, blit_w, blit_h), Vector2i(x0, y0))
+	_sync_frame_from_layers()
+	_refresh_canvas()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GRADIENT TOOL
+# ─────────────────────────────────────────────────────────────────────────────
+func _apply_gradient(from: Vector2i, to: Vector2i) -> void:
+	## Draw a linear gradient from primary to secondary color.
+	var img := _get_active_image()
+	if img == null:
+		return
+	if _active_layer_idx >= 0 and _active_layer_idx < _layers.size() and _layers[_active_layer_idx].get("locked", false):
+		return
+	var dx := float(to.x - from.x)
+	var dy := float(to.y - from.y)
+	var length := sqrt(dx * dx + dy * dy)
+	if length < 1.0:
+		return
+	# Work within selection if active, otherwise full canvas
+	var x0 := 0; var y0 := 0; var x1 := _canvas_size.x; var y1 := _canvas_size.y
+	if _has_selection:
+		x0 = clampi(_selection_rect.position.x, 0, _canvas_size.x)
+		y0 = clampi(_selection_rect.position.y, 0, _canvas_size.y)
+		x1 = clampi(_selection_rect.position.x + _selection_rect.size.x, 0, _canvas_size.x)
+		y1 = clampi(_selection_rect.position.y + _selection_rect.size.y, 0, _canvas_size.y)
+	for y in range(y0, y1):
+		for x in range(x0, x1):
+			var px_dx := float(x - from.x)
+			var px_dy := float(y - from.y)
+			var t := clampf((px_dx * dx + px_dy * dy) / (length * length), 0.0, 1.0)
+			img.set_pixel(x, y, _primary_color.lerp(_secondary_color, t))
+	_sync_frame_from_layers()
+	_refresh_canvas()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REFERENCE LAYER
+# ─────────────────────────────────────────────────────────────────────────────
+func _load_reference_image() -> void:
+	var dlg := FileDialog.new()
+	dlg.title = "Load Reference Image"
+	dlg.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	dlg.access = FileDialog.ACCESS_FILESYSTEM
+	dlg.filters = PackedStringArray(["*.png;PNG", "*.jpg;JPEG", "*.webp;WebP", "*.bmp;BMP"])
+	dlg.size = Vector2i(600, 400)
+	dlg.file_selected.connect(func(path: String):
+		var img := Image.load_from_file(path)
+		if img != null:
+			img.convert(Image.FORMAT_RGBA8)
+			img.resize(_canvas_size.x, _canvas_size.y, Image.INTERPOLATE_LANCZOS)
+			_reference_image = img
+			_reference_visible = true
+			_refresh_canvas()
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func(): dlg.queue_free())
+	add_child(dlg)
+	dlg.popup_centered()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BRUSH STAMP (custom brush from selection)
+# ─────────────────────────────────────────────────────────────────────────────
+func _capture_brush_stamp() -> void:
+	## Capture the current selection as a reusable brush stamp.
+	var img := _get_active_image()
+	if img == null or not _has_selection:
+		return
+	var r := _selection_rect
+	var x0 := clampi(r.position.x, 0, _canvas_size.x)
+	var y0 := clampi(r.position.y, 0, _canvas_size.y)
+	var x1 := clampi(r.position.x + r.size.x, 0, _canvas_size.x)
+	var y1 := clampi(r.position.y + r.size.y, 0, _canvas_size.y)
+	_brush_stamp = img.get_region(Rect2i(x0, y0, x1 - x0, y1 - y0))
+	print("[VG Sprite Editor] Captured brush stamp %dx%d" % [_brush_stamp.get_width(), _brush_stamp.get_height()])
+
+func _paint_brush_stamp(pos: Vector2i) -> void:
+	## Paint the captured brush stamp centered at pos.
+	var img := _get_active_image()
+	if img == null or _brush_stamp == null:
+		return
+	var bw := _brush_stamp.get_width()
+	var bh := _brush_stamp.get_height()
+	var dst := Vector2i(pos.x - bw / 2, pos.y - bh / 2)
+	var src_rect := Rect2i(0, 0, mini(bw, _canvas_size.x - dst.x), mini(bh, _canvas_size.y - dst.y))
+	img.blend_rect(_brush_stamp, src_rect, Vector2i(maxi(dst.x, 0), maxi(dst.y, 0)))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LASSO SELECTION
+# ─────────────────────────────────────────────────────────────────────────────
+func _finalize_lasso() -> void:
+	## Create a rectangular selection from the bounding box of lasso points.
+	if _lasso_points.size() < 3:
+		_lasso_points.clear()
+		_lasso_drawing = false
+		return
+	var min_x := _canvas_size.x; var min_y := _canvas_size.y
+	var max_x := 0; var max_y := 0
+	for p in _lasso_points:
+		min_x = mini(min_x, p.x)
+		min_y = mini(min_y, p.y)
+		max_x = maxi(max_x, p.x)
+		max_y = maxi(max_y, p.y)
+	min_x = clampi(min_x, 0, _canvas_size.x - 1)
+	min_y = clampi(min_y, 0, _canvas_size.y - 1)
+	max_x = clampi(max_x, 0, _canvas_size.x - 1)
+	max_y = clampi(max_y, 0, _canvas_size.y - 1)
+	_has_selection = true
+	_selection_rect = Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+	_selection_offset = Vector2i.ZERO
+	_selection_image = null
+	_lasso_points.clear()
+	_lasso_drawing = false
+	_refresh_canvas()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COLOR RAMP GENERATOR
+# ─────────────────────────────────────────────────────────────────────────────
+func _show_color_ramp_dialog() -> void:
+	## Generate a ramp of colors between primary and secondary and load as palette.
+	var dlg := AcceptDialog.new()
+	dlg.title = "Color Ramp Generator"
+	dlg.size = Vector2i(300, 140)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	dlg.add_child(vbox)
+	var lbl := Label.new()
+	lbl.text = "Steps (primary → secondary):"
+	lbl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	vbox.add_child(lbl)
+	var steps_spin := SpinBox.new()
+	steps_spin.min_value = 2
+	steps_spin.max_value = 64
+	steps_spin.value = 8
+	vbox.add_child(steps_spin)
+	dlg.confirmed.connect(func():
+		var steps := int(steps_spin.value)
+		var colors: Array = []
+		for i in range(steps):
+			var t := float(i) / float(steps - 1)
+			var c := _primary_color.lerp(_secondary_color, t)
+			colors.append("#%02X%02X%02X" % [int(c.r * 255), int(c.g * 255), int(c.b * 255)])
+		_load_palette_from_colors(colors, "Ramp")
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func(): dlg.queue_free())
+	add_child(dlg)
+	dlg.popup_centered()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HSV COLOR PICKER
+# ─────────────────────────────────────────────────────────────────────────────
+func _show_hsv_picker() -> void:
+	## Show a popup with an HSV color picker for more precise color selection.
+	var dlg := AcceptDialog.new()
+	dlg.title = "HSV Color Picker"
+	dlg.size = Vector2i(340, 360)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 6)
+	dlg.add_child(vbox)
+	var picker := ColorPicker.new()
+	picker.color = _primary_color
+	picker.color_modes_visible = true
+	picker.sliders_visible = true
+	picker.hex_visible = true
+	picker.presets_visible = false
+	picker.custom_minimum_size = Vector2(300, 280)
+	vbox.add_child(picker)
+	dlg.confirmed.connect(func():
+		_set_primary_color(picker.color)
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func(): dlg.queue_free())
+	add_child(dlg)
+	dlg.popup_centered()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ANIMATION TAGS
+# ─────────────────────────────────────────────────────────────────────────────
+func _show_animation_tags_dialog() -> void:
+	## Manage animation tags (named frame ranges).
+	var dlg := AcceptDialog.new()
+	dlg.title = "Animation Tags"
+	dlg.size = Vector2i(400, 320)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 6)
+	dlg.add_child(vbox)
+
+	var tag_list := ItemList.new()
+	tag_list.custom_minimum_size = Vector2(0, 140)
+	var tl_style := StyleBoxFlat.new()
+	tl_style.bg_color = Color(0.14, 0.14, 0.17)
+	tag_list.add_theme_stylebox_override("panel", tl_style)
+	tag_list.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	vbox.add_child(tag_list)
+
+	# Populate
+	for tag in _animation_tags:
+		tag_list.add_item("%s [%d-%d]" % [tag["name"], tag["from"] + 1, tag["to"] + 1])
+
+	# Add tag controls
+	var add_row := HBoxContainer.new()
+	add_row.add_theme_constant_override("separation", 4)
+	vbox.add_child(add_row)
+	var name_edit := LineEdit.new()
+	name_edit.placeholder_text = "Tag name"
+	name_edit.size_flags_horizontal = SIZE_EXPAND_FILL
+	add_row.add_child(name_edit)
+	var from_spin := SpinBox.new()
+	from_spin.min_value = 1
+	from_spin.max_value = maxi(_frames.size(), 1)
+	from_spin.value = _active_frame_idx + 1
+	from_spin.prefix = "From:"
+	add_row.add_child(from_spin)
+	var to_spin := SpinBox.new()
+	to_spin.min_value = 1
+	to_spin.max_value = maxi(_frames.size(), 1)
+	to_spin.value = _active_frame_idx + 1
+	to_spin.prefix = "To:"
+	add_row.add_child(to_spin)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.add_theme_constant_override("separation", 4)
+	vbox.add_child(btn_row)
+	var add_btn := Button.new()
+	add_btn.text = "+ Add Tag"
+	_style_tool_button(add_btn)
+	add_btn.pressed.connect(func():
+		if name_edit.text.strip_edges().is_empty():
+			return
+		_animation_tags.append({
+			"name": name_edit.text.strip_edges(),
+			"from": int(from_spin.value) - 1,
+			"to": int(to_spin.value) - 1,
+			"color": Color(randf(), randf(), randf(), 1.0),
+		})
+		tag_list.add_item("%s [%d-%d]" % [name_edit.text.strip_edges(), int(from_spin.value), int(to_spin.value)])
+		name_edit.text = ""
+	)
+	btn_row.add_child(add_btn)
+	var del_btn := Button.new()
+	del_btn.text = "− Remove"
+	_style_tool_button(del_btn)
+	del_btn.pressed.connect(func():
+		var sel := tag_list.get_selected_items()
+		if sel.size() > 0:
+			_animation_tags.remove_at(sel[0])
+			tag_list.remove_item(sel[0])
+	)
+	btn_row.add_child(del_btn)
+
+	dlg.confirmed.connect(func(): dlg.queue_free())
+	dlg.canceled.connect(func(): dlg.queue_free())
+	add_child(dlg)
+	dlg.popup_centered()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PER-FRAME DURATION
+# ─────────────────────────────────────────────────────────────────────────────
+func _show_frame_duration_dialog() -> void:
+	## Set duration for the current frame.
+	var dlg := AcceptDialog.new()
+	dlg.title = "Frame Duration"
+	dlg.size = Vector2i(260, 120)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	dlg.add_child(vbox)
+	var lbl := Label.new()
+	lbl.text = "Duration (ms) for frame %d:" % (_active_frame_idx + 1)
+	lbl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	vbox.add_child(lbl)
+	var dur_spin := SpinBox.new()
+	dur_spin.min_value = 10
+	dur_spin.max_value = 10000
+	dur_spin.step = 10
+	var current_dur: float = _frames[_active_frame_idx].get("duration", 1.0 / _fps)
+	dur_spin.value = current_dur * 1000.0
+	dur_spin.suffix = "ms"
+	vbox.add_child(dur_spin)
+	dlg.confirmed.connect(func():
+		_frames[_active_frame_idx]["duration"] = dur_spin.value / 1000.0
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func(): dlg.queue_free())
+	add_child(dlg)
+	dlg.popup_centered()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FILE OPERATIONS
@@ -1853,7 +3458,7 @@ func _on_open_file(path: String) -> void:
 		return
 	_canvas_size = Vector2i(img.get_width(), img.get_height())
 	img.convert(Image.FORMAT_RGBA8)
-	_layers = [{ "name": "Layer 1", "image": img, "visible": true, "opacity": 1.0 }]
+	_layers = [{ "name": "Layer 1", "image": img, "visible": true, "opacity": 1.0, "locked": false, "blend_mode": BlendMode.NORMAL }]
 	_active_layer_idx = 0
 	_frames = [{ "layers": [img.duplicate()], "duration": 1.0 / _fps }]
 	_active_frame_idx = 0
@@ -1975,10 +3580,13 @@ func _resize_canvas(new_size: Vector2i) -> void:
 # ─────────────────────────────────────────────────────────────────────────────
 # KEYBOARD SHORTCUTS
 # ─────────────────────────────────────────────────────────────────────────────
-func _unhandled_key_input(ev: InputEvent) -> void:
+# Use _shortcut_input instead of _unhandled_key_input so shortcuts fire
+# BEFORE the Godot editor's own menus / controls consume Ctrl+C/V/Z etc.
+func _shortcut_input(ev: InputEvent) -> void:
 	if not visible:
 		return
 	if ev is InputEventKey and ev.pressed:
+		var handled := true
 		if ev.ctrl_pressed:
 			match ev.keycode:
 				KEY_Z: _undo()
@@ -1987,16 +3595,24 @@ func _unhandled_key_input(ev: InputEvent) -> void:
 				KEY_N: _show_new_dialog()
 				KEY_O: _show_open_dialog()
 				KEY_E: _show_export_dialog()
-				KEY_A:  # Select all
+				KEY_C: _copy_selection()
+				KEY_V: _paste_clipboard()
+				KEY_X: _cut_selection()
+				KEY_A:
 					_has_selection = true
 					_selection_rect = Rect2i(0, 0, _canvas_size.x, _canvas_size.y)
 					_selection_offset = Vector2i.ZERO
 					_refresh_canvas()
+				_: handled = false
 		else:
 			match ev.keycode:
 				KEY_P: _select_tool(Tool.PEN)
 				KEY_E: _select_tool(Tool.ERASER)
-				KEY_L: _select_tool(Tool.LINE)
+				KEY_L:
+					if ev.shift_pressed:
+						_select_tool(Tool.OUTLINE)
+					else:
+						_select_tool(Tool.LINE)
 				KEY_R:
 					if ev.shift_pressed:
 						_select_tool(Tool.RECT_FILLED)
@@ -2007,15 +3623,29 @@ func _unhandled_key_input(ev: InputEvent) -> void:
 						_select_tool(Tool.ELLIPSE_FILLED)
 					else:
 						_select_tool(Tool.ELLIPSE)
-				KEY_G: _select_tool(Tool.FILL)
+				KEY_G:
+					if ev.shift_pressed:
+						_select_tool(Tool.GRADIENT)
+					else:
+						_select_tool(Tool.FILL)
 				KEY_I: _select_tool(Tool.COLOR_PICKER)
-				KEY_S: _select_tool(Tool.SELECT)
+				KEY_S:
+					if ev.shift_pressed:
+						_select_tool(Tool.LASSO)
+					else:
+						_select_tool(Tool.SELECT)
 				KEY_M: _select_tool(Tool.MOVE)
 				KEY_H: _select_tool(Tool.MIRROR_PEN)
 				KEY_D: _select_tool(Tool.DITHER_PEN)
 				KEY_U: _select_tool(Tool.LIGHTEN)
 				KEY_J: _select_tool(Tool.DARKEN)
+				KEY_W: _select_tool(Tool.MAGIC_WAND)
 				KEY_X: _swap_colors()
+				KEY_DELETE:
+					_delete_selection()
+					_refresh_canvas()
+				KEY_F:
+					_show_frame_duration_dialog()
 				KEY_BRACKETLEFT:
 					_pen_size = maxi(_pen_size - 1, 1)
 					if is_instance_valid(_pen_size_spin):
@@ -2024,6 +3654,9 @@ func _unhandled_key_input(ev: InputEvent) -> void:
 					_pen_size = mini(_pen_size + 1, 32)
 					if is_instance_valid(_pen_size_spin):
 						_pen_size_spin.value = _pen_size
+				_: handled = false
+		if handled:
+			get_viewport().set_input_as_handled()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STATUS / LABELS
@@ -2038,6 +3671,8 @@ func _update_status() -> void:
 		Tool.FILL: "Fill", Tool.COLOR_PICKER: "Picker", Tool.SELECT: "Select",
 		Tool.MOVE: "Move", Tool.MIRROR_PEN: "Mirror", Tool.DITHER_PEN: "Dither",
 		Tool.LIGHTEN: "Lighten", Tool.DARKEN: "Darken",
+		Tool.MAGIC_WAND: "Magic Wand", Tool.OUTLINE: "Outline",
+		Tool.GRADIENT: "Gradient", Tool.LASSO: "Lasso",
 	}
 	var parts := []
 	if _file_path.is_empty():
@@ -2088,7 +3723,7 @@ func _style_tool_button(btn: Button) -> void:
 	btn.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
 	btn.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0))
 	btn.add_theme_color_override("font_pressed_color", Color(0.7, 0.85, 1.0))
-	btn.add_theme_font_size_override("font_size", 12)
+	btn.add_theme_font_size_override("font_size", 16)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PUBLIC API

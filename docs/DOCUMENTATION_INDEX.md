@@ -29,14 +29,16 @@
 ### Editor Features
 - [ide_tools.md](manual/ide_tools.md) - **Complete IDE tools guide** (Watch Window, Alignment, IntelliSense, Debugging, Linting, Snippets, Themes)
 - [IDE_SHORTCUTS.md](manual/IDE_SHORTCUTS.md) - **Keyboard shortcuts & features quick-reference** (canvas, menus, properties, code editor)
+- [SPRITE_EDITOR_MANUAL.md](manual/SPRITE_EDITOR_MANUAL.md) - **Sprite Editor Manual** (19 drawing tools, 9 retro palettes, layers with blend modes, animation frames with tags, system clipboard, selection transforms, gradient, outline, reference layers, tiled preview)
 - [CUSTOM_CONTROLS.md](guides/CUSTOM_CONTROLS.md) - **Creating and using custom controls** (design in Godot, add via Components, use on forms)
 - [BRACKET_COMPLETION.md](BRACKET_COMPLETION.md) - Smart bracket completion system (type `}` to auto-complete blocks)
 - [BRACKET_COMPLETION_QUICK_REF.md](BRACKET_COMPLETION_QUICK_REF.md) - Quick reference for bracket completion
 - [IMMEDIATE_WINDOW.md](IMMEDIATE_WINDOW.md) - Interactive debugging console
 
-### Plugin System & AGCK
+### Plugin System, AGCK & Working Nodes
 - [PLUGIN_SYSTEM.md](guides/PLUGIN_SYSTEM.md) - **Plugin System Developer Guide** (architecture, base class API, plugin manager, creating plugins, AGCK as reference example)
 - [AGCK_MANUAL.md](manual/AGCK_MANUAL.md) - **Arcade Game Construction Kit Manual** (5 sub-editors: Game Settings, Actors, Sounds, Levels, Build — retro game construction)
+- [WORKING_NODES_MANUAL.md](../addons/visual_gasic/plugins/working_nodes/WORKING_NODES_MANUAL.md) - **Working Nodes Manual** (visual logic graph editor: Event/Action/Math nodes, Geometry Dash-style groups, Blender-style math, smart wire routing, snippets, breakpoints, live VG preview, export to VG / 2D Scene / 3D Scene)
 
 ### Modern Features
 - [MODERN_FEATURES_README.md](guides/MODERN_FEATURES_README.md) - Overview of modern extensions
@@ -127,7 +129,7 @@
 |------|-------------|----------|
 | Plugin System | Extensible plugin architecture for custom IDE tabs | `plugins/` directory (auto-discovered) |
 | AGCK | Arcade Game Construction Kit — 5-editor retro game builder | 🕹️ AGCK toolbar button |
-| Sprite Editor | Piskel-style pixel art editor with 15 tools, layers, animation | 🎨 Sprite Editor toolbar button |
+| Sprite Editor | Piskel-style pixel art editor with 16 tools (incl. Magic Wand), 9 retro palettes, palette import/export, layers, animation | 🎨 Sprite Editor toolbar button |
 
 ### Code Editing Tools
 | Tool | Description | Location |

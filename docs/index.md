@@ -28,7 +28,12 @@ The **Manual** explains engine concepts and Visual Gasic specific implementation
 ### UI (User Interface)
 *   [Building a GUI](manual/gui.md)
 
-## Class Reference
+### Plugins & Tools
+*   [AGCK Manual](manual/AGCK_MANUAL.md) - Arcade Game Construction Kit (5 editors, no coding required)
+*   [Working Nodes Manual](../addons/visual_gasic/plugins/working_nodes/WORKING_NODES_MANUAL.md) - Visual logic graph editor (Event/Action/Math nodes, groups, smart wires, export)
+*   [Plugin System Guide](guides/PLUGIN_SYSTEM.md) - Building your own VG IDE plugins
+
+
 
 The **Class Reference** lists all available BASIC commands and their Godot equivalents.
 

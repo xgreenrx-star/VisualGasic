@@ -1102,14 +1102,22 @@ func _strip_shader_materials(root: Node) -> void:
 
 ## Compute the bounding rect of all visible nodes and center/zoom the camera
 ## so everything fits in the viewport with some padding.
+var _fit_scene_defer_count := 0
 func _fit_scene_in_view() -> void:
 	if not is_instance_valid(_scene_root) or _scene_root.get_child_count() == 0:
+		_fit_scene_defer_count = 0
 		return
 	var vp_size := Vector2(_viewport.size)
-	# If viewport hasn't been laid out yet, defer until next frame
+	# If viewport hasn't been laid out yet, defer until next frame (max 10 retries)
 	if vp_size.x < 100.0 or vp_size.y < 100.0:
-		call_deferred("_fit_scene_in_view")
+		_fit_scene_defer_count += 1
+		if _fit_scene_defer_count < 10:
+			call_deferred("_fit_scene_in_view")
+		else:
+			push_warning("[VG2D] _fit_scene_in_view: viewport too small after 10 retries, giving up")
+			_fit_scene_defer_count = 0
 		return
+	_fit_scene_defer_count = 0
 	# Mimic Godot's default 2D view: 100% zoom, origin in upper-left area.
 	# Camera position is the world-space center of the viewport.
 	# Place origin ~100px from left, ~50px from top so game content fills

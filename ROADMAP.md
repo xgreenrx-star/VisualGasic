@@ -828,6 +828,7 @@ Potential features for the next version, pending community feedback:
 | **Visual Debugger v2** | Graphical call flow visualization, flame graphs | Medium |
 | **WebSocket Controls** | ✅ WebSocketClient, WebSocketServer, Lobby, Chat controls for multiplayer games. | ✅ Done |
 | **Android/iOS Validation** | Test and fix mobile platform builds | Medium |
+| **Native Image Clipboard** | C++ GDExtension for system image clipboard (copy/paste images to/from external apps). Replace current OS.execute bridge with proper platform APIs (X11/Wayland/Win32/macOS). | Medium |
 | **Plugin Marketplace** | In-IDE package browsing and one-click install | Low |
 | **Code Profiler** | Line-level performance profiling in the IDE | Low |
 | **VG3D Preview** | Limited 3D game kit demo — voxel-based level editor, basic first/third-person camera, CSG primitives. Proof-of-concept only, not production-ready. | Low |

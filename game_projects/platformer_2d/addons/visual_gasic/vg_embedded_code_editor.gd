@@ -514,10 +514,10 @@ func validate_code() -> bool:
 	_is_validating = true
 	var source: String = _code_edit.text
 
-	# Use the ClassDB-bound static method (no ScriptServer dance needed)
+	# Use ClassDB.class_call_static to avoid Godot 4.6 compile-time static method validation
 	var result: Dictionary = {}
-	if ClassDB.class_exists(&"VisualGasicLanguage") and ClassDB.class_has_method(&"VisualGasicLanguage", &"vg_validate_code"):
-		result = VisualGasicLanguage.vg_validate_code(source, _vg_path)
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		result = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_validate_code", source, _vg_path)
 	else:
 		# GDExtension not loaded yet — skip validation silently
 		_is_validating = false
@@ -1484,12 +1484,15 @@ func _rebuild_object_combo() -> void:
 		_object_combo.add_item(ctrl_name)
 
 ## Sets the list of form control names for the Object dropdown.
-func set_control_names(names: Array[String]) -> void:
-	_control_names = names
+func set_control_names(names: Array) -> void:
+	var typed_names: Array[String] = []
+	for n in names:
+		typed_names.append(str(n))
+	_control_names = typed_names
 	_rebuild_object_combo()
 	# Forward to VGCodeEdit so auto-complete can suggest control names
 	if _code_edit and _code_edit.has_method("set_known_controls"):
-		_code_edit.set_known_controls(names)
+		_code_edit.set_known_controls(typed_names)
 
 ## Sets the form name so Form1. works like Me. in IntelliSense.
 func set_form_name(form_name: String) -> void:

@@ -33,28 +33,16 @@ func _init():
 	_tip_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	
 	var style = StyleBoxFlat.new()
-	# Read tooltip colors from theme (adapt to light/dark themes)
-	var bg_color := Color(1.0, 1.0, 0.88)
-	var text_color := Color(0, 0, 0)
-	var border_color := Color(0, 0, 0)
-	if VGThemeManager:
-		var t = VGThemeManager.get_current_theme()
-		if t:
-			bg_color = t.ide_tooltip_bg
-			# Auto-compute text color: white on dark bg, black on light bg
-			var lum = bg_color.r * 0.299 + bg_color.g * 0.587 + bg_color.b * 0.114
-			text_color = Color(0, 0, 0) if lum > 0.5 else Color(1, 1, 1)
-			border_color = Color(0.3, 0.3, 0.3) if lum < 0.5 else Color(0, 0, 0)
-	style.bg_color = bg_color
+	style.bg_color = Color(1.0, 1.0, 0.88)  # Light yellow (classic tooltip color)
 	style.set_border_width_all(1)
-	style.border_color = border_color
+	style.border_color = Color(0, 0, 0)
 	style.content_margin_left = 6
 	style.content_margin_right = 6
 	style.content_margin_top = 3
 	style.content_margin_bottom = 3
 	_tip_popup.add_theme_stylebox_override("panel", style)
 	
-	_tip_label.add_theme_color_override("default_color", text_color)
+	_tip_label.add_theme_color_override("default_color", Color(0, 0, 0))
 	_tip_label.add_theme_font_size_override("normal_font_size", 12)
 	_tip_popup.add_child(_tip_label)
 	

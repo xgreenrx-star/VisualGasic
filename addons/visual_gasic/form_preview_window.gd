@@ -239,14 +239,6 @@ func _create_control(info: Dictionary, default_fore: Color, default_back: Color)
 
 		"RichTextLabel":
 			var rtl = RichTextLabel.new()
-			rtl.bbcode_enabled = bool(props.get("BbcodeEnabled", true))
-			rtl.scroll_active = bool(props.get("ScrollActive", true))
-			rtl.selection_enabled = bool(props.get("SelectionEnabled", false))
-			rtl.fit_content = bool(props.get("FitContent", false))
-			if props.get("WordWrap", true):
-				rtl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			else:
-				rtl.autowrap_mode = TextServer.AUTOWRAP_OFF
 			rtl.text = text if text != ctrl_name else ""
 			ctrl = rtl
 
@@ -381,8 +373,6 @@ func _apply_common_props(ctrl: Control, props: Dictionary, default_fore: Color) 
 			ctrl.add_theme_color_override("font_color", fore)
 		elif ctrl is LineEdit or ctrl is TextEdit:
 			ctrl.add_theme_color_override("font_color", fore)
-		elif ctrl is RichTextLabel:
-			ctrl.add_theme_color_override("default_color", fore)
 	
 	# BackColor
 	var back = props.get("BackColor", null)
@@ -391,21 +381,6 @@ func _apply_common_props(ctrl: Control, props: Dictionary, default_fore: Color) 
 			var sb = StyleBoxFlat.new()
 			sb.bg_color = back
 			ctrl.add_theme_stylebox_override("panel", sb)
-		elif ctrl is LineEdit:
-			var sb = StyleBoxFlat.new()
-			sb.bg_color = back
-			sb.set_content_margin_all(4)
-			ctrl.add_theme_stylebox_override("normal", sb)
-		elif ctrl is TextEdit:
-			var sb = StyleBoxFlat.new()
-			sb.bg_color = back
-			sb.set_content_margin_all(4)
-			ctrl.add_theme_stylebox_override("normal", sb)
-		elif ctrl is RichTextLabel:
-			var sb = StyleBoxFlat.new()
-			sb.bg_color = back
-			sb.set_content_margin_all(4)
-			ctrl.add_theme_stylebox_override("normal", sb)
 	
 	# Font size — convert VB6 points to Godot pixels (same formula as C++ canvas)
 	var fsize = props.get("FontSize", null)

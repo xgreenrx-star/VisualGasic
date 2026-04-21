@@ -117,6 +117,37 @@ func get_tile_count(block_type: int) -> int:
 	return tiles[block_type].size()
 
 
+## Get a tile's shader FX name (e.g. "Glow", "(None)")
+func get_tile_shader_fx(block_type: int, tile_index: int) -> String:
+	if not tiles.has(block_type):
+		return "(None)"
+	var arr: Array = tiles[block_type]
+	if tile_index < 0 or tile_index >= arr.size():
+		return "(None)"
+	return arr[tile_index].get("shader_fx", "(None)")
+
+
+## Get a tile's shader FX parameters
+func get_tile_shader_params(block_type: int, tile_index: int) -> Dictionary:
+	if not tiles.has(block_type):
+		return {}
+	var arr: Array = tiles[block_type]
+	if tile_index < 0 or tile_index >= arr.size():
+		return {}
+	return arr[tile_index].get("shader_params", {})
+
+
+## Set a tile's shader FX and parameters
+func set_tile_shader_fx(block_type: int, tile_index: int, fx_name: String, fx_params: Dictionary = {}) -> void:
+	if not tiles.has(block_type):
+		return
+	var arr: Array = tiles[block_type]
+	if tile_index < 0 or tile_index >= arr.size():
+		return
+	arr[tile_index]["shader_fx"] = fx_name
+	arr[tile_index]["shader_params"] = fx_params
+
+
 ## Update a tile's image (after inline editing)
 func update_tile(block_type: int, tile_index: int, new_image: Image) -> void:
 	if not tiles.has(block_type):
@@ -2089,10 +2120,16 @@ func get_data() -> Dictionary:
 		var arr: Array = []
 		for t in tiles[bt]:
 			var png_buf = t["image"].save_png_to_buffer()
-			arr.append({
+			var entry: Dictionary = {
 				"name": t["name"],
 				"png": Marshalls.raw_to_base64(png_buf),
-			})
+			}
+			# Persist per-tile shader FX if set
+			var sfx: String = t.get("shader_fx", "(None)")
+			if sfx != "(None)":
+				entry["shader_fx"] = sfx
+				entry["shader_params"] = t.get("shader_params", {})
+			arr.append(entry)
 		tile_data[bt] = arr
 	data["tiles"] = tile_data
 
@@ -2158,7 +2195,12 @@ func set_data(data: Dictionary) -> void:
 					var img = Image.new()
 					img.load_png_from_buffer(png_buf)
 					var tex = ImageTexture.create_from_image(img)
-					merged.append({"name": tname, "image": img, "texture": tex})
+					var entry: Dictionary = {"name": tname, "image": img, "texture": tex}
+					# Restore per-tile shader FX
+					if td.has("shader_fx"):
+						entry["shader_fx"] = td["shader_fx"]
+						entry["shader_params"] = td.get("shader_params", {})
+					merged.append(entry)
 				else:
 					# New built-in tile not in saved data — keep generated version
 					merged.append(gen_tile)
@@ -2172,7 +2214,12 @@ func set_data(data: Dictionary) -> void:
 					var img = Image.new()
 					img.load_png_from_buffer(png_buf)
 					var tex = ImageTexture.create_from_image(img)
-					merged.append({"name": td["name"], "image": img, "texture": tex})
+					var entry: Dictionary = {"name": td["name"], "image": img, "texture": tex}
+					# Restore per-tile shader FX
+					if td.has("shader_fx"):
+						entry["shader_fx"] = td["shader_fx"]
+						entry["shader_params"] = td.get("shader_params", {})
+					merged.append(entry)
 
 			tiles[bt] = merged
 

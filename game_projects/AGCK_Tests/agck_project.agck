@@ -50835,7 +50835,7 @@
 			"filter_q": 50.0,
 			"filter_type": 0.0,
 			"name": "Coin",
-			"tempo": 280,
+			"tempo": 280.0,
 			"voice1_enabled": true,
 			"voice1_notes": [
 				30.0,
@@ -50871,7 +50871,7 @@
 				0.0,
 				0.0
 			],
-			"voice1_volume": 70,
+			"voice1_volume": 70.0,
 			"voice1_wave": 0.0,
 			"voice2_enabled": true,
 			"voice2_notes": [
@@ -50908,7 +50908,7 @@
 				0.0,
 				0.0
 			],
-			"voice2_volume": 40,
+			"voice2_volume": 40.0,
 			"voice2_wave": 1.0
 		},
 		{
@@ -50947,10 +50947,10 @@
 				0.0,
 				0.0
 			],
-			"filter_q": 40,
+			"filter_q": 40.0,
 			"filter_type": 1.0,
 			"name": "Hit",
-			"tempo": 260,
+			"tempo": 260.0,
 			"voice1_enabled": true,
 			"voice1_notes": [
 				36.0,
@@ -50986,7 +50986,7 @@
 				0.0,
 				0.0
 			],
-			"voice1_volume": 80,
+			"voice1_volume": 80.0,
 			"voice1_wave": 3.0,
 			"voice2_enabled": false,
 			"voice2_notes": [
@@ -51023,7 +51023,7 @@
 				0.0,
 				0.0
 			],
-			"voice2_volume": 60,
+			"voice2_volume": 60.0,
 			"voice2_wave": 1.0
 		},
 		{
@@ -51177,10 +51177,10 @@
 				0.0,
 				0.0
 			],
-			"filter_q": 50,
+			"filter_q": 50.0,
 			"filter_type": 0.0,
 			"name": "Enemy Death",
-			"tempo": 280,
+			"tempo": 280.0,
 			"voice1_enabled": true,
 			"voice1_notes": [
 				40.0,
@@ -51216,7 +51216,7 @@
 				0.0,
 				0.0
 			],
-			"voice1_volume": 75,
+			"voice1_volume": 75.0,
 			"voice1_wave": 3.0,
 			"voice2_enabled": true,
 			"voice2_notes": [
@@ -51253,7 +51253,7 @@
 				0.0,
 				0.0
 			],
-			"voice2_volume": 50,
+			"voice2_volume": 50.0,
 			"voice2_wave": 0.0
 		},
 		{
@@ -51607,7 +51607,8 @@
 			"0": {
 				"anims_data": {
 					"Idle": [
-						"iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAANxJREFUSIlj/P//PwMtAROpGjJOfiXJRYzE+gCbwTPMuRkJ6SPKB7hcTYxviA6iGebcWNkUWwBzpZSUCVwMmU3IF0TFAT5DCMUDyamIVECUBbhcSUwqIiqIfA98xqloswMvXkvwWuC69vZ/BgYGBg5hCZxqfrx9wcDAwMCwO1gVq0WDIw4oASzEKHp5bDtOOX51Q8otELfyxCkHiwNcgOapiCgffH18G87eF2vE6LT4HJKFRnj1Dv1UNPDJ1KxtFVoEGzF8eXwHSf7O/1NVYTgjmuY+ILpOJhfQ3AcAlH5WpR9IJIcAAAAASUVORK5CYII="
+						"iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAANxJREFUSIlj/P//PwMtAROpGjJOfiXJRYzE+gCbwTPMuRkJ6SPKB7hcTYxviA6iGebcWNkUWwBzpZSUCVwMmU3IF0TFAT5DCMUDyamIVECUBbhcSUwqIiqIfA98xqloswMvXkvwWuC69vZ/BgYGBg5hCZxqfrx9wcDAwMCwO1gVq0WDIw4oASzEKHp5bDtOOX51Q8otELfyxCkHiwNcgOapiCgffH18G87eF2vE6LT4HJKFRnj1Dv1UNPDJ1KxtFVoEGzF8eXwHSf7O/1NVYTgjmuY+ILpOJhfQ3AcAlH5WpR9IJIcAAAAASUVORK5CYII=",
+						"iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAACZJREFUSIntzTEBAAAIwzDAv+dhAr5UQNNJ6rN5vQMAAAAAAACctQu6Ay3XcgkWAAAAAElFTkSuQmCC"
 					]
 				},
 				"name": "Hero",

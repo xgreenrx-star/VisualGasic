@@ -1058,6 +1058,9 @@ func _make_visible(p_visible: bool) -> void:
 	# Show Tip of the Day on first visit to Form Designer this session
 	if p_visible and not _tip_shown_this_session:
 		_tip_shown_this_session = true
+		# Re-read config right before showing to avoid any race with _enter_tree
+		_load_tip_config()
+		print("[VG-TIP] _make_visible: show_tips_on_startup=", _show_tips_on_startup)
 		if _show_tips_on_startup:
 			call_deferred("_show_tip_of_day")
 
@@ -5473,10 +5476,14 @@ func _create_tip_of_day_dialog() -> void:
 	vbox.add_child(btn_row)
 
 	_tip_of_day_dialog = dialog
+	dialog.visible = false          # Don't auto-show; _show_tip_of_day() will popup_centered() when wanted
 	add_child(dialog)
 
 ## Shows the Tip of the Day dialog, advancing to the current tip index.
 func _show_tip_of_day() -> void:
+	print("[VG-TIP] _show_tip_of_day called, _show_tips_on_startup=", _show_tips_on_startup)
+	if not _show_tips_on_startup:
+		return
 	if not is_instance_valid(_tip_of_day_dialog):
 		_create_tip_of_day_dialog()
 	var tips := _get_tips()
@@ -5499,32 +5506,32 @@ func _on_next_tip() -> void:
 
 ## Checkbox toggled — update preference and persist immediately.
 func _on_tip_checkbox_toggled(pressed: bool) -> void:
+	print("[VG-TIP] Checkbox toggled: pressed=", pressed)
 	_show_tips_on_startup = pressed
 	_save_tip_config()
 
-## Loads Tip of the Day preferences from EditorSettings (global, cross-project).
-## Falls back to legacy per-project config file for migration, then deletes it.
+## Loads Tip of the Day preferences from a per-project config file.
 func _load_tip_config() -> void:
-	var es := EditorInterface.get_editor_settings()
-	if es.has_setting("visual_gasic/tip_of_day/show_on_startup"):
-		_show_tips_on_startup = es.get_setting("visual_gasic/tip_of_day/show_on_startup")
-		_tip_index = es.get_setting("visual_gasic/tip_of_day/last_index") if es.has_setting("visual_gasic/tip_of_day/last_index") else 0
+	var config := ConfigFile.new()
+	var path := "user://vg_tip_config.cfg"
+	var err := config.load(path)
+	print("[VG-TIP] _load_tip_config: path=", path, " err=", err)
+	if err == OK:
+		_show_tips_on_startup = config.get_value("tip_of_day", "show_on_startup", true)
+		_tip_index = config.get_value("tip_of_day", "last_index", 0)
+		print("[VG-TIP] Loaded: show_on_startup=", _show_tips_on_startup, " tip_index=", _tip_index)
 	else:
-		# Migrate from legacy per-project config file (user://vg_tip_config.cfg)
-		var config = ConfigFile.new()
-		if config.load("user://vg_tip_config.cfg") == OK:
-			_show_tips_on_startup = config.get_value("tip_of_day", "show_on_startup", true)
-			_tip_index = config.get_value("tip_of_day", "last_index", 0)
-			# Save to EditorSettings so we never need the file again
-			_save_tip_config()
-			# Clean up legacy file
-			DirAccess.remove_absolute(ProjectSettings.globalize_path("user://vg_tip_config.cfg"))
+		# First run — default is true, will be saved when user toggles checkbox
+		_show_tips_on_startup = true
+		_tip_index = 0
+		print("[VG-TIP] Config not found, using defaults")
 
-## Saves Tip of the Day preferences to EditorSettings (global, cross-project).
+## Saves Tip of the Day preferences to a per-project config file.
 func _save_tip_config() -> void:
-	var es := EditorInterface.get_editor_settings()
-	es.set_setting("visual_gasic/tip_of_day/show_on_startup", _show_tips_on_startup)
-	es.set_setting("visual_gasic/tip_of_day/last_index", _tip_index)
+	var config := ConfigFile.new()
+	config.set_value("tip_of_day", "show_on_startup", _show_tips_on_startup)
+	config.set_value("tip_of_day", "last_index", _tip_index)
+	config.save("user://vg_tip_config.cfg")
 
 # =============================================================================
 # VB6 STATUS BAR

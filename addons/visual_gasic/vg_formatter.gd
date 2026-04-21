@@ -66,15 +66,13 @@ class FormatOptions:
 const INDENT_KEYWORDS: Array[String] = [
 	"Sub", "Function", "Property", "Class", "Type", "Enum",
 	"If", "ElseIf", "Else", "For", "While", "Do", "Select Case", "Case",
-	"Try", "Catch", "Finally", "With", "Whenever",
-	"Oscillate", "Repeat", "Cycle", "Every"
+	"Try", "Catch", "Finally", "With", "Whenever"
 ]
 
 const DEDENT_KEYWORDS: Array[String] = [
 	"End Sub", "End Function", "End Property", "End Class", "End Type", "End Enum",
 	"End If", "Next", "Wend", "Loop", "End Select",
-	"End Try", "End With", "End Whenever", "End Class",
-	"End Repeat", "End Cycle", "End Every"
+	"End Try", "End With", "End Whenever", "End Class"
 ]
 
 const DEDENT_BEFORE_KEYWORDS: Array[String] = [
@@ -131,17 +129,6 @@ const VB6_KEYWORDS_PROPER_CASE: Dictionary = {
 	"changes": "Changes", "becomes": "Becomes", "exceeds": "Exceeds",
 	"below": "Below", "between": "Between", "contains": "Contains",
 	"suspend": "Suspend",
-	
-	# Game-Oriented Loop / Animation Commands
-	"oscillate": "Oscillate", "cycles": "Cycles",
-	"exit oscillate": "Exit Oscillate", "continue oscillate": "Continue Oscillate",
-	"repeat": "Repeat", "times": "Times", "end repeat": "End Repeat",
-	"exit repeat": "Exit Repeat", "continue repeat": "Continue Repeat",
-	"cycle": "Cycle", "through": "Through", "end cycle": "End Cycle",
-	"exit cycle": "Exit Cycle", "continue cycle": "Continue Cycle",
-	"every": "Every", "frames": "Frames", "seconds": "Seconds", "end every": "End Every",
-	"tween": "Tween", "over": "Over", "ease": "Ease", "trans": "Trans",
-	"from": "From",
 	
 	# Modern - Other
 	"with": "With", "end with": "End With",
@@ -238,15 +225,7 @@ static func format_text(text: String, options: FormatOptions = null) -> String:
 		
 		# Check for indent (Sub, If, For, etc.) - excluding single-line If
 		for keyword in INDENT_KEYWORDS:
-			var kw_upper = keyword.to_upper()
-			if stripped_upper.begins_with(kw_upper):
-				# Word boundary check: keyword must be the whole line,
-				# or followed by a space/tab/paren — not part of an identifier
-				var kw_len = kw_upper.length()
-				if stripped_upper.length() > kw_len:
-					var next_char = stripped_upper[kw_len]
-					if next_char != " " and next_char != "\t" and next_char != "(":
-						continue
+			if stripped_upper.begins_with(keyword.to_upper()):
 				# Special case: single-line If (If x Then y)
 				if keyword == "If" and "THEN" in stripped_upper:
 					var after_then = stripped_upper.split("THEN", true, 1)

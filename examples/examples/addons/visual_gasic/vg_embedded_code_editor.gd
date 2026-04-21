@@ -79,6 +79,14 @@ var _log_file_pos: int = 0                 # byte offset for incremental reads
 var _log_timer: Timer = null               # polls log file every 0.5s
 var _log_max_lines: int = 500              # keep console from growing unbounded
 
+## Error reporting state
+var _error_list: ItemList = null            # Errors tab: clickable error list
+var _errors_container: VBoxContainer = null # Errors tab container
+var _error_count_label: Label = null        # Status bar: "3 Errors, 1 Warning"
+var _current_errors: Array = []             # Array of {line, column, message}
+var _current_warnings: Array = []           # Array of {line, column, message}
+var _is_validating: bool = false            # Re-entrancy guard (validate→save→validate)
+
 # VB6 cream theme colors
 const BG_COLOR := Color(0.96, 0.95, 0.92)         # warm cream — easy on the eyes
 const TEXT_COLOR := Color(0.1, 0.1, 0.1)           # near-black text
@@ -145,6 +153,17 @@ func _build_ui() -> void:
 	_proc_combo.item_selected.connect(_on_proc_selected)
 	VGTheme.hook_option_button(_proc_combo)
 	nav_hbox.add_child(_proc_combo)
+
+	# Error count indicator (right-aligned in nav bar)
+	_error_count_label = Label.new()
+	_error_count_label.name = "ErrorCountLabel"
+	_error_count_label.text = ""
+	_error_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_error_count_label.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_error_count_label.add_theme_font_size_override("font_size", 11)
+	_error_count_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	_error_count_label.custom_minimum_size.x = 140
+	nav_hbox.add_child(_error_count_label)
 
 	nav_panel.add_child(nav_hbox)
 	add_child(nav_panel)
@@ -351,6 +370,31 @@ func _build_bottom_panel() -> void:
 	console_container.add_child(_console_text)
 	_bottom_tabs.add_child(console_container)
 
+	# Tab 3: Errors — clickable error list (VB6-style)
+	_errors_container = VBoxContainer.new()
+	_errors_container.name = "Errors"
+	_errors_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_errors_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_error_list = ItemList.new()
+	_error_list.name = "ErrorList"
+	_error_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_error_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_error_list.allow_reselect = true
+	_error_list.select_mode = ItemList.SELECT_SINGLE
+	var err_sb := StyleBoxFlat.new()
+	err_sb.bg_color = Color(0.96, 0.95, 0.92)
+	err_sb.content_margin_left = 4
+	err_sb.content_margin_right = 4
+	err_sb.content_margin_top = 2
+	err_sb.content_margin_bottom = 2
+	_error_list.add_theme_stylebox_override("panel", err_sb)
+	_error_list.add_theme_font_size_override("font_size", 11)
+	_error_list.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+	_error_list.item_selected.connect(_on_error_item_selected)
+	_error_list.item_activated.connect(_on_error_item_activated)
+	_errors_container.add_child(_error_list)
+	_bottom_tabs.add_child(_errors_container)
+
 	_bottom_panel.add_child(_bottom_tabs)
 	# Don't add_child here — _build_ui() adds _bottom_panel to the VSplitContainer
 
@@ -445,6 +489,203 @@ func clear_console() -> void:
 	if _console_text:
 		_console_text.clear()
 		_console_text.append_text("[color=#6688aa]Console cleared.[/color]\n")
+
+## Switch to the Errors tab.
+func focus_errors() -> void:
+	if _bottom_tabs and _errors_container:
+		var idx := _errors_container.get_index()
+		if idx >= 0:
+			_bottom_tabs.current_tab = idx
+
+# =============================================================================
+# ERROR REPORTING: Validate, display, navigate
+# =============================================================================
+
+## Validate the current .vg file using the C++ parser.
+## Returns true if the code is error-free, false otherwise.
+## Automatically updates: error gutter, line backgrounds, Output tab,
+## Errors tab, and status bar error count.
+func validate_code() -> bool:
+	if _is_validating:
+		return true  # Prevent re-entrancy (validate → save → validate)
+	if not _code_edit or _vg_path.is_empty():
+		return true  # Nothing to validate
+
+	_is_validating = true
+	var source: String = _code_edit.text
+
+	# Use the ClassDB-bound static method (no ScriptServer dance needed)
+	var result: Dictionary = {}
+	if ClassDB.class_exists(&"VisualGasicLanguage") and ClassDB.class_has_method(&"VisualGasicLanguage", &"vg_validate_code"):
+		result = VisualGasicLanguage.vg_validate_code(source, _vg_path)
+	else:
+		# GDExtension not loaded yet — skip validation silently
+		_is_validating = false
+		return true
+
+	var errors: Array = result.get("errors", [])
+	var warnings: Array = result.get("warnings", [])
+	var is_valid: bool = result.get("valid", true)
+
+	_apply_validation_results(errors, warnings)
+	_is_validating = false
+	return is_valid
+
+## Fallback validation: load the .vg as a script and check reload status.
+## NOTE: Does NOT call save_file() to avoid infinite recursion.
+func _validate_via_script_resource() -> bool:
+	# Only usable if the file already exists on disk
+	if not FileAccess.file_exists(_vg_path):
+		return true  # Can't validate an unsaved file this way
+
+	var script = ResourceLoader.load(_vg_path, "Script", ResourceLoader.CACHE_MODE_IGNORE)
+	if not script:
+		_apply_validation_results([{"line": 1, "column": 0, "message": "Cannot load script: " + _vg_path}], [])
+		return false
+
+	# Script.reload() returns an Error enum — non-OK means parse failure
+	var err: int = script.reload()
+	if err != OK:
+		_apply_validation_results([{"line": 1, "column": 0, "message": "Script has parse errors (code %d)" % err}], [])
+		return false
+
+	_apply_validation_results([], [])
+	return true
+
+## Apply validation results to all UI elements.
+func _apply_validation_results(errors: Array, warnings: Array) -> void:
+	_current_errors = errors
+	_current_warnings = warnings
+
+	# 1. Update code editor error gutter + line backgrounds
+	if _code_edit and _code_edit.has_method("set_errors"):
+		if errors.is_empty():
+			_code_edit.clear_errors()
+		else:
+			_code_edit.set_errors(errors)
+
+	# 2. Update Errors tab (ItemList)
+	_update_errors_tab(errors, warnings)
+
+	# 3. Update Output tab with error messages
+	_update_output_with_errors(errors, warnings)
+
+	# 4. Update status bar error count
+	_update_error_count_label(errors.size(), warnings.size())
+
+	# 5. If errors exist, switch to Errors tab
+	if not errors.is_empty():
+		focus_errors()
+
+## Populate the Errors tab ItemList.
+func _update_errors_tab(errors: Array, warnings: Array) -> void:
+	if not _error_list:
+		return
+	_error_list.clear()
+
+	for err in errors:
+		var line_num: int = err.get("line", 0)
+		var msg: String = err.get("message", "Unknown error")
+		var display_text: String = "  ✖  Line %d: %s" % [line_num, msg]
+		var idx: int = _error_list.add_item(display_text)
+		_error_list.set_item_metadata(idx, {"line": line_num, "type": "error"})
+		_error_list.set_item_custom_fg_color(idx, Color(0.7, 0.1, 0.1))
+
+	for warn in warnings:
+		var line_num: int = warn.get("line", 0)
+		var msg: String = warn.get("message", "Unknown warning")
+		var display_text: String = "  ⚠  Line %d: %s" % [line_num, msg]
+		var idx: int = _error_list.add_item(display_text)
+		_error_list.set_item_metadata(idx, {"line": line_num, "type": "warning"})
+		_error_list.set_item_custom_fg_color(idx, Color(0.7, 0.5, 0.0))
+
+## Write errors/warnings to the Output tab.
+func _update_output_with_errors(errors: Array, warnings: Array) -> void:
+	if not _output_text:
+		return
+
+	if errors.is_empty() and warnings.is_empty():
+		return
+
+	# Header
+	var timestamp: String = Time.get_time_string_from_system()
+	append_output("─── Compile Results [%s] ───" % timestamp, Color(0.3, 0.3, 0.5))
+
+	for err in errors:
+		var line_num: int = err.get("line", 0)
+		var msg: String = err.get("message", "Unknown error")
+		append_output("  ✖  Error on line %d: %s" % [line_num, msg], Color(0.8, 0.1, 0.1))
+
+	for warn in warnings:
+		var line_num: int = warn.get("line", 0)
+		var msg: String = warn.get("message", "")
+		append_output("  ⚠  Warning on line %d: %s" % [line_num, msg], Color(0.7, 0.5, 0.0))
+
+	if not errors.is_empty():
+		append_output("  %d error(s) found. Fix errors before running." % errors.size(), Color(0.6, 0.1, 0.1))
+	elif not warnings.is_empty():
+		append_output("  %d warning(s)." % warnings.size(), Color(0.6, 0.5, 0.0))
+
+## Update the error count label in the toolbar.
+func _update_error_count_label(error_count: int, warning_count: int) -> void:
+	if not _error_count_label:
+		return
+
+	if error_count == 0 and warning_count == 0:
+		_error_count_label.text = "✓ No Errors"
+		_error_count_label.add_theme_color_override("font_color", Color(0.2, 0.5, 0.2))
+	else:
+		var parts: Array[String] = []
+		if error_count > 0:
+			parts.append("%d Error%s" % [error_count, "s" if error_count != 1 else ""])
+		if warning_count > 0:
+			parts.append("%d Warning%s" % [warning_count, "s" if warning_count != 1 else ""])
+		_error_count_label.text = "✖ " + ", ".join(parts)
+		if error_count > 0:
+			_error_count_label.add_theme_color_override("font_color", Color(0.8, 0.1, 0.1))
+		else:
+			_error_count_label.add_theme_color_override("font_color", Color(0.7, 0.5, 0.0))
+
+## Returns the current error count.
+func get_error_count() -> int:
+	return _current_errors.size()
+
+## Returns the current errors array.
+func get_current_errors() -> Array:
+	return _current_errors
+
+## Returns the current warnings array.
+func get_current_warnings() -> Array:
+	return _current_warnings
+
+# ── Error navigation callbacks ──
+
+## Single-click in error list: navigate to that line.
+func _on_error_item_selected(index: int) -> void:
+	_navigate_to_error(index)
+
+## Double-click in error list: navigate and focus the code editor.
+func _on_error_item_activated(index: int) -> void:
+	_navigate_to_error(index)
+	if _code_edit:
+		_code_edit.grab_focus()
+
+## Navigate to the error's line in the code editor.
+func _navigate_to_error(index: int) -> void:
+	if not _error_list or not _code_edit:
+		return
+	if index < 0 or index >= _error_list.item_count:
+		return
+	var meta = _error_list.get_item_metadata(index)
+	if meta is Dictionary:
+		var line_1based: int = meta.get("line", 0)
+		if line_1based > 0:
+			var line_0based: int = line_1based - 1
+			_code_edit.set_caret_line(line_0based)
+			_code_edit.set_caret_column(0)
+			_code_edit.center_viewport_to_caret()
+			# Also select the line briefly for visibility
+			_code_edit.select(line_0based, 0, line_0based, _code_edit.get_line(line_0based).length())
 
 # =============================================================================
 # SYSTEM CONSOLE: Godot log file tailing (works on all platforms)
@@ -1026,6 +1267,8 @@ func load_file(path: String) -> void:
 		# Load bookmarks for this file
 		if _code_edit.has_method("load_bookmarks"):
 			_code_edit.load_bookmarks(path)
+		# Validate code and display any errors
+		call_deferred("validate_code")
 		# Update status
 		print("VG Code Editor: Loaded ", path)
 	else:
@@ -1050,6 +1293,8 @@ func save_file() -> void:
 		if Engine.is_editor_hint():
 			EditorInterface.get_resource_filesystem().update_file(_vg_path)
 		code_saved.emit(_vg_path)
+		# Re-validate after save
+		validate_code()
 		print("VG Code Editor: Saved ", _vg_path)
 
 ## Returns the currently loaded file path.
@@ -1070,6 +1315,25 @@ func get_code_edit() -> CodeEdit:
 
 ## Ensure a Sub stub exists for the given event, and navigate the caret to it.
 ## If it already exists, just jump to it.
+## Explicitly select an object in the Object dropdown and show its event list,
+## then highlight the specified event. Called from the 3D editor after double-click.
+func select_object_and_event(obj_name: String, event_name: String) -> void:
+	if not _object_combo:
+		return
+	# Find and select the object
+	for i in _object_combo.item_count:
+		if _object_combo.get_item_text(i) == obj_name:
+			_object_combo.select(i)
+			_rebuild_event_list_for_object(obj_name)
+			# Now highlight the specific event in the proc dropdown
+			for j in _proc_combo.item_count:
+				var meta = _proc_combo.get_item_metadata(j)
+				if meta is Dictionary and meta.get("event_name", "") == event_name:
+					_proc_combo.select(j)
+					break
+			_update_index_map_for_current_object()
+			return
+
 func ensure_event_handler(sub_name: String, params: String = "") -> void:
 	if not _code_edit:
 		return
@@ -1220,12 +1484,15 @@ func _rebuild_object_combo() -> void:
 		_object_combo.add_item(ctrl_name)
 
 ## Sets the list of form control names for the Object dropdown.
-func set_control_names(names: Array[String]) -> void:
-	_control_names = names
+func set_control_names(names: Array) -> void:
+	var typed_names: Array[String] = []
+	for n in names:
+		typed_names.append(str(n))
+	_control_names = typed_names
 	_rebuild_object_combo()
 	# Forward to VGCodeEdit so auto-complete can suggest control names
 	if _code_edit and _code_edit.has_method("set_known_controls"):
-		_code_edit.set_known_controls(names)
+		_code_edit.set_known_controls(typed_names)
 
 ## Sets the form name so Form1. works like Me. in IntelliSense.
 func set_form_name(form_name: String) -> void:
@@ -1341,7 +1608,8 @@ func _update_proc_selection_for_object(obj_name: String) -> void:
 
 	if current_proc.is_empty():
 		# Not inside any proc — select first item
-		_proc_combo.select(0)
+		if _proc_combo.item_count > 0:
+			_proc_combo.select(0)
 		return
 
 	# If current proc belongs to this object, find its event
@@ -1437,6 +1705,55 @@ static func _get_event_params(event_name: String) -> String:
 			return ""
 		"SelChange":
 			return ""
+		# ── 3D events ──
+		"Process", "PhysicsProcess":
+			return "Delta As Single"
+		"Ready", "EnterTree", "ExitTree":
+			return ""
+		"Input", "UnhandledInput":
+			return "Event As InputEvent"
+		"BodyEntered":
+			return "Body As Node"
+		"BodyExited":
+			return "Body As Node"
+		"AreaEntered":
+			return "Area As Area3D"
+		"AreaExited":
+			return "Area As Area3D"
+		"SleepingStateChanged":
+			return ""
+		"BodyShapeEntered":
+			return "BodyRID As RID, Body As Node, BodyShapeIndex As Integer, LocalShapeIndex As Integer"
+		"BodyShapeExited":
+			return "BodyRID As RID, Body As Node, BodyShapeIndex As Integer, LocalShapeIndex As Integer"
+		"AreaShapeEntered":
+			return "AreaRID As RID, Area As Area3D, AreaShapeIndex As Integer, LocalShapeIndex As Integer"
+		"AreaShapeExited":
+			return "AreaRID As RID, Area As Area3D, AreaShapeIndex As Integer, LocalShapeIndex As Integer"
+		"VisibilityChanged":
+			return ""
+		"Renamed":
+			return ""
+		"ChildEnteredTree":
+			return "Node As Node"
+		"ChildExitingTree":
+			return "Node As Node"
+		"AnimationFinished":
+			return ""
+		"FrameChanged":
+			return ""
+		"Finished":
+			return ""
+		"NavigationFinished":
+			return ""
+		"WaypointReached":
+			return "Details As Dictionary"
+		"TargetReached":
+			return ""
+		"PathChanged":
+			return ""
+		"VelocityComputed":
+			return "SafeVelocity As Vector3"
 		_:
 			return ""
 

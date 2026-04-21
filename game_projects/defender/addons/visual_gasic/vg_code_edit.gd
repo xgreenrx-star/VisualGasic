@@ -91,13 +91,6 @@ var _bookmarks: Dictionary = {}       # line_number(0-based) → true
 var _bookmark_overlay: Control = null  # Overlay drawn in gutter for bookmark icons
 var _features_overlay: Control = null  # Overlay for rainbow brackets, highlights, change tracking
 
-# Error markers — red gutter icons + pale red line backgrounds
-var _error_lines: Dictionary = {}     # line_number(0-based) → error message string
-var _error_gutter_idx: int = -1       # gutter column index (set in _ready)
-var _prev_error_lines: Dictionary = {} # track which lines we coloured so clear_errors only resets those
-const ERROR_LINE_BG := Color(1.0, 0.85, 0.85, 0.35)  # pale red background for error lines
-const ERROR_GUTTER_COLOR := Color(0.9, 0.15, 0.15, 0.95)  # red circle in gutter
-
 # VB6 keywords with correct casing (for auto-capitalize on line leave)
 const VB6_KEYWORD_CASING: Dictionary = {
 	"dim": "Dim", "sub": "Sub", "function": "Function", "end": "End",
@@ -367,15 +360,6 @@ func _setup_auto_indent() -> void:
 	set_gutter_width(0, 4)
 	set_gutter_draw(0, true)
 	set_gutter_name(0, "change_tracking")
-
-	# ── Add custom gutter for error markers (red circles, after breakpoints) ──
-	# Insert at the end so it appears right of the breakpoint gutter
-	_error_gutter_idx = get_gutter_count()
-	add_gutter(_error_gutter_idx)
-	set_gutter_type(_error_gutter_idx, TextEdit.GUTTER_TYPE_CUSTOM)
-	set_gutter_width(_error_gutter_idx, 14)
-	set_gutter_draw(_error_gutter_idx, true)
-	set_gutter_name(_error_gutter_idx, "error_markers")
 
 ## IDs for the right-click context menu items.
 enum ContextMenuItem {
@@ -756,7 +740,6 @@ func _on_features_overlay_draw() -> void:
 	_draw_rainbow_brackets(first_visible, last_visible)
 	_draw_semantic_underlines(first_visible, last_visible)
 	_draw_change_tracking(first_visible, last_visible)
-	_draw_error_markers(first_visible, last_visible)
 	_draw_minimap_markers()
 
 func _connect_signals() -> void:
@@ -2851,94 +2834,6 @@ func _draw_change_tracking(first_visible: int, last_visible: int) -> void:
 				# Yellow: unsaved change (different from both base and last save)
 				_features_overlay.draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
 						  Color(0.9, 0.8, 0.2, 0.9))
-
-# =============================================================================
-# ERROR MARKERS — red gutter circles + pale red line backgrounds
-# =============================================================================
-
-## Set error lines from an array of {line: int, message: String} dicts (1-based lines).
-## Clears previous errors first.
-func set_errors(errors: Array) -> void:
-	# Clear only the lines we previously coloured
-	_clear_error_backgrounds()
-	_error_lines.clear()
-	for err in errors:
-		if err is Dictionary:
-			var line_1based: int = err.get("line", 0)
-			var msg: String = err.get("message", "Unknown error")
-			if line_1based > 0:
-				_error_lines[line_1based - 1] = msg  # Store as 0-based
-	# Apply new backgrounds and remember which lines we coloured
-	_apply_error_line_backgrounds()
-	queue_redraw()
-
-## Clear all error markers.
-func clear_errors() -> void:
-	_clear_error_backgrounds()
-	_error_lines.clear()
-	queue_redraw()
-
-## Returns the current error lines dictionary (0-based line → message).
-func get_error_lines() -> Dictionary:
-	return _error_lines
-
-## Remove pale-red background only from lines we previously set (preserves
-## bookmarks, debugger highlights, etc.).
-func _clear_error_backgrounds() -> void:
-	var lc := get_line_count()
-	for line_idx in _prev_error_lines:
-		if line_idx >= 0 and line_idx < lc:
-			set_line_background_color(line_idx, Color(0, 0, 0, 0))
-	_prev_error_lines.clear()
-
-## Apply pale red background to all current error lines.
-func _apply_error_line_backgrounds() -> void:
-	var lc := get_line_count()
-	for line_idx in _error_lines:
-		if line_idx >= 0 and line_idx < lc:
-			set_line_background_color(line_idx, ERROR_LINE_BG)
-			_prev_error_lines[line_idx] = true
-
-## Draw red circle error icons in the error gutter for visible lines.
-func _draw_error_markers(first_visible: int, last_visible: int) -> void:
-	if _error_lines.is_empty() or not is_inside_tree():
-		return
-
-	# Use the stored error gutter index (set in _ready)
-	var eg: int = _error_gutter_idx
-	if eg < 0 or eg >= get_gutter_count():
-		return
-
-	# Compute the X offset: sum widths of all gutters before ours
-	var gutter_x_offset := 0.0
-	for g in range(eg):
-		gutter_x_offset += float(get_gutter_width(g))
-	var gutter_w := float(get_gutter_width(eg))
-
-	var row_height := get_line_height()
-
-	for line_idx in range(first_visible, mini(last_visible, get_line_count())):
-		if not _error_lines.has(line_idx):
-			continue
-
-		# get_pos_at_line_column returns the TOP of the character at (line, col)
-		var pos := get_pos_at_line_column(line_idx, 0)
-		if pos.y < 0:
-			continue
-		# The position already points to the top of the line's text area
-		var y := float(pos.y)
-
-		# Draw a red filled circle centred in our gutter column
-		var circle_x := gutter_x_offset + gutter_w / 2.0
-		var circle_y := y + (row_height / 2.0)
-		var radius := mini(row_height, 14) / 2.0 - 1.0
-		_features_overlay.draw_circle(Vector2(circle_x, circle_y), radius, ERROR_GUTTER_COLOR)
-
-		# Draw a white "!" in the centre
-		var font: Font = get_theme_font("font")
-		if font:
-			var char_size := font.get_string_size("!", HORIZONTAL_ALIGNMENT_CENTER, -1, 9)
-			_features_overlay.draw_string(font, Vector2(circle_x - char_size.x / 2.0, circle_y + char_size.y / 2.0 - 1.0), "!", HORIZONTAL_ALIGNMENT_CENTER, -1, 9, Color.WHITE)
 
 # =============================================================================
 # MINIMAP OCCURRENCE MARKERS — thin markers on right edge showing all matches

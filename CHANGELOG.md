@@ -5,6 +5,21 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.1-beta4] - 2026-04-19
+
+### 🎨 Sprite Editor Enhancements
+
+#### Added — VG Sprite Editor
+- **Magic Wand tool** (shortcut `W`) — Flood-selects contiguous pixels of matching color with 5% per-channel tolerance, creating a bounding-box selection. Completes the Aseprite-like selection toolkit alongside rectangular Select and Move.
+- **Import Palette** — Load palettes from `.gpl` (GIMP), `.hex` (Lospec/Aseprite), `.pal` (Paint.NET/JASC), and `.txt` files via file dialog. Parsed colors replace the active palette grid.
+- **Export Palette** — Save the current palette swatches as a GIMP `.gpl` file for use in external editors.
+
+#### Added — AGCK Actor Editor
+- **FPS control SpinBox** (1–30, default 8) — Adjustable animation preview frame rate in the frame toolbar. Previously hardcoded at ~6.7 FPS (150ms). Updates the preview timer in real-time.
+- **Frame clipboard** (previous beta) — Copy/Paste buttons for frame-level clipboard operations, replacing the old inline-only Duplicate behavior.
+
+---
+
 ## [5.0.1-beta3] - 2026-04-18
 
 ### 🎮 VG 2D Editor & AGCK Fixes
