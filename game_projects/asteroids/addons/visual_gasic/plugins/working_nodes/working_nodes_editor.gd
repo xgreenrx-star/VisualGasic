@@ -77,9 +77,7 @@ func _ensure_initialized() -> void:
 	name = "WorkingNodesEditor"
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# ScrollContainer children can collapse to 0×0 without explicit minimum size.
-	custom_minimum_size = Vector2(1600, 900)
-	set_anchors_preset(Control.PRESET_TOP_LEFT)
+	set_anchors_preset(Control.PRESET_FULL_RECT)
 	_build_ui()
 	_new_graph()
 
