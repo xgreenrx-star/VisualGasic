@@ -98,6 +98,7 @@ func _build_ui() -> void:
 	top_banner.add_child(banner_row)
 	add_child(top_banner)
 
+	# ─ Toolbar row 1: File + Export + Add nodes ──────────────────────────
 	var toolbar := HBoxContainer.new()
 	toolbar.add_theme_constant_override("separation", 6)
 	add_child(toolbar)
@@ -122,8 +123,7 @@ func _build_ui() -> void:
 	btn_load.pressed.connect(func(): _load_dialog.popup_centered_ratio())
 	toolbar.add_child(btn_load)
 
-	var sep_export := VSeparator.new()
-	toolbar.add_child(sep_export)
+	toolbar.add_child(VSeparator.new())
 
 	var btn_export_vg := Button.new()
 	btn_export_vg.text = "▶ Export VG"
@@ -143,8 +143,7 @@ func _build_ui() -> void:
 	btn_export_3d.pressed.connect(_on_export_scene_3d_pressed)
 	toolbar.add_child(btn_export_3d)
 
-	var sep := VSeparator.new()
-	toolbar.add_child(sep)
+	toolbar.add_child(VSeparator.new())
 
 	var btn_event := Button.new()
 	btn_event.text = "+ Event"
@@ -166,49 +165,60 @@ func _build_ui() -> void:
 	btn_connect.pressed.connect(_smart_connect_selected)
 	toolbar.add_child(btn_connect)
 
+	# ─ Toolbar row 2: Groups + View controls ─────────────────────────────
+	var toolbar_mid := HBoxContainer.new()
+	toolbar_mid.add_theme_constant_override("separation", 6)
+	add_child(toolbar_mid)
+
 	var btn_group := Button.new()
 	btn_group.text = "+ Group"
 	btn_group.pressed.connect(_create_group_from_selection)
-	toolbar.add_child(btn_group)
+	toolbar_mid.add_child(btn_group)
 
 	var btn_assign := Button.new()
 	btn_assign.text = "Assign Group"
 	btn_assign.pressed.connect(_assign_selected_nodes_to_active_groups)
-	toolbar.add_child(btn_assign)
+	toolbar_mid.add_child(btn_assign)
+
+	toolbar_mid.add_child(VSeparator.new())
 
 	_show_all_wires = CheckButton.new()
 	_show_all_wires.text = "All wires"
 	_show_all_wires.toggled.connect(func(_v): _queue_wire_redraw())
-	toolbar.add_child(_show_all_wires)
+	toolbar_mid.add_child(_show_all_wires)
 
 	_smart_routing = CheckButton.new()
 	_smart_routing.text = "Smart wiring"
 	_smart_routing.button_pressed = true
 	_smart_routing.toggled.connect(func(_v): _queue_wire_redraw())
-	toolbar.add_child(_smart_routing)
+	toolbar_mid.add_child(_smart_routing)
+
+	toolbar_mid.add_child(VSeparator.new())
 
 	var wire_label := Label.new()
 	wire_label.text = "Wire Group:"
-	toolbar.add_child(wire_label)
+	toolbar_mid.add_child(wire_label)
 
 	_group_filter = OptionButton.new()
 	_group_filter.custom_minimum_size = Vector2(140, 0)
 	_group_filter.item_selected.connect(func(_i): _queue_wire_redraw())
-	toolbar.add_child(_group_filter)
+	toolbar_mid.add_child(_group_filter)
+
+	toolbar_mid.add_child(VSeparator.new())
 
 	var color_label := Label.new()
 	color_label.text = "Node Color:"
-	toolbar.add_child(color_label)
+	toolbar_mid.add_child(color_label)
 
 	_node_color_picker = ColorPickerButton.new()
 	_node_color_picker.custom_minimum_size = Vector2(32, 0)
 	_node_color_picker.color_changed.connect(_on_node_color_changed)
-	toolbar.add_child(_node_color_picker)
+	toolbar_mid.add_child(_node_color_picker)
 
 	var path_lbl := Label.new()
-	path_lbl.text = "Format: .wnodes"
+	path_lbl.text = "  Format: .wnodes"
 	path_lbl.add_theme_color_override("font_color", Color(0.65, 0.65, 0.72))
-	toolbar.add_child(path_lbl)
+	toolbar_mid.add_child(path_lbl)
 
 	# ─ Toolbar row 2: editor utilities ────────────────────────────────
 	var toolbar2 := HBoxContainer.new()
