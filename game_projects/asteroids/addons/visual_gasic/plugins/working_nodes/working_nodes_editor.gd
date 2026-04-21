@@ -160,15 +160,18 @@ func _build_ui() -> void:
 	btn_math.pressed.connect(func(): _add_node(TYPE_MATH))
 	toolbar.add_child(btn_math)
 
-	var btn_connect := Button.new()
-	btn_connect.text = "Connect Selected"
-	btn_connect.pressed.connect(_smart_connect_selected)
-	toolbar.add_child(btn_connect)
-
 	# ─ Toolbar row 2: Groups + View controls ─────────────────────────────
 	var toolbar_mid := HBoxContainer.new()
 	toolbar_mid.add_theme_constant_override("separation", 6)
 	add_child(toolbar_mid)
+
+	var btn_connect := Button.new()
+	btn_connect.text = "Connect"
+	btn_connect.tooltip_text = "Connect selected nodes left-to-right"
+	btn_connect.pressed.connect(_smart_connect_selected)
+	toolbar_mid.add_child(btn_connect)
+
+	toolbar_mid.add_child(VSeparator.new())
 
 	var btn_group := Button.new()
 	btn_group.text = "+ Group"
@@ -833,6 +836,16 @@ func _passes_selection_visibility(conn: Dictionary) -> bool:
 		return false
 	return int(conn.get("group", -999)) in selected_groups
 
+func _node_port_pos(node_name: String, is_output: bool, port: int) -> Vector2:
+	var n: GraphNode = _nodes.get(node_name, null)
+	if n == null or not is_instance_valid(n):
+		return Vector2.ZERO
+	var base := n.position_offset - _graph.scroll_offset
+	if is_output:
+		return base + n.get_output_port_position(port)
+	else:
+		return base + n.get_input_port_position(port)
+
 func _node_center_in_overlay(node_name: String) -> Vector2:
 	var n: GraphNode = _nodes.get(node_name, null)
 	if n == null or not is_instance_valid(n):
@@ -865,8 +878,8 @@ func _get_visible_connections_for_overlay() -> Array:
 			continue
 		if not _passes_selection_visibility(conn):
 			continue
-		var start := _node_center_in_overlay(conn.get("from", ""))
-		var fin := _node_center_in_overlay(conn.get("to", ""))
+		var start := _node_port_pos(conn.get("from", ""), true,  int(conn.get("from_port", 0)))
+		var fin   := _node_port_pos(conn.get("to",   ""), false, int(conn.get("to_port",   0)))
 		var lane_key := "%s_%s" % [str(conn.get("group", 0)), str(round((start.x + fin.x) / 120.0))]
 		if not lane_counter.has(lane_key):
 			lane_counter[lane_key] = 0
