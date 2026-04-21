@@ -215,12 +215,7 @@ func _build_ui() -> void:
 	_node_color_picker.color_changed.connect(_on_node_color_changed)
 	toolbar_mid.add_child(_node_color_picker)
 
-	var path_lbl := Label.new()
-	path_lbl.text = "  Format: .wnodes"
-	path_lbl.add_theme_color_override("font_color", Color(0.65, 0.65, 0.72))
-	toolbar_mid.add_child(path_lbl)
-
-	# ─ Toolbar row 2: editor utilities ────────────────────────────────
+	# ─ Toolbar row 3: editor utilities ────────────────────────────────
 	var toolbar2 := HBoxContainer.new()
 	toolbar2.add_theme_constant_override("separation", 4)
 	add_child(toolbar2)
