@@ -322,6 +322,8 @@ func _build_inline_fallback(host: Control, reason: String) -> void:
 	_wn_btn(row4, "📥 Import VG", _show_import_vg_dialog)
 	row4.add_child(VSeparator.new())
 	_wn_btn(row4, "✓ Validate", _fallback_validate_graph)
+	row4.add_child(VSeparator.new())
+	_wn_btn(row4, "📖 Help", _open_manual)
 
 	# ── GraphEdit ─────────────────────────────────────────────────────────
 	var graph := GraphEdit.new()
@@ -1740,6 +1742,11 @@ func _fallback_show_exec_order_animated() -> void:
 # ══════════════════════════════════════════════════════════════════════════════
 
 var _fallback_clipboard_data: String = ""
+
+
+func _open_manual() -> void:
+	var res_path := "res://addons/visual_gasic/plugins/working_nodes/WORKING_NODES_MANUAL.md"
+	OS.shell_open(ProjectSettings.globalize_path(res_path))
 
 
 func _fallback_copy_selected() -> void:

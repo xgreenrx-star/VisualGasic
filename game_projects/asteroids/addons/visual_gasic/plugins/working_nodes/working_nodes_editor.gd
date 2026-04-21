@@ -263,6 +263,14 @@ func _build_ui() -> void:
 	palette_hint.add_theme_color_override("font_color", Color(0.60, 0.75, 0.50))
 	toolbar2.add_child(palette_hint)
 
+	toolbar2.add_child(VSeparator.new())
+
+	var btn_help := Button.new()
+	btn_help.text = "📖 Help"
+	btn_help.tooltip_text = "Open the Working Nodes manual"
+	btn_help.pressed.connect(_open_manual)
+	toolbar2.add_child(btn_help)
+
 	var body := HSplitContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1402,6 +1410,11 @@ func _serialize_nodes_with_bp() -> Array:
 # ══════════════════════════════════════════════════════════════════════════════
 # NOTE: _input is already defined above for RMB pan — we EXTEND it here via
 # a helper so both parts can coexist cleanly without overwriting each other.
+
+func _open_manual() -> void:
+	var res_path := "res://addons/visual_gasic/plugins/working_nodes/WORKING_NODES_MANUAL.md"
+	OS.shell_open(ProjectSettings.globalize_path(res_path))
+
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if _graph == null or not is_instance_valid(_graph): return
