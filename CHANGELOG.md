@@ -5,6 +5,38 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.1-beta5] - 2026-04-22
+
+### 🆕 New — Working Nodes Visual Scripting Plugin
+- Node-graph visual scripting editor shipped as a first-class VG plugin.
+- Wire-based graph editor with ports, curved bezier connections, and zoom / pan / snap.
+- Two-row toolbar (File / Edit / View / Run on row 1, node palette on row 2) that no longer overflows at narrow widths.
+- **📖 Help** button opens the Working Nodes manual in the system viewer.
+- Standard File dialog integration (Open / Save / Save As).
+
+### ✨ Improved — Code Editor Save Semantics
+- **Ctrl+S** in the Form Designer now always saves the active `.vg` code buffer (previously only the `.tscn` was saved).
+- **Run Project** flushes the in-memory buffer to disk so the game runs the latest code — but does **not** clear the dirty indicator. Only Ctrl+S / File → Save formally saves.
+
+### 🎛️ Fixed — IDE Layout (Form / 2D / 3D / Sprite views)
+- New `CenterStack` `MarginContainer` wraps all center editors. Previously, six direct children were stacked under an `HSplitContainer`, which only lays out its first two children — causing 2D / 3D / Sprite views to render blank.
+- Right-side panels (Project Explorer + Properties) remain visible when switching to 2D, 3D, or Sprite view. They no longer force-dock and hide Godot's own editors.
+- `undock_vg_panels()` always runs its cleanup step (previously early-returned when the IDE was already built).
+
+### 🕹️ Fixed — AGCK Game Engine
+- **Level swapping** properly removes the old level's nodes from the scene tree before adding the new one. Fixes:
+  - Level 2 blank screen (stale `Camera2D.current` from the previous level).
+  - Lives counter going negative after death (stale level nodes still parented).
+  - `NextLevel`, `GoToLevel`, and `LoseLife` (Case 0) codegen all emit the new pattern.
+- **Hero invincibility blink** is now time-based (10 Hz) instead of per-physics-frame, so the sprite actually appears to flash during invincibility.
+
+### 🧩 Fixed — FormDesigner C++
+- Removed per-frame `"FormDesigner: Set preview texture for..."` debug `print()` that spammed the Output panel at ~15 fps.
+- Live preview manager is frozen when the main screen is not the Form Designer.
+
+### 📦 Fixed — Sample Project
+- `game_projects/platformer_2d` — missing `vg_2d_editor.gd` / `vg_3d_editor.gd` in the shipped addon folder.
+
 ## [5.0.1-beta4] - 2026-04-19
 
 ### 🎨 Sprite Editor Enhancements

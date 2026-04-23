@@ -746,6 +746,17 @@ func _enter_tree():
 		canvas_right_split.add_theme_constant_override("separation", 6)
 		canvas_right_split.add_theme_constant_override("minimum_grab_thickness", 8)
 
+		# ── Center stack: holds all swappable editors (canvas, code, 2D, 3D, sprite).
+		# HSplitContainer only lays out 2 children correctly, so we wrap the
+		# editors in a single MarginContainer that expands every child to fill
+		# its area. Only one editor is visible at a time; the others sit
+		# hidden in the stack.
+		var center_stack = MarginContainer.new()
+		center_stack.name = "CenterStack"
+		center_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		center_stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		canvas_right_split.add_child(center_stack)
+
 		# ── Scrollable MDI workspace (canvas center) ──
 		var canvas_scroll = ScrollContainer.new()
 		canvas_scroll.name = "CanvasScroll"
@@ -756,15 +767,17 @@ func _enter_tree():
 		_form_designer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_form_designer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		canvas_scroll.add_child(_form_designer)
-		canvas_right_split.add_child(canvas_scroll)
+		center_stack.add_child(canvas_scroll)
 
 		# ── Embedded Code Editor (hidden by default, replaces canvas on View Code) ──
 		var ece_script = load("res://addons/visual_gasic/vg_embedded_code_editor.gd")
 		if ece_script:
 			_embedded_code_editor = ece_script.new()
 			_embedded_code_editor.visible = false
+			_embedded_code_editor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_embedded_code_editor.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			_embedded_code_editor.view_object_requested.connect(_show_form_view)
-			canvas_right_split.add_child(_embedded_code_editor)
+			center_stack.add_child(_embedded_code_editor)
 			print("VisualGasic: Embedded Code Editor created")
 			# Embed the Immediate Window into the code editor's bottom panel.
 			# Must be deferred — both nodes need _ready() to run first so their
@@ -782,6 +795,8 @@ func _enter_tree():
 		if vg3d_script:
 			_vg_3d_editor = vg3d_script.new()
 			_vg_3d_editor.visible = false
+			_vg_3d_editor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_vg_3d_editor.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			_vg_3d_editor.back_to_form_requested.connect(_show_form_view)
 			_vg_3d_editor.node_double_clicked.connect(_on_3d_node_double_clicked)
 			_vg_3d_editor.view_code_requested.connect(_on_3d_node_double_clicked)
@@ -789,7 +804,7 @@ func _enter_tree():
 			# Wire 3D selection → Properties Inspector live update
 			_vg_3d_editor.node_selected.connect(_on_3d_node_selected)
 			_vg_3d_editor.selection_cleared.connect(_on_3d_selection_cleared)
-			canvas_right_split.add_child(_vg_3d_editor)
+			center_stack.add_child(_vg_3d_editor)
 			print("VisualGasic: 3D Scene Editor created")
 
 		# ── Embedded 2D Scene Editor (hidden by default, replaces canvas on 2D View) ──
@@ -797,6 +812,8 @@ func _enter_tree():
 		if vg2d_script:
 			_vg_2d_editor = vg2d_script.new()
 			_vg_2d_editor.visible = false
+			_vg_2d_editor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_vg_2d_editor.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			_vg_2d_editor.back_to_form_requested.connect(_show_form_view)
 			_vg_2d_editor.node_double_clicked.connect(_on_2d_node_double_clicked)
 			_vg_2d_editor.view_code_requested.connect(_on_2d_node_double_clicked)
@@ -804,7 +821,7 @@ func _enter_tree():
 			# Wire 2D selection → Properties Inspector live update
 			_vg_2d_editor.node_selected.connect(_on_2d_node_selected)
 			_vg_2d_editor.selection_cleared.connect(_on_2d_selection_cleared)
-			canvas_right_split.add_child(_vg_2d_editor)
+			center_stack.add_child(_vg_2d_editor)
 			print("VisualGasic: 2D Scene Editor created")
 
 		# ── Embedded Sprite Editor (hidden by default, Piskel-style pixel art) ──
@@ -812,9 +829,11 @@ func _enter_tree():
 		if vgsprite_script:
 			_vg_sprite_editor = vgsprite_script.new()
 			_vg_sprite_editor.visible = false
+			_vg_sprite_editor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_vg_sprite_editor.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			_vg_sprite_editor.back_to_form_requested.connect(_show_form_view)
 			_vg_sprite_editor.sprite_saved.connect(_on_sprite_saved)
-			canvas_right_split.add_child(_vg_sprite_editor)
+			center_stack.add_child(_vg_sprite_editor)
 			print("VisualGasic: Sprite Editor created")
 
 		# ── Plugin Manager — discovers plugins from addons/visual_gasic/plugins/ ──
@@ -922,25 +941,60 @@ func dock_vg_panels():
 	_vg_panels_docked = true
 	print("VisualGasic: VG panels added to docks")
 
+## Detach the right panel (Project Explorer + Properties) from the
+## center HSplitContainer so the embedded 2D/3D/Sprite editor gets
+## the full center width. The detached panel is parked invisibly on
+## the plugin so it stays alive across mode switches.
+func _detach_right_panel() -> void:
+	var right_split = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit") if is_instance_valid(_ide_layout) else null
+	if right_split and right_split.get_parent():
+		right_split.get_parent().remove_child(right_split)
+		right_split.visible = false
+		add_child(right_split)
+
+## Re-attach the right panel into the center HSplitContainer for Form view.
+func _attach_right_panel() -> void:
+	if not is_instance_valid(_ide_layout):
+		return
+	var canvas_right = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit")
+	if not canvas_right:
+		return
+	# Find the parked panel (either still parented under canvas_right, or under self)
+	var right_split = canvas_right.get_node_or_null("RightPanelSplit")
+	if right_split == null:
+		# Look for it among plugin's own children
+		for c in get_children():
+			if c.name == "RightPanelSplit":
+				right_split = c
+				break
+	if right_split and right_split.get_parent() != canvas_right:
+		if right_split.get_parent():
+			right_split.get_parent().remove_child(right_split)
+		canvas_right.add_child(right_split)
+	if right_split:
+		right_split.visible = true
+
 ## Removes VG panels from Godot docks back to plugin children.
 ## Called when exiting VB6 mode. Docks return to clean Godot state.
 func undock_vg_panels():
-	# Panels are embedded in the IDE layout — no undocking needed
-	if is_instance_valid(_ide_layout):
-		return
 	if not _vg_panels_docked:
 		return
+	# NOTE: Do NOT early-return if _ide_layout exists. Panels may have been
+	# docked before _ide_layout was ready; we must clean them up regardless.
 	if is_instance_valid(toolbox):
 		remove_control_from_docks(toolbox)
-		add_child(toolbox)
+		if not is_instance_valid(toolbox.get_parent()):
+			add_child(toolbox)
 		toolbox.visible = false
 	if is_instance_valid(_project_explorer):
 		remove_control_from_docks(_project_explorer)
-		add_child(_project_explorer)
+		if not is_instance_valid(_project_explorer.get_parent()):
+			add_child(_project_explorer)
 		_project_explorer.visible = false
 	if is_instance_valid(_properties_inspector):
 		remove_control_from_docks(_properties_inspector)
-		add_child(_properties_inspector)
+		if not is_instance_valid(_properties_inspector.get_parent()):
+			add_child(_properties_inspector)
 		_properties_inspector.visible = false
 	_vg_panels_docked = false
 	print("VisualGasic: VG panels removed from docks (Godot mode)")
@@ -1104,7 +1158,7 @@ func _on_vg_plugin_activated(plugin_id: String) -> void:
 	_showing_plugin_view = true
 
 	# Hide all built-in editors
-	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
 	if is_instance_valid(_embedded_code_editor):
@@ -1470,9 +1524,11 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# ── Ctrl+S  →  Save Form ──
+	# ── Ctrl+S  →  Save Form + Code ──
 	if event.keycode == KEY_S and event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
 		_do_save_form()
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("save_file"):
+			_embedded_code_editor.save_file()
 		_flash_status_message("Form saved")
 		get_viewport().set_input_as_handled()
 		return
@@ -1499,9 +1555,11 @@ func _on_canvas_gui_input(event: InputEvent) -> void:
 		_do_save_all()
 		_form_designer.accept_event()
 		return
-	# Ctrl+S → Save Form
+	# Ctrl+S → Save Form + Code
 	if event.keycode == KEY_S and event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
 		_do_save_form()
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("save_file"):
+			_embedded_code_editor.save_file()
 		_flash_status_message("Form saved")
 		_form_designer.accept_event()
 		return
@@ -4708,11 +4766,16 @@ func _on_vb6_debug_menu(id: int) -> void:
 	match id:
 		0:
 			_log_output("▶ Running main scene...", Color(0.0, 0.4, 0.0))
+			# Flush code buffer to disk so running game uses latest edits.
+			if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("flush_for_run"):
+				_embedded_code_editor.flush_for_run()
 			EditorInterface.play_main_scene()
 			if is_instance_valid(immediate_window) and immediate_window.has_method("set_debug_active"):
 				immediate_window.set_debug_active(true, false)
 		1:
 			_log_output("▶ Running current scene...", Color(0.0, 0.4, 0.0))
+			if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("flush_for_run"):
+				_embedded_code_editor.flush_for_run()
 			EditorInterface.play_current_scene()
 			if is_instance_valid(immediate_window) and immediate_window.has_method("set_debug_active"):
 				immediate_window.set_debug_active(true, false)
@@ -4744,6 +4807,10 @@ func _on_vb6_run_menu(id: int) -> void:
 		11:
 			# Save form to disk before running so the game sees latest changes
 			_do_save_form()
+			# Flush code buffer to disk so running game uses latest edits,
+			# but keep dirty flag so editor still shows "unsaved" until Ctrl+S.
+			if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("flush_for_run"):
+				_embedded_code_editor.flush_for_run()
 			_log_output("▶ Run Project...", Color(0.0, 0.4, 0.0))
 			EditorInterface.play_main_scene()
 			if is_instance_valid(immediate_window) and immediate_window.has_method("set_debug_active"):
@@ -7143,7 +7210,7 @@ func _show_code_view() -> void:
 		_vg_plugin_manager.deactivate_all()
 
 	# Hide the canvas scroll, 3D editor, 2D editor, and sprite editor — show the code editor
-	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
 	if is_instance_valid(_vg_3d_editor):
@@ -7204,7 +7271,7 @@ func _show_form_view() -> void:
 		_vg_plugin_manager.deactivate_all()
 
 	# Show the canvas scroll, hide the code editor, 3D editor, 2D editor, and sprite editor
-	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = true
 	if is_instance_valid(_embedded_code_editor):
@@ -7232,10 +7299,14 @@ func _show_form_view() -> void:
 		elif is_instance_valid(toolbox):
 			toolbox.visible = true
 
+	# Restore the right panel (Project Explorer + Properties) for Form view.
+	var right_panel_form = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+	if right_panel_form:
+		right_panel_form.visible = true
+
 	# Update status bar
 	if is_instance_valid(_status_bar):
 		_status_bar.text = "  Ready"
-
 	print("VisualGasic: Switched to Form View")
 
 ## Switch the center panel to the embedded 3D Scene Editor.
@@ -7262,7 +7333,7 @@ func _show_3d_view() -> void:
 		_vg_plugin_manager.deactivate_all()
 
 	# Hide the canvas scroll, code editor, 2D editor, and sprite editor — show the 3D editor
-	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
 	if is_instance_valid(_embedded_code_editor):
@@ -7288,6 +7359,11 @@ func _show_3d_view() -> void:
 				help_panel.visible = false
 		# Hide the entire left panel since the 3D editor has its own left panel
 		toolbox_panel.visible = false
+
+	# Keep the right panel (Project Explorer + Properties) visible in 3D view.
+	var right_panel_3d = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+	if right_panel_3d:
+		right_panel_3d.visible = true
 
 	# Auto-load the project scene if the 3D editor has nothing loaded yet
 	_auto_load_3d_scene()
@@ -7336,7 +7412,7 @@ func _show_2d_view() -> void:
 		_vg_plugin_manager.deactivate_all()
 
 	# Hide the canvas scroll, code editor, 3D editor, and sprite editor — show the 2D editor
-	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
 	if is_instance_valid(_embedded_code_editor):
@@ -7362,6 +7438,11 @@ func _show_2d_view() -> void:
 				help_panel.visible = false
 		# Hide the entire left panel since the 2D editor has its own left panel
 		toolbox_panel.visible = false
+
+	# Keep the right panel (Project Explorer + Properties) visible in 2D view.
+	var right_panel_2d = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+	if right_panel_2d:
+		right_panel_2d.visible = true
 
 	# Auto-load the project scene if the 2D editor has nothing loaded yet
 	call_deferred("_auto_load_2d_scene")
@@ -7412,7 +7493,7 @@ func _show_sprite_view() -> void:
 		_vg_plugin_manager.deactivate_all()
 
 	# Hide everything except the sprite editor
-	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
 	if is_instance_valid(_embedded_code_editor):
@@ -7437,6 +7518,11 @@ func _show_sprite_view() -> void:
 			if help_panel:
 				help_panel.visible = false
 		toolbox_panel.visible = false
+
+	# Keep the right panel (Project Explorer + Properties) visible in Sprite view.
+	var right_panel_sprite = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+	if right_panel_sprite:
+		right_panel_sprite.visible = true
 
 	# Update status bar
 	if is_instance_valid(_status_bar):
@@ -9255,6 +9341,7 @@ func _on_main_screen_changed(screen_name: String):
 	# Throttle live previews when Form Designer is not the active screen
 	if _live_preview_mgr:
 		var is_form_screen := (screen_name == "VisualGasic" or screen_name == "VB6")
+		_live_preview_mgr.set_frozen(not is_form_screen)
 		_live_preview_mgr.set_focused(is_form_screen)
 
 ## Sets up the toolbox control palette.

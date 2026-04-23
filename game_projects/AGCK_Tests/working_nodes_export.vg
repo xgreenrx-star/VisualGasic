@@ -2,14 +2,39 @@
 ' Edit this file in the VG Code Editor, then press Run to execute.
 
 
-' Event: Trigger 1
-Sub Trigger_1_Event()
-    Call Action_WN_2()
+' Event: On Start
+Sub Form_Load()
+    posX = 100
+End Sub
+
+' Event: On Frame
+Sub Form_Process(ByVal delta As Single)
+    velY = velY + 980 * delta
+    posX = posX + velX * delta
+    posY = posY + velY * delta
+    GetNode("Player").position.x = posX
+    GetNode("Player").position.y = posY
+End Sub
+
+' Event: Key: Right
+Sub Key_Right_Event()
+    velX = 200
+End Sub
+
+' Event: Key: Left
+Sub Key_Left_Event()
+    velX = -200
+End Sub
+
+' Event: Key: Jump
+Sub Key_Jump_Event()
+    velY = -400
+End Sub
+
+' Event: On Collision
+Sub Form_Collision(ByVal other As String)
+    velY = 0
+    onGround = 1
 End Sub
 
 ' --- Action Implementations ---
-Sub Action_WN_2()  ' Action 2
-    Dim target As String
-    target = "" ' Set to target node path
-    Print "Action_WN_2: Action 2"
-End Sub

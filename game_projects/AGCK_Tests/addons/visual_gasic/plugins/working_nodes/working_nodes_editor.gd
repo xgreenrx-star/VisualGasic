@@ -1,9 +1,212 @@
 @tool
 extends VBoxContainer
 
-const TYPE_EVENT := "event"
+const TYPE_EVENT  := "event"
 const TYPE_ACTION := "action"
-const TYPE_MATH := "math"
+const TYPE_MATH   := "math"
+
+# ─── Trigger / action node kinds ────────────────────────────────────────────
+# Each is a dedicated node with typed ports (execution + per-parameter value).
+const TYPE_ON_START     := "on_start"
+const TYPE_MOVE         := "move"
+const TYPE_ROTATE       := "rotate"
+const TYPE_SCALE        := "scale"
+const TYPE_ALPHA        := "alpha"
+const TYPE_COLOR_TRIG   := "color_trigger"
+const TYPE_PULSE        := "pulse"
+const TYPE_SPAWN        := "spawn"
+const TYPE_STOP         := "stop"
+const TYPE_TOGGLE       := "toggle"
+const TYPE_FOLLOW       := "follow"
+const TYPE_SHAKE        := "shake"
+const TYPE_PLAY_SFX     := "play_sfx"
+const TYPE_ANIMATE      := "animate"
+# ─── GD-equivalent extended node types ───────────────────────────────────────
+const TYPE_ON_FRAME     := "on_frame"
+const TYPE_ON_INPUT     := "on_input"
+const TYPE_ON_COLLISION := "on_collision"
+const TYPE_COUNTER      := "counter"
+const TYPE_RANDOM_TRIG  := "random_trig"
+const TYPE_BRANCH       := "branch"
+const TYPE_CMP_TRIG     := "cmp_trig"
+const TYPE_TIMER        := "timer"
+const TYPE_SEQUENCE     := "sequence"
+const TYPE_ZOOM         := "zoom"
+const TYPE_CAMERA_MOVE  := "camera_move"
+const TYPE_GET_PROP     := "get_prop"
+const TYPE_SET_PROP     := "set_prop"
+const TYPE_INPUT_POLL   := "input_poll"
+const TYPE_EXPR         := "expr"
+const TYPE_DELTA_VAR    := "delta_var"
+
+# Port-type indices (shared between editor and overlay)
+const PORT_EXEC  := 0   # execution-flow port  — green
+const PORT_VALUE := 1   # data / value port    — orange-yellow
+
+# Port colors used when building trigger node slots
+const EXEC_PORT_COLOR  := Color(0.30, 1.00, 0.50)
+const VALUE_PORT_COLOR := Color(1.00, 0.80, 0.25)
+
+# ─── Data-driven trigger node definitions ────────────────────────────────────
+# Each entry: { title, icon, color_hex, exec_in, exec_out, params: [[label, default], …] }
+const _GD_TRIGGERS: Dictionary = {
+	"on_start": {
+		"title": "On Start",  "icon": "▶",
+		"color_hex": "30e870", "exec_in": false, "exec_out": true,
+		"params": []
+	},
+	"move": {
+		"title": "Move",      "icon": "↔",
+		"color_hex": "4a90e0", "exec_in": true,  "exec_out": true,
+		"params": [["Group ID","1"],["X","0"],["Y","0"],["Duration","0.5"],["Easing","0"]]
+	},
+	"rotate": {
+		"title": "Rotate",    "icon": "↻",
+		"color_hex": "5bc8e8", "exec_in": true,  "exec_out": true,
+		"params": [["Group ID","1"],["Degrees","90"],["Duration","0.5"],["Lock Rot","0"]]
+	},
+	"scale": {
+		"title": "Scale",     "icon": "⤡",
+		"color_hex": "8060e0", "exec_in": true,  "exec_out": true,
+		"params": [["Group ID","1"],["Scale X","1"],["Scale Y","1"],["Duration","0.5"]]
+	},
+	"alpha": {
+		"title": "Alpha",     "icon": "◑",
+		"color_hex": "c8a030", "exec_in": true,  "exec_out": true,
+		"params": [["Group ID","1"],["Alpha","1.0"],["Duration","0.5"]]
+	},
+	"color_trigger": {
+		"title": "Color",     "icon": "🎨",
+		"color_hex": "e07850", "exec_in": true,  "exec_out": true,
+		"params": [["Channel","1"],["R","255"],["G","255"],["B","255"],["Duration","0.5"]]
+	},
+	"pulse": {
+		"title": "Pulse",     "icon": "💢",
+		"color_hex": "e050b0", "exec_in": true,  "exec_out": true,
+		"params": [["Group ID","1"],["R","255"],["G","100"],["B","100"],
+		           ["Fade In","0.2"],["Hold","0.5"],["Fade Out","0.2"]]
+	},
+	"spawn": {
+		"title": "Spawn",     "icon": "✦",
+		"color_hex": "50c870", "exec_in": true,  "exec_out": true,
+		"params": [["Group ID","1"],["Delay","0"]]
+	},
+	"stop": {
+		"title": "Stop",      "icon": "◼",
+		"color_hex": "e05050", "exec_in": true,  "exec_out": false,
+		"params": [["Group ID","1"]]
+	},
+	"toggle": {
+		"title": "Toggle",    "icon": "👁",
+		"color_hex": "b0b020", "exec_in": true,  "exec_out": true,
+		"params": [["Group ID","1"],["Active","1"]]
+	},
+	"follow": {
+		"title": "Follow",    "icon": "⟿",
+		"color_hex": "70c8b8", "exec_in": true,  "exec_out": true,
+		"params": [["Group ID","1"],["Target Group","2"],
+		           ["X Mod","1"],["Y Mod","1"],["Duration","1.0"]]
+	},
+	"shake": {
+		"title": "Shake",     "icon": "⚡",
+		"color_hex": "e0c030", "exec_in": true,  "exec_out": true,
+		"params": [["Strength","1"],["Interval","0.1"],["Duration","0.5"]]
+	},
+	"play_sfx": {
+		"title": "Play SFX",  "icon": "♪",
+		"color_hex": "9060d0", "exec_in": true,  "exec_out": true,
+		"params": [["Sound",""],["Volume","1"],["Pitch","1"]]
+	},
+	"animate": {
+		"title": "Animate",   "icon": "▷",
+		"color_hex": "60a880", "exec_in": true,  "exec_out": true,
+		"params": [["Group ID","1"],["Animation","0"],["Speed","1"]]
+	},
+	# ── Entry / Event nodes ──────────────────────────────────────────────────
+	"on_frame": {
+		"title": "On Frame",     "icon": "⏱",
+		"color_hex": "20d060", "exec_in": false, "exec_out": true,
+		"params": []
+	},
+	"on_input": {
+		"title": "On Input",     "icon": "🎮",
+		"color_hex": "e06090", "exec_in": false, "exec_out": true,
+		"params": [["Key","space"],["Mode","pressed"]]
+	},
+	"on_collision": {
+		"title": "On Collision", "icon": "💥",
+		"color_hex": "e07830", "exec_in": false, "exec_out": true,
+		"params": [["Group ID","1"],["Target Group","2"]]
+	},
+	# ── Data / Variable nodes ─────────────────────────────────────────────────
+	"counter": {
+		"title": "Counter",      "icon": "🔢",
+		"color_hex": "4878c8", "exec_in": true,  "exec_out": true,
+		"params": [["Name","score"],["Op","+="],["Value","1"]]
+	},
+	"random_trig": {
+		"title": "Random",       "icon": "🎲",
+		"color_hex": "30b8b8", "exec_in": true,  "exec_out": true,
+		"params": [["Min","0"],["Max","100"],["Store To","score"]]
+	},
+	# ── Flow / Logic nodes ───────────────────────────────────────────────────
+	"branch": {
+		"title": "Branch",       "icon": "⎇",
+		"color_hex": "c8a020", "exec_in": true,  "exec_out": true,  "else_out": true,
+		"params": [["Counter","score"],["Op",">="],["Value","0"]]
+	},
+	"cmp_trig": {
+		"title": "Compare",      "icon": "≤",
+		"color_hex": "c87020", "exec_in": true,  "exec_out": true,  "else_out": true,
+		"params": [["A","score"],["Op",">"],["B","0"]]
+	},
+	"timer": {
+		"title": "Timer",        "icon": "⏳",
+		"color_hex": "9050d0", "exec_in": true,  "exec_out": true,
+		"params": [["Delay","1.0"],["Repeat","0"]]
+	},
+	"sequence": {
+		"title": "Sequence",     "icon": "⏩",
+		"color_hex": "b050c8", "exec_in": true,  "exec_out": true,
+		"params": [["Interval","0.0"],["Repeat","0"]]
+	},
+	# ── Camera nodes ─────────────────────────────────────────────────────────
+	"zoom": {
+		"title": "Zoom",         "icon": "🔍",
+		"color_hex": "6090b0", "exec_in": true,  "exec_out": true,
+		"params": [["Zoom","1.0"],["Duration","0.5"]]
+	},
+	"camera_move": {
+		"title": "Camera Move",  "icon": "🎥",
+		"color_hex": "5080a0", "exec_in": true,  "exec_out": true,
+		"params": [["Target Group","1"],["Duration","1.0"],["X Offset","0"],["Y Offset","0"]]
+	},
+	"get_prop": {
+		"title": "Get Property", "icon": "📥",
+		"color_hex": "409060", "exec_in": true,  "exec_out": true,
+		"params": [["Node Path","Player"],["Property","position.x"],["Store To","posX"]]
+	},
+	"set_prop": {
+		"title": "Set Property", "icon": "📤",
+		"color_hex": "207040", "exec_in": true,  "exec_out": true,
+		"params": [["Node Path","Player"],["Property","position.x"],["Value","0"]]
+	},
+	"input_poll": {
+		"title": "Input Poll",   "icon": "🕹",
+		"color_hex": "d04090", "exec_in": true,  "exec_out": true,  "else_out": true,
+		"params": [["Action","move_right"],["Mode","pressed"]]
+	},
+	"expr": {
+		"title": "Expression",   "icon": "ƒ",
+		"color_hex": "3080c0", "exec_in": true,  "exec_out": true,
+		"params": [["Store To","result"],["Expression","value + 10"]]
+	},
+	"delta_var": {
+		"title": "Delta Var",    "icon": "Δ",
+		"color_hex": "c06020", "exec_in": true,  "exec_out": true,
+		"params": [["Var","velY"],["Op","+="],["Rate","980"]]
+	},
+}
 
 signal export_vg_requested(data: Dictionary)
 signal export_scene_2d_requested(data: Dictionary)
@@ -33,6 +236,10 @@ var _initialized: bool = false
 var _panning: bool = false
 var _pan_start_mouse: Vector2 = Vector2.ZERO
 var _pan_start_scroll: Vector2 = Vector2.ZERO
+var _rclick_press_pos: Vector2 = Vector2.ZERO
+
+# Canvas right-click context menu
+var _canvas_context_menu: PopupMenu = null
 
 # ─ Live VG preview ───────────────────────────────────────────────
 var _preview_panel: PanelContainer = null
@@ -64,7 +271,6 @@ var _validator_popup: AcceptDialog = null
 
 func _ready() -> void:
 	_ensure_initialized()
-
 
 func _enter_tree() -> void:
 	_ensure_initialized()
@@ -113,12 +319,12 @@ func _build_ui() -> void:
 
 	var btn_save_as := Button.new()
 	btn_save_as.text = "Save As"
-	btn_save_as.pressed.connect(func(): _save_dialog.popup_centered_ratio())
+	btn_save_as.pressed.connect(_show_save_dialog)
 	toolbar.add_child(btn_save_as)
 
 	var btn_load := Button.new()
 	btn_load.text = "Load"
-	btn_load.pressed.connect(func(): _load_dialog.popup_centered_ratio())
+	btn_load.pressed.connect(_show_load_dialog)
 	toolbar.add_child(btn_load)
 
 	toolbar.add_child(VSeparator.new())
@@ -157,6 +363,25 @@ func _build_ui() -> void:
 	btn_math.text = "+ Math"
 	btn_math.pressed.connect(func(): _add_node(TYPE_MATH))
 	toolbar.add_child(btn_math)
+
+	# ─ Toolbar row 1b: Trigger node shortcuts ───────────────────────────────────
+	var toolbar_gd := HBoxContainer.new()
+	toolbar_gd.add_theme_constant_override("separation", 4)
+	add_child(toolbar_gd)
+	var gd_lbl := Label.new()
+	gd_lbl.text = "Triggers:"
+	gd_lbl.add_theme_color_override("font_color", Color(0.50, 0.90, 0.50))
+	toolbar_gd.add_child(gd_lbl)
+	for _gd_k: String in ["on_start", "move", "rotate", "scale", "alpha",
+	              "color_trigger", "spawn", "stop", "toggle", "play_sfx",
+	              "follow", "shake", "pulse", "animate"]:
+		var _d: Dictionary = _GD_TRIGGERS.get(_gd_k, {})
+		var _gbtn := Button.new()
+		_gbtn.text = "%s %s" % [_d.get("icon", "\u2699"), _d.get("title", _gd_k)]
+		_gbtn.tooltip_text = "Add %s node  (also in Shift+A palette)" % _d.get("title", _gd_k)
+		var _capture: String = _gd_k
+		_gbtn.pressed.connect(func(): _add_node(_capture))
+		toolbar_gd.add_child(_gbtn)
 
 	# ─ Toolbar row 2: Groups + View controls ─────────────────────────────
 	var toolbar_mid := HBoxContainer.new()
@@ -234,6 +459,21 @@ func _build_ui() -> void:
 	btn_validate.pressed.connect(_validate_graph)
 	toolbar2.add_child(btn_validate)
 
+	var btn_joints := Button.new()
+	btn_joints.text = "✚ Joints"
+	btn_joints.toggle_mode = true
+	btn_joints.tooltip_text = "Wire-joint edit mode — click a wire to add a joint, drag to reposition, right-click to remove"
+	btn_joints.toggled.connect(_on_joint_mode_toggled)
+	toolbar2.add_child(btn_joints)
+
+	toolbar2.add_child(VSeparator.new())
+
+	var btn_del := Button.new()
+	btn_del.text = "🗑 Del"
+	btn_del.tooltip_text = "Delete selected nodes  (Delete key)"
+	btn_del.pressed.connect(_delete_selected_nodes)
+	toolbar2.add_child(btn_del)
+
 	toolbar2.add_child(VSeparator.new())
 
 	var btn_copy := Button.new()
@@ -302,7 +542,7 @@ func _build_ui() -> void:
 	help.fit_content = true
 	help.bbcode_enabled = true
 	help.scroll_active = false
-	help.text = "[b]Working Nodes[/b]\n• Geometry Dash-style trigger/group workflow\n• Blender-style math operators\n• Smart wire routing and group filtering"
+	help.text = "[b]Working Nodes[/b]\n• Trigger/group workflow\n• Math operator nodes\n• Smart wire routing and group filtering"
 	side.add_child(help)
 
 	_graph = GraphEdit.new()
@@ -311,6 +551,7 @@ func _build_ui() -> void:
 	_graph.connection_request.connect(_on_connection_request)
 	_graph.disconnection_request.connect(_on_disconnection_request)
 	_graph.node_selected.connect(_on_graph_node_selected)
+	_graph.delete_nodes_request.connect(_delete_nodes_by_name)
 
 	var right_split := VSplitContainer.new()
 	right_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -341,12 +582,59 @@ func _build_ui() -> void:
 	prev_v.add_child(_preview_code)
 	right_split.add_child(_preview_panel)
 
+	# Canvas right-click context menu
+	_canvas_context_menu = PopupMenu.new()
+	_canvas_context_menu.add_item("▶  On Start",   0)
+	_canvas_context_menu.add_item("↔  Move",       1)
+	_canvas_context_menu.add_item("↻  Rotate",     2)
+	_canvas_context_menu.add_item("⤡  Scale",      3)
+	_canvas_context_menu.add_item("◑  Alpha",      4)
+	_canvas_context_menu.add_item("🎨  Color",     5)
+	_canvas_context_menu.add_item("✦  Spawn",      6)
+	_canvas_context_menu.add_item("◼  Stop",       7)
+	_canvas_context_menu.add_item("👁  Toggle",    8)
+	_canvas_context_menu.add_item("♪  Play SFX",  9)
+	_canvas_context_menu.add_item("⟿  Follow",   10)
+	_canvas_context_menu.add_item("⚡  Shake",     11)
+	_canvas_context_menu.add_item("💢  Pulse",     12)
+	_canvas_context_menu.add_item("▷  Animate",   13)
+	_canvas_context_menu.add_separator()
+	_canvas_context_menu.add_item("⏱  On Frame",     40)
+	_canvas_context_menu.add_item("🎮  On Input",     41)
+	_canvas_context_menu.add_item("💥  On Collision", 42)
+	_canvas_context_menu.add_separator()
+	_canvas_context_menu.add_item("🔢  Counter",      43)
+	_canvas_context_menu.add_item("🎲  Random",       44)
+	_canvas_context_menu.add_item("⎇  Branch",       45)
+	_canvas_context_menu.add_item("≤  Compare",      46)
+	_canvas_context_menu.add_item("⏳  Timer",        47)
+	_canvas_context_menu.add_item("⏩  Sequence",     48)
+	_canvas_context_menu.add_item("🔍  Zoom",         49)
+	_canvas_context_menu.add_item("🎥  Camera Move",  50)
+	_canvas_context_menu.add_separator()
+	_canvas_context_menu.add_item("📥  Get Property", 51)
+	_canvas_context_menu.add_item("📤  Set Property", 52)
+	_canvas_context_menu.add_item("🕹  Input Poll",   53)
+	_canvas_context_menu.add_item("ƒ  Expression",    54)
+	_canvas_context_menu.add_item("Δ  Delta Var",     55)
+	_canvas_context_menu.add_separator()
+	_canvas_context_menu.add_item("+ Event",       20)
+	_canvas_context_menu.add_item("+ Action",      21)
+	_canvas_context_menu.add_item("+ Math",        22)
+	_canvas_context_menu.add_separator()
+	_canvas_context_menu.add_item("Select All",    30)
+	_canvas_context_menu.add_item("Clear Graph",   31)
+	_canvas_context_menu.id_pressed.connect(_on_canvas_context_menu_id)
+	add_child(_canvas_context_menu)
+
 	# Node right-click context menu
 	_node_context_menu = PopupMenu.new()
 	_node_context_menu.add_item("Rename",           0)
 	_node_context_menu.add_item("Duplicate",        1)
 	_node_context_menu.add_separator()
 	_node_context_menu.add_item("🔴 Toggle Breakpoint", 2)
+	_node_context_menu.add_separator()
+	_node_context_menu.add_item("🗑 Delete",          3)
 	_node_context_menu.id_pressed.connect(_on_node_context_menu_id)
 	add_child(_node_context_menu)
 
@@ -356,19 +644,7 @@ func _build_ui() -> void:
 	_graph.add_child(_overlay)
 	_graph.scroll_offset_changed.connect(func(_o): _queue_wire_redraw())
 
-	_save_dialog = FileDialog.new()
-	_save_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
-	_save_dialog.access = FileDialog.ACCESS_RESOURCES
-	_save_dialog.filters = PackedStringArray(["*.wnodes ; Working Nodes Project"])
-	_save_dialog.file_selected.connect(_on_save_path_selected)
-	add_child(_save_dialog)
-
-	_load_dialog = FileDialog.new()
-	_load_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-	_load_dialog.access = FileDialog.ACCESS_RESOURCES
-	_load_dialog.filters = PackedStringArray(["*.wnodes ; Working Nodes Project"])
-	_load_dialog.file_selected.connect(_on_load_path_selected)
-	add_child(_load_dialog)
+	# Dialogs are created on-demand in _show_save_dialog / _show_load_dialog
 
 func _new_graph() -> void:
 	for c in _graph.get_children():
@@ -380,8 +656,8 @@ func _new_graph() -> void:
 	_next_node_id = 1
 	_next_group_id = 1
 	_make_default_group()
-	_add_node(TYPE_EVENT)
-	_add_node(TYPE_ACTION)
+	_add_node(TYPE_ON_START)
+	_add_node(TYPE_MOVE)
 	_layout_seed_nodes()
 	_refresh_group_ui()
 	_queue_wire_redraw()
@@ -391,6 +667,30 @@ func _save_current() -> void:
 		_save_dialog.popup_centered_ratio()
 		return
 	_save_to_path(_last_path)
+
+func _show_save_dialog() -> void:
+	var dlg := FileDialog.new()
+	dlg.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	dlg.access = FileDialog.ACCESS_FILESYSTEM
+	dlg.filters = PackedStringArray(["*.wnodes ; Working Nodes Project"])
+	dlg.current_dir = ProjectSettings.globalize_path("res://")
+	dlg.min_size = Vector2(640, 480)
+	get_tree().root.add_child(dlg)
+	dlg.file_selected.connect(func(path): _on_save_path_selected(path); dlg.queue_free())
+	dlg.canceled.connect(func(): dlg.queue_free())
+	dlg.popup_centered_ratio(0.6)
+
+func _show_load_dialog() -> void:
+	var dlg := FileDialog.new()
+	dlg.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	dlg.access = FileDialog.ACCESS_FILESYSTEM
+	dlg.filters = PackedStringArray(["*.wnodes ; Working Nodes Project"])
+	dlg.current_dir = ProjectSettings.globalize_path("res://")
+	dlg.min_size = Vector2(640, 480)
+	get_tree().root.add_child(dlg)
+	dlg.file_selected.connect(func(path): _on_load_path_selected(path); dlg.queue_free())
+	dlg.canceled.connect(func(): dlg.queue_free())
+	dlg.popup_centered_ratio(0.6)
 
 func _on_save_path_selected(path: String) -> void:
 	if not path.ends_with(".wnodes"):
@@ -462,6 +762,13 @@ func _apply_loaded_data(data: Dictionary) -> void:
 		_rebuild_node_from_dict(nd)
 
 	_connections = data.get("connections", [])
+	for c in _connections:
+		var fn := str(c.get("from", ""))
+		var tn := str(c.get("to", ""))
+		var fp := int(c.get("from_port", 0))
+		var tp := int(c.get("to_port", 0))
+		if _nodes.has(fn) and _nodes.has(tn):
+			_graph.connect_node(fn, fp, tn, tp)
 	_refresh_group_ui()
 	_queue_wire_redraw()
 
@@ -487,12 +794,13 @@ func _serialize_nodes() -> Array:
 		if n == null or not is_instance_valid(n):
 			continue
 		out.append({
-			"name": n.name,
-			"title": n.title,
-			"type": n.get_meta("wn_type", TYPE_ACTION),
-			"group": int(n.get_meta("wn_group", 1)),
-			"color": (n.get_meta("wn_color", Color.WHITE) as Color).to_html(true),
+			"name":     n.name,
+			"title":    n.title,
+			"type":     n.get_meta("wn_type", TYPE_ACTION),
+			"group":    int(n.get_meta("wn_group", 1)),
+			"color":    (n.get_meta("wn_color", Color.WHITE) as Color).to_html(true),
 			"position": [n.position_offset.x, n.position_offset.y],
+			"params":   _get_node_params(n),
 		})
 	return out
 
@@ -509,6 +817,7 @@ func _rebuild_node_from_dict(nd: Dictionary) -> void:
 	n.set_meta("wn_color", Color.from_string(str(nd.get("color", "#88AAFF")), _color_for_type(node_type)))
 	_graph.add_child(n)
 	_nodes[n.name] = n
+	_apply_node_params(n, nd.get("params", {}))
 	_update_group_label(n, gid)
 	_apply_node_color(n)
 
@@ -574,15 +883,21 @@ func _add_node(node_type: String) -> void:
 func _create_node_ui(node_type: String) -> GraphNode:
 	var n := GraphNode.new()
 	n.resizable = true
-	n.custom_minimum_size = Vector2(220, 120)
 	n.selected = false
 	n.set_meta("wn_type", node_type)
 	n.set_meta("wn_group", 1)
 	n.set_meta("wn_color", _color_for_type(node_type))
 	n.set_meta("wn_breakpoint", false)
-	n.set_slot(0, true, 0, Color.WHITE, true, 0, Color.WHITE)
-	# Double-click to rename; right-click for context menu
 	n.gui_input.connect(_on_graph_node_gui_input.bind(n))
+
+	# ── Dedicated trigger nodes — multi-port data-driven layout ─────────
+	if _GD_TRIGGERS.has(node_type):
+		_build_trigger_node(n, _GD_TRIGGERS[node_type])
+		return n
+
+	# ── Legacy single-port nodes (event / action / math) ─────────────────
+	n.custom_minimum_size = Vector2(220, 120)
+	n.set_slot(0, true, 0, Color.WHITE, true, 0, Color.WHITE)
 
 	var root := VBoxContainer.new()
 	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -636,47 +951,184 @@ func _create_node_ui(node_type: String) -> GraphNode:
 	root.add_child(group_label)
 	return n
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Trigger node builder (data-driven)
+# ══════════════════════════════════════════════════════════════════════════════
+
+## Build a multi-port trigger node from a _GD_TRIGGERS definition dict.
+## Slot 0  = execution-flow row   (exec in/out, type PORT_EXEC).
+## Slots 1…N = parameter rows    (value in only, type PORT_VALUE).
+## Last slot  = group-label row  (no ports).
+func _build_trigger_node(n: GraphNode, def: Dictionary) -> void:
+	var exec_in:  bool  = def.get("exec_in",  true)
+	var exec_out: bool  = def.get("exec_out", true)
+	var else_out: bool  = def.get("else_out", false)
+	var params:   Array = def.get("params",   [])
+	var col: Color = Color.from_string("#" + def.get("color_hex", "888888"), Color.WHITE)
+
+	n.custom_minimum_size = Vector2(260, max(96, 74 + params.size() * 30 + (26 if else_out else 0)))
+
+	# ── Slot 0: execution-flow header (True / main exec output) ──────────
+	var exec_row := HBoxContainer.new()
+	exec_row.add_theme_constant_override("separation", 4)
+	var exec_lbl := Label.new()
+	exec_lbl.text = "%s  %s" % [def.get("icon", "⚙"), def.get("title", "Trigger")]
+	exec_lbl.add_theme_color_override("font_color", col.lightened(0.45))
+	exec_lbl.add_theme_font_size_override("font_size", 13)
+	exec_row.add_child(exec_lbl)
+	n.add_child(exec_row)
+	n.set_slot(0, exec_in, PORT_EXEC, EXEC_PORT_COLOR, exec_out, PORT_EXEC, EXEC_PORT_COLOR)
+
+	# ── Slot 1 (optional): Else / False execution output ─────────────────
+	var slot_offset := 1
+	if else_out:
+		var else_row := HBoxContainer.new()
+		else_row.add_theme_constant_override("separation", 4)
+		var else_lbl := Label.new()
+		else_lbl.text = "Else →"
+		else_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		else_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		else_lbl.add_theme_color_override("font_color", Color(1.0, 0.55, 0.50))
+		else_lbl.add_theme_font_size_override("font_size", 11)
+		else_row.add_child(else_lbl)
+		n.add_child(else_row)
+		n.set_slot(1, false, 0, Color.WHITE, true, PORT_EXEC, Color(1.0, 0.45, 0.35))
+		slot_offset = 2
+
+	# ── Slots slot_offset..N: parameter rows ─────────────────────────────
+	for i in params.size():
+		var p: Array = params[i]
+		var row := _make_param_row(str(p[0]), str(p[1]) if p.size() > 1 else "")
+		n.add_child(row)
+		n.set_slot(slot_offset + i, true, PORT_VALUE, VALUE_PORT_COLOR, false, 0, Color.WHITE)
+
+	# ── Last slot: group-membership label (no ports) ─────────────────────
+	var gl := Label.new()
+	gl.name = "GroupLabel"
+	gl.text = "Group: 1"
+	gl.add_theme_color_override("font_color", Color(0.52, 0.52, 0.52))
+	gl.add_theme_font_size_override("font_size", 10)
+	n.add_child(gl)
+	n.set_slot(slot_offset + params.size(), false, 0, Color.WHITE, false, 0, Color.WHITE)
+
+
+## Create a parameter row: [Label "name:"]  [LineEdit value]
+## The LineEdit's node name is the label text with spaces replaced by underscores
+## (used as a key in the params dict during serialisation).
+func _make_param_row(label_text: String, default_val: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	var lbl := Label.new()
+	lbl.text = label_text + ":"
+	lbl.custom_minimum_size = Vector2(80, 0)
+	lbl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_color_override("font_color", Color(0.80, 0.80, 0.80))
+	row.add_child(lbl)
+	var le := LineEdit.new()
+	le.name = label_text.replace(" ", "_")
+	le.text = default_val
+	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	le.custom_minimum_size = Vector2(54, 0)
+	le.add_theme_font_size_override("font_size", 11)
+	row.add_child(le)
+	return row
+
+
+## Collect all LineEdit values (keyed by node name) from a trigger node's children.
+func _get_node_params(node: GraphNode) -> Dictionary:
+	var out := {}
+	for child in node.get_children():
+		if child is HBoxContainer:
+			for sub in child.get_children():
+				if sub is LineEdit and sub.name != "":
+					out[sub.name] = sub.text
+	return out
+
+
+## Restore LineEdit values from a saved params dict.
+func _apply_node_params(node: GraphNode, params: Dictionary) -> void:
+	if params.is_empty():
+		return
+	for child in node.get_children():
+		if child is HBoxContainer:
+			for sub in child.get_children():
+				if sub is LineEdit and params.has(sub.name):
+					sub.text = str(params[sub.name])
+
 func _layout_seed_nodes() -> void:
 	if _nodes.has("WN_1"):
 		(_nodes["WN_1"] as GraphNode).position_offset = Vector2(120, 130)
 	if _nodes.has("WN_2"):
 		(_nodes["WN_2"] as GraphNode).position_offset = Vector2(480, 160)
 
-func _node_title_for_type(node_type: String, index: int) -> String:
+func _node_title_for_type(node_type: String, _index: int) -> String:
+	if _GD_TRIGGERS.has(node_type):
+		return _GD_TRIGGERS[node_type].get("title", node_type.capitalize())
 	match node_type:
-		TYPE_EVENT:
-			return "Trigger %d" % index
-		TYPE_ACTION:
-			return "Action %d" % index
-		TYPE_MATH:
-			return "Math %d" % index
-		_:
-			return "Node %d" % index
+		TYPE_EVENT:  return "Event"
+		TYPE_ACTION: return "Action"
+		TYPE_MATH:   return "Math"
+		_:           return "Node"
 
 func _color_for_type(node_type: String) -> Color:
+	if _GD_TRIGGERS.has(node_type):
+		return Color.from_string("#" + _GD_TRIGGERS[node_type].get("color_hex", "888888"), Color.WHITE)
 	match node_type:
-		TYPE_EVENT:
-			return Color(0.35, 0.62, 1.0, 1.0)
-		TYPE_ACTION:
-			return Color(0.58, 0.90, 0.48, 1.0)
-		TYPE_MATH:
-			return Color(0.96, 0.74, 0.35, 1.0)
-		_:
-			return Color(0.8, 0.8, 0.8, 1.0)
+		TYPE_EVENT:  return Color(0.35, 0.62, 1.0, 1.0)
+		TYPE_ACTION: return Color(0.58, 0.90, 0.48, 1.0)
+		TYPE_MATH:   return Color(0.96, 0.74, 0.35, 1.0)
+		_:           return Color(0.8,  0.8,  0.8,  1.0)
 
 func _apply_node_color(node: GraphNode) -> void:
 	if node == null or not is_instance_valid(node):
 		return
 	var col: Color = node.get_meta("wn_color", Color.WHITE)
+
+	# ── Title bar (normal) ────────────────────────────────────────────────
+	var tb := StyleBoxFlat.new()
+	tb.bg_color = col.darkened(0.30)
+	tb.border_width_left = 1
+	tb.border_width_top = 1
+	tb.border_width_right = 1
+	tb.border_width_bottom = 0
+	tb.border_color = col.lightened(0.30)
+	tb.corner_radius_top_left = 6
+	tb.corner_radius_top_right = 6
+	tb.content_margin_left = 8
+	tb.content_margin_right = 8
+	tb.content_margin_top = 4
+	tb.content_margin_bottom = 4
+	node.add_theme_stylebox_override("titlebar", tb)
+
+	# ── Title bar (selected) ──────────────────────────────────────────────
+	var tb_sel := StyleBoxFlat.new()
+	tb_sel.bg_color = col.darkened(0.10)
+	tb_sel.border_width_left = 2
+	tb_sel.border_width_top = 2
+	tb_sel.border_width_right = 2
+	tb_sel.border_width_bottom = 0
+	tb_sel.border_color = col.lightened(0.55)
+	tb_sel.corner_radius_top_left = 6
+	tb_sel.corner_radius_top_right = 6
+	tb_sel.content_margin_left = 8
+	tb_sel.content_margin_right = 8
+	tb_sel.content_margin_top = 4
+	tb_sel.content_margin_bottom = 4
+	node.add_theme_stylebox_override("titlebar_selected", tb_sel)
+
+	# ── Title text: always white for readability ──────────────────────────
+	node.add_theme_color_override("title_color", Color.WHITE)
+
+	# ── Body panel ────────────────────────────────────────────────────────
 	var box := StyleBoxFlat.new()
 	box.bg_color = col.darkened(0.72)
 	box.border_width_left = 1
-	box.border_width_top = 1
+	box.border_width_top = 0
 	box.border_width_right = 1
 	box.border_width_bottom = 1
 	box.border_color = col.lightened(0.25)
-	box.corner_radius_top_left = 6
-	box.corner_radius_top_right = 6
 	box.corner_radius_bottom_left = 6
 	box.corner_radius_bottom_right = 6
 	node.add_theme_stylebox_override("panel", box)
@@ -738,20 +1190,23 @@ func _on_connection_request(from_node: StringName, from_port: int, to_node: Stri
 	for c in _connections:
 		if c.get("from", "") == String(from_node) and c.get("to", "") == String(to_node) and c.get("from_port", -1) == from_port and c.get("to_port", -1) == to_port:
 			return
+	_graph.connect_node(from_node, from_port, to_node, to_port)
 	var from_n: GraphNode = _nodes[String(from_node)]
 	var gid := int(from_n.get_meta("wn_group", 1))
 	_connections.append({
-		"from": String(from_node),
-		"from_port": from_port,
-		"to": String(to_node),
-		"to_port": to_port,
-		"group": gid,
-		"color": from_n.get_meta("wn_color", Color(0.8, 0.8, 0.9))
+		"from":       String(from_node),
+		"from_port":  from_port,
+		"to":         String(to_node),
+		"to_port":    to_port,
+		"group":      gid,
+		"color":      from_n.get_meta("wn_color", Color(0.8, 0.8, 0.9)),
+		"joints":     [],
 	})
 	_queue_wire_redraw()
 	_update_vg_preview()
 
 func _on_disconnection_request(from_node: StringName, from_port: int, to_node: StringName, to_port: int) -> void:
+	_graph.disconnect_node(from_node, from_port, to_node, to_port)
 	for i in range(_connections.size() - 1, -1, -1):
 		var c: Dictionary = _connections[i]
 		if c.get("from", "") == String(from_node) and c.get("to", "") == String(to_node) and c.get("from_port", -1) == from_port and c.get("to_port", -1) == to_port:
@@ -776,8 +1231,9 @@ func _on_graph_gui_input(_event: InputEvent) -> void:
 	pass
 
 
-# Right-mouse drag-to-pan: handled directly on this node via _input
-# so it fires before GraphEdit's internal input handler.
+# Right-mouse drag-to-pan via _input (fires before GraphEdit consumes events).
+# When the click is ON a GraphNode we bail out immediately so the node's
+# gui_input handler can show its context menu instead.
 func _input(event: InputEvent) -> void:
 	if _graph == null or not is_instance_valid(_graph):
 		return
@@ -786,19 +1242,30 @@ func _input(event: InputEvent) -> void:
 		if mb.button_index == MOUSE_BUTTON_RIGHT:
 			var graph_rect := _graph.get_global_rect()
 			if not graph_rect.has_point(mb.global_position):
-				if mb.pressed and _panning:
+				if not mb.pressed and _panning:
 					_panning = false
 					Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 				return
 			if mb.pressed:
+				# If clicking directly on a GraphNode, let its gui_input handle it.
+				for child in _graph.get_children():
+					if child is GraphNode and child.get_global_rect().has_point(mb.global_position):
+						return
+				_rclick_press_pos = mb.global_position
 				_panning = true
 				_pan_start_mouse = mb.global_position
 				_pan_start_scroll = _graph.scroll_offset
 				Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+				get_viewport().set_input_as_handled()
 			else:
-				_panning = false
-				Input.set_default_cursor_shape(Input.CURSOR_ARROW)
-			get_viewport().set_input_as_handled()
+				if _panning:
+					_panning = false
+					Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+					# Short click (no significant drag) → show canvas context menu
+					if mb.global_position.distance_to(_rclick_press_pos) < 6.0:
+						if _canvas_context_menu != null and is_instance_valid(_canvas_context_menu):
+							_canvas_context_menu.popup(Rect2(mb.global_position, Vector2.ZERO))
+					get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion:
 		if _panning:
 			_graph.scroll_offset = _pan_start_scroll - (event.global_position - _pan_start_mouse)
@@ -871,24 +1338,52 @@ func _smart_path(start: Vector2, fin: Vector2, lane_index: int) -> PackedVector2
 func _get_visible_connections_for_overlay() -> Array:
 	var out: Array = []
 	var lane_counter: Dictionary = {}
+	var conn_idx := 0
 	for conn in _connections:
 		if not _passes_group_filter(conn):
+			conn_idx += 1
 			continue
 		if not _passes_selection_visibility(conn):
+			conn_idx += 1
 			continue
 		var start := _node_port_pos(conn.get("from", ""), true,  int(conn.get("from_port", 0)))
 		var fin   := _node_port_pos(conn.get("to",   ""), false, int(conn.get("to_port",   0)))
-		var lane_key := "%s_%s" % [str(conn.get("group", 0)), str(round((start.x + fin.x) / 120.0))]
-		if not lane_counter.has(lane_key):
-			lane_counter[lane_key] = 0
-		var lane_index: int = lane_counter[lane_key]
-		lane_counter[lane_key] = lane_index + 1
+
+		# Build waypoints: start → manual joints (screen space) → end
+		var waypoints := PackedVector2Array()
+		waypoints.push_back(start)
+		var joints_raw: Array = conn.get("joints", [])
+		var joints_screen: Array = []
+		for jv in joints_raw:
+			if jv is Array and jv.size() >= 2:
+				var j_screen := Vector2(float(jv[0]), float(jv[1])) - _graph.scroll_offset
+				waypoints.push_back(j_screen)
+				joints_screen.append(j_screen)
+		waypoints.push_back(fin)
+
+		# Smart lane routing only applies when no manual joints are defined
+		if joints_raw.is_empty() and _smart_routing != null and _smart_routing.button_pressed:
+			var lane_key := "%s_%s" % [str(conn.get("group", 0)), str(round((start.x + fin.x) / 120.0))]
+			if not lane_counter.has(lane_key):
+				lane_counter[lane_key] = 0
+			var lane_index: int = lane_counter[lane_key]
+			lane_counter[lane_key] = lane_index + 1
+			var lane_offset := float((lane_index % 7) - 3) * 20.0
+			var mid_x := (start.x + fin.x) * 0.5 + lane_offset
+			# Replace start/end with the smart-routed intermediate points
+			waypoints.clear()
+			waypoints.push_back(start)
+			waypoints.push_back(fin)  # overlay draws bezier — leave start/end only
+
 		out.append({
-			"points": _smart_path(start, fin, lane_index),
-			"color": conn.get("color", Color(0.8, 0.8, 0.9, 0.95)),
-			"width": 2.2,
-			"label": _wire_label_for(conn),
+			"waypoints":     waypoints,
+			"joints_screen": joints_screen,
+			"color":         conn.get("color", Color(0.8, 0.8, 0.9, 0.95)),
+			"width":         2.2,
+			"label":         _wire_label_for(conn),
+			"conn_idx":      conn_idx,
 		})
+		conn_idx += 1
 	return out
 
 
@@ -924,6 +1419,8 @@ func _on_export_scene_3d_pressed() -> void:
 # ══════════════════════════════════════════════════════════════════════════════
 
 func _node_icon(node_type: String) -> String:
+	if _GD_TRIGGERS.has(node_type):
+		return _GD_TRIGGERS[node_type].get("icon", "⚙")
 	match node_type:
 		TYPE_EVENT:  return "⚡"
 		TYPE_ACTION: return "⚙"
@@ -982,7 +1479,7 @@ func _validate_graph() -> void:
 		var n: GraphNode = _nodes[node_name]
 		if not is_instance_valid(n): continue
 		var ntype := n.get_meta("wn_type", "")
-		if ntype == TYPE_EVENT:
+		if ntype in [TYPE_EVENT, TYPE_ON_START, TYPE_ON_FRAME, TYPE_ON_INPUT, TYPE_ON_COLLISION]:
 			has_event = true
 		elif ntype == TYPE_ACTION and not connected_names.has(node_name):
 			issues.append("Action node '%s' has no incoming connection (may be unreachable)." % n.title)
@@ -1014,16 +1511,54 @@ func _validate_graph() -> void:
 # ══════════════════════════════════════════════════════════════════════════════
 
 const _ALL_NODE_KINDS: Array = [
-	["⚡ Event",    "event"],   ["⚙ Action",   "action"],  ["∑ Math",      "math"],
-	["⎇ Condition","condition"],["📦 Variable","variable"],["📝 Note",      "note"],
-	["⊞ Group",    "group"],    ["↺ Loop",     "loop"],    ["⏩ Sequence", "sequence"],
-	["ƒ Function",  "function"],
-	["⟿ VectorMath","vectormath"],["↔ MapRange","maprange"],["∧ BoolMath","boolmath"],
-	["⇌ Switch",   "switch"],   ["≤ Compare",  "compare"], ["🎲 Random",   "randomvalue"],
-	["▶ Trigger",  "trigger"],  ["🎨 Color",   "colorchannel"],["➡ Move",  "movegroup"],
-	["↻ Rotate",   "rotategroup"],["✦ Spawn",  "spawntrigger"],["◑ Alpha","alphafade"],
-	["👁 Toggle",  "togglegroup"],["💥 Collision","collisiontrigger"],
-	["⏰ TimedEvt","timedevent"],
+	# ── Dedicated trigger nodes ─────────────────────────────────────────────
+	["▶ On Start",     "on_start"],
+	["↔ Move",         "move"],
+	["↻ Rotate",       "rotate"],
+	["⤡ Scale",        "scale"],
+	["◑ Alpha",        "alpha"],
+	["🎨 Color",       "color_trigger"],
+	["💢 Pulse",       "pulse"],
+	["✦ Spawn",        "spawn"],
+	["◼ Stop",         "stop"],
+	["👁 Toggle",      "toggle"],
+	["⟿ Follow",       "follow"],
+	["⚡ Shake",       "shake"],
+	["♪ Play SFX",     "play_sfx"],
+	["▷ Animate",      "animate"],
+	# ── Generic / legacy nodes ────────────────────────────────────────────────
+	["⚡ Event",        "event"],
+	["⚙ Action",       "action"],
+	["∑ Math",          "math"],
+	["⎇ Condition",    "condition"],
+	["📦 Variable",    "variable"],
+	["📝 Note",         "note"],
+	["⊞ Group",         "group"],
+	["↺ Loop",          "loop"],
+	["⏩ Sequence",     "sequence"],
+	["ƒ Function",      "function"],
+	["⟿ VectorMath",   "vectormath"],
+	["↔ MapRange",      "maprange"],
+	["∧ BoolMath",      "boolmath"],
+	["⇌ Switch",        "switch"],
+	["≤ Compare",       "compare"],
+	["🎲 Random",       "randomvalue"],
+	# ── GD-equivalent: event / flow / data ─────────────────────────────────
+	["⏱ On Frame",       "on_frame"],
+	["🎮 On Input",       "on_input"],
+	["💥 On Collision",   "on_collision"],
+	["🔢 Counter",        "counter"],
+	["🎲 Random Trig",    "random_trig"],
+	["⎇ Branch",          "branch"],
+	["≤ Compare Trig",    "cmp_trig"],
+	["⏳ Timer",           "timer"],
+	["🔍 Zoom",            "zoom"],
+	["🎥 Camera Move",     "camera_move"],
+	["📥 Get Property",    "get_prop"],
+	["📤 Set Property",    "set_prop"],
+	["🕹 Input Poll",      "input_poll"],
+	["ƒ Expression",       "expr"],
+	["Δ Delta Var",        "delta_var"],
 ]
 
 func _open_node_palette() -> void:
@@ -1068,7 +1603,10 @@ func _on_palette_item_activated(index: int) -> void:
 	if _palette_list == null: return
 	var kind: String = _palette_list.get_item_metadata(index)
 	_palette_popup.hide()
-	# Full editor only supports the 3 base types directly; others fall through to Add Node
+	# Trigger nodes and legacy base types handled uniformly
+	if _GD_TRIGGERS.has(kind):
+		_add_node_at(kind, _palette_pos)
+		return
 	match kind:
 		"event":  _add_node_at(TYPE_EVENT,  _palette_pos)
 		"action": _add_node_at(TYPE_ACTION, _palette_pos)
@@ -1136,6 +1674,76 @@ func _on_node_context_menu_id(id: int) -> void:
 			_ctx_target_node.set_meta("wn_breakpoint", not cur)
 			_apply_breakpoint_style(_ctx_target_node)
 			_update_vg_preview()
+		3:  # Delete
+			_delete_nodes_by_name([StringName(_ctx_target_node.name)])
+
+func _on_canvas_context_menu_id(id: int) -> void:
+	# Trigger nodes (0–13)
+	const _CANVAS_MENU_KINDS: Array = [
+		"on_start", "move", "rotate", "scale", "alpha", "color_trigger",
+		"spawn", "stop", "toggle", "play_sfx", "follow", "shake", "pulse", "animate"
+	]
+	if id < _CANVAS_MENU_KINDS.size():
+		_add_node(_CANVAS_MENU_KINDS[id])
+		return
+	match id:
+		20: _add_node(TYPE_EVENT)
+		21: _add_node(TYPE_ACTION)
+		22: _add_node(TYPE_MATH)
+		30:  # Select All
+			for child in _graph.get_children():
+				if child is GraphNode:
+					child.selected = true
+		31:  # Clear Graph
+			_new_graph()
+		40: _add_node(TYPE_ON_FRAME)
+		41: _add_node(TYPE_ON_INPUT)
+		42: _add_node(TYPE_ON_COLLISION)
+		43: _add_node(TYPE_COUNTER)
+		44: _add_node(TYPE_RANDOM_TRIG)
+		45: _add_node(TYPE_BRANCH)
+		46: _add_node(TYPE_CMP_TRIG)
+		47: _add_node(TYPE_TIMER)
+		48: _add_node(TYPE_SEQUENCE)
+		49: _add_node(TYPE_ZOOM)
+		50: _add_node(TYPE_CAMERA_MOVE)
+		51: _add_node(TYPE_GET_PROP)
+		52: _add_node(TYPE_SET_PROP)
+		53: _add_node(TYPE_INPUT_POLL)
+		54: _add_node(TYPE_EXPR)
+		55: _add_node(TYPE_DELTA_VAR)
+
+func _delete_selected_nodes() -> void:
+	var names: Array[StringName] = []
+	for child in _graph.get_children():
+		if child is GraphNode and child.selected:
+			names.append(StringName(child.name))
+	_delete_nodes_by_name(names)
+
+func _delete_nodes_by_name(node_names: Array[StringName]) -> void:
+	if node_names.is_empty():
+		return
+	var name_set: Dictionary = {}
+	for nm in node_names:
+		name_set[String(nm)] = true
+	# Remove connections involving deleted nodes
+	_connections = _connections.filter(func(c: Dictionary) -> bool:
+		return not (name_set.has(c.get("from", "")) or name_set.has(c.get("to", "")))
+	)
+	# Disconnect all ports in GraphEdit and free nodes
+	for nm in node_names:
+		var key := String(nm)
+		if _nodes.has(key):
+			var n: GraphNode = _nodes[key]
+			_graph.clear_connections()
+			_nodes.erase(key)
+			if is_instance_valid(n):
+				n.queue_free()
+	# Re-add remaining connections to GraphEdit
+	for c in _connections:
+		_graph.connect_node(c["from"], c["from_port"], c["to"], c["to_port"])
+	_queue_wire_redraw()
+	_update_vg_preview()
 
 func _rename_node_inline(node: GraphNode) -> void:
 	var d := AcceptDialog.new()
@@ -1190,6 +1798,7 @@ func _copy_selection() -> void:
 			"group": int(n.get_meta("wn_group", 1)),
 			"color": (n.get_meta("wn_color", Color.WHITE) as Color).to_html(true),
 			"position": [n.position_offset.x, n.position_offset.y],
+			"params": _get_node_params(n),
 		})
 	var conns_arr: Array = []
 	for c in _connections:
@@ -1222,6 +1831,7 @@ func _paste_selection() -> void:
 		_graph.add_child(n)
 		_nodes[new_name] = n
 		_next_node_id += 1
+		_apply_node_params(n, nd.get("params", {}))
 		_apply_node_color(n)
 	for c in parsed.get("connections", []):
 		var fn := remap.get(str(c.get("from", "")), "")
@@ -1230,7 +1840,7 @@ func _paste_selection() -> void:
 			_connections.append({
 				"from": fn, "from_port": c.get("from_port", 0),
 				"to": tn,   "to_port":   c.get("to_port", 0),
-				"group": 1, "color": Color(0.8, 0.8, 0.9),
+				"group": 1, "color": Color(0.8, 0.8, 0.9), "joints": [],
 			})
 	_queue_wire_redraw()
 	_update_vg_preview()
@@ -1285,6 +1895,7 @@ func _save_snippet() -> void:
 				"type": n.get_meta("wn_type", TYPE_ACTION),
 				"color": (n.get_meta("wn_color", Color.WHITE) as Color).to_html(true),
 				"position": [n.position_offset.x, n.position_offset.y],
+				"params": _get_node_params(n),
 			})
 		var conns_arr: Array = []
 		for c in _connections:
@@ -1338,12 +1949,13 @@ func _insert_snippet(sname: String) -> void:
 		_graph.add_child(n)
 		_nodes[new_name] = n
 		_next_node_id += 1
+		_apply_node_params(n, nd.get("params", {}))
 		_apply_node_color(n)
 	for c in snip.get("connections", []):
 		var fn := remap.get(str(c.get("from", "")), "")
 		var tn := remap.get(str(c.get("to", "")), "")
 		if fn != "" and tn != "":
-			_connections.append({"from": fn, "from_port": 0, "to": tn, "to_port": 0, "group": 1, "color": Color(0.8,0.8,0.9)})
+			_connections.append({"from": fn, "from_port": 0, "to": tn, "to_port": 0, "group": 1, "color": Color(0.8,0.8,0.9), "joints": []})
 	_queue_wire_redraw()
 	_update_vg_preview()
 
@@ -1430,6 +2042,60 @@ func _serialize_nodes_with_bp() -> Array:
 func _open_manual() -> void:
 	var res_path := "res://addons/visual_gasic/plugins/working_nodes/WORKING_NODES_MANUAL.md"
 	OS.shell_open(ProjectSettings.globalize_path(res_path))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Wire Joint management  (called by the overlay and the joint-mode toggle)
+# ══════════════════════════════════════════════════════════════════════════════
+
+## Expose the current graph scroll for the overlay's coordinate conversion.
+func get_scroll_offset() -> Vector2:
+	return _graph.scroll_offset if _graph != null else Vector2.ZERO
+
+
+## Toggle joint-edit mode on the overlay.
+func _on_joint_mode_toggled(pressed: bool) -> void:
+	if _overlay != null and is_instance_valid(_overlay) and _overlay.has_method("set_joint_mode"):
+		_overlay.set_joint_mode(pressed)
+
+
+## Move an existing joint to a new graph-space position.
+func update_joint(conn_idx: int, joint_idx: int, graph_pos: Vector2) -> void:
+	if conn_idx < 0 or conn_idx >= _connections.size():
+		return
+	var conn: Dictionary = _connections[conn_idx]
+	var joints: Array = conn.get("joints", []).duplicate()
+	while joints.size() <= joint_idx:
+		joints.append([0.0, 0.0])
+	joints[joint_idx] = [graph_pos.x, graph_pos.y]
+	conn["joints"] = joints
+	_connections[conn_idx] = conn
+	_queue_wire_redraw()
+
+
+## Insert a new joint at graph_pos into conn's joint list, after insert_at.
+func add_joint(conn_idx: int, graph_pos: Vector2, insert_at: int) -> void:
+	if conn_idx < 0 or conn_idx >= _connections.size():
+		return
+	var conn: Dictionary = _connections[conn_idx]
+	var joints: Array = conn.get("joints", []).duplicate()
+	joints.insert(insert_at, [graph_pos.x, graph_pos.y])
+	conn["joints"] = joints
+	_connections[conn_idx] = conn
+	_queue_wire_redraw()
+
+
+## Remove a joint from a connection.
+func remove_joint(conn_idx: int, joint_idx: int) -> void:
+	if conn_idx < 0 or conn_idx >= _connections.size():
+		return
+	var conn: Dictionary = _connections[conn_idx]
+	var joints: Array = conn.get("joints", []).duplicate()
+	if joint_idx >= 0 and joint_idx < joints.size():
+		joints.remove_at(joint_idx)
+	conn["joints"] = joints
+	_connections[conn_idx] = conn
+	_queue_wire_redraw()
 
 
 func _unhandled_key_input(event: InputEvent) -> void:

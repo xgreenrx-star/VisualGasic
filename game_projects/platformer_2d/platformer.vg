@@ -46,237 +46,237 @@ Dim EnemyActive(10) As Boolean
 
 ' Constants
 Const Gravity As Single = 980
-Const JumpForce As Single = -400
+Const JumpForce As Single = - 400
 Const MoveSpeed As Single = 200
 Const MaxFallSpeed As Single = 600
 
 Sub _Ready()
-    ' Get references to scene objects (placed in 2D editor at design-time)
-    Player = GetNode("Player")
-    PlayerX = Player.position.x
-    PlayerY = Player.position.y
-    PlayerVelX = 0
-    PlayerVelY = 0
-    PlayerLives = 3
-    OnGround = False
-    PlayerDirection = 1
-    
-    ' Initialize camera
-    Camera = GetNode("Camera2D")
-    
-    ' Initialize UI
-    ScoreLabel = GetNode("UI/ScoreLabel")
-    LivesLabel = GetNode("UI/LivesLabel")
-    GameOverLabel = GetNode("UI/GameOverLabel")
-    GameOverLabel.visible = False
-    
-    ' Game setup
-    Score = 0
-    CoinsCollected = 0
-    GameOver = False
-    LevelComplete = False
-    
-    ' Setup platforms
-    Call InitializePlatforms()
-    
-    ' Setup coins
-    Call InitializeCoins()
-    
-    ' Setup enemies
-    Call InitializeEnemies()
-    
-    Print "Platformer Ready! Arrow keys to move, Space to jump"
-    Set_Process(True)
+	' Get references to scene objects (placed in 2D editor at design-time)
+	Player = GetNode("Player")
+	PlayerX = Player.position.x
+	PlayerY = Player.position.y
+	PlayerVelX = 0
+	PlayerVelY = 0
+	PlayerLives = 33
+	OnGround = False
+	PlayerDirection = 1
+
+	' Initialize camera
+	Camera = GetNode("Camera2D")
+
+	' Initialize UI
+	ScoreLabel = GetNode("UI/ScoreLabel")
+	LivesLabel = GetNode("UI/LivesLabel")
+	GameOverLabel = GetNode("UI/GameOverLabel")
+	GameOverLabel.visible = False
+
+	' Game setup
+	Score = 0
+	CoinsCollected = 0
+	GameOver = False
+	LevelComplete = False
+
+	' Setup platforms
+	Call InitializePlatforms()
+
+	' Setup coins
+	Call InitializeCoins()
+
+	' Setup enemies
+	Call InitializeEnemies()
+
+	Print "Platformer Ready! Arrow keys to move, Space to jump"
+	Set_Process(True)
 End Sub
 
 Sub InitializePlatforms()
-    ' Read platform positions from scene (placed in 2D editor at design-time)
-    Dim i As Integer
-    For i = 0 To 5
-        Platforms(i) = GetNode("Platforms/Platform" & CStr(i + 1))
-        PlatformX(i) = Platforms(i).position.x
-        PlatformY(i) = Platforms(i).position.y
-        PlatformW(i) = Platforms(i).size.x
-        PlatformH(i) = Platforms(i).size.y
-    Next i
+	' Read platform positions from scene (placed in 2D editor at design-time)
+	Dim i As Integer
+	For i = 0 To 5
+		Platforms(i) = GetNode("Platforms/Platform" & CStr(i + 1))
+		PlatformX(i) = Platforms(i).position.x
+		PlatformY(i) = Platforms(i).position.y
+		PlatformW(i) = Platforms(i).size.x
+		PlatformH(i) = Platforms(i).size.y
+	Next i
 End Sub
 
 Sub InitializeCoins()
-    TotalCoins = 10
-    ' Read coin positions from scene (placed in 2D editor at design-time)
-    Dim i As Integer
-    For i = 0 To 9
-        Coins(i) = GetNode("Coins").get_child(i)
-        CoinX(i) = Coins(i).position.x
-        CoinY(i) = Coins(i).position.y
-        Coins(i).visible = True
-        CoinCollected(i) = False
-    Next i
+	TotalCoins = 10
+	' Read coin positions from scene (placed in 2D editor at design-time)
+	Dim i As Integer
+	For i = 0 To 9
+		Coins(i) = GetNode("Coins").get_child(i)
+		CoinX(i) = Coins(i).position.x
+		CoinY(i) = Coins(i).position.y
+		Coins(i).visible = True
+		CoinCollected(i) = False
+	Next i
 End Sub
 
 Sub InitializeEnemies()
-    ' Read enemy positions from scene (placed in 2D editor at design-time)
-    EnemyVelX(0) = 50
-    EnemyVelX(1) = -60
-    EnemyVelX(2) = 40
-    
-    Dim i As Integer
-    For i = 0 To 2
-        Enemies(i) = GetNode("Enemies").get_child(i)
-        EnemyX(i) = Enemies(i).position.x
-        EnemyY(i) = Enemies(i).position.y
-        EnemyActive(i) = True
-    Next i
+	' Read enemy positions from scene (placed in 2D editor at design-time)
+	EnemyVelX(0) = 50
+	EnemyVelX(1) = - 60
+	EnemyVelX(2) = 40
+
+	Dim i As Integer
+	For i = 0 To 2
+		Enemies(i) = GetNode("Enemies").get_child(i)
+		EnemyX(i) = Enemies(i).position.x
+		EnemyY(i) = Enemies(i).position.y
+		EnemyActive(i) = True
+	Next i
 End Sub
 
 Sub _Process(delta As Single)
-    If GameOver Or LevelComplete Then
-        If Input.IsActionJustPressed("ui_accept") Then
-            GetTree().reload_current_scene()
-        End If
-        Exit Sub
-    End If
-    
-    ' Player input
-    PlayerVelX = 0
-    
-    If Input.IsActionPressed("ui_right") Then
-        PlayerVelX = MoveSpeed
-        PlayerDirection = 1
-    End If
-    If Input.IsActionPressed("ui_left") Then
-        PlayerVelX = -MoveSpeed
-        PlayerDirection = -1
-    End If
-    
-    ' Jump
-    If Input.IsActionJustPressed("ui_accept") And OnGround Then
-        PlayerVelY = JumpForce
-        OnGround = False
-    End If
-    
-    ' Apply gravity
-    If Not OnGround Then
-        PlayerVelY = PlayerVelY + Gravity * delta
-        If PlayerVelY > MaxFallSpeed Then
-            PlayerVelY = MaxFallSpeed
-        End If
-    End If
-    
-    ' Update player position
-    PlayerX = PlayerX + PlayerVelX * delta
-    PlayerY = PlayerY + PlayerVelY * delta
-    
-    ' Check platform collisions
-    OnGround = False
-    Dim i As Integer
-    For i = 0 To 5
-        If Not Platforms(i) Is Nothing Then
-            ' Check if player is above platform and falling
-            If PlayerVelY >= 0 Then
-                If PlayerX + 15 > PlatformX(i) And PlayerX - 15 < PlatformX(i) + PlatformW(i) Then
-                    If PlayerY + 15 >= PlatformY(i) And PlayerY + 15 <= PlatformY(i) + 10 Then
-                        PlayerY = PlatformY(i) - 15
-                        PlayerVelY = 0
-                        OnGround = True
-                    End If
-                End If
-            End If
-        End If
-    Next i
-    
-    ' Fall off screen = lose life
-    If PlayerY > 600 Then
-        Call LoseLife()
-    End If
-    
-    Player.position = Vector2(PlayerX, PlayerY)
-    
-    ' Update camera to follow player
-    Dim camX As Single
-    camX = PlayerX
-    If camX < 480 Then camX = 480
-    If camX > 1320 Then camX = 1320
-    Camera.position = Vector2(camX, 270)
-    
-    ' Check coin collection
-    For i = 0 To 9
-        If Not CoinCollected(i) Then
-            Dim dist As Single
-            dist = Sqr((PlayerX - CoinX(i)) * (PlayerX - CoinX(i)) + (PlayerY - CoinY(i)) * (PlayerY - CoinY(i)))
-            If dist < 20 Then
-                Coins(i).visible = False
-                CoinCollected(i) = True
-                CoinsCollected = CoinsCollected + 1
-                Score = Score + 100
-            End If
-        End If
-    Next i
-    
-    ' Update enemies
-    For i = 0 To 2
-        If EnemyActive(i) Then
-            EnemyX(i) = EnemyX(i) + EnemyVelX(i) * delta
-            Enemies(i).position = Vector2(EnemyX(i), EnemyY(i))
-            
-            ' Bounce enemies at platform edges
-            If i = 0 Then
-                If EnemyX(i) < 450 Or EnemyX(i) > 580 Then
-                    EnemyVelX(i) = -EnemyVelX(i)
-                End If
-            ElseIf i = 1 Then
-                If EnemyX(i) < 900 Or EnemyX(i) > 1080 Then
-                    EnemyVelX(i) = -EnemyVelX(i)
-                End If
-            ElseIf i = 2 Then
-                If EnemyX(i) < 1200 Or EnemyX(i) > 1330 Then
-                    EnemyVelX(i) = -EnemyVelX(i)
-                End If
-            End If
-            
-            ' Check collision with player
-            Dim dist As Single
-            dist = Sqr((PlayerX - EnemyX(i)) * (PlayerX - EnemyX(i)) + (PlayerY - EnemyY(i)) * (PlayerY - EnemyY(i)))
-            If dist < 28 Then
-                ' Check if jumping on enemy
-                If PlayerVelY > 0 And PlayerY < EnemyY(i) Then
-                    ' Defeat enemy
-                    Enemies(i).visible = False
-                    EnemyActive(i) = False
-                    PlayerVelY = JumpForce / 2
-                    Score = Score + 200
-                Else
-                    ' Take damage
-                    Call LoseLife()
-                End If
-            End If
-        End If
-    Next i
-    
-    ' Check if reached end
-    If PlayerX > 1600 And OnGround Then
-        LevelComplete = True
-        GameOverLabel.visible = True
-        GameOverLabel.text = "LEVEL COMPLETE!" & vbNewLine & "Score: " & CStr(Score) & vbNewLine & "Coins: " & CStr(CoinsCollected) & " / " & CStr(TotalCoins) & vbNewLine & vbNewLine & "Press SPACE to play again"
-    End If
-    
-    ' Update UI
-    ScoreLabel.text = "Score: " & CStr(Score)
-    LivesLabel.text = "Lives: " & CStr(PlayerLives) & "   Coins: " & CStr(CoinsCollected) & " / " & CStr(TotalCoins)
+	If GameOver Or LevelComplete Then
+		If Input.IsActionJustPressed("ui_accept") Then
+			GetTree().reload_current_scene()
+		End If
+		Exit Sub
+	End If
+
+	' Player input
+	PlayerVelX = 0
+
+	If Input.IsActionPressed("ui_right") Then
+		PlayerVelX = MoveSpeed
+		PlayerDirection = 1
+	End If
+	If Input.IsActionPressed("ui_left") Then
+		PlayerVelX = - MoveSpeed
+		PlayerDirection = - 1
+	End If
+
+	' Jump
+	If Input.IsActionJustPressed("ui_accept") And OnGround Then
+		PlayerVelY = JumpForce
+		OnGround = False
+	End If
+
+	' Apply gravity
+	If Not OnGround Then
+		PlayerVelY = PlayerVelY + Gravity * delta
+		If PlayerVelY > MaxFallSpeed Then
+			PlayerVelY = MaxFallSpeed
+		End If
+	End If
+
+	' Update player position
+	PlayerX = PlayerX + PlayerVelX * delta
+	PlayerY = PlayerY + PlayerVelY * delta
+
+	' Check platform collisions
+	OnGround = False
+	Dim i As Integer
+	For i = 0 To 5
+		If Not Platforms(i) Is Nothing Then
+			' Check if player is above platform and falling
+			If PlayerVelY > = 0 Then
+				If PlayerX + 15 > PlatformX(i) And PlayerX - 15 < PlatformX(i) + PlatformW(i) Then
+					If PlayerY + 15 > = PlatformY(i) And PlayerY + 15 < = PlatformY(i) + 10 Then
+						PlayerY = PlatformY(i) - 15
+						PlayerVelY = 0
+						OnGround = True
+					End If
+				End If
+			End If
+		End If
+	Next i
+
+	' Fall off screen = lose life
+	If PlayerY > 600 Then
+		Call LoseLife()
+	End If
+
+	Player.position = Vector2(PlayerX, PlayerY )
+
+	' Update camera to follow player
+	Dim camX As Single
+	camX = PlayerX
+	If camX < 480 Then camX = 480
+	If camX > 1320 Then camX = 1320
+	Camera.position = Vector2(camX, 270)
+
+	' Check coin collection
+	For i = 0 To 9
+		If Not CoinCollected(i) Then
+			Dim dist As Single
+			dist = Sqr((PlayerX - CoinX(i)) * (PlayerX - CoinX(i)) + (PlayerY - CoinY(i)) * (PlayerY - CoinY(i)))
+			If dist < 20 Then
+				Coins(i).visible = False
+				CoinCollected(i) = True
+				CoinsCollected = CoinsCollected + 1
+				Score = Score + 100
+			End If
+		End If
+	Next i
+
+	' Update enemies
+	For i = 0 To 2
+		If EnemyActive(i) Then
+			EnemyX(i) = EnemyX(i) + EnemyVelX(i) * delta
+			Enemies(i).position = Vector2(EnemyX(i), EnemyY(i))
+
+			' Bounce enemies at platform edges
+			If i = 0 Then
+				If EnemyX(i) < 450 Or EnemyX(i) > 580 Then
+					EnemyVelX(i) = - EnemyVelX(i)
+				End If
+			ElseIf i = 1 Then
+				If EnemyX(i) < 900 Or EnemyX(i) > 1080 Then
+					EnemyVelX(i) = - EnemyVelX(i)
+				End If
+			ElseIf i = 2 Then
+				If EnemyX(i) < 1200 Or EnemyX(i) > 1330 Then
+					EnemyVelX(i) = - EnemyVelX(i)
+				End If
+			End If
+
+			' Check collision with player
+			Dim dist As Single
+			dist = Sqr((PlayerX - EnemyX(i)) * (PlayerX - EnemyX(i)) + (PlayerY - EnemyY(i)) * (PlayerY - EnemyY(i)))
+			If dist < 28 Then
+				' Check if jumping on enemy
+				If PlayerVelY > 0 And PlayerY < EnemyY(i) Then
+					' Defeat enemy
+					Enemies(i).visible = False
+					EnemyActive(i) = False
+					PlayerVelY = JumpForce / 2
+					Score = Score + 200
+				Else
+					' Take damage
+					Call LoseLife()
+				End If
+			End If
+		End If
+	Next i
+
+	' Check if reached end
+	If PlayerX > 1600 And OnGround Then
+		LevelComplete = True
+		GameOverLabel.visible = True
+		GameOverLabel.text = "LEVEL COMPLETE!" & vbNewLine & "Score: " & CStr(Score) & vbNewLine & "Coins: " & CStr(CoinsCollected) & " / " & CStr(TotalCoins) & vbNewLine & vbNewLine & "Press SPACE to play again"
+	End If
+
+	' Update UI
+	ScoreLabel.text = "Score: " & CStr(Score)
+	LivesLabel.text = "Lives: " & CStr(PlayerLives) & " Coins: " & CStr(CoinsCollected) & " / " & CStr(TotalCoins)
 End Sub
 
 Sub LoseLife()
-    PlayerLives = PlayerLives - 1
-    
-    ' Reset position
-    PlayerX = 100
-    PlayerY = 400
-    PlayerVelX = 0
-    PlayerVelY = 0
-    
-    If PlayerLives <= 0 Then
-        GameOver = True
-        GameOverLabel.visible = True
-        GameOverLabel.text = "GAME OVER" & vbNewLine & "Score: " & CStr(Score) & vbNewLine & vbNewLine & "Press SPACE to restart"
-    End If
+	PlayerLives = PlayerLives - 1
+
+	' Reset position
+	PlayerX = 100
+	PlayerY = 400
+	PlayerVelX = 0
+	PlayerVelY = 0
+
+	If PlayerLives < = 0 Then
+		GameOver = True
+		GameOverLabel.visible = True
+		GameOverLabel.text = "GAME OVER" & vbNewLine & "Score: " & CStr(Score) & vbNewLine & vbNewLine & "Press SPACE to restart"
+	End If
 End Sub

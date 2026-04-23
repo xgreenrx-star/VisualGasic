@@ -4133,7 +4133,7 @@ void VisualGasicFormDesigner::set_control_preview_texture(const String &p_type_n
     if (p_texture.is_valid()) {
         control_preview_textures[p_type_name] = p_texture;
         queue_redraw();
-        UtilityFunctions::print("FormDesigner: Set preview texture for '", p_type_name, "' (", p_texture->get_width(), "x", p_texture->get_height(), ")");
+        // Debug print removed — called at live-preview rate (15 fps × n controls)
     } else {
         control_preview_textures.erase(p_type_name);
         queue_redraw();

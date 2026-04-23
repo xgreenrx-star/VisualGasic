@@ -1,0 +1,445 @@
+{
+	"version": 1,
+	"next_node_id": 23,
+	"next_group_id": 3,
+	"groups": [
+		{
+			"id": 1,
+			"name": "Player",
+			"color": "4488ffff"
+		},
+		{
+			"id": 2,
+			"name": "Ground",
+			"color": "886644ff"
+		}
+	],
+	"nodes": [
+		{
+			"name": "WN_1",
+			"title": "On Start",
+			"type": "on_start",
+			"group": 1,
+			"color": "30e870ff",
+			"position": [
+				50,
+				80
+			],
+			"params": {}
+		},
+		{
+			"name": "WN_2",
+			"title": "Init posX",
+			"type": "expr",
+			"group": 1,
+			"color": "3080c0ff",
+			"position": [
+				360,
+				50
+			],
+			"params": {
+				"Store_To": "posX",
+				"Expression": "100"
+			}
+		},
+		{
+			"name": "WN_3",
+			"title": "Init posY",
+			"type": "expr",
+			"group": 1,
+			"color": "3080c0ff",
+			"position": [
+				360,
+				165
+			],
+			"params": {
+				"Store_To": "posY",
+				"Expression": "400"
+			}
+		},
+		{
+			"name": "WN_4",
+			"title": "Init velX",
+			"type": "expr",
+			"group": 1,
+			"color": "3080c0ff",
+			"position": [
+				360,
+				280
+			],
+			"params": {
+				"Store_To": "velX",
+				"Expression": "0"
+			}
+		},
+		{
+			"name": "WN_5",
+			"title": "Init velY",
+			"type": "expr",
+			"group": 1,
+			"color": "3080c0ff",
+			"position": [
+				360,
+				395
+			],
+			"params": {
+				"Store_To": "velY",
+				"Expression": "0"
+			}
+		},
+		{
+			"name": "WN_6",
+			"title": "Reset Score",
+			"type": "counter",
+			"group": 1,
+			"color": "4878c8ff",
+			"position": [
+				360,
+				510
+			],
+			"params": {
+				"Name": "score",
+				"Op": "=",
+				"Value": "0"
+			}
+		},
+		{
+			"name": "WN_7",
+			"title": "Spawn Player",
+			"type": "spawn",
+			"group": 1,
+			"color": "50c870ff",
+			"position": [
+				360,
+				620
+			],
+			"params": {
+				"Group_ID": "1",
+				"Delay": "0"
+			}
+		},
+		{
+			"name": "WN_8",
+			"title": "On Frame",
+			"type": "on_frame",
+			"group": 1,
+			"color": "20d060ff",
+			"position": [
+				760,
+				80
+			],
+			"params": {}
+		},
+		{
+			"name": "WN_9",
+			"title": "Gravity",
+			"type": "delta_var",
+			"group": 1,
+			"color": "c06020ff",
+			"position": [
+				1020,
+				80
+			],
+			"params": {
+				"Var": "velY",
+				"Op": "+=",
+				"Rate": "980"
+			}
+		},
+		{
+			"name": "WN_10",
+			"title": "Move X",
+			"type": "expr",
+			"group": 1,
+			"color": "3080c0ff",
+			"position": [
+				1020,
+				210
+			],
+			"params": {
+				"Store_To": "posX",
+				"Expression": "posX + velX * delta"
+			}
+		},
+		{
+			"name": "WN_11",
+			"title": "Move Y",
+			"type": "expr",
+			"group": 1,
+			"color": "3080c0ff",
+			"position": [
+				1020,
+				340
+			],
+			"params": {
+				"Store_To": "posY",
+				"Expression": "posY + velY * delta"
+			}
+		},
+		{
+			"name": "WN_12",
+			"title": "Sync X",
+			"type": "set_prop",
+			"group": 1,
+			"color": "207040ff",
+			"position": [
+				1020,
+				470
+			],
+			"params": {
+				"Node_Path": "Player",
+				"Property": "position.x",
+				"Value": "posX"
+			}
+		},
+		{
+			"name": "WN_13",
+			"title": "Sync Y",
+			"type": "set_prop",
+			"group": 1,
+			"color": "207040ff",
+			"position": [
+				1020,
+				590
+			],
+			"params": {
+				"Node_Path": "Player",
+				"Property": "position.y",
+				"Value": "posY"
+			}
+		},
+		{
+			"name": "WN_14",
+			"title": "Key: Right",
+			"type": "on_input",
+			"group": 1,
+			"color": "e06090ff",
+			"position": [
+				1440,
+				80
+			],
+			"params": {
+				"Key": "ui_right",
+				"Mode": "pressed"
+			}
+		},
+		{
+			"name": "WN_15",
+			"title": "Walk Right",
+			"type": "expr",
+			"group": 1,
+			"color": "3080c0ff",
+			"position": [
+				1700,
+				80
+			],
+			"params": {
+				"Store_To": "velX",
+				"Expression": "200"
+			}
+		},
+		{
+			"name": "WN_16",
+			"title": "Key: Left",
+			"type": "on_input",
+			"group": 1,
+			"color": "e06090ff",
+			"position": [
+				1440,
+				250
+			],
+			"params": {
+				"Key": "ui_left",
+				"Mode": "pressed"
+			}
+		},
+		{
+			"name": "WN_17",
+			"title": "Walk Left",
+			"type": "expr",
+			"group": 1,
+			"color": "3080c0ff",
+			"position": [
+				1700,
+				250
+			],
+			"params": {
+				"Store_To": "velX",
+				"Expression": "-200"
+			}
+		},
+		{
+			"name": "WN_18",
+			"title": "Key: Jump",
+			"type": "on_input",
+			"group": 1,
+			"color": "e06090ff",
+			"position": [
+				1440,
+				420
+			],
+			"params": {
+				"Key": "ui_accept",
+				"Mode": "just_pressed"
+			}
+		},
+		{
+			"name": "WN_19",
+			"title": "Jump Force",
+			"type": "expr",
+			"group": 1,
+			"color": "3080c0ff",
+			"position": [
+				1700,
+				420
+			],
+			"params": {
+				"Store_To": "velY",
+				"Expression": "-400"
+			}
+		},
+		{
+			"name": "WN_20",
+			"title": "On Collision",
+			"type": "on_collision",
+			"group": 1,
+			"color": "e07830ff",
+			"position": [
+				760,
+				700
+			],
+			"params": {
+				"Group_ID": "1",
+				"Target_Group": "2"
+			}
+		},
+		{
+			"name": "WN_21",
+			"title": "Land",
+			"type": "expr",
+			"group": 1,
+			"color": "3080c0ff",
+			"position": [
+				1020,
+				700
+			],
+			"params": {
+				"Store_To": "velY",
+				"Expression": "0"
+			}
+		},
+		{
+			"name": "WN_22",
+			"title": "On Ground",
+			"type": "expr",
+			"group": 1,
+			"color": "3080c0ff",
+			"position": [
+				1020,
+				820
+			],
+			"params": {
+				"Store_To": "onGround",
+				"Expression": "1"
+			}
+		}
+	],
+	"connections": [
+		{
+			"from": "WN_1",
+			"from_port": 0,
+			"to": "WN_2",
+			"to_port": 0
+		},
+		{
+			"from": "WN_2",
+			"from_port": 0,
+			"to": "WN_3",
+			"to_port": 0
+		},
+		{
+			"from": "WN_3",
+			"from_port": 0,
+			"to": "WN_4",
+			"to_port": 0
+		},
+		{
+			"from": "WN_4",
+			"from_port": 0,
+			"to": "WN_5",
+			"to_port": 0
+		},
+		{
+			"from": "WN_5",
+			"from_port": 0,
+			"to": "WN_6",
+			"to_port": 0
+		},
+		{
+			"from": "WN_6",
+			"from_port": 0,
+			"to": "WN_7",
+			"to_port": 0
+		},
+		{
+			"from": "WN_8",
+			"from_port": 0,
+			"to": "WN_9",
+			"to_port": 0
+		},
+		{
+			"from": "WN_9",
+			"from_port": 0,
+			"to": "WN_10",
+			"to_port": 0
+		},
+		{
+			"from": "WN_10",
+			"from_port": 0,
+			"to": "WN_11",
+			"to_port": 0
+		},
+		{
+			"from": "WN_11",
+			"from_port": 0,
+			"to": "WN_12",
+			"to_port": 0
+		},
+		{
+			"from": "WN_12",
+			"from_port": 0,
+			"to": "WN_13",
+			"to_port": 0
+		},
+		{
+			"from": "WN_14",
+			"from_port": 0,
+			"to": "WN_15",
+			"to_port": 0
+		},
+		{
+			"from": "WN_16",
+			"from_port": 0,
+			"to": "WN_17",
+			"to_port": 0
+		},
+		{
+			"from": "WN_18",
+			"from_port": 0,
+			"to": "WN_19",
+			"to_port": 0
+		},
+		{
+			"from": "WN_20",
+			"from_port": 0,
+			"to": "WN_21",
+			"to_port": 0
+		},
+		{
+			"from": "WN_21",
+			"from_port": 0,
+			"to": "WN_22",
+			"to_port": 0
+		}
+	]
+}

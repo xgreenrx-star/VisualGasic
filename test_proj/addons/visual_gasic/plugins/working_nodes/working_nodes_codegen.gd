@@ -138,9 +138,7 @@ class _VGGen:
 
 		# ── Event handlers ────────────────────────────────────────────────
 		# Simple editor uses lowercase "event"; fallback uses "Event"
-		# Trigger-style editor uses "on_start" → capitalized to "On Start"
-		var event_kinds := ["Event", "Timedevent", "Collisiontrigger", "On Start",
-							"On Frame", "On Input", "On Collision"]
+		var event_kinds := ["Event", "Timedevent", "Collisiontrigger"]
 		var event_nodes: Array = []
 		for kind in event_kinds:
 			event_nodes.append_array(_nodes_of_kind(kind))
@@ -162,10 +160,6 @@ class _VGGen:
 			"Action", "Trigger", "Movegroup", "Rotategroup", "Spawntrigger",
 			"Alphafade", "Togglegroup", "Pulseeffect", "Followtarget",
 			"Cameracontrol", "Colorchannel",
-			# New trigger-style action types:
-			"Move", "Rotate", "Scale", "Alpha", "Color Trigger",
-			"Pulse", "Spawn", "Stop", "Toggle", "Follow",
-			"Shake", "Play Sfx", "Animate",
 		]
 		var action_nodes: Array = []
 		for kind in action_kinds:
@@ -285,12 +279,6 @@ class _VGGen:
 					_emit_inline_loop(linked_nd, indent)
 				"sequence":
 					_emit_inline_sequence(linked_nd, indent)
-				"branch":
-					_emit_inline_branch(linked_nd, indent)
-				"cmp trig":
-					_emit_inline_cmp_trig(linked_nd, indent)
-				"input poll":
-					_emit_inline_input_poll(linked_nd, indent)
 				"math", "boolmath", "vectormath", "maprange", "randomvalue", "compare":
 					pass  # called via function; only emit if result is used
 				_:
@@ -303,11 +291,9 @@ class _VGGen:
 		if "start" in t or "ready" in t or "load" in t:
 			return "Sub Form_Load()"
 		elif "process" in t or "update" in t or "frame" in t:
-			return "Sub Form_Process(ByVal delta As Single)"  # runs every physics frame
+			return "Sub Form_Timer()"  # timer-based process loop
 		elif "timer" in t:
 			return "Sub Timer1_Tick()"
-		elif t == "on input":
-			return "Sub Form_KeyDown(ByVal key As String)"
 		elif "touch" in t or "click" in t or "input" in t:
 			return "Sub Form_Click()"
 		elif "signal" in t:
@@ -358,93 +344,14 @@ class _VGGen:
 	# ─── Inline sequence ──────────────────────────────────────────────────────
 
 	func _emit_inline_sequence(nd: Dictionary, indent: String) -> void:
-		var prm  := nd.get("params", {})
-		var intv := str(prm.get("Interval", "0.0"))
-		_w(indent + "' Sequence: " + str(nd.get("title", "")) + "  (interval=" + intv + ")")
+		_w(indent + "' Sequence: " + str(nd.get("title", "")))
 		var outputs := _downstream_of(str(nd.get("_name", "")))
 		for i in outputs.size():
 			var dn: Dictionary = outputs[i]
-			if float(intv) > 0.0:
-				_w(indent + "Call WN_Wait(" + str(float(intv) * i) + ")")
-			_w(indent + "' Step " + str(i + 1) + ":")
+			_w(indent + "' Then " + str(i + 1) + ":")
 			_emit_action_call(dn, indent)
 
-	func _emit_inline_branch(nd: Dictionary, indent: String) -> void:
-		var prm     := nd.get("params", {})
-		var counter := str(prm.get("Counter", "score"))
-		var op      := str(prm.get("Op",      ">="))
-		var val     := str(prm.get("Value",   "0"))
-		var n_name  := str(nd.get("_name", ""))
-		_w(indent + "If " + counter + " " + _to_vg_op(op) + " " + val + " Then")
-		for dn in _downstream_by_port(n_name, 0):
-			_emit_action_call(dn, indent + "    ")
-		_w(indent + "Else")
-		for dn in _downstream_by_port(n_name, 1):
-			_emit_action_call(dn, indent + "    ")
-		_w(indent + "End If")
-
-	func _emit_inline_cmp_trig(nd: Dictionary, indent: String) -> void:
-		var prm    := nd.get("params", {})
-		var a_name := str(prm.get("A",  "score"))
-		var op     := str(prm.get("Op", ">"))
-		var b_name := str(prm.get("B",  "0"))
-		var n_name := str(nd.get("_name", ""))
-		_w(indent + "If " + a_name + " " + _to_vg_op(op) + " " + b_name + " Then")
-		for dn in _downstream_by_port(n_name, 0):
-			_emit_action_call(dn, indent + "    ")
-		_w(indent + "Else")
-		for dn in _downstream_by_port(n_name, 1):
-			_emit_action_call(dn, indent + "    ")
-		_w(indent + "End If")
-
-	func _to_vg_op(op: String) -> String:
-		match op:
-			"==": return "="
-			"!=": return "<>"
-			">=": return ">="
-			"<=": return "<="
-			">": return ">"
-			"<": return "<"
-			_:   return op
-
-	func _downstream_by_port(node_name: String, from_port: int) -> Array:
-		var out: Array = []
-		for c in _conns:
-			if str(c.get("from", "")) == node_name and int(c.get("from_port", 0)) == from_port:
-				var tn := str(c.get("to", ""))
-				if _nodes.has(tn):
-					out.append(_nodes[tn])
-		return out
-
-	func _emit_inline_input_poll(nd: Dictionary, indent: String) -> void:
-		var prm    := nd.get("params", {})
-		var action := str(prm.get("Action", "move_right"))
-		var mode   := str(prm.get("Mode",   "pressed")).to_lower()
-		var n_name := str(nd.get("_name", ""))
-		var vg_fn  := "IsActionPressed"
-		if "just_pressed" in mode or "just pressed" in mode:
-			vg_fn = "IsActionJustPressed"
-		elif "just_released" in mode or "just released" in mode:
-			vg_fn = "IsActionJustReleased"
-		_w(indent + "If Input." + vg_fn + "(\"" + action + "\") Then")
-		for dn in _downstream_by_port(n_name, 0):
-			_emit_action_call(dn, indent + "    ")
-		_w(indent + "Else")
-		for dn in _downstream_by_port(n_name, 1):
-			_emit_action_call(dn, indent + "    ")
-		_w(indent + "End If")
-
-	func _emit_inline_delta_var(nd: Dictionary, indent: String) -> void:
-		var prm   := nd.get("params", {})
-		var vname := str(prm.get("Var",  "velY"))
-		var op    := str(prm.get("Op",   "+=" ))
-		var rate  := str(prm.get("Rate", "980"))
-		match op:
-			"+=": _w(indent + vname + " = " + vname + " + " + rate + " * delta")
-			"-=": _w(indent + vname + " = " + vname + " - " + rate + " * delta")
-			"*=": _w(indent + vname + " = " + vname + " * " + rate + " * delta")
-			"=":  _w(indent + vname + " = " + rate + " * delta")
-			_:   _w(indent + vname + " = " + vname + " + " + rate + " * delta")
+	# ─── Action call (inline in sub) ─────────────────────────────────────────
 
 	func _emit_action_call(nd: Dictionary, indent: String) -> void:
 		# Breakpoint probe
@@ -504,155 +411,6 @@ class _VGGen:
 				var gid   := str(nd.get("group_id", 1))
 				var delay := str(nd.get("delay",    0.0))
 				_w(indent + "Call WN_Trigger(" + gid + ", " + delay + ")")
-			# ── New trigger-style action nodes ─────────────────────────────
-			"move":
-				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
-				var mx  := str(prm.get("X",        "0"))
-				var my  := str(prm.get("Y",        "0"))
-				var dur := str(prm.get("Duration", "0.5"))
-				_w(indent + "Call WN_Move(" + gid + ", " + mx + ", " + my + ", " + dur + ")")
-			"rotate":
-				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
-				var deg := str(prm.get("Degrees",  "90"))
-				var dur := str(prm.get("Duration", "0.5"))
-				_w(indent + "Call WN_Rotate(" + gid + ", " + deg + ", " + dur + ")")
-			"scale":
-				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
-				var sx  := str(prm.get("Scale_X",  "1"))
-				var sy  := str(prm.get("Scale_Y",  "1"))
-				var dur := str(prm.get("Duration", "0.5"))
-				_w(indent + "Call WN_Scale(" + gid + ", " + sx + ", " + sy + ", " + dur + ")")
-			"alpha":
-				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
-				var opa := str(prm.get("Alpha",    "1.0"))
-				var dur := str(prm.get("Duration", "0.5"))
-				_w(indent + "Call WN_Alpha(" + gid + ", " + opa + ", " + dur + ")")
-			"color trigger":
-				var prm := nd.get("params", {})
-				var ch  := str(prm.get("Channel",  "1"))
-				var r   := str(prm.get("R",        "255"))
-				var g   := str(prm.get("G",        "255"))
-				var b   := str(prm.get("B",        "255"))
-				var dur := str(prm.get("Duration", "0.5"))
-				_w(indent + "Call WN_ColorTrigger(" + ch + ", " + r + ", " + g + ", " + b + ", " + dur + ")")
-			"pulse":
-				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
-				var r   := str(prm.get("R",        "255"))
-				var g   := str(prm.get("G",        "100"))
-				var b   := str(prm.get("B",        "100"))
-				var fi  := str(prm.get("Fade_In",  "0.2"))
-				var hld := str(prm.get("Hold",     "0.5"))
-				var fo  := str(prm.get("Fade_Out", "0.2"))
-				_w(indent + "Call WN_Pulse(" + gid + ", " + r + ", " + g + ", " + b + ", " + fi + ", " + hld + ", " + fo + ")")
-			"spawn":
-				var prm   := nd.get("params", {})
-				var gid   := str(prm.get("Group_ID", "1"))
-				var delay := str(prm.get("Delay",    "0"))
-				_w(indent + "Call WN_Spawn(" + gid + ", " + delay + ")")
-			"stop":
-				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
-				_w(indent + "Call WN_Stop(" + gid + ")")
-			"toggle":
-				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
-				var act := str(prm.get("Active",   "1"))
-				_w(indent + "Call WN_Toggle(" + gid + ", " + act + ")")
-			"follow":
-				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID",     "1"))
-				var tgt := str(prm.get("Target_Group", "2"))
-				var xm  := str(prm.get("X_Mod",        "1"))
-				var ym  := str(prm.get("Y_Mod",        "1"))
-				var dur := str(prm.get("Duration",     "1.0"))
-				_w(indent + "Call WN_Follow(" + gid + ", " + tgt + ", " + xm + ", " + ym + ", " + dur + ")")
-			"shake":
-				var prm  := nd.get("params", {})
-				var str_ := str(prm.get("Strength", "1"))
-				var intv := str(prm.get("Interval", "0.1"))
-				var dur  := str(prm.get("Duration", "0.5"))
-				_w(indent + "Call WN_Shake(" + str_ + ", " + intv + ", " + dur + ")")
-			"play sfx":
-				var prm := nd.get("params", {})
-				var snd := str(prm.get("Sound",  ""))
-				var vol := str(prm.get("Volume", "1"))
-				var pit := str(prm.get("Pitch",  "1"))
-				_w(indent + "Call WN_PlaySFX(\"" + snd + "\", " + vol + ", " + pit + ")")
-			"animate":
-				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID",  "1"))
-				var ani := str(prm.get("Animation", "0"))
-				var spd := str(prm.get("Speed",     "1"))
-				_w(indent + "Call WN_Animate(" + gid + ", " + ani + ", " + spd + ")")
-			# ── New GD-equivalent nodes ───────────────────────────────────────────
-			"counter":
-				var prm := nd.get("params", {})
-				var cname := str(prm.get("Name",  "score"))
-				var op    := str(prm.get("Op",    "+="))
-				var val   := str(prm.get("Value", "1"))
-				match op:
-					"+=": _w(indent + cname + " = " + cname + " + " + val)
-					"-=": _w(indent + cname + " = " + cname + " - " + val)
-					"*=": _w(indent + cname + " = " + cname + " * " + val)
-					"/=": _w(indent + "If " + val + " <> 0 Then " + cname + " = " + cname + " / " + val)
-					"%=": _w(indent + cname + " = " + cname + " Mod " + val)
-					"=":  _w(indent + cname + " = " + val)
-					_:    _w(indent + cname + " = " + cname + " + " + val + "  ' op=" + op)
-			"random trig":
-				var prm   := nd.get("params", {})
-				var min_v := str(prm.get("Min",      "0"))
-				var max_v := str(prm.get("Max",      "100"))
-				var store := str(prm.get("Store_To", "result"))
-				_w(indent + store + " = " + min_v + " + Rnd() * (" + max_v + " - " + min_v + ")")
-			"branch":
-				_emit_inline_branch(nd, indent)
-			"cmp trig":
-				_emit_inline_cmp_trig(nd, indent)
-			"timer":
-				var prm   := nd.get("params", {})
-				var delay := str(prm.get("Delay",  "1.0"))
-				var rep   := str(prm.get("Repeat", "0"))
-				_w(indent + "Call WN_Timer(" + delay + ", " + rep + ")")
-			"sequence":
-				_emit_inline_sequence(nd, indent)
-			"zoom":
-				var prm := nd.get("params", {})
-				var z   := str(prm.get("Zoom",     "1.0"))
-				var dur := str(prm.get("Duration", "0.5"))
-				_w(indent + "Call WN_Zoom(" + z + ", " + dur + ")")
-			"camera move":
-				var prm := nd.get("params", {})
-				var tgt := str(prm.get("Target_Group", "1"))
-				var dur := str(prm.get("Duration",     "1.0"))
-				var ox  := str(prm.get("X_Offset",     "0"))
-				var oy  := str(prm.get("Y_Offset",     "0"))
-				_w(indent + "Call WN_CameraMove(" + tgt + ", " + dur + ", " + ox + ", " + oy + ")")
-			"get prop":
-				var prm   := nd.get("params", {})
-				var path  := str(prm.get("Node_Path", "Player"))
-				var prop  := str(prm.get("Property",  "position.x"))
-				var store := str(prm.get("Store_To",  "result"))
-				_w(indent + store + " = GetNode(\"" + path + "\")." + prop)
-			"set prop":
-				var prm  := nd.get("params", {})
-				var path := str(prm.get("Node_Path", "Player"))
-				var prop := str(prm.get("Property",  "position.x"))
-				var val  := str(prm.get("Value",     "0"))
-				_w(indent + "GetNode(\"" + path + "\")." + prop + " = " + val)
-			"input poll":
-				_emit_inline_input_poll(nd, indent)
-			"expr":
-				var prm   := nd.get("params", {})
-				var store := str(prm.get("Store_To",   "result"))
-				var xpr   := str(prm.get("Expression", "0"))
-				_w(indent + store + " = " + xpr)
-			"delta var":
-				_emit_inline_delta_var(nd, indent)
 			_:
 				# Generic fallback
 				var safe := working_nodes_codegen.sanitize_name(str(nd.get("title", n_name)), "WNAction")

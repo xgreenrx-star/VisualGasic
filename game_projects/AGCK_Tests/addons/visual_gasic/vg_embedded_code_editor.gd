@@ -1301,6 +1301,26 @@ func save_file() -> void:
 func get_file_path() -> String:
 	return _vg_path
 
+## Flush the current buffer to disk for a transient Run, WITHOUT marking the
+## file as formally saved. The editor keeps its dirty indicator so the user
+## knows their changes are still uncommitted (only Ctrl+S / File→Save clears
+## that). The runtime always reads .vg from disk, so this lets the running
+## game see the latest in-memory edits while preserving normal editor
+## save semantics.
+func flush_for_run() -> void:
+	if _vg_path.is_empty():
+		return
+	if not _dirty:
+		return  # nothing new in the buffer
+	var f := FileAccess.open(_vg_path, FileAccess.WRITE)
+	if f:
+		f.store_string(_code_edit.text)
+		f.close()
+		# Deliberately do NOT clear _dirty — the user has not formally saved.
+		if Engine.is_editor_hint():
+			EditorInterface.get_resource_filesystem().update_file(_vg_path)
+		print("VG Code Editor: Flushed buffer to disk for Run (still unsaved): ", _vg_path)
+
 ## Returns true if the buffer has unsaved changes.
 func is_dirty() -> bool:
 	return _dirty

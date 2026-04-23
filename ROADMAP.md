@@ -832,6 +832,7 @@ Potential features for the next version, pending community feedback:
 | **Plugin Marketplace** | In-IDE package browsing and one-click install | Low |
 | **Code Profiler** | Line-level performance profiling in the IDE | Low |
 | **VG3D Preview** | Limited 3D game kit demo — voxel-based level editor, basic first/third-person camera, CSG primitives. Proof-of-concept only, not production-ready. | Low |
+| **Working Nodes: Merge On Input chains** | Multiple `On Input` nodes currently each generate their own `Sub Form_KeyDown()`, producing duplicate sub names. Codegen should merge all `On Input` chains into a single `Sub Form_KeyDown(ByVal key As String)` with `If key = "..." Then` guards for each chain. | Low |
 
 ---
 

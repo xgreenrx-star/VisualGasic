@@ -1,21 +1,20 @@
-[gd_scene load_steps=2 format=3 uid="uid://defender_main_scene"]
+[gd_scene format=3 uid="uid://bopvs556encf4"]
 
-[ext_resource type="VisualGasicScript" path="res://defender.vg" id="1"]
+[ext_resource type="Script" uid="uid://cogrstmgbqo4j" path="res://defender.vg" id="1"]
 
-[node name="DefenderGame" type="Node2D"]
+[node name="DefenderGame" type="Node2D" unique_id=1969984415]
 script = ExtResource("1")
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=153177431]
 position = Vector2(512, 300)
-enabled = true
 
-[node name="Player" type="ColorRect" parent="."]
+[node name="Player" type="ColorRect" parent="." unique_id=1666193689]
 offset_right = 40.0
 offset_bottom = 20.0
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="UI" type="CanvasLayer" parent="." unique_id=1015183823]
 
-[node name="ScoreLabel" type="Label" parent="UI"]
+[node name="ScoreLabel" type="Label" parent="UI" unique_id=601000903]
 offset_left = 20.0
 offset_top = 20.0
 offset_right = 200.0
@@ -23,7 +22,7 @@ offset_bottom = 46.0
 theme_override_font_sizes/font_size = 24
 text = "Score: 0"
 
-[node name="LivesLabel" type="Label" parent="UI"]
+[node name="LivesLabel" type="Label" parent="UI" unique_id=1867249797]
 offset_left = 20.0
 offset_top = 50.0
 offset_right = 200.0
@@ -31,7 +30,7 @@ offset_bottom = 76.0
 theme_override_font_sizes/font_size = 24
 text = "Lives: 3"
 
-[node name="GameOverLabel" type="Label" parent="UI"]
+[node name="GameOverLabel" type="Label" parent="UI" unique_id=1172276561]
 offset_left = 300.0
 offset_top = 250.0
 offset_right = 724.0
@@ -41,1010 +40,1010 @@ text = "GAME OVER"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Stars" type="Node2D" parent="."]
+[node name="Stars" type="Node2D" parent="." unique_id=99568225]
 
-[node name="Star1" type="ColorRect" parent="Stars"]
+[node name="Star1" type="ColorRect" parent="Stars" unique_id=1119177658]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star2" type="ColorRect" parent="Stars"]
+[node name="Star2" type="ColorRect" parent="Stars" unique_id=45955337]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star3" type="ColorRect" parent="Stars"]
+[node name="Star3" type="ColorRect" parent="Stars" unique_id=2049920768]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star4" type="ColorRect" parent="Stars"]
+[node name="Star4" type="ColorRect" parent="Stars" unique_id=157827444]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star5" type="ColorRect" parent="Stars"]
+[node name="Star5" type="ColorRect" parent="Stars" unique_id=183118616]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star6" type="ColorRect" parent="Stars"]
+[node name="Star6" type="ColorRect" parent="Stars" unique_id=1916831334]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star7" type="ColorRect" parent="Stars"]
+[node name="Star7" type="ColorRect" parent="Stars" unique_id=1473221713]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star8" type="ColorRect" parent="Stars"]
+[node name="Star8" type="ColorRect" parent="Stars" unique_id=1201920296]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star9" type="ColorRect" parent="Stars"]
+[node name="Star9" type="ColorRect" parent="Stars" unique_id=1900051881]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star10" type="ColorRect" parent="Stars"]
+[node name="Star10" type="ColorRect" parent="Stars" unique_id=528380932]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star11" type="ColorRect" parent="Stars"]
+[node name="Star11" type="ColorRect" parent="Stars" unique_id=544203949]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star12" type="ColorRect" parent="Stars"]
+[node name="Star12" type="ColorRect" parent="Stars" unique_id=2125253026]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star13" type="ColorRect" parent="Stars"]
+[node name="Star13" type="ColorRect" parent="Stars" unique_id=2147107689]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star14" type="ColorRect" parent="Stars"]
+[node name="Star14" type="ColorRect" parent="Stars" unique_id=969284960]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star15" type="ColorRect" parent="Stars"]
+[node name="Star15" type="ColorRect" parent="Stars" unique_id=1486912975]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star16" type="ColorRect" parent="Stars"]
+[node name="Star16" type="ColorRect" parent="Stars" unique_id=2088329805]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star17" type="ColorRect" parent="Stars"]
+[node name="Star17" type="ColorRect" parent="Stars" unique_id=1246616169]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star18" type="ColorRect" parent="Stars"]
+[node name="Star18" type="ColorRect" parent="Stars" unique_id=1556449707]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star19" type="ColorRect" parent="Stars"]
+[node name="Star19" type="ColorRect" parent="Stars" unique_id=2078640235]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star20" type="ColorRect" parent="Stars"]
+[node name="Star20" type="ColorRect" parent="Stars" unique_id=836084784]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star21" type="ColorRect" parent="Stars"]
+[node name="Star21" type="ColorRect" parent="Stars" unique_id=300256053]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star22" type="ColorRect" parent="Stars"]
+[node name="Star22" type="ColorRect" parent="Stars" unique_id=1645702597]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star23" type="ColorRect" parent="Stars"]
+[node name="Star23" type="ColorRect" parent="Stars" unique_id=2039810820]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star24" type="ColorRect" parent="Stars"]
+[node name="Star24" type="ColorRect" parent="Stars" unique_id=54060048]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star25" type="ColorRect" parent="Stars"]
+[node name="Star25" type="ColorRect" parent="Stars" unique_id=2102429308]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star26" type="ColorRect" parent="Stars"]
+[node name="Star26" type="ColorRect" parent="Stars" unique_id=1800924548]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star27" type="ColorRect" parent="Stars"]
+[node name="Star27" type="ColorRect" parent="Stars" unique_id=508410086]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star28" type="ColorRect" parent="Stars"]
+[node name="Star28" type="ColorRect" parent="Stars" unique_id=1707149542]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star29" type="ColorRect" parent="Stars"]
+[node name="Star29" type="ColorRect" parent="Stars" unique_id=1229146377]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star30" type="ColorRect" parent="Stars"]
+[node name="Star30" type="ColorRect" parent="Stars" unique_id=1154355462]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star31" type="ColorRect" parent="Stars"]
+[node name="Star31" type="ColorRect" parent="Stars" unique_id=1182953715]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star32" type="ColorRect" parent="Stars"]
+[node name="Star32" type="ColorRect" parent="Stars" unique_id=2030776727]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star33" type="ColorRect" parent="Stars"]
+[node name="Star33" type="ColorRect" parent="Stars" unique_id=992288159]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star34" type="ColorRect" parent="Stars"]
+[node name="Star34" type="ColorRect" parent="Stars" unique_id=677856792]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star35" type="ColorRect" parent="Stars"]
+[node name="Star35" type="ColorRect" parent="Stars" unique_id=1534128992]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star36" type="ColorRect" parent="Stars"]
+[node name="Star36" type="ColorRect" parent="Stars" unique_id=1154031321]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star37" type="ColorRect" parent="Stars"]
+[node name="Star37" type="ColorRect" parent="Stars" unique_id=2078511537]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star38" type="ColorRect" parent="Stars"]
+[node name="Star38" type="ColorRect" parent="Stars" unique_id=1220395523]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star39" type="ColorRect" parent="Stars"]
+[node name="Star39" type="ColorRect" parent="Stars" unique_id=502440117]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star40" type="ColorRect" parent="Stars"]
+[node name="Star40" type="ColorRect" parent="Stars" unique_id=698374611]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star41" type="ColorRect" parent="Stars"]
+[node name="Star41" type="ColorRect" parent="Stars" unique_id=297215732]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star42" type="ColorRect" parent="Stars"]
+[node name="Star42" type="ColorRect" parent="Stars" unique_id=1692171655]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star43" type="ColorRect" parent="Stars"]
+[node name="Star43" type="ColorRect" parent="Stars" unique_id=558771483]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star44" type="ColorRect" parent="Stars"]
+[node name="Star44" type="ColorRect" parent="Stars" unique_id=106418392]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star45" type="ColorRect" parent="Stars"]
+[node name="Star45" type="ColorRect" parent="Stars" unique_id=1471371944]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star46" type="ColorRect" parent="Stars"]
+[node name="Star46" type="ColorRect" parent="Stars" unique_id=1414373098]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star47" type="ColorRect" parent="Stars"]
+[node name="Star47" type="ColorRect" parent="Stars" unique_id=129321973]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star48" type="ColorRect" parent="Stars"]
+[node name="Star48" type="ColorRect" parent="Stars" unique_id=36958548]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star49" type="ColorRect" parent="Stars"]
+[node name="Star49" type="ColorRect" parent="Stars" unique_id=161369700]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star50" type="ColorRect" parent="Stars"]
+[node name="Star50" type="ColorRect" parent="Stars" unique_id=750070442]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star51" type="ColorRect" parent="Stars"]
+[node name="Star51" type="ColorRect" parent="Stars" unique_id=1206686630]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star52" type="ColorRect" parent="Stars"]
+[node name="Star52" type="ColorRect" parent="Stars" unique_id=753355757]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star53" type="ColorRect" parent="Stars"]
+[node name="Star53" type="ColorRect" parent="Stars" unique_id=51571126]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star54" type="ColorRect" parent="Stars"]
+[node name="Star54" type="ColorRect" parent="Stars" unique_id=1504507905]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star55" type="ColorRect" parent="Stars"]
+[node name="Star55" type="ColorRect" parent="Stars" unique_id=1220509564]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star56" type="ColorRect" parent="Stars"]
+[node name="Star56" type="ColorRect" parent="Stars" unique_id=1346542283]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star57" type="ColorRect" parent="Stars"]
+[node name="Star57" type="ColorRect" parent="Stars" unique_id=1558997311]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star58" type="ColorRect" parent="Stars"]
+[node name="Star58" type="ColorRect" parent="Stars" unique_id=2061239652]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star59" type="ColorRect" parent="Stars"]
+[node name="Star59" type="ColorRect" parent="Stars" unique_id=855907197]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star60" type="ColorRect" parent="Stars"]
+[node name="Star60" type="ColorRect" parent="Stars" unique_id=1944302910]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star61" type="ColorRect" parent="Stars"]
+[node name="Star61" type="ColorRect" parent="Stars" unique_id=1792865044]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star62" type="ColorRect" parent="Stars"]
+[node name="Star62" type="ColorRect" parent="Stars" unique_id=1802250154]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star63" type="ColorRect" parent="Stars"]
+[node name="Star63" type="ColorRect" parent="Stars" unique_id=1144531592]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star64" type="ColorRect" parent="Stars"]
+[node name="Star64" type="ColorRect" parent="Stars" unique_id=520411658]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star65" type="ColorRect" parent="Stars"]
+[node name="Star65" type="ColorRect" parent="Stars" unique_id=1198847376]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star66" type="ColorRect" parent="Stars"]
+[node name="Star66" type="ColorRect" parent="Stars" unique_id=482208741]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star67" type="ColorRect" parent="Stars"]
+[node name="Star67" type="ColorRect" parent="Stars" unique_id=2104162208]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star68" type="ColorRect" parent="Stars"]
+[node name="Star68" type="ColorRect" parent="Stars" unique_id=1688542105]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star69" type="ColorRect" parent="Stars"]
+[node name="Star69" type="ColorRect" parent="Stars" unique_id=60820956]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star70" type="ColorRect" parent="Stars"]
+[node name="Star70" type="ColorRect" parent="Stars" unique_id=1607343927]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star71" type="ColorRect" parent="Stars"]
+[node name="Star71" type="ColorRect" parent="Stars" unique_id=2083136527]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star72" type="ColorRect" parent="Stars"]
+[node name="Star72" type="ColorRect" parent="Stars" unique_id=1884956852]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star73" type="ColorRect" parent="Stars"]
+[node name="Star73" type="ColorRect" parent="Stars" unique_id=2147130175]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star74" type="ColorRect" parent="Stars"]
+[node name="Star74" type="ColorRect" parent="Stars" unique_id=1911329483]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star75" type="ColorRect" parent="Stars"]
+[node name="Star75" type="ColorRect" parent="Stars" unique_id=326238302]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star76" type="ColorRect" parent="Stars"]
+[node name="Star76" type="ColorRect" parent="Stars" unique_id=754695838]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star77" type="ColorRect" parent="Stars"]
+[node name="Star77" type="ColorRect" parent="Stars" unique_id=41260077]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star78" type="ColorRect" parent="Stars"]
+[node name="Star78" type="ColorRect" parent="Stars" unique_id=1664516438]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star79" type="ColorRect" parent="Stars"]
+[node name="Star79" type="ColorRect" parent="Stars" unique_id=382041839]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star80" type="ColorRect" parent="Stars"]
+[node name="Star80" type="ColorRect" parent="Stars" unique_id=332583316]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star81" type="ColorRect" parent="Stars"]
+[node name="Star81" type="ColorRect" parent="Stars" unique_id=879620580]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star82" type="ColorRect" parent="Stars"]
+[node name="Star82" type="ColorRect" parent="Stars" unique_id=399852375]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star83" type="ColorRect" parent="Stars"]
+[node name="Star83" type="ColorRect" parent="Stars" unique_id=2018057751]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star84" type="ColorRect" parent="Stars"]
+[node name="Star84" type="ColorRect" parent="Stars" unique_id=1107013054]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star85" type="ColorRect" parent="Stars"]
+[node name="Star85" type="ColorRect" parent="Stars" unique_id=1157410582]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star86" type="ColorRect" parent="Stars"]
+[node name="Star86" type="ColorRect" parent="Stars" unique_id=2120568947]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star87" type="ColorRect" parent="Stars"]
+[node name="Star87" type="ColorRect" parent="Stars" unique_id=1678901304]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star88" type="ColorRect" parent="Stars"]
+[node name="Star88" type="ColorRect" parent="Stars" unique_id=691920389]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star89" type="ColorRect" parent="Stars"]
+[node name="Star89" type="ColorRect" parent="Stars" unique_id=804968898]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star90" type="ColorRect" parent="Stars"]
+[node name="Star90" type="ColorRect" parent="Stars" unique_id=970192135]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star91" type="ColorRect" parent="Stars"]
+[node name="Star91" type="ColorRect" parent="Stars" unique_id=95617232]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star92" type="ColorRect" parent="Stars"]
+[node name="Star92" type="ColorRect" parent="Stars" unique_id=508489719]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star93" type="ColorRect" parent="Stars"]
+[node name="Star93" type="ColorRect" parent="Stars" unique_id=1794948568]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star94" type="ColorRect" parent="Stars"]
+[node name="Star94" type="ColorRect" parent="Stars" unique_id=1679080421]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star95" type="ColorRect" parent="Stars"]
+[node name="Star95" type="ColorRect" parent="Stars" unique_id=1990467809]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star96" type="ColorRect" parent="Stars"]
+[node name="Star96" type="ColorRect" parent="Stars" unique_id=1163911184]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star97" type="ColorRect" parent="Stars"]
+[node name="Star97" type="ColorRect" parent="Stars" unique_id=1933388292]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star98" type="ColorRect" parent="Stars"]
+[node name="Star98" type="ColorRect" parent="Stars" unique_id=2048641430]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star99" type="ColorRect" parent="Stars"]
+[node name="Star99" type="ColorRect" parent="Stars" unique_id=1785727124]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Star100" type="ColorRect" parent="Stars"]
+[node name="Star100" type="ColorRect" parent="Stars" unique_id=1775729350]
 offset_right = 2.0
 offset_bottom = 2.0
 
-[node name="Enemies" type="Node2D" parent="."]
+[node name="Enemies" type="Node2D" parent="." unique_id=550942924]
 
-[node name="Enemy1" type="ColorRect" parent="Enemies"]
+[node name="Enemy1" type="ColorRect" parent="Enemies" unique_id=377332924]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy2" type="ColorRect" parent="Enemies"]
+[node name="Enemy2" type="ColorRect" parent="Enemies" unique_id=235062379]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy3" type="ColorRect" parent="Enemies"]
+[node name="Enemy3" type="ColorRect" parent="Enemies" unique_id=1590351230]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy4" type="ColorRect" parent="Enemies"]
+[node name="Enemy4" type="ColorRect" parent="Enemies" unique_id=1141090352]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy5" type="ColorRect" parent="Enemies"]
+[node name="Enemy5" type="ColorRect" parent="Enemies" unique_id=1130424306]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy6" type="ColorRect" parent="Enemies"]
+[node name="Enemy6" type="ColorRect" parent="Enemies" unique_id=150739374]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy7" type="ColorRect" parent="Enemies"]
+[node name="Enemy7" type="ColorRect" parent="Enemies" unique_id=2025111025]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy8" type="ColorRect" parent="Enemies"]
+[node name="Enemy8" type="ColorRect" parent="Enemies" unique_id=1642350770]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy9" type="ColorRect" parent="Enemies"]
+[node name="Enemy9" type="ColorRect" parent="Enemies" unique_id=835861867]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy10" type="ColorRect" parent="Enemies"]
+[node name="Enemy10" type="ColorRect" parent="Enemies" unique_id=1810007861]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy11" type="ColorRect" parent="Enemies"]
+[node name="Enemy11" type="ColorRect" parent="Enemies" unique_id=137254421]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy12" type="ColorRect" parent="Enemies"]
+[node name="Enemy12" type="ColorRect" parent="Enemies" unique_id=1719558801]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy13" type="ColorRect" parent="Enemies"]
+[node name="Enemy13" type="ColorRect" parent="Enemies" unique_id=243904940]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy14" type="ColorRect" parent="Enemies"]
+[node name="Enemy14" type="ColorRect" parent="Enemies" unique_id=1660521034]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy15" type="ColorRect" parent="Enemies"]
+[node name="Enemy15" type="ColorRect" parent="Enemies" unique_id=100256909]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy16" type="ColorRect" parent="Enemies"]
+[node name="Enemy16" type="ColorRect" parent="Enemies" unique_id=938836772]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy17" type="ColorRect" parent="Enemies"]
+[node name="Enemy17" type="ColorRect" parent="Enemies" unique_id=200551081]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy18" type="ColorRect" parent="Enemies"]
+[node name="Enemy18" type="ColorRect" parent="Enemies" unique_id=171834431]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy19" type="ColorRect" parent="Enemies"]
+[node name="Enemy19" type="ColorRect" parent="Enemies" unique_id=112393685]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Enemy20" type="ColorRect" parent="Enemies"]
+[node name="Enemy20" type="ColorRect" parent="Enemies" unique_id=260686127]
 visible = false
 offset_right = 30.0
 offset_bottom = 30.0
 
-[node name="Bullets" type="Node2D" parent="."]
+[node name="Bullets" type="Node2D" parent="." unique_id=652346868]
 
-[node name="Bullet1" type="ColorRect" parent="Bullets"]
+[node name="Bullet1" type="ColorRect" parent="Bullets" unique_id=1211041380]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet2" type="ColorRect" parent="Bullets"]
+[node name="Bullet2" type="ColorRect" parent="Bullets" unique_id=2026549322]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet3" type="ColorRect" parent="Bullets"]
+[node name="Bullet3" type="ColorRect" parent="Bullets" unique_id=1221037333]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet4" type="ColorRect" parent="Bullets"]
+[node name="Bullet4" type="ColorRect" parent="Bullets" unique_id=1409318927]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet5" type="ColorRect" parent="Bullets"]
+[node name="Bullet5" type="ColorRect" parent="Bullets" unique_id=1481340863]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet6" type="ColorRect" parent="Bullets"]
+[node name="Bullet6" type="ColorRect" parent="Bullets" unique_id=107754411]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet7" type="ColorRect" parent="Bullets"]
+[node name="Bullet7" type="ColorRect" parent="Bullets" unique_id=149640217]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet8" type="ColorRect" parent="Bullets"]
+[node name="Bullet8" type="ColorRect" parent="Bullets" unique_id=1350886992]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet9" type="ColorRect" parent="Bullets"]
+[node name="Bullet9" type="ColorRect" parent="Bullets" unique_id=1440654783]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet10" type="ColorRect" parent="Bullets"]
+[node name="Bullet10" type="ColorRect" parent="Bullets" unique_id=466570220]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet11" type="ColorRect" parent="Bullets"]
+[node name="Bullet11" type="ColorRect" parent="Bullets" unique_id=1411366864]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet12" type="ColorRect" parent="Bullets"]
+[node name="Bullet12" type="ColorRect" parent="Bullets" unique_id=1204193634]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet13" type="ColorRect" parent="Bullets"]
+[node name="Bullet13" type="ColorRect" parent="Bullets" unique_id=2000865880]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet14" type="ColorRect" parent="Bullets"]
+[node name="Bullet14" type="ColorRect" parent="Bullets" unique_id=1832616526]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet15" type="ColorRect" parent="Bullets"]
+[node name="Bullet15" type="ColorRect" parent="Bullets" unique_id=815780072]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet16" type="ColorRect" parent="Bullets"]
+[node name="Bullet16" type="ColorRect" parent="Bullets" unique_id=1075781225]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet17" type="ColorRect" parent="Bullets"]
+[node name="Bullet17" type="ColorRect" parent="Bullets" unique_id=996107451]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet18" type="ColorRect" parent="Bullets"]
+[node name="Bullet18" type="ColorRect" parent="Bullets" unique_id=1901589069]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet19" type="ColorRect" parent="Bullets"]
+[node name="Bullet19" type="ColorRect" parent="Bullets" unique_id=1486144830]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet20" type="ColorRect" parent="Bullets"]
+[node name="Bullet20" type="ColorRect" parent="Bullets" unique_id=846306326]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet21" type="ColorRect" parent="Bullets"]
+[node name="Bullet21" type="ColorRect" parent="Bullets" unique_id=859482636]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet22" type="ColorRect" parent="Bullets"]
+[node name="Bullet22" type="ColorRect" parent="Bullets" unique_id=1533260924]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet23" type="ColorRect" parent="Bullets"]
+[node name="Bullet23" type="ColorRect" parent="Bullets" unique_id=254037893]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet24" type="ColorRect" parent="Bullets"]
+[node name="Bullet24" type="ColorRect" parent="Bullets" unique_id=1770178860]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet25" type="ColorRect" parent="Bullets"]
+[node name="Bullet25" type="ColorRect" parent="Bullets" unique_id=738114529]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet26" type="ColorRect" parent="Bullets"]
+[node name="Bullet26" type="ColorRect" parent="Bullets" unique_id=1376793465]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet27" type="ColorRect" parent="Bullets"]
+[node name="Bullet27" type="ColorRect" parent="Bullets" unique_id=706454280]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet28" type="ColorRect" parent="Bullets"]
+[node name="Bullet28" type="ColorRect" parent="Bullets" unique_id=768196762]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet29" type="ColorRect" parent="Bullets"]
+[node name="Bullet29" type="ColorRect" parent="Bullets" unique_id=1357806390]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet30" type="ColorRect" parent="Bullets"]
+[node name="Bullet30" type="ColorRect" parent="Bullets" unique_id=468242864]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet31" type="ColorRect" parent="Bullets"]
+[node name="Bullet31" type="ColorRect" parent="Bullets" unique_id=566473093]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet32" type="ColorRect" parent="Bullets"]
+[node name="Bullet32" type="ColorRect" parent="Bullets" unique_id=35701777]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet33" type="ColorRect" parent="Bullets"]
+[node name="Bullet33" type="ColorRect" parent="Bullets" unique_id=57823440]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet34" type="ColorRect" parent="Bullets"]
+[node name="Bullet34" type="ColorRect" parent="Bullets" unique_id=1773083045]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet35" type="ColorRect" parent="Bullets"]
+[node name="Bullet35" type="ColorRect" parent="Bullets" unique_id=1094652826]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet36" type="ColorRect" parent="Bullets"]
+[node name="Bullet36" type="ColorRect" parent="Bullets" unique_id=1461050814]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet37" type="ColorRect" parent="Bullets"]
+[node name="Bullet37" type="ColorRect" parent="Bullets" unique_id=944518751]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet38" type="ColorRect" parent="Bullets"]
+[node name="Bullet38" type="ColorRect" parent="Bullets" unique_id=2109850301]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet39" type="ColorRect" parent="Bullets"]
+[node name="Bullet39" type="ColorRect" parent="Bullets" unique_id=232224682]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet40" type="ColorRect" parent="Bullets"]
+[node name="Bullet40" type="ColorRect" parent="Bullets" unique_id=1808877467]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet41" type="ColorRect" parent="Bullets"]
+[node name="Bullet41" type="ColorRect" parent="Bullets" unique_id=1505938319]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet42" type="ColorRect" parent="Bullets"]
+[node name="Bullet42" type="ColorRect" parent="Bullets" unique_id=2051005193]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet43" type="ColorRect" parent="Bullets"]
+[node name="Bullet43" type="ColorRect" parent="Bullets" unique_id=512011341]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet44" type="ColorRect" parent="Bullets"]
+[node name="Bullet44" type="ColorRect" parent="Bullets" unique_id=1364396406]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet45" type="ColorRect" parent="Bullets"]
+[node name="Bullet45" type="ColorRect" parent="Bullets" unique_id=937990754]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet46" type="ColorRect" parent="Bullets"]
+[node name="Bullet46" type="ColorRect" parent="Bullets" unique_id=1942802447]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet47" type="ColorRect" parent="Bullets"]
+[node name="Bullet47" type="ColorRect" parent="Bullets" unique_id=2131125102]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet48" type="ColorRect" parent="Bullets"]
+[node name="Bullet48" type="ColorRect" parent="Bullets" unique_id=776798391]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet49" type="ColorRect" parent="Bullets"]
+[node name="Bullet49" type="ColorRect" parent="Bullets" unique_id=1946978183]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="Bullet50" type="ColorRect" parent="Bullets"]
+[node name="Bullet50" type="ColorRect" parent="Bullets" unique_id=2053584278]
 visible = false
 offset_right = 10.0
 offset_bottom = 4.0
 
-[node name="EnemyBullets" type="Node2D" parent="."]
+[node name="EnemyBullets" type="Node2D" parent="." unique_id=1443067926]
 
-[node name="EBullet1" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet1" type="ColorRect" parent="EnemyBullets" unique_id=715352816]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet2" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet2" type="ColorRect" parent="EnemyBullets" unique_id=498748865]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet3" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet3" type="ColorRect" parent="EnemyBullets" unique_id=1077026857]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet4" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet4" type="ColorRect" parent="EnemyBullets" unique_id=1267747370]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet5" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet5" type="ColorRect" parent="EnemyBullets" unique_id=1761979668]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet6" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet6" type="ColorRect" parent="EnemyBullets" unique_id=153599755]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet7" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet7" type="ColorRect" parent="EnemyBullets" unique_id=1283793489]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet8" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet8" type="ColorRect" parent="EnemyBullets" unique_id=1913803054]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet9" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet9" type="ColorRect" parent="EnemyBullets" unique_id=214528396]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet10" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet10" type="ColorRect" parent="EnemyBullets" unique_id=1783880782]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet11" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet11" type="ColorRect" parent="EnemyBullets" unique_id=382405887]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet12" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet12" type="ColorRect" parent="EnemyBullets" unique_id=1717262292]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet13" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet13" type="ColorRect" parent="EnemyBullets" unique_id=1104732201]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet14" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet14" type="ColorRect" parent="EnemyBullets" unique_id=1190166603]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet15" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet15" type="ColorRect" parent="EnemyBullets" unique_id=1280708671]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet16" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet16" type="ColorRect" parent="EnemyBullets" unique_id=582891684]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet17" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet17" type="ColorRect" parent="EnemyBullets" unique_id=1247474105]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet18" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet18" type="ColorRect" parent="EnemyBullets" unique_id=428800544]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet19" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet19" type="ColorRect" parent="EnemyBullets" unique_id=206157093]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet20" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet20" type="ColorRect" parent="EnemyBullets" unique_id=1157588485]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet21" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet21" type="ColorRect" parent="EnemyBullets" unique_id=377240500]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet22" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet22" type="ColorRect" parent="EnemyBullets" unique_id=1172259315]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet23" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet23" type="ColorRect" parent="EnemyBullets" unique_id=1699975365]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet24" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet24" type="ColorRect" parent="EnemyBullets" unique_id=1368837044]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet25" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet25" type="ColorRect" parent="EnemyBullets" unique_id=1339893175]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet26" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet26" type="ColorRect" parent="EnemyBullets" unique_id=1392739995]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet27" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet27" type="ColorRect" parent="EnemyBullets" unique_id=1249503306]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet28" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet28" type="ColorRect" parent="EnemyBullets" unique_id=2136281503]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet29" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet29" type="ColorRect" parent="EnemyBullets" unique_id=1078458200]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet30" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet30" type="ColorRect" parent="EnemyBullets" unique_id=1458163681]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet31" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet31" type="ColorRect" parent="EnemyBullets" unique_id=544505965]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet32" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet32" type="ColorRect" parent="EnemyBullets" unique_id=2028910845]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet33" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet33" type="ColorRect" parent="EnemyBullets" unique_id=554755705]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet34" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet34" type="ColorRect" parent="EnemyBullets" unique_id=1253719532]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet35" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet35" type="ColorRect" parent="EnemyBullets" unique_id=2146513757]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet36" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet36" type="ColorRect" parent="EnemyBullets" unique_id=17705752]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet37" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet37" type="ColorRect" parent="EnemyBullets" unique_id=1466600967]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet38" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet38" type="ColorRect" parent="EnemyBullets" unique_id=807371680]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet39" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet39" type="ColorRect" parent="EnemyBullets" unique_id=1902598104]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet40" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet40" type="ColorRect" parent="EnemyBullets" unique_id=2056886776]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet41" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet41" type="ColorRect" parent="EnemyBullets" unique_id=347513097]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet42" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet42" type="ColorRect" parent="EnemyBullets" unique_id=1071091100]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet43" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet43" type="ColorRect" parent="EnemyBullets" unique_id=529969933]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet44" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet44" type="ColorRect" parent="EnemyBullets" unique_id=105027351]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet45" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet45" type="ColorRect" parent="EnemyBullets" unique_id=1473767256]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet46" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet46" type="ColorRect" parent="EnemyBullets" unique_id=737117940]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet47" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet47" type="ColorRect" parent="EnemyBullets" unique_id=1495136841]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet48" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet48" type="ColorRect" parent="EnemyBullets" unique_id=1616623417]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet49" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet49" type="ColorRect" parent="EnemyBullets" unique_id=1307947729]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0
 
-[node name="EBullet50" type="ColorRect" parent="EnemyBullets"]
+[node name="EBullet50" type="ColorRect" parent="EnemyBullets" unique_id=1861074330]
 visible = false
 offset_right = 8.0
 offset_bottom = 4.0

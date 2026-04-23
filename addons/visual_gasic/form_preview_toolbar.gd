@@ -220,6 +220,14 @@ func _run_project() -> void:
 	# Save all open scenes first
 	editor.save_all_scenes()
 
+	# Flush the embedded code editor's buffer to disk so the running game
+	# uses the latest edits, but keep the editor's dirty flag intact so
+	# Ctrl+S / File→Save remains the only formal "save" action.
+	if _editor_plugin and _editor_plugin.has_method("get"):
+		var ece = _editor_plugin.get("_embedded_code_editor")
+		if ece and is_instance_valid(ece) and ece.has_method("flush_for_run"):
+			ece.flush_for_run()
+
 	# Save breakpoints so the game process can check them at startup
 	_save_breakpoints_for_preview()
 

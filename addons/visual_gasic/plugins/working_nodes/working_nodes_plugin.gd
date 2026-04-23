@@ -72,7 +72,7 @@ func _build_ui() -> void:
 	left_v.add_child(title)
 
 	var subtitle := Label.new()
-	subtitle.text = "GD-style triggers + Blender-style math"
+	subtitle.text = "Trigger/group workflow + math nodes"
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	subtitle.add_theme_color_override("font_color", Color(0.72, 0.78, 0.88))
 	left_v.add_child(subtitle)
@@ -114,7 +114,7 @@ func _build_ui() -> void:
 	loading_label.visible = false
 	right_panel.add_child(_editor)
 	if _editor.has_method("_ensure_initialized"):
-		_editor.call_deferred("_ensure_initialized")
+		_editor._ensure_initialized()
 	_connect_editor_export_signals()
 	call_deferred("_verify_editor_surface")
 
@@ -140,7 +140,7 @@ func _try_mount_full_editor(host: Control) -> bool:
 	host.add_child(_editor)
 
 	if _editor.has_method("_ensure_initialized"):
-		_editor.call_deferred("_ensure_initialized")
+		_editor._ensure_initialized()
 	_connect_editor_export_signals()
 	call_deferred("_verify_editor_surface")
 	return true
@@ -152,7 +152,7 @@ func _on_activated() -> void:
 	if is_instance_valid(_editor):
 		_editor.visible = true
 		if _editor.has_method("_ensure_initialized"):
-			_editor.call_deferred("_ensure_initialized")
+			_editor._ensure_initialized()
 	call_deferred("_verify_editor_surface")
 
 
@@ -167,11 +167,7 @@ func _verify_editor_surface() -> void:
 		if _right_panel.get_child_count() <= 1:
 			_build_inline_fallback(_right_panel, "Editor unavailable; fallback UI active")
 		return
-	# If editor stayed empty due init failure, show guaranteed fallback.
-	if _editor.get_child_count() == 0:
-		_editor.queue_free()
-		_editor = null
-		_build_inline_fallback(_right_panel, "Editor failed to initialize; fallback UI active")
+	# Editor is a valid Control — trust it.
 
 
 func _build_inline_fallback(host: Control, reason: String) -> void:
@@ -278,11 +274,11 @@ func _build_inline_fallback(host: Control, reason: String) -> void:
 	_fallback_node_count_label = count_lbl
 	row2.add_child(count_lbl)
 
-	# ── Toolbar row 3: Blender utility + GD trigger nodes ────────────────
+	# ── Toolbar row 3: Utility + Trigger nodes ────────────────
 	var row3 := HBoxContainer.new()
 	row3.add_theme_constant_override("separation", 4)
 	root.add_child(row3)
-	var r3_lbl := Label.new(); r3_lbl.text = "Blender:"; r3_lbl.add_theme_color_override("font_color", Color(0.7,0.85,0.55))
+	var r3_lbl := Label.new(); r3_lbl.text = "Utility:"; r3_lbl.add_theme_color_override("font_color", Color(0.7,0.85,0.55))
 	row3.add_child(r3_lbl)
 	_wn_btn(row3, "+VecM",  _on_fallback_add_vectormath)
 	_wn_btn(row3, "+MapR",  _on_fallback_add_maprange)
@@ -291,7 +287,7 @@ func _build_inline_fallback(host: Control, reason: String) -> void:
 	_wn_btn(row3, "+Cmp",   _on_fallback_add_compare)
 	_wn_btn(row3, "+Rnd",   _on_fallback_add_randomvalue)
 	row3.add_child(VSeparator.new())
-	var r3_gd := Label.new(); r3_gd.text = "GD Triggers:"; r3_gd.add_theme_color_override("font_color", Color(1.0,0.65,0.25))
+	var r3_gd := Label.new(); r3_gd.text = "Triggers:"; r3_gd.add_theme_color_override("font_color", Color(1.0,0.65,0.25))
 	row3.add_child(r3_gd)
 	_wn_btn(row3, "+Trig",   _on_fallback_add_trigger)
 	_wn_btn(row3, "+Color",  _on_fallback_add_colorchannel)
@@ -778,7 +774,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 	var _tooltips := {
 		"Event":"Fires execution on a lifecycle or input event.",
 		"Action":"Performs an operation on a node in the scene.",
-		"Math":"44-op Blender-style math: Arithmetic/Comparison/Rounding/Trig/Conversion/Interpolation.",
+		"Math":"44-op math operators: Arithmetic/Comparison/Rounding/Trig/Conversion/Interpolation.",
 		"Condition":"Branches execution based on a boolean test.",
 		"Variable":"Stores and outputs a named value.",
 		"Note":"Freeform text annotation (no ports).",
@@ -786,25 +782,25 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		"Loop":"Repeats execution for each iteration.",
 		"Sequence":"Fires outputs in numbered order.",
 		"Function":"Reusable subgraph with named inputs/outputs.",
-		"VectorMath":"Blender-style vector math: 24 operations on Vector2/3.",
-		"MapRange":"Remaps a value from one numeric range to another (Blender Map Range).",
+		"VectorMath":"Vector math: 24 operations on Vector2/3.",
+		"MapRange":"Remaps a value from one numeric range to another (Map Range).",
 		"BoolMath":"Boolean logic: AND OR NOT NAND NOR XOR XNOR.",
 		"Switch":"Outputs True-value or False-value based on a boolean switch.",
 		"Compare":"Compares two values and outputs a boolean result.",
 		"RandomValue":"Outputs a random float/int/bool/vector within a range with optional seed.",
-		"Trigger":"GD-style: activates a group with optional delay and spawn-trigger mode.",
-		"ColorChannel":"GD-style: changes a color channel (1-1000) with duration and blend mode.",
-		"MoveGroup":"GD-style: moves a group by X/Y over a duration with easing.",
-		"RotateGroup":"GD-style: rotates a group by degrees over a duration with easing.",
-		"SpawnTrigger":"GD-style: chains/spawns another trigger group with optional delay and remap.",
-		"AlphaFade":"GD-style: fades a group's opacity to target value over duration.",
-		"ToggleGroup":"GD-style: toggles a group on, off, or flips its visibility.",
-		"CollisionTrigger":"GD-style: fires when two block groups overlap.",
-		"CounterItem":"GD-style: fires when an item counter meets a target condition.",
-		"PulseEffect":"GD-style: pulses a group's color with fade-in, hold, and fade-out.",
-		"FollowTarget":"GD-style: makes a group follow another group at a set speed.",
-		"CameraControl":"GD-style: controls camera zoom, pan, offset, or static position.",
-		"TimedEvent":"GD-style: fires after a delay, with optional repeat interval and loop."
+		"Trigger":"Trigger: activates a group with optional delay and spawn-trigger mode.",
+		"ColorChannel":"Color channel trigger: changes a color channel (1-1000) with duration and blend mode.",
+		"MoveGroup":"Move trigger: moves a group by X/Y over a duration with easing.",
+		"RotateGroup":"Rotate trigger: rotates a group by degrees over a duration with easing.",
+		"SpawnTrigger":"Spawn trigger: chains/spawns another trigger group with optional delay and remap.",
+		"AlphaFade":"Alpha trigger: fades a group's opacity to target value over duration.",
+		"ToggleGroup":"Toggle trigger: toggles a group on, off, or flips its visibility.",
+		"CollisionTrigger":"Collision trigger: fires when two block groups overlap.",
+		"CounterItem":"Counter trigger: fires when an item counter meets a target condition.",
+		"PulseEffect":"Pulse trigger: pulses a group's color with fade-in, hold, and fade-out.",
+		"FollowTarget":"Follow trigger: makes a group follow another group at a set speed.",
+		"CameraControl":"Camera trigger: controls camera zoom, pan, offset, or static position.",
+		"TimedEvent":"Timer trigger: fires after a delay, with optional repeat interval and loop."
 	}
 	node.tooltip_text = _tooltips.get(node_kind, node_kind)
 
@@ -886,7 +882,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		"Event":Color(0.3,0.5,0.9),     "Action":Color(0.3,0.75,0.45),  "Math":Color(0.7,0.45,0.9),
 		"Condition":Color(0.9,0.6,0.2), "Variable":Color(0.25,0.8,0.85),"Loop":Color(0.8,0.4,0.55),
 		"Sequence":Color(0.5,0.8,0.6),  "Function":Color(0.75,0.65,0.95),
-		# Blender utility
+		# Utility math nodes
 		"VectorMath":Color(0.3,0.8,0.7), "MapRange":Color(0.5,0.75,0.3), "BoolMath":Color(0.85,0.3,0.35),
 		"Switch":Color(0.65,0.65,0.85),  "Compare":Color(0.9,0.7,0.3),   "RandomValue":Color(0.4,0.85,0.55),
 		# Geometry Dash triggers
@@ -1032,7 +1028,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		node.set_slot(1, true, PORT_FLOAT, COLOR_FLOAT, false, PORT_FLOAT, COLOR_FLOAT)
 		node.set_slot(2, true, PORT_FLOAT, COLOR_FLOAT, true,  PORT_FLOAT, COLOR_FLOAT)
 
-	# ══ Blender utility nodes ════════════════════════════════════════════
+	# ══ Utility math nodes ════════════════════════════════════════════
 
 	# ── VectorMath ────────────────────────────────────────────────────────
 	elif node_kind == "VectorMath":
@@ -1335,7 +1331,7 @@ func _on_fallback_add_group()            -> void: _fallback_add_node("Group");  
 func _on_fallback_add_loop()             -> void: _fallback_add_node("Loop");             _fallback_update_node_count()
 func _on_fallback_add_sequence()         -> void: _fallback_add_node("Sequence");         _fallback_update_node_count()
 func _on_fallback_add_function()         -> void: _fallback_add_node("Function");         _fallback_update_node_count()
-# Blender utility nodes
+# Utility math nodes
 func _on_fallback_add_vectormath()       -> void: _fallback_add_node("VectorMath");       _fallback_update_node_count()
 func _on_fallback_add_maprange()         -> void: _fallback_add_node("MapRange");         _fallback_update_node_count()
 func _on_fallback_add_boolmath()         -> void: _fallback_add_node("BoolMath");         _fallback_update_node_count()
