@@ -105,6 +105,12 @@ bool VisualGasicPackage::initialize(const String &p_workspace_path) {
         installed_packages = load_lock_file();
     }
 
+    // TODO(pkg-registry): seed a default registry here so the Package Browser
+    // has something to talk to out of the box. Something like:
+    //   add_registry("official", "https://raw.githubusercontent.com/<org>/vg-registry/main/");
+    // Until this is done, search_packages() iterates zero registries and the
+    // Registry tab in the IDE is permanently empty. See matching TODO in
+    // addons/visual_gasic/vg_package_browser.gd :: _create_package_manager().
     UtilityFunctions::print("[VisualGasicPackage] Initialized at: ", workspace_root);
     return true;
 }
