@@ -1,9 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://addons/visual_gasic/prototypes/game_ui/ConfirmDialog.gd" id="1_confirm"]
-
-[node name="ConfirmDialog" type="PanelContainer"]
-custom_minimum_size = Vector2(280, 140)
-offset_right = 280.0
-offset_bottom = 140.0
-script = ExtResource("1_confirm")

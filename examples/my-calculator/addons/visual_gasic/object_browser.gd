@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/object_browser.gd

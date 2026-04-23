@@ -1,9 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://addons/visual_gasic/prototypes/game_ui/HUDCounter.gd" id="1_hud"]
-
-[node name="HUDCounter" type="HBoxContainer"]
-custom_minimum_size = Vector2(120, 28)
-offset_right = 120.0
-offset_bottom = 28.0
-script = ExtResource("1_hud")

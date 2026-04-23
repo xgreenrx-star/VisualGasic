@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/vg_shape.gd

@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/vb6_cli.gd

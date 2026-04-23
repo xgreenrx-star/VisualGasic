@@ -1,6 +1,0 @@
-[gd_scene format=3]
-
-[node name="VSeparator" type="VSeparator"]
-custom_minimum_size = Vector2(4, 100)
-offset_right = 4.0
-offset_bottom = 100.0

@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/visual_gasic_plugin.gd

@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/recent_projects_menu.gd

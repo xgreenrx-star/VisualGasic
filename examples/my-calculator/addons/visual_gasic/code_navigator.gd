@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/code_navigator.gd

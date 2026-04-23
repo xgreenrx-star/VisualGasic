@@ -31,6 +31,11 @@ jobs:
           chmod +x ./scripts/check_dim_types.py
           ./scripts/check_dim_types.py
 
+      - name: Addon sync check
+        run: |
+          chmod +x ./scripts/sync_addons.sh
+          ./scripts/sync_addons.sh check
+
       - name: Build
         run: scons platform=linux target=editor -j2
 

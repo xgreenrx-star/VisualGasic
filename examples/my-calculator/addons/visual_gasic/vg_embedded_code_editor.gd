@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/vg_embedded_code_editor.gd

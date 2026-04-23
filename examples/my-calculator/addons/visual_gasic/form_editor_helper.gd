@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/form_editor_helper.gd

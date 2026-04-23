@@ -1,8 +1,0 @@
-[gd_scene format=3]
-
-[node name="TextureRect" type="TextureRect"]
-custom_minimum_size = Vector2(100, 100)
-offset_right = 100.0
-offset_bottom = 100.0
-expand_mode = 1
-stretch_mode = 5

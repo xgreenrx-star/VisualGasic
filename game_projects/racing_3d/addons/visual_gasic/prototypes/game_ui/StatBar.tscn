@@ -1,9 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://addons/visual_gasic/prototypes/game_ui/StatBar.gd" id="1_stat"]
-
-[node name="StatBar" type="Control"]
-custom_minimum_size = Vector2(200, 24)
-offset_right = 200.0
-offset_bottom = 24.0
-script = ExtResource("1_stat")

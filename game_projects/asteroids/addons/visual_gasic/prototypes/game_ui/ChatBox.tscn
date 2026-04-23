@@ -1,9 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://addons/visual_gasic/prototypes/game_ui/ChatBox.gd" id="1_chat"]
-
-[node name="ChatBox" type="PanelContainer"]
-custom_minimum_size = Vector2(260, 180)
-offset_right = 260.0
-offset_bottom = 180.0
-script = ExtResource("1_chat")

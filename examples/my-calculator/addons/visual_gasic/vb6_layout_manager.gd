@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/vb6_layout_manager.gd

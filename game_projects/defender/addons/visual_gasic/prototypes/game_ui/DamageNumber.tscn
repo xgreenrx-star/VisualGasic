@@ -1,9 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://addons/visual_gasic/prototypes/game_ui/DamageNumber.gd" id="1_dmg"]
-
-[node name="DamageNumber" type="Label"]
-custom_minimum_size = Vector2(60, 28)
-offset_right = 60.0
-offset_bottom = 28.0
-script = ExtResource("1_dmg")

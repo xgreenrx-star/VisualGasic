@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/vb6_project_explorer.gd

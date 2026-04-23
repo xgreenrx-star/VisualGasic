@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/color_palette_toolbar.gd

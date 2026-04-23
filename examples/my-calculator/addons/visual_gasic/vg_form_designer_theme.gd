@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/vg_form_designer_theme.gd

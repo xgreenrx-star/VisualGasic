@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/find_references_panel.gd

@@ -1,9 +1,0 @@
-[gd_scene format=3]
-
-[node name="RadioButton" type="CheckBox"]
-custom_minimum_size = Vector2(100, 20)
-offset_right = 100.0
-offset_bottom = 20.0
-focus_mode = 2
-text = "Option1"
-toggle_mode = true

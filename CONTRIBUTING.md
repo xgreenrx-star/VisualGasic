@@ -49,6 +49,30 @@ src/
 - **Release builds**: Optimized for performance
 - **Test builds**: Include test harness and coverage reporting
 
+### Build systems (two, intentionally)
+- **SCons** (`SConstruct`) is the primary build for the GDExtension itself.
+  Produces `addons/visual_gasic/bin/libvisualgasic.*`. Use this for everyday
+  development: `scons platform=linux target=editor`.
+- **CMake** (`CMakeLists.txt`) is a test-only harness, gated behind
+  `-DBUILD_TESTS=ON`. It compiles the parser/tokenizer standalone binaries
+  under `tools/` so they can be fuzzed and unit-tested without Godot.
+  Do not use it for shipping builds.
+
+### Addon layout & the sync script
+The canonical addon lives at **`addons/visual_gasic/`** and every demo and
+game project holds a relative symlink to it. Edit the canonical copy; all
+projects see the change immediately.
+
+```bash
+scripts/sync_addons.sh status    # show every project and its state
+scripts/sync_addons.sh check     # CI-friendly: exit 1 if any copy drifts
+scripts/sync_addons.sh convert   # replace real-dir copies with symlinks
+scripts/sync_addons.sh restore   # inverse, for packaging
+```
+
+CI runs `sync_addons.sh check` on every push. Do not commit a real-directory
+addon copy under `demos/`, `examples/`, `game_projects/`, or `test_proj/`.
+
 ## Coding Standards
 
 ### C++ Style Guide

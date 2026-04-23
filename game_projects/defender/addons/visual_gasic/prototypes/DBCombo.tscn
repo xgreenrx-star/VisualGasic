@@ -1,7 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://addons/visual_gasic/vg_dbcombo.gd" id="1"]
-
-[node name="DBCombo" type="Control"]
-custom_minimum_size = Vector2(150, 25)
-script = ExtResource("1")

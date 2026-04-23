@@ -1,1 +1,0 @@
-../../../../addons/visual_gasic/call_stack_panel.gd
