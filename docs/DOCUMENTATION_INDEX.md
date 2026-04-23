@@ -27,7 +27,11 @@
 - [VB6_FEATURES_IMPLEMENTATION.md](reference/VB6_FEATURES_IMPLEMENTATION.md) - VB6 feature compatibility
 
 ### Editor Features
-- [ide_tools.md](manual/ide_tools.md) - **Complete IDE tools guide** (Watch Window, Alignment, IntelliSense, Debugging, Linting, Snippets, Themes)
+- [ide_tools.md](manual/ide_tools.md) - **Complete IDE tools guide** (Watch Window, Alignment, IntelliSense, Debugging, Linting, Snippets, Themes, **Profiler / Controls / Packages / AI Help** bottom-dock panels)
+- [ide_tools.md#profiler-panel](manual/ide_tools.md#profiler-panel) - **Profiler Panel** — bytecode-level hot-path timing, counters, JSON export (C++ `VisualGasicProfiler` bridge)
+- [ide_tools.md#controls-panel-controls-inspector](manual/ide_tools.md#controls-panel-controls-inspector) - **Controls Panel** — VB6-style live inspector for form controls at breakpoints
+- [ide_tools.md#packages-panel-vg-packages](manual/ide_tools.md#packages-panel-vg-packages) - **VG Packages Panel** — install, remove, and search VG packages (pip/npm for VG)
+- [ide_tools.md#ai-help-panel](manual/ide_tools.md#ai-help-panel) - **AI Help Panel** — in-editor AI assistant (Ollama / OpenAI / Claude / Gemini) with VG-aware prompt, Explain Error / Explain Code / Translate presets
 - [IDE_SHORTCUTS.md](manual/IDE_SHORTCUTS.md) - **Keyboard shortcuts & features quick-reference** (canvas, menus, properties, code editor)
 - [SPRITE_EDITOR_MANUAL.md](manual/SPRITE_EDITOR_MANUAL.md) - **Sprite Editor Manual** (19 drawing tools, 9 retro palettes, layers with blend modes, animation frames with tags, system clipboard, selection transforms, gradient, outline, reference layers, tiled preview)
 - [CUSTOM_CONTROLS.md](guides/CUSTOM_CONTROLS.md) - **Creating and using custom controls** (design in Godot, add via Components, use on forms)

@@ -369,3 +369,144 @@ Scope-aware variable renaming.
 *   **Entire Script**: Rename throughout the file
 *   **Everywhere**: Rename in all .vg files
 *   **Smart Matching**: Avoids strings and comments
+
+---
+
+## Bottom Dock Panels
+
+The bottom dock in the VisualGasic IDE exposes four specialized panels beyond the built‑in Output/Debugger/Immediate tabs. These panels are defined in the editor addon (`addons/visual_gasic/`) and are available whenever the VG plugin is active.
+
+### Profiler Panel
+**Location**: `Bottom Dock > Profiler`
+**File**: [addons/visual_gasic/vg_profiler_panel.gd](../../addons/visual_gasic/vg_profiler_panel.gd)
+
+Bytecode-level performance profiler for VisualGasic scripts, backed by the C++ `VisualGasicProfiler` singleton. Integrates with the editor via the debug protocol (`visualgasic:profiler_*` messages) and is wired to the running engine through static class methods on `VisualGasicLanguage` (`vg_profiler_enable`, `vg_profiler_get_report`, `vg_profiler_clear`).
+
+**What it's for**: find hot paths in your `.vg` code and in the VG runtime itself (parser, JIT, bytecode VM, ECS, etc.).
+
+**Toolbar**:
+| Button | Action |
+|--------|--------|
+| **▶ Start Profiling** | Enables the C++ profiler and begins auto‑refreshing (2s interval) |
+| **🔄 Refresh** | Manually fetch the latest report from the running game |
+| **🗑 Clear** | Zero all counter values and drop per‑function timing. Registered counter names are preserved so the list stays stable. |
+| **💾 Export** | Dump the current report as JSON to `user://vg_profile_export.json` |
+
+**Functions tab** — seven columns per entry:
+- `Function`, `Category`, `Calls`, `Total (ms)`, `Avg (ms)`, `Min (ms)`, `Max (ms)`
+
+Rows are sorted by total time descending and **heat‑colored**:
+- 🔴 Red  ≥ 50 ms total (hot path)
+- 🟠 Orange ≥ 10 ms (warm)
+- 🟡 Yellow ≥ 1 ms (tepid)
+- 🟢 Green  < 1 ms (cool)
+
+**Counters tab** — `Counter`, `Value`, `Updates`, `Unit`. Populated by the `VG_COUNT` / `VG_COUNT_VALUE` macros in the engine (parser cache hits, JIT tier‑up events, allocator pool util, etc.).
+
+**How to use**:
+1. Open your project and run it (`F5`).
+2. Click **▶ Start Profiling** in the Profiler panel.
+3. Exercise the code paths you want to measure (gameplay, parser, etc.).
+4. Click **⏹ Stop Profiling** or just hit **🔄 Refresh** to see live numbers.
+5. Click a hot row to identify the offending function; use **💾 Export** to share the report.
+6. Click **🗑 Clear** between runs to reset between A/B comparisons.
+
+**Instrumenting your own code**: engine internals already use `VG_PROFILE(name)` and `VG_COUNT(name)` macros from [src/visual_gasic_profiler.h](../../src/visual_gasic_profiler.h). User `.vg` functions are not auto‑instrumented yet — the Counters tab will populate from engine activity, the Functions tab reflects macro call sites.
+
+### Controls Panel (Controls Inspector)
+**Location**: `Bottom Dock > Controls`
+**File**: [addons/visual_gasic/vg_controls_inspector.gd](../../addons/visual_gasic/vg_controls_inspector.gd)
+
+A VB6‑style live inspector for every control on your active form. Analogous to VB6's `Me.Controls` collection view at a breakpoint.
+
+**What it's for**: inspect — and step through — the state of every `Button`, `TextBox`, `Label`, `ListBox`, etc. on the current form **while the game is paused at a breakpoint**. This is the missing piece between the Watch window (variables) and the form designer (static layout).
+
+**UI**:
+- **Filter box** — type to narrow by control name (live filter)
+- **⟳ Refresh** — re‑request the controls list from the paused instance
+- **Three‑column tree**: `Control` name, `Type` (Button/TextBox/…), `Value` (Caption / Text / Value / state)
+- Each row expands to show **all** VB6 property aliases resolved at that frame (`Caption`, `Enabled`, `Visible`, `Left`, `Top`, `Width`, `Height`, `BackColor`, `ForeColor`, `Font`, …)
+
+**How to use**:
+1. Set a breakpoint in an event handler (`btn_Click`, `Form_Load`, etc.).
+2. Run the project and trigger the breakpoint.
+3. Open the **Controls** panel — it will say "Debugging active. Click Refresh to inspect controls."
+4. Click **⟳ Refresh** to pull the live control list from the paused VG instance.
+5. **Click** a control to emit `control_selected` (other plugins can listen — e.g. highlight on the canvas).
+6. **Double‑click** a control to jump to its default event handler (`btn_Click` for Button, `txt_Change` for TextBox, etc.).
+7. Use the filter box to quickly find named controls in forms with many widgets.
+
+Outside of debugging the panel shows "Run project and hit a breakpoint to inspect controls." — the data comes from the running instance over the debug protocol, so the game must be paused.
+
+### Packages Panel (VG Packages)
+**Location**: `Bottom Dock > Packages`
+**File**: [addons/visual_gasic/vg_package_browser.gd](../../addons/visual_gasic/vg_package_browser.gd)
+
+Editor front‑end for the VisualGasic package manager (C++ class `VisualGasicPackage`). Analogous to NuGet in Visual Studio, or `pip`/`npm` for VG projects.
+
+**What it's for**: install, remove, and search for reusable VG packages in your project. A VG package is a folder containing `.vg` modules plus a `package.vg.json` manifest — drop one into `vg_packages/` and it becomes `Imports`‑able from any script in the project.
+
+**Toolbar**:
+| Button | Action |
+|--------|--------|
+| **Init** | Create a `vg.json` manifest in the project root (required before installing anything) |
+| **⟳** | Refresh the installed packages list from disk |
+
+**Search bar** — query the package registry. Hit Enter or click **Search** to populate the Search tab. (Note: the remote registry endpoint is currently a TODO — see `TODO(pkg-registry)` in [src/visual_gasic_package.cpp](../../src/visual_gasic_package.cpp). Local install from a folder works today.)
+
+**Tabs**:
+- **Installed** — every package currently resolved into `vg_packages/`, with version and a Remove button per row
+- **Search** — results from the registry query, each with an Install button
+- **Info** — RichTextLabel that shows the selected package's `package.vg.json` (description, author, dependencies, license)
+
+**How to use**:
+1. Open the Packages panel in your project.
+2. If it prompts, click **Init** — this writes `vg.json` at the project root.
+3. Type a package name in the search box and press Enter (or install locally by dropping a package folder into `vg_packages/` and clicking **⟳**).
+4. Hit **Install** on a search result; the package is downloaded into `vg_packages/<name>/` and its exported symbols become available.
+5. In your `.vg` code:
+   ```vb
+   Imports MyPackage
+   MyPackage.Foo()
+   ```
+6. To uninstall, open the **Installed** tab and click **Remove** next to the package.
+
+**Signals** (for plugin integration): `package_installed(pkg_name, version)`, `package_removed(pkg_name)`.
+
+### AI Help Panel
+**Location**: `Bottom Dock > AI Help`
+**Files**: [addons/visual_gasic/vg_ai_help.gd](../../addons/visual_gasic/vg_ai_help.gd), [addons/visual_gasic/vg_ai_providers.gd](../../addons/visual_gasic/vg_ai_providers.gd), [addons/visual_gasic/vg_ai_model_picker.gd](../../addons/visual_gasic/vg_ai_model_picker.gd)
+
+In‑editor AI assistant with a VisualGasic‑aware system prompt. Supports **local Ollama** (private, offline) and cloud providers **OpenAI**, **Claude**, and **Gemini**. Streams token‑by‑token responses into a RichTextLabel in the panel.
+
+**What it's for**: explain errors, translate GDScript ↔ VG, describe a selected `Sub`/`Function`, generate boilerplate, or just ask "why doesn't this compile?" without leaving the IDE.
+
+**UI**:
+- **Provider dropdown** — pick Ollama / OpenAI / Claude / Gemini
+- **API Key** button — stores keys in `user://vg_ai_keys.cfg` (Ollama needs none)
+- **Model dropdown** / **Models…** — pick the model. Defaults to `qwen2.5-coder:7b` on Ollama.
+- **Status label** — shows connection state (`Ollama ready`, `Warming up…`, `Streaming…`, etc.)
+- **Output** — RichTextLabel with Markdown/code‑fence rendering, token count, and elapsed time
+- **Input** — CodeEdit with `↑/↓` history navigation
+- **Send** — submit the prompt (Ctrl+Enter also works)
+- **Stop** — abort an in‑flight generation
+- **Clear** — reset the conversation (the last 3 user+assistant exchanges are fed back as context)
+
+**Preset quick‑action buttons**:
+| Button | What it does |
+|--------|--------------|
+| **Explain Error** | Sends the last error captured from the Output/Debugger to the model: "Explain this VG error and how to fix it" |
+| **Explain Code** | Sends the current selection (or the surrounding Sub/Function block if no selection) with "Explain what this VG code does" |
+| **Translate** | Converts between VG and GDScript — directional based on which pane the code came from |
+
+**How to use**:
+1. Open the AI Help panel. If you want local/offline: install Ollama (`curl -fsSL https://ollama.ai/install.sh | sh`) and pull a model (`ollama pull qwen2.5-coder:7b`). The panel pings `http://127.0.0.1:11434` on activation.
+2. For cloud providers, click **API Key** and paste your key (stored in `user://vg_ai_keys.cfg`).
+3. Pick a model from the dropdown. Click **Models…** to browse everything installed.
+4. Type a question, or select code in the editor and click a preset button.
+5. Tokens stream in real time — click **Stop** anytime to abort.
+6. History: `↑/↓` in the input recalls previous prompts. The panel keeps the last 3 exchanges as conversation context so you can say "refactor that" or "show me an example".
+
+**System prompt**: every request is prefixed with a VG‑aware preamble covering VB6 syntax, auto‑wired events, virtual callbacks (`_Ready`, `_Process`, `_PhysicsProcess`, `_Input`), VB6 property aliases, and `ConnectSignal`. See `SYSTEM_PROMPT` in [vg_ai_help.gd](../../addons/visual_gasic/vg_ai_help.gd) for the full text.
+
+**Privacy**: when using Ollama everything stays on your machine. Cloud providers send the prompt (plus the last N exchanges and any selected code) to the respective API; don't paste secrets.

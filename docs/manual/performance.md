@@ -2,6 +2,8 @@
 
 This page summarizes the built‑in benchmark suite results for Visual Gasic versus GDScript and C++.
 
+> **Profiling your own code?** See the [Profiler Panel](ide_tools.md#profiler-panel) section in the IDE Tools guide for the live in‑editor profiler (hot‑path timing, counter tracking, JSON export).
+
 ## Test Setup
 
 - Engine: Godot 4.6.1 (headless)
