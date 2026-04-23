@@ -83,6 +83,10 @@ public:
     Dictionary get_memory_report();
     void print_performance_summary();
     void export_profile_data(const String& filename);
+
+    // Reset every profile and counter (but keep registered counter names so
+    // the panel's counter list remains stable after a clear).
+    void clear_all();
     
     // Optimization hints
     void suggest_optimizations();

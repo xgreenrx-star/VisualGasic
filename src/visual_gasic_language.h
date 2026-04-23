@@ -98,6 +98,14 @@ public:
     ///   VisualGasicLanguage.vg_validate_code(source, path)
     static Dictionary vg_validate_code(const String &p_code, const String &p_path);
 
+    // ── Profiler bridge (static, backed by VisualGasicProfiler singleton) ──
+    // Exposed to GDScript as VisualGasicLanguage.vg_profiler_enable() etc.
+    // The editor Profiler panel drives the C++ profiler through these.
+    static void vg_profiler_enable(bool p_enabled);
+    static bool vg_profiler_is_enabled();
+    static Dictionary vg_profiler_get_report();
+    static void vg_profiler_clear();
+
     static VisualGasicLanguage *get_singleton();
 
     VisualGasicLanguage();

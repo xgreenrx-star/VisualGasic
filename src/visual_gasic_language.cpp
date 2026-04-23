@@ -7,6 +7,7 @@
 #include "visual_gasic_linter.h"
 #include "visual_gasic_tokenizer.h"
 #include "visual_gasic_parser.h"
+#include "visual_gasic_profiler.h"
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/window.hpp>
@@ -1470,6 +1471,28 @@ Dictionary VisualGasicLanguage::_lookup_code(const String &p_code, const String 
     return Dictionary();
 }
 
+// ── Profiler bridge (static wrappers around VisualGasicProfiler singleton) ──
+// The editor's Profiler panel drives these via ClassDB.class_call_static().
+// Using a static bridge avoids the previous design that required every VG
+// script instance to carry its own _vg_profiler_* methods — the profiler is
+// inherently global (single shared counter/timing map), so it belongs here.
+
+void VisualGasicLanguage::vg_profiler_enable(bool p_enabled) {
+    VisualGasicProfiler::getInstance().enable_profiling(p_enabled);
+}
+
+bool VisualGasicLanguage::vg_profiler_is_enabled() {
+    return VisualGasicProfiler::getInstance().is_profiling_enabled();
+}
+
+Dictionary VisualGasicLanguage::vg_profiler_get_report() {
+    return VisualGasicProfiler::getInstance().get_performance_report();
+}
+
+void VisualGasicLanguage::vg_profiler_clear() {
+    VisualGasicProfiler::getInstance().clear_all();
+}
+
 
 void VisualGasicLanguage::_bind_methods() {
     ClassDB::bind_method(D_METHOD("format_source_code", "code"), &VisualGasicLanguage::format_source_code);
@@ -1512,6 +1535,12 @@ void VisualGasicLanguage::_bind_methods() {
     
     // Hot Reload
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_get_live_script_count"), &VisualGasicLanguage::get_live_script_count);
+
+    // Profiler bridge — backs the editor's Profiler panel via the debug protocol.
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_profiler_enable", "enabled"), &VisualGasicLanguage::vg_profiler_enable);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_profiler_is_enabled"), &VisualGasicLanguage::vg_profiler_is_enabled);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_profiler_get_report"), &VisualGasicLanguage::vg_profiler_get_report);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_profiler_clear"), &VisualGasicLanguage::vg_profiler_clear);
 }
 
 // Helper: strip a leading access modifier (public/private/static/friend) from

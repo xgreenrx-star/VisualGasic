@@ -127,6 +127,19 @@ void VisualGasicProfiler::reset_memory_pool() {
     }
 }
 
+void VisualGasicProfiler::clear_all() {
+    profiles_.clear();
+    // Keep counter entries so pre-registered counter names (parser.*, jit.*,
+    // etc.) stay visible to the editor panel; just zero their values.
+    for (auto& [_, counter] : counters_) {
+        counter->count.store(0);
+        counter->value.store(0.0);
+    }
+    if (memory_pool_) {
+        memory_pool_->reset();
+    }
+}
+
 Dictionary VisualGasicProfiler::get_performance_report() {
     Dictionary report;
     Dictionary profile_data;

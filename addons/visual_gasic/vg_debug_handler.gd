@@ -622,7 +622,12 @@ func _set_whenever_active(instance_id: int, section_name: String, active: bool) 
 
 func _profiler_start() -> void:
 	## Enable C++ profiler and start collecting data.
-	# Call the C++ VisualGasicProfiler singleton
+	# Preferred path: static bridge on VisualGasicLanguage (wraps the singleton).
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_profiler_enable", true)
+		print("[VisualGasic] Profiler started (static bridge)")
+		return
+	# Legacy fallback: per-instance profiler methods.
 	for inst_id in _registered_instances:
 		var inst = _get_instance(inst_id)
 		if inst and inst.has_method("_vg_profiler_enable"):
@@ -631,6 +636,10 @@ func _profiler_start() -> void:
 
 func _profiler_stop() -> void:
 	## Disable C++ profiler.
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_profiler_enable", false)
+		print("[VisualGasic] Profiler stopped (static bridge)")
+		return
 	for inst_id in _registered_instances:
 		var inst = _get_instance(inst_id)
 		if inst and inst.has_method("_vg_profiler_enable"):
@@ -640,18 +649,25 @@ func _profiler_stop() -> void:
 func _profiler_send_data() -> void:
 	## Collect profiler report from C++ and send to editor.
 	var report: Dictionary = {}
-	for inst_id in _registered_instances:
-		var inst = _get_instance(inst_id)
-		if inst and inst.has_method("_vg_profiler_get_report"):
-			report = inst.call("_vg_profiler_get_report")
-			break  # One report covers the global profiler
-	if report.is_empty():
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		report = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_profiler_get_report")
+	else:
+		for inst_id in _registered_instances:
+			var inst = _get_instance(inst_id)
+			if inst and inst.has_method("_vg_profiler_get_report"):
+				report = inst.call("_vg_profiler_get_report")
+				break  # One report covers the global profiler
+	if report == null or (report is Dictionary and report.is_empty()):
 		# Build a minimal empty report so the editor panel still updates
 		report = {"profiles": {}, "counters": {}}
 	EngineDebugger.send_message("visualgasic:profiler_data", [report])
 
 func _profiler_clear() -> void:
 	## Reset C++ profiler counters.
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_profiler_clear")
+		print("[VisualGasic] Profiler counters cleared (static bridge)")
+		return
 	for inst_id in _registered_instances:
 		var inst = _get_instance(inst_id)
 		if inst and inst.has_method("_vg_profiler_clear"):
