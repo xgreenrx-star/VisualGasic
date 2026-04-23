@@ -146,6 +146,9 @@ cp addons/visual_gasic/visual_gasic.gdextension "$STAGING/addons/visual_gasic/"
 # Copy prototypes if present
 [[ -d addons/visual_gasic/prototypes ]] && cp -r addons/visual_gasic/prototypes "$STAGING/addons/visual_gasic/"
 
+# Copy plugins (Working Nodes, AGCK, VG3D, Web Publish, etc.)
+[[ -d addons/visual_gasic/plugins ]] && cp -r addons/visual_gasic/plugins "$STAGING/addons/visual_gasic/"
+
 # Copy installers and CLI
 cp install.sh install.ps1 install.py vg "$STAGING/"
 chmod +x "$STAGING/vg" "$STAGING/install.sh"
@@ -173,6 +176,10 @@ find "$STAGING" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || tru
 find "$STAGING" -name ".DS_Store" -delete 2>/dev/null || true
 find "$STAGING" -name "*.import" -delete 2>/dev/null || true
 find "$STAGING" -name ".git*" -not -name ".gitignore" -delete 2>/dev/null || true
+
+# Strip nested addon binaries from demos/examples (top-level addon is enough;
+# nested copies bloat the zip to multi-GB).
+find "$STAGING/demos" "$STAGING/examples" -path '*/addons/visual_gasic/bin' -type d -exec rm -rf {} + 2>/dev/null || true
 
 success "Staging complete"
 
