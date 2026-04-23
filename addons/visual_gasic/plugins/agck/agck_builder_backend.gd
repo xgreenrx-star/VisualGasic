@@ -724,7 +724,8 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 	match atype:
 		"Player":
 			code += "Dim JumpForce As Single\n"
-			code += "Dim IsJumping As Boolean\n\n"
+			code += "Dim IsJumping As Boolean\n"
+			code += "Dim on_ladder As Boolean\n\n"
 			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "player")
 			code += _gen_player_physics(speed, gravity * grav_scale, collision, actor_sounds)
 			code += _gen_collision_handler(atype, actor_sounds)
@@ -938,8 +939,49 @@ func _gen_player_physics(speed: float, gravity: float, collision: String, actor_
 	s += "    vx = Me.velocity.x\n"
 	s += "    vy = Me.velocity.y\n"
 	s += "\n"
-	s += "    ' Apply gravity\n"
-	s += "    vy = vy + Gravity * delta\n"
+	# ── Ladder detection ──
+	# A ladder is any node in the "ladder" group whose centre is within one
+	# half-cell horizontally and one full-cell vertically of the player. When
+	# overlapping, gravity is suppressed and ui_up/ui_down drive vy directly.
+	s += "    ' Ladder detection — reset module-scoped flag each frame\n"
+	s += "    on_ladder = False\n"
+	s += "    Dim ladders As Variant = GetTree().GetNodesInGroup(\"ladder\")\n"
+	s += "    Dim half_sq As Single = " + str(pow(CELL_PX / 2.0 + 2.0, 2)) + "\n"
+	s += "    Dim full_sq As Single = " + str(pow(float(CELL_PX), 2)) + "\n"
+	s += "    Dim hx As Single = Me.position.x\n"
+	s += "    Dim hy As Single = Me.position.y\n"
+	s += "    If ladders <> Nothing Then\n"
+	s += "        Dim li As Integer\n"
+	s += "        For li = 0 To ladders.size() - 1\n"
+	s += "            Dim lnode As Variant = ladders.Get(li)\n"
+	s += "            If lnode <> Nothing Then\n"
+	s += "                Dim ldx As Single = lnode.global_position.x - hx\n"
+	s += "                Dim ldy As Single = lnode.global_position.y - hy\n"
+	s += "                Dim ldx2 As Single = ldx * ldx\n"
+	s += "                Dim ldy2 As Single = ldy * ldy\n"
+	s += "                If ldx2 < half_sq Then\n"
+	s += "                    If ldy2 < full_sq Then\n"
+	s += "                        on_ladder = True\n"
+	s += "                    End If\n"
+	s += "                End If\n"
+	s += "            End If\n"
+	s += "        Next\n"
+	s += "    End If\n"
+	s += "\n"
+	s += "    Dim climb_speed As Single = " + _fstr(max(60.0, speed * 0.75)) + "\n"
+	s += "    If on_ladder Then\n"
+	s += "        ' On ladder — suppress gravity, climb with up/down\n"
+	s += "        If Input.IsActionPressed(\"ui_up\") Then\n"
+	s += "            vy = -climb_speed\n"
+	s += "        ElseIf Input.IsActionPressed(\"ui_down\") Then\n"
+	s += "            vy = climb_speed\n"
+	s += "        Else\n"
+	s += "            vy = 0\n"
+	s += "        End If\n"
+	s += "    Else\n"
+	s += "        ' Apply gravity normally\n"
+	s += "        vy = vy + Gravity * delta\n"
+	s += "    End If\n"
 	s += "\n"
 	s += "    ' Horizontal movement\n"
 	s += "    If Input.IsActionPressed(\"ui_left\") Then\n"
@@ -950,8 +992,8 @@ func _gen_player_physics(speed: float, gravity: float, collision: String, actor_
 	s += "        vx = 0\n"
 	s += "    End If\n"
 	s += "\n"
-	s += "    ' Jumping\n"
-	s += "    If Input.IsActionJustPressed(\"ui_accept\") And IsOnFloor(Me) Then\n"
+	s += "    ' Jumping (disabled while climbing a ladder)\n"
+	s += "    If Input.IsActionJustPressed(\"ui_accept\") And IsOnFloor(Me) And Not on_ladder Then\n"
 	s += "        vy = -400.0\n"
 	var jump_sfx = _gen_play_sfx_call(actor_sounds.get("jump", "(None)"), "        ")
 	if jump_sfx != "":
@@ -1441,8 +1483,12 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 			var bp_key = str(x) + "," + str(y)
 			var has_block_path: bool = block_paths.has(bp_key) and block_paths[bp_key].size() >= 2
 
-			# Determine if block needs collision (Barrier, Ladder, Deadly, Teleport, Switch)
-			var needs_body = block_id in [1, 2, 3, 5, 6]
+			# Determine if block needs collision (Barrier, Deadly, Teleport, Switch).
+			# Ladder (block_id == 2) is intentionally pass-through so the hero
+			# can climb up/down through it — it's emitted as a Sprite2D + Area2D
+			# in the "ladder" group and detected by the player physics each
+			# frame (see _gen_player_physics).
+			var needs_body = block_id in [1, 3, 5, 6]
 
 			if needs_body:
 				# StaticBody2D for all blocks (AnimatableBody2D has transform-revert
@@ -1510,22 +1556,27 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 					body += '[node name="SwitchShape" type="CollisionShape2D" parent="' + node_name + '/SwitchArea"]\n'
 					body += 'shape = SubResource("block_shape")\n\n'
 			else:
-				# Background block — Sprite2D (no collision), positioned top-left style
+				# Background (4) — Sprite2D, no collision
+				# Ladder (2) — Sprite2D in "ladder" group; hero detects by proximity
+				var ladder_group = ' groups=["ladder"]' if block_id == 2 else ''
 				if tile_ext_ids.has(tex_key):
-					body += '[node name="' + node_name + '" type="Sprite2D" parent="."]\n'
+					body += '[node name="' + node_name + '" type="Sprite2D" parent="."' + ladder_group + ']\n'
 					if tile_shader_map.has(tex_key):
 						body += 'material = SubResource("tile_shader_mat_' + tile_shader_map[tex_key]["fx_name"] + '")\n'
 					body += 'position = Vector2(' + str(px) + ', ' + str(py) + ')\n'
 					body += 'texture = ExtResource("' + str(tile_ext_ids[tex_key]) + '")\n'
 					body += 'texture_filter = 0\n'
 				else:
-					body += '[node name="' + node_name + '" type="ColorRect" parent="."]\n'
+					body += '[node name="' + node_name + '" type="ColorRect" parent="."' + ladder_group + ']\n'
 					body += 'offset_left = ' + str(x * CELL_PX) + '\n'
 					body += 'offset_top = ' + str(y * CELL_PX) + '\n'
 					body += 'offset_right = ' + str(x * CELL_PX + CELL_PX) + '\n'
 					body += 'offset_bottom = ' + str(y * CELL_PX + CELL_PX) + '\n'
 					body += 'color = ' + _hex_to_tscn_color(BLOCK_COLORS_HEX[block_id]) + '\n'
-				body += 'metadata/block_type = ' + str(block_id) + '\n\n'
+				body += 'metadata/block_type = ' + str(block_id) + '\n'
+				if block_id == 2:
+					body += 'metadata/block_name = "Ladder"\n'
+				body += '\n'
 
 	# Actor instances — find the player to attach camera
 	var player_inst_name: String = ""

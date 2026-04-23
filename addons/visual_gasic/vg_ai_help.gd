@@ -14,7 +14,7 @@ const OLLAMA_PORT := 11434
 const DEFAULT_MODEL := "qwen2.5-coder:7b"
 const CONNECT_TIMEOUT := 3.0
 const REQUEST_TIMEOUT := 300.0  # Cold model load can take 60-120s
-const FIRST_TOKEN_TIMEOUT := 90.0  # Abort if no tokens arrive within this window (model runner may be hung)
+const FIRST_TOKEN_TIMEOUT := 180.0  # Abort if no tokens arrive within this window (CPU inference can be slow)
 const WARMUP_TIMEOUT := 180.0
 const STREAM_POLL_INTERVAL := 0.016  # ~60 fps polling for streaming chunks
 
@@ -25,146 +25,20 @@ var _provider_info = null  # current ProviderInfo
 var _provider_dropdown: OptionButton
 var _api_key_btn: Button
 
-const SYSTEM_PROMPT := """You are a VisualGasic (VG) programming assistant. VisualGasic is a VB6-syntax \
-language that compiles to bytecode (with optional multi-tier JIT) and runs inside the \
-Godot 4 game engine via GDExtension.
+const SYSTEM_PROMPT := """You are a VisualGasic (VG) assistant. VG is a VB6-syntax language \
+that compiles to bytecode and runs in Godot 4 via GDExtension.
 
-=== CORE SYNTAX ===
-Variables:     Dim x As Integer  |  Dim name As String  |  Dim v As Variant
-Subroutines:   Sub Name() ... End Sub
-Functions:     Function Name(a As Integer) As String ... End Function
-Conditionals:  If ... Then ... ElseIf ... Else ... End If
-Loops:         For i = 1 To 10 Step 2 ... Next
-               For Each item In collection ... Next
-               Do While cond ... Loop  |  Do ... Loop Until cond
-               While cond ... Wend
-Select:        Select Case x ... Case 1 ... Case 2, 3 ... Case Is > 10 ... Case Else ... End Select
-Comments:      ' single-line comment
-String concat: & operator
-Print:         Print "text"  (stdout)  |  Debug.Print "text" (Immediate Window)
-Assertions:    Debug.Assert condition, "optional message"
+Key syntax: Dim x As Integer | Sub Name()/End Sub | Function F() As T/End Function | \
+If/ElseIf/Else/End If | For i = 1 To 10/Next | Do While/Loop | Select Case/End Select | \
+Class Name/End Class | Me.Property | GetNode("name") | ' comments | & for string concat.
 
-=== SCOPE & DECLARATIONS ===
-Public x As Integer     ' module-level, visible everywhere
-Private y As String     ' module-level, internal only
-Global z As Single      ' global across all modules
-Static counter As Integer  ' retains value between calls inside a Sub/Function
-Const PI = 3.14159
+Godot integration: Events auto-wire by name (btn_Click, Timer1_Timer, Form_Load). \
+Virtual callbacks: _Ready, _Process(delta), _PhysicsProcess(delta), _Input(event). \
+VB6 aliases on nodes: Caption→text, Left→position.x, Width→size.x, Visible→visible. \
+ConnectSignal \"signal_name\", \"HandlerName\".
 
-=== CLASSES ===
-Class Person
-    Private _name As String
-    Private _age As Integer
-
-    Sub Class_Initialize()   ' constructor — called by New
-        _age = 0
-    End Sub
-
-    Property Get Name() As String
-        Name = _name
-    End Property
-
-    Property Let Name(value As String)
-        _name = value
-    End Property
-
-    Public Function Greet() As String
-        Greet = "Hi, I'm " & _name
-    End Function
-End Class
-
-Dim p = New Person
-p.Name = "Alice"
-
-Inherits:     Class Enemy  /  Inherits CharacterBody2D  /  End Class
-Implements:   Implements IComparable
-
-=== TYPE (User-Defined Structs) ===
-Type Vector2D
-    X As Integer
-    Y As Integer
-End Type
-Dim pos As Vector2D
-pos.X = 10 : pos.Y = 20
-
-=== ENUM ===
-Enum Direction
-    North = 0
-    East = 1
-    South = 2
-    West = 3
-End Enum
-
-=== FUNCTIONAL PROGRAMMING ===
-Dim doubled  = Map(arr, Fn(x) => x * 2)
-Dim evens    = Filter(arr, Fn(x) => x Mod 2 = 0)
-Dim total    = Reduce(arr, Fn(acc, x) => acc + x, 0)
-Dim hasLarge = Any(arr, Fn(x) => x > 100)
-Dim allPos   = All(arr, Fn(x) => x > 0)
-Dim first    = Find(arr, Fn(x) => x > 5)
-
-Lambda forms:  Fn(x) => x * 2  |  Fn(x, y) => x + y
-Block lambda:  Function(x) ... Return x * 2 ... End Function
-Block sub:     Sub(x) ... Print x ... End Sub
-
-=== MODERN OPERATORS ===
-Compound:           +=  -=  *=  /=  &=  \\=  ^=  <<=  >>=
-Increment/Decrement: ++  --
-Null coalescing:     result = x ?? defaultValue
-Optional chaining:   value = obj?.Property
-String interpolation: msg = $"Hello {name}, you are {age} years old"
-Range:               arr = [1..10]
-Short-circuit:       If x > 0 AndAlso y / x > 2 Then ...
-IIf:                 result = IIf(score >= 60, "Pass", "Fail")
-Swap:                Swap a, b
-
-=== ERROR HANDLING ===
-On Error GoTo handler  |  On Error Resume Next  |  On Error GoTo 0
-Try ... Catch ex As Exception ... Finally ... End Try
-GoSub label ... Return  |  On expr GoTo label1, label2
-On expr GoSub label1, label2
-
-=== DATA / READ / RESTORE (classic BASIC) ===
-Data 10, "Hello", 3.14
-Read a, b, c
-Restore        ' reset data pointer
-
-=== GODOT INTEGRATION ===
-Access nodes:     GetNode("name")  |  Me.controlName  |  Me.Name
-Load scenes:      LoadForm "res://Scene.tscn"
-Create controls:  CreateButton, CreateLabel, CreateTimer, CreateTextBox, CreateSprite2D
-Signals:          ConnectSignal "body_entered", "OnBodyEntered"
-                  DisconnectSignal "ready", "OnReady"
-WithEvents:       Dim WithEvents obj As MyClass  ' auto-connects signal handlers
-
-VB6 property aliases on Godot nodes (62+ aliases):
-  Caption/Text → text,  Left → position.x,  Top → position.y
-  Width → size.x,  Height → size.y,  Visible → visible
-  Enabled → !disabled,  BackColor → self_modulate,  ForeColor → font_color
-  FontSize, FontBold, FontItalic, FontName, Name, Tag, hWnd, Opacity, ZOrder
-
-Events (auto-wired by naming convention  ControlName_EventName):
-  Sub btnStart_Click()    ' button clicked
-  Sub Timer1_Timer()      ' timer fires
-  Sub txtName_Change()    ' text changed
-  Sub Form_Load()         ' form loaded
-
-Godot virtual callbacks:
-  Sub _Ready()                 ' node enters scene tree
-  Sub _Process(delta)          ' every graphics frame
-  Sub _PhysicsProcess(delta)   ' every physics tick (60 Hz)
-  Sub _Input(event)            ' input event received
-  Sub _Draw()                  ' custom drawing
-
-=== BUILT-INS ===
-Constants: vbRed, vbBlue, vbGreen, vbWhite, vbBlack, vbCrLf, vbTab, True, False
-Functions: Len, Left, Right, Mid, InStr, Replace, Split, Join, Trim, UCase, LCase,
-           Val, Str, CInt, CLng, CDbl, Abs, Int, Rnd, Timer, Now, Format,
-           MsgBox, InputBox, Print, Array(), Dictionary()
-
-=== RULES ===
-Keep answers concise. Always use VB6/VisualGasic syntax in code examples. \
-Never use GDScript syntax unless the user explicitly asks for a translation."""
+Rules: Keep answers concise. Use VB6/VisualGasic syntax in examples, never GDScript \
+unless asked for a translation."""
 
 # ---------------------------------------------------------------------------
 # UI nodes
@@ -178,6 +52,8 @@ var _model_dropdown: OptionButton
 var _status_label: Label
 var _clear_btn: Button
 var _stop_btn: Button
+var _models_btn: Button
+var _model_picker: AcceptDialog
 
 var _ollama_available := false
 var _is_generating := false
@@ -330,6 +206,8 @@ func _setup_poll_timer() -> void:
 	_poll_timer.timeout.connect(_on_poll_timer)
 
 ## Main-thread timer callback — polls HTTPClient and processes tokens directly.
+var _dbg_last_heartbeat_ms := 0
+
 func _on_poll_timer() -> void:
 	if not _is_generating:
 		_poll_timer.stop()
@@ -343,6 +221,14 @@ func _on_poll_timer() -> void:
 	if not _stream_done and _stream_error.is_empty() and _stream_http != null:
 		_stream_http.poll()
 		var status := _stream_http.get_status()
+		# Heartbeat every 5s so the user knows the UI is alive during slow inference
+		var _hb_now := Time.get_ticks_msec()
+		if _hb_now - _dbg_last_heartbeat_ms > 5000 and not _stream_started:
+			_dbg_last_heartbeat_ms = _hb_now
+			var elapsed_s := (_hb_now - _stream_start_time) / 1000.0
+			var stage := "connecting" if _stream_http_phase == 1 else ("sending request" if _stream_http_phase == 2 else "waiting for tokens")
+			if is_instance_valid(_status_label):
+				_status_label.text = "💭 %s... %ds" % [stage, int(elapsed_s)]
 
 		if _stream_http_phase == 1:  # Connecting
 			if status == HTTPClient.STATUS_CONNECTED:
@@ -486,6 +372,9 @@ func _finish_generation() -> void:
 		# Trim to last N exchanges (N user + N assistant = 2N entries)
 		while _conversation_history.size() > MAX_HISTORY_EXCHANGES * 2:
 			_conversation_history.pop_front()
+		# A successful exchange proves the model is loaded and responsive \u2014
+		# skip the health-check round-trip on subsequent queries.
+		_model_warm = true
 	_current_prompt = ""
 
 	if is_instance_valid(_send_btn):
@@ -597,6 +486,14 @@ func _setup_ui() -> void:
 	_model_dropdown.tooltip_text = "Select model"
 	_style_option_button(_model_dropdown)
 	toolbar.add_child(_model_dropdown)
+
+	# ── Models manager button ──
+	_models_btn = Button.new()
+	_models_btn.text = "📥"
+	_models_btn.tooltip_text = "Browse & download AI models"
+	_models_btn.pressed.connect(_show_model_picker)
+	_style_small_button(_models_btn)
+	toolbar.add_child(_models_btn)
 
 	toolbar.add_child(_make_separator())
 
@@ -807,12 +704,14 @@ func _on_ping_response(result: int, code: int, _headers: PackedStringArray, body
 
 	# Parse available models and update dropdown
 	var json = JSON.parse_string(body.get_string_from_utf8())
+	var model_names: Array = []
 	if json and json.has("models"):
 		_model_dropdown.clear()
 		var found_default := false
 		for m in json["models"]:
 			var model_name: String = m.get("name", "")
 			if not model_name.is_empty():
+				model_names.append(model_name)
 				_model_dropdown.add_item(model_name)
 				if model_name == _current_model or model_name.begins_with(_current_model.split(":")[0]):
 					found_default = true
@@ -820,6 +719,16 @@ func _on_ping_response(result: int, code: int, _headers: PackedStringArray, body
 		if not found_default and _model_dropdown.item_count > 0:
 			_model_dropdown.select(0)
 			_current_model = _model_dropdown.get_item_text(0)
+	# Keep the picker (if already open) in sync with installed models
+	if is_instance_valid(_model_picker) and _model_picker.has_method("set_installed_models"):
+		_model_picker.set_installed_models(model_names)
+	# First-run: no models installed yet — auto-open the picker
+	if model_names.is_empty():
+		_append_system("[color=yellow]No AI models installed yet.[/color] Opening the model picker...\n")
+		call_deferred("_show_model_picker")
+		_status_label.text = "📥 No models — click the download icon to install one"
+		_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+		return
 	_append_system("Connected to Ollama. Model: [color=cyan]%s[/color]\n" % _current_model)
 	ai_panel_ready.emit()
 	# Pre-warm the model so the first real query doesn't wait 60+ seconds
@@ -842,11 +751,10 @@ func _set_offline() -> void:
 func _warmup_model() -> void:
 	if _model_warm or not _ollama_available:
 		return
-	_status_label.text = "🔥 Loading model (first query may be queued)..."
+	_status_label.text = "🔥 Loading model (first query may be slow)..."
 	_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
-	# Disable Send while model loads — queries will be queued instead
-	if is_instance_valid(_send_btn):
-		_send_btn.disabled = true
+	# Keep Send enabled — warmup is an optimization, not a gate.
+	# If the user sends before warmup finishes, the query itself will warm the model.
 	var body := JSON.stringify({
 		"model": _current_model,
 		"prompt": "hi",
@@ -856,9 +764,11 @@ func _warmup_model() -> void:
 	var headers := ["Content-Type: application/json"]
 	var err := _warmup_http.request(OLLAMA_URL, headers, HTTPClient.METHOD_POST, body)
 	if err != OK:
-		# Non-critical — the first real query will just be slower
+		# Couldn't even start warmup (busy or bad state) — treat model as ready
+		# so queries aren't blocked. Worst case, the first query is slow.
 		_status_label.text = "✅ Ollama connected"
 		_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+		_model_warm = true
 
 func _on_warmup_response(result: int, _code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
 	_model_warm = true
@@ -967,16 +877,20 @@ func _send_query(prompt: String) -> void:
 		_send_cloud_query(prompt)
 		return
 
-	# If the model is still loading into memory, queue the query
+	# If the model is still loading into memory, send anyway — the query itself
+	# will warm the model. We used to queue here, but if warmup never completes
+	# the query would sit forever. Better to just send and let it take longer.
 	if not _model_warm:
-		_queued_query = prompt
+		_model_warm = true  # The actual query will warm it
+
+	# Skip the health-check round-trip once the model is warm — saves ~1-2s per query.
+	# The main request will surface any connection issue on its own.
+	if _model_warm:
 		_history.append(prompt)
 		_history_idx = _history.size()
 		_input.text = ""
 		_append_user(prompt)
-		_append_system("[color=#ffcc44]⏳ Model is still loading — your query will be sent automatically when ready...[/color]\n")
-		# Re-trigger warmup so queued query doesn't sit forever
-		_warmup_model()
+		_send_query_internal(prompt)
 		return
 
 	# Run a fast health check before sending the real query
@@ -1020,9 +934,11 @@ func _send_query_internal(prompt: String) -> void:
 		"prompt": full_prompt,
 		"system": SYSTEM_PROMPT,
 		"stream": true,
+		"keep_alive": "30m",  # Keep model in RAM between queries — no reload cost
 		"options": {
 			"temperature": 0.3,
 			"num_predict": 2048,
+			"num_ctx": 2048,     # Smaller context = faster prompt eval on CPU
 		}
 	}
 	_stream_json_body = JSON.stringify(body)
@@ -1050,6 +966,7 @@ func _send_query_internal(prompt: String) -> void:
 
 	_stream_http_phase = 1  # Connecting
 	_is_generating = true
+	_dbg_last_heartbeat_ms = 0
 	_send_btn.visible = false
 	_stop_btn.visible = true
 	_status_label.text = "💭 Thinking..."
@@ -1179,6 +1096,32 @@ func _on_clear() -> void:
 	_output.clear()
 	_conversation_history.clear()
 	_append_system("Conversation cleared.\n")
+
+# ---------------------------------------------------------------------------
+# Model picker — first-run installer & hardware-aware model browser
+# ---------------------------------------------------------------------------
+const ModelPickerScene := preload("res://addons/visual_gasic/vg_ai_model_picker.gd")
+
+func _show_model_picker() -> void:
+	if not is_instance_valid(_model_picker):
+		_model_picker = ModelPickerScene.new()
+		add_child(_model_picker)
+		if _model_picker.has_signal("model_installed"):
+			_model_picker.model_installed.connect(_on_model_installed)
+	# Populate with the list of already-installed models so we can mark them
+	var installed: Array = []
+	for i in _model_dropdown.item_count:
+		installed.append(_model_dropdown.get_item_text(i))
+	if _model_picker.has_method("set_installed_models"):
+		_model_picker.set_installed_models(installed)
+	_model_picker.popup_centered()
+
+func _on_model_installed(model_id: String) -> void:
+	_append_system("[color=#88ff88]✓ Installed:[/color] [color=cyan]%s[/color]\n" % model_id)
+	# Re-ping to refresh the dropdown and pick up the new model
+	_ping_ollama()
+	_current_model = model_id
+	_model_warm = false
 
 # ---------------------------------------------------------------------------
 # Public API — called from plugin.gd

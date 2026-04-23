@@ -1184,6 +1184,13 @@ func _on_vg_plugin_activated(plugin_id: String) -> void:
 				help_panel.visible = false
 		toolbox_panel.visible = false
 
+	# Hide right panel (Project Explorer + Properties) — plugin has its own
+	# navigation/inspector UI, so this is wasted space in plugin view. The
+	# Form view path restores it via _show_form_view().
+	var right_panel_plugin = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+	if right_panel_plugin:
+		right_panel_plugin.visible = false
+
 	# Update status bar
 	if is_instance_valid(_status_bar):
 		_status_bar.text = "  Plugin: " + plugin_id.to_upper()
