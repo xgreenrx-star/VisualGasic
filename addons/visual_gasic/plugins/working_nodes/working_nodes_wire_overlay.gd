@@ -125,7 +125,7 @@ func _gui_input(event: InputEvent) -> void:
 
 		if _joint_drag_conn >= 0:
 			# Dragging an existing joint
-			var scroll := editor.get_scroll_offset() if editor.has_method("get_scroll_offset") else Vector2.ZERO
+			var scroll: Vector2 = editor.get_scroll_offset() if editor.has_method("get_scroll_offset") else Vector2.ZERO
 			if editor.has_method("update_joint"):
 				editor.update_joint(_joint_drag_conn, _joint_drag_idx, pos + scroll)
 			accept_event()
@@ -165,7 +165,7 @@ func _gui_input(event: InputEvent) -> void:
 				# Then check wire — click adds a new joint
 				var wh := _find_wire_at(mb.position)
 				if wh[0] >= 0:
-					var scroll := editor.get_scroll_offset() if editor.has_method("get_scroll_offset") else Vector2.ZERO
+					var scroll: Vector2 = editor.get_scroll_offset() if editor.has_method("get_scroll_offset") else Vector2.ZERO
 					if editor.has_method("add_joint"):
 						editor.add_joint(wh[0], mb.position + scroll, wh[1])
 					accept_event()

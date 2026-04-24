@@ -173,8 +173,7 @@ Sub WN_ColorChannel(ByVal channel As Long, ByVal duration As Double)
 End Sub
 
 ' Pulse: fade to a color, hold, fade back.
-Sub WN_Pulse(ByVal gid As Long, ByVal r As Double, ByVal g As Double, ByVal b As Double, _
-             ByVal fade_in As Double, ByVal hold As Double, ByVal fade_out As Double)
+Sub WN_Pulse(ByVal gid As Long, ByVal r As Double, ByVal g As Double, ByVal b As Double, ByVal fade_in As Double, ByVal hold As Double, ByVal fade_out As Double)
     Dim nodes As Variant
     nodes = WN_GetGroupNodes(gid)
     Dim n As Object

@@ -1413,12 +1413,6 @@ func _collect_graph_data() -> Dictionary:
 		"next_node_id": _next_node_id,
 		"next_group_id": _next_group_id,
 		"groups": _serialize_groups(),
-
-func _on_run_graph_2d_pressed() -> void:
-	run_graph_requested.emit(_collect_graph_data(), false)
-
-func _on_run_graph_3d_pressed() -> void:
-	run_graph_requested.emit(_collect_graph_data(), true)
 		"nodes": _serialize_nodes(),
 		"connections": _connections,
 	}
@@ -1431,6 +1425,12 @@ func _on_export_scene_2d_pressed() -> void:
 
 func _on_export_scene_3d_pressed() -> void:
 	export_scene_3d_requested.emit(_collect_graph_data())
+
+func _on_run_graph_2d_pressed() -> void:
+	run_graph_requested.emit(_collect_graph_data(), false)
+
+func _on_run_graph_3d_pressed() -> void:
+	run_graph_requested.emit(_collect_graph_data(), true)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
