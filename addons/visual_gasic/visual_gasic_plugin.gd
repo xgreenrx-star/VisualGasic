@@ -227,14 +227,12 @@ func _enter_tree():
 
 	# Register VG project settings so they surface in Project Settings UI.
 	# vg/default_mode controls which editor opens on project load:
-	#   "code"  — open the first .vg module in the code editor (new default
-	#             for fresh projects created by bootstrap_install.sh)
-	#   "forms" — legacy behaviour: auto-open the first form in the Form Designer
-	# When unset, _auto_open_formless_module() auto-detects based on whether
-	# the project contains any .frm/.vgform files.
+	#   "code"  — open the first .vg module in the code editor (default)
+	#   "forms" — open the first form in the Form Designer (legacy / opt-in)
+	# Unset is treated as "code".
 	_register_project_setting(
 		"vg/default_mode",
-		"",
+		"code",
 		TYPE_STRING,
 		PROPERTY_HINT_ENUM,
 		"code,forms"

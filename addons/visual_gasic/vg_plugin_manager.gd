@@ -91,7 +91,73 @@ func discover_plugins() -> void:
 		folder_name = dir.get_next()
 	dir.list_dir_end()
 
+	# Built-in entries — surface bundled IDE modes (Form Designer, etc.)
+	# alongside discovered plugins so users see them in the same strip and
+	# can switch to them without remembering a hidden setting. These don't
+	# go through the VGPluginBase activation flow because they're built
+	# into the host plugin already; the button just calls the host's view
+	# switcher directly.
+	_register_builtin_form_designer()
+
 	print("VisualGasic: Plugin Manager loaded ", _plugins.size(), " plugin(s)")
+
+
+## Add a "Form Designer" button to the plugin strip. Pressing it switches
+## the IDE back to the form view (same as the legacy default_mode="forms"
+## auto-open). Lets users move between code and form editing without
+## opening Project Settings.
+func _register_builtin_form_designer() -> void:
+	if not is_instance_valid(_toolbar_row) or not _host_plugin:
+		return
+
+	# Reuse the gear-button setup if discover_plugins() found nothing.
+	if not _plugin_separator_added:
+		_plugin_separator_added = true
+		_gear_btn = Button.new()
+		_gear_btn.name = "PluginSettingsBtn"
+		_gear_btn.text = "⚙"
+		_gear_btn.tooltip_text = "Plugin Settings — enable/disable or install plugins"
+		_gear_btn.flat = true
+		_gear_btn.add_theme_font_size_override("font_size", 12)
+		_gear_btn.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
+		_gear_btn.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0))
+		_gear_btn.pressed.connect(_show_settings_popup)
+		_toolbar_row.add_child(_gear_btn)
+
+	var btn := Button.new()
+	btn.name = "VGBuiltinBtn_FormDesigner"
+	btn.text = "🎨 Form Designer"
+	btn.tooltip_text = "Switch to the visual Form Designer (legacy VB6 mode)"
+	btn.flat = false
+	btn.add_theme_font_size_override("font_size", 10)
+	btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+
+	var base_color := Color(0.42, 0.32, 0.55)  # muted purple
+	var style := StyleBoxFlat.new()
+	style.bg_color = base_color.darkened(0.1)
+	style.set_corner_radius_all(10)
+	style.border_color = base_color.lightened(0.35)
+	style.set_border_width_all(1)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 1
+	style.content_margin_bottom = 1
+	btn.add_theme_stylebox_override("normal", style)
+
+	var hover_style := style.duplicate() as StyleBoxFlat
+	hover_style.bg_color = base_color.lightened(0.1)
+	hover_style.border_color = Color(1.0, 1.0, 1.0, 0.6)
+	btn.add_theme_stylebox_override("hover", hover_style)
+
+	btn.pressed.connect(_on_builtin_form_designer_pressed)
+	_toolbar_row.add_child(btn)
+
+
+func _on_builtin_form_designer_pressed() -> void:
+	# Switch IDE to form view. Goes through host's _show_form_view so any
+	# active plugin/code/3D view is properly torn down first.
+	if _host_plugin and _host_plugin.has_method("_show_form_view"):
+		_host_plugin._show_form_view()
 
 
 ## Load a single plugin from its config file.
