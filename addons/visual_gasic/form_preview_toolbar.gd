@@ -45,6 +45,11 @@ func _ready() -> void:
 	_build_ui()
 
 func _build_ui() -> void:
+	# Idempotent: add_menu_item() may call this before _ready() to allow
+	# plugin registration during their own init. Don't build twice or two
+	# ▶ Play MenuButtons end up in the toolbar.
+	if _play_menu != null and is_instance_valid(_play_menu):
+		return
 	_play_menu = MenuButton.new()
 	_play_menu.text = "▶ Play"
 	_play_menu.tooltip_text = "Run / preview / build (F5 for primary action)"
