@@ -151,6 +151,7 @@ func _register_builtin_form_designer() -> void:
 
 	btn.pressed.connect(_on_builtin_form_designer_pressed)
 	_toolbar_row.add_child(btn)
+	print("VisualGasic: Built-in 'Form Designer' entry added to plugin strip")
 
 
 func _on_builtin_form_designer_pressed() -> void:
