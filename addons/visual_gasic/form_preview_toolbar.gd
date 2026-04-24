@@ -72,6 +72,11 @@ func add_menu_item(label: String, callback: Callable) -> int:
 	var id := _next_plugin_id
 	_next_plugin_id += 1
 	_plugin_actions[id] = callback
+	# Plugin may register before _ready has constructed _play_menu
+	# (ready-order isn't deterministic across sibling plugins). Lazily
+	# build the menu now so we can insert the item immediately.
+	if _play_menu == null:
+		_build_ui()
 	var popup := _play_menu.get_popup()
 	# Insert a separator above the first plugin entry so built-ins stay
 	# visually grouped at the top.
@@ -85,10 +90,13 @@ func remove_menu_item(id: int) -> void:
 	if not _plugin_actions.has(id):
 		return
 	_plugin_actions.erase(id)
+	if _play_menu == null:
+		return
 	var popup := _play_menu.get_popup()
 	var idx := popup.get_item_index(id)
 	if idx >= 0:
 		popup.remove_item(idx)
+
 
 
 func _on_menu_item(id: int) -> void:
@@ -391,6 +399,15 @@ func _input(event: InputEvent) -> void:
 		return
 	var ctrl := k.ctrl_pressed
 	var shift := k.shift_pressed
+
+	# Plugin-panel-aware dispatch: when a VG plugin view is currently the
+	# active center view, let that plugin handle F5 first (e.g. Working
+	# Nodes should run the graph, not the whole project). The plugin has
+	# the option to report "not handled" by returning false.
+	if _dispatch_f5_to_active_plugin(ctrl, shift):
+		get_viewport().set_input_as_handled()
+		return
+
 	if shift and ctrl:
 		_preview_current_form(true)
 	elif shift:
@@ -400,3 +417,27 @@ func _input(event: InputEvent) -> void:
 	else:
 		_run_project()
 	get_viewport().set_input_as_handled()
+
+
+## Give the currently-active VG plugin first crack at F5. Returns true if
+## the plugin handled it. Plugins opt in by implementing `on_play_shortcut`
+## (bool ctrl, bool shift) -> bool on their plugin instance.
+func _dispatch_f5_to_active_plugin(ctrl: bool, shift: bool) -> bool:
+	if _editor_plugin == null or not is_instance_valid(_editor_plugin):
+		return false
+	if not "_showing_plugin_view" in _editor_plugin:
+		return false
+	if not _editor_plugin._showing_plugin_view:
+		return false
+	if not "_vg_plugin_manager" in _editor_plugin:
+		return false
+	var pm = _editor_plugin._vg_plugin_manager
+	if pm == null or not pm.has_method("get_active_plugin_id") or not pm.has_method("get_plugin"):
+		return false
+	var active_id: String = pm.get_active_plugin_id()
+	if active_id.is_empty():
+		return false
+	var active = pm.get_plugin(active_id)
+	if active == null or not active.has_method("on_play_shortcut"):
+		return false
+	return bool(active.on_play_shortcut(ctrl, shift))

@@ -3,6 +3,9 @@ extends "res://addons/visual_gasic/vg_plugin_base.gd"
 
 var _editor: Control = null
 var _right_panel: PanelContainer = null
+# Play-menu (unified ▶) entry ids registered with the host's form_preview_toolbar.
+# Stored so _on_cleanup() can deregister them when WN is unloaded or disabled.
+var _play_menu_ids: Array[int] = []
 var _fallback_graph: GraphEdit = null
 var _fallback_status: Label = null
 var _fallback_next_id: int = 1
@@ -158,6 +161,17 @@ func _on_activated() -> void:
 
 func _on_deactivated() -> void:
 	pass
+
+
+## Deregister Play-menu entries when WN is unloaded (plugin toggled off or
+## editor shutting down) so the host's ▶ menu doesn't end up with dead
+## callbacks pointing at freed instances.
+func _on_cleanup() -> void:
+	var toolbar = _get_play_toolbar()
+	if toolbar and toolbar.has_method("remove_menu_item"):
+		for id in _play_menu_ids:
+			toolbar.remove_menu_item(id)
+	_play_menu_ids.clear()
 
 
 func _verify_editor_surface() -> void:
@@ -1375,6 +1389,67 @@ func _connect_editor_export_signals() -> void:
 	if _editor.has_signal("run_graph_requested") and \
 			not _editor.is_connected("run_graph_requested", _on_run_graph):
 		_editor.connect("run_graph_requested", _on_run_graph)
+	_register_play_menu_entries()
+
+
+## Add "Run Graph (2D)" / "Run Graph (3D)" to the host's unified ▶ Play menu.
+## Idempotent — if already registered, does nothing. Plugin-contributed
+## actions live alongside the built-in Run / Preview / Build entries so users
+## have one place to trigger every kind of execution.
+func _register_play_menu_entries() -> void:
+	if not _play_menu_ids.is_empty():
+		return  # Already registered.
+	var toolbar = _get_play_toolbar()
+	if toolbar == null:
+		return
+	if not toolbar.has_method("add_menu_item"):
+		return  # Older host without the plugin-action API.
+	_play_menu_ids.append(toolbar.add_menu_item("Run Graph (2D)", Callable(self, "_play_menu_run_2d")))
+	_play_menu_ids.append(toolbar.add_menu_item("Run Graph (3D)", Callable(self, "_play_menu_run_3d")))
+
+
+## Look up the host's form_preview_toolbar without assuming it's still
+## parented where it started (mode switches re-parent it frequently).
+func _get_play_toolbar():
+	if _host_plugin == null:
+		return null
+	if not "form_preview_toolbar" in _host_plugin:
+		return null
+	var tb = _host_plugin.form_preview_toolbar
+	return tb if is_instance_valid(tb) else null
+
+
+func _play_menu_run_2d() -> void:
+	if _editor and is_instance_valid(_editor) and _editor.has_method("_on_run_graph_2d_pressed"):
+		_editor._on_run_graph_2d_pressed()
+
+
+func _play_menu_run_3d() -> void:
+	if _editor and is_instance_valid(_editor) and _editor.has_method("_on_run_graph_3d_pressed"):
+		_editor._on_run_graph_3d_pressed()
+
+
+## Called by form_preview_toolbar when F5 is pressed while this plugin's
+## view is the active center view. Return true when handled so the toolbar
+## skips its normal Run Project behavior.
+##   F5             → Run Graph (2D)
+##   Shift+F5       → Run Graph (3D)
+##   Ctrl+F5        → not handled (falls through to Run Main Scene)
+##   Ctrl+Shift+F5  → not handled (falls through to Preview with debug)
+func on_play_shortcut(ctrl: bool, shift: bool) -> bool:
+	if ctrl:
+		return false
+	if not (_editor and is_instance_valid(_editor)):
+		return false
+	if shift:
+		if _editor.has_method("_on_run_graph_3d_pressed"):
+			_editor._on_run_graph_3d_pressed()
+			return true
+	else:
+		if _editor.has_method("_on_run_graph_2d_pressed"):
+			_editor._on_run_graph_2d_pressed()
+			return true
+	return false
 
 
 # ── Export handlers (full editor) ────────────────────────────────────
