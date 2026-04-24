@@ -2,7 +2,7 @@
 
 This tutorial walks you through the architecture of the **Pixel Platformer** demo —
 a complete 2D platformer with gravity, jumping, enemies, coins, and tile-based levels,
-all written in VisualGasic for Godot 4.5+.
+all written in VisualGasic for Godot 4.6.1+.
 
 > **Prerequisites:** You should be familiar with basic VisualGasic syntax
 > (`Dim`, `Sub`, `Function`, `For`/`Next`, `Select Case`) and have the VisualGasic

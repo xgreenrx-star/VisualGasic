@@ -136,7 +136,7 @@ End If
 
 - **Original game**: [Godot 2D Platformer Demo](https://github.com/godotengine/godot-demo-projects/tree/master/2d/platformer) (MIT License)
 - **Art & Sound**: Official Godot demo assets by the Godot community
-- **VisualGasic conversion**: Demonstrates VB6-style scripting on Godot 4.5+
+- **VisualGasic conversion**: Demonstrates VB6-style scripting on Godot 4.6.1+
 
 ## See Also
 

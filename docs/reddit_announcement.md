@@ -25,7 +25,7 @@
 
 Design a form, double-click a button, write code. If you've ever used VB6, you know the workflow. I built that for Godot.
 
-**VisualGasic** (VG) is a modern, event-driven language that runs as a GDExtension for Godot 4.5+. Yes, the name is a pun — but the language is serious. It draws inspiration from Visual Basic 6's approachable syntax and RAD workflow, but it's designed to look forwards, not backwards. Think of it less as "VB6 for Godot" and more as "what if someone designed a new language with VB6's simplicity but modern features?"
+**VisualGasic** (VG) is a modern, event-driven language that runs as a GDExtension for Godot 4.6.1+. Yes, the name is a pun — but the language is serious. It draws inspiration from Visual Basic 6's approachable syntax and RAD workflow, but it's designed to look forwards, not backwards. Think of it less as "VB6 for Godot" and more as "what if someone designed a new language with VB6's simplicity but modern features?"
 
 &nbsp;
 

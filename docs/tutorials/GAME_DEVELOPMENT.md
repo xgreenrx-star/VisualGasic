@@ -18,13 +18,13 @@ A fully playable two-player Pong game with:
 
 **Time required:** 30–60 minutes  
 **Difficulty:** Beginner to Intermediate  
-**Prerequisites:** Godot 4.5+ with VisualGasic addon installed ([Installation Guide](../guides/INSTALLATION.md))
+**Prerequisites:** Godot 4.6.1+ with VisualGasic addon installed ([Installation Guide](../guides/INSTALLATION.md))
 
 ---
 
 ## Step 1 — Create a New Godot Project
 
-1. Launch **Godot 4.5+** and click **New Project**.
+1. Launch **Godot 4.6.1+** and click **New Project**.
 2. Name it `Pong` and choose an empty folder.
 3. Click **Create & Edit**.
 

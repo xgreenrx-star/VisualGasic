@@ -183,8 +183,10 @@ Within an existing project, use the VG IDE's File menu:
 
 ### Download
 
-1. Go to [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v4.4.0-rc1)
-2. Download `VisualGasic-v4.4.0-rc1.zip`
+1. Go to [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/latest)
+2. Download the platform zip for your OS:
+   - Linux: `VisualGasic_v5.1.0-Beta1_linux_x86_64.zip`
+   - Windows: `VisualGasic_v5.1.0-Beta1_windows_x86_64.zip`
 
 ### Install into a New Project
 
@@ -197,7 +199,7 @@ echo 'config_version=5
 config/name="MyGame"' > project.godot
 
 # Extract the addon
-unzip VisualGasic-v4.4.0-rc1.zip
+unzip VisualGasic_v5.1.0-Beta1_linux_x86_64.zip
 cp -r addons/ .
 
 # Open in Godot
@@ -210,7 +212,7 @@ Then enable the plugin: **Project → Project Settings → Plugins → VisualGas
 
 ```bash
 cd /path/to/your/godot/project
-unzip VisualGasic-v4.4.0-rc1.zip -d /tmp/vg_temp
+unzip VisualGasic_v5.1.0-Beta1_linux_x86_64.zip -d /tmp/vg_temp
 cp -r /tmp/vg_temp/addons/visual_gasic addons/
 rm -rf /tmp/vg_temp
 ```
@@ -232,7 +234,7 @@ The release zip contains pre-compiled binaries for all platforms:
 ## 🔧 Method 5: Build from Source
 
 ### Prerequisites
-- **Godot 4.5+** binary (4.6.1 recommended)
+- **Godot 4.6.1+** binary
 - **SCons** build system (`pip install scons`)
 - **Git** with submodules
 - **C++ compiler**: GCC 9+, Clang 10+, or MSVC 2019+
@@ -304,7 +306,7 @@ After installation, verify VisualGasic is working:
 ### Extension Failed to Load
 - Ensure you downloaded the correct platform version
 - Check Godot console (Output tab) for error messages
-- Verify Godot version is 4.5 or newer
+- Verify Godot version is 4.6.1 or newer
 - On macOS: right-click the Godot app → Open (bypasses Gatekeeper on first run)
 
 ### `vg` Command Not Found

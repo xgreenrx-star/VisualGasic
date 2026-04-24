@@ -3,7 +3,7 @@
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-4.4.0--rc4-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
+[![Godot](https://img.shields.io/badge/Godot-4.6.1+-purple.svg)](https://godotengine.org)
 
 **World-Class RAD Platform**: A modern, forward-looking programming language with **event-driven programming**, cutting-edge features including multitasking, advanced type system, pattern matching, GPU computing, and comprehensive development tools.
 
@@ -152,7 +152,7 @@ VisualGasic/
 ## ⚡ **Quick Start**
 
 ### **Prerequisites**
-- **Godot 4.5+** (4.6.1 recommended) — Download from [godotengine.org](https://godotengine.org)
+- **Godot 4.6.1+** — Download from [godotengine.org](https://godotengine.org)
 
 ### **Installation**
 
@@ -179,7 +179,7 @@ The `vg` CLI stores the addon globally so you never need to copy it manually. Se
 3. A new VG-ready project is created and opened
 
 **From GitHub Release:**
-1. Download from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v4.3.0)
+1. Download from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/latest)
 2. Copy the `addons/visual_gasic/` folder into your project's `addons/` directory
 3. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
 

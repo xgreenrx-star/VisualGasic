@@ -82,6 +82,6 @@ Whenever Section Player1Wins score1 Becomes WIN_SCORE DeclareWinner1
 
 ## How to Run
 
-1. Open this folder in Godot 4.5+
+1. Open this folder in Godot 4.6.1+
 2. Make sure the VisualGasic addon is enabled
 3. Run the project (F5)

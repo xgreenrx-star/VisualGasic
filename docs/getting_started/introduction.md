@@ -2,7 +2,7 @@
 
 ## What is VisualGasic?
 
-**VisualGasic** is a modern programming language and **complete RAD (Rapid Application Development) IDE** for the Godot 4.5+ engine. It combines the legendary approachability of Visual Basic 6.0 with modern language features, a built-in visual form designer, and a JIT-compiled bytecode engine — all inside a dedicated IDE that feels like classic VB6.
+**VisualGasic** is a modern programming language and **complete RAD (Rapid Application Development) IDE** for the Godot 4.6.1+ engine. It combines the legendary approachability of Visual Basic 6.0 with modern language features, a built-in visual form designer, and a JIT-compiled bytecode engine — all inside a dedicated IDE that feels like classic VB6.
 
 > **VisualGasic is not a VB6 clone.** It is a modern, forward-looking language that draws inspiration from VB6's approachable syntax and ease of learning, while introducing advanced features that go well beyond what VB6 ever offered. If you know VB6, you'll feel at home in minutes. If you're new to programming, you'll find VG one of the easiest languages to learn.
 

@@ -55,7 +55,7 @@ End Sub
 
 ## Requirements
 
-- Godot 4.5 or later (4.6.1 recommended)
+- Godot 4.6.1 or later
 
 ## License
 

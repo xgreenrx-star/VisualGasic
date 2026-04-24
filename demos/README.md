@@ -10,7 +10,7 @@ cd demos
 chmod +x setup_symlinks.sh
 ./setup_symlinks.sh
 
-# Then open any demo folder in Godot 4.5+
+# Then open any demo folder in Godot 4.6.1+
 ```
 
 ## Available Demos
@@ -247,13 +247,13 @@ demos/
 
 ## Requirements
 
-- Godot 4.5+
+- Godot 4.6.1+
 - VisualGasic addon (automatically linked via setup script)
 
 ## How to Run a Demo
 
 1. Run `./setup_symlinks.sh` once to configure all projects
-2. Open any demo folder in Godot 4.5+
+2. Open any demo folder in Godot 4.6.1+
 3. Press F5 to run
 
 ## Contributing

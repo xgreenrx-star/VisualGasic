@@ -20,7 +20,7 @@ A faithful VisualGasic reimplementation of the classic Infocom text adventure by
    ln -s ../../../addons/visual_gasic addons/visual_gasic
    ```
 
-2. Open this project in Godot 4.5+
+2. Open this project in Godot 4.6.1+
 
 3. Enable the VisualGasic plugin in Project → Project Settings → Plugins
 

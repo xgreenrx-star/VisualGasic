@@ -217,20 +217,11 @@
 
 ### Release Notes
 - [CHANGELOG.md](../CHANGELOG.md) - Full change log
-- [RELEASE_NOTES_v4.4.0-rc4.md](../RELEASE_NOTES_v4.4.0-rc4.md) - v4.4.0-rc4 (latest)
-- [RELEASE_NOTES_v4.3.0.md](../RELEASE_NOTES_v4.3.0.md) - v4.3.0
-- [RELEASE_NOTES_v4.2.0.md](../RELEASE_NOTES_v4.2.0.md) - v4.2.0
-- [RELEASE_NOTES_v4.1.0.md](../RELEASE_NOTES_v4.1.0.md) - v4.1.0
-- [RELEASE_NOTES_v4.0.0.md](../RELEASE_NOTES_v4.0.0.md) - v4.0.0
-- [RELEASE_NOTES_v3.8.0.md](../RELEASE_NOTES_v3.8.0.md) - v3.8.0
-- [RELEASE_NOTES_v3.7.0.md](../RELEASE_NOTES_v3.7.0.md) - v3.7.0
-- [RELEASE_NOTES_v3.5.0-beta4.md](../RELEASE_NOTES_v3.5.0-beta4.md) - v3.5.0-beta4
-- [RELEASE_NOTES_v3.4.1.md](../RELEASE_NOTES_v3.4.1.md) - v3.4.1
-- [RELEASE_NOTES_v3.3.0.md](../RELEASE_NOTES_v3.3.0.md) - v3.3.0
-- [RELEASE_NOTES_v3.2.0-beta1.md](../RELEASE_NOTES_v3.2.0-beta1.md) - v3.2.0-beta1
-- [RELEASE_NOTES_v2.10.0.md](../RELEASE_NOTES_v2.10.0.md) - v2.10.0
-- [RELEASE_NOTES_v2.9.0.md](../RELEASE_NOTES_v2.9.0.md) - v2.9.0
-- [RELEASE_NOTES_v2.8.0.md](../RELEASE_NOTES_v2.8.0.md) - v2.8.0
+- [RELEASE_NOTES_v5.1.0-Beta1.md](../RELEASE_NOTES_v5.1.0-Beta1.md) - v5.1.0-Beta1 (latest)
+- [RELEASE_NOTES_v5.0.1-beta5.md](../RELEASE_NOTES_v5.0.1-beta5.md) - v5.0.1-beta5
+- [RELEASE_NOTES_v5.0.1-beta1.md](../RELEASE_NOTES_v5.0.1-beta1.md) - v5.0.1-beta1
+- [RELEASE_NOTES_v4.4.0-rc5.md](../RELEASE_NOTES_v4.4.0-rc5.md) - v4.4.0-rc5
+- Older release notes: see git tags / [GitHub Releases](https://github.com/xgreenrx-star/VisualGasic/releases)
 
 ### Development
 - [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines

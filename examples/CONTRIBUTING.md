@@ -13,7 +13,7 @@ We welcome contributions to VisualGasic! This document provides guidelines for c
 ## Getting Started
 
 ### Prerequisites
-- Godot 4.5+ installed
+- Godot 4.6.1+ installed
 - SCons build system (`pip install scons`)
 - Git with submodules support
 - Modern C++ compiler (GCC 9+, Clang 10+, MSVC 2019+)

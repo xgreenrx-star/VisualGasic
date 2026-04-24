@@ -91,7 +91,7 @@ After installation, open your project in Godot. You should see:
 
 ### "Unable to load GDExtension"
 - Ensure you downloaded the correct build for your operating system (Windows, Linux, or macOS).
-- Make sure you are running **Godot 4.5 or newer**.
+- Make sure you are running **Godot 4.6.1 or newer**.
 - Check that the `.gdextension` file and the shared library (`.so`, `.dll`, or `.dylib`) are both present in `addons/visual_gasic/bin/`.
 
 ### "VisualGasic resource not found"

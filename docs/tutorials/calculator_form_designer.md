@@ -10,7 +10,7 @@ A simple four-function calculator with a display and digit/operator buttons — 
 
 **Time:** ~20 minutes
 
-**Prerequisites:** Godot 4.5+ installed, VisualGasic release ZIP downloaded.
+**Prerequisites:** Godot 4.6.1+ installed, VisualGasic release ZIP downloaded.
 
 ![The finished calculator running](image-6.png)
 <!-- TODO: Capture screenshot of the running calculator showing "42" — reuse for hero and Step 8 -->
@@ -19,7 +19,7 @@ A simple four-function calculator with a display and digit/operator buttons — 
 
 ## Step 1 — Create a New Godot Project
 
-1. Launch **Godot 4.5+** (4.6.1 recommended).
+1. Launch **Godot 4.6.1+**.
 2. In the **Project Manager**, click **New Project**.
 3. Set the project name to `MyCalculator`.
 4. Choose a folder to save it in.

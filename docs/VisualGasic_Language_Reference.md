@@ -127,7 +127,7 @@
 
 ### Introduction
 
-VisualGasic is a modern, forward-looking programming language designed for application and game development on the Godot 4.5+ platform. The name "Gasic" stands for **G**odot **A**ll-purpose **S**ymbolic **C**ode (when used within Godot) or **G**eneral **A**ll-purpose **S**ymbolic **C**ode (for standalone applications), representing its versatility as both a game development language and a general-purpose programming solution.
+VisualGasic is a modern, forward-looking programming language designed for application and game development on the Godot 4.6.1+ platform. The name "Gasic" stands for **G**odot **A**ll-purpose **S**ymbolic **C**ode (when used within Godot) or **G**eneral **A**ll-purpose **S**ymbolic **C**ode (for standalone applications), representing its versatility as both a game development language and a general-purpose programming solution.
 
 > **VisualGasic is not a VB6 clone.** It is a distinct, modern language that takes inspiration from VB6's legendary approachability — the simple syntax, the ease of learning, the RAD workflow — and builds something new on that foundation. If you know VB6, you'll feel at home in minutes. But VisualGasic goes far beyond VB6 with features like lambda expressions, async/await, pattern matching, null-safe operators, GPU computing, generics, and a JIT-compiled bytecode engine. VG is VB6-*compatible* where it makes sense, but it is designed to look forwards, not backwards.
 
@@ -138,7 +138,7 @@ Whether you're creating desktop applications, mobile apps, web software, or inte
 **Key Features:**
 - Clean, intuitive syntax — familiar to VB6 developers, accessible to everyone
 - Modern language features: lambdas, async/await, pattern matching, null-safety, generics
-- Full Godot 4.5+ integration for applications and games
+- Full Godot 4.6.1+ integration for applications and games
 - Cross-platform development support
 - Object-oriented programming with classes, inheritance, and interfaces
 - JIT-compiled bytecode engine — faster than GDScript, competitive with native C++

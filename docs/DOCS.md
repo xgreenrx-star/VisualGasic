@@ -32,7 +32,7 @@ New to VisualGasic? Start here and work down the list.
 | # | Document | Description |
 |---|----------|-------------|
 | 1 | [Introduction](getting_started/introduction.md) | What VisualGasic is, why BASIC on Godot, and what makes it unique |
-| 2 | [Installation](getting_started/installation.md) | Setting up the GDExtension plugin in a Godot 4.5+ project |
+| 2 | [Installation](getting_started/installation.md) | Setting up the GDExtension plugin in a Godot 4.6.1+ project |
 | 3 | [Nodes and Scenes](getting_started/nodes_and_scenes.md) | Core Godot concepts explained for beginners — the building blocks of every game |
 | 4 | [Scripting](getting_started/scripting.md) | Creating and attaching `.vg` scripts to nodes — your first code |
 | 5 | [Signals](getting_started/signals.md) | Using Godot signals with VB6-style event handlers (`btnOK_Click`, `Timer1_Timer`) |
@@ -244,20 +244,12 @@ Internal docs for contributors and maintainers.
 
 | Version | File | Highlights |
 |---------|------|------------|
-| v4.4.0-rc4 | [RELEASE_NOTES_v4.4.0-rc4.md](../RELEASE_NOTES_v4.4.0-rc4.md) | VB6 Property System v2: 62 properties, events, IntelliSense, Watch Window |
-| v4.4.0-rc3 | [RELEASE_NOTES_v4.4.0-rc3.md](../RELEASE_NOTES_v4.4.0-rc3.md) | IntelliSense chaining, keyword-named Subs |
-| v4.4.0-rc2 | [RELEASE_NOTES_v4.4.0-rc2.md](../RELEASE_NOTES_v4.4.0-rc2.md) | Debugger UX overhaul, Set Next Statement |
-| v4.4.0-rc1 | [RELEASE_NOTES_v4.4.0-rc1.md](../RELEASE_NOTES_v4.4.0-rc1.md) | Release candidate — feature-complete |
-| v4.3.0 | [RELEASE_NOTES_v4.3.0.md](../RELEASE_NOTES_v4.3.0.md) | |
-| v4.2.0 | [RELEASE_NOTES_v4.2.0.md](../RELEASE_NOTES_v4.2.0.md) | |
-| v4.1.0 | [RELEASE_NOTES_v4.1.0.md](../RELEASE_NOTES_v4.1.0.md) | |
-| v4.0.0 | [RELEASE_NOTES_v4.0.0.md](../RELEASE_NOTES_v4.0.0.md) | Major version — bytecode VM, JIT |
-| v3.8.0 | [RELEASE_NOTES_v3.8.0.md](../RELEASE_NOTES_v3.8.0.md) | |
-| v3.7.0 | [RELEASE_NOTES_v3.7.0.md](../RELEASE_NOTES_v3.7.0.md) | |
-| v3.5.0 | [RELEASE_NOTES_v3.5.0-beta4.md](../RELEASE_NOTES_v3.5.0-beta4.md) | |
-| v3.4.1 | [RELEASE_NOTES_v3.4.1.md](../RELEASE_NOTES_v3.4.1.md) | |
-| v3.3.0 | [RELEASE_NOTES_v3.3.0.md](../RELEASE_NOTES_v3.3.0.md) | |
-| v3.2.0 | [RELEASE_NOTES_v3.2.0-beta1.md](../RELEASE_NOTES_v3.2.0-beta1.md) | |
+| v5.1.0-Beta1 | [RELEASE_NOTES_v5.1.0-Beta1.md](../RELEASE_NOTES_v5.1.0-Beta1.md) | One-click installers (AppImage/EXE), unified ▶ Play menu, Form Designer as toggleable plugin |
+| v5.0.1-beta5 | [RELEASE_NOTES_v5.0.1-beta5.md](../RELEASE_NOTES_v5.0.1-beta5.md) | Working Nodes plugin, AGCK, sprite editor, 3D tools |
+| v5.0.1-beta1 | [RELEASE_NOTES_v5.0.1-beta1.md](../RELEASE_NOTES_v5.0.1-beta1.md) | Plugin system, major version jump |
+| v4.4.0-rc5 | [RELEASE_NOTES_v4.4.0-rc5.md](../RELEASE_NOTES_v4.4.0-rc5.md) | Debugger stability, built-in constants |
+
+Older release notes: see git tags / [GitHub Releases](https://github.com/xgreenrx-star/VisualGasic/releases).
 | v2.10.0 | [RELEASE_NOTES_v2.10.0.md](../RELEASE_NOTES_v2.10.0.md) | COM Objects, VB6 Globals, GoSub |
 | v2.9.0 | [RELEASE_NOTES_v2.9.0.md](../RELEASE_NOTES_v2.9.0.md) | |
 | v2.8.0 | [RELEASE_NOTES_v2.8.0.md](../RELEASE_NOTES_v2.8.0.md) | C++ Visual Gasic IDE, Live Preview |

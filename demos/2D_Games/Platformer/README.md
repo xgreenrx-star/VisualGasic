@@ -1,7 +1,7 @@
 # Pixel Platformer — VisualGasic Demo
 
 A complete 2D platformer written entirely in **VisualGasic** (.vg), the VB6-style
-scripting language for Godot 4.5+.
+scripting language for Godot 4.6.1+.
 
 Based on the concepts from the
 [official Godot 2D Platformer demo](https://github.com/godotengine/godot-demo-projects/tree/master/2d/platformer),
@@ -64,7 +64,7 @@ syntax with full Godot engine integration.
 
 1. Make sure the `addons/visual_gasic/` folder is present (symlink or copy from the
    main VisualGasic project).
-2. Open this folder as a Godot 4.5+ project.
+2. Open this folder as a Godot 4.6.1+ project.
 3. Press **F5** (or the Play button) to run.
 
 ## Level Design
@@ -112,5 +112,5 @@ addons/visual_gasic/   ← VisualGasic runtime (symlink)
 ## Credits
 
 - Inspired by the [Godot 2D Platformer Demo](https://github.com/godotengine/godot-demo-projects/tree/master/2d/platformer) (MIT License)
-- Written in [VisualGasic](https://github.com/xgreenrx-star/VisualGasic) for Godot 4.5+
+- Written in [VisualGasic](https://github.com/xgreenrx-star/VisualGasic) for Godot 4.6.1+
 - Renderer: Forward Plus

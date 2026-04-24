@@ -15,7 +15,7 @@ Both produce a living, breathing form. Approach A is easier and integrates with 
 
 **Time:** ~15 minutes per approach
 
-**Prerequisites:** Godot 4.5+, VisualGasic installed and enabled. Familiarity with the Visual Gasic IDE (see the [Calculator Tutorial](calculator_form_designer.md) first).
+**Prerequisites:** Godot 4.6.1+, VisualGasic installed and enabled. Familiarity with the Visual Gasic IDE (see the [Calculator Tutorial](calculator_form_designer.md) first).
 
 ---
 
