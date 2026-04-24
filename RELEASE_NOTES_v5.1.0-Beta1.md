@@ -26,7 +26,7 @@ v5.1.0 is a **UX-focused follow-up** to 5.0.1 that unifies the IDE's run/preview
 - **🎛️ Unified ▶ Play menu** — one MenuButton replaces the old `Preview` / `Preview (Debug)` / `Build` / `Run` button row, available in every view.
 - **⌨️ F5 dispatches to the active plugin** — plugins can opt into handling F5 / Shift+F5 / Ctrl+F5 via a new `on_play_shortcut()` API.
 - **🧩 Form Designer as a toggleable plugin** — disable the legacy VB6-style designer per-project from the ⚙ Plugin Settings dialog; new projects default to code-first.
-- **📥 Bootstrap installer** — `install.sh` now downloads Godot, installs VG, and creates a launcher on Linux.
+- **📥 One-click installers** — platform-native installers (Linux AppImage, Windows .exe) install Godot, VG, a starter project, shortcuts, and `.vg` file association. No terminal required.
 - **🖱️ Draggable left-sidebar splitters** — the 2D and 3D editors finally have a working VSplitContainer between Object List and Scene Tree.
 - **🔌 Working Nodes plugin** — full plugin polish: graphs run from the Play menu, F5 runs the current graph, no more double-Play buttons.
 
@@ -110,17 +110,97 @@ Also fixed: the plugin briefly caused **two ▶ Play buttons** to appear because
 
 ---
 
-## 📥 Bootstrap Installer (Linux MVP)
+## 📥 One-Click Installers (new)
 
-A new `install.sh` bootstrap script downloads Godot 4.6.1, installs the VisualGasic addon to `~/.local/share/visual_gasic/`, and creates a launcher in `~/.local/bin/vg`. One line gets you from zero to a working IDE:
+v5.1.0-Beta1 ships **double-clickable installers** for Linux and Windows. Zero terminal usage, zero prior Godot setup, zero config editing — download, double-click, and the VisualGasic IDE is ready. The installers also register `.vg` files so double-clicking a `.vg` file opens the IDE directly on it.
+
+### Download
+
+| Platform | File | Size |
+|----------|------|------|
+| Linux    | `VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage`                 | ~1.1 MB |
+| Windows  | `VisualGasic-Installer-v5.1.0-Beta1-x86_64.exe`                      | ~9.6 MB |
+| Linux (offline, bundles Godot)   | `VisualGasic-Installer-Offline-v5.1.0-Beta1-linux-x86_64.zip`   | ~70 MB |
+| Windows (offline, bundles Godot) | `VisualGasic-Installer-Offline-v5.1.0-Beta1-windows-x86_64.zip` | ~86 MB |
+
+All four are attached to this release — grab them from the [Assets section](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.1.0-Beta1).
+
+### What the installers do
+
+1. Download and unpack a matching Godot (**4.6.1-stable** by default) to a user-scoped location (no admin required).
+2. Install the VisualGasic editor plugin.
+3. Create a starter **MyFirstGame** project in `~/VisualGasic/` (Linux) or `%USERPROFILE%\VisualGasic\` (Windows) with VG pre-enabled and a sample `Form1.vg`.
+4. Add a **VisualGasic IDE** entry to the Applications menu / Start Menu / Desktop.
+5. Register the `.vg` file type so double-clicking a `.vg` file launches the IDE on it.
+
+### Choose a Godot version
+
+The installer supports **Godot 4.6.1-stable and newer**. Pick interactively or pin to a specific version:
 
 ```bash
+# Linux — list everything the installer will accept
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --list-godot-versions
+
+# Interactive picker
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --pick-godot
+
+# Pin a specific version
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --godot-version 4.6.2-stable
+
+# Include beta / RC builds in the picker
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --pick-godot --include-prereleases
+```
+
+The Windows `.exe` accepts the same flags via its shortcut's target field (or the `run_installer.cmd` it drops).
+
+### Optional: seed AI keys at install time
+
+The AGCK plugin's AI Coding Assistant can be pre-configured with API keys (opt-in, written with `0600` permissions on POSIX to Godot's per-user ConfigFile):
+
+```bash
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage \
+    --with-ai-keys \
+    --openai-key "sk-..." \
+    --claude-key "sk-ant-..." \
+    --gemini-key "AIza..."
+```
+
+Without `--with-ai-keys` no keys are written; the AI assistant stays disabled until configured from inside the IDE.
+
+### Offline install (no internet)
+
+The two `-Offline-` bundles include a pre-downloaded Godot alongside the installer. Unzip and follow the `README.txt` — the installer uses the bundled Godot automatically.
+
+### Build the installers yourself
+
+Three new build scripts under `scripts/`:
+
+| Script | Output |
+|--------|--------|
+| `scripts/build_appimage.sh <version>`         | Linux AppImage |
+| `scripts/build_windows_installer.sh <version>` | Windows NSIS `.exe` (requires `nsis` package on Linux build host) |
+| `scripts/build_offline_bundle.sh <version>`    | Both offline `.zip` bundles |
+
+The installer engine itself is `scripts/bootstrap_vg.py` — a stdlib-only Python 3 script you can run directly on any platform.
+
+---
+
+## 📥 Legacy `install.sh` Bootstrap (still supported)
+
+Command-line users can still install via the shell one-liners. These are unchanged in v5.1.0 apart from now honoring the GitHub Releases API (including pre-releases) instead of the `main` branch:
+
+```bash
+# Linux / macOS
 curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.sh | bash
+
+# Windows PowerShell
+irm https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.ps1 | iex
+
+# Cross-platform Python
+python3 install.py --github
 ```
 
 Projects created via `vg new` ship with `vg/default_mode = "code"` so the IDE opens directly into the code editor instead of the Form Designer.
-
-Windows (`install.ps1`) and cross-platform (`install.py`) scripts are unchanged in this release; the Linux bash installer is the first to include the full Godot bootstrap.
 
 ---
 
