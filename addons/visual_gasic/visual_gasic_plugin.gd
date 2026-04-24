@@ -7221,6 +7221,38 @@ func _log_output(msg: String, color: Color = Color(0.1, 0.1, 0.1)) -> void:
 	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("append_output"):
 		_embedded_code_editor.append_output(msg, color)
 
+## Show/hide the toolbar widgets that only make sense in the Form Designer
+## (alignment tools, color palette, Indexes toggle, Live/Freeze toggle).
+## The unified ▶ Play MenuButton and the mode-toggle buttons (Code/Form/3D/
+## 2D/Sprite) stay visible in every view — only the form-specific extras
+## get hidden in Code/3D/2D/Sprite views. Also honors the
+## vg/form_designer_enabled opt-out: when disabled they stay hidden
+## everywhere.
+func _set_form_designer_widgets_visible(show_form_widgets: bool) -> void:
+	var enabled := true
+	if ProjectSettings.has_setting("vg/form_designer_enabled"):
+		enabled = bool(ProjectSettings.get_setting("vg/form_designer_enabled", true))
+	var vis := show_form_widgets and enabled
+	if is_instance_valid(alignment_toolbar):
+		alignment_toolbar.visible = vis
+	if is_instance_valid(_color_palette):
+		_color_palette.visible = vis
+	if is_instance_valid(_ide_layout):
+		var row := _ide_layout.get_node_or_null("ToolbarPanel/ToolbarScroll/ToolbarRow")
+		if row:
+			var idx_btn := row.get_node_or_null("ShowIndexesBtn")
+			if idx_btn:
+				idx_btn.visible = vis
+			var freeze_btn := row.get_node_or_null("FreezePreviewsBtn")
+			if freeze_btn:
+				freeze_btn.visible = vis
+			# The "▣ Form" mode-toggle button follows the enabled flag only
+			# (it's a mode switch, not a form-only widget): hidden when the
+			# designer is opted-out, visible in every other view otherwise.
+			var form_btn := row.get_node_or_null("ViewObjectBtn")
+			if form_btn:
+				form_btn.visible = enabled
+
 ## Switch the center panel from form canvas to code editor.
 func _show_code_view() -> void:
 	if _showing_code_view:
@@ -7288,6 +7320,8 @@ func _show_code_view() -> void:
 		var path = _embedded_code_editor.get_file_path() if is_instance_valid(_embedded_code_editor) else ""
 		_status_bar.text = "  Code: " + path.get_file()
 
+	_set_form_designer_widgets_visible(false)
+
 	print("VisualGasic: Switched to Code View")
 
 ## Switch the center panel from code editor or 3D editor back to form canvas.
@@ -7346,6 +7380,9 @@ func _show_form_view() -> void:
 	# Update status bar
 	if is_instance_valid(_status_bar):
 		_status_bar.text = "  Ready"
+
+	_set_form_designer_widgets_visible(true)
+
 	print("VisualGasic: Switched to Form View")
 
 ## Switch the center panel to the embedded 3D Scene Editor.
@@ -7415,6 +7452,7 @@ func _show_3d_view() -> void:
 		_status_bar.text = "  3D Scene Editor"
 
 	print("VisualGasic: Switched to 3D View")
+	_set_form_designer_widgets_visible(false)
 
 ## Try to auto-load the main .tscn into the 3D editor if nothing is loaded yet.
 func _auto_load_3d_scene() -> void:
@@ -7497,6 +7535,7 @@ func _show_2d_view() -> void:
 		_status_bar.text = "  2D Scene Editor"
 
 	print("VisualGasic: Switched to 2D View")
+	_set_form_designer_widgets_visible(false)
 
 ## Try to auto-load the main .tscn into the 2D editor if nothing is loaded yet.
 func _auto_load_2d_scene() -> void:
@@ -7577,6 +7616,7 @@ func _show_sprite_view() -> void:
 		_status_bar.text = "  Sprite Editor"
 
 	print("VisualGasic: Switched to Sprite Editor View")
+	_set_form_designer_widgets_visible(false)
 
 ## Toggle between code view and form view (VB6 F7 behavior).
 func _toggle_code_form_view() -> void:
