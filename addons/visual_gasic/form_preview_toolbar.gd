@@ -2,19 +2,41 @@
 extends HBoxContainer
 ## Form Preview & Build Toolbar
 ##
-## Provides build and run functionality for VisualGasic projects:
-## - Preview Form (F5): Runs the current form scene
-## - Preview + Debug: Runs with breakpoints and debug connection
-## - Build Project: Validates all .vg files in the project
-## - Run Project: Runs the project's main/startup scene
-## - Keyboard shortcuts: F5 (run), Ctrl+F5 (run without debug), Shift+F5 (stop)
+## Unified ▶ Play toolbar — one button, dropdown menu with every run/build
+## variant. Replaces the older four-button layout (Preview, Preview+Debug,
+## Build, Run Project) that was spread across two rows and confused users.
+##
+## Entries:
+##   • Run Current Scene          (F5)
+##   • Run Main Scene             (Ctrl+F5)
+##   • Preview Current Form       (Shift+F5)   — form-designer-aware variant
+##   • Preview + Debug            (Shift+Ctrl+F5)
+##   • Build (validate .vg files)
+##
+## Plugins can register additional actions into the menu via add_menu_item().
+## Working Nodes, for example, adds "Run Graph (2D)" and "Run Graph (3D)"
+## here once it's loaded, instead of putting its own ▶ buttons in the graph
+## panel toolbar.
 
-var _preview_button: Button
-var _debug_button: Button
-var _build_button: Button
-var _run_project_button: Button
+# MenuButton exposing every run/build variant. A single visible control so
+# the user always knows where ▶ lives, regardless of which dock they're in.
+var _play_menu: MenuButton
+var _stop_button: Button  # future: hook to EditorInterface.stop_playing_scene()
 var _editor_plugin: EditorPlugin
 var _preview_window: Window = null
+
+# Enum-like ids for the popup entries. Kept as ints so external plugins can
+# register starting from PLUGIN_ACTION_BASE without clashing with builtins.
+const ACT_RUN_CURRENT   := 100
+const ACT_RUN_MAIN      := 101
+const ACT_PREVIEW_FORM  := 102
+const ACT_PREVIEW_DEBUG := 103
+const ACT_BUILD         := 104
+const PLUGIN_ACTION_BASE := 1000
+
+# Plugin-registered entries: id → Callable. Looked up from _on_menu_item().
+var _plugin_actions: Dictionary = {}
+var _next_plugin_id: int = PLUGIN_ACTION_BASE
 
 func _init() -> void:
 	name = "FormPreviewToolbar"
@@ -23,47 +45,84 @@ func _ready() -> void:
 	_build_ui()
 
 func _build_ui() -> void:
-	# Compact button text — total width target: ~200px (was ~400px)
-	_preview_button = Button.new()
-	_preview_button.text = "▶ Preview"
-	_preview_button.tooltip_text = "Preview current form (F5)"
-	_preview_button.pressed.connect(_on_preview_pressed)
-	add_child(_preview_button)
-	
-	_debug_button = Button.new()
-	_debug_button.text = "Preview+Debug"
-	_debug_button.tooltip_text = "Preview with Immediate Window (Shift+F5)"
-	_debug_button.pressed.connect(_on_preview_debug_pressed)
-	add_child(_debug_button)
-	
-	add_child(VSeparator.new())
-	
-	_build_button = Button.new()
-	_build_button.text = "Build"
-	_build_button.tooltip_text = "Validate all .vg files"
-	_build_button.pressed.connect(_on_build_pressed)
-	add_child(_build_button)
-	
-	_run_project_button = Button.new()
-	_run_project_button.text = "▶ Run Project"
-	_run_project_button.tooltip_text = "Run main scene (Ctrl+F5)"
-	_run_project_button.pressed.connect(_on_run_project_pressed)
-	add_child(_run_project_button)
+	_play_menu = MenuButton.new()
+	_play_menu.text = "▶ Play"
+	_play_menu.tooltip_text = "Run / preview / build (F5 for primary action)"
+	_play_menu.flat = false
+	_play_menu.focus_mode = Control.FOCUS_NONE
+	var popup := _play_menu.get_popup()
+	popup.clear()
+	# F5 is the default primary action; users can still click the menu
+	# for the others. Shortcuts are labelled in the menu entry text so
+	# the user sees them without opening a help page.
+	popup.add_item("Run Current Scene     F5",            ACT_RUN_CURRENT)
+	popup.add_item("Run Main Scene        Ctrl+F5",       ACT_RUN_MAIN)
+	popup.add_separator()
+	popup.add_item("Preview Current Form  Shift+F5",      ACT_PREVIEW_FORM)
+	popup.add_item("Preview + Debug       Shift+Ctrl+F5", ACT_PREVIEW_DEBUG)
+	popup.add_separator()
+	popup.add_item("Build (validate .vg)",                ACT_BUILD)
+	popup.id_pressed.connect(_on_menu_item)
+	add_child(_play_menu)
+
+
+## Public API — plugins can drop their own ▶-style actions into this menu.
+## Returns the id assigned (for later removal via remove_menu_item).
+func add_menu_item(label: String, callback: Callable) -> int:
+	var id := _next_plugin_id
+	_next_plugin_id += 1
+	_plugin_actions[id] = callback
+	var popup := _play_menu.get_popup()
+	# Insert a separator above the first plugin entry so built-ins stay
+	# visually grouped at the top.
+	if _plugin_actions.size() == 1:
+		popup.add_separator()
+	popup.add_item(label, id)
+	return id
+
+
+func remove_menu_item(id: int) -> void:
+	if not _plugin_actions.has(id):
+		return
+	_plugin_actions.erase(id)
+	var popup := _play_menu.get_popup()
+	var idx := popup.get_item_index(id)
+	if idx >= 0:
+		popup.remove_item(idx)
+
+
+func _on_menu_item(id: int) -> void:
+	match id:
+		ACT_RUN_CURRENT:   _run_project()
+		ACT_RUN_MAIN:      _run_main_scene()
+		ACT_PREVIEW_FORM:  _preview_current_form(false)
+		ACT_PREVIEW_DEBUG: _preview_current_form(true)
+		ACT_BUILD:         _build_project()
+		_:
+			var cb = _plugin_actions.get(id)
+			if cb is Callable and cb.is_valid():
+				cb.call()
+
 
 func setup(plugin: EditorPlugin) -> void:
 	_editor_plugin = plugin
 
-func _on_preview_pressed() -> void:
-	_preview_current_form(false)
 
-func _on_preview_debug_pressed() -> void:
-	_preview_current_form(true)
+# ── Run Main Scene — respects application/run/main_scene ───────────────────
+func _run_main_scene() -> void:
+	if not _editor_plugin:
+		push_error("FormPreviewToolbar: No editor plugin set")
+		return
+	var editor = _editor_plugin.get_editor_interface()
+	editor.save_all_scenes()
+	var main_scene = ProjectSettings.get_setting("application/run/main_scene", "")
+	if main_scene is String and not main_scene.is_empty():
+		print("VisualGasic: Running main scene: ", main_scene)
+		editor.play_main_scene()
+	else:
+		push_warning("No main scene configured (Project Settings → Application → Run). Running current scene instead.")
+		_run_project()
 
-func _on_build_pressed() -> void:
-	_build_project()
-
-func _on_run_project_pressed() -> void:
-	_run_project()
 
 func _preview_current_form(with_debug: bool) -> void:
 	if not _editor_plugin:
@@ -322,15 +381,22 @@ func _save_breakpoints_for_preview() -> void:
 			print("VisualGasic: Saved ", breakpoints.size(), " script breakpoint set(s) for debug session")
 
 func _input(event: InputEvent) -> void:
-	# F5 to preview current form
-	if event is InputEventKey and event.pressed and event.keycode == KEY_F5:
-		if not event.ctrl_pressed and not event.shift_pressed:
-			_on_preview_pressed()
-			get_viewport().set_input_as_handled()
-		elif event.ctrl_pressed and not event.shift_pressed:
-			# Ctrl+F5 = Run project (without debug)
-			_on_run_project_pressed()
-			get_viewport().set_input_as_handled()
-		elif event.shift_pressed and not event.ctrl_pressed:
-			# Shift+F5 would stop preview (handled by Godot)
-			pass
+	# Unified F5 family — mirrors the Play menu. Handled here rather than via
+	# Shortcut resources because this toolbar is re-parented across dock
+	# toggles and its Shortcut would bind to the wrong viewport.
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	var k: InputEventKey = event
+	if k.keycode != KEY_F5:
+		return
+	var ctrl := k.ctrl_pressed
+	var shift := k.shift_pressed
+	if shift and ctrl:
+		_preview_current_form(true)
+	elif shift:
+		_preview_current_form(false)
+	elif ctrl:
+		_run_main_scene()
+	else:
+		_run_project()
+	get_viewport().set_input_as_handled()
