@@ -45,19 +45,41 @@ ShowInstDetails     show
 ShowUninstDetails   show
 SetCompressor       /SOLID lzma
 
-; ── Modern UI ────────────────────────────────────────────────────────────
+; ── Modern UI + custom dialogs ──────────────────────────────────────────
 !include "MUI2.nsh"
+!include "nsDialogs.nsh"
+!include "LogicLib.nsh"
 
 !define MUI_ABORTWARNING
 !define MUI_ICON   "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
 !define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
 
+; Variables collected by the wizard pages and passed to bootstrap_vg.py.
+Var GodotVersion
+Var ProjectName
+Var ProjectFolder
+Var OpenAIKey
+Var ClaudeKey
+Var GeminiKey
+Var MakeShortcuts
+Var RegisterVgFiles
+
+Var hCtlGodot
+Var hCtlProjName
+Var hCtlProjFolder
+Var hCtlBrowse
+Var hCtlShortcuts
+Var hCtlFileAssoc
+Var hCtlOpenAI
+Var hCtlClaude
+Var hCtlGemini
+
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
+Page custom OptionsPage OptionsPageLeave
+Page custom AIKeysPage  AIKeysPageLeave
 !insertmacro MUI_PAGE_INSTFILES
-!define MUI_FINISHPAGE_RUN "$INSTDIR\run_installer.cmd"
-!define MUI_FINISHPAGE_RUN_TEXT "Launch the VisualGasic first-time setup now"
-!define MUI_FINISHPAGE_RUN_NOTCHECKED
+!define MUI_FINISHPAGE_TEXT "VisualGasic has been installed.$\r$\n$\r$\nThe VisualGasic IDE should now be open — if not, find it on your Start Menu."
 !insertmacro MUI_PAGE_FINISH
 
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -65,19 +87,186 @@ SetCompressor       /SOLID lzma
 
 !insertmacro MUI_LANGUAGE "English"
 
+; ── Defaults ────────────────────────────────────────────────────────────
+Function .onInit
+    StrCpy $GodotVersion    "4.6.1-stable"
+    StrCpy $ProjectName     "My First Game"
+    StrCpy $ProjectFolder   "$PROFILE\VisualGasic\MyFirstGame"
+    StrCpy $MakeShortcuts   "1"
+    StrCpy $RegisterVgFiles "1"
+    StrCpy $OpenAIKey ""
+    StrCpy $ClaudeKey ""
+    StrCpy $GeminiKey ""
+FunctionEnd
+
+; ── Custom page 1: VisualGasic options ──────────────────────────────────
+Function OptionsPage
+    !insertmacro MUI_HEADER_TEXT "VisualGasic Options" \
+        "Choose your Godot version and starter project location."
+
+    nsDialogs::Create 1018
+    Pop $0
+    ${If} $0 == error
+        Abort
+    ${EndIf}
+
+    ${NSD_CreateLabel} 0 0 100% 12u "Godot version:"
+    Pop $0
+    ${NSD_CreateDropList} 0 14u 60% 60u ""
+    Pop $hCtlGodot
+    SendMessage $hCtlGodot ${CB_ADDSTRING} 0 "STR:4.6.1-stable (recommended)"
+    SendMessage $hCtlGodot ${CB_ADDSTRING} 0 "STR:4.6.2-stable"
+    SendMessage $hCtlGodot ${CB_SETCURSEL} 0 0
+
+    ${NSD_CreateLabel} 0 34u 100% 12u "Starter project name:"
+    Pop $0
+    ${NSD_CreateText} 0 48u 100% 12u "$ProjectName"
+    Pop $hCtlProjName
+
+    ${NSD_CreateLabel} 0 68u 100% 12u "Starter project folder:"
+    Pop $0
+    ${NSD_CreateText} 0 82u 80% 12u "$ProjectFolder"
+    Pop $hCtlProjFolder
+    ${NSD_CreateButton} 82% 82u 18% 12u "Browse..."
+    Pop $hCtlBrowse
+    ${NSD_OnClick} $hCtlBrowse OnBrowseProj
+
+    ${NSD_CreateCheckbox} 0 106u 100% 12u "Create Start Menu and Desktop shortcuts"
+    Pop $hCtlShortcuts
+    ${NSD_Check} $hCtlShortcuts
+
+    ${NSD_CreateCheckbox} 0 120u 100% 12u "Open .vg files in VisualGasic (register file type)"
+    Pop $hCtlFileAssoc
+    ${NSD_Check} $hCtlFileAssoc
+
+    nsDialogs::Show
+FunctionEnd
+
+Function OnBrowseProj
+    Pop $0
+    nsDialogs::SelectFolderDialog "Choose a parent folder for your project" "$PROFILE"
+    Pop $0
+    ${If} $0 != error
+        ${NSD_SetText} $hCtlProjFolder "$0\MyFirstGame"
+    ${EndIf}
+FunctionEnd
+
+Function OptionsPageLeave
+    ${NSD_GetText} $hCtlGodot $0
+    ${If} $0 == "4.6.1-stable (recommended)"
+        StrCpy $GodotVersion "4.6.1-stable"
+    ${Else}
+        StrCpy $GodotVersion $0
+    ${EndIf}
+
+    ${NSD_GetText} $hCtlProjName   $ProjectName
+    ${NSD_GetText} $hCtlProjFolder $ProjectFolder
+
+    ${NSD_GetState} $hCtlShortcuts $0
+    ${If} $0 == ${BST_CHECKED}
+        StrCpy $MakeShortcuts "1"
+    ${Else}
+        StrCpy $MakeShortcuts "0"
+    ${EndIf}
+
+    ${NSD_GetState} $hCtlFileAssoc $0
+    ${If} $0 == ${BST_CHECKED}
+        StrCpy $RegisterVgFiles "1"
+    ${Else}
+        StrCpy $RegisterVgFiles "0"
+    ${EndIf}
+FunctionEnd
+
+; ── Custom page 2: AI keys (optional) ───────────────────────────────────
+Function AIKeysPage
+    !insertmacro MUI_HEADER_TEXT "AI Coding Assistant (optional)" \
+        "Paste API keys now or leave blank — you can add them later from inside the IDE."
+
+    nsDialogs::Create 1018
+    Pop $0
+    ${If} $0 == error
+        Abort
+    ${EndIf}
+
+    ${NSD_CreateLabel} 0 0 100% 24u \
+        "VisualGasic's built-in AI Coding Assistant works with OpenAI, Claude, Gemini, and Ollama. Leave any or all of these blank to skip."
+    Pop $0
+
+    ${NSD_CreateLabel} 0 30u 20% 12u "OpenAI:"
+    Pop $0
+    ${NSD_CreatePassword} 20% 30u 80% 12u "$OpenAIKey"
+    Pop $hCtlOpenAI
+
+    ${NSD_CreateLabel} 0 48u 20% 12u "Claude:"
+    Pop $0
+    ${NSD_CreatePassword} 20% 48u 80% 12u "$ClaudeKey"
+    Pop $hCtlClaude
+
+    ${NSD_CreateLabel} 0 66u 20% 12u "Gemini:"
+    Pop $0
+    ${NSD_CreatePassword} 20% 66u 80% 12u "$GeminiKey"
+    Pop $hCtlGemini
+
+    ${NSD_CreateLabel} 0 90u 100% 24u \
+        "Ollama runs locally and needs no key — configure it from the IDE's AI Settings dialog after install."
+    Pop $0
+
+    nsDialogs::Show
+FunctionEnd
+
+Function AIKeysPageLeave
+    ${NSD_GetText} $hCtlOpenAI $OpenAIKey
+    ${NSD_GetText} $hCtlClaude $ClaudeKey
+    ${NSD_GetText} $hCtlGemini $GeminiKey
+FunctionEnd
+
 ; ── Install ──────────────────────────────────────────────────────────────
 Section "VisualGasic first-time installer" SecMain
     SetOutPath "$INSTDIR"
 
-    ; Payload — everything staged by scripts/build_windows_installer.sh
+    DetailPrint "Extracting installer payload..."
     File /r "${BUILD_DIR}\*.*"
 
-    ; Small .cmd shim the user can re-run any time
-    FileOpen $0 "$INSTDIR\run_installer.cmd" w
-    FileWrite $0 "@echo off$\r$\n"
-    FileWrite $0 "cd /d %~dp0$\r$\n"
-    FileWrite $0 "python\python.exe bootstrap_vg.py --offline %~dp0offline --launch %*$\r$\n"
-    FileClose $0
+    ; Build the bootstrap command line from the wizard values.
+    ; $0 collects optional flags.
+    StrCpy $0 ""
+    ${If} $MakeShortcuts == "0"
+        StrCpy $0 "$0 --no-launcher"
+    ${EndIf}
+    ${If} $RegisterVgFiles == "0"
+        StrCpy $0 "$0 --no-file-assoc"
+    ${EndIf}
+
+    ; AI keys: only pass --with-ai-keys if at least one is provided.
+    StrCpy $1 ""
+    ${If} $OpenAIKey != ""
+        StrCpy $1 "$1 --openai-key $\"$OpenAIKey$\""
+    ${EndIf}
+    ${If} $ClaudeKey != ""
+        StrCpy $1 "$1 --claude-key $\"$ClaudeKey$\""
+    ${EndIf}
+    ${If} $GeminiKey != ""
+        StrCpy $1 "$1 --gemini-key $\"$GeminiKey$\""
+    ${EndIf}
+    ${If} $1 != ""
+        StrCpy $0 "$0 --with-ai-keys$1"
+    ${EndIf}
+
+    ; Small .cmd shim the user can re-run any time (uses defaults — for
+    ; custom values they can re-run the .exe to get the wizard again).
+    FileOpen $2 "$INSTDIR\run_installer.cmd" w
+    FileWrite $2 "@echo off$\r$\n"
+    FileWrite $2 "cd /d %~dp0$\r$\n"
+    FileWrite $2 "python\python.exe bootstrap_vg.py --offline %~dp0offline --launch %*$\r$\n"
+    FileClose $2
+
+    ; Run the first-time setup NOW with the wizard's values.
+    DetailPrint "Running first-time setup (this downloads Godot and can take a few minutes)..."
+    nsExec::ExecToLog '"$INSTDIR\python\python.exe" "$INSTDIR\bootstrap_vg.py" --no-gui --offline "$INSTDIR\offline" --godot-version "$GodotVersion" --project-dir "$ProjectFolder" --display-name "$ProjectName" --launch $0'
+    Pop $3
+    ${If} $3 != 0
+        DetailPrint "First-time setup returned exit code $3 - the payload is in place; you can re-run '$INSTDIR\run_installer.cmd' to retry."
+    ${EndIf}
 
     ; Record the uninstaller location and run it from an uninstall context.
     WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -123,6 +312,7 @@ Section "Uninstall"
     RMDir /r "$INSTDIR\python"
     RMDir /r "$INSTDIR\offline"
     Delete "$INSTDIR\bootstrap_vg.py"
+    Delete "$INSTDIR\bootstrap_gui.py"
     RMDir "$INSTDIR"
 
     Delete "$SMPROGRAMS\VisualGasic\VisualGasic first-time setup.lnk"

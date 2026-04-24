@@ -26,7 +26,7 @@ v5.1.0 is a **UX-focused follow-up** to 5.0.1 that unifies the IDE's run/preview
 - **🎛️ Unified ▶ Play menu** — one MenuButton replaces the old `Preview` / `Preview (Debug)` / `Build` / `Run` button row, available in every view.
 - **⌨️ F5 dispatches to the active plugin** — plugins can opt into handling F5 / Shift+F5 / Ctrl+F5 via a new `on_play_shortcut()` API.
 - **🧩 Form Designer as a toggleable plugin** — disable the legacy VB6-style designer per-project from the ⚙ Plugin Settings dialog; new projects default to code-first.
-- **📥 One-click installers** — platform-native installers (Linux AppImage, Windows .exe) install Godot, VG, a starter project, shortcuts, and `.vg` file association. No terminal required.
+- **📥 One-click installers** — platform-native installers (Linux AppImage, Windows .exe) with a graphical wizard that lets you pick the Godot version, starter project name/folder, shortcuts, and optional AI keys. Installs Godot, VG, the starter project, and `.vg` file association with no terminal required.
 - **🖱️ Draggable left-sidebar splitters** — the 2D and 3D editors finally have a working VSplitContainer between Object List and Scene Tree.
 - **🔌 Working Nodes plugin** — full plugin polish: graphs run from the Play menu, F5 runs the current graph, no more double-Play buttons.
 
@@ -112,7 +112,7 @@ Also fixed: the plugin briefly caused **two ▶ Play buttons** to appear because
 
 ## 📥 One-Click Installers (new)
 
-v5.1.0-Beta1 ships **double-clickable installers** for Linux and Windows. Zero terminal usage, zero prior Godot setup, zero config editing — download, double-click, and the VisualGasic IDE is ready. The installers also register `.vg` files so double-clicking a `.vg` file opens the IDE directly on it.
+v5.1.0-Beta1 ships **double-clickable installers** with a **graphical wizard** for Linux and Windows. Zero terminal usage, zero prior Godot setup, zero config editing — download, double-click, fill in the wizard, and the VisualGasic IDE is ready. The installers also register `.vg` files so double-clicking a `.vg` file opens the IDE directly on it.
 
 ### Download
 
@@ -125,60 +125,78 @@ v5.1.0-Beta1 ships **double-clickable installers** for Linux and Windows. Zero t
 
 All four are attached to this release — grab them from the [Assets section](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.1.0-Beta1).
 
+### The graphical wizard
+
+Double-click the installer and a wizard opens (Tkinter on Linux, native NSIS dialogs on Windows) with the same options on both platforms:
+
+- **Godot version** — dropdown, defaults to `4.6.1-stable`.
+- **Starter project name and folder** — defaults to `~/VisualGasic/MyFirstGame` (Linux) or `%USERPROFILE%\VisualGasic\MyFirstGame` (Windows); Browse button to change it.
+- **Shortcuts & `.vg` file association** — checkboxes for Start Menu / Applications-menu entries and the file type registration.
+- **AI Coding Assistant (optional)** — dedicated page with password fields for OpenAI, Claude, and Gemini. Leave blank to configure from inside the IDE later. Ollama runs locally and needs no key.
+- **Install progress** — live log and a step indicator while Godot downloads and the project is scaffolded.
+
+On Linux the wizard requires `python3-tk` (pre-installed on most desktops). If it's missing, the AppImage falls back to the text-mode installer and shows a hint on how to install Tk.
+
 ### What the installers do
 
 1. Download and unpack a matching Godot (**4.6.1-stable** by default) to a user-scoped location (no admin required).
 2. Install the VisualGasic editor plugin.
-3. Create a starter **MyFirstGame** project in `~/VisualGasic/` (Linux) or `%USERPROFILE%\VisualGasic\` (Windows) with VG pre-enabled and a sample `Form1.vg`.
+3. Create a starter project at the location you picked in the wizard (default **MyFirstGame** in `~/VisualGasic/` on Linux or `%USERPROFILE%\VisualGasic\` on Windows) with VG pre-enabled and a sample `Form1.vg`.
 4. Add a **VisualGasic IDE** entry to the Applications menu / Start Menu / Desktop.
 5. Register the `.vg` file type so double-clicking a `.vg` file launches the IDE on it.
 
-### Choose a Godot version
+### Power-user / scripted install (flags still work)
 
-The installer supports **Godot 4.6.1-stable and newer**. Pick interactively or pin to a specific version:
+Every wizard option is also available as a command-line flag, for CI, scripting, or power users. Pass `--no-gui` to skip the wizard, `--gui` to force it on, or just let the installer auto-detect (it opens the GUI when double-clicked, and uses text mode when run from a terminal with other flags).
+
+The installer supports **Godot 4.6.1-stable and newer**:
 
 ```bash
 # Linux — list everything the installer will accept
-./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --list-godot-versions
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --no-gui --list-godot-versions
 
-# Interactive picker
-./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --pick-godot
+# Interactive text-mode picker
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --no-gui --pick-godot
 
-# Pin a specific version
-./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --godot-version 4.6.2-stable
+# Fully scripted install
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --no-gui \
+    --godot-version 4.6.2-stable \
+    --project-dir ~/Games/MyGame \
+    --display-name "My Game"
 
 # Include beta / RC builds in the picker
-./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --pick-godot --include-prereleases
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --no-gui --pick-godot --include-prereleases
 ```
 
 The Windows `.exe` accepts the same flags via its shortcut's target field (or the `run_installer.cmd` it drops).
 
 ### Optional: seed AI keys at install time
 
-VisualGasic's built-in AI Coding Assistant can be pre-configured with API keys (opt-in, written with `0600` permissions on POSIX to Godot's per-user ConfigFile):
+Use the wizard's **AI Coding Assistant** page, or pass the flags (opt-in, written with `0600` permissions on POSIX to Godot's per-user ConfigFile):
 
 ```bash
-./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage \
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --no-gui \
     --with-ai-keys \
     --openai-key "sk-..." \
     --claude-key "sk-ant-..." \
     --gemini-key "AIza..."
 ```
 
-Without `--with-ai-keys` no keys are written; the AI assistant stays disabled until configured from inside the IDE.
+Without `--with-ai-keys` (or leaving the wizard's fields blank) no keys are written; the AI assistant stays disabled until configured from inside the IDE.
 
 ### Offline install (no internet)
 
-The two `-Offline-` bundles include a pre-downloaded Godot alongside the installer. Unzip and follow the `README.txt` — the installer uses the bundled Godot automatically.
+The two `-Offline-` bundles include a pre-downloaded Godot alongside the installer. Unzip and follow the `README.txt` — the installer uses the bundled Godot automatically, and the graphical wizard still opens when you double-click.
 
 ### Build the installers yourself
 
-Three new build scripts under `scripts/`:
+Four scripts under `scripts/`:
 
 | Script | Output |
 |--------|--------|
-| `scripts/build_appimage.sh <version>`         | Linux AppImage |
-| `scripts/build_windows_installer.sh <version>` | Windows NSIS `.exe` (requires `nsis` package on Linux build host) |
+| `scripts/bootstrap_gui.py`                     | Tkinter wizard (imported by `bootstrap_vg.py` — run it directly to preview the UI) |
+| `scripts/build_appimage.sh <version>`          | Linux AppImage (bundles the Tk wizard) |
+| `scripts/build_windows_installer.sh <version>` | Windows NSIS `.exe` with native `nsDialogs` wizard (requires `nsis` package on Linux build host) |
 | `scripts/build_offline_bundle.sh <version>`    | Both offline `.zip` bundles |
 
 The installer engine itself is `scripts/bootstrap_vg.py` — a stdlib-only Python 3 script you can run directly on any platform.

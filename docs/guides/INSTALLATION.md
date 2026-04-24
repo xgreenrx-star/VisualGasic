@@ -9,18 +9,32 @@ Choose your preferred installation method. **Method 1 (one-click installer) is t
 
 ## ✨ Method 1: One-Click Installer (Recommended for new users & kids)
 
-A single download that installs Godot, installs VisualGasic, creates a starter project, and registers `.vg` files so double-clicking them opens the IDE. No terminal required.
+A single download that installs Godot, installs VisualGasic, creates a starter project, and registers `.vg` files so double-clicking them opens the IDE. **No terminal required — just double-click and follow the prompts.**
 
 ### Linux
 
 1. Download `VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage` from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/latest).
 2. Right-click → **Properties → Permissions → Allow executing as a program** (or `chmod +x` it).
-3. Double-click it.
+3. Double-click it. A graphical wizard opens where you can pick your Godot version, name your project, and (optionally) enter AI keys — then click **Install**.
+
+> **Note:** the graphical wizard uses Tkinter. Almost every desktop Linux already has it; if not, install it with `sudo apt install python3-tk` (or your distro's equivalent). The installer falls back to text mode if Tk is missing.
 
 ### Windows
 
 1. Download `VisualGasic-Installer-v5.1.0-Beta1-x86_64.exe` from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/latest).
-2. Double-click. Click **Install**. Done.
+2. Double-click. The wizard walks you through: install location → Godot version → starter project name & folder → (optional) AI keys → click **Install**. Done.
+
+### The graphical wizard
+
+Both the Linux AppImage and the Windows `.exe` open a wizard with the same options:
+
+- **Godot version** (dropdown; defaults to 4.6.1-stable).
+- **Starter project name** and **folder** (defaults to `~/VisualGasic/MyFirstGame`).
+- **Shortcuts & file association** checkboxes — create Start Menu / Applications-menu entries and register `.vg` files.
+- **AI keys** (optional): OpenAI, Claude, Gemini. Leave blank to configure from inside the IDE later. Ollama runs locally and needs no key.
+- **Install progress** tab with a live log.
+
+If you prefer the command line — or need it for CI or scripted installs — every wizard option also exists as a flag (see [Power-user / scripted install](#choosing-a-godot-version) below). Pass `--no-gui` to force text mode, or `--gui` to force the wizard even over SSH with X11 forwarding.
 
 ### What the one-click installer does
 
@@ -32,34 +46,34 @@ A single download that installs Godot, installs VisualGasic, creates a starter p
 
 ### Choosing a Godot version
 
-You can pick any supported Godot version at install time:
+The wizard's Godot dropdown is the easy path. If you're scripting or on a headless box, every wizard option is also a flag:
 
 ```bash
 # Linux: see what's available
-./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --list-godot-versions
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --no-gui --list-godot-versions
 
-# Pick interactively
-./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --pick-godot
+# Pick interactively (text prompt)
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --no-gui --pick-godot
 
 # Install a specific version
-./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --godot-version 4.6.2-stable
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --no-gui --godot-version 4.6.2-stable
 ```
 
 Only **Godot 4.6.1-stable and newer** is supported (the default is `4.6.1-stable`). Pre-release builds can be shown with `--include-prereleases`.
 
 ### Optional: set up AI keys during install
 
-VisualGasic's built-in AI Coding Assistant supports OpenAI, Claude, Gemini, and Ollama. You can seed the keys at install time (they're stored in Godot's per-user config with `0600` permissions on POSIX):
+VisualGasic's built-in AI Coding Assistant supports OpenAI, Claude, Gemini, and Ollama. The graphical wizard has a dedicated **AI Coding Assistant** page where you can paste the keys you want (or leave it blank). For scripted installs, use the equivalent flags:
 
 ```bash
-./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage \
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --no-gui \
     --with-ai-keys \
     --openai-key "sk-..." \
     --claude-key "sk-ant-..." \
     --gemini-key "AIza..."
 ```
 
-All of these flags are **opt-in**. Without them, the installer writes no keys and the AI assistant stays disabled until you configure it from inside the IDE.
+Keys are stored in Godot's per-user config with `0600` permissions on POSIX. All of these are **opt-in** — without them, the installer writes no keys and the AI assistant stays disabled until you configure it from inside the IDE.
 
 ### Offline install (no internet)
 

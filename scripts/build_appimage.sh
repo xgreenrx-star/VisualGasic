@@ -41,6 +41,7 @@ mkdir -p "$APPDIR/usr/bin" \
 # ── Payload ────────────────────────────────────────────────────────────────
 info "Staging payload..."
 cp scripts/bootstrap_vg.py "$APPDIR/usr/bin/bootstrap_vg.py"
+cp scripts/bootstrap_gui.py "$APPDIR/usr/bin/bootstrap_gui.py"
 chmod +x "$APPDIR/usr/bin/bootstrap_vg.py"
 
 # Bundle the full VG addon so the installer doesn't need network to copy it
@@ -76,7 +77,25 @@ Please install python3 via your distribution's package manager and run this agai
     exit 1
 fi
 
+# Warn about missing Tkinter (used by the graphical wizard). We still
+# fall through to text-mode if unavailable, but most users will want
+# the GUI, so point them at the fix.
+if ! python3 -c 'import tkinter' 2>/dev/null; then
+    if command -v zenity > /dev/null; then
+        zenity --warning --no-wrap --title='VisualGasic Installer' \
+          --text="Tkinter is not installed, so the graphical wizard cannot open.
+
+Install it with:
+    sudo apt install python3-tk
+        (or your distro's equivalent)
+
+Or run this AppImage from a terminal to use the text-mode installer." 2>/dev/null || true
+    fi
+fi
+
 # Default flags: auto-launch the IDE at the end so the user lands inside it.
+# bootstrap_vg.py opens the GUI wizard automatically when there's no TTY
+# (i.e. when the user double-clicks); --no-gui on the command line skips it.
 exec python3 "$HERE/usr/bin/bootstrap_vg.py" --offline "$OFFLINE_DIR" --launch "$@"
 APPRUN
 chmod +x "$APPDIR/AppRun"

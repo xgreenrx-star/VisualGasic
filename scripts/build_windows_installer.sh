@@ -49,6 +49,7 @@ mkdir -p "$BUILD_DIR" "$OUTPUT_DIR"
 
 echo "[2/5] Staging bootstrap_vg.py"
 cp "$ROOT/scripts/bootstrap_vg.py" "$BUILD_DIR/bootstrap_vg.py"
+cp "$ROOT/scripts/bootstrap_gui.py" "$BUILD_DIR/bootstrap_gui.py"
 
 echo "[3/5] Staging bundled VG addon (offline payload)"
 mkdir -p "$BUILD_DIR/offline/addons"

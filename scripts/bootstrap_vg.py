@@ -910,7 +910,30 @@ def main() -> int:
                     help="Anthropic Claude API key")
     ai.add_argument("--gemini-key", default="",
                     help="Google Gemini API key")
+
+    gui_group = parser.add_argument_group("Graphical installer")
+    gui_group.add_argument("--gui", action="store_true",
+                           help="Show the graphical wizard (default when "
+                                "double-clicked — no TTY detected).")
+    gui_group.add_argument("--no-gui", action="store_true",
+                           help="Force the text-mode installer even when no "
+                                "CLI flags were provided.")
     args = parser.parse_args()
+
+    # Auto-GUI: if the user gave us nothing (or only --offline, as the AppImage
+    # shim does) and stdin isn't a terminal, open the wizard instead of a
+    # non-interactive default install. Power users can force text mode with
+    # --no-gui.
+    _cli_provided = any(a.startswith("-") and a not in ("--offline",)
+                        for a in sys.argv[1:])
+    _tty = sys.stdin.isatty() and sys.stdout.isatty()
+    if args.gui or (not args.no_gui and not _tty and not _cli_provided):
+        try:
+            import bootstrap_gui
+        except Exception as e:
+            warn(f"Graphical installer unavailable ({e}); falling back to text mode.")
+        else:
+            return bootstrap_gui.run(offline=args.offline)
 
     # Handle version-listing short-circuit before doing anything else.
     if args.list_godot_versions:
