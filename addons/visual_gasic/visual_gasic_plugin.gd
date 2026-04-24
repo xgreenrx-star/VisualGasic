@@ -225,6 +225,21 @@ func _enter_tree():
 	# Enable input processing so _input() fires for our keyboard shortcuts
 	set_process_input(true)
 
+	# Register VG project settings so they surface in Project Settings UI.
+	# vg/default_mode controls which editor opens on project load:
+	#   "code"  — open the first .vg module in the code editor (new default
+	#             for fresh projects created by bootstrap_install.sh)
+	#   "forms" — legacy behaviour: auto-open the first form in the Form Designer
+	# When unset, _auto_open_formless_module() auto-detects based on whether
+	# the project contains any .frm/.vgform files.
+	_register_project_setting(
+		"vg/default_mode",
+		"",
+		TYPE_STRING,
+		PROPERTY_HINT_ENUM,
+		"code,forms"
+	)
+
 	# Import Plugin
 	import_plugin = preload("res://addons/visual_gasic/frm_import_plugin.gd").new()
 	add_import_plugin(import_plugin)
@@ -7683,6 +7698,29 @@ func _auto_open_formless_module() -> void:
 	if is_instance_valid(_form_designer) and not _form_designer.get_form_path().is_empty():
 		return  # A form is already loaded — nothing to do
 
+	# ── Default-mode decision ─────────────────────────────────────────────
+	# "code" → open a .vg module first (form detection only runs as fallback)
+	# "forms" → legacy behaviour: prefer form scenes, fall back to modules
+	# Auto-detect: a project with ANY .frm/.vgform forms is treated as "forms"
+	# even when no explicit setting is stored. This keeps legacy projects
+	# behaving as they always did while new projects created by the
+	# bootstrap installer (which sets default_mode="code") land in the
+	# code editor on first open.
+	var default_mode: String = ProjectSettings.get_setting("vg/default_mode", "") if ProjectSettings.has_setting("vg/default_mode") else ""
+	if default_mode.is_empty():
+		default_mode = "forms" if _project_has_any_forms() else "code"
+
+	if default_mode == "code":
+		# Code-first: open a module straight away, skip form auto-open.
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.get_file_path().is_empty():
+			var first_vg := _find_first_vg_in_project()
+			if not first_vg.is_empty():
+				print("VisualGasic: default_mode=code — auto-opening module: ", first_vg)
+				open_module_in_embedded_editor(first_vg)
+				return
+		# No .vg file yet → fall through to form detection (legacy behaviour
+		# for projects that have neither modules nor forms is unchanged).
+
 	# Try to find and auto-open the first form in the project
 	var first_form := _find_first_form_scene_in_project()
 	if not first_form.is_empty():
@@ -7696,6 +7734,28 @@ func _auto_open_formless_module() -> void:
 		if not first_vg.is_empty():
 			print("VisualGasic: No form detected — auto-opening module: ", first_vg)
 			open_module_in_embedded_editor(first_vg)
+
+
+## Quick scan: does the project contain any .frm/.vgform files, or a .vg
+## file paired with a .tscn containing form content? Used only to pick a
+## sensible default_mode when the user hasn't set one.
+func _project_has_any_forms() -> bool:
+	return not _find_first_form_scene_in_project().is_empty()
+
+
+## Register a project setting with hint info and a default value. No-op if
+## already registered (preserves the user's saved value across editor runs).
+func _register_project_setting(path: String, default, type: int, hint: int = PROPERTY_HINT_NONE, hint_string: String = "") -> void:
+	if not ProjectSettings.has_setting(path):
+		ProjectSettings.set_setting(path, default)
+	ProjectSettings.set_initial_value(path, default)
+	ProjectSettings.add_property_info({
+		"name": path,
+		"type": type,
+		"hint": hint,
+		"hint_string": hint_string,
+	})
+
 
 ## Scan the project for the first .vg file that has form content with a
 ## matching .tscn scene.  Returns the .tscn path, or "" if none found.
