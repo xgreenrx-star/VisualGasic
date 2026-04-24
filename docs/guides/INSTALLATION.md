@@ -49,7 +49,7 @@ Only **Godot 4.6.1-stable and newer** is supported (the default is `4.6.1-stable
 
 ### Optional: set up AI keys during install
 
-VisualGasic's AI Coding Assistant (AGCK plugin) supports OpenAI, Claude, Gemini, and Ollama. You can seed the keys at install time (they're stored in Godot's per-user config with `0600` permissions on POSIX):
+VisualGasic's built-in AI Coding Assistant supports OpenAI, Claude, Gemini, and Ollama. You can seed the keys at install time (they're stored in Godot's per-user config with `0600` permissions on POSIX):
 
 ```bash
 ./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage \

@@ -155,7 +155,7 @@ The Windows `.exe` accepts the same flags via its shortcut's target field (or th
 
 ### Optional: seed AI keys at install time
 
-The AGCK plugin's AI Coding Assistant can be pre-configured with API keys (opt-in, written with `0600` permissions on POSIX to Godot's per-user ConfigFile):
+VisualGasic's built-in AI Coding Assistant can be pre-configured with API keys (opt-in, written with `0600` permissions on POSIX to Godot's per-user ConfigFile):
 
 ```bash
 ./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage \
