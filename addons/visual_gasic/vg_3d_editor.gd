@@ -200,19 +200,37 @@ func _build_ui() -> void:
 	left_vbox.size_flags_vertical = SIZE_EXPAND_FILL
 	left_scroll.add_child(left_vbox)
 
+	# Resizable split between 3D Objects and Scene Tree. Previously these
+	# were stacked in a plain VBox, so the user couldn't rebalance their
+	# heights when one list outgrew its share.
+	var toolbox_tree_split := VSplitContainer.new()
+	toolbox_tree_split.size_flags_vertical = SIZE_EXPAND_FILL
+	toolbox_tree_split.size_flags_horizontal = SIZE_EXPAND_FILL
+	toolbox_tree_split.custom_minimum_size.y = 380
+	var toolbox_pane := VBoxContainer.new()
+	toolbox_pane.size_flags_vertical = SIZE_EXPAND_FILL
+	toolbox_pane.custom_minimum_size.y = 80
+	toolbox_tree_split.add_child(toolbox_pane)
+	var scene_pane := VBoxContainer.new()
+	scene_pane.size_flags_vertical = SIZE_EXPAND_FILL
+	scene_pane.custom_minimum_size.y = 80
+	toolbox_tree_split.add_child(scene_pane)
+	left_vbox.add_child(toolbox_tree_split)
+
 	# Toolbox header
 	var toolbox_label = Label.new()
 	toolbox_label.text = "📦 3D Objects"
 	toolbox_label.add_theme_font_size_override("font_size", 14)
-	left_vbox.add_child(toolbox_label)
+	toolbox_pane.add_child(toolbox_label)
 
 	# Toolbox item list
 	_toolbox_list = ItemList.new()
 	_toolbox_list.custom_minimum_size = Vector2(0, 170)
 	_toolbox_list.size_flags_horizontal = SIZE_EXPAND_FILL
+	_toolbox_list.size_flags_vertical = SIZE_EXPAND_FILL
 	_toolbox_list.item_activated.connect(_on_toolbox_item_activated)
 	_toolbox_list.theme = _build_dark_scrollbar_theme()
-	left_vbox.add_child(_toolbox_list)
+	toolbox_pane.add_child(_toolbox_list)
 
 	# Add button
 	var add_btn = Button.new()
@@ -224,15 +242,13 @@ func _build_ui() -> void:
 	add_btn.add_theme_stylebox_override("normal", add_style)
 	add_btn.add_theme_color_override("font_color", Color.WHITE)
 	add_btn.pressed.connect(_on_add_object_btn_pressed)
-	left_vbox.add_child(add_btn)
+	toolbox_pane.add_child(add_btn)
 
-	left_vbox.add_child(HSeparator.new())
-
-	# ── SCENE TREE ──────────────────────────────────────────────────────────
+	# ── SCENE TREE (bottom pane of split) ──
 	var tree_label = Label.new()
 	tree_label.text = "🌳 Scene Tree"
 	tree_label.add_theme_font_size_override("font_size", 14)
-	left_vbox.add_child(tree_label)
+	scene_pane.add_child(tree_label)
 
 	_scene_tree = Tree.new()
 	_scene_tree.custom_minimum_size = Vector2(0, 180)
@@ -242,7 +258,7 @@ func _build_ui() -> void:
 	_scene_tree.item_activated.connect(_on_scene_tree_double_clicked)
 	_scene_tree.item_mouse_selected.connect(_on_scene_tree_rmb)
 	_scene_tree.theme = _build_dark_scrollbar_theme()
-	left_vbox.add_child(_scene_tree)
+	scene_pane.add_child(_scene_tree)
 
 	# Scene tree action buttons
 	var tree_btns = HBoxContainer.new()
@@ -274,7 +290,7 @@ func _build_ui() -> void:
 	del_btn.pressed.connect(_on_delete_selected)
 	tree_btns.add_child(del_btn)
 
-	left_vbox.add_child(tree_btns)
+	scene_pane.add_child(tree_btns)
 
 	left_vbox.add_child(HSeparator.new())
 

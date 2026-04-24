@@ -307,6 +307,27 @@ func _build_ui() -> void:
 	left_vbox.theme = left_theme
 	left_scroll.add_child(left_vbox)
 
+	# ── Resizable split: 2D Objects on top, Scene Tree on bottom ──
+	# The two sections were previously stacked in the VBox with a plain
+	# HSeparator between them, which meant the user couldn't rebalance
+	# heights when one list outgrew its share. A VSplitContainer gives a
+	# live grab handle between the panes.
+	var toolbox_tree_split := VSplitContainer.new()
+	toolbox_tree_split.size_flags_vertical = SIZE_EXPAND_FILL
+	toolbox_tree_split.size_flags_horizontal = SIZE_EXPAND_FILL
+	toolbox_tree_split.custom_minimum_size.y = 360
+	toolbox_tree_split.split_offset = 0  # 50/50 by default
+
+	var toolbox_pane := VBoxContainer.new()
+	toolbox_pane.size_flags_vertical = SIZE_EXPAND_FILL
+	toolbox_pane.custom_minimum_size.y = 80
+	toolbox_tree_split.add_child(toolbox_pane)
+
+	var scene_pane := VBoxContainer.new()
+	scene_pane.size_flags_vertical = SIZE_EXPAND_FILL
+	scene_pane.custom_minimum_size.y = 80
+	toolbox_tree_split.add_child(scene_pane)
+
 	# ── 2D Toolbox ──
 	var toolbox_header_panel = PanelContainer.new()
 	var toolbox_header_style = StyleBoxFlat.new()
@@ -322,7 +343,7 @@ func _build_ui() -> void:
 	toolbox_header.add_theme_font_size_override("font_size", 14)
 	toolbox_header.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
 	toolbox_header_panel.add_child(toolbox_header)
-	left_vbox.add_child(toolbox_header_panel)
+	toolbox_pane.add_child(toolbox_header_panel)
 
 	_toolbox_list = ItemList.new()
 	_toolbox_list.custom_minimum_size.y = 200
@@ -353,7 +374,7 @@ func _build_ui() -> void:
 	_toolbox_list.add_theme_stylebox_override("hovered", item_hover_style)
 	_toolbox_list.theme = _build_dark_scrollbar_theme()
 	_toolbox_list.item_activated.connect(_on_toolbox_item_double_clicked)
-	left_vbox.add_child(_toolbox_list)
+	toolbox_pane.add_child(_toolbox_list)
 
 	var add_btn = Button.new()
 	add_btn.text = "➕ Add to Scene"
@@ -372,9 +393,11 @@ func _build_ui() -> void:
 	add_btn_pressed.bg_color = Color(0.12, 0.4, 0.16)
 	add_btn.add_theme_stylebox_override("pressed", add_btn_pressed)
 	add_btn.pressed.connect(_on_add_object_pressed)
-	left_vbox.add_child(add_btn)
+	toolbox_pane.add_child(add_btn)
 
-	left_vbox.add_child(HSeparator.new())
+	# Insert the split into the main left column now that its top pane is
+	# populated. The bottom pane (scene_pane) is filled just below.
+	left_vbox.add_child(toolbox_tree_split)
 
 	# ── Scene Tree ──
 	var tree_header_panel = PanelContainer.new()
@@ -391,7 +414,7 @@ func _build_ui() -> void:
 	tree_header.add_theme_font_size_override("font_size", 14)
 	tree_header.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
 	tree_header_panel.add_child(tree_header)
-	left_vbox.add_child(tree_header_panel)
+	scene_pane.add_child(tree_header_panel)
 
 	_scene_tree = Tree.new()
 	_scene_tree.custom_minimum_size.y = 200
@@ -415,12 +438,12 @@ func _build_ui() -> void:
 	_scene_tree.item_selected.connect(_on_scene_tree_selected)
 	_scene_tree.item_activated.connect(_on_scene_tree_double_clicked)
 	_scene_tree.item_mouse_selected.connect(_on_scene_tree_rmb)
-	left_vbox.add_child(_scene_tree)
+	scene_pane.add_child(_scene_tree)
 
 	# Scene tree action buttons
 	var tree_actions = HBoxContainer.new()
 	tree_actions.add_theme_constant_override("separation", 4)
-	left_vbox.add_child(tree_actions)
+	scene_pane.add_child(tree_actions)
 
 	var action_btn_style = StyleBoxFlat.new()
 	action_btn_style.bg_color = Color(0.22, 0.22, 0.26)
