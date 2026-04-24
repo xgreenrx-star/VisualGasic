@@ -589,6 +589,12 @@ func _enter_tree():
 		view_obj_btn.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 		view_obj_btn.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
 		view_obj_btn.pressed.connect(_on_view_object)
+		# Hide when the Form Designer pseudo-plugin is disabled — otherwise
+		# the user still sees a "Form" button that takes them back into the
+		# designer they just opted out of.
+		if ProjectSettings.has_setting("vg/form_designer_enabled") \
+				and not bool(ProjectSettings.get_setting("vg/form_designer_enabled", true)):
+			view_obj_btn.visible = false
 		toolbar_row.add_child(view_obj_btn)
 
 		# ── Show Indexes toggle — displays index badges on control arrays + Game UI controls ──
@@ -7730,6 +7736,15 @@ func _auto_open_formless_module() -> void:
 	if default_mode.is_empty():
 		default_mode = "forms" if _project_has_any_forms() else "code"
 
+	# If the user has disabled the Form Designer pseudo-plugin, force
+	# code-first regardless of default_mode / form presence — otherwise
+	# the IDE ignores the opt-out and still auto-opens a form on launch.
+	var form_designer_enabled := true
+	if ProjectSettings.has_setting("vg/form_designer_enabled"):
+		form_designer_enabled = bool(ProjectSettings.get_setting("vg/form_designer_enabled", true))
+	if not form_designer_enabled:
+		default_mode = "code"
+
 	if default_mode == "code":
 		# Code-first: open a module straight away, skip form auto-open.
 		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.get_file_path().is_empty():
@@ -7742,11 +7757,16 @@ func _auto_open_formless_module() -> void:
 		# for projects that have neither modules nor forms is unchanged).
 
 	# Try to find and auto-open the first form in the project
-	var first_form := _find_first_form_scene_in_project()
-	if not first_form.is_empty():
-		print("VisualGasic: Auto-opening first form: ", first_form)
-		call_deferred("open_form_in_designer", first_form)
-		return
+	if not form_designer_enabled:
+		# User has opted out of the Form Designer — never auto-open a form.
+		# Fall through to .vg module detection below.
+		pass
+	else:
+		var first_form := _find_first_form_scene_in_project()
+		if not first_form.is_empty():
+			print("VisualGasic: Auto-opening first form: ", first_form)
+			call_deferred("open_form_in_designer", first_form)
+			return
 
 	# No forms → try to find a standalone .vg module for formless projects
 	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.get_file_path().is_empty():
