@@ -315,7 +315,7 @@ func _build_ui() -> void:
 	var toolbox_tree_split := VSplitContainer.new()
 	toolbox_tree_split.size_flags_vertical = SIZE_EXPAND_FILL
 	toolbox_tree_split.size_flags_horizontal = SIZE_EXPAND_FILL
-	toolbox_tree_split.custom_minimum_size.y = 360
+	toolbox_tree_split.custom_minimum_size.y = 520
 	toolbox_tree_split.split_offset = 0  # 50/50 by default
 
 	var toolbox_pane := VBoxContainer.new()
@@ -346,7 +346,10 @@ func _build_ui() -> void:
 	toolbox_pane.add_child(toolbox_header_panel)
 
 	_toolbox_list = ItemList.new()
-	_toolbox_list.custom_minimum_size.y = 200
+	# Height is now driven by its pane in the VSplitContainer so the user's
+	# drag actually moves the divider; a fixed custom_minimum_size here
+	# would lock the pane to that height and defeat the split.
+	_toolbox_list.custom_minimum_size.y = 0
 	_toolbox_list.size_flags_vertical = SIZE_EXPAND_FILL
 	_toolbox_list.max_columns = 1
 	_toolbox_list.same_column_width = true
@@ -417,7 +420,7 @@ func _build_ui() -> void:
 	scene_pane.add_child(tree_header_panel)
 
 	_scene_tree = Tree.new()
-	_scene_tree.custom_minimum_size.y = 200
+	_scene_tree.custom_minimum_size.y = 0
 	_scene_tree.size_flags_vertical = SIZE_EXPAND_FILL
 	_scene_tree.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
 	_scene_tree.add_theme_color_override("font_selected_color", Color(1.0, 1.0, 1.0))

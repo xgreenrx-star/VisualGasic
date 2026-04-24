@@ -206,7 +206,7 @@ func _build_ui() -> void:
 	var toolbox_tree_split := VSplitContainer.new()
 	toolbox_tree_split.size_flags_vertical = SIZE_EXPAND_FILL
 	toolbox_tree_split.size_flags_horizontal = SIZE_EXPAND_FILL
-	toolbox_tree_split.custom_minimum_size.y = 380
+	toolbox_tree_split.custom_minimum_size.y = 520
 	var toolbox_pane := VBoxContainer.new()
 	toolbox_pane.size_flags_vertical = SIZE_EXPAND_FILL
 	toolbox_pane.custom_minimum_size.y = 80
@@ -225,7 +225,8 @@ func _build_ui() -> void:
 
 	# Toolbox item list
 	_toolbox_list = ItemList.new()
-	_toolbox_list.custom_minimum_size = Vector2(0, 170)
+	# Height now governed by the VSplitContainer pane, not a fixed min.
+	_toolbox_list.custom_minimum_size = Vector2(0, 0)
 	_toolbox_list.size_flags_horizontal = SIZE_EXPAND_FILL
 	_toolbox_list.size_flags_vertical = SIZE_EXPAND_FILL
 	_toolbox_list.item_activated.connect(_on_toolbox_item_activated)
@@ -251,7 +252,7 @@ func _build_ui() -> void:
 	scene_pane.add_child(tree_label)
 
 	_scene_tree = Tree.new()
-	_scene_tree.custom_minimum_size = Vector2(0, 180)
+	_scene_tree.custom_minimum_size = Vector2(0, 0)
 	_scene_tree.size_flags_vertical = SIZE_EXPAND_FILL
 	_scene_tree.size_flags_horizontal = SIZE_EXPAND_FILL
 	_scene_tree.item_selected.connect(_on_scene_tree_selected)
