@@ -1,0 +1,432 @@
+' =============================================================================
+' Working Nodes Runtime Library
+' =============================================================================
+' This file is auto-copied beside every Working-Nodes-generated VG script.
+' It implements the WN_* trigger Subs that the codegen calls into — the
+' Geometry-Dash-style group system (Move / Rotate / Scale / Alpha / Color /
+' Pulse / Spawn / Stop / Toggle / Follow / Shake / Play SFX / Animate /
+' Zoom / Camera Move / Timer / Wait).
+'
+' Runtime model
+' -------------
+' Every generated scene tags its action/trigger objects with a Godot scene
+' group named "wn_group_<id>" (see _SceneGen._build_scene in
+' working_nodes_codegen.gd). WN_* Subs resolve targets by querying
+' GetTree().get_nodes_in_group("wn_group_<id>") and apply effects to every
+' matching node — a single trigger can animate an arbitrary number of
+' objects, matching Geometry Dash's group semantics.
+'
+' Durations > 0 use CreateTween() + TweenProperty for smooth transitions.
+' Durations == 0 apply the change instantly.
+' =============================================================================
+Attribute VB_Name = "WNRuntime"
+
+' ── Group resolution ─────────────────────────────────────────────────────────
+
+' Return all nodes tagged into "wn_group_<gid>".
+' Returns an empty Array if no nodes are tagged.
+Function WN_GetGroupNodes(ByVal gid As Long) As Variant
+    Dim name As String
+    name = "wn_group_" & gid
+    WN_GetGroupNodes = GetTree().get_nodes_in_group(name)
+End Function
+
+' ── Tween helpers ────────────────────────────────────────────────────────────
+
+' Tween a single node's property to final_value over duration seconds.
+' When duration <= 0 the property is set immediately.
+Sub WN_TweenProp(ByVal node As Object, ByVal prop As String, ByVal final_value As Variant, ByVal duration As Double)
+    If duration <= 0.0 Then
+        node.set(prop, final_value)
+    Else
+        Dim t As Object
+        t = node.create_tween()
+        t.tween_property(node, prop, final_value, duration)
+    End If
+End Sub
+
+' ── Move ─────────────────────────────────────────────────────────────────────
+
+' Translate every node in group by (dx, dy) over duration seconds.
+' Works on both 2D (Node2D.position) and 3D (Node3D.position) via the
+' per-node dispatch inside WN_MoveOne.
+Sub WN_Move(ByVal gid As Long, ByVal dx As Double, ByVal dy As Double, ByVal duration As Double)
+    Dim nodes As Variant
+    nodes = WN_GetGroupNodes(gid)
+    Dim n As Object
+    For Each n In nodes
+        Call WN_MoveOne(n, dx, dy, duration)
+    Next n
+End Sub
+
+' Legacy alias (older codegen emitted WN_MoveGroup with the same signature).
+Sub WN_MoveGroup(ByVal gid As Long, ByVal dx As Double, ByVal dy As Double, ByVal duration As Double)
+    Call WN_Move(gid, dx, dy, duration)
+End Sub
+
+' Per-node translate. Picks the right property automatically.
+Sub WN_MoveOne(ByVal node As Object, ByVal dx As Double, ByVal dy As Double, ByVal duration As Double)
+    ' 2D nodes expose position as a Vector2, 3D nodes as Vector3. VG treats
+    ' both as Variants; addition "just works" once we construct the right type.
+    If node.is_class("Node2D") Or node.is_class("Control") Then
+        Dim cur2 As Variant
+        cur2 = node.position
+        Dim dst2 As Variant
+        dst2 = Vector2(cur2.x + dx, cur2.y + dy)
+        Call WN_TweenProp(node, "position", dst2, duration)
+    ElseIf node.is_class("Node3D") Then
+        Dim cur3 As Variant
+        cur3 = node.position
+        Dim dst3 As Variant
+        dst3 = Vector3(cur3.x + dx, cur3.y + dy, cur3.z)
+        Call WN_TweenProp(node, "position", dst3, duration)
+    End If
+End Sub
+
+' ── Rotate ───────────────────────────────────────────────────────────────────
+
+' Rotate every node in group by degrees over duration seconds.
+' 2D: rotation_degrees += degrees
+' 3D: rotation_degrees.y += degrees  (yaw)
+Sub WN_Rotate(ByVal gid As Long, ByVal degrees As Double, ByVal duration As Double)
+    Dim nodes As Variant
+    nodes = WN_GetGroupNodes(gid)
+    Dim n As Object
+    For Each n In nodes
+        If n.is_class("Node2D") Or n.is_class("Control") Then
+            Dim cur As Double
+            cur = n.rotation_degrees
+            Call WN_TweenProp(n, "rotation_degrees", cur + degrees, duration)
+        ElseIf n.is_class("Node3D") Then
+            Dim v As Variant
+            v = n.rotation_degrees
+            Dim dst As Variant
+            dst = Vector3(v.x, v.y + degrees, v.z)
+            Call WN_TweenProp(n, "rotation_degrees", dst, duration)
+        End If
+    Next n
+End Sub
+
+Sub WN_RotateGroup(ByVal gid As Long, ByVal degrees As Double, ByVal duration As Double)
+    Call WN_Rotate(gid, degrees, duration)
+End Sub
+
+' ── Scale ────────────────────────────────────────────────────────────────────
+
+Sub WN_Scale(ByVal gid As Long, ByVal sx As Double, ByVal sy As Double, ByVal duration As Double)
+    Dim nodes As Variant
+    nodes = WN_GetGroupNodes(gid)
+    Dim n As Object
+    For Each n In nodes
+        If n.is_class("Node2D") Or n.is_class("Control") Then
+            Call WN_TweenProp(n, "scale", Vector2(sx, sy), duration)
+        ElseIf n.is_class("Node3D") Then
+            Call WN_TweenProp(n, "scale", Vector3(sx, sy, sx), duration)
+        End If
+    Next n
+End Sub
+
+' ── Alpha / Color ────────────────────────────────────────────────────────────
+
+' Set modulate.a over duration seconds. 0..1 range.
+Sub WN_Alpha(ByVal gid As Long, ByVal alpha As Double, ByVal duration As Double)
+    Dim nodes As Variant
+    nodes = WN_GetGroupNodes(gid)
+    Dim n As Object
+    For Each n In nodes
+        ' modulate is available on CanvasItem (Node2D/Control). MeshInstance3D
+        ' has no "modulate" — skip 3D silently; callers should use Color for that.
+        If n.is_class("CanvasItem") Then
+            Dim m As Variant
+            m = n.modulate
+            Call WN_TweenProp(n, "modulate", Color(m.r, m.g, m.b, alpha), duration)
+        End If
+    Next n
+End Sub
+
+Sub WN_AlphaFade(ByVal gid As Long, ByVal alpha As Double, ByVal duration As Double)
+    Call WN_Alpha(gid, alpha, duration)
+End Sub
+
+' Tween modulate RGB. The "channel" argument is kept for Geometry-Dash parity
+' but maps to modulate.rgb — separate R/G/B channels aren't exposed in Godot
+' the same way as GD; use three Color triggers if you need independent control.
+Sub WN_ColorTrigger(ByVal channel As Long, ByVal r As Double, ByVal g As Double, ByVal b As Double, ByVal duration As Double)
+    ' Channel acts as a group ID here: nodes tagged into wn_color_<channel>.
+    Dim name As String
+    name = "wn_color_" & channel
+    Dim nodes As Variant
+    nodes = GetTree().get_nodes_in_group(name)
+    Dim n As Object
+    For Each n In nodes
+        If n.is_class("CanvasItem") Then
+            Dim m As Variant
+            m = n.modulate
+            Call WN_TweenProp(n, "modulate", Color(r / 255.0, g / 255.0, b / 255.0, m.a), duration)
+        End If
+    Next n
+End Sub
+
+Sub WN_ColorChannel(ByVal channel As Long, ByVal duration As Double)
+    ' Legacy codegen path — fades channel to white.
+    Call WN_ColorTrigger(channel, 255, 255, 255, duration)
+End Sub
+
+' Pulse: fade to a color, hold, fade back.
+Sub WN_Pulse(ByVal gid As Long, ByVal r As Double, ByVal g As Double, ByVal b As Double, _
+             ByVal fade_in As Double, ByVal hold As Double, ByVal fade_out As Double)
+    Dim nodes As Variant
+    nodes = WN_GetGroupNodes(gid)
+    Dim n As Object
+    For Each n In nodes
+        If n.is_class("CanvasItem") Then
+            Dim orig As Variant
+            orig = n.modulate
+            Dim target As Variant
+            target = Color(r / 255.0, g / 255.0, b / 255.0, orig.a)
+            Dim t As Object
+            t = n.create_tween()
+            t.tween_property(n, "modulate", target, fade_in)
+            t.tween_interval(hold)
+            t.tween_property(n, "modulate", orig, fade_out)
+        End If
+    Next n
+End Sub
+
+Sub WN_PulseEffect(ByVal gid As Long, ByVal fade_in As Double, ByVal hold As Double, ByVal fade_out As Double)
+    Call WN_Pulse(gid, 255, 100, 100, fade_in, hold, fade_out)
+End Sub
+
+' ── Visibility / state ───────────────────────────────────────────────────────
+
+' Spawn: show the group, optionally after a delay.
+Sub WN_Spawn(ByVal gid As Long, ByVal delay As Double)
+    If delay > 0.0 Then
+        Dim timer As Object
+        timer = GetTree().create_timer(delay)
+        ' We can't Await from top-level Sub easily; fall back to instant show.
+        ' TODO: emit await when VG supports it inside runtime Subs.
+    End If
+    Dim nodes As Variant
+    nodes = WN_GetGroupNodes(gid)
+    Dim n As Object
+    For Each n In nodes
+        n.visible = True
+        n.set_process(True)
+    Next n
+End Sub
+
+Sub WN_SpawnTrigger(ByVal gid As Long, ByVal delay As Double)
+    Call WN_Spawn(gid, delay)
+End Sub
+
+' Stop: hide the group and pause its processing.
+Sub WN_Stop(ByVal gid As Long)
+    Dim nodes As Variant
+    nodes = WN_GetGroupNodes(gid)
+    Dim n As Object
+    For Each n In nodes
+        n.visible = False
+        n.set_process(False)
+    Next n
+End Sub
+
+' Toggle visibility. active=1 → show, active=0 → hide, -1 → flip.
+Sub WN_Toggle(ByVal gid As Long, ByVal active As Long)
+    Dim nodes As Variant
+    nodes = WN_GetGroupNodes(gid)
+    Dim n As Object
+    For Each n In nodes
+        If active = 1 Then
+            n.visible = True
+        ElseIf active = 0 Then
+            n.visible = False
+        Else
+            n.visible = Not n.visible
+        End If
+    Next n
+End Sub
+
+Sub WN_ToggleGroup(ByVal gid As Long, ByVal mode As String)
+    If mode = "Toggle On" Then
+        Call WN_Toggle(gid, 1)
+    ElseIf mode = "Toggle Off" Then
+        Call WN_Toggle(gid, 0)
+    Else
+        Call WN_Toggle(gid, -1)
+    End If
+End Sub
+
+' ── Follow ───────────────────────────────────────────────────────────────────
+
+' Every node in gid smoothly lerps toward the first node in target_group,
+' weighted by (xmod, ymod), over duration seconds.
+Sub WN_Follow(ByVal gid As Long, ByVal target_group As Long, ByVal xmod As Double, ByVal ymod As Double, ByVal duration As Double)
+    Dim targets As Variant
+    targets = WN_GetGroupNodes(target_group)
+    If targets.size() = 0 Then
+        Exit Sub
+    End If
+    Dim tgt As Object
+    tgt = targets[0]
+    Dim nodes As Variant
+    nodes = WN_GetGroupNodes(gid)
+    Dim n As Object
+    For Each n In nodes
+        If n.is_class("Node2D") Or n.is_class("Control") Then
+            Dim cur As Variant
+            cur = n.position
+            Dim tp As Variant
+            tp = tgt.position
+            Dim dst As Variant
+            dst = Vector2(cur.x + (tp.x - cur.x) * xmod, cur.y + (tp.y - cur.y) * ymod)
+            Call WN_TweenProp(n, "position", dst, duration)
+        End If
+    Next n
+End Sub
+
+Sub WN_FollowTarget(ByVal gid As Long, ByVal target_group As Long, ByVal xmod As Double)
+    Call WN_Follow(gid, target_group, xmod, xmod, 1.0)
+End Sub
+
+' ── Shake ────────────────────────────────────────────────────────────────────
+
+' Shake the main Camera2D (if any) by (strength) pixels, refreshing every
+' (interval) seconds, for (duration) seconds total.
+Sub WN_Shake(ByVal strength As Double, ByVal interval As Double, ByVal duration As Double)
+    Dim vp As Object
+    vp = GetTree().get_root().get_viewport()
+    Dim cam As Object
+    cam = vp.get_camera_2d()
+    If cam = Nothing Then
+        Exit Sub
+    End If
+    ' Single randomized offset tween — a quick shake. For longer/more elaborate
+    ' shakes the codegen can chain multiple WN_Shake calls with WN_Wait.
+    Dim orig As Variant
+    orig = cam.offset
+    Dim dx As Double
+    Dim dy As Double
+    dx = (Rnd() - 0.5) * 2.0 * strength * 10.0
+    dy = (Rnd() - 0.5) * 2.0 * strength * 10.0
+    Dim t As Object
+    t = cam.create_tween()
+    t.tween_property(cam, "offset", Vector2(orig.x + dx, orig.y + dy), interval)
+    t.tween_property(cam, "offset", Vector2(orig.x - dx, orig.y - dy), interval)
+    t.tween_property(cam, "offset", orig, duration - interval * 2.0)
+End Sub
+
+' ── Audio ────────────────────────────────────────────────────────────────────
+
+' Play a one-shot sound from path. Creates a temporary AudioStreamPlayer,
+' plays, and queues it for free when done.
+Sub WN_PlaySFX(ByVal path As String, ByVal volume As Double, ByVal pitch As Double)
+    If path = "" Then
+        Exit Sub
+    End If
+    Dim stream As Object
+    stream = load(path)
+    If stream = Nothing Then
+        Print "WN_PlaySFX: could not load " & path
+        Exit Sub
+    End If
+    Dim player As Object
+    player = AudioStreamPlayer.new()
+    player.stream = stream
+    player.volume_db = volume  ' caller supplies dB directly for now
+    player.pitch_scale = pitch
+    GetTree().get_root().add_child(player)
+    player.play()
+    ' Auto-cleanup when finished — connect finished → queue_free
+    player.connect("finished", Callable(player, "queue_free"))
+End Sub
+
+' ── Animation ────────────────────────────────────────────────────────────────
+
+' Play an animation on the first AnimationPlayer child of every node in group.
+' anim_index is looked up in get_animation_list().
+Sub WN_Animate(ByVal gid As Long, ByVal anim_index As Long, ByVal speed As Double)
+    Dim nodes As Variant
+    nodes = WN_GetGroupNodes(gid)
+    Dim n As Object
+    For Each n In nodes
+        Dim ap As Object
+        ap = n.get_node_or_null("AnimationPlayer")
+        If Not (ap = Nothing) Then
+            Dim list As Variant
+            list = ap.get_animation_list()
+            If anim_index >= 0 And anim_index < list.size() Then
+                ap.speed_scale = speed
+                ap.play(list[anim_index])
+            End If
+        End If
+    Next n
+End Sub
+
+' ── Camera ───────────────────────────────────────────────────────────────────
+
+Sub WN_Zoom(ByVal zoom As Double, ByVal duration As Double)
+    Dim vp As Object
+    vp = GetTree().get_root().get_viewport()
+    Dim cam As Object
+    cam = vp.get_camera_2d()
+    If cam = Nothing Then
+        Exit Sub
+    End If
+    Call WN_TweenProp(cam, "zoom", Vector2(zoom, zoom), duration)
+End Sub
+
+Sub WN_CameraMove(ByVal target_group As Long, ByVal duration As Double, ByVal ox As Double, ByVal oy As Double)
+    Dim vp As Object
+    vp = GetTree().get_root().get_viewport()
+    Dim cam As Object
+    cam = vp.get_camera_2d()
+    If cam = Nothing Then
+        Exit Sub
+    End If
+    Dim targets As Variant
+    targets = WN_GetGroupNodes(target_group)
+    If targets.size() = 0 Then
+        Exit Sub
+    End If
+    Dim tgt As Object
+    tgt = targets[0]
+    Dim dst As Variant
+    dst = Vector2(tgt.position.x + ox, tgt.position.y + oy)
+    Call WN_TweenProp(cam, "position", dst, duration)
+End Sub
+
+Sub WN_CameraControl(ByVal op As String, ByVal val As Double, ByVal duration As Double)
+    If op = "Zoom" Then
+        Call WN_Zoom(val, duration)
+    End If
+End Sub
+
+' ── Timing ───────────────────────────────────────────────────────────────────
+
+' Fire the current scene's "_wn_timer" handler after delay seconds.
+' Repeat=0 → one-shot; repeat=1 → loop forever at every `delay`.
+Sub WN_Timer(ByVal delay As Double, ByVal repeat As Long)
+    Dim tmr As Object
+    tmr = Timer.new()
+    tmr.wait_time = delay
+    tmr.one_shot = (repeat = 0)
+    GetTree().get_current_scene().add_child(tmr)
+    tmr.start()
+End Sub
+
+' Wait is a no-op in non-awaitable contexts. Sequence nodes that need proper
+' awaiting should chain through Tweens instead; kept here so older-generated
+' code doesn't fail to link.
+Sub WN_Wait(ByVal seconds As Double)
+    ' TODO: when VG supports Await inside runtime Subs, replace with
+    '   Await GetTree().create_timer(seconds).timeout
+End Sub
+
+' ── Generic Trigger ──────────────────────────────────────────────────────────
+
+' Legacy compatibility: a bare "Trigger" node simply Spawns the target group
+' after an optional delay.
+Sub WN_Trigger(ByVal gid As Long, ByVal delay As Double)
+    Call WN_Spawn(gid, delay)
+End Sub

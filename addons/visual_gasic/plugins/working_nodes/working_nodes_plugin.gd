@@ -1372,6 +1372,9 @@ func _connect_editor_export_signals() -> void:
 	if _editor.has_signal("export_scene_3d_requested") and \
 			not _editor.is_connected("export_scene_3d_requested", _on_export_scene_3d):
 		_editor.connect("export_scene_3d_requested", _on_export_scene_3d)
+	if _editor.has_signal("run_graph_requested") and \
+			not _editor.is_connected("run_graph_requested", _on_run_graph):
+		_editor.connect("run_graph_requested", _on_run_graph)
 
 
 # ── Export handlers (full editor) ────────────────────────────────────
@@ -1399,6 +1402,79 @@ func _on_export_scene_2d(data: Dictionary) -> void:
 
 func _on_export_scene_3d(data: Dictionary) -> void:
 	_show_scene_root_selector(true, data)
+
+
+# ── Run Graph handler ────────────────────────────────────────────────
+# One-click "make it run": generate tscn + vg + copy runtime, then launch.
+# Files are written to res://_wn_run/ so they don't pollute the project root
+# and can be safely deleted or regenerated on every run.
+func _on_run_graph(data: Dictionary, is_3d: bool) -> void:
+	const RUN_DIR := "res://_wn_run"
+	DirAccess.make_dir_recursive_absolute(RUN_DIR)
+
+	var stem := "wn_scene_3d" if is_3d else "wn_scene_2d"
+	var vg_path := RUN_DIR + "/" + stem + ".vg"
+	var tscn_path := RUN_DIR + "/" + stem + ".tscn"
+	var runtime_dst := RUN_DIR + "/wn_runtime.vg"
+
+	# 1. Generate the VG script.
+	var code: String = working_nodes_codegen.generate_vg_code(data)
+	# 2. Generate the scene.
+	var root_type := "Node3D" if is_3d else "Node2D"
+	var tscn: String
+	if is_3d:
+		tscn = working_nodes_codegen.generate_scene_3d_tscn(data, vg_path, root_type)
+	else:
+		tscn = working_nodes_codegen.generate_scene_2d_tscn(data, vg_path, root_type)
+
+	# 3. Copy the runtime library into the same folder so VG resolves WN_*
+	#    Subs without the caller needing to configure the import path.
+	var runtime_src := "res://addons/visual_gasic/plugins/working_nodes/wn_runtime.vg"
+	var ok_runtime := _copy_file(runtime_src, runtime_dst)
+	if not ok_runtime:
+		_fallback_set_status("Run failed: could not copy wn_runtime.vg")
+		return
+
+	# 4. Write scene + script.
+	var f_vg := FileAccess.open(vg_path, FileAccess.WRITE)
+	if f_vg == null:
+		_fallback_set_status("Run failed: cannot write " + vg_path)
+		return
+	f_vg.store_string(code)
+	f_vg.close()
+	var f_tscn := FileAccess.open(tscn_path, FileAccess.WRITE)
+	if f_tscn == null:
+		_fallback_set_status("Run failed: cannot write " + tscn_path)
+		return
+	f_tscn.store_string(tscn)
+	f_tscn.close()
+
+	_last_exported_vg_path = vg_path
+	_last_exported_tscn_path = tscn_path
+	_fallback_set_status("Running → " + tscn_path)
+
+	# 5. Launch via EditorInterface (only available in-editor).
+	if Engine.is_editor_hint():
+		EditorInterface.get_resource_filesystem().scan()
+		EditorInterface.play_custom_scene(tscn_path)
+	else:
+		print("[WorkingNodes] Not running inside editor — scene ready at ", tscn_path)
+
+
+# Copy res:// → res:// by reading bytes. DirAccess.copy_absolute would work too,
+# but reading is safer inside the editor sandbox and clearer on failure.
+func _copy_file(src: String, dst: String) -> bool:
+	var f_in := FileAccess.open(src, FileAccess.READ)
+	if f_in == null:
+		return false
+	var bytes := f_in.get_buffer(f_in.get_length())
+	f_in.close()
+	var f_out := FileAccess.open(dst, FileAccess.WRITE)
+	if f_out == null:
+		return false
+	f_out.store_buffer(bytes)
+	f_out.close()
+	return true
 
 
 # ── Export handlers (fallback) ──────────────────────────────────────

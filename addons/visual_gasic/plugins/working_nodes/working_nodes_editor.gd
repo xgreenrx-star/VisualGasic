@@ -211,6 +211,7 @@ const _GD_TRIGGERS: Dictionary = {
 signal export_vg_requested(data: Dictionary)
 signal export_scene_2d_requested(data: Dictionary)
 signal export_scene_3d_requested(data: Dictionary)
+signal run_graph_requested(data: Dictionary, is_3d: bool)
 
 var _graph: GraphEdit
 var _overlay: Control
@@ -346,6 +347,18 @@ func _build_ui() -> void:
 	btn_export_3d.tooltip_text = "Generate a Godot 3D .tscn scene + companion .vg script"
 	btn_export_3d.pressed.connect(_on_export_scene_3d_pressed)
 	toolbar.add_child(btn_export_3d)
+
+	var btn_run_2d := Button.new()
+	btn_run_2d.text = "▶ Run 2D"
+	btn_run_2d.tooltip_text = "Generate 2D scene + VG + copy runtime, then launch"
+	btn_run_2d.pressed.connect(_on_run_graph_2d_pressed)
+	toolbar.add_child(btn_run_2d)
+
+	var btn_run_3d := Button.new()
+	btn_run_3d.text = "▶ Run 3D"
+	btn_run_3d.tooltip_text = "Generate 3D scene + VG + copy runtime, then launch"
+	btn_run_3d.pressed.connect(_on_run_graph_3d_pressed)
+	toolbar.add_child(btn_run_3d)
 
 	toolbar.add_child(VSeparator.new())
 
@@ -1400,6 +1413,12 @@ func _collect_graph_data() -> Dictionary:
 		"next_node_id": _next_node_id,
 		"next_group_id": _next_group_id,
 		"groups": _serialize_groups(),
+
+func _on_run_graph_2d_pressed() -> void:
+	run_graph_requested.emit(_collect_graph_data(), false)
+
+func _on_run_graph_3d_pressed() -> void:
+	run_graph_requested.emit(_collect_graph_data(), true)
 		"nodes": _serialize_nodes(),
 		"connections": _connections,
 	}
