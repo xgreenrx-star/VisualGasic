@@ -42,6 +42,35 @@ The bottom status bar shows real-time information:
 
 ## Menus
 
+### ▶ Play Menu  *(new in 5.1.0)*
+
+The top toolbar now exposes a **single unified ▶ Play MenuButton** that
+replaces the legacy `Preview` / `Preview (Debug)` / `Build` / `Run`
+button row. It is visible in every view (Code, Form, 2D, 3D, Sprite,
+and plugin views):
+
+| Menu Item | Shortcut | Action |
+|-----------|----------|--------|
+| **Run Current Scene** | **F5** | Launch the current scene (or dispatch to the active plugin — see below) |
+| **Run Main Scene** | **Ctrl+F5** | Launch the project's main scene |
+| **Preview Current Form** | **Shift+F5** | Form-designer-aware preview of the active form |
+| **Preview (Debug)** | **Ctrl+Shift+F5** | Preview with the debugger attached |
+| **Build Project** | — | Compile/validate without launching |
+
+Plugins can register extra entries in this menu via
+`form_preview_toolbar.add_menu_item(label, callback)` — the Working
+Nodes plugin, for example, adds **"Run Graph"** when loaded. See
+[Plugin System → ▶ Play menu integration](../guides/PLUGIN_SYSTEM.md#-play-menu-integration).
+
+#### F5 Dispatch to Active Plugin
+
+When a plugin view is active (e.g. Working Nodes), **F5** is first
+offered to that plugin's `on_play_shortcut(ctrl, shift)` handler. If
+the plugin consumes the event (returns `true`), the default
+`Run Current Scene` behavior is skipped. This lets plugin authors
+repurpose Play for their own domain — Working Nodes uses it to run
+the current graph.
+
 ### File Menu
 
 | Menu Item | Shortcut | Action |

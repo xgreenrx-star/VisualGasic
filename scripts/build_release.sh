@@ -181,6 +181,19 @@ find "$STAGING" -name ".git*" -not -name ".gitignore" -delete 2>/dev/null || tru
 # nested copies bloat the zip to multi-GB).
 find "$STAGING/demos" "$STAGING/examples" -path '*/addons/visual_gasic/bin' -type d -exec rm -rf {} + 2>/dev/null || true
 
+# Strip other bloat: stray bin/ dirs inside examples/demos (not part of the
+# addon), the huge examples/assetlibs/ folder (downloaded 3rd-party assets
+# that users can re-download themselves), and any .import asset caches left
+# inside samples.
+find "$STAGING/demos" "$STAGING/examples" -maxdepth 3 -type d -name bin -exec rm -rf {} + 2>/dev/null || true
+rm -rf "$STAGING/examples/assetlibs" 2>/dev/null || true
+find "$STAGING" -type d -name ".import" -exec rm -rf {} + 2>/dev/null || true
+
+# Strip dev/debug-symbol GDExtension builds (~80 MB each) from every addon
+# copy. They're only needed for engine debugging, not end-user runs.
+# Use -L so we follow symlinked addon trees inside demos/examples.
+find -L "$STAGING" -type f \( -name '*.template_debug.dev.*' -o -name '*.editor.dev.*' \) -delete 2>/dev/null || true
+
 success "Staging complete"
 
 # ── Create platform zips ───────────────────────────────────────────────────

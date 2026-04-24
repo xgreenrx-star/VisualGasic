@@ -454,6 +454,92 @@ func save_project(path: String) -> bool:
 
 ---
 
+## ▶ Play Menu Integration  *(new in 5.1.0)*
+
+Plugins can surface their own actions in the unified **▶ Play**
+MenuButton that lives in the top toolbar, and can also intercept the
+**F5 / Ctrl+F5 / Shift+F5** keyboard shortcut when their view is
+active. This is the recommended way for a plugin to expose a "Run"
+action — the user gets one consistent entry point instead of a
+per-plugin run button hidden inside each view.
+
+### Adding Entries to the Play Menu
+
+Call `form_preview_toolbar.add_menu_item(label, callback)` from your
+plugin's `_on_activated()` (or any post-setup hook) and
+`remove_menu_item(id)` from `_on_cleanup()`:
+
+```gdscript
+var _play_menu_ids: Array[int] = []
+
+func _get_play_toolbar():
+    if _host_plugin and "form_preview_toolbar" in _host_plugin:
+        return _host_plugin.form_preview_toolbar
+    return null
+
+func _register_play_menu_entries() -> void:
+    var tb = _get_play_toolbar()
+    if tb == null:
+        return
+    _play_menu_ids.append(tb.add_menu_item("Run Graph   F5", _run_graph))
+    _play_menu_ids.append(tb.add_menu_item("Run Graph Headless", _run_graph_headless))
+
+func _on_cleanup() -> void:
+    var tb = _get_play_toolbar()
+    if tb:
+        for id in _play_menu_ids:
+            tb.remove_menu_item(id)
+    _play_menu_ids.clear()
+```
+
+IDs returned by `add_menu_item` are always ≥ 1000 so they cannot
+collide with the built-in entries (100 – 104).
+
+### Intercepting F5 / Ctrl+F5 / Shift+F5
+
+Override the optional `on_play_shortcut(ctrl: bool, shift: bool) -> bool`
+method on your plugin. Return `true` to consume the event; return
+`false` (or don't implement it at all) to let the toolbar fall through
+to the default `Run Current Scene` behavior:
+
+```gdscript
+## Called by the host when the user presses F5 / Ctrl+F5 / Shift+F5
+## while this plugin's view is active. Return true to consume.
+func on_play_shortcut(ctrl: bool, shift: bool) -> bool:
+    if ctrl:
+        return false              # Let Run Main Scene fall through
+    if shift:
+        _run_graph_headless()
+    else:
+        _run_graph()
+    return true
+```
+
+The host checks `vg_plugin_manager.get_active_plugin_id()` and only
+dispatches to the active plugin — inactive plugins never receive the
+shortcut.
+
+---
+
+## Form Designer as a Toggleable Plugin  *(new in 5.1.0)*
+
+The legacy VB6-style Form Designer now appears as a row in the
+**Plugin Settings** dialog (⚙ icon in the plugin strip) and can be
+disabled per-project via `ProjectSettings` path
+`vg/form_designer_enabled`. When disabled:
+
+- The "🎨 Form Designer" plugin-strip button is removed.
+- The legacy top-toolbar `▣ Form` mode-toggle button is hidden.
+- Form-specific widgets (alignment toolbar, color palette, Indexes
+  toggle, Live/Freeze toggle) are hidden in every view.
+- The startup auto-open-first-form behavior is skipped — projects
+  start in the code editor.
+
+New projects created by the `install.sh` bootstrap installer set
+`vg/default_mode = "code"`, matching the code-first default.
+
+---
+
 ## Tips & Best Practices
 
 - **Use `@tool`** on all sub-editor scripts so they run in the Godot editor.
