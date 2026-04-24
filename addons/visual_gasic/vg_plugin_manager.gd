@@ -102,11 +102,48 @@ func discover_plugins() -> void:
 	print("VisualGasic: Plugin Manager loaded ", _plugins.size(), " plugin(s)")
 
 
-## Add a "Form Designer" button to the plugin strip. Pressing it switches
-## the IDE back to the form view (same as the legacy default_mode="forms"
-## auto-open). Lets users move between code and form editing without
-## opening Project Settings.
+## Project setting path for the built-in Form Designer toggle. Stored
+## on the project rather than globally so users can disable the legacy
+## VB6-style designer on a per-project basis (new code-first projects
+## typically don't need it taking up toolbar space).
+const BUILTIN_FORM_DESIGNER_ID := "__builtin_form_designer__"
+const BUILTIN_FORM_DESIGNER_SETTING := "vg/form_designer_enabled"
+
+
+## Register the Form Designer as a pseudo-plugin: gets a row in the
+## Plugin Settings dialog and (when enabled) a button in the plugin
+## strip. Toggle state is persisted in vg/form_designer_enabled.
 func _register_builtin_form_designer() -> void:
+	var enabled := true
+	if ProjectSettings.has_setting(BUILTIN_FORM_DESIGNER_SETTING):
+		enabled = bool(ProjectSettings.get_setting(BUILTIN_FORM_DESIGNER_SETTING, true))
+
+	# Meta entry — the settings popup iterates _plugin_meta, so adding a
+	# row here is all that's needed for it to appear in the dialog. The
+	# "_builtin" flag tells the toggle handler to write to ProjectSettings
+	# instead of looking for a plugin.cfg on disk.
+	_plugin_meta[BUILTIN_FORM_DESIGNER_ID] = {
+		"name": "Form Designer",
+		"description": "Legacy VB6-style visual form designer. Drag controls onto a canvas, set properties, and wire up events. Built-in — disable if you prefer code-only workflow.",
+		"script": "",
+		"enabled": enabled,
+		"_builtin": true,
+	}
+
+	if not enabled:
+		return  # Don't add the strip button; user has opted out.
+
+	_add_form_designer_strip_button()
+
+
+## Add the "🎨 Form Designer" button to the plugin strip. Split out so
+## _on_plugin_toggle() can recreate it if the user re-enables the
+## designer without restarting.
+func _add_form_designer_strip_button() -> void:
+	if not is_instance_valid(_toolbar_row) or not _host_plugin:
+		return
+	if _toolbar_row.find_child("VGBuiltinBtn_FormDesigner", false, false):
+		return  # Already present.
 	if not is_instance_valid(_toolbar_row) or not _host_plugin:
 		return
 
@@ -521,8 +558,29 @@ func _build_plugin_settings_row(plugin_id: String, meta: Dictionary) -> HBoxCont
 	return row
 
 
-## Toggle a plugin's enabled state in its plugin.cfg.
+## Toggle a plugin's enabled state in its plugin.cfg (or in ProjectSettings
+## for built-in pseudo-plugins like the Form Designer).
 func _on_plugin_toggle(enabled: bool, plugin_id: String) -> void:
+	var meta: Dictionary = _plugin_meta.get(plugin_id, {})
+
+	# Built-in entries live in ProjectSettings, not in a plugin.cfg. Apply
+	# the change immediately so the strip button appears/disappears without
+	# requiring an editor restart — users toggling UI elements expect
+	# instant feedback.
+	if meta.get("_builtin", false):
+		if plugin_id == BUILTIN_FORM_DESIGNER_ID:
+			ProjectSettings.set_setting(BUILTIN_FORM_DESIGNER_SETTING, enabled)
+			ProjectSettings.save()
+			meta["enabled"] = enabled
+			if enabled:
+				_add_form_designer_strip_button()
+			else:
+				var existing = _toolbar_row.find_child("VGBuiltinBtn_FormDesigner", false, false) if is_instance_valid(_toolbar_row) else null
+				if is_instance_valid(existing):
+					existing.queue_free()
+			print("VisualGasic: Built-in 'Form Designer' ", "enabled" if enabled else "disabled")
+		return
+
 	var cfg_path = PLUGINS_DIR + plugin_id + "/plugin.cfg"
 	var cfg = ConfigFile.new()
 	var err = cfg.load(cfg_path)
