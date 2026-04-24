@@ -1,13 +1,73 @@
 # VisualGasic Installation Guide
 
-**Version**: 4.4.0-rc1 (Release Candidate)  
-**Requires**: Godot 4.5+ (4.6.1 recommended)
+**Version**: 5.1.0-Beta1  
+**Requires**: Godot 4.6.1+ (handled automatically by the one-click installer)
 
-Choose your preferred installation method. The `vg` CLI method is the fastest way to get started.
+Choose your preferred installation method. **Method 1 (one-click installer) is the fastest and easiest way to get started** — no terminal, no Godot setup, no file editing required.
 
 ---
 
-## 🚀 Method 1: One-Line Install with `vg` CLI (Recommended)
+## ✨ Method 1: One-Click Installer (Recommended for new users & kids)
+
+A single download that installs Godot, installs VisualGasic, creates a starter project, and registers `.vg` files so double-clicking them opens the IDE. No terminal required.
+
+### Linux
+
+1. Download `VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage` from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/latest).
+2. Right-click → **Properties → Permissions → Allow executing as a program** (or `chmod +x` it).
+3. Double-click it.
+
+### Windows
+
+1. Download `VisualGasic-Installer-v5.1.0-Beta1-x86_64.exe` from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/latest).
+2. Double-click. Click **Install**. Done.
+
+### What the one-click installer does
+
+- Downloads a matching Godot 4.6.1+ and stores it in a private, user-scoped location (no admin needed).
+- Installs the VisualGasic editor plugin.
+- Creates a **MyFirstGame** project in `~/VisualGasic/` (`%USERPROFILE%\VisualGasic\` on Windows) with VG pre-enabled and a starter `Form1.vg`.
+- Adds a **VisualGasic IDE** entry to your Applications menu / Start Menu / Desktop.
+- Registers `.vg` files so double-clicking one launches the IDE on that file.
+
+### Choosing a Godot version
+
+You can pick any supported Godot version at install time:
+
+```bash
+# Linux: see what's available
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --list-godot-versions
+
+# Pick interactively
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --pick-godot
+
+# Install a specific version
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --godot-version 4.6.2-stable
+```
+
+Only **Godot 4.6.1-stable and newer** is supported (the default is `4.6.1-stable`). Pre-release builds can be shown with `--include-prereleases`.
+
+### Optional: set up AI keys during install
+
+VisualGasic's AI Coding Assistant (AGCK plugin) supports OpenAI, Claude, Gemini, and Ollama. You can seed the keys at install time (they're stored in Godot's per-user config with `0600` permissions on POSIX):
+
+```bash
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage \
+    --with-ai-keys \
+    --openai-key "sk-..." \
+    --claude-key "sk-ant-..." \
+    --gemini-key "AIza..."
+```
+
+All of these flags are **opt-in**. Without them, the installer writes no keys and the AI assistant stays disabled until you configure it from inside the IDE.
+
+### Offline install (no internet)
+
+Download the appropriate offline bundle instead (`VisualGasic-Installer-Offline-v5.1.0-Beta1-linux-x86_64.zip` or `-windows-x86_64.zip`) — it includes a pre-downloaded Godot. Unzip and follow the `README.txt` inside.
+
+---
+
+## 🚀 Method 2: One-Line Install with `vg` CLI
 
 The `vg` command-line tool installs VisualGasic globally and lets you create new projects instantly.
 
@@ -84,7 +144,7 @@ MyGame/
 
 ---
 
-## 🎨 Method 2: From the VG IDE (Inside Godot)
+## 🎨 Method 3: From the VG IDE (Inside Godot)
 
 If you already have a VG project open in Godot, you can create new projects without leaving the editor:
 
@@ -119,7 +179,7 @@ Within an existing project, use the VG IDE's File menu:
 
 ---
 
-## 📥 Method 3: Manual Installation (From GitHub Release)
+## 📥 Method 4: Manual Installation (From GitHub Release)
 
 ### Download
 
@@ -169,7 +229,7 @@ The release zip contains pre-compiled binaries for all platforms:
 
 ---
 
-## 🔧 Method 4: Build from Source
+## 🔧 Method 5: Build from Source
 
 ### Prerequisites
 - **Godot 4.5+** binary (4.6.1 recommended)

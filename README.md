@@ -160,17 +160,27 @@ VisualGasic/
 ## ⚡ **Quick Start**
 
 ### **Prerequisites**
-- **Godot 4.5+** (4.6.1 recommended) — Download from [godotengine.org](https://godotengine.org)
+- **Godot 4.6.1+** — the one-click installer downloads this for you. Manual users: get it from [godotengine.org](https://godotengine.org).
 
 ### **Installation**
 
-**From Godot Asset Library (Easiest):**
+**✨ One-click installer (Easiest — no terminal needed):**
+
+Download the installer for your platform from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/latest) and double-click it. It installs Godot 4.6.1+, the VisualGasic plugin, creates a starter `MyFirstGame` project, adds a Start Menu / Applications entry, and registers `.vg` files.
+
+- **Linux**: `VisualGasic-Installer-v*-x86_64.AppImage`
+- **Windows**: `VisualGasic-Installer-v*-x86_64.exe`
+- **Offline bundles** (include Godot): `VisualGasic-Installer-Offline-v*-{linux,windows}-x86_64.zip`
+
+Pick a specific Godot version with `--pick-godot` or `--godot-version 4.6.2-stable`. Optional AI keys: `--with-ai-keys --openai-key ...`.
+
+**From Godot Asset Library:**
 1. Open your Godot project
 2. Go to **AssetLib** tab → Search **"VisualGasic"**
 3. Click **Download** → **Install**
 4. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
 
-**Using the `vg` CLI (Fastest for new projects):**
+**Using the `vg` CLI (for existing terminal users):**
 ```bash
 # Install (one time)
 curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.sh | bash
