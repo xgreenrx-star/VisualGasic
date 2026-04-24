@@ -4,8 +4,10 @@
 Installs the VisualGasic addon globally and the `vg` CLI tool.
 
 Usage:
-    python3 install.py           # Install from local source (run from repo root)
-    python3 install.py --github  # Download and install from GitHub
+    python3 install.py                       # Install from local source (run from repo root)
+    python3 install.py --github              # Download latest release from GitHub
+    python3 install.py --github --tag vX.Y.Z # Download a specific release tag
+    python3 install.py --github --main       # Download bleeding-edge main branch (legacy)
 
 After installation:
     vg new MyGame
@@ -14,6 +16,7 @@ After installation:
 
 import os
 import sys
+import json
 import shutil
 import platform
 import tempfile
@@ -21,7 +24,7 @@ import zipfile
 from pathlib import Path
 
 try:
-    from urllib.request import urlretrieve
+    from urllib.request import urlretrieve, urlopen, Request
     HAS_URLLIB = True
 except ImportError:
     HAS_URLLIB = False
@@ -70,23 +73,68 @@ def find_source_dir():
     return None
 
 
-def download_from_github(temp_dir):
-    """Download VisualGasic from GitHub and return the source directory."""
+def _github_latest_release_tag():
+    """Query the GitHub API for the latest release tag.
+
+    Returns the newest release including pre-releases, since Beta tags are
+    marked as pre-release on GitHub and /releases/latest skips those.
+    """
+    api = "https://api.github.com/repos/xgreenrx-star/VisualGasic/releases"
+    req = Request(api, headers={"Accept": "application/vnd.github+json"})
+    with urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    if not isinstance(data, list) or not data:
+        return None
+    # data is ordered newest-first by GitHub
+    return data[0].get("tag_name")
+
+
+def download_from_github(temp_dir, tag=None, use_main=False):
+    """Download VisualGasic from GitHub and return the source directory.
+
+    Priority: explicit `tag` → latest release tag (incl. pre-releases) → main.
+    Falls back to main.zip if the release lookup fails or `use_main` is set.
+    """
     if not HAS_URLLIB:
         print("Error: urllib not available. Cannot download from GitHub.")
         sys.exit(1)
 
-    url = "https://github.com/xgreenrx-star/VisualGasic/archive/refs/heads/main.zip"
-    zip_path = os.path.join(temp_dir, "visualgasic.zip")
+    repo = "https://github.com/xgreenrx-star/VisualGasic"
 
-    print("  Downloading from GitHub...")
+    resolved_tag = None
+    if not use_main:
+        if tag:
+            resolved_tag = tag
+        else:
+            try:
+                resolved_tag = _github_latest_release_tag()
+            except Exception as e:
+                print(f"  ⚠  Could not query latest release ({e}); falling back to main.")
+
+    if resolved_tag:
+        url = f"{repo}/archive/refs/tags/{resolved_tag}.zip"
+        extracted_name = f"VisualGasic-{resolved_tag.lstrip('v')}"
+        print(f"  Downloading release {resolved_tag}...")
+    else:
+        url = f"{repo}/archive/refs/heads/main.zip"
+        extracted_name = "VisualGasic-main"
+        print("  Downloading main branch...")
+
+    zip_path = os.path.join(temp_dir, "visualgasic.zip")
     urlretrieve(url, zip_path)
 
     print("  Extracting...")
     with zipfile.ZipFile(zip_path, "r") as zf:
         zf.extractall(temp_dir)
 
-    return Path(temp_dir) / "VisualGasic-main"
+    extracted = Path(temp_dir) / extracted_name
+    # Tag zips may use a slightly different top-level dir name; fall back to
+    # the single top-level directory inside the archive.
+    if not extracted.exists():
+        children = [p for p in Path(temp_dir).iterdir() if p.is_dir()]
+        if len(children) == 1:
+            extracted = children[0]
+    return extracted
 
 
 def install(source_dir):
@@ -238,13 +286,19 @@ def main():
     print()
 
     use_github = "--github" in sys.argv
+    use_main = "--main" in sys.argv
+    tag = None
+    if "--tag" in sys.argv:
+        i = sys.argv.index("--tag")
+        if i + 1 < len(sys.argv):
+            tag = sys.argv[i + 1]
 
     temp_dir = None
 
     if use_github:
         temp_dir = tempfile.mkdtemp()
         try:
-            source_dir = download_from_github(temp_dir)
+            source_dir = download_from_github(temp_dir, tag=tag, use_main=use_main)
         except Exception as e:
             print(f"  Error downloading: {e}")
             sys.exit(1)

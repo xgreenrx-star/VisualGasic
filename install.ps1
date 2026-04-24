@@ -32,19 +32,48 @@ Write-Host ""
 
 # ── Download ────────────────────────────────────────────────────────────────
 $REPO_URL = "https://github.com/xgreenrx-star/VisualGasic"
-$ARCHIVE_URL = "$REPO_URL/archive/refs/heads/main.zip"
 $TEMP_DIR = Join-Path $env:TEMP "vg_install_$(Get-Random)"
+
+# Default: download the latest release (including pre-releases/Beta tags).
+# Override with $env:VG_INSTALL_TAG = "vX.Y.Z" or $env:VG_INSTALL_REF = "main".
+$Tag = $env:VG_INSTALL_TAG
+$Ref = $env:VG_INSTALL_REF
 
 try {
     New-Item -ItemType Directory -Path $TEMP_DIR -Force | Out-Null
     $zipPath = Join-Path $TEMP_DIR "visualgasic.zip"
 
-    Write-Host "  Downloading VisualGasic from GitHub..." -ForegroundColor Cyan
+    if (-not $Tag -and -not $Ref) {
+        Write-Host "  Looking up latest release..." -ForegroundColor Cyan
+        try {
+            $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/xgreenrx-star/VisualGasic/releases" -UseBasicParsing
+            if ($releases -and $releases.Count -gt 0) {
+                $Tag = $releases[0].tag_name
+            }
+        } catch {
+            Write-Host "  ⚠ Could not query latest release; falling back to main." -ForegroundColor Yellow
+        }
+    }
+
+    if ($Tag) {
+        $ARCHIVE_URL = "$REPO_URL/archive/refs/tags/$Tag.zip"
+        $SOURCE_SUBDIR = "VisualGasic-" + ($Tag -replace '^v','')
+        Write-Host "  Downloading release $Tag from GitHub..." -ForegroundColor Cyan
+    } else {
+        if (-not $Ref) { $Ref = "main" }
+        $ARCHIVE_URL = "$REPO_URL/archive/refs/heads/$Ref.zip"
+        $SOURCE_SUBDIR = "VisualGasic-$Ref"
+        Write-Host "  Downloading $Ref branch from GitHub..." -ForegroundColor Cyan
+    }
+
     Invoke-WebRequest -Uri $ARCHIVE_URL -OutFile $zipPath -UseBasicParsing
 
     Write-Host "  Extracting..." -ForegroundColor Cyan
     Expand-Archive -Path $zipPath -DestinationPath $TEMP_DIR -Force
-    $SOURCE_DIR = Join-Path $TEMP_DIR "VisualGasic-main"
+    $SOURCE_DIR = Join-Path $TEMP_DIR $SOURCE_SUBDIR
+    if (-not (Test-Path $SOURCE_DIR)) {
+        $SOURCE_DIR = (Get-ChildItem -Path $TEMP_DIR -Directory | Select-Object -First 1).FullName
+    }
 
     # ── Install addon globally ──────────────────────────────────────────────
     Write-Host "  Installing addon..." -ForegroundColor Cyan

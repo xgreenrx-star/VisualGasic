@@ -58,10 +58,12 @@ echo ""
 TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
 
-info "Downloading VisualGasic from GitHub..."
-
 REPO_URL="https://github.com/xgreenrx-star/VisualGasic"
-ARCHIVE_URL="$REPO_URL/archive/refs/heads/main.zip"
+
+# Default: download the latest release (including pre-releases/Beta tags).
+# Override with VG_INSTALL_TAG=vX.Y.Z or VG_INSTALL_REF=main.
+TAG="${VG_INSTALL_TAG:-}"
+REF="${VG_INSTALL_REF:-}"
 
 if ! command -v curl &> /dev/null; then
     error "curl is required. Install it with your package manager."
@@ -73,6 +75,23 @@ if ! command -v unzip &> /dev/null; then
     exit 1
 fi
 
+if [[ -z "$TAG" && -z "$REF" ]]; then
+    info "Looking up latest release..."
+    API="https://api.github.com/repos/xgreenrx-star/VisualGasic/releases"
+    TAG=$(curl -sSL -H "Accept: application/vnd.github+json" "$API" \
+        | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+fi
+
+if [[ -n "$TAG" ]]; then
+    ARCHIVE_URL="$REPO_URL/archive/refs/tags/$TAG.zip"
+    SOURCE_SUBDIR="VisualGasic-${TAG#v}"
+    info "Downloading release $TAG from GitHub..."
+else
+    ARCHIVE_URL="$REPO_URL/archive/refs/heads/${REF:-main}.zip"
+    SOURCE_SUBDIR="VisualGasic-${REF:-main}"
+    info "Downloading ${REF:-main} branch from GitHub..."
+fi
+
 if ! curl -sSL "$ARCHIVE_URL" -o "$TEMP_DIR/visualgasic.zip"; then
     error "Download failed. Check your internet connection."
     exit 1
@@ -81,7 +100,11 @@ fi
 info "Extracting..."
 cd "$TEMP_DIR"
 unzip -q visualgasic.zip
-SOURCE_DIR="$TEMP_DIR/VisualGasic-main"
+SOURCE_DIR="$TEMP_DIR/$SOURCE_SUBDIR"
+# Some tag zips name the top-level differently; fall back to the sole dir.
+if [[ ! -d "$SOURCE_DIR" ]]; then
+    SOURCE_DIR=$(find "$TEMP_DIR" -maxdepth 1 -mindepth 1 -type d | head -1)
+fi
 
 # ── Install addon globally ──────────────────────────────────────────────────
 info "Installing addon to $VG_GLOBAL_DIR..."
