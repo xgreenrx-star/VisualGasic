@@ -7218,6 +7218,11 @@ func _log_output(msg: String, color: Color = Color(0.1, 0.1, 0.1)) -> void:
 ## Switch the center panel from form canvas to code editor.
 func _show_code_view() -> void:
 	if _showing_code_view:
+		# Already in code view — just make sure the right panel is visible
+		# (Working Nodes may have hidden it on its way out).
+		var rp = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+		if rp:
+			rp.visible = true
 		return
 	_showing_code_view = true
 	_showing_3d_view = false
@@ -7263,6 +7268,14 @@ func _show_code_view() -> void:
 				toolbox_panel.add_child(help_panel)
 			if help_panel:
 				help_panel.visible = true
+
+	# Restore the right panel (Project Explorer + Properties). The plugin
+	# view hides it to give plugins the full width, and the old code-view
+	# switcher forgot to turn it back on — which made it look like the
+	# right panel had vanished after returning from Working Nodes.
+	var right_panel_code = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+	if right_panel_code:
+		right_panel_code.visible = true
 
 	# Update status bar
 	if is_instance_valid(_status_bar):
@@ -7334,6 +7347,9 @@ func _show_3d_view() -> void:
 	# If already in 3D view, still try auto-load in case the scene
 	# failed to load on the first attempt, then return.
 	if _showing_3d_view:
+		var rp3 = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+		if rp3:
+			rp3.visible = true
 		_auto_load_3d_scene()
 		return
 
@@ -7413,6 +7429,9 @@ func _show_2d_view() -> void:
 	# failed to load on the first attempt, then return.
 	if _showing_2d_view:
 		print("[VG-SHOW2D]   Already showing — calling _auto_load_2d_scene")
+		var rp2 = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+		if rp2:
+			rp2.visible = true
 		_auto_load_2d_scene()
 		return
 
@@ -7495,6 +7514,9 @@ func _auto_load_2d_scene() -> void:
 ## Switch the center panel to the embedded Sprite Editor (pixel art).
 func _show_sprite_view() -> void:
 	if _showing_sprite_view:
+		var rps = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+		if rps:
+			rps.visible = true
 		return
 
 	# If we're in code view, save first
