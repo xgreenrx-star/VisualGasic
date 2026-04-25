@@ -972,7 +972,8 @@ def main() -> int:
     # shim does) and stdin isn't a terminal, open the wizard instead of a
     # non-interactive default install. Power users can force text mode with
     # --no-gui.
-    _cli_provided = any(a.startswith("-") and a not in ("--offline",)
+    _wrapper_flags = ("--offline", "--launch", "--gui", "--no-gui")
+    _cli_provided = any(a.startswith("-") and a not in _wrapper_flags
                         for a in sys.argv[1:])
     _tty = sys.stdin.isatty() and sys.stdout.isatty()
     if args.gui or (not args.no_gui and not _tty and not _cli_provided):

@@ -59,16 +59,14 @@ HERE="$(dirname "$(readlink -f "$0")")"
 export VG_BOOTSTRAP_APPDIR="$HERE"
 
 # Expose the bundled addon so bootstrap_vg.py picks it up as "offline".
-OFFLINE_DIR="$HERE/usr/share/visualgasic-offline"
-mkdir -p "$OFFLINE_DIR"
-if [ ! -e "$OFFLINE_DIR/addons" ]; then
-    # Link the bundled addon into an "addons/visual_gasic/" path that the
-    # bootstrap script recognises as an offline bundle.
-    mkdir -p "$OFFLINE_DIR/addons"
-    ln -sfn "$HERE/usr/share/visualgasic/addons_visual_gasic" \
-            "$OFFLINE_DIR/addons/visual_gasic"
-    cp "$HERE/usr/share/visualgasic/VERSION" "$OFFLINE_DIR/VERSION" 2>/dev/null || true
-fi
+# The AppImage mount itself is read-only, so stage the offline tree in a
+# writable cache directory.
+OFFLINE_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/visualgasic-installer"
+OFFLINE_DIR="$OFFLINE_CACHE/offline"
+mkdir -p "$OFFLINE_DIR/addons"
+ln -sfn "$HERE/usr/share/visualgasic/addons_visual_gasic" \
+        "$OFFLINE_DIR/addons/visual_gasic"
+cp "$HERE/usr/share/visualgasic/VERSION" "$OFFLINE_DIR/VERSION" 2>/dev/null || true
 
 if ! command -v python3 > /dev/null; then
     xmessage -center "VisualGasic Installer needs Python 3.
@@ -93,10 +91,11 @@ Or run this AppImage from a terminal to use the text-mode installer." 2>/dev/nul
     fi
 fi
 
-# Default flags: auto-launch the IDE at the end so the user lands inside it.
-# bootstrap_vg.py opens the GUI wizard automatically when there's no TTY
-# (i.e. when the user double-clicks); --no-gui on the command line skips it.
-exec python3 "$HERE/usr/bin/bootstrap_vg.py" --offline "$OFFLINE_DIR" --launch "$@"
+# Default flags: open the graphical wizard so the user can pick the Godot
+# version, project name/folder, and AI keys; auto-launch the IDE at the end
+# so they land inside it. Power users can override with --no-gui or by
+# passing their own flags (which are appended after these defaults).
+exec python3 "$HERE/usr/bin/bootstrap_vg.py" --gui --offline "$OFFLINE_DIR" --launch "$@"
 APPRUN
 chmod +x "$APPDIR/AppRun"
 
