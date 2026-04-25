@@ -79,6 +79,41 @@ VisualGasic's built-in AI Coding Assistant supports OpenAI, Claude, Gemini, and 
 
 Keys are stored in Godot's per-user config with `0600` permissions on POSIX. All of these are **opt-in** — without them, the installer writes no keys and the AI assistant stays disabled until you configure it from inside the IDE.
 
+### Optional: install Ollama (free local AI) during install
+
+Don't want to share keys (or pay for them)? The wizard has a **Free local AI — Ollama** section that:
+
+1. Detects your hardware (RAM, CPU cores, NVIDIA/AMD/Intel GPU + VRAM).
+2. Pre-selects a recommended coding model from a curated list:
+
+   | Model | Size | RAM needed | Notes |
+   |-------|-----:|-----------:|-------|
+   | `tinyllama` | ~0.7 GB | 2 GB | Tiniest; smoke-test only |
+   | `qwen2.5-coder:1.5b` | ~1 GB | 4 GB | Lightweight coding |
+   | `llama3.2:3b` | ~2 GB | 6 GB | General-purpose |
+   | `qwen2.5-coder:7b` | ~4.7 GB | 10 GB | Recommended sweet spot |
+   | `qwen2.5-coder:14b` | ~9 GB | 16 GB | Powerful |
+   | `qwen2.5-coder:32b` | ~20 GB | 32 GB / 16+ GB GPU | Workstation |
+
+3. Lets you override the choice from a dropdown.
+4. On **Linux**, runs the official Ollama install script (may prompt for sudo) and then `ollama pull <model>`.
+5. On **Windows / macOS**, opens [https://ollama.com/download](https://ollama.com/download) so you can run the native installer, then re-runs `ollama pull` if Ollama is already on PATH.
+
+Scripted equivalent:
+```bash
+# Auto-pick model from hardware:
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --no-gui --with-ollama
+
+# Pick a specific model:
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --no-gui --with-ollama \
+    --ollama-model qwen2.5-coder:7b
+
+# Inspect the catalog + see what would be recommended for this machine:
+./VisualGasic-Installer-v5.1.0-Beta1-x86_64.AppImage --no-gui --list-ollama-models
+```
+
+Once installed, VisualGasic's AI Help panel can talk to the local Ollama instance with no API key.
+
 ### Offline install (no internet)
 
 Download the appropriate offline bundle instead (`VisualGasic-Installer-Offline-v5.1.0-Beta1-linux-x86_64.zip` or `-windows-x86_64.zip`) — it includes a pre-downloaded Godot. Unzip and follow the `README.txt` inside.

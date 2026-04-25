@@ -50,6 +50,9 @@ class _InstallOptions:
         self.openai_key: str = ""
         self.claude_key: str = ""
         self.gemini_key: str = ""
+        # Ollama (free local AI)
+        self.with_ollama: bool = False
+        self.ollama_model: str = ""
 
 
 # ── Worker thread that runs the install and streams log lines ───────────
@@ -135,6 +138,19 @@ class _InstallWorker(threading.Thread):
             keys = {"openai": o.openai_key, "claude": o.claude_key, "gemini": o.gemini_key}
             bvg.write_godot_ai_keys(o.display_name, keys)
 
+        if o.with_ollama:
+            q.put(("step", f"Setting up Ollama ({o.ollama_model or 'auto'})..."))
+
+            class _Args:
+                pass
+            a = _Args()
+            a.with_ollama = True
+            a.ollama_model = o.ollama_model
+            try:
+                bvg.configure_ollama(a)
+            except Exception as e:
+                q.put(("log", f"(Ollama setup failed: {e}; you can install it later from https://ollama.com)"))
+
         if o.launch:
             q.put(("step", "Launching VisualGasic IDE..."))
             try:
@@ -158,8 +174,8 @@ class InstallerApp:
             self.opts.offline = offline
 
         root.title("VisualGasic Installer")
-        root.geometry("620x600")
-        root.minsize(560, 520)
+        root.geometry("680x720")
+        root.minsize(620, 600)
 
         self._build_layout()
         self._populate_godot_versions()
@@ -247,6 +263,64 @@ class InstallerApp:
             ttk.Entry(self.ai_fields, textvariable=var, show="•"
                       ).grid(row=i, column=1, sticky="ew", padx=self.PAD, pady=2)
 
+        # ── Ollama (free local AI) ────────────────────────────────────
+        ollama_box = ttk.LabelFrame(parent, text="Free local AI — Ollama (optional)")
+        ollama_box.pack(fill="x", padx=self.PAD, pady=self.PAD)
+
+        self._hw = bvg.detect_hardware()
+        rec_id, rec_why = bvg.recommend_ollama_model(self._hw)
+        self._ollama_recommended = rec_id
+
+        hw_text = (f"Detected: {self._hw['ram_gb']:g}GB RAM · "
+                   f"{self._hw['cpu_cores']} CPU cores"
+                   + (f" · GPU: {self._hw['gpu_vendor']}"
+                      if self._hw['gpu_vendor'] else "")
+                   + (f" ({self._hw['gpu_vram_gb']:g}GB VRAM)"
+                      if self._hw.get('gpu_vram_gb') else ""))
+        ttk.Label(ollama_box, text=hw_text,
+                  font=("TkDefaultFont", 9, "italic")
+                  ).pack(anchor="w", padx=self.PAD, pady=(4, 0))
+
+        self.ollama_enabled = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            ollama_box,
+            text="Install Ollama and download a free local AI model "
+                 "(no API keys needed, runs entirely on your machine)",
+            variable=self.ollama_enabled,
+            command=self._toggle_ollama_fields,
+        ).pack(anchor="w", padx=self.PAD, pady=4)
+
+        self.ollama_fields = ttk.Frame(ollama_box)
+        self.ollama_fields.columnconfigure(1, weight=1)
+
+        ttk.Label(self.ollama_fields, text="Model:").grid(
+            row=0, column=0, sticky="w", padx=self.PAD, pady=2)
+
+        # Build a list of (id, display_label) tuples for the dropdown.
+        self._ollama_choices: list[tuple[str, str]] = []
+        for mid, label, size_gb, ram_gb, _blurb in bvg.OLLAMA_MODELS:
+            tag = " — recommended for your hardware" if mid == rec_id else ""
+            self._ollama_choices.append(
+                (mid, f"{label} · ~{size_gb:g}GB · {ram_gb}GB+ RAM{tag}"))
+
+        self.ollama_model_var = tk.StringVar(
+            value=next(lbl for mid, lbl in self._ollama_choices if mid == rec_id))
+        self.ollama_combo = ttk.Combobox(
+            self.ollama_fields, textvariable=self.ollama_model_var,
+            state="readonly", width=58,
+            values=[lbl for _mid, lbl in self._ollama_choices])
+        self.ollama_combo.grid(row=0, column=1, sticky="ew",
+                               padx=self.PAD, pady=2)
+
+        ttk.Label(
+            self.ollama_fields,
+            text=f"Recommendation reason: {rec_why}\n"
+                 "The download happens during install and may take a few minutes.",
+            wraplength=540, justify="left",
+            font=("TkDefaultFont", 9),
+        ).grid(row=1, column=0, columnspan=2, sticky="w",
+               padx=self.PAD, pady=(2, 4))
+
         # ── Options ───────────────────────────────────────────────────
         opt_box = ttk.LabelFrame(parent, text="Options")
         opt_box.pack(fill="x", padx=self.PAD, pady=self.PAD)
@@ -306,6 +380,12 @@ class InstallerApp:
         else:
             self.ai_fields.pack_forget()
 
+    def _toggle_ollama_fields(self) -> None:
+        if self.ollama_enabled.get():
+            self.ollama_fields.pack(fill="x", padx=self.PAD, pady=4)
+        else:
+            self.ollama_fields.pack_forget()
+
     def _populate_godot_versions(self) -> None:
         def worker() -> None:
             try:
@@ -353,6 +433,14 @@ class InstallerApp:
             o.openai_key = self.openai_var.get().strip()
             o.claude_key = self.claude_var.get().strip()
             o.gemini_key = self.gemini_var.get().strip()
+
+        if self.ollama_enabled.get():
+            o.with_ollama = True
+            chosen_label = self.ollama_model_var.get()
+            o.ollama_model = next(
+                (mid for mid, lbl in self._ollama_choices if lbl == chosen_label),
+                self._ollama_recommended,
+            )
 
         return o
 

@@ -910,6 +910,237 @@ def configure_ai_keys(args, project_display_name: str) -> None:
         info("No AI keys provided — skipping. You can set them from the IDE anytime.")
 
 
+# ── Optional Ollama (free local AI) installation ──────────────────────────
+
+# Curated catalog of Ollama models suitable for VG / GDScript / VB-style
+# coding assistance. Each entry is (id, label, download_size_gb,
+# min_ram_gb, blurb).  download_size is the on-disk size after `ollama
+# pull`; min_ram_gb is roughly what's needed to load + run the model
+# comfortably (with a small context). These are conservative defaults —
+# users with GPUs can comfortably run one tier higher than the RAM
+# recommendation suggests.
+OLLAMA_MODELS = [
+    ("tinyllama",
+     "TinyLlama 1.1B (tiny, smoke-test)",
+     0.7, 2,
+     "Smallest option. Useful only to verify the integration; coding "
+     "answers are weak."),
+    ("qwen2.5-coder:1.5b",
+     "Qwen2.5-Coder 1.5B (lightweight)",
+     1.0, 4,
+     "Good basic code completion; runs on almost any laptop."),
+    ("llama3.2:3b",
+     "Llama 3.2 3B (general)",
+     2.0, 6,
+     "General-purpose chat; OK for explanations, weaker on code."),
+    ("qwen2.5-coder:7b",
+     "Qwen2.5-Coder 7B (recommended)",
+     4.7, 10,
+     "Strong coding model; the sweet spot for most modern laptops."),
+    ("qwen2.5-coder:14b",
+     "Qwen2.5-Coder 14B (powerful)",
+     9.0, 16,
+     "Excellent code quality; needs a beefy laptop or a GPU."),
+    ("qwen2.5-coder:32b",
+     "Qwen2.5-Coder 32B (workstation)",
+     20.0, 32,
+     "Near-frontier code quality. Best with a 16GB+ GPU."),
+]
+
+OLLAMA_MODEL_DEFAULT = "qwen2.5-coder:1.5b"  # safe fallback if detection fails
+
+
+def detect_hardware() -> dict:
+    """Best-effort hardware probe (stdlib + nvidia-smi). Returns a dict
+    with keys ram_gb (float), cpu_cores (int), gpu_vendor (str|None),
+    gpu_vram_gb (float|None). Never raises."""
+    info_d: dict = {"ram_gb": 0.0, "cpu_cores": os.cpu_count() or 1,
+                    "gpu_vendor": None, "gpu_vram_gb": None}
+
+    # RAM
+    try:
+        if hasattr(os, "sysconf") and "SC_PHYS_PAGES" in os.sysconf_names:
+            pages = os.sysconf("SC_PHYS_PAGES")
+            page_size = os.sysconf("SC_PAGE_SIZE")
+            info_d["ram_gb"] = round((pages * page_size) / (1024 ** 3), 1)
+        elif platform.system() == "Windows":
+            import ctypes
+
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [("dwLength", ctypes.c_ulong),
+                            ("dwMemoryLoad", ctypes.c_ulong),
+                            ("ullTotalPhys", ctypes.c_ulonglong),
+                            ("ullAvailPhys", ctypes.c_ulonglong),
+                            ("ullTotalPageFile", ctypes.c_ulonglong),
+                            ("ullAvailPageFile", ctypes.c_ulonglong),
+                            ("ullTotalVirtual", ctypes.c_ulonglong),
+                            ("ullAvailVirtual", ctypes.c_ulonglong),
+                            ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+            stat = MEMORYSTATUSEX()
+            stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
+            info_d["ram_gb"] = round(stat.ullTotalPhys / (1024 ** 3), 1)
+    except Exception:
+        pass
+
+    # NVIDIA GPU + VRAM
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total",
+             "--format=csv,noheader,nounits"],
+            check=True, capture_output=True, text=True, timeout=4)
+        first = (out.stdout.strip().splitlines() or [""])[0]
+        if first:
+            name, vram_mb = [p.strip() for p in first.split(",", 1)]
+            info_d["gpu_vendor"] = "nvidia"
+            info_d["gpu_vram_gb"] = round(float(vram_mb) / 1024, 1)
+    except (FileNotFoundError, subprocess.CalledProcessError,
+            subprocess.TimeoutExpired, ValueError):
+        pass
+
+    # AMD/Intel GPU detection (Linux only, very best-effort)
+    if info_d["gpu_vendor"] is None and platform.system() == "Linux":
+        try:
+            out = subprocess.run(["lspci"], check=True, capture_output=True,
+                                 text=True, timeout=4)
+            for line in out.stdout.splitlines():
+                low = line.lower()
+                if " vga " in low or " 3d " in low or "display controller" in low:
+                    if "amd" in low or "ati" in low or "radeon" in low:
+                        info_d["gpu_vendor"] = "amd"
+                    elif "intel" in low:
+                        info_d["gpu_vendor"] = "intel"
+                    break
+        except (FileNotFoundError, subprocess.CalledProcessError,
+                subprocess.TimeoutExpired):
+            pass
+
+    return info_d
+
+
+def recommend_ollama_model(hw: dict) -> tuple[str, str]:
+    """Pick a sensible default model id from OLLAMA_MODELS based on hw.
+    Returns (model_id, reasoning)."""
+    ram = hw.get("ram_gb") or 0.0
+    vram = hw.get("gpu_vram_gb") or 0.0
+
+    # GPU-first: a fast NVIDIA card beats a low-RAM CPU pick.
+    if vram >= 20:
+        return "qwen2.5-coder:32b", f"GPU has {vram:g}GB VRAM."
+    if vram >= 10:
+        return "qwen2.5-coder:14b", f"GPU has {vram:g}GB VRAM."
+    if vram >= 5:
+        return "qwen2.5-coder:7b", f"GPU has {vram:g}GB VRAM."
+
+    if ram >= 32:
+        return "qwen2.5-coder:14b", f"{ram:g}GB system RAM."
+    if ram >= 12:
+        return "qwen2.5-coder:7b", f"{ram:g}GB system RAM."
+    if ram >= 6:
+        return "qwen2.5-coder:1.5b", f"{ram:g}GB system RAM."
+    if ram >= 2:
+        return "tinyllama", f"{ram:g}GB system RAM is on the low side."
+    return OLLAMA_MODEL_DEFAULT, "could not detect RAM; picking a safe default."
+
+
+def ollama_path() -> Optional[str]:
+    """Return the path to the `ollama` executable if it's already on PATH,
+    else None."""
+    return shutil.which("ollama")
+
+
+def install_ollama_linux() -> bool:
+    """Run the official Ollama install script. Returns True on success.
+    Requires curl + sudo (the upstream script uses sudo internally to drop
+    files in /usr/local). On a desktop Linux this typically pops a sudo
+    prompt or succeeds via a polkit dialog."""
+    if not shutil.which("curl"):
+        warn("curl is required to install Ollama. Install curl and re-run, "
+             "or download Ollama from https://ollama.com/download.")
+        return False
+    info("Running the official Ollama installer (you may be asked for your sudo password)…")
+    try:
+        # The upstream installer is `curl -fsSL https://ollama.com/install.sh | sh`.
+        rc = subprocess.run(
+            ["sh", "-c", "curl -fsSL https://ollama.com/install.sh | sh"],
+            check=False, timeout=600,
+        )
+        return rc.returncode == 0
+    except subprocess.TimeoutExpired:
+        warn("Ollama install timed out. Try installing manually from https://ollama.com/download.")
+        return False
+    except Exception as e:
+        warn(f"Ollama install failed: {e}. Install it manually from https://ollama.com/download.")
+        return False
+
+
+def open_ollama_download_page() -> None:
+    """Open the user's browser at ollama.com/download. Used on Windows /
+    macOS where we don't auto-install."""
+    import webbrowser
+    try:
+        webbrowser.open("https://ollama.com/download")
+    except Exception:
+        pass
+
+
+def pull_ollama_model(model_id: str) -> bool:
+    """Run `ollama pull <model>` streaming output to the user. Returns True
+    on success."""
+    exe = ollama_path()
+    if not exe:
+        warn("ollama is not on PATH after install; skipping model download.")
+        return False
+    info(f"Downloading Ollama model: {model_id}")
+    info("(This may take several minutes depending on your connection.)")
+    try:
+        rc = subprocess.run([exe, "pull", model_id], check=False, timeout=3600)
+        if rc.returncode == 0:
+            ok(f"Ollama model {model_id} ready.")
+            return True
+        warn(f"`ollama pull {model_id}` exited with code {rc.returncode}. "
+             "You can re-run it later from a terminal.")
+        return False
+    except subprocess.TimeoutExpired:
+        warn(f"`ollama pull {model_id}` timed out. Re-run it later from a terminal.")
+        return False
+    except Exception as e:
+        warn(f"`ollama pull` failed: {e}")
+        return False
+
+
+def configure_ollama(args) -> None:
+    """Handle the optional Ollama install + model pull. No-op unless the
+    user opts in via --with-ollama (or the GUI checkbox)."""
+    if not getattr(args, "with_ollama", False):
+        return
+
+    model_id = (getattr(args, "ollama_model", "") or "").strip()
+    if not model_id:
+        hw = detect_hardware()
+        model_id, why = recommend_ollama_model(hw)
+        info(f"Recommended Ollama model based on hardware: {model_id}  ({why})")
+
+    if model_id not in {m[0] for m in OLLAMA_MODELS}:
+        warn(f"Unknown Ollama model id '{model_id}' — falling back to {OLLAMA_MODEL_DEFAULT}.")
+        model_id = OLLAMA_MODEL_DEFAULT
+
+    if ollama_path() is None:
+        info("Ollama is not installed yet.")
+        if platform.system() == "Linux":
+            if not install_ollama_linux():
+                return
+        else:
+            info("Opening https://ollama.com/download in your browser. "
+                 "Run this installer again after installing Ollama to "
+                 "auto-download the model, or run "
+                 f"`ollama pull {model_id}` from a terminal.")
+            open_ollama_download_page()
+            return
+
+    pull_ollama_model(model_id)
+
+
 # ── Main flow ──────────────────────────────────────────────────────────────
 
 def main() -> int:
@@ -959,6 +1190,22 @@ def main() -> int:
     ai.add_argument("--gemini-key", default="",
                     help="Google Gemini API key")
 
+    ollama_group = parser.add_argument_group(
+        "Ollama (free local AI, optional)",
+        "Ollama runs a local LLM on your own machine — no API keys, no "
+        "data leaves your computer. Pass --with-ollama to install it and "
+        "pull a model. The default model is auto-picked from your "
+        "hardware; override with --ollama-model.",
+    )
+    ollama_group.add_argument("--with-ollama", action="store_true",
+                              help="Install Ollama and pull a model after the main install.")
+    ollama_group.add_argument(
+        "--ollama-model", default="",
+        help="Ollama model id (e.g. qwen2.5-coder:7b). "
+             "Default: auto-recommend based on detected RAM/VRAM.")
+    ollama_group.add_argument("--list-ollama-models", action="store_true",
+                              help="Print the curated Ollama model catalog and exit.")
+
     gui_group = parser.add_argument_group("Graphical installer")
     gui_group.add_argument("--gui", action="store_true",
                            help="Show the graphical wizard (default when "
@@ -990,6 +1237,24 @@ def main() -> int:
         for tag in versions:
             marker = "  (default)" if tag == GODOT_VERSION_DEFAULT else ""
             print(f"{tag}{marker}")
+        return 0
+
+    if args.list_ollama_models:
+        hw = detect_hardware()
+        rec, why = recommend_ollama_model(hw)
+        print(f"Detected: {hw['ram_gb']:g}GB RAM, "
+              f"{hw['cpu_cores']} CPU cores, "
+              f"GPU={hw['gpu_vendor'] or 'none'}"
+              + (f" ({hw['gpu_vram_gb']:g}GB VRAM)" if hw["gpu_vram_gb"] else ""))
+        print(f"Recommended: {rec}  ({why})")
+        print()
+        for mid, label, size_gb, ram_gb, blurb in OLLAMA_MODELS:
+            marker = "  (recommended)" if mid == rec else ""
+            print(f"  {mid}{marker}")
+            print(f"    {label}")
+            print(f"    download: ~{size_gb:g}GB · needs ~{ram_gb}GB RAM")
+            print(f"    {blurb}")
+            print()
         return 0
 
     banner()
@@ -1032,6 +1297,9 @@ def main() -> int:
 
     # Step 5 — Optional AI key configuration (off by default)
     configure_ai_keys(args, args.display_name)
+
+    # Step 5b — Optional Ollama install + model pull (off by default)
+    configure_ollama(args)
 
     # Step 6 — Prime the project: run Godot once headlessly so it imports
     # all .vg / .gd / .tscn files. This is what lets the VG editor plugin

@@ -26,7 +26,7 @@ v5.1.0 is a **UX-focused follow-up** to 5.0.1 that unifies the IDE's run/preview
 - **🎛️ Unified ▶ Play menu** — one MenuButton replaces the old `Preview` / `Preview (Debug)` / `Build` / `Run` button row, available in every view.
 - **⌨️ F5 dispatches to the active plugin** — plugins can opt into handling F5 / Shift+F5 / Ctrl+F5 via a new `on_play_shortcut()` API.
 - **🧩 Form Designer as a toggleable plugin** — disable the legacy VB6-style designer per-project from the ⚙ Plugin Settings dialog; new projects default to code-first.
-- **📥 One-click installers** — platform-native installers (Linux AppImage, Windows .exe) with a graphical wizard that lets you pick the Godot version, starter project name/folder, shortcuts, and optional AI keys. Installs Godot, VG, the starter project, and `.vg` file association with no terminal required.
+- **📥 One-click installers** — platform-native installers (Linux AppImage, Windows .exe) with a graphical wizard that lets you pick the Godot version, starter project name/folder, shortcuts, optional AI keys, and an optional **free local AI (Ollama)** with a hardware-aware recommended model. Installs Godot, VG, the starter project, and `.vg` file association with no terminal required.
 - **🖱️ Draggable left-sidebar splitters** — the 2D and 3D editors finally have a working VSplitContainer between Object List and Scene Tree.
 - **🔌 Working Nodes plugin** — full plugin polish: graphs run from the Play menu, F5 runs the current graph, no more double-Play buttons.
 
@@ -134,7 +134,8 @@ Double-click the installer and a wizard opens (Tkinter on Linux, native NSIS dia
 - **Godot version** — dropdown, defaults to `4.6.1-stable`.
 - **Starter project name and folder** — defaults to `~/VisualGasic/MyFirstGame` (Linux) or `%USERPROFILE%\VisualGasic\MyFirstGame` (Windows); Browse button to change it.
 - **Shortcuts & `.vg` file association** — checkboxes for Start Menu / Applications-menu entries and the file type registration.
-- **AI Coding Assistant (optional)** — dedicated page with password fields for OpenAI, Claude, and Gemini. Leave blank to configure from inside the IDE later. Ollama runs locally and needs no key.
+- **AI Coding Assistant (optional)** — dedicated page with password fields for OpenAI, Claude, and Gemini. Leave blank to configure from inside the IDE later.
+- **Free local AI — Ollama (optional, *new*)** — opt-in checkbox that installs [Ollama](https://ollama.com) and pulls a coding model (no API key, runs entirely on your machine). The installer detects your RAM / GPU / VRAM and pre-selects a recommended model from a curated list (TinyLlama → Qwen2.5-Coder 32B). You can override the choice from a dropdown.
 - **Install progress** — live log and a step indicator while Godot downloads and the project is scaffolded.
 
 ![Installer Install page — live progress log while Godot downloads and the project is scaffolded](docs/screenshots/installer_install.png)
