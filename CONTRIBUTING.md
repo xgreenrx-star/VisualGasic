@@ -9,6 +9,7 @@ We welcome contributions to VisualGasic! This document provides guidelines for c
 4. [Testing Guidelines](#testing-guidelines)
 5. [Documentation](#documentation)
 6. [Pull Request Process](#pull-request-process)
+7. [Versioning & Releases](#versioning--releases)
 
 ## Getting Started
 
@@ -280,3 +281,16 @@ Each feature includes:
 - [Architecture Overview](docs/ARCHITECTURE.md)
 
 Thank you for contributing to VisualGasic! 🚀
+## Versioning & Releases
+
+VisualGasic follows [Semantic Versioning 2.0.0](https://semver.org/) with
+dotted pre-release suffixes:
+
+- **`vMAJOR.MINOR.PATCH`** for stable releases (e.g. `v5.1.0`).
+- **`vMAJOR.MINOR.PATCH-beta.N`** for previews (e.g. `v5.1.0-beta.1`).
+- **`vMAJOR.MINOR.PATCH-rc.N`** for release candidates.
+
+The patch digit is **never** repurposed to mean "beta number" — pre-release
+information always lives in the suffix. See
+[`RELEASE_PROCESS.md`](RELEASE_PROCESS.md) for the full policy, the bump
+rules, and the step-by-step tagging / publishing workflow.
