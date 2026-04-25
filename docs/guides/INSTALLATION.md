@@ -28,11 +28,15 @@ A single download that installs Godot, installs VisualGasic, creates a starter p
 
 Both the Linux AppImage and the Windows `.exe` open a wizard with the same options:
 
+![Installer Options page — Godot version dropdown, project name/folder, AI keys, shortcut checkboxes](../screenshots/installer_options.png)
+
 - **Godot version** (dropdown; defaults to 4.6.1-stable).
 - **Starter project name** and **folder** (defaults to `~/VisualGasic/MyFirstGame`).
 - **Shortcuts & file association** checkboxes — create Start Menu / Applications-menu entries and register `.vg` files.
 - **AI keys** (optional): OpenAI, Claude, Gemini. Leave blank to configure from inside the IDE later. Ollama runs locally and needs no key.
 - **Install progress** tab with a live log.
+
+![Installer Install page — live progress log while Godot downloads and the project is scaffolded](../screenshots/installer_install.png)
 
 If you prefer the command line — or need it for CI or scripted installs — every wizard option also exists as a flag (see [Power-user / scripted install](#choosing-a-godot-version) below). Pass `--no-gui` to force text mode, or `--gui` to force the wizard even over SSH with X11 forwarding.
 

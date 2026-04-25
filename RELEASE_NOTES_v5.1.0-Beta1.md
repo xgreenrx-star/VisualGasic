@@ -129,11 +129,15 @@ All four are attached to this release — grab them from the [Assets section](ht
 
 Double-click the installer and a wizard opens (Tkinter on Linux, native NSIS dialogs on Windows) with the same options on both platforms:
 
+![Installer Options page — Godot version dropdown, project name/folder, AI keys, shortcuts](docs/screenshots/installer_options.png)
+
 - **Godot version** — dropdown, defaults to `4.6.1-stable`.
 - **Starter project name and folder** — defaults to `~/VisualGasic/MyFirstGame` (Linux) or `%USERPROFILE%\VisualGasic\MyFirstGame` (Windows); Browse button to change it.
 - **Shortcuts & `.vg` file association** — checkboxes for Start Menu / Applications-menu entries and the file type registration.
 - **AI Coding Assistant (optional)** — dedicated page with password fields for OpenAI, Claude, and Gemini. Leave blank to configure from inside the IDE later. Ollama runs locally and needs no key.
 - **Install progress** — live log and a step indicator while Godot downloads and the project is scaffolded.
+
+![Installer Install page — live progress log while Godot downloads and the project is scaffolded](docs/screenshots/installer_install.png)
 
 On Linux the wizard requires `python3-tk` (pre-installed on most desktops). If it's missing, the AppImage falls back to the text-mode installer and shows a hint on how to install Tk.
 
