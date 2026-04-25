@@ -605,6 +605,48 @@ def scaffold_project(project_dir: Path, display_name: str, addon_source: Path) -
 
 # ── Launchers / desktop integration ────────────────────────────────────────
 
+
+def prime_project_imports(godot_bin: Path, project_dir: Path) -> None:
+    """Run Godot once headlessly to import resources and activate plugins.
+
+    On a freshly-scaffolded project, Godot's first interactive open does an
+    import scan *before* activating editor plugins, which means the VG
+    plugin can appear inactive on the very first launch even though
+    [editor_plugins] enabled lists it. Doing a headless pass here primes
+    the project so the next interactive open lands the user directly in a
+    working VG IDE.
+
+    Errors are non-fatal — if something goes wrong, the user can still
+    enable the plugin manually from Project > Project Settings > Plugins.
+    """
+    info("Priming project (importing resources, enabling VG plugin)…")
+    try:
+        # `--import` runs the editor, waits for all resources to be imported
+        # (which activates EditorPlugins listed in project.godot along the
+        # way), and then quits cleanly. Without this pass, the very first
+        # interactive `--editor` open imports resources *before* activating
+        # plugins, and the user has to toggle the VG plugin off and on to
+        # see the IDE.
+        result = subprocess.run(
+            [str(godot_bin), "--path", str(project_dir),
+             "--headless", "--import"],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            timeout=180, check=False,
+        )
+        if result.returncode != 0:
+            warn(f"Godot import pass returned exit {result.returncode}; "
+                 "the IDE should still open, but if the VG toolbox doesn't "
+                 "appear, toggle the VisualGasic plugin off and on under "
+                 "Project Settings → Plugins.")
+        else:
+            ok("Project primed; VG plugin pre-activated.")
+    except subprocess.TimeoutExpired:
+        warn("Godot import pass took longer than 3 minutes; skipping. "
+             "First IDE launch may need a moment to finish importing.")
+    except (FileNotFoundError, OSError) as e:
+        warn(f"Could not run Godot import pass: {e}")
+
+
 def launcher_script_path() -> Path:
     if platform.system() == "Windows":
         return bin_dir() / "visualgasic-ide.cmd"
@@ -984,6 +1026,13 @@ def main() -> int:
     # Step 5 — Optional AI key configuration (off by default)
     configure_ai_keys(args, args.display_name)
 
+    # Step 6 — Prime the project: run Godot once headlessly so it imports
+    # all .vg / .gd / .tscn files. This is what lets the VG editor plugin
+    # activate cleanly on the very first interactive launch — without it,
+    # Godot opens the editor before resources are imported and the plugin
+    # appears "not enabled" until the user toggles it manually.
+    prime_project_imports(godot_bin, project_dir)
+
     # Summary
     print()
     print(f"{C_GREEN}{C_BOLD}  ╔══════════════════════════════════════╗{C_RESET}")
@@ -1001,7 +1050,13 @@ def main() -> int:
     if args.launch:
         info("Launching VisualGasic IDE...")
         try:
-            subprocess.Popen([str(launcher)], close_fds=True)
+            # Open Form1.vg if it exists, so the user lands directly in the
+            # script editor. Falls back to opening the project root.
+            form1 = project_dir / "Form1.vg"
+            cmd = [str(launcher)]
+            if form1.exists():
+                cmd.append(str(form1))
+            subprocess.Popen(cmd, close_fds=True)
         except Exception as e:
             warn(f"Could not auto-launch: {e}")
 
