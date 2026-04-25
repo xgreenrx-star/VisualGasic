@@ -532,6 +532,13 @@ PROJECT_GODOT_TEMPLATE = textwrap.dedent("""\
     [editor_plugins]
 
     enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+
+    [visual_gasic]
+
+    ; Activate the VG IDE layout (toolbox + project explorer + properties
+    ; inspector docked, code editor as main screen) on first open. The user
+    ; can toggle this via Project > Tools > Toggle VG IDE Layout.
+    layout/vb6_mode=true
     """)
 
 FORM1_TEMPLATE = textwrap.dedent('''\
@@ -556,11 +563,10 @@ DEFAULT_ICON_SVG = textwrap.dedent("""\
 
 def scaffold_project(project_dir: Path, display_name: str, addon_source: Path) -> Path:
     """Create project_dir with a VG-enabled Godot project. Return project_dir."""
-    if project_dir.exists():
-        if any(project_dir.iterdir()):
-            warn(f"Project directory {project_dir} already exists and is non-empty; "
-                 "leaving it as-is.")
-            return project_dir
+    reused_existing = project_dir.exists() and any(project_dir.iterdir())
+    if reused_existing:
+        info(f"Project directory {project_dir} already exists; refreshing "
+             "project.godot, addon link, and Form1.vg in place.")
     project_dir.mkdir(parents=True, exist_ok=True)
 
     info(f"Scaffolding project at {project_dir}...")
