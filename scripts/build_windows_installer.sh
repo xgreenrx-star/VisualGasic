@@ -53,12 +53,15 @@ cp "$ROOT/scripts/bootstrap_gui.py" "$BUILD_DIR/bootstrap_gui.py"
 
 echo "[3/5] Staging bundled VG addon (offline payload)"
 mkdir -p "$BUILD_DIR/offline/addons"
-# Copy the addon tree. Use rsync if available, else cp -r.
+# Copy the addon tree. Dereference symlinks (-L / --copy-links) so the
+# addons/visual_gasic/bin -> ../../bin link is materialised — otherwise the
+# bundled addon ships a broken symlink and install_vg_addon() fails with
+# "No such file or directory: .../bin".
 if command -v rsync >/dev/null; then
-    rsync -a --exclude='__pycache__' --exclude='*.pyc' \
+    rsync -aL --exclude='__pycache__' --exclude='*.pyc' \
           "$ROOT/addons/visual_gasic/" "$BUILD_DIR/offline/addons/visual_gasic/"
 else
-    cp -r "$ROOT/addons/visual_gasic" "$BUILD_DIR/offline/addons/"
+    cp -rL "$ROOT/addons/visual_gasic" "$BUILD_DIR/offline/addons/"
 fi
 
 echo "[4/5] Downloading Python ${PYTHON_VERSION} embeddable"

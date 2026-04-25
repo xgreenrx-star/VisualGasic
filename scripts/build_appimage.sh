@@ -46,7 +46,10 @@ chmod +x "$APPDIR/usr/bin/bootstrap_vg.py"
 
 # Bundle the full VG addon so the installer doesn't need network to copy it
 # (only Godot needs to be downloaded, and that can also be offline).
-cp -r addons/visual_gasic "$APPDIR/usr/share/visualgasic/addons_visual_gasic"
+# -L dereferences the addons/visual_gasic/bin -> ../../bin symlink so the
+# actual GDExtension .so/.dll/.framework files end up inside the AppImage
+# (otherwise the symlink lands in $XDG_CACHE_HOME and points nowhere).
+cp -rL addons/visual_gasic "$APPDIR/usr/share/visualgasic/addons_visual_gasic"
 # Strip .uid files
 find "$APPDIR/usr/share/visualgasic/addons_visual_gasic" -name "*.uid" -delete 2>/dev/null || true
 cp VERSION "$APPDIR/usr/share/visualgasic/VERSION"
