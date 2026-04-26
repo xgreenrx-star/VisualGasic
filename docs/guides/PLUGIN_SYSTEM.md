@@ -2,7 +2,12 @@
 
 The VisualGasic IDE supports **plugins** — self-contained editor extensions that register their own toolbar button and full-screen view inside the IDE.  Plugins are discovered automatically at startup from the `plugins/` directory and integrate seamlessly with the existing Form, Code, 3D, 2D, and Sprite Editor views.
 
-The first official plugin is **AGCK** (Arcade Game Construction Kit), which adds an entire retro game editor as a single toolbar tab containing five internal sub-editors.
+Official plugins:
+
+| Plugin | Toolbar button | Description |
+|---|---|---|
+| **AGCK** | 🕹️ AGCK | Arcade Game Construction Kit — 5 retro game sub-editors |
+| **Bosca Ceoil** | 🎵 Bosca Ceoil | Chiptune / music tracker — WAV, OGG, and MML export |
 
 ---
 
@@ -19,9 +24,8 @@ The first official plugin is **AGCK** (Arcade Game Construction Kit), which adds
 9. [Serialization & Project Files](#serialization--project-files)
 10. [API Reference](#api-reference)
 
----
+> See also: [Bosca Ceoil Manual](../manual/BOSCA_CEOIL_MANUAL.md) for full usage of the built-in music tracker.
 
-## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

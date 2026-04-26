@@ -1,0 +1,178 @@
+[gd_resource type="Resource" script_class="HelpGuide" format=3 uid="uid://dpyar3sq303xm"]
+
+[ext_resource type="Script" uid="uid://b2k1hcb6vbhdx" path="res://addons/visual_gasic/plugins/vgmusic/bosca/objects/HelpGuide.gd" id="1_6yyxb"]
+[ext_resource type="Script" uid="uid://5eyxu4pomphu" path="res://addons/visual_gasic/plugins/vgmusic/bosca/objects/HelpGuideStep.gd" id="2_6a2si"]
+[ext_resource type="Texture2D" uid="uid://r26ibp33l6if" path="res://addons/visual_gasic/plugins/vgmusic/bosca/help/advanced_guide_delete_instrument.png" id="3_7bj3b"]
+[ext_resource type="Texture2D" uid="uid://dlmdhoaldml2c" path="res://addons/visual_gasic/plugins/vgmusic/bosca/help/advanced_guide_note_selection.png" id="3_8j5sp"]
+[ext_resource type="Texture2D" uid="uid://dotqpsqiueyqi" path="res://addons/visual_gasic/plugins/vgmusic/bosca/help/advanced_guide_rec_filter.png" id="4_f2mo2"]
+
+[sub_resource type="Resource" id="Resource_ie5ya"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Shortcuts"
+description = "Did you know you can quickly open an existing song using [accent]CTRL + O[/accent]?
+
+Bosca Ceoil has many shortcuts and contextual interactions!
+You can find all of them listed in the [accent]HELP[/accent] section."
+navigation_target = 5
+node_target = 401
+position_direction = 4
+size = Vector2(480, 270)
+
+[sub_resource type="Resource" id="Resource_ig3qc"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Playback"
+description = "You can quickly stop and restart the playback by pressing [accent]SPACE[/accent].
+
+Hold [accent]CTRL[/accent] to pause instead."
+navigation_target = 2
+position_direction = 4
+size = Vector2(500, 200)
+
+[sub_resource type="Resource" id="Resource_uprl4"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Action History"
+description = "You can undo up to [accent]40[/accent] changes by pressing [accent]CTRL + Z[/accent]. You can also redo the actions you have just undone with
+[accent]CTRL + SHIFT + Z[/accent].
+
+Note: Making any changes clears future actions!"
+position_anchor = Vector2(0.92, 0.225)
+position_direction = 1
+size = Vector2(520, 270)
+
+[sub_resource type="Resource" id="Resource_5l0n3"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Patterns"
+description = "These little [accent]PLUS[/accent] and [accent]MINUS[/accent] buttons [accent]transpose[/accent] notes in the current pattern moving them higher or lower!"
+navigation_target = 1
+node_target = 105
+position_anchor = Vector2(0.54, 0.905)
+position_direction = 2
+size = Vector2(480, 180)
+
+[sub_resource type="Resource" id="Resource_38vdh"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Patterns"
+description = "You can change the [accent]SCALE[/accent] and [accent]KEY[/accent] of a pattern with this menu in the bottom right.
+When you're using a [accent]SCALE[/accent], notes which are not in that scale are removed from the pattern!
+
+Limiting yourself to a given scale is a great way to make things sound good when you're learning to write music!"
+node_target = 104
+position_anchor = Vector2(0.82, 0.91)
+position_direction = 3
+size = Vector2(620, 300)
+
+[sub_resource type="Resource" id="Resource_svu76"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Patterns"
+description = "You can [accent]SELECT[/accent] placed notes and [accent]COPY[/accent] them around, even across different patterns!
+
+[accent]HOLD SHIFT and DRAG[/accent] across the pattern grid to select notes. Press [accent]CTRL + C[/accent] to copy and then
+[accent]CTRL + V[/accent] to paste them.
+Notes are pasted relative to the cursor, starting from the bottom-left corner."
+ref_image = ExtResource("3_8j5sp")
+ref_image_size = Vector2(320, 180)
+ref_image_position = 1
+position_anchor = Vector2(0.056, 0.09)
+size = Vector2(620, 480)
+
+[sub_resource type="Resource" id="Resource_g1nbs"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Patterns"
+description = "If you work with notes of different lengths, especially very long ones, there is one neat shortcut for you!
+
+Use [accent]CTRL + LEFT CLICK[/accent] on any existing note to change the cursor size to the length of that note.
+Click on the [accent]empty space[/accent] to reset the cursor size instead."
+position_anchor = Vector2(0.08, 0.17)
+size = Vector2(590, 300)
+
+[sub_resource type="Resource" id="Resource_y7c54"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Timeline"
+description = "You can [accent]RIGHT CLICK[/accent] on a timeline section to delete the entire bar.
+
+You can [accent]MIDDLE CLICK[/accent] (or [accent]SHIFT + LEFT CLICK[/accent]) on the timeline to insert a blank bar."
+navigation_target = 2
+node_target = 203
+position_anchor = Vector2(0.145, 0.37)
+size = Vector2(560, 230)
+
+[sub_resource type="Resource" id="Resource_ggls6"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Timeline"
+description = "You can [accent]COPY[/accent] and [accent]PASTE[/accent] arrangement bars.
+
+[accent]HOLD and DRAG[/accent] to select the sections of the timeline you want, and press [accent]CTRL + C[/accent] to copy.
+
+To paste, [accent]HOVER[/accent] the mouse over the timeline section you want to insert at, and press [accent]CTRL + V[/accent]."
+navigation_target = 2
+node_target = 203
+position_anchor = Vector2(0.24, 0.355)
+size = Vector2(640, 270)
+
+[sub_resource type="Resource" id="Resource_isqye"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Instruments"
+description = "[accent]TWEAK[/accent] how your instrument sounds with the filter pad!
+Move the square around to play with cutoff and resonance values."
+navigation_target = 3
+node_target = 304
+position_anchor = Vector2(0.88, 0.35)
+position_direction = 1
+size = Vector2(560, 200)
+
+[sub_resource type="Resource" id="Resource_flqw8"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Instruments"
+description = "You can completely [accent]DELETE[/accent] instruments and patterns that you don't want.
+
+Start [accent]DRAGGING[/accent] the item from the [accent]side list[/accent], and a [accent]delete area[/accent] will appear below the panel. [accent]LET GO[/accent] of your instrument or pattern there to confirm the deletion."
+ref_image = ExtResource("3_7bj3b")
+ref_image_size = Vector2(480, 180)
+ref_image_position = 1
+navigation_target = 3
+node_target = 306
+position_anchor = Vector2(0.93, 0.625)
+position_direction = 3
+size = Vector2(620, 460)
+
+[sub_resource type="Resource" id="Resource_03vci"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Advanced Tuning"
+description = "Alright, last one, but this one's really fancy!
+
+Spot this [accent]RECORD[/accent] button next to the instrument picker down below."
+navigation_target = 3
+node_target = 106
+position_anchor = Vector2(0.28, 0.91)
+position_direction = 2
+size = Vector2(580, 200)
+
+[sub_resource type="Resource" id="Resource_2arx2"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Advanced Tuning"
+description = "This button enables [accent]INSTRUMENT RECORDING[/accent] for the current pattern.
+When [accent]INSTRUMENT RECORDING[/accent] is on, the filter and volume values of the instrument in this pattern can be changed over time!
+
+Try clicking the [accent]RECORD[/accent] button and playing with the filter pad and the volume slider as the song plays."
+ref_image = ExtResource("4_f2mo2")
+ref_image_size = Vector2(590, 200)
+ref_image_position = 1
+navigation_target = 3
+node_target = 305
+position_anchor = Vector2(0.9, 0.375)
+position_direction = 1
+size = Vector2(680, 500)
+
+[sub_resource type="Resource" id="Resource_goh2j"]
+script = ExtResource("2_6a2si")
+title = "TIPS & TRICKS - Tutorial Complete"
+description = "I think that's everything! Have fun creating music.
+
+And thanks for using Bosca Ceoil!"
+navigation_target = 2
+position_direction = 4
+size = Vector2(480, 210)
+
+[resource]
+script = ExtResource("1_6yyxb")
+steps = Array[ExtResource("2_6a2si")]([SubResource("Resource_ie5ya"), SubResource("Resource_ig3qc"), SubResource("Resource_uprl4"), SubResource("Resource_5l0n3"), SubResource("Resource_38vdh"), SubResource("Resource_svu76"), SubResource("Resource_g1nbs"), SubResource("Resource_y7c54"), SubResource("Resource_ggls6"), SubResource("Resource_isqye"), SubResource("Resource_flqw8"), SubResource("Resource_03vci"), SubResource("Resource_2arx2"), SubResource("Resource_goh2j")])

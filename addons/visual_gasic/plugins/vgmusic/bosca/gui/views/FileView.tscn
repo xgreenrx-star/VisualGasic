@@ -1,0 +1,259 @@
+[gd_scene load_steps=8 format=3 uid="uid://d0lne8svx0ysl"]
+
+[ext_resource type="PackedScene" uid="uid://jjkaxpgl6mmu" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/widgets/AnimatedLogo.tscn" id="1_cb5p1"]
+[ext_resource type="Script" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/FileView.gd" id="1_i5se4"]
+[ext_resource type="PackedScene" uid="uid://71sw1mddco3" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/widgets/SquishyButton.tscn" id="3_6fmtw"]
+[ext_resource type="Texture2D" uid="uid://dxrpimbnhks71" path="res://addons/visual_gasic/plugins/vgmusic/bosca/assets/icons/play.png" id="4_nblwm"]
+[ext_resource type="Texture2D" uid="uid://82f8rwsfmuq8" path="res://addons/visual_gasic/plugins/vgmusic/bosca/assets/icons/pause.png" id="5_2i624"]
+[ext_resource type="Texture2D" uid="uid://y5ab1acbg8ka" path="res://addons/visual_gasic/plugins/vgmusic/bosca/assets/icons/stop.png" id="6_3jhgl"]
+[ext_resource type="PackedScene" uid="uid://d2peohvka6nmb" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/widgets/Stepper.tscn" id="6_8p7iu"]
+
+[node name="FileView" type="MarginContainer"]
+auto_translate_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_i5se4")
+
+[node name="Layout" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="FillerStart" type="Control" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Introduction" type="PanelContainer" parent="Layout"]
+custom_minimum_size = Vector2(540, 0)
+layout_mode = 2
+
+[node name="Contents" type="VBoxContainer" parent="Layout/Introduction"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"VBoxSpaced"
+
+[node name="BoscaFlair" type="VBoxContainer" parent="Layout/Introduction/Contents"]
+layout_mode = 2
+
+[node name="Logo" parent="Layout/Introduction/Contents/BoscaFlair" instance=ExtResource("1_cb5p1")]
+custom_minimum_size = Vector2(454, 104)
+layout_mode = 2
+
+[node name="VersionFlair" type="HBoxContainer" parent="Layout/Introduction/Contents/BoscaFlair"]
+layout_mode = 2
+theme_type_variation = &"HBoxSpaced"
+
+[node name="VersionSubtitle" type="Label" parent="Layout/Introduction/Contents/BoscaFlair/VersionFlair"]
+unique_name_in_owner = true
+auto_translate_mode = 1
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 0
+theme_type_variation = &"SubtitleLabel"
+text = "The Blue Album"
+
+[node name="VersionNumber" type="Label" parent="Layout/Introduction/Contents/BoscaFlair/VersionFlair"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"CreditsLabel"
+text = "vX.X flair"
+horizontal_alignment = 2
+
+[node name="Credit" type="Label" parent="Layout/Introduction/Contents"]
+auto_translate_mode = 1
+layout_mode = 2
+theme_type_variation = &"CreditsLabel"
+text = "Created by Terry Cavanagh & Yuri Sizov"
+
+[node name="Controls" type="HBoxContainer" parent="Layout/Introduction/Contents"]
+layout_mode = 2
+theme_type_variation = &"HBoxSpaced"
+
+[node name="Credits" parent="Layout/Introduction/Contents/Controls" instance=ExtResource("3_6fmtw")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+text = "CREDITS"
+
+[node name="Help" parent="Layout/Introduction/Contents/Controls" instance=ExtResource("3_6fmtw")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+text = "HELP"
+
+[node name="Playback" type="PanelContainer" parent="Layout/Introduction/Contents/Controls"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_type_variation = &"WidgetPanel"
+
+[node name="Layout" type="HBoxContainer" parent="Layout/Introduction/Contents/Controls/Playback"]
+layout_mode = 2
+alignment = 1
+
+[node name="Play" type="Button" parent="Layout/Introduction/Contents/Controls/Playback/Layout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 26)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"PlaybackButton"
+icon = ExtResource("4_nblwm")
+flat = true
+icon_alignment = 1
+expand_icon = true
+
+[node name="Pause" type="Button" parent="Layout/Introduction/Contents/Controls/Playback/Layout"]
+unique_name_in_owner = true
+auto_translate_mode = 1
+custom_minimum_size = Vector2(42, 26)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"PlaybackButton"
+icon = ExtResource("5_2i624")
+flat = true
+icon_alignment = 1
+expand_icon = true
+
+[node name="Stop" type="Button" parent="Layout/Introduction/Contents/Controls/Playback/Layout"]
+unique_name_in_owner = true
+auto_translate_mode = 1
+custom_minimum_size = Vector2(42, 26)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"PlaybackButton"
+icon = ExtResource("6_3jhgl")
+flat = true
+icon_alignment = 1
+expand_icon = true
+
+[node name="FillerMiddle" type="Control" parent="Layout"]
+auto_translate_mode = 1
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BaseControls" type="PanelContainer" parent="Layout"]
+auto_translate_mode = 1
+custom_minimum_size = Vector2(540, 0)
+layout_mode = 2
+
+[node name="Rows" type="VBoxContainer" parent="Layout/BaseControls"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"VBoxSpaced"
+
+[node name="SongFileActions" type="HBoxContainer" parent="Layout/BaseControls/Rows"]
+layout_mode = 2
+theme_type_variation = &"HBoxSpaced"
+alignment = 1
+
+[node name="CreateSong" parent="Layout/BaseControls/Rows/SongFileActions" instance=ExtResource("3_6fmtw")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+text = "NEW SONG"
+
+[node name="Layout" type="HBoxContainer" parent="Layout/BaseControls/Rows/SongFileActions"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"HBoxSpaced"
+
+[node name="LoadSong" parent="Layout/BaseControls/Rows/SongFileActions/Layout" instance=ExtResource("3_6fmtw")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+text = "LOAD"
+
+[node name="SaveSong" parent="Layout/BaseControls/Rows/SongFileActions/Layout" instance=ExtResource("3_6fmtw")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+text = "SAVE"
+
+[node name="ImportExport" type="HBoxContainer" parent="Layout/BaseControls/Rows"]
+auto_translate_mode = 1
+layout_mode = 2
+theme_type_variation = &"HBoxSpaced"
+alignment = 1
+
+[node name="ImportSong" parent="Layout/BaseControls/Rows/ImportExport" instance=ExtResource("3_6fmtw")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+text = "IMPORT..."
+
+[node name="ExportSong" parent="Layout/BaseControls/Rows/ImportExport" instance=ExtResource("3_6fmtw")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+text = "EXPORT..."
+
+[node name="PatternSettings" type="PanelContainer" parent="Layout/BaseControls/Rows"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_type_variation = &"WidgetPanel"
+
+[node name="Layout" type="HBoxContainer" parent="Layout/BaseControls/Rows/PatternSettings"]
+layout_mode = 2
+theme_type_variation = &"HBoxSpaced"
+alignment = 1
+
+[node name="Label" type="Label" parent="Layout/BaseControls/Rows/PatternSettings/Layout"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "PATTERN"
+uppercase = true
+
+[node name="BarStepper" parent="Layout/BaseControls/Rows/PatternSettings/Layout" instance=ExtResource("6_8p7iu")]
+unique_name_in_owner = true
+layout_mode = 2
+value = 4
+min_value = 1
+max_value = 32
+
+[node name="PatternStepper" parent="Layout/BaseControls/Rows/PatternSettings/Layout" instance=ExtResource("6_8p7iu")]
+unique_name_in_owner = true
+auto_translate_mode = 1
+layout_mode = 2
+value = 16
+min_value = 1
+max_value = 32
+
+[node name="BPMSettings" type="PanelContainer" parent="Layout/BaseControls/Rows"]
+auto_translate_mode = 1
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_type_variation = &"WidgetPanel"
+
+[node name="Layout" type="HBoxContainer" parent="Layout/BaseControls/Rows/BPMSettings"]
+layout_mode = 2
+theme_type_variation = &"HBoxSpaced"
+alignment = 1
+
+[node name="Label" type="Label" parent="Layout/BaseControls/Rows/BPMSettings/Layout"]
+auto_translate_mode = 1
+layout_mode = 2
+size_flags_horizontal = 3
+text = "BPM"
+uppercase = true
+
+[node name="BPMStepper" parent="Layout/BaseControls/Rows/BPMSettings/Layout" instance=ExtResource("6_8p7iu")]
+unique_name_in_owner = true
+layout_mode = 2
+value = 120
+min_value = 10
+max_value = 450
+
+[node name="FillerEnd" type="Control" parent="Layout"]
+auto_translate_mode = 1
+layout_mode = 2
+size_flags_horizontal = 3

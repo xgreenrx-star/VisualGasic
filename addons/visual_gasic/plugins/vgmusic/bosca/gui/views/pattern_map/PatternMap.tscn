@@ -1,0 +1,111 @@
+[gd_scene load_steps=9 format=3 uid="uid://cee0lffxnyap0"]
+
+[ext_resource type="Script" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/pattern_map/PatternMap.gd" id="1_a0jjr"]
+[ext_resource type="Script" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/pattern_map/PatternMapOverlay.gd" id="2_207q8"]
+[ext_resource type="Script" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/pattern_map/PatternMapTrack.gd" id="2_wby5k"]
+[ext_resource type="Script" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/pattern_map/PatternMapItems.gd" id="3_8l50s"]
+[ext_resource type="Script" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/pattern_map/PatternMapTimeline.gd" id="3_w7hei"]
+[ext_resource type="Script" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/pattern_map/PatternMapScrollbar.gd" id="5_0hb0q"]
+[ext_resource type="Texture2D" uid="uid://bu4ylhahtvclx" path="res://addons/visual_gasic/plugins/vgmusic/bosca/assets/icons/arrow_right_small.png" id="7_hkgbo"]
+[ext_resource type="Texture2D" uid="uid://dreol4dav8ocg" path="res://addons/visual_gasic/plugins/vgmusic/bosca/assets/icons/arrow_left_small.png" id="8_lgr55"]
+
+[node name="PatternMap" type="Control"]
+auto_translate_mode = 1
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_default_cursor_shape = 2
+script = ExtResource("1_a0jjr")
+
+[node name="PatternMapTrack" type="Control" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_default_cursor_shape = 2
+script = ExtResource("2_wby5k")
+
+[node name="PatternMapTimeline" type="Control" parent="."]
+unique_name_in_owner = true
+auto_translate_mode = 1
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+grow_horizontal = 2
+script = ExtResource("3_w7hei")
+
+[node name="PatternMapItems" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_8l50s")
+
+[node name="PatternMapOverlay" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_207q8")
+
+[node name="PatternMapScrollbar" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+script = ExtResource("5_0hb0q")
+
+[node name="RightButton" type="Button" parent="PatternMapScrollbar"]
+unique_name_in_owner = true
+auto_translate_mode = 1
+custom_minimum_size = Vector2(22, 22)
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = 22.0
+grow_horizontal = 0
+grow_vertical = 2
+focus_mode = 0
+theme_type_variation = &"ScrollbarButton"
+icon = ExtResource("7_hkgbo")
+icon_alignment = 1
+expand_icon = true
+
+[node name="LeftButton" type="Button" parent="PatternMapScrollbar"]
+unique_name_in_owner = true
+auto_translate_mode = 1
+custom_minimum_size = Vector2(22, 22)
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_left = -22.0
+grow_vertical = 2
+focus_mode = 0
+theme_type_variation = &"ScrollbarButton"
+icon = ExtResource("8_lgr55")
+icon_alignment = 1
+expand_icon = true

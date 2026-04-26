@@ -1,0 +1,120 @@
+[gd_scene load_steps=10 format=3 uid="uid://l0bjoy6vwtbx"]
+
+[ext_resource type="Script" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/Menu.gd" id="1_pjxdv"]
+[ext_resource type="PackedScene" uid="uid://7lvvn5lu3ywt" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/widgets/NavigationButton.tscn" id="2_l3q7q"]
+[ext_resource type="ButtonGroup" uid="uid://duqg28jfenc12" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/theme/navigation_buttons.tres" id="3_kmmx3"]
+[ext_resource type="Texture2D" uid="uid://b2uo4lffopiu7" path="res://addons/visual_gasic/plugins/vgmusic/bosca/assets/icons/fullscreen_on.png" id="4_b53yk"]
+[ext_resource type="PackedScene" uid="uid://d0lne8svx0ysl" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/FileView.tscn" id="5_6f3ft"]
+[ext_resource type="PackedScene" uid="uid://c1oriajgloul5" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/ArrangementView.tscn" id="6_0weha"]
+[ext_resource type="PackedScene" uid="uid://cw48njslxrtsl" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/InstrumentView.tscn" id="7_32hp6"]
+[ext_resource type="PackedScene" uid="uid://bhydnchi7pmla" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/GeneralHelpView.tscn" id="7_efw7d"]
+[ext_resource type="PackedScene" uid="uid://ggnvgntxytdg" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/AdvancedView.tscn" id="8_b5sqt"]
+
+[node name="Menu" type="VBoxContainer"]
+auto_translate_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_pjxdv")
+
+[node name="Navigation" type="HBoxContainer" parent="."]
+auto_translate_mode = 1
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+
+[node name="FileTab" parent="Navigation" instance=ExtResource("2_l3q7q")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+button_pressed = true
+button_group = ExtResource("3_kmmx3")
+label_text = "FILE"
+
+[node name="ArrangementTab" parent="Navigation" instance=ExtResource("2_l3q7q")]
+unique_name_in_owner = true
+auto_translate_mode = 1
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+button_group = ExtResource("3_kmmx3")
+label_text = "ARRANGEMENT"
+
+[node name="InstrumentTab" parent="Navigation" instance=ExtResource("2_l3q7q")]
+unique_name_in_owner = true
+auto_translate_mode = 1
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+button_group = ExtResource("3_kmmx3")
+label_text = "INSTRUMENT"
+
+[node name="AdvancedTab" parent="Navigation" instance=ExtResource("2_l3q7q")]
+unique_name_in_owner = true
+auto_translate_mode = 1
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+button_group = ExtResource("3_kmmx3")
+label_text = "ADVANCED"
+
+[node name="GeneralHelpTab" parent="Navigation" instance=ExtResource("2_l3q7q")]
+unique_name_in_owner = true
+auto_translate_mode = 1
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+button_group = ExtResource("3_kmmx3")
+label_text = "TUTORIALS & SHORTCUTS"
+
+[node name="NavigationFiller" type="PanelContainer" parent="Navigation"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 2.0
+theme_type_variation = &"NavigationPanel"
+
+[node name="FullscreenToggle" type="Button" parent="Navigation"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(52, 20)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"FullscreenButton"
+icon = ExtResource("4_b53yk")
+icon_alignment = 1
+expand_icon = true
+
+[node name="Contents" type="PanelContainer" parent="."]
+auto_translate_mode = 1
+custom_minimum_size = Vector2(1024, 0)
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"MenuContentsPanel"
+
+[node name="FileView" parent="Contents" instance=ExtResource("5_6f3ft")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ArrangementView" parent="Contents" instance=ExtResource("6_0weha")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="InstrumentView" parent="Contents" instance=ExtResource("7_32hp6")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="AdvancedView" parent="Contents" instance=ExtResource("8_b5sqt")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="GeneralHelpView" parent="Contents" instance=ExtResource("7_efw7d")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
