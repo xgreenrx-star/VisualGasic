@@ -72,6 +72,19 @@ The Visual Basic 6-style integrated development environment.
 
 ---
 
+## 🔌 Plugins & Game Construction Tools
+
+Built-in IDE plugins for game and audio authoring — no coding required.
+
+| Tool | Document | Description |
+|------|----------|-------------|
+| AGCK | [AGCK Manual](manual/AGCK_MANUAL.md) | Arcade Game Construction Kit — 5 sub-editors (Game Settings, Actors, Sounds, Levels, Build) for retro games |
+| Bosca Ceoil Blue | [Bosca Ceoil Manual](manual/BOSCA_CEOIL_MANUAL.md) | Built-in chiptune / music tracker — WAV, OGG, MML export; `VGMusicPlayer` node for in-game dynamic synthesis |
+| Working Nodes | [Working Nodes Manual](../addons/visual_gasic/plugins/working_nodes/WORKING_NODES_MANUAL.md) | Visual logic graph editor — Event/Action/Math nodes, smart wire routing, export to VG / 2D / 3D scene |
+| Plugin System | [Plugin System Guide](guides/PLUGIN_SYSTEM.md) | Architecture reference for building your own VG IDE plugins |
+
+---
+
 ## 🎮 3D Game Development
 
 Tools for building complete 3D games without leaving the VisualGasic IDE.

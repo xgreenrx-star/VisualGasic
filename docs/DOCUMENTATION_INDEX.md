@@ -42,6 +42,7 @@
 ### Plugin System, AGCK & Working Nodes
 - [PLUGIN_SYSTEM.md](guides/PLUGIN_SYSTEM.md) - **Plugin System Developer Guide** (architecture, base class API, plugin manager, creating plugins, AGCK as reference example)
 - [AGCK_MANUAL.md](manual/AGCK_MANUAL.md) - **Arcade Game Construction Kit Manual** (5 sub-editors: Game Settings, Actors, Sounds, Levels, Build — retro game construction)
+- [BOSCA_CEOIL_MANUAL.md](manual/BOSCA_CEOIL_MANUAL.md) - **Bosca Ceoil Blue Manual** (built-in chiptune / music tracker: WAV, OGG, MML export; `VGMusicPlayer` runtime node for in-game dynamic synthesis via GDSiON)
 - [WORKING_NODES_MANUAL.md](../addons/visual_gasic/plugins/working_nodes/WORKING_NODES_MANUAL.md) - **Working Nodes Manual** (visual logic graph editor: Event/Action/Math nodes, Geometry Dash-style groups, Blender-style math, smart wire routing, snippets, breakpoints, live VG preview, export to VG / 2D Scene / 3D Scene)
 
 ### Modern Features
@@ -133,6 +134,7 @@
 |------|-------------|----------|
 | Plugin System | Extensible plugin architecture for custom IDE tabs | `plugins/` directory (auto-discovered) |
 | AGCK | Arcade Game Construction Kit — 5-editor retro game builder | 🕹️ AGCK toolbar button |
+| Bosca Ceoil Blue | Built-in chiptune / music tracker — WAV, OGG, MML export; `VGMusicPlayer` node for in-game dynamic synthesis | 🎵 Bosca Ceoil toolbar button |
 | Sprite Editor | Piskel-style pixel art editor with 16 tools (incl. Magic Wand), 9 retro palettes, palette import/export, layers, animation | 🎨 Sprite Editor toolbar button |
 
 ### Code Editing Tools
@@ -264,6 +266,12 @@
 | `agck_sound_editor.gd` | 🔊 Sound Editor — 8 slots, 2 voices + filter, bar-graph synth |
 | `agck_level_editor.gd` | 🗺️ Level Editor — 50 levels, 20×12 grid, 7 block types |
 | `agck_game_builder.gd` | 🏗️ Game Builder — build targets, splash screen, export |
+
+### Bosca Ceoil Plugin Files (plugins/vgmusic/)
+| File | Description |
+|------|-------------|
+| `vg_vgmusic_plugin.gd` | Main plugin wrapper — embeds Bosca Ceoil Blue, export toolbar, theming fixes |
+| `runtime/VGMusicPlayer.gd` | `VGMusicPlayer` runtime node — GDSiON MML playback for game scenes |
 
 ### Navigation & Refactoring Files
 | File | Description |
