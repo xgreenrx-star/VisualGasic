@@ -162,6 +162,7 @@ var _replace_all_btn  : Button
 var _text_panel            : TextEdit
 var _text_updating         : bool = false
 var _text_mouse_selecting  : bool = false   # true while mouse drag-select active
+var _text_drag_vis_start   : int  = 0       # vis_start snapshot when drag began
 var _text_vscroll          : VScrollBar
 var _text_highlighter      : _HexTextHighlighter
 var _h_split               : HSplitContainer
@@ -1576,7 +1577,10 @@ func _on_scroll(val: float) -> void:
 	if _text_vscroll.value != val:
 		_text_vscroll.value = val
 	_canvas.queue_redraw()
-	_sync_text_panel()
+	# Never rebuild the text panel mid-drag — that replaces the text content
+	# which clears TextEdit's active selection and causes jitter.
+	if not _text_mouse_selecting:
+		_sync_text_panel()
 
 
 func _scroll_to_cursor() -> void:
@@ -2265,10 +2269,11 @@ func _on_text_panel_input(event: InputEvent) -> void:
 		var me := event as InputEventMouseButton
 		match me.button_index:
 			MOUSE_BUTTON_LEFT:
-				# Track drag-select state. On release, do a deferred sync so the
-				# final caret position is captured without jitter mid-drag.
+				# Snapshot vis_start when drag begins so column-to-byte mapping stays
+				# stable even if the hex view scrolls live during the drag.
 				if me.pressed:
 					_text_mouse_selecting = true
+					_text_drag_vis_start  = _scroll_row * _bytes_per_row
 				else:
 					_text_mouse_selecting = false
 					if not _file_data.is_empty():
@@ -2346,37 +2351,56 @@ func _on_text_panel_input(event: InputEvent) -> void:
 func _on_text_panel_caret_changed() -> void:
 	if _text_updating or _file_data.is_empty():
 		return
-	var vis_start : int = _scroll_row * _bytes_per_row
-	var vis_end   : int = mini(vis_start + _rows_visible * _bytes_per_row, _file_data.size())
-	var col       : int = _text_panel.get_caret_column()
-	var off       : int = clamp(vis_start + col, 0, _file_data.size() - 1)
 
-	# Move hex cursor to match text panel caret
+	# Column-to-byte mapping:
+	# While drag-selecting we freeze the text content so column positions remain
+	# anchored to _text_drag_vis_start (the vis_start when the drag started).
+	# Using _scroll_row here would give wrong offsets if the hex has already
+	# scrolled live to follow the drag.
+	var base_start : int = _text_drag_vis_start if _text_mouse_selecting \
+	                       else _scroll_row * _bytes_per_row
+	var col        : int = _text_panel.get_caret_column()
+	var off        : int = clamp(base_start + col, 0, _file_data.size() - 1)
+
 	_cursor = off
 
 	# Sync hex selection from text panel selection
 	if _text_panel.has_selection():
 		var sc : int = _text_panel.get_selection_from_column()
 		var ec : int = _text_panel.get_selection_to_column()
-		_sel_start = clamp(vis_start + sc, 0, _file_data.size() - 1)
-		_sel_end   = clamp(vis_start + ec - 1, _sel_start, _file_data.size() - 1)
+		_sel_start = clamp(base_start + sc,     0, _file_data.size() - 1)
+		_sel_end   = clamp(base_start + ec - 1, _sel_start, _file_data.size() - 1)
 	else:
 		_sel_start = -1
 		_sel_end   = -1
 
-	# During a mouse drag-select, just update the hex view highlight without
-	# rebuilding the text content — replacing text mid-drag clears the selection
-	# and causes the jitter/fight the user sees.
 	if _text_mouse_selecting:
+		# Live-scroll the hex view to follow the caret without rebuilding the
+		# text panel content (which would clear TextEdit's active selection).
+		# Block scrollbar signals to avoid triggering _on_scroll → _sync_text_panel.
+		var cursor_row : int = _cursor / _bytes_per_row
+		var new_scroll : int = _scroll_row
+		if cursor_row < _scroll_row:
+			new_scroll = cursor_row
+		elif cursor_row >= _scroll_row + _rows_visible:
+			new_scroll = cursor_row - _rows_visible + 1
+		if new_scroll != _scroll_row:
+			_scroll_row = new_scroll
+			_vscroll.set_block_signals(true)
+			_text_vscroll.set_block_signals(true)
+			_vscroll.value      = float(_scroll_row)
+			_text_vscroll.value = float(_scroll_row)
+			_vscroll.set_block_signals(false)
+			_text_vscroll.set_block_signals(false)
 		_canvas.queue_redraw()
 		_update_status()
 		return
 
-	# If caret is on bytes outside the hex-visible range, scroll hex to show them.
-	# (Safe to rebuild now — no active drag selection to disrupt.)
-	if off >= vis_end:
-		_text_updating = true   # block re-entrant caret_changed during rebuild
-		_scroll_to_cursor()     # scrolls + calls _sync_text_panel() which clears _text_updating
+	# Not selecting — if caret is outside hex-visible range, scroll and rebuild.
+	var vis_end : int = (_scroll_row + _rows_visible) * _bytes_per_row
+	if off >= vis_end or off < _scroll_row * _bytes_per_row:
+		_text_updating = true
+		_scroll_to_cursor()
 		return
 
 	_canvas.queue_redraw()
