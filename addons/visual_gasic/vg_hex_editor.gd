@@ -164,6 +164,8 @@ var _text_updating    : bool = false
 var _text_vscroll     : VScrollBar
 var _text_highlighter : _HexTextHighlighter
 var _h_split          : HSplitContainer
+var _v_split          : VSplitContainer   # vertical split inside text side
+var _tv_vb            : VBoxContainer     # text-panel VBox (top of _v_split)
 
 # =============================================================================
 # INIT
@@ -213,12 +215,17 @@ func _init() -> void:
 
 	_h_split.add_child(hex_hbox)
 
-	# Right side: header + (text panel + mirror scrollbar)
-	var tv_vb := VBoxContainer.new()
-	tv_vb.size_flags_horizontal    = Control.SIZE_EXPAND_FILL
-	tv_vb.size_flags_vertical      = Control.SIZE_EXPAND_FILL
-	tv_vb.add_theme_constant_override("separation", 0)
-	tv_vb.custom_minimum_size.x    = 160
+	# Right side: VSplitContainer — text panel (top) + future area (bottom)
+	_v_split = VSplitContainer.new()
+	_v_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_v_split.size_flags_vertical   = Control.SIZE_EXPAND_FILL
+	_v_split.add_theme_constant_override("separation", 5)
+
+	_tv_vb = VBoxContainer.new()
+	_tv_vb.size_flags_horizontal    = Control.SIZE_EXPAND_FILL
+	_tv_vb.size_flags_vertical      = Control.SIZE_EXPAND_FILL
+	_tv_vb.add_theme_constant_override("separation", 0)
+	_tv_vb.custom_minimum_size.x    = 160
 
 	var tv_hdr := PanelContainer.new()
 	tv_hdr.custom_minimum_size.y = 22
@@ -230,7 +237,7 @@ func _init() -> void:
 	tv_hdr_lbl.add_theme_color_override("font_color", Color.WHITE)
 	tv_hdr_lbl.add_theme_font_size_override("font_size", 11)
 	tv_hdr.add_child(tv_hdr_lbl)
-	tv_vb.add_child(tv_hdr)
+	_tv_vb.add_child(tv_hdr)
 
 	# Text panel + its own scrollbar in an HBox
 	var tv_body := HBoxContainer.new()
@@ -246,7 +253,7 @@ func _init() -> void:
 	_text_panel.scroll_fit_content_height  = false
 	_text_panel.context_menu_enabled       = false
 	_text_panel.shortcut_keys_enabled      = false
-	_text_panel.selecting_enabled          = false
+	_text_panel.selecting_enabled          = true   # allow mouse selection
 	# Disable TextEdit's own built-in scrollbars — we provide our own
 	_text_panel.scroll_past_end_of_file    = false
 	_text_panel.gui_input.connect(_on_text_panel_input)
@@ -258,8 +265,18 @@ func _init() -> void:
 	_text_vscroll.value_changed.connect(_on_scroll)
 	tv_body.add_child(_text_vscroll)
 
-	tv_vb.add_child(tv_body)
-	_h_split.add_child(tv_vb)
+	_tv_vb.add_child(tv_body)
+	_v_split.add_child(_tv_vb)
+
+	# Bottom panel: placeholder area for future panels below the text view
+	var tv_bottom := PanelContainer.new()
+	tv_bottom.custom_minimum_size.y = 60
+	var tv_bottom_sb := StyleBoxFlat.new()
+	tv_bottom_sb.bg_color = Color("#F0F0F0")
+	tv_bottom.add_theme_stylebox_override("panel", tv_bottom_sb)
+	_v_split.add_child(tv_bottom)
+
+	_h_split.add_child(_v_split)
 
 	vbox.add_child(_h_split)
 	vbox.add_child(_make_status_bar())
@@ -609,6 +626,8 @@ func _ready() -> void:
 	_text_panel.add_theme_color_override("font_readonly_color",   Color("#000000"))
 	_text_panel.add_theme_color_override("background_color",      Color("#FFFFFF"))
 	_text_panel.add_theme_color_override("caret_color",           Color("#000080"))
+	_text_panel.add_theme_color_override("selection_color",       Color("#000080"))
+	_text_panel.add_theme_color_override("font_selected_color",   Color("#FFFFFF"))
 	if _font:
 		_text_panel.add_theme_font_override("font",           _font)
 		_text_panel.add_theme_font_size_override("font_size", _font_size)
@@ -658,6 +677,9 @@ func _set_default_split() -> void:
 	# Give the text panel a starting width of ~260, rest goes to hex
 	if _h_split and _h_split.size.x > 0:
 		_h_split.split_offset = int(_h_split.size.x) - 265
+	# Give the bottom placeholder ~80 px; text panel gets the rest
+	if _v_split and _v_split.size.y > 0:
+		_v_split.split_offset = int(_v_split.size.y) - 80
 
 
 func _recalc_metrics() -> void:
@@ -681,6 +703,9 @@ func _recalc_rows_visible() -> void:
 func _on_canvas_resized() -> void:
 	_recalc_rows_visible()
 	_update_scrollbar()
+	# Keep text panel min height == hex canvas height so it never shows less data
+	if _tv_vb and _canvas.size.y > 0:
+		_tv_vb.custom_minimum_size.y = _canvas.size.y
 	_canvas.queue_redraw()
 	_sync_text_panel()
 
@@ -2223,6 +2248,17 @@ func _sync_text_panel() -> void:
 	_text_panel.set_caret_line(0)
 	_text_panel.set_caret_column(caret_col)
 
+	# Mirror hex selection into the text panel
+	if _sel_start >= 0 and _sel_end >= 0:
+		var sel_from : int = clamp(_sel_start - vis_start, 0, flat.length())
+		var sel_to   : int = clamp(_sel_end   - vis_start + 1, 0, flat.length())
+		if sel_from < sel_to:
+			_text_panel.select(0, sel_from, 0, sel_to)
+		else:
+			_text_panel.deselect()
+	else:
+		_text_panel.deselect()
+
 	_text_updating = false
 
 
@@ -2295,10 +2331,29 @@ func _on_text_panel_input(event: InputEvent) -> void:
 func _on_text_panel_caret_changed() -> void:
 	if _text_updating or _file_data.is_empty():
 		return
-	# Flat-string model: logical line is always 0; column = offset in visible slice.
 	var vis_start : int = _scroll_row * _bytes_per_row
+	var vis_end   : int = mini(vis_start + _rows_visible * _bytes_per_row, _file_data.size())
 	var col       : int = _text_panel.get_caret_column()
 	var off       : int = clamp(vis_start + col, 0, _file_data.size() - 1)
+
+	# Move hex cursor to match text panel caret
 	_cursor = off
+
+	# Sync hex selection from text panel selection
+	if _text_panel.has_selection():
+		var sc : int = _text_panel.get_selection_from_column()
+		var ec : int = _text_panel.get_selection_to_column()
+		_sel_start = clamp(vis_start + sc, 0, _file_data.size() - 1)
+		_sel_end   = clamp(vis_start + ec - 1, _sel_start, _file_data.size() - 1)
+	else:
+		_sel_start = -1
+		_sel_end   = -1
+
+	# If caret is on bytes outside the hex-visible range, scroll hex to show them
+	if off >= vis_end:
+		_text_updating = true   # block re-entrant caret_changed during rebuild
+		_scroll_to_cursor()     # scrolls + calls _sync_text_panel() which clears _text_updating
+		return
+
 	_canvas.queue_redraw()
 	_update_status()
