@@ -7,14 +7,40 @@ extends Window
 # =============================================================================
 
 class _HexTextHighlighter extends SyntaxHighlighter:
-	var vis_len : int = 0
-	func _get_line_syntax_highlighting(line: int) -> Dictionary:
-		if vis_len <= 0:
-			return {}
-		return {
-			0:       {"color": Color(0.0,  0.0,  0.0)},
-			vis_len: {"color": Color(0.55, 0.55, 0.55)},
-		}
+	## Per-line byte-offset table (index = text line → byte offset of its first char)
+	var line_offsets : PackedInt64Array = PackedInt64Array()
+	## Byte range currently visible in the hex canvas
+	var vis_start    : int = 0
+	var vis_end      : int = 0
+
+	func _get_line_syntax_highlighting(p_line: int) -> Dictionary:
+		if line_offsets.is_empty() or p_line >= line_offsets.size():
+			return {0: {"color": Color(0.55, 0.55, 0.55)}}
+
+		var ls : int = line_offsets[p_line]
+		# Determine next line's start so we know the line byte length
+		var le : int = line_offsets[p_line + 1] if p_line + 1 < line_offsets.size() else ls + 99999
+
+		# Fully outside the visible range — dim entire line
+		if le <= vis_start or ls >= vis_end:
+			return {0: {"color": Color(0.55, 0.55, 0.55)}}
+
+		var d := {}
+
+		# Color before vis_start
+		if ls < vis_start:
+			d[0] = {"color": Color(0.55, 0.55, 0.55)}
+			d[vis_start - ls] = {"color": Color(0.0, 0.0, 0.0)}
+		else:
+			d[0] = {"color": Color(0.0, 0.0, 0.0)}
+
+		# Color after vis_end
+		if le > vis_end:
+			var end_col : int = vis_end - ls
+			if end_col > 0:
+				d[end_col] = {"color": Color(0.55, 0.55, 0.55)}
+
+		return d
 ##
 ## Interaction model:
 ##   • Click hex/ASCII cell to position cursor (Tab switches panels)
@@ -163,6 +189,7 @@ var _text_panel            : TextEdit
 var _text_updating         : bool = false
 var _text_mouse_selecting  : bool = false   # true while mouse drag-select active
 var _text_drag_vis_start   : int  = 0       # vis_start snapshot when drag began
+var _text_line_offsets     : PackedInt64Array = PackedInt64Array()  # byte offset of each text line
 var _text_vscroll          : VScrollBar
 var _text_highlighter      : _HexTextHighlighter
 var _h_split               : HSplitContainer
@@ -251,7 +278,7 @@ func _init() -> void:
 	_text_panel.size_flags_horizontal      = Control.SIZE_EXPAND_FILL
 	_text_panel.size_flags_vertical        = Control.SIZE_EXPAND_FILL
 	_text_panel.editable                   = true    # must be true for caret to render
-	_text_panel.wrap_mode                  = TextEdit.LINE_WRAPPING_NONE
+	_text_panel.wrap_mode                  = TextEdit.LINE_WRAPPING_BOUNDARY
 	_text_panel.scroll_fit_content_height  = false
 	_text_panel.context_menu_enabled       = false
 	_text_panel.shortcut_keys_enabled      = false
@@ -605,6 +632,10 @@ func _ready() -> void:
 	_text_panel.add_theme_constant_override("v_scroll_speed", 0)
 	_text_panel.scroll_vertical = 0
 
+	# Syntax highlighter: dims text outside hex-visible range
+	_text_highlighter = _HexTextHighlighter.new()
+	_text_panel.syntax_highlighter = _text_highlighter
+
 	# ── Text panel: override Godot editor dark theme with VB6 white/black ────
 	var te_sb := StyleBoxFlat.new()
 	te_sb.bg_color              = Color("#FFFFFF")
@@ -774,7 +805,7 @@ func open_file(path: String) -> void:
 	_update_status()
 	_update_scrollbar()
 	_canvas.queue_redraw()
-	_sync_text_panel()
+	_rebuild_text_panel()
 
 
 func open_with_dialog() -> void:
@@ -1311,7 +1342,7 @@ func _write_byte(off: int, val: int) -> void:
 	_modified         = true
 	_dirty_label.text = "● Modified"
 	_update_status()
-	_sync_text_panel()
+	_rebuild_text_panel()
 
 
 func _insert_byte_at(off: int) -> void:
@@ -1345,7 +1376,7 @@ func _delete_byte_at(off: int) -> void:
 	_modified         = true
 	_dirty_label.text = "● Modified"
 	_update_scrollbar()
-	_sync_text_panel()
+	_rebuild_text_panel()
 
 
 func _do_undo() -> void:
@@ -1365,7 +1396,7 @@ func _do_undo() -> void:
 	_dirty_label.text = "● Modified" if _modified else ""
 	_update_status()
 	_canvas.queue_redraw()
-	_sync_text_panel()
+	_rebuild_text_panel()
 
 
 func _do_redo() -> void:
@@ -1385,7 +1416,7 @@ func _do_redo() -> void:
 	_dirty_label.text = "● Modified"
 	_update_status()
 	_canvas.queue_redraw()
-	_sync_text_panel()
+	_rebuild_text_panel()
 
 
 func _delete_byte_at_no_record(off: int) -> void:
@@ -1573,10 +1604,9 @@ func _on_scroll(val: float) -> void:
 	if _text_vscroll.value != val:
 		_text_vscroll.value = val
 	_canvas.queue_redraw()
-	# Never rebuild the text panel mid-drag — that replaces the text content
-	# which clears TextEdit's active selection and causes jitter.
-	if not _text_mouse_selecting:
-		_sync_text_panel()
+	# _sync_text_panel only updates the highlighter range + TextEdit scroll;
+	# it never touches the text content so it's safe to call mid-drag too.
+	_sync_text_panel()
 
 
 func _scroll_to_cursor() -> void:
@@ -2210,60 +2240,113 @@ func _show_highlight_dialog() -> void:
 # =============================================================================
 
 func _sync_text_panel() -> void:
+	if not _text_panel or not _text_highlighter:
+		return
+
+	if _file_data.is_empty() or _text_line_offsets.is_empty():
+		_text_updating = true
+		_text_panel.text = ""
+		_text_updating = false
+		return
+
+	# Update highlighted range — which bytes are currently in the hex view
+	var vis_start : int = _scroll_row * _bytes_per_row
+	var vis_end   : int = mini(vis_start + _rows_visible * _bytes_per_row, _file_data.size())
+	_text_highlighter.vis_start = vis_start
+	_text_highlighter.vis_end   = vis_end
+	_text_panel.queue_redraw()
+
+	# Scroll the TextEdit so the first visible hex row appears at the top.
+	# Binary-search _text_line_offsets for vis_start.
+	var target_line : int = _offset_to_text_line(vis_start)
+	_text_panel.scroll_vertical = target_line
+
+	# Caret: find line + column from _cursor
+	if not _text_mouse_selecting:
+		_text_updating = true
+		var caret_line : int = _offset_to_text_line(_cursor)
+		var caret_col  : int = _cursor - _text_line_offsets[caret_line]
+		_text_panel.set_caret_line(caret_line)
+		_text_panel.set_caret_column(caret_col)
+
+		# Mirror hex selection
+		if _sel_start >= 0 and _sel_end >= 0:
+			var fl : int = _offset_to_text_line(_sel_start)
+			var fc : int = _sel_start - _text_line_offsets[fl]
+			var tl : int = _offset_to_text_line(_sel_end)
+			var tc : int = _sel_end - _text_line_offsets[tl] + 1
+			_text_panel.select(fl, fc, tl, tc)
+		else:
+			_text_panel.deselect()
+		_text_updating = false
+
+
+## Rebuild the full text content from _file_data.
+## Call this whenever the file is (re-)loaded or bytes are modified.
+func _rebuild_text_panel() -> void:
 	if not _text_panel:
 		return
 	_text_updating = true
+	_text_line_offsets = PackedInt64Array()
 
 	if _file_data.is_empty():
 		_text_panel.text = ""
 		_text_updating = false
 		return
 
-	# Build exactly one line per visible hex row — no word-wrap, no overflow.
-	# TextEdit has nothing to scroll internally; we own all navigation.
-	var vis_start : int = _scroll_row * _bytes_per_row
-	var lines : PackedStringArray = PackedStringArray()
-	for row in range(_rows_visible):
-		var row_start : int = vis_start + row * _bytes_per_row
-		if row_start >= _file_data.size():
-			lines.append("")
-			continue
-		var row_end : int = mini(row_start + _bytes_per_row, _file_data.size())
-		var ln : String = ""
-		for off in range(row_start, row_end):
-			var b : int = _file_data[off]
-			ln += char(b) if (b >= 0x20 and b <= 0x7E) else "?"
-		lines.append(ln)
+	# Build text: \n bytes become real newlines, all others printable or '?'.
+	# \r\n is collapsed to a single newline.
+	# Record the byte offset of the start of each logical line.
+	var buf   := PackedByteArray()
+	buf.resize(_file_data.size())   # max possible (may shrink due to \r removal)
+	_text_line_offsets.append(0)    # line 0 starts at byte 0
+	var wi : int = 0
+	var i  : int = 0
+	while i < _file_data.size():
+		var b : int = _file_data[i]
+		if b == 0x0A:                        # \n  — emit newline
+			buf[wi] = 0x0A
+			wi += 1
+			_text_line_offsets.append(i + 1) # next line starts at i+1
+		elif b == 0x0D:                      # \r  — skip; peek at \n
+			if i + 1 < _file_data.size() and _file_data[i + 1] == 0x0A:
+				i += 1                       # consume \r, loop will consume \n
+			# Do NOT emit \r; the following \n (or next iteration) handles it
+		elif b >= 0x20 and b <= 0x7E:
+			buf[wi] = b
+			wi += 1
+		else:
+			buf[wi] = 0x3F                   # '?'
+			wi += 1
+		i += 1
 
-	_text_panel.text = "\n".join(lines)
-	# Pin TextEdit scroll to top — we control the viewport, not TextEdit
+	buf.resize(wi)
+	_text_panel.text = buf.get_string_from_ascii()
+	# Force TextEdit internal scroll to 0; we control position via scroll_vertical
 	_text_panel.scroll_vertical   = 0
 	_text_panel.scroll_horizontal = 0
 
-	# Caret: (line, col) within the visible slice
-	var caret_off  : int = clamp(_cursor - vis_start, 0, maxi(0, _file_data.size() - vis_start - 1))
-	var caret_line : int = clamp(caret_off / _bytes_per_row, 0, _rows_visible - 1)
-	var caret_col  : int = caret_off % _bytes_per_row
-	_text_panel.set_caret_line(caret_line)
-	_text_panel.set_caret_column(caret_col)
-
-	# Mirror hex selection into the text panel
-	if _sel_start >= 0 and _sel_end >= 0:
-		var max_off   : int = _rows_visible * _bytes_per_row
-		var from_off  : int = clamp(_sel_start - vis_start, 0, max_off)
-		var to_off    : int = clamp(_sel_end   - vis_start + 1, 0, max_off)
-		if from_off < to_off:
-			var fl : int = clamp(from_off / _bytes_per_row, 0, _rows_visible - 1)
-			var fc : int = from_off % _bytes_per_row
-			var tl : int = clamp((to_off - 1) / _bytes_per_row, 0, _rows_visible - 1)
-			var tc : int = (to_off - 1) % _bytes_per_row + 1   # select() end col is exclusive
-			_text_panel.select(fl, fc, tl, tc)
-		else:
-			_text_panel.deselect()
-	else:
-		_text_panel.deselect()
+	# Push line offsets into the highlighter
+	if _text_highlighter:
+		_text_highlighter.line_offsets = _text_line_offsets
 
 	_text_updating = false
+	_sync_text_panel()
+
+
+## Binary search: return the text line index whose byte offset <= target_offset.
+func _offset_to_text_line(target_offset: int) -> int:
+	if _text_line_offsets.is_empty():
+		return 0
+	var lo : int = 0
+	var hi : int = _text_line_offsets.size() - 1
+	while lo < hi:
+		var mid : int = (lo + hi + 1) / 2
+		if _text_line_offsets[mid] <= target_offset:
+			lo = mid
+		else:
+			hi = mid - 1
+	return lo
 
 
 func _on_text_panel_input(event: InputEvent) -> void:
@@ -2279,13 +2362,12 @@ func _on_text_panel_input(event: InputEvent) -> void:
 				else:
 					_text_mouse_selecting = false
 					if not _file_data.is_empty():
-						# Restore scroll to the drag-start row so the text panel
-						# rebuilds with the exact same content shown during the drag.
-						# _sel_start/_sel_end were computed using _text_drag_vis_start
-						# as the base, so the selection columns map correctly here.
-						var drag_row : int = _text_drag_vis_start / _bytes_per_row
-						_scroll_row = clamp(drag_row, 0,
-							max(0, int(ceil(float(_file_data.size()) / _bytes_per_row)) - _rows_visible))
+						# After drag, restore hex scroll so it matches where the text
+						# caret ended up (i.e. vis_start = _sel_start rounded to row).
+						var target_byte : int = _sel_start if _sel_start >= 0 else _cursor
+						var cursor_row  : int = target_byte / _bytes_per_row
+						var total_rows  : int = int(ceil(float(_file_data.size()) / float(_bytes_per_row)))
+						_scroll_row = clamp(cursor_row, 0, maxi(0, total_rows - _rows_visible))
 						_vscroll.set_block_signals(true)
 						_text_vscroll.set_block_signals(true)
 						_vscroll.value      = float(_scroll_row)
@@ -2299,16 +2381,16 @@ func _on_text_panel_input(event: InputEvent) -> void:
 				if me.pressed:
 					_scroll_row    = maxi(0, _scroll_row - 3)
 					_vscroll.value = _scroll_row
-					_sync_text_panel()
 					_canvas.queue_redraw()
 					get_viewport().set_input_as_handled()
+					_sync_text_panel()
 			MOUSE_BUTTON_WHEEL_DOWN:
 				if me.pressed:
 					var total_rows : int = int(ceil(float(_file_data.size()) / float(_bytes_per_row)))
 					_scroll_row    = mini(maxi(total_rows - 1, 0), _scroll_row + 3)
 					_vscroll.value = _scroll_row
-					_sync_text_panel()
 					_canvas.queue_redraw()
+					_sync_text_panel()
 					get_viewport().set_input_as_handled()
 		return
 
@@ -2362,39 +2444,29 @@ func _on_text_panel_input(event: InputEvent) -> void:
 
 	# Printable character — overwrite the byte at the caret position
 	var uch : int = ke.unicode
-	if uch >= 0x20 and uch <= 0x7E and not _file_data.is_empty():
-		var vis_start : int = _scroll_row * _bytes_per_row
-		var line      : int = _text_panel.get_caret_line()
-		var col       : int = _text_panel.get_caret_column()
-		var off       : int = vis_start + line * _bytes_per_row + col
-		if off < _file_data.size():
-			_write_byte(off, uch)
-			# Advance caret by 1 within the same row
-			var row_end_col : int = mini(_bytes_per_row, _file_data.size() - (vis_start + line * _bytes_per_row)) - 1
-			col = mini(col + 1, row_end_col)
-			_text_updating = true
-			_sync_text_panel()
-			_text_panel.set_caret_line(line)
-			_text_panel.set_caret_column(col)
-			_text_updating = false
-			_cursor = vis_start + line * _bytes_per_row + col
-			_canvas.queue_redraw()
+	if uch >= 0x20 and uch <= 0x7E and not _file_data.is_empty() and not _text_line_offsets.is_empty():
+		var line : int = _text_panel.get_caret_line()
+		var col  : int = _text_panel.get_caret_column()
+		if line < _text_line_offsets.size():
+			var off : int = _text_line_offsets[line] + col
+			if off < _file_data.size():
+				_write_byte(off, uch)  # _rebuild_text_panel called inside _write_byte
+				_cursor = mini(off + 1, _file_data.size() - 1)
+				_canvas.queue_redraw()
 		get_viewport().set_input_as_handled()
 
 
 func _on_text_panel_caret_changed() -> void:
-	if _text_updating or _file_data.is_empty():
+	if _text_updating or _file_data.is_empty() or _text_line_offsets.is_empty():
 		return
 
-	# Line-per-row mapping:
-	# (line, col) in the TextEdit directly maps to a byte offset.
-	# During drag we use the frozen drag-start vis_start so the mapping
-	# stays stable even as the hex live-scrolls.
-	var base_start : int = _text_drag_vis_start if _text_mouse_selecting \
-	                       else _scroll_row * _bytes_per_row
-	var line       : int = _text_panel.get_caret_line()
-	var col        : int = _text_panel.get_caret_column()
-	var off        : int = clamp(base_start + line * _bytes_per_row + col, 0, _file_data.size() - 1)
+	var line : int = _text_panel.get_caret_line()
+	var col  : int = _text_panel.get_caret_column()
+	var off  : int
+	if line < _text_line_offsets.size():
+		off = clamp(_text_line_offsets[line] + col, 0, _file_data.size() - 1)
+	else:
+		off = _file_data.size() - 1
 
 	_cursor = off
 
@@ -2404,16 +2476,21 @@ func _on_text_panel_caret_changed() -> void:
 		var fc : int = _text_panel.get_selection_from_column()
 		var tl : int = _text_panel.get_selection_to_line()
 		var tc : int = _text_panel.get_selection_to_column()
-		_sel_start = clamp(base_start + fl * _bytes_per_row + fc, 0, _file_data.size() - 1)
-		_sel_end   = clamp(base_start + tl * _bytes_per_row + tc - 1, _sel_start, _file_data.size() - 1)
+		var from_off : int = 0
+		var to_off   : int = 0
+		if fl < _text_line_offsets.size():
+			from_off = _text_line_offsets[fl] + fc
+		if tl < _text_line_offsets.size():
+			to_off = _text_line_offsets[tl] + tc - 1
+		_sel_start = clamp(from_off, 0, _file_data.size() - 1)
+		_sel_end   = clamp(to_off,   _sel_start, _file_data.size() - 1)
 	else:
 		_sel_start = -1
 		_sel_end   = -1
 
 	if _text_mouse_selecting:
-		# Live-scroll the hex view to follow the caret.
-		# Block scrollbar signals to avoid triggering _on_scroll → _sync_text_panel
-		# (which would rebuild the text and clear the active selection).
+		# Sync highlight range in highlighter; scroll hex to follow caret.
+		# Do NOT rebuild text content — would clear the active selection.
 		var cursor_row : int = _cursor / _bytes_per_row
 		var new_scroll : int = _scroll_row
 		if cursor_row < _scroll_row:
@@ -2428,13 +2505,19 @@ func _on_text_panel_caret_changed() -> void:
 			_text_vscroll.value = float(_scroll_row)
 			_vscroll.set_block_signals(false)
 			_text_vscroll.set_block_signals(false)
+		# Update highlighter vis range without touching text content
+		if _text_highlighter:
+			_text_highlighter.vis_start = _scroll_row * _bytes_per_row
+			_text_highlighter.vis_end   = mini((_scroll_row + _rows_visible) * _bytes_per_row, _file_data.size())
+			_text_panel.queue_redraw()
 		_canvas.queue_redraw()
 		_update_status()
 		return
 
-	# Keyboard navigation — if caret moved outside the visible range, scroll and rebuild.
-	var vis_end : int = (_scroll_row + _rows_visible) * _bytes_per_row
-	if off >= vis_end or off < _scroll_row * _bytes_per_row:
+	# Keyboard / click navigation outside visible hex range: scroll hex to byte.
+	var vis_start : int = _scroll_row * _bytes_per_row
+	var vis_end   : int = vis_start + _rows_visible * _bytes_per_row
+	if off < vis_start or off >= vis_end:
 		_text_updating = true
 		_scroll_to_cursor()
 		return
