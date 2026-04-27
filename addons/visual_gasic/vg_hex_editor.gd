@@ -211,7 +211,7 @@ func _init() -> void:
 	_text_panel.size_flags_horizontal      = Control.SIZE_EXPAND_FILL
 	_text_panel.size_flags_vertical        = Control.SIZE_EXPAND_FILL
 	_text_panel.editable                   = false
-	_text_panel.wrap_mode                  = TextEdit.LINE_WRAPPING_NONE
+	_text_panel.wrap_mode                  = TextEdit.LINE_WRAPPING_BOUNDARY
 	_text_panel.scroll_fit_content_height  = false
 	_text_panel.context_menu_enabled       = false
 	_text_panel.shortcut_keys_enabled      = false
@@ -2130,31 +2130,22 @@ func _sync_text_panel() -> void:
 		_text_updating   = false
 		return
 
-	var total_rows : int = int(ceil(float(_file_data.size()) / float(_bytes_per_row)))
-	var lines : PackedStringArray = PackedStringArray()
-	for r in range(_rows_visible):
-		var row : int = _scroll_row + r
-		if row >= total_rows:
-			lines.append("")
-			continue
-		var row_off : int = row * _bytes_per_row
-		var row_str : String = ""
-		for c in range(_bytes_per_row):
-			var off : int = row_off + c
-			if off >= _file_data.size():
-				row_str += " "
-			else:
-				var b : int = _file_data[off]
-				row_str += char(b) if (b >= 0x20 and b <= 0x7E) else "?"
-		lines.append(row_str)
+	# Build a single flat string for the visible byte slice — no forced newlines.
+	# Word-wrap is handled by the TextEdit control itself.
+	var vis_start : int = _scroll_row * _bytes_per_row
+	var vis_end   : int = mini(vis_start + _rows_visible * _bytes_per_row, _file_data.size())
+	var flat : String = ""
+	for off in range(vis_start, vis_end):
+		var b : int = _file_data[off]
+		flat += char(b) if (b >= 0x20 and b <= 0x7E) else "?"
 
-	_text_panel.text = "\n".join(lines)
+	_text_panel.text = flat
 
-	# Sync caret to hex cursor
-	var c_row  : int = clamp(_cursor / _bytes_per_row - _scroll_row, 0, maxi(0, _rows_visible - 1))
-	var c_col  : int = _cursor % _bytes_per_row
-	_text_panel.set_caret_line(c_row)
-	_text_panel.set_caret_column(c_col)
+	# Caret: column = offset of hex cursor within the visible slice.
+	# With wrap mode the logical line is still 0; caret_column = index in flat string.
+	var caret_col : int = clamp(_cursor - vis_start, 0, maxi(0, flat.length() - 1))
+	_text_panel.set_caret_line(0)
+	_text_panel.set_caret_column(caret_col)
 
 	_text_updating = false
 
@@ -2207,26 +2198,20 @@ func _on_text_panel_input(event: InputEvent) -> void:
 	# Printable character — overwrite the byte at the caret position
 	var uch : int = ke.unicode
 	if uch >= 0x20 and uch <= 0x7E and not _file_data.is_empty():
-		var line : int = _text_panel.get_caret_line()
-		var col  : int = mini(_text_panel.get_caret_column(), _bytes_per_row - 1)
-		var off  : int = (_scroll_row + line) * _bytes_per_row + col
+		var vis_start : int = _scroll_row * _bytes_per_row
+		var col       : int = _text_panel.get_caret_column()
+		var off       : int = vis_start + col
 		if off < _file_data.size():
 			_write_byte(off, uch)
-			# Advance caret manually
-			col += 1
-			if col >= _bytes_per_row:
-				col   = 0
-				line += 1
-			var max_line : int = int(ceil(float(_file_data.size()) / float(_bytes_per_row))) - _scroll_row - 1
-			if line > max_line:
-				line = max_line
-				col  = mini(_bytes_per_row - 1, _file_data.size() - 1 - (_scroll_row + line) * _bytes_per_row)
+			var vis_end : int = mini(vis_start + _rows_visible * _bytes_per_row, _file_data.size())
+			var max_col : int = vis_end - vis_start - 1
+			col = mini(col + 1, max_col)
 			_text_updating = true
 			_sync_text_panel()
-			_text_panel.set_caret_line(line)
+			_text_panel.set_caret_line(0)
 			_text_panel.set_caret_column(col)
 			_text_updating = false
-			_cursor = (_scroll_row + line) * _bytes_per_row + col
+			_cursor = vis_start + col
 			_canvas.queue_redraw()
 		get_viewport().set_input_as_handled()
 
@@ -2234,10 +2219,10 @@ func _on_text_panel_input(event: InputEvent) -> void:
 func _on_text_panel_caret_changed() -> void:
 	if _text_updating or _file_data.is_empty():
 		return
-	var line : int = _text_panel.get_caret_line()
-	var col  : int = mini(_text_panel.get_caret_column(), _bytes_per_row - 1)
-	var off  : int = (_scroll_row + line) * _bytes_per_row + col
-	off = clamp(off, 0, _file_data.size() - 1)
+	# Flat-string model: logical line is always 0; column = offset in visible slice.
+	var vis_start : int = _scroll_row * _bytes_per_row
+	var col       : int = _text_panel.get_caret_column()
+	var off       : int = clamp(vis_start + col, 0, _file_data.size() - 1)
 	_cursor = off
 	_canvas.queue_redraw()
 	_update_status()
