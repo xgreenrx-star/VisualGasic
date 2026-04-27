@@ -1,6 +1,20 @@
 @tool
 extends Window
-## VG Hex Editor — fully editable hex + ASCII editor
+## VG Hex Editor — fully editable hex + ASCII + text editor
+
+# =============================================================================
+# INNER: SyntaxHighlighter that dims text beyond the hex-visible range
+# =============================================================================
+
+class _HexTextHighlighter extends SyntaxHighlighter:
+	var vis_len : int = 0
+	func _get_line_syntax_highlighting(line: int) -> Dictionary:
+		if vis_len <= 0:
+			return {}
+		return {
+			0:       {"color": Color(0.0,  0.0,  0.0)},
+			vis_len: {"color": Color(0.55, 0.55, 0.55)},
+		}
 ##
 ## Interaction model:
 ##   • Click hex/ASCII cell to position cursor (Tab switches panels)
@@ -145,8 +159,11 @@ var _replace_btn      : Button
 var _replace_all_btn  : Button
 
 # ── Text panel (alongside hex view) ──────────────────────────────────────────
-var _text_panel    : TextEdit
-var _text_updating : bool = false
+var _text_panel       : TextEdit
+var _text_updating    : bool = false
+var _text_vscroll     : VScrollBar
+var _text_highlighter : _HexTextHighlighter
+var _h_split          : HSplitContainer
 
 # =============================================================================
 # INIT
@@ -167,9 +184,18 @@ func _init() -> void:
 	vbox.add_child(_make_toolbar())
 	vbox.add_child(_make_search_bar())
 
-	var hbox := HBoxContainer.new()
-	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	hbox.add_theme_constant_override("separation", 0)
+	# ── Main content: HSplitContainer (hex left | text right) ────────────────
+	_h_split = HSplitContainer.new()
+	_h_split.size_flags_vertical        = Control.SIZE_EXPAND_FILL
+	_h_split.add_theme_constant_override("separation", 5)
+	# Give the hex side most of the space by default; user can drag
+	_h_split.split_offset = 0   # will be set once laid out
+
+	# Left side: hex canvas + scrollbar
+	var hex_hbox := HBoxContainer.new()
+	hex_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hex_hbox.size_flags_vertical   = Control.SIZE_EXPAND_FILL
+	hex_hbox.add_theme_constant_override("separation", 0)
 
 	_canvas = Control.new()
 	_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -178,22 +204,21 @@ func _init() -> void:
 	_canvas.draw.connect(_on_canvas_draw)
 	_canvas.gui_input.connect(_on_canvas_input)
 	_canvas.resized.connect(_on_canvas_resized)
-	hbox.add_child(_canvas)
+	hex_hbox.add_child(_canvas)
 
 	_vscroll = VScrollBar.new()
 	_vscroll.step = 1
 	_vscroll.value_changed.connect(_on_scroll)
-	hbox.add_child(_vscroll)
+	hex_hbox.add_child(_vscroll)
 
-	# ── Text-view panel ───────────────────────────────────────────────────────
-	var tv_sep := VSeparator.new()
-	hbox.add_child(tv_sep)
+	_h_split.add_child(hex_hbox)
 
+	# Right side: header + (text panel + mirror scrollbar)
 	var tv_vb := VBoxContainer.new()
-	tv_vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tv_vb.size_flags_vertical   = Control.SIZE_EXPAND_FILL
+	tv_vb.size_flags_horizontal    = Control.SIZE_EXPAND_FILL
+	tv_vb.size_flags_vertical      = Control.SIZE_EXPAND_FILL
 	tv_vb.add_theme_constant_override("separation", 0)
-	tv_vb.custom_minimum_size.x = 200
+	tv_vb.custom_minimum_size.x    = 160
 
 	var tv_hdr := PanelContainer.new()
 	tv_hdr.custom_minimum_size.y = 22
@@ -207,6 +232,12 @@ func _init() -> void:
 	tv_hdr.add_child(tv_hdr_lbl)
 	tv_vb.add_child(tv_hdr)
 
+	# Text panel + its own scrollbar in an HBox
+	var tv_body := HBoxContainer.new()
+	tv_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tv_body.size_flags_vertical   = Control.SIZE_EXPAND_FILL
+	tv_body.add_theme_constant_override("separation", 0)
+
 	_text_panel = TextEdit.new()
 	_text_panel.size_flags_horizontal      = Control.SIZE_EXPAND_FILL
 	_text_panel.size_flags_vertical        = Control.SIZE_EXPAND_FILL
@@ -216,13 +247,21 @@ func _init() -> void:
 	_text_panel.context_menu_enabled       = false
 	_text_panel.shortcut_keys_enabled      = false
 	_text_panel.selecting_enabled          = false
+	# Disable TextEdit's own built-in scrollbars — we provide our own
+	_text_panel.scroll_past_end_of_file    = false
 	_text_panel.gui_input.connect(_on_text_panel_input)
 	_text_panel.caret_changed.connect(_on_text_panel_caret_changed)
-	tv_vb.add_child(_text_panel)
+	tv_body.add_child(_text_panel)
 
-	hbox.add_child(tv_vb)
+	_text_vscroll = VScrollBar.new()
+	_text_vscroll.step = 1
+	_text_vscroll.value_changed.connect(_on_scroll)
+	tv_body.add_child(_text_vscroll)
 
-	vbox.add_child(hbox)
+	tv_vb.add_child(tv_body)
+	_h_split.add_child(tv_vb)
+
+	vbox.add_child(_h_split)
 	vbox.add_child(_make_status_bar())
 
 	# ── Context menu ──────────────────────────────────────────────────────────
@@ -543,6 +582,14 @@ func _ready() -> void:
 		sf.font_names = PackedStringArray(["Courier New", "Courier", "Liberation Mono", "monospace"])
 		_font = sf
 
+	# ── Syntax highlighter: normal text black, beyond-visible range gray ──────
+	_text_highlighter = _HexTextHighlighter.new()
+	_text_panel.syntax_highlighter = _text_highlighter
+
+	# Hide TextEdit's own built-in scrollbars — we drive it via _text_vscroll
+	_text_panel.add_theme_constant_override("v_scroll_speed", 0)
+	_text_panel.scroll_vertical = 0
+
 	# ── Text panel: override Godot editor dark theme with VB6 white/black ────
 	var te_sb := StyleBoxFlat.new()
 	te_sb.bg_color              = Color("#FFFFFF")
@@ -555,7 +602,6 @@ func _ready() -> void:
 	te_sb.content_margin_top    = 2.0
 	te_sb.content_margin_right  = 4.0
 	te_sb.content_margin_bottom = 2.0
-	# Godot uses "normal" for editable TextEdit and "read_only" for non-editable
 	_text_panel.add_theme_stylebox_override("normal",    te_sb)
 	_text_panel.add_theme_stylebox_override("focus",     te_sb)
 	_text_panel.add_theme_stylebox_override("read_only", te_sb)
@@ -591,8 +637,8 @@ func _ready() -> void:
 	le_focus_sb.content_margin_right  = 4.0
 	le_focus_sb.content_margin_bottom = 2.0
 	for le : LineEdit in [_search_edit, _replace_edit]:
-		le.add_theme_stylebox_override("normal",   le_sb)
-		le.add_theme_stylebox_override("focus",    le_focus_sb)
+		le.add_theme_stylebox_override("normal",    le_sb)
+		le.add_theme_stylebox_override("focus",     le_focus_sb)
 		le.add_theme_stylebox_override("read_only", le_sb)
 		le.add_theme_color_override("font_color",             Color("#000000"))
 		le.add_theme_color_override("font_placeholder_color", Color("#707070"))
@@ -602,8 +648,16 @@ func _ready() -> void:
 	_recalc_metrics()
 	_update_scrollbar()
 	_load_recent_files()
-	# Initial text-panel fill once layout has settled
+	# Set default split: text panel gets ~260 px, hex gets the rest
+	call_deferred("_set_default_split")
 	call_deferred("_sync_text_panel")
+
+
+func _set_default_split() -> void:
+	# split_offset is measured from left edge; negative = from right edge
+	# Give the text panel a starting width of ~260, rest goes to hex
+	if _h_split and _h_split.size.x > 0:
+		_h_split.split_offset = int(_h_split.size.x) - 265
 
 
 func _recalc_metrics() -> void:
@@ -894,9 +948,11 @@ func _on_canvas_draw() -> void:
 			_canvas.draw_string(_font, Vector2(xa, y), achar,
 				HORIZONTAL_ALIGNMENT_LEFT, -1, _font_size, tc_asc)
 
-	# Separator between hex and ASCII panels
-	var sx : float = _asc_x - _char_w * 0.5
-	_canvas.draw_line(Vector2(sx, _char_h), Vector2(sx, ch), C_GRID, 1.0)
+	# Separators: left border of ASCII panel, right border of ASCII panel
+	var sx         : float = _asc_x - _char_w * 0.5
+	var sx_right   : float = _asc_x + _bytes_per_row * _char_w + _char_w * 0.5
+	_canvas.draw_line(Vector2(sx,       _char_h), Vector2(sx,       ch), C_GRID, 1.0)
+	_canvas.draw_line(Vector2(sx_right, _char_h), Vector2(sx_right, ch), C_GRID, 1.0)
 
 # =============================================================================
 # INPUT HANDLING
@@ -1475,17 +1531,27 @@ func _on_open_menu_id(id: int) -> void:
 
 func _update_scrollbar() -> void:
 	if _file_data.is_empty():
-		_vscroll.max_value = 1
-		_vscroll.value     = 0
+		_vscroll.max_value      = 1
+		_vscroll.value          = 0
+		_text_vscroll.max_value = 1
+		_text_vscroll.value     = 0
 		return
 	var total_rows : int = int(ceil(float(_file_data.size()) / _bytes_per_row))
-	_vscroll.max_value = max(total_rows, _rows_visible)
-	_vscroll.page      = _rows_visible
-	_vscroll.value     = _scroll_row
+	_vscroll.max_value      = max(total_rows, _rows_visible)
+	_vscroll.page           = _rows_visible
+	_vscroll.value          = _scroll_row
+	_text_vscroll.max_value = _vscroll.max_value
+	_text_vscroll.page      = _rows_visible
+	_text_vscroll.value     = _scroll_row
 
 
 func _on_scroll(val: float) -> void:
 	_scroll_row = int(val)
+	# Keep both scrollbars in sync (setting same value won't re-fire if unchanged)
+	if _vscroll.value != val:
+		_vscroll.value = val
+	if _text_vscroll.value != val:
+		_text_vscroll.value = val
 	_canvas.queue_redraw()
 	_sync_text_panel()
 
@@ -2127,22 +2193,32 @@ func _sync_text_panel() -> void:
 
 	if _file_data.is_empty():
 		_text_panel.text = ""
-		_text_updating   = false
+		if _text_highlighter:
+			_text_highlighter.vis_len = 0
+		_text_updating = false
 		return
 
-	# Build a single flat string for the visible byte slice — no forced newlines.
-	# Word-wrap is handled by the TextEdit control itself.
+	# Visible range — matches what the hex canvas is showing
 	var vis_start : int = _scroll_row * _bytes_per_row
 	var vis_end   : int = mini(vis_start + _rows_visible * _bytes_per_row, _file_data.size())
+
+	# Extended range — up to 2× visible rows beyond the hex view, shown dimmed
+	var ext_end   : int = mini(vis_start + _rows_visible * 3 * _bytes_per_row, _file_data.size())
+
+	# Build flat string: visible bytes + extra bytes
 	var flat : String = ""
-	for off in range(vis_start, vis_end):
+	for off in range(vis_start, ext_end):
 		var b : int = _file_data[off]
 		flat += char(b) if (b >= 0x20 and b <= 0x7E) else "?"
 
 	_text_panel.text = flat
 
-	# Caret: column = offset of hex cursor within the visible slice.
-	# With wrap mode the logical line is still 0; caret_column = index in flat string.
+	# Tell the highlighter where the "normal" (hex-visible) portion ends
+	if _text_highlighter:
+		_text_highlighter.vis_len = vis_end - vis_start
+		_text_panel.queue_redraw()
+
+	# Caret: column = offset of hex cursor within the flat string
 	var caret_col : int = clamp(_cursor - vis_start, 0, maxi(0, flat.length() - 1))
 	_text_panel.set_caret_line(0)
 	_text_panel.set_caret_column(caret_col)
