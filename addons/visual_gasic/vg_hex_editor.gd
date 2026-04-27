@@ -268,13 +268,15 @@ func _init() -> void:
 	_tv_vb.add_child(tv_body)
 	_v_split.add_child(_tv_vb)
 
-	# Bottom panel: placeholder area for future panels below the text view
+	# Bottom panel: placeholder area for future panels below the text view.
+	# No minimum height — starts collapsed; user drags divider down to reveal it.
 	var tv_bottom := PanelContainer.new()
-	tv_bottom.custom_minimum_size.y = 60
 	var tv_bottom_sb := StyleBoxFlat.new()
 	tv_bottom_sb.bg_color = Color("#F0F0F0")
 	tv_bottom.add_theme_stylebox_override("panel", tv_bottom_sb)
 	_v_split.add_child(tv_bottom)
+	# Enforce minimum: text panel never smaller than hex canvas
+	_v_split.dragged.connect(_on_vsplit_dragged)
 
 	_h_split.add_child(_v_split)
 
@@ -677,9 +679,9 @@ func _set_default_split() -> void:
 	# Give the text panel a starting width of ~260, rest goes to hex
 	if _h_split and _h_split.size.x > 0:
 		_h_split.split_offset = int(_h_split.size.x) - 265
-	# Give the bottom placeholder ~80 px; text panel gets the rest
+	# Collapse the bottom placeholder fully — text panel takes all available height
 	if _v_split and _v_split.size.y > 0:
-		_v_split.split_offset = int(_v_split.size.y) - 80
+		_v_split.split_offset = int(_v_split.size.y)
 
 
 func _recalc_metrics() -> void:
@@ -703,11 +705,27 @@ func _recalc_rows_visible() -> void:
 func _on_canvas_resized() -> void:
 	_recalc_rows_visible()
 	_update_scrollbar()
-	# Keep text panel min height == hex canvas height so it never shows less data
-	if _tv_vb and _canvas.size.y > 0:
-		_tv_vb.custom_minimum_size.y = _canvas.size.y
+	# After resize, keep the split at or above the minimum (canvas height).
+	# We clamp split_offset rather than setting custom_minimum_size to avoid
+	# a resize feedback loop (min_size > available_size → window expands → loop).
+	_clamp_vsplit()
 	_canvas.queue_redraw()
 	_sync_text_panel()
+
+
+func _clamp_vsplit() -> void:
+	# The text panel may never be shorter than the hex canvas.
+	# split_offset = divider position from top of _v_split.
+	# Text panel height ≈ split_offset, so clamp split_offset ≥ canvas height.
+	if not _v_split or _canvas.size.y <= 0:
+		return
+	var min_offset : int = int(_canvas.size.y)
+	if _v_split.split_offset < min_offset:
+		_v_split.split_offset = min_offset
+
+
+func _on_vsplit_dragged(_offset: int) -> void:
+	_clamp_vsplit()
 
 # =============================================================================
 # COLUMN WIDTH
