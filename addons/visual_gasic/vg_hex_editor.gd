@@ -37,11 +37,11 @@ const C_BG           := Color("#F8F8F8")   # Win32 window background
 const C_ADDR         := Color("#000080")   # navy — address / offset column
 const C_HDR          := Color("#606060")   # gray  — column-header text
 const C_NORMAL       := Color("#000000")   # black — normal bytes
-const C_NULL         := Color("#AAAAAA")   # light gray — null bytes
+const C_NULL         := Color("#888888")   # gray   — null bytes
 const C_ASCII_RNG    := Color("#000080")   # navy  — printable ASCII range (hex)
 const C_HIGH         := Color("#800000")   # maroon — high bytes (0x80–0xFF)
 const C_ASCII_PRINT  := Color("#000080")   # navy  — printable ASCII chars
-const C_ASCII_DOT    := Color("#BBBBBB")   # light gray — non-printable dots
+const C_ASCII_DOT    := Color("#999999")   # gray  — non-printable dots
 const C_CURSOR_HEX   := Color("#000080")   # navy cursor bg
 const C_CURSOR_ASCII := Color("#000080")   # navy cursor bg
 const C_CURSOR_TXT   := Color("#FFFFFF")   # white text on cursor
@@ -49,8 +49,8 @@ const C_SEL_BG       := Color("#000080")   # classic Windows blue selection
 const C_HIT_BG       := Color("#CC6600")   # orange-brown search highlight
 const C_HIT_TXT      := Color("#FFFFFF")   # white on search hit
 const C_DIRTY        := Color("#CC0000")   # red — modified / unsaved bytes
-const C_GRID         := Color("#D8D8D8")   # light gray grid lines
-const C_CURSOR_LINE  := Color("#EBF1FB")   # very-light-blue cursor row
+const C_GRID         := Color("#C8C8C8")   # light gray grid lines
+const C_CURSOR_LINE  := Color("#DDE8FB")   # very-light-blue cursor row
 const C_CMP_DIFF     := Color("#8B0000")   # dark red — compare diff
 const C_BOOKMARK     := Color("#DAA520")   # goldenrod bookmark tick
 const C_VB_HEADER    := Color(0.58, 0.58, 0.62)  # VB6 panel title-bar gray
@@ -542,17 +542,68 @@ func _ready() -> void:
 		var sf := SystemFont.new()
 		sf.font_names = PackedStringArray(["Courier New", "Courier", "Liberation Mono", "monospace"])
 		_font = sf
-	# Style text panel with VB6 colours and matching monospace font
-	_text_panel.add_theme_color_override("background_color",     Color("#FFFFFF"))
-	_text_panel.add_theme_color_override("font_color",           Color("#000000"))
-	_text_panel.add_theme_color_override("caret_color",          Color("#000080"))
-	_text_panel.add_theme_color_override("font_placeholder_color", Color("#808080"))
+
+	# ── Text panel: override Godot editor dark theme with VB6 white/black ────
+	var te_sb := StyleBoxFlat.new()
+	te_sb.bg_color              = Color("#FFFFFF")
+	te_sb.border_width_left     = 1
+	te_sb.border_width_top      = 1
+	te_sb.border_width_right    = 1
+	te_sb.border_width_bottom   = 1
+	te_sb.border_color          = Color("#A0A0A0")
+	te_sb.content_margin_left   = 4.0
+	te_sb.content_margin_top    = 2.0
+	te_sb.content_margin_right  = 4.0
+	te_sb.content_margin_bottom = 2.0
+	# Godot uses "normal" for editable TextEdit and "read_only" for non-editable
+	_text_panel.add_theme_stylebox_override("normal",    te_sb)
+	_text_panel.add_theme_stylebox_override("focus",     te_sb)
+	_text_panel.add_theme_stylebox_override("read_only", te_sb)
+	_text_panel.add_theme_color_override("font_color",            Color("#000000"))
+	_text_panel.add_theme_color_override("font_readonly_color",   Color("#000000"))
+	_text_panel.add_theme_color_override("background_color",      Color("#FFFFFF"))
+	_text_panel.add_theme_color_override("caret_color",           Color("#000080"))
 	if _font:
 		_text_panel.add_theme_font_override("font",           _font)
 		_text_panel.add_theme_font_size_override("font_size", _font_size)
+
+	# ── Find / Replace LineEdits: override Godot editor dark theme ────────────
+	var le_sb := StyleBoxFlat.new()
+	le_sb.bg_color              = Color("#FFFFFF")
+	le_sb.border_width_left     = 1
+	le_sb.border_width_top      = 1
+	le_sb.border_width_right    = 1
+	le_sb.border_width_bottom   = 1
+	le_sb.border_color          = Color("#808080")
+	le_sb.content_margin_left   = 4.0
+	le_sb.content_margin_top    = 2.0
+	le_sb.content_margin_right  = 4.0
+	le_sb.content_margin_bottom = 2.0
+	var le_focus_sb := StyleBoxFlat.new()
+	le_focus_sb.bg_color              = Color("#FFFFFF")
+	le_focus_sb.border_width_left     = 1
+	le_focus_sb.border_width_top      = 1
+	le_focus_sb.border_width_right    = 1
+	le_focus_sb.border_width_bottom   = 1
+	le_focus_sb.border_color          = Color("#000080")
+	le_focus_sb.content_margin_left   = 4.0
+	le_focus_sb.content_margin_top    = 2.0
+	le_focus_sb.content_margin_right  = 4.0
+	le_focus_sb.content_margin_bottom = 2.0
+	for le : LineEdit in [_search_edit, _replace_edit]:
+		le.add_theme_stylebox_override("normal",   le_sb)
+		le.add_theme_stylebox_override("focus",    le_focus_sb)
+		le.add_theme_stylebox_override("read_only", le_sb)
+		le.add_theme_color_override("font_color",             Color("#000000"))
+		le.add_theme_color_override("font_placeholder_color", Color("#707070"))
+		le.add_theme_color_override("caret_color",            Color("#000080"))
+		le.add_theme_color_override("selection_color",        Color("#000080"))
+
 	_recalc_metrics()
 	_update_scrollbar()
 	_load_recent_files()
+	# Initial text-panel fill once layout has settled
+	call_deferred("_sync_text_panel")
 
 
 func _recalc_metrics() -> void:
