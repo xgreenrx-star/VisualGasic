@@ -32,26 +32,28 @@ const MAX_FILE_BYTES : int    = 256 * 1024 * 1024
 const MAX_RECENT     : int    = 10
 const RECENT_FILE    : String = "user://vg_hex_recent.txt"
 
-const C_BG           := Color("#1E1E1E")
-const C_ADDR         := Color("#569CD6")
-const C_HDR          := Color("#7F7F7F")
-const C_NORMAL       := Color("#D4D4D4")
-const C_NULL         := Color("#3A3A3A")
-const C_ASCII_RNG    := Color("#CE9178")
-const C_HIGH         := Color("#9CDCFE")
-const C_ASCII_PRINT  := Color("#98C379")
-const C_ASCII_DOT    := Color("#4A4A4A")
-const C_CURSOR_HEX   := Color("#007ACC")
-const C_CURSOR_ASCII := Color("#007ACC")
-const C_CURSOR_TXT   := Color("#FFFFFF")
-const C_SEL_BG       := Color("#264F78")
-const C_HIT_BG       := Color("#8B5E00")
-const C_HIT_TXT      := Color("#FFFFFF")
-const C_DIRTY        := Color("#FF6B6B")
-const C_GRID         := Color("#2D2D2D")
-const C_CURSOR_LINE  := Color("#2A2A2A")
-const C_CMP_DIFF     := Color("#7B2020")   # file-compare: bytes that differ
-const C_BOOKMARK     := Color("#FFD700")   # bookmark gutter tick
+# ── VB6 classic Windows IDE colour palette ──────────────────────────────────
+const C_BG           := Color("#F8F8F8")   # Win32 window background
+const C_ADDR         := Color("#000080")   # navy — address / offset column
+const C_HDR          := Color("#606060")   # gray  — column-header text
+const C_NORMAL       := Color("#000000")   # black — normal bytes
+const C_NULL         := Color("#AAAAAA")   # light gray — null bytes
+const C_ASCII_RNG    := Color("#000080")   # navy  — printable ASCII range (hex)
+const C_HIGH         := Color("#800000")   # maroon — high bytes (0x80–0xFF)
+const C_ASCII_PRINT  := Color("#000080")   # navy  — printable ASCII chars
+const C_ASCII_DOT    := Color("#BBBBBB")   # light gray — non-printable dots
+const C_CURSOR_HEX   := Color("#000080")   # navy cursor bg
+const C_CURSOR_ASCII := Color("#000080")   # navy cursor bg
+const C_CURSOR_TXT   := Color("#FFFFFF")   # white text on cursor
+const C_SEL_BG       := Color("#000080")   # classic Windows blue selection
+const C_HIT_BG       := Color("#CC6600")   # orange-brown search highlight
+const C_HIT_TXT      := Color("#FFFFFF")   # white on search hit
+const C_DIRTY        := Color("#CC0000")   # red — modified / unsaved bytes
+const C_GRID         := Color("#D8D8D8")   # light gray grid lines
+const C_CURSOR_LINE  := Color("#EBF1FB")   # very-light-blue cursor row
+const C_CMP_DIFF     := Color("#8B0000")   # dark red — compare diff
+const C_BOOKMARK     := Color("#DAA520")   # goldenrod bookmark tick
+const C_VB_HEADER    := Color(0.58, 0.58, 0.62)  # VB6 panel title-bar gray
 
 # =============================================================================
 # LAYOUT STATE
@@ -142,6 +144,10 @@ var _replace_edit     : LineEdit
 var _replace_btn      : Button
 var _replace_all_btn  : Button
 
+# ── Text panel (alongside hex view) ──────────────────────────────────────────
+var _text_panel    : TextEdit
+var _text_updating : bool = false
+
 # =============================================================================
 # INIT
 # =============================================================================
@@ -178,6 +184,43 @@ func _init() -> void:
 	_vscroll.step = 1
 	_vscroll.value_changed.connect(_on_scroll)
 	hbox.add_child(_vscroll)
+
+	# ── Text-view panel ───────────────────────────────────────────────────────
+	var tv_sep := VSeparator.new()
+	hbox.add_child(tv_sep)
+
+	var tv_vb := VBoxContainer.new()
+	tv_vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tv_vb.size_flags_vertical   = Control.SIZE_EXPAND_FILL
+	tv_vb.add_theme_constant_override("separation", 0)
+	tv_vb.custom_minimum_size.x = 200
+
+	var tv_hdr := PanelContainer.new()
+	tv_hdr.custom_minimum_size.y = 22
+	var tv_hdr_sb := StyleBoxFlat.new()
+	tv_hdr_sb.bg_color = C_VB_HEADER
+	tv_hdr.add_theme_stylebox_override("panel", tv_hdr_sb)
+	var tv_hdr_lbl := Label.new()
+	tv_hdr_lbl.text = "  Text View"
+	tv_hdr_lbl.add_theme_color_override("font_color", Color.WHITE)
+	tv_hdr_lbl.add_theme_font_size_override("font_size", 11)
+	tv_hdr.add_child(tv_hdr_lbl)
+	tv_vb.add_child(tv_hdr)
+
+	_text_panel = TextEdit.new()
+	_text_panel.size_flags_horizontal      = Control.SIZE_EXPAND_FILL
+	_text_panel.size_flags_vertical        = Control.SIZE_EXPAND_FILL
+	_text_panel.editable                   = false
+	_text_panel.wrap_mode                  = TextEdit.LINE_WRAPPING_NONE
+	_text_panel.scroll_fit_content_height  = false
+	_text_panel.context_menu_enabled       = false
+	_text_panel.shortcut_keys_enabled      = false
+	_text_panel.selecting_enabled          = false
+	_text_panel.gui_input.connect(_on_text_panel_input)
+	_text_panel.caret_changed.connect(_on_text_panel_caret_changed)
+	tv_vb.add_child(_text_panel)
+
+	hbox.add_child(tv_vb)
 
 	vbox.add_child(hbox)
 	vbox.add_child(_make_status_bar())
@@ -499,6 +542,14 @@ func _ready() -> void:
 		var sf := SystemFont.new()
 		sf.font_names = PackedStringArray(["Courier New", "Courier", "Liberation Mono", "monospace"])
 		_font = sf
+	# Style text panel with VB6 colours and matching monospace font
+	_text_panel.add_theme_color_override("background_color",     Color("#FFFFFF"))
+	_text_panel.add_theme_color_override("font_color",           Color("#000000"))
+	_text_panel.add_theme_color_override("caret_color",          Color("#000080"))
+	_text_panel.add_theme_color_override("font_placeholder_color", Color("#808080"))
+	if _font:
+		_text_panel.add_theme_font_override("font",           _font)
+		_text_panel.add_theme_font_size_override("font_size", _font_size)
 	_recalc_metrics()
 	_update_scrollbar()
 	_load_recent_files()
@@ -526,6 +577,7 @@ func _on_canvas_resized() -> void:
 	_recalc_rows_visible()
 	_update_scrollbar()
 	_canvas.queue_redraw()
+	_sync_text_panel()
 
 # =============================================================================
 # COLUMN WIDTH
@@ -538,6 +590,7 @@ func _on_col_width_selected(idx: int) -> void:
 	_recalc_metrics()
 	_update_scrollbar()
 	_canvas.queue_redraw()
+	_sync_text_panel()
 
 # =============================================================================
 # PUBLIC API
@@ -596,6 +649,7 @@ func open_file(path: String) -> void:
 	_update_status()
 	_update_scrollbar()
 	_canvas.queue_redraw()
+	_sync_text_panel()
 
 
 func open_with_dialog() -> void:
@@ -1130,6 +1184,7 @@ func _write_byte(off: int, val: int) -> void:
 	_modified         = true
 	_dirty_label.text = "● Modified"
 	_update_status()
+	_sync_text_panel()
 
 
 func _insert_byte_at(off: int) -> void:
@@ -1163,6 +1218,7 @@ func _delete_byte_at(off: int) -> void:
 	_modified         = true
 	_dirty_label.text = "● Modified"
 	_update_scrollbar()
+	_sync_text_panel()
 
 
 func _do_undo() -> void:
@@ -1182,6 +1238,7 @@ func _do_undo() -> void:
 	_dirty_label.text = "● Modified" if _modified else ""
 	_update_status()
 	_canvas.queue_redraw()
+	_sync_text_panel()
 
 
 func _do_redo() -> void:
@@ -1201,6 +1258,7 @@ func _do_redo() -> void:
 	_dirty_label.text = "● Modified"
 	_update_status()
 	_canvas.queue_redraw()
+	_sync_text_panel()
 
 
 func _delete_byte_at_no_record(off: int) -> void:
@@ -1378,6 +1436,7 @@ func _update_scrollbar() -> void:
 func _on_scroll(val: float) -> void:
 	_scroll_row = int(val)
 	_canvas.queue_redraw()
+	_sync_text_panel()
 
 
 func _scroll_to_cursor() -> void:
@@ -1389,6 +1448,7 @@ func _scroll_to_cursor() -> void:
 		_scroll_row    = row - _rows_visible + 1
 		_vscroll.value = _scroll_row
 	_canvas.queue_redraw()
+	_sync_text_panel()
 
 # =============================================================================
 # SEARCH
@@ -2004,3 +2064,129 @@ func _show_highlight_dialog() -> void:
 	dlg.close_requested.connect(dlg.queue_free)
 	add_child(dlg)
 	dlg.popup_centered()
+
+# =============================================================================
+# TEXT PANEL — sync, input, caret
+# =============================================================================
+
+func _sync_text_panel() -> void:
+	if not _text_panel:
+		return
+	_text_updating = true
+
+	if _file_data.is_empty():
+		_text_panel.text = ""
+		_text_updating   = false
+		return
+
+	var total_rows : int = int(ceil(float(_file_data.size()) / float(_bytes_per_row)))
+	var lines : PackedStringArray = PackedStringArray()
+	for r in range(_rows_visible):
+		var row : int = _scroll_row + r
+		if row >= total_rows:
+			lines.append("")
+			continue
+		var row_off : int = row * _bytes_per_row
+		var row_str : String = ""
+		for c in range(_bytes_per_row):
+			var off : int = row_off + c
+			if off >= _file_data.size():
+				row_str += " "
+			else:
+				var b : int = _file_data[off]
+				row_str += char(b) if (b >= 0x20 and b <= 0x7E) else "?"
+		lines.append(row_str)
+
+	_text_panel.text = "\n".join(lines)
+
+	# Sync caret to hex cursor
+	var c_row  : int = clamp(_cursor / _bytes_per_row - _scroll_row, 0, maxi(0, _rows_visible - 1))
+	var c_col  : int = _cursor % _bytes_per_row
+	_text_panel.set_caret_line(c_row)
+	_text_panel.set_caret_column(c_col)
+
+	_text_updating = false
+
+
+func _on_text_panel_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var me := event as InputEventMouseButton
+		if not me.pressed:
+			return
+		match me.button_index:
+			MOUSE_BUTTON_WHEEL_UP:
+				_scroll_row    = maxi(0, _scroll_row - 3)
+				_vscroll.value = _scroll_row
+				_sync_text_panel()
+				_canvas.queue_redraw()
+				get_viewport().set_input_as_handled()
+			MOUSE_BUTTON_WHEEL_DOWN:
+				var total_rows : int = int(ceil(float(_file_data.size()) / float(_bytes_per_row)))
+				_scroll_row    = mini(maxi(total_rows - 1, 0), _scroll_row + 3)
+				_vscroll.value = _scroll_row
+				_sync_text_panel()
+				_canvas.queue_redraw()
+				get_viewport().set_input_as_handled()
+		return
+
+	if not event is InputEventKey:
+		return
+	var ke := event as InputEventKey
+	if not ke.pressed:
+		return
+
+	# Redirect global shortcuts to hex editor
+	if ke.ctrl_pressed:
+		match ke.keycode:
+			KEY_S: _save_file()
+			KEY_Z: _do_undo(); _canvas.queue_redraw()
+			KEY_Y: _do_redo(); _canvas.queue_redraw()
+			KEY_F: _search_edit.grab_focus(); _search_edit.select_all()
+			KEY_G: _show_goto_dialog()
+			KEY_O: _show_open_dialog()
+		get_viewport().set_input_as_handled()
+		return
+
+	match ke.keycode:
+		KEY_ESCAPE:
+			hide()
+			get_viewport().set_input_as_handled()
+			return
+
+	# Printable character — overwrite the byte at the caret position
+	var uch : int = ke.unicode
+	if uch >= 0x20 and uch <= 0x7E and not _file_data.is_empty():
+		var line : int = _text_panel.get_caret_line()
+		var col  : int = mini(_text_panel.get_caret_column(), _bytes_per_row - 1)
+		var off  : int = (_scroll_row + line) * _bytes_per_row + col
+		if off < _file_data.size():
+			_write_byte(off, uch)
+			# Advance caret manually
+			col += 1
+			if col >= _bytes_per_row:
+				col   = 0
+				line += 1
+			var max_line : int = int(ceil(float(_file_data.size()) / float(_bytes_per_row))) - _scroll_row - 1
+			if line > max_line:
+				line = max_line
+				col  = mini(_bytes_per_row - 1, _file_data.size() - 1 - (_scroll_row + line) * _bytes_per_row)
+			_text_updating = true
+			_sync_text_panel()
+			_text_panel.set_caret_line(line)
+			_text_panel.set_caret_column(col)
+			_text_updating = false
+			_cursor = (_scroll_row + line) * _bytes_per_row + col
+			_canvas.queue_redraw()
+		get_viewport().set_input_as_handled()
+
+
+func _on_text_panel_caret_changed() -> void:
+	if _text_updating or _file_data.is_empty():
+		return
+	var line : int = _text_panel.get_caret_line()
+	var col  : int = mini(_text_panel.get_caret_column(), _bytes_per_row - 1)
+	var off  : int = (_scroll_row + line) * _bytes_per_row + col
+	off = clamp(off, 0, _file_data.size() - 1)
+	_cursor = off
+	_canvas.queue_redraw()
+	_update_status()
