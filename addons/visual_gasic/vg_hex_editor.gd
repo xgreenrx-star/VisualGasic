@@ -159,13 +159,14 @@ var _replace_btn      : Button
 var _replace_all_btn  : Button
 
 # ── Text panel (alongside hex view) ──────────────────────────────────────────
-var _text_panel       : TextEdit
-var _text_updating    : bool = false
-var _text_vscroll     : VScrollBar
-var _text_highlighter : _HexTextHighlighter
-var _h_split          : HSplitContainer
-var _v_split          : VSplitContainer   # vertical split inside text side
-var _tv_vb            : VBoxContainer     # text-panel VBox (top of _v_split)
+var _text_panel            : TextEdit
+var _text_updating         : bool = false
+var _text_mouse_selecting  : bool = false   # true while mouse drag-select active
+var _text_vscroll          : VScrollBar
+var _text_highlighter      : _HexTextHighlighter
+var _h_split               : HSplitContainer
+var _v_split               : VSplitContainer   # vertical split inside text side
+var _tv_vb                 : VBoxContainer     # text-panel VBox (top of _v_split)
 
 # =============================================================================
 # INIT
@@ -225,7 +226,7 @@ func _init() -> void:
 	_tv_vb.size_flags_horizontal    = Control.SIZE_EXPAND_FILL
 	_tv_vb.size_flags_vertical      = Control.SIZE_EXPAND_FILL
 	_tv_vb.add_theme_constant_override("separation", 0)
-	_tv_vb.custom_minimum_size.x    = 160
+	_tv_vb.custom_minimum_size      = Vector2(160, 80)
 
 	var tv_hdr := PanelContainer.new()
 	tv_hdr.custom_minimum_size.y = 22
@@ -248,7 +249,7 @@ func _init() -> void:
 	_text_panel = TextEdit.new()
 	_text_panel.size_flags_horizontal      = Control.SIZE_EXPAND_FILL
 	_text_panel.size_flags_vertical        = Control.SIZE_EXPAND_FILL
-	_text_panel.editable                   = false
+	_text_panel.editable                   = true    # must be true for caret to render
 	_text_panel.wrap_mode                  = TextEdit.LINE_WRAPPING_BOUNDARY
 	_text_panel.scroll_fit_content_height  = false
 	_text_panel.context_menu_enabled       = false
@@ -275,8 +276,6 @@ func _init() -> void:
 	tv_bottom_sb.bg_color = Color("#F0F0F0")
 	tv_bottom.add_theme_stylebox_override("panel", tv_bottom_sb)
 	_v_split.add_child(tv_bottom)
-	# Enforce minimum: text panel never smaller than hex canvas
-	_v_split.dragged.connect(_on_vsplit_dragged)
 
 	_h_split.add_child(_v_split)
 
@@ -679,9 +678,9 @@ func _set_default_split() -> void:
 	# Give the text panel a starting width of ~260, rest goes to hex
 	if _h_split and _h_split.size.x > 0:
 		_h_split.split_offset = int(_h_split.size.x) - 265
-	# Collapse the bottom placeholder fully — text panel takes all available height
-	if _v_split and _v_split.size.y > 0:
-		_v_split.split_offset = int(_v_split.size.y)
+	# Collapse the bottom placeholder — use a very large offset so Godot clamps to max
+	if _v_split:
+		_v_split.split_offset = 99999
 
 
 func _recalc_metrics() -> void:
@@ -705,27 +704,8 @@ func _recalc_rows_visible() -> void:
 func _on_canvas_resized() -> void:
 	_recalc_rows_visible()
 	_update_scrollbar()
-	# After resize, keep the split at or above the minimum (canvas height).
-	# We clamp split_offset rather than setting custom_minimum_size to avoid
-	# a resize feedback loop (min_size > available_size → window expands → loop).
-	_clamp_vsplit()
 	_canvas.queue_redraw()
 	_sync_text_panel()
-
-
-func _clamp_vsplit() -> void:
-	# The text panel may never be shorter than the hex canvas.
-	# split_offset = divider position from top of _v_split.
-	# Text panel height ≈ split_offset, so clamp split_offset ≥ canvas height.
-	if not _v_split or _canvas.size.y <= 0:
-		return
-	var min_offset : int = int(_canvas.size.y)
-	if _v_split.split_offset < min_offset:
-		_v_split.split_offset = min_offset
-
-
-func _on_vsplit_dragged(_offset: int) -> void:
-	_clamp_vsplit()
 
 # =============================================================================
 # COLUMN WIDTH
@@ -2283,22 +2263,32 @@ func _sync_text_panel() -> void:
 func _on_text_panel_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var me := event as InputEventMouseButton
-		if not me.pressed:
-			return
 		match me.button_index:
+			MOUSE_BUTTON_LEFT:
+				# Track drag-select state. On release, do a deferred sync so the
+				# final caret position is captured without jitter mid-drag.
+				if me.pressed:
+					_text_mouse_selecting = true
+				else:
+					_text_mouse_selecting = false
+					if not _file_data.is_empty():
+						_scroll_to_cursor()
+				# Do NOT consume — let TextEdit gain focus and handle selection
 			MOUSE_BUTTON_WHEEL_UP:
-				_scroll_row    = maxi(0, _scroll_row - 3)
-				_vscroll.value = _scroll_row
-				_sync_text_panel()
-				_canvas.queue_redraw()
-				get_viewport().set_input_as_handled()
+				if me.pressed:
+					_scroll_row    = maxi(0, _scroll_row - 3)
+					_vscroll.value = _scroll_row
+					_sync_text_panel()
+					_canvas.queue_redraw()
+					get_viewport().set_input_as_handled()
 			MOUSE_BUTTON_WHEEL_DOWN:
-				var total_rows : int = int(ceil(float(_file_data.size()) / float(_bytes_per_row)))
-				_scroll_row    = mini(maxi(total_rows - 1, 0), _scroll_row + 3)
-				_vscroll.value = _scroll_row
-				_sync_text_panel()
-				_canvas.queue_redraw()
-				get_viewport().set_input_as_handled()
+				if me.pressed:
+					var total_rows : int = int(ceil(float(_file_data.size()) / float(_bytes_per_row)))
+					_scroll_row    = mini(maxi(total_rows - 1, 0), _scroll_row + 3)
+					_vscroll.value = _scroll_row
+					_sync_text_panel()
+					_canvas.queue_redraw()
+					get_viewport().set_input_as_handled()
 		return
 
 	if not event is InputEventKey:
@@ -2324,6 +2314,13 @@ func _on_text_panel_input(event: InputEvent) -> void:
 			hide()
 			get_viewport().set_input_as_handled()
 			return
+		# Block keys that would modify TextEdit's buffer directly.
+		# We handle text writes ourselves via _write_byte.
+		KEY_BACKSPACE, KEY_DELETE, KEY_ENTER, KEY_KP_ENTER, KEY_TAB:
+			get_viewport().set_input_as_handled()
+			return
+		# Arrow keys / Page Up/Down / Home / End: let TextEdit move the caret
+		# natively; _on_text_panel_caret_changed will sync the hex view.
 
 	# Printable character — overwrite the byte at the caret position
 	var uch : int = ke.unicode
@@ -2367,7 +2364,16 @@ func _on_text_panel_caret_changed() -> void:
 		_sel_start = -1
 		_sel_end   = -1
 
-	# If caret is on bytes outside the hex-visible range, scroll hex to show them
+	# During a mouse drag-select, just update the hex view highlight without
+	# rebuilding the text content — replacing text mid-drag clears the selection
+	# and causes the jitter/fight the user sees.
+	if _text_mouse_selecting:
+		_canvas.queue_redraw()
+		_update_status()
+		return
+
+	# If caret is on bytes outside the hex-visible range, scroll hex to show them.
+	# (Safe to rebuild now — no active drag selection to disrupt.)
 	if off >= vis_end:
 		_text_updating = true   # block re-entrant caret_changed during rebuild
 		_scroll_to_cursor()     # scrolls + calls _sync_text_panel() which clears _text_updating
