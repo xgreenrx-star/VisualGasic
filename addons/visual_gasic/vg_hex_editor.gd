@@ -2277,7 +2277,21 @@ func _on_text_panel_input(event: InputEvent) -> void:
 				else:
 					_text_mouse_selecting = false
 					if not _file_data.is_empty():
-						_scroll_to_cursor()
+						# Restore scroll to the drag-start row so the text panel
+						# rebuilds with the exact same content shown during the drag.
+						# _sel_start/_sel_end were computed using _text_drag_vis_start
+						# as the base, so the selection columns map correctly here.
+						var drag_row : int = _text_drag_vis_start / _bytes_per_row
+						_scroll_row = clamp(drag_row, 0,
+							max(0, int(ceil(float(_file_data.size()) / _bytes_per_row)) - _rows_visible))
+						_vscroll.set_block_signals(true)
+						_text_vscroll.set_block_signals(true)
+						_vscroll.value      = float(_scroll_row)
+						_text_vscroll.value = float(_scroll_row)
+						_vscroll.set_block_signals(false)
+						_text_vscroll.set_block_signals(false)
+						_sync_text_panel()
+						_canvas.queue_redraw()
 				# Do NOT consume — let TextEdit gain focus and handle selection
 			MOUSE_BUTTON_WHEEL_UP:
 				if me.pressed:
