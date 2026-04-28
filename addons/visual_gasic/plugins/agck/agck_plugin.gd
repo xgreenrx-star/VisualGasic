@@ -1318,6 +1318,22 @@ func _update_root_project_godot(main_scene_path: String, settings: Dictionary) -
 			# No [application] section — add one
 			text += '\n[application]\n\n' + scene_line + '\n'
 
+	# Honor the Display → Fullscreen toggle on the host project.godot.
+	# EditorInterface.play_custom_scene runs under the host project's display
+	# settings, so writing window/size/mode here is what actually engages
+	# fullscreen when previewing from the editor. (We also inject a runtime
+	# DisplayServer call into Main.tscn as a belt-and-suspenders fallback.)
+	var fullscreen: bool = bool(settings.get("fullscreen", false))
+	text = _patch_project_godot_kv(text, "display", "window/size/mode", "3" if fullscreen else "0")
+
+	# Reduce input-to-action latency. Player input is sampled inside
+	# _PhysicsProcess; with the engine default 60 Hz physics tick, a key
+	# press can wait up to ~16ms before being seen, plus another ~16ms of
+	# v-sync at 60Hz = noticeable lag on keyboard. Bumping physics to
+	# 120 Hz halves the worst-case input latency without changing game
+	# balance (movement code uses delta).
+	text = _patch_project_godot_kv(text, "physics", "common/physics_ticks_per_second", "120")
+
 	# Write back
 	var fw := FileAccess.open(pg_path, FileAccess.WRITE)
 	if fw:
@@ -1331,6 +1347,40 @@ func _update_root_project_godot(main_scene_path: String, settings: Dictionary) -
 
 	# NOTE: Don't open Main.tscn here — _load_build_result() will open it
 	# AFTER the filesystem scan finishes importing new resources (sprites, etc.).
+
+
+## Set or insert a "key=value" line under [section] in a project.godot text
+## blob. Creates the section if it doesn't exist. Returns the modified text.
+func _patch_project_godot_kv(text: String, section: String, key: String, value: String) -> String:
+	var line := key + "=" + value
+	# Try to replace an existing key= line anywhere in the file (Godot tolerates
+	# section-less keys but we still scope the replace to the named section
+	# when the section is present).
+	var sec_header := "[" + section + "]"
+	var sec_idx := text.find(sec_header)
+	if sec_idx < 0:
+		# No section yet — append a fresh one
+		if not text.ends_with("\n"):
+			text += "\n"
+		text += "\n" + sec_header + "\n\n" + line + "\n"
+		return text
+	# Find the end of this section (next [...] header or EOF)
+	var sec_body_start := text.find("\n", sec_idx) + 1
+	var next_sec := text.find("\n[", sec_body_start)
+	var sec_body_end := next_sec if next_sec >= 0 else text.length()
+	var body := text.substr(sec_body_start, sec_body_end - sec_body_start)
+	var key_re := RegEx.new()
+	# Escape regex metachars in key (the keys we patch contain '/')
+	var esc_key := key.replace("/", "\\/").replace(".", "\\.")
+	key_re.compile("(?m)^" + esc_key + "=.*$")
+	if key_re.search(body):
+		body = key_re.sub(body, line)
+	else:
+		# Insert at the end of the section body, before the trailing newline
+		if not body.ends_with("\n"):
+			body += "\n"
+		body += line + "\n"
+	return text.substr(0, sec_body_start) + body + text.substr(sec_body_end)
 
 
 ## Reimport any sprites that were edited in VG Sprite Editor or externally
