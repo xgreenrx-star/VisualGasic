@@ -19,6 +19,15 @@ extends HSplitContainer
 signal back_to_form_requested
 signal sprite_saved(path: String)
 
+# Plugin id used when announcing events on VGAssetBus / VGContextBroker.
+# The editor isn't a real plugin (it lives at the top of addons/visual_gasic/
+# rather than under plugins/), but the bus tags every event with the
+# originator so listeners — and the registry's "default editor for…"
+# preference — can attribute and route events correctly.
+const _ASSET_PLUGIN_ID := "sprite_editor"
+const _AssetBus := preload("res://addons/visual_gasic/vg_asset_bus.gd")
+const _ContextBroker := preload("res://addons/visual_gasic/vg_context_broker.gd")
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CONSTANTS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -3352,6 +3361,9 @@ func _save() -> void:
 	img.save_png(_file_path)
 	_dirty = false
 	sprite_saved.emit(_file_path)
+	# Announce save on the process-wide bus so file browsers, thumbnail
+	# caches, and any other open editor referencing this PNG can refresh.
+	_AssetBus.get_instance().emit_saved(_file_path, _ASSET_PLUGIN_ID)
 	_update_status()
 	print("[VG Sprite Editor] Saved: ", _file_path)
 
@@ -3449,6 +3461,20 @@ func _show_open_dialog() -> void:
 ## Public: open an image file directly (called by host plugin for double-click, AGCK, etc.)
 func open_file(path: String) -> void:
 	_on_open_file(path)
+	# After a successful load, announce that this editor now owns the
+	# given asset. Other UI (file-browser highlight, breadcrumb, command
+	# palette "recent files") observes ContextBroker.context_changed.
+	if _file_path == path:
+		_AssetBus.get_instance().emit_opened(path, _ASSET_PLUGIN_ID)
+		_ContextBroker.get_instance().set_current_asset(path, _ASSET_PLUGIN_ID)
+
+
+## VGPluginRegistry contract — dispatched by registry.open_asset().
+## Returns true if the editor accepted the file. Existing callers should
+## keep using open_file(); this is just a registry-friendly alias.
+func open_asset(path: String) -> bool:
+	open_file(path)
+	return _file_path == path
 
 
 func _on_open_file(path: String) -> void:
@@ -3513,6 +3539,7 @@ func _on_export_file(path: String) -> void:
 	_file_path = path
 	_dirty = false
 	sprite_saved.emit(path)
+	_AssetBus.get_instance().emit_saved(path, _ASSET_PLUGIN_ID)
 	_update_status()
 	print("[VG Sprite Editor] Exported: ", path, "  frames=", _frames.size())
 

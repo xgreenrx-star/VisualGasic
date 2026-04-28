@@ -94,6 +94,12 @@ var _project_explorer = null
 ## VB6-style Properties Inspector (managed by layout manager)
 var _properties_inspector = null
 
+## FileSystem browser — shown in place of Properties when Code Editor is active
+var _vg_file_browser = null
+
+## Hex Editor window — opened on demand from FileSystem browser or Tools menu
+var _hex_editor = null
+
 ## VB6-style Color Palette toolbar for quick ForeColor/BackColor picking
 var _color_palette = null
 
@@ -293,6 +299,14 @@ func _enter_tree():
 		_properties_inspector.visible = false
 		print("VisualGasic: Properties Inspector created (will dock in VB6 mode)")
 
+	# Create FileSystem Browser (shown instead of Properties in Code Editor view)
+	_vg_file_browser = loading_file_browser()
+	if _vg_file_browser:
+		_vg_file_browser.setup(self)
+		add_child(_vg_file_browser)  # Keep in scene tree for _ready()
+		_vg_file_browser.visible = false
+		print("VisualGasic: FileSystem Browser created")
+
 	# Toolbox NOT docked yet — will be docked on VB6 mode toggle
 	add_child(toolbox)  # Keep in scene tree so C++ VisualGasicToolbox builds its UI
 	toolbox.visible = false
@@ -363,6 +377,8 @@ func _enter_tree():
 		_theme_picker.vg_theme_changed.connect(_on_theme_changed)
 		add_tool_menu_item("VG: Theme Picker", Callable(self, "_on_open_theme_picker"))
 		print("VisualGasic: Theme Picker created")
+	
+	# Hex Editor is created in _embed_ide_bottom_panels() once the IDE is ready
 	
 	# Create Profiler Panel (v2.6.0) — will be embedded in VB6 IDE bottom tabs
 	var profiler_script = load("res://addons/visual_gasic/vg_profiler_panel.gd")
@@ -798,6 +814,10 @@ func _enter_tree():
 			_embedded_code_editor.view_object_requested.connect(_show_form_view)
 			center_stack.add_child(_embedded_code_editor)
 			print("VisualGasic: Embedded Code Editor created")
+			# Connect FileSystem browser → open files in code editor
+			if is_instance_valid(_vg_file_browser):
+				_vg_file_browser.file_open_requested.connect(_on_file_browser_open_requested)
+				_vg_file_browser.open_hex_editor_requested.connect(_on_hex_editor_open)
 			# Embed the Immediate Window into the code editor's bottom panel.
 			# Must be deferred — both nodes need _ready() to run first so their
 			# UI children exist (TabContainer, HSplitContainer, etc.).
@@ -853,6 +873,21 @@ func _enter_tree():
 			_vg_sprite_editor.back_to_form_requested.connect(_show_form_view)
 			_vg_sprite_editor.sprite_saved.connect(_on_sprite_saved)
 			center_stack.add_child(_vg_sprite_editor)
+			# Register this built-in editor with VGPluginRegistry so other
+			# code (file browser double-click, command palette, AGCK) can
+			# route png/sprite-asset opens through a single API instead of
+			# hard-coding a reference to _vg_sprite_editor.
+			VGPluginRegistry.get_instance().register_provider(
+				"sprite_editor",
+				{
+					"name": "VG Sprite Editor",
+					"provides": ["asset_editor.sprite", "asset_editor.image"],
+					"handles_extensions": ["png", "vgsprite"],
+					"priority": 10,  # built-in, low priority — third-party plugins can outrank
+					"enabled": true,
+				},
+				_vg_sprite_editor
+			)
 			print("VisualGasic: Sprite Editor created")
 
 		# ── Plugin Manager — discovers plugins from addons/visual_gasic/plugins/ ──
@@ -883,13 +918,28 @@ func _enter_tree():
 			_project_explorer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			right_vsplit.add_child(_project_explorer)
 
-		# Properties Inspector (bottom half of right panel)
+		# Bottom slot: stacked Properties Inspector + FileSystem Browser (one visible at a time)
+		var right_bottom_stack = VBoxContainer.new()
+		right_bottom_stack.name = "RightBottomStack"
+		right_bottom_stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		right_bottom_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		right_vsplit.add_child(right_bottom_stack)
+
 		if is_instance_valid(_properties_inspector):
 			if _properties_inspector.get_parent() == self:
 				remove_child(_properties_inspector)
+			# Form view is the default; Properties starts visible
 			_properties_inspector.visible = true
 			_properties_inspector.size_flags_vertical = Control.SIZE_EXPAND_FILL
-			right_vsplit.add_child(_properties_inspector)
+			right_bottom_stack.add_child(_properties_inspector)
+
+		if is_instance_valid(_vg_file_browser):
+			if _vg_file_browser.get_parent() == self:
+				remove_child(_vg_file_browser)
+			# Hidden by default; shown when code editor is active
+			_vg_file_browser.visible = false
+			_vg_file_browser.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			right_bottom_stack.add_child(_vg_file_browser)
 
 		canvas_right_split.add_child(right_vsplit)
 		main_hsplit.add_child(canvas_right_split)
@@ -923,6 +973,7 @@ func _enter_tree():
 	add_tool_menu_item("Visual Gasic Object Browser", Callable(self, "_on_obj_browser"))
 	add_tool_menu_item("Visual Gasic Tab Order", Callable(self, "_on_tab_order"))
 	add_tool_menu_item("Visual Gasic Components...", Callable(self, "_on_components"))
+	add_tool_menu_item("Visual Gasic Hex Editor...", Callable(self, "_on_hex_editor_menu"))
 
 	# Tip of the Day — load preference and create dialog
 	_load_tip_config()
@@ -1361,6 +1412,13 @@ func _exit_tree():
 	remove_tool_menu_item("Visual Gasic Components...")
 	remove_tool_menu_item("VG: Snippet Browser")
 	remove_tool_menu_item("VG: Theme Picker")
+	remove_tool_menu_item("Visual Gasic Hex Editor...")
+
+	if is_instance_valid(_hex_editor):
+		if is_instance_valid(_embedded_code_editor):
+			_embedded_code_editor.remove_bottom_tab(_hex_editor)
+		_hex_editor.queue_free()
+		_hex_editor = null
 	
 	if is_instance_valid(immediate_window):
 		# Immediate window is embedded in the code editor's bottom panel;
@@ -3817,6 +3875,8 @@ func _create_vb6_menu_bar() -> MenuBar:
 	tools_menu.add_separator()
 	tools_menu.add_item("Input Map Editor...", 30)
 	tools_menu.add_item("Animation Editor...", 31)
+	tools_menu.add_separator()
+	tools_menu.add_item("Hex Editor...", 40)
 	tools_menu.id_pressed.connect(_on_vb6_tools_menu)
 	mb.add_child(tools_menu)
 
@@ -4854,6 +4914,7 @@ func _on_vb6_tools_menu(id: int) -> void:
 		21: _on_edit_custom_control()
 		30: _on_open_input_map_editor()
 		31: _on_open_animation_editor()
+		40: _on_hex_editor_menu()
 
 func _on_vb6_window_menu(id: int) -> void:
 	match id:
@@ -7201,6 +7262,24 @@ func _embed_ide_bottom_panels() -> void:
 		_embedded_code_editor.add_bottom_tab("AI Help", _ai_help_panel)
 		print("VisualGasic: AI Help embedded in IDE bottom tabs")
 
+	# Create and embed the Hex Editor here so it is guaranteed to run after
+	# the IDE layout and bottom tab container are fully built.
+	if not is_instance_valid(_hex_editor):
+		var hex_editor_script = load("res://addons/visual_gasic/vg_hex_editor.gd")
+		if hex_editor_script:
+			_hex_editor = hex_editor_script.new()
+			_hex_editor.request_open_dialog.connect(_on_hex_request_open_dialog)
+			_hex_editor.request_save_as_dialog.connect(_on_hex_request_save_as_dialog)
+			_hex_editor.request_compare_dialog.connect(_on_hex_request_compare_dialog)
+			print("VisualGasic: Hex Editor instance created OK")
+		else:
+			push_error("VisualGasic: FAILED to load vg_hex_editor.gd")
+	if is_instance_valid(_hex_editor):
+		_embedded_code_editor.add_bottom_tab("Hex Editor", _hex_editor)
+		print("VisualGasic: Hex Editor tab added — tab count now: " + str(_embedded_code_editor.get_node("BottomPanel/BottomTabs").get_tab_count()) if _embedded_code_editor.has_node("BottomPanel/BottomTabs") else "VisualGasic: Hex Editor tab added")
+	else:
+		push_error("VisualGasic: Hex Editor still invalid after creation attempt")
+
 ## Debug.Print output from running game → Output tab
 func _on_debug_print_to_output(text: String) -> void:
 	if is_instance_valid(_embedded_code_editor):
@@ -7252,6 +7331,83 @@ func _set_form_designer_widgets_visible(show_form_widgets: bool) -> void:
 			var form_btn := row.get_node_or_null("ViewObjectBtn")
 			if form_btn:
 				form_btn.visible = enabled
+
+## Opens a project file from the FileSystem browser in the appropriate VG editor.
+func _on_file_browser_open_requested(path: String) -> void:
+	var ext := path.get_extension().to_lower()
+	if ext == "vg" or ext == "gd":
+		# Open in the VG code editor
+		_show_code_view()
+		if is_instance_valid(_embedded_code_editor):
+			_embedded_code_editor.load_file(path)
+	elif ext == "tscn" or ext == "scn":
+		# Open scene in the form designer / 3D editor via Godot's editor interface
+		get_editor_interface().open_scene_from_path(path)
+	# Other file types: no special handler, signal already emitted for plugins
+
+## Returns true if the hex editor is ready to use.
+func _ensure_hex_editor() -> bool:
+	if is_instance_valid(_hex_editor):
+		return true
+	push_warning("VisualGasic: Hex Editor not available — IDE not fully loaded yet")
+	return false
+
+func _on_hex_request_open_dialog() -> void:
+	var fd := FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	fd.access    = FileDialog.ACCESS_FILESYSTEM
+	fd.title     = "Open File — VG Hex Editor"
+	var abs : String = ProjectSettings.globalize_path("res://")
+	if DirAccess.dir_exists_absolute(abs):
+		fd.current_dir = abs
+	fd.file_selected.connect(_hex_editor.open_file)
+	fd.file_selected.connect(func(_p): fd.queue_free())
+	fd.canceled.connect(fd.queue_free)
+	get_editor_interface().get_base_control().add_child(fd)
+	fd.call_deferred("popup_centered_ratio", 0.7)
+
+func _on_hex_request_save_as_dialog(current_path: String) -> void:
+	var fd := FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	fd.access    = FileDialog.ACCESS_FILESYSTEM
+	fd.title     = "Save As — VG Hex Editor"
+	if not current_path.is_empty():
+		var abs : String = current_path
+		if current_path.begins_with("res://"):
+			abs = ProjectSettings.globalize_path(current_path)
+		fd.current_path = abs
+	fd.file_selected.connect(_hex_editor._save_to_path)
+	fd.file_selected.connect(func(_p): fd.queue_free())
+	fd.canceled.connect(fd.queue_free)
+	get_editor_interface().get_base_control().add_child(fd)
+	fd.call_deferred("popup_centered_ratio", 0.7)
+
+func _on_hex_request_compare_dialog() -> void:
+	var fd := FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	fd.access    = FileDialog.ACCESS_FILESYSTEM
+	fd.title     = "Open File to Compare — VG Hex Editor"
+	fd.file_selected.connect(_hex_editor._load_compare_file)
+	fd.file_selected.connect(func(_p): fd.queue_free())
+	fd.canceled.connect(fd.queue_free)
+	get_editor_interface().get_base_control().add_child(fd)
+	fd.call_deferred("popup_centered_ratio", 0.7)
+
+## Opens a file in the VG Hex Editor.  Called from the FileSystem browser right-click.
+func _on_hex_editor_open(path: String) -> void:
+	if not _ensure_hex_editor():
+		return
+	_hex_editor.open_file(path)
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_bottom_tab"):
+		_embedded_code_editor.focus_bottom_tab(_hex_editor)
+
+## Opens the Hex Editor with a file-picker dialog.  Called from the Tools menu.
+func _on_hex_editor_menu() -> void:
+	if not _ensure_hex_editor():
+		return
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_bottom_tab"):
+		_embedded_code_editor.focus_bottom_tab(_hex_editor)
+	_hex_editor.open_with_dialog()
 
 ## Switch the center panel from form canvas to code editor.
 func _show_code_view() -> void:
@@ -7315,6 +7471,13 @@ func _show_code_view() -> void:
 	if right_panel_code:
 		right_panel_code.visible = true
 
+	# Swap bottom panel: hide Properties, show FileSystem browser
+	if is_instance_valid(_properties_inspector):
+		_properties_inspector.visible = false
+	if is_instance_valid(_vg_file_browser):
+		_vg_file_browser.visible = true
+		_vg_file_browser.refresh()
+
 	# Update status bar
 	if is_instance_valid(_status_bar):
 		var path = _embedded_code_editor.get_file_path() if is_instance_valid(_embedded_code_editor) else ""
@@ -7376,6 +7539,12 @@ func _show_form_view() -> void:
 	var right_panel_form = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
 	if right_panel_form:
 		right_panel_form.visible = true
+
+	# Swap bottom panel: hide FileSystem browser, show Properties
+	if is_instance_valid(_vg_file_browser):
+		_vg_file_browser.visible = false
+	if is_instance_valid(_properties_inspector):
+		_properties_inspector.visible = true
 
 	# Update status bar
 	if is_instance_valid(_status_bar):
@@ -9031,6 +9200,24 @@ func _load_custom_components():
 func loading_inspector():
 	if FileAccess.file_exists("res://addons/visual_gasic/simple_inspector.gd"):
 		var s = load("res://addons/visual_gasic/simple_inspector.gd")
+		var inst = s.new()
+		return inst
+	return null
+
+## Loads and instantiates the FileSystem Browser panel.
+## @returns: VGFileSystemPanel instance or null if not found
+func loading_file_browser():
+	if FileAccess.file_exists("res://addons/visual_gasic/vg_file_browser.gd"):
+		var s = load("res://addons/visual_gasic/vg_file_browser.gd")
+		var inst = s.new()
+		return inst
+	return null
+
+## Loads and instantiates the Hex Editor window.
+## @returns: VGHexEditor instance or null if not found
+func loading_hex_editor():
+	if FileAccess.file_exists("res://addons/visual_gasic/vg_hex_editor.gd"):
+		var s = load("res://addons/visual_gasic/vg_hex_editor.gd")
 		var inst = s.new()
 		return inst
 	return null
