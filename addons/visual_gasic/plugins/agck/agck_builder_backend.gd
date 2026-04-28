@@ -1037,8 +1037,11 @@ func _gen_player_physics(speed: float, gravity: float, collision: String, actor_
 	s += "        End If\n"
 	s += "    End If\n"
 	s += "\n"
-	# Fall-off-map detection — if the player falls below the map, lose a life
-	var kill_y: int = GRID_H * CELL_PX + CELL_PX * 4   # 4 tiles below the map bottom
+	# Fall-off-map detection — if the player falls below the map, lose a life.
+	# Use a generous flat threshold so this works for any level height up
+	# to ~1500 cells. Per-actor scripts don't know the host level's height
+	# at codegen time, so a fixed (very large) Y wins us tall-level support.
+	var kill_y: int = 50000
 	s += "    ' Fall-off-map detection\n"
 	s += "    If Me.GlobalPosition.Y > " + str(kill_y) + " Then\n"
 	s += "        Dim main As Node2D = GetTree().CurrentScene\n"
@@ -1110,7 +1113,8 @@ func _gen_runner_physics(speed: float, gravity: float, jump_force: float, actor_
 	s += "    End If\n"
 	s += "\n"
 	# Fall-off-map detection — same as Player; if cube falls below the map, it dies.
-	var kill_y: int = GRID_H * CELL_PX + CELL_PX * 4
+	# Use a generous flat threshold so this works for any level height.
+	var kill_y: int = 50000
 	s += "    ' Fall-off-map detection\n"
 	s += "    If Me.GlobalPosition.Y > " + str(kill_y) + " Then\n"
 	s += "        Dim main As Node2D = GetTree().CurrentScene\n"
@@ -1477,12 +1481,24 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 	var lvl_name = "Level_" + str(level_idx + 1).pad_zeros(2)
 	var vg_path = path.replace(".tscn", ".vg")
 
+	# Per-level grid dimensions — read from the dict if present, else fall
+	# back to the actual array shape, else the historical 20×12 default.
+	# Camera limits, ColorRect background size, and grid iteration bounds
+	# all key off these. This is what allows levels to be longer/taller
+	# than 20×12 without breaking the rest of the pipeline.
+	var lvl_w: int = int(lvl.get("grid_w", 0))
+	var lvl_h: int = int(lvl.get("grid_h", 0))
+	if lvl_w <= 0:
+		lvl_w = grid[0].size() if (grid.size() > 0 and grid[0] is Array) else GRID_W
+	if lvl_h <= 0:
+		lvl_h = grid.size() if grid.size() > 0 else GRID_H
+
 	# ── Pass 1: Collect all unique tile textures used in this level ──
 	# Key = "bt_ti" (e.g. "1_0"), value = relative path to tile PNG
 	var tile_textures: Dictionary = {}   # "bt_ti" -> png_relative_path
-	for y in range(mini(grid.size(), GRID_H)):
+	for y in range(grid.size()):
 		var row = grid[y]
-		for x in range(mini(row.size(), GRID_W)):
+		for x in range(row.size()):
 			var cell = row[x]
 			var block_id: int = 0
 			var tile_idx: int = 0
@@ -1552,9 +1568,9 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 	var block_idx = 0
 	var block_paths: Dictionary = lvl.get("block_paths", {})
 	var moving_block_nodes: Array = []  # track {node_name, path_arr} for level script
-	for y in range(mini(grid.size(), GRID_H)):
+	for y in range(grid.size()):
 		var row = grid[y]
-		for x in range(mini(row.size(), GRID_W)):
+		for x in range(row.size()):
 			var cell = row[x]
 			var block_id: int = 0
 			var tile_idx: int = 0
@@ -1687,11 +1703,22 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 		body += '[node name="' + inst_name + '" parent="." instance=ExtResource("' + str(actor_scenes[aid]) + '")]\n'
 		body += 'position = Vector2(' + str(px) + ', ' + str(py) + ')\n\n'
 
-		# Track the player instance for camera attachment
-		if actor_type == "Player" and player_inst_name.is_empty():
+		# Track the player instance for camera attachment. Multiple actor
+		# types are CharacterBody2D-derived player avatars; any of them
+		# should get the follow-camera. Without this branch the Runner and
+		# TopHero drifted off-camera the moment they moved.
+		if (actor_type == "Player" or actor_type == "Runner"
+				or actor_type == "TopHero" or actor_type == "Tank") \
+				and player_inst_name.is_empty():
 			player_inst_name = inst_name
 
-	# Camera2D — attach to player if found (follows player), else static at center
+	# Camera2D — attach to the player-like actor if found (follows actor),
+	# else static at the level's center. "Player" is the classic platformer
+	# hero; "Runner" (Geometry-Dash cube), "TopHero" (top-down hero), and
+	# "Tank" (driving rigidbody) are also CharacterBody2D-derived player
+	# avatars and need the camera to follow them too — prior to this fix
+	# the camera fell back to static-at-center for every non-Player and
+	# the player drifted off-screen as soon as they moved.
 	if player_inst_name != "":
 		body += '[node name="Camera2D" type="Camera2D" parent="' + player_inst_name + '"]\n'
 		body += 'zoom = Vector2(1.5, 1.5)\n'
@@ -1701,11 +1728,11 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 		body += 'drag_vertical_enabled = true\n'
 		body += 'limit_left = 0\n'
 		body += 'limit_top = 0\n'
-		body += 'limit_right = ' + str(GRID_W * CELL_PX) + '\n'
-		body += 'limit_bottom = ' + str(GRID_H * CELL_PX) + '\n\n'
+		body += 'limit_right = ' + str(lvl_w * CELL_PX) + '\n'
+		body += 'limit_bottom = ' + str(lvl_h * CELL_PX) + '\n\n'
 	else:
 		body += '[node name="Camera2D" type="Camera2D" parent="."]\n'
-		body += 'position = Vector2(' + str(GRID_W * CELL_PX / 2) + ', ' + str(GRID_H * CELL_PX / 2) + ')\n'
+		body += 'position = Vector2(' + str(lvl_w * CELL_PX / 2) + ', ' + str(lvl_h * CELL_PX / 2) + ')\n'
 		body += 'zoom = Vector2(1.5, 1.5)\n\n'
 
 	# ── Build complete header with all ext_resources + sub_resources ──
@@ -1800,9 +1827,9 @@ func _generate_level_vg(path: String, lvl_name: String, lvl: Dictionary, actors:
 	var mblock_paths_decl: Dictionary = lvl.get("block_paths", {})
 	var mblock_decl_idx = 0
 	var mblock_decl_names: Array = []  # track names for later use
-	for y_d in range(mini(grid.size(), GRID_H)):
+	for y_d in range(grid.size()):
 		var row_d = grid[y_d]
-		for x_d in range(mini(row_d.size(), GRID_W)):
+		for x_d in range(row_d.size()):
 			var cell_d = row_d[x_d]
 			var block_id_d: int = 0
 			if cell_d is Dictionary:
@@ -1886,9 +1913,9 @@ func _generate_level_vg(path: String, lvl_name: String, lvl: Dictionary, actors:
 	var mblock_paths: Dictionary = lvl.get("block_paths", {})
 	var mblock_idx = 0
 	var mblock_grid_idx = 0
-	for y in range(mini(grid.size(), GRID_H)):
+	for y in range(grid.size()):
 		var row = grid[y]
-		for x in range(mini(row.size(), GRID_W)):
+		for x in range(row.size()):
 			var cell = row[x]
 			var block_id: int = 0
 			if cell is Dictionary:
@@ -1959,9 +1986,9 @@ func _generate_level_vg(path: String, lvl_name: String, lvl: Dictionary, actors:
 	# Rebuild moving block list (same order as tscn block numbering)
 	var mblock_list: Array = []
 	var mblock_grid_idx2 = 0
-	for y2 in range(mini(grid.size(), GRID_H)):
+	for y2 in range(grid.size()):
 		var row2 = grid[y2]
-		for x2 in range(mini(row2.size(), GRID_W)):
+		for x2 in range(row2.size()):
 			var cell2 = row2[x2]
 			var block_id2: int = 0
 			if cell2 is Dictionary:

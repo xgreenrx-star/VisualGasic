@@ -79,8 +79,18 @@ const SPRITE_FX_UNIFORMS: Dictionary = {
 		{"name": "pixel_size", "label": "Pixel Size", "default": 4.0, "min": 2.0, "max": 16.0, "step": 1.0},
 	],
 }
-const GRID_W = 20
-const GRID_H = 12
+# ── Level grid size ────────────────────────────────────────────
+# Historically these were `const GRID_W = 20` / `const GRID_H = 12`,
+# but levels are now PER-LEVEL sized: the dict carries `grid_w` /
+# `grid_h` keys (defaulting to these values). Use `_lvl_w()` /
+# `_lvl_h()` to read the active level's dimensions throughout this
+# editor — the constants below are *defaults only* for new levels.
+const DEFAULT_GRID_W = 20
+const DEFAULT_GRID_H = 12
+const MIN_GRID_W = 8
+const MIN_GRID_H = 6
+const MAX_GRID_W = 200
+const MAX_GRID_H = 60
 const BASE_CELL_PX: float = 28.0
 const ZOOM_MIN: float = 0.5
 const ZOOM_MAX: float = 4.0
@@ -268,16 +278,21 @@ func _init_levels() -> void:
 		levels.append(_make_empty_level(i + 1))
 
 
-func _make_empty_level(num: int) -> Dictionary:
+func _make_empty_level(num: int, w: int = DEFAULT_GRID_W, h: int = DEFAULT_GRID_H) -> Dictionary:
+	# Clamp to safe ranges so a corrupt project file can't allocate a billion cells.
+	w = clampi(w, MIN_GRID_W, MAX_GRID_W)
+	h = clampi(h, MIN_GRID_H, MAX_GRID_H)
 	var grid: Array = []
-	for _y in range(GRID_H):
+	for _y in range(h):
 		var row: Array = []
-		for _x in range(GRID_W):
+		for _x in range(w):
 			row.append({"block_type": BLOCK_EMPTY, "tile_index": 0})
 		grid.append(row)
 	return {
 		"name": "Level " + str(num),
 		"grid": grid,
+		"grid_w": w,
+		"grid_h": h,
 		"actors": [],
 		"block_paths": {},
 		"material_friction": 50,
@@ -285,6 +300,34 @@ func _make_empty_level(num: int) -> Dictionary:
 		"death_action": "Restart Level",
 		"death_action_target": 1,
 	}
+
+
+# Active level dimensions — fall back to the grid array's own shape if
+# the dict is missing grid_w/grid_h (older project files), and only fall
+# back to the constants when even that's unavailable. This makes legacy
+# levels load transparently.
+func _lvl_w() -> int:
+	if selected_level < 0 or selected_level >= levels.size():
+		return DEFAULT_GRID_W
+	var lvl: Dictionary = levels[selected_level]
+	if lvl.has("grid_w"):
+		return int(lvl["grid_w"])
+	var grid: Array = lvl.get("grid", [])
+	if grid.size() > 0 and grid[0] is Array:
+		return grid[0].size()
+	return DEFAULT_GRID_W
+
+
+func _lvl_h() -> int:
+	if selected_level < 0 or selected_level >= levels.size():
+		return DEFAULT_GRID_H
+	var lvl: Dictionary = levels[selected_level]
+	if lvl.has("grid_h"):
+		return int(lvl["grid_h"])
+	var grid: Array = lvl.get("grid", [])
+	if grid.size() > 0:
+		return grid.size()
+	return DEFAULT_GRID_H
 
 
 func _build_ui() -> void:
@@ -345,6 +388,15 @@ func _build_ui() -> void:
 	clr_btn.add_theme_font_size_override("font_size", 12)
 	clr_btn.pressed.connect(_on_clear_level)
 	top_hbox.add_child(clr_btn)
+	# Per-level grid resize: opens a small dialog with W/H spinners.
+	# Existing tile/actor data is preserved on resize (cropped if shrinking,
+	# right/bottom-padded with empty cells if growing).
+	var resize_btn = Button.new()
+	resize_btn.text = "⤢"
+	resize_btn.tooltip_text = "Resize this level (width × height)"
+	resize_btn.add_theme_font_size_override("font_size", 12)
+	resize_btn.pressed.connect(_on_resize_level_pressed)
+	top_hbox.add_child(resize_btn)
 
 	top_hbox.add_child(VSeparator.new())
 
@@ -580,7 +632,9 @@ func _build_ui() -> void:
 	add_child(_grid_scroll)
 
 	_grid_canvas = Control.new()
-	_grid_canvas.custom_minimum_size = Vector2(GRID_W * BASE_CELL_PX + 2, GRID_H * BASE_CELL_PX + 2)
+	# Initial size based on the first level's dims; _apply_zoom() refreshes
+	# this whenever the user resizes the level or switches levels.
+	_grid_canvas.custom_minimum_size = Vector2(_lvl_w() * BASE_CELL_PX + 2, _lvl_h() * BASE_CELL_PX + 2)
 	_grid_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_grid_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_grid_canvas.draw.connect(_draw_grid)
@@ -815,11 +869,13 @@ func _draw_grid() -> void:
 	if canvas_size.x < 10 or canvas_size.y < 10:
 		return
 
-	var cw: float = canvas_size.x / float(GRID_W)
-	var ch: float = canvas_size.y / float(GRID_H)
+	var gw: int = _lvl_w()
+	var gh: int = _lvl_h()
+	var cw: float = canvas_size.x / float(gw)
+	var ch: float = canvas_size.y / float(gh)
 	var cs: float = minf(cw, ch)
-	var ox: float = (canvas_size.x - cs * GRID_W) * 0.5
-	var oy: float = (canvas_size.y - cs * GRID_H) * 0.5
+	var ox: float = (canvas_size.x - cs * gw) * 0.5
+	var oy: float = (canvas_size.y - cs * gh) * 0.5
 
 	_grid_canvas.draw_rect(Rect2(Vector2.ZERO, canvas_size), Color(0.08, 0.08, 0.10))
 
@@ -827,8 +883,8 @@ func _draw_grid() -> void:
 	var grid: Array = lvl["grid"]
 
 	# Draw cells with WYSIWYG textures
-	for y in range(GRID_H):
-		for x in range(GRID_W):
+	for y in range(gh):
+		for x in range(gw):
 			var cell = grid[y][x]
 			var block_type: int = 0
 			var tile_idx: int = 0
@@ -970,22 +1026,24 @@ func _draw_grid() -> void:
 
 func _grid_pos(pixel_pos: Vector2) -> Vector2i:
 	var canvas_size = _grid_canvas.size
-	var cw: float = canvas_size.x / float(GRID_W)
-	var ch: float = canvas_size.y / float(GRID_H)
+	var gw: int = _lvl_w()
+	var gh: int = _lvl_h()
+	var cw: float = canvas_size.x / float(gw)
+	var ch: float = canvas_size.y / float(gh)
 	var cs: float = minf(cw, ch)
-	var ox: float = (canvas_size.x - cs * GRID_W) * 0.5
-	var oy: float = (canvas_size.y - cs * GRID_H) * 0.5
+	var ox: float = (canvas_size.x - cs * gw) * 0.5
+	var oy: float = (canvas_size.y - cs * gh) * 0.5
 	var gx: int = int((pixel_pos.x - ox) / cs)
 	var gy: int = int((pixel_pos.y - oy) / cs)
-	return Vector2i(clampi(gx, 0, GRID_W - 1), clampi(gy, 0, GRID_H - 1))
+	return Vector2i(clampi(gx, 0, gw - 1), clampi(gy, 0, gh - 1))
 
 
 func _apply_zoom() -> void:
 	if not is_instance_valid(_grid_canvas):
 		return
 	_grid_canvas.custom_minimum_size = Vector2(
-		GRID_W * BASE_CELL_PX * _zoom + 2,
-		GRID_H * BASE_CELL_PX * _zoom + 2
+		_lvl_w() * BASE_CELL_PX * _zoom + 2,
+		_lvl_h() * BASE_CELL_PX * _zoom + 2
 	)
 	_grid_canvas.queue_redraw()
 	if is_instance_valid(_zoom_lbl):
@@ -1145,7 +1203,7 @@ func _redo() -> void:
 
 func _paint_at(pos: Vector2) -> void:
 	var gp = _grid_pos(pos)
-	if gp.x < 0 or gp.x >= GRID_W or gp.y < 0 or gp.y >= GRID_H:
+	if gp.x < 0 or gp.x >= _lvl_w() or gp.y < 0 or gp.y >= _lvl_h():
 		return
 	var lvl = levels[selected_level]
 	var cell = lvl["grid"][gp.y][gp.x]
@@ -1171,7 +1229,7 @@ func _paint_at(pos: Vector2) -> void:
 ## Flood fill — BFS replacing all connected cells of the same block type.
 func _flood_fill_at(pos: Vector2) -> void:
 	var gp = _grid_pos(pos)
-	if gp.x < 0 or gp.x >= GRID_W or gp.y < 0 or gp.y >= GRID_H:
+	if gp.x < 0 or gp.x >= _lvl_w() or gp.y < 0 or gp.y >= _lvl_h():
 		return
 	var lvl = levels[selected_level]
 	var grid: Array = lvl["grid"]
@@ -1207,7 +1265,7 @@ func _flood_fill_at(pos: Vector2) -> void:
 		filled += 1
 		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 			var np: Vector2i = p + d
-			if np.x >= 0 and np.x < GRID_W and np.y >= 0 and np.y < GRID_H:
+			if np.x >= 0 and np.x < _lvl_w() and np.y >= 0 and np.y < _lvl_h():
 				if not visited.has(np):
 					visited[np] = true
 					queue.append(np)
@@ -1222,7 +1280,7 @@ func _flood_fill_at(pos: Vector2) -> void:
 
 func _place_actor(pos: Vector2) -> void:
 	var gp = _grid_pos(pos)
-	if gp.x < 0 or gp.x >= GRID_W or gp.y < 0 or gp.y >= GRID_H:
+	if gp.x < 0 or gp.x >= _lvl_w() or gp.y < 0 or gp.y >= _lvl_h():
 		return
 	var lvl = levels[selected_level]
 	lvl["actors"].append({"actor_id": selected_actor, "x": gp.x, "y": gp.y, "path": []})
@@ -1297,7 +1355,7 @@ func _waypoint_select_target(pos: Vector2) -> void:
 ## Right-click in waypoint mode: add a waypoint to the locked target.
 func _add_waypoint(pos: Vector2) -> void:
 	var gp = _grid_pos(pos)
-	if gp.x < 0 or gp.x >= GRID_W or gp.y < 0 or gp.y >= GRID_H:
+	if gp.x < 0 or gp.x >= _lvl_w() or gp.y < 0 or gp.y >= _lvl_h():
 		return
 	var lvl = levels[selected_level]
 
@@ -1670,11 +1728,112 @@ func _on_dup_level() -> void:
 
 func _on_clear_level() -> void:
 	_ask_confirm("Clear all tiles and actors from this level?", func():
-		levels[selected_level] = _make_empty_level(selected_level + 1)
+		var keep_w := _lvl_w()
+		var keep_h := _lvl_h()
+		levels[selected_level] = _make_empty_level(selected_level + 1, keep_w, keep_h)
 		_refresh_ui()
 		_mark_dirty()
 		_status_lbl.text = "Level cleared"
 	)
+
+
+# ─── Per-level resize ────────────────────────────────────────
+# Pop a tiny modal with W/H spinners, default to current dims.
+# On confirm: resize the active level's grid in-place, preserving
+# overlapping cells. Actors and block-paths beyond the new bounds
+# are dropped (with a status-bar count so the user knows).
+func _on_resize_level_pressed() -> void:
+	var dlg := AcceptDialog.new()
+	dlg.title = "Resize Level " + str(selected_level + 1)
+	dlg.dialog_hide_on_ok = false
+	dlg.add_cancel_button("Cancel")
+	dlg.ok_button_text = "Apply"
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 6)
+	var info := Label.new()
+	info.text = "Width  (cells, " + str(MIN_GRID_W) + "–" + str(MAX_GRID_W) + ")"
+	vbox.add_child(info)
+	var w_spin := SpinBox.new()
+	w_spin.min_value = MIN_GRID_W
+	w_spin.max_value = MAX_GRID_W
+	w_spin.step = 1
+	w_spin.value = _lvl_w()
+	vbox.add_child(w_spin)
+	var info2 := Label.new()
+	info2.text = "Height (cells, " + str(MIN_GRID_H) + "–" + str(MAX_GRID_H) + ")"
+	vbox.add_child(info2)
+	var h_spin := SpinBox.new()
+	h_spin.min_value = MIN_GRID_H
+	h_spin.max_value = MAX_GRID_H
+	h_spin.step = 1
+	h_spin.value = _lvl_h()
+	vbox.add_child(h_spin)
+	var hint := Label.new()
+	hint.text = "Tip: existing tiles are preserved. Cells beyond\nthe new bounds (and out-of-range actors) are dropped."
+	hint.modulate = Color(0.7, 0.75, 0.85)
+	vbox.add_child(hint)
+	dlg.add_child(vbox)
+	dlg.confirmed.connect(func():
+		_resize_active_level(int(w_spin.value), int(h_spin.value))
+		dlg.hide()
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func():
+		dlg.queue_free()
+	)
+	add_child(dlg)
+	dlg.popup_centered(Vector2i(280, 200))
+
+
+# Resize the active level's grid in place. Existing cells in the
+# overlap region are preserved exactly; new cells are empty; cells
+# outside the new bounds are silently dropped. Actor/block-path
+# entries with coords ≥ new dims are also dropped.
+func _resize_active_level(new_w: int, new_h: int) -> void:
+	new_w = clampi(new_w, MIN_GRID_W, MAX_GRID_W)
+	new_h = clampi(new_h, MIN_GRID_H, MAX_GRID_H)
+	var lvl: Dictionary = levels[selected_level]
+	var old_grid: Array = lvl.get("grid", [])
+	var new_grid: Array = []
+	for y in range(new_h):
+		var row: Array = []
+		for x in range(new_w):
+			# Preserve existing cell when in overlap region; else empty.
+			if y < old_grid.size() and old_grid[y] is Array and x < old_grid[y].size():
+				row.append(old_grid[y][x])
+			else:
+				row.append({"block_type": BLOCK_EMPTY, "tile_index": 0})
+		new_grid.append(row)
+	lvl["grid"] = new_grid
+	lvl["grid_w"] = new_w
+	lvl["grid_h"] = new_h
+	# Drop actors that no longer fit.
+	var dropped_actors := 0
+	var kept_actors: Array = []
+	for a in lvl.get("actors", []):
+		if int(a.get("x", 0)) < new_w and int(a.get("y", 0)) < new_h:
+			kept_actors.append(a)
+		else:
+			dropped_actors += 1
+	lvl["actors"] = kept_actors
+	# Drop block-path keys whose anchor cell is now out of range.
+	var bps: Dictionary = lvl.get("block_paths", {})
+	var dead_keys: Array = []
+	for k in bps.keys():
+		var parts := String(k).split(",")
+		if parts.size() == 2:
+			if int(parts[0]) >= new_w or int(parts[1]) >= new_h:
+				dead_keys.append(k)
+	for k in dead_keys:
+		bps.erase(k)
+	_refresh_ui()
+	_apply_zoom()
+	_mark_dirty()
+	var msg := "Resized to %d × %d" % [new_w, new_h]
+	if dropped_actors > 0:
+		msg += " (dropped %d actor%s)" % [dropped_actors, "" if dropped_actors == 1 else "s"]
+	_status_lbl.text = msg
+	level_changed.emit(selected_level)
 
 
 # ─── Refresh ─────────────────────────────────────────────────
