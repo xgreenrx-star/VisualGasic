@@ -211,12 +211,38 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 		"description": cfg.get_value("plugin", "description", ""),
 		"script": cfg.get_value("plugin", "script", ""),
 		"enabled": cfg.get_value("plugin", "enabled", true),
+		"autoloads": _read_autoloads_section(cfg, plugin_id),
+		# Capability fields — optional [capabilities] section in plugin.cfg.
+		# Plugins use these to advertise what they can do (e.g. edit sprites)
+		# so VGPluginRegistry can route open-asset requests to the right one.
+		"provides": cfg.get_value("capabilities", "provides", []),
+		"handles_extensions": cfg.get_value("capabilities", "handles_extensions", []),
+		"priority": int(cfg.get_value("capabilities", "priority", 0)),
 	}
 	_plugin_meta[plugin_id] = meta
+
+	# Register with capability registry up front (even if disabled), so
+	# the settings/command-palette UIs can list every known plugin.
+	VGPluginRegistry.get_instance().register_provider(plugin_id, meta, null)
 
 	if not meta["enabled"]:
 		print("VisualGasic: Plugin '", meta["name"], "' is disabled, skipping")
 		return
+
+	# Register autoloads BEFORE loading the plugin script — the plugin's
+	# scripts may reference autoload identifiers that GDScript resolves at
+	# parse time. If any new autoloads were added, the user must restart
+	# VisualGasic for them to take effect (Godot autoloads are only
+	# wired into the global scope at engine startup).
+	if not meta["autoloads"].is_empty():
+		var paths_unhidden := _unhide_autoload_paths(plugin_id, meta["autoloads"])
+		var newly_added := _register_plugin_autoloads(plugin_id, meta["autoloads"])
+		if newly_added or paths_unhidden:
+			ProjectSettings.save()
+			push_warning("VisualGasic: Plugin '%s' added autoloads. Restart VisualGasic to activate them." % meta["name"])
+			# Don't try to load the plugin script this session — it will
+			# fail to parse because the autoload identifiers aren't bound.
+			return
 
 	if meta["script"].is_empty():
 		push_warning("VisualGasic: Plugin '", meta["name"], "' has no script defined")
@@ -247,6 +273,11 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 
 	# Store the plugin
 	_plugins[plugin_id] = plugin_instance
+
+	# Now that the live instance exists, attach it to the registry so
+	# capability-based routing (open_asset, find_providers) can dispatch
+	# to it.
+	VGPluginRegistry.get_instance().attach_instance(plugin_id, plugin_instance)
 
 	print("VisualGasic: Plugin '", meta["name"], "' loaded successfully")
 
@@ -524,7 +555,7 @@ func _build_plugin_settings_row(plugin_id: String, meta: Dictionary) -> HBoxCont
 	# Enabled toggle
 	var toggle = CheckButton.new()
 	toggle.button_pressed = meta.get("enabled", true)
-	toggle.tooltip_text = "Enable or disable this plugin (requires restart)"
+	toggle.tooltip_text = "Enable or disable this plugin (applied immediately)"
 	toggle.toggled.connect(_on_plugin_toggle.bind(plugin_id))
 	row.add_child(toggle)
 
@@ -594,7 +625,64 @@ func _on_plugin_toggle(enabled: bool, plugin_id: String) -> void:
 	if _plugin_meta.has(plugin_id):
 		_plugin_meta[plugin_id]["enabled"] = enabled
 
-	print("VisualGasic: Plugin '", plugin_id, "' ", "enabled" if enabled else "disabled", " (restart to apply)")
+	# Live load/unload — no editor restart required.
+	if enabled:
+		# Load + activate the plugin so users see it immediately.
+		if not _plugins.has(plugin_id):
+			_load_plugin(plugin_id, cfg_path)
+		if _plugins.has(plugin_id):
+			activate_plugin(plugin_id)
+	else:
+		# If we just disabled the active plugin, switch back to the
+		# code editor so the user isn't left staring at a hidden view.
+		var was_active := (_active_plugin_id == plugin_id)
+		_unload_plugin(plugin_id)
+		if was_active and is_instance_valid(_host_plugin) and _host_plugin.has_method("_show_code_view"):
+			_host_plugin._show_code_view()
+
+	# Refresh the settings popup so the row's status indicator updates.
+	if is_instance_valid(_settings_popup) and _settings_popup.visible:
+		_show_settings_popup()
+
+	print("VisualGasic: Plugin '", plugin_id, "' ", "enabled" if enabled else "disabled")
+
+
+## Tear down a single loaded plugin: deactivate, free its view, button,
+## and remove it from internal tracking. The plugin.cfg "enabled" field
+## is the caller's responsibility (see _on_plugin_toggle).
+func _unload_plugin(plugin_id: String) -> void:
+	if not _plugins.has(plugin_id):
+		return
+
+	# Deactivate if currently active.
+	if _active_plugin_id == plugin_id:
+		_plugins[plugin_id].deactivate()
+		_active_plugin_id = ""
+
+	# Tear down the plugin's UI/state.
+	_plugins[plugin_id].cleanup()
+	_plugins.erase(plugin_id)
+
+	# Remove the toolbar button.
+	if _toolbar_buttons.has(plugin_id):
+		var btn = _toolbar_buttons[plugin_id]
+		if is_instance_valid(btn):
+			btn.queue_free()
+		_toolbar_buttons.erase(plugin_id)
+
+	# Drop from the order list and refresh overflow visibility.
+	_plugin_order.erase(plugin_id)
+	_update_overflow()
+
+	# Unregister any autoloads this plugin declared.  Newly removed
+	# autoloads only take effect after a VisualGasic restart.
+	var meta: Dictionary = _plugin_meta.get(plugin_id, {})
+	var autoloads: Dictionary = meta.get("autoloads", {})
+	if not autoloads.is_empty():
+		var unhid := _hide_autoload_paths(plugin_id, autoloads)
+		if _unregister_plugin_autoloads(plugin_id, autoloads) or unhid:
+			ProjectSettings.save()
+			push_warning("VisualGasic: Plugin '%s' removed autoloads. Restart VisualGasic for the change to take full effect." % plugin_id)
 
 
 ## Open a file dialog to install a plugin folder.
@@ -682,3 +770,130 @@ func cleanup() -> void:
 	_plugin_order.clear()
 	_active_plugin_id = ""
 	_plugin_separator_added = false
+
+
+
+# ─── Plugin autoload management ─────────────────────────────────
+#
+# Plugins can declare autoloads in their plugin.cfg, e.g.:
+#   [autoloads]
+#   Controller="bosca/globals/Controller.gd"
+#
+# The manager registers each entry as ProjectSettings("autoload/<Name>" =
+# "*res://addons/visual_gasic/plugins/<plugin_id>/<relative_path>").
+# Because Godot only wires autoloads into the global identifier scope at
+# engine startup, newly-added autoloads require a VisualGasic restart
+# before the plugin's scripts will parse correctly.
+
+## Read the [autoloads] ConfigFile section into a Dictionary mapping
+## autoload name -> relative path (relative to the plugin folder).
+func _read_autoloads_section(cfg: ConfigFile, _plugin_id: String) -> Dictionary:
+	var out: Dictionary = {}
+	if not cfg.has_section("autoloads"):
+		return out
+	for key in cfg.get_section_keys("autoloads"):
+		var rel_path := str(cfg.get_value("autoloads", key, ""))
+		if rel_path.is_empty():
+			continue
+		out[str(key)] = rel_path
+	return out
+
+
+## Register the plugin's declared autoloads in ProjectSettings.
+## Returns true if any entries were newly added (caller should save +
+## warn about restart).
+func _register_plugin_autoloads(plugin_id: String, autoloads: Dictionary) -> bool:
+	var any_new := false
+	for autoload_name in autoloads:
+		var rel_path: String = autoloads[autoload_name]
+		var abs_path := "*res://addons/visual_gasic/plugins/%s/%s" % [plugin_id, rel_path]
+		var setting_key := "autoload/%s" % autoload_name
+		var existing = ProjectSettings.get_setting(setting_key, "")
+		if str(existing) == abs_path:
+			continue
+		ProjectSettings.set_setting(setting_key, abs_path)
+		any_new = true
+	return any_new
+
+
+## Remove autoloads previously registered for a plugin. Returns true if
+## any were removed (caller should save + warn about restart).
+func _unregister_plugin_autoloads(plugin_id: String, autoloads: Dictionary) -> bool:
+	var any_removed := false
+	for autoload_name in autoloads:
+		var setting_key := "autoload/%s" % autoload_name
+		if ProjectSettings.has_setting(setting_key):
+			# Only remove if it matches *our* plugin's path - don't clobber
+			# autoloads from a different plugin or the host project.
+			var expected := "*res://addons/visual_gasic/plugins/%s/%s" % [plugin_id, autoloads[autoload_name]]
+			var current := str(ProjectSettings.get_setting(setting_key, ""))
+			if current == expected:
+				ProjectSettings.set_setting(setting_key, null)
+				any_removed = true
+	return any_removed
+
+
+# ─── Plugin folder visibility (.gdignore management) ───────────
+#
+# When a plugin is disabled (or installed but never enabled), the GDScript
+# parser will still index any *.gd files in its directory and produce
+# noisy "identifier not declared" errors on scripts that reference the
+# plugin's not-yet-registered autoloads.  To suppress this, we keep a
+# `.gdignore` file in each subfolder containing autoload-dependent
+# scripts.  Enabling the plugin removes the marker; disabling restores
+# it.  An empty .gdignore is sufficient — Godot skips the entire
+# directory tree below it.
+
+## For each autoload's containing directory, remove a .gdignore file if
+## present so Godot can scan the scripts.  Returns true if any file was
+## removed (caller saves project settings + warns about restart).
+func _unhide_autoload_paths(plugin_id: String, autoloads: Dictionary) -> bool:
+	var removed_any := false
+	var dirs := _autoload_root_dirs(plugin_id, autoloads)
+	for dir_path_v in dirs:
+		var dir_path: String = dir_path_v
+		var marker: String = dir_path + "/.gdignore"
+		if FileAccess.file_exists(marker):
+			var abs_path := ProjectSettings.globalize_path(marker)
+			var err := DirAccess.remove_absolute(abs_path)
+			if err == OK:
+				removed_any = true
+			else:
+				push_warning("VisualGasic: Failed to remove %s (err %d)" % [marker, err])
+	return removed_any
+
+
+## Recreate .gdignore markers in autoload directories so the plugin's
+## sources don't produce parse errors after disable.  Returns true if a
+## new marker was written.
+func _hide_autoload_paths(plugin_id: String, autoloads: Dictionary) -> bool:
+	var wrote_any := false
+	var dirs := _autoload_root_dirs(plugin_id, autoloads)
+	for dir_path_v in dirs:
+		var dir_path: String = dir_path_v
+		var marker: String = dir_path + "/.gdignore"
+		if FileAccess.file_exists(marker):
+			continue
+		var f := FileAccess.open(marker, FileAccess.WRITE)
+		if f:
+			f.close()
+			wrote_any = true
+		else:
+			push_warning("VisualGasic: Failed to create %s" % marker)
+	return wrote_any
+
+
+## Compute the set of top-level directories that contain autoload-dependent
+## scripts.  We mark the topmost ancestor directory inside the plugin folder
+## (e.g. for "bosca/globals/Controller.gd" -> "res://addons/.../vgmusic/bosca").
+func _autoload_root_dirs(plugin_id: String, autoloads: Dictionary) -> Array:
+	var plugin_root := PLUGINS_DIR + plugin_id + "/"
+	var roots: Dictionary = {}
+	for name in autoloads:
+		var rel: String = autoloads[name]
+		var first_slash := rel.find("/")
+		if first_slash <= 0:
+			continue
+		var top := rel.substr(0, first_slash)
+		roots[plugin_root + top] = true
+	return roots.keys()
