@@ -72,6 +72,10 @@ func setup(host_plugin, toolbar_row: HBoxContainer, canvas_right_split: Control)
 	_host_plugin = host_plugin
 	_toolbar_row = toolbar_row
 	_canvas_right_split = canvas_right_split
+	# Spin up the cross-asset reference rewriter so any plugin that emits
+	# VGAssetBus.asset_renamed automatically gets refs in .vg/.gd/.tscn/etc.
+	# rewritten throughout the project. Idempotent — safe to call again.
+	preload("res://addons/visual_gasic/vg_ref_rewriter.gd").get_instance()
 
 
 ## Discover and load all plugins from the plugins/ directory.
