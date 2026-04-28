@@ -20,10 +20,17 @@ class_name VGCommandPalette
 extends PopupPanel
 
 const _Registry := preload("res://addons/visual_gasic/vg_plugin_registry.gd")
+const _AssetBus := preload("res://addons/visual_gasic/vg_asset_bus.gd")
 
 ## Maximum number of files to scan before bailing — keeps startup
 ## responsive on huge projects.
 const FILE_SCAN_LIMIT := 5000
+
+## Where the most-recently-opened files list is persisted.
+const RECENT_FILES_PATH := "user://vg_recent_files.cfg"
+
+## Cap on the recent-files list. Anything older falls off.
+const RECENT_FILES_LIMIT := 30
 
 ## Extensions that are always uninteresting (binary blobs, build
 ## artifacts) and should never appear in quick-open.
@@ -56,6 +63,10 @@ var _commands: Dictionary = {}
 ## kind: "file" | "command" | "capability"
 ## payload: file path / command id / capability name
 var _rows: Array = []
+
+## Most-recently-opened files (newest first), persisted to user://.
+## Populated from VGAssetBus.asset_opened.
+var _recent_files: Array = []
 
 
 # ─── Public API ─────────────────────────────────────────────
@@ -90,6 +101,40 @@ func _ready() -> void:
 		_build_ui()
 	# Re-route Esc to close cleanly.
 	close_requested.connect(hide)
+	# Track every opened asset so empty-query quick-open shows MRU.
+	_load_recent_files()
+	var bus = _AssetBus.get_instance()
+	if not bus.asset_opened.is_connected(_on_asset_opened):
+		bus.asset_opened.connect(_on_asset_opened)
+
+
+func _on_asset_opened(path: String, _by_plugin_id: String) -> void:
+	# Move-to-front semantics, dedup by path, drop tail past LIMIT.
+	if path.is_empty():
+		return
+	_recent_files.erase(path)
+	_recent_files.push_front(path)
+	if _recent_files.size() > RECENT_FILES_LIMIT:
+		_recent_files.resize(RECENT_FILES_LIMIT)
+	_save_recent_files()
+
+
+func _load_recent_files() -> void:
+	_recent_files.clear()
+	var cfg := ConfigFile.new()
+	if cfg.load(RECENT_FILES_PATH) != OK:
+		return
+	var arr = cfg.get_value("recent", "files", [])
+	if arr is Array:
+		for p in arr:
+			if p is String and not p.is_empty():
+				_recent_files.append(p)
+
+
+func _save_recent_files() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("recent", "files", _recent_files)
+	cfg.save(RECENT_FILES_PATH)
 
 
 func _build_ui() -> void:
@@ -260,6 +305,51 @@ func _show_commands(filter: String) -> void:
 
 
 func _show_files(filter: String) -> void:
+	# Empty query → show MRU first, then full file list. Gives the user
+	# instant access to whatever they were just looking at.
+	if filter.is_empty() and not _recent_files.is_empty():
+		var existing: Dictionary = {}
+		var shown_recent := 0
+		for path in _recent_files:
+			if shown_recent >= 10:
+				break
+			# Skip stale entries the user has since deleted.
+			if not (path.begins_with("res://") or FileAccess.file_exists(path)):
+				continue
+			if path.begins_with("res://") and not FileAccess.file_exists(path):
+				continue
+			existing[path] = true
+			var provider_name := _provider_name_for_path(path)
+			var label: String = "🕘  " + path
+			if not provider_name.is_empty():
+				label = "🕘  %s   — %s" % [path, provider_name]
+			_list.add_item(label)
+			_rows.append({"kind": "file", "label": label, "payload": path})
+			shown_recent += 1
+		# Visual separator: an unselectable divider entry.
+		if shown_recent > 0:
+			_list.add_item("──────────  All files  ──────────")
+			var sep_idx := _list.item_count - 1
+			_list.set_item_selectable(sep_idx, false)
+			_rows.append({"kind": "separator", "label": "", "payload": null})
+		# Now show the rest of the project, excluding what's already in MRU.
+		var shown := 0
+		for path in _file_cache:
+			if shown >= 200:
+				break
+			if existing.has(path):
+				continue
+			var pname := _provider_name_for_path(path)
+			var lbl: String = path
+			if not pname.is_empty():
+				lbl = "%s   — %s" % [path, pname]
+			_list.add_item(lbl)
+			_rows.append({"kind": "file", "label": lbl, "payload": path})
+			shown += 1
+		if _list.item_count > 0:
+			_list.select(0)
+		return
+
 	var matches: Array = []
 	for path in _file_cache:
 		var hay: String = path.to_lower()
@@ -277,9 +367,9 @@ func _show_files(filter: String) -> void:
 	)
 
 	# Cap displayed rows so huge projects don't lock the UI.
-	var shown := 0
+	var shown_count := 0
 	for m in matches:
-		if shown >= 200:
+		if shown_count >= 200:
 			break
 		var path: String = m["path"]
 		# Annotate which provider handles the path (if any) so the user
@@ -290,7 +380,7 @@ func _show_files(filter: String) -> void:
 			label = "%s   — %s" % [path, provider_name]
 		_list.add_item(label)
 		_rows.append({"kind": "file", "label": label, "payload": path})
-		shown += 1
+		shown_count += 1
 	if _list.item_count > 0:
 		_list.select(0)
 
