@@ -2111,6 +2111,14 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 
 	var tscn = ""
 
+	# Fullscreen runtime helper. We can't rely on the project.godot
+	# window/size/mode entry alone because the editor's play-scene runner
+	# launches the scene under the host editor's display settings, ignoring
+	# the generated project.godot. Forcing the mode at _ready() works for
+	# both editor previews and standalone exported builds.
+	var want_fullscreen: bool = bool(settings.get("fullscreen", false))
+	var fs_extra_steps: int = 1 if want_fullscreen else 0
+
 	# ── Count shader sub_resources so load_steps is correct ──
 	var shader_sub_count := 0
 	for si in range(shader_layers.size()):
@@ -2121,7 +2129,7 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 		if SHADER_CODES.has(sname_check) and not SHADER_CODES[sname_check].is_empty():
 			shader_sub_count += 2   # Shader + ShaderMaterial per effect
 
-	tscn += '[gd_scene load_steps=' + str(ext_id + shader_sub_count) + ' format=3]\n\n'
+	tscn += '[gd_scene load_steps=' + str(ext_id + shader_sub_count + fs_extra_steps) + ' format=3]\n\n'
 	tscn += '[ext_resource type="Script" path="' + vg_path + '" id="1"]\n'
 
 	# Level scene ext_resources
@@ -2185,9 +2193,20 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 
 	tscn += '\n'
 
+	# Fullscreen helper sub_resource (only when toggle is on). Tiny GDScript
+	# attached to a hidden Node child that runs once at _ready() and sets
+	# the window mode. Works in editor preview AND exported builds.
+	if want_fullscreen:
+		tscn += '[sub_resource type="GDScript" id="fs_helper"]\n'
+		tscn += 'script/source = "extends Node\\nfunc _ready():\\n\\tDisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)\\n"\n\n'
+
 	# Root Node2D (game controller)
 	tscn += '[node name="Main" type="Node2D"]\n'
 	tscn += 'script = ExtResource("1")\n\n'
+
+	if want_fullscreen:
+		tscn += '[node name="_FullscreenInit" type="Node" parent="."]\n'
+		tscn += 'script = SubResource("fs_helper")\n\n'
 
 	# Background color fill (behind everything)
 	var bg_hex: String = settings.get("bg_color", "1a1a2e")
