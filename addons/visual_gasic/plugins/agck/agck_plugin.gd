@@ -1285,65 +1285,44 @@ func _execute_build(game_data: Dictionary) -> Dictionary:
 
 ## Updates the ROOT project.godot so the built game is immediately playable.
 ## Sets run/main_scene to the built Main.tscn and opens it in the editor.
+##
+## Uses the ProjectSettings API (not raw file write) so the editor doesn't
+## flag project.godot as "file changed on disk" — the editor itself is the
+## one persisting the change, so its dirty-tracking stays in sync.
 func _update_root_project_godot(main_scene_path: String, settings: Dictionary) -> void:
-	var pg_path := "res://project.godot"
-	if not FileAccess.file_exists(pg_path):
-		push_warning("AGCK: Cannot find root project.godot")
-		return
+	# Main scene — what F5 / play_custom_scene runs.
+	ProjectSettings.set_setting("application/run/main_scene", main_scene_path)
 
-	# Read the existing project.godot
-	var f := FileAccess.open(pg_path, FileAccess.READ)
-	if not f:
-		push_warning("AGCK: Cannot read project.godot")
-		return
-	var text := f.get_as_text()
-	f.close()
-
-	# Patch or insert run/main_scene in the [application] section
-	var scene_line := 'run/main_scene="' + main_scene_path + '"'
-	if text.find('run/main_scene=') >= 0:
-		# Replace the existing main_scene line
-		var regex := RegEx.new()
-		regex.compile('run/main_scene="[^"]*"')
-		text = regex.sub(text, scene_line)
-	else:
-		# Insert after config/name or after [application]
-		var app_idx := text.find('[application]')
-		if app_idx >= 0:
-			# Find the end of the [application] line
-			var nl := text.find('\n', app_idx)
-			if nl >= 0:
-				text = text.insert(nl + 1, '\n' + scene_line + '\n')
-		else:
-			# No [application] section — add one
-			text += '\n[application]\n\n' + scene_line + '\n'
-
-	# Honor the Display → Fullscreen toggle on the host project.godot.
-	# EditorInterface.play_custom_scene runs under the host project's display
-	# settings, so writing window/size/mode here is what actually engages
-	# fullscreen when previewing from the editor. (We also inject a runtime
+	# Honor the Display → Fullscreen toggle on the host project. EditorInterface
+	# .play_custom_scene runs under the host project's display settings, so this
+	# is what actually engages fullscreen when previewing from the editor.
+	# 0 = Windowed, 3 = Exclusive Fullscreen. (We also inject a runtime
 	# DisplayServer call into Main.tscn as a belt-and-suspenders fallback.)
 	var fullscreen: bool = bool(settings.get("fullscreen", false))
-	text = _patch_project_godot_kv(text, "display", "window/size/mode", "3" if fullscreen else "0")
+	ProjectSettings.set_setting("display/window/size/mode", 3 if fullscreen else 0)
 
 	# Reduce input-to-action latency. Player input is sampled inside
-	# _PhysicsProcess; with the engine default 60 Hz physics tick, a key
-	# press can wait up to ~16ms before being seen, plus another ~16ms of
-	# v-sync at 60Hz = noticeable lag on keyboard. Bumping physics to
-	# 120 Hz halves the worst-case input latency without changing game
-	# balance (movement code uses delta).
-	text = _patch_project_godot_kv(text, "physics", "common/physics_ticks_per_second", "120")
+	# _PhysicsProcess; the engine default 60 Hz physics tick adds up to ~16 ms
+	# of input lag on top of v-sync. 120 Hz halves the worst case to ~8 ms
+	# without changing balance (movement uses delta).
+	ProjectSettings.set_setting("physics/common/physics_ticks_per_second", 120)
 
-	# Write back
-	var fw := FileAccess.open(pg_path, FileAccess.WRITE)
-	if fw:
-		fw.store_string(text)
-		fw.close()
+	# Uncap rendering FPS on high-refresh displays. vsync_mode 3 = Mailbox:
+	# no tearing, no 60 Hz cap when the monitor can do more. Falls back to
+	# enabled-vsync behavior on 60 Hz panels. This addresses tester feedback
+	# that the game "feels lower framerate than Geometry Dash" — GD runs
+	# uncapped, so on a 144/240 Hz display ours was visibly choppier.
+	ProjectSettings.set_setting("display/window/vsync/vsync_mode", 3)
+
+	# Persist the ProjectSettings changes back to project.godot. The editor
+	# performs this write itself, so it does NOT trigger a "file changed on
+	# disk" reload prompt the way a raw FileAccess.WRITE did.
+	var err := ProjectSettings.save()
+	if err == OK:
 		_forward_build_log("[color=#8f8]  ✓ project.godot updated — main scene: " + main_scene_path + "[/color]")
 		print("AGCK: Updated root project.godot main_scene=", main_scene_path)
 	else:
-		push_warning("AGCK: Failed to write project.godot")
-		return
+		push_warning("AGCK: ProjectSettings.save() returned error " + str(err))
 
 	# NOTE: Don't open Main.tscn here — _load_build_result() will open it
 	# AFTER the filesystem scan finishes importing new resources (sprites, etc.).
@@ -1351,6 +1330,8 @@ func _update_root_project_godot(main_scene_path: String, settings: Dictionary) -
 
 ## Set or insert a "key=value" line under [section] in a project.godot text
 ## blob. Creates the section if it doesn't exist. Returns the modified text.
+## (Retained for any callers that still need raw .ini patching; the main
+## build path now goes through ProjectSettings.set_setting + save.)
 func _patch_project_godot_kv(text: String, section: String, key: String, value: String) -> String:
 	var line := key + "=" + value
 	# Try to replace an existing key= line anywhere in the file (Godot tolerates

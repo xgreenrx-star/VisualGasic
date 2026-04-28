@@ -553,11 +553,15 @@ func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite
 			anim_idx += 1
 		tscn += ']\n\n'
 
-		# Collision shapes
+		# Collision shapes. The physics body shape is slightly smaller than
+		# a full cell so the actor doesn't catch on tile seams. The damage
+		# Hitbox is INTENTIONALLY smaller still — testers were dying from
+		# spikes the player hadn't visibly touched. Make it a forgiving inner
+		# rect so contact requires real visual overlap.
 		tscn += '[sub_resource type="RectangleShape2D" id="shape_1"]\n'
 		tscn += 'size = Vector2(' + str(CELL_PX - 4) + ', ' + str(CELL_PX - 4) + ')\n\n'
 		tscn += '[sub_resource type="RectangleShape2D" id="hitbox_shape"]\n'
-		tscn += 'size = Vector2(' + str(CELL_PX - 2) + ', ' + str(CELL_PX - 2) + ')\n\n'
+		tscn += 'size = Vector2(' + str(CELL_PX - 10) + ', ' + str(CELL_PX - 10) + ')\n\n'
 
 		# Per-sprite shader FX sub-resources (if set)
 		if has_actor_shader:
@@ -608,11 +612,12 @@ func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite
 		tscn += '[ext_resource type="Script" path="' + vg_script_path + '" id="1"]\n'
 		tscn += '[ext_resource type="Texture2D" path="' + sprite_rel_path + '" id="2"]\n\n'
 
-		# Sub-resources: collision shape + hitbox shape
+		# Sub-resources: collision shape + hitbox shape. Hitbox is forgiving
+		# (smaller than the visible sprite) — see note in animated branch above.
 		tscn += '[sub_resource type="RectangleShape2D" id="shape_1"]\n'
 		tscn += 'size = Vector2(' + str(CELL_PX - 4) + ', ' + str(CELL_PX - 4) + ')\n\n'
 		tscn += '[sub_resource type="RectangleShape2D" id="hitbox_shape"]\n'
-		tscn += 'size = Vector2(' + str(CELL_PX - 2) + ', ' + str(CELL_PX - 2) + ')\n\n'
+		tscn += 'size = Vector2(' + str(CELL_PX - 10) + ', ' + str(CELL_PX - 10) + ')\n\n'
 
 		# Per-sprite shader FX sub-resources (if set)
 		if has_actor_shader:
@@ -1758,9 +1763,13 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 	header += '[sub_resource type="RectangleShape2D" id="block_shape"]\n'
 	header += 'size = Vector2(' + str(CELL_PX) + ', ' + str(CELL_PX) + ')\n\n'
 
-	# Deadly area shape — 4px larger per side so body_entered triggers on contact
+	# Deadly area shape — INTENTIONALLY smaller than the visible spike tile
+	# so the player only dies on real visual contact. Was CELL_PX+4 (4px
+	# OUTSIDE the visual on every side, which made spikes feel cheap and
+	# triggered phantom deaths near them). Now CELL_PX-12 = roughly the
+	# inner triangle of a typical spike sprite.
 	header += '[sub_resource type="RectangleShape2D" id="deadly_shape"]\n'
-	header += 'size = Vector2(' + str(CELL_PX + 4) + ', ' + str(CELL_PX + 4) + ')\n\n'
+	header += 'size = Vector2(' + str(CELL_PX - 12) + ', ' + str(CELL_PX - 12) + ')\n\n'
 
 	# Sub resources: per-tile shader FX (one Shader + one ShaderMaterial per unique effect)
 	for sfx_name in tile_shader_fx_set:
