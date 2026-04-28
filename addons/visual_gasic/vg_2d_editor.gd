@@ -2618,6 +2618,9 @@ func _save_scene() -> void:
 	_scene_dirty = false
 	_update_status()
 	scene_saved.emit(_loaded_scene_path)
+	# Announce on the process-wide bus so file browser and any other open
+	# editor referencing this .tscn can refresh.
+	preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance().emit_saved(_loaded_scene_path, "vg_2d_editor")
 	print("VG 2D Editor: Saved → ", _loaded_scene_path)
 
 func save_scene_as() -> void:
@@ -3055,3 +3058,14 @@ func _collect_node_info(parent: Node, out: Array) -> void:
 		if child.name not in ["EditorCamera", "EditorBackground", "EditorOverlay"]:
 			out.append({"name": child.name, "type": child.get_class()})
 			_collect_node_info(child, out)
+
+
+# ─── VGPluginRegistry contract ──────────────────────────────
+## Called by VGPluginRegistry.open_asset(). Returns true if the editor
+## accepted the file. Existing internal callers should keep using their
+## native open methods; this is the registry-friendly alias only.
+func open_asset(path: String) -> bool:
+	load_scene(path)
+	preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance().emit_opened(path, "vg_2d_editor")
+	preload("res://addons/visual_gasic/vg_context_broker.gd").get_instance().set_current_asset(path, "vg_2d_editor")
+	return true

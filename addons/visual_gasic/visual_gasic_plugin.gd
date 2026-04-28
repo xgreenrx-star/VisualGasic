@@ -817,6 +817,21 @@ func _enter_tree():
 			_embedded_code_editor.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			_embedded_code_editor.view_object_requested.connect(_show_form_view)
 			center_stack.add_child(_embedded_code_editor)
+			# Register with VGPluginRegistry so .vg / .gd opens can be routed
+			# through registry.open_asset() generically (file-browser dbl-click,
+			# command palette, third-party plugins). Low priority so any future
+			# fancier code editor can outrank by simply declaring priority>10.
+			VGPluginRegistry.get_instance().register_provider(
+				"code_editor",
+				{
+					"name": "VG Code Editor",
+					"provides": ["asset_editor.code", "asset_editor.text"],
+					"handles_extensions": ["vg", "gd", "txt", "md", "cfg", "ini"],
+					"priority": 10,
+					"enabled": true,
+				},
+				_embedded_code_editor
+			)
 			print("VisualGasic: Embedded Code Editor created")
 			# Connect FileSystem browser → open files in code editor
 			if is_instance_valid(_vg_file_browser):
@@ -848,6 +863,17 @@ func _enter_tree():
 			_vg_3d_editor.node_selected.connect(_on_3d_node_selected)
 			_vg_3d_editor.selection_cleared.connect(_on_3d_selection_cleared)
 			center_stack.add_child(_vg_3d_editor)
+			VGPluginRegistry.get_instance().register_provider(
+				"vg_3d_editor",
+				{
+					"name": "VG 3D Scene Editor",
+					"provides": ["asset_editor.scene.3d"],
+					"handles_extensions": ["tscn", "escn"],
+					"priority": 8,  # below 2D so 2D wins for plain .tscn (most are 2D)
+					"enabled": true,
+				},
+				_vg_3d_editor
+			)
 			print("VisualGasic: 3D Scene Editor created")
 
 		# ── Embedded 2D Scene Editor (hidden by default, replaces canvas on 2D View) ──
@@ -865,6 +891,17 @@ func _enter_tree():
 			_vg_2d_editor.node_selected.connect(_on_2d_node_selected)
 			_vg_2d_editor.selection_cleared.connect(_on_2d_selection_cleared)
 			center_stack.add_child(_vg_2d_editor)
+			VGPluginRegistry.get_instance().register_provider(
+				"vg_2d_editor",
+				{
+					"name": "VG 2D Scene Editor",
+					"provides": ["asset_editor.scene.2d", "asset_editor.scene"],
+					"handles_extensions": ["tscn", "escn"],
+					"priority": 10,
+					"enabled": true,
+				},
+				_vg_2d_editor
+			)
 			print("VisualGasic: 2D Scene Editor created")
 
 		# ── Embedded Sprite Editor (hidden by default, Piskel-style pixel art) ──
@@ -7285,6 +7322,21 @@ func _embed_ide_bottom_panels() -> void:
 			_hex_editor.request_open_dialog.connect(_on_hex_request_open_dialog)
 			_hex_editor.request_save_as_dialog.connect(_on_hex_request_save_as_dialog)
 			_hex_editor.request_compare_dialog.connect(_on_hex_request_compare_dialog)
+			# Register as an enabled-but-low-priority generic byte editor.
+			# Priority 1 means it loses to every typed editor (sprite, code,
+			# scene) for known extensions but wins by default for unknown
+			# binary types (.bin, .dat, .save, etc.) that nothing else handles.
+			VGPluginRegistry.get_instance().register_provider(
+				"hex_editor",
+				{
+					"name": "VG Hex Editor",
+					"provides": ["asset_editor.binary", "asset_editor.bytes"],
+					"handles_extensions": ["bin", "dat", "save", "hex"],
+					"priority": 1,
+					"enabled": true,
+				},
+				_hex_editor
+			)
 			print("VisualGasic: Hex Editor instance created OK")
 		else:
 			push_error("VisualGasic: FAILED to load vg_hex_editor.gd")

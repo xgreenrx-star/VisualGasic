@@ -2471,6 +2471,7 @@ func _save_scene() -> void:
 		_update_status()
 		print("[VG3D] Scene saved: ", _loaded_scene_path)
 		scene_saved.emit(_loaded_scene_path)
+		preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance().emit_saved(_loaded_scene_path, "vg_3d_editor")
 	else:
 		push_error("[VG3D] Failed to save scene: " + str(err))
 
@@ -2917,3 +2918,15 @@ func _remove_user_environment() -> void:
 			child.queue_free()
 	_rebuild_scene_tree()
 	_scene_dirty = true
+
+
+# ─── VGPluginRegistry contract ──────────────────────────────
+## Called by VGPluginRegistry.open_asset(). Returns true if the editor
+## accepted the file. Existing internal callers should keep using their
+## native open methods; this is the registry-friendly alias only.
+func open_asset(path: String) -> bool:
+	if has_method("load_scene"):
+		load_scene(path)
+	preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance().emit_opened(path, "vg_3d_editor")
+	preload("res://addons/visual_gasic/vg_context_broker.gd").get_instance().set_current_asset(path, "vg_3d_editor")
+	return true

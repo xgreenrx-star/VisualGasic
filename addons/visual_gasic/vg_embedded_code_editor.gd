@@ -1293,6 +1293,9 @@ func save_file() -> void:
 		if Engine.is_editor_hint():
 			EditorInterface.get_resource_filesystem().update_file(_vg_path)
 		code_saved.emit(_vg_path)
+		# Announce on the bus so anything observing this .vg (file browser,
+		# bytecode profiler, AGCK "reload script slot") can refresh.
+		preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance().emit_saved(_vg_path, "vg_code_editor")
 		# Re-validate after save
 		validate_code()
 		print("VG Code Editor: Saved ", _vg_path)
@@ -2865,3 +2868,14 @@ func _try_load_formatter():
 	if script:
 		return script
 	return null
+
+
+# ─── VGPluginRegistry contract ──────────────────────────────
+## Called by VGPluginRegistry.open_asset(). Returns true if the editor
+## accepted the file. Existing internal callers should keep using their
+## native open methods; this is the registry-friendly alias only.
+func open_asset(path: String) -> bool:
+	load_file(path)
+	preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance().emit_opened(path, "vg_code_editor")
+	preload("res://addons/visual_gasic/vg_context_broker.gd").get_instance().set_current_asset(path, "vg_code_editor")
+	return true

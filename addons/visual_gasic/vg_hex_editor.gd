@@ -1615,6 +1615,9 @@ func _save_to_path(abs_path: String) -> void:
 	_canvas.queue_redraw()
 	if Engine.is_editor_hint():
 		EditorInterface.get_resource_filesystem().scan()
+	# Announce on the bus so file-browser / dependents refresh. Hex edits
+	# can mutate any file type, so this is intentionally untyped.
+	preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance().emit_saved(_file_path, "vg_hex_editor")
 
 
 func _show_save_as_dialog() -> void:
@@ -2691,3 +2694,14 @@ func _on_text_panel_caret_changed() -> void:
 	# text panel scrolls past it.  Just update the cursor and redraw.
 	_canvas.queue_redraw()
 	_update_status()
+
+
+# ─── VGPluginRegistry contract ──────────────────────────────
+## Called by VGPluginRegistry.open_asset(). Returns true if the editor
+## accepted the file. Existing internal callers should keep using their
+## native open methods; this is the registry-friendly alias only.
+func open_asset(path: String) -> bool:
+	open_file(path)
+	preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance().emit_opened(path, "vg_hex_editor")
+	preload("res://addons/visual_gasic/vg_context_broker.gd").get_instance().set_current_asset(path, "vg_hex_editor")
+	return true

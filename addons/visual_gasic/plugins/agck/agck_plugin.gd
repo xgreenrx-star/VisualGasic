@@ -1139,6 +1139,8 @@ func save_project(path: String) -> bool:
 	file.close()
 	_project_path = path
 	_dirty = false
+	# Announce on the bus so file browser, command palette MRU, etc. notice.
+	preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance().emit_saved(path, "agck")
 	print("AGCK: Project saved to ", path)
 	return true
 
@@ -1211,9 +1213,23 @@ func load_project(path: String) -> bool:
 	_dirty = false
 	_sync_actor_names()
 	_sync_start_level_count()
+	# Announce open + set context. AGCK is a project-level provider, so
+	# its "asset" *is* the .agck project file.
+	preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance().emit_opened(path, "agck")
+	preload("res://addons/visual_gasic/vg_context_broker.gd").get_instance().set_current_asset(path, "agck")
 	print("AGCK: Project loaded from ", path)
 
 	# Auto-open previously built Main.tscn into the VG 2D Editor
 	_auto_open_built_scene(game_data)
 
+	return true
+
+
+# ─── VGPluginRegistry contract ──────────────────────────────
+## Called by VGPluginRegistry.open_asset() when a .agck file is opened.
+## Activates the AGCK view and loads the project. Returns true on success.
+func open_asset(path: String) -> bool:
+	if not load_project(path):
+		return false
+	activate()
 	return true
