@@ -34,6 +34,9 @@ func _initialize() -> void:
 	_test_registry_extension_routing()
 	_test_registry_disabled_excluded()
 	_test_registry_open_asset_calls_provider()
+	_test_open_asset_routes_by_extension_among_competitors()
+	_test_open_asset_user_default_overrides_priority()
+	_test_open_asset_unknown_extension_returns_false()
 	print("=== Done: %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -231,3 +234,52 @@ func _test_registry_open_asset_calls_provider() -> void:
 		ok and stub.open_called and stub.opened_path == "res://foo.stubtest",
 		"ok=%s called=%s path=%s" % [str(ok), str(stub.open_called), stub.opened_path])
 	reg.unregister_provider("__t_stub")
+
+
+func _test_open_asset_routes_by_extension_among_competitors() -> void:
+	# Two providers claim the same capability and both list ".zzrt" but
+	# one has higher priority. open_asset(path) must route to the higher.
+	var reg = _Registry.get_instance()
+	reg.unregister_provider("__t_rt_lo")
+	reg.unregister_provider("__t_rt_hi")
+	var lo := _StubProvider.new()
+	var hi := _StubProvider.new()
+	reg.register_provider("__t_rt_lo", _make_meta(["asset_editor.test"], ["zzrt"], 5), lo)
+	reg.register_provider("__t_rt_hi", _make_meta(["asset_editor.test"], ["zzrt"], 50), hi)
+	var ok: bool = reg.open_asset("res://thing.zzrt")
+	_expect("open_asset routes to highest-priority provider for the extension",
+		ok and hi.open_called and not lo.open_called and hi.opened_path == "res://thing.zzrt",
+		"ok=%s hi=%s lo=%s" % [str(ok), str(hi.open_called), str(lo.open_called)])
+	reg.unregister_provider("__t_rt_lo")
+	reg.unregister_provider("__t_rt_hi")
+
+
+func _test_open_asset_user_default_overrides_priority() -> void:
+	# With both providers registered, pinning the lower-priority one as
+	# default for the capability must redirect open_asset to it.
+	var reg = _Registry.get_instance()
+	reg.unregister_provider("__t_pin_lo")
+	reg.unregister_provider("__t_pin_hi")
+	var lo := _StubProvider.new()
+	var hi := _StubProvider.new()
+	reg.register_provider("__t_pin_lo", _make_meta(["asset_editor.test"], ["zzpin"], 5), lo)
+	reg.register_provider("__t_pin_hi", _make_meta(["asset_editor.test"], ["zzpin"], 50), hi)
+	reg.set_default_for("asset_editor.test", "__t_pin_lo")
+	var ok: bool = reg.open_asset("res://thing.zzpin")
+	_expect("open_asset honors user-pinned default over priority",
+		ok and lo.open_called and not hi.open_called,
+		"ok=%s lo=%s hi=%s" % [str(ok), str(lo.open_called), str(hi.open_called)])
+	reg.set_default_for("asset_editor.test", "")  # cleanup
+	reg.unregister_provider("__t_pin_lo")
+	reg.unregister_provider("__t_pin_hi")
+
+
+func _test_open_asset_unknown_extension_returns_false() -> void:
+	var reg = _Registry.get_instance()
+	# No provider claims this extension — open_asset must return false
+	# without crashing or invoking anything.
+	var ok: bool = reg.open_asset("res://nothing.zzunhandled_xyz_nope")
+	_expect("open_asset returns false when no provider matches the extension",
+		not ok,
+		"ok=%s (expected false)" % str(ok))
+

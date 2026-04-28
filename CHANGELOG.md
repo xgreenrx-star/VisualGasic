@@ -5,6 +5,42 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### 🚌 New — VGAssetBus / VGContextBroker / VGPluginRegistry
+- Process-wide signal bus (`VGAssetBus`) for asset lifecycle events: `asset_opened`, `asset_modified`, `asset_saved`, `asset_deleted`, `asset_invalidated`, `asset_renamed(old, new, by)`. Editors and plugins subscribe instead of polling or hard-coding cross-references.
+- `VGContextBroker` tracks the IDE's current asset / project / object / selection and emits `context_changed(kind, value)` with deduplication on equal values.
+- `VGPluginRegistry` routes "open this asset" requests to the right editor by capability namespace (`asset_editor.code`, `asset_editor.scene.2d`, `asset_editor.scene.3d`, `asset_editor.binary`, `game_builder.*`, etc.), tie-broken by priority desc / plugin_id asc.
+- File browser auto-refreshes on `asset_saved` / `asset_deleted` / `asset_renamed` / `asset_invalidated`.
+- See [`addons/visual_gasic/PLUGIN_SDK.md`](addons/visual_gasic/PLUGIN_SDK.md) for the plugin author contract.
+
+### 🧰 New — Default Editors UI
+- **⚙ Plugin Settings** dialog now has two tabs: *Installed Plugins* (existing) and *Default Editors* (new). Each capability gets an OptionButton listing every registered provider; users can pin a non-default editor for any asset kind. Persisted under `ProjectSettings.vg/plugin_registry/defaults/*`.
+
+### ⌨️ New — Command Palette MRU
+- `Ctrl+P` with an empty query now lists up to 10 recently-opened files (🕘 prefix) at the top, separator, then the rest of the project. Recent list is captured by listening to `VGAssetBus.asset_opened` and persists across sessions in `user://vg_recent_files.cfg`.
+
+### 🔭 New — External File Watcher & Reload Prompt
+- `VGAssetWatcher` polls tracked files (those opened via the bus) every 2 s and emits `asset_invalidated` when a file's mtime changes outside the IDE.
+- `VGExternalChangePrompt` listens for that signal and shows a non-modal "File Changed Externally — Reload from disk?" dialog. 5-second per-path cooldown suppresses bursty external writes.
+
+### ✏️ New — Cross-Asset Reference Rewriter
+- `VGRefRewriter` listens for `asset_renamed` and rewrites `res://` references in `.vg` / `.gd` / `.tscn` / `.tres` / `.vgsprite` / `.agck` / `.json` / `.cfg` / `.ini` / `.txt` / `.md` files across the project. Boundary-aware so `res://foo` doesn't corrupt `res://foo_bar`.
+
+### 🎮 New — AGCK Game-Type Templates
+- AGCK Build view template picker grew from 3 to 8 entries: **Top-Down RPG**, **Side Shmup**, **Match-3**, **Asteroids**, **Endless Runner** (in addition to Platformer, Space Shooter, Maze).
+
+### 📜 New — Project Menu Gating
+- *Add Form...*, *Add Module...*, *Components...* in the VB6-style Project menu are greyed out when Form Designer is disabled (they had no effect without it). *Project Properties...* remains available.
+
+### 🧪 New — Plugin Capability Lint & Routing Tests
+- [`scripts/lint_plugin_capabilities.py`](scripts/lint_plugin_capabilities.py) — CI-friendly Python 3 linter for `[capabilities]` blocks. `--strict` flag promotes warnings to errors.
+- [`tests/test_vg_routing.gd`](tests/test_vg_routing.gd) — 12 routing tests for bus / broker / registry, runnable via [`scripts/run_routing_tests.sh`](scripts/run_routing_tests.sh).
+- [`.github/workflows/plugin-lint.yml`](.github/workflows/plugin-lint.yml) — lightweight CI job runs both on every push/PR touching `addons/visual_gasic/`.
+
+### 🔌 Migrated — Plugin Capability Schemas
+- `vg3d`, `web_publish`, `working_nodes` plugin.cfg files now declare `[capabilities]` blocks. Lint passes with `--strict` cleanly across all 6 first-party plugins.
+
 ## [5.1.0-Beta1] - 2026-04-24
 
 ### 🎛️ New — Unified ▶ Play Menu

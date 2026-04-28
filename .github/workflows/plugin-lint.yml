@@ -39,9 +39,7 @@ jobs:
       - name: Plugin capability lint
         run: |
           chmod +x scripts/lint_plugin_capabilities.py
-          # Don't pass --strict yet: 3 known plugins predate the
-          # capabilities schema. Once they're migrated, flip this.
-          python3 scripts/lint_plugin_capabilities.py
+          python3 scripts/lint_plugin_capabilities.py --strict
 
       - name: Download Godot 4.6.1
         run: |

@@ -203,20 +203,31 @@ func set_default_for(capability: String, plugin_id: String) -> void:
 	providers_changed.emit()
 
 
-## Best provider for a path: prefers an extension-specific default over
-## the generic capability default. Used by file-browser double-click.
+## Best provider for a path: prefers an extension-specific default,
+## then any capability-level default among providers that handle this
+## path, then the highest-priority provider for the extension.
 func get_default_for_path(path: String) -> String:
-	# Extension-specific default first.
 	var ext := path.get_extension().to_lower()
-	if ext != "":
-		var ext_key := "ext." + ext
-		var pref := _read_default(ext_key)
-		var ext_providers := find_providers_for_path(path)
-		if pref != "" and pref in ext_providers:
-			return pref
-		if not ext_providers.is_empty():
-			return ext_providers[0]
-	return ""
+	if ext == "":
+		return ""
+	var ext_providers := find_providers_for_path(path)
+	if ext_providers.is_empty():
+		return ""
+	# 1. Extension-specific default (vg/plugin_registry/defaults/ext.<ext>).
+	var ext_pref := _read_default("ext." + ext)
+	if ext_pref != "" and ext_pref in ext_providers:
+		return ext_pref
+	# 2. Capability-level default — find the first capability among the
+	# matching providers' `provides` list that has a user-pinned default
+	# pointing at one of those providers.
+	for pid in ext_providers:
+		var meta: Dictionary = _providers.get(pid, {})
+		for cap in meta.get("provides", []):
+			var cap_pref := _read_default(cap)
+			if cap_pref != "" and cap_pref in ext_providers:
+				return cap_pref
+	# 3. Fall back to highest-priority match.
+	return ext_providers[0]
 
 
 ## Snapshot of all providers (for settings UI). Returns a copy so

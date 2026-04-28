@@ -44,6 +44,10 @@ var _confirm_delete_dialog: ConfirmationDialog
 
 var _right_clicked_path: String = ""
 
+## Map<res://path, true> of files whose mtime diverged from what the
+## IDE last wrote. Set by VGAssetBus.asset_invalidated, cleared by
+## asset_saved (user reconciled). Used to render a ⚠ badge in the tree.
+var _externally_changed: Dictionary = {}
 # =============================================================================
 # CONSTANTS — file-extension icons
 # =============================================================================
@@ -278,7 +282,7 @@ func setup(plugin: EditorPlugin) -> void:
 	if not bus.asset_saved.is_connected(_on_bus_asset_event):
 		bus.asset_saved.connect(_on_bus_asset_event)
 		bus.asset_deleted.connect(_on_bus_asset_event)
-		bus.asset_invalidated.connect(_on_bus_asset_event)
+		bus.asset_invalidated.connect(_on_bus_asset_invalidated)
 		bus.asset_renamed.connect(_on_bus_asset_renamed)
 	# Populate lazily — refresh() is called in _show_code_view() when panel is made visible
 
@@ -287,12 +291,24 @@ func setup(plugin: EditorPlugin) -> void:
 ## so a burst of saves (e.g. AGCK exporting 16 sprite frames) doesn't
 ## thrash the tree. call_deferred coalesces multiple invocations in the
 ## same frame down to one rebuild.
-func _on_bus_asset_event(_path: String, _by_plugin_id: String) -> void:
+func _on_bus_asset_event(path: String, _by_plugin_id: String) -> void:
+	# A successful save clears any "externally changed" badge on this
+	# file (the user has reconciled, one way or another).
+	_externally_changed.erase(path)
 	if is_inside_tree():
 		call_deferred("refresh")
 
 
-func _on_bus_asset_renamed(_old_path: String, _new_path: String, _by_plugin_id: String) -> void:
+## File mtime diverged from what the IDE last wrote — flag it so the
+## tree can render a ⚠ badge and refresh.
+func _on_bus_asset_invalidated(path: String, _by_plugin_id: String) -> void:
+	_externally_changed[path] = true
+	if is_inside_tree():
+		call_deferred("refresh")
+
+
+func _on_bus_asset_renamed(old_path: String, _new_path: String, _by_plugin_id: String) -> void:
+	_externally_changed.erase(old_path)
 	if is_inside_tree():
 		call_deferred("refresh")
 
@@ -348,8 +364,15 @@ func _populate_dir(tree: Tree, parent: TreeItem, dir_path: String, filter: Strin
 			var item: TreeItem = tree.create_item(parent)
 			var ext: String = f.get_extension().to_lower()
 			var icon: String = FILE_ICONS.get(ext, FILE_DEFAULT)
-			item.set_text(0, icon + " " + f)
-			item.set_metadata(0, dir_path.path_join(f))
+			var full_path: String = dir_path.path_join(f)
+			# Prepend ⚠ if the file changed on disk after the IDE last
+			# saved/opened it. The reload prompt covers the action;
+			# this is a passive at-a-glance indicator.
+			var badge: String = "⚠ " if _externally_changed.has(full_path) else ""
+			item.set_text(0, badge + icon + " " + f)
+			if not badge.is_empty():
+				item.set_tooltip_text(0, "%s\n\nThis file was modified outside the IDE." % full_path)
+			item.set_metadata(0, full_path)
 			item.set_selectable(0, true)
 
 ## Returns true if dir_path (recursively) contains a file matching filter.
