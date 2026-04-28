@@ -504,6 +504,8 @@ func _on_template_requested(template_name: String) -> void:
 			_apply_asteroids_template()
 		"Endless Runner":
 			_apply_endless_runner_template()
+		"Geometry Dash":
+			_apply_geometry_dash_template()
 	_dirty = true
 	_sync_actor_names()
 	_sync_start_level_count()
@@ -617,8 +619,10 @@ func _apply_maze_template() -> void:
 		})
 	if _editors.size() > 1 and _editors[1]:
 		_editors[1].set_data([
-			{"name": "Explorer", "type": "Player", "max_speed": 150, "gravity_scale": 0, "max_hp": 100, "damage": 0, "score_value": 0, "collision_mode": "Slide", "death_mode": "GameOver", "rebirth": 0},
-			{"name": "Ghost", "type": "Drone", "max_speed": 80, "gravity_scale": 0, "max_hp": 999, "damage": 100, "score_value": 0, "ai_behavior": "Chase", "ai_patrol_speed": 80, "collision_mode": "Bounce", "death_mode": "Destroy"},
+			# Maze is a top-down genre — use the TopHero / TopGoblin sprite variants
+			# instead of the platformer-style side-view art.
+			{"name": "Explorer", "type": "TopHero", "max_speed": 150, "gravity_scale": 0, "max_hp": 100, "damage": 0, "score_value": 0, "collision_mode": "Slide", "death_mode": "GameOver", "rebirth": 0},
+			{"name": "Ghost", "type": "TopGoblin", "max_speed": 80, "gravity_scale": 0, "max_hp": 999, "damage": 100, "score_value": 0, "ai_behavior": "Chase", "ai_patrol_speed": 80, "collision_mode": "Bounce", "death_mode": "Destroy"},
 			{"name": "Gem", "type": "Computer", "max_speed": 0, "gravity_scale": 0, "max_hp": 1, "damage": 0, "score_value": 100, "collision_mode": "None", "death_mode": "Destroy"},
 		])
 	if _editors.size() > 0 and _editors[0]:
@@ -674,10 +678,13 @@ func _apply_topdown_rpg_template() -> void:
 		})
 	if _editors.size() > 1 and _editors[1]:
 		_editors[1].set_data([
-			{"name": "Hero", "type": "Player", "max_speed": 130, "gravity_scale": 0, "max_hp": 100, "damage": 25, "score_value": 0, "collision_mode": "Slide", "death_mode": "Respawn", "rebirth": 1.5},
-			{"name": "Goblin", "type": "Drone", "max_speed": 70, "gravity_scale": 0, "max_hp": 40, "damage": 15, "score_value": 75, "ai_behavior": "Chase", "ai_patrol_speed": 70, "collision_mode": "Bounce", "death_mode": "Destroy"},
-			{"name": "NPC", "type": "Computer", "max_speed": 0, "gravity_scale": 0, "max_hp": 9999, "damage": 0, "score_value": 0, "collision_mode": "None", "death_mode": "Destroy"},
-			{"name": "Treasure", "type": "Computer", "max_speed": 0, "gravity_scale": 0, "max_hp": 1, "damage": 0, "score_value": 250, "collision_mode": "None", "death_mode": "Destroy"},
+			# Top-Down RPG uses bird's-eye-view actor sprites (TopHero/TopGoblin/TopChest)
+			# so it doesn't share visual style with the side-scrolling Platformer template.
+			# "type" still drives gameplay role: Player controls movement, Drone has AI, Computer is static.
+			{"name": "Hero", "type": "TopHero", "max_speed": 130, "gravity_scale": 0, "max_hp": 100, "damage": 25, "score_value": 0, "collision_mode": "Slide", "death_mode": "Respawn", "rebirth": 1.5},
+			{"name": "Goblin", "type": "TopGoblin", "max_speed": 70, "gravity_scale": 0, "max_hp": 40, "damage": 15, "score_value": 75, "ai_behavior": "Chase", "ai_patrol_speed": 70, "collision_mode": "Bounce", "death_mode": "Destroy"},
+			{"name": "NPC", "type": "NPC", "max_speed": 0, "gravity_scale": 0, "max_hp": 9999, "damage": 0, "score_value": 0, "collision_mode": "None", "death_mode": "Destroy"},
+			{"name": "Treasure", "type": "TopChest", "max_speed": 0, "gravity_scale": 0, "max_hp": 1, "damage": 0, "score_value": 250, "collision_mode": "None", "death_mode": "Destroy"},
 		])
 	if _editors.size() > 0 and _editors[0]:
 		var GRID_W = 20; var GRID_H = 12
@@ -853,6 +860,67 @@ func _apply_endless_runner_template() -> void:
 			{"actor_id": 1, "x": 18, "y": GRID_H - 2, "path": []},  # Spike
 			{"actor_id": 2, "x": 9,  "y": 6, "path": []},           # Coin
 			{"actor_id": 2, "x": 15, "y": 4, "path": []},           # Coin
+		]
+		_editors[0].levels[0] = lvl
+
+
+func _apply_geometry_dash_template() -> void:
+	# 8-bit rhythm-runner: jump-only, auto-run, dodge spikes, 1-hit death.
+	if _editors.size() > 4 and _editors[4]:
+		_editors[4].set_data({
+			"game_title": "Cube Beat",
+			"gravity": 1400, "friction": 0, "elasticity": 0,
+			"screen_width": 480, "screen_height": 320,
+			"background_color": "#0a0a1a",
+			"lives": 1, "show_score": true, "show_lives": false,
+			"start_level": 1, "level_order": "Sequential",
+			"wrap_screen": false, "camera_zoom": 1.0,
+			# Multi-input: keyboard space, joystick A, mouse click, touch tap all jump
+			"keyboard_enabled": true, "joystick_enabled": true,
+			"mouse_enabled": true, "touch_enabled": true,
+			"deadly_damage": 999,  # one-shot kill on spikes
+		})
+	if _editors.size() > 1 and _editors[1]:
+		_editors[1].set_data([
+			# Cube: pixel-art square that auto-runs and jumps. High speed, gravity makes it feel snappy.
+			{"name": "Cube", "type": "Player", "max_speed": 360, "gravity_scale": 1.4, "max_hp": 1, "damage": 0, "score_value": 0, "collision_mode": "Slide", "death_mode": "GameOver", "rebirth": 0},
+			# Spike: instant-death hazard. Drone w/ Idle AI so it stays put.
+			{"name": "Spike", "type": "Drone", "max_speed": 0, "gravity_scale": 0, "max_hp": 9999, "damage": 999, "score_value": 0, "ai_behavior": "Idle", "ai_patrol_speed": 0, "collision_mode": "None", "death_mode": "Destroy"},
+			# Pad: a "jump pad" — visual marker on safe floor segments (cosmetic Computer).
+			{"name": "Pad", "type": "Computer", "max_speed": 0, "gravity_scale": 0, "max_hp": 9999, "damage": 0, "score_value": 10, "collision_mode": "None", "death_mode": "Destroy"},
+		])
+	if _editors.size() > 0 and _editors[0]:
+		var GRID_W = 20; var GRID_H = 12
+		var lvl = _editors[0]._make_empty_level(1)
+		lvl["name"] = "Stereo Madness"
+		var grid = lvl["grid"]
+		# Solid ground line — the "floor" of the level
+		for x in range(GRID_W):
+			grid[GRID_H - 1][x] = {"block_type": 1, "tile_index": 0}
+		# Rhythmic raised platforms (every ~4 cells, alternating heights)
+		for x in range(4, 7):
+			grid[GRID_H - 4][x] = {"block_type": 1, "tile_index": 0}
+		for x in range(11, 14):
+			grid[GRID_H - 6][x] = {"block_type": 1, "tile_index": 0}
+		for x in range(16, 19):
+			grid[GRID_H - 4][x] = {"block_type": 1, "tile_index": 0}
+		# Goal teleport at the far right (level end)
+		grid[GRID_H - 5][GRID_W - 2] = {"block_type": 5, "tile_index": 0}
+		# Actors: cube on the left, spike pattern across the floor (rhythmic gaps),
+		# pads on platforms as collectibles to encourage timed jumps.
+		lvl["actors"] = [
+			{"actor_id": 0, "x": 1, "y": GRID_H - 2, "path": []},   # Cube
+			# Floor spike clusters — gaps require jump timing
+			{"actor_id": 1, "x": 3,  "y": GRID_H - 2, "path": []},
+			{"actor_id": 1, "x": 8,  "y": GRID_H - 2, "path": []},
+			{"actor_id": 1, "x": 9,  "y": GRID_H - 2, "path": []},
+			{"actor_id": 1, "x": 14, "y": GRID_H - 2, "path": []},
+			{"actor_id": 1, "x": 15, "y": GRID_H - 2, "path": []},
+			# Spike on a platform — must duck or skip
+			{"actor_id": 1, "x": 12, "y": GRID_H - 7, "path": []},
+			# Collectible pads on raised platforms
+			{"actor_id": 2, "x": 5,  "y": GRID_H - 5, "path": []},
+			{"actor_id": 2, "x": 17, "y": GRID_H - 5, "path": []},
 		]
 		_editors[0].levels[0] = lvl
 

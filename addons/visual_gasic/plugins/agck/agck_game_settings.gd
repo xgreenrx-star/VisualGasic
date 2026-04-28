@@ -130,6 +130,7 @@ func _init_data() -> void:
 		"difficulty": "Normal",
 		"joystick_enabled": true,
 		"keyboard_enabled": true,
+		"mouse_enabled": false,
 		"touch_enabled": false,
 		"music_volume": 80,
 		"sfx_volume": 100,
@@ -278,6 +279,7 @@ func _build_ui() -> void:
 	var ig = _card_body(inp)
 	_row_toggle(ig, "Keyboard", "keyboard_enabled")
 	_row_toggle(ig, "Joystick", "joystick_enabled")
+	_row_toggle(ig, "Mouse", "mouse_enabled")
 	_row_toggle(ig, "Touch", "touch_enabled")
 
 	# ── Audio card

@@ -46,6 +46,11 @@ const ACTOR_TYPE_COLORS = {
 	"NPC":      Color(0.85, 0.70, 0.45),
 	"Tank":     Color(0.40, 0.50, 0.35),
 	"Fireball": Color(1.00, 0.45, 0.10),
+	# Top-down view variants — see _draw_top_*_sprite. Used by Top-Down RPG / Maze templates
+	# so those genres get visually distinct (not side-view) actor art.
+	"TopHero":    Color(0.30, 0.80, 0.95),
+	"TopGoblin":  Color(0.55, 0.80, 0.30),
+	"TopChest":   Color(0.85, 0.65, 0.20),
 }
 
 # ─── Data ────────────────────────────────────────────────────
@@ -1377,6 +1382,12 @@ func _generate_character_sprite(actor_type: String, color: Color) -> Image:
 			_draw_tank_sprite(img, S, color)
 		"Fireball":
 			_draw_fireball_sprite(img, S, color)
+		"TopHero":
+			_draw_top_hero_sprite(img, S, color)
+		"TopGoblin":
+			_draw_top_goblin_sprite(img, S, color)
+		"TopChest":
+			_draw_top_chest_sprite(img, S, color)
 		_:
 			_draw_drone_sprite(img, S, color)
 	return img
@@ -1626,6 +1637,63 @@ func _draw_npc_sprite(img: Image, S: int, color: Color) -> void:
 	# Arms at sides
 	_img_fill_rect(img, cx - 5, 10, 2, 5, skin)
 	_img_fill_rect(img, cx + 4, 10, 2, 5, skin)
+
+
+# ─── Top-down view sprites ─────────────────────────────────────────────────
+# These render as if seen from directly above (bird's-eye perspective). Used by
+# the Top-Down RPG and Maze templates so those genres don't reuse side-view art.
+
+func _draw_top_hero_sprite(img: Image, S: int, color: Color) -> void:
+	# Hero seen from above: round body with a directional triangle (facing down/south).
+	var cx = S / 2
+	var cy = S / 2
+	# Cape / cloak ring
+	_img_fill_circle(img, cx, cy, 8, color.darkened(0.35))
+	# Body / tunic
+	_img_fill_circle(img, cx, cy, 6, color)
+	# Head (tan circle in middle)
+	var skin = Color(0.92, 0.78, 0.60)
+	_img_fill_circle(img, cx, cy, 3, skin)
+	# Hair tuft showing direction (small dark cap on the "front")
+	_img_fill_rect(img, cx - 2, cy + 2, 4, 1, Color(0.30, 0.20, 0.10))
+	# Direction indicator — a small triangle of pixels pointing south (the facing).
+	img.set_pixel(cx, cy + 4, color.lightened(0.4))
+	img.set_pixel(cx - 1, cy + 4, color.lightened(0.4))
+	img.set_pixel(cx + 1, cy + 4, color.lightened(0.4))
+	# Sword/staff sticking out to one side
+	_img_fill_rect(img, cx + 6, cy - 1, 3, 1, Color(0.85, 0.85, 0.90))
+
+
+func _draw_top_goblin_sprite(img: Image, S: int, color: Color) -> void:
+	# Small monster from above: blob body, two ears/horns, eyes near front edge.
+	var cx = S / 2
+	var cy = S / 2
+	# Body (blobby circle)
+	_img_fill_circle(img, cx, cy, 5, color)
+	# Two pointed ears at the back (north)
+	_img_fill_rect(img, cx - 4, cy - 5, 2, 2, color.darkened(0.25))
+	_img_fill_rect(img, cx + 2, cy - 5, 2, 2, color.darkened(0.25))
+	# Glowing eyes near the south "front" edge
+	img.set_pixel(cx - 2, cy + 2, Color(1.0, 0.85, 0.20))
+	img.set_pixel(cx + 1, cy + 2, Color(1.0, 0.85, 0.20))
+	# Belly highlight
+	_img_fill_rect(img, cx - 1, cy, 3, 1, color.lightened(0.20))
+
+
+func _draw_top_chest_sprite(img: Image, S: int, color: Color) -> void:
+	# Treasure chest viewed from above: rectangular wood with metal bands and lock.
+	var cx = S / 2
+	var cy = S / 2
+	# Outer wood box
+	_img_fill_rect(img, cx - 6, cy - 5, 12, 11, color.darkened(0.30))
+	# Inner wood
+	_img_fill_rect(img, cx - 5, cy - 4, 10, 9, color)
+	# Metal band across the lid
+	_img_fill_rect(img, cx - 6, cy - 1, 12, 2, Color(0.40, 0.30, 0.15))
+	# Center lock plate
+	_img_fill_rect(img, cx - 1, cy - 1, 3, 3, Color(0.85, 0.75, 0.30))
+	# Keyhole
+	img.set_pixel(cx, cy, Color(0.10, 0.08, 0.05))
 
 
 func _draw_tank_sprite(img: Image, S: int, color: Color) -> void:

@@ -2898,29 +2898,79 @@ func _generate_project_godot(path: String, settings: Dictionary, output_dir: Str
 	godot += 'environment/defaults/default_clear_color=Color("' + bg_color + '")\n\n'
 
 	godot += '[input]\n\n'
-	godot += 'ui_left={\n'
-	godot += '"deadzone": 0.5,\n'
-	godot += '"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194319,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)]\n'
-	godot += '}\n'
-	godot += 'ui_right={\n'
-	godot += '"deadzone": 0.5,\n'
-	godot += '"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194321,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)]\n'
-	godot += '}\n'
-	godot += 'ui_up={\n'
-	godot += '"deadzone": 0.5,\n'
-	godot += '"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194320,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)]\n'
-	godot += '}\n'
-	godot += 'ui_down={\n'
-	godot += '"deadzone": 0.5,\n'
-	godot += '"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194322,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)]\n'
-	godot += '}\n'
-	godot += 'ui_accept={\n'
-	godot += '"deadzone": 0.5,\n'
-	godot += '"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":32,"physical_keycode":0,"key_label":0,"unicode":32,"location":0,"echo":false,"script":null)]\n'
-	godot += '}\n\n'
+	# Input bindings respect the per-game settings: keyboard, joystick, mouse, touch
+	# can each be enabled independently and ALL active sources are bound at once.
+	var kbd: bool = bool(settings.get("keyboard_enabled", true))
+	var pad: bool = bool(settings.get("joystick_enabled", true))
+	var mouse: bool = bool(settings.get("mouse_enabled", false))
+	var touch: bool = bool(settings.get("touch_enabled", false))
+	# Fail-safe: if user somehow disabled all four, fall back to keyboard so the game is still playable.
+	if not (kbd or pad or mouse or touch):
+		kbd = true
+	godot += _emit_input_action("ui_left",   kbd, pad, mouse, touch, "left")
+	godot += _emit_input_action("ui_right",  kbd, pad, mouse, touch, "right")
+	godot += _emit_input_action("ui_up",     kbd, pad, mouse, touch, "up")
+	godot += _emit_input_action("ui_down",   kbd, pad, mouse, touch, "down")
+	godot += _emit_input_action("ui_accept", kbd, pad, mouse, touch, "accept")
+	godot += '\n'
 
 	_write_file(path, godot)
 	_log("  ✓ project.godot (standalone game)", "#8f8")
+
+
+# Per-action keycodes (Godot keycode constants: KEY_LEFT=4194319, KEY_RIGHT=4194321,
+# KEY_UP=4194320, KEY_DOWN=4194322, KEY_SPACE=32, KEY_ENTER=4194309).
+const _AGCK_KEYCODES := {
+	"left":   4194319,
+	"right":  4194321,
+	"up":     4194320,
+	"down":   4194322,
+	"accept": 32,
+}
+# Joystick button indices (Godot JoyButton: 0=A/Cross, 11=DPad-Up, 12=Down, 13=Left, 14=Right).
+const _AGCK_PAD_BUTTONS := {
+	"left":   13,
+	"right":  14,
+	"up":     11,
+	"down":   12,
+	"accept": 0,
+}
+# Joystick axes for analog stick (LEFT_X=0, LEFT_Y=1). Direction sign: -1 = neg, 1 = pos.
+const _AGCK_PAD_AXES := {
+	"left":   {"axis": 0, "value": -1.0},
+	"right":  {"axis": 0, "value":  1.0},
+	"up":     {"axis": 1, "value": -1.0},
+	"down":   {"axis": 1, "value":  1.0},
+}
+
+
+## Emit a project.godot input-action block uniting all enabled input sources.
+## Mouse maps left-click → ui_accept only (movement actions skip mouse).
+## Touch maps screen-touch → ui_accept only (movement uses on-screen buttons at runtime).
+func _emit_input_action(action: String, kbd: bool, pad: bool, mouse: bool, touch: bool, kind: String) -> String:
+	var events: Array[String] = []
+	if kbd and _AGCK_KEYCODES.has(kind):
+		var kc: int = _AGCK_KEYCODES[kind]
+		events.append('Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":' + str(kc) + ',"physical_keycode":0,"key_label":0,"unicode":' + (str(kc) if kc < 256 else "0") + ',"location":0,"echo":false,"script":null)')
+	if pad:
+		# Digital D-pad / face button
+		if _AGCK_PAD_BUTTONS.has(kind):
+			var btn: int = _AGCK_PAD_BUTTONS[kind]
+			events.append('Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":-1,"button_index":' + str(btn) + ',"pressure":0.0,"pressed":false,"script":null)')
+		# Analog stick (movement only)
+		if _AGCK_PAD_AXES.has(kind):
+			var ax: Dictionary = _AGCK_PAD_AXES[kind]
+			events.append('Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":' + str(ax["axis"]) + ',"axis_value":' + str(ax["value"]) + ',"script":null)')
+	if mouse and kind == "accept":
+		# Left mouse button → accept (jump / fire / confirm)
+		events.append('Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"button_index":1,"canceled":false,"double_click":false,"factor":1.0,"button_mask":0,"position":Vector2(0, 0),"global_position":Vector2(0, 0),"script":null)')
+	if touch and kind == "accept":
+		# Any screen touch → accept
+		events.append('Object(InputEventScreenTouch,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"index":0,"position":Vector2(0, 0),"pressed":false,"canceled":false,"double_tap":false,"script":null)')
+	if events.is_empty():
+		return ""
+	var s := action + '={\n"deadzone": 0.5,\n"events": [' + ", ".join(events) + ']\n}\n'
+	return s
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -31,7 +31,7 @@ const TYPE_COLORS = {
 	"Tank":     Color(0.40, 0.50, 0.35),
 	"Fireball": Color(1.00, 0.45, 0.10),
 }
-const ACTOR_TYPES    = ["Player", "Drone", "Missile", "Sentry", "Computer", "Zombie", "Boss", "Bat", "NPC", "Tank", "Fireball"]
+const ACTOR_TYPES    = ["Player", "Drone", "Missile", "Sentry", "Computer", "Zombie", "Boss", "Bat", "NPC", "Tank", "Fireball", "TopHero", "TopGoblin", "TopChest"]
 const MAX_ACTORS     = 16
 const FREESOUND_BROWSER_SCRIPT := preload("res://addons/visual_gasic/asset_browser/freesound_browser.gd")
 const OPENGAMEART_BROWSER_SCRIPT := preload("res://addons/visual_gasic/asset_browser/opengameart_browser.gd")

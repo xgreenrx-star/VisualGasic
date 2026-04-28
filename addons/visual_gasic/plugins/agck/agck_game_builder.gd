@@ -297,6 +297,7 @@ func _build_ui() -> void:
 		{"name": "Match-3", "icon": "💎", "color": Color(0.95, 0.55, 0.85), "tip": "Grid-aligned puzzle with collectible gems"},
 		{"name": "Asteroids", "icon": "☄️", "color": Color(0.45, 0.45, 0.55), "tip": "Score-attack arcade with drifting hazards"},
 		{"name": "Endless Runner", "icon": "🏁", "color": Color(0.30, 0.85, 0.75), "tip": "Auto-scrolling runner with obstacles to dodge"},
+		{"name": "Geometry Dash", "icon": "🟦", "color": Color(0.10, 0.70, 0.95), "tip": "8-bit rhythm runner — auto-run, jump-only, dodge spikes"},
 	]
 	for tmpl in templates:
 		var tbtn = Button.new()
