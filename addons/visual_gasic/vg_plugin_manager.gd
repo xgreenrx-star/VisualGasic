@@ -84,6 +84,12 @@ func setup(host_plugin, toolbar_row: HBoxContainer, canvas_right_split: Control)
 	var watcher = preload("res://addons/visual_gasic/vg_asset_watcher.gd").get_instance()
 	if is_instance_valid(_toolbar_row):
 		watcher.attach_to(_toolbar_row)
+	# Attach the external-change reload prompt. Listens for
+	# asset_invalidated and asks the user whether to reload the file.
+	# Hosted on the toolbar row for the same reason as the watcher.
+	var prompt = preload("res://addons/visual_gasic/vg_external_change_prompt.gd").get_instance()
+	if is_instance_valid(_toolbar_row):
+		prompt.attach_to(_toolbar_row)
 
 
 ## Discover and load all plugins from the plugins/ directory.

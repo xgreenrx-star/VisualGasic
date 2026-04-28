@@ -1,0 +1,55 @@
+name: Plugin Lint & Routing Tests
+
+# Lightweight job — no GDExtension build, just runs the Python lint
+# script and the GDScript routing test suite against a fresh Godot
+# binary. Catches plugin.cfg drift and breakage in
+# VGAssetBus / VGContextBroker / VGPluginRegistry on every push.
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'addons/visual_gasic/**'
+      - 'scripts/lint_plugin_capabilities.py'
+      - 'scripts/run_routing_tests.sh'
+      - 'tests/test_vg_routing.gd'
+      - '.github/workflows/plugin-lint.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'addons/visual_gasic/**'
+      - 'scripts/lint_plugin_capabilities.py'
+      - 'scripts/run_routing_tests.sh'
+      - 'tests/test_vg_routing.gd'
+      - '.github/workflows/plugin-lint.yml'
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Plugin capability lint
+        run: |
+          chmod +x scripts/lint_plugin_capabilities.py
+          # Don't pass --strict yet: 3 known plugins predate the
+          # capabilities schema. Once they're migrated, flip this.
+          python3 scripts/lint_plugin_capabilities.py
+
+      - name: Download Godot 4.6.1
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q Godot_v4.6.1-stable_linux.x86_64.zip
+          chmod +x Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Run routing tests
+        run: |
+          chmod +x scripts/run_routing_tests.sh
+          ./scripts/run_routing_tests.sh
