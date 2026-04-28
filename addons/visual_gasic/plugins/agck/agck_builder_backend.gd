@@ -3010,6 +3010,13 @@ func _generate_project_godot(path: String, settings: Dictionary, output_dir: Str
 	godot += '[display]\n\n'
 	godot += 'window/size/viewport_width=' + str(screen_w) + '\n'
 	godot += 'window/size/viewport_height=' + str(screen_h) + '\n'
+	# Honor the Display → Fullscreen toggle. When on, Godot's window/size/mode
+	# = 3 (Exclusive Fullscreen); the viewport_width/height above still drive
+	# the rendering resolution (with stretch mode 'canvas_items' + aspect
+	# 'keep' the game letterboxes to the desktop). Default 0 = Windowed.
+	var fullscreen: bool = bool(settings.get("fullscreen", false))
+	if fullscreen:
+		godot += 'window/size/mode=3\n'
 	godot += 'window/stretch/mode="canvas_items"\n'
 	godot += 'window/stretch/aspect="keep"\n\n'
 

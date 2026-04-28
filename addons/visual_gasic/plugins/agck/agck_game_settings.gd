@@ -124,6 +124,10 @@ func _init_data() -> void:
 		"elasticity": 50,
 		"screen_width": 640,
 		"screen_height": 480,
+		# Fullscreen overrides screen_width/height at runtime when true. We keep
+		# the W/H values around so toggling fullscreen off restores the user's
+		# windowed resolution; in builder backend we emit window/size/mode.
+		"fullscreen": false,
 		"background_color": "#1a1a2e",
 		"lives": 3,
 		"max_score": 0,
@@ -246,6 +250,7 @@ func _build_ui() -> void:
 	grid.add_child(disp)
 	var dg = _card_body(disp)
 	_row_resolution(dg)
+	_row_toggle(dg, "Fullscreen", "fullscreen")
 	_row_color_picker(dg, "BG Color", "background_color")
 
 	# ── Physics card
