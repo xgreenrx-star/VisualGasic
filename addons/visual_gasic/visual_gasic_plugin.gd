@@ -3850,6 +3850,10 @@ func _create_vb6_menu_bar() -> MenuBar:
 	project_menu.add_item("Project Properties...", 10)
 	project_menu.add_item("Components...", 11)
 	project_menu.id_pressed.connect(_on_vb6_project_menu)
+	# Hide form-designer-only items (Add Form, Add Module, Components)
+	# when the Form Designer is disabled. Re-evaluated each time the
+	# menu opens so the toggle takes effect without reloading the IDE.
+	project_menu.about_to_popup.connect(_refresh_vb6_project_menu.bind(project_menu))
 	mb.add_child(project_menu)
 
 	# ── Format ──
@@ -4864,6 +4868,24 @@ func _on_vb6_project_menu(id: int) -> void:
 		1: _on_new_module()
 		10: _on_proj_props()
 		11: _on_components()
+
+
+## Re-evaluates the Project menu just before it opens, disabling items
+## that only make sense when the Form Designer is enabled (Add Form,
+## Add Module, Components). Project Properties is always available.
+## Greying out (rather than hiding) keeps the menu layout stable and
+## hints at the toggle without surprising users.
+func _refresh_vb6_project_menu(project_menu: PopupMenu) -> void:
+	if not is_instance_valid(project_menu):
+		return
+	var enabled := true
+	if ProjectSettings.has_setting("vg/form_designer_enabled"):
+		enabled = bool(ProjectSettings.get_setting("vg/form_designer_enabled", true))
+	# IDs assigned in _build_vb6_menubar above.
+	for item_id in [0, 1, 11]:
+		var idx := project_menu.get_item_index(item_id)
+		if idx >= 0:
+			project_menu.set_item_disabled(idx, not enabled)
 
 func _on_vb6_format_menu(id: int) -> void:
 	if not _form_designer:
