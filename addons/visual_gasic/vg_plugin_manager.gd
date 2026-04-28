@@ -76,6 +76,14 @@ func setup(host_plugin, toolbar_row: HBoxContainer, canvas_right_split: Control)
 	# VGAssetBus.asset_renamed automatically gets refs in .vg/.gd/.tscn/etc.
 	# rewritten throughout the project. Idempotent — safe to call again.
 	preload("res://addons/visual_gasic/vg_ref_rewriter.gd").get_instance()
+	# Attach the external file watcher to the toolbar node so its Timer
+	# is part of the editor scene tree and ticks while the IDE is open.
+	# Polls tracked files (those opened via VGAssetBus.asset_opened) for
+	# external changes and emits asset_invalidated when their mtime
+	# diverges from the last known value.
+	var watcher = preload("res://addons/visual_gasic/vg_file_watcher.gd").get_instance()
+	if is_instance_valid(_toolbar_row):
+		watcher.attach_to(_toolbar_row)
 
 
 ## Discover and load all plugins from the plugins/ directory.
