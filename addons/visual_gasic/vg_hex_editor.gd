@@ -1,5 +1,5 @@
 @tool
-extends Window
+extends Control
 ## VG Hex Editor — fully editable hex + ASCII + text editor
 
 # =============================================================================
@@ -7,40 +7,34 @@ extends Window
 # =============================================================================
 
 class _HexTextHighlighter extends SyntaxHighlighter:
-	## Per-line byte-offset table (index = text line → byte offset of its first char)
-	var line_offsets : PackedInt64Array = PackedInt64Array()
-	## Byte range currently visible in the hex canvas
-	var vis_start    : int = 0
-	var vis_end      : int = 0
+	## Inclusive line / col of first bright character (= first hex-visible byte).
+	var first_line : int = 0
+	var first_col  : int = 0
+	## Exclusive end position (= one past last hex-visible byte).
+	var last_line  : int = -1
+	var last_col   : int = 0
+
+	const BLACK := Color(0.0, 0.0, 0.0)
+	const GREY  := Color(0.62, 0.62, 0.62)
 
 	func _get_line_syntax_highlighting(p_line: int) -> Dictionary:
-		if line_offsets.is_empty() or p_line >= line_offsets.size():
-			return {0: {"color": Color(0.55, 0.55, 0.55)}}
-
-		var ls : int = line_offsets[p_line]
-		# Determine next line's start so we know the line byte length
-		var le : int = line_offsets[p_line + 1] if p_line + 1 < line_offsets.size() else ls + 99999
-
-		# Fully outside the visible range — dim entire line
-		if le <= vis_start or ls >= vis_end:
-			return {0: {"color": Color(0.55, 0.55, 0.55)}}
-
-		var d := {}
-
-		# Color before vis_start
-		if ls < vis_start:
-			d[0] = {"color": Color(0.55, 0.55, 0.55)}
-			d[vis_start - ls] = {"color": Color(0.0, 0.0, 0.0)}
-		else:
-			d[0] = {"color": Color(0.0, 0.0, 0.0)}
-
-		# Color after vis_end
-		if le > vis_end:
-			var end_col : int = vis_end - ls
-			if end_col > 0:
-				d[end_col] = {"color": Color(0.55, 0.55, 0.55)}
-
-		return d
+		if last_line < first_line:
+			return {0: {"color": GREY}}
+		if p_line < first_line or p_line > last_line:
+			return {0: {"color": GREY}}
+		if p_line == first_line and p_line == last_line:
+			if first_col >= last_col:
+				return {0: {"color": GREY}}
+			return {0: {"color": GREY}, first_col: {"color": BLACK}, last_col: {"color": GREY}}
+		if p_line == first_line:
+			if first_col <= 0:
+				return {0: {"color": BLACK}}
+			return {0: {"color": GREY}, first_col: {"color": BLACK}}
+		if p_line == last_line:
+			if last_col <= 0:
+				return {0: {"color": GREY}}
+			return {0: {"color": BLACK}, last_col: {"color": GREY}}
+		return {0: {"color": BLACK}}
 ##
 ## Interaction model:
 ##   • Click hex/ASCII cell to position cursor (Tab switches panels)
@@ -63,6 +57,16 @@ class _HexTextHighlighter extends SyntaxHighlighter:
 ##   • 🎨 Highlight toolbar button — color-code user-defined byte patterns
 ##   • 🔖 Bookmarks toolbar menu — named offsets; F2/Shift+F2 to cycle
 ##   • Recent files in 📂 Open button dropdown
+
+# =============================================================================
+# SIGNALS — file dialogs are delegated to the plugin so they open from the
+# correct window context (Linux X11 requires dialogs to be parented to the
+# editor base control, which is only accessible from an EditorPlugin node).
+# =============================================================================
+
+signal request_open_dialog
+signal request_save_as_dialog(current_path: String)
+signal request_compare_dialog
 
 # =============================================================================
 # CONSTANTS
@@ -172,9 +176,6 @@ var _result_label  : Label
 var _open_menu_btn    : MenuButton
 var _col_btn          : OptionButton
 var _context_menu     : PopupMenu
-var _file_dialog      : FileDialog
-var _save_dialog      : FileDialog
-var _cmp_dialog       : FileDialog
 var _font             : Font
 var _font_size        : int    = 13
 var _be_btn           : Button
@@ -188,10 +189,15 @@ var _replace_all_btn  : Button
 var _text_panel            : TextEdit
 var _text_updating         : bool = false
 var _text_mouse_selecting  : bool = false   # true while mouse drag-select active
-var _text_drag_vis_start   : int  = 0       # vis_start snapshot when drag began
-var _text_line_offsets     : PackedInt64Array = PackedInt64Array()  # byte offset of each text line
+# Byte-offset where each text line starts (relative to file).  Built once per
+# chunk; binary-searched to map byte<->(line,col).  Because every byte maps to
+# exactly one character (printable, '?', or '\n'), col == byte - line_start.
+var _text_line_starts      : PackedInt64Array = PackedInt64Array()
+var _text_chunk_start      : int  = 0       # byte offset where the current text chunk begins
+var _text_chunk_end        : int  = 0       # byte offset where the current text chunk ends (exclusive)
 var _text_vscroll          : VScrollBar
 var _text_highlighter      : _HexTextHighlighter
+var _text_pin_timer        : Timer
 var _h_split               : HSplitContainer
 var _v_split               : VSplitContainer   # vertical split inside text side
 var _tv_vb                 : VBoxContainer     # text-panel VBox (top of _v_split)
@@ -201,11 +207,9 @@ var _tv_vb                 : VBoxContainer     # text-panel VBox (top of _v_spli
 # =============================================================================
 
 func _init() -> void:
-	title         = "VG Hex Editor"
-	min_size      = Vector2i(900, 580)
-	size          = Vector2i(1100, 720)
-	wrap_controls = true
-	close_requested.connect(hide)
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	size_flags_vertical   = Control.SIZE_EXPAND_FILL
+	custom_minimum_size   = Vector2(900, 200)
 
 	var vbox := VBoxContainer.new()
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -239,6 +243,7 @@ func _init() -> void:
 
 	_vscroll = VScrollBar.new()
 	_vscroll.step = 1
+	_vscroll.custom_minimum_size = Vector2(16, 0)
 	_vscroll.value_changed.connect(_on_scroll)
 	hex_hbox.add_child(_vscroll)
 
@@ -246,9 +251,11 @@ func _init() -> void:
 
 	# Right side: VSplitContainer — text panel (top) + future area (bottom)
 	_v_split = VSplitContainer.new()
-	_v_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Fixed width: don't expand horizontally, just stick at the minimum size.
+	_v_split.size_flags_horizontal = Control.SIZE_FILL
 	_v_split.size_flags_vertical   = Control.SIZE_EXPAND_FILL
 	_v_split.add_theme_constant_override("separation", 5)
+	_v_split.custom_minimum_size  = Vector2(640, 0)
 
 	_tv_vb = VBoxContainer.new()
 	_tv_vb.size_flags_horizontal    = Control.SIZE_EXPAND_FILL
@@ -278,7 +285,10 @@ func _init() -> void:
 	_text_panel.size_flags_horizontal      = Control.SIZE_EXPAND_FILL
 	_text_panel.size_flags_vertical        = Control.SIZE_EXPAND_FILL
 	_text_panel.editable                   = true    # must be true for caret to render
-	_text_panel.wrap_mode                  = TextEdit.LINE_WRAPPING_BOUNDARY
+	# We hard-wrap the buffer ourselves (every HARD_WRAP chars) so TextEdit
+	# never has to wrap a single very-long line — that was the main source of
+	# scroll/resize sluggishness for binary files with no real newlines.
+	_text_panel.wrap_mode                  = TextEdit.LINE_WRAPPING_NONE
 	_text_panel.scroll_fit_content_height  = false
 	_text_panel.context_menu_enabled       = false
 	_text_panel.shortcut_keys_enabled      = false
@@ -291,6 +301,7 @@ func _init() -> void:
 
 	_text_vscroll = VScrollBar.new()
 	_text_vscroll.step = 1
+	_text_vscroll.custom_minimum_size = Vector2(16, 0)
 	_text_vscroll.value_changed.connect(_on_scroll)
 	tv_body.add_child(_text_vscroll)
 
@@ -315,7 +326,9 @@ func _init() -> void:
 	_context_menu.add_item("Select All\tCtrl+A",      10)
 	_context_menu.add_separator()
 	_context_menu.add_item("Copy as Hex\tCtrl+C",     11)
-	_context_menu.add_item("Paste Hex\tCtrl+V",       12)
+	_context_menu.add_item("Copy as C Array",          13)
+	_context_menu.add_item("Copy as Python bytes",     14)
+	_context_menu.add_item("Paste Hex\tCtrl+V",        12)
 	_context_menu.add_separator()
 	_context_menu.add_item("Fill Selection...",        20)
 	_context_menu.add_separator()
@@ -323,27 +336,10 @@ func _init() -> void:
 	_context_menu.id_pressed.connect(_on_context_menu_id)
 	add_child(_context_menu)
 
-	# ── File dialogs ──────────────────────────────────────────────────────────
-	_file_dialog = FileDialog.new()
-	_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-	_file_dialog.access    = FileDialog.ACCESS_FILESYSTEM
-	_file_dialog.title     = "Open File — VG Hex Editor"
-	_file_dialog.file_selected.connect(open_file)
-	add_child(_file_dialog)
-
-	_save_dialog = FileDialog.new()
-	_save_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
-	_save_dialog.access    = FileDialog.ACCESS_FILESYSTEM
-	_save_dialog.title     = "Save As — VG Hex Editor"
-	_save_dialog.file_selected.connect(_save_to_path)
-	add_child(_save_dialog)
-
-	_cmp_dialog = FileDialog.new()
-	_cmp_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-	_cmp_dialog.access    = FileDialog.ACCESS_FILESYSTEM
-	_cmp_dialog.title     = "Open File to Compare — VG Hex Editor"
-	_cmp_dialog.file_selected.connect(_load_compare_file)
-	add_child(_cmp_dialog)
+	# File dialogs are created on-demand in _show_open_dialog() /
+	# _show_save_as_dialog() / _show_compare_dialog() so they can be parented
+	# to EditorInterface.get_base_control() — the only parent that makes them
+	# visible on Linux (sub-windows of a floating Window are ignored by X11).
 
 
 func _make_toolbar() -> HBoxContainer:
@@ -371,6 +367,13 @@ func _make_toolbar() -> HBoxContainer:
 	saveas_btn.flat = true
 	saveas_btn.pressed.connect(_show_save_as_dialog)
 	bar.add_child(saveas_btn)
+
+	var close_btn := Button.new()
+	close_btn.text         = "✕ Close"
+	close_btn.tooltip_text = "Close the current file"
+	close_btn.flat         = true
+	close_btn.pressed.connect(close_file)
+	bar.add_child(close_btn)
 
 	bar.add_child(VSeparator.new())
 
@@ -629,12 +632,33 @@ func _ready() -> void:
 		_font = sf
 
 	# Hide TextEdit's own built-in scrollbars — we drive scroll via _text_vscroll
-	_text_panel.add_theme_constant_override("v_scroll_speed", 0)
+	_text_panel.get_v_scroll_bar().hide()
+	_text_panel.get_h_scroll_bar().hide()
 	_text_panel.scroll_vertical = 0
 
 	# Syntax highlighter: dims text outside hex-visible range
 	_text_highlighter = _HexTextHighlighter.new()
 	_text_panel.syntax_highlighter = _text_highlighter
+
+	# Pin timer — every 100 ms, force the text panel's scroll position back to
+	# the spotlight line.  TextEdit periodically re-clamps its viewport in
+	# response to focus/layout changes, which would otherwise let the bright
+	# region drift off-screen until the user does something to trigger our
+	# code path again.  This watchdog corrects it transparently.
+	_text_pin_timer = Timer.new()
+	_text_pin_timer.wait_time   = 0.1
+	_text_pin_timer.autostart   = true
+	_text_pin_timer.one_shot    = false
+	_text_pin_timer.timeout.connect(_on_text_pin_tick)
+	add_child(_text_pin_timer)
+
+
+func _notification(what: int) -> void:
+	# Re-apply scrollbar styles whenever the editor propagates its theme.
+	# In @tool plugins NOTIFICATION_THEME_CHANGED fires after _ready(), wiping
+	# any overrides set in _ready().  This keeps the grabbers always visible.
+	if what == NOTIFICATION_THEME_CHANGED:
+		_apply_scrollbar_styles()
 
 	# ── Text panel: override Godot editor dark theme with VB6 white/black ────
 	var te_sb := StyleBoxFlat.new()
@@ -699,6 +723,8 @@ func _ready() -> void:
 	# Set default split: text panel gets ~260 px, hex gets the rest
 	call_deferred("_set_default_split")
 	call_deferred("_sync_text_panel")
+	# Apply scrollbar styles after the editor theme has settled
+	call_deferred("_apply_scrollbar_styles")
 
 
 func _set_default_split() -> void:
@@ -709,6 +735,46 @@ func _set_default_split() -> void:
 	# Collapse the bottom placeholder — use a very large offset so Godot clamps to max
 	if _v_split:
 		_v_split.split_offset = 99999
+
+
+## Applied deferred so the editor theme has already run on all nodes.
+## Uses very dark track + medium grabber so it's visible regardless of theme.
+func _apply_scrollbar_styles() -> void:
+	for vscroll in [_vscroll, _text_vscroll]:
+		var track_sb := StyleBoxFlat.new()
+		track_sb.bg_color              = Color("#404040")
+		track_sb.content_margin_left   = 1.0
+		track_sb.content_margin_right  = 1.0
+		track_sb.content_margin_top    = 1.0
+		track_sb.content_margin_bottom = 1.0
+		var grab_sb := StyleBoxFlat.new()
+		grab_sb.bg_color              = Color("#909090")
+		grab_sb.set_corner_radius_all(3)
+		grab_sb.content_margin_left   = 2.0
+		grab_sb.content_margin_right  = 2.0
+		grab_sb.content_margin_top    = 4.0
+		grab_sb.content_margin_bottom = 4.0
+		var grab_hl := StyleBoxFlat.new()
+		grab_hl.bg_color              = Color("#B8B8B8")
+		grab_hl.set_corner_radius_all(3)
+		grab_hl.content_margin_left   = 2.0
+		grab_hl.content_margin_right  = 2.0
+		grab_hl.content_margin_top    = 4.0
+		grab_hl.content_margin_bottom = 4.0
+		var grab_pr := StyleBoxFlat.new()
+		grab_pr.bg_color              = Color("#606060")
+		grab_pr.set_corner_radius_all(3)
+		grab_pr.content_margin_left   = 2.0
+		grab_pr.content_margin_right  = 2.0
+		grab_pr.content_margin_top    = 4.0
+		grab_pr.content_margin_bottom = 4.0
+		vscroll.add_theme_stylebox_override("scroll",            track_sb)
+		vscroll.add_theme_stylebox_override("scroll_focus",      track_sb)
+		vscroll.add_theme_stylebox_override("grabber",           grab_sb)
+		vscroll.add_theme_stylebox_override("grabber_highlight", grab_hl)
+		vscroll.add_theme_stylebox_override("grabber_pressed",   grab_pr)
+		vscroll.add_theme_constant_override("scroll_width",      16)
+		vscroll.custom_minimum_size = Vector2(16, 0)
 
 
 func _recalc_metrics() -> void:
@@ -798,7 +864,6 @@ func open_file(path: String) -> void:
 	_cmp_data.clear()
 	_cmp_path = ""
 
-	title = "VG Hex Editor — " + path.get_file()
 	_path_label.text  = path
 	_dirty_label.text = ""
 	_add_recent_file(path)
@@ -810,6 +875,39 @@ func open_file(path: String) -> void:
 
 func open_with_dialog() -> void:
 	_show_open_dialog()
+
+## Close the current file and reset the editor to its empty state.
+func close_file() -> void:
+	_file_data = PackedByteArray()
+	_file_path = ""
+	_modified  = false
+	_dirty_set.clear()
+	_undo_stack.clear()
+	_redo_stack.clear()
+	_cursor       = 0
+	_cursor_nib   = 0
+	_in_ascii     = false
+	_sel_start    = -1
+	_sel_end      = -1
+	_sel_anchor   = -1
+	_scroll_row   = 0
+	_pending_nib  = -1
+	_search_offsets.clear()
+	_search_len   = 0
+	_cur_result   = -1
+	_cmp_data.clear()
+	_cmp_path     = ""
+	_bookmarks.clear()
+	_path_label.text       = "(no file)"
+	_dirty_label.text      = ""
+	_result_label.text     = ""
+	_find_prev_btn.disabled = true
+	_find_next_btn.disabled = true
+	_replace_btn.disabled   = true
+	_replace_all_btn.disabled = true
+	_update_scrollbar()
+	_rebuild_text_panel()
+	_canvas.queue_redraw()
 
 # =============================================================================
 # DRAWING
@@ -1023,6 +1121,7 @@ func _on_canvas_input(event: InputEvent) -> void:
 			_in_ascii  = _is_ascii_hit(mm.position)
 			_update_status()
 			_canvas.queue_redraw()
+			_sync_text_panel()
 			get_viewport().set_input_as_handled()
 		return
 
@@ -1031,6 +1130,8 @@ func _on_canvas_input(event: InputEvent) -> void:
 		if not me.pressed:
 			if me.button_index == MOUSE_BUTTON_LEFT:
 				_dragging = false
+				# Sync text panel selection after drag ends
+				_sync_text_panel()
 			return
 		match me.button_index:
 			MOUSE_BUTTON_LEFT:
@@ -1051,6 +1152,7 @@ func _on_canvas_input(event: InputEvent) -> void:
 					_in_ascii    = _is_ascii_hit(me.position)
 					_update_status()
 					_canvas.queue_redraw()
+					_sync_text_panel()
 
 			MOUSE_BUTTON_RIGHT:
 				_canvas.grab_focus()
@@ -1197,7 +1299,7 @@ func _handle_edit(ke: InputEventKey) -> bool:
 		return false
 
 	match ke.keycode:
-		KEY_ESCAPE: hide(); return true
+		KEY_ESCAPE: _canvas.release_focus(); return true
 		KEY_INSERT:
 			_insert_mode     = not _insert_mode
 			_mode_label.text = "INS" if _insert_mode else "OVR"
@@ -1509,19 +1611,15 @@ func _save_to_path(abs_path: String) -> void:
 	if abs_path != _file_path:
 		_file_path       = abs_path
 		_path_label.text = abs_path
-	title = "VG Hex Editor — " + abs_path.get_file()
+	# title bar update not needed — hex editor is an embedded panel
 	_canvas.queue_redraw()
 	if Engine.is_editor_hint():
 		EditorInterface.get_resource_filesystem().scan()
 
 
 func _show_save_as_dialog() -> void:
-	if not _file_path.is_empty():
-		var abs : String = _file_path
-		if _file_path.begins_with("res://"):
-			abs = ProjectSettings.globalize_path(_file_path)
-		_save_dialog.current_path = abs
-	_save_dialog.popup_centered_ratio(0.7)
+	# Delegate to plugin so the dialog is created from the correct context.
+	request_save_as_dialog.emit.call_deferred(_file_path)
 
 # =============================================================================
 # RECENT FILES
@@ -1830,11 +1928,10 @@ func _fmt_size(n: int) -> String:
 
 
 func _show_open_dialog() -> void:
-	if is_inside_tree():
-		var abs : String = ProjectSettings.globalize_path("res://")
-		if DirAccess.dir_exists_absolute(abs):
-			_file_dialog.current_dir = abs
-	_file_dialog.popup_centered_ratio(0.7)
+	# Defer so the MenuButton PopupMenu fully closes before the FileDialog opens.
+	# Showing a FileDialog while a PopupMenu is still in the popup stack
+	# causes an X11 event-loop conflict that freezes Godot.
+	request_open_dialog.emit.call_deferred()
 
 # =============================================================================
 # FEATURE 1 — ENDIANNESS TOGGLE
@@ -1850,7 +1947,8 @@ func _toggle_endian() -> void:
 # =============================================================================
 
 func _show_compare_dialog() -> void:
-	_cmp_dialog.popup_centered_ratio(0.7)
+	# Delegate to plugin so the dialog is created from the correct context.
+	request_compare_dialog.emit.call_deferred()
 
 
 func _load_compare_file(path: String) -> void:
@@ -2239,114 +2337,219 @@ func _show_highlight_dialog() -> void:
 # TEXT PANEL — sync, input, caret
 # =============================================================================
 
+## Map a byte offset (file-absolute, must be inside the loaded chunk) to a
+## (line, col) pair inside _text_panel.  Because every byte maps to exactly
+## one character, col is simply (offset - line_start_byte).
+func _offset_to_line_col(off: int) -> Vector2i:
+	if _text_line_starts.is_empty():
+		return Vector2i.ZERO
+	var clamped : int = clamp(off, _text_chunk_start, _text_chunk_end)
+	var lo : int = 0
+	var hi : int = _text_line_starts.size() - 1
+	while lo < hi:
+		var mid : int = (lo + hi + 1) / 2
+		if _text_line_starts[mid] <= clamped:
+			lo = mid
+		else:
+			hi = mid - 1
+	return Vector2i(lo, clamped - int(_text_line_starts[lo]))
+
+
+## Backwards-compat shim used by older callers that only need the line.
+func _offset_to_text_line(target_offset: int) -> int:
+	return _offset_to_line_col(target_offset).x
+
+
+## Watchdog: re-assert the spotlight every 100 ms.  Highlights the first
+## SPOT_CHARS (= 479) characters starting at the top of the text-panel
+## viewport in black; everything else (above and below) is greyed.  TextEdit
+## periodically re-clamps its viewport in response to focus/theme/layout
+## changes, so doing this on a timer is the only reliable way to keep the
+## spotlight stable.
+func _on_text_pin_tick() -> void:
+	if not _text_panel or not _text_highlighter:
+		return
+	if _file_data.is_empty() or _text_line_starts.is_empty():
+		return
+	if _text_mouse_selecting:
+		return   # don't fight an active drag-select
+
+	const HARD_WRAP  : int = 80   # must match _rebuild_text_panel (unused here, kept for reference)
+	const SPOT_CHARS : int = 480  # fixed: matches the visible hex byte count
+	# Clamp to remaining file bytes so we don't highlight past EOF.
+	var vis_start_clamp : int = _scroll_row * _bytes_per_row
+	var spot_chars : int = mini(SPOT_CHARS, max(0, _file_data.size() - vis_start_clamp))
+
+	# Desired top line of the viewport (mirrors the hex view's scroll row).
+	var vis_start : int = _scroll_row * _bytes_per_row
+	if vis_start < _text_chunk_start or vis_start >= _text_chunk_end:
+		_rebuild_text_panel()
+		if _text_line_starts.is_empty():
+			return
+		if vis_start < _text_chunk_start or vis_start >= _text_chunk_end:
+			return   # still out of range (e.g. file boundary)
+	# (line, col) of the FIRST visible hex byte and one-past-LAST visible byte.
+	# These map exactly onto the highlighter's bright range.
+	var first_lc : Vector2i = _offset_to_line_col(vis_start)
+	var end_off  : int = vis_start + spot_chars
+	# end_off can land past the chunk end at EOF; clamp to chunk for the lookup.
+	var end_lc   : Vector2i = _offset_to_line_col(mini(end_off, _text_chunk_end))
+	var top_line : int = first_lc.x
+
+	# Update the highlighter range FIRST, then reassign it so TextEdit drops
+	# its cached line colors.  Reassigning the highlighter causes TextEdit to
+	# recalc its scrollbar, which can reset scroll_vertical to 0 — so the
+	# scroll pin MUST come after, and we also defer one frame to win the race
+	# against TextEdit's internal post-relayout viewport clamp.
+	_text_highlighter.first_line = first_lc.x
+	_text_highlighter.first_col  = first_lc.y
+	_text_highlighter.last_line  = end_lc.x
+	_text_highlighter.last_col   = end_lc.y
+	_text_highlighter.clear_highlighting_cache()
+	_text_panel.syntax_highlighter = null
+	_text_panel.syntax_highlighter = _text_highlighter
+
+	# Pin scroll AFTER the highlighter dance.  Set it now and again deferred
+	# so we override any internal viewport adjustment TextEdit queues.
+	_text_panel.scroll_vertical = top_line
+	_text_panel.call_deferred("set_v_scroll", top_line)
+	_text_panel.queue_redraw()
+
+
 func _sync_text_panel() -> void:
 	if not _text_panel or not _text_highlighter:
 		return
 
-	if _file_data.is_empty() or _text_line_offsets.is_empty():
+	if _file_data.is_empty() or _text_line_starts.is_empty():
 		_text_updating = true
 		_text_panel.text = ""
 		_text_updating = false
 		return
 
-	# Update highlighted range — which bytes are currently in the hex view
+	# Live row count from the canvas so resize is exact.  The hex draw paints
+	# `_rows_visible + 1` rows (a header row + N data rows + a final partial),
+	# so we mirror that count here so the bottom row stays bright.
+	var rows_now : int = _rows_visible + 1
+	if _char_h > 0.0 and _canvas.size.y > 0:
+		rows_now = max(1, int((_canvas.size.y - _char_h) / _char_h)) + 1
 	var vis_start : int = _scroll_row * _bytes_per_row
-	var vis_end   : int = mini(vis_start + _rows_visible * _bytes_per_row, _file_data.size())
-	_text_highlighter.vis_start = vis_start
-	_text_highlighter.vis_end   = vis_end
+	var vis_end   : int = mini(vis_start + rows_now * _bytes_per_row, _file_data.size())
+
+	# If outside loaded chunk, rebuild (which calls back here at end).
+	if vis_start < _text_chunk_start or vis_end > _text_chunk_end:
+		_rebuild_text_panel()
+		return
+
+	# Map the visible byte range to (line, col) — black inside, grey outside.
+	var first_lc : Vector2i = _offset_to_line_col(vis_start)
+	# vis_end is exclusive; map (vis_end - 1) and add 1 to col so highlighter
+	# treats last_col as exclusive end.
+	var last_lc  : Vector2i = _offset_to_line_col(maxi(vis_end - 1, vis_start))
+	_text_highlighter.first_line = first_lc.x
+	_text_highlighter.first_col  = first_lc.y
+	_text_highlighter.last_line  = last_lc.x
+	_text_highlighter.last_col   = last_lc.y + 1
+	_text_highlighter.clear_highlighting_cache()
 	_text_panel.queue_redraw()
 
-	# Scroll the TextEdit so the first visible hex row appears at the top.
-	# Binary-search _text_line_offsets for vis_start.
-	var target_line : int = _offset_to_text_line(vis_start)
-	_text_panel.scroll_vertical = target_line
-
-	# Caret: find line + column from _cursor
+	# Place caret + selection without moving viewport (skip during drag).
 	if not _text_mouse_selecting:
 		_text_updating = true
-		var caret_line : int = _offset_to_text_line(_cursor)
-		var caret_col  : int = _cursor - _text_line_offsets[caret_line]
-		_text_panel.set_caret_line(caret_line)
-		_text_panel.set_caret_column(caret_col)
+		var caret_lc : Vector2i = _offset_to_line_col(_cursor)
+		_text_panel.set_caret_line(caret_lc.x, false)
+		_text_panel.set_caret_column(caret_lc.y, false)
 
-		# Mirror hex selection
-		if _sel_start >= 0 and _sel_end >= 0:
-			var fl : int = _offset_to_text_line(_sel_start)
-			var fc : int = _sel_start - _text_line_offsets[fl]
-			var tl : int = _offset_to_text_line(_sel_end)
-			var tc : int = _sel_end - _text_line_offsets[tl] + 1
-			_text_panel.select(fl, fc, tl, tc)
+		if _sel_start >= 0 and _sel_end >= 0 \
+				and _sel_end >= _text_chunk_start and _sel_start < _text_chunk_end:
+			var ss : int = clamp(_sel_start, _text_chunk_start, _text_chunk_end - 1)
+			var se : int = clamp(_sel_end,   _text_chunk_start, _text_chunk_end - 1)
+			var ss_lc : Vector2i = _offset_to_line_col(ss)
+			var se_lc : Vector2i = _offset_to_line_col(se)
+			# se_lc points at the last selected byte; selection-to is exclusive.
+			_text_panel.select(ss_lc.x, ss_lc.y, se_lc.x, se_lc.y + 1)
 		else:
 			_text_panel.deselect()
 		_text_updating = false
 
+	# Scroll TextEdit so the spotlight is anchored at the top of the viewport.
+	# This MUST be set after caret/selection updates because select()/
+	# set_caret_line() can adjust the viewport to reveal the caret, which
+	# would push the bright lines down off the top.  Set it both immediately
+	# AND deferred — TextEdit re-clamps scroll_vertical inside an internal
+	# deferred call after select(), so we have to win that race by setting
+	# it again on the next idle frame.
+	_text_panel.scroll_vertical = first_lc.x
+	_text_panel.set_v_scroll(first_lc.x)
+	_text_panel.call_deferred("set_v_scroll", first_lc.x)
 
-## Rebuild the full text content from _file_data.
-## Call this whenever the file is (re-)loaded or bytes are modified.
+
+## Rebuild the text-panel buffer.  Every byte becomes exactly one character:
+## newline (0x0A) stays a real line break, printable ASCII stays itself, and
+## anything else becomes '?'.  This guarantees a 1-to-1 byte<->character map,
+## so caret/selection translate without arithmetic mismatches.  We slide a
+## ±CHUNK_HALF window around the current scroll so huge files stay snappy.
 func _rebuild_text_panel() -> void:
 	if not _text_panel:
 		return
 	_text_updating = true
-	_text_line_offsets = PackedInt64Array()
+	_text_line_starts = PackedInt64Array()
 
 	if _file_data.is_empty():
 		_text_panel.text = ""
 		_text_updating = false
+		_text_chunk_start = 0
+		_text_chunk_end   = 0
 		return
 
-	# Build text: \n bytes become real newlines, all others printable or '?'.
-	# \r\n is collapsed to a single newline.
-	# Record the byte offset of the start of each logical line.
-	var buf   := PackedByteArray()
-	buf.resize(_file_data.size())   # max possible (may shrink due to \r removal)
-	_text_line_offsets.append(0)    # line 0 starts at byte 0
-	var wi : int = 0
-	var i  : int = 0
-	while i < _file_data.size():
-		var b : int = _file_data[i]
-		if b == 0x0A:                        # \n  — emit newline
-			buf[wi] = 0x0A
-			wi += 1
-			_text_line_offsets.append(i + 1) # next line starts at i+1
-		elif b == 0x0D:                      # \r  — skip; peek at \n
-			if i + 1 < _file_data.size() and _file_data[i + 1] == 0x0A:
-				i += 1                       # consume \r, loop will consume \n
-			# Do NOT emit \r; the following \n (or next iteration) handles it
-		elif b >= 0x20 and b <= 0x7E:
-			buf[wi] = b
-			wi += 1
+	# ── Determine the byte range for this chunk (sliding window) ────────────
+	const CHUNK_HALF : int = 65536    # bytes; ~128 KB window total
+	const HARD_WRAP  : int = 80       # synthetic newline every N chars (= 16 × 5, so each text line spans 5 hex rows exactly)
+	var size : int = _file_data.size()
+	var center : int = clamp(_scroll_row * _bytes_per_row, 0, size)
+	var start : int = max(0, center - CHUNK_HALF)
+	var end   : int = min(size, center + CHUNK_HALF)
+	# Snap chunk_start to a row boundary so vis range math stays clean.
+	start -= start % _bytes_per_row
+	_text_chunk_start = start
+	_text_chunk_end   = end
+
+	# ── Build text: one char per byte, preserve real '\n', insert synthetic
+	#    '\n' every HARD_WRAP chars so no single TextEdit line is too long.
+	#    _text_line_starts records the file byte offset that begins each line,
+	#    so col == byte_offset - line_start still holds.
+	var n : int = end - start
+	# Pre-size: at most one extra '\n' per HARD_WRAP chars.
+	var out := PackedByteArray()
+	out.resize(n + (n / HARD_WRAP) + 4)
+	var w : int = 0
+	var line_chars : int = 0
+	_text_line_starts.append(start)
+	for i in range(n):
+		var b : int = _file_data[start + i]
+		if b == 0x0A:
+			out[w] = 0x0A
+			w += 1
+			line_chars = 0
+			if i + 1 < n:
+				_text_line_starts.append(start + i + 1)
+			continue
+		if line_chars >= HARD_WRAP:
+			out[w] = 0x0A
+			w += 1
+			line_chars = 0
+			_text_line_starts.append(start + i)
+		if b >= 0x20 and b <= 0x7E:
+			out[w] = b
 		else:
-			buf[wi] = 0x3F                   # '?'
-			wi += 1
-		i += 1
+			out[w] = 0x3F   # '?'
+		w += 1
+		line_chars += 1
+	out.resize(w)
 
-	buf.resize(wi)
-	_text_panel.text = buf.get_string_from_ascii()
-	# Force TextEdit internal scroll to 0; we control position via scroll_vertical
-	_text_panel.scroll_vertical   = 0
+	_text_panel.text = out.get_string_from_ascii()
 	_text_panel.scroll_horizontal = 0
-
-	# Push line offsets into the highlighter
-	if _text_highlighter:
-		_text_highlighter.line_offsets = _text_line_offsets
-
 	_text_updating = false
 	_sync_text_panel()
-
-
-## Binary search: return the text line index whose byte offset <= target_offset.
-func _offset_to_text_line(target_offset: int) -> int:
-	if _text_line_offsets.is_empty():
-		return 0
-	var lo : int = 0
-	var hi : int = _text_line_offsets.size() - 1
-	while lo < hi:
-		var mid : int = (lo + hi + 1) / 2
-		if _text_line_offsets[mid] <= target_offset:
-			lo = mid
-		else:
-			hi = mid - 1
-	return lo
 
 
 func _on_text_panel_input(event: InputEvent) -> void:
@@ -2354,28 +2557,14 @@ func _on_text_panel_input(event: InputEvent) -> void:
 		var me := event as InputEventMouseButton
 		match me.button_index:
 			MOUSE_BUTTON_LEFT:
-				# Snapshot vis_start when drag begins so column-to-byte mapping stays
-				# stable even if the hex view scrolls live during the drag.
+				# Track drag state for selection sync, but never auto-scroll the
+				# hex view from text-panel clicks — the hex view is the spotlight
+				# and must stay anchored to its current scroll position.
 				if me.pressed:
 					_text_mouse_selecting = true
-					_text_drag_vis_start  = _scroll_row * _bytes_per_row
 				else:
 					_text_mouse_selecting = false
-					if not _file_data.is_empty():
-						# After drag, restore hex scroll so it matches where the text
-						# caret ended up (i.e. vis_start = _sel_start rounded to row).
-						var target_byte : int = _sel_start if _sel_start >= 0 else _cursor
-						var cursor_row  : int = target_byte / _bytes_per_row
-						var total_rows  : int = int(ceil(float(_file_data.size()) / float(_bytes_per_row)))
-						_scroll_row = clamp(cursor_row, 0, maxi(0, total_rows - _rows_visible))
-						_vscroll.set_block_signals(true)
-						_text_vscroll.set_block_signals(true)
-						_vscroll.value      = float(_scroll_row)
-						_text_vscroll.value = float(_scroll_row)
-						_vscroll.set_block_signals(false)
-						_text_vscroll.set_block_signals(false)
-						_sync_text_panel()
-						_canvas.queue_redraw()
+					_canvas.queue_redraw()
 				# Do NOT consume — let TextEdit gain focus and handle selection
 			MOUSE_BUTTON_WHEEL_UP:
 				if me.pressed:
@@ -2444,11 +2633,11 @@ func _on_text_panel_input(event: InputEvent) -> void:
 
 	# Printable character — overwrite the byte at the caret position
 	var uch : int = ke.unicode
-	if uch >= 0x20 and uch <= 0x7E and not _file_data.is_empty() and not _text_line_offsets.is_empty():
+	if uch >= 0x20 and uch <= 0x7E and not _file_data.is_empty() and not _text_line_starts.is_empty():
 		var line : int = _text_panel.get_caret_line()
 		var col  : int = _text_panel.get_caret_column()
-		if line < _text_line_offsets.size():
-			var off : int = _text_line_offsets[line] + col
+		if line < _text_line_starts.size():
+			var off : int = int(_text_line_starts[line]) + col
 			if off < _file_data.size():
 				_write_byte(off, uch)  # _rebuild_text_panel called inside _write_byte
 				_cursor = mini(off + 1, _file_data.size() - 1)
@@ -2457,20 +2646,20 @@ func _on_text_panel_input(event: InputEvent) -> void:
 
 
 func _on_text_panel_caret_changed() -> void:
-	if _text_updating or _file_data.is_empty() or _text_line_offsets.is_empty():
+	if _text_updating or _file_data.is_empty() or _text_line_starts.is_empty():
 		return
 
 	var line : int = _text_panel.get_caret_line()
 	var col  : int = _text_panel.get_caret_column()
 	var off  : int
-	if line < _text_line_offsets.size():
-		off = clamp(_text_line_offsets[line] + col, 0, _file_data.size() - 1)
+	if line < _text_line_starts.size():
+		off = clamp(int(_text_line_starts[line]) + col, 0, _file_data.size() - 1)
 	else:
 		off = _file_data.size() - 1
 
 	_cursor = off
 
-	# Sync hex selection from text panel selection
+	# Sync hex selection from text panel selection (1 char == 1 byte).
 	if _text_panel.has_selection():
 		var fl : int = _text_panel.get_selection_from_line()
 		var fc : int = _text_panel.get_selection_from_column()
@@ -2478,10 +2667,11 @@ func _on_text_panel_caret_changed() -> void:
 		var tc : int = _text_panel.get_selection_to_column()
 		var from_off : int = 0
 		var to_off   : int = 0
-		if fl < _text_line_offsets.size():
-			from_off = _text_line_offsets[fl] + fc
-		if tl < _text_line_offsets.size():
-			to_off = _text_line_offsets[tl] + tc - 1
+		if fl < _text_line_starts.size():
+			from_off = int(_text_line_starts[fl]) + fc
+		if tl < _text_line_starts.size():
+			# selection-to is exclusive; subtract one to get the last selected byte.
+			to_off = int(_text_line_starts[tl]) + tc - 1
 		_sel_start = clamp(from_off, 0, _file_data.size() - 1)
 		_sel_end   = clamp(to_off,   _sel_start, _file_data.size() - 1)
 	else:
@@ -2489,38 +2679,15 @@ func _on_text_panel_caret_changed() -> void:
 		_sel_end   = -1
 
 	if _text_mouse_selecting:
-		# Sync highlight range in highlighter; scroll hex to follow caret.
-		# Do NOT rebuild text content — would clear the active selection.
-		var cursor_row : int = _cursor / _bytes_per_row
-		var new_scroll : int = _scroll_row
-		if cursor_row < _scroll_row:
-			new_scroll = cursor_row
-		elif cursor_row >= _scroll_row + _rows_visible:
-			new_scroll = cursor_row - _rows_visible + 1
-		if new_scroll != _scroll_row:
-			_scroll_row = new_scroll
-			_vscroll.set_block_signals(true)
-			_text_vscroll.set_block_signals(true)
-			_vscroll.value      = float(_scroll_row)
-			_text_vscroll.value = float(_scroll_row)
-			_vscroll.set_block_signals(false)
-			_text_vscroll.set_block_signals(false)
-		# Update highlighter vis range without touching text content
-		if _text_highlighter:
-			_text_highlighter.vis_start = _scroll_row * _bytes_per_row
-			_text_highlighter.vis_end   = mini((_scroll_row + _rows_visible) * _bytes_per_row, _file_data.size())
-			_text_panel.queue_redraw()
+		# While dragging in the text panel, just redraw the hex canvas so
+		# the byte selection mirrors the text selection.  The hex view is
+		# the spotlight — it stays anchored at its current scroll position.
 		_canvas.queue_redraw()
 		_update_status()
 		return
 
-	# Keyboard / click navigation outside visible hex range: scroll hex to byte.
-	var vis_start : int = _scroll_row * _bytes_per_row
-	var vis_end   : int = vis_start + _rows_visible * _bytes_per_row
-	if off < vis_start or off >= vis_end:
-		_text_updating = true
-		_scroll_to_cursor()
-		return
-
+	# Clicking / keyboard navigation in the text panel should NOT scroll the
+	# hex view.  The hex view is the "spotlight" — it stays put while the
+	# text panel scrolls past it.  Just update the cursor and redraw.
 	_canvas.queue_redraw()
 	_update_status()
