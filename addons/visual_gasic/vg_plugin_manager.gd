@@ -462,7 +462,7 @@ func _show_settings_popup() -> void:
 
 	_settings_popup = Window.new()
 	_settings_popup.title = "Plugin Settings"
-	_settings_popup.size = Vector2i(420, 340)
+	_settings_popup.size = Vector2i(560, 420)
 	_settings_popup.unresizable = false
 	_settings_popup.transient = true
 	_settings_popup.exclusive = true
@@ -482,18 +482,24 @@ func _show_settings_popup() -> void:
 	outer_margin.add_child(outer)
 	panel.add_child(outer_margin)
 
-	# Header
-	var header = Label.new()
-	header.text = "🔌 Installed Plugins"
-	header.add_theme_font_size_override("font_size", 16)
-	header.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
-	outer.add_child(header)
+	# Tabs: "Installed Plugins" + "Default Editors". The Default Editors
+	# tab lets the user pick a preferred provider for each capability the
+	# registry knows about (sprite editing, scene editing, etc.).
+	var tabs := TabContainer.new()
+	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	outer.add_child(tabs)
 
-	# Scrollable plugin list
+	# ─── Tab 1: Installed Plugins ───
+	var plugins_root = VBoxContainer.new()
+	plugins_root.name = "Installed Plugins"
+	plugins_root.add_theme_constant_override("separation", 6)
+	tabs.add_child(plugins_root)
+
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	outer.add_child(scroll)
+	plugins_root.add_child(scroll)
 
 	var list_vbox = VBoxContainer.new()
 	list_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -513,6 +519,11 @@ func _show_settings_popup() -> void:
 		empty_lbl.text = "No plugins installed."
 		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 		list_vbox.add_child(empty_lbl)
+
+	# ─── Tab 2: Default Editors ───
+	var defaults_root = _build_default_editors_tab()
+	defaults_root.name = "Default Editors"
+	tabs.add_child(defaults_root)
 
 	# Bottom buttons
 	var btn_row = HBoxContainer.new()
@@ -545,6 +556,131 @@ func _show_settings_popup() -> void:
 
 	_settings_popup.popup_centered()
 	_settings_popup.close_requested.connect(func(): _settings_popup.hide())
+
+
+## Build the "Default Editors" tab — for every capability the registry
+## knows about, lets the user pick which provider should be the default.
+## Selections are stored in ProjectSettings under
+## `vg/plugin_registry/defaults/<capability>` (handled by the registry).
+func _build_default_editors_tab() -> Control:
+	var root := VBoxContainer.new()
+	root.add_theme_constant_override("separation", 6)
+
+	var help = Label.new()
+	help.text = "Choose which plugin handles each kind of asset by default.\nApplies to file-browser double-click and the command palette."
+	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	help.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
+	root.add_child(help)
+
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	root.add_child(scroll)
+
+	var grid = VBoxContainer.new()
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("separation", 4)
+	scroll.add_child(grid)
+
+	# Collect every capability that any registered provider claims, then
+	# build a row per capability with an OptionButton listing that
+	# capability's providers (sorted by priority desc, plugin_id asc).
+	var registry = VGPluginRegistry.get_instance()
+	var providers: Dictionary = registry.get_all_providers()
+	var caps_set: Dictionary = {}
+	for pid in providers.keys():
+		var meta: Dictionary = providers[pid]
+		for c in meta.get("provides", []):
+			caps_set[c] = true
+	var caps: Array = caps_set.keys()
+	caps.sort()
+
+	if caps.is_empty():
+		var empty := Label.new()
+		empty.text = "No capability-aware plugins registered yet."
+		empty.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		grid.add_child(empty)
+		return root
+
+	for cap in caps:
+		grid.add_child(_build_default_capability_row(cap, providers))
+	return root
+
+
+## Build a single row: <capability label>  [OptionButton with providers]
+func _build_default_capability_row(capability: String, providers: Dictionary) -> Control:
+	var row := HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 12)
+
+	var lbl := Label.new()
+	lbl.text = _humanize_capability(capability)
+	lbl.tooltip_text = capability
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl.custom_minimum_size = Vector2(220, 0)
+	row.add_child(lbl)
+
+	# Find candidate providers for this capability, sorted by priority desc.
+	var candidates: Array = []
+	for pid in providers.keys():
+		var meta: Dictionary = providers[pid]
+		if capability in meta.get("provides", []):
+			candidates.append({"id": pid, "meta": meta})
+	candidates.sort_custom(func(a, b):
+		var pa: int = int(a.meta.get("priority", 0))
+		var pb: int = int(b.meta.get("priority", 0))
+		if pa != pb:
+			return pa > pb
+		return a.id < b.id)
+
+	var opt := OptionButton.new()
+	opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	opt.add_item("(auto: highest priority)", 0)
+	var registry = VGPluginRegistry.get_instance()
+	var current_default: String = registry.get_default_for(capability)
+	var selected_idx := 0
+	for i in range(candidates.size()):
+		var cand = candidates[i]
+		var meta: Dictionary = cand.meta
+		var nice: String = "%s  [priority %s]" % [
+			str(meta.get("name", cand.id)), str(meta.get("priority", 0))
+		]
+		if not meta.get("enabled", true):
+			nice += " (disabled)"
+		opt.add_item(nice, i + 1)
+		if cand.id == current_default:
+			selected_idx = i + 1
+	opt.select(selected_idx)
+	opt.item_selected.connect(func(idx: int):
+		if idx == 0:
+			registry.set_default_for(capability, "")  # "" clears
+		else:
+			registry.set_default_for(capability, candidates[idx - 1].id))
+	row.add_child(opt)
+	return row
+
+
+## Human-readable label for a capability id (e.g. "asset_editor.scene.2d" → "2D Scene").
+func _humanize_capability(cap: String) -> String:
+	var parts: Array = cap.split(".")
+	if parts.is_empty():
+		return cap
+	var ns: String = parts[0]
+	var rest: String = ".".join(parts.slice(1)) if parts.size() > 1 else ""
+	var pretty_rest: String = rest.replace("_", " ").replace(".", " / ").capitalize()
+	match ns:
+		"asset_editor":
+			return "Edit %s" % pretty_rest
+		"asset_generator":
+			return "Generate %s" % pretty_rest
+		"game_builder":
+			return "Build %s" % pretty_rest
+		"panel":
+			return "Panel: %s" % pretty_rest
+		"command":
+			return "Command: %s" % pretty_rest
+		_:
+			return cap
 
 
 ## Build a single plugin row for the settings list.
