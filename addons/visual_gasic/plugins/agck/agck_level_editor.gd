@@ -624,8 +624,12 @@ func _build_ui() -> void:
 	_grid_scroll = ScrollContainer.new()
 	_grid_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_grid_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_grid_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	_grid_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	# SHOW_ALWAYS instead of AUTO so users see the scrollbars even when the
+	# current level happens to fit — makes it discoverable that the editor
+	# does scroll, since long levels (e.g. the 50×16 GD template) absolutely
+	# need it. Cost: a few px of always-reserved gutter.
+	_grid_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+	_grid_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
 	var gs_style = StyleBoxFlat.new()
 	gs_style.bg_color = Color(0.08, 0.08, 0.10)
 	_grid_scroll.add_theme_stylebox_override("panel", gs_style)
@@ -725,11 +729,46 @@ func _build_ui() -> void:
 	bot_hbox.add_child(_status_lbl)
 
 	bot_hbox.add_child(VSeparator.new())
+	# Explicit zoom controls. The % label alone wasn't discoverable — users
+	# didn't realise Shift+Scroll zoomed the canvas. Three flat buttons
+	# (− / 100% / +) keep the bar compact and click-driven, with the label
+	# in the middle continuing to act as a live readout (clicking it
+	# resets to 100%).
+	var zoom_out_btn := Button.new()
+	zoom_out_btn.text = "−"
+	zoom_out_btn.tooltip_text = "Zoom out (Shift+Scroll down)"
+	zoom_out_btn.custom_minimum_size = Vector2(28, 24)
+	zoom_out_btn.add_theme_font_size_override("font_size", 14)
+	zoom_out_btn.pressed.connect(func():
+		_zoom = clampf(_zoom - 0.25, 0.25, 4.0)
+		_apply_zoom()
+	)
+	bot_hbox.add_child(zoom_out_btn)
+
 	_zoom_lbl = Label.new()
 	_zoom_lbl.text = "100%"
-	_zoom_lbl.label_settings = _ls(10, ACCENT)
-	_zoom_lbl.tooltip_text = "Zoom level — Shift+Scroll to zoom in/out"
+	_zoom_lbl.label_settings = _ls(11, ACCENT)
+	_zoom_lbl.tooltip_text = "Click to reset zoom (or Shift+Scroll on grid)"
+	_zoom_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_zoom_lbl.custom_minimum_size = Vector2(48, 24)
+	_zoom_lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+	_zoom_lbl.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			_zoom = 1.0
+			_apply_zoom()
+	)
 	bot_hbox.add_child(_zoom_lbl)
+
+	var zoom_in_btn := Button.new()
+	zoom_in_btn.text = "+"
+	zoom_in_btn.tooltip_text = "Zoom in (Shift+Scroll up)"
+	zoom_in_btn.custom_minimum_size = Vector2(28, 24)
+	zoom_in_btn.add_theme_font_size_override("font_size", 14)
+	zoom_in_btn.pressed.connect(func():
+		_zoom = clampf(_zoom + 0.25, 0.25, 4.0)
+		_apply_zoom()
+	)
+	bot_hbox.add_child(zoom_in_btn)
 
 	_refresh_level_list()
 	_refresh_ui()
@@ -833,13 +872,13 @@ func _rebuild_tile_palette() -> void:
 
 		var name_lbl = Label.new()
 		name_lbl.text = tname
-		# Was 8pt DIM (Color(0.50,0.50,0.55)) which rendered as unreadable
-		# grey-on-grey at typical zoom. Bump to 11pt LABEL_CLR — same size
-		# and color used for the toolbar labels above the palette — and
-		# widen the column so longer block names don't get clipped.
-		name_lbl.label_settings = _ls(11, LABEL_CLR)
+		# Pure white on the dark palette gives the highest contrast; the
+		# previous LABEL_CLR (warm cream) read as a dim orange against the
+		# panel bg and was hard to scan quickly. Width 64 fits most names
+		# ("Brick Wall", "Metal Plate", "Concrete") without clipping.
+		name_lbl.label_settings = _ls(11, WHITE)
 		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		name_lbl.custom_minimum_size.x = 56
+		name_lbl.custom_minimum_size.x = 64
 		name_lbl.clip_text = true
 		btn_container.add_child(name_lbl)
 
