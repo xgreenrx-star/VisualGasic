@@ -2209,29 +2209,53 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 	tscn += '\n'
 
 	# Fullscreen helper sub_resource. Tiny GDScript attached to a hidden
-	# Node child that (a) sets the initial window mode at _ready() if the
-	# Fullscreen toggle is on, and (b) toggles fullscreen on F11 every
-	# launch. Works in editor preview AND exported builds.
+	# CanvasLayer child that (a) sets the initial window mode at _ready()
+	# if the Fullscreen toggle is on, (b) toggles fullscreen on F11 every
+	# launch, and (c) optionally shows an FPS counter in the top-right
+	# corner when settings.show_fps is true. F3 toggles it at runtime.
+	# Works in editor preview AND exported builds.
 	var fs_initial_mode: String = "DisplayServer.WINDOW_MODE_FULLSCREEN" if want_fullscreen else "DisplayServer.WINDOW_MODE_WINDOWED"
+	var fps_initial: String = "true" if bool(settings.get("show_fps", false)) else "false"
 	tscn += '[sub_resource type="GDScript" id="fs_helper"]\n'
-	var fs_src := "extends Node\\n"
+	var fs_src := "extends CanvasLayer\\n"
+	fs_src += "var _fps_label: Label\\n"
 	fs_src += "func _ready():\\n"
+	fs_src += "\\tlayer = 100\\n"
 	fs_src += "\\tDisplayServer.window_set_mode(" + fs_initial_mode + ")\\n"
+	fs_src += "\\t_fps_label = Label.new()\\n"
+	fs_src += "\\t_fps_label.text = \\\"FPS: --\\\"\\n"
+	fs_src += "\\t_fps_label.add_theme_font_size_override(\\\"font_size\\\", 16)\\n"
+	fs_src += "\\t_fps_label.add_theme_color_override(\\\"font_color\\\", Color(1, 1, 0))\\n"
+	fs_src += "\\t_fps_label.add_theme_color_override(\\\"font_outline_color\\\", Color(0, 0, 0))\\n"
+	fs_src += "\\t_fps_label.add_theme_constant_override(\\\"outline_size\\\", 4)\\n"
+	fs_src += "\\t_fps_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)\\n"
+	fs_src += "\\t_fps_label.position = Vector2(-110, 6)\\n"
+	fs_src += "\\t_fps_label.size = Vector2(100, 24)\\n"
+	fs_src += "\\t_fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT\\n"
+	fs_src += "\\t_fps_label.visible = " + fps_initial + "\\n"
+	fs_src += "\\tadd_child(_fps_label)\\n"
+	fs_src += "func _process(_delta):\\n"
+	fs_src += "\\tif _fps_label and _fps_label.visible:\\n"
+	fs_src += "\\t\\t_fps_label.text = \\\"FPS: \\\" + str(Engine.get_frames_per_second())\\n"
 	fs_src += "func _unhandled_input(event):\\n"
-	fs_src += "\\tif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F11:\\n"
-	fs_src += "\\t\\tvar m = DisplayServer.window_get_mode()\\n"
-	fs_src += "\\t\\tif m == DisplayServer.WINDOW_MODE_FULLSCREEN or m == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:\\n"
-	fs_src += "\\t\\t\\tDisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)\\n"
-	fs_src += "\\t\\telse:\\n"
-	fs_src += "\\t\\t\\tDisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)\\n"
-	fs_src += "\\t\\tget_viewport().set_input_as_handled()\\n"
+	fs_src += "\\tif event is InputEventKey and event.pressed and not event.echo:\\n"
+	fs_src += "\\t\\tif event.keycode == KEY_F11:\\n"
+	fs_src += "\\t\\t\\tvar m = DisplayServer.window_get_mode()\\n"
+	fs_src += "\\t\\t\\tif m == DisplayServer.WINDOW_MODE_FULLSCREEN or m == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:\\n"
+	fs_src += "\\t\\t\\t\\tDisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)\\n"
+	fs_src += "\\t\\t\\telse:\\n"
+	fs_src += "\\t\\t\\t\\tDisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)\\n"
+	fs_src += "\\t\\t\\tget_viewport().set_input_as_handled()\\n"
+	fs_src += "\\t\\telif event.keycode == KEY_F3 and _fps_label:\\n"
+	fs_src += "\\t\\t\\t_fps_label.visible = not _fps_label.visible\\n"
+	fs_src += "\\t\\t\\tget_viewport().set_input_as_handled()\\n"
 	tscn += 'script/source = "' + fs_src + '"\n\n'
 
 	# Root Node2D (game controller)
 	tscn += '[node name="Main" type="Node2D"]\n'
 	tscn += 'script = ExtResource("1")\n\n'
 
-	tscn += '[node name="_FullscreenInit" type="Node" parent="."]\n'
+	tscn += '[node name="_FullscreenInit" type="CanvasLayer" parent="."]\n'
 	tscn += 'script = SubResource("fs_helper")\n\n'
 
 	# Background color fill (behind everything)

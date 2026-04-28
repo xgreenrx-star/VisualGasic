@@ -145,6 +145,7 @@ func _init_data() -> void:
 		"show_score": true,
 		"show_lives": true,
 		"debug_overlay": false,
+		"show_fps": false,
 		"auto_save": true,
 		"deadly_damage": 25,
 		"camera_zoom": 1.0,
@@ -302,6 +303,7 @@ func _build_ui() -> void:
 	_row_toggle(hg, "Show Score", "show_score")
 	_row_toggle(hg, "Show Lives", "show_lives")
 	_row_toggle(hg, "Debug Overlay", "debug_overlay")
+	_row_toggle(hg, "Show FPS", "show_fps")
 	_row_toggle(hg, "Auto Save", "auto_save")
 
 	# ── Screens card (Game Menu & Game Over)
