@@ -869,74 +869,153 @@ func _apply_geometry_dash_template() -> void:
 	# True-to-genre auto-runner. The "Cube" actor is type=Runner (not Player),
 	# so it uses _gen_runner_physics: constant rightward velocity, jump-only
 	# input, sprite rotates while airborne and snaps to 90° on landing.
-	# Spikes are TILE-based (block_type=3, Deadly) — placed on the floor row
-	# so they hit the cube without the player having to touch enemy actors.
-	# death_mode="GameOver" + lives=1 means any spike contact = instant scene
-	# reload, matching GD's "restart from start on every death" feel.
+	#
+	# LEVEL LENGTH STRATEGY:
+	# AGCK levels are hard-capped at 20×12 cells, but the existing
+	# Sequential-mode teleport mechanic chains levels seamlessly: the
+	# Camera2D is parented to the cube and follows it across the level,
+	# and a teleport tile at the far right swaps in the next level scene.
+	# So we build SIX chained levels — a tutorial lead-in followed by five
+	# rhythm sections of escalating density. At speed 260 (~16 cells/sec)
+	# each 20-cell segment lasts ~1.25s; the full chain is ~7.5s of play.
+	# Death reloads the current level only (forgiving), not the whole chain.
 	if _editors.size() > 4 and _editors[4]:
 		_editors[4].set_data({
 			"game_title": "Cube Beat",
-			# Higher gravity (1600) + matching jump force in Runner (520) gives a
-			# punchy ~2-tile-high arc that lands every ~0.55s — the GD cadence.
+			# Gravity 1600 + jump_force 520 → ~2-tile-high arc landing every ~0.55s.
 			"gravity": 1600, "friction": 0, "elasticity": 0,
 			"screen_width": 480, "screen_height": 320,
 			"background_color": "#0a0a1a",
 			"lives": 1, "show_score": true, "show_lives": false,
+			# Sequential level_order is what makes the teleport tiles chain
+			# from Level 1 → 2 → 3 ... — each one a fresh 20-cell scene.
 			"start_level": 1, "level_order": "Sequential",
 			"wrap_screen": false, "camera_zoom": 1.0,
-			# Multi-input: tap space / gamepad-A / left-click / screen-touch all jump.
 			"keyboard_enabled": true, "joystick_enabled": true,
 			"mouse_enabled": true, "touch_enabled": true,
 			"deadly_damage": 999,
 		})
 	if _editors.size() > 1 and _editors[1]:
 		_editors[1].set_data([
-			# Cube — auto-running Runner. Speed=320 → ~2 tiles/sec. 1 HP, GameOver
-			# on death triggers instant scene reload from _gen_damage_sub.
-			{"name": "Cube", "type": "Runner", "max_speed": 320, "gravity_scale": 1.0,
+			# Speed 260: gives the player ~0.4s to react to the first spike when
+			# it's at column 8. At the previous 320 they couldn't see it coming.
+			{"name": "Cube", "type": "Runner", "max_speed": 260, "gravity_scale": 1.0,
 				"max_hp": 1, "damage": 0, "score_value": 0,
 				"collision_mode": "Slide", "death_mode": "GameOver", "rebirth": 0,
 				"jump_force": 520},
-			# Pad — collectible cosmetic on raised platforms (rewards perfect timing).
 			{"name": "Pad", "type": "Computer", "max_speed": 0, "gravity_scale": 0,
 				"max_hp": 9999, "damage": 0, "score_value": 50,
 				"collision_mode": "None", "death_mode": "Destroy"},
 		])
 	if _editors.size() > 0 and _editors[0]:
-		var GRID_W = 20; var GRID_H = 12
-		var lvl = _editors[0]._make_empty_level(1)
-		lvl["name"] = "Stereo Madness"
-		var grid = lvl["grid"]
-		# ── Floor row ────────────────────────────────────────────────
-		# Solid barrier across the bottom. Spikes are rendered on the row
-		# JUST ABOVE the floor so the cube collides with their base.
-		for x in range(GRID_W):
-			grid[GRID_H - 1][x] = {"block_type": 1, "tile_index": 0}
-		# ── Rhythmic spike pattern (tile-based, block_type=3 = Deadly) ──
-		# Each spike sits on the row above the floor (GRID_H - 2). Pattern
-		# is intentionally dense — single spikes at beats, double-spikes at
-		# downbeats to force precise jump timing.
-		var spike_xs := [3, 5, 8, 9, 12, 14, 17, 18]
-		for sx in spike_xs:
-			grid[GRID_H - 2][sx] = {"block_type": 3, "tile_index": 0}
-		# ── Mid-air block obstacles (force the cube to dip under a ceiling) ──
-		# A short ceiling segment at row GRID_H - 5 from x=10 to x=12 forces
-		# the player to time a NON-jump (just stay grounded) past it.
-		for x in range(10, 13):
-			grid[GRID_H - 5][x] = {"block_type": 1, "tile_index": 0}
-		# ── Raised platform with a pad collectible ──
-		# Tests timing: jump up to platform, grab pad, land back on floor.
-		for x in range(15, 18):
-			grid[GRID_H - 4][x] = {"block_type": 1, "tile_index": 0}
-		# ── Goal teleport at the far right ──
-		grid[GRID_H - 5][GRID_W - 2] = {"block_type": 5, "tile_index": 0}
-		# ── Actors: just the cube + a couple of pads ──
-		# (Spikes are now tiles, not actors — that's the key fix.)
-		lvl["actors"] = [
-			{"actor_id": 0, "x": 1, "y": GRID_H - 2, "path": []},   # Cube spawn
-			{"actor_id": 1, "x": 16, "y": GRID_H - 5, "path": []},  # Pad on platform
+		var GRID_W := 20
+		var GRID_H := 12
+		# Each chunk describes one level: name + spike columns + extras.
+		# Spike X positions are tuned for a ~0.55s jump cadence at speed 260.
+		# Cube spawns at x=1 only on Level 1; subsequent levels spawn it at
+		# x=0 so it crosses the level boundary without losing momentum.
+		var chunks := [
+			{
+				# ── Level 1 — Lead-in / tutorial ───────────────────────
+				# NO spikes for the first 8 cells so the player can adapt
+				# to the auto-run cadence. One safe single spike at x=12
+				# teaches "tap to jump". Spawn at x=1 (start of game).
+				"name": "Stereo Madness",
+				"spawn_x": 1,
+				"spikes": [12],
+				"platforms": [],
+				"ceilings": [],
+				"pads": [],
+			},
+			{
+				# ── Level 2 — Single-spike rhythm ──────────────────────
+				# Three evenly-spaced singles. 5-cell gaps = ~0.31s between
+				# spikes — easy if you find the beat.
+				"name": "Back On Track",
+				"spawn_x": 0,
+				"spikes": [4, 9, 14],
+				"platforms": [],
+				"ceilings": [],
+				"pads": [],
+			},
+			{
+				# ── Level 3 — Double spikes ────────────────────────────
+				# Adjacent-pair spikes force a slightly later jump (clear
+				# both with one hop). Pad reward on a low platform.
+				"name": "Polargeist",
+				"spawn_x": 0,
+				"spikes": [3, 4, 9, 10, 15],
+				"platforms": [{"row": GRID_H - 4, "x0": 7, "x1": 9}],
+				"ceilings": [],
+				"pads": [{"x": 8, "y": GRID_H - 5}],
+			},
+			{
+				# ── Level 4 — Ceiling section ──────────────────────────
+				# A short ceiling segment forces a NON-jump (stay grounded).
+				# Players who panic-jump into it get bonked back.
+				"name": "Dry Out",
+				"spawn_x": 0,
+				"spikes": [3, 8, 13],
+				"platforms": [],
+				"ceilings": [{"row": GRID_H - 5, "x0": 9, "x1": 12}],
+				"pads": [],
+			},
+			{
+				# ── Level 5 — Triple-spike clusters ────────────────────
+				# Tight clusters require longer jump arcs. This is "hard".
+				"name": "Base After Base",
+				"spawn_x": 0,
+				"spikes": [3, 4, 5, 9, 10, 11, 15, 16],
+				"platforms": [],
+				"ceilings": [],
+				"pads": [],
+			},
+			{
+				# ── Level 6 — Finale ───────────────────────────────────
+				# Mixed pattern + raised platform finish with a pad reward
+				# right before the goal teleport.
+				"name": "Cant Let Go",
+				"spawn_x": 0,
+				"spikes": [3, 7, 8, 12],
+				"platforms": [{"row": GRID_H - 4, "x0": 14, "x1": 17}],
+				"ceilings": [],
+				"pads": [{"x": 15, "y": GRID_H - 5}],
+			},
 		]
-		_editors[0].levels[0] = lvl
+		for i in range(chunks.size()):
+			var ck = chunks[i]
+			var lvl = _editors[0]._make_empty_level(i + 1)
+			lvl["name"] = ck["name"]
+			# Death restarts THIS level only (not the chain) — that's the
+			# forgiving "checkpoint per level" feel. GD purists would prefer
+			# a full chain reset; we can add a "Hardcore" flag later.
+			lvl["death_action"] = "Restart Level"
+			lvl["death_action_target"] = i + 1
+			var grid = lvl["grid"]
+			# Solid floor across the entire bottom row.
+			for x in range(GRID_W):
+				grid[GRID_H - 1][x] = {"block_type": 1, "tile_index": 0}
+			# Spikes (block_type 3 = Deadly) on the row above the floor.
+			for sx in ck["spikes"]:
+				grid[GRID_H - 2][sx] = {"block_type": 3, "tile_index": 0}
+			# Optional raised platforms (Barrier blocks, walkable surface).
+			for plat in ck["platforms"]:
+				for x in range(plat["x0"], plat["x1"] + 1):
+					grid[plat["row"]][x] = {"block_type": 1, "tile_index": 0}
+			# Optional ceiling segments (force player to stay grounded).
+			for c in ck["ceilings"]:
+				for x in range(c["x0"], c["x1"] + 1):
+					grid[c["row"]][x] = {"block_type": 1, "tile_index": 0}
+			# Goal teleport at far right (Sequential mode advances level).
+			grid[GRID_H - 5][GRID_W - 2] = {"block_type": 5, "tile_index": 0}
+			# Actors: the cube + any pad collectibles.
+			var actors := [
+				{"actor_id": 0, "x": ck["spawn_x"], "y": GRID_H - 2, "path": []},
+			]
+			for p in ck["pads"]:
+				actors.append({"actor_id": 1, "x": p["x"], "y": p["y"], "path": []})
+			lvl["actors"] = actors
+			_editors[0].levels[i] = lvl
 
 
 ## Build the project then launch it in Godot's play-scene runner.
