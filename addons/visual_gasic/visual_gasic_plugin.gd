@@ -179,6 +179,10 @@ var _showing_plugin_view: bool = false
 ## Plugin Manager — discovers & manages VG IDE plugins from plugins/ directory
 var _vg_plugin_manager = null
 
+## Command Palette / Quick Open (Ctrl+P, Ctrl+Shift+P).
+## Created lazily on first invocation to keep startup snappy.
+var _vg_command_palette = null
+
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
 
@@ -1605,6 +1609,16 @@ func _input(event: InputEvent) -> void:
 	# ── Ctrl+Shift+S  →  Save All ──
 	if event.keycode == KEY_S and event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
 		_do_save_all()
+		get_viewport().set_input_as_handled()
+		return
+
+	# ── Ctrl+Shift+P  →  Command Palette ──
+	# Ctrl+P    →  Quick Open (file finder)
+	# Both surface the same VGCommandPalette popup; the prefix '>' on
+	# the query line is what selects "command mode" vs file mode.
+	if event.keycode == KEY_P and event.ctrl_pressed and not event.alt_pressed:
+		var initial: String = "> " if event.shift_pressed else ""
+		_open_command_palette(initial)
 		get_viewport().set_input_as_handled()
 		return
 
@@ -10594,3 +10608,26 @@ func _is_inside_string_or_comment(content: String, pos: int) -> bool:
 	
 	return quote_count % 2 == 1
 
+
+
+# ─── Command Palette / Quick Open ───────────────────────────
+
+## Lazily create and show VGCommandPalette. Both Ctrl+P (file quick-open)
+## and Ctrl+Shift+P (command list) route here; the only difference is the
+## initial query string ("> " puts the palette into command mode).
+func _open_command_palette(initial_query: String = "") -> void:
+if not is_instance_valid(_vg_command_palette):
+var script = load("res://addons/visual_gasic/vg_command_palette.gd")
+if script == null:
+push_warning("VisualGasic: command palette script missing")
+return
+_vg_command_palette = script.new()
+# Parent under the EditorInterface base so the popup z-orders above
+# every IDE panel (Form Designer, code editor, plugin views, etc.)
+# and survives view switches without being destroyed.
+var base := EditorInterface.get_base_control() if Engine.has_singleton("EditorInterface") else null
+if base == null:
+# Fallback — main scene root will do.
+base = get_tree().root if Engine.is_editor_hint() else self
+base.add_child(_vg_command_palette)
+_vg_command_palette.open_palette(initial_query)
