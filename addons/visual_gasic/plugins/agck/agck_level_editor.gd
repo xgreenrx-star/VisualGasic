@@ -612,7 +612,7 @@ func _build_ui() -> void:
 
 	_tile_palette_scroll = ScrollContainer.new()
 	_tile_palette_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_tile_palette_scroll.custom_minimum_size.y = 52
+	_tile_palette_scroll.custom_minimum_size.y = 64
 	_tile_palette_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	pal_vbox.add_child(_tile_palette_scroll)
 
@@ -634,9 +634,12 @@ func _build_ui() -> void:
 	_grid_canvas = Control.new()
 	# Initial size based on the first level's dims; _apply_zoom() refreshes
 	# this whenever the user resizes the level or switches levels.
+	# IMPORTANT: do NOT set SIZE_EXPAND_FILL on the canvas — inside a
+	# ScrollContainer that flag forces the child to fill the viewport,
+	# which means the canvas can never overflow and scrollbars never
+	# appear, even for a 50×16 or larger level. Letting custom_minimum_size
+	# alone govern the canvas size makes auto-scrollbars work as intended.
 	_grid_canvas.custom_minimum_size = Vector2(_lvl_w() * BASE_CELL_PX + 2, _lvl_h() * BASE_CELL_PX + 2)
-	_grid_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_grid_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_grid_canvas.draw.connect(_draw_grid)
 	_grid_canvas.gui_input.connect(_on_grid_input)
 	_grid_canvas.focus_mode = Control.FOCUS_CLICK
@@ -830,9 +833,13 @@ func _rebuild_tile_palette() -> void:
 
 		var name_lbl = Label.new()
 		name_lbl.text = tname
-		name_lbl.label_settings = _ls(8, DIM)
+		# Was 8pt DIM (Color(0.50,0.50,0.55)) which rendered as unreadable
+		# grey-on-grey at typical zoom. Bump to 11pt LABEL_CLR — same size
+		# and color used for the toolbar labels above the palette — and
+		# widen the column so longer block names don't get clipped.
+		name_lbl.label_settings = _ls(11, LABEL_CLR)
 		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		name_lbl.custom_minimum_size.x = 40
+		name_lbl.custom_minimum_size.x = 56
 		name_lbl.clip_text = true
 		btn_container.add_child(name_lbl)
 
