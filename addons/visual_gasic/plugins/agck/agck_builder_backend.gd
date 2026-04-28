@@ -555,13 +555,14 @@ func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite
 
 		# Collision shapes. The physics body shape is slightly smaller than
 		# a full cell so the actor doesn't catch on tile seams. The damage
-		# Hitbox is INTENTIONALLY smaller still — testers were dying from
-		# spikes the player hadn't visibly touched. Make it a forgiving inner
-		# rect so contact requires real visual overlap.
+		# Hitbox now matches the physics body size — testers reported the
+		# previous CELL_PX-2 hitbox triggered phantom hits, but CELL_PX-10
+		# was too forgiving (player passed through spikes). CELL_PX-4 = same
+		# rect as the body, which is fair and predictable.
 		tscn += '[sub_resource type="RectangleShape2D" id="shape_1"]\n'
 		tscn += 'size = Vector2(' + str(CELL_PX - 4) + ', ' + str(CELL_PX - 4) + ')\n\n'
 		tscn += '[sub_resource type="RectangleShape2D" id="hitbox_shape"]\n'
-		tscn += 'size = Vector2(' + str(CELL_PX - 10) + ', ' + str(CELL_PX - 10) + ')\n\n'
+		tscn += 'size = Vector2(' + str(CELL_PX - 4) + ', ' + str(CELL_PX - 4) + ')\n\n'
 
 		# Per-sprite shader FX sub-resources (if set)
 		if has_actor_shader:
@@ -612,12 +613,12 @@ func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite
 		tscn += '[ext_resource type="Script" path="' + vg_script_path + '" id="1"]\n'
 		tscn += '[ext_resource type="Texture2D" path="' + sprite_rel_path + '" id="2"]\n\n'
 
-		# Sub-resources: collision shape + hitbox shape. Hitbox is forgiving
-		# (smaller than the visible sprite) — see note in animated branch above.
+		# Sub-resources: collision shape + hitbox shape. Hitbox = body size
+		# (see note in animated branch above for tuning history).
 		tscn += '[sub_resource type="RectangleShape2D" id="shape_1"]\n'
 		tscn += 'size = Vector2(' + str(CELL_PX - 4) + ', ' + str(CELL_PX - 4) + ')\n\n'
 		tscn += '[sub_resource type="RectangleShape2D" id="hitbox_shape"]\n'
-		tscn += 'size = Vector2(' + str(CELL_PX - 10) + ', ' + str(CELL_PX - 10) + ')\n\n'
+		tscn += 'size = Vector2(' + str(CELL_PX - 4) + ', ' + str(CELL_PX - 4) + ')\n\n'
 
 		# Per-sprite shader FX sub-resources (if set)
 		if has_actor_shader:
@@ -1763,13 +1764,14 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 	header += '[sub_resource type="RectangleShape2D" id="block_shape"]\n'
 	header += 'size = Vector2(' + str(CELL_PX) + ', ' + str(CELL_PX) + ')\n\n'
 
-	# Deadly area shape — INTENTIONALLY smaller than the visible spike tile
-	# so the player only dies on real visual contact. Was CELL_PX+4 (4px
-	# OUTSIDE the visual on every side, which made spikes feel cheap and
-	# triggered phantom deaths near them). Now CELL_PX-12 = roughly the
-	# inner triangle of a typical spike sprite.
+	# Deadly area shape — sits inside the spike sprite so contact requires
+	# real visual overlap, but not so small that the player can pass through.
+	# History: was CELL_PX+4 (cheap deaths from near-misses), then CELL_PX-12
+	# (too forgiving — player walked through spikes). CELL_PX-4 lines up
+	# with the player's hitbox of the same size; together they overlap when
+	# centers are within 28 px in a 32 px cell, i.e. on real visual contact.
 	header += '[sub_resource type="RectangleShape2D" id="deadly_shape"]\n'
-	header += 'size = Vector2(' + str(CELL_PX - 12) + ', ' + str(CELL_PX - 12) + ')\n\n'
+	header += 'size = Vector2(' + str(CELL_PX - 4) + ', ' + str(CELL_PX - 4) + ')\n\n'
 
 	# Sub resources: per-tile shader FX (one Shader + one ShaderMaterial per unique effect)
 	for sfx_name in tile_shader_fx_set:
@@ -2124,9 +2126,13 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 	# window/size/mode entry alone because the editor's play-scene runner
 	# launches the scene under the host editor's display settings, ignoring
 	# the generated project.godot. Forcing the mode at _ready() works for
-	# both editor previews and standalone exported builds.
+	# both editor previews and standalone exported builds. The helper also
+	# binds F11 to toggle fullscreen at runtime so testers aren't trapped
+	# in fullscreen with no exit (Esc alone doesn't exit Exclusive mode).
 	var want_fullscreen: bool = bool(settings.get("fullscreen", false))
-	var fs_extra_steps: int = 1 if want_fullscreen else 0
+	# Always inject the helper — the F11 toggle is useful even when the
+	# game starts windowed. The initial mode is set from `want_fullscreen`.
+	var fs_extra_steps: int = 1
 
 	# ── Count shader sub_resources so load_steps is correct ──
 	var shader_sub_count := 0
@@ -2202,20 +2208,31 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 
 	tscn += '\n'
 
-	# Fullscreen helper sub_resource (only when toggle is on). Tiny GDScript
-	# attached to a hidden Node child that runs once at _ready() and sets
-	# the window mode. Works in editor preview AND exported builds.
-	if want_fullscreen:
-		tscn += '[sub_resource type="GDScript" id="fs_helper"]\n'
-		tscn += 'script/source = "extends Node\\nfunc _ready():\\n\\tDisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)\\n"\n\n'
+	# Fullscreen helper sub_resource. Tiny GDScript attached to a hidden
+	# Node child that (a) sets the initial window mode at _ready() if the
+	# Fullscreen toggle is on, and (b) toggles fullscreen on F11 every
+	# launch. Works in editor preview AND exported builds.
+	var fs_initial_mode: String = "DisplayServer.WINDOW_MODE_FULLSCREEN" if want_fullscreen else "DisplayServer.WINDOW_MODE_WINDOWED"
+	tscn += '[sub_resource type="GDScript" id="fs_helper"]\n'
+	var fs_src := "extends Node\\n"
+	fs_src += "func _ready():\\n"
+	fs_src += "\\tDisplayServer.window_set_mode(" + fs_initial_mode + ")\\n"
+	fs_src += "func _unhandled_input(event):\\n"
+	fs_src += "\\tif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F11:\\n"
+	fs_src += "\\t\\tvar m = DisplayServer.window_get_mode()\\n"
+	fs_src += "\\t\\tif m == DisplayServer.WINDOW_MODE_FULLSCREEN or m == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:\\n"
+	fs_src += "\\t\\t\\tDisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)\\n"
+	fs_src += "\\t\\telse:\\n"
+	fs_src += "\\t\\t\\tDisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)\\n"
+	fs_src += "\\t\\tget_viewport().set_input_as_handled()\\n"
+	tscn += 'script/source = "' + fs_src + '"\n\n'
 
 	# Root Node2D (game controller)
 	tscn += '[node name="Main" type="Node2D"]\n'
 	tscn += 'script = ExtResource("1")\n\n'
 
-	if want_fullscreen:
-		tscn += '[node name="_FullscreenInit" type="Node" parent="."]\n'
-		tscn += 'script = SubResource("fs_helper")\n\n'
+	tscn += '[node name="_FullscreenInit" type="Node" parent="."]\n'
+	tscn += 'script = SubResource("fs_helper")\n\n'
 
 	# Background color fill (behind everything)
 	var bg_hex: String = settings.get("bg_color", "1a1a2e")
