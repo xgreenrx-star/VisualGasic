@@ -494,6 +494,16 @@ func _on_template_requested(template_name: String) -> void:
 			_apply_space_shooter_template()
 		"Maze Game":
 			_apply_maze_template()
+		"Top-Down RPG":
+			_apply_topdown_rpg_template()
+		"Side Shmup":
+			_apply_side_shmup_template()
+		"Match-3":
+			_apply_match3_template()
+		"Asteroids":
+			_apply_asteroids_template()
+		"Endless Runner":
+			_apply_endless_runner_template()
 	_dirty = true
 	_sync_actor_names()
 	_sync_start_level_count()
@@ -647,6 +657,202 @@ func _apply_maze_template() -> void:
 			{"actor_id": 2, "x": 2, "y": 1, "path": []},
 			{"actor_id": 2, "x": 10, "y": 5, "path": []},
 			{"actor_id": 2, "x": 17, "y": 9, "path": []},
+		]
+		_editors[0].levels[0] = lvl
+
+
+# ─── New genre templates (added Apr 2026) ───────────────────
+
+func _apply_topdown_rpg_template() -> void:
+	if _editors.size() > 4 and _editors[4]:
+		_editors[4].set_data({
+			"game_title": "Quest of the Realm",
+			"gravity": 0, "friction": 80, "elasticity": 0,
+			"screen_width": 640, "screen_height": 384,
+			"lives": 3, "show_score": true, "show_lives": true,
+			"start_level": 1, "level_order": "Sequential",
+		})
+	if _editors.size() > 1 and _editors[1]:
+		_editors[1].set_data([
+			{"name": "Hero", "type": "Player", "max_speed": 130, "gravity_scale": 0, "max_hp": 100, "damage": 25, "score_value": 0, "collision_mode": "Slide", "death_mode": "Respawn", "rebirth": 1.5},
+			{"name": "Goblin", "type": "Drone", "max_speed": 70, "gravity_scale": 0, "max_hp": 40, "damage": 15, "score_value": 75, "ai_behavior": "Chase", "ai_patrol_speed": 70, "collision_mode": "Bounce", "death_mode": "Destroy"},
+			{"name": "NPC", "type": "Computer", "max_speed": 0, "gravity_scale": 0, "max_hp": 9999, "damage": 0, "score_value": 0, "collision_mode": "None", "death_mode": "Destroy"},
+			{"name": "Treasure", "type": "Computer", "max_speed": 0, "gravity_scale": 0, "max_hp": 1, "damage": 0, "score_value": 250, "collision_mode": "None", "death_mode": "Destroy"},
+		])
+	if _editors.size() > 0 and _editors[0]:
+		var GRID_W = 20; var GRID_H = 12
+		var lvl = _editors[0]._make_empty_level(1)
+		lvl["name"] = "Village Outskirts"
+		var grid = lvl["grid"]
+		# Border walls (forest edge)
+		for x in range(GRID_W):
+			grid[0][x] = {"block_type": 1, "tile_index": 0}
+			grid[GRID_H - 1][x] = {"block_type": 1, "tile_index": 0}
+		for y in range(GRID_H):
+			grid[y][0] = {"block_type": 1, "tile_index": 0}
+			grid[y][GRID_W - 1] = {"block_type": 1, "tile_index": 0}
+		# A pond / impassable terrain in the middle
+		for x in range(8, 12):
+			for y in range(4, 7):
+				grid[y][x] = {"block_type": 1, "tile_index": 0}
+		# Door north
+		grid[0][GRID_W / 2] = {"block_type": 5, "tile_index": 0}
+		lvl["actors"] = [
+			{"actor_id": 0, "x": 2, "y": GRID_H - 2, "path": []},   # Hero
+			{"actor_id": 1, "x": 14, "y": 2, "path": []},           # Goblin
+			{"actor_id": 1, "x": 16, "y": 8, "path": []},           # Goblin
+			{"actor_id": 2, "x": 4, "y": 2, "path": []},            # NPC
+			{"actor_id": 3, "x": 17, "y": 9, "path": []},           # Treasure
+			{"actor_id": 3, "x": 5, "y": 8, "path": []},            # Treasure
+		]
+		_editors[0].levels[0] = lvl
+
+
+func _apply_side_shmup_template() -> void:
+	if _editors.size() > 4 and _editors[4]:
+		_editors[4].set_data({
+			"game_title": "Hyperwing",
+			"gravity": 0, "friction": 0, "elasticity": 0,
+			"screen_width": 640, "screen_height": 384,
+			"lives": 3, "show_score": true, "show_lives": true,
+			"start_level": 1, "level_order": "Sequential",
+		})
+	if _editors.size() > 1 and _editors[1]:
+		_editors[1].set_data([
+			{"name": "Fighter", "type": "Player", "max_speed": 240, "gravity_scale": 0, "max_hp": 100, "damage": 30, "score_value": 0, "collision_mode": "Slide", "death_mode": "Respawn", "rebirth": 1.5},
+			{"name": "Drone", "type": "Drone", "max_speed": 100, "gravity_scale": 0, "max_hp": 25, "damage": 20, "score_value": 100, "ai_behavior": "Patrol", "ai_patrol_speed": 100, "collision_mode": "Bounce", "death_mode": "Destroy"},
+			{"name": "Bullet", "type": "Missile", "max_speed": 450, "gravity_scale": 0, "max_hp": 1, "damage": 30, "score_value": 0, "collision_mode": "None", "death_mode": "Destroy"},
+		])
+	if _editors.size() > 0 and _editors[0]:
+		var GRID_W = 20; var GRID_H = 12
+		var lvl = _editors[0]._make_empty_level(1)
+		lvl["name"] = "Sector Alpha"
+		var grid = lvl["grid"]
+		# Top/bottom walls only — sides open for scroll
+		for x in range(GRID_W):
+			grid[0][x] = {"block_type": 1, "tile_index": 0}
+			grid[GRID_H - 1][x] = {"block_type": 1, "tile_index": 0}
+		# Exit on the right
+		grid[GRID_H / 2][GRID_W - 1] = {"block_type": 5, "tile_index": 0}
+		lvl["actors"] = [
+			{"actor_id": 0, "x": 2, "y": GRID_H / 2, "path": []},  # Fighter on the left
+			{"actor_id": 1, "x": 12, "y": 3, "path": []},
+			{"actor_id": 1, "x": 14, "y": 6, "path": []},
+			{"actor_id": 1, "x": 16, "y": 4, "path": []},
+			{"actor_id": 1, "x": 17, "y": 8, "path": []},
+		]
+		_editors[0].levels[0] = lvl
+
+
+func _apply_match3_template() -> void:
+	if _editors.size() > 4 and _editors[4]:
+		_editors[4].set_data({
+			"game_title": "Gem Match",
+			"gravity": 0, "friction": 0, "elasticity": 0,
+			"screen_width": 480, "screen_height": 640,
+			"lives": 1, "show_score": true, "show_lives": false,
+			"start_level": 1, "level_order": "Sequential",
+		})
+	if _editors.size() > 1 and _editors[1]:
+		_editors[1].set_data([
+			{"name": "Cursor", "type": "Player", "max_speed": 0, "gravity_scale": 0, "max_hp": 1, "damage": 0, "score_value": 0, "collision_mode": "None", "death_mode": "GameOver", "rebirth": 0},
+			{"name": "RedGem", "type": "Computer", "max_speed": 0, "gravity_scale": 0, "max_hp": 1, "damage": 0, "score_value": 100, "collision_mode": "None", "death_mode": "Destroy"},
+			{"name": "BlueGem", "type": "Computer", "max_speed": 0, "gravity_scale": 0, "max_hp": 1, "damage": 0, "score_value": 100, "collision_mode": "None", "death_mode": "Destroy"},
+			{"name": "GreenGem", "type": "Computer", "max_speed": 0, "gravity_scale": 0, "max_hp": 1, "damage": 0, "score_value": 100, "collision_mode": "None", "death_mode": "Destroy"},
+		])
+	if _editors.size() > 0 and _editors[0]:
+		var GRID_W = 20; var GRID_H = 12
+		var lvl = _editors[0]._make_empty_level(1)
+		lvl["name"] = "Cascade 1"
+		var grid = lvl["grid"]
+		# Frame the play area
+		for x in range(GRID_W):
+			grid[0][x] = {"block_type": 1, "tile_index": 0}
+			grid[GRID_H - 1][x] = {"block_type": 1, "tile_index": 0}
+		for y in range(GRID_H):
+			grid[y][0] = {"block_type": 1, "tile_index": 0}
+			grid[y][GRID_W - 1] = {"block_type": 1, "tile_index": 0}
+		# Fill an 8×6 gem grid offset inside
+		var actors: Array = [
+			{"actor_id": 0, "x": 2, "y": 2, "path": []},  # Cursor
+		]
+		var gem_kinds := [1, 2, 3]
+		for row in range(6):
+			for col in range(8):
+				var kind: int = gem_kinds[(row * 7 + col * 3) % 3]
+				actors.append({"actor_id": kind, "x": 5 + col, "y": 3 + row, "path": []})
+		lvl["actors"] = actors
+		_editors[0].levels[0] = lvl
+
+
+func _apply_asteroids_template() -> void:
+	if _editors.size() > 4 and _editors[4]:
+		_editors[4].set_data({
+			"game_title": "Rock Storm",
+			"gravity": 0, "friction": 5, "elasticity": 60,
+			"screen_width": 640, "screen_height": 480,
+			"lives": 3, "show_score": true, "show_lives": true,
+			"start_level": 1, "level_order": "Sequential",
+		})
+	if _editors.size() > 1 and _editors[1]:
+		_editors[1].set_data([
+			{"name": "Ship", "type": "Player", "max_speed": 220, "gravity_scale": 0, "max_hp": 100, "damage": 40, "score_value": 0, "collision_mode": "Bounce", "death_mode": "Respawn", "rebirth": 2.0},
+			{"name": "Rock", "type": "Drone", "max_speed": 60, "gravity_scale": 0, "max_hp": 30, "damage": 25, "score_value": 50, "ai_behavior": "Patrol", "ai_patrol_speed": 60, "collision_mode": "Bounce", "death_mode": "Destroy"},
+			{"name": "Bullet", "type": "Missile", "max_speed": 380, "gravity_scale": 0, "max_hp": 1, "damage": 40, "score_value": 0, "collision_mode": "None", "death_mode": "Destroy"},
+		])
+	if _editors.size() > 0 and _editors[0]:
+		var GRID_W = 20; var GRID_H = 12
+		var lvl = _editors[0]._make_empty_level(1)
+		lvl["name"] = "Wave 1"
+		var grid = lvl["grid"]
+		# Open arena (no walls — wraparound feel)
+		# Ship at center
+		lvl["actors"] = [
+			{"actor_id": 0, "x": GRID_W / 2, "y": GRID_H / 2, "path": []},
+			{"actor_id": 1, "x": 2, "y": 2, "path": []},
+			{"actor_id": 1, "x": GRID_W - 3, "y": 2, "path": []},
+			{"actor_id": 1, "x": 2, "y": GRID_H - 3, "path": []},
+			{"actor_id": 1, "x": GRID_W - 3, "y": GRID_H - 3, "path": []},
+			{"actor_id": 1, "x": GRID_W / 2, "y": 2, "path": []},
+		]
+		_editors[0].levels[0] = lvl
+
+
+func _apply_endless_runner_template() -> void:
+	if _editors.size() > 4 and _editors[4]:
+		_editors[4].set_data({
+			"game_title": "Forever Run",
+			"gravity": 1100, "friction": 50, "elasticity": 0,
+			"screen_width": 640, "screen_height": 384,
+			"lives": 1, "show_score": true, "show_lives": false,
+			"start_level": 1, "level_order": "Sequential",
+		})
+	if _editors.size() > 1 and _editors[1]:
+		_editors[1].set_data([
+			{"name": "Runner", "type": "Player", "max_speed": 280, "gravity_scale": 1.0, "max_hp": 1, "damage": 0, "score_value": 0, "collision_mode": "Slide", "death_mode": "GameOver", "rebirth": 0},
+			{"name": "Spike", "type": "Drone", "max_speed": 0, "gravity_scale": 0, "max_hp": 9999, "damage": 100, "score_value": 0, "ai_behavior": "Idle", "ai_patrol_speed": 0, "collision_mode": "None", "death_mode": "Destroy"},
+			{"name": "Coin", "type": "Computer", "max_speed": 0, "gravity_scale": 0, "max_hp": 1, "damage": 0, "score_value": 25, "collision_mode": "None", "death_mode": "Destroy"},
+		])
+	if _editors.size() > 0 and _editors[0]:
+		var GRID_W = 20; var GRID_H = 12
+		var lvl = _editors[0]._make_empty_level(1)
+		lvl["name"] = "The Track"
+		var grid = lvl["grid"]
+		# Ground line
+		for x in range(GRID_W):
+			grid[GRID_H - 1][x] = {"block_type": 1, "tile_index": 0}
+		# Some elevated platforms for variety
+		for x in range(8, 11):
+			grid[7][x] = {"block_type": 1, "tile_index": 0}
+		for x in range(14, 17):
+			grid[5][x] = {"block_type": 1, "tile_index": 0}
+		lvl["actors"] = [
+			{"actor_id": 0, "x": 1, "y": GRID_H - 2, "path": []},   # Runner
+			{"actor_id": 1, "x": 6,  "y": GRID_H - 2, "path": []},  # Spike
+			{"actor_id": 1, "x": 12, "y": GRID_H - 2, "path": []},  # Spike
+			{"actor_id": 1, "x": 18, "y": GRID_H - 2, "path": []},  # Spike
+			{"actor_id": 2, "x": 9,  "y": 6, "path": []},           # Coin
+			{"actor_id": 2, "x": 15, "y": 4, "path": []},           # Coin
 		]
 		_editors[0].levels[0] = lvl
 

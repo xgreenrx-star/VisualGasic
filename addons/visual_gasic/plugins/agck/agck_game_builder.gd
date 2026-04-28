@@ -292,6 +292,11 @@ func _build_ui() -> void:
 		{"name": "Platformer", "icon": "🏃", "color": Color(0.35, 0.55, 0.95), "tip": "Side-scrolling platformer with player, enemies, coins"},
 		{"name": "Space Shooter", "icon": "🚀", "color": Color(0.85, 0.30, 0.30), "tip": "Vertical scrolling shooter with bullets and enemy waves"},
 		{"name": "Maze Game", "icon": "🧩", "color": Color(0.30, 0.75, 0.30), "tip": "Top-down maze with keys, doors, and collectibles"},
+		{"name": "Top-Down RPG", "icon": "⚔️", "color": Color(0.55, 0.35, 0.75), "tip": "Top-down adventure with hero, NPCs, monsters, treasure"},
+		{"name": "Side Shmup", "icon": "✈️", "color": Color(0.75, 0.55, 0.20), "tip": "Horizontal scrolling shoot-'em-up"},
+		{"name": "Match-3", "icon": "💎", "color": Color(0.95, 0.55, 0.85), "tip": "Grid-aligned puzzle with collectible gems"},
+		{"name": "Asteroids", "icon": "☄️", "color": Color(0.45, 0.45, 0.55), "tip": "Score-attack arcade with drifting hazards"},
+		{"name": "Endless Runner", "icon": "🏁", "color": Color(0.30, 0.85, 0.75), "tip": "Auto-scrolling runner with obstacles to dodge"},
 	]
 	for tmpl in templates:
 		var tbtn = Button.new()
