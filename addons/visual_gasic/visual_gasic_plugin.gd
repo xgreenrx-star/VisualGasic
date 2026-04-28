@@ -10668,18 +10668,18 @@ func _is_inside_string_or_comment(content: String, pos: int) -> bool:
 ## and Ctrl+Shift+P (command list) route here; the only difference is the
 ## initial query string ("> " puts the palette into command mode).
 func _open_command_palette(initial_query: String = "") -> void:
-if not is_instance_valid(_vg_command_palette):
-var script = load("res://addons/visual_gasic/vg_command_palette.gd")
-if script == null:
-push_warning("VisualGasic: command palette script missing")
-return
-_vg_command_palette = script.new()
-# Parent under the EditorInterface base so the popup z-orders above
-# every IDE panel (Form Designer, code editor, plugin views, etc.)
-# and survives view switches without being destroyed.
-var base := EditorInterface.get_base_control() if Engine.has_singleton("EditorInterface") else null
-if base == null:
-# Fallback — main scene root will do.
-base = get_tree().root if Engine.is_editor_hint() else self
-base.add_child(_vg_command_palette)
-_vg_command_palette.open_palette(initial_query)
+	if not is_instance_valid(_vg_command_palette):
+		var script = load("res://addons/visual_gasic/vg_command_palette.gd")
+		if script == null:
+			push_warning("VisualGasic: command palette script missing")
+			return
+		_vg_command_palette = script.new()
+		# Parent under the EditorInterface base so the popup z-orders above
+		# every IDE panel (Form Designer, code editor, plugin views, etc.)
+		# and survives view switches without being destroyed.
+		var base := EditorInterface.get_base_control() if Engine.has_singleton("EditorInterface") else null
+		if base == null:
+			# Fallback — main scene root will do.
+			base = get_tree().root if Engine.is_editor_hint() else self
+		base.add_child(_vg_command_palette)
+	_vg_command_palette.open_palette(initial_query)

@@ -1,5 +1,5 @@
 @tool
-## VGFileWatcher — detects external changes to tracked assets.
+## VGAssetWatcher — detects external changes to tracked assets.
 ##
 ## Listens for VGAssetBus.asset_opened to start tracking a file, and
 ## emits VGAssetBus.asset_invalidated when the file's mtime changes
@@ -14,13 +14,13 @@
 ##   - Stops tracking on asset_deleted.
 ##   - Renames re-bind the tracker to the new path.
 ##
-## Singleton: VGFileWatcher.get_instance(). The plugin manager calls
+## Singleton: VGAssetWatcher.get_instance(). The plugin manager calls
 ## this at editor startup so the timer node exists in the IDE scene.
-class_name VGFileWatcher
+class_name VGAssetWatcher
 extends Node
 
 const _AssetBus := preload("res://addons/visual_gasic/vg_asset_bus.gd")
-const _PLUGIN_ID := "vg_file_watcher"
+const _PLUGIN_ID := "vg_asset_watcher"
 
 ## Polling interval, seconds. Keep above 1.0 so big projects don't
 ## thrash the disk; below 5.0 so external edits feel responsive.
@@ -40,11 +40,11 @@ var _tracked: Dictionary = {}
 var _timer: Timer = null
 
 
-static var _instance: VGFileWatcher = null
+static var _instance: VGAssetWatcher = null
 
-static func get_instance() -> VGFileWatcher:
+static func get_instance() -> VGAssetWatcher:
 	if _instance == null or not is_instance_valid(_instance):
-		_instance = VGFileWatcher.new()
+		_instance = VGAssetWatcher.new()
 		# Park on the editor's main scene tree so the Timer ticks.
 		# We can't always reach a scene tree from a static method, so
 		# defer attachment to the caller via attach_to(parent).

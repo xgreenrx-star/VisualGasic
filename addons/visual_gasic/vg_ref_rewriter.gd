@@ -28,15 +28,15 @@ const _PLUGIN_ID := "vg_ref_rewriter"
 
 ## Extensions that are text-based and worth scanning. Anything else is
 ## either binary (PNG, WAV) or auto-managed by Godot (.import, .uid).
-const TEXT_EXTS := PackedStringArray([
+const TEXT_EXTS: Array[String] = [
 	"vg", "gd", "tscn", "tres", "vgsprite", "agck",
 	"json", "cfg", "ini", "txt", "md",
-])
+]
 
 ## Directories never to scan — same exclusions as the command palette.
-const SKIP_DIRS := PackedStringArray([
+const SKIP_DIRS: Array[String] = [
 	".godot", ".import", ".git", "node_modules", "build", "dist",
-])
+]
 
 const SCAN_LIMIT := 5000
 

@@ -34,15 +34,15 @@ const RECENT_FILES_LIMIT := 30
 
 ## Extensions that are always uninteresting (binary blobs, build
 ## artifacts) and should never appear in quick-open.
-const SKIP_EXTS := PackedStringArray([
+const SKIP_EXTS: Array[String] = [
 	"import", "uid", "pyc", "pyo", "tmp", "lock",
 	"png.import", "wav.import",
-])
+]
 
 ## Directories to skip while scanning.
-const SKIP_DIRS := PackedStringArray([
+const SKIP_DIRS: Array[String] = [
 	".godot", ".import", ".git", "node_modules", "build", "dist",
-])
+]
 
 # ─── State ──────────────────────────────────────────────────
 
