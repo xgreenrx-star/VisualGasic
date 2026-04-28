@@ -865,62 +865,76 @@ func _apply_endless_runner_template() -> void:
 
 
 func _apply_geometry_dash_template() -> void:
-	# 8-bit rhythm-runner: jump-only, auto-run, dodge spikes, 1-hit death.
+	# ── 8-bit Geometry Dash ─────────────────────────────────────────────
+	# True-to-genre auto-runner. The "Cube" actor is type=Runner (not Player),
+	# so it uses _gen_runner_physics: constant rightward velocity, jump-only
+	# input, sprite rotates while airborne and snaps to 90° on landing.
+	# Spikes are TILE-based (block_type=3, Deadly) — placed on the floor row
+	# so they hit the cube without the player having to touch enemy actors.
+	# death_mode="GameOver" + lives=1 means any spike contact = instant scene
+	# reload, matching GD's "restart from start on every death" feel.
 	if _editors.size() > 4 and _editors[4]:
 		_editors[4].set_data({
 			"game_title": "Cube Beat",
-			"gravity": 1400, "friction": 0, "elasticity": 0,
+			# Higher gravity (1600) + matching jump force in Runner (520) gives a
+			# punchy ~2-tile-high arc that lands every ~0.55s — the GD cadence.
+			"gravity": 1600, "friction": 0, "elasticity": 0,
 			"screen_width": 480, "screen_height": 320,
 			"background_color": "#0a0a1a",
 			"lives": 1, "show_score": true, "show_lives": false,
 			"start_level": 1, "level_order": "Sequential",
 			"wrap_screen": false, "camera_zoom": 1.0,
-			# Multi-input: keyboard space, joystick A, mouse click, touch tap all jump
+			# Multi-input: tap space / gamepad-A / left-click / screen-touch all jump.
 			"keyboard_enabled": true, "joystick_enabled": true,
 			"mouse_enabled": true, "touch_enabled": true,
-			"deadly_damage": 999,  # one-shot kill on spikes
+			"deadly_damage": 999,
 		})
 	if _editors.size() > 1 and _editors[1]:
 		_editors[1].set_data([
-			# Cube: pixel-art square that auto-runs and jumps. High speed, gravity makes it feel snappy.
-			{"name": "Cube", "type": "Player", "max_speed": 360, "gravity_scale": 1.4, "max_hp": 1, "damage": 0, "score_value": 0, "collision_mode": "Slide", "death_mode": "GameOver", "rebirth": 0},
-			# Spike: instant-death hazard. Drone w/ Idle AI so it stays put.
-			{"name": "Spike", "type": "Drone", "max_speed": 0, "gravity_scale": 0, "max_hp": 9999, "damage": 999, "score_value": 0, "ai_behavior": "Idle", "ai_patrol_speed": 0, "collision_mode": "None", "death_mode": "Destroy"},
-			# Pad: a "jump pad" — visual marker on safe floor segments (cosmetic Computer).
-			{"name": "Pad", "type": "Computer", "max_speed": 0, "gravity_scale": 0, "max_hp": 9999, "damage": 0, "score_value": 10, "collision_mode": "None", "death_mode": "Destroy"},
+			# Cube — auto-running Runner. Speed=320 → ~2 tiles/sec. 1 HP, GameOver
+			# on death triggers instant scene reload from _gen_damage_sub.
+			{"name": "Cube", "type": "Runner", "max_speed": 320, "gravity_scale": 1.0,
+				"max_hp": 1, "damage": 0, "score_value": 0,
+				"collision_mode": "Slide", "death_mode": "GameOver", "rebirth": 0,
+				"jump_force": 520},
+			# Pad — collectible cosmetic on raised platforms (rewards perfect timing).
+			{"name": "Pad", "type": "Computer", "max_speed": 0, "gravity_scale": 0,
+				"max_hp": 9999, "damage": 0, "score_value": 50,
+				"collision_mode": "None", "death_mode": "Destroy"},
 		])
 	if _editors.size() > 0 and _editors[0]:
 		var GRID_W = 20; var GRID_H = 12
 		var lvl = _editors[0]._make_empty_level(1)
 		lvl["name"] = "Stereo Madness"
 		var grid = lvl["grid"]
-		# Solid ground line — the "floor" of the level
+		# ── Floor row ────────────────────────────────────────────────
+		# Solid barrier across the bottom. Spikes are rendered on the row
+		# JUST ABOVE the floor so the cube collides with their base.
 		for x in range(GRID_W):
 			grid[GRID_H - 1][x] = {"block_type": 1, "tile_index": 0}
-		# Rhythmic raised platforms (every ~4 cells, alternating heights)
-		for x in range(4, 7):
+		# ── Rhythmic spike pattern (tile-based, block_type=3 = Deadly) ──
+		# Each spike sits on the row above the floor (GRID_H - 2). Pattern
+		# is intentionally dense — single spikes at beats, double-spikes at
+		# downbeats to force precise jump timing.
+		var spike_xs := [3, 5, 8, 9, 12, 14, 17, 18]
+		for sx in spike_xs:
+			grid[GRID_H - 2][sx] = {"block_type": 3, "tile_index": 0}
+		# ── Mid-air block obstacles (force the cube to dip under a ceiling) ──
+		# A short ceiling segment at row GRID_H - 5 from x=10 to x=12 forces
+		# the player to time a NON-jump (just stay grounded) past it.
+		for x in range(10, 13):
+			grid[GRID_H - 5][x] = {"block_type": 1, "tile_index": 0}
+		# ── Raised platform with a pad collectible ──
+		# Tests timing: jump up to platform, grab pad, land back on floor.
+		for x in range(15, 18):
 			grid[GRID_H - 4][x] = {"block_type": 1, "tile_index": 0}
-		for x in range(11, 14):
-			grid[GRID_H - 6][x] = {"block_type": 1, "tile_index": 0}
-		for x in range(16, 19):
-			grid[GRID_H - 4][x] = {"block_type": 1, "tile_index": 0}
-		# Goal teleport at the far right (level end)
+		# ── Goal teleport at the far right ──
 		grid[GRID_H - 5][GRID_W - 2] = {"block_type": 5, "tile_index": 0}
-		# Actors: cube on the left, spike pattern across the floor (rhythmic gaps),
-		# pads on platforms as collectibles to encourage timed jumps.
+		# ── Actors: just the cube + a couple of pads ──
+		# (Spikes are now tiles, not actors — that's the key fix.)
 		lvl["actors"] = [
-			{"actor_id": 0, "x": 1, "y": GRID_H - 2, "path": []},   # Cube
-			# Floor spike clusters — gaps require jump timing
-			{"actor_id": 1, "x": 3,  "y": GRID_H - 2, "path": []},
-			{"actor_id": 1, "x": 8,  "y": GRID_H - 2, "path": []},
-			{"actor_id": 1, "x": 9,  "y": GRID_H - 2, "path": []},
-			{"actor_id": 1, "x": 14, "y": GRID_H - 2, "path": []},
-			{"actor_id": 1, "x": 15, "y": GRID_H - 2, "path": []},
-			# Spike on a platform — must duck or skip
-			{"actor_id": 1, "x": 12, "y": GRID_H - 7, "path": []},
-			# Collectible pads on raised platforms
-			{"actor_id": 2, "x": 5,  "y": GRID_H - 5, "path": []},
-			{"actor_id": 2, "x": 17, "y": GRID_H - 5, "path": []},
+			{"actor_id": 0, "x": 1, "y": GRID_H - 2, "path": []},   # Cube spawn
+			{"actor_id": 1, "x": 16, "y": GRID_H - 5, "path": []},  # Pad on platform
 		]
 		_editors[0].levels[0] = lvl
 

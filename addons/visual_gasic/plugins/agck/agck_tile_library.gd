@@ -51,6 +51,8 @@ const ACTOR_TYPE_COLORS = {
 	"TopHero":    Color(0.30, 0.80, 0.95),
 	"TopGoblin":  Color(0.55, 0.80, 0.30),
 	"TopChest":   Color(0.85, 0.65, 0.20),
+	# Runner — Geometry-Dash-style auto-running cube. Drives _gen_runner_physics.
+	"Runner":     Color(0.20, 0.85, 1.00),
 }
 
 # ─── Data ────────────────────────────────────────────────────
@@ -1388,6 +1390,8 @@ func _generate_character_sprite(actor_type: String, color: Color) -> Image:
 			_draw_top_goblin_sprite(img, S, color)
 		"TopChest":
 			_draw_top_chest_sprite(img, S, color)
+		"Runner":
+			_draw_runner_sprite(img, S, color)
 		_:
 			_draw_drone_sprite(img, S, color)
 	return img
@@ -1694,6 +1698,36 @@ func _draw_top_chest_sprite(img: Image, S: int, color: Color) -> void:
 	_img_fill_rect(img, cx - 1, cy - 1, 3, 3, Color(0.85, 0.75, 0.30))
 	# Keyhole
 	img.set_pixel(cx, cy, Color(0.10, 0.08, 0.05))
+
+
+func _draw_runner_sprite(img: Image, S: int, color: Color) -> void:
+	# Geometry-Dash-style 8-bit "cube": chunky square with neon outline, inner
+	# highlight, and a single visor/eye band. Rotates as a whole sprite while
+	# airborne (rotation handled in _gen_runner_physics — sprite art stays
+	# upright-symmetric so rotation reads cleanly).
+	var cx = S / 2
+	var cy = S / 2
+	# Slightly inset outer border (2px from edge) so rotated frames don't clip.
+	var ox: int = cx - 9
+	var oy: int = cy - 9
+	var sz: int = 18
+	# Neon outer ring (bright)
+	_img_fill_rect(img, ox, oy, sz, sz, color.lightened(0.4))
+	# Body fill (mid)
+	_img_fill_rect(img, ox + 1, oy + 1, sz - 2, sz - 2, color)
+	# Inner panel (darkened, 2px in from body) — the recessed face plate
+	_img_fill_rect(img, ox + 4, oy + 4, sz - 8, sz - 8, color.darkened(0.30))
+	# Top-left highlight pixel cluster (chunky pixel-art shading)
+	_img_fill_rect(img, ox + 1, oy + 1, 3, 1, color.lightened(0.55))
+	_img_fill_rect(img, ox + 1, oy + 1, 1, 3, color.lightened(0.55))
+	# Bottom-right shadow strip
+	_img_fill_rect(img, ox + sz - 4, oy + sz - 2, 3, 1, color.darkened(0.50))
+	_img_fill_rect(img, ox + sz - 2, oy + sz - 4, 1, 3, color.darkened(0.50))
+	# Visor / eye band — horizontal slit on the face plate (the cube's "face")
+	_img_fill_rect(img, ox + 5, cy - 1, sz - 10, 2, Color(0.95, 0.95, 1.00))
+	# Two pixel pupils inside the visor for character
+	img.set_pixel(ox + 6, cy, Color(0.10, 0.10, 0.20))
+	img.set_pixel(ox + sz - 7, cy, Color(0.10, 0.10, 0.20))
 
 
 func _draw_tank_sprite(img: Image, S: int, color: Color) -> void:

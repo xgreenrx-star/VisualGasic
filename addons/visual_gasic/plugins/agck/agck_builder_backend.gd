@@ -39,6 +39,11 @@ const ACTOR_TYPE_BASE_CLASS = {
 	"NPC":      "StaticBody2D",
 	"Tank":     "CharacterBody2D",
 	"Fireball": "RigidBody2D",
+	"Runner":   "CharacterBody2D",
+	# Top-down view variants — same physics roles as their counterparts.
+	"TopHero":   "CharacterBody2D",
+	"TopGoblin": "CharacterBody2D",
+	"TopChest":  "StaticBody2D",
 }
 
 # ─── Sound synthesis constants (mirror agck_sound_editor.gd) ─
@@ -722,7 +727,8 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 	code += "Dim CurrentAnim As String\n"
 
 	match atype:
-		"Player":
+		"Player", "TopHero":
+			# TopHero shares Player physics — only the rendered sprite differs.
 			code += "Dim JumpForce As Single\n"
 			code += "Dim IsJumping As Boolean\n"
 			code += "Dim on_ladder As Boolean\n\n"
@@ -731,7 +737,21 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 			code += _gen_collision_handler(atype, actor_sounds)
 			code += _gen_damage_sub(death, rebirth, true, actor_sounds)
 
-		"Drone":
+		"Runner":
+			# Geometry-Dash-style auto-runner: constant horizontal velocity, jump-only input.
+			code += "Dim JumpForce As Single\n"
+			code += "Dim IsJumping As Boolean\n"
+			code += "Dim AirRotation As Single\n\n"
+			var jf: float = actor.get("jump_force", 520.0)
+			var runner_init = "    JumpForce = " + _fstr(jf) + "\n"
+			runner_init += "    IsJumping = False\n"
+			runner_init += "    AirRotation = 0.0\n"
+			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "player", runner_init)
+			code += _gen_runner_physics(speed, gravity * grav_scale, jf, actor_sounds)
+			code += _gen_collision_handler(atype, actor_sounds)
+			code += _gen_damage_sub(death, rebirth, true, actor_sounds)
+
+		"Drone", "TopGoblin":
 			var ai: String = actor.get("ai_behavior", "Patrol")
 			var patrol_speed: float = actor.get("ai_patrol_speed", 80)
 			code += "Dim Direction As Single\n"
@@ -790,7 +810,7 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 			code += _gen_collision_handler(atype, actor_sounds)
 			code += _gen_damage_sub(death, rebirth, false, actor_sounds)
 
-		"Computer":
+		"Computer", "TopChest":
 			code += "\n"
 			code += _gen_ready_sub(aname, 0, 0, max_hp, damage, score_val, "")
 			code += _gen_computer_interaction(death, score_val, actor_sounds)
@@ -1019,6 +1039,78 @@ func _gen_player_physics(speed: float, gravity: float, collision: String, actor_
 	s += "\n"
 	# Fall-off-map detection — if the player falls below the map, lose a life
 	var kill_y: int = GRID_H * CELL_PX + CELL_PX * 4   # 4 tiles below the map bottom
+	s += "    ' Fall-off-map detection\n"
+	s += "    If Me.GlobalPosition.Y > " + str(kill_y) + " Then\n"
+	s += "        Dim main As Node2D = GetTree().CurrentScene\n"
+	s += "        If main <> Nothing And main.HasMethod(\"LoseLife\") Then\n"
+	s += "            main.LoseLife()\n"
+	s += "        End If\n"
+	s += "    End If\n"
+	s += "End Sub\n\n"
+	return s
+
+
+# ─── Runner physics (Geometry-Dash-style auto-runner) ──────────────────────
+# Drives a Runner-type actor: constant rightward velocity, single-button jump,
+# gravity always on, sprite rotates 360° per ~0.7s while airborne and snaps
+# to the nearest 90° on landing for that satisfying GD "tumble" feel.
+# Hold-to-rejump: as long as ui_accept is held and the runner is on the floor,
+# it keeps re-launching every frame (matches GD's hold-jump cube behavior).
+func _gen_runner_physics(speed: float, gravity: float, jump_force: float, actor_sounds: Dictionary = {}) -> String:
+	var s = ""
+	s += "Sub _PhysicsProcess(delta As Single)\n"
+	s += "    ' Read current velocity\n"
+	s += "    vx = Me.velocity.x\n"
+	s += "    vy = Me.velocity.y\n"
+	s += "\n"
+	s += "    ' Auto-run: horizontal velocity is locked to Speed every frame.\n"
+	s += "    ' No left/right input — this is the core Geometry-Dash mechanic.\n"
+	s += "    vx = Speed\n"
+	s += "\n"
+	s += "    ' Gravity is always applied (no ladder logic for runner).\n"
+	s += "    vy = vy + Gravity * delta\n"
+	s += "\n"
+	s += "    ' Jump on accept while on floor. Hold-to-rejump: every floor-contact\n"
+	s += "    ' frame the button stays pressed will retrigger the launch.\n"
+	s += "    If Input.IsActionPressed(\"ui_accept\") And IsOnFloor(Me) Then\n"
+	s += "        vy = -" + _fstr(jump_force) + "\n"
+	s += "        IsJumping = True\n"
+	var jump_sfx = _gen_play_sfx_call(actor_sounds.get("jump", "(None)"), "        ")
+	if jump_sfx != "":
+		s += jump_sfx
+	s += "    End If\n"
+	s += "\n"
+	s += "    ' Write velocity back and move\n"
+	s += "    SetVelocity Me, vx, vy\n"
+	s += "    MoveAndSlide Me\n"
+	s += "\n"
+	s += "    ' Cube rotation: spin while airborne, snap to nearest 90° on landing.\n"
+	s += "    ' ~9 rad/s ≈ one full rotation per 0.7s — feels like classic GD.\n"
+	s += "    If IsOnFloor(Me) Then\n"
+	s += "        ' Snap rotation to nearest 90° (PI/2 rad) — the chunky landing pose.\n"
+	s += "        Dim quarter As Single = 1.5707963\n"
+	s += "        Dim r As Single = Me.rotation\n"
+	s += "        Dim snap As Single = Round(r / quarter) * quarter\n"
+	s += "        Me.rotation = snap\n"
+	s += "        IsJumping = False\n"
+	s += "    Else\n"
+	s += "        Me.rotation = Me.rotation + 9.0 * delta\n"
+	s += "    End If\n"
+	s += "\n"
+	s += "    ' Invincibility timer — visual blink after a near-miss\n"
+	s += "    If IsInvincible Then\n"
+	s += "        InvincibleTimer = InvincibleTimer - delta\n"
+	s += "        If InvincibleTimer <= 0 Then\n"
+	s += "            IsInvincible = False\n"
+	s += "            Me.visible = True\n"
+	s += "            Me.modulate = Color(1, 1, 1, 1)\n"
+	s += "        Else\n"
+	s += "            Me.visible = Not Me.visible\n"
+	s += "        End If\n"
+	s += "    End If\n"
+	s += "\n"
+	# Fall-off-map detection — same as Player; if cube falls below the map, it dies.
+	var kill_y: int = GRID_H * CELL_PX + CELL_PX * 4
 	s += "    ' Fall-off-map detection\n"
 	s += "    If Me.GlobalPosition.Y > " + str(kill_y) + " Then\n"
 	s += "        Dim main As Node2D = GetTree().CurrentScene\n"
