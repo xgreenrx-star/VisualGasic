@@ -1269,6 +1269,14 @@ func _on_vg_plugin_activated(plugin_id: String) -> void:
 	_showing_plugin_view = true
 
 	# Hide all built-in editors
+	# CenterStack itself must be hidden too. It's the FIRST child of
+	# CanvasRightSplit (HSplitContainer); the plugin view is the second.
+	# Hiding only its children leaves CenterStack as a visible-but-empty
+	# Control that still claims its half of the HSplit, producing a black
+	# void to the left of the plugin's UI on every restart/activation.
+	var center_stack = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack")
+	if center_stack:
+		center_stack.visible = false
 	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
@@ -7595,6 +7603,11 @@ func _show_form_view() -> void:
 		_vg_plugin_manager.deactivate_all()
 
 	# Show the canvas scroll, hide the code editor, 3D editor, 2D editor, and sprite editor
+	# Re-show CenterStack itself — plugin view hides it so its empty space
+	# doesn't claim half of CanvasRightSplit.
+	var center_stack_form = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack")
+	if center_stack_form:
+		center_stack_form.visible = true
 	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = true
