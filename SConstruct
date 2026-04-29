@@ -139,14 +139,36 @@ Default(library)
 # used by symlinked game projects and the install scripts).
 import shutil as _shutil, glob as _glob
 def _mirror_to_addons(target, source, env):
-    """Copy built libraries from demo/bin/ → addons/visual_gasic/bin/."""
-    dst = "addons/visual_gasic/bin"
+    """Copy built libraries from demo/bin/ → addons/visual_gasic/bin/.
+
+    `addons/visual_gasic/bin` is committed as a symlink → `../../bin`. On fresh
+    CI clones the symlink target may not exist (root `bin/` is gitignored), so
+    we resolve through the symlink and create the real destination directory
+    before copying. This makes the post-action idempotent across local dev,
+    fresh clones, and re-runs.
+    """
     import os
-    os.makedirs(dst, exist_ok=True)
+    dst = "addons/visual_gasic/bin"
+    # Resolve symlinks so we materialize the real target dir if missing.
+    real_dst = os.path.realpath(dst)
+    try:
+        os.makedirs(real_dst, exist_ok=True)
+    except OSError:
+        # As a fallback, if `dst` itself is a dangling symlink, replace it
+        # with a real directory so the copy below can proceed.
+        if os.path.islink(dst) and not os.path.exists(dst):
+            os.unlink(dst)
+            os.makedirs(dst, exist_ok=True)
+        else:
+            raise
     for t in target:
         src_path = str(t)
         if os.path.isfile(src_path):
-            _shutil.copy2(src_path, os.path.join(dst, os.path.basename(src_path)))
+            try:
+                _shutil.copy2(src_path, os.path.join(dst, os.path.basename(src_path)))
+            except (OSError, IOError) as exc:
+                # Non-fatal: mirroring is a convenience. Warn but don't break the build.
+                print("warning: _mirror_to_addons could not copy {}: {}".format(src_path, exc))
 env.AddPostAction(library, _mirror_to_addons)
 
 # Additional helper target: parser harness (link against same objects)

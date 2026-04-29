@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.0-rc.1] - 2026-04-29
+
+### 🛠️ Fixed — Release pipeline
+- `SConstruct::_mirror_to_addons` is now idempotent. The post-build action used to call `os.makedirs("addons/visual_gasic/bin", exist_ok=True)` directly, which raised `FileExistsError` on fresh CI clones because that path is committed as a *symlink* (`→ ../../bin`) but the target directory is gitignored and absent. The action now resolves the symlink first, materializes the real destination directory, and falls back to replacing dangling symlinks. This was the universal cause of every release CI failure since `v4.4.0-rc6`.
+
 ### 🚌 New — VGAssetBus / VGContextBroker / VGPluginRegistry
 - Process-wide signal bus (`VGAssetBus`) for asset lifecycle events: `asset_opened`, `asset_modified`, `asset_saved`, `asset_deleted`, `asset_invalidated`, `asset_renamed(old, new, by)`. Editors and plugins subscribe instead of polling or hard-coding cross-references.
 - `VGContextBroker` tracks the IDE's current asset / project / object / selection and emits `context_changed(kind, value)` with deduplication on equal values.

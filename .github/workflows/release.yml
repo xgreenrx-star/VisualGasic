@@ -208,50 +208,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: "VisualGasic v${{ steps.version.outputs.version }}"
-          body: |
-            ## VisualGasic v${{ steps.version.outputs.version }}
-
-            ### 🚀 Quick Install
-
-            **Linux / macOS:**
-            ```bash
-            curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.sh | bash
-            vg new MyGame && cd MyGame && godot .
-            ```
-
-            **Windows (PowerShell):**
-            ```powershell
-            irm https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.ps1 | iex
-            vg new MyGame; cd MyGame; godot .
-            ```
-
-            **Python (all platforms):**
-            ```bash
-            python3 install.py --github
-            ```
-
-            ### 📥 Manual Installation
-            1. Download `VisualGasic-v${{ steps.version.outputs.version }}.zip`
-            2. Extract into your Godot 4.6+ project root
-            3. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
-
-            ### 🎨 From the VG IDE
-            Already in a VG project? **File → New Project...** creates a new project without leaving the editor.
-
-            ### 🖥️ Platforms
-            - **Linux** x86_64 (editor + template_debug + template_release)
-            - **Windows** x86_64 (editor + template_debug + template_release)
-            - **macOS** Universal (x86_64 + arm64) (editor + template_debug + template_release)
-
-            ### 📦 What's Included
-            - Pre-built binaries for all 3 platforms
-            - `install.sh` / `install.ps1` / `install.py` installers
-            - `vg` CLI tool for project creation and management
-            - 14 playable demo projects
-            - Complete documentation and tutorials
-
-            See [RELEASE_NOTES_v${{ steps.version.outputs.version }}.md](RELEASE_NOTES_v${{ steps.version.outputs.version }}.md) and [CHANGELOG.md](CHANGELOG.md) for full details.
+          body_path: RELEASE_NOTES_v${{ steps.version.outputs.version }}.md
           files: |
             VisualGasic-v${{ steps.version.outputs.version }}.zip
           draft: false
-          prerelease: ${{ contains(steps.version.outputs.version, 'rc') || contains(steps.version.outputs.version, 'beta') }}
+          prerelease: ${{ contains(steps.version.outputs.version, 'rc') || contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'Beta') || contains(steps.version.outputs.version, 'alpha') }}
