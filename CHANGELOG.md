@@ -41,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🔌 Migrated — Plugin Capability Schemas
 - `vg3d`, `web_publish`, `working_nodes` plugin.cfg files now declare `[capabilities]` blocks. Lint passes with `--strict` cleanly across all 6 first-party plugins.
 
+### 🐛 Fixed — AGCK polish
+- **Deadly tile pass-through** (`fb3164d`): block_id 3 (spike) now joins 5/6 in the pass-through list so the outer 32×32 collision wall no longer blocks the player from reaching the inner DeadlyArea trigger. Spikes now actually kill instead of acting as solid walls.
+- **Tightened deadly hitbox** (`6f6357c`): `DeadlyShape` reduced to 26×24 with `position = (0, +4)` so the trigger matches the visible spike pixels and doesn't fire on empty space at the top of the cell.
+- **Settings persistence** (`48aba68`): `agck_game_settings.gd::set_data()` now rebuilds the UI after merging the dict so Fullscreen / Show FPS toggles survive save → reload (was updating the dict but leaving stale widgets bound).
+- **Black-void layout fix** (`0e3baf6`): `CenterStack` MarginContainer is now hidden in `_on_vg_plugin_activated()` and re-shown in `_show_form_view()`, preventing the HSplit from allocating half the canvas to an empty parent on AGCK startup.
+
 ## [5.1.0-Beta1] - 2026-04-24
 
 ### 🎛️ New — Unified ▶ Play Menu

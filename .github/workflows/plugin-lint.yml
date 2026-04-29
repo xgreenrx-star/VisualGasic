@@ -12,6 +12,8 @@ on:
       - 'addons/visual_gasic/**'
       - 'scripts/lint_plugin_capabilities.py'
       - 'scripts/run_routing_tests.sh'
+      - 'scripts/sync_addons.sh'
+      - 'scripts/ci_smoke.sh'
       - 'tests/test_vg_routing.gd'
       - '.github/workflows/plugin-lint.yml'
   pull_request:
@@ -20,6 +22,8 @@ on:
       - 'addons/visual_gasic/**'
       - 'scripts/lint_plugin_capabilities.py'
       - 'scripts/run_routing_tests.sh'
+      - 'scripts/sync_addons.sh'
+      - 'scripts/ci_smoke.sh'
       - 'tests/test_vg_routing.gd'
       - '.github/workflows/plugin-lint.yml'
 
@@ -51,3 +55,19 @@ jobs:
         run: |
           chmod +x scripts/run_routing_tests.sh
           ./scripts/run_routing_tests.sh
+
+      - name: Addon symlink drift check
+        # Canonical addon is addons/visual_gasic. Any drift in the ~30 live
+        # copies under demos/, examples/, game_projects/, test_proj/ makes
+        # bug reports unreproducible. Fail the build if anything diverged.
+        run: |
+          chmod +x scripts/sync_addons.sh
+          ./scripts/sync_addons.sh check
+
+      - name: Headless smoke (test_proj)
+        # Boots the editor headless against test_proj and fails on any
+        # Parse Error / SCRIPT ERROR. Cheap regression net for GDScript
+        # changes inside addons/visual_gasic.
+        run: |
+          chmod +x scripts/ci_smoke.sh
+          ./scripts/ci_smoke.sh

@@ -248,6 +248,14 @@ func _enter_tree():
 		"code,forms"
 	)
 
+	# vg/first_run_completed gates the first-run welcome / project-type
+	# picker. Set automatically the first time the user makes a choice.
+	_register_project_setting(
+		"vg/first_run_completed",
+		false,
+		TYPE_BOOL
+	)
+
 	# Import Plugin
 	import_plugin = preload("res://addons/visual_gasic/frm_import_plugin.gd").new()
 	add_import_plugin(import_plugin)
@@ -8034,6 +8042,19 @@ func _auto_open_formless_module() -> void:
 	if is_instance_valid(_form_designer) and not _form_designer.get_form_path().is_empty():
 		return  # A form is already loaded — nothing to do
 
+	# ── First-run welcome / project-type picker ───────────────────────────
+	# If this is a brand-new VG project (no .vg / .frm / .vgform anywhere)
+	# AND the user has never been asked, show the welcome dialog so they can
+	# pick "Empty Code Project" / "Form Application" / "AGCK Game". Their
+	# choice writes vg/default_mode + vg/form_designer_enabled and flips the
+	# vg/first_run_completed flag so this never reappears.
+	var first_run_completed := false
+	if ProjectSettings.has_setting("vg/first_run_completed"):
+		first_run_completed = bool(ProjectSettings.get_setting("vg/first_run_completed", false))
+	if not first_run_completed and _project_is_empty_for_first_run():
+		_show_first_run_dialog()
+		return  # Dialog will re-invoke us after the choice is applied.
+
 	# ── Default-mode decision ─────────────────────────────────────────────
 	# "code" → open a .vg module first (form detection only runs as fallback)
 	# "forms" → legacy behaviour: prefer form scenes, fall back to modules
@@ -8091,6 +8112,50 @@ func _auto_open_formless_module() -> void:
 ## sensible default_mode when the user hasn't set one.
 func _project_has_any_forms() -> bool:
 	return not _find_first_form_scene_in_project().is_empty()
+
+
+## True when the project contains nothing the IDE could open: no .vg modules
+## and no forms. Used to gate the first-run welcome dialog so it never
+## appears on existing projects.
+func _project_is_empty_for_first_run() -> bool:
+	if not _find_first_vg_in_project().is_empty():
+		return false
+	if not _find_first_form_scene_in_project().is_empty():
+		return false
+	return true
+
+
+## Show the welcome / project-type picker. The user's choice is applied to
+## ProjectSettings and we re-invoke `_auto_open_formless_module` so the
+## chosen-mode startup path runs.
+func _show_first_run_dialog() -> void:
+	var dlg_script := load("res://addons/visual_gasic/vg_first_run_dialog.gd")
+	if dlg_script == null:
+		# Script missing → silently skip; legacy auto-open logic still runs.
+		_finish_first_run_fallback()
+		return
+	var dlg = dlg_script.new()
+	dlg.project_type_chosen.connect(_on_first_run_type_chosen)
+	EditorInterface.get_base_control().add_child(dlg)
+	dlg.popup_centered()
+
+
+func _on_first_run_type_chosen(kind: String) -> void:
+	var dlg_script := load("res://addons/visual_gasic/vg_first_run_dialog.gd")
+	if dlg_script and dlg_script.has_method("apply_choice"):
+		dlg_script.apply_choice(kind)
+	# Defer so the dialog's own queue_free finishes before we run the
+	# normal startup path (which may itself open editors / create windows).
+	call_deferred("_auto_open_formless_module")
+
+
+func _finish_first_run_fallback() -> void:
+	# Called when the picker can't be loaded for any reason. Mark first run
+	# done with sane defaults so the IDE keeps moving.
+	ProjectSettings.set_setting("vg/default_mode", "code")
+	ProjectSettings.set_setting("vg/first_run_completed", true)
+	ProjectSettings.save()
+	call_deferred("_auto_open_formless_module")
 
 
 ## Register a project setting with hint info and a default value. No-op if

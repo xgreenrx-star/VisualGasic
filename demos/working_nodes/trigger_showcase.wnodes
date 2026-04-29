@@ -1,0 +1,123 @@
+{
+	"version": 1,
+	"next_node_id": 8,
+	"next_group_id": 3,
+	"_comment": "Working Nodes — Trigger Showcase. Drop into a project, open in the Working Nodes panel, and press F5 (Run Graph) or click ▶ Run 2D. Demonstrates 6 distinct trigger types in a single linear chain: spawn → move → rotate → color → pulse → shake.",
+	"groups": [
+		{
+			"id": 1,
+			"name": "Box A",
+			"color": "4488ffff"
+		},
+		{
+			"id": 2,
+			"name": "Box B",
+			"color": "ff8844ff"
+		}
+	],
+	"nodes": [
+		{
+			"name": "WN_1",
+			"title": "On Start",
+			"type": "on_start",
+			"group": 0,
+			"color": "30e870ff",
+			"position": [50, 80],
+			"params": {}
+		},
+		{
+			"name": "WN_2",
+			"title": "Spawn Group 1",
+			"type": "spawn",
+			"group": 1,
+			"color": "50c870ff",
+			"position": [320, 80],
+			"params": {
+				"Group_ID": "1",
+				"Delay": "0"
+			}
+		},
+		{
+			"name": "WN_3",
+			"title": "Move Right",
+			"type": "move",
+			"group": 1,
+			"color": "4a90e0ff",
+			"position": [600, 80],
+			"params": {
+				"Group_ID": "1",
+				"X": "200",
+				"Y": "0",
+				"Duration": "1.0",
+				"Easing": "0"
+			}
+		},
+		{
+			"name": "WN_4",
+			"title": "Rotate 180",
+			"type": "rotate",
+			"group": 1,
+			"color": "5bc8e8ff",
+			"position": [880, 80],
+			"params": {
+				"Group_ID": "1",
+				"Degrees": "180",
+				"Duration": "0.8",
+				"Lock_Rot": "0"
+			}
+		},
+		{
+			"name": "WN_5",
+			"title": "Tint Magenta",
+			"type": "color_trigger",
+			"group": 1,
+			"color": "e07850ff",
+			"position": [1160, 80],
+			"params": {
+				"Channel": "1",
+				"R": "230",
+				"G": "60",
+				"B": "200",
+				"Duration": "0.5"
+			}
+		},
+		{
+			"name": "WN_6",
+			"title": "Pulse Red",
+			"type": "pulse",
+			"group": 1,
+			"color": "e050b0ff",
+			"position": [1440, 80],
+			"params": {
+				"Group_ID": "1",
+				"R": "255",
+				"G": "80",
+				"B": "80",
+				"Fade_In": "0.15",
+				"Hold": "0.3",
+				"Fade_Out": "0.4"
+			}
+		},
+		{
+			"name": "WN_7",
+			"title": "Camera Shake",
+			"type": "shake",
+			"group": 0,
+			"color": "e0c030ff",
+			"position": [1720, 80],
+			"params": {
+				"Strength": "8",
+				"Interval": "0.05",
+				"Duration": "0.6"
+			}
+		}
+	],
+	"connections": [
+		{ "from": "WN_1", "from_port": 0, "to": "WN_2", "to_port": 0 },
+		{ "from": "WN_2", "from_port": 0, "to": "WN_3", "to_port": 0 },
+		{ "from": "WN_3", "from_port": 0, "to": "WN_4", "to_port": 0 },
+		{ "from": "WN_4", "from_port": 0, "to": "WN_5", "to_port": 0 },
+		{ "from": "WN_5", "from_port": 0, "to": "WN_6", "to_port": 0 },
+		{ "from": "WN_6", "from_port": 0, "to": "WN_7", "to_port": 0 }
+	]
+}

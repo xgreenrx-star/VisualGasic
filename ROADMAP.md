@@ -1,9 +1,10 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: April 2026  
-**Current Version**: 5.0.1 Beta
+**Last Updated**: April 29, 2026
+**Current Version**: 5.1.0-Beta1 (in flight) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set
+**Next Cut**: v5.1.0 stable
 
-This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
+This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort. **Aspirational items live in v6.0 / v7.0 sections — do not pull them forward.**
 
 ---
 
@@ -165,8 +166,6 @@ Visual call stack display during debugging:
 **Files Created**: `call_stack_panel.gd`
 
 ---
-
-## 🎯 Upcoming Features
 
 ## 🎯 Upcoming Features
 
@@ -771,82 +770,70 @@ These features shipped between March 10–21, 2026:
 
 ---
 
-## 🚀 v5.0.1 Beta (Current)
+## 🚀 v5.0.1 Beta — shipped, rolled forward into v5.1
 
-v5.0.1-beta adds plugin system, AGCK game construction kit, sprite editor, release engineering, cross-platform distribution, installer tooling, and full 3D game development workflow:
+The v5.0.1 Beta feature set is **complete and live in 5.1.0-Beta1**. Cross-platform installer, `vg` CLI, pre-built binaries (Linux/Windows/macOS), 3D asset import + properties + animation, Make EXE, Publish to Web, Live Control Animation, Multi-Provider AI Help (OpenAI / Claude / Gemini + Ollama), and WebSocket Controls all landed. See [`CHANGELOG.md`](CHANGELOG.md) for the per-feature receipts.
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Cross-Platform Installer | ✅ Complete | `install.sh`, `install.ps1`, `install.py` |
-| `vg` CLI Tool | ✅ Complete | `vg new`, `vg install`, `vg update`, `vg pkg` |
-| Pre-Built Binaries | ✅ Complete | Linux x86_64, Windows x86_64, macOS Universal |
-| IDE Project Creation | ✅ Complete | File → New Project, Tools menu integration |
-| CI/CD Pipeline | ✅ Complete | GitHub Actions builds all 3 platforms |
-| Screenshot Gallery | ✅ Complete | 50+ screenshots in docs/screenshots/ |
-| 3D Asset Import | ✅ Complete | `.glb`/`.gltf`/`.obj`/`.fbx` import from 3D editor toolbar |
-| 3D Properties Inspector | ✅ Complete | Transform, material, light, camera, physics editing |
-| Input Map Editor | ✅ Complete | Keyboard/mouse/gamepad binding dialog |
-| Environment Presets | ✅ Complete | 4 one-click lighting presets (Day/Night/Indoor/Space) |
-| Animation Editor | ✅ Complete | Timeline, keyframes, playback, .glb import |
-| Make EXE Export | ✅ Complete | File → Make EXE with auto-generated export presets |
-| Publish to Web | ✅ Complete | Flash-successor HTML5 export with preloader, fullscreen, context menu, embed code, portal pages |
-| Live Control Animation | ✅ Complete | Live SubViewport rendering for @tool custom controls in Form Designer |
-| Multi-Provider AI Help | ✅ Complete | OpenAI, Claude, Gemini cloud providers + existing Ollama local backend |
-| WebSocket Controls | ✅ Complete | WebSocketClient, WebSocketServer, Lobby, Chat controls for multiplayer |
-| Browser Dashboard | 🔲 Not Started | Browser-based project dashboard, settings panel, and build monitor |
-| Community Testing | 🟡 In Progress | Need feedback before stable release |
+Three items deliberately did **not** block v5.1 stable:
 
-### Road to Stable (v5.0.1)
+| Feature | Status | Disposition |
+|---------|--------|-------------|
+| Browser Dashboard | 🔲 Not Started | **Deferred to v5.2** — was on the v5.0.1-stable list but not actually a blocker. Cutting v5.1 stable does not require a browser UI. |
+| Community Testing | 🟡 Ongoing | Continues across the v5.1.x line. Not a release gate. |
+| Issue triage | 🟡 Ongoing | Whatever community testing surfaces lands as 5.1.x patches. |
 
-1. ✅ All features implemented and tested
-2. ✅ Cross-platform binaries building
-3. ✅ Installer scripts working
-4. ✅ 3D game development workflow complete
-5. ✅ Plugin system & AGCK game construction kit
-6. ✅ Piskel-style sprite editor
-7. 🟡 Community testing of Beta
-8. ✅ Publish to Web — Flash-successor HTML5 export pipeline
-9. ✅ Live Control Animation — @tool custom controls animate at design time
-10. ✅ Multi-Provider AI Help — OpenAI/Claude/Gemini + Ollama
-11. ✅ WebSocket Controls — multiplayer networking
-12. 🔲 Browser Dashboard — browser-based project dashboard, settings panel, and build monitor
-13. 🔲 Fix any reported issues
-14. 🔲 Tag stable v5.0.1 release
+### Cut criteria for v5.1.0 stable
+
+1. ✅ All 5.1.0-Beta1 features wired and parsing clean (`scripts/ci_smoke.sh`).
+2. ✅ Addon-symlink drift check green (`scripts/sync_addons.sh check`).
+3. 🟡 First-run picker works on a brand-new project (manual smoke).
+4. 🟡 At least one external user has built a working game with AGCK from a fresh install.
+5. 🔲 Tag `v5.1.0`.
 
 ---
 
-## 💭 v5.1 / v6.0 Future Roadmap (Planned)
+## 💭 v5.2 Roadmap — focused
 
-Potential features for the next version, pending community feedback:
+Short, finishable list. **No new aspirational items.**
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| **Godot Asset Library** | Publish VisualGasic to the official Godot Asset Library | High |
-| **Web UI** | Browser-based project dashboard, settings panel, and build monitor. Required before stable release. | High |
-| **WebAssembly Export** | Validate and ensure HTML5 export compatibility | High |
-| **Multi-Provider AI Help** | ✅ Cloud AI providers (OpenAI, Claude, Gemini) alongside local Ollama. Provider selector, API key settings, HTTPS transport. | ✅ Done |
-| **Visual Debugger v2** | Graphical call flow visualization, flame graphs | Medium |
-| **WebSocket Controls** | ✅ WebSocketClient, WebSocketServer, Lobby, Chat controls for multiplayer games. | ✅ Done |
-| **Android/iOS Validation** | Test and fix mobile platform builds | Medium |
-| **Native Image Clipboard** | C++ GDExtension for system image clipboard (copy/paste images to/from external apps). Replace current OS.execute bridge with proper platform APIs (X11/Wayland/Win32/macOS). | Medium |
-| **Plugin Marketplace** | In-IDE package browsing and one-click install | Low |
-| **Code Profiler** | Line-level performance profiling in the IDE | Low |
-| **VG3D Preview** | Limited 3D game kit demo — voxel-based level editor, basic first/third-person camera, CSG primitives. Proof-of-concept only, not production-ready. | Low |
-| **Working Nodes: Merge On Input chains** | Multiple `On Input` nodes currently each generate their own `Sub Form_KeyDown()`, producing duplicate sub names. Codegen should merge all `On Input` chains into a single `Sub Form_KeyDown(ByVal key As String)` with `If key = "..." Then` guards for each chain. | Low |
-| **Forms as a standalone plugin** | Extract the Form Designer (form_editor_helper.gd, form_preview_window.gd, form_preview_toolbar.gd, new_form_dialog.gd, vg_formatter.gd, and the form-related dispatch currently in visual_gasic_plugin.gd) into `addons/visual_gasic/plugins/forms/` with its own `plugin.cfg`, mirroring agck/vg3d/web_publish/working_nodes. Replace the core `vg/form_designer_enabled` toggle with plugin enable/disable. | Medium |
-| **Installer polish** | `install.py/.sh/.ps1` improvements beyond the release-tag fix landed in 5.1.0-Beta1: (a) `--uninstall` that removes the addon, `vg` CLI, and `visualgasic` alias cleanly; (b) upgrade path that detects an existing install and warns before overwriting; (c) Windows: auto-append `~\.local\bin` to user PATH via `setx`; (d) optional `--install-godot` that downloads the matching Godot editor binary from https://godotengine.org/download, verifies the SHA-512, and places it on PATH; (e) optional `--activate-in <project>` that patches the target project's `project.godot` to enable the VisualGasic editor plugin; (f) optional launcher/shortcut ("VisualGasic IDE") that opens Godot with the user's project pre-selected — closest thing to "VG as the default UI" without forking Godot. | Medium |
+| **Browser Dashboard** | Browser-based project dashboard, settings panel, build monitor. Was a v5.0.1 blocker; demoted to v5.2 because cutting stable doesn't actually need it. | High |
+| **Working Nodes — Merge `On Input` chains** | Multiple `On Input` nodes currently each generate their own `Sub Form_KeyDown()`, producing duplicate sub names. Codegen should merge them into a single `Sub Form_KeyDown(ByVal key As String)` with `If key = "..." Then` guards. | Medium |
+| **Working Nodes — runtime gaps** | `WN_Wait` / `WN_Spawn` delay should `Await SceneTree.create_timer(sec).timeout` instead of being a no-op. `WN_Animate` codegen should auto-attach AnimationPlayer. See [`/memories/repo/visualgasic_todo.md`](/memories/repo/visualgasic_todo.md). | Medium |
+| **Forms as a standalone plugin** | Extract the Form Designer (form_editor_helper.gd, form_preview_window.gd, form_preview_toolbar.gd, new_form_dialog.gd, vg_formatter.gd, and form-related dispatch in visual_gasic_plugin.gd) into `addons/visual_gasic/plugins/forms/` with its own `plugin.cfg`. Replace the core `vg/form_designer_enabled` toggle with plugin enable/disable. | Medium |
+| **Installer polish** | `install.py/.sh/.ps1` improvements: (a) `--uninstall` that cleanly removes addon + `vg` CLI; (b) upgrade detection with overwrite warning; (c) Windows: auto-append `~\.local\bin` to user PATH via `setx`; (d) optional `--install-godot` that downloads + SHA-512-verifies the matching Godot binary; (e) optional `--activate-in <project>`; (f) optional desktop launcher. | Medium |
+| **Android / iOS validation** | Test and fix mobile platform builds. Stretch — not a 5.2 blocker. | Low |
+| **WebAssembly Export validation** | Ensure HTML5 export compatibility end-to-end. | Low |
 
 ---
 
-## 🚀 v7.0 Future Roadmap (Long-Term)
+## 🌌 v6.0 Roadmap — needs design work
+
+Items below are real but require non-trivial design / scoping. **Do not** start any of them until v5.2 is cut.
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| **VG3D — 3D Game Kit** | Full 3D game creation kit plugin. Voxel/grid-based level editor, built-in voxel model editor (MagicaVoxel-style), pre-built camera modes (first-person, third-person, top-down), CSG/primitive environments, actor system ported from AGCK, procedural 3D actor models, animation support, build pipeline generating Godot 3D scenes. | High |
-| **VGVR — VR Game Kit** | VR mode add-on for VG3D. OpenXR integration, hand/controller input mapping, VR camera rig, teleport/smooth locomotion presets. Requires VG3D as foundation. | Low |
+| **AGCK advanced behaviors / user templates** | Promote hard-coded actor magic numbers (`rotation_speed`, `snap_angle_deg`, `jump_force`, `jump_velocity`, etc.) into actor-data fields, surface them in an "Advanced" card in the Actor editor, add Save/Load Template buttons that round-trip user-authored game templates as JSON in `user://agck_templates/`. Long-term: extract behaviors into external `.vg` files with typed param schemas. Plan parked in [`/memories/repo/visualgasic_todo.md`](/memories/repo/visualgasic_todo.md). | High |
+| **Godot Asset Library publish** | Package and submit VisualGasic to the official Asset Library. | High |
+| **Plugin Marketplace** | In-IDE package browsing and one-click install. Requires registry backend (TODOs in `src/visual_gasic_package.cpp:108`/`592`/`629`). | Medium |
+| **Visual Debugger v2** | Graphical call-flow visualization, flame graphs. | Medium |
+| **Native Image Clipboard** | C++ GDExtension replacing the current `OS.execute` bridge with proper X11 / Wayland / Win32 / macOS APIs. Works fine today; this is a cleanup, not a feature. | Low |
+| **Code Profiler** | Line-level perf in IDE. Pure stretch goal. | Low |
+| **VG3D Preview** | Limited 3D game kit demo — voxel-based level editor, basic FPS/TPS camera, CSG primitives. Proof-of-concept only. Real VG3D lives in v7.0. | Low |
+
+---
+
+## 🚀 v7.0 Long-term — explicitly out of scope for 5.x / 6.x
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| **VG3D — 3D Game Kit** | Full 3D game creation kit plugin. Voxel/grid-based level editor, built-in voxel model editor (MagicaVoxel-style), pre-built camera modes (FPS / TPS / top-down), CSG/primitive environments, actor system ported from AGCK, procedural 3D actor models, animation, build pipeline emitting Godot 3D scenes. | High |
+| **VGVR — VR Game Kit** | VR mode add-on for VG3D. OpenXR integration, hand/controller input mapping, VR camera rig, teleport / smooth locomotion presets. Requires VG3D as foundation. | Low |
 
 > 💬 **Community input drives priorities.** Open a [GitHub Issue](https://github.com/xgreenrx-star/VisualGasic/issues) or discussion to vote on features.
 
 ---
 
 *This roadmap is a living document. Priorities may shift based on community feedback and development resources.*
+*Reality-pass policy: the v5.x window is for finishing. New ambitious ideas go to v6.0 or v7.0 \u2014 not into the next minor.*
