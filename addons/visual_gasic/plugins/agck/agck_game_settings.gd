@@ -667,6 +667,17 @@ func get_data() -> Dictionary:
 func set_data(data: Dictionary) -> void:
 	for key in data:
 		game_data[key] = data[key]
+	# Rebuild the UI so widgets reflect the freshly-loaded values.
+	# Each row binds its widget's initial state at build time
+	# (e.g. `chk.button_pressed = game_data.get(key, false)`); without
+	# a rebuild, toggles like Fullscreen / Show FPS keep showing the
+	# defaults from _init_data() even though game_data is updated.
+	# Same pattern as _on_reset_defaults().
+	if _content != null:
+		for c in get_children():
+			c.queue_free()
+		_content = null
+		_build_ui()
 
 
 func _on_reset_defaults() -> void:
