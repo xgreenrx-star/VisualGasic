@@ -1611,8 +1611,13 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 				body += 'position = Vector2(' + str(px) + ', ' + str(py) + ')\n'
 				if has_block_path:
 					moving_block_nodes.append({"node_name": node_name, "path_key": bp_key, "path_arr": block_paths[bp_key]})
-				# Teleport & Switch blocks are pass-through (player walks into them)
-				if block_id in [5, 6]:
+				# Teleport, Switch & Deadly blocks are pass-through (player walks
+				# into them and the child Area2D fires the trigger). For Deadly
+				# this is critical: with a solid 32×32 body, the player would
+				# bounce off the wall before ever reaching the inner DeadlyArea,
+				# so spike contact never registered. Pass-through lets the
+				# DeadlyArea detect real visual overlap.
+				if block_id in [3, 5, 6]:
 					body += 'collision_layer = 0\n'
 					body += 'collision_mask = 0\n'
 				body += 'metadata/block_type = ' + str(block_id) + '\n'
@@ -1764,14 +1769,14 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 	header += '[sub_resource type="RectangleShape2D" id="block_shape"]\n'
 	header += 'size = Vector2(' + str(CELL_PX) + ', ' + str(CELL_PX) + ')\n\n'
 
-	# Deadly area shape — sits inside the spike sprite so contact requires
-	# real visual overlap, but not so small that the player can pass through.
-	# History: was CELL_PX+4 (cheap deaths from near-misses), then CELL_PX-12
-	# (too forgiving — player walked through spikes). CELL_PX-4 lines up
-	# with the player's hitbox of the same size; together they overlap when
-	# centers are within 28 px in a 32 px cell, i.e. on real visual contact.
+	# Deadly area shape — full cell (32×32). The Deadly StaticBody2D is now
+	# pass-through (collision_layer=0), so the player physically enters the
+	# tile and the Area2D's body_entered fires on real visual overlap with
+	# the player's 28×28 hitbox. Two centered rects with these sizes overlap
+	# whenever the player center is within 30 px of the spike center — i.e.
+	# the moment any part of the sprite touches.
 	header += '[sub_resource type="RectangleShape2D" id="deadly_shape"]\n'
-	header += 'size = Vector2(' + str(CELL_PX - 4) + ', ' + str(CELL_PX - 4) + ')\n\n'
+	header += 'size = Vector2(' + str(CELL_PX) + ', ' + str(CELL_PX) + ')\n\n'
 
 	# Sub resources: per-tile shader FX (one Shader + one ShaderMaterial per unique effect)
 	for sfx_name in tile_shader_fx_set:
