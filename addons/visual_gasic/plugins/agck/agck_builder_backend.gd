@@ -1665,6 +1665,7 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 					body += 'monitorable = true\n'
 					body += 'monitoring = true\n\n'
 					body += '[node name="DeadlyShape" type="CollisionShape2D" parent="' + node_name + '/DeadlyArea"]\n'
+					body += 'position = Vector2(0, 4)\n'
 					body += 'shape = SubResource("deadly_shape")\n\n'
 
 				# Switch blocks get an Area2D for collectible/interaction
@@ -1769,14 +1770,24 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 	header += '[sub_resource type="RectangleShape2D" id="block_shape"]\n'
 	header += 'size = Vector2(' + str(CELL_PX) + ', ' + str(CELL_PX) + ')\n\n'
 
-	# Deadly area shape — full cell (32×32). The Deadly StaticBody2D is now
-	# pass-through (collision_layer=0), so the player physically enters the
-	# tile and the Area2D's body_entered fires on real visual overlap with
-	# the player's 28×28 hitbox. Two centered rects with these sizes overlap
-	# whenever the player center is within 30 px of the spike center — i.e.
-	# the moment any part of the sprite touches.
+	# Deadly area shape — sized + offset to match the ACTUAL visible spike
+	# content, not the full 32×32 cell. The spike sprite (TILE_SIZE=18,
+	# upscaled to CELL_PX=32) draws content only in the bottom ~14/18 of
+	# the texture; the top ~4/18 (≈ 7 px scaled) is empty. A full-cell
+	# deadly shape therefore extends 7 px ABOVE the visible spike tips,
+	# producing cheap deaths when the player flies past with a clear gap.
+	#
+	# Size  (26, 24): width matches spike base, height matches the bottom
+	#                 25 px of the cell (top 7 px excluded).
+	# DeadlyShape.position = (0, 4): centers the rect on the visible spike
+	#                 content (cell center + 4 ≈ visible-content center).
+	#
+	# With the player's 28×28 hitbox, the trigger now fires when:
+	#   horizontal: |dx| < 27   (player edge meets spike base edge)
+	#   vertical:   dy in [-22, +30]   (player bottom meets spike tip)
+	# i.e. on real visual contact, no cheap deaths above the spikes.
 	header += '[sub_resource type="RectangleShape2D" id="deadly_shape"]\n'
-	header += 'size = Vector2(' + str(CELL_PX) + ', ' + str(CELL_PX) + ')\n\n'
+	header += 'size = Vector2(26, 24)\n\n'
 
 	# Sub resources: per-tile shader FX (one Shader + one ShaderMaterial per unique effect)
 	for sfx_name in tile_shader_fx_set:
