@@ -1,15 +1,46 @@
-# VisualGasic — A Modern Language for Godot 4
+# VisualGasic — A Modern, AI-Native Language & IDE for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-5.0.1--beta-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-5.1.0--rc.1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.6.1+-purple.svg)](https://godotengine.org)
 
-**World-Class RAD Platform**: A modern, forward-looking programming language with **event-driven programming**, cutting-edge features including multitasking, advanced type system, pattern matching, GPU computing, and comprehensive development tools.
+> **The productivity of VB6, the speed of native code, and an AI co-pilot built in — bolted on top of Godot 4.6.**
+>
+> Drop a button on a form. Double-click it. Type code. Hit ▶ Play. That's the loop.
+> Or describe a game in plain English and let **AGCK** generate a real, runnable, editable VisualGasic project from a template.
 
-> **VisualGasic is not a VB6 clone.** It is a modern language that draws inspiration from VB6's approachable syntax and ease of learning, while introducing advanced features that go well beyond what VB6 ever offered. VG is VB6-*compatible* where it makes sense — you can port VB6 projects and feel at home immediately — but the language itself is designed to look forwards, not backwards.
+VisualGasic is a **VB6 / VB.NET-style language and IDE** running as a C++ GDExtension inside Godot. It pairs an event-driven, naming-convention dispatcher (name a Sub `btnSave_Click()` and it's wired) with a 5-tier JIT, a full WYSIWYG form designer, and first-class AI tooling — multi-provider AI Help (OpenAI / Claude / Gemini / **Ollama** local) and a conversational game builder.
 
-> 🚀 **Beta Release** — v5.0.1 Beta includes a full plugin system, AGCK game construction kit, Piskel-style sprite editor, 3D game development tools, and comprehensive IDE. Skipping the 4.x stable release — too many major features landed. [See changelog](CHANGELOG.md).
+> 🚀 **v5.1.0-rc.1 — Release Candidate (Apr 29 2026).** AI-native IDE, AGCK game builder with 8 templates, plugin SDK, unified ▶ Play menu, and the Linux one-shot installer. **Looking for Windows & macOS testers** — see [release notes](RELEASE_NOTES_v5.1.0-rc.1.md). [Changelog](CHANGELOG.md).
+
+## ⚡ Why pick VisualGasic?
+
+- **🤖 AI-native, multi-provider.** OpenAI, Claude, Gemini, and **Ollama** (free local, no API key) — pick the model on first launch. Inline assist explains, refactors, or generates code in place. AGCK builds a real, runnable platformer / shmup / RPG / match-3 from a single prompt.
+- **🎮 Make games without ceremony.** Drop controls, double-click for handlers, hit F5. 8 AGCK templates, 14 playable demos in the box, full 3D pipeline, sprite/animation/audio editors, one-click Make EXE.
+- **🚀 Native-class speed.** 5-tier JIT (interpreter → x86-64). On hot paths VG is **30–119× faster than GDScript** and **beats C++ on string concat by 10×**. Honest numbers below — we lose two benchmarks and we say so.
+- **🧰 The IDE you actually want.** VB6-style Form Designer + Code Editor + Immediate Window + Object Browser + Debugger + Profiler, all docked, all themed. Plus a plugin SDK with a process-wide signal bus and capability-based editor routing.
+- **📥 One-shot installer (work in progress).** Linux MVP shipped — `scripts/bootstrap_install.sh` downloads Godot, installs the addon, drops a launcher, and lands you directly in the VG IDE. Windows `.exe` and macOS `.dmg` installers coming next; for now use the `vg` CLI or unzip the release.
+- **🆓 Free & open source.** GPL-3.0. Real source, no opaque blobs — even AGCK's output is plain `.vg` files you can edit.
+
+### 📊 VG vs GDScript vs C++ (microbenchmarks, single-threaded)
+
+From [`demo/bench_output.txt`](demo/bench_output.txt) — verify on your own machine: open [`demo/bench.vg`](demo/bench.vg) and press F5.
+
+| Benchmark        | GDScript (µs) | VisualGasic (µs) | C++ (µs) | VG vs GDScript    | VG vs C++          |
+|------------------|--------------:|-----------------:|---------:|------------------:|-------------------:|
+| Arithmetic       | 5,535         | **181**          | 64       | **30.6× faster**  | 2.8× slower        |
+| ArraySum         | 4,433         | **104**          | 62       | **42.6× faster**  | 1.7× slower        |
+| **StringConcat** | 5,458         | **72**           | 738      | **75.8× faster**  | **🥇 10.2× faster than C++** |
+| Branching        | 7,389         | **62**           | 52       | **119× faster**   | 1.2× slower        |
+| AllocationsFast  | 10,683        | **1,123**        | 274      | **9.5× faster**   | 4.1× slower        |
+| ArrayDict        | 11,321        | 86,824           | 3,597    | 7.7× **slower**   | 24× slower         |
+| DictFastGet      | 30,534        | 183,384          | —        | 6.0× **slower**   | —                  |
+| DictFastSet      | 19,619        | 231,299          | —        | 11.8× **slower**  | —                  |
+
+**Honest TL;DR:** hot paths (arithmetic, branching, string work, array ops) — VG smokes both. Dict-heavy workloads & interop — GDScript is currently ahead and we're chasing that for v5.1.0 stable.
+
+> **VisualGasic is not a VB6 clone.** It draws inspiration from VB6's approachable syntax and ease of learning, while introducing modern features that go well beyond what VB6 ever offered. VG is VB6-*compatible* where it makes sense — you can port VB6 projects and feel at home immediately — but the language is designed to look forwards, not backwards.
 
 ## 🚀 **Key Features**
 
@@ -106,7 +137,7 @@
 - **Godot Enum Constants** - `ClassName.CONSTANT_NAME` for all class enums with keyword-safe resolution
 - **Built-in Components** - Transform, Velocity, Render, and custom component support
 
-### **3D Game Development** *(New in rc7)*
+### **3D Game Development**
 - **Asset Import** - One-click `.glb`/`.gltf`/`.obj`/`.fbx` model import from the 3D editor toolbar
 - **3D Properties Inspector** - Edit position, rotation, scale, materials (color/metallic/roughness), lights, cameras, and physics bodies directly in the VB6-style Properties panel
 - **Input Map Editor** - Visual dialog for configuring keyboard, mouse, and gamepad bindings with live key capture
@@ -160,19 +191,25 @@ VisualGasic/
 ## ⚡ **Quick Start**
 
 ### **Prerequisites**
-- **Godot 4.6.1+** — the one-click installer downloads this for you. Manual users: get it from [godotengine.org](https://godotengine.org).
+- **Godot 4.6.1+** — the bootstrap installer downloads this for you. Manual users: get it from [godotengine.org](https://godotengine.org).
 
 ### **Installation**
 
-**✨ One-click installer (Easiest — no terminal needed):**
+> 🚧 **Installer status (v5.1.0-rc.1):** Linux one-shot installer is the recommended path. Windows `.exe` and macOS `.dmg` graphical installers are still in progress — on those platforms use the `vg` CLI or unzip the release for now.
 
-Download the installer for your platform from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/latest) and double-click it. It installs Godot 4.6.1+, the VisualGasic plugin, creates a starter `MyFirstGame` project, adds a Start Menu / Applications entry, and registers `.vg` files.
+**🐧 Linux — one-shot bootstrap (recommended):**
 
-- **Linux**: `VisualGasic-Installer-v*-x86_64.AppImage`
-- **Windows**: `VisualGasic-Installer-v*-x86_64.exe`
-- **Offline bundles** (include Godot): `VisualGasic-Installer-Offline-v*-{linux,windows}-x86_64.zip`
+```bash
+git clone https://github.com/xgreenrx-star/VisualGasic.git
+cd VisualGasic
+./scripts/bootstrap_install.sh
+```
 
-Pick a specific Godot version with `--pick-godot` or `--godot-version 4.6.2-stable`. Optional AI keys: `--with-ai-keys --openai-key ...`.
+Downloads Godot 4.6.1, installs the addon globally, drops a `~/.local/bin/visualgasic` launcher and a desktop entry. Run `visualgasic` (or click the menu entry) and you land directly in the VG IDE — no Godot project picker, no plugin toggling.
+
+**📦 From the latest GitHub Release (all platforms):**
+
+Download the platform zip from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/latest) (e.g. `VisualGasic-v5.1.0-rc.1.zip`), extract, and either point the `vg` CLI at it or copy `addons/visual_gasic/` into your project. Tagged release notes: [v5.1.0-rc.1](RELEASE_NOTES_v5.1.0-rc.1.md).
 
 **From Godot Asset Library:**
 1. Open your Godot project
@@ -180,7 +217,7 @@ Pick a specific Godot version with `--pick-godot` or `--godot-version 4.6.2-stab
 3. Click **Download** → **Install**
 4. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
 
-**Using the `vg` CLI (for existing terminal users):**
+**Using the `vg` CLI (Linux / macOS / Windows terminal users):**
 ```bash
 # Install (one time)
 curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.sh | bash
@@ -195,11 +232,6 @@ The `vg` CLI stores the addon globally so you never need to copy it manually. Se
 1. In an existing VG project, go to **File → New Project...**
 2. Enter a name and pick a folder
 3. A new VG-ready project is created and opened
-
-**From GitHub Release:**
-1. Download the platform zip from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/latest) (e.g. `VisualGasic_v5.1.0-Beta1_linux_x86_64.zip`)
-2. Copy the `addons/visual_gasic/` folder into your project's `addons/` directory
-3. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
 
 **Build from Source** (for contributors):
 ```bash
@@ -388,9 +420,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 5.0.1 Beta
+**Current Version**: `v5.1.0-rc.1` (Release Candidate, 2026-04-29)
 
-> See [CHANGELOG.md](CHANGELOG.md) for the latest changes.
+> See [CHANGELOG.md](CHANGELOG.md) and the [v5.1.0-rc.1 release notes](RELEASE_NOTES_v5.1.0-rc.1.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
@@ -423,13 +455,14 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 ### 🚧 Coming Soon
 
 See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
-- **Stable Release (v5.0.1)** - Pending community testing of Beta
+- **Stable Release (v5.1.0)** - Pending community testing of `v5.1.0-rc.1`
+- **Windows `.exe` & macOS `.dmg` graphical installers** — Linux one-shot is shipped; Win/macOS WIP
 - **Asset Library** - Publish to Godot Asset Library
 - **WebAssembly Validation** - Verify HTML5 export compatibility
 
 ## 📄 **License**
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 ## 🌟 **Acknowledgments**
 
