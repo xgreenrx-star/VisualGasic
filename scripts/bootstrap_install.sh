@@ -240,10 +240,32 @@ EOF
     ok "Menu entry: $DESKTOP_FILE"
 }
 
+# ── Step 4. Prime the project ────────────────────────────────────────────────
+#
+# Godot's first interactive --editor launch imports resources *before* it
+# activates [editor_plugins], which means the VG plugin appears inactive
+# and the user sees a stock Godot editor on first launch instead of the
+# VG IDE. Running --headless --import once here forces the import to
+# complete and (as a side effect) loads the VG plugin so it can dock its
+# panels and persist them into editor_layout.cfg. After this pass the
+# next interactive open lands directly in the VG IDE.
+prime_project() {
+    info "Priming project (first-time import + plugin activation)..."
+    local godot_bin="$GODOT_DIR/$GODOT_BINARY_NAME"
+    if ! "$godot_bin" --path "$PROJECT_DIR" --headless --import >/dev/null 2>&1; then
+        warn "Priming pass returned non-zero. The IDE should still open;"
+        warn "if the VG dock is missing, toggle the VisualGasic plugin off"
+        warn "and on under Project Settings → Plugins."
+    else
+        ok "Project primed; VG plugin pre-activated."
+    fi
+}
+
 # ── Run ───────────────────────────────────────────────────────────────────────
 install_godot
 build_default_project
 install_launcher
+prime_project
 
 echo
 ok "Install complete."

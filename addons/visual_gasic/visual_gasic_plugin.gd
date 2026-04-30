@@ -1028,6 +1028,14 @@ func _enter_tree():
 	_load_tip_config()
 	_create_tip_of_day_dialog()
 
+	# On the very first open of a new VG project, Godot otherwise lands on
+	# the 2D main screen and the user sees a blank Godot editor instead of
+	# the Visual Gasic IDE.  When the project has never completed first-run
+	# setup, defer a switch to our main screen so _make_visible(true) fires,
+	# the IDE layout becomes active, and (via _auto_open_formless_module)
+	# the welcome dialog or starter module is shown.
+	call_deferred("_select_vg_main_screen_on_first_run")
+
 # =============================================================================
 # DOCK MANAGEMENT — called by layout manager on mode toggle
 # =============================================================================
@@ -1164,6 +1172,32 @@ func _has_main_screen() -> bool:
 
 func _get_plugin_name() -> String:
 	return "Visual Gasic IDE"
+
+## Force the VG IDE main screen on the very first open of a brand-new
+## VG project (i.e. one created by the bootstrap installer or "New Project").
+## Without this, Godot defaults to the 2D screen and the user sees a stock
+## Godot editor instead of the Visual Gasic IDE.  Subsequent launches respect
+## whatever main screen the user last had active (Godot persists this in
+## editor_layout.cfg → selected_main_editor_idx).
+func _select_vg_main_screen_on_first_run() -> void:
+	if not _has_main_screen():
+		return  # C++ FormDesigner unavailable — nothing to switch to.
+	var first_run_completed := false
+	if ProjectSettings.has_setting("vg/first_run_completed"):
+		first_run_completed = bool(ProjectSettings.get_setting("vg/first_run_completed", false))
+	if first_run_completed:
+		return
+	# Defer once more so EditorNode finishes wiring its main-screen tabs
+	# before we ask it to switch.  Calling set_main_screen_editor too early
+	# (inside _enter_tree's deferred slot) is silently ignored by Godot.
+	if not is_inside_tree():
+		return
+	get_tree().process_frame.connect(_do_select_vg_main_screen, CONNECT_ONE_SHOT)
+
+func _do_select_vg_main_screen() -> void:
+	if not _has_main_screen():
+		return
+	EditorInterface.set_main_screen_editor(_get_plugin_name())
 
 func _get_plugin_icon() -> Texture2D:
 	var theme = get_editor_interface().get_base_control().get_theme()
