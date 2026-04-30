@@ -487,6 +487,12 @@ func _on_web_publish_requested(web_cfg: Dictionary) -> void:
 
 func _on_template_requested(template_name: String) -> void:
 	_forward_build_log("[color=#ffcc55]📋 Applying template: " + template_name + "[/color]")
+	# Clear out any levels left over from a prior template — without this the
+	# new template's level[0] would replace slot 0 but leave slots 1+ from the
+	# previous template intact, so e.g. finishing a Platformer level 1 would
+	# Sequential-teleport the player into Geometry Dash's level 2.
+	if _editors.size() > 0 and _editors[0] and "levels" in _editors[0]:
+		_editors[0].levels.clear()
 	match template_name:
 		"Platformer":
 			_apply_platformer_template()
@@ -569,7 +575,7 @@ func _apply_platformer_template() -> void:
 			{"actor_id": 2, "x": 13, "y": 5, "path": []},          # Coin
 			{"actor_id": 2, "x": 15, "y": 5, "path": []},          # Coin
 		]
-		_editors[0].levels[0] = lvl
+		_editors[0].levels.append(lvl)
 
 
 func _apply_space_shooter_template() -> void:
@@ -605,7 +611,7 @@ func _apply_space_shooter_template() -> void:
 			{"actor_id": 1, "x": 10, "y": 3, "path": []},
 			{"actor_id": 1, "x": 15, "y": 2, "path": []},
 		]
-		_editors[0].levels[0] = lvl
+		_editors[0].levels.append(lvl)
 
 
 func _apply_maze_template() -> void:
@@ -662,7 +668,7 @@ func _apply_maze_template() -> void:
 			{"actor_id": 2, "x": 10, "y": 5, "path": []},
 			{"actor_id": 2, "x": 17, "y": 9, "path": []},
 		]
-		_editors[0].levels[0] = lvl
+		_editors[0].levels.append(lvl)
 
 
 # ─── New genre templates (added Apr 2026) ───────────────────
@@ -712,7 +718,7 @@ func _apply_topdown_rpg_template() -> void:
 			{"actor_id": 3, "x": 17, "y": 9, "path": []},           # Treasure
 			{"actor_id": 3, "x": 5, "y": 8, "path": []},            # Treasure
 		]
-		_editors[0].levels[0] = lvl
+		_editors[0].levels.append(lvl)
 
 
 func _apply_side_shmup_template() -> void:
@@ -748,7 +754,7 @@ func _apply_side_shmup_template() -> void:
 			{"actor_id": 1, "x": 16, "y": 4, "path": []},
 			{"actor_id": 1, "x": 17, "y": 8, "path": []},
 		]
-		_editors[0].levels[0] = lvl
+		_editors[0].levels.append(lvl)
 
 
 func _apply_match3_template() -> void:
@@ -789,7 +795,7 @@ func _apply_match3_template() -> void:
 				var kind: int = gem_kinds[(row * 7 + col * 3) % 3]
 				actors.append({"actor_id": kind, "x": 5 + col, "y": 3 + row, "path": []})
 		lvl["actors"] = actors
-		_editors[0].levels[0] = lvl
+		_editors[0].levels.append(lvl)
 
 
 func _apply_asteroids_template() -> void:
@@ -822,7 +828,7 @@ func _apply_asteroids_template() -> void:
 			{"actor_id": 1, "x": GRID_W - 3, "y": GRID_H - 3, "path": []},
 			{"actor_id": 1, "x": GRID_W / 2, "y": 2, "path": []},
 		]
-		_editors[0].levels[0] = lvl
+		_editors[0].levels.append(lvl)
 
 
 func _apply_endless_runner_template() -> void:
@@ -861,7 +867,7 @@ func _apply_endless_runner_template() -> void:
 			{"actor_id": 2, "x": 9,  "y": 6, "path": []},           # Coin
 			{"actor_id": 2, "x": 15, "y": 4, "path": []},           # Coin
 		]
-		_editors[0].levels[0] = lvl
+		_editors[0].levels.append(lvl)
 
 
 func _apply_geometry_dash_template() -> void:
@@ -1000,7 +1006,7 @@ func _apply_geometry_dash_template() -> void:
 			for p in ck["pads"]:
 				actors.append({"actor_id": 1, "x": p["x"], "y": p["y"], "path": []})
 			lvl["actors"] = actors
-			_editors[0].levels[i] = lvl
+			_editors[0].levels.append(lvl)
 
 
 ## Build the project then launch it in Godot's play-scene runner.
@@ -1127,6 +1133,25 @@ func _show_build_conflict_dialog(game_data: Dictionary, output_dir: String, exis
 	# only force a guaranteed-dark background on Windows and leave the
 	# other platforms picking up the host theme as before.
 	var is_windows := OS.get_name() == "Windows"
+
+	if is_windows:
+		# Belt-and-suspenders: also force a dark Theme directly on the Window
+		# panel stylebox so the dialog frame itself paints dark even before
+		# our content PanelContainer (added below) gets a chance to render.
+		# Without this the strip of frame around the PanelContainer is still
+		# light grey on Windows.
+		var dlg_theme := Theme.new()
+		var dlg_bg := StyleBoxFlat.new()
+		dlg_bg.bg_color = Color(0.16, 0.17, 0.20)
+		dlg_bg.border_color = Color(0.30, 0.32, 0.38)
+		dlg_bg.set_border_width_all(1)
+		dlg_bg.set_content_margin_all(8)
+		for tn in ["AcceptDialog", "ConfirmationDialog", "Window", "PopupPanel", "Panel"]:
+			dlg_theme.set_stylebox("panel", tn, dlg_bg)
+			dlg_theme.set_stylebox("embedded_border", tn, dlg_bg)
+		dlg_theme.set_color("title_color", "Window", Color(0.95, 0.95, 0.97))
+		dlg_theme.set_color("font_color", "Label", Color(0.92, 0.92, 0.95))
+		dialog.theme = dlg_theme
 
 	# Remove the default OK button — we add custom ones
 	dialog.get_ok_button().visible = false

@@ -658,9 +658,28 @@ func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite
 			tscn += 'material = SubResource("sprite_shader_mat")\n'
 		tscn += 'texture = ExtResource("2")\n\n'
 
-	# CollisionShape2D child (physics body shape)
+	# CollisionShape2D child (physics body shape).
+	#
+	# Computer/NPC actors (coins, gems, treasure, dialog NPCs) are TRIGGERS,
+	# not solid obstacles. The Hitbox Area2D below is what detects the player
+	# walking into them. If we leave the StaticBody2D's body shape on the
+	# default collision layers, Player's MoveAndSlide() collides solidly with
+	# them — the player hits the coin like a brick instead of picking it up.
+	#
+	# Fix: for Computer/NPC, route the body's CollisionShape onto a layer the
+	# Player's CharacterBody2D doesn't mask, effectively making the body a
+	# pass-through. The Area2D Hitbox (separate node) still fires the pickup.
 	tscn += '[node name="CollisionShape2D" type="CollisionShape2D" parent="."]\n'
-	tscn += 'shape = SubResource("shape_1")\n\n'
+	tscn += 'shape = SubResource("shape_1")\n'
+	if atype in ["Computer", "NPC"]:
+		tscn += 'disabled = true\n'
+	tscn += '\n'
+
+	# Also zero the body's own collision layers/mask for Computer/NPC so any
+	# code (or ray-cast / overlap query) that ignores 'disabled' shapes still
+	# sees the body as non-blocking.
+	if atype in ["Computer", "NPC"]:
+		tscn = tscn.trim_suffix('\n') + '\n'
 
 	# Area2D hitbox for damage/interaction detection
 	tscn += '[node name="Hitbox" type="Area2D" parent="."]\n'
