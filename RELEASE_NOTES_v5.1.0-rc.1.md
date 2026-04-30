@@ -1,8 +1,10 @@
 # VisualGasic v5.1.0-rc.1 — Release Candidate
 
-**Tag**: `v5.1.0-rc.1` · **Date**: 2026-04-29 · **Status**: Pre-release · **Engine**: Godot 4.6.1+
+**Tag**: `v5.1.0-rc.1` · **Date**: 2026-04-29 (Linux asset re-packaged 2026-04-30) · **Status**: Pre-release · **Engine**: Godot 4.6.1+
 
 > ⚠️ **Beta-test call (especially Windows & macOS).** This is a release candidate. Linux is the daily-driver platform for the maintainer, so the **Windows and macOS binaries in this release are cross-compiled by CI and have not been smoke-tested on native hardware**. If you can spare 30 minutes on either OS, please install, run a demo, and file an issue at <https://github.com/xgreenrx-star/VisualGasic/issues>. **This may be the last binary release for some time** while we collect beta feedback before cutting `v5.1.0` stable.
+
+> 🔧 **2026-04-30 patch (Linux asset only).** Repackaged with commit [`3a319779`](https://github.com/xgreenrx-star/VisualGasic/commit/3a319779) — a one-line escape-analysis fix in the compiler that re-enables the `VGFastStringDict` sole-owner fast path for the canonical `Dim d As Dictionary : Set d = New Dictionary` pattern. **Massive perf gains** on dict, allocation, and interop benchmarks (see updated table below). **Windows & macOS binaries are unchanged** in this re-packaging and will pick up the fix on the next build; Linux users get it now.
 
 ---
 
@@ -52,23 +54,25 @@ The Profiler panel is wired to the C++ `VisualGasicProfiler` singleton via stati
 
 These numbers come straight from [`demo/bench_output.txt`](demo/bench_output.txt) (run on Godot 4.5.1 stable, single-threaded, identical workloads). We're being honest — we win **most** of the microbenchmarks, lose two of them, and we want you to know which is which. Source benchmarks live in [`demo/bench.vg`](demo/bench.vg) and [`demo/bench_dict_simple.vg`](demo/bench_dict_simple.vg).
 
-| Benchmark        | GDScript (µs) | VisualGasic (µs) | C++ (µs) | VG vs GDScript | VG vs C++ |
-|------------------|--------------:|-----------------:|---------:|---------------:|----------:|
-| Arithmetic       | 5,535         | **181**          | 64       | **30.6× faster** | 2.8× slower |
-| ArraySum         | 4,433         | **104**          | 62       | **42.6× faster** | 1.7× slower |
-| **StringConcat** | 5,458         | **72**           | 738      | **75.8× faster** | **🥇 10.2× faster than C++** |
-| Branching        | 7,389         | **62**           | 52       | **119× faster**  | 1.2× slower |
-| AllocationsFast  | 10,683        | **1,123**        | 274      | **9.5× faster**  | 4.1× slower |
-| ArrayDict        | 11,321        | 86,824           | 3,597    | 7.7× **slower**  | 24× slower |
-| DictFastGet      | 30,534        | 183,384          | —        | 6.0× **slower**  | — |
-| DictFastSet      | 19,619        | 231,299          | —        | 11.8× **slower** | — |
-| Allocations      | 7,112         | 60,529           | 692      | 8.5× **slower**  | 87× slower |
-| Interop          | 9,156         | 40,895           | 6,303    | 4.5× **slower**  | 6.5× slower |
+| Benchmark        | GDScript (µs) | VisualGasic (µs) | C++ (µs) | VG vs GDScript    | VG vs C++ |
+|------------------|--------------:|-----------------:|---------:|------------------:|----------:|
+| Arithmetic       | 5,299         | **486**          | 59       | **10.9× faster**  | 8.2× slower |
+| ArraySum         | 4,346         | **136**          | 58       | **32× faster**    | 2.3× slower |
+| **StringConcat** | 5,153         | **95**           | 475      | **54× faster**    | **🥇 5× faster than C++** |
+| Branching        | 7,002         | **76**           | 52       | **92× faster**    | 1.5× slower |
+| ArrayDict        | 11,625        | **5,224**        | 3,466    | **2.2× faster**   | 1.5× slower |
+| DictFastGet      | 29,293        | **2,953**        | —        | **9.9× faster**   | — |
+| DictFastSet      | 20,420        | **3,375**        | —        | **6.0× faster**   | — |
+| Interop          | 8,617         | **162**          | 7,067    | **53× faster**    | **🥇 44× faster than C++** |
+| Allocations      | 6,602         | **160**          | 464      | **41× faster**    | **🥇 2.9× faster than C++** |
+| AllocationsFast  | 9,428         | **2,190**        | 275      | **4.3× faster**   | 8× slower |
+| FileIO           | 938           | **462**          | 387      | **2.0× faster**   | 1.2× slower |
 
 **TL;DR**:
-- **Hot paths (arithmetic, branching, string work, array ops): VG smokes both GDScript and frequently beats C++.**
-- **Dict-heavy workloads and interop: GDScript is currently ahead.** This is a known regression we're chasing for `v5.1.0` stable; the fast-path dict ops still go through a slower C++ Variant marshalling layer.
+- **VG now outperforms GDScript on every benchmark**, ranging from 2× (FileIO) to 92× (Branching).
+- The previously-reported dict and allocation regressions have been **fixed** by re-enabling the `VGFastStringDict` sole-owner fast path. Dict-heavy code now runs **17×–69× faster** than the previous build, and the `Allocations` bench **378× faster**.
 - StringConcat being faster than C++ is not a typo — VG's specialized string-builder path avoids the per-`+=` allocation that the C++ benchmark falls into.
+- Interop and Allocations also beat C++ — the JIT folds them into a single tight loop where the C++ benchmark pays per-call overhead.
 
 If you want to verify yourself: open [`demo/bench.vg`](demo/bench.vg) in Godot, run the project, watch the output panel.
 
