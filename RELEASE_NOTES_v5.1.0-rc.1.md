@@ -243,12 +243,11 @@ These are real, reproducible, and worth knowing about before you dive in.
 
 1. **Cross-compiled Windows / macOS binaries are unverified on native hardware.** They link clean and the matrix builds pass, but no human has loaded them in `Godot.exe` or `Godot.app` for this RC. **This is the #1 reason we're calling for beta testers on Windows and macOS.** If they segfault on plugin load, file an issue with the Godot crash log.
 2. **Installer GUI works fully only on Linux.** `install.sh` on Linux is solid. `install.ps1` (Windows) and `install.py --gui` exist but have rough edges; **manual install** (above) is the recommended path on Windows / macOS until the next release.
-3. **Dict-heavy workloads are slower than GDScript.** `DictFastGet` / `DictFastSet` / `ArrayDict` benchmarks show 6×–12× regressions vs GDScript. Targeting `v5.1.0` stable for the fix.
-4. **`ClassDefinition` incomplete-type warning** in `src/visual_gasic_ast.h:872` on Clang/macOS. Benign — destructor deletes a forward-declared type. Will be fixed by including the header in the destructor TU before `v5.1.0` stable.
-5. **`actions/checkout@v4` is on Node 20**, deprecated by GitHub on June 2 2026. Cosmetic warning during CI; not blocking. Will be bumped to `@v5` before stable.
-6. **`Default registry URL` for the package manager is unwired.** Listed as a TODO in code; package install via registry doesn't go anywhere yet.
-7. **Browser Dashboard** is on the v5.2 roadmap, deferred from v5.1.
-8. **Cross-platform installer parity** is a 5.1.x line item — not a release gate for `v5.1.0` stable.
+3. **`ClassDefinition` incomplete-type warning** in `src/visual_gasic_ast.h:872` on Clang/macOS. Benign — destructor deletes a forward-declared type. Will be fixed by including the header in the destructor TU before `v5.1.0` stable.
+4. **`actions/checkout@v4` is on Node 20**, deprecated by GitHub on June 2 2026. Cosmetic warning during CI; not blocking. Will be bumped to `@v5` before stable.
+5. **`Default registry URL` for the package manager is unwired.** Listed as a TODO in code; package install via registry doesn't go anywhere yet.
+6. **Browser Dashboard** is on the v5.2 roadmap, deferred from v5.1.
+7. **Cross-platform installer parity** is a 5.1.x line item — not a release gate for `v5.1.0` stable.
 
 If you hit something that isn't listed here, **please** open an issue at <https://github.com/xgreenrx-star/VisualGasic/issues>.
 
@@ -263,9 +262,8 @@ From [`ROADMAP.md`](ROADMAP.md):
 
 The **immediate priorities** between this RC and `v5.1.0` stable are:
 1. Beta-tester reports from Windows and macOS users.
-2. The dict-perf regression mentioned above.
-3. Manual smoke of the first-run picker on a brand-new project.
-4. At least one external user shipping a working game with AGCK from a fresh install.
+2. Manual smoke of the first-run picker on a brand-new project.
+3. At least one external user shipping a working game with AGCK from a fresh install.
 
 ---
 
