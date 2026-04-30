@@ -334,29 +334,68 @@ def validate_godot_version(tag: str) -> str:
 
 # ── Download helpers ────────────────────────────────────────────────────────
 
-def _urlopen(url: str, timeout: int = 30):
+def _build_ssl_context() -> ssl.SSLContext:
+    """Return an SSL context with verifiable trust anchors.
+
+    On Windows the embeddable Python distribution ships *no* CA bundle:
+    `ssl.create_default_context()` returns an empty trust store and every
+    HTTPS download fails with CERTIFICATE_VERIFY_FAILED. We load the
+    Windows system root + CA stores via `ssl.enum_certificates()` so the
+    same certs Edge / Chrome / curl already trust are used here.
+
+    On Linux / macOS the default context is already populated correctly.
+    """
     ctx = ssl.create_default_context()
+    if platform.system() != "Windows":
+        return ctx
+
+    der_certs: list[bytes] = []
+    for store in ("ROOT", "CA"):
+        try:
+            entries = ssl.enum_certificates(store)
+        except (OSError, AttributeError):
+            continue
+        for cert_bytes, encoding, trust in entries:
+            # Skip explicitly distrusted certs (Windows EKU "always_distrust").
+            if isinstance(trust, set) and "1.3.6.1.4.1.311.10.3.30" in trust:
+                continue
+            if encoding == "x509_asn":
+                der_certs.append(cert_bytes)
+
+    if der_certs:
+        pem_blob = "\n".join(ssl.DER_cert_to_PEM_cert(c) for c in der_certs)
+        try:
+            ctx.load_verify_locations(cadata=pem_blob)
+        except ssl.SSLError:
+            # Some entries may be malformed; ignore and rely on whatever
+            # loaded successfully.
+            pass
+    return ctx
+
+
+def _urlopen(url: str, timeout: int = 30):
     req = Request(url, headers={"User-Agent": "VisualGasic-Bootstrap/1.0"})
-    return urlopen(req, timeout=timeout, context=ctx)
+    return urlopen(req, timeout=timeout, context=_build_ssl_context())
 
 
 def download_with_progress(url: str, dest: Path) -> None:
-    dest.parent.mkdir(parents=True, exist_ok=True)
+    """Stream a URL to disk with a progress bar.
 
-    def _reporthook(block_num: int, block_size: int, total_size: int) -> None:
-        if total_size <= 0:
+    Implemented via urlopen+write (not urlretrieve) so we can pass an
+    SSL context — needed on the Windows embeddable Python which has no
+    built-in CA bundle (see _build_ssl_context).
+    """
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    bar_width = 32
+
+    def _draw(downloaded: int, total: int) -> None:
+        if total <= 0:
             return
-        downloaded = block_num * block_size
-        pct = min(downloaded / total_size * 100.0, 100.0)
-        bar_width = 32
+        pct = min(downloaded / total * 100.0, 100.0)
         filled = int(bar_width * pct / 100.0)
-        # ASCII-only progress bar — the embeddable Python on Windows defaults
-        # stdout to cp1252 which cannot encode block-drawing characters, so
-        # using █/░ here would crash the bootstrap with UnicodeEncodeError
-        # the moment the first chunk arrives.
         bar = "#" * filled + "-" * (bar_width - filled)
         mb = downloaded / (1024 * 1024)
-        total_mb = total_size / (1024 * 1024)
+        total_mb = total / (1024 * 1024)
         try:
             sys.stdout.write(f"\r    [{bar}] {pct:5.1f}%  {mb:6.1f} / {total_mb:.1f} MB")
             sys.stdout.flush()
@@ -364,7 +403,18 @@ def download_with_progress(url: str, dest: Path) -> None:
             pass
 
     try:
-        urlretrieve(url, str(dest), reporthook=_reporthook)
+        req = Request(url, headers={"User-Agent": "VisualGasic-Bootstrap/1.0"})
+        with urlopen(req, timeout=60, context=_build_ssl_context()) as resp:
+            total = int(resp.headers.get("Content-Length") or 0)
+            downloaded = 0
+            with open(dest, "wb") as f:
+                while True:
+                    chunk = resp.read(64 * 1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    _draw(downloaded, total)
     except Exception as e:
         die(f"Download failed: {e}", code=2)
     sys.stdout.write("\n")
