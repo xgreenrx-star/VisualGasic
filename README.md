@@ -29,16 +29,19 @@ From [`demo/bench_output.txt`](demo/bench_output.txt) — verify on your own mac
 
 | Benchmark        | GDScript (µs) | VisualGasic (µs) | C++ (µs) | VG vs GDScript    | VG vs C++          |
 |------------------|--------------:|-----------------:|---------:|------------------:|-------------------:|
-| Arithmetic       | 5,535         | **181**          | 64       | **30.6× faster**  | 2.8× slower        |
-| ArraySum         | 4,433         | **104**          | 62       | **42.6× faster**  | 1.7× slower        |
-| **StringConcat** | 5,458         | **72**           | 738      | **75.8× faster**  | **🥇 10.2× faster than C++** |
-| Branching        | 7,389         | **62**           | 52       | **119× faster**   | 1.2× slower        |
-| AllocationsFast  | 10,683        | **1,123**        | 274      | **9.5× faster**   | 4.1× slower        |
-| ArrayDict        | 11,321        | 86,824           | 3,597    | 7.7× **slower**   | 24× slower         |
-| DictFastGet      | 30,534        | 183,384          | —        | 6.0× **slower**   | —                  |
-| DictFastSet      | 19,619        | 231,299          | —        | 11.8× **slower**  | —                  |
+| Arithmetic       | 5,299         | **486**          | 59       | **10.9× faster**  | 8.2× slower        |
+| ArraySum         | 4,346         | **136**          | 58       | **32× faster**    | 2.3× slower        |
+| **StringConcat** | 5,153         | **95**           | 475      | **54× faster**    | **🥇 5× faster than C++** |
+| Branching        | 7,002         | **76**           | 52       | **92× faster**    | 1.5× slower        |
+| ArrayDict        | 11,625        | **5,224**        | 3,466    | **2.2× faster**   | 1.5× slower        |
+| DictFastGet      | 29,293        | **2,953**        | —        | **9.9× faster**   | —                  |
+| DictFastSet      | 20,420        | **3,375**        | —        | **6.0× faster**   | —                  |
+| Interop          | 8,617         | **162**          | 7,067    | **53× faster**    | **🥇 44× faster than C++** |
+| Allocations      | 6,602         | **160**          | 464      | **41× faster**    | **🥇 2.9× faster than C++** |
+| AllocationsFast  | 9,428         | **2,190**        | 275      | **4.3× faster**   | 8× slower          |
+| FileIO           | 938           | **462**          | 387      | **2.0× faster**   | 1.2× slower        |
 
-**Honest TL;DR:** hot paths (arithmetic, branching, string work, array ops) — VG smokes both. Dict-heavy workloads & interop — GDScript is currently ahead and we're chasing that for v5.1.0 stable.
+**TL;DR:** VG outperforms GDScript across the board — from 2× on FileIO to 92× on branching. The dict and allocation benches that previously regressed have been fixed in the v5.1.0 series via the VGDict sole-owner fast path (no Variant boxing, no COW, open-addressing hash table).
 
 > **VisualGasic is not a VB6 clone.** It draws inspiration from VB6's approachable syntax and ease of learning, while introducing modern features that go well beyond what VB6 ever offered. VG is VB6-*compatible* where it makes sense — you can port VB6 projects and feel at home immediately — but the language is designed to look forwards, not backwards.
 

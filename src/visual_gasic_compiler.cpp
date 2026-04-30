@@ -1176,11 +1176,20 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
             if (s->target && s->target->type == ExpressionNode::VARIABLE) {
                 String lhs = ((VariableNode*)s->target)->name.to_lower();
                 if (sole_owner_dict_vars.has(lhs)) {
-                    // Only keep sole-ownership if RHS is self-assignment
+                    // Keep sole-ownership for two safe RHS shapes:
+                    //   (1) self-assignment: `Set dict = dict`
+                    //   (2) fresh empty dictionary: `Set dict = New Dictionary`
+                    //       (no args → no aliasing — emits OP_NEW_VGDICT and is
+                    //       the canonical pattern paired with `Dim dict As Dictionary`).
                     bool safe_rhs = false;
                     if (s->value && s->value->type == ExpressionNode::VARIABLE) {
                         String rhs = ((VariableNode*)s->value)->name.to_lower();
                         if (rhs == lhs) safe_rhs = true;
+                    } else if (s->value && s->value->type == ExpressionNode::NEW) {
+                        NewNode *nn = (NewNode *)s->value;
+                        if (nn->class_name.nocasecmp_to("Dictionary") == 0 && nn->args.size() == 0) {
+                            safe_rhs = true;
+                        }
                     }
                     if (!safe_rhs) {
                         escaped.insert(lhs);
