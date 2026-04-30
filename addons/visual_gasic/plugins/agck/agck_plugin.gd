@@ -1120,26 +1120,19 @@ func _show_build_conflict_dialog(game_data: Dictionary, output_dir: String, exis
 	dialog.dialog_hide_on_ok = true
 	dialog.min_size = Vector2(520, 0)
 
-	# Force a dark, self-consistent palette — without this the dialog
-	# inherits whichever theme the host editor is running, which on
-	# Windows is the VB6 light theme. With the body labels' explicit
-	# light-grey font colors that produced unreadable light-on-light text.
-	var dlg_theme := Theme.new()
-	var dlg_bg := StyleBoxFlat.new()
-	dlg_bg.bg_color = Color(0.16, 0.17, 0.20)
-	dlg_bg.border_color = Color(0.30, 0.32, 0.38)
-	dlg_bg.set_border_width_all(1)
-	dlg_bg.set_content_margin_all(10)
-	dlg_theme.set_stylebox("panel", "AcceptDialog", dlg_bg)
-	dlg_theme.set_stylebox("embedded_border", "Window", dlg_bg)
-	dlg_theme.set_color("title_color", "Window", Color(0.95, 0.95, 0.97))
-	dlg_theme.set_color("font_color", "Label", Color(0.92, 0.92, 0.95))
-	dialog.theme = dlg_theme
+	# On Windows the editor frequently runs with VG's VB6 light theme,
+	# which paints the dialog background light grey/white. Combined with
+	# the body labels' explicit light-grey font color, that produced
+	# unreadable light-on-light text. Linux/macOS were unaffected, so we
+	# only force a guaranteed-dark background on Windows and leave the
+	# other platforms picking up the host theme as before.
+	var is_windows := OS.get_name() == "Windows"
 
 	# Remove the default OK button — we add custom ones
 	dialog.get_ok_button().visible = false
 
-	# Build the content
+	# Build the content. On Windows wrap it in a PanelContainer with an
+	# explicit dark stylebox so the labels always sit on a known background.
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 10)
 
@@ -1148,7 +1141,8 @@ func _show_build_conflict_dialog(game_data: Dictionary, output_dir: String, exis
 	msg.text = "⚠️  The build output directory already contains project files:"
 	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	msg.add_theme_font_size_override("font_size", 13)
-	msg.add_theme_color_override("font_color", Color(0.95, 0.95, 0.97))
+	if is_windows:
+		msg.add_theme_color_override("font_color", Color(0.95, 0.95, 0.97))
 	vbox.add_child(msg)
 
 	# File counts
@@ -1162,7 +1156,12 @@ func _show_build_conflict_dialog(game_data: Dictionary, output_dir: String, exis
 		parts.append(str(png_count) + " sprite" + ("s" if png_count != 1 else "") + " (.png)")
 	details.text = "    📁  " + output_dir + "\n    " + ", ".join(parts)
 	details.add_theme_font_size_override("font_size", 11)
-	details.add_theme_color_override("font_color", Color(0.78, 0.80, 0.85))
+	# Light-grey on Linux's dark dialog reads fine; on Windows we need
+	# near-white to show against the dark wrapper added below.
+	if is_windows:
+		details.add_theme_color_override("font_color", Color(0.82, 0.84, 0.90))
+	else:
+		details.add_theme_color_override("font_color", Color(0.70, 0.70, 0.75))
 	vbox.add_child(details)
 
 	vbox.add_child(HSeparator.new())
@@ -1230,7 +1229,22 @@ func _show_build_conflict_dialog(game_data: Dictionary, output_dir: String, exis
 	btn_box.add_child(cancel_btn)
 
 	vbox.add_child(btn_box)
-	dialog.add_child(vbox)
+	if is_windows:
+		# Wrap the vbox in a PanelContainer with an explicit dark stylebox
+		# so the labels are guaranteed to sit on a dark background, no
+		# matter what host theme the editor is using.
+		var panel := PanelContainer.new()
+		var panel_bg := StyleBoxFlat.new()
+		panel_bg.bg_color = Color(0.16, 0.17, 0.20)
+		panel_bg.border_color = Color(0.30, 0.32, 0.38)
+		panel_bg.set_border_width_all(1)
+		panel_bg.set_content_margin_all(12)
+		panel_bg.set_corner_radius_all(4)
+		panel.add_theme_stylebox_override("panel", panel_bg)
+		panel.add_child(vbox)
+		dialog.add_child(panel)
+	else:
+		dialog.add_child(vbox)
 
 	# Wire button signals
 	overwrite_btn.pressed.connect(func():
