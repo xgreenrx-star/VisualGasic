@@ -1328,10 +1328,23 @@ def main() -> int:
             # Open Form1.vg if it exists, so the user lands directly in the
             # script editor. Falls back to opening the project root.
             form1 = project_dir / "Form1.vg"
-            cmd = [str(launcher)]
+            # Launch Godot directly (skip the .cmd shim) so the child is a
+            # real GUI process. On Windows, detach via creationflags so the
+            # child survives this process exiting (e.g. when the NSIS
+            # installer's nsExec wait completes).
+            cmd = [str(godot_bin), "--path", str(project_dir), "--editor"]
             if form1.exists():
                 cmd.append(str(form1))
-            subprocess.Popen(cmd, close_fds=True)
+            popen_kwargs = {"close_fds": True}
+            if platform.system() == "Windows":
+                # DETACHED_PROCESS (0x00000008) + CREATE_NEW_PROCESS_GROUP (0x00000200)
+                popen_kwargs["creationflags"] = 0x00000008 | 0x00000200
+                popen_kwargs["stdin"] = subprocess.DEVNULL
+                popen_kwargs["stdout"] = subprocess.DEVNULL
+                popen_kwargs["stderr"] = subprocess.DEVNULL
+            else:
+                popen_kwargs["start_new_session"] = True
+            subprocess.Popen(cmd, **popen_kwargs)
         except Exception as e:
             warn(f"Could not auto-launch: {e}")
 

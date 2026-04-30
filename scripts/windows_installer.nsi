@@ -80,6 +80,9 @@ Page custom OptionsPage OptionsPageLeave
 Page custom AIKeysPage  AIKeysPageLeave
 !insertmacro MUI_PAGE_INSTFILES
 !define MUI_FINISHPAGE_TEXT "VisualGasic has been installed.$\r$\n$\r$\nThe VisualGasic IDE should now be open — if not, find it on your Start Menu."
+!define MUI_FINISHPAGE_RUN
+!define MUI_FINISHPAGE_RUN_FUNCTION LaunchVgIde
+!define MUI_FINISHPAGE_RUN_TEXT "Launch VisualGasic IDE now"
 !insertmacro MUI_PAGE_FINISH
 
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -260,9 +263,13 @@ Section "VisualGasic first-time installer" SecMain
     FileWrite $2 "python\python.exe bootstrap_vg.py --offline %~dp0offline --launch %*$\r$\n"
     FileClose $2
 
-    ; Run the first-time setup NOW with the wizard's values.
+    ; Run the first-time setup NOW with the wizard's values. We don't pass
+    ; --launch here because subprocess.Popen from inside nsExec gets the
+    ; child orphaned/killed when the installer wait completes; instead the
+    ; MUI_FINISHPAGE_RUN checkbox launches the IDE via NSIS Exec, which is
+    ; non-blocking and survives the installer process exiting.
     DetailPrint "Running first-time setup (this downloads Godot and can take a few minutes)..."
-    nsExec::ExecToLog '"$INSTDIR\python\python.exe" "$INSTDIR\bootstrap_vg.py" --no-gui --offline "$INSTDIR\offline" --godot-version "$GodotVersion" --project-dir "$ProjectFolder" --display-name "$ProjectName" --launch $0'
+    nsExec::ExecToLog '"$INSTDIR\python\python.exe" "$INSTDIR\bootstrap_vg.py" --no-gui --offline "$INSTDIR\offline" --godot-version "$GodotVersion" --project-dir "$ProjectFolder" --display-name "$ProjectName" $0'
     Pop $3
     ${If} $3 != 0
         DetailPrint "First-time setup returned exit code $3 - the payload is in place; you can re-run '$INSTDIR\run_installer.cmd' to retry."
@@ -299,6 +306,20 @@ Section "VisualGasic first-time installer" SecMain
     WriteRegStr HKCU "Software\${APP_NAME}" "InstallerDir" "$INSTDIR"
     WriteRegStr HKCU "Software\${APP_NAME}" "Version" "${VERSION}"
 SectionEnd
+
+; ── Finish-page launch handler ────────────────────────────────────────
+; Called by MUI_FINISHPAGE_RUN. Launches the VG IDE via the .cmd shim
+; bootstrap_vg.py wrote to %LocalAppData%\VisualGasic\bin. NSIS Exec is
+; non-blocking and the spawned process is independent of the installer,
+; which avoids the orphan-on-exit problem that subprocess.Popen hits when
+; called from inside nsExec.
+Function LaunchVgIde
+    StrCpy $0 "$LOCALAPPDATA\VisualGasic\bin\visualgasic-ide.cmd"
+    IfFileExists "$0" 0 +3
+        Exec '"$0"'
+        Return
+    DetailPrint "Launcher not found at $0 — open it from the Start Menu."
+FunctionEnd
 
 ; ── Uninstall ────────────────────────────────────────────────────────────
 ; Note: the first-time installer writes additional files under
