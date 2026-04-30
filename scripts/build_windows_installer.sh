@@ -64,6 +64,24 @@ else
     cp -rL "$ROOT/addons/visual_gasic" "$BUILD_DIR/offline/addons/"
 fi
 
+# The vgmusic plugin's libgdsion.gdextension references Windows DLLs that
+# are not committed (bin/ is gitignored, GDSiON is built per-platform).
+# Without the .dll the GDExtension fails to load on Windows, the
+# Controller autoload stays in its uninitialised stub state, and the
+# embedded Bosca Ceoil view shows up with no music grid. Pull the upstream
+# release archive at build time so every Windows installer ships them.
+GDSION_VERSION="0.7-beta8"
+GDSION_URL="https://github.com/YuriSizov/gdsion/releases/download/${GDSION_VERSION}/libgdsion-windows.zip"
+GDSION_DEST="$BUILD_DIR/offline/addons/visual_gasic/plugins/vgmusic/bin"
+if [[ ! -f "$GDSION_DEST/libgdsion.windows.template_debug.x86_64.dll" ]]; then
+    echo "[3b/5] Downloading GDSiON ${GDSION_VERSION} Windows binaries"
+    GDSION_TMP="$BUILD_DIR/.gdsion-windows.zip"
+    DL "$GDSION_URL" "$GDSION_TMP"
+    mkdir -p "$GDSION_DEST"
+    unzip -j -o -q "$GDSION_TMP" 'bin/libgdsion.windows*.dll' -d "$GDSION_DEST"
+    rm -f "$GDSION_TMP"
+fi
+
 echo "[4/5] Downloading Python ${PYTHON_VERSION} embeddable"
 PY_ZIP="$BUILD_DIR/python-embed.zip"
 DL "$PYTHON_ZIP_URL" "$PY_ZIP"
