@@ -339,16 +339,42 @@ def _build_ssl_context() -> ssl.SSLContext:
 
     On Windows the embeddable Python distribution ships *no* CA bundle:
     `ssl.create_default_context()` returns an empty trust store and every
-    HTTPS download fails with CERTIFICATE_VERIFY_FAILED. We load the
-    Windows system root + CA stores via `ssl.enum_certificates()` so the
-    same certs Edge / Chrome / curl already trust are used here.
+    HTTPS download fails with CERTIFICATE_VERIFY_FAILED. Resolution order:
+
+      1. SSL_CERT_FILE env var (set by the NSIS installer to the bundled
+         Mozilla cacert.pem) — the most reliable source on a fresh Win10
+         install whose system trust store has not yet been populated by
+         Automatic Root Certificates Update.
+      2. cacert.pem sitting next to bootstrap_vg.py — same bundle, used
+         when the script is launched directly without the env var.
+      3. Windows ROOT + CA stores via `ssl.enum_certificates()`.
 
     On Linux / macOS the default context is already populated correctly.
     """
     ctx = ssl.create_default_context()
+
+    # 1) Explicit bundle path (NSIS sets SSL_CERT_FILE).
+    cert_env = os.environ.get("SSL_CERT_FILE")
+    if cert_env and Path(cert_env).is_file():
+        try:
+            ctx.load_verify_locations(cafile=cert_env)
+            return ctx
+        except (ssl.SSLError, OSError):
+            pass
+
+    # 2) cacert.pem next to this script.
+    sibling = Path(__file__).resolve().parent / "cacert.pem"
+    if sibling.is_file():
+        try:
+            ctx.load_verify_locations(cafile=str(sibling))
+            return ctx
+        except (ssl.SSLError, OSError):
+            pass
+
     if platform.system() != "Windows":
         return ctx
 
+    # 3) Windows system trust store.
     der_certs: list[bytes] = []
     for store in ("ROOT", "CA"):
         try:

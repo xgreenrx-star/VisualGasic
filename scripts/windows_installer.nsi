@@ -262,6 +262,7 @@ Section "VisualGasic first-time installer" SecMain
     FileWrite $2 "cd /d %~dp0$\r$\n"
     FileWrite $2 "set PYTHONUNBUFFERED=1$\r$\n"
     FileWrite $2 "set PYTHONIOENCODING=utf-8$\r$\n"
+    FileWrite $2 "set SSL_CERT_FILE=%~dp0cacert.pem$\r$\n"
     FileWrite $2 "python\python.exe -X utf8 bootstrap_vg.py --offline %~dp0offline --launch %*$\r$\n"
     FileClose $2
 
@@ -279,7 +280,7 @@ Section "VisualGasic first-time installer" SecMain
     ; PYTHONUNBUFFERED=1 makes nsExec see incremental output instead of a
     ; long silent block while Godot downloads.
     DetailPrint "Running first-time setup (this downloads Godot and can take a few minutes)..."
-    nsExec::ExecToLog 'cmd.exe /c set PYTHONUNBUFFERED=1 && set PYTHONIOENCODING=utf-8 && "$INSTDIR\python\python.exe" -X utf8 "$INSTDIR\bootstrap_vg.py" --no-gui --offline "$INSTDIR\offline" --godot-version "$GodotVersion" --project-dir "$ProjectFolder" --display-name "$ProjectName" $0 > "$INSTDIR\install.log" 2>&1'
+    nsExec::ExecToLog 'cmd.exe /c set PYTHONUNBUFFERED=1 && set PYTHONIOENCODING=utf-8 && set SSL_CERT_FILE=$INSTDIR\cacert.pem && "$INSTDIR\python\python.exe" -X utf8 "$INSTDIR\bootstrap_vg.py" --no-gui --offline "$INSTDIR\offline" --godot-version "$GodotVersion" --project-dir "$ProjectFolder" --display-name "$ProjectName" $0 > "$INSTDIR\install.log" 2>&1'
     Pop $3
     ${If} $3 != 0
         DetailPrint "First-time setup returned exit code $3."
@@ -349,6 +350,8 @@ Section "Uninstall"
     RMDir /r "$INSTDIR\offline"
     Delete "$INSTDIR\bootstrap_vg.py"
     Delete "$INSTDIR\bootstrap_gui.py"
+    Delete "$INSTDIR\cacert.pem"
+    Delete "$INSTDIR\install.log"
     RMDir "$INSTDIR"
 
     Delete "$SMPROGRAMS\VisualGasic\VisualGasic first-time setup.lnk"

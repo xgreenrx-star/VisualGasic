@@ -70,6 +70,13 @@ DL "$PYTHON_ZIP_URL" "$PY_ZIP"
 mkdir -p "$BUILD_DIR/python"
 unzip -q "$PY_ZIP" -d "$BUILD_DIR/python"
 rm -f "$PY_ZIP"
+
+# Bundle Mozilla CA bundle so HTTPS works on fresh Windows installs whose
+# system trust store has not been populated yet by Automatic Root Certificates
+# Update. bootstrap_vg.py picks this up via the SSL_CERT_FILE env var (set by
+# windows_installer.nsi) and the explicit cadata fallback.
+echo "[4b/5] Downloading Mozilla CA bundle (cacert.pem)"
+DL "https://curl.se/ca/cacert.pem" "$BUILD_DIR/cacert.pem"
 # The embeddable distribution disables site-packages by default; bootstrap_vg.py
 # uses only stdlib so that's fine. We just need to make sure .pth files can
 # import from the current directory.
