@@ -48,6 +48,23 @@ from typing import Optional
 from urllib.request import Request, urlopen, urlretrieve
 
 
+# ── Force UTF-8 stdio ──────────────────────────────────────────────────────
+# The embeddable Python on Windows defaults stdout to cp1252, which cannot
+# encode the box-drawing / status icons used throughout this script. The
+# moment we hit a non-ASCII character, urlretrieve's progress callback
+# would raise UnicodeEncodeError and abort the whole bootstrap mid-download.
+# Reconfigure to UTF-8 with replacement so every print()/info()/ok()/warn()
+# call is safe regardless of the host code page.
+for _stream_name in ("stdout", "stderr"):
+    _stream = getattr(sys, _stream_name, None)
+    if _stream is not None and hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            pass
+del _stream_name
+
+
 # ── Config ──────────────────────────────────────────────────────────────────
 
 GODOT_VERSION_DEFAULT = "4.6.1-stable"
@@ -333,11 +350,18 @@ def download_with_progress(url: str, dest: Path) -> None:
         pct = min(downloaded / total_size * 100.0, 100.0)
         bar_width = 32
         filled = int(bar_width * pct / 100.0)
-        bar = "█" * filled + "░" * (bar_width - filled)
+        # ASCII-only progress bar — the embeddable Python on Windows defaults
+        # stdout to cp1252 which cannot encode block-drawing characters, so
+        # using █/░ here would crash the bootstrap with UnicodeEncodeError
+        # the moment the first chunk arrives.
+        bar = "#" * filled + "-" * (bar_width - filled)
         mb = downloaded / (1024 * 1024)
         total_mb = total_size / (1024 * 1024)
-        sys.stdout.write(f"\r    [{bar}] {pct:5.1f}%  {mb:6.1f} / {total_mb:.1f} MB")
-        sys.stdout.flush()
+        try:
+            sys.stdout.write(f"\r    [{bar}] {pct:5.1f}%  {mb:6.1f} / {total_mb:.1f} MB")
+            sys.stdout.flush()
+        except (UnicodeEncodeError, OSError):
+            pass
 
     try:
         urlretrieve(url, str(dest), reporthook=_reporthook)

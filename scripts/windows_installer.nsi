@@ -260,7 +260,9 @@ Section "VisualGasic first-time installer" SecMain
     FileOpen $2 "$INSTDIR\run_installer.cmd" w
     FileWrite $2 "@echo off$\r$\n"
     FileWrite $2 "cd /d %~dp0$\r$\n"
-    FileWrite $2 "python\python.exe bootstrap_vg.py --offline %~dp0offline --launch %*$\r$\n"
+    FileWrite $2 "set PYTHONUNBUFFERED=1$\r$\n"
+    FileWrite $2 "set PYTHONIOENCODING=utf-8$\r$\n"
+    FileWrite $2 "python\python.exe -X utf8 bootstrap_vg.py --offline %~dp0offline --launch %*$\r$\n"
     FileClose $2
 
     ; Run the first-time setup NOW with the wizard's values. We don't pass
@@ -268,11 +270,24 @@ Section "VisualGasic first-time installer" SecMain
     ; child orphaned/killed when the installer wait completes; instead the
     ; MUI_FINISHPAGE_RUN checkbox launches the IDE via NSIS Exec, which is
     ; non-blocking and survives the installer process exiting.
+    ;
+    ; -X utf8 forces Python into UTF-8 mode so the embeddable runtime can
+    ; print box-drawing / status icons without UnicodeEncodeError on the
+    ; cp1252 console (which would otherwise abort the bootstrap as soon as
+    ; download_with_progress emits its first progress line).
+    ;
+    ; PYTHONUNBUFFERED=1 makes nsExec see incremental output instead of a
+    ; long silent block while Godot downloads.
     DetailPrint "Running first-time setup (this downloads Godot and can take a few minutes)..."
-    nsExec::ExecToLog '"$INSTDIR\python\python.exe" "$INSTDIR\bootstrap_vg.py" --no-gui --offline "$INSTDIR\offline" --godot-version "$GodotVersion" --project-dir "$ProjectFolder" --display-name "$ProjectName" $0'
+    nsExec::ExecToLog 'cmd.exe /c set PYTHONUNBUFFERED=1 && set PYTHONIOENCODING=utf-8 && "$INSTDIR\python\python.exe" -X utf8 "$INSTDIR\bootstrap_vg.py" --no-gui --offline "$INSTDIR\offline" --godot-version "$GodotVersion" --project-dir "$ProjectFolder" --display-name "$ProjectName" $0 > "$INSTDIR\install.log" 2>&1'
     Pop $3
     ${If} $3 != 0
-        DetailPrint "First-time setup returned exit code $3 - the payload is in place; you can re-run '$INSTDIR\run_installer.cmd' to retry."
+        DetailPrint "First-time setup returned exit code $3."
+        DetailPrint "Log saved to: $INSTDIR\install.log"
+        DetailPrint "Re-run '$INSTDIR\run_installer.cmd' to retry, or share the log when filing an issue."
+        MessageBox MB_ICONEXCLAMATION|MB_OK "VisualGasic first-time setup failed (exit code $3).$\r$\n$\r$\nA detailed log has been saved to:$\r$\n$INSTDIR\install.log$\r$\n$\r$\nPlease attach it when filing an issue at${APP_URL}/issues."
+    ${Else}
+        DetailPrint "Setup log: $INSTDIR\install.log"
     ${EndIf}
 
     ; Record the uninstaller location and run it from an uninstall context.
