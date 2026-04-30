@@ -675,23 +675,27 @@ def scaffold_project(project_dir: Path, display_name: str, addon_source: Path) -
     # Link (or copy) the addon into the project. Symlink on POSIX so updates
     # to the shared install propagate; copy on Windows.
     proj_addon = project_dir / "addons" / "visual_gasic"
-    if proj_addon.exists() or proj_addon.is_symlink():
-        if proj_addon.is_symlink() or proj_addon.is_dir():
-            try:
-                if proj_addon.is_symlink():
-                    proj_addon.unlink()
-                else:
-                    shutil.rmtree(proj_addon)
-            except OSError:
-                pass
+    if proj_addon.is_symlink():
+        try:
+            proj_addon.unlink()
+        except OSError as exc:
+            warn(f"Could not remove existing addon symlink {proj_addon}: {exc}")
+    elif proj_addon.exists():
+        try:
+            shutil.rmtree(proj_addon)
+        except OSError as exc:
+            # On Windows the directory might contain files the editor is
+            # currently holding open. Don't blow up — fall through and let
+            # copytree(dirs_exist_ok=True) overwrite what it can.
+            warn(f"Could not fully remove existing {proj_addon}: {exc}")
 
     if platform.system() == "Windows":
-        shutil.copytree(addon_source, proj_addon)
+        shutil.copytree(addon_source, proj_addon, dirs_exist_ok=True)
     else:
         try:
             proj_addon.symlink_to(addon_source, target_is_directory=True)
         except OSError:
-            shutil.copytree(addon_source, proj_addon)
+            shutil.copytree(addon_source, proj_addon, dirs_exist_ok=True)
 
     (project_dir / "project.godot").write_text(
         PROJECT_GODOT_TEMPLATE.format(display_name=display_name)
