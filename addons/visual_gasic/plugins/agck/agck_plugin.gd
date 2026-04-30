@@ -1023,11 +1023,18 @@ func _begin_build_and_play(game_data: Dictionary) -> void:
 		# Give the filesystem scan enough frames to complete
 		for _i in range(5):
 			await _view.get_tree().process_frame
-		# Also explicitly wait for the scan to finish
+		# Also wait for the scan to finish, but bound the wait so we never
+		# deadlock — on Windows we've observed `filesystem_changed` to be
+		# slow or to coalesce with an earlier scan, leaving an `await` on
+		# it pinned forever (looks like AGCK has hung). Race the signal
+		# against a 5s timeout so the build always proceeds.
 		if Engine.is_editor_hint():
 			var efs = EditorInterface.get_resource_filesystem()
 			if efs and efs.is_scanning():
-				await efs.filesystem_changed
+				var timer := _view.get_tree().create_timer(5.0)
+				await Engine.get_main_loop().process_frame  # let the timer arm
+				while efs.is_scanning() and timer.time_left > 0.0:
+					await _view.get_tree().process_frame
 				await _view.get_tree().process_frame
 
 	# Launch the scene using Godot's built-in play-scene runner
@@ -1113,6 +1120,22 @@ func _show_build_conflict_dialog(game_data: Dictionary, output_dir: String, exis
 	dialog.dialog_hide_on_ok = true
 	dialog.min_size = Vector2(520, 0)
 
+	# Force a dark, self-consistent palette — without this the dialog
+	# inherits whichever theme the host editor is running, which on
+	# Windows is the VB6 light theme. With the body labels' explicit
+	# light-grey font colors that produced unreadable light-on-light text.
+	var dlg_theme := Theme.new()
+	var dlg_bg := StyleBoxFlat.new()
+	dlg_bg.bg_color = Color(0.16, 0.17, 0.20)
+	dlg_bg.border_color = Color(0.30, 0.32, 0.38)
+	dlg_bg.set_border_width_all(1)
+	dlg_bg.set_content_margin_all(10)
+	dlg_theme.set_stylebox("panel", "AcceptDialog", dlg_bg)
+	dlg_theme.set_stylebox("embedded_border", "Window", dlg_bg)
+	dlg_theme.set_color("title_color", "Window", Color(0.95, 0.95, 0.97))
+	dlg_theme.set_color("font_color", "Label", Color(0.92, 0.92, 0.95))
+	dialog.theme = dlg_theme
+
 	# Remove the default OK button — we add custom ones
 	dialog.get_ok_button().visible = false
 
@@ -1125,6 +1148,7 @@ func _show_build_conflict_dialog(game_data: Dictionary, output_dir: String, exis
 	msg.text = "⚠️  The build output directory already contains project files:"
 	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	msg.add_theme_font_size_override("font_size", 13)
+	msg.add_theme_color_override("font_color", Color(0.95, 0.95, 0.97))
 	vbox.add_child(msg)
 
 	# File counts
@@ -1138,7 +1162,7 @@ func _show_build_conflict_dialog(game_data: Dictionary, output_dir: String, exis
 		parts.append(str(png_count) + " sprite" + ("s" if png_count != 1 else "") + " (.png)")
 	details.text = "    📁  " + output_dir + "\n    " + ", ".join(parts)
 	details.add_theme_font_size_override("font_size", 11)
-	details.add_theme_color_override("font_color", Color(0.70, 0.70, 0.75))
+	details.add_theme_color_override("font_color", Color(0.78, 0.80, 0.85))
 	vbox.add_child(details)
 
 	vbox.add_child(HSeparator.new())
