@@ -2,4 +2,7 @@
 results/
 checkers/_gdscript_check_proj/
 checkers/_vg_check_proj/
+checkers/node_modules/
+checkers/package.json
+checkers/package-lock.json
 *.log

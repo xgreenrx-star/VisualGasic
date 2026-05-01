@@ -34,6 +34,9 @@ policy.
 ## Quick start
 
 ```bash
+# 0. One-time setup — install local TypeScript checker (~5 MB)
+cd bench/ai_correctness/checkers && npm install typescript && cd -
+
 # 1. Pick a model (env vars). Set whichever you have credentials for:
 export OPENAI_API_KEY=sk-...
 export ANTHROPIC_API_KEY=sk-ant-...
