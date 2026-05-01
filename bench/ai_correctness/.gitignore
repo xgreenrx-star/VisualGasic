@@ -1,0 +1,5 @@
+# Ignore generated benchmark output and ephemeral check projects.
+results/
+checkers/_gdscript_check_proj/
+checkers/_vg_check_proj/
+*.log

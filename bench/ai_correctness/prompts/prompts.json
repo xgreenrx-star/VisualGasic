@@ -1,0 +1,40 @@
+{
+  "version": "0.1",
+  "notes": "Language-agnostic task specs. Each entry is rendered into a per-language prompt by run_bench.py. Categories mirror corpus/ for apples-to-apples comparison.",
+  "prompts": [
+    {"id": "B01", "category": "basics", "task": "Print the string \"Hello, world!\" exactly once."},
+    {"id": "B02", "category": "basics", "task": "Declare three variables: a string holding a name, an integer holding an age, and a floating-point number holding a height in metres. Print them on three lines, each prefixed by its label."},
+    {"id": "B03", "category": "basics", "task": "Read an integer from a string \"42\", convert a number 99 to a string, and print both with labels."},
+
+    {"id": "C01", "category": "control_flow", "task": "Given an integer score, print A if score>=90, B if 80-89, C if 70-79, D if 60-69, F otherwise. Test it with score=75."},
+    {"id": "C02", "category": "control_flow", "task": "Print every even number from 2 to 20 inclusive, one per line."},
+    {"id": "C03", "category": "control_flow", "task": "Compute the sum of integers 1 through 100 using a loop. Print the result."},
+
+    {"id": "S01", "category": "strings", "task": "Given the string \"the quick brown fox\", split it on spaces and print the number of words and each word on its own line."},
+    {"id": "S02", "category": "strings", "task": "Given the string \"  Hello, World!  \", trim whitespace and convert it to uppercase. Print the result."},
+    {"id": "S03", "category": "strings", "task": "Count how many times the letter 's' appears in the string \"mississippi\". Print the count."},
+
+    {"id": "A01", "category": "arrays", "task": "Given the integer array [3, 1, 4, 1, 5, 9, 2, 6], compute and print the sum and the average."},
+    {"id": "A02", "category": "arrays", "task": "Given the integer array [-5, 12, 8, -10, 22, 0, 17], find and print the maximum and minimum."},
+    {"id": "A03", "category": "arrays", "task": "Sort the integer array [64, 25, 12, 22, 11] in ascending order and print the sorted array."},
+
+    {"id": "D01", "category": "dictionaries", "task": "Build a dictionary mapping {\"apple\": 0.5, \"bread\": 2.25, \"cheese\": 5.99}. Print each key-value pair, then print the total of the values."},
+    {"id": "D02", "category": "dictionaries", "task": "Given the sentence \"the quick brown fox jumps over the lazy dog the\", count word occurrences and print each word with its count."},
+
+    {"id": "K01", "category": "classes", "task": "Define a class Point with two fields x and y. Create an instance with x=3, y=4 and print it as \"(3, 4)\"."},
+    {"id": "K02", "category": "classes", "task": "Define a class Enemy with fields name (string), health (int). Provide a method TakeDamage(amount) that subtracts from health, never below zero. Create one, deal 30 damage, then 80, print health after each."},
+
+    {"id": "F01", "category": "file_io", "task": "Write the three lines \"Line 1\", \"Line 2\", \"Line 3\" to a text file named output.txt, then read the file back and print each line prefixed by its line number."},
+    {"id": "F02", "category": "file_io", "task": "Read a CSV string \"name,age\\nAlice,30\\nBob,25\\nCarol,42\" (the first line is a header) and print the average age."},
+
+    {"id": "M01", "category": "math", "task": "Print the first 10 Fibonacci numbers (starting 0, 1) one per line."},
+    {"id": "M02", "category": "math", "task": "Find and print all prime numbers up to 50, comma-separated on one line."},
+    {"id": "M03", "category": "math", "task": "Compute the Euclidean distance between the points (0,0) and (3,4) and print it."},
+
+    {"id": "T01", "category": "state_machines", "task": "Implement a traffic light state machine with states RED, GREEN, YELLOW. Starting from RED, advance the state seven times (RED->GREEN->YELLOW->RED...) and print the state at each step."},
+    {"id": "T02", "category": "state_machines", "task": "Implement a door state machine with states CLOSED, OPENING, OPEN, CLOSING and events open, close, tick. Process the event sequence [open, tick, close, tick] starting from CLOSED, printing the resulting state after each event."},
+
+    {"id": "G01", "category": "godot_integration", "task": "Write a function that responds to a button-click event by appending a line to a label called lblStatus. Assume the controls already exist on a form. Show only the relevant handler code."},
+    {"id": "G02", "category": "godot_integration", "task": "Write a function that runs once per second via a Timer, incrementing a counter and updating a label called lblTime to show the count. Assume Timer1 and lblTime already exist on the form."}
+  ]
+}
