@@ -1,0 +1,19 @@
+Sub Main()
+    Dim arr(4) As Integer = {64, 25, 12, 22, 11}
+    Dim n As Integer = UBound(arr)
+    Dim i As Integer, j As Integer, temp As Integer
+
+    For i = 0 To n - 1
+        For j = 0 To n - i - 2
+            If arr(j) > arr(j + 1) Then
+                temp = arr(j)
+                arr(j) = arr(j + 1)
+                arr(j + 1) = temp
+            End If
+        Next
+    Next
+
+    For i = 0 To n
+        Print arr(i) & " "
+    Next
+End Sub

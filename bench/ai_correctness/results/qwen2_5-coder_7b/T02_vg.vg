@@ -1,0 +1,38 @@
+Type DoorState
+    State As String
+End Type
+
+Sub ProcessEvent(state As DoorState, event As String) As DoorState
+    Select Case state.State
+        Case "CLOSED"
+            If event = "open" Then
+                state.State = "OPENING"
+            End If
+        Case "OPENING"
+            If event = "tick" Then
+                state.State = "OPEN"
+            End If
+        Case "OPEN"
+            If event = "close" Then
+                state.State = "CLOSING"
+            End If
+        Case "CLOSING"
+            If event = "tick" Then
+                state.State = "CLOSED"
+            End If
+    End Select
+    Return state
+End Sub
+
+Sub Main()
+    Dim currentState As DoorState
+    currentState.State = "CLOSED"
+    
+    Dim events() As String = {"open", "tick", "close", "tick"}
+    
+    For i As Integer = 0 To UBound(events)
+        currentState = ProcessEvent(currentState, events(i))
+        Print currentState.State & " "
+    Next
+    
+End Sub

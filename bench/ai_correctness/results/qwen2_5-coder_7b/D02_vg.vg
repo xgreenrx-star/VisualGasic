@@ -1,0 +1,19 @@
+Sub Main()
+    Dim sentence As String = "the quick brown fox jumps over the lazy dog the"
+    Dim words() As String = Split(sentence, " ")
+    Dim wordCounts As New Dictionary(Of String, Integer)
+
+    For Each word As String In words
+        If Not String.IsNullOrEmpty(word) Then
+            If wordCounts.ContainsKey(word) Then
+                wordCounts(word) += 1
+            Else
+                wordCounts.Add(word, 1)
+            End If
+        End If
+    Next
+
+    For Each kvp As KeyValuePair(Of String, Integer) In wordCounts
+        Print(kvp.Key & ": " & kvp.Value & ", ")
+    Next
+End Sub

@@ -1,0 +1,13 @@
+{
+  "id": "B02",
+  "category": "basics",
+  "language": "gdscript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Declare three variables: a string holding a name, an integer holding an age, and a floating-point number holding a height in metres. Print them on three lines, each prefixed by its label.",
+  "code_file": "B02_gdscript.gd",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 66.96
+}

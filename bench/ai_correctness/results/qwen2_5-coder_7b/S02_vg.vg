@@ -1,0 +1,5 @@
+Sub Main()
+    Dim inputString As String = "  Hello, World!  "
+    Dim trimmedAndUppercase As String = Trim(inputString).ToUpper()
+    Print(trimmedAndUppercase)
+End Sub

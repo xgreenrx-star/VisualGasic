@@ -1,0 +1,6 @@
+Sub Main()
+    Dim num As Integer = 42
+    Dim strNum As String = CStr(99)
+    Print "Number from string: " & num
+    Print "String from number: " & strNum
+End Sub

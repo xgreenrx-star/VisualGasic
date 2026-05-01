@@ -1,0 +1,13 @@
+{
+  "id": "T01",
+  "category": "state_machines",
+  "language": "vg",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Implement a traffic light state machine with states RED, GREEN, YELLOW. Starting from RED, advance the state seven times (RED->GREEN->YELLOW->RED...) and print the state at each step.",
+  "code_file": "T01_vg.vg",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 78.98
+}

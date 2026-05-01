@@ -1,0 +1,13 @@
+{
+  "id": "M03",
+  "category": "math",
+  "language": "vg",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Compute the Euclidean distance between the points (0,0) and (3,4) and print it.",
+  "code_file": "M03_vg.vg",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 59.28
+}

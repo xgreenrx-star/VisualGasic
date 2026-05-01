@@ -1,0 +1,7 @@
+Sub Main()
+    Dim sum As Integer = 0
+    For i As Integer = 1 To 100
+        sum = sum + i
+    Next
+    Print "The sum of integers from 1 to 100 is: " & sum
+End Sub

@@ -1,0 +1,10 @@
+Sub Main()
+    Dim x1 As Integer = 0
+    Dim y1 As Integer = 0
+    Dim x2 As Integer = 3
+    Dim y2 As Integer = 4
+    Dim distance As Double
+
+    distance = Math.Sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+    Print "The Euclidean distance is: " & distance
+End Sub

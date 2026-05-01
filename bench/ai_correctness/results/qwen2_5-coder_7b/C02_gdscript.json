@@ -1,0 +1,13 @@
+{
+  "id": "C02",
+  "category": "control_flow",
+  "language": "gdscript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Print every even number from 2 to 20 inclusive, one per line.",
+  "code_file": "C02_gdscript.gd",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 40.06
+}

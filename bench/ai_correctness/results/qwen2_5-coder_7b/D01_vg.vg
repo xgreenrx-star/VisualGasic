@@ -1,0 +1,13 @@
+Sub Main()
+    Dim prices As Dictionary(Of String, Double)
+    Set prices = New Dictionary(Of String, Double) From {{"apple", 0.5}, {"bread", 2.25}, {"cheese", 5.99}}
+    
+    Dim total As Double = 0
+    
+    For Each kvp As KeyValuePair(Of String, Double) In prices
+        Print "Item: " & kvp.Key & ", Price: $" & kvp.Value
+        total += kvp.Value
+    Next
+    
+    Print "Total: $" & total
+End Sub

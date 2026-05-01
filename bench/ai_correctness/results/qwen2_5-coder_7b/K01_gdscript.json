@@ -1,0 +1,13 @@
+{
+  "id": "K01",
+  "category": "classes",
+  "language": "gdscript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Define a class Point with two fields x and y. Create an instance with x=3, y=4 and print it as \"(3, 4)\".",
+  "code_file": "K01_gdscript.gd",
+  "parse_ok": false,
+  "checker_msg": "SCRIPT ERROR: Parse Error: Too many arguments for \"new()\" call. Expected at most 0 but received 2.\n          at: GDScript::reload (gdscript://-9223372010967530066.gd:4)\n          GDScript backtrace (most recent call first):",
+  "gen_seconds": 63.06
+}

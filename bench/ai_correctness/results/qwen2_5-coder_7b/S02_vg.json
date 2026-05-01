@@ -1,0 +1,13 @@
+{
+  "id": "S02",
+  "category": "strings",
+  "language": "vg",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Given the string \"  Hello, World!  \", trim whitespace and convert it to uppercase. Print the result.",
+  "code_file": "S02_vg.vg",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 42.59
+}

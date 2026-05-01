@@ -1,0 +1,15 @@
+Dim counter As Integer = 0
+
+Sub Timer1_Tick()
+    counter += 1
+    lblTime.Caption = "Time: " & counter.ToString()
+End Sub
+
+Sub Main()
+    Timer1.Interval = 1000 ' Set timer interval to 1 second
+    Timer1.Enabled = True ' Start the timer
+    Do While True
+        Application.DoEvents() ' Process other events while waiting
+        Threading.Thread.Sleep(100) ' Sleep for a short time to avoid high CPU usage
+    Loop
+End Sub

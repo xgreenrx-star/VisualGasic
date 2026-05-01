@@ -1,0 +1,13 @@
+{
+  "id": "B03",
+  "category": "basics",
+  "language": "python",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Read an integer from a string \"42\", convert a number 99 to a string, and print both with labels.",
+  "code_file": "B03_python.py",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 47.31
+}

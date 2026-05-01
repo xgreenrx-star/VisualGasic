@@ -1,0 +1,9 @@
+Sub btnClickHandler()
+    lblStatus.Caption = lblStatus.Caption & "Button clicked!" & vbCrLf
+End Sub
+
+Sub Main()
+    ' Simulate button click event for demonstration purposes
+    btnClickHandler()
+    Print lblStatus.Caption
+End Sub

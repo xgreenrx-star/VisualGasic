@@ -1,0 +1,13 @@
+{
+  "id": "M02",
+  "category": "math",
+  "language": "gdscript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Find and print all prime numbers up to 50, comma-separated on one line.",
+  "code_file": "M02_gdscript.gd",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 62.34
+}

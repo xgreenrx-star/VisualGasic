@@ -1,0 +1,27 @@
+Class Enemy
+    Public name As String
+    Public health As Integer
+
+    Public Sub TakeDamage(amount As Integer)
+        If amount > 0 Then
+            health -= amount
+            If health < 0 Then
+                health = 0
+            End If
+        End If
+    End Sub
+End Class
+
+Sub Main()
+    Dim e As New Enemy
+    e.name = "Goblin"
+    e.health = 150
+
+    Print e.name & " has " & e.health & " health."
+
+    e.TakeDamage(30)
+    Print e.name & " takes 30 damage. Health: " & e.health
+
+    e.TakeDamage(80)
+    Print e.name & " takes 80 damage. Health: " & e.health
+End Sub

@@ -1,0 +1,13 @@
+{
+  "id": "K01",
+  "category": "classes",
+  "language": "vg",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Define a class Point with two fields x and y. Create an instance with x=3, y=4 and print it as \"(3, 4)\".",
+  "code_file": "K01_vg.vg",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 62.09
+}

@@ -1,0 +1,13 @@
+{
+  "id": "G01",
+  "category": "godot_integration",
+  "language": "gdscript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Write a function that responds to a button-click event by appending a line to a label called lblStatus. Assume the controls already exist on a form. Show only the relevant handler code.",
+  "code_file": "G01_gdscript.gd",
+  "parse_ok": false,
+  "checker_msg": "SCRIPT ERROR: Parse Error: Static function \"get_datetime()\" not found in base \"GDScriptNativeClass\".\n          at: GDScript::reload (gdscript://-9223372010967530066.gd:7)\n          GDScript backtrace (most recent call first):",
+  "gen_seconds": 45.27
+}

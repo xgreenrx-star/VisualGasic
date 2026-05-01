@@ -1,0 +1,10 @@
+Sub Main()
+    Dim str As String = "mississippi"
+    Dim count As Integer = 0
+    For i As Integer = 1 To Len(str)
+        If Mid(str, i, 1) = "s" Then
+            count = count + 1
+        End If
+    Next
+    Print "The letter 's' appears " & count & " times."
+End Sub

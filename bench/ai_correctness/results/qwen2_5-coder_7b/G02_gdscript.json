@@ -1,0 +1,13 @@
+{
+  "id": "G02",
+  "category": "godot_integration",
+  "language": "gdscript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Write a function that runs once per second via a Timer, incrementing a counter and updating a label called lblTime to show the count. Assume Timer1 and lblTime already exist on the form.",
+  "code_file": "G02_gdscript.gd",
+  "parse_ok": false,
+  "checker_msg": "SCRIPT ERROR: Parse Error: The function signature doesn't match the parent. Parent signature is \"quit(int = <default>) -> void\".\n          at: GDScript::reload (gdscript://-9223372010967530066.gd:16)\n          GDScript backtrace (most recent call first):",
+  "gen_seconds": 57.41
+}

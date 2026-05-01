@@ -1,0 +1,13 @@
+{
+  "id": "A01",
+  "category": "arrays",
+  "language": "vg",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Given the integer array [3, 1, 4, 1, 5, 9, 2, 6], compute and print the sum and the average.",
+  "code_file": "A01_vg.vg",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 94.8
+}

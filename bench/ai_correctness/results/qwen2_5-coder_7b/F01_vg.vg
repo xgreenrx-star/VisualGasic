@@ -1,0 +1,19 @@
+Sub Main()
+    Dim file As TextStream
+    Set file = CreateTextFile("output.txt", True)
+    file.WriteLine "Line 1"
+    file.WriteLine "Line 2"
+    file.WriteLine "Line 3"
+    file.Close
+
+    Set file = OpenTextFile("output.txt", 1)
+    Dim line As String
+    Dim lineNumber As Integer
+    lineNumber = 1
+    Do While Not file.AtEndOfStream
+        line = file.ReadLine
+        Print lineNumber & ": " & line
+        lineNumber = lineNumber + 1
+    Loop
+    file.Close
+End Sub

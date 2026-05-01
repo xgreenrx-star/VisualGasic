@@ -1,0 +1,13 @@
+{
+  "id": "G02",
+  "category": "godot_integration",
+  "language": "typescript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Write a function that runs once per second via a Timer, incrementing a counter and updating a label called lblTime to show the count. Assume Timer1 and lblTime already exist on the form.",
+  "code_file": "G02_typescript.ts",
+  "parse_ok": false,
+  "checker_msg": "bench/ai_correctness/results/qwen2_5-coder_7b/G02_typescript.ts(5,5): error TS2304: Cannot find name 'lblTime'.",
+  "gen_seconds": 41.34
+}

@@ -1,0 +1,13 @@
+{
+  "id": "F02",
+  "category": "file_io",
+  "language": "python",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Read a CSV string \"name,age\\nAlice,30\\nBob,25\\nCarol,42\" (the first line is a header) and print the average age.",
+  "code_file": "F02_python.py",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 57.25
+}

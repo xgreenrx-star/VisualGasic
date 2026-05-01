@@ -1,0 +1,11 @@
+Sub Main()
+    Dim inputString As String = "the quick brown fox"
+    Dim words() As String = Split(inputString, " ")
+    Dim wordCount As Integer = words.Length
+    
+    Print("Number of words: " & wordCount)
+    
+    For i As Integer = 0 To wordCount - 1
+        Print(words(i))
+    Next
+End Sub

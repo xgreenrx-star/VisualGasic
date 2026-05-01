@@ -1,0 +1,16 @@
+Sub Main()
+    Dim arr(6) As Integer = {-5, 12, 8, -10, 22, 0, 17}
+    Dim maxVal As Integer = arr(0)
+    Dim minVal As Integer = arr(0)
+
+    For i As Integer = 1 To UBound(arr)
+        If arr(i) > maxVal Then
+            maxVal = arr(i)
+        End If
+        If arr(i) < minVal Then
+            minVal = arr(i)
+        End If
+    Next
+
+    Print "Max: " & maxVal & ", Min: " & minVal
+End Sub

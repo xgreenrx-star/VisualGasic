@@ -1,0 +1,1 @@
+console.log("mississippi".split('s').length - 1);

@@ -1,0 +1,11 @@
+Sub Main()
+    Dim a As Integer = 0
+    Dim b As Integer = 1
+    Dim temp As Integer
+    For i As Integer = 0 To 9
+        Print a & vbCrLf
+        temp = a + b
+        a = b
+        b = temp
+    Next
+End Sub

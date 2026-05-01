@@ -1,0 +1,13 @@
+{
+  "id": "K02",
+  "category": "classes",
+  "language": "typescript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Define a class Enemy with fields name (string), health (int). Provide a method TakeDamage(amount) that subtracts from health, never below zero. Create one, deal 30 damage, then 80, print health after each.",
+  "code_file": "K02_typescript.ts",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 82.67
+}

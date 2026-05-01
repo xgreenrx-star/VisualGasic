@@ -1,0 +1,13 @@
+Sub Main()
+    Dim arr(7) As Integer = {3, 1, 4, 1, 5, 9, 2, 6}
+    Dim sum As Integer = 0
+    Dim average As Double
+
+    For i As Integer = LBound(arr) To UBound(arr)
+        sum += arr(i)
+    Next
+
+    average = CDbl(sum) / (UBound(arr) - LBound(arr) + 1)
+
+    Print "Sum: " & sum & ", Average: " & average
+End Sub

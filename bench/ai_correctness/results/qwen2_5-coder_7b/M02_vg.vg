@@ -1,0 +1,21 @@
+Sub Main()
+    Dim i As Integer
+    Dim j As Integer
+    Dim isPrime As Boolean
+    Dim primes As String = ""
+    
+    For i = 2 To 50
+        isPrime = True
+        For j = 2 To i - 1
+            If i Mod j = 0 Then
+                isPrime = False
+                Exit For
+            End If
+        Next
+        If isPrime Then
+            primes = primes & i & ","
+        End If
+    Next
+    
+    Print Left(primes, Len(primes) - 1)
+End Sub

@@ -1,0 +1,13 @@
+{
+  "id": "B01",
+  "category": "basics",
+  "language": "gdscript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Print the string \"Hello, world!\" exactly once.",
+  "code_file": "B01_gdscript.gd",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 39.14
+}

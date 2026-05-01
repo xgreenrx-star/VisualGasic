@@ -1,0 +1,13 @@
+{
+  "id": "S01",
+  "category": "strings",
+  "language": "python",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Given the string \"the quick brown fox\", split it on spaces and print the number of words and each word on its own line.",
+  "code_file": "S01_python.py",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 43.66
+}

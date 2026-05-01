@@ -1,0 +1,13 @@
+{
+  "id": "D02",
+  "category": "dictionaries",
+  "language": "gdscript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Given the sentence \"the quick brown fox jumps over the lazy dog the\", count word occurrences and print each word with its count.",
+  "code_file": "D02_gdscript.gd",
+  "parse_ok": false,
+  "checker_msg": "SCRIPT ERROR: Parse Error: Expected \"in\" or \":\" after \"for\" variable name.\n          at: GDScript::reload (gdscript://-9223372010967530066.gd:15)\n          GDScript backtrace (most recent call first):",
+  "gen_seconds": 63.53
+}

@@ -1,0 +1,13 @@
+{
+  "id": "F01",
+  "category": "file_io",
+  "language": "typescript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Write the three lines \"Line 1\", \"Line 2\", \"Line 3\" to a text file named output.txt, then read the file back and print each line prefixed by its line number.",
+  "code_file": "F01_typescript.ts",
+  "parse_ok": false,
+  "checker_msg": "bench/ai_correctness/results/qwen2_5-coder_7b/F01_typescript.ts(1,21): error TS2591: Cannot find name 'fs'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig.\nbench/ai_correctness/results/qwen2_5-coder_7b/F01_typescript.ts(12,32): error TS7006: Parameter 'err' implicitly has an 'any' type.\nbench/ai_correctness/results/qwen2_5-coder_7b/F01_typescript.ts(12,37): error TS7006: Parameter 'data' implicitly has ",
+  "gen_seconds": 77.85
+}

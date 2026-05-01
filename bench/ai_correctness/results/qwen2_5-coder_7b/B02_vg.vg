@@ -1,0 +1,9 @@
+Sub Main()
+    Dim name As String = "John Doe"
+    Dim age As Integer = 30
+    Dim height As Single = 1.75
+
+    Print "Name: " & name
+    Print "Age: " & age
+    Print "Height: " & height & " meters"
+End Sub

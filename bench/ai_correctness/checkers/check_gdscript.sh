@@ -43,6 +43,12 @@ func _init():
     quit(0)
 EOF
 
-"$GODOT" --headless --path "$PROJ" --script runner.gd >/dev/null 2>&1
+set +e
+OUT="$("$GODOT" --headless --path "$PROJ" --script runner.gd 2>&1)"
 EXIT=$?
+set -e
+
+if [[ $EXIT -ne 0 ]]; then
+    echo "$OUT" | grep -iE "error|parse|script|line " | head -3 >&2
+fi
 exit $EXIT

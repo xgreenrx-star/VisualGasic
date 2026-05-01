@@ -1,0 +1,18 @@
+Sub Main()
+    Dim score As Integer = 75
+    Dim grade As String
+
+    If score >= 90 Then
+        grade = "A"
+    ElseIf score >= 80 Then
+        grade = "B"
+    ElseIf score >= 70 Then
+        grade = "C"
+    ElseIf score >= 60 Then
+        grade = "D"
+    Else
+        grade = "F"
+    End If
+
+    Print grade
+End Sub

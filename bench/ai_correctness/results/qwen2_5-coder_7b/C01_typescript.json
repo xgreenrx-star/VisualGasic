@@ -1,0 +1,13 @@
+{
+  "id": "C01",
+  "category": "control_flow",
+  "language": "typescript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Given an integer score, print A if score>=90, B if 80-89, C if 70-79, D if 60-69, F otherwise. Test it with score=75.",
+  "code_file": "C01_typescript.ts",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 66.02
+}

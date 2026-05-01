@@ -1,0 +1,18 @@
+Class Point
+    Public x As Integer
+    Public y As Integer
+
+    Public Sub New(ByVal x As Integer, ByVal y As Integer)
+        Me.x = x
+        Me.y = y
+    End Sub
+
+    Public Overrides Function ToString() As String
+        Return "(" & Me.x & ", " & Me.y & ")"
+    End Function
+End Class
+
+Sub Main()
+    Dim p As New Point(3, 4)
+    Print(p.ToString())
+End Sub

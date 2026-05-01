@@ -103,7 +103,8 @@ def main(argv: list[str]) -> int:
         print("_(none)_")
     else:
         for a in fails:
-            msg = (a.get("checker_msg") or "").splitlines()[0][:120]
+            raw = (a.get("checker_msg") or "").splitlines()
+            msg = (raw[0] if raw else "(no error message)")[:120]
             print(f"- **{a['model']}** / {a['language']} / {a['id']} ({a['category']}): `{msg}`")
 
     return 0

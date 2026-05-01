@@ -1,0 +1,5 @@
+Sub Main()
+    For i As Integer = 2 To 20 Step 2
+        Print i
+    Next
+End Sub

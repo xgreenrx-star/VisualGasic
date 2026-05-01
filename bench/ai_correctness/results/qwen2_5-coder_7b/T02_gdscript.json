@@ -1,0 +1,13 @@
+{
+  "id": "T02",
+  "category": "state_machines",
+  "language": "gdscript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Implement a door state machine with states CLOSED, OPENING, OPEN, CLOSING and events open, close, tick. Process the event sequence [open, tick, close, tick] starting from CLOSED, printing the resulting state after each event.",
+  "code_file": "T02_gdscript.gd",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 139.9
+}

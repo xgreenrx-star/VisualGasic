@@ -1,0 +1,21 @@
+Sub Main()
+    Dim csv As String = "name,age" & vbCrLf & "Alice,30" & vbCrLf & "Bob,25" & vbCrLf & "Carol,42"
+    Dim lines() As String = Split(csv, vbCrLf)
+    Dim sum As Integer = 0
+    Dim count As Integer = 0
+
+    For i As Integer = 1 To UBound(lines)
+        Dim parts() As String = Split(lines(i), ",")
+        If parts.Length > 1 Then
+            sum += CInt(parts(1))
+            count += 1
+        End If
+    Next
+
+    If count > 0 Then
+        Dim average As Double = CDbl(sum) / count
+        Print "Average age: " & average
+    Else
+        Print "No data to calculate average."
+    End If
+End Sub

@@ -1,0 +1,13 @@
+{
+  "id": "C03",
+  "category": "control_flow",
+  "language": "gdscript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Compute the sum of integers 1 through 100 using a loop. Print the result.",
+  "code_file": "C03_gdscript.gd",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 43.16
+}

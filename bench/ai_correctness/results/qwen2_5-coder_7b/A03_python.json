@@ -1,0 +1,13 @@
+{
+  "id": "A03",
+  "category": "arrays",
+  "language": "python",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Sort the integer array [64, 25, 12, 22, 11] in ascending order and print the sorted array.",
+  "code_file": "A03_python.py",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 64.99
+}

@@ -1,0 +1,13 @@
+{
+  "id": "B03",
+  "category": "basics",
+  "language": "typescript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Read an integer from a string \"42\", convert a number 99 to a string, and print both with labels.",
+  "code_file": "B03_typescript.ts",
+  "parse_ok": false,
+  "checker_msg": "bench/ai_correctness/results/qwen2_5-coder_7b/B03_typescript.ts(3,19): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.\nbench/ai_correctness/results/qwen2_5-coder_7b/B03_typescript.ts(3,27): error TS1005: ',' expected.\nbench/ai_correctness/results/qwen2_5-coder_7b/B03_typescript.ts(3,28): error TS1109: Expression expected.",
+  "gen_seconds": 45.25
+}

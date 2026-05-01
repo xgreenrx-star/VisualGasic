@@ -1,0 +1,13 @@
+{
+  "id": "F01",
+  "category": "file_io",
+  "language": "vg",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Write the three lines \"Line 1\", \"Line 2\", \"Line 3\" to a text file named output.txt, then read the file back and print each line prefixed by its line number.",
+  "code_file": "F01_vg.vg",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 77.33
+}

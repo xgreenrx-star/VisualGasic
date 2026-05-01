@@ -1,0 +1,13 @@
+{
+  "id": "M01",
+  "category": "math",
+  "language": "gdscript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Print the first 10 Fibonacci numbers (starting 0, 1) one per line.",
+  "code_file": "M01_gdscript.gd",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 46.52
+}

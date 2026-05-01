@@ -1,0 +1,13 @@
+{
+  "id": "D01",
+  "category": "dictionaries",
+  "language": "python",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Build a dictionary mapping {\"apple\": 0.5, \"bread\": 2.25, \"cheese\": 5.99}. Print each key-value pair, then print the total of the values.",
+  "code_file": "D01_python.py",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 58.05
+}

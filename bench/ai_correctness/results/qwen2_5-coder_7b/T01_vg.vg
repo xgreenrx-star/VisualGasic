@@ -1,0 +1,22 @@
+Type TrafficLightState
+    RED As Integer = 1
+    GREEN As Integer = 2
+    YELLOW As Integer = 3
+End Type
+
+Sub Main()
+    Dim currentState As Integer = TrafficLightState.RED
+    For i As Integer = 0 To 6
+        Select Case currentState
+            Case TrafficLightState.RED
+                Print "RED"
+                currentState = TrafficLightState.GREEN
+            Case TrafficLightState.GREEN
+                Print "GREEN"
+                currentState = TrafficLightState.YELLOW
+            Case TrafficLightState.YELLOW
+                Print "YELLOW"
+                currentState = TrafficLightState.RED
+        End Select
+    Next
+End Sub

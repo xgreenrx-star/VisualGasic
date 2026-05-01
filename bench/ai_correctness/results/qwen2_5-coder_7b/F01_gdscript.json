@@ -1,0 +1,13 @@
+{
+  "id": "F01",
+  "category": "file_io",
+  "language": "gdscript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Write the three lines \"Line 1\", \"Line 2\", \"Line 3\" to a text file named output.txt, then read the file back and print each line prefixed by its line number.",
+  "code_file": "F01_gdscript.gd",
+  "parse_ok": false,
+  "checker_msg": "SCRIPT ERROR: Parse Error: Identifier \"File\" not declared in the current scope.\n          at: GDScript::reload (gdscript://-9223372010967530066.gd:4)\n          GDScript backtrace (most recent call first):",
+  "gen_seconds": 78.78
+}

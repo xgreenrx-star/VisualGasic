@@ -1,0 +1,13 @@
+{
+  "id": "T01",
+  "category": "state_machines",
+  "language": "gdscript",
+  "model": "qwen2.5-coder:7b",
+  "provider": "ollama",
+  "temperature": 0.2,
+  "task": "Implement a traffic light state machine with states RED, GREEN, YELLOW. Starting from RED, advance the state seven times (RED->GREEN->YELLOW->RED...) and print the state at each step.",
+  "code_file": "T01_gdscript.gd",
+  "parse_ok": false,
+  "checker_msg": "SCRIPT ERROR: Parse Error: \"yield\" was removed in Godot 4. Use \"await\" instead.\n          at: GDScript::reload (gdscript://-9223372010967530066.gd:10)\n          GDScript backtrace (most recent call first):",
+  "gen_seconds": 101.9
+}
