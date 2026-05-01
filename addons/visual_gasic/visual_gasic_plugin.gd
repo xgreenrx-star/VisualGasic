@@ -197,6 +197,7 @@ var _controls_inspector = null
 
 ## Exception Assistant — VB6-style error popup
 var _exception_assistant = null
+var _ai_repair_dialog = null
 
 ## Package Browser (v4.3.0) — Package Manager panel
 var _package_browser = null
@@ -429,6 +430,8 @@ func _enter_tree():
 		_exception_assistant.end_requested.connect(_on_exception_end)
 		if _exception_assistant.has_signal("ai_help_requested"):
 			_exception_assistant.ai_help_requested.connect(_on_exception_ask_ai)
+		if _exception_assistant.has_signal("ai_repair_requested"):
+			_exception_assistant.ai_repair_requested.connect(_on_exception_ai_repair)
 		if debugger_plugin:
 			if debugger_plugin.has_signal("error_break_received"):
 				debugger_plugin.error_break_received.connect(_on_error_break_received)
@@ -7143,6 +7146,37 @@ func _on_exception_ask_ai(file: String, line: int, message: String, code: int, v
 		# Switch to the AI Help tab in the IDE's bottom tabs
 		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_bottom_tab"):
 			_embedded_code_editor.focus_bottom_tab(_ai_help_panel)
+
+func _on_exception_ai_repair(file: String, line: int, message: String, code: int, variables: Dictionary) -> void:
+	## User chose Fix with AI — open the repair dialog (Tier 2 of AI roadmap).
+	print("VisualGasic: Exception Assistant → Fix with AI (%s:%d)" % [file.get_file(), line])
+	if _ai_repair_dialog == null or not is_instance_valid(_ai_repair_dialog):
+		var repair_script = load("res://addons/visual_gasic/vg_ai_repair.gd")
+		if repair_script == null:
+			push_error("VisualGasic: vg_ai_repair.gd not found")
+			return
+		_ai_repair_dialog = repair_script.new()
+		# Host the dialog on the editor's base control so it floats over the IDE.
+		var host = EditorInterface.get_base_control() if Engine.is_editor_hint() else null
+		if host:
+			host.add_child(_ai_repair_dialog)
+		else:
+			add_child(_ai_repair_dialog)
+		if _ai_repair_dialog.has_signal("repair_applied"):
+			_ai_repair_dialog.repair_applied.connect(_on_ai_repair_applied)
+	_ai_repair_dialog.request_repair(file, line, message, code, variables)
+
+func _on_ai_repair_applied(file: String, line_count_changed: int) -> void:
+	print("VisualGasic: AI Repair applied to %s (%+d lines)" % [file.get_file(), line_count_changed])
+	# If the patched file is open in the embedded editor, reload it from disk.
+	if is_instance_valid(_embedded_code_editor):
+		var current: String = ""
+		if _embedded_code_editor.has_method("get_file_path"):
+			current = _embedded_code_editor.get_file_path()
+		if current == file and _embedded_code_editor.has_method("reload_from_disk"):
+			_embedded_code_editor.reload_from_disk()
+		elif current == file and _embedded_code_editor.has_method("open_file"):
+			_embedded_code_editor.open_file(file)
 
 # =============================================================================
 # CALL STACK NAVIGATION — frame-level variable inspection

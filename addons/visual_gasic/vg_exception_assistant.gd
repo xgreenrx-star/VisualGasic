@@ -10,6 +10,7 @@ signal debug_requested()   ## User chose to stay paused and inspect
 signal end_requested()     ## User chose to stop the game
 signal continue_requested()  ## User chose to continue past the error
 signal ai_help_requested(file: String, line: int, message: String, code: int, variables: Dictionary)  ## User wants AI to explain
+signal ai_repair_requested(file: String, line: int, message: String, code: int, variables: Dictionary)  ## User wants AI to propose & apply a code patch
 
 var _error_label: RichTextLabel
 var _vars_tree: Tree
@@ -20,6 +21,7 @@ var _debug_btn: Button
 var _end_btn: Button
 var _continue_btn: Button
 var _ai_btn: Button
+var _ai_fix_btn: Button
 var _last_file := ""
 var _last_line := 0
 var _last_message := ""
@@ -158,6 +160,17 @@ func _setup_ui() -> void:
 	_ai_btn.pressed.connect(_on_ask_ai)
 	btn_row.add_child(_ai_btn)
 
+	var spacer4 := Control.new()
+	spacer4.custom_minimum_size = Vector2(20, 0)
+	btn_row.add_child(spacer4)
+
+	_ai_fix_btn = Button.new()
+	_ai_fix_btn.text = "\ud83e\ude79 Fix with AI"
+	_ai_fix_btn.tooltip_text = "Have AI propose a code patch you can preview and apply"
+	_ai_fix_btn.custom_minimum_size = Vector2(140, 36)
+	_ai_fix_btn.pressed.connect(_on_ai_fix)
+	btn_row.add_child(_ai_fix_btn)
+
 func show_error(file: String, line: int, message: String, code: int, variables: Dictionary = {}) -> void:
 	## Show the exception assistant with error details.
 	_last_file = file
@@ -202,3 +215,7 @@ func _on_end() -> void:
 func _on_ask_ai() -> void:
 	hide()
 	ai_help_requested.emit(_last_file, _last_line, _last_message, _last_code, _last_variables)
+
+func _on_ai_fix() -> void:
+	hide()
+	ai_repair_requested.emit(_last_file, _last_line, _last_message, _last_code, _last_variables)
