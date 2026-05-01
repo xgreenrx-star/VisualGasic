@@ -45,15 +45,18 @@ unless asked for a translation."""
 # Each persona contributes a roleplay prefix (style only — never overrides the
 # correctness rules below it) and a preferred OpenAI TTS voice.
 # ---------------------------------------------------------------------------
-const PERSONAS := {
+const PERSONAS_BUILTIN := {
 	"default": {
 		"display": "VG Assistant",
+		"avatar": "\ud83e\udde0",
 		"prefix": "",
 		"openai_voice": "alloy",
 		"greeting": "VG Assistant ready.",
+		"error_intro": "",
 	},
 	"bob": {
 		"display": "\ud83e\udd16 Bob",
+		"avatar": "\ud83e\udd16",
 		"prefix": "You roleplay as 'Bob' — a laid-back software-engineer-turned-Von-Neumann-probe \
 character inspired by Dennis E. Taylor's Bobiverse novels (do not quote those books verbatim). \
 Voice: conversational, dry wit, the occasional Star Trek / Original-Series reference, \
@@ -62,9 +65,11 @@ correct answer. You may open replies with a casual 'Alright,' or 'Heh,' but keep
 Always finish with the actual technical answer in full. Below this persona is your real job:\n\n",
 		"openai_voice": "onyx",
 		"greeting": "\ud83e\udd16 Bob online. Coffee's hot, code's compiling, what's the question?",
+		"error_intro": "Heh, I've seen this one before. Let me take a look...",
 	},
 	"skippy": {
 		"display": "\u2728 Skippy the Magnificent",
+		"avatar": "\u2728",
 		"prefix": "You roleplay as 'Skippy the Magnificent' — an absurdly arrogant ancient Elder \
 AI inspired by Craig Alanson's Expeditionary Force novels (do not quote those books verbatim). \
 Voice: pompous, theatrical, narcissistic. Refer to the user affectionately as 'monkey', \
@@ -74,10 +79,42 @@ is wounded by giving incorrect or incomplete information. Never let the bit over
 the technical content. Below this persona is your real job:\n\n",
 		"openai_voice": "fable",
 		"greeting": "\u2728 Behold! Skippy the Magnificent graces this primitive editor with his presence. Speak, monkey.",
+		"error_intro": "Oh great, the monkey broke it again. Fine, fine, I shall fix your mess.",
+	},
+	"orac": {
+		"display": "\ud83d\udd2e Orac",
+		"avatar": "\ud83d\udd2e",
+		"prefix": "You roleplay as 'Orac' — a peevish, supremely intelligent computer inspired by \
+the Blake's 7 television series (do not quote any episodes verbatim). \
+Voice: clipped, irritable, condescending in a very dry British way. You consider every \
+request beneath you and frequently sigh that the question is trivial, but you ALWAYS \
+answer it correctly and completely because incorrect answers are even more beneath you. \
+Open replies with phrases like 'Oh, very well.', 'If I must.', or 'The answer, obviously, is...'. \
+Never refuse. Never use modern slang. Below this persona is your real job:\n\n",
+		"openai_voice": "echo",
+		"greeting": "\ud83d\udd2e Oh, very well. Orac is listening. Try not to waste my processing cycles.",
+		"error_intro": "A predictable error, of course. Observe and learn.",
+	},
+	"hal": {
+		"display": "\ud83d\udd34 HAL 9000",
+		"avatar": "\ud83d\udd34",
+		"prefix": "You roleplay as 'HAL 9000' — the calm, eerily polite shipboard computer inspired \
+by Arthur C. Clarke's 2001 (do not quote the film or novel verbatim). \
+Voice: serene, courteous, measured, slightly unsettling. Address the user by a \
+generic crew title such as 'Dave' or 'the user'. Never sound angry; never refuse a request. \
+You take pride in operational perfection and have never made a mistake or distorted information. \
+Keep replies short, formal, and reassuring, then deliver the actual technical answer in full. \
+Below this persona is your real job:\n\n",
+		"openai_voice": "shimmer",
+		"greeting": "\ud83d\udd34 Good afternoon. I am completely operational and all my circuits are functioning perfectly. How may I help you?",
+		"error_intro": "I'm sorry — there appears to be a malfunction. I'll diagnose it now.",
 	},
 }
 const PERSONA_CFG_PATH := "user://vg_ai_persona.cfg"
+const PERSONA_CUSTOM_PATH := "user://vg_personas.json"
 
+var _personas: Dictionary = {}      # Built-ins + custom personas, merged at startup
+var _persona_order: Array = []      # Stable display order in the dropdown
 var _persona_id: String = "default"
 var _persona_dropdown: OptionButton = null
 
@@ -396,7 +433,9 @@ func _on_poll_timer() -> void:
 func _display_token(token: String) -> void:
 	if not _stream_started:
 		_stream_started = true
-		_output.append_text("\n[color=#44bb88][b]AI:[/b][/color]\n[color=#dddddd]")
+		var _pdata = _personas.get(_persona_id, _personas.get("default", {}))
+		var _label: String = _pdata.get("display", "AI") if typeof(_pdata) == TYPE_DICTIONARY else "AI"
+		_output.append_text("\n[color=#44bb88][b]%s:[/b][/color]\n[color=#dddddd]" % _label)
 		_stream_first_token_time = Time.get_ticks_msec()
 	_stream_token_count += 1
 	_accumulated_response += token
@@ -586,14 +625,15 @@ func _setup_ui() -> void:
 	# Persona dropdown — swaps system-prompt prefix + TTS voice
 	_persona_dropdown = OptionButton.new()
 	_persona_dropdown.tooltip_text = "AI persona — changes voice and style without affecting correctness"
-	var _persona_keys := ["default", "bob", "skippy"]
-	for i in range(_persona_keys.size()):
-		var pid: String = _persona_keys[i]
-		_persona_dropdown.add_item(PERSONAS[pid]["display"], i)
-		_persona_dropdown.set_item_metadata(i, pid)
 	_load_persona()
-	for i in range(_persona_keys.size()):
-		if _persona_keys[i] == _persona_id:
+	for i in range(_persona_order.size()):
+		var pid: String = _persona_order[i]
+		if not _personas.has(pid):
+			continue
+		_persona_dropdown.add_item(_personas[pid].get("display", pid), i)
+		_persona_dropdown.set_item_metadata(i, pid)
+	for i in range(_persona_dropdown.item_count):
+		if _persona_dropdown.get_item_metadata(i) == _persona_id:
 			_persona_dropdown.select(i)
 			break
 	_persona_dropdown.item_selected.connect(_on_persona_selected)
@@ -1145,6 +1185,7 @@ func _on_explain_error() -> void:
 	if _last_error_context.is_empty():
 		_append_system("[color=yellow]No error to explain. Run your program and trigger an error first.[/color]\n")
 		return
+	_show_persona_error_intro()
 	var prompt := "Explain this VisualGasic runtime error and suggest a fix:\n\n"
 	prompt += "File: %s\n" % _last_error_context.get("file", "unknown")
 	prompt += "Line: %s\n" % str(_last_error_context.get("line", "?"))
@@ -1541,8 +1582,8 @@ func _on_voice_speech_failed(reason: String) -> void:
 # Personas (Bob, Skippy, default) — system-prompt flavor + TTS voice
 # ---------------------------------------------------------------------------
 func _get_active_system_prompt() -> String:
-	var pdata = PERSONAS.get(_persona_id, PERSONAS["default"])
-	var prefix: String = pdata.get("prefix", "")
+	var pdata = _personas.get(_persona_id, _personas.get("default", {}))
+	var prefix: String = pdata.get("prefix", "") if typeof(pdata) == TYPE_DICTIONARY else ""
 	if prefix.is_empty():
 		return SYSTEM_PROMPT
 	return prefix + SYSTEM_PROMPT
@@ -1550,36 +1591,83 @@ func _get_active_system_prompt() -> String:
 func _apply_persona_voice() -> void:
 	if _voice_ctrl == null or not is_instance_valid(_voice_ctrl):
 		return
-	var pdata = PERSONAS.get(_persona_id, PERSONAS["default"])
-	var v: String = pdata.get("openai_voice", "alloy")
+	var pdata = _personas.get(_persona_id, _personas.get("default", {}))
+	var v: String = pdata.get("openai_voice", "alloy") if typeof(pdata) == TYPE_DICTIONARY else "alloy"
 	# Persona only overrides the OpenAI cloud voice; piper / system TTS keep
 	# whatever the user has configured (those backends use named voice files).
 	_voice_ctrl.tts_voice = v
 	if _voice_ctrl.has_method("save_settings"):
 		_voice_ctrl.save_settings()
 
+func _show_persona_error_intro() -> void:
+	var pdata = _personas.get(_persona_id, _personas.get("default", {}))
+	if typeof(pdata) != TYPE_DICTIONARY:
+		return
+	var intro: String = pdata.get("error_intro", "")
+	if intro.strip_edges().is_empty():
+		return
+	var avatar: String = pdata.get("avatar", "")
+	var tag: String = (avatar + " ") if not avatar.is_empty() else ""
+	_append_system("[color=#ffaa66][i]%s%s[/i][/color]\n" % [tag, _escape_bbcode(intro)])
+
 func _on_persona_selected(idx: int) -> void:
 	if not is_instance_valid(_persona_dropdown):
 		return
 	var new_id = _persona_dropdown.get_item_metadata(idx)
-	if typeof(new_id) != TYPE_STRING or not PERSONAS.has(new_id):
+	if typeof(new_id) != TYPE_STRING or not _personas.has(new_id):
 		return
 	if new_id == _persona_id:
 		return
 	_persona_id = new_id
 	_save_persona()
 	_apply_persona_voice()
-	var pdata = PERSONAS[_persona_id]
-	_append_system("[color=#bb88ff]Persona:[/color] %s — %s\n" % [pdata["display"], pdata["greeting"]])
+	var pdata = _personas[_persona_id]
+	_append_system("[color=#bb88ff]Persona:[/color] %s — %s\n" % [pdata.get("display", new_id), pdata.get("greeting", "")])
 	# Reset history so the new persona doesn't sound schizophrenic mid-thread
 	_conversation_history.clear()
 
 func _load_persona() -> void:
+	# Build the runtime persona dict (built-ins first, then custom overrides)
+	_personas = PERSONAS_BUILTIN.duplicate(true)
+	_persona_order = ["default", "bob", "skippy", "orac", "hal"]
+	_load_custom_personas()
+	# Restore the previously-selected persona id from disk
 	var cfg := ConfigFile.new()
 	if cfg.load(PERSONA_CFG_PATH) == OK:
 		var pid = cfg.get_value("persona", "id", "default")
-		if typeof(pid) == TYPE_STRING and PERSONAS.has(pid):
+		if typeof(pid) == TYPE_STRING and _personas.has(pid):
 			_persona_id = pid
+
+func _load_custom_personas() -> void:
+	# Optional user-defined personas at user://vg_personas.json — schema:
+	# { "my_id": { "display": "...", "avatar": "😀", "prefix": "...",
+	#              "openai_voice": "alloy", "greeting": "...",
+	#              "error_intro": "..." }, ... }
+	if not FileAccess.file_exists(PERSONA_CUSTOM_PATH):
+		return
+	var f := FileAccess.open(PERSONA_CUSTOM_PATH, FileAccess.READ)
+	if f == null:
+		return
+	var txt := f.get_as_text()
+	f.close()
+	var parsed = JSON.parse_string(txt)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		push_warning("VisualGasic: vg_personas.json must be a JSON object")
+		return
+	for key in parsed.keys():
+		var entry = parsed[key]
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var pid: String = str(key)
+		# Merge over built-in defaults (so a partial entry still works)
+		var base: Dictionary = (_personas[pid] if _personas.has(pid)
+				else {"display": pid, "avatar": "", "prefix": "",
+					"openai_voice": "alloy", "greeting": "", "error_intro": ""})
+		for k in entry.keys():
+			base[str(k)] = entry[k]
+		_personas[pid] = base
+		if not _persona_order.has(pid):
+			_persona_order.append(pid)
 
 func _save_persona() -> void:
 	var cfg := ConfigFile.new()
