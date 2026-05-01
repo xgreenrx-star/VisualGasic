@@ -52,10 +52,13 @@ The Profiler panel is wired to the C++ `VisualGasicProfiler` singleton via stati
 
 We agree that today's AI integration, while useful, still feels mostly *bolted on* — a chat panel that takes prompts and gives back text. The next wave of AI work focuses on making AI a true *graph-aware collaborator* instead. Here's the plan:
 
-**🚧 Landing in this release line (v5.1.x patch releases):**
-- **Repair-on-error ("🩹 Fix with AI" button on the error dialog).** When VG raises a runtime error or the type-checker rejects a connection, click *Fix with AI* — the model sees the error message, the offending node, and a 1-hop subgraph around it, and proposes an actual diff (red strikethrough on doomed nodes, green ghost on new ones). One click to apply, one to reject, one to retry. Built around schema validation so suggestions that wouldn't compile never reach you in the first place. **This is the area we want the most feedback on once it ships** — acceptance-rate metrics will gate the rest of the roadmap.
+**✅ Shipped in this RC:**
+- **Repair-on-error ("🩹 Fix with AI" button on the error dialog).** When VG raises a runtime error, click *🩹 Fix with AI* on the Exception Assistant — the model sees the error message, the offending source line, and a 20-line context window, and returns an actual diff (red strikethrough on doomed lines, green on new ones). One click to apply, one to reject, one to retry. Works with whichever provider you've configured (Ollama / OpenAI / Claude / Gemini). **This is the area we want the most feedback on** — acceptance-rate metrics will gate the rest of the roadmap.
 
-**🔮 Planned for a future v5.x release (gated on Repair-on-error feedback):**
+**🚧 Landing next in v5.1.x (rc.2):**
+- **🎙 Voice mode (push-to-talk).** A new microphone button in the AI Help panel turns it into a hands-free assistant. Hold the 🎙 key, talk, release — your speech is transcribed (OpenAI Whisper API or local `whisper.cpp`), the AI answers, and the reply is spoken back (OpenAI TTS or local `piper`). Voice queries share the same conversation history as typed ones, so the AI remembers what you asked five minutes ago whether you typed it or said it. Local-first by default: if `whisper.cpp` and `piper` are on your `PATH`, voice runs entirely offline. No wake word, no always-on listening — strict push-to-talk for privacy.
+
+**🔮 Planned for a future v5.x release (gated on Repair-on-error + Voice feedback):**
 - **Inline node generation (`Ctrl+K`).** Press `Ctrl+K` anywhere in the graph editor → small floating prompt → describe what you want (*"spawn enemy every 2s, faster after 30s"*) → AI generates real VG nodes wired into your graph at the cursor, ghost-previewed before commit. Not GDScript — actual graph nodes validated against the schema.
 - **Template-aware authoring in AGCK.** AGCK already knows you're building a *Platformer* or *Top-Down RPG*. Future releases pipe that context into the AI: *"add double-jump"* understands which actor is the Hero, finds the jump node, and edits *the actor's* `.vg` directly instead of dropping a generic snippet. Built on per-template intent vocabularies that constrain even small local models to do the right thing.
 

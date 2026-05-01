@@ -93,6 +93,11 @@ var _current_prompt := ""  # Tracks the prompt of the in-flight query
 var _last_error_context := {}
 var _last_selected_code := ""
 
+# Voice I/O (Tier 2.5) — controller is created lazily on first use
+var _voice_ctrl = null
+var _mic_btn: Button = null
+var _voice_speak_toggle: CheckBox = null
+
 ## Grab the current selection from the embedded VB6 code editor.
 ## Falls back to the text of the Sub/Function surrounding the caret,
 ## or _last_selected_code if the editor isn't reachable.
@@ -387,6 +392,13 @@ func _finish_generation() -> void:
 		_status_label.add_theme_color_override("font_color",
 			Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
 
+	# Voice mode (Tier 2.5): speak the completed reply aloud if enabled.
+	if is_instance_valid(_voice_speak_toggle) and _voice_speak_toggle.button_pressed \
+			and not _accumulated_response.strip_edges().is_empty():
+		_ensure_voice_ctrl()
+		if _voice_ctrl != null:
+			_voice_ctrl.speak(_accumulated_response)
+
 ## Force-stop generation (abort button or reparent).
 func _stop_generation() -> void:
 	# Stop the poll timer right away
@@ -513,6 +525,22 @@ func _setup_ui() -> void:
 	_clear_btn.pressed.connect(_on_clear)
 	_style_small_button(_clear_btn)
 	toolbar.add_child(_clear_btn)
+
+	# 🎙 Voice mode — push-to-talk button + auto-speak toggle (Tier 2.5)
+	_mic_btn = Button.new()
+	_mic_btn.text = "🎙"
+	_mic_btn.tooltip_text = "Push-to-talk: click to record, click again to stop and transcribe"
+	_mic_btn.toggle_mode = true
+	_mic_btn.toggled.connect(_on_mic_toggled)
+	_style_small_button(_mic_btn)
+	toolbar.add_child(_mic_btn)
+
+	_voice_speak_toggle = CheckBox.new()
+	_voice_speak_toggle.text = "🔊"
+	_voice_speak_toggle.tooltip_text = "Speak AI replies aloud"
+	_voice_speak_toggle.button_pressed = true
+	_voice_speak_toggle.toggled.connect(_on_auto_speak_toggled)
+	toolbar.add_child(_voice_speak_toggle)
 
 	# --- Quick action buttons ---
 	var actions := HBoxContainer.new()
@@ -1351,3 +1379,102 @@ func _send_cloud_query(prompt: String) -> void:
 
 var _cloud_request_headers: Array = []
 var _cloud_request_path: String = ""
+
+# ---------------------------------------------------------------------------
+# Voice mode (Tier 2.5) — push-to-talk + auto-speak replies
+# ---------------------------------------------------------------------------
+
+func _ensure_voice_ctrl() -> void:
+	if _voice_ctrl != null and is_instance_valid(_voice_ctrl):
+		return
+	var voice_script = load("res://addons/visual_gasic/vg_ai_voice.gd")
+	if voice_script == null:
+		_append_system("[color=red]Voice module not found.[/color]\n")
+		return
+	_voice_ctrl = voice_script.new()
+	add_child(_voice_ctrl)
+	if _voice_ctrl.has_signal("recording_started"):
+		_voice_ctrl.recording_started.connect(_on_voice_recording_started)
+	if _voice_ctrl.has_signal("recording_failed"):
+		_voice_ctrl.recording_failed.connect(_on_voice_recording_failed)
+	if _voice_ctrl.has_signal("transcription_started"):
+		_voice_ctrl.transcription_started.connect(_on_voice_transcription_started)
+	if _voice_ctrl.has_signal("transcribed"):
+		_voice_ctrl.transcribed.connect(_on_voice_transcribed)
+	if _voice_ctrl.has_signal("transcription_failed"):
+		_voice_ctrl.transcription_failed.connect(_on_voice_transcription_failed)
+	if _voice_ctrl.has_signal("speech_failed"):
+		_voice_ctrl.speech_failed.connect(_on_voice_speech_failed)
+
+func _on_mic_toggled(pressed: bool) -> void:
+	_ensure_voice_ctrl()
+	if _voice_ctrl == null:
+		_mic_btn.button_pressed = false
+		return
+	if pressed:
+		# User wants to start recording.
+		var problem: String = _voice_ctrl.diagnose()
+		if not problem.is_empty():
+			_append_system("[color=yellow]🎙 %s[/color]\n" % problem)
+			_mic_btn.button_pressed = false
+			return
+		var ok: bool = _voice_ctrl.start_recording()
+		if not ok:
+			_mic_btn.button_pressed = false
+	else:
+		# User wants to stop and transcribe.
+		if _voice_ctrl.is_recording():
+			_voice_ctrl.stop_recording()
+
+func _on_auto_speak_toggled(pressed: bool) -> void:
+	_ensure_voice_ctrl()
+	if _voice_ctrl != null:
+		_voice_ctrl.auto_speak_replies = pressed
+		_voice_ctrl.save_settings()
+	# Also stop any in-flight playback if user just turned it off.
+	if not pressed and _voice_ctrl != null and _voice_ctrl.is_speaking():
+		_voice_ctrl.stop_speaking()
+
+func _on_voice_recording_started() -> void:
+	_append_system("[color=#ff6666]🔴 Recording…[/color] [color=gray](click 🎙 again to stop)[/color]\n")
+	if is_instance_valid(_mic_btn):
+		_mic_btn.text = "⏹"
+		_mic_btn.tooltip_text = "Stop recording and transcribe"
+
+func _on_voice_recording_failed(reason: String) -> void:
+	_append_system("[color=red]🎙 %s[/color]\n" % reason)
+	if is_instance_valid(_mic_btn):
+		_mic_btn.button_pressed = false
+		_mic_btn.text = "🎙"
+		_mic_btn.tooltip_text = "Push-to-talk: click to record, click again to stop and transcribe"
+
+func _on_voice_transcription_started() -> void:
+	_append_system("[color=gray]💭 Transcribing…[/color]\n")
+	if is_instance_valid(_mic_btn):
+		_mic_btn.text = "💭"
+		_mic_btn.disabled = true
+
+func _on_voice_transcribed(text: String) -> void:
+	# Drop the transcript into the input box for review/edit before send.
+	if is_instance_valid(_input):
+		_input.text = text
+		_input.grab_focus()
+		_input.set_caret_line(_input.get_line_count() - 1)
+	_append_system("[color=#88ddff]🎙 You said:[/color] %s\n" % _escape_bbcode(text))
+	if is_instance_valid(_mic_btn):
+		_mic_btn.button_pressed = false
+		_mic_btn.disabled = false
+		_mic_btn.text = "🎙"
+		_mic_btn.tooltip_text = "Push-to-talk: click to record, click again to stop and transcribe"
+
+func _on_voice_transcription_failed(reason: String) -> void:
+	_append_system("[color=red]🎙 Transcription failed: %s[/color]\n" % reason)
+	if is_instance_valid(_mic_btn):
+		_mic_btn.button_pressed = false
+		_mic_btn.disabled = false
+		_mic_btn.text = "🎙"
+		_mic_btn.tooltip_text = "Push-to-talk: click to record, click again to stop and transcribe"
+
+func _on_voice_speech_failed(reason: String) -> void:
+	_append_system("[color=#ff8888]🔊 TTS error: %s[/color]\n" % reason)
+
