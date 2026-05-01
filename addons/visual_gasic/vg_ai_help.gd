@@ -1,6 +1,7 @@
 @tool
 extends MarginContainer
-## AI Help panel — talks to local Ollama or cloud providers (OpenAI, Claude, Gemini).
+## AI Pair panel — the human's read-and-verify console for AI-generated code.
+## Talks to local Ollama or cloud providers (OpenAI, Claude, Gemini).
 ## Provides VisualGasic-aware code help, error explanations, and GDScript↔VG translation.
 
 signal ai_panel_ready
@@ -537,7 +538,7 @@ func _setup_ui() -> void:
 	main_vbox.add_child(toolbar)
 
 	var title := Label.new()
-	title.text = "🤖 AI Help"
+	title.text = "🤖 AI Pair"
 	title.add_theme_font_size_override("font_size", 13)
 	title.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
 	toolbar.add_child(title)
@@ -681,7 +682,7 @@ func _setup_ui() -> void:
 	_output.add_theme_stylebox_override("normal", out_style)
 	main_vbox.add_child(_output)
 
-	_append_system("AI Help is ready. Type a question below or use the quick actions.\n")
+	_append_system("AI Pair is ready. Type a question below or use the quick actions.\n")
 	_append_system("Providers: [color=cyan]Ollama[/color] (local), [color=green]OpenAI[/color], [color=#bb77ff]Claude[/color], [color=#4488ff]Gemini[/color]. Click ⚙️ to set API keys.\n")
 
 	# --- Input row ---

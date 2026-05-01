@@ -1,27 +1,37 @@
-# VisualGasic — A Modern, AI-Native Language & IDE for Godot 4
+# VisualGasic — The language you read when you don't trust the AI.
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-5.1.0--rc.1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.6.1+-purple.svg)](https://godotengine.org)
 
-> **The productivity of VB6, the speed of native code, and an AI co-pilot built in — bolted on top of Godot 4.6.**
+> **For 50 years, programming languages have been optimized for the human writer. The next 50 years will be optimized for the human reader auditing AI output. That is a different job, and it wants a different language.**
 >
-> Drop a button on a form. Double-click it. Type code. Hit ▶ Play. That's the loop.
-> Or describe a game in plain English and let **AGCK** generate a real, runnable, editable VisualGasic project from a template.
+> VisualGasic is BASIC, redesigned for the AI era — a VB6-syntax language with a 5-tier JIT compiler, a full WYSIWYG IDE, and an AI Pair panel built in. It runs as a C++ GDExtension inside Godot 4.6.
 
-VisualGasic is a **VB6 / VB.NET-style language and IDE** running as a C++ GDExtension inside Godot. It pairs an event-driven, naming-convention dispatcher (name a Sub `btnSave_Click()` and it's wired) with a 5-tier JIT, a full WYSIWYG form designer, and first-class AI tooling — multi-provider AI Help (OpenAI / Claude / Gemini / **Ollama** local) and a conversational game builder.
+## 🧭 The thesis
 
-> 🚀 **v5.1.0-rc.1 — Release Candidate (Apr 29 2026).** AI-native IDE, AGCK game builder with 8 templates, plugin SDK, unified ▶ Play menu, and the Linux one-shot installer. **Looking for Windows & macOS testers** — see [release notes](RELEASE_NOTES_v5.1.0-rc.1.md). [Changelog](CHANGELOG.md).
+In 2026, working programmers spend more time **reviewing AI-generated code** than writing original code from scratch. The bottleneck has moved from authoring to **auditing**. Almost no language in mainstream use was designed for auditing.
 
-## ⚡ Why pick VisualGasic?
+**BASIC was.** It is the only mainstream syntax family ever explicitly engineered for code-reading at a glance. Verbose blocks (`End Sub`, `End If`, `End Class`) are harder to mis-nest. Explicit type annotations (`Dim x As Integer`) carry more signal per token than `let x = 0`. There are no operator overloads, no implicit constructors, no hidden destructors. **What you see is what runs.**
 
-- **🤖 AI-native, multi-provider.** OpenAI, Claude, Gemini, and **Ollama** (free local, no API key) — pick the model on first launch. Inline assist explains, refactors, or generates code in place. AGCK builds a real, runnable platformer / shmup / RPG / match-3 from a single prompt.
-- **🎮 Make games without ceremony.** Drop controls, double-click for handlers, hit F5. 8 AGCK templates, 14 playable demos in the box, full 3D pipeline, sprite/animation/audio editors, one-click Make EXE.
-- **🚀 Native-class speed.** 5-tier JIT (interpreter → x86-64). On hot paths VG is **30–119× faster than GDScript** and **beats C++ on string concat by 10×**. Honest numbers below — we lose two benchmarks and we say so.
+It also turns out that LLMs *write* this kind of language with fewer bugs than they write Python or C++. Verbose, redundant syntax is easier for the model to get right at every closing token. So the AI era delivers a double win: **humans audit BASIC faster, and AI writes BASIC more correctly.** Those compound.
+
+The historical reason BASIC lost the popularity contest was tooling, not language — and we have solved tooling. VG's 5-tier JIT compiles to bytecode that runs at native-class speed (30–119× faster than GDScript, beats C++ on some workloads — numbers below). The "BASIC can't compete" excuse is no longer available.
+
+➡ **Read the full argument: [Why the AI Era Needs BASIC Again](docs/manifesto.md)**
+
+> 🚀 **v5.1.0-rc.1 — Release Candidate (Apr 29 2026).** AI-native IDE with 5 built-in AI personas + voice mode (PTT), AGCK game builder with 8 templates, plugin SDK, unified ▶ Play menu, and the Linux one-shot installer. **Looking for Windows & macOS testers** — see [release notes](RELEASE_NOTES_v5.1.0-rc.1.md). [Changelog](CHANGELOG.md).
+
+## ⚡ What VisualGasic actually is
+
+- **🧠 An AI-readable language.** VB6/VB.NET-style syntax — verbose, explicit, no hidden control flow. Designed so a human can verify an AI-generated Sub in seconds, not minutes. Same syntax that pairs well with the AI when *it* is doing the writing.
+- **🤖 An AI Pair panel built into the IDE.** Push-to-talk voice mode, 5 personas (default + Bob / Skippy / Orac / HAL — drop a `vg_personas.json` to add your own), multi-provider (OpenAI / Claude / Gemini / **Ollama** local — free, no API key), and an Explain-Last-Error button that diagnoses runtime failures in your own VG code.
+- **🎮 A real game maker.** Drop controls, double-click for handlers, hit F5. 8 AGCK templates, 14 playable demos in the box, full 3D pipeline, sprite/animation/audio editors, one-click Make EXE. Or describe a game in plain English and let AGCK generate a runnable VG project from a template.
+- **🚀 Native-class speed.** 5-tier JIT (interpreter → x86-64). On hot paths VG is **30–119× faster than GDScript** and **beats C++ on string concat by 5×**. Honest numbers below — we lose two benchmarks and we say so.
 - **🧰 The IDE you actually want.** VB6-style Form Designer + Code Editor + Immediate Window + Object Browser + Debugger + Profiler, all docked, all themed. Plus a plugin SDK with a process-wide signal bus and capability-based editor routing.
 - **📥 One-shot installer (work in progress).** Linux MVP shipped — `scripts/bootstrap_install.sh` downloads Godot, installs the addon, drops a launcher, and lands you directly in the VG IDE. Windows `.exe` and macOS `.dmg` installers coming next; for now use the `vg` CLI or unzip the release.
-- **🆓 Free & open source.** GPL-3.0. Real source, no opaque blobs — even AGCK's output is plain `.vg` files you can edit.
+- **🆓 Free & open source.** GPL-3.0. Real source, no opaque blobs — even AGCK's output is plain `.vg` files you can edit, audit, and version-control.
 
 ### 📊 VG vs GDScript vs C++ (microbenchmarks, single-threaded)
 

@@ -7416,7 +7416,7 @@ func _embed_ide_bottom_panels() -> void:
 		print("VisualGasic: Package Browser embedded in IDE bottom tabs")
 
 	if is_instance_valid(_ai_help_panel):
-		_embedded_code_editor.add_bottom_tab("AI Help", _ai_help_panel)
+		_embedded_code_editor.add_bottom_tab("AI Pair", _ai_help_panel)
 		print("VisualGasic: AI Help embedded in IDE bottom tabs")
 
 	# Create and embed the Hex Editor here so it is guaranteed to run after
