@@ -1,0 +1,33 @@
+' Bubble sort, in-place, ascending.
+' This is not a fast algorithm. It is in this corpus because it is the
+' clearest possible illustration of nested loops mutating an array,
+' which is the underlying shape of every comparison sort.
+
+Sub BubbleSort(values() As Integer)
+    Dim n As Integer = UBound(values) - LBound(values) + 1
+    Dim i As Integer
+    Dim j As Integer
+    Dim tmp As Integer
+
+    For i = 0 To n - 2
+        For j = 0 To n - 2 - i
+            If values(j) > values(j + 1) Then
+                tmp = values(j)
+                values(j) = values(j + 1)
+                values(j + 1) = tmp
+            End If
+        Next j
+    Next i
+End Sub
+
+Sub Main()
+    Dim nums() As Integer = {64, 25, 12, 22, 11, 90, 7}
+
+    Print "Before: " & Join(nums, ", ")
+    BubbleSort(nums)
+    Print "After:  " & Join(nums, ", ")
+End Sub
+
+' Expected output:
+' Before: 64, 25, 12, 22, 11, 90, 7
+' After:  7, 11, 12, 22, 25, 64, 90

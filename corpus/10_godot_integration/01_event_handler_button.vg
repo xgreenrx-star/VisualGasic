@@ -1,0 +1,33 @@
+' Godot integration: a button click event handler.
+' VisualGasic auto-wires events by naming convention:
+'   Sub <controlName>_<eventName>(args...)
+' So Sub btnSave_Click() is automatically connected to the
+' "pressed" signal of a Button control named btnSave on the form.
+'
+' This is the same convention VB6 used; it is the single biggest
+' reason VisualGasic feels "obvious" to a human auditor.
+
+Dim clickCount As Integer
+
+Sub Form_Load()
+    Print "Form loaded"
+    clickCount = 0
+    btnSave.Text = "Save"
+    btnReset.Text = "Reset"
+    lblStatus.Text = "Ready"
+End Sub
+
+Sub btnSave_Click()
+    clickCount = clickCount + 1
+    lblStatus.Text = "Saved! (clicks: " & CStr(clickCount) & ")"
+    Print "Save clicked. Total: " & CStr(clickCount)
+End Sub
+
+Sub btnReset_Click()
+    clickCount = 0
+    lblStatus.Text = "Ready"
+    Print "Reset"
+End Sub
+
+' No "Expected output" -- this is an event-driven program.
+' Run it inside the VisualGasic IDE and click the buttons.

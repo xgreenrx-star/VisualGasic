@@ -1,0 +1,28 @@
+' Nested loops are how you walk a 2D grid.
+' Use distinct loop variables (i, j) so the auditor can see at a glance
+' which level of the nest they're reading.
+
+Sub Main()
+    ' Print a 5x5 multiplication table
+    Dim i As Integer
+    Dim j As Integer
+    For i = 1 To 5
+        Dim row As String = ""
+        For j = 1 To 5
+            ' Right-pad each cell to 4 characters for clean alignment.
+            Dim cell As String = CStr(i * j)
+            Do While Len(cell) < 4
+                cell = cell & " "
+            Loop
+            row = row & cell
+        Next j
+        Print row
+    Next i
+End Sub
+
+' Expected output:
+' 1   2   3   4   5
+' 2   4   6   8   10
+' 3   6   9   12  15
+' 4   8   12  16  20
+' 5   10  15  20  25

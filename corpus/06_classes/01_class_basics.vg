@@ -1,0 +1,28 @@
+' A minimal VisualGasic class with public fields.
+' Class fields are declared with Public (visible outside) or Private.
+' Instances are created with the New keyword.
+
+Class Point
+    Public x As Single
+    Public y As Single
+End Class
+
+Sub Main()
+    Dim p As Variant = New Point
+    p.x = 3.0
+    p.y = 4.0
+
+    Print "p = (" & CStr(p.x) & ", " & CStr(p.y) & ")"
+
+    ' Two instances are independent
+    Dim q As Variant = New Point
+    q.x = 10.0
+    q.y = 20.0
+    Print "q = (" & CStr(q.x) & ", " & CStr(q.y) & ")"
+    Print "p still = (" & CStr(p.x) & ", " & CStr(p.y) & ")"
+End Sub
+
+' Expected output:
+' p = (3, 4)
+' q = (10, 20)
+' p still = (3, 4)

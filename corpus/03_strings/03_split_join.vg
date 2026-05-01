@@ -1,0 +1,36 @@
+' Split breaks a string into an array on a delimiter.
+' Join glues an array back together with a delimiter.
+' Both are 0-indexed (a deliberate exception to BASIC's usual 1-indexing).
+
+Sub Main()
+    Dim csv As String = "apple,banana,cherry,date"
+
+    ' Split into parts
+    Dim parts() As String = Split(csv, ",")
+    Print "Number of parts: " & CStr(UBound(parts) + 1)
+
+    Dim i As Integer
+    For i = 0 To UBound(parts)
+        Print "  parts(" & CStr(i) & ") = " & parts(i)
+    Next i
+
+    ' Join with a different delimiter
+    Dim rejoined As String = Join(parts, " | ")
+    Print "Rejoined: " & rejoined
+
+    ' Reverse the order, then rejoin
+    Dim reversed(UBound(parts)) As String
+    For i = 0 To UBound(parts)
+        reversed(UBound(parts) - i) = parts(i)
+    Next i
+    Print "Reversed: " & Join(reversed, ",")
+End Sub
+
+' Expected output:
+' Number of parts: 4
+'   parts(0) = apple
+'   parts(1) = banana
+'   parts(2) = cherry
+'   parts(3) = date
+' Rejoined: apple | banana | cherry | date
+' Reversed: date,cherry,banana,apple

@@ -1,0 +1,57 @@
+' Storing class instances in an ArrayList and operating on them
+' uniformly. This is the canonical "list of game objects" pattern.
+
+Class Item
+    Public name As String
+    Public weight As Single
+    Public value As Integer
+
+    Sub Class_Initialize()
+        name = ""
+        weight = 0.0
+        value = 0
+    End Sub
+End Class
+
+Function MakeItem(name As String, weight As Single, value As Integer) As Variant
+    Dim it As Variant = New Item
+    it.name = name
+    it.weight = weight
+    it.value = value
+    MakeItem = it
+End Function
+
+Sub Main()
+    Dim inventory As New ArrayList
+
+    inventory.Add(MakeItem("Sword",  3.0, 50))
+    inventory.Add(MakeItem("Shield", 5.5, 30))
+    inventory.Add(MakeItem("Potion", 0.5, 10))
+    inventory.Add(MakeItem("Helmet", 2.0, 25))
+
+    ' Total weight + total value
+    Dim totalWeight As Single = 0.0
+    Dim totalValue As Integer = 0
+    Dim it As Variant
+    For Each it In inventory
+        totalWeight = totalWeight + it.weight
+        totalValue = totalValue + it.value
+    Next it
+
+    Print "Items:        " & CStr(inventory.Count)
+    Print "Total weight: " & CStr(totalWeight)
+    Print "Total value:  " & CStr(totalValue)
+
+    ' Find the most valuable item
+    Dim best As Variant = inventory(0)
+    For Each it In inventory
+        If it.value > best.value Then best = it
+    Next it
+    Print "Most valuable: " & best.name & " (" & CStr(best.value) & ")"
+End Sub
+
+' Expected output:
+' Items:        4
+' Total weight: 11
+' Total value:  115
+' Most valuable: Sword (50)

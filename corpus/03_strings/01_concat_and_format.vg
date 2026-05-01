@@ -1,0 +1,30 @@
+' String concatenation in VisualGasic uses the & operator.
+' & always converts both sides to strings -- safer than + which only
+' concatenates when both operands are already strings.
+
+Sub Main()
+    Dim firstName As String = "Ada"
+    Dim lastName As String = "Lovelace"
+    Dim birthYear As Integer = 1815
+
+    ' Simple concatenation
+    Dim greeting As String = "Hello, " & firstName & " " & lastName & "!"
+    Print greeting
+
+    ' Mixing types -- & coerces them to strings via CStr automatically
+    Dim bio As String = firstName & " was born in " & birthYear & "."
+    Print bio
+
+    ' Multi-line construction
+    Dim address As String = ""
+    address = address & "Name:  " & firstName & " " & lastName & vbCrLf
+    address = address & "Year:  " & CStr(birthYear) & vbCrLf
+    Print address
+End Sub
+
+' Expected output:
+' Hello, Ada Lovelace!
+' Ada was born in 1815.
+' Name:  Ada Lovelace
+' Year:  1815
+'

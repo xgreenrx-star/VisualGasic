@@ -1,0 +1,32 @@
+' Type conversion functions in VisualGasic.
+' CStr, CInt, CSng, CDbl, CBool all do exactly what they say.
+' They raise an error rather than returning a default on bad input,
+' so wrap them in Try/Catch when parsing user data.
+
+Sub Main()
+    Dim n As Integer = CInt("42")
+    Dim f As Single = CSng("3.14")
+    Dim s As String = CStr(99)
+    Dim b As Boolean = CBool("True")
+
+    Print "CInt(""42"")   = " & CStr(n)
+    Print "CSng(""3.14"") = " & CStr(f)
+    Print "CStr(99)     = " & s
+    Print "CBool(""True"") = " & CStr(b)
+
+    ' Defensive parsing: catch the exception, fall back to a default.
+    Dim parsed As Integer = 0
+    Try
+        parsed = CInt("not a number")
+    Catch ex As Exception
+        parsed = -1
+    End Try
+    Print "Bad parse fell back to: " & CStr(parsed)
+End Sub
+
+' Expected output:
+' CInt("42")   = 42
+' CSng("3.14") = 3.14
+' CStr(99)     = 99
+' CBool("True") = True
+' Bad parse fell back to: -1

@@ -1,0 +1,81 @@
+' Enemy AI states for a simple game.
+' States: IDLE, PATROL, CHASE, ATTACK, DEAD.
+' Transitions are driven by a sensed world (player distance, hp).
+' This is the "decision tree as Select Case" idiom that, in a verbose
+' BASIC syntax, an auditor can trace top to bottom in 30 seconds.
+
+Class Enemy
+    Public state As String
+    Public hp As Integer
+    Public distanceToPlayer As Single
+
+    Sub Class_Initialize()
+        state = "IDLE"
+        hp = 100
+        distanceToPlayer = 1000.0
+    End Sub
+End Class
+
+Sub UpdateAI(e As Variant)
+    If e.hp <= 0 Then
+        e.state = "DEAD"
+        Exit Sub
+    End If
+
+    Select Case e.state
+        Case "IDLE"
+            If e.distanceToPlayer < 50.0 Then
+                e.state = "CHASE"
+            ElseIf e.distanceToPlayer < 200.0 Then
+                e.state = "PATROL"
+            End If
+
+        Case "PATROL"
+            If e.distanceToPlayer < 30.0 Then
+                e.state = "CHASE"
+            ElseIf e.distanceToPlayer > 300.0 Then
+                e.state = "IDLE"
+            End If
+
+        Case "CHASE"
+            If e.distanceToPlayer < 5.0 Then
+                e.state = "ATTACK"
+            ElseIf e.distanceToPlayer > 100.0 Then
+                e.state = "PATROL"
+            End If
+
+        Case "ATTACK"
+            If e.distanceToPlayer > 8.0 Then
+                e.state = "CHASE"
+            End If
+    End Select
+End Sub
+
+Sub Main()
+    Dim e As Variant = New Enemy
+
+    ' Simulate the player approaching, attacking, retreating
+    Dim distances() As Single = {1000.0, 150.0, 40.0, 6.0, 3.0, 50.0, 400.0}
+
+    Dim d As Single
+    For Each d In distances
+        e.distanceToPlayer = d
+        UpdateAI(e)
+        Print "dist=" & CStr(d) & " -> state=" & e.state
+    Next d
+
+    ' Now kill it
+    e.hp = 0
+    UpdateAI(e)
+    Print "after death -> state=" & e.state
+End Sub
+
+' Expected output:
+' dist=1000 -> state=IDLE
+' dist=150 -> state=PATROL
+' dist=40 -> state=CHASE
+' dist=6 -> state=CHASE
+' dist=3 -> state=ATTACK
+' dist=50 -> state=CHASE
+' dist=400 -> state=PATROL
+' after death -> state=DEAD

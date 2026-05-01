@@ -1,0 +1,32 @@
+' Compute the sum and average of a numeric array.
+' Use a Single accumulator (not Integer) for the average so that the
+' division at the end produces a fractional result.
+
+Function ArraySum(values() As Single) As Single
+    Dim total As Single = 0.0
+    Dim v As Single
+    For Each v In values
+        total = total + v
+    Next v
+    ArraySum = total
+End Function
+
+Function ArrayAverage(values() As Single) As Single
+    Dim n As Integer = UBound(values) - LBound(values) + 1
+    If n = 0 Then
+        ArrayAverage = 0.0
+    Else
+        ArrayAverage = ArraySum(values) / CSng(n)
+    End If
+End Function
+
+Sub Main()
+    Dim scores() As Single = {72.0, 85.5, 91.0, 68.5, 78.0}
+
+    Print "Sum:     " & CStr(ArraySum(scores))
+    Print "Average: " & CStr(ArrayAverage(scores))
+End Sub
+
+' Expected output:
+' Sum:     395
+' Average: 79

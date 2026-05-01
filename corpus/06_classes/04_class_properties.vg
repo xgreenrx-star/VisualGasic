@@ -1,0 +1,51 @@
+' Properties give a class a getter/setter pair that looks like a field
+' but runs code on access. Use them when you need validation or
+' a computed value.
+
+Class Temperature
+    Private _celsius As Single
+
+    Sub Class_Initialize()
+        _celsius = 0.0
+    End Sub
+
+    Property Get Celsius() As Single
+        Celsius = _celsius
+    End Property
+
+    Property Let Celsius(value As Single)
+        ' Reject impossible temperatures
+        If value < -273.15 Then
+            Print "WARN: clamping below absolute zero"
+            _celsius = -273.15
+        Else
+            _celsius = value
+        End If
+    End Property
+
+    Property Get Fahrenheit() As Single
+        Fahrenheit = _celsius * 9.0 / 5.0 + 32.0
+    End Property
+
+    Property Let Fahrenheit(value As Single)
+        _celsius = (value - 32.0) * 5.0 / 9.0
+    End Property
+End Class
+
+Sub Main()
+    Dim t As Variant = New Temperature
+    t.Celsius = 100.0
+    Print "100C = " & CStr(t.Fahrenheit) & "F"
+
+    t.Fahrenheit = 32.0
+    Print "32F  = " & CStr(t.Celsius) & "C"
+
+    t.Celsius = -500.0
+    Print "Clamped to: " & CStr(t.Celsius) & "C"
+End Sub
+
+' Expected output:
+' 100C = 212F
+' 32F  = 0C
+' WARN: clamping below absolute zero
+' Clamped to: -273.15C

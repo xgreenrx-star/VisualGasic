@@ -1,0 +1,44 @@
+' Read a CSV file and print a typed row count summary.
+' This example trusts the input is well-formed (no quoted commas).
+' The first line is treated as a header; subsequent lines are records.
+
+Sub Main()
+    Dim fso As Variant = CreateObject("Scripting.FileSystemObject")
+    Dim path As String = "people.csv"
+
+    ' For the demo, write a small CSV first
+    Dim out As Variant = fso.CreateTextFile(path, True)
+    out.WriteLine("name,age,city")
+    out.WriteLine("Alice,30,London")
+    out.WriteLine("Bob,25,Paris")
+    out.WriteLine("Carol,42,Tokyo")
+    out.Close()
+
+    ' Now read it back
+    Dim inp As Variant = fso.OpenTextFile(path, 1)
+    Dim header As String = inp.ReadLine()
+    Print "Columns: " & header
+
+    Dim totalAge As Integer = 0
+    Dim rowCount As Integer = 0
+    Do While Not inp.AtEndOfStream
+        Dim row As String = inp.ReadLine()
+        Dim fields() As String = Split(row, ",")
+        Dim name As String = fields(0)
+        Dim age As Integer = CInt(fields(1))
+        Dim city As String = fields(2)
+        Print "  " & name & ", " & CStr(age) & ", " & city
+        totalAge = totalAge + age
+        rowCount = rowCount + 1
+    Loop
+    inp.Close()
+
+    Print "Average age: " & CStr(totalAge / rowCount)
+End Sub
+
+' Expected output:
+' Columns: name,age,city
+'   Alice, 30, London
+'   Bob, 25, Paris
+'   Carol, 42, Tokyo
+' Average age: 32.3333333333333

@@ -1,0 +1,25 @@
+' Write a text file using FileSystemObject.
+' The CreateTextFile call overwrites any existing file at the path.
+' Always Close the stream when done; otherwise the OS may buffer the
+' content and a reader will see an empty file.
+
+Sub Main()
+    Dim fso As Variant = CreateObject("Scripting.FileSystemObject")
+    Dim path As String = "hello.txt"
+
+    Dim out As Variant = fso.CreateTextFile(path, True)
+    out.WriteLine("Hello from VisualGasic")
+    out.WriteLine("Line 2")
+    out.WriteLine("Line 3")
+    out.Close()
+
+    Print "Wrote " & path
+End Sub
+
+' Expected output:
+' Wrote hello.txt
+'
+' Side effect: the file hello.txt now contains:
+'   Hello from VisualGasic
+'   Line 2
+'   Line 3

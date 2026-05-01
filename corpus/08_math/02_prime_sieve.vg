@@ -1,0 +1,44 @@
+' Sieve of Eratosthenes: find all primes up to N.
+' Mark a Boolean array, walk it, print the unmarked indices.
+' Inner loop starts at i*i because all smaller multiples were already
+' crossed off by smaller primes.
+
+Sub Main()
+    Dim N As Integer = 50
+
+    ' isComposite(i) = True means we have proved i is not prime
+    Dim isComposite(N) As Boolean
+    isComposite(0) = True
+    isComposite(1) = True
+
+    Dim i As Integer
+    Dim j As Integer
+    For i = 2 To N
+        If Not isComposite(i) Then
+            ' Mark all multiples of i, starting at i*i
+            j = i * i
+            Do While j <= N
+                isComposite(j) = True
+                j = j + i
+            Loop
+        End If
+    Next i
+
+    ' Collect and print
+    Dim row As String = ""
+    For i = 2 To N
+        If Not isComposite(i) Then
+            If row = "" Then
+                row = CStr(i)
+            Else
+                row = row & ", " & CStr(i)
+            End If
+        End If
+    Next i
+    Print "Primes up to " & CStr(N) & ":"
+    Print row
+End Sub
+
+' Expected output:
+' Primes up to 50:
+' 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47

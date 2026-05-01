@@ -1,0 +1,42 @@
+' Clamp and lerp -- the two helpers that appear in essentially every
+' game and graphics program ever written. Both are short enough to
+' inline, but they are useful as named functions because the names
+' make the call site read like a sentence.
+
+Function Clamp(value As Single, lo As Single, hi As Single) As Single
+    If value < lo Then
+        Clamp = lo
+    ElseIf value > hi Then
+        Clamp = hi
+    Else
+        Clamp = value
+    End If
+End Function
+
+Function Lerp(a As Single, b As Single, t As Single) As Single
+    ' t=0 returns a; t=1 returns b; values in between blend.
+    Lerp = a + (b - a) * t
+End Function
+
+Sub Main()
+    Print "Clamp(  5, 0, 10) = " & CStr(Clamp(5, 0, 10))
+    Print "Clamp( -3, 0, 10) = " & CStr(Clamp(-3, 0, 10))
+    Print "Clamp( 99, 0, 10) = " & CStr(Clamp(99, 0, 10))
+
+    Print "Lerp(0, 100, 0.0) = " & CStr(Lerp(0, 100, 0.0))
+    Print "Lerp(0, 100, 0.5) = " & CStr(Lerp(0, 100, 0.5))
+    Print "Lerp(0, 100, 1.0) = " & CStr(Lerp(0, 100, 1.0))
+
+    ' Common pairing: lerp the value, then clamp to legal range
+    Dim health As Single = Clamp(Lerp(100, 0, 1.2), 0, 100)
+    Print "Damaged health: " & CStr(health)
+End Sub
+
+' Expected output:
+' Clamp(  5, 0, 10) = 5
+' Clamp( -3, 0, 10) = 0
+' Clamp( 99, 0, 10) = 10
+' Lerp(0, 100, 0.0) = 0
+' Lerp(0, 100, 0.5) = 50
+' Lerp(0, 100, 1.0) = 100
+' Damaged health: 0

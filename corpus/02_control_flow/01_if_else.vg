@@ -1,0 +1,22 @@
+' If / ElseIf / Else / End If is the universal branch construct.
+' Note that every block keyword is closed with an English keyword
+' rather than a brace -- this makes mis-nested blocks impossible.
+
+Sub Main()
+    Dim score As Integer = 75
+
+    If score >= 90 Then
+        Print "Grade: A"
+    ElseIf score >= 80 Then
+        Print "Grade: B"
+    ElseIf score >= 70 Then
+        Print "Grade: C"
+    ElseIf score >= 60 Then
+        Print "Grade: D"
+    Else
+        Print "Grade: F"
+    End If
+End Sub
+
+' Expected output:
+' Grade: C

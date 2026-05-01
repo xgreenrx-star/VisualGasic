@@ -1,0 +1,11 @@
+' The smallest VisualGasic program: print a single line to the console.
+'
+' VisualGasic is a BASIC-family language. Every executable program has a
+' Sub Main() that the runtime calls automatically when you press Play.
+
+Sub Main()
+    Print "Hello, world!"
+End Sub
+
+' Expected output:
+' Hello, world!

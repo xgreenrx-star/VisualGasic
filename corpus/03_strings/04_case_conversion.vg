@@ -1,0 +1,30 @@
+' UCase, LCase, and Trim are the three most-used string normalisation
+' functions. UCase and LCase only affect ASCII letters; Trim removes
+' leading and trailing spaces (and also tabs and newlines).
+
+Sub Main()
+    Dim shouting As String = "HELLO WORLD"
+    Dim whispering As String = "hello world"
+    Dim padded As String = "   hello   "
+
+    Print "UCase: " & UCase(whispering)
+    Print "LCase: " & LCase(shouting)
+    Print "Trim:  '" & Trim(padded) & "'"
+    Print "LTrim: '" & LTrim(padded) & "'"
+    Print "RTrim: '" & RTrim(padded) & "'"
+
+    ' Idiomatic case-insensitive comparison
+    Dim a As String = "Hello"
+    Dim b As String = "HELLO"
+    If LCase(a) = LCase(b) Then
+        Print a & " == " & b & " (case-insensitive)"
+    End If
+End Sub
+
+' Expected output:
+' UCase: HELLO WORLD
+' LCase: hello world
+' Trim:  'hello'
+' LTrim: 'hello   '
+' RTrim: '   hello'
+' Hello == HELLO (case-insensitive)

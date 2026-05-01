@@ -1,0 +1,35 @@
+' Linear search: walk the array, return the first matching index, or -1.
+' We return -1 (not 0) for "not found" because 0 is a valid index.
+
+Function IndexOf(values() As String, target As String) As Integer
+    Dim i As Integer
+    For i = LBound(values) To UBound(values)
+        If values(i) = target Then
+            IndexOf = i
+            Exit Function
+        End If
+    Next i
+    IndexOf = -1
+End Function
+
+Sub Main()
+    Dim fruits() As String = {"apple", "banana", "cherry", "date", "elderberry"}
+
+    Dim idx As Integer = IndexOf(fruits, "cherry")
+    If idx >= 0 Then
+        Print "Found 'cherry' at index " & CStr(idx)
+    Else
+        Print "'cherry' not found"
+    End If
+
+    idx = IndexOf(fruits, "fig")
+    If idx >= 0 Then
+        Print "Found 'fig' at index " & CStr(idx)
+    Else
+        Print "'fig' not found"
+    End If
+End Sub
+
+' Expected output:
+' Found 'cherry' at index 2
+' 'fig' not found

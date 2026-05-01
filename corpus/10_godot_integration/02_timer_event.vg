@@ -1,0 +1,27 @@
+' Godot integration: a Timer that ticks once per second.
+' The same naming convention that wires button clicks also wires
+' Timer.timeout: Sub Timer1_Timeout() is auto-connected.
+
+Dim secondsElapsed As Integer
+
+Sub Form_Load()
+    secondsElapsed = 0
+    Timer1.WaitTime = 1.0
+    Timer1.Autostart = True
+    Timer1.OneShot = False
+    Timer1.Start()
+    lblTime.Text = "0 seconds"
+End Sub
+
+Sub Timer1_Timeout()
+    secondsElapsed = secondsElapsed + 1
+    lblTime.Text = CStr(secondsElapsed) & " seconds"
+
+    ' Stop after 10 seconds for demo purposes
+    If secondsElapsed >= 10 Then
+        Timer1.Stop()
+        lblTime.Text = "Done."
+    End If
+End Sub
+
+' No "Expected output" -- run inside the IDE and watch lblTime tick.

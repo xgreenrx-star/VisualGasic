@@ -1,0 +1,64 @@
+' A door state machine driven by external events.
+' States: CLOSED, OPENING, OPEN, CLOSING.
+' Events: "open", "close", "tick".
+' This pattern shows up everywhere -- elevators, garage doors, vending
+' machines -- and in a verbose Select Case form even the AI can't get
+' the transitions wrong in a way the auditor doesn't immediately see.
+
+Function Step(state As String, event As String) As String
+    Select Case state
+        Case "CLOSED"
+            If event = "open" Then
+                Step = "OPENING"
+            Else
+                Step = state
+            End If
+
+        Case "OPENING"
+            If event = "tick" Then
+                Step = "OPEN"
+            Else
+                Step = state
+            End If
+
+        Case "OPEN"
+            If event = "close" Then
+                Step = "CLOSING"
+            Else
+                Step = state
+            End If
+
+        Case "CLOSING"
+            If event = "tick" Then
+                Step = "CLOSED"
+            Else
+                Step = state
+            End If
+
+        Case Else
+            Step = "CLOSED"
+    End Select
+End Function
+
+Sub Main()
+    Dim state As String = "CLOSED"
+    Dim events() As String = {"open", "tick", "close", "tick", "open", "tick"}
+
+    Print "Initial: " & state
+
+    Dim e As String
+    For Each e In events
+        Dim newState As String = Step(state, e)
+        Print "  " & state & " --(" & e & ")--> " & newState
+        state = newState
+    Next e
+End Sub
+
+' Expected output:
+' Initial: CLOSED
+'   CLOSED --(open)--> OPENING
+'   OPENING --(tick)--> OPEN
+'   OPEN --(close)--> CLOSING
+'   CLOSING --(tick)--> CLOSED
+'   CLOSED --(open)--> OPENING
+'   OPENING --(tick)--> OPEN

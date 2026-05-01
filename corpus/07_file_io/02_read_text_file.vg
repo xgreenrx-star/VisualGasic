@@ -1,0 +1,27 @@
+' Read a text file line by line.
+' The 1 in OpenTextFile means ForReading. We loop while AtEndOfStream
+' is false; the standard idiom is exactly the form below.
+
+Sub Main()
+    Dim fso As Variant = CreateObject("Scripting.FileSystemObject")
+    Dim path As String = "hello.txt"
+
+    If Not fso.FileExists(path) Then
+        Print "File not found: " & path
+        Exit Sub
+    End If
+
+    Dim inp As Variant = fso.OpenTextFile(path, 1)
+    Dim lineNumber As Integer = 0
+    Do While Not inp.AtEndOfStream
+        lineNumber = lineNumber + 1
+        Dim line As String = inp.ReadLine()
+        Print CStr(lineNumber) & ": " & line
+    Loop
+    inp.Close()
+End Sub
+
+' Expected output (assumes hello.txt was created by 01_write_text_file.vg):
+' 1: Hello from VisualGasic
+' 2: Line 2
+' 3: Line 3

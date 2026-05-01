@@ -1,0 +1,38 @@
+' Searching strings: InStr returns the 1-based index of a substring,
+' or 0 if not found. Replace substitutes one substring for another.
+' Both functions are case-sensitive by default.
+
+Sub Main()
+    Dim haystack As String = "The quick brown fox jumps over the lazy dog"
+
+    ' Find the position of "fox"
+    Dim pos As Integer = InStr(haystack, "fox")
+    If pos > 0 Then
+        Print """fox"" found at position " & CStr(pos)
+    Else
+        Print """fox"" not found"
+    End If
+
+    ' Search for something that isn't there
+    pos = InStr(haystack, "cat")
+    Print """cat"" search returned " & CStr(pos) & " (0 means not found)"
+
+    ' Replace
+    Dim modified As String = Replace(haystack, "lazy", "energetic")
+    Print modified
+
+    ' Count occurrences of a character with a loop
+    Dim text As String = "mississippi"
+    Dim count As Integer = 0
+    Dim i As Integer
+    For i = 1 To Len(text)
+        If Mid(text, i, 1) = "s" Then count = count + 1
+    Next i
+    Print "'s' appears " & CStr(count) & " times in '" & text & "'"
+End Sub
+
+' Expected output:
+' "fox" found at position 17
+' "cat" search returned 0 (0 means not found)
+' The quick brown fox jumps over the energetic dog
+' 's' appears 4 times in 'mississippi'

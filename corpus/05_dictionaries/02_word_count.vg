@@ -1,0 +1,35 @@
+' Count occurrences of each word in a sentence.
+' This is the canonical "use a Dictionary as a counter" pattern.
+' Note the get-or-default idiom: check Exists, otherwise start at 0.
+
+Sub Main()
+    Dim sentence As String = "the quick brown fox jumps over the lazy dog the"
+
+    Dim words() As String = Split(sentence, " ")
+    Dim counts As New Dictionary
+
+    Dim w As String
+    For Each w In words
+        If counts.Exists(w) Then
+            counts(w) = counts(w) + 1
+        Else
+            counts.Add(w, 1)
+        End If
+    Next w
+
+    ' Print the result
+    Dim k As String
+    For Each k In counts.Keys
+        Print k & " -> " & CStr(counts(k))
+    Next k
+End Sub
+
+' Expected output (key order is insertion order):
+' the -> 3
+' quick -> 1
+' brown -> 1
+' fox -> 1
+' jumps -> 1
+' over -> 1
+' lazy -> 1
+' dog -> 1

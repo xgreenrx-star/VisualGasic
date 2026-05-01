@@ -1,0 +1,65 @@
+' A small branching dialogue tree as a state machine.
+' Each node has a line of NPC text and a list of (player choice, next node)
+' pairs. END is the terminal state. This is the data shape behind every
+' classic BASIC adventure game.
+
+Class DialogueNode
+    Public text As String
+    Public choices As Variant      ' Dictionary: choice text -> next node id
+End Class
+
+Function MakeNode(text As String) As Variant
+    Dim n As Variant = New DialogueNode
+    n.text = text
+    n.choices = New Dictionary
+    MakeNode = n
+End Function
+
+Sub Main()
+    Dim tree As New Dictionary
+
+    Dim n As Variant
+    n = MakeNode("Greetings, traveler. What brings you to the inn?")
+    n.choices.Add("Just passing through.", "polite")
+    n.choices.Add("None of your business!", "rude")
+    tree.Add("start", n)
+
+    n = MakeNode("Then I wish you safe roads.")
+    n.choices.Add("Thank you.", "END")
+    tree.Add("polite", n)
+
+    n = MakeNode("Then mind your tongue, stranger.")
+    n.choices.Add("Apologies.", "polite")
+    n.choices.Add("Make me.", "fight")
+    tree.Add("rude", n)
+
+    n = MakeNode("The innkeeper raises a heavy club. Combat begins.")
+    tree.Add("fight", n)
+
+    ' Walk a fixed script through the tree
+    Dim script() As String = {"Just passing through.", "Thank you."}
+    Dim current As String = "start"
+    Dim choiceIdx As Integer = 0
+
+    Do While current <> "END" And current <> "fight"
+        Dim node As Variant = tree(current)
+        Print "NPC: " & node.text
+
+        If node.choices.Count = 0 Then Exit Do
+        If choiceIdx > UBound(script) Then Exit Do
+
+        Dim choice As String = script(choiceIdx)
+        Print "YOU: " & choice
+        current = node.choices(choice)
+        choiceIdx = choiceIdx + 1
+    Loop
+
+    Print "(dialogue ended at: " & current & ")"
+End Sub
+
+' Expected output:
+' NPC: Greetings, traveler. What brings you to the inn?
+' YOU: Just passing through.
+' NPC: Then I wish you safe roads.
+' YOU: Thank you.
+' (dialogue ended at: END)

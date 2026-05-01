@@ -1,0 +1,50 @@
+' The Fibonacci sequence by iteration.
+' Two accumulators, swap each step. O(n) time, O(1) space.
+' Use Long (not Integer) so the result doesn't overflow at n=47.
+
+Function Fibonacci(n As Integer) As Long
+    If n < 2 Then
+        Fibonacci = n
+        Exit Function
+    End If
+
+    Dim a As Long = 0
+    Dim b As Long = 1
+    Dim i As Integer
+    For i = 2 To n
+        Dim next As Long = a + b
+        a = b
+        b = next
+    Next i
+    Fibonacci = b
+End Function
+
+Sub Main()
+    Dim n As Integer
+    For n = 0 To 20
+        Print "Fibonacci(" & CStr(n) & ") = " & CStr(Fibonacci(n))
+    Next n
+End Sub
+
+' Expected output:
+' Fibonacci(0) = 0
+' Fibonacci(1) = 1
+' Fibonacci(2) = 1
+' Fibonacci(3) = 2
+' Fibonacci(4) = 3
+' Fibonacci(5) = 5
+' Fibonacci(6) = 8
+' Fibonacci(7) = 13
+' Fibonacci(8) = 21
+' Fibonacci(9) = 34
+' Fibonacci(10) = 55
+' Fibonacci(11) = 89
+' Fibonacci(12) = 144
+' Fibonacci(13) = 233
+' Fibonacci(14) = 377
+' Fibonacci(15) = 610
+' Fibonacci(16) = 987
+' Fibonacci(17) = 1597
+' Fibonacci(18) = 2584
+' Fibonacci(19) = 4181
+' Fibonacci(20) = 6765

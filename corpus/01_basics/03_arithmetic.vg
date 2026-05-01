@@ -1,0 +1,25 @@
+' Standard arithmetic operators in VisualGasic.
+' VG uses the same precedence rules as VB.NET: ^ then * / Mod then + -.
+' Use parentheses freely -- they cost nothing and aid the auditor.
+
+Sub Main()
+    Dim a As Integer = 10
+    Dim b As Integer = 3
+
+    Print "a + b  = " & CStr(a + b)
+    Print "a - b  = " & CStr(a - b)
+    Print "a * b  = " & CStr(a * b)
+    Print "a / b  = " & CStr(a / b)        ' Floating-point division
+    Print "a \ b  = " & CStr(a \ b)        ' Integer division
+    Print "a Mod b = " & CStr(a Mod b)
+    Print "a ^ b  = " & CStr(a ^ b)        ' Exponentiation
+End Sub
+
+' Expected output:
+' a + b  = 13
+' a - b  = 7
+' a * b  = 30
+' a / b  = 3.33333333333333
+' a \ b  = 3
+' a Mod b = 1
+' a ^ b  = 1000

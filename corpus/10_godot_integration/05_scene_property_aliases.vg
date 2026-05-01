@@ -1,0 +1,42 @@
+' Godot integration: VisualGasic exposes Godot Node properties under
+' both their original snake_case names AND VB-style PascalCase aliases,
+' so an auditor reading a VG program never has to mentally translate.
+'
+' Both of the following lines do the same thing:
+'   sprite1.position = Vector2(100, 200)
+'   sprite1.Position = Vector2(100, 200)
+'
+' Same for: visible/Visible, modulate/Modulate, rotation/Rotation,
+' scale/Scale, name/Name, and so on.
+
+Sub Form_Load()
+    ' All four assignments use VB-style aliases
+    sprite1.Visible = True
+    sprite1.Position = Vector2(50.0, 50.0)
+    sprite1.Rotation = 0.0
+    sprite1.Modulate = Color(1.0, 1.0, 1.0, 1.0)
+
+    lblPlayer.Text = "Player ready"
+End Sub
+
+Sub btnMove_Click()
+    ' Read the current position, then set a new one
+    Dim p As Variant = sprite1.Position
+    p.x = p.x + 10.0
+    sprite1.Position = p
+    lblPlayer.Text = "Moved to x=" & CStr(p.x)
+End Sub
+
+Sub btnHide_Click()
+    sprite1.Visible = Not sprite1.Visible
+End Sub
+
+Sub btnTint_Click()
+    ' Pick a random colour
+    Dim r As Single = Rnd()
+    Dim g As Single = Rnd()
+    Dim b As Single = Rnd()
+    sprite1.Modulate = Color(r, g, b, 1.0)
+End Sub
+
+' No "Expected output" -- run in the IDE.

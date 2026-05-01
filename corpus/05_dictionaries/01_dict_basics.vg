@@ -1,0 +1,36 @@
+' Dictionary basics: insert, lookup, contains-check, removal.
+' VisualGasic dictionaries map String keys to Variant values.
+' Use .Exists(key) before reading -- accessing a missing key raises.
+
+Sub Main()
+    Dim ages As New Dictionary
+
+    ages.Add("Alice", 30)
+    ages.Add("Bob", 25)
+    ages.Add("Carol", 42)
+
+    Print "Count: " & CStr(ages.Count)
+    Print "Alice's age: " & CStr(ages("Alice"))
+
+    ' Defensive lookup
+    If ages.Exists("Dave") Then
+        Print "Dave's age: " & CStr(ages("Dave"))
+    Else
+        Print "Dave is not in the dictionary"
+    End If
+
+    ' Updating an existing entry
+    ages("Bob") = 26
+    Print "Bob's new age: " & CStr(ages("Bob"))
+
+    ' Removal
+    ages.Remove("Carol")
+    Print "After removing Carol, count = " & CStr(ages.Count)
+End Sub
+
+' Expected output:
+' Count: 3
+' Alice's age: 30
+' Dave is not in the dictionary
+' Bob's new age: 26
+' After removing Carol, count = 2

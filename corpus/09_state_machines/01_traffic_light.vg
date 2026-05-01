@@ -1,0 +1,33 @@
+' A traffic-light state machine. Three states, deterministic transitions.
+' Note how Select Case on a string-typed state variable produces a
+' state machine that an auditor can verify by eye in seconds.
+
+Sub Main()
+    Dim state As String = "RED"
+    Dim cycle As Integer
+
+    For cycle = 1 To 7
+        Print "Cycle " & CStr(cycle) & ": " & state
+
+        Select Case state
+            Case "RED"
+                state = "GREEN"
+            Case "GREEN"
+                state = "YELLOW"
+            Case "YELLOW"
+                state = "RED"
+            Case Else
+                Print "ERROR: unknown state " & state
+                Exit Sub
+        End Select
+    Next cycle
+End Sub
+
+' Expected output:
+' Cycle 1: RED
+' Cycle 2: GREEN
+' Cycle 3: YELLOW
+' Cycle 4: RED
+' Cycle 5: GREEN
+' Cycle 6: YELLOW
+' Cycle 7: RED

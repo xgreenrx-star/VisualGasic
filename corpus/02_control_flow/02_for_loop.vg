@@ -1,0 +1,35 @@
+' For loops in VisualGasic use the form: For <var> = <start> To <end> [Step <n>].
+' The end value is INCLUSIVE -- "For i = 1 To 5" runs five times.
+
+Sub Main()
+    ' Count up from 1 to 5
+    Dim i As Integer
+    For i = 1 To 5
+        Print "Up:   i = " & CStr(i)
+    Next i
+
+    ' Count down from 5 to 1 with a Step
+    For i = 5 To 1 Step -1
+        Print "Down: i = " & CStr(i)
+    Next i
+
+    ' Sum of 1..10
+    Dim total As Integer = 0
+    For i = 1 To 10
+        total = total + i
+    Next i
+    Print "Sum 1..10 = " & CStr(total)
+End Sub
+
+' Expected output:
+' Up:   i = 1
+' Up:   i = 2
+' Up:   i = 3
+' Up:   i = 4
+' Up:   i = 5
+' Down: i = 5
+' Down: i = 4
+' Down: i = 3
+' Down: i = 2
+' Down: i = 1
+' Sum 1..10 = 55

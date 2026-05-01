@@ -1,0 +1,39 @@
+' Group an array of records by a key.
+' The result is a dictionary whose values are arrays of the matching records.
+
+Sub Main()
+    ' (city, person) tuples encoded as "city|person"
+    Dim records() As String = { _
+        "London|Alice", _
+        "Paris|Bob", _
+        "London|Carol", _
+        "Tokyo|Dave", _
+        "Paris|Eve", _
+        "London|Frank" _
+    }
+
+    Dim groups As New Dictionary
+
+    Dim r As String
+    For Each r In records
+        Dim parts() As String = Split(r, "|")
+        Dim city As String = parts(0)
+        Dim person As String = parts(1)
+
+        If Not groups.Exists(city) Then
+            groups.Add(city, New ArrayList)
+        End If
+        groups(city).Add(person)
+    Next r
+
+    ' Print each group
+    Dim city2 As String
+    For Each city2 In groups.Keys
+        Print city2 & ": " & Join(groups(city2).ToArray(), ", ")
+    Next city2
+End Sub
+
+' Expected output:
+' London: Alice, Carol, Frank
+' Paris: Bob, Eve
+' Tokyo: Dave

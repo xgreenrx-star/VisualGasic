@@ -1,0 +1,37 @@
+' Select Case is the multi-branch construct in VisualGasic.
+' It supports single values, ranges (Case 1 To 5), and "Is" comparisons
+' (Case Is > 100). The Case Else branch handles everything not matched above.
+
+Sub Main()
+    Dim weatherCode As Integer = 3
+
+    Select Case weatherCode
+        Case 0
+            Print "Clear"
+        Case 1, 2
+            Print "Partly cloudy"
+        Case 3 To 5
+            Print "Overcast or rain"
+        Case Is >= 6
+            Print "Severe weather"
+        Case Else
+            Print "Unknown weather code"
+    End Select
+
+    ' Select Case also works on strings
+    Dim cmd As String = "save"
+    Select Case cmd
+        Case "save"
+            Print "Saving..."
+        Case "load"
+            Print "Loading..."
+        Case "quit", "exit"
+            Print "Goodbye"
+        Case Else
+            Print "Unknown command: " & cmd
+    End Select
+End Sub
+
+' Expected output:
+' Overcast or rain
+' Saving...

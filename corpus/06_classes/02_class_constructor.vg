@@ -1,0 +1,39 @@
+' Classes can have a Class_Initialize sub which is called automatically
+' when an instance is created via New. This is the constructor.
+' Use it to set sensible defaults for every public field.
+
+Class Enemy
+    Public name As String
+    Public health As Integer
+    Public alive As Boolean
+
+    Sub Class_Initialize()
+        name = "Goblin"
+        health = 100
+        alive = True
+    End Sub
+
+    Sub TakeDamage(amount As Integer)
+        health = health - amount
+        If health <= 0 Then
+            health = 0
+            alive = False
+        End If
+    End Sub
+End Class
+
+Sub Main()
+    Dim e As Variant = New Enemy
+    Print e.name & " has " & CStr(e.health) & " HP, alive=" & CStr(e.alive)
+
+    e.TakeDamage(30)
+    Print "After 30 damage: " & CStr(e.health) & " HP"
+
+    e.TakeDamage(80)
+    Print "After 80 more:   " & CStr(e.health) & " HP, alive=" & CStr(e.alive)
+End Sub
+
+' Expected output:
+' Goblin has 100 HP, alive=True
+' After 30 damage: 70 HP
+' After 80 more:   0 HP, alive=False

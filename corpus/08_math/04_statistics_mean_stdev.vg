@@ -1,0 +1,40 @@
+' Mean and population standard deviation of a numeric array.
+' Two-pass algorithm: compute the mean, then sum of squared deviations.
+' This is more accurate than the one-pass "sum of squares" formula
+' that AI models often produce.
+
+Function Mean(values() As Single) As Single
+    Dim total As Single = 0.0
+    Dim v As Single
+    For Each v In values
+        total = total + v
+    Next v
+    Mean = total / CSng(UBound(values) + 1)
+End Function
+
+Function StdDev(values() As Single) As Single
+    Dim m As Single = Mean(values)
+    Dim sumSq As Single = 0.0
+    Dim v As Single
+    For Each v In values
+        Dim d As Single = v - m
+        sumSq = sumSq + d * d
+    Next v
+    StdDev = Sqr(sumSq / CSng(UBound(values) + 1))
+End Function
+
+Sub Main()
+    Dim heights() As Single = {165.0, 170.0, 175.0, 180.0, 185.0}
+    Print "Mean:   " & CStr(Mean(heights))
+    Print "StdDev: " & CStr(StdDev(heights))
+
+    Dim spread() As Single = {10.0, 20.0, 30.0, 40.0, 50.0}
+    Print "Mean:   " & CStr(Mean(spread))
+    Print "StdDev: " & CStr(StdDev(spread))
+End Sub
+
+' Expected output:
+' Mean:   175
+' StdDev: 7.07106781186548
+' Mean:   30
+' StdDev: 14.142135623731

@@ -1,0 +1,39 @@
+' Find the maximum and minimum elements of an integer array.
+' The idiom is to seed the accumulator with the first element, then
+' walk the rest. Seeding with 0 (or with a "very large" sentinel) is a
+' classic AI-generated bug: it fails silently on all-negative arrays.
+
+Function ArrayMax(values() As Integer) As Integer
+    If UBound(values) < LBound(values) Then
+        Print "ArrayMax: empty array"
+        ArrayMax = 0
+        Exit Function
+    End If
+
+    Dim best As Integer = values(LBound(values))
+    Dim i As Integer
+    For i = LBound(values) + 1 To UBound(values)
+        If values(i) > best Then best = values(i)
+    Next i
+    ArrayMax = best
+End Function
+
+Function ArrayMin(values() As Integer) As Integer
+    Dim best As Integer = values(LBound(values))
+    Dim i As Integer
+    For i = LBound(values) + 1 To UBound(values)
+        If values(i) < best Then best = values(i)
+    Next i
+    ArrayMin = best
+End Function
+
+Sub Main()
+    Dim temps() As Integer = {-5, 12, 8, -10, 22, 0, 17}
+
+    Print "Max: " & CStr(ArrayMax(temps))
+    Print "Min: " & CStr(ArrayMin(temps))
+End Sub
+
+' Expected output:
+' Max: 22
+' Min: -10

@@ -1,0 +1,37 @@
+' Do While loops repeat until the condition becomes False.
+' Use Exit Do to break out early.
+' Use Do Loop While to test the condition AFTER the body (run at least once).
+
+Sub Main()
+    ' Test-first loop
+    Dim n As Integer = 1
+    Do While n <= 5
+        Print "Pre-test:  n = " & CStr(n)
+        n = n + 1
+    Loop
+
+    ' Test-after loop (always runs at least once)
+    Dim m As Integer = 10
+    Do
+        Print "Post-test: m = " & CStr(m)
+        m = m - 1
+    Loop While m > 8
+
+    ' Early exit
+    Dim x As Integer = 0
+    Do While True
+        x = x + 1
+        If x >= 3 Then Exit Do
+    Loop
+    Print "Exited at x = " & CStr(x)
+End Sub
+
+' Expected output:
+' Pre-test:  n = 1
+' Pre-test:  n = 2
+' Pre-test:  n = 3
+' Pre-test:  n = 4
+' Pre-test:  n = 5
+' Post-test: m = 10
+' Post-test: m = 9
+' Exited at x = 3

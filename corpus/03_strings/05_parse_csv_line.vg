@@ -1,0 +1,30 @@
+' Parse a single CSV line into typed fields.
+' This is the simple version: no quoting, no embedded commas.
+' For real-world CSV use the corpus example in 07_file_io/04_read_csv.vg.
+
+Sub Main()
+    Dim line As String = "Alice,30,engineer,87.5"
+
+    Dim fields() As String = Split(line, ",")
+
+    If UBound(fields) <> 3 Then
+        Print "ERROR: expected 4 fields, got " & CStr(UBound(fields) + 1)
+        Exit Sub
+    End If
+
+    Dim name As String = Trim(fields(0))
+    Dim age As Integer = CInt(Trim(fields(1)))
+    Dim role As String = Trim(fields(2))
+    Dim score As Single = CSng(Trim(fields(3)))
+
+    Print "Name:  " & name
+    Print "Age:   " & CStr(age)
+    Print "Role:  " & role
+    Print "Score: " & CStr(score)
+End Sub
+
+' Expected output:
+' Name:  Alice
+' Age:   30
+' Role:  engineer
+' Score: 87.5

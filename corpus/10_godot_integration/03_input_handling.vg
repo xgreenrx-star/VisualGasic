@@ -1,0 +1,45 @@
+' Godot integration: keyboard input.
+' Form_KeyDown receives a KeyCode and a Shift flag.
+' Common KeyCodes:
+'   8  = Backspace, 9 = Tab, 13 = Enter, 27 = Escape, 32 = Space
+'   37 = Left, 38 = Up, 39 = Right, 40 = Down
+'   65 = A ... 90 = Z
+
+Dim playerX As Single
+Dim playerY As Single
+
+Sub Form_Load()
+    playerX = 100.0
+    playerY = 100.0
+    UpdatePlayerLabel()
+End Sub
+
+Sub UpdatePlayerLabel()
+    lblPlayer.Text = "Player: (" & CStr(playerX) & ", " & CStr(playerY) & ")"
+End Sub
+
+Sub Form_KeyDown(KeyCode, Shift)
+    Dim step As Single = 10.0
+    If Shift Then step = 50.0
+
+    Select Case KeyCode
+        Case 37    ' Left
+            playerX = playerX - step
+        Case 39    ' Right
+            playerX = playerX + step
+        Case 38    ' Up
+            playerY = playerY - step
+        Case 40    ' Down
+            playerY = playerY + step
+        Case 27    ' Escape
+            playerX = 100.0
+            playerY = 100.0
+            Print "Reset to start"
+        Case Else
+            ' Ignore other keys
+    End Select
+
+    UpdatePlayerLabel()
+End Sub
+
+' No "Expected output" -- run inside the IDE and use the arrow keys.

@@ -1,0 +1,17 @@
+' Reading a line of input from the console with InputBox.
+' This example uses a default value so the program is non-interactive
+' when run through automation (the input box returns the default
+' immediately if the host has no UI).
+
+Sub Main()
+    Dim userName As String = InputBox("What is your name?", "Greeting", "World")
+
+    If userName = "" Then
+        userName = "stranger"
+    End If
+
+    Print "Hello, " & userName & "!"
+End Sub
+
+' Expected output (with default "World"):
+' Hello, World!

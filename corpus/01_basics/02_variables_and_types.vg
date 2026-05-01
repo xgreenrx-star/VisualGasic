@@ -1,0 +1,22 @@
+' Variables in VisualGasic are declared with Dim and given an explicit type.
+' Explicit types are recommended over inferred ones because they document
+' intent at the point of declaration -- valuable when an auditor is reading
+' AI-generated code.
+
+Sub Main()
+    Dim playerName As String = "Alice"
+    Dim playerLevel As Integer = 7
+    Dim playerHealth As Single = 87.5
+    Dim isAlive As Boolean = True
+
+    Print "Name:   " & playerName
+    Print "Level:  " & CStr(playerLevel)
+    Print "Health: " & CStr(playerHealth)
+    Print "Alive:  " & CStr(isAlive)
+End Sub
+
+' Expected output:
+' Name:   Alice
+' Level:  7
+' Health: 87.5
+' Alive:  True

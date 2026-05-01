@@ -1,0 +1,56 @@
+' Inheritance in VisualGasic uses the Inherits keyword.
+' A subclass gets all public/protected fields and methods of its parent
+' and can override Subs/Functions by re-declaring them.
+
+Class Shape
+    Public name As String
+
+    Sub Class_Initialize()
+        name = "Shape"
+    End Sub
+
+    Function Area() As Single
+        ' Default area is 0 -- subclasses should override.
+        Area = 0.0
+    End Function
+End Class
+
+Class Circle Inherits Shape
+    Public radius As Single
+
+    Sub Class_Initialize()
+        name = "Circle"
+        radius = 1.0
+    End Sub
+
+    Function Area() As Single
+        Area = 3.14159 * radius * radius
+    End Function
+End Class
+
+Class Square Inherits Shape
+    Public side As Single
+
+    Sub Class_Initialize()
+        name = "Square"
+        side = 1.0
+    End Sub
+
+    Function Area() As Single
+        Area = side * side
+    End Function
+End Class
+
+Sub Main()
+    Dim c As Variant = New Circle
+    c.radius = 5.0
+    Print c.name & " area = " & CStr(c.Area())
+
+    Dim s As Variant = New Square
+    s.side = 4.0
+    Print s.name & " area = " & CStr(s.Area())
+End Sub
+
+' Expected output:
+' Circle area = 78.53975
+' Square area = 16

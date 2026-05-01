@@ -1,0 +1,67 @@
+' Menu navigation as a state machine.
+' Each state is a screen; events are user choices like "1" "2" "back".
+
+Function Navigate(state As String, choice As String) As String
+    Select Case state
+        Case "MAIN"
+            Select Case choice
+                Case "1": Navigate = "PLAY"
+                Case "2": Navigate = "OPTIONS"
+                Case "3": Navigate = "QUIT"
+                Case Else: Navigate = state
+            End Select
+
+        Case "PLAY"
+            Select Case choice
+                Case "1": Navigate = "GAME_NEW"
+                Case "2": Navigate = "GAME_LOAD"
+                Case "back": Navigate = "MAIN"
+                Case Else: Navigate = state
+            End Select
+
+        Case "OPTIONS"
+            Select Case choice
+                Case "1": Navigate = "AUDIO"
+                Case "2": Navigate = "VIDEO"
+                Case "back": Navigate = "MAIN"
+                Case Else: Navigate = state
+            End Select
+
+        Case "AUDIO", "VIDEO", "GAME_NEW", "GAME_LOAD"
+            If choice = "back" Then
+                If state = "AUDIO" Or state = "VIDEO" Then
+                    Navigate = "OPTIONS"
+                Else
+                    Navigate = "PLAY"
+                End If
+            Else
+                Navigate = state
+            End If
+
+        Case Else
+            Navigate = "MAIN"
+    End Select
+End Function
+
+Sub Main()
+    Dim state As String = "MAIN"
+    Dim choices() As String = {"2", "1", "back", "1", "2", "back", "back"}
+
+    Print "Start: " & state
+    Dim c As String
+    For Each c In choices
+        Dim ns As String = Navigate(state, c)
+        Print state & " --(" & c & ")--> " & ns
+        state = ns
+    Next c
+End Sub
+
+' Expected output:
+' Start: MAIN
+' MAIN --(2)--> OPTIONS
+' OPTIONS --(1)--> AUDIO
+' AUDIO --(back)--> OPTIONS
+' OPTIONS --(1)--> AUDIO
+' AUDIO --(2)--> AUDIO
+' AUDIO --(back)--> OPTIONS
+' OPTIONS --(back)--> MAIN
