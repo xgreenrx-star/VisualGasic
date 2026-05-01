@@ -68,14 +68,18 @@ That you should rewrite your backend. That AI is bad. None of those.
   hand-audited, dual-licensed CC0/Unlicense so model labs can ingest it.
 - A [benchmark harness](https://github.com/xgreenrx-star/VisualGasic/tree/main/bench/ai_correctness):
   same prompts across VG / GDScript / Python / TypeScript, same model, same
-  temperature, measure first-attempt parse-success. Results will be a
-  follow-up post.
+  temperature, measure first-attempt parse-success. First run is in:
+  qwen2.5-coder:7b scores VG **100%**, Python **100%**, TypeScript **84%**,
+  GDScript **68%** on N=25. Full report and raw outputs at
+  [`bench/ai_correctness/REPORT.md`](https://github.com/xgreenrx-star/VisualGasic/blob/main/bench/ai_correctness/REPORT.md).
+  Frontier-model run is the next post.
 
 **Where I want to be wrong.** The strongest counter-argument I can think of
 is that LLMs have seen so much more Python than BASIC that they simply make
 fewer mistakes there in absolute terms, even if the surface syntax is harder
-for a human to audit. That's exactly what the benchmark is supposed to
-settle. If you have other counter-arguments, I want to hear them.
+for a human to audit. The 7B-model numbers don't refute that — they suggest
+VG's syntax advantage at least matches Python's training-data advantage at
+this scale. If you have other counter-arguments, I want to hear them.
 
 ## Posting checklist
 
@@ -96,7 +100,7 @@ settle. If you have other counter-arguments, I want to hear them.
 | "Just use static analysis." | Static analysis is great. It is not a substitute for a syntax that lets a human catch the analyser's blind spots. |
 | "Verbose syntax is annoying to write." | Agreed. But the cost has shifted: the AI writes it once, the human reads it many times. |
 | "VB6 had its problems." | Nobody is shipping VB6. The claim is about the *syntax family*, not any specific 1990s implementation. |
-| "Where are the numbers?" | `bench/ai_correctness/` ships in the repo. Results post is next. |
+| "Where are the numbers?" | `bench/ai_correctness/REPORT.md` — VG 100%, Py 100%, TS 84%, GDScript 68% on qwen2.5-coder:7b, N=25. Frontier-model run is next. |
 
 ## Tags / flair
 
