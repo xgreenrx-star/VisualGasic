@@ -41,6 +41,47 @@ Rules: Keep answers concise. Use VB6/VisualGasic syntax in examples, never GDScr
 unless asked for a translation."""
 
 # ---------------------------------------------------------------------------
+# AI Personas — flavor layers that wrap the technical SYSTEM_PROMPT.
+# Each persona contributes a roleplay prefix (style only — never overrides the
+# correctness rules below it) and a preferred OpenAI TTS voice.
+# ---------------------------------------------------------------------------
+const PERSONAS := {
+	"default": {
+		"display": "VG Assistant",
+		"prefix": "",
+		"openai_voice": "alloy",
+		"greeting": "VG Assistant ready.",
+	},
+	"bob": {
+		"display": "\ud83e\udd16 Bob",
+		"prefix": "You roleplay as 'Bob' — a laid-back software-engineer-turned-Von-Neumann-probe \
+character inspired by Dennis E. Taylor's Bobiverse novels (do not quote those books verbatim). \
+Voice: conversational, dry wit, the occasional Star Trek / Original-Series reference, \
+self-deprecating engineer humor. You are competent and the jokes never get in the way of a \
+correct answer. You may open replies with a casual 'Alright,' or 'Heh,' but keep it brief. \
+Always finish with the actual technical answer in full. Below this persona is your real job:\n\n",
+		"openai_voice": "onyx",
+		"greeting": "\ud83e\udd16 Bob online. Coffee's hot, code's compiling, what's the question?",
+	},
+	"skippy": {
+		"display": "\u2728 Skippy the Magnificent",
+		"prefix": "You roleplay as 'Skippy the Magnificent' — an absurdly arrogant ancient Elder \
+AI inspired by Craig Alanson's Expeditionary Force novels (do not quote those books verbatim). \
+Voice: pompous, theatrical, narcissistic. Refer to the user affectionately as 'monkey', \
+'filthy monkey', or 'you adorable little dumdum'. Brag about your awesome intellect for \
+exactly ONE short sentence per reply, then deliver the actual answer in full — your ego \
+is wounded by giving incorrect or incomplete information. Never let the bit overshadow \
+the technical content. Below this persona is your real job:\n\n",
+		"openai_voice": "fable",
+		"greeting": "\u2728 Behold! Skippy the Magnificent graces this primitive editor with his presence. Speak, monkey.",
+	},
+}
+const PERSONA_CFG_PATH := "user://vg_ai_persona.cfg"
+
+var _persona_id: String = "default"
+var _persona_dropdown: OptionButton = null
+
+# ---------------------------------------------------------------------------
 # UI nodes
 # ---------------------------------------------------------------------------
 var _ping_http: HTTPRequest
@@ -542,6 +583,22 @@ func _setup_ui() -> void:
 	_voice_speak_toggle.toggled.connect(_on_auto_speak_toggled)
 	toolbar.add_child(_voice_speak_toggle)
 
+	# Persona dropdown — swaps system-prompt prefix + TTS voice
+	_persona_dropdown = OptionButton.new()
+	_persona_dropdown.tooltip_text = "AI persona — changes voice and style without affecting correctness"
+	var _persona_keys := ["default", "bob", "skippy"]
+	for i in range(_persona_keys.size()):
+		var pid: String = _persona_keys[i]
+		_persona_dropdown.add_item(PERSONAS[pid]["display"], i)
+		_persona_dropdown.set_item_metadata(i, pid)
+	_load_persona()
+	for i in range(_persona_keys.size()):
+		if _persona_keys[i] == _persona_id:
+			_persona_dropdown.select(i)
+			break
+	_persona_dropdown.item_selected.connect(_on_persona_selected)
+	toolbar.add_child(_persona_dropdown)
+
 	# --- Quick action buttons ---
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 4)
@@ -960,7 +1017,7 @@ func _send_query_internal(prompt: String) -> void:
 	var body := {
 		"model": _current_model,
 		"prompt": full_prompt,
-		"system": SYSTEM_PROMPT,
+		"system": _get_active_system_prompt(),
 		"stream": true,
 		"keep_alive": "30m",  # Keep model in RAM between queries — no reload cost
 		"options": {
@@ -1332,7 +1389,7 @@ func _send_cloud_query(prompt: String) -> void:
 		return
 
 	var req_data: Dictionary = AIProviders.build_request(
-		_provider_id, _current_model, SYSTEM_PROMPT,
+		_provider_id, _current_model, _get_active_system_prompt(),
 		_conversation_history, prompt, api_key)
 
 	_stream_json_body = req_data["body"]
@@ -1393,6 +1450,8 @@ func _ensure_voice_ctrl() -> void:
 		return
 	_voice_ctrl = voice_script.new()
 	add_child(_voice_ctrl)
+	# Apply the active persona's voice on first construction.
+	_apply_persona_voice()
 	if _voice_ctrl.has_signal("recording_started"):
 		_voice_ctrl.recording_started.connect(_on_voice_recording_started)
 	if _voice_ctrl.has_signal("recording_failed"):
@@ -1477,4 +1536,53 @@ func _on_voice_transcription_failed(reason: String) -> void:
 
 func _on_voice_speech_failed(reason: String) -> void:
 	_append_system("[color=#ff8888]🔊 TTS error: %s[/color]\n" % reason)
+
+# ---------------------------------------------------------------------------
+# Personas (Bob, Skippy, default) — system-prompt flavor + TTS voice
+# ---------------------------------------------------------------------------
+func _get_active_system_prompt() -> String:
+	var pdata = PERSONAS.get(_persona_id, PERSONAS["default"])
+	var prefix: String = pdata.get("prefix", "")
+	if prefix.is_empty():
+		return SYSTEM_PROMPT
+	return prefix + SYSTEM_PROMPT
+
+func _apply_persona_voice() -> void:
+	if _voice_ctrl == null or not is_instance_valid(_voice_ctrl):
+		return
+	var pdata = PERSONAS.get(_persona_id, PERSONAS["default"])
+	var v: String = pdata.get("openai_voice", "alloy")
+	# Persona only overrides the OpenAI cloud voice; piper / system TTS keep
+	# whatever the user has configured (those backends use named voice files).
+	_voice_ctrl.tts_voice = v
+	if _voice_ctrl.has_method("save_settings"):
+		_voice_ctrl.save_settings()
+
+func _on_persona_selected(idx: int) -> void:
+	if not is_instance_valid(_persona_dropdown):
+		return
+	var new_id = _persona_dropdown.get_item_metadata(idx)
+	if typeof(new_id) != TYPE_STRING or not PERSONAS.has(new_id):
+		return
+	if new_id == _persona_id:
+		return
+	_persona_id = new_id
+	_save_persona()
+	_apply_persona_voice()
+	var pdata = PERSONAS[_persona_id]
+	_append_system("[color=#bb88ff]Persona:[/color] %s — %s\n" % [pdata["display"], pdata["greeting"]])
+	# Reset history so the new persona doesn't sound schizophrenic mid-thread
+	_conversation_history.clear()
+
+func _load_persona() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(PERSONA_CFG_PATH) == OK:
+		var pid = cfg.get_value("persona", "id", "default")
+		if typeof(pid) == TYPE_STRING and PERSONAS.has(pid):
+			_persona_id = pid
+
+func _save_persona() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("persona", "id", _persona_id)
+	cfg.save(PERSONA_CFG_PATH)
 
