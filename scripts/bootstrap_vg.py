@@ -1179,13 +1179,108 @@ def install_ollama_linux() -> bool:
 
 
 def open_ollama_download_page() -> None:
-    """Open the user's browser at ollama.com/download. Used on Windows /
-    macOS where we don't auto-install."""
+    """Open the user's browser at ollama.com/download. Used as a fallback
+    when the silent installer can't run."""
     import webbrowser
     try:
         webbrowser.open("https://ollama.com/download")
     except Exception:
         pass
+
+
+def install_ollama_windows() -> bool:
+    """Download OllamaSetup.exe and run it silently. Returns True on
+    success. The user is not prompted — the official installer's /SILENT
+    flag suppresses its own UI but Windows may still show a SmartScreen
+    prompt the first time."""
+    url = "https://ollama.com/download/OllamaSetup.exe"
+    info("Downloading the official Ollama installer (~700 MB)…")
+    try:
+        with tempfile.NamedTemporaryFile(prefix="OllamaSetup-", suffix=".exe",
+                                         delete=False) as tmp:
+            dest = Path(tmp.name)
+        download_with_progress(url, dest)
+    except Exception as e:
+        warn(f"Could not download Ollama installer: {e}. "
+             "Install it manually from https://ollama.com/download.")
+        open_ollama_download_page()
+        return False
+
+    info("Running Ollama installer (silent mode — please accept any SmartScreen prompt)…")
+    try:
+        rc = subprocess.run([str(dest), "/SILENT", "/CLOSEAPPLICATIONS"],
+                            check=False, timeout=600)
+        if rc.returncode != 0:
+            warn(f"Ollama installer exited with code {rc.returncode}. "
+                 "You may need to finish it manually from "
+                 f"{dest}, or download from https://ollama.com/download.")
+            return False
+    except subprocess.TimeoutExpired:
+        warn("Ollama installer timed out. Finish it manually from "
+             f"{dest}.")
+        return False
+    except Exception as e:
+        warn(f"Ollama installer failed: {e}. "
+             "Install it manually from https://ollama.com/download.")
+        return False
+    finally:
+        # Best-effort cleanup; if the installer is still running, leave it.
+        try:
+            if dest.exists():
+                dest.unlink()
+        except Exception:
+            pass
+
+    # Ollama on Windows installs to %LocalAppData%\Programs\Ollama and adds
+    # itself to PATH on next shell — but our current process inherited the
+    # old PATH. Add the install dir manually so ollama_path() finds it.
+    candidate = Path(os.environ.get("LOCALAPPDATA",
+                                    Path.home() / "AppData" / "Local")) \
+                / "Programs" / "Ollama"
+    if candidate.exists():
+        os.environ["PATH"] = str(candidate) + os.pathsep + os.environ.get("PATH", "")
+    return True
+
+
+def install_ollama_macos() -> bool:
+    """Download Ollama-darwin.zip, extract Ollama.app to /Applications, and
+    start the Ollama service. Returns True on success."""
+    url = "https://ollama.com/download/Ollama-darwin.zip"
+    info("Downloading the official Ollama macOS bundle…")
+    try:
+        with tempfile.NamedTemporaryFile(prefix="Ollama-darwin-",
+                                         suffix=".zip", delete=False) as tmp:
+            zip_path = Path(tmp.name)
+        download_with_progress(url, zip_path)
+    except Exception as e:
+        warn(f"Could not download Ollama bundle: {e}. "
+             "Install it manually from https://ollama.com/download.")
+        open_ollama_download_page()
+        return False
+
+    apps = Path("/Applications")
+    try:
+        with zipfile.ZipFile(zip_path) as z:
+            z.extractall(apps)
+        # Launch the app once so it installs the `ollama` CLI shim and
+        # starts the background service.
+        subprocess.run(["open", "-a", "Ollama"], check=False, timeout=30)
+        # Best-effort: Ollama puts its CLI at /usr/local/bin/ollama after
+        # first launch; nudge PATH so ollama_path() finds it this run.
+        for extra in ("/usr/local/bin", "/opt/homebrew/bin"):
+            if extra not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = extra + os.pathsep + os.environ.get("PATH", "")
+        return True
+    except Exception as e:
+        warn(f"Could not extract/launch Ollama: {e}. "
+             "Install it manually from https://ollama.com/download.")
+        return False
+    finally:
+        try:
+            if zip_path.exists():
+                zip_path.unlink()
+        except Exception:
+            pass
 
 
 def pull_ollama_model(model_id: str) -> bool:
@@ -1231,8 +1326,15 @@ def configure_ollama(args) -> None:
 
     if ollama_path() is None:
         info("Ollama is not installed yet.")
-        if platform.system() == "Linux":
+        system = platform.system()
+        if system == "Linux":
             if not install_ollama_linux():
+                return
+        elif system == "Windows":
+            if not install_ollama_windows():
+                return
+        elif system == "Darwin":
+            if not install_ollama_macos():
                 return
         else:
             info("Opening https://ollama.com/download in your browser. "

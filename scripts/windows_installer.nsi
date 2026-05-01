@@ -63,6 +63,9 @@ Var ClaudeKey
 Var GeminiKey
 Var MakeShortcuts
 Var RegisterVgFiles
+Var InstallOllama
+Var OllamaModel
+Var DetectedRamGB
 
 Var hCtlGodot
 Var hCtlProjName
@@ -73,11 +76,15 @@ Var hCtlFileAssoc
 Var hCtlOpenAI
 Var hCtlClaude
 Var hCtlGemini
+Var hCtlOllamaEnable
+Var hCtlOllamaModel
+Var hCtlOllamaInfo
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
 Page custom OptionsPage OptionsPageLeave
 Page custom AIKeysPage  AIKeysPageLeave
+Page custom OllamaPage  OllamaPageLeave
 !insertmacro MUI_PAGE_INSTFILES
 !define MUI_FINISHPAGE_TEXT "VisualGasic has been installed.$\r$\n$\r$\nThe VisualGasic IDE should now be open — if not, find it on your Start Menu."
 !define MUI_FINISHPAGE_RUN
@@ -100,6 +107,9 @@ Function .onInit
     StrCpy $OpenAIKey ""
     StrCpy $ClaudeKey ""
     StrCpy $GeminiKey ""
+    StrCpy $InstallOllama "0"
+    StrCpy $OllamaModel ""
+    StrCpy $DetectedRamGB "0"
 FunctionEnd
 
 ; ── Custom page 1: VisualGasic options ──────────────────────────────────
@@ -223,6 +233,138 @@ Function AIKeysPageLeave
     ${NSD_GetText} $hCtlGemini $GeminiKey
 FunctionEnd
 
+; ── Custom page 3: Ollama (free local AI, optional) ─────────────────────
+;
+; Detects total RAM via GlobalMemoryStatusEx, recommends a model, and lets
+; the user pick a different one (or skip Ollama entirely). The recommended
+; model is what the bootstrap's recommend_ollama_model() would pick from
+; RAM alone — VRAM detection is left to the bootstrap (it has nvidia-smi
+; access) and only kicks in when the user picks "Auto-recommend".
+;
+; Models in the dropdown mirror OLLAMA_MODELS in bootstrap_vg.py. Keep the
+; two lists in sync when adding/removing entries.
+Function DetectRamMB
+    ; Returns total physical RAM in MB on the stack. Uses
+    ; GlobalMemoryStatusEx (works on every Windows we support).
+    ; Layout: dwLength + dwMemoryLoad + 7×ULONGLONG = 4 + 4 + 56 = 64 bytes.
+    System::Alloc 64
+    Pop $0
+    ; dwLength = 64
+    System::Call "*$0(i 64)"
+    System::Call "kernel32::GlobalMemoryStatusEx(i r0) i .r1"
+    ${If} $1 == 0
+        System::Free $0
+        Push 0
+        Return
+    ${EndIf}
+    ; ullTotalPhys is at byte offset 8. Read it as two 32-bit DWORDs
+    ; (low/high) so we don't depend on NSIS's int64 math support.
+    System::Call "*$0(i,i,i .r2,i .r3)"
+    System::Free $0
+    ; total_MB = high * 4096 + low / 1048576
+    ; (high * 4096 covers RAM above 4 GB; low / 1MB covers up to 4 GB.)
+    IntOp $4 $3 * 4096
+    IntOp $5 $2 / 1048576
+    IntOp $4 $4 + $5
+    Push $4
+FunctionEnd
+
+Function OllamaPage
+    !insertmacro MUI_HEADER_TEXT "Free Local AI — Ollama (optional)" \
+        "Optionally install Ollama and a coding model to use AI offline with no API key."
+
+    nsDialogs::Create 1018
+    Pop $0
+    ${If} $0 == error
+        Abort
+    ${EndIf}
+
+    ; Detect RAM and convert to GB string.
+    Call DetectRamMB
+    Pop $4   ; RAM in MB
+    IntOp $5 $4 / 1024
+    StrCpy $DetectedRamGB "$5"
+
+    ; Pick a default recommended model index based on RAM tiers (mirrors
+    ; recommend_ollama_model() — RAM-only branch, since we can't probe VRAM
+    ; reliably from NSIS without bundling extra plugins).
+    ; Combobox indexes:
+    ;   0 Auto-recommend (default — bootstrap will re-pick using RAM+VRAM)
+    ;   1 tinyllama
+    ;   2 qwen2.5-coder:1.5b
+    ;   3 llama3.2:3b
+    ;   4 qwen2.5-coder:7b
+    ;   5 qwen2.5-coder:14b
+    ;   6 qwen2.5-coder:32b
+
+    ${NSD_CreateLabel} 0 0 100% 24u \
+        "Ollama runs an AI coding model on your own PC. No API key, no data leaves your machine. The model is downloaded during install (a few GB)."
+    Pop $0
+
+    ${NSD_CreateLabel} 0 28u 100% 12u "Detected: $DetectedRamGB GB RAM"
+    Pop $hCtlOllamaInfo
+
+    ${NSD_CreateCheckbox} 0 44u 100% 12u \
+        "Install Ollama and download a coding model (recommended)"
+    Pop $hCtlOllamaEnable
+
+    ${NSD_CreateLabel} 0 62u 30% 12u "Model:"
+    Pop $0
+    ${NSD_CreateDropList} 30% 60u 70% 80u ""
+    Pop $hCtlOllamaModel
+    SendMessage $hCtlOllamaModel ${CB_ADDSTRING} 0 \
+        "STR:Auto-recommend based on detected hardware"
+    SendMessage $hCtlOllamaModel ${CB_ADDSTRING} 0 \
+        "STR:TinyLlama 1.1B  ~0.7 GB  (smoke-test)"
+    SendMessage $hCtlOllamaModel ${CB_ADDSTRING} 0 \
+        "STR:Qwen2.5-Coder 1.5B  ~1.0 GB  (4 GB+ RAM, lightweight)"
+    SendMessage $hCtlOllamaModel ${CB_ADDSTRING} 0 \
+        "STR:Llama 3.2 3B  ~2.0 GB  (6 GB+ RAM, general)"
+    SendMessage $hCtlOllamaModel ${CB_ADDSTRING} 0 \
+        "STR:Qwen2.5-Coder 7B  ~4.7 GB  (10 GB+ RAM, recommended sweet spot)"
+    SendMessage $hCtlOllamaModel ${CB_ADDSTRING} 0 \
+        "STR:Qwen2.5-Coder 14B  ~9.0 GB  (16 GB+ RAM, powerful)"
+    SendMessage $hCtlOllamaModel ${CB_ADDSTRING} 0 \
+        "STR:Qwen2.5-Coder 32B  ~20 GB  (32 GB+ RAM, workstation)"
+    ; Default selection = "Auto-recommend" so the bootstrap can do a more
+    ; informed pick that includes GPU VRAM.
+    SendMessage $hCtlOllamaModel ${CB_SETCURSEL} 0 0
+
+    ${NSD_CreateLabel} 0 80u 100% 36u \
+        "Tip: 'Auto-recommend' lets the installer pick the best fit using your CPU, RAM, and GPU. Pick a specific model if you know what your machine can handle. You can change the model later by running 'ollama pull <name>' from a terminal."
+    Pop $0
+
+    nsDialogs::Show
+FunctionEnd
+
+Function OllamaPageLeave
+    ${NSD_GetState} $hCtlOllamaEnable $0
+    ${If} $0 == ${BST_CHECKED}
+        StrCpy $InstallOllama "1"
+    ${Else}
+        StrCpy $InstallOllama "0"
+    ${EndIf}
+
+    SendMessage $hCtlOllamaModel ${CB_GETCURSEL} 0 0 $1
+    ${If} $1 == 0
+        StrCpy $OllamaModel ""              ; auto-recommend
+    ${ElseIf} $1 == 1
+        StrCpy $OllamaModel "tinyllama"
+    ${ElseIf} $1 == 2
+        StrCpy $OllamaModel "qwen2.5-coder:1.5b"
+    ${ElseIf} $1 == 3
+        StrCpy $OllamaModel "llama3.2:3b"
+    ${ElseIf} $1 == 4
+        StrCpy $OllamaModel "qwen2.5-coder:7b"
+    ${ElseIf} $1 == 5
+        StrCpy $OllamaModel "qwen2.5-coder:14b"
+    ${ElseIf} $1 == 6
+        StrCpy $OllamaModel "qwen2.5-coder:32b"
+    ${Else}
+        StrCpy $OllamaModel ""
+    ${EndIf}
+FunctionEnd
+
 ; ── Install ──────────────────────────────────────────────────────────────
 Section "VisualGasic first-time installer" SecMain
     SetOutPath "$INSTDIR"
@@ -253,6 +395,14 @@ Section "VisualGasic first-time installer" SecMain
     ${EndIf}
     ${If} $1 != ""
         StrCpy $0 "$0 --with-ai-keys$1"
+    ${EndIf}
+
+    ; Ollama: only pass --with-ollama if the user opted in.
+    ${If} $InstallOllama == "1"
+        StrCpy $0 "$0 --with-ollama"
+        ${If} $OllamaModel != ""
+            StrCpy $0 "$0 --ollama-model $\"$OllamaModel$\""
+        ${EndIf}
     ${EndIf}
 
     ; Small .cmd shim the user can re-run any time (uses defaults — for
