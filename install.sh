@@ -223,5 +223,25 @@ if [[ -t 0 && -t 1 && "${VG_INSTALL_PIPER:-}" != "0" ]]; then
     echo ""
 fi
 
+# ── Optional: local Whisper STT for AI Pair voice mode ────────────────────
+if [[ -t 0 && -t 1 && "${VG_INSTALL_WHISPER:-}" != "0" ]]; then
+    echo -e "  ${BOLD}Optional:${NC} local speech-to-text for AI Pair (~75 MB download)"
+    echo "    Without this, the 🎙 mic button requires an OpenAI API key."
+    echo "    whisper.cpp runs locally — no key, no network. Builds from source"
+    echo "    (needs cmake + a C++ compiler, ~1 minute)."
+    echo ""
+    read -r -p "  Install local Whisper STT now? [y/N] " ans
+    if [[ "$ans" =~ ^[Yy]$ ]]; then
+        if [[ -f "$VG_GLOBAL_DIR/scripts/install_whisper.sh" ]]; then
+            bash "$VG_GLOBAL_DIR/scripts/install_whisper.sh"
+        else
+            curl -fsSL "$REPO_URL/raw/main/scripts/install_whisper.sh" | bash
+        fi
+    else
+        info "Skipped. Run later with: bash <(curl -sSL $REPO_URL/raw/main/scripts/install_whisper.sh)"
+    fi
+    echo ""
+fi
+
 echo "  Documentation: $REPO_URL"
 echo ""
