@@ -255,7 +255,20 @@ func speak(text: String) -> void:
 		return
 	if _is_speaking:
 		stop_speaking()
-	match tts_backend:
+	# Effective backend: if OpenAI is selected (default) but no key is
+	# configured, silently fall back to system TTS (espeak / say / SAPI)
+	# so voice mode works out of the box for users who haven't bought an
+	# OpenAI key yet. Same fallback if `piper` is selected but the binary
+	# is missing.
+	var effective: String = tts_backend
+	if effective == "openai":
+		var key: String = AIProviders.load_api_key("openai") if AIProviders else ""
+		if key.is_empty():
+			effective = "system"
+	elif effective == "piper":
+		if not _binary_exists(piper_path):
+			effective = "system"
+	match effective:
 		"openai":
 			_speak_openai(text)
 		"piper":
