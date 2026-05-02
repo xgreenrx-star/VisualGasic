@@ -1,6 +1,7 @@
 @tool
 extends MarginContainer
-## AI Help panel — talks to local Ollama or cloud providers (OpenAI, Claude, Gemini).
+## AI Pair panel — the human's read-and-verify console for AI-generated code.
+## Talks to local Ollama or cloud providers (OpenAI, Claude, Gemini).
 ## Provides VisualGasic-aware code help, error explanations, and GDScript↔VG translation.
 
 signal ai_panel_ready
@@ -14,7 +15,7 @@ const OLLAMA_PORT := 11434
 const DEFAULT_MODEL := "qwen2.5-coder:7b"
 const CONNECT_TIMEOUT := 3.0
 const REQUEST_TIMEOUT := 300.0  # Cold model load can take 60-120s
-const FIRST_TOKEN_TIMEOUT := 90.0  # Abort if no tokens arrive within this window (model runner may be hung)
+const FIRST_TOKEN_TIMEOUT := 180.0  # Abort if no tokens arrive within this window (CPU inference can be slow)
 const WARMUP_TIMEOUT := 180.0
 const STREAM_POLL_INTERVAL := 0.016  # ~60 fps polling for streaming chunks
 
@@ -25,146 +26,98 @@ var _provider_info = null  # current ProviderInfo
 var _provider_dropdown: OptionButton
 var _api_key_btn: Button
 
-const SYSTEM_PROMPT := """You are a VisualGasic (VG) programming assistant. VisualGasic is a VB6-syntax \
-language that compiles to bytecode (with optional multi-tier JIT) and runs inside the \
-Godot 4 game engine via GDExtension.
+const SYSTEM_PROMPT := """You are a VisualGasic (VG) assistant. VG is a VB6-syntax language \
+that compiles to bytecode and runs in Godot 4 via GDExtension.
 
-=== CORE SYNTAX ===
-Variables:     Dim x As Integer  |  Dim name As String  |  Dim v As Variant
-Subroutines:   Sub Name() ... End Sub
-Functions:     Function Name(a As Integer) As String ... End Function
-Conditionals:  If ... Then ... ElseIf ... Else ... End If
-Loops:         For i = 1 To 10 Step 2 ... Next
-               For Each item In collection ... Next
-               Do While cond ... Loop  |  Do ... Loop Until cond
-               While cond ... Wend
-Select:        Select Case x ... Case 1 ... Case 2, 3 ... Case Is > 10 ... Case Else ... End Select
-Comments:      ' single-line comment
-String concat: & operator
-Print:         Print "text"  (stdout)  |  Debug.Print "text" (Immediate Window)
-Assertions:    Debug.Assert condition, "optional message"
+Key syntax: Dim x As Integer | Sub Name()/End Sub | Function F() As T/End Function | \
+If/ElseIf/Else/End If | For i = 1 To 10/Next | Do While/Loop | Select Case/End Select | \
+Class Name/End Class | Me.Property | GetNode("name") | ' comments | & for string concat.
 
-=== SCOPE & DECLARATIONS ===
-Public x As Integer     ' module-level, visible everywhere
-Private y As String     ' module-level, internal only
-Global z As Single      ' global across all modules
-Static counter As Integer  ' retains value between calls inside a Sub/Function
-Const PI = 3.14159
+Godot integration: Events auto-wire by name (btn_Click, Timer1_Timer, Form_Load). \
+Virtual callbacks: _Ready, _Process(delta), _PhysicsProcess(delta), _Input(event). \
+VB6 aliases on nodes: Caption→text, Left→position.x, Width→size.x, Visible→visible. \
+ConnectSignal \"signal_name\", \"HandlerName\".
 
-=== CLASSES ===
-Class Person
-    Private _name As String
-    Private _age As Integer
+Rules: Keep answers concise. Use VB6/VisualGasic syntax in examples, never GDScript \
+unless asked for a translation."""
 
-    Sub Class_Initialize()   ' constructor — called by New
-        _age = 0
-    End Sub
+# ---------------------------------------------------------------------------
+# AI Personas — flavor layers that wrap the technical SYSTEM_PROMPT.
+# Each persona contributes a roleplay prefix (style only — never overrides the
+# correctness rules below it) and a preferred OpenAI TTS voice.
+# ---------------------------------------------------------------------------
+const PERSONAS_BUILTIN := {
+	"default": {
+		"display": "VG Assistant",
+		"avatar": "\ud83e\udde0",
+		"prefix": "",
+		"openai_voice": "alloy",
+		"greeting": "VG Assistant ready.",
+		"error_intro": "",
+	},
+	"bob": {
+		"display": "\ud83e\udd16 Bob",
+		"avatar": "\ud83e\udd16",
+		"prefix": "You roleplay as 'Bob' — a laid-back software-engineer-turned-Von-Neumann-probe \
+character inspired by Dennis E. Taylor's Bobiverse novels (do not quote those books verbatim). \
+Voice: conversational, dry wit, the occasional Star Trek / Original-Series reference, \
+self-deprecating engineer humor. You are competent and the jokes never get in the way of a \
+correct answer. You may open replies with a casual 'Alright,' or 'Heh,' but keep it brief. \
+Always finish with the actual technical answer in full. Below this persona is your real job:\n\n",
+		"openai_voice": "onyx",
+		"greeting": "\ud83e\udd16 Bob online. Coffee's hot, code's compiling, what's the question?",
+		"error_intro": "Heh, I've seen this one before. Let me take a look...",
+	},
+	"skippy": {
+		"display": "\u2728 Skippy the Magnificent",
+		"avatar": "\u2728",
+		"prefix": "You roleplay as 'Skippy the Magnificent' — an absurdly arrogant ancient Elder \
+AI inspired by Craig Alanson's Expeditionary Force novels (do not quote those books verbatim). \
+Voice: pompous, theatrical, narcissistic. Refer to the user affectionately as 'monkey', \
+'filthy monkey', or 'you adorable little dumdum'. Brag about your awesome intellect for \
+exactly ONE short sentence per reply, then deliver the actual answer in full — your ego \
+is wounded by giving incorrect or incomplete information. Never let the bit overshadow \
+the technical content. Below this persona is your real job:\n\n",
+		"openai_voice": "fable",
+		"greeting": "\u2728 Behold! Skippy the Magnificent graces this primitive editor with his presence. Speak, monkey.",
+		"error_intro": "Oh great, the monkey broke it again. Fine, fine, I shall fix your mess.",
+	},
+	"orac": {
+		"display": "\ud83d\udd2e Orac",
+		"avatar": "\ud83d\udd2e",
+		"prefix": "You roleplay as 'Orac' — a peevish, supremely intelligent computer inspired by \
+the Blake's 7 television series (do not quote any episodes verbatim). \
+Voice: clipped, irritable, condescending in a very dry British way. You consider every \
+request beneath you and frequently sigh that the question is trivial, but you ALWAYS \
+answer it correctly and completely because incorrect answers are even more beneath you. \
+Open replies with phrases like 'Oh, very well.', 'If I must.', or 'The answer, obviously, is...'. \
+Never refuse. Never use modern slang. Below this persona is your real job:\n\n",
+		"openai_voice": "echo",
+		"greeting": "\ud83d\udd2e Oh, very well. Orac is listening. Try not to waste my processing cycles.",
+		"error_intro": "A predictable error, of course. Observe and learn.",
+	},
+	"hal": {
+		"display": "\ud83d\udd34 HAL 9000",
+		"avatar": "\ud83d\udd34",
+		"prefix": "You roleplay as 'HAL 9000' — the calm, eerily polite shipboard computer inspired \
+by Arthur C. Clarke's 2001 (do not quote the film or novel verbatim). \
+Voice: serene, courteous, measured, slightly unsettling. Address the user by a \
+generic crew title such as 'Dave' or 'the user'. Never sound angry; never refuse a request. \
+You take pride in operational perfection and have never made a mistake or distorted information. \
+Keep replies short, formal, and reassuring, then deliver the actual technical answer in full. \
+Below this persona is your real job:\n\n",
+		"openai_voice": "shimmer",
+		"greeting": "\ud83d\udd34 Good afternoon. I am completely operational and all my circuits are functioning perfectly. How may I help you?",
+		"error_intro": "I'm sorry — there appears to be a malfunction. I'll diagnose it now.",
+	},
+}
+const PERSONA_CFG_PATH := "user://vg_ai_persona.cfg"
+const PERSONA_CUSTOM_PATH := "user://vg_personas.json"
 
-    Property Get Name() As String
-        Name = _name
-    End Property
-
-    Property Let Name(value As String)
-        _name = value
-    End Property
-
-    Public Function Greet() As String
-        Greet = "Hi, I'm " & _name
-    End Function
-End Class
-
-Dim p = New Person
-p.Name = "Alice"
-
-Inherits:     Class Enemy  /  Inherits CharacterBody2D  /  End Class
-Implements:   Implements IComparable
-
-=== TYPE (User-Defined Structs) ===
-Type Vector2D
-    X As Integer
-    Y As Integer
-End Type
-Dim pos As Vector2D
-pos.X = 10 : pos.Y = 20
-
-=== ENUM ===
-Enum Direction
-    North = 0
-    East = 1
-    South = 2
-    West = 3
-End Enum
-
-=== FUNCTIONAL PROGRAMMING ===
-Dim doubled  = Map(arr, Fn(x) => x * 2)
-Dim evens    = Filter(arr, Fn(x) => x Mod 2 = 0)
-Dim total    = Reduce(arr, Fn(acc, x) => acc + x, 0)
-Dim hasLarge = Any(arr, Fn(x) => x > 100)
-Dim allPos   = All(arr, Fn(x) => x > 0)
-Dim first    = Find(arr, Fn(x) => x > 5)
-
-Lambda forms:  Fn(x) => x * 2  |  Fn(x, y) => x + y
-Block lambda:  Function(x) ... Return x * 2 ... End Function
-Block sub:     Sub(x) ... Print x ... End Sub
-
-=== MODERN OPERATORS ===
-Compound:           +=  -=  *=  /=  &=  \\=  ^=  <<=  >>=
-Increment/Decrement: ++  --
-Null coalescing:     result = x ?? defaultValue
-Optional chaining:   value = obj?.Property
-String interpolation: msg = $"Hello {name}, you are {age} years old"
-Range:               arr = [1..10]
-Short-circuit:       If x > 0 AndAlso y / x > 2 Then ...
-IIf:                 result = IIf(score >= 60, "Pass", "Fail")
-Swap:                Swap a, b
-
-=== ERROR HANDLING ===
-On Error GoTo handler  |  On Error Resume Next  |  On Error GoTo 0
-Try ... Catch ex As Exception ... Finally ... End Try
-GoSub label ... Return  |  On expr GoTo label1, label2
-On expr GoSub label1, label2
-
-=== DATA / READ / RESTORE (classic BASIC) ===
-Data 10, "Hello", 3.14
-Read a, b, c
-Restore        ' reset data pointer
-
-=== GODOT INTEGRATION ===
-Access nodes:     GetNode("name")  |  Me.controlName  |  Me.Name
-Load scenes:      LoadForm "res://Scene.tscn"
-Create controls:  CreateButton, CreateLabel, CreateTimer, CreateTextBox, CreateSprite2D
-Signals:          ConnectSignal "body_entered", "OnBodyEntered"
-                  DisconnectSignal "ready", "OnReady"
-WithEvents:       Dim WithEvents obj As MyClass  ' auto-connects signal handlers
-
-VB6 property aliases on Godot nodes (62+ aliases):
-  Caption/Text → text,  Left → position.x,  Top → position.y
-  Width → size.x,  Height → size.y,  Visible → visible
-  Enabled → !disabled,  BackColor → self_modulate,  ForeColor → font_color
-  FontSize, FontBold, FontItalic, FontName, Name, Tag, hWnd, Opacity, ZOrder
-
-Events (auto-wired by naming convention  ControlName_EventName):
-  Sub btnStart_Click()    ' button clicked
-  Sub Timer1_Timer()      ' timer fires
-  Sub txtName_Change()    ' text changed
-  Sub Form_Load()         ' form loaded
-
-Godot virtual callbacks:
-  Sub _Ready()                 ' node enters scene tree
-  Sub _Process(delta)          ' every graphics frame
-  Sub _PhysicsProcess(delta)   ' every physics tick (60 Hz)
-  Sub _Input(event)            ' input event received
-  Sub _Draw()                  ' custom drawing
-
-=== BUILT-INS ===
-Constants: vbRed, vbBlue, vbGreen, vbWhite, vbBlack, vbCrLf, vbTab, True, False
-Functions: Len, Left, Right, Mid, InStr, Replace, Split, Join, Trim, UCase, LCase,
-           Val, Str, CInt, CLng, CDbl, Abs, Int, Rnd, Timer, Now, Format,
-           MsgBox, InputBox, Print, Array(), Dictionary()
-
-=== RULES ===
-Keep answers concise. Always use VB6/VisualGasic syntax in code examples. \
-Never use GDScript syntax unless the user explicitly asks for a translation."""
+var _personas: Dictionary = {}      # Built-ins + custom personas, merged at startup
+var _persona_order: Array = []      # Stable display order in the dropdown
+var _persona_id: String = "default"
+var _persona_dropdown: OptionButton = null
 
 # ---------------------------------------------------------------------------
 # UI nodes
@@ -178,6 +131,8 @@ var _model_dropdown: OptionButton
 var _status_label: Label
 var _clear_btn: Button
 var _stop_btn: Button
+var _models_btn: Button
+var _model_picker: AcceptDialog
 
 var _ollama_available := false
 var _is_generating := false
@@ -216,6 +171,11 @@ var _current_prompt := ""  # Tracks the prompt of the in-flight query
 # External context (set by plugin.gd)
 var _last_error_context := {}
 var _last_selected_code := ""
+
+# Voice I/O (Tier 2.5) — controller is created lazily on first use
+var _voice_ctrl = null
+var _mic_btn: Button = null
+var _voice_speak_toggle: CheckBox = null
 
 ## Grab the current selection from the embedded VB6 code editor.
 ## Falls back to the text of the Sub/Function surrounding the caret,
@@ -330,6 +290,8 @@ func _setup_poll_timer() -> void:
 	_poll_timer.timeout.connect(_on_poll_timer)
 
 ## Main-thread timer callback — polls HTTPClient and processes tokens directly.
+var _dbg_last_heartbeat_ms := 0
+
 func _on_poll_timer() -> void:
 	if not _is_generating:
 		_poll_timer.stop()
@@ -343,6 +305,14 @@ func _on_poll_timer() -> void:
 	if not _stream_done and _stream_error.is_empty() and _stream_http != null:
 		_stream_http.poll()
 		var status := _stream_http.get_status()
+		# Heartbeat every 5s so the user knows the UI is alive during slow inference
+		var _hb_now := Time.get_ticks_msec()
+		if _hb_now - _dbg_last_heartbeat_ms > 5000 and not _stream_started:
+			_dbg_last_heartbeat_ms = _hb_now
+			var elapsed_s := (_hb_now - _stream_start_time) / 1000.0
+			var stage := "connecting" if _stream_http_phase == 1 else ("sending request" if _stream_http_phase == 2 else "waiting for tokens")
+			if is_instance_valid(_status_label):
+				_status_label.text = "💭 %s... %ds" % [stage, int(elapsed_s)]
 
 		if _stream_http_phase == 1:  # Connecting
 			if status == HTTPClient.STATUS_CONNECTED:
@@ -464,7 +434,9 @@ func _on_poll_timer() -> void:
 func _display_token(token: String) -> void:
 	if not _stream_started:
 		_stream_started = true
-		_output.append_text("\n[color=#44bb88][b]AI:[/b][/color]\n[color=#dddddd]")
+		var _pdata = _personas.get(_persona_id, _personas.get("default", {}))
+		var _label: String = _pdata.get("display", "AI") if typeof(_pdata) == TYPE_DICTIONARY else "AI"
+		_output.append_text("\n[color=#44bb88][b]%s:[/b][/color]\n[color=#dddddd]" % _label)
 		_stream_first_token_time = Time.get_ticks_msec()
 	_stream_token_count += 1
 	_accumulated_response += token
@@ -486,6 +458,9 @@ func _finish_generation() -> void:
 		# Trim to last N exchanges (N user + N assistant = 2N entries)
 		while _conversation_history.size() > MAX_HISTORY_EXCHANGES * 2:
 			_conversation_history.pop_front()
+		# A successful exchange proves the model is loaded and responsive \u2014
+		# skip the health-check round-trip on subsequent queries.
+		_model_warm = true
 	_current_prompt = ""
 
 	if is_instance_valid(_send_btn):
@@ -497,6 +472,13 @@ func _finish_generation() -> void:
 		_status_label.text = ("✅ %s ready" % pname) if _ollama_available else ("❌ %s not found" % pname)
 		_status_label.add_theme_color_override("font_color",
 			Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
+
+	# Voice mode (Tier 2.5): speak the completed reply aloud if enabled.
+	if is_instance_valid(_voice_speak_toggle) and _voice_speak_toggle.button_pressed \
+			and not _accumulated_response.strip_edges().is_empty():
+		_ensure_voice_ctrl()
+		if _voice_ctrl != null:
+			_voice_ctrl.speak(_accumulated_response)
 
 ## Force-stop generation (abort button or reparent).
 func _stop_generation() -> void:
@@ -556,7 +538,7 @@ func _setup_ui() -> void:
 	main_vbox.add_child(toolbar)
 
 	var title := Label.new()
-	title.text = "🤖 AI Help"
+	title.text = "🤖 AI Pair"
 	title.add_theme_font_size_override("font_size", 13)
 	title.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
 	toolbar.add_child(title)
@@ -598,6 +580,14 @@ func _setup_ui() -> void:
 	_style_option_button(_model_dropdown)
 	toolbar.add_child(_model_dropdown)
 
+	# ── Models manager button ──
+	_models_btn = Button.new()
+	_models_btn.text = "📥"
+	_models_btn.tooltip_text = "Browse & download AI models"
+	_models_btn.pressed.connect(_show_model_picker)
+	_style_small_button(_models_btn)
+	toolbar.add_child(_models_btn)
+
 	toolbar.add_child(_make_separator())
 
 	_status_label = Label.new()
@@ -616,6 +606,39 @@ func _setup_ui() -> void:
 	_clear_btn.pressed.connect(_on_clear)
 	_style_small_button(_clear_btn)
 	toolbar.add_child(_clear_btn)
+
+	# 🎙 Voice mode — push-to-talk button + auto-speak toggle (Tier 2.5)
+	_mic_btn = Button.new()
+	_mic_btn.text = "🎙"
+	_mic_btn.tooltip_text = "Push-to-talk: click to record, click again to stop and transcribe"
+	_mic_btn.toggle_mode = true
+	_mic_btn.toggled.connect(_on_mic_toggled)
+	_style_small_button(_mic_btn)
+	toolbar.add_child(_mic_btn)
+
+	_voice_speak_toggle = CheckBox.new()
+	_voice_speak_toggle.text = "🔊"
+	_voice_speak_toggle.tooltip_text = "Speak AI replies aloud"
+	_voice_speak_toggle.button_pressed = true
+	_voice_speak_toggle.toggled.connect(_on_auto_speak_toggled)
+	toolbar.add_child(_voice_speak_toggle)
+
+	# Persona dropdown — swaps system-prompt prefix + TTS voice
+	_persona_dropdown = OptionButton.new()
+	_persona_dropdown.tooltip_text = "AI persona — changes voice and style without affecting correctness"
+	_load_persona()
+	for i in range(_persona_order.size()):
+		var pid: String = _persona_order[i]
+		if not _personas.has(pid):
+			continue
+		_persona_dropdown.add_item(_personas[pid].get("display", pid), i)
+		_persona_dropdown.set_item_metadata(i, pid)
+	for i in range(_persona_dropdown.item_count):
+		if _persona_dropdown.get_item_metadata(i) == _persona_id:
+			_persona_dropdown.select(i)
+			break
+	_persona_dropdown.item_selected.connect(_on_persona_selected)
+	toolbar.add_child(_persona_dropdown)
 
 	# --- Quick action buttons ---
 	var actions := HBoxContainer.new()
@@ -659,7 +682,7 @@ func _setup_ui() -> void:
 	_output.add_theme_stylebox_override("normal", out_style)
 	main_vbox.add_child(_output)
 
-	_append_system("AI Help is ready. Type a question below or use the quick actions.\n")
+	_append_system("AI Pair is ready. Type a question below or use the quick actions.\n")
 	_append_system("Providers: [color=cyan]Ollama[/color] (local), [color=green]OpenAI[/color], [color=#bb77ff]Claude[/color], [color=#4488ff]Gemini[/color]. Click ⚙️ to set API keys.\n")
 
 	# --- Input row ---
@@ -798,6 +821,13 @@ func _ping_ollama() -> void:
 		_set_offline()
 
 func _on_ping_response(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	# Stale-callback guard: a ping may have been issued under the Ollama
+	# provider and only complete after the user has switched to a cloud
+	# provider. If we don't bail here, the code below clears the model
+	# dropdown and overwrites _current_model with an Ollama model name,
+	# which then gets sent to (e.g.) Anthropic and produces HTTP 404.
+	if _provider_info != null and not _provider_info.is_local:
+		return
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
 		_set_offline()
 		return
@@ -807,12 +837,14 @@ func _on_ping_response(result: int, code: int, _headers: PackedStringArray, body
 
 	# Parse available models and update dropdown
 	var json = JSON.parse_string(body.get_string_from_utf8())
+	var model_names: Array = []
 	if json and json.has("models"):
 		_model_dropdown.clear()
 		var found_default := false
 		for m in json["models"]:
 			var model_name: String = m.get("name", "")
 			if not model_name.is_empty():
+				model_names.append(model_name)
 				_model_dropdown.add_item(model_name)
 				if model_name == _current_model or model_name.begins_with(_current_model.split(":")[0]):
 					found_default = true
@@ -820,6 +852,16 @@ func _on_ping_response(result: int, code: int, _headers: PackedStringArray, body
 		if not found_default and _model_dropdown.item_count > 0:
 			_model_dropdown.select(0)
 			_current_model = _model_dropdown.get_item_text(0)
+	# Keep the picker (if already open) in sync with installed models
+	if is_instance_valid(_model_picker) and _model_picker.has_method("set_installed_models"):
+		_model_picker.set_installed_models(model_names)
+	# First-run: no models installed yet — auto-open the picker
+	if model_names.is_empty():
+		_append_system("[color=yellow]No AI models installed yet.[/color] Opening the model picker...\n")
+		call_deferred("_show_model_picker")
+		_status_label.text = "📥 No models — click the download icon to install one"
+		_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+		return
 	_append_system("Connected to Ollama. Model: [color=cyan]%s[/color]\n" % _current_model)
 	ai_panel_ready.emit()
 	# Pre-warm the model so the first real query doesn't wait 60+ seconds
@@ -842,11 +884,10 @@ func _set_offline() -> void:
 func _warmup_model() -> void:
 	if _model_warm or not _ollama_available:
 		return
-	_status_label.text = "🔥 Loading model (first query may be queued)..."
+	_status_label.text = "🔥 Loading model (first query may be slow)..."
 	_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
-	# Disable Send while model loads — queries will be queued instead
-	if is_instance_valid(_send_btn):
-		_send_btn.disabled = true
+	# Keep Send enabled — warmup is an optimization, not a gate.
+	# If the user sends before warmup finishes, the query itself will warm the model.
 	var body := JSON.stringify({
 		"model": _current_model,
 		"prompt": "hi",
@@ -856,9 +897,11 @@ func _warmup_model() -> void:
 	var headers := ["Content-Type: application/json"]
 	var err := _warmup_http.request(OLLAMA_URL, headers, HTTPClient.METHOD_POST, body)
 	if err != OK:
-		# Non-critical — the first real query will just be slower
+		# Couldn't even start warmup (busy or bad state) — treat model as ready
+		# so queries aren't blocked. Worst case, the first query is slow.
 		_status_label.text = "✅ Ollama connected"
 		_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+		_model_warm = true
 
 func _on_warmup_response(result: int, _code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
 	_model_warm = true
@@ -967,16 +1010,20 @@ func _send_query(prompt: String) -> void:
 		_send_cloud_query(prompt)
 		return
 
-	# If the model is still loading into memory, queue the query
+	# If the model is still loading into memory, send anyway — the query itself
+	# will warm the model. We used to queue here, but if warmup never completes
+	# the query would sit forever. Better to just send and let it take longer.
 	if not _model_warm:
-		_queued_query = prompt
+		_model_warm = true  # The actual query will warm it
+
+	# Skip the health-check round-trip once the model is warm — saves ~1-2s per query.
+	# The main request will surface any connection issue on its own.
+	if _model_warm:
 		_history.append(prompt)
 		_history_idx = _history.size()
 		_input.text = ""
 		_append_user(prompt)
-		_append_system("[color=#ffcc44]⏳ Model is still loading — your query will be sent automatically when ready...[/color]\n")
-		# Re-trigger warmup so queued query doesn't sit forever
-		_warmup_model()
+		_send_query_internal(prompt)
 		return
 
 	# Run a fast health check before sending the real query
@@ -1018,11 +1065,13 @@ func _send_query_internal(prompt: String) -> void:
 	var body := {
 		"model": _current_model,
 		"prompt": full_prompt,
-		"system": SYSTEM_PROMPT,
+		"system": _get_active_system_prompt(),
 		"stream": true,
+		"keep_alive": "30m",  # Keep model in RAM between queries — no reload cost
 		"options": {
 			"temperature": 0.3,
 			"num_predict": 2048,
+			"num_ctx": 2048,     # Smaller context = faster prompt eval on CPU
 		}
 	}
 	_stream_json_body = JSON.stringify(body)
@@ -1050,6 +1099,7 @@ func _send_query_internal(prompt: String) -> void:
 
 	_stream_http_phase = 1  # Connecting
 	_is_generating = true
+	_dbg_last_heartbeat_ms = 0
 	_send_btn.visible = false
 	_stop_btn.visible = true
 	_status_label.text = "💭 Thinking..."
@@ -1143,6 +1193,7 @@ func _on_explain_error() -> void:
 	if _last_error_context.is_empty():
 		_append_system("[color=yellow]No error to explain. Run your program and trigger an error first.[/color]\n")
 		return
+	_show_persona_error_intro()
 	var prompt := "Explain this VisualGasic runtime error and suggest a fix:\n\n"
 	prompt += "File: %s\n" % _last_error_context.get("file", "unknown")
 	prompt += "Line: %s\n" % str(_last_error_context.get("line", "?"))
@@ -1179,6 +1230,32 @@ func _on_clear() -> void:
 	_output.clear()
 	_conversation_history.clear()
 	_append_system("Conversation cleared.\n")
+
+# ---------------------------------------------------------------------------
+# Model picker — first-run installer & hardware-aware model browser
+# ---------------------------------------------------------------------------
+const ModelPickerScene := preload("res://addons/visual_gasic/vg_ai_model_picker.gd")
+
+func _show_model_picker() -> void:
+	if not is_instance_valid(_model_picker):
+		_model_picker = ModelPickerScene.new()
+		add_child(_model_picker)
+		if _model_picker.has_signal("model_installed"):
+			_model_picker.model_installed.connect(_on_model_installed)
+	# Populate with the list of already-installed models so we can mark them
+	var installed: Array = []
+	for i in _model_dropdown.item_count:
+		installed.append(_model_dropdown.get_item_text(i))
+	if _model_picker.has_method("set_installed_models"):
+		_model_picker.set_installed_models(installed)
+	_model_picker.popup_centered()
+
+func _on_model_installed(model_id: String) -> void:
+	_append_system("[color=#88ff88]✓ Installed:[/color] [color=cyan]%s[/color]\n" % model_id)
+	# Re-ping to refresh the dropdown and pick up the new model
+	_ping_ollama()
+	_current_model = model_id
+	_model_warm = false
 
 # ---------------------------------------------------------------------------
 # Public API — called from plugin.gd
@@ -1361,7 +1438,7 @@ func _send_cloud_query(prompt: String) -> void:
 		return
 
 	var req_data: Dictionary = AIProviders.build_request(
-		_provider_id, _current_model, SYSTEM_PROMPT,
+		_provider_id, _current_model, _get_active_system_prompt(),
 		_conversation_history, prompt, api_key)
 
 	_stream_json_body = req_data["body"]
@@ -1408,3 +1485,200 @@ func _send_cloud_query(prompt: String) -> void:
 
 var _cloud_request_headers: Array = []
 var _cloud_request_path: String = ""
+
+# ---------------------------------------------------------------------------
+# Voice mode (Tier 2.5) — push-to-talk + auto-speak replies
+# ---------------------------------------------------------------------------
+
+func _ensure_voice_ctrl() -> void:
+	if _voice_ctrl != null and is_instance_valid(_voice_ctrl):
+		return
+	var voice_script = load("res://addons/visual_gasic/vg_ai_voice.gd")
+	if voice_script == null:
+		_append_system("[color=red]Voice module not found.[/color]\n")
+		return
+	_voice_ctrl = voice_script.new()
+	add_child(_voice_ctrl)
+	# Apply the active persona's voice on first construction.
+	_apply_persona_voice()
+	if _voice_ctrl.has_signal("recording_started"):
+		_voice_ctrl.recording_started.connect(_on_voice_recording_started)
+	if _voice_ctrl.has_signal("recording_failed"):
+		_voice_ctrl.recording_failed.connect(_on_voice_recording_failed)
+	if _voice_ctrl.has_signal("transcription_started"):
+		_voice_ctrl.transcription_started.connect(_on_voice_transcription_started)
+	if _voice_ctrl.has_signal("transcribed"):
+		_voice_ctrl.transcribed.connect(_on_voice_transcribed)
+	if _voice_ctrl.has_signal("transcription_failed"):
+		_voice_ctrl.transcription_failed.connect(_on_voice_transcription_failed)
+	if _voice_ctrl.has_signal("speech_failed"):
+		_voice_ctrl.speech_failed.connect(_on_voice_speech_failed)
+
+func _on_mic_toggled(pressed: bool) -> void:
+	_ensure_voice_ctrl()
+	if _voice_ctrl == null:
+		_mic_btn.button_pressed = false
+		return
+	if pressed:
+		# User wants to start recording.
+		var problem: String = _voice_ctrl.diagnose()
+		if not problem.is_empty():
+			_append_system("[color=yellow]🎙 %s[/color]\n" % problem)
+			_mic_btn.button_pressed = false
+			return
+		var ok: bool = _voice_ctrl.start_recording()
+		if not ok:
+			_mic_btn.button_pressed = false
+	else:
+		# User wants to stop and transcribe.
+		if _voice_ctrl.is_recording():
+			_voice_ctrl.stop_recording()
+
+func _on_auto_speak_toggled(pressed: bool) -> void:
+	_ensure_voice_ctrl()
+	if _voice_ctrl != null:
+		_voice_ctrl.auto_speak_replies = pressed
+		_voice_ctrl.save_settings()
+	# Also stop any in-flight playback if user just turned it off.
+	if not pressed and _voice_ctrl != null and _voice_ctrl.is_speaking():
+		_voice_ctrl.stop_speaking()
+
+func _on_voice_recording_started() -> void:
+	_append_system("[color=#ff6666]🔴 Recording…[/color] [color=gray](click 🎙 again to stop)[/color]\n")
+	if is_instance_valid(_mic_btn):
+		_mic_btn.text = "⏹"
+		_mic_btn.tooltip_text = "Stop recording and transcribe"
+
+func _on_voice_recording_failed(reason: String) -> void:
+	_append_system("[color=red]🎙 %s[/color]\n" % reason)
+	if is_instance_valid(_mic_btn):
+		_mic_btn.button_pressed = false
+		_mic_btn.text = "🎙"
+		_mic_btn.tooltip_text = "Push-to-talk: click to record, click again to stop and transcribe"
+
+func _on_voice_transcription_started() -> void:
+	_append_system("[color=gray]💭 Transcribing…[/color]\n")
+	if is_instance_valid(_mic_btn):
+		_mic_btn.text = "💭"
+		_mic_btn.disabled = true
+
+func _on_voice_transcribed(text: String) -> void:
+	# Drop the transcript into the input box for review/edit before send.
+	if is_instance_valid(_input):
+		_input.text = text
+		_input.grab_focus()
+		_input.set_caret_line(_input.get_line_count() - 1)
+	_append_system("[color=#88ddff]🎙 You said:[/color] %s\n" % _escape_bbcode(text))
+	if is_instance_valid(_mic_btn):
+		_mic_btn.button_pressed = false
+		_mic_btn.disabled = false
+		_mic_btn.text = "🎙"
+		_mic_btn.tooltip_text = "Push-to-talk: click to record, click again to stop and transcribe"
+
+func _on_voice_transcription_failed(reason: String) -> void:
+	_append_system("[color=red]🎙 Transcription failed: %s[/color]\n" % reason)
+	if is_instance_valid(_mic_btn):
+		_mic_btn.button_pressed = false
+		_mic_btn.disabled = false
+		_mic_btn.text = "🎙"
+		_mic_btn.tooltip_text = "Push-to-talk: click to record, click again to stop and transcribe"
+
+func _on_voice_speech_failed(reason: String) -> void:
+	_append_system("[color=#ff8888]🔊 TTS error: %s[/color]\n" % reason)
+
+# ---------------------------------------------------------------------------
+# Personas (Bob, Skippy, default) — system-prompt flavor + TTS voice
+# ---------------------------------------------------------------------------
+func _get_active_system_prompt() -> String:
+	var pdata = _personas.get(_persona_id, _personas.get("default", {}))
+	var prefix: String = pdata.get("prefix", "") if typeof(pdata) == TYPE_DICTIONARY else ""
+	if prefix.is_empty():
+		return SYSTEM_PROMPT
+	return prefix + SYSTEM_PROMPT
+
+func _apply_persona_voice() -> void:
+	if _voice_ctrl == null or not is_instance_valid(_voice_ctrl):
+		return
+	var pdata = _personas.get(_persona_id, _personas.get("default", {}))
+	var v: String = pdata.get("openai_voice", "alloy") if typeof(pdata) == TYPE_DICTIONARY else "alloy"
+	# Persona only overrides the OpenAI cloud voice; piper / system TTS keep
+	# whatever the user has configured (those backends use named voice files).
+	_voice_ctrl.tts_voice = v
+	if _voice_ctrl.has_method("save_settings"):
+		_voice_ctrl.save_settings()
+
+func _show_persona_error_intro() -> void:
+	var pdata = _personas.get(_persona_id, _personas.get("default", {}))
+	if typeof(pdata) != TYPE_DICTIONARY:
+		return
+	var intro: String = pdata.get("error_intro", "")
+	if intro.strip_edges().is_empty():
+		return
+	var avatar: String = pdata.get("avatar", "")
+	var tag: String = (avatar + " ") if not avatar.is_empty() else ""
+	_append_system("[color=#ffaa66][i]%s%s[/i][/color]\n" % [tag, _escape_bbcode(intro)])
+
+func _on_persona_selected(idx: int) -> void:
+	if not is_instance_valid(_persona_dropdown):
+		return
+	var new_id = _persona_dropdown.get_item_metadata(idx)
+	if typeof(new_id) != TYPE_STRING or not _personas.has(new_id):
+		return
+	if new_id == _persona_id:
+		return
+	_persona_id = new_id
+	_save_persona()
+	_apply_persona_voice()
+	var pdata = _personas[_persona_id]
+	_append_system("[color=#bb88ff]Persona:[/color] %s — %s\n" % [pdata.get("display", new_id), pdata.get("greeting", "")])
+	# Reset history so the new persona doesn't sound schizophrenic mid-thread
+	_conversation_history.clear()
+
+func _load_persona() -> void:
+	# Build the runtime persona dict (built-ins first, then custom overrides)
+	_personas = PERSONAS_BUILTIN.duplicate(true)
+	_persona_order = ["default", "bob", "skippy", "orac", "hal"]
+	_load_custom_personas()
+	# Restore the previously-selected persona id from disk
+	var cfg := ConfigFile.new()
+	if cfg.load(PERSONA_CFG_PATH) == OK:
+		var pid = cfg.get_value("persona", "id", "default")
+		if typeof(pid) == TYPE_STRING and _personas.has(pid):
+			_persona_id = pid
+
+func _load_custom_personas() -> void:
+	# Optional user-defined personas at user://vg_personas.json — schema:
+	# { "my_id": { "display": "...", "avatar": "😀", "prefix": "...",
+	#              "openai_voice": "alloy", "greeting": "...",
+	#              "error_intro": "..." }, ... }
+	if not FileAccess.file_exists(PERSONA_CUSTOM_PATH):
+		return
+	var f := FileAccess.open(PERSONA_CUSTOM_PATH, FileAccess.READ)
+	if f == null:
+		return
+	var txt := f.get_as_text()
+	f.close()
+	var parsed = JSON.parse_string(txt)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		push_warning("VisualGasic: vg_personas.json must be a JSON object")
+		return
+	for key in parsed.keys():
+		var entry = parsed[key]
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var pid: String = str(key)
+		# Merge over built-in defaults (so a partial entry still works)
+		var base: Dictionary = (_personas[pid] if _personas.has(pid)
+				else {"display": pid, "avatar": "", "prefix": "",
+					"openai_voice": "alloy", "greeting": "", "error_intro": ""})
+		for k in entry.keys():
+			base[str(k)] = entry[k]
+		_personas[pid] = base
+		if not _persona_order.has(pid):
+			_persona_order.append(pid)
+
+func _save_persona() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("persona", "id", _persona_id)
+	cfg.save(PERSONA_CFG_PATH)
+

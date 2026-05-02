@@ -821,6 +821,13 @@ func _ping_ollama() -> void:
 		_set_offline()
 
 func _on_ping_response(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	# Stale-callback guard: a ping may have been issued under the Ollama
+	# provider and only complete after the user has switched to a cloud
+	# provider. If we don't bail here, the code below clears the model
+	# dropdown and overwrites _current_model with an Ollama model name,
+	# which then gets sent to (e.g.) Anthropic and produces HTTP 404.
+	if _provider_info != null and not _provider_info.is_local:
+		return
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
 		_set_offline()
 		return
