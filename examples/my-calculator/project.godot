@@ -30,3 +30,7 @@ enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+
+[audio]
+
+driver/enable_input=true

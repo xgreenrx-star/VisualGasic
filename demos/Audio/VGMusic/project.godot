@@ -27,3 +27,7 @@ window/size/viewport_height=640
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+
+[audio]
+
+driver/enable_input=true

@@ -72,3 +72,7 @@ decrease_camera_fov={
 anti_aliasing/quality/msaa_3d=2
 anti_aliasing/quality/use_debanding=true
 vram_compression/import_etc2=false
+
+[audio]
+
+driver/enable_input=true

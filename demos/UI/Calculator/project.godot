@@ -36,3 +36,7 @@ enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
 [visual_gasic]
 
 layout/vb6_mode=false
+
+[audio]
+
+driver/enable_input=true

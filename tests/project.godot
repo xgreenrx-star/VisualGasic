@@ -6,3 +6,6 @@ run/main_scene="res://integration_test_scene.tscn"
 [editor_plugins]
 
 enabled=PoolStringArray("res://addons/visual_gasic/plugin.cfg")
+[audio]
+
+driver/enable_input=true

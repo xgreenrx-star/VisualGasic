@@ -38,3 +38,7 @@ enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
 
 textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method="gl_compatibility"
+
+[audio]
+
+driver/enable_input=true

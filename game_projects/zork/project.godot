@@ -36,3 +36,7 @@ enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
+
+[audio]
+
+driver/enable_input=true
