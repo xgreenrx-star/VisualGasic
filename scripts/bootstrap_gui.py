@@ -151,10 +151,27 @@ class _InstallWorker(threading.Thread):
             except Exception as e:
                 q.put(("log", f"(Ollama setup failed: {e}; you can install it later from https://ollama.com)"))
 
+        # Prime the project so the VG editor plugin activates on the very
+        # first interactive launch. Without this pass, Godot opens the
+        # editor before resources are imported and the VG dock/main-screen
+        # appears missing — the user sees a stock Godot editor instead of
+        # the VG IDE. This mirrors the CLI flow in bootstrap_vg.main().
+        q.put(("step", "Priming project (first-time import + plugin activation)..."))
+        try:
+            bvg.prime_project_imports(godot_bin, project_dir)
+        except Exception as e:
+            q.put(("log", f"(priming failed: {e}; first launch may need a moment)"))
+
         if o.launch:
             q.put(("step", "Launching VisualGasic IDE..."))
             try:
-                bvg.subprocess.Popen([str(launcher)])
+                # Open Form1.vg if it exists so the user lands directly in
+                # the script editor rather than an empty workspace.
+                cmd = [str(launcher)]
+                form1 = project_dir / "Form1.vg"
+                if form1.exists():
+                    cmd.append(str(form1))
+                bvg.subprocess.Popen(cmd, close_fds=True)
             except Exception as e:
                 q.put(("log", f"(could not auto-launch: {e}; open '{launcher}' manually)"))
 

@@ -56,6 +56,8 @@ var _name_edit: LineEdit = null
 var _vol1_slider: HSlider = null
 var _vol2_slider: HSlider = null
 var _import_btn: Button = null
+var _vgsfx_btn: Button = null
+var _vgsfx_window: Window = null
 var _clear_wav_btn: Button = null
 var _wav_label: Label = null
 var _file_dialog: FileDialog = null
@@ -398,6 +400,21 @@ func _build_ui() -> void:
 	_import_btn.add_theme_stylebox_override("hover", imp_h)
 	_import_btn.add_theme_color_override("font_color", LABEL_CLR)
 	hbox.add_child(_import_btn)
+
+	# 🎛 VGSFX synthesizer button (opens VGSFX dock in a popup)
+	_vgsfx_btn = Button.new()
+	_vgsfx_btn.text = "\ud83c\udf9b"  # 🎛
+	_vgsfx_btn.tooltip_text = "Open VGSFX synthesizer (port of bfxr2)\nExporting a WAV will fill this slot."
+	_vgsfx_btn.add_theme_font_size_override("font_size", 13)
+	_vgsfx_btn.pressed.connect(_on_open_vgsfx)
+	var gx_s = imp_s.duplicate()
+	gx_s.bg_color = Color(0.20, 0.28, 0.20)
+	_vgsfx_btn.add_theme_stylebox_override("normal", gx_s)
+	var gx_h = gx_s.duplicate()
+	gx_h.bg_color = Color(0.30, 0.40, 0.30)
+	_vgsfx_btn.add_theme_stylebox_override("hover", gx_h)
+	_vgsfx_btn.add_theme_color_override("font_color", LABEL_CLR)
+	hbox.add_child(_vgsfx_btn)
 
 	# ✕ Clear WAV button (only visible when custom wav is set)
 	_clear_wav_btn = Button.new()
@@ -992,6 +1009,43 @@ func _on_clear_wav() -> void:
 	sound_changed.emit(selected_sound)
 	_refresh_sound_list()
 	_refresh_ui()
+
+
+func _on_open_vgsfx() -> void:
+	# Open VGSFX (port of bfxr2) in a popup window. When the user
+	# exports a WAV from inside VGSFX, the path is automatically piped
+	# into the currently selected sound slot's custom_wav field.
+	var dock_script_path := "res://addons/visual_gasic/plugins/vgsfx/vgsfx_dock.gd"
+	if not ResourceLoader.exists(dock_script_path):
+		_status_lbl.text = "⚠ VGSFX plugin not installed (addons/visual_gasic/plugins/vgsfx)"
+		return
+	if _vgsfx_window != null and is_instance_valid(_vgsfx_window):
+		_vgsfx_window.popup_centered()
+		return
+	_vgsfx_window = Window.new()
+	_vgsfx_window.title = "VGSFX — Synthesizer (Bfxr2 port)"
+	_vgsfx_window.size = Vector2i(420, 720)
+	_vgsfx_window.exclusive = false
+	_vgsfx_window.close_requested.connect(func() -> void:
+		if _vgsfx_window:
+			_vgsfx_window.hide()
+	)
+	var dock_script: GDScript = load(dock_script_path)
+	var dock = dock_script.new()
+	# The dock targets a specific sound slot at the moment of opening.
+	var target_idx: int = selected_sound
+	dock.wav_exported.connect(func(path: String) -> void:
+		if target_idx >= 0 and target_idx < sounds.size():
+			sounds[target_idx]["custom_wav"] = path
+			_status_lbl.text = "🎛 VGSFX → slot %d: %s" % [target_idx + 1, path.get_file()]
+			sound_changed.emit(target_idx)
+			_refresh_sound_list()
+			if target_idx == selected_sound:
+				_refresh_ui()
+	)
+	_vgsfx_window.add_child(dock)
+	add_child(_vgsfx_window)
+	_vgsfx_window.popup_centered()
 
 
 func _note_to_freq(val: int) -> float:

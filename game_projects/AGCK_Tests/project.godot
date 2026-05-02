@@ -12,25 +12,36 @@ config_version=5
 
 config/name="AGCK Tests"
 config/description="Test project for AGCK (Arcade Game Construction Kit)"
-run/main_scene="res://build/Platformer_Adventure/Main.tscn"
+run/main_scene="res://build/Cube_Beat/Main.tscn"
 config/features=PackedStringArray("4.6")
 config/icon="res://icon.svg"
 
 [autoload]
 
 VGDebugHandler="*uid://bba4n02t2dx1g"
+Controller="*res://addons/visual_gasic/plugins/vgmusic/bosca/globals/Controller.gd"
 
 [display]
 
 window/size/viewport_width=640
 window/size/viewport_height=384
+window/size/mode=3
 window/stretch/mode="viewport"
+window/vsync/vsync_mode=3
 
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
 
+[physics]
+
+common/physics_ticks_per_second=120
+
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method="gl_compatibility"
+
+[vg]
+
+form_designer_enabled=false

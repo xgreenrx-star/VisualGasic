@@ -57,7 +57,7 @@ Sub _Ready()
 	PlayerY = Player.position.y
 	PlayerVelX = 0
 	PlayerVelY = 0
-	PlayerLives = 33
+	PlayerLives = 3
 	OnGround = False
 	PlayerDirection = 1
 
@@ -190,7 +190,7 @@ Sub _Process(delta As Single)
 		Call LoseLife()
 	End If
 
-	Player.position = Vector2(PlayerX, PlayerY )
+	Player.position = Vector2(PlayerX, PlayerY - 19) 'I added -19 here to force the player to appear above the platforms
 
 	' Update camera to follow player
 	Dim camX As Single

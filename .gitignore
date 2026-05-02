@@ -88,3 +88,6 @@ PROJECT_STATUS.md
 TEST_COVERAGE.md
 COMMUNITY_HUB.md
 Makefile.tests
+
+# Third-party reference sources (cloned for porting; not shipped)
+vendor/
