@@ -56,8 +56,8 @@ static func get_providers() -> Array:
 	claude.api_port = 443
 	claude.api_path = "/v1/messages"
 	claude.use_tls = true
-	claude.models = ["claude-sonnet-4-20250514", "claude-haiku-4-20250414"]
-	claude.default_model = "claude-sonnet-4-20250514"
+	claude.models = ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-5"]
+	claude.default_model = "claude-sonnet-4-5"
 	providers.append(claude)
 
 	# ── Google Gemini ──
