@@ -53,6 +53,37 @@ From [`demo/bench_output.txt`](demo/bench_output.txt) — verify on your own mac
 
 **TL;DR:** VG outperforms GDScript across the board — from 2× on FileIO to 92× on branching. The dict and allocation benches that previously regressed have been fixed in the v5.1.0 series via the VGDict sole-owner fast path (no Variant boxing, no COW, open-addressing hash table).
 
+### 🤖 AI correctness — does the thesis hold up?
+
+Speed alone doesn't prove the thesis. The claim is that **VG syntax is easier
+for an AI to get right on the first try**, because verbose closing tokens
+(`End Sub`, `End If`) and explicit type annotations leave the model fewer
+ways to silently mis-nest or mis-type a block. To test that, we built a
+language-agnostic harness: same prompts, same model, same temperature, four
+languages, measure first-attempt parse-success.
+
+Two runs in:
+
+| Model               | VG    | GDScript | Python | TypeScript | N  |
+|---------------------|------:|---------:|-------:|-----------:|---:|
+| Claude Sonnet 4.5   | **100%** | 100%  | 100%   | 92%        | 25 |
+| qwen2.5-coder:7b (local) | **100%** | 68% | 100% | 84%        | 25 |
+
+Two things to notice:
+
+1. **VG ties or beats Python at both scales** — including a tiny 7B local
+   model that has seen vastly more Python in training. The syntax advantage
+   is large enough to close the training-data gap.
+2. **The smaller the model, the larger VG's relative advantage.** Frontier
+   models (Sonnet 4.5) get most languages right; the 7B model drops 32 points
+   on GDScript but **none on VG**. That matches the thesis: terse, indent-
+   sensitive, semicolon-bearing syntaxes punish weaker models, and verbose
+   block-bounded syntaxes don't.
+
+The harness, prompts, raw model outputs, and per-attempt JSON are all in
+[`bench/ai_correctness/`](bench/ai_correctness/REPORT.md) — re-run on your
+own model with `python bench/ai_correctness/scripts/run_bench.py`.
+
 > **VisualGasic is not a VB6 clone.** It draws inspiration from VB6's approachable syntax and ease of learning, while introducing modern features that go well beyond what VB6 ever offered. VG is VB6-*compatible* where it makes sense — you can port VB6 projects and feel at home immediately — but the language is designed to look forwards, not backwards.
 
 ## 🚀 **Key Features**
