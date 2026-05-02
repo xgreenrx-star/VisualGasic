@@ -1,0 +1,13 @@
+{
+  "id": "T01",
+  "category": "state_machines",
+  "language": "python",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Implement a traffic light state machine with states RED, GREEN, YELLOW. Starting from RED, advance the state seven times (RED->GREEN->YELLOW->RED...) and print the state at each step.",
+  "code_file": "T01_python.py",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 2.45
+}

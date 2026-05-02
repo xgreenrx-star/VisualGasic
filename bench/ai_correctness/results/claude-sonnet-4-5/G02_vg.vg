@@ -1,0 +1,15 @@
+Option Explicit
+
+Dim Counter As Integer
+
+Sub Main()
+    Counter = 0
+    Timer1.Interval = 1000
+    Timer1.Enabled = True
+    Form1.Show
+End Sub
+
+Private Sub Timer1_Timer()
+    Counter = Counter + 1
+    lblTime.Caption = Counter
+End Sub

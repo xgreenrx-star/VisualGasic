@@ -1,0 +1,16 @@
+Module Module1
+    Sub Main()
+        Dim inputString As String = "42"
+        Dim numberFromString As Integer = CInt(inputString)
+        
+        Dim numberToConvert As Integer = 99
+        Dim stringFromNumber As String = CStr(numberToConvert)
+        
+        Print("Number from string: " & CStr(numberFromString))
+        Print("String from number: " & stringFromNumber)
+    End Sub
+    
+    Sub Print(text As String)
+        Console.WriteLine(text)
+    End Sub
+End Module

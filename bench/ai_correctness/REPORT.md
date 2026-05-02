@@ -4,21 +4,22 @@ First-attempt parse-success rate, by model and language.
 
 | Model | vg | gdscript | python | typescript | N |
 |---|---:|---:|---:|---:|---:|
+| claude-sonnet-4-5 | 25/25  (100%) | 25/25  (100%) | 25/25  (100%) | 23/25  (92%) | 25 |
 | qwen2.5-coder:7b | 25/25  (100%) | 17/25  (68%) | 25/25  (100%) | 21/25  (84%) | 25 |
 
-## Per-category breakdown (qwen2.5-coder:7b)
+## Per-category breakdown (claude-sonnet-4-5)
 
 | Category | vg | gdscript | python | typescript |
 |---|---:|---:|---:|---:|
 | arrays | 3/3 | 3/3 | 3/3 | 3/3 |
-| basics | 3/3 | 3/3 | 3/3 | 1/3 |
-| classes | 2/2 | 0/2 | 2/2 | 2/2 |
+| basics | 3/3 | 3/3 | 3/3 | 2/3 |
+| classes | 2/2 | 2/2 | 2/2 | 2/2 |
 | control_flow | 3/3 | 3/3 | 3/3 | 3/3 |
-| dictionaries | 2/2 | 1/2 | 2/2 | 2/2 |
-| file_io | 2/2 | 0/2 | 2/2 | 1/2 |
-| godot_integration | 2/2 | 0/2 | 2/2 | 1/2 |
+| dictionaries | 2/2 | 2/2 | 2/2 | 2/2 |
+| file_io | 2/2 | 2/2 | 2/2 | 1/2 |
+| godot_integration | 2/2 | 2/2 | 2/2 | 2/2 |
 | math | 3/3 | 3/3 | 3/3 | 3/3 |
-| state_machines | 2/2 | 1/2 | 2/2 | 2/2 |
+| state_machines | 2/2 | 2/2 | 2/2 | 2/2 |
 | strings | 3/3 | 3/3 | 3/3 | 3/3 |
 
 ## Failed attempts (sample)
@@ -35,3 +36,5 @@ First-attempt parse-success rate, by model and language.
 - **qwen2.5-coder:7b** / typescript / F01 (file_io): `bench/ai_correctness/results/qwen2_5-coder_7b/F01_typescript.ts(1,21): error TS2591: Cannot find name 'fs'. Do you need `
 - **qwen2.5-coder:7b** / gdscript / G01 (godot_integration): `SCRIPT ERROR: Parse Error: Static function "get_datetime()" not found in base "GDScriptNativeClass".`
 - **qwen2.5-coder:7b** / gdscript / D02 (dictionaries): `SCRIPT ERROR: Parse Error: Expected "in" or ":" after "for" variable name.`
+- **claude-sonnet-4-5** / typescript / B02 (basics): `bench/ai_correctness/results/claude-sonnet-4-5/B02_typescript.ts(1,7): error TS2451: Cannot redeclare block-scoped varia`
+- **claude-sonnet-4-5** / typescript / F01 (file_io): `bench/ai_correctness/results/claude-sonnet-4-5/F01_typescript.ts(1,21): error TS2591: Cannot find name 'fs'. Do you need`

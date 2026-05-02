@@ -1,0 +1,13 @@
+{
+  "id": "D02",
+  "category": "dictionaries",
+  "language": "typescript",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Given the sentence \"the quick brown fox jumps over the lazy dog the\", count word occurrences and print each word with its count.",
+  "code_file": "D02_typescript.ts",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 2.93
+}

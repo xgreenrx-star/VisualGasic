@@ -1,0 +1,15 @@
+Module Module1
+    Sub Main()
+        Dim name As String
+        Dim age As Integer
+        Dim height As Single
+
+        name = "John Smith"
+        age = 25
+        height = 1.75
+
+        System.Console.WriteLine("Name: " & name)
+        System.Console.WriteLine("Age: " & age)
+        System.Console.WriteLine("Height: " & height)
+    End Sub
+End Module

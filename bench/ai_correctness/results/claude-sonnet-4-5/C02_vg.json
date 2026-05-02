@@ -1,0 +1,13 @@
+{
+  "id": "C02",
+  "category": "control_flow",
+  "language": "vg",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Print every even number from 2 to 20 inclusive, one per line.",
+  "code_file": "C02_vg.vg",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 2.41
+}

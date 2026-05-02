@@ -1,0 +1,28 @@
+Module Module1
+    Sub Main()
+        Dim result As String = ""
+        Dim first As Boolean = True
+        
+        For num As Integer = 2 To 50
+            Dim isPrime As Boolean = True
+            
+            For i As Integer = 2 To num - 1
+                If num Mod i = 0 Then
+                    isPrime = False
+                    Exit For
+                End If
+            Next
+            
+            If isPrime Then
+                If first Then
+                    result = result & num
+                    first = False
+                Else
+                    result = result & "," & num
+                End If
+            End If
+        Next
+        
+        System.Console.WriteLine(result)
+    End Sub
+End Module

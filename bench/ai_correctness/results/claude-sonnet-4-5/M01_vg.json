@@ -1,0 +1,13 @@
+{
+  "id": "M01",
+  "category": "math",
+  "language": "vg",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Print the first 10 Fibonacci numbers (starting 0, 1) one per line.",
+  "code_file": "M01_vg.vg",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 2.73
+}

@@ -1,0 +1,13 @@
+{
+  "id": "D01",
+  "category": "dictionaries",
+  "language": "gdscript",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Build a dictionary mapping {\"apple\": 0.5, \"bread\": 2.25, \"cheese\": 5.99}. Print each key-value pair, then print the total of the values.",
+  "code_file": "D01_gdscript.gd",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 2.72
+}

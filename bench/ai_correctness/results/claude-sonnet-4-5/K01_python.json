@@ -1,0 +1,13 @@
+{
+  "id": "K01",
+  "category": "classes",
+  "language": "python",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Define a class Point with two fields x and y. Create an instance with x=3, y=4 and print it as \"(3, 4)\".",
+  "code_file": "K01_python.py",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 1.84
+}

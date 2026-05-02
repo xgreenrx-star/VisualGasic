@@ -1,0 +1,16 @@
+Sub Main()
+    Dim s As String
+    Dim words() As String
+    Dim count As Integer
+    Dim i As Integer
+    
+    s = "the quick brown fox"
+    words = Split(s, " ")
+    count = UBound(words) - LBound(words) + 1
+    
+    Print count
+    
+    For i = LBound(words) To UBound(words)
+        Print words(i)
+    Next i
+End Sub

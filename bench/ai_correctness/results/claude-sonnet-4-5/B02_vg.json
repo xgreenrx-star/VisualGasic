@@ -1,0 +1,13 @@
+{
+  "id": "B02",
+  "category": "basics",
+  "language": "vg",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Declare three variables: a string holding a name, an integer holding an age, and a floating-point number holding a height in metres. Print them on three lines, each prefixed by its label.",
+  "code_file": "B02_vg.vg",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 2.85
+}

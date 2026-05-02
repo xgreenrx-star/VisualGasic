@@ -1,0 +1,9 @@
+Module Module1
+    Sub Main()
+        Dim s As String
+        s = "  Hello, World!  "
+        s = s.Trim()
+        s = s.ToUpper()
+        Print(s)
+    End Sub
+End Module

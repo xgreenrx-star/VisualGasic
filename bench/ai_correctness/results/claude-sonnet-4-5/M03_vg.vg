@@ -1,0 +1,10 @@
+Module Module1
+    Sub Main()
+        Dim x1 As Double = 0
+        Dim y1 As Double = 0
+        Dim x2 As Double = 3
+        Dim y2 As Double = 4
+        Dim distance As Double = Math.Sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+        Console.WriteLine("Distance: " & distance)
+    End Sub
+End Module

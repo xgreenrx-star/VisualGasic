@@ -1,0 +1,36 @@
+Imports System
+
+Module Program
+    Sub Main()
+        Dim sentence As String = "the quick brown fox jumps over the lazy dog the"
+        Dim words() As String = sentence.Split(" "c)
+        Dim uniqueWords(100) As String
+        Dim counts(100) As Integer
+        Dim uniqueCount As Integer = 0
+        
+        Dim i As Integer
+        For i = 0 To words.Length - 1
+            Dim word As String = words(i)
+            Dim found As Boolean = False
+            Dim j As Integer
+            
+            For j = 0 To uniqueCount - 1
+                If uniqueWords(j) = word Then
+                    counts(j) = counts(j) + 1
+                    found = True
+                    Exit For
+                End If
+            Next
+            
+            If Not found Then
+                uniqueWords(uniqueCount) = word
+                counts(uniqueCount) = 1
+                uniqueCount = uniqueCount + 1
+            End If
+        Next
+        
+        For i = 0 To uniqueCount - 1
+            Console.WriteLine(uniqueWords(i) & " " & counts(i).ToString())
+        Next
+    End Sub
+End Module

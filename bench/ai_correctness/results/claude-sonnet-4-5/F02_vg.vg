@@ -1,0 +1,18 @@
+Module Module1
+    Sub Main()
+        Dim csv As String = "name,age" & vbLf & "Alice,30" & vbLf & "Bob,25" & vbLf & "Carol,42"
+        Dim lines() As String = csv.Split(vbLf)
+        Dim sum As Integer = 0
+        Dim count As Integer = 0
+        Dim i As Integer
+        
+        For i = 1 To UBound(lines)
+            Dim parts() As String = lines(i).Split(",")
+            sum = sum + CInt(parts(1))
+            count = count + 1
+        Next i
+        
+        Dim average As Double = sum / count
+        Print("Average age: " & average)
+    End Sub
+End Module

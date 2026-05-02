@@ -42,30 +42,32 @@ AI pipeline, which is where most of the new failure modes are.
 To put numbers behind this rather than just rhetoric, I ran an empirical
 benchmark: same 25 prompts across VG / GDScript / Python / TypeScript, same
 model, same temperature (0.2), single attempt, measure first-draft parse
-success. Local model (qwen2.5-coder:7b), so the absolute numbers will move
-on a frontier model — but the *spread* between languages is the interesting
-part.
+success. Two models so far:
 
-    VisualGasic   25/25  (100%)
-    Python        25/25  (100%)
-    TypeScript    21/25  (84%)
-    GDScript      17/25  (68%)
+    Claude Sonnet 4.5         qwen2.5-coder:7b (local)
+    --------------------      -----------------------
+    VG          25/25 (100%)  VG          25/25 (100%)
+    GDScript    25/25 (100%)  GDScript    17/25 ( 68%)
+    Python      25/25 (100%)  Python      25/25 (100%)
+    TypeScript  23/25 ( 92%)  TypeScript  21/25 ( 84%)
 
-VG ties Python at the top. The TypeScript failures are real type errors
-(DOM-global collisions, missing imports, malformed numeric literals). The
-GDScript ones are mostly the model emitting deprecated Godot 3 idioms,
-which is its own moving-target-API story but tangential here.
+Two data points, same pattern: VG ties Python at the top, TypeScript
+lags by single digits on real type errors (DOM-global collisions, missing
+`@types/node`, malformed numeric literals). The 7B model also drops on
+GDScript because it emits Godot 3 idioms; Sonnet doesn't, which is its
+own story about training-cutoff effects on moving APIs.
 
 Full harness, raw outputs, and per-attempt JSON in `bench/ai_correctness/`
 (report at `bench/ai_correctness/REPORT.md`), CC0 alongside a 50-program
-reference corpus at `corpus/`. Reproduction is a `git clone` and an
-`ollama pull` away. Multi-model expansion (gpt-4o, Claude, Gemini) is next.
+reference corpus at `corpus/`. Reproduction is `git clone` + an API key
+(or `ollama pull`). gpt-4o and Gemini are the obvious next runs; PRs welcome.
 
 Happy to be wrong about any of this. The strongest counter-argument I can
 think of myself is that LLMs have seen *so much* Python that they make fewer
 mistakes there in absolute terms even if the surface syntax is harder to
-audit. The 7B-model numbers don't refute that — they suggest the syntax
-advantage at least matches Python's training-data advantage at this scale.
+audit. The two-model numbers don't refute that — they suggest VG's syntax
+advantage at least matches Python's training-data advantage at both 7B-local
+and frontier scale.
 
 ## When to post
 
@@ -93,6 +95,6 @@ Best windows for HN traction historically:
 | "BASIC was always bad." | We're claiming a property of the *syntax* (explicit closers, point-of-use types, local semantics). The 1980s implementations being slow or buggy is a separate axis. |
 | "This is anti-AI." | Read the AI Pair section. The whole point is that the human's tool is the one that lets them keep up with an AI collaborator. |
 | "Why not just write better prompts?" | Prompt quality is uncorrelated with output language. The audit cost is paid every time, regardless of prompt. |
-| "Where are the numbers?" | `bench/ai_correctness/REPORT.md` — VG 100%, Python 100%, TS 84%, GDScript 68% on qwen2.5-coder:7b, N=25. Frontier-model run is next. |
-| "That's just one 7B model." | Correct, and that's why the harness is in the repo: every per-attempt JSON is committed, anyone can re-run on gpt-4o or Claude in 10 minutes. |
+| "Where are the numbers?" | `bench/ai_correctness/REPORT.md` — Sonnet 4.5: VG/GDScript/Python 100%, TS 92%. qwen2.5-coder:7b: VG/Python 100%, TS 84%, GDScript 68%. N=25 per cell. |
+| "That's just two models." | Correct, and that's why the harness is in the repo: every per-attempt JSON is committed, anyone can re-run on gpt-4o or Gemini in 10 minutes. |
 | "BASIC tied with Python is not 'better than'." | Right, and I'm not claiming better-than on parse rate. The claim is *audit cost*, of which parse rate is one floor — and BASIC is not paying a tax for being verbose, which was the worry. |

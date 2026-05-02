@@ -1,0 +1,25 @@
+Imports System.IO
+
+Module Program
+    Sub Main()
+        Dim fileName As String = "output.txt"
+        Dim writer As StreamWriter = New StreamWriter(fileName)
+        writer.WriteLine("Line 1")
+        writer.WriteLine("Line 2")
+        writer.WriteLine("Line 3")
+        writer.Close()
+        
+        Dim reader As StreamReader = New StreamReader(fileName)
+        Dim lineNumber As Integer = 1
+        Dim line As String
+        
+        line = reader.ReadLine()
+        Do While Not line Is Nothing
+            Print(lineNumber & ": " & line)
+            lineNumber = lineNumber + 1
+            line = reader.ReadLine()
+        Loop
+        
+        reader.Close()
+    End Sub
+End Module

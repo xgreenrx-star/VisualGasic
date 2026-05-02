@@ -1,0 +1,19 @@
+Module Module1
+    Sub Main()
+        Dim str As String = "mississippi"
+        Dim count As Integer = 0
+        Dim i As Integer
+        
+        For i = 0 To str.Length - 1
+            If str(i) = "s"c Then
+                count = count + 1
+            End If
+        Next
+        
+        Print(count)
+    End Sub
+    
+    Sub Print(value As Object)
+        Console.WriteLine(value)
+    End Sub
+End Module

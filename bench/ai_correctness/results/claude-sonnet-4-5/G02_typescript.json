@@ -1,0 +1,13 @@
+{
+  "id": "G02",
+  "category": "godot_integration",
+  "language": "typescript",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Write a function that runs once per second via a Timer, incrementing a counter and updating a label called lblTime to show the count. Assume Timer1 and lblTime already exist on the form.",
+  "code_file": "G02_typescript.ts",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 3.12
+}

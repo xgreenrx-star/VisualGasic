@@ -1,0 +1,22 @@
+Module Module1
+    Sub Main()
+        Dim a As Integer = 0
+        Dim b As Integer = 1
+        Dim c As Integer
+        Dim i As Integer
+        
+        Print(a)
+        Print(b)
+        
+        For i = 3 To 10
+            c = a + b
+            Print(c)
+            a = b
+            b = c
+        Next i
+    End Sub
+    
+    Sub Print(value As Integer)
+        System.Console.WriteLine(value)
+    End Sub
+End Module

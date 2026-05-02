@@ -1,0 +1,44 @@
+Module Module1
+    Enum DoorState
+        CLOSED
+        OPENING
+        OPEN
+        CLOSING
+    End Enum
+
+    Sub Main()
+        Dim currentState As DoorState = DoorState.CLOSED
+        Dim events() As String = {"open", "tick", "close", "tick"}
+        
+        For Each evt As String In events
+            currentState = ProcessEvent(currentState, evt)
+            Print(currentState.ToString())
+        Next
+    End Sub
+
+    Function ProcessEvent(state As DoorState, evt As String) As DoorState
+        Select Case state
+            Case DoorState.CLOSED
+                If evt = "open" Then
+                    Return DoorState.OPENING
+                End If
+            Case DoorState.OPENING
+                If evt = "tick" Then
+                    Return DoorState.OPEN
+                End If
+            Case DoorState.OPEN
+                If evt = "close" Then
+                    Return DoorState.CLOSING
+                End If
+            Case DoorState.CLOSING
+                If evt = "tick" Then
+                    Return DoorState.CLOSED
+                End If
+        End Select
+        Return state
+    End Function
+
+    Sub Print(s As String)
+        Console.WriteLine(s)
+    End Sub
+End Module

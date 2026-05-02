@@ -1,0 +1,28 @@
+Module Module1
+    Enum TrafficLight
+        RED
+        GREEN
+        YELLOW
+    End Enum
+
+    Sub Main()
+        Dim state As TrafficLight = TrafficLight.RED
+        
+        For i As Integer = 1 To 7
+            Print(state.ToString())
+            
+            Select Case state
+                Case TrafficLight.RED
+                    state = TrafficLight.GREEN
+                Case TrafficLight.GREEN
+                    state = TrafficLight.YELLOW
+                Case TrafficLight.YELLOW
+                    state = TrafficLight.RED
+            End Select
+        Next
+    End Sub
+    
+    Sub Print(s As String)
+        Console.WriteLine(s)
+    End Sub
+End Module

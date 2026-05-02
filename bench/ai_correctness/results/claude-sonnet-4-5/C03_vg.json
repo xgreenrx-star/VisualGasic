@@ -1,0 +1,13 @@
+{
+  "id": "C03",
+  "category": "control_flow",
+  "language": "vg",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Compute the sum of integers 1 through 100 using a loop. Print the result.",
+  "code_file": "C03_vg.vg",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 1.56
+}

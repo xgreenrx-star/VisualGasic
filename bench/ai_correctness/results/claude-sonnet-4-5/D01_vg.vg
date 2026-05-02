@@ -1,0 +1,21 @@
+Imports System
+Imports System.Collections.Generic
+
+Module Program
+    Sub Main()
+        Dim prices As New Dictionary(Of String, Double)
+        
+        prices.Add("apple", 0.5)
+        prices.Add("bread", 2.25)
+        prices.Add("cheese", 5.99)
+        
+        Dim total As Double = 0
+        
+        For Each kvp In prices
+            Console.WriteLine(kvp.Key & ": " & kvp.Value.ToString())
+            total = total + kvp.Value
+        Next
+        
+        Console.WriteLine("Total: " & total.ToString())
+    End Sub
+End Module

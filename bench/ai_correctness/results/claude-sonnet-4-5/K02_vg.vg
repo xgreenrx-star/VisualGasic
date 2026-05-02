@@ -1,0 +1,32 @@
+Imports System
+
+Module Program
+    Sub Main()
+        Dim e As New Enemy("Goblin", 100)
+        e.TakeDamage(30)
+        Print(e.health)
+        e.TakeDamage(80)
+        Print(e.health)
+    End Sub
+    
+    Sub Print(value As Object)
+        Console.WriteLine(value)
+    End Sub
+End Module
+
+Class Enemy
+    Public name As String
+    Public health As Integer
+    
+    Public Sub New(n As String, h As Integer)
+        name = n
+        health = h
+    End Sub
+    
+    Public Sub TakeDamage(amount As Integer)
+        health = health - amount
+        If health < 0 Then
+            health = 0
+        End If
+    End Sub
+End Class

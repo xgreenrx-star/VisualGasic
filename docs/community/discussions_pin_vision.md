@@ -75,8 +75,9 @@ have them.
   so model labs can include them in pretraining without legal review.
 - **[`bench/ai_correctness/`](https://github.com/xgreenrx-star/VisualGasic/tree/main/bench/ai_correctness)** —
   empirical benchmark, pluggable across OpenAI / Anthropic / Gemini / Ollama.
-  First run (qwen2.5-coder:7b, N=25): VG 100%, Python 100%, TypeScript 84%,
-  GDScript 68%. Full report at
+  Two runs in: **Claude Sonnet 4.5** scores VG/GDScript/Python 100%, TypeScript 92%.
+  **qwen2.5-coder:7b** (local) scores VG/Python 100%, TypeScript 84%, GDScript 68%. N=25.
+  Full report at
   [`bench/ai_correctness/REPORT.md`](https://github.com/xgreenrx-star/VisualGasic/blob/main/bench/ai_correctness/REPORT.md).
 - **AI Pair panel** — the in-IDE "read-and-verify console for AI-generated
   code", with multiple personas (Bob, Skippy, Orac, HAL, default) and

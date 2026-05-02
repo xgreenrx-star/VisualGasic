@@ -1,0 +1,13 @@
+{
+  "id": "S03",
+  "category": "strings",
+  "language": "python",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Count how many times the letter 's' appears in the string \"mississippi\". Print the count.",
+  "code_file": "S03_python.py",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 1.5
+}

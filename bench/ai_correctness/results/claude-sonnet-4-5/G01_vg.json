@@ -1,0 +1,13 @@
+{
+  "id": "G01",
+  "category": "godot_integration",
+  "language": "vg",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Write a function that responds to a button-click event by appending a line to a label called lblStatus. Assume the controls already exist on a form. Show only the relevant handler code.",
+  "code_file": "G01_vg.vg",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 1.74
+}

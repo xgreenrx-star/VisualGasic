@@ -1,0 +1,13 @@
+{
+  "id": "F02",
+  "category": "file_io",
+  "language": "gdscript",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Read a CSV string \"name,age\\nAlice,30\\nBob,25\\nCarol,42\" (the first line is a header) and print the average age.",
+  "code_file": "F02_gdscript.gd",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 2.55
+}

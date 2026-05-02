@@ -1,0 +1,13 @@
+{
+  "id": "F01",
+  "category": "file_io",
+  "language": "typescript",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Write the three lines \"Line 1\", \"Line 2\", \"Line 3\" to a text file named output.txt, then read the file back and print each line prefixed by its line number.",
+  "code_file": "F01_typescript.ts",
+  "parse_ok": false,
+  "checker_msg": "bench/ai_correctness/results/claude-sonnet-4-5/F01_typescript.ts(1,21): error TS2591: Cannot find name 'fs'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig.\nbench/ai_correctness/results/claude-sonnet-4-5/F01_typescript.ts(11,20): error TS7006: Parameter 'line' implicitly has an 'any' type.\nbench/ai_correctness/results/claude-sonnet-4-5/F01_typescript.ts(11,26): error TS7006: Parameter 'index' implicitly",
+  "gen_seconds": 3.11
+}

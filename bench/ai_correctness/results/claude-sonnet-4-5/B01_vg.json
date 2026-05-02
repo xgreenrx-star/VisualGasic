@@ -1,0 +1,13 @@
+{
+  "id": "B01",
+  "category": "basics",
+  "language": "vg",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Print the string \"Hello, world!\" exactly once.",
+  "code_file": "B01_vg.vg",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 1.63
+}

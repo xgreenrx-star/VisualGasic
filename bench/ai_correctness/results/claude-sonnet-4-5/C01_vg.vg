@@ -1,0 +1,22 @@
+Module Module1
+    Sub Main()
+        Dim score As Integer
+        score = 75
+        
+        Dim grade As String
+        
+        If score >= 90 Then
+            grade = "A"
+        ElseIf score >= 80 Then
+            grade = "B"
+        ElseIf score >= 70 Then
+            grade = "C"
+        ElseIf score >= 60 Then
+            grade = "D"
+        Else
+            grade = "F"
+        End If
+        
+        System.Console.WriteLine(grade)
+    End Sub
+End Module

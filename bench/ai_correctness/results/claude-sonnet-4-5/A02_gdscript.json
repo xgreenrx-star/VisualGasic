@@ -1,0 +1,13 @@
+{
+  "id": "A02",
+  "category": "arrays",
+  "language": "gdscript",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Given the integer array [-5, 12, 8, -10, 22, 0, 17], find and print the maximum and minimum.",
+  "code_file": "A02_gdscript.gd",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 2.62
+}

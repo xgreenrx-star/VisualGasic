@@ -1,0 +1,13 @@
+{
+  "id": "M02",
+  "category": "math",
+  "language": "python",
+  "model": "claude-sonnet-4-5",
+  "provider": "anthropic",
+  "temperature": 0.2,
+  "task": "Find and print all prime numbers up to 50, comma-separated on one line.",
+  "code_file": "M02_python.py",
+  "parse_ok": true,
+  "checker_msg": "ok",
+  "gen_seconds": 3.0
+}

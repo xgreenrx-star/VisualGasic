@@ -1,0 +1,12 @@
+Sub Main()
+    Dim sum As Integer
+    Dim i As Integer
+    
+    sum = 0
+    
+    For i = 1 To 100
+        sum = sum + i
+    Next i
+    
+    Print "The sum is: " & sum
+End Sub

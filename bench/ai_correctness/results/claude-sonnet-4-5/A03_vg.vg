@@ -1,0 +1,23 @@
+Module Module1
+    Sub Main()
+        Dim arr() As Integer = {64, 25, 12, 22, 11}
+        Dim n As Integer = arr.Length
+        Dim i As Integer
+        Dim j As Integer
+        Dim temp As Integer
+        
+        For i = 0 To n - 2
+            For j = 0 To n - i - 2
+                If arr(j) > arr(j + 1) Then
+                    temp = arr(j)
+                    arr(j) = arr(j + 1)
+                    arr(j + 1) = temp
+                End If
+            Next j
+        Next i
+        
+        For i = 0 To n - 1
+            Console.WriteLine(arr(i))
+        Next i
+    End Sub
+End Module

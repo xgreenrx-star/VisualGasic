@@ -1,0 +1,13 @@
+Class Point
+    Public x As Integer
+    Public y As Integer
+End Class
+
+Module Program
+    Sub Main()
+        Dim p As New Point()
+        p.x = 3
+        p.y = 4
+        Print("(" & p.x & ", " & p.y & ")")
+    End Sub
+End Module

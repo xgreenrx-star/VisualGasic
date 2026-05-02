@@ -1,0 +1,20 @@
+Module Module1
+    Sub Main()
+        Dim arr() As Integer = {-5, 12, 8, -10, 22, 0, 17}
+        Dim max As Integer = arr(0)
+        Dim min As Integer = arr(0)
+        Dim i As Integer
+        
+        For i = 1 To arr.Length - 1
+            If arr(i) > max Then
+                max = arr(i)
+            End If
+            If arr(i) < min Then
+                min = arr(i)
+            End If
+        Next
+        
+        System.Console.WriteLine("Maximum: " & max)
+        System.Console.WriteLine("Minimum: " & min)
+    End Sub
+End Module
