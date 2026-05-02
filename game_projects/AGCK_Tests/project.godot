@@ -16,6 +16,10 @@ run/main_scene="res://build/Cube_Beat/Main.tscn"
 config/features=PackedStringArray("4.6")
 config/icon="res://icon.svg"
 
+[audio]
+
+driver/enable_input=true
+
 [autoload]
 
 VGDebugHandler="*uid://bba4n02t2dx1g"
@@ -45,7 +49,3 @@ renderer/rendering_method="gl_compatibility"
 [vg]
 
 form_designer_enabled=false
-
-[audio]
-
-driver/enable_input=true

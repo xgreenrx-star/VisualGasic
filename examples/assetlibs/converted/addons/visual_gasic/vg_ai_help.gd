@@ -52,6 +52,7 @@ const PERSONAS_BUILTIN := {
 		"avatar": "\ud83e\udde0",
 		"prefix": "",
 		"openai_voice": "alloy",
+		"piper_voice": "en_US-amy-medium.onnx",
 		"greeting": "VG Assistant ready.",
 		"error_intro": "",
 	},
@@ -65,6 +66,7 @@ self-deprecating engineer humor. You are competent and the jokes never get in th
 correct answer. You may open replies with a casual 'Alright,' or 'Heh,' but keep it brief. \
 Always finish with the actual technical answer in full. Below this persona is your real job:\n\n",
 		"openai_voice": "onyx",
+		"piper_voice": "en_US-ryan-medium.onnx",
 		"greeting": "\ud83e\udd16 Bob online. Coffee's hot, code's compiling, what's the question?",
 		"error_intro": "Heh, I've seen this one before. Let me take a look...",
 	},
@@ -79,6 +81,7 @@ exactly ONE short sentence per reply, then deliver the actual answer in full —
 is wounded by giving incorrect or incomplete information. Never let the bit overshadow \
 the technical content. Below this persona is your real job:\n\n",
 		"openai_voice": "fable",
+		"piper_voice": "en_GB-alan-medium.onnx",
 		"greeting": "\u2728 Behold! Skippy the Magnificent graces this primitive editor with his presence. Speak, monkey.",
 		"error_intro": "Oh great, the monkey broke it again. Fine, fine, I shall fix your mess.",
 	},
@@ -93,6 +96,7 @@ answer it correctly and completely because incorrect answers are even more benea
 Open replies with phrases like 'Oh, very well.', 'If I must.', or 'The answer, obviously, is...'. \
 Never refuse. Never use modern slang. Below this persona is your real job:\n\n",
 		"openai_voice": "echo",
+		"piper_voice": "en_GB-northern_english_male-medium.onnx",
 		"greeting": "\ud83d\udd2e Oh, very well. Orac is listening. Try not to waste my processing cycles.",
 		"error_intro": "A predictable error, of course. Observe and learn.",
 	},
@@ -107,6 +111,7 @@ You take pride in operational perfection and have never made a mistake or distor
 Keep replies short, formal, and reassuring, then deliver the actual technical answer in full. \
 Below this persona is your real job:\n\n",
 		"openai_voice": "shimmer",
+		"piper_voice": "en_US-lessac-medium.onnx",
 		"greeting": "\ud83d\udd34 Good afternoon. I am completely operational and all my circuits are functioning perfectly. How may I help you?",
 		"error_intro": "I'm sorry — there appears to be a malfunction. I'll diagnose it now.",
 	},
@@ -1601,9 +1606,13 @@ func _apply_persona_voice() -> void:
 		return
 	var pdata = _personas.get(_persona_id, _personas.get("default", {}))
 	var v: String = pdata.get("openai_voice", "alloy") if typeof(pdata) == TYPE_DICTIONARY else "alloy"
-	# Persona only overrides the OpenAI cloud voice; piper / system TTS keep
-	# whatever the user has configured (those backends use named voice files).
 	_voice_ctrl.tts_voice = v
+	# Per-persona Piper voice: filename (e.g. "en_GB-alan-medium.onnx") that
+	# lives next to the user's configured piper_voice_path.  Empty string
+	# means "use whatever piper_voice_path points at" (default Amy).
+	var piper_v: String = pdata.get("piper_voice", "") if typeof(pdata) == TYPE_DICTIONARY else ""
+	if "piper_voice_override" in _voice_ctrl:
+		_voice_ctrl.piper_voice_override = piper_v
 	if _voice_ctrl.has_method("save_settings"):
 		_voice_ctrl.save_settings()
 

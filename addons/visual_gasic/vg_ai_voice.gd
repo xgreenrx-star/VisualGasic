@@ -72,6 +72,11 @@ var whisper_cpp_model: String = ""        # e.g. "/usr/share/whisper/ggml-tiny.e
 var piper_path: String = "piper"
 var piper_voice_path: String = ""         # e.g. "/usr/share/piper/en_US-amy-low.onnx"
 
+# Per-persona override: filename like "en_GB-alan-medium.onnx".  Resolved
+# relative to the directory of `piper_voice_path` so users only need to
+# configure the voices folder once.  Empty = use piper_voice_path as-is.
+var piper_voice_override: String = ""
+
 # ─── Lifecycle ──────────────────────────────────────────────────────────────
 func _ready() -> void:
 	_load_settings()
@@ -533,8 +538,16 @@ func _speak_piper(text: String) -> void:
 	if not _binary_exists(piper_path):
 		speech_failed.emit("piper not on PATH (%s)." % piper_path)
 		return
-	if piper_voice_path.is_empty() or not FileAccess.file_exists(piper_voice_path):
-		speech_failed.emit("piper voice model not found: %s" % piper_voice_path)
+	# Resolve the active voice model: persona override (just a filename)
+	# is looked up in the same directory as the configured piper_voice_path.
+	var voice_path: String = piper_voice_path
+	if not piper_voice_override.is_empty() and not piper_voice_path.is_empty():
+		var dir: String = piper_voice_path.get_base_dir()
+		var candidate: String = dir.path_join(piper_voice_override)
+		if FileAccess.file_exists(candidate):
+			voice_path = candidate
+	if voice_path.is_empty() or not FileAccess.file_exists(voice_path):
+		speech_failed.emit("piper voice model not found: %s" % voice_path)
 		return
 	var temp := OS.get_user_data_dir().path_join("vg_voice_tmp")
 	DirAccess.make_dir_recursive_absolute(temp)
@@ -554,11 +567,11 @@ func _speak_piper(text: String) -> void:
 	if OS.has_feature("windows"):
 		cmd = "cmd"
 		args = PackedStringArray(["/c", "type \"%s\" | \"%s\" --model \"%s\" --output_file \"%s\"" % [
-			txt_path, piper_path, piper_voice_path, wav_path]])
+			txt_path, piper_path, voice_path, wav_path]])
 	else:
 		cmd = "sh"
 		args = PackedStringArray(["-c", "cat '%s' | '%s' --model '%s' --output_file '%s'" % [
-			txt_path, piper_path, piper_voice_path, wav_path]])
+			txt_path, piper_path, voice_path, wav_path]])
 	var output: Array = []
 	_is_speaking = true
 	speech_started.emit()
