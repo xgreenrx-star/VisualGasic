@@ -66,6 +66,7 @@ Var RegisterVgFiles
 Var InstallOllama
 Var OllamaModel
 Var InstallPiper
+Var InstallWhisper
 Var DetectedRamGB
 
 Var hCtlGodot
@@ -81,6 +82,7 @@ Var hCtlOllamaEnable
 Var hCtlOllamaModel
 Var hCtlOllamaInfo
 Var hCtlPiperEnable
+Var hCtlWhisperEnable
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -112,6 +114,7 @@ Function .onInit
     StrCpy $InstallOllama "0"
     StrCpy $OllamaModel ""
     StrCpy $InstallPiper "0"
+    StrCpy $InstallWhisper "0"
     StrCpy $DetectedRamGB "0"
 FunctionEnd
 
@@ -345,6 +348,14 @@ Function OllamaPage
         "Without Piper, voice mode falls back to the OS's built-in TTS (espeak / SAPI), which is robotic. Piper voices match each persona (Bob, Skippy, Orac, HAL)."
     Pop $0
 
+    ; Whisper opt-in (~85 MB: prebuilt whisper.cpp binary + tiny.en model).
+    ${NSD_CreateCheckbox} 0 162u 100% 12u \
+        "Install local Whisper STT so the mic button works without an OpenAI key (~85 MB)"
+    Pop $hCtlWhisperEnable
+    ${NSD_CreateLabel} 16u 176u 100% 24u \
+        "Without local Whisper, the mic button in AI Pair requires an OpenAI API key. whisper.cpp runs entirely on-device — no key, no network."
+    Pop $0
+
     nsDialogs::Show
 FunctionEnd
 
@@ -380,6 +391,13 @@ Function OllamaPageLeave
         StrCpy $InstallPiper "1"
     ${Else}
         StrCpy $InstallPiper "0"
+    ${EndIf}
+
+    ${NSD_GetState} $hCtlWhisperEnable $0
+    ${If} $0 == ${BST_CHECKED}
+        StrCpy $InstallWhisper "1"
+    ${Else}
+        StrCpy $InstallWhisper "0"
     ${EndIf}
 FunctionEnd
 
@@ -471,6 +489,20 @@ Section "VisualGasic first-time installer" SecMain
             DetailPrint "Piper download failed (exit $3); voice mode will use SAPI fallback. You can re-run install_piper.ps1 later."
         ${Else}
             DetailPrint "Piper installed successfully."
+        ${EndIf}
+    ${EndIf}
+
+    ; Optional: download prebuilt whisper.cpp + tiny.en model.  Same
+    ; pattern as Piper above — failures are non-fatal (mic button just
+    ; falls back to requiring an OpenAI key).
+    ${If} $InstallWhisper == "1"
+        DetailPrint "Downloading local Whisper STT (~85 MB)..."
+        nsExec::ExecToLog 'powershell.exe -ExecutionPolicy Bypass -NoProfile -File "$INSTDIR\install_whisper.ps1"'
+        Pop $3
+        ${If} $3 != 0
+            DetailPrint "Whisper download failed (exit $3); mic mode will require an OpenAI key. You can re-run install_whisper.ps1 later."
+        ${Else}
+            DetailPrint "Whisper installed successfully."
         ${EndIf}
     ${EndIf}
 

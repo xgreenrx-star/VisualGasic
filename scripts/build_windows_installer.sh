@@ -50,10 +50,11 @@ mkdir -p "$BUILD_DIR" "$OUTPUT_DIR"
 echo "[2/5] Staging bootstrap_vg.py"
 cp "$ROOT/scripts/bootstrap_vg.py" "$BUILD_DIR/bootstrap_vg.py"
 cp "$ROOT/scripts/bootstrap_gui.py" "$BUILD_DIR/bootstrap_gui.py"
-# Optional Piper TTS downloader — invoked from the NSI installer when
-# the user ticks the "Install Piper neural TTS" checkbox on the Ollama
-# page.  Always shipped (it's tiny) so users can re-run it later.
+# Optional Piper TTS / Whisper STT downloaders — invoked from the NSI
+# installer when the user ticks the matching checkboxes on the Ollama
+# page.  Always shipped (they're tiny) so users can re-run them later.
 cp "$ROOT/scripts/install_piper.ps1" "$BUILD_DIR/install_piper.ps1"
+cp "$ROOT/scripts/install_whisper.ps1" "$BUILD_DIR/install_whisper.ps1"
 
 echo "[3/5] Staging bundled VG addon (offline payload)"
 mkdir -p "$BUILD_DIR/offline/addons"
