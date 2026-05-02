@@ -65,6 +65,7 @@ Var MakeShortcuts
 Var RegisterVgFiles
 Var InstallOllama
 Var OllamaModel
+Var InstallPiper
 Var DetectedRamGB
 
 Var hCtlGodot
@@ -79,6 +80,7 @@ Var hCtlGemini
 Var hCtlOllamaEnable
 Var hCtlOllamaModel
 Var hCtlOllamaInfo
+Var hCtlPiperEnable
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -109,6 +111,7 @@ Function .onInit
     StrCpy $GeminiKey ""
     StrCpy $InstallOllama "0"
     StrCpy $OllamaModel ""
+    StrCpy $InstallPiper "0"
     StrCpy $DetectedRamGB "0"
 FunctionEnd
 
@@ -334,6 +337,14 @@ Function OllamaPage
         "Tip: 'Auto-recommend' lets the installer pick the best fit using your CPU, RAM, and GPU. Pick a specific model if you know what your machine can handle. You can change the model later by running 'ollama pull <name>' from a terminal."
     Pop $0
 
+    ; Piper opt-in (~340 MB total: binary + 5 persona voice models).
+    ${NSD_CreateCheckbox} 0 122u 100% 12u \
+        "Install Piper neural TTS so AI Pair voice replies sound natural (~340 MB)"
+    Pop $hCtlPiperEnable
+    ${NSD_CreateLabel} 16u 136u 100% 24u \
+        "Without Piper, voice mode falls back to the OS's built-in TTS (espeak / SAPI), which is robotic. Piper voices match each persona (Bob, Skippy, Orac, HAL)."
+    Pop $0
+
     nsDialogs::Show
 FunctionEnd
 
@@ -362,6 +373,13 @@ Function OllamaPageLeave
         StrCpy $OllamaModel "qwen2.5-coder:32b"
     ${Else}
         StrCpy $OllamaModel ""
+    ${EndIf}
+
+    ${NSD_GetState} $hCtlPiperEnable $0
+    ${If} $0 == ${BST_CHECKED}
+        StrCpy $InstallPiper "1"
+    ${Else}
+        StrCpy $InstallPiper "0"
     ${EndIf}
 FunctionEnd
 
@@ -439,6 +457,21 @@ Section "VisualGasic first-time installer" SecMain
         MessageBox MB_ICONEXCLAMATION|MB_OK "VisualGasic first-time setup failed (exit code $3).$\r$\n$\r$\nA detailed log has been saved to:$\r$\n$INSTDIR\install.log$\r$\n$\r$\nPlease attach it when filing an issue at${APP_URL}/issues."
     ${Else}
         DetailPrint "Setup log: $INSTDIR\install.log"
+    ${EndIf}
+
+    ; Optional: download Piper neural TTS + persona voices.  We invoke
+    ; the bundled install_piper.ps1 via PowerShell so users get a single
+    ; supported download path on every Windows version.  Failures here
+    ; are non-fatal — voice mode still works via SAPI fallback.
+    ${If} $InstallPiper == "1"
+        DetailPrint "Downloading Piper neural TTS + persona voices (~340 MB)..."
+        nsExec::ExecToLog 'powershell.exe -ExecutionPolicy Bypass -NoProfile -File "$INSTDIR\install_piper.ps1"'
+        Pop $3
+        ${If} $3 != 0
+            DetailPrint "Piper download failed (exit $3); voice mode will use SAPI fallback. You can re-run install_piper.ps1 later."
+        ${Else}
+            DetailPrint "Piper installed successfully."
+        ${EndIf}
     ${EndIf}
 
     ; Record the uninstaller location and run it from an uninstall context.

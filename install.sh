@@ -203,5 +203,25 @@ echo -e "  ${BOLD}Add VG to an existing project:${NC}"
 echo "    cd /path/to/project"
 echo "    vg install"
 echo ""
+
+# ── Optional: Piper neural TTS for AI Pair voice mode ──────────────────────
+if [[ -t 0 && -t 1 && "${VG_INSTALL_PIPER:-}" != "0" ]]; then
+    echo -e "  ${BOLD}Optional:${NC} natural-sounding voice for AI Pair (~340 MB download)"
+    echo "    The default OS TTS (espeak / say) is robotic. Piper voices match"
+    echo "    each persona (Bob = American, Skippy = British, Orac = Yorkshire, etc.)"
+    echo ""
+    read -r -p "  Install Piper neural TTS now? [y/N] " ans
+    if [[ "$ans" =~ ^[Yy]$ ]]; then
+        if [[ -f "$VG_GLOBAL_DIR/scripts/install_piper.sh" ]]; then
+            bash "$VG_GLOBAL_DIR/scripts/install_piper.sh"
+        else
+            curl -fsSL "$REPO_URL/raw/main/scripts/install_piper.sh" | bash
+        fi
+    else
+        info "Skipped. Run later with: bash <(curl -sSL $REPO_URL/raw/main/scripts/install_piper.sh)"
+    fi
+    echo ""
+fi
+
 echo "  Documentation: $REPO_URL"
 echo ""
