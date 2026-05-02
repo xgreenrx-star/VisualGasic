@@ -18,6 +18,42 @@ Alternates, in case the primary feels stale by the time you post:
 https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/manifesto.md
 ```
 
+## Follow-up comment (post once results land)
+
+> **Update — initial benchmark numbers are in.**
+>
+> When I posted this I said the numbers were coming. They're here. Same 25
+> prompts, four languages (VG / GDScript / Python / TypeScript), same model,
+> temperature 0.2, single attempt, measure first-draft parse-success.
+>
+>     Claude Sonnet 4.5         qwen2.5-coder:7b (local)
+>     --------------------      -----------------------
+>     VG          25/25 (100%)  VG          25/25 (100%)
+>     GDScript    25/25 (100%)  GDScript    17/25 ( 68%)
+>     Python      25/25 (100%)  Python      25/25 (100%)
+>     TypeScript  23/25 ( 92%)  TypeScript  21/25 ( 84%)
+>
+> Two data points, same pattern: VG ties Python at the top, TypeScript lags
+> by single digits on real type errors (DOM-global `name` collision at module
+> scope, missing `@types/node` for `fs`, malformed numeric literal). The 7B
+> model also drops on GDScript because it emits Godot 3 idioms (`File`,
+> `yield`, `func new()`); Sonnet doesn't. That's a moving-target-API story,
+> tangential here.
+>
+> Calibration: this does not prove BASIC "wins." Tied at the top of a
+> parse-rate floor is exactly what the manifesto claims — verbose syntax is
+> *not paying a tax* for being verbose. The audit-cost argument is the part
+> these numbers can't measure; that needs human-subjects work.
+>
+> Strongest steel-man against me, which I owed earlier: "LLMs have just seen
+> too much Python to ever lose to BASIC on parse rate." At minimum, that's
+> not winning here at either 7B-local or frontier scale.
+>
+> All raw outputs and per-attempt JSON committed:
+> https://github.com/xgreenrx-star/VisualGasic/blob/main/bench/ai_correctness/REPORT.md
+> Reproduction is `git clone` + an API key (or `ollama pull`). gpt-4o and
+> Gemini are the obvious next runs — PRs welcome, $0.40 of API credit each.
+
 ## First comment (post immediately after submitting)
 
 Author of the post here.
