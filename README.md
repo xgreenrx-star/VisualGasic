@@ -19,6 +19,37 @@ It also turns out that LLMs *write* this kind of language with fewer bugs than t
 
 The historical reason BASIC lost the popularity contest was tooling, not language — and we have solved tooling. VG's 5-tier JIT compiles to bytecode that runs at native-class speed (30–119× faster than GDScript, beats C++ on some workloads — numbers below). The "BASIC can't compete" excuse is no longer available.
 
+### The next decade — and why BASIC wins it
+
+The trajectory of the next ten years is already visible. Three things are happening at once:
+
+1. **Authoring cost collapses to zero.** A junior model in 2026 emits more code per dollar than a senior engineer wrote in a year. By 2030 the marginal cost of a draft is rounding error. Whatever's still scarce, it isn't typing.
+2. **Auditing cost holds, then rises.** Models hallucinate APIs, smuggle in subtle off-by-ones, and confidently produce plausible-but-wrong code. The harder the model works to look right, the harder it gets to spot when it's wrong. Review time per line stays roughly constant; review pressure per project goes up.
+3. **Liability shifts to the human reviewer.** Every regulated industry — finance, medicine, aviation, public sector — already requires a named human to sign off on shipped code. That human's job is auditing, not authoring. Their effective hourly rate is set by how fast they can verify a unit of AI output.
+
+In that world, the value of a programming language is dominated by a single metric: **time-to-confidence per line of unfamiliar AI-generated code.** Every property a 1995 language designer optimized for — terseness, cleverness, expressiveness, "fits in a tweet" — is now actively hostile to that metric.
+
+**Four properties make a language good for the auditor, and BASIC has all four:**
+
+1. **Block boundaries are spelled out.** `If ... End If`, `For ... Next i`, `Sub Foo() ... End Sub`. Closing tokens name themselves. There are no silent indent changes that flip an entire block's meaning — which, when the AI emits a stray space, is the bug you spend an afternoon finding.
+2. **Types are declared at point of use.** `Dim playerHealth As Single = 100.0`. No scrolling to find out what something is. The auditor has the answer in their eye line.
+3. **Semantics are local.** No metaclasses. No decorators that rewrite the function below them. No `__getattr__` that turns `obj.foo` into a network call. What you read is what runs.
+4. **There is one obvious way.** No list comprehension *and* `map()` *and* generator expression *and* loop. One construct per concept. Verbose. Unmissable.
+
+Modern mainstream languages have explicitly rejected every one of those properties — for good reasons, when the writer was a human. Those reasons are gone.
+
+### Why VisualGasic, specifically
+
+BASIC the syntax family is the right answer; **VisualGasic is a serious 2026 implementation of it.** The defects of historical BASIC dialects were tooling defects, not language defects, and they have been fixed:
+
+- **Performance.** A 5-tier JIT (interpreter → bytecode → x86-64) puts VG on the same shelf as C++ for hot paths. The "BASIC is slow" objection is empirically dead — see the table below.
+- **Type safety.** `Dim ... As ...` is enforced, not decorative. Generics, optionals, unions, and a strict mode are first-class. The auditor sees a type and knows the runtime will hold the line.
+- **A real IDE.** VB6-style Form Designer + Code Editor + Debugger + Profiler + Object Browser + Immediate Window, plus an AI Pair panel that runs locally against Ollama or against frontier models with your own key.
+- **A real ecosystem.** A package manager (`vg pkg`), a plugin SDK with capability-based routing, a multi-module import system, ECS, GPU, FFI, and a 14-demo gallery in the box.
+- **Receipts, not promises.** Every claim above is backed by a benchmark or a test in this repo. The AI-correctness numbers (next section down) are reproducible from `bench/ai_correctness/` on your own model in fifteen minutes.
+
+If the next decade really is auditor-bound, then the language that wins is the one that minimizes time-to-confidence per line. That language already exists, and it has had its tooling problem solved. **It's this one.**
+
 ➡ **Read the full argument: [Why the AI Era Needs BASIC Again](docs/manifesto.md)**
 
 > 🚀 **v5.1.0-rc.1 — Release Candidate (Apr 29 2026).** AI-native IDE with 5 built-in AI personas + voice mode (PTT), AGCK game builder with 8 templates, plugin SDK, unified ▶ Play menu, and the Linux one-shot installer. **Looking for Windows & macOS testers** — see [release notes](RELEASE_NOTES_v5.1.0-rc.1.md). [Changelog](CHANGELOG.md).
