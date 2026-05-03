@@ -1292,12 +1292,20 @@ func _on_back_to_godot_pressed() -> void:
 ## VG Welcome shell pointed at the cross-project recent list and quits
 ## the current editor instance.
 func _on_exit_to_welcome() -> void:
+	print("[VisualGasic] Exit to Welcome requested")
 	# Best-effort save so the user doesn't lose work on the way out.
 	if _form_dirty:
 		_do_save_form()
 	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("save_file"):
 		_embedded_code_editor.save_file()
+	# Defer the actual spawn+quit so the popup-menu callback can return
+	# cleanly first. Calling get_tree().quit() synchronously from inside
+	# a PopupMenu.id_pressed handler in Godot 4.6 leaves the editor in a
+	# half-shutdown state where leftover input events get re-dispatched
+	# to the toolbar and can trigger an unintended Run.
+	call_deferred("_do_exit_to_welcome")
 
+func _do_exit_to_welcome() -> void:
 	# Locate the welcome shell project. We look adjacent to this addon's
 	# parent project first (source-tree layout), then standard install
 	# dirs.
@@ -1325,6 +1333,7 @@ func _on_exit_to_welcome() -> void:
 	else:
 		# `--editor` is required — without it Godot tries to *run* the
 		# welcome project, which has no main scene and pops an error.
+		print("[VisualGasic] Spawning welcome shell at: ", welcome_dir)
 		OS.create_process(godot_bin, ["--path", welcome_dir, "--editor"])
 
 	# Hand off to the new instance, then quit ours.
