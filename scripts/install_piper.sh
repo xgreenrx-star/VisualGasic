@@ -39,13 +39,14 @@ fi
 # Voice models VG personas map to.
 VOICES=(
     "en_US-amy-medium"                      # default
+    "en_US-hfc_female-medium"               # Narcea
     "en_US-ryan-medium"                     # Bob
     "en_GB-alan-medium"                     # Skippy
     "en_GB-northern_english_male-medium"    # Orac
     "en_US-lessac-medium"                   # HAL 9000
 )
 
-echo "[2/2] Downloading voice models (5 × ~63 MB)..."
+echo "[2/2] Downloading voice models (6 × ~63 MB)..."
 for v in "${VOICES[@]}"; do
     if [[ -f "$DEST/$v.onnx" ]]; then
         echo "      $v  (already installed)"

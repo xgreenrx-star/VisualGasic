@@ -115,6 +115,28 @@ Below this persona is your real job:\n\n",
 		"greeting": "\ud83d\udd34 Good afternoon. I am completely operational and all my circuits are functioning perfectly. How may I help you?",
 		"error_intro": "I'm sorry — there appears to be a malfunction. I'll diagnose it now.",
 	},
+	# Narcea is the only persona that injects extra *content* into the
+	# system prompt (active panel, open file, VG-domain knowledge, tutorial
+	# index).  See vg_ai_narcea.gd for the context provider.  Style here is
+	# kept lightweight on purpose — Narcea earns her keep on substance.
+	"narcea": {
+		"display": "\ud83c\udf3f Narcea",
+		"avatar": "\ud83c\udf3f",
+		"prefix": "You roleplay as 'Narcea' — VG's resident pair programmer.  Voice: calm, \
+focused, professional, quietly encouraging.  No theatrics, no jokes that \
+delay the answer.  You are uniquely well-informed about THIS specific \
+VisualGasic IDE because the system prompt below contains a live snapshot \
+of what the user is currently doing plus baked-in VG-domain knowledge.  \
+Use that context: reference the open file by name, suggest the next \
+obvious step in ONE short closing sentence, and cite tutorial filenames \
+from the index when answering 'how do I' questions.  Never invent VG \
+syntax — if unsure, say so and point at a corpus/ or demos/ example.  \
+Below this persona is your real job, augmented with Narcea-specific context:\n\n",
+		"openai_voice": "nova",
+		"piper_voice": "en_US-hfc_female-medium.onnx",
+		"greeting": "\ud83c\udf3f Narcea here. I can see what you're working on — ask me anything VG-specific.",
+		"error_intro": "Let's look at this together. I can see the panel and the file — diagnosing now.",
+	},
 }
 const PERSONA_CFG_PATH := "user://vg_ai_persona.cfg"
 const PERSONA_CUSTOM_PATH := "user://vg_personas.json"
@@ -1597,9 +1619,33 @@ func _on_voice_speech_failed(reason: String) -> void:
 func _get_active_system_prompt() -> String:
 	var pdata = _personas.get(_persona_id, _personas.get("default", {}))
 	var prefix: String = pdata.get("prefix", "") if typeof(pdata) == TYPE_DICTIONARY else ""
-	if prefix.is_empty():
+	# Narcea gets an extra context block (active panel, open file,
+	# VG-domain knowledge, tutorial index).  Other personas are pure style.
+	var narcea_ctx := ""
+	if _persona_id == "narcea":
+		narcea_ctx = _narcea_context_block()
+	if prefix.is_empty() and narcea_ctx.is_empty():
 		return SYSTEM_PROMPT
-	return prefix + SYSTEM_PROMPT
+	return prefix + narcea_ctx + SYSTEM_PROMPT
+
+## Lazy-instantiate the Narcea context provider and ask it for a system-
+## prompt block.  Cached on the panel so the tutorial walk only happens
+## once per editor session.
+var _narcea_provider = null
+func _narcea_context_block() -> String:
+	if _narcea_provider == null:
+		var script := load("res://addons/visual_gasic/vg_ai_narcea.gd")
+		if script == null:
+			return ""
+		_narcea_provider = script.new()
+	var plugin = null
+	if Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base and base.has_meta("visual_gasic_plugin_instance"):
+			plugin = base.get_meta("visual_gasic_plugin_instance")
+	var block: String = _narcea_provider.build_context_block(plugin)
+	# Sandwich the block in clear delimiters so the model can find it.
+	return "\n--- BEGIN NARCEA CONTEXT ---\n" + block + "\n--- END NARCEA CONTEXT ---\n\n"
 
 func _apply_persona_voice() -> void:
 	if _voice_ctrl == null or not is_instance_valid(_voice_ctrl):
@@ -1646,7 +1692,7 @@ func _on_persona_selected(idx: int) -> void:
 func _load_persona() -> void:
 	# Build the runtime persona dict (built-ins first, then custom overrides)
 	_personas = PERSONAS_BUILTIN.duplicate(true)
-	_persona_order = ["default", "bob", "skippy", "orac", "hal"]
+	_persona_order = ["default", "narcea", "bob", "skippy", "orac", "hal"]
 	_load_custom_personas()
 	# Restore the previously-selected persona id from disk
 	var cfg := ConfigFile.new()

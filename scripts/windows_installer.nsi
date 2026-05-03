@@ -342,7 +342,7 @@ Function OllamaPage
 
     ; Piper opt-in (~340 MB total: binary + 5 persona voice models).
     ${NSD_CreateCheckbox} 0 122u 100% 12u \
-        "Install Piper neural TTS so AI Pair voice replies sound natural (~340 MB)"
+        "Install Piper neural TTS so AI Pair voice replies sound natural (~400 MB)"
     Pop $hCtlPiperEnable
     ${NSD_CreateLabel} 16u 136u 100% 24u \
         "Without Piper, voice mode falls back to the OS's built-in TTS (espeak / SAPI), which is robotic. Piper voices match each persona (Bob, Skippy, Orac, HAL)."

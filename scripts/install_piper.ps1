@@ -29,13 +29,14 @@ if (-not (Test-Path "$Dest\piper\piper.exe")) {
 
 $Voices = @(
     'en_US-amy-medium',                      # default
+    'en_US-hfc_female-medium',               # Narcea
     'en_US-ryan-medium',                     # Bob
     'en_GB-alan-medium',                     # Skippy
     'en_GB-northern_english_male-medium',    # Orac
     'en_US-lessac-medium'                    # HAL 9000
 )
 
-Write-Host "[2/2] Downloading voice models (5 x ~63 MB)..."
+Write-Host "[2/2] Downloading voice models (6 x ~63 MB)..."
 foreach ($v in $Voices) {
     if (Test-Path "$Dest\$v.onnx") {
         Write-Host "      $v  (already installed)"
