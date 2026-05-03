@@ -1332,6 +1332,12 @@ func _do_exit_to_welcome() -> void:
 	var bin_dir := OS.get_executable_path().get_base_dir()
 	if not bin_dir.is_empty():
 		candidates.append(bin_dir + "/welcome_shell")
+		# macOS: executable is at <Godot.app>/Contents/MacOS/Godot, so
+		# walk up out of the .app bundle to find a sibling welcome_shell.
+		if OS.get_name() == "macOS":
+			var app_parent := bin_dir.get_base_dir().get_base_dir().get_base_dir()
+			if not app_parent.is_empty():
+				candidates.append(app_parent + "/welcome_shell")
 	candidates.append("/opt/visual_gasic/welcome_shell")
 	var home := OS.get_environment("HOME")
 	if not home.is_empty():

@@ -28,17 +28,37 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GODOT_BIN="${VG_GODOT:-}"
 
 if [[ -z "$GODOT_BIN" ]]; then
-    # Prefer a binary alongside this script (the source-tree layout).
-    for cand in "$SCRIPT_DIR/Godot_v4.6.1-stable_linux.x86_64" \
-                "$SCRIPT_DIR/Godot_v4.5.1-stable_linux.x86_64" \
-                "$SCRIPT_DIR/godot" \
-                "/opt/visual_gasic/godot" \
-                "$HOME/.local/share/visual_gasic/godot"; do
-        if [[ -x "$cand" ]]; then
-            GODOT_BIN="$cand"
-            break
-        fi
-    done
+    UNAME_S="$(uname -s)"
+    case "$UNAME_S" in
+        Darwin*)
+            # macOS: prefer .app bundles (sibling, /Applications, install dirs).
+            for cand in "$SCRIPT_DIR/Godot.app/Contents/MacOS/Godot" \
+                        "$SCRIPT_DIR/Godot_v4.6.1-stable_macos.universal/Godot.app/Contents/MacOS/Godot" \
+                        "$SCRIPT_DIR/Godot_v4.5.1-stable_macos.universal/Godot.app/Contents/MacOS/Godot" \
+                        "/Applications/Godot.app/Contents/MacOS/Godot" \
+                        "$HOME/Applications/Godot.app/Contents/MacOS/Godot" \
+                        "/opt/visual_gasic/Godot.app/Contents/MacOS/Godot" \
+                        "$HOME/.local/share/visual_gasic/Godot.app/Contents/MacOS/Godot"; do
+                if [[ -x "$cand" ]]; then
+                    GODOT_BIN="$cand"
+                    break
+                fi
+            done
+            ;;
+        *)
+            # Linux / *BSD.
+            for cand in "$SCRIPT_DIR/Godot_v4.6.1-stable_linux.x86_64" \
+                        "$SCRIPT_DIR/Godot_v4.5.1-stable_linux.x86_64" \
+                        "$SCRIPT_DIR/godot" \
+                        "/opt/visual_gasic/godot" \
+                        "$HOME/.local/share/visual_gasic/godot"; do
+                if [[ -x "$cand" ]]; then
+                    GODOT_BIN="$cand"
+                    break
+                fi
+            done
+            ;;
+    esac
 fi
 
 if [[ -z "$GODOT_BIN" ]]; then
