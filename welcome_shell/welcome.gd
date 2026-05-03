@@ -54,6 +54,24 @@ func _ready() -> void:
 	_rebuild_tag_chips()
 	_apply_filter()
 	_clear_detail()
+	_sweep_stale_launching_flag()
+
+
+## If a previous welcome-shell run was killed mid-launch, a stale
+## launching.flag may still be sitting in the config dir. Anything
+## older than 60s is definitely orphaned (typical IDE init is well
+## under that), so drop it on startup so the next launch isn't
+## confused by a flag it didn't write.
+func _sweep_stale_launching_flag() -> void:
+	var cfg_dir := _recent_cfg_path().get_base_dir()
+	if cfg_dir.is_empty():
+		return
+	var flag_path := cfg_dir + "/launching.flag"
+	if not FileAccess.file_exists(flag_path):
+		return
+	var age_seconds := Time.get_unix_time_from_system() - FileAccess.get_modified_time(flag_path)
+	if age_seconds > 60:
+		DirAccess.remove_absolute(flag_path)
 
 
 # ─── Recent-list IO ─────────────────────────────────────────────────────────
