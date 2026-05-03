@@ -1817,7 +1817,7 @@ func _refresh_build_form_btn() -> void:
 	# so the model can mix and match (e.g. a project-spec on its own).
 	_ensure_agent_helpers()
 	if is_instance_valid(_make_code_btn):
-		var code_spec_d := {} if _code_spec == null else _code_spec.extract_spec(_accumulated_response)
+		var code_spec_d: Dictionary = {} if _code_spec == null else _code_spec.extract_spec(_accumulated_response)
 		if code_spec_d.is_empty():
 			_make_code_btn.disabled = true
 			_make_code_btn.tooltip_text = "Ask Narcea for a vg-code-spec block to enable multi-file writes."
@@ -1825,7 +1825,7 @@ func _refresh_build_form_btn() -> void:
 			_make_code_btn.disabled = false
 			_make_code_btn.tooltip_text = "Preview and apply: %s" % _code_spec.describe(code_spec_d)
 	if is_instance_valid(_make_project_btn):
-		var proj_spec_d := {} if _project_spec == null else _project_spec.extract_spec(_accumulated_response)
+		var proj_spec_d: Dictionary = {} if _project_spec == null else _project_spec.extract_spec(_accumulated_response)
 		if proj_spec_d.is_empty():
 			_make_project_btn.disabled = true
 			_make_project_btn.tooltip_text = "Ask Narcea for a vg-project-spec block to scaffold a runnable project."
@@ -2012,7 +2012,7 @@ func _on_make_project() -> void:
 			var p := str(entry.get("path", ""))
 			if not (p.begins_with("res://") or p.begins_with("/")):
 				p = root + p
-			var copy := entry.duplicate()
+			var copy: Dictionary = entry.duplicate()
 			copy["path"] = p
 			sub_files.append(copy)
 		plan = _code_spec.plan({"files": sub_files}, _safe_writer)
