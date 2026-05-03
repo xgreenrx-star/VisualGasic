@@ -1,0 +1,9 @@
+' frmGreeting - VisualGasic Form
+
+Private Sub Form_Load()
+' Initialization code here
+End Sub
+
+Sub btnGreet_Click()
+
+End Sub

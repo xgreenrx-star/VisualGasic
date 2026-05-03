@@ -233,6 +233,10 @@ func _enter_tree():
 	# Store self for static retrieval
 	get_editor_interface().get_base_control().set_meta("visual_gasic_plugin_instance", self)
 
+	# Record this project in the cross-project recent list so the VG
+	# launcher can skip Godot's Project Manager and reopen it directly.
+	_record_recent_vg_project()
+
 	# Enable input processing so _input() fires for our keyboard shortcuts
 	set_process_input(true)
 
@@ -4443,6 +4447,73 @@ func _copy_dir_recursive(src: String, dst: String) -> Error:
 ## Copy a single file (absolute paths).
 func _copy_file(src: String, dst: String) -> Error:
 	return DirAccess.copy_absolute(src, dst)
+
+
+## Path to the cross-project recent-projects ini used by the `vg-ide`
+## launcher to skip Godot's Project Manager.
+func _vg_recent_projects_path() -> String:
+	match OS.get_name():
+		"Windows", "UWP":
+			var appdata := OS.get_environment("APPDATA")
+			if appdata.is_empty():
+				return ""
+			return appdata + "/VisualGasic/recent_projects.cfg"
+		"macOS":
+			var home_mac := OS.get_environment("HOME")
+			if home_mac.is_empty():
+				return ""
+			return home_mac + "/Library/Application Support/VisualGasic/recent_projects.cfg"
+		_:  # Linux / *BSD
+			var xdg := OS.get_environment("XDG_CONFIG_HOME")
+			if xdg.is_empty():
+				var home := OS.get_environment("HOME")
+				if home.is_empty():
+					return ""
+				xdg = home + "/.config"
+			return xdg + "/visual_gasic/recent_projects.cfg"
+
+
+## Append the current project to the cross-project recent list (or move
+## it to the front if already present).  No-op if the project is the
+## bundled "welcome shell" or path resolution fails.
+func _record_recent_vg_project() -> void:
+	var path: String = ProjectSettings.globalize_path("res://")
+	if path.is_empty():
+		return
+	if path.ends_with("/"):
+		path = path.substr(0, path.length() - 1)
+	# Skip the bundled welcome shell — it's not a "real" user project.
+	if path.ends_with("/welcome_shell"):
+		return
+	var name: String = ProjectSettings.get_setting("application/config/name", "")
+	if typeof(name) != TYPE_STRING:
+		name = ""
+	if name.is_empty():
+		name = path.get_file()
+
+	var ini: String = _vg_recent_projects_path()
+	if ini.is_empty():
+		return
+	DirAccess.make_dir_recursive_absolute(ini.get_base_dir())
+
+	var cfg := ConfigFile.new()
+	cfg.load(ini)  # ok if missing
+	var recent: Array = cfg.get_value("recent", "projects", [])
+	if typeof(recent) != TYPE_ARRAY:
+		recent = []
+	# Move-to-front semantics, dedup on path.
+	var pruned: Array = [{"path": path, "name": name, "ts": int(Time.get_unix_time_from_system())}]
+	for entry in recent:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		if str(entry.get("path", "")) == path:
+			continue
+		pruned.append(entry)
+	# Cap at 16 entries to keep the welcome window snappy.
+	if pruned.size() > 16:
+		pruned.resize(16)
+	cfg.set_value("recent", "projects", pruned)
+	cfg.save(ini)
 
 
 ## Compute the absolute path to Godot's `app_userdata/<project>/` directory

@@ -48,4 +48,4 @@ renderer/rendering_method="gl_compatibility"
 
 [vg]
 
-form_designer_enabled=false
+form_designer_enabled=true

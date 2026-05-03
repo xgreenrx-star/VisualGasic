@@ -1,0 +1,91 @@
+#!/bin/bash
+# vg-ide — VisualGasic IDE launcher
+#
+# Skips Godot's Project Manager. On launch:
+#   1. If a project path is provided as an arg, opens that.
+#   2. Else reads the most-recent VG project from
+#      ~/.config/visual_gasic/recent_projects.cfg and opens it.
+#   3. Else opens the bundled VG Welcome shell so the user can pick or
+#      create a project from a VG-branded window instead of Godot's PM.
+#
+# This script is intentionally tiny and dependency-free (POSIX sh + awk).
+
+set -e
+
+# ── Locate the Godot binary ─────────────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GODOT_BIN="${VG_GODOT:-}"
+
+if [[ -z "$GODOT_BIN" ]]; then
+    # Prefer a binary alongside this script (the source-tree layout).
+    for cand in "$SCRIPT_DIR/Godot_v4.6.1-stable_linux.x86_64" \
+                "$SCRIPT_DIR/Godot_v4.5.1-stable_linux.x86_64" \
+                "$SCRIPT_DIR/godot" \
+                "/opt/visual_gasic/godot" \
+                "$HOME/.local/share/visual_gasic/godot"; do
+        if [[ -x "$cand" ]]; then
+            GODOT_BIN="$cand"
+            break
+        fi
+    done
+fi
+
+if [[ -z "$GODOT_BIN" ]]; then
+    # Last resort — anything named `godot` on PATH.
+    if command -v godot >/dev/null 2>&1; then
+        GODOT_BIN="$(command -v godot)"
+    fi
+fi
+
+if [[ -z "$GODOT_BIN" || ! -x "$GODOT_BIN" ]]; then
+    echo "vg-ide: could not locate the Godot binary." >&2
+    echo "        Set VG_GODOT=/path/to/godot, or place the binary next to this script." >&2
+    exit 1
+fi
+
+# ── Recent-projects config ──────────────────────────────────────────────────
+case "$(uname -s)" in
+    Darwin*) RECENT_CFG="$HOME/Library/Application Support/VisualGasic/recent_projects.cfg" ;;
+    *)       RECENT_CFG="${XDG_CONFIG_HOME:-$HOME/.config}/visual_gasic/recent_projects.cfg" ;;
+esac
+
+# Pull the first `path = "..."` value out of the [recent]/projects array.
+read_first_recent() {
+    [[ -f "$RECENT_CFG" ]] || return 1
+    awk '
+        /"path"[[:space:]]*:[[:space:]]*"/ {
+            sub(/^[^"]*"path"[[:space:]]*:[[:space:]]*"/, "")
+            sub(/".*$/, "")
+            print
+            exit
+        }
+    ' "$RECENT_CFG"
+}
+
+# ── Dispatch ────────────────────────────────────────────────────────────────
+if [[ "$#" -gt 0 && -d "$1" && -f "$1/project.godot" ]]; then
+    exec "$GODOT_BIN" --path "$1" --editor "${@:2}"
+fi
+
+LAST="$(read_first_recent || true)"
+if [[ -n "$LAST" && -f "$LAST/project.godot" ]]; then
+    exec "$GODOT_BIN" --path "$LAST" --editor "$@"
+fi
+
+# Fall back to the bundled Welcome shell.
+WELCOME_DIR=""
+for cand in "$SCRIPT_DIR/welcome_shell" \
+            "/opt/visual_gasic/welcome_shell" \
+            "$HOME/.local/share/visual_gasic/welcome_shell"; do
+    if [[ -f "$cand/project.godot" ]]; then
+        WELCOME_DIR="$cand"
+        break
+    fi
+done
+
+if [[ -n "$WELCOME_DIR" ]]; then
+    exec "$GODOT_BIN" --path "$WELCOME_DIR" "$@"
+fi
+
+# Nothing to launch — fall back to Godot's PM.
+exec "$GODOT_BIN" "$@"

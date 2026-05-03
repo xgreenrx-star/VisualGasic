@@ -1,0 +1,142 @@
+[gd_scene load_steps=2 format=3 uid="uid://bvgwelcome01"]
+
+[ext_resource type="Script" path="res://welcome.gd" id="1"]
+
+[node name="Welcome" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1")
+
+[node name="Bg" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.07, 0.08, 0.11, 1)
+
+[node name="Header" type="HBoxContainer" parent="."]
+anchor_right = 1.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = 56.0
+
+[node name="Title" type="Label" parent="Header"]
+layout_mode = 2
+text = "🌿  VisualGasic"
+theme_override_font_sizes/font_size = 28
+
+[node name="Spacer" type="Control" parent="Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Subtitle" type="Label" parent="Header"]
+layout_mode = 2
+text = "VB6-style language for Godot 4 — pick a project to open"
+theme_override_colors/font_color = Color(0.6, 0.65, 0.75, 1)
+theme_override_font_sizes/font_size = 13
+
+[node name="HSplit" type="HSplitContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 64.0
+offset_right = -16.0
+offset_bottom = -40.0
+split_offset = 460
+
+[node name="Left" type="Panel" parent="HSplit"]
+layout_mode = 2
+
+[node name="LeftHeader" type="Label" parent="HSplit/Left"]
+offset_left = 12.0
+offset_top = 8.0
+offset_right = 460.0
+offset_bottom = 30.0
+text = "Recent projects"
+theme_override_colors/font_color = Color(0.7, 0.75, 0.9, 1)
+theme_override_font_sizes/font_size = 14
+
+[node name="RecentList" type="ItemList" parent="HSplit/Left"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 36.0
+offset_right = -8.0
+offset_bottom = -8.0
+
+[node name="Empty" type="Label" parent="HSplit/Left"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -20.0
+offset_right = 180.0
+offset_bottom = 20.0
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "No recent projects yet.\nClick + Create or 📂 Browse to get started."
+theme_override_colors/font_color = Color(0.55, 0.6, 0.7, 1)
+visible = false
+
+[node name="Right" type="VBoxContainer" parent="HSplit"]
+layout_mode = 2
+
+[node name="Detail" type="VBoxContainer" parent="HSplit/Right"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="DetailHeader" type="Label" parent="HSplit/Right/Detail"]
+layout_mode = 2
+text = "Selected project"
+theme_override_colors/font_color = Color(0.7, 0.75, 0.9, 1)
+theme_override_font_sizes/font_size = 14
+
+[node name="NameLabel" type="Label" parent="HSplit/Right/Detail"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+
+[node name="PathLabel" type="Label" parent="HSplit/Right/Detail"]
+layout_mode = 2
+autowrap_mode = 3
+theme_override_colors/font_color = Color(0.55, 0.6, 0.7, 1)
+
+[node name="TimestampLabel" type="Label" parent="HSplit/Right/Detail"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.5, 0.6, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="Buttons" type="VBoxContainer" parent="HSplit/Right"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="OpenBtn" type="Button" parent="HSplit/Right/Buttons"]
+layout_mode = 2
+text = "▶  Open Selected"
+
+[node name="CreateBtn" type="Button" parent="HSplit/Right/Buttons"]
+layout_mode = 2
+text = "+  Create New Project…"
+
+[node name="BrowseBtn" type="Button" parent="HSplit/Right/Buttons"]
+layout_mode = 2
+text = "📂  Browse…"
+
+[node name="QuitBtn" type="Button" parent="HSplit/Right/Buttons"]
+layout_mode = 2
+text = "Quit"
+
+[node name="StatusBar" type="HBoxContainer" parent="."]
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -32.0
+offset_right = -16.0
+offset_bottom = -8.0
+
+[node name="StatusLabel" type="Label" parent="StatusBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.5, 0.55, 0.65, 1)
+theme_override_font_sizes/font_size = 12

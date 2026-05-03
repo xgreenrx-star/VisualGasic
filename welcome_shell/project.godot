@@ -1,0 +1,29 @@
+; Engine configuration file.
+; VisualGasic Welcome Shell — replaces Godot's Project Manager.
+;
+; This is a tiny "shell" project whose only job is to host the VG
+; Welcome window. When the user picks a project (or creates a new one),
+; the shell spawns a fresh Godot instance pointed at the chosen project
+; and quits.
+
+config_version=5
+
+[application]
+
+config/name="VisualGasic Welcome"
+config/description="Replaces Godot's Project Manager with a VG-branded picker."
+run/main_scene="res://welcome.tscn"
+config/features=PackedStringArray("4.6", "Forward Plus")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=900
+window/size/viewport_height=560
+window/size/resizable=true
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
