@@ -237,6 +237,11 @@ func _enter_tree():
 	# launcher can skip Godot's Project Manager and reopen it directly.
 	_record_recent_vg_project()
 
+	# If the welcome shell dropped a `launching.flag` while waiting for
+	# us to come up, clear it once the IDE UI has finished building so
+	# the shell knows we're ready and can drop its loading splash.
+	call_deferred("_clear_vg_launching_flag")
+
 	# If the welcome shell dropped a Narcea seed, hand it to the AI panel
 	# once everything is constructed (deferred so _ai_panel exists).
 	call_deferred("_consume_narcea_seed_if_present")
@@ -4639,7 +4644,21 @@ func _record_recent_vg_project() -> void:
 	cfg.save(ini)
 
 
-## On project open, if the welcome shell dropped a `narcea_seed.txt` file
+## Path to the welcome-shell handoff marker. Welcome shell creates this
+## just before forking Godot; the spawned IDE deletes it from its
+## `_enter_tree` so the shell knows when to drop its loading splash.
+func _vg_launching_flag_path() -> String:
+	var recent := _vg_recent_projects_path()
+	if recent.is_empty():
+		return ""
+	return recent.get_base_dir() + "/launching.flag"
+
+
+func _clear_vg_launching_flag() -> void:
+	var p := _vg_launching_flag_path()
+	if p.is_empty() or not FileAccess.file_exists(p):
+		return
+	DirAccess.remove_absolute(p)
 ## describing what the user wants Narcea to build, prefill the AI panel's
 ## prompt input with it and surface a status message. The seed file is
 ## renamed to `.narcea_seed.consumed` so this fires only once.

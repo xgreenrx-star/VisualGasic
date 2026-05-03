@@ -437,8 +437,26 @@ func _create_narcea_seed_project(proj_name: String, description: String) -> Stri
 
 
 # ─── Launch ─────────────────────────────────────────────────────────────────
+func _vg_config_dir() -> String:
+	# Same dir as recent_projects.cfg's parent.
+	return _recent_cfg_path().get_base_dir()
+
+
 func _launch_godot(project_dir: String) -> void:
 	var godot_bin := OS.get_executable_path()
+	# Drop a "launching" marker the spawned IDE plugin will delete once
+	# its UI is built; we poll for it below so the splash matches actual
+	# IDE-ready time instead of guessing with a fixed timer.
+	var flag_path := ""
+	var cfg_dir := _vg_config_dir()
+	if not cfg_dir.is_empty():
+		DirAccess.make_dir_recursive_absolute(cfg_dir)
+		flag_path = cfg_dir + "/launching.flag"
+		var ff := FileAccess.open(flag_path, FileAccess.WRITE)
+		if ff != null:
+			ff.store_string(str(Time.get_unix_time_from_system()))
+			ff.close()
+
 	# Show a modal "Loading…" splash and keep the welcome window on top
 	# so the user doesn't see the partially-initialized Godot editor
 	# while the VG plugin boots.
@@ -459,6 +477,8 @@ func _launch_godot(project_dir: String) -> void:
 		splash.queue_free()
 		get_window().always_on_top = false
 		_status.text = "Failed to launch Godot for %s" % project_dir
+		if not flag_path.is_empty():
+			DirAccess.remove_absolute(flag_path)
 		return
 	# Bump the recent entry's timestamp so the list is fresh next time.
 	for entry in _recent:
@@ -466,8 +486,18 @@ func _launch_godot(project_dir: String) -> void:
 			entry["ts"] = int(Time.get_unix_time_from_system())
 			break
 	_save_recent()
-	# Hold the splash long enough for Godot's own boot/init progress
-	# to finish; tested at ~3.5s on warm caches, longer projects need
-	# more but the splash is harmless if it lingers.
-	await get_tree().create_timer(3.5).timeout
+
+	# Poll for the spawned IDE deleting its launching.flag (max 20s),
+	# then a tiny tail-wait so the editor finishes its window paint
+	# before we close the splash and uncover it.
+	if not flag_path.is_empty():
+		var deadline := Time.get_ticks_msec() + 20000
+		while Time.get_ticks_msec() < deadline and FileAccess.file_exists(flag_path):
+			await get_tree().create_timer(0.15).timeout
+		# Cleanup if the IDE crashed / never started.
+		if FileAccess.file_exists(flag_path):
+			DirAccess.remove_absolute(flag_path)
+	# Tail-wait covers the brief gap between plugin _enter_tree and the
+	# editor window actually being painted.
+	await get_tree().create_timer(0.4).timeout
 	get_tree().quit()
