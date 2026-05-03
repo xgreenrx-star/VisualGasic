@@ -1560,7 +1560,9 @@ func _show_api_key_dialog() -> void:
 			add_child(dlg)
 	else:
 		add_child(dlg)
-	dlg.popup_centered()
+	# Explicit compact size — auto-sizing AcceptDialog tends to over-grow
+	# vertically when the host viewport is tall.
+	dlg.popup_centered(Vector2i(520, 360))
 
 # ---------------------------------------------------------------------------
 # Cloud provider streaming
