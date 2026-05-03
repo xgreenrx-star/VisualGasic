@@ -1352,10 +1352,11 @@ func _do_exit_to_welcome() -> void:
 		err.popup_centered(Vector2i(640, 320))
 		return
 
-	# `--editor` is required — without it Godot tries to *run* the
-	# welcome project, which has no main scene and pops an error.
+	# Launch the welcome shell as a regular running app (NOT --editor),
+	# so the user sees the picker UI, not Godot's scene editor for it.
+	# welcome_shell/project.godot has run/main_scene set to welcome.tscn.
 	print("[VisualGasic] Spawning welcome shell at: ", welcome_dir)
-	OS.create_process(godot_bin, ["--path", welcome_dir, "--editor"])
+	OS.create_process(godot_bin, ["--path", welcome_dir])
 
 	# Hand off to the new instance, then quit ours.
 	get_tree().quit()
