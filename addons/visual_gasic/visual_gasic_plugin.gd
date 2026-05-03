@@ -237,9 +237,16 @@ func _enter_tree():
 	# launcher can skip Godot's Project Manager and reopen it directly.
 	_record_recent_vg_project()
 
+	# If we were spawned from the welcome shell (which drops a
+	# `launching.flag` marker), minimize the editor window now so the
+	# user doesn't see the partially-painted Godot UI while plugins
+	# initialize. Restored from a deferred call once the IDE is built.
+	_minimize_if_launching()
+
 	# If the welcome shell dropped a `launching.flag` while waiting for
 	# us to come up, clear it once the IDE UI has finished building so
-	# the shell knows we're ready and can drop its loading splash.
+	# the shell knows we're ready and can drop its loading splash. The
+	# same deferred slot also un-minimizes the editor window.
 	call_deferred("_clear_vg_launching_flag")
 
 	# If the welcome shell dropped a Narcea seed, hand it to the AI panel
@@ -4663,8 +4670,25 @@ func _vg_launching_flag_path() -> String:
 func _clear_vg_launching_flag() -> void:
 	var p := _vg_launching_flag_path()
 	if p.is_empty() or not FileAccess.file_exists(p):
+		# No marker -> not launched from the welcome shell, nothing
+		# to restore. (We never minimize without a marker.)
 		return
 	DirAccess.remove_absolute(p)
+	# Restore the editor window now that the IDE UI is ready.
+	if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_MINIMIZED:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_move_to_foreground()
+
+
+## When spawned from the welcome shell, minimize the editor window so
+## the user sees only the welcome splash until the IDE is ready. The
+## marker file's presence is what tells us we were launched that way;
+## we never minimize Godot when launched standalone.
+func _minimize_if_launching() -> void:
+	var p := _vg_launching_flag_path()
+	if p.is_empty() or not FileAccess.file_exists(p):
+		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
 ## describing what the user wants Narcea to build, prefill the AI panel's
 ## prompt input with it and surface a status message. The seed file is
 ## renamed to `.narcea_seed.consumed` so this fires only once.
