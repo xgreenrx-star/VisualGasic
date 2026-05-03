@@ -1,39 +1,59 @@
 # VisualGasic Welcome shell — replaces Godot's Project Manager.
 #
-# Reads the cross-project recent list written by visual_gasic_plugin.gd
-# (`_record_recent_vg_project`) from the OS-appropriate config dir, shows
-# a list of recents with Open/Create/Browse buttons, and on activation
-# spawns a fresh Godot instance pointed at the chosen project then
-# quits.
+# Reads the cross-project recent list written by the VG plugin, lets the
+# user browse / search / tag-filter, and on activation spawns a fresh
+# Godot instance pointed at the chosen project.
+#
+# Optional features:
+#   - Per-project icon thumbnails (loaded from <proj>/icon.svg | icon.png)
+#   - Free-text search across name + path
+#   - Tag chips derived from the parent dir (demos, examples, game_projects, …)
+#   - "Ask Narcea" entry: drops a narcea_seed.txt into a fresh project so
+#     the IDE plugin can hand it to the AI panel on first open.
 extends Control
 
 const RECENT_CFG_FILENAME := "recent_projects.cfg"
+const ICON_CACHE_MAX := 64
 
 @onready var _recent_list: ItemList = $HSplit/Left/RecentList
 @onready var _empty_label: Label = $HSplit/Left/Empty
+@onready var _search_edit: LineEdit = $FilterBar/SearchEdit
+@onready var _tag_bar: HBoxContainer = $FilterBar/TagBar
 @onready var _open_btn: Button = $HSplit/Right/Buttons/OpenBtn
 @onready var _create_btn: Button = $HSplit/Right/Buttons/CreateBtn
+@onready var _narcea_btn: Button = $HSplit/Right/Buttons/NarceaBtn
 @onready var _browse_btn: Button = $HSplit/Right/Buttons/BrowseBtn
+@onready var _forget_btn: Button = $HSplit/Right/Buttons/ForgetBtn
 @onready var _quit_btn: Button = $HSplit/Right/Buttons/QuitBtn
-@onready var _detail_name: Label = $HSplit/Right/Detail/NameLabel
-@onready var _detail_path: Label = $HSplit/Right/Detail/PathLabel
-@onready var _detail_ts: Label = $HSplit/Right/Detail/TimestampLabel
+@onready var _thumb: TextureRect = $HSplit/Right/Detail/ThumbRow/Thumb
+@onready var _detail_name: Label = $HSplit/Right/Detail/ThumbRow/ThumbInfo/NameLabel
+@onready var _detail_path: Label = $HSplit/Right/Detail/ThumbRow/ThumbInfo/PathLabel
+@onready var _detail_ts: Label = $HSplit/Right/Detail/ThumbRow/ThumbInfo/TimestampLabel
+@onready var _detail_tags: Label = $HSplit/Right/Detail/ThumbRow/ThumbInfo/TagsLabel
 @onready var _status: Label = $StatusBar/StatusLabel
 
-var _recent: Array = []  # [{path, name, ts}, ...]
+var _recent: Array = []                 # all entries from disk
+var _filtered_indices: Array[int] = []  # indices into _recent currently displayed
+var _icon_cache: Dictionary = {}        # path -> Texture2D
+var _active_tag: String = ""
+var _search_text: String = ""
 
 
 func _ready() -> void:
 	get_window().title = "VisualGasic — Welcome"
 	_recent_list.item_activated.connect(_on_item_activated)
 	_recent_list.item_selected.connect(_on_item_selected)
+	_search_edit.text_changed.connect(_on_search_changed)
 	_open_btn.pressed.connect(_on_open_pressed)
 	_create_btn.pressed.connect(_on_create_pressed)
+	_narcea_btn.pressed.connect(_on_narcea_pressed)
 	_browse_btn.pressed.connect(_on_browse_pressed)
+	_forget_btn.pressed.connect(_on_forget_pressed)
 	_quit_btn.pressed.connect(func(): get_tree().quit())
 	_load_recent()
-	_render_list()
-	_status.text = "%d recent project%s" % [_recent.size(), "s" if _recent.size() != 1 else ""]
+	_rebuild_tag_chips()
+	_apply_filter()
+	_clear_detail()
 
 
 # ─── Recent-list IO ─────────────────────────────────────────────────────────
@@ -70,13 +90,14 @@ func _load_recent() -> void:
 	var entries: Array = cfg.get_value("recent", "projects", [])
 	if typeof(entries) != TYPE_ARRAY:
 		return
-	# Drop entries whose project.godot has vanished.
+	# Drop entries whose project.godot has vanished, derive tags from path.
 	for entry in entries:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
-		var p := str(entry.get("path", ""))
+		var p: String = str(entry.get("path", ""))
 		if p.is_empty() or not FileAccess.file_exists(p + "/project.godot"):
 			continue
+		entry["tag"] = _derive_tag(p)
 		_recent.append(entry)
 
 
@@ -86,34 +107,151 @@ func _save_recent() -> void:
 		return
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var cfg := ConfigFile.new()
-	cfg.set_value("recent", "projects", _recent)
+	# Strip our derived "tag" before persisting — it's always recomputed.
+	var to_save: Array = []
+	for entry in _recent:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var copy: Dictionary = entry.duplicate()
+		copy.erase("tag")
+		to_save.append(copy)
+	cfg.set_value("recent", "projects", to_save)
 	cfg.save(path)
+
+
+# ─── Tags ───────────────────────────────────────────────────────────────────
+func _derive_tag(project_path: String) -> String:
+	# Tag is the immediate parent directory name, with a few normalisations.
+	var parent := project_path.get_base_dir().get_file()
+	if parent.is_empty():
+		return "other"
+	var lower := parent.to_lower()
+	# Friendlier labels for the well-known source-tree groups.
+	match lower:
+		"demos", "demo": return "demos"
+		"examples", "example": return "examples"
+		"game_projects", "games": return "games"
+		"test_proj", "tests": return "tests"
+		"ai_projects": return "ai"
+	return parent
+
+
+func _rebuild_tag_chips() -> void:
+	for c in _tag_bar.get_children():
+		c.queue_free()
+	# "All" chip + one per unique tag.
+	var counts: Dictionary = {}
+	for entry in _recent:
+		var t: String = str(entry.get("tag", ""))
+		counts[t] = int(counts.get(t, 0)) + 1
+	_tag_bar.add_child(_make_tag_chip("All", "", _recent.size()))
+	var tags := counts.keys()
+	tags.sort()
+	for t in tags:
+		_tag_bar.add_child(_make_tag_chip(t, t, counts[t]))
+
+
+func _make_tag_chip(label: String, value: String, count: int) -> Button:
+	var btn := Button.new()
+	btn.toggle_mode = true
+	btn.text = "%s (%d)" % [label, count]
+	btn.button_pressed = (value == _active_tag)
+	btn.add_theme_font_size_override("font_size", 11)
+	btn.tooltip_text = "Filter by tag: %s" % (label if value != "" else "all")
+	btn.pressed.connect(func():
+		_active_tag = value
+		# Update chip toggles.
+		for c in _tag_bar.get_children():
+			if c is Button:
+				c.button_pressed = (c == btn)
+		_apply_filter()
+	)
+	return btn
+
+
+# ─── Filtering ──────────────────────────────────────────────────────────────
+func _on_search_changed(new_text: String) -> void:
+	_search_text = new_text.to_lower()
+	_apply_filter()
+
+
+func _apply_filter() -> void:
+	_filtered_indices.clear()
+	for i in _recent.size():
+		var entry: Dictionary = _recent[i]
+		if _active_tag != "" and str(entry.get("tag", "")) != _active_tag:
+			continue
+		if _search_text != "":
+			var hay := (str(entry.get("name", "")) + " " + str(entry.get("path", ""))).to_lower()
+			if hay.find(_search_text) == -1:
+				continue
+		_filtered_indices.append(i)
+	_render_list()
 
 
 func _render_list() -> void:
 	_recent_list.clear()
-	for entry in _recent:
+	for i in _filtered_indices:
+		var entry: Dictionary = _recent[i]
 		var nm := str(entry.get("name", "—"))
 		var pth := str(entry.get("path", ""))
-		_recent_list.add_item("%s\n%s" % [nm, pth])
-	_recent_list.visible = not _recent.is_empty()
-	_empty_label.visible = _recent.is_empty()
-	_open_btn.disabled = _recent.is_empty()
-	_clear_detail()
+		var tag := str(entry.get("tag", ""))
+		var label := "%s\n[%s]  %s" % [nm, tag, pth]
+		var idx := _recent_list.add_item(label)
+		var tex := _icon_for(pth)
+		if tex != null:
+			_recent_list.set_item_icon(idx, tex)
+	var anything := _filtered_indices.size() > 0
+	_recent_list.visible = anything
+	_empty_label.visible = not anything
+	if _recent.is_empty():
+		_empty_label.text = "No recent projects yet.\nClick + Create, 📂 Browse, or 🌿 Ask Narcea."
+	elif not anything:
+		_empty_label.text = "No matches for current filter."
+	_open_btn.disabled = not anything
+	_status.text = "%d / %d project%s" % [_filtered_indices.size(), _recent.size(), "s" if _recent.size() != 1 else ""]
 
 
-func _clear_detail() -> void:
-	_detail_name.text = ""
-	_detail_path.text = ""
-	_detail_ts.text = ""
+# ─── Icon loading ───────────────────────────────────────────────────────────
+func _icon_for(project_path: String) -> Texture2D:
+	if _icon_cache.has(project_path):
+		return _icon_cache[project_path]
+	var found: Texture2D = null
+	for fname in ["icon.svg", "icon.png", "icon.webp"]:
+		var p: String = project_path + "/" + fname
+		if not FileAccess.file_exists(p):
+			continue
+		if fname.ends_with(".svg"):
+			# Load SVG bytes via Image.load_svg_from_string for portability.
+			var f := FileAccess.open(p, FileAccess.READ)
+			if f == null:
+				continue
+			var src := f.get_as_text()
+			f.close()
+			var img := Image.new()
+			# Scale 0.5 keeps thumbnails small and fast to upload.
+			if img.load_svg_from_string(src, 0.5) == OK:
+				found = ImageTexture.create_from_image(img)
+		else:
+			var img2 := Image.new()
+			if img2.load(p) == OK:
+				img2.resize(64, 64, Image.INTERPOLATE_BILINEAR)
+				found = ImageTexture.create_from_image(img2)
+		if found != null:
+			break
+	if _icon_cache.size() >= ICON_CACHE_MAX:
+		_icon_cache.clear()
+	_icon_cache[project_path] = found
+	return found
 
 
 # ─── Selection / activation ─────────────────────────────────────────────────
-func _on_item_selected(idx: int) -> void:
-	if idx < 0 or idx >= _recent.size():
+func _on_item_selected(list_idx: int) -> void:
+	if list_idx < 0 or list_idx >= _filtered_indices.size():
 		_clear_detail()
 		return
-	var entry: Dictionary = _recent[idx]
+	var i := _filtered_indices[list_idx]
+	var entry: Dictionary = _recent[i]
 	_detail_name.text = "🌿  %s" % str(entry.get("name", "—"))
 	_detail_path.text = str(entry.get("path", ""))
 	var ts: int = int(entry.get("ts", 0))
@@ -122,37 +260,59 @@ func _on_item_selected(idx: int) -> void:
 		_detail_ts.text = "Last opened: %04d-%02d-%02d %02d:%02d" % [dt.year, dt.month, dt.day, dt.hour, dt.minute]
 	else:
 		_detail_ts.text = ""
+	_detail_tags.text = "🏷  %s" % str(entry.get("tag", ""))
+	_thumb.texture = _icon_for(str(entry.get("path", "")))
 
 
-func _on_item_activated(idx: int) -> void:
-	_open_index(idx)
+func _clear_detail() -> void:
+	_detail_name.text = ""
+	_detail_path.text = ""
+	_detail_ts.text = ""
+	_detail_tags.text = ""
+	_thumb.texture = null
+
+
+func _on_item_activated(list_idx: int) -> void:
+	_open_filtered(list_idx)
 
 
 func _on_open_pressed() -> void:
-	var idx: int = -1
-	if _recent_list.is_anything_selected():
-		idx = _recent_list.get_selected_items()[0]
-	if idx < 0:
+	if not _recent_list.is_anything_selected():
 		_status.text = "Select a project first"
 		return
-	_open_index(idx)
+	_open_filtered(_recent_list.get_selected_items()[0])
 
 
-func _open_index(idx: int) -> void:
-	if idx < 0 or idx >= _recent.size():
+func _open_filtered(list_idx: int) -> void:
+	if list_idx < 0 or list_idx >= _filtered_indices.size():
 		return
-	var entry: Dictionary = _recent[idx]
+	var i := _filtered_indices[list_idx]
+	var entry: Dictionary = _recent[i]
 	var path := str(entry.get("path", ""))
 	if path.is_empty() or not FileAccess.file_exists(path + "/project.godot"):
 		_status.text = "Project missing on disk: %s" % path
-		_recent.remove_at(idx)
+		_recent.remove_at(i)
 		_save_recent()
-		_render_list()
+		_apply_filter()
 		return
 	_launch_godot(path)
 
 
-# ─── Browse / Create ────────────────────────────────────────────────────────
+func _on_forget_pressed() -> void:
+	if not _recent_list.is_anything_selected():
+		return
+	var list_idx: int = _recent_list.get_selected_items()[0]
+	if list_idx < 0 or list_idx >= _filtered_indices.size():
+		return
+	var i := _filtered_indices[list_idx]
+	_recent.remove_at(i)
+	_save_recent()
+	_rebuild_tag_chips()
+	_apply_filter()
+	_clear_detail()
+
+
+# ─── Browse / Create / Narcea ───────────────────────────────────────────────
 func _on_browse_pressed() -> void:
 	var fd := FileDialog.new()
 	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
@@ -170,14 +330,110 @@ func _on_browse_pressed() -> void:
 
 
 func _on_create_pressed() -> void:
-	# Without our editor plugin available here (we're in the shell, not
-	# the IDE), the simplest path is to launch Godot's own Project Manager
-	# so the user can create from there. After they confirm, the new
-	# project will register itself in the recent list on first open.
+	# We're outside the IDE so we don't have the new-project dialog
+	# available. Hand off to Godot's PM for the create flow; the user
+	# will land in our welcome again next time once their new project
+	# has registered itself in the recent list.
 	_status.text = "Launching Godot Project Manager to create…"
-	var godot_bin := OS.get_executable_path()
-	OS.create_process(godot_bin, [])  # No --path => Project Manager.
+	OS.create_process(OS.get_executable_path(), [])
 	get_tree().quit()
+
+
+func _on_narcea_pressed() -> void:
+	# Lightweight prompt: collect a one-paragraph description, write it
+	# into a fresh project as `narcea_seed.txt`. The IDE plugin reads
+	# that on first open and pre-fills the AI panel so the user can
+	# refine and let Narcea scaffold the rest.
+	var dlg := AcceptDialog.new()
+	dlg.title = "🌿  Ask Narcea to Make a Project"
+	dlg.ok_button_text = "Create + Open"
+	dlg.min_size = Vector2i(560, 0)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	dlg.add_child(box)
+
+	var info := Label.new()
+	info.text = "Describe what you want. Narcea will draft a project plan when the IDE opens."
+	info.add_theme_font_size_override("font_size", 12)
+	info.add_theme_color_override("font_color", Color(0.65, 0.7, 0.8))
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(info)
+
+	var name_row := HBoxContainer.new()
+	name_row.add_theme_constant_override("separation", 8)
+	var name_lbl := Label.new()
+	name_lbl.text = "Project name:"
+	name_lbl.custom_minimum_size.x = 110
+	name_row.add_child(name_lbl)
+	var name_edit := LineEdit.new()
+	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_edit.text = "MyNarceaProject"
+	name_edit.select_all_on_focus = true
+	name_row.add_child(name_edit)
+	box.add_child(name_row)
+
+	var desc := TextEdit.new()
+	desc.custom_minimum_size = Vector2(0, 200)
+	desc.placeholder_text = "e.g. A small Pong clone with paddles, a ball, score labels, and a Game Over screen. Use VG syntax."
+	desc.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	box.add_child(desc)
+
+	dlg.confirmed.connect(func():
+		var nm := name_edit.text.strip_edges()
+		var d := desc.text.strip_edges()
+		if nm.is_empty() or d.is_empty():
+			_status.text = "Name and description are required."
+			return
+		var path := _create_narcea_seed_project(nm, d)
+		if not path.is_empty():
+			_launch_godot(path)
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(dlg.queue_free)
+	add_child(dlg)
+	dlg.popup_centered()
+	desc.grab_focus()
+
+
+func _create_narcea_seed_project(proj_name: String, description: String) -> String:
+	var safe_name := proj_name.strip_edges().replace(" ", "_")
+	var home := OS.get_environment("HOME")
+	if home.is_empty():
+		_status.text = "Couldn't resolve $HOME — aborted."
+		return ""
+	var base := home + "/Documents/VisualGasic_Projects"
+	DirAccess.make_dir_recursive_absolute(base)
+	var dir := base + "/" + safe_name
+	if DirAccess.dir_exists_absolute(dir):
+		_status.text = "Directory already exists: %s" % dir
+		return ""
+	var mk := DirAccess.make_dir_recursive_absolute(dir)
+	if mk != OK:
+		_status.text = "Failed to make directory: %s (err %d)" % [dir, mk]
+		return ""
+
+	# Minimal project.godot — addon side handles the rest on first open.
+	var pg := ""
+	pg += "config_version=5\n\n"
+	pg += "[application]\n\n"
+	pg += "config/name=\"%s\"\n" % proj_name.replace("\"", "'")
+	pg += "config/features=PackedStringArray(\"4.6\", \"Forward Plus\")\n\n"
+	pg += "[audio]\n\n"
+	pg += "driver/enable_input=true\n"
+	var f := FileAccess.open(dir + "/project.godot", FileAccess.WRITE)
+	if f == null:
+		_status.text = "Failed to write project.godot in %s" % dir
+		return ""
+	f.store_string(pg)
+	f.close()
+
+	# Narcea seed file the IDE plugin will pick up on first open.
+	var seed := FileAccess.open(dir + "/narcea_seed.txt", FileAccess.WRITE)
+	if seed != null:
+		seed.store_string(description + "\n")
+		seed.close()
+	_status.text = "Created %s — opening…" % dir
+	return dir
 
 
 # ─── Launch ─────────────────────────────────────────────────────────────────

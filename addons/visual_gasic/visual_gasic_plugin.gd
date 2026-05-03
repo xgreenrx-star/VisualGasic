@@ -237,6 +237,10 @@ func _enter_tree():
 	# launcher can skip Godot's Project Manager and reopen it directly.
 	_record_recent_vg_project()
 
+	# If the welcome shell dropped a Narcea seed, hand it to the AI panel
+	# once everything is constructed (deferred so _ai_panel exists).
+	call_deferred("_consume_narcea_seed_if_present")
+
 	# Enable input processing so _input() fires for our keyboard shortcuts
 	set_process_input(true)
 
@@ -1282,6 +1286,47 @@ func _make_visible(p_visible: bool) -> void:
 ## Switches from Form Designer back to the 2D editor, restoring all Godot panels.
 func _on_back_to_godot_pressed() -> void:
 	EditorInterface.set_main_screen_editor("2D")
+
+
+## File > Exit to VG Welcome — saves unsaved work, then spawns the
+## VG Welcome shell pointed at the cross-project recent list and quits
+## the current editor instance.
+func _on_exit_to_welcome() -> void:
+	# Best-effort save so the user doesn't lose work on the way out.
+	if _form_dirty:
+		_do_save_form()
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("save_file"):
+		_embedded_code_editor.save_file()
+
+	# Locate the welcome shell project. We look adjacent to this addon's
+	# parent project first (source-tree layout), then standard install
+	# dirs.
+	var candidates: Array = []
+	var here_proj: String = ProjectSettings.globalize_path("res://").rstrip("/")
+	if not here_proj.is_empty():
+		candidates.append(here_proj.get_base_dir() + "/welcome_shell")  # sibling
+		candidates.append(here_proj + "/welcome_shell")                   # bundled
+	candidates.append("/opt/visual_gasic/welcome_shell")
+	var home := OS.get_environment("HOME")
+	if not home.is_empty():
+		candidates.append(home + "/.local/share/visual_gasic/welcome_shell")
+	candidates.append(here_proj.get_base_dir().get_base_dir() + "/welcome_shell")
+
+	var welcome_dir: String = ""
+	for c in candidates:
+		if c is String and not c.is_empty() and FileAccess.file_exists(c + "/project.godot"):
+			welcome_dir = c
+			break
+
+	var godot_bin := OS.get_executable_path()
+	if welcome_dir.is_empty():
+		push_warning("[VisualGasic] Welcome shell not found near %s — falling back to Project Manager." % here_proj)
+		OS.create_process(godot_bin, [])
+	else:
+		OS.create_process(godot_bin, ["--path", welcome_dir])
+
+	# Hand off to the new instance, then quit ours.
+	get_tree().quit()
 
 ## Called when user clicks the "🎲 3D View" button in the VG toolbar.
 ## Switches to the embedded 3D Scene Editor within the VG IDE.
@@ -3818,6 +3863,7 @@ func _create_vb6_menu_bar() -> MenuBar:
 	file_menu.add_separator()
 	file_menu.add_item("Make EXE...", 30)
 	file_menu.add_separator()
+	file_menu.add_item("Exit to VG Welcome", 98)
 	file_menu.add_item("Exit to Godot Editor", 99)
 	file_menu.id_pressed.connect(_on_vb6_file_menu)
 	mb.add_child(file_menu)
@@ -4096,6 +4142,7 @@ func _on_vb6_file_menu(id: int) -> void:
 		20: _on_import_vb6_form()
 		21: _on_import_vb6_project()
 		30: _on_make_exe()
+		98: _on_exit_to_welcome()
 		99: _on_back_to_godot_pressed()
 
 ## Save all open forms and code files.
@@ -4514,6 +4561,42 @@ func _record_recent_vg_project() -> void:
 		pruned.resize(16)
 	cfg.set_value("recent", "projects", pruned)
 	cfg.save(ini)
+
+
+## On project open, if the welcome shell dropped a `narcea_seed.txt` file
+## describing what the user wants Narcea to build, prefill the AI panel's
+## prompt input with it and surface a status message. The seed file is
+## renamed to `.narcea_seed.consumed` so this fires only once.
+func _consume_narcea_seed_if_present() -> void:
+	var seed_path := "res://narcea_seed.txt"
+	if not FileAccess.file_exists(seed_path):
+		return
+	var f := FileAccess.open(seed_path, FileAccess.READ)
+	if f == null:
+		return
+	var text := f.get_as_text()
+	f.close()
+	if text.strip_edges().is_empty():
+		return
+	# Hand the text to the AI panel's input field if it's available, else
+	# defer once more on the next idle frame to allow it to construct.
+	var panel: Object = null
+	if "_ai_panel" in self:
+		panel = get("_ai_panel")
+	if panel != null and is_instance_valid(panel) and "_input" in panel:
+		var input_field: Object = panel.get("_input")
+		if is_instance_valid(input_field) and input_field.has_method("set"):
+			input_field.set("text", text)
+			print("[VisualGasic] Narcea seed loaded into AI panel (%d chars)." % text.length())
+			_flash_status_message("🌿 Narcea seed loaded — open AI panel to review")
+	else:
+		# AI panel not built yet — try again in 500ms.
+		var t := get_tree().create_timer(0.5)
+		t.timeout.connect(_consume_narcea_seed_if_present, CONNECT_ONE_SHOT)
+		return
+	# Move aside so we don't re-consume on subsequent opens.
+	var consumed := "res://.narcea_seed.consumed"
+	DirAccess.rename_absolute(ProjectSettings.globalize_path(seed_path), ProjectSettings.globalize_path(consumed))
 
 
 ## Compute the absolute path to Godot's `app_userdata/<project>/` directory

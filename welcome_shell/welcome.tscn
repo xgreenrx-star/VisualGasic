@@ -34,14 +34,32 @@ text = "VB6-style language for Godot 4 — pick a project to open"
 theme_override_colors/font_color = Color(0.6, 0.65, 0.75, 1)
 theme_override_font_sizes/font_size = 13
 
+[node name="FilterBar" type="HBoxContainer" parent="."]
+anchor_right = 1.0
+offset_left = 16.0
+offset_top = 64.0
+offset_right = -16.0
+offset_bottom = 96.0
+theme_override_constants/separation = 8
+
+[node name="SearchEdit" type="LineEdit" parent="FilterBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "🔍 Search recent projects..."
+clear_button_enabled = true
+
+[node name="TagBar" type="HBoxContainer" parent="FilterBar"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
 [node name="HSplit" type="HSplitContainer" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 16.0
-offset_top = 64.0
+offset_top = 104.0
 offset_right = -16.0
 offset_bottom = -40.0
-split_offset = 460
+split_offset = 540
 
 [node name="Left" type="Panel" parent="HSplit"]
 layout_mode = 2
@@ -49,7 +67,7 @@ layout_mode = 2
 [node name="LeftHeader" type="Label" parent="HSplit/Left"]
 offset_left = 12.0
 offset_top = 8.0
-offset_right = 460.0
+offset_right = 540.0
 offset_bottom = 30.0
 text = "Recent projects"
 theme_override_colors/font_color = Color(0.7, 0.75, 0.9, 1)
@@ -62,19 +80,20 @@ offset_left = 8.0
 offset_top = 36.0
 offset_right = -8.0
 offset_bottom = -8.0
+fixed_icon_size = Vector2i(48, 48)
 
 [node name="Empty" type="Label" parent="HSplit/Left"]
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -180.0
-offset_top = -20.0
-offset_right = 180.0
-offset_bottom = 20.0
+offset_left = -200.0
+offset_top = -28.0
+offset_right = 200.0
+offset_bottom = 28.0
 horizontal_alignment = 1
 vertical_alignment = 1
-text = "No recent projects yet.\nClick + Create or 📂 Browse to get started."
+text = "No recent projects yet.\nClick + Create, 📂 Browse, or 🌿 Ask Narcea."
 theme_override_colors/font_color = Color(0.55, 0.6, 0.7, 1)
 visible = false
 
@@ -92,19 +111,38 @@ text = "Selected project"
 theme_override_colors/font_color = Color(0.7, 0.75, 0.9, 1)
 theme_override_font_sizes/font_size = 14
 
-[node name="NameLabel" type="Label" parent="HSplit/Right/Detail"]
+[node name="ThumbRow" type="HBoxContainer" parent="HSplit/Right/Detail"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Thumb" type="TextureRect" parent="HSplit/Right/Detail/ThumbRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(96, 96)
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ThumbInfo" type="VBoxContainer" parent="HSplit/Right/Detail/ThumbRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NameLabel" type="Label" parent="HSplit/Right/Detail/ThumbRow/ThumbInfo"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 
-[node name="PathLabel" type="Label" parent="HSplit/Right/Detail"]
+[node name="PathLabel" type="Label" parent="HSplit/Right/Detail/ThumbRow/ThumbInfo"]
 layout_mode = 2
 autowrap_mode = 3
 theme_override_colors/font_color = Color(0.55, 0.6, 0.7, 1)
 
-[node name="TimestampLabel" type="Label" parent="HSplit/Right/Detail"]
+[node name="TimestampLabel" type="Label" parent="HSplit/Right/Detail/ThumbRow/ThumbInfo"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.45, 0.5, 0.6, 1)
 theme_override_font_sizes/font_size = 12
+
+[node name="TagsLabel" type="Label" parent="HSplit/Right/Detail/ThumbRow/ThumbInfo"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.7, 0.9, 1)
+theme_override_font_sizes/font_size = 11
 
 [node name="Buttons" type="VBoxContainer" parent="HSplit/Right"]
 layout_mode = 2
@@ -118,9 +156,17 @@ text = "▶  Open Selected"
 layout_mode = 2
 text = "+  Create New Project…"
 
+[node name="NarceaBtn" type="Button" parent="HSplit/Right/Buttons"]
+layout_mode = 2
+text = "🌿  Ask Narcea to Make a Project…"
+
 [node name="BrowseBtn" type="Button" parent="HSplit/Right/Buttons"]
 layout_mode = 2
 text = "📂  Browse…"
+
+[node name="ForgetBtn" type="Button" parent="HSplit/Right/Buttons"]
+layout_mode = 2
+text = "🗑  Forget Selected"
 
 [node name="QuitBtn" type="Button" parent="HSplit/Right/Buttons"]
 layout_mode = 2
