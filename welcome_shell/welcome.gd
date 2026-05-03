@@ -439,9 +439,25 @@ func _create_narcea_seed_project(proj_name: String, description: String) -> Stri
 # ─── Launch ─────────────────────────────────────────────────────────────────
 func _launch_godot(project_dir: String) -> void:
 	var godot_bin := OS.get_executable_path()
-	_status.text = "Opening %s …" % project_dir
+	# Show a modal "Loading…" splash and keep the welcome window on top
+	# so the user doesn't see the partially-initialized Godot editor
+	# while the VG plugin boots.
+	var splash := AcceptDialog.new()
+	splash.title = "VisualGasic"
+	splash.dialog_text = "Loading %s …\n\nThe IDE will appear in a moment." % project_dir.get_file()
+	splash.get_ok_button().visible = false
+	splash.exclusive = true
+	splash.unresizable = true
+	add_child(splash)
+	splash.popup_centered(Vector2i(420, 140))
+	get_window().always_on_top = true
+	# Yield one frame so the splash is on screen before we fork Godot.
+	await get_tree().process_frame
+
 	var pid: int = OS.create_process(godot_bin, ["--path", project_dir, "--editor"])
 	if pid <= 0:
+		splash.queue_free()
+		get_window().always_on_top = false
 		_status.text = "Failed to launch Godot for %s" % project_dir
 		return
 	# Bump the recent entry's timestamp so the list is fresh next time.
@@ -450,6 +466,8 @@ func _launch_godot(project_dir: String) -> void:
 			entry["ts"] = int(Time.get_unix_time_from_system())
 			break
 	_save_recent()
-	# Quit the shell once the new instance has handed off.
-	await get_tree().create_timer(0.4).timeout
+	# Hold the splash long enough for Godot's own boot/init progress
+	# to finish; tested at ~3.5s on warm caches, longer projects need
+	# more but the splash is harmless if it lingers.
+	await get_tree().create_timer(3.5).timeout
 	get_tree().quit()
