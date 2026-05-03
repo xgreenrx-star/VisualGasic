@@ -1323,7 +1323,9 @@ func _on_exit_to_welcome() -> void:
 		push_warning("[VisualGasic] Welcome shell not found near %s — falling back to Project Manager." % here_proj)
 		OS.create_process(godot_bin, [])
 	else:
-		OS.create_process(godot_bin, ["--path", welcome_dir])
+		# `--editor` is required — without it Godot tries to *run* the
+		# welcome project, which has no main scene and pops an error.
+		OS.create_process(godot_bin, ["--path", welcome_dir, "--editor"])
 
 	# Hand off to the new instance, then quit ours.
 	get_tree().quit()

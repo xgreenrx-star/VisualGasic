@@ -1486,9 +1486,14 @@ func _show_api_key_dialog() -> void:
 		return
 	var dlg := AcceptDialog.new()
 	dlg.title = "⚙️  AI Provider API Keys"
-	# Width-only minimum; let height auto-size to content so the dialog
-	# isn't oversized on small screens.
-	dlg.min_size = Vector2i(520, 0)
+	# Force a fixed compact size. `wrap_controls = false` stops Window
+	# from auto-growing to fit children, and `popup_centered(size)`'s
+	# argument is a *minimum* (not a target) so we also pin `size` and
+	# `max_size` directly.
+	dlg.wrap_controls = false
+	dlg.size = Vector2i(520, 360)
+	dlg.min_size = Vector2i(520, 360)
+	dlg.max_size = Vector2i(520, 360)
 	dlg.exclusive = true
 
 	var vbox := VBoxContainer.new()
@@ -1560,8 +1565,6 @@ func _show_api_key_dialog() -> void:
 			add_child(dlg)
 	else:
 		add_child(dlg)
-	# Explicit compact size — auto-sizing AcceptDialog tends to over-grow
-	# vertically when the host viewport is tall.
 	dlg.popup_centered(Vector2i(520, 360))
 
 # ---------------------------------------------------------------------------
