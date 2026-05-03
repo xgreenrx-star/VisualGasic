@@ -3,14 +3,25 @@
 #
 # Skips Godot's Project Manager. On launch:
 #   1. If a project path is provided as an arg, opens that.
-#   2. Else reads the most-recent VG project from
-#      ~/.config/visual_gasic/recent_projects.cfg and opens it.
-#   3. Else opens the bundled VG Welcome shell so the user can pick or
-#      create a project from a VG-branded window instead of Godot's PM.
+#   2. Else, by default, opens the VG Welcome shell so the user can pick
+#      a recent project, browse, or ask Narcea to scaffold a new one.
+#   3. With --last (or VG_OPEN_LAST=1), reopens the most-recent project
+#      directly without showing the welcome window.
 #
 # This script is intentionally tiny and dependency-free (POSIX sh + awk).
 
 set -e
+
+OPEN_LAST=0
+ARGS=()
+for a in "$@"; do
+    case "$a" in
+        --last|-l) OPEN_LAST=1 ;;
+        *) ARGS+=("$a") ;;
+    esac
+done
+[[ "${VG_OPEN_LAST:-0}" == "1" ]] && OPEN_LAST=1
+set -- "${ARGS[@]}"
 
 # ── Locate the Godot binary ─────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -67,12 +78,16 @@ if [[ "$#" -gt 0 && -d "$1" && -f "$1/project.godot" ]]; then
     exec "$GODOT_BIN" --path "$1" --editor "${@:2}"
 fi
 
-LAST="$(read_first_recent || true)"
-if [[ -n "$LAST" && -f "$LAST/project.godot" ]]; then
-    exec "$GODOT_BIN" --path "$LAST" --editor "$@"
+# --last / VG_OPEN_LAST=1 → jump straight into the most-recent project.
+if [[ "$OPEN_LAST" == "1" ]]; then
+    LAST="$(read_first_recent || true)"
+    if [[ -n "$LAST" && -f "$LAST/project.godot" ]]; then
+        exec "$GODOT_BIN" --path "$LAST" --editor "$@"
+    fi
+    echo "vg-ide: --last requested but no usable recent project found." >&2
 fi
 
-# Fall back to the bundled Welcome shell.
+# Default: open the bundled Welcome shell.
 WELCOME_DIR=""
 for cand in "$SCRIPT_DIR/welcome_shell" \
             "/opt/visual_gasic/welcome_shell" \
@@ -87,5 +102,9 @@ if [[ -n "$WELCOME_DIR" ]]; then
     exec "$GODOT_BIN" --path "$WELCOME_DIR" "$@"
 fi
 
-# Nothing to launch — fall back to Godot's PM.
+# Last-resort fallbacks: most-recent project, then bare Godot PM.
+LAST="$(read_first_recent || true)"
+if [[ -n "$LAST" && -f "$LAST/project.godot" ]]; then
+    exec "$GODOT_BIN" --path "$LAST" --editor "$@"
+fi
 exec "$GODOT_BIN" "$@"
