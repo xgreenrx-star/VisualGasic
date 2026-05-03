@@ -62,6 +62,7 @@ If the next decade really is auditor-bound, then the language that wins is the o
 - **🚀 Native-class speed.** 5-tier JIT (interpreter → x86-64). On hot paths VG is **30–119× faster than GDScript** and **beats C++ on string concat by 5×**. Honest numbers below — we lose two benchmarks and we say so.
 - **🧰 The IDE you actually want.** VB6-style Form Designer + Code Editor + Immediate Window + Object Browser + Debugger + Profiler, all docked, all themed. Plus a plugin SDK with a process-wide signal bus and capability-based editor routing.
 - **📥 One-shot installer (work in progress).** Linux MVP shipped — `scripts/bootstrap_install.sh` downloads Godot, installs the addon, drops a launcher, and lands you directly in the VG IDE. Windows `.exe` and macOS `.dmg` installers coming next; for now use the `vg` CLI or unzip the release.
+- **🚪 VG Welcome launcher.** `./vg-ide` (Linux/macOS) and `.\vg-ide.ps1` (Windows) skip Godot's Project Manager and open a VG-branded picker with thumbnails, tag filtering, and an "Ask Narcea to Make a Project" entry that scaffolds a project from a chat prompt. `--last` / `-Last` jumps straight into the most-recent project. From inside the IDE, **File → Exit to VG Welcome** rounds back to the picker.
 - **🆓 Free & open source.** GPL-3.0. Real source, no opaque blobs — even AGCK's output is plain `.vg` files you can edit, audit, and version-control.
 
 ### 📊 VG vs GDScript vs C++ (microbenchmarks, single-threaded)

@@ -332,6 +332,48 @@ Output goes to `release/v<version>/`.
 
 ---
 
+## 🚪 The VG Welcome launcher (`vg-ide` / `vg-ide.ps1`)
+
+Once VG is installed (any method above), the repo / install ships two tiny launcher scripts that **skip Godot's Project Manager** and land you in a VG-branded **Welcome window** instead. From there you pick a recent project, browse, or click **Ask Narcea to Make a Project** to scaffold a new one from a chat description.
+
+### Linux / macOS
+
+```bash
+./vg-ide                       # opens the VG Welcome window (default)
+./vg-ide --last                # jumps straight into the most-recent VG project
+./vg-ide ~/Documents/MyGame    # opens a specific project
+VG_OPEN_LAST=1 ./vg-ide        # env-var equivalent of --last
+VG_GODOT=/path/to/godot ./vg-ide  # override binary discovery
+```
+
+The bash script is dependency-free (POSIX bash + awk). On macOS it picks up `Godot.app` bundles in the script dir, `/Applications`, `~/Applications`, and the standard install layouts. On Linux it looks for `Godot_v4.6.x-stable_linux.x86_64`, `godot` on `$PATH`, or `$VG_GODOT`.
+
+### Windows
+
+```powershell
+.\vg-ide.ps1                   # opens the VG Welcome window
+.\vg-ide.ps1 -Last             # most-recent project
+.\vg-ide.ps1 'C:\path\to\MyGame'
+$env:VG_OPEN_LAST = '1'; .\vg-ide.ps1
+$env:VG_GODOT = 'C:\Tools\Godot.exe'; .\vg-ide.ps1
+```
+
+First-time PowerShell users may need to allow local scripts: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`. The script searches the script dir, `C:\Program Files\Godot`, `C:\Program Files\VisualGasic`, `%LOCALAPPDATA%\Programs\Godot`, and `%LOCALAPPDATA%\visual_gasic`.
+
+### How it works
+
+- The cross-project recent list lives at:
+  - **Linux:** `~/.config/visual_gasic/recent_projects.cfg`
+  - **macOS:** `~/Library/Application Support/VisualGasic/recent_projects.cfg`
+  - **Windows:** `%APPDATA%\VisualGasic\recent_projects.cfg`
+- The IDE plugin records every VG project you open into that file (move-to-front, capped at 16).
+- The Welcome shell project is a tiny Godot app under `welcome_shell/` that reads the list, shows thumbnails, supports search + tag filtering, and has an **Exit to VG Welcome** menu item from inside the IDE for easy round-tripping.
+- A `launching.flag` marker keeps a "Loading…" splash on top while Godot initializes, so you don't see the partially-painted editor mid-boot.
+
+If the Welcome shell isn't found, set `VG_WELCOME_DIR` to the directory containing it.
+
+---
+
 ## ✅ Verification
 
 After installation, verify VisualGasic is working:
