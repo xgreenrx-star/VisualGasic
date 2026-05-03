@@ -4365,10 +4365,18 @@ func _create_new_vg_project(proj_name: String, proj_dir: String) -> void:
 		_flash_status_message("Failed to create addons directory")
 		return
 
-	# ── Copy addon from current project ──
-	# The addon is already in this project — copy it to the new one
-	var src_addon = ProjectSettings.globalize_path("res://addons/visual_gasic")
-	var dst_addon = proj_dir + "/addons/visual_gasic"
+	# ── Copy addon ──
+	# Prefer the canonical addon shipped with the VG install, so a brand-new
+	# project never inherits a stale copy from whichever project happened to
+	# be open. Fall back to res://addons/visual_gasic (the running project's
+	# own copy) only if no canonical install can be located.
+	var src_addon: String = _resolve_canonical_addon_dir()
+	if src_addon.is_empty():
+		src_addon = ProjectSettings.globalize_path("res://addons/visual_gasic")
+		print("[VisualGasic] New project: using local addon copy at ", src_addon)
+	else:
+		print("[VisualGasic] New project: copying canonical addon from ", src_addon)
+	var dst_addon: String = proj_dir + "/addons/visual_gasic"
 
 	err = _copy_dir_recursive(src_addon, dst_addon)
 	if err != OK:
@@ -4456,6 +4464,41 @@ func _create_new_vg_project(proj_name: String, proj_dir: String) -> void:
 
 
 ## Recursively copy a directory from src to dst (absolute paths).
+## Resolve the canonical, up-to-date `addons/visual_gasic/` source dir.
+## Used when creating new projects so they don't inherit a stale addon
+## from whatever project happened to be open. We try, in order:
+##   1. $VG_ADDON_SOURCE  (explicit override)
+##   2. <repo>/addons/visual_gasic   where <repo> is the dir containing
+##      the welcome_shell sibling — i.e. a source-tree checkout
+##   3. /opt/visual_gasic/addons/visual_gasic
+##   4. ~/.local/share/visual_gasic/addons/visual_gasic
+## Returns "" if nothing newer than the running project's copy is found.
+func _resolve_canonical_addon_dir() -> String:
+	var candidates: Array[String] = []
+	var override: String = OS.get_environment("VG_ADDON_SOURCE")
+	if not override.is_empty():
+		candidates.append(override)
+	var here: String = ProjectSettings.globalize_path("res://").rstrip("/")
+	if not here.is_empty():
+		# Source-tree layout: <repo>/welcome_shell + <repo>/addons/visual_gasic
+		var parent: String = here.get_base_dir()
+		if FileAccess.file_exists(parent + "/welcome_shell/project.godot"):
+			candidates.append(parent + "/addons/visual_gasic")
+		var grand: String = parent.get_base_dir()
+		if FileAccess.file_exists(grand + "/welcome_shell/project.godot"):
+			candidates.append(grand + "/addons/visual_gasic")
+	candidates.append("/opt/visual_gasic/addons/visual_gasic")
+	var home: String = OS.get_environment("HOME")
+	if not home.is_empty():
+		candidates.append(home + "/.local/share/visual_gasic/addons/visual_gasic")
+	for c in candidates:
+		if c.is_empty():
+			continue
+		if FileAccess.file_exists(c + "/plugin.cfg"):
+			return c
+	return ""
+
+
 func _copy_dir_recursive(src: String, dst: String) -> Error:
 	var err = DirAccess.make_dir_recursive_absolute(dst)
 	if err != OK:
