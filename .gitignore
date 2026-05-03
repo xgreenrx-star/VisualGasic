@@ -91,3 +91,4 @@ Makefile.tests
 
 # Third-party reference sources (cloned for porting; not shipped)
 vendor/
+/ai_projects/

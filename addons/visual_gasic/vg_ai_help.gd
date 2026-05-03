@@ -219,9 +219,23 @@ var _build_form_btn: Button = null
 # but in addition to materialising it also saves the .tscn, writes Sub
 # stubs into the matching .vg file, and opens the code editor on it.
 var _make_this_btn: Button = null
+# Tier-3 chat-only project-creation buttons.  Disabled until a parseable
+# vg-code-spec / vg-project-spec block is in the latest reply.  Run is
+# enabled whenever something has been built or the user opens an existing
+# AI-scaffolded project so Narcea can iterate against runtime output.
+var _make_code_btn: Button = null
+var _make_project_btn: Button = null
+var _run_btn: Button = null
+var _run_stop_btn: Button = null
 # Lazy-loaded helpers for the speech sanitiser and form-spec applier.
 var _speech_filter = null  # vg_ai_speech_filter.gd instance
 var _form_spec = null      # vg_ai_form_spec.gd instance
+var _safe_writer = null    # vg_ai_safe_write.gd instance
+var _code_spec = null      # vg_ai_code_spec.gd instance
+var _project_spec = null   # vg_ai_project_spec.gd instance
+var _run_session = null    # vg_ai_run_session.gd Node
+var _last_run_scene := ""  # res:// path of the last thing we ran
+var _last_project_root := ""  # res:// dir scaffolded by Make project
 
 ## Grab the current selection from the embedded VB6 code editor.
 ## Falls back to the text of the Sub/Function surrounding the caret,
@@ -702,6 +716,41 @@ func _setup_ui() -> void:
 	_make_this_btn.pressed.connect(_on_make_this)
 	_style_small_button(_make_this_btn)
 	toolbar.add_child(_make_this_btn)
+
+	# 📝 Make-code button — multi-file vg-code-spec applier with diff preview.
+	_make_code_btn = Button.new()
+	_make_code_btn.text = "\ud83d\udcdd Make code"
+	_make_code_btn.tooltip_text = "Preview and apply the latest vg-code-spec block (multi-file write)"
+	_make_code_btn.disabled = true
+	_make_code_btn.pressed.connect(_on_make_code)
+	_style_small_button(_make_code_btn)
+	toolbar.add_child(_make_code_btn)
+
+	# \ud83c\udd95 Make-project — scaffold a runnable sub-project from a vg-project-spec block.
+	_make_project_btn = Button.new()
+	_make_project_btn.text = "\ud83c\udd95 Make project"
+	_make_project_btn.tooltip_text = "Preview and scaffold the latest vg-project-spec block under res://ai_projects/"
+	_make_project_btn.disabled = true
+	_make_project_btn.pressed.connect(_on_make_project)
+	_style_small_button(_make_project_btn)
+	toolbar.add_child(_make_project_btn)
+
+	# \u25b6 Run — launch the last-built (or main) scene, pipe stdout into chat.
+	_run_btn = Button.new()
+	_run_btn.text = "\u25b6 Run"
+	_run_btn.tooltip_text = "Run the last AI-built scene and stream its output into this panel"
+	_run_btn.disabled = true
+	_run_btn.pressed.connect(_on_run)
+	_style_small_button(_run_btn)
+	toolbar.add_child(_run_btn)
+
+	_run_stop_btn = Button.new()
+	_run_stop_btn.text = "\u23f9"
+	_run_stop_btn.tooltip_text = "Stop the running scene"
+	_run_stop_btn.visible = false
+	_run_stop_btn.pressed.connect(_on_run_stop)
+	_style_small_button(_run_stop_btn)
+	toolbar.add_child(_run_stop_btn)
 
 	# Persona dropdown — swaps system-prompt prefix + TTS voice
 	_persona_dropdown = OptionButton.new()
@@ -1317,6 +1366,10 @@ func _on_clear() -> void:
 	if is_instance_valid(_make_this_btn):
 		_make_this_btn.disabled = true
 		_make_this_btn.tooltip_text = _build_form_btn.tooltip_text if is_instance_valid(_build_form_btn) else ""
+	if is_instance_valid(_make_code_btn):
+		_make_code_btn.disabled = true
+	if is_instance_valid(_make_project_btn):
+		_make_project_btn.disabled = true
 
 # ---------------------------------------------------------------------------
 # Model picker — first-run installer & hardware-aware model browser
@@ -1718,6 +1771,23 @@ func _ensure_form_spec_helper() -> void:
 		_form_spec = fs.new()
 
 
+## Lazy-load the agent-mode helpers (safe-write, code-spec, project-spec).
+## Cheap to call repeatedly — returns immediately if already loaded.
+func _ensure_agent_helpers() -> void:
+	if _safe_writer == null:
+		var sw := load("res://addons/visual_gasic/vg_ai_safe_write.gd")
+		if sw != null:
+			_safe_writer = sw.new()
+	if _code_spec == null:
+		var cs := load("res://addons/visual_gasic/vg_ai_code_spec.gd")
+		if cs != null:
+			_code_spec = cs.new()
+	if _project_spec == null:
+		var ps := load("res://addons/visual_gasic/vg_ai_project_spec.gd")
+		if ps != null:
+			_project_spec = ps.new()
+
+
 ## Toggle the 🔨 Build-form button based on whether the latest reply
 ## actually contains a usable spec.  Cheap to call after every reply.
 func _refresh_build_form_btn() -> void:
@@ -1743,6 +1813,25 @@ func _refresh_build_form_btn() -> void:
 		if is_instance_valid(_make_this_btn):
 			_make_this_btn.disabled = false
 			_make_this_btn.tooltip_text = "Build, save, and stub: %s" % _form_spec.describe(spec)
+	# Code-spec / project-spec gating runs in lock-step — separate fences
+	# so the model can mix and match (e.g. a project-spec on its own).
+	_ensure_agent_helpers()
+	if is_instance_valid(_make_code_btn):
+		var code_spec_d := {} if _code_spec == null else _code_spec.extract_spec(_accumulated_response)
+		if code_spec_d.is_empty():
+			_make_code_btn.disabled = true
+			_make_code_btn.tooltip_text = "Ask Narcea for a vg-code-spec block to enable multi-file writes."
+		else:
+			_make_code_btn.disabled = false
+			_make_code_btn.tooltip_text = "Preview and apply: %s" % _code_spec.describe(code_spec_d)
+	if is_instance_valid(_make_project_btn):
+		var proj_spec_d := {} if _project_spec == null else _project_spec.extract_spec(_accumulated_response)
+		if proj_spec_d.is_empty():
+			_make_project_btn.disabled = true
+			_make_project_btn.tooltip_text = "Ask Narcea for a vg-project-spec block to scaffold a runnable project."
+		else:
+			_make_project_btn.disabled = false
+			_make_project_btn.tooltip_text = "Preview and scaffold: %s" % _project_spec.describe(proj_spec_d)
 
 
 func _on_build_form() -> void:
@@ -1865,6 +1954,209 @@ func _on_make_this() -> void:
 	if not stubs.is_empty():
 		summary += "; added stubs to %s" % vg_path.get_file()
 	_append_system("[color=#aaffaa]%s[/color]\n" % summary)
+	# Make-this output is runnable; offer the Run button.
+	_last_run_scene = tscn_path
+	if is_instance_valid(_run_btn):
+		_run_btn.disabled = false
+		_run_btn.tooltip_text = "Run %s" % tscn_path.get_file()
+
+
+## Apply a multi-file vg-code-spec block.  Shows a diff dialog first, then
+## calls the safe-writer for each entry on confirm.  No designer / scene
+## involvement — pure file-system writes routed through the audit log.
+func _on_make_code() -> void:
+	_ensure_agent_helpers()
+	if _code_spec == null or _safe_writer == null:
+		_append_system("[color=#ff8888]Code-spec helpers unavailable.[/color]\n")
+		return
+	var spec: Dictionary = _code_spec.extract_spec(_accumulated_response)
+	if spec.is_empty():
+		_append_system("[color=#ff8888]No vg-code-spec block in the latest reply.[/color]\n")
+		return
+	# Reset writer to the project root so the diff plan reflects what
+	# will actually be allowed.
+	_safe_writer.set_root("res://")
+	var plan: Array = _code_spec.plan(spec, _safe_writer)
+	_show_diff_dialog(plan, func() -> void:
+		var result: Dictionary = _code_spec.apply(spec, _safe_writer, false)
+		_print_apply_result("Code", result)
+		if Engine.is_editor_hint():
+			EditorInterface.get_resource_filesystem().scan()
+	)
+
+
+## Scaffold a vg-project-spec block under res://ai_projects/<name>/.
+## Forms are built via the shared FormDesigner (sandboxing is a v2 task);
+## loose files go through the safe-writer rebound to the project subdir.
+func _on_make_project() -> void:
+	_ensure_agent_helpers()
+	_ensure_form_spec_helper()
+	if _project_spec == null or _safe_writer == null:
+		_append_system("[color=#ff8888]Project-spec helpers unavailable.[/color]\n")
+		return
+	var spec: Dictionary = _project_spec.extract_spec(_accumulated_response)
+	if spec.is_empty():
+		_append_system("[color=#ff8888]No vg-project-spec block in the latest reply.[/color]\n")
+		return
+	# Build a plan of just the *file* writes so the user can preview them.
+	# Forms are listed as advisory entries (we don't have their final
+	# .tscn contents yet — they'll be saved by the FormDesigner).
+	var root: String = _project_spec.project_root(spec)
+	_safe_writer.set_root(root)
+	var plan: Array = []
+	if _code_spec != null:
+		var sub_files: Array = []
+		for entry in spec.get("files", []):
+			if typeof(entry) != TYPE_DICTIONARY:
+				continue
+			var p := str(entry.get("path", ""))
+			if not (p.begins_with("res://") or p.begins_with("/")):
+				p = root + p
+			var copy := entry.duplicate()
+			copy["path"] = p
+			sub_files.append(copy)
+		plan = _code_spec.plan({"files": sub_files}, _safe_writer)
+	for f in spec.get("forms", []):
+		if typeof(f) != TYPE_DICTIONARY:
+			continue
+		var fname: String = str(f.get("form_name", "Form1"))
+		plan.append({
+			"path": root + fname + ".tscn",
+			"action": "create",
+			"old": "",
+			"new": "(FormDesigner output — %d controls)" % (f.get("controls", []) as Array).size(),
+			"lint": [],
+			"safe": true,
+			"safe_reason": "",
+		})
+	# Manifest + README are always written.
+	plan.append({
+		"path": root + "project.json", "action": "create", "old": "",
+		"new": "(manifest)", "lint": [], "safe": true, "safe_reason": "",
+	})
+	_show_diff_dialog(plan, func() -> void:
+		var designer: Object = null
+		var plugin: Object = null
+		if Engine.is_editor_hint():
+			var base := EditorInterface.get_base_control()
+			if base and base.has_meta("visual_gasic_plugin_instance"):
+				plugin = base.get_meta("visual_gasic_plugin_instance")
+				if plugin and is_instance_valid(plugin) and "_form_designer" in plugin:
+					designer = plugin._form_designer
+		var helpers := {
+			"safe_writer": _safe_writer,
+			"code_spec":   _code_spec,
+			"form_spec":   _form_spec,
+			"designer":    designer,
+		}
+		var result: Dictionary = _project_spec.apply(spec, helpers)
+		# Restore writer root for subsequent code-spec calls.
+		_safe_writer.set_root("res://")
+		_print_project_result(result)
+		_last_project_root = result.get("root", "")
+		var ms := str(result.get("main_scene", ""))
+		if not ms.is_empty():
+			_last_run_scene = ms
+			if is_instance_valid(_run_btn):
+				_run_btn.disabled = false
+				_run_btn.tooltip_text = "Run %s" % ms
+	)
+
+
+## Show a diff-preview dialog for `plan` and call `on_confirm` if the
+## user clicks Apply.  Builds the dialog lazily and reuses the same node.
+var _diff_dlg = null
+func _show_diff_dialog(plan: Array, on_confirm: Callable) -> void:
+	if _diff_dlg == null or not is_instance_valid(_diff_dlg):
+		var script := load("res://addons/visual_gasic/vg_ai_diff_dialog.gd")
+		if script == null:
+			_append_system("[color=#ff8888]Diff dialog unavailable.[/color]\n")
+			return
+		_diff_dlg = script.new()
+		add_child(_diff_dlg)
+	# Disconnect any previous confirm handler so we don't fire stale ones.
+	for c in _diff_dlg.confirmed.get_connections():
+		_diff_dlg.confirmed.disconnect(c.callable)
+	_diff_dlg.confirmed.connect(on_confirm, CONNECT_ONE_SHOT)
+	_diff_dlg.set_plan(plan)
+	_diff_dlg.popup_centered(Vector2i(760, 540))
+
+
+func _print_apply_result(label: String, result: Dictionary) -> void:
+	var w: Array = result.get("written", [])
+	var s: Array = result.get("skipped", [])
+	var color := "#aaffaa" if result.get("ok", false) else "#ffaa66"
+	_append_system("[color=%s]📝 %s: %s[/color]\n" % [color, label, str(result.get("summary", ""))])
+	for p in w:
+		_append_system("  [color=#aaffaa]+ %s[/color]\n" % str(p))
+	for entry in s:
+		_append_system("  [color=#ff8888]\u2716 %s — %s[/color]\n" % [
+			str(entry.get("path", "")), str(entry.get("reason", ""))])
+	for entry in result.get("lint", []):
+		var path := str(entry.get("path", ""))
+		var issues: Array = entry.get("issues", [])
+		if not issues.is_empty():
+			_append_system("  [color=#ffcc66]\u26a0 %s — %d lint issue(s)[/color]\n" % [path, issues.size()])
+
+
+func _print_project_result(result: Dictionary) -> void:
+	var color := "#aaffaa" if result.get("ok", false) else "#ffaa66"
+	_append_system("[color=%s]\ud83c\udd95 Project: %s[/color]\n" % [color, str(result.get("summary", ""))])
+	var ms := str(result.get("main_scene", ""))
+	if not ms.is_empty():
+		_append_system("  [color=#88bbff]main_scene: %s[/color]\n" % ms)
+	for p in result.get("written", []):
+		_append_system("  [color=#aaffaa]+ %s[/color]\n" % str(p))
+	for entry in result.get("skipped", []):
+		_append_system("  [color=#ff8888]\u2716 %s — %s[/color]\n" % [
+			str(entry.get("path", "")), str(entry.get("reason", ""))])
+
+
+## Launch the last AI-built scene (or main_scene from the last project)
+## in a child Godot process and stream its output into the chat.  Narcea
+## sees the last N lines on her next prompt via the run-output context.
+func _on_run() -> void:
+	if _last_run_scene.is_empty():
+		_append_system("[color=#ff8888]Nothing to run \u2014 use \ud83e\udd16 Make this or \ud83c\udd95 Make project first.[/color]\n")
+		return
+	if _run_session == null or not is_instance_valid(_run_session):
+		var rs := load("res://addons/visual_gasic/vg_ai_run_session.gd")
+		if rs == null:
+			_append_system("[color=#ff8888]Run-session helper unavailable.[/color]\n")
+			return
+		_run_session = rs.new()
+		add_child(_run_session)
+		_run_session.output_line.connect(_on_run_line)
+		_run_session.finished.connect(_on_run_finished)
+	if _run_session.is_running():
+		_append_system("[color=#ffaa66]Already running \u2014 stop the current scene first.[/color]\n")
+		return
+	var root_path := _last_project_root if not _last_project_root.is_empty() else "res://"
+	if _run_session.start(_last_run_scene, root_path):
+		if is_instance_valid(_run_btn):
+			_run_btn.disabled = true
+		if is_instance_valid(_run_stop_btn):
+			_run_stop_btn.visible = true
+		_append_system("[color=#88bbff]\u25b6 Running %s\u2026[/color]\n" % _last_run_scene)
+
+
+func _on_run_stop() -> void:
+	if _run_session != null and is_instance_valid(_run_session):
+		_run_session.stop()
+
+
+func _on_run_line(stream: String, line: String) -> void:
+	var color := "#cccccc" if stream == "stdout" else "#ff8888"
+	_append_system("[color=%s]%s %s[/color]\n" % [color, "\u2502", line])
+
+
+func _on_run_finished(exit_code: int) -> void:
+	if is_instance_valid(_run_btn):
+		_run_btn.disabled = _last_run_scene.is_empty()
+	if is_instance_valid(_run_stop_btn):
+		_run_stop_btn.visible = false
+	var color := "#aaffaa" if exit_code == 0 else "#ffaa66"
+	_append_system("[color=%s]\u25fc Scene finished (exit %d).[/color]\n" % [color, exit_code])
 
 # ---------------------------------------------------------------------------
 # Personas (Bob, Skippy, default) — system-prompt flavor + TTS voice

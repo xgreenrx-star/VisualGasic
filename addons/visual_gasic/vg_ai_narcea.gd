@@ -171,6 +171,57 @@ Rules:
   * Only include the `vg-form-spec` block when the user actually wants a form
     built; for code-only or general questions, skip it.
   * Keep the JSON valid \u2014 no trailing commas, no comments inside the block.
+
+=== Code-spec output (Make-code button) ===
+When the user wants you to write or change one or more .vg / .gd / .txt
+files, ALSO emit a fenced block tagged `vg-code-spec` containing JSON.
+The IDE shows a per-file diff and writes only on user confirm; every
+write is gated by a path-safety chokepoint and recorded in an audit log.
+
+Schema:
+  {
+    \"files\": [
+      {\"path\": \"res://<relative_path>.vg\", \"source\": \"' Visual Gasic Form Script\\nOption Explicit\\n...\"},
+      {\"path\": \"res://<relative_path>.txt\", \"source\": \"plain text...\", \"kind\": \"text\"}
+    ],
+    \"main_scene\": \"res://<form_name>.tscn\"   // optional, advisory
+  }
+
+Rules:
+  * Use res:// paths only.  Anything outside the project root is refused.
+  * Never write to addons/visual_gasic/* or .git/* or .godot/* \u2014 those are
+    blocked by the safe-writer.
+  * .vg files are linted before write; emit them in valid VB6/VG syntax
+    (Sub/End Sub, Dim, &-concat, Option Explicit at top of new files).
+  * Pair this block with a `vg-form-spec` block when the project also
+    needs new form layouts \u2014 the panel applies them in order.
+
+=== Project-spec output (Make-project button) ===
+When the user wants a whole runnable project from scratch, emit a fenced
+block tagged `vg-project-spec` containing JSON.  The IDE creates a new
+sub-directory under res://ai_projects/<name>/, materialises any forms,
+writes the loose code/asset files, and the user can immediately click
+\u25b6 Run to see it execute.
+
+Schema:
+  {
+    \"project_name\": \"<safe identifier>\",   // required
+    \"main_scene\":   \"<FormName>.tscn\",     // optional; relative to project root
+    \"forms\":   [ ...vg-form-spec dicts (without their fence)... ],
+    \"files\":   [ {\"path\": \"<relative or res://>\", \"source\": \"...\"}, ... ],
+    \"autoloads\":[ {\"name\": \"GameState\", \"path\": \"game_state.vg\"} ]
+  }
+
+Rules:
+  * Bare relative paths in `files[].path` (e.g. \"helpers.vg\") are
+    rewritten to res://ai_projects/<name>/helpers.vg by the applier.
+  * `forms` items follow the same shape as a vg-form-spec body \u2014 pick
+    `auto_events: true` if the project should be runnable on first try.
+  * Keep the project small (\u2264 ~6 files) so the diff dialog stays usable.
+  * Set `main_scene` so the \u25b6 Run button knows what to launch.
+
+When any of these spec blocks are appropriate, prefer them over verbose
+prose explanations \u2014 the user can always ask follow-up questions.
 """
 
 # Cached state -------------------------------------------------------------
@@ -226,10 +277,37 @@ func _active_context_block(plugin: Object) -> String:
 	if not sel.is_empty():
 		lines.append("Selection: %s" % sel)
 
+	# Last run output (if any).  Helps Narcea diagnose runtime errors
+	# without the user having to paste them — closes the agent loop.
+	var run_out := _detect_run_output(plugin)
+	if not run_out.is_empty():
+		lines.append("Last run output:\n%s" % run_out)
+
 	# Only emit the block if we found at least one signal beyond the header.
 	if lines.size() <= 1:
 		return ""
 	return "\n".join(lines)
+
+
+func _detect_run_output(plugin: Object) -> String:
+	if plugin == null or not is_instance_valid(plugin):
+		return ""
+	# The AI panel parents the run session on itself.  Reach it via the
+	# panel reference that visual_gasic_plugin keeps for the AI dock.
+	var panel = null
+	if "_ai_help_panel" in plugin:
+		panel = plugin._ai_help_panel
+	elif "_ai_panel" in plugin:
+		panel = plugin._ai_panel
+	if panel == null or not is_instance_valid(panel):
+		return ""
+	if not ("_run_session" in panel) or panel._run_session == null:
+		return ""
+	if not is_instance_valid(panel._run_session):
+		return ""
+	if not panel._run_session.has_method("get_recent_output"):
+		return ""
+	return panel._run_session.get_recent_output(20)
 
 
 func _detect_active_panel(plugin: Object) -> String:
