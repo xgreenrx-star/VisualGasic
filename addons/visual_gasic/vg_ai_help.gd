@@ -203,6 +203,16 @@ var _last_selected_code := ""
 var _voice_ctrl = null
 var _mic_btn: Button = null
 var _voice_speak_toggle: CheckBox = null
+# Stop-Speaking button — added May 2026 because Narcea was uninterruptible.
+# Visible only while she's actually speaking.
+var _stop_speak_btn: Button = null
+# Build-Form button — stepping stone toward agent mode.  When Narcea's
+# latest reply contains a `vg-form-spec` JSON block, this button becomes
+# enabled and a single click materialises the form in the Form Designer.
+var _build_form_btn: Button = null
+# Lazy-loaded helpers for the speech sanitiser and form-spec applier.
+var _speech_filter = null  # vg_ai_speech_filter.gd instance
+var _form_spec = null      # vg_ai_form_spec.gd instance
 
 ## Grab the current selection from the embedded VB6 code editor.
 ## Falls back to the text of the Sub/Function surrounding the caret,
@@ -501,11 +511,16 @@ func _finish_generation() -> void:
 			Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
 
 	# Voice mode (Tier 2.5): speak the completed reply aloud if enabled.
+	# Strip code blocks / form-specs / markdown noise first — reading raw
+	# generated VG code aloud was the #1 voice-mode complaint.
 	if is_instance_valid(_voice_speak_toggle) and _voice_speak_toggle.button_pressed \
 			and not _accumulated_response.strip_edges().is_empty():
 		_ensure_voice_ctrl()
 		if _voice_ctrl != null:
-			_voice_ctrl.speak(_accumulated_response)
+			_voice_ctrl.speak(_speech_text(_accumulated_response))
+
+	# Build-Form button: enable iff the reply contains a parseable form spec.
+	_refresh_build_form_btn()
 
 ## Force-stop generation (abort button or reparent).
 func _stop_generation() -> void:
@@ -649,6 +664,24 @@ func _setup_ui() -> void:
 	_voice_speak_toggle.button_pressed = true
 	_voice_speak_toggle.toggled.connect(_on_auto_speak_toggled)
 	toolbar.add_child(_voice_speak_toggle)
+
+	# ⏹ Stop-Speaking button — hidden until Narcea actually starts talking.
+	_stop_speak_btn = Button.new()
+	_stop_speak_btn.text = "⏹"
+	_stop_speak_btn.tooltip_text = "Stop the current spoken reply"
+	_stop_speak_btn.visible = false
+	_stop_speak_btn.pressed.connect(_on_stop_speak)
+	_style_small_button(_stop_speak_btn)
+	toolbar.add_child(_stop_speak_btn)
+
+	# 🔨 Build-Form button — disabled until a reply contains a form spec.
+	_build_form_btn = Button.new()
+	_build_form_btn.text = "🔨 Build form"
+	_build_form_btn.tooltip_text = "Materialise the form spec from the latest reply in the Form Designer"
+	_build_form_btn.disabled = true
+	_build_form_btn.pressed.connect(_on_build_form)
+	_style_small_button(_build_form_btn)
+	toolbar.add_child(_build_form_btn)
 
 	# Persona dropdown — swaps system-prompt prefix + TTS voice
 	_persona_dropdown = OptionButton.new()
@@ -1257,6 +1290,10 @@ func _on_clear() -> void:
 	_output.clear()
 	_conversation_history.clear()
 	_append_system("Conversation cleared.\n")
+	# Stale form spec is no longer relevant once the conversation is gone.
+	if is_instance_valid(_build_form_btn):
+		_build_form_btn.disabled = true
+		_build_form_btn.tooltip_text = "Ask Narcea to design a form — she'll include a vg-form-spec block I can build."
 
 # ---------------------------------------------------------------------------
 # Model picker — first-run installer & hardware-aware model browser
@@ -1540,6 +1577,11 @@ func _ensure_voice_ctrl() -> void:
 		_voice_ctrl.transcription_failed.connect(_on_voice_transcription_failed)
 	if _voice_ctrl.has_signal("speech_failed"):
 		_voice_ctrl.speech_failed.connect(_on_voice_speech_failed)
+	# Show / hide the ⏹ button automatically while Narcea speaks.
+	if _voice_ctrl.has_signal("speech_started"):
+		_voice_ctrl.speech_started.connect(_on_voice_speech_started)
+	if _voice_ctrl.has_signal("speech_finished"):
+		_voice_ctrl.speech_finished.connect(_on_voice_speech_finished)
 
 func _on_mic_toggled(pressed: bool) -> void:
 	_ensure_voice_ctrl()
@@ -1612,6 +1654,95 @@ func _on_voice_transcription_failed(reason: String) -> void:
 
 func _on_voice_speech_failed(reason: String) -> void:
 	_append_system("[color=#ff8888]🔊 TTS error: %s[/color]\n" % reason)
+
+func _on_voice_speech_started() -> void:
+	if is_instance_valid(_stop_speak_btn):
+		_stop_speak_btn.visible = true
+
+func _on_voice_speech_finished() -> void:
+	if is_instance_valid(_stop_speak_btn):
+		_stop_speak_btn.visible = false
+
+func _on_stop_speak() -> void:
+	if _voice_ctrl != null and is_instance_valid(_voice_ctrl):
+		_voice_ctrl.stop_speaking()
+	if is_instance_valid(_stop_speak_btn):
+		_stop_speak_btn.visible = false
+
+# ---------------------------------------------------------------------------
+# Speech sanitiser + form-spec applier — Narcea's stepping-stone toolkit.
+# ---------------------------------------------------------------------------
+
+## Convert an AI reply into something pleasant to listen to: drop fenced
+## code blocks, strip markdown markers, etc.  Falls back to the raw text
+## if the helper script can't be loaded for any reason.
+func _speech_text(raw: String) -> String:
+	if _speech_filter == null:
+		var sf := load("res://addons/visual_gasic/vg_ai_speech_filter.gd")
+		if sf != null:
+			_speech_filter = sf.new()
+	if _speech_filter == null:
+		return raw
+	return _speech_filter.for_speech(raw)
+
+
+## Lazy-load the form-spec helper.
+func _ensure_form_spec_helper() -> void:
+	if _form_spec != null:
+		return
+	var fs := load("res://addons/visual_gasic/vg_ai_form_spec.gd")
+	if fs != null:
+		_form_spec = fs.new()
+
+
+## Toggle the 🔨 Build-form button based on whether the latest reply
+## actually contains a usable spec.  Cheap to call after every reply.
+func _refresh_build_form_btn() -> void:
+	if not is_instance_valid(_build_form_btn):
+		return
+	_ensure_form_spec_helper()
+	if _form_spec == null:
+		_build_form_btn.disabled = true
+		_build_form_btn.tooltip_text = "Form-spec helper failed to load."
+		return
+	var spec: Dictionary = _form_spec.extract_spec(_accumulated_response)
+	if spec.is_empty():
+		_build_form_btn.disabled = true
+		_build_form_btn.tooltip_text = "Ask Narcea to design a form — she'll include a vg-form-spec block I can build."
+	else:
+		_build_form_btn.disabled = false
+		_build_form_btn.tooltip_text = "Build: %s" % _form_spec.describe(spec)
+
+
+func _on_build_form() -> void:
+	_ensure_form_spec_helper()
+	if _form_spec == null:
+		_append_system("[color=#ff8888]Form builder unavailable.[/color]\n")
+		return
+	var spec: Dictionary = _form_spec.extract_spec(_accumulated_response)
+	if spec.is_empty():
+		_append_system("[color=#ff8888]No form spec in the latest reply.[/color]\n")
+		return
+	# Reach the Form Designer through the editor plugin instance.
+	var designer: Object = null
+	if Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base and base.has_meta("visual_gasic_plugin_instance"):
+			var plugin = base.get_meta("visual_gasic_plugin_instance")
+			if plugin and is_instance_valid(plugin) and "_form_designer" in plugin:
+				designer = plugin._form_designer
+	if designer == null or not is_instance_valid(designer):
+		_append_system("[color=#ff8888]Form Designer not found — open it once before asking Narcea to build a form.[/color]\n")
+		return
+	var result: Array = _form_spec.apply_to_designer(spec, designer)
+	var ok: bool = result[0] if result.size() > 0 else false
+	var msg: String = result[1] if result.size() > 1 else "Unknown result"
+	var color := "#aaffaa" if ok else "#ff8888"
+	var icon := "🛠" if ok else "⚠"
+	_append_system("[color=%s]%s %s[/color]\n" % [color, icon, msg])
+	# Bring the Form Designer into view if we just built something useful.
+	if ok and is_instance_valid(designer) and designer.has_method("grab_focus"):
+		designer.grab_focus()
 
 # ---------------------------------------------------------------------------
 # Personas (Bob, Skippy, default) — system-prompt flavor + TTS voice

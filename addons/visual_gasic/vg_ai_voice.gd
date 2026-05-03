@@ -61,6 +61,11 @@ var _tts_http: HTTPRequest = null
 var _tts_player: AudioStreamPlayer = null
 var _is_transcribing: bool = false
 var _is_speaking: bool = false
+# PID of the most recent external TTS subprocess (system espeak / SAPI), or
+# -1 when none is alive.  Tracked so stop_speaking() can actually interrupt
+# Narcea mid-sentence — fire-and-forget OS.create_process gave us no way to
+# silence her until this was added (May 3 2026 user request).
+var _tts_pid: int = -1
 
 # Settings (loaded from CFG_PATH)
 var stt_backend: String = "openai"        # "openai" | "whisper" | "off"
@@ -284,9 +289,20 @@ func speak(text: String) -> void:
 			speech_failed.emit("Unknown TTS backend: %s" % tts_backend)
 
 func stop_speaking() -> void:
+	# 1. Stop any AudioStreamPlayer-driven playback (OpenAI / Piper produce a
+	#    WAV that we play in-process).
 	if is_instance_valid(_tts_player):
 		_tts_player.stop()
-	_is_speaking = false
+	# 2. Kill the external TTS subprocess if one is running (system backend
+	#    on Linux/macOS/Windows — espeak / say / powershell SAPI).  Without
+	#    this Narcea kept talking after the user clicked Stop because the
+	#    OS process owns its own audio path.
+	if _tts_pid > 0:
+		OS.kill(_tts_pid)
+		_tts_pid = -1
+	if _is_speaking:
+		_is_speaking = false
+		speech_finished.emit()
 
 # ─── Transcription dispatch ─────────────────────────────────────────────────
 func _transcribe_recorded() -> void:
@@ -614,7 +630,7 @@ func _speak_system(text: String) -> void:
 	# Fire-and-forget; system TTS plays through its own audio path.
 	_is_speaking = true
 	speech_started.emit()
-	OS.create_process(cmd, args)
+	_tts_pid = OS.create_process(cmd, args)
 	# We can't observe completion of an external process synchronously without
 	# blocking; emit speech_finished after a short estimated delay so the panel
 	# can re-enable the mic button.  Rough heuristic: 70ms / character.
@@ -622,6 +638,7 @@ func _speak_system(text: String) -> void:
 	get_tree().create_timer(delay / 1000.0).timeout.connect(_on_system_tts_estimated_done)
 
 func _on_system_tts_estimated_done() -> void:
+	_tts_pid = -1
 	if _is_speaking:
 		_is_speaking = false
 		speech_finished.emit()

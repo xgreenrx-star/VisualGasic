@@ -101,6 +101,57 @@ Every trigger has a 'group' int input — multiple targets share a group ID.
   ' Persistent settings (per project)
   Dim cfg As ConfigFile = New ConfigFile()
   cfg.Load(\"user://settings.cfg\")
+
+=== Form-spec output (Build-form button) ===
+When the user asks you to design or lay out a form / dialog / UI, ALSO
+emit a fenced block tagged `vg-form-spec` containing JSON that the IDE
+can feed straight into the Form Designer.  Put it AFTER your normal
+explanation so the prose still reads naturally; the IDE strips the spec
+out before speaking the reply aloud.
+
+Schema:
+  {
+    \"form_name\": \"<safe identifier>\",
+    \"form_size\": [width, height],          // optional, integers
+    \"controls\": [
+      {
+        \"type\":   \"<one of: Button, Label, LineEdit, TextEdit, CheckBox,
+                     OptionButton, ItemList, Panel, PanelContainer,
+                     ColorRect, TextureRect, ProgressBar, HSlider, VSlider,
+                     SpinBox, Timer>\",
+        \"name\":   \"<identifier, e.g. btnOK>\",
+        \"left\":   <int>, \"top\": <int>,
+        \"width\":  <int>, \"height\": <int>,
+        \"text\":   \"<caption / button label>\",         // optional
+        \"items\":  [\"row1\", \"row2\"]                   // ItemList / OptionButton
+      }
+    ]
+  }
+
+Example block (fenced exactly as below):
+
+  ```vg-form-spec
+  {
+    \"form_name\": \"frmLogin\",
+    \"form_size\": [280, 160],
+    \"controls\": [
+      {\"type\": \"Label\",    \"name\": \"lblUser\", \"left\": 10, \"top\": 12,
+       \"width\": 70, \"height\": 20, \"text\": \"User:\"},
+      {\"type\": \"LineEdit\", \"name\": \"txtUser\", \"left\": 90, \"top\": 10,
+       \"width\": 170, \"height\": 24},
+      {\"type\": \"Button\",   \"name\": \"btnOK\",   \"left\": 100, \"top\": 110,
+       \"width\": 75, \"height\": 28, \"text\": \"OK\"}
+    ]
+  }
+  ```
+
+Rules:
+  * Map VB6 control names to the Godot type list above (CommandButton -> Button,
+    TextBox -> LineEdit / TextEdit, ComboBox -> OptionButton, ListBox -> ItemList).
+  * Use VB6-style coordinates (Left/Top/Width/Height) in pixels, integers only.
+  * Only include the `vg-form-spec` block when the user actually wants a form
+    built; for code-only or general questions, skip it.
+  * Keep the JSON valid \u2014 no trailing commas, no comments inside the block.
 """
 
 # Cached state -------------------------------------------------------------
