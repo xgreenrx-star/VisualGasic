@@ -4340,6 +4340,8 @@ func _create_new_vg_project(proj_name: String, proj_dir: String) -> void:
 	project_godot += "config/name=\"%s\"\n" % display_name
 	project_godot += "config/features=PackedStringArray(\"4.6\", \"Forward Plus\")\n"
 	project_godot += "config/icon=\"res://icon.svg\"\n\n"
+	project_godot += "[audio]\n\n"
+	project_godot += "driver/enable_input=true\n\n"
 	project_godot += "[autoload]\n\n"
 	project_godot += "VGDebugHandler=\"*res://addons/visual_gasic/vg_debug_handler.gd\"\n\n"
 	project_godot += "[editor_plugins]\n\n"
@@ -4384,6 +4386,11 @@ func _create_new_vg_project(proj_name: String, proj_dir: String) -> void:
 	if f:
 		f.store_string("# Godot\n.godot/\n*.import\nexport_presets.cfg\n\n# OS\n.DS_Store\nThumbs.db\n")
 		f.close()
+
+	# ── Copy AI keys (vg_ai_keys.cfg) into the new project's user:// dir ──
+	# Godot resolves user:// per-project from config/name; we mirror the
+	# host-OS path conventions Godot uses internally.
+	_copy_ai_keys_to_new_project(display_name)
 
 	print("[VisualGasic] New project created at: " + proj_dir)
 	_flash_status_message("Project created: " + proj_name)
@@ -4436,6 +4443,62 @@ func _copy_dir_recursive(src: String, dst: String) -> Error:
 ## Copy a single file (absolute paths).
 func _copy_file(src: String, dst: String) -> Error:
 	return DirAccess.copy_absolute(src, dst)
+
+
+## Compute the absolute path to Godot's `app_userdata/<project>/` directory
+## for an arbitrary project name, mirroring Godot's own conventions per OS.
+func _godot_user_data_dir_for(project_display_name: String) -> String:
+	var name := project_display_name.strip_edges()
+	if name.is_empty():
+		return ""
+	match OS.get_name():
+		"Windows", "UWP":
+			var appdata := OS.get_environment("APPDATA")
+			if appdata.is_empty():
+				return ""
+			return appdata + "/Godot/app_userdata/" + name
+		"macOS":
+			var home_mac := OS.get_environment("HOME")
+			if home_mac.is_empty():
+				return ""
+			return home_mac + "/Library/Application Support/Godot/app_userdata/" + name
+		_:  # Linux / *BSD
+			var xdg := OS.get_environment("XDG_DATA_HOME")
+			if xdg.is_empty():
+				var home := OS.get_environment("HOME")
+				if home.is_empty():
+					return ""
+				xdg = home + "/.local/share"
+			return xdg + "/godot/app_userdata/" + name
+
+
+## Copy this project's vg_ai_keys.cfg into the brand-new project's
+## user:// dir so the user doesn't have to re-paste API keys.  No-op
+## when the source has no keys yet.
+func _copy_ai_keys_to_new_project(new_project_display_name: String) -> void:
+	var src_keys: String = OS.get_user_data_dir() + "/vg_ai_keys.cfg"
+	if not FileAccess.file_exists(src_keys):
+		return
+	var dst_dir: String = _godot_user_data_dir_for(new_project_display_name)
+	if dst_dir.is_empty():
+		push_warning("[VisualGasic] Could not resolve user-data dir for '%s' — AI keys not copied" % new_project_display_name)
+		return
+	var mk_err: int = DirAccess.make_dir_recursive_absolute(dst_dir)
+	if mk_err != OK and mk_err != ERR_ALREADY_EXISTS:
+		push_warning("[VisualGasic] Could not create '%s' (err %d) — AI keys not copied" % [dst_dir, mk_err])
+		return
+	var dst_keys: String = dst_dir + "/vg_ai_keys.cfg"
+	var cp_err: int = DirAccess.copy_absolute(src_keys, dst_keys)
+	if cp_err != OK:
+		push_warning("[VisualGasic] Failed to copy AI keys to %s (err %d)" % [dst_keys, cp_err])
+		return
+	# Tighten perms on POSIX (best-effort; chmod isn't exposed via DirAccess
+	# so we shell out only if available).
+	if OS.get_name() in ["Linux", "FreeBSD", "macOS"]:
+		var rc: int = OS.execute("chmod", ["600", dst_keys])
+		if rc != 0:
+			pass  # Non-fatal — file is still copied.
+	print("[VisualGasic] Copied AI keys to: " + dst_keys)
 
 
 ## Handle renaming a form: rename .tscn, .vg, .vg.uid files on disk,

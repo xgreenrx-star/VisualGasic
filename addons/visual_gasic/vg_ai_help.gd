@@ -1486,7 +1486,9 @@ func _show_api_key_dialog() -> void:
 		return
 	var dlg := AcceptDialog.new()
 	dlg.title = "⚙️  AI Provider API Keys"
-	dlg.size = Vector2(520, 400)
+	# Width-only minimum; let height auto-size to content so the dialog
+	# isn't oversized on small screens.
+	dlg.min_size = Vector2i(520, 0)
 	dlg.exclusive = true
 
 	var vbox := VBoxContainer.new()
