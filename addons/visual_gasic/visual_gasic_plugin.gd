@@ -1306,19 +1306,32 @@ func _on_exit_to_welcome() -> void:
 	call_deferred("_do_exit_to_welcome")
 
 func _do_exit_to_welcome() -> void:
-	# Locate the welcome shell project. We look adjacent to this addon's
-	# parent project first (source-tree layout), then standard install
-	# dirs.
+	# Locate the welcome shell project. Order:
+	#   1. $VG_WELCOME_DIR override
+	#   2. Sibling / bundled to the current project
+	#   3. Same directory as the running Godot binary (source-tree case:
+	#      `Godot_vX.Y_*` lives next to `welcome_shell/` in the repo)
+	#   4. /opt and ~/.local/share install layouts
 	var candidates: Array = []
+	var env_dir := OS.get_environment("VG_WELCOME_DIR")
+	if not env_dir.is_empty():
+		candidates.append(env_dir)
 	var here_proj: String = ProjectSettings.globalize_path("res://").rstrip("/")
 	if not here_proj.is_empty():
 		candidates.append(here_proj.get_base_dir() + "/welcome_shell")  # sibling
-		candidates.append(here_proj + "/welcome_shell")                   # bundled
+		candidates.append(here_proj + "/welcome_shell")                 # bundled
+		candidates.append(here_proj.get_base_dir().get_base_dir() + "/welcome_shell")
+	# Godot binary's own directory — in source-tree dev the binary
+	# (`Godot_v4.6.1-stable_linux.x86_64`) sits in the repo root next
+	# to `welcome_shell/`.
+	var bin_dir := OS.get_executable_path().get_base_dir()
+	if not bin_dir.is_empty():
+		candidates.append(bin_dir + "/welcome_shell")
 	candidates.append("/opt/visual_gasic/welcome_shell")
 	var home := OS.get_environment("HOME")
 	if not home.is_empty():
 		candidates.append(home + "/.local/share/visual_gasic/welcome_shell")
-	candidates.append(here_proj.get_base_dir().get_base_dir() + "/welcome_shell")
+		candidates.append(home + "/Documents/VisualGasic/welcome_shell")
 
 	var welcome_dir: String = ""
 	for c in candidates:
@@ -1328,13 +1341,21 @@ func _do_exit_to_welcome() -> void:
 
 	var godot_bin := OS.get_executable_path()
 	if welcome_dir.is_empty():
-		push_warning("[VisualGasic] Welcome shell not found near %s — falling back to Project Manager." % here_proj)
-		OS.create_process(godot_bin, [])
-	else:
-		# `--editor` is required — without it Godot tries to *run* the
-		# welcome project, which has no main scene and pops an error.
-		print("[VisualGasic] Spawning welcome shell at: ", welcome_dir)
-		OS.create_process(godot_bin, ["--path", welcome_dir, "--editor"])
+		push_warning("[VisualGasic] Welcome shell not found. Checked: %s" % str(candidates))
+		# Don't fall back to bare PM — that's exactly what triggers the
+		# 'no main scene' alert on the current project. Show our own
+		# error instead and stay put.
+		var err := AcceptDialog.new()
+		err.title = "Welcome Shell Not Found"
+		err.dialog_text = "Could not locate the VG Welcome shell.\nSet VG_WELCOME_DIR to point at the welcome_shell directory, or install VisualGasic to /opt/visual_gasic.\n\nSearched:\n  - " + "\n  - ".join(candidates)
+		EditorInterface.get_base_control().add_child(err)
+		err.popup_centered(Vector2i(640, 320))
+		return
+
+	# `--editor` is required — without it Godot tries to *run* the
+	# welcome project, which has no main scene and pops an error.
+	print("[VisualGasic] Spawning welcome shell at: ", welcome_dir)
+	OS.create_process(godot_bin, ["--path", welcome_dir, "--editor"])
 
 	# Hand off to the new instance, then quit ours.
 	get_tree().quit()
