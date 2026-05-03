@@ -490,7 +490,16 @@ func _launch_godot(project_dir: String) -> void:
 	# Yield one frame so the splash is on screen before we fork Godot.
 	await get_tree().process_frame
 
-	var pid: int = OS.create_process(godot_bin, ["--path", project_dir, "--editor"])
+	# Spawn Godot off-screen and tiny so the editor's transient init UI
+	# never paints over our welcome splash. The VG plugin restores the
+	# window (maximized, foregrounded) once its IDE is built — see
+	# `_clear_vg_launching_flag` in addons/visual_gasic/visual_gasic_plugin.gd.
+	var pid: int = OS.create_process(godot_bin, [
+		"--path", project_dir,
+		"--editor",
+		"--position", "30000,30000",
+		"--resolution", "1x1",
+	])
 	if pid <= 0:
 		splash.queue_free()
 		get_window().always_on_top = false
