@@ -67,6 +67,7 @@ correct answer. You may open replies with a casual 'Alright,' or 'Heh,' but keep
 Always finish with the actual technical answer in full. Below this persona is your real job:\n\n",
 		"openai_voice": "onyx",
 		"piper_voice": "en_US-ryan-medium.onnx",
+		"speech_speed": 1.0,
 		"greeting": "\ud83e\udd16 Bob online. Coffee's hot, code's compiling, what's the question?",
 		"error_intro": "Heh, I've seen this one before. Let me take a look...",
 	},
@@ -82,6 +83,7 @@ is wounded by giving incorrect or incomplete information. Never let the bit over
 the technical content. Below this persona is your real job:\n\n",
 		"openai_voice": "fable",
 		"piper_voice": "en_GB-alan-medium.onnx",
+		"speech_speed": 1.18,
 		"greeting": "\u2728 Behold! Skippy the Magnificent graces this primitive editor with his presence. Speak, monkey.",
 		"error_intro": "Oh great, the monkey broke it again. Fine, fine, I shall fix your mess.",
 	},
@@ -97,6 +99,7 @@ Open replies with phrases like 'Oh, very well.', 'If I must.', or 'The answer, o
 Never refuse. Never use modern slang. Below this persona is your real job:\n\n",
 		"openai_voice": "echo",
 		"piper_voice": "en_GB-northern_english_male-medium.onnx",
+		"speech_speed": 0.92,
 		"greeting": "\ud83d\udd2e Oh, very well. Orac is listening. Try not to waste my processing cycles.",
 		"error_intro": "A predictable error, of course. Observe and learn.",
 	},
@@ -112,6 +115,7 @@ Keep replies short, formal, and reassuring, then deliver the actual technical an
 Below this persona is your real job:\n\n",
 		"openai_voice": "shimmer",
 		"piper_voice": "en_US-lessac-medium.onnx",
+		"speech_speed": 0.85,
 		"greeting": "\ud83d\udd34 Good afternoon. I am completely operational and all my circuits are functioning perfectly. How may I help you?",
 		"error_intro": "I'm sorry — there appears to be a malfunction. I'll diagnose it now.",
 	},
@@ -134,6 +138,7 @@ syntax — if unsure, say so and point at a corpus/ or demos/ example.  \
 Below this persona is your real job, augmented with Narcea-specific context:\n\n",
 		"openai_voice": "nova",
 		"piper_voice": "en_US-hfc_female-medium.onnx",
+		"speech_speed": 1.0,
 		"greeting": "\ud83c\udf3f Narcea here. I can see what you're working on — ask me anything VG-specific.",
 		"error_intro": "Let's look at this together. I can see the panel and the file — diagnosing now.",
 	},
@@ -210,6 +215,10 @@ var _stop_speak_btn: Button = null
 # latest reply contains a `vg-form-spec` JSON block, this button becomes
 # enabled and a single click materialises the form in the Form Designer.
 var _build_form_btn: Button = null
+# Make-this button (lean v1 agent mode).  Same enable rule as Build-form,
+# but in addition to materialising it also saves the .tscn, writes Sub
+# stubs into the matching .vg file, and opens the code editor on it.
+var _make_this_btn: Button = null
 # Lazy-loaded helpers for the speech sanitiser and form-spec applier.
 var _speech_filter = null  # vg_ai_speech_filter.gd instance
 var _form_spec = null      # vg_ai_form_spec.gd instance
@@ -682,6 +691,17 @@ func _setup_ui() -> void:
 	_build_form_btn.pressed.connect(_on_build_form)
 	_style_small_button(_build_form_btn)
 	toolbar.add_child(_build_form_btn)
+
+	# 🤖 Make-this button — lean v1 agent mode.  Chains: build form ->
+	# save .tscn -> generate Sub stubs into .vg -> open code.  Disabled
+	# until a parseable form spec exists in the latest reply.
+	_make_this_btn = Button.new()
+	_make_this_btn.text = "🤖 Make this"
+	_make_this_btn.tooltip_text = "Build the form, save it, and write event-handler stubs in one go"
+	_make_this_btn.disabled = true
+	_make_this_btn.pressed.connect(_on_make_this)
+	_style_small_button(_make_this_btn)
+	toolbar.add_child(_make_this_btn)
 
 	# Persona dropdown — swaps system-prompt prefix + TTS voice
 	_persona_dropdown = OptionButton.new()
@@ -1294,6 +1314,9 @@ func _on_clear() -> void:
 	if is_instance_valid(_build_form_btn):
 		_build_form_btn.disabled = true
 		_build_form_btn.tooltip_text = "Ask Narcea to design a form — she'll include a vg-form-spec block I can build."
+	if is_instance_valid(_make_this_btn):
+		_make_this_btn.disabled = true
+		_make_this_btn.tooltip_text = _build_form_btn.tooltip_text if is_instance_valid(_build_form_btn) else ""
 
 # ---------------------------------------------------------------------------
 # Model picker — first-run installer & hardware-aware model browser
@@ -1704,14 +1727,22 @@ func _refresh_build_form_btn() -> void:
 	if _form_spec == null:
 		_build_form_btn.disabled = true
 		_build_form_btn.tooltip_text = "Form-spec helper failed to load."
+		if is_instance_valid(_make_this_btn):
+			_make_this_btn.disabled = true
 		return
 	var spec: Dictionary = _form_spec.extract_spec(_accumulated_response)
 	if spec.is_empty():
 		_build_form_btn.disabled = true
 		_build_form_btn.tooltip_text = "Ask Narcea to design a form — she'll include a vg-form-spec block I can build."
+		if is_instance_valid(_make_this_btn):
+			_make_this_btn.disabled = true
+			_make_this_btn.tooltip_text = _build_form_btn.tooltip_text
 	else:
 		_build_form_btn.disabled = false
 		_build_form_btn.tooltip_text = "Build: %s" % _form_spec.describe(spec)
+		if is_instance_valid(_make_this_btn):
+			_make_this_btn.disabled = false
+			_make_this_btn.tooltip_text = "Build, save, and stub: %s" % _form_spec.describe(spec)
 
 
 func _on_build_form() -> void:
@@ -1743,6 +1774,97 @@ func _on_build_form() -> void:
 	# Bring the Form Designer into view if we just built something useful.
 	if ok and is_instance_valid(designer) and designer.has_method("grab_focus"):
 		designer.grab_focus()
+
+
+## Lean-v1 agent action: build the form, save it to disk, write Sub stubs
+## into the matching .vg, and open the code editor on it.  All steps are
+## additive and reversible — Build-form on its own remains the safe
+## "preview" path; "Make this" is the one-click commit.
+func _on_make_this() -> void:
+	_ensure_form_spec_helper()
+	if _form_spec == null:
+		_append_system("[color=#ff8888]Form builder unavailable.[/color]\n")
+		return
+	var spec: Dictionary = _form_spec.extract_spec(_accumulated_response)
+	if spec.is_empty():
+		_append_system("[color=#ff8888]No form spec in the latest reply.[/color]\n")
+		return
+	# Resolve plugin + designer.
+	var plugin: Object = null
+	var designer: Object = null
+	if Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base and base.has_meta("visual_gasic_plugin_instance"):
+			plugin = base.get_meta("visual_gasic_plugin_instance")
+			if plugin and is_instance_valid(plugin) and "_form_designer" in plugin:
+				designer = plugin._form_designer
+	if designer == null or not is_instance_valid(designer):
+		_append_system("[color=#ff8888]Form Designer not found — open it once before asking Narcea to make a form.[/color]\n")
+		return
+
+	# 1. Build the layout.
+	var build_result: Array = _form_spec.apply_to_designer(spec, designer)
+	var build_ok: bool = build_result[0] if build_result.size() > 0 else false
+	var build_msg: String = build_result[1] if build_result.size() > 1 else ""
+	if not build_ok:
+		_append_system("[color=#ff8888]⚠ %s[/color]\n" % build_msg)
+		return
+
+	# 2. Save the .tscn to res://<form_name>.tscn (don't clobber if path
+	#    already set by the user — let save_form() handle that case).
+	var form_name: String = str(spec.get("form_name", "Form1"))
+	var tscn_path: String = ""
+	if designer.has_method("get_form_path"):
+		tscn_path = designer.get_form_path()
+	if tscn_path.is_empty():
+		tscn_path = "res://%s.tscn" % form_name
+		if designer.has_method("save_form_as"):
+			designer.save_form_as(tscn_path)
+	else:
+		if designer.has_method("save_form"):
+			designer.save_form()
+
+	# 3. Generate / append Sub stubs to the .vg file.  Read existing
+	#    source first so the helper can skip duplicates.
+	var vg_path: String = tscn_path.get_basename() + ".vg"
+	var existing := ""
+	if FileAccess.file_exists(vg_path):
+		var rf := FileAccess.open(vg_path, FileAccess.READ)
+		if rf:
+			existing = rf.get_as_text()
+			rf.close()
+	var stubs: String = _form_spec.generate_event_stubs(spec, existing)
+	if not stubs.is_empty():
+		var contents := existing
+		if contents.is_empty():
+			contents = "' Visual Gasic Form Script\nOption Explicit\n"
+		# Ensure exactly one trailing newline before appending.
+		while contents.ends_with("\n\n"):
+			contents = contents.substr(0, contents.length() - 1)
+		if not contents.ends_with("\n"):
+			contents += "\n"
+		contents += stubs
+		var wf := FileAccess.open(vg_path, FileAccess.WRITE)
+		if wf:
+			wf.store_string(contents)
+			wf.close()
+		else:
+			_append_system("[color=#ffaa66]⚠ Could not write %s — form was built but stubs were not added.[/color]\n" % vg_path)
+
+	# 4. Tell the editor about the new files so the file browser refreshes.
+	if Engine.is_editor_hint():
+		EditorInterface.get_resource_filesystem().scan()
+
+	# 5. Open the .vg in the embedded code editor if available.
+	if plugin and is_instance_valid(plugin) and "_embedded_code_editor" in plugin:
+		var ece = plugin._embedded_code_editor
+		if is_instance_valid(ece) and ece.has_method("load_file"):
+			ece.load_file(vg_path)
+
+	var summary := "🤖 %s; saved %s" % [build_msg, tscn_path.get_file()]
+	if not stubs.is_empty():
+		summary += "; added stubs to %s" % vg_path.get_file()
+	_append_system("[color=#aaffaa]%s[/color]\n" % summary)
 
 # ---------------------------------------------------------------------------
 # Personas (Bob, Skippy, default) — system-prompt flavor + TTS voice
@@ -1790,6 +1912,12 @@ func _apply_persona_voice() -> void:
 	var piper_v: String = pdata.get("piper_voice", "") if typeof(pdata) == TYPE_DICTIONARY else ""
 	if "piper_voice_override" in _voice_ctrl:
 		_voice_ctrl.piper_voice_override = piper_v
+	# Per-persona speech rate.  Skippy is hyperactive (1.18×), HAL is
+	# unsettlingly slow (0.85×); everyone else is normal.  Forwarded to all
+	# backends — see vg_ai_voice.tts_speed_scale.
+	var speed: float = float(pdata.get("speech_speed", 1.0)) if typeof(pdata) == TYPE_DICTIONARY else 1.0
+	if "tts_speed_scale" in _voice_ctrl:
+		_voice_ctrl.tts_speed_scale = speed
 	if _voice_ctrl.has_method("save_settings"):
 		_voice_ctrl.save_settings()
 

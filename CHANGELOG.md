@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🌿 New — Narcea AI persona (stepping-stone agent mode)
+- **`🌿 Narcea` persona** ([`addons/visual_gasic/vg_ai_narcea.gd`](addons/visual_gasic/vg_ai_narcea.gd)) — VG-aware pair programmer that injects an active-context probe (current panel, open file), a baked-in VG knowledge block (control catalog, AGCK actor types, Working Nodes triggers, common gotchas, idioms), and the local tutorial index into the system prompt. Selectable from the AI Pair persona dropdown alongside Bob / Skippy / Orac / HAL.
+- **🔨 Build form button** — when Narcea's reply contains a fenced ` ```vg-form-spec ``` ` JSON block, the toolbar button enables and one click materialises the form in the Form Designer via the bound `new_form` / `add_control` / `set_control_property` C++ API. Whitelist-validated control types / property keys keep the model from asking for arbitrary script execution. New module: [`addons/visual_gasic/vg_ai_form_spec.gd`](addons/visual_gasic/vg_ai_form_spec.gd).
+- **TTS now skips code** — fenced code blocks are summarised ("see the panel for N lines of VG code") instead of read aloud line-by-line; markdown emphasis, inline backticks and URLs are stripped before speech. New module: [`addons/visual_gasic/vg_ai_speech_filter.gd`](addons/visual_gasic/vg_ai_speech_filter.gd).
+- **⏹ Stop-Speaking button** — `vg_ai_voice.stop_speaking()` now also `OS.kill`s the system-TTS subprocess (espeak / SAPI), captured at `OS.create_process` time and emits `speech_finished` so the panel state stays consistent. Toolbar button auto-shows on `speech_started` and hides on `speech_finished`.
+- **Form spec — containers, events, parent-relative coords** — `vg_ai_form_spec.gd` now whitelists `Frame` / `GroupBox` containers plus `backcolor` / `forecolor` / `borderstyle` / `appearance` / `parent` properties; resolves logical `parent: "<name>"` references to absolute pixel offsets (FormDesigner is flat-layout); and exposes `generate_event_stubs(spec, existing_source)` which emits `Sub <name>_<event>()` stubs based on per-control `events: [...]` arrays or a spec-level `auto_events: true` flag, idempotent against any source already containing the sub.
+- **🤖 Make this button** — one-click chain in the AI panel: extract the spec → apply to designer → save the form (`save_form_as` if untitled, else `save_form`) → write event stubs into the matching `.vg` file → rescan filesystem → open the script in the embedded code editor. Stays opt-in (button click only); disabled until a valid `vg-form-spec` block is in the latest reply.
+- **Persona-aware speech rate** — `vg_ai_voice.tts_speed_scale` is now plumbed through every TTS backend: OpenAI `speed` (clamped 0.25..4.0), Piper `--length-scale` (inverse), espeak `-s WPM` (175 × scale), macOS `say -r WPM`, SAPI `$s.Rate` (log2-mapped to ±10). Personas drive it from a new `speech_speed` field — Skippy 1.18× (manic), Orac 0.92×, HAL 0.85× (serene/ominous), everyone else 1.0×.
+
 ## [5.1.0-rc.1] - 2026-04-29
 
 ### 🛠️ Fixed — Release pipeline

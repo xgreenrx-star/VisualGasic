@@ -113,17 +113,29 @@ Schema:
   {
     \"form_name\": \"<safe identifier>\",
     \"form_size\": [width, height],          // optional, integers
+    \"auto_events\": true,                    // optional; if true, every
+                                              // interactive control gets a
+                                              // default Sub stub written
     \"controls\": [
       {
         \"type\":   \"<one of: Button, Label, LineEdit, TextEdit, CheckBox,
                      OptionButton, ItemList, Panel, PanelContainer,
                      ColorRect, TextureRect, ProgressBar, HSlider, VSlider,
-                     SpinBox, Timer>\",
+                     SpinBox, Timer, Frame, GroupBox>\",
         \"name\":   \"<identifier, e.g. btnOK>\",
         \"left\":   <int>, \"top\": <int>,
         \"width\":  <int>, \"height\": <int>,
         \"text\":   \"<caption / button label>\",         // optional
-        \"items\":  [\"row1\", \"row2\"]                   // ItemList / OptionButton
+        \"items\":  [\"row1\", \"row2\"],                 // ItemList / OptionButton
+        \"parent\": \"<name of an earlier Frame/GroupBox in this spec>\",
+                                                          // optional; coords
+                                                          // are relative to
+                                                          // that container
+        \"events\": [\"Click\", \"DblClick\"]              // optional explicit
+                                                          // handler list
+        // Optional VB6 colours / font:
+        // \"backcolor\": [r, g, b],   \"forecolor\": [r, g, b],
+        // \"font_size\": 14
       }
     ]
   }
@@ -134,12 +146,16 @@ Example block (fenced exactly as below):
   {
     \"form_name\": \"frmLogin\",
     \"form_size\": [280, 160],
+    \"auto_events\": true,
     \"controls\": [
-      {\"type\": \"Label\",    \"name\": \"lblUser\", \"left\": 10, \"top\": 12,
-       \"width\": 70, \"height\": 20, \"text\": \"User:\"},
-      {\"type\": \"LineEdit\", \"name\": \"txtUser\", \"left\": 90, \"top\": 10,
-       \"width\": 170, \"height\": 24},
-      {\"type\": \"Button\",   \"name\": \"btnOK\",   \"left\": 100, \"top\": 110,
+      {\"type\": \"Frame\",    \"name\": \"fraCreds\", \"left\": 8,  \"top\": 4,
+       \"width\": 264, \"height\": 96, \"text\": \"Credentials\"},
+      {\"type\": \"Label\",    \"name\": \"lblUser\",  \"left\": 8,  \"top\": 28,
+       \"width\": 70,  \"height\": 20, \"text\": \"User:\",
+       \"parent\": \"fraCreds\"},
+      {\"type\": \"LineEdit\", \"name\": \"txtUser\",  \"left\": 90, \"top\": 24,
+       \"width\": 160, \"height\": 24, \"parent\": \"fraCreds\"},
+      {\"type\": \"Button\",   \"name\": \"btnOK\",    \"left\": 100, \"top\": 110,
        \"width\": 75, \"height\": 28, \"text\": \"OK\"}
     ]
   }
@@ -149,6 +165,9 @@ Rules:
   * Map VB6 control names to the Godot type list above (CommandButton -> Button,
     TextBox -> LineEdit / TextEdit, ComboBox -> OptionButton, ListBox -> ItemList).
   * Use VB6-style coordinates (Left/Top/Width/Height) in pixels, integers only.
+  * Coordinates are relative to `parent` if present, otherwise to the form.
+  * Set `auto_events: true` when the user asked for a working form (with
+    behaviour); leave it unset for static / placeholder layouts.
   * Only include the `vg-form-spec` block when the user actually wants a form
     built; for code-only or general questions, skip it.
   * Keep the JSON valid \u2014 no trailing commas, no comments inside the block.

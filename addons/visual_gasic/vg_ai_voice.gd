@@ -82,6 +82,14 @@ var piper_voice_path: String = ""         # e.g. "/usr/share/piper/en_US-amy-low
 # configure the voices folder once.  Empty = use piper_voice_path as-is.
 var piper_voice_override: String = ""
 
+# Speech rate scale.  1.0 = normal; >1 = faster; <1 = slower.  Forwarded to
+# every backend that supports it: OpenAI `speed` (clamped 0.25..4.0),
+# Piper `--length-scale` (inverse \u2014 length-scale 1/scale), espeak `-s WPM`
+# (175 * scale), macOS `say -r WPM`, SAPI `$s.Rate` (-10..10 mapped from
+# log2 of scale).  The AI panel sets this from the active persona so
+# Skippy can sound manic and HAL can sound serene.
+var tts_speed_scale: float = 1.0
+
 # ─── Lifecycle ──────────────────────────────────────────────────────────────
 func _ready() -> void:
 	_load_settings()
@@ -508,6 +516,8 @@ func _speak_openai(text: String) -> void:
 		"model": OPENAI_TTS_MODEL,
 		"input": text,
 		"voice": tts_voice,
+		# Persona-driven speed; OpenAI accepts 0.25..4.0.
+		"speed": clampf(tts_speed_scale, 0.25, 4.0),
 		"response_format": "mp3",
 	})
 	var headers := PackedStringArray([
@@ -578,16 +588,20 @@ func _speak_piper(text: String) -> void:
 
 	# piper --model <onnx> --output_file <wav> < text
 	# OS.execute can't do stdin redirection directly; use a wrapper shell.
+	# Honour the persona-driven speed scale: piper's `--length-scale` is
+	# inverse to perceived speed (length 1/scale gives the right feel).
+	var ls: float = clampf(1.0 / maxf(tts_speed_scale, 0.1), 0.25, 4.0)
+	var ls_arg := " --length-scale %.3f" % ls
 	var cmd: String
 	var args: PackedStringArray
 	if OS.has_feature("windows"):
 		cmd = "cmd"
-		args = PackedStringArray(["/c", "type \"%s\" | \"%s\" --model \"%s\" --output_file \"%s\"" % [
-			txt_path, piper_path, voice_path, wav_path]])
+		args = PackedStringArray(["/c", "type \"%s\" | \"%s\" --model \"%s\"%s --output_file \"%s\"" % [
+			txt_path, piper_path, voice_path, ls_arg, wav_path]])
 	else:
 		cmd = "sh"
-		args = PackedStringArray(["-c", "cat '%s' | '%s' --model '%s' --output_file '%s'" % [
-			txt_path, piper_path, voice_path, wav_path]])
+		args = PackedStringArray(["-c", "cat '%s' | '%s' --model '%s'%s --output_file '%s'" % [
+			txt_path, piper_path, voice_path, ls_arg, wav_path]])
 	var output: Array = []
 	_is_speaking = true
 	speech_started.emit()
@@ -612,18 +626,22 @@ func _speak_piper(text: String) -> void:
 func _speak_system(text: String) -> void:
 	var cmd: String = ""
 	var args: PackedStringArray
+	# Map persona speed-scale onto each engine's native rate units.
+	var wpm := int(clamp(175.0 * tts_speed_scale, 80.0, 450.0))   # espeak / say
+	# SAPI rate is roughly log2-spaced; clamp to its -10..10 range.
+	var sapi_rate := int(clamp(round(log(tts_speed_scale) / log(2.0) * 10.0), -10.0, 10.0))
 	if OS.has_feature("linux"):
 		cmd = "espeak"
-		args = PackedStringArray([text])
+		args = PackedStringArray(["-s", str(wpm), text])
 	elif OS.has_feature("macos"):
 		cmd = "say"
-		args = PackedStringArray([text])
+		args = PackedStringArray(["-r", str(wpm), text])
 	elif OS.has_feature("windows"):
 		# PowerShell SAPI one-liner.
 		var ps_text := text.replace("'", "''")
 		cmd = "powershell"
 		args = PackedStringArray(["-NoProfile", "-Command",
-			"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('%s')" % ps_text])
+			"Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Rate = %d; $s.Speak('%s')" % [sapi_rate, ps_text]])
 	if cmd.is_empty() or not _binary_exists(cmd):
 		speech_failed.emit("System TTS unavailable on this platform.")
 		return
@@ -634,7 +652,7 @@ func _speak_system(text: String) -> void:
 	# We can't observe completion of an external process synchronously without
 	# blocking; emit speech_finished after a short estimated delay so the panel
 	# can re-enable the mic button.  Rough heuristic: 70ms / character.
-	var delay := mini(15000, 700 + text.length() * 70)
+	var delay := mini(15000, int((700 + text.length() * 70) / maxf(tts_speed_scale, 0.1)))
 	get_tree().create_timer(delay / 1000.0).timeout.connect(_on_system_tts_estimated_done)
 
 func _on_system_tts_estimated_done() -> void:
