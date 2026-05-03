@@ -475,9 +475,19 @@ func _launch_godot(project_dir: String) -> void:
 			ff.store_string(str(Time.get_unix_time_from_system()))
 			ff.close()
 
-	# Show a modal "Loading…" splash and keep the welcome window on top
-	# so the user doesn't see the partially-initialized Godot editor
-	# while the VG plugin boots.
+	# Show a modal "Loading…" splash. We also expand the welcome
+	# window itself to cover the full screen and pin it always-on-top
+	# so Godot's editor — which may ignore our --position hints and
+	# come up wherever its project.godot tells it to — stays hidden
+	# behind the splash until the VG plugin signals ready.
+	var win := get_window()
+	var prev_mode := win.mode
+	var prev_borderless := win.borderless
+	var prev_always_on_top := win.always_on_top
+	win.borderless = true
+	win.always_on_top = true
+	win.mode = Window.MODE_FULLSCREEN
+
 	var splash := AcceptDialog.new()
 	splash.title = "VisualGasic"
 	splash.dialog_text = "Loading %s …\n\nThe IDE will appear in a moment." % project_dir.get_file()
@@ -486,23 +496,22 @@ func _launch_godot(project_dir: String) -> void:
 	splash.unresizable = true
 	add_child(splash)
 	splash.popup_centered(Vector2i(420, 140))
-	get_window().always_on_top = true
 	# Yield one frame so the splash is on screen before we fork Godot.
 	await get_tree().process_frame
 
-	# Spawn Godot off-screen and tiny so the editor's transient init UI
-	# never paints over our welcome splash. The VG plugin restores the
-	# window (maximized, foregrounded) once its IDE is built — see
-	# `_clear_vg_launching_flag` in addons/visual_gasic/visual_gasic_plugin.gd.
+	# Spawn Godot. We don't bother with --position/--resolution hints —
+	# Godot tends to override them with the project's own window
+	# settings. The fullscreen always-on-top welcome window above is
+	# what actually keeps the editor out of view.
 	var pid: int = OS.create_process(godot_bin, [
 		"--path", project_dir,
 		"--editor",
-		"--position", "30000,30000",
-		"--resolution", "1x1",
 	])
 	if pid <= 0:
 		splash.queue_free()
-		get_window().always_on_top = false
+		win.mode = prev_mode
+		win.borderless = prev_borderless
+		win.always_on_top = prev_always_on_top
 		_status.text = "Failed to launch Godot for %s" % project_dir
 		if not flag_path.is_empty():
 			DirAccess.remove_absolute(flag_path)

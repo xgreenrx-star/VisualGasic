@@ -1,10 +1,10 @@
 ; Engine configuration file.
-; VisualGasic Welcome Shell — replaces Godot's Project Manager.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
 ;
-; This is a tiny "shell" project whose only job is to host the VG
-; Welcome window. When the user picks a project (or creates a new one),
-; the shell spawns a fresh Godot instance pointed at the chosen project
-; and quits.
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
@@ -20,7 +20,6 @@ config/icon="res://icon.svg"
 
 window/size/viewport_width=900
 window/size/viewport_height=560
-window/size/resizable=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 

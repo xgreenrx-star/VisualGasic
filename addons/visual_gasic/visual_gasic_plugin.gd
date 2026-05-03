@@ -237,16 +237,9 @@ func _enter_tree():
 	# launcher can skip Godot's Project Manager and reopen it directly.
 	_record_recent_vg_project()
 
-	# If we were spawned from the welcome shell (which drops a
-	# `launching.flag` marker), minimize the editor window now so the
-	# user doesn't see the partially-painted Godot UI while plugins
-	# initialize. Restored from a deferred call once the IDE is built.
-	_minimize_if_launching()
-
 	# If the welcome shell dropped a `launching.flag` while waiting for
 	# us to come up, clear it once the IDE UI has finished building so
-	# the shell knows we're ready and can drop its loading splash. The
-	# same deferred slot also un-minimizes the editor window.
+	# the shell knows we're ready and can drop its loading splash.
 	call_deferred("_clear_vg_launching_flag")
 
 	# If the welcome shell dropped a Narcea seed, hand it to the AI panel
@@ -4670,41 +4663,12 @@ func _vg_launching_flag_path() -> String:
 func _clear_vg_launching_flag() -> void:
 	var p := _vg_launching_flag_path()
 	if p.is_empty() or not FileAccess.file_exists(p):
-		# No marker -> not launched from the welcome shell, nothing
-		# to restore. (We never minimize without a marker.)
 		return
 	DirAccess.remove_absolute(p)
-	# The welcome shell spawned us off-screen at 1x1 so the editor's
-	# transient init UI wouldn't paint over its splash. Now that the
-	# IDE is built, bring the window back: pick the primary screen,
-	# size to 80% of it, center, and maximize. Foreground last.
-	var screen := DisplayServer.window_get_current_screen()
-	var screen_size := DisplayServer.screen_get_size(screen)
-	var screen_pos := DisplayServer.screen_get_position(screen)
-	var win_size := Vector2i(
-		int(screen_size.x * 0.8),
-		int(screen_size.y * 0.8)
-	)
-	# First leave any minimized/fullscreen state so size/pos take effect.
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-	DisplayServer.window_set_size(win_size)
-	DisplayServer.window_set_position(
-		screen_pos + (screen_size - win_size) / 2
-	)
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED)
+	# Make sure we're foregrounded once the welcome shell drops its
+	# fullscreen cover splash — otherwise some window managers leave
+	# focus on the (now-quitting) welcome window for a beat.
 	DisplayServer.window_move_to_foreground()
-
-
-## When spawned from the welcome shell, minimize the editor window as
-## a fallback in case the off-screen `--position` hint was clamped by
-## the window manager. The marker file's presence is what tells us we
-## were launched that way; we never touch the window when launched
-## standalone.
-func _minimize_if_launching() -> void:
-	var p := _vg_launching_flag_path()
-	if p.is_empty() or not FileAccess.file_exists(p):
-		return
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
 ## describing what the user wants Narcea to build, prefill the AI panel's
 ## prompt input with it and surface a status message. The seed file is
 ## renamed to `.narcea_seed.consumed` so this fires only once.
