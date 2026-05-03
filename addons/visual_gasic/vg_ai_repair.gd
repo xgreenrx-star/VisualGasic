@@ -360,7 +360,7 @@ func _on_http_response(result: int, code: int, _headers: PackedStringArray, body
 		_show_error("Empty response from the model.")
 		return
 
-	var json := _extract_json_blob(raw_text)
+	var json: Variant = _extract_json_blob(raw_text)
 	if json == null:
 		_show_error("Could not parse a JSON patch from the response.\n\nRaw reply:\n" + raw_text.substr(0, 800))
 		return
@@ -545,7 +545,7 @@ func _esc(text: String) -> String:
 # ─── Apply / Retry / Cancel ─────────────────────────────────────────────────
 
 func _on_apply() -> void:
-	var new_lines := _apply_patch_to_lines()
+	var new_lines: Variant = _apply_patch_to_lines()
 	if new_lines == null:
 		_show_error("Patch failed to apply (line numbers no longer valid).")
 		return
