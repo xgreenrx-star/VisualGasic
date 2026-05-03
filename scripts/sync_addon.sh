@@ -5,7 +5,7 @@
 #
 # Usage: scripts/sync_addon.sh <project_dir> [<project_dir> ...]
 #        scripts/sync_addon.sh --all   # sync every recent project
-set -e
+set -u  # NOTE: not -e — rsync may exit 24 on harmless "vanished" races.
 
 VG_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$VG_ROOT/addons/visual_gasic"
@@ -21,8 +21,33 @@ sync_one() {
         echo "skip (no project.godot): $target"
         return
     fi
+    local target_abs
+    target_abs="$(cd "$target" && pwd)"
+    # Refuse to sync the canonical repo itself, or any project nested
+    # inside it (game_projects/, demo/, etc.) — the canonical addon's
+    # `bin/` is a symlink to <repo>/bin and rsync -L --delete on a
+    # nested target dereferences and clobbers the source symlink.
+    if [[ "$target_abs" == "$VG_ROOT" || "$target_abs" == "$VG_ROOT"/* ]]; then
+        echo "skip (inside repo, would clobber canonical bin symlink): $target"
+        return
+    fi
     mkdir -p "$target/addons"
-    rsync -a --delete "$SRC/" "$target/addons/visual_gasic/"
+    local target_addon="$target/addons/visual_gasic"
+    # Drop a stale `bin` symlink in the target so rsync -L can write
+    # the real .so/.dll files into a fresh directory.
+    if [[ -L "$target_addon/bin" ]]; then
+        rm -f "$target_addon/bin"
+    fi
+    # -L: dereference symlinks (the canonical addon's `bin/` is a symlink
+    # to <repo>/bin; we need real binaries copied into each project).
+    # Exit 24 ("some files vanished") is treated as non-fatal.
+    rsync -aL --delete "$SRC/" "$target_addon/" || {
+        local rc=$?
+        if [[ $rc -ne 24 ]]; then
+            echo "rsync failed ($rc) for $target" >&2
+            return $rc
+        fi
+    }
     echo "synced -> $target"
 }
 
