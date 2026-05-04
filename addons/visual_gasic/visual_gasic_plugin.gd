@@ -8527,7 +8527,8 @@ func _show_first_run_dialog() -> void:
 	var dlg = dlg_script.new()
 	dlg.project_type_chosen.connect(_on_first_run_type_chosen)
 	EditorInterface.get_base_control().add_child(dlg)
-	dlg.popup_centered()
+	dlg.popup_centered(Vector2i(640, 460))
+	dlg.size = Vector2i(640, 460)
 
 
 func _on_first_run_type_chosen(kind: String) -> void:
