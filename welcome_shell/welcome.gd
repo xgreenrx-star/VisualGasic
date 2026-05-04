@@ -53,7 +53,7 @@ func _ready() -> void:
 	_narcea_btn.pressed.connect(_on_narcea_pressed)
 	_browse_btn.pressed.connect(_on_browse_pressed)
 	_forget_btn.pressed.connect(_on_forget_pressed)
-	_quit_btn.pressed.connect(func(): get_tree().quit())
+	_quit_btn.pressed.connect(_on_quit_pressed)
 	_load_recent()
 	_rebuild_tag_chips()
 	_apply_filter()
@@ -332,6 +332,18 @@ func _on_forget_pressed() -> void:
 	_rebuild_tag_chips()
 	_apply_filter()
 	_clear_detail()
+
+
+func _on_quit_pressed() -> void:
+	# Drop fullscreen/always-on-top first so the WM releases input
+	# focus cleanly, then quit. Print for debuggability.
+	print("[VG Welcome] Quit pressed")
+	var win := get_window()
+	if win != null:
+		win.always_on_top = false
+		if win.mode == Window.MODE_FULLSCREEN:
+			win.mode = Window.MODE_WINDOWED
+	get_tree().quit()
 
 
 # ─── Browse / Create / Narcea ───────────────────────────────────────────────
