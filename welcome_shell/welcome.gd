@@ -334,6 +334,15 @@ func _on_forget_pressed() -> void:
 	_clear_detail()
 
 
+func _force_dialog_size(dlg: Window, sz: Vector2i) -> void:
+	if not is_instance_valid(dlg):
+		return
+	dlg.size = sz
+	# Re-center against the parent window now that we know our true size.
+	var parent_size := get_window().size
+	dlg.position = (parent_size - sz) / 2
+
+
 func _on_quit_pressed() -> void:
 	# Drop fullscreen/always-on-top first so the WM releases input
 	# focus cleanly, then quit. Print for debuggability.
@@ -372,8 +381,8 @@ func _on_create_pressed() -> void:
 	var dlg := AcceptDialog.new()
 	dlg.title = "+  Create New Project"
 	dlg.ok_button_text = "Create + Open"
-	dlg.min_size = Vector2i(560, 0)
-	dlg.unresizable = false
+	dlg.min_size = Vector2i(560, 180)
+	dlg.max_size = Vector2i(560, 220)
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
@@ -449,10 +458,10 @@ func _on_create_pressed() -> void:
 	)
 	dlg.canceled.connect(dlg.queue_free)
 	add_child(dlg)
-	# popup_centered's arg is a *minsize*, not the actual size. Push the
-	# real size after popup so the dialog hugs its content.
-	dlg.popup_centered()
-	dlg.size = Vector2i(560, 220)
+	dlg.popup_centered(Vector2i(560, 200))
+	# Subwindow embedding can ignore the popup minsize; pin it next frame.
+	dlg.size = Vector2i(560, 200)
+	call_deferred("_force_dialog_size", dlg, Vector2i(560, 200))
 	name_edit.grab_focus()
 
 
@@ -544,8 +553,9 @@ func _on_narcea_pressed() -> void:
 	)
 	dlg.canceled.connect(dlg.queue_free)
 	add_child(dlg)
-	dlg.popup_centered()
-	dlg.size = Vector2i(620, 380)
+	dlg.popup_centered(Vector2i(620, 360))
+	dlg.size = Vector2i(620, 360)
+	call_deferred("_force_dialog_size", dlg, Vector2i(620, 360))
 	desc.grab_focus()
 
 
