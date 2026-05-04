@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.0-rc.2] - 2026-05-03
+
+### 🪟 New — Welcome shell loading experience overhaul
+- **Welcome shell opens fullscreen** ([`welcome_shell/welcome.gd`](welcome_shell/welcome.gd)) — `_ready()` sets `Window.MODE_FULLSCREEN` so the picker takes the screen on launch. No more half-painted Godot Project Manager flashing up before our UI does.
+- **Always-on-top fullscreen cover during Godot startup** — when the user picks a project, the welcome window flips to `borderless = true` + `always_on_top = true` + `MODE_FULLSCREEN` *before* spawning the editor process. The cover stays painted until the IDE plugin clears `launching.flag`. This replaces two earlier failed approaches (post-spawn minimize, and `--position 30000,30000 --resolution 1x1` off-screen spawn) — both let the editor's first paint bleed onto the screen for several frames.
+- **Custom-drawn modern circular spinner** — replaces the `ProgressBar` widget with a 48 px rotating-arc spinner (`draw_arc` track + leading 110° arc, ~0.9 rev/sec, blue while running → solid green ring on `set_meta("done", true)`). Sits in a `VBoxContainer` 40 px below the "Loading <project>…" label.
+- **1.5 s tail-wait** — after `launching.flag` clears, the cover lingers an extra 1.5 s so Godot's first editor frame doesn't race the welcome shell's `quit()` and flash a sliver of the editor uncovered.
+- **Named `_on_quit_pressed` handler** — the Quit button's lambda was extracted to a real method so it survives parse-error rebuilds and prints a diagnostic line (`[VG Welcome] Quit pressed`). Drops `always_on_top` + fullscreen before calling `get_tree().quit()` so the cover doesn't ghost above the desktop.
+
+### 🧰 New — Form Designer toolbox expansion (15 controls)
+Wired up in [`addons/visual_gasic/visual_gasic_plugin.gd::_register_extra_tools()`](addons/visual_gasic/visual_gasic_plugin.gd) (GDScript wrapper around `VisualGasicToolbox.add_tool(name, godot_class, icon, scene, category)` — no C++ rebuild required).
+
+**Standard 2D tab — 10 new controls:**
+- **Spinner** ([`prototypes/Spinner.tscn`](addons/visual_gasic/prototypes/Spinner.tscn)) — `@tool` rotating-arc indeterminate indicator, runs live in the designer.
+- **BusyDots** — three dots bouncing in sequence; cleaner than a spinner for inline "thinking" states.
+- **ToggleSwitch** — slide toggle that emits `toggled(pressed)`. Stand-in for the missing iOS-style switch in stock Godot.
+- **ColorPickerButton** — Godot's `ColorPickerButton` exposed as a Toolbox tool.
+- **LinkButton** — hyperlink-style label-button with underline-on-hover.
+- **HSplit** / **VSplit** — pre-populated `HSplitContainer` / `VSplitContainer` with named Left/Right (or Top/Bottom) `Panel` children so dropping it on the canvas gives you something visible immediately.
+- **VideoPlayer** — `VideoStreamPlayer` wrapped as a draggable tool.
+- **Expander** — collapsible header + content panel (`@tool`, fold animation runs in the editor).
+- **Breadcrumbs** — `LinkButton` chain with `▸` separators; `set_path([...])` API.
+
+**Game UI tab — 5 new controls** (kept separate from Standard tab so the retro/HUD aesthetics don't clutter regular OS-form work):
+- **PixelProgressBar** — 8-bit pixel-cell progress bar with configurable cell count and gap (`@tool`, designer-live).
+- **SegmentedProgressBar** — rounded multi-chunk bar for stamina / shield gauges.
+- **RetroLifeBar** — health bar that HSV-shifts green → yellow → red as `value` drops, with thick black outline and highlight strip. Drop-in for top-down RPGs.
+- **CircularProgress** — determinate ring (`draw_arc`) with center `%` label.
+- **Badge** — pill / circle count overlay (notification dot). Hides at 0, displays "99+" at overflow.
+
+### 🛠 Fixes (rc.2)
+- **`launching.flag` handoff race** — `_clear_vg_launching_flag` was deferred from `_enter_tree`, but earlier rc.1 builds also tried to minimize / move the editor window after the plugin was up, which fought the welcome cover. The whole minimize-after-spawn path is gone; the cover handles concealment instead.
+- **Spinner lambda scope clash** — `_make_circular_spinner` had a local `center` variable that collided with `Control.center` in the `_draw` callback, throwing a parse error on plugin reload. Renamed to `center_box`.
+- **`recent_projects.cfg` re-seed support** — `_record_recent_vg_project` now survives a missing-file read cleanly so users who deleted the cfg (or upgraded across the JSON-vs-Array format change) get a fresh `[recent]` section instead of a silent no-op.
+
 ### 🚪 New — VG Welcome launcher (skip Godot's Project Manager)
 - **VG Welcome shell** ([`welcome_shell/`](welcome_shell/)) — a tiny Godot app that replaces Godot's stock Project Manager with a VG-branded picker. Reads the cross-project recent list, shows per-project icon thumbnails (`icon.svg`/`png`/`webp`), live free-text search, auto-derived tag chips with counts, **Forget Selected**, and **Ask Narcea to Make a Project** which scaffolds `~/Documents/VisualGasic_Projects/<name>/` and drops a `narcea_seed.txt` the IDE picks up on first open to pre-fill the AI panel.
 - **`./vg-ide` (Linux / macOS) and `.\vg-ide.ps1` (Windows)** — dependency-free launcher scripts that skip the Godot PM and open the welcome shell by default. Flags: `--last` / `-Last` (or `VG_OPEN_LAST=1`) to jump into the most-recent project; pass an explicit project dir to bypass the picker. `VG_GODOT` overrides binary discovery; macOS resolves `Godot.app` bundles, Windows resolves Program Files / LOCALAPPDATA install layouts.

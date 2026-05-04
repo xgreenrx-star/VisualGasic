@@ -257,6 +257,8 @@ Internal docs for contributors and maintainers.
 
 | Version | File | Highlights |
 |---------|------|------------|
+| **v5.1.0-rc.2** | [RELEASE_NOTES_v5.1.0-rc.2.md](../RELEASE_NOTES_v5.1.0-rc.2.md) | **Welcome shell loading overhaul** (always-on-top fullscreen cover + circular spinner), **15 new Form Designer toolbox controls** (10 Standard + 5 Game UI: pixel/segmented/retro progress bars, badge, toggle switch, breadcrumbs, splits, …) |
+| v5.1.0-rc.1 | [RELEASE_NOTES_v5.1.0-rc.1.md](../RELEASE_NOTES_v5.1.0-rc.1.md) | VGAssetBus/Broker/Registry, Default Editors UI, Command Palette MRU, External Watcher, Cross-asset rename rewriter, AGCK 8 templates, plugin capability lint |
 | v5.1.0-Beta1 | [RELEASE_NOTES_v5.1.0-Beta1.md](../RELEASE_NOTES_v5.1.0-Beta1.md) | One-click installers (AppImage/EXE), unified ▶ Play menu, Form Designer as toggleable plugin |
 | v5.0.1-beta5 | [RELEASE_NOTES_v5.0.1-beta5.md](../RELEASE_NOTES_v5.0.1-beta5.md) | Working Nodes plugin, AGCK, sprite editor, 3D tools |
 | v5.0.1-beta1 | [RELEASE_NOTES_v5.0.1-beta1.md](../RELEASE_NOTES_v5.0.1-beta1.md) | Plugin system, major version jump |

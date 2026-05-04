@@ -368,7 +368,8 @@ First-time PowerShell users may need to allow local scripts: `Set-ExecutionPolic
   - **Windows:** `%APPDATA%\VisualGasic\recent_projects.cfg`
 - The IDE plugin records every VG project you open into that file (move-to-front, capped at 16).
 - The Welcome shell project is a tiny Godot app under `welcome_shell/` that reads the list, shows thumbnails, supports search + tag filtering, and has an **Exit to VG Welcome** menu item from inside the IDE for easy round-tripping.
-- A `launching.flag` marker keeps a "Loading…" splash on top while Godot initializes, so you don't see the partially-painted editor mid-boot.
+- A `launching.flag` marker keeps a "Loading…" splash on top while Godot initializes, so you don't see the partially-painted editor mid-boot. Since `v5.1.0-rc.2` the splash flips to **borderless + always-on-top + fullscreen** *before* spawning Godot and shows a custom rotating-arc circular spinner; it lingers an extra 1.5 s after `launching.flag` clears so the editor's first frame doesn't race the cover's `quit()`.
+- The Quit button on the cover is wired to a real `_on_quit_pressed` handler (logs `[VG Welcome] Quit pressed`, drops `always_on_top` + fullscreen, then quits the tree) — safe to click at any point during the load.
 
 If the Welcome shell isn't found, set `VG_WELCOME_DIR` to the directory containing it.
 

@@ -1,7 +1,7 @@
 # VisualGasic — The language you read when you don't trust the AI.
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-5.1.0--rc.1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-5.1.0--rc.2-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.6.1+-purple.svg)](https://godotengine.org)
 
@@ -52,7 +52,9 @@ If the next decade really is auditor-bound, then the language that wins is the o
 
 ➡ **Read the full argument: [Why the AI Era Needs BASIC Again](docs/manifesto.md)**
 
-> 🚀 **v5.1.0-rc.1 — Release Candidate (Apr 29 2026).** AI-native IDE with 5 built-in AI personas + voice mode (PTT), AGCK game builder with 8 templates, plugin SDK, unified ▶ Play menu, and the Linux one-shot installer. **Looking for Windows & macOS testers** — see [release notes](RELEASE_NOTES_v5.1.0-rc.1.md). [Changelog](CHANGELOG.md).
+> 🚀 **v5.1.0-rc.2 — Release Candidate (May 3 2026).** AI-native IDE with 5 built-in AI personas + voice mode (PTT), AGCK game builder with 8 templates, plugin SDK, unified ▶ Play menu, the Linux one-shot installer, and a polished **VG Welcome** launcher with always-on-top cover + circular spinner. The Form Designer toolbox grew by **15 controls** (10 Standard + 5 Game UI: pixel/retro/segmented progress bars, life bar with HSV shift, badge counter, toggle switch, breadcrumbs, expander, splits, …). **Looking for Windows & macOS testers** — see [release notes](RELEASE_NOTES_v5.1.0-rc.2.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
+>
+> 📚 **Docs from the main page:** every guide, reference, and tutorial is one click away from [`docs/DOCS.md`](docs/DOCS.md). Quick jumps: [Getting Started](docs/guides/GET_STARTED.md) · [Installation](docs/guides/INSTALLATION.md) · [Language Reference](docs/VisualGasic_Language_Reference.md) · [Built-in Functions](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) · [Custom Controls](docs/guides/CUSTOM_CONTROLS.md) · [Plugin SDK](addons/visual_gasic/PLUGIN_SDK.md).
 
 ## ⚡ What VisualGasic actually is
 
@@ -271,7 +273,7 @@ VisualGasic/
 
 ### **Installation**
 
-> 🚧 **Installer status (v5.1.0-rc.1):** Linux one-shot installer is the recommended path. Windows `.exe` and macOS `.dmg` graphical installers are still in progress — on those platforms use the `vg` CLI or unzip the release for now.
+> 🚧 **Installer status (v5.1.0-rc.2):** Linux one-shot installer is the recommended path. Windows `.exe` and macOS `.dmg` graphical installers are still in progress — on those platforms use the `vg` CLI or unzip the release for now.
 
 **🐧 Linux — one-shot bootstrap (recommended):**
 
@@ -285,7 +287,7 @@ Downloads Godot 4.6.1, installs the addon globally, drops a `~/.local/bin/visual
 
 **📦 From the latest GitHub Release (all platforms):**
 
-Download the platform zip from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/latest) (e.g. `VisualGasic-v5.1.0-rc.1.zip`), extract, and either point the `vg` CLI at it or copy `addons/visual_gasic/` into your project. Tagged release notes: [v5.1.0-rc.1](RELEASE_NOTES_v5.1.0-rc.1.md).
+Download the platform zip from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/latest) (e.g. `VisualGasic-v5.1.0-rc.2.zip`), extract, and either point the `vg` CLI at it or copy `addons/visual_gasic/` into your project. Tagged release notes: [v5.1.0-rc.2](RELEASE_NOTES_v5.1.0-rc.2.md) · [v5.1.0-rc.1](RELEASE_NOTES_v5.1.0-rc.1.md).
 
 **From Godot Asset Library:**
 1. Open your Godot project
@@ -496,9 +498,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: `v5.1.0-rc.1` (Release Candidate, 2026-04-29)
+**Current Version**: `v5.1.0-rc.2` (Release Candidate, 2026-05-03)
 
-> See [CHANGELOG.md](CHANGELOG.md) and the [v5.1.0-rc.1 release notes](RELEASE_NOTES_v5.1.0-rc.1.md) for the latest changes.
+> See [CHANGELOG.md](CHANGELOG.md) and the [v5.1.0-rc.2 release notes](RELEASE_NOTES_v5.1.0-rc.2.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
