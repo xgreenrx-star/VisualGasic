@@ -539,7 +539,7 @@ func _on_narcea_pressed() -> void:
 	)
 	dlg.canceled.connect(dlg.queue_free)
 	add_child(dlg)
-	dlg.popup_centered()
+	dlg.popup_centered(Vector2i(620, 360))
 	desc.grab_focus()
 
 
