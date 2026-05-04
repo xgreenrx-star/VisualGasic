@@ -484,20 +484,34 @@ func _create_blank_project(proj_name: String, parent_dir: String) -> String:
 		_status.text = "Failed to make directory: %s (err %d)" % [dir, mk]
 		return ""
 
-	# Minimal project.godot — IDE plugin handles the rest on first open.
+	# project.godot with the VG plugin pre-enabled. We seed the addon
+	# directory below; without the [editor_plugins] section Godot would
+	# open the project but never load VG.
 	var pg := ""
 	pg += "config_version=5\n\n"
 	pg += "[application]\n\n"
 	pg += "config/name=\"%s\"\n" % proj_name.replace("\"", "'")
 	pg += "config/features=PackedStringArray(\"4.6\", \"Forward Plus\")\n\n"
 	pg += "[audio]\n\n"
-	pg += "driver/enable_input=true\n"
+	pg += "driver/enable_input=true\n\n"
+	pg += "[editor_plugins]\n\n"
+	pg += "enabled=PackedStringArray(\"res://addons/visual_gasic/plugin.cfg\")\n"
 	var f := FileAccess.open(dir + "/project.godot", FileAccess.WRITE)
 	if f == null:
 		_status.text = "Failed to write project.godot in %s" % dir
 		return ""
 	f.store_string(pg)
 	f.close()
+
+	# Seed the canonical addon so the project is VG-ready on first open.
+	var addon_src := _resolve_canonical_addon_dir()
+	if addon_src.is_empty():
+		_status.text = "Created %s but couldn't find VG addon source — open from a source-tree checkout or set $VG_ADDON_SOURCE." % dir
+		return dir
+	var copy_err := _copy_dir_recursive(addon_src, dir + "/addons/visual_gasic")
+	if copy_err != OK:
+		_status.text = "Created %s but addon copy failed (err %d)." % [dir, copy_err]
+		return dir
 	_status.text = "Created %s — opening…" % dir
 	return dir
 
@@ -577,20 +591,27 @@ func _create_narcea_seed_project(proj_name: String, description: String) -> Stri
 		_status.text = "Failed to make directory: %s (err %d)" % [dir, mk]
 		return ""
 
-	# Minimal project.godot — addon side handles the rest on first open.
+	# project.godot with the VG plugin pre-enabled.
 	var pg := ""
 	pg += "config_version=5\n\n"
 	pg += "[application]\n\n"
 	pg += "config/name=\"%s\"\n" % proj_name.replace("\"", "'")
 	pg += "config/features=PackedStringArray(\"4.6\", \"Forward Plus\")\n\n"
 	pg += "[audio]\n\n"
-	pg += "driver/enable_input=true\n"
+	pg += "driver/enable_input=true\n\n"
+	pg += "[editor_plugins]\n\n"
+	pg += "enabled=PackedStringArray(\"res://addons/visual_gasic/plugin.cfg\")\n"
 	var f := FileAccess.open(dir + "/project.godot", FileAccess.WRITE)
 	if f == null:
 		_status.text = "Failed to write project.godot in %s" % dir
 		return ""
 	f.store_string(pg)
 	f.close()
+
+	# Seed the canonical addon so VG loads on first open.
+	var addon_src := _resolve_canonical_addon_dir()
+	if not addon_src.is_empty():
+		_copy_dir_recursive(addon_src, dir + "/addons/visual_gasic")
 
 	# Narcea seed file the IDE plugin will pick up on first open.
 	var seed := FileAccess.open(dir + "/narcea_seed.txt", FileAccess.WRITE)
@@ -602,6 +623,69 @@ func _create_narcea_seed_project(proj_name: String, description: String) -> Stri
 
 
 # ─── Launch ─────────────────────────────────────────────────────────────────
+## Resolve the canonical addons/visual_gasic directory we should copy
+## into newly-created projects. Mirrors the IDE plugin's resolver:
+##   1. $VG_ADDON_SOURCE      (explicit override)
+##   2. <repo>/addons/visual_gasic where this welcome shell lives in
+##      a source-tree checkout (welcome_shell sibling)
+##   3. /opt/visual_gasic/addons/visual_gasic
+##   4. ~/.local/share/visual_gasic/addons/visual_gasic
+func _resolve_canonical_addon_dir() -> String:
+	var candidates: Array[String] = []
+	var override: String = OS.get_environment("VG_ADDON_SOURCE")
+	if not override.is_empty():
+		candidates.append(override)
+	# We're running from welcome_shell/, so the source-tree addon lives
+	# at ../addons/visual_gasic relative to res://.
+	var here: String = ProjectSettings.globalize_path("res://").rstrip("/")
+	if not here.is_empty():
+		var parent: String = here.get_base_dir()
+		if DirAccess.dir_exists_absolute(parent + "/addons/visual_gasic"):
+			candidates.append(parent + "/addons/visual_gasic")
+	candidates.append("/opt/visual_gasic/addons/visual_gasic")
+	var home: String = OS.get_environment("HOME")
+	if not home.is_empty():
+		candidates.append(home + "/.local/share/visual_gasic/addons/visual_gasic")
+	for c in candidates:
+		if c.is_empty():
+			continue
+		if FileAccess.file_exists(c + "/plugin.cfg"):
+			return c
+	return ""
+
+
+## Recursively copy a directory tree (absolute paths). Skips .uid files
+## since Godot regenerates those per-project.
+func _copy_dir_recursive(src: String, dst: String) -> int:
+	var err := DirAccess.make_dir_recursive_absolute(dst)
+	if err != OK and not DirAccess.dir_exists_absolute(dst):
+		return err
+	var dir := DirAccess.open(src)
+	if dir == null:
+		return ERR_CANT_OPEN
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while entry != "":
+		if entry == "." or entry == "..":
+			entry = dir.get_next()
+			continue
+		var src_path := src + "/" + entry
+		var dst_path := dst + "/" + entry
+		if dir.current_is_dir():
+			var rec := _copy_dir_recursive(src_path, dst_path)
+			if rec != OK:
+				dir.list_dir_end()
+				return rec
+		elif not entry.ends_with(".uid"):
+			var copy_err := DirAccess.copy_absolute(src_path, dst_path)
+			if copy_err != OK:
+				dir.list_dir_end()
+				return copy_err
+		entry = dir.get_next()
+	dir.list_dir_end()
+	return OK
+
+
 func _vg_config_dir() -> String:
 	# Same dir as recent_projects.cfg's parent.
 	return _recent_cfg_path().get_base_dir()
