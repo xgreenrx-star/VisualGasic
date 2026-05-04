@@ -338,9 +338,10 @@ func _force_dialog_size(dlg: Window, sz: Vector2i) -> void:
 	if not is_instance_valid(dlg):
 		return
 	dlg.size = sz
-	# Re-center against the parent window now that we know our true size.
-	var parent_size := get_window().size
-	dlg.position = (parent_size - sz) / 2
+	# Re-center against the visible viewport. get_window() can return the
+	# dialog's own embedded window; viewport rect is the reliable source.
+	var view_size := Vector2i(get_viewport().get_visible_rect().size)
+	dlg.position = (view_size - sz) / 2
 
 
 func _on_quit_pressed() -> void:
