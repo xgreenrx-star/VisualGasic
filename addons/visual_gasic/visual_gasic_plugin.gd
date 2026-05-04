@@ -8355,6 +8355,12 @@ func _on_view_code() -> void:
 			if not first_vg.is_empty():
 				open_module_in_embedded_editor(first_vg)
 				return
+			# (d) Empty project — scaffold a starter Module1.vg so View Code
+			# never silently no-ops on a fresh project.
+			var starter := _scaffold_starter_module()
+			if not starter.is_empty():
+				open_module_in_embedded_editor(starter)
+				return
 			push_warning("VisualGasic: No form or module found — cannot open code view")
 	else:
 		# Fallback: switch to Godot Script editor
@@ -8422,6 +8428,30 @@ func _collect_vg_files(path: String, modules: Array[String], forms: Array[String
 				modules.append(full_path)
 		file_name = dir.get_next()
 	dir.list_dir_end()
+
+## Create a starter `Module1.vg` at res:// when the user clicks View Code on
+## a fresh project that has no modules or forms yet. Returns the new path
+## (or "" on failure).
+func _scaffold_starter_module() -> String:
+	var base := "res://"
+	var name := "Module1"
+	var i := 1
+	while FileAccess.file_exists(base + name + ".vg"):
+		i += 1
+		name = "Module" + str(i)
+	var path := base + name + ".vg"
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f == null:
+		push_warning("VisualGasic: cannot create starter module at " + path)
+		return ""
+	f.store_string("' " + name + ".vg — VisualGasic module\n' Type your code here.\n\nSub Main()\n\tPrint(\"Hello from \" & \"" + name + "\")\nEnd Sub\n")
+	f.close()
+	# Refresh the editor's filesystem dock so the new file appears.
+	var fs := EditorInterface.get_resource_filesystem()
+	if fs != null:
+		fs.scan()
+	return path
+
 
 ## Called on deferred when the Form Designer opens.
 ## If no form is loaded in the C++ form designer, automatically find and open
