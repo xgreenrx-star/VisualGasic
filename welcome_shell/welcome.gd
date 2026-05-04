@@ -467,8 +467,16 @@ func _vg_config_dir() -> String:
 ## Build a modern circular loading spinner: a thin rotating arc.
 ## When set_meta("done", true) is set on it, it freezes as a full ring.
 func _make_circular_spinner() -> Control:
-	var holder := CenterContainer.new()
-	holder.custom_minimum_size = Vector2(64, 64)
+	# Vertical holder so the spinner sits below the dialog text with a
+	# bit of breathing room — centered-on-top-of-words reads as a crash.
+	var holder := VBoxContainer.new()
+	holder.alignment = BoxContainer.ALIGNMENT_CENTER
+	holder.custom_minimum_size = Vector2(64, 96)
+	var pad := Control.new()
+	pad.custom_minimum_size = Vector2(0, 16)
+	holder.add_child(pad)
+	var center := CenterContainer.new()
+	holder.add_child(center)
 	var spinner := Control.new()
 	spinner.custom_minimum_size = Vector2(48, 48)
 	spinner.set_meta("angle", 0.0)
@@ -506,7 +514,7 @@ func _make_circular_spinner() -> Control:
 		spinner.set_meta("angle", a)
 		spinner.queue_redraw()
 	)
-	holder.add_child(spinner)
+	center.add_child(spinner)
 	return holder
 
 
