@@ -8527,8 +8527,18 @@ func _show_first_run_dialog() -> void:
 	var dlg = dlg_script.new()
 	dlg.project_type_chosen.connect(_on_first_run_type_chosen)
 	EditorInterface.get_base_control().add_child(dlg)
-	dlg.popup_centered(Vector2i(640, 460))
-	dlg.size = Vector2i(640, 460)
+	dlg.popup_centered(Vector2i(640, 420))
+	dlg.size = Vector2i(640, 420)
+	call_deferred("_force_first_run_dialog_size", dlg, Vector2i(640, 420))
+
+
+func _force_first_run_dialog_size(dlg: Window, sz: Vector2i) -> void:
+	if not is_instance_valid(dlg):
+		return
+	dlg.size = sz
+	var base := EditorInterface.get_base_control()
+	var host_size := Vector2i(base.size) if base != null else Vector2i(get_viewport().get_visible_rect().size)
+	dlg.position = (host_size - sz) / 2
 
 
 func _on_first_run_type_chosen(kind: String) -> void:

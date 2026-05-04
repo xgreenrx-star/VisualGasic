@@ -49,7 +49,7 @@ func _init() -> void:
 	title = "Welcome to VisualGasic"
 	dialog_hide_on_ok = true
 	dialog_close_on_escape = true
-	min_size = Vector2(560, 360)
+	min_size = Vector2(560, 320)
 	exclusive = false
 	# Hide the default OK button — we use our own typed buttons below.
 	get_ok_button().visible = false
