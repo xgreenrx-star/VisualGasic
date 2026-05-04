@@ -364,13 +364,127 @@ func _on_browse_pressed() -> void:
 
 
 func _on_create_pressed() -> void:
-	# We're outside the IDE so we don't have the new-project dialog
-	# available. Hand off to Godot's PM for the create flow; the user
-	# will land in our welcome again next time once their new project
-	# has registered itself in the recent list.
-	_status.text = "Launching Godot Project Manager to create…"
-	OS.create_process(OS.get_executable_path(), [])
-	get_tree().quit()
+	# Local-create dialog: pick name + parent folder, scaffold a tiny
+	# Godot project, then hand off to Godot via _launch_godot() which
+	# already handles the cover + spinner. Avoids dumping the user back
+	# into Godot's stock Project Manager (which is what we're trying to
+	# replace in the first place).
+	var dlg := AcceptDialog.new()
+	dlg.title = "+  Create New Project"
+	dlg.ok_button_text = "Create + Open"
+	dlg.min_size = Vector2i(560, 0)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	dlg.add_child(box)
+
+	var info := Label.new()
+	info.text = "A blank VG-ready project will be scaffolded and opened in the IDE."
+	info.add_theme_font_size_override("font_size", 12)
+	info.add_theme_color_override("font_color", Color(0.65, 0.7, 0.8))
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(info)
+
+	# Project name row
+	var name_row := HBoxContainer.new()
+	name_row.add_theme_constant_override("separation", 8)
+	var name_lbl := Label.new()
+	name_lbl.text = "Project name:"
+	name_lbl.custom_minimum_size.x = 110
+	name_row.add_child(name_lbl)
+	var name_edit := LineEdit.new()
+	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_edit.text = "MyProject"
+	name_edit.select_all_on_focus = true
+	name_row.add_child(name_edit)
+	box.add_child(name_row)
+
+	# Parent folder row
+	var folder_row := HBoxContainer.new()
+	folder_row.add_theme_constant_override("separation", 8)
+	var folder_lbl := Label.new()
+	folder_lbl.text = "Parent folder:"
+	folder_lbl.custom_minimum_size.x = 110
+	folder_row.add_child(folder_lbl)
+	var folder_edit := LineEdit.new()
+	folder_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var home := OS.get_environment("HOME")
+	folder_edit.text = (home + "/Documents/VisualGasic_Projects") if not home.is_empty() else "VisualGasic_Projects"
+	folder_row.add_child(folder_edit)
+	var browse_btn := Button.new()
+	browse_btn.text = "📂"
+	browse_btn.tooltip_text = "Pick parent folder"
+	browse_btn.pressed.connect(func():
+		var fd := FileDialog.new()
+		fd.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+		fd.access = FileDialog.ACCESS_FILESYSTEM
+		fd.title = "Pick parent folder"
+		fd.current_dir = folder_edit.text
+		fd.dir_selected.connect(func(p: String):
+			folder_edit.text = p
+			fd.queue_free()
+		)
+		fd.canceled.connect(fd.queue_free)
+		add_child(fd)
+		fd.popup_centered(Vector2i(720, 480))
+	)
+	folder_row.add_child(browse_btn)
+	box.add_child(folder_row)
+
+	dlg.confirmed.connect(func():
+		var nm := name_edit.text.strip_edges()
+		var parent_dir := folder_edit.text.strip_edges()
+		if nm.is_empty():
+			_status.text = "Project name is required."
+			return
+		if parent_dir.is_empty():
+			_status.text = "Parent folder is required."
+			return
+		var path := _create_blank_project(nm, parent_dir)
+		if not path.is_empty():
+			_launch_godot(path)
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(dlg.queue_free)
+	add_child(dlg)
+	dlg.popup_centered()
+	name_edit.grab_focus()
+
+
+func _create_blank_project(proj_name: String, parent_dir: String) -> String:
+	var safe_name := proj_name.strip_edges().replace(" ", "_")
+	if safe_name.is_empty():
+		_status.text = "Invalid project name."
+		return ""
+	var mk_parent := DirAccess.make_dir_recursive_absolute(parent_dir)
+	if mk_parent != OK and not DirAccess.dir_exists_absolute(parent_dir):
+		_status.text = "Cannot create parent folder: %s (err %d)" % [parent_dir, mk_parent]
+		return ""
+	var dir := parent_dir.rstrip("/") + "/" + safe_name
+	if DirAccess.dir_exists_absolute(dir):
+		_status.text = "Directory already exists: %s" % dir
+		return ""
+	var mk := DirAccess.make_dir_recursive_absolute(dir)
+	if mk != OK:
+		_status.text = "Failed to make directory: %s (err %d)" % [dir, mk]
+		return ""
+
+	# Minimal project.godot — IDE plugin handles the rest on first open.
+	var pg := ""
+	pg += "config_version=5\n\n"
+	pg += "[application]\n\n"
+	pg += "config/name=\"%s\"\n" % proj_name.replace("\"", "'")
+	pg += "config/features=PackedStringArray(\"4.6\", \"Forward Plus\")\n\n"
+	pg += "[audio]\n\n"
+	pg += "driver/enable_input=true\n"
+	var f := FileAccess.open(dir + "/project.godot", FileAccess.WRITE)
+	if f == null:
+		_status.text = "Failed to write project.godot in %s" % dir
+		return ""
+	f.store_string(pg)
+	f.close()
+	_status.text = "Created %s — opening…" % dir
+	return dir
 
 
 func _on_narcea_pressed() -> void:
