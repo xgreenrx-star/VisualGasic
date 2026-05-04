@@ -41,6 +41,10 @@ var _search_text: String = ""
 
 func _ready() -> void:
 	get_window().title = "VisualGasic — Welcome"
+	# Open fullscreen so the welcome takes the whole screen from the
+	# start — keeps focus, no flash of desktop, and matches the
+	# fullscreen cover we use during project launch.
+	get_window().mode = Window.MODE_FULLSCREEN
 	_recent_list.item_activated.connect(_on_item_activated)
 	_recent_list.item_selected.connect(_on_item_selected)
 	_search_edit.text_changed.connect(_on_search_changed)
@@ -494,8 +498,16 @@ func _launch_godot(project_dir: String) -> void:
 	splash.get_ok_button().visible = false
 	splash.exclusive = true
 	splash.unresizable = true
+	# Indeterminate progress bar so the user sees movement instead of a
+	# frozen dialog. We flip it to determinate + 100%% once the IDE
+	# clears the launching.flag.
+	var progress := ProgressBar.new()
+	progress.custom_minimum_size = Vector2(360, 18)
+	progress.show_percentage = false
+	progress.indeterminate = true
+	splash.add_child(progress)
 	add_child(splash)
-	splash.popup_centered(Vector2i(420, 140))
+	splash.popup_centered(Vector2i(420, 160))
 	# Yield one frame so the splash is on screen before we fork Godot.
 	await get_tree().process_frame
 
@@ -524,8 +536,8 @@ func _launch_godot(project_dir: String) -> void:
 	_save_recent()
 
 	# Poll for the spawned IDE deleting its launching.flag (max 20s),
-	# then a tiny tail-wait so the editor finishes its window paint
-	# before we close the splash and uncover it.
+	# then a tail-wait so the editor finishes its window paint before
+	# we close the splash and uncover it.
 	if not flag_path.is_empty():
 		var deadline := Time.get_ticks_msec() + 20000
 		while Time.get_ticks_msec() < deadline and FileAccess.file_exists(flag_path):
@@ -533,7 +545,13 @@ func _launch_godot(project_dir: String) -> void:
 		# Cleanup if the IDE crashed / never started.
 		if FileAccess.file_exists(flag_path):
 			DirAccess.remove_absolute(flag_path)
-	# Tail-wait covers the brief gap between plugin _enter_tree and the
-	# editor window actually being painted.
-	await get_tree().create_timer(0.4).timeout
+	# Flip the bar to a satisfying "done" state, then a longer tail-wait
+	# so the Godot editor finishes its first paint before we drop our
+	# always-on-top cover — otherwise the user sees ~0.5s of bare
+	# editor before the VG IDE skins itself in.
+	progress.indeterminate = false
+	progress.max_value = 100.0
+	progress.value = 100.0
+	splash.dialog_text = "Ready. Opening %s…" % project_dir.get_file()
+	await get_tree().create_timer(1.5).timeout
 	get_tree().quit()
