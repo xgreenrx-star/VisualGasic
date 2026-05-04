@@ -464,6 +464,52 @@ func _vg_config_dir() -> String:
 	return _recent_cfg_path().get_base_dir()
 
 
+## Build a modern circular loading spinner: a thin rotating arc.
+## When set_meta("done", true) is set on it, it freezes as a full ring.
+func _make_circular_spinner() -> Control:
+	var holder := CenterContainer.new()
+	holder.custom_minimum_size = Vector2(64, 64)
+	var spinner := Control.new()
+	spinner.custom_minimum_size = Vector2(48, 48)
+	spinner.set_meta("angle", 0.0)
+	spinner.set_meta("done", false)
+	spinner.draw.connect(func():
+		var size := spinner.size
+		var center := size * 0.5
+		var radius: float = min(size.x, size.y) * 0.5 - 3.0
+		var track_color := Color(1, 1, 1, 0.15)
+		var arc_color := Color(0.30, 0.65, 1.0, 1.0)  # accent blue
+		var thickness := 3.0
+		# Track ring (always full).
+		spinner.draw_arc(center, radius, 0.0, TAU, 64, track_color, thickness, true)
+		# Active arc.
+		var done: bool = bool(spinner.get_meta("done", false))
+		if done:
+			var done_color := Color(0.30, 0.85, 0.45, 1.0)  # green
+			spinner.draw_arc(center, radius, 0.0, TAU, 64, done_color, thickness, true)
+		else:
+			var a: float = float(spinner.get_meta("angle", 0.0))
+			var sweep := TAU * 0.30  # ~110° leading arc
+			spinner.draw_arc(center, radius, a, a + sweep, 32, arc_color, thickness, true)
+	)
+	# Drive the rotation via the SceneTree's per-frame signal so we
+	# don't need a custom script on the Control. ~0.9 rev/sec.
+	get_tree().process_frame.connect(func():
+		if not is_instance_valid(spinner):
+			return
+		if bool(spinner.get_meta("done", false)):
+			spinner.queue_redraw()
+			return
+		var dt: float = get_process_delta_time()
+		var a: float = float(spinner.get_meta("angle", 0.0))
+		a = fmod(a + dt * TAU * 0.9, TAU)
+		spinner.set_meta("angle", a)
+		spinner.queue_redraw()
+	)
+	holder.add_child(spinner)
+	return holder
+
+
 func _launch_godot(project_dir: String) -> void:
 	var godot_bin := OS.get_executable_path()
 	# Drop a "launching" marker the spawned IDE plugin will delete once
@@ -498,16 +544,13 @@ func _launch_godot(project_dir: String) -> void:
 	splash.get_ok_button().visible = false
 	splash.exclusive = true
 	splash.unresizable = true
-	# Indeterminate progress bar so the user sees movement instead of a
-	# frozen dialog. We flip it to determinate + 100%% once the IDE
-	# clears the launching.flag.
-	var progress := ProgressBar.new()
-	progress.custom_minimum_size = Vector2(360, 18)
-	progress.show_percentage = false
-	progress.indeterminate = true
-	splash.add_child(progress)
+	# Modern circular spinner — a custom-drawn arc that rotates while
+	# the IDE boots. Flipped to a full ring + checkmark color once the
+	# launching.flag is cleared.
+	var spinner := _make_circular_spinner()
+	splash.add_child(spinner)
 	add_child(splash)
-	splash.popup_centered(Vector2i(420, 160))
+	splash.popup_centered(Vector2i(420, 180))
 	# Yield one frame so the splash is on screen before we fork Godot.
 	await get_tree().process_frame
 
@@ -545,13 +588,11 @@ func _launch_godot(project_dir: String) -> void:
 		# Cleanup if the IDE crashed / never started.
 		if FileAccess.file_exists(flag_path):
 			DirAccess.remove_absolute(flag_path)
-	# Flip the bar to a satisfying "done" state, then a longer tail-wait
-	# so the Godot editor finishes its first paint before we drop our
-	# always-on-top cover — otherwise the user sees ~0.5s of bare
-	# editor before the VG IDE skins itself in.
-	progress.indeterminate = false
-	progress.max_value = 100.0
-	progress.value = 100.0
+	# Flip the spinner to a satisfying "done" state, then a longer
+	# tail-wait so the Godot editor finishes its first paint before we
+	# drop our always-on-top cover — otherwise the user sees ~0.5s of
+	# bare editor before the VG IDE skins itself in.
+	spinner.set_meta("done", true)
 	splash.dialog_text = "Ready. Opening %s…" % project_dir.get_file()
 	await get_tree().create_timer(1.5).timeout
 	get_tree().quit()
