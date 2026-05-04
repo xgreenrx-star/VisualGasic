@@ -475,8 +475,8 @@ func _make_circular_spinner() -> Control:
 	var pad := Control.new()
 	pad.custom_minimum_size = Vector2(0, 16)
 	holder.add_child(pad)
-	var center := CenterContainer.new()
-	holder.add_child(center)
+	var center_box := CenterContainer.new()
+	holder.add_child(center_box)
 	var spinner := Control.new()
 	spinner.custom_minimum_size = Vector2(48, 48)
 	spinner.set_meta("angle", 0.0)
@@ -514,7 +514,7 @@ func _make_circular_spinner() -> Control:
 		spinner.set_meta("angle", a)
 		spinner.queue_redraw()
 	)
-	center.add_child(spinner)
+	center_box.add_child(spinner)
 	return holder
 
 
