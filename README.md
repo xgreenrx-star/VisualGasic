@@ -56,6 +56,27 @@ If the next decade really is auditor-bound, then the language that wins is the o
 >
 > 📚 **Docs from the main page:** every guide, reference, and tutorial is one click away from [`docs/DOCS.md`](docs/DOCS.md). Quick jumps: [Getting Started](docs/guides/GET_STARTED.md) · [Installation](docs/guides/INSTALLATION.md) · [Language Reference](docs/VisualGasic_Language_Reference.md) · [Built-in Functions](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) · [Custom Controls](docs/guides/CUSTOM_CONTROLS.md) · [Plugin SDK](addons/visual_gasic/PLUGIN_SDK.md).
 
+## 📥 Download & install
+
+**Grab a one-shot installer for your OS — no build step, no separate Godot download.** All assets live on the [latest GitHub release](https://github.com/xgreenrx-star/VisualGasic/releases/latest); direct links below.
+
+| Platform | Installer | Notes |
+| --- | --- | --- |
+| 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.1.0-rc.2-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic-Installer-v5.1.0-rc.2-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
+| 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.1.0-rc.2-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic-Installer-v5.1.0-rc.2-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
+| 🍏 **macOS (Intel & Apple Silicon)** | *coming with v5.1.0 stable* — use the `vg` CLI for now | Cross-compiled `.dmg` planned; needs a tester. |
+| 📦 **Source zip / portable** | [VisualGasic_v5.1.0-rc.2_linux_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic_v5.1.0-rc.2_linux_x86_64.zip) · [windows_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic_v5.1.0-rc.2_windows_x86_64.zip) | For users who prefer to unzip and run. Bring your own Godot 4.6.1+. |
+| 🌐 **Offline bundle** (Godot included) | [linux-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic-Installer-Offline-v5.1.0-rc.2-linux-x86_64.zip) · [windows-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic-Installer-Offline-v5.1.0-rc.2-windows-x86_64.zip) | No internet needed during install — ships Godot 4.6.1 inside. |
+
+**Linux one-shot bootstrap (alternative to AppImage):**
+
+```bash
+git clone https://github.com/xgreenrx-star/VisualGasic.git
+cd VisualGasic && ./scripts/bootstrap_install.sh
+```
+
+**Detailed setup, troubleshooting, and uninstall:** [`docs/guides/INSTALLATION.md`](docs/guides/INSTALLATION.md). **All previous releases:** [GitHub Releases](https://github.com/xgreenrx-star/VisualGasic/releases).
+
 ## ⚡ What VisualGasic actually is
 
 - **🧠 An AI-readable language.** VB6/VB.NET-style syntax — verbose, explicit, no hidden control flow. Designed so a human can verify an AI-generated Sub in seconds, not minutes. Same syntax that pairs well with the AI when *it* is doing the writing.
@@ -63,7 +84,7 @@ If the next decade really is auditor-bound, then the language that wins is the o
 - **🎮 A real game maker.** Drop controls, double-click for handlers, hit F5. 8 AGCK templates, 14 playable demos in the box, full 3D pipeline, sprite/animation/audio editors, one-click Make EXE. Or describe a game in plain English and let AGCK generate a runnable VG project from a template.
 - **🚀 Native-class speed.** 5-tier JIT (interpreter → x86-64). On hot paths VG is **30–119× faster than GDScript** and **beats C++ on string concat by 5×**. Honest numbers below — we lose two benchmarks and we say so.
 - **🧰 The IDE you actually want.** VB6-style Form Designer + Code Editor + Immediate Window + Object Browser + Debugger + Profiler, all docked, all themed. Plus a plugin SDK with a process-wide signal bus and capability-based editor routing.
-- **📥 One-shot installer (work in progress).** Linux MVP shipped — `scripts/bootstrap_install.sh` downloads Godot, installs the addon, drops a launcher, and lands you directly in the VG IDE. Windows `.exe` and macOS `.dmg` installers coming next; for now use the `vg` CLI or unzip the release.
+- **📥 One-shot installers for Linux & Windows.** AppImage on Linux, signed-style `.exe` on Windows — both bundle Godot 4.6.1 and land you directly in the VG IDE. macOS `.dmg` is the last platform still in progress and needs a tester. See the [Download & install](#-download--install) section above.
 - **🚪 VG Welcome launcher.** `./vg-ide` (Linux/macOS) and `.\vg-ide.ps1` (Windows) skip Godot's Project Manager and open a VG-branded picker with thumbnails, tag filtering, and an "Ask Narcea to Make a Project" entry that scaffolds a project from a chat prompt. `--last` / `-Last` jumps straight into the most-recent project. From inside the IDE, **File → Exit to VG Welcome** rounds back to the picker.
 - **🆓 Free & open source.** GPL-3.0. Real source, no opaque blobs — even AGCK's output is plain `.vg` files you can edit, audit, and version-control.
 
@@ -273,7 +294,7 @@ VisualGasic/
 
 ### **Installation**
 
-> 🚧 **Installer status (v5.1.0-rc.2):** Linux one-shot installer is the recommended path. Windows `.exe` and macOS `.dmg` graphical installers are still in progress — on those platforms use the `vg` CLI or unzip the release for now.
+> 🚧 **Installer status (v5.1.0-rc.2):** Linux AppImage and Windows `.exe` one-shot installers are shipped — see the [Download & install](#-download--install) section at the top of this README. macOS `.dmg` is still in progress; on macOS use the `vg` CLI or unzip the release for now.
 
 **🐧 Linux — one-shot bootstrap (recommended):**
 
@@ -534,7 +555,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
 - **Stable Release (v5.1.0)** - Pending community testing of `v5.1.0-rc.1`
-- **Windows `.exe` & macOS `.dmg` graphical installers** — Linux one-shot is shipped; Win/macOS WIP
+- **macOS `.dmg` graphical installer** — Linux AppImage and Windows `.exe` are shipped; macOS still WIP
 - **Asset Library** - Publish to Godot Asset Library
 - **WebAssembly Validation** - Verify HTML5 export compatibility
 

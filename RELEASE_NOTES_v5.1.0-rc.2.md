@@ -101,7 +101,19 @@ These join the existing 7 Tier 1 animated Game UI controls (DialogPanel, Invento
 
 ## 📥 Installing
 
-Same as `rc.1`. The Linux one-shot bootstrap is the recommended path:
+**One-shot installers** (recommended — bundle Godot 4.6.1 and land you straight in the VG IDE):
+
+| Platform | Download | Install |
+| --- | --- | --- |
+| 🐧 **Linux x86_64** | [`VisualGasic-Installer-v5.1.0-rc.2-x86_64.AppImage`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.1.0-rc.2/VisualGasic-Installer-v5.1.0-rc.2-x86_64.AppImage) | `chmod +x *.AppImage && ./VisualGasic-Installer-v5.1.0-rc.2-x86_64.AppImage` |
+| 🪟 **Windows x64** | [`VisualGasic-Installer-v5.1.0-rc.2-x86_64.exe`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.1.0-rc.2/VisualGasic-Installer-v5.1.0-rc.2-x86_64.exe) | Double-click. SmartScreen → *More info* → *Run anyway* (unsigned). |
+| 🍎 **macOS** | *coming with v5.1.0 stable* | Use the `vg` CLI or unzip the release for now. |
+
+**Offline bundles** (Godot included, no internet needed during install): [Linux](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.1.0-rc.2/VisualGasic-Installer-Offline-v5.1.0-rc.2-linux-x86_64.zip) · [Windows](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.1.0-rc.2/VisualGasic-Installer-Offline-v5.1.0-rc.2-windows-x86_64.zip)
+
+**Portable zips** (bring your own Godot 4.6.1+): [Linux](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.1.0-rc.2/VisualGasic_v5.1.0-rc.2_linux_x86_64.zip) · [Windows](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.1.0-rc.2/VisualGasic_v5.1.0-rc.2_windows_x86_64.zip)
+
+**Linux bootstrap from source** (alternative to AppImage):
 
 ```bash
 git clone https://github.com/xgreenrx-star/VisualGasic.git
@@ -110,7 +122,7 @@ git checkout v5.1.0-rc.2
 ./scripts/bootstrap_install.sh
 ```
 
-Or grab the platform zip / `.exe` installer from the [GitHub release page](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.1.0-rc.2). Full installation guide: [`docs/guides/INSTALLATION.md`](docs/guides/INSTALLATION.md).
+Full installation guide, troubleshooting, and uninstall: [`docs/guides/INSTALLATION.md`](docs/guides/INSTALLATION.md). All assets also browsable on the [release page](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.1.0-rc.2).
 
 ---
 
