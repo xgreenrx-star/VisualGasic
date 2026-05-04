@@ -202,7 +202,8 @@ step "6/7" "Creating release archives..."
 # Linux zip
 LINUX_DIR="$RELEASE_DIR/VisualGasic_v${VERSION}_linux_x86_64"
 cp -r "$STAGING" "$LINUX_DIR"
-find demo/bin -name "*.linux.*" -exec cp {} "$LINUX_DIR/addons/visual_gasic/bin/" \; 2>/dev/null || true
+# Copy non-dev variants only (skip *.editor.dev.* / *.template_debug.dev.* — ~80 MB each)
+find demo/bin -name "*.linux.*" ! -name "*.dev.*" -exec cp {} "$LINUX_DIR/addons/visual_gasic/bin/" \; 2>/dev/null || true
 (cd "$RELEASE_DIR" && zip -qr "VisualGasic_v${VERSION}_linux_x86_64.zip" "VisualGasic_v${VERSION}_linux_x86_64")
 rm -rf "$LINUX_DIR"
 success "Linux zip: VisualGasic_v${VERSION}_linux_x86_64.zip"
@@ -211,7 +212,8 @@ success "Linux zip: VisualGasic_v${VERSION}_linux_x86_64.zip"
 if $HAS_MINGW; then
     WIN_DIR="$RELEASE_DIR/VisualGasic_v${VERSION}_windows_x86_64"
     cp -r "$STAGING" "$WIN_DIR"
-    find demo/bin -name "*.windows.*" -exec cp {} "$WIN_DIR/addons/visual_gasic/bin/" \; 2>/dev/null || true
+    # Copy non-dev variants only (skip *.editor.dev.* / *.template_debug.dev.* — ~80 MB each)
+    find demo/bin -name "*.windows.*" ! -name "*.dev.*" -exec cp {} "$WIN_DIR/addons/visual_gasic/bin/" \; 2>/dev/null || true
     (cd "$RELEASE_DIR" && zip -qr "VisualGasic_v${VERSION}_windows_x86_64.zip" "VisualGasic_v${VERSION}_windows_x86_64")
     rm -rf "$WIN_DIR"
     success "Windows zip: VisualGasic_v${VERSION}_windows_x86_64.zip"
