@@ -485,7 +485,7 @@ func _make_circular_spinner() -> Control:
 	holder.alignment = BoxContainer.ALIGNMENT_CENTER
 	holder.custom_minimum_size = Vector2(64, 96)
 	var pad := Control.new()
-	pad.custom_minimum_size = Vector2(0, 16)
+	pad.custom_minimum_size = Vector2(0, 40)
 	holder.add_child(pad)
 	var center_box := CenterContainer.new()
 	holder.add_child(center_box)
