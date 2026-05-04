@@ -447,7 +447,7 @@ func _on_create_pressed() -> void:
 	)
 	dlg.canceled.connect(dlg.queue_free)
 	add_child(dlg)
-	dlg.popup_centered()
+	dlg.popup_centered(Vector2i(560, 200))
 	name_edit.grab_focus()
 
 
