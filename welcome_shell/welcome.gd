@@ -373,9 +373,11 @@ func _on_create_pressed() -> void:
 	dlg.title = "+  Create New Project"
 	dlg.ok_button_text = "Create + Open"
 	dlg.min_size = Vector2i(560, 0)
+	dlg.unresizable = false
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
+	box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	dlg.add_child(box)
 
 	var info := Label.new()
@@ -447,7 +449,10 @@ func _on_create_pressed() -> void:
 	)
 	dlg.canceled.connect(dlg.queue_free)
 	add_child(dlg)
-	dlg.popup_centered(Vector2i(560, 200))
+	# popup_centered's arg is a *minsize*, not the actual size. Push the
+	# real size after popup so the dialog hugs its content.
+	dlg.popup_centered()
+	dlg.size = Vector2i(560, 220)
 	name_edit.grab_focus()
 
 
@@ -539,7 +544,8 @@ func _on_narcea_pressed() -> void:
 	)
 	dlg.canceled.connect(dlg.queue_free)
 	add_child(dlg)
-	dlg.popup_centered(Vector2i(620, 360))
+	dlg.popup_centered()
+	dlg.size = Vector2i(620, 380)
 	desc.grab_focus()
 
 
