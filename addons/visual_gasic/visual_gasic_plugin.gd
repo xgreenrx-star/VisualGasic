@@ -10249,6 +10249,10 @@ func setup_toolbox():
 		if real_toolbox.has_signal("tool_selected"):
 			real_toolbox.tool_selected.connect(_on_toolbox_tool_selected)
 			print("VisualGasic: Toolbox tool_selected signal connected")
+		# Register the GDScript-only "extras" — modern controls + game UI
+		# progress styles. Done after the C++ defaults so they slot in
+		# cleanly without a recompile.
+		_register_extra_tools()
 	else:
 		var err = Label.new()
 		err.text = "VisualGasicToolbox Missing!"
@@ -10256,6 +10260,36 @@ func setup_toolbox():
 		
 	# Fallback/Additional Logic if needed
 	pass
+
+
+## Register the GDScript-only modern controls and game UI progress styles.
+## Standard controls (2D) cover gaps in classic VB6 / Godot palettes that
+## modern apps expect. Game UI bars are kept in their own tab so the eye
+## clutter doesn't bleed into regular OS-style forms.
+func _register_extra_tools() -> void:
+	var rt = _get_toolbox_instance()
+	if rt == null:
+		return
+	# ── Standard controls (2D tab) ─────────────────────────────────
+	rt.add_tool("Spinner",          "Control",          "ProgressBar",       "res://addons/visual_gasic/prototypes/Spinner.tscn")
+	rt.add_tool("BusyDots",         "Control",          "ProgressBar",       "res://addons/visual_gasic/prototypes/BusyDots.tscn")
+	rt.add_tool("ToggleSwitch",     "Control",          "CheckBox",          "res://addons/visual_gasic/prototypes/ToggleSwitch.tscn")
+	rt.add_tool("ColorPicker",      "ColorPickerButton","ColorPickerButton", "res://addons/visual_gasic/prototypes/ColorPickerButton.tscn")
+	rt.add_tool("LinkButton",       "LinkButton",       "LinkButton",        "res://addons/visual_gasic/prototypes/LinkButton.tscn")
+	rt.add_tool("HSplit",           "HSplitContainer",  "HSplitContainer",   "res://addons/visual_gasic/prototypes/HSplit.tscn")
+	rt.add_tool("VSplit",           "VSplitContainer",  "VSplitContainer",   "res://addons/visual_gasic/prototypes/VSplit.tscn")
+	rt.add_tool("VideoPlayer",      "VideoStreamPlayer","VideoStreamPlayer", "res://addons/visual_gasic/prototypes/VideoPlayer.tscn")
+	rt.add_tool("Expander",         "VBoxContainer",    "VBoxContainer",     "res://addons/visual_gasic/prototypes/Expander.tscn")
+	rt.add_tool("Breadcrumbs",      "HBoxContainer",    "HBoxContainer",     "res://addons/visual_gasic/prototypes/Breadcrumbs.tscn")
+	# ── Game UI progress styles + badge (Game UI tab) ──────────────
+	rt.add_tool("PixelProgressBar",     "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/game_ui/PixelProgressBar.tscn",     "Game UI")
+	rt.add_tool("SegmentedProgressBar", "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/game_ui/SegmentedProgressBar.tscn", "Game UI")
+	rt.add_tool("RetroLifeBar",         "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/game_ui/RetroLifeBar.tscn",         "Game UI")
+	rt.add_tool("CircularProgress",     "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/game_ui/CircularProgress.tscn",     "Game UI")
+	rt.add_tool("Badge",                "Control", "Label",       "res://addons/visual_gasic/prototypes/game_ui/Badge.tscn",                "Game UI")
+	# Re-mark defaults so clear_custom_tools() preserves these too.
+	if rt.has_method("mark_defaults"):
+		rt.mark_defaults()
 
 ## Sets up a right-click context menu on the Toolbox with "Components..." shortcut.
 ## This mirrors VB6's toolbox behavior where right-clicking opens the Components dialog.

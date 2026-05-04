@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[node name="VideoPlayer" type="VideoStreamPlayer"]
+custom_minimum_size = Vector2(240, 135)
+offset_right = 240.0
+offset_bottom = 135.0
+expand = true

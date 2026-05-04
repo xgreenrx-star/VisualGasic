@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[node name="VSplit" type="VSplitContainer"]
+custom_minimum_size = Vector2(150, 200)
+offset_right = 150.0
+offset_bottom = 200.0
+
+[node name="Top" type="Panel" parent="."]
+layout_mode = 2
+
+[node name="Bottom" type="Panel" parent="."]
+layout_mode = 2
