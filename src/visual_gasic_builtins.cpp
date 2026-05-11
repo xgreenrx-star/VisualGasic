@@ -96,6 +96,11 @@
 #include <godot_cpp/classes/style_box.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
 #include <godot_cpp/classes/marshalls.hpp>
+// Pass 6 — gap filler verbs (Camera.FlashColor overlay)
+#include <godot_cpp/classes/color_rect.hpp>
+#include <godot_cpp/classes/canvas_layer.hpp>
+#include <godot_cpp/classes/callback_tweener.hpp>
+#include <godot_cpp/classes/video_stream.hpp>
 // System-level class headers for built-in function dispatch
 #include "visual_gasic_process.h"
 #include "visual_gasic_database.h"
@@ -2485,6 +2490,358 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
                 double pct = (double)args[1];
                 double db = (pct <= 0.0) ? -80.0 : 20.0 * Math::log(pct / 100.0) / Math::log(10.0);
                 v->set_volume_db((float)db);
+            }
+            return Variant();
+        }
+
+        // ── Pass 6 gap-fillers (aspirational verbs surfaced May 11 2026) ──
+        // Camera.PanTo(pos, time[, h]) — tween Camera2D.position to `pos`.
+        //   pos: Vector2 or Vector3 (matches resolve_camera kind).
+        if (METHOD_IS("camera_panto") && args.size() >= 2) {
+            r_handled = true;
+            Variant override_h = (args.size() >= 3) ? args[args.size() - 1] : Variant();
+            Object *cam = nullptr;
+            // Inline camera resolve (resolve_camera is in another scope).
+            if (override_h.get_type() == Variant::OBJECT) {
+                Object *o = override_h;
+                if (o && (o->is_class("Camera2D") || o->is_class("Camera3D"))) cam = o;
+            }
+            if (!cam && instance && instance->get_owner()) {
+                Node *n = Object::cast_to<Node>(instance->get_owner());
+                if (n && n->get_tree() && n->get_tree()->get_root()) {
+                    Viewport *vp = n->get_tree()->get_root();
+                    Camera3D *c3 = vp->get_camera_3d();
+                    if (c3) cam = c3;
+                    else cam = vp->get_camera_2d();
+                }
+            }
+            Node *cn = Object::cast_to<Node>(cam);
+            if (!cn) return Variant();
+            double dur = (double)args[1];
+            Ref<Tween> tw = cn->create_tween();
+            if (tw.is_valid()) tw->tween_property(cn, "position", args[0], dur);
+            return Variant();
+        }
+        // Camera.Bounce(amount[, h]) — quick vertical bounce on camera offset.
+        if (METHOD_IS("camera_bounce") && args.size() >= 1) {
+            r_handled = true;
+            Variant override_h = (args.size() >= 2) ? args[args.size() - 1] : Variant();
+            Object *cam = nullptr;
+            if (override_h.get_type() == Variant::OBJECT) {
+                Object *o = override_h;
+                if (o && (o->is_class("Camera2D") || o->is_class("Camera3D"))) cam = o;
+            }
+            if (!cam && instance && instance->get_owner()) {
+                Node *n = Object::cast_to<Node>(instance->get_owner());
+                if (n && n->get_tree() && n->get_tree()->get_root()) {
+                    Viewport *vp = n->get_tree()->get_root();
+                    Camera3D *c3 = vp->get_camera_3d();
+                    if (c3) cam = c3;
+                    else cam = vp->get_camera_2d();
+                }
+            }
+            Node *cn = Object::cast_to<Node>(cam);
+            if (!cn) return Variant();
+            double amt = (double)args[0];
+            Ref<Tween> tw = cn->create_tween();
+            if (tw.is_valid()) {
+                tw->tween_property(cn, "offset", Vector2(0.0, amt), 0.08);
+                tw->tween_property(cn, "offset", Vector2(0.0, 0.0), 0.12);
+            }
+            return Variant();
+        }
+        // Camera.FlashColor(color[, duration]) — fade a fullscreen ColorRect.
+        // Duration defaults to 0.25s. Removes itself on tween finish.
+        if (METHOD_IS("camera_flashcolor") && args.size() >= 1) {
+            r_handled = true;
+            if (!instance || !instance->get_owner()) return Variant();
+            Node *owner_node = Object::cast_to<Node>(instance->get_owner());
+            if (!owner_node) return Variant();
+            Color col = (args[0].get_type() == Variant::COLOR) ? (Color)args[0] : Color(1, 1, 1, 1);
+            double dur = (args.size() >= 2) ? (double)args[1] : 0.25;
+            CanvasLayer *cl = memnew(CanvasLayer);
+            cl->set_layer(1024); // top
+            ColorRect *cr = memnew(ColorRect);
+            cr->set_color(col);
+            cr->set_anchors_preset(Control::PRESET_FULL_RECT);
+            cr->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
+            cl->add_child(cr);
+            owner_node->add_child(cl);
+            Ref<Tween> tw = cr->create_tween();
+            if (tw.is_valid()) {
+                tw->tween_property(cr, "modulate:a", 0.0, dur);
+                tw->tween_callback(Callable(cl, "queue_free"));
+            } else {
+                cl->queue_free();
+            }
+            return Variant();
+        }
+
+        // Crypto.Hex(s) / Crypto.FromHex(s) — string ↔ hex round-trip.
+        if (METHOD_IS("crypto_hex") && args.size() >= 1) {
+            r_handled = true;
+            String s = args[0];
+            PackedByteArray b = s.to_utf8_buffer();
+            String out;
+            const char *hex = "0123456789abcdef";
+            for (int i = 0; i < b.size(); i++) {
+                uint8_t v = b[i];
+                out += String::chr(hex[(v >> 4) & 0xF]);
+                out += String::chr(hex[v & 0xF]);
+            }
+            return out;
+        }
+        if (METHOD_IS("crypto_fromhex") && args.size() >= 1) {
+            r_handled = true;
+            String s = String(args[0]).to_lower();
+            PackedByteArray b;
+            for (int i = 0; i + 1 < s.length(); i += 2) {
+                char32_t hi = s[i], lo = s[i + 1];
+                auto nib = [](char32_t c) -> int {
+                    if (c >= '0' && c <= '9') return (int)(c - '0');
+                    if (c >= 'a' && c <= 'f') return 10 + (int)(c - 'a');
+                    return -1;
+                };
+                int h = nib(hi), l = nib(lo);
+                if (h < 0 || l < 0) continue;
+                b.push_back((uint8_t)((h << 4) | l));
+            }
+            return String::utf8((const char *)b.ptr(), b.size());
+        }
+        // Crypto.Base64(s) — short alias for Crypto.Base64Encode(s).
+        if (METHOD_IS("crypto_base64") && args.size() >= 1) {
+            r_handled = true;
+            Marshalls *m = Marshalls::get_singleton();
+            if (!m) return String();
+            if (args[0].get_type() == Variant::PACKED_BYTE_ARRAY) {
+                return m->raw_to_base64(args[0]);
+            }
+            return m->utf8_to_base64(String(args[0]));
+        }
+
+        // Physics.Gravity(vec) — set global gravity vector + magnitude.
+        //   Vector2 → 2D ProjectSettings; Vector3 → 3D ProjectSettings.
+        // Physics.Bounce(value) — set global default bounce on world boundary.
+        //   Value 0.0..1.0; sets PhysicsMaterial restitution on a runtime-
+        //   reachable default material (best-effort; persistent set via
+        //   ProjectSettings would require a reload).
+        if (METHOD_IS("physics_gravity") && args.size() >= 1) {
+            r_handled = true;
+            ProjectSettings *ps = ProjectSettings::get_singleton();
+            if (!ps) return Variant();
+            if (args[0].get_type() == Variant::VECTOR2) {
+                Vector2 g = args[0];
+                double mag = g.length();
+                Vector2 dir = (mag > 0.0) ? (g / mag) : Vector2(0, 1);
+                ps->set_setting("physics/2d/default_gravity_vector", dir);
+                ps->set_setting("physics/2d/default_gravity", mag);
+            } else if (args[0].get_type() == Variant::VECTOR3) {
+                Vector3 g = args[0];
+                double mag = g.length();
+                Vector3 dir = (mag > 0.0) ? (g / mag) : Vector3(0, -1, 0);
+                ps->set_setting("physics/3d/default_gravity_vector", dir);
+                ps->set_setting("physics/3d/default_gravity", mag);
+            }
+            return Variant();
+        }
+        if (METHOD_IS("physics_bounce") && args.size() >= 1) {
+            r_handled = true;
+            ProjectSettings *ps = ProjectSettings::get_singleton();
+            if (!ps) return Variant();
+            double b = CLAMP((double)args[0], 0.0, 1.0);
+            // No global Godot "default bounce" setting — store it in a
+            // VG-private key so user code can introspect.  Per-body
+            // PhysicsMaterial is still the supported mechanism.
+            ps->set_setting("visual_gasic/physics/default_bounce", b);
+            return Variant();
+        }
+
+        // Ray.Cast2D(from2, to2[, mask]) / Ray.Cast3D(from3, to3[, mask]) —
+        // one-shot raycast that returns the same Dictionary shape as
+        // Physics.Ray.  Reuses physics_ray's machinery by re-dispatching.
+        if ((METHOD_IS("ray_cast2d") || METHOD_IS("ray_cast3d")) && args.size() >= 2) {
+            r_handled = true;
+            if (!instance || !instance->get_owner()) return Dictionary();
+            Node *owner_node = Object::cast_to<Node>(instance->get_owner());
+            if (!owner_node) return Dictionary();
+            uint32_t mask = (args.size() >= 3) ? (uint32_t)(int)args[2] : 0xFFFFFFFFu;
+            Dictionary out;
+            bool is_2d = METHOD_IS("ray_cast2d");
+            if (is_2d) {
+                Viewport *vp = owner_node->get_viewport();
+                if (!vp) { out["Hit"] = false; return out; }
+                Ref<World2D> w = vp->find_world_2d();
+                if (!w.is_valid()) { out["Hit"] = false; return out; }
+                PhysicsDirectSpaceState2D *ss = PhysicsServer2D::get_singleton()->space_get_direct_state(w->get_space());
+                if (!ss) { out["Hit"] = false; return out; }
+                Ref<PhysicsRayQueryParameters2D> q; q.instantiate();
+                q->set_from((Vector2)args[0]);
+                q->set_to((Vector2)args[1]);
+                q->set_collision_mask(mask);
+                Dictionary r = ss->intersect_ray(q);
+                if (r.is_empty()) { out["Hit"] = false; return out; }
+                out["Hit"]      = true;
+                out["Collider"] = r.get("collider", Variant());
+                out["Point"]    = r.get("position", Variant());
+                out["Normal"]   = r.get("normal", Variant());
+                Vector2 from2 = args[0], pt2 = r.get("position", Vector2());
+                out["Distance"] = (double)from2.distance_to(pt2);
+                return out;
+            } else {
+                Node *n = owner_node;
+                Node3D *n3 = Object::cast_to<Node3D>(owner_node);
+                while (n && !n3) { n = n->get_parent(); n3 = Object::cast_to<Node3D>(n); }
+                if (!n3) { out["Hit"] = false; return out; }
+                Ref<World3D> w = n3->get_world_3d();
+                if (!w.is_valid()) { out["Hit"] = false; return out; }
+                PhysicsDirectSpaceState3D *ss = PhysicsServer3D::get_singleton()->space_get_direct_state(w->get_space());
+                if (!ss) { out["Hit"] = false; return out; }
+                Ref<PhysicsRayQueryParameters3D> q; q.instantiate();
+                q->set_from((Vector3)args[0]);
+                q->set_to((Vector3)args[1]);
+                q->set_collision_mask(mask);
+                Dictionary r = ss->intersect_ray(q);
+                if (r.is_empty()) { out["Hit"] = false; return out; }
+                out["Hit"]      = true;
+                out["Collider"] = r.get("collider", Variant());
+                out["Point"]    = r.get("position", Variant());
+                out["Normal"]   = r.get("normal", Variant());
+                Vector3 from3 = args[0], pt3 = r.get("position", Vector3());
+                out["Distance"] = (double)from3.distance_to(pt3);
+                return out;
+            }
+        }
+
+        // Joypad.IsConnected(idx) — alias of Joypad.Connected.
+        if (METHOD_IS("joypad_isconnected") && args.size() == 1) {
+            r_handled = true;
+            Input *in = Input::get_singleton();
+            return in ? in->is_joy_known((int)args[0]) : false;
+        }
+        // Joypad.Stick("left"|"right", idx) → Vector2(axisX, axisY).
+        if (METHOD_IS("joypad_stick") && args.size() == 2) {
+            r_handled = true;
+            Input *in = Input::get_singleton();
+            if (!in) return Vector2();
+            String side = String(args[0]).to_lower();
+            int dev = (int)args[1];
+            int ax_x = (side == "right") ? (int)JOY_AXIS_RIGHT_X : (int)JOY_AXIS_LEFT_X;
+            int ax_y = (side == "right") ? (int)JOY_AXIS_RIGHT_Y : (int)JOY_AXIS_LEFT_Y;
+            return Vector2(
+                (real_t)in->get_joy_axis(dev, (JoyAxis)ax_x),
+                (real_t)in->get_joy_axis(dev, (JoyAxis)ax_y));
+        }
+
+        // Animation.Loop(player, name, bool) — set loop mode of an Animation
+        // resource on the given AnimationPlayer.
+        if (METHOD_IS("animation_loop") && args.size() == 3) {
+            r_handled = true;
+            if (args[0].get_type() != Variant::OBJECT) return Variant();
+            AnimationPlayer *p = Object::cast_to<AnimationPlayer>((Object *)args[0]);
+            if (!p) return Variant();
+            String name = args[1];
+            Ref<Animation> a = p->get_animation(StringName(name));
+            if (a.is_valid()) {
+                a->set_loop_mode(((bool)args[2]) ? Animation::LOOP_LINEAR : Animation::LOOP_NONE);
+            }
+            return Variant();
+        }
+
+        // Sensor.Magnetometer — alias of Sensor.Magnet (µT triplet).
+        if (METHOD_IS("sensor_magnetometer")) {
+            r_handled = true;
+            Input *in = Input::get_singleton();
+            return in ? in->get_magnetometer() : Vector3();
+        }
+
+        // Theme.Set(ctl, key, value) / Theme.Get(ctl, key) — auto-pick the
+        // theme override category from the value's type.
+        if (METHOD_IS("theme_set") && args.size() == 3) {
+            r_handled = true;
+            if (args[0].get_type() != Variant::OBJECT) return Variant();
+            Control *c = Object::cast_to<Control>((Object *)args[0]);
+            if (!c) return Variant();
+            StringName key = StringName(String(args[1]));
+            Variant v = args[2];
+            switch (v.get_type()) {
+                case Variant::COLOR:
+                    c->add_theme_color_override(key, (Color)v);
+                    break;
+                case Variant::INT:
+                    c->add_theme_constant_override(key, (int)v);
+                    break;
+                case Variant::OBJECT: {
+                    Object *o = v;
+                    Ref<Font> f = Object::cast_to<Font>(o);
+                    if (f.is_valid()) { c->add_theme_font_override(key, f); break; }
+                    Ref<StyleBox> sb = Object::cast_to<StyleBox>(o);
+                    if (sb.is_valid()) { c->add_theme_stylebox_override(key, sb); break; }
+                    break;
+                }
+                default: break;
+            }
+            return Variant();
+        }
+        if (METHOD_IS("theme_get") && args.size() == 2) {
+            r_handled = true;
+            if (args[0].get_type() != Variant::OBJECT) return Variant();
+            Control *c = Object::cast_to<Control>((Object *)args[0]);
+            if (!c) return Variant();
+            StringName key = StringName(String(args[1]));
+            if (c->has_theme_color(key))    return c->get_theme_color(key);
+            if (c->has_theme_constant(key)) return (int64_t)c->get_theme_constant(key);
+            if (c->has_theme_font(key))     return Variant(c->get_theme_font(key));
+            if (c->has_theme_stylebox(key)) return Variant(c->get_theme_stylebox(key));
+            if (c->has_theme_font_size(key))return (int64_t)c->get_theme_font_size(key);
+            return Variant();
+        }
+
+        // Shader.Set / Shader.Get — friendlier pair for shader_param /
+        // shader_getparam. Accepts a ShaderMaterial directly OR any
+        // CanvasItem/GeometryInstance3D whose `material`/`material_override`
+        // is a ShaderMaterial.
+        auto as_shader_material_loose = [&](const Variant &h) -> Ref<ShaderMaterial> {
+            Ref<ShaderMaterial> m;
+            if (h.get_type() != Variant::OBJECT) return m;
+            Object *o = h;
+            ShaderMaterial *direct = Object::cast_to<ShaderMaterial>(o);
+            if (direct) { m = Ref<ShaderMaterial>(direct); return m; }
+            // Try common material slot names.
+            Variant slot = o->get("material");
+            if (slot.get_type() == Variant::OBJECT) {
+                ShaderMaterial *sm = Object::cast_to<ShaderMaterial>((Object *)slot);
+                if (sm) { m = Ref<ShaderMaterial>(sm); return m; }
+            }
+            slot = o->get("material_override");
+            if (slot.get_type() == Variant::OBJECT) {
+                ShaderMaterial *sm = Object::cast_to<ShaderMaterial>((Object *)slot);
+                if (sm) { m = Ref<ShaderMaterial>(sm); }
+            }
+            return m;
+        };
+        if (METHOD_IS("shader_set") && args.size() == 3) {
+            r_handled = true;
+            Ref<ShaderMaterial> m = as_shader_material_loose(args[0]);
+            if (m.is_valid()) m->set_shader_parameter(StringName(String(args[1])), args[2]);
+            return Variant();
+        }
+        if (METHOD_IS("shader_get") && args.size() == 2) {
+            r_handled = true;
+            Ref<ShaderMaterial> m = as_shader_material_loose(args[0]);
+            return m.is_valid() ? m->get_shader_parameter(StringName(String(args[1]))) : Variant();
+        }
+
+        // Video.Play(player, path) — 2-arg form: load stream from path,
+        // assign, play. Pairs with the existing 1-arg `Video.Play(player)`.
+        if (METHOD_IS("video_play") && args.size() >= 2) {
+            r_handled = true;
+            VideoStreamPlayer *v = as_vid(args[0]);
+            if (!v) return Variant();
+            String path = args[1];
+            Ref<VideoStream> stream = ResourceLoader::get_singleton()->load(path);
+            if (stream.is_valid()) {
+                v->set_stream(stream);
+                v->play();
             }
             return Variant();
         }
