@@ -188,3 +188,40 @@ These helper functions create Godot Nodes dynamically and return a reference to 
 | `Int(Num)` | Truncates decimal part. |
 | `Timer()` | Returns time since startup (milliseconds). |
 | `Sleep(Ms)` | Pauses execution. |
+
+## Godot Namespace Wrappers (v4.x–v5.1)
+
+High-level dotted-call APIs for Godot subsystems. Each row links to the full
+signatures in the
+[Language Reference](../VisualGasic_Language_Reference.md#v4xv51-godot-namespace-wrappers).
+
+| Namespace | Purpose | Selected verbs |
+| :--- | :--- | :--- |
+| `Camera.*` | Camera2D/3D control | `Position`, `Zoom`, `Rotation`, `FOV`, `Follow`, `Shake`, `Limits`, `MakeCurrent`, `PanTo`, `Bounce`, `FlashColor` |
+| `Sound.*` | Polyphonic audio | `Play`, `Stop`, `Pause`, `Resume`, `Volume`, `Pitch`, `Seek`, `Position`, `IsPlaying` |
+| `Speaker.*` | Audio buses | `Count`, `Exists`, `Name`, `Volume`, `Mute`, `IsMuted`, `Solo` |
+| `Animation.*` | AnimationPlayer | `Play`, `Stop`, `Pause`, `Resume`, `Seek`, `Speed`, `Current`, `IsPlaying`, `Length`, `Loop` |
+| `Physics.*` | Rigid/Character bodies | `Gravity`, `GravityV2`, `GravityV3`, `Force`, `Impulse`, `Torque`, `Bounce`, `Ray` |
+| `Ray.*` | RayCast2D/3D | `Cast2D`, `Cast3D`, `Target`, `Enable`, `ForceUpdate`, `Hit`, `Collider`, `Point`, `Normal` |
+| `Cell.*` | TileMap | `Get`, `Set`, `Clear`, `ClearAll`, `Used` |
+| `Nav.*` | NavigationAgent | `SetTarget`, `NextPos`, `Path`, `Distance`, `Reached` |
+| `Screen.*` | Window/display | `Width`, `Height`, `DPI`, `Orientation`, `Fullscreen`, `IsFullscreen`, `KeepOn` |
+| `Joypad.*` | Gamepad input | `Connected`, `IsConnected`, `Name`, `Button`, `Axis`, `Stick` |
+| `Sensor.*` | Phone sensors | `Accel`, `Gravity`, `Gyro`, `Magnet`, `Magnetometer`, `Tilt`, `Units` |
+| `Permission.*` | OS permissions | `Has`, `Request`, `All` |
+| `GPS.*` | Location (Android) | `Lat`, `Lng`, `Alt`, `Speed`, `Accuracy` |
+| `Steps.*` | Step counter (Android) | `Today`, `Total`, `Reset` |
+| `Crypto.*` | Hashing & encoding | `MD5`, `SHA1`, `SHA256`, `HMAC`, `Hex`, `FromHex`, `Base64`, `Base64Encode`, `Base64Decode`, `RandomBytes` |
+| `Theme.*` | Control theming | `Color`, `Constant`, `Font`, `SetColor`, `SetConstant`, `SetFont`, `SetFontSize`, `SetStyle`, `Get`, `Set` |
+| `Shader.*` / `Material.*` | Shader materials | `Material.New`, `Material.SetShader`, `Shader.Param`, `Shader.GetParam`, `Shader.Set`, `Shader.Get` |
+| `Skeleton.*` / `Bone.*` | Skeletal animation | `Count`, `Name`, `Reset`, `Find`, `Pos`, `Rot`, `Scale`, `SetPos`, `SetRot`, `SetScale`, `LookAt` |
+| `Video.*` | VideoStreamPlayer | `Play`, `Stop`, `Pause`, `Resume`, `Seek`, `Position`, `Length`, `Volume`, `IsPlaying` |
+| `JS.*` | JS interop (Web export) | `Eval`, `Call`, `Get` |
+
+Globals: `Push`, `Pull`, `Spin` (physics aliases), `Vibrate ms` (haptics),
+`Quaternion`/`Basis`/`Transform2D`/`Transform3D`/`Plane`/`AABB` (constructors),
+`NewRNG`, `NewNoise`, `NewCurve`, `Slerp`, `ColorFromHSV`, `ColorToHSV`,
+`Lighten`, `Darken`.
+
+Auto-wired subs: `Permission_Granted(name)`, `Permission_Denied(name)`,
+`GPS_Updated(lat, lng)`, `Steps_Detected(count)`.

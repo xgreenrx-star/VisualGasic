@@ -21,7 +21,8 @@
 ### Core Features
 - [BUILTIN_FUNCTIONS_REFERENCE.md](reference/BUILTIN_FUNCTIONS_REFERENCE.md) - Built-in functions (Print, Input, MsgBox, etc.)
 - [CONTROLS_REFERENCE.md](reference/CONTROLS_REFERENCE.md) - **Complete toolbox controls reference** (40+ controls, Visual Gasic IDE properties)
-- [GODOT_FUNCTIONS_REFERENCE.md](reference/GODOT_FUNCTIONS_REFERENCE.md) - Godot integration functions
+- [GODOT_FUNCTIONS_REFERENCE.md](reference/GODOT_FUNCTIONS_REFERENCE.md) - Godot integration functions (incl. **v4.x–v5.1 namespace wrappers**: Camera, Sound, Speaker, Animation, Physics, Ray, Cell, Nav, Screen, Joypad, Sensor, Permission, GPS, Steps, Crypto, Theme, Shader, Material, Skeleton, Bone, Video, JS)
+- [commands.md](reference/commands.md) - Concise command reference (control flow + Godot namespace wrappers table)
 - [GODOT_QUICK_REF.md](reference/GODOT_QUICK_REF.md) - Quick reference for Godot features
 - [MODERN_SYNTAX_QUICK_REF.md](reference/MODERN_SYNTAX_QUICK_REF.md) - Modern syntax features
 - [VB6_FEATURES_IMPLEMENTATION.md](reference/VB6_FEATURES_IMPLEMENTATION.md) - VB6 feature compatibility
@@ -53,7 +54,7 @@
 ## API Documentation
 
 - [SYSTEM_INTEGRATION.md](SYSTEM_INTEGRATION.md) - **System Integration Reference** (FFI, ODBC, Crypto, XML, ZIP, Async, Packages, System Info, Signals, Permissions, Memory, IPC, Android)
-- [VisualGasic_Language_Reference.md](VisualGasic_Language_Reference.md) - **Complete language reference** (6400+ lines)
+- [VisualGasic_Language_Reference.md](VisualGasic_Language_Reference.md) - **Complete language reference** (7000+ lines, incl. v4.x–v5.1 Godot namespace wrappers)
 - [WINFORMS_FORM_GUIDE.md](WINFORMS_FORM_GUIDE.md) - WinForms-style form development
 - [BUILTINS.md](BUILTINS.md) - Built-in functions overview
 

@@ -24,6 +24,31 @@ File/dir helpers (delegate to `VisualGasicInstance` wrappers):
 - `LOF(fileHandle)`, `Loc(fileHandle)`, `EOF(fileHandle)`, `FreeFile([range])`, `FileLen(path)`, `Dir(...)`, `Randomize()`
 - `Timer()` — Seconds since midnight as Double
 
+## Godot Namespace Wrappers (v4.x–v5.1)
+
+VisualGasic ships a layered namespace API for the most common Godot subsystems.
+These are dispatched directly inside `call_builtin_expr_evaluated` from
+`src/visual_gasic_builtins.cpp` (see the `// ── Pass 1..6` comment markers).
+They use VB6 dotted-call syntax (`Camera.Shake 0.5, 10`).
+
+Namespaces (see [VisualGasic_Language_Reference.md §Godot Namespace Wrappers](VisualGasic_Language_Reference.md#v4xv51-godot-namespace-wrappers)
+for full verb lists and signatures):
+
+- **Pass 1** math helpers — `Quaternion`, `Basis`, `Transform2D/3D`, `Plane`, `AABB`,
+  `NewRNG`, `NewNoise`, `NewCurve`, `Slerp`, `ColorFromHSV`, `ColorToHSV`, `Lighten`, `Darken`
+- **Pass 2** audio/camera — `Camera.*`, `Sound.*`, `Speaker.*`
+- **Pass 3** gameplay — `Animation.*`, `Physics.*`, `Ray.*`, `Cell.*`, `Nav.*`, plus globals `Push`, `Pull`, `Spin`
+- **Pass 4** device — `Screen.*`, `Joypad.*`, `Sensor.*`, `Permission.*`, `Vibrate`
+- **Pass 5** pro features — `Crypto.*`, `Theme.*`, `Shader.*`, `Material.*`, `Skeleton.*`, `Bone.*`, `Video.*`, `JS.*`
+- **Android v4.4** — `GPS.*`, `Steps.*`
+- **Pass 6** (v5.1 gap-fills) — `Camera.PanTo`/`Bounce`/`FlashColor`, `Crypto.Hex`/`FromHex`/`Base64`,
+  `Physics.GravityV2`/`V3`/`Bounce`, `Ray.Cast2D`/`Cast3D`, `Joypad.IsConnected`/`Stick`,
+  `Animation.Loop`, `Sensor.Magnetometer`, `Theme.Set`/`Get`, `Shader.Set`/`Get`, `Video.Play` 2-arg
+
+Auto-wired event subs (no `AddHandler` required):
+`Permission_Granted` · `Permission_Denied` · `GPS_Updated` · `Steps_Detected`
+plus standard Godot lifecycle subs (`_Ready`, `_Process`, `_PhysicsProcess`, `_Input`, …).
+
 Drawing commands (statement-level, available in `_Draw()`):
 - `DrawPixel(x, y, color)`, `PSet(x, y, color)` — single pixel
 - `DrawString(font, pos, text, color)` — text with font

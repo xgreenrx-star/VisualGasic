@@ -121,6 +121,12 @@
 - [Generics — Collection(Of T)](#generics)
 - [Game UI Mode](#game-ui-mode)
 
+### [v4.x–v5.1 Godot Namespace Wrappers](#v4xv51-godot-namespace-wrappers)
+- Camera, Sound, Speaker, Animation, Physics, Ray, Cell, Nav
+- Screen, Joypad, Sensor, Permission, Vibrate
+- GPS, Steps (Android), Crypto, Theme, Shader, Material, Skeleton, Bone, Video, JS
+- Auto-wired event subs, Pass 1 math helpers
+
 ---
 
 ## Getting Started
@@ -6518,6 +6524,254 @@ Print Layers.ToString(3)   ' → "Ground, Water"
 
 ### Compile-Time Enum Resolution
 Enum member access (`MyEnum.MemberName`) is now resolved at compile time in the bytecode compiler. This eliminates runtime member lookups and produces a simple constant-load instruction.
+
+---
+
+## v4.x–v5.1 Godot Namespace Wrappers
+
+Starting in v4.0 and expanded through v5.1, VisualGasic ships a layer of high-level
+namespace wrappers around the Godot engine. They follow VB6 dotted-call syntax
+(`Camera.Shake 0.5, 10`) and dispatch to native C++ implementations in the bytecode VM.
+
+Conventions:
+- Namespace verbs take an **optional final handle argument** to target a non-active
+  object (e.g. `Camera.Zoom v2, myCamera`). Omitting it uses the active/current node.
+- 2D vs 3D is auto-detected from the active camera / argument types.
+- Read-style verbs without parentheses are allowed as **bare-property syntax**
+  (e.g. `If Screen.Width > 1920 Then …`).
+- Volumes / opacities are expressed as **percentages 0..100** (linear), not dB.
+
+### Camera namespace (v4.0, gap-fills in v5.1)
+| Verb | Signature | Notes |
+|---|---|---|
+| `Camera.Position` | `pos [, cam]` | Vector2 for 2D, Vector3 for 3D |
+| `Camera.Zoom` | `v [, cam]` | Vector2 zoom for Camera2D |
+| `Camera.Rotation` | `radians [, cam]` | |
+| `Camera.FOV` | `degrees [, cam]` | Camera3D only |
+| `Camera.Follow` | `target [, cam]` | Smooth follow target node |
+| `Camera.Shake` | `intensity, duration [, cam]` | Trauma-style shake |
+| `Camera.Limits` | `left, top, right, bottom [, cam]` | 2D bounds |
+| `Camera.MakeCurrent` | `cam` | Activate camera |
+| `Camera.PanTo` | `pos, duration [, cam]` | Tweened pan (v5.1) |
+| `Camera.Bounce` | `direction, strength [, cam]` | Recoil pulse (v5.1) |
+| `Camera.FlashColor` | `color, duration [, cam]` | Full-screen flash (v5.1) |
+
+### Sound namespace (v4.0)
+Polyphonic — `Sound.Play` returns a playback handle.
+| Verb | Signature | Returns |
+|---|---|---|
+| `Sound.Play` | `stream_or_path [, bus]` | playback handle |
+| `Sound.Stop` | `[handle]` | |
+| `Sound.Pause` / `Sound.Resume` | `[handle]` | |
+| `Sound.Volume` | `percent [, handle]` | 0..100 |
+| `Sound.Pitch` | `multiplier [, handle]` | |
+| `Sound.Seek` | `seconds [, handle]` | |
+| `Sound.Position` | `[handle]` | seconds (read) |
+| `Sound.IsPlaying` | `[handle]` | Bool |
+
+### Speaker namespace (audio buses, v4.0)
+Alias `Speaker.Bus = Speaker` is available.
+| Verb | Signature | |
+|---|---|---|
+| `Speaker.Count` | — | bus count |
+| `Speaker.Exists` | `name_or_index` | Bool |
+| `Speaker.Name` | `index` | String |
+| `Speaker.Volume` | `bus, percent` | 0..100 |
+| `Speaker.Mute` | `bus, bool` | |
+| `Speaker.IsMuted` | `bus` | Bool |
+| `Speaker.Solo` | `bus, bool` | |
+
+### Animation namespace (v4.1)
+Operates on the nearest `AnimationPlayer`.
+| Verb | Signature | |
+|---|---|---|
+| `Animation.Play` | `name [, blend] [, player]` | |
+| `Animation.Stop` | `[player]` | |
+| `Animation.Pause` / `Animation.Resume` | `[player]` | |
+| `Animation.Seek` | `seconds [, player]` | |
+| `Animation.Speed` | `scale [, player]` | |
+| `Animation.Current` | `[player]` | String |
+| `Animation.IsPlaying` | `[player]` | Bool |
+| `Animation.Length` | `name [, player]` | seconds |
+| `Animation.Loop` | `name, bool [, player]` | (v5.1) |
+
+### Physics namespace (v4.1)
+2D and 3D auto-detected from body argument.
+| Verb | Signature | |
+|---|---|---|
+| `Physics.Gravity` | `vector [, body]` | scalar or Vector2/3 |
+| `Physics.GravityV2` | `Vector2 [, body]` | explicit 2D (v5.1) |
+| `Physics.GravityV3` | `Vector3 [, body]` | explicit 3D (v5.1) |
+| `Physics.Force` | `vector, body` | continuous force |
+| `Physics.Impulse` | `vector, body` | instantaneous |
+| `Physics.Torque` | `value, body` | scalar 2D / Vector3 3D |
+| `Physics.Bounce` | `value, body` | restitution 0..1 (v5.1) |
+| `Physics.Ray` | `from, to [, mask]` | returns Dictionary hit info |
+
+### Ray namespace (v4.1)
+Operates on `RayCast2D` / `RayCast3D` nodes.
+| Verb | Signature | |
+|---|---|---|
+| `Ray.Cast2D` | `from, to [, mask]` | one-shot (v5.1) |
+| `Ray.Cast3D` | `from, to [, mask]` | one-shot (v5.1) |
+| `Ray.Target` | `pos, raycast` | |
+| `Ray.Enable` | `bool, raycast` | |
+| `Ray.ForceUpdate` | `raycast` | |
+| `Ray.Hit` | `raycast` | Bool |
+| `Ray.Collider` | `raycast` | Object |
+| `Ray.Point` | `raycast` | Vector |
+| `Ray.Normal` | `raycast` | Vector |
+
+### Cell namespace (TileMap, v4.1)
+| Verb | Signature | |
+|---|---|---|
+| `Cell.Get` | `tilemap, pos` | source id |
+| `Cell.Set` | `tilemap, pos, source [, atlas_coords] [, alt]` | |
+| `Cell.Clear` | `tilemap, pos` | |
+| `Cell.ClearAll` | `tilemap` | |
+| `Cell.Used` | `tilemap` | Array of coords |
+
+### Nav namespace (NavigationAgent, v4.1)
+| Verb | Signature | |
+|---|---|---|
+| `Nav.SetTarget` | `pos, agent` | |
+| `Nav.NextPos` | `agent` | next path point |
+| `Nav.Path` | `agent` | Array |
+| `Nav.Distance` | `agent` | meters remaining |
+| `Nav.Reached` | `agent` | Bool |
+
+### Screen namespace (v4.2)
+Bare-property reads allowed: `If Screen.Width > 1920 …`
+| Verb | Signature | |
+|---|---|---|
+| `Screen.Width` / `Screen.Height` | — | pixels |
+| `Screen.DPI` | — | |
+| `Screen.Orientation` | `[mode]` | get/set |
+| `Screen.Fullscreen` | `bool` | |
+| `Screen.IsFullscreen` | — | Bool |
+| `Screen.KeepOn` | `bool` | prevent sleep |
+
+### Joypad namespace (v4.2)
+| Verb | Signature | |
+|---|---|---|
+| `Joypad.Connected` | — | count |
+| `Joypad.IsConnected` | `index` | Bool (v5.1) |
+| `Joypad.Name` | `index` | String |
+| `Joypad.Button` | `index, button` | Bool |
+| `Joypad.Axis` | `index, axis` | Float |
+| `Joypad.Stick` | `index, side` | Vector2 (v5.1) |
+
+### Sensor namespace (v4.2)
+| Verb | Signature | |
+|---|---|---|
+| `Sensor.Accel` | — | Vector3 |
+| `Sensor.Gravity` | — | Vector3 |
+| `Sensor.Gyro` | — | Vector3 |
+| `Sensor.Magnet` / `Sensor.Magnetometer` | — | Vector3 (v5.1 alias) |
+| `Sensor.Tilt` | — | radians |
+| `Sensor.Units` | `system` | "metric"/"imperial" |
+
+### Permission namespace (v4.2)
+| Verb | Signature | |
+|---|---|---|
+| `Permission.Has` | `name` | Bool |
+| `Permission.Request` | `name` | fires `Permission_Granted` / `Permission_Denied` |
+| `Permission.All` | — | Array of granted names |
+
+`Vibrate duration_ms` is a global verb.
+
+### GPS namespace (Android, v4.4)
+Updates arrive via auto-wired `GPS_Updated(lat, lng)` sub.
+| Verb | Returns |
+|---|---|
+| `GPS.Lat` / `GPS.Lng` | Float |
+| `GPS.Alt` | meters |
+| `GPS.Speed` | m/s |
+| `GPS.Accuracy` | meters |
+
+### Steps namespace (Android, v4.4)
+Updates arrive via auto-wired `Steps_Detected(count)` sub.
+| Verb | Returns |
+|---|---|
+| `Steps.Today` / `Steps.Total` | count |
+| `Steps.Reset` | — |
+
+### Crypto namespace (v5.0)
+| Verb | Signature | |
+|---|---|---|
+| `Crypto.MD5` / `Crypto.SHA1` / `Crypto.SHA256` | `string_or_bytes` | hex digest |
+| `Crypto.HMAC` | `algo, key, message` | hex digest |
+| `Crypto.Hex` | `bytes` | String (v5.1) |
+| `Crypto.FromHex` | `hex_string` | PackedByteArray (v5.1) |
+| `Crypto.Base64` / `Crypto.Base64Encode` | `bytes` | String |
+| `Crypto.Base64Decode` | `string` | PackedByteArray |
+| `Crypto.RandomBytes` | `count` | PackedByteArray |
+
+### Theme namespace (v5.0)
+| Verb | Signature | |
+|---|---|---|
+| `Theme.Color` / `Theme.Constant` / `Theme.Font` | `node, name, type` | get |
+| `Theme.SetColor` / `Theme.SetConstant` / `Theme.SetFont` / `Theme.SetFontSize` / `Theme.SetStyle` | `node, name, value` | |
+| `Theme.Get` / `Theme.Set` | `node, kind, name [, value]` | generic (v5.1) |
+
+### Shader / Material namespaces (v5.0)
+| Verb | Signature | |
+|---|---|---|
+| `Material.New` | — | ShaderMaterial |
+| `Material.SetShader` | `material, shader` | |
+| `Shader.Param` / `Shader.GetParam` | `material, name [, value]` | |
+| `Shader.Set` / `Shader.Get` | `material, name [, value]` | aliases (v5.1) |
+
+### Skeleton / Bone namespaces (v5.0)
+| Verb | Signature | |
+|---|---|---|
+| `Skeleton.Count` | `skeleton` | bone count |
+| `Skeleton.Name` | `skeleton, index` | String |
+| `Skeleton.Reset` | `skeleton` | T-pose |
+| `Bone.Find` | `skeleton, name` | index |
+| `Bone.Pos` / `Bone.Rot` / `Bone.Scale` | `skeleton, bone` | |
+| `Bone.SetPos` / `Bone.SetRot` / `Bone.SetScale` | `skeleton, bone, value` | |
+| `Bone.LookAt` | `skeleton, bone, target` | |
+
+### Video namespace (v5.0)
+| Verb | Signature | |
+|---|---|---|
+| `Video.Play` | `player [, stream]` | 2-arg form added v5.1 |
+| `Video.Stop` / `Video.Pause` / `Video.Resume` | `player` | |
+| `Video.Seek` | `player, seconds` | |
+| `Video.Position` | `player` | seconds |
+| `Video.Length` | `player` | seconds |
+| `Video.Volume` | `player, percent` | 0..100 |
+| `Video.IsPlaying` | `player` | Bool |
+
+### JS namespace (Web export, v5.0)
+| Verb | Signature | |
+|---|---|---|
+| `JS.Eval` | `script` | Variant |
+| `JS.Call` | `name, args…` | Variant |
+| `JS.Get` | `path` | Variant |
+
+### Global physics verbs (Pass 3 aliases)
+`Push body, force` · `Pull body, force` · `Spin body, torque` — shorthand for the
+matching `Physics.*` calls.
+
+### Auto-wired event subs
+If you define a `Sub` with one of these names, it is automatically connected to
+the matching engine signal (no `AddHandler` needed):
+
+| Sub | Fired by |
+|---|---|
+| `Permission_Granted(name)` / `Permission_Denied(name)` | `Permission.Request` |
+| `GPS_Updated(lat, lng)` | Android location service |
+| `Steps_Detected(count)` | Android step counter |
+| `_Ready` / `_Process` / `_PhysicsProcess` / `_Input` / etc. | Standard Godot lifecycle |
+
+### Pass 1 math helpers
+- Constructors: `Quaternion(x,y,z,w)`, `QuaternionFromEuler(x,y,z)`, `Basis([q])`,
+  `Transform2D([rot,origin])`, `Transform3D([basis,origin])`, `Plane(...)`, `AABB([pos,size])`
+- `NewRNG([seed])`, `NewNoise([seed])`, `NewCurve()`
+- `Slerp(a, b, t)` — overloaded for Quaternion / Vector3 / Vector2
+- `ColorFromHSV(h,s,v[,a])`, `ColorToHSV(color)`, `Lighten(c, amount)`, `Darken(c, amount)`
 
 ---
 This documentation provides a comprehensive overview of VisualGasic's advanced capabilities and modern language features. The format is professional and showcases VisualGasic as a powerful, contemporary programming language for cross-platform application and game development.

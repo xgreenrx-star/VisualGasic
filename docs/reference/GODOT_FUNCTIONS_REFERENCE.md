@@ -1283,6 +1283,55 @@ These functions provide seamless integration between VB6-style syntax and Godot 
 
 ---
 
+## Godot Namespace Wrappers (v4.x – v5.1)
+
+In addition to the low-level helpers above, VisualGasic ships a layered namespace
+API for the most common Godot subsystems. These wrappers are dispatched directly
+in the bytecode VM and follow VB6 dotted-call syntax. For full signatures and
+notes on each verb, see the
+[Godot Namespace Wrappers section in the Language Reference](../VisualGasic_Language_Reference.md#v4xv51-godot-namespace-wrappers).
+
+**Pass 2 — Audio & Camera (v4.0)**
+- `Camera.*` — `Position`, `Zoom`, `Rotation`, `FOV`, `Follow`, `Shake`, `Limits`, `MakeCurrent`, `PanTo`, `Bounce`, `FlashColor`
+- `Sound.*` — `Play`, `Stop`, `Pause`, `Resume`, `Volume`, `Pitch`, `Seek`, `Position`, `IsPlaying` (polyphonic; returns handle)
+- `Speaker.*` (alias `Speaker.Bus`) — `Count`, `Exists`, `Name`, `Volume`, `Mute`, `IsMuted`, `Solo`
+
+**Pass 3 — Game completeness (v4.1)**
+- `Animation.*` — `Play`, `Stop`, `Pause`, `Resume`, `Seek`, `Speed`, `Current`, `IsPlaying`, `Length`, `Loop`
+- `Physics.*` — `Gravity`, `GravityV2`, `GravityV3`, `Force`, `Impulse`, `Torque`, `Bounce`, `Ray`
+- `Ray.*` — `Cast2D`, `Cast3D`, `Target`, `Enable`, `ForceUpdate`, `Hit`, `Collider`, `Point`, `Normal`
+- `Cell.*` (TileMap) — `Get`, `Set`, `Clear`, `ClearAll`, `Used`
+- `Nav.*` (NavigationAgent) — `SetTarget`, `NextPos`, `Path`, `Distance`, `Reached`
+- Global aliases: `Push`, `Pull`, `Spin`
+
+**Pass 4 — Device / phone (v4.2 + Android v4.4)**
+- `Screen.*` — `Width`, `Height`, `DPI`, `Orientation`, `Fullscreen`, `IsFullscreen`, `KeepOn` (bare-property reads allowed)
+- `Joypad.*` — `Connected`, `IsConnected`, `Name`, `Button`, `Axis`, `Stick`
+- `Sensor.*` — `Accel`, `Gravity`, `Gyro`, `Magnet`/`Magnetometer`, `Tilt`, `Units`
+- `Permission.*` — `Has`, `Request`, `All`
+- `GPS.*` — `Lat`, `Lng`, `Alt`, `Speed`, `Accuracy`
+- `Steps.*` — `Today`, `Total`, `Reset`
+- Globals: `Vibrate`
+
+**Pass 5 — Pro features (v5.0 + v5.1 gap-fills)**
+- `Crypto.*` — `MD5`, `SHA1`, `SHA256`, `HMAC`, `Hex`, `FromHex`, `Base64`/`Encode`/`Decode`, `RandomBytes`
+- `Theme.*` — `Color`, `Constant`, `Font`, `SetColor`, `SetConstant`, `SetFont`, `SetFontSize`, `SetStyle`, `Get`, `Set`
+- `Shader.*` / `Material.*` — `Material.New`, `Material.SetShader`, `Shader.Param`, `Shader.GetParam`, `Shader.Set`, `Shader.Get`
+- `Skeleton.*` / `Bone.*` — `Skeleton.Count/Name/Reset`, `Bone.Find/Pos/Rot/Scale/SetPos/SetRot/SetScale/LookAt`
+- `Video.*` — `Play` (1- or 2-arg), `Stop`, `Pause`, `Resume`, `Seek`, `Position`, `Length`, `Volume`, `IsPlaying`
+- `JS.*` (Web export) — `Eval`, `Call`, `Get`
+
+**Pass 1 math helpers (v4.0)**
+- Constructors: `Quaternion`, `QuaternionFromEuler`, `Basis`, `Transform2D`, `Transform3D`, `Plane`, `AABB`
+- `NewRNG`, `NewNoise`, `NewCurve`
+- `Slerp` (overloaded), `ColorFromHSV`, `ColorToHSV`, `Lighten`, `Darken`
+
+**Auto-wired event subs:** define `Permission_Granted(name)`, `Permission_Denied(name)`,
+`GPS_Updated(lat, lng)`, or `Steps_Detected(count)` and they will be connected
+automatically by the engine. See the Language Reference for details.
+
+---
+
 ---
 
 ---
