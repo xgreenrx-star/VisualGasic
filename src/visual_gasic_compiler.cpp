@@ -2973,7 +2973,11 @@ String VisualGasicCompiler::detect_namespace_call(ExpressionNode* base_obj) cons
     if (lo != "camera" && lo != "sound" && lo != "speaker" &&
         // Pass 3 namespaces
         lo != "animation" && lo != "physics" && lo != "ray" &&
-        lo != "cell" && lo != "nav") return String();
+        lo != "cell" && lo != "nav" &&
+        // Pass 4 namespaces (app platform / phone sensors)
+        lo != "screen" && lo != "joypad" && lo != "touch" &&
+        lo != "sensor" && lo != "permission" && lo != "gps" &&
+        lo != "steps") return String();
     // Not shadowed by a known variable.
     String orig_lo = name.to_lower();
     if (local_slots.has(orig_lo) || param_vars.has(orig_lo) ||

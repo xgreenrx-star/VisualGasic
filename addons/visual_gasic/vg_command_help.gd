@@ -1155,6 +1155,197 @@ static func _build_db() -> void:
 		"For Each pt In Nav.Path(enemyNav)\n    DrawCircle pt, 3, Color.Yellow\nNext")
 
 	# =========================================================================
+	# PASS 4 — SCREEN NAMESPACE (display / window)
+	#
+	# Wraps Godot's DisplayServer. Reads pixel size, DPI, orientation, and
+	# lets you control fullscreen + keep-awake. Property-style calls use
+	# parens: Screen.Width(), Screen.DPI().
+	# =========================================================================
+	_add("Screen.Width",
+		"Screen.Width() As Long",
+		"Returns the screen width in pixels.",
+		"If Screen.Width() < 600 Then SetMobileUI()")
+
+	_add("Screen.Height",
+		"Screen.Height() As Long",
+		"Returns the screen height in pixels.",
+		"Print Screen.Width() & \"x\" & Screen.Height()")
+
+	_add("Screen.DPI",
+		"Screen.DPI() As Long",
+		"Returns the screen DPI (dots per inch). Useful for sizing UI on high-density displays.",
+		"Dim scale = Screen.DPI() / 96.0   ' 1.0 on standard displays")
+
+	_add("Screen.Orientation",
+		"Screen.Orientation() As String",
+		"Returns \"portrait\" or \"landscape\".",
+		"If Screen.Orientation() = \"portrait\" Then\n    UseVerticalLayout()\nEnd If")
+
+	_add("Screen.KeepOn",
+		"Screen.KeepOn(on)",
+		"Prevents the screen from auto-sleeping while True. Critical for games and video apps.",
+		"Screen.KeepOn True")
+
+	_add("Screen.FullScreen",
+		"Screen.FullScreen(on)",
+		"Toggles fullscreen mode for the main window.",
+		"Screen.FullScreen True")
+
+	_add("Screen.IsFullScreen",
+		"Screen.IsFullScreen() As Boolean",
+		"Returns True if the window is currently fullscreen.",
+		"If Not Screen.IsFullScreen() Then Screen.FullScreen True")
+
+	# =========================================================================
+	# PASS 4 — JOYPAD NAMESPACE (gamepad polling)
+	#
+	# Device is the joypad index (0-based). Axis index is 0=LX, 1=LY, 2=RX,
+	# 3=RY, 4=LT, 5=RT (Godot JoyAxis enum). Button index is the JoyButton
+	# enum: 0=A, 1=B, 2=X, 3=Y, 4=Back, 5=Guide, 6=Start, etc.
+	# =========================================================================
+	_add("Joypad.Connected",
+		"Joypad.Connected(device) As Boolean",
+		"Returns True if a joypad is connected at the given device index (0-based).",
+		"If Joypad.Connected(0) Then Print \"Player 1 controller ready\"")
+
+	_add("Joypad.Name",
+		"Joypad.Name(device) As String",
+		"Returns the joypad's name (e.g. \"Xbox Wireless Controller\"). Empty string if not connected.",
+		"Print \"P1: \" & Joypad.Name(0)")
+
+	_add("Joypad.Axis",
+		"Joypad.Axis(device, axisIndex) As Double",
+		"Returns the analog axis value (-1.0 to 1.0). Axis 0/1 = left stick, 2/3 = right stick, 4/5 = triggers.",
+		"' Move with left stick\nDim mx = Joypad.Axis(0, 0)\nDim my = Joypad.Axis(0, 1)\nposition += Vector2(mx, my) * 200 * delta")
+
+	_add("Joypad.Button",
+		"Joypad.Button(device, buttonIndex) As Boolean",
+		"Returns True if the given button is currently held down. 0=A/Cross, 1=B/Circle, 2=X/Square, 3=Y/Triangle, 6=Start.",
+		"If Joypad.Button(0, 0) Then Jump()")
+
+	# =========================================================================
+	# PASS 4 — SENSOR NAMESPACE (phone motion sensors)
+	#
+	# Reads the device's accelerometer / gyroscope / magnetometer / gravity
+	# sensors. Works on Android and iOS automatically. On desktop returns
+	# zero vectors.
+	#
+	# By default uses "game" units (Gs, degrees/sec) — more intuitive. Call
+	# Sensor.Units "metric" to switch to m/s² and radians/sec.
+	# =========================================================================
+	_add("Sensor.Units",
+		"Sensor.Units(system)",
+		"Sets the unit system for subsequent Sensor reads. \"game\" (default) = Gs and degrees/sec. \"metric\" = m/s² and rad/sec.",
+		"Sensor.Units \"game\"     ' default, easy mode\nSensor.Units \"metric\"   ' physics-accurate")
+
+	_add("Sensor.Accel",
+		"Sensor.Accel() As Vector3",
+		"Returns the accelerometer reading. In game units, ~1.0 G on the Y axis when the phone is upright. Includes gravity.",
+		"Dim a = Sensor.Accel()\nIf a.Length() > 2.0 Then Print \"Shake detected!\"")
+
+	_add("Sensor.Gyro",
+		"Sensor.Gyro() As Vector3",
+		"Returns the gyroscope reading — angular velocity. In game units = degrees/sec.",
+		"Dim g = Sensor.Gyro()\nIf Abs(g.y) > 90 Then Print \"Fast spin!\"")
+
+	_add("Sensor.Magnet",
+		"Sensor.Magnet() As Vector3",
+		"Returns the magnetometer reading in µT (microtesla). Useful for compass apps.",
+		"Dim m = Sensor.Magnet()\nDim heading = Atan2(m.y, m.x) * 57.2958")
+
+	_add("Sensor.Gravity",
+		"Sensor.Gravity() As Vector3",
+		"Returns just the gravity component (low-pass filtered accelerometer). In game units = Gs.",
+		"' Use as level reference\nDim down = Sensor.Gravity().Normalized()")
+
+	_add("Sensor.Tilt",
+		"Sensor.Tilt() As Double",
+		"Returns device tilt in degrees (rotation around vertical axis). 0 = phone upright, ±90 = phone flat on its side.",
+		"player.Velocity.x = Sensor.Tilt() * 10   ' tilt-to-steer")
+
+	# =========================================================================
+	# PASS 4 — PERMISSION NAMESPACE (Android runtime permissions)
+	#
+	# On Android/iOS, sensitive features require runtime permission. On
+	# desktop these always return True. Short names recognised: "camera",
+	# "microphone", "location", "storage" (or pass full Android permission
+	# string).
+	#
+	# Future auto-wire: Sub Permission_Granted(name) / Permission_Denied(name)
+	# will be called when the user responds to the OS dialog (Pass 4 ships
+	# the API; the signal hookup lands with the Android plugin in v5.2).
+	# =========================================================================
+	_add("Permission.Has",
+		"Permission.Has(name) As Boolean",
+		"Returns True if the permission is currently granted. On desktop always True.",
+		"If Not Permission.Has(\"camera\") Then Permission.Request \"camera\"")
+
+	_add("Permission.Request",
+		"Permission.Request(name)",
+		"Prompts the OS to ask the user for a permission. Resolves async — check Permission.Has next frame, or define Sub Permission_Granted(name).",
+		"Permission.Request \"location\"")
+
+	_add("Permission.All",
+		"Permission.All() As Array",
+		"Returns an Array of all currently-granted permission strings.",
+		"For Each p In Permission.All()\n    Print p\nNext")
+
+	# =========================================================================
+	# PASS 4 — VIBRATE (global verb)
+	# =========================================================================
+	_add("Vibrate",
+		"Vibrate ms [, amplitude]",
+		"Vibrates the device for the given milliseconds. Amplitude is 0.0–1.0 (default = full). No-op on desktop.",
+		"Vibrate 100           ' short buzz\nVibrate 500, 0.3      ' half-second gentle")
+
+	# =========================================================================
+	# PASS 4 — GPS / STEPS (stubs — need platform plugin)
+	#
+	# These return safe defaults (0 / -1) on every platform today. The
+	# namespace + signal names are reserved now so user code written
+	# against them will Just Work once the Android/iOS plugins ship.
+	# =========================================================================
+	_add("GPS.Lat",
+		"GPS.Lat() As Double",
+		"Returns latitude in decimal degrees. Returns 0 until a platform plugin publishes real values.",
+		"Print \"Lat: \" & GPS.Lat()")
+
+	_add("GPS.Lng",
+		"GPS.Lng() As Double",
+		"Returns longitude in decimal degrees. Returns 0 until a platform plugin publishes real values.",
+		"Print \"Lng: \" & GPS.Lng()")
+
+	_add("GPS.Alt",
+		"GPS.Alt() As Double",
+		"Returns altitude in meters above sea level. Stub returns 0.",
+		"Print GPS.Alt() & \" m\"")
+
+	_add("GPS.Accuracy",
+		"GPS.Accuracy() As Double",
+		"Returns horizontal accuracy in meters. -1 means unknown / no fix yet.",
+		"If GPS.Accuracy() > 0 And GPS.Accuracy() < 20 Then UpdateMap()")
+
+	_add("GPS.Speed",
+		"GPS.Speed() As Double",
+		"Returns ground speed in m/s. Stub returns 0.",
+		"Print (GPS.Speed() * 3.6) & \" km/h\"")
+
+	_add("Steps.Total",
+		"Steps.Total() As Long",
+		"Returns total step count since boot (or since plugin install). Stub returns 0.",
+		"Print \"Today you walked \" & Steps.Total() & \" steps\"")
+
+	_add("Steps.Today",
+		"Steps.Today() As Long",
+		"Returns step count for today (midnight rollover). Stub returns 0.",
+		"goalProgress = Steps.Today() / 10000.0")
+
+	_add("Steps.Reset",
+		"Steps.Reset()",
+		"Resets the step counter to zero. Plugin-dependent.",
+		"Steps.Reset()")
+
+	# =========================================================================
 	# ARRAY FUNCTIONS
 	# =========================================================================
 	_add("UBound",

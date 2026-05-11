@@ -1,0 +1,46 @@
+' Pass 4 smoke test — App platform / phone sensors
+' Note: namespace property reads use parens (Screen.Width()), matching Pass 2/3 style.
+Sub _Ready()
+    Print "=== Pass 4 smoke ==="
+
+    ' Screen
+    Print "Screen.Width: " & Screen.Width()
+    Print "Screen.Height: " & Screen.Height()
+    Print "Screen.DPI: " & Screen.DPI()
+    Print "Screen.Orientation: " & Screen.Orientation()
+    Print "Screen.IsFullScreen: " & Screen.IsFullScreen()
+    Screen.KeepOn True
+    Print "Screen.KeepOn True OK"
+
+    ' Joypad
+    Print "Joypad 0 Connected: " & Joypad.Connected(0)
+    Print "Joypad 0 Name: '" & Joypad.Name(0) & "'"
+    Print "Joypad 0 Axis 0: " & Joypad.Axis(0, 0)
+    Print "Joypad 0 Button 0: " & Joypad.Button(0, 0)
+
+    ' Sensors (desktop/headless returns zero vectors)
+    Print "Sensor.Accel: " & Sensor.Accel() & " (game units = Gs)"
+    Print "Sensor.Gyro: " & Sensor.Gyro() & " (game units = deg/sec)"
+    Print "Sensor.Tilt: " & Sensor.Tilt() & " deg"
+    Sensor.Units "metric"
+    Print "Sensor.Accel (metric): " & Sensor.Accel() & " (m/s²)"
+    Sensor.Units "game"
+    Print "Switched back to game units OK"
+
+    ' Permission (desktop returns True)
+    Print "Permission.Has(camera): " & Permission.Has("camera") & " (desktop expects True)"
+    Dim perms = Permission.All()
+    Print "Permission.All array size: " & (UBound(perms) + 1)
+
+    ' GPS / Steps stubs
+    Print "GPS.Lat: " & GPS.Lat() & " (stub)"
+    Print "GPS.Accuracy: " & GPS.Accuracy() & " (-1 = unknown)"
+    Print "Steps.Total: " & Steps.Total() & " (stub)"
+    Steps.Reset()
+
+    ' Vibrate — no-op on desktop, just verify dispatch
+    Vibrate 50, 0.5
+    Print "Vibrate dispatched OK"
+
+    Print "PASS 4 OK"
+End Sub

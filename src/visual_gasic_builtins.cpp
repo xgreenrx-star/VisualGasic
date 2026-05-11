@@ -78,6 +78,10 @@
 #include <godot_cpp/classes/world2d.hpp>
 #include <godot_cpp/classes/world3d.hpp>
 #include <godot_cpp/classes/animation.hpp>
+// Pass 4 — app platform / phone sensors
+#include <godot_cpp/classes/display_server.hpp>
+#include <godot_cpp/classes/input.hpp>
+#include <godot_cpp/classes/os.hpp>
 // System-level class headers for built-in function dispatch
 #include "visual_gasic_process.h"
 #include "visual_gasic_database.h"
@@ -1800,6 +1804,251 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             }
         }
         return Variant();
+    }
+
+    // ── Pass 4: App platform / phone sensors ───────────────────────────
+    //
+    // Screen.*     — DisplayServer wrappers
+    // Joypad.*     — gamepad polling
+    // Sensor.*     — accel/gyro/magnet/gravity/tilt (Android/iOS automatic)
+    // Permission.* — Android runtime permission API
+    // Vibrate      — global verb
+    // GPS.* / Steps.* — stubbed (return safe defaults; platform plugin
+    //                  can publish real values via a future Variant API)
+    {
+        // Sensor units flag: false = "game" (Gs, deg/sec), true = "metric"
+        // (m/s², rad/s). Default per user choice = "game".
+        static bool s_sensor_metric = false;
+        const double RAD2DEG = 57.29577951308232;
+        const double G_TO_MS2 = 9.80665;
+
+        // ── Screen.* ─────────────────────────────────────────────────
+        if (METHOD_IS("screen_width")) {
+            r_handled = true;
+            DisplayServer *ds = DisplayServer::get_singleton();
+            return ds ? (int64_t)ds->screen_get_size().x : (int64_t)0;
+        }
+        if (METHOD_IS("screen_height")) {
+            r_handled = true;
+            DisplayServer *ds = DisplayServer::get_singleton();
+            return ds ? (int64_t)ds->screen_get_size().y : (int64_t)0;
+        }
+        if (METHOD_IS("screen_dpi")) {
+            r_handled = true;
+            DisplayServer *ds = DisplayServer::get_singleton();
+            return ds ? (int64_t)ds->screen_get_dpi() : (int64_t)96;
+        }
+        if (METHOD_IS("screen_orientation")) {
+            r_handled = true;
+            DisplayServer *ds = DisplayServer::get_singleton();
+            if (!ds) return String("landscape");
+            // Returns "portrait" if height > width, else "landscape"
+            Vector2i sz = ds->screen_get_size();
+            return String(sz.y > sz.x ? "portrait" : "landscape");
+        }
+        if (METHOD_IS("screen_keepon") && args.size() == 1) {
+            r_handled = true;
+            DisplayServer *ds = DisplayServer::get_singleton();
+            if (ds) ds->screen_set_keep_on((bool)args[0]);
+            return Variant();
+        }
+        if (METHOD_IS("screen_fullscreen") && args.size() == 1) {
+            r_handled = true;
+            DisplayServer *ds = DisplayServer::get_singleton();
+            if (ds) {
+                DisplayServer::WindowMode m = (bool)args[0]
+                    ? DisplayServer::WINDOW_MODE_FULLSCREEN
+                    : DisplayServer::WINDOW_MODE_WINDOWED;
+                ds->window_set_mode(m);
+            }
+            return Variant();
+        }
+        if (METHOD_IS("screen_isfullscreen")) {
+            r_handled = true;
+            DisplayServer *ds = DisplayServer::get_singleton();
+            if (!ds) return false;
+            DisplayServer::WindowMode m = ds->window_get_mode();
+            return m == DisplayServer::WINDOW_MODE_FULLSCREEN ||
+                   m == DisplayServer::WINDOW_MODE_EXCLUSIVE_FULLSCREEN;
+        }
+
+        // ── Joypad.* ─────────────────────────────────────────────────
+        // Joypad.Connected(device) As Boolean
+        // Joypad.Name(device) As String
+        // Joypad.Axis(device, axisIndex) As Double  (-1.0..1.0)
+        // Joypad.Button(device, buttonIndex) As Boolean
+        if (METHOD_IS("joypad_connected") && args.size() == 1) {
+            r_handled = true;
+            Input *in = Input::get_singleton();
+            return in ? in->is_joy_known((int)args[0]) : false;
+        }
+        if (METHOD_IS("joypad_name") && args.size() == 1) {
+            r_handled = true;
+            Input *in = Input::get_singleton();
+            return in ? in->get_joy_name((int)args[0]) : String();
+        }
+        if (METHOD_IS("joypad_axis") && args.size() == 2) {
+            r_handled = true;
+            Input *in = Input::get_singleton();
+            if (!in) return 0.0;
+            return (double)in->get_joy_axis((int)args[0], (JoyAxis)(int)args[1]);
+        }
+        if (METHOD_IS("joypad_button") && args.size() == 2) {
+            r_handled = true;
+            Input *in = Input::get_singleton();
+            if (!in) return false;
+            return in->is_joy_button_pressed((int)args[0], (JoyButton)(int)args[1]);
+        }
+
+        // ── Sensor.* ─────────────────────────────────────────────────
+        // Sensor.Units("game"|"metric") — set unit system for following reads
+        // Sensor.Accel() As Vector3   — Gs or m/s²
+        // Sensor.Gyro() As Vector3    — deg/sec or rad/sec
+        // Sensor.Magnet() As Vector3  — µT (always)
+        // Sensor.Gravity() As Vector3 — Gs or m/s² (gravity-only component)
+        // Sensor.Tilt() As Double     — degrees from upright (0 = flat phone)
+        if (METHOD_IS("sensor_units") && args.size() == 1) {
+            r_handled = true;
+            String u = String(args[0]).to_lower();
+            s_sensor_metric = (u == "metric");
+            return Variant();
+        }
+        if (METHOD_IS("sensor_accel")) {
+            r_handled = true;
+            Input *in = Input::get_singleton();
+            if (!in) return Vector3();
+            Vector3 v = in->get_accelerometer();
+            if (!s_sensor_metric) v /= (float)G_TO_MS2;
+            return v;
+        }
+        if (METHOD_IS("sensor_gyro")) {
+            r_handled = true;
+            Input *in = Input::get_singleton();
+            if (!in) return Vector3();
+            Vector3 v = in->get_gyroscope();
+            if (!s_sensor_metric) v *= (float)RAD2DEG;
+            return v;
+        }
+        if (METHOD_IS("sensor_magnet")) {
+            r_handled = true;
+            Input *in = Input::get_singleton();
+            return in ? in->get_magnetometer() : Vector3();
+        }
+        if (METHOD_IS("sensor_gravity")) {
+            r_handled = true;
+            Input *in = Input::get_singleton();
+            if (!in) return Vector3();
+            Vector3 v = in->get_gravity();
+            if (!s_sensor_metric) v /= (float)G_TO_MS2;
+            return v;
+        }
+        if (METHOD_IS("sensor_tilt")) {
+            r_handled = true;
+            Input *in = Input::get_singleton();
+            if (!in) return 0.0;
+            Vector3 a = in->get_accelerometer();
+            // Tilt = angle between -Y (upright) and accel vector projected on Y-Z.
+            // Use atan2(x, -y) for phone "tilt around vertical" feel.
+            return (double)Math::atan2(a.x, -a.y) * RAD2DEG;
+        }
+
+        // ── Permission.* ─────────────────────────────────────────────
+        // Permission.Has("camera") As Boolean
+        // Permission.Request("camera")           — fires-and-forgets; the
+        //                                         OS resolves async and we
+        //                                         dispatch Permission_Granted
+        //                                         / Permission_Denied subs.
+        // Permission.All() As Array              — currently granted list
+        //
+        // Common names: "camera", "microphone", "location", "storage",
+        //               "android.permission.ACCESS_FINE_LOCATION", etc.
+        if (METHOD_IS("permission_has") && args.size() == 1) {
+            r_handled = true;
+            OS *os = OS::get_singleton();
+            if (!os) return false;
+            String name = args[0];
+            PackedStringArray granted = os->get_granted_permissions();
+            // Accept short forms.
+            String full = name;
+            if (!full.begins_with("android.permission.")) {
+                if (name == "camera") full = "android.permission.CAMERA";
+                else if (name == "microphone") full = "android.permission.RECORD_AUDIO";
+                else if (name == "location") full = "android.permission.ACCESS_FINE_LOCATION";
+                else if (name == "storage") full = "android.permission.READ_EXTERNAL_STORAGE";
+            }
+            for (int i = 0; i < granted.size(); i++) {
+                if (granted[i] == name || granted[i] == full) return true;
+            }
+            // Desktop: no permission model → return True so user code runs.
+            String pn = os->get_name();
+            if (pn != "Android" && pn != "iOS") return true;
+            return false;
+        }
+        if (METHOD_IS("permission_request") && args.size() == 1) {
+            r_handled = true;
+            OS *os = OS::get_singleton();
+            if (!os) return false;
+            String name = args[0];
+            String full = name;
+            if (!full.begins_with("android.permission.")) {
+                if (name == "camera") full = "android.permission.CAMERA";
+                else if (name == "microphone") full = "android.permission.RECORD_AUDIO";
+                else if (name == "location") full = "android.permission.ACCESS_FINE_LOCATION";
+                else if (name == "storage") full = "android.permission.READ_EXTERNAL_STORAGE";
+            }
+            // request_permission returns immediately; outcome dispatched async
+            // via OS's on_request_permissions_result signal in Godot. The user's
+            // Sub Permission_Granted(name) / Permission_Denied(name) get called
+            // via the auto-wire when that signal fires (wired below).
+            return os->request_permission(full);
+        }
+        if (METHOD_IS("permission_all")) {
+            r_handled = true;
+            OS *os = OS::get_singleton();
+            if (!os) return Array();
+            PackedStringArray g = os->get_granted_permissions();
+            Array a;
+            for (int i = 0; i < g.size(); i++) a.push_back(g[i]);
+            return a;
+        }
+
+        // ── Vibrate verb (global) ─────────────────────────────────────
+        // Vibrate ms                 — short buzz, default amplitude
+        // Vibrate ms, amplitude      — 0.0..1.0
+        if (METHOD_IS("vibrate") && args.size() >= 1) {
+            r_handled = true;
+            Input *in = Input::get_singleton();
+            if (!in) return Variant();
+            int ms = (int)args[0];
+            float amp = (args.size() >= 2) ? (float)(double)args[1] : -1.0f;
+            in->vibrate_handheld(ms, amp);
+            return Variant();
+        }
+
+        // ── GPS.* / Steps.* — declared but return safe defaults ───────
+        // These need a platform plugin (Android Java / iOS native) to feed
+        // real values. The namespace + signal names are fixed now so user
+        // code written today will Just Work once the plugin lands.
+        //
+        // GPS.Lat / Lng / Alt / Accuracy / Speed → 0 on unsupported.
+        // Steps.Total / Today / Reset           → 0 on unsupported.
+        if (METHOD_IS("gps_lat") || METHOD_IS("gps_lng") ||
+            METHOD_IS("gps_alt") || METHOD_IS("gps_speed")) {
+            r_handled = true;
+            return 0.0;
+        }
+        if (METHOD_IS("gps_accuracy")) {
+            r_handled = true;
+            return -1.0; // negative = unknown
+        }
+        if (METHOD_IS("steps_total") || METHOD_IS("steps_today")) {
+            r_handled = true;
+            return (int64_t)0;
+        }
+        if (METHOD_IS("steps_reset")) {
+            r_handled = true;
+            return Variant();
+        }
     }
 
     // GetThemeDefaultFont() — returns fallback font for Godot-style DrawString calls
