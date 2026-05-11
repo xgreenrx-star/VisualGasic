@@ -106,6 +106,11 @@ private:
 
     void compile_statement(Statement* stmt);
     void compile_expression(ExpressionNode* expr);
+
+    // Pass 2: namespace dispatch. If base_obj is the bare identifier
+    // "Camera"/"Sound"/"Bus" (not shadowed by a local/param/array/dict),
+    // returns the lowercase namespace name; otherwise returns "".
+    String detect_namespace_call(ExpressionNode* base_obj) const;
 };
 
 #endif

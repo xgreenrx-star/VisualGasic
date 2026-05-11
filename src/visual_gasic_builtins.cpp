@@ -38,6 +38,22 @@
 #include <godot_cpp/classes/random_number_generator.hpp>
 #include <godot_cpp/classes/fast_noise_lite.hpp>
 #include <godot_cpp/classes/curve.hpp>
+// Pass 2 — camera/audio namespace dispatch
+#include <godot_cpp/classes/camera2d.hpp>
+#include <godot_cpp/classes/camera3d.hpp>
+#include <godot_cpp/classes/audio_stream.hpp>
+#include <godot_cpp/classes/audio_stream_player.hpp>
+#include <godot_cpp/classes/audio_stream_player2d.hpp>
+#include <godot_cpp/classes/audio_stream_player3d.hpp>
+#include <godot_cpp/classes/audio_server.hpp>
+#include <godot_cpp/classes/remote_transform2d.hpp>
+#include <godot_cpp/classes/remote_transform3d.hpp>
+#include <godot_cpp/classes/scene_tree.hpp>
+#include <godot_cpp/classes/window.hpp>
+#include <godot_cpp/classes/node2d.hpp>
+#include <godot_cpp/classes/node3d.hpp>
+#include <godot_cpp/classes/tween.hpp>
+#include <godot_cpp/classes/property_tweener.hpp>
 // System-level class headers for built-in function dispatch
 #include "visual_gasic_process.h"
 #include "visual_gasic_database.h"
@@ -983,6 +999,366 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         r_handled = true;
         Color c = args[0];
         return c.darkened((float)(double)args[1]);
+    }
+
+    // ── Pass 2: Camera/Sound/Speaker namespace dispatch ─────────────────
+    //
+    // Compiler rewrites  Camera.Zoom(v)  →  OP_CALL "camera_zoom"  etc.
+    // All Pass 2 builtin names are namespace-prefixed: camera_*, sound_*,
+    // speaker_*. They operate on the active scene tree / AudioServer.
+    //
+    // Camera convention: every camera_* verb accepts an optional final
+    // argument that overrides the "active" camera. When omitted, we use
+    // SceneTree::get_root()->get_camera_2d() / get_camera_3d() — whichever
+    // is current. 2D and 3D are picked by which one is active.
+    //
+    // Helper lambdas live inside one block; they capture `instance` only.
+    {
+        auto resolve_camera = [&](const Variant &override_cam) -> Object* {
+            if (override_cam.get_type() == Variant::OBJECT) {
+                Object *o = override_cam;
+                if (o && (o->is_class("Camera2D") || o->is_class("Camera3D"))) return o;
+            }
+            if (!instance || !instance->get_owner()) return nullptr;
+            Node *n = Object::cast_to<Node>(instance->get_owner());
+            if (!n) return nullptr;
+            SceneTree *st = n->get_tree();
+            if (!st) return nullptr;
+            Viewport *vp = st->get_root();
+            if (!vp) return nullptr;
+            Camera3D *c3 = vp->get_camera_3d();
+            if (c3) return c3;
+            Camera2D *c2 = vp->get_camera_2d();
+            return c2;
+        };
+
+        // Camera.Position(pos[, h]) — set position (Vector2 or Vector3)
+        if (METHOD_IS("camera_position") && args.size() >= 1) {
+            r_handled = true;
+            Variant override_h = (args.size() >= 2) ? args[args.size() - 1] : Variant();
+            Object *cam = resolve_camera(override_h);
+            if (!cam) return Variant();
+            if (cam->is_class("Camera2D")) {
+                Camera2D *c = Object::cast_to<Camera2D>(cam);
+                c->set_position((Vector2)args[0]);
+            } else if (cam->is_class("Camera3D")) {
+                Camera3D *c = Object::cast_to<Camera3D>(cam);
+                c->set_position((Vector3)args[0]);
+            }
+            return Variant();
+        }
+        // Camera.Zoom(v[, h]) — Vector2 for 2D, scalar fov-divisor for 3D unsupported
+        if (METHOD_IS("camera_zoom") && args.size() >= 1) {
+            r_handled = true;
+            Variant override_h = (args.size() >= 2) ? args[args.size() - 1] : Variant();
+            Object *cam = resolve_camera(override_h);
+            if (!cam) return Variant();
+            Camera2D *c = Object::cast_to<Camera2D>(cam);
+            if (c) {
+                if (args[0].get_type() == Variant::VECTOR2) {
+                    c->set_zoom((Vector2)args[0]);
+                } else {
+                    float z = (float)(double)args[0];
+                    c->set_zoom(Vector2(z, z));
+                }
+            }
+            return Variant();
+        }
+        // Camera.Limits(left, top, right, bottom[, h]) — Camera2D pan clamps
+        if (METHOD_IS("camera_limits") && args.size() >= 4) {
+            r_handled = true;
+            Variant override_h = (args.size() >= 5) ? args[args.size() - 1] : Variant();
+            Object *cam = resolve_camera(override_h);
+            Camera2D *c = Object::cast_to<Camera2D>(cam);
+            if (c) {
+                c->set_limit(SIDE_LEFT,   (int)args[0]);
+                c->set_limit(SIDE_TOP,    (int)args[1]);
+                c->set_limit(SIDE_RIGHT,  (int)args[2]);
+                c->set_limit(SIDE_BOTTOM, (int)args[3]);
+            }
+            return Variant();
+        }
+        // Camera.FOV(degrees[, h]) — Camera3D field of view
+        if (METHOD_IS("camera_fov") && args.size() >= 1) {
+            r_handled = true;
+            Variant override_h = (args.size() >= 2) ? args[args.size() - 1] : Variant();
+            Object *cam = resolve_camera(override_h);
+            Camera3D *c = Object::cast_to<Camera3D>(cam);
+            if (c) c->set_fov((float)(double)args[0]);
+            return Variant();
+        }
+        // Camera.MakeCurrent([h]) — mark camera as the active one
+        if (METHOD_IS("camera_makecurrent")) {
+            r_handled = true;
+            Variant override_h = (args.size() >= 1) ? args[0] : Variant();
+            Object *cam = resolve_camera(override_h);
+            if (!cam) return Variant();
+            Camera2D *c2 = Object::cast_to<Camera2D>(cam);
+            if (c2) { c2->make_current(); return Variant(); }
+            Camera3D *c3 = Object::cast_to<Camera3D>(cam);
+            if (c3) { c3->make_current(); }
+            return Variant();
+        }
+        // Camera.Rotation(radians_or_v3[, h]) — Camera2D scalar, Camera3D Vector3
+        if (METHOD_IS("camera_rotation") && args.size() >= 1) {
+            r_handled = true;
+            Variant override_h = (args.size() >= 2) ? args[args.size() - 1] : Variant();
+            Object *cam = resolve_camera(override_h);
+            if (!cam) return Variant();
+            if (cam->is_class("Camera2D")) {
+                Object::cast_to<Camera2D>(cam)->set_rotation((float)(double)args[0]);
+            } else if (cam->is_class("Camera3D")) {
+                Object::cast_to<Camera3D>(cam)->set_rotation((Vector3)args[0]);
+            }
+            return Variant();
+        }
+        // Camera.Follow(target[, h]) — continuous follow via RemoteTransform.
+        // Adds a RemoteTransform2D/3D child to `target` that mirrors its
+        // transform onto the camera. Removes any previous follow link first.
+        // Camera.Follow(Nothing[, h]) — stop following.
+        if (METHOD_IS("camera_follow") && args.size() >= 1) {
+            r_handled = true;
+            Variant override_h = (args.size() >= 2) ? args[args.size() - 1] : Variant();
+            Object *cam = resolve_camera(override_h);
+            if (!cam) return Variant();
+            Node *cam_node = Object::cast_to<Node>(cam);
+            if (!cam_node) return Variant();
+
+            // Clear any existing follow link tagged with metadata "__vg_follow"
+            Node *prev_rt_owner = nullptr;
+            if (cam_node->has_meta("__vg_follow_remote_path")) {
+                NodePath p = cam_node->get_meta("__vg_follow_remote_path");
+                if (cam_node->is_inside_tree()) {
+                    Node *rt = cam_node->get_node_or_null(p);
+                    if (rt) prev_rt_owner = rt;
+                }
+            }
+            if (prev_rt_owner) {
+                prev_rt_owner->queue_free();
+                cam_node->remove_meta("__vg_follow_remote_path");
+            }
+
+            // Stop following if target is Nil
+            if (args[0].get_type() == Variant::NIL) return Variant();
+
+            Object *tgt_obj = args[0];
+            Node *tgt = Object::cast_to<Node>(tgt_obj);
+            if (!tgt) return Variant();
+
+            if (cam->is_class("Camera2D") && tgt->is_class("Node2D")) {
+                RemoteTransform2D *rt = memnew(RemoteTransform2D);
+                rt->set_name("__vg_follow_rt");
+                rt->set_update_rotation(false);
+                rt->set_update_scale(false);
+                tgt->add_child(rt);
+                rt->set_remote_node(cam_node->get_path());
+                cam_node->set_meta("__vg_follow_remote_path", NodePath("../" + String(tgt->get_name()) + "/__vg_follow_rt"));
+            } else if (cam->is_class("Camera3D") && tgt->is_class("Node3D")) {
+                RemoteTransform3D *rt = memnew(RemoteTransform3D);
+                rt->set_name("__vg_follow_rt");
+                rt->set_update_rotation(false);
+                rt->set_update_scale(false);
+                tgt->add_child(rt);
+                rt->set_remote_node(cam_node->get_path());
+                cam_node->set_meta("__vg_follow_remote_path", NodePath("../" + String(tgt->get_name()) + "/__vg_follow_rt"));
+            }
+            return Variant();
+        }
+        // Camera.Shake(intensity, duration[, h]) — quick stub: jitter offset
+        // for `duration` seconds via a tween on the camera's offset property.
+        if (METHOD_IS("camera_shake") && args.size() >= 2) {
+            r_handled = true;
+            Variant override_h = (args.size() >= 3) ? args[args.size() - 1] : Variant();
+            Object *cam = resolve_camera(override_h);
+            Node *cam_node = Object::cast_to<Node>(cam);
+            if (!cam_node) return Variant();
+            double intensity = (double)args[0];
+            double duration  = (double)args[1];
+            Ref<Tween> tw = cam_node->create_tween();
+            if (tw.is_valid()) {
+                // 8 random pokes spread over duration; final settles to (0,0)
+                int steps = MAX(2, (int)(duration * 30.0));
+                double step_dur = duration / steps;
+                for (int i = 0; i < steps - 1; i++) {
+                    Vector2 r(
+                        ((double)rand() / RAND_MAX - 0.5) * 2.0 * intensity,
+                        ((double)rand() / RAND_MAX - 0.5) * 2.0 * intensity);
+                    tw->tween_property(cam_node, "offset", r, step_dur);
+                }
+                tw->tween_property(cam_node, "offset", Vector2(0, 0), step_dur);
+            }
+            return Variant();
+        }
+
+        // ── Sound.* — playback control ────────────────────────────────
+        //
+        // Sound.Play(path[, bus]) → handle (int, the AudioStreamPlayer ObjectID)
+        // Sound.Stop(h), Sound.Pause(h), Sound.Resume(h), Sound.Seek(h, sec)
+        // Sound.Volume(pct[, h]) — pct=0..100; when h omitted, sets the
+        //   "Master" bus volume (so users with no handle still get a knob).
+        // Sound.Pitch(scale, h), Sound.IsPlaying(h), Sound.Position(h) → sec
+        //
+        // Internally each Sound.Play() spawns an AudioStreamPlayer parented
+        // to the owning Node. Auto-free on finished (unless Loop=True later).
+
+        auto resolve_player = [&](const Variant &h) -> AudioStreamPlayer* {
+            if (h.get_type() != Variant::INT) return nullptr;
+            int64_t id = (int64_t)h;
+            Object *o = ObjectDB::get_instance(ObjectID((uint64_t)id));
+            return Object::cast_to<AudioStreamPlayer>(o);
+        };
+
+        if (METHOD_IS("sound_play") && args.size() >= 1) {
+            r_handled = true;
+            if (!instance || !instance->get_owner()) return Variant();
+            Node *n = Object::cast_to<Node>(instance->get_owner());
+            if (!n) return Variant();
+            String path = args[0];
+            Ref<AudioStream> stream = ResourceLoader::get_singleton()->load(path);
+            if (!stream.is_valid()) return Variant();
+            AudioStreamPlayer *p = memnew(AudioStreamPlayer);
+            p->set_stream(stream);
+            if (args.size() >= 2) {
+                p->set_bus(StringName(String(args[1])));
+            }
+            p->set_autoplay(false);
+            p->connect("finished", Callable(p, "queue_free"));
+            n->add_child(p);
+            p->play();
+            return (int64_t)(uint64_t)p->get_instance_id();
+        }
+        if (METHOD_IS("sound_stop") && args.size() == 1) {
+            r_handled = true;
+            AudioStreamPlayer *p = resolve_player(args[0]);
+            if (p) { p->stop(); p->queue_free(); }
+            return Variant();
+        }
+        if (METHOD_IS("sound_pause") && args.size() == 1) {
+            r_handled = true;
+            AudioStreamPlayer *p = resolve_player(args[0]);
+            if (p) p->set_stream_paused(true);
+            return Variant();
+        }
+        if (METHOD_IS("sound_resume") && args.size() == 1) {
+            r_handled = true;
+            AudioStreamPlayer *p = resolve_player(args[0]);
+            if (p) p->set_stream_paused(false);
+            return Variant();
+        }
+        if (METHOD_IS("sound_seek") && args.size() == 2) {
+            r_handled = true;
+            AudioStreamPlayer *p = resolve_player(args[0]);
+            if (p) p->seek((float)(double)args[1]);
+            return Variant();
+        }
+        if (METHOD_IS("sound_isplaying") && args.size() == 1) {
+            r_handled = true;
+            AudioStreamPlayer *p = resolve_player(args[0]);
+            return p ? p->is_playing() : false;
+        }
+        if (METHOD_IS("sound_position") && args.size() == 1) {
+            r_handled = true;
+            AudioStreamPlayer *p = resolve_player(args[0]);
+            return p ? (double)p->get_playback_position() : 0.0;
+        }
+        // Sound.Pitch(scale[, h]) — h optional; without h, no-op (per-handle only)
+        if (METHOD_IS("sound_pitch") && args.size() >= 2) {
+            r_handled = true;
+            double scale = (double)args[0];
+            AudioStreamPlayer *p = resolve_player(args[1]);
+            if (p) p->set_pitch_scale((float)scale);
+            return Variant();
+        }
+        // Sound.Volume(pct[, h]) — pct 0..100; without h, sets "Master" bus
+        if (METHOD_IS("sound_volume") && args.size() >= 1) {
+            r_handled = true;
+            double pct = (double)args[0];
+            float db = (pct <= 0.0) ? -80.0f : (float)(20.0 * log10(pct / 100.0));
+            if (args.size() >= 2) {
+                AudioStreamPlayer *p = resolve_player(args[1]);
+                if (p) p->set_volume_db(db);
+            } else {
+                AudioServer *as = AudioServer::get_singleton();
+                if (as) {
+                    int idx = as->get_bus_index(StringName("Master"));
+                    if (idx >= 0) as->set_bus_volume_db(idx, db);
+                }
+            }
+            return Variant();
+        }
+
+        // ── Speaker.* — audio bus controls (Godot calls these "buses") ──
+        //
+        // Speaker.Volume(name[, pct]) — get if pct omitted, else set
+        // Speaker.Mute(name, bool)
+        // Speaker.IsMuted(name) → Boolean
+        // Speaker.Solo(name, bool)
+        // Speaker.Exists(name) → Boolean
+        // Speaker.Count() → number of buses
+        // Speaker.Name(index) → bus name at index
+        //
+        // pct 0..100 maps to dB via linear_to_db(pct/100).
+
+        if (METHOD_IS("speaker_volume") && args.size() >= 1) {
+            r_handled = true;
+            AudioServer *as = AudioServer::get_singleton();
+            if (!as) return Variant();
+            String name = args[0];
+            int idx = as->get_bus_index(StringName(name));
+            if (idx < 0) return Variant();
+            if (args.size() == 1) {
+                // get → percent
+                float db = as->get_bus_volume_db(idx);
+                double pct = pow(10.0, db / 20.0) * 100.0;
+                return pct;
+            }
+            double pct = (double)args[1];
+            float db = (pct <= 0.0) ? -80.0f : (float)(20.0 * log10(pct / 100.0));
+            as->set_bus_volume_db(idx, db);
+            return Variant();
+        }
+        if (METHOD_IS("speaker_mute") && args.size() == 2) {
+            r_handled = true;
+            AudioServer *as = AudioServer::get_singleton();
+            if (!as) return Variant();
+            int idx = as->get_bus_index(StringName(String(args[0])));
+            if (idx >= 0) as->set_bus_mute(idx, (bool)args[1]);
+            return Variant();
+        }
+        if (METHOD_IS("speaker_ismuted") && args.size() == 1) {
+            r_handled = true;
+            AudioServer *as = AudioServer::get_singleton();
+            if (!as) return false;
+            int idx = as->get_bus_index(StringName(String(args[0])));
+            return (idx >= 0) ? as->is_bus_mute(idx) : false;
+        }
+        if (METHOD_IS("speaker_solo") && args.size() == 2) {
+            r_handled = true;
+            AudioServer *as = AudioServer::get_singleton();
+            if (!as) return Variant();
+            int idx = as->get_bus_index(StringName(String(args[0])));
+            if (idx >= 0) as->set_bus_solo(idx, (bool)args[1]);
+            return Variant();
+        }
+        if (METHOD_IS("speaker_exists") && args.size() == 1) {
+            r_handled = true;
+            AudioServer *as = AudioServer::get_singleton();
+            if (!as) return false;
+            return as->get_bus_index(StringName(String(args[0]))) >= 0;
+        }
+        if (METHOD_IS("speaker_count")) {
+            r_handled = true;
+            AudioServer *as = AudioServer::get_singleton();
+            return as ? as->get_bus_count() : 0;
+        }
+        if (METHOD_IS("speaker_name") && args.size() == 1) {
+            r_handled = true;
+            AudioServer *as = AudioServer::get_singleton();
+            if (!as) return String();
+            int idx = (int)args[0];
+            if (idx < 0 || idx >= as->get_bus_count()) return String();
+            return String(as->get_bus_name(idx));
+        }
     }
 
     // GetThemeDefaultFont() — returns fallback font for Godot-style DrawString calls

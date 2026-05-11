@@ -2956,6 +2956,30 @@ VisualGasicCompiler::ValueType VisualGasicCompiler::infer_type(ExpressionNode* e
     return VT_UNKNOWN;
 }
 
+// Pass 2: detect Camera./Sound./Speaker. namespace calls.
+// Returns the lowercase namespace name ("camera"/"sound"/"speaker") if
+// base_obj is a bare VariableNode with one of those reserved names AND
+// that name has not been shadowed by a local/param/array/dict variable.
+// Returns "" otherwise. "Bus" is accepted as a silent alias for "Speaker"
+// (Godot's native term) — both compile to speaker_* builtins.
+//
+// When a namespace match is found, the caller should compile the args and
+// emit OP_CALL to "<ns>_<lower_method>" instead of OP_METHOD_CALL.
+String VisualGasicCompiler::detect_namespace_call(ExpressionNode* base_obj) const {
+    if (!base_obj || base_obj->type != ExpressionNode::VARIABLE) return String();
+    String name = ((VariableNode*)base_obj)->name;
+    String lo = name.to_lower();
+    if (lo == "bus") lo = "speaker"; // alias
+    if (lo != "camera" && lo != "sound" && lo != "speaker") return String();
+    // Not shadowed by a known variable.
+    String orig_lo = name.to_lower();
+    if (local_slots.has(orig_lo) || param_vars.has(orig_lo) ||
+        array_vars.has(orig_lo) || dictionary_vars.has(orig_lo)) {
+        return String();
+    }
+    return lo;
+}
+
 void VisualGasicCompiler::compile_statement(Statement* stmt) {
     current_line = stmt->line;
     
@@ -3416,15 +3440,71 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                      compile_ok = false;
                      break;
                  }
-                 compile_expression(ma->base_object);
+                 // Walk the LHS chain from outside in, collecting member
+                 // names. For `a.b.c.d = v` the chain is:
+                 //   root = `a`,  members = [b, c, d] (innermost first → d
+                 //   last, but stored outer→inner so we can pop in reverse).
+                 // We need to emit DUP + GET_MEMBER for each level except
+                 // the last, push the value, then OP_SET_MEMBER on the way
+                 // back up so the modified value-type (Vector2 etc.) is
+                 // written back through every parent that holds it by
+                 // value. Without this write-back chain, an assignment like
+                 // `node.position.x = N` modifies a temporary Vector2 that
+                 // never reaches the node — silently failing.
+                 Vector<String> member_chain;            // outer → inner
+                 member_chain.push_back(ma->member_name);
+                 ExpressionNode *root = ma->base_object;
+                 while (root && root->type == ExpressionNode::MEMBER_ACCESS) {
+                     MemberAccessNode *inner = (MemberAccessNode *)root;
+                     if (!inner->base_object) {
+                         compile_ok = false;
+                         break;
+                     }
+                     member_chain.push_back(inner->member_name);
+                     root = inner->base_object;
+                 }
+                 if (!compile_ok) break;
+                 // member_chain currently is [innermost, ..., outermost]
+                 // because we appended while walking outside in. Reverse
+                 // it so index 0 is the first member after root.
+                 {
+                     int lo = 0, hi = member_chain.size() - 1;
+                     while (lo < hi) {
+                         String tmp = member_chain[lo];
+                         member_chain.write[lo] = member_chain[hi];
+                         member_chain.write[hi] = tmp;
+                         lo++; hi--;
+                     }
+                 }
+                 // Emit: compile root.
+                 compile_expression(root);
+                 // For each intermediate member (all except the last):
+                 //   DUP ; GET_MEMBER mi
+                 for (int i = 0; i < member_chain.size() - 1; i++) {
+                     emit_byte(OP_DUP);
+                     int mi_idx = current_chunk->add_constant(member_chain[i]);
+                     emit_byte(OP_GET_MEMBER);
+                     emit_const_index(mi_idx);
+                 }
+                 // Push value.
                  compile_expression(s->value);
-                 int member_idx = current_chunk->add_constant(ma->member_name);
-                 emit_byte(OP_SET_MEMBER);
-                 emit_const_index(member_idx);
-
+                 // SET_MEMBER on the way back up: innermost first, then
+                 // outwards. This propagates value-type modifications
+                 // through every parent.
+                 for (int i = member_chain.size() - 1; i >= 0; i--) {
+                     int mi_idx = current_chunk->add_constant(member_chain[i]);
+                     emit_byte(OP_SET_MEMBER);
+                     emit_const_index(mi_idx);
+                 }
+                 // After the chain, the (possibly modified) root sits on
+                 // top of the stack. Store it back to the variable so that
+                 // value-type roots (e.g. a Vector2 stored in a local) also
+                 // pick up the change. For non-variable roots (e.g. the
+                 // result of a call), we simply discard — Object refs are
+                 // shared so the writes already took effect.
                  bool stored = false;
-                 if (ma->base_object->type == ExpressionNode::VARIABLE) {
-                     VariableNode *base_var = (VariableNode *)ma->base_object;
+                 if (root && root->type == ExpressionNode::VARIABLE) {
+                     VariableNode *base_var = (VariableNode *)root;
                      int slot = get_or_add_local(base_var->name, VT_UNKNOWN);
                      if (slot >= 0) {
                          emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
@@ -3458,6 +3538,22 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         int name_idx = current_chunk->add_constant(var_name);
                         emit_byte(OP_NEW_OBJECT);
                         emit_const_index(name_idx);
+                        emit_byte((uint8_t)s->arguments.size());
+                        emit_byte(OP_POP); // discard return value (statement context)
+                        break;
+                    }
+                }
+                // Pass 2: Camera./Sound./Speaker. namespace → flat builtin OP_CALL
+                {
+                    String ns = detect_namespace_call(s->base_object);
+                    if (!ns.is_empty()) {
+                        for (int i = 0; i < s->arguments.size(); i++) {
+                            compile_expression(s->arguments[i]);
+                        }
+                        String fn = ns + "_" + s->method_name.to_lower();
+                        int fnidx = current_chunk->add_constant(fn);
+                        emit_byte(OP_CALL);
+                        emit_const_index(fnidx);
                         emit_byte((uint8_t)s->arguments.size());
                         emit_byte(OP_POP); // discard return value (statement context)
                         break;
@@ -6352,6 +6448,21 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                         break;
                     }
                 }
+                // Pass 2: Camera./Sound./Speaker. namespace → flat builtin OP_CALL
+                {
+                    String ns = detect_namespace_call(ma->base_object);
+                    if (!ns.is_empty()) {
+                        for (int i = 0; i < aa->indices.size(); i++) {
+                            compile_expression(aa->indices[i]);
+                        }
+                        String fn = ns + "_" + ma->member_name.to_lower();
+                        int fnidx = current_chunk->add_constant(fn);
+                        emit_byte(OP_CALL);
+                        emit_const_index(fnidx);
+                        emit_byte((uint8_t)aa->indices.size());
+                        break;
+                    }
+                }
                 // General obj.method(args) — emit OP_METHOD_CALL
                 compile_expression(ma->base_object);
                 for (int i = 0; i < aa->indices.size(); i++) {
@@ -6506,6 +6617,22 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                          int name_idx = current_chunk->add_constant(var_name);
                          emit_byte(OP_NEW_OBJECT);
                          emit_const_index(name_idx);
+                         emit_byte((uint8_t)call->arguments.size());
+                         // Return value stays on stack (expression context)
+                         break;
+                     }
+                 }
+                 // Pass 2: Camera./Sound./Speaker. namespace → flat builtin OP_CALL
+                 {
+                     String ns = detect_namespace_call(call->base_object);
+                     if (!ns.is_empty()) {
+                         for (int i = 0; i < call->arguments.size(); i++) {
+                             compile_expression(call->arguments[i]);
+                         }
+                         String fn = ns + "_" + call->method_name.to_lower();
+                         int fnidx = current_chunk->add_constant(fn);
+                         emit_byte(OP_CALL);
+                         emit_const_index(fnidx);
                          emit_byte((uint8_t)call->arguments.size());
                          // Return value stays on stack (expression context)
                          break;

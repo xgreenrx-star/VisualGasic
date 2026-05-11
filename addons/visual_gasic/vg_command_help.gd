@@ -800,6 +800,151 @@ static func _build_db() -> void:
 		"shadow = Darken(skinColor, 0.4)")
 
 	# =========================================================================
+	# PASS 2 — CAMERA NAMESPACE
+	#
+	# Camera.* verbs target the *active* camera (the one currently rendering).
+	# Every verb also takes an optional final 'h' argument: pass a specific
+	# Camera2D/Camera3D node to override the active one. Use h when you have
+	# multiple cameras and want to control a non-active one.
+	# =========================================================================
+	_add("Camera.Position",
+		"Camera.Position(pos [, h])",
+		"Sets the active camera's position. Use Vector2 for Camera2D, Vector3 for Camera3D. Optional h overrides which camera is targeted.\n\nCalled inside Sub _Process() it tracks any target — Camera.Position(player.Position) for instant follow.",
+		"' Snap to player every frame\nSub _Process(delta)\n    Camera.Position(player.Position)\nEnd Sub")
+
+	_add("Camera.Zoom",
+		"Camera.Zoom(zoom [, h])",
+		"Sets Camera2D zoom level. Pass a Vector2 for non-uniform zoom, or a scalar for uniform. Bigger numbers = closer in. (Camera3D uses FOV instead — see Camera.FOV.)",
+		"Camera.Zoom Vector2(2, 2)       ' 2x zoom in\nCamera.Zoom 0.5                  ' zoom out to half")
+
+	_add("Camera.Limits",
+		"Camera.Limits(left, top, right, bottom [, h])",
+		"Sets Camera2D pan limits in pixels. The camera will refuse to scroll past these edges — perfect for keeping the view inside your level.",
+		"' Lock view to a 1920x1080 level\nCamera.Limits 0, 0, 1920, 1080")
+
+	_add("Camera.FOV",
+		"Camera.FOV(degrees [, h])",
+		"Sets Camera3D field of view in degrees. 75 is the default. Smaller = telephoto/zoomed; larger = wide-angle.",
+		"Camera.FOV 90    ' wide cinematic\nCamera.FOV 45    ' sniper scope")
+
+	_add("Camera.MakeCurrent",
+		"Camera.MakeCurrent([h])",
+		"Makes a camera the active one — useful when you have multiple cameras (e.g., gameplay vs cutscene) and want to switch which one renders.",
+		"Camera.MakeCurrent cutsceneCam\n' ... play cutscene ...\nCamera.MakeCurrent gameplayCam")
+
+	_add("Camera.Rotation",
+		"Camera.Rotation(angle [, h])",
+		"Rotates the camera. For Camera2D pass a number in radians; for Camera3D pass a Vector3 of Euler angles in radians.",
+		"' Quick screen tilt (Camera2D)\nCamera.Rotation 0.1   ' ~6 degrees")
+
+	_add("Camera.Follow",
+		"Camera.Follow(target [, h])",
+		"Continuously follow a target node. Internally adds a RemoteTransform that mirrors target.Position to the camera every frame — zero per-frame code on your side. Pass Nothing to stop following. Camera.Position(...) called inside Sub _Process() takes precedence for the frame it runs.",
+		"Sub _Ready()\n    Camera.Follow player    ' auto-track player forever\nEnd Sub\n\nSub OnPlayerDied()\n    Camera.Follow Nothing   ' stop following\nEnd Sub")
+
+	_add("Camera.Shake",
+		"Camera.Shake(intensity, duration [, h])",
+		"Quick screen shake. Intensity is offset in pixels (2D) or units (3D). Duration is seconds. Camera settles back to its original offset when done.",
+		"' Boom!\nCamera.Shake 12, 0.4")
+
+	# =========================================================================
+	# PASS 2 — SOUND NAMESPACE
+	#
+	# Sound.Play returns a handle (an Integer). Pass that handle to Stop /
+	# Pause / Resume / Seek / Volume / Pitch to control just that one sound.
+	# When you ignore the return value, the sound auto-frees when it finishes.
+	# =========================================================================
+	_add("Sound.Play",
+		"Sound.Play(path [, busName]) As Long",
+		"Plays a sound and returns a handle (Integer). Save the handle if you want to stop, pause, change volume, or seek the sound later. Optional busName routes the sound through a named speaker/bus (default \"Master\").",
+		"' Fire and forget\nSound.Play \"res://blast.wav\"\n\n' Keep a handle to control it later\nDim music = Sound.Play(\"res://song.ogg\", \"Music\")\nSound.Volume 60, music")
+
+	_add("Sound.Stop",
+		"Sound.Stop(h)",
+		"Stops a sound that was started with Sound.Play and frees it.",
+		"Sound.Stop music")
+
+	_add("Sound.Pause",
+		"Sound.Pause(h)",
+		"Pauses a sound without stopping it. Resume with Sound.Resume(h).",
+		"Sound.Pause music")
+
+	_add("Sound.Resume",
+		"Sound.Resume(h)",
+		"Resumes a paused sound from where it left off.",
+		"Sound.Resume music")
+
+	_add("Sound.Seek",
+		"Sound.Seek(h, seconds)",
+		"Jumps to a position (in seconds) inside a playing sound. Useful for skipping intros or implementing scrub bars.",
+		"Sound.Seek music, 30.0   ' jump to 30 seconds in")
+
+	_add("Sound.Volume",
+		"Sound.Volume(pct [, h])",
+		"Sets volume in percent (0..100). With a handle, changes that one sound. Without a handle, sets the master speaker volume — the global volume knob.",
+		"Sound.Volume 75           ' master at 75%\nSound.Volume 50, music    ' just this song at 50%")
+
+	_add("Sound.Pitch",
+		"Sound.Pitch(scale, h)",
+		"Changes playback speed/pitch of a sound. 1.0 = normal, 2.0 = double speed (one octave up), 0.5 = half speed (one octave down).",
+		"Sound.Pitch 1.2, music   ' slightly faster/higher")
+
+	_add("Sound.IsPlaying",
+		"Sound.IsPlaying(h) As Boolean",
+		"Returns True if the sound is currently playing.",
+		"If Not Sound.IsPlaying(music) Then\n    music = Sound.Play(\"res://song.ogg\")\nEnd If")
+
+	_add("Sound.Position",
+		"Sound.Position(h) As Double",
+		"Returns the current playback position in seconds.",
+		"Dim t = Sound.Position(music)\nPrint \"At \" & Round(t, 1) & \" seconds\"")
+
+	# =========================================================================
+	# PASS 2 — SPEAKER NAMESPACE (audio buses)
+	#
+	# Speakers are named volume channels — \"Master\", \"Music\", \"SFX\", or
+	# whatever you set up in Project Settings → Audio → Buses. Use them to
+	# build settings menus with separate music/SFX sliders, or to route stereo
+	# / surround channels (\"Left\", \"Right\", \"Center\", \"LeftSurround\").
+	#
+	# Bus.* is accepted as an alias of Speaker.* (Godot calls them buses).
+	# =========================================================================
+	_add("Speaker.Volume",
+		"Speaker.Volume(name [, pct])",
+		"Get or set a speaker's volume in percent (0..100). With one argument, returns current volume. With two, sets it. Works on any bus defined in Project Settings → Audio.",
+		"' Build a music slider\nSpeaker.Volume \"Music\", musicSlider.Value\n\n' Read current\nlbl.Text = \"Music: \" & Round(Speaker.Volume(\"Music\")) & \"%\"")
+
+	_add("Speaker.Mute",
+		"Speaker.Mute(name, muted)",
+		"Mutes or unmutes a speaker. Pass True to mute, False to unmute.",
+		"Speaker.Mute \"Music\", True     ' silence music\nSpeaker.Mute \"Music\", False    ' unmute")
+
+	_add("Speaker.IsMuted",
+		"Speaker.IsMuted(name) As Boolean",
+		"Returns True if the named speaker is currently muted.",
+		"If Speaker.IsMuted(\"Master\") Then\n    Print \"Audio is off\"\nEnd If")
+
+	_add("Speaker.Solo",
+		"Speaker.Solo(name, soloed)",
+		"Solos a speaker so only it is audible (others silent). Pass False to unsolo.",
+		"Speaker.Solo \"SFX\", True   ' only sound effects audible")
+
+	_add("Speaker.Exists",
+		"Speaker.Exists(name) As Boolean",
+		"Returns True if a speaker with this name exists in Project Settings → Audio → Buses.",
+		"If Speaker.Exists(\"Music\") Then\n    Speaker.Volume \"Music\", 50\nEnd If")
+
+	_add("Speaker.Count",
+		"Speaker.Count() As Integer",
+		"Returns the number of configured speakers/buses.",
+		"For i = 0 To Speaker.Count() - 1\n    Print Speaker.Name(i)\nNext")
+
+	_add("Speaker.Name",
+		"Speaker.Name(index) As String",
+		"Returns the name of the speaker at the given index (0-based).",
+		"Print Speaker.Name(0)   ' usually \"Master\"")
+
+	# =========================================================================
 	# ARRAY FUNCTIONS
 	# =========================================================================
 	_add("UBound",
