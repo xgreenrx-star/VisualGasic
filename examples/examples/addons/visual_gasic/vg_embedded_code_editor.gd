@@ -514,10 +514,10 @@ func validate_code() -> bool:
 	_is_validating = true
 	var source: String = _code_edit.text
 
-	# Use the ClassDB-bound static method (no ScriptServer dance needed)
+	# Use ClassDB.class_call_static to avoid Godot 4.6 compile-time static method validation
 	var result: Dictionary = {}
-	if ClassDB.class_exists(&"VisualGasicLanguage") and ClassDB.class_has_method(&"VisualGasicLanguage", &"vg_validate_code"):
-		result = VisualGasicLanguage.vg_validate_code(source, _vg_path)
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		result = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_validate_code", source, _vg_path)
 	else:
 		# GDExtension not loaded yet — skip validation silently
 		_is_validating = false
@@ -773,6 +773,11 @@ func _build_help_panel() -> void:
 	_help_label.scroll_active = false  # let the ScrollContainer handle scrolling
 	_help_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_help_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Allow the user to highlight and copy help text (Ctrl+C).
+	_help_label.selection_enabled = true
+	_help_label.context_menu_enabled = true
+	_help_label.shortcut_keys_enabled = true
+	_help_label.focus_mode = Control.FOCUS_CLICK
 
 	# Force VB6 cream theme — override the Godot editor dark theme
 	_help_label.add_theme_font_size_override("normal_font_size", 11)
@@ -1245,10 +1250,22 @@ func _draw_radial_menu_map(size: Vector2, font: Font, fs: int, props: Dictionary
 # =============================================================================
 
 ## Load a .vg file into the editor. If the file doesn't exist, creates a stub.
+##
+## Linux's filesystem is case-sensitive, but Visual Gasic itself treats
+## `Module1.vg` and `module1.vg` as the same module (matching the VB6/Win32
+## tradition). Before creating a new stub on disk we therefore look for a
+## case-insensitive match in the same directory and reuse that file if one
+## exists. This prevents accidental ghost duplicates when one caller passes
+## the canonical-cased path and another passes a lowercased variant.
 func load_file(path: String) -> void:
+	if not FileAccess.file_exists(path):
+		var canonical := _find_case_insensitive_match(path)
+		if not canonical.is_empty():
+			path = canonical
+
 	_vg_path = path
 
-	# Create the file if it doesn't exist
+	# Create the file if it doesn't exist (now in canonical casing)
 	if not FileAccess.file_exists(path):
 		var f := FileAccess.open(path, FileAccess.WRITE)
 		if f:
@@ -1274,6 +1291,31 @@ func load_file(path: String) -> void:
 	else:
 		push_warning("VG Code Editor: Cannot open " + path)
 
+
+## Look for an existing file in the same directory whose name matches `path`
+## case-insensitively. Returns the actual on-disk path if found, otherwise "".
+func _find_case_insensitive_match(path: String) -> String:
+	var dir_part := path.get_base_dir()
+	var file_part := path.get_file()
+	if file_part.is_empty():
+		return ""
+	var dir := DirAccess.open(dir_part)
+	if dir == null:
+		return ""
+	var target := file_part.to_lower()
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while entry != "":
+		if entry != "." and entry != ".." and entry.to_lower() == target:
+			dir.list_dir_end()
+			# Reuse the same separator style as the input path
+			if dir_part.is_empty():
+				return entry
+			return dir_part + "/" + entry
+		entry = dir.get_next()
+	dir.list_dir_end()
+	return ""
+
 ## Save the current buffer back to disk.
 func save_file() -> void:
 	if _vg_path.is_empty():
@@ -1293,6 +1335,9 @@ func save_file() -> void:
 		if Engine.is_editor_hint():
 			EditorInterface.get_resource_filesystem().update_file(_vg_path)
 		code_saved.emit(_vg_path)
+		# Announce on the bus so anything observing this .vg (file browser,
+		# bytecode profiler, AGCK "reload script slot") can refresh.
+		preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance().emit_saved(_vg_path, "vg_code_editor")
 		# Re-validate after save
 		validate_code()
 		print("VG Code Editor: Saved ", _vg_path)
@@ -1300,6 +1345,26 @@ func save_file() -> void:
 ## Returns the currently loaded file path.
 func get_file_path() -> String:
 	return _vg_path
+
+## Flush the current buffer to disk for a transient Run, WITHOUT marking the
+## file as formally saved. The editor keeps its dirty indicator so the user
+## knows their changes are still uncommitted (only Ctrl+S / File→Save clears
+## that). The runtime always reads .vg from disk, so this lets the running
+## game see the latest in-memory edits while preserving normal editor
+## save semantics.
+func flush_for_run() -> void:
+	if _vg_path.is_empty():
+		return
+	if not _dirty:
+		return  # nothing new in the buffer
+	var f := FileAccess.open(_vg_path, FileAccess.WRITE)
+	if f:
+		f.store_string(_code_edit.text)
+		f.close()
+		# Deliberately do NOT clear _dirty — the user has not formally saved.
+		if Engine.is_editor_hint():
+			EditorInterface.get_resource_filesystem().update_file(_vg_path)
+		print("VG Code Editor: Flushed buffer to disk for Run (still unsaved): ", _vg_path)
 
 ## Returns true if the buffer has unsaved changes.
 func is_dirty() -> bool:
@@ -1573,8 +1638,14 @@ func _update_proc_selection() -> void:
 		if selected_obj != "(General)":
 			_update_proc_selection_for_object(selected_obj)
 		else:
-			# General mode — +1 because item 0 is "(Declarations)"
-			_proc_combo.select(best_idx + 1)
+			# General mode — +1 because item 0 is "(Declarations)".
+			# Guard against an empty/stale combo (race when loading a
+			# formless module before the proc list is rebuilt).
+			var target_idx := best_idx + 1
+			if _proc_combo.item_count > target_idx:
+				_proc_combo.select(target_idx)
+			elif _proc_combo.item_count > 0:
+				_proc_combo.select(0)
 
 		# Update Index Map for the current object
 		_update_index_map_for_current_object()
@@ -2845,3 +2916,14 @@ func _try_load_formatter():
 	if script:
 		return script
 	return null
+
+
+# ─── VGPluginRegistry contract ──────────────────────────────
+## Called by VGPluginRegistry.open_asset(). Returns true if the editor
+## accepted the file. Existing internal callers should keep using their
+## native open methods; this is the registry-friendly alias only.
+func open_asset(path: String) -> bool:
+	load_file(path)
+	preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance().emit_opened(path, "vg_code_editor")
+	preload("res://addons/visual_gasic/vg_context_broker.gd").get_instance().set_current_asset(path, "vg_code_editor")
+	return true

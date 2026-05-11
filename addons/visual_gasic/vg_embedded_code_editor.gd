@@ -773,6 +773,11 @@ func _build_help_panel() -> void:
 	_help_label.scroll_active = false  # let the ScrollContainer handle scrolling
 	_help_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_help_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Allow the user to highlight and copy help text (Ctrl+C).
+	_help_label.selection_enabled = true
+	_help_label.context_menu_enabled = true
+	_help_label.shortcut_keys_enabled = true
+	_help_label.focus_mode = Control.FOCUS_CLICK
 
 	# Force VB6 cream theme — override the Godot editor dark theme
 	_help_label.add_theme_font_size_override("normal_font_size", 11)
