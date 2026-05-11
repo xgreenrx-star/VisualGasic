@@ -2170,6 +2170,149 @@ static func _build_db() -> void:
 		"If Input.is_action_just_released(\"shoot\") Then\n    ' fire charged shot\nEnd If",
 		"Input", "is_action_just_released")
 
+	# =========================================================================
+	# PASS 6 — v5.1 GAP-FILLERS
+	#
+	# Verbs added in v5.1 to round out the Pass 1–5 namespaces. All entries
+	# point at the v4.x–v5.1 Godot Namespace Wrappers section of the manual.
+	# =========================================================================
+
+	# --- Camera v5.1 ---
+	_add("Camera.PanTo",
+		"Camera.PanTo(pos, duration [, h])",
+		"Tween-pans the active camera to pos over duration seconds. Smoother than setting Camera.Position directly. Works for Camera2D (Vector2) or Camera3D (Vector3).",
+		"' Cinematic reveal\nCamera.PanTo Vector2(800, 400), 1.5",
+		6544)
+
+	_add("Camera.Bounce",
+		"Camera.Bounce(direction, strength [, h])",
+		"One-shot recoil pulse — pushes the camera in `direction` by `strength` and snaps back. Good for explosions, weapon kick, or hit-stop reactions.",
+		"' Shotgun recoil\nCamera.Bounce Vector2(-1, 0), 18",
+		6544)
+
+	_add("Camera.FlashColor",
+		"Camera.FlashColor(color, duration [, h])",
+		"Briefly fills the viewport with `color`, then fades it out over `duration`. Use for hit flashes, lightning, screen blanks.",
+		"' Damage flash\nCamera.FlashColor RGB(255, 0, 0), 0.15",
+		6544)
+
+	# --- Animation v5.1 ---
+	_add("Animation.Loop",
+		"Animation.Loop(name, looped [, player])",
+		"Sets whether the named animation should loop. Persisted on the underlying Animation resource, so it survives stop/play.",
+		"Animation.Loop \"idle\", True\nAnimation.Loop \"jump\", False",
+		6584)
+
+	# --- Physics v5.1 ---
+	_add("Physics.Gravity",
+		"Physics.Gravity(vector [, body])",
+		"Sets the world gravity. Pass a scalar for default-direction gravity, or a Vector2/Vector3 for arbitrary direction. With `body`, sets per-body gravity scale.",
+		"Physics.Gravity 980        ' classic down\nPhysics.Gravity Vector2(0, -980)  ' anti-gravity zone",
+		6598)
+
+	_add("Physics.GravityV2",
+		"Physics.GravityV2(Vector2 [, body])",
+		"Explicit Vector2 form of Physics.Gravity — avoids overload guessing when you need 2D.",
+		"Physics.GravityV2 Vector2(0, 1200)",
+		6598)
+
+	_add("Physics.GravityV3",
+		"Physics.GravityV3(Vector3 [, body])",
+		"Explicit Vector3 form of Physics.Gravity for 3D worlds.",
+		"Physics.GravityV3 Vector3(0, -9.8, 0)",
+		6598)
+
+	_add("Physics.Bounce",
+		"Physics.Bounce(value, body)",
+		"Sets the restitution (bounciness) of a RigidBody, 0.0 = dead, 1.0 = full energy return.",
+		"Physics.Bounce 0.8, ball   ' rubber ball",
+		6598)
+
+	# --- Ray v5.1 ---
+	_add("Ray.Cast2D",
+		"Ray.Cast2D(from, to [, mask]) As Dictionary",
+		"One-shot 2D raycast through PhysicsDirectSpaceState — no RayCast2D node required. Returns a Dictionary { position, normal, collider, … } or empty if nothing hit.",
+		"Dim hit = Ray.Cast2D(player.Position, Mouse.Position)\nIf Not hit.is_empty() Then Print hit.collider.name",
+		6611)
+
+	_add("Ray.Cast3D",
+		"Ray.Cast3D(from, to [, mask]) As Dictionary",
+		"One-shot 3D raycast — see Ray.Cast2D. Useful for shooter logic without permanent RayCast3D nodes.",
+		"Dim hit = Ray.Cast3D(cam.GlobalPosition, cam.GlobalPosition + cam.Basis.z * -100)",
+		6611)
+
+	# --- Joypad v5.1 ---
+	_add("Joypad.IsConnected",
+		"Joypad.IsConnected(index) As Boolean",
+		"Returns True if a joypad/gamepad is currently connected at the given device index. Companion to Joypad.Connected (which returns the count).",
+		"If Joypad.IsConnected(0) Then ShowPlayerJoinedIcon()",
+		6654)
+
+	_add("Joypad.Stick",
+		"Joypad.Stick(index, side) As Vector2",
+		"Returns the analog stick position as a Vector2 (-1..1 per axis). `side` is 0 for left stick, 1 for right.",
+		"Dim move = Joypad.Stick(0, 0)\nplayer.Velocity = move * speed",
+		6654)
+
+	# --- Sensor v5.1 ---
+	_add("Sensor.Magnetometer",
+		"Sensor.Magnetometer() As Vector3",
+		"Alias of Sensor.Magnet — returns the device magnetometer reading (µT). Provided for naming consistency with platform docs.",
+		"Dim compass = Sensor.Magnetometer()",
+		6664)
+
+	# --- Crypto v5.1 ---
+	_add("Crypto.Hex",
+		"Crypto.Hex(bytes) As String",
+		"Converts a PackedByteArray (or hashable input) to a lowercase hex string. Inverse of Crypto.FromHex.",
+		"Print Crypto.Hex(Crypto.RandomBytes(8))   ' e.g. \"a1b2c3d4e5f60718\"",
+		6699)
+
+	_add("Crypto.FromHex",
+		"Crypto.FromHex(hexString) As PackedByteArray",
+		"Parses a hex string back into raw bytes. Whitespace is ignored; case-insensitive.",
+		"Dim raw = Crypto.FromHex(\"deadbeef\")",
+		6699)
+
+	_add("Crypto.Base64",
+		"Crypto.Base64(bytes) As String",
+		"Short form of Crypto.Base64Encode — encodes bytes to a standard Base64 string.",
+		"Print Crypto.Base64(\"hello world\")   ' \"aGVsbG8gd29ybGQ=\"",
+		6699)
+
+	# --- Theme v5.1 (generic get/set) ---
+	_add("Theme.Get",
+		"Theme.Get(control, kind, name) As Variant",
+		"Generic theme-item reader. `kind` is \"color\" | \"constant\" | \"font\" | \"font_size\" | \"style\". Returns the inherited value if the control has no override.",
+		"Dim panelBg = Theme.Get(myPanel, \"color\", \"bg_color\")",
+		6710)
+
+	_add("Theme.Set",
+		"Theme.Set(control, kind, name, value)",
+		"Generic theme-item writer. Same kind values as Theme.Get. Convenience wrapper around the typed Theme.SetColor / SetConstant / SetFont / SetFontSize / SetStyle verbs.",
+		"Theme.Set lblTitle, \"color\", \"font_color\", RGB(255, 200, 0)\nTheme.Set lblTitle, \"font_size\", \"font_size\", 32",
+		6710)
+
+	# --- Shader v5.1 aliases ---
+	_add("Shader.Set",
+		"Shader.Set(material, key, value)",
+		"Alias of Shader.Param — sets a shader uniform. Use whichever name reads better in your code.",
+		"Shader.Set sprite.Material, \"hit_flash\", 1.0",
+		6717)
+
+	_add("Shader.Get",
+		"Shader.Get(material, key) As Variant",
+		"Alias of Shader.GetParam — reads a shader uniform.",
+		"Print Shader.Get(sprite.Material, \"hit_flash\")",
+		6717)
+
+	# --- Speaker alias ---
+	_add("Speaker.Bus",
+		"Speaker.Bus",
+		"Alias of the Speaker namespace — same verbs (Volume, Mute, Solo, etc.) just spelled `Speaker.Bus.Volume`. Provided for readers who think \"bus\" first.",
+		"Speaker.Bus.Volume \"Master\", 75",
+		6572)
+
 ## =========================================================================
 ## SEE ALSO — cross-reference groups (#6)
 ## =========================================================================
@@ -2248,6 +2391,76 @@ static func _build_see_also() -> void:
 		["visible", "show", "hide", "modulate"],
 		# Godot — Input
 		["is_action_pressed", "is_action_just_pressed", "is_action_just_released"],
+
+		# --- v4.x–v5.1 namespace wrappers ---
+		# Camera namespace
+		["Camera.Position", "Camera.Zoom", "Camera.Rotation", "Camera.FOV", "Camera.Follow",
+			"Camera.Shake", "Camera.Limits", "Camera.MakeCurrent",
+			"Camera.PanTo", "Camera.Bounce", "Camera.FlashColor"],
+		# Sound namespace
+		["Sound.Play", "Sound.Stop", "Sound.Pause", "Sound.Resume", "Sound.Seek",
+			"Sound.Volume", "Sound.Pitch", "Sound.IsPlaying", "Sound.Position"],
+		# Speaker namespace
+		["Speaker.Volume", "Speaker.Mute", "Speaker.IsMuted", "Speaker.Solo",
+			"Speaker.Exists", "Speaker.Count", "Speaker.Name", "Speaker.Bus"],
+		# Animation namespace
+		["Animation.Play", "Animation.Stop", "Animation.Pause", "Animation.Resume",
+			"Animation.Seek", "Animation.Speed", "Animation.Current", "Animation.IsPlaying",
+			"Animation.Length", "Animation.Loop"],
+		# Physics namespace + globals
+		["Physics.Gravity", "Physics.GravityV2", "Physics.GravityV3", "Physics.Bounce",
+			"Physics.Force", "Physics.Impulse", "Physics.Torque", "Physics.Ray",
+			"Push", "Pull", "Spin"],
+		# Ray namespace
+		["Ray.Cast2D", "Ray.Cast3D", "Ray.Target", "Ray.Enable", "Ray.ForceUpdate",
+			"Ray.Hit", "Ray.Collider", "Ray.Point", "Ray.Normal"],
+		# Cell namespace
+		["Cell.Get", "Cell.Set", "Cell.Clear", "Cell.ClearAll", "Cell.Used"],
+		# Nav namespace
+		["Nav.SetTarget", "Nav.NextPos", "Nav.Distance", "Nav.Reached", "Nav.Path"],
+		# Screen namespace
+		["Screen.Width", "Screen.Height", "Screen.DPI", "Screen.Orientation",
+			"Screen.KeepOn", "Screen.FullScreen", "Screen.IsFullScreen"],
+		# Joypad namespace
+		["Joypad.Connected", "Joypad.IsConnected", "Joypad.Name",
+			"Joypad.Axis", "Joypad.Button", "Joypad.Stick"],
+		# Sensor namespace
+		["Sensor.Units", "Sensor.Accel", "Sensor.Gyro", "Sensor.Magnet",
+			"Sensor.Magnetometer", "Sensor.Gravity", "Sensor.Tilt"],
+		# Permission namespace
+		["Permission.Has", "Permission.Request", "Permission.All"],
+		# GPS namespace
+		["GPS.Lat", "GPS.Lng", "GPS.Alt", "GPS.Accuracy", "GPS.Speed"],
+		# Steps namespace
+		["Steps.Today", "Steps.Total", "Steps.Reset"],
+		# Crypto namespace
+		["Crypto.MD5", "Crypto.SHA1", "Crypto.SHA256", "Crypto.HMAC", "Crypto.RandomBytes",
+			"Crypto.Hex", "Crypto.FromHex", "Crypto.Base64", "Crypto.Base64Encode", "Crypto.Base64Decode"],
+		# Theme namespace
+		["Theme.Color", "Theme.Constant", "Theme.Font",
+			"Theme.SetColor", "Theme.SetConstant", "Theme.SetFont",
+			"Theme.SetFontSize", "Theme.SetStyle", "Theme.Get", "Theme.Set"],
+		# Shader / Material
+		["Material.New", "Material.SetShader", "Shader.Param", "Shader.GetParam",
+			"Shader.Set", "Shader.Get"],
+		# Skeleton / Bone
+		["Skeleton.Count", "Skeleton.Name", "Skeleton.Reset",
+			"Bone.Find", "Bone.Pos", "Bone.Rot", "Bone.Scale",
+			"Bone.SetPos", "Bone.SetRot", "Bone.SetScale", "Bone.LookAt"],
+		# Video namespace
+		["Video.Play", "Video.Stop", "Video.Pause", "Video.Resume", "Video.Seek",
+			"Video.Position", "Video.Length", "Video.IsPlaying", "Video.Volume"],
+		# JS namespace
+		["JS.Eval", "JS.Call", "JS.Get"],
+		# Pass 1 math helpers
+		["Quaternion", "QuaternionFromEuler", "Basis", "Transform2D", "Transform3D",
+			"Plane", "AABB", "Slerp"],
+		# RNG / Noise / Curve
+		["NewRNG", "NewNoise", "NewCurve", "Rnd", "Randomize", "RandRange"],
+		# Color helpers
+		["ColorFromHSV", "ColorToHSV", "Lighten", "Darken", "RGB"],
+		# Haptics / device feedback
+		["Vibrate", "Sensor.Tilt", "Joypad.Stick"],
 	]
 	for group in groups:
 		for kw in group:
