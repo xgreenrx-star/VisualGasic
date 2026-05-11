@@ -3475,6 +3475,45 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                      root = inner->base_object;
                  }
                  if (!compile_ok) break;
+                 // Diagnostic: assignment to a member of a namespace
+                 // getter's return value silently drops the write because
+                 // the returned Dictionary / value is a snapshot, not a
+                 // live handle into the underlying engine object. Surface
+                 // a clear error pointing the user at the matching setter.
+                 //   Cell.Get(layer, x, y).Source = 5     ← will not write
+                 //   Cell.Set(layer, x, y, 5, ax, ay)     ← do this instead
+                 {
+                     String ns_name;
+                     String verb;
+                     if (root && root->type == ExpressionNode::EXPRESSION_CALL) {
+                         CallExpression* root_call = (CallExpression*)root;
+                         ns_name = detect_namespace_call(root_call->base_object);
+                         verb = root_call->method_name;
+                     } else if (root && root->type == ExpressionNode::ARRAY_ACCESS) {
+                         // Parser shape for `Cell.Get(layer, x, y).Source`:
+                         //   ARRAY_ACCESS { base: MEMBER_ACCESS(Cell, "Get"),
+                         //                  indices: [layer, x, y] }
+                         ArrayAccessNode* aa = (ArrayAccessNode*)root;
+                         if (aa->base && aa->base->type == ExpressionNode::MEMBER_ACCESS) {
+                             MemberAccessNode* mm = (MemberAccessNode*)aa->base;
+                             ns_name = detect_namespace_call(mm->base_object);
+                             verb = mm->member_name;
+                         }
+                     }
+                     if (!ns_name.is_empty()) {
+                         String first_member = member_chain[member_chain.size() - 1];
+                         UtilityFunctions::print(
+                             "Compiler Error (line ", current_line,
+                             "): Cannot assign to '.", first_member,
+                             "' on the return value of ", ns_name.capitalize(),
+                             ".", verb,
+                             "(...) -- the getter returns a snapshot, not a live handle. ",
+                             "Use the matching setter verb instead "
+                             "(e.g. Cell.Set, Theme.Set, Material.SetParam).");
+                         compile_ok = false;
+                         break;
+                     }
+                 }
                  // member_chain currently is [innermost, ..., outermost]
                  // because we appended while walking outside in. Reverse
                  // it so index 0 is the first member after root.
