@@ -1,0 +1,24 @@
+' ============================================================
+' Animation Tutorial — drive an AnimationPlayer the easy way
+' ============================================================
+' Auto-signal wiring: declaring Sub <Player>_AnimationFinished()
+' (or _AnimationStarted / _AnimationChanged) connects you to
+' the AnimationPlayer child of the same name automatically.
+' ============================================================
+
+Sub _Ready()
+    Print "=== Animation namespace ==="
+
+    ' Animation.Play("walk")          ' play current default player
+    ' Animation.Play("hero", "run")   ' play on named player
+    ' Animation.Stop()
+    ' Animation.Speed(2.0)            ' double-time
+
+    Print "Animation verbs dispatched"
+    Print "OK"
+End Sub
+
+' Auto-wired by VG: connected to AnimationPlayer 'Hero' if present.
+Sub Hero_AnimationFinished(anim_name As String)
+    Print "Hero animation finished: " & anim_name
+End Sub

@@ -1,0 +1,23 @@
+' ============================================================
+' Theme / JS Tutorial — Control styling + Web export bridge
+' ============================================================
+
+Sub _Ready()
+    Print "=== Theme (Control overrides) ==="
+    ' In a real form:
+    '   Theme.Set(Label1, "font_color", Color(1, 0, 0))
+    '   Theme.Set(Button1, "font_size", 24)
+    ' Read back:
+    '   c = Theme.Get(Label1, "font_color")
+    Print "Theme.Set/Get available on any Control"
+
+    Print ""
+    Print "=== JS (Web export only) ==="
+    ' On the HTML5 export, JS.Eval runs JavaScript and returns
+    ' the result as a Variant. On desktop it returns Nothing.
+    Dim r As Variant
+    r = JS.Eval("1 + 2")
+    Print "JS.Eval('1 + 2') = " & r
+
+    Print "OK"
+End Sub

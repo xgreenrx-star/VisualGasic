@@ -1,0 +1,19 @@
+' ============================================================
+' Cell Tutorial — TileMap in plain English (Pass 3)
+' ============================================================
+' Pair with tilemap_tutorial.vg for the full data-driven flow.
+' ============================================================
+
+Sub _Ready()
+    Print "=== Cell namespace ==="
+
+    ' All verbs take the TileMap node name as the first argument:
+    '   Cell.Set("Tiles", x, y, source_id, atlas_x, atlas_y)
+    '   info  = Cell.Get("Tiles", x, y)        ' Dictionary
+    '   Cell.Clear("Tiles", x, y)
+    '   Cell.ClearAll("Tiles")
+    '   cells = Cell.Used("Tiles")             ' Array of Vector2i
+
+    Print "Cell API: Set / Get / Clear / ClearAll / Used"
+    Print "OK"
+End Sub

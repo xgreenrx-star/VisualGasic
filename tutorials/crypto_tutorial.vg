@@ -1,0 +1,28 @@
+' ============================================================
+' Crypto Tutorial — hashing, HMAC, random bytes
+' ============================================================
+' SHA256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+' Matches `echo -n hello | sha256sum`.
+' ============================================================
+
+Sub _Ready()
+    Print "=== Crypto namespace ==="
+
+    Print "SHA256('hello') = " & Crypto.SHA256("hello")
+    Print "SHA1  ('hello') = " & Crypto.SHA1("hello")
+    Print "MD5   ('hello') = " & Crypto.MD5("hello")
+
+    ' HMAC-SHA256 — keyed signature for cookies / save files.
+    Print "HMAC(sha256, key, msg) = " & Crypto.HMAC("sha256", "secret-key", "alice")
+
+    ' Base64 round-trip.
+    Dim b64 As String
+    b64 = Crypto.Base64Encode("hello world")
+    Print "Base64Encode = " & b64
+    Print "Base64Decode = " & Crypto.Base64Decode(b64)
+
+    ' Cryptographically secure random bytes (PackedByteArray).
+    Print "RandomBytes(8): " & Crypto.RandomBytes(8)
+
+    Print "OK"
+End Sub

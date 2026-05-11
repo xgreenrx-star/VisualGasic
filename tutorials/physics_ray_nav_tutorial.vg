@@ -1,0 +1,35 @@
+' ============================================================
+' Physics / Ray / Nav Tutorial (Pass 3)
+' ============================================================
+
+Sub _Ready()
+    Print "=== Physics ==="
+    ' Apply a one-shot impulse to the named body.
+    '   Physics.Impulse("Ball", 0, -400)
+    ' Apply a continuous force this physics step.
+    '   Physics.Force("Player", 0, 980)
+    ' Apply an angular impulse (degrees of torque).
+    '   Physics.Torque("Wheel", 45)
+    Print "Physics verbs: Force / Impulse / Torque / Ray"
+
+    Print ""
+    Print "=== Ray (operates on RayCast2D/3D nodes by name) ==="
+    ' Ray.Enable("Sight", True)         ' arm/disarm
+    ' Ray.Target("Sight", x, y)         ' set local target point
+    ' Ray.ForceUpdate("Sight")          ' synchronous probe
+    ' hit       = Ray.Hit("Sight")      ' Boolean
+    ' collider  = Ray.Collider("Sight") ' Object or Nothing
+    ' point     = Ray.Point("Sight")    ' Vector2/3
+    ' normal    = Ray.Normal("Sight")   ' Vector2/3
+    Print "Ray API: Enable/Target/ForceUpdate/Hit/Collider/Point/Normal"
+
+    Print ""
+    Print "=== Nav (NavigationAgent helpers) ==="
+    ' Nav.SetTarget("Hero", x, y)
+    ' Nav.NextPos("Hero")     -> Vector2/3 next waypoint
+    ' Nav.Reached("Hero")
+    ' Nav.Distance("Hero")
+    Print "Nav verbs: SetTarget / NextPos / Reached / Distance"
+
+    Print "OK"
+End Sub

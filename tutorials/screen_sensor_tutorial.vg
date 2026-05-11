@@ -1,0 +1,29 @@
+' ============================================================
+' Screen / Sensor Tutorial — phone-aware UI
+' ============================================================
+' Bare-property syntax (no parens) makes namespace reads feel
+' like English. Both forms compile to the same OP_CALL.
+' ============================================================
+
+Sub _Ready()
+    Print "=== Screen ==="
+    Print "Width:       " & Screen.Width
+    Print "Height:      " & Screen.Height
+    Print "DPI:         " & Screen.DPI
+    Print "Orientation: " & Screen.Orientation
+    Print "Fullscreen?  " & Screen.IsFullScreen
+
+    ' Same call, with parens — still valid.
+    Print "Width():     " & Screen.Width()
+
+    Print ""
+    Print "=== Sensor (game units: Gs + deg/s by default) ==="
+    Print "Accel:       " & Sensor.Accel
+    Print "Tilt:        " & Sensor.Tilt
+    ' Switch to metric (m/s^2, rad/s) at any time:
+    Sensor.Units("metric")
+    Print "Accel(SI):   " & Sensor.Accel
+    Sensor.Units("game")
+
+    Print "OK"
+End Sub

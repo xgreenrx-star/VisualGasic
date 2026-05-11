@@ -1,0 +1,21 @@
+' ============================================================
+' Joypad / Touch Tutorial (Pass 4)
+' ============================================================
+
+Sub _Ready()
+    Print "=== Joypad ==="
+    Print "Pad 0 connected? " & Joypad.Connected(0)
+    Print "Pad 0 name:      " & Joypad.Name(0)
+    ' Stick axes (Godot JOY_AXIS_LEFT_X=0, LEFT_Y=1, RIGHT_X=2, RIGHT_Y=3).
+    Print "LX axis:         " & Joypad.Axis(0, 0)
+    ' Buttons: 0=A/Cross, 1=B/Circle, ...
+    Print "A held?          " & Joypad.Button(0, 0)
+
+    Print ""
+    Print "=== Touch (multi-finger) ==="
+    ' Touch.Count = active fingers; Touch.Position(i) = Vector2;
+    ' Touch.Pressure(i) = 0..1.
+    Print "Touch API: Count / Position(i) / Pressure(i)"
+
+    Print "OK"
+End Sub

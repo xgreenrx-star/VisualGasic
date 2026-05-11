@@ -1,0 +1,29 @@
+' ============================================================
+' Camera / Sound / Speaker Tutorial (Pass 2)
+' ============================================================
+
+Sub _Ready()
+    Print "=== Camera ==="
+    Camera.Shake(8, 0.25)              ' pixel amount, seconds
+    Camera.Zoom(1.5, 0.5)              ' factor, ease time
+    Camera.Position(320, 240)          ' jump to world position
+    Camera.Rotation(0)                 ' degrees
+    Camera.FOV(75)                     ' 3D field of view
+    Camera.MakeCurrent()               ' use this Camera2D/3D
+    Print "Camera verbs dispatched"
+
+    Print ""
+    Print "=== Sound (polyphonic, percent volume) ==="
+    ' Sound.Play("hit", 80)   ' name, 0..100% volume
+    ' Sound.Stop("hit"),  Sound.Pause("hit"),  Sound.Resume("hit")
+    ' Sound.Pitch("hit", 1.2),  Sound.Volume("hit", 60)
+    Print "Sound API: Play/Stop/Pause/Resume/Pitch/Volume"
+
+    Print ""
+    Print "=== Speaker (audio bus) ==="
+    Print "Buses:         " & Speaker.Count
+    Print "Master volume: " & Speaker.Volume("Master") & "%"
+    Print "Master muted?  " & Speaker.IsMuted("Master")
+
+    Print "OK"
+End Sub

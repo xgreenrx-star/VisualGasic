@@ -1,6 +1,30 @@
 # VisualGasic Tutorials Collection
 *Learn VisualGasic step by step with comprehensive tutorials*
 
+## 🌐 Pass 1-5 Namespace Reference (v5.2)
+
+Short, runnable `.vg` programs demonstrating the new plain-English Godot
+wrapper namespaces. Each one runs headless. Pair this with the
+`_pass{1..5}_smoke.vg` files under `test_proj/` for the full verb surface.
+
+| File | Pass | Namespaces |
+| --- | --- | --- |
+| [camera_sound_tutorial.vg](camera_sound_tutorial.vg) | 2 | `Camera`, `Sound`, `Speaker` |
+| [animation_tutorial.vg](animation_tutorial.vg) | 3 | `Animation` + auto-signal wiring |
+| [physics_ray_nav_tutorial.vg](physics_ray_nav_tutorial.vg) | 3 | `Physics`, `Ray`, `Nav` |
+| [cell_tutorial.vg](cell_tutorial.vg) | 3 | `Cell` (TileMap) |
+| [screen_sensor_tutorial.vg](screen_sensor_tutorial.vg) | 4 | `Screen`, `Sensor` |
+| [joypad_touch_tutorial.vg](joypad_touch_tutorial.vg) | 4 | `Joypad`, `Touch` |
+| [permission_gps_steps_tutorial.vg](permission_gps_steps_tutorial.vg) | 4 | `Permission`, `GPS`, `Steps` |
+| [crypto_tutorial.vg](crypto_tutorial.vg) | 5 | `Crypto` |
+| [theme_js_tutorial.vg](theme_js_tutorial.vg) | 5 | `Theme`, `JS` |
+| [shader_skeleton_video_tutorial.vg](shader_skeleton_video_tutorial.vg) | 5 | `Shader`, `Skeleton`, `Bone`, `Video` |
+
+Tip: namespace members can be read without parens — `Print Screen.Width`
+compiles to the same `OP_CALL` as `Print Screen.Width()`.
+
+---
+
 ## 📚 Tutorial Index
 
 ### 🎯 Beginner Level

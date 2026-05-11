@@ -1,0 +1,37 @@
+' ============================================================
+' Permission / GPS / Steps Tutorial (Pass 4)
+' ============================================================
+' Mobile-runtime surface. Desktop returns sensible stubs so the
+' same code compiles and runs everywhere.
+' ============================================================
+
+Sub _Ready()
+    Print "=== Permission ==="
+    Permission.Request("location")
+    Print "Has location?  " & Permission.Has("location")
+
+    Print ""
+    Print "=== GPS (stub on desktop, live on Android) ==="
+    Print "Lat:       " & GPS.Lat
+    Print "Lng:       " & GPS.Lng
+    Print "Alt:       " & GPS.Alt
+    Print "Speed:     " & GPS.Speed
+    Print "Accuracy:  " & GPS.Accuracy
+
+    Print ""
+    Print "=== Steps (pedometer) ==="
+    Print "Today: " & Steps.Today
+    Print "Total: " & Steps.Total
+
+    Print "OK"
+End Sub
+
+' Auto-wired once the Android plugin ships (signal source is the
+' OS, not a scene node — wiring lands with the plugin):
+Sub Permission_Granted(perm As String)
+    Print "User granted: " & perm
+End Sub
+
+Sub Permission_Denied(perm As String)
+    Print "User denied: " & perm
+End Sub

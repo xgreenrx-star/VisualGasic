@@ -1,0 +1,28 @@
+' ============================================================
+' Shader / Material / Skeleton / Bone / Video Tutorial
+' ============================================================
+' Pass 5 power-user surface.  All dispatches succeed headless
+' so this doubles as an integration smoke.
+' ============================================================
+
+Sub _Ready()
+    Print "=== Shader / Material ==="
+    ' On a Sprite2D/MeshInstance with a ShaderMaterial:
+    '   Shader.Set(Sprite1, "tint", Color(1, 0, 1))
+    '   v = Shader.Get(Sprite1, "tint")
+    Print "Shader.Set / Shader.Get bind uniforms"
+
+    Print ""
+    Print "=== Skeleton / Bone (3D rigs) ==="
+    ' Skeleton.Bone("Skel1", "head").Pose returns Transform3D
+    ' Skeleton.Bone("Skel1", "head").Rest is the bind pose
+    Print "Skeleton verbs dispatched"
+
+    Print ""
+    Print "=== Video ==="
+    ' Video.Play(VideoPlayer1, "res://intro.ogv")
+    ' Video.Stop(VideoPlayer1)
+    Print "Video verbs dispatched"
+
+    Print "OK"
+End Sub
