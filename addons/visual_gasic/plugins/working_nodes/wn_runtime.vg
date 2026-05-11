@@ -201,10 +201,7 @@ End Sub
 ' Spawn: show the group, optionally after a delay.
 Sub WN_Spawn(ByVal gid As Long, ByVal delay As Double)
     If delay > 0.0 Then
-        Dim timer As Object
-        timer = GetTree().create_timer(delay)
-        ' We can't Await from top-level Sub easily; fall back to instant show.
-        ' TODO: emit await when VG supports it inside runtime Subs.
+        Await GetTree().create_timer(delay).timeout
     End If
     Dim nodes As Variant
     nodes = WN_GetGroupNodes(gid)
@@ -343,7 +340,10 @@ End Sub
 ' ── Animation ────────────────────────────────────────────────────────────────
 
 ' Play an animation on the first AnimationPlayer child of every node in group.
-' anim_index is looked up in get_animation_list().
+' anim_index is looked up in get_animation_list(). If the target has no
+' AnimationPlayer (or it has no animations), fall back to a visible scale-
+' pulse tween so the trigger isn't a silent no-op — beginners get instant
+' feedback that something happened.
 Sub WN_Animate(ByVal gid As Long, ByVal anim_index As Long, ByVal speed As Double)
     Dim nodes As Variant
     nodes = WN_GetGroupNodes(gid)
@@ -351,12 +351,31 @@ Sub WN_Animate(ByVal gid As Long, ByVal anim_index As Long, ByVal speed As Doubl
     For Each n In nodes
         Dim ap As Object
         ap = n.get_node_or_null("AnimationPlayer")
+        Dim played As Boolean
+        played = False
         If Not (ap = Nothing) Then
             Dim list As Variant
             list = ap.get_animation_list()
             If anim_index >= 0 And anim_index < list.size() Then
                 ap.speed_scale = speed
                 ap.play(list[anim_index])
+                played = True
+            End If
+        End If
+        If Not played Then
+            ' Fallback: a quick scale-pulse so the trigger is visible.
+            If n.is_class("Node2D") Or n.is_class("Control") Then
+                Dim dur As Double
+                dur = 0.4 / speed
+                If dur < 0.05 Then dur = 0.05
+                Dim orig As Variant
+                orig = n.scale
+                Dim big As Variant
+                big = Vector2(orig.x * 1.25, orig.y * 1.25)
+                Dim t As Object
+                t = n.create_tween()
+                t.tween_property(n, "scale", big,  dur * 0.5)
+                t.tween_property(n, "scale", orig, dur * 0.5)
             End If
         End If
     Next n
@@ -414,12 +433,12 @@ Sub WN_Timer(ByVal delay As Double, ByVal repeat As Long)
     tmr.start()
 End Sub
 
-' Wait is a no-op in non-awaitable contexts. Sequence nodes that need proper
-' awaiting should chain through Tweens instead; kept here so older-generated
-' code doesn't fail to link.
+' Pause the current Sub for `seconds` seconds, then resume. Implemented via
+' Godot's SceneTreeTimer + VG's Await statement.
 Sub WN_Wait(ByVal seconds As Double)
-    ' TODO: when VG supports Await inside runtime Subs, replace with
-    '   Await GetTree().create_timer(seconds).timeout
+    If seconds > 0.0 Then
+        Await GetTree().create_timer(seconds).timeout
+    End If
 End Sub
 
 ' ── Generic Trigger ──────────────────────────────────────────────────────────

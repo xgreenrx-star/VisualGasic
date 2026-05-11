@@ -14,7 +14,7 @@ These chapters explain the language and IDE end-to-end.
 
 For a per-command alphabetical reference, see 
 
-[Part II — Command Reference](#part-ii--command-reference-az).
+[Part II — Command Reference](#part-ii).
 
 
 ## Getting Started
@@ -3964,6 +3964,7 @@ VisualGasic's multitasking capabilities compare favorably with industry leaders:
 
 ---
 
+<a id="part-ii"></a>
 ## Part II — Command Reference (A–Z)
 
 Every one of the 350 built-in keywords, statements, functions, and namespace verbs documented by the Command Help panel gets a dedicated page below. Pages follow the classic *Visual Basic 5 Super Bible* layout: **Purpose**, **Syntax**, **Parameters**, **Description**, **Example**, and **See Also**.

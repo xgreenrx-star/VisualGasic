@@ -245,7 +245,7 @@ def extract_part_i(legacy_text: str) -> str:
     pieces.append("## Part I — Language Tutorials\n")
     pieces.append("These chapters explain the language and IDE end-to-end. ")
     pieces.append("For a per-command alphabetical reference, see ")
-    pieces.append("[Part II — Command Reference](#part-ii--command-reference-az).\n")
+    pieces.append("[Part II — Command Reference](#part-ii).\n")
 
     for heading in PART_I_CHAPTERS:
         if heading not in idx_by_heading:
@@ -300,6 +300,7 @@ def main() -> int:
 
     # Part II
     out.append("\n---\n")
+    out.append("<a id=\"part-ii\"></a>")
     out.append("## Part II — Command Reference (A–Z)\n")
     out.append(
         f"Every one of the {len(entries)} built-in keywords, statements, "
