@@ -107,6 +107,13 @@ neighbors, and links into the Language Reference.
   keyword entries**. Every Pass 1–6 namespace verb now has syntax, prose
   description, runnable example, "see also" cross-references, and a
   manual line-number deep-link.
+- **Command Help is now text-selectable** — Ctrl+C copies any syntax,
+  description, or example straight into your code.
+- **Manual deep-links audited** — all 350 entries' `📖 Programmer's
+  Reference, line N` jumps now point at the right page; the old stale
+  refs (including the bogus *"page 1440"*) are gone.
+- **Vibrate** and a few other entries had their See-Also groups cleaned
+  up — no more irrelevant cross-references.
 - **IntelliSense** does dot-completion for all VG↔Godot Pass 1–5
   namespaces — type `Camera.` and get the menu of verbs with one-line
   signatures.
@@ -120,6 +127,15 @@ neighbors, and links into the Language Reference.
 
 ## 📚 Documentation
 
+- **Programmer's Reference fully rewritten in VB5 *Super Bible* style.**
+  `docs/VisualGasic_Language_Reference.md` is now ~338 KB / 14,864 lines
+  and contains a dedicated A–Z reference page for every one of the 350
+  built-in keywords, statements, functions, and namespace verbs, each
+  with **Purpose · Syntax · Parameters · Description · Example · See
+  Also**. Part I keeps the tutorial chapters (Getting Started, Language
+  Basics, Control Flow, OOP, Whenever, Multitasking, Godot integration,
+  …). The old manual is preserved as
+  `docs/VisualGasic_Language_Reference_legacy.md` for reference.
 - **`docs/VisualGasic_Language_Reference.md`** gained a comprehensive
   "v4.x–v5.1 Godot Namespace Wrappers" section covering all 23 namespaces
   with per-verb tables, signatures, and notes (~250 lines).
