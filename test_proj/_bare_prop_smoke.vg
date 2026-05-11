@@ -1,0 +1,29 @@
+' Bare-property syntax smoke — Pass 2-5 namespaces without parens
+Sub _Ready()
+    Print "=== Bare-property syntax smoke ==="
+
+    ' Pass 4 — Screen.* without parens
+    Print "Screen.Width:  " & Screen.Width
+    Print "Screen.Height: " & Screen.Height
+    Print "Screen.DPI:    " & Screen.DPI
+    Print "Screen.Orientation: " & Screen.Orientation
+    Print "Screen.IsFullScreen: " & Screen.IsFullScreen
+
+    ' Pass 4 — Sensor.* without parens
+    Print "Sensor.Accel: " & Sensor.Accel
+    Print "Sensor.Tilt:  " & Sensor.Tilt
+
+    ' Pass 4 — GPS stubs
+    Print "GPS.Lat:      " & GPS.Lat
+    Print "GPS.Accuracy: " & GPS.Accuracy
+    Print "Steps.Total:  " & Steps.Total
+
+    ' Pass 2 — Speaker.Count without parens (Speaker is namespace)
+    Print "Speaker.Count: " & Speaker.Count
+
+    ' Parens still work (regression check)
+    Print "Screen.Width(): " & Screen.Width()
+    Print "Sensor.Accel(): " & Sensor.Accel()
+
+    Print "BARE-PROPERTY OK"
+End Sub

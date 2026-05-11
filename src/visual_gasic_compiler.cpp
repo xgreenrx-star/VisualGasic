@@ -6607,6 +6607,19 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 }
             }
             if (!resolved) {
+                // Pass 2-5 bare-property syntax: Screen.Width → Screen.Width()
+                // If the base is a recognised namespace, emit a zero-arg
+                // builtin call instead of OP_GET_MEMBER. This makes
+                // `Screen.Width` / `Sensor.Accel` etc. read like English.
+                String ns = detect_namespace_call(ma->base_object);
+                if (!ns.is_empty()) {
+                    String fn = ns + "_" + ma->member_name.to_lower();
+                    int fnidx = current_chunk->add_constant(fn);
+                    emit_byte(OP_CALL);
+                    emit_const_index(fnidx);
+                    emit_byte((uint8_t)0);
+                    break;
+                }
                 compile_expression(ma->base_object);
                 int idx = current_chunk->add_constant(ma->member_name);
                 emit_byte(OP_GET_MEMBER);
