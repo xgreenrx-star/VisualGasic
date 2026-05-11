@@ -9,14 +9,15 @@
 
 2. **Select a tile from the palette** — The top strip shows a scrollable row of **visual tile thumbnails** grouped by block type. Each thumbnail is the actual pixel art that will appear in-game. Block types:
    - **Empty** — eraser (clears a cell)
-   - **B** (Barrier) — solid walls, floors, platforms (grey outline)
+   - **B** (Barrier) — solid walls, floors, platforms (grey outline). Includes the new **Question Block** (Mario-style ?-block: bump from below to spawn a coin), **Used Block**, and three **One-Way Platforms** (Wood / Grass / Cloud — jump up through, land on top).
    - **L** (Ladder) — climbable surfaces (green outline)
    - **D** (Deadly) — kills on contact (red outline)
    - **Bg** (Background) — decorative, no collision (blue outline)
    - **T** (Teleport) — warp points (purple outline)
    - **S** (Switch) — triggers and interactive tiles (yellow outline)
+   - **🏁** (Goal) — level-exit tiles (gold outline). Five variants: Flagpole, Exit Door, Castle Gate, Star, Trophy. Player walking into one calls `LevelComplete()`; on the last level the Victory overlay shows.
 
-   The built-in tile library includes ~28 pre-made tiles (Brick Wall, Stone Platform, Grass & Dirt, Spikes, Lava, Portals, Levers, and more).
+   The built-in tile library includes ~35 pre-made tiles (Brick Wall, Stone Platform, Grass & Dirt, Spikes, Lava, Portals, Levers, ?-blocks, One-Way Platforms, Goal markers, and more).
 
 3. **Paint the grid** — **Left-click and drag** on the 20×12 grid canvas to paint tiles. Each cell shows the **actual tile texture** — what you see is exactly what appears in-game. A faint color-coded outline (35% alpha) around each cell indicates the block type for quick identification.
 
@@ -28,9 +29,23 @@
    - Select **one or multiple** PNG files from your filesystem
    - Each image is automatically resized to 18×18 pixels (nearest-neighbor scaling)
    - **Tilesheet detection** — if a PNG is wider than it is tall and the width is a multiple of the height, it's automatically split into individual tiles (e.g., a 72×18 image becomes 4 tiles)
-   - Imported tiles are added to the **currently selected block type** (Barrier, Ladder, Deadly, etc.)
+   - The **Into:** dropdown next to Import controls which block-type bucket new tiles go into (Barrier, Ladder, Deadly, etc.). Set it before importing to split a tilesheet into the right category in one pass.
    - Tiles are named after the filename with "(imported)" suffix
    - Imported tiles appear immediately in the palette and can be painted onto the grid
+   - **NEW badge** — every tile added by the most recent import wave is marked with a small orange "NEW" label in the top-right corner of its thumbnail. The badge clears automatically when the next import wave starts, or when the tile is moved to another category. Makes it easy to find what you just imported in a large palette.
+
+3e. **Online asset browser** — Click **🌐 Online…** next to Import to open the **OpenGameArt** browser inside AGCK. Search by keyword, filter by **Type** (2D Art, 3D Art, Texture, Concept Art, Music, Sound Effect) and **License** (Any / CC0 / CC-BY / CC-BY-SA), and click **Auto Download** to import an asset's tiles directly into the current bucket. Double-click an entry to open the OGA page in your browser.
+
+3f. **Move tiles between categories** — Click the orange **✎ Move** button next to Import to enter **move-mode**. The palette tiles turn into multi-select checkboxes:
+   - **Click** a tile to add it to (or remove it from) the selection.
+   - **Click + drag** across tiles to drag-paint: every tile the mouse enters while the left button is held inherits the same on/off state as the tile you started on. Works through the scrollbar.
+   - Use the **All** button to select every tile in the current category and **Clear** to deselect everything. The buttons appear next to Move while move-mode is on.
+   - The selection count is shown on the **→ Change… (N)** button. Click it to open the **Change Category** dialog:
+     - Pick a destination from the dropdown — every block-type bucket *or* any **Actor / Enemy** type (Drone, Sentry, Zombie, Bat, Boss, NPC, Fireball, Missile, …).
+     - The **Update already-placed cells** checkbox controls what happens to existing placed cells:
+       - For tile-to-tile moves: ON remaps cells to the new (block_type, tile_index) so your level art doesn't shift; OFF erases them.
+       - For tile-to-actor moves: cells are cleared regardless — actors live in a separate per-level list and can't paint as tiles.
+   - Click Move again to exit move-mode and return to normal painting.
 
 4. **Edit tiles inline** — **Double-click any tile thumbnail** in the palette to open the built-in **Pixel Editor popup**. This editor appears as a window directly inside AGCK — you never leave the interface. Features:
    - 18×18 pixel canvas with large editing cells
@@ -227,6 +242,8 @@ Actor types determine the generated base class:
 - **Tank** → CharacterBody2D (armored vehicle — turret & tracks sprite)
 - **Fireball** → RigidBody2D (flaming projectile — fire trail sprite)
 
+**Ledge-aware ground enemies.** Ground-based enemies (Drone, Sentry, Zombie, Boss, Tank, TopGoblin) are generated with two `RayCast2D` ledge probes (LedgeLeft / LedgeRight, mask = barrier). When an enemy is on the floor and the ray ahead of it stops detecting ground, it flips direction — so they no longer walk off platforms. Flying / pathing actors are unaffected.
+
 ---
 
 ## 💥 Damage & Combat System
@@ -277,13 +294,30 @@ If the death animation trigger is set (see Animation Triggers below), the hero's
 
 If the player falls below **Y = 512** (128 pixels below the bottom of the 640×384 level grid), `LoseLife()` is automatically called. This prevents the hero from falling infinitely into the void.
 
+### Platformer Controls (Player / TopHero)
+
+The generated player physics now ships with a full set of modern platformer feel features. All are automatic — no scripting required.
+
+| Feature | Behavior |
+|---------|----------|
+| **Jump** | `ui_accept` (Space / A button). Initial velocity −400. |
+| **Coyote-time** | After walking off a ledge the player can still jump for **0.1 s**. |
+| **Jump buffer** | Pressing jump up to **0.1 s** before landing still triggers a jump on touchdown. |
+| **Variable jump height** | Releasing `ui_accept` while rising halves upward velocity — tap for short hops, hold for full jumps. |
+| **Run button** | New `agck_run` action (Shift on keyboard, X / Square on gamepad) multiplies horizontal speed by **1.7×** while held. |
+| **Stomp** | Landing on an enemy from above (player `velocity.y > 0` and player above enemy by ≥ 8 px) instant-kills the enemy, awards score, and bounces the player at −300. Side / under hits still damage the player. |
+| **One-Way Platforms** | Wood / Grass / Cloud Barrier variants let the player jump up through and land on top. |
+| **Ladders** | Standing on a Ladder tile disables gravity and lets `ui_up` / `ui_down` move vertically. |
+
 ### HUD Integration
 
-The game controller (`Main.vg`) tracks **Score** and **Lives**:
-- `AddScore(points)` — called when stomping enemies or collecting items
+The game controller (`Main.vg`) tracks **Score**, **Lives**, **Level**, and **Coins**:
+- `AddScore(points)` — called when stomping enemies, collecting items, opening ?-blocks, or activating switches
+- `AddCoin(n)` — increments the coin counter; every 100 coins grants a bonus life
 - `LoseLife()` — called when player dies; plays the death animation trigger, decrements lives counter, then dispatches the current level's death action. Triggers `GameOver()` when lives reach 0.
+- `LevelComplete()` — called when the player touches a Goal tile. Advances to the next level, or shows the Victory overlay if it was the last level.
 - `GameOver()` — shows the Game Over screen (see below)
-- HUD labels update automatically
+- HUD labels update automatically. Each label is independently toggleable via Settings → HUD (Show Score / Show Lives / Show Level / Show Coins). Hidden labels are not emitted into the scene.
 
 ### Collision Layers
 
@@ -420,7 +454,7 @@ Click **Settings** in the sidebar. Configure global properties across these cate
 | **Camera** | Zoom (0.25× to 4×) |
 | **Input** | Joystick, Keyboard, Touch |
 | **Audio** | Music Volume, SFX Volume, FX Channels |
-| **HUD** | Show Score, Show Lives, Debug Overlay, Auto Save |
+| **HUD** | Show Score, Show Lives, Show Level, Show Coins, Debug Overlay, Auto Save |
 | **🖼️ Screens** | Game Menu (Default / Custom / None), Custom Menu Scene, Game Over (Default / Custom), Custom Game Over Scene, Splash Screen (on/off), Splash Image, Splash Duration |
 | **🎬 Animation Triggers** | On Death, On Hit, On Power Loss, On Item Loss — each selects an animation name |
 | **Keyboard Shortcuts** | Reference card listing all AGCK keyboard shortcuts |
@@ -578,12 +612,13 @@ AGCK ships with a built-in tile library containing ~56 procedurally generated pi
 
 | Type | Tiles |
 |------|-------|
-| **Barrier** | Brick Wall, Stone Platform, Grass & Dirt, Metal Plate, Ice Block, Wood Plank, Sand Block, Cobblestone, Castle Wall, Mossy Stone, Steel Girder, Concrete, Marble, Glass Block, Chain Link |
+| **Barrier** | Brick Wall, Stone Platform, Grass & Dirt, Metal Plate, Ice Block, Wood Plank, Sand Block, Cobblestone, Castle Wall, Mossy Stone, Steel Girder, Concrete, Marble, Glass Block, Chain Link, Question Block, Used Block, One-Way Wood, One-Way Grass, One-Way Cloud |
 | **Ladder** | Wood Ladder, Metal Ladder, Vine, Rope, Chain, Bamboo Ladder |
 | **Deadly** | Spikes Up, Lava, Electric Fence, Acid Pool, Fire, Saw Blade, Poison Gas, Thorns, Hot Coals, Laser Beam |
 | **Background** | Sky, Cloud, Night Sky, Water, Cave Wall, Forest, Sunset, Mountains, Dungeon Wall, Ocean Deep, City Skyline, Moon, Storm Clouds, Starfield |
 | **Teleport** | Portal, Warp Pad, Magic Door, Vortex, Star Gate, Teleport Beam |
 | **Switch** | Lever, Button, Crystal, Key, Treasure Chest, Coin, Heart, Star |
+| **Goal** | Flagpole, Exit Door, Castle Gate, Star Goal, Trophy |
 
 All tiles are 18×18 pixels internally and scaled to fit the grid. You can:
 - **Edit any tile** by double-clicking its thumbnail in the tile palette

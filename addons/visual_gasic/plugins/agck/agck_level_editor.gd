@@ -5,10 +5,34 @@
 ## actual tile textures for a true What-You-See-Is-What-You-Get experience.
 ## Double-click any tile in the palette to open the inline sprite editor
 ## and customize it. Edited tiles update the grid in real-time.
+##
+## ─── Editor-boundary policy (read this before adding power features) ───
+## AGCK is the *level / scene composer*: it owns the grid, block-type
+## semantics (Barrier/Ladder/Deadly/Switch/Goal/Question/Teleport),
+## actor placement, waypoints, and one-click bake to a runnable game.
+## VG's Sprite Editor (`vg_sprite_editor.gd`) and 2D Editor own the
+## *asset / scene authoring*: pixel painting, layers, frames, free
+## positioning, custom shaders, advanced transforms.
+##
+## When in doubt, ask: "is this about *what's in this level slot* or
+## about *what this asset looks like*?" Slot questions stay here. Asset
+## questions go to VG's editors via the bridge button in the inline
+## popup (`_on_edit_open_in_vg_sprite_editor`).
+##
+## Per-instance properties on placed tiles are intentionally limited to
+## the small set that meaningfully changes a *placement* without
+## changing the *asset* — currently flip H / flip V (Ctrl+Click a cell
+## to expose them in the right-dock Properties panel). Don't grow this
+## into a full inspector; users who need rotation, modulate, or shaders
+## per-instance should make tile variants or move to VG's 2D editor.
 extends VBoxContainer
 
 signal level_changed(level_id: int)
 signal edit_tile_requested(block_type: int, tile_index: int)
+
+# Online-asset browsers (optional — only loaded when user clicks 🌐)
+const OPENGAMEART_BROWSER_SCRIPT := preload("res://addons/visual_gasic/asset_browser/opengameart_browser.gd")
+const KENNEY_BROWSER_SCRIPT      := preload("res://addons/visual_gasic/asset_browser/kenney_browser.gd")
 
 # ─── Theme ───────────────────────────────────────────────────
 const BG_COLOR     = Color(0.13, 0.13, 0.16)
@@ -29,8 +53,9 @@ const BLOCK_DEADLY     = 3
 const BLOCK_BACKGROUND = 4
 const BLOCK_TELEPORT   = 5
 const BLOCK_SWITCH     = 6
+const BLOCK_GOAL       = 7
 
-const BLOCK_NAMES  = ["Empty", "Barrier", "Ladder", "Deadly", "Background", "Teleport", "Switch"]
+const BLOCK_NAMES  = ["Empty", "Barrier", "Ladder", "Deadly", "Background", "Teleport", "Switch", "Goal"]
 const BLOCK_COLORS = [
 	Color(0.12, 0.12, 0.14),
 	Color(0.50, 0.55, 0.60),
@@ -39,8 +64,9 @@ const BLOCK_COLORS = [
 	Color(0.25, 0.40, 0.60),
 	Color(0.65, 0.30, 0.85),
 	Color(0.90, 0.80, 0.20),
+	Color(0.95, 0.75, 0.15),
 ]
-const BLOCK_ICONS = ["  ", "B ", "L ", "D ", "Bg", "T ", "S "]
+const BLOCK_ICONS = ["  ", "B ", "L ", "D ", "Bg", "T ", "S ", "🏁"]
 
 const MAX_LEVELS = 50
 
@@ -112,6 +138,7 @@ var _waypoint_block_pos: Vector2i = Vector2i(-1, -1)  # block grid pos being edi
 var _flood_fill_mode: bool = false  # bucket-fill tool
 var _dirty: bool = false  # unsaved-changes indicator
 var _zoom: float = 1.0  # grid zoom level (Shift+Scroll)
+var _user_zoom_override: bool = false  # set true once user manually zooms; disables auto-fit
 
 # Reference to the tile library (set by agck_plugin.gd)
 var tile_library = null
@@ -129,8 +156,29 @@ var _grid_scroll: ScrollContainer = null
 var _zoom_lbl: Label = null
 var _block_btns: Array = []
 var _tile_palette_scroll: ScrollContainer = null
-var _tile_palette: HBoxContainer = null
+var _tile_palette: Container = null
 var _tile_btns: Array = []
+# Import + move-mode UI state.
+# `_import_target_opt` is the "Into:" dropdown next to Import; the integer
+# value at each option index is the destination BLOCK_* constant.
+# `_move_mode_active` flips palette tiles into checkbox-style multi-select
+# so the user can pick a set and reassign them to another category.
+# `_move_selected` keys are tile indices within `selected_block`.
+var _import_target_opt: OptionButton = null
+var _move_mode_btn: Button = null
+var _change_cat_btn: Button = null
+var _select_all_btn: Button = null
+var _clear_sel_btn: Button = null
+var _move_mode_active: bool = false
+var _move_selected: Dictionary = {}
+# Drag-paint selection state. Rather than a rubber-band overlay (which
+# fights the ScrollContainer for input), we hijack the existing tile
+# buttons: pressing one in move-mode starts a drag; while the left mouse
+# button stays held, `mouse_entered` on other tile buttons toggles them to
+# the same on/off state as the originally-pressed tile. Releasing anywhere
+# ends the drag. Works through scroll naturally.
+var _drag_paint_active: bool = false
+var _drag_paint_value: bool = true  # true = adding to selection, false = removing
 var _level_opt: OptionButton = null
 var _actor_picker_btn: Button = null
 var _actor_picker_popup: PopupPanel = null
@@ -164,6 +212,20 @@ var _confirm_dialog: ConfirmationDialog = null
 var _pending_confirm_action: Callable
 var _dirty_lbl: Label = null
 
+# Online asset browser handles (lazy)
+var _opengameart_browser: RefCounted = null
+var _kenney_browser: RefCounted = null
+var _online_chooser_popup: PopupPanel = null
+var _online_pre_scan_files: Dictionary = {}  # path -> mtime, snapshot before browser opens
+
+# ── Dock-layout refs (added in the v2 layout rebuild) ──
+var _level_meta_btn: Button = null
+var _level_meta_popup: PopupPanel = null
+var _actors_list_vbox: VBoxContainer = null
+var _props_vbox: VBoxContainer = null
+var _hover_status_lbl: Label = null
+var _props_target: Dictionary = {}  # {kind:"tile"|"actor", ...}
+
 # Inline editor popup
 var _edit_popup: Window = null
 var _edit_canvas: Control = null
@@ -178,6 +240,14 @@ var _edit_palette_colors: Array = []
 var _edit_shader_fx_opt: OptionButton = null
 var _edit_shader_params_grid: GridContainer = null
 
+# Bridge state for "Open in VG Sprite Editor": when set, a polling Timer
+# watches `_vg_bridge_path` for an mtime change and reloads the resulting
+# image back into the tile library at (`_vg_bridge_bt`, `_vg_bridge_ti`).
+var _vg_bridge_path: String = ""
+var _vg_bridge_bt: int = -1
+var _vg_bridge_ti: int = -1
+var _vg_bridge_mtime: int = 0
+var _vg_bridge_timer: Timer = null
 
 func _ls(size: int, color: Color) -> LabelSettings:
 	var s = LabelSettings.new()
@@ -267,6 +337,43 @@ func _apply_dark_popup(popup: PopupMenu) -> void:
 			c.queue_redraw()
 
 
+## Apply a visible-grabber color to a ScrollContainer's V/HScrollBars.
+## The editor theme's default scrollbar grabber is near-transparent on
+## dark panels, so the bar tracks are visible but the thumb appears to be
+## missing entirely. Override `grabber` + `grabber_highlighted` +
+## `grabber_pressed` with explicit StyleBoxFlats so the user can see and
+## drag the thumb. Idempotent — safe to call multiple times.
+func _apply_scroll_styling(sc: ScrollContainer) -> void:
+	if not is_instance_valid(sc):
+		return
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(0.12, 0.12, 0.15)
+	track.set_corner_radius_all(2)
+	var grab := StyleBoxFlat.new()
+	grab.bg_color = Color(0.45, 0.45, 0.55)
+	grab.set_corner_radius_all(3)
+	grab.content_margin_left = 2; grab.content_margin_right = 2
+	grab.content_margin_top = 2;  grab.content_margin_bottom = 2
+	var grab_hi := grab.duplicate()
+	grab_hi.bg_color = Color(0.60, 0.60, 0.70)
+	var grab_pr := grab.duplicate()
+	grab_pr.bg_color = Color(0.75, 0.75, 0.85)
+	for bar in [sc.get_v_scroll_bar(), sc.get_h_scroll_bar()]:
+		if bar == null:
+			continue
+		bar.add_theme_stylebox_override("scroll", track)
+		bar.add_theme_stylebox_override("scroll_focus", track)
+		bar.add_theme_stylebox_override("grabber", grab)
+		bar.add_theme_stylebox_override("grabber_highlight", grab_hi)
+		bar.add_theme_stylebox_override("grabber_pressed", grab_pr)
+		# Some editor themes leave the bar's min size at zero — force a
+		# visible thickness so the grabber actually has pixels to render.
+		if bar is VScrollBar:
+			bar.custom_minimum_size.x = 12
+		elif bar is HScrollBar:
+			bar.custom_minimum_size.y = 12
+
+
 func _ready() -> void:
 	_init_levels()
 	_build_ui()
@@ -330,28 +437,77 @@ func _lvl_h() -> int:
 	return DEFAULT_GRID_H
 
 
+## v2 dock layout. Three vertical zones:
+##   ┌─ top toolbar (one row)
+##   ├─ HSplit:  [left tile dock] | [grid] | [right actor/properties dock]
+##   └─ status bar (one row)
+##
+## Per-level metadata (friction / elasticity / on-death) lives behind a
+## ⚙ popover on the toolbar instead of a dedicated bottom strip.
 func _build_ui() -> void:
 	add_theme_constant_override("separation", 0)
 
-	# ---- TOP BAR: Level selector + name ----
+	_build_top_toolbar()
+
+	# Main 3-column body. Outer HSplit = left dock | (grid + right dock).
+	var outer = HSplitContainer.new()
+	outer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	outer.split_offset = 150  # left dock initial width
+	add_child(outer)
+
+	outer.add_child(_build_left_dock())
+
+	var inner = HSplitContainer.new()
+	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	inner.split_offset = -240  # right dock initial width (negative = right side)
+	outer.add_child(inner)
+
+	inner.add_child(_build_center_grid())
+	inner.add_child(_build_right_dock())
+
+	_build_status_bar()
+
+	# Hidden popups parented to self so they have a window context.
+	_build_actor_picker_popup()
+	_build_level_meta_popup()
+
+	_refresh_level_list()
+	_refresh_ui()
+	_rebuild_tile_palette()
+	_rebuild_actors_list()
+
+	# Confirmation dialog (reusable)
+	_confirm_dialog = ConfirmationDialog.new()
+	_confirm_dialog.title = "Are you sure?"
+	_confirm_dialog.unresizable = true
+	_confirm_dialog.confirmed.connect(func():
+		if _pending_confirm_action.is_valid():
+			_pending_confirm_action.call()
+	)
+	add_child(_confirm_dialog)
+
+
+func _build_top_toolbar() -> void:
 	var top_bar = PanelContainer.new()
 	var tb_style = StyleBoxFlat.new()
 	tb_style.bg_color = TOOLBAR_BG
 	tb_style.content_margin_left = 8
 	tb_style.content_margin_right = 8
-	tb_style.content_margin_top = 6
-	tb_style.content_margin_bottom = 6
+	tb_style.content_margin_top = 4
+	tb_style.content_margin_bottom = 4
 	top_bar.add_theme_stylebox_override("panel", tb_style)
 	top_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_child(top_bar)
 
 	var top_hbox = HBoxContainer.new()
-	top_hbox.add_theme_constant_override("separation", 10)
+	top_hbox.add_theme_constant_override("separation", 6)
 	top_bar.add_child(top_hbox)
 
 	var lv_lbl = Label.new()
-	lv_lbl.text = "Level:"
-	lv_lbl.label_settings = _ls(12, LABEL_CLR)
+	lv_lbl.text = "Level"
+	lv_lbl.label_settings = _ls(11, DIM)
 	top_hbox.add_child(lv_lbl)
 
 	_level_opt = OptionButton.new()
@@ -363,12 +519,10 @@ func _build_ui() -> void:
 
 	_name_edit = LineEdit.new()
 	_name_edit.placeholder_text = "Level name"
-	_name_edit.custom_minimum_size.x = 120
+	_name_edit.custom_minimum_size.x = 110
 	_name_edit.add_theme_font_size_override("font_size", 11)
 	_name_edit.text_changed.connect(_on_name_changed)
 	top_hbox.add_child(_name_edit)
-
-	top_hbox.add_child(VSeparator.new())
 
 	var add_btn = Button.new()
 	add_btn.text = "+"
@@ -376,21 +530,21 @@ func _build_ui() -> void:
 	add_btn.add_theme_font_size_override("font_size", 12)
 	add_btn.pressed.connect(_on_add_level)
 	top_hbox.add_child(add_btn)
+
 	var dup_btn = Button.new()
 	dup_btn.text = "Dup"
 	dup_btn.tooltip_text = "Duplicate level"
 	dup_btn.add_theme_font_size_override("font_size", 12)
 	dup_btn.pressed.connect(_on_dup_level)
 	top_hbox.add_child(dup_btn)
+
 	var clr_btn = Button.new()
 	clr_btn.text = "X"
 	clr_btn.tooltip_text = "Clear level"
 	clr_btn.add_theme_font_size_override("font_size", 12)
 	clr_btn.pressed.connect(_on_clear_level)
 	top_hbox.add_child(clr_btn)
-	# Per-level grid resize: opens a small dialog with W/H spinners.
-	# Existing tile/actor data is preserved on resize (cropped if shrinking,
-	# right/bottom-padded with empty cells if growing).
+
 	var resize_btn = Button.new()
 	resize_btn.text = "⤢"
 	resize_btn.tooltip_text = "Resize this level (width × height)"
@@ -398,16 +552,25 @@ func _build_ui() -> void:
 	resize_btn.pressed.connect(_on_resize_level_pressed)
 	top_hbox.add_child(resize_btn)
 
+	# Gear: per-level physics + death-action popover (#7)
+	_level_meta_btn = Button.new()
+	_level_meta_btn.text = "⚙"
+	_level_meta_btn.tooltip_text = "Per-level settings: friction, elasticity, on-death action"
+	_level_meta_btn.add_theme_font_size_override("font_size", 14)
+	_level_meta_btn.pressed.connect(_on_level_meta_pressed)
+	top_hbox.add_child(_level_meta_btn)
+
 	top_hbox.add_child(VSeparator.new())
 
+	# Tools: Place Actor, Waypoints, Fill (#3 group)
 	_actor_picker_btn = Button.new()
-	_actor_picker_btn.text = "Place Actor..."
+	_actor_picker_btn.text = "Place Actor…"
 	_actor_picker_btn.tooltip_text = "Open the visual actor picker"
 	_actor_picker_btn.add_theme_font_size_override("font_size", 11)
 	var apb_s = StyleBoxFlat.new()
 	apb_s.bg_color = Color(0.20, 0.22, 0.28)
 	apb_s.set_corner_radius_all(4)
-	apb_s.content_margin_left = 10; apb_s.content_margin_right = 10
+	apb_s.content_margin_left = 8; apb_s.content_margin_right = 8
 	apb_s.content_margin_top = 3; apb_s.content_margin_bottom = 3
 	_actor_picker_btn.add_theme_stylebox_override("normal", apb_s)
 	_actor_picker_btn.add_theme_color_override("font_color", LABEL_CLR)
@@ -415,6 +578,494 @@ func _build_ui() -> void:
 	_actor_picker_btn.pressed.connect(_on_actor_picker_pressed)
 	top_hbox.add_child(_actor_picker_btn)
 
+	_waypoint_btn = Button.new()
+	_waypoint_btn.text = "\U0001F4CD Waypoints"
+	_waypoint_btn.tooltip_text = "Toggle waypoint mode (W) — click an actor or block, then right-click to place waypoints"
+	_waypoint_btn.add_theme_font_size_override("font_size", 11)
+	_waypoint_btn.toggle_mode = true
+	var wp_ns = StyleBoxFlat.new()
+	wp_ns.bg_color = Color(0.18, 0.18, 0.22)
+	wp_ns.set_corner_radius_all(4)
+	wp_ns.content_margin_left = 8; wp_ns.content_margin_right = 8
+	wp_ns.content_margin_top = 3;  wp_ns.content_margin_bottom = 3
+	_waypoint_btn.add_theme_stylebox_override("normal", wp_ns)
+	var wp_ps = wp_ns.duplicate()
+	wp_ps.bg_color = Color(0.85, 0.45, 0.10)
+	wp_ps.border_width_bottom = 2; wp_ps.border_color = Color(1.0, 0.6, 0.1)
+	_waypoint_btn.add_theme_stylebox_override("pressed", wp_ps)
+	var wp_hs = wp_ns.duplicate()
+	wp_hs.bg_color = Color(0.25, 0.22, 0.18)
+	_waypoint_btn.add_theme_stylebox_override("hover", wp_hs)
+	_waypoint_btn.add_theme_color_override("font_color", LABEL_CLR)
+	_waypoint_btn.add_theme_color_override("font_pressed_color", WHITE)
+	_waypoint_btn.add_theme_color_override("font_hover_color", WHITE)
+	_waypoint_btn.toggled.connect(_on_waypoint_mode_toggled)
+	top_hbox.add_child(_waypoint_btn)
+
+	_flood_btn = Button.new()
+	_flood_btn.text = "\U0001FAA3 Fill"
+	_flood_btn.tooltip_text = "Flood fill (G) — click a tile and every connected tile of the same type gets replaced"
+	_flood_btn.add_theme_font_size_override("font_size", 11)
+	_flood_btn.toggle_mode = true
+	var fl_ns = StyleBoxFlat.new()
+	fl_ns.bg_color = Color(0.18, 0.18, 0.22)
+	fl_ns.set_corner_radius_all(4)
+	fl_ns.content_margin_left = 8; fl_ns.content_margin_right = 8
+	fl_ns.content_margin_top = 3;  fl_ns.content_margin_bottom = 3
+	_flood_btn.add_theme_stylebox_override("normal", fl_ns)
+	var fl_ps = fl_ns.duplicate()
+	fl_ps.bg_color = Color(0.20, 0.55, 0.85)
+	fl_ps.border_width_bottom = 2; fl_ps.border_color = Color(0.3, 0.7, 1.0)
+	_flood_btn.add_theme_stylebox_override("pressed", fl_ps)
+	var fl_hs = fl_ns.duplicate()
+	fl_hs.bg_color = Color(0.18, 0.25, 0.30)
+	_flood_btn.add_theme_stylebox_override("hover", fl_hs)
+	_flood_btn.add_theme_color_override("font_color", LABEL_CLR)
+	_flood_btn.add_theme_color_override("font_pressed_color", WHITE)
+	_flood_btn.add_theme_color_override("font_hover_color", WHITE)
+	_flood_btn.toggled.connect(func(pressed: bool): _flood_fill_mode = pressed)
+	top_hbox.add_child(_flood_btn)
+
+	# Spacer pushes zoom + dirty to the far right
+	var spacer = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_hbox.add_child(spacer)
+
+	# Zoom controls (right side)
+	var zoom_out_btn := Button.new()
+	zoom_out_btn.text = "−"
+	zoom_out_btn.tooltip_text = "Zoom out (Shift+Scroll down)"
+	zoom_out_btn.custom_minimum_size = Vector2(26, 22)
+	zoom_out_btn.add_theme_font_size_override("font_size", 14)
+	zoom_out_btn.pressed.connect(func():
+		_zoom = clampf(_zoom - 0.25, 0.25, 4.0)
+		_user_zoom_override = true
+		_apply_zoom()
+	)
+	top_hbox.add_child(zoom_out_btn)
+
+	_zoom_lbl = Label.new()
+	_zoom_lbl.text = "100%"
+	_zoom_lbl.label_settings = _ls(11, ACCENT)
+	_zoom_lbl.tooltip_text = "Click to fit grid to view"
+	_zoom_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_zoom_lbl.custom_minimum_size = Vector2(44, 22)
+	_zoom_lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+	_zoom_lbl.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			_user_zoom_override = false
+			_auto_fit_zoom()
+	)
+	top_hbox.add_child(_zoom_lbl)
+
+	var zoom_in_btn := Button.new()
+	zoom_in_btn.text = "+"
+	zoom_in_btn.tooltip_text = "Zoom in (Shift+Scroll up)"
+	zoom_in_btn.custom_minimum_size = Vector2(26, 22)
+	zoom_in_btn.add_theme_font_size_override("font_size", 14)
+	zoom_in_btn.pressed.connect(func():
+		_zoom = clampf(_zoom + 0.25, 0.25, 4.0)
+		_user_zoom_override = true
+		_apply_zoom()
+	)
+	top_hbox.add_child(zoom_in_btn)
+
+	# Dirty indicator (rightmost)
+	_dirty_lbl = Label.new()
+	_dirty_lbl.text = ""
+	_dirty_lbl.label_settings = _ls(12, Color(1, 0.7, 0.2))
+	top_hbox.add_child(_dirty_lbl)
+
+
+# ── Left dock: block-type column + tile palette grid ───────────
+func _build_left_dock() -> Control:
+	var panel = PanelContainer.new()
+	var st = StyleBoxFlat.new()
+	st.bg_color = Color(0.09, 0.09, 0.12)
+	st.content_margin_left = 4
+	st.content_margin_right = 4
+	st.content_margin_top = 4
+	st.content_margin_bottom = 4
+	panel.add_theme_stylebox_override("panel", st)
+	panel.custom_minimum_size.x = 120
+
+	var vb = VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 4)
+	panel.add_child(vb)
+
+	# Block-type icon grid (compact). Two columns of color-coded icon buttons.
+	var bt_grid = GridContainer.new()
+	bt_grid.columns = 2
+	bt_grid.add_theme_constant_override("h_separation", 3)
+	bt_grid.add_theme_constant_override("v_separation", 3)
+	vb.add_child(bt_grid)
+
+	for i in range(BLOCK_NAMES.size()):
+		var btn = Button.new()
+		btn.text = BLOCK_ICONS[i]
+		btn.tooltip_text = BLOCK_NAMES[i] + "  (" + str(i + 1) + ")"
+		btn.add_theme_font_size_override("font_size", 14)
+		btn.toggle_mode = true
+		btn.button_pressed = (i == selected_block)
+		btn.custom_minimum_size = Vector2(52, 28)
+		btn.pressed.connect(_on_block_selected.bind(i))
+
+		var ns = StyleBoxFlat.new()
+		ns.bg_color = BLOCK_COLORS[i].darkened(0.5)
+		ns.set_corner_radius_all(4)
+		ns.content_margin_left = 4; ns.content_margin_right = 4
+		ns.content_margin_top = 2;  ns.content_margin_bottom = 2
+		btn.add_theme_stylebox_override("normal", ns)
+		var ps = ns.duplicate()
+		ps.bg_color = BLOCK_COLORS[i]
+		ps.border_width_bottom = 3; ps.border_color = WHITE
+		btn.add_theme_stylebox_override("pressed", ps)
+		var hs = ns.duplicate()
+		hs.bg_color = BLOCK_COLORS[i].darkened(0.2)
+		btn.add_theme_stylebox_override("hover", hs)
+		btn.add_theme_color_override("font_color", WHITE)
+		btn.add_theme_color_override("font_pressed_color", WHITE)
+		btn.add_theme_color_override("font_hover_color", WHITE)
+
+		bt_grid.add_child(btn)
+		_block_btns.append(btn)
+
+	# Search field
+	_tile_filter = LineEdit.new()
+	_tile_filter.placeholder_text = "\U0001F50D Search…"
+	_tile_filter.tooltip_text = "Filter tiles by name"
+	_tile_filter.add_theme_font_size_override("font_size", 10)
+	var tf_style = StyleBoxFlat.new()
+	tf_style.bg_color = Color(0.12, 0.12, 0.15)
+	tf_style.set_corner_radius_all(3)
+	tf_style.content_margin_left = 6; tf_style.content_margin_right = 6
+	tf_style.content_margin_top = 2;  tf_style.content_margin_bottom = 2
+	tf_style.border_width_bottom = 1; tf_style.border_color = Color(0.30, 0.30, 0.35)
+	_tile_filter.add_theme_stylebox_override("normal", tf_style)
+	_tile_filter.add_theme_color_override("font_color", WHITE)
+	_tile_filter.add_theme_color_override("font_placeholder_color", DIM)
+	_tile_filter.text_changed.connect(func(_t): _rebuild_tile_palette())
+	vb.add_child(_tile_filter)
+
+	# Import row: local file + online browser (compact)
+	var import_row = HBoxContainer.new()
+	import_row.add_theme_constant_override("separation", 3)
+	vb.add_child(import_row)
+
+	var import_tile_btn = Button.new()
+	import_tile_btn.text = "📂 Import"
+	import_tile_btn.tooltip_text = "Import tile(s) from local PNG file(s)"
+	import_tile_btn.add_theme_font_size_override("font_size", 10)
+	import_tile_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var itb_s = StyleBoxFlat.new()
+	itb_s.bg_color = Color(0.35, 0.45, 0.60)
+	itb_s.set_corner_radius_all(3)
+	itb_s.content_margin_left = 6; itb_s.content_margin_right = 6
+	itb_s.content_margin_top = 2;  itb_s.content_margin_bottom = 2
+	import_tile_btn.add_theme_stylebox_override("normal", itb_s)
+	import_tile_btn.add_theme_color_override("font_color", WHITE)
+	import_tile_btn.pressed.connect(_on_import_tile_pressed)
+	import_row.add_child(import_tile_btn)
+
+	var online_btn = Button.new()
+	online_btn.text = "🌐 Online…"
+	online_btn.tooltip_text = "Browse free CC0 game art (Kenney / OpenGameArt) and import as tiles"
+	online_btn.add_theme_font_size_override("font_size", 10)
+	online_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var ob_s = StyleBoxFlat.new()
+	ob_s.bg_color = Color(0.32, 0.55, 0.40)
+	ob_s.set_corner_radius_all(3)
+	ob_s.content_margin_left = 6; ob_s.content_margin_right = 6
+	ob_s.content_margin_top = 2;  ob_s.content_margin_bottom = 2
+	online_btn.add_theme_stylebox_override("normal", ob_s)
+	online_btn.add_theme_color_override("font_color", WHITE)
+	online_btn.pressed.connect(_on_online_browse_pressed)
+	import_row.add_child(online_btn)
+
+	# Second row: "Into: [category]" target picker for imports, plus
+	# Move-mode toggle and Change-Category button for reassigning existing
+	# tiles. These let the user split one tilesheet across Barrier / Ladder /
+	# Deadly / etc. without re-importing.
+	var into_row = HBoxContainer.new()
+	into_row.add_theme_constant_override("separation", 3)
+	vb.add_child(into_row)
+
+	var into_lbl = Label.new()
+	into_lbl.text = "Into:"
+	into_lbl.add_theme_font_size_override("font_size", 10)
+	into_lbl.add_theme_color_override("font_color", DIM)
+	into_row.add_child(into_lbl)
+
+	_import_target_opt = OptionButton.new()
+	_import_target_opt.add_theme_font_size_override("font_size", 10)
+	_import_target_opt.tooltip_text = "Category that newly imported tiles will be placed into"
+	_import_target_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for bt in range(BLOCK_NAMES.size()):
+		if bt == BLOCK_EMPTY:
+			continue
+		_import_target_opt.add_item(BLOCK_NAMES[bt])
+		_import_target_opt.set_item_metadata(_import_target_opt.item_count - 1, bt)
+	# Default to whatever block is currently selected for painting.
+	_sync_import_target_to_selected()
+	# Apply the project-wide dark OptionButton + popup styling so the dropdown
+	# shows readable text instead of dark-on-dark glyphs on the editor's theme.
+	_style_option(_import_target_opt)
+	into_row.add_child(_import_target_opt)
+
+	_move_mode_btn = Button.new()
+	_move_mode_btn.text = "✎ Move"
+	_move_mode_btn.tooltip_text = "Toggle move-mode: pick multiple tiles in the current category, then click Change… to reassign them"
+	_move_mode_btn.toggle_mode = true
+	_move_mode_btn.add_theme_font_size_override("font_size", 10)
+	var mm_s = StyleBoxFlat.new()
+	mm_s.bg_color = Color(0.40, 0.40, 0.50)
+	mm_s.set_corner_radius_all(3)
+	mm_s.content_margin_left = 6; mm_s.content_margin_right = 6
+	mm_s.content_margin_top = 2;  mm_s.content_margin_bottom = 2
+	_move_mode_btn.add_theme_stylebox_override("normal", mm_s)
+	var mm_ps = mm_s.duplicate()
+	mm_ps.bg_color = Color(0.80, 0.55, 0.20)
+	_move_mode_btn.add_theme_stylebox_override("pressed", mm_ps)
+	_move_mode_btn.add_theme_color_override("font_color", WHITE)
+	_move_mode_btn.toggled.connect(_on_move_mode_toggled)
+	into_row.add_child(_move_mode_btn)
+
+	_change_cat_btn = Button.new()
+	_change_cat_btn.text = "→ Change…"
+	_change_cat_btn.tooltip_text = "Reassign the selected tiles to a different category"
+	_change_cat_btn.add_theme_font_size_override("font_size", 10)
+	var cc_s = StyleBoxFlat.new()
+	cc_s.bg_color = Color(0.55, 0.40, 0.65)
+	cc_s.set_corner_radius_all(3)
+	cc_s.content_margin_left = 6; cc_s.content_margin_right = 6
+	cc_s.content_margin_top = 2;  cc_s.content_margin_bottom = 2
+	_change_cat_btn.add_theme_stylebox_override("normal", cc_s)
+	_change_cat_btn.add_theme_color_override("font_color", WHITE)
+	_change_cat_btn.pressed.connect(_on_change_category_pressed)
+	_change_cat_btn.visible = false
+	into_row.add_child(_change_cat_btn)
+
+	# Select-All / Clear buttons — visible only in move-mode. They make it
+	# obvious how to reset a sticky selection (e.g. after the count drifts
+	# because the user lost track of which tiles are toggled).
+	_select_all_btn = Button.new()
+	_select_all_btn.text = "All"
+	_select_all_btn.tooltip_text = "Select every tile in the current category"
+	_select_all_btn.add_theme_font_size_override("font_size", 10)
+	var sa_s = StyleBoxFlat.new()
+	sa_s.bg_color = Color(0.30, 0.45, 0.55)
+	sa_s.set_corner_radius_all(3)
+	sa_s.content_margin_left = 5; sa_s.content_margin_right = 5
+	sa_s.content_margin_top = 2;  sa_s.content_margin_bottom = 2
+	_select_all_btn.add_theme_stylebox_override("normal", sa_s)
+	_select_all_btn.add_theme_color_override("font_color", WHITE)
+	_select_all_btn.pressed.connect(_on_select_all_tiles_pressed)
+	_select_all_btn.visible = false
+	into_row.add_child(_select_all_btn)
+
+	_clear_sel_btn = Button.new()
+	_clear_sel_btn.text = "Clear"
+	_clear_sel_btn.tooltip_text = "Deselect all tiles"
+	_clear_sel_btn.add_theme_font_size_override("font_size", 10)
+	var cs_s = sa_s.duplicate()
+	cs_s.bg_color = Color(0.45, 0.30, 0.30)
+	_clear_sel_btn.add_theme_stylebox_override("normal", cs_s)
+	_clear_sel_btn.add_theme_color_override("font_color", WHITE)
+	_clear_sel_btn.pressed.connect(_on_clear_tile_selection_pressed)
+	_clear_sel_btn.visible = false
+	into_row.add_child(_clear_sel_btn)
+
+	# Tile palette: vertical scroll, responsive grid of thumbnails (no labels).
+	# Column count auto-recomputes from the available width whenever the panel resizes.
+	_tile_palette_scroll = ScrollContainer.new()
+	_tile_palette_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tile_palette_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_tile_palette_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_tile_palette_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+	# Hard cap the palette's width so it can't sprawl across the canvas
+	# when the user widens the left HSplit (e.g. after importing a 200-tile
+	# tilesheet). Anything wider just becomes empty padding inside the dock.
+	_tile_palette_scroll.custom_minimum_size = Vector2(0, 0)
+	# Style the vertical scrollbar so the grabber is actually visible
+	# against our dark dock background. The editor theme's default grabber
+	# is near-transparent on dark panels — looks like the scrollbar has no
+	# thumb at all. Same recipe used for the grid canvas's scrollbars.
+	_apply_scroll_styling(_tile_palette_scroll)
+	vb.add_child(_tile_palette_scroll)
+
+	var grid = GridContainer.new()
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 3)
+	grid.add_theme_constant_override("v_separation", 3)
+
+	_tile_palette_scroll.add_child(grid)
+	_tile_palette = grid
+
+	# Recompute columns whenever the scroll container is resized.
+	_tile_palette_scroll.resized.connect(_update_tile_palette_columns)
+
+	return panel
+
+
+func _update_tile_palette_columns() -> void:
+	if _tile_palette == null or not is_instance_valid(_tile_palette):
+		return
+	if _tile_palette_scroll == null or not is_instance_valid(_tile_palette_scroll):
+		return
+	# Each tile button is 46 px wide; grid h_separation is 3 px.
+	# Reserve a little for the vertical scrollbar.
+	var avail: float = _tile_palette_scroll.size.x - 18.0
+	var tile_w := 46.0
+	var sep := 3.0
+	var cols: int = int(floor((avail + sep) / (tile_w + sep)))
+	if cols < 1:
+		cols = 1
+	# Cap max columns so the palette can't sprawl horizontally — keeping it
+	# narrow forces tiles to wrap into rows, which is what makes the vertical
+	# scrollbar actually engage when there are many tiles. Without this cap,
+	# widening the left HSplit creates a single huge row that covers the
+	# canvas instead of scrolling. 8 cols lets the user widen the dock for
+	# large tile-sets while still keeping the layout grid-like.
+	if cols > 8:
+		cols = 8
+	if (_tile_palette as GridContainer).columns != cols:
+		(_tile_palette as GridContainer).columns = cols
+
+
+# ── Center: grid canvas (gets the bulk of the space) ────────────
+func _build_center_grid() -> Control:
+	_grid_scroll = ScrollContainer.new()
+	_grid_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_grid_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_grid_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+	_grid_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+	var gs_style = StyleBoxFlat.new()
+	gs_style.bg_color = Color(0.08, 0.08, 0.10)
+	_grid_scroll.add_theme_stylebox_override("panel", gs_style)
+
+	_grid_canvas = Control.new()
+	_grid_canvas.custom_minimum_size = Vector2(_lvl_w() * BASE_CELL_PX + 2, _lvl_h() * BASE_CELL_PX + 2)
+	_grid_canvas.draw.connect(_draw_grid)
+	_grid_canvas.gui_input.connect(_on_grid_input)
+	_grid_canvas.focus_mode = Control.FOCUS_CLICK
+	_grid_scroll.add_child(_grid_canvas)
+	# Auto-fit the grid to the visible area on open and whenever the editor is
+	# resized, until the user manually zooms (then we respect their choice).
+	_grid_scroll.resized.connect(_auto_fit_zoom)
+	return _grid_scroll
+
+
+## Pick the largest quantized zoom step where the whole grid still fits in
+## `_grid_scroll`'s visible area. Honors `ZOOM_MIN`/`ZOOM_MAX`/`ZOOM_STEP`.
+func _auto_fit_zoom() -> void:
+	if _user_zoom_override:
+		return
+	if not is_instance_valid(_grid_scroll) or not is_instance_valid(_grid_canvas):
+		return
+	var avail: Vector2 = _grid_scroll.size
+	# Account for the always-visible scrollbars the ScrollContainer reserves.
+	var vbar := _grid_scroll.get_v_scroll_bar()
+	var hbar := _grid_scroll.get_h_scroll_bar()
+	if is_instance_valid(vbar):
+		avail.x -= vbar.size.x
+	if is_instance_valid(hbar):
+		avail.y -= hbar.size.y
+	avail -= Vector2(8, 8)  # small breathing room
+	if avail.x <= 0 or avail.y <= 0:
+		return
+	var gw: float = float(_lvl_w() * BASE_CELL_PX)
+	var gh: float = float(_lvl_h() * BASE_CELL_PX)
+	if gw <= 0 or gh <= 0:
+		return
+	var fit: float = minf(avail.x / gw, avail.y / gh)
+	# Snap down to nearest ZOOM_STEP so the result lands on clean values.
+	var snapped: float = floorf(fit / ZOOM_STEP) * ZOOM_STEP
+	snapped = clampf(snapped, ZOOM_MIN, ZOOM_MAX)
+	if is_equal_approx(snapped, _zoom):
+		return
+	_zoom = snapped
+	_apply_zoom()
+
+
+# ── Right dock: actors list + properties panel ─────────────────
+func _build_right_dock() -> Control:
+	var panel = PanelContainer.new()
+	var st = StyleBoxFlat.new()
+	st.bg_color = Color(0.09, 0.09, 0.12)
+	st.content_margin_left = 6; st.content_margin_right = 6
+	st.content_margin_top = 6;  st.content_margin_bottom = 6
+	panel.add_theme_stylebox_override("panel", st)
+	panel.custom_minimum_size.x = 180
+
+	var vb = VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 4)
+	panel.add_child(vb)
+
+	var actors_hdr = Label.new()
+	actors_hdr.text = "ACTORS"
+	actors_hdr.label_settings = _ls(10, ACCENT)
+	vb.add_child(actors_hdr)
+
+	var actors_scroll = ScrollContainer.new()
+	actors_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actors_scroll.custom_minimum_size.y = 160
+	actors_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vb.add_child(actors_scroll)
+
+	_actors_list_vbox = VBoxContainer.new()
+	_actors_list_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_actors_list_vbox.add_theme_constant_override("separation", 2)
+	actors_scroll.add_child(_actors_list_vbox)
+
+	vb.add_child(HSeparator.new())
+
+	var props_hdr = Label.new()
+	props_hdr.text = "PROPERTIES"
+	props_hdr.label_settings = _ls(10, ACCENT)
+	vb.add_child(props_hdr)
+
+	_props_vbox = VBoxContainer.new()
+	_props_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_props_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_props_vbox.add_theme_constant_override("separation", 3)
+	vb.add_child(_props_vbox)
+
+	_refresh_props_panel()
+	return panel
+
+
+# ── Status bar (one line at bottom, drops the verbose 3-row footer) ──
+func _build_status_bar() -> void:
+	var bot_bar = PanelContainer.new()
+	var bb_style = StyleBoxFlat.new()
+	bb_style.bg_color = TOOLBAR_BG
+	bb_style.content_margin_left = 8
+	bb_style.content_margin_right = 8
+	bb_style.content_margin_top = 3
+	bb_style.content_margin_bottom = 3
+	bot_bar.add_theme_stylebox_override("panel", bb_style)
+	bot_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(bot_bar)
+
+	var bot_hbox = HBoxContainer.new()
+	bot_hbox.add_theme_constant_override("separation", 8)
+	bot_bar.add_child(bot_hbox)
+
+	_status_lbl = Label.new()
+	_status_lbl.text = "1-8 block · B paint · G fill · W waypoints · [ ] tile · LMB paint · RMB place actor"
+	_status_lbl.label_settings = _ls(10, LABEL_CLR)
+	_status_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bot_hbox.add_child(_status_lbl)
+
+	_hover_status_lbl = Label.new()
+	_hover_status_lbl.text = ""
+	_hover_status_lbl.label_settings = _ls(10, DIM)
+	bot_hbox.add_child(_hover_status_lbl)
+
+
+# ── Actor picker popup (was inline in v1, now its own builder) ─────
+func _build_actor_picker_popup() -> void:
 	_actor_picker_popup = PopupPanel.new()
 	var pp_sb = StyleBoxFlat.new()
 	pp_sb.bg_color = Color(0.12, 0.12, 0.16)
@@ -436,265 +1087,61 @@ func _build_ui() -> void:
 	_actor_picker_grid.add_theme_constant_override("h_separation", 6)
 	_actor_picker_grid.add_theme_constant_override("v_separation", 6)
 	picker_scroll.add_child(_actor_picker_grid)
-
 	_rebuild_actor_picker()
 
-	top_hbox.add_child(VSeparator.new())
 
-	_waypoint_btn = Button.new()
-	_waypoint_btn.text = "\U0001F4CD Waypoints"
-	_waypoint_btn.tooltip_text = "Toggle waypoint mode — click an actor or block to start editing its path, then right-click to place waypoints"
-	_waypoint_btn.add_theme_font_size_override("font_size", 11)
-	_waypoint_btn.toggle_mode = true
-	_waypoint_btn.button_pressed = false
-	var wp_ns = StyleBoxFlat.new()
-	wp_ns.bg_color = Color(0.18, 0.18, 0.22)
-	wp_ns.set_corner_radius_all(4)
-	wp_ns.content_margin_left = 8; wp_ns.content_margin_right = 8
-	wp_ns.content_margin_top = 3;  wp_ns.content_margin_bottom = 3
-	_waypoint_btn.add_theme_stylebox_override("normal", wp_ns)
-	var wp_ps = wp_ns.duplicate()
-	wp_ps.bg_color = Color(0.85, 0.45, 0.10)
-	wp_ps.border_width_bottom = 2; wp_ps.border_color = Color(1.0, 0.6, 0.1)
-	_waypoint_btn.add_theme_stylebox_override("pressed", wp_ps)
-	var wp_hs = wp_ns.duplicate()
-	wp_hs.bg_color = Color(0.25, 0.22, 0.18)
-	_waypoint_btn.add_theme_stylebox_override("hover", wp_hs)
-	_waypoint_btn.add_theme_color_override("font_color", LABEL_CLR)
-	_waypoint_btn.add_theme_color_override("font_pressed_color", WHITE)
-	_waypoint_btn.add_theme_color_override("font_hover_color", WHITE)
-	_waypoint_btn.toggled.connect(_on_waypoint_mode_toggled)
-	top_hbox.add_child(_waypoint_btn)
+# ── Per-level metadata popover (#7): friction / elasticity / on-death ──
+func _build_level_meta_popup() -> void:
+	_level_meta_popup = PopupPanel.new()
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.12, 0.16)
+	sb.border_color = Color(0.35, 0.35, 0.45)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 12; sb.content_margin_right = 12
+	sb.content_margin_top = 10;  sb.content_margin_bottom = 10
+	_level_meta_popup.add_theme_stylebox_override("panel", sb)
+	add_child(_level_meta_popup)
 
-	# Flood-fill (bucket) button
-	_flood_btn = Button.new()
-	_flood_btn.text = "\U0001FAA3 Fill"
-	_flood_btn.tooltip_text = "Flood fill — click a tile and every connected tile of the same type gets replaced"
-	_flood_btn.add_theme_font_size_override("font_size", 11)
-	_flood_btn.toggle_mode = true
-	_flood_btn.button_pressed = false
-	var fl_ns = StyleBoxFlat.new()
-	fl_ns.bg_color = Color(0.18, 0.18, 0.22)
-	fl_ns.set_corner_radius_all(4)
-	fl_ns.content_margin_left = 8; fl_ns.content_margin_right = 8
-	fl_ns.content_margin_top = 3;  fl_ns.content_margin_bottom = 3
-	_flood_btn.add_theme_stylebox_override("normal", fl_ns)
-	var fl_ps = fl_ns.duplicate()
-	fl_ps.bg_color = Color(0.20, 0.55, 0.85)
-	fl_ps.border_width_bottom = 2; fl_ps.border_color = Color(0.3, 0.7, 1.0)
-	_flood_btn.add_theme_stylebox_override("pressed", fl_ps)
-	var fl_hs = fl_ns.duplicate()
-	fl_hs.bg_color = Color(0.18, 0.25, 0.30)
-	_flood_btn.add_theme_stylebox_override("hover", fl_hs)
-	_flood_btn.add_theme_color_override("font_color", LABEL_CLR)
-	_flood_btn.add_theme_color_override("font_pressed_color", WHITE)
-	_flood_btn.add_theme_color_override("font_hover_color", WHITE)
-	_flood_btn.toggled.connect(func(pressed: bool): _flood_fill_mode = pressed)
-	top_hbox.add_child(_flood_btn)
+	var vb = VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 6)
+	vb.custom_minimum_size = Vector2(280, 0)
+	_level_meta_popup.add_child(vb)
 
-	# Dirty indicator
-	_dirty_lbl = Label.new()
-	_dirty_lbl.text = ""
-	_dirty_lbl.label_settings = _ls(12, Color(1, 0.7, 0.2))
-	top_hbox.add_child(_dirty_lbl)
-
-	# ---- BLOCK TYPE TABS ----
-	var type_bar = PanelContainer.new()
-	var type_style = StyleBoxFlat.new()
-	type_style.bg_color = Color(0.08, 0.08, 0.10)
-	type_style.content_margin_left = 8
-	type_style.content_margin_right = 8
-	type_style.content_margin_top = 4
-	type_style.content_margin_bottom = 4
-	type_bar.add_theme_stylebox_override("panel", type_style)
-	type_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_child(type_bar)
-
-	var type_hbox = HBoxContainer.new()
-	type_hbox.add_theme_constant_override("separation", 4)
-	type_bar.add_child(type_hbox)
-
-	var type_lbl = Label.new()
-	type_lbl.text = "Block Type:"
-	type_lbl.label_settings = _ls(11, DIM)
-	type_hbox.add_child(type_lbl)
-
-	for i in range(BLOCK_NAMES.size()):
-		var btn = Button.new()
-		btn.text = BLOCK_ICONS[i] + " " + BLOCK_NAMES[i]
-		btn.add_theme_font_size_override("font_size", 11)
-		btn.toggle_mode = true
-		btn.button_pressed = (i == selected_block)
-		btn.pressed.connect(_on_block_selected.bind(i))
-		btn.custom_minimum_size = Vector2(0, 26)
-
-		var ns = StyleBoxFlat.new()
-		ns.bg_color = BLOCK_COLORS[i].darkened(0.5)
-		ns.set_corner_radius_all(4)
-		ns.content_margin_left = 6
-		ns.content_margin_right = 6
-		ns.content_margin_top = 2
-		ns.content_margin_bottom = 2
-		btn.add_theme_stylebox_override("normal", ns)
-
-		var ps = ns.duplicate()
-		ps.bg_color = BLOCK_COLORS[i]
-		ps.border_width_bottom = 3
-		ps.border_color = WHITE
-		btn.add_theme_stylebox_override("pressed", ps)
-
-		var hs = ns.duplicate()
-		hs.bg_color = BLOCK_COLORS[i].darkened(0.2)
-		btn.add_theme_stylebox_override("hover", hs)
-
-		btn.add_theme_color_override("font_color", WHITE)
-		btn.add_theme_color_override("font_pressed_color", WHITE)
-		btn.add_theme_color_override("font_hover_color", WHITE)
-
-		type_hbox.add_child(btn)
-		_block_btns.append(btn)
-
-	# ---- TILE PALETTE ----
-	var pal_bar = PanelContainer.new()
-	var pal_style = StyleBoxFlat.new()
-	pal_style.bg_color = Color(0.09, 0.09, 0.12)
-	pal_style.content_margin_left = 8
-	pal_style.content_margin_right = 8
-	pal_style.content_margin_top = 4
-	pal_style.content_margin_bottom = 4
-	pal_bar.add_theme_stylebox_override("panel", pal_style)
-	pal_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_child(pal_bar)
-
-	var pal_vbox = VBoxContainer.new()
-	pal_vbox.add_theme_constant_override("separation", 2)
-	pal_bar.add_child(pal_vbox)
-
-	var pal_header = HBoxContainer.new()
-	pal_header.add_theme_constant_override("separation", 6)
-	pal_vbox.add_child(pal_header)
-
-	var pal_lbl = Label.new()
-	pal_lbl.text = "Tiles -- click to select, double-click to edit"
-	pal_lbl.label_settings = _ls(10, DIM)
-	pal_header.add_child(pal_lbl)
-
-	_tile_filter = LineEdit.new()
-	_tile_filter.placeholder_text = "\U0001F50D Search tiles..."
-	_tile_filter.tooltip_text = "Type a name to filter the tile palette"
-	_tile_filter.custom_minimum_size.x = 120
-	_tile_filter.add_theme_font_size_override("font_size", 10)
-	var tf_style = StyleBoxFlat.new()
-	tf_style.bg_color = Color(0.12, 0.12, 0.15)
-	tf_style.set_corner_radius_all(3)
-	tf_style.content_margin_left = 6; tf_style.content_margin_right = 6
-	tf_style.content_margin_top = 2;  tf_style.content_margin_bottom = 2
-	tf_style.border_width_bottom = 1; tf_style.border_color = Color(0.30, 0.30, 0.35)
-	_tile_filter.add_theme_stylebox_override("normal", tf_style)
-	_tile_filter.add_theme_color_override("font_color", WHITE)
-	_tile_filter.add_theme_color_override("font_placeholder_color", DIM)
-	_tile_filter.text_changed.connect(func(_t): _rebuild_tile_palette())
-	pal_header.add_child(_tile_filter)
-
-	var import_tile_btn = Button.new()
-	import_tile_btn.text = "📂 Import"
-	import_tile_btn.tooltip_text = "Import tile(s) from PNG file(s) into the current block type"
-	import_tile_btn.add_theme_font_size_override("font_size", 10)
-	var itb_s = StyleBoxFlat.new()
-	itb_s.bg_color = Color(0.35, 0.45, 0.60)
-	itb_s.set_corner_radius_all(3)
-	itb_s.content_margin_left = 6; itb_s.content_margin_right = 6
-	itb_s.content_margin_top = 2;  itb_s.content_margin_bottom = 2
-	import_tile_btn.add_theme_stylebox_override("normal", itb_s)
-	import_tile_btn.add_theme_color_override("font_color", WHITE)
-	import_tile_btn.pressed.connect(_on_import_tile_pressed)
-	pal_header.add_child(import_tile_btn)
-
-	_tile_palette_scroll = ScrollContainer.new()
-	_tile_palette_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_tile_palette_scroll.custom_minimum_size.y = 64
-	_tile_palette_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	pal_vbox.add_child(_tile_palette_scroll)
-
-	_tile_palette = HBoxContainer.new()
-	_tile_palette.add_theme_constant_override("separation", 4)
-	_tile_palette_scroll.add_child(_tile_palette)
-
-	# ---- GRID CANVAS (scrollable + zoomable) ----
-	_grid_scroll = ScrollContainer.new()
-	_grid_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_grid_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	# SHOW_ALWAYS instead of AUTO so users see the scrollbars even when the
-	# current level happens to fit — makes it discoverable that the editor
-	# does scroll, since long levels (e.g. the 50×16 GD template) absolutely
-	# need it. Cost: a few px of always-reserved gutter.
-	_grid_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
-	_grid_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
-	var gs_style = StyleBoxFlat.new()
-	gs_style.bg_color = Color(0.08, 0.08, 0.10)
-	_grid_scroll.add_theme_stylebox_override("panel", gs_style)
-	add_child(_grid_scroll)
-
-	_grid_canvas = Control.new()
-	# Initial size based on the first level's dims; _apply_zoom() refreshes
-	# this whenever the user resizes the level or switches levels.
-	# IMPORTANT: do NOT set SIZE_EXPAND_FILL on the canvas — inside a
-	# ScrollContainer that flag forces the child to fill the viewport,
-	# which means the canvas can never overflow and scrollbars never
-	# appear, even for a 50×16 or larger level. Letting custom_minimum_size
-	# alone govern the canvas size makes auto-scrollbars work as intended.
-	_grid_canvas.custom_minimum_size = Vector2(_lvl_w() * BASE_CELL_PX + 2, _lvl_h() * BASE_CELL_PX + 2)
-	_grid_canvas.draw.connect(_draw_grid)
-	_grid_canvas.gui_input.connect(_on_grid_input)
-	_grid_canvas.focus_mode = Control.FOCUS_CLICK
-	_grid_scroll.add_child(_grid_canvas)
-
-	# ---- BOTTOM BAR ----
-	var bot_bar = PanelContainer.new()
-	var bb_style = StyleBoxFlat.new()
-	bb_style.bg_color = TOOLBAR_BG
-	bb_style.content_margin_left = 10
-	bb_style.content_margin_right = 10
-	bb_style.content_margin_top = 4
-	bb_style.content_margin_bottom = 4
-	bot_bar.add_theme_stylebox_override("panel", bb_style)
-	bot_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_child(bot_bar)
-
-	var bot_hbox = HBoxContainer.new()
-	bot_hbox.add_theme_constant_override("separation", 8)
-	bot_bar.add_child(bot_hbox)
+	var hdr = Label.new()
+	hdr.text = "Per-Level Settings"
+	hdr.label_settings = _ls(12, WHITE)
+	vb.add_child(hdr)
+	vb.add_child(HSeparator.new())
 
 	var f_lbl = Label.new()
-	f_lbl.text = "Friction:"
-	f_lbl.label_settings = _ls(11, DIM)
-	bot_hbox.add_child(f_lbl)
+	f_lbl.text = "Friction"
+	f_lbl.label_settings = _ls(11, LABEL_CLR)
+	vb.add_child(f_lbl)
 	_fric_slider = HSlider.new()
 	_fric_slider.min_value = 0
 	_fric_slider.max_value = 100
 	_fric_slider.value = 50
-	_fric_slider.custom_minimum_size.x = 80
 	_fric_slider.value_changed.connect(_on_friction_changed)
-	bot_hbox.add_child(_fric_slider)
+	vb.add_child(_fric_slider)
 
 	var e_lbl = Label.new()
-	e_lbl.text = "Elasticity:"
-	e_lbl.label_settings = _ls(11, DIM)
-	bot_hbox.add_child(e_lbl)
+	e_lbl.text = "Elasticity"
+	e_lbl.label_settings = _ls(11, LABEL_CLR)
+	vb.add_child(e_lbl)
 	_elast_slider = HSlider.new()
 	_elast_slider.min_value = 0
 	_elast_slider.max_value = 100
 	_elast_slider.value = 50
-	_elast_slider.custom_minimum_size.x = 80
 	_elast_slider.value_changed.connect(_on_elasticity_changed)
-	bot_hbox.add_child(_elast_slider)
+	vb.add_child(_elast_slider)
 
-	bot_hbox.add_child(VSeparator.new())
+	vb.add_child(HSeparator.new())
 
 	var da_lbl = Label.new()
-	da_lbl.text = "On Death:"
-	da_lbl.label_settings = _ls(11, DIM)
-	bot_hbox.add_child(da_lbl)
+	da_lbl.text = "On Death"
+	da_lbl.label_settings = _ls(11, LABEL_CLR)
+	vb.add_child(da_lbl)
 	_death_action_opt = OptionButton.new()
 	_death_action_opt.add_theme_font_size_override("font_size", 11)
 	_death_action_opt.add_item("Restart Level")
@@ -702,14 +1149,16 @@ func _build_ui() -> void:
 	_death_action_opt.add_item("Lose Item...")
 	_death_action_opt.add_item("End Game")
 	_death_action_opt.item_selected.connect(_on_death_action_changed)
-	bot_hbox.add_child(_death_action_opt)
+	vb.add_child(_death_action_opt)
 	_style_option(_death_action_opt)
 
+	var dt_hb = HBoxContainer.new()
+	vb.add_child(dt_hb)
 	_death_target_lbl = Label.new()
 	_death_target_lbl.text = "→ Lvl:"
 	_death_target_lbl.label_settings = _ls(11, DIM)
 	_death_target_lbl.visible = false
-	bot_hbox.add_child(_death_target_lbl)
+	dt_hb.add_child(_death_target_lbl)
 	_death_target_spin = SpinBox.new()
 	_death_target_spin.min_value = 1
 	_death_target_spin.max_value = MAX_LEVELS
@@ -718,71 +1167,14 @@ func _build_ui() -> void:
 	_death_target_spin.add_theme_font_size_override("font_size", 11)
 	_death_target_spin.visible = false
 	_death_target_spin.value_changed.connect(_on_death_target_changed)
-	bot_hbox.add_child(_death_target_spin)
+	dt_hb.add_child(_death_target_spin)
 
-	bot_hbox.add_child(VSeparator.new())
 
-	_status_lbl = Label.new()
-	_status_lbl.text = "LClick=paint | RClick=place actor | Shift+RClick=add waypoint | Ctrl+RClick=remove"
-	_status_lbl.label_settings = _ls(10, LABEL_CLR)
-	_status_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bot_hbox.add_child(_status_lbl)
-
-	bot_hbox.add_child(VSeparator.new())
-	# Explicit zoom controls. The % label alone wasn't discoverable — users
-	# didn't realise Shift+Scroll zoomed the canvas. Three flat buttons
-	# (− / 100% / +) keep the bar compact and click-driven, with the label
-	# in the middle continuing to act as a live readout (clicking it
-	# resets to 100%).
-	var zoom_out_btn := Button.new()
-	zoom_out_btn.text = "−"
-	zoom_out_btn.tooltip_text = "Zoom out (Shift+Scroll down)"
-	zoom_out_btn.custom_minimum_size = Vector2(28, 24)
-	zoom_out_btn.add_theme_font_size_override("font_size", 14)
-	zoom_out_btn.pressed.connect(func():
-		_zoom = clampf(_zoom - 0.25, 0.25, 4.0)
-		_apply_zoom()
-	)
-	bot_hbox.add_child(zoom_out_btn)
-
-	_zoom_lbl = Label.new()
-	_zoom_lbl.text = "100%"
-	_zoom_lbl.label_settings = _ls(11, ACCENT)
-	_zoom_lbl.tooltip_text = "Click to reset zoom (or Shift+Scroll on grid)"
-	_zoom_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_zoom_lbl.custom_minimum_size = Vector2(48, 24)
-	_zoom_lbl.mouse_filter = Control.MOUSE_FILTER_STOP
-	_zoom_lbl.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
-			_zoom = 1.0
-			_apply_zoom()
-	)
-	bot_hbox.add_child(_zoom_lbl)
-
-	var zoom_in_btn := Button.new()
-	zoom_in_btn.text = "+"
-	zoom_in_btn.tooltip_text = "Zoom in (Shift+Scroll up)"
-	zoom_in_btn.custom_minimum_size = Vector2(28, 24)
-	zoom_in_btn.add_theme_font_size_override("font_size", 14)
-	zoom_in_btn.pressed.connect(func():
-		_zoom = clampf(_zoom + 0.25, 0.25, 4.0)
-		_apply_zoom()
-	)
-	bot_hbox.add_child(zoom_in_btn)
-
-	_refresh_level_list()
-	_refresh_ui()
-	_rebuild_tile_palette()
-
-	# Confirmation dialog (reusable)
-	_confirm_dialog = ConfirmationDialog.new()
-	_confirm_dialog.title = "Are you sure?"
-	_confirm_dialog.unresizable = true
-	_confirm_dialog.confirmed.connect(func():
-		if _pending_confirm_action.is_valid():
-			_pending_confirm_action.call()
-	)
-	add_child(_confirm_dialog)
+func _on_level_meta_pressed() -> void:
+	if not is_instance_valid(_level_meta_popup) or not is_instance_valid(_level_meta_btn):
+		return
+	var pos = _level_meta_btn.get_screen_position() + Vector2(0, _level_meta_btn.size.y + 4)
+	_level_meta_popup.popup(Rect2i(Vector2i(pos), Vector2i(300, 240)))
 
 
 # ─── Tile Palette ────────────────────────────────────────────
@@ -828,14 +1220,17 @@ func _rebuild_tile_palette() -> void:
 		if filter_text.length() > 0 and tname.to_lower().find(filter_text) < 0:
 			continue
 
-		var btn_container = VBoxContainer.new()
-		btn_container.add_theme_constant_override("separation", 1)
-
 		var btn = Button.new()
 		btn.toggle_mode = true
-		btn.button_pressed = (i == selected_tile_index)
-		btn.tooltip_text = tname + " -- Double-click to edit"
-		btn.custom_minimum_size = Vector2(40, 40)
+		# In move-mode the button reflects "is this tile in the move set?"
+		# instead of "is this the current paint tile". Different click
+		# handler too — we intercept below.
+		if _move_mode_active:
+			btn.button_pressed = _move_selected.has(i)
+		else:
+			btn.button_pressed = (i == selected_tile_index)
+		btn.tooltip_text = tname + " — double-click to edit"
+		btn.custom_minimum_size = Vector2(46, 46)
 
 		var ns = StyleBoxFlat.new()
 		ns.bg_color = Color(0.15, 0.15, 0.18)
@@ -847,9 +1242,17 @@ func _rebuild_tile_palette() -> void:
 		btn.add_theme_stylebox_override("normal", ns)
 
 		var ps = ns.duplicate()
-		ps.bg_color = BLOCK_COLORS[selected_block].darkened(0.2)
-		ps.border_width_bottom = 3
-		ps.border_color = ACCENT
+		if _move_mode_active:
+			# Distinct orange-tinted highlight for move-mode selection so the
+			# user can tell at a glance which tiles will be reassigned.
+			ps.bg_color = Color(0.55, 0.40, 0.15)
+			ps.border_width_left = 2; ps.border_width_right = 2
+			ps.border_width_top = 2; ps.border_width_bottom = 2
+			ps.border_color = Color(1.0, 0.75, 0.25)
+		else:
+			ps.bg_color = BLOCK_COLORS[selected_block].darkened(0.2)
+			ps.border_width_bottom = 3
+			ps.border_color = ACCENT
 		btn.add_theme_stylebox_override("pressed", ps)
 
 		var hs = ns.duplicate()
@@ -861,28 +1264,77 @@ func _rebuild_tile_palette() -> void:
 			tex_rect.texture = tex
 			tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			tex_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-			tex_rect.custom_minimum_size = Vector2(36, 36)
+			tex_rect.custom_minimum_size = Vector2(40, 40)
 			tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			btn.add_child(tex_rect)
 
-		btn.pressed.connect(_on_tile_selected.bind(i))
-		btn.gui_input.connect(_on_tile_btn_input.bind(i))
+		# "NEW" watermark badge for freshly imported tiles. Cleared on
+		# move and on next import wave.
+		if tile_library.get_tile_is_new(selected_block, i):
+			var badge := Label.new()
+			badge.text = "NEW"
+			badge.add_theme_font_size_override("font_size", 8)
+			badge.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+			var bg := StyleBoxFlat.new()
+			bg.bg_color = Color(0.95, 0.40, 0.10, 0.85)
+			bg.set_corner_radius_all(2)
+			bg.content_margin_left = 3
+			bg.content_margin_right = 3
+			bg.content_margin_top = 0
+			bg.content_margin_bottom = 0
+			badge.add_theme_stylebox_override("normal", bg)
+			# Anchor to top-right corner of the button.
+			badge.anchor_left = 1.0
+			badge.anchor_right = 1.0
+			badge.anchor_top = 0.0
+			badge.anchor_bottom = 0.0
+			badge.offset_left = -22.0
+			badge.offset_right = -2.0
+			badge.offset_top = 2.0
+			badge.offset_bottom = 12.0
+			badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn.add_child(badge)
 
-		btn_container.add_child(btn)
+		# Hover updates the status bar with the tile's full name (#6).
+		# In move-mode, ALSO continue any in-progress drag-paint selection.
+		btn.mouse_entered.connect(func():
+			if is_instance_valid(_hover_status_lbl):
+				_hover_status_lbl.text = BLOCK_NAMES[selected_block] + " · " + tname
+			if _move_mode_active and _drag_paint_active:
+				# Only continue the drag while LMB is actually held — a
+				# stale `_drag_paint_active` (mouse released outside any
+				# tile) would otherwise keep painting on hover.
+				if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+					_drag_paint_active = false
+					return
+				_apply_drag_paint_to(i)
+		)
+		btn.mouse_exited.connect(func():
+			if is_instance_valid(_hover_status_lbl):
+				_hover_status_lbl.text = ""
+		)
+		if _move_mode_active:
+			# In move-mode the button isn't a "select-for-paint" toggle —
+			# it's a multi-select checkbox + drag-paint anchor. Wire to the
+			# Button's native `toggled` signal so the visual state and our
+			# `_move_selected` dictionary stay in lockstep (previously we
+			# used `gui_input` to toggle ourselves, but the Button's own
+			# toggle ran AFTER and flipped state back — so the count would
+			# drift on every click). `gui_input` is still used, but only to
+			# detect LMB release to end an in-progress drag-paint.
+			#
+			# Force PRESS action-mode so `toggled` fires the moment the
+			# user clicks down — otherwise it'd only fire on release, and
+			# the drag-paint flag would never be set during the drag,
+			# breaking the "click + drag across tiles" workflow.
+			btn.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+			btn.toggled.connect(_on_tile_move_btn_toggled.bind(i))
+			btn.gui_input.connect(_on_tile_btn_move_input.bind(i))
+		else:
+			btn.pressed.connect(_on_tile_selected.bind(i))
+			btn.gui_input.connect(_on_tile_btn_input.bind(i))
 
-		var name_lbl = Label.new()
-		name_lbl.text = tname
-		# Pure white on the dark palette gives the highest contrast; the
-		# previous LABEL_CLR (warm cream) read as a dim orange against the
-		# panel bg and was hard to scan quickly. Width 64 fits most names
-		# ("Brick Wall", "Metal Plate", "Concrete") without clipping.
-		name_lbl.label_settings = _ls(11, WHITE)
-		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		name_lbl.custom_minimum_size.x = 64
-		name_lbl.clip_text = true
-		btn_container.add_child(name_lbl)
-
-		_tile_palette.add_child(btn_container)
+		_tile_palette.add_child(btn)
 		_tile_btns.append(btn)
 
 
@@ -897,13 +1349,379 @@ func _on_tile_selected(idx: int) -> void:
 	var tname = ""
 	if tile_library:
 		tname = tile_library.get_tile_name(selected_block, idx)
-	_status_lbl.text = "Selected: " + BLOCK_NAMES[selected_block] + " -> " + tname
+	_status_lbl.text = "Selected: " + BLOCK_NAMES[selected_block] + " → " + tname
+	_props_target = {}
+	_refresh_props_panel()
 
 
 func _on_tile_btn_input(event: InputEvent, tile_idx: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.double_click:
 			_open_inline_tile_editor(selected_block, tile_idx)
+
+
+# ─── Import target + move-mode helpers ───────────────────────
+
+## Returns the BLOCK_* that newly imported tiles should be added to.
+## Falls back to `selected_block` if the dropdown isn't ready yet (e.g.
+## during very-early-startup auto-ingest).
+func _get_import_target_block() -> int:
+	if _import_target_opt and is_instance_valid(_import_target_opt):
+		var sel: int = _import_target_opt.selected
+		if sel >= 0:
+			var meta = _import_target_opt.get_item_metadata(sel)
+			if typeof(meta) == TYPE_INT:
+				return int(meta)
+	return selected_block if selected_block != BLOCK_EMPTY else BLOCK_BARRIER
+
+
+func _sync_import_target_to_selected() -> void:
+	if _import_target_opt == null or not is_instance_valid(_import_target_opt):
+		return
+	# Empty isn't an importable target; keep the dropdown wherever it was.
+	if selected_block == BLOCK_EMPTY:
+		return
+	for i in range(_import_target_opt.item_count):
+		var meta = _import_target_opt.get_item_metadata(i)
+		if typeof(meta) == TYPE_INT and int(meta) == selected_block:
+			_import_target_opt.select(i)
+			return
+
+
+func _on_move_mode_toggled(pressed: bool) -> void:
+	_move_mode_active = pressed
+	_move_selected.clear()
+	_update_change_cat_visibility()
+	_rebuild_tile_palette()
+	if pressed:
+		_status_lbl.text = "Move-mode: click tiles to select, then press 'Change…'"
+	else:
+		_status_lbl.text = ""
+
+
+## Native `toggled` handler for a tile button while in move-mode. Driven
+## by the Button's built-in toggle behavior so the visual `button_pressed`
+## state and our `_move_selected` set are guaranteed to agree (no double-
+## toggling). Also seeds drag-paint with the new state so dragging across
+## neighbors paints the same on/off value.
+func _on_tile_move_btn_toggled(pressed: bool, idx: int) -> void:
+	if pressed:
+		_move_selected[idx] = true
+	else:
+		_move_selected.erase(idx)
+	_drag_paint_active = true
+	_drag_paint_value = pressed
+	_update_change_cat_visibility()
+
+
+## Move-mode gui_input: detects LMB release to end an in-progress
+## drag-paint. The actual toggle on click is handled by `toggled` above.
+func _on_tile_btn_move_input(event: InputEvent, idx: int) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if not event.pressed:
+			_drag_paint_active = false
+
+
+## Apply the in-progress drag-paint's "value" (add or remove) to `idx`.
+## Idempotent — re-entering an already-correct tile is a no-op.
+func _apply_drag_paint_to(idx: int) -> void:
+	var currently: bool = _move_selected.has(idx)
+	if currently == _drag_paint_value:
+		return
+	if _drag_paint_value:
+		_move_selected[idx] = true
+	else:
+		_move_selected.erase(idx)
+	if idx >= 0 and idx < _tile_btns.size():
+		# Setting button_pressed will re-emit `toggled`, but that handler
+		# is idempotent w.r.t. _move_selected (sets/erases to the same
+		# state) so re-entry is safe.
+		_tile_btns[idx].set_pressed_no_signal(_move_selected.has(idx))
+	_update_change_cat_visibility()
+
+
+## Select every visible tile in the current category.
+func _on_select_all_tiles_pressed() -> void:
+	if not _move_mode_active or not tile_library:
+		return
+	var n: int = tile_library.get_tile_count(selected_block)
+	_move_selected.clear()
+	for i in range(n):
+		_move_selected[i] = true
+	# Reflect on buttons without re-triggering signals.
+	for i in range(_tile_btns.size()):
+		_tile_btns[i].set_pressed_no_signal(true)
+	_drag_paint_active = false
+	_update_change_cat_visibility()
+	_status_lbl.text = "Selected all %d tile(s) in %s." % [n, BLOCK_NAMES[selected_block]]
+
+
+## Clear the entire move-mode selection.
+func _on_clear_tile_selection_pressed() -> void:
+	if not _move_mode_active:
+		return
+	_move_selected.clear()
+	for i in range(_tile_btns.size()):
+		_tile_btns[i].set_pressed_no_signal(false)
+	_drag_paint_active = false
+	_update_change_cat_visibility()
+	_status_lbl.text = "Selection cleared."
+
+
+func _update_change_cat_visibility() -> void:
+	# Toggle visibility of the Select-All / Clear helpers along with the
+	# Change button. The All/Clear buttons appear whenever move-mode is on
+	# (even with zero selected — so the user can quickly grab everything),
+	# while Change… only lights up when there's something to act on.
+	if is_instance_valid(_select_all_btn):
+		_select_all_btn.visible = _move_mode_active
+	if is_instance_valid(_clear_sel_btn):
+		_clear_sel_btn.visible = _move_mode_active and not _move_selected.is_empty()
+	if _change_cat_btn == null or not is_instance_valid(_change_cat_btn):
+		return
+	_change_cat_btn.visible = _move_mode_active and not _move_selected.is_empty()
+	if _change_cat_btn.visible:
+		_change_cat_btn.text = "→ Change… (%d)" % _move_selected.size()
+
+
+func _on_change_category_pressed() -> void:
+	if _move_selected.is_empty():
+		return
+	# Build the dialog on the fly.
+	var dlg = AcceptDialog.new()
+	dlg.title = "Change Category"
+	dlg.ok_button_text = "Move"
+	dlg.add_cancel_button("Cancel")
+
+	var vb = VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 6)
+	dlg.add_child(vb)
+
+	var lbl = Label.new()
+	lbl.text = "Move %d tile(s) from %s to:" % [_move_selected.size(), BLOCK_NAMES[selected_block]]
+	vb.add_child(lbl)
+
+	# Destination dropdown — contains BOTH block-type buckets AND actor
+	# types. Metadata encodes which path to take in `_apply_move_tiles`:
+	#   {"kind": "tile",  "bt":   <BLOCK_*>}     — relocate within tile buckets
+	#   {"kind": "actor", "type": <ACTOR_TYPE>}  — convert tile into a new actor
+	var dst_opt = OptionButton.new()
+	dst_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for bt in range(BLOCK_NAMES.size()):
+		if bt == BLOCK_EMPTY or bt == selected_block:
+			continue
+		dst_opt.add_item(BLOCK_NAMES[bt])
+		dst_opt.set_item_metadata(dst_opt.item_count - 1, {"kind": "tile", "bt": bt})
+	dst_opt.add_separator("Actors / Enemies")
+	# Sorted list of actor type names (keys of ACTOR_TYPE_COLORS).
+	var actor_type_names: Array = ACTOR_TYPE_COLORS.keys()
+	actor_type_names.sort()
+	for atype in actor_type_names:
+		dst_opt.add_item("Actor: " + String(atype))
+		dst_opt.set_item_metadata(dst_opt.item_count - 1, {"kind": "actor", "type": String(atype)})
+	if dst_opt.item_count > 0:
+		dst_opt.select(0)
+	# Apply dark OptionButton + popup styling here too — the dialog inherits
+	# the editor theme, which makes the default font_color near-invisible.
+	_style_option(dst_opt)
+	vb.add_child(dst_opt)
+
+	var update_chk = CheckBox.new()
+	update_chk.text = "Update already-placed cells to the new category"
+	update_chk.button_pressed = true
+	vb.add_child(update_chk)
+
+	var note = Label.new()
+	note.text = "Tip: leave the checkbox ON unless you've changed your mind\nabout the tile's role and want existing painted cells erased\ninstead of remapped. When converting to actors, placed\ncells are erased — actors live in a separate per-level list."
+	note.add_theme_color_override("font_color", DIM)
+	note.add_theme_font_size_override("font_size", 10)
+	vb.add_child(note)
+
+	add_child(dlg)
+	dlg.confirmed.connect(func():
+		if dst_opt.item_count == 0:
+			return
+		var dst_meta = dst_opt.get_item_metadata(dst_opt.selected)
+		if typeof(dst_meta) != TYPE_DICTIONARY:
+			return
+		var kind: String = String(dst_meta.get("kind", ""))
+		if kind == "tile":
+			_apply_move_tiles(int(dst_meta.get("bt", 0)), update_chk.button_pressed)
+		elif kind == "actor":
+			_apply_move_tiles_to_actor(String(dst_meta.get("type", "")), update_chk.button_pressed)
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func(): dlg.queue_free())
+	dlg.popup_centered()
+
+
+## Reassign every tile currently in `_move_selected` (within
+## `selected_block`) to `dst_bt`. If `update_cells` is true, every placed
+## cell in every level that referenced one of the moved tiles is rewritten
+## to the new (block_type, tile_index). Survivor tiles in the source bucket
+## get index-compacted, and their placed cells are likewise updated so the
+## level art doesn't shift.
+func _apply_move_tiles(dst_bt: int, update_cells: bool) -> void:
+	if not tile_library or _move_selected.is_empty():
+		return
+	var src_bt: int = selected_block
+	if src_bt == dst_bt:
+		_status_lbl.text = "Source and destination are the same — nothing to do."
+		return
+	var indices: Array = _move_selected.keys()
+	indices.sort()
+
+	# Library mutation — returns a remap covering BOTH moved tiles and
+	# the survivors that shifted down.
+	var remap: Dictionary = tile_library.bulk_move_tiles(src_bt, indices, dst_bt)
+
+	# Patch placed cells across every level.
+	var cells_changed: int = 0
+	if update_cells:
+		for lvl in levels:
+			var g = lvl.get("grid", null)
+			if typeof(g) != TYPE_ARRAY:
+				continue
+			for y in range(g.size()):
+				var row = g[y]
+				if typeof(row) != TYPE_ARRAY:
+					continue
+				for x in range(row.size()):
+					var cell = row[x]
+					if typeof(cell) != TYPE_DICTIONARY:
+						continue
+					if int(cell.get("block_type", 0)) != src_bt:
+						continue
+					var old_ti: int = int(cell.get("tile_index", 0))
+					if not remap.has(old_ti):
+						continue
+					var r: Dictionary = remap[old_ti]
+					var new_bt: int = int(r["bt"])
+					var new_ti: int = int(r["idx"])
+					if new_bt == src_bt and new_ti == old_ti:
+						continue
+					cell["block_type"] = new_bt
+					cell["tile_index"] = new_ti
+					cells_changed += 1
+
+	# Currently selected paint tile may have moved/shifted too.
+	if remap.has(selected_tile_index):
+		var rs: Dictionary = remap[selected_tile_index]
+		# Only follow it if it stayed in src; otherwise drop back to 0.
+		if int(rs["bt"]) == src_bt:
+			selected_tile_index = int(rs["idx"])
+		else:
+			selected_tile_index = 0
+
+	_move_selected.clear()
+	_update_change_cat_visibility()
+	# Stay in move-mode; user might want to do another batch.
+	_rebuild_tile_palette()
+	if is_instance_valid(_grid_canvas):
+		_grid_canvas.queue_redraw()
+	# Undo isn't supported for this multi-level operation — make that visible.
+	_status_lbl.text = "Moved %d tile(s) to %s (%d cell(s) updated)." % [
+		indices.size(), BLOCK_NAMES[dst_bt], cells_changed
+	]
+
+
+## Convert every tile currently in `_move_selected` (within
+## `selected_block`) into a brand-new actor of type `actor_type`. One actor
+## per tile — they're each independent placeable entities. The source tile
+## is removed from the tile bucket; placed cells that referenced it are
+## erased (we don't auto-spawn actors at those positions because the
+## semantics would be surprising — see the dialog's note label).
+##
+## `clear_cells` mirrors the "Update placed cells" checkbox. When true,
+## referencing cells become Empty; when false they're left dangling
+## (they'll fall back to the eraser color via the existing oob guard but
+## still represent stale references — only use this if you know what you
+## want).
+func _apply_move_tiles_to_actor(actor_type: String, clear_cells: bool) -> void:
+	if not tile_library or _move_selected.is_empty():
+		return
+	var src_bt: int = selected_block
+	var indices: Array = _move_selected.keys()
+	indices.sort()
+
+	# Grab tile names + images BEFORE popping, so we can generate sensible
+	# actor names ("Spike → Actor 'Spike'") and feed images into the
+	# library's actor slot.
+	var pending: Array = []  # [{name, image}, ...] in ascending src order
+	for ti in indices:
+		var nm: String = tile_library.get_tile_name(src_bt, ti)
+		var img: Image = tile_library.get_tile_image(src_bt, ti)
+		if img == null:
+			continue
+		pending.append({"name": nm, "image": img.duplicate()})
+
+	# Remove the source tiles. We still need the remap so we can find/erase
+	# placed cells that referenced them.
+	var remap: Dictionary = tile_library.remove_tiles(src_bt, indices)
+
+	# Spawn the actors. Indices land at `actor_names.size()` and march up
+	# so `actor_sprites` keys stay aligned with the parallel name/type arrays.
+	var new_actor_count: int = 0
+	for rec in pending:
+		var new_idx: int = actor_names.size()
+		var aname: String = String(rec["name"])
+		if aname.is_empty():
+			aname = actor_type
+		actor_names.append(aname)
+		actor_types.append(actor_type)
+		tile_library.add_tile_as_actor_at(new_idx, rec["image"], aname, actor_type)
+		new_actor_count += 1
+
+	# Fix up placed cells: moved tiles are now dead refs (remap bt = -1).
+	# Survivors got shifted down.
+	var cells_changed: int = 0
+	for lvl in levels:
+		var g = lvl.get("grid", null)
+		if typeof(g) != TYPE_ARRAY:
+			continue
+		for y in range(g.size()):
+			var row = g[y]
+			if typeof(row) != TYPE_ARRAY:
+				continue
+			for x in range(row.size()):
+				var cell = row[x]
+				if typeof(cell) != TYPE_DICTIONARY:
+					continue
+				if int(cell.get("block_type", 0)) != src_bt:
+					continue
+				var old_ti: int = int(cell.get("tile_index", 0))
+				if not remap.has(old_ti):
+					continue
+				var r: Dictionary = remap[old_ti]
+				var new_bt: int = int(r["bt"])
+				var new_ti: int = int(r["idx"])
+				if new_bt == -1:
+					# Source tile is gone — erase or leave dangling.
+					if clear_cells:
+						cell["block_type"] = BLOCK_EMPTY
+						cell["tile_index"] = 0
+						cells_changed += 1
+				elif new_bt == src_bt and new_ti != old_ti:
+					cell["tile_index"] = new_ti
+					cells_changed += 1
+
+	# Refresh current paint index if it pointed at a removed tile.
+	if remap.has(selected_tile_index):
+		var rs: Dictionary = remap[selected_tile_index]
+		if int(rs["bt"]) == -1:
+			selected_tile_index = 0
+		else:
+			selected_tile_index = int(rs["idx"])
+
+	_move_selected.clear()
+	_update_change_cat_visibility()
+	_rebuild_tile_palette()
+	_rebuild_actors_list()
+	if is_instance_valid(_grid_canvas):
+		_grid_canvas.queue_redraw()
+	_status_lbl.text = "Created %d actor(s) of type %s (%d cell(s) cleared)." % [
+		new_actor_count, actor_type, cells_changed
+	]
 
 
 # ─── Drawing ─────────────────────────────────────────────────
@@ -934,10 +1752,14 @@ func _draw_grid() -> void:
 			var cell = grid[y][x]
 			var block_type: int = 0
 			var tile_idx: int = 0
+			var flip_h: bool = false
+			var flip_v: bool = false
 
 			if cell is Dictionary:
 				block_type = cell.get("block_type", 0)
 				tile_idx = cell.get("tile_index", 0)
+				flip_h = bool(cell.get("flip_h", false))
+				flip_v = bool(cell.get("flip_v", false))
 			elif cell is int or cell is float:
 				block_type = int(cell)
 				tile_idx = 0
@@ -952,13 +1774,38 @@ func _draw_grid() -> void:
 					tex = tile_library.get_tile_texture(block_type, tile_idx)
 
 				if tex:
-					_grid_canvas.draw_texture_rect(tex, rect, false)
+					# Per-instance flip: scale the canvas transform around
+					# the cell's center, then draw with the normal positive
+					# rect. Negative-size Rect2 drawing is unreliable in
+					# Godot 4.6 (the texture can render in the next cell).
+					if flip_h or flip_v:
+						var center: Vector2 = rect.position + rect.size * 0.5
+						var sx := -1.0 if flip_h else 1.0
+						var sy := -1.0 if flip_v else 1.0
+						_grid_canvas.draw_set_transform(
+							center, 0.0, Vector2(sx, sy)
+						)
+						# In transform space the cell center is the origin,
+						# so the rect goes from -size/2 to +size/2.
+						var local_rect: Rect2 = Rect2(-rect.size * 0.5, rect.size)
+						_grid_canvas.draw_texture_rect(tex, local_rect, false)
+						_grid_canvas.draw_set_transform(
+							Vector2.ZERO, 0.0, Vector2.ONE
+						)
+					else:
+						_grid_canvas.draw_texture_rect(tex, rect, false)
 					# Color-coded outline at 35% alpha for block type hints
 					var outline_color = BLOCK_COLORS[block_type]
 					outline_color.a = 0.35
 					_grid_canvas.draw_rect(rect, outline_color, false, 2.0)
 				else:
 					_grid_canvas.draw_rect(rect, BLOCK_COLORS[block_type])
+
+			# Selection highlight for the placed tile under inspection.
+			if _props_target.get("kind", "") == "cell" \
+					and int(_props_target.get("x", -1)) == x \
+					and int(_props_target.get("y", -1)) == y:
+				_grid_canvas.draw_rect(rect, Color(1.0, 0.85, 0.20, 0.95), false, 2.5)
 
 			_grid_canvas.draw_rect(rect, GRID_LINE, false, 1.0)
 
@@ -1118,16 +1965,24 @@ func _on_grid_input(event: InputEvent) -> void:
 		if event.shift_pressed and event.pressed:
 			if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 				_zoom = clampf(_zoom + ZOOM_STEP, ZOOM_MIN, ZOOM_MAX)
+				_user_zoom_override = true
 				_apply_zoom()
 				_grid_canvas.accept_event()
 				return
 			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 				_zoom = clampf(_zoom - ZOOM_STEP, ZOOM_MIN, ZOOM_MAX)
+				_user_zoom_override = true
 				_apply_zoom()
 				_grid_canvas.accept_event()
 				return
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
+				# Ctrl+Click: select a placed tile (don't paint) so its
+				# per-instance properties (flip H/V) can be edited in the
+				# right-dock Properties panel. No-op for empty cells.
+				if event.ctrl_pressed and not _waypoint_mode:
+					_select_placed_tile(event.position)
+					return
 				if _waypoint_mode:
 					# In waypoint mode: left-click selects target actor or block
 					_waypoint_select_target(event.position)
@@ -1529,6 +2384,11 @@ func _on_block_selected(idx: int) -> void:
 	selected_block = idx
 	selected_tile_index = 0
 	selected_actor = -1
+	# Clear any in-progress move selection — indices are scoped to a
+	# single block-type bucket so they're meaningless after switching.
+	_move_selected.clear()
+	_sync_import_target_to_selected()
+	_update_change_cat_visibility()
 	if is_instance_valid(_actor_picker_btn):
 		_actor_picker_btn.text = "Place Actor..."
 		_actor_picker_btn.icon = null
@@ -1929,6 +2789,322 @@ func _refresh_ui() -> void:
 		_death_target_spin.value = lvl.get("death_action_target", 1)
 	if is_instance_valid(_grid_canvas):
 		_grid_canvas.queue_redraw()
+	_rebuild_actors_list()
+	_refresh_props_panel()
+
+
+# ── Right-dock: actors list (#2) ─────────────────────────────
+func _rebuild_actors_list() -> void:
+	if not is_instance_valid(_actors_list_vbox):
+		return
+	for c in _actors_list_vbox.get_children():
+		c.queue_free()
+	if selected_level < 0 or selected_level >= levels.size():
+		return
+	var lvl: Dictionary = levels[selected_level]
+	var lvl_actors: Array = lvl.get("actors", [])
+	if lvl_actors.is_empty():
+		var empty = Label.new()
+		empty.text = "(no actors placed)"
+		empty.label_settings = _ls(10, DIM)
+		_actors_list_vbox.add_child(empty)
+		return
+	for i in range(lvl_actors.size()):
+		var a: Dictionary = lvl_actors[i]
+		var idx: int = int(a.get("actor_index", 0))
+		var aname: String = actor_names[idx] if idx >= 0 and idx < actor_names.size() else "Actor"
+		var atype: String = actor_types[idx] if idx >= 0 and idx < actor_types.size() else ""
+		var btn = Button.new()
+		btn.text = "  " + aname + "  ·  " + atype + "  @ (" + str(a.get("x", 0)) + "," + str(a.get("y", 0)) + ")"
+		btn.add_theme_font_size_override("font_size", 10)
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.tooltip_text = "Click to focus this actor on the grid"
+		var ns = StyleBoxFlat.new()
+		ns.bg_color = Color(0.14, 0.14, 0.18)
+		ns.set_corner_radius_all(3)
+		ns.content_margin_left = 4; ns.content_margin_right = 4
+		ns.content_margin_top = 2;  ns.content_margin_bottom = 2
+		var clr: Color = ACTOR_TYPE_COLORS.get(atype, Color(0.7, 0.7, 0.7))
+		ns.border_width_left = 3
+		ns.border_color = clr
+		btn.add_theme_stylebox_override("normal", ns)
+		var hs = ns.duplicate()
+		hs.bg_color = Color(0.20, 0.22, 0.28)
+		btn.add_theme_stylebox_override("hover", hs)
+		btn.add_theme_color_override("font_color", LABEL_CLR)
+		btn.add_theme_color_override("font_hover_color", WHITE)
+		btn.pressed.connect(_on_actors_list_clicked.bind(i))
+		_actors_list_vbox.add_child(btn)
+
+
+func _on_actors_list_clicked(actor_idx: int) -> void:
+	_props_target = {"kind": "actor", "index": actor_idx}
+	_refresh_props_panel()
+
+
+## Ctrl+Click handler: select the placed tile under the cursor so its
+## per-instance properties show in the right-dock Properties panel.
+## Empty / out-of-bounds cells clear the selection.
+func _select_placed_tile(pos: Vector2) -> void:
+	var gp = _grid_pos(pos)
+	if gp.x < 0 or gp.x >= _lvl_w() or gp.y < 0 or gp.y >= _lvl_h():
+		_props_target = {}
+		_refresh_props_panel()
+		_grid_canvas.queue_redraw()
+		return
+	var cell = levels[selected_level]["grid"][gp.y][gp.x]
+	var bt: int = 0
+	if cell is Dictionary:
+		bt = int(cell.get("block_type", 0))
+	elif cell is int or cell is float:
+		bt = int(cell)
+	if bt == BLOCK_EMPTY:
+		_props_target = {}
+	else:
+		_props_target = {"kind": "cell", "x": gp.x, "y": gp.y}
+	_refresh_props_panel()
+	_grid_canvas.queue_redraw()
+
+
+# ── Right-dock: properties panel (#2) ────────────────────────
+func _refresh_props_panel() -> void:
+	if not is_instance_valid(_props_vbox):
+		return
+	for c in _props_vbox.get_children():
+		c.queue_free()
+	# Show context-sensitive info: selected actor (from list) > selected
+	# tile (from palette).
+	if _props_target.get("kind", "") == "actor":
+		var i: int = int(_props_target.get("index", -1))
+		if selected_level >= 0 and i >= 0:
+			var lvl: Dictionary = levels[selected_level]
+			var arr: Array = lvl.get("actors", [])
+			if i < arr.size():
+				var a: Dictionary = arr[i]
+				var idx: int = int(a.get("actor_index", 0))
+				var aname: String = actor_names[idx] if idx >= 0 and idx < actor_names.size() else "Actor"
+				var atype: String = actor_types[idx] if idx >= 0 and idx < actor_types.size() else ""
+				_props_vbox.add_child(_props_kv("Name", aname))
+				_props_vbox.add_child(_props_kv("Type", atype))
+				_props_vbox.add_child(_props_kv("Position", "(" + str(a.get("x", 0)) + ", " + str(a.get("y", 0)) + ")"))
+				var wp: Array = a.get("waypoints", [])
+				_props_vbox.add_child(_props_kv("Waypoints", str(wp.size())))
+				return
+	# Placed tile inspector (Ctrl+Click on a cell): expose the small set
+	# of per-instance properties that justify staying in AGCK rather than
+	# bouncing to VG's full 2D editor — flip H / flip V. Anything beyond
+	# this (rotation, modulate, per-instance shaders, free positioning)
+	# belongs in VG's 2D editor; see header comment in this file.
+	if _props_target.get("kind", "") == "cell" and selected_level >= 0:
+		var cx: int = int(_props_target.get("x", -1))
+		var cy: int = int(_props_target.get("y", -1))
+		if cx >= 0 and cx < _lvl_w() and cy >= 0 and cy < _lvl_h():
+			var grid_arr: Array = levels[selected_level]["grid"]
+			var cell_v = grid_arr[cy][cx]
+			# Promote primitive cells to dict so flips can be stored.
+			if not (cell_v is Dictionary):
+				cell_v = {
+					"block_type": int(cell_v) if (cell_v is int or cell_v is float) else 0,
+					"tile_index": 0,
+				}
+				grid_arr[cy][cx] = cell_v
+			var cbt: int = int(cell_v.get("block_type", 0))
+			var cti: int = int(cell_v.get("tile_index", 0))
+			var cell_tname: String = "?"
+			if tile_library:
+				cell_tname = str(tile_library.get_tile_name(cbt, cti))
+			_props_vbox.add_child(_props_kv("Cell", "(" + str(cx) + ", " + str(cy) + ")"))
+			_props_vbox.add_child(_props_kv("Block", BLOCK_NAMES[cbt]))
+			_props_vbox.add_child(_props_kv("Tile", cell_tname))
+			_props_vbox.add_child(_make_cell_flip_check("Flip H", "flip_h", cx, cy))
+			_props_vbox.add_child(_make_cell_flip_check("Flip V", "flip_v", cx, cy))
+			var hint2 = Label.new()
+			hint2.text = "Tip: for rotation / shaders / free positioning, open the tile in VG's Sprite Editor or 2D Editor."
+			hint2.label_settings = _ls(9, DIM)
+			hint2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_props_vbox.add_child(hint2)
+			return
+	# Fallback: show selected tile.
+	if tile_library and selected_block != BLOCK_EMPTY:
+		var tname := str(tile_library.get_tile_name(selected_block, selected_tile_index))
+		_props_vbox.add_child(_props_kv("Tile", tname))
+		_props_vbox.add_child(_props_kv("Block", BLOCK_NAMES[selected_block]))
+	else:
+		var hint = Label.new()
+		hint.text = "Click an actor or tile to view its properties."
+		hint.label_settings = _ls(10, DIM)
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_props_vbox.add_child(hint)
+
+
+func _props_kv(k: String, v: String) -> Control:
+	var hb = HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 6)
+	var kl = Label.new()
+	kl.text = k
+	kl.label_settings = _ls(10, DIM)
+	kl.custom_minimum_size.x = 70
+	hb.add_child(kl)
+	var vl = Label.new()
+	vl.text = v
+	vl.label_settings = _ls(10, LABEL_CLR)
+	vl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vl.clip_text = true
+	hb.add_child(vl)
+	return hb
+
+
+## CheckBox row for a per-instance bool on a placed tile (flip_h / flip_v).
+## Toggling pushes an undo snapshot, mutates the cell dict in place, and
+## refreshes the grid + properties panel.
+func _make_cell_flip_check(label_text: String, key: String, cx: int, cy: int) -> Control:
+	var hb = HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 6)
+	var kl = Label.new()
+	kl.text = label_text
+	kl.label_settings = _ls(10, DIM)
+	kl.custom_minimum_size.x = 70
+	hb.add_child(kl)
+	var cb = CheckBox.new()
+	cb.add_theme_font_size_override("font_size", 10)
+	var cur_val: bool = false
+	if selected_level >= 0:
+		var c = levels[selected_level]["grid"][cy][cx]
+		if c is Dictionary:
+			cur_val = bool(c.get(key, false))
+	cb.button_pressed = cur_val
+	cb.toggled.connect(_on_cell_flip_toggled.bind(key, cx, cy))
+	hb.add_child(cb)
+	return hb
+
+
+func _on_cell_flip_toggled(pressed: bool, key: String, cx: int, cy: int) -> void:
+	if selected_level < 0:
+		return
+	if cx < 0 or cx >= _lvl_w() or cy < 0 or cy >= _lvl_h():
+		return
+	_begin_stroke()
+	var c = levels[selected_level]["grid"][cy][cx]
+	if not (c is Dictionary):
+		c = {"block_type": int(c) if (c is int or c is float) else 0, "tile_index": 0}
+		levels[selected_level]["grid"][cy][cx] = c
+	c[key] = pressed
+	_end_stroke()
+	_grid_canvas.queue_redraw()
+	_mark_dirty()
+	level_changed.emit(selected_level)
+
+
+# ── Keyboard shortcuts (#8) ────────────────────────────────────
+# 1-8       — block-type select        [ / ]   — prev / next tile
+# B         — paint mode (clear fill / wp)     G — flood fill toggle
+# E         — eraser (Empty block)             W — waypoints toggle
+func _unhandled_input(event: InputEvent) -> void:
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	# Don't hijack typing in text fields.
+	var f := get_viewport().gui_get_focus_owner()
+	if f is LineEdit or f is TextEdit or f is SpinBox:
+		return
+	# Only act when our editor is actually visible (the AGCK plugin tabs us
+	# in/out — without this, hotkeys would fire from anywhere).
+	if not is_visible_in_tree():
+		return
+	var k := event as InputEventKey
+	# Number keys 1-8 for block types
+	if k.keycode >= KEY_1 and k.keycode <= KEY_8:
+		var bt: int = int(k.keycode) - int(KEY_1)
+		if bt < BLOCK_NAMES.size():
+			_on_block_selected(bt)
+			get_viewport().set_input_as_handled()
+			return
+	match k.keycode:
+		KEY_B:
+			# Paint mode — turn off fill + waypoints
+			if is_instance_valid(_flood_btn):
+				_flood_btn.button_pressed = false
+			if is_instance_valid(_waypoint_btn):
+				_waypoint_btn.button_pressed = false
+			get_viewport().set_input_as_handled()
+		KEY_G:
+			if is_instance_valid(_flood_btn):
+				_flood_btn.button_pressed = not _flood_btn.button_pressed
+			get_viewport().set_input_as_handled()
+		KEY_E:
+			_on_block_selected(BLOCK_EMPTY)
+			get_viewport().set_input_as_handled()
+		KEY_W:
+			if is_instance_valid(_waypoint_btn):
+				_waypoint_btn.button_pressed = not _waypoint_btn.button_pressed
+			get_viewport().set_input_as_handled()
+		KEY_BRACKETLEFT:
+			_cycle_tile(-1)
+			get_viewport().set_input_as_handled()
+		KEY_BRACKETRIGHT:
+			_cycle_tile(1)
+			get_viewport().set_input_as_handled()
+		# Quick per-instance flips for the placed tile under the cursor.
+		# H = flip horizontal, V = flip vertical. Works on whatever cell
+		# the mouse is hovering over — no Ctrl+Click needed.
+		KEY_H:
+			_flip_cell_at_cursor("flip_h")
+			get_viewport().set_input_as_handled()
+		KEY_V:
+			_flip_cell_at_cursor("flip_v")
+			get_viewport().set_input_as_handled()
+
+
+## Toggle a flip flag on the placed tile under the cursor. Used by
+## the H / V hotkeys and the right-click "Flip H/V" context menu items.
+## Promotes a primitive cell to dict on first toggle.
+func _flip_cell_at_cursor(key: String) -> void:
+	var gp := _grid_pos(_last_mouse_pos)
+	_flip_cell(gp.x, gp.y, key)
+
+
+func _flip_cell(cx: int, cy: int, key: String) -> void:
+	if selected_level < 0:
+		return
+	if cx < 0 or cx >= _lvl_w() or cy < 0 or cy >= _lvl_h():
+		return
+	var grid_arr: Array = levels[selected_level]["grid"]
+	var cell = grid_arr[cy][cx]
+	var bt: int = 0
+	if cell is Dictionary:
+		bt = int(cell.get("block_type", 0))
+	elif cell is int or cell is float:
+		bt = int(cell)
+	if bt == BLOCK_EMPTY:
+		_status_lbl.text = "Empty cell — place a tile first to flip it."
+		return
+	_begin_stroke()
+	if not (cell is Dictionary):
+		cell = {"block_type": bt, "tile_index": 0}
+		grid_arr[cy][cx] = cell
+	cell[key] = not bool(cell.get(key, false))
+	_end_stroke()
+	_grid_canvas.queue_redraw()
+	_mark_dirty()
+	level_changed.emit(selected_level)
+	# If this cell is the one being inspected, refresh checkboxes.
+	if _props_target.get("kind", "") == "cell" \
+			and int(_props_target.get("x", -1)) == cx \
+			and int(_props_target.get("y", -1)) == cy:
+		_refresh_props_panel()
+	var human := "Flip H" if key == "flip_h" else "Flip V"
+	var on_off := "ON" if cell[key] else "OFF"
+	_status_lbl.text = "%s %s @ (%d, %d)" % [human, on_off, cx, cy]
+
+
+func _cycle_tile(delta: int) -> void:
+	if not tile_library or selected_block == BLOCK_EMPTY:
+		return
+	var n: int = tile_library.get_tile_count(selected_block)
+	if n <= 0:
+		return
+	selected_tile_index = (selected_tile_index + delta + n) % n
+	_rebuild_tile_palette()
+	_refresh_props_panel()
 
 
 # ─── Inline Tile Editor (popup pixel editor) ─────────────────
@@ -2057,6 +3233,26 @@ func _open_inline_tile_editor(block_type: int, tile_idx: int) -> void:
 	var spc = Control.new()
 	spc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tool_row.add_child(spc)
+
+	# Bridge to VG's full Sprite Editor for advanced edits (rotate, layers,
+	# frames, shaders, etc.). The inline editor stays as a "quick" path for
+	# block-aware palette edits; anything beyond a few pixels should go to
+	# VG's editor. See AGCK header comment for the editor-boundary policy.
+	var open_vg_btn = Button.new()
+	open_vg_btn.text = "Open in VG Sprite Editor →"
+	open_vg_btn.tooltip_text = "Export this tile as PNG and open it in VG's Sprite Editor for advanced editing. Save in VG to round-trip back into the tile library."
+	open_vg_btn.add_theme_font_size_override("font_size", 11)
+	var ovg_s = StyleBoxFlat.new()
+	ovg_s.bg_color = Color(0.45, 0.30, 0.65)
+	ovg_s.set_corner_radius_all(4)
+	ovg_s.content_margin_left = 8
+	ovg_s.content_margin_right = 8
+	ovg_s.content_margin_top = 3
+	ovg_s.content_margin_bottom = 3
+	open_vg_btn.add_theme_stylebox_override("normal", ovg_s)
+	open_vg_btn.add_theme_color_override("font_color", WHITE)
+	open_vg_btn.pressed.connect(_on_edit_open_in_vg_sprite_editor)
+	tool_row.add_child(open_vg_btn)
 
 	var save_btn = Button.new()
 	save_btn.text = "Save"
@@ -2283,6 +3479,87 @@ func _on_edit_save_as_new() -> void:
 	_close_edit_popup()
 
 
+## Export the current edit image to a PNG under user:// and hand it off
+## to VG's full Sprite Editor via VGPluginRegistry. A Timer polls the
+## file's mtime; when the user saves in the Sprite Editor the new image
+## is reloaded into the tile library, replacing the original tile.
+##
+## This is the "advanced edits" escape hatch documented in the AGCK
+## header — the inline popup is intentionally limited to block-aware
+## quick edits; rotation, layers, frames, and shaders all live in VG.
+func _on_edit_open_in_vg_sprite_editor() -> void:
+	if not _edit_image or _edit_block_type < 0 or _edit_tile_index < 0:
+		return
+	# Persist current name + shader-fx selection before bouncing out so
+	# the in-progress popup state isn't lost.
+	var bt: int = _edit_block_type
+	var ti: int = _edit_tile_index
+	var dir_path := "user://agck_tile_bridge"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir_path))
+	# Use a stable filename per (bt, ti) so re-opening the same tile
+	# reuses the same buffer rather than spawning new files.
+	var file_name := "tile_%d_%d.png" % [bt, ti]
+	var save_path := dir_path + "/" + file_name
+	var err := _edit_image.save_png(save_path)
+	if err != OK:
+		_status_lbl.text = "❌ Bridge: could not write " + save_path + " (err=" + str(err) + ")"
+		return
+	# Close inline popup — the VG Sprite Editor takes over.
+	_close_edit_popup()
+	# Set up the watcher.
+	_vg_bridge_path = save_path
+	_vg_bridge_bt = bt
+	_vg_bridge_ti = ti
+	_vg_bridge_mtime = FileAccess.get_modified_time(save_path)
+	if not is_instance_valid(_vg_bridge_timer):
+		_vg_bridge_timer = Timer.new()
+		_vg_bridge_timer.wait_time = 1.0
+		_vg_bridge_timer.one_shot = false
+		_vg_bridge_timer.timeout.connect(_check_vg_bridge)
+		add_child(_vg_bridge_timer)
+	_vg_bridge_timer.start()
+	# Hand off to the registry. The registry script lives at a known
+	# absolute path; load it dynamically rather than via the global
+	# class_name so AGCK can be used in environments where the registry
+	# isn't part of the parsed class index yet.
+	var opened := false
+	var reg_script := load("res://addons/visual_gasic/vg_plugin_registry.gd")
+	if reg_script != null:
+		var reg = reg_script.get_instance()
+		if reg != null and reg.has_method("open_asset"):
+			opened = bool(reg.open_asset(save_path))
+	if opened:
+		_status_lbl.text = "🎨 Editing tile in VG Sprite Editor — save there to round-trip back."
+	else:
+		_status_lbl.text = "⚠ Could not route to VG Sprite Editor; PNG written to " + save_path
+		push_warning("[AGCK] Bridge: VGPluginRegistry.open_asset failed for " + save_path
+			+ " — registry loaded=" + str(reg_script != null))
+
+
+func _check_vg_bridge() -> void:
+	if _vg_bridge_path.is_empty():
+		if is_instance_valid(_vg_bridge_timer):
+			_vg_bridge_timer.stop()
+		return
+	if not FileAccess.file_exists(_vg_bridge_path):
+		return
+	var m := FileAccess.get_modified_time(_vg_bridge_path)
+	if m == _vg_bridge_mtime:
+		return
+	_vg_bridge_mtime = m
+	var img := Image.load_from_file(_vg_bridge_path)
+	if img == null:
+		return
+	if tile_library and _vg_bridge_bt >= 0 and _vg_bridge_ti >= 0:
+		tile_library.update_tile(_vg_bridge_bt, _vg_bridge_ti, img)
+		if is_instance_valid(_grid_canvas):
+			_grid_canvas.queue_redraw()
+		_rebuild_tile_palette()
+		_status_lbl.text = "🔄 Tile updated from VG Sprite Editor."
+		_mark_dirty()
+		level_changed.emit(selected_level)
+
+
 func _on_edit_popup_close() -> void:
 	_close_edit_popup()
 
@@ -2366,6 +3643,9 @@ func _on_import_tile_pressed() -> void:
 func _on_tile_files_selected(paths: PackedStringArray) -> void:
 	if not tile_library:
 		return
+	# Wipe NEW marks from any prior import wave — only the freshly added
+	# tiles in THIS wave should get the badge.
+	tile_library.clear_new_marks()
 	var count := 0
 	for path in paths:
 		var img := Image.new()
@@ -2374,30 +3654,303 @@ func _on_tile_files_selected(paths: PackedStringArray) -> void:
 			push_warning("AGCK: Could not load image: " + path)
 			continue
 		var fname: String = path.get_file().get_basename()
-		# Detect tilesheet: if width is a multiple of height and wider than 1 tile
-		var w := img.get_width()
-		var h := img.get_height()
-		if w > h and w % h == 0:
-			# Split into individual tiles
-			var tile_count := w / h
-			for i in range(tile_count):
-				var tile_img := img.get_region(Rect2i(i * h, 0, h, h))
-				tile_img.resize(18, 18, Image.INTERPOLATE_NEAREST)
-				var tile_name := fname + "_" + str(i + 1) + " (imported)"
-				tile_library.add_custom_tile(selected_block, tile_name, tile_img)
-				count += 1
-		else:
-			# Single tile — resize to 18x18
-			img.resize(18, 18, Image.INTERPOLATE_NEAREST)
-			var tile_name := fname + " (imported)"
-			tile_library.add_custom_tile(selected_block, tile_name, img)
-			count += 1
+		count += _slice_image_into_tiles(img, fname, " (imported)")
 	_rebuild_tile_palette()
 	_grid_canvas.queue_redraw()
 	if count > 0:
 		_status_lbl.text = "Imported " + str(count) + " tile(s)!"
 	else:
 		_status_lbl.text = "No tiles imported."
+
+
+## ─── Tilesheet auto-slicing ──────────────────────────────────────
+##
+## Detect a 2D tile grid in `img` and add each cell as a tile under the
+## currently selected block-type. Returns the number of tiles added.
+##
+## Detection precedence:
+##   1. Image small enough to be a single tile  -> single tile.
+##   2. Standard tile size divides both axes    -> grid slice.
+##   3. gcd(w, h) is reasonable                 -> grid slice.
+##   4. Otherwise                               -> single tile (resized).
+##
+## Single-tile and 1-row-strip imports keep working — they fall out of
+## case 1 / case 2 with rows=1.
+func _slice_image_into_tiles(img: Image, base_name: String, suffix: String = "") -> int:
+	var target_bt: int = _get_import_target_block()
+	var pre_count: int = tile_library.get_tile_count(target_bt)
+	var grid := _detect_tile_grid(img)
+	if grid.is_empty():
+		# Single tile — resize to AGCK's 18x18 cell size.
+		var single := img.duplicate()
+		single.resize(18, 18, Image.INTERPOLATE_NEAREST)
+		tile_library.add_custom_tile(target_bt, base_name + suffix, single)
+		_mark_tiles_new_since(target_bt, pre_count)
+		return 1
+	var cell: int = grid["cell"]
+	var cols: int = grid["cols"]
+	var rows: int = grid["rows"]
+	var added := 0
+	var idx := 0
+	for ry in range(rows):
+		for cx in range(cols):
+			idx += 1
+			var sub := img.get_region(Rect2i(cx * cell, ry * cell, cell, cell))
+			if _is_image_empty(sub):
+				continue  # Skip transparent/blank cells in padded sheets.
+			sub.resize(18, 18, Image.INTERPOLATE_NEAREST)
+			var tname := "%s_%d%s" % [base_name, idx, suffix]
+			tile_library.add_custom_tile(target_bt, tname, sub)
+			added += 1
+	_mark_tiles_new_since(target_bt, pre_count)
+	return added
+
+
+## Flag every tile in `bt`'s bucket from index `since` to the end as NEW.
+## Used to badge the most recently imported batch.
+func _mark_tiles_new_since(bt: int, since: int) -> void:
+	if not tile_library:
+		return
+	var count: int = tile_library.get_tile_count(bt)
+	for i in range(since, count):
+		tile_library.set_tile_is_new(bt, i, true)
+
+
+## Returns {} if `img` should be treated as a single tile, otherwise
+## {"cell": int, "cols": int, "rows": int} describing the grid.
+const _TILE_SIZE_CANDIDATES := [64, 48, 32, 24, 18, 16, 96, 128, 8]
+
+func _detect_tile_grid(img: Image) -> Dictionary:
+	var w := img.get_width()
+	var h := img.get_height()
+	# Tiny images are always a single tile (avoids slicing 18x18 source art).
+	if max(w, h) <= 96:
+		return {}
+	# Try preferred cell sizes — largest first that yields >= 2 cells.
+	var best: Dictionary = {}
+	for cand in _TILE_SIZE_CANDIDATES:
+		if cand > min(w, h):
+			continue
+		if w % cand != 0 or h % cand != 0:
+			continue
+		var cols: int = w / cand
+		var rows: int = h / cand
+		var cells: int = cols * rows
+		if cells < 2 or cells > 1024:
+			continue
+		# Among valid candidates, prefer the LARGEST cell size (so we
+		# don't over-slice a 64px-tile sheet into 16px chunks).
+		if best.is_empty() or cand > int(best.get("cell", 0)):
+			best = {"cell": cand, "cols": cols, "rows": rows}
+	if not best.is_empty():
+		return best
+	# Fallback: gcd(w, h) when it's a reasonable tile size.
+	var g := _gcd_int(w, h)
+	if g >= 8 and g <= 128:
+		var cols2: int = w / g
+		var rows2: int = h / g
+		if cols2 * rows2 >= 2 and cols2 * rows2 <= 1024:
+			return {"cell": g, "cols": cols2, "rows": rows2}
+	return {}
+
+
+func _gcd_int(a: int, b: int) -> int:
+	a = absi(a)
+	b = absi(b)
+	while b != 0:
+		var t := b
+		b = a % b
+		a = t
+	return a
+
+
+## True if every pixel in `img` is fully transparent. Used to skip empty
+## cells in padded tilesheets (e.g. 4x4 sheet with only 12 art cells).
+func _is_image_empty(img: Image) -> bool:
+	if not img.detect_alpha():
+		return false
+	var w := img.get_width()
+	var h := img.get_height()
+	# Sample a sparse grid first to bail out fast on non-empty cells.
+	var step: int = maxi(1, mini(w, h) / 8)
+	var y := 0
+	while y < h:
+		var x := 0
+		while x < w:
+			if img.get_pixel(x, y).a > 0.01:
+				return false
+			x += step
+		y += step
+	return true
+
+
+# ─── Online Asset Browse ─────────────────────────────────────
+# Pops a small chooser → opens the appropriate online browser. After the
+# browser closes, scans res://assets/art/ for newly added PNGs and imports
+# them as tiles for the currently selected block-type.
+
+const _ONLINE_ASSETS_DIR := "res://assets/art/"
+
+func _on_online_browse_pressed() -> void:
+	if _online_chooser_popup and is_instance_valid(_online_chooser_popup):
+		_online_chooser_popup.queue_free()
+	_online_chooser_popup = PopupPanel.new()
+	var pp_style := StyleBoxFlat.new()
+	pp_style.bg_color = Color(0.13, 0.13, 0.16)
+	pp_style.border_color = Color(0.30, 0.30, 0.34)
+	pp_style.set_border_width_all(1)
+	pp_style.set_corner_radius_all(4)
+	pp_style.content_margin_left = 10; pp_style.content_margin_right = 10
+	pp_style.content_margin_top = 10; pp_style.content_margin_bottom = 10
+	_online_chooser_popup.add_theme_stylebox_override("panel", pp_style)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 6)
+	_online_chooser_popup.add_child(vb)
+	var ttl := Label.new()
+	ttl.text = "Browse free CC0 game art"
+	ttl.label_settings = _ls(11, ACCENT)
+	vb.add_child(ttl)
+	var hint := Label.new()
+	hint.text = "Downloads land in res://assets/art/ and are auto-imported\nas tiles in '" + BLOCK_NAMES[selected_block] + "'."
+	hint.label_settings = _ls(9, DIM)
+	vb.add_child(hint)
+	vb.add_child(HSeparator.new())
+	var btn_oga := Button.new()
+	btn_oga.text = "🎨 OpenGameArt — search & download images"
+	btn_oga.add_theme_font_size_override("font_size", 11)
+	btn_oga.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	btn_oga.pressed.connect(_open_oga_browser)
+	vb.add_child(btn_oga)
+	var btn_kenney := Button.new()
+	btn_kenney.text = "📦 Kenney.nl — curated CC0 asset packs"
+	btn_kenney.add_theme_font_size_override("font_size", 11)
+	btn_kenney.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	btn_kenney.pressed.connect(_open_kenney_browser)
+	vb.add_child(btn_kenney)
+	var btn_scan := Button.new()
+	btn_scan.text = "📁 Scan res://assets/art/ now"
+	btn_scan.add_theme_font_size_override("font_size", 11)
+	btn_scan.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	btn_scan.tooltip_text = "Look for any PNGs already downloaded and import as tiles"
+	btn_scan.pressed.connect(func():
+		_online_chooser_popup.hide()
+		var added := _ingest_assets_dir({}, 32)
+		if added > 0:
+			_status_lbl.text = "Imported %d tile(s) from %s" % [added, _ONLINE_ASSETS_DIR]
+		else:
+			_status_lbl.text = "No new PNGs found in " + _ONLINE_ASSETS_DIR
+	)
+	vb.add_child(btn_scan)
+	add_child(_online_chooser_popup)
+	_online_chooser_popup.popup_centered(Vector2i(360, 220))
+
+
+func _open_oga_browser() -> void:
+	if _online_chooser_popup and is_instance_valid(_online_chooser_popup):
+		_online_chooser_popup.hide()
+	_online_pre_scan_files = _snapshot_assets_dir()
+	_opengameart_browser = OPENGAMEART_BROWSER_SCRIPT.new()
+	_opengameart_browser.open(self, false)
+	# When the dialog closes we ingest. The browser is a RefCounted that
+	# creates its own AcceptDialog parented to `self` — wait one frame after
+	# tree_exited fires, then scan.
+	_watch_for_browser_close()
+
+
+func _open_kenney_browser() -> void:
+	if _online_chooser_popup and is_instance_valid(_online_chooser_popup):
+		_online_chooser_popup.hide()
+	_online_pre_scan_files = _snapshot_assets_dir()
+	_kenney_browser = KENNEY_BROWSER_SCRIPT.new()
+	_kenney_browser.open(self, false)
+	_watch_for_browser_close()
+
+
+func _watch_for_browser_close() -> void:
+	# The browser dialogs add themselves as children of `self`. Poll for
+	# their disappearance, then scan once.
+	var t := Timer.new()
+	t.wait_time = 0.6
+	t.one_shot = false
+	add_child(t)
+	t.timeout.connect(func():
+		# AcceptDialog children disappear when user closes; check.
+		var any_open := false
+		for c in get_children():
+			if c is AcceptDialog and c.visible:
+				any_open = true
+				break
+		if not any_open:
+			t.stop()
+			t.queue_free()
+			var added := _ingest_assets_dir(_online_pre_scan_files, 24)
+			if added > 0:
+				_status_lbl.text = "Imported %d new tile(s) from downloads" % added
+			else:
+				_status_lbl.text = "No new image files were downloaded."
+	)
+	t.start()
+
+
+func _snapshot_assets_dir() -> Dictionary:
+	var snap: Dictionary = {}
+	_walk_assets_dir(_ONLINE_ASSETS_DIR, snap)
+	return snap
+
+
+func _walk_assets_dir(path: String, out: Dictionary) -> void:
+	var d := DirAccess.open(path)
+	if d == null:
+		return
+	d.list_dir_begin()
+	while true:
+		var f := d.get_next()
+		if f == "":
+			break
+		if f.begins_with("."):
+			continue
+		var full := path + ("" if path.ends_with("/") else "/") + f
+		if d.current_is_dir():
+			_walk_assets_dir(full, out)
+		else:
+			var lf := f.to_lower()
+			if lf.ends_with(".png") or lf.ends_with(".jpg") or lf.ends_with(".jpeg"):
+				out[full] = FileAccess.get_modified_time(full)
+	d.list_dir_end()
+
+
+func _ingest_assets_dir(skip: Dictionary, cap: int) -> int:
+	if not tile_library:
+		return 0
+	var current := _snapshot_assets_dir()
+	# Find new files (not in skip).
+	var new_paths: Array = []
+	for p in current.keys():
+		if not skip.has(p):
+			new_paths.append(p)
+	# Most-recent first; cap to avoid swamping the palette.
+	new_paths.sort_custom(func(a, b): return int(current[a]) > int(current[b]))
+	if new_paths.size() > cap:
+		new_paths.resize(cap)
+	var added := 0
+	if new_paths.size() > 0:
+		# Auto-ingest is its own import wave — wipe stale NEW marks first
+		# so only this batch lights up.
+		tile_library.clear_new_marks()
+	for path in new_paths:
+		var img := Image.new()
+		if img.load(path) != OK:
+			continue
+		# Skip absurdly large sheets (anything over 4096px we leave alone).
+		if img.get_width() > 4096 or img.get_height() > 4096:
+			continue
+		var fname: String = path.get_file().get_basename()
+		added += _slice_image_into_tiles(img, fname, "")
+	if added > 0:
+		_rebuild_tile_palette()
+		if is_instance_valid(_grid_canvas):
+			_grid_canvas.queue_redraw()
+	return added
 
 
 # ─── Actor Sync ──────────────────────────────────────────────

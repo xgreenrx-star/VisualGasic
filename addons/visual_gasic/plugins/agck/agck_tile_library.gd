@@ -8,8 +8,42 @@
 extends RefCounted
 
 # ─── Constants ───────────────────────────────────────────────
+## Native procgen art canvas. All built-in tile/actor draws are calibrated
+## against these sizes; the user-facing "Tile Size" / "Actor Frame Size"
+## settings are render targets that art is scaled to at build time.
 const TILE_SIZE = 18   # Kenney-compatible pixel art resolution
 const ACTOR_SPRITE_SIZE = 24  # Actor sprites slightly larger
+
+# ─── Project-Configurable Render Sizes ──────────────────────
+## Project-level tile size (game-runtime cell pixels). Driven by AGCK
+## settings; the level grid, builder backend and HUD all scale to this.
+var tile_render_size: int = 32
+## Project-level default actor frame size. Per-actor `frame_size` overrides
+## (stored on `actor_sprites[idx]["frame_size"]`) take precedence over this.
+var actor_frame_size: int = 32
+
+## Available preset sizes for the settings UI dropdowns.
+const SIZE_PRESETS: Array[int] = [8, 16, 24, 32, 48, 64, 96, 128]
+
+
+## Returns the effective frame size for an actor: per-actor override if set,
+## otherwise the project default.
+func get_actor_frame_size(actor_index: int) -> int:
+	var spr = actor_sprites.get(actor_index, {})
+	var override = spr.get("frame_size", 0)
+	if typeof(override) == TYPE_INT and override > 0:
+		return int(override)
+	return actor_frame_size
+
+
+## Set per-actor frame size override. Pass 0 to clear.
+func set_actor_frame_size(actor_index: int, size: int) -> void:
+	if not actor_sprites.has(actor_index):
+		actor_sprites[actor_index] = {}
+	if size <= 0:
+		actor_sprites[actor_index].erase("frame_size")
+	else:
+		actor_sprites[actor_index]["frame_size"] = size
 
 # Block categories matching the level editor
 const BLOCK_EMPTY      = 0
@@ -19,8 +53,9 @@ const BLOCK_DEADLY     = 3
 const BLOCK_BACKGROUND = 4
 const BLOCK_TELEPORT   = 5
 const BLOCK_SWITCH     = 6
+const BLOCK_GOAL       = 7
 
-const BLOCK_NAMES = ["Empty", "Barrier", "Ladder", "Deadly", "Background", "Teleport", "Switch"]
+const BLOCK_NAMES = ["Empty", "Barrier", "Ladder", "Deadly", "Background", "Teleport", "Switch", "Goal"]
 
 # Base colors per block type (used for tinting/outlines)
 const BLOCK_COLORS = [
@@ -31,6 +66,7 @@ const BLOCK_COLORS = [
 	Color(0.25, 0.40, 0.60),  # Background — blue
 	Color(0.65, 0.30, 0.85),  # Teleport — purple
 	Color(0.90, 0.80, 0.20),  # Switch — yellow
+	Color(0.95, 0.75, 0.15),  # Goal — gold (level exit / flagpole)
 ]
 
 # Actor type colors
@@ -144,6 +180,29 @@ func get_tile_shader_params(block_type: int, tile_index: int) -> Dictionary:
 	return arr[tile_index].get("shader_params", {})
 
 
+## Is this tile a one-way platform? (player can jump up through it but
+## lands on top — Mario / Donkey Kong / Celeste-style "thin platform"). Set
+## via the optional flag in `_add_tile_ex` at tile-generation time.
+func get_tile_one_way(block_type: int, tile_index: int) -> bool:
+	if not tiles.has(block_type):
+		return false
+	var arr: Array = tiles[block_type]
+	if tile_index < 0 or tile_index >= arr.size():
+		return false
+	return arr[tile_index].get("one_way", false)
+
+
+## Is this tile a Mario-style ?-block? Solid barrier that spawns a coin
+## when bumped from below. Set via the `is_question` flag in `_add_tile_ex`.
+func get_tile_is_question(block_type: int, tile_index: int) -> bool:
+	if not tiles.has(block_type):
+		return false
+	var arr: Array = tiles[block_type]
+	if tile_index < 0 or tile_index >= arr.size():
+		return false
+	return arr[tile_index].get("is_question", false)
+
+
 ## Set a tile's shader FX and parameters
 func set_tile_shader_fx(block_type: int, tile_index: int, fx_name: String, fx_params: Dictionary = {}) -> void:
 	if not tiles.has(block_type):
@@ -180,6 +239,184 @@ func add_custom_tile(block_type: int, name: String, image: Image) -> int:
 	var tex = ImageTexture.create_from_image(image)
 	tiles[block_type].append({"name": name, "image": image, "texture": tex})
 	return tiles[block_type].size() - 1
+
+
+## Is this tile from the most recent import wave? Drives the "NEW"
+## watermark badge in the palette UI. Cleared by `clear_new_marks` (called
+## at the start of every new import wave) or when the tile is moved.
+func get_tile_is_new(block_type: int, tile_index: int) -> bool:
+	if not tiles.has(block_type):
+		return false
+	var arr: Array = tiles[block_type]
+	if tile_index < 0 or tile_index >= arr.size():
+		return false
+	return arr[tile_index].get("is_new", false)
+
+
+## Mark / unmark a tile's "newly imported" flag.
+func set_tile_is_new(block_type: int, tile_index: int, value: bool) -> void:
+	if not tiles.has(block_type):
+		return
+	var arr: Array = tiles[block_type]
+	if tile_index < 0 or tile_index >= arr.size():
+		return
+	if value:
+		arr[tile_index]["is_new"] = true
+	else:
+		arr[tile_index].erase("is_new")
+
+
+## Strip the "is_new" flag from every tile in every bucket. Called at the
+## start of each import wave so only the freshly imported tiles get the
+## NEW badge.
+func clear_new_marks() -> void:
+	for bt in tiles.keys():
+		var arr: Array = tiles[bt]
+		for rec in arr:
+			if typeof(rec) == TYPE_DICTIONARY and rec.has("is_new"):
+				rec.erase("is_new")
+
+
+## Bulk-move a set of tiles from one block-type bucket to another.
+##
+## `src_indices` are indices into the source bucket as they exist NOW.
+## Returns a remap dict: { old_src_idx : {"bt": int, "idx": int}, ... } that
+## describes where every tile in the source bucket ends up afterward
+## (both the moved ones and the surviving ones, which get compacted).
+##
+## Same-bucket moves are a no-op (returned remap is identity).
+func bulk_move_tiles(src_bt: int, src_indices: Array, dst_bt: int) -> Dictionary:
+	var remap: Dictionary = {}
+	if src_bt == dst_bt:
+		var n: int = get_tile_count(src_bt)
+		for i in range(n):
+			remap[i] = {"bt": src_bt, "idx": i}
+		return remap
+	var pop_result := _pop_tiles(src_bt, src_indices, dst_bt)
+	remap = pop_result["remap"]
+	if not tiles.has(dst_bt):
+		tiles[dst_bt] = []
+	for rec in pop_result["items"]:
+		# Moving a tile counts as "the user has acknowledged it" — drop
+		# the freshly-imported NEW badge.
+		if typeof(rec) == TYPE_DICTIONARY and rec.has("is_new"):
+			rec.erase("is_new")
+		tiles[dst_bt].append(rec)
+	return remap
+
+
+## Remove `src_indices` from `tiles[src_bt]` and return them.
+##
+## Returns:
+##   { "items": Array of tile records (in ascending src_idx order),
+##     "remap": Dictionary mapping every original src_idx to where it
+##              ended up — moved tiles map to {"bt": dst_bt_hint,
+##              "idx": <next slot>}, survivors map to {"bt": src_bt,
+##              "idx": <compacted>}.
+##     "moved_indices": Array of src indices that were removed,
+##                      ascending (for callers that want to know).
+##   }
+##
+## `dst_bt_hint` is just used to fill the remap's `bt` for moved tiles —
+## callers that aren't moving into another tile bucket (e.g. tile→actor)
+## can ignore that part of the remap.
+func _pop_tiles(src_bt: int, src_indices: Array, dst_bt_hint: int) -> Dictionary:
+	var remap: Dictionary = {}
+	var items: Array = []
+	if not tiles.has(src_bt) or src_indices.is_empty():
+		var n2: int = get_tile_count(src_bt)
+		for i in range(n2):
+			remap[i] = {"bt": src_bt, "idx": i}
+		return {"remap": remap, "items": items, "moved_indices": []}
+
+	var moved_set: Dictionary = {}
+	for i in src_indices:
+		moved_set[int(i)] = true
+	var moved_asc: Array = moved_set.keys()
+	moved_asc.sort()
+
+	var src_arr: Array = tiles[src_bt]
+	var src_count: int = src_arr.size()
+	var dst_count: int = get_tile_count(dst_bt_hint)
+
+	var dst_running: int = dst_count
+	var stay_running: int = 0
+	for old_i in range(src_count):
+		if moved_set.has(old_i):
+			remap[old_i] = {"bt": dst_bt_hint, "idx": dst_running}
+			dst_running += 1
+		else:
+			remap[old_i] = {"bt": src_bt, "idx": stay_running}
+			stay_running += 1
+
+	# Capture items in ascending src order (so remap idx values line up),
+	# then pop in descending order so earlier-index removals don't shift
+	# the indices we're still about to pop.
+	for old_i in moved_asc:
+		if old_i >= 0 and old_i < src_arr.size():
+			items.append(src_arr[old_i])
+	var moved_desc: Array = moved_asc.duplicate()
+	moved_desc.reverse()
+	for old_i in moved_desc:
+		if old_i >= 0 and old_i < src_arr.size():
+			src_arr.remove_at(old_i)
+
+	return {"remap": remap, "items": items, "moved_indices": moved_asc}
+
+
+## Add `image` as a brand-new actor at the next available index.
+##
+## Returns the new actor index. Caller is responsible for keeping its own
+## parallel `actor_names` / `actor_types` arrays in sync — those live in the
+## level editor, not the library.
+##
+## The image is wrapped as a single-frame "Idle" anim resized to
+## ACTOR_SPRITE_SIZE. This isn't a full-quality character sprite (no walk
+## cycle etc.) but it's enough to PLACE on the level and visually identify.
+func add_tile_as_actor(image: Image, actor_name: String, actor_type: String) -> int:
+	# Find next free actor index (actor_sprites is sparse; use max+1).
+	var next_idx: int = 0
+	for k in actor_sprites.keys():
+		if typeof(k) == TYPE_INT and int(k) >= next_idx:
+			next_idx = int(k) + 1
+	add_tile_as_actor_at(next_idx, image, actor_name, actor_type)
+	return next_idx
+
+
+## Same as `add_tile_as_actor` but writes at a caller-supplied index. Used
+## by the level editor so its `actor_names`/`actor_types` arrays stay in
+## lockstep with `actor_sprites` keys.
+func add_tile_as_actor_at(actor_index: int, image: Image, actor_name: String, actor_type: String) -> void:
+	var img := image
+	if img.get_width() != ACTOR_SPRITE_SIZE or img.get_height() != ACTOR_SPRITE_SIZE:
+		img = img.duplicate()
+		img.resize(ACTOR_SPRITE_SIZE, ACTOR_SPRITE_SIZE, Image.INTERPOLATE_NEAREST)
+	var tex := ImageTexture.create_from_image(img)
+	actor_sprites[actor_index] = {
+		"name": actor_name,
+		"type": actor_type,
+		"anims": {"Idle": [img]},
+		"frames": [img],
+		"image": img,
+		"texture": tex,
+	}
+
+
+## Remove `src_indices` from `tiles[src_bt]` and discard them entirely.
+## Returns the same remap dict shape as `bulk_move_tiles` so callers can
+## fix up references in placed cells. Removed tiles map to {"bt": -1,
+## "idx": -1} so callers can detect dead refs.
+func remove_tiles(src_bt: int, src_indices: Array) -> Dictionary:
+	var pop_result := _pop_tiles(src_bt, src_indices, src_bt)
+	# Rewrite the "moved" entries to sentinel — they're gone, not relocated.
+	var moved_set: Dictionary = {}
+	for i in pop_result["moved_indices"]:
+		moved_set[int(i)] = true
+	var remap: Dictionary = pop_result["remap"]
+	for k in remap.keys():
+		if moved_set.has(k):
+			remap[k] = {"bt": -1, "idx": -1}
+	return remap
 
 
 ## Get actor sprite texture (thumbnail of first frame)
@@ -431,6 +668,10 @@ func _generate_all_tiles() -> void:
 	tiles[BLOCK_SWITCH] = []
 	_gen_switch_tiles()
 
+	# Goal tiles (level-exit flag / door / castle gate)
+	tiles[BLOCK_GOAL] = []
+	_gen_goal_tiles()
+
 
 # ─── Barrier Tiles ───────────────────────────────────────────
 
@@ -671,6 +912,113 @@ func _gen_barrier_tiles() -> void:
 	_fill_rect(img, S - 2, 0, 2, S, Color(0.50, 0.52, 0.55))
 	_add_tile(BLOCK_BARRIER, "Chain Link", img)
 
+	# ─── Question Block ─────────────────────────────────────────
+	# Mario-style "?" block — solid barrier tile that, when bumped from
+	# below by the player, awards a coin (and turns gray / "used"). The
+	# `is_question` flag flows into the level builder so it knows to emit
+	# a QuestionArea Area2D and wire the bump signal.
+	img = _create_tile()
+	var qb_yellow = Color(0.95, 0.75, 0.18)
+	var qb_dark = Color(0.65, 0.45, 0.05)
+	var qb_hl = Color(1.0, 0.92, 0.45)
+	# Body
+	_fill_rect(img, 0, 0, S, S, qb_yellow)
+	# Beveled border
+	for x in range(S):
+		img.set_pixel(x, 0, qb_hl)
+		img.set_pixel(x, S - 1, qb_dark)
+	for y in range(S):
+		img.set_pixel(0, y, qb_hl)
+		img.set_pixel(S - 1, y, qb_dark)
+	# "?" glyph drawn as pixel pattern (centered ~5×9)
+	# rows are y from top; using TILE_SIZE 18, draw at x=6..12, y=3..14
+	var q = qb_dark
+	# Top arc
+	img.set_pixel(7, 3, q); img.set_pixel(8, 3, q); img.set_pixel(9, 3, q); img.set_pixel(10, 3, q)
+	img.set_pixel(6, 4, q); img.set_pixel(11, 4, q)
+	img.set_pixel(11, 5, q)
+	img.set_pixel(10, 6, q)
+	img.set_pixel(9, 7, q)
+	img.set_pixel(8, 8, q)
+	img.set_pixel(8, 9, q)
+	# Gap
+	# Dot
+	img.set_pixel(8, 12, q); img.set_pixel(8, 13, q)
+	# Corner studs (Mario brick stud look)
+	img.set_pixel(2, 2, qb_hl); img.set_pixel(S - 3, 2, qb_hl)
+	img.set_pixel(2, S - 3, qb_dark); img.set_pixel(S - 3, S - 3, qb_dark)
+	_add_tile_ex(BLOCK_BARRIER, "Question Block", img, {"is_question": true})
+
+	# Used (already-bumped) variant — gray, for visual reference. Authors
+	# can place this directly if they want pre-spent ?-blocks.
+	img = _create_tile()
+	var ub_gray = Color(0.55, 0.50, 0.45)
+	var ub_dark = Color(0.30, 0.27, 0.24)
+	var ub_hl = Color(0.75, 0.70, 0.65)
+	_fill_rect(img, 0, 0, S, S, ub_gray)
+	for x in range(S):
+		img.set_pixel(x, 0, ub_hl)
+		img.set_pixel(x, S - 1, ub_dark)
+	for y in range(S):
+		img.set_pixel(0, y, ub_hl)
+		img.set_pixel(S - 1, y, ub_dark)
+	# Bolt heads in corners
+	img.set_pixel(3, 3, ub_dark); img.set_pixel(4, 3, ub_dark)
+	img.set_pixel(S - 5, 3, ub_dark); img.set_pixel(S - 4, 3, ub_dark)
+	img.set_pixel(3, S - 4, ub_dark); img.set_pixel(4, S - 4, ub_dark)
+	img.set_pixel(S - 5, S - 4, ub_dark); img.set_pixel(S - 4, S - 4, ub_dark)
+	_add_tile(BLOCK_BARRIER, "Used Block", img)
+
+	# ─── One-Way Platforms ──────────────────────────────────────
+	# Thin platforms the player can jump up through but land on top of.
+	# The `one_way` flag flows through the builder to set
+	# `one_way_collision = true` on the tile's CollisionShape2D.
+	# Mario / Celeste / Hollow Knight all rely on these as a Tier-1
+	# platforming primitive.
+
+	# One-way wooden platform — visible top plank only, transparent below
+	img = _create_tile()
+	# Top plank
+	var ow_plank = Color(0.55, 0.38, 0.20)
+	_fill_rect(img, 0, 0, S, 5, ow_plank)
+	# Wood grain
+	for x in range(S):
+		if x % 4 == 0: img.set_pixel(x, 1, ow_plank.darkened(0.2))
+		if x % 5 == 2: img.set_pixel(x, 3, ow_plank.darkened(0.3))
+	# Top highlight
+	for x in range(S): img.set_pixel(x, 0, ow_plank.lightened(0.25))
+	# Bottom edge shadow
+	for x in range(S): img.set_pixel(x, 4, ow_plank.darkened(0.4))
+	_add_tile_ex(BLOCK_BARRIER, "One-Way Wood", img, {"one_way": true})
+
+	# One-way grass platform — green grassy thin platform
+	img = _create_tile()
+	var ow_dirt = Color(0.45, 0.30, 0.18)
+	var ow_grass = Color(0.30, 0.70, 0.25)
+	_fill_rect(img, 0, 0, S, 6, ow_dirt)
+	_fill_rect(img, 0, 0, S, 3, ow_grass)
+	# Grass blades highlight
+	for x in [1, 4, 8, 11, 14, 16]:
+		if x < S: img.set_pixel(x, 0, ow_grass.lightened(0.3))
+	# Bottom edge
+	for x in range(S): img.set_pixel(x, 5, ow_dirt.darkened(0.3))
+	_add_tile_ex(BLOCK_BARRIER, "One-Way Grass", img, {"one_way": true})
+
+	# One-way cloud platform — fluffy white cloud (kid-friendly)
+	img = _create_tile()
+	var ow_cloud = Color(0.95, 0.97, 1.0)
+	var ow_cloud_shadow = Color(0.75, 0.80, 0.90)
+	# Cloud body
+	_fill_rect(img, 1, 1, S - 2, 5, ow_cloud)
+	# Bumpy top
+	for x in [3, 7, 11, 14]:
+		if x < S - 1:
+			img.set_pixel(x, 0, ow_cloud)
+			img.set_pixel(x + 1, 0, ow_cloud)
+	# Bottom shadow
+	for x in range(1, S - 1): img.set_pixel(x, 5, ow_cloud_shadow)
+	_add_tile_ex(BLOCK_BARRIER, "One-Way Cloud", img, {"one_way": true})
+
 
 # ─── Ladder Tiles ────────────────────────────────────────────
 
@@ -765,6 +1113,88 @@ func _gen_ladder_tiles() -> void:
 	for y in [3, 9, 15]:
 		_fill_rect(img, 5, y, S - 10, 2, bamboo.darkened(0.1))
 	_add_tile(BLOCK_LADDER, "Bamboo Ladder", img)
+
+	# 7. Stone Steps — chunky carved stone steps
+	img = _create_tile()
+	var step_stone = Color(0.55, 0.55, 0.58)
+	for i in range(4):
+		var sy = i * 4 + 1
+		_fill_rect(img, 1, sy, S - 2, 3, step_stone)
+		_fill_rect(img, 1, sy, S - 2, 1, step_stone.lightened(0.2))
+		_fill_rect(img, 1, sy + 2, S - 2, 1, step_stone.darkened(0.25))
+	_add_tile(BLOCK_LADDER, "Stone Steps", img)
+
+	# 8. Bone Ladder — pale bone-rails with rib rungs
+	img = _create_tile()
+	var bone = Color(0.92, 0.90, 0.78)
+	_fill_rect(img, 2, 0, 2, S, bone)
+	_fill_rect(img, S - 4, 0, 2, S, bone)
+	# Knobby ends
+	_fill_circle(img, 3, 1, 2, bone)
+	_fill_circle(img, S - 3, 1, 2, bone)
+	_fill_circle(img, 3, S - 2, 2, bone)
+	_fill_circle(img, S - 3, S - 2, 2, bone)
+	for y in [4, 9, 14]:
+		_fill_rect(img, 4, y, S - 8, 1, bone.darkened(0.15))
+	_add_tile(BLOCK_LADDER, "Bone Ladder", img)
+
+	# 9. Tech Ladder — sci-fi cyan with glowing rungs
+	img = _create_tile()
+	var tech_dk = Color(0.18, 0.22, 0.28)
+	var tech_glow = Color(0.30, 0.85, 1.00)
+	_fill_rect(img, 2, 0, 3, S, tech_dk)
+	_fill_rect(img, S - 5, 0, 3, S, tech_dk)
+	for y in range(S):
+		img.set_pixel(3, y, tech_dk.lightened(0.2))
+		img.set_pixel(S - 4, y, tech_dk.lightened(0.2))
+	for y in [3, 8, 13]:
+		_fill_rect(img, 5, y, S - 10, 2, tech_glow)
+		_fill_rect(img, 5, y - 1, S - 10, 1, tech_glow.darkened(0.3))
+	_add_tile(BLOCK_LADDER, "Tech Ladder", img)
+
+	# 10. Web — spider web stretched corner-to-corner
+	img = _create_tile()
+	var web = Color(0.85, 0.85, 0.90, 0.95)
+	# Diagonals
+	for i in range(S):
+		img.set_pixel(i, i, web)
+		img.set_pixel(i, S - 1 - i, web)
+	# Vertical + horizontal centerlines
+	for i in range(S):
+		img.set_pixel(S / 2, i, web)
+		img.set_pixel(i, S / 2, web)
+	# Concentric rings
+	for r in [3, 6]:
+		_draw_circle_outline(img, S / 2, S / 2, r, web.darkened(0.05))
+	_add_tile(BLOCK_LADDER, "Spider Web", img)
+
+	# 11. Ice Ladder — translucent blue-white rungs
+	img = _create_tile()
+	var ice = Color(0.75, 0.92, 1.00)
+	_fill_rect(img, 3, 0, 2, S, ice)
+	_fill_rect(img, S - 5, 0, 2, S, ice)
+	for y in range(S):
+		img.set_pixel(3, y, ice.lightened(0.15))
+	for y in [3, 8, 13]:
+		_fill_rect(img, 3, y, S - 6, 2, ice.lightened(0.2))
+		# Sparkle
+		img.set_pixel(S / 2 + (1 if y % 2 == 0 else -1), y, Color(1, 1, 1))
+	_add_tile(BLOCK_LADDER, "Ice Ladder", img)
+
+	# 12. Climbing Net — woven rope mesh
+	img = _create_tile()
+	var net = Color(0.50, 0.40, 0.22)
+	# Horizontal strands
+	for y in [2, 6, 10, 14]:
+		_fill_rect(img, 0, y, S, 1, net)
+	# Vertical strands
+	for x in [2, 6, 10, 14]:
+		_fill_rect(img, x, 0, 1, S, net)
+	# Knots
+	for y in [2, 6, 10, 14]:
+		for x in [2, 6, 10, 14]:
+			img.set_pixel(x, y, net.lightened(0.15))
+	_add_tile(BLOCK_LADDER, "Climbing Net", img)
 
 
 # ─── Deadly Tiles ────────────────────────────────────────────
@@ -1123,6 +1553,69 @@ func _gen_background_tiles() -> void:
 		if pos.x + 1 < S: img.set_pixel(pos.x + 1, pos.y, Color(0.8, 0.8, 0.7))
 	_add_tile(BLOCK_BACKGROUND, "Starfield", img)
 
+	# 15. Cloudy Sky — soft pastel clouds on blue
+	img = _create_tile()
+	_fill_rect(img, 0, 0, S, S, Color(0.50, 0.78, 0.96))
+	var cloud_c = Color(1.0, 1.0, 1.0)
+	_fill_circle(img, 4, 6, 3, cloud_c)
+	_fill_circle(img, 7, 5, 3, cloud_c)
+	_fill_circle(img, 10, 7, 3, cloud_c)
+	_fill_circle(img, 14, 12, 2, cloud_c)
+	_fill_circle(img, S - 3, 11, 2, cloud_c)
+	_add_tile(BLOCK_BACKGROUND, "Cloudy Sky", img)
+
+	# 16. Distant Hills — rolling green hills under blue
+	img = _create_tile()
+	_fill_rect(img, 0, 0, S, S, Color(0.58, 0.82, 0.95))
+	var hill_a = Color(0.30, 0.55, 0.30)
+	var hill_b = Color(0.22, 0.45, 0.22)
+	# Far hills
+	for x in range(S):
+		var y_far = 10 - int(sin(float(x) * 0.5) * 1.5)
+		for y in range(y_far, S):
+			img.set_pixel(x, y, hill_b)
+	# Near hills
+	for x in range(S):
+		var y_near = 13 - int(sin(float(x) * 0.9 + 1.0) * 1.5)
+		for y in range(y_near, S):
+			img.set_pixel(x, y, hill_a)
+	_add_tile(BLOCK_BACKGROUND, "Hills", img)
+
+	# 17. Stained Glass — colorful diamond panes with lead lines
+	img = _create_tile()
+	_fill_rect(img, 0, 0, S, S, Color(0.10, 0.08, 0.12))
+	var panes = [
+		Color(0.80, 0.20, 0.30),
+		Color(0.20, 0.50, 0.85),
+		Color(0.30, 0.75, 0.40),
+		Color(0.95, 0.80, 0.25),
+	]
+	for y in range(S):
+		for x in range(S):
+			var idx = ((x / 4) + (y / 4)) % panes.size()
+			img.set_pixel(x, y, panes[idx])
+	# Lead grid lines
+	for i in range(S):
+		if i % 4 == 0:
+			for x in range(S): img.set_pixel(x, i, Color(0.10, 0.08, 0.12))
+			for y in range(S): img.set_pixel(i, y, Color(0.10, 0.08, 0.12))
+	_add_tile(BLOCK_BACKGROUND, "Stained Glass", img)
+
+	# 18. Cave Wall — dark mottled rock with cracks
+	img = _create_tile()
+	var cave_c = Color(0.18, 0.16, 0.20)
+	_fill_rect(img, 0, 0, S, S, cave_c)
+	# Rock specks
+	for i in range(40):
+		var rx = (i * 13 + 5) % S
+		var ry = (i * 7 + 3) % S
+		var bright = (i % 3 == 0)
+		img.set_pixel(rx, ry, cave_c.lightened(0.18) if bright else cave_c.darkened(0.4))
+	# Cracks
+	for j in range(0, S, 3):
+		img.set_pixel(j, (j * 2) % S, cave_c.darkened(0.6))
+	_add_tile(BLOCK_BACKGROUND, "Cave Wall", img)
+
 
 # ─── Teleport Tiles ──────────────────────────────────────────
 
@@ -1350,6 +1843,237 @@ func _gen_switch_tiles() -> void:
 	img.set_pixel(S / 2, 3, star_c.lightened(0.3))
 	img.set_pixel(S / 2 - 1, 6, star_c.lightened(0.2))
 	_add_tile(BLOCK_SWITCH, "Star", img)
+
+
+# ─── Goal Tiles (level exit / flagpole / castle gate) ────────
+#
+# When the player touches any Goal tile, the level immediately
+# completes and advances to the next level (or shows the Victory
+# screen on the last level). Multiple visual variants let creators
+# pick a theme — Mario-style flagpole, exit door, castle gate,
+# treasure star — without changing gameplay.
+
+func _gen_goal_tiles() -> void:
+	var S = TILE_SIZE
+	var base = BLOCK_COLORS[BLOCK_GOAL]  # gold
+
+	# 1. Flagpole — classic Mario-style: tall pole + golden flag
+	var img = _create_tile()
+	_fill_rect(img, 0, 0, S, S, Color(0.45, 0.70, 0.95))  # sky blue
+	# Pole
+	for y in range(S):
+		img.set_pixel(S / 2, y, Color(0.85, 0.85, 0.90))
+		img.set_pixel(S / 2 + 1, y, Color(0.65, 0.65, 0.72))
+	# Top knob
+	_fill_circle(img, S / 2, 1, 1, Color(0.95, 0.85, 0.20))
+	# Flag (triangular, points right)
+	for fy in range(3, 9):
+		var width = 9 - fy + 3  # tapered
+		for fx in range(width):
+			var px = S / 2 + 2 + fx
+			if px < S:
+				img.set_pixel(px, fy, base)
+	# Flag border
+	for fy in range(3, 9):
+		img.set_pixel(S / 2 + 2, fy, base.darkened(0.25))
+	_add_tile(BLOCK_GOAL, "Flagpole", img)
+
+	# 2. Exit Door — wooden door with golden trim
+	img = _create_tile()
+	_fill_rect(img, 0, 0, S, S, Color(0.10, 0.08, 0.12))
+	var door_brown = Color(0.45, 0.28, 0.15)
+	# Door body
+	_fill_rect(img, 3, 2, S - 6, S - 2, door_brown)
+	# Vertical planks
+	for y in range(2, S):
+		img.set_pixel(7, y, door_brown.darkened(0.3))
+		img.set_pixel(11, y, door_brown.darkened(0.3))
+	# Golden trim
+	for y in range(2, S):
+		img.set_pixel(3, y, base)
+		img.set_pixel(S - 4, y, base)
+	for x in range(3, S - 3):
+		img.set_pixel(x, 2, base)
+	# Door knob
+	img.set_pixel(S - 6, S / 2, base.lightened(0.3))
+	img.set_pixel(S - 6, S / 2 + 1, base.darkened(0.2))
+	# "EXIT" arrow (small)
+	for x in range(6, 12):
+		img.set_pixel(x, 5, base.lightened(0.4))
+	_add_tile(BLOCK_GOAL, "Exit Door", img)
+
+	# 3. Castle Gate — stone arch with golden portcullis
+	img = _create_tile()
+	_fill_rect(img, 0, 0, S, S, Color(0.10, 0.10, 0.14))
+	var stone = Color(0.55, 0.52, 0.50)
+	# Stone arch frame
+	_fill_rect(img, 1, 4, S - 2, S - 4, stone)
+	# Arch interior (dark)
+	_fill_rect(img, 4, 6, S - 8, S - 6, Color(0.08, 0.06, 0.10))
+	# Top of arch — rounded
+	for x in range(4, S - 4):
+		var dist = absi(x - S / 2)
+		if dist >= 4: img.set_pixel(x, 4, stone)
+	img.set_pixel(S / 2, 3, stone)
+	img.set_pixel(S / 2 - 1, 3, stone)
+	img.set_pixel(S / 2 + 1, 3, stone)
+	# Stone block lines
+	for x in range(2, S - 2):
+		img.set_pixel(x, 8, stone.darkened(0.3))
+		img.set_pixel(x, 12, stone.darkened(0.3))
+	# Golden portcullis bars
+	for y in range(6, S):
+		img.set_pixel(6, y, base)
+		img.set_pixel(9, y, base)
+		img.set_pixel(12, y, base)
+	# Crossbar
+	for x in range(4, S - 4):
+		img.set_pixel(x, 10, base.darkened(0.2))
+	_add_tile(BLOCK_GOAL, "Castle Gate", img)
+
+	# 4. Star Goal — a giant golden star (Super Mario style end-card)
+	img = _create_tile()
+	_fill_rect(img, 0, 0, S, S, Color(0.10, 0.05, 0.20))
+	var star_c = base
+	# 5-point star shape
+	for y in range(S):
+		for x in range(S):
+			var dx = x - S / 2
+			var dy = y - S / 2
+			var d = sqrt(float(dx * dx + dy * dy))
+			if d < 7.5:
+				# Star spikes via angle modulation
+				var ang = atan2(float(dy), float(dx))
+				var spike = sin(ang * 5.0 + PI / 2.0) * 1.5 + 6.0
+				if d <= spike:
+					img.set_pixel(x, y, star_c)
+				elif d <= spike + 1.0:
+					img.set_pixel(x, y, star_c.darkened(0.25))
+	# Center sparkle
+	img.set_pixel(S / 2, S / 2, Color(1.0, 1.0, 0.85))
+	img.set_pixel(S / 2 - 1, S / 2 - 1, star_c.lightened(0.3))
+	_add_tile(BLOCK_GOAL, "Star Goal", img)
+
+	# 5. Trophy — golden cup on pedestal
+	img = _create_tile()
+	_fill_rect(img, 0, 0, S, S, Color(0.08, 0.06, 0.12))
+	# Pedestal
+	_fill_rect(img, 4, S - 3, S - 8, 3, Color(0.35, 0.25, 0.18))
+	_fill_rect(img, 5, S - 5, S - 10, 2, Color(0.45, 0.32, 0.22))
+	# Cup body
+	_fill_rect(img, 5, 4, S - 10, 8, base)
+	# Cup rim highlight
+	for x in range(5, S - 5):
+		img.set_pixel(x, 4, base.lightened(0.35))
+	# Handles
+	img.set_pixel(4, 6, base.darkened(0.15))
+	img.set_pixel(4, 7, base.darkened(0.15))
+	img.set_pixel(S - 5, 6, base.darkened(0.15))
+	img.set_pixel(S - 5, 7, base.darkened(0.15))
+	# Stem
+	_fill_rect(img, S / 2 - 1, 12, 2, 2, base.darkened(0.2))
+	# Sparkle
+	img.set_pixel(S / 2, 6, Color(1.0, 1.0, 0.9))
+	_add_tile(BLOCK_GOAL, "Trophy", img)
+
+	# 6. Treasure Chest — wooden chest with golden lock
+	img = _create_tile()
+	_fill_rect(img, 0, 0, S, S, Color(0.10, 0.07, 0.10))
+	var chest_w = Color(0.50, 0.32, 0.16)
+	# Chest body
+	_fill_rect(img, 2, 7, S - 4, S - 8, chest_w)
+	# Lid
+	_fill_rect(img, 2, 4, S - 4, 4, chest_w.lightened(0.15))
+	# Plank lines
+	for y in [9, 12, 15]:
+		_fill_rect(img, 2, y, S - 4, 1, chest_w.darkened(0.3))
+	# Iron bands
+	for x in [3, S - 4]:
+		_fill_rect(img, x, 4, 1, S - 5, base.darkened(0.2))
+	# Lock
+	_fill_rect(img, S / 2 - 1, 6, 3, 4, base)
+	img.set_pixel(S / 2, 7, base.darkened(0.3))
+	# Sparkles around chest
+	img.set_pixel(2, 3, base.lightened(0.4))
+	img.set_pixel(S - 3, 2, base.lightened(0.4))
+	_add_tile(BLOCK_GOAL, "Treasure Chest", img)
+
+	# 7. Crystal — large faceted gem
+	img = _create_tile()
+	_fill_rect(img, 0, 0, S, S, Color(0.06, 0.05, 0.12))
+	var crystal = Color(0.45, 0.85, 1.00)
+	# Diamond/crystal shape
+	for y in range(2, S - 2):
+		var half = 0
+		if y < S / 2: half = y - 1
+		else: half = (S - 3) - y
+		half = clampi(half, 1, 7)
+		for dx in range(-half, half + 1):
+			var px = S / 2 + dx
+			if px >= 0 and px < S:
+				var c = crystal
+				if dx < 0: c = crystal.lightened(0.2)
+				elif dx > 1: c = crystal.darkened(0.25)
+				img.set_pixel(px, y, c)
+	# Highlight
+	img.set_pixel(S / 2 - 1, 4, Color(1, 1, 1))
+	img.set_pixel(S / 2, 5, Color(1, 1, 1, 0.8))
+	_add_tile(BLOCK_GOAL, "Crystal", img)
+
+	# 8. Heart Goal — pixel-art heart (princess-rescued vibe)
+	img = _create_tile()
+	_fill_rect(img, 0, 0, S, S, Color(0.10, 0.05, 0.12))
+	var heart = Color(0.95, 0.25, 0.40)
+	# Two top humps
+	_fill_circle(img, 5, 6, 3, heart)
+	_fill_circle(img, S - 6, 6, 3, heart)
+	# Bottom triangle
+	for y in range(6, S - 2):
+		var w = (S - 4) - (y - 6) * 2
+		var x0 = (S - w) / 2
+		_fill_rect(img, x0, y, w, 1, heart)
+	# Highlight
+	img.set_pixel(4, 5, heart.lightened(0.3))
+	img.set_pixel(5, 4, heart.lightened(0.3))
+	_add_tile(BLOCK_GOAL, "Heart", img)
+
+	# 9. Crown — royal golden crown
+	img = _create_tile()
+	_fill_rect(img, 0, 0, S, S, Color(0.10, 0.07, 0.12))
+	# Band
+	_fill_rect(img, 2, 11, S - 4, 4, base)
+	# Three spikes
+	for spike_x in [3, S / 2 - 1, S - 5]:
+		for h in range(5):
+			var w = 3 - h / 2
+			_fill_rect(img, spike_x, 11 - h - 1, w, 1, base)
+	# Gem
+	img.set_pixel(S / 2, 13, Color(0.95, 0.20, 0.25))
+	img.set_pixel(S / 2 - 1, 13, base.lightened(0.3))
+	img.set_pixel(S / 2 + 1, 13, base.lightened(0.3))
+	# Top tip jewels
+	img.set_pixel(4, 7, Color(0.30, 0.85, 1.00))
+	img.set_pixel(S / 2, 6, Color(0.95, 0.20, 0.25))
+	img.set_pixel(S - 4, 7, Color(0.45, 0.95, 0.40))
+	_add_tile(BLOCK_GOAL, "Crown", img)
+
+	# 10. Portal Goal — swirling teal-gold gateway
+	img = _create_tile()
+	_fill_rect(img, 0, 0, S, S, Color(0.05, 0.05, 0.10))
+	var swirl_a = Color(0.20, 0.85, 0.85)
+	var swirl_b = base
+	# Concentric rings, alternating
+	for r in range(7, 0, -1):
+		var c = swirl_a if r % 2 == 0 else swirl_b
+		_draw_circle_outline(img, S / 2, S / 2, r, c)
+	# Center bright
+	img.set_pixel(S / 2, S / 2, Color(1, 1, 0.85))
+	# Sparkle dots
+	img.set_pixel(3, 3, swirl_b.lightened(0.4))
+	img.set_pixel(S - 4, S - 4, swirl_b.lightened(0.4))
+	img.set_pixel(S - 4, 3, swirl_a.lightened(0.3))
+	img.set_pixel(3, S - 4, swirl_a.lightened(0.3))
+	_add_tile(BLOCK_GOAL, "Portal Goal", img)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -2154,6 +2878,17 @@ func _add_tile(block_type: int, name: String, img: Image) -> void:
 	tiles[block_type].append({"name": name, "image": img, "texture": tex})
 
 
+## Variant of _add_tile that accepts extra metadata flags (e.g. one_way).
+## Keeps the common path (name + image) zero-overhead while letting
+## special tiles like One-Way Platforms carry runtime hints.
+func _add_tile_ex(block_type: int, name: String, img: Image, opts: Dictionary) -> void:
+	var tex = ImageTexture.create_from_image(img)
+	var entry := {"name": name, "image": img, "texture": tex}
+	for k in opts.keys():
+		entry[k] = opts[k]
+	tiles[block_type].append(entry)
+
+
 func _fill_rect(img: Image, x: int, y: int, w: int, h: int, color: Color) -> void:
 	for py in range(maxi(0, y), mini(img.get_height(), y + h)):
 		for px in range(maxi(0, x), mini(img.get_width(), x + w)):
@@ -2258,8 +2993,11 @@ func get_data() -> Dictionary:
 			"name": spr.get("name", ""),
 			"type": spr.get("type", ""),
 			"anims_data": anims_data,
+			"frame_size": int(spr.get("frame_size", 0)),
 		}
 	data["actor_sprites"] = actor_data
+	data["tile_render_size"] = tile_render_size
+	data["actor_frame_size"] = actor_frame_size
 	return data
 
 
@@ -2274,6 +3012,16 @@ func set_data(data: Dictionary) -> void:
 	if not _initialized:
 		_generate_all_tiles()
 		_initialized = true
+
+	# Restore project-level render sizes (if present)
+	if data.has("tile_render_size"):
+		var trs := int(data["tile_render_size"])
+		if trs >= 4 and trs <= 512:
+			tile_render_size = trs
+	if data.has("actor_frame_size"):
+		var afs := int(data["actor_frame_size"])
+		if afs >= 4 and afs <= 512:
+			actor_frame_size = afs
 
 	if data.has("tiles"):
 		var tile_data = data["tiles"]
@@ -2373,6 +3121,9 @@ func set_data(data: Dictionary) -> void:
 				"image": first_img,
 				"texture": tex,
 			}
+			var fs_override := int(sd.get("frame_size", 0))
+			if fs_override > 0:
+				actor_sprites[ai]["frame_size"] = fs_override
 
 
 # ═══════════════════════════════════════════════════════════════

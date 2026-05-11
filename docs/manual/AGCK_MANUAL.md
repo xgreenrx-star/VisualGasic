@@ -100,6 +100,19 @@ These settings control the physical behavior of all actors in the game.
 | **Score Color** | White | HUD text color |
 | **Background Color** | Black | Default background color |
 
+### HUD
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| **Show Score** | On | Emit the Score label and update it from `AddScore()` |
+| **Show Lives** | On | Emit the Lives label and update it from `LoseLife()` |
+| **Show Level** | On | Emit the Level label (current level number) |
+| **Show Coins** | On | Emit the Coins label and update it from `AddCoin()` (every 100 coins grants a bonus life) |
+| **Debug Overlay** | Off | Show the runtime debug overlay |
+| **Auto Save** | Off | Periodically auto-save runtime state |
+
+Each HUD label is independently emitted; disabled labels are not added to `Main.tscn` at all.
+
 ### FX Channels
 
 AGCK provides four effect channels (A–D) that actors can trigger.  Each channel has a configurable duration.
@@ -363,6 +376,11 @@ Paint blocks by selecting a type from the palette and clicking/dragging on the g
 | **Background** | 🟦 | Blue | Visual-only decoration — no collision effect |
 | **Teleport** | 🌀 | Purple | Warps actors to another location (if actor detects teleports) |
 | **Switch** | ⚡ | Yellow | Special trigger block — activates game events |
+| **Goal** | 🏁 | Gold | Level-exit tile — touching one calls `LevelComplete()` (advances to next level, or shows the Victory overlay on the last level). Variants: Flagpole, Exit Door, Castle Gate, Star Goal, Trophy. |
+
+The **Barrier** type also includes specialty variants:
+- **Question Block** / **Used Block** — Mario-style ?-block. Player jumps up into it from below to spawn a coin (`AddCoin(1)` + `AddScore(50)`); the block then visually grays out and is consumed.
+- **One-Way Wood / Grass / Cloud** — pass-through-from-below platforms. The player can jump up through them and land on top.
 
 ### Painting Controls
 
@@ -370,6 +388,17 @@ Paint blocks by selecting a type from the palette and clicking/dragging on the g
 |--------|-------|-------------|
 | Paint blocks | Left-click / drag | Place the selected block type on the grid |
 | Place actor | Right-click (with actor selected) | Position an actor at the clicked cell |
+
+### Tile Import & Categorization
+
+The tile palette includes a workflow for bringing your own art in and assigning it to the right category.
+
+- **📂 Import** — load one or more PNGs from disk. Wider-than-tall sheets are auto-sliced into individual tiles. The **Into:** dropdown next to Import controls which block-type bucket new tiles join. Tiles are auto-resized to 18×18 with nearest-neighbor scaling.
+- **🌐 Online…** — open the in-editor OpenGameArt browser to search free CC0/CC-BY game art and auto-download tiles into the current bucket.
+- **NEW badge** — tiles added by the most recent import wave display a small orange "NEW" label in the top-right corner of their thumbnail. The label clears automatically on the next import wave or when the tile is moved to another category.
+- **✎ Move** (move-mode) — click to flip the palette into multi-select. Click tiles to toggle them; **click + drag** across tiles to drag-paint a selection (every tile the cursor enters while the left mouse is held takes the same on/off state as the tile you started on). Use the **All** and **Clear** buttons to select or deselect everything in the current category at once.
+- **→ Change… (N)** — opens the Change Category dialog. Pick a destination from the dropdown (any tile bucket *or* any actor/enemy type) and confirm. The **Update already-placed cells** checkbox controls whether existing cells in every level are remapped to the new bucket (tile-to-tile) or erased. Tile-to-actor moves always clear placed cells because actors live in a separate per-level list. Each moved tile becomes one independent actor of the chosen type, with its original tile name carried over.
+- **Palette layout** — the palette is a responsive grid that wraps up to 8 columns wide depending on dock width; a vertical scrollbar with a visible grabber engages automatically when the tile list overflows.
 
 ### Actor Placement
 
@@ -555,7 +584,7 @@ The VisualGasic AGCK plugin is inspired by the 1988 Commodore 64 *Arcade Game Co
 | **Actor types** | 5 (Player, Drone, Missile, Sentry, Computer) | 5 (same as original) |
 | **Levels** | ~25 screens | 50 levels |
 | **Sound** | SID chip (3 voices) | 2 voices + filter (synthesized) |
-| **Block types** | 5 (Barrier, Ladder, Deadly, Background, Teleport) | 7 (+Switch, +Empty as explicit type) |
+| **Block types** | 5 (Barrier, Ladder, Deadly, Background, Teleport) | 8 (+Switch, +Goal, +Empty as explicit type) |
 | **Grid size** | 20×12 | 20×12 (identical) |
 | **Screen modes** | Wrap, Reflect, Continual | Wrap, Reflect, Continual (identical) |
 | **Physics** | Gravity, Inertia, Friction, Elasticity | Gravity (4 directions), Inertia, Friction, Elasticity |
@@ -577,6 +606,14 @@ The VisualGasic AGCK plugin is inspired by the 1988 Commodore 64 *Arcade Game Co
 - **Cross-platform export** via Godot's export system
 - **Integration with VG Sprite Editor** for animation frames
 - **Switch block type** for interactive level triggers
+- **Goal block type** with 5 variants (Flagpole, Exit Door, Castle Gate, Star, Trophy) — wires up multi-level victory automatically
+- **Modern platformer feel** in the generated player physics: coyote-time (0.1 s), jump buffer (0.1 s), variable jump height (release-to-cut), run button (`agck_run` — Shift / X / Square, 1.7× speed), stomp-to-kill enemies
+- **Mario-style ?-blocks** — bump from below to spawn coins
+- **One-Way Platforms** — jump up through, land on top (Wood / Grass / Cloud variants)
+- **Coins counter** with bonus life every 100 coins
+- **Ledge-aware enemy AI** — ground enemies turn around at platform edges instead of walking off
+- **Tile-import workflow** — drag-and-drop PNG sheets get auto-sliced into 18×18 tiles, dropped into the bucket of your choice via the **Into:** dropdown, badged with a NEW watermark, and (via move-mode) re-categorized in bulk — including a tile-to-actor conversion that spawns one new actor per selected tile
+- **In-editor OpenGameArt browser** — search free CC0/CC-BY assets and auto-download into the current tile bucket without leaving AGCK
 - **Build to standalone executable** (original required the AGCK software to play)
 
 ---

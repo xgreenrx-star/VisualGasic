@@ -4,6 +4,11 @@
 ## All assets on OGA are free (CC0, CC-BY, CC-BY-SA, GPL).
 extends RefCounted
 
+## Emitted after a successful download. `local_path` is the saved file,
+## `was_extracted` is true when a ZIP was unpacked. Listeners (e.g. the AGCK
+## actor editor) connect to this to auto-import the asset.
+signal asset_downloaded(local_path: String, was_extracted: bool)
+
 # ─── Configuration ────────────────────────────────────────────────────────────
 const OGA_BASE := "https://opengameart.org"
 const DOWNLOAD_DIR_ART := "res://assets/art/"
@@ -38,10 +43,24 @@ var _selected_row: PanelContainer = null
 var _kid_mode := false
 var _preview_images: Dictionary = {}  # index → TextureRect (for lazy image loading)
 var _img_http_queue: Array = []
-var _img_http: HTTPRequest = null
+const MAX_PARALLEL_THUMBS := 4
+const OGA_DONATE_URL := "https://opengameart.org/donate"
+var _img_http_active: int = 0
 var _download_stage := ""  # "page" | "file"
 var _download_item: Dictionary = {}
 var _download_url := ""
+
+# Big preview modal + slideshow
+var _preview_dialog: AcceptDialog = null
+var _preview_tex_rect: TextureRect = null
+var _preview_status_lbl: Label = null
+var _preview_item: Dictionary = {}
+var _preview_http: HTTPRequest = null
+var _slideshow_urls: Array = []
+var _slideshow_textures: Array = []
+var _slideshow_index: int = 0
+var _slideshow_timer: Timer = null
+var _slideshow_counter_lbl: Label = null
 
 # ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -106,6 +125,7 @@ func _show_browser() -> void:
 	for type_name in ART_TYPES:
 		_type_option.add_item(type_name, ti)
 		ti += 1
+	_style_dark_option(_type_option)
 	search_row.add_child(_type_option)
 
 	if not _kid_mode:
@@ -122,6 +142,7 @@ func _show_browser() -> void:
 		_license_option.add_item("CC0 (Public Domain)", 1)
 		_license_option.add_item("CC-BY", 2)
 		_license_option.add_item("CC-BY-SA", 3)
+		_style_dark_option(_license_option)
 		search_row.add_child(_license_option)
 
 	var btn_search := Button.new()
@@ -165,6 +186,7 @@ func _show_browser() -> void:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.custom_minimum_size = Vector2(0, 440)
+	_style_dark_scroll(scroll)
 	vbox.add_child(scroll)
 
 	var scroll_panel := PanelContainer.new()
@@ -367,36 +389,64 @@ func _on_search_response(result: int, response_code: int, _headers: PackedString
 
 
 func _load_next_thumbnail() -> void:
-	if _img_http_queue.is_empty():
-		return
-	var entry: Dictionary = _img_http_queue.pop_front()
+	while _img_http_active < MAX_PARALLEL_THUMBS and not _img_http_queue.is_empty():
+		var entry: Dictionary = _img_http_queue.pop_front()
+		_dispatch_thumbnail(entry)
+
+
+func _dispatch_thumbnail(entry: Dictionary) -> void:
 	var idx: int = entry["index"]
 	var url: String = entry["url"]
 	if not url.begins_with("http"):
 		url = OGA_BASE + url
-
-	if _img_http != null and is_instance_valid(_img_http):
-		_img_http.queue_free()
-	_img_http = HTTPRequest.new()
+	if not _preview_images.has(idx) or not is_instance_valid(_preview_images[idx]):
+		_load_next_thumbnail()
+		return
+	if _host == null or not is_instance_valid(_host):
+		return
+	var req := HTTPRequest.new()
+	_host.add_child(req)
+	_img_http_active += 1
 	var captured_idx := idx
-	_img_http.request_completed.connect(func(res, code, _h, img_body):
+	var captured_req := req
+	req.request_completed.connect(func(res, code, _h, img_body):
 		if res == HTTPRequest.RESULT_SUCCESS and code == 200 and img_body.size() > 100:
-			var img := Image.new()
-			var load_err := img.load_png_from_buffer(img_body)
-			if load_err != OK:
-				load_err = img.load_jpg_from_buffer(img_body)
-			if load_err != OK:
-				load_err = img.load_webp_from_buffer(img_body)
-			if load_err == OK and _preview_images.has(captured_idx):
-				var tex := ImageTexture.create_from_image(img)
+			var img: Image = _decode_image_buffer(img_body)
+			if img != null and _preview_images.has(captured_idx):
 				var tr: TextureRect = _preview_images[captured_idx]
 				if is_instance_valid(tr):
-					tr.texture = tex
-		# Load next
+					tr.texture = ImageTexture.create_from_image(img)
+		if is_instance_valid(captured_req):
+			captured_req.queue_free()
+		_img_http_active = max(0, _img_http_active - 1)
 		_load_next_thumbnail()
 	)
-	_host.add_child(_img_http)
-	_img_http.request(url)
+	var req_err := req.request(url)
+	if req_err != OK:
+		if is_instance_valid(req):
+			req.queue_free()
+		_img_http_active = max(0, _img_http_active - 1)
+		_load_next_thumbnail()
+
+
+# Sniff image format from magic bytes; only call the matching loader.
+func _decode_image_buffer(body: PackedByteArray):
+	if body == null or body.size() < 12:
+		return null
+	var img := Image.new()
+	var err := ERR_INVALID_DATA
+	if body[0] == 0x89 and body[1] == 0x50 and body[2] == 0x4E and body[3] == 0x47:
+		err = img.load_png_from_buffer(body)
+	elif body[0] == 0xFF and body[1] == 0xD8 and body[2] == 0xFF:
+		err = img.load_jpg_from_buffer(body)
+	elif body[0] == 0x52 and body[1] == 0x49 and body[2] == 0x46 and body[3] == 0x46 \
+			and body[8] == 0x57 and body[9] == 0x45 and body[10] == 0x42 and body[11] == 0x50:
+		err = img.load_webp_from_buffer(body)
+	else:
+		return null
+	if err != OK:
+		return null
+	return img
 
 
 # ─── HTML Parser ─────────────────────────────────────────────────────────────
@@ -474,12 +524,16 @@ func _parse_oga_results(html: String) -> Array:
 func _row_input(event: InputEvent, index: int, panel: PanelContainer) -> void:
 	if not (event is InputEventMouseButton and event.pressed):
 		return
-	if event.button_index == MOUSE_BUTTON_RIGHT or (event.button_index == MOUSE_BUTTON_LEFT and event.double_click):
-		# Open on OGA
+	# Double-click → large preview modal (with slideshow + download).
+	if event.button_index == MOUSE_BUTTON_LEFT and event.double_click:
+		if index >= 0 and index < _items.size():
+			_show_big_preview(index)
+		return
+	# Right-click → open page on opengameart.org.
+	if event.button_index == MOUSE_BUTTON_RIGHT:
 		if index >= 0 and index < _items.size():
 			OS.shell_open(OGA_BASE + _items[index].get("url", ""))
-		if event.button_index == MOUSE_BUTTON_RIGHT:
-			return
+		return
 	if event.button_index == MOUSE_BUTTON_LEFT:
 		if _selected_row != null and is_instance_valid(_selected_row):
 			var old := StyleBoxFlat.new()
@@ -583,6 +637,7 @@ func _on_download_request_completed(result: int, response_code: int, _headers: P
 			_set_status("✅ Downloaded and extracted to " + save_path.get_base_dir())
 		else:
 			_set_status("✅ Downloaded to " + save_path)
+		asset_downloaded.emit(save_path, extracted)
 
 
 func _extract_download_links(html: String) -> Array:
@@ -745,6 +800,7 @@ func _clear_results() -> void:
 	_selected_row = null
 	_preview_images.clear()
 	_img_http_queue.clear()
+	_img_http_active = 0
 
 
 func _add_message(msg: String) -> void:
@@ -760,3 +816,416 @@ func _add_message(msg: String) -> void:
 func _set_status(msg: String) -> void:
 	if _status_label and is_instance_valid(_status_label):
 		_status_label.text = msg
+	if _preview_status_lbl and is_instance_valid(_preview_status_lbl):
+		_preview_status_lbl.text = msg
+
+
+# ─── Big preview modal ──────────────────────────────────────────────────────
+# Double-click a row → larger preview + slideshow + Download + Donate buttons.
+
+func _show_big_preview(index: int) -> void:
+	if index < 0 or index >= _items.size():
+		return
+	_preview_item = _items[index]
+	if _preview_dialog and is_instance_valid(_preview_dialog):
+		_preview_dialog.queue_free()
+	_preview_dialog = AcceptDialog.new()
+	_preview_dialog.title = "🖼  " + str(_preview_item.get("title", "Preview"))
+	_preview_dialog.min_size = Vector2(560, 580)
+	_preview_dialog.ok_button_text = "Close"
+	# Don't request exclusivity — _dialog already has it on the same parent.
+	var cleanup := func():
+		if _preview_http != null and is_instance_valid(_preview_http):
+			_preview_http.cancel_request()
+			_preview_http.queue_free()
+			_preview_http = null
+		if _slideshow_timer != null and is_instance_valid(_slideshow_timer):
+			_slideshow_timer.stop()
+			_slideshow_timer.queue_free()
+			_slideshow_timer = null
+		_slideshow_urls.clear()
+		_slideshow_textures.clear()
+		_slideshow_index = 0
+		_slideshow_counter_lbl = null
+		if _preview_dialog != null and is_instance_valid(_preview_dialog):
+			_preview_dialog.queue_free()
+		_preview_dialog = null
+		_preview_tex_rect = null
+		_preview_status_lbl = null
+	_preview_dialog.confirmed.connect(cleanup)
+	_preview_dialog.canceled.connect(cleanup)
+	# Parent under the main dialog so we don't conflict with its exclusive child.
+	if _dialog != null and is_instance_valid(_dialog):
+		_dialog.add_child(_preview_dialog)
+	else:
+		_host.add_child(_preview_dialog)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 8)
+	_preview_dialog.add_child(vb)
+
+	var name_lbl := Label.new()
+	name_lbl.text = str(_preview_item.get("title", ""))
+	name_lbl.add_theme_font_size_override("font_size", 16)
+	name_lbl.add_theme_color_override("font_color", Color(0.92, 0.92, 0.95))
+	vb.add_child(name_lbl)
+
+	var meta := Label.new()
+	meta.text = "OpenGameArt.org · CC-licensed"
+	meta.add_theme_font_size_override("font_size", 11)
+	meta.add_theme_color_override("font_color", Color(0.62, 0.62, 0.70))
+	vb.add_child(meta)
+
+	_preview_tex_rect = TextureRect.new()
+	_preview_tex_rect.custom_minimum_size = Vector2(520, 380)
+	_preview_tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_preview_tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	vb.add_child(_preview_tex_rect)
+
+	# Reuse already-loaded thumbnail if available.
+	if _preview_images.has(index):
+		var tr_cached = _preview_images[index]
+		if tr_cached != null and is_instance_valid(tr_cached) and tr_cached.texture != null:
+			_preview_tex_rect.texture = tr_cached.texture
+
+	# Slideshow controls (◀  N / M  ▶)
+	var nav_row := HBoxContainer.new()
+	nav_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	nav_row.add_theme_constant_override("separation", 12)
+	vb.add_child(nav_row)
+	var prev_btn := Button.new()
+	prev_btn.text = "◀"
+	prev_btn.tooltip_text = "Previous sample"
+	prev_btn.pressed.connect(func(): _slideshow_step(-1))
+	nav_row.add_child(prev_btn)
+	_slideshow_counter_lbl = Label.new()
+	_slideshow_counter_lbl.text = "loading…"
+	_slideshow_counter_lbl.add_theme_font_size_override("font_size", 11)
+	_slideshow_counter_lbl.add_theme_color_override("font_color", Color(0.65, 0.65, 0.72))
+	_slideshow_counter_lbl.custom_minimum_size = Vector2(60, 0)
+	_slideshow_counter_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nav_row.add_child(_slideshow_counter_lbl)
+	var next_btn := Button.new()
+	next_btn.text = "▶"
+	next_btn.tooltip_text = "Next sample"
+	next_btn.pressed.connect(func(): _slideshow_step(1))
+	nav_row.add_child(next_btn)
+
+	# Buttons row
+	var btns := HBoxContainer.new()
+	btns.add_theme_constant_override("separation", 8)
+	vb.add_child(btns)
+
+	var dl_btn := Button.new()
+	dl_btn.text = "⬇  Download to res://assets/"
+	dl_btn.add_theme_font_size_override("font_size", 13)
+	dl_btn.pressed.connect(func():
+		_selected_index = index
+		if _preview_status_lbl and is_instance_valid(_preview_status_lbl):
+			_preview_status_lbl.text = "⏳  Resolving direct download URL…"
+		_download_selected_asset()
+	)
+	btns.add_child(dl_btn)
+
+	var open_btn := Button.new()
+	open_btn.text = "🌐  Open page on OpenGameArt"
+	open_btn.add_theme_font_size_override("font_size", 12)
+	open_btn.pressed.connect(func():
+		var u: String = str(_preview_item.get("url", ""))
+		if u != "":
+			OS.shell_open(u if u.begins_with("http") else (OGA_BASE + u))
+	)
+	btns.add_child(open_btn)
+
+	var donate_btn := Button.new()
+	donate_btn.text = "❤  Donate to OpenGameArt"
+	donate_btn.tooltip_text = "Open OpenGameArt's donation page in your browser. OGA is community-run; donations keep the site online."
+	donate_btn.add_theme_font_size_override("font_size", 12)
+	donate_btn.add_theme_color_override("font_color", Color(1.0, 0.78, 0.42))
+	donate_btn.pressed.connect(func(): OS.shell_open(OGA_DONATE_URL))
+	btns.add_child(donate_btn)
+
+	_preview_status_lbl = Label.new()
+	_preview_status_lbl.text = ""
+	_preview_status_lbl.add_theme_font_size_override("font_size", 11)
+	_preview_status_lbl.add_theme_color_override("font_color", Color(0.6, 0.8, 0.6))
+	_preview_status_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_preview_status_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_child(_preview_status_lbl)
+
+	_preview_dialog.popup_centered()
+	# Fetch the OGA page to harvest all preview images for the slideshow.
+	var item_url: String = str(_preview_item.get("url", ""))
+	if item_url != "":
+		var page_url := item_url if item_url.begins_with("http") else (OGA_BASE + item_url)
+		_fetch_oga_page_for_slideshow(page_url)
+
+
+func _fetch_oga_page_for_slideshow(page_url: String) -> void:
+	if _preview_http != null and is_instance_valid(_preview_http):
+		_preview_http.queue_free()
+	_preview_http = HTTPRequest.new()
+	_host.add_child(_preview_http)
+	_preview_http.request_completed.connect(func(res, code, _h, body):
+		if res == HTTPRequest.RESULT_SUCCESS and code == 200 and body.size() > 256:
+			var html: String = body.get_string_from_utf8()
+			var imgs := _extract_oga_preview_urls(html)
+			if not imgs.is_empty():
+				_start_slideshow_with_urls(imgs)
+	)
+	_preview_http.request(page_url)
+
+
+func _extract_oga_preview_urls(html: String) -> Array:
+	# OGA serves the actual artwork files at /sites/default/files/<name>.<ext>
+	# (no /styles/ thumbnail path, no /js/ scripts, no /pictures/ user avatars).
+	# We collect <img src="…"> hits matching that pattern, deduped, in order.
+	var urls: Array = []
+	var seen := {}
+	var rx := RegEx.new()
+	if rx.compile("(?:src|content)=[\"']([^\"']+sites/default/files/[^\"']+\\.(?:png|jpg|jpeg|webp|gif))[\"']") != OK:
+		return urls
+	for m in rx.search_all(html):
+		var u: String = m.get_string(1)
+		# Skip thumbnail variants and user avatars.
+		if "/styles/" in u or "/pictures/" in u:
+			continue
+		if not u.begins_with("http"):
+			u = OGA_BASE + u
+		if not seen.has(u):
+			seen[u] = true
+			urls.append(u)
+	# Also grab og:image as a fallback first slide (highest-priority preview).
+	var og_rx := RegEx.new()
+	if og_rx.compile("<meta[^>]+property=[\"']og:image[\"'][^>]+content=[\"']([^\"']+)[\"']") == OK:
+		var og := og_rx.search(html)
+		if og != null:
+			var og_url: String = og.get_string(1)
+			if og_url != "" and not seen.has(og_url):
+				urls.insert(0, og_url)
+				seen[og_url] = true
+	return urls
+
+
+func _start_slideshow_with_urls(urls: Array) -> void:
+	_slideshow_urls = urls.duplicate()
+	_slideshow_textures.clear()
+	for _i in range(_slideshow_urls.size()):
+		_slideshow_textures.append(null)
+	_slideshow_index = 0
+	_update_slideshow_counter()
+	for i in range(_slideshow_urls.size()):
+		_fetch_slideshow_slide(i, _slideshow_urls[i])
+	# Manual navigation only — no auto-advance. Use ◀ / ▶ to browse samples.
+	if _slideshow_timer != null and is_instance_valid(_slideshow_timer):
+		_slideshow_timer.stop()
+		_slideshow_timer.queue_free()
+		_slideshow_timer = null
+
+
+func _fetch_slideshow_slide(slot: int, url: String) -> void:
+	if _host == null or not is_instance_valid(_host):
+		return
+	var req := HTTPRequest.new()
+	_host.add_child(req)
+	var captured_slot := slot
+	var captured_req := req
+	req.request_completed.connect(func(res, code, _h, body):
+		if res == HTTPRequest.RESULT_SUCCESS and code >= 200 and code < 400 and body.size() > 64:
+			var img: Image = _decode_image_buffer(body)
+			if img != null and captured_slot < _slideshow_textures.size():
+				_slideshow_textures[captured_slot] = ImageTexture.create_from_image(img)
+				if captured_slot == _slideshow_index and is_instance_valid(_preview_tex_rect):
+					_preview_tex_rect.texture = _slideshow_textures[captured_slot]
+				elif is_instance_valid(_preview_tex_rect) and _preview_tex_rect.texture == null:
+					_slideshow_index = captured_slot
+					_preview_tex_rect.texture = _slideshow_textures[captured_slot]
+				_update_slideshow_counter()
+		if is_instance_valid(captured_req):
+			captured_req.queue_free()
+	)
+	var e := req.request(url)
+	if e != OK and is_instance_valid(req):
+		req.queue_free()
+
+
+func _slideshow_step(direction: int) -> void:
+	if _slideshow_textures.is_empty():
+		return
+	var n: int = _slideshow_textures.size()
+	for _i in range(n):
+		_slideshow_index = (_slideshow_index + direction + n) % n
+		if _slideshow_textures[_slideshow_index] != null:
+			break
+	if _slideshow_textures[_slideshow_index] != null and is_instance_valid(_preview_tex_rect):
+		_preview_tex_rect.texture = _slideshow_textures[_slideshow_index]
+	_update_slideshow_counter()
+
+
+func _update_slideshow_counter() -> void:
+	if not is_instance_valid(_slideshow_counter_lbl):
+		return
+	var loaded := 0
+	for t in _slideshow_textures:
+		if t != null:
+			loaded += 1
+	if loaded == 0:
+		_slideshow_counter_lbl.text = "loading…"
+		return
+	var pos := 0
+	for i in range(_slideshow_index + 1):
+		if i < _slideshow_textures.size() and _slideshow_textures[i] != null:
+			pos += 1
+	if pos == 0:
+		pos = 1
+	_slideshow_counter_lbl.text = "%d / %d" % [pos, loaded]
+
+
+# ─── Dark-theme styling helpers (Linux X11-safe) ─────────────────────────────
+# These mirror the proven recipe from vg_2d_editor.gd `_style_popup_dark`
+# and the AGCK editor's `_apply_dark_popup` / `_apply_scroll_styling`. They
+# fix two long-standing complaints:
+#   1) OptionButton popups render dark-on-dark, only hovered row legible.
+#   2) ScrollContainer scrollbars have invisible grabbers on dark panels.
+# Recipe is fragile — see /memories/repo/gdscript_landmines.md
+# "OptionButton dropdown" section. Key things that ARE NOT done here:
+# - No `popup.modulate` / `popup.self_modulate` (PopupMenu is a Window,
+#   setting those raises a runtime error and aborts the rest of the func).
+
+
+func _style_dark_option(opt: OptionButton) -> void:
+	# Style the OptionButton's CLOSED face plus apply the dark popup recipe
+	# to its dropdown. Both halves are needed: the closed button uses Button
+	# styleboxes (normal/hover/pressed/focus/disabled), and the popup is a
+	# separate PopupMenu node with its own theme resolution.
+	if not is_instance_valid(opt):
+		return
+	var nb := StyleBoxFlat.new()
+	nb.bg_color = Color(0.18, 0.18, 0.22)
+	nb.set_corner_radius_all(3)
+	nb.content_margin_left = 8; nb.content_margin_right = 8
+	nb.content_margin_top = 4;  nb.content_margin_bottom = 4
+	nb.border_color = Color(0.32, 0.32, 0.40)
+	nb.set_border_width_all(1)
+	var hb := nb.duplicate()
+	hb.bg_color = Color(0.24, 0.24, 0.30)
+	var pb := nb.duplicate()
+	pb.bg_color = Color(0.28, 0.28, 0.36)
+	opt.add_theme_stylebox_override("normal", nb)
+	opt.add_theme_stylebox_override("hover", hb)
+	opt.add_theme_stylebox_override("pressed", pb)
+	opt.add_theme_stylebox_override("focus", hb)
+	opt.add_theme_stylebox_override("disabled", nb)
+	opt.add_theme_color_override("font_color", Color(0.88, 0.88, 0.92))
+	opt.add_theme_color_override("font_hover_color", Color.WHITE)
+	opt.add_theme_color_override("font_pressed_color", Color.WHITE)
+	opt.add_theme_color_override("font_focus_color", Color(0.88, 0.88, 0.92))
+	opt.add_theme_color_override("font_disabled_color", Color(0.55, 0.55, 0.55))
+	var popup := opt.get_popup()
+	_style_dark_popup(popup)
+	# Re-apply every time the popup opens — the editor theme re-asserts
+	# itself between setup and first paint, so styling done at construction
+	# alone is not enough.
+	if not popup.has_meta("_oga_popup_styled"):
+		popup.set_meta("_oga_popup_styled", true)
+		popup.about_to_popup.connect(func():
+			_style_dark_popup(popup)
+			_style_dark_popup.call_deferred(popup))
+
+
+func _style_dark_popup(popup: PopupMenu) -> void:
+	# Mirrors vg_2d_editor's `_style_popup_dark` recipe. Applies overrides
+	# via BOTH a full Theme resource AND local add_theme_*_override calls;
+	# either alone is insufficient against the editor theme.
+	if not is_instance_valid(popup):
+		return
+	# IMPORTANT: do NOT touch popup.modulate / popup.self_modulate (Window,
+	# not Control — raises runtime error and aborts the function).
+	popup.transparent = false  # ARGB on X11 breaks font rendering — keep opaque
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.15, 0.15, 0.19, 1.0)
+	panel_style.set_border_width_all(1)
+	panel_style.border_color = Color(0.32, 0.32, 0.40)
+	panel_style.set_corner_radius_all(4)
+	panel_style.set_content_margin_all(4)
+	var hover_style := StyleBoxFlat.new()
+	hover_style.bg_color = Color(0.28, 0.38, 0.58)
+	hover_style.set_corner_radius_all(3)
+	hover_style.set_content_margin_all(2)
+	var sep_style := StyleBoxFlat.new()
+	sep_style.bg_color = Color(0.30, 0.30, 0.38)
+	sep_style.content_margin_top = 1; sep_style.content_margin_bottom = 1
+	var t := Theme.new()
+	for tn in ["PopupMenu", "PopupPanel", "Panel", "Control", "Window"]:
+		t.set_stylebox("panel", tn, panel_style)
+	t.set_stylebox("hover", "PopupMenu", hover_style)
+	t.set_stylebox("separator", "PopupMenu", sep_style)
+	t.set_stylebox("labeled_separator_left", "PopupMenu", sep_style)
+	t.set_stylebox("labeled_separator_right", "PopupMenu", sep_style)
+	t.set_color("font_color", "PopupMenu", Color(0.92, 0.92, 0.94))
+	t.set_color("font_hover_color", "PopupMenu", Color.WHITE)
+	t.set_color("font_disabled_color", "PopupMenu", Color(0.50, 0.50, 0.50))
+	t.set_color("font_separator_color", "PopupMenu", Color(0.55, 0.55, 0.55))
+	t.set_color("font_accelerator_color", "PopupMenu", Color(0.55, 0.65, 0.85))
+	# The SELECTED row is painted with font_focus / font_pressed /
+	# font_selected — all default to alpha 0 in the editor theme. Without
+	# these the currently-chosen item appears blank.
+	t.set_color("font_focus_color", "PopupMenu", Color(0.92, 0.92, 0.94))
+	t.set_color("font_pressed_color", "PopupMenu", Color(0.92, 0.92, 0.94))
+	t.set_color("font_selected_color", "PopupMenu", Color(0.92, 0.92, 0.94))
+	# Kill any transparent outline that would eat glyph alpha.
+	t.set_color("font_outline_color", "PopupMenu", Color.TRANSPARENT)
+	t.set_constant("outline_size", "PopupMenu", 0)
+	popup.theme = t
+	popup.add_theme_stylebox_override("panel", panel_style)
+	popup.add_theme_stylebox_override("hover", hover_style)
+	popup.add_theme_stylebox_override("separator", sep_style)
+	popup.add_theme_stylebox_override("labeled_separator_left", sep_style)
+	popup.add_theme_stylebox_override("labeled_separator_right", sep_style)
+	popup.add_theme_color_override("font_color", Color(0.92, 0.92, 0.94))
+	popup.add_theme_color_override("font_hover_color", Color.WHITE)
+	popup.add_theme_color_override("font_disabled_color", Color(0.50, 0.50, 0.50))
+	popup.add_theme_color_override("font_separator_color", Color(0.55, 0.55, 0.55))
+	popup.add_theme_color_override("font_accelerator_color", Color(0.55, 0.65, 0.85))
+	popup.add_theme_color_override("font_focus_color", Color(0.92, 0.92, 0.94))
+	popup.add_theme_color_override("font_pressed_color", Color(0.92, 0.92, 0.94))
+	popup.add_theme_color_override("font_selected_color", Color(0.92, 0.92, 0.94))
+	popup.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
+	popup.add_theme_constant_override("outline_size", 0)
+	popup.notification(Window.NOTIFICATION_THEME_CHANGED)
+
+
+func _style_dark_scroll(sc: ScrollContainer) -> void:
+	# Make the V/HScrollBars on a ScrollContainer visible against dark
+	# panels. The editor theme's default grabber stylebox is near-
+	# transparent — bar track shows, thumb does not. We override `grabber`,
+	# `grabber_highlight` and `grabber_pressed` with opaque StyleBoxFlats.
+	if not is_instance_valid(sc):
+		return
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(0.12, 0.12, 0.15)
+	track.set_corner_radius_all(2)
+	var grab := StyleBoxFlat.new()
+	grab.bg_color = Color(0.50, 0.50, 0.60)
+	grab.set_corner_radius_all(3)
+	grab.content_margin_left = 2; grab.content_margin_right = 2
+	grab.content_margin_top = 2;  grab.content_margin_bottom = 2
+	var grab_hi := grab.duplicate()
+	grab_hi.bg_color = Color(0.65, 0.65, 0.78)
+	var grab_pr := grab.duplicate()
+	grab_pr.bg_color = Color(0.80, 0.80, 0.92)
+	for bar in [sc.get_v_scroll_bar(), sc.get_h_scroll_bar()]:
+		if bar == null:
+			continue
+		bar.add_theme_stylebox_override("scroll", track)
+		bar.add_theme_stylebox_override("scroll_focus", track)
+		bar.add_theme_stylebox_override("grabber", grab)
+		bar.add_theme_stylebox_override("grabber_highlight", grab_hi)
+		bar.add_theme_stylebox_override("grabber_pressed", grab_pr)
+		# Force a minimum thickness — some editor themes set the bar's
+		# custom_minimum_size to zero, which makes the bar invisible even
+		# with a styled grabber.
+		if bar is VScrollBar:
+			bar.custom_minimum_size.x = 12
+		elif bar is HScrollBar:
+			bar.custom_minimum_size.y = 12
