@@ -152,6 +152,13 @@ func _init_data() -> void:
 		"show_lives": true,
 		"show_level": true,
 		"show_coins": true,
+		# Time-limit HUD (Mario-style countdown). When `level_time_limit`
+		# is > 0, every level starts that many seconds on the clock; the
+		# Main controller ticks down each frame and calls LoseLife() at 0.
+		# A value of 0 disables the timer entirely (no countdown, label
+		# hidden regardless of show_time).
+		"show_time": false,
+		"level_time_limit": 0,
 		"debug_overlay": false,
 		"show_fps": false,
 		"auto_save": true,
@@ -319,6 +326,8 @@ func _build_ui() -> void:
 	_row_toggle(hg, "Show Lives", "show_lives")
 	_row_toggle(hg, "Show Level", "show_level")
 	_row_toggle(hg, "Show Coins", "show_coins")
+	_row_toggle(hg, "Show Time", "show_time")
+	_row_spin(hg, "Level Time Limit (s, 0 = off)", "level_time_limit", 0, 999, 5)
 	_row_toggle(hg, "Debug Overlay", "debug_overlay")
 	_row_toggle(hg, "Show FPS", "show_fps")
 	_row_toggle(hg, "Auto Save", "auto_save")

@@ -45,6 +45,7 @@ const ACTOR_TYPE_BASE_CLASS = {
 	"NPC":      "StaticBody2D",
 	"Tank":     "CharacterBody2D",
 	"Fireball": "RigidBody2D",
+	"Powerup":  "CharacterBody2D",
 	"Runner":   "CharacterBody2D",
 	# Top-down view variants — same physics roles as their counterparts.
 	"TopHero":   "CharacterBody2D",
@@ -424,6 +425,7 @@ func _generate_actor_sprite(path: String, actor: Dictionary, actor_id: int = -1)
 		"NPC":      Color(0.30, 0.70, 0.85),
 		"Tank":     Color(0.60, 0.60, 0.45),
 		"Fireball": Color(0.95, 0.45, 0.10),
+		"Powerup":  Color(0.95, 0.25, 0.30),
 	}
 	var atype: String = actor.get("type", "Drone")
 	var base_color: Color = type_colors.get(atype, Color(0.5, 0.5, 0.5))
@@ -637,6 +639,12 @@ func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite
 			tscn += 'metadata/_groups = ["enemies"]\n'
 		elif atype in ["NPC"]:
 			tscn += 'metadata/_groups = ["npc"]\n'
+		elif atype == "Powerup":
+			tscn += 'metadata/_groups = ["powerup"]\n'
+			# Pass-through body — player walks into mushroom & picks it up
+			# via the Hitbox Area2D below. Keep mask = 1 so gravity finds floor.
+			tscn += 'collision_layer = 4\n'
+			tscn += 'collision_mask = 1\n'
 		tscn += '\n'
 
 		# AnimatedSprite2D child — autoplay first animation
@@ -693,6 +701,10 @@ func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite
 			tscn += 'metadata/_groups = ["enemies"]\n'
 		elif atype in ["NPC"]:
 			tscn += 'metadata/_groups = ["npc"]\n'
+		elif atype == "Powerup":
+			tscn += 'metadata/_groups = ["powerup"]\n'
+			tscn += 'collision_layer = 4\n'
+			tscn += 'collision_mask = 1\n'
 		tscn += '\n'
 
 		# Sprite2D child
@@ -733,7 +745,7 @@ func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite
 	elif atype in ["Drone", "Sentry", "Missile", "Zombie", "Boss", "Bat", "Tank", "Fireball"]:
 		tscn += 'collision_layer = 2\n'
 		tscn += 'collision_mask = 1\n'
-	elif atype in ["Computer", "NPC"]:
+	elif atype in ["Computer", "NPC", "Powerup"]:
 		tscn += 'collision_layer = 4\n'
 		tscn += 'collision_mask = 1\n'
 	tscn += '\n'
@@ -825,7 +837,8 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 			# Jump buffer: brief window where pressing jump just before
 			# landing still triggers a jump on touchdown.
 			code += "Dim CoyoteTimer As Single\n"
-			code += "Dim JumpBufferTimer As Single\n\n"
+			code += "Dim JumpBufferTimer As Single\n"
+			code += "Dim IsPowered As Boolean  ' Set by mushroom Powerup() pickup\n\n"
 			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "player")
 			code += _gen_player_physics(speed, gravity * grav_scale, collision, actor_sounds)
 			code += _gen_collision_handler(atype, actor_sounds)
@@ -960,6 +973,21 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 			code += "\n"
 			code += _gen_ready_sub(aname, 0, 0, max_hp, damage, score_val, "npc")
 			code += _gen_npc_interaction()
+
+		"Powerup":
+			# Mario-style power-up (mushroom / star / etc). Falls under
+			# gravity, walks left/right at PatrolSpeed and bounces off
+			# walls. When the player overlaps it, the Powerup arm in
+			# _gen_collision_handler calls body.Powerup() (if present)
+			# and then QueueFree's itself.
+			var pu_speed: float = actor.get("ai_patrol_speed", 60.0)
+			code += "Dim Direction As Single\n"
+			code += "Dim PatrolSpeed As Single\n\n"
+			var pu_init = "    Direction = 1.0\n"
+			pu_init += "    PatrolSpeed = " + _fstr(pu_speed) + "\n"
+			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "powerup", pu_init)
+			code += _gen_powerup_physics(pu_speed, gravity * grav_scale)
+			code += _gen_collision_handler(atype, actor_sounds)
 
 		"Fireball":
 			# Flaming projectile — like Missile
@@ -1178,6 +1206,18 @@ func _gen_player_physics(speed: float, gravity: float, collision: String, actor_
 	s += "            main.LoseLife()\n"
 	s += "        End If\n"
 	s += "    End If\n"
+	s += "End Sub\n\n"
+	# ── Powerup buff (called by mushroom pickup) ──
+	# Heals to MaxHP and grants a permanent +50 max-HP boost the first
+	# time it's applied. Subsequent mushrooms just heal. Sets IsPowered
+	# so future Tier 2 work (fireball, big-Mario sprite swap) can read it.
+	s += "' Called by Powerup actors (mushroom, star) when picked up.\n"
+	s += "Sub Powerup()\n"
+	s += "    If Not IsPowered Then\n"
+	s += "        IsPowered = True\n"
+	s += "        MaxHP = MaxHP + 50\n"
+	s += "    End If\n"
+	s += "    CurrentHP = MaxHP\n"
 	s += "End Sub\n\n"
 	return s
 
@@ -1468,6 +1508,28 @@ func _gen_sentry_physics(patrol_speed: float, gravity: float, auto_shoot: bool, 
 	return s
 
 
+# ─── Powerup physics (Mario-style mushroom / star) ────────────────────────
+# Falls under gravity, walks at PatrolSpeed, reverses at walls. The pickup
+# itself is handled by the Powerup arm in _gen_collision_handler.
+func _gen_powerup_physics(patrol_speed: float, gravity: float) -> String:
+	var s = ""
+	s += "Sub _PhysicsProcess(delta As Single)\n"
+	s += "    vx = Me.velocity.x\n"
+	s += "    vy = Me.velocity.y\n"
+	s += "    ' Gravity pulls the powerup down until it lands on a platform\n"
+	s += "    vy = vy + Gravity * delta\n"
+	s += "    ' Slow horizontal patrol so the mushroom \"walks\" off the block\n"
+	s += "    vx = PatrolSpeed * Direction\n"
+	s += "    SetVelocity Me, vx, vy\n"
+	s += "    MoveAndSlide Me\n"
+	s += "    ' Reverse at walls so the mushroom never gets stuck in a corner\n"
+	s += "    If IsOnWall(Me) Then\n"
+	s += "        Direction = -Direction\n"
+	s += "    End If\n"
+	s += "End Sub\n\n"
+	return s
+
+
 func _gen_damage_sub(death_mode: String, rebirth: float, is_player: bool = false, actor_sounds: Dictionary = {}) -> String:
 	var s = ""
 	s += "' Called when this actor takes damage\n"
@@ -1636,6 +1698,30 @@ func _gen_collision_handler(atype: String, actor_sounds: Dictionary = {}) -> Str
 			s += "        body.TakeDamage(Damage)\n"
 			s += "    End If\n"
 			s += "    QueueFree()\n"
+			s += "End Sub\n\n"
+			s += "Sub Hitbox_AreaEntered(area As Area2D)\n"
+			s += "    ' Area interaction\n"
+			s += "End Sub\n\n"
+		"Powerup":
+			# Mushroom-style pickup: when the player walks into us, call
+			# their Powerup() sub (granted by _gen_player_physics) and
+			# vanish. Award score too if non-zero.
+			s += "Sub Hitbox_BodyEntered(body As Node2D)\n"
+			s += "    If body.IsInGroup(\"player\") Then\n"
+			var pickup_sfx = _gen_play_sfx_call(actor_sounds.get("pickup", "(None)"), "        ")
+			if pickup_sfx != "":
+				s += pickup_sfx
+			s += "        ' Award pickup score\n"
+			s += "        Dim main As Node2D = GetTree().CurrentScene\n"
+			s += "        If main <> Nothing And main.HasMethod(\"AddScore\") Then\n"
+			s += "            main.AddScore(ScoreValue)\n"
+			s += "        End If\n"
+			s += "        ' Trigger the Powerup buff on the player (heals + grows)\n"
+			s += "        If body.HasMethod(\"Powerup\") Then\n"
+			s += "            body.Powerup()\n"
+			s += "        End If\n"
+			s += "        QueueFree()\n"
+			s += "    End If\n"
 			s += "End Sub\n\n"
 			s += "Sub Hitbox_AreaEntered(area As Area2D)\n"
 			s += "    ' Area interaction\n"
@@ -2582,6 +2668,11 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 	var hud_show_lives: bool = settings.get("show_lives", true)
 	var hud_show_level: bool = settings.get("show_level", true)
 	var hud_show_coins: bool = settings.get("show_coins", true)
+	# Time HUD — only emit the TimeLabel when both the toggle is on
+	# *and* the level has a positive time limit. A 0-limit game has
+	# no countdown to display, so the label would just say "Time: 0".
+	var hud_time_limit: int = int(settings.get("level_time_limit", 0))
+	var hud_show_time: bool = settings.get("show_time", false) and hud_time_limit > 0
 	tscn += '[node name="HUD" type="CanvasLayer" parent="."]\n'
 	tscn += 'layer = 10\n\n'
 
@@ -2613,6 +2704,22 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 		tscn += 'offset_bottom = 74.0\n'
 		tscn += 'text = "🪙 Coins: 0"\n'
 		tscn += 'theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)\n\n'
+
+	# Time label — Mario-style countdown. Sits at the top centre so
+	# it stays visible regardless of which side the score/level cards
+	# are on. Only emitted when level_time_limit > 0 *and* show_time on.
+	if hud_show_time:
+		tscn += '[node name="TimeLabel" type="Label" parent="HUD"]\n'
+		tscn += 'anchors_preset = 5\n'
+		tscn += 'anchor_left = 0.5\n'
+		tscn += 'anchor_right = 0.5\n'
+		tscn += 'offset_left = -60.0\n'
+		tscn += 'offset_top = 10.0\n'
+		tscn += 'offset_right = 60.0\n'
+		tscn += 'offset_bottom = 32.0\n'
+		tscn += 'horizontal_alignment = 1\n'
+		tscn += 'text = "Time: ' + str(hud_time_limit) + '"\n'
+		tscn += 'theme_override_colors/font_color = Color(1, 1, 0.4, 1)\n\n'
 
 	# Level name label
 	if hud_show_level:
@@ -2908,6 +3015,10 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	var show_lives: bool = settings.get("show_lives", true)
 	var show_level: bool = settings.get("show_level", true)
 	var show_coins: bool = settings.get("show_coins", true)
+	# Time HUD — only emit countdown logic when both show_time is on
+	# *and* the level time limit is positive.
+	var time_limit: int = int(settings.get("level_time_limit", 0))
+	var show_time: bool = settings.get("show_time", false) and time_limit > 0
 
 	# Build level paths array for the generated code
 	var level_paths: Array[String] = []
@@ -2945,7 +3056,11 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	code += "Dim Coins As Integer\n"
 	code += "Dim CurrentLevel As Integer\n"
 	code += "Dim TotalLevels As Integer\n"
-	code += "Dim IsGameOver As Boolean\n\n"
+	code += "Dim IsGameOver As Boolean\n"
+	if show_time:
+		code += "Dim TimeLeft As Single  ' Mario-style countdown (seconds)\n"
+		code += "Dim TimeLimit As Single ' Per-level starting value\n"
+	code += "\n"
 
 	# Level paths array
 	code += "' ─── Level Paths (auto-generated) ───\n"
@@ -2963,6 +3078,9 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	code += "    CurrentLevel = " + str(start_level) + "\n"
 	code += "    TotalLevels = " + str(level_count) + "\n"
 	code += "    IsGameOver = False\n"
+	if show_time:
+		code += "    TimeLimit = " + str(time_limit) + ".0\n"
+		code += "    TimeLeft = TimeLimit\n"
 	code += "\n"
 	code += "    ' Initialize level paths\n"
 	# Build Array(...) literal with all level paths
@@ -3064,6 +3182,29 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	code += "    End If\n"
 	code += "End Sub\n\n"
 
+	# ── Time HUD: per-frame countdown ──
+	# Only emitted when show_time is on. Ticks TimeLeft down at real-time
+	# rate, refreshes the label, and triggers LoseLife() when it hits 0.
+	# A LoseLife() will reset TimeLeft via the level reload path (Restart
+	# Level case in LoseLife → no explicit reset needed since the reload
+	# re-runs Main only once at game start, NOT per-level. So we MUST
+	# reset here when LoseLife fires; do it inline before calling.
+	if show_time:
+		code += "' ─── Level Time Countdown ───\n"
+		code += "Sub _Process(delta As Single)\n"
+		code += "    If IsGameOver Then Exit Sub\n"
+		code += "    If GetTree().Paused Then Exit Sub\n"
+		code += "    If TimeLeft <= 0 Then Exit Sub\n"
+		code += "    TimeLeft = TimeLeft - delta\n"
+		code += "    If TimeLeft < 0 Then TimeLeft = 0\n"
+		code += "    GetNode(\"HUD/TimeLabel\").Text = \"Time: \" & Str(Int(TimeLeft))\n"
+		code += "    If TimeLeft <= 0 Then\n"
+		code += "        ' Reset timer up front so the level-reload doesn't restart at 0\n"
+		code += "        TimeLeft = TimeLimit\n"
+		code += "        LoseLife()\n"
+		code += "    End If\n"
+		code += "End Sub\n\n"
+
 	code += "' ─── Lives System ───\n"
 	code += "Sub LoseLife()\n"
 	code += "    Lives = Lives - 1\n"
@@ -3082,6 +3223,9 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	code += "    Dim action As Integer = DeathActions(CurrentLevel - 1)\n"
 	code += "    Select Case action\n"
 	code += "        Case 0  ' Restart Level\n"
+	if show_time:
+		code += "            TimeLeft = TimeLimit\n"
+		code += "            GetNode(\"HUD/TimeLabel\").Text = \"Time: \" & Str(Int(TimeLeft))\n"
 	code += "            Dim container As Node2D = GetNode(\"LevelContainer\")\n"
 	code += "            Dim child As Variant\n"
 	code += "            For Each child In container.GetChildren()\n"
@@ -3198,6 +3342,9 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	code += "' ─── Level Progression ───\n"
 	code += "Sub NextLevel()\n"
 	code += "    CurrentLevel = CurrentLevel + 1\n"
+	if show_time:
+		code += "    TimeLeft = TimeLimit\n"
+		code += "    GetNode(\"HUD/TimeLabel\").Text = \"Time: \" & Str(Int(TimeLeft))\n"
 	code += "    If CurrentLevel > TotalLevels Then\n"
 	code += "        ' All levels complete — show Victory overlay and stop here.\n"
 	code += "        ' (Previously this silently looped back to level 1, which made\n"
@@ -3235,6 +3382,9 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	code += "Sub GoToLevel(level As Integer)\n"
 	code += "    If level < 1 Or level > TotalLevels Then Exit Sub\n"
 	code += "    CurrentLevel = level\n"
+	if show_time:
+		code += "    TimeLeft = TimeLimit\n"
+		code += "    GetNode(\"HUD/TimeLabel\").Text = \"Time: \" & Str(Int(TimeLeft))\n"
 	if show_level:
 		code += "    GetNode(\"HUD/LevelLabel\").Text = \"Level \" & Str(CurrentLevel)\n"
 	code += "\n"

@@ -548,12 +548,13 @@ func _apply_platformer_template() -> void:
 			"lives": 3, "show_score": true, "show_lives": true,
 			"start_level": 1, "level_order": "Sequential",
 		})
-	# Actors: Player, Enemy, Coin
+	# Actors: Player, Enemy, Coin, Powerup
 	if _editors.size() > 1 and _editors[1]:
 		_editors[1].set_data([
 			{"name": "Hero", "type": "Player", "max_speed": 200, "gravity_scale": 1.0, "max_hp": 100, "damage": 0, "score_value": 0, "collision_mode": "Slide", "death_mode": "Respawn", "rebirth": 2.0},
 			{"name": "Slime", "type": "Drone", "max_speed": 60, "gravity_scale": 1.0, "max_hp": 50, "damage": 20, "score_value": 100, "ai_behavior": "Patrol", "ai_patrol_speed": 60, "collision_mode": "Bounce", "death_mode": "Destroy"},
 			{"name": "Coin", "type": "Computer", "max_speed": 0, "gravity_scale": 0, "max_hp": 1, "damage": 0, "score_value": 50, "collision_mode": "None", "death_mode": "Destroy"},
+			{"name": "Mushroom", "type": "Powerup", "max_speed": 60, "gravity_scale": 1.0, "max_hp": 1, "damage": 0, "score_value": 1000, "ai_patrol_speed": 60, "collision_mode": "Bounce", "death_mode": "Destroy"},
 		])
 	# Level 1: simple platformer layout
 	if _editors.size() > 0 and _editors[0]:
@@ -575,6 +576,9 @@ func _apply_platformer_template() -> void:
 		# Deadly pit
 		grid[GRID_H - 1][9] = {"block_type": 3, "tile_index": 0}
 		grid[GRID_H - 1][10] = {"block_type": 3, "tile_index": 0}
+		# Question Block (tile_index 15 in BLOCK_BARRIER) — bump from below
+		# to spawn a coin. Showcase tile.
+		grid[7][14] = {"block_type": 1, "tile_index": 15}
 		# Teleport (exit)
 		grid[5][GRID_W - 2] = {"block_type": 5, "tile_index": 0}
 		# Actors
@@ -585,6 +589,7 @@ func _apply_platformer_template() -> void:
 			{"actor_id": 2, "x": 6, "y": 7, "path": []},           # Coin
 			{"actor_id": 2, "x": 13, "y": 5, "path": []},          # Coin
 			{"actor_id": 2, "x": 15, "y": 5, "path": []},          # Coin
+			{"actor_id": 3, "x": 4, "y": 3, "path": []},           # Mushroom (Powerup)
 		]
 		_editors[0].levels.append(lvl)
 
