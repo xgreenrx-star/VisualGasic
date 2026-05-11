@@ -82,6 +82,20 @@
 #include <godot_cpp/classes/display_server.hpp>
 #include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/classes/os.hpp>
+// Pass 5 — crypto / theme / js / shader / material / skeleton / video
+#include <godot_cpp/classes/hashing_context.hpp>
+#include <godot_cpp/classes/crypto.hpp>
+#include <godot_cpp/classes/java_script_bridge.hpp>
+#include <godot_cpp/classes/shader.hpp>
+#include <godot_cpp/classes/shader_material.hpp>
+#include <godot_cpp/classes/skeleton3d.hpp>
+#include <godot_cpp/classes/skeleton2d.hpp>
+#include <godot_cpp/classes/video_stream_player.hpp>
+#include <godot_cpp/classes/control.hpp>
+#include <godot_cpp/classes/font.hpp>
+#include <godot_cpp/classes/style_box.hpp>
+#include <godot_cpp/classes/texture2d.hpp>
+#include <godot_cpp/classes/marshalls.hpp>
 // System-level class headers for built-in function dispatch
 #include "visual_gasic_process.h"
 #include "visual_gasic_database.h"
@@ -2047,6 +2061,381 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         }
         if (METHOD_IS("steps_reset")) {
             r_handled = true;
+            return Variant();
+        }
+    }
+
+    // ── Pass 5: pro features ────────────────────────────────────────────
+    //
+    // Crypto.*   — hashing, HMAC, random bytes, base64 (+ global aliases)
+    // Theme.*    — Control theme overrides
+    // JS.*       — JavaScript bridge for HTML5 export
+    // Shader.*   — ShaderMaterial parameter access
+    // Material.* — create ShaderMaterial from shader code
+    // Skeleton.* — Skeleton3D bone access
+    // Bone.*     — per-bone pose helpers
+    // Video.*    — VideoStreamPlayer control
+    {
+        // Helper: PackedByteArray → lowercase hex string
+        auto bytes_to_hex = [](const PackedByteArray &b) -> String {
+            String out;
+            const uint8_t *p = b.ptr();
+            for (int i = 0; i < b.size(); i++) {
+                static const char *h = "0123456789abcdef";
+                char buf[3] = { h[(p[i] >> 4) & 0xF], h[p[i] & 0xF], 0 };
+                out += String(buf);
+            }
+            return out;
+        };
+        // Helper: any Variant → PackedByteArray (String→utf8, ByteArray→pass)
+        auto to_bytes = [](const Variant &v) -> PackedByteArray {
+            if (v.get_type() == Variant::PACKED_BYTE_ARRAY) return v;
+            String s = v;
+            return s.to_utf8_buffer();
+        };
+        auto hash_with = [&](HashingContext::HashType t, const Variant &input) -> String {
+            Ref<HashingContext> hc;
+            hc.instantiate();
+            hc->start(t);
+            hc->update(to_bytes(input));
+            return bytes_to_hex(hc->finish());
+        };
+
+        // ── Crypto.* + global verb aliases ─────────────────────────────
+        if (METHOD_IS("crypto_sha256") || METHOD_IS("sha256")) {
+            r_handled = true;
+            if (args.size() < 1) return String();
+            return hash_with(HashingContext::HASH_SHA256, args[0]);
+        }
+        if (METHOD_IS("crypto_sha1") || METHOD_IS("sha1")) {
+            r_handled = true;
+            if (args.size() < 1) return String();
+            return hash_with(HashingContext::HASH_SHA1, args[0]);
+        }
+        if (METHOD_IS("crypto_md5") || METHOD_IS("md5")) {
+            r_handled = true;
+            if (args.size() < 1) return String();
+            return hash_with(HashingContext::HASH_MD5, args[0]);
+        }
+        if (METHOD_IS("crypto_hmac") && args.size() >= 2) {
+            r_handled = true;
+            // Crypto.HMAC(key, msg [, "sha256"|"sha1"])
+            Ref<Crypto> c;
+            c.instantiate();
+            HashingContext::HashType t = HashingContext::HASH_SHA256;
+            if (args.size() >= 3) {
+                String alg = String(args[2]).to_lower();
+                if (alg == "sha1") t = HashingContext::HASH_SHA1;
+                else if (alg == "md5") t = HashingContext::HASH_MD5;
+            }
+            PackedByteArray sig = c->hmac_digest(t, to_bytes(args[0]), to_bytes(args[1]));
+            return bytes_to_hex(sig);
+        }
+        if (METHOD_IS("crypto_randombytes") || METHOD_IS("randombytes")) {
+            r_handled = true;
+            int n = (args.size() >= 1) ? (int)args[0] : 16;
+            Ref<Crypto> c;
+            c.instantiate();
+            return c->generate_random_bytes(n);
+        }
+        if (METHOD_IS("crypto_base64encode") || METHOD_IS("base64encode")) {
+            r_handled = true;
+            if (args.size() < 1) return String();
+            Marshalls *m = Marshalls::get_singleton();
+            if (!m) return String();
+            if (args[0].get_type() == Variant::PACKED_BYTE_ARRAY) {
+                return m->raw_to_base64(args[0]);
+            }
+            return m->utf8_to_base64(String(args[0]));
+        }
+        if (METHOD_IS("crypto_base64decode") || METHOD_IS("base64decode")) {
+            r_handled = true;
+            if (args.size() < 1) return String();
+            Marshalls *m = Marshalls::get_singleton();
+            if (!m) return String();
+            // Default: decode to UTF-8 string. Pass True as 2nd arg for raw bytes.
+            bool raw = (args.size() >= 2) ? (bool)args[1] : false;
+            if (raw) return m->base64_to_raw(String(args[0]));
+            return m->base64_to_utf8(String(args[0]));
+        }
+
+        // ── Theme.* — Control theme overrides ──────────────────────────
+        auto as_control = [&](const Variant &h) -> Control* {
+            return (h.get_type() == Variant::OBJECT) ? Object::cast_to<Control>((Object*)h) : nullptr;
+        };
+        if (METHOD_IS("theme_color") && args.size() == 2) {
+            r_handled = true;
+            Control *c = as_control(args[0]);
+            return c ? c->get_theme_color(StringName(String(args[1]))) : Color();
+        }
+        if (METHOD_IS("theme_font") && args.size() == 2) {
+            r_handled = true;
+            Control *c = as_control(args[0]);
+            return c ? Variant(c->get_theme_font(StringName(String(args[1])))) : Variant();
+        }
+        if (METHOD_IS("theme_constant") && args.size() == 2) {
+            r_handled = true;
+            Control *c = as_control(args[0]);
+            return c ? (int64_t)c->get_theme_constant(StringName(String(args[1]))) : (int64_t)0;
+        }
+        if (METHOD_IS("theme_setcolor") && args.size() == 3) {
+            r_handled = true;
+            Control *c = as_control(args[0]);
+            if (c) c->add_theme_color_override(StringName(String(args[1])), (Color)args[2]);
+            return Variant();
+        }
+        if (METHOD_IS("theme_setfont") && args.size() == 3) {
+            r_handled = true;
+            Control *c = as_control(args[0]);
+            if (c && args[2].get_type() == Variant::OBJECT) {
+                Ref<Font> f = Object::cast_to<Font>((Object*)args[2]);
+                if (f.is_valid()) c->add_theme_font_override(StringName(String(args[1])), f);
+            }
+            return Variant();
+        }
+        if (METHOD_IS("theme_setconstant") && args.size() == 3) {
+            r_handled = true;
+            Control *c = as_control(args[0]);
+            if (c) c->add_theme_constant_override(StringName(String(args[1])), (int)args[2]);
+            return Variant();
+        }
+        if (METHOD_IS("theme_setstyle") && args.size() == 3) {
+            r_handled = true;
+            Control *c = as_control(args[0]);
+            if (c && args[2].get_type() == Variant::OBJECT) {
+                Ref<StyleBox> s = Object::cast_to<StyleBox>((Object*)args[2]);
+                if (s.is_valid()) c->add_theme_stylebox_override(StringName(String(args[1])), s);
+            }
+            return Variant();
+        }
+        if (METHOD_IS("theme_setfontsize") && args.size() == 3) {
+            r_handled = true;
+            Control *c = as_control(args[0]);
+            if (c) c->add_theme_font_size_override(StringName(String(args[1])), (int)args[2]);
+            return Variant();
+        }
+
+        // ── JS.* — JavaScriptBridge (HTML5 export only) ────────────────
+        // On native platforms returns Variant() / empty string.
+        if (METHOD_IS("js_eval") && args.size() >= 1) {
+            r_handled = true;
+            JavaScriptBridge *js = JavaScriptBridge::get_singleton();
+            if (!js) return Variant();
+            bool use_global = (args.size() >= 2) ? (bool)args[1] : false;
+            return js->eval(String(args[0]), use_global);
+        }
+        if (METHOD_IS("js_call") && args.size() >= 1) {
+            r_handled = true;
+            JavaScriptBridge *js = JavaScriptBridge::get_singleton();
+            if (!js) return Variant();
+            // Build "funcName(JSON.parse('a'), JSON.parse('b'), ...)" call
+            String fn = args[0];
+            String code = fn + "(";
+            for (int i = 1; i < args.size(); i++) {
+                if (i > 1) code += ",";
+                Variant v = args[i];
+                if (v.get_type() == Variant::STRING) {
+                    String s = v;
+                    code += "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+                } else {
+                    code += String(v);
+                }
+            }
+            code += ")";
+            return js->eval(code, true);
+        }
+        if (METHOD_IS("js_get") && args.size() == 1) {
+            r_handled = true;
+            JavaScriptBridge *js = JavaScriptBridge::get_singleton();
+            if (!js) return Variant();
+            return js->eval(String(args[0]), true);
+        }
+
+        // ── Shader.* / Material.* ──────────────────────────────────────
+        auto as_shader_mat = [&](const Variant &h) -> Ref<ShaderMaterial> {
+            Ref<ShaderMaterial> m;
+            if (h.get_type() == Variant::OBJECT) {
+                ShaderMaterial *sm = Object::cast_to<ShaderMaterial>((Object*)h);
+                if (sm) m = Ref<ShaderMaterial>(sm);
+            }
+            return m;
+        };
+        if (METHOD_IS("shader_param") && args.size() == 3) {
+            r_handled = true;
+            Ref<ShaderMaterial> m = as_shader_mat(args[0]);
+            if (m.is_valid()) m->set_shader_parameter(StringName(String(args[1])), args[2]);
+            return Variant();
+        }
+        if (METHOD_IS("shader_getparam") && args.size() == 2) {
+            r_handled = true;
+            Ref<ShaderMaterial> m = as_shader_mat(args[0]);
+            return m.is_valid() ? m->get_shader_parameter(StringName(String(args[1]))) : Variant();
+        }
+        if (METHOD_IS("material_new") && args.size() == 1) {
+            r_handled = true;
+            // Material.New("shader_code") → ShaderMaterial
+            Ref<Shader> s; s.instantiate();
+            s->set_code(String(args[0]));
+            Ref<ShaderMaterial> m; m.instantiate();
+            m->set_shader(s);
+            return Variant(m);
+        }
+        if (METHOD_IS("material_setshader") && args.size() == 2) {
+            r_handled = true;
+            Ref<ShaderMaterial> m = as_shader_mat(args[0]);
+            if (m.is_valid() && args[1].get_type() == Variant::OBJECT) {
+                Ref<Shader> s = Object::cast_to<Shader>((Object*)args[1]);
+                if (s.is_valid()) m->set_shader(s);
+            }
+            return Variant();
+        }
+
+        // ── Skeleton.* / Bone.* — Skeleton3D access ────────────────────
+        auto as_skel = [&](const Variant &h) -> Skeleton3D* {
+            return (h.get_type() == Variant::OBJECT) ? Object::cast_to<Skeleton3D>((Object*)h) : nullptr;
+        };
+        if (METHOD_IS("skeleton_count") && args.size() == 1) {
+            r_handled = true;
+            Skeleton3D *s = as_skel(args[0]);
+            return s ? (int64_t)s->get_bone_count() : (int64_t)0;
+        }
+        if (METHOD_IS("skeleton_name") && args.size() == 2) {
+            r_handled = true;
+            Skeleton3D *s = as_skel(args[0]);
+            return s ? s->get_bone_name((int)args[1]) : String();
+        }
+        if (METHOD_IS("skeleton_reset") && args.size() == 1) {
+            r_handled = true;
+            Skeleton3D *s = as_skel(args[0]);
+            if (s) s->reset_bone_poses();
+            return Variant();
+        }
+        if (METHOD_IS("bone_find") && args.size() == 2) {
+            r_handled = true;
+            Skeleton3D *s = as_skel(args[0]);
+            return s ? (int64_t)s->find_bone(String(args[1])) : (int64_t)-1;
+        }
+        if (METHOD_IS("bone_pos") && args.size() == 2) {
+            r_handled = true;
+            Skeleton3D *s = as_skel(args[0]);
+            return s ? s->get_bone_pose_position((int)args[1]) : Vector3();
+        }
+        if (METHOD_IS("bone_rot") && args.size() == 2) {
+            r_handled = true;
+            Skeleton3D *s = as_skel(args[0]);
+            return s ? s->get_bone_pose_rotation((int)args[1]) : Quaternion();
+        }
+        if (METHOD_IS("bone_scale") && args.size() == 2) {
+            r_handled = true;
+            Skeleton3D *s = as_skel(args[0]);
+            return s ? s->get_bone_pose_scale((int)args[1]) : Vector3(1, 1, 1);
+        }
+        if (METHOD_IS("bone_setpos") && args.size() == 3) {
+            r_handled = true;
+            Skeleton3D *s = as_skel(args[0]);
+            if (s) s->set_bone_pose_position((int)args[1], (Vector3)args[2]);
+            return Variant();
+        }
+        if (METHOD_IS("bone_setrot") && args.size() == 3) {
+            r_handled = true;
+            Skeleton3D *s = as_skel(args[0]);
+            if (s) s->set_bone_pose_rotation((int)args[1], (Quaternion)args[2]);
+            return Variant();
+        }
+        if (METHOD_IS("bone_setscale") && args.size() == 3) {
+            r_handled = true;
+            Skeleton3D *s = as_skel(args[0]);
+            if (s) s->set_bone_pose_scale((int)args[1], (Vector3)args[2]);
+            return Variant();
+        }
+        if (METHOD_IS("bone_lookat") && args.size() == 3) {
+            r_handled = true;
+            // Bone.LookAt(skel, idx, targetPos) — points the bone's +Y at target.
+            // Simplified: compute world-space direction in the skeleton's local
+            // frame and apply as a pose rotation.
+            Skeleton3D *s = as_skel(args[0]);
+            if (!s) return Variant();
+            int idx = (int)args[1];
+            Vector3 target = args[2];
+            Vector3 here = s->get_bone_global_pose(idx).origin;
+            Vector3 dir = (target - here).normalized();
+            if (dir.length_squared() < 1e-8f) return Variant();
+            // Quat that rotates +Y to dir
+            Vector3 up(0, 1, 0);
+            float dot = up.dot(dir);
+            Quaternion q;
+            if (dot > 0.99999f) {
+                q = Quaternion();
+            } else if (dot < -0.99999f) {
+                q = Quaternion(Vector3(1, 0, 0), Math_PI);
+            } else {
+                Vector3 axis = up.cross(dir).normalized();
+                float angle = Math::acos(dot);
+                q = Quaternion(axis, angle);
+            }
+            s->set_bone_pose_rotation(idx, q);
+            return Variant();
+        }
+
+        // ── Video.* — VideoStreamPlayer control ────────────────────────
+        auto as_vid = [&](const Variant &h) -> VideoStreamPlayer* {
+            return (h.get_type() == Variant::OBJECT) ? Object::cast_to<VideoStreamPlayer>((Object*)h) : nullptr;
+        };
+        if (METHOD_IS("video_play") && args.size() == 1) {
+            r_handled = true;
+            VideoStreamPlayer *v = as_vid(args[0]);
+            if (v) v->play();
+            return Variant();
+        }
+        if (METHOD_IS("video_stop") && args.size() == 1) {
+            r_handled = true;
+            VideoStreamPlayer *v = as_vid(args[0]);
+            if (v) v->stop();
+            return Variant();
+        }
+        if (METHOD_IS("video_pause") && args.size() == 1) {
+            r_handled = true;
+            VideoStreamPlayer *v = as_vid(args[0]);
+            if (v) v->set_paused(true);
+            return Variant();
+        }
+        if (METHOD_IS("video_resume") && args.size() == 1) {
+            r_handled = true;
+            VideoStreamPlayer *v = as_vid(args[0]);
+            if (v) v->set_paused(false);
+            return Variant();
+        }
+        if (METHOD_IS("video_seek") && args.size() == 2) {
+            r_handled = true;
+            VideoStreamPlayer *v = as_vid(args[0]);
+            if (v) v->set_stream_position((double)args[1]);
+            return Variant();
+        }
+        if (METHOD_IS("video_position") && args.size() == 1) {
+            r_handled = true;
+            VideoStreamPlayer *v = as_vid(args[0]);
+            return v ? (double)v->get_stream_position() : 0.0;
+        }
+        if (METHOD_IS("video_length") && args.size() == 1) {
+            r_handled = true;
+            VideoStreamPlayer *v = as_vid(args[0]);
+            // VideoStream has no public length API in 4.x; return 0 if unknown.
+            return v ? (double)v->get_stream_length() : 0.0;
+        }
+        if (METHOD_IS("video_isplaying") && args.size() == 1) {
+            r_handled = true;
+            VideoStreamPlayer *v = as_vid(args[0]);
+            return v ? v->is_playing() : false;
+        }
+        if (METHOD_IS("video_volume") && args.size() == 2) {
+            r_handled = true;
+            VideoStreamPlayer *v = as_vid(args[0]);
+            if (v) {
+                // pct (0..100) → dB
+                double pct = (double)args[1];
+                double db = (pct <= 0.0) ? -80.0 : 20.0 * Math::log(pct / 100.0) / Math::log(10.0);
+                v->set_volume_db((float)db);
+            }
             return Variant();
         }
     }

@@ -1346,6 +1346,252 @@ static func _build_db() -> void:
 		"Steps.Reset()")
 
 	# =========================================================================
+	# PASS 5 — CRYPTO NAMESPACE (+ global aliases)
+	#
+	# Hashing, HMAC, base64, and secure random bytes. Every Crypto.* verb
+	# has a plain-English global alias (SHA256, MD5, Base64Encode, etc.).
+	# Hash output is lowercase hex string.
+	# =========================================================================
+	_add("Crypto.SHA256",
+		"Crypto.SHA256(text_or_bytes) As String",
+		"Returns the SHA-256 hash as lowercase hex. Accepts a String (UTF-8) or PackedByteArray. Alias: SHA256.",
+		"Dim h = SHA256(\"password\")\nPrint h")
+
+	_add("Crypto.SHA1",
+		"Crypto.SHA1(text_or_bytes) As String",
+		"Returns the SHA-1 hash as lowercase hex. Alias: SHA1.",
+		"Print SHA1(\"hello\")")
+
+	_add("Crypto.MD5",
+		"Crypto.MD5(text_or_bytes) As String",
+		"Returns the MD5 hash as lowercase hex. (MD5 is fast but not secure for passwords — use SHA256.) Alias: MD5.",
+		"Print MD5(fileContent)")
+
+	_add("Crypto.HMAC",
+		"Crypto.HMAC(key, msg [, algorithm]) As String",
+		"Keyed-hash message auth code. algorithm = \"sha256\" (default), \"sha1\", or \"md5\".",
+		"Dim sig = Crypto.HMAC(secretKey, payload, \"sha256\")")
+
+	_add("Crypto.RandomBytes",
+		"Crypto.RandomBytes(n) As PackedByteArray",
+		"Returns n cryptographically secure random bytes. Alias: RandomBytes.",
+		"Dim token = RandomBytes(32)\nDim hex = Base64Encode(token)")
+
+	_add("Crypto.Base64Encode",
+		"Crypto.Base64Encode(text_or_bytes) As String",
+		"Encodes input as Base64. String → UTF-8 → Base64. PackedByteArray → Base64 directly. Alias: Base64Encode.",
+		"Print Base64Encode(\"hello world\")  ' aGVsbG8gd29ybGQ=")
+
+	_add("Crypto.Base64Decode",
+		"Crypto.Base64Decode(b64 [, raw]) As String/Bytes",
+		"Decodes Base64. By default returns UTF-8 String. Pass True for raw PackedByteArray. Alias: Base64Decode.",
+		"Print Base64Decode(\"aGVsbG8=\")  ' hello\nDim bin = Base64Decode(encoded, True)")
+
+	# =========================================================================
+	# PASS 5 — THEME NAMESPACE (Control overrides)
+	#
+	# Per-control theme overrides. Use to restyle individual nodes without
+	# editing the project Theme resource.
+	# =========================================================================
+	_add("Theme.Color",
+		"Theme.Color(control, key) As Color",
+		"Reads a theme color override (or falls back to the inherited theme). Common keys: \"font_color\", \"font_disabled_color\".",
+		"Print Theme.Color(myLabel, \"font_color\")")
+
+	_add("Theme.Font",
+		"Theme.Font(control, key) As Font",
+		"Reads the font assigned to a control for the given key (e.g. \"font\").",
+		"Dim f = Theme.Font(myLabel, \"font\")")
+
+	_add("Theme.Constant",
+		"Theme.Constant(control, key) As Long",
+		"Reads a theme constant (e.g. \"separation\", \"margin_left\").",
+		"Print Theme.Constant(hbox, \"separation\")")
+
+	_add("Theme.SetColor",
+		"Theme.SetColor(control, key, color)",
+		"Overrides a theme color on a single control. Persists until the control is freed.",
+		"Theme.SetColor warningLabel, \"font_color\", Color.Red")
+
+	_add("Theme.SetFont",
+		"Theme.SetFont(control, key, font)",
+		"Overrides the font on a single control. font is a Font resource.",
+		"Theme.SetFont titleLabel, \"font\", myCustomFont")
+
+	_add("Theme.SetConstant",
+		"Theme.SetConstant(control, key, value)",
+		"Overrides a theme integer constant (margins, spacings, etc.).",
+		"Theme.SetConstant hbox, \"separation\", 20")
+
+	_add("Theme.SetFontSize",
+		"Theme.SetFontSize(control, key, size)",
+		"Overrides the font size for a control. key is usually \"font_size\".",
+		"Theme.SetFontSize titleLabel, \"font_size\", 48")
+
+	_add("Theme.SetStyle",
+		"Theme.SetStyle(control, key, stylebox)",
+		"Overrides a theme StyleBox (backgrounds, borders). Pass a StyleBox resource.",
+		"Theme.SetStyle myPanel, \"panel\", customStyleBox")
+
+	# =========================================================================
+	# PASS 5 — JS NAMESPACE (HTML5 web export)
+	#
+	# Calls JavaScript from VG when running in the browser. Returns Nothing
+	# on every native platform. Numbers/Strings/Bools cross the boundary
+	# automatically; complex JS objects come back as opaque wrappers.
+	# =========================================================================
+	_add("JS.Eval",
+		"JS.Eval(code [, useGlobal]) As Variant",
+		"Evaluates a JavaScript expression and returns the result. useGlobal=True runs in the global scope (window).",
+		"Dim t = JS.Eval(\"document.title\", True)\nJS.Eval \"alert('hi from VG')\"")
+
+	_add("JS.Call",
+		"JS.Call(funcName, args...) As Variant",
+		"Calls a JavaScript function in global scope. String args are quoted automatically.",
+		"JS.Call \"console.log\", \"VG says hi\"")
+
+	_add("JS.Get",
+		"JS.Get(path) As Variant",
+		"Reads a JavaScript value by path (e.g. \"window.location.href\"). Shortcut for JS.Eval with useGlobal=True.",
+		"Print JS.Get(\"navigator.userAgent\")")
+
+	# =========================================================================
+	# PASS 5 — SHADER / MATERIAL NAMESPACES
+	#
+	# Material.New creates a ShaderMaterial from inline shader code (handy
+	# for retro effects, dissolve, glow). Shader.Param/GetParam reads and
+	# writes shader uniforms.
+	# =========================================================================
+	_add("Material.New",
+		"Material.New(shader_code) As ShaderMaterial",
+		"Compiles a shader from inline GLSL-like code and wraps it in a ShaderMaterial. Assign the result to a node's material property.",
+		"Dim m = Material.New(\"shader_type canvas_item;\\nuniform float glow = 0.5;\\nvoid fragment() { COLOR = vec4(glow, 0.0, 0.0, 1.0); }\")\nsprite.Material = m")
+
+	_add("Material.SetShader",
+		"Material.SetShader(material, shader)",
+		"Replaces the Shader resource of an existing ShaderMaterial.",
+		"Material.SetShader sprite.Material, glowShader")
+
+	_add("Shader.Param",
+		"Shader.Param(material, key, value)",
+		"Sets a shader uniform on a ShaderMaterial.",
+		"Shader.Param sprite.Material, \"glow\", 1.5")
+
+	_add("Shader.GetParam",
+		"Shader.GetParam(material, key) As Variant",
+		"Reads the current value of a shader uniform.",
+		"Print Shader.GetParam(sprite.Material, \"glow\")")
+
+	# =========================================================================
+	# PASS 5 — SKELETON / BONE NAMESPACES (Skeleton3D)
+	#
+	# Read and write bone poses on a Skeleton3D. Bone indices come from
+	# Bone.Find by name. Pose values are local to the bone's rest pose.
+	# =========================================================================
+	_add("Skeleton.Count",
+		"Skeleton.Count(skeleton) As Long",
+		"Returns the number of bones in the skeleton.",
+		"For i = 0 To Skeleton.Count(skel) - 1\n    Print Skeleton.Name(skel, i)\nNext")
+
+	_add("Skeleton.Name",
+		"Skeleton.Name(skeleton, idx) As String",
+		"Returns the name of the bone at the given index.",
+		"Print Skeleton.Name(skel, 0)")
+
+	_add("Skeleton.Reset",
+		"Skeleton.Reset(skeleton)",
+		"Resets all bones back to their rest pose.",
+		"Skeleton.Reset character")
+
+	_add("Bone.Find",
+		"Bone.Find(skeleton, name) As Long",
+		"Looks up a bone by name. Returns -1 if not found.",
+		"Dim head = Bone.Find(skel, \"head\")")
+
+	_add("Bone.Pos",
+		"Bone.Pos(skeleton, idx) As Vector3",
+		"Returns the bone's current pose position (relative to its rest).",
+		"Print Bone.Pos(skel, head)")
+
+	_add("Bone.Rot",
+		"Bone.Rot(skeleton, idx) As Quaternion",
+		"Returns the bone's current pose rotation.",
+		"Dim q = Bone.Rot(skel, head)")
+
+	_add("Bone.Scale",
+		"Bone.Scale(skeleton, idx) As Vector3",
+		"Returns the bone's current pose scale.",
+		"Print Bone.Scale(skel, head)")
+
+	_add("Bone.SetPos",
+		"Bone.SetPos(skeleton, idx, pos)",
+		"Sets the bone's pose position.",
+		"Bone.SetPos skel, head, Vector3(0, 0.1, 0)")
+
+	_add("Bone.SetRot",
+		"Bone.SetRot(skeleton, idx, quat)",
+		"Sets the bone's pose rotation. Use Quaternion(axis, angle) to build one.",
+		"Bone.SetRot skel, head, Quaternion(Vector3(0,1,0), Deg2Rad(45))")
+
+	_add("Bone.SetScale",
+		"Bone.SetScale(skeleton, idx, vec)",
+		"Sets the bone's pose scale.",
+		"Bone.SetScale skel, head, Vector3(1.2, 1.2, 1.2)")
+
+	_add("Bone.LookAt",
+		"Bone.LookAt(skeleton, idx, targetPos)",
+		"Rotates the bone so its +Y axis points at targetPos (world space). Simple IK for heads/eyes.",
+		"Bone.LookAt skel, headIdx, player.GlobalPosition")
+
+	# =========================================================================
+	# PASS 5 — VIDEO NAMESPACE (VideoStreamPlayer)
+	# =========================================================================
+	_add("Video.Play",
+		"Video.Play(player)",
+		"Starts video playback.",
+		"Video.Play introVid")
+
+	_add("Video.Stop",
+		"Video.Stop(player)",
+		"Stops playback and resets position to 0.",
+		"Video.Stop introVid")
+
+	_add("Video.Pause",
+		"Video.Pause(player)",
+		"Pauses without resetting position. Resume with Video.Resume.",
+		"Video.Pause introVid")
+
+	_add("Video.Resume",
+		"Video.Resume(player)",
+		"Resumes a paused video.",
+		"Video.Resume introVid")
+
+	_add("Video.Seek",
+		"Video.Seek(player, seconds)",
+		"Jumps to a specific time in the video.",
+		"Video.Seek introVid, 30")
+
+	_add("Video.Position",
+		"Video.Position(player) As Double",
+		"Returns current playback position in seconds.",
+		"Print Video.Position(introVid)")
+
+	_add("Video.Length",
+		"Video.Length(player) As Double",
+		"Returns video length in seconds. Returns 0 if the stream doesn't report a length.",
+		"Print \"Duration: \" & Video.Length(introVid)")
+
+	_add("Video.IsPlaying",
+		"Video.IsPlaying(player) As Boolean",
+		"Returns True if the video is currently playing.",
+		"If Not Video.IsPlaying(introVid) Then ShowMenu()")
+
+	_add("Video.Volume",
+		"Video.Volume(player, percent)",
+		"Sets video audio volume (0-100%). Same percent system as Speaker.Volume.",
+		"Video.Volume introVid, 75")
+
+	# =========================================================================
 	# ARRAY FUNCTIONS
 	# =========================================================================
 	_add("UBound",

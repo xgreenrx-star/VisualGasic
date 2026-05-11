@@ -1,0 +1,57 @@
+' Pass 5 smoke — pro features (Crypto/Theme/JS/Shader/Material/Skeleton/Video)
+Sub _Ready()
+    Print "=== Pass 5 smoke ==="
+
+    ' --- Crypto namespace + global aliases ---
+    Print "SHA256(hello) = " & SHA256("hello")
+    Print "Crypto.SHA256(hello) = " & Crypto.SHA256("hello")
+    ' Known: SHA256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+    Print "MD5(hello) = " & MD5("hello")
+    Print "SHA1(hello) = " & SHA1("hello")
+    Print "HMAC = " & Crypto.HMAC("key", "msg", "sha256")
+    Dim b = Base64Encode("hello world")
+    Print "Base64Encode = " & b
+    Print "Base64Decode = " & Base64Decode(b)
+    Dim rnd = RandomBytes(8)
+    Print "RandomBytes(8) size = " & rnd.Size()
+
+    ' --- Material.New + Shader.Param ---
+    Dim mat = Material.New("shader_type canvas_item; uniform float glow = 0.5; void fragment() { COLOR = vec4(glow, 0.0, 0.0, 1.0); }")
+    Print "Material.New returned: " & (mat <> Nothing)
+    Shader.Param mat, "glow", 0.75
+    Print "Shader.GetParam(glow) = " & Shader.GetParam(mat, "glow")
+
+    ' --- Theme: create a Label and override font color ---
+    Dim lbl = CreateNode("Label")
+    lbl.Text = "Themed"
+    AddChild lbl
+    Theme.SetColor lbl, "font_color", Color.Red
+    Theme.SetFontSize lbl, "font_size", 32
+    Print "Theme.Color(font_color) = " & Theme.Color(lbl, "font_color")
+    Print "Theme.Constant(font_size) = " & Theme.Constant(lbl, "font_size")
+
+    ' --- JS (desktop returns Nothing) ---
+    Dim js_result = JS.Eval("1+1")
+    Print "JS.Eval(1+1) on desktop = " & js_result & " (Nothing expected)"
+
+    ' --- Skeleton/Bone: create empty skeleton ---
+    Dim sk = CreateNode("Skeleton3D")
+    AddChild sk
+    Print "Skeleton.Count (empty) = " & Skeleton.Count(sk)
+    Print "Bone.Find(nope) = " & Bone.Find(sk, "nope")
+    Skeleton.Reset sk
+    Print "Skeleton.Reset OK"
+
+    ' --- Video: create empty player ---
+    Dim vid = CreateNode("VideoStreamPlayer")
+    AddChild vid
+    Print "Video.IsPlaying = " & Video.IsPlaying(vid)
+    Print "Video.Position = " & Video.Position(vid)
+    Print "Video.Length = " & Video.Length(vid)
+    Video.Volume vid, 50
+    Video.Pause vid
+    Video.Resume vid
+    Print "Video dispatch OK"
+
+    Print "PASS 5 OK"
+End Sub

@@ -2977,7 +2977,11 @@ String VisualGasicCompiler::detect_namespace_call(ExpressionNode* base_obj) cons
         // Pass 4 namespaces (app platform / phone sensors)
         lo != "screen" && lo != "joypad" && lo != "touch" &&
         lo != "sensor" && lo != "permission" && lo != "gps" &&
-        lo != "steps") return String();
+        lo != "steps" &&
+        // Pass 5 namespaces (crypto/theme/js/shader/material/skeleton/bone/video)
+        lo != "crypto" && lo != "theme" && lo != "js" &&
+        lo != "shader" && lo != "material" && lo != "skeleton" &&
+        lo != "bone" && lo != "video") return String();
     // Not shadowed by a known variable.
     String orig_lo = name.to_lower();
     if (local_slots.has(orig_lo) || param_vars.has(orig_lo) ||
