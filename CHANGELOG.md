@@ -50,6 +50,93 @@ Total: 9 new namespaces, ~140 verbs, 20 files, +2,939 lines. See
 `docs/coverage_roadmap.md` (todo) and the `_pass{1..5}_smoke.vg` test
 programs under `test_proj/` for examples of every verb.
 
+## [5.2.0-Beta1] - 2026-05-11
+
+First beta on the 5.2 line. Linux x86_64 + Windows x64. macOS paused for
+this line.
+
+### 🤖 AI
+
+- AI Help panel with 5 personas (general/coder/reviewer/gamedev/teacher)
+  and preset commands (*Explain Error*, *Explain Code*, *Translate*,
+  *Generate Tests*).
+- Pluggable providers: Ollama (local), OpenAI, Claude, Gemini, all behind
+  a single dropdown.
+- Whisper-powered push-to-talk voice mode for the AI panel
+  (`scripts/install_whisper.{sh,ps1}`).
+- Narcea project scaffolder on the VG Welcome launcher: AI emits a full
+  multi-file VG project from a chat prompt.
+- AI Diff dialog — per-hunk accept/reject before any AI edit lands.
+- AI-correctness harness shows VG ties Python at frontier scale (Sonnet
+  4.5: 100/100) and **outperforms Python on a 7B local model**
+  (qwen2.5-coder:7b: VG 100% vs GDScript 68%). See
+  [`bench/ai_correctness/REPORT.md`](bench/ai_correctness/REPORT.md).
+
+### 📱 Android (preview)
+
+- `VGAndroidPlugin` scaffold (`addons/visual_gasic/plugins/`) — minimal
+  Java/Kotlin Android plugin auto-enabled when the
+  `Android - VGAndroidPlugin` Project Setting is on.
+- New `GPS.*` namespace: `Lat`, `Lng`, `Alt`, `Speed`, `Accuracy` with
+  auto-wired `GPS_Updated(lat, lng)` Sub.
+- New `Steps.*` namespace: `Today`, `Total`, `Reset` with auto-wired
+  `Steps_Detected(count)` Sub.
+- New `Permission.*` namespace: `Has`, `Request`, `All` with auto-wired
+  `Permission_Granted(name)` / `Permission_Denied(name)` Subs.
+- Mobile showcase demos under `demos/Mobile/`: **TiltMaze** (accelerometer
+  steering) and **Pedometer** (step counter with `Vibrate` haptics).
+
+### 🌐 Pass 6 — namespace gap-fillers (commit `018c3315`)
+
+Adds the verbs people asked for after Pass 1–5 shipped:
+
+- `Camera.PanTo`, `Camera.Bounce`, `Camera.FlashColor`
+- `Animation.Loop`
+- `Physics.Gravity`, `Physics.GravityV2`, `Physics.GravityV3`, `Physics.Bounce`
+- `Ray.Cast2D`, `Ray.Cast3D` (one-shot raycasts, no `RayCast2D/3D` node needed)
+- `Joypad.IsConnected`, `Joypad.Stick`
+- `Sensor.Magnetometer` (alias of `Sensor.Magnet`)
+- `Crypto.Hex`, `Crypto.FromHex`, `Crypto.Base64`
+- `Theme.Get`, `Theme.Set` (generic), plus `Shader.Set`/`Shader.Get` aliases
+- `Speaker.Bus` namespace alias
+
+### 🛠️ IDE / docs
+
+- Command Help DB grew from 292 → **358** keyword entries — every Pass 1-6
+  verb now has syntax, description, example, see-also neighbors, and a
+  manual line-number deep-link (commit `dabcff2e`).
+- Dot-completion IntelliSense for all Pass 1-5 namespaces, ~140 verbs
+  (commit `d5d8bb42`).
+- "v4.x–v5.1 Godot Namespace Wrappers" reference section added to
+  `docs/VisualGasic_Language_Reference.md`, plus matching Pass-grouped
+  summary in `docs/reference/GODOT_FUNCTIONS_REFERENCE.md` (commit
+  `d93c2709`).
+- 10 short namespace tutorials added under `tutorials/` (commit
+  `9c44017d`).
+
+### 🐛 Fixes (commit `f42f52c4`)
+
+Three long-standing pre-existing test failures fixed:
+
+- `test_file_permissions.vg` (13/13): added bytecode-VM `Kill` opcode
+  with POSIX `unlink()` / Win32 `DeleteFileA()` fallback so symlinks
+  actually get removed; previously silently no-op-ed.
+- `test_stress_arrays.vg` (5/5): renamed reserved-keyword collision
+  (`Cycle` was being parsed as a Cycle Through loop).
+- `test_vg_routing.gd` (15/15): added the `RESULTS: x/y passed`
+  sentinel line that `run_test_suite.sh` sniffs for.
+
+### 🧪 Tests
+
+**700/700** VG + **289/289** GDScript assertions, 0 failures on Linux
+x86_64.
+
+### ⚡ Speed (unchanged from v5.1)
+
+VG still **2–92× faster than GDScript** on the published microbenchmarks
+and **5× faster than C++** on StringConcat. See README "VG vs GDScript vs
+C++" table or `demo/bench_output.txt`.
+
 ## [5.1.0-rc.2] - 2026-05-03
 
 ### 🪟 New — Welcome shell loading experience overhaul

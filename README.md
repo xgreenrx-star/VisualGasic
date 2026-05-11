@@ -52,7 +52,7 @@ If the next decade really is auditor-bound, then the language that wins is the o
 
 ➡ **Read the full argument: [Why the AI Era Needs BASIC Again](docs/manifesto.md)**
 
-> 🚀 **v5.1.0-rc.2 — Release Candidate (May 3 2026).** AI-native IDE with 5 built-in AI personas + voice mode (PTT), AGCK game builder with 8 templates, plugin SDK, unified ▶ Play menu, the Linux one-shot installer, and a polished **VG Welcome** launcher with always-on-top cover + circular spinner. The Form Designer toolbox grew by **15 controls** (10 Standard + 5 Game UI: pixel/retro/segmented progress bars, life bar with HSV shift, badge counter, toggle switch, breadcrumbs, expander, splits, …). **Looking for Windows & macOS testers** — see [release notes](RELEASE_NOTES_v5.1.0-rc.2.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
+> 🚀 **v5.2.0-Beta1 — Phone, Mic, & a Thousand Verbs (May 11 2026).** First beta of the 5.2 line: **Android plugin** (GPS, step counter, permissions auto-wire), **Pass-6 namespace gap-fillers** (Camera.PanTo/Bounce/FlashColor, Crypto.Hex/Base64, Physics.GravityV2/V3/Bounce, Ray.Cast2D/Cast3D, Joypad.Stick, Sensor.Magnetometer, Theme/Shader/Speaker.Bus …), a **358-entry Command Help DB** with see-also navigation for 22 namespaces, and verified **AI correctness at 100%** on both Claude Sonnet 4.5 and local qwen2.5-coder:7b — beating GDScript and tying Python. Still **2–92× faster than GDScript** on the microbenchmarks below. **Linux x86_64 + Windows x64** only; macOS on hold pending demand. See [release notes](RELEASE_NOTES_v5.2.0-Beta1.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
 >
 > 📚 **Docs from the main page:** every guide, reference, and tutorial is one click away from [`docs/DOCS.md`](docs/DOCS.md). Quick jumps: [Getting Started](docs/guides/GET_STARTED.md) · [Installation](docs/guides/INSTALLATION.md) · [Language Reference](docs/VisualGasic_Language_Reference.md) · [Built-in Functions](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) · [Custom Controls](docs/guides/CUSTOM_CONTROLS.md) · [Plugin SDK](addons/visual_gasic/PLUGIN_SDK.md).
 
@@ -62,11 +62,11 @@ If the next decade really is auditor-bound, then the language that wins is the o
 
 | Platform | Installer | Notes |
 | --- | --- | --- |
-| 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.1.0-rc.2-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic-Installer-v5.1.0-rc.2-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
-| 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.1.0-rc.2-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic-Installer-v5.1.0-rc.2-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
+| 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.2.0-Beta1-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic-Installer-v5.2.0-Beta1-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
+| 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.2.0-Beta1-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic-Installer-v5.2.0-Beta1-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
 | 🍏 **macOS (Intel & Apple Silicon)** | *coming with v5.1.0 stable* — use the `vg` CLI for now | Cross-compiled `.dmg` planned; needs a tester. |
-| 📦 **Source zip / portable** | [VisualGasic_v5.1.0-rc.2_linux_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic_v5.1.0-rc.2_linux_x86_64.zip) · [windows_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic_v5.1.0-rc.2_windows_x86_64.zip) | For users who prefer to unzip and run. Bring your own Godot 4.6.1+. |
-| 🌐 **Offline bundle** (Godot included) | [linux-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic-Installer-Offline-v5.1.0-rc.2-linux-x86_64.zip) · [windows-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic-Installer-Offline-v5.1.0-rc.2-windows-x86_64.zip) | No internet needed during install — ships Godot 4.6.1 inside. |
+| 📦 **Source zip / portable** | [VisualGasic_v5.2.0-Beta1_linux_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic_v5.2.0-Beta1_linux_x86_64.zip) · [windows_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic_v5.2.0-Beta1_windows_x86_64.zip) | For users who prefer to unzip and run. Bring your own Godot 4.6.1+. |
+| 🌐 **Offline bundle** (Godot included) | [linux-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic-Installer-Offline-v5.2.0-Beta1-linux-x86_64.zip) · [windows-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/latest/download/VisualGasic-Installer-Offline-v5.2.0-Beta1-windows-x86_64.zip) | No internet needed during install — ships Godot 4.6.1 inside. |
 
 **Linux one-shot bootstrap (alternative to AppImage):**
 
@@ -294,7 +294,7 @@ VisualGasic/
 
 ### **Installation**
 
-> 🚧 **Installer status (v5.1.0-rc.2):** Linux AppImage and Windows `.exe` one-shot installers are shipped — see the [Download & install](#-download--install) section at the top of this README. macOS `.dmg` is still in progress; on macOS use the `vg` CLI or unzip the release for now.
+> 🚧 **Installer status (v5.2.0-Beta1):** Linux AppImage and Windows `.exe` one-shot installers are shipped — see the [Download & install](#-download--install) section at the top of this README. macOS `.dmg` is still in progress; on macOS use the `vg` CLI or unzip the release for now.
 
 **🐧 Linux — one-shot bootstrap (recommended):**
 
@@ -308,7 +308,7 @@ Downloads Godot 4.6.1, installs the addon globally, drops a `~/.local/bin/visual
 
 **📦 From the latest GitHub Release (all platforms):**
 
-Download the platform zip from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/latest) (e.g. `VisualGasic-v5.1.0-rc.2.zip`), extract, and either point the `vg` CLI at it or copy `addons/visual_gasic/` into your project. Tagged release notes: [v5.1.0-rc.2](RELEASE_NOTES_v5.1.0-rc.2.md) · [v5.1.0-rc.1](RELEASE_NOTES_v5.1.0-rc.1.md).
+Download the platform zip from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/latest) (e.g. `VisualGasic_v5.2.0-Beta1_linux_x86_64.zip`), extract, and either point the `vg` CLI at it or copy `addons/visual_gasic/` into your project. Tagged release notes: [v5.2.0-Beta1](RELEASE_NOTES_v5.2.0-Beta1.md) · [v5.1.0-rc.2](RELEASE_NOTES_v5.1.0-rc.2.md) · [v5.1.0-rc.1](RELEASE_NOTES_v5.1.0-rc.1.md).
 
 **From Godot Asset Library:**
 1. Open your Godot project
@@ -519,9 +519,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: `v5.1.0-rc.2` (Release Candidate, 2026-05-03)
+**Current Version**: `v5.2.0-Beta1` (Public Beta, 2026-05-11)
 
-> See [CHANGELOG.md](CHANGELOG.md) and the [v5.1.0-rc.2 release notes](RELEASE_NOTES_v5.1.0-rc.2.md) for the latest changes.
+> See [CHANGELOG.md](CHANGELOG.md) and the [v5.2.0-Beta1 release notes](RELEASE_NOTES_v5.2.0-Beta1.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
