@@ -13,6 +13,14 @@
 #include "gasic_ai_controller.h"
 #include "visual_gasic_comm.h"
 
+// POSIX unlink / Win32 DeleteFile for Kill symlink fallback
+#if defined(__linux__) || defined(__APPLE__) || defined(__unix__)
+#include <unistd.h>
+#endif
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/node2d.hpp>
@@ -2451,6 +2459,37 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         call_ret = (int64_t)0;
                     }
+                    handled = true;
+                }
+
+                // Kill <path> — VB6 file/symlink delete. Mirror the AST
+                // interpreter handler in visual_gasic_instance_execute.inc
+                // so bytecode-compiled subs delete files too. Falls back to
+                // raw POSIX unlink / Win32 DeleteFile when Godot's
+                // DirAccess::remove_absolute() can't handle symlinks.
+                if (!handled && method.nocasecmp_to("Kill") == 0 && args.size() == 1) {
+                    String path = args[0];
+                    bool is_abs = path.begins_with("res://") || path.begins_with("user://")
+                               || path.begins_with("/")
+                               || (path.length() >= 2 && path[1] == ':');
+                    if (!is_abs) path = "user://" + path;
+                    Error err = DirAccess::remove_absolute(path);
+                    if (err != Error::OK) {
+#if defined(__linux__) || defined(__APPLE__) || defined(__unix__)
+                        CharString utf8 = path.utf8();
+                        if (::unlink(utf8.get_data()) != 0) {
+                            raise_error("File not found: " + path, 53);
+                        }
+#elif defined(_WIN32)
+                        CharString utf8 = path.utf8();
+                        if (!DeleteFileA(utf8.get_data())) {
+                            raise_error("File not found: " + path, 53);
+                        }
+#else
+                        raise_error("File not found: " + path, 53);
+#endif
+                    }
+                    call_ret = Variant();
                     handled = true;
                 }
 

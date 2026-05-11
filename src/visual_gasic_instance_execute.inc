@@ -1066,10 +1066,28 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 // --- File System Extended ---
                 if (s->method_name.nocasecmp_to("Kill") == 0 && call_args.size() == 1) {
                      String path = call_args[0];
-                     if (!path.begins_with("res://") && !path.begins_with("user://")) path = "user://" + path;
-                     if (FileAccess::file_exists(path)) {
-                         DirAccess::remove_absolute(path);
-                     } else {
+                     // Only map relative paths into user://. Absolute paths
+                     // (POSIX "/foo", Windows "C:\foo") and res:// / user://
+                     // URIs are passed through verbatim so VB6 Kill on
+                     // arbitrary filesystem locations works.
+                     bool is_abs = path.begins_with("res://") || path.begins_with("user://")
+                                || path.begins_with("/")
+                                || (path.length() >= 2 && path[1] == ':');
+                     if (!is_abs) path = "user://" + path;
+                     Error err = DirAccess::remove_absolute(path);
+                     if (err != Error::OK) {
+                         // DirAccess::remove_absolute() probes via is_dir(),
+                         // which follows symlinks via stat() — so it cannot
+                         // remove a (dangling or live) symlink itself. Fall
+                         // back to raw POSIX unlink / Win32 DeleteFile so
+                         // Kill removes the link rather than the target.
+#if defined(__linux__) || defined(__APPLE__) || defined(__unix__)
+                         CharString utf8 = path.utf8();
+                         if (::unlink(utf8.get_data()) == 0) break;
+#elif defined(_WIN32)
+                         CharString utf8 = path.utf8();
+                         if (DeleteFileA(utf8.get_data())) break;
+#endif
                          raise_error("File not found: " + path, 53);
                      }
                      break;
@@ -2573,9 +2591,18 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             String path = evaluate_expression(s->path);
             Error err = DirAccess::remove_absolute(path);
             if (err != Error::OK) {
-                // If relative to "user://" implied? No, default behavior is exact path.
-                // Try ProjectSettings globalize_path?
-                // For now, raw path.
+                // Godot's DirAccess::remove_absolute can fail on symlinks
+                // (especially dangling symlinks) on POSIX because the
+                // is_dir() probe follows the link via stat(). Fall back to
+                // a direct POSIX unlink / Win32 DeleteFile so VB6 Kill
+                // behaves like the user expects (remove the link itself).
+#if defined(__linux__) || defined(__APPLE__) || defined(__unix__)
+                CharString utf8 = path.utf8();
+                if (::unlink(utf8.get_data()) == 0) break;
+#elif defined(_WIN32)
+                CharString utf8 = path.utf8();
+                if (DeleteFileA(utf8.get_data())) break;
+#endif
                 raise_error("Kill Failed (Error " + String::num(err) + "): " + path, 53);
             }
             break;

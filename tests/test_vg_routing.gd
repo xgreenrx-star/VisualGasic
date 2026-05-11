@@ -38,6 +38,9 @@ func _initialize() -> void:
 	_test_open_asset_user_default_overrides_priority()
 	_test_open_asset_unknown_extension_returns_false()
 	print("=== Done: %d passed, %d failed ===" % [_passed, _failed])
+	# Emit the same RESULTS sentinel that run_test_suite.sh expects so the
+	# harness can detect a clean finish (mirrors test_vb6_importer.gd).
+	print("RESULTS: %d/%d passed, %d failed" % [_passed, _passed + _failed, _failed])
 	quit(1 if _failed > 0 else 0)
 
 

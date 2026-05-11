@@ -121,6 +121,13 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #endif
+// POSIX unlink for STMT_KILL symlink fallback
+#if defined(__APPLE__) || defined(__unix__)
+#include <unistd.h>
+#endif
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 
 // === IMMEDIATE WINDOW SUPPORT ===
 // Global registry of active VisualGasic instances for debugging/immediate window

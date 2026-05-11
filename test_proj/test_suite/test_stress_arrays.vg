@@ -57,17 +57,19 @@ Sub _Ready()
     End If
 
     ' --- Erase and reallocate cycle ---
-    Dim cycle() As Integer
+    ' NOTE: variable named 'ring' (not 'cycle') because Cycle is a
+    ' reserved keyword for Cycle Through loops since v4.x.
+    Dim ring() As Integer
     failed = False
     For i = 1 To 1000
-        ReDim cycle(100)
-        cycle(0) = i
-        cycle(100) = i * 2
-        If cycle(0) <> i Or cycle(100) <> i * 2 Then
+        ReDim ring(100)
+        ring(0) = i
+        ring(100) = i * 2
+        If ring(0) <> i Or ring(100) <> i * 2 Then
             failed = True
             Exit For
         End If
-        Erase cycle
+        Erase ring
     Next i
     
     If Not failed Then
