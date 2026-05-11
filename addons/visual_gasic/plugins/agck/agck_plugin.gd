@@ -577,8 +577,8 @@ func _apply_platformer_template() -> void:
 		grid[GRID_H - 1][9] = {"block_type": 3, "tile_index": 0}
 		grid[GRID_H - 1][10] = {"block_type": 3, "tile_index": 0}
 		# Question Block (tile_index 15 in BLOCK_BARRIER) — bump from below
-		# to spawn a coin. Showcase tile.
-		grid[7][14] = {"block_type": 1, "tile_index": 15}
+		# to spawn the Mushroom actor (via per-cell `spawn_actor` field).
+		grid[7][14] = {"block_type": 1, "tile_index": 15, "spawn_actor": "Mushroom"}
 		# Teleport (exit)
 		grid[5][GRID_W - 2] = {"block_type": 5, "tile_index": 0}
 		# Actors

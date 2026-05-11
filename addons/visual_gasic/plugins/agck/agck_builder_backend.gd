@@ -1834,11 +1834,15 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 			var tile_idx: int = 0
 			var cell_flip_h: bool = false
 			var cell_flip_v: bool = false
+			# Optional per-cell "spawn this actor when bumped" — only meaningful
+			# on Question Blocks. Default "" → legacy AddCoin / AddScore reward.
+			var cell_spawn_actor: String = ""
 			if cell is Dictionary:
 				block_id = cell.get("block_type", 0)
 				tile_idx = cell.get("tile_index", 0)
 				cell_flip_h = bool(cell.get("flip_h", false))
 				cell_flip_v = bool(cell.get("flip_v", false))
+				cell_spawn_actor = str(cell.get("spawn_actor", ""))
 			elif cell is int or cell is float:
 				block_id = int(cell)
 			if block_id <= 0:
@@ -1892,6 +1896,11 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 				if is_question_block:
 					body += 'metadata/is_question = true\n'
 					body += 'metadata/question_used = false\n'
+					# Per-cell spawn override. When set, the bump handler
+					# instantiates ../actors/Actor_<name>.tscn at the block's
+					# position instead of awarding a coin. Empty = coin reward.
+					if cell_spawn_actor != "":
+						body += 'metadata/qblock_spawn = "' + cell_spawn_actor + '"\n'
 				body += '\n'
 
 				# Visual — Sprite2D with actual tile texture
@@ -2359,13 +2368,30 @@ func _generate_level_vg(path: String, lvl_name: String, lvl: Dictionary, actors:
 	code += "                    If qvis <> Nothing Then\n"
 	code += "                        qvis.modulate = Color(0.55, 0.50, 0.45)\n"
 	code += "                    End If\n"
-	code += "                    ' Award coin + score via main controller\n"
-	code += "                    Dim qmain As Node2D = GetTree().CurrentScene\n"
-	code += "                    If qmain <> Nothing And qmain.HasMethod(\"AddCoin\") Then\n"
-	code += "                        qmain.AddCoin(1)\n"
+	code += "                    ' Spawn override: per-cell `spawn_actor` field\n"
+	code += "                    ' picks an actor scene to pop out. Empty/missing\n"
+	code += "                    ' falls back to the classic coin reward.\n"
+	code += "                    Dim qspawn As String = \"\"\n"
+	code += "                    If qchild.HasMeta(\"qblock_spawn\") Then\n"
+	code += "                        qspawn = String(qchild.GetMeta(\"qblock_spawn\"))\n"
 	code += "                    End If\n"
-	code += "                    If qmain <> Nothing And qmain.HasMethod(\"AddScore\") Then\n"
-	code += "                        qmain.AddScore(50)\n"
+	code += "                    If qspawn <> \"\" Then\n"
+	code += "                        Dim qpath As String = \"../actors/Actor_\" + qspawn + \".tscn\"\n"
+	code += "                        Dim qscn As PackedScene = Load(qpath)\n"
+	code += "                        If qscn <> Nothing Then\n"
+	code += "                            Dim qinst As Node2D = qscn.Instantiate()\n"
+	code += "                            qinst.position = Vector2(qchild.position.x, qchild.position.y - " + str(CELL_PX) + ")\n"
+	code += "                            AddChild qinst\n"
+	code += "                        End If\n"
+	code += "                    Else\n"
+	code += "                        ' Award coin + score via main controller\n"
+	code += "                        Dim qmain As Node2D = GetTree().CurrentScene\n"
+	code += "                        If qmain <> Nothing And qmain.HasMethod(\"AddCoin\") Then\n"
+	code += "                            qmain.AddCoin(1)\n"
+	code += "                        End If\n"
+	code += "                        If qmain <> Nothing And qmain.HasMethod(\"AddScore\") Then\n"
+	code += "                            qmain.AddScore(50)\n"
+	code += "                        End If\n"
 	code += "                    End If\n"
 	code += "                    Exit Sub\n"
 	code += "                End If\n"
