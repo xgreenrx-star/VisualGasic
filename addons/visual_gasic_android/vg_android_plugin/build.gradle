@@ -1,0 +1,51 @@
+// build.gradle — VGAndroidPlugin
+//
+// Builds the .aar bundled with the VisualGasic Android plugin.
+// Output: build/outputs/aar/VGAndroidPlugin-release.aar
+//   → rename to VGAndroidPlugin.aar and drop next to VGAndroidPlugin.gdap.
+//
+// Requires Godot 4.x AAR available on the local Maven (or specify a path).
+// See BUILDING.md.
+
+plugins {
+    id 'com.android.library'  version '8.2.1'
+    id 'org.jetbrains.kotlin.android' version '1.9.22'
+}
+
+android {
+    namespace  'org.visualgasic.android'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk    21          // Android 5.0 — same floor Godot 4.x uses
+        targetSdk 34
+        consumerProguardFiles 'consumer-rules.pro'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    libraryVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "VGAndroidPlugin-${variant.name}.aar"
+        }
+    }
+}
+
+dependencies {
+    // Godot 4 Android library — pulled from local Maven cache.  See BUILDING.md.
+    // Replace VERSION with the matching Godot version, e.g. 4.6.1.stable.
+    compileOnly 'org.godotengine:godot:4.6.1.stable'
+    implementation 'androidx.core:core-ktx:1.12.0'
+}

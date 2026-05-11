@@ -1,0 +1,3 @@
+// Top-level settings.gradle for VGAndroidPlugin
+rootProject.name = 'vg_android_plugin'
+include ':vg_android_plugin'

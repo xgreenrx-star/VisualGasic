@@ -1,0 +1,10 @@
+[config]
+
+name="VGAndroidPlugin"
+binary_type="local"
+binary="VGAndroidPlugin.aar"
+
+[dependencies]
+
+remote=[]
+local=[]

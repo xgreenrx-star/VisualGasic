@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="org.visualgasic.android">
+
+    <!-- Permissions actually requested at runtime via Permission.Request(...) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
+
+    <!-- Optional: depending on what app code you ship, you may also want -->
+    <!--   CAMERA, RECORD_AUDIO, READ_EXTERNAL_STORAGE — declare in your   -->
+    <!--   project's AndroidManifest.xml, not here.                        -->
+</manifest>

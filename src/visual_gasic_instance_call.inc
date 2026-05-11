@@ -1117,6 +1117,35 @@ void VisualGasicInstance::notification(int32_t p_what) {
                  
                  // Run Auto-Wire for Signals
                  _connect_vb_signals_recursive(node, this, node);
+
+                 // Pass-4 Android plugin: wire VGAndroidPlugin's permission /
+                 // GPS / steps signals to global VG subs of matching names
+                 // (Permission_Granted, Permission_Denied, GPS_Updated,
+                 // Steps_Detected). Safe no-op on non-Android since the
+                 // singleton isn't registered there.
+                 Engine *e_and = Engine::get_singleton();
+                 if (e_and && e_and->has_singleton("VGAndroidPlugin")) {
+                     Object *plug = e_and->get_singleton("VGAndroidPlugin");
+                     if (plug && script.is_valid()) {
+                         struct { const char *signal; const char *vg_sub; } wires[] = {
+                             { "permission_granted", "Permission_Granted" },
+                             { "permission_denied",  "Permission_Denied"  },
+                             { "gps_updated",        "GPS_Updated"        },
+                             { "steps_detected",     "Steps_Detected"     },
+                         };
+                         Callable target(node, "_OnSignal");
+                         for (int i = 0; i < 4; i++) {
+                             if (!script->_has_method(wires[i].vg_sub)) continue;
+                             Array binds;
+                             binds.push_back(String(wires[i].vg_sub));
+                             binds.push_back(String("")); // empty event → direct sub name
+                             Callable bound = target.bindv(binds);
+                             if (!plug->is_connected(wires[i].signal, target)) {
+                                 plug->connect(wires[i].signal, bound);
+                             }
+                         }
+                     }
+                 }
              }
          }
          

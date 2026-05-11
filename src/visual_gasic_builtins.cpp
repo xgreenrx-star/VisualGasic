@@ -2014,6 +2014,19 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             // via OS's on_request_permissions_result signal in Godot. The user's
             // Sub Permission_Granted(name) / Permission_Denied(name) get called
             // via the auto-wire when that signal fires (wired below).
+            //
+            // On Android we prefer the VGAndroidPlugin path — its
+            // permission_granted / permission_denied signals carry the
+            // permission name as a String argument (Godot's OS signal does
+            // not in 4.6 GDExtension).
+            Engine *eng = Engine::get_singleton();
+            if (eng && eng->has_singleton("VGAndroidPlugin")) {
+                Object *p = eng->get_singleton("VGAndroidPlugin");
+                if (p) {
+                    p->call("requestPermission", name);
+                    return true;
+                }
+            }
             return os->request_permission(full);
         }
         if (METHOD_IS("permission_all")) {
@@ -2039,28 +2052,65 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             return Variant();
         }
 
-        // ── GPS.* / Steps.* — declared but return safe defaults ───────
-        // These need a platform plugin (Android Java / iOS native) to feed
-        // real values. The namespace + signal names are fixed now so user
-        // code written today will Just Work once the plugin lands.
-        //
-        // GPS.Lat / Lng / Alt / Accuracy / Speed → 0 on unsupported.
-        // Steps.Total / Today / Reset           → 0 on unsupported.
-        if (METHOD_IS("gps_lat") || METHOD_IS("gps_lng") ||
-            METHOD_IS("gps_alt") || METHOD_IS("gps_speed")) {
+        // ── GPS.* / Steps.* — routed through Android plugin singleton ──
+        // On Android the bundled VGAndroidPlugin (addons/visual_gasic_android)
+        // registers a Godot singleton named "VGAndroidPlugin" exposing
+        // getLat / getLng / getAlt / getSpeed / getAccuracy /
+        // getStepsToday / getStepsTotal / resetSteps + startGps / startSteps.
+        // On every other platform Engine::has_singleton("VGAndroidPlugin")
+        // returns false and we fall through to the safe zero/-1 stubs.
+        auto _vg_android = []() -> Object* {
+            Engine *eng = Engine::get_singleton();
+            if (!eng) return nullptr;
+            if (!eng->has_singleton("VGAndroidPlugin")) return nullptr;
+            return eng->get_singleton("VGAndroidPlugin");
+        };
+        if (METHOD_IS("gps_lat")) {
             r_handled = true;
+            Object *p = _vg_android();
+            if (p) { p->call("startGps"); return (double)p->call("getLat"); }
+            return 0.0;
+        }
+        if (METHOD_IS("gps_lng")) {
+            r_handled = true;
+            Object *p = _vg_android();
+            if (p) { p->call("startGps"); return (double)p->call("getLng"); }
+            return 0.0;
+        }
+        if (METHOD_IS("gps_alt")) {
+            r_handled = true;
+            Object *p = _vg_android();
+            if (p) { p->call("startGps"); return (double)p->call("getAlt"); }
+            return 0.0;
+        }
+        if (METHOD_IS("gps_speed")) {
+            r_handled = true;
+            Object *p = _vg_android();
+            if (p) { p->call("startGps"); return (double)p->call("getSpeed"); }
             return 0.0;
         }
         if (METHOD_IS("gps_accuracy")) {
             r_handled = true;
+            Object *p = _vg_android();
+            if (p) { p->call("startGps"); return (double)p->call("getAccuracy"); }
             return -1.0; // negative = unknown
         }
-        if (METHOD_IS("steps_total") || METHOD_IS("steps_today")) {
+        if (METHOD_IS("steps_total")) {
             r_handled = true;
+            Object *p = _vg_android();
+            if (p) { p->call("startSteps"); return (int64_t)(int)p->call("getStepsTotal"); }
+            return (int64_t)0;
+        }
+        if (METHOD_IS("steps_today")) {
+            r_handled = true;
+            Object *p = _vg_android();
+            if (p) { p->call("startSteps"); return (int64_t)(int)p->call("getStepsToday"); }
             return (int64_t)0;
         }
         if (METHOD_IS("steps_reset")) {
             r_handled = true;
+            Object *p = _vg_android();
+            if (p) p->call("resetSteps");
             return Variant();
         }
     }
