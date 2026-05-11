@@ -1,133 +1,21 @@
-# VisualGasic Language Reference
+# VisualGasic Programmer's Reference
 
-## Table of Contents
+*The classic Super Bible-style command reference for the VisualGasic BASIC language.*
 
-### [Getting Started](#getting-started)
-- [Introduction](#introduction)  
-- [Visual Basic Heritage](#visual-basic-heritage)
-- [Importing VB6 Projects](#importing-vb6-projects)
-  - [Supported VB6 Controls](#supported-vb6-controls)
-  - [VB6 Menu Support](#vb6-menu-support)
-  - [Property Mapping](#property-mapping)
-  - [Control Arrays](#control-arrays)
-  - [Code Transformation](#code-transformation)
-  - [VB6 Functions](#vb6-functions)
-  - [VB6 Constants](#vb6-constants)
-  - [Import Report](#import-report)
-  - [Programmatic Import API](#programmatic-import-api)
-- [Installation](#installation)
-- [Editor Shortcuts](#editor-shortcuts)
-- [Your First Script](#your-first-script)
+This manual has two parts:
 
-### [Language Basics](#language-basics)
-- [Syntax Overview](#syntax-overview)
-- [Variables and Data Types](#variables-and-data-types)
-- [Operators](#operators)
-- [Comments](#comments)
+* **Part I — Language Tutorials** explains the language, the IDE, and the major subsystems in a tutorial voice.
+* **Part II — Command Reference (A–Z)** has one dedicated page for every built-in keyword, function, and namespace verb in alphabetical order.
 
-### [Control Flow](#control-flow)
-- [Conditional Statements](#conditional-statements)
-- [Loops](#loops)
-- [Select Case](#select-case)
-- [Error Handling](#error-handling)
+## Part I — Language Tutorials
 
-### [Procedures and Functions](#procedures-and-functions)
-- [Subroutines (Sub)](#subroutines)
-- [Functions](#functions)
-- [Parameters](#parameters)
-- [Scope and Lifetime](#scope-and-lifetime)
 
-### [Object-Oriented Features](#object-oriented-features)
-- [Classes and Types](#classes-and-types)
-- [Inheritance](#inheritance)
-- [Interfaces](#interfaces)
-- [Events (WithEvents / RaiseEvent)](#events-withevents--raiseevent)
-- [Properties and Methods](#properties-and-methods)
+These chapters explain the language and IDE end-to-end. 
 
-### [Built-in Functions](#built-in-functions)
-- [String Functions](#string-functions)
-- [Math Functions](#math-functions)
-- [Array Functions](#array-functions)
-- [File I/O Functions](#file-io-functions-classic-vb6-style)
-- [Classic DATA Statements](#classic-data-statements)
-  - [Typed Read](#typed-read-new-in-v320)
-  - [Empty Data Slots](#empty-data-slots-new-in-v320)
-  - [ClearData Statement](#cleardata-statement-new-in-v320)
-  - [DataFromString Statement](#datafromstring-statement-new-in-v320)
-  - [Data Introspection Functions](#data-introspection-functions-new-in-v320)
-  - [Performance: Data/Read vs Arrays](#performance-dataread-vs-arrays)
-- [Game and Application Development Functions](#game-and-application-development-functions)
+For a per-command alphabetical reference, see 
 
-### [VB6 Global Objects](#vb6-global-objects)
-- [App Object](#app-object)
-- [Screen Object](#screen-object)
-- [Err Object](#err-object)
-- [Printer Object](#printer-object)
-- [PrintForm Statement](#printform-statement)
+[Part II — Command Reference](#part-ii--command-reference-az).
 
-### [COM-Style Objects](#com-style-objects)
-- [VGCollection](#vgcollection)
-- [VGRegEx](#vgregex)
-- [VGHttpRequest](#vghttprequest)
-- [VGTimer](#vgtimer)
-
-### [System Integration](#system-integration)
-- [NativeLibrary (FFI)](#nativelibrary-ffi)
-- [NativeStruct](#nativestruct)
-- [VGOdbc (Database)](#vgodbc-database)
-- [VGCrypto (Cryptography)](#vgcrypto-cryptography)
-- [VGXml (XML Processing)](#vgxml-xml-processing)
-- [VGZip (ZIP Archives)](#vgzip-zip-archives)
-- [VGTask (Async Tasks)](#vgtask-async-tasks)
-- [VGTaskRunner (Parallel)](#vgtaskrunner-parallel)
-- [VisualGasicPackage (Package Manager)](#visualgasicpackage-package-manager)
-
-### [System-Level Programming](#system-level-programming)
-- [VGSystem (System Info)](#vgsystem-system-info)
-- [VGSignalHandler (OS Signals)](#vgsignalhandler-os-signals)
-- [VGFilePermissions (Permissions & Links)](#vgfilepermissions-permissions--links)
-- [VGMemoryBuffer (Raw Memory)](#vgmemorybuffer-raw-memory)
-- [VGIPC (Inter-Process Communication)](#vgipc-inter-process-communication)
-- [VGAndroidBridge (Android Platform)](#vgandroidbridge-android-platform)
-
-### [Modern Language Features](#modern-language-features)
-- [Lambda Expressions](#lambda-expressions)
-- [Pattern Matching](#pattern-matching)
-- [Null-Safe Operations](#null-safe-operations)
-- [Type Inference](#type-inference)
-- [Event-Driven Programming with Whenever](#event-driven-programming-with-whenever)
-- [Multitasking and Concurrency](#multitasking-and-concurrency)
-
-### [Godot Integration](#godot-integration)
-- [Node Interaction](#node-interaction)
-- [Signal System](#signal-system)
-- [Scene Management](#scene-management)
-- [Resource Loading](#resource-loading)
-
-### [v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)
-
-### [v3.6.0 Language Enhancements](#v360-language-enhancements)
-- [Compound Assignment Operators](#compound-assignment-operators)
-- [Bit-Shift Operators](#bit-shift-operators)
-- [LongLong Type](#longlong-type)
-- [WithEvents / RaiseEvent](#withevents--raiseevent-v350)
-- [Implements Verification](#implements-verification-v350)
-- [Printer Object & PrintForm](#printer-object--printform-v350)
-- [Optional Parameters](#optional-parameters-v350)
-
-### [v3.7.0 Language Enhancements](#v370-language-enhancements)
-- [Method Overloading](#method-overloading)
-- [Parameterized Constructors](#parameterized-constructors)
-- [Generics — Collection(Of T)](#generics)
-- [Game UI Mode](#game-ui-mode)
-
-### [v4.x–v5.1 Godot Namespace Wrappers](#v4xv51-godot-namespace-wrappers)
-- Camera, Sound, Speaker, Animation, Physics, Ray, Cell, Nav
-- Screen, Joypad, Sensor, Permission, Vibrate
-- GPS, Steps (Android), Crypto, Theme, Shader, Material, Skeleton, Bone, Video, JS
-- Auto-wired event subs, Pass 1 math helpers
-
----
 
 ## Getting Started
 
@@ -596,6 +484,7 @@ VisualGasic is provided as a Godot extension (GDExtension). To install:
 4. Files with `.vg` or `.bas` extension will now use VisualGasic syntax
 
 ---
+
 
 ## The VisualGasic IDE
 
@@ -1312,510 +1201,13 @@ End Sub
 
 ---
 
+
 ## Language Basics
 
 ### Syntax Overview
 
 VisualGasic features an intuitive syntax with case-insensitive keywords and end-of-line statement termination:
 
-## Keywords Reference
-
-VisualGasic provides a comprehensive set of keywords for modern game development and application programming.
-
-### **Core Language Keywords**
-
-#### **Variable Declaration**
-- `Dim` - Declare a variable
-- `Global` - Declare a global variable
-- `Public` - Public variable/procedure scope
-- `Private` - Private variable/procedure scope
-- `Static` - Static variable (retains value between calls)
-- `Const` - Declare a constant
-- `Redim` - Resize an array
-- `Preserve` - Preserve array contents when resizing
-
-#### **Data Types & Literals**
-- `As` - Type declaration keyword
-- `Type` - Define a custom type/structure
-- `End Type` - End type definition
-- `Nothing` - Null object reference
-- `Null` - Null value (database compatibility)
-- `Empty` - Empty/uninitialized value
-- `True` - Boolean true literal
-- `False` - Boolean false literal
-- `New` - Create new object instance
-- `Set` - Assign object reference
-- `Me` - Reference to current object
-
-#### **Control Flow**
-- `If` - Conditional statement
-- `Then` - Part of If statement
-- `Else` - Alternative condition
-- `ElseIf` / `Elif` - Additional condition
-- `End` - End block statement
-- `End If` - End If block
-- `Select` - Start select case block
-- `Select Case` - Alternative syntax for Select
-- `Select Match` - Pattern matching select
-- `Case` - Case option in select block
-- `Case Else` - Default case option
-- `End Select` - End Select block
-- `For` - Start counting loop
-- `For Each` - Iterate over collection
-- `To` - Range operator in For loop
-- `Step` - Step increment in For loop
-- `Next` - End For loop
-- `While` - Start conditional loop
-- `Wend` - End While loop (legacy)
-- `Do` - Start Do loop
-- `Loop` - End Do loop
-- `Until` - Loop until condition
-- `Oscillate` - Start ping-pong loop
-- `Cycles` - Number of oscillation cycles
-- `Repeat` - Start repeat loop (`Repeat N Times`)
-- `Times` - Repeat count keyword
-- `Cycle` - Start cycle-through loop (`Cycle Through`)
-- `Through` - Cycle through keyword
-- `Every` - Start conditional guard (`Every N Frames/Seconds`)
-- `Frames` - Frame-based interval
-- `Seconds` - Time-based interval
-- `Tween` - One-liner property animation
-- `Over` - Tween duration keyword
-- `Ease` - Tween easing type (In, Out, InOut, OutIn)
-- `Trans` - Tween transition curve (Linear, Sine, Bounce, etc.)
-- `From` - Optional starting value for Tween
-- `Exit` - Exit current loop/procedure
-- `Continue` - Skip to next iteration
-- `Return` - Return from function
-- `Pass` - No-operation placeholder
-
-#### **Procedures & Functions**
-- `Sub` - Define a subroutine
-- `Function` - Define a function
-- `Call` - Call a procedure (optional)
-- `Optional` - Optional parameter
-- `ByVal` - Pass parameter by value
-- `ByRef` - Pass parameter by reference
-- `ParamArray` - Variable number of parameters
-
-#### **Logical Operators**
-- `And` - Logical AND
-- `Or` - Logical OR
-- `Not` - Logical NOT
-- `Xor` - Logical XOR
-- `Mod` - Modulo operator
-- `Like` - Pattern matching operator
-- `AndAlso` - Short-circuit AND
-- `OrElse` - Short-circuit OR
-
-#### **Error Handling**
-- `On` - Error handling setup
-- `Error` - Error keyword
-- `Resume` - Resume after error
-- `Resume Next` - Resume at next statement after error
-- `GoSub` - Jump to label and return
-- `Return` - Return from GoSub
-- `GoTo` - Jump to label
-- `Try` - Start try block
-- `Catch` - Catch exceptions
-- `Finally` - Finally block
-- `End Try` - End try block
-- `Throw` - Throw an exception
-
-#### **File Operations**
-- `Open` - Open file
-- `Close` - Close file
-- `Input` - Input mode
-- `Output` - Output mode
-- `Append` - Append mode
-- `Line` - Line input/output
-
-#### **Object-Oriented Features**
-- `Class` - Declare a class
-- `End Class` - End class declaration
-- `Inherits` - Class inheritance
-- `Extends` - Extend a class
-- `Interface` - Declare an interface
-- `End Interface` - End interface declaration
-- `Implements` - Implement an interface
-- `Property` - Declare a property
-- `Let` - Property setter (legacy)
-- `Get` - Property getter
-- `Event` - Declare an event
-- `RaiseEvent` - Raise an event
-- `WithEvents` - Declare variable with event handling
-- `Handles` - Event handler binding
-- `with` - With statement (object context)
-- `End With` - End With block
-- `MyBase` - Reference to base class
-- `MyClass` - Reference to current class type
-- `Enum` - Declare an enumeration
-- `End Enum` - End enumeration declaration
-
-#### **Collections & Iteration**
-- `Dictionary` - Dictionary type
-- `each` - For each iteration
-- `in` - In operator (for iteration)
-
-#### **Data Processing**
-- `Data` - Data statement (supports empty slots with consecutive commas)
-- `Read` - Read data (supports typed Read: `Read x As Integer`)
-- `Restore` - Restore data pointer (case-insensitive label matching)
-- `ClearData` - Clear data tape and reset pointer
-- `DataFromString` - Parse a string as data values and append to tape
-- `DataFile` - Include data from external file at parse time
-- `LoadData` - Load data from external file at runtime
-- `DataCount()` - Total items or items in named section
-- `DataRemain()` - Items remaining from current pointer
-- `DataSectionCount()` - Items in current labeled section
-- `DataSectionRemain()` - Remaining items in current section
-- `DataPointer()` - Current read position
-- `PeekData(index)` - Random-access read by absolute index
-- `PeekData("label", offset)` - Random-access read relative to a labeled section
-- `SetDataPointer(n)` - Set the read pointer to an arbitrary position
-- `DataLabels()` - Array of all label names in the data tape
-- `DataSectionName()` - Label name of the current section
-- `DataToArray()` / `DataToArray("label")` / `DataToArray(n)` - Bulk-read data into an Array
-
-#### **Advanced Features**
-- `Include` - Include external file
-- `Option` - Compiler option
-- `Explicit` - Explicit variable declaration
-- `DoEvents` - Process system events
-- `IIf` - Inline If function
-- `Lambda` - Lambda expression keyword
-- `Of` - Type parameter for generics (e.g., `Task(Of String)`)
-
-#### **Async/Parallel Programming (Multitasking)**
-- `Async` - Mark procedure as asynchronous
-- `Await` - Await asynchronous operation
-- `Task` - Task type for async operations
-- `Parallel` - Parallel execution modifier for loops and sections
-
-#### **Pattern Matching & Type Checking**
-- `Match` - Pattern matching keyword (used with `Select Match`)
-- `When` - Guard clause in pattern matching
-- `Where` - Where clause for filtering
-- `Is` - Type comparison operator
-- `IsNot` - Negative type comparison operator
-- `TypeOf` - Get type of object for comparison
-- `HasValue` - Check if nullable/optional has a value
-- `Value` - Access value from nullable/optional type
-
-#### **Reactive Programming (Whenever System)**
-- `Whenever` - Start reactive section declaration
-- `End Whenever` - End reactive section block
-- `Section` - Declare a reactive monitoring section
-- `Local` - Local scope modifier for Whenever sections
-- `Changes` - Trigger on any value change
-- `Becomes` - Trigger when value equals target
-- `Exceeds` - Trigger when value surpasses threshold
-- `Below` - Trigger when value falls under threshold
-- `Between` - Trigger when value is within range (requires And)
-- `Contains` - Trigger when string/array contains value
-- `Suspend` - Temporarily disable reactive section
-- `Resume` - Re-enable suspended reactive section
-
-#### **Modern Features**
-- `Using` - Resource management block
-- `End Using` - End Using block
-- `Yield` - Yield value in iterator
-- `Iterator` - Mark function as iterator
-
-### **Built-in Functions & Statements**
-
-#### **I/O Operations**
-- `Print` - Output to console/debug
-- `MsgBox` - Display message box
-
-#### **System Functions**
-- `Shell` - Execute system command
-- `Sleep` - Pause execution
-- `DoEvents` - Process pending events
-
-#### **Game Development**
-- `CreateActor2D` - Create 2D game actor
-- `LoadForm` - Load UI form
-- `ChangeScene` - Switch game scene
-- `SetTitle` - Set window title
-- `SetScreenSize` - Set screen dimensions
-
-#### **AI Functions**
-- `AI_Chase` - AI chase behavior
-- `AI_Wander` - AI wandering behavior
-- `AI_Patrol` - AI patrol behavior
-- `AI_Stop` - Stop AI behavior
-
-#### **Input Handling**
-- `IsKeyPressed` - Check keyboard input
-- `IsActionPressed` - Check input action
-
-#### **Graphics & Drawing — Primitives**
-- `DrawText` - Draw text at position
-- `DrawString` - Draw text using a font object
-- `DrawLine` - Draw line between two points
-- `DrawRect` - Draw rectangle (filled or outline)
-- `DrawCircle` - Draw circle
-- `DrawPixel` / `PSet` - Draw a single pixel
-- `DrawTexture` - Draw a texture at a position
-- `DrawTextureRect` - Draw a texture stretched into a rectangle
-- `DrawArc` - Draw an arc (partial circle)
-- `DrawPolygon` - Draw a filled polygon
-- `DrawPolyline` - Draw a multi-segment line
-- `SetDrawTransform` - Set translation/rotation/scale for drawing
-- `ResetDrawTransform` - Reset draw transform to identity
-- `QueueRedraw` - Request a redraw on next frame
-- `CLS` - Clear the screen/canvas
-- `LoadPicture` - Load image as texture
-
-#### **Graphics & Drawing — Image Manipulation**
-- `CreateImage` - Create a new Image object (RGBA8)
-- `CreateTexture` - Create an ImageTexture from Image or dimensions
-- `ImageToTexture` - Convert Image to ImageTexture
-- `SetImagePixel` - Set a pixel on an Image
-- `GetImagePixel` - Get a pixel color from an Image
-- `FillImage` - Fill entire Image with a color
-- `FillImageRect` - Fill a rectangular region of an Image
-- `BlitImage` - Copy pixels between Images
-- `UpdateTexture` - Push Image data to ImageTexture
-- `ImageWidth` / `ImageHeight` - Get Image dimensions
-- `TextureWidth` / `TextureHeight` - Get Texture dimensions
-- `LoadImage` - Load image file as Image object
-- `SaveImage` - Save Image as PNG file
-- `GetTextureImage` - Extract Image from ImageTexture
-
-#### **Graphics & Drawing — Native Image Drawing**
-
-These builtins draw directly on an `Image` object in **native C++** for maximum speed.
-Call `UpdateTexture tex, img` afterwards to push changes to screen.
-
-- `DrawImageLine image, x1, y1, x2, y2, color[, width]` — Draw a Bresenham line (1px default; pass width for thick brush)
-- `Line image, x1, y1, x2, y2, color[, width]` — VB6-style alias for `DrawImageLine`
-- `DrawImageRect image, x1, y1, x2, y2, color` — Draw a 1px outline rectangle (corners auto-normalized)
-- `DrawImageEllipse image, cx, cy, rx, ry, color` — Draw a 1px ellipse outline (midpoint algorithm; use rx=ry for circle)
-- `DrawImageCircle image, cx, cy, radius, color` — Draw a **filled** circle (scanline; for outline use DrawImageEllipse)
-- `FloodFillImage image, x, y, color` — Flood-fill connected pixels from seed point (4-connected, bounded by w×h)
-
-#### **Audio**
-- `PlaySound` - Play sound effect
-- `PlayTone` - Play tone
-
-#### **Collision Detection**
-- `HasCollided` - Check collision
-- `GetCollider` - Get collision object
-
-#### **Mathematical Functions**
-- `Abs` - Absolute value
-- `Int` - Integer conversion
-- `Round` - Round number
-- `Rnd` - Random number
-- `Randomize` - Seed random generator
-- `RandRange` - Random in range
-- `Lerp` - Linear interpolation
-- `Clamp` - Clamp value to range
-
-#### **String Functions**
-- `Format` - Format string
-- `TypeName` - Get type name
-
-#### **File System**
-- `MkDir` - Create directory
-- `SaveSetting` - Save setting
-- `GetSetting` - Get setting
-
-#### **Database Functions**
-- `OpenDatabase` - Open database
-- `SaveDatabase` - Save database
-
-### **Keyword Usage Notes**
-
-- **Case Insensitive:** All keywords work in any case (`DIM`, `Dim`, `dim`)
-- **Context Sensitive:** Some keywords have different meanings in different contexts
-- **Reserved Words:** Keywords cannot be used as variable or procedure names
-- **Backward Compatible:** Supports both modern and legacy syntax variants
-- **Cross-Language:** Many patterns from other languages are auto-converted to VisualGasic keywords
-
-### **Complete Alphabetical Index**
-
-```
-Abs, AndAlso, Append, As, Beep, BlitImage, ByRef, ByVal, Call, Case,
-Catch, ChDir, ChangeScene, CLS, Close, Clamp, Const, Continue,
-CreateActor2D, CreateImage, CreateTexture, CurDir, Data, Dictionary,
-Dim, Do, DoEvents, DrawArc, DrawCircle, DrawImageCircle, DrawImageEllipse,
-DrawImageLine, DrawImageRect, DrawLine, DrawPixel, DrawPolygon,
-DrawPolyline, DrawRect, DrawString, DrawText, DrawTexture, DrawTextureRect,
-each, Elif, Else, ElseIf, End, Environ, Error, Event, Exit, Explicit,
-Extends, False, FileCopy, FillImage, FillImageRect, Finally, FloodFillImage,
-For, Format,
-Function, GetCollider, GetImagePixel, GetSetting, GetTextureImage, Global,
-Goto, HasCollided, If, IIf, ImageHeight, ImageToTexture, ImageWidth, in,
-Include, Inherits, Input, Int, IsActionPressed, IsKeyPressed, Lerp, Line,
-LoadForm, LoadImage, LoadPicture, Loop, Me, MkDir, MonthName, MsgBox, New,
-Next, Not, Nothing, On, Open, Optional, Option, Or, OrElse, Output,
-ParamArray, Pass, PlaySound, PlayTone, Preserve, Print, Private, PSet,
-Public, QBColor, QueueRedraw, RaiseEvent, Randomize, RandRange, Read,
-Redim, ResetDrawTransform, Resume, Return, RmDir, Rnd, Round,
-SaveDatabase, SaveImage, SaveSetting, Select, Set, SetDrawTransform,
-SetImagePixel, SetScreenSize, SetTitle, Shell, Sleep, Static, Step, Stop,
-Sub, TextureHeight, TextureWidth, Then, To, True, Try, Type, TypeName,
-Until, UpdateTexture, Weekday, WeekdayName, Wend, While, with, Xor
-```
-
-**Total: 115+ Keywords Available**
-
-```vb
-' Variable declaration
-Dim playerName As String
-Dim score As Integer = 0
-
-' Function call
-result = CalculateScore(playerName, level)
-
-' Object property access
-Player.Position.x = 100
-```
-
-### Variables and Data Types
-
-#### Variable Declaration
-
-Variables can be declared explicitly or implicitly:
-
-```vb
-' Explicit declaration with type
-Dim count As Integer
-Dim name As String
-Dim isActive As Boolean
-
-' Implicit declaration (Variant type)
-Dim value = 42
-Dim text = "Hello"
-
-' Initialization at declaration
-Dim maxHealth As Integer = 100
-```
-
-#### Data Types
-
-| Type | Description | Example |
-|------|-------------|---------|
-| `Integer` | 32-bit signed integer | `42` |
-| `Long` | 64-bit signed integer | `9876543210` |
-| `LongLong` | 64-bit signed integer (alias for Long) | `9876543210` |
-| `Single` | 32-bit floating point | `3.14` |
-| `Double` | 64-bit floating point | `3.14159265` |
-| `String` | Text data | `"Hello World"` |
-| `Boolean` | True/False values | `True`, `False` |
-| `Variant` | Can hold any type | `"text"`, `42`, `True` |
-| `Object` | Reference to Godot objects | `Node`, `Sprite2D` |
-
-#### Type Conversion
-
-```vb
-' Explicit conversion functions
-Dim text As String = "123"
-Dim number As Integer = CInt(text)
-Dim floating As Double = CDbl("3.14")
-Dim flag As Boolean = CBool(1)
-Dim big As LongLong = CLngLng(3.7)  ' Rounds to 4
-
-' String conversion
-Dim result As String = CStr(42)  ' "42"
-```
-
-### Operators
-
-#### Arithmetic Operators
-```vb
-result = 10 + 5   ' Addition (15)
-result = 10 - 5   ' Subtraction (5)
-result = 10 * 5   ' Multiplication (50)
-result = 10 / 5   ' Division (2.0)
-result = 10 \ 5   ' Integer division (2)
-result = 10 Mod 3 ' Modulo (1)
-result = 2 ^ 3    ' Exponentiation (8)
-```
-
-#### Comparison Operators
-```vb
-If score > 100 Then     ' Greater than
-If level >= 5 Then      ' Greater than or equal
-If health < 10 Then     ' Less than
-If lives <= 0 Then      ' Less than or equal
-If name = "Player" Then ' Equal
-If status <> "Dead" Then ' Not equal
-If status != "Dead" Then ' Not equal (alternative syntax)
-```
-
-#### Logical Operators
-```vb
-If isAlive And hasKey Then       ' Logical AND
-If isDead Or gameOver Then       ' Logical OR
-If Not isEmpty Then              ' Logical NOT
-If a Xor b Then                  ' Exclusive OR
-If condition1 AndAlso condition2 ' Short-circuit AND
-If condition1 OrElse condition2  ' Short-circuit OR
-```
-
-#### String Operators
-```vb
-fullName = firstName & " " & lastName  ' Concatenation
-If pattern Like "A*" Then              ' Pattern matching
-```
-
-#### Bit-Shift Operators
-```vb
-result = 1 << 4    ' Left shift  (16)
-result = 256 >> 3   ' Right shift (32)
-result = flags << n  ' Shift by variable amount
-```
-
-#### Compound Assignment Operators
-```vb
-x += 5     ' x = x + 5
-x -= 3     ' x = x - 3
-x *= 2     ' x = x * 2
-x /= 4     ' x = x / 4
-s &= " ok" ' s = s & " ok"   (string concatenation)
-x \= 3    ' x = x \ 3       (integer division)
-x ^= 2     ' x = x ^ 2       (exponentiation)
-x <<= 4    ' x = x << 4      (left shift)
-x >>= 2    ' x = x >> 2      (right shift)
-```
-
-#### Keyword Compound Assignment Operators
-```vb
-flags And= mask      ' flags = flags And mask   (bitwise AND)
-flags Or= newFlag    ' flags = flags Or newFlag (bitwise OR)
-flags Xor= toggle    ' flags = flags Xor toggle (bitwise XOR)
-x Mod= divisor       ' x = x Mod divisor       (modulo)
-```
-
-> **Note:** `And`, `Or`, and `Xor` perform **bitwise** operations when both operands are numeric (VB6 semantics). They fall back to **logical** boolean operations when either operand is non-numeric.
-
-### Comments
-
-```vb
-' Single-line comment
-Dim value = 42 ' End-of-line comment
-
-/* 
-   Multi-line block comment
-   This can span multiple lines
-   like in C/C++/C#
-*/
-
-/*
- * Block comment with asterisks
- * for better formatting
- */
-
-' Multi-line comments using multiple single quotes
-' This is a longer explanation
-' that spans multiple lines
-```
-
----
 
 ## Control Flow
 
@@ -2391,6 +1783,7 @@ End Sub
 
 ---
 
+
 ## Procedures and Functions
 
 ### Subroutines
@@ -2488,6 +1881,7 @@ End Sub
 - `Static` → Local variable that retains value between calls
 
 ---
+
 
 ## Object-Oriented Features
 
@@ -2767,1341 +2161,6 @@ player.Score = 500        ' Auto property
 
 ---
 
-## Built-in Functions
-
-### String Functions
-
-```vb
-' Length and substrings
-Dim text As String = "Hello World"
-Dim length As Integer = Len(text)        ' 11
-Dim left3 As String = Left(text, 3)      ' "Hel"
-Dim right5 As String = Right(text, 5)    ' "World"
-Dim middle As String = Mid(text, 7, 5)   ' "World"
-
-' Case conversion
-Dim upper As String = UCase(text)        ' "HELLO WORLD"
-Dim lower As String = LCase(text)        ' "hello world"
-
-' Search and replace
-Dim pos As Integer = InStr(text, "World") ' 7
-Dim replaced As String = Replace(text, "World", "VisualGasic") ' "Hello VisualGasic"
-
-' Trimming
-Dim trimmed As String = Trim("  Hello  ")  ' "Hello"
-```
-
-### Math Functions
-
-```vb
-' Basic math
-Dim result As Double
-result = Abs(-5)      ' 5 (absolute value)
-result = Sqr(16)      ' 4 (square root)
-result = Sin(0)       ' 0 (sine)
-result = Cos(0)       ' 1 (cosine)
-result = Tan(0)       ' 0 (tangent)
-result = Log(2.718)   ' 1 (natural logarithm)
-result = Exp(1)       ' 2.718 (e^x)
-
-' Rounding
-result = Int(3.7)     ' 3 (truncate)
-result = Round(3.7)   ' 4 (round to nearest)
-
-' Random numbers
-Randomize             ' Initialize random seed
-result = Rnd()        ' Random between 0 and 1
-result = Int(Rnd() * 6) + 1  ' Random 1-6 (dice roll)
-result = RandRange(1, 100)   ' Random between 1 and 100
-
-' Interpolation and clamping
-result = Lerp(0, 100, 0.5)   ' Linear interpolation: 50
-result = Clamp(150, 0, 100)  ' Clamp to range: 100
-```
-
-### Vector Math Functions
-
-```vb
-' Vector construction
-Dim v2 = Vector2(10, 20)      ' Create 2D vector
-Dim v3 = Vector3(1, 2, 3)     ' Create 3D vector
-Dim v2 = Vec2(10, 20)         ' Shorthand for Vector2
-Dim v3 = Vec3(1, 2, 3)        ' Shorthand for Vector3
-
-' Vector arithmetic
-Dim sum = VAdd(v1, v2)        ' Add vectors
-Dim diff = VSub(v1, v2)       ' Subtract vectors
-Dim scaled = VMul(v1, 2.5)    ' Multiply by scalar
-
-' Vector operations
-Dim length = VLen(v1)         ' Get vector length/magnitude
-Dim norm = VNormalize(v1)     ' Get normalized (unit) vector
-Dim dist = VDistance(v1, v2)  ' Distance between two points
-Dim dot = VDot(v1, v2)        ' Dot product
-Dim cross = VCross(v1, v2)    ' Cross product (3D only)
-Dim interp = VLerp(v1, v2, 0.5) ' Linear interpolation between vectors
-```
-
-### Color Functions
-
-```vb
-' Color construction
-Dim c1 = Color(1.0, 0.5, 0.0)       ' RGB (0-1 range)
-Dim c2 = Color(1.0, 0.5, 0.0, 0.8)  ' RGBA with alpha
-Dim c3 = Color8(255, 128, 0)        ' RGB (0-255 range)
-Dim c4 = Color8(255, 128, 0, 200)   ' RGBA (0-255 range)
-
-' Geometry
-Dim rect = Rect2(0, 0, 100, 50)     ' Create rectangle (x, y, width, height)
-```
-
-### Input Functions
-
-```vb
-' Keyboard input
-Dim keyDown = IsKeyDown("A")         ' Check if key is pressed
-Dim keyDown = GetKey(KEY_SPACE)      ' Check key by constant
-
-' Mouse input
-Dim leftClick = IsMouseButtonDown(1) ' Check mouse button (1=left, 2=right)
-```
-
-### String Functions (Extended)
-
-```vb
-' Extended string operations
-Dim starts = StartsWith("Hello", "He")  ' True
-Dim ends = EndsWith("Hello", "lo")      ' True
-Dim padded = PadLeft("42", 5, "0")      ' "00042"
-Dim padded = PadRight("Hi", 5)          ' "Hi   "
-Dim reversed = StrReverse("Hello")      ' "olleH"
-```
-
-### Date/Time Functions
-
-```vb
-' Day of week (1=Sunday, 7=Saturday by default)
-Dim day = Weekday("7/4/2025")           ' 6 (Friday)
-Dim day = Weekday("7/4/2025", 2)        ' 5 (Monday-based)
-
-' Names from numbers
-Dim name = WeekdayName(6)               ' "Friday"
-Dim abbr = WeekdayName(6, True)         ' "Fri"
-Dim month = MonthName(1)                ' "January"
-Dim mabbr = MonthName(1, True)          ' "Jan"
-```
-
-### System/Environment Functions
-
-```vb
-' VB6 16-color palette
-Dim black = QBColor(0)                  ' &H000000 (Black)
-Dim blue  = QBColor(1)                  ' &HAA0000 (Blue)
-Dim white = QBColor(15)                 ' &HFFFFFF (White)
-
-' OS environment variables
-Dim path = Environ("PATH")
-Dim home = Environ("HOME")
-
-' System beep
-Beep                                    ' Prints "[BEEP]" to console
-```
-
-### File System Functions
-
-```vb
-' Directory management
-MkDir "res://saves"                     ' Create directory
-ChDir "res://saves"                     ' Change working directory
-Print CurDir()                          ' Get current directory
-RmDir "res://temp"                      ' Remove directory
-
-' File copying
-FileCopy "source.txt", "dest.txt"       ' Copy a file
-```
-
-### Debugging Statements
-
-```vb
-' Break into debugger — equivalent to VB6 Stop
-Stop
-
-' Use with conditional logic for targeted debugging
-If score < 0 Then Stop  ' Break when unexpected negative
-```
-
-### Array Functions
-
-```vb
-Dim arr As Array = [1, 2, 3, 4, 5]
-
-' Array bounds
-Dim lower As Integer = LBound(arr)  ' 0
-Dim upper As Integer = UBound(arr)  ' 4
-
-' Dynamic arrays
-ReDim arr(10)           ' Resize array
-ReDim Preserve arr(20)  ' Resize keeping existing data
-```
-
-### Extended Array Functions
-
-```vb
-' Array manipulation
-Dim arr = [1, 2, 3, 4, 5]
-arr = Push(arr, 6)           ' Add element: [1,2,3,4,5,6]
-Dim last = Pop(arr)          ' Remove and return last: 6
-Dim sub = Slice(arr, 1, 3)   ' Get subarray: [2,3]
-
-' Array search
-Dim idx = IndexOf(arr, 3)    ' Find index: 2
-Dim has = Contains(arr, 2)   ' Check if exists: True
-
-' Array transform
-Dim reversed = Reverse(arr)  ' Reverse order
-Dim sorted = Sort(arr)       ' Sort ascending
-Dim unique = Unique([1,2,2,3]) ' Remove duplicates: [1,2,3]
-Dim flat = Flatten([[1,2],[3]]) ' Flatten: [1,2,3]
-
-' Array generation
-Dim repeated = Repeat("X", 3)    ' ["X","X","X"]
-Dim range = Range(0, 10, 2)      ' [0,2,4,6,8]
-Dim zipped = Zip([1,2], ["a","b"]) ' [[1,"a"],[2,"b"]]
-```
-
-### Dictionary Functions
-
-```vb
-Dim person = {"name": "Alice", "age": 30}
-
-' Dictionary operations
-Dim k = Keys(person)              ' ["name", "age"]
-Dim v = Values(person)            ' ["Alice", 30]
-Dim has = HasKey(person, "name")  ' True
-
-' Merging dictionaries
-Dim extra = {"city": "NYC"}
-Dim merged = Merge(person, extra) ' {"name":"Alice", "age":30, "city":"NYC"}
-
-' Removing keys
-Dim removed = Remove(person, "age") ' {"name": "Alice"}
-```
-
-### Type Checking Functions
-
-```vb
-IsArray([1,2,3])             ' True
-IsDict({"key": "val"})       ' True
-IsString("hello")            ' True
-IsNumber(42)                 ' True
-IsNull(Nothing)              ' True
-TypeName([1,2,3])            ' "Array"
-TypeName(42)                 ' "Int"
-```
-
-### JSON Functions
-
-```vb
-' Parse JSON string to object
-Dim json = '{"name":"Bob","age":25}'
-Dim jsonData = JsonParse(json)
-Print jsonData["name"]       ' "Bob"
-
-' Convert object to JSON string
-Dim person = {"name": "Alice", "age": 30}
-Dim str = JsonStringify(person)
-Print str                    ' {"name":"Alice","age":30}
-
-' Pretty-print with indent
-Dim pretty = JsonStringify(person, True)
-```
-
-### Modern File System Functions
-
-```vb
-' Modern file operations (simpler than Open/Close)
-If FileExists("data.txt") Then
-    Dim content = ReadAllText("data.txt")   ' Read entire file
-    Print content
-End If
-
-If DirExists("./saves") Then
-    Print "Saves folder exists"
-End If
-
-' Write file (overwrites)
-WriteAllText("output.txt", "Hello World!")
-
-' Read as array of lines
-Dim lines = ReadLines("data.txt")
-For Each line In lines
-    Print line
-Next
-```
-
-### Clipboard Functions
-
-```vb
-' Clipboard operations
-Dim text = Clipboard.GetText()    ' Get text from clipboard
-Clipboard.SetText("Hello!")       ' Copy text to clipboard
-Clipboard.Clear()                 ' Clear clipboard contents
-```
-
-### File I/O Functions (Classic VB6 Style)
-```vb
-' File operations
-Dim fileNum As Integer = FreeFile()  ' Get available file handle
-Open "data.txt" For Input As fileNum
-Dim content As String = Input(LOF(fileNum), fileNum)  ' Read entire file
-Close fileNum
-
-' Close statement options
-Close 1           ' Close specific file handle
-Close             ' Close ALL open files at once
-
-' Multiple files example
-Open "file1.txt" For Input As 1
-Open "file2.txt" For Input As 2
-Open "file3.txt" For Input As 3
-Close 2           ' Only closes file handle 2
-Close             ' Closes all remaining files (1 and 3)
-
-' File information
-Dim size As Long = FileLen("data.txt")
-Dim exists As Boolean = (Dir("data.txt") <> "")
-```
-
-#### File I/O Statements
-`Print #`, `Write #`, `Input #`, and `Line Input #` statements are now compiled to dedicated bytecode opcodes for full VB6-compatible sequential file I/O:
-
-```vb
-' Write data to a file
-Dim f As Integer = FreeFile()
-Open "output.csv" For Output As f
-Print #f, "Name,Score,Level"       ' Print line as-is
-Write #f, "Alice", 100, 5           ' Write with quotes and commas
-Write #f, "Bob", 85, 3
-Close f
-
-' Read data from a file
-Dim name As String, score As Integer, level As Integer
-Open "output.csv" For Input As f
-Dim header As String
-Line Input #f, header              ' Read entire line
-Input #f, name, score, level       ' Read comma-separated values
-Print name & ": " & CStr(score)    ' "Alice: 100"
-Close f
-```
-
-### Classic DATA Statements
-**Classic DATA statements are back — and better than ever!**
-
-Remember storing game data, level layouts, and lookup tables right in your code? VisualGasic brings back the beloved `Data`, `Read`, and `Restore` statements from classic BASIC, enhanced with modern features like external data files and labeled data sections.
-
-#### Why DATA Statements?
-
-- **No External Files Needed** — Embed data directly in your code
-- **Instant Access** — No file I/O overhead for small datasets
-- **Nearly as fast as arrays** — `Data`/`Read` is only ~12% slower than array indexing, and 2× faster than filling an array then reading it (see [Performance](#performance-dataread-vs-arrays) below)
-- **Self-Documenting** — Data lives alongside the code that uses it
-- **Classic Compatibility** — Works exactly like VB6/QBasic DATA
-- **Modern Enhancements** — Load from external files, use labels for organization
-
-#### Basic DATA and READ
-
-```vb
-' Store data inline
-Data 10, 20, 30, "Hello", 3.14
-
-' Read data into variables
-Dim a, b, c As Integer
-Dim msg As String
-Dim pi As Double
-
-Read a, b, c       ' a=10, b=20, c=30
-Read msg           ' msg="Hello"
-Read pi            ' pi=3.14
-```
-
-#### Game Data Example
-
-```vb
-' Perfect for game level data, enemy stats, item definitions
-Sub LoadEnemyData()
-    Dim name As String
-    Dim hp, attack, defense As Integer
-    
-    ' Read enemy definitions
-    For i = 1 To 3
-        Read name, hp, attack, defense
-        CreateEnemy(name, hp, attack, defense)
-    Next
-End Sub
-
-' Enemy data embedded in code
-Data "Goblin", 30, 10, 5
-Data "Orc", 50, 15, 10
-Data "Dragon", 200, 40, 25
-```
-
-#### Labeled Data Sections
-
-Use labels to organize data and jump to specific sections:
-
-```vb
-' Jump to specific data section
-Restore Level1Data
-Read mapWidth, mapHeight
-
-Restore Level2Data
-Read mapWidth, mapHeight
-
-' Data sections with labels
-Level1Data:
-Data 20, 15, "Forest"
-
-Level2Data:
-Data 30, 20, "Castle"
-
-Level3Data:
-Data 40, 25, "Dungeon"
-```
-
-#### RESTORE Statement
-
-Reset the data pointer to read data again:
-
-```vb
-Data 1, 2, 3
-
-Read a  ' a = 1
-Read b  ' b = 2
-
-Restore    ' Reset to beginning
-
-Read c  ' c = 1 (starts over!)
-
-' Restore to labeled section
-Restore EnemyData
-```
-
-#### DataFile — Load from External Files
-
-Load large datasets from external files at parse time:
-
-```vb
-' Load data from external file
-DataFile "res://data/items.dat"
-
-' items.dat contains:
-' "Sword", 100, 10
-' "Shield", 80, 0, 15
-' "Potion", 25, 0, 0, 50
-
-Dim itemName As String
-Dim price, attack, defense, heal As Integer
-
-Read itemName, price, attack              ' "Sword", 100, 10
-Read itemName, price, attack, defense     ' "Shield", 80, 0, 15
-```
-
-#### LoadData — Runtime File Loading
-
-Load data files dynamically at runtime:
-
-```vb
-' Load data file based on runtime conditions
-Dim difficulty As String = GetDifficulty()
-LoadData "res://data/enemies_" & difficulty & ".dat"
-
-' Now Read from the loaded data
-Read enemyCount
-For i = 1 To enemyCount
-    Read name, hp, damage
-    SpawnEnemy(name, hp, damage)
-Next
-```
-
-#### Typed Read
-
-Coerce values to a specific type at read time with `Read variable As Type`:
-
-```vb
-Data 42, 3.14, "100", "True"
-
-Dim s As String
-Dim d As Double
-Dim i As Integer
-Dim b As Boolean
-
-Read s As String    ' s = "42" (number coerced to string)
-Read d As Double    ' d = 3.14
-Read i As Integer   ' i = 100  (string coerced to integer)
-Read b As Boolean   ' b = True (string coerced to boolean)
-```
-
-Supported type names: `Integer`, `Int`, `Long`, `Int32`, `Int64`, `Single`, `Float`, `Double`, `Float32`, `Float64`, `String`, `Boolean`, `Bool`.
-
-**Practical example — parsing mixed configuration data:**
-
-```vb
-' Config data stored as strings from an INI-style source
-Data "1280", "720", "60", "True", "My Game"
-
-Dim width As Integer
-Dim height As Integer
-Dim fps As Integer
-Dim fullscreen As Boolean
-Dim title As String
-
-' Typed Read ensures correct types even when data is all strings
-Read width As Integer         ' 1280
-Read height As Integer        ' 720
-Read fps As Integer           ' 60
-Read fullscreen As Boolean    ' True
-Read title As String          ' "My Game"
-
-OS.WindowSize = Vector2(width, height)
-```
-
-**Typed Read with LoadData — safely loading external CSV files:**
-
-```vb
-' External file scores.dat contains:
-'   "Alice", "950", "3"
-'   "Bob",   "820", "5"
-LoadData "res://data/scores.dat"
-
-Dim name As String
-Dim score As Integer
-Dim deaths As Integer
-
-For i = 1 To 2
-    Read name As String
-    Read score As Integer      ' Coerced from string "950" → 950
-    Read deaths As Integer     ' Coerced from string "3" → 3
-    Print name & ": " & CStr(score) & " pts, " & CStr(deaths) & " deaths"
-Next
-```
-
-#### Empty Data Slots
-
-Use consecutive commas to insert `Nothing` (null) values:
-
-```vb
-Data 1,,3, "hello",, 99
-
-Dim a, b, c, d, e, f
-Read a, b, c, d, e, f
-' a = 1, b = Nothing, c = 3, d = "hello", e = Nothing, f = 99
-```
-
-This is useful for sparse data tables where some positions are intentionally empty.
-
-**Practical example — RPG item table with optional properties:**
-
-```vb
-' Item format: Name, Price, Attack, Defense, HealHP, ManaRestore
-' Use empty slots when an item doesn't have a property
-ItemTable:
-Data "Sword",   100, 15,,, 
-Data "Shield",  80,,  12,,
-Data "Potion",  25,,,  50,
-Data "Elixir",  60,,,  30, 20
-Data "Amulet",  200,,  5,,
-
-Restore ItemTable
-For i = 1 To 5
-    Dim itemName As String
-    Dim price, atk, def, heal, mana
-    Read itemName, price, atk, def, heal, mana
-    
-    Print itemName & " ($" & CStr(price) & ")"
-    ' Check for Nothing before using optional stats
-    If Not IsNothing(atk) Then Print "  ATK: " & CStr(atk)
-    If Not IsNothing(def) Then Print "  DEF: " & CStr(def)
-    If Not IsNothing(heal) Then Print "  Heal: +" & CStr(heal) & " HP"
-    If Not IsNothing(mana) Then Print "  Mana: +" & CStr(mana)
-Next
-```
-
-**Sparse grid / level flags:**
-
-```vb
-' Flags for 4 checkpoints: hasKey, hasShop, hasBoss, isSafe
-Data True,,, True       ' Checkpoint 1: has key, is safe
-Data, True,,            ' Checkpoint 2: has shop only
-Data,, True,            ' Checkpoint 3: has boss only
-Data True, True,, True  ' Checkpoint 4: key + shop + safe
-```
-
-#### ClearData Statement
-
-Clear the entire data tape and reset the read pointer:
-
-```vb
-Data 10, 20, 30
-Read a, b    ' a=10, b=20
-
-ClearData    ' Tape emptied, pointer reset to 0
-
-' DataCount() now returns 0
-' You can LoadData to populate a fresh tape
-LoadData "res://data/new_data.dat"
-```
-
-**Practical example — swapping level data on the fly:**
-
-```vb
-Sub LoadLevel(levelNum As Integer)
-    ' Wipe previous level data
-    ClearData
-    
-    ' Load the new level's data file
-    LoadData "res://levels/level" & CStr(levelNum) & ".dat"
-    
-    ' Read level header
-    Dim mapW As Integer, mapH As Integer, tileset As String
-    Read mapW, mapH, tileset
-    
-    ' Read tile grid
-    Dim tiles(mapH, mapW) As Integer
-    For y = 1 To mapH
-        For x = 1 To mapW
-            Read tiles(y, x)
-        Next
-    Next
-    
-    Print "Loaded level " & CStr(levelNum) & " (" & CStr(mapW) & "x" & CStr(mapH) & ")"
-End Sub
-```
-
-**Resetting between test runs:**
-
-```vb
-Sub RunTest(testData As String)
-    ClearData
-    DataFromString testData
-    
-    Dim result As Integer
-    Dim expected As Integer
-    Read result, expected
-    
-    If result = expected Then
-        Print "PASS"
-    Else
-        Print "FAIL: got " & CStr(result) & " expected " & CStr(expected)
-    End If
-End Sub
-
-RunTest "42, 42"    ' PASS
-RunTest "10, 20"    ' FAIL: got 10 expected 20
-```
-
-#### DataFromString Statement
-
-Parse a string expression as comma-separated data values and append them to the data tape. This is the runtime equivalent of `LoadData` but takes a string variable or expression instead of a file path:
-
-```vb
-' Syntax
-DataFromString expression
-
-' Example: build data from a variable
-Dim csv As String
-csv = "10, 20, 30"
-DataFromString csv
-Read a, b, c      ' a=10, b=20, c=30
-```
-
-The string contents follow normal `Data` statement syntax — numbers are bare, strings must be double-quoted:
-
-```vb
-Dim q As String
-q = Chr(34)   ' double-quote character
-
-' Build a string with quoted values
-Dim s As String
-s = "42, " & q & "hello" & q & ", 3.14, True"
-DataFromString s
-Read vi, vs, vf, vb   ' vi=42, vs="hello", vf=3.14, vb=True
-```
-
-**Typical use case** — load a file into a string, then feed it to the data tape:
-
-```vb
-Open "res://data/scores.csv" For Input As #1
-Dim contents As String
-contents = Input(LOF(1), 1)
-Close #1
-
-DataFromString contents
-' Now Read values from the file contents
-```
-
-Multiple `DataFromString` calls append to the existing tape:
-
-```vb
-DataFromString "1, 2"
-DataFromString "3, 4"
-Read a, b, c, d   ' a=1, b=2, c=3, d=4
-```
-
-**Complete example — CSV high-score loader:**
-
-```vb
-' Load a CSV file into the data tape and read structured records
-Sub LoadHighScores()
-    ClearData
-    
-    ' Read the entire file into a string
-    Open "res://data/highscores.csv" For Input As #1
-    Dim raw As String
-    raw = Input(LOF(1), 1)
-    Close #1
-    
-    ' Feed the file contents to the data tape
-    DataFromString raw
-    
-    ' highscores.csv contains lines like:
-    '   "Alice", 9500, 12
-    '   "Bob", 8200, 8
-    '   "Charlie", 7100, 15
-    
-    Dim count As Integer
-    count = DataCount() \ 3    ' 3 fields per record
-    
-    Dim q As String
-    q = Chr(34)
-    
-    Print "=== HIGH SCORES ==="
-    For i = 1 To count
-        Dim playerName As String
-        Dim score As Integer
-        Dim level As Integer
-        Read playerName, score, level
-        Print CStr(i) & ". " & playerName & " - " & CStr(score) & " pts (Level " & CStr(level) & ")"
-    Next
-End Sub
-```
-
-**Building data programmatically from user input:**
-
-```vb
-' Collect settings at runtime and store as data
-Sub SaveSettings()
-    Dim q As String
-    q = Chr(34)
-    
-    ' Build a data string from current game state
-    Dim settings As String
-    settings = CStr(screenWidth) & ", " & CStr(screenHeight) & ", "
-    settings = settings & CStr(musicVolume) & ", " & CStr(sfxVolume) & ", "
-    settings = settings & q & playerName & q
-    
-    ' Now we can store and reload it later
-    ClearData
-    DataFromString settings
-    
-    ' Verify by reading back
-    Dim w As Integer, h As Integer, mv As Integer, sv As Integer, name As String
-    Read w, h, mv, sv, name
-    Print "Settings: " & CStr(w) & "x" & CStr(h) & " Vol:" & CStr(mv) & "/" & CStr(sv) & " Player:" & name
-End Sub
-```
-
-#### Data Introspection Functions
-
-Query the state of the data tape at runtime:
-
-| Function | Returns | Description |
-|----------|---------|-------------|
-| `DataCount()` | Integer | Total number of items in the data tape |
-| `DataCount("label")` | Integer | Number of items in a labeled section (case-insensitive) |
-| `DataRemain()` | Integer | Items remaining from current pointer to end |
-| `DataSectionCount()` | Integer | Total items in the current labeled section |
-| `DataSectionRemain()` | Integer | Remaining items in the current labeled section |
-| `DataPointer()` | Integer | Current read position (0-based) |
-| `PeekData(index)` | Variant | Read value at absolute index without moving pointer |
-| `PeekData("label", offset)` | Variant | Read value at label + offset without moving pointer |
-| `SetDataPointer(n)` | (none) | Set the read pointer to position *n* (clamped to 0..DataCount) |
-| `DataLabels()` | Array | Array of all label names in the data tape |
-| `DataSectionName()` | String | Label name of the section the pointer is currently in ("" if preamble) |
-| `DataToArray()` | Array | Read the entire data tape into an Array |
-| `DataToArray("label")` | Array | Read all items in a labeled section into an Array |
-| `DataToArray(n)` | Array | Read *n* items from the current pointer into an Array |
-
-```vb
-Data 10, 20, 30
-
-Colors:
-Data "Red", "Green", "Blue"
-
-Numbers:
-Data 100, 200, 300, 400, 500
-
-Sub Main()
-    Print DataCount()             ' 11 (total items)
-    Print DataCount("Colors")     ' 3
-    Print DataCount("Numbers")    ' 5
-    
-    Read a, b, c                  ' Read 10, 20, 30
-    Print DataPointer()           ' 3
-    Print DataRemain()            ' 8
-    
-    Restore Numbers
-    Print DataSectionCount()      ' 5
-    Read x, y
-    Print DataSectionRemain()     ' 3
-End Sub
-```
-
-> **Note:** `Restore` is case-insensitive — `Restore colors`, `Restore COLORS`, and `Restore Colors` all work.
-
-**Practical example — safe reading with bounds checking:**
-
-```vb
-' Read all items without risking "Out of Data" errors
-Sub ReadAllItems()
-    Restore ItemData
-    
-    Do While DataRemain() >= 3    ' Each record is 3 fields
-        Dim name As String
-        Dim price As Integer
-        Dim weight As Single
-        Read name, price, weight
-        Print name & ": $" & CStr(price) & " (" & CStr(weight) & " kg)"
-    Loop
-    
-    If DataRemain() > 0 Then
-        Print "WARNING: " & CStr(DataRemain()) & " leftover values (incomplete record)"
-    End If
-End Sub
-
-ItemData:
-Data "Sword", 150, 3.5
-Data "Shield", 100, 5.0
-Data "Potion", 25, 0.2
-```
-
-**Progress tracking while loading large datasets:**
-
-```vb
-Sub LoadWorldData()
-    LoadData "res://data/world.dat"
-    
-    Dim total As Integer
-    total = DataCount()
-    Print "Loading " & CStr(total) & " data values..."
-    
-    Dim loaded As Integer
-    loaded = 0
-    
-    Do While DataRemain() > 0
-        Dim value
-        Read value
-        ProcessValue(value)
-        loaded = loaded + 1
-        
-        ' Show progress every 100 items
-        If loaded Mod 100 = 0 Then
-            Dim pct As Integer
-            pct = (loaded * 100) \ total
-            Print "Progress: " & CStr(pct) & "%"
-        End If
-    Loop
-    
-    Print "Loaded " & CStr(loaded) & " values."
-End Sub
-```
-
-**Section-aware menu system:**
-
-```vb
-MainMenu:
-Data "New Game", "Load Game", "Settings", "Quit"
-
-SettingsMenu:
-Data "Video", "Audio", "Controls", "Back"
-
-Sub ShowMenu(section As String)
-    Restore section
-    Dim count As Integer
-    count = DataSectionCount()
-    
-    Print "┌──────────────────┐"
-    For i = 1 To count
-        Dim item As String
-        Read item
-        Print "│ " & CStr(i) & ". " & item & String(14 - Len(item), " ") & "│"
-    Next
-    Print "└──────────────────┘"
-    Print "Choose 1-" & CStr(count) & ": ";
-End Sub
-
-ShowMenu "MainMenu"      ' Shows 4-item main menu
-ShowMenu "SettingsMenu"   ' Shows 4-item settings menu
-```
-
-**Random-access reads with PeekData:**
-
-```vb
-' PeekData lets you read any value by index without disturbing the pointer.
-' This is ideal for lookup tables, tile maps, and configuration.
-
-Weapons:
-Data "Sword", 150, 3.5
-Data "Shield", 100, 5.0
-Data "Potion",  25, 0.2
-
-Sub Main()
-    ' --- Absolute index ---
-    Print PeekData(0)          ' "Sword"
-    Print PeekData(3)          ' "Shield"
-    Print DataPointer()        ' 0 — pointer unchanged!
-
-    ' --- Label + offset ---
-    Print PeekData("Weapons", 0)   ' "Sword"
-    Print PeekData("Weapons", 4)   ' 100  (second item's price)
-
-    ' --- Build an inventory lookup without Read ---
-    Dim i As Integer
-    For i = 0 To DataCount("Weapons") - 1 Step 3
-        Dim n As String
-        n = PeekData("Weapons", i)
-        Dim p As Integer
-        p = PeekData("Weapons", i + 1)
-        Print n & ": $" & CStr(p)
-    Next
-End Sub
-```
-
-**SetDataPointer for save / restore patterns:**
-
-```vb
-Scores:
-Data 1000, 850, 720, 600, 500
-
-Sub Main()
-    ' Save current position, jump to entry #3, read one value, restore
-    Dim saved As Integer
-    saved = DataPointer()
-
-    SetDataPointer 2              ' Jump to index 2
-    Dim third As Integer
-    Read third                    ' Reads 720, pointer moves to 3
-    Print "3rd place: " & CStr(third)
-
-    SetDataPointer saved          ' Restore original position
-
-    ' Negative or out-of-range values are clamped automatically
-    SetDataPointer -1             ' Clamped to 0
-    SetDataPointer 99999          ' Clamped to DataCount()
-End Sub
-```
-
-**DataLabels — discover all sections dynamically:**
-
-```vb
-Weapons:
-Data "Sword", 150, "Shield", 100
-
-Armor:
-Data "Helmet", 50, "Chestplate", 200
-
-Potions:
-Data "Health", 25, "Mana", 30
-
-Sub Main()
-    Dim sections As Variant
-    sections = DataLabels()       ' ["weapons", "armor", "potions"]
-    
-    For Each s In sections
-        Print UCase(Left(s, 1)) & Mid(s, 2) & ": " & CStr(DataCount(s)) & " items"
-    Next
-    ' Output:
-    '   Weapons: 4 items
-    '   Armor: 4 items
-    '   Potions: 4 items
-End Sub
-```
-
-**DataSectionName — know where the pointer is:**
-
-```vb
-Enemies:
-Data "Goblin", 30, "Orc", 80, "Dragon", 500
-
-Sub Main()
-    Restore Enemies
-    Do While DataRemain() > 0
-        Dim name As String
-        Dim hp As Integer
-        Read name, hp
-        Print "[" & DataSectionName() & "] " & name & " HP=" & CStr(hp)
-    Loop
-    ' Output:
-    '   [enemies] Goblin HP=30
-    '   [enemies] Orc HP=80
-    '   [enemies] Dragon HP=500
-End Sub
-```
-
-**DataToArray — bulk load without looping:**
-
-```vb
-Colors:
-Data "Red", "Green", "Blue", "Yellow"
-
-Scores:
-Data 100, 95, 87, 72, 65
-
-Sub Main()
-    ' Load an entire section
-    Dim c As Variant
-    c = DataToArray("Colors")     ' ["Red", "Green", "Blue", "Yellow"]
-    Print "Colors: " & Join(c, ", ")
-    
-    ' Load first 3 items from pointer position
-    SetDataPointer 0
-    Dim first3 As Variant
-    first3 = DataToArray(3)       ' First 3 items from tape start
-    
-    ' Load everything
-    Dim all As Variant
-    all = DataToArray()           ' Entire tape as one array
-    Print "Total items: " & CStr(UBound(all) + 1)
-End Sub
-```
-
-#### Classic Use Cases
-
-**Lookup Tables:**
-```vb
-' Month names lookup
-Data "January", "February", "March", "April", "May", "June"
-Data "July", "August", "September", "October", "November", "December"
-
-Dim monthNames(12) As String
-For i = 1 To 12
-    Read monthNames(i)
-Next
-```
-
-**ASCII Art and Text:**
-```vb
-' Store multi-line text/ASCII art
-Data "╔════════════════╗"
-Data "║  GAME OVER!    ║"
-Data "║  Score: %SCORE%║"
-Data "╚════════════════╝"
-
-For i = 1 To 4
-    Read line
-    Print Replace(line, "%SCORE%", CStr(score))
-Next
-```
-
-**Tile Maps:**
-```vb
-' Simple tilemap data
-Data 1,1,1,1,1,1,1,1
-Data 1,0,0,0,0,0,0,1
-Data 1,0,2,0,0,3,0,1
-Data 1,0,0,0,0,0,0,1
-Data 1,1,1,1,1,1,1,1
-
-Dim map(5, 8) As Integer
-For y = 1 To 5
-    For x = 1 To 8
-        Read map(y, x)
-    Next
-Next
-```
-
-**Configuration Data:**
-```vb
-' Game configuration
-Data "Window Title", 1280, 720, True, 60
-
-Dim title As String
-Dim width, height As Integer
-Dim fullscreen As Boolean
-Dim targetFPS As Integer
-
-Read title, width, height, fullscreen, targetFPS
-```
-
-#### Putting It All Together
-
-This example combines **DataFromString**, **ClearData**, **Typed Read**, **Empty Data Slots**, **Data Introspection**, **PeekData**, **SetDataPointer**, **DataLabels**, **DataSectionName**, and **DataToArray** in a realistic game scenario:
-
-```vb
-' ============================================================
-' Dynamic Inventory System using all v3.2.0 Data features
-' ============================================================
-
-' Default shop inventory (embedded in code)
-' Format: Name, Price, Qty, Attack, Defense, Heal
-' Empty slots (,,) mean "not applicable"
-ShopItems:
-Data "Iron Sword",   50,  5,  12,,,
-Data "Oak Shield",   35,  3,,  8,,
-Data "Health Vial",  10, 20,,,  25
-Data "Mana Ring",   100,  1,,  3, 10
-
-Buffs:
-Data "Strength", 1.5, 30
-Data "Shield",   1.2, 60
-
-Sub _Ready()
-    ' --- Step 1: Discover all data sections dynamically ---
-    Print "=== DATA SECTIONS ==="
-    Dim sections As Variant
-    sections = DataLabels()
-    For Each s In sections
-        Print "  " & s & ": " & CStr(DataCount(s)) & " values"
-    Next
-    
-    ' --- Step 2: Bulk-load buffs with DataToArray ---
-    Print ""
-    Print "=== BUFFS (via DataToArray) ==="
-    Dim buffs As Variant
-    buffs = DataToArray("Buffs")     ' ["Strength", 1.5, 30, "Shield", 1.2, 60]
-    Dim b As Integer
-    For b = 0 To UBound(buffs) Step 3
-        Print "  " & CStr(buffs(b)) & " x" & CStr(buffs(b + 1)) & " for " & CStr(buffs(b + 2)) & "s"
-    Next
-    
-    ' --- Step 3: Random-access shop items with PeekData ---
-    Print ""
-    Print "=== PEEK ITEM #2 (no loop needed) ==="
-    ' Each item is 6 fields; item #2 starts at offset 6
-    Dim itemName As String
-    itemName = PeekData("ShopItems", 6)
-    Dim itemPrice As Integer
-    itemPrice = PeekData("ShopItems", 7)
-    Print "  " & itemName & " costs $" & CStr(itemPrice)
-    Print "  Pointer still at: " & CStr(DataPointer()) & " (unchanged!)"
-
-    ' --- Step 4: Read shop with DataSectionName tracking ---
-    Print ""
-    Print "=== FULL SHOP (sequential read) ==="
-    Restore ShopItems
-    Dim shopSize As Integer
-    shopSize = DataSectionCount() \ 6   ' 6 fields per item
-    
-    For i = 1 To shopSize
-        Dim name As String, price As Integer, qty As Integer
-        Dim atk, def, heal
-        Read name, price, qty, atk, def, heal
-        
-        Dim desc As String
-        desc = "[" & DataSectionName() & "] " & name
-        desc = desc & " ($" & CStr(price) & ", stock: " & CStr(qty) & ")"
-        If Not IsNothing(atk)  Then desc = desc & " ATK+" & CStr(atk)
-        If Not IsNothing(def)  Then desc = desc & " DEF+" & CStr(def)
-        If Not IsNothing(heal) Then desc = desc & " HEAL+" & CStr(heal)
-        Print "  " & desc
-    Next
-    
-    ' --- Step 5: Save/restore pointer with SetDataPointer ---
-    Print ""
-    Print "=== SAVE/RESTORE POINTER ==="
-    Dim saved As Integer
-    saved = DataPointer()
-    SetDataPointer 0               ' Jump to very beginning
-    Dim firstItem As String
-    Read firstItem
-    Print "  First item in tape: " & firstItem
-    SetDataPointer saved            ' Restore where we were
-    Print "  Pointer restored to: " & CStr(DataPointer())
-    
-    ' --- Step 6: Load DLC items from a file ---
-    Print ""
-    Print "=== LOADING DLC PACK ==="
-    ClearData
-    
-    Open "res://data/dlc_items.csv" For Input As #1
-    Dim raw As String
-    raw = Input(LOF(1), 1)
-    Close #1
-    
-    DataFromString raw
-    
-    Dim dlcCount As Integer
-    dlcCount = DataCount() \ 6
-    Print "Loaded " & CStr(dlcCount) & " DLC items"
-    
-    ' Use Typed Read for safe parsing of external data
-    Do While DataRemain() >= 6
-        Dim dName As String
-        Dim dPrice As Integer, dQty As Integer
-        Read dName As String
-        Read dPrice As Integer
-        Read dQty As Integer
-        Read atk    ' Could be Nothing (empty slot)
-        Read def
-        Read heal
-        Print "  + " & dName & " ($" & CStr(dPrice) & ")"
-    Loop
-    
-    ' --- Step 7: Merge user save data on top ---
-    Print ""
-    Print "=== MERGING SAVE DATA ==="
-    Dim q As String
-    q = Chr(34)
-    
-    ' Simulate save file content as a string
-    Dim saveData As String
-    saveData = q & "Iron Sword" & q & ", 50, 2, 12,,," & Chr(10)
-    saveData = saveData & q & "Health Vial" & q & ", 10, 5,,, 25"
-    
-    ' Append save data without clearing DLC items
-    DataFromString saveData
-    Print "Tape now has " & CStr(DataCount()) & " total values"
-    Print "Pointer at " & CStr(DataPointer()) & ", " & CStr(DataRemain()) & " values remaining"
-    
-    ' Grab everything as an array for processing
-    Dim allData As Variant
-    allData = DataToArray()
-    Print "DataToArray() returned " & CStr(UBound(allData) + 1) & " items"
-End Sub
-```
-
-#### Performance: Data/Read vs Arrays
-Benchmark: 500 values × 200 iterations (100,000 sequential reads per test). All tests produce the same checksum to ensure correctness.
-
-| Test | Time (µs) | Reads/sec | vs Array Read |
-|------|----------:|----------:|--------------:|
-| **Array Read** (pre-filled) | ~45,000 | ~2.2 M/s | 1.0× (baseline) |
-| **Data/Read** + `Restore` | ~51,000 | ~2.0 M/s | 0.88× |
-| **Array Write + Read** (round-trip) | ~110,000 | ~910 K/s | 0.41× |
-| **DataFromString** + `ClearData` (per-iter) | ~170,000 | ~590 K/s | 0.26× |
-
-**Guidelines:**
-
-- **Use `Data`/`Read` for static tables** — only ~12% slower than a pre-filled array, with zero setup code. Ideal for lookup tables, level data, enemy stats, tile maps.
-- **`Data`/`Read` is 2× faster than array round-trips** — if the alternative is building an array and then reading it, the data tape wins because values are parsed once at script load time.
-- **Use arrays for random access** — `Data`/`Read` is strictly sequential. If you need `arr(i)` with arbitrary `i`, use an array.
-- **`DataFromString` is for one-time loading** — the string-to-AST parsing adds overhead, so call it once (e.g. after reading a file), not in a hot loop.
-
-> *Benchmark script: `demo/bench_data_vs_array.vg` — run with `./Godot --headless --path demo -s run_vg.gd -- bench_data_vs_array.vg`*
-
-### Game and Application Development Functions
-```vb
-' Audio (games and multimedia applications)
-Volume 75                           ' Set master volume (0-100)
-Music "res://audio/background.ogg"  ' Play background music
-Sample 1, "res://audio/effect.wav"  ' Play sound effect
-
-' Input (user interaction for applications and games)
-Dim mouseX As Integer = MouseX()     ' Mouse X coordinate
-Dim mouseY As Integer = MouseY()     ' Mouse Y coordinate  
-Dim buttons As Integer = MouseClick() ' Mouse button state
-Dim key As String = Inkey()          ' Last pressed key
-
-' Timing
-Dim elapsed As Double = Timer()      ' Time since engine start
-Sleep(2500)                         ' Pause execution for 2500 milliseconds (2.5 seconds)
-
-' Sleep function usage
-Sleep(1000)                         ' Pause for 1 second
-Sleep(500)                          ' Pause for 0.5 seconds
-
-' Utility (general application functions)
-Cls                                 ' Clear screen
-Dim choice = Choose(score > 100, "Winner!", "Try again!")
-```
-
-#### Drawing Primitives
-
-```vb
-' Basic drawing (available in _Draw())
-DrawRect 10, 10, 100, 50, Color(1, 0, 0)          ' Red filled rectangle
-DrawCircle 200, 100, 30, Color(0, 0, 1)           ' Blue circle
-DrawLine 0, 0, 100, 100, Color(0, 1, 0), 2        ' Green line, 2px wide
-DrawPixel 50, 50, Color(1, 1, 0)                   ' Yellow pixel (also: PSet)
-DrawString GetThemeDefaultFont(), Vector2(10, 20), "Hello!", Color.White
-
-' Textures
-Dim tex As Variant = LoadPicture("res://icon.png")
-DrawTexture tex, 100, 100                          ' Draw at position
-DrawTextureRect tex, Rect2(0, 0, 200, 200), False  ' Stretch into rect
-
-' Advanced shapes
-DrawArc 100, 100, 50, 0, 3.14, 32, Color.Red, 2   ' Half-circle arc
-DrawPolygon Array(Vector2(0,0), Vector2(100,0), Vector2(50,80)), Color.Green
-DrawPolyline Array(Vector2(0,0), Vector2(50,30), Vector2(100,0)), Color.Blue, 2
-
-' Transform
-SetDrawTransform 100, 100, 0.5, 2.0, 2.0          ' Translate, rotate, scale
-DrawRect 0, 0, 50, 50, Color.Red                   ' Drawn at transformed position
-ResetDrawTransform                                  ' Back to normal
-```
-
-#### Image & Texture Manipulation
-
-```vb
-' Create an Image and Texture (for pixel-level drawing)
-Dim img As Variant = CreateImage(320, 240, Color(1, 1, 1, 1))  ' White 320x240
-Dim tex As Variant = CreateTexture(img)
-
-' Draw pixels on the Image
-SetImagePixel img, 10, 20, Color(1, 0, 0, 1)       ' Red pixel
-Dim c As Variant = GetImagePixel(img, 10, 20)       ' Read it back
-Print "Red: " & Str(c.r)                            ' Prints 1.0
-
-' Bulk operations (much faster than per-pixel loops)
-FillImage img, Color(0, 0, 0, 1)                    ' Fill entire image black
-FillImageRect img, Rect2i(10, 10, 100, 50), Color(0, 1, 0, 1)  ' Green rect
-
-' Copy between images
-Dim img2 As Variant = CreateImage(320, 240)
-BlitImage img2, img, Rect2i(0, 0, 100, 100), Vector2i(50, 50)  ' Copy region
-
-' Push changes to texture and draw
-UpdateTexture tex, img                              ' Sync Image → Texture
-DrawTexture tex, 0, 0                               ' Render in _Draw()
-
-' Native drawing builtins (fast C++ pixel operations)
-' These run entirely in native code — much faster than VG script loops.
-
-' Line: Bresenham from (x1,y1) to (x2,y2) — optional width for thick brush
-DrawImageLine img, 10, 10, 200, 150, Color(1, 0, 0, 1)         ' 1px red diagonal
-DrawImageLine img, 0, 120, 319, 120, Color8(0, 0, 255, 255), 8 ' 8px blue brush
-Line img, 10, 180, 200, 180, Color(0, 1, 0, 1), 4              ' VB6 alias, 4px
-
-' Rectangle: 1px outline between two corners (auto-normalized)
-DrawImageRect img, 20, 20, 120, 80, Color(0, 0, 1, 1)        ' Blue rect outline
-' For a FILLED rectangle, use FillImageRect instead:
-FillImageRect img, 130, 20, 60, 40, Color(0, 1, 0, 1)        ' Green filled rect
-
-' Ellipse: midpoint algorithm, center (cx,cy), radii (rx,ry)
-DrawImageEllipse img, 160, 120, 60, 40, Color(0, 1, 0, 1)    ' Green ellipse
-DrawImageEllipse img, 80, 80, 30, 30, Color(1, 0, 1, 1)      ' Circle outline (rx=ry)
-
-' Circle: FILLED circle using scanline fill
-DrawImageCircle img, 260, 50, 35, Color(1, 1, 0, 1)          ' Yellow filled sun
-' For an outline-only circle, use DrawImageEllipse with rx=ry instead
-
-' FloodFill: fill connected region from seed point
-DrawImageRect img, 50, 160, 150, 230, Color(0, 0, 0, 1)      ' Black outline box
-FloodFillImage img, 100, 195, Color(0, 0, 1, 1)              ' Blue fill inside
-' Only pixels connected to seed (100,195) that match the target color are filled
-
-UpdateTexture tex, img    ' Push all changes to texture for display
-
-' File I/O
-SaveImage img, "user://screenshot.png"              ' Save as PNG
-Dim loaded As Variant = LoadImage("user://screenshot.png")  ' Load back
-
-' Query dimensions
-Print "Image: " & Str(ImageWidth(img)) & "x" & Str(ImageHeight(img))
-Print "Texture: " & Str(TextureWidth(tex)) & "x" & Str(TextureHeight(tex))
-```
-
----
 
 ## VB6 Global Objects
 These virtual objects emulate VB6's built-in global objects. They are resolved automatically when referenced by name — no `Dim` or `New` required.
@@ -4212,6 +2271,7 @@ The image is saved to `user://printform_output.png` in the Godot user data direc
 
 ---
 
+
 ## COM-Style Objects
 These classes emulate common VB6/VBScript COM objects. Instantiate with `Dim obj As New ClassName` or via `CreateObject("ProgID")`.
 
@@ -4321,6 +2381,7 @@ tmr.Enabled = True
 ```
 
 ---
+
 
 ## System Integration
 These classes provide C#-level system integration: native FFI, ODBC databases, cryptography, XML, ZIP, async threading, and package management. All classes use VB6-style PascalCase aliases for a familiar BASIC feel.
@@ -4695,6 +2756,7 @@ xl.Cells(1, 1).Value = "Hello from VisualGasic!"
 
 ---
 
+
 ## System-Level Programming
 These classes close every gap identified in the system-programming audit, making VisualGasic a proper system-level language on Linux, Windows, macOS, and Android.
 
@@ -4988,6 +3050,7 @@ End If
 
 ---
 
+
 ## Modern Language Features
 
 ### Lambda Expressions
@@ -5055,6 +3118,7 @@ Dim position = Vector2(100, 200)  ' Vector2
 ```
 
 ---
+
 
 ## Godot Integration
 
@@ -5897,1238 +3961,10904 @@ VisualGasic's multitasking capabilities compare favorably with industry leaders:
 
 ---
 
-## v3.3.0 Language Enhancements
 
-### String Interpolation
+---
 
-Build strings with embedded expressions using `$"..."` syntax:
+## Part II — Command Reference (A–Z)
+
+Every one of the 350 built-in keywords, statements, functions, and namespace verbs documented by the Command Help panel gets a dedicated page below. Pages follow the classic *Visual Basic 5 Super Bible* layout: **Purpose**, **Syntax**, **Parameters**, **Description**, **Example**, and **See Also**.
+
+
+### Symbols
+
+## _draw
+
+**Purpose** — Called when the CanvasItem needs to be redrawn.
+
+**Syntax**
 
 ```vb
-Dim name As String = "World"
-Print $"Hello, {name}!"           ' → Hello, World!
-Print $"2 + 2 = {2 + 2}"         ' → 2 + 2 = 4
-Print $"Upper: {UCase(name)}"     ' → Upper: WORLD
+Sub _Draw()
 ```
 
-### Count() Function
+**Description**
 
-Returns the number of elements in an Array, Dictionary, or characters in a String:
+Called when the CanvasItem needs to be redrawn. Use draw_* methods inside. Call [b]queue_redraw[/b] to trigger.
+
+**Example**
 
 ```vb
-Dim arr() = Array(1, 2, 3)
-Print Count(arr)    ' → 3
-
-Dim d As Object
-Set d = CreateObject("Scripting.Dictionary")
-d.Add "a", 1
-Print Count(d)      ' → 1
-
-Print Count("Hello") ' → 5
+Sub _Draw()
+    DrawCircle 100, 100, 50, RGB(255, 0, 0)
+    DrawLine 0, 0, 200, 200, RGB(0, 255, 0)
+End Sub
 ```
 
-### Debug.Print and Assert
+**Godot Mapping** — [`CanvasItem._draw()`](https://docs.godotengine.org/en/stable/classes/class_canvasitem.html#class-canvasitem-method-_draw)
+
+**See Also** — [_ready](#ready), [_process](#process), [_physics_process](#physicsprocess), [_input](#input)
+
+---
+
+## _input
+
+**Purpose** — Called when any input event occurs (keyboard, mouse, touch, gamepad).
+
+**Syntax**
 
 ```vb
-Debug.Print "This goes to Immediate Window"
-
-' Assert — halts execution if condition is False
-Assert 1 + 1 = 2, "Math is broken"
-Assert x > 0, "x must be positive"
+Sub _Input(event As InputEvent)
 ```
 
-### Print Semicolons (Multiple Expressions)
+**Parameters**
 
-Use `;` to concatenate output, or trailing `;` to suppress newline:
+- `event`
+
+**Description**
+
+Called when any input event occurs (keyboard, mouse, touch, gamepad). Consume with [b]set_input_as_handled[/b].
+
+**Example**
 
 ```vb
-Print "Hello"; " "; "World"     ' → Hello World
-Print "Name: "; name; " Age: "; age
-Print "No newline";             ' Trailing ; suppresses newline
+Sub _Input(event As InputEvent)
+    If event.is_action_pressed("jump") Then
+        velocity.y = -400
+    End If
+End Sub
 ```
 
-### Spc() and Tab() Functions
+**Godot Mapping** — [`Node._input()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_input)
+
+**See Also** — [_ready](#ready), [_process](#process), [_physics_process](#physicsprocess), [_draw](#draw)
+
+---
+
+## _physics_process
+
+**Purpose** — Called every physics frame (default 60 fps).
+
+**Syntax**
 
 ```vb
-Print "Col1"; Spc(5); "Col2"    ' 5 spaces between columns
-Print "Col1"; Tab(20); "Col2"   ' Pad to column 20
+Sub _PhysicsProcess(delta As Single)
 ```
 
-### Array and Dictionary Literals
+**Parameters**
 
-Create arrays with `[...]` and dictionaries with `{...}`:
+- `delta`
+
+**Description**
+
+Called every physics frame (default 60 fps). Use for physics-based movement and collision detection.
+
+**Example**
 
 ```vb
-Dim arr = [1, 2, 3, 4, 5]
-Dim names = ["Alice", "Bob", "Charlie"]
-Dim config = {"host": "localhost", "port": 8080, "debug": True}
+Sub _PhysicsProcess(delta As Single)
+    velocity.y += gravity * delta
+    move_and_slide
+End Sub
+```
 
-For Each item In [10, 20, 30]
-    Print item
+**Godot Mapping** — [`Node._physics_process()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_physics_process)
+
+**See Also** — [move_and_slide](#moveandslide), [velocity](#velocity), [is_on_floor](#isonfloor), [is_on_wall](#isonwall), [delta](#delta), [_ready](#ready), [_process](#process), [_input](#input), [_draw](#draw)
+
+---
+
+## _process
+
+**Purpose** — Called every frame.
+
+**Syntax**
+
+```vb
+Sub _Process(delta As Single)
+```
+
+**Parameters**
+
+- `delta`
+
+**Description**
+
+Called every frame. [b]delta[/b] is the elapsed time in seconds. Use for game logic, animation, and non-physics movement.
+
+**Example**
+
+```vb
+Sub _Process(delta As Single)
+    rotation_degrees += 90 * delta
+End Sub
+```
+
+**Godot Mapping** — [`Node._process()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_process)
+
+**See Also** — [_ready](#ready), [_physics_process](#physicsprocess), [_input](#input), [_draw](#draw)
+
+---
+
+## _ready
+
+**Purpose** — Called when the node and all its children have entered the scene tree.
+
+**Syntax**
+
+```vb
+Sub _Ready()
+```
+
+**Description**
+
+Called when the node and all its children have entered the scene tree. Use for initialization.
+
+**Example**
+
+```vb
+Sub _Ready()
+    Dim startPos As Vector2 = position
+    visible = True
+End Sub
+```
+
+**Godot Mapping** — [`Node._ready()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_ready)
+
+**See Also** — [_process](#process), [_physics_process](#physicsprocess), [_input](#input), [_draw](#draw)
+
+---
+
+
+### A
+
+## AABB
+
+**Purpose** — Axis-aligned bounding box in 3D.
+
+**Syntax**
+
+```vb
+AABB() | AABB(positionVec3, sizeVec3)
+```
+
+**Description**
+
+Axis-aligned bounding box in 3D. Used for visibility culling, region tests. Methods: .HasPoint(p), .Intersects(other), .GetCenter(), .Grow(by), .Encloses(other), .GetVolume().
+
+**Example**
+
+```vb
+Dim region = AABB(Vector3(-5, 0, -5), Vector3(10, 4, 10))
+If region.HasPoint(enemy.position) Then
+    enemy.Aggro()
+End If
+```
+
+**See Also** — [Quaternion](#quaternion), [QuaternionFromEuler](#quaternionfromeuler), [Basis](#basis), [Transform2D](#transform2d), [Transform3D](#transform3d), [Plane](#plane), [Slerp](#slerp)
+
+---
+
+## Abs
+
+**Purpose** — Returns the absolute value of a number.
+
+**Syntax**
+
+```vb
+Abs(number)
+```
+
+**Parameters**
+
+- `number`
+
+**Description**
+
+Returns the absolute value of a number.
+
+**Example**
+
+```vb
+Print Abs(-5)    ' 5
+Print Abs(3.14)  ' 3.14
+```
+
+**See Also** — [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod)
+
+---
+
+## add_child
+
+**Purpose** — Adds a child node to this node.
+
+**Syntax**
+
+```vb
+add_child(node As Node)
+```
+
+**Parameters**
+
+- `node`
+
+**Description**
+
+Adds a child node to this node. The child will appear in the scene tree under this node.
+
+**Example**
+
+```vb
+Dim bullet As Node2D = preload("res://Bullet.tscn").instantiate()
+add_child bullet
+```
+
+**Godot Mapping** — [`Node.add_child()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-add_child)
+
+**See Also** — [get_node](#getnode), [remove_child](#removechild), [queue_free](#queuefree), [get_tree](#gettree), [instantiate](#instantiate)
+
+---
+
+## And
+
+**Purpose** — Logical AND — returns True only if both expressions are True.
+
+**Syntax**
+
+```vb
+expression1 And expression2
+```
+
+**Parameters**
+
+- `And expression2`
+
+**Description**
+
+Logical AND — returns True only if both expressions are True.
+
+**Example**
+
+```vb
+If health > 0 And ammo > 0 Then
+    Fire()
+End If
+```
+
+**See Also** — [Or](#or), [Not](#not), [Xor](#xor)
+
+---
+
+## Animation.Current
+
+**Purpose** — Returns the name of the currently playing animation, or empty string if none.
+
+**Syntax**
+
+```vb
+Animation.Current(player) As String
+```
+
+**Parameters**
+
+- `player`
+
+**Description**
+
+Returns the name of the currently playing animation, or empty string if none.
+
+**Example**
+
+```vb
+If Animation.Current(playerAnim) = "die" Then
+    GameOver()
+End If
+```
+
+**See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
+
+---
+
+## Animation.IsPlaying
+
+**Purpose** — Returns True if the player is currently playing an animation.
+
+**Syntax**
+
+```vb
+Animation.IsPlaying(player) As Boolean
+```
+
+**Parameters**
+
+- `player`
+
+**Description**
+
+Returns True if the player is currently playing an animation.
+
+**Example**
+
+```vb
+If Not Animation.IsPlaying(playerAnim) Then
+    Animation.Play playerAnim, "idle"
+End If
+```
+
+**See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
+
+---
+
+## Animation.Length
+
+**Purpose** — Returns the length in seconds of an animation.
+
+**Syntax**
+
+```vb
+Animation.Length(player [, name]) As Double
+```
+
+**Parameters**
+
+- `player`
+- `name`
+
+**Description**
+
+Returns the length in seconds of an animation. With no name, returns the current animation's length.
+
+**Example**
+
+```vb
+Dim total = Animation.Length(playerAnim, "walk")
+Print "Walk is " & total & "s long"
+```
+
+**See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Loop](#animationloop)
+
+---
+
+## Animation.Loop
+
+**Purpose** — Sets whether the named animation should loop.
+
+**Syntax**
+
+```vb
+Animation.Loop(name, looped [, player])
+```
+
+**Parameters**
+
+- `name`
+- `looped`
+- `player`
+
+**Description**
+
+Sets whether the named animation should loop. Persisted on the underlying Animation resource, so it survives stop/play.
+
+**Example**
+
+```vb
+Animation.Loop "idle", True
+Animation.Loop "jump", False
+```
+
+**See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength)
+
+---
+
+## Animation.Pause
+
+**Purpose** — Pauses the current animation without resetting it.
+
+**Syntax**
+
+```vb
+Animation.Pause(player)
+```
+
+**Parameters**
+
+- `player`
+
+**Description**
+
+Pauses the current animation without resetting it. Resume with Animation.Resume.
+
+**Example**
+
+```vb
+Animation.Pause playerAnim
+```
+
+**See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
+
+---
+
+## Animation.Play
+
+**Purpose** — Plays a named animation on an AnimationPlayer node.
+
+**Syntax**
+
+```vb
+Animation.Play(player, name [, speed])
+```
+
+**Parameters**
+
+- `player`
+- `name`
+- `speed`
+
+**Description**
+
+Plays a named animation on an AnimationPlayer node. Optional speed scale (1.0 = normal, 2.0 = double).
+
+**Example**
+
+```vb
+Animation.Play playerAnim, "walk"
+Animation.Play playerAnim, "sprint", 1.5
+```
+
+**See Also** — [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
+
+---
+
+## Animation.Resume
+
+**Purpose** — Resumes a paused animation from its current position.
+
+**Syntax**
+
+```vb
+Animation.Resume(player)
+```
+
+**Parameters**
+
+- `player`
+
+**Description**
+
+Resumes a paused animation from its current position.
+
+**Example**
+
+```vb
+Animation.Resume playerAnim
+```
+
+**See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
+
+---
+
+## Animation.Seek
+
+**Purpose** — Jumps to a specific time in the current animation.
+
+**Syntax**
+
+```vb
+Animation.Seek(player, seconds [, update])
+```
+
+**Parameters**
+
+- `player`
+- `seconds`
+- `update`
+
+**Description**
+
+Jumps to a specific time in the current animation. update=True applies the change immediately.
+
+**Example**
+
+```vb
+Animation.Seek playerAnim, 1.5
+```
+
+**See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
+
+---
+
+## Animation.Speed
+
+**Purpose** — Sets playback speed for all animations on this player.
+
+**Syntax**
+
+```vb
+Animation.Speed(player, scale)
+```
+
+**Parameters**
+
+- `player`
+- `scale`
+
+**Description**
+
+Sets playback speed for all animations on this player. 1.0 = normal, 0.5 = slow-mo, 2.0 = fast.
+
+**Example**
+
+```vb
+Animation.Speed playerAnim, 0.5   ' slow motion
+```
+
+**See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
+
+---
+
+## Animation.Stop
+
+**Purpose** — Stops the current animation.
+
+**Syntax**
+
+```vb
+Animation.Stop(player [, keepState])
+```
+
+**Parameters**
+
+- `player`
+- `keepState`
+
+**Description**
+
+Stops the current animation. Pass True for keepState to leave the animated properties at their current values (don't reset).
+
+**Example**
+
+```vb
+Animation.Stop playerAnim
+```
+
+**See Also** — [Animation.Play](#animationplay), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
+
+---
+
+## Array
+
+**Purpose** — Creates and returns an array containing the specified values.
+
+**Syntax**
+
+```vb
+Array(value1, value2, ...)
+```
+
+**Parameters**
+
+- `value1`
+- `value2`
+- `...`
+
+**Description**
+
+Creates and returns an array containing the specified values.
+
+**Example**
+
+```vb
+Dim colors As Variant = Array("Red", "Green", "Blue")
+Print colors(0)  ' "Red"
+```
+
+**See Also** — [Integer](#integer), [Long](#long), [Single](#single), [Double](#double), [String](#string), [Boolean](#boolean), [Variant](#variant), [ReDim](#redim), [LBound](#lbound), [UBound](#ubound)
+
+---
+
+## Async
+
+**Purpose** — Marks a procedure as asynchronous, allowing the use of Await inside it.
+
+**Syntax**
+
+```vb
+Async Sub ProcedureName()
+Async Function FuncName() As Task(Of Type)
+```
+
+**Description**
+
+Marks a procedure as asynchronous, allowing the use of Await inside it.
+
+**Example**
+
+```vb
+Async Sub LoadLevel()
+    Dim data As String = Await ReadFileAsync("level.dat")
+    ParseLevel(data)
+End Sub
+```
+
+**See Also** — [Await](#await), [DoEvents](#doevents)
+
+---
+
+## Await
+
+**Purpose** — Pauses execution until an asynchronous operation completes, then returns its result.
+
+**Syntax**
+
+```vb
+Await asyncExpression
+```
+
+**Parameters**
+
+- `asyncExpression`
+
+**Description**
+
+Pauses execution until an asynchronous operation completes, then returns its result.
+
+**Example**
+
+```vb
+Async Sub FetchData()
+    Dim response As String = Await Http.Get("https://api.example.com/data")
+    Print response
+End Sub
+```
+
+**See Also** — [Async](#async), [DoEvents](#doevents)
+
+---
+
+
+### B
+
+## Basis
+
+**Purpose** — Creates a 3x3 rotation/scale matrix used inside Transform3D.
+
+**Syntax**
+
+```vb
+Basis() | Basis(quaternion)
+```
+
+**Description**
+
+Creates a 3x3 rotation/scale matrix used inside Transform3D. Pass a Quaternion to build a rotation-only Basis. Methods like .Scaled(v), .Rotated(axis, angle), .Inverse(), .Orthonormalized() are available on the result.
+
+**Example**
+
+```vb
+Dim b = Basis(QuaternionFromEuler(0, 0.5, 0))
+Dim b2 = b.Scaled(Vector3(2, 2, 2))
+```
+
+**See Also** — [Quaternion](#quaternion), [QuaternionFromEuler](#quaternionfromeuler), [Transform2D](#transform2d), [Transform3D](#transform3d), [Plane](#plane), [AABB](#aabb), [Slerp](#slerp)
+
+---
+
+## BlitImage
+
+**Purpose** — Copies a rectangular region of pixels from a source Image to a destination Image.
+
+**Syntax**
+
+```vb
+BlitImage destImage, srcImage, srcRect, destPos
+```
+
+**Parameters**
+
+- `destImage`
+- `srcImage`
+- `srcRect`
+- `destPos`
+
+**Description**
+
+Copies a rectangular region of pixels from a source Image to a destination Image. srcRect is a Rect2i defining the source region, destPos is a Vector2i for the destination top-left corner.
+
+**Example**
+
+```vb
+Dim canvas = CreateImage(640, 480, Color.White)
+Dim stamp = CreateImage(32, 32, Color.Red)
+
+' Stamp the red square onto the canvas at (100, 100)
+BlitImage canvas, stamp, Rect2i(0, 0, 32, 32), Vector2i(100, 100)
+
+' Copy part of canvas to another location
+BlitImage canvas, canvas, Rect2i(0, 0, 100, 100), Vector2i(200, 200)
+```
+
+**See Also** — [CreateImage](#createimage), [FillImage](#fillimage), [FillImageRect](#fillimagerect), [GetImagePixel](#getimagepixel), [SetImagePixel](#setimagepixel), [ImageWidth](#imagewidth), [ImageHeight](#imageheight)
+
+---
+
+## Bone.Find
+
+**Purpose** — Looks up a bone by name.
+
+**Syntax**
+
+```vb
+Bone.Find(skeleton, name) As Long
+```
+
+**Parameters**
+
+- `skeleton`
+- `name`
+
+**Description**
+
+Looks up a bone by name. Returns -1 if not found.
+
+**Example**
+
+```vb
+Dim head = Bone.Find(skel, "head")
+```
+
+**See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
+
+---
+
+## Bone.LookAt
+
+**Purpose** — Rotates the bone so its +Y axis points at targetPos (world space).
+
+**Syntax**
+
+```vb
+Bone.LookAt(skeleton, idx, targetPos)
+```
+
+**Parameters**
+
+- `skeleton`
+- `idx`
+- `targetPos`
+
+**Description**
+
+Rotates the bone so its +Y axis points at targetPos (world space). Simple IK for heads/eyes.
+
+**Example**
+
+```vb
+Bone.LookAt skel, headIdx, player.GlobalPosition
+```
+
+**See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale)
+
+---
+
+## Bone.Pos
+
+**Purpose** — Returns the bone's current pose position (relative to its rest).
+
+**Syntax**
+
+```vb
+Bone.Pos(skeleton, idx) As Vector3
+```
+
+**Parameters**
+
+- `skeleton`
+- `idx`
+
+**Description**
+
+Returns the bone's current pose position (relative to its rest).
+
+**Example**
+
+```vb
+Print Bone.Pos(skel, head)
+```
+
+**See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
+
+---
+
+## Bone.Rot
+
+**Purpose** — Returns the bone's current pose rotation.
+
+**Syntax**
+
+```vb
+Bone.Rot(skeleton, idx) As Quaternion
+```
+
+**Parameters**
+
+- `skeleton`
+- `idx`
+
+**Description**
+
+Returns the bone's current pose rotation.
+
+**Example**
+
+```vb
+Dim q = Bone.Rot(skel, head)
+```
+
+**See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
+
+---
+
+## Bone.Scale
+
+**Purpose** — Returns the bone's current pose scale.
+
+**Syntax**
+
+```vb
+Bone.Scale(skeleton, idx) As Vector3
+```
+
+**Parameters**
+
+- `skeleton`
+- `idx`
+
+**Description**
+
+Returns the bone's current pose scale.
+
+**Example**
+
+```vb
+Print Bone.Scale(skel, head)
+```
+
+**See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
+
+---
+
+## Bone.SetPos
+
+**Purpose** — Sets the bone's pose position.
+
+**Syntax**
+
+```vb
+Bone.SetPos(skeleton, idx, pos)
+```
+
+**Parameters**
+
+- `skeleton`
+- `idx`
+- `pos`
+
+**Description**
+
+Sets the bone's pose position.
+
+**Example**
+
+```vb
+Bone.SetPos skel, head, Vector3(0, 0.1, 0)
+```
+
+**See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
+
+---
+
+## Bone.SetRot
+
+**Purpose** — Sets the bone's pose rotation.
+
+**Syntax**
+
+```vb
+Bone.SetRot(skeleton, idx, quat)
+```
+
+**Parameters**
+
+- `skeleton`
+- `idx`
+- `quat`
+
+**Description**
+
+Sets the bone's pose rotation. Use Quaternion(axis, angle) to build one.
+
+**Example**
+
+```vb
+Bone.SetRot skel, head, Quaternion(Vector3(0,1,0), Deg2Rad(45))
+```
+
+**See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
+
+---
+
+## Bone.SetScale
+
+**Purpose** — Sets the bone's pose scale.
+
+**Syntax**
+
+```vb
+Bone.SetScale(skeleton, idx, vec)
+```
+
+**Parameters**
+
+- `skeleton`
+- `idx`
+- `vec`
+
+**Description**
+
+Sets the bone's pose scale.
+
+**Example**
+
+```vb
+Bone.SetScale skel, head, Vector3(1.2, 1.2, 1.2)
+```
+
+**See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.LookAt](#bonelookat)
+
+---
+
+## Boolean
+
+**Purpose** — A True/False value.
+
+**Syntax**
+
+```vb
+Dim varName As Boolean
+```
+
+**Parameters**
+
+- `varName`
+
+**Description**
+
+A True/False value. Used for flags, conditions, and toggles.
+
+**Example**
+
+```vb
+Dim gameOver As Boolean = False
+Dim isVisible As Boolean = True
+If gameOver Then EndGame()
+```
+
+**See Also** — [Integer](#integer), [Long](#long), [Single](#single), [Double](#double), [String](#string), [Variant](#variant), [Array](#array)
+
+---
+
+## ByRef
+
+**Purpose** — Passes an argument by reference — the procedure can modify the caller's original variable.
+
+**Syntax**
+
+```vb
+Sub ProcName(ByRef paramName As DataType)
+```
+
+**Parameters**
+
+- `ByRef paramName`
+
+**Description**
+
+Passes an argument by reference — the procedure can modify the caller's original variable. This is the default if neither ByVal nor ByRef is specified.
+
+**Example**
+
+```vb
+Sub SwapValues(ByRef a As Integer, ByRef b As Integer)
+    Dim temp As Integer = a
+    a = b
+    b = temp
+End Sub
+```
+
+**See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda)
+
+---
+
+## ByVal
+
+**Purpose** — Passes an argument by value — the procedure gets a copy, so changes don't affect the caller's variable.
+
+**Syntax**
+
+```vb
+Sub ProcName(ByVal paramName As DataType)
+```
+
+**Parameters**
+
+- `ByVal paramName`
+
+**Description**
+
+Passes an argument by value — the procedure gets a copy, so changes don't affect the caller's variable.
+
+**Example**
+
+```vb
+Sub DoubleIt(ByVal x As Integer)
+    x = x * 2  ' Only changes local copy
+    Print x
+End Sub
+```
+
+**See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [Optional](#optional), [Lambda](#lambda)
+
+---
+
+
+### C
+
+## Call
+
+**Purpose** — Explicitly calls a Sub or Function.
+
+**Syntax**
+
+```vb
+Call procedureName([arguments])
+procedureName [arguments]
+```
+
+**Parameters**
+
+- `arguments`
+
+**Description**
+
+Explicitly calls a Sub or Function. The Call keyword is optional — you can call procedures by name alone.
+
+**Example**
+
+```vb
+Call UpdateScore(10)
+UpdateScore 10       ' Same thing without Call
+Call Form2.Show()
+```
+
+**See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda)
+
+---
+
+## Camera.Bounce
+
+**Purpose** — One-shot recoil pulse — pushes the camera in `direction` by `strength` and snaps back.
+
+**Syntax**
+
+```vb
+Camera.Bounce(direction, strength [, h])
+```
+
+**Parameters**
+
+- `direction`
+- `strength`
+- `h`
+
+**Description**
+
+One-shot recoil pulse — pushes the camera in `direction` by `strength` and snaps back. Good for explosions, weapon kick, or hit-stop reactions.
+
+**Example**
+
+```vb
+' Shotgun recoil
+Camera.Bounce Vector2(-1, 0), 18
+```
+
+**See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.FlashColor](#cameraflashcolor)
+
+---
+
+## Camera.FlashColor
+
+**Purpose** — Briefly fills the viewport with `color`, then fades it out over `duration`.
+
+**Syntax**
+
+```vb
+Camera.FlashColor(color, duration [, h])
+```
+
+**Parameters**
+
+- `color`
+- `duration`
+- `h`
+
+**Description**
+
+Briefly fills the viewport with `color`, then fades it out over `duration`. Use for hit flashes, lightning, screen blanks.
+
+**Example**
+
+```vb
+' Damage flash
+Camera.FlashColor RGB(255, 0, 0), 0.15
+```
+
+**See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce)
+
+---
+
+## Camera.Follow
+
+**Purpose** — Continuously follow a target node.
+
+**Syntax**
+
+```vb
+Camera.Follow(target [, h])
+```
+
+**Parameters**
+
+- `target`
+- `h`
+
+**Description**
+
+Continuously follow a target node. Internally adds a RemoteTransform that mirrors target.Position to the camera every frame — zero per-frame code on your side. Pass Nothing to stop following. Camera.Position(...) called inside Sub _Process() takes precedence for the frame it runs.
+
+**Example**
+
+```vb
+Sub _Ready()
+    Camera.Follow player    ' auto-track player forever
+End Sub
+
+Sub OnPlayerDied()
+    Camera.Follow Nothing   ' stop following
+End Sub
+```
+
+**See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
+
+---
+
+## Camera.FOV
+
+**Purpose** — Sets Camera3D field of view in degrees.
+
+**Syntax**
+
+```vb
+Camera.FOV(degrees [, h])
+```
+
+**Parameters**
+
+- `degrees`
+- `h`
+
+**Description**
+
+Sets Camera3D field of view in degrees. 75 is the default. Smaller = telephoto/zoomed; larger = wide-angle.
+
+**Example**
+
+```vb
+Camera.FOV 90    ' wide cinematic
+Camera.FOV 45    ' sniper scope
+```
+
+**See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
+
+---
+
+## Camera.Limits
+
+**Purpose** — Sets Camera2D pan limits in pixels.
+
+**Syntax**
+
+```vb
+Camera.Limits(left, top, right, bottom [, h])
+```
+
+**Parameters**
+
+- `left`
+- `top`
+- `right`
+- `bottom`
+- `h`
+
+**Description**
+
+Sets Camera2D pan limits in pixels. The camera will refuse to scroll past these edges — perfect for keeping the view inside your level.
+
+**Example**
+
+```vb
+' Lock view to a 1920x1080 level
+Camera.Limits 0, 0, 1920, 1080
+```
+
+**See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
+
+---
+
+## Camera.MakeCurrent
+
+**Purpose** — Makes a camera the active one — useful when you have multiple cameras (e.g., gameplay vs cutscene) and want to switch which one renders.
+
+**Syntax**
+
+```vb
+Camera.MakeCurrent([h])
+```
+
+**Parameters**
+
+- `h`
+
+**Description**
+
+Makes a camera the active one — useful when you have multiple cameras (e.g., gameplay vs cutscene) and want to switch which one renders.
+
+**Example**
+
+```vb
+Camera.MakeCurrent cutsceneCam
+' ... play cutscene ...
+Camera.MakeCurrent gameplayCam
+```
+
+**See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
+
+---
+
+## Camera.PanTo
+
+**Purpose** — Tween-pans the active camera to pos over duration seconds.
+
+**Syntax**
+
+```vb
+Camera.PanTo(pos, duration [, h])
+```
+
+**Parameters**
+
+- `pos`
+- `duration`
+- `h`
+
+**Description**
+
+Tween-pans the active camera to pos over duration seconds. Smoother than setting Camera.Position directly. Works for Camera2D (Vector2) or Camera3D (Vector3).
+
+**Example**
+
+```vb
+' Cinematic reveal
+Camera.PanTo Vector2(800, 400), 1.5
+```
+
+**See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
+
+---
+
+## Camera.Position
+
+**Purpose** — Sets the active camera's position.
+
+**Syntax**
+
+```vb
+Camera.Position(pos [, h])
+```
+
+**Parameters**
+
+- `pos`
+- `h`
+
+**Description**
+
+Sets the active camera's position. Use Vector2 for Camera2D, Vector3 for Camera3D. Optional h overrides which camera is targeted.
+
+Called inside Sub _Process() it tracks any target — Camera.Position(player.Position) for instant follow.
+
+**Example**
+
+```vb
+' Snap to player every frame
+Sub _Process(delta)
+    Camera.Position(player.Position)
+End Sub
+```
+
+**See Also** — [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
+
+---
+
+## Camera.Rotation
+
+**Purpose** — Rotates the camera.
+
+**Syntax**
+
+```vb
+Camera.Rotation(angle [, h])
+```
+
+**Parameters**
+
+- `angle`
+- `h`
+
+**Description**
+
+Rotates the camera. For Camera2D pass a number in radians; for Camera3D pass a Vector3 of Euler angles in radians.
+
+**Example**
+
+```vb
+' Quick screen tilt (Camera2D)
+Camera.Rotation 0.1   ' ~6 degrees
+```
+
+**See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
+
+---
+
+## Camera.Shake
+
+**Purpose** — Quick screen shake.
+
+**Syntax**
+
+```vb
+Camera.Shake(intensity, duration [, h])
+```
+
+**Parameters**
+
+- `intensity`
+- `duration`
+- `h`
+
+**Description**
+
+Quick screen shake. Intensity is offset in pixels (2D) or units (3D). Duration is seconds. Camera settles back to its original offset when done.
+
+**Example**
+
+```vb
+' Boom!
+Camera.Shake 12, 0.4
+```
+
+**See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
+
+---
+
+## Camera.Zoom
+
+**Purpose** — Sets Camera2D zoom level.
+
+**Syntax**
+
+```vb
+Camera.Zoom(zoom [, h])
+```
+
+**Parameters**
+
+- `zoom`
+- `h`
+
+**Description**
+
+Sets Camera2D zoom level. Pass a Vector2 for non-uniform zoom, or a scalar for uniform. Bigger numbers = closer in. (Camera3D uses FOV instead — see Camera.FOV.)
+
+**Example**
+
+```vb
+Camera.Zoom Vector2(2, 2)       ' 2x zoom in
+Camera.Zoom 0.5                  ' zoom out to half
+```
+
+**See Also** — [Camera.Position](#cameraposition), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
+
+---
+
+## Case
+
+**Purpose** — Specifies a value or range to match in a Select Case block.
+
+**Syntax**
+
+```vb
+Case value [, value2] [To value3]
+```
+
+**Parameters**
+
+- `value`
+- `value2 To value3`
+
+**Description**
+
+Specifies a value or range to match in a Select Case block. Supports comma lists, ranges with To, and comparisons with Is.
+
+**Example**
+
+```vb
+Case 1, 2, 3     ' Match any of these
+Case 10 To 20    ' Match range
+Case Is > 100    ' Match comparison
+Case Else        ' Default case
+```
+
+**See Also** — [Select](#select), [Select Case](#select-case), [End Select](#end-select)
+
+---
+
+## Catch
+
+**Purpose** — Catches an exception thrown in the Try block.
+
+**Syntax**
+
+```vb
+Catch [variableName As Exception]
+```
+
+**Parameters**
+
+- `variableName`
+
+**Description**
+
+Catches an exception thrown in the Try block. The exception object provides Description and Number properties.
+
+**Example**
+
+```vb
+Try
+    riskyOperation()
+Catch ex As Exception
+    Print "Error #" & ex.Number & ": " & ex.Description
+End Try
+```
+
+**See Also** — [On Error](#on-error), [Try](#try), [Finally](#finally), [Throw](#throw)
+
+---
+
+## Cell.Clear
+
+**Purpose** — Erases a single tile.
+
+**Syntax**
+
+```vb
+Cell.Clear(layer, x, y)
+```
+
+**Parameters**
+
+- `layer`
+- `x`
+- `y`
+
+**Description**
+
+Erases a single tile. Shortcut for Cell.Set with source = -1.
+
+**Example**
+
+```vb
+Cell.Clear world, 5, 10
+```
+
+**See Also** — [Cell.Get](#cellget), [Cell.Set](#cellset), [Cell.ClearAll](#cellclearall), [Cell.Used](#cellused)
+
+---
+
+## Cell.ClearAll
+
+**Purpose** — Erases all tiles in a TileMapLayer.
+
+**Syntax**
+
+```vb
+Cell.ClearAll(layer)
+```
+
+**Parameters**
+
+- `layer`
+
+**Description**
+
+Erases all tiles in a TileMapLayer.
+
+**Example**
+
+```vb
+Cell.ClearAll world
+```
+
+**See Also** — [Cell.Get](#cellget), [Cell.Set](#cellset), [Cell.Clear](#cellclear), [Cell.Used](#cellused)
+
+---
+
+## Cell.Get
+
+**Purpose** — Reads a tile at cell coords (x, y) on a TileMapLayer.
+
+**Syntax**
+
+```vb
+Cell.Get(layer, x, y) As Dictionary
+```
+
+**Parameters**
+
+- `layer`
+- `x`
+- `y`
+
+**Description**
+
+Reads a tile at cell coords (x, y) on a TileMapLayer. Returns Dictionary: Source, AtlasX, AtlasY, Alt. Empty cells return Source = -1.
+
+**Example**
+
+```vb
+Dim c = Cell.Get(world, 5, 10)
+If c.Source >= 0 Then
+    Print "Tile from source " & c.Source
+End If
+```
+
+**See Also** — [Cell.Set](#cellset), [Cell.Clear](#cellclear), [Cell.ClearAll](#cellclearall), [Cell.Used](#cellused)
+
+---
+
+## Cell.Set
+
+**Purpose** — Writes a tile at cell coords (x, y).
+
+**Syntax**
+
+```vb
+Cell.Set(layer, x, y, source, atlasX, atlasY [, alt])
+```
+
+**Parameters**
+
+- `layer`
+- `x`
+- `y`
+- `source`
+- `atlasX`
+- `atlasY`
+- `alt`
+
+**Description**
+
+Writes a tile at cell coords (x, y). source = -1 erases. atlasX/Y picks the tile within the source's atlas.
+
+**Example**
+
+```vb
+' Place a grass tile from source 0, atlas (3, 1)
+Cell.Set world, 5, 10, 0, 3, 1
+```
+
+**See Also** — [Cell.Get](#cellget), [Cell.Clear](#cellclear), [Cell.ClearAll](#cellclearall), [Cell.Used](#cellused)
+
+---
+
+## Cell.Used
+
+**Purpose** — Returns an Array of Vector2 cell coordinates that contain a tile (non-empty).
+
+**Syntax**
+
+```vb
+Cell.Used(layer) As Array
+```
+
+**Parameters**
+
+- `layer`
+
+**Description**
+
+Returns an Array of Vector2 cell coordinates that contain a tile (non-empty).
+
+**Example**
+
+```vb
+Dim cells = Cell.Used(world)
+For Each c In cells
+    Print c.x & "," & c.y
 Next
 ```
 
-### On n GoTo / On n GoSub
+**See Also** — [Cell.Get](#cellget), [Cell.Set](#cellset), [Cell.Clear](#cellclear), [Cell.ClearAll](#cellclearall)
 
-Branch to one of several labels based on an expression value:
+---
+
+## ChangeScene
+
+**Purpose** — Changes the current game scene to the specified .tscn file.
+
+**Syntax**
 
 ```vb
-On choice GoTo Label1, Label2, Label3
-
-' On n GoSub — calls subroutine at label, returns with Return
-On menuItem GoSub HandleNew, HandleOpen, HandleSave
+ChangeScene(scenePath)
 ```
 
-### Resume / Resume Next / Resume Label
+**Parameters**
 
-Error recovery after On Error:
+- `scenePath`
+
+**Description**
+
+Changes the current game scene to the specified .tscn file.
+
+**Example**
+
+```vb
+ChangeScene "res://levels/Level2.tscn"
+
+' Or using GetTree:
+GetTree().change_scene_to_file("res://MainMenu.tscn")
+```
+
+**See Also** — [IsActionPressed](#isactionpressed), [IsKeyPressed](#iskeypressed), [PlaySound](#playsound), [CreateActor2D](#createactor2d)
+
+---
+
+## CInt
+
+**Purpose** — Converts an expression to an Integer, rounding if necessary.
+
+**Syntax**
+
+```vb
+CInt(expression)
+```
+
+**Parameters**
+
+- `expression`
+
+**Description**
+
+Converts an expression to an Integer, rounding if necessary.
+
+**Example**
+
+```vb
+Dim n As Integer = CInt(3.7)   ' 4
+Dim m As Integer = CInt("42")  ' 42
+```
+
+**See Also** — [CStr](#cstr), [Val](#val), [Str](#str), [Int](#int)
+
+---
+
+## Clamp
+
+**Purpose** — Constrains a value to the range [min, max].
+
+**Syntax**
+
+```vb
+Clamp(value, min, max)
+```
+
+**Parameters**
+
+- `value`
+- `min`
+- `max`
+
+**Description**
+
+Constrains a value to the range [min, max].
+
+**Example**
+
+```vb
+health = Clamp(health, 0, maxHealth)
+speed = Clamp(speed, 0.0, maxSpeed)
+```
+
+**See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Lerp](#lerp), [Mod](#mod)
+
+---
+
+## Class
+
+**Purpose** — Declares a new class type.
+
+**Syntax**
+
+```vb
+Class ClassName
+    [Inherits BaseClass]
+    ' fields, methods, properties
+End Class
+```
+
+**Parameters**
+
+- `ClassName
+    Inherits BaseClass
+    ' fields`
+- `methods`
+- `properties
+End Class`
+
+**Description**
+
+Declares a new class type. Classes support inheritance, interfaces, properties, and methods.
+
+**Example**
+
+```vb
+Class Player
+    Public Name As String
+    Public Health As Integer = 100
+
+    Sub TakeDamage(amount As Integer)
+        Health = Health - amount
+        If Health <= 0 Then Die()
+    End Sub
+End Class
+```
+
+**See Also** — [End Class](#end-class), [New](#new), [Set](#set), [Me](#me), [Implements](#implements), [Inherits](#inherits), [Interface](#interface), [Property](#property)
+
+---
+
+## Close
+
+**Purpose** — Closes one or more open files.
+
+**Syntax**
+
+```vb
+Close [#fileNumber [, #fileNumber ...]]
+```
+
+**Parameters**
+
+- `#fileNumber`
+- `#fileNumber ...`
+
+**Description**
+
+Closes one or more open files. Always close files when done to flush data to disk.
+
+**Example**
+
+```vb
+Open "data.txt" For Input As #1
+' ... read data ...
+Close #1
+
+Close  ' Close all open files
+```
+
+**See Also** — [Open](#open), [Line Input](#line-input), [Data](#data), [Read](#read), [Restore](#restore)
+
+---
+
+## CLS
+
+**Purpose** — Clears the screen/canvas.
+
+**Syntax**
+
+```vb
+CLS
+CLS()
+```
+
+**Description**
+
+Clears the screen/canvas. Removes all dynamically created child nodes and triggers a redraw. VB6 classic command.
+
+**Example**
+
+```vb
+CLS  ' Clear everything
+
+' Typical usage: clear before redrawing
+Sub _Draw()
+    ' CLS is implicit in _Draw — each frame starts clean
+    DrawRect 0, 0, 640, 480, Color.Black   ' Background
+    DrawString GetThemeDefaultFont(), Vector2(10, 20), "Game Over", Color.White
+End Sub
+```
+
+**See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [QueueRedraw](#queueredraw)
+
+---
+
+## ColorFromHSV
+
+**Purpose** — Builds a Color from Hue/Saturation/Value (each 0..1).
+
+**Syntax**
+
+```vb
+ColorFromHSV(h, s, v [, a])
+```
+
+**Parameters**
+
+- `h`
+- `s`
+- `v`
+- `a`
+
+**Description**
+
+Builds a Color from Hue/Saturation/Value (each 0..1). Use when you want rainbow effects, palette cycling, or to tint by hue without RGB math.
+
+**Example**
+
+```vb
+' Animate the rainbow
+For i = 0 To 60
+    Dim c = ColorFromHSV(i / 60.0, 0.8, 1.0)
+    DrawRect i * 10, 0, 10, 100, c
+Next
+```
+
+**See Also** — [ColorToHSV](#colortohsv), [Lighten](#lighten), [Darken](#darken), [RGB](#rgb)
+
+---
+
+## ColorToHSV
+
+**Purpose** — Splits a Color into its Hue, Saturation, Value, Alpha components.
+
+**Syntax**
+
+```vb
+ColorToHSV(color)
+```
+
+**Parameters**
+
+- `color`
+
+**Description**
+
+Splits a Color into its Hue, Saturation, Value, Alpha components. Returns a Dictionary with keys h, s, v, a (each 0..1).
+
+**Example**
+
+```vb
+Dim parts = ColorToHSV(Color.Red)
+Print parts.h  ' 0.0  (red is hue 0)
+Print parts.s  ' 1.0
+```
+
+**See Also** — [ColorFromHSV](#colorfromhsv), [Lighten](#lighten), [Darken](#darken), [RGB](#rgb)
+
+---
+
+## connect
+
+**Purpose** — Connects a signal to a callback method.
+
+**Syntax**
+
+```vb
+connect(signal_name As String, callable As Callable)
+```
+
+**Parameters**
+
+- `signal_name`
+- `callable`
+
+**Description**
+
+Connects a signal to a callback method. Use Godot 4 Callable syntax.
+
+**Example**
+
+```vb
+connect("body_entered", _on_body_entered)
+timer.connect("timeout", _on_timeout)
+```
+
+**Godot Mapping** — [`Object.connect()`](https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-connect)
+
+**See Also** — [emit_signal](#emitsignal)
+
+---
+
+## Const
+
+**Purpose** — Declares a named constant whose value cannot be changed after initialization.
+
+**Syntax**
+
+```vb
+Const CONSTANT_NAME As DataType = value
+```
+
+**Parameters**
+
+- `CONSTANT_NAME`
+
+**Description**
+
+Declares a named constant whose value cannot be changed after initialization.
+
+**Example**
+
+```vb
+Const MAX_PLAYERS As Integer = 4
+Const PI As Double = 3.14159
+Const GAME_TITLE As String = "My Game"
+```
+
+**See Also** — [Dim](#dim), [Private](#private), [Public](#public), [Global](#global), [Static](#static), [ReDim](#redim), [Type](#type)
+
+---
+
+## Continue
+
+**Purpose** — Skips the rest of the current loop iteration and continues with the next iteration.
+
+**Syntax**
+
+```vb
+Continue For | Continue Do | Continue While
+```
+
+**Parameters**
+
+- `For | Continue Do | Continue While`
+
+**Description**
+
+Skips the rest of the current loop iteration and continues with the next iteration.
+
+**Example**
+
+```vb
+For i = 0 To 99
+    If scores(i) < 0 Then Continue For
+    total = total + scores(i)
+Next
+```
+
+**See Also** — [For](#for), [Next](#next), [For Each](#for-each), [Exit](#exit)
+
+---
+
+## Cos
+
+**Purpose** — Returns the cosine of an angle (in radians).
+
+**Syntax**
+
+```vb
+Cos(angle)
+```
+
+**Parameters**
+
+- `angle`
+
+**Description**
+
+Returns the cosine of an angle (in radians).
+
+**Example**
+
+```vb
+Dim x As Single = Cos(0)  ' 1.0
+' Circular motion
+x = Cos(angle) * radius
+```
+
+**See Also** — [Sin](#sin)
+
+---
+
+## CreateActor2D
+
+**Purpose** — Creates a 2D game actor (sprite) at the specified position.
+
+**Syntax**
+
+```vb
+CreateActor2D(name, x, y [, texturePath])
+```
+
+**Parameters**
+
+- `name`
+- `x`
+- `y`
+- `texturePath`
+
+**Description**
+
+Creates a 2D game actor (sprite) at the specified position.
+
+**Example**
+
+```vb
+CreateActor2D "Player", 100, 200, "res://player.png"
+CreateActor2D "Enemy", 400, 200
+```
+
+**See Also** — [IsActionPressed](#isactionpressed), [IsKeyPressed](#iskeypressed), [PlaySound](#playsound), [ChangeScene](#changescene)
+
+---
+
+## CreateImage
+
+**Purpose** — Creates a new RGBA8 Image object with the specified dimensions (1-4096 pixels).
+
+**Syntax**
+
+```vb
+CreateImage(width, height [, fillColor]) As Image
+```
+
+**Parameters**
+
+- `width`
+- `height`
+- `fillColor`
+
+**Description**
+
+Creates a new RGBA8 Image object with the specified dimensions (1-4096 pixels). The optional fillColor sets all pixels to that color (default is transparent black). Images are in-memory pixel buffers — use SetImagePixel to draw on them, then CreateTexture or UpdateTexture to display them.
+
+**Example**
+
+```vb
+' Create a white 640x480 canvas
+Dim img As Variant = CreateImage(640, 480, Color(1, 1, 1, 1))
+
+' Create a transparent 256x256 sprite sheet
+Dim sheet As Variant = CreateImage(256, 256)
+
+' Draw on it
+SetImagePixel img, 100, 100, Color.Red
+SetImagePixel img, 101, 100, Color.Red
+
+' Display it
+Dim tex As Variant = CreateTexture(img)
+DrawTexture tex, 0, 0
+```
+
+**See Also** — [FillImage](#fillimage), [FillImageRect](#fillimagerect), [GetImagePixel](#getimagepixel), [SetImagePixel](#setimagepixel), [BlitImage](#blitimage), [ImageWidth](#imagewidth), [ImageHeight](#imageheight)
+
+---
+
+## CreateTexture
+
+**Purpose** — Creates an ImageTexture for display with DrawTexture.
+
+**Syntax**
+
+```vb
+CreateTexture(image) As ImageTexture
+CreateTexture(width, height [, fillColor]) As ImageTexture
+```
+
+**Parameters**
+
+- `image`
+
+**Description**
+
+Creates an ImageTexture for display with DrawTexture. Can accept an existing Image, or width/height to create both an Image and Texture in one call. ImageTextures live on the GPU and are fast to render.
+
+**Example**
+
+```vb
+' From an existing Image
+Dim img = CreateImage(320, 240, Color.White)
+Dim tex = CreateTexture(img)
+
+' Quick one-liner: create texture directly
+Dim tex2 = CreateTexture(64, 64, Color.Blue)
+
+' Display in _Draw()
+Sub _Draw()
+    DrawTexture tex, 0, 0
+End Sub
+```
+
+**See Also** — [ImageToTexture](#imagetotexture), [UpdateTexture](#updatetexture), [GetTextureImage](#gettextureimage), [TextureWidth](#texturewidth), [TextureHeight](#textureheight)
+
+---
+
+## Crypto.Base64
+
+**Purpose** — Short form of Crypto.Base64Encode — encodes bytes to a standard Base64 string.
+
+**Syntax**
+
+```vb
+Crypto.Base64(bytes) As String
+```
+
+**Parameters**
+
+- `bytes`
+
+**Description**
+
+Short form of Crypto.Base64Encode — encodes bytes to a standard Base64 string.
+
+**Example**
+
+```vb
+Print Crypto.Base64("hello world")   ' "aGVsbG8gd29ybGQ="
+```
+
+**See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
+
+---
+
+## Crypto.Base64Decode
+
+**Purpose** — Decodes Base64.
+
+**Syntax**
+
+```vb
+Crypto.Base64Decode(b64 [, raw]) As String/Bytes
+```
+
+**Parameters**
+
+- `b64`
+- `raw`
+
+**Description**
+
+Decodes Base64. By default returns UTF-8 String. Pass True for raw PackedByteArray. Alias: Base64Decode.
+
+**Example**
+
+```vb
+Print Base64Decode("aGVsbG8=")  ' hello
+Dim bin = Base64Decode(encoded, True)
+```
+
+**See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode)
+
+---
+
+## Crypto.Base64Encode
+
+**Purpose** — Encodes input as Base64.
+
+**Syntax**
+
+```vb
+Crypto.Base64Encode(text_or_bytes) As String
+```
+
+**Parameters**
+
+- `text_or_bytes`
+
+**Description**
+
+Encodes input as Base64. String → UTF-8 → Base64. PackedByteArray → Base64 directly. Alias: Base64Encode.
+
+**Example**
+
+```vb
+Print Base64Encode("hello world")  ' aGVsbG8gd29ybGQ=
+```
+
+**See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Decode](#cryptobase64decode)
+
+---
+
+## Crypto.FromHex
+
+**Purpose** — Parses a hex string back into raw bytes.
+
+**Syntax**
+
+```vb
+Crypto.FromHex(hexString) As PackedByteArray
+```
+
+**Parameters**
+
+- `hexString`
+
+**Description**
+
+Parses a hex string back into raw bytes. Whitespace is ignored; case-insensitive.
+
+**Example**
+
+```vb
+Dim raw = Crypto.FromHex("deadbeef")
+```
+
+**See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
+
+---
+
+## Crypto.Hex
+
+**Purpose** — Converts a PackedByteArray (or hashable input) to a lowercase hex string.
+
+**Syntax**
+
+```vb
+Crypto.Hex(bytes) As String
+```
+
+**Parameters**
+
+- `bytes`
+
+**Description**
+
+Converts a PackedByteArray (or hashable input) to a lowercase hex string. Inverse of Crypto.FromHex.
+
+**Example**
+
+```vb
+Print Crypto.Hex(Crypto.RandomBytes(8))   ' e.g. "a1b2c3d4e5f60718"
+```
+
+**See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
+
+---
+
+## Crypto.HMAC
+
+**Purpose** — Keyed-hash message auth code.
+
+**Syntax**
+
+```vb
+Crypto.HMAC(key, msg [, algorithm]) As String
+```
+
+**Parameters**
+
+- `key`
+- `msg`
+- `algorithm`
+
+**Description**
+
+Keyed-hash message auth code. algorithm = "sha256" (default), "sha1", or "md5".
+
+**Example**
+
+```vb
+Dim sig = Crypto.HMAC(secretKey, payload, "sha256")
+```
+
+**See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
+
+---
+
+## Crypto.MD5
+
+**Purpose** — Returns the MD5 hash as lowercase hex.
+
+**Syntax**
+
+```vb
+Crypto.MD5(text_or_bytes) As String
+```
+
+**Parameters**
+
+- `text_or_bytes`
+
+**Description**
+
+Returns the MD5 hash as lowercase hex. (MD5 is fast but not secure for passwords — use SHA256.) Alias: MD5.
+
+**Example**
+
+```vb
+Print MD5(fileContent)
+```
+
+**See Also** — [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
+
+---
+
+## Crypto.RandomBytes
+
+**Purpose** — Returns n cryptographically secure random bytes.
+
+**Syntax**
+
+```vb
+Crypto.RandomBytes(n) As PackedByteArray
+```
+
+**Parameters**
+
+- `n`
+
+**Description**
+
+Returns n cryptographically secure random bytes. Alias: RandomBytes.
+
+**Example**
+
+```vb
+Dim token = RandomBytes(32)
+Dim hex = Base64Encode(token)
+```
+
+**See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
+
+---
+
+## Crypto.SHA1
+
+**Purpose** — Returns the SHA-1 hash as lowercase hex.
+
+**Syntax**
+
+```vb
+Crypto.SHA1(text_or_bytes) As String
+```
+
+**Parameters**
+
+- `text_or_bytes`
+
+**Description**
+
+Returns the SHA-1 hash as lowercase hex. Alias: SHA1.
+
+**Example**
+
+```vb
+Print SHA1("hello")
+```
+
+**See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
+
+---
+
+## Crypto.SHA256
+
+**Purpose** — Returns the SHA-256 hash as lowercase hex.
+
+**Syntax**
+
+```vb
+Crypto.SHA256(text_or_bytes) As String
+```
+
+**Parameters**
+
+- `text_or_bytes`
+
+**Description**
+
+Returns the SHA-256 hash as lowercase hex. Accepts a String (UTF-8) or PackedByteArray. Alias: SHA256.
+
+**Example**
+
+```vb
+Dim h = SHA256("password")
+Print h
+```
+
+**See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
+
+---
+
+## CStr
+
+**Purpose** — Explicitly converts any expression to a String.
+
+**Syntax**
+
+```vb
+CStr(expression)
+```
+
+**Parameters**
+
+- `expression`
+
+**Description**
+
+Explicitly converts any expression to a String.
+
+**Example**
+
+```vb
+Dim s As String = CStr(42)    ' "42"
+Dim t As String = CStr(True)  ' "True"
+```
+
+**See Also** — [CInt](#cint), [Val](#val), [Str](#str), [Int](#int)
+
+---
+
+
+### D
+
+## Darken
+
+**Purpose** — Returns a darker shade of the color.
+
+**Syntax**
+
+```vb
+Darken(color, amount)
+```
+
+**Parameters**
+
+- `color`
+- `amount`
+
+**Description**
+
+Returns a darker shade of the color. Amount is 0..1 (0=unchanged, 1=black).
+
+**Example**
+
+```vb
+shadow = Darken(skinColor, 0.4)
+```
+
+**See Also** — [ColorFromHSV](#colorfromhsv), [ColorToHSV](#colortohsv), [Lighten](#lighten), [RGB](#rgb)
+
+---
+
+## Data
+
+**Purpose** — Stores inline data values that can be read sequentially with Read.
+
+**Syntax**
+
+```vb
+Data value1, value2, value3, ...
+Data "string", 42, 3.14
+```
+
+**Parameters**
+
+- `value1`
+- `value2`
+- `value3`
+- `...
+Data "string"`
+- `42`
+- `3.14`
+
+**Description**
+
+Stores inline data values that can be read sequentially with Read. Supports strings, numbers, and empty slots (consecutive commas).
+
+**Example**
+
+```vb
+Data "Sword", 10, 50
+Data "Shield", 5, 30
+Data "Potion", 0, 15
+
+Dim itemName As String, atk As Integer, cost As Integer
+Read itemName, atk, cost
+```
+
+**See Also** — [Open](#open), [Close](#close), [Line Input](#line-input), [Read](#read), [Restore](#restore)
+
+---
+
+## delta
+
+**Purpose** — The elapsed time since the previous frame (in seconds).
+
+**Syntax**
+
+```vb
+delta As Single
+```
+
+**Parameters**
+
+- `As Single`
+
+**Description**
+
+The elapsed time since the previous frame (in seconds). Passed to [b]_Process[/b] and [b]_PhysicsProcess[/b]. Use it to make movement frame-rate independent.
+
+**Example**
+
+```vb
+Sub _Process(delta As Single)
+    position.x += speed * delta
+End Sub
+```
+
+**Godot Mapping** — [`Node._process()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_process)
+
+**See Also** — [move_and_slide](#moveandslide), [velocity](#velocity), [is_on_floor](#isonfloor), [is_on_wall](#isonwall), [_physics_process](#physicsprocess)
+
+---
+
+## Dim
+
+**Purpose** — Declares a local variable with an optional type and initial value.
+
+**Syntax**
+
+```vb
+Dim variableName As DataType [= initialValue]
+```
+
+**Parameters**
+
+- `variableName`
+
+**Description**
+
+Declares a local variable with an optional type and initial value. Variables declared with Dim are local to the procedure they appear in.
+
+**Example**
+
+```vb
+Dim score As Integer = 0
+Dim playerName As String = "Hero"
+Dim items() As String
+Dim health As Single = 100.0
+```
+
+**See Also** — [Private](#private), [Public](#public), [Global](#global), [Static](#static), [Const](#const), [ReDim](#redim), [Type](#type)
+
+---
+
+## Do
+
+**Purpose** — Repeats a block while or until a condition is met.
+
+**Syntax**
+
+```vb
+Do [While|Until condition]
+    statements
+Loop [While|Until condition]
+```
+
+**Parameters**
+
+- `While|Until condition
+    statements
+Loop While|Until condition`
+
+**Description**
+
+Repeats a block while or until a condition is met. The condition can appear at the top (Do While) or bottom (Loop Until) of the loop.
+
+**Example**
+
+```vb
+' Pre-check loop
+Do While health > 0
+    ProcessTurn()
+Loop
+
+' Post-check loop (runs at least once)
+Do
+    answer = InputBox("Guess?")
+Loop Until answer = secretWord
+```
+
+**See Also** — [Loop](#loop), [While](#while), [Wend](#wend), [Until](#until), [Exit](#exit)
+
+---
+
+## DoEvents
+
+**Purpose** — Yields control to the engine to process pending events (UI updates, input, etc.).
+
+**Syntax**
+
+```vb
+DoEvents
+```
+
+**Description**
+
+Yields control to the engine to process pending events (UI updates, input, etc.). Use sparingly in long-running loops.
+
+**Example**
+
+```vb
+For i = 1 To 10000
+    ProcessItem(i)
+    If i Mod 100 = 0 Then DoEvents  ' Keep UI responsive
+Next
+```
+
+**See Also** — [Async](#async), [Await](#await)
+
+---
+
+## Double
+
+**Purpose** — A double-precision floating-point number (64-bit).
+
+**Syntax**
+
+```vb
+Dim varName As Double
+```
+
+**Parameters**
+
+- `varName`
+
+**Description**
+
+A double-precision floating-point number (64-bit). More precision than Single.
+
+**Example**
+
+```vb
+Dim pi As Double = 3.14159265358979
+Dim distance As Double
+```
+
+**See Also** — [Integer](#integer), [Long](#long), [Single](#single), [String](#string), [Boolean](#boolean), [Variant](#variant), [Array](#array)
+
+---
+
+## DrawArc
+
+**Purpose** — Draws an arc (partial circle outline) centered at (x,y).
+
+**Syntax**
+
+```vb
+DrawArc x, y, radius, startAngle, endAngle [, pointCount] [, color] [, width]
+```
+
+**Parameters**
+
+- `x`
+- `y`
+- `radius`
+- `startAngle`
+- `endAngle`
+- `pointCount`
+- `color`
+- `width`
+
+**Description**
+
+Draws an arc (partial circle outline) centered at (x,y). Angles are in radians (0 = right, PI/2 = down). pointCount controls smoothness (default 32).
+
+**Example**
+
+```vb
+Sub _Draw()
+    ' Half circle (0 to PI)
+    DrawArc 200, 200, 80, 0, 3.14159, 32, Color.Red, 2
+    ' Quarter circle
+    DrawArc 400, 200, 60, 0, 1.5708, 16, Color.Blue, 3
+    ' Full circle outline
+    DrawArc 300, 300, 100, 0, 6.28318, 64, Color.White, 1
+End Sub
+```
+
+**See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
+
+---
+
+## DrawCircle
+
+**Purpose** — Draws a filled circle at the specified center position with the given radius and color.
+
+**Syntax**
+
+```vb
+DrawCircle x, y, radius, color
+DrawCircle Vector2(x, y), radius, color
+```
+
+**Parameters**
+
+- `x`
+- `y`
+
+**Description**
+
+Draws a filled circle at the specified center position with the given radius and color.
+
+**Example**
+
+```vb
+Sub _Draw()
+    DrawCircle 200, 150, 50, Color(0, 1, 0)        ' Green circle
+    DrawCircle Vector2(400, 300), 30, Color.Red      ' Godot-style
+End Sub
+```
+
+**See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
+
+---
+
+## DrawLine
+
+**Purpose** — Draws a line between two points with an optional width.
+
+**Syntax**
+
+```vb
+DrawLine x1, y1, x2, y2, color [, width]
+DrawLine Vector2(x1,y1), Vector2(x2,y2), color [, width]
+```
+
+**Parameters**
+
+- `x1`
+- `y1`
+
+**Description**
+
+Draws a line between two points with an optional width.
+
+**Example**
+
+```vb
+Sub _Draw()
+    DrawLine 0, 0, 100, 100, Color(1, 1, 0), 2     ' Yellow 2px line
+    DrawLine Vector2(50, 50), Vector2(200, 100), Color.White
+End Sub
+```
+
+**See Also** — [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
+
+---
+
+## DrawPixel
+
+**Purpose** — Draws a single pixel at the specified position.
+
+**Syntax**
+
+```vb
+DrawPixel x, y, color
+```
+
+**Parameters**
+
+- `x`
+- `y`
+- `color`
+
+**Description**
+
+Draws a single pixel at the specified position. Equivalent to PSet. For per-pixel rendering, consider using CreateImage + SetImagePixel + DrawTexture instead for much better performance.
+
+**Example**
+
+```vb
+Sub _Draw()
+    DrawPixel 100, 50, Color(1, 0, 0)   ' Red pixel
+    PSet 101, 50, Color(0, 1, 0)         ' Green pixel (alias)
+End Sub
+
+' For heavy pixel work, use Image APIs:
+Dim img = CreateImage(320, 240)
+SetImagePixel img, 100, 50, Color(1, 0, 0)
+```
+
+**See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
+
+---
+
+## DrawPolygon
+
+**Purpose** — Draws a filled polygon from an array of Vector2 points.
+
+**Syntax**
+
+```vb
+DrawPolygon points, color
+```
+
+**Parameters**
+
+- `points`
+- `color`
+
+**Description**
+
+Draws a filled polygon from an array of Vector2 points. Points should be in order (clockwise or counter-clockwise). Use for triangles, custom shapes, filled regions.
+
+**Example**
+
+```vb
+Sub _Draw()
+    ' Triangle
+    Dim tri As Variant = Array(Vector2(100,200), Vector2(200,50), Vector2(300,200))
+    DrawPolygon tri, Color.Green
+    ' Pentagon
+    Dim pent As Variant = Array( _
+        Vector2(200,50), Vector2(300,120), Vector2(260,230), _
+        Vector2(140,230), Vector2(100,120))
+    DrawPolygon pent, Color(0.5, 0.2, 0.8)
+End Sub
+```
+
+**See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
+
+---
+
+## DrawPolyline
+
+**Purpose** — Draws a multi-segment line through an array of Vector2 points.
+
+**Syntax**
+
+```vb
+DrawPolyline points, color [, width]
+```
+
+**Parameters**
+
+- `points`
+- `color`
+- `width`
+
+**Description**
+
+Draws a multi-segment line through an array of Vector2 points. Unlike DrawPolygon, this draws open lines (not filled). Great for graphs, paths, vector shapes.
+
+**Example**
+
+```vb
+Sub _Draw()
+    ' Zigzag line
+    Dim pts As Variant = Array( _
+        Vector2(10,100), Vector2(50,50), Vector2(90,100), _
+        Vector2(130,50), Vector2(170,100))
+    DrawPolyline pts, Color.Yellow, 2
+End Sub
+```
+
+**See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
+
+---
+
+## DrawRect
+
+**Purpose** — Draws a rectangle on screen in _Draw().
+
+**Syntax**
+
+```vb
+DrawRect x, y, width, height, color [, filled]
+DrawRect Rect2(x, y, w, h), color
+```
+
+**Parameters**
+
+- `x`
+- `y`
+- `w`
+- `h`
+
+**Description**
+
+Draws a rectangle on screen in _Draw(). Can use VB-style (x, y, w, h) or Godot-style (Rect2) arguments. If filled is False, draws only the outline.
+
+**Example**
+
+```vb
+Sub _Draw()
+    DrawRect 10, 10, 200, 100, Color(1, 0, 0)     ' Filled red rect
+    DrawRect 10, 10, 200, 100, Color(0, 0, 0), False  ' Black outline
+    DrawRect Rect2(50, 50, 100, 80), Color(0, 0, 1)   ' Godot-style
+End Sub
+```
+
+**See Also** — [DrawLine](#drawline), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
+
+---
+
+## DrawString
+
+**Purpose** — Draws text using a Godot Font object at the specified position.
+
+**Syntax**
+
+```vb
+DrawString font, position, text, color [, fontSize]
+```
+
+**Parameters**
+
+- `font`
+- `position`
+- `text`
+- `color`
+- `fontSize`
+
+**Description**
+
+Draws text using a Godot Font object at the specified position. Use GetThemeDefaultFont() to get the default font.
+
+**Example**
+
+```vb
+Sub _Draw()
+    Dim f As Variant = GetThemeDefaultFont()
+    DrawString f, Vector2(10, 20), "Hello World!", Color.White
+    DrawString f, Vector2(10, 40), "Score: " & score, Color.Yellow
+End Sub
+```
+
+**See Also** — [DrawTexture](#drawtexture), [DrawTextureRect](#drawtexturerect)
+
+---
+
+## DrawTexture
+
+**Purpose** — Draws a Texture2D at the given position.
+
+**Syntax**
+
+```vb
+DrawTexture texture, x, y [, modulate]
+DrawTexture texture, Vector2(x, y) [, modulate]
+```
+
+**Parameters**
+
+- `x`
+- `y`
+
+**Description**
+
+Draws a Texture2D at the given position. Use with LoadPicture, CreateTexture, or ImageToTexture. The modulate parameter tints the texture with a color.
+
+**Example**
+
+```vb
+' Load and draw a texture
+Dim tex As Variant = LoadPicture("res://icon.png")
+Sub _Draw()
+    DrawTexture tex, 100, 100
+    DrawTexture tex, 300, 100, Color(1, 0.5, 0.5, 0.8)  ' Tinted
+End Sub
+
+' Draw from an Image
+Dim img = CreateImage(64, 64, Color.Red)
+Dim tex2 = CreateTexture(img)
+DrawTexture tex2, 0, 0
+```
+
+**See Also** — [DrawString](#drawstring), [DrawTextureRect](#drawtexturerect)
+
+---
+
+## DrawTextureRect
+
+**Purpose** — Draws a texture stretched or tiled into a rectangular area.
+
+**Syntax**
+
+```vb
+DrawTextureRect texture, Rect2(x, y, w, h), tile [, modulate]
+DrawTextureRect texture, x, y, w, h [, tile] [, modulate]
+```
+
+**Parameters**
+
+- `x`
+- `y`
+- `w`
+- `h`
+
+**Description**
+
+Draws a texture stretched or tiled into a rectangular area. Set tile=True to tile the texture instead of stretching. Essential for rendering Image-based canvases at a display scale.
+
+**Example**
+
+```vb
+' Stretch a texture to fill a region
+Dim tex = LoadPicture("res://icon.png")
+Sub _Draw()
+    DrawTextureRect tex, Rect2(0, 0, 640, 480), False
+End Sub
+
+' Image-based canvas with scaled display:
+Dim img = CreateImage(160, 120)   ' Small canvas
+Dim tex = CreateTexture(img)
+Sub _Draw()
+    UpdateTexture tex, img
+    DrawTextureRect tex, Rect2(0, 0, 640, 480), False  ' 4x scale
+End Sub
+```
+
+**See Also** — [DrawString](#drawstring), [DrawTexture](#drawtexture)
+
+---
+
+
+### E
+
+## Else
+
+**Purpose** — Specifies code to execute when the If condition (and all ElseIf conditions) are False.
+
+**Syntax**
+
+```vb
+Else
+    statements
+```
+
+**Parameters**
+
+- `statements`
+
+**Description**
+
+Specifies code to execute when the If condition (and all ElseIf conditions) are False.
+
+**Example**
+
+```vb
+If IsKeyPressed("space") Then
+    Jump()
+Else
+    Fall()
+End If
+```
+
+**See Also** — [If](#if), [Then](#then), [ElseIf](#elseif), [End If](#end-if), [Select Case](#select-case), [IIf](#iif)
+
+---
+
+## ElseIf
+
+**Purpose** — Provides an additional condition to test when the preceding If or ElseIf was False.
+
+**Syntax**
+
+```vb
+ElseIf condition Then
+    statements
+```
+
+**Parameters**
+
+- `condition Then
+    statements`
+
+**Description**
+
+Provides an additional condition to test when the preceding If or ElseIf was False.
+
+**Example**
+
+```vb
+If score >= 90 Then
+    grade = "A"
+ElseIf score >= 80 Then
+    grade = "B"
+ElseIf score >= 70 Then
+    grade = "C"
+Else
+    grade = "F"
+End If
+```
+
+**See Also** — [If](#if), [Then](#then), [Else](#else), [End If](#end-if), [Select Case](#select-case), [IIf](#iif)
+
+---
+
+## emit_signal
+
+**Purpose** — Emits the given signal, optionally passing arguments to connected callbacks.
+
+**Syntax**
+
+```vb
+emit_signal(signal_name As String, ...)
+```
+
+**Parameters**
+
+- `signal_name`
+- `...`
+
+**Description**
+
+Emits the given signal, optionally passing arguments to connected callbacks.
+
+**Example**
+
+```vb
+emit_signal("health_changed", currentHP)
+emit_signal("died")
+```
+
+**Godot Mapping** — [`Object.emit_signal()`](https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-emit_signal)
+
+**See Also** — [connect](#connect)
+
+---
+
+## End
+
+**Purpose** — Terminates a block or ends program execution.
+
+**Syntax**
+
+```vb
+End [Sub|Function|If|Select|Class|Type|With|Enum|Try|Using|Whenever]
+```
+
+**Parameters**
+
+- `Sub|Function|If|Select|Class|Type|With|Enum|Try|Using|Whenever`
+
+**Description**
+
+Terminates a block or ends program execution. When used alone, terminates the application.
+
+**Example**
+
+```vb
+End Sub
+End Function
+End If
+End Select
+End Class
+End  ' Terminate program
+```
+
+---
+
+## End Class
+
+**Purpose** — Terminates a Class definition.
+
+**Syntax**
+
+```vb
+End Class
+```
+
+**Parameters**
+
+- `Class`
+
+**Description**
+
+Terminates a Class definition.
+
+**Example**
+
+```vb
+Class Enemy
+    Public Speed As Single = 1.0
+End Class
+```
+
+**See Also** — [Class](#class), [New](#new), [Set](#set), [Me](#me), [Implements](#implements), [Inherits](#inherits), [Interface](#interface), [Property](#property)
+
+---
+
+## End Function
+
+**Purpose** — Terminates a Function definition.
+
+**Syntax**
+
+```vb
+End Function
+```
+
+**Parameters**
+
+- `Function`
+
+**Description**
+
+Terminates a Function definition.
+
+**Example**
+
+```vb
+Function Square(x As Integer) As Integer
+    Square = x * x
+End Function
+```
+
+**See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda)
+
+---
+
+## End If
+
+**Purpose** — Terminates a multi-line If...Then...Else block.
+
+**Syntax**
+
+```vb
+End If
+```
+
+**Parameters**
+
+- `If`
+
+**Description**
+
+Terminates a multi-line If...Then...Else block.
+
+**Example**
+
+```vb
+If score > 100 Then
+    Print "Winner!"
+End If
+```
+
+**See Also** — [If](#if), [Then](#then), [Else](#else), [ElseIf](#elseif), [Select Case](#select-case), [IIf](#iif)
+
+---
+
+## End Select
+
+**Purpose** — Terminates a Select Case block.
+
+**Syntax**
+
+```vb
+End Select
+```
+
+**Parameters**
+
+- `Select`
+
+**Description**
+
+Terminates a Select Case block.
+
+**Example**
+
+```vb
+Select Case x
+    Case 1
+        Print "One"
+End Select
+```
+
+**See Also** — [Select](#select), [Select Case](#select-case), [Case](#case)
+
+---
+
+## End Sub
+
+**Purpose** — Terminates a Sub procedure definition.
+
+**Syntax**
+
+```vb
+End Sub
+```
+
+**Parameters**
+
+- `Sub`
+
+**Description**
+
+Terminates a Sub procedure definition.
+
+**Example**
+
+```vb
+Sub Form_Load()
+    Print "Ready!"
+End Sub
+```
+
+**See Also** — [Sub](#sub), [Function](#function), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda)
+
+---
+
+## End With
+
+**Purpose** — Terminates a With block.
+
+**Syntax**
+
+```vb
+End With
+```
+
+**Parameters**
+
+- `With`
+
+**Description**
+
+Terminates a With block.
+
+**Example**
+
+```vb
+With player
+    .Health = 100
+    .Score = 0
+End With
+```
+
+**See Also** — [With](#with), [Using](#using)
+
+---
+
+## Enum
+
+**Purpose** — Declares an enumeration — a set of named integer constants.
+
+**Syntax**
+
+```vb
+Enum EnumName
+    Value1 [= number]
+    Value2
+    ...
+End Enum
+```
+
+**Parameters**
+
+- `EnumName
+    Value1 = number
+    Value2
+    ...
+End Enum`
+
+**Description**
+
+Declares an enumeration — a set of named integer constants.
+
+**Example**
+
+```vb
+Enum GameState
+    Menu = 0
+    Playing = 1
+    Paused = 2
+    GameOver = 3
+End Enum
+
+Dim state As GameState = GameState.Playing
+```
+
+---
+
+## Event
+
+**Purpose** — Declares a custom event that can be raised with RaiseEvent.
+
+**Syntax**
+
+```vb
+Event EventName([parameters])
+```
+
+**Parameters**
+
+- `parameters`
+
+**Description**
+
+Declares a custom event that can be raised with RaiseEvent.
+
+**Example**
+
+```vb
+Class Timer
+    Event Tick()
+    Event Elapsed(seconds As Integer)
+End Class
+```
+
+**See Also** — [RaiseEvent](#raiseevent), [WithEvents](#withevents)
+
+---
+
+## Exit
+
+**Purpose** — Immediately exits the current procedure or loop.
+
+**Syntax**
+
+```vb
+Exit Sub | Exit Function | Exit For | Exit Do | Exit While
+```
+
+**Parameters**
+
+- `Sub | Exit Function | Exit For | Exit Do | Exit While`
+
+**Description**
+
+Immediately exits the current procedure or loop. Control passes to the statement after the End Sub/Next/Loop.
+
+**Example**
+
+```vb
+For i = 1 To 100
+    If items(i) = target Then
+        foundAt = i
+        Exit For
+    End If
+Next
+```
+
+**See Also** — [For](#for), [Next](#next), [For Each](#for-each), [Continue](#continue), [Do](#do), [Loop](#loop), [While](#while), [Wend](#wend), [Until](#until)
+
+---
+
+
+### F
+
+## False
+
+**Purpose** — Boolean literal representing a false/off state.
+
+**Syntax**
+
+```vb
+False
+```
+
+**Description**
+
+Boolean literal representing a false/off state.
+
+**Example**
+
+```vb
+Dim gameOver As Boolean = False
+Enabled = False
+```
+
+**See Also** — [True](#true), [Nothing](#nothing)
+
+---
+
+## FillImage
+
+**Purpose** — Fills the entire Image with a solid color.
+
+**Syntax**
+
+```vb
+FillImage image, color
+```
+
+**Parameters**
+
+- `image`
+- `color`
+
+**Description**
+
+Fills the entire Image with a solid color. Much faster than looping over every pixel with SetImagePixel. Use for clearing a canvas or setting a background.
+
+**Example**
+
+```vb
+Dim img = CreateImage(640, 480)
+
+' Clear to white
+FillImage img, Color(1, 1, 1, 1)
+
+' Clear to black
+FillImage img, Color(0, 0, 0, 1)
+
+' Using Color8
+FillImage img, Color8(100, 150, 200, 255)
+```
+
+**See Also** — [CreateImage](#createimage), [FillImageRect](#fillimagerect), [GetImagePixel](#getimagepixel), [SetImagePixel](#setimagepixel), [BlitImage](#blitimage), [ImageWidth](#imagewidth), [ImageHeight](#imageheight)
+
+---
+
+## FillImageRect
+
+**Purpose** — Fills a rectangular region of an Image with a color.
+
+**Syntax**
+
+```vb
+FillImageRect image, Rect2i(x, y, w, h), color
+FillImageRect image, x, y, w, h, color
+```
+
+**Parameters**
+
+- `x`
+- `y`
+- `w`
+- `h`
+
+**Description**
+
+Fills a rectangular region of an Image with a color. Faster than per-pixel loops for rectangular fills.
+
+**Example**
+
+```vb
+Dim img = CreateImage(320, 240, Color.White)
+
+' Draw a green rectangle
+FillImageRect img, Rect2i(10, 10, 100, 50), Color(0, 1, 0, 1)
+
+' VB-style arguments
+FillImageRect img, 50, 80, 200, 30, Color.Blue
+```
+
+**See Also** — [CreateImage](#createimage), [FillImage](#fillimage), [GetImagePixel](#getimagepixel), [SetImagePixel](#setimagepixel), [BlitImage](#blitimage), [ImageWidth](#imagewidth), [ImageHeight](#imageheight)
+
+---
+
+## Finally
+
+**Purpose** — Code in the Finally block always executes, whether or not an error occurred.
+
+**Syntax**
+
+```vb
+Finally
+    cleanup statements
+```
+
+**Parameters**
+
+- `cleanup statements`
+
+**Description**
+
+Code in the Finally block always executes, whether or not an error occurred. Use for cleanup (closing files, etc.).
+
+**Example**
+
+```vb
+Try
+    Open "log.txt" For Output As #1
+    Print #1, "Log entry"
+Finally
+    Close #1  ' Always closes the file
+End Try
+```
+
+**See Also** — [On Error](#on-error), [Try](#try), [Catch](#catch), [Throw](#throw)
+
+---
+
+## For
+
+**Purpose** — Repeats a block of code a specific number of times.
+
+**Syntax**
+
+```vb
+For counter = start To end [Step increment]
+    statements
+Next [counter]
+```
+
+**Parameters**
+
+- `counter = start To end Step increment
+    statements
+Next counter`
+
+**Description**
+
+Repeats a block of code a specific number of times. The Step clause controls the increment (default is 1). Use Exit For to leave early.
+
+**Example**
+
+```vb
+For i = 1 To 10
+    Print i
+Next i
+
+For i = 10 To 0 Step -1
+    Print "Countdown: " & i
+Next
+
+For i = 0 To 100 Step 5
+    Print i
+Next
+```
+
+**See Also** — [Next](#next), [For Each](#for-each), [Continue](#continue), [Exit](#exit)
+
+---
+
+## For Each
+
+**Purpose** — Iterates over every element in an array, list, or collection.
+
+**Syntax**
+
+```vb
+For Each element In collection
+    statements
+Next [element]
+```
+
+**Parameters**
+
+- `Each element In collection
+    statements
+Next element`
+
+**Description**
+
+Iterates over every element in an array, list, or collection.
+
+**Example**
+
+```vb
+Dim names() As String = {"Alice", "Bob", "Carol"}
+For Each name In names
+    Print "Hello, " & name
+Next
+```
+
+**See Also** — [For](#for), [Next](#next), [Continue](#continue), [Exit](#exit)
+
+---
+
+## Format
+
+**Purpose** — Formats a number, date, or string according to the format pattern.
+
+**Syntax**
+
+```vb
+Format(expression, formatString)
+```
+
+**Parameters**
+
+- `expression`
+- `formatString`
+
+**Description**
+
+Formats a number, date, or string according to the format pattern.
+
+**Example**
+
+```vb
+Print Format(1234.5, "#,##0.00")  ' "1,234.50"
+Print Format(0.75, "0%")          ' "75%"
+```
+
+**See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join)
+
+---
+
+## Function
+
+**Purpose** — Declares a function that returns a value.
+
+**Syntax**
+
+```vb
+[Public|Private] Function name([params]) As ReturnType
+    statements
+    Function = returnValue  ' or: Return returnValue
+End Function
+```
+
+**Parameters**
+
+- `params`
+
+**Description**
+
+Declares a function that returns a value. Set the return value by assigning to the function name or using Return.
+
+**Example**
+
+```vb
+Function AddScore(points As Integer) As Integer
+    score = score + points
+    AddScore = score  ' Return value
+End Function
+
+Function GetGrade(score As Integer) As String
+    If score >= 90 Then Return "A"
+    If score >= 80 Then Return "B"
+    Return "C"
+End Function
+```
+
+**See Also** — [Sub](#sub), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda)
+
+---
+
+
+### G
+
+## get_global_mouse_position
+
+**Purpose** — Returns the mouse position in global coordinates.
+
+**Syntax**
+
+```vb
+get_global_mouse_position() As Vector2
+```
+
+**Description**
+
+Returns the mouse position in global coordinates.
+
+**Example**
+
+```vb
+Dim mouse As Vector2 = get_global_mouse_position()
+look_at(mouse)
+```
+
+**Godot Mapping** — [`CanvasItem.get_global_mouse_position()`](https://docs.godotengine.org/en/stable/classes/class_canvasitem.html#class-canvasitem-method-get_global_mouse_position)
+
+---
+
+## get_node
+
+**Purpose** — Returns the node at the given path relative to this node.
+
+**Syntax**
+
+```vb
+get_node(path As NodePath) As Node
+```
+
+**Parameters**
+
+- `path`
+
+**Description**
+
+Returns the node at the given path relative to this node. Also available via the [b]$[/b] shorthand.
+
+**Example**
+
+```vb
+Dim player As Node = get_node("Player")
+Dim label As Node = get_node("UI/ScoreLabel")
+```
+
+**Godot Mapping** — [`Node.get_node()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get_node)
+
+**See Also** — [add_child](#addchild), [remove_child](#removechild), [queue_free](#queuefree), [get_tree](#gettree), [instantiate](#instantiate)
+
+---
+
+## get_tree
+
+**Purpose** — Returns the SceneTree this node belongs to.
+
+**Syntax**
+
+```vb
+get_tree() As SceneTree
+```
+
+**Description**
+
+Returns the SceneTree this node belongs to. Used for scene management, groups, and timers.
+
+**Example**
+
+```vb
+get_tree().change_scene_to_file("res://GameOver.tscn")
+get_tree().quit()
+```
+
+**Godot Mapping** — [`Node.get_tree()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get_tree)
+
+**See Also** — [get_node](#getnode), [add_child](#addchild), [remove_child](#removechild), [queue_free](#queuefree), [instantiate](#instantiate)
+
+---
+
+## GetImagePixel
+
+**Purpose** — Returns the color of a pixel from an Image.
+
+**Syntax**
+
+```vb
+GetImagePixel(image, x, y) As Color
+```
+
+**Parameters**
+
+- `image`
+- `x`
+- `y`
+
+**Description**
+
+Returns the color of a pixel from an Image. The returned Color has .r, .g, .b, .a properties (0.0 to 1.0 range). Multiply by 255 for integer RGB values.
+
+**Example**
+
+```vb
+Dim img = CreateImage(100, 100, Color.Red)
+Dim c As Variant = GetImagePixel(img, 50, 50)
+Print "R=" & Str(c.r)   ' 1.0
+Print "G=" & Str(c.g)   ' 0.0
+
+' Get as integer 0-255
+Dim r As Integer = Int(c.r * 255)
+Dim g As Integer = Int(c.g * 255)
+Dim b As Integer = Int(c.b * 255)
+```
+
+**See Also** — [CreateImage](#createimage), [FillImage](#fillimage), [FillImageRect](#fillimagerect), [SetImagePixel](#setimagepixel), [BlitImage](#blitimage), [ImageWidth](#imagewidth), [ImageHeight](#imageheight)
+
+---
+
+## GetTextureImage
+
+**Purpose** — Extracts the Image data from an ImageTexture.
+
+**Syntax**
+
+```vb
+GetTextureImage(texture) As Image
+```
+
+**Parameters**
+
+- `texture`
+
+**Description**
+
+Extracts the Image data from an ImageTexture. Useful for reading pixel data from a loaded texture. The returned Image can be modified and pushed back with UpdateTexture.
+
+**Example**
+
+```vb
+Dim tex = LoadPicture("res://icon.png")
+Dim img = GetTextureImage(tex)
+Dim c = GetImagePixel(img, 0, 0)  ' Read top-left pixel
+Print "Top-left color: R=" & Str(Int(c.r * 255))
+```
+
+**See Also** — [ImageToTexture](#imagetotexture), [CreateTexture](#createtexture), [UpdateTexture](#updatetexture), [TextureWidth](#texturewidth), [TextureHeight](#textureheight)
+
+---
+
+## Global
+
+**Purpose** — Declares a module-level global variable accessible from any procedure in the form or module.
+
+**Syntax**
+
+```vb
+Global variableName As DataType
+```
+
+**Parameters**
+
+- `variableName`
+
+**Description**
+
+Declares a module-level global variable accessible from any procedure in the form or module.
+
+**Example**
+
+```vb
+Global highScore As Integer
+Global currentLevel As Integer = 1
+```
+
+**See Also** — [Dim](#dim), [Private](#private), [Public](#public), [Static](#static), [Const](#const), [ReDim](#redim), [Type](#type)
+
+---
+
+## GoSub
+
+**Purpose** — Jumps to a labeled subroutine within the same procedure, then returns to the statement after GoSub.
+
+**Syntax**
+
+```vb
+GoSub labelName
+...
+labelName:
+    statements
+Return
+```
+
+**Parameters**
+
+- `labelName
+...
+labelName:
+    statements
+Return`
+
+**Description**
+
+Jumps to a labeled subroutine within the same procedure, then returns to the statement after GoSub. Classic VB6 feature.
+
+**Example**
+
+```vb
+Sub ProcessData()
+    GoSub ValidateInput
+    GoSub CalculateResult
+    Exit Sub
+
+ValidateInput:
+    If data = "" Then Print "No data"
+    Return
+
+CalculateResult:
+    result = data * 2
+    Return
+End Sub
+```
+
+**See Also** — [GoTo](#goto), [Return](#return)
+
+---
+
+## GoTo
+
+**Purpose** — Transfers execution to the specified label.
+
+**Syntax**
+
+```vb
+GoTo labelName
+```
+
+**Parameters**
+
+- `labelName`
+
+**Description**
+
+Transfers execution to the specified label. Primarily used in error handling (On Error GoTo). Avoid for general flow control.
+
+**Example**
 
 ```vb
 On Error GoTo ErrorHandler
-' ... code that might fail ...
+' ... code ...
 Exit Sub
 
 ErrorHandler:
-    Print "Error: "; Err.Description
-    Resume Next    ' Continue at next statement
-    ' or: Resume RetryLabel
-    ' or: Resume  (retry the failing statement)
+    Print "An error occurred"
+    Resume Next
 ```
 
-### Get # / Put # (Binary File I/O)
+**See Also** — [GoSub](#gosub), [Return](#return)
 
-Read and write binary data:
+---
+
+## GPS.Accuracy
+
+**Purpose** — Returns horizontal accuracy in meters.
+
+**Syntax**
 
 ```vb
-Open "data.bin" For Binary As #1
-Put #1, 1, "Hello World"      ' Write at record 1
-Dim result As String
-Get #1, 1, result              ' Read from record 1
+GPS.Accuracy() As Double
+```
+
+**Description**
+
+Returns horizontal accuracy in meters. -1 means unknown / no fix yet.
+
+**Example**
+
+```vb
+If GPS.Accuracy() > 0 And GPS.Accuracy() < 20 Then UpdateMap()
+```
+
+**See Also** — [GPS.Lat](#gpslat), [GPS.Lng](#gpslng), [GPS.Alt](#gpsalt), [GPS.Speed](#gpsspeed)
+
+---
+
+## GPS.Alt
+
+**Purpose** — Returns altitude in meters above sea level.
+
+**Syntax**
+
+```vb
+GPS.Alt() As Double
+```
+
+**Description**
+
+Returns altitude in meters above sea level. Stub returns 0.
+
+**Example**
+
+```vb
+Print GPS.Alt() & " m"
+```
+
+**See Also** — [GPS.Lat](#gpslat), [GPS.Lng](#gpslng), [GPS.Accuracy](#gpsaccuracy), [GPS.Speed](#gpsspeed)
+
+---
+
+## GPS.Lat
+
+**Purpose** — Returns latitude in decimal degrees.
+
+**Syntax**
+
+```vb
+GPS.Lat() As Double
+```
+
+**Description**
+
+Returns latitude in decimal degrees. Returns 0 until a platform plugin publishes real values.
+
+**Example**
+
+```vb
+Print "Lat: " & GPS.Lat()
+```
+
+**See Also** — [GPS.Lng](#gpslng), [GPS.Alt](#gpsalt), [GPS.Accuracy](#gpsaccuracy), [GPS.Speed](#gpsspeed)
+
+---
+
+## GPS.Lng
+
+**Purpose** — Returns longitude in decimal degrees.
+
+**Syntax**
+
+```vb
+GPS.Lng() As Double
+```
+
+**Description**
+
+Returns longitude in decimal degrees. Returns 0 until a platform plugin publishes real values.
+
+**Example**
+
+```vb
+Print "Lng: " & GPS.Lng()
+```
+
+**See Also** — [GPS.Lat](#gpslat), [GPS.Alt](#gpsalt), [GPS.Accuracy](#gpsaccuracy), [GPS.Speed](#gpsspeed)
+
+---
+
+## GPS.Speed
+
+**Purpose** — Returns ground speed in m/s.
+
+**Syntax**
+
+```vb
+GPS.Speed() As Double
+```
+
+**Description**
+
+Returns ground speed in m/s. Stub returns 0.
+
+**Example**
+
+```vb
+Print (GPS.Speed() * 3.6) & " km/h"
+```
+
+**See Also** — [GPS.Lat](#gpslat), [GPS.Lng](#gpslng), [GPS.Alt](#gpsalt), [GPS.Accuracy](#gpsaccuracy)
+
+---
+
+
+### H
+
+## hide
+
+**Purpose** — Makes this node invisible.
+
+**Syntax**
+
+```vb
+hide()
+```
+
+**Description**
+
+Makes this node invisible. Equivalent to setting [b]visible = False[/b].
+
+**Example**
+
+```vb
+hide   ' make invisible
+```
+
+**Godot Mapping** — [`CanvasItem.hide()`](https://docs.godotengine.org/en/stable/classes/class_canvasitem.html#class-canvasitem-method-hide)
+
+**See Also** — [visible](#visible), [show](#show), [modulate](#modulate)
+
+---
+
+
+### I
+
+## If
+
+**Purpose** — Executes code conditionally.
+
+**Syntax**
+
+```vb
+If condition Then
+    statements
+[ElseIf condition Then]
+    statements
+[Else]
+    statements
+End If
+```
+
+**Parameters**
+
+- `condition Then
+    statements
+ElseIf condition Then
+    statements
+Else
+    statements
+End If`
+
+**Description**
+
+Executes code conditionally. Supports multi-line blocks with ElseIf and Else branches, or single-line form.
+
+**Example**
+
+```vb
+If score > highScore Then
+    highScore = score
+    Print "New high score!"
+ElseIf score > 0 Then
+    Print "Good job!"
+Else
+    Print "Try again!"
+End If
+
+' Single-line form:
+If health <= 0 Then gameOver = True
+```
+
+**See Also** — [Then](#then), [Else](#else), [ElseIf](#elseif), [End If](#end-if), [Select Case](#select-case), [IIf](#iif)
+
+---
+
+## IIf
+
+**Purpose** — Inline If — returns one of two values based on a condition.
+
+**Syntax**
+
+```vb
+IIf(condition, trueValue, falseValue)
+```
+
+**Parameters**
+
+- `condition`
+- `trueValue`
+- `falseValue`
+
+**Description**
+
+Inline If — returns one of two values based on a condition. Similar to the ternary operator in other languages.
+
+**Example**
+
+```vb
+message = IIf(score > 100, "Excellent!", "Keep trying!")
+color = IIf(health < 20, "Red", "Green")
+```
+
+**See Also** — [If](#if), [Then](#then), [Else](#else), [ElseIf](#elseif), [End If](#end-if), [Select Case](#select-case)
+
+---
+
+## ImageHeight
+
+**Purpose** — Returns the height of an Image in pixels.
+
+**Syntax**
+
+```vb
+ImageHeight(image) As Integer
+```
+
+**Parameters**
+
+- `image`
+
+**Description**
+
+Returns the height of an Image in pixels.
+
+**Example**
+
+```vb
+Dim img = CreateImage(320, 240)
+Print ImageHeight(img)  ' 240
+
+' Iterate all pixels
+For y = 0 To ImageHeight(img) - 1
+    For x = 0 To ImageWidth(img) - 1
+        SetImagePixel img, x, y, Color(x/320.0, y/240.0, 0.5, 1)
+    Next
+Next
+```
+
+**See Also** — [CreateImage](#createimage), [FillImage](#fillimage), [FillImageRect](#fillimagerect), [GetImagePixel](#getimagepixel), [SetImagePixel](#setimagepixel), [BlitImage](#blitimage), [ImageWidth](#imagewidth)
+
+---
+
+## ImageToTexture
+
+**Purpose** — Converts an Image object to a new ImageTexture.
+
+**Syntax**
+
+```vb
+ImageToTexture(image) As ImageTexture
+```
+
+**Parameters**
+
+- `image`
+
+**Description**
+
+Converts an Image object to a new ImageTexture. Similar to CreateTexture(image) but always creates a new texture object.
+
+**Example**
+
+```vb
+Dim img = CreateImage(100, 100, Color.Green)
+Dim tex = ImageToTexture(img)
+DrawTexture tex, 50, 50
+```
+
+**See Also** — [CreateTexture](#createtexture), [UpdateTexture](#updatetexture), [GetTextureImage](#gettextureimage), [TextureWidth](#texturewidth), [TextureHeight](#textureheight)
+
+---
+
+## ImageWidth
+
+**Purpose** — Returns the width of an Image in pixels.
+
+**Syntax**
+
+```vb
+ImageWidth(image) As Integer
+```
+
+**Parameters**
+
+- `image`
+
+**Description**
+
+Returns the width of an Image in pixels.
+
+**Example**
+
+```vb
+Dim img = CreateImage(320, 240)
+Print ImageWidth(img)   ' 320
+Print ImageHeight(img)  ' 240
+```
+
+**See Also** — [CreateImage](#createimage), [FillImage](#fillimage), [FillImageRect](#fillimagerect), [GetImagePixel](#getimagepixel), [SetImagePixel](#setimagepixel), [BlitImage](#blitimage), [ImageHeight](#imageheight)
+
+---
+
+## Implements
+
+**Purpose** — Declares that a class implements an interface and must provide all of its methods.
+
+**Syntax**
+
+```vb
+Class MyClass
+    Implements InterfaceName
+```
+
+**Parameters**
+
+- `MyClass
+    Implements InterfaceName`
+
+**Description**
+
+Declares that a class implements an interface and must provide all of its methods.
+
+**Example**
+
+```vb
+Interface IDamageable
+    Sub TakeDamage(amount As Integer)
+End Interface
+
+Class Player
+    Implements IDamageable
+    Sub TakeDamage(amount As Integer)
+        health = health - amount
+    End Sub
+End Class
+```
+
+**See Also** — [Class](#class), [End Class](#end-class), [New](#new), [Set](#set), [Me](#me), [Inherits](#inherits), [Interface](#interface), [Property](#property)
+
+---
+
+## Inherits
+
+**Purpose** — Specifies that a class inherits from a base class, gaining its fields, properties, and methods.
+
+**Syntax**
+
+```vb
+Class ChildClass
+    Inherits ParentClass
+```
+
+**Parameters**
+
+- `ChildClass
+    Inherits ParentClass`
+
+**Description**
+
+Specifies that a class inherits from a base class, gaining its fields, properties, and methods.
+
+**Example**
+
+```vb
+Class Boss
+    Inherits Enemy
+    Public Phase As Integer = 1
+
+    Sub Attack()
+        MyBase.Attack()  ' Call parent method
+        ' Boss-specific attack
+    End Sub
+End Class
+```
+
+**See Also** — [Class](#class), [End Class](#end-class), [New](#new), [Set](#set), [Me](#me), [Implements](#implements), [Interface](#interface), [Property](#property)
+
+---
+
+## InputBox
+
+**Purpose** — Displays a dialog with a text input field and returns the user's text.
+
+**Syntax**
+
+```vb
+result = InputBox(prompt [, title] [, default])
+```
+
+**Parameters**
+
+- `prompt`
+- `title`
+- `default`
+
+**Description**
+
+Displays a dialog with a text input field and returns the user's text.
+
+**Example**
+
+```vb
+Dim name As String
+name = InputBox("Enter your name:", "Player Setup", "Player 1")
+If name <> "" Then Print "Welcome, " & name
+```
+
+**See Also** — [MsgBox](#msgbox), [LoadForm](#loadform)
+
+---
+
+## instantiate
+
+**Purpose** — Creates an instance of a PackedScene.
+
+**Syntax**
+
+```vb
+instantiate() As Node
+```
+
+**Description**
+
+Creates an instance of a PackedScene. Load the scene first with [b]preload[/b] or [b]load[/b].
+
+**Example**
+
+```vb
+Dim scene As PackedScene = preload("res://Bullet.tscn")
+Dim bullet As Node = scene.instantiate()
+add_child bullet
+```
+
+**Godot Mapping** — [`PackedScene.instantiate()`](https://docs.godotengine.org/en/stable/classes/class_packedscene.html#class-packedscene-method-instantiate)
+
+**See Also** — [get_node](#getnode), [add_child](#addchild), [remove_child](#removechild), [queue_free](#queuefree), [get_tree](#gettree)
+
+---
+
+## InStr
+
+**Purpose** — Returns the position of the first occurrence of search within string (1-based).
+
+**Syntax**
+
+```vb
+InStr([start,] string, search)
+```
+
+**Parameters**
+
+- `start`
+- `string`
+- `search`
+
+**Description**
+
+Returns the position of the first occurrence of search within string (1-based). Returns 0 if not found.
+
+**Example**
+
+```vb
+Dim pos As Integer
+pos = InStr("Hello World", "World")  ' 7
+pos = InStr("Hello", "xyz")  ' 0
+```
+
+**See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
+
+---
+
+## Int
+
+**Purpose** — Returns the integer portion of a number (truncates toward negative infinity).
+
+**Syntax**
+
+```vb
+Int(number)
+```
+
+**Parameters**
+
+- `number`
+
+**Description**
+
+Returns the integer portion of a number (truncates toward negative infinity).
+
+**Example**
+
+```vb
+Print Int(3.7)   ' 3
+Print Int(-3.7)  ' -4
+```
+
+**See Also** — [CInt](#cint), [CStr](#cstr), [Val](#val), [Str](#str), [Abs](#abs), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod)
+
+---
+
+## Integer
+
+**Purpose** — A 32-bit signed integer type.
+
+**Syntax**
+
+```vb
+Dim varName As Integer
+```
+
+**Parameters**
+
+- `varName`
+
+**Description**
+
+A 32-bit signed integer type. Range: -2,147,483,648 to 2,147,483,647.
+
+**Example**
+
+```vb
+Dim score As Integer = 0
+Dim lives As Integer = 3
+```
+
+**See Also** — [Long](#long), [Single](#single), [Double](#double), [String](#string), [Boolean](#boolean), [Variant](#variant), [Array](#array)
+
+---
+
+## Interface
+
+**Purpose** — Declares an interface — a contract that implementing classes must fulfill.
+
+**Syntax**
+
+```vb
+Interface InterfaceName
+    Sub MethodName([params])
+    Function FuncName([params]) As Type
+End Interface
+```
+
+**Parameters**
+
+- `params`
+
+**Description**
+
+Declares an interface — a contract that implementing classes must fulfill.
+
+**Example**
+
+```vb
+Interface ISerializable
+    Function Serialize() As String
+    Sub Deserialize(data As String)
+End Interface
+```
+
+**See Also** — [Class](#class), [End Class](#end-class), [New](#new), [Set](#set), [Me](#me), [Implements](#implements), [Inherits](#inherits), [Property](#property)
+
+---
+
+## is_action_just_pressed
+
+**Purpose** — Returns True only on the frame the action was first pressed.
+
+**Syntax**
+
+```vb
+Input.is_action_just_pressed(action As String) As Boolean
+```
+
+**Parameters**
+
+- `action`
+
+**Description**
+
+Returns True only on the frame the action was first pressed.
+
+**Example**
+
+```vb
+If Input.is_action_just_pressed("jump") And is_on_floor() Then
+    velocity.y = -jump_force
+End If
+```
+
+**Godot Mapping** — [`Input.is_action_just_pressed()`](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-method-is_action_just_pressed)
+
+**See Also** — [is_action_pressed](#isactionpressed), [is_action_just_released](#isactionjustreleased)
+
+---
+
+## is_action_just_released
+
+**Purpose** — Returns True only on the frame the action was released.
+
+**Syntax**
+
+```vb
+Input.is_action_just_released(action As String) As Boolean
+```
+
+**Parameters**
+
+- `action`
+
+**Description**
+
+Returns True only on the frame the action was released.
+
+**Example**
+
+```vb
+If Input.is_action_just_released("shoot") Then
+    ' fire charged shot
+End If
+```
+
+**Godot Mapping** — [`Input.is_action_just_released()`](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-method-is_action_just_released)
+
+**See Also** — [is_action_pressed](#isactionpressed), [is_action_just_pressed](#isactionjustpressed)
+
+---
+
+## is_action_pressed
+
+**Purpose** — Returns True while the specified input action is held down.
+
+**Syntax**
+
+```vb
+Input.is_action_pressed(action As String) As Boolean
+```
+
+**Parameters**
+
+- `action`
+
+**Description**
+
+Returns True while the specified input action is held down. Defined in Project → Input Map.
+
+**Example**
+
+```vb
+If Input.is_action_pressed("move_left") Then
+    velocity.x = -speed
+End If
+```
+
+**Godot Mapping** — [`Input.is_action_pressed()`](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-method-is_action_pressed)
+
+**See Also** — [is_action_just_pressed](#isactionjustpressed), [is_action_just_released](#isactionjustreleased)
+
+---
+
+## is_on_floor
+
+**Purpose** — Returns True if the CharacterBody was on the floor during the last [b]move_and_slide[/b] call.
+
+**Syntax**
+
+```vb
+is_on_floor() As Boolean
+```
+
+**Description**
+
+Returns True if the CharacterBody was on the floor during the last [b]move_and_slide[/b] call.
+
+**Example**
+
+```vb
+If is_on_floor() Then
+    velocity.y = -jump_force
+End If
+```
+
+**Godot Mapping** — [`CharacterBody2D.is_on_floor()`](https://docs.godotengine.org/en/stable/classes/class_characterbody2d.html#class-characterbody2d-method-is_on_floor)
+
+**See Also** — [move_and_slide](#moveandslide), [velocity](#velocity), [is_on_wall](#isonwall), [_physics_process](#physicsprocess), [delta](#delta)
+
+---
+
+## is_on_wall
+
+**Purpose** — Returns True if the CharacterBody was touching a wall during the last [b]move_and_slide[/b] call.
+
+**Syntax**
+
+```vb
+is_on_wall() As Boolean
+```
+
+**Description**
+
+Returns True if the CharacterBody was touching a wall during the last [b]move_and_slide[/b] call.
+
+**Example**
+
+```vb
+If is_on_wall() Then
+    ' wall slide or wall jump
+End If
+```
+
+**Godot Mapping** — [`CharacterBody2D.is_on_wall()`](https://docs.godotengine.org/en/stable/classes/class_characterbody2d.html#class-characterbody2d-method-is_on_wall)
+
+**See Also** — [move_and_slide](#moveandslide), [velocity](#velocity), [is_on_floor](#isonfloor), [_physics_process](#physicsprocess), [delta](#delta)
+
+---
+
+## IsActionPressed
+
+**Purpose** — Returns True if the specified input action (defined in Project Settings) is active.
+
+**Syntax**
+
+```vb
+IsActionPressed(actionName) As Boolean
+```
+
+**Parameters**
+
+- `actionName`
+
+**Description**
+
+Returns True if the specified input action (defined in Project Settings) is active.
+
+**Example**
+
+```vb
+If IsActionPressed("ui_accept") Then
+    SelectMenuItem()
+End If
+```
+
+**See Also** — [IsKeyPressed](#iskeypressed), [PlaySound](#playsound), [ChangeScene](#changescene), [CreateActor2D](#createactor2d)
+
+---
+
+## IsKeyPressed
+
+**Purpose** — Returns True if the specified keyboard key is currently held down.
+
+**Syntax**
+
+```vb
+IsKeyPressed(keyName) As Boolean
+```
+
+**Parameters**
+
+- `keyName`
+
+**Description**
+
+Returns True if the specified keyboard key is currently held down.
+
+**Example**
+
+```vb
+If IsKeyPressed("space") Then
+    Jump()
+End If
+
+If IsKeyPressed("left") Then x = x - speed
+If IsKeyPressed("right") Then x = x + speed
+```
+
+**See Also** — [IsActionPressed](#isactionpressed), [PlaySound](#playsound), [ChangeScene](#changescene), [CreateActor2D](#createactor2d)
+
+---
+
+
+### J
+
+## Join
+
+**Purpose** — Joins an array of strings into a single string with a delimiter between each element.
+
+**Syntax**
+
+```vb
+Join(array, delimiter)
+```
+
+**Parameters**
+
+- `array`
+- `delimiter`
+
+**Description**
+
+Joins an array of strings into a single string with a delimiter between each element.
+
+**Example**
+
+```vb
+Dim arr() As String = {"Red", "Green", "Blue"}
+Print Join(arr, ", ")  ' "Red, Green, Blue"
+```
+
+**See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Format](#format)
+
+---
+
+## Joypad.Axis
+
+**Purpose** — Returns the analog axis value (-1.0 to 1.0).
+
+**Syntax**
+
+```vb
+Joypad.Axis(device, axisIndex) As Double
+```
+
+**Parameters**
+
+- `device`
+- `axisIndex`
+
+**Description**
+
+Returns the analog axis value (-1.0 to 1.0). Axis 0/1 = left stick, 2/3 = right stick, 4/5 = triggers.
+
+**Example**
+
+```vb
+' Move with left stick
+Dim mx = Joypad.Axis(0, 0)
+Dim my = Joypad.Axis(0, 1)
+position += Vector2(mx, my) * 200 * delta
+```
+
+**See Also** — [Joypad.Connected](#joypadconnected), [Joypad.IsConnected](#joypadisconnected), [Joypad.Name](#joypadname), [Joypad.Button](#joypadbutton), [Joypad.Stick](#joypadstick)
+
+---
+
+## Joypad.Button
+
+**Purpose** — Returns True if the given button is currently held down.
+
+**Syntax**
+
+```vb
+Joypad.Button(device, buttonIndex) As Boolean
+```
+
+**Parameters**
+
+- `device`
+- `buttonIndex`
+
+**Description**
+
+Returns True if the given button is currently held down. 0=A/Cross, 1=B/Circle, 2=X/Square, 3=Y/Triangle, 6=Start.
+
+**Example**
+
+```vb
+If Joypad.Button(0, 0) Then Jump()
+```
+
+**See Also** — [Joypad.Connected](#joypadconnected), [Joypad.IsConnected](#joypadisconnected), [Joypad.Name](#joypadname), [Joypad.Axis](#joypadaxis), [Joypad.Stick](#joypadstick)
+
+---
+
+## Joypad.Connected
+
+**Purpose** — Returns True if a joypad is connected at the given device index (0-based).
+
+**Syntax**
+
+```vb
+Joypad.Connected(device) As Boolean
+```
+
+**Parameters**
+
+- `device`
+
+**Description**
+
+Returns True if a joypad is connected at the given device index (0-based).
+
+**Example**
+
+```vb
+If Joypad.Connected(0) Then Print "Player 1 controller ready"
+```
+
+**See Also** — [Joypad.IsConnected](#joypadisconnected), [Joypad.Name](#joypadname), [Joypad.Axis](#joypadaxis), [Joypad.Button](#joypadbutton), [Joypad.Stick](#joypadstick)
+
+---
+
+## Joypad.IsConnected
+
+**Purpose** — Returns True if a joypad/gamepad is currently connected at the given device index.
+
+**Syntax**
+
+```vb
+Joypad.IsConnected(index) As Boolean
+```
+
+**Parameters**
+
+- `index`
+
+**Description**
+
+Returns True if a joypad/gamepad is currently connected at the given device index. Companion to Joypad.Connected (which returns the count).
+
+**Example**
+
+```vb
+If Joypad.IsConnected(0) Then ShowPlayerJoinedIcon()
+```
+
+**See Also** — [Joypad.Connected](#joypadconnected), [Joypad.Name](#joypadname), [Joypad.Axis](#joypadaxis), [Joypad.Button](#joypadbutton), [Joypad.Stick](#joypadstick)
+
+---
+
+## Joypad.Name
+
+**Purpose** — Returns the joypad's name (e.g.
+
+**Syntax**
+
+```vb
+Joypad.Name(device) As String
+```
+
+**Parameters**
+
+- `device`
+
+**Description**
+
+Returns the joypad's name (e.g. "Xbox Wireless Controller"). Empty string if not connected.
+
+**Example**
+
+```vb
+Print "P1: " & Joypad.Name(0)
+```
+
+**See Also** — [Joypad.Connected](#joypadconnected), [Joypad.IsConnected](#joypadisconnected), [Joypad.Axis](#joypadaxis), [Joypad.Button](#joypadbutton), [Joypad.Stick](#joypadstick)
+
+---
+
+## Joypad.Stick
+
+**Purpose** — Returns the analog stick position as a Vector2 (-1..1 per axis).
+
+**Syntax**
+
+```vb
+Joypad.Stick(index, side) As Vector2
+```
+
+**Parameters**
+
+- `index`
+- `side`
+
+**Description**
+
+Returns the analog stick position as a Vector2 (-1..1 per axis). `side` is 0 for left stick, 1 for right.
+
+**Example**
+
+```vb
+Dim move = Joypad.Stick(0, 0)
+player.Velocity = move * speed
+```
+
+**See Also** — [Joypad.Connected](#joypadconnected), [Joypad.IsConnected](#joypadisconnected), [Joypad.Name](#joypadname), [Joypad.Axis](#joypadaxis), [Joypad.Button](#joypadbutton)
+
+---
+
+## JS.Call
+
+**Purpose** — Calls a JavaScript function in global scope.
+
+**Syntax**
+
+```vb
+JS.Call(funcName, args...) As Variant
+```
+
+**Parameters**
+
+- `funcName`
+- `args...`
+
+**Description**
+
+Calls a JavaScript function in global scope. String args are quoted automatically.
+
+**Example**
+
+```vb
+JS.Call "console.log", "VG says hi"
+```
+
+**See Also** — [JS.Eval](#jseval), [JS.Get](#jsget)
+
+---
+
+## JS.Eval
+
+**Purpose** — Evaluates a JavaScript expression and returns the result.
+
+**Syntax**
+
+```vb
+JS.Eval(code [, useGlobal]) As Variant
+```
+
+**Parameters**
+
+- `code`
+- `useGlobal`
+
+**Description**
+
+Evaluates a JavaScript expression and returns the result. useGlobal=True runs in the global scope (window).
+
+**Example**
+
+```vb
+Dim t = JS.Eval("document.title", True)
+JS.Eval "alert('hi from VG')"
+```
+
+**See Also** — [JS.Call](#jscall), [JS.Get](#jsget)
+
+---
+
+## JS.Get
+
+**Purpose** — Reads a JavaScript value by path (e.g.
+
+**Syntax**
+
+```vb
+JS.Get(path) As Variant
+```
+
+**Parameters**
+
+- `path`
+
+**Description**
+
+Reads a JavaScript value by path (e.g. "window.location.href"). Shortcut for JS.Eval with useGlobal=True.
+
+**Example**
+
+```vb
+Print JS.Get("navigator.userAgent")
+```
+
+**See Also** — [JS.Eval](#jseval), [JS.Call](#jscall)
+
+---
+
+
+### L
+
+## Lambda
+
+**Purpose** — Creates an anonymous function (closure) that can be stored in a variable or passed as an argument.
+
+**Syntax**
+
+```vb
+Lambda(params) expression
+Lambda(params)
+    statements
+End Lambda
+```
+
+**Parameters**
+
+- `params`
+
+**Description**
+
+Creates an anonymous function (closure) that can be stored in a variable or passed as an argument.
+
+**Example**
+
+```vb
+Dim double As Function = Lambda(x) x * 2
+Print double(5)  ' 10
+
+Dim greet As Function = Lambda(name)
+    Print "Hello, " & name
+End Lambda
+greet("World")
+```
+
+**See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional)
+
+---
+
+## LBound
+
+**Purpose** — Returns the lowest valid index of an array (usually 0).
+
+**Syntax**
+
+```vb
+LBound(arrayName [, dimension])
+```
+
+**Parameters**
+
+- `arrayName`
+- `dimension`
+
+**Description**
+
+Returns the lowest valid index of an array (usually 0).
+
+**Example**
+
+```vb
+For i = LBound(arr) To UBound(arr)
+    Print arr(i)
+Next
+```
+
+**See Also** — [Array](#array), [ReDim](#redim), [UBound](#ubound)
+
+---
+
+## LCase
+
+**Purpose** — Converts a string to lowercase.
+
+**Syntax**
+
+```vb
+LCase(string)
+```
+
+**Parameters**
+
+- `string`
+
+**Description**
+
+Converts a string to lowercase.
+
+**Example**
+
+```vb
+Print LCase("HELLO")  ' "hello"
+```
+
+**See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
+
+---
+
+## Left
+
+**Purpose** — Returns the specified number of characters from the beginning of a string.
+
+**Syntax**
+
+```vb
+Left(string, length)
+```
+
+**Parameters**
+
+- `string`
+- `length`
+
+**Description**
+
+Returns the specified number of characters from the beginning of a string.
+
+**Example**
+
+```vb
+Print Left("Hello World", 5)  ' "Hello"
+```
+
+**See Also** — [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
+
+---
+
+## Len
+
+**Purpose** — Returns the number of characters in a string.
+
+**Syntax**
+
+```vb
+Len(string)
+```
+
+**Parameters**
+
+- `string`
+
+**Description**
+
+Returns the number of characters in a string.
+
+**Example**
+
+```vb
+Dim s As String = "Hello"
+Print Len(s)  ' 5
+```
+
+**See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
+
+---
+
+## Lerp
+
+**Purpose** — Linearly interpolates between a and b by factor t (0.0 to 1.0).
+
+**Syntax**
+
+```vb
+Lerp(a, b, t)
+```
+
+**Parameters**
+
+- `a`
+- `b`
+- `t`
+
+**Description**
+
+Linearly interpolates between a and b by factor t (0.0 to 1.0).
+
+**Example**
+
+```vb
+' Smooth camera follow
+cameraX = Lerp(cameraX, playerX, 0.1)
+
+' Fade color
+alpha = Lerp(0.0, 1.0, fadeProgress)
+```
+
+**See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Mod](#mod)
+
+---
+
+## Lighten
+
+**Purpose** — Returns a lighter shade of the color.
+
+**Syntax**
+
+```vb
+Lighten(color, amount)
+```
+
+**Parameters**
+
+- `color`
+- `amount`
+
+**Description**
+
+Returns a lighter shade of the color. Amount is 0..1 (0=unchanged, 1=white).
+
+**Example**
+
+```vb
+buttonHover = Lighten(buttonNormal, 0.2)
+```
+
+**See Also** — [ColorFromHSV](#colorfromhsv), [ColorToHSV](#colortohsv), [Darken](#darken), [RGB](#rgb)
+
+---
+
+## Line Input
+
+**Purpose** — Reads an entire line of text from a file (up to the newline character).
+
+**Syntax**
+
+```vb
+Line Input #fileNumber, variableName
+```
+
+**Parameters**
+
+- `Input #fileNumber`
+- `variableName`
+
+**Description**
+
+Reads an entire line of text from a file (up to the newline character).
+
+**Example**
+
+```vb
+Open "names.txt" For Input As #1
+Do While Not EOF(1)
+    Line Input #1, currentLine
+    Print currentLine
+Loop
 Close #1
 ```
 
-### Open For Binary / Open For Random
-
-```vb
-Open "file.dat" For Binary As #1
-Open "records.dat" For Random As #2 Len=128
-```
-
-### Static Local Variables
-
-Variables that persist across function calls:
-
-```vb
-Function Counter() As Integer
-    Static count As Integer
-    count = count + 1
-    Counter = count
-End Function
-
-Print Counter()  ' → 1
-Print Counter()  ' → 2
-Print Counter()  ' → 3
-```
-
-### Regular Expressions
-
-```vb
-' Test if pattern matches
-Dim matched = RegExp.Test("Hello123", "\d+")    ' → True
-
-' Execute — returns array of matches
-Dim matches = RegExp.Execute("abc 123 def 456", "\d+")
-Print matches(0)  ' → 123
-Print matches(1)  ' → 456
-
-' Replace
-Dim result = RegExp.Replace("Hello World", "World", "VG")
-Print result  ' → Hello VG
-```
-
-### Bitwise Functions
-
-```vb
-Print BitAnd(12, 10)       ' → 8
-Print BitOr(12, 10)        ' → 14
-Print BitXor(12, 10)       ' → 6
-Print BitNot(0)             ' → -1
-Print BitShiftLeft(1, 4)   ' → 16
-Print BitShiftRight(16, 2) ' → 4
-```
-
-### StringBuilder
-
-Efficient string building:
-
-```vb
-Dim sb = NewStringBuilder()
-sb.Append "Hello"
-sb.Append " "
-sb.Append "World"
-sb.AppendLine "!"
-Print sb.ToString()   ' → Hello World!\n
-Print sb.Length        ' → 13
-
-sb.Replace "World", "VG"
-sb.Insert 0, ">> "
-sb.Clear
-```
-
-### For Each With Index
-
-```vb
-Dim fruits = Array("Apple", "Banana", "Cherry")
-For Each fruit With Index i In fruits
-    Print $"{i}: {fruit}"
-Next
-' → 0: Apple
-' → 1: Banana
-' → 2: Cherry
-
-' Also works with Strings:
-For Each ch In "Hello"
-    Print ch;
-Next
-```
-
-### Enum Improvements
-
-Access enum values by name, get all values, and convert to/from strings:
-
-```vb
-Enum Color
-    Red = 1
-    Green = 2
-    Blue = 3
-End Enum
-
-' Direct member access
-Print Color.Red          ' → 1
-
-' Parse from string
-Dim val = Color.Parse("Green")   ' → 2
-
-' Get all values
-Dim values = Color.Values()      ' → [{Name: "Red", Value: 1}, ...]
-
-' Convert to string
-Print Color.ToString(3)          ' → Blue
-```
-
-#### `<Flags>` Enum
-Mark an enum as a bitfield with the `<Flags>` attribute. This enables `HasFlag()` and flags-aware `ToString()` decomposition:
-
-```vb
-<Flags>
-Enum Permissions
-    Read = 1
-    Write = 2
-    Execute = 4
-End Enum
-
-' Combine flags with Or
-Dim p = Permissions.Read Or Permissions.Write   ' 3
-
-' Check flags
-Print Permissions.HasFlag(p, Permissions.Read)   ' True
-Print Permissions.HasFlag(p, Permissions.Execute) ' False
-
-' Flags ToString decomposes combined values
-Print Permissions.ToString(3)    ' → "Read, Write"
-Print Permissions.ToString(7)    ' → "Read, Write, Execute"
-Print Permissions.ToString(5)    ' → "Read, Execute"
-
-' Compound assignment with keyword operators
-Dim mask = 0
-mask Or= Permissions.Read        ' Add Read flag
-mask Or= Permissions.Execute     ' Add Execute flag
-mask And= Not(Permissions.Read)  ' Remove Read flag
-mask Xor= Permissions.Execute    ' Toggle Execute flag
-```
-
-> **Note:** `ToString()` uses a greedy largest-first decomposition. If the combined value doesn't exactly decompose into named members, the raw integer is returned.
-
-### Swap Statement
-
-```vb
-Dim a = 10, b = 20
-Swap a, b
-Print a  ' → 20
-Print b  ' → 10
-```
-
-### Math Constants
-
-```vb
-Print Math.PI        ' → 3.14159...
-Print Math.E         ' → 2.71828...
-Print Math.Tau       ' → 6.28318...
-Print PI             ' → 3.14159... (standalone)
-```
-
-### Math Functions
-
-```vb
-Print Ceiling(3.2)   ' → 4
-Print Floor(3.8)     ' → 3
-Print Atan2(1, 1)    ' → 0.7854... (π/4)
-```
-
-### Array Utility Functions
-
-```vb
-Dim arr = Array(3, 1, 4, 1, 5)
-
-Dim copy = Array.Copy(arr)        ' Deep copy
-Dim filled = Array.Fill(5, 0)     ' [0, 0, 0, 0, 0]
-Array.Shuffle arr                  ' Random order
-
-' 2D array transpose
-Dim matrix = Array(Array(1, 2), Array(3, 4))
-Dim transposed = Array.Transpose(matrix)
-```
-
-### String Utility Functions
-
-```vb
-Print String.Contains("Hello World", "World")  ' → True
-Print StrContains("Hello", "xyz")               ' → False
-Print String.Repeat("ab", 3)                    ' → ababab
-Print StrRepeat("-", 20)                         ' → --------------------
-```
-
-### Sleep Function
-
-```vb
-Sleep 1000   ' Pause for 1000 milliseconds
-```
-
-### VB6 Intrinsic Constants
-
-```vb
-Print "Line 1" & vbCrLf & "Line 2"
-Print "Col1" & vbTab & "Col2"
-Dim empty = vbNullString
-
-' All available constants:
-' vbCrLf, vbCr, vbLf, vbTab, vbNullString, vbNullChar
-' vbNewLine, vbBack, vbFormFeed, vbVerticalTab
-' vbTrue, vbFalse, Nothing, Null, Empty
-```
-
-### Module Statement
-
-Group related code into named modules:
-
-```vb
-Module MathHelpers
-    Function Square(x) As Double
-        Square = x * x
-    End Function
-    
-    Function Cube(x) As Double
-        Cube = x * x * x
-    End Function
-End Module
-```
+**See Also** — [Open](#open), [Close](#close), [Data](#data), [Read](#read), [Restore](#restore)
 
 ---
 
-## v3.5.0-beta4 Language Enhancements
-*Released in v3.5.0-beta4.* This release adds core VB6 desktop-application features to bring VisualGasic closer to full VB6 parity.
+## LoadForm
 
-### WithEvents / RaiseEvent
-Full VB6-style custom event support:
+**Purpose** — Loads and displays a form by name.
 
-- **`Event`** — declare a custom event (compiles to a Godot signal).
-- **`RaiseEvent`** — fire the event (dedicated `OP_RAISE_EVENT` bytecode opcode, supports up to 5 arguments).
-- **`Dim WithEvents`** — declare a variable whose events are auto-wired to `VarName_EventName` handler subs in the same module.
+**Syntax**
 
 ```vb
-' Class module
-Event DataReady(rows As Integer)
+LoadForm formName
+```
 
-Sub LoadData()
-    ' ... fetch data ...
-    RaiseEvent DataReady(rowCount)
-End Sub
+**Parameters**
 
-' Form module
-Dim WithEvents db As DatabaseLoader
+- `formName`
 
-Sub db_DataReady(rows As Integer)
-    Label1.Caption = "Loaded " & CStr(rows) & " rows"
+**Description**
+
+Loads and displays a form by name.
+
+**Example**
+
+```vb
+LoadForm "SettingsForm"
+LoadForm "HighScores"
+```
+
+**See Also** — [MsgBox](#msgbox), [InputBox](#inputbox)
+
+---
+
+## LoadImage
+
+**Purpose** — Loads an image file (PNG, JPG, BMP, etc.) and returns it as an RGBA8 Image object.
+
+**Syntax**
+
+```vb
+LoadImage(path) As Image
+```
+
+**Parameters**
+
+- `path`
+
+**Description**
+
+Loads an image file (PNG, JPG, BMP, etc.) and returns it as an RGBA8 Image object. Unlike LoadPicture (which returns a Texture2D), LoadImage gives you direct pixel access via GetImagePixel.
+
+**Example**
+
+```vb
+Dim img = LoadImage("user://painting.png")
+Print "Size: " & Str(ImageWidth(img)) & "x" & Str(ImageHeight(img))
+
+' Read a pixel
+Dim c = GetImagePixel(img, 0, 0)
+Print "R=" & Str(Int(c.r * 255))
+
+' Convert to texture for display
+Dim tex = ImageToTexture(img)
+DrawTexture tex, 0, 0
+```
+
+**See Also** — [LoadPicture](#loadpicture), [SaveImage](#saveimage), [RGB](#rgb)
+
+---
+
+## LoadPicture
+
+**Purpose** — Loads an image file from the given resource path and returns a Texture2D for use with DrawTexture.
+
+**Syntax**
+
+```vb
+LoadPicture(path) As Texture2D
+```
+
+**Parameters**
+
+- `path`
+
+**Description**
+
+Loads an image file from the given resource path and returns a Texture2D for use with DrawTexture. The classic VB6-style way to load images.
+
+**Example**
+
+```vb
+Dim tex As Variant = LoadPicture("res://icon.png")
+Sub _Draw()
+    DrawTexture tex, 100, 100
 End Sub
 ```
 
-See [Events (WithEvents / RaiseEvent)](#events-withevents--raiseevent) for full details.
-
-### Implements Verification
-When a module declares `Implements InterfaceName`, VisualGasic now verifies at load time that at least one method matching `InterfaceName_*` exists. If the interface is completely unimplemented, a warning is printed to the console:
-
-```
-VisualGasic: Module 'MyForm' declares Implements ISerializable but has no ISerializable_* methods
-```
-
-This catches missing interface implementations early without a hard runtime error.
-
-### Printer Object & PrintForm
-The global `Printer` object provides 20+ VB6-compatible properties and methods for generating printed output (font, orientation, page control, drawing primitives). `PrintForm` captures the current viewport to a PNG file.
-
-```vb
-Printer.Font = "Times New Roman"
-Printer.FontSize = 14
-Printer.Print "Report Title"
-Printer.NewPage
-Printer.Print "Page 2"
-Printer.EndDoc
-
-PrintForm   ' → saves user://printform_output.png
-```
-
-See [Printer Object](#printer-object) and [PrintForm Statement](#printform-statement) for full property/method tables.
-
-### Optional Parameters
-Optional parameters with default values have been fully supported and continue to work as expected:
-
-```vb
-Sub CreateWindow(title As String, Optional width As Integer = 800, Optional height As Integer = 600)
-    ' width and height default to 800×600 if omitted
-End Sub
-
-CreateWindow("Main")              ' Uses defaults
-CreateWindow("Main", 1024, 768)   ' Override both
-```
-
-The VM automatically fills missing arguments with their declared default values at call time.
+**See Also** — [LoadImage](#loadimage), [SaveImage](#saveimage), [RGB](#rgb)
 
 ---
 
-## v3.6.0 Language Enhancements
-*Released in v3.6.0.* This release adds essential VB.NET/TwinBASIC operators and a 64-bit integer type alias.
+## Long
 
-### Compound Assignment Operators
-Compound assignment operators combine a binary operation with assignment. They are desugared at parse time into the equivalent `x = x op expr` form, so they work on any valid L-value (simple variable, array element, object member).
+**Purpose** — A 64-bit signed integer type for very large numbers.
 
-| Operator | Equivalent | Description |
-|----------|------------|-------------|
-| `+=` | `x = x + y` | Addition |
-| `-=` | `x = x - y` | Subtraction |
-| `*=` | `x = x * y` | Multiplication |
-| `/=` | `x = x / y` | Division |
-| `&=` | `x = x & y` | String concatenation |
-| `\=` | `x = x \ y` | Integer division |
-| `^=` | `x = x ^ y` | Exponentiation |
-| `<<=` | `x = x << y` | Left bit-shift |
-| `>>=` | `x = x >> y` | Right bit-shift |
-| `And=` | `x = x And y` | Bitwise AND |
-| `Or=` | `x = x Or y` | Bitwise OR |
-| `Xor=` | `x = x Xor y` | Bitwise XOR |
-| `Mod=` | `x = x Mod y` | Modulo |
+**Syntax**
 
 ```vb
-Dim score As Integer = 100
-score += 50        ' 150
-score -= 25        ' 125
-score *= 2         ' 250
-
-Dim msg As String = "Hello"
-msg &= " World"    ' "Hello World"
-
-Dim flags As Integer = 1
-flags <<= 8        ' 256
-flags >>= 4        ' 16
+Dim varName As Long
 ```
 
-### Bit-Shift Operators
-The `<<` (left shift) and `>>` (right shift) operators perform bitwise shifting on integer values, matching VB.NET/TwinBASIC syntax.
+**Parameters**
+
+- `varName`
+
+**Description**
+
+A 64-bit signed integer type for very large numbers.
+
+**Example**
 
 ```vb
-Dim a As Integer = 1 << 8     ' 256
-Dim b As Integer = 256 >> 4   ' 16
-Dim c As Integer = 5 << 3     ' 40
+Dim bigNumber As Long = 9999999999
 ```
 
-**Precedence:** Bit-shift operators bind *tighter* than comparison operators but *looser* than arithmetic (`+`, `-`, `*`, `/`). This matches VB.NET:
-
-```vb
-' 1 << 2 + 1  is parsed as  1 << (2 + 1)  = 1 << 3 = 8
-' (1 << 3) = 8  is a comparison: True
-```
-
-**Typical use cases:**
-- Bitmask construction: `Dim mask As Integer = 1 << bitIndex`
-- Efficient power-of-2 multiply/divide: `value = n << 2` (×4)
-- Flag manipulation: `flags = flags Or (1 << FLAG_BIT)`
-
-### LongLong Type
-`LongLong` is a type alias for `Long` (64-bit signed integer). It is provided for compatibility with VBA 7+ / TwinBASIC code that declares 64-bit integers explicitly.
-
-```vb
-Dim big As LongLong = 2147483648    ' Exceeds 32-bit range
-Dim huge As LongLong = 1000000 * 1000000  ' 1 trillion
-
-' CLngLng() conversion function
-Dim rounded As LongLong = CLngLng(3.7)  ' 4 (banker's rounding)
-```
-
-`LongLong` variables:
-- Default to `0` on declaration
-- Work with all arithmetic, comparison, and bit-shift operators
-- Can be used as array element types: `Dim arr(9) As LongLong`
-- Are interchangeable with `Long` in all contexts
+**See Also** — [Integer](#integer), [Single](#single), [Double](#double), [String](#string), [Boolean](#boolean), [Variant](#variant), [Array](#array)
 
 ---
 
-## v3.7.0 Language Enhancements
-*Released in v3.7.0.* This release adds method overloading, parameterized constructors, generic typed collections, and a game UI mode for the form designer.
+## look_at
 
-### Method Overloading
-Define multiple `Sub` or `Function` with the same name but different parameter counts. The runtime resolves to the best match by argument count (arity-based dispatch).
+**Purpose** — Rotates the node so it points toward the target position.
 
-```vb
-Sub Spawn(x As Single, y As Single)
-    ' 2-arg: default speed/angle
-End Sub
-
-Sub Spawn(x As Single, y As Single, speed As Single, angle As Single)
-    ' 4-arg: full control
-End Sub
-
-Spawn 10, 20            ' → calls 2-arg version
-Spawn 10, 20, 300, 45   ' → calls 4-arg version
-```
-
-Class methods also support overloading:
+**Syntax**
 
 ```vb
-Class Calculator
-    Function Add(a As Integer) As Integer
-        Return a
-    End Function
-    Function Add(a As Integer, b As Integer) As Integer
-        Return a + b
-    End Function
-End Class
+look_at(target As Vector2)
 ```
 
-### Parameterized Constructors
-Pass arguments to `Class_Initialize` when creating objects:
+**Parameters**
+
+- `target`
+
+**Description**
+
+Rotates the node so it points toward the target position.
+
+**Example**
 
 ```vb
-Class Bullet
-    Public speed As Double, angle As Double, damage As Integer
-    Sub Class_Initialize(s As Double, a As Double, d As Integer)
-        speed = s : angle = a : damage = d
-    End Sub
-End Class
-
-Dim b1 = New Bullet(300, 45, 10)       ' inline New
-Dim b2 As New Bullet(200, 90, 25)      ' Dim As New
+look_at(get_global_mouse_position())
 ```
 
-### Generics — Collection(Of T)
-Type-safe collections with runtime type validation on `.Add()`:
+**Godot Mapping** — [`Node2D.look_at()`](https://docs.godotengine.org/en/stable/classes/class_node2d.html#class-node2d-method-look_at)
 
-```vb
-Dim scores As New Collection(Of Integer)
-scores.Add 100   ' OK
-scores.Add 200   ' OK
-
-Dim names As New Collection(Of String)
-names.Add "Alice"
-
-' Auto-instantiation without New:
-Dim items As Collection(Of Double)
-items.Add 3.14
-
-' Supported type parameters: Integer, Long, LongLong, Double, Single,
-' Float, String, Boolean, Variant, and any class name.
-```
-
-### Game UI Mode
-The Form Designer supports a **Game UI Mode** that generates `CanvasLayer` overlays for in-game HUD elements instead of standalone `Window` nodes.
-
-- Set the form property `GameUIMode = True` to enable
-- Dark canvas background with crosshair guides and safe area rectangle
-- Exports `CanvasLayer` root (layer 10) with full-rect anchored `Control` child
-- 11 new Game UI toolbox controls: HealthBar, ScoreLabel, DialogBox, MiniMap, Inventory, ActionButton, AmmoCounter, BossBar, Crosshair, Tooltip, Pointer
+**See Also** — [position](#position), [global_position](#globalposition), [rotation](#rotation), [rotation_degrees](#rotationdegrees), [scale](#scale)
 
 ---
 
-## v3.8.0 Language Enhancements
-*Released in v3.8.0.* This release completes the v3.6 roadmap by adding keyword compound assignment operators and enhancing Enums with `<Flags>` attribute support.
+## Loop
 
-### Keyword Compound Assignment Operators
-Four new compound assignment operators that use VB keywords instead of symbolic operators:
+**Purpose** — Terminates a Do loop.
 
-| Operator | Equivalent | Description |
-|----------|------------|-------------|
-| `And=` | `x = x And y` | Bitwise AND assignment |
-| `Or=` | `x = x Or y` | Bitwise OR assignment |
-| `Xor=` | `x = x Xor y` | Bitwise XOR assignment |
-| `Mod=` | `x = x Mod y` | Modulo assignment |
+**Syntax**
 
 ```vb
-Dim flags As Integer = 15       ' 1111 in binary
-flags And= 6                    ' 0110 → flags = 6
-flags Or= 8                     ' 1110 → flags = 14
-flags Xor= 2                    ' 1100 → flags = 12
-Dim remainder As Integer = 17
-remainder Mod= 5                ' 2
+Loop [While|Until condition]
 ```
 
-These operators are desugared at parse time, just like `+=` and `-=`. They work on any L-value (simple variable, array element, object member).
+**Parameters**
 
-### Bitwise And/Or/Xor Semantics
-`And`, `Or`, and `Xor` now perform **bitwise** operations when both operands are numeric, matching VB6 semantics:
+- `While|Until condition`
+
+**Description**
+
+Terminates a Do loop. Optionally tests a condition after each iteration.
+
+**Example**
 
 ```vb
-' Bitwise (both operands are numeric)
-Print 12 And 10     ' → 8   (1100 & 1010 = 1000)
-Print 12 Or 3       ' → 15  (1100 | 0011 = 1111)
-Print 12 Xor 10     ' → 6   (1100 ^ 1010 = 0110)
-
-' Logical (non-numeric operands — unchanged behaviour)
-If x > 0 And y > 0 Then ...    ' logical AND
-If a Or b Then ...              ' logical OR
+Do
+    x = x + 1
+Loop Until x >= 10
 ```
 
-### Enhanced Enum with `<Flags>`
-The `<Flags>` attribute marks an enum as a bitfield, enabling two new capabilities:
-
-**`HasFlag(value, flag)`** — Tests whether a combined value contains a specific flag:
-
-```vb
-<Flags>
-Enum Layers
-    Ground = 1
-    Water = 2
-    Air = 4
-    All = 7
-End Enum
-
-Dim mask = Layers.Ground Or Layers.Air   ' 5
-Print Layers.HasFlag(mask, Layers.Ground)  ' True
-Print Layers.HasFlag(mask, Layers.Water)   ' False
-Print Layers.HasFlag(mask, Layers.All)     ' False (5 And 7 ≠ 7)
-```
-
-**Flags-aware `ToString()`** — Decomposes combined values into named members:
-
-```vb
-Print Layers.ToString(5)   ' → "Ground, Air"
-Print Layers.ToString(7)   ' → "All"  (exact match takes priority)
-Print Layers.ToString(3)   ' → "Ground, Water"
-```
-
-### Compile-Time Enum Resolution
-Enum member access (`MyEnum.MemberName`) is now resolved at compile time in the bytecode compiler. This eliminates runtime member lookups and produces a simple constant-load instruction.
+**See Also** — [Do](#do), [While](#while), [Wend](#wend), [Until](#until), [Exit](#exit)
 
 ---
 
-## v4.x–v5.1 Godot Namespace Wrappers
-
-Starting in v4.0 and expanded through v5.1, VisualGasic ships a layer of high-level
-namespace wrappers around the Godot engine. They follow VB6 dotted-call syntax
-(`Camera.Shake 0.5, 10`) and dispatch to native C++ implementations in the bytecode VM.
-
-Conventions:
-- Namespace verbs take an **optional final handle argument** to target a non-active
-  object (e.g. `Camera.Zoom v2, myCamera`). Omitting it uses the active/current node.
-- 2D vs 3D is auto-detected from the active camera / argument types.
-- Read-style verbs without parentheses are allowed as **bare-property syntax**
-  (e.g. `If Screen.Width > 1920 Then …`).
-- Volumes / opacities are expressed as **percentages 0..100** (linear), not dB.
-
-### Camera namespace (v4.0, gap-fills in v5.1)
-| Verb | Signature | Notes |
-|---|---|---|
-| `Camera.Position` | `pos [, cam]` | Vector2 for 2D, Vector3 for 3D |
-| `Camera.Zoom` | `v [, cam]` | Vector2 zoom for Camera2D |
-| `Camera.Rotation` | `radians [, cam]` | |
-| `Camera.FOV` | `degrees [, cam]` | Camera3D only |
-| `Camera.Follow` | `target [, cam]` | Smooth follow target node |
-| `Camera.Shake` | `intensity, duration [, cam]` | Trauma-style shake |
-| `Camera.Limits` | `left, top, right, bottom [, cam]` | 2D bounds |
-| `Camera.MakeCurrent` | `cam` | Activate camera |
-| `Camera.PanTo` | `pos, duration [, cam]` | Tweened pan (v5.1) |
-| `Camera.Bounce` | `direction, strength [, cam]` | Recoil pulse (v5.1) |
-| `Camera.FlashColor` | `color, duration [, cam]` | Full-screen flash (v5.1) |
-
-### Sound namespace (v4.0)
-Polyphonic — `Sound.Play` returns a playback handle.
-| Verb | Signature | Returns |
-|---|---|---|
-| `Sound.Play` | `stream_or_path [, bus]` | playback handle |
-| `Sound.Stop` | `[handle]` | |
-| `Sound.Pause` / `Sound.Resume` | `[handle]` | |
-| `Sound.Volume` | `percent [, handle]` | 0..100 |
-| `Sound.Pitch` | `multiplier [, handle]` | |
-| `Sound.Seek` | `seconds [, handle]` | |
-| `Sound.Position` | `[handle]` | seconds (read) |
-| `Sound.IsPlaying` | `[handle]` | Bool |
-
-### Speaker namespace (audio buses, v4.0)
-Alias `Speaker.Bus = Speaker` is available.
-| Verb | Signature | |
-|---|---|---|
-| `Speaker.Count` | — | bus count |
-| `Speaker.Exists` | `name_or_index` | Bool |
-| `Speaker.Name` | `index` | String |
-| `Speaker.Volume` | `bus, percent` | 0..100 |
-| `Speaker.Mute` | `bus, bool` | |
-| `Speaker.IsMuted` | `bus` | Bool |
-| `Speaker.Solo` | `bus, bool` | |
-
-### Animation namespace (v4.1)
-Operates on the nearest `AnimationPlayer`.
-| Verb | Signature | |
-|---|---|---|
-| `Animation.Play` | `name [, blend] [, player]` | |
-| `Animation.Stop` | `[player]` | |
-| `Animation.Pause` / `Animation.Resume` | `[player]` | |
-| `Animation.Seek` | `seconds [, player]` | |
-| `Animation.Speed` | `scale [, player]` | |
-| `Animation.Current` | `[player]` | String |
-| `Animation.IsPlaying` | `[player]` | Bool |
-| `Animation.Length` | `name [, player]` | seconds |
-| `Animation.Loop` | `name, bool [, player]` | (v5.1) |
-
-### Physics namespace (v4.1)
-2D and 3D auto-detected from body argument.
-| Verb | Signature | |
-|---|---|---|
-| `Physics.Gravity` | `vector [, body]` | scalar or Vector2/3 |
-| `Physics.GravityV2` | `Vector2 [, body]` | explicit 2D (v5.1) |
-| `Physics.GravityV3` | `Vector3 [, body]` | explicit 3D (v5.1) |
-| `Physics.Force` | `vector, body` | continuous force |
-| `Physics.Impulse` | `vector, body` | instantaneous |
-| `Physics.Torque` | `value, body` | scalar 2D / Vector3 3D |
-| `Physics.Bounce` | `value, body` | restitution 0..1 (v5.1) |
-| `Physics.Ray` | `from, to [, mask]` | returns Dictionary hit info |
-
-### Ray namespace (v4.1)
-Operates on `RayCast2D` / `RayCast3D` nodes.
-| Verb | Signature | |
-|---|---|---|
-| `Ray.Cast2D` | `from, to [, mask]` | one-shot (v5.1) |
-| `Ray.Cast3D` | `from, to [, mask]` | one-shot (v5.1) |
-| `Ray.Target` | `pos, raycast` | |
-| `Ray.Enable` | `bool, raycast` | |
-| `Ray.ForceUpdate` | `raycast` | |
-| `Ray.Hit` | `raycast` | Bool |
-| `Ray.Collider` | `raycast` | Object |
-| `Ray.Point` | `raycast` | Vector |
-| `Ray.Normal` | `raycast` | Vector |
-
-### Cell namespace (TileMap, v4.1)
-| Verb | Signature | |
-|---|---|---|
-| `Cell.Get` | `tilemap, pos` | source id |
-| `Cell.Set` | `tilemap, pos, source [, atlas_coords] [, alt]` | |
-| `Cell.Clear` | `tilemap, pos` | |
-| `Cell.ClearAll` | `tilemap` | |
-| `Cell.Used` | `tilemap` | Array of coords |
-
-### Nav namespace (NavigationAgent, v4.1)
-| Verb | Signature | |
-|---|---|---|
-| `Nav.SetTarget` | `pos, agent` | |
-| `Nav.NextPos` | `agent` | next path point |
-| `Nav.Path` | `agent` | Array |
-| `Nav.Distance` | `agent` | meters remaining |
-| `Nav.Reached` | `agent` | Bool |
-
-### Screen namespace (v4.2)
-Bare-property reads allowed: `If Screen.Width > 1920 …`
-| Verb | Signature | |
-|---|---|---|
-| `Screen.Width` / `Screen.Height` | — | pixels |
-| `Screen.DPI` | — | |
-| `Screen.Orientation` | `[mode]` | get/set |
-| `Screen.Fullscreen` | `bool` | |
-| `Screen.IsFullscreen` | — | Bool |
-| `Screen.KeepOn` | `bool` | prevent sleep |
-
-### Joypad namespace (v4.2)
-| Verb | Signature | |
-|---|---|---|
-| `Joypad.Connected` | — | count |
-| `Joypad.IsConnected` | `index` | Bool (v5.1) |
-| `Joypad.Name` | `index` | String |
-| `Joypad.Button` | `index, button` | Bool |
-| `Joypad.Axis` | `index, axis` | Float |
-| `Joypad.Stick` | `index, side` | Vector2 (v5.1) |
-
-### Sensor namespace (v4.2)
-| Verb | Signature | |
-|---|---|---|
-| `Sensor.Accel` | — | Vector3 |
-| `Sensor.Gravity` | — | Vector3 |
-| `Sensor.Gyro` | — | Vector3 |
-| `Sensor.Magnet` / `Sensor.Magnetometer` | — | Vector3 (v5.1 alias) |
-| `Sensor.Tilt` | — | radians |
-| `Sensor.Units` | `system` | "metric"/"imperial" |
-
-### Permission namespace (v4.2)
-| Verb | Signature | |
-|---|---|---|
-| `Permission.Has` | `name` | Bool |
-| `Permission.Request` | `name` | fires `Permission_Granted` / `Permission_Denied` |
-| `Permission.All` | — | Array of granted names |
-
-`Vibrate duration_ms` is a global verb.
-
-### GPS namespace (Android, v4.4)
-Updates arrive via auto-wired `GPS_Updated(lat, lng)` sub.
-| Verb | Returns |
-|---|---|
-| `GPS.Lat` / `GPS.Lng` | Float |
-| `GPS.Alt` | meters |
-| `GPS.Speed` | m/s |
-| `GPS.Accuracy` | meters |
-
-### Steps namespace (Android, v4.4)
-Updates arrive via auto-wired `Steps_Detected(count)` sub.
-| Verb | Returns |
-|---|---|
-| `Steps.Today` / `Steps.Total` | count |
-| `Steps.Reset` | — |
-
-### Crypto namespace (v5.0)
-| Verb | Signature | |
-|---|---|---|
-| `Crypto.MD5` / `Crypto.SHA1` / `Crypto.SHA256` | `string_or_bytes` | hex digest |
-| `Crypto.HMAC` | `algo, key, message` | hex digest |
-| `Crypto.Hex` | `bytes` | String (v5.1) |
-| `Crypto.FromHex` | `hex_string` | PackedByteArray (v5.1) |
-| `Crypto.Base64` / `Crypto.Base64Encode` | `bytes` | String |
-| `Crypto.Base64Decode` | `string` | PackedByteArray |
-| `Crypto.RandomBytes` | `count` | PackedByteArray |
-
-### Theme namespace (v5.0)
-| Verb | Signature | |
-|---|---|---|
-| `Theme.Color` / `Theme.Constant` / `Theme.Font` | `node, name, type` | get |
-| `Theme.SetColor` / `Theme.SetConstant` / `Theme.SetFont` / `Theme.SetFontSize` / `Theme.SetStyle` | `node, name, value` | |
-| `Theme.Get` / `Theme.Set` | `node, kind, name [, value]` | generic (v5.1) |
-
-### Shader / Material namespaces (v5.0)
-| Verb | Signature | |
-|---|---|---|
-| `Material.New` | — | ShaderMaterial |
-| `Material.SetShader` | `material, shader` | |
-| `Shader.Param` / `Shader.GetParam` | `material, name [, value]` | |
-| `Shader.Set` / `Shader.Get` | `material, name [, value]` | aliases (v5.1) |
-
-### Skeleton / Bone namespaces (v5.0)
-| Verb | Signature | |
-|---|---|---|
-| `Skeleton.Count` | `skeleton` | bone count |
-| `Skeleton.Name` | `skeleton, index` | String |
-| `Skeleton.Reset` | `skeleton` | T-pose |
-| `Bone.Find` | `skeleton, name` | index |
-| `Bone.Pos` / `Bone.Rot` / `Bone.Scale` | `skeleton, bone` | |
-| `Bone.SetPos` / `Bone.SetRot` / `Bone.SetScale` | `skeleton, bone, value` | |
-| `Bone.LookAt` | `skeleton, bone, target` | |
-
-### Video namespace (v5.0)
-| Verb | Signature | |
-|---|---|---|
-| `Video.Play` | `player [, stream]` | 2-arg form added v5.1 |
-| `Video.Stop` / `Video.Pause` / `Video.Resume` | `player` | |
-| `Video.Seek` | `player, seconds` | |
-| `Video.Position` | `player` | seconds |
-| `Video.Length` | `player` | seconds |
-| `Video.Volume` | `player, percent` | 0..100 |
-| `Video.IsPlaying` | `player` | Bool |
-
-### JS namespace (Web export, v5.0)
-| Verb | Signature | |
-|---|---|---|
-| `JS.Eval` | `script` | Variant |
-| `JS.Call` | `name, args…` | Variant |
-| `JS.Get` | `path` | Variant |
-
-### Global physics verbs (Pass 3 aliases)
-`Push body, force` · `Pull body, force` · `Spin body, torque` — shorthand for the
-matching `Physics.*` calls.
-
-### Auto-wired event subs
-If you define a `Sub` with one of these names, it is automatically connected to
-the matching engine signal (no `AddHandler` needed):
-
-| Sub | Fired by |
-|---|---|
-| `Permission_Granted(name)` / `Permission_Denied(name)` | `Permission.Request` |
-| `GPS_Updated(lat, lng)` | Android location service |
-| `Steps_Detected(count)` | Android step counter |
-| `_Ready` / `_Process` / `_PhysicsProcess` / `_Input` / etc. | Standard Godot lifecycle |
-
-### Pass 1 math helpers
-- Constructors: `Quaternion(x,y,z,w)`, `QuaternionFromEuler(x,y,z)`, `Basis([q])`,
-  `Transform2D([rot,origin])`, `Transform3D([basis,origin])`, `Plane(...)`, `AABB([pos,size])`
-- `NewRNG([seed])`, `NewNoise([seed])`, `NewCurve()`
-- `Slerp(a, b, t)` — overloaded for Quaternion / Vector3 / Vector2
-- `ColorFromHSV(h,s,v[,a])`, `ColorToHSV(color)`, `Lighten(c, amount)`, `Darken(c, amount)`
-
----
-This documentation provides a comprehensive overview of VisualGasic's advanced capabilities and modern language features. The format is professional and showcases VisualGasic as a powerful, contemporary programming language for cross-platform application and game development.
-
----
-
----
-
-## Alphabetical Index
-
-*Quick-jump: [#](#index-symbols) · [A](#index-a) · [B](#index-b) · [C](#index-c) · [D](#index-d) · [E](#index-e) · [F](#index-f) · [G](#index-g) · [I](#index-i) · [J](#index-j) · [K](#index-k) · [L](#index-l) · [M](#index-m) · [N](#index-n) · [O](#index-o) · [P](#index-p) · [R](#index-r) · [S](#index-s) · [T](#index-t) · [U](#index-u) · [V](#index-v) · [W](#index-w) · [Y](#index-y)*
-
-
-### #
-- **#built-in-functions** — [Built-in Functions](#built-in-functions)
-- **#com-style-objects** — [COM-Style Objects](#com-style-objects)
-- **#control-flow** — [Control Flow](#control-flow)
-- **#getting-started** — [Getting Started](#getting-started)
-- **#godot-integration** — [Godot Integration](#godot-integration)
-- **#language-basics** — [Language Basics](#language-basics)
-- **#modern-language-features** — [Modern Language Features](#modern-language-features)
-- **#object-oriented-features** — [Object-Oriented Features](#object-oriented-features)
-- **#procedures-and-functions** — [Procedures and Functions](#procedures-and-functions)
-- **#system-integration** — [System Integration](#system-integration)
-- **#system-level-programming** — [System-Level Programming](#system-level-programming)
-- **#v350-beta4-language-enhancements** — [v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)
-- **#v360-language-enhancements** — [v3.6.0 Language Enhancements](#v360-language-enhancements)
-- **#v370-language-enhancements** — [v3.7.0 Language Enhancements](#v370-language-enhancements)
-- **#vb6-global-objects** — [VB6 Global Objects](#vb6-global-objects)
-- **<Flags> Enum** — [<Flags> Enum](#flags-enum)
-- **[Built-in Functions]** — [Built-in Functions](#built-in-functions)
-- **COM-Style Objects** — [COM-Style Objects](#com-style-objects)
-- **[Control Flow]** — [Control Flow](#control-flow)
-- **[Getting Started]** — [Getting Started](#getting-started)
-- **[Godot Integration]** — [Godot Integration](#godot-integration)
-- **[Language Basics]** — [Language Basics](#language-basics)
-- **[Modern Language Features]** — [Modern Language Features](#modern-language-features)
-- **[Object-Oriented Features]** — [Object-Oriented Features](#object-oriented-features)
-- **[Procedures and Functions]** — [Procedures and Functions](#procedures-and-functions)
-- **System Integration** — [System Integration](#system-integration)
-- **System-Level Programming** — [System-Level Programming](#system-level-programming)
-- **[v3.5.0-beta4 Language Enhancements]** — [v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)
-- **[v3.6.0 Language Enhancements]** — [v3.6.0 Language Enhancements](#v360-language-enhancements)
-- **[v3.7.0 Language Enhancements]** — [v3.7.0 Language Enhancements](#v370-language-enhancements)
-- **VB6 Global Objects** — [VB6 Global Objects](#vb6-global-objects)
-
-### A
-- **Advanced Complex Expressions** — [Advanced Complex Expressions](#advanced-complex-expressions)
-- **Advanced Cross-Language Features** — [Advanced Cross-Language Features](#advanced-cross-language-features)
-- **Advanced Features** — [Advanced Features](#advanced-features)
-- **Advanced Patterns and Best Practices** — [Advanced Patterns and Best Practices](#advanced-patterns-and-best-practices)
-- **AI Functions** — [AI Functions](#ai-functions)
-- **App Object** — [App Object](#app-object)
-- **Arithmetic Operators** — [Arithmetic Operators](#arithmetic-operators)
-- **Array Access Normalization** — [5. Array Access Normalization](#5-array-access-normalization)
-- **Array and Dictionary Literals** — [Array and Dictionary Literals](#array-and-dictionary-literals)
-- **Array Functions** — [Array Functions](#array-functions)
-- **Array Utility Functions** — [Array Utility Functions](#array-utility-functions)
-- **Async/Await Programming** — [Async/Await Programming](#asyncawait-programming)
-- **Async/Parallel Programming** — [Async/Parallel Programming (Multitasking)](#asyncparallel-programming-multitasking)
-- **Audio** — [Audio](#audio)
-
-### B
-- **Background Task Processing** — [Background Task Processing](#background-task-processing)
-- **Basic DATA and READ** — [Basic DATA and READ](#basic-data-and-read)
-- **Binary File I/O** — [Get # / Put # (Binary File I/O)](#get-put-binary-file-io)
-- **Bit-Shift Operators** — [Bit-Shift Operators](#bit-shift-operators) · [Bit-Shift Operators](#bit-shift-operators)
-- **Bitwise And/Or/Xor Semantics** — [Bitwise And/Or/Xor Semantics](#bitwise-semantics-v380)
-- **Bitwise Functions** — [Bitwise Functions](#bitwise-functions)
-- **Built-in Functions** — [Built-in Functions](#built-in-functions)
-- **Built-in Functions & Statements** — [Built-in Functions & Statements](#built-in-functions-statements)
-
-### C
-- **Classes and Types** — [Classes and Types](#classes-and-types)
-- **Classic DATA Statements** — [Classic DATA Statements](#classic-data-statements)
-- **Classic Use Cases** — [Classic Use Cases](#classic-use-cases)
-- **Classic VB6 Style** — [File I/O Functions (Classic VB6 Style)](#file-io-functions-classic-vb6-style)
-- **ClearData Statement** — [ClearData Statement](#cleardata-statement)
-- **Clipboard Functions** — [Clipboard Functions](#clipboard-functions)
-- **Code Navigator** — [Code Navigator](#code-navigator)
-- **Code Transformation** — [Code Transformation](#code-transformation)
-- **Collections & Iteration** — [Collections & Iteration](#collections-iteration)
-- **Collision Detection** — [Collision Detection](#collision-detection)
-- **Color Functions** — [Color Functions](#color-functions)
-- **COM-Style Objects** — [COM-Style Objects](#com-style-objects)
-- **Comments** — [Comments](#comments)
-- **Comparison Operators** — [Comparison Operators](#comparison-operators)
-- **Comparison with Other Frameworks** — [Comparison with Other Frameworks](#comparison-with-other-frameworks)
-- **Compile-Time Enum Resolution** — [Compile-Time Enum Resolution](#compile-time-enum-v380)
-- **Complete Alphabetical Index** — [Complete Alphabetical Index](#complete-alphabetical-index)
-- **Complete Cross-Language Compatibility Matrix** — [Complete Cross-Language Compatibility Matrix](#complete-cross-language-compatibility-matrix)
-- **Compound Assignment Operators** — [Compound Assignment Operators](#compound-assignment-operators) · [Compound Assignment Operators](#compound-assignment-operators)
-- **Conditional Statements** — [Conditional Statements](#conditional-statements)
-- **Control Arrays** — [Control Arrays](#control-arrays)
-- **Control Flow** — [Control Flow](#control-flow)
-- **Core Language Keywords** — [Core Language Keywords](#core-language-keywords)
-- **Core Whenever Concepts** — [Core Whenever Concepts](#core-whenever-concepts)
-- **Count** — [Count() Function](#count-function)
-- **Cross-Platform System Classes** — [Cross-Platform System Classes](#cross-platform-system-classes)
-
-### D
-- **Data Introspection Functions** — [Data Introspection Functions](#data-introspection-functions)
-- **Data Processing** — [Data Processing](#data-processing)
-- **Data Types** — [Data Types](#data-types)
-- **Data Types & Literals** — [Data Types & Literals](#data-types-literals)
-- **Database Functions** — [Database Functions](#database-functions)
-- **DataFile** — [DataFile — Load from External Files](#datafile-load-from-external-files)
-- **DataFromString Statement** — [DataFromString Statement](#datafromstring-statement)
-- **Date/Time Functions** — [Date/Time Functions](#datetime-functions)
-- **Debouncing and Performance Control** — [Debouncing and Performance Control](#debouncing-and-performance-control)
-- **Debug.Print and Assert** — [Debug.Print and Assert](#debugprint-and-assert)
-- **Debugging and Monitoring Tools** — [Debugging and Monitoring Tools](#debugging-and-monitoring-tools)
-- **Debugging Statements** — [Debugging Statements](#debugging-statements)
-- **Declaring and Raising Events** — [Declaring and Raising Events](#declaring-and-raising-events)
-- **Dictionary Functions** — [Dictionary Functions](#dictionary-functions)
-- **Do-Loop** — [Do-Loop](#do-loop)
-- **Drawing Primitives** — [Drawing Primitives](#drawing-primitives)
-
-### E
-- **Editor Shortcuts** — [Editor Shortcuts](#editor-shortcuts)
-- **Empty Data Slots** — [Empty Data Slots](#empty-data-slots)
-- **Enhanced Enum with <Flags>** — [Enhanced Enum with <Flags>](#enhanced-enum-v380)
-- **Enum Improvements** — [Enum Improvements](#enum-improvements)
-- **Err Object** — [Err Object](#err-object)
-- **Error Handling** — [Error Handling](#error-handling)
-- **Error Handling in Async Context** — [Error Handling in Async Context](#error-handling-in-async-context)
-- **Event Wiring at a Glance** — [Event Wiring at a Glance](#event-wiring-at-a-glance)
-- **Event-Driven Programming with Whenever** — [Event-Driven Programming with Whenever](#event-driven-programming-with-whenever)
-- **Events** — [Events (WithEvents / RaiseEvent)](#events-withevents--raiseevent)
-- **Extended** — [String Functions (Extended)](#string-functions-extended)
-- **Extended Array Functions** — [Extended Array Functions](#extended-array-functions)
-
-### F
-- **File I/O Functions** — [File I/O Functions (Classic VB6 Style)](#file-io-functions-classic-vb6-style)
-- **File I/O Statements** — [File I/O Statements](#file-io-statements)
-- **File Operations** — [File Operations](#file-operations)
-- **File System** — [File System](#file-system)
-- **File System Functions** — [File System Functions](#file-system-functions)
-- **For Each With Index** — [For Each With Index](#for-each-with-index)
-- **For-Each Loop** — [For-Each Loop](#for-each-loop)
-- **For-Next Loop** — [For-Next Loop](#for-next-loop)
-- **Framework Comparison** — [Framework Comparison](#framework-comparison)
-- **Function Declaration Auto-Completion** — [1. Function Declaration Auto-Completion](#1-function-declaration-auto-completion)
-- **Functions** — [Functions](#functions)
-
-### G
-- **Game and Application Development Functions** — [Game and Application Development Functions](#game-and-application-development-functions)
-- **Game Data Example** — [Game Data Example](#game-data-example)
-- **Game Development** — [Game Development](#game-development)
-- **Game UI Mode** — [Game UI Mode](#game-ui-mode) · [Game UI Mode](#game-ui-mode-v370)
-- **Generics Phase 1 — Collection(Of T)** — [Generics Phase 1 — Collection(Of T)](#generics-phase-1--collectionof-t)
-- **Generics — Collection** — [Generics — Collection(Of T)](#generics-v370)
-- **Get # / Put #** — [Get # / Put # (Binary File I/O)](#get-put-binary-file-io)
-- **Getting Started** — [Getting Started](#getting-started)
-- **Godot Class Enum Constants** — [Godot Class Enum Constants](#godot-class-enum-constants)
-- **Godot Integration** — [Godot Integration](#godot-integration)
-- **Godot Singleton Access** — [Godot Singleton Access](#godot-singleton-access)
-- **GoSub** — [GoSub / Return](#gosub-return)
-- **Graphics & Drawing — Image Manipulation** — [Graphics & Drawing — Image Manipulation](#graphics-drawing-image-manipulation)
-- **Graphics & Drawing — Native Image Drawing** — [Graphics and Drawing: Native Image Drawing](#graphics-and-drawing-native-image-drawing)
-- **Graphics & Drawing — Primitives** — [Graphics & Drawing — Primitives](#graphics-drawing-primitives)
-
-### I
-- **I/O Operations** — [I/O Operations](#io-operations)
-- **If-Then-Else** — [If-Then-Else](#if-then-else)
-- **IIf Function** — [IIf Function (Ternary Operator)](#iif-function-ternary-operator)
-- **Image & Texture Manipulation** — [Image & Texture Manipulation](#image-texture-manipulation)
-- **Immediate Window** — [Immediate Window](#immediate-window)
-- **Implementation Notes** — [Implementation Notes](#implementation-notes)
-- **Implements Verification** — [Implements Verification](#implements-verification)
-- **Import Report** — [Import Report](#import-report)
-- **Importing VB6 Projects** — [Importing VB6 Projects](#importing-vb6-projects)
-- **Incomplete Control Structure Completion** — [6. Incomplete Control Structure Completion](#6-incomplete-control-structure-completion)
-- **Inheritance** — [Inheritance](#inheritance)
-- **Input Functions** — [Input Functions](#input-functions)
-- **Input Handling** — [Input Handling](#input-handling)
-- **Installation** — [Installation](#installation)
-- **Interfaces** — [Interfaces](#interfaces)
-
-### J
-- **JSON Functions** — [JSON Functions](#json-functions)
-
-### K
-- **Keyword Compound Assignment Operators** — [Keyword Compound Assignment Operators](#keyword-compound-assignment-operators) · [Keyword Compound Assignment Operators](#keyword-compound-assignment-v380)
-- **Keyword Usage Notes** — [Keyword Usage Notes](#keyword-usage-notes)
-- **Keywords Reference** — [Keywords Reference](#keywords-reference)
-
-### L
-- **Labeled Data Sections** — [Labeled Data Sections](#labeled-data-sections)
-- **Lambda Expressions** — [Lambda Expressions](#lambda-expressions)
-- **Language Basics** — [Language Basics](#language-basics)
-- **LoadData** — [LoadData — Runtime File Loading](#loaddata-runtime-file-loading)
-- **Logical Operators** — [Logical Operators](#logical-operators)
-- **LongLong Type** — [LongLong Type](#longlong-type)
-- **Loop Pattern Shortcuts** — [4. Loop Pattern Shortcuts](#4-loop-pattern-shortcuts)
-- **Loops** — [Loops](#loops)
 
 ### M
-- **Math Constants** — [Math Constants](#math-constants)
-- **Math Functions** — [Math Functions](#math-functions)
-- **Mathematical Functions** — [Mathematical Functions](#mathematical-functions)
-- **Menu Editor** — [Menu Editor](#menu-editor)
-- **Method Overloading** — [Method Overloading](#method-overloading) · [Method Overloading](#method-overloading-v370)
-- **Methods** — [Methods](#methods)
-- **Modern Features** — [Modern Features](#modern-features)
-- **Modern File System Functions** — [Modern File System Functions](#modern-file-system-functions)
-- **Modern Language Features** — [Modern Language Features](#modern-language-features)
-- **Module Statement** — [Module Statement](#module-statement)
-- **Multiple Callback Execution** — [Multiple Callback Execution](#multiple-callback-execution)
-- **Multiple Expressions** — [Print Semicolons (Multiple Expressions)](#print-semicolons-multiple-expressions)
-- **Multitasking** — [Async/Parallel Programming (Multitasking)](#asyncparallel-programming-multitasking)
-- **Multitasking and Concurrency** — [Multitasking and Concurrency](#multitasking-and-concurrency)
-- **Multitasking Capabilities Summary** — [Multitasking Capabilities Summary](#multitasking-capabilities-summary)
+
+## Material.New
+
+**Purpose** — Compiles a shader from inline GLSL-like code and wraps it in a ShaderMaterial.
+
+**Syntax**
+
+```vb
+Material.New(shader_code) As ShaderMaterial
+```
+
+**Parameters**
+
+- `shader_code`
+
+**Description**
+
+Compiles a shader from inline GLSL-like code and wraps it in a ShaderMaterial. Assign the result to a node's material property.
+
+**Example**
+
+```vb
+Dim m = Material.New("shader_type canvas_item;\
+uniform float glow = 0.5;\
+void fragment() { COLOR = vec4(glow, 0.0, 0.0, 1.0); }")
+sprite.Material = m
+```
+
+**See Also** — [Material.SetShader](#materialsetshader), [Shader.Param](#shaderparam), [Shader.GetParam](#shadergetparam), [Shader.Set](#shaderset), [Shader.Get](#shaderget)
+
+---
+
+## Material.SetShader
+
+**Purpose** — Replaces the Shader resource of an existing ShaderMaterial.
+
+**Syntax**
+
+```vb
+Material.SetShader(material, shader)
+```
+
+**Parameters**
+
+- `material`
+- `shader`
+
+**Description**
+
+Replaces the Shader resource of an existing ShaderMaterial.
+
+**Example**
+
+```vb
+Material.SetShader sprite.Material, glowShader
+```
+
+**See Also** — [Material.New](#materialnew), [Shader.Param](#shaderparam), [Shader.GetParam](#shadergetparam), [Shader.Set](#shaderset), [Shader.Get](#shaderget)
+
+---
+
+## Me
+
+**Purpose** — Refers to the current object instance.
+
+**Syntax**
+
+```vb
+Me.PropertyName
+Me.MethodName()
+```
+
+**Description**
+
+Refers to the current object instance. Similar to 'this' in C# or 'self' in Python.
+
+**Example**
+
+```vb
+Class Player
+    Public Name As String
+    Sub Introduce()
+        Print "I am " & Me.Name
+    End Sub
+End Class
+```
+
+**See Also** — [Class](#class), [End Class](#end-class), [New](#new), [Set](#set), [Implements](#implements), [Inherits](#inherits), [Interface](#interface), [Property](#property)
+
+---
+
+## Mid
+
+**Purpose** — Returns a substring starting at position start (1-based).
+
+**Syntax**
+
+```vb
+Mid(string, start [, length])
+```
+
+**Parameters**
+
+- `string`
+- `start`
+- `length`
+
+**Description**
+
+Returns a substring starting at position start (1-based). If length is omitted, returns the rest of the string.
+
+**Example**
+
+```vb
+Print Mid("Hello World", 7)     ' "World"
+Print Mid("Hello World", 1, 5)  ' "Hello"
+```
+
+**See Also** — [Left](#left), [Right](#right), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
+
+---
+
+## Mod
+
+**Purpose** — Modulo operator — returns the remainder after integer division.
+
+**Syntax**
+
+```vb
+number1 Mod number2
+```
+
+**Parameters**
+
+- `Mod number2`
+
+**Description**
+
+Modulo operator — returns the remainder after integer division.
+
+**Example**
+
+```vb
+If i Mod 2 = 0 Then
+    Print i & " is even"
+End If
+
+frame = frame Mod maxFrames
+```
+
+**See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Lerp](#lerp)
+
+---
+
+## move_and_slide
+
+**Purpose** — Moves the body based on [b]velocity[/b], sliding along collisions.
+
+**Syntax**
+
+```vb
+move_and_slide() As Boolean
+```
+
+**Description**
+
+Moves the body based on [b]velocity[/b], sliding along collisions. Call in [b]_PhysicsProcess[/b]. Returns True if a collision occurred.
+
+**Example**
+
+```vb
+Sub _PhysicsProcess(delta As Single)
+    velocity.y += 980 * delta   ' gravity
+    move_and_slide
+End Sub
+```
+
+**Godot Mapping** — [`CharacterBody2D.move_and_slide()`](https://docs.godotengine.org/en/stable/classes/class_characterbody2d.html#class-characterbody2d-method-move_and_slide)
+
+**See Also** — [velocity](#velocity), [is_on_floor](#isonfloor), [is_on_wall](#isonwall), [_physics_process](#physicsprocess), [delta](#delta)
+
+---
+
+## MsgBox
+
+**Purpose** — Displays a message dialog box.
+
+**Syntax**
+
+```vb
+MsgBox prompt [, buttons] [, title]
+result = MsgBox(prompt, buttons, title)
+```
+
+**Parameters**
+
+- `prompt`
+- `buttons`
+- `title`
+
+**Description**
+
+Displays a message dialog box. Can include OK/Cancel/Yes/No buttons and return the user's choice.
+
+**Example**
+
+```vb
+MsgBox "Game Over!"
+MsgBox "Save game?", vbYesNo, "Save"
+
+Dim answer As Integer
+answer = MsgBox("Quit?", vbYesNo + vbQuestion, "Exit")
+If answer = vbYes Then End
+```
+
+**See Also** — [InputBox](#inputbox), [LoadForm](#loadform)
+
+---
+
 
 ### N
-- **Named Pipes** — [Named Pipes](#named-pipes)
-- **NativeLibrary** — [NativeLibrary (FFI)](#nativelibrary-ffi)
-- **NativeStruct** — [NativeStruct](#nativestruct)
-- **Node Interaction** — [Node Interaction](#node-interaction)
-- **Null-Safe Operations** — [Null-Safe Operations](#null-safe-operations)
+
+## Nav.Distance
+
+**Purpose** — Returns the remaining distance to the target along the path.
+
+**Syntax**
+
+```vb
+Nav.Distance(agent) As Double
+```
+
+**Parameters**
+
+- `agent`
+
+**Description**
+
+Returns the remaining distance to the target along the path.
+
+**Example**
+
+```vb
+If Nav.Distance(enemyNav) < 50 Then Attack()
+```
+
+**See Also** — [Nav.SetTarget](#navsettarget), [Nav.NextPos](#navnextpos), [Nav.Reached](#navreached), [Nav.Path](#navpath)
+
+---
+
+## Nav.NextPos
+
+**Purpose** — Returns the next step along the path.
+
+**Syntax**
+
+```vb
+Nav.NextPos(agent) As Vector
+```
+
+**Parameters**
+
+- `agent`
+
+**Description**
+
+Returns the next step along the path. Call inside _PhysicsProcess to drive movement toward this point.
+
+**Example**
+
+```vb
+Sub _PhysicsProcess(delta)
+    Dim step = Nav.NextPos(enemyNav)
+    velocity = (step - Position).Normalized() * 200
+    MoveAndSlide Me
+End Sub
+```
+
+**See Also** — [Nav.SetTarget](#navsettarget), [Nav.Distance](#navdistance), [Nav.Reached](#navreached), [Nav.Path](#navpath)
+
+---
+
+## Nav.Path
+
+**Purpose** — Returns the full computed path as an Array of Vector positions.
+
+**Syntax**
+
+```vb
+Nav.Path(agent) As Array
+```
+
+**Parameters**
+
+- `agent`
+
+**Description**
+
+Returns the full computed path as an Array of Vector positions.
+
+**Example**
+
+```vb
+For Each pt In Nav.Path(enemyNav)
+    DrawCircle pt, 3, Color.Yellow
+Next
+```
+
+**See Also** — [Nav.SetTarget](#navsettarget), [Nav.NextPos](#navnextpos), [Nav.Distance](#navdistance), [Nav.Reached](#navreached)
+
+---
+
+## Nav.Reached
+
+**Purpose** — Returns True if the agent has finished navigating (arrived at target or path is invalid).
+
+**Syntax**
+
+```vb
+Nav.Reached(agent) As Boolean
+```
+
+**Parameters**
+
+- `agent`
+
+**Description**
+
+Returns True if the agent has finished navigating (arrived at target or path is invalid).
+
+**Example**
+
+```vb
+If Nav.Reached(enemyNav) Then PickNewTarget()
+```
+
+**See Also** — [Nav.SetTarget](#navsettarget), [Nav.NextPos](#navnextpos), [Nav.Distance](#navdistance), [Nav.Path](#navpath)
+
+---
+
+## Nav.SetTarget
+
+**Purpose** — Sets the destination for a NavigationAgent.
+
+**Syntax**
+
+```vb
+Nav.SetTarget(agent, pos)
+```
+
+**Parameters**
+
+- `agent`
+- `pos`
+
+**Description**
+
+Sets the destination for a NavigationAgent. The agent computes a path and starts moving when you read NextPos each frame.
+
+**Example**
+
+```vb
+Nav.SetTarget enemyNav, player.Position
+```
+
+**See Also** — [Nav.NextPos](#navnextpos), [Nav.Distance](#navdistance), [Nav.Reached](#navreached), [Nav.Path](#navpath)
+
+---
+
+## New
+
+**Purpose** — Creates a new instance of a class or object type.
+
+**Syntax**
+
+```vb
+Dim obj As New ClassName
+Set obj = New ClassName([args])
+```
+
+**Parameters**
+
+- `args`
+
+**Description**
+
+Creates a new instance of a class or object type.
+
+**Example**
+
+```vb
+Dim player As New Player
+Dim enemies As New Collection
+
+Set boss = New Boss("Dragon", 500)
+```
+
+**See Also** — [Class](#class), [End Class](#end-class), [Set](#set), [Me](#me), [Implements](#implements), [Inherits](#inherits), [Interface](#interface), [Property](#property)
+
+---
+
+## NewCurve
+
+**Purpose** — Creates an editable Curve resource for animation/easing.
+
+**Syntax**
+
+```vb
+NewCurve()
+```
+
+**Description**
+
+Creates an editable Curve resource for animation/easing. Use .AddPoint(Vector2(x, y)) to add control points then .Sample(t) — where t is 0..1 — to read the interpolated value. Great for designer-tunable shapes (jump arc, damage falloff).
+
+**Example**
+
+```vb
+Dim arc = NewCurve()
+arc.AddPoint(Vector2(0, 0))
+arc.AddPoint(Vector2(0.5, 1.0))
+arc.AddPoint(Vector2(1.0, 0))
+Dim height = arc.Sample(t) * jumpMax
+```
+
+**See Also** — [NewRNG](#newrng), [NewNoise](#newnoise), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange)
+
+---
+
+## NewNoise
+
+**Purpose** — Creates a FastNoiseLite generator for procedural content (terrain heightmaps, cloud patterns, perlin/simplex noise).
+
+**Syntax**
+
+```vb
+NewNoise([seed])
+```
+
+**Parameters**
+
+- `seed`
+
+**Description**
+
+Creates a FastNoiseLite generator for procedural content (terrain heightmaps, cloud patterns, perlin/simplex noise). Set .Seed, .Frequency, .NoiseType. Sample with .GetNoise2D(x, y), .GetNoise3D(x, y, z) — returns -1..1.
+
+**Example**
+
+```vb
+Dim n = NewNoise(1337)
+n.Frequency = 0.05
+For x = 0 To 99
+    For y = 0 To 99
+        Dim h = (n.GetNoise2D(x, y) + 1) * 0.5  ' 0..1
+        heightmap(x, y) = h * 64
+    Next
+Next
+```
+
+**See Also** — [NewRNG](#newrng), [NewCurve](#newcurve), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange)
+
+---
+
+## NewRNG
+
+**Purpose** — Creates a per-stream RandomNumberGenerator.
+
+**Syntax**
+
+```vb
+NewRNG([seed])
+```
+
+**Parameters**
+
+- `seed`
+
+**Description**
+
+Creates a per-stream RandomNumberGenerator. Unlike global Rnd(), each NewRNG has its own seed for reproducible sequences. Access via .Randf(), .RandiRange(lo, hi), .RandfRange(lo, hi), .Randfn(mean, deviation).
+
+**Example**
+
+```vb
+Dim rng = NewRNG(42)            ' fixed seed
+Dim damage = rng.RandiRange(5, 10)
+Dim spread = rng.Randfn(0, 0.2)  ' normal distribution
+```
+
+**See Also** — [NewNoise](#newnoise), [NewCurve](#newcurve), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange)
+
+---
+
+## Next
+
+**Purpose** — Marks the end of a For or For Each loop.
+
+**Syntax**
+
+```vb
+Next [counter]
+```
+
+**Parameters**
+
+- `counter`
+
+**Description**
+
+Marks the end of a For or For Each loop. The counter variable name is optional.
+
+**Example**
+
+```vb
+For i = 1 To 5
+    Print i
+Next i
+```
+
+**See Also** — [For](#for), [For Each](#for-each), [Continue](#continue), [Exit](#exit)
+
+---
+
+## Not
+
+**Purpose** — Logical NOT — inverts a Boolean value.
+
+**Syntax**
+
+```vb
+Not expression
+```
+
+**Parameters**
+
+- `expression`
+
+**Description**
+
+Logical NOT — inverts a Boolean value.
+
+**Example**
+
+```vb
+If Not gameOver Then
+    UpdateGame()
+End If
+
+Visible = Not Visible  ' Toggle
+```
+
+**See Also** — [And](#and), [Or](#or), [Xor](#xor)
+
+---
+
+## Nothing
+
+**Purpose** — Represents a null object reference.
+
+**Syntax**
+
+```vb
+Set obj = Nothing
+If obj Is Nothing Then ...
+```
+
+**Parameters**
+
+- `obj = Nothing
+If obj Is Nothing Then ...`
+
+**Description**
+
+Represents a null object reference. Use to release object references or test if an object is unset.
+
+**Example**
+
+```vb
+Set player = Nothing
+
+If currentEnemy Is Nothing Then
+    Print "No enemy nearby"
+End If
+```
+
+**See Also** — [True](#true), [False](#false)
+
+---
+
 
 ### O
-- **Object Browser** — [Object Browser](#object-browser)
-- **Object-Oriented Features** — [Object-Oriented Features](#object-oriented-features)
-- **Of T** — [Generics — Collection(Of T)](#generics-v370)
-- **On Error Resume Next** — [On Error Resume Next](#on-error-resume-next)
-- **On n GoSub** — [On n GoTo / On n GoSub](#on-n-goto-on-n-gosub)
-- **On n GoTo** — [On n GoTo / On n GoSub](#on-n-goto-on-n-gosub)
-- **Open For Binary** — [Open For Binary / Open For Random](#open-for-binary-open-for-random)
-- **Open For Random** — [Open For Binary / Open For Random](#open-for-binary-open-for-random)
-- **Operators** — [Operators](#operators)
-- **Optional Parameters** — [Optional Parameters](#optional-parameters)
+
+## On Error
+
+**Purpose** — Sets up error handling.
+
+**Syntax**
+
+```vb
+On Error GoTo labelName
+On Error Resume Next
+On Error GoTo 0
+```
+
+**Parameters**
+
+- `Error GoTo labelName
+On Error Resume Next
+On Error GoTo 0`
+
+**Description**
+
+Sets up error handling. GoTo sends errors to a label. Resume Next skips errors. GoTo 0 disables the handler.
+
+**Example**
+
+```vb
+Sub LoadData()
+    On Error GoTo HandleError
+    Open "data.txt" For Input As #1
+    ' ... read data ...
+    Close #1
+    Exit Sub
+
+HandleError:
+    Print "Error: " & Err.Description
+    Resume Next
+End Sub
+```
+
+**See Also** — [Try](#try), [Catch](#catch), [Finally](#finally), [Throw](#throw)
+
+---
+
+## Open
+
+**Purpose** — Opens a file for reading, writing, or appending.
+
+**Syntax**
+
+```vb
+Open filename For mode As #fileNumber
+```
+
+**Parameters**
+
+- `filename For mode As #fileNumber`
+
+**Description**
+
+Opens a file for reading, writing, or appending. Modes: Input, Output, Append, Binary, Random.
+
+**Example**
+
+```vb
+' Read a file
+Open "scores.txt" For Input As #1
+Line Input #1, firstLine
+Close #1
+
+' Write a file
+Open "log.txt" For Output As #2
+Print #2, "Game started"
+Close #2
+```
+
+**See Also** — [Close](#close), [Line Input](#line-input), [Data](#data), [Read](#read), [Restore](#restore)
+
+---
+
+## Option Explicit
+
+**Purpose** — Requires all variables to be declared with Dim before use.
+
+**Syntax**
+
+```vb
+Option Explicit
+```
+
+**Parameters**
+
+- `Explicit`
+
+**Description**
+
+Requires all variables to be declared with Dim before use. Helps catch typos. Place at the top of your module.
+
+**Example**
+
+```vb
+Option Explicit
+
+Sub Form_Load()
+    Dim score As Integer  ' Required with Option Explicit
+    score = 100
+End Sub
+```
+
+---
+
+## Optional
+
+**Purpose** — Declares a parameter that the caller may omit.
+
+**Syntax**
+
+```vb
+Sub ProcName(Optional paramName As Type = defaultValue)
+```
+
+**Parameters**
+
+- `Optional paramName`
+
+**Description**
+
+Declares a parameter that the caller may omit. A default value is provided.
+
+**Example**
+
+```vb
+Sub ShowMessage(msg As String, Optional title As String = "Info")
+    MsgBox msg, title
+End Sub
+
+ShowMessage "Hello"         ' Uses default title
+ShowMessage "Error", "Oops"  ' Custom title
+```
+
+**See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Lambda](#lambda)
+
+---
+
+## Or
+
+**Purpose** — Logical OR — returns True if either expression is True.
+
+**Syntax**
+
+```vb
+expression1 Or expression2
+```
+
+**Parameters**
+
+- `Or expression2`
+
+**Description**
+
+Logical OR — returns True if either expression is True.
+
+**Example**
+
+```vb
+If key = "escape" Or key = "q" Then
+    QuitGame()
+End If
+```
+
+**See Also** — [And](#and), [Not](#not), [Xor](#xor)
+
+---
+
 
 ### P
-- **Parallel Processing** — [Parallel Processing](#parallel-processing)
-- **Parameterized Constructors** — [Parameterized Constructors](#parameterized-constructors) · [Parameterized Constructors](#parameterized-constructors-v370)
-- **Parameters** — [Parameters](#parameters)
-- **Pattern Matching** — [Pattern Matching](#pattern-matching)
-- **Pattern Matching & Type Checking** — [Pattern Matching & Type Checking](#pattern-matching-type-checking)
-- **Performance and Architecture** — [Performance and Architecture](#performance-and-architecture)
-- **Performance Optimizations** — [Performance Optimizations](#performance-optimizations)
-- **Performance: Data/Read vs Arrays** — [Performance: Data/Read vs Arrays](#performance-dataread-vs-arrays)
-- **Print Semicolons** — [Print Semicolons (Multiple Expressions)](#print-semicolons-multiple-expressions)
-- **Printer Object** — [Printer Object](#printer-object)
-- **Printer Object & PrintForm** — [Printer Object & PrintForm](#printer-object--printform)
-- **PrintForm Statement** — [PrintForm Statement](#printform-statement)
-- **Procedures & Functions** — [Procedures & Functions](#procedures-functions)
-- **Procedures and Functions** — [Procedures and Functions](#procedures-and-functions)
-- **Programmatic Import API** — [Programmatic Import API](#programmatic-import-api)
-- **Project Properties** — [Project Properties](#project-properties)
-- **Properties** — [Properties](#properties)
-- **Properties and Methods** — [Properties and Methods](#properties-and-methods)
-- **Property Inspector** — [Property Inspector](#property-inspector)
-- **Property Mapping** — [Property Mapping](#property-mapping)
-- **Property/Method Chaining Assistance** — [7. Property/Method Chaining Assistance](#7-propertymethod-chaining-assistance)
-- **Putting It All Together** — [Putting It All Together](#putting-it-all-together)
+
+## Permission.All
+
+**Purpose** — Returns an Array of all currently-granted permission strings.
+
+**Syntax**
+
+```vb
+Permission.All() As Array
+```
+
+**Description**
+
+Returns an Array of all currently-granted permission strings.
+
+**Example**
+
+```vb
+For Each p In Permission.All()
+    Print p
+Next
+```
+
+**See Also** — [Permission.Has](#permissionhas), [Permission.Request](#permissionrequest)
+
+---
+
+## Permission.Has
+
+**Purpose** — Returns True if the permission is currently granted.
+
+**Syntax**
+
+```vb
+Permission.Has(name) As Boolean
+```
+
+**Parameters**
+
+- `name`
+
+**Description**
+
+Returns True if the permission is currently granted. On desktop always True.
+
+**Example**
+
+```vb
+If Not Permission.Has("camera") Then Permission.Request "camera"
+```
+
+**See Also** — [Permission.Request](#permissionrequest), [Permission.All](#permissionall)
+
+---
+
+## Permission.Request
+
+**Purpose** — Prompts the OS to ask the user for a permission.
+
+**Syntax**
+
+```vb
+Permission.Request(name)
+```
+
+**Parameters**
+
+- `name`
+
+**Description**
+
+Prompts the OS to ask the user for a permission. Resolves async — check Permission.Has next frame, or define Sub Permission_Granted(name).
+
+**Example**
+
+```vb
+Permission.Request "location"
+```
+
+**See Also** — [Permission.Has](#permissionhas), [Permission.All](#permissionall)
+
+---
+
+## Physics.Bounce
+
+**Purpose** — Sets the restitution (bounciness) of a RigidBody, 0.0 = dead, 1.0 = full energy return.
+
+**Syntax**
+
+```vb
+Physics.Bounce(value, body)
+```
+
+**Parameters**
+
+- `value`
+- `body`
+
+**Description**
+
+Sets the restitution (bounciness) of a RigidBody, 0.0 = dead, 1.0 = full energy return.
+
+**Example**
+
+```vb
+Physics.Bounce 0.8, ball   ' rubber ball
+```
+
+**See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
+
+---
+
+## Physics.Force
+
+**Purpose** — Applies a continuous force to a RigidBody (call every frame for sustained push).
+
+**Syntax**
+
+```vb
+Physics.Force(body, vec [, pos])
+```
+
+**Parameters**
+
+- `body`
+- `vec`
+- `pos`
+
+**Description**
+
+Applies a continuous force to a RigidBody (call every frame for sustained push). Alias: Pull.
+
+**Example**
+
+```vb
+Sub _PhysicsProcess(delta)
+    Physics.Force rocket, Vector2(0, -800)   ' constant thrust
+End Sub
+```
+
+**See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
+
+---
+
+## Physics.Gravity
+
+**Purpose** — Sets the world gravity.
+
+**Syntax**
+
+```vb
+Physics.Gravity(vector [, body])
+```
+
+**Parameters**
+
+- `vector`
+- `body`
+
+**Description**
+
+Sets the world gravity. Pass a scalar for default-direction gravity, or a Vector2/Vector3 for arbitrary direction. With `body`, sets per-body gravity scale.
+
+**Example**
+
+```vb
+Physics.Gravity 980        ' classic down
+Physics.Gravity Vector2(0, -980)  ' anti-gravity zone
+```
+
+**See Also** — [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
+
+---
+
+## Physics.GravityV2
+
+**Purpose** — Explicit Vector2 form of Physics.Gravity — avoids overload guessing when you need 2D.
+
+**Syntax**
+
+```vb
+Physics.GravityV2(Vector2 [, body])
+```
+
+**Parameters**
+
+- `Vector2`
+- `body`
+
+**Description**
+
+Explicit Vector2 form of Physics.Gravity — avoids overload guessing when you need 2D.
+
+**Example**
+
+```vb
+Physics.GravityV2 Vector2(0, 1200)
+```
+
+**See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
+
+---
+
+## Physics.GravityV3
+
+**Purpose** — Explicit Vector3 form of Physics.Gravity for 3D worlds.
+
+**Syntax**
+
+```vb
+Physics.GravityV3(Vector3 [, body])
+```
+
+**Parameters**
+
+- `Vector3`
+- `body`
+
+**Description**
+
+Explicit Vector3 form of Physics.Gravity for 3D worlds.
+
+**Example**
+
+```vb
+Physics.GravityV3 Vector3(0, -9.8, 0)
+```
+
+**See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
+
+---
+
+## Physics.Impulse
+
+**Purpose** — Applies an instant impulse (one-frame push) to a RigidBody.
+
+**Syntax**
+
+```vb
+Physics.Impulse(body, vec [, pos])
+```
+
+**Parameters**
+
+- `body`
+- `vec`
+- `pos`
+
+**Description**
+
+Applies an instant impulse (one-frame push) to a RigidBody. Optional pos is the offset from body center where the force is applied. Alias: Push.
+
+**Example**
+
+```vb
+Physics.Impulse ball, Vector2(500, -200)   ' kick the ball
+```
+
+**See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
+
+---
+
+## Physics.Ray
+
+**Purpose** — Casts an instant ray from one point to another and returns what it hit.
+
+**Syntax**
+
+```vb
+Physics.Ray(from, to [, collisionMask]) As Dictionary
+```
+
+**Parameters**
+
+- `from`
+- `to`
+- `collisionMask`
+
+**Description**
+
+Casts an instant ray from one point to another and returns what it hit. Returns Dictionary with keys: Hit (Boolean), Collider (Object), Point (Vector), Normal (Vector), Distance (Double). Pass Vector2 for 2D, Vector3 for 3D.
+
+**Example**
+
+```vb
+Dim hit = Physics.Ray(player.Position, mouse.Position)
+If hit.Hit Then
+    Print "Hit " & hit.Collider.Name & " at " & hit.Distance & " px"
+End If
+```
+
+**See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Push](#push), [Pull](#pull), [Spin](#spin)
+
+---
+
+## Physics.Torque
+
+**Purpose** — Applies a rotational impulse to a RigidBody.
+
+**Syntax**
+
+```vb
+Physics.Torque(body, amount)
+```
+
+**Parameters**
+
+- `body`
+- `amount`
+
+**Description**
+
+Applies a rotational impulse to a RigidBody. For 2D pass a number, for 3D pass a Vector3. Alias: Spin.
+
+**Example**
+
+```vb
+Physics.Torque wheel, 50
+```
+
+**See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
+
+---
+
+## Plane
+
+**Purpose** — Infinite plane defined by a normal vector and signed distance from origin.
+
+**Syntax**
+
+```vb
+Plane() | Plane(normalVec3) | Plane(normalVec3, d) | Plane(a, b, c, d)
+```
+
+**Description**
+
+Infinite plane defined by a normal vector and signed distance from origin. Used for clipping, side-of-plane tests, and raycast results. Methods include .IsPointOver(p), .DistanceTo(p), .Intersect3(plane2, plane3).
+
+**Example**
+
+```vb
+Dim floor = Plane(Vector3(0, 1, 0), 0)  ' ground plane (y=0)
+If floor.IsPointOver(actor.position) Then
+    Print "actor is above the floor"
+End If
+```
+
+**See Also** — [Quaternion](#quaternion), [QuaternionFromEuler](#quaternionfromeuler), [Basis](#basis), [Transform2D](#transform2d), [Transform3D](#transform3d), [AABB](#aabb), [Slerp](#slerp)
+
+---
+
+## PlaySound
+
+**Purpose** — Plays a sound effect from the specified resource path.
+
+**Syntax**
+
+```vb
+PlaySound(path [, volume] [, pitch])
+```
+
+**Parameters**
+
+- `path`
+- `volume`
+- `pitch`
+
+**Description**
+
+Plays a sound effect from the specified resource path.
+
+**Example**
+
+```vb
+PlaySound "res://sounds/explosion.wav"
+PlaySound "res://sounds/jump.ogg", 0.8, 1.2
+```
+
+**See Also** — [IsActionPressed](#isactionpressed), [IsKeyPressed](#iskeypressed), [ChangeScene](#changescene), [CreateActor2D](#createactor2d)
+
+---
+
+## Print
+
+**Purpose** — Outputs text to the debug console (or to a file when used with a file number).
+
+**Syntax**
+
+```vb
+Print expression [; expression ...]
+Print #fileNumber, expression
+```
+
+**Parameters**
+
+- `expression ; expression ...
+Print #fileNumber`
+- `expression`
+
+**Description**
+
+Outputs text to the debug console (or to a file when used with a file number). Semicolons suppress the newline between items.
+
+**Example**
+
+```vb
+Print "Score: " & score
+Print "X="; x; " Y="; y
+Print #1, "Log entry: " & message
+```
+
+---
+
+## Private
+
+**Purpose** — Declares a private variable or procedure only accessible within the current module.
+
+**Syntax**
+
+```vb
+Private variableName As DataType
+Private Sub ProcedureName()
+```
+
+**Description**
+
+Declares a private variable or procedure only accessible within the current module.
+
+**Example**
+
+```vb
+Private lives As Integer = 3
+Private Sub ResetLevel()
+    lives = 3
+End Sub
+```
+
+**See Also** — [Dim](#dim), [Public](#public), [Global](#global), [Static](#static), [Const](#const), [ReDim](#redim), [Type](#type)
+
+---
+
+## Property
+
+**Purpose** — Declares a class property with Get (read) and Let/Set (write) accessors.
+
+**Syntax**
+
+```vb
+Property Get Name() As Type
+    Name = internalValue
+End Property
+
+Property Let Name(value As Type)
+    internalValue = value
+End Property
+```
+
+**Description**
+
+Declares a class property with Get (read) and Let/Set (write) accessors.
+
+**Example**
+
+```vb
+Class Circle
+    Private _radius As Single
+
+    Property Get Radius() As Single
+        Radius = _radius
+    End Property
+
+    Property Let Radius(value As Single)
+        If value > 0 Then _radius = value
+    End Property
+End Class
+```
+
+**See Also** — [Class](#class), [End Class](#end-class), [New](#new), [Set](#set), [Me](#me), [Implements](#implements), [Inherits](#inherits), [Interface](#interface)
+
+---
+
+## PSet
+
+**Purpose** — Draws a single pixel (VB6-style name).
+
+**Syntax**
+
+```vb
+PSet x, y, color
+```
+
+**Parameters**
+
+- `x`
+- `y`
+- `color`
+
+**Description**
+
+Draws a single pixel (VB6-style name). Alias for DrawPixel.
+
+**Example**
+
+```vb
+PSet 100, 50, Color(1, 0, 0)   ' Red pixel
+PSet 101, 50, RGB(0, 255, 0)   ' Green pixel
+```
+
+**See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [CLS](#cls), [QueueRedraw](#queueredraw)
+
+---
+
+## Public
+
+**Purpose** — Declares a public variable or procedure accessible from other modules and forms.
+
+**Syntax**
+
+```vb
+Public variableName As DataType
+Public Sub ProcedureName()
+```
+
+**Description**
+
+Declares a public variable or procedure accessible from other modules and forms.
+
+**Example**
+
+```vb
+Public userName As String
+Public Sub SaveGame()
+    ' Save logic here
+End Sub
+```
+
+**See Also** — [Dim](#dim), [Private](#private), [Global](#global), [Static](#static), [Const](#const), [ReDim](#redim), [Type](#type)
+
+---
+
+## Pull
+
+**Purpose** — Continuous force — call each frame to keep applying.
+
+**Syntax**
+
+```vb
+Pull(body, vec [, pos])
+```
+
+**Parameters**
+
+- `body`
+- `vec`
+- `pos`
+
+**Description**
+
+Continuous force — call each frame to keep applying. Plain-English alias for Physics.Force.
+
+**Example**
+
+```vb
+Pull magnet, towardPlayer * 800
+```
+
+**See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Spin](#spin)
+
+---
+
+## Push
+
+**Purpose** — Instant impulse — kicks a RigidBody once.
+
+**Syntax**
+
+```vb
+Push(body, vec [, pos])
+```
+
+**Parameters**
+
+- `body`
+- `vec`
+- `pos`
+
+**Description**
+
+Instant impulse — kicks a RigidBody once. Plain-English alias for Physics.Impulse.
+
+**Example**
+
+```vb
+Push enemy, Vector2(-300, 0)
+```
+
+**See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Pull](#pull), [Spin](#spin)
+
+---
+
+
+### Q
+
+## Quaternion
+
+**Purpose** — Creates a Quaternion — 3D rotation as four numbers.
+
+**Syntax**
+
+```vb
+Quaternion() | Quaternion(x, y, z, w)
+```
+
+**Description**
+
+Creates a Quaternion — 3D rotation as four numbers. Identity rotation by default. Use Slerp to blend two rotations smoothly. Multiply two Quaternions to combine rotations.
+
+**Example**
+
+```vb
+Dim qIdentity = Quaternion()
+Dim q = Quaternion(0, 0, 0, 1)  ' identity in (x,y,z,w)
+
+' Rotate halfway between two orientations
+Dim qHalf = Slerp(qStart, qEnd, 0.5)
+```
+
+**See Also** — [QuaternionFromEuler](#quaternionfromeuler), [Basis](#basis), [Transform2D](#transform2d), [Transform3D](#transform3d), [Plane](#plane), [AABB](#aabb), [Slerp](#slerp)
+
+---
+
+## QuaternionFromEuler
+
+**Purpose** — Builds a Quaternion from Euler angles (pitch, yaw, roll) in radians.
+
+**Syntax**
+
+```vb
+QuaternionFromEuler(xRad, yRad, zRad)
+```
+
+**Parameters**
+
+- `xRad`
+- `yRad`
+- `zRad`
+
+**Description**
+
+Builds a Quaternion from Euler angles (pitch, yaw, roll) in radians. Easier than constructing the four components directly.
+
+**Example**
+
+```vb
+' 90-degree yaw (turn right)
+Dim qTurn = QuaternionFromEuler(0, 1.5707963, 0)
+player.quaternion = qTurn
+```
+
+**See Also** — [Quaternion](#quaternion), [Basis](#basis), [Transform2D](#transform2d), [Transform3D](#transform3d), [Plane](#plane), [AABB](#aabb), [Slerp](#slerp)
+
+---
+
+## queue_free
+
+**Purpose** — Queues this node for deletion at the end of the current frame.
+
+**Syntax**
+
+```vb
+queue_free()
+```
+
+**Description**
+
+Queues this node for deletion at the end of the current frame. Safer than calling [b]free()[/b] directly.
+
+**Example**
+
+```vb
+Sub _on_body_entered(body)
+    body.queue_free   ' destroy the other node
+End Sub
+```
+
+**Godot Mapping** — [`Node.queue_free()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-queue_free)
+
+**See Also** — [get_node](#getnode), [add_child](#addchild), [remove_child](#removechild), [get_tree](#gettree), [instantiate](#instantiate)
+
+---
+
+## queue_redraw
+
+**Purpose** — Queues a redraw of this CanvasItem.
+
+**Syntax**
+
+```vb
+queue_redraw()
+```
+
+**Description**
+
+Queues a redraw of this CanvasItem. This triggers [b]_Draw[/b] to be called again.
+
+**Example**
+
+```vb
+score += 1
+queue_redraw   ' refresh the display
+```
+
+**Godot Mapping** — [`CanvasItem.queue_redraw()`](https://docs.godotengine.org/en/stable/classes/class_canvasitem.html#class-canvasitem-method-queue_redraw)
+
+---
+
+## QueueRedraw
+
+**Purpose** — Requests the node to redraw on the next frame.
+
+**Syntax**
+
+```vb
+QueueRedraw
+```
+
+**Description**
+
+Requests the node to redraw on the next frame. Call this after changing any visual state that should be reflected in _Draw(). Useful in _Process() or event handlers to trigger a visual update.
+
+**Example**
+
+```vb
+Sub _Process(delta)
+    If stateChanged Then
+        QueueRedraw  ' Triggers _Draw() next frame
+    End If
+End Sub
+
+' Or simply call every frame:
+Sub _Process(delta)
+    QueueRedraw
+End Sub
+```
+
+**See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls)
+
+---
+
 
 ### R
-- **Reactive Programming** — [Reactive Programming (Whenever System)](#reactive-programming-whenever-system)
-- **Real COM Interop** — [Real COM Interop (Windows)](#real-com-interop-windows)
-- **Real-World Example: Game Engine Integration** — [Real-World Example: Game Engine Integration](#real-world-example-game-engine-integration)
-- **Regular Expressions** — [Regular Expressions](#regular-expressions)
-- **Resource Loading** — [Resource Loading](#resource-loading)
-- **RESTORE Statement** — [RESTORE Statement](#restore-statement)
-- **Resume** — [Resume / Resume Next / Resume Label](#resume-resume-next-resume-label)
-- **Resume Label** — [Resume / Resume Next / Resume Label](#resume-resume-next-resume-label)
-- **Resume Next** — [Resume / Resume Next / Resume Label](#resume-resume-next-resume-label)
-- **Return** — [GoSub / Return](#gosub-return)
+
+## RaiseEvent
+
+**Purpose** — Fires a declared Event, notifying all handlers connected with WithEvents.
+
+**Syntax**
+
+```vb
+RaiseEvent EventName([arguments])
+```
+
+**Parameters**
+
+- `arguments`
+
+**Description**
+
+Fires a declared Event, notifying all handlers connected with WithEvents.
+
+**Example**
+
+```vb
+Class GameManager
+    Event ScoreChanged(newScore As Integer)
+
+    Sub AddPoints(pts As Integer)
+        score = score + pts
+        RaiseEvent ScoreChanged(score)
+    End Sub
+End Class
+```
+
+**See Also** — [Event](#event), [WithEvents](#withevents)
+
+---
+
+## Randomize
+
+**Purpose** — Seeds the random number generator.
+
+**Syntax**
+
+```vb
+Randomize [seed]
+```
+
+**Parameters**
+
+- `seed`
+
+**Description**
+
+Seeds the random number generator. Call once at program start for unpredictable sequences.
+
+**Example**
+
+```vb
+Randomize
+Print Rnd()  ' Different each run
+
+Randomize 42  ' Reproducible sequence
+```
+
+**See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod), [NewRNG](#newrng), [NewNoise](#newnoise), [NewCurve](#newcurve)
+
+---
+
+## RandRange
+
+**Purpose** — Returns a random number between min and max (inclusive).
+
+**Syntax**
+
+```vb
+RandRange(min, max)
+```
+
+**Parameters**
+
+- `min`
+- `max`
+
+**Description**
+
+Returns a random number between min and max (inclusive).
+
+**Example**
+
+```vb
+Dim damage As Integer = RandRange(5, 20)
+Dim x As Single = RandRange(0.0, 1.0)
+```
+
+**See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [Round](#round), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod), [NewRNG](#newrng), [NewNoise](#newnoise), [NewCurve](#newcurve)
+
+---
+
+## Ray.Cast2D
+
+**Purpose** — One-shot 2D raycast through PhysicsDirectSpaceState — no RayCast2D node required.
+
+**Syntax**
+
+```vb
+Ray.Cast2D(from, to [, mask]) As Dictionary
+```
+
+**Parameters**
+
+- `from`
+- `to`
+- `mask`
+
+**Description**
+
+One-shot 2D raycast through PhysicsDirectSpaceState — no RayCast2D node required. Returns a Dictionary { position, normal, collider, … } or empty if nothing hit.
+
+**Example**
+
+```vb
+Dim hit = Ray.Cast2D(player.Position, Mouse.Position)
+If Not hit.is_empty() Then Print hit.collider.name
+```
+
+**See Also** — [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
+
+---
+
+## Ray.Cast3D
+
+**Purpose** — One-shot 3D raycast — see Ray.Cast2D.
+
+**Syntax**
+
+```vb
+Ray.Cast3D(from, to [, mask]) As Dictionary
+```
+
+**Parameters**
+
+- `from`
+- `to`
+- `mask`
+
+**Description**
+
+One-shot 3D raycast — see Ray.Cast2D. Useful for shooter logic without permanent RayCast3D nodes.
+
+**Example**
+
+```vb
+Dim hit = Ray.Cast3D(cam.GlobalPosition, cam.GlobalPosition + cam.Basis.z * -100)
+```
+
+**See Also** — [Ray.Cast2D](#raycast2d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
+
+---
+
+## Ray.Collider
+
+**Purpose** — Returns the node the ray is currently hitting, or Nothing if no hit.
+
+**Syntax**
+
+```vb
+Ray.Collider(rayNode) As Object
+```
+
+**Parameters**
+
+- `rayNode`
+
+**Description**
+
+Returns the node the ray is currently hitting, or Nothing if no hit.
+
+**Example**
+
+```vb
+If Ray.Hit(aimRay) Then
+    target = Ray.Collider(aimRay)
+End If
+```
+
+**See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
+
+---
+
+## Ray.Enable
+
+**Purpose** — Enables or disables a RayCast node.
+
+**Syntax**
+
+```vb
+Ray.Enable(rayNode, on)
+```
+
+**Parameters**
+
+- `rayNode`
+- `on`
+
+**Description**
+
+Enables or disables a RayCast node. Disabled rays don't query the physics world.
+
+**Example**
+
+```vb
+Ray.Enable scanner, True
+```
+
+**See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
+
+---
+
+## Ray.ForceUpdate
+
+**Purpose** — Forces an immediate raycast update (don't wait for next physics frame).
+
+**Syntax**
+
+```vb
+Ray.ForceUpdate(rayNode)
+```
+
+**Parameters**
+
+- `rayNode`
+
+**Description**
+
+Forces an immediate raycast update (don't wait for next physics frame). Useful right after moving the ray.
+
+**Example**
+
+```vb
+Ray.Target groundRay, Vector2(0, 50)
+Ray.ForceUpdate groundRay
+If Ray.Hit(groundRay) Then Print "floor below"
+```
+
+**See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
+
+---
+
+## Ray.Hit
+
+**Purpose** — Returns True if the RayCast2D/3D node is currently colliding with something.
+
+**Syntax**
+
+```vb
+Ray.Hit(rayNode) As Boolean
+```
+
+**Parameters**
+
+- `rayNode`
+
+**Description**
+
+Returns True if the RayCast2D/3D node is currently colliding with something.
+
+**Example**
+
+```vb
+If Ray.Hit(groundRay) Then
+    Print "On the ground"
+End If
+```
+
+**See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Collider](#raycollider), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
+
+---
+
+## Ray.Normal
+
+**Purpose** — Returns the surface normal at the hit point — useful for bouncing or aligning to surfaces.
+
+**Syntax**
+
+```vb
+Ray.Normal(rayNode) As Vector
+```
+
+**Parameters**
+
+- `rayNode`
+
+**Description**
+
+Returns the surface normal at the hit point — useful for bouncing or aligning to surfaces.
+
+**Example**
+
+```vb
+' Bounce projectile
+velocity = velocity.Bounce(Ray.Normal(hitRay))
+```
+
+**See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Point](#raypoint)
+
+---
+
+## Ray.Point
+
+**Purpose** — Returns the world-space hit point of the ray, or Vector.Zero if no hit.
+
+**Syntax**
+
+```vb
+Ray.Point(rayNode) As Vector
+```
+
+**Parameters**
+
+- `rayNode`
+
+**Description**
+
+Returns the world-space hit point of the ray, or Vector.Zero if no hit.
+
+**Example**
+
+```vb
+DrawCircle Ray.Point(aimRay), 5, Color.Red
+```
+
+**See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Normal](#raynormal)
+
+---
+
+## Ray.Target
+
+**Purpose** — Sets the ray's target_position (relative to the ray's own position).
+
+**Syntax**
+
+```vb
+Ray.Target(rayNode, pos)
+```
+
+**Parameters**
+
+- `rayNode`
+- `pos`
+
+**Description**
+
+Sets the ray's target_position (relative to the ray's own position). Use to redirect the ray.
+
+**Example**
+
+```vb
+Ray.Target aimRay, mousePos - aimRay.Position
+```
+
+**See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
+
+---
+
+## Read
+
+**Purpose** — Reads the next value(s) from the Data tape into variables.
+
+**Syntax**
+
+```vb
+Read variable1 [, variable2, ...]
+Read variable As Type
+```
+
+**Parameters**
+
+- `variable1`
+- `variable2`
+- `...
+Read variable`
+
+**Description**
+
+Reads the next value(s) from the Data tape into variables. Supports typed Read for automatic conversion.
+
+**Example**
+
+```vb
+Data 100, 200, 300
+
+Dim x As Integer, y As Integer, z As Integer
+Read x, y, z
+Print x  ' 100
+
+' Typed read
+Read score As Integer
+```
+
+**See Also** — [Open](#open), [Close](#close), [Line Input](#line-input), [Data](#data), [Restore](#restore)
+
+---
+
+## ReDim
+
+**Purpose** — Resizes a dynamic array.
+
+**Syntax**
+
+```vb
+ReDim [Preserve] arrayName(newSize)
+```
+
+**Parameters**
+
+- `newSize`
+
+**Description**
+
+Resizes a dynamic array. Use Preserve to keep existing data when resizing.
+
+**Example**
+
+```vb
+Dim scores() As Integer
+ReDim scores(10)
+scores(0) = 100
+ReDim Preserve scores(20)  ' Keeps old data
+```
+
+**See Also** — [Dim](#dim), [Private](#private), [Public](#public), [Global](#global), [Static](#static), [Const](#const), [Type](#type), [Array](#array), [LBound](#lbound), [UBound](#ubound)
+
+---
+
+## remove_child
+
+**Purpose** — Removes a child node from this node without freeing it.
+
+**Syntax**
+
+```vb
+remove_child(node As Node)
+```
+
+**Parameters**
+
+- `node`
+
+**Description**
+
+Removes a child node from this node without freeing it.
+
+**Example**
+
+```vb
+remove_child(oldNode)
+oldNode.queue_free
+```
+
+**Godot Mapping** — [`Node.remove_child()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-remove_child)
+
+**See Also** — [get_node](#getnode), [add_child](#addchild), [queue_free](#queuefree), [get_tree](#gettree), [instantiate](#instantiate)
+
+---
+
+## Replace
+
+**Purpose** — Returns a string with all occurrences of find replaced by replaceWith.
+
+**Syntax**
+
+```vb
+Replace(string, find, replaceWith)
+```
+
+**Parameters**
+
+- `string`
+- `find`
+- `replaceWith`
+
+**Description**
+
+Returns a string with all occurrences of find replaced by replaceWith.
+
+**Example**
+
+```vb
+Dim s As String = Replace("Hello World", "World", "VB")
+Print s  ' "Hello VB"
+```
+
+**See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Split](#split), [Join](#join), [Format](#format)
+
+---
+
+## ResetDrawTransform
+
+**Purpose** — Resets the drawing transform to identity (no translation, rotation, or scale).
+
+**Syntax**
+
+```vb
+ResetDrawTransform
+```
+
+**Description**
+
+Resets the drawing transform to identity (no translation, rotation, or scale). Always call after SetDrawTransform to restore normal coordinates.
+
+**Example**
+
+```vb
+SetDrawTransform 100, 100, 0.5, 2.0, 2.0
+DrawCircle 0, 0, 30, Color.Red   ' Drawn transformed
+ResetDrawTransform                    ' Back to normal
+DrawCircle 50, 50, 10, Color.Blue ' Drawn at actual 50,50
+```
+
+**See Also** — [SetDrawTransform](#setdrawtransform)
+
+---
+
+## Restore
+
+**Purpose** — Resets the Data read pointer to the beginning, or to a named data section.
+
+**Syntax**
+
+```vb
+Restore [labelName]
+```
+
+**Parameters**
+
+- `labelName`
+
+**Description**
+
+Resets the Data read pointer to the beginning, or to a named data section.
+
+**Example**
+
+```vb
+Data "First", 1
+data_section2:
+Data "Second", 2
+
+Read a, b
+Restore data_section2
+Read c, d  ' Reads "Second", 2
+```
+
+**See Also** — [Open](#open), [Close](#close), [Line Input](#line-input), [Data](#data), [Read](#read)
+
+---
+
+## Return
+
+**Purpose** — Returns from the current Sub or Function.
+
+**Syntax**
+
+```vb
+Return [value]
+```
+
+**Parameters**
+
+- `value`
+
+**Description**
+
+Returns from the current Sub or Function. In a Function, optionally provides the return value.
+
+**Example**
+
+```vb
+Function IsPositive(n As Integer) As Boolean
+    Return n > 0
+End Function
+
+Sub CheckHealth()
+    If health > 0 Then Return  ' Early exit
+    GameOver()
+End Sub
+```
+
+**See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [ByRef](#byref), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda), [GoTo](#goto), [GoSub](#gosub)
+
+---
+
+## RGB
+
+**Purpose** — Creates a Color from integer red, green, blue values (0-255).
+
+**Syntax**
+
+```vb
+RGB(red, green, blue) As Color
+```
+
+**Parameters**
+
+- `red`
+- `green`
+- `blue`
+
+**Description**
+
+Creates a Color from integer red, green, blue values (0-255). VB6-compatible function.
+
+**Example**
+
+```vb
+Dim c As Variant = RGB(255, 0, 0)  ' Red
+DrawRect 0, 0, 100, 100, RGB(0, 128, 255)  ' Sky blue
+```
+
+**See Also** — [LoadImage](#loadimage), [LoadPicture](#loadpicture), [SaveImage](#saveimage), [ColorFromHSV](#colorfromhsv), [ColorToHSV](#colortohsv), [Lighten](#lighten), [Darken](#darken)
+
+---
+
+## Right
+
+**Purpose** — Returns the specified number of characters from the end of a string.
+
+**Syntax**
+
+```vb
+Right(string, length)
+```
+
+**Parameters**
+
+- `string`
+- `length`
+
+**Description**
+
+Returns the specified number of characters from the end of a string.
+
+**Example**
+
+```vb
+Print Right("Hello World", 5)  ' "World"
+```
+
+**See Also** — [Left](#left), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
+
+---
+
+## Rnd
+
+**Purpose** — Returns a random floating-point number between 0 and 1 (or 0 and upperBound if specified).
+
+**Syntax**
+
+```vb
+Rnd([upperBound])
+```
+
+**Parameters**
+
+- `upperBound`
+
+**Description**
+
+Returns a random floating-point number between 0 and 1 (or 0 and upperBound if specified).
+
+**Example**
+
+```vb
+Randomize
+Dim r As Single = Rnd()      ' 0.0 to 1.0
+Dim d As Integer = Int(Rnd(6)) + 1  ' Dice roll 1-6
+```
+
+**See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod), [NewRNG](#newrng), [NewNoise](#newnoise), [NewCurve](#newcurve)
+
+---
+
+## Round
+
+**Purpose** — Rounds a number to the specified number of decimal places.
+
+**Syntax**
+
+```vb
+Round(number [, decimals])
+```
+
+**Parameters**
+
+- `number`
+- `decimals`
+
+**Description**
+
+Rounds a number to the specified number of decimal places.
+
+**Example**
+
+```vb
+Print Round(3.14159, 2)  ' 3.14
+Print Round(2.5)         ' 2 (banker's rounding)
+```
+
+**See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod)
+
+---
+
 
 ### S
-- **Safe Import/Using Statement Conversion** — [8. Safe Import/Using Statement Conversion](#8-safe-importusing-statement-conversion)
-- **Scene Management** — [Scene Management](#scene-management)
-- **Scope and Lifetime** — [Scope and Lifetime](#scope-and-lifetime)
-- **Scoped Sections with Automatic Cleanup** — [Scoped Sections with Automatic Cleanup](#scoped-sections-with-automatic-cleanup)
-- **Screen Object** — [Screen Object](#screen-object)
-- **Select Case** — [Select Case](#select-case)
-- **Shared Memory** — [Shared Memory](#shared-memory)
-- **Signal System** — [Signal System](#signal-system)
-- **Sleep Function** — [Sleep Function](#sleep-function)
-- **Smart Variable Declaration System** — [Smart Variable Declaration System](#smart-variable-declaration-system)
-- **Spc** — [Spc() and Tab() Functions](#spc-and-tab-functions)
-- **Static Local Variables** — [Static Local Variables](#static-local-variables)
-- **String Functions** — [String Functions](#string-functions) · [String Functions (Extended)](#string-functions-extended)
-- **String Interpolation** — [String Interpolation](#string-interpolation)
-- **String Interpolation Conversion** — [2. String Interpolation Conversion](#2-string-interpolation-conversion)
-- **String Operators** — [String Operators](#string-operators)
-- **String Utility Functions** — [String Utility Functions](#string-utility-functions)
-- **StringBuilder** — [StringBuilder](#stringbuilder)
-- **Subroutines** — [Subroutines](#subroutines)
-- **Supported VB6 Controls** — [Supported VB6 Controls](#supported-vb6-controls)
-- **Suspend and Resume Control** — [Suspend and Resume Control](#suspend-and-resume-control)
-- **Swap Statement** — [Swap Statement](#swap-statement)
-- **Syntax Overview** — [Syntax Overview](#syntax-overview)
-- **System Functions** — [System Functions](#system-functions)
-- **System Integration** — [System Integration](#system-integration)
-- **System-Level Programming** — [System-Level Programming](#system-level-programming)
-- **System/Environment Functions** — [System/Environment Functions](#systemenvironment-functions)
+
+## SaveImage
+
+**Purpose** — Saves an Image to a PNG file.
+
+**Syntax**
+
+```vb
+SaveImage(image, path) As Boolean
+```
+
+**Parameters**
+
+- `image`
+- `path`
+
+**Description**
+
+Saves an Image to a PNG file. Returns True on success. Use user:// paths for writable locations. Great for screenshots or saving user-created art.
+
+**Example**
+
+```vb
+Dim img = CreateImage(640, 480, Color.White)
+' ... draw on img ...
+Dim ok As Boolean = SaveImage(img, "user://screenshot.png")
+If ok Then
+    Print "Saved!"
+End If
+```
+
+**See Also** — [LoadImage](#loadimage), [LoadPicture](#loadpicture), [RGB](#rgb)
+
+---
+
+## Screen.DPI
+
+**Purpose** — Returns the screen DPI (dots per inch).
+
+**Syntax**
+
+```vb
+Screen.DPI() As Long
+```
+
+**Description**
+
+Returns the screen DPI (dots per inch). Useful for sizing UI on high-density displays.
+
+**Example**
+
+```vb
+Dim scale = Screen.DPI() / 96.0   ' 1.0 on standard displays
+```
+
+**See Also** — [Screen.Width](#screenwidth), [Screen.Height](#screenheight), [Screen.Orientation](#screenorientation), [Screen.KeepOn](#screenkeepon), [Screen.FullScreen](#screenfullscreen), [Screen.IsFullScreen](#screenisfullscreen)
+
+---
+
+## Screen.FullScreen
+
+**Purpose** — Toggles fullscreen mode for the main window.
+
+**Syntax**
+
+```vb
+Screen.FullScreen(on)
+```
+
+**Parameters**
+
+- `on`
+
+**Description**
+
+Toggles fullscreen mode for the main window.
+
+**Example**
+
+```vb
+Screen.FullScreen True
+```
+
+**See Also** — [Screen.Width](#screenwidth), [Screen.Height](#screenheight), [Screen.DPI](#screendpi), [Screen.Orientation](#screenorientation), [Screen.KeepOn](#screenkeepon), [Screen.IsFullScreen](#screenisfullscreen)
+
+---
+
+## Screen.Height
+
+**Purpose** — Returns the screen height in pixels.
+
+**Syntax**
+
+```vb
+Screen.Height() As Long
+```
+
+**Description**
+
+Returns the screen height in pixels.
+
+**Example**
+
+```vb
+Print Screen.Width() & "x" & Screen.Height()
+```
+
+**See Also** — [Screen.Width](#screenwidth), [Screen.DPI](#screendpi), [Screen.Orientation](#screenorientation), [Screen.KeepOn](#screenkeepon), [Screen.FullScreen](#screenfullscreen), [Screen.IsFullScreen](#screenisfullscreen)
+
+---
+
+## Screen.IsFullScreen
+
+**Purpose** — Returns True if the window is currently fullscreen.
+
+**Syntax**
+
+```vb
+Screen.IsFullScreen() As Boolean
+```
+
+**Description**
+
+Returns True if the window is currently fullscreen.
+
+**Example**
+
+```vb
+If Not Screen.IsFullScreen() Then Screen.FullScreen True
+```
+
+**See Also** — [Screen.Width](#screenwidth), [Screen.Height](#screenheight), [Screen.DPI](#screendpi), [Screen.Orientation](#screenorientation), [Screen.KeepOn](#screenkeepon), [Screen.FullScreen](#screenfullscreen)
+
+---
+
+## Screen.KeepOn
+
+**Purpose** — Prevents the screen from auto-sleeping while True.
+
+**Syntax**
+
+```vb
+Screen.KeepOn(on)
+```
+
+**Parameters**
+
+- `on`
+
+**Description**
+
+Prevents the screen from auto-sleeping while True. Critical for games and video apps.
+
+**Example**
+
+```vb
+Screen.KeepOn True
+```
+
+**See Also** — [Screen.Width](#screenwidth), [Screen.Height](#screenheight), [Screen.DPI](#screendpi), [Screen.Orientation](#screenorientation), [Screen.FullScreen](#screenfullscreen), [Screen.IsFullScreen](#screenisfullscreen)
+
+---
+
+## Screen.Orientation
+
+**Purpose** — Returns "portrait" or "landscape".
+
+**Syntax**
+
+```vb
+Screen.Orientation() As String
+```
+
+**Description**
+
+Returns "portrait" or "landscape".
+
+**Example**
+
+```vb
+If Screen.Orientation() = "portrait" Then
+    UseVerticalLayout()
+End If
+```
+
+**See Also** — [Screen.Width](#screenwidth), [Screen.Height](#screenheight), [Screen.DPI](#screendpi), [Screen.KeepOn](#screenkeepon), [Screen.FullScreen](#screenfullscreen), [Screen.IsFullScreen](#screenisfullscreen)
+
+---
+
+## Screen.Width
+
+**Purpose** — Returns the screen width in pixels.
+
+**Syntax**
+
+```vb
+Screen.Width() As Long
+```
+
+**Description**
+
+Returns the screen width in pixels.
+
+**Example**
+
+```vb
+If Screen.Width() < 600 Then SetMobileUI()
+```
+
+**See Also** — [Screen.Height](#screenheight), [Screen.DPI](#screendpi), [Screen.Orientation](#screenorientation), [Screen.KeepOn](#screenkeepon), [Screen.FullScreen](#screenfullscreen), [Screen.IsFullScreen](#screenisfullscreen)
+
+---
+
+## Select
+
+**Purpose** — Begins a Select Case block for multi-way branching based on an expression's value.
+
+**Syntax**
+
+```vb
+Select Case expression
+```
+
+**Parameters**
+
+- `Case expression`
+
+**Description**
+
+Begins a Select Case block for multi-way branching based on an expression's value.
+
+**Example**
+
+```vb
+Select Case dayOfWeek
+    Case 1
+        Print "Monday"
+    Case 7
+        Print "Sunday"
+End Select
+```
+
+**See Also** — [Select Case](#select-case), [Case](#case), [End Select](#end-select)
+
+---
+
+## Select Case
+
+**Purpose** — Evaluates an expression and branches to the matching Case block.
+
+**Syntax**
+
+```vb
+Select Case testExpression
+    Case value1
+        statements
+    Case value2, value3
+        statements
+    Case Else
+        statements
+End Select
+```
+
+**Parameters**
+
+- `Case testExpression
+    Case value1
+        statements
+    Case value2`
+- `value3
+        statements
+    Case Else
+        statements
+End Select`
+
+**Description**
+
+Evaluates an expression and branches to the matching Case block. Supports ranges (1 To 5), comparison (Is > 10), and comma-separated lists.
+
+**Example**
+
+```vb
+Select Case score
+    Case 100
+        Print "Perfect!"
+    Case 80 To 99
+        Print "Great!"
+    Case Is >= 50
+        Print "Passed"
+    Case Else
+        Print "Try again"
+End Select
+```
+
+**See Also** — [If](#if), [Then](#then), [Else](#else), [ElseIf](#elseif), [End If](#end-if), [IIf](#iif), [Select](#select), [Case](#case), [End Select](#end-select)
+
+---
+
+## Sensor.Accel
+
+**Purpose** — Returns the accelerometer reading.
+
+**Syntax**
+
+```vb
+Sensor.Accel() As Vector3
+```
+
+**Description**
+
+Returns the accelerometer reading. In game units, ~1.0 G on the Y axis when the phone is upright. Includes gravity.
+
+**Example**
+
+```vb
+Dim a = Sensor.Accel()
+If a.Length() > 2.0 Then Print "Shake detected!"
+```
+
+**See Also** — [Sensor.Units](#sensorunits), [Sensor.Gyro](#sensorgyro), [Sensor.Magnet](#sensormagnet), [Sensor.Magnetometer](#sensormagnetometer), [Sensor.Gravity](#sensorgravity), [Sensor.Tilt](#sensortilt)
+
+---
+
+## Sensor.Gravity
+
+**Purpose** — Returns just the gravity component (low-pass filtered accelerometer).
+
+**Syntax**
+
+```vb
+Sensor.Gravity() As Vector3
+```
+
+**Description**
+
+Returns just the gravity component (low-pass filtered accelerometer). In game units = Gs.
+
+**Example**
+
+```vb
+' Use as level reference
+Dim down = Sensor.Gravity().Normalized()
+```
+
+**See Also** — [Sensor.Units](#sensorunits), [Sensor.Accel](#sensoraccel), [Sensor.Gyro](#sensorgyro), [Sensor.Magnet](#sensormagnet), [Sensor.Magnetometer](#sensormagnetometer), [Sensor.Tilt](#sensortilt)
+
+---
+
+## Sensor.Gyro
+
+**Purpose** — Returns the gyroscope reading — angular velocity.
+
+**Syntax**
+
+```vb
+Sensor.Gyro() As Vector3
+```
+
+**Description**
+
+Returns the gyroscope reading — angular velocity. In game units = degrees/sec.
+
+**Example**
+
+```vb
+Dim g = Sensor.Gyro()
+If Abs(g.y) > 90 Then Print "Fast spin!"
+```
+
+**See Also** — [Sensor.Units](#sensorunits), [Sensor.Accel](#sensoraccel), [Sensor.Magnet](#sensormagnet), [Sensor.Magnetometer](#sensormagnetometer), [Sensor.Gravity](#sensorgravity), [Sensor.Tilt](#sensortilt)
+
+---
+
+## Sensor.Magnet
+
+**Purpose** — Returns the magnetometer reading in µT (microtesla).
+
+**Syntax**
+
+```vb
+Sensor.Magnet() As Vector3
+```
+
+**Description**
+
+Returns the magnetometer reading in µT (microtesla). Useful for compass apps.
+
+**Example**
+
+```vb
+Dim m = Sensor.Magnet()
+Dim heading = Atan2(m.y, m.x) * 57.2958
+```
+
+**See Also** — [Sensor.Units](#sensorunits), [Sensor.Accel](#sensoraccel), [Sensor.Gyro](#sensorgyro), [Sensor.Magnetometer](#sensormagnetometer), [Sensor.Gravity](#sensorgravity), [Sensor.Tilt](#sensortilt)
+
+---
+
+## Sensor.Magnetometer
+
+**Purpose** — Alias of Sensor.Magnet — returns the device magnetometer reading (µT).
+
+**Syntax**
+
+```vb
+Sensor.Magnetometer() As Vector3
+```
+
+**Description**
+
+Alias of Sensor.Magnet — returns the device magnetometer reading (µT). Provided for naming consistency with platform docs.
+
+**Example**
+
+```vb
+Dim compass = Sensor.Magnetometer()
+```
+
+**See Also** — [Sensor.Units](#sensorunits), [Sensor.Accel](#sensoraccel), [Sensor.Gyro](#sensorgyro), [Sensor.Magnet](#sensormagnet), [Sensor.Gravity](#sensorgravity), [Sensor.Tilt](#sensortilt)
+
+---
+
+## Sensor.Tilt
+
+**Purpose** — Returns device tilt in degrees (rotation around vertical axis).
+
+**Syntax**
+
+```vb
+Sensor.Tilt() As Double
+```
+
+**Description**
+
+Returns device tilt in degrees (rotation around vertical axis). 0 = phone upright, ±90 = phone flat on its side.
+
+**Example**
+
+```vb
+player.Velocity.x = Sensor.Tilt() * 10   ' tilt-to-steer
+```
+
+**See Also** — [Sensor.Units](#sensorunits), [Sensor.Accel](#sensoraccel), [Sensor.Gyro](#sensorgyro), [Sensor.Magnet](#sensormagnet), [Sensor.Magnetometer](#sensormagnetometer), [Sensor.Gravity](#sensorgravity)
+
+---
+
+## Sensor.Units
+
+**Purpose** — Sets the unit system for subsequent Sensor reads.
+
+**Syntax**
+
+```vb
+Sensor.Units(system)
+```
+
+**Parameters**
+
+- `system`
+
+**Description**
+
+Sets the unit system for subsequent Sensor reads. "game" (default) = Gs and degrees/sec. "metric" = m/s² and rad/sec.
+
+**Example**
+
+```vb
+Sensor.Units "game"     ' default, easy mode
+Sensor.Units "metric"   ' physics-accurate
+```
+
+**See Also** — [Sensor.Accel](#sensoraccel), [Sensor.Gyro](#sensorgyro), [Sensor.Magnet](#sensormagnet), [Sensor.Magnetometer](#sensormagnetometer), [Sensor.Gravity](#sensorgravity), [Sensor.Tilt](#sensortilt)
+
+---
+
+## Set
+
+**Purpose** — Assigns an object reference to a variable.
+
+**Syntax**
+
+```vb
+Set objectVariable = objectExpression
+Set objectVariable = New ClassName
+```
+
+**Parameters**
+
+- `objectVariable = objectExpression
+Set objectVariable = New ClassName`
+
+**Description**
+
+Assigns an object reference to a variable. Required for object types (not needed for simple types).
+
+**Example**
+
+```vb
+Dim player As Object
+Set player = New Player
+Set player = Nothing  ' Release reference
+```
+
+**See Also** — [Class](#class), [End Class](#end-class), [New](#new), [Me](#me), [Implements](#implements), [Inherits](#inherits), [Interface](#interface), [Property](#property)
+
+---
+
+## set_process
+
+**Purpose** — Enables or disables [b]_Process[/b] for this node.
+
+**Syntax**
+
+```vb
+set_process(enable As Boolean)
+```
+
+**Parameters**
+
+- `enable`
+
+**Description**
+
+Enables or disables [b]_Process[/b] for this node.
+
+**Example**
+
+```vb
+set_process(False)   ' pause processing
+set_process(True)    ' resume
+```
+
+**Godot Mapping** — [`Node.set_process()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-set_process)
+
+---
+
+## SetDrawTransform
+
+**Purpose** — Sets a 2D transform for all subsequent draw calls.
+
+**Syntax**
+
+```vb
+SetDrawTransform x, y [, rotation] [, scaleX] [, scaleY]
+```
+
+**Parameters**
+
+- `x`
+- `y`
+- `rotation`
+- `scaleX`
+- `scaleY`
+
+**Description**
+
+Sets a 2D transform for all subsequent draw calls. Translation (x,y), rotation in radians, and scale factors. Use to draw rotated or scaled groups of shapes.
+
+**Example**
+
+```vb
+Sub _Draw()
+    ' Draw a rotated square
+    SetDrawTransform 200, 200, 0.785  ' 45 degrees
+    DrawRect -25, -25, 50, 50, Color.Red
+    ResetDrawTransform
+
+    ' Draw scaled UI
+    SetDrawTransform 0, 0, 0, 2.0, 2.0  ' 2x scale
+    DrawRect 0, 0, 50, 50, Color.Blue    ' Appears as 100x100
+    ResetDrawTransform
+End Sub
+```
+
+**See Also** — [ResetDrawTransform](#resetdrawtransform)
+
+---
+
+## SetImagePixel
+
+**Purpose** — Sets a pixel color on an Image object.
+
+**Syntax**
+
+```vb
+SetImagePixel image, x, y, color
+```
+
+**Parameters**
+
+- `image`
+- `x`
+- `y`
+- `color`
+
+**Description**
+
+Sets a pixel color on an Image object. After modifying pixels, call UpdateTexture to push changes to the display texture. Use Color() or Color8() to create the color value.
+
+**Example**
+
+```vb
+Dim img = CreateImage(100, 100)
+Dim tex = CreateTexture(img)
+
+' Draw a red diagonal line
+For i = 0 To 99
+    SetImagePixel img, i, i, Color(1, 0, 0, 1)
+Next
+UpdateTexture tex, img  ' Push changes to GPU
+
+' Using Color8 (0-255 range)
+SetImagePixel img, 50, 50, Color8(0, 255, 0, 255)
+```
+
+**See Also** — [CreateImage](#createimage), [FillImage](#fillimage), [FillImageRect](#fillimagerect), [GetImagePixel](#getimagepixel), [BlitImage](#blitimage), [ImageWidth](#imagewidth), [ImageHeight](#imageheight)
+
+---
+
+## Shader.Get
+
+**Purpose** — Alias of Shader.GetParam — reads a shader uniform.
+
+**Syntax**
+
+```vb
+Shader.Get(material, key) As Variant
+```
+
+**Parameters**
+
+- `material`
+- `key`
+
+**Description**
+
+Alias of Shader.GetParam — reads a shader uniform.
+
+**Example**
+
+```vb
+Print Shader.Get(sprite.Material, "hit_flash")
+```
+
+**See Also** — [Material.New](#materialnew), [Material.SetShader](#materialsetshader), [Shader.Param](#shaderparam), [Shader.GetParam](#shadergetparam), [Shader.Set](#shaderset)
+
+---
+
+## Shader.GetParam
+
+**Purpose** — Reads the current value of a shader uniform.
+
+**Syntax**
+
+```vb
+Shader.GetParam(material, key) As Variant
+```
+
+**Parameters**
+
+- `material`
+- `key`
+
+**Description**
+
+Reads the current value of a shader uniform.
+
+**Example**
+
+```vb
+Print Shader.GetParam(sprite.Material, "glow")
+```
+
+**See Also** — [Material.New](#materialnew), [Material.SetShader](#materialsetshader), [Shader.Param](#shaderparam), [Shader.Set](#shaderset), [Shader.Get](#shaderget)
+
+---
+
+## Shader.Param
+
+**Purpose** — Sets a shader uniform on a ShaderMaterial.
+
+**Syntax**
+
+```vb
+Shader.Param(material, key, value)
+```
+
+**Parameters**
+
+- `material`
+- `key`
+- `value`
+
+**Description**
+
+Sets a shader uniform on a ShaderMaterial.
+
+**Example**
+
+```vb
+Shader.Param sprite.Material, "glow", 1.5
+```
+
+**See Also** — [Material.New](#materialnew), [Material.SetShader](#materialsetshader), [Shader.GetParam](#shadergetparam), [Shader.Set](#shaderset), [Shader.Get](#shaderget)
+
+---
+
+## Shader.Set
+
+**Purpose** — Alias of Shader.Param — sets a shader uniform.
+
+**Syntax**
+
+```vb
+Shader.Set(material, key, value)
+```
+
+**Parameters**
+
+- `material`
+- `key`
+- `value`
+
+**Description**
+
+Alias of Shader.Param — sets a shader uniform. Use whichever name reads better in your code.
+
+**Example**
+
+```vb
+Shader.Set sprite.Material, "hit_flash", 1.0
+```
+
+**See Also** — [Material.New](#materialnew), [Material.SetShader](#materialsetshader), [Shader.Param](#shaderparam), [Shader.GetParam](#shadergetparam), [Shader.Get](#shaderget)
+
+---
+
+## show
+
+**Purpose** — Makes this node visible.
+
+**Syntax**
+
+```vb
+show()
+```
+
+**Description**
+
+Makes this node visible. Equivalent to setting [b]visible = True[/b].
+
+**Example**
+
+```vb
+show   ' make visible
+```
+
+**Godot Mapping** — [`CanvasItem.show()`](https://docs.godotengine.org/en/stable/classes/class_canvasitem.html#class-canvasitem-method-show)
+
+**See Also** — [visible](#visible), [hide](#hide), [modulate](#modulate)
+
+---
+
+## Sin
+
+**Purpose** — Returns the sine of an angle (in radians).
+
+**Syntax**
+
+```vb
+Sin(angle)
+```
+
+**Parameters**
+
+- `angle`
+
+**Description**
+
+Returns the sine of an angle (in radians).
+
+**Example**
+
+```vb
+Dim y As Single = Sin(3.14159 / 2)  ' 1.0
+' Oscillating motion
+y = Sin(time * 2.0) * amplitude
+```
+
+**See Also** — [Cos](#cos)
+
+---
+
+## Single
+
+**Purpose** — A single-precision floating-point number (32-bit).
+
+**Syntax**
+
+```vb
+Dim varName As Single
+```
+
+**Parameters**
+
+- `varName`
+
+**Description**
+
+A single-precision floating-point number (32-bit). Use for positions, speeds, etc.
+
+**Example**
+
+```vb
+Dim speed As Single = 5.5
+Dim gravity As Single = 9.8
+```
+
+**See Also** — [Integer](#integer), [Long](#long), [Double](#double), [String](#string), [Boolean](#boolean), [Variant](#variant), [Array](#array)
+
+---
+
+## Skeleton.Count
+
+**Purpose** — Returns the number of bones in the skeleton.
+
+**Syntax**
+
+```vb
+Skeleton.Count(skeleton) As Long
+```
+
+**Parameters**
+
+- `skeleton`
+
+**Description**
+
+Returns the number of bones in the skeleton.
+
+**Example**
+
+```vb
+For i = 0 To Skeleton.Count(skel) - 1
+    Print Skeleton.Name(skel, i)
+Next
+```
+
+**See Also** — [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
+
+---
+
+## Skeleton.Name
+
+**Purpose** — Returns the name of the bone at the given index.
+
+**Syntax**
+
+```vb
+Skeleton.Name(skeleton, idx) As String
+```
+
+**Parameters**
+
+- `skeleton`
+- `idx`
+
+**Description**
+
+Returns the name of the bone at the given index.
+
+**Example**
+
+```vb
+Print Skeleton.Name(skel, 0)
+```
+
+**See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
+
+---
+
+## Skeleton.Reset
+
+**Purpose** — Resets all bones back to their rest pose.
+
+**Syntax**
+
+```vb
+Skeleton.Reset(skeleton)
+```
+
+**Parameters**
+
+- `skeleton`
+
+**Description**
+
+Resets all bones back to their rest pose.
+
+**Example**
+
+```vb
+Skeleton.Reset character
+```
+
+**See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
+
+---
+
+## Slerp
+
+**Purpose** — Spherical interpolation.
+
+**Syntax**
+
+```vb
+Slerp(a, b, t)
+```
+
+**Parameters**
+
+- `a`
+- `b`
+- `t`
+
+**Description**
+
+Spherical interpolation. Smoothly blends between two Quaternions, Vector3s, or Vector2s by factor t (0..1). Like Lerp but preserves length/rotation rate — use for camera orbits, rotation interpolation, smooth aim.
+
+**Example**
+
+```vb
+' Rotate halfway from current to target
+player.quaternion = Slerp(player.quaternion, targetRot, 0.1)
+
+' Smooth aim direction
+aim = Slerp(aim, desiredAim, 0.2)
+```
+
+**See Also** — [Quaternion](#quaternion), [QuaternionFromEuler](#quaternionfromeuler), [Basis](#basis), [Transform2D](#transform2d), [Transform3D](#transform3d), [Plane](#plane), [AABB](#aabb)
+
+---
+
+## Sound.IsPlaying
+
+**Purpose** — Returns True if the sound is currently playing.
+
+**Syntax**
+
+```vb
+Sound.IsPlaying(h) As Boolean
+```
+
+**Parameters**
+
+- `h`
+
+**Description**
+
+Returns True if the sound is currently playing.
+
+**Example**
+
+```vb
+If Not Sound.IsPlaying(music) Then
+    music = Sound.Play("res://song.ogg")
+End If
+```
+
+**See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.Position](#soundposition)
+
+---
+
+## Sound.Pause
+
+**Purpose** — Pauses a sound without stopping it.
+
+**Syntax**
+
+```vb
+Sound.Pause(h)
+```
+
+**Parameters**
+
+- `h`
+
+**Description**
+
+Pauses a sound without stopping it. Resume with Sound.Resume(h).
+
+**Example**
+
+```vb
+Sound.Pause music
+```
+
+**See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
+
+---
+
+## Sound.Pitch
+
+**Purpose** — Changes playback speed/pitch of a sound.
+
+**Syntax**
+
+```vb
+Sound.Pitch(scale, h)
+```
+
+**Parameters**
+
+- `scale`
+- `h`
+
+**Description**
+
+Changes playback speed/pitch of a sound. 1.0 = normal, 2.0 = double speed (one octave up), 0.5 = half speed (one octave down).
+
+**Example**
+
+```vb
+Sound.Pitch 1.2, music   ' slightly faster/higher
+```
+
+**See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
+
+---
+
+## Sound.Play
+
+**Purpose** — Plays a sound and returns a handle (Integer).
+
+**Syntax**
+
+```vb
+Sound.Play(path [, busName]) As Long
+```
+
+**Parameters**
+
+- `path`
+- `busName`
+
+**Description**
+
+Plays a sound and returns a handle (Integer). Save the handle if you want to stop, pause, change volume, or seek the sound later. Optional busName routes the sound through a named speaker/bus (default "Master").
+
+**Example**
+
+```vb
+' Fire and forget
+Sound.Play "res://blast.wav"
+
+' Keep a handle to control it later
+Dim music = Sound.Play("res://song.ogg", "Music")
+Sound.Volume 60, music
+```
+
+**See Also** — [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
+
+---
+
+## Sound.Position
+
+**Purpose** — Returns the current playback position in seconds.
+
+**Syntax**
+
+```vb
+Sound.Position(h) As Double
+```
+
+**Parameters**
+
+- `h`
+
+**Description**
+
+Returns the current playback position in seconds.
+
+**Example**
+
+```vb
+Dim t = Sound.Position(music)
+Print "At " & Round(t, 1) & " seconds"
+```
+
+**See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying)
+
+---
+
+## Sound.Resume
+
+**Purpose** — Resumes a paused sound from where it left off.
+
+**Syntax**
+
+```vb
+Sound.Resume(h)
+```
+
+**Parameters**
+
+- `h`
+
+**Description**
+
+Resumes a paused sound from where it left off.
+
+**Example**
+
+```vb
+Sound.Resume music
+```
+
+**See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
+
+---
+
+## Sound.Seek
+
+**Purpose** — Jumps to a position (in seconds) inside a playing sound.
+
+**Syntax**
+
+```vb
+Sound.Seek(h, seconds)
+```
+
+**Parameters**
+
+- `h`
+- `seconds`
+
+**Description**
+
+Jumps to a position (in seconds) inside a playing sound. Useful for skipping intros or implementing scrub bars.
+
+**Example**
+
+```vb
+Sound.Seek music, 30.0   ' jump to 30 seconds in
+```
+
+**See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
+
+---
+
+## Sound.Stop
+
+**Purpose** — Stops a sound that was started with Sound.Play and frees it.
+
+**Syntax**
+
+```vb
+Sound.Stop(h)
+```
+
+**Parameters**
+
+- `h`
+
+**Description**
+
+Stops a sound that was started with Sound.Play and frees it.
+
+**Example**
+
+```vb
+Sound.Stop music
+```
+
+**See Also** — [Sound.Play](#soundplay), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
+
+---
+
+## Sound.Volume
+
+**Purpose** — Sets volume in percent (0..100).
+
+**Syntax**
+
+```vb
+Sound.Volume(pct [, h])
+```
+
+**Parameters**
+
+- `pct`
+- `h`
+
+**Description**
+
+Sets volume in percent (0..100). With a handle, changes that one sound. Without a handle, sets the master speaker volume — the global volume knob.
+
+**Example**
+
+```vb
+Sound.Volume 75           ' master at 75%
+Sound.Volume 50, music    ' just this song at 50%
+```
+
+**See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
+
+---
+
+## Speaker.Bus
+
+**Purpose** — Alias of the Speaker namespace — same verbs (Volume, Mute, Solo, etc.) just spelled `Speaker.Bus.Volume`.
+
+**Syntax**
+
+```vb
+Speaker.Bus
+```
+
+**Description**
+
+Alias of the Speaker namespace — same verbs (Volume, Mute, Solo, etc.) just spelled `Speaker.Bus.Volume`. Provided for readers who think "bus" first.
+
+**Example**
+
+```vb
+Speaker.Bus.Volume "Master", 75
+```
+
+**See Also** — [Speaker.Volume](#speakervolume), [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Name](#speakername)
+
+---
+
+## Speaker.Count
+
+**Purpose** — Returns the number of configured speakers/buses.
+
+**Syntax**
+
+```vb
+Speaker.Count() As Integer
+```
+
+**Description**
+
+Returns the number of configured speakers/buses.
+
+**Example**
+
+```vb
+For i = 0 To Speaker.Count() - 1
+    Print Speaker.Name(i)
+Next
+```
+
+**See Also** — [Speaker.Volume](#speakervolume), [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Name](#speakername), [Speaker.Bus](#speakerbus)
+
+---
+
+## Speaker.Exists
+
+**Purpose** — Returns True if a speaker with this name exists in Project Settings → Audio → Buses.
+
+**Syntax**
+
+```vb
+Speaker.Exists(name) As Boolean
+```
+
+**Parameters**
+
+- `name`
+
+**Description**
+
+Returns True if a speaker with this name exists in Project Settings → Audio → Buses.
+
+**Example**
+
+```vb
+If Speaker.Exists("Music") Then
+    Speaker.Volume "Music", 50
+End If
+```
+
+**See Also** — [Speaker.Volume](#speakervolume), [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Count](#speakercount), [Speaker.Name](#speakername), [Speaker.Bus](#speakerbus)
+
+---
+
+## Speaker.IsMuted
+
+**Purpose** — Returns True if the named speaker is currently muted.
+
+**Syntax**
+
+```vb
+Speaker.IsMuted(name) As Boolean
+```
+
+**Parameters**
+
+- `name`
+
+**Description**
+
+Returns True if the named speaker is currently muted.
+
+**Example**
+
+```vb
+If Speaker.IsMuted("Master") Then
+    Print "Audio is off"
+End If
+```
+
+**See Also** — [Speaker.Volume](#speakervolume), [Speaker.Mute](#speakermute), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Name](#speakername), [Speaker.Bus](#speakerbus)
+
+---
+
+## Speaker.Mute
+
+**Purpose** — Mutes or unmutes a speaker.
+
+**Syntax**
+
+```vb
+Speaker.Mute(name, muted)
+```
+
+**Parameters**
+
+- `name`
+- `muted`
+
+**Description**
+
+Mutes or unmutes a speaker. Pass True to mute, False to unmute.
+
+**Example**
+
+```vb
+Speaker.Mute "Music", True     ' silence music
+Speaker.Mute "Music", False    ' unmute
+```
+
+**See Also** — [Speaker.Volume](#speakervolume), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Name](#speakername), [Speaker.Bus](#speakerbus)
+
+---
+
+## Speaker.Name
+
+**Purpose** — Returns the name of the speaker at the given index (0-based).
+
+**Syntax**
+
+```vb
+Speaker.Name(index) As String
+```
+
+**Parameters**
+
+- `index`
+
+**Description**
+
+Returns the name of the speaker at the given index (0-based).
+
+**Example**
+
+```vb
+Print Speaker.Name(0)   ' usually "Master"
+```
+
+**See Also** — [Speaker.Volume](#speakervolume), [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Bus](#speakerbus)
+
+---
+
+## Speaker.Solo
+
+**Purpose** — Solos a speaker so only it is audible (others silent).
+
+**Syntax**
+
+```vb
+Speaker.Solo(name, soloed)
+```
+
+**Parameters**
+
+- `name`
+- `soloed`
+
+**Description**
+
+Solos a speaker so only it is audible (others silent). Pass False to unsolo.
+
+**Example**
+
+```vb
+Speaker.Solo "SFX", True   ' only sound effects audible
+```
+
+**See Also** — [Speaker.Volume](#speakervolume), [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Name](#speakername), [Speaker.Bus](#speakerbus)
+
+---
+
+## Speaker.Volume
+
+**Purpose** — Get or set a speaker's volume in percent (0..100).
+
+**Syntax**
+
+```vb
+Speaker.Volume(name [, pct])
+```
+
+**Parameters**
+
+- `name`
+- `pct`
+
+**Description**
+
+Get or set a speaker's volume in percent (0..100). With one argument, returns current volume. With two, sets it. Works on any bus defined in Project Settings → Audio.
+
+**Example**
+
+```vb
+' Build a music slider
+Speaker.Volume "Music", musicSlider.Value
+
+' Read current
+lbl.Text = "Music: " & Round(Speaker.Volume("Music")) & "%"
+```
+
+**See Also** — [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Name](#speakername), [Speaker.Bus](#speakerbus)
+
+---
+
+## Spin
+
+**Purpose** — Rotational impulse.
+
+**Syntax**
+
+```vb
+Spin(body, amount)
+```
+
+**Parameters**
+
+- `body`
+- `amount`
+
+**Description**
+
+Rotational impulse. Plain-English alias for Physics.Torque.
+
+**Example**
+
+```vb
+Spin coin, 12.5
+```
+
+**See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull)
+
+---
+
+## Split
+
+**Purpose** — Splits a string into an array of substrings based on a delimiter.
+
+**Syntax**
+
+```vb
+Split(string, delimiter)
+```
+
+**Parameters**
+
+- `string`
+- `delimiter`
+
+**Description**
+
+Splits a string into an array of substrings based on a delimiter.
+
+**Example**
+
+```vb
+Dim parts() As String
+parts = Split("A,B,C", ",")
+Print parts(0)  ' "A"
+Print parts(1)  ' "B"
+```
+
+**See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Join](#join), [Format](#format)
+
+---
+
+## Sqr
+
+**Purpose** — Returns the square root of a number.
+
+**Syntax**
+
+```vb
+Sqr(number)
+```
+
+**Parameters**
+
+- `number`
+
+**Description**
+
+Returns the square root of a number.
+
+**Example**
+
+```vb
+Print Sqr(16)   ' 4
+Print Sqr(2.0)  ' 1.41421...
+```
+
+**See Also** — [Abs](#abs), [Int](#int), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod)
+
+---
+
+## Static
+
+**Purpose** — Declares a variable that retains its value between procedure calls.
+
+**Syntax**
+
+```vb
+Static variableName As DataType
+```
+
+**Parameters**
+
+- `variableName`
+
+**Description**
+
+Declares a variable that retains its value between procedure calls. Unlike Dim, static variables are not reset when the procedure exits.
+
+**Example**
+
+```vb
+Sub CountCalls()
+    Static callCount As Integer
+    callCount = callCount + 1
+    Print "Called " & callCount & " times"
+End Sub
+```
+
+**See Also** — [Dim](#dim), [Private](#private), [Public](#public), [Global](#global), [Const](#const), [ReDim](#redim), [Type](#type)
+
+---
+
+## Steps.Reset
+
+**Purpose** — Resets the step counter to zero.
+
+**Syntax**
+
+```vb
+Steps.Reset()
+```
+
+**Description**
+
+Resets the step counter to zero. Plugin-dependent.
+
+**Example**
+
+```vb
+Steps.Reset()
+```
+
+**See Also** — [Steps.Today](#stepstoday), [Steps.Total](#stepstotal)
+
+---
+
+## Steps.Today
+
+**Purpose** — Returns step count for today (midnight rollover).
+
+**Syntax**
+
+```vb
+Steps.Today() As Long
+```
+
+**Description**
+
+Returns step count for today (midnight rollover). Stub returns 0.
+
+**Example**
+
+```vb
+goalProgress = Steps.Today() / 10000.0
+```
+
+**See Also** — [Steps.Total](#stepstotal), [Steps.Reset](#stepsreset)
+
+---
+
+## Steps.Total
+
+**Purpose** — Returns total step count since boot (or since plugin install).
+
+**Syntax**
+
+```vb
+Steps.Total() As Long
+```
+
+**Description**
+
+Returns total step count since boot (or since plugin install). Stub returns 0.
+
+**Example**
+
+```vb
+Print "Today you walked " & Steps.Total() & " steps"
+```
+
+**See Also** — [Steps.Today](#stepstoday), [Steps.Reset](#stepsreset)
+
+---
+
+## Str
+
+**Purpose** — Converts a number to its string representation.
+
+**Syntax**
+
+```vb
+Str(number)
+```
+
+**Parameters**
+
+- `number`
+
+**Description**
+
+Converts a number to its string representation.
+
+**Example**
+
+```vb
+Dim s As String = Str(42)  ' " 42" (note leading space)
+Print "Score: " & Str(score)
+```
+
+**See Also** — [CInt](#cint), [CStr](#cstr), [Val](#val), [Int](#int)
+
+---
+
+## String
+
+**Purpose** — A text string of any length.
+
+**Syntax**
+
+```vb
+Dim varName As String [= "text"]
+```
+
+**Parameters**
+
+- `varName`
+
+**Description**
+
+A text string of any length. Concatenate with & or + operator.
+
+**Example**
+
+```vb
+Dim name As String = "Player 1"
+Dim greeting As String
+greeting = "Hello, " & name & "!"
+```
+
+**See Also** — [Integer](#integer), [Long](#long), [Single](#single), [Double](#double), [Boolean](#boolean), [Variant](#variant), [Array](#array)
+
+---
+
+## Sub
+
+**Purpose** — Declares a subroutine — a procedure that performs an action but does not return a value.
+
+**Syntax**
+
+```vb
+[Public|Private] Sub procedureName([parameters])
+    statements
+End Sub
+```
+
+**Parameters**
+
+- `parameters`
+
+**Description**
+
+Declares a subroutine — a procedure that performs an action but does not return a value. Event handlers are Subs named ObjectName_EventName.
+
+**Example**
+
+```vb
+Sub btnStart_Click()
+    StartGame()
+End Sub
+
+Private Sub ResetScore()
+    score = 0
+    UpdateDisplay()
+End Sub
+```
+
+**See Also** — [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda)
+
+---
+
 
 ### T
-- **Tab Order Editor** — [Tab Order Editor](#tab-order-editor)
-- **Task Coordination and Synchronization** — [Task Coordination and Synchronization](#task-coordination-and-synchronization)
-- **Ternary Operator** — [IIf Function (Ternary Operator)](#iif-function-ternary-operator)
-- **Ternary Operator Conversion** — [3. Ternary Operator Conversion](#3-ternary-operator-conversion)
-- **The VisualGasic IDE** — [The VisualGasic IDE](#the-visualgasic-ide)
-- **Thread-Safe Reactive Programming** — [Thread-Safe Reactive Programming](#thread-safe-reactive-programming)
-- **Toolbox Panel** — [Toolbox Panel](#toolbox-panel)
-- **Type Checking Functions** — [Type Checking Functions](#type-checking-functions)
-- **Type Conversion** — [Type Conversion](#type-conversion)
-- **Type Inference** — [Type Inference](#type-inference)
-- **Typed Read** — [Typed Read](#typed-read)
+
+## TextureHeight
+
+**Purpose** — Returns the height of a Texture2D in pixels.
+
+**Syntax**
+
+```vb
+TextureHeight(texture) As Integer
+```
+
+**Parameters**
+
+- `texture`
+
+**Description**
+
+Returns the height of a Texture2D in pixels.
+
+**Example**
+
+```vb
+Dim tex = CreateTexture(256, 128)
+Print TextureWidth(tex)    ' 256
+Print TextureHeight(tex)   ' 128
+```
+
+**See Also** — [ImageToTexture](#imagetotexture), [CreateTexture](#createtexture), [UpdateTexture](#updatetexture), [GetTextureImage](#gettextureimage), [TextureWidth](#texturewidth)
+
+---
+
+## TextureWidth
+
+**Purpose** — Returns the width of a Texture2D in pixels.
+
+**Syntax**
+
+```vb
+TextureWidth(texture) As Integer
+```
+
+**Parameters**
+
+- `texture`
+
+**Description**
+
+Returns the width of a Texture2D in pixels.
+
+**Example**
+
+```vb
+Dim tex = LoadPicture("res://icon.png")
+Print TextureWidth(tex)   ' e.g. 128
+Print TextureHeight(tex)  ' e.g. 128
+```
+
+**See Also** — [ImageToTexture](#imagetotexture), [CreateTexture](#createtexture), [UpdateTexture](#updatetexture), [GetTextureImage](#gettextureimage), [TextureHeight](#textureheight)
+
+---
+
+## Theme.Color
+
+**Purpose** — Reads a theme color override (or falls back to the inherited theme).
+
+**Syntax**
+
+```vb
+Theme.Color(control, key) As Color
+```
+
+**Parameters**
+
+- `control`
+- `key`
+
+**Description**
+
+Reads a theme color override (or falls back to the inherited theme). Common keys: "font_color", "font_disabled_color".
+
+**Example**
+
+```vb
+Print Theme.Color(myLabel, "font_color")
+```
+
+**See Also** — [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
+
+---
+
+## Theme.Constant
+
+**Purpose** — Reads a theme constant (e.g.
+
+**Syntax**
+
+```vb
+Theme.Constant(control, key) As Long
+```
+
+**Parameters**
+
+- `control`
+- `key`
+
+**Description**
+
+Reads a theme constant (e.g. "separation", "margin_left").
+
+**Example**
+
+```vb
+Print Theme.Constant(hbox, "separation")
+```
+
+**See Also** — [Theme.Color](#themecolor), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
+
+---
+
+## Theme.Font
+
+**Purpose** — Reads the font assigned to a control for the given key (e.g.
+
+**Syntax**
+
+```vb
+Theme.Font(control, key) As Font
+```
+
+**Parameters**
+
+- `control`
+- `key`
+
+**Description**
+
+Reads the font assigned to a control for the given key (e.g. "font").
+
+**Example**
+
+```vb
+Dim f = Theme.Font(myLabel, "font")
+```
+
+**See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
+
+---
+
+## Theme.Get
+
+**Purpose** — Generic theme-item reader.
+
+**Syntax**
+
+```vb
+Theme.Get(control, kind, name) As Variant
+```
+
+**Parameters**
+
+- `control`
+- `kind`
+- `name`
+
+**Description**
+
+Generic theme-item reader. `kind` is "color" | "constant" | "font" | "font_size" | "style". Returns the inherited value if the control has no override.
+
+**Example**
+
+```vb
+Dim panelBg = Theme.Get(myPanel, "color", "bg_color")
+```
+
+**See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Set](#themeset)
+
+---
+
+## Theme.Set
+
+**Purpose** — Generic theme-item writer.
+
+**Syntax**
+
+```vb
+Theme.Set(control, kind, name, value)
+```
+
+**Parameters**
+
+- `control`
+- `kind`
+- `name`
+- `value`
+
+**Description**
+
+Generic theme-item writer. Same kind values as Theme.Get. Convenience wrapper around the typed Theme.SetColor / SetConstant / SetFont / SetFontSize / SetStyle verbs.
+
+**Example**
+
+```vb
+Theme.Set lblTitle, "color", "font_color", RGB(255, 200, 0)
+Theme.Set lblTitle, "font_size", "font_size", 32
+```
+
+**See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget)
+
+---
+
+## Theme.SetColor
+
+**Purpose** — Overrides a theme color on a single control.
+
+**Syntax**
+
+```vb
+Theme.SetColor(control, key, color)
+```
+
+**Parameters**
+
+- `control`
+- `key`
+- `color`
+
+**Description**
+
+Overrides a theme color on a single control. Persists until the control is freed.
+
+**Example**
+
+```vb
+Theme.SetColor warningLabel, "font_color", Color.Red
+```
+
+**See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
+
+---
+
+## Theme.SetConstant
+
+**Purpose** — Overrides a theme integer constant (margins, spacings, etc.).
+
+**Syntax**
+
+```vb
+Theme.SetConstant(control, key, value)
+```
+
+**Parameters**
+
+- `control`
+- `key`
+- `value`
+
+**Description**
+
+Overrides a theme integer constant (margins, spacings, etc.).
+
+**Example**
+
+```vb
+Theme.SetConstant hbox, "separation", 20
+```
+
+**See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
+
+---
+
+## Theme.SetFont
+
+**Purpose** — Overrides the font on a single control.
+
+**Syntax**
+
+```vb
+Theme.SetFont(control, key, font)
+```
+
+**Parameters**
+
+- `control`
+- `key`
+- `font`
+
+**Description**
+
+Overrides the font on a single control. font is a Font resource.
+
+**Example**
+
+```vb
+Theme.SetFont titleLabel, "font", myCustomFont
+```
+
+**See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
+
+---
+
+## Theme.SetFontSize
+
+**Purpose** — Overrides the font size for a control.
+
+**Syntax**
+
+```vb
+Theme.SetFontSize(control, key, size)
+```
+
+**Parameters**
+
+- `control`
+- `key`
+- `size`
+
+**Description**
+
+Overrides the font size for a control. key is usually "font_size".
+
+**Example**
+
+```vb
+Theme.SetFontSize titleLabel, "font_size", 48
+```
+
+**See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
+
+---
+
+## Theme.SetStyle
+
+**Purpose** — Overrides a theme StyleBox (backgrounds, borders).
+
+**Syntax**
+
+```vb
+Theme.SetStyle(control, key, stylebox)
+```
+
+**Parameters**
+
+- `control`
+- `key`
+- `stylebox`
+
+**Description**
+
+Overrides a theme StyleBox (backgrounds, borders). Pass a StyleBox resource.
+
+**Example**
+
+```vb
+Theme.SetStyle myPanel, "panel", customStyleBox
+```
+
+**See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.Get](#themeget), [Theme.Set](#themeset)
+
+---
+
+## Then
+
+**Purpose** — Part of the If statement.
+
+**Syntax**
+
+```vb
+If condition Then statements
+```
+
+**Parameters**
+
+- `condition Then statements`
+
+**Description**
+
+Part of the If statement. Follows the condition and precedes the code to execute.
+
+**Example**
+
+```vb
+If health <= 0 Then GameOver()
+If x > 10 Then x = 10
+```
+
+**See Also** — [If](#if), [Else](#else), [ElseIf](#elseif), [End If](#end-if), [Select Case](#select-case), [IIf](#iif)
+
+---
+
+## Throw
+
+**Purpose** — Raises an exception.
+
+**Syntax**
+
+```vb
+Throw exceptionObject
+Throw "error message"
+```
+
+**Parameters**
+
+- `exceptionObject
+Throw "error message"`
+
+**Description**
+
+Raises an exception. Can throw a string message or an Exception object.
+
+**Example**
+
+```vb
+If amount < 0 Then
+    Throw "Amount cannot be negative"
+End If
+
+Sub Validate(age As Integer)
+    If age < 0 Or age > 150 Then Throw "Invalid age: " & age
+End Sub
+```
+
+**See Also** — [On Error](#on-error), [Try](#try), [Catch](#catch), [Finally](#finally)
+
+---
+
+## Transform2D
+
+**Purpose** — 2D transform (rotation + scale + skew + position).
+
+**Syntax**
+
+```vb
+Transform2D() | Transform2D(rotationRad, origin) | Transform2D(rotation, scale, skew, origin)
+```
+
+**Description**
+
+2D transform (rotation + scale + skew + position). Defaults to identity. Useful for positioning Node2D children procedurally. Methods .Translated(v), .Rotated(rad), .Scaled(v), .AffineInverse() return new Transform2Ds.
+
+**Example**
+
+```vb
+Dim t = Transform2D(0.785, Vector2(100, 50))  ' 45 deg, at (100,50)
+Dim t2 = t.Translated(Vector2(10, 0)).Rotated(0.1)
+```
+
+**See Also** — [Quaternion](#quaternion), [QuaternionFromEuler](#quaternionfromeuler), [Basis](#basis), [Transform3D](#transform3d), [Plane](#plane), [AABB](#aabb), [Slerp](#slerp)
+
+---
+
+## Transform3D
+
+**Purpose** — 3D transform combining a Basis (rotation+scale) with an origin Vector3.
+
+**Syntax**
+
+```vb
+Transform3D() | Transform3D(basis, origin)
+```
+
+**Description**
+
+3D transform combining a Basis (rotation+scale) with an origin Vector3. Used for positioning Node3Ds. .LookingAt(target, up) is the easy way to face a point.
+
+**Example**
+
+```vb
+Dim tr = Transform3D(Basis(), Vector3(0, 2, 5))
+cam.transform = tr.LookingAt(player.position, Vector3(0, 1, 0))
+```
+
+**See Also** — [Quaternion](#quaternion), [QuaternionFromEuler](#quaternionfromeuler), [Basis](#basis), [Transform2D](#transform2d), [Plane](#plane), [AABB](#aabb), [Slerp](#slerp)
+
+---
+
+## Trim
+
+**Purpose** — Removes leading and trailing spaces from a string.
+
+**Syntax**
+
+```vb
+Trim(string)
+```
+
+**Parameters**
+
+- `string`
+
+**Description**
+
+Removes leading and trailing spaces from a string.
+
+**Example**
+
+```vb
+Print Trim("  Hello  ")  ' "Hello"
+```
+
+**See Also** — [Left](#left), [Right](#right), [Mid](#mid), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
+
+---
+
+## True
+
+**Purpose** — Boolean literal representing a true/on state.
+
+**Syntax**
+
+```vb
+True
+```
+
+**Description**
+
+Boolean literal representing a true/on state.
+
+**Example**
+
+```vb
+Dim isReady As Boolean = True
+Visible = True
+```
+
+**See Also** — [False](#false), [Nothing](#nothing)
+
+---
+
+## Try
+
+**Purpose** — Structured exception handling.
+
+**Syntax**
+
+```vb
+Try
+    statements
+Catch [ex As Exception]
+    error handling
+[Finally]
+    cleanup
+End Try
+```
+
+**Parameters**
+
+- `statements
+Catch ex As Exception
+    error handling
+Finally
+    cleanup
+End Try`
+
+**Description**
+
+Structured exception handling. Code in Try is protected; if an error occurs, execution jumps to Catch. Finally always executes.
+
+**Example**
+
+```vb
+Try
+    Dim result As Integer = 100 / divisor
+    Print result
+Catch ex As Exception
+    Print "Error: " & ex.Message
+Finally
+    Print "Done"
+End Try
+```
+
+**See Also** — [On Error](#on-error), [Catch](#catch), [Finally](#finally), [Throw](#throw)
+
+---
+
+## Type
+
+**Purpose** — Declares a user-defined type (structure) that groups related variables together.
+
+**Syntax**
+
+```vb
+Type TypeName
+    field1 As DataType
+    field2 As DataType
+End Type
+```
+
+**Parameters**
+
+- `TypeName
+    field1 As DataType
+    field2 As DataType
+End Type`
+
+**Description**
+
+Declares a user-defined type (structure) that groups related variables together.
+
+**Example**
+
+```vb
+Type Vector2D
+    X As Single
+    Y As Single
+End Type
+
+Dim pos As Vector2D
+pos.X = 100
+pos.Y = 200
+```
+
+**See Also** — [Dim](#dim), [Private](#private), [Public](#public), [Global](#global), [Static](#static), [Const](#const), [ReDim](#redim)
+
+---
+
 
 ### U
-- **UNIX Domain Sockets** — [UNIX Domain Sockets](#unix-domain-sockets)
+
+## UBound
+
+**Purpose** — Returns the highest valid index of an array.
+
+**Syntax**
+
+```vb
+UBound(arrayName [, dimension])
+```
+
+**Parameters**
+
+- `arrayName`
+- `dimension`
+
+**Description**
+
+Returns the highest valid index of an array.
+
+**Example**
+
+```vb
+Dim arr(10) As Integer
+Print UBound(arr)  ' 10
+
+For i = 0 To UBound(arr)
+    arr(i) = i * 2
+Next
+```
+
+**See Also** — [Array](#array), [ReDim](#redim), [LBound](#lbound)
+
+---
+
+## UCase
+
+**Purpose** — Converts a string to uppercase.
+
+**Syntax**
+
+```vb
+UCase(string)
+```
+
+**Parameters**
+
+- `string`
+
+**Description**
+
+Converts a string to uppercase.
+
+**Example**
+
+```vb
+Print UCase("hello")  ' "HELLO"
+```
+
+**See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
+
+---
+
+## Until
+
+**Purpose** — Loop continuation condition — the loop repeats until the condition becomes True.
+
+**Syntax**
+
+```vb
+Do ... Loop Until condition
+Do Until condition ... Loop
+```
+
+**Parameters**
+
+- `... Loop Until condition
+Do Until condition ... Loop`
+
+**Description**
+
+Loop continuation condition — the loop repeats until the condition becomes True.
+
+**Example**
+
+```vb
+Do
+    tries = tries + 1
+Loop Until success Or tries > 10
+```
+
+**See Also** — [Do](#do), [Loop](#loop), [While](#while), [Wend](#wend), [Exit](#exit)
+
+---
+
+## UpdateTexture
+
+**Purpose** — Pushes updated Image pixel data to an existing ImageTexture.
+
+**Syntax**
+
+```vb
+UpdateTexture texture, image
+```
+
+**Parameters**
+
+- `texture`
+- `image`
+
+**Description**
+
+Pushes updated Image pixel data to an existing ImageTexture. Call this after modifying pixels with SetImagePixel, FillImage, or BlitImage to make the changes visible on screen. This is an essential step in the Image → Texture rendering pipeline.
+
+**Example**
+
+```vb
+Dim img = CreateImage(320, 240)
+Dim tex = CreateTexture(img)
+
+' Modify pixels
+For x = 0 To 319
+    SetImagePixel img, x, 120, Color.Red
+Next
+
+' IMPORTANT: Push to GPU
+UpdateTexture tex, img
+
+' Now DrawTexture will show the changes
+Sub _Draw()
+    DrawTexture tex, 0, 0
+End Sub
+```
+
+**See Also** — [ImageToTexture](#imagetotexture), [CreateTexture](#createtexture), [GetTextureImage](#gettextureimage), [TextureWidth](#texturewidth), [TextureHeight](#textureheight)
+
+---
+
+## Using
+
+**Purpose** — Ensures a resource is properly disposed/cleaned up when the block exits.
+
+**Syntax**
+
+```vb
+Using resource = expression
+    statements
+End Using
+```
+
+**Parameters**
+
+- `resource = expression
+    statements
+End Using`
+
+**Description**
+
+Ensures a resource is properly disposed/cleaned up when the block exits.
+
+**Example**
+
+```vb
+Using conn = OpenDatabase("game.db")
+    conn.Execute "INSERT INTO scores VALUES(" & score & ")"
+End Using  ' Connection automatically closed
+```
+
+**See Also** — [With](#with), [End With](#end-with)
+
+---
+
 
 ### V
-- **v3.3.0 Language Enhancements** — [v3.3.0 Language Enhancements](#v330-language-enhancements)
-- **v3.5.0-beta4 Language Enhancements** — [v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)
-- **v3.6.0 Language Enhancements** — [v3.6.0 Language Enhancements](#v360-language-enhancements)
-- **v3.7.0 Language Enhancements** — [v3.7.0 Language Enhancements](#v370-language-enhancements)
-- **v3.8.0 Language Enhancements** — [v3.8.0 Language Enhancements](#v380-language-enhancements)
-- **Variable Declaration** — [Variable Declaration](#variable-declaration)
-- **Variables and Data Types** — [Variables and Data Types](#variables-and-data-types)
-- **VB6 Compatibility** — [VB6 Compatibility](#vb6-compatibility)
-- **VB6 Constants** — [VB6 Constants](#vb6-constants)
-- **VB6 Functions** — [VB6 Functions](#vb6-functions)
-- **VB6 Global Objects** — [VB6 Global Objects](#vb6-global-objects)
-- **VB6 Intrinsic Constants** — [VB6 Intrinsic Constants](#vb6-intrinsic-constants)
-- **VB6 Menu Support** — [VB6 Menu Support](#vb6-menu-support)
-- **Vector Math Functions** — [Vector Math Functions](#vector-math-functions)
-- **VGAndroidBridge** — [VGAndroidBridge (Android Platform)](#vgandroidbridge-android-platform)
-- **VGCollection** — [VGCollection](#vgcollection)
-- **VGCrypto** — [VGCrypto (Cryptography)](#vgcrypto-cryptography)
-- **VGFilePermissions** — [VGFilePermissions (Permissions & Links)](#vgfilepermissions-permissions--links)
-- **VGHttpRequest** — [VGHttpRequest](#vghttprequest)
-- **VGIPC** — [VGIPC (Inter-Process Communication)](#vgipc-inter-process-communication)
-- **VGMemoryBuffer** — [VGMemoryBuffer (Raw Memory)](#vgmemorybuffer-raw-memory)
-- **VGOdbc** — [VGOdbc (Database)](#vgodbc-database)
-- **VGRegEx** — [VGRegEx](#vgregex)
-- **VGSignalHandler** — [VGSignalHandler (OS Signals)](#vgsignalhandler-os-signals)
-- **VGSystem** — [VGSystem (System Info)](#vgsystem-system-info)
-- **VGTask** — [VGTask (Async Tasks)](#vgtask-async-tasks)
-- **VGTaskRunner** — [VGTaskRunner (Parallel)](#vgtaskrunner-parallel)
-- **VGTimer** — [VGTimer](#vgtimer)
-- **VGXml** — [VGXml (XML Processing)](#vgxml-xml-processing)
-- **VGZip** — [VGZip (ZIP Archives)](#vgzip-zip-archives)
-- **Visual Basic Heritage** — [Visual Basic Heritage](#visual-basic-heritage)
-- **Visual Gasic IDE** — [Visual Gasic IDE](#visual-gasic-ide)
-- **VisualGasicPackage** — [VisualGasicPackage (Package Manager)](#visualgasicpackage-package-manager)
+
+## Val
+
+**Purpose** — Converts the numeric portion of a string to a number.
+
+**Syntax**
+
+```vb
+Val(string)
+```
+
+**Parameters**
+
+- `string`
+
+**Description**
+
+Converts the numeric portion of a string to a number.
+
+**Example**
+
+```vb
+Dim n As Integer = Val("42 cats")  ' 42
+Dim d As Double = Val("3.14")      ' 3.14
+```
+
+**See Also** — [CInt](#cint), [CStr](#cstr), [Str](#str), [Int](#int)
+
+---
+
+## Variant
+
+**Purpose** — A flexible type that can hold any value — integer, string, object, array, etc.
+
+**Syntax**
+
+```vb
+Dim varName As Variant
+Dim varName  ' Also Variant by default
+```
+
+**Parameters**
+
+- `varName As Variant
+Dim varName  ' Also Variant by default`
+
+**Description**
+
+A flexible type that can hold any value — integer, string, object, array, etc. Default type when no As clause is given.
+
+**Example**
+
+```vb
+Dim value As Variant
+value = 42
+value = "Hello"
+value = True
+```
+
+**See Also** — [Integer](#integer), [Long](#long), [Single](#single), [Double](#double), [String](#string), [Boolean](#boolean), [Array](#array)
+
+---
+
+## Vibrate
+
+**Purpose** — Vibrates the device for the given milliseconds.
+
+**Syntax**
+
+```vb
+Vibrate ms [, amplitude]
+```
+
+**Parameters**
+
+- `ms`
+- `amplitude`
+
+**Description**
+
+Vibrates the device for the given milliseconds. Amplitude is 0.0–1.0 (default = full). No-op on desktop.
+
+**Example**
+
+```vb
+Vibrate 100           ' short buzz
+Vibrate 500, 0.3      ' half-second gentle
+```
+
+---
+
+## Video.IsPlaying
+
+**Purpose** — Returns True if the video is currently playing.
+
+**Syntax**
+
+```vb
+Video.IsPlaying(player) As Boolean
+```
+
+**Parameters**
+
+- `player`
+
+**Description**
+
+Returns True if the video is currently playing.
+
+**Example**
+
+```vb
+If Not Video.IsPlaying(introVid) Then ShowMenu()
+```
+
+**See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.Volume](#videovolume)
+
+---
+
+## Video.Length
+
+**Purpose** — Returns video length in seconds.
+
+**Syntax**
+
+```vb
+Video.Length(player) As Double
+```
+
+**Parameters**
+
+- `player`
+
+**Description**
+
+Returns video length in seconds. Returns 0 if the stream doesn't report a length.
+
+**Example**
+
+```vb
+Print "Duration: " & Video.Length(introVid)
+```
+
+**See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
+
+---
+
+## Video.Pause
+
+**Purpose** — Pauses without resetting position.
+
+**Syntax**
+
+```vb
+Video.Pause(player)
+```
+
+**Parameters**
+
+- `player`
+
+**Description**
+
+Pauses without resetting position. Resume with Video.Resume.
+
+**Example**
+
+```vb
+Video.Pause introVid
+```
+
+**See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
+
+---
+
+## Video.Play
+
+**Purpose** — Starts video playback.
+
+**Syntax**
+
+```vb
+Video.Play(player)
+```
+
+**Parameters**
+
+- `player`
+
+**Description**
+
+Starts video playback.
+
+**Example**
+
+```vb
+Video.Play introVid
+```
+
+**See Also** — [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
+
+---
+
+## Video.Position
+
+**Purpose** — Returns current playback position in seconds.
+
+**Syntax**
+
+```vb
+Video.Position(player) As Double
+```
+
+**Parameters**
+
+- `player`
+
+**Description**
+
+Returns current playback position in seconds.
+
+**Example**
+
+```vb
+Print Video.Position(introVid)
+```
+
+**See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
+
+---
+
+## Video.Resume
+
+**Purpose** — Resumes a paused video.
+
+**Syntax**
+
+```vb
+Video.Resume(player)
+```
+
+**Parameters**
+
+- `player`
+
+**Description**
+
+Resumes a paused video.
+
+**Example**
+
+```vb
+Video.Resume introVid
+```
+
+**See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
+
+---
+
+## Video.Seek
+
+**Purpose** — Jumps to a specific time in the video.
+
+**Syntax**
+
+```vb
+Video.Seek(player, seconds)
+```
+
+**Parameters**
+
+- `player`
+- `seconds`
+
+**Description**
+
+Jumps to a specific time in the video.
+
+**Example**
+
+```vb
+Video.Seek introVid, 30
+```
+
+**See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
+
+---
+
+## Video.Stop
+
+**Purpose** — Stops playback and resets position to 0.
+
+**Syntax**
+
+```vb
+Video.Stop(player)
+```
+
+**Parameters**
+
+- `player`
+
+**Description**
+
+Stops playback and resets position to 0.
+
+**Example**
+
+```vb
+Video.Stop introVid
+```
+
+**See Also** — [Video.Play](#videoplay), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
+
+---
+
+## Video.Volume
+
+**Purpose** — Sets video audio volume (0-100%).
+
+**Syntax**
+
+```vb
+Video.Volume(player, percent)
+```
+
+**Parameters**
+
+- `player`
+- `percent`
+
+**Description**
+
+Sets video audio volume (0-100%). Same percent system as Speaker.Volume.
+
+**Example**
+
+```vb
+Video.Volume introVid, 75
+```
+
+**See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying)
+
+---
+
 
 ### W
-- **What is BASIC?** — [What is BASIC?](#what-is-basic)
-- **Whenever System** — [Reactive Programming (Whenever System)](#reactive-programming-whenever-system)
-- **While-Wend Loop** — [While-Wend Loop](#while-wend-loop)
-- **Why DATA Statements?** — [Why DATA Statements?](#why-data-statements)
-- **Windows** — [Real COM Interop (Windows)](#real-com-interop-windows)
-- **WithEvents** — [WithEvents — Automatic Event Wiring](#withevents-automatic-event-wiring)
-- **WithEvents / RaiseEvent** — [WithEvents / RaiseEvent](#withevents--raiseevent)
 
-### Y
-- **Your First Script** — [Your First Script](#your-first-script)
+## Wend
+
+**Purpose** — Terminates a While loop (legacy syntax).
+
+**Syntax**
+
+```vb
+Wend
+```
+
+**Description**
+
+Terminates a While loop (legacy syntax).
+
+**Example**
+
+```vb
+While x < 100
+    x = x + 1
+Wend
+```
+
+**See Also** — [Do](#do), [Loop](#loop), [While](#while), [Until](#until), [Exit](#exit)
+
+---
+
+## Whenever
+
+**Purpose** — Reactive programming — automatically triggers code when a monitored condition changes.
+
+**Syntax**
+
+```vb
+Whenever condition [Changes|Becomes|Exceeds|Below value]
+    statements
+End Whenever
+```
+
+**Parameters**
+
+- `condition Changes|Becomes|Exceeds|Below value
+    statements
+End Whenever`
+
+**Description**
+
+Reactive programming — automatically triggers code when a monitored condition changes.
+
+**Example**
+
+```vb
+Whenever health Below 20
+    lblWarning.Visible = True
+    lblWarning.Caption = "Low Health!"
+End Whenever
+
+Whenever score Changes
+    lblScore.Caption = "Score: " & score
+End Whenever
+```
+
+---
+
+## While
+
+**Purpose** — Repeats a block as long as the condition is True.
+
+**Syntax**
+
+```vb
+While condition
+    statements
+Wend
+```
+
+**Parameters**
+
+- `condition
+    statements
+Wend`
+
+**Description**
+
+Repeats a block as long as the condition is True. Legacy syntax; prefer Do...Loop for new code.
+
+**Example**
+
+```vb
+While Not gameOver
+    Update()
+    Draw()
+Wend
+```
+
+**See Also** — [Do](#do), [Loop](#loop), [Wend](#wend), [Until](#until), [Exit](#exit)
+
+---
+
+## With
+
+**Purpose** — Executes a series of statements on a single object without repeating the object name.
+
+**Syntax**
+
+```vb
+With objectExpression
+    .Property = value
+    .Method()
+End With
+```
+
+**Description**
+
+Executes a series of statements on a single object without repeating the object name.
+
+**Example**
+
+```vb
+With lblScore
+    .Caption = "Score: " & score
+    .ForeColor = IIf(score > 100, vbRed, vbBlack)
+    .Visible = True
+End With
+```
+
+**See Also** — [End With](#end-with), [Using](#using)
+
+---
+
+## WithEvents
+
+**Purpose** — Declares an object variable that can respond to the object's events through event handler Subs.
+
+**Syntax**
+
+```vb
+Dim WithEvents varName As ClassName
+```
+
+**Parameters**
+
+- `WithEvents varName`
+
+**Description**
+
+Declares an object variable that can respond to the object's events through event handler Subs.
+
+**Example**
+
+```vb
+Dim WithEvents gameTimer As Timer
+
+Sub gameTimer_Tick()
+    UpdateGame()
+End Sub
+```
+
+**See Also** — [Event](#event), [RaiseEvent](#raiseevent)
+
+---
+
+
+### X
+
+## Xor
+
+**Purpose** — Logical XOR — returns True if exactly one expression is True.
+
+**Syntax**
+
+```vb
+expression1 Xor expression2
+```
+
+**Parameters**
+
+- `Xor expression2`
+
+**Description**
+
+Logical XOR — returns True if exactly one expression is True.
+
+**Example**
+
+```vb
+If a Xor b Then
+    Print "Exactly one is true"
+End If
+```
+
+**See Also** — [And](#and), [Or](#or), [Not](#not)
+
+---
+
