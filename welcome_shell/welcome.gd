@@ -549,6 +549,70 @@ func _on_narcea_pressed() -> void:
 	name_row.add_child(name_edit)
 	box.add_child(name_row)
 
+	# AI provider + model row — let the user pick which agent generates
+	# the project before we launch the IDE. Selection is persisted to
+	# the central ai_keys.cfg as the preferred provider, and ALSO baked
+	# into the new project's project.godot so the IDE picks it up on
+	# first open without depending on the central pref racing the seed.
+	var providers_script = _load_ai_providers_script()
+	var providers: Array = []
+	var pref_id: String = "ollama"
+	if providers_script != null:
+		providers = providers_script.get_providers()
+		pref_id = providers_script.load_preferred_provider()
+
+	var prov_row := HBoxContainer.new()
+	prov_row.add_theme_constant_override("separation", 8)
+	var prov_lbl := Label.new()
+	prov_lbl.text = "AI agent:"
+	prov_lbl.custom_minimum_size.x = 110
+	prov_row.add_child(prov_lbl)
+	var prov_dd := OptionButton.new()
+	prov_dd.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var pref_idx := 0
+	for i in providers.size():
+		var p = providers[i]
+		prov_dd.add_item(p.display_name, i)
+		if p.id == pref_id:
+			pref_idx = i
+	if providers.is_empty():
+		prov_dd.add_item("(no providers found)", 0)
+		prov_dd.disabled = true
+	else:
+		prov_dd.selected = pref_idx
+	prov_row.add_child(prov_dd)
+	box.add_child(prov_row)
+
+	var model_row := HBoxContainer.new()
+	model_row.add_theme_constant_override("separation", 8)
+	var model_lbl := Label.new()
+	model_lbl.text = "Model:"
+	model_lbl.custom_minimum_size.x = 110
+	model_row.add_child(model_lbl)
+	var model_dd := OptionButton.new()
+	model_dd.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	model_row.add_child(model_dd)
+	box.add_child(model_row)
+
+	var fill_models := func() -> void:
+		model_dd.clear()
+		if providers.is_empty():
+			model_dd.add_item("(none)")
+			model_dd.disabled = true
+			return
+		var idx := prov_dd.selected
+		if idx < 0 or idx >= providers.size():
+			idx = 0
+		var p = providers[idx]
+		var def_idx := 0
+		for j in p.models.size():
+			model_dd.add_item(p.models[j], j)
+			if p.models[j] == p.default_model:
+				def_idx = j
+		model_dd.selected = def_idx
+	fill_models.call()
+	prov_dd.item_selected.connect(func(_i): fill_models.call())
+
 	var desc := TextEdit.new()
 	desc.custom_minimum_size = Vector2(0, 200)
 	desc.placeholder_text = "e.g. A small Pong clone with paddles, a ball, score labels, and a Game Over screen. Use VG syntax."
@@ -561,20 +625,48 @@ func _on_narcea_pressed() -> void:
 		if nm.is_empty() or d.is_empty():
 			_status.text = "Name and description are required."
 			return
-		var path := _create_narcea_seed_project(nm, d)
+		var sel_provider_id := ""
+		var sel_model := ""
+		if not providers.is_empty():
+			var pidx: int = prov_dd.selected
+			if pidx >= 0 and pidx < providers.size():
+				sel_provider_id = providers[pidx].id
+				var midx: int = model_dd.selected
+				if midx >= 0 and midx < providers[pidx].models.size():
+					sel_model = providers[pidx].models[midx]
+				# Persist as the user's preferred provider going forward.
+				if providers_script != null:
+					providers_script.save_preferred_provider(sel_provider_id)
+		var path := _create_narcea_seed_project(nm, d, sel_provider_id, sel_model)
 		if not path.is_empty():
 			_launch_godot(path)
 		dlg.queue_free()
 	)
 	dlg.canceled.connect(dlg.queue_free)
 	add_child(dlg)
-	dlg.popup_centered(Vector2i(620, 360))
-	dlg.size = Vector2i(620, 360)
-	call_deferred("_force_dialog_size", dlg, Vector2i(620, 360))
+	dlg.popup_centered(Vector2i(620, 460))
+	dlg.size = Vector2i(620, 460)
+	call_deferred("_force_dialog_size", dlg, Vector2i(620, 460))
 	desc.grab_focus()
 
 
-func _create_narcea_seed_project(proj_name: String, description: String) -> String:
+## Resolve the AI providers script from the canonical addon so the welcome
+## shell's dropdowns match what the IDE will actually load. Returns a
+## GDScript instance (not a Node) — call its static methods directly.
+func _load_ai_providers_script():
+	var addon_dir := _resolve_canonical_addon_dir()
+	if addon_dir.is_empty():
+		return null
+	var script_path := addon_dir + "/vg_ai_providers.gd"
+	if not FileAccess.file_exists(script_path):
+		return null
+	# load() can read absolute paths, but we get more predictable
+	# resolution by using a file-protocol uri.
+	return load(script_path)
+
+
+func _create_narcea_seed_project(proj_name: String, description: String,
+		provider_id: String = "", model: String = "") -> String:
 	var safe_name := proj_name.strip_edges().replace(" ", "_")
 	var home := OS.get_environment("HOME")
 	if home.is_empty():
@@ -600,7 +692,19 @@ func _create_narcea_seed_project(proj_name: String, description: String) -> Stri
 	pg += "[audio]\n\n"
 	pg += "driver/enable_input=true\n\n"
 	pg += "[editor_plugins]\n\n"
-	pg += "enabled=PackedStringArray(\"res://addons/visual_gasic/plugin.cfg\")\n"
+	pg += "enabled=PackedStringArray(\"res://addons/visual_gasic/plugin.cfg\")\n\n"
+	# Pre-set the VG first-run gates so the "What kind of project is this?"
+	# picker doesn't pop over Narcea while she's working. The project type
+	# is implicit (Narcea decides what to build) and the AI will scaffold
+	# .vg modules / forms in place.
+	pg += "[vg]\n\n"
+	pg += "default_mode=\"code\"\n"
+	pg += "first_run_completed=true\n"
+	pg += "narcea_seeded=true\n"
+	if not provider_id.is_empty():
+		pg += "narcea_provider=\"%s\"\n" % provider_id.replace("\"", "'")
+	if not model.is_empty():
+		pg += "narcea_model=\"%s\"\n" % model.replace("\"", "'")
 	var f := FileAccess.open(dir + "/project.godot", FileAccess.WRITE)
 	if f == null:
 		_status.text = "Failed to write project.godot in %s" % dir
@@ -671,7 +775,14 @@ func _copy_dir_recursive(src: String, dst: String) -> int:
 			continue
 		var src_path := src + "/" + entry
 		var dst_path := dst + "/" + entry
-		if dir.current_is_dir():
+		# `current_is_dir()` returns false for symlinks even when they
+		# resolve to directories — `DirAccess.dir_exists_absolute()` follows
+		# symlinks. Without this, `addons/visual_gasic/bin` (a symlink to
+		# the repo's shared bin/) would get copied as a verbatim symlink
+		# into the new project, leaving a broken `bin -> ../../bin` link
+		# and the GDExtension binaries unreachable.
+		var is_dir := dir.current_is_dir() or DirAccess.dir_exists_absolute(src_path)
+		if is_dir:
 			var rec := _copy_dir_recursive(src_path, dst_path)
 			if rec != OK:
 				dir.list_dir_end()

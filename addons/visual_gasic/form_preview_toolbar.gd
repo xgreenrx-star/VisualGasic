@@ -57,6 +57,16 @@ func _build_ui() -> void:
 	_play_menu.focus_mode = Control.FOCUS_NONE
 	var popup := _play_menu.get_popup()
 	popup.clear()
+	# Force dark text — the popup background is light/white so the
+	# inherited theme's white font color renders unreadable except on
+	# hover. Lock all states to near-black for legibility.
+	var _dark := Color(0.05, 0.05, 0.05)
+	popup.add_theme_color_override("font_color", _dark)
+	popup.add_theme_color_override("font_hover_color", _dark)
+	popup.add_theme_color_override("font_focus_color", _dark)
+	popup.add_theme_color_override("font_accelerator_color", Color(0.25, 0.25, 0.25))
+	popup.add_theme_color_override("font_separator_color", Color(0.4, 0.4, 0.4))
+	popup.add_theme_color_override("font_disabled_color", Color(0.5, 0.5, 0.5))
 	# F5 is the default primary action; users can still click the menu
 	# for the others. Shortcuts are labelled in the menu entry text so
 	# the user sees them without opening a help page.

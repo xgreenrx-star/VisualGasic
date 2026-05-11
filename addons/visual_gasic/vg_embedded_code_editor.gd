@@ -1245,10 +1245,22 @@ func _draw_radial_menu_map(size: Vector2, font: Font, fs: int, props: Dictionary
 # =============================================================================
 
 ## Load a .vg file into the editor. If the file doesn't exist, creates a stub.
+##
+## Linux's filesystem is case-sensitive, but Visual Gasic itself treats
+## `Module1.vg` and `module1.vg` as the same module (matching the VB6/Win32
+## tradition). Before creating a new stub on disk we therefore look for a
+## case-insensitive match in the same directory and reuse that file if one
+## exists. This prevents accidental ghost duplicates when one caller passes
+## the canonical-cased path and another passes a lowercased variant.
 func load_file(path: String) -> void:
+	if not FileAccess.file_exists(path):
+		var canonical := _find_case_insensitive_match(path)
+		if not canonical.is_empty():
+			path = canonical
+
 	_vg_path = path
 
-	# Create the file if it doesn't exist
+	# Create the file if it doesn't exist (now in canonical casing)
 	if not FileAccess.file_exists(path):
 		var f := FileAccess.open(path, FileAccess.WRITE)
 		if f:
@@ -1273,6 +1285,31 @@ func load_file(path: String) -> void:
 		print("VG Code Editor: Loaded ", path)
 	else:
 		push_warning("VG Code Editor: Cannot open " + path)
+
+
+## Look for an existing file in the same directory whose name matches `path`
+## case-insensitively. Returns the actual on-disk path if found, otherwise "".
+func _find_case_insensitive_match(path: String) -> String:
+	var dir_part := path.get_base_dir()
+	var file_part := path.get_file()
+	if file_part.is_empty():
+		return ""
+	var dir := DirAccess.open(dir_part)
+	if dir == null:
+		return ""
+	var target := file_part.to_lower()
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while entry != "":
+		if entry != "." and entry != ".." and entry.to_lower() == target:
+			dir.list_dir_end()
+			# Reuse the same separator style as the input path
+			if dir_part.is_empty():
+				return entry
+			return dir_part + "/" + entry
+		entry = dir.get_next()
+	dir.list_dir_end()
+	return ""
 
 ## Save the current buffer back to disk.
 func save_file() -> void:
@@ -1596,8 +1633,14 @@ func _update_proc_selection() -> void:
 		if selected_obj != "(General)":
 			_update_proc_selection_for_object(selected_obj)
 		else:
-			# General mode — +1 because item 0 is "(Declarations)"
-			_proc_combo.select(best_idx + 1)
+			# General mode — +1 because item 0 is "(Declarations)".
+			# Guard against an empty/stale combo (race when loading a
+			# formless module before the proc list is rebuilt).
+			var target_idx := best_idx + 1
+			if _proc_combo.item_count > target_idx:
+				_proc_combo.select(target_idx)
+			elif _proc_combo.item_count > 0:
+				_proc_combo.select(0)
 
 		# Update Index Map for the current object
 		_update_index_map_for_current_object()

@@ -213,8 +213,9 @@ func refresh_objects():
 func _add_node_recursive(node: Node):
 	if not node: return
 	
-	# Include Type in label? "Button1 (Button)"
-	var label = node.name + " (" + node.get_class() + ")"
+	# Include Type in label — use VB6 dialect, e.g. "Text1 (TextBox)"
+	# instead of "Text1 (LineEdit)".
+	var label = VGIntelliSense.format_node_label(node.name, node.get_class())
 	var idx = object_list.item_count
 	object_list.add_item(label, idx)
 	object_list.set_item_metadata(idx, node)

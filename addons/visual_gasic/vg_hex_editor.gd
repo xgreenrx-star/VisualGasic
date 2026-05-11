@@ -660,6 +660,15 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_THEME_CHANGED:
 		_apply_scrollbar_styles()
 
+	# Only run the heavy theming pass on READY / THEME_CHANGED. Previously
+	# this body ran for EVERY notification (process, draw, predelete…),
+	# which threw "previously freed instance" errors when the editor was
+	# torn down. Also guard against freed child controls.
+	if what != NOTIFICATION_READY and what != NOTIFICATION_THEME_CHANGED:
+		return
+	if not is_instance_valid(_text_panel):
+		return
+
 	# ── Text panel: override Godot editor dark theme with VB6 white/black ────
 	var te_sb := StyleBoxFlat.new()
 	te_sb.bg_color              = Color("#FFFFFF")
@@ -709,6 +718,8 @@ func _notification(what: int) -> void:
 	le_focus_sb.content_margin_right  = 4.0
 	le_focus_sb.content_margin_bottom = 2.0
 	for le : LineEdit in [_search_edit, _replace_edit]:
+		if not is_instance_valid(le):
+			continue
 		le.add_theme_stylebox_override("normal",    le_sb)
 		le.add_theme_stylebox_override("focus",     le_focus_sb)
 		le.add_theme_stylebox_override("read_only", le_sb)

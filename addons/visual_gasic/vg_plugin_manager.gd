@@ -49,8 +49,10 @@ var _overflow_btn: MenuButton = null
 ## Ordered list of plugin IDs for overflow management
 var _plugin_order: Array = []
 
-## Maximum number of visible plugin buttons before overflow kicks in
-const MAX_VISIBLE_PLUGINS = 6
+## Maximum number of visible plugin buttons before overflow kicks in.
+## When more than this many plugins are enabled, the surplus moves into
+## the "⋯" overflow menu so the toolbar doesn't run off-screen.
+const MAX_VISIBLE_PLUGINS = 8
 
 ## Reference to host IDE plugin
 var _host_plugin = null
@@ -375,19 +377,40 @@ func _create_toolbar_button(plugin_id: String, plugin_instance) -> void:
 
 
 ## Update overflow: show first N plugin buttons, hide rest into ⋯ dropdown.
+##
+## Also re-orders strip children to a stable layout so toggling plugins on/off
+## doesn't shuffle their visual position:
+##     [⚙]  [plugin1] [plugin2] ... [pluginN]  [Form Designer]  [⋯]
+## The Form Designer pseudo-button (if present) and the overflow menu always
+## sit at the right end so plugin buttons read left-to-right in load order.
 func _update_overflow() -> void:
 	if not is_instance_valid(_overflow_btn):
 		return
 	var total = _plugin_order.size()
 	var need_overflow = total > MAX_VISIBLE_PLUGINS
 
-	# Show/hide individual plugin buttons
+	# Show/hide individual plugin buttons by their position in _plugin_order.
 	for i in range(total):
 		var pid = _plugin_order[i]
 		if _toolbar_buttons.has(pid) and is_instance_valid(_toolbar_buttons[pid]):
 			_toolbar_buttons[pid].visible = (i < MAX_VISIBLE_PLUGINS)
 
-	# Update overflow menu
+	# Repack child order so visible buttons line up the way users expect,
+	# regardless of the order plugins were enabled/disabled.
+	if is_instance_valid(_toolbar_row):
+		var tail_index := _toolbar_row.get_child_count() - 1
+		# Plugin buttons in load order.
+		for pid in _plugin_order:
+			if _toolbar_buttons.has(pid) and is_instance_valid(_toolbar_buttons[pid]):
+				_toolbar_row.move_child(_toolbar_buttons[pid], tail_index)
+		# Form Designer pseudo-button (if currently in the strip) goes after.
+		var fd_btn = _toolbar_row.find_child("VGBuiltinBtn_FormDesigner", false, false)
+		if is_instance_valid(fd_btn):
+			_toolbar_row.move_child(fd_btn, tail_index)
+		# Overflow menu is the last thing on the right.
+		_toolbar_row.move_child(_overflow_btn, tail_index)
+
+	# Update overflow menu contents
 	_overflow_btn.visible = need_overflow
 	if need_overflow:
 		var popup = _overflow_btn.get_popup()
@@ -762,7 +785,16 @@ func _on_plugin_toggle(enabled: bool, plugin_id: String) -> void:
 			else:
 				var existing = _toolbar_row.find_child("VGBuiltinBtn_FormDesigner", false, false) if is_instance_valid(_toolbar_row) else null
 				if is_instance_valid(existing):
+					# Remove from tree synchronously so the HBoxContainer
+					# re-packs immediately. queue_free alone leaves the
+					# button in the layout for one frame, which can make
+					# the strip look like it lost a different plugin.
+					if is_instance_valid(existing.get_parent()):
+						existing.get_parent().remove_child(existing)
 					existing.queue_free()
+			# Re-pack the strip so plugin buttons / overflow stay in their
+			# expected positions after the change.
+			_update_overflow()
 			print("VisualGasic: Built-in 'Form Designer' ", "enabled" if enabled else "disabled")
 		return
 

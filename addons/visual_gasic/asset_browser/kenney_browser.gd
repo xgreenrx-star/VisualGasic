@@ -4,6 +4,12 @@
 ## All Kenney assets are CC0 (public domain) — no attribution required.
 extends RefCounted
 
+## Emitted after a successful download. `local_path` is the saved file
+## (PNG/JPG/ZIP), `was_extracted` indicates whether a ZIP was unpacked into
+## a sibling folder. Listeners (e.g. the AGCK actor editor) connect to this
+## to auto-import the asset without forcing the user through a FileDialog.
+signal asset_downloaded(local_path: String, was_extracted: bool)
+
 const DOWNLOAD_DIR_ART := "res://assets/art/"
 const DOWNLOAD_DIR_AUDIO := "res://assets/sounds/"
 const DOWNLOAD_DIR_MISC := "res://assets/downloads/"
@@ -92,6 +98,37 @@ var _status_label: Label = null
 var _download_http: HTTPRequest = null
 var _download_stage := ""  # "page" | "file"
 var _download_url := ""
+
+# Preview-thumbnail loading (lazy, parallel workers)
+const MAX_PARALLEL_THUMBS := 4
+const KENNEY_DONATE_URL := "https://kenney.nl/donate"
+var _preview_images: Dictionary = {}        # row index -> TextureRect
+var _img_http_queue: Array = []             # [{index, url, kind}]  kind: "image"|"page"
+var _img_http_active: int = 0
+var _resolved_previews: Dictionary = {}     # page_url -> resolved image url (session cache)
+
+# Slideshow in big preview
+var _slideshow_urls: Array = []             # candidate image urls for current preview
+var _slideshow_textures: Array = []         # parallel: ImageTexture or null
+var _slideshow_index: int = 0
+var _slideshow_timer: Timer = null
+var _slideshow_counter_lbl: Label = null
+var _donate_url: String = KENNEY_DONATE_URL
+
+# Big-preview modal state
+var _preview_dialog: AcceptDialog = null
+var _preview_tex_rect: TextureRect = null
+var _preview_status_lbl: Label = null
+var _preview_item: Dictionary = {}
+var _preview_http: HTTPRequest = null
+
+# Dynamic catalog (scraped from kenney.nl on open). Falls back to baked CATALOG.
+const KENNEY_LIST_PAGES := 13
+var _dynamic_catalog: Array = []           # populated from kenney.nl scrape
+var _scrape_pages_remaining: int = 0
+var _scrape_active: bool = false
+var _all_categories: Array = ["2D", "3D", "UI", "Audio", "Fonts"]  # rebuilt after scrape
+var _count_label: Label = null
 
 # ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -251,9 +288,10 @@ func _show_browser() -> void:
 	count_label.add_theme_font_size_override("font_size", 11)
 	count_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
 	bottom.add_child(count_label)
+	_count_label = count_label
 
 	var hint := Label.new()
-	hint.text = "Click to select · Double-click to open on kenney.nl · Auto Download tries direct install, then falls back"
+	hint.text = "Click to select · Double-click for large preview & download · Right-click to open on kenney.nl"
 	hint.add_theme_font_size_override("font_size", 10)
 	hint.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
 	vbox.add_child(hint)
@@ -266,6 +304,8 @@ func _show_browser() -> void:
 
 	_dialog.popup_centered()
 	_apply_filter()
+	# Kick off live catalog scrape so categories & list match kenney.nl exactly.
+	_start_catalog_scrape()
 
 
 # ─── Filter ──────────────────────────────────────────────────────────────────
@@ -273,17 +313,19 @@ func _show_browser() -> void:
 func _apply_filter() -> void:
 	var query := _search_edit.text.strip_edges().to_lower() if _search_edit else ""
 	var cat_idx := _category_option.selected if _category_option else 0
-	var cat_map := ["", "2D", "3D", "UI", "Audio", "Fonts"]
-	var cat_filter: String = cat_map[cat_idx] if cat_idx < cat_map.size() else ""
+	var cat_filter: String = ""
+	if _category_option != null and cat_idx > 0:
+		cat_filter = _category_option.get_item_text(cat_idx)
 
+	var source: Array = _dynamic_catalog if not _dynamic_catalog.is_empty() else CATALOG
 	_filtered.clear()
-	for entry in CATALOG:
+	for entry in source:
 		# Category filter
 		if cat_filter != "" and entry["category"] != cat_filter:
 			continue
 		# Text filter
 		if query != "":
-			var haystack: String = (entry["name"] + " " + entry["tags"]).to_lower()
+			var haystack: String = (entry["name"] + " " + entry.get("tags", "")).to_lower()
 			var is_match := true
 			for word in query.split(" ", false):
 				if word not in haystack:
@@ -323,6 +365,29 @@ func _display_results() -> void:
 		row_hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		panel.add_child(row_hbox)
 
+		# Thumbnail (lazy-loaded). Image-category packs only — no point
+		# fetching previews for fonts/audio.
+		var tex_rect := TextureRect.new()
+		tex_rect.custom_minimum_size = Vector2(64, 64)
+		tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Placeholder bg so the cell is visible while loading.
+		var ph_style := StyleBoxFlat.new()
+		ph_style.bg_color = Color(0.12, 0.13, 0.17)
+		ph_style.set_corner_radius_all(3)
+		tex_rect.add_theme_stylebox_override("panel", ph_style)
+		row_hbox.add_child(tex_rect)
+		_preview_images[i] = tex_rect
+		var page_url: String = entry.get("url", "")
+		var pre_url: String = entry.get("preview", "")
+		if pre_url != "":
+			_img_http_queue.append({"index": i, "url": pre_url, "kind": "image"})
+		elif _resolved_previews.has(page_url):
+			_img_http_queue.append({"index": i, "url": _resolved_previews[page_url], "kind": "image"})
+		elif page_url != "":
+			_img_http_queue.append({"index": i, "url": page_url, "kind": "page"})
+
 		# Category badge
 		var badge := Label.new()
 		badge.text = cat_emoji.get(entry["category"], "📦") + " " + entry["category"]
@@ -350,17 +415,113 @@ func _display_results() -> void:
 		tags_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row_hbox.add_child(tags_lbl)
 
+	# Kick off lazy thumbnail loading.
+	_load_next_thumbnail()
+
+
+# ─── Lazy preview-thumbnail loading (parallel workers) ──────────────────────
+
+func _load_next_thumbnail() -> void:
+	# Spawn up to MAX_PARALLEL_THUMBS in-flight requests.
+	while _img_http_active < MAX_PARALLEL_THUMBS and not _img_http_queue.is_empty():
+		var entry: Dictionary = _img_http_queue.pop_front()
+		_dispatch_thumbnail(entry)
+
+
+func _dispatch_thumbnail(entry: Dictionary) -> void:
+	var idx: int = entry["index"]
+	var url: String = entry["url"]
+	var kind: String = entry.get("kind", "image")
+	# Bail out if the dialog/results are gone (filter changed, dialog closed).
+	if not _preview_images.has(idx) or not is_instance_valid(_preview_images[idx]):
+		_load_next_thumbnail()
+		return
+	if _host == null or not is_instance_valid(_host):
+		return
+	var req := HTTPRequest.new()
+	_host.add_child(req)
+	_img_http_active += 1
+	var captured_idx := idx
+	var captured_kind := kind
+	var captured_url := url
+	var captured_req := req
+	req.request_completed.connect(func(res, code, _h, body):
+		# Filter changed / dialog closed mid-flight: bail out before we
+		# touch any UI state. The TextureRect we'd write to may have been
+		# queue_free()'d, and dict.has() doesn't filter freed values.
+		var tr_alive: TextureRect = null
+		if _preview_images.has(captured_idx):
+			var maybe_tr = _preview_images[captured_idx]
+			if maybe_tr is TextureRect and is_instance_valid(maybe_tr):
+				tr_alive = maybe_tr
+		if res == HTTPRequest.RESULT_SUCCESS and code >= 200 and code < 400 and body.size() > 64:
+			if captured_kind == "image":
+				var img: Image = _decode_image_buffer(body)
+				if img != null and tr_alive != null:
+					tr_alive.texture = ImageTexture.create_from_image(img)
+			elif captured_kind == "page":
+				var html: String = body.get_string_from_utf8()
+				var img_url: String = _extract_og_image(html)
+				if img_url != "":
+					_resolved_previews[captured_url] = img_url
+					# Re-queue at the front so this row gets its image next.
+					_img_http_queue.push_front({"index": captured_idx, "url": img_url, "kind": "image"})
+		else:
+			# Mark a missing-image placeholder so the user knows it failed.
+			if captured_kind == "image" and tr_alive != null and tr_alive.texture == null:
+				var miss_style := StyleBoxFlat.new()
+				miss_style.bg_color = Color(0.18, 0.10, 0.10)
+				miss_style.set_corner_radius_all(3)
+				tr_alive.add_theme_stylebox_override("panel", miss_style)
+		if is_instance_valid(captured_req):
+			captured_req.queue_free()
+		_img_http_active = max(0, _img_http_active - 1)
+		_load_next_thumbnail()
+	)
+	var req_err := req.request(url)
+	if req_err != OK:
+		if is_instance_valid(req):
+			req.queue_free()
+		_img_http_active = max(0, _img_http_active - 1)
+		_load_next_thumbnail()
+
+
+func _extract_og_image(html: String) -> String:
+	# Scrape <meta property="og:image" content="…"> from the page <head>.
+	# Accept both " and ' as attribute delimiters (Kenney uses single quotes).
+	var regex := RegEx.new()
+	if regex.compile("<meta[^>]+property=[\"']og:image[\"'][^>]+content=[\"']([^\"']+)[\"']") != OK:
+		return ""
+	var m := regex.search(html)
+	if m == null:
+		# Try the reversed attribute order (content first).
+		var regex2 := RegEx.new()
+		if regex2.compile("<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+property=[\"']og:image[\"']") != OK:
+			return ""
+		m = regex2.search(html)
+		if m == null:
+			return ""
+	var url := m.get_string(1)
+	# Decode entities in URL
+	url = url.replace("&amp;", "&")
+	return url
+
 
 # ─── Row Interaction ─────────────────────────────────────────────────────────
 
 func _row_input(event: InputEvent, index: int, panel: PanelContainer) -> void:
 	if not (event is InputEventMouseButton and event.pressed):
 		return
-	if event.button_index == MOUSE_BUTTON_RIGHT or (event.button_index == MOUSE_BUTTON_LEFT and event.double_click):
+	# Double-click → large preview modal (no longer opens system browser).
+	if event.button_index == MOUSE_BUTTON_LEFT and event.double_click:
+		if index >= 0 and index < _filtered.size():
+			_show_big_preview(index)
+		return
+	# Right-click → open page on kenney.nl in system browser.
+	if event.button_index == MOUSE_BUTTON_RIGHT:
 		if index >= 0 and index < _filtered.size():
 			OS.shell_open(_filtered[index]["url"])
-		if event.button_index == MOUSE_BUTTON_RIGHT:
-			return
+		return
 	if event.button_index == MOUSE_BUTTON_LEFT:
 		if _selected_row != null and is_instance_valid(_selected_row):
 			var old := StyleBoxFlat.new()
@@ -413,14 +574,37 @@ func _on_download_request_completed(result: int, response_code: int, _headers: P
 
 		var html := body.get_string_from_utf8()
 		var links := _extract_download_links(html)
+		# Compute slug for fallback derivation. The preview-derived zip URL
+		# uses the *preview* directory hash, which differs from the actual
+		# zip directory hash on Kenney's CDN — so it 404s. Only fall back
+		# to it if no real kenney_<slug>.zip is present in the HTML.
+		var page_url := ""
+		if _selected_index >= 0 and _selected_index < _filtered.size():
+			page_url = str(_filtered[_selected_index].get("url", ""))
+		var slug := _kenney_slug_from_url(page_url)
+		var has_real_zip := false
+		if slug != "":
+			var needle := "kenney_" + slug + ".zip"
+			for u in links:
+				if u.ends_with(needle):
+					has_real_zip = true
+					break
+		var og_img := _extract_og_image(html)
+		if og_img != "" and page_url != "":
+			_resolved_previews[page_url] = og_img
+			if not has_real_zip:
+				var derived := _derive_kenney_zip_from_preview(og_img, page_url)
+				if derived != "" and not links.has(derived):
+					links.append(derived)  # last-resort, not first
+
 		if links.is_empty():
-			_set_status("ℹ No direct pack URL detected (common on Kenney). Opening browser...")
+			_set_status("ℹ No direct pack URL detected. Opening browser…")
 			_open_selected_in_browser()
 			return
 
 		_download_url = _pick_best_link(links)
 		if _download_url == "":
-			_set_status("ℹ No suitable file URL found. Opening browser...")
+			_set_status("ℹ No suitable file URL found. Opening browser…")
 			_open_selected_in_browser()
 			return
 
@@ -428,7 +612,7 @@ func _on_download_request_completed(result: int, response_code: int, _headers: P
 		_set_status("⬇ Downloading: " + _download_url)
 		var err := _download_http.request(_download_url)
 		if err != OK:
-			_set_status("❌ Download failed to start (error %d). Opening browser..." % err)
+			_set_status("❌ Download failed to start (error %d). Opening browser…" % err)
 			_open_selected_in_browser()
 		return
 
@@ -461,23 +645,20 @@ func _on_download_request_completed(result: int, response_code: int, _headers: P
 			_set_status("✅ Downloaded and extracted in project assets.")
 		else:
 			_set_status("✅ Downloaded: " + save_path)
+		asset_downloaded.emit(save_path, extracted)
 
 
 func _extract_download_links(html: String) -> Array:
 	var links: Array = []
 	var seen := {}
-	var i := 0
-	while true:
-		var h := html.find('href="', i)
-		if h < 0:
-			break
-		var s := h + 6
-		var e := html.find('"', s)
-		if e < 0:
-			break
-		var href := html.substr(s, e - s).strip_edges()
-		i = e + 1
-
+	# Use a regex so we match both href="…" and href='…' attribute styles.
+	# Kenney's "Continue without donating" link uses single quotes, which the
+	# previous string-search implementation missed.
+	var rx := RegEx.new()
+	if rx.compile("href=[\"']([^\"']+)[\"']") != OK:
+		return links
+	for m in rx.search_all(html):
+		var href: String = m.get_string(1).strip_edges()
 		if href == "" or href.begins_with("#") or href.begins_with("javascript:") or href.begins_with("mailto:"):
 			continue
 
@@ -518,6 +699,9 @@ func _pick_best_link(links: Array) -> String:
 			s += 200
 		elif ext in ["png", "jpg", "jpeg", "webp", "ogg", "wav", "mp3"]:
 			s += 100
+		# Strongly prefer the canonical kenney_<slug>.zip pattern.
+		if f.begins_with("kenney_") and ext == "zip":
+			s += 500
 		if "itch.io" in u.to_lower():
 			s -= 30  # usually a page, not a direct file
 		if s > best_score:
@@ -527,7 +711,13 @@ func _pick_best_link(links: Array) -> String:
 
 
 func _filename_from_url(url: String) -> String:
-	var f := url.split("?")[0].split("#")[0].get_file().uri_decode()
+	if url == null or url == "":
+		return "kenney_asset.bin"
+	var parts_q := url.split("?")
+	var without_q: String = url if parts_q.is_empty() else parts_q[0]
+	var parts_h := without_q.split("#")
+	var clean: String = without_q if parts_h.is_empty() else parts_h[0]
+	var f := clean.get_file().uri_decode()
 	if f == "":
 		f = "kenney_asset.bin"
 	f = f.replace(" ", "_").replace("/", "_").replace("\\", "_").replace(":", "_")
@@ -579,9 +769,322 @@ func _open_selected_in_browser() -> void:
 		OS.shell_open(_filtered[_selected_index]["url"])
 
 
+# ─── Big preview modal ──────────────────────────────────────────────────────
+# Double-click a row → larger thumbnail + Download button (downloads to res://).
+
+func _show_big_preview(index: int) -> void:
+	if index < 0 or index >= _filtered.size():
+		return
+	_preview_item = _filtered[index]
+	if _preview_dialog and is_instance_valid(_preview_dialog):
+		_preview_dialog.queue_free()
+	_preview_dialog = AcceptDialog.new()
+	_preview_dialog.title = "🖼  " + str(_preview_item.get("name", "Preview"))
+	_preview_dialog.min_size = Vector2(560, 540)
+	_preview_dialog.ok_button_text = "Close"
+	# NOTE: exclusive/popup_window left at defaults (false). The parent
+	# window already has an exclusive child (_dialog), so we cannot add
+	# a second exclusive child to the same parent. Parent the preview
+	# under _dialog itself when possible so it nests as a sub-popup.
+	var cleanup := func():
+		if _preview_http != null and is_instance_valid(_preview_http):
+			_preview_http.cancel_request()
+			_preview_http.queue_free()
+			_preview_http = null
+		if _slideshow_timer != null and is_instance_valid(_slideshow_timer):
+			_slideshow_timer.stop()
+			_slideshow_timer.queue_free()
+			_slideshow_timer = null
+		_slideshow_urls.clear()
+		_slideshow_textures.clear()
+		_slideshow_index = 0
+		_slideshow_counter_lbl = null
+		if _preview_dialog != null and is_instance_valid(_preview_dialog):
+			_preview_dialog.queue_free()
+		_preview_dialog = null
+		_preview_tex_rect = null
+		_preview_status_lbl = null
+	_preview_dialog.confirmed.connect(cleanup)
+	_preview_dialog.canceled.connect(cleanup)
+	if _dialog != null and is_instance_valid(_dialog):
+		_dialog.add_child(_preview_dialog)
+	else:
+		_host.add_child(_preview_dialog)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 8)
+	_preview_dialog.add_child(vb)
+
+	var name_lbl := Label.new()
+	name_lbl.text = _preview_item.get("name", "")
+	name_lbl.add_theme_font_size_override("font_size", 16)
+	name_lbl.add_theme_color_override("font_color", Color(0.92, 0.92, 0.95))
+	vb.add_child(name_lbl)
+
+	var meta := Label.new()
+	meta.text = "Category: %s   ·   Tags: %s" % [_preview_item.get("category", ""), _preview_item.get("tags", "")]
+	meta.add_theme_font_size_override("font_size", 11)
+	meta.add_theme_color_override("font_color", Color(0.62, 0.62, 0.70))
+	vb.add_child(meta)
+
+	# Big image area
+	_preview_tex_rect = TextureRect.new()
+	_preview_tex_rect.custom_minimum_size = Vector2(520, 380)
+	_preview_tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_preview_tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	var pf_style := StyleBoxFlat.new()
+	pf_style.bg_color = Color(0.10, 0.11, 0.14)
+	pf_style.set_corner_radius_all(4)
+	# (StyleBox on TextureRect is no-op, but keep the visual contained.)
+	vb.add_child(_preview_tex_rect)
+
+	# Reuse already-loaded thumbnail texture if available
+	if _preview_images.has(index):
+		var tr_cached = _preview_images[index]
+		if tr_cached != null and is_instance_valid(tr_cached) and tr_cached.texture != null:
+			_preview_tex_rect.texture = tr_cached.texture
+
+	# Slideshow controls (◀  1 / N  ▶)
+	var nav_row := HBoxContainer.new()
+	nav_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	nav_row.add_theme_constant_override("separation", 12)
+	vb.add_child(nav_row)
+	var prev_btn := Button.new()
+	prev_btn.text = "◀"
+	prev_btn.tooltip_text = "Previous sample"
+	prev_btn.pressed.connect(func(): _slideshow_step(-1))
+	nav_row.add_child(prev_btn)
+	_slideshow_counter_lbl = Label.new()
+	_slideshow_counter_lbl.text = "—"
+	_slideshow_counter_lbl.add_theme_font_size_override("font_size", 11)
+	_slideshow_counter_lbl.add_theme_color_override("font_color", Color(0.65, 0.65, 0.72))
+	_slideshow_counter_lbl.custom_minimum_size = Vector2(60, 0)
+	_slideshow_counter_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nav_row.add_child(_slideshow_counter_lbl)
+	var next_btn := Button.new()
+	next_btn.text = "▶"
+	next_btn.tooltip_text = "Next sample"
+	next_btn.pressed.connect(func(): _slideshow_step(1))
+	nav_row.add_child(next_btn)
+
+	# Buttons row
+	var btns := HBoxContainer.new()
+	btns.add_theme_constant_override("separation", 8)
+	vb.add_child(btns)
+
+	var dl_btn := Button.new()
+	dl_btn.text = "⬇  Download to res://assets/"
+	dl_btn.add_theme_font_size_override("font_size", 13)
+	dl_btn.pressed.connect(_on_preview_download_pressed.bind(index))
+	btns.add_child(dl_btn)
+
+	var open_btn := Button.new()
+	open_btn.text = "🌐  Open page on kenney.nl"
+	open_btn.add_theme_font_size_override("font_size", 12)
+	open_btn.pressed.connect(func():
+		OS.shell_open(str(_preview_item.get("url", "")))
+	)
+	btns.add_child(open_btn)
+
+	var donate_btn := Button.new()
+	donate_btn.text = "❤  Donate to Kenney"
+	donate_btn.tooltip_text = "Open Kenney's donation page in your browser. All Kenney assets are CC0 — donations support continued releases."
+	donate_btn.add_theme_font_size_override("font_size", 12)
+	donate_btn.add_theme_color_override("font_color", Color(1.0, 0.78, 0.42))
+	donate_btn.pressed.connect(func():
+		OS.shell_open(_donate_url)
+	)
+	btns.add_child(donate_btn)
+
+	_preview_status_lbl = Label.new()
+	_preview_status_lbl.text = ""
+	_preview_status_lbl.add_theme_font_size_override("font_size", 11)
+	_preview_status_lbl.add_theme_color_override("font_color", Color(0.6, 0.8, 0.6))
+	_preview_status_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_preview_status_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_child(_preview_status_lbl)
+
+	_preview_dialog.popup_centered()
+	# If we already cached a higher-res preview URL, fetch it for sharper image.
+	var page_url: String = str(_preview_item.get("url", ""))
+	var pre_url: String = str(_preview_item.get("preview", ""))
+	if pre_url == "" and _resolved_previews.has(page_url):
+		pre_url = _resolved_previews[page_url]
+	if pre_url != "":
+		_start_slideshow(pre_url)
+	elif page_url != "":
+		_fetch_page_then_image(page_url)
+
+
+func _fetch_image_into_preview(url: String) -> void:
+	if _preview_http != null and is_instance_valid(_preview_http):
+		_preview_http.queue_free()
+	_preview_http = HTTPRequest.new()
+	_host.add_child(_preview_http)
+	_preview_http.request_completed.connect(func(res, code, _h, body):
+		if res == HTTPRequest.RESULT_SUCCESS and code >= 200 and code < 400 and body.size() > 64:
+			var img: Image = _decode_image_buffer(body)
+			if img != null and is_instance_valid(_preview_tex_rect):
+				_preview_tex_rect.texture = ImageTexture.create_from_image(img)
+	)
+	_preview_http.request(url)
+
+
+func _fetch_page_then_image(page_url: String) -> void:
+	if _preview_http != null and is_instance_valid(_preview_http):
+		_preview_http.queue_free()
+	_preview_http = HTTPRequest.new()
+	_host.add_child(_preview_http)
+	_preview_http.request_completed.connect(func(res, code, _h, body):
+		if res == HTTPRequest.RESULT_SUCCESS and code == 200 and body.size() > 64:
+			var html: String = body.get_string_from_utf8()
+			var img_url: String = _extract_og_image(html)
+			if img_url != "":
+				_resolved_previews[page_url] = img_url
+				_start_slideshow(img_url)
+	)
+	_preview_http.request(page_url)
+
+
+# ─── Slideshow ─────────────────────────────────────────────────────────────
+# Kenney pack pages live in a directory containing preview.png, samplea.png,
+# sampleb.png, samplec.png, ... We probe these and cycle the loaded ones.
+
+func _start_slideshow(preview_url: String) -> void:
+	if preview_url == "":
+		return
+	# Build candidate URL list: preview, then samplea..samplee.
+	var idx := preview_url.rfind("/")
+	if idx < 0:
+		return
+	var dir_part := preview_url.substr(0, idx + 1)
+	_slideshow_urls.clear()
+	_slideshow_textures.clear()
+	_slideshow_urls.append(preview_url)
+	_slideshow_textures.append(null)
+	for letter in ["a", "b", "c", "d", "e"]:
+		_slideshow_urls.append(dir_part + "sample" + letter + ".png")
+		_slideshow_textures.append(null)
+	_slideshow_index = 0
+	_update_slideshow_counter()
+	# Fetch each one. We use a fresh HTTPRequest per slide so they load in
+	# parallel; failures (404) just leave that slot null and get skipped.
+	for i in range(_slideshow_urls.size()):
+		_fetch_slideshow_slide(i, _slideshow_urls[i])
+	# Manual navigation only — no auto-advance. Use ◀ / ▶ to browse samples.
+	if _slideshow_timer != null and is_instance_valid(_slideshow_timer):
+		_slideshow_timer.stop()
+		_slideshow_timer.queue_free()
+		_slideshow_timer = null
+
+
+func _fetch_slideshow_slide(slot: int, url: String) -> void:
+	if _host == null or not is_instance_valid(_host):
+		return
+	var req := HTTPRequest.new()
+	_host.add_child(req)
+	var captured_slot := slot
+	var captured_req := req
+	req.request_completed.connect(func(res, code, _h, body):
+		if res == HTTPRequest.RESULT_SUCCESS and code >= 200 and code < 400 and body.size() > 64:
+			var img: Image = _decode_image_buffer(body)
+			if img != null and captured_slot < _slideshow_textures.size():
+				_slideshow_textures[captured_slot] = ImageTexture.create_from_image(img)
+				# If this is the currently displayed slot and the rect is empty,
+				# show it now. Also refresh counter to reflect loaded count.
+				if captured_slot == _slideshow_index and is_instance_valid(_preview_tex_rect):
+					_preview_tex_rect.texture = _slideshow_textures[captured_slot]
+				elif is_instance_valid(_preview_tex_rect) and _preview_tex_rect.texture == null:
+					# Display the first one that loads if we have nothing yet.
+					_slideshow_index = captured_slot
+					_preview_tex_rect.texture = _slideshow_textures[captured_slot]
+				_update_slideshow_counter()
+		if is_instance_valid(captured_req):
+			captured_req.queue_free()
+	)
+	var e := req.request(url)
+	if e != OK and is_instance_valid(req):
+		req.queue_free()
+
+
+func _slideshow_step(direction: int) -> void:
+	if _slideshow_textures.is_empty():
+		return
+	var n: int = _slideshow_textures.size()
+	# Find the next slot (in given direction) that has a loaded texture.
+	for _i in range(n):
+		_slideshow_index = (_slideshow_index + direction + n) % n
+		if _slideshow_textures[_slideshow_index] != null:
+			break
+	if _slideshow_textures[_slideshow_index] != null and is_instance_valid(_preview_tex_rect):
+		_preview_tex_rect.texture = _slideshow_textures[_slideshow_index]
+	_update_slideshow_counter()
+
+
+func _update_slideshow_counter() -> void:
+	if not is_instance_valid(_slideshow_counter_lbl):
+		return
+	var loaded := 0
+	for t in _slideshow_textures:
+		if t != null:
+			loaded += 1
+	if loaded == 0:
+		_slideshow_counter_lbl.text = "loading…"
+		return
+	# Display "slot_pos / loaded" where slot_pos counts only loaded slots
+	# up to and including current index.
+	var pos := 0
+	for i in range(_slideshow_index + 1):
+		if i < _slideshow_textures.size() and _slideshow_textures[i] != null:
+			pos += 1
+	if pos == 0:
+		pos = 1
+	_slideshow_counter_lbl.text = "%d / %d" % [pos, loaded]
+
+
+func _on_preview_download_pressed(index: int) -> void:
+	# Make this row the selection so the existing flow works, then drive it.
+	_selected_index = index
+	if is_instance_valid(_preview_status_lbl):
+		_preview_status_lbl.text = "⏳  Resolving direct download URL…"
+	# Mirror status into the main browser status label too.
+	_download_selected_asset()
+
+
+func _kenney_slug_from_url(page_url: String) -> String:
+	# https://kenney.nl/assets/<slug>  →  <slug>
+	if page_url == null or page_url == "":
+		return ""
+	var p := page_url.strip_edges().trim_suffix("/")
+	if p == "":
+		return ""
+	var slash := p.rfind("/")
+	if slash < 0 or slash >= p.length() - 1:
+		return ""
+	return p.substr(slash + 1)
+
+
+func _derive_kenney_zip_from_preview(preview_url: String, page_url: String) -> String:
+	# Kenney's preview lives at:
+	#   https://kenney.nl/media/pages/assets/<slug>/<hash>-<ts>/preview.png
+	# The pack zip is at the same path with the filename swapped to
+	# kenney_<slug>.zip. We exploit that pattern here.
+	if preview_url == null or preview_url == "":
+		return ""
+	var idx := preview_url.rfind("/")
+	if idx < 0 or idx >= preview_url.length() - 1:
+		return ""
+	var dir_part := preview_url.substr(0, idx + 1)
+	var slug := _kenney_slug_from_url(page_url)
+	if slug == "":
+		return ""
+	return dir_part + "kenney_" + slug + ".zip"
+
 func _set_status(msg: String) -> void:
 	if _status_label and is_instance_valid(_status_label):
 		_status_label.text = msg
+	if is_instance_valid(_preview_status_lbl):
+		_preview_status_lbl.text = msg
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -593,6 +1096,11 @@ func _clear_results() -> void:
 		child.queue_free()
 	_selected_index = -1
 	_selected_row = null
+	_preview_images.clear()
+	_img_http_queue.clear()
+	# Active workers will free themselves on completion; just reset the counter
+	# so freshly issued queue items can dispatch right away.
+	_img_http_active = 0
 
 
 func _add_message(msg: String) -> void:
@@ -603,3 +1111,164 @@ func _add_message(msg: String) -> void:
 	lbl.add_theme_font_size_override("font_size", 13)
 	lbl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9))
 	_results_box.add_child(lbl)
+
+
+# Sniff image format from magic bytes and call only the matching loader.
+# Returns a loaded Image, or null on any error/unknown format. Avoids the
+# noisy ERROR prints from blindly trying load_png/jpg/webp_from_buffer in
+# sequence on non-image bodies (404 HTML, partial downloads, GIF, BMP, …).
+func _decode_image_buffer(body: PackedByteArray):
+	if body == null or body.size() < 12:
+		return null
+	var img := Image.new()
+	var err := ERR_INVALID_DATA
+	# PNG: 89 50 4E 47 0D 0A 1A 0A
+	if body[0] == 0x89 and body[1] == 0x50 and body[2] == 0x4E and body[3] == 0x47:
+		err = img.load_png_from_buffer(body)
+	# JPEG: FF D8 FF
+	elif body[0] == 0xFF and body[1] == 0xD8 and body[2] == 0xFF:
+		err = img.load_jpg_from_buffer(body)
+	# WebP: "RIFF....WEBP"
+	elif body[0] == 0x52 and body[1] == 0x49 and body[2] == 0x46 and body[3] == 0x46 \
+			and body[8] == 0x57 and body[9] == 0x45 and body[10] == 0x42 and body[11] == 0x50:
+		err = img.load_webp_from_buffer(body)
+	else:
+		return null
+	if err != OK:
+		return null
+	return img
+
+
+# ─── Live catalog scrape from kenney.nl ─────────────────────────────────────
+# Kenney has no API but the asset listing pages have a very regular HTML
+# structure. We scrape /assets/page:1..13 in parallel on browser open and
+# replace the baked-in CATALOG with the live results. This solves two issues:
+#   1. Removes packs that no longer exist on the site (404s in old CATALOG).
+#   2. Categories match Kenney's real taxonomy (2D, 3D, Audio, Textures, …).
+
+func _start_catalog_scrape() -> void:
+	if _scrape_active:
+		return
+	if _host == null or not is_instance_valid(_host):
+		return
+	_scrape_active = true
+	_dynamic_catalog.clear()
+	_scrape_pages_remaining = KENNEY_LIST_PAGES
+	if _count_label != null and is_instance_valid(_count_label):
+		_count_label.text = "Loading catalog from kenney.nl…"
+	for page in range(1, KENNEY_LIST_PAGES + 1):
+		_fetch_listing_page(page)
+
+
+func _fetch_listing_page(page_num: int) -> void:
+	var req := HTTPRequest.new()
+	_host.add_child(req)
+	var captured_req := req
+	req.request_completed.connect(func(res, code, _h, body):
+		if res == HTTPRequest.RESULT_SUCCESS and code == 200 and body.size() > 256:
+			var html: String = body.get_string_from_utf8()
+			var entries := _parse_listing_html(html)
+			for e in entries:
+				_dynamic_catalog.append(e)
+		_scrape_pages_remaining = max(0, _scrape_pages_remaining - 1)
+		if is_instance_valid(captured_req):
+			captured_req.queue_free()
+		if _scrape_pages_remaining == 0:
+			_finalize_catalog_scrape()
+	)
+	var err := req.request("https://kenney.nl/assets/page:%d" % page_num)
+	if err != OK:
+		_scrape_pages_remaining = max(0, _scrape_pages_remaining - 1)
+		if is_instance_valid(req):
+			req.queue_free()
+		if _scrape_pages_remaining == 0:
+			_finalize_catalog_scrape()
+
+
+func _parse_listing_html(html: String) -> Array:
+	# Each entry looks like:
+	#   <div class='asset'>
+	#     <a href='https://kenney.nl/assets/<slug>'>
+	#       <div class='cover' style='background-image:url("<preview-url>")'></div>
+	#     </a>
+	#     <h2><a href='https://kenney.nl/assets/<slug>'>Name</a></h2>
+	#     <span class='bold text-muted'>…<a href='/assets/category:2D'>2D</a>…</span>
+	#   </div>
+	var out: Array = []
+	var rx := RegEx.new()
+	# Match each <div class='asset'>…</div> chunk.
+	if rx.compile("<div class='asset'>([\\s\\S]*?)</div>\\s*</div>") != OK:
+		return out
+	for m in rx.search_all(html):
+		var chunk: String = m.get_string(1)
+		var slug: String = _rx1(chunk, "href='https://kenney\\.nl/assets/([a-z0-9][a-z0-9-]*)'")
+		if slug == "":
+			continue
+		var name: String = _rx1(chunk, "<h2><a [^>]*>([^<]+)</a></h2>")
+		if name == "":
+			name = slug.capitalize().replace("-", " ")
+		var preview: String = _rx1(chunk, "background-image:url\\(\"([^\"]+)\"\\)")
+		var category: String = _rx1(chunk, "href='https://kenney\\.nl/assets/category:([A-Za-z0-9]+)'")
+		if category == "":
+			category = "Other"
+		# Tags: collect any series:* names as comma-separated tag string.
+		var tags := PackedStringArray()
+		var trx := RegEx.new()
+		if trx.compile("href='https://kenney\\.nl/assets/series:([^']+)'") == OK:
+			for tm in trx.search_all(chunk):
+				var t: String = tm.get_string(1).uri_decode().to_lower()
+				if t != "" and not tags.has(t):
+					tags.append(t)
+		out.append({
+			"name": name.strip_edges(),
+			"category": category,
+			"tags": " ".join(tags),
+			"url": "https://kenney.nl/assets/" + slug,
+			"preview": preview,
+		})
+	return out
+
+
+func _rx1(text: String, pattern: String) -> String:
+	var rx := RegEx.new()
+	if rx.compile(pattern) != OK:
+		return ""
+	var m := rx.search(text)
+	if m == null:
+		return ""
+	return m.get_string(1)
+
+
+func _finalize_catalog_scrape() -> void:
+	_scrape_active = false
+	if _dynamic_catalog.is_empty():
+		# Fallback: stick with baked CATALOG. Still update count label.
+		if _count_label != null and is_instance_valid(_count_label):
+			_count_label.text = "%d packs (offline catalog)" % CATALOG.size()
+		return
+	# Sort alphabetically by name for predictable browsing.
+	_dynamic_catalog.sort_custom(func(a, b): return a["name"].naturalnocasecmp_to(b["name"]) < 0)
+	# Rebuild category list from observed values.
+	var cats := {}
+	for e in _dynamic_catalog:
+		cats[e["category"]] = true
+	_all_categories.clear()
+	var keys: Array = cats.keys()
+	keys.sort()
+	for k in keys:
+		_all_categories.append(k)
+	# Rebuild category dropdown.
+	if _category_option != null and is_instance_valid(_category_option):
+		var prev_sel := _category_option.get_item_text(_category_option.selected) if _category_option.selected >= 0 else "All"
+		_category_option.clear()
+		_category_option.add_item("All", 0)
+		var idx := 1
+		for c in _all_categories:
+			_category_option.add_item(c, idx)
+			if c == prev_sel:
+				_category_option.select(idx)
+			idx += 1
+	if _count_label != null and is_instance_valid(_count_label):
+		_count_label.text = "%d packs (live from kenney.nl)" % _dynamic_catalog.size()
+	# Refresh the visible list with the fresh catalog.
+	_apply_filter()

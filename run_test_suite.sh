@@ -123,8 +123,20 @@ fi
 
 echo -e "${BOLD}══════════════════════════════════════════════════${NC}"
 
+# ---------------------------------------------------------------------------
+# Phase 2: GDScript test suites (tests/test_*.gd) — covers VB6 importer, etc.
+# ---------------------------------------------------------------------------
+GD_FAIL=0
+if [[ -x "tests/run_gd_tests.sh" ]]; then
+    echo ""
+    echo -e "${BOLD}── GDScript suites (tests/) ──${NC}"
+    if ! bash tests/run_gd_tests.sh; then
+        GD_FAIL=1
+    fi
+fi
+
 # Exit code
-if [ "$TOTAL_FAIL" -gt 0 ] || [ "$TOTAL_ERROR" -gt 0 ]; then
+if [ "$TOTAL_FAIL" -gt 0 ] || [ "$TOTAL_ERROR" -gt 0 ] || [ "$GD_FAIL" -ne 0 ]; then
     exit 1
 else
     echo -e "${GREEN}All tests passed! ✓${NC}"

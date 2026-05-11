@@ -913,7 +913,7 @@ func _evaluate_expression(expr: String) -> String:
 	# Check if result is an object for inspection
 	if result is Object:
 		_inspect_object(result)
-		return "[color=cyan]Object: " + result.get_class() + " [See Inspector][/color]"
+		return "[color=cyan]Object: " + VGIntelliSense.to_vb6_type_name(result.get_class()) + " [See Inspector][/color]"
 	
 	return "[color=cyan]" + str(result) + "[/color]"
 
@@ -982,7 +982,7 @@ func _get_type_name(value: Variant) -> String:
 		TYPE_VECTOR3: return "Vector3"
 		TYPE_ARRAY: return "Array"
 		TYPE_DICTIONARY: return "Dictionary"
-		TYPE_OBJECT: return value.get_class() if value != null else "Object"
+		TYPE_OBJECT: return VGIntelliSense.to_vb6_type_name(value.get_class()) if value != null else "Object"
 		_: return "Variant"
 
 func _append_output(text: String):
@@ -2092,7 +2092,7 @@ func _refresh_inspector():
 	
 	var obj = _current_inspected_object
 	var root = _inspector_tree.create_item()
-	root.set_text(0, obj.get_class())
+	root.set_text(0, VGIntelliSense.to_vb6_type_name(obj.get_class()))
 	root.set_text(1, "")
 	
 	# Properties
@@ -2137,7 +2137,7 @@ func _refresh_inspector():
 		for child in obj.get_children():
 			var item = _inspector_tree.create_item(children_parent)
 			item.set_text(0, child.name)
-			item.set_text(1, child.get_class())
+			item.set_text(1, VGIntelliSense.to_vb6_type_name(child.get_class()))
 			item.set_metadata(0, {"obj": child})
 
 func _add_expandable_value(parent: TreeItem, value: Variant):

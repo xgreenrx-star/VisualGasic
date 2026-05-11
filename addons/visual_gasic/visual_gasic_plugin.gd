@@ -955,6 +955,14 @@ func _enter_tree():
 			)
 			print("VisualGasic: Sprite Editor created")
 
+		# Listen for any code-path that opens an asset (e.g. AGCK's "Open
+		# in VG Sprite Editor" bridge) and switch the IDE to the matching
+		# built-in view. Without this the asset loads into a hidden editor
+		# and the user sees no change.
+		var bus = preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance()
+		if not bus.asset_opened.is_connected(_on_asset_bus_opened):
+			bus.asset_opened.connect(_on_asset_bus_opened)
+
 		# ── Plugin Manager — discovers plugins from addons/visual_gasic/plugins/ ──
 		var vg_pm_script = load("res://addons/visual_gasic/vg_plugin_manager.gd")
 		if vg_pm_script:
@@ -1201,7 +1209,14 @@ func _select_vg_main_screen_on_first_run() -> void:
 	var first_run_completed := false
 	if ProjectSettings.has_setting("vg/first_run_completed"):
 		first_run_completed = bool(ProjectSettings.get_setting("vg/first_run_completed", false))
-	if first_run_completed:
+	# Narcea-seeded projects set first_run_completed=true to suppress the
+	# project-type picker, but they STILL need the VG IDE main screen
+	# selected — otherwise the user lands on Godot's 3D editor and can't
+	# see the AI panel while Narcea is generating their project.
+	var narcea_seeded := false
+	if ProjectSettings.has_setting("vg/narcea_seeded"):
+		narcea_seeded = bool(ProjectSettings.get_setting("vg/narcea_seeded", false))
+	if first_run_completed and not narcea_seeded:
 		return
 	# Defer once more so EditorNode finishes wiring its main-screen tabs
 	# before we ask it to switch.  Calling set_main_screen_editor too early
@@ -1379,7 +1394,28 @@ func _on_3d_view_pressed() -> void:
 
 ## Called when user clicks the "🎮 2D Scene Editor" button in the VG toolbar.
 ## Switches to the embedded 2D Scene Editor within the VG IDE.
+##
+## Special case: when an AGCK (or similar) plugin is active, the 2D viewport
+## is fed by the AGCK build pipeline. So we delegate to the plugin's
+## `_on_build_requested()` — AGCK already prompts the user when prior build
+## output exists (via `_scan_existing_project` / `_show_build_conflict_dialog`)
+## and on a fresh build it auto-opens Main.tscn in the 2D editor and switches
+## the IDE to 2D view. This avoids duplicating the "is something already
+## there?" check on the IDE side.
 func _on_2d_view_pressed() -> void:
+	if _vg_plugin_manager and _vg_plugin_manager.has_active_plugin():
+		var pid: String = _vg_plugin_manager.get_active_plugin_id()
+		var p = _vg_plugin_manager.get_plugin(pid)
+		if p and p.has_method("_on_build_requested"):
+			# IMPORTANT: deactivate the plugin BEFORE triggering the build.
+			# AGCK's build pipeline calls _host_plugin._on_2d_view_pressed()
+			# again on completion to display Main.tscn — if the plugin were
+			# still active that would recurse back into this branch and
+			# stack-overflow the editor.
+			_vg_plugin_manager.deactivate_all()
+			_showing_plugin_view = false
+			p._on_build_requested()
+			return
 	_show_2d_view()
 
 ## Called when user clicks the "🎨 Sprite Editor" button in the VG toolbar.
@@ -1392,6 +1428,23 @@ func _on_sprite_saved(path: String) -> void:
 	print("VisualGasic: Sprite saved to ", path)
 	if is_instance_valid(_status_bar):
 		_status_bar.text = "  Sprite saved: " + path.get_file()
+
+
+## Routes asset_opened events from VGAssetBus into a view switch when a
+## built-in editor is the recipient. AGCK's "Open in VG Sprite Editor"
+## bridge depends on this — without it, the PNG loads into a hidden
+## sprite editor and the user sees no change.
+func _on_asset_bus_opened(_path: String, by_plugin_id: String) -> void:
+	match by_plugin_id:
+		"sprite_editor":
+			_show_sprite_view()
+		"vg_2d_editor":
+			_show_2d_view()
+		"vg_3d_editor":
+			_show_3d_view()
+		"vg_code_editor":
+			# The code editor handles its own visibility on edit.
+			pass
 
 ## Called when a VG plugin is activated (e.g. AGCK button clicked).
 ## Hides all built-in views and shows the plugin's view.
@@ -4552,6 +4605,13 @@ func _copy_dir_recursive(src: String, dst: String) -> Error:
 	if not dir:
 		return ERR_CANT_OPEN
 
+	# Include hidden entries (.gdignore, .gitkeep, etc.) — without this
+	# Godot's list_dir_begin() skips dotfiles, which means a brand-new
+	# project misses the .gdignore markers that suppress parse errors
+	# for plugins whose autoloads aren't registered yet (e.g. vgmusic/
+	# bosca/Controller).
+	dir.include_hidden = true
+
 	dir.list_dir_begin()
 	var entry = dir.get_next()
 	while entry != "":
@@ -4683,22 +4743,157 @@ func _consume_narcea_seed_if_present() -> void:
 	f.close()
 	if text.strip_edges().is_empty():
 		return
-	# Hand the text to the AI panel's input field if it's available, else
-	# defer once more on the next idle frame to allow it to construct.
+	# Locate the AI help panel — it's parked on `self` as `_ai_help_panel`
+	# until the IDE layout embeds it into the bottom tabs. Wait until both
+	# the input field AND the send button have been constructed (they are
+	# created in the panel's _ready), otherwise auto-send will be a no-op.
 	var panel: Object = null
-	if "_ai_panel" in self:
-		panel = get("_ai_panel")
-	if panel != null and is_instance_valid(panel) and "_input" in panel:
-		var input_field: Object = panel.get("_input")
-		if is_instance_valid(input_field) and input_field.has_method("set"):
-			input_field.set("text", text)
-			print("[VisualGasic] Narcea seed loaded into AI panel (%d chars)." % text.length())
-			_flash_status_message("🌿 Narcea seed loaded — open AI panel to review")
-	else:
-		# AI panel not built yet — try again in 500ms.
+	if "_ai_help_panel" in self:
+		panel = get("_ai_help_panel")
+	var ready := panel != null and is_instance_valid(panel) \
+		and "_input" in panel and is_instance_valid(panel.get("_input")) \
+		and "_send_btn" in panel and is_instance_valid(panel.get("_send_btn"))
+	# Also require that the panel has been embedded into the IDE's bottom
+	# tab bar — otherwise focus_bottom_tab() will index out of bounds AND
+	# the subsequent reparent triggers _reinit_after_reparent which wipes
+	# `_ollama_available`, killing any in-flight auto-send.
+	var embedded := false
+	if ready and panel is Node:
+		embedded = (panel as Node).get_parent() != self and is_instance_valid(_embedded_code_editor)
+	if not (ready and embedded):
+		# AI panel not built/embedded yet — try again in 500ms.
 		var t := get_tree().create_timer(0.5)
 		t.timeout.connect(_consume_narcea_seed_if_present, CONNECT_ONE_SHOT)
 		return
+
+	# Force the Narcea persona — she's the only one that emits
+	# `vg-project-spec` blocks, which is what scaffolds the project.
+	if "_persona_id" in panel:
+		panel.set("_persona_id", "narcea")
+		if panel.has_method("_apply_persona_voice"):
+			panel.call("_apply_persona_voice")
+
+	# Honor the AI provider + model the user chose in the welcome shell.
+	# The welcome dialog writes them into project.godot's [vg] section so
+	# the IDE picks up the user's intent on first open instead of falling
+	# back to whatever the centrally-saved preferred provider was.
+	var seed_provider := ""
+	var seed_model := ""
+	if ProjectSettings.has_setting("vg/narcea_provider"):
+		seed_provider = str(ProjectSettings.get_setting("vg/narcea_provider", ""))
+	if ProjectSettings.has_setting("vg/narcea_model"):
+		seed_model = str(ProjectSettings.get_setting("vg/narcea_model", ""))
+	if not seed_provider.is_empty() and "_provider_id" in panel:
+		var providers_script = load("res://addons/visual_gasic/vg_ai_providers.gd")
+		var pinfo = providers_script.find_provider(seed_provider) if providers_script else null
+		if pinfo != null:
+			panel.set("_provider_id", seed_provider)
+			panel.set("_provider_info", pinfo)
+			if not seed_model.is_empty() and seed_model in pinfo.models:
+				panel.set("_current_model", seed_model)
+			else:
+				panel.set("_current_model", pinfo.default_model)
+			# Re-activate so _ollama_available, model dropdown, etc. all
+			# reflect the new selection before we fire _on_send.
+			if panel.has_method("_update_model_dropdown"):
+				panel.call("_update_model_dropdown")
+			if panel.has_method("_activate_provider"):
+				panel.call("_activate_provider")
+
+	# Stuff the seed into the input field and fire send.
+	var input_field: Object = panel.get("_input")
+	# Wrap the user's description with explicit instructions so Narcea
+	# scaffolds in place (the welcome shell already created an empty
+	# project for her). Without `subdir: "."` the spec applier defaults
+	# to `res://ai_projects/<name>/`, which would nest the game inside
+	# this fresh shell — see vg_ai_project_spec.gd::project_root.
+	var proj_name := str(ProjectSettings.get_setting("application/config/name", "Project"))
+	var augmented := \
+		"PROJECT GENERATION REQUEST — strict format.\n" + \
+		"\n" + \
+		"Reply with ONE fenced ```vg-project-spec``` JSON block and NOTHING ELSE.\n" + \
+		"Do not write prose explanations, do not paste raw VG code outside the\n" + \
+		"block, do not narrate. The IDE will parse the block and scaffold the\n" + \
+		"entire project for the user.\n" + \
+		"\n" + \
+		"Required JSON shape:\n" + \
+		"```vg-project-spec\n" + \
+		"{\n" + \
+		"  \"project_name\": \"" + proj_name + "\",\n" + \
+		"  \"subdir\": \".\",\n" + \
+		"  \"main_scene\": \"<FormName>.tscn\",\n" + \
+		"  \"forms\": [ { \"form_name\": \"...\", \"auto_events\": true, \"controls\": [...] } ],\n" + \
+		"  \"files\": [ { \"path\": \"<FormName>.vg\", \"source\": \"' Visual Gasic Form Script\\nOption Explicit\\n...\" } ]\n" + \
+		"}\n" + \
+		"```\n" + \
+		"\n" + \
+		"Hard rules:\n" + \
+		"  • subdir MUST be \".\" (single dot) so files land at this project's root.\n" + \
+		"  • Replace any existing Module1.vg by including a file with that name\n" + \
+		"    OR by setting main_scene to a form .tscn instead.\n" + \
+		"  • All .vg sources use VB6/VG syntax: Sub/End Sub, Dim, & for concat,\n" + \
+		"    Option Explicit at the top of new files. NEVER GDScript.\n" + \
+		"  • Forms with auto_events: true get event-handler stubs auto-generated;\n" + \
+		"    fill them in with real logic in the matching .vg file.\n" + \
+		"  • Timer controls (e.g. Timer1) use VB6 idioms ONLY:\n" + \
+		"      Timer1.Interval = 16          ' milliseconds (NOT WaitTime/seconds)\n" + \
+		"      Timer1.Enabled  = True        ' starts/stops the timer (NOT .Start/.Stop)\n" + \
+		"      Sub Timer1_Timer()            ' event handler — fires every Interval ms\n" + \
+		"    Inside the handler, derive delta from Interval: `delta = Timer1.Interval / 1000.0`.\n" + \
+		"  • Position/size controls use VB6 properties — NEVER `.position.x` / `.position.y`:\n" + \
+		"      ctrl.Left   ' X position in pixels (read/write)\n" + \
+		"      ctrl.Top    ' Y position in pixels (read/write)\n" + \
+		"      ctrl.Width  ' width in pixels\n" + \
+		"      ctrl.Height ' height in pixels\n" + \
+		"    Writing `ctrl.position.x = N` SILENTLY FAILS (Vector2 is a value type).\n" + \
+		"  • Label text uses .Caption (not .text): `lblScore.Caption = CStr(score)`.\n" + \
+		"  • Input checks: `If Input.IsKeyPressed(KEY_W) Then ...` (VG built-in,\n" + \
+		"    keys are KEY_W, KEY_S, KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_SPACE, etc.).\n" + \
+		"  • Random: `Rnd()` returns 0..1; seed once with `Randomize` if needed.\n" + \
+		"  • Keep total files ≤ 6 so the diff dialog stays usable.\n" + \
+		"\n" + \
+		"USER DESCRIPTION:\n" + text
+	input_field.set("text", augmented)
+	print("[VisualGasic] Narcea seed loaded into AI panel (%d chars) — auto-sending." % augmented.length())
+	_flash_status_message("🌿 Narcea is drafting your project — see the AI panel")
+
+	# Make the AI panel visible / focused so the user sees the response
+	# stream in. Prefer the embedded code editor's bottom-tab API (this is
+	# the same call site used by the Exception Assistant) and fall back to
+	# the legacy layout-manager hook for older configurations.
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_bottom_tab"):
+		_embedded_code_editor.focus_bottom_tab(panel)
+	elif "_layout_manager" in self and is_instance_valid(get("_layout_manager")):
+		var lm = get("_layout_manager")
+		if lm.has_method("focus_ai_panel"):
+			lm.call("focus_ai_panel")
+	if panel.has_method("set"):
+		panel.set("visible", true)
+
+	# Wait for the active AI provider to finish activating before firing
+	# `_on_send`. Without this guard the deferred call races the panel's
+	# `_enter_tree → _reinit_after_reparent → _activate_provider` chain
+	# and lands while `_ollama_available` is still false — which makes
+	# `_send_query` print "Provider not ready" and silently drop the
+	# prompt. (User had to open/close the API key dialog to recover.)
+	var avail: bool = false
+	if "_ollama_available" in panel:
+		avail = bool(panel.get("_ollama_available"))
+	if not avail:
+		# Re-activate now (cheap, idempotent for cloud providers) and
+		# retry shortly. Don't rename the seed file yet — if we never
+		# converge we want a chance to surface an error to the user.
+		if panel.has_method("_activate_provider"):
+			panel.call_deferred("_activate_provider")
+		var t2 := get_tree().create_timer(0.5)
+		t2.timeout.connect(_consume_narcea_seed_if_present, CONNECT_ONE_SHOT)
+		return
+
+	# Auto-send. _on_send reads from `_input.text` so the prefill above
+	# carries through.
+	if panel.has_method("_on_send"):
+		panel.call_deferred("_on_send")
+
 	# Move aside so we don't re-consume on subsequent opens.
 	var consumed := "res://.narcea_seed.consumed"
 	DirAccess.rename_absolute(ProjectSettings.globalize_path(seed_path), ProjectSettings.globalize_path(consumed))
@@ -7923,6 +8118,11 @@ func _show_code_view() -> void:
 		_vg_plugin_manager.deactivate_all()
 
 	# Hide the canvas scroll, 3D editor, 2D editor, and sprite editor — show the code editor
+	# Re-show CenterStack itself (plugin view hid it so its empty space wouldn't
+	# claim half of CanvasRightSplit).
+	var center_stack_code = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack")
+	if center_stack_code:
+		center_stack_code.visible = true
 	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
@@ -8080,6 +8280,10 @@ func _show_3d_view() -> void:
 		_vg_plugin_manager.deactivate_all()
 
 	# Hide the canvas scroll, code editor, 2D editor, and sprite editor — show the 3D editor
+	# Re-show CenterStack itself (plugin view hides it).
+	var center_stack_3d = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack")
+	if center_stack_3d:
+		center_stack_3d.visible = true
 	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
@@ -8163,6 +8367,12 @@ func _show_2d_view() -> void:
 		_vg_plugin_manager.deactivate_all()
 
 	# Hide the canvas scroll, code editor, 3D editor, and sprite editor — show the 2D editor
+	# Re-show CenterStack itself (plugin view hides it; without this the 2D
+	# viewport stays invisible after AGCK → 2D and the right panels stretch
+	# into the empty half of CanvasRightSplit).
+	var center_stack_2d = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack")
+	if center_stack_2d:
+		center_stack_2d.visible = true
 	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
@@ -8194,6 +8404,13 @@ func _show_2d_view() -> void:
 	var right_panel_2d = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
 	if right_panel_2d:
 		right_panel_2d.visible = true
+
+	# Swap bottom panel: hide FileSystem, show Properties so clicking a node
+	# in the 2D viewport updates the inspector live.
+	if is_instance_valid(_vg_file_browser):
+		_vg_file_browser.visible = false
+	if is_instance_valid(_properties_inspector):
+		_properties_inspector.visible = true
 
 	# Auto-load the project scene if the 2D editor has nothing loaded yet
 	call_deferred("_auto_load_2d_scene")
@@ -8248,6 +8465,10 @@ func _show_sprite_view() -> void:
 		_vg_plugin_manager.deactivate_all()
 
 	# Hide everything except the sprite editor
+	# Re-show CenterStack itself (plugin view hides it).
+	var center_stack_sp = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack")
+	if center_stack_sp:
+		center_stack_sp.visible = true
 	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
@@ -8429,14 +8650,49 @@ func _collect_vg_files(path: String, modules: Array[String], forms: Array[String
 		file_name = dir.get_next()
 	dir.list_dir_end()
 
+## Returns the set of lowercased filenames present in `dir_path` (a res://
+## or absolute path). Used for case-insensitive collision checks on
+## case-sensitive filesystems (Linux), where FileAccess.file_exists() will
+## happily report `Module1.vg` as missing when only `module1.vg` is on disk.
+func _list_dir_names_lowercased(dir_path: String) -> Dictionary:
+	var out: Dictionary = {}
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return out
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while entry != "":
+		if entry != "." and entry != "..":
+			out[entry.to_lower()] = true
+		entry = dir.get_next()
+	dir.list_dir_end()
+	return out
+
 ## Create a starter `Module1.vg` at res:// when the user clicks View Code on
 ## a fresh project that has no modules or forms yet. Returns the new path
 ## (or "" on failure).
 func _scaffold_starter_module() -> String:
 	var base := "res://"
+	var existing := _list_dir_names_lowercased(base)
+	# If a Module1.vg (any casing) already exists, just return it instead
+	# of creating a Module2.vg duplicate. This avoids the situation where a
+	# form-script stub `module1.vg` is created early in startup and then a
+	# second `Module1.vg` starter gets scaffolded right next to it.
+	if existing.has("module1.vg"):
+		# Find the actual on-disk casing so we open the real file.
+		var dir := DirAccess.open(base)
+		if dir != null:
+			dir.list_dir_begin()
+			var entry := dir.get_next()
+			while entry != "":
+				if entry.to_lower() == "module1.vg":
+					dir.list_dir_end()
+					return base + entry
+				entry = dir.get_next()
+			dir.list_dir_end()
 	var name := "Module1"
 	var i := 1
-	while FileAccess.file_exists(base + name + ".vg"):
+	while existing.has((name + ".vg").to_lower()):
 		i += 1
 		name = "Module" + str(i)
 	var path := base + name + ".vg"
@@ -8472,6 +8728,10 @@ func _auto_open_formless_module() -> void:
 	if ProjectSettings.has_setting("vg/first_run_completed"):
 		first_run_completed = bool(ProjectSettings.get_setting("vg/first_run_completed", false))
 	if not first_run_completed and _project_is_empty_for_first_run():
+		# Code editor is the default visible state for new projects — the
+		# Form Designer is opt-in. Without this the user would see the
+		# blank Form1 canvas behind the welcome picker.
+		_show_code_view()
 		_show_first_run_dialog()
 		return  # Dialog will re-invoke us after the choice is applied.
 
@@ -8500,12 +8760,19 @@ func _auto_open_formless_module() -> void:
 		# Code-first: open a module straight away, skip form auto-open.
 		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.get_file_path().is_empty():
 			var first_vg := _find_first_vg_in_project()
+			if first_vg.is_empty():
+				# Brand-new code-mode project with no module yet — scaffold a
+				# Module1.vg starter so the user lands in the code editor
+				# instead of the empty form canvas.
+				first_vg = _scaffold_starter_module()
 			if not first_vg.is_empty():
 				print("VisualGasic: default_mode=code — auto-opening module: ", first_vg)
 				open_module_in_embedded_editor(first_vg)
 				return
-		# No .vg file yet → fall through to form detection (legacy behaviour
-		# for projects that have neither modules nor forms is unchanged).
+		# Still nothing → at least flip the visual state to code view so the
+		# Form Designer canvas isn't shown by default.
+		_show_code_view()
+		return
 
 	# Try to find and auto-open the first form in the project
 	if not form_designer_enabled:
@@ -9033,10 +9300,13 @@ func _on_new_module():
 ## @param module_name: Name for the module (without extension)
 ## @param module_type: 0=Standard, 1=Class, 2=Game, 3=Utility
 func _create_new_module(module_name: String, module_type: int):
-	# Generate unique filename
+	# Generate unique filename (case-insensitive — on Linux FileAccess is
+	# case-sensitive, but treating `module1.vg` and `Module1.vg` as separate
+	# files just produces confusing duplicates).
+	var existing := _list_dir_names_lowercased("res://")
 	var path = "res://" + module_name + ".vg"
 	var idx = 1
-	while FileAccess.file_exists(path):
+	while existing.has((module_name + ".vg").to_lower()):
 		idx += 1
 		module_name = module_name.rstrip("0123456789") + str(idx)
 		path = "res://" + module_name + ".vg"

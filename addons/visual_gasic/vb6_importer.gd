@@ -8,6 +8,27 @@ extends Node
 const TWIPS_PER_PIXEL = 15.0
 
 # =============================================================================
+# VB6-CANONICAL TYPE NAMES (used for output canonicalization)
+# =============================================================================
+# When emitting user-visible code (`.vg`), any `As <GodotType>` declaration is
+# rewritten to its VB6-canonical equivalent. The Godot scene (`.tscn`) keeps
+# the engine type names — only the source-code surface is canonicalized.
+# Mirrors `_VB6_CANONICAL_REWRITES` in `vg_ai_tools.gd`.
+const _VB6_CANONICAL_TYPE_REWRITES: Dictionary = {
+	"Button": "CommandButton",
+	"LineEdit": "TextBox",
+	"TextEdit": "TextBox",
+	"TextureRect": "PictureBox",
+	"ItemList": "ListBox",
+	"PanelContainer": "Frame",
+	"Panel": "Frame",
+	"OptionButton": "ComboBox",
+	# Note: VB6's OptionButton ↔ Godot's CheckBox is mapped to "OptionButton"
+	# (VB6 canonical) only when the source already says CheckBox; preserve user
+	# intent for plain CheckBox usage (no rewrite for CheckBox here).
+}
+
+# =============================================================================
 # VB6 CONTROL TO GODOT NODE MAPPING
 # =============================================================================
 
@@ -503,17 +524,24 @@ static func import_project(path: String) -> Dictionary:
 			var ctl_parts = line.replace("UserControl=", "").split(";")
 			if ctl_parts.size() > 1:
 				var ctl_file = ctl_parts[1].strip_edges()
-				result.warnings.append("UserControl (.ctl) skipped: " + ctl_file + " — import UserControls manually as custom scenes")
+				# First-cut: import as a composite scene by reusing the .frm
+				# pipeline. UserControl Begin/End blocks parse the same way
+				# Form blocks do; the scene is saved under res://start_forms.
+				# PropertyBag (`PropBag.ReadProperty/WriteProperty`) and
+				# ambient/extender properties are NOT translated — those need
+				# manual review.
+				forms.push_back(base_dir + "/" + ctl_file)
+				result.warnings.append("UserControl (.ctl) imported as composite scene: " + ctl_file + " — PropertyBag and ambient props not translated; review manually")
 			else:
-				result.warnings.append("UserControl (.ctl) skipped: " + line)
-		
+				result.warnings.append("UserControl (.ctl) skipped: " + line + " — malformed entry")
+
 		# UserDocument= lines (ActiveX documents - very rare)
 		elif line.begins_with("UserDocument="):
-			result.warnings.append("UserDocument skipped: " + line + " — not supported")
-		
+			result.warnings.append("UserDocument (.dob) skipped: " + line + " — ActiveX documents have no Godot equivalent (they were a Win9x browser hosting feature). Port the embedded code manually as a Module or Form.")
+
 		# PropertyPage= lines (property pages for controls - rare)
 		elif line.begins_with("PropertyPage="):
-			result.warnings.append("PropertyPage skipped: " + line + " — not supported")
+			result.warnings.append("PropertyPage (.pag) skipped: " + line + " — property pages depend on the COM PropertyBag protocol; rebuild as a Form if needed.")
 			
 	print("VB6 Importer: Found ", forms.size(), " forms, ", modules.size(), " modules, ", classes.size(), " classes")
 	
@@ -612,6 +640,9 @@ static func import_form_file(path: String) -> Dictionary:
 	
 	# Post-process: group VB.OptionButton radio buttons within same parent
 	_post_process_radio_groups(root)
+	
+	# Post-process: wire focus_next/focus_previous from TabIndex chain
+	_post_process_tab_order(root)
 	
 	# Post-process: extract .frx embedded images if available
 	var frx_path = path.get_basename() + ".frx"
@@ -1194,26 +1225,65 @@ static func _apply_property(node: Node, key: String, val: String, owner: Node):
 			node.set_meta("draw_style", int(val))
 
 static func _apply_font(node: Node, font_props: Dictionary):
-	"""Apply font properties to a control."""
+	"""Apply font properties to a control via a SystemFont theme override.
+
+	Resolves the VB6 face name (e.g. "MS Sans Serif", "Tahoma", "Courier
+	New") to a Godot `SystemFont` with weight/italic flags set; stores the
+	raw VB6 properties as metadata for later inspection. Also writes
+	`font_size` (point-to-pixel scaled) and bold/italic/underline metadata
+	for downstream consumers."""
 	if not node is Control:
 		return
-	
-	var font_name = font_props.get("Name", "").replace('"', "")
-	var font_size = font_props.get("Size", "12").to_float()
-	var bold = font_props.get("Weight", "400").to_int() >= 700
-	var italic = font_props.get("Italic", "0") == "-1"
-	var underline = font_props.get("Underline", "0") == "-1"
-	var strikethrough = font_props.get("Strikethrough", "0") == "-1"
-	
-	# Apply font size
+
+	var font_name: String = font_props.get("Name", "").replace('"', "").strip_edges()
+	var font_size: float = font_props.get("Size", "12").to_float()
+	var weight_raw: int = font_props.get("Weight", "400").to_int()
+	var bold: bool = weight_raw >= 700
+	var italic: bool = font_props.get("Italic", "0") == "-1"
+	var underline: bool = font_props.get("Underline", "0") == "-1"
+	var strikethrough: bool = font_props.get("Strikethrough", "0") == "-1"
+
+	# Apply font size (VB6 stores points; multiply by 96/72 ≈ 1.33 for pixels).
 	if font_size > 0:
-		node.add_theme_font_size_override("font_size", int(font_size * 1.33))  # Points to pixels
-	
-	# Store font info as metadata for later use
+		node.add_theme_font_size_override("font_size", int(round(font_size * 1.33)))
+
+	# Build a SystemFont so the OS picks the closest match. We provide a
+	# small fallback chain so platforms without the exact face still render
+	# something sensible.
+	if font_name != "":
+		var sys_font := SystemFont.new()
+		var fallbacks: PackedStringArray = PackedStringArray([font_name])
+		# Common VB6 face → cross-platform fallbacks
+		var lower := font_name.to_lower()
+		if lower == "ms sans serif" or lower == "microsoft sans serif":
+			fallbacks.append("Tahoma")
+			fallbacks.append("Arial")
+			fallbacks.append("sans-serif")
+		elif lower == "courier new" or lower == "courier":
+			fallbacks.append("Liberation Mono")
+			fallbacks.append("monospace")
+		elif lower == "times new roman" or lower == "times":
+			fallbacks.append("Liberation Serif")
+			fallbacks.append("serif")
+		else:
+			fallbacks.append("sans-serif")
+		sys_font.font_names = fallbacks
+		sys_font.font_weight = (700 if bold else weight_raw) if weight_raw > 0 else (700 if bold else 400)
+		sys_font.font_italic = italic
+		node.add_theme_font_override("font", sys_font)
+
+	# Underline: Godot Label exposes a `theme_constant_override` route; for
+	# generic parity store as metadata and let consumers honor it.
+	# Strikethrough has no native equivalent → metadata only.
+
+	# Store font info as metadata for later use / introspection.
 	node.set_meta("font_name", font_name)
+	node.set_meta("font_size_pt", font_size)
+	node.set_meta("font_weight", weight_raw)
 	node.set_meta("font_bold", bold)
 	node.set_meta("font_italic", italic)
 	node.set_meta("font_underline", underline)
+	node.set_meta("font_strikethrough", strikethrough)
 
 static func _skip_or_store_property_block(file: FileAccess, prop_name: String, node: Node):
 	"""Read through a non-Font BeginProperty...EndProperty block, storing key=value pairs as metadata."""
@@ -1654,7 +1724,60 @@ static func _transform_vb6_code(code: String, form_name: String, control_arrays:
 		header += "    Return Me.FindChild(name)\n"
 		header += "End Function\n\n"
 	
-	return header + "\n".join(result_lines)
+	return _canonicalize_vb6_type_names(_annotate_property_pairs(header + "\n".join(result_lines)))
+
+static func _annotate_property_pairs(code: String) -> String:
+	"""Detect VB6 Property Get/Let/Set blocks that share a name and prepend
+	a `' [VB6 property pair: <name>]` marker comment above the first
+	occurrence of each shared name. Helps human readers see Get+Set pairs
+	belong together after the Let→Set rename. No semantic effect."""
+	var lines: PackedStringArray = code.split("\n")
+	var prop_re := RegEx.new()
+	prop_re.compile("^\\s*(?:Public\\s+|Private\\s+|Friend\\s+)?Property\\s+(Get|Let|Set)\\s+(\\w+)")
+	# Pass 1: count occurrences per name.
+	var counts: Dictionary = {}  # name -> int
+	for ln in lines:
+		var m = prop_re.search(ln)
+		if m:
+			var nm: String = m.get_string(2)
+			counts[nm] = int(counts.get(nm, 0)) + 1
+	if counts.is_empty():
+		return code
+	# Pass 2: emit annotation above the first occurrence of any name with count >= 2.
+	var seen: Dictionary = {}
+	var out: PackedStringArray = []
+	for ln2 in lines:
+		var m2 = prop_re.search(ln2)
+		if m2:
+			var nm2: String = m2.get_string(2)
+			if int(counts.get(nm2, 0)) >= 2 and not seen.has(nm2):
+				seen[nm2] = true
+				# Preserve original indent so the marker sits with the block.
+				var indent: String = ln2.substr(0, ln2.length() - ln2.lstrip(" \t").length())
+				out.append(indent + "' [VB6 property pair: " + nm2 + "]")
+		out.append(ln2)
+	return "\n".join(out)
+
+static func _canonicalize_vb6_type_names(code: String) -> String:
+	"""Rewrite any `As <GodotType>` in emitted code to the VB6-canonical name.
+	Defensive post-pass: ensures user-visible .vg output never leaks Godot
+	engine type names even if a future transform introduces them. Skips
+	comment lines so explanatory comments stay intact."""
+	var out_lines: PackedStringArray = []
+	for raw_line in code.split("\n"):
+		var line: String = raw_line
+		var stripped := line.strip_edges()
+		if stripped.begins_with("'"):
+			out_lines.append(line)
+			continue
+		for godot_name in _VB6_CANONICAL_TYPE_REWRITES.keys():
+			var vb6_name: String = _VB6_CANONICAL_TYPE_REWRITES[godot_name]
+			var rx := RegEx.new()
+			rx.compile("\\bAs\\s+" + godot_name + "\\b")
+			line = rx.sub(line, "As " + vb6_name, true)
+		out_lines.append(line)
+	return "\n".join(out_lines)
+
 
 static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 	"""Transform a single line of VB6 code."""
@@ -1709,7 +1832,61 @@ static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 		return result.replace(trim, "' [VB6 CC] " + trim)
 	if trim.begins_with("#Const "):
 		return result.replace(trim, "' [VB6 CC] " + trim)
-	
+
+	# =========================================================================
+	# VB6 STATEMENTS: ReDim / Mid statement
+	# =========================================================================
+
+	# ReDim [Preserve] arr(n) / arr(lo To hi) → Godot Array.resize(...)
+	# VB6 bounds are inclusive, default lower bound is 0 unless `Option Base 1`
+	# is set or a `lo To hi` range is given. We assume Option Base 0.
+	#   ReDim arr(n)        -> arr.resize(n + 1)
+	#   ReDim Preserve arr(n) -> arr.resize(n + 1)        (Godot resize keeps data)
+	#   ReDim arr(lo To hi) -> arr.resize(hi - lo + 1)    (note offset in comment)
+	var redim_regex := RegEx.new()
+	redim_regex.compile("^(\\s*)ReDim\\s+(Preserve\\s+)?(\\w+)\\s*\\(([^)]*)\\)\\s*$")
+	var redim_match = redim_regex.search(result)
+	if redim_match:
+		var ind: String = redim_match.get_string(1)
+		var preserve: bool = redim_match.get_string(2) != ""
+		var arr_name: String = redim_match.get_string(3)
+		var bounds: String = redim_match.get_string(4).strip_edges()
+		var to_re := RegEx.new()
+		to_re.compile("(?i)^(.*?)\\s+To\\s+(.*)$")
+		var to_match = to_re.search(bounds)
+		var size_expr: String
+		var note: String
+		if to_match:
+			var lo: String = to_match.get_string(1).strip_edges()
+			var hi: String = to_match.get_string(2).strip_edges()
+			size_expr = "(" + hi + ") - (" + lo + ") + 1"
+			note = "  ' VB6: ReDim " + ("Preserve " if preserve else "") + arr_name + "(" + bounds + ") — index offset " + lo
+		else:
+			size_expr = "(" + bounds + ") + 1"
+			note = "  ' VB6: ReDim " + ("Preserve " if preserve else "") + arr_name + "(" + bounds + ")"
+		# Preserve note kept as comment; Godot Array.resize already preserves contents.
+		return ind + arr_name + ".resize(" + size_expr + ")" + note
+
+	# Mid statement (write form): `Mid(s, start[, len]) = "value"`
+	# Distinct from the Mid() function which reads. We rewrite to a safe
+	# substring splice so the assignment semantics are preserved.
+	var mid_stmt_re := RegEx.new()
+	mid_stmt_re.compile("^(\\s*)Mid\\$?\\s*\\(\\s*(\\w+)\\s*,\\s*([^,)]+?)(?:\\s*,\\s*([^)]+))?\\s*\\)\\s*=\\s*(.+)$")
+	var mid_match = mid_stmt_re.search(result)
+	if mid_match:
+		var ind2: String = mid_match.get_string(1)
+		var var_name: String = mid_match.get_string(2)
+		var start_expr: String = mid_match.get_string(3).strip_edges()
+		var len_expr: String = mid_match.get_string(4).strip_edges()
+		var rhs: String = mid_match.get_string(5).strip_edges()
+		var len_clause: String
+		if len_expr == "":
+			len_clause = "Len(" + rhs + ")"
+		else:
+			len_clause = "(" + len_expr + ")"
+		return ind2 + var_name + " = Left(" + var_name + ", (" + start_expr + ") - 1) & " + rhs \
+			+ " & Mid(" + var_name + ", (" + start_expr + ") + " + len_clause + ")  ' VB6: Mid statement"
+
 	# =========================================================================
 	# RAISEEVENT / WITHEVENTS / EVENT DECLARATIONS
 	# =========================================================================
@@ -1801,14 +1978,111 @@ static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 	if "Debug.Print " in result:
 		result = result.replace("Debug.Print ", "Print ")
 	
-	# Transform Print # (file output)
+	# Transform Print # (file output) — VG natively supports `Print #n, ...`,
+	# so we leave the line as-is. The regex run is a no-op kept here so a
+	# future translation layer has a hook point.
 	var print_regex = RegEx.new()
 	print_regex.compile("Print #(\\d+),")
 	var print_match = print_regex.search(result)
 	if print_match:
 		var file_num = print_match.get_string(1)
 		result = result.replace(print_match.get_string(), "Print #" + file_num + ",")
-	
+
+	# =========================================================================
+	# VB6 FILE I/O — Open / Close / Get / Put pass through unchanged
+	# =========================================================================
+	# `Open <path> For (Input|Output|Append|Binary|Random) As #n`,
+	# `Close [#n]`, `Get #n, [recno], var`, `Put #n, [recno], var`,
+	# `Input #n, ...`, `Line Input #n, var`, `Write #n, ...`, `EOF(n)`,
+	# `LOF(n)` are all native VG file-I/O statements (see vg_command_help.gd).
+	# We deliberately do NOT rewrite them here.
+
+	# =========================================================================
+	# COLLECTIONS — VB6 Collection / Scripting.Dictionary → VG Dictionary
+	# =========================================================================
+
+	# `As New Collection` → `As New Dictionary` (VB6 Collection is keyed; VG
+	# Dictionary is the closest match). We only rewrite the type annotation;
+	# call sites (`.Add`, `.Remove`, `.Item`, `.Count`) are left to the human
+	# to verify. Emits a one-time hint comment per occurrence.
+	var coll_re := RegEx.new()
+	coll_re.compile("\\bAs\\s+New\\s+Collection\\b")
+	if coll_re.search(result) != null:
+		result = coll_re.sub(result, "As New Dictionary", true) \
+			+ "  ' VB6: Collection (keyed). Verify .Add/.Remove/.Item usage."
+
+	# `As Collection` (without New) — same idea, no construction.
+	var coll_decl_re := RegEx.new()
+	coll_decl_re.compile("\\bAs\\s+Collection\\b")
+	if coll_decl_re.search(result) != null and coll_re.search(result) == null:
+		result = coll_decl_re.sub(result, "As Dictionary", true) \
+			+ "  ' VB6: Collection — see Dictionary docs"
+
+	# `Scripting.Dictionary` (COM type) → bare `Dictionary`.
+	if "Scripting.Dictionary" in result:
+		result = result.replace("Scripting.Dictionary", "Dictionary")
+
+	# =========================================================================
+	# FORM GRAPHICS — Form.Print / Me.Print canvas writes (no VG equivalent)
+	# =========================================================================
+	# `Form.Print "x"` and `Me.Print "x"` paint text onto the form's persistent
+	# graphics layer. Godot has no equivalent (Controls don't have a paint
+	# canvas). We rewrite to `Print` and tag with a TODO so the user can
+	# wire a Label / RichTextLabel manually.
+	var formprint_re := RegEx.new()
+	formprint_re.compile("^(\\s*)(?:Form|Me)\\.Print\\b(.*)$")
+	var formprint_m = formprint_re.search(result)
+	if formprint_m:
+		var fp_ind: String = formprint_m.get_string(1)
+		var fp_args: String = formprint_m.get_string(2)
+		result = fp_ind + "Print" + fp_args + "  ' TODO: VB6 form-graphics print — render via a Label/RichTextLabel"
+
+	# =========================================================================
+	# DRAG & DROP — VB6 DragDrop / DragOver / OLEDrag* event stubs
+	# =========================================================================
+	# VB6 has two flavors of drag/drop:
+	#   classic: Sub Ctrl_DragDrop(Source As Control, X As Single, Y As Single)
+	#            Sub Ctrl_DragOver(Source As Control, X, Y, State As Integer)
+	#   OLE   : Sub Ctrl_OLEDragDrop(Data As DataObject, ...), OLEDragOver, OLEStartDrag, OLECompleteDrag
+	# Godot's drag-and-drop uses `_get_drag_data`, `_can_drop_data`, `_drop_data`
+	# on Controls. The translation isn't 1:1 — we mark the sub headers with a
+	# clear TODO comment so the user can fill in the matching virtual method.
+	var drag_re := RegEx.new()
+	drag_re.compile("^(\\s*)((?:Public\\s+|Private\\s+)?Sub\\s+\\w+_(?:DragDrop|DragOver|OLEDragDrop|OLEDragOver|OLEStartDrag|OLECompleteDrag|OLEGiveFeedback|OLESetData)\\b.*)$")
+	var drag_m = drag_re.search(result)
+	if drag_m:
+		var dg_ind: String = drag_m.get_string(1)
+		var dg_sig: String = drag_m.get_string(2)
+		result = dg_ind + "' TODO: VB6 drag/drop — implement _can_drop_data() / _drop_data() on the target Control\n" \
+			+ dg_ind + dg_sig
+
+	# =========================================================================
+	# OCX RUNTIME CALLS — common MSComctlLib patterns (scoped translation)
+	# =========================================================================
+	# Most ActiveX runtime calls don't have a 1:1 Godot mapping. We rewrite
+	# the three most common patterns as comments tagged with the OCX name so
+	# downstream tooling / users can find them via grep. See
+	# `docs/vb6_ocx_porting.md` for hand-port recipes.
+	#
+	#   <obj>.Nodes.Add(...)        -> TreeView    -> Tree.create_item()
+	#   <obj>.ListItems.Add(...)    -> ListView    -> Tree.create_item() per row
+	#   <obj>.Panels(<n>).Text = .. -> StatusBar   -> Label child / RichTextLabel
+	if not trim.begins_with("'"):
+		var nodes_add_re := RegEx.new()
+		nodes_add_re.compile("(\\w+)\\.Nodes\\.Add\\b")
+		if nodes_add_re.search(result) != null:
+			result = "' [VB6 OCX TreeView] " + trim + "  ' TODO: use Tree.create_item() — see docs/vb6_ocx_porting.md"
+		else:
+			var listitems_add_re := RegEx.new()
+			listitems_add_re.compile("(\\w+)\\.ListItems\\.Add\\b")
+			if listitems_add_re.search(result) != null:
+				result = "' [VB6 OCX ListView] " + trim + "  ' TODO: use Tree.create_item() per row — see docs/vb6_ocx_porting.md"
+			else:
+				var panels_re := RegEx.new()
+				panels_re.compile("(\\w+)\\.Panels\\s*\\(\\s*\\d+\\s*\\)\\.Text\\b")
+				if panels_re.search(result) != null:
+					result = "' [VB6 OCX StatusBar] " + trim + "  ' TODO: replace panels with Label children — see docs/vb6_ocx_porting.md"
+
 	# =========================================================================
 	# VB6 PROPERTY NAME TRANSLATIONS
 	# =========================================================================
@@ -2610,6 +2884,34 @@ static func _group_radio_buttons_in(parent: Node):
 		var group = ButtonGroup.new()
 		for btn in radio_buttons:
 			btn.button_group = group
+
+# =============================================================================
+# POST-PROCESSING: TAB ORDER (focus_next / focus_previous)
+# =============================================================================
+
+static func _post_process_tab_order(root: Node):
+	"""Walk the form tree, collect Controls with `tab_index` metadata, sort
+	by index, and wire `focus_next`/`focus_previous` NodePaths in chain order.
+	The chain wraps: last → first, first.previous → last.
+	Skips controls without TabIndex (e.g. labels, decorative containers)."""
+	var entries: Array = []  # [{idx: int, node: Control}]
+	_collect_tab_index_controls(root, entries)
+	if entries.size() < 2:
+		return
+	entries.sort_custom(func(a, b): return int(a["idx"]) < int(b["idx"]))
+	var n := entries.size()
+	for i in n:
+		var cur: Control = entries[i]["node"]
+		var nxt: Control = entries[(i + 1) % n]["node"]
+		var prv: Control = entries[(i - 1 + n) % n]["node"]
+		cur.focus_next = cur.get_path_to(nxt)
+		cur.focus_previous = cur.get_path_to(prv)
+
+static func _collect_tab_index_controls(node: Node, out: Array) -> void:
+	if node is Control and node.has_meta("tab_index"):
+		out.append({"idx": int(node.get_meta("tab_index")), "node": node})
+	for child in node.get_children():
+		_collect_tab_index_controls(child, out)
 
 # =============================================================================
 # POST-PROCESSING: .FRX IMAGE EXTRACTION

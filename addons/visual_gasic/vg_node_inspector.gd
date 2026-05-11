@@ -97,8 +97,9 @@ func _rebuild() -> void:
 	if not is_instance_valid(_target_node):
 		return
 
-	# Header
-	var header = _make_section_header("🔍 Properties: " + _target_node.get_class())
+	# Header (VB6 dialect: "TextBox" not "LineEdit")
+	var _vb6_type: String = VGIntelliSense.to_vb6_type_name(_target_node.get_class())
+	var header = _make_section_header("🔍 Properties: " + _vb6_type)
 	add_child(header)
 
 	# ── Node section (name, visibility) ──
