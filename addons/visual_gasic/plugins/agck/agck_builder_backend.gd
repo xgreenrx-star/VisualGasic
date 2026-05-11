@@ -12,11 +12,16 @@
 extends RefCounted
 
 # ─── Constants ───────────────────────────────────────────────
-const CELL_PX   = 32   # Tile size in pixels
+# Tile size in pixels — overridden at build time from settings.tile_size.
+# Kept as a `var` (not const) so projects can pick 8/16/24/32/48/64/96/128.
+var CELL_PX: int   = 32
+# Default actor sprite frame size in pixels — overridden at build time
+# from settings.actor_frame_size; per-actor overrides via tile_library.
+var ACTOR_PX: int  = 32
 const GRID_W    = 20
 const GRID_H    = 12
 
-const BLOCK_NAMES = ["Empty", "Barrier", "Ladder", "Deadly", "Background", "Teleport", "Switch"]
+const BLOCK_NAMES = ["Empty", "Barrier", "Ladder", "Deadly", "Background", "Teleport", "Switch", "Goal"]
 const BLOCK_COLORS_HEX = [
 	"1e1e24",  # Empty
 	"808c99",  # Barrier
@@ -25,6 +30,7 @@ const BLOCK_COLORS_HEX = [
 	"406699",  # Background
 	"a64dd9",  # Teleport
 	"e6cc33",  # Switch
+	"f2bf26",  # Goal — gold
 ]
 
 const ACTOR_TYPE_BASE_CLASS = {
@@ -83,6 +89,12 @@ func build(game_data: Dictionary, log_fn: Callable = Callable()) -> Dictionary:
 	var levels: Array        = game_data.get("levels", [])
 	var sounds: Array        = game_data.get("sounds", [])
 	var build_opts: Dictionary = game_data.get("build", {})
+
+	# Pick up project-configurable pixel sizes (Pixel Art settings card).
+	# Clamp to a sane range — if a project file is missing these keys, fall
+	# back to the legacy 32 default.
+	CELL_PX  = clampi(int(settings.get("tile_size", 32)), 4, 512)
+	ACTOR_PX = clampi(int(settings.get("actor_frame_size", 32)), 4, 512)
 
 	var game_title: String = settings.get("game_title", "AGCKGame")
 	# Sanitize to valid folder name
@@ -171,9 +183,27 @@ func build(game_data: Dictionary, log_fn: Callable = Callable()) -> Dictionary:
 
 	# ── Step 3: Generate actor .tscn + .vg files
 	_log("▸ Generating actor scenes & code…")
+	var _used_actor_names: Dictionary = {}
 	for i in range(actors.size()):
 		var actor = actors[i]
 		var aname: String = _safe_id(actor.get("name", "Actor" + str(i)))
+		# Trim leading/trailing underscores left over from sanitization of
+		# names like "Actor " or "Enemy-" so we don't end up with files
+		# named Actor_Actor_.tscn.
+		while aname.begins_with("_"):
+			aname = aname.substr(1)
+		while aname.ends_with("_"):
+			aname = aname.substr(0, aname.length() - 1)
+		if aname.is_empty():
+			aname = "Actor" + str(i)
+		# Dedup: if two actors sanitize to the same id, suffix with index
+		# so each gets its own files instead of overwriting earlier ones.
+		var base_aname := aname
+		var dup_n := 2
+		while _used_actor_names.has(aname):
+			aname = "%s_%d" % [base_aname, dup_n]
+			dup_n += 1
+		_used_actor_names[aname] = true
 		var actor_dir = output_dir + "actors/"
 		if not DirAccess.dir_exists_absolute(actor_dir):
 			DirAccess.make_dir_recursive_absolute(actor_dir)
@@ -321,7 +351,19 @@ func _generate_block_tileset(path: String) -> void:
 		_log("  blocks_tileset.png (" + str(BLOCK_COLORS_HEX.size()) + " tiles)", "#8f8")
 
 
+## Resolve the output frame size for an actor: honours the per-actor
+## override (tile_library.get_actor_frame_size(idx)) when set, otherwise
+## falls back to the project-wide ACTOR_PX (settings.actor_frame_size).
+func _actor_frame_size(actor_id: int) -> int:
+	if tile_library and actor_id >= 0 and tile_library.has_method("get_actor_frame_size"):
+		var fs: int = int(tile_library.get_actor_frame_size(actor_id))
+		if fs > 0:
+			return fs
+	return ACTOR_PX
+
+
 func _generate_actor_sprite(path: String, actor: Dictionary, actor_id: int = -1) -> void:
+	var fs: int = _actor_frame_size(actor_id)
 	# If tile_library has real sprites for this actor, use them (scaled up)
 	if tile_library and actor_id >= 0:
 		var aname_for_lib: String = actor.get("name", "Actor" + str(actor_id))
@@ -337,16 +379,16 @@ func _generate_actor_sprite(path: String, actor: Dictionary, actor_id: int = -1)
 				var anim_path: String = base_path + "_" + safe_anim + ".png"
 				if frames.size() > 1:
 					# Horizontal sprite sheet for this animation
-					var sheet = Image.create(CELL_PX * frames.size(), CELL_PX, false, Image.FORMAT_RGBA8)
+					var sheet = Image.create(fs * frames.size(), fs, false, Image.FORMAT_RGBA8)
 					sheet.fill(Color.TRANSPARENT)
 					for fi in range(frames.size()):
 						var scaled = frames[fi].duplicate()
-						scaled.resize(CELL_PX, CELL_PX, Image.INTERPOLATE_NEAREST)
-						sheet.blit_rect(scaled, Rect2i(0, 0, CELL_PX, CELL_PX), Vector2i(fi * CELL_PX, 0))
+						scaled.resize(fs, fs, Image.INTERPOLATE_NEAREST)
+						sheet.blit_rect(scaled, Rect2i(0, 0, fs, fs), Vector2i(fi * fs, 0))
 					sheet.save_png(anim_path)
 				elif frames.size() == 1:
 					var scaled = frames[0].duplicate()
-					scaled.resize(CELL_PX, CELL_PX, Image.INTERPOLATE_NEAREST)
+					scaled.resize(fs, fs, Image.INTERPOLATE_NEAREST)
 					scaled.save_png(anim_path)
 			return
 		elif anims.size() == 1:
@@ -355,17 +397,17 @@ func _generate_actor_sprite(path: String, actor: Dictionary, actor_id: int = -1)
 			var frames: Array = anims[first_key]
 			if frames.size() > 1:
 				# Multi-frame: output horizontal sprite sheet
-				var sheet = Image.create(CELL_PX * frames.size(), CELL_PX, false, Image.FORMAT_RGBA8)
+				var sheet = Image.create(fs * frames.size(), fs, false, Image.FORMAT_RGBA8)
 				sheet.fill(Color.TRANSPARENT)
 				for fi in range(frames.size()):
 					var scaled = frames[fi].duplicate()
-					scaled.resize(CELL_PX, CELL_PX, Image.INTERPOLATE_NEAREST)
-					sheet.blit_rect(scaled, Rect2i(0, 0, CELL_PX, CELL_PX), Vector2i(fi * CELL_PX, 0))
+					scaled.resize(fs, fs, Image.INTERPOLATE_NEAREST)
+					sheet.blit_rect(scaled, Rect2i(0, 0, fs, fs), Vector2i(fi * fs, 0))
 				sheet.save_png(path)
 				return
 			elif frames.size() == 1:
 				var scaled = frames[0].duplicate()
-				scaled.resize(CELL_PX, CELL_PX, Image.INTERPOLATE_NEAREST)
+				scaled.resize(fs, fs, Image.INTERPOLATE_NEAREST)
 				scaled.save_png(path)
 				return
 
@@ -386,7 +428,7 @@ func _generate_actor_sprite(path: String, actor: Dictionary, actor_id: int = -1)
 	var atype: String = actor.get("type", "Drone")
 	var base_color: Color = type_colors.get(atype, Color(0.5, 0.5, 0.5))
 
-	var size = CELL_PX
+	var size = fs
 	var img = Image.create(size, size, false, Image.FORMAT_RGBA8)
 	img.fill(Color.TRANSPARENT)
 
@@ -439,6 +481,7 @@ func _generate_actor_sprite(path: String, actor: Dictionary, actor_id: int = -1)
 # ═══════════════════════════════════════════════════════════════
 
 func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite_rel_path: String, actor_id: int = -1) -> void:
+	var fs: int = _actor_frame_size(actor_id)
 	var atype = actor.get("type", "Drone")
 	var base_class = ACTOR_TYPE_BASE_CLASS.get(atype, "CharacterBody2D")
 	var vg_script_path = path.replace(".tscn", ".vg")
@@ -519,7 +562,7 @@ func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite
 			for fi in range(fc):
 				tscn += '[sub_resource type="AtlasTexture" id="atlas_' + str(atlas_idx) + '"]\n'
 				tscn += 'atlas = ExtResource("' + str(eid) + '")\n'
-				tscn += 'region = Rect2(' + str(fi * CELL_PX) + ', 0, ' + str(CELL_PX) + ', ' + str(CELL_PX) + ')\n\n'
+				tscn += 'region = Rect2(' + str(fi * fs) + ', 0, ' + str(fs) + ', ' + str(fs) + ')\n\n'
 				ids.append(atlas_idx)
 				atlas_idx += 1
 			atlas_map[an] = ids
@@ -698,6 +741,25 @@ func _generate_actor_tscn(path: String, aname: String, actor: Dictionary, sprite
 	tscn += '[node name="HitboxShape" type="CollisionShape2D" parent="Hitbox"]\n'
 	tscn += 'shape = SubResource("hitbox_shape")\n\n'
 
+	# Ledge-detection RayCasts for walking ground enemies (Goomba-style AI).
+	# Two rays cast straight down just past the actor's left and right edge
+	# at floor-line. The patrol code calls IsColliding() on whichever ray
+	# matches the current Direction — if there's no ground ahead, the enemy
+	# turns around instead of walking off the platform. Disabled for flying
+	# enemies (Bat) and for projectiles.
+	if atype in ["Drone", "Sentry", "Zombie", "Boss", "Tank", "TopGoblin"]:
+		var half: int = (CELL_PX - 4) / 2  # matches body shape extent
+		tscn += '[node name="LedgeLeft" type="RayCast2D" parent="."]\n'
+		tscn += 'position = Vector2(' + str(-(half + 2)) + ', ' + str(half - 2) + ')\n'
+		tscn += 'target_position = Vector2(0, 12)\n'
+		tscn += 'collision_mask = 1\n'
+		tscn += 'enabled = true\n\n'
+		tscn += '[node name="LedgeRight" type="RayCast2D" parent="."]\n'
+		tscn += 'position = Vector2(' + str(half + 2) + ', ' + str(half - 2) + ')\n'
+		tscn += 'target_position = Vector2(0, 12)\n'
+		tscn += 'collision_mask = 1\n'
+		tscn += 'enabled = true\n\n'
+
 	# Connect Area2D signals
 	tscn += '[connection signal="body_entered" from="Hitbox" to="." method="Hitbox_BodyEntered"]\n'
 	tscn += '[connection signal="area_entered" from="Hitbox" to="." method="Hitbox_AreaEntered"]\n'
@@ -756,7 +818,14 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 			# TopHero shares Player physics — only the rendered sprite differs.
 			code += "Dim JumpForce As Single\n"
 			code += "Dim IsJumping As Boolean\n"
-			code += "Dim on_ladder As Boolean\n\n"
+			code += "Dim on_ladder As Boolean\n"
+			# ── Game-feel timers ──
+			# Coyote time: brief window after walking off a ledge during which
+			# the player can still jump. ~6 frames @ 60Hz = 0.1s.
+			# Jump buffer: brief window where pressing jump just before
+			# landing still triggers a jump on touchdown.
+			code += "Dim CoyoteTimer As Single\n"
+			code += "Dim JumpBufferTimer As Single\n\n"
 			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "player")
 			code += _gen_player_physics(speed, gravity * grav_scale, collision, actor_sounds)
 			code += _gen_collision_handler(atype, actor_sounds)
@@ -1029,20 +1098,55 @@ func _gen_player_physics(speed: float, gravity: float, collision: String, actor_
 	s += "    End If\n"
 	s += "\n"
 	s += "    ' Horizontal movement\n"
+	s += "    ' Hold Shift / pad-X to run (Mario-style sprint). The run\n"
+	s += "    ' multiplier kicks Speed up to a sprint top speed; without it\n"
+	s += "    ' the player walks at the configured base Speed.\n"
+	s += "    Dim run_mult As Single = 1.0\n"
+	s += "    If InputMap.HasAction(\"agck_run\") And Input.IsActionPressed(\"agck_run\") Then\n"
+	s += "        run_mult = 1.7\n"
+	s += "    End If\n"
 	s += "    If Input.IsActionPressed(\"ui_left\") Then\n"
-	s += "        vx = -Speed\n"
+	s += "        vx = -Speed * run_mult\n"
 	s += "    ElseIf Input.IsActionPressed(\"ui_right\") Then\n"
-	s += "        vx = Speed\n"
+	s += "        vx = Speed * run_mult\n"
 	s += "    Else\n"
 	s += "        vx = 0\n"
 	s += "    End If\n"
 	s += "\n"
-	s += "    ' Jumping (disabled while climbing a ladder)\n"
-	s += "    If Input.IsActionJustPressed(\"ui_accept\") And IsOnFloor(Me) And Not on_ladder Then\n"
+	s += "    ' Jumping (disabled while climbing a ladder).\n"
+	s += "    ' ── Coyote time + jump buffer (Tier-1 platformer feel) ──\n"
+	s += "    ' Coyote: keep CoyoteTimer = 0.1s while on the floor; otherwise\n"
+	s += "    ' tick it down. The player can jump as long as it's > 0, even\n"
+	s += "    ' if they've already walked off the ledge.\n"
+	s += "    ' Jump buffer: when the player presses jump, set\n"
+	s += "    ' JumpBufferTimer = 0.1s. The actual jump fires the next frame\n"
+	s += "    ' the player is grounded (or in coyote window), forgiving\n"
+	s += "    ' early presses while still falling.\n"
+	s += "    If IsOnFloor(Me) Then\n"
+	s += "        CoyoteTimer = 0.1\n"
+	s += "    Else\n"
+	s += "        CoyoteTimer = CoyoteTimer - delta\n"
+	s += "        If CoyoteTimer < 0 Then CoyoteTimer = 0\n"
+	s += "    End If\n"
+	s += "    If Input.IsActionJustPressed(\"ui_accept\") Then\n"
+	s += "        JumpBufferTimer = 0.1\n"
+	s += "    Else\n"
+	s += "        JumpBufferTimer = JumpBufferTimer - delta\n"
+	s += "        If JumpBufferTimer < 0 Then JumpBufferTimer = 0\n"
+	s += "    End If\n"
+	s += "    If JumpBufferTimer > 0 And CoyoteTimer > 0 And Not on_ladder Then\n"
 	s += "        vy = -400.0\n"
+	s += "        JumpBufferTimer = 0\n"
+	s += "        CoyoteTimer = 0\n"
 	var jump_sfx = _gen_play_sfx_call(actor_sounds.get("jump", "(None)"), "        ")
 	if jump_sfx != "":
 		s += jump_sfx
+	s += "    End If\n"
+	s += "    ' Variable jump height — releasing jump mid-rise cuts vy in\n"
+	s += "    ' half. Short tap = small hop, hold = full jump. Match for\n"
+	s += "    ' Mario / Celeste / Hollow Knight feel.\n"
+	s += "    If Input.IsActionJustReleased(\"ui_accept\") And vy < 0 Then\n"
+	s += "        vy = vy * 0.5\n"
 	s += "    End If\n"
 	s += "\n"
 	s += "    ' Write velocity back and move\n"
@@ -1220,6 +1324,23 @@ func _gen_drone_physics(ai: String, patrol_speed: float, gravity: float) -> Stri
 	s += "    If IsOnWall(Me) Then\n"
 	s += "        Direction = -Direction\n"
 	s += "    End If\n"
+	# Ledge-aware turn-around (Goomba AI). Only applies when gravity is
+	# present — flying enemies (Bat) shouldn't fall, so we skip this. The
+	# RayCasts are emitted by _generate_actor_tscn for ground enemy types.
+	if gravity > 0:
+		s += "\n"
+		s += "    ' Reverse at ledges (don't walk off platforms)\n"
+		s += "    If IsOnFloor(Me) Then\n"
+		s += "        Dim ledge As Node = Nothing\n"
+		s += "        If Direction > 0 Then\n"
+		s += "            ledge = GetNodeOrNull(\"LedgeRight\")\n"
+		s += "        Else\n"
+		s += "            ledge = GetNodeOrNull(\"LedgeLeft\")\n"
+		s += "        End If\n"
+		s += "        If ledge <> Nothing And Not ledge.IsColliding() Then\n"
+		s += "            Direction = -Direction\n"
+		s += "        End If\n"
+		s += "    End If\n"
 	s += "End Sub\n\n"
 	return s
 
@@ -1306,6 +1427,21 @@ func _gen_sentry_physics(patrol_speed: float, gravity: float, auto_shoot: bool, 
 	s += "    If IsOnWall(Me) Then\n"
 	s += "        Direction = -Direction\n"
 	s += "    End If\n"
+	# Ledge-aware turn-around (matches _gen_drone_physics).
+	if gravity > 0:
+		s += "\n"
+		s += "    ' Reverse at ledges (don't walk off platforms)\n"
+		s += "    If IsOnFloor(Me) Then\n"
+		s += "        Dim ledge As Node = Nothing\n"
+		s += "        If Direction > 0 Then\n"
+		s += "            ledge = GetNodeOrNull(\"LedgeRight\")\n"
+		s += "        Else\n"
+		s += "            ledge = GetNodeOrNull(\"LedgeLeft\")\n"
+		s += "        End If\n"
+		s += "        If ledge <> Nothing And Not ledge.IsColliding() Then\n"
+		s += "            Direction = -Direction\n"
+		s += "        End If\n"
+		s += "    End If\n"
 	if auto_shoot:
 		s += "\n"
 		s += "    ' Auto-shoot timer\n"
@@ -1446,9 +1582,15 @@ func _gen_collision_handler(atype: String, actor_sounds: Dictionary = {}) -> Str
 		"Player":
 			s += "Sub Hitbox_BodyEntered(body As Node2D)\n"
 			s += "    If IsInvincible Then Exit Sub\n"
-			s += "    ' Touched an enemy — take damage\n"
 			s += "    If body.IsInGroup(\"enemies\") Then\n"
-			s += "        ' Read the enemy's configured Damage value\n"
+			s += "        ' Stomp check — if we're falling onto the enemy from\n"
+			s += "        ' above, bounce up and skip damage. The enemy's own\n"
+			s += "        ' Hitbox_BodyEntered handler kills it on contact.\n"
+			s += "        If Me.velocity.y > 0.0 And GlobalPosition.Y < body.GlobalPosition.Y - 8.0 Then\n"
+			s += "            SetVelocity Me, Me.velocity.x, -300.0\n"
+			s += "            Exit Sub\n"
+			s += "        End If\n"
+			s += "        ' Side / underside contact — read the enemy's Damage\n"
 			s += "        TakeDamage(body.Damage)\n"
 			s += "    End If\n"
 			s += "End Sub\n\n"
@@ -1456,6 +1598,11 @@ func _gen_collision_handler(atype: String, actor_sounds: Dictionary = {}) -> Str
 			s += "    If IsInvincible Then Exit Sub\n"
 			s += "    Dim owner As Node = area.GetParent()\n"
 			s += "    If owner <> Nothing And owner.IsInGroup(\"enemies\") Then\n"
+			s += "        ' Same stomp check as above\n"
+			s += "        If Me.velocity.y > 0.0 And GlobalPosition.Y < owner.GlobalPosition.Y - 8.0 Then\n"
+			s += "            SetVelocity Me, Me.velocity.x, -300.0\n"
+			s += "            Exit Sub\n"
+			s += "        End If\n"
 			s += "        TakeDamage(owner.Damage)\n"
 			s += "    End If\n"
 			s += "End Sub\n\n"
@@ -1599,9 +1746,13 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 			var cell = row[x]
 			var block_id: int = 0
 			var tile_idx: int = 0
+			var cell_flip_h: bool = false
+			var cell_flip_v: bool = false
 			if cell is Dictionary:
 				block_id = cell.get("block_type", 0)
 				tile_idx = cell.get("tile_index", 0)
+				cell_flip_h = bool(cell.get("flip_h", false))
+				cell_flip_v = bool(cell.get("flip_v", false))
 			elif cell is int or cell is float:
 				block_id = int(cell)
 			if block_id <= 0:
@@ -1621,7 +1772,7 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 			# can climb up/down through it — it's emitted as a Sprite2D + Area2D
 			# in the "ladder" group and detected by the player physics each
 			# frame (see _gen_player_physics).
-			var needs_body = block_id in [1, 3, 5, 6]
+			var needs_body = block_id in [1, 3, 5, 6, 7]
 
 			if needs_body:
 				# StaticBody2D for all blocks (AnimatableBody2D has transform-revert
@@ -1630,13 +1781,13 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 				body += 'position = Vector2(' + str(px) + ', ' + str(py) + ')\n'
 				if has_block_path:
 					moving_block_nodes.append({"node_name": node_name, "path_key": bp_key, "path_arr": block_paths[bp_key]})
-				# Teleport, Switch & Deadly blocks are pass-through (player walks
+				# Teleport, Switch, Goal & Deadly blocks are pass-through (player walks
 				# into them and the child Area2D fires the trigger). For Deadly
 				# this is critical: with a solid 32×32 body, the player would
 				# bounce off the wall before ever reaching the inner DeadlyArea,
 				# so spike contact never registered. Pass-through lets the
 				# DeadlyArea detect real visual overlap.
-				if block_id in [3, 5, 6]:
+				if block_id in [3, 5, 6, 7]:
 					body += 'collision_layer = 0\n'
 					body += 'collision_mask = 0\n'
 				body += 'metadata/block_type = ' + str(block_id) + '\n'
@@ -1645,6 +1796,16 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 					body += 'metadata/_groups = ["deadly"]\n'
 				elif block_id == 5:
 					body += 'metadata/_groups = ["teleport"]\n'
+				elif block_id == 7:
+					body += 'metadata/_groups = ["goal"]\n'
+				# Mario-style ?-block flag (Barrier tile flagged is_question
+				# in the tile library). The level VG checks this in _Ready
+				# to wire up the QuestionArea bump signal.
+				var is_question_block: bool = (block_id == 1 and tile_library
+					and tile_library.get_tile_is_question(block_id, tile_idx))
+				if is_question_block:
+					body += 'metadata/is_question = true\n'
+					body += 'metadata/question_used = false\n'
 				body += '\n'
 
 				# Visual — Sprite2D with actual tile texture
@@ -1653,6 +1814,10 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 					if tile_shader_map.has(tex_key):
 						body += 'material = SubResource("tile_shader_mat_' + tile_shader_map[tex_key]["fx_name"] + '")\n'
 					body += 'texture = ExtResource("' + str(tile_ext_ids[tex_key]) + '")\n'
+					if cell_flip_h:
+						body += 'flip_h = true\n'
+					if cell_flip_v:
+						body += 'flip_v = true\n'
 					body += 'texture_filter = 0\n\n'
 				else:
 					# Fallback ColorRect if tile PNG somehow missing
@@ -1665,7 +1830,14 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 
 				# Collision
 				body += '[node name="Collision" type="CollisionShape2D" parent="' + node_name + '"]\n'
-				body += 'shape = SubResource("block_shape")\n\n'
+				body += 'shape = SubResource("block_shape")\n'
+				# One-way platforms (Barrier tiles flagged `one_way` in the
+				# tile library): solid from above, pass-through from below
+				# and the sides — the classic "thin platform" you can jump
+				# up through and land on top of.
+				if block_id == 1 and tile_library and tile_library.get_tile_one_way(block_id, tile_idx):
+					body += 'one_way_collision = true\n'
+				body += '\n'
 
 				# Teleport blocks get an Area2D for detection
 				if block_id == 5:
@@ -1694,6 +1866,28 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 					body += 'collision_mask = 1\n\n'
 					body += '[node name="SwitchShape" type="CollisionShape2D" parent="' + node_name + '/SwitchArea"]\n'
 					body += 'shape = SubResource("block_shape")\n\n'
+
+				# Goal blocks get an Area2D for level-completion detection
+				# (player walks in → LevelComplete → next level / victory)
+				if block_id == 7:
+					body += '[node name="GoalArea" type="Area2D" parent="' + node_name + '"]\n'
+					body += 'collision_layer = 4\n'
+					body += 'collision_mask = 1\n\n'
+					body += '[node name="GoalShape" type="CollisionShape2D" parent="' + node_name + '/GoalArea"]\n'
+					body += 'shape = SubResource("block_shape")\n\n'
+
+				# Question blocks (Mario-style ?-block) get an Area2D that
+				# fires when the player's body touches the block. The bump
+				# direction (upward into the underside) is verified in the
+				# Question_BodyEntered handler — Area2D body_entered fires
+				# even when blocked by the StaticBody's solid CollisionShape
+				# because shapes briefly overlap on contact.
+				if is_question_block:
+					body += '[node name="QuestionArea" type="Area2D" parent="' + node_name + '"]\n'
+					body += 'collision_layer = 4\n'
+					body += 'collision_mask = 1\n\n'
+					body += '[node name="QuestionShape" type="CollisionShape2D" parent="' + node_name + '/QuestionArea"]\n'
+					body += 'shape = SubResource("block_shape")\n\n'
 			else:
 				# Background (4) — Sprite2D, no collision
 				# Ladder (2) — Sprite2D in "ladder" group; hero detects by proximity
@@ -1704,6 +1898,10 @@ func _generate_level_tscn(path: String, lvl: Dictionary, actors: Array, level_id
 						body += 'material = SubResource("tile_shader_mat_' + tile_shader_map[tex_key]["fx_name"] + '")\n'
 					body += 'position = Vector2(' + str(px) + ', ' + str(py) + ')\n'
 					body += 'texture = ExtResource("' + str(tile_ext_ids[tex_key]) + '")\n'
+					if cell_flip_h:
+						body += 'flip_h = true\n'
+					if cell_flip_v:
+						body += 'flip_v = true\n'
 					body += 'texture_filter = 0\n'
 				else:
 					body += '[node name="' + node_name + '" type="ColorRect" parent="."' + ladder_group + ']\n'
@@ -1927,6 +2125,21 @@ func _generate_level_vg(path: String, lvl_name: String, lvl: Dictionary, actors:
 	code += "                    sarea.Connect(\"body_entered\", \"Switch_BodyEntered\")\n"
 	code += "                End If\n"
 	code += "            End If\n"
+	code += "            ' Goal blocks (type 7) — level exit / flagpole\n"
+	code += "            If bt = 7 Then\n"
+	code += "                Dim garea As Area2D = child.GetNodeOrNull(\"GoalArea\")\n"
+	code += "                If garea <> Nothing Then\n"
+	code += "                    garea.Connect(\"body_entered\", \"Goal_BodyEntered\")\n"
+	code += "                End If\n"
+	code += "            End If\n"
+	code += "            ' Question blocks (Barrier with is_question metadata)\n"
+	code += "            ' — Mario-style ?-block; bump from below to spawn coin\n"
+	code += "            If bt = 1 And child.HasMeta(\"is_question\") Then\n"
+	code += "                Dim qarea As Area2D = child.GetNodeOrNull(\"QuestionArea\")\n"
+	code += "                If qarea <> Nothing Then\n"
+	code += "                    qarea.Connect(\"body_entered\", \"Question_BodyEntered\")\n"
+	code += "                End If\n"
+	code += "            End If\n"
 	code += "        End If\n"
 	code += "    Next\n"
 
@@ -2004,6 +2217,15 @@ func _generate_level_vg(path: String, lvl_name: String, lvl: Dictionary, actors:
 	code += "    End If\n"
 	code += "End Sub\n\n"
 
+	code += "' Player reached the Goal tile (flagpole / exit door / castle gate)\n"
+	code += "' — finishes this level. On the last level, Main.NextLevel()\n"
+	code += "' shows the Victory overlay instead of looping.\n"
+	code += "Sub Goal_BodyEntered(body As Node2D)\n"
+	code += "    If body.IsInGroup(\"player\") Then\n"
+	code += "        LevelComplete()\n"
+	code += "    End If\n"
+	code += "End Sub\n\n"
+
 	code += "' Player touched a deadly block — take damage\n"
 	code += "Sub Deadly_BodyEntered(body As Node2D)\n"
 	code += "    If body.IsInGroup(\"player\") And body.HasMethod(\"TakeDamage\") Then\n"
@@ -2019,11 +2241,51 @@ func _generate_level_vg(path: String, lvl_name: String, lvl: Dictionary, actors:
 	code += "        If main <> Nothing And main.HasMethod(\"AddScore\") Then\n"
 	code += "            main.AddScore(50)\n"
 	code += "        End If\n"
+	code += "        ' Also bump the Coin counter (most Switch tiles are\n"
+	code += "        ' collectibles — Coin, Heart, Star, Treasure Chest, etc.)\n"
+	code += "        If main <> Nothing And main.HasMethod(\"AddCoin\") Then\n"
+	code += "            main.AddCoin(1)\n"
+	code += "        End If\n"
 	code += "        ' Remove the switch block (collect it!)\n"
 	code += "        Dim parent As Node = body\n"
 	code += "        ' The area's parent is the StaticBody2D block\n"
 	code += "        ' We get the block from the signal sender\n"
 	code += "    End If\n"
+	code += "End Sub\n\n"
+
+	code += "' Player bumped a Mario-style ?-block from below — spawn coin.\n"
+	code += "' The signal doesn't tell us which block fired, so we scan all\n"
+	code += "' question blocks and find the one whose QuestionArea overlaps\n"
+	code += "' the player. Gates: player must be rising (velocity.y < 0) and\n"
+	code += "' below the block's center, so side-touches don't trigger it.\n"
+	code += "Sub Question_BodyEntered(body As Node2D)\n"
+	code += "    If Not body.IsInGroup(\"player\") Then Exit Sub\n"
+	code += "    If body.velocity.y >= 0 Then Exit Sub\n"
+	code += "    Dim qchild As Variant\n"
+	code += "    For Each qchild In GetChildren()\n"
+	code += "        If qchild.HasMeta(\"is_question\") And Not qchild.GetMeta(\"question_used\") Then\n"
+	code += "            Dim qarea As Area2D = qchild.GetNodeOrNull(\"QuestionArea\")\n"
+	code += "            If qarea <> Nothing And qarea.OverlapsBody(body) Then\n"
+	code += "                If body.GlobalPosition.Y > qchild.GlobalPosition.Y Then\n"
+	code += "                    ' Mark consumed and gray out the visual\n"
+	code += "                    qchild.SetMeta(\"question_used\", True)\n"
+	code += "                    Dim qvis As Node2D = qchild.GetNodeOrNull(\"Visual\")\n"
+	code += "                    If qvis <> Nothing Then\n"
+	code += "                        qvis.modulate = Color(0.55, 0.50, 0.45)\n"
+	code += "                    End If\n"
+	code += "                    ' Award coin + score via main controller\n"
+	code += "                    Dim qmain As Node2D = GetTree().CurrentScene\n"
+	code += "                    If qmain <> Nothing And qmain.HasMethod(\"AddCoin\") Then\n"
+	code += "                        qmain.AddCoin(1)\n"
+	code += "                    End If\n"
+	code += "                    If qmain <> Nothing And qmain.HasMethod(\"AddScore\") Then\n"
+	code += "                        qmain.AddScore(50)\n"
+	code += "                    End If\n"
+	code += "                    Exit Sub\n"
+	code += "                End If\n"
+	code += "            End If\n"
+	code += "        End If\n"
+	code += "    Next\n"
 	code += "End Sub\n\n"
 
 	# ── Moving block physics (level-side _PhysicsProcess) ──
@@ -2314,37 +2576,56 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 	if start_ext_id >= 0:
 		tscn += '[node name="CurrentLevel" parent="LevelContainer" instance=ExtResource("' + str(start_ext_id) + '")]\n\n'
 
-	# HUD CanvasLayer
+	# HUD CanvasLayer — labels are emitted only when their toggle is on,
+	# so a clean "no-HUD" build doesn't ship empty Score/Lives stubs.
+	var hud_show_score: bool = settings.get("show_score", true)
+	var hud_show_lives: bool = settings.get("show_lives", true)
+	var hud_show_level: bool = settings.get("show_level", true)
+	var hud_show_coins: bool = settings.get("show_coins", true)
 	tscn += '[node name="HUD" type="CanvasLayer" parent="."]\n'
 	tscn += 'layer = 10\n\n'
 
 	# Score label
-	tscn += '[node name="ScoreLabel" type="Label" parent="HUD"]\n'
-	tscn += 'offset_left = 10.0\n'
-	tscn += 'offset_top = 10.0\n'
-	tscn += 'offset_right = 200.0\n'
-	tscn += 'offset_bottom = 30.0\n'
-	tscn += 'text = "Score: 0"\n\n'
+	if hud_show_score:
+		tscn += '[node name="ScoreLabel" type="Label" parent="HUD"]\n'
+		tscn += 'offset_left = 10.0\n'
+		tscn += 'offset_top = 10.0\n'
+		tscn += 'offset_right = 200.0\n'
+		tscn += 'offset_bottom = 30.0\n'
+		tscn += 'text = "Score: 0"\n\n'
 
 	# Lives label
-	tscn += '[node name="LivesLabel" type="Label" parent="HUD"]\n'
-	tscn += 'offset_left = 10.0\n'
-	tscn += 'offset_top = 32.0\n'
-	tscn += 'offset_right = 200.0\n'
-	tscn += 'offset_bottom = 52.0\n'
-	tscn += 'text = "Lives: 3"\n\n'
+	if hud_show_lives:
+		tscn += '[node name="LivesLabel" type="Label" parent="HUD"]\n'
+		tscn += 'offset_left = 10.0\n'
+		tscn += 'offset_top = 32.0\n'
+		tscn += 'offset_right = 200.0\n'
+		tscn += 'offset_bottom = 52.0\n'
+		tscn += 'text = "Lives: 3"\n\n'
+
+	# Coins label — Mario-style currency, distinct from Score.
+	# Lives them up under Lives so it stacks down the left edge.
+	if hud_show_coins:
+		tscn += '[node name="CoinsLabel" type="Label" parent="HUD"]\n'
+		tscn += 'offset_left = 10.0\n'
+		tscn += 'offset_top = 54.0\n'
+		tscn += 'offset_right = 200.0\n'
+		tscn += 'offset_bottom = 74.0\n'
+		tscn += 'text = "🪙 Coins: 0"\n'
+		tscn += 'theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)\n\n'
 
 	# Level name label
-	tscn += '[node name="LevelLabel" type="Label" parent="HUD"]\n'
-	tscn += 'anchors_preset = 1\n'
-	tscn += 'anchor_left = 1.0\n'
-	tscn += 'anchor_right = 1.0\n'
-	tscn += 'offset_left = -200.0\n'
-	tscn += 'offset_top = 10.0\n'
-	tscn += 'offset_right = -10.0\n'
-	tscn += 'offset_bottom = 30.0\n'
-	tscn += 'horizontal_alignment = 2\n'
-	tscn += 'text = "Level 1"\n\n'
+	if hud_show_level:
+		tscn += '[node name="LevelLabel" type="Label" parent="HUD"]\n'
+		tscn += 'anchors_preset = 1\n'
+		tscn += 'anchor_left = 1.0\n'
+		tscn += 'anchor_right = 1.0\n'
+		tscn += 'offset_left = -200.0\n'
+		tscn += 'offset_top = 10.0\n'
+		tscn += 'offset_right = -10.0\n'
+		tscn += 'offset_bottom = 30.0\n'
+		tscn += 'horizontal_alignment = 2\n'
+		tscn += 'text = "Level 1"\n\n'
 
 	# ── Game Over Overlay (default, hidden) ──
 	var go_style: String = settings.get("game_over_style", "Default")
@@ -2388,6 +2669,62 @@ func _generate_main_tscn(path: String, settings: Dictionary, level_count: int, l
 		tscn += 'offset_right = 80.0\n'
 		tscn += 'offset_bottom = 20.0\n'
 		tscn += 'text = "RESTART"\n\n'
+
+	# ── Victory Overlay (always emitted, hidden until the last level's Goal
+	# tile triggers NextLevel beyond TotalLevels). process_mode = 3 keeps it
+	# interactive while we pause the tree, so the player can hit Restart.
+	tscn += '[node name="VictoryOverlay" type="CanvasLayer" parent="."]\n'
+	tscn += 'layer = 55\n'
+	tscn += 'visible = false\n'
+	tscn += 'process_mode = 3\n\n'
+	tscn += '[node name="Dim" type="ColorRect" parent="VictoryOverlay"]\n'
+	tscn += 'anchors_preset = 15\n'
+	tscn += 'anchor_right = 1.0\n'
+	tscn += 'anchor_bottom = 1.0\n'
+	tscn += 'grow_horizontal = 2\n'
+	tscn += 'grow_vertical = 2\n'
+	tscn += 'color = Color(0.05, 0.05, 0.15, 0.85)\n'
+	tscn += 'mouse_filter = 2\n\n'
+	tscn += '[node name="Title" type="Label" parent="VictoryOverlay"]\n'
+	tscn += 'anchors_preset = 8\n'
+	tscn += 'anchor_left = 0.5\n'
+	tscn += 'anchor_top = 0.30\n'
+	tscn += 'anchor_right = 0.5\n'
+	tscn += 'anchor_bottom = 0.30\n'
+	tscn += 'offset_left = -240.0\n'
+	tscn += 'offset_top = -36.0\n'
+	tscn += 'offset_right = 240.0\n'
+	tscn += 'offset_bottom = 36.0\n'
+	tscn += 'horizontal_alignment = 1\n'
+	tscn += 'vertical_alignment = 1\n'
+	tscn += 'text = "🏁  YOU WIN!"\n'
+	tscn += 'theme_override_colors/font_color = Color(1, 0.9, 0.3, 1)\n'
+	tscn += 'theme_override_font_sizes/font_size = 56\n\n'
+	tscn += '[node name="Subtitle" type="Label" parent="VictoryOverlay"]\n'
+	tscn += 'anchors_preset = 8\n'
+	tscn += 'anchor_left = 0.5\n'
+	tscn += 'anchor_top = 0.45\n'
+	tscn += 'anchor_right = 0.5\n'
+	tscn += 'anchor_bottom = 0.45\n'
+	tscn += 'offset_left = -240.0\n'
+	tscn += 'offset_top = -16.0\n'
+	tscn += 'offset_right = 240.0\n'
+	tscn += 'offset_bottom = 16.0\n'
+	tscn += 'horizontal_alignment = 1\n'
+	tscn += 'vertical_alignment = 1\n'
+	tscn += 'text = "All levels complete!"\n'
+	tscn += 'theme_override_font_sizes/font_size = 22\n\n'
+	tscn += '[node name="RestartBtn" type="Button" parent="VictoryOverlay"]\n'
+	tscn += 'anchors_preset = 8\n'
+	tscn += 'anchor_left = 0.5\n'
+	tscn += 'anchor_top = 0.62\n'
+	tscn += 'anchor_right = 0.5\n'
+	tscn += 'anchor_bottom = 0.62\n'
+	tscn += 'offset_left = -90.0\n'
+	tscn += 'offset_top = -22.0\n'
+	tscn += 'offset_right = 90.0\n'
+	tscn += 'offset_bottom = 22.0\n'
+	tscn += 'text = "PLAY AGAIN"\n\n'
 
 	# ── Main Menu Overlay (default, shown on start) ──
 	var menu_style: String = settings.get("game_menu_style", "Default")
@@ -2569,6 +2906,8 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	var gravity: int = settings.get("gravity", 980)
 	var show_score: bool = settings.get("show_score", true)
 	var show_lives: bool = settings.get("show_lives", true)
+	var show_level: bool = settings.get("show_level", true)
+	var show_coins: bool = settings.get("show_coins", true)
 
 	# Build level paths array for the generated code
 	var level_paths: Array[String] = []
@@ -2603,6 +2942,7 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	code += "Dim GameTitle As String\n"
 	code += "Dim Score As Integer\n"
 	code += "Dim Lives As Integer\n"
+	code += "Dim Coins As Integer\n"
 	code += "Dim CurrentLevel As Integer\n"
 	code += "Dim TotalLevels As Integer\n"
 	code += "Dim IsGameOver As Boolean\n\n"
@@ -2619,6 +2959,7 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	code += "    GameTitle = \"" + title + "\"\n"
 	code += "    Score = 0\n"
 	code += "    Lives = " + str(lives) + "\n"
+	code += "    Coins = 0\n"
 	code += "    CurrentLevel = " + str(start_level) + "\n"
 	code += "    TotalLevels = " + str(level_count) + "\n"
 	code += "    IsGameOver = False\n"
@@ -2662,7 +3003,10 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 		code += "    GetNode(\"HUD/ScoreLabel\").Text = \"Score: \" & Str(Score)\n"
 	if show_lives:
 		code += "    GetNode(\"HUD/LivesLabel\").Text = \"Lives: \" & Str(Lives)\n"
-	code += "    GetNode(\"HUD/LevelLabel\").Text = \"Level \" & Str(CurrentLevel)\n"
+	if show_coins:
+		code += "    GetNode(\"HUD/CoinsLabel\").Text = \"\u00f0\u009f\u00aa\u0099 Coins: \" & Str(Coins)\n"
+	if show_level:
+		code += "    GetNode(\"HUD/LevelLabel\").Text = \"Level \" & Str(CurrentLevel)\n"
 
 	# Wire button signals for default game over and main menu
 	var go_style: String = settings.get("game_over_style", "Default")
@@ -2670,6 +3014,9 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	if go_style == "Default":
 		code += "    ' Wire Game Over restart button\n"
 		code += "    Connect(GetNode(\"GameOverOverlay/RestartBtn\"), \"pressed\", \"RestartBtn_Click\")\n"
+	# Always wire Victory overlay restart — VictoryOverlay is always emitted.
+	code += "    ' Wire Victory overlay restart button\n"
+	code += "    Connect(GetNode(\"VictoryOverlay/RestartBtn\"), \"pressed\", \"VictoryRestart_Click\")\n"
 	if menu_style == "Default":
 		code += "    ' Wire Main Menu buttons\n"
 		code += "    Connect(GetNode(\"MainMenuOverlay/PlayBtn\"), \"pressed\", \"PlayBtn_Click\")\n"
@@ -2698,6 +3045,23 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	code += "    Score = Score + points\n"
 	if show_score:
 		code += "    GetNode(\"HUD/ScoreLabel\").Text = \"Score: \" & Str(Score)\n"
+	code += "End Sub\n\n"
+
+	code += "' ─── Coin System (Mario-style currency) ───\n"
+	code += "' Call from Switch_BodyEntered, item collectibles, etc.\n"
+	code += "Sub AddCoin(amount As Integer)\n"
+	code += "    Coins = Coins + amount\n"
+	if show_coins:
+		code += "    GetNode(\"HUD/CoinsLabel\").Text = \"\u00f0\u009f\u00aa\u0099 Coins: \" & Str(Coins)\n"
+	code += "    ' Bonus life every 100 coins (classic platformer reward)\n"
+	code += "    If Coins >= 100 Then\n"
+	code += "        Coins = Coins - 100\n"
+	code += "        Lives = Lives + 1\n"
+	if show_coins:
+		code += "        GetNode(\"HUD/CoinsLabel\").Text = \"\u00f0\u009f\u00aa\u0099 Coins: \" & Str(Coins)\n"
+	if show_lives:
+		code += "        GetNode(\"HUD/LivesLabel\").Text = \"Lives: \" & Str(Lives)\n"
+	code += "    End If\n"
 	code += "End Sub\n\n"
 
 	code += "' ─── Lives System ───\n"
@@ -2761,6 +3125,13 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 		code += "    GetTree().Paused = False\n"
 		code += "    GetTree().ReloadCurrentScene()\n"
 		code += "End Sub\n\n"
+
+	# ── Victory overlay restart handler (always emitted) ──
+	code += "' Player clicked PLAY AGAIN on the victory screen — full restart.\n"
+	code += "Sub VictoryRestart_Click()\n"
+	code += "    GetTree().Paused = False\n"
+	code += "    GetTree().ReloadCurrentScene()\n"
+	code += "End Sub\n\n"
 
 	# ── Main Menu handlers ──
 	var menu_style2: String = settings.get("game_menu_style", "Default")
@@ -2828,10 +3199,20 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	code += "Sub NextLevel()\n"
 	code += "    CurrentLevel = CurrentLevel + 1\n"
 	code += "    If CurrentLevel > TotalLevels Then\n"
-	code += "        ' You win! All levels complete — loop back\n"
-	code += "        CurrentLevel = 1\n"
+	code += "        ' All levels complete — show Victory overlay and stop here.\n"
+	code += "        ' (Previously this silently looped back to level 1, which made\n"
+	code += "        ' \"finishing the game\" indistinguishable from \"finishing level 1\".)\n"
+	code += "        Dim vo As CanvasLayer = GetNodeOrNull(\"VictoryOverlay\")\n"
+	code += "        If vo <> Nothing Then\n"
+	code += "            vo.Visible = True\n"
+	code += "        End If\n"
+	code += "        ' Pause the running level so the player doesn't fall / take damage\n"
+	code += "        ' while the overlay is up.\n"
+	code += "        GetTree().Paused = True\n"
+	code += "        Exit Sub\n"
 	code += "    End If\n"
-	code += "    GetNode(\"HUD/LevelLabel\").Text = \"Level \" & Str(CurrentLevel)\n"
+	if show_level:
+		code += "    GetNode(\"HUD/LevelLabel\").Text = \"Level \" & Str(CurrentLevel)\n"
 	code += "\n"
 	code += "    ' Load next level into the LevelContainer\n"
 	code += "    Dim container As Node2D = GetNode(\"LevelContainer\")\n"
@@ -2854,7 +3235,8 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 	code += "Sub GoToLevel(level As Integer)\n"
 	code += "    If level < 1 Or level > TotalLevels Then Exit Sub\n"
 	code += "    CurrentLevel = level\n"
-	code += "    GetNode(\"HUD/LevelLabel\").Text = \"Level \" & Str(CurrentLevel)\n"
+	if show_level:
+		code += "    GetNode(\"HUD/LevelLabel\").Text = \"Level \" & Str(CurrentLevel)\n"
 	code += "\n"
 	code += "    ' Load level into the LevelContainer\n"
 	code += "    Dim container As Node2D = GetNode(\"LevelContainer\")\n"
@@ -3142,6 +3524,10 @@ func _generate_project_godot(path: String, settings: Dictionary, output_dir: Str
 	godot += _emit_input_action("ui_up",     kbd, pad, mouse, touch, "up")
 	godot += _emit_input_action("ui_down",   kbd, pad, mouse, touch, "down")
 	godot += _emit_input_action("ui_accept", kbd, pad, mouse, touch, "accept")
+	# AGCK-specific: "agck_run" — held while the player is moving to use
+	# Mario-style top speed. Without this binding the platformer feels
+	# sluggish; defaults to Shift on keyboard, X/Square on gamepad.
+	godot += _emit_input_action("agck_run",  kbd, pad, false, false, "run")
 	godot += '\n'
 
 	_write_file(path, godot)
@@ -3156,6 +3542,7 @@ const _AGCK_KEYCODES := {
 	"up":     4194320,
 	"down":   4194322,
 	"accept": 32,
+	"run":    4194325,
 }
 # Joystick button indices (Godot JoyButton: 0=A/Cross, 11=DPad-Up, 12=Down, 13=Left, 14=Right).
 const _AGCK_PAD_BUTTONS := {
@@ -3164,6 +3551,7 @@ const _AGCK_PAD_BUTTONS := {
 	"up":     11,
 	"down":   12,
 	"accept": 0,
+	"run":    2,
 }
 # Joystick axes for analog stick (LEFT_X=0, LEFT_Y=1). Direction sign: -1 = neg, 1 = pos.
 const _AGCK_PAD_AXES := {

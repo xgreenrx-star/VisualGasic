@@ -36,6 +36,7 @@ const MAX_ACTORS     = 16
 const FREESOUND_BROWSER_SCRIPT := preload("res://addons/visual_gasic/asset_browser/freesound_browser.gd")
 const OPENGAMEART_BROWSER_SCRIPT := preload("res://addons/visual_gasic/asset_browser/opengameart_browser.gd")
 const KENNEY_BROWSER_SCRIPT := preload("res://addons/visual_gasic/asset_browser/kenney_browser.gd")
+const SPRITE_PACKS_SCRIPT := preload("res://addons/visual_gasic/plugins/agck/agck_sprite_packs.gd")
 
 # ─── Built-in Palettes ──────────────────────────────────────
 const AGCK_PALETTES := {
@@ -225,6 +226,25 @@ const ANIM_COLORS = {
 	"Custom":  Color(0.80, 0.80, 0.80),
 }
 const ANIM_PRESETS = ["Idle", "Walk", "Run", "Jump", "Fall", "Fly", "Hover", "Crouch", "Swim", "Attack", "Death", "Custom"]
+
+
+# ─── Pixel-Art Sizing ────────────────────────────────────────
+## Project-wide preset list (mirrors agck_game_settings.PIXEL_SIZE_PRESETS).
+const FRAME_SIZE_PRESETS: Array[int] = [8, 16, 24, 32, 48, 64, 96, 128]
+
+
+## Resolve the canvas size for a given actor — per-actor override beats the
+## project default. Falls back to 32 if the tile library isn't wired yet.
+func _get_frame_size(actor_id: int = -1) -> int:
+	if tile_library == null:
+		return 32
+	var aid := actor_id
+	if aid < 0:
+		aid = _edit_actor_id
+	if aid >= 0 and tile_library.has_method("get_actor_frame_size"):
+		return int(tile_library.get_actor_frame_size(aid))
+	# No actor context — return project default
+	return int(tile_library.actor_frame_size)
 
 
 func _ls(size: int, color: Color) -> LabelSettings:
@@ -907,6 +927,34 @@ func _rebuild_detail() -> void:
 	import_spr_btn.pressed.connect(_on_import_sprite_pressed.bind(selected_actor))
 	h_hbox.add_child(import_spr_btn)
 
+	var library_btn = Button.new()
+	library_btn.text = "📚 Sprite Library…"
+	library_btn.tooltip_text = "Browse built-in CC0 sprite packs (knight, slime, coin, ...) and apply to this actor"
+	library_btn.add_theme_font_size_override("font_size", 11)
+	var lib_s = StyleBoxFlat.new()
+	lib_s.bg_color = Color(0.35, 0.55, 0.45)
+	lib_s.set_corner_radius_all(4)
+	lib_s.content_margin_left = 8; lib_s.content_margin_right = 8
+	lib_s.content_margin_top = 2;  lib_s.content_margin_bottom = 2
+	library_btn.add_theme_stylebox_override("normal", lib_s)
+	library_btn.add_theme_color_override("font_color", WHITE)
+	library_btn.pressed.connect(_open_sprite_library_popup.bind(selected_actor))
+	h_hbox.add_child(library_btn)
+
+	var sheet_btn = Button.new()
+	sheet_btn.text = "📦 Import Sheet…"
+	sheet_btn.tooltip_text = "Import a multi-row spritesheet (rows = animations, cols = frames)"
+	sheet_btn.add_theme_font_size_override("font_size", 11)
+	var sb_s = StyleBoxFlat.new()
+	sb_s.bg_color = Color(0.55, 0.45, 0.30)
+	sb_s.set_corner_radius_all(4)
+	sb_s.content_margin_left = 8; sb_s.content_margin_right = 8
+	sb_s.content_margin_top = 2;  sb_s.content_margin_bottom = 2
+	sheet_btn.add_theme_stylebox_override("normal", sb_s)
+	sheet_btn.add_theme_color_override("font_color", WHITE)
+	sheet_btn.pressed.connect(_open_sheet_import_pressed.bind(selected_actor))
+	h_hbox.add_child(sheet_btn)
+
 	# ── Sprite Preview Panel ─────────────────────────────────
 	var preview_panel = PanelContainer.new()
 	var pp_style = StyleBoxFlat.new()
@@ -979,6 +1027,12 @@ func _rebuild_detail() -> void:
 	prop_grid.add_theme_constant_override("v_separation", 4)
 	prop_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_detail_panel.add_child(prop_grid)
+
+	# Sprite card — frame size override (per-actor; falls back to project)
+	var sprite_card = _card("🎨 Sprite")
+	prop_grid.add_child(sprite_card)
+	var sprite_grid = _card_body(sprite_card)
+	_add_frame_size_row(sprite_grid, "Frame Size", selected_actor)
 
 	# Movement card
 	var move_card = _card("🏃 Movement")
@@ -1061,12 +1115,11 @@ func _rebuild_detail() -> void:
 	var anim_card = _card("🎬 Animations")
 	prop_grid.add_child(anim_card)
 	var an_grid = _card_body(anim_card)
-	# Show each animation name + frame count + speed
+	# Show each animation name + frame count + editable speed/loop
 	var anim_data: Array = actor.get("anim_data", [{"name": "Idle", "speed": 8, "loop": true}])
 	# Sync frame counts from tile library
 	if tile_library:
 		var anim_names = tile_library.get_actor_anim_names(selected_actor)
-		# If tile library has animations the actor data doesn't, sync them
 		if anim_names.size() > 0:
 			var existing_names: Array = []
 			for ad in anim_data:
@@ -1079,25 +1132,75 @@ func _rebuild_detail() -> void:
 		var ad: Dictionary = anim_data[ad_idx]
 		var anim_name: String = ad.get("name", "Idle")
 		var anim_speed: int = ad.get("speed", 8)
+		var anim_loop: bool = ad.get("loop", true)
 		var acolor: Color = ANIM_COLORS.get(anim_name, Color(0.6, 0.6, 0.6))
-		# Animation name label with color dot
+
+		# Left cell: name + frame count
+		var name_v = VBoxContainer.new()
+		name_v.add_theme_constant_override("separation", 0)
 		var name_lbl = Label.new()
 		name_lbl.text = "● " + anim_name
 		name_lbl.label_settings = _ls(11, acolor)
-		an_grid.add_child(name_lbl)
-		# Frame count from tile library
+		name_v.add_child(name_lbl)
 		var fc: int = 0
 		if tile_library:
 			fc = tile_library.get_actor_anim_frames(selected_actor, anim_name).size()
 		var info_lbl = Label.new()
-		info_lbl.text = str(fc) + " frames, speed " + str(anim_speed)
-		info_lbl.label_settings = _ls(10, DIM)
-		an_grid.add_child(info_lbl)
+		info_lbl.text = "%d frames" % fc
+		info_lbl.label_settings = _ls(9, DIM)
+		name_v.add_child(info_lbl)
+		an_grid.add_child(name_v)
+
+		# Right cell: FPS + loop + delete buttons
+		var ctrl_h = HBoxContainer.new()
+		ctrl_h.add_theme_constant_override("separation", 6)
+		ctrl_h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+		var fps_lbl = Label.new()
+		fps_lbl.text = "FPS"
+		fps_lbl.label_settings = _ls(10, DIM)
+		ctrl_h.add_child(fps_lbl)
+		var fps_spin = SpinBox.new()
+		fps_spin.min_value = 1
+		fps_spin.max_value = 60
+		fps_spin.step = 1
+		fps_spin.value = anim_speed
+		fps_spin.custom_minimum_size.x = 56
+		fps_spin.value_changed.connect(_on_card_anim_speed_changed.bind(ad_idx))
+		ctrl_h.add_child(fps_spin)
+
+		var loop_chk = CheckBox.new()
+		loop_chk.text = "Loop"
+		loop_chk.button_pressed = anim_loop
+		loop_chk.add_theme_font_size_override("font_size", 10)
+		loop_chk.toggled.connect(_on_card_anim_loop_toggled.bind(ad_idx))
+		ctrl_h.add_child(loop_chk)
+
+		# Delete button (disabled if it's the only animation)
+		var del_btn = Button.new()
+		del_btn.text = "🗑"
+		del_btn.tooltip_text = "Delete this animation"
+		del_btn.add_theme_font_size_override("font_size", 11)
+		del_btn.disabled = anim_data.size() <= 1
+		del_btn.pressed.connect(_on_card_anim_delete_pressed.bind(anim_name))
+		ctrl_h.add_child(del_btn)
+
+		an_grid.add_child(ctrl_h)
+
+	# "+ Add Animation" row spans both cells
 	an_grid.add_child(_prop_label(" "))
-	var hint_lbl = Label.new()
-	hint_lbl.text = "Edit sprite to add/manage"
-	hint_lbl.label_settings = _ls(10, DIM)
-	an_grid.add_child(hint_lbl)
+	var add_anim_btn = Button.new()
+	add_anim_btn.text = "+ Add Animation"
+	add_anim_btn.add_theme_font_size_override("font_size", 11)
+	var aab_s = StyleBoxFlat.new()
+	aab_s.bg_color = Color(0.30, 0.45, 0.55)
+	aab_s.set_corner_radius_all(4)
+	aab_s.content_margin_left = 8; aab_s.content_margin_right = 8
+	aab_s.content_margin_top = 2;  aab_s.content_margin_bottom = 2
+	add_anim_btn.add_theme_stylebox_override("normal", aab_s)
+	add_anim_btn.add_theme_color_override("font_color", WHITE)
+	add_anim_btn.pressed.connect(_on_card_anim_add_pressed)
+	an_grid.add_child(add_anim_btn)
 
 	# FX card
 	var fx_card = _card("✨ Effects")
@@ -1243,6 +1346,48 @@ func _add_edit_row(grid: GridContainer, label: String, key: String, actor: Dicti
 	edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	edit.text_changed.connect(_on_prop_str.bind(key))
 	grid.add_child(edit)
+
+
+## Add a per-actor frame-size override row.
+##
+## Dropdown lists the standard pixel-art presets plus an explicit
+## "Use project default" entry that clears the override (size = 0).
+## Persisted via tile_library.set_actor_frame_size(actor_id, size).
+func _add_frame_size_row(grid: GridContainer, label: String, actor_id: int) -> void:
+	grid.add_child(_prop_label(label))
+	var opt := OptionButton.new()
+	opt.add_theme_font_size_override("font_size", 11)
+	opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var project_default: int = 32
+	if tile_library:
+		project_default = int(tile_library.actor_frame_size)
+	opt.add_item("Use project default (" + str(project_default) + " px)", 0)
+	for s in FRAME_SIZE_PRESETS:
+		opt.add_item(str(s) + " × " + str(s) + " px", int(s))
+
+	# Determine current selection: 0 if no override, else preset index
+	var current_override: int = 0
+	if tile_library and tile_library.has_method("get_actor_frame_size"):
+		var sprite_data: Dictionary = tile_library.actor_sprites.get(actor_id, {})
+		current_override = int(sprite_data.get("frame_size", 0))
+	var sel_idx := 0
+	if current_override > 0:
+		var idx: int = FRAME_SIZE_PRESETS.find(current_override)
+		if idx >= 0:
+			sel_idx = idx + 1  # offset for the "default" entry at 0
+	opt.select(sel_idx)
+	opt.tooltip_text = "Sprite frame canvas size for this actor.\n\"Use project default\" follows Settings → Pixel Art → Actor Frame Size."
+
+	opt.item_selected.connect(func(i: int) -> void:
+		var size: int = int(opt.get_item_id(i))
+		if tile_library and tile_library.has_method("set_actor_frame_size"):
+			tile_library.set_actor_frame_size(actor_id, size)
+		actor_changed.emit(actor_id)
+		_rebuild_detail()
+	)
+	grid.add_child(opt)
+	_style_option(opt)
 
 
 ## Get current sound names from the sound editor, or fall back to preset list.
@@ -1780,6 +1925,8 @@ func _open_actor_sprite_editor(actor_id: int) -> void:
 	btn_oga.add_theme_font_size_override("font_size", 10)
 	btn_oga.pressed.connect(func():
 		_opengameart_browser = OPENGAMEART_BROWSER_SCRIPT.new()
+		# Auto-import downloaded art into the current animation frame.
+		_opengameart_browser.asset_downloaded.connect(_on_browser_asset_downloaded)
 		_opengameart_browser.open(self, true)
 	)
 	asset_row.add_child(btn_oga)
@@ -1789,6 +1936,7 @@ func _open_actor_sprite_editor(actor_id: int) -> void:
 	btn_kenney.add_theme_font_size_override("font_size", 10)
 	btn_kenney.pressed.connect(func():
 		_kenney_browser = KENNEY_BROWSER_SCRIPT.new()
+		_kenney_browser.asset_downloaded.connect(_on_browser_asset_downloaded)
 		_kenney_browser.open(self, true)
 	)
 	asset_row.add_child(btn_kenney)
@@ -2014,7 +2162,8 @@ func _on_anim_tab_pressed(anim_name: String) -> void:
 	_edit_current_anim = anim_name
 	_edit_frames = _edit_anims[anim_name]
 	_edit_current_frame = 0
-	_edit_image = _edit_frames[0] if _edit_frames.size() > 0 else Image.create(24, 24, false, Image.FORMAT_RGBA8)
+	var fs_a := _get_frame_size()
+	_edit_image = _edit_frames[0] if _edit_frames.size() > 0 else Image.create(fs_a, fs_a, false, Image.FORMAT_RGBA8)
 	_update_frame_label()
 	if _edit_canvas and is_instance_valid(_edit_canvas):
 		_edit_canvas.queue_redraw()
@@ -2045,7 +2194,8 @@ func _on_anim_add_pressed() -> void:
 				_edit_frames[_edit_current_frame] = _edit_image
 			_edit_anims[_edit_current_anim] = _edit_frames
 		# Create new animation with 1 blank frame
-		var blank = Image.create(24, 24, false, Image.FORMAT_RGBA8)
+		var fs_b := _get_frame_size()
+		var blank = Image.create(fs_b, fs_b, false, Image.FORMAT_RGBA8)
 		blank.fill(Color.TRANSPARENT)
 		_edit_anims[name_to_add] = [blank]
 		# Switch to it
@@ -2135,7 +2285,8 @@ func _on_anim_delete_pressed() -> void:
 	_edit_current_anim = _edit_anims.keys()[0]
 	_edit_frames = _edit_anims[_edit_current_anim]
 	_edit_current_frame = 0
-	_edit_image = _edit_frames[0] if _edit_frames.size() > 0 else Image.create(24, 24, false, Image.FORMAT_RGBA8)
+	var fs_c := _get_frame_size()
+	_edit_image = _edit_frames[0] if _edit_frames.size() > 0 else Image.create(fs_c, fs_c, false, Image.FORMAT_RGBA8)
 	_update_frame_label()
 	if _edit_canvas and is_instance_valid(_edit_canvas):
 		_edit_canvas.queue_redraw()
@@ -2179,7 +2330,8 @@ func _on_frame_add() -> void:
 	if _edit_current_frame >= 0 and _edit_current_frame < _edit_frames.size():
 		_edit_frames[_edit_current_frame] = _edit_image
 	# Insert a blank frame after current
-	var blank = Image.create(24, 24, false, Image.FORMAT_RGBA8)
+	var fs_d := _get_frame_size()
+	var blank = Image.create(fs_d, fs_d, false, Image.FORMAT_RGBA8)
 	blank.fill(Color.TRANSPARENT)
 	_edit_frames.insert(_edit_current_frame + 1, blank)
 	_switch_to_frame(_edit_current_frame + 1)
@@ -2560,6 +2712,7 @@ func _on_sprite_file_selected(path: String, actor_id: int) -> void:
 	if err != OK:
 		push_warning("AGCK: Could not load image: " + path)
 		return
+	var fs := _get_frame_size(actor_id)
 	var w := img.get_width()
 	var h := img.get_height()
 	# Get current anims or create default
@@ -2574,12 +2727,15 @@ func _on_sprite_file_selected(path: String, actor_id: int) -> void:
 		var frame_count := w / h
 		for i in range(mini(frame_count, 32)):
 			var frame_img := img.get_region(Rect2i(i * h, 0, h, h))
-			frame_img.resize(24, 24, Image.INTERPOLATE_NEAREST)
-			new_frames.append(frame_img)
+			new_frames.append(_fit_image_to_size(frame_img, fs, FIT_RESIZE_NEAREST))
 	else:
-		# Single image
-		img.resize(24, 24, Image.INTERPOLATE_NEAREST)
-		new_frames.append(img)
+		# Single image — use the user's preferred fit method when sizes mismatch.
+		if img.get_width() == fs and img.get_height() == fs:
+			new_frames.append(img)
+		else:
+			# Default to nearest-resize for the legacy path; the in-editor
+			# import path (_import_image_as_frames) prompts the user.
+			new_frames.append(_fit_image_to_size(img, fs, FIT_RESIZE_NEAREST))
 	anims[first_anim_name] = new_frames
 	tile_library.update_actor_anims(actor_id, anims)
 	# Sync anim_data
@@ -2595,6 +2751,454 @@ func _on_sprite_file_selected(path: String, actor_id: int) -> void:
 			actors[actor_id]["anim_data"] = old_data
 		actor_changed.emit(actor_id)
 	_rebuild_cards()
+	_rebuild_detail()
+
+
+
+
+# ─── Sprite Library Popup ───────────────────────────────────
+
+var _sprite_library_popup: AcceptDialog = null
+
+
+## Open a popup picker showing built-in sprite packs (Knight, Slime, Coin, ...).
+## Clicking a pack applies its anims to the selected actor.
+func _open_sprite_library_popup(actor_id: int) -> void:
+	if actor_id < 0 or actor_id >= actors.size():
+		return
+	if _sprite_library_popup and is_instance_valid(_sprite_library_popup):
+		_sprite_library_popup.queue_free()
+	_sprite_library_popup = AcceptDialog.new()
+	_sprite_library_popup.title = "📚 Sprite Library — Apply to %s" % str(actors[actor_id].get("name", "Actor"))
+	_sprite_library_popup.size = Vector2i(720, 540)
+	_sprite_library_popup.dialog_hide_on_ok = true
+	_sprite_library_popup.ok_button_text = "Close"
+
+	var root = VBoxContainer.new()
+	root.add_theme_constant_override("separation", 10)
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_sprite_library_popup.add_child(root)
+
+	var hint = Label.new()
+	hint.text = "Click a pack to replace this actor's sprite + animations.\nFrames are sized per the project's Pixel Art settings — generated procedurally, no download, no license fuss."
+	hint.add_theme_font_size_override("font_size", 12)
+	hint.add_theme_color_override("font_color", LABEL_CLR)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(hint)
+
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(scroll)
+
+	var grid = GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(grid)
+
+	for pack in SPRITE_PACKS_SCRIPT.PACKS:
+		grid.add_child(_make_pack_card(pack, actor_id))
+
+	add_child(_sprite_library_popup)
+	_sprite_library_popup.popup_centered()
+
+
+func _make_pack_card(pack: Dictionary, actor_id: int) -> Control:
+	var card = PanelContainer.new()
+	card.custom_minimum_size = Vector2(150, 180)
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color(0.16, 0.17, 0.21)
+	sb.set_corner_radius_all(6)
+	sb.border_width_bottom = 2
+	sb.border_width_top = 2
+	sb.border_width_left = 2
+	sb.border_width_right = 2
+	sb.border_color = pack.get("tint", ACCENT).darkened(0.3)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	card.add_theme_stylebox_override("panel", sb)
+
+	var vb = VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 6)
+	vb.alignment = BoxContainer.ALIGNMENT_CENTER
+	card.add_child(vb)
+
+	# Thumbnail
+	var thumb = TextureRect.new()
+	var tex: ImageTexture = SPRITE_PACKS_SCRIPT.get_thumbnail(pack.get("id", ""))
+	if tex:
+		thumb.texture = tex
+	thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	thumb.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	thumb.custom_minimum_size = Vector2(96, 96)
+	thumb.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	thumb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	vb.add_child(thumb)
+
+	var name_lbl = Label.new()
+	name_lbl.text = pack.get("name", "?")
+	name_lbl.add_theme_font_size_override("font_size", 12)
+	name_lbl.add_theme_color_override("font_color", WHITE)
+	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(name_lbl)
+
+	var sub_lbl = Label.new()
+	sub_lbl.text = pack.get("subtitle", "")
+	sub_lbl.add_theme_font_size_override("font_size", 9)
+	sub_lbl.add_theme_color_override("font_color", DIM)
+	sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(sub_lbl)
+
+	var apply_btn = Button.new()
+	apply_btn.text = "Apply"
+	apply_btn.add_theme_font_size_override("font_size", 11)
+	var ab_s = StyleBoxFlat.new()
+	ab_s.bg_color = pack.get("tint", ACCENT).darkened(0.2)
+	ab_s.set_corner_radius_all(4)
+	ab_s.content_margin_left = 10; ab_s.content_margin_right = 10
+	ab_s.content_margin_top = 3;   ab_s.content_margin_bottom = 3
+	apply_btn.add_theme_stylebox_override("normal", ab_s)
+	apply_btn.add_theme_color_override("font_color", WHITE)
+	apply_btn.pressed.connect(_apply_sprite_pack.bind(pack.get("id", ""), actor_id))
+	vb.add_child(apply_btn)
+
+	return card
+
+
+## Apply a sprite-pack's anims + anim_data to an actor.
+## Called from each card's "Apply" button.
+func _apply_sprite_pack(pack_id: String, actor_id: int) -> void:
+	if pack_id == "" or actor_id < 0 or actor_id >= actors.size():
+		return
+	if not tile_library:
+		return
+	var anims: Dictionary = SPRITE_PACKS_SCRIPT.generate_anims(pack_id)
+	if anims.size() == 0:
+		push_warning("AGCK: sprite pack '%s' returned no frames" % pack_id)
+		return
+	tile_library.update_actor_anims(actor_id, anims)
+	# Sync anim_data (preserves existing speeds/loops where animation names match).
+	var pack_anim_data: Array = SPRITE_PACKS_SCRIPT.anim_data_for(pack_id)
+	var existing: Array = actors[actor_id].get("anim_data", [])
+	var existing_by_name: Dictionary = {}
+	for ad in existing:
+		existing_by_name[String(ad.get("name", ""))] = ad
+	var new_data: Array = []
+	for ad in pack_anim_data:
+		var n: String = String(ad.get("name", ""))
+		if existing_by_name.has(n):
+			new_data.append(existing_by_name[n])
+		else:
+			new_data.append(ad)
+	actors[actor_id]["anim_data"] = new_data
+	actor_changed.emit(actor_id)
+	if _sprite_library_popup and is_instance_valid(_sprite_library_popup):
+		_sprite_library_popup.hide()
+	_rebuild_cards()
+	_rebuild_detail()
+
+
+# ─── Multi-row Spritesheet Importer ─────────────────────────
+
+var _sheet_file_dialog: FileDialog = null
+var _sheet_config_popup: AcceptDialog = null
+var _sheet_image: Image = null
+var _sheet_rows_spin: SpinBox = null
+var _sheet_cols_spin: SpinBox = null
+var _sheet_names_edit: TextEdit = null
+var _sheet_preview_rect: TextureRect = null
+var _sheet_actor_id: int = -1
+
+
+## Open file picker for a multi-row spritesheet.
+func _open_sheet_import_pressed(actor_id: int) -> void:
+	_sheet_actor_id = actor_id
+	if _sheet_file_dialog and is_instance_valid(_sheet_file_dialog):
+		_sheet_file_dialog.queue_free()
+	_sheet_file_dialog = FileDialog.new()
+	_sheet_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_sheet_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_sheet_file_dialog.title = "Import Spritesheet — pick a PNG (rows = animations, cols = frames)"
+	_sheet_file_dialog.filters = PackedStringArray(["*.png ; PNG Images"])
+	_sheet_file_dialog.size = Vector2i(700, 450)
+	_sheet_file_dialog.file_selected.connect(_on_sheet_file_selected)
+	add_child(_sheet_file_dialog)
+	_sheet_file_dialog.popup_centered()
+
+
+func _on_sheet_file_selected(path: String) -> void:
+	var img := Image.new()
+	var err := img.load(path)
+	if err != OK:
+		push_warning("AGCK: Could not load image: " + path)
+		return
+	_sheet_image = img
+	_show_sheet_config(path)
+
+
+func _show_sheet_config(path: String) -> void:
+	if _sheet_config_popup and is_instance_valid(_sheet_config_popup):
+		_sheet_config_popup.queue_free()
+	_sheet_config_popup = AcceptDialog.new()
+	_sheet_config_popup.title = "Import Spritesheet — slice configuration"
+	_sheet_config_popup.size = Vector2i(560, 540)
+	_sheet_config_popup.ok_button_text = "Apply"
+	_sheet_config_popup.dialog_hide_on_ok = false
+	_sheet_config_popup.confirmed.connect(_apply_sheet_import)
+
+	var root = VBoxContainer.new()
+	root.add_theme_constant_override("separation", 8)
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_sheet_config_popup.add_child(root)
+
+	var path_lbl = Label.new()
+	path_lbl.text = "File: %s\nSize: %d × %d px" % [path.get_file(), _sheet_image.get_width(), _sheet_image.get_height()]
+	path_lbl.add_theme_font_size_override("font_size", 11)
+	path_lbl.add_theme_color_override("font_color", DIM)
+	root.add_child(path_lbl)
+
+	var prev_panel = PanelContainer.new()
+	var prev_sb = StyleBoxFlat.new()
+	prev_sb.bg_color = Color(0.08, 0.08, 0.10)
+	prev_sb.set_corner_radius_all(4)
+	prev_sb.content_margin_left = 4
+	prev_sb.content_margin_right = 4
+	prev_sb.content_margin_top = 4
+	prev_sb.content_margin_bottom = 4
+	prev_panel.add_theme_stylebox_override("panel", prev_sb)
+	root.add_child(prev_panel)
+	_sheet_preview_rect = TextureRect.new()
+	_sheet_preview_rect.texture = ImageTexture.create_from_image(_sheet_image)
+	_sheet_preview_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_sheet_preview_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	_sheet_preview_rect.custom_minimum_size = Vector2(540, 200)
+	_sheet_preview_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	prev_panel.add_child(_sheet_preview_rect)
+
+	# Auto-detect grid from filename (e.g. "knight_4x3.png" → 4 cols, 3 rows)
+	var auto_cols: int = 4
+	var auto_rows: int = 1
+	var stem: String = path.get_file().get_basename()
+	var rx := RegEx.new()
+	rx.compile("(\\d+)\\s*[xX]\\s*(\\d+)")
+	var m := rx.search(stem)
+	if m:
+		auto_cols = int(m.get_string(1))
+		auto_rows = int(m.get_string(2))
+	else:
+		var w: int = _sheet_image.get_width()
+		var h: int = _sheet_image.get_height()
+		if w >= h and h > 0 and w % h == 0:
+			auto_cols = w / h
+			auto_rows = 1
+
+	var grid_hbox = HBoxContainer.new()
+	grid_hbox.add_theme_constant_override("separation", 12)
+	root.add_child(grid_hbox)
+
+	var cols_lbl = Label.new()
+	cols_lbl.text = "Columns (frames per row):"
+	cols_lbl.add_theme_color_override("font_color", LABEL_CLR)
+	grid_hbox.add_child(cols_lbl)
+	_sheet_cols_spin = SpinBox.new()
+	_sheet_cols_spin.min_value = 1
+	_sheet_cols_spin.max_value = 32
+	_sheet_cols_spin.step = 1
+	_sheet_cols_spin.value = auto_cols
+	grid_hbox.add_child(_sheet_cols_spin)
+
+	var rows_lbl = Label.new()
+	rows_lbl.text = "Rows (animations):"
+	rows_lbl.add_theme_color_override("font_color", LABEL_CLR)
+	grid_hbox.add_child(rows_lbl)
+	_sheet_rows_spin = SpinBox.new()
+	_sheet_rows_spin.min_value = 1
+	_sheet_rows_spin.max_value = 16
+	_sheet_rows_spin.step = 1
+	_sheet_rows_spin.value = auto_rows
+	_sheet_rows_spin.value_changed.connect(_on_sheet_rows_changed)
+	grid_hbox.add_child(_sheet_rows_spin)
+
+	var names_lbl = Label.new()
+	names_lbl.text = "Animation name per row (one per line — top row first):"
+	names_lbl.add_theme_color_override("font_color", LABEL_CLR)
+	root.add_child(names_lbl)
+	_sheet_names_edit = TextEdit.new()
+	_sheet_names_edit.custom_minimum_size = Vector2(540, 120)
+	_sheet_names_edit.text = _default_anim_names(auto_rows)
+	root.add_child(_sheet_names_edit)
+
+	add_child(_sheet_config_popup)
+	_sheet_config_popup.popup_centered()
+
+
+func _default_anim_names(rows: int) -> String:
+	var defaults := ["Idle", "Walk", "Jump", "Attack", "Hurt", "Die", "Run", "Crouch"]
+	var lines: Array = []
+	for i in range(rows):
+		if i < defaults.size():
+			lines.append(defaults[i])
+		else:
+			lines.append("Anim%d" % (i + 1))
+	return "\n".join(lines)
+
+
+func _on_sheet_rows_changed(value: float) -> void:
+	if not is_instance_valid(_sheet_names_edit):
+		return
+	var current_lines: PackedStringArray = _sheet_names_edit.text.split("\n")
+	var target: int = int(value)
+	var defaults := ["Idle", "Walk", "Jump", "Attack", "Hurt", "Die", "Run", "Crouch"]
+	var names: Array = []
+	for i in range(target):
+		if i < current_lines.size() and current_lines[i].strip_edges() != "":
+			names.append(current_lines[i])
+		elif i < defaults.size():
+			names.append(defaults[i])
+		else:
+			names.append("Anim%d" % (i + 1))
+	_sheet_names_edit.text = "\n".join(names)
+
+
+func _apply_sheet_import() -> void:
+	if not _sheet_image or _sheet_actor_id < 0 or _sheet_actor_id >= actors.size():
+		return
+	if not tile_library:
+		return
+	var cols: int = int(_sheet_cols_spin.value)
+	var rows: int = int(_sheet_rows_spin.value)
+	if cols < 1 or rows < 1:
+		return
+	var sheet_w: int = _sheet_image.get_width()
+	var sheet_h: int = _sheet_image.get_height()
+	@warning_ignore("integer_division")
+	var fw: int = sheet_w / cols
+	@warning_ignore("integer_division")
+	var fh: int = sheet_h / rows
+	if fw <= 0 or fh <= 0:
+		push_warning("AGCK: spritesheet too small for the requested grid")
+		return
+	var raw_names: PackedStringArray = _sheet_names_edit.text.split("\n")
+	var anim_names: Array = []
+	for i in range(rows):
+		var nm: String = ""
+		if i < raw_names.size():
+			nm = raw_names[i].strip_edges()
+		if nm == "":
+			nm = "Anim%d" % (i + 1)
+		anim_names.append(nm)
+	var anims: Dictionary = {}
+	for r in range(rows):
+		var frames: Array = []
+		for c in range(cols):
+			var frame_img := _sheet_image.get_region(Rect2i(c * fw, r * fh, fw, fh))
+			frames.append(frame_img)
+		anims[String(anim_names[r])] = frames
+	tile_library.update_actor_anims(_sheet_actor_id, anims)
+	# Sync anim_data, preserving speed/loop where names match.
+	var existing: Array = actors[_sheet_actor_id].get("anim_data", [])
+	var existing_by_name: Dictionary = {}
+	for ad in existing:
+		existing_by_name[String(ad.get("name", ""))] = ad
+	var new_data: Array = []
+	for nm2 in anim_names:
+		if existing_by_name.has(nm2):
+			new_data.append(existing_by_name[nm2])
+		else:
+			var loop: bool = nm2 != "Jump" and nm2 != "Die"
+			new_data.append({"name": nm2, "speed": 8, "loop": loop})
+	actors[_sheet_actor_id]["anim_data"] = new_data
+	actor_changed.emit(_sheet_actor_id)
+	if _sheet_config_popup and is_instance_valid(_sheet_config_popup):
+		_sheet_config_popup.hide()
+	_rebuild_cards()
+	_rebuild_detail()
+
+
+# ─── Inline Animation card editing (in actor detail panel) ──
+
+func _on_card_anim_speed_changed(value: float, ad_idx: int) -> void:
+	if selected_actor < 0 or selected_actor >= actors.size():
+		return
+	var anim_data: Array = actors[selected_actor].get("anim_data", [])
+	if ad_idx < 0 or ad_idx >= anim_data.size():
+		return
+	anim_data[ad_idx]["speed"] = int(value)
+	actor_changed.emit(selected_actor)
+
+
+func _on_card_anim_loop_toggled(pressed: bool, ad_idx: int) -> void:
+	if selected_actor < 0 or selected_actor >= actors.size():
+		return
+	var anim_data: Array = actors[selected_actor].get("anim_data", [])
+	if ad_idx < 0 or ad_idx >= anim_data.size():
+		return
+	anim_data[ad_idx]["loop"] = pressed
+	actor_changed.emit(selected_actor)
+
+
+func _on_card_anim_delete_pressed(anim_name: String) -> void:
+	if selected_actor < 0 or selected_actor >= actors.size():
+		return
+	var anim_data: Array = actors[selected_actor].get("anim_data", [])
+	if anim_data.size() <= 1:
+		return
+	for i in range(anim_data.size() - 1, -1, -1):
+		if String(anim_data[i].get("name", "")) == anim_name:
+			anim_data.remove_at(i)
+	actors[selected_actor]["anim_data"] = anim_data
+	if tile_library:
+		var anims: Dictionary = tile_library.get_actor_anims(selected_actor).duplicate()
+		if anims.has(anim_name):
+			anims.erase(anim_name)
+			if anims.size() > 0:
+				tile_library.update_actor_anims(selected_actor, anims)
+	actor_changed.emit(selected_actor)
+	_rebuild_detail()
+
+
+func _on_card_anim_add_pressed() -> void:
+	if selected_actor < 0 or selected_actor >= actors.size():
+		return
+	var anim_data: Array = actors[selected_actor].get("anim_data", [])
+	var existing: Array = []
+	for ad in anim_data:
+		existing.append(String(ad.get("name", "")))
+	var candidates := ["Idle", "Walk", "Run", "Jump", "Attack", "Hurt", "Die", "Crouch"]
+	var new_name := ""
+	for c in candidates:
+		if c not in existing:
+			new_name = c
+			break
+	if new_name == "":
+		new_name = "Anim%d" % (anim_data.size() + 1)
+	var loop: bool = new_name != "Jump" and new_name != "Die"
+	anim_data.append({"name": new_name, "speed": 8, "loop": loop})
+	actors[selected_actor]["anim_data"] = anim_data
+	if tile_library:
+		var anims: Dictionary = tile_library.get_actor_anims(selected_actor).duplicate()
+		if not anims.has(new_name):
+			var seed_frames: Array = []
+			if anims.size() > 0:
+				var first: Array = anims[anims.keys()[0]]
+				if first.size() > 0:
+					seed_frames.append(first[0].duplicate())
+			if seed_frames.size() == 0:
+				var fs_e: int = _get_frame_size(selected_actor)
+				var blank := Image.create(fs_e, fs_e, false, Image.FORMAT_RGBA8)
+				blank.fill(Color.TRANSPARENT)
+				seed_frames.append(blank)
+			anims[new_name] = seed_frames
+			tile_library.update_actor_anims(selected_actor, anims)
+	actor_changed.emit(selected_actor)
 	_rebuild_detail()
 
 
@@ -2622,26 +3226,587 @@ func _on_frame_file_selected(path: String) -> void:
 	if err != OK:
 		push_warning("AGCK: Could not load image: " + path)
 		return
-	# Save current frame before modifying
+	_import_image_as_frames(img)
+
+
+## Shared image → frames pipeline used by both the file dialog and the
+## auto-import-from-browser path.
+##
+## When the image is a multi-character sheet (alpha gutters split it into
+## several large character-sized regions), pop a picker so the user can
+## choose which character to import. Otherwise slice straight into frames.
+##
+## If the resulting frame size doesn't match the actor's frame size, prompt
+## the user with a fit dialog (Resize Nearest / Resize Smooth / Center-Crop /
+## Cancel) so they can choose the appropriate scaling strategy.
+func _import_image_as_frames(img: Image) -> void:
+	var characters := _detect_character_cells(img)
+	if characters.size() >= 2:
+		_show_character_picker(characters)
+		return
+
+	var frames := _slice_spritesheet(img)
+	if frames.is_empty():
+		# Couldn't detect a grid — drop the whole image as a single frame.
+		var single := Image.new()
+		single.copy_from(img)
+		frames = [single]
+
+	_import_frames_with_fit_prompt(frames)
+
+
+## Apply the fit-prompt flow (or skip it when sizes already match) and
+## insert the resulting frames after the current edit position.
+func _import_frames_with_fit_prompt(frames: Array) -> void:
+	if frames.is_empty():
+		return
+	var fs := _get_frame_size()
+	# If every frame is already the right size, no prompt needed.
+	var needs_fit := false
+	for f in frames:
+		if f.get_width() != fs or f.get_height() != fs:
+			needs_fit = true
+			break
+	if not needs_fit:
+		_insert_frames_into_edit(frames)
+		return
+	# Show fit dialog
+	_show_fit_dialog(frames, fs)
+
+
+## Insert finalized (already-correct-size) frames into the current animation.
+func _insert_frames_into_edit(frames: Array) -> void:
+	if frames.is_empty():
+		return
+	# Save current frame before modifying.
 	if _edit_current_frame >= 0 and _edit_current_frame < _edit_frames.size():
 		_edit_frames[_edit_current_frame] = _edit_image
+	var room: int = 32 - _edit_frames.size()
+	var insert_count: int = mini(frames.size(), room)
+	for i in range(insert_count):
+		_edit_frames.insert(_edit_current_frame + 1 + i, frames[i])
+	_switch_to_frame(mini(_edit_current_frame + 1, _edit_frames.size() - 1))
+
+
+# ─── Fit-to-Frame ───────────────────────────────────────────
+## Fit modes for the import "doesn't fit" dialog.
+const FIT_RESIZE_NEAREST := 0   ## Pixel-perfect resize (sharp, blocky)
+const FIT_RESIZE_SMOOTH := 1    ## Lanczos resize when shrinking, nearest when enlarging
+const FIT_CENTER_CROP := 2      ## Center-crop / pad with transparency (preserves native pixels)
+
+
+## Resize/crop a single Image to (size×size) according to the chosen fit mode.
+## The returned Image is a new RGBA8 image — the source is not mutated.
+func _fit_image_to_size(src: Image, size: int, mode: int) -> Image:
+	var out := Image.new()
+	out.copy_from(src)
+	if out.get_format() != Image.FORMAT_RGBA8:
+		out.convert(Image.FORMAT_RGBA8)
+	if out.get_width() == size and out.get_height() == size:
+		return out
+	match mode:
+		FIT_RESIZE_NEAREST:
+			out.resize(size, size, Image.INTERPOLATE_NEAREST)
+		FIT_RESIZE_SMOOTH:
+			# Lanczos when shrinking (anti-aliased), nearest when enlarging
+			# (so pixel-art stays crisp).
+			if out.get_width() > size or out.get_height() > size:
+				out.resize(size, size, Image.INTERPOLATE_LANCZOS)
+			else:
+				out.resize(size, size, Image.INTERPOLATE_NEAREST)
+		FIT_CENTER_CROP:
+			# Center-crop or pad without resampling — preserves native pixels.
+			var canvas := Image.create(size, size, false, Image.FORMAT_RGBA8)
+			canvas.fill(Color.TRANSPARENT)
+			var sw: int = out.get_width()
+			var sh: int = out.get_height()
+			var src_x: int = max(0, (sw - size) / 2)
+			var src_y: int = max(0, (sh - size) / 2)
+			var copy_w: int = mini(sw, size)
+			var copy_h: int = mini(sh, size)
+			var dst_x: int = max(0, (size - sw) / 2)
+			var dst_y: int = max(0, (size - sh) / 2)
+			canvas.blit_rect(out, Rect2i(src_x, src_y, copy_w, copy_h), Vector2i(dst_x, dst_y))
+			out = canvas
+		_:
+			out.resize(size, size, Image.INTERPOLATE_NEAREST)
+	return out
+
+
+## Show the "image doesn't fit" dialog with four buttons. The user picks a
+## fit mode and the frames are inserted; Cancel aborts the import.
+func _show_fit_dialog(frames: Array, target_size: int) -> void:
+	var dlg := ConfirmationDialog.new()
+	dlg.title = "Sprite size mismatch"
+	# Hide default OK and use custom buttons so we can offer three fit modes
+	# side-by-side (Resize-Nearest / Resize-Smooth / Center-Crop) plus Cancel.
+	dlg.get_ok_button().visible = false
+	dlg.get_cancel_button().text = "Cancel"
+	var src_w: int = (frames[0] as Image).get_width()
+	var src_h: int = (frames[0] as Image).get_height()
+	var lbl := Label.new()
+	lbl.text = "%d frame(s) at %d × %d don't match this actor's frame size (%d × %d).\n\nHow should I fit them?" % [
+		frames.size(), src_w, src_h, target_size, target_size,
+	]
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.custom_minimum_size = Vector2(420, 0)
+	dlg.add_child(lbl)
+
+	dlg.add_button("Resize (Nearest)", true, "fit_nearest")
+	dlg.add_button("Resize (Smooth)", true, "fit_smooth")
+	dlg.add_button("Center-Crop", true, "fit_crop")
+
+	var captured_frames: Array = frames
+	var apply_fit := func(mode: int):
+		var fitted: Array = []
+		for f in captured_frames:
+			fitted.append(_fit_image_to_size(f, target_size, mode))
+		_insert_frames_into_edit(fitted)
+		dlg.queue_free()
+
+	dlg.custom_action.connect(func(action: StringName):
+		match String(action):
+			"fit_nearest":
+				apply_fit.call(FIT_RESIZE_NEAREST)
+			"fit_smooth":
+				apply_fit.call(FIT_RESIZE_SMOOTH)
+			"fit_crop":
+				apply_fit.call(FIT_CENTER_CROP)
+	)
+	dlg.canceled.connect(func(): dlg.queue_free())
+	dlg.confirmed.connect(func(): dlg.queue_free())  # safety; OK is hidden
+
+	var parent: Node = _edit_popup if (_edit_popup and is_instance_valid(_edit_popup)) else (self as Node)
+	parent.add_child(dlg)
+	dlg.popup_centered()
+
+
+## Detect a multi-character sheet: alpha gutters that split the image into
+## ≥ 2 cells where every cell is at least 24×24 px (= "character-sized",
+## not just a single animation frame). Returns the cell Images, or [].
+##
+## This intentionally does NOT trigger for tightly-packed single-character
+## sheets like the standard 4×3 RPG Maker template (frames touch with no
+## gutters between them) or for 16×17 mini-portrait sheets (cells too
+## small to be characters).
+func _detect_character_cells(img: Image) -> Array:
 	var w := img.get_width()
 	var h := img.get_height()
-	if w > h and w % h == 0:
-		# Spritesheet — split into frames
-		var frame_count := w / h
-		for i in range(mini(frame_count, 32 - _edit_frames.size())):
-			var frame_img := img.get_region(Rect2i(i * h, 0, h, h))
-			frame_img.resize(24, 24, Image.INTERPOLATE_NEAREST)
-			_edit_frames.insert(_edit_current_frame + 1 + i, frame_img)
-		_switch_to_frame(mini(_edit_current_frame + 1, _edit_frames.size() - 1))
+	if w <= 0 or h <= 0:
+		return []
+	var work := Image.new()
+	work.copy_from(img)
+	if work.get_format() != Image.FORMAT_RGBA8:
+		work.convert(Image.FORMAT_RGBA8)
+	if work.detect_alpha() == Image.ALPHA_NONE:
+		return []
+	var col_ink: PackedInt32Array = PackedInt32Array()
+	var row_ink: PackedInt32Array = PackedInt32Array()
+	col_ink.resize(w)
+	row_ink.resize(h)
+	_compute_alpha_histograms(work, col_ink, row_ink)
+	var col_bands: Array = _bands_from_ink(col_ink)
+	var row_bands: Array = _bands_from_ink(row_ink)
+	# Need at least one axis split into multiple bands.
+	if col_bands.size() < 2 and row_bands.size() < 2:
+		return []
+	# Reject if any cell is too small to be a character region.
+	for cb in col_bands:
+		if int(cb[1]) - int(cb[0]) < 24:
+			return []
+	for rb in row_bands:
+		if int(rb[1]) - int(rb[0]) < 24:
+			return []
+	var cells: Array = []
+	for rb in row_bands:
+		for cb in col_bands:
+			var x0: int = int(cb[0])
+			var x1: int = int(cb[1])
+			var y0: int = int(rb[0])
+			var y1: int = int(rb[1])
+			var cell := work.get_region(Rect2i(x0, y0, x1 - x0, y1 - y0))
+			if not _cell_is_blank(cell):
+				cells.append(cell)
+			if cells.size() >= 64:
+				break
+		if cells.size() >= 64:
+			break
+	if cells.size() < 2:
+		return []
+	return cells
+
+
+## Popup grid of character thumbnails. Click one to import its frames.
+var _char_picker_dialog: AcceptDialog = null
+
+func _show_character_picker(chars: Array) -> void:
+	if _char_picker_dialog and is_instance_valid(_char_picker_dialog):
+		_char_picker_dialog.queue_free()
+	var dlg := AcceptDialog.new()
+	_char_picker_dialog = dlg
+	dlg.title = "Pick a character (%d found in sheet)" % chars.size()
+	dlg.ok_button_text = "Cancel"
+	dlg.size = Vector2i(640, 520)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 6)
+	dlg.add_child(vb)
+
+	var hint := Label.new()
+	hint.text = "This image looks like a multi-character sheet. Click a character to import its frames."
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(hint)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vb.add_child(scroll)
+
+	var grid := GridContainer.new()
+	grid.columns = mini(chars.size(), 6)
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	scroll.add_child(grid)
+
+	for i in range(chars.size()):
+		var ci: Image = chars[i]
+		var tex: ImageTexture = ImageTexture.create_from_image(ci)
+		var btn := TextureButton.new()
+		btn.texture_normal = tex
+		btn.ignore_texture_size = true
+		btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		btn.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		# Scale up small sprites for visibility, cap at ~96×96 button.
+		var scale: int = clampi(96 / maxi(ci.get_width(), ci.get_height()), 1, 6)
+		btn.custom_minimum_size = Vector2(ci.get_width() * scale, ci.get_height() * scale)
+		btn.tooltip_text = "Character %d (%d×%d)" % [i + 1, ci.get_width(), ci.get_height()]
+		var captured_image: Image = ci
+		btn.pressed.connect(func():
+			if is_instance_valid(_char_picker_dialog):
+				_char_picker_dialog.queue_free()
+				_char_picker_dialog = null
+			_import_image_as_frames(captured_image)
+		)
+		grid.add_child(btn)
+
+	var parent: Node = self
+	if is_instance_valid(_edit_popup):
+		parent = _edit_popup
+	parent.add_child(dlg)
+	dlg.popup_centered()
+
+
+## Smart spritesheet slicer.
+##
+## Strategy (in order, picks the first that yields ≥ 2 non-empty frames):
+##   1. **Alpha-gutter detection** — find fully-transparent rows/columns and
+##      use them as cell boundaries. Handles most character sheets.
+##   2. **Uniform-grid search** — try every (cols, rows) factor pair of
+##      (W, H) up to a sane limit and score by how many cells contain
+##      content + how square the cells are. Wins on tightly-packed sheets
+##      with no gutters at all.
+##   3. **Single-row strip** — W = N*H legacy case.
+##   4. Returns `[]` when nothing fits; caller treats the image as one frame.
+##
+## All alpha checks go through a precomputed row/column "ink" histogram
+## built from the raw RGBA8 byte buffer (≈ one pass), so even multi-megapixel
+## sheets slice in milliseconds instead of locking the editor.
+##
+## Every `get_region` call is bounds-clamped so a degenerate band can't
+## crash the engine.
+func _slice_spritesheet(img: Image) -> Array:
+	var w := img.get_width()
+	var h := img.get_height()
+	if w <= 0 or h <= 0:
+		return []
+
+	# Convert once to RGBA8 for fast byte-level alpha access. Work on a copy
+	# so we never mutate the caller's image.
+	var work := Image.new()
+	work.copy_from(img)
+	if work.get_format() != Image.FORMAT_RGBA8:
+		work.convert(Image.FORMAT_RGBA8)
+
+	var has_alpha: bool = work.detect_alpha() != Image.ALPHA_NONE
+	var col_ink: PackedInt32Array = PackedInt32Array()
+	var row_ink: PackedInt32Array = PackedInt32Array()
+	col_ink.resize(w)
+	row_ink.resize(h)
+	if has_alpha:
+		_compute_alpha_histograms(work, col_ink, row_ink)
 	else:
-		# Single image — replace current frame
-		if _edit_frames.size() >= 32:
-			return
-		img.resize(24, 24, Image.INTERPOLATE_NEAREST)
-		_edit_frames.insert(_edit_current_frame + 1, img)
-		_switch_to_frame(_edit_current_frame + 1)
+		# Treat every pixel as opaque — gutter detection won't trigger,
+		# but the grid scorer still works (every cell is "non-empty").
+		for x in range(w): col_ink[x] = h
+		for y in range(h): row_ink[y] = w
+
+	# 1. Alpha-gutter detection.
+	if has_alpha:
+		var col_bands: Array = _bands_from_ink(col_ink)
+		var row_bands: Array = _bands_from_ink(row_ink)
+		if (col_bands.size() > 1 or row_bands.size() > 1) and col_bands.size() >= 1 and row_bands.size() >= 1:
+			var out: Array = []
+			for rb in row_bands:
+				for cb in col_bands:
+					var rx0: int = clampi(int(cb[0]), 0, w)
+					var rx1: int = clampi(int(cb[1]), 0, w)
+					var ry0: int = clampi(int(rb[0]), 0, h)
+					var ry1: int = clampi(int(rb[1]), 0, h)
+					if rx1 - rx0 <= 0 or ry1 - ry0 <= 0:
+						continue
+					var cell: Image = work.get_region(Rect2i(rx0, ry0, rx1 - rx0, ry1 - ry0))
+					if not _cell_is_blank(cell):
+						out.append(cell)
+				if out.size() >= 64:
+					break
+			if out.size() >= 2:
+				return out
+
+	# 2. Uniform-grid search via divisor scoring.
+	var grid: Array = _best_uniform_grid(w, h, col_ink, row_ink, has_alpha)
+	if not grid.is_empty():
+		var cw: int = grid[0]
+		var ch: int = grid[1]
+		var cols: int = w / cw
+		var rows: int = h / ch
+		var out2: Array = []
+		for ry in range(rows):
+			for cx in range(cols):
+				var rect := Rect2i(cx * cw, ry * ch, cw, ch)
+				if rect.position.x + rect.size.x > w or rect.position.y + rect.size.y > h:
+					continue
+				var c: Image = work.get_region(rect)
+				if not _cell_is_blank(c):
+					out2.append(c)
+				if out2.size() >= 64:
+					break
+			if out2.size() >= 64:
+				break
+		if out2.size() >= 2:
+			return out2
+
+	# 3. Legacy strip case.
+	if w > h and w % h == 0:
+		var n: int = w / h
+		var out3: Array = []
+		for i in range(n):
+			out3.append(work.get_region(Rect2i(i * h, 0, h, h)))
+		return out3
+
+	return []
+
+
+## Walk the RGBA8 byte buffer once and accumulate per-column/per-row counts
+## of opaque pixels (alpha > 0). Caller pre-sized both arrays.
+func _compute_alpha_histograms(img: Image, col_ink: PackedInt32Array, row_ink: PackedInt32Array) -> void:
+	var w := img.get_width()
+	var h := img.get_height()
+	var data: PackedByteArray = img.get_data()
+	var stride := w * 4
+	for y in range(h):
+		var row_base := y * stride
+		var rc := 0
+		for x in range(w):
+			var a := data[row_base + x * 4 + 3]
+			if a > 0:
+				rc += 1
+				col_ink[x] = col_ink[x] + 1
+		row_ink[y] = rc
+
+
+## Convert a 1D ink histogram into [start, end_exclusive] bands of indices
+## where ink > 0. Indices with zero ink act as gutters.
+func _bands_from_ink(ink: PackedInt32Array) -> Array:
+	var bands: Array = []
+	var in_band := false
+	var start := 0
+	var n := ink.size()
+	for i in range(n):
+		if ink[i] > 0:
+			if not in_band:
+				in_band = true
+				start = i
+		else:
+			if in_band:
+				in_band = false
+				bands.append([start, i])
+	if in_band:
+		bands.append([start, n])
+	return bands
+
+
+## Score every (cell_w, cell_h) divisor pair of (w, h) and return the best
+## one as `[cell_w, cell_h]`, or `[]` if no grid is plausible.
+##
+## Score = (# cells with ink) − penalty_for_aspect − penalty_for_too_few_cells.
+## Square-ish cells are preferred. Cell sizes < 8 px or grids with > 256
+## cells are rejected as noise.
+func _best_uniform_grid(w: int, h: int, col_ink: PackedInt32Array, row_ink: PackedInt32Array, has_alpha: bool) -> Array:
+	var divisors_w: Array = _divisors(w)
+	var divisors_h: Array = _divisors(h)
+	var best_score := -1.0
+	var best: Array = []
+	for cw in divisors_w:
+		if cw < 8 or cw > w:
+			continue
+		for ch in divisors_h:
+			if ch < 8 or ch > h:
+				continue
+			var cols: int = w / cw
+			var rows: int = h / ch
+			var total: int = cols * rows
+			if total < 2 or total > 256:
+				continue
+			# Aspect penalty: prefer square cells; allow up to 4:1.
+			var aspect: float = maxf(float(cw) / float(ch), float(ch) / float(cw))
+			if aspect > 4.0:
+				continue
+			# Count non-empty cells via histogram sums.
+			var non_empty := 0
+			for ry in range(rows):
+				var y0: int = ry * ch
+				var y1: int = y0 + ch
+				var row_sum := 0
+				for y in range(y0, y1):
+					row_sum += row_ink[y]
+				if row_sum == 0 and has_alpha:
+					continue
+				for cx in range(cols):
+					if not has_alpha:
+						non_empty += 1
+						continue
+					var x0: int = cx * cw
+					var x1: int = x0 + cw
+					# Cheap proxy: cell has ink iff its row band overlaps any
+					# inked column inside the cell's column range.
+					var col_sum := 0
+					for x in range(x0, x1):
+						col_sum += col_ink[x]
+						if col_sum > 0:
+							break
+					if col_sum > 0:
+						non_empty += 1
+			if non_empty < 2:
+				continue
+			# Score: reward fill rate and squareness.
+			var score: float = float(non_empty) - (aspect - 1.0) * 0.5
+			# Slight bonus for "common" character-sheet cell sizes.
+			if cw == ch and cw in [16, 24, 32, 48, 64, 96, 128]:
+				score += 1.0
+			if score > best_score:
+				best_score = score
+				best = [cw, ch]
+	return best
+
+
+## Return all positive divisors of n, capped to keep the search tractable.
+func _divisors(n: int) -> Array:
+	var out: Array = []
+	if n <= 0:
+		return out
+	var i := 1
+	while i * i <= n:
+		if n % i == 0:
+			out.append(i)
+			if i != n / i:
+				out.append(n / i)
+		i += 1
+	out.sort()
+	return out
+
+
+## True iff `cell` has no ink (alpha == 0 everywhere). Opaque cells (no
+## alpha channel) are never blank.
+func _cell_is_blank(cell: Image) -> bool:
+	if cell.get_format() != Image.FORMAT_RGBA8:
+		cell.convert(Image.FORMAT_RGBA8)
+	var data: PackedByteArray = cell.get_data()
+	var n := data.size()
+	var i := 3
+	while i < n:
+		if data[i] > 0:
+			return false
+		i += 4
+	return true
+
+
+## Legacy alias kept for compatibility — old callers used this directly.
+func _find_opaque_bands(img: Image, horizontal: bool) -> Array:
+	var w := img.get_width()
+	var h := img.get_height()
+	var work := Image.new()
+	work.copy_from(img)
+	if work.get_format() != Image.FORMAT_RGBA8:
+		work.convert(Image.FORMAT_RGBA8)
+	var col_ink: PackedInt32Array = PackedInt32Array()
+	var row_ink: PackedInt32Array = PackedInt32Array()
+	col_ink.resize(w)
+	row_ink.resize(h)
+	_compute_alpha_histograms(work, col_ink, row_ink)
+	if horizontal:
+		return _bands_from_ink(col_ink)
+	return _bands_from_ink(row_ink)
+
+
+## Legacy alias — old callers used this directly.
+func _is_image_empty(img: Image) -> bool:
+	if img.detect_alpha() == Image.ALPHA_NONE:
+		return false
+	return _cell_is_blank(img)
+
+
+## Auto-import callback: hooked to Kenney/OGA browsers' `asset_downloaded`
+## signal so a successful download from inside the sprite-edit popup is
+## immediately imported as the next animation frame, no FileDialog hop needed.
+##
+## - PNG/JPG/WebP → load directly via `_on_frame_file_selected` (handles
+##   spritesheets and single-image cases).
+## - ZIP that was extracted → walk the extract dir for the first PNG/JPG;
+##   if found, import it. Otherwise just log so the user can browse it.
+func _on_browser_asset_downloaded(local_path: String, was_extracted: bool) -> void:
+	if not is_instance_valid(_edit_popup):
+		# Sprite-edit popup was closed before the download finished.
+		return
+	var ext := local_path.get_extension().to_lower()
+	if ext in ["png", "jpg", "jpeg", "webp"]:
+		_on_frame_file_selected(local_path)
+		return
+	if ext == "zip" and was_extracted:
+		var dir_path := local_path.get_basename()
+		var first_png := _find_first_image_in_dir(dir_path)
+		if not first_png.is_empty():
+			_on_frame_file_selected(first_png)
+		else:
+			print("AGCK: Downloaded ZIP extracted to ", dir_path, " but no PNG/JPG found at top level.")
+
+
+## Scan `dir_path` (and one level of subfolders) for the first PNG/JPG/WebP.
+func _find_first_image_in_dir(dir_path: String) -> String:
+	var d := DirAccess.open(dir_path)
+	if d == null:
+		return ""
+	d.list_dir_begin()
+	var subdirs: Array[String] = []
+	while true:
+		var entry := d.get_next()
+		if entry.is_empty():
+			break
+		if entry.begins_with("."):
+			continue
+		var full := dir_path.path_join(entry)
+		if d.current_is_dir():
+			subdirs.append(full)
+		else:
+			var ext := entry.get_extension().to_lower()
+			if ext in ["png", "jpg", "jpeg", "webp"]:
+				d.list_dir_end()
+				return full
+	d.list_dir_end()
+	for sd in subdirs:
+		var found := _find_first_image_in_dir(sd)
+		if not found.is_empty():
+			return found
+	return ""
 
 
 func _on_actor_edit_save() -> void:

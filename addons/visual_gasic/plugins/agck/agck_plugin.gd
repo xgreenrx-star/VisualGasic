@@ -365,6 +365,17 @@ func _on_cleanup() -> void:
 
 func _on_data_changed(_key = null, _value = null) -> void:
 	_dirty = true
+	# Propagate pixel-art size changes to the shared tile library so the actor
+	# editor / level editor pick up the new render targets immediately.
+	if _tile_lib and typeof(_key) == TYPE_STRING:
+		match _key:
+			"tile_size":
+				_tile_lib.tile_render_size = int(_value)
+			"actor_frame_size":
+				_tile_lib.actor_frame_size = int(_value)
+		# Refresh actor editor so its canvas / blank-frames pick up the new size.
+		if _editors.size() > 1 and _editors[1] and _editors[1].has_method("refresh_all"):
+			_editors[1].refresh_all()
 	_restart_build_debounce()
 
 func _on_actor_changed(_actor_id = null) -> void:
@@ -1649,6 +1660,12 @@ func load_project(path: String) -> bool:
 	# Restore tile library (custom edits, new tiles)
 	if _tile_lib and game_data.has("tile_library") and _tile_lib.has_method("set_data"):
 		_tile_lib.set_data(game_data["tile_library"])
+	# Sync pixel-art render sizes from settings → tile library (settings is
+	# the source of truth; tile_library mirrors them for editor/runtime use).
+	if _tile_lib and _editors.size() > 4 and _editors[4]:
+		var s: Dictionary = _editors[4].game_data
+		_tile_lib.tile_render_size = int(s.get("tile_size", _tile_lib.tile_render_size))
+		_tile_lib.actor_frame_size = int(s.get("actor_frame_size", _tile_lib.actor_frame_size))
 	# Refresh editors with tile library
 	if _editors.size() > 0 and _editors[0] and _editors[0].has_method("refresh_all"):
 		_editors[0].refresh_all()

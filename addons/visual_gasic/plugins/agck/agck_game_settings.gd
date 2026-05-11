@@ -129,6 +129,12 @@ func _init_data() -> void:
 		# windowed resolution; in builder backend we emit window/size/mode.
 		"fullscreen": false,
 		"background_color": "#1a1a2e",
+		# ── Pixel-Art Sizing ──
+		# Project-level render targets. Tiles & actors are scaled to these
+		# at build time. Per-actor `frame_size` overrides on the actor card
+		# take precedence over `actor_frame_size`.
+		"tile_size": 32,
+		"actor_frame_size": 32,
 		"lives": 3,
 		"max_score": 0,
 		"difficulty": "Normal",
@@ -144,6 +150,8 @@ func _init_data() -> void:
 		"wrap_screen": true,
 		"show_score": true,
 		"show_lives": true,
+		"show_level": true,
+		"show_coins": true,
 		"debug_overlay": false,
 		"show_fps": false,
 		"auto_save": true,
@@ -254,6 +262,13 @@ func _build_ui() -> void:
 	_row_toggle(dg, "Fullscreen", "fullscreen")
 	_row_color_picker(dg, "BG Color", "background_color")
 
+	# ── Pixel-Art card (tile size + actor frame size)
+	var pix = _card("🧱 Pixel Art")
+	grid.add_child(pix)
+	var pxg = _card_body(pix)
+	_row_size_preset(pxg, "Tile Size", "tile_size")
+	_row_size_preset(pxg, "Actor Frame", "actor_frame_size")
+
 	# ── Physics card
 	var phys = _card("🌍 Physics")
 	grid.add_child(phys)
@@ -302,6 +317,8 @@ func _build_ui() -> void:
 	var hg = _card_body(hud)
 	_row_toggle(hg, "Show Score", "show_score")
 	_row_toggle(hg, "Show Lives", "show_lives")
+	_row_toggle(hg, "Show Level", "show_level")
+	_row_toggle(hg, "Show Coins", "show_coins")
 	_row_toggle(hg, "Debug Overlay", "debug_overlay")
 	_row_toggle(hg, "Show FPS", "show_fps")
 	_row_toggle(hg, "Auto Save", "auto_save")
@@ -538,6 +555,68 @@ func _sync_resolution_preset(opt: OptionButton) -> void:
 			return
 	# No match → select "Custom…"
 	opt.selected = RES_PRESETS.size() - 1
+
+
+# ─── Pixel-Art Size Preset Row ───────────────────────────────
+## Tile Size / Actor Frame Size dropdown with presets + Custom spinbox.
+## Presets cover the canonical pixel-art canvas sizes:
+##   8 (NES sprite tile), 16 (SNES tile), 24 (Kenney mini), 32 (modern indie),
+##   48 (high-res 2D), 64 (HD 2D), 96 (large char), 128 (huge boss).
+const PIXEL_SIZE_PRESETS: Array[int] = [8, 16, 24, 32, 48, 64, 96, 128]
+
+
+func _row_size_preset(grid: GridContainer, label: String, key: String) -> void:
+	grid.add_child(_prop_label(label))
+	var hbox = HBoxContainer.new()
+	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_theme_constant_override("separation", 6)
+
+	var opt = OptionButton.new()
+	opt.add_theme_font_size_override("font_size", 11)
+	for s in PIXEL_SIZE_PRESETS:
+		opt.add_item("%d × %d" % [s, s])
+	opt.add_item("Custom…")
+	opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(opt)
+	_style_option(opt)
+
+	var spin = SpinBox.new()
+	spin.min_value = 4
+	spin.max_value = 512
+	spin.step = 1
+	spin.value = int(game_data.get(key, 32))
+	spin.add_theme_font_size_override("font_size", 11)
+	spin.custom_minimum_size.x = 70
+	spin.suffix = "px"
+	hbox.add_child(spin)
+
+	# Sync dropdown to current value
+	var sync_dropdown = func():
+		var cur := int(game_data.get(key, 32))
+		var found := false
+		for i in range(PIXEL_SIZE_PRESETS.size()):
+			if PIXEL_SIZE_PRESETS[i] == cur:
+				opt.selected = i
+				found = true
+				break
+		if not found:
+			opt.selected = PIXEL_SIZE_PRESETS.size()  # "Custom…"
+	sync_dropdown.call()
+
+	opt.item_selected.connect(func(idx):
+		if idx >= 0 and idx < PIXEL_SIZE_PRESETS.size():
+			var v: int = PIXEL_SIZE_PRESETS[idx]
+			spin.value = v
+			game_data[key] = v
+			settings_changed.emit(key, v)
+	)
+	spin.value_changed.connect(func(v):
+		game_data[key] = int(v)
+		settings_changed.emit(key, int(v))
+		sync_dropdown.call()
+	)
+
+	grid.add_child(hbox)
 
 
 # ─── Labeled Slider Row (value readout) ──────────────────────
