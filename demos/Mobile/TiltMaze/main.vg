@@ -1,0 +1,170 @@
+' ============================================================
+' Tilt Maze — VisualGasic Mobile Demo
+' ============================================================
+' A small ball rolls through a maze, steered by phone tilt.
+' Uses Pass 4 Sensor namespace (Accel/Tilt/Units).
+'
+' Runs anywhere:
+'   • Desktop  — accelerometer is flat; press Q to quit
+'   • Android  — real tilt rolls the ball
+'   • Headless — runs 60 frames of simulated tilt + prints state
+'
+' Showcase verbs:
+'   Sensor.Units("game")  Sensor.Accel  Sensor.Tilt
+'   Screen.Width  Screen.Height  Screen.Orientation
+' ============================================================
+
+Option Explicit
+
+Const FIELD_W As Integer = 24
+Const FIELD_H As Integer = 14
+
+' Maze layout: "#" = wall, " " = floor, "G" = goal
+Dim Maze As Variant     ' Array of strings, one per row
+Dim BallX As Single
+Dim BallY As Single
+Dim BallVX As Single
+Dim BallVY As Single
+Dim Frame As Integer
+Dim Won As Boolean
+
+Sub _Ready()
+    Print "=== Tilt Maze ==="
+    Print "Screen: " & Screen.Width & "x" & Screen.Height & " (" & Screen.Orientation & ")"
+    Sensor.Units("game")    ' accelerometer in Gs, gyro in deg/s
+
+    BuildMaze()
+    BallX = 2.5
+    BallY = 1.5
+    BallVX = 0.0
+    BallVY = 0.0
+    Frame = 0
+    Won = False
+
+    DrawFrame()
+
+    ' Headless tick — advance 60 frames using simulated tilt then exit.
+    ' On-device, replace this loop with a Timer node in your scene.
+    Dim i As Integer
+    For i = 1 To 60
+        Step()
+        Frame = Frame + 1
+        If (Frame Mod 6) = 0 Then DrawFrame()
+        If Won Then
+            Print "🏆  Goal reached in frame " & Frame
+            Exit For
+        End If
+    Next i
+
+    If Not Won Then
+        Print "Demo ran 60 frames without reaching the goal — tilt harder!"
+    End If
+End Sub
+
+' ------------------------------------------------------------
+' Maze definition (10×6 inner area framed by walls)
+' ------------------------------------------------------------
+Sub BuildMaze()
+    Maze = Array()
+    Maze.PushBack("########################")
+    Maze.PushBack("#  #             #     #")
+    Maze.PushBack("#  #  ####  ###  #  #  #")
+    Maze.PushBack("#     #     #    #  #  #")
+    Maze.PushBack("####  #  ####  ####  # #")
+    Maze.PushBack("#     #        #     # #")
+    Maze.PushBack("#  ####  ####  #  ##   #")
+    Maze.PushBack("#                 ##   #")
+    Maze.PushBack("###  ##############    #")
+    Maze.PushBack("#                 #  ###")
+    Maze.PushBack("#  ##############  #   #")
+    Maze.PushBack("#                  #  G#")
+    Maze.PushBack("####################  ##")
+    Maze.PushBack("########################")
+End Sub
+
+' ------------------------------------------------------------
+' One physics tick.  Tilt → acceleration → velocity → position.
+' Reads Sensor.Accel (Vector3, in Gs) for real device input;
+' falls back to a sinusoidal sweep for headless / desktop.
+' ------------------------------------------------------------
+Sub Step()
+    Dim acc As Variant
+    acc = Sensor.Accel
+    Dim ax As Single
+    Dim ay As Single
+    ax = acc.x
+    ay = acc.y
+
+    ' Desktop/headless: synthesize a gentle right-down nudge so the
+    ' demo actually progresses even with no real sensor.
+    If (Abs(ax) + Abs(ay)) < 0.05 Then
+        ax = 0.35
+        ay = 0.22
+    End If
+
+    ' Tilt → velocity (Gs * dt² scale)
+    BallVX = BallVX + ax * 0.20
+    BallVY = BallVY + ay * 0.20
+
+    ' Friction
+    BallVX = BallVX * 0.92
+    BallVY = BallVY * 0.92
+
+    ' Move with wall sliding
+    Dim nx As Single
+    Dim ny As Single
+    nx = BallX + BallVX
+    ny = BallY + BallVY
+
+    If CellAt(Int(nx), Int(BallY)) = "#" Then
+        nx = BallX
+        BallVX = -BallVX * 0.5
+    End If
+    If CellAt(Int(nx), Int(ny)) = "#" Then
+        ny = BallY
+        BallVY = -BallVY * 0.5
+    End If
+
+    BallX = nx
+    BallY = ny
+
+    If CellAt(Int(BallX), Int(BallY)) = "G" Then
+        Won = True
+    End If
+End Sub
+
+Function CellAt(x As Integer, y As Integer) As String
+    If y < 0 Or y >= Maze.Size() Then
+        CellAt = "#"
+        Exit Function
+    End If
+    Dim row As String
+    row = Maze.Get(y)
+    If x < 0 Or x >= row.Length Then
+        CellAt = "#"
+        Exit Function
+    End If
+    CellAt = Mid(row, x + 1, 1)
+End Function
+
+' ------------------------------------------------------------
+' ASCII render — works in any terminal / headless smoke.
+' ------------------------------------------------------------
+Sub DrawFrame()
+    Print "----- frame " & Frame & " -----"
+    Dim y As Integer
+    Dim row As String
+    Dim bx As Integer
+    Dim by As Integer
+    bx = Int(BallX)
+    by = Int(BallY)
+    For y = 0 To Maze.Size() - 1
+        row = Maze.Get(y)
+        If y = by Then
+            ' Replace ball position with 'o'
+            row = Left(row, bx) & "o" & Mid(row, bx + 2)
+        End If
+        Print row
+    Next y
+    Print "ball=(" & BallX & ", " & BallY & ") vel=(" & BallVX & ", " & BallVY & ") tilt=" & Sensor.Tilt
+End Sub

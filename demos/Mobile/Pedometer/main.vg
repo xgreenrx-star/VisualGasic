@@ -1,0 +1,87 @@
+' ============================================================
+' Pedometer — VisualGasic Mobile Demo
+' ============================================================
+' Reads the platform step counter via the Steps namespace.
+' Pairs with Permission for the runtime ACTIVITY_RECOGNITION ask.
+'
+'   • Android — live step counts from the OS pedometer
+'   • Desktop / Headless — zero (stub), so the demo still parses
+'     and dispatches cleanly for CI.
+'
+' Showcase verbs:
+'   Permission.Request, Permission.Has
+'   Steps.Today, Steps.Total, Steps.Reset
+'   Vibrate(ms)
+' ============================================================
+
+Option Explicit
+
+Const STEP_GOAL As Integer = 10000
+
+Dim StartTotal As Integer
+Dim LastCelebrated As Integer
+
+Sub _Ready()
+    Print "=== Pedometer ==="
+
+    ' Android: pops the runtime permission sheet.
+    ' Desktop: no-op, returns granted.
+    Permission.Request("activity_recognition")
+    Print "Has permission? " & Permission.Has("activity_recognition")
+
+    StartTotal = Steps.Total
+    LastCelebrated = 0
+    Print "Lifetime steps at app launch: " & StartTotal
+
+    ' Headless tick — run a few sample updates.
+    ' On-device, drive Tick() from a Timer node.
+    Dim i As Integer
+    For i = 1 To 5
+        Tick()
+    Next i
+
+    Print "OK"
+End Sub
+
+Sub Tick()
+    Dim today As Integer
+    Dim total As Integer
+    today = Steps.Today
+    total = Steps.Total
+
+    Dim session As Integer
+    session = total - StartTotal
+    If session < 0 Then session = 0    ' midnight rollover
+
+    Print "Today: " & today & " | Session: " & session & " | Lifetime: " & total & " | " & PercentOfGoal(today) & "% of " & STEP_GOAL
+
+    ' Celebrate every 1000-step milestone (haptic + log).
+    If today >= LastCelebrated + 1000 Then
+        Vibrate(80)
+        Print "🎉  " & today & " steps!  Keep going."
+        LastCelebrated = today - (today Mod 1000)
+    End If
+
+    If today >= STEP_GOAL Then
+        Vibrate(200)
+        Print "🏆  Daily goal reached!"
+    End If
+End Sub
+
+Function PercentOfGoal(today As Integer) As Integer
+    If STEP_GOAL <= 0 Then
+        PercentOfGoal = 0
+        Exit Function
+    End If
+    PercentOfGoal = Int((today * 100) / STEP_GOAL)
+End Function
+
+' Auto-wired once the Android plugin ships (signal source is the OS).
+Sub Permission_Granted(perm As String)
+    Print "User granted: " & perm
+    StartTotal = Steps.Total
+End Sub
+
+Sub Permission_Denied(perm As String)
+    Print "User denied: " & perm
+End Sub

@@ -1,0 +1,24 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+config/name="Tilt Maze - VisualGasic Mobile Demo"
+config/description="Tilt-to-roll ball demo using VG Sensor namespace (Pass 4)"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.6", "Forward Plus")
+
+[autoload]
+VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
+
+[display]
+; Portrait window — phone-shaped
+window/size/viewport_width=360
+window/size/viewport_height=640
+window/size/resizable=true
+window/handheld/orientation=2
+
+[editor_plugins]
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+
+[visual_gasic]
+layout/vb6_mode=false
