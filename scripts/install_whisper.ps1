@@ -26,7 +26,7 @@ $BinUrl = if ($Env:WHISPER_BIN_URL) { $Env:WHISPER_BIN_URL } else {
     "https://github.com/ggerganov/whisper.cpp/releases/download/$WhisperRelease/$BinZip"
 }
 
-$Model = if ($Env:WHISPER_MODEL) { $Env:WHISPER_MODEL } else { 'ggml-tiny.en.bin' }
+$Model = if ($Env:WHISPER_MODEL) { $Env:WHISPER_MODEL } else { 'ggml-base.en.bin' }
 $ModelUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$Model"
 
 Write-Host "[1/2] Installing whisper.cpp binary into $Dest ..."

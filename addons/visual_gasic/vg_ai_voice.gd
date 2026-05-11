@@ -72,7 +72,10 @@ var stt_backend: String = "openai"        # "openai" | "whisper" | "off"
 var tts_backend: String = "openai"        # "openai" | "piper" | "system" | "off"
 var tts_voice: String = OPENAI_TTS_DEFAULT_VOICE
 var auto_speak_replies: bool = true
-var whisper_cpp_path: String = "whisper"  # binary on PATH or absolute
+# Default to "whisper-cli" (the actual binary name shipped by
+# whisper.cpp's modern build).  Older installs used a wrapper called
+# "whisper" — autodetect handles both.  Override via voice settings.
+var whisper_cpp_path: String = "whisper-cli"  # binary on PATH or absolute
 var whisper_cpp_model: String = ""        # e.g. "/usr/share/whisper/ggml-tiny.en.bin"
 var piper_path: String = "piper"
 var piper_voice_path: String = ""         # e.g. "/usr/share/piper/en_US-amy-low.onnx"
@@ -162,16 +165,209 @@ func _setup_http() -> void:
 # ─── Settings persistence ───────────────────────────────────────────────────
 func _load_settings() -> void:
 	var cfg := ConfigFile.new()
-	if cfg.load(CFG_PATH) != OK:
-		return
-	stt_backend = cfg.get_value("voice", "stt_backend", stt_backend)
-	tts_backend = cfg.get_value("voice", "tts_backend", tts_backend)
-	tts_voice = cfg.get_value("voice", "tts_voice", tts_voice)
-	auto_speak_replies = cfg.get_value("voice", "auto_speak_replies", auto_speak_replies)
-	whisper_cpp_path = cfg.get_value("voice", "whisper_cpp_path", whisper_cpp_path)
-	whisper_cpp_model = cfg.get_value("voice", "whisper_cpp_model", whisper_cpp_model)
-	piper_path = cfg.get_value("voice", "piper_path", piper_path)
-	piper_voice_path = cfg.get_value("voice", "piper_voice_path", piper_voice_path)
+	var had_cfg := cfg.load(CFG_PATH) == OK
+	if had_cfg:
+		stt_backend = cfg.get_value("voice", "stt_backend", stt_backend)
+		tts_backend = cfg.get_value("voice", "tts_backend", tts_backend)
+		tts_voice = cfg.get_value("voice", "tts_voice", tts_voice)
+		auto_speak_replies = cfg.get_value("voice", "auto_speak_replies", auto_speak_replies)
+		whisper_cpp_path = cfg.get_value("voice", "whisper_cpp_path", whisper_cpp_path)
+		whisper_cpp_model = cfg.get_value("voice", "whisper_cpp_model", whisper_cpp_model)
+		piper_path = cfg.get_value("voice", "piper_path", piper_path)
+		piper_voice_path = cfg.get_value("voice", "piper_voice_path", piper_voice_path)
+	# Autodetect a working local whisper.cpp install.  This runs on every
+	# load so users who install whisper after first-run still pick it up,
+	# but it never overwrites a user choice: we only fill in unset paths
+	# and only switch the backend away from "openai" if no OpenAI key is
+	# configured (i.e. the cloud path would fail anyway).
+	_autodetect_whisper(had_cfg)
+	_autodetect_piper(had_cfg)
+
+func _autodetect_whisper(had_cfg: bool) -> void:
+	# Resolve binary if the configured one is missing.
+	if not _binary_exists(whisper_cpp_path):
+		var found_bin := _find_whisper_binary()
+		if not found_bin.is_empty():
+			whisper_cpp_path = found_bin
+	# Resolve model if unset and binary is now usable.
+	if whisper_cpp_model.is_empty() and _binary_exists(whisper_cpp_path):
+		var found_model := _find_whisper_model()
+		if not found_model.is_empty():
+			whisper_cpp_model = found_model
+	# Auto-switch backend on first run when local whisper is reachable but
+	# no OpenAI key is set — avoids the "requires an OpenAI API key" error
+	# screen for users who already have whisper.cpp installed locally.
+	var local_ready := _binary_exists(whisper_cpp_path) and not whisper_cpp_model.is_empty()
+	var has_openai_key := not AIProviders.load_api_key("openai").is_empty()
+	if not had_cfg and local_ready and not has_openai_key and stt_backend == "openai":
+		stt_backend = "whisper"
+
+func _find_whisper_binary() -> String:
+	# Try common binary names on PATH first.
+	for name in ["whisper-cli", "whisper", "whisper.cpp"]:
+		if _binary_exists(name):
+			return name
+	# Then try absolute paths in standard install locations.
+	var home := OS.get_environment("HOME")
+	var candidates: Array[String] = []
+	if OS.has_feature("windows"):
+		candidates.append_array([
+			"C:/Program Files/whisper.cpp/whisper-cli.exe",
+			"C:/whisper.cpp/whisper-cli.exe",
+		])
+	else:
+		candidates.append_array([
+			home + "/.local/share/whisper/whisper.cpp/build/bin/whisper-cli",
+			home + "/.local/share/whisper/whisper.cpp/main",
+			home + "/whisper.cpp/build/bin/whisper-cli",
+			home + "/whisper.cpp/main",
+			"/opt/whisper.cpp/build/bin/whisper-cli",
+			"/opt/whisper.cpp/main",
+			"/usr/local/bin/whisper-cli",
+			"/usr/local/bin/whisper",
+		])
+	for p in candidates:
+		if FileAccess.file_exists(p):
+			return p
+	return ""
+
+func _find_whisper_model() -> String:
+	var home := OS.get_environment("HOME")
+	# Search dirs ordered by typical preference (smaller/faster models first).
+	var dirs: Array[String] = []
+	if OS.has_feature("windows"):
+		dirs.append_array([
+			"C:/Program Files/whisper.cpp/models",
+			"C:/whisper.cpp/models",
+		])
+	else:
+		dirs.append_array([
+			home + "/.local/share/whisper",
+			home + "/.local/share/whisper/whisper.cpp/models",
+			home + "/whisper.cpp/models",
+			"/opt/whisper.cpp/models",
+			"/usr/share/whisper",
+		])
+	# Preferred filenames in preference order — base.en gives noticeably
+	# better accuracy than tiny.en and is still fast on a modern CPU, so
+	# we prefer it when both are present.  small.en is preferred over
+	# tiny.en for the same reason.
+	var preferred: Array[String] = [
+		"ggml-base.en.bin", "ggml-base.bin",
+		"ggml-small.en.bin", "ggml-small.bin",
+		"ggml-tiny.en.bin", "ggml-tiny.bin",
+	]
+	for d in dirs:
+		for m in preferred:
+			var p: String = d + "/" + m
+			if FileAccess.file_exists(p):
+				return p
+	# Fall back to any *.bin in the search dirs.
+	for d in dirs:
+		var dir := DirAccess.open(d)
+		if dir == null:
+			continue
+		dir.list_dir_begin()
+		while true:
+			var f := dir.get_next()
+			if f == "":
+				break
+			if f.ends_with(".bin") and f.begins_with("ggml-"):
+				dir.list_dir_end()
+				return d + "/" + f
+		dir.list_dir_end()
+	return ""
+
+func _autodetect_piper(had_cfg: bool) -> void:
+	# Resolve piper binary if the configured one is missing.
+	if not _binary_exists(piper_path):
+		var found_bin := _find_piper_binary()
+		if not found_bin.is_empty():
+			piper_path = found_bin
+	# Resolve voice if unset and binary is now usable.
+	if piper_voice_path.is_empty() and _binary_exists(piper_path):
+		var found_voice := _find_piper_voice()
+		if not found_voice.is_empty():
+			piper_voice_path = found_voice
+	# Auto-switch TTS backend on first run when local piper is reachable
+	# but no OpenAI key is set.  Piper-medium voices sound markedly
+	# better than OpenAI tts-1 anyway, so we prefer it when present.
+	var local_ready := _binary_exists(piper_path) and not piper_voice_path.is_empty()
+	var has_openai_key := not AIProviders.load_api_key("openai").is_empty()
+	if not had_cfg and local_ready and not has_openai_key and tts_backend == "openai":
+		tts_backend = "piper"
+
+func _find_piper_binary() -> String:
+	if _binary_exists("piper"):
+		return "piper"
+	var home := OS.get_environment("HOME")
+	var candidates: Array[String] = []
+	if OS.has_feature("windows"):
+		candidates.append_array([
+			"C:/Program Files/piper/piper.exe",
+			"C:/piper/piper.exe",
+			home + "/AppData/Local/piper/piper.exe",
+		])
+	else:
+		candidates.append_array([
+			home + "/.local/share/piper/piper/piper",
+			home + "/.local/share/piper/piper",
+			home + "/piper/piper",
+			"/opt/piper/piper",
+			"/usr/local/bin/piper",
+		])
+	for p in candidates:
+		if FileAccess.file_exists(p):
+			return p
+	return ""
+
+func _find_piper_voice() -> String:
+	var home := OS.get_environment("HOME")
+	var dirs: Array[String] = []
+	if OS.has_feature("windows"):
+		dirs.append_array([
+			"C:/Program Files/piper/voices",
+			"C:/piper/voices",
+			home + "/AppData/Local/piper/voices",
+		])
+	else:
+		dirs.append_array([
+			home + "/.local/share/piper",
+			home + "/.local/share/piper/voices",
+			home + "/.local/share/piper/piper",
+			home + "/piper/voices",
+			"/opt/piper/voices",
+			"/usr/share/piper",
+		])
+	# Preference order — pleasant US English female-medium first.
+	var preferred: Array[String] = [
+		"en_US-amy-medium.onnx",
+		"en_US-lessac-medium.onnx",
+		"en_US-hfc_female-medium.onnx",
+		"en_US-ryan-medium.onnx",
+		"en_GB-alan-medium.onnx",
+		"en_GB-northern_english_male-medium.onnx",
+	]
+	for d in dirs:
+		for v in preferred:
+			var p: String = d + "/" + v
+			if FileAccess.file_exists(p):
+				return p
+	# Fall back to any *-medium.onnx in the search dirs.
+	for d in dirs:
+		var dir := DirAccess.open(d)
+		if dir == null:
+			continue
+		dir.list_dir_begin()
+		while true:
+			var f := dir.get_next()
+			if f == "":
+				break
+			if f.ends_with("-medium.onnx") or f.ends_with(".onnx"):
+				dir.list_dir_end()
+				return d + "/" + f
+		dir.list_dir_end()
+	return ""
 
 func save_settings() -> void:
 	var cfg := ConfigFile.new()

@@ -83,33 +83,110 @@ static func find_provider(provider_id: String) -> ProviderInfo:
 
 
 # ─── API Key Management ─────────────────────────────────────────────────────
-# Keys are stored per-provider in user://vg_ai_keys.cfg
+# Keys are stored centrally per-user (NOT per-project) so AI access carries
+# over to every VisualGasic project the user opens or creates.
+#   Linux:   $XDG_CONFIG_HOME/visual_gasic/ai_keys.cfg  (default ~/.config/visual_gasic)
+#   Windows: %APPDATA%/VisualGasic/ai_keys.cfg
+#   macOS:   ~/Library/Application Support/VisualGasic/ai_keys.cfg
+# A legacy per-project file (user://vg_ai_keys.cfg) is migrated on first read.
 
-const KEYS_PATH := "user://vg_ai_keys.cfg"
+const _LEGACY_KEYS_PATH := "user://vg_ai_keys.cfg"
+const _KEYS_FILENAME := "ai_keys.cfg"
+
+static func _central_keys_path() -> String:
+	var dir := ""
+	match OS.get_name():
+		"Windows", "UWP":
+			var appdata := OS.get_environment("APPDATA")
+			if appdata.is_empty():
+				return _LEGACY_KEYS_PATH
+			dir = appdata + "/VisualGasic"
+		"macOS":
+			var home_mac := OS.get_environment("HOME")
+			if home_mac.is_empty():
+				return _LEGACY_KEYS_PATH
+			dir = home_mac + "/Library/Application Support/VisualGasic"
+		_:
+			var xdg := OS.get_environment("XDG_CONFIG_HOME")
+			if xdg.is_empty():
+				var home := OS.get_environment("HOME")
+				if home.is_empty():
+					return _LEGACY_KEYS_PATH
+				xdg = home + "/.config"
+			dir = xdg + "/visual_gasic"
+	DirAccess.make_dir_recursive_absolute(dir)
+	return dir + "/" + _KEYS_FILENAME
+
+## Migrate per-project legacy keys into the central store. Runs every load
+## (cheap) and *merges* — any non-empty value in the legacy file fills in
+## a missing or empty value in the central file. This handles the case
+## where a brand-new project's empty user://vg_ai_keys.cfg was the first
+## one ever loaded and seeded the central file with blanks, leaving the
+## user's real keys stranded in some other project's user data dir.
+static func _migrate_legacy_if_needed(central: String) -> void:
+	if central == _LEGACY_KEYS_PATH:
+		return  # central path resolution failed; nothing to migrate to
+	if not FileAccess.file_exists(_LEGACY_KEYS_PATH):
+		return
+	var legacy := ConfigFile.new()
+	if legacy.load(_LEGACY_KEYS_PATH) != OK:
+		return
+	var central_cfg := ConfigFile.new()
+	central_cfg.load(central)  # OK if missing
+	var changed := false
+	# Merge api_keys section: only fill in keys that are empty or absent
+	# centrally. Never overwrite a populated central value with a legacy one.
+	for provider_id in ["openai", "claude", "gemini"]:
+		var legacy_val: String = legacy.get_value("api_keys", provider_id, "")
+		if legacy_val.is_empty():
+			continue
+		var central_val: String = central_cfg.get_value("api_keys", provider_id, "")
+		if central_val.is_empty():
+			central_cfg.set_value("api_keys", provider_id, legacy_val)
+			changed = true
+	# Preferred provider: copy if central has none.
+	if not central_cfg.has_section_key("preferences", "provider"):
+		var pref: String = legacy.get_value("preferences", "provider", "")
+		if not pref.is_empty():
+			central_cfg.set_value("preferences", "provider", pref)
+			changed = true
+	if changed or not FileAccess.file_exists(central):
+		central_cfg.save(central)
 
 static func load_api_key(provider_id: String) -> String:
+	var path := _central_keys_path()
+	_migrate_legacy_if_needed(path)
 	var cfg := ConfigFile.new()
-	if cfg.load(KEYS_PATH) != OK:
-		return ""
+	if cfg.load(path) != OK:
+		# Fall back to legacy per-project location if central path unreadable.
+		if cfg.load(_LEGACY_KEYS_PATH) != OK:
+			return ""
 	return cfg.get_value("api_keys", provider_id, "")
 
 static func save_api_key(provider_id: String, key: String) -> void:
+	var path := _central_keys_path()
+	_migrate_legacy_if_needed(path)
 	var cfg := ConfigFile.new()
-	cfg.load(KEYS_PATH)  # OK if file doesn't exist yet
+	cfg.load(path)  # OK if file doesn't exist yet
 	cfg.set_value("api_keys", provider_id, key)
-	cfg.save(KEYS_PATH)
+	cfg.save(path)
 
 static func load_preferred_provider() -> String:
+	var path := _central_keys_path()
+	_migrate_legacy_if_needed(path)
 	var cfg := ConfigFile.new()
-	if cfg.load(KEYS_PATH) != OK:
-		return "ollama"
+	if cfg.load(path) != OK:
+		if cfg.load(_LEGACY_KEYS_PATH) != OK:
+			return "ollama"
 	return cfg.get_value("preferences", "provider", "ollama")
 
 static func save_preferred_provider(provider_id: String) -> void:
+	var path := _central_keys_path()
+	_migrate_legacy_if_needed(path)
 	var cfg := ConfigFile.new()
-	cfg.load(KEYS_PATH)
+	cfg.load(path)
 	cfg.set_value("preferences", "provider", provider_id)
-	cfg.save(KEYS_PATH)
+	cfg.save(path)
 
 
 # ─── Request Body Builders ──────────────────────────────────────────────────
@@ -171,7 +248,7 @@ static func _build_openai(model: String, system_prompt: String,
 		"messages": messages,
 		"stream": true,
 		"temperature": 0.3,
-		"max_tokens": 2048,
+		"max_tokens": 8192,
 	}
 	return {
 		"body": JSON.stringify(body),
@@ -197,7 +274,7 @@ static func _build_claude(model: String, system_prompt: String,
 		"messages": messages,
 		"stream": true,
 		"temperature": 0.3,
-		"max_tokens": 2048,
+		"max_tokens": 8192,
 	}
 	return {
 		"body": JSON.stringify(body),

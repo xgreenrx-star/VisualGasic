@@ -41,6 +41,44 @@ ConnectSignal \"signal_name\", \"HandlerName\".
 Rules: Keep answers concise. Use VB6/VisualGasic syntax in examples, never GDScript \
 unless asked for a translation."""
 
+const TOOLS_PROMPT := """
+
+=== EDITOR TOOLS ===
+You can drive the VG code editor directly by emitting fenced JSON blocks. \
+Each block is one tool call.  All line numbers are 1-based.
+
+Format (one tool per fenced block, exactly):
+```vg-tool
+{"tool": "TOOL_NAME", ...args}
+```
+
+Available tools:
+  highlight_lines  {"lines":[12,13,17],"color":"yellow"|"green"|"red"|"blue"|"orange","duration_sec":8}
+  clear_highlights {}
+  goto_line        {"line":42,"column":0}
+  open_file        {"path":"res://forms/Form1.vg"}
+  insert_text      {"line":10,"text":"Dim x As Integer\\n"}        ; insert BEFORE line 10
+  replace_range    {"start_line":10,"end_line":15,"text":"...new code..."}
+  replace_in_buffer{"find":"old","replace":"new","all":true}
+  set_buffer_text  {"text":"...whole new file..."}
+  save_file        {}
+  write_file       {"path":"res://forms/NewForm.vg","contents":"..."}
+  read_file        {"path":"res://forms/Form1.vg","max_lines":200}
+
+When the user asks you to point at something, USE highlight_lines (don't just \
+list line numbers in prose).  When the user asks you to change code, USE \
+the editing tools and then save_file.  Always explain in plain language \
+WHAT you did, then emit the tool block(s).  Multiple blocks per reply are \
+allowed and run in order.
+
+CRITICAL: every tool call MUST be wrapped in a triple-backtick \"vg-tool\" \
+fence — exactly ```vg-tool on its own line, then one JSON object, then \
+``` on its own line.  Do NOT paste tool JSON into a plain text or ```json \
+block — the editor only executes vg-tool fences.  Mutating tools \
+(insert_text, replace_range, replace_in_buffer, set_buffer_text, save_file, \
+write_file) prompt the user for approval and are reversible via the Undo \
+button, so prefer making the change directly over describing it."""
+
 # ---------------------------------------------------------------------------
 # AI Personas — flavor layers that wrap the technical SYSTEM_PROMPT.
 # Each persona contributes a roleplay prefix (style only — never overrides the
@@ -165,6 +203,28 @@ var _clear_btn: Button
 var _stop_btn: Button
 var _models_btn: Button
 var _model_picker: AcceptDialog
+var _approvals_dropdown: OptionButton
+var _audit_btn: Button
+
+# Per-turn streaming tool dispatch watermark + multi-turn agent hop counter.
+var _stream_tool_watermark: int = 0
+var _agent_hops: int = 0
+var _agent_continuation: bool = false
+const _MAX_AGENT_HOPS := 3
+
+# Read-only personas get a tool whitelist applied per turn.  Empty array
+# means "unrestricted" (the chokepoint is still SafeWrite for any disk
+# write).  Narcea is the on-call dev — full powers.  Bob/Skippy/Orac are
+# read-only critics by default; users can promote them via the per-persona
+# config if they want.
+const PERSONA_TOOL_WHITELIST := {
+	"bob": ["highlight_lines", "clear_highlights", "goto_line", "open_file", "read_file", "list_dir", "find_in_files"],
+	"skippy": ["highlight_lines", "clear_highlights", "goto_line", "open_file", "read_file", "list_dir", "find_in_files"],
+	"orac": ["highlight_lines", "clear_highlights", "goto_line", "open_file", "read_file", "list_dir", "find_in_files"],
+	"hal": ["highlight_lines", "clear_highlights", "goto_line", "open_file", "read_file", "list_dir", "find_in_files"],
+	"narcea": [],
+	"default": [],
+}
 
 var _ollama_available := false
 var _is_generating := false
@@ -335,7 +395,13 @@ func _reinit_after_reparent() -> void:
 	_ollama_available = false
 	_model_warm = false
 	_stream_http_phase = 0
-	_ping_ollama()
+	# Re-activate using the active provider (Ollama, Claude, OpenAI, …)
+	# rather than blindly pinging Ollama — otherwise cloud users see
+	# "Ollama not found" until they manually reopen the API key dialog.
+	if _provider_info != null and not _provider_info.is_local:
+		_activate_provider()
+	else:
+		_ping_ollama()
 
 func _exit_tree() -> void:
 	_stop_generation()
@@ -501,6 +567,15 @@ func _display_token(token: String) -> void:
 	_stream_token_count += 1
 	_accumulated_response += token
 	_output.append_text(_escape_bbcode(token))
+	# Streaming tool dispatch: as soon as a closing fence appears in the
+	# accumulated reply, run any complete vg-tool blocks.  This lets the
+	# model see read-tool results sooner and produces faster UX feedback.
+	if _ai_tools != null and _accumulated_response.find("```", _stream_tool_watermark) != -1:
+		var sd: Dictionary = _ai_tools.dispatch_streaming(_accumulated_response, _stream_tool_watermark)
+		_stream_tool_watermark = int(sd.get("watermark", _stream_tool_watermark))
+		var slogs: Array = sd.get("logs", [])
+		for sl in slogs:
+			_output.append_text("\n[color=#888888]  " + _escape_bbcode(str(sl)) + "[/color]\n")
 
 ## Clean up after generation completes normally.
 func _finish_generation() -> void:
@@ -521,6 +596,16 @@ func _finish_generation() -> void:
 		# A successful exchange proves the model is loaded and responsive \u2014
 		# skip the health-check round-trip on subsequent queries.
 		_model_warm = true
+
+	# --- Tool dispatch ---
+	# Scan the completed reply for ```vg-tool``` blocks and execute each.
+	# This is what lets Narcea (and the other personas) actually drive the
+	# editor — highlight lines, jump the caret, insert/replace code, save,
+	# write whole files via the SafeWrite chokepoint.  See vg_ai_tools.gd.
+	if not _accumulated_response.is_empty():
+		_dispatch_tool_calls(_accumulated_response)
+	_stream_tool_watermark = 0
+
 	_current_prompt = ""
 
 	if is_instance_valid(_send_btn):
@@ -544,6 +629,13 @@ func _finish_generation() -> void:
 
 	# Build-Form button: enable iff the reply contains a parseable form spec.
 	_refresh_build_form_btn()
+
+	# Narcea-seeded project flow: when the welcome shell created this
+	# project for Narcea to fill, auto-apply the first project-spec
+	# response so the user doesn't have to click 🆕 Make-project. Fires
+	# once per project — we clear the flag (in ProjectSettings) on
+	# success so subsequent replies need explicit user action.
+	_maybe_auto_apply_narcea_seed()
 
 ## Force-stop generation (abort button or reparent).
 func _stop_generation() -> void:
@@ -656,7 +748,8 @@ func _setup_ui() -> void:
 	toolbar.add_child(_make_separator())
 
 	_status_label = Label.new()
-	_status_label.text = "⏳ Checking Ollama..."
+	var _init_pname: String = _provider_info.display_name if _provider_info else "AI provider"
+	_status_label.text = "⏳ Checking %s..." % _init_pname
 	_status_label.add_theme_font_size_override("font_size", 11)
 	_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 	toolbar.add_child(_status_label)
@@ -664,6 +757,25 @@ func _setup_ui() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	toolbar.add_child(spacer)
+
+	# ── 🛡 AI approval mode (Ask / Bypass / Read-only) ──
+	_approvals_dropdown = OptionButton.new()
+	_approvals_dropdown.add_item("🛡 Ask", 0)
+	_approvals_dropdown.add_item("⚡ Bypass", 1)
+	_approvals_dropdown.add_item("👁 Read-only", 2)
+	_approvals_dropdown.tooltip_text = "How AI edits are gated:\n  Ask — confirm each batch (default)\n  Bypass — apply immediately (still undoable)\n  Read-only — no mutations at all"
+	_approvals_dropdown.item_selected.connect(_on_approvals_selected)
+	_style_option_button(_approvals_dropdown)
+	toolbar.add_child(_approvals_dropdown)
+	# Position will be set after _load_approval_mode() runs.
+
+	# ── 📜 Audit log viewer ──
+	_audit_btn = Button.new()
+	_audit_btn.text = "📜"
+	_audit_btn.tooltip_text = "View AI audit log (every file the AI has read or written)"
+	_audit_btn.pressed.connect(_show_audit_log)
+	_style_small_button(_audit_btn)
+	toolbar.add_child(_audit_btn)
 
 	_clear_btn = Button.new()
 	_clear_btn.text = "🗑 Clear"
@@ -768,6 +880,13 @@ func _setup_ui() -> void:
 			break
 	_persona_dropdown.item_selected.connect(_on_persona_selected)
 	toolbar.add_child(_persona_dropdown)
+	# Editor's default OptionButton popup theme renders nearly invisible
+	# dark text on the dark VG bottom panel — force the proven dark popup
+	# styling used by vg_2d_editor's _style_popup_dark(). Applied to all
+	# three dropdowns in this toolbar (provider, model, persona).
+	_style_dropdown_popup_dark(_provider_dropdown)
+	_style_dropdown_popup_dark(_model_dropdown)
+	_style_dropdown_popup_dark(_persona_dropdown)
 
 	# --- Quick action buttons ---
 	var actions := HBoxContainer.new()
@@ -943,7 +1062,8 @@ func _style_option_button(opt: OptionButton) -> void:
 # Ollama connectivity
 # ---------------------------------------------------------------------------
 func _ping_ollama() -> void:
-	_status_label.text = "⏳ Checking Ollama..."
+	var pname: String = _provider_info.display_name if _provider_info else "Ollama"
+	_status_label.text = "⏳ Checking %s..." % pname
 	_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 	var err := _ping_http.request("http://127.0.0.1:11434/api/tags")
 	if err != OK:
@@ -961,7 +1081,8 @@ func _on_ping_response(result: int, code: int, _headers: PackedStringArray, body
 		_set_offline()
 		return
 	_ollama_available = true
-	_status_label.text = "✅ Ollama connected"
+	var pname2: String = _provider_info.display_name if _provider_info else "Ollama"
+	_status_label.text = "✅ %s connected" % pname2
 	_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
 
 	# Parse available models and update dropdown
@@ -1083,6 +1204,13 @@ func _on_send() -> void:
 	var prompt := _input.text.strip_edges()
 	if prompt.is_empty():
 		return
+	# Reset multi-turn agent hop counter on user-initiated sends.  The
+	# agent loop sets _agent_continuation=true before re-entering so we
+	# preserve the count for that follow-up turn only.
+	if _agent_continuation:
+		_agent_continuation = false
+	else:
+		_agent_hops = 0
 	_send_query(prompt)
 
 ## Quick health check — verifies Ollama can accept requests before sending.
@@ -1214,6 +1342,7 @@ func _send_query_internal(prompt: String) -> void:
 	_stream_start_time = Time.get_ticks_msec()
 	_stream_first_token_time = 0.0
 	_accumulated_response = ""
+	_stream_tool_watermark = 0
 
 	# Create HTTPClient and start non-blocking connect
 	# The poll timer will drive the state machine (connect → request → read body)
@@ -1388,7 +1517,129 @@ func _show_model_picker() -> void:
 		installed.append(_model_dropdown.get_item_text(i))
 	if _model_picker.has_method("set_installed_models"):
 		_model_picker.set_installed_models(installed)
-	_model_picker.popup_centered()
+	# Embedded subwindow quirk: popup_centered() obeys min_size but Godot
+	# re-layouts to host on the next frame, leaving the dialog stretched
+	# nearly full-height. Force a fixed size + recenter via deferred call.
+	var sz := Vector2i(640, 480)
+	_model_picker.popup_centered(sz)
+	_model_picker.size = sz
+	call_deferred("_force_model_picker_size", _model_picker, sz)
+
+func _force_model_picker_size(dlg: Window, sz: Vector2i) -> void:
+	if not is_instance_valid(dlg):
+		return
+	dlg.size = sz
+	var base := EditorInterface.get_base_control()
+	var host_size := Vector2i(base.size) if base != null else Vector2i(get_viewport().get_visible_rect().size)
+	dlg.position = (host_size - sz) / 2
+
+# Force readable colors on an OptionButton's PopupMenu. The default editor
+# theme renders dropdown items as nearly-black-on-black inside the dark VG
+# bottom panel. Mirrors vg_2d_editor.gd `_style_popup_dark`: applies both a
+# full Theme resource AND local overrides, plus a transparent flag to kill
+# the native OS chrome, plus a forced theme-cache refresh notification.
+#
+# Critical Godot 4 quirk: the editor re-applies its own theme to popups
+# right before they open (NOTIFICATION_THEME_CHANGED fires after our setup
+# is finished), which silently restores the dark-on-dark `font_color`.
+# To beat this we hook `about_to_popup` and re-apply the styling every
+# time the popup opens. Without this, only `font_hover_color` survives —
+# you see white text only on the hovered item, blank on every other row.
+func _style_dropdown_popup_dark(option_btn: OptionButton) -> void:
+	if not is_instance_valid(option_btn):
+		return
+	var popup := option_btn.get_popup()
+	if popup == null:
+		return
+	_apply_dark_popup_styling(popup)
+	# Re-apply right before each show — the editor theme stomps font_color
+	# between our setup and the popup's first paint.
+	if not popup.about_to_popup.is_connected(_on_dropdown_popup_about_to_show):
+		popup.about_to_popup.connect(_on_dropdown_popup_about_to_show.bind(popup))
+
+func _on_dropdown_popup_about_to_show(popup: PopupMenu) -> void:
+	if is_instance_valid(popup):
+		_apply_dark_popup_styling(popup)
+
+func _apply_dark_popup_styling(popup: PopupMenu) -> void:
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.94, 0.94, 0.96)
+	panel_style.set_border_width_all(1)
+	panel_style.border_color = Color(0.55, 0.55, 0.62)
+	panel_style.set_corner_radius_all(4)
+	panel_style.set_content_margin_all(4)
+
+	var hover_style := StyleBoxFlat.new()
+	hover_style.bg_color = Color(0.30, 0.50, 0.85)
+	hover_style.set_corner_radius_all(3)
+
+	var sep_style := StyleBoxFlat.new()
+	sep_style.bg_color = Color(0.70, 0.70, 0.75)
+	sep_style.set_content_margin_all(0)
+	sep_style.content_margin_top = 1
+	sep_style.content_margin_bottom = 1
+
+	var t := Theme.new()
+	t.set_stylebox("panel", "PopupMenu", panel_style)
+	t.set_stylebox("hover", "PopupMenu", hover_style)
+	t.set_stylebox("separator", "PopupMenu", sep_style)
+	t.set_stylebox("labeled_separator_left", "PopupMenu", sep_style)
+	t.set_stylebox("labeled_separator_right", "PopupMenu", sep_style)
+	t.set_color("font_color", "PopupMenu", Color.BLACK)
+	t.set_color("font_hover_color", "PopupMenu", Color.WHITE)
+	t.set_color("font_disabled_color", "PopupMenu", Color(0.55, 0.55, 0.55))
+	t.set_color("font_separator_color", "PopupMenu", Color(0.4, 0.4, 0.4))
+	t.set_color("font_accelerator_color", "PopupMenu", Color(0.25, 0.35, 0.6))
+	t.set_stylebox("panel", "PopupPanel", panel_style)
+	popup.theme = t
+
+	popup.add_theme_stylebox_override("panel", panel_style)
+	popup.add_theme_stylebox_override("hover", hover_style)
+	popup.add_theme_stylebox_override("separator", sep_style)
+	popup.add_theme_stylebox_override("labeled_separator_left", sep_style)
+	popup.add_theme_stylebox_override("labeled_separator_right", sep_style)
+	popup.add_theme_color_override("font_color", Color.BLACK)
+	popup.add_theme_color_override("font_hover_color", Color.WHITE)
+	popup.add_theme_color_override("font_disabled_color", Color(0.55, 0.55, 0.55))
+	popup.add_theme_color_override("font_separator_color", Color(0.4, 0.4, 0.4))
+	popup.add_theme_color_override("font_accelerator_color", Color(0.25, 0.35, 0.6))
+	# Kill any text outline that the editor theme may have applied — a
+	# transparent outline with non-zero size silently eats glyph alpha.
+	popup.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0))
+	popup.add_theme_constant_override("outline_size", 0)
+
+	# Force a known-good font onto the popup. The editor theme can hand
+	# OptionButton popups a font whose ASCII glyphs render with broken
+	# alpha while the system color-emoji fallback renders fine — symptom
+	# is "icons/emoji visible, text invisible". Borrow the font from the
+	# OptionButton itself (which displays correctly) or fall back to the
+	# editor base control's font.
+	var good_font: Font = null
+	var owner_btn := popup.get_parent() as OptionButton
+	if owner_btn != null:
+		good_font = owner_btn.get_theme_font("font")
+	if good_font == null and Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base != null:
+			good_font = base.get_theme_font("font")
+	if good_font != null:
+		popup.add_theme_font_override("font", good_font)
+		var fs := 0
+		if owner_btn != null:
+			fs = owner_btn.get_theme_font_size("font_size")
+		if fs > 0:
+			popup.add_theme_font_size_override("font_size", fs)
+
+	# PopupMenu is a Window, not a Control — it has no `modulate` /
+	# `self_modulate` properties. Setting them throws a runtime error
+	# and aborts the rest of this function. Don't add them back.
+	popup.transparent = false
+	popup.notification(Window.NOTIFICATION_THEME_CHANGED)
+
+	# Defensive: explicitly clear focus/pressed/selected color slots so no
+	# editor-theme leftover repaints the selected item with alpha=0.
+	for color_name in ["font_focus_color", "font_pressed_color", "font_selected_color"]:
+		popup.add_theme_color_override(color_name, Color.BLACK)
 
 func _on_model_installed(model_id: String) -> void:
 	_append_system("[color=#88ff88]✓ Installed:[/color] [color=cyan]%s[/color]\n" % model_id)
@@ -1529,6 +1780,13 @@ func _show_api_key_dialog() -> void:
 		edit.secret = true
 		edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		edit.add_theme_font_size_override("font_size", 12)
+		# When a key is already saved the field is pre-populated. Without
+		# auto-select-all, pasting a fresh key drops it AT THE CURSOR
+		# (usually end-of-text), producing a concatenated old+new string
+		# that then gets saved as a single broken key. Select-all on focus
+		# guarantees a paste/type replaces the existing value cleanly.
+		if not edit.text.is_empty():
+			edit.focus_entered.connect(edit.select_all)
 		hbox.add_child(edit)
 		key_edits[p.id] = edit
 
@@ -1600,6 +1858,7 @@ func _send_cloud_query(prompt: String) -> void:
 	_stream_start_time = Time.get_ticks_msec()
 	_stream_first_token_time = 0.0
 	_accumulated_response = ""
+	_stream_tool_watermark = 0
 
 	# Create HTTPClient and connect with TLS for cloud providers
 	if _stream_http != null:
@@ -1992,6 +2251,31 @@ func _on_make_code() -> void:
 	)
 
 
+## Auto-apply Narcea's first project-spec reply when the project was
+## created by the welcome shell's "Ask Narcea" button. Skips if the seed
+## flag isn't set, the reply has no spec, or helpers aren't loaded.
+## Clears the flag on success so we never re-apply.
+func _maybe_auto_apply_narcea_seed() -> void:
+	if not ProjectSettings.has_setting("vg/narcea_seeded"):
+		return
+	if not bool(ProjectSettings.get_setting("vg/narcea_seeded", false)):
+		return
+	_ensure_agent_helpers()
+	if _project_spec == null:
+		return
+	var spec: Dictionary = _project_spec.extract_spec(_accumulated_response)
+	if spec.is_empty():
+		# Narcea didn't include a vg-project-spec block this turn — leave
+		# the flag set so the next reply can still trigger us.
+		return
+	_append_system("[color=#88dd88]🌿 Auto-applying Narcea's project spec…[/color]\n")
+	# Reuse the manual flow — same diff dialog, same safe-writer chokepoint.
+	call_deferred("_on_make_project")
+	# One-shot: clear so subsequent replies are user-initiated.
+	ProjectSettings.set_setting("vg/narcea_seeded", false)
+	ProjectSettings.save()
+
+
 ## Scaffold a vg-project-spec block under res://ai_projects/<name>/.
 ## Forms are built via the shared FormDesigner (sandboxing is a v2 task);
 ## loose files go through the safe-writer rebound to the project subdir.
@@ -2177,13 +2461,350 @@ func _get_active_system_prompt() -> String:
 	if _persona_id == "narcea":
 		narcea_ctx = _narcea_context_block()
 	if prefix.is_empty() and narcea_ctx.is_empty():
-		return SYSTEM_PROMPT
-	return prefix + narcea_ctx + SYSTEM_PROMPT
+		return SYSTEM_PROMPT + TOOLS_PROMPT
+	return prefix + narcea_ctx + SYSTEM_PROMPT + TOOLS_PROMPT
 
 ## Lazy-instantiate the Narcea context provider and ask it for a system-
 ## prompt block.  Cached on the panel so the tutorial walk only happens
 ## once per editor session.
 var _narcea_provider = null
+
+# Lazy-loaded AI tool dispatcher (vg_ai_tools.gd).  Lets the model drive
+# the editor via ```vg-tool``` blocks — highlight, goto, insert, replace,
+# save, write_file (through SafeWrite).
+var _ai_tools = null
+
+# Approval mode for AI-driven edits.  "ask" pops a confirmation dialog
+# listing the pending mutations; "bypass" runs them immediately (an undo
+# snapshot is still recorded either way).  Persisted to user:// so the
+# choice survives across editor sessions.
+const _APPROVAL_CFG_PATH := "user://vg_ai_approvals.cfg"
+var _approval_mode: String = "ask"
+var _approval_loaded: bool = false
+
+func _load_approval_mode() -> void:
+	if _approval_loaded:
+		return
+	_approval_loaded = true
+	var cfg := ConfigFile.new()
+	if cfg.load(_APPROVAL_CFG_PATH) == OK:
+		var v: String = str(cfg.get_value("ai", "mode", "ask"))
+		if v == "ask" or v == "bypass" or v == "read_only":
+			_approval_mode = v
+	_sync_approvals_dropdown()
+
+func _sync_approvals_dropdown() -> void:
+	if not is_instance_valid(_approvals_dropdown):
+		return
+	var idx := 0
+	match _approval_mode:
+		"bypass": idx = 1
+		"read_only": idx = 2
+		_: idx = 0
+	if _approvals_dropdown.selected != idx:
+		_approvals_dropdown.selected = idx
+
+func _save_approval_mode() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("ai", "mode", _approval_mode)
+	cfg.save(_APPROVAL_CFG_PATH)
+
+func _on_approvals_selected(idx: int) -> void:
+	match idx:
+		0: _approval_mode = "ask"
+		1: _approval_mode = "bypass"
+		2: _approval_mode = "read_only"
+		_: _approval_mode = "ask"
+	_save_approval_mode()
+	_output.append_text("[color=#aaccff]  Approval mode \u2192 %s[/color]\n" % _approval_mode)
+
+func _show_audit_log() -> void:
+	var script := load("res://addons/visual_gasic/vg_ai_safe_write.gd")
+	var sw = null if script == null else script.new()
+	var text := ""
+	if sw != null and sw.has_method("tail_audit"):
+		text = String(sw.tail_audit(200))
+	if text.strip_edges().is_empty():
+		text = "(audit log is empty — no AI file ops yet)"
+	var dlg := AcceptDialog.new()
+	dlg.title = "AI Audit Log (last 200 lines)"
+	dlg.min_size = Vector2(720, 480)
+	var rt := RichTextLabel.new()
+	rt.bbcode_enabled = false
+	rt.scroll_active = true
+	rt.selection_enabled = true
+	rt.fit_content = false
+	rt.custom_minimum_size = Vector2(700, 440)
+	rt.text = text
+	dlg.add_child(rt)
+	dlg.confirmed.connect(func() -> void: dlg.queue_free())
+	dlg.canceled.connect(func() -> void: dlg.queue_free())
+	var host: Node = self
+	if Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base:
+			host = base
+	host.add_child(dlg)
+	dlg.popup_centered()
+
+func _ensure_ai_tools() -> bool:
+	if _ai_tools != null:
+		return true
+	var tscript := load("res://addons/visual_gasic/vg_ai_tools.gd")
+	if tscript == null:
+		return false
+	_ai_tools = tscript.new()
+	return true
+
+func _dispatch_tool_calls(reply_text: String) -> void:
+	if not _ensure_ai_tools():
+		return
+	_load_approval_mode()
+	# Apply persona whitelist for this turn.
+	var wl: Array = PERSONA_TOOL_WHITELIST.get(_persona_id, [])
+	_ai_tools.set_whitelist(wl)
+
+	var plan: Dictionary = _ai_tools.plan_response(reply_text)
+	var ro_logs: Array = plan.get("logs", [])
+	var muts: Array = plan.get("mutating", [])
+	var blocked: Array = plan.get("blocked", [])
+	var unfenced: bool = plan.get("unfenced_attempt", false)
+
+	# In read-only mode, surface mutations as blocked instead of applying.
+	if _approval_mode == "read_only" and not muts.is_empty():
+		for m in muts:
+			blocked.append("read-only mode: %s" % _describe_mutation(m).strip_edges())
+		muts = []
+
+	if not ro_logs.is_empty() or not muts.is_empty() or not blocked.is_empty():
+		_output.append_text("\n[color=#888888][b]\u2192 Tool actions:[/b][/color]\n")
+		for line in ro_logs:
+			_output.append_text("[color=#aaaaaa]  %s[/color]\n" % _escape_bbcode(str(line)))
+		for line in blocked:
+			_output.append_text("[color=#cc6666]  \u2715 %s[/color]\n" % _escape_bbcode(str(line)))
+
+	if unfenced and muts.is_empty() and ro_logs.is_empty() and blocked.is_empty():
+		_output.append_text("\n[color=#ffaa44][b]\u26a0 Heads up:[/b][/color] [color=#ddbb88]It looks like you described a tool call but didn't wrap it in a [code]```vg-tool ... ```[/code] fenced block, so I couldn't run it.[/color] [color=#66aaff][url=ai_retry_format]\u21bb Ask the model to use the vg-tool format[/url][/color]\n")
+		_ensure_meta_handler()
+		return
+
+	if not muts.is_empty():
+		if _approval_mode == "bypass":
+			_apply_mutations(muts)
+		else:
+			_ask_apply_mutations(muts)
+			return  # Action bar will be rendered after the dialog resolves.
+
+	# Render action bar if anything ran (or there's an undo stack).
+	if not ro_logs.is_empty() or not muts.is_empty() or (_ai_tools and _ai_tools.has_undo()):
+		_render_action_bar()
+
+	# Multi-turn agent loop: if the model only read things (no mutations,
+	# no blockers), feed the results back and let it continue — capped at
+	# _MAX_AGENT_HOPS hops to prevent runaway loops.
+	_maybe_continue_agent_turn(plan)
+
+func _maybe_continue_agent_turn(plan: Dictionary) -> void:
+	if _ai_tools == null:
+		return
+	var muts: Array = plan.get("mutating", [])
+	var blocked: Array = plan.get("blocked", [])
+	if not muts.is_empty() or not blocked.is_empty():
+		return
+	var reads: Array = _ai_tools.get_read_results()
+	if reads.is_empty():
+		return
+	if _agent_hops >= _MAX_AGENT_HOPS:
+		_output.append_text("[color=#888888]  (agent hop limit reached — stopping)[/color]\n")
+		return
+	_agent_hops += 1
+	var summary := PackedStringArray()
+	for r in reads:
+		summary.append("- " + str(r))
+	if not is_instance_valid(_input):
+		return
+	_input.text = "Tool results from your previous request:\n%s\n\nContinue with the next step or finish if the task is complete." % "\n".join(summary)
+	_agent_continuation = true
+	_on_send()
+
+func _describe_mutation(m: Dictionary) -> String:
+	var t := str(m.get("tool", ""))
+	match t:
+		"insert_text":
+			return "  \u2022 insert at line %d (%d chars)" % [int(m.get("line", 0)), str(m.get("text", "")).length()]
+		"replace_range":
+			return "  \u2022 replace lines %d-%d (%d chars new)" % [int(m.get("start_line", 0)), int(m.get("end_line", 0)), str(m.get("text", "")).length()]
+		"replace_in_buffer":
+			return "  \u2022 find/replace '%s' \u2192 '%s'" % [str(m.get("find", "")).left(40), str(m.get("replace", "")).left(40)]
+		"set_buffer_text":
+			return "  \u2022 overwrite entire buffer (%d bytes)" % str(m.get("text", "")).length()
+		"save_file":
+			return "  \u2022 save current file to disk"
+		"write_file":
+			return "  \u2022 write %s (%d bytes)" % [str(m.get("path", "")), str(m.get("contents", "")).length()]
+		_:
+			return "  \u2022 %s (unknown tool)" % t
+
+func _ask_apply_mutations(muts: Array) -> void:
+	# Custom AcceptDialog with per-mutation CheckBoxes + collapsible diff
+	# previews — modeled after the MS Code "Apply / Discard / Apply some"
+	# UX.  Each row: [x] description  (▸ click to expand diff)
+	var dlg := AcceptDialog.new()
+	dlg.title = "Apply AI edits?  (%d requested)" % muts.size()
+	dlg.min_size = Vector2(720, 420)
+	dlg.get_ok_button().text = "Apply selected"
+	# Replace the default cancel with "Skip all" wording.
+	dlg.add_cancel_button("Skip all")
+
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(700, 360)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	dlg.add_child(scroll)
+	var vb := VBoxContainer.new()
+	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vb)
+
+	var checks: Array[CheckBox] = []
+	for i in muts.size():
+		var m: Dictionary = muts[i]
+		var row := VBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vb.add_child(row)
+
+		var hb := HBoxContainer.new()
+		row.add_child(hb)
+
+		var ck := CheckBox.new()
+		ck.button_pressed = true
+		ck.text = _describe_mutation(m).strip_edges()
+		ck.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hb.add_child(ck)
+		checks.append(ck)
+
+		var preview_text := ""
+		if _ai_tools != null and _ai_tools.has_method("diff_preview"):
+			preview_text = String(_ai_tools.diff_preview(m))
+		if not preview_text.strip_edges().is_empty():
+			var toggle := Button.new()
+			toggle.text = "▸ diff"
+			toggle.flat = true
+			toggle.tooltip_text = "Show/hide diff preview"
+			hb.add_child(toggle)
+
+			var rt := RichTextLabel.new()
+			rt.bbcode_enabled = true
+			rt.fit_content = true
+			rt.scroll_active = false
+			rt.selection_enabled = true
+			rt.custom_minimum_size = Vector2(680, 0)
+			rt.text = preview_text
+			rt.visible = false
+			row.add_child(rt)
+			toggle.pressed.connect(func() -> void:
+				rt.visible = not rt.visible
+				toggle.text = "▾ diff" if rt.visible else "▸ diff"
+			)
+
+		var sep := HSeparator.new()
+		row.add_child(sep)
+
+	var bypass_ck := CheckBox.new()
+	bypass_ck.text = "Bypass approvals from now on (re-enable in toolbar)"
+	vb.add_child(bypass_ck)
+
+	dlg.confirmed.connect(func() -> void:
+		if bypass_ck.button_pressed:
+			_approval_mode = "bypass"
+			_save_approval_mode()
+			_sync_approvals_dropdown()
+		var selected: Array = []
+		for i in checks.size():
+			if checks[i].button_pressed:
+				selected.append(muts[i])
+		if selected.is_empty():
+			_output.append_text("[color=#aa6666]  (no edits selected — skipped %d)[/color]\n" % muts.size())
+		else:
+			_apply_mutations(selected)
+			var skipped := muts.size() - selected.size()
+			if skipped > 0:
+				_output.append_text("[color=#aa6666]  (skipped %d unchecked edit(s))[/color]\n" % skipped)
+		_render_action_bar()
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func() -> void:
+		_output.append_text("[color=#aa6666]  (skipped %d AI edit(s))[/color]\n" % muts.size())
+		_render_action_bar()
+		dlg.queue_free()
+	)
+	var host: Node = self
+	if Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base:
+			host = base
+	host.add_child(dlg)
+	dlg.popup_centered()
+
+func _apply_mutations(muts: Array) -> void:
+	for m in muts:
+		var line: String = _ai_tools.execute_mutation_with_undo(m)
+		_output.append_text("[color=#aaaaaa]  %s[/color]\n" % _escape_bbcode(line))
+	_render_action_bar()
+
+func _render_action_bar() -> void:
+	var has_undo: bool = _ai_tools != null and bool(_ai_tools.has_undo())
+	var n_undo: int = int(_ai_tools.undo_count()) if has_undo else 0
+	var undo_link: String = "[color=#66aaff][url=ai_undo]\u21ba Undo last AI edit[/url][/color]" if has_undo else "[color=#555555]\u21ba Undo (nothing)[/color]"
+	var undo_all_link := ""
+	if n_undo > 1:
+		undo_all_link = "   [color=#cc88ff][url=ai_undo_all]\u21ba\u21ba Undo all (%d)[/url][/color]" % n_undo
+	var approvals_label := "Ask"
+	match _approval_mode:
+		"bypass": approvals_label = "Bypass"
+		"read_only": approvals_label = "Read-only"
+	_output.append_text("%s%s   [color=#66aa66][url=ai_keep]\u2713 Keep[/url][/color]   [color=#888888][url=ai_toggle_approvals]Approvals: %s[/url][/color]\n" % [undo_link, undo_all_link, approvals_label])
+	_ensure_meta_handler()
+
+func _ensure_meta_handler() -> void:
+	if _output == null:
+		return
+	if not _output.meta_clicked.is_connected(_on_ai_meta_clicked):
+		_output.meta_clicked.connect(_on_ai_meta_clicked)
+
+func _on_ai_meta_clicked(meta: Variant) -> void:
+	var m := str(meta)
+	match m:
+		"ai_undo":
+			if _ai_tools != null and _ai_tools.has_undo():
+				var msg: String = _ai_tools.undo_last()
+				_output.append_text("[color=#aaccff]  %s[/color]\n" % _escape_bbcode(msg))
+			else:
+				_output.append_text("[color=#888888]  (nothing to undo)[/color]\n")
+		"ai_undo_all":
+			if _ai_tools != null and _ai_tools.has_undo():
+				var msg: String = _ai_tools.undo_all()
+				_output.append_text("[color=#aaccff]  %s[/color]\n" % _escape_bbcode(msg))
+			else:
+				_output.append_text("[color=#888888]  (nothing to undo)[/color]\n")
+		"ai_keep":
+			if _ai_tools != null:
+				_ai_tools.clear_undo()
+			_output.append_text("[color=#66aa66]  \u2713 Edits kept (undo history cleared).[/color]\n")
+		"ai_toggle_approvals":
+			# 3-way cycle: ask -> bypass -> read_only -> ask
+			match _approval_mode:
+				"ask": _approval_mode = "bypass"
+				"bypass": _approval_mode = "read_only"
+				_: _approval_mode = "ask"
+			_save_approval_mode()
+			_sync_approvals_dropdown()
+			_output.append_text("[color=#aaccff]  Approval mode \u2192 %s[/color]\n" % _approval_mode)
+		"ai_retry_format":
+			if is_instance_valid(_input):
+				_input.text = "Please re-emit your previous tool call wrapped in a ```vg-tool ... ``` fenced JSON block, exactly as the system prompt describes."
+				_on_send()
+		_:
+			pass
+
 func _narcea_context_block() -> String:
 	if _narcea_provider == null:
 		var script := load("res://addons/visual_gasic/vg_ai_narcea.gd")

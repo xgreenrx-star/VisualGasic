@@ -36,11 +36,25 @@ Common controls + their primary event in VB6/VG names:
   CheckBox      (Click)         Timer         (Timer)
   PictureBox    (Click)         Image         (Click)
   Frame, GroupBox               HScroll/VScroll (Change)
-VG aliases for properties on every control:
-  Caption  -> .text                Visible  -> .visible
-  Left     -> .position.x          Top      -> .position.y
-  Width    -> .size.x              Height   -> .size.y
-  Enabled  -> .editable / .disabled (varies by node)
+VG aliases for properties on every control — ALWAYS use the VB6 name on the
+left, never the Godot name on the right (Godot props are Vector2 value-types
+and writes to sub-components like `.position.x = N` SILENTLY FAIL):
+  Caption  -> .text         (use ctrl.Caption = "..." to set label text)
+  Visible  -> .visible      (use ctrl.Visible = True)
+  Left     -> position:x    (use ctrl.Left = N    -- never ctrl.position.x = N)
+  Top      -> position:y    (use ctrl.Top  = N    -- never ctrl.position.y = N)
+  Width    -> size:x        (use ctrl.Width  = N  -- never ctrl.size.x = N)
+  Height   -> size:y        (use ctrl.Height = N  -- never ctrl.size.y = N)
+  Enabled  -> varies        (Button/LineEdit: editable/disabled;
+                             Timer: Enabled = True/False to start/stop)
+Timer specifics (VB6, NOT Godot):
+  tmr.Interval = 16          ' milliseconds (NOT WaitTime / seconds)
+  tmr.Enabled  = True        ' starts; False stops (NOT .Start / .Stop)
+  Sub tmr_Timer()            ' fires every Interval ms
+Random / input:
+  Rnd()                       ' returns 0..1 ; Randomize to seed
+  Input.IsKeyPressed(KEY_W)   ' KEY_W KEY_S KEY_UP KEY_DOWN KEY_LEFT
+                              ' KEY_RIGHT KEY_SPACE KEY_ESCAPE etc.
 Event handlers auto-wire by name: Sub btnOK_Click(), Sub Timer1_Timer(),
 Sub Form_Load(), Sub Form_KeyDown(KeyCode As Integer, Shift As Integer).
 Manual wiring: ConnectSignal "signal_name", "HandlerName".

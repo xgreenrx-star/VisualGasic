@@ -37,6 +37,16 @@ func _init() -> void:
 	title = "Apply spec — review changes"
 	get_ok_button().text = "✅ Apply"
 	get_cancel_button().text = "❌ Cancel"
+	# Force readable text colors regardless of editor theme — the
+	# Apply button's background is a light/white-ish accent, so the
+	# default white font label is invisible until hovered. Lock both
+	# buttons to dark text so they're always legible.
+	var _ok := get_ok_button()
+	_ok.add_theme_color_override("font_color", Color(0.05, 0.05, 0.05))
+	_ok.add_theme_color_override("font_hover_color", Color(0.05, 0.05, 0.05))
+	_ok.add_theme_color_override("font_pressed_color", Color(0.05, 0.05, 0.05))
+	_ok.add_theme_color_override("font_focus_color", Color(0.05, 0.05, 0.05))
+	_ok.add_theme_color_override("font_disabled_color", Color(0.4, 0.4, 0.4))
 	min_size = Vector2(720, 480)
 	_build_ui()
 

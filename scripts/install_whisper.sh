@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
-# Install whisper.cpp (local speech-to-text) + the tiny English model.
+# Install whisper.cpp (local speech-to-text) + a usable English model.
 #
-# Total download: ~80 MB.  Files land in ~/.local/share/whisper/.
+# Total download: ~150 MB.  Files land in ~/.local/share/whisper/.
 # VG auto-detects them on next launch via plugin.gd::_bootstrap_whisper.
+#
+# Usage:
+#   bash scripts/install_whisper.sh
+#
+# Override the model with WHISPER_MODEL=ggml-tiny.en.bin (~75 MB, lower
+# accuracy) or ggml-small.en.bin (~470 MB, slower) if base.en doesn't
+# fit.  base.en is the sweet spot for accuracy on a modern CPU.
 #
 # Usage:
 #   bash scripts/install_whisper.sh
@@ -18,7 +25,7 @@ mkdir -p "$DEST"
 cd "$DEST"
 
 REPO="https://github.com/ggerganov/whisper.cpp.git"
-MODEL="${WHISPER_MODEL:-ggml-tiny.en.bin}"
+MODEL="${WHISPER_MODEL:-ggml-base.en.bin}"
 MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$MODEL"
 
 if ! command -v cmake >/dev/null && ! command -v make >/dev/null; then
@@ -56,7 +63,7 @@ fi
 ln -sf "$BIN" "$DEST/whisper"
 cd "$DEST"
 
-echo "[3/3] Downloading model ($MODEL, ~75 MB)..."
+echo "[3/3] Downloading model ($MODEL, ~150 MB)..."
 if [[ ! -f "$MODEL" ]]; then
     curl -fsSL -o "$MODEL" "$MODEL_URL"
 fi

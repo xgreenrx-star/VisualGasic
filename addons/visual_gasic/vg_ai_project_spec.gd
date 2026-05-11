@@ -44,11 +44,45 @@ func extract_spec(response_text: String) -> Dictionary:
 	var rx := RegEx.new()
 	rx.compile(CODE_FENCE_RE)
 	var m := rx.search(response_text)
-	if m == null:
-		return {}
-	var parsed = JSON.parse_string(m.get_string(1).strip_edges())
+	var raw := ""
+	if m != null:
+		raw = m.get_string(1).strip_edges()
+	else:
+		# Tolerate replies where the model opened ```vg-project-spec but
+		# never closed the fence (truncation, max_tokens, or just plain
+		# laziness — Anthropic's claude-sonnet-4-5 does this often when
+		# the JSON body is large). Slurp from the open fence to EOF and
+		# try to recover.
+		var open_idx := response_text.find("```vg-project-spec")
+		if open_idx < 0:
+			return {}
+		var body_start := response_text.find("\n", open_idx)
+		if body_start < 0:
+			return {}
+		raw = response_text.substr(body_start + 1).strip_edges()
+		# Drop any trailing fence remnants.
+		var fence_end := raw.rfind("```")
+		if fence_end >= 0:
+			raw = raw.substr(0, fence_end).strip_edges()
+		# If JSON is truncated, try to balance it by trimming to the
+		# last full closing brace.
+		var last_brace := raw.rfind("}")
+		if last_brace >= 0 and last_brace < raw.length() - 1:
+			raw = raw.substr(0, last_brace + 1)
+	var parsed = JSON.parse_string(raw)
 	if typeof(parsed) != TYPE_DICTIONARY:
-		return {}
+		# Last-ditch: trim each trailing char until JSON parses or we
+		# give up. Bounded so we don't loop forever on garbage.
+		var attempts := 0
+		var trim := raw
+		while typeof(parsed) != TYPE_DICTIONARY and attempts < 200 and trim.length() > 32:
+			trim = trim.substr(0, trim.length() - 1).strip_edges()
+			# Heuristic: only retry when we end on a closing brace.
+			if trim.ends_with("}"):
+				parsed = JSON.parse_string(trim)
+			attempts += 1
+		if typeof(parsed) != TYPE_DICTIONARY:
+			return {}
 	if not parsed.has("project_name"):
 		return {}
 	return parsed
@@ -65,11 +99,19 @@ func describe(spec: Dictionary) -> String:
 
 ## Compute the absolute res:// root for this project.  Pure function — no
 ## side effects.  Useful for the diff dialog.
+##
+## Special case: `subdir == "."` (or `"/"`, `"res://"`) means "scaffold in
+## place at the current project's root" — used when the welcome shell has
+## already created a fresh empty project for Narcea to fill in. In that
+## mode the project_name is advisory only (it goes into the manifest /
+## README); files land directly under res://.
 func project_root(spec: Dictionary) -> String:
-	var name := _safe_identifier(str(spec.get("project_name", "Project")), "Project")
 	var subdir := str(spec.get("subdir", DEFAULT_SUBDIR))
+	if subdir == "." or subdir == "/" or subdir == "res://" or subdir == "./":
+		return "res://"
 	if subdir.is_empty():
 		subdir = DEFAULT_SUBDIR
+	var name := _safe_identifier(str(spec.get("project_name", "Project")), "Project")
 	return "res://%s/%s/" % [subdir, name]
 
 
@@ -214,6 +256,13 @@ func apply(spec: Dictionary, helpers: Dictionary) -> Dictionary:
 		if not main_scene.begins_with("res://"):
 			main_scene = root + main_scene
 		result["main_scene"] = main_scene
+		# Persist to ProjectSettings so ▶ Run Main Scene (F5/Ctrl+F5)
+		# and Godot's own Play button know what to launch. Without this
+		# the freshly-scaffolded project has no main_scene set and the
+		# user sees nothing happen on Run.
+		if Engine.is_editor_hint():
+			ProjectSettings.set_setting("application/run/main_scene", main_scene)
+			ProjectSettings.save()
 
 	# 6. Rescan FS so the file browser sees the new files.
 	if Engine.is_editor_hint() and EditorInterface.get_resource_filesystem():

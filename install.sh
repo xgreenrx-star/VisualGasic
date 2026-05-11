@@ -225,10 +225,10 @@ fi
 
 # ── Optional: local Whisper STT for AI Pair voice mode ────────────────────
 if [[ -t 0 && -t 1 && "${VG_INSTALL_WHISPER:-}" != "0" ]]; then
-    echo -e "  ${BOLD}Optional:${NC} local speech-to-text for AI Pair (~75 MB download)"
+    echo -e "  ${BOLD}Optional:${NC} local speech-to-text for AI Pair (~150 MB download)"
     echo "    Without this, the 🎙 mic button requires an OpenAI API key."
     echo "    whisper.cpp runs locally — no key, no network. Builds from source"
-    echo "    (needs cmake + a C++ compiler, ~1 minute)."
+    echo "    (needs cmake + a C++ compiler, ~1 minute). Uses ggml-base.en."
     echo ""
     read -r -p "  Install local Whisper STT now? [y/N] " ans
     if [[ "$ans" =~ ^[Yy]$ ]]; then
