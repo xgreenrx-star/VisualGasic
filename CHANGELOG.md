@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🌐 New — VG⇄Godot coverage roadmap (Pass 1-5, ~140 plain-English verbs)
+Five-pass rollout of namespace wrappers so VG programs can reach the full
+Godot 4.6 capability surface in plain-English BASIC, no `get_node()` chains.
+All passes smoke-verified; suite 699/700 (one pre-existing stress-arrays
+failure unrelated).
+
+- **Pass 1 — math / utility** (commit `56416637`): `Quaternion`, `Basis`,
+  `Transform2D` / `Transform3D`, `Plane`, `AABB` constructors;
+  `Random.Int/Float/Range`, `Noise.Value/Seed`, `Curve` sampler; `Slerp`,
+  `Color.HSV`, `Color.ToHSV`.
+- **Pass 2 — `Camera` / `Sound` / `Speaker` namespaces** (commit `72fc322a`):
+  flat namespace dispatch via `detect_namespace_call()` in the compiler.
+  `Camera.Shake/Zoom/PanTo/Follow`, polyphonic `Sound.Play(name, volume_pct)`,
+  `Speaker.Bus(name).Volume = pct`, percent volumes throughout.
+- **Pass 3 — `Animation` / `Physics` / `Ray` / `Cell` / `Nav`** (commit
+  `0196bbcd`): game-completeness verbs — `Animation.Play/Stop/Speed`,
+  `Physics.Gravity/Bounce`, `Ray.Cast2D/Cast3D`, `Cell.Get/Set` (TileMap),
+  `Nav.PathTo/Reached`, plus `Push`/`Pull`/`Spin` global aliases. Auto-signal
+  wiring extended to `AnimationPlayer`, `Area2D/3D`, `RigidBody2D/3D`,
+  `NavigationAgent2D/3D` so `Sub Hero_AnimationFinished()` /
+  `Sub Goal_BodyEntered(body)` Just Work.
+- **Pass 4 — `Screen` / `Joypad` / `Touch` / `Sensor` / `Permission` /
+  `GPS` / `Steps`** (commit `4452e2e6`): phone & desktop runtime —
+  `Screen.Width/Height/DPI/Orientation/IsFullScreen`, `Joypad.Stick/Button`,
+  `Touch.Count/Position`, `Sensor.Accel/Gyro/Tilt` with
+  `Sensor.Units("game" | "metric")` (default `"game"` = Gs and degrees per
+  second), `Permission.Request/Status`, `Vibrate(ms)`. `GPS.*` /
+  `Steps.*` reserved (Android plugin to follow).
+- **Pass 5 — `Crypto` / `Theme` / `JS` / `Shader` / `Material` /
+  `Skeleton` / `Bone` / `Video`** (commit `2065cb28`): power-user surface —
+  `Crypto.SHA256/SHA1/MD5/Hex/Base64/HMAC`, `Theme.Set/Get` font/color
+  overrides on Controls, `JS.Eval` (web export), `Shader.Set/Get` uniforms
+  via `ShaderMaterial`, `Skeleton.Bone(name).Pose/Rest`,
+  `Video.Play/Stop/IsPlaying`.
+
+- **Bare-property syntax** (commit `74de0eda`): namespace members can now be
+  read without parens. `Print Screen.Width` is the same `OP_CALL` as
+  `Print Screen.Width()`. Reads like English, parens still work.
+
+Total: 9 new namespaces, ~140 verbs, 20 files, +2,939 lines. See
+`docs/coverage_roadmap.md` (todo) and the `_pass{1..5}_smoke.vg` test
+programs under `test_proj/` for examples of every verb.
+
 ## [5.1.0-rc.2] - 2026-05-03
 
 ### 🪟 New — Welcome shell loading experience overhaul
