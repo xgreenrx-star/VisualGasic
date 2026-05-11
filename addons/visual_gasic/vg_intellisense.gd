@@ -21,6 +21,21 @@ static var _property_cache: Dictionary = {}
 
 ## Maps VB6-style control type names (from the Form Designer) to their
 ## underlying Godot class names for ClassDB lookup.
+##
+## Naming policy (May 2026):
+##   - VB6 names (TextBox, CommandButton, Label, …) are the **canonical**
+##     names users see everywhere: toolbox, code editor, generated event
+##     stubs, property inspector, AI replies, error messages, docs.
+##   - Godot class names (LineEdit, Button, …) are accepted as **input**
+##     by the parser and IntelliSense (so existing scenes / mixed code keep
+##     working) but are **never** what we render back to the user.
+##   - .tscn scene serialization keeps the native Godot class names so
+##     scenes remain Godot-portable and tools like the Godot inspector still
+##     work when the user drops out of Visual Gasic.
+##
+## To convert in the user-facing direction (Godot → VB6 for display) use
+## `to_vb6_type_name()`. To convert in the engine direction (VB6 → Godot for
+## ClassDB lookup) use `resolve_control_type()`.
 const VB6_CONTROL_TYPE_MAP: Dictionary = {
 	# Standard VB6 controls → Godot equivalents
 	"CommandButton": "Button", "Button": "Button",
@@ -630,6 +645,12 @@ const VB6_GLOBAL_OBJECTS: Dictionary = {
 		{"text": "ActiveControl", "kind": "property", "detail": "Control — Currently focused control"},
 		{"text": "FontCount", "kind": "property", "detail": "Integer — Number of available fonts"},
 		{"text": "Fonts", "kind": "property", "detail": "String() — Array of font names"},
+		# VG Pass 4 — DisplayServer/OS wrappers
+		{"text": "DPI", "kind": "property", "detail": "Integer — Display DPI (pixels per inch)"},
+		{"text": "Orientation", "kind": "property", "detail": "String — \"landscape\" | \"portrait\" | \"landscape_flipped\" | \"portrait_flipped\""},
+		{"text": "IsFullScreen", "kind": "property", "detail": "Boolean — True if window is fullscreen"},
+		{"text": "FullScreen", "kind": "method", "detail": "FullScreen(on As Boolean) — Toggle fullscreen"},
+		{"text": "KeepOn", "kind": "method", "detail": "KeepOn(on As Boolean) — Prevent screen sleep"},
 	],
 	"Clipboard": [
 		{"text": "Clear", "kind": "method", "detail": "Clear() — Clears the clipboard"},
@@ -657,6 +678,177 @@ const VB6_GLOBAL_OBJECTS: Dictionary = {
 		{"text": "NewPage", "kind": "method", "detail": "NewPage() — Start a new page"},
 		{"text": "EndDoc", "kind": "method", "detail": "EndDoc() — Finish printing"},
 		{"text": "KillDoc", "kind": "method", "detail": "KillDoc() — Cancel print job"},
+	],
+
+	# =========================================================================
+	# VG⇄Godot namespaces (Pass 1-5, v5.2)
+	# Plain-English wrappers around Godot 4.6.  All members support
+	# both bare-property style (`Screen.Width`) and call style
+	# (`Screen.Width()`) — same OP_CALL.
+	# =========================================================================
+	"Camera": [
+		{"text": "Shake", "kind": "method", "detail": "Shake(amount As Single, duration As Single) — Pixel-shake the active camera"},
+		{"text": "Zoom", "kind": "method", "detail": "Zoom(factor As Single, time As Single) — Tween zoom"},
+		{"text": "Position", "kind": "method", "detail": "Position(x, y[, z]) — Set world position"},
+		{"text": "Rotation", "kind": "method", "detail": "Rotation(degrees As Single) — Set rotation"},
+		{"text": "FOV", "kind": "method", "detail": "FOV(degrees As Single) — 3D field of view"},
+		{"text": "Follow", "kind": "method", "detail": "Follow(target_name As String) — Track a node"},
+		{"text": "Limits", "kind": "method", "detail": "Limits(left, top, right, bottom) — Camera2D bounds"},
+		{"text": "MakeCurrent", "kind": "method", "detail": "MakeCurrent() — Use this camera"},
+	],
+	"Sound": [
+		{"text": "Play", "kind": "method", "detail": "Play(name As String[, volume_pct As Integer]) — Polyphonic play"},
+		{"text": "Stop", "kind": "method", "detail": "Stop(name As String) — Stop a stream"},
+		{"text": "Pause", "kind": "method", "detail": "Pause(name As String)"},
+		{"text": "Resume", "kind": "method", "detail": "Resume(name As String)"},
+		{"text": "IsPlaying", "kind": "method", "detail": "IsPlaying(name) As Boolean"},
+		{"text": "Position", "kind": "method", "detail": "Position(name) As Single — Playback position (s)"},
+		{"text": "Seek", "kind": "method", "detail": "Seek(name, seconds) — Jump to playback time"},
+		{"text": "Volume", "kind": "method", "detail": "Volume(name, pct) — Set 0..100% volume"},
+		{"text": "Pitch", "kind": "method", "detail": "Pitch(name, factor) — Pitch scale (1.0 = unchanged)"},
+	],
+	"Speaker": [
+		{"text": "Count", "kind": "property", "detail": "Integer — Number of audio buses"},
+		{"text": "Name", "kind": "method", "detail": "Name(index) As String — Bus name at index"},
+		{"text": "Exists", "kind": "method", "detail": "Exists(name) As Boolean"},
+		{"text": "Volume", "kind": "method", "detail": "Volume(name[, pct]) — Get/set bus volume (0..100)"},
+		{"text": "Mute", "kind": "method", "detail": "Mute(name, on As Boolean)"},
+		{"text": "IsMuted", "kind": "method", "detail": "IsMuted(name) As Boolean"},
+		{"text": "Solo", "kind": "method", "detail": "Solo(name, on As Boolean)"},
+	],
+	"Animation": [
+		{"text": "Play", "kind": "method", "detail": "Play([player_name,] anim_name) — Play an animation"},
+		{"text": "Stop", "kind": "method", "detail": "Stop([player_name])"},
+		{"text": "Pause", "kind": "method", "detail": "Pause([player_name])"},
+		{"text": "Resume", "kind": "method", "detail": "Resume([player_name])"},
+		{"text": "Speed", "kind": "method", "detail": "Speed([player_name,] scale) — Playback speed"},
+		{"text": "Seek", "kind": "method", "detail": "Seek([player_name,] seconds)"},
+		{"text": "IsPlaying", "kind": "method", "detail": "IsPlaying([player_name]) As Boolean"},
+		{"text": "Current", "kind": "method", "detail": "Current([player_name]) As String — Currently playing anim"},
+		{"text": "Length", "kind": "method", "detail": "Length([player_name,] anim) As Single — Duration (s)"},
+	],
+	"Physics": [
+		{"text": "Force", "kind": "method", "detail": "Force(body_name, x, y[, z]) — Continuous force"},
+		{"text": "Impulse", "kind": "method", "detail": "Impulse(body_name, x, y[, z]) — One-shot impulse"},
+		{"text": "Torque", "kind": "method", "detail": "Torque(body_name, value) — Angular impulse"},
+		{"text": "Ray", "kind": "method", "detail": "Ray(x1,y1,x2,y2) As Dictionary — Ad-hoc raycast"},
+	],
+	"Ray": [
+		{"text": "Enable", "kind": "method", "detail": "Enable(name, on As Boolean) — Arm a RayCast2D/3D node"},
+		{"text": "Target", "kind": "method", "detail": "Target(name, x, y[, z]) — Local target point"},
+		{"text": "ForceUpdate", "kind": "method", "detail": "ForceUpdate(name) — Synchronous probe"},
+		{"text": "Hit", "kind": "method", "detail": "Hit(name) As Boolean"},
+		{"text": "Collider", "kind": "method", "detail": "Collider(name) As Object — Hit collider or Nothing"},
+		{"text": "Point", "kind": "method", "detail": "Point(name) As Vector — World hit point"},
+		{"text": "Normal", "kind": "method", "detail": "Normal(name) As Vector — Surface normal"},
+	],
+	"Cell": [
+		{"text": "Set", "kind": "method", "detail": "Set(tilemap, x, y, source_id, atlas_x, atlas_y) — Place a tile"},
+		{"text": "Get", "kind": "method", "detail": "Get(tilemap, x, y) As Dictionary — Read a tile"},
+		{"text": "Clear", "kind": "method", "detail": "Clear(tilemap, x, y) — Erase a single cell"},
+		{"text": "ClearAll", "kind": "method", "detail": "ClearAll(tilemap) — Erase every cell"},
+		{"text": "Used", "kind": "method", "detail": "Used(tilemap) As Array — Array of Vector2i in use"},
+	],
+	"Nav": [
+		{"text": "SetTarget", "kind": "method", "detail": "SetTarget(agent_name, x, y[, z]) — Pathfind target"},
+		{"text": "NextPos", "kind": "method", "detail": "NextPos(agent_name) As Vector — Next waypoint"},
+		{"text": "Reached", "kind": "method", "detail": "Reached(agent_name) As Boolean"},
+		{"text": "Distance", "kind": "method", "detail": "Distance(agent_name) As Single — Remaining distance"},
+		{"text": "Path", "kind": "method", "detail": "Path(agent_name) As Array — Full computed path"},
+	],
+	"Joypad": [
+		{"text": "Connected", "kind": "method", "detail": "Connected(index) As Boolean"},
+		{"text": "Name", "kind": "method", "detail": "Name(index) As String — Controller name"},
+		{"text": "Axis", "kind": "method", "detail": "Axis(index, axis) As Single — Stick/trigger axis"},
+		{"text": "Button", "kind": "method", "detail": "Button(index, button) As Boolean"},
+	],
+	"Touch": [
+		{"text": "Count", "kind": "property", "detail": "Integer — Active finger count"},
+		{"text": "Position", "kind": "method", "detail": "Position(i) As Vector2 — Touch point"},
+		{"text": "Pressure", "kind": "method", "detail": "Pressure(i) As Single — 0..1"},
+	],
+	"Sensor": [
+		{"text": "Accel", "kind": "property", "detail": "Vector3 — Accelerometer (game units: Gs)"},
+		{"text": "Gyro", "kind": "property", "detail": "Vector3 — Gyroscope (game units: deg/s)"},
+		{"text": "Gravity", "kind": "property", "detail": "Vector3 — Gravity vector"},
+		{"text": "Magnet", "kind": "property", "detail": "Vector3 — Magnetometer (μT)"},
+		{"text": "Tilt", "kind": "property", "detail": "Single — Tilt angle (degrees)"},
+		{"text": "Units", "kind": "method", "detail": "Units(\"game\"|\"metric\") — Switch unit system"},
+	],
+	"Permission": [
+		{"text": "Request", "kind": "method", "detail": "Request(name As String) — Ask for OS permission"},
+		{"text": "Has", "kind": "method", "detail": "Has(name) As Boolean"},
+		{"text": "All", "kind": "method", "detail": "All() As Boolean — Every required permission granted"},
+	],
+	"GPS": [
+		{"text": "Lat", "kind": "property", "detail": "Single — Latitude (decimal degrees)"},
+		{"text": "Lng", "kind": "property", "detail": "Single — Longitude"},
+		{"text": "Alt", "kind": "property", "detail": "Single — Altitude (m)"},
+		{"text": "Speed", "kind": "property", "detail": "Single — Speed (m/s)"},
+		{"text": "Accuracy", "kind": "property", "detail": "Single — Horizontal accuracy (m)"},
+	],
+	"Steps": [
+		{"text": "Today", "kind": "property", "detail": "Integer — Steps walked today"},
+		{"text": "Total", "kind": "property", "detail": "Integer — Lifetime step total"},
+		{"text": "Reset", "kind": "method", "detail": "Reset() — Clear today's count"},
+	],
+	"Crypto": [
+		{"text": "SHA256", "kind": "method", "detail": "SHA256(s) As String — Hex-encoded digest"},
+		{"text": "SHA1", "kind": "method", "detail": "SHA1(s) As String"},
+		{"text": "MD5", "kind": "method", "detail": "MD5(s) As String"},
+		{"text": "HMAC", "kind": "method", "detail": "HMAC(algo, key, msg) As String — Keyed signature"},
+		{"text": "Base64Encode", "kind": "method", "detail": "Base64Encode(s) As String"},
+		{"text": "Base64Decode", "kind": "method", "detail": "Base64Decode(s) As String"},
+		{"text": "RandomBytes", "kind": "method", "detail": "RandomBytes(n) As PackedByteArray — Crypto-strong RNG"},
+	],
+	"Theme": [
+		{"text": "SetColor", "kind": "method", "detail": "SetColor(control, key, Color) — Override a theme color"},
+		{"text": "SetFont", "kind": "method", "detail": "SetFont(control, key, font)"},
+		{"text": "SetFontSize", "kind": "method", "detail": "SetFontSize(control, key, size)"},
+		{"text": "SetConstant", "kind": "method", "detail": "SetConstant(control, key, value)"},
+		{"text": "SetStyle", "kind": "method", "detail": "SetStyle(control, key, stylebox)"},
+		{"text": "Color", "kind": "method", "detail": "Color(control, key) As Color"},
+		{"text": "Font", "kind": "method", "detail": "Font(control, key)"},
+		{"text": "Constant", "kind": "method", "detail": "Constant(control, key) As Integer"},
+	],
+	"JS": [
+		{"text": "Eval", "kind": "method", "detail": "Eval(code As String) As Variant — Web export only"},
+		{"text": "Call", "kind": "method", "detail": "Call(fn As String, args...) As Variant"},
+		{"text": "Get", "kind": "method", "detail": "Get(path As String) As Variant — window.path"},
+	],
+	"Shader": [
+		{"text": "Param", "kind": "method", "detail": "Param(node, name, value) — Set a ShaderMaterial uniform"},
+		{"text": "GetParam", "kind": "method", "detail": "GetParam(node, name) As Variant"},
+	],
+	"Material": [
+		{"text": "New", "kind": "method", "detail": "New() As ShaderMaterial — Create a blank ShaderMaterial"},
+		{"text": "SetShader", "kind": "method", "detail": "SetShader(node, shader_path) — Assign a .gdshader"},
+	],
+	"Skeleton": [
+		{"text": "Count", "kind": "method", "detail": "Count(skel_name) As Integer — Bone count"},
+		{"text": "Name", "kind": "method", "detail": "Name(skel_name, idx) As String"},
+		{"text": "Reset", "kind": "method", "detail": "Reset(skel_name) — Restore rest pose"},
+	],
+	"Bone": [
+		{"text": "Find", "kind": "method", "detail": "Find(skel_name, bone_name) As Integer — Bone index or -1"},
+		{"text": "Pos", "kind": "method", "detail": "Pos(skel_name, bone) As Vector3"},
+		{"text": "Rot", "kind": "method", "detail": "Rot(skel_name, bone) As Quaternion"},
+		{"text": "Scale", "kind": "method", "detail": "Scale(skel_name, bone) As Vector3"},
+		{"text": "SetPos", "kind": "method", "detail": "SetPos(skel_name, bone, Vector3)"},
+		{"text": "SetRot", "kind": "method", "detail": "SetRot(skel_name, bone, Quaternion)"},
+		{"text": "SetScale", "kind": "method", "detail": "SetScale(skel_name, bone, Vector3)"},
+		{"text": "LookAt", "kind": "method", "detail": "LookAt(skel_name, bone, target) — Aim a bone"},
+	],
+	"Video": [
+		{"text": "Play", "kind": "method", "detail": "Play(player, path As String) — Start a video stream"},
+		{"text": "Stop", "kind": "method", "detail": "Stop(player)"},
+		{"text": "Pause", "kind": "method", "detail": "Pause(player)"},
+		{"text": "Resume", "kind": "method", "detail": "Resume(player)"},
+		{"text": "IsPlaying", "kind": "method", "detail": "IsPlaying(player) As Boolean"},
+		{"text": "Length", "kind": "method", "detail": "Length(player) As Single — Seconds"},
+		{"text": "Position", "kind": "method", "detail": "Position(player) As Single"},
+		{"text": "Seek", "kind": "method", "detail": "Seek(player, seconds)"},
+		{"text": "Volume", "kind": "method", "detail": "Volume(player, pct) — 0..100"},
 	],
 }
 
@@ -1737,6 +1929,55 @@ static func resolve_control_type(vb6_type: String) -> String:
 	if ClassDB.class_exists(vb6_type):
 		return vb6_type
 	return "Control"  # safe fallback
+
+## Reverse of `resolve_control_type()` — returns the canonical VB6 name
+## the IDE should *display* to the user for a given Godot class name.
+## e.g. "LineEdit" → "TextBox", "Button" → "CommandButton".
+## Falls through unchanged if there's no VB6 equivalent (e.g. "Node3D").
+static func to_vb6_type_name(godot_class: String) -> String:
+	if godot_class.is_empty():
+		return godot_class
+	# Build the reverse map lazily on first call. We don't store it as a
+	# const because GDScript constants can't be derived from other consts
+	# at parse time.
+	if _GODOT_TO_VB6_CACHE.is_empty():
+		_build_godot_to_vb6_cache()
+	return _GODOT_TO_VB6_CACHE.get(godot_class, godot_class)
+
+## Display helper for places that show a node label like "Text1 (LineEdit)".
+## Returns "Text1 (TextBox)" — i.e. node name + canonical VB6 type.
+static func format_node_label(node_name: String, godot_class: String) -> String:
+	return "%s (%s)" % [node_name, to_vb6_type_name(godot_class)]
+
+# Internal: lazy reverse-map cache. Built on first call to to_vb6_type_name().
+# We pick the **first** VB6 name found that maps to a given Godot class,
+# preferring entries earlier in VB6_CONTROL_TYPE_MAP. Authoritative VB6
+# names are listed first in the map (CommandButton before Button, TextBox
+# before LineEdit, etc.) so this works.
+static var _GODOT_TO_VB6_CACHE: Dictionary = {}
+static func _build_godot_to_vb6_cache() -> void:
+	_GODOT_TO_VB6_CACHE.clear()
+	for vb6_name in VB6_CONTROL_TYPE_MAP.keys():
+		var godot: String = VB6_CONTROL_TYPE_MAP[vb6_name]
+		# Skip entries where the VB6 name == Godot name (e.g. Button:Button)
+		# unless we have nothing better, and skip if we already mapped this
+		# Godot class to a more VB6-flavored name.
+		if _GODOT_TO_VB6_CACHE.has(godot):
+			continue
+		if vb6_name == godot:
+			# Only use the identity mapping if no VB6 alias exists. We add
+			# it now and let a later VB6-specific entry overwrite it… except
+			# the early-return above prevents that. So instead, only add
+			# identity if no other key in the map shares this Godot value.
+			var has_alias := false
+			for other_vb6 in VB6_CONTROL_TYPE_MAP.keys():
+				if other_vb6 != vb6_name and VB6_CONTROL_TYPE_MAP[other_vb6] == godot:
+					has_alias = true
+					break
+			if not has_alias:
+				_GODOT_TO_VB6_CACHE[godot] = vb6_name
+		else:
+			_GODOT_TO_VB6_CACHE[godot] = vb6_name
 
 ## Returns VB6-friendly property aliases for a Godot control type.
 ## These are shown at the top of the completion list with VB6-style names.
