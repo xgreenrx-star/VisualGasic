@@ -3977,9 +3977,7 @@ Every one of the 350 built-in keywords, statements, functions, and namespace ver
 
 **Syntax**
 
-```vb
-Sub _Draw()
-```
+    Sub _Draw()
 
 **Description**
 
@@ -3987,12 +3985,10 @@ Called when the CanvasItem needs to be redrawn. Use draw_* methods inside. Call 
 
 **Example**
 
-```vb
-Sub _Draw()
-    DrawCircle 100, 100, 50, RGB(255, 0, 0)
-    DrawLine 0, 0, 200, 200, RGB(0, 255, 0)
-End Sub
-```
+    Sub _Draw()
+        DrawCircle 100, 100, 50, RGB(255, 0, 0)
+        DrawLine 0, 0, 200, 200, RGB(0, 255, 0)
+    End Sub
 
 **Godot Mapping** — [`CanvasItem._draw()`](https://docs.godotengine.org/en/stable/classes/class_canvasitem.html#class-canvasitem-method-_draw)
 
@@ -4006,9 +4002,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Sub _Input(event As InputEvent)
-```
+    Sub _Input(event As InputEvent)
 
 **Parameters**
 
@@ -4020,13 +4014,11 @@ Called when any input event occurs (keyboard, mouse, touch, gamepad). Consume wi
 
 **Example**
 
-```vb
-Sub _Input(event As InputEvent)
-    If event.is_action_pressed("jump") Then
-        velocity.y = -400
-    End If
-End Sub
-```
+    Sub _Input(event As InputEvent)
+        If event.is_action_pressed("jump") Then
+            velocity.y = -400
+        End If
+    End Sub
 
 **Godot Mapping** — [`Node._input()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_input)
 
@@ -4040,9 +4032,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Sub _PhysicsProcess(delta As Single)
-```
+    Sub _PhysicsProcess(delta As Single)
 
 **Parameters**
 
@@ -4054,12 +4044,10 @@ Called every physics frame (default 60 fps). Use for physics-based movement and 
 
 **Example**
 
-```vb
-Sub _PhysicsProcess(delta As Single)
-    velocity.y += gravity * delta
-    move_and_slide
-End Sub
-```
+    Sub _PhysicsProcess(delta As Single)
+        velocity.y += gravity * delta
+        move_and_slide
+    End Sub
 
 **Godot Mapping** — [`Node._physics_process()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_physics_process)
 
@@ -4073,9 +4061,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Sub _Process(delta As Single)
-```
+    Sub _Process(delta As Single)
 
 **Parameters**
 
@@ -4087,11 +4073,9 @@ Called every frame. [b]delta[/b] is the elapsed time in seconds. Use for game lo
 
 **Example**
 
-```vb
-Sub _Process(delta As Single)
-    rotation_degrees += 90 * delta
-End Sub
-```
+    Sub _Process(delta As Single)
+        rotation_degrees += 90 * delta
+    End Sub
 
 **Godot Mapping** — [`Node._process()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_process)
 
@@ -4105,9 +4089,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Sub _Ready()
-```
+    Sub _Ready()
 
 **Description**
 
@@ -4115,12 +4097,10 @@ Called when the node and all its children have entered the scene tree. Use for i
 
 **Example**
 
-```vb
-Sub _Ready()
-    Dim startPos As Vector2 = position
-    visible = True
-End Sub
-```
+    Sub _Ready()
+        Dim startPos As Vector2 = position
+        visible = True
+    End Sub
 
 **Godot Mapping** — [`Node._ready()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_ready)
 
@@ -4137,9 +4117,7 @@ End Sub
 
 **Syntax**
 
-```vb
-AABB() | AABB(positionVec3, sizeVec3)
-```
+    AABB() | AABB(positionVec3, sizeVec3)
 
 **Description**
 
@@ -4147,12 +4125,10 @@ Axis-aligned bounding box in 3D. Used for visibility culling, region tests. Meth
 
 **Example**
 
-```vb
-Dim region = AABB(Vector3(-5, 0, -5), Vector3(10, 4, 10))
-If region.HasPoint(enemy.position) Then
-    enemy.Aggro()
-End If
-```
+    Dim region = AABB(Vector3(-5, 0, -5), Vector3(10, 4, 10))
+    If region.HasPoint(enemy.position) Then
+        enemy.Aggro()
+    End If
 
 **See Also** — [Quaternion](#quaternion), [QuaternionFromEuler](#quaternionfromeuler), [Basis](#basis), [Transform2D](#transform2d), [Transform3D](#transform3d), [Plane](#plane), [Slerp](#slerp)
 
@@ -4164,9 +4140,7 @@ End If
 
 **Syntax**
 
-```vb
-Abs(number)
-```
+    Abs(number)
 
 **Parameters**
 
@@ -4178,10 +4152,8 @@ Returns the absolute value of a number.
 
 **Example**
 
-```vb
-Print Abs(-5)    ' 5
-Print Abs(3.14)  ' 3.14
-```
+    Print Abs(-5)    ' 5
+    Print Abs(3.14)  ' 3.14
 
 **See Also** — [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod)
 
@@ -4193,9 +4165,7 @@ Print Abs(3.14)  ' 3.14
 
 **Syntax**
 
-```vb
-add_child(node As Node)
-```
+    add_child(node As Node)
 
 **Parameters**
 
@@ -4207,10 +4177,8 @@ Adds a child node to this node. The child will appear in the scene tree under th
 
 **Example**
 
-```vb
-Dim bullet As Node2D = preload("res://Bullet.tscn").instantiate()
-add_child bullet
-```
+    Dim bullet As Node2D = preload("res://Bullet.tscn").instantiate()
+    add_child bullet
 
 **Godot Mapping** — [`Node.add_child()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-add_child)
 
@@ -4224,9 +4192,7 @@ add_child bullet
 
 **Syntax**
 
-```vb
-expression1 And expression2
-```
+    expression1 And expression2
 
 **Parameters**
 
@@ -4238,11 +4204,9 @@ Logical AND — returns True only if both expressions are True.
 
 **Example**
 
-```vb
-If health > 0 And ammo > 0 Then
-    Fire()
-End If
-```
+    If health > 0 And ammo > 0 Then
+        Fire()
+    End If
 
 **See Also** — [Or](#or), [Not](#not), [Xor](#xor)
 
@@ -4254,9 +4218,7 @@ End If
 
 **Syntax**
 
-```vb
-Animation.Current(player) As String
-```
+    Animation.Current(player) As String
 
 **Parameters**
 
@@ -4268,11 +4230,9 @@ Returns the name of the currently playing animation, or empty string if none.
 
 **Example**
 
-```vb
-If Animation.Current(playerAnim) = "die" Then
-    GameOver()
-End If
-```
+    If Animation.Current(playerAnim) = "die" Then
+        GameOver()
+    End If
 
 **See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
 
@@ -4284,9 +4244,7 @@ End If
 
 **Syntax**
 
-```vb
-Animation.IsPlaying(player) As Boolean
-```
+    Animation.IsPlaying(player) As Boolean
 
 **Parameters**
 
@@ -4298,11 +4256,9 @@ Returns True if the player is currently playing an animation.
 
 **Example**
 
-```vb
-If Not Animation.IsPlaying(playerAnim) Then
-    Animation.Play playerAnim, "idle"
-End If
-```
+    If Not Animation.IsPlaying(playerAnim) Then
+        Animation.Play playerAnim, "idle"
+    End If
 
 **See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
 
@@ -4314,9 +4270,7 @@ End If
 
 **Syntax**
 
-```vb
-Animation.Length(player [, name]) As Double
-```
+    Animation.Length(player [, name]) As Double
 
 **Parameters**
 
@@ -4329,10 +4283,8 @@ Returns the length in seconds of an animation. With no name, returns the current
 
 **Example**
 
-```vb
-Dim total = Animation.Length(playerAnim, "walk")
-Print "Walk is " & total & "s long"
-```
+    Dim total = Animation.Length(playerAnim, "walk")
+    Print "Walk is " & total & "s long"
 
 **See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Loop](#animationloop)
 
@@ -4344,9 +4296,7 @@ Print "Walk is " & total & "s long"
 
 **Syntax**
 
-```vb
-Animation.Loop(name, looped [, player])
-```
+    Animation.Loop(name, looped [, player])
 
 **Parameters**
 
@@ -4360,10 +4310,8 @@ Sets whether the named animation should loop. Persisted on the underlying Animat
 
 **Example**
 
-```vb
-Animation.Loop "idle", True
-Animation.Loop "jump", False
-```
+    Animation.Loop "idle", True
+    Animation.Loop "jump", False
 
 **See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength)
 
@@ -4375,9 +4323,7 @@ Animation.Loop "jump", False
 
 **Syntax**
 
-```vb
-Animation.Pause(player)
-```
+    Animation.Pause(player)
 
 **Parameters**
 
@@ -4389,9 +4335,7 @@ Pauses the current animation without resetting it. Resume with Animation.Resume.
 
 **Example**
 
-```vb
-Animation.Pause playerAnim
-```
+    Animation.Pause playerAnim
 
 **See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
 
@@ -4403,9 +4347,7 @@ Animation.Pause playerAnim
 
 **Syntax**
 
-```vb
-Animation.Play(player, name [, speed])
-```
+    Animation.Play(player, name [, speed])
 
 **Parameters**
 
@@ -4419,10 +4361,8 @@ Plays a named animation on an AnimationPlayer node. Optional speed scale (1.0 = 
 
 **Example**
 
-```vb
-Animation.Play playerAnim, "walk"
-Animation.Play playerAnim, "sprint", 1.5
-```
+    Animation.Play playerAnim, "walk"
+    Animation.Play playerAnim, "sprint", 1.5
 
 **See Also** — [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
 
@@ -4434,9 +4374,7 @@ Animation.Play playerAnim, "sprint", 1.5
 
 **Syntax**
 
-```vb
-Animation.Resume(player)
-```
+    Animation.Resume(player)
 
 **Parameters**
 
@@ -4448,9 +4386,7 @@ Resumes a paused animation from its current position.
 
 **Example**
 
-```vb
-Animation.Resume playerAnim
-```
+    Animation.Resume playerAnim
 
 **See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
 
@@ -4462,9 +4398,7 @@ Animation.Resume playerAnim
 
 **Syntax**
 
-```vb
-Animation.Seek(player, seconds [, update])
-```
+    Animation.Seek(player, seconds [, update])
 
 **Parameters**
 
@@ -4478,9 +4412,7 @@ Jumps to a specific time in the current animation. update=True applies the chang
 
 **Example**
 
-```vb
-Animation.Seek playerAnim, 1.5
-```
+    Animation.Seek playerAnim, 1.5
 
 **See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
 
@@ -4492,9 +4424,7 @@ Animation.Seek playerAnim, 1.5
 
 **Syntax**
 
-```vb
-Animation.Speed(player, scale)
-```
+    Animation.Speed(player, scale)
 
 **Parameters**
 
@@ -4507,9 +4437,7 @@ Sets playback speed for all animations on this player. 1.0 = normal, 0.5 = slow-
 
 **Example**
 
-```vb
-Animation.Speed playerAnim, 0.5   ' slow motion
-```
+    Animation.Speed playerAnim, 0.5   ' slow motion
 
 **See Also** — [Animation.Play](#animationplay), [Animation.Stop](#animationstop), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
 
@@ -4521,9 +4449,7 @@ Animation.Speed playerAnim, 0.5   ' slow motion
 
 **Syntax**
 
-```vb
-Animation.Stop(player [, keepState])
-```
+    Animation.Stop(player [, keepState])
 
 **Parameters**
 
@@ -4536,9 +4462,7 @@ Stops the current animation. Pass True for keepState to leave the animated prope
 
 **Example**
 
-```vb
-Animation.Stop playerAnim
-```
+    Animation.Stop playerAnim
 
 **See Also** — [Animation.Play](#animationplay), [Animation.Pause](#animationpause), [Animation.Resume](#animationresume), [Animation.Seek](#animationseek), [Animation.Speed](#animationspeed), [Animation.Current](#animationcurrent), [Animation.IsPlaying](#animationisplaying), [Animation.Length](#animationlength), [Animation.Loop](#animationloop)
 
@@ -4550,9 +4474,7 @@ Animation.Stop playerAnim
 
 **Syntax**
 
-```vb
-Array(value1, value2, ...)
-```
+    Array(value1, value2, ...)
 
 **Parameters**
 
@@ -4566,10 +4488,8 @@ Creates and returns an array containing the specified values.
 
 **Example**
 
-```vb
-Dim colors As Variant = Array("Red", "Green", "Blue")
-Print colors(0)  ' "Red"
-```
+    Dim colors As Variant = Array("Red", "Green", "Blue")
+    Print colors(0)  ' "Red"
 
 **See Also** — [Integer](#integer), [Long](#long), [Single](#single), [Double](#double), [String](#string), [Boolean](#boolean), [Variant](#variant), [ReDim](#redim), [LBound](#lbound), [UBound](#ubound)
 
@@ -4581,10 +4501,8 @@ Print colors(0)  ' "Red"
 
 **Syntax**
 
-```vb
-Async Sub ProcedureName()
-Async Function FuncName() As Task(Of Type)
-```
+    Async Sub ProcedureName()
+    Async Function FuncName() As Task(Of Type)
 
 **Description**
 
@@ -4592,12 +4510,10 @@ Marks a procedure as asynchronous, allowing the use of Await inside it.
 
 **Example**
 
-```vb
-Async Sub LoadLevel()
-    Dim data As String = Await ReadFileAsync("level.dat")
-    ParseLevel(data)
-End Sub
-```
+    Async Sub LoadLevel()
+        Dim data As String = Await ReadFileAsync("level.dat")
+        ParseLevel(data)
+    End Sub
 
 **See Also** — [Await](#await), [DoEvents](#doevents)
 
@@ -4609,9 +4525,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Await asyncExpression
-```
+    Await asyncExpression
 
 **Parameters**
 
@@ -4623,12 +4537,10 @@ Pauses execution until an asynchronous operation completes, then returns its res
 
 **Example**
 
-```vb
-Async Sub FetchData()
-    Dim response As String = Await Http.Get("https://api.example.com/data")
-    Print response
-End Sub
-```
+    Async Sub FetchData()
+        Dim response As String = Await Http.Get("https://api.example.com/data")
+        Print response
+    End Sub
 
 **See Also** — [Async](#async), [DoEvents](#doevents)
 
@@ -4643,9 +4555,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Basis() | Basis(quaternion)
-```
+    Basis() | Basis(quaternion)
 
 **Description**
 
@@ -4653,10 +4563,8 @@ Creates a 3x3 rotation/scale matrix used inside Transform3D. Pass a Quaternion t
 
 **Example**
 
-```vb
-Dim b = Basis(QuaternionFromEuler(0, 0.5, 0))
-Dim b2 = b.Scaled(Vector3(2, 2, 2))
-```
+    Dim b = Basis(QuaternionFromEuler(0, 0.5, 0))
+    Dim b2 = b.Scaled(Vector3(2, 2, 2))
 
 **See Also** — [Quaternion](#quaternion), [QuaternionFromEuler](#quaternionfromeuler), [Transform2D](#transform2d), [Transform3D](#transform3d), [Plane](#plane), [AABB](#aabb), [Slerp](#slerp)
 
@@ -4668,9 +4576,7 @@ Dim b2 = b.Scaled(Vector3(2, 2, 2))
 
 **Syntax**
 
-```vb
-BlitImage destImage, srcImage, srcRect, destPos
-```
+    BlitImage destImage, srcImage, srcRect, destPos
 
 **Parameters**
 
@@ -4685,16 +4591,14 @@ Copies a rectangular region of pixels from a source Image to a destination Image
 
 **Example**
 
-```vb
-Dim canvas = CreateImage(640, 480, Color.White)
-Dim stamp = CreateImage(32, 32, Color.Red)
+    Dim canvas = CreateImage(640, 480, Color.White)
+    Dim stamp = CreateImage(32, 32, Color.Red)
 
-' Stamp the red square onto the canvas at (100, 100)
-BlitImage canvas, stamp, Rect2i(0, 0, 32, 32), Vector2i(100, 100)
+    ' Stamp the red square onto the canvas at (100, 100)
+    BlitImage canvas, stamp, Rect2i(0, 0, 32, 32), Vector2i(100, 100)
 
-' Copy part of canvas to another location
-BlitImage canvas, canvas, Rect2i(0, 0, 100, 100), Vector2i(200, 200)
-```
+    ' Copy part of canvas to another location
+    BlitImage canvas, canvas, Rect2i(0, 0, 100, 100), Vector2i(200, 200)
 
 **See Also** — [CreateImage](#createimage), [FillImage](#fillimage), [FillImageRect](#fillimagerect), [GetImagePixel](#getimagepixel), [SetImagePixel](#setimagepixel), [ImageWidth](#imagewidth), [ImageHeight](#imageheight)
 
@@ -4706,9 +4610,7 @@ BlitImage canvas, canvas, Rect2i(0, 0, 100, 100), Vector2i(200, 200)
 
 **Syntax**
 
-```vb
-Bone.Find(skeleton, name) As Long
-```
+    Bone.Find(skeleton, name) As Long
 
 **Parameters**
 
@@ -4721,9 +4623,7 @@ Looks up a bone by name. Returns -1 if not found.
 
 **Example**
 
-```vb
-Dim head = Bone.Find(skel, "head")
-```
+    Dim head = Bone.Find(skel, "head")
 
 **See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
 
@@ -4735,9 +4635,7 @@ Dim head = Bone.Find(skel, "head")
 
 **Syntax**
 
-```vb
-Bone.LookAt(skeleton, idx, targetPos)
-```
+    Bone.LookAt(skeleton, idx, targetPos)
 
 **Parameters**
 
@@ -4751,9 +4649,7 @@ Rotates the bone so its +Y axis points at targetPos (world space). Simple IK for
 
 **Example**
 
-```vb
-Bone.LookAt skel, headIdx, player.GlobalPosition
-```
+    Bone.LookAt skel, headIdx, player.GlobalPosition
 
 **See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale)
 
@@ -4765,9 +4661,7 @@ Bone.LookAt skel, headIdx, player.GlobalPosition
 
 **Syntax**
 
-```vb
-Bone.Pos(skeleton, idx) As Vector3
-```
+    Bone.Pos(skeleton, idx) As Vector3
 
 **Parameters**
 
@@ -4780,9 +4674,7 @@ Returns the bone's current pose position (relative to its rest).
 
 **Example**
 
-```vb
-Print Bone.Pos(skel, head)
-```
+    Print Bone.Pos(skel, head)
 
 **See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
 
@@ -4794,9 +4686,7 @@ Print Bone.Pos(skel, head)
 
 **Syntax**
 
-```vb
-Bone.Rot(skeleton, idx) As Quaternion
-```
+    Bone.Rot(skeleton, idx) As Quaternion
 
 **Parameters**
 
@@ -4809,9 +4699,7 @@ Returns the bone's current pose rotation.
 
 **Example**
 
-```vb
-Dim q = Bone.Rot(skel, head)
-```
+    Dim q = Bone.Rot(skel, head)
 
 **See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
 
@@ -4823,9 +4711,7 @@ Dim q = Bone.Rot(skel, head)
 
 **Syntax**
 
-```vb
-Bone.Scale(skeleton, idx) As Vector3
-```
+    Bone.Scale(skeleton, idx) As Vector3
 
 **Parameters**
 
@@ -4838,9 +4724,7 @@ Returns the bone's current pose scale.
 
 **Example**
 
-```vb
-Print Bone.Scale(skel, head)
-```
+    Print Bone.Scale(skel, head)
 
 **See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
 
@@ -4852,9 +4736,7 @@ Print Bone.Scale(skel, head)
 
 **Syntax**
 
-```vb
-Bone.SetPos(skeleton, idx, pos)
-```
+    Bone.SetPos(skeleton, idx, pos)
 
 **Parameters**
 
@@ -4868,9 +4750,7 @@ Sets the bone's pose position.
 
 **Example**
 
-```vb
-Bone.SetPos skel, head, Vector3(0, 0.1, 0)
-```
+    Bone.SetPos skel, head, Vector3(0, 0.1, 0)
 
 **See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
 
@@ -4882,9 +4762,7 @@ Bone.SetPos skel, head, Vector3(0, 0.1, 0)
 
 **Syntax**
 
-```vb
-Bone.SetRot(skeleton, idx, quat)
-```
+    Bone.SetRot(skeleton, idx, quat)
 
 **Parameters**
 
@@ -4898,9 +4776,7 @@ Sets the bone's pose rotation. Use Quaternion(axis, angle) to build one.
 
 **Example**
 
-```vb
-Bone.SetRot skel, head, Quaternion(Vector3(0,1,0), Deg2Rad(45))
-```
+    Bone.SetRot skel, head, Quaternion(Vector3(0,1,0), Deg2Rad(45))
 
 **See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
 
@@ -4912,9 +4788,7 @@ Bone.SetRot skel, head, Quaternion(Vector3(0,1,0), Deg2Rad(45))
 
 **Syntax**
 
-```vb
-Bone.SetScale(skeleton, idx, vec)
-```
+    Bone.SetScale(skeleton, idx, vec)
 
 **Parameters**
 
@@ -4928,9 +4802,7 @@ Sets the bone's pose scale.
 
 **Example**
 
-```vb
-Bone.SetScale skel, head, Vector3(1.2, 1.2, 1.2)
-```
+    Bone.SetScale skel, head, Vector3(1.2, 1.2, 1.2)
 
 **See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.LookAt](#bonelookat)
 
@@ -4942,9 +4814,7 @@ Bone.SetScale skel, head, Vector3(1.2, 1.2, 1.2)
 
 **Syntax**
 
-```vb
-Dim varName As Boolean
-```
+    Dim varName As Boolean
 
 **Parameters**
 
@@ -4956,11 +4826,9 @@ A True/False value. Used for flags, conditions, and toggles.
 
 **Example**
 
-```vb
-Dim gameOver As Boolean = False
-Dim isVisible As Boolean = True
-If gameOver Then EndGame()
-```
+    Dim gameOver As Boolean = False
+    Dim isVisible As Boolean = True
+    If gameOver Then EndGame()
 
 **See Also** — [Integer](#integer), [Long](#long), [Single](#single), [Double](#double), [String](#string), [Variant](#variant), [Array](#array)
 
@@ -4972,9 +4840,7 @@ If gameOver Then EndGame()
 
 **Syntax**
 
-```vb
-Sub ProcName(ByRef paramName As DataType)
-```
+    Sub ProcName(ByRef paramName As DataType)
 
 **Parameters**
 
@@ -4986,13 +4852,11 @@ Passes an argument by reference — the procedure can modify the caller's origin
 
 **Example**
 
-```vb
-Sub SwapValues(ByRef a As Integer, ByRef b As Integer)
-    Dim temp As Integer = a
-    a = b
-    b = temp
-End Sub
-```
+    Sub SwapValues(ByRef a As Integer, ByRef b As Integer)
+        Dim temp As Integer = a
+        a = b
+        b = temp
+    End Sub
 
 **See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda)
 
@@ -5004,9 +4868,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Sub ProcName(ByVal paramName As DataType)
-```
+    Sub ProcName(ByVal paramName As DataType)
 
 **Parameters**
 
@@ -5018,12 +4880,10 @@ Passes an argument by value — the procedure gets a copy, so changes don't affe
 
 **Example**
 
-```vb
-Sub DoubleIt(ByVal x As Integer)
-    x = x * 2  ' Only changes local copy
-    Print x
-End Sub
-```
+    Sub DoubleIt(ByVal x As Integer)
+        x = x * 2  ' Only changes local copy
+        Print x
+    End Sub
 
 **See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [Optional](#optional), [Lambda](#lambda)
 
@@ -5038,14 +4898,8 @@ End Sub
 
 **Syntax**
 
-```vb
-Call procedureName([arguments])
-procedureName [arguments]
-```
-
-**Parameters**
-
-- `arguments`
+    Call procedureName([arguments])
+    procedureName [arguments]
 
 **Description**
 
@@ -5053,11 +4907,9 @@ Explicitly calls a Sub or Function. The Call keyword is optional — you can cal
 
 **Example**
 
-```vb
-Call UpdateScore(10)
-UpdateScore 10       ' Same thing without Call
-Call Form2.Show()
-```
+    Call UpdateScore(10)
+    UpdateScore 10       ' Same thing without Call
+    Call Form2.Show()
 
 **See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda)
 
@@ -5069,9 +4921,7 @@ Call Form2.Show()
 
 **Syntax**
 
-```vb
-Camera.Bounce(direction, strength [, h])
-```
+    Camera.Bounce(direction, strength [, h])
 
 **Parameters**
 
@@ -5085,10 +4935,8 @@ One-shot recoil pulse — pushes the camera in `direction` by `strength` and sna
 
 **Example**
 
-```vb
-' Shotgun recoil
-Camera.Bounce Vector2(-1, 0), 18
-```
+    ' Shotgun recoil
+    Camera.Bounce Vector2(-1, 0), 18
 
 **See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.FlashColor](#cameraflashcolor)
 
@@ -5100,9 +4948,7 @@ Camera.Bounce Vector2(-1, 0), 18
 
 **Syntax**
 
-```vb
-Camera.FlashColor(color, duration [, h])
-```
+    Camera.FlashColor(color, duration [, h])
 
 **Parameters**
 
@@ -5116,10 +4962,8 @@ Briefly fills the viewport with `color`, then fades it out over `duration`. Use 
 
 **Example**
 
-```vb
-' Damage flash
-Camera.FlashColor RGB(255, 0, 0), 0.15
-```
+    ' Damage flash
+    Camera.FlashColor RGB(255, 0, 0), 0.15
 
 **See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce)
 
@@ -5131,9 +4975,7 @@ Camera.FlashColor RGB(255, 0, 0), 0.15
 
 **Syntax**
 
-```vb
-Camera.Follow(target [, h])
-```
+    Camera.Follow(target [, h])
 
 **Parameters**
 
@@ -5146,15 +4988,13 @@ Continuously follow a target node. Internally adds a RemoteTransform that mirror
 
 **Example**
 
-```vb
-Sub _Ready()
-    Camera.Follow player    ' auto-track player forever
-End Sub
+    Sub _Ready()
+        Camera.Follow player    ' auto-track player forever
+    End Sub
 
-Sub OnPlayerDied()
-    Camera.Follow Nothing   ' stop following
-End Sub
-```
+    Sub OnPlayerDied()
+        Camera.Follow Nothing   ' stop following
+    End Sub
 
 **See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
 
@@ -5166,9 +5006,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Camera.FOV(degrees [, h])
-```
+    Camera.FOV(degrees [, h])
 
 **Parameters**
 
@@ -5181,10 +5019,8 @@ Sets Camera3D field of view in degrees. 75 is the default. Smaller = telephoto/z
 
 **Example**
 
-```vb
-Camera.FOV 90    ' wide cinematic
-Camera.FOV 45    ' sniper scope
-```
+    Camera.FOV 90    ' wide cinematic
+    Camera.FOV 45    ' sniper scope
 
 **See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
 
@@ -5196,9 +5032,7 @@ Camera.FOV 45    ' sniper scope
 
 **Syntax**
 
-```vb
-Camera.Limits(left, top, right, bottom [, h])
-```
+    Camera.Limits(left, top, right, bottom [, h])
 
 **Parameters**
 
@@ -5214,10 +5048,8 @@ Sets Camera2D pan limits in pixels. The camera will refuse to scroll past these 
 
 **Example**
 
-```vb
-' Lock view to a 1920x1080 level
-Camera.Limits 0, 0, 1920, 1080
-```
+    ' Lock view to a 1920x1080 level
+    Camera.Limits 0, 0, 1920, 1080
 
 **See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
 
@@ -5229,9 +5061,7 @@ Camera.Limits 0, 0, 1920, 1080
 
 **Syntax**
 
-```vb
-Camera.MakeCurrent([h])
-```
+    Camera.MakeCurrent([h])
 
 **Parameters**
 
@@ -5243,11 +5073,9 @@ Makes a camera the active one — useful when you have multiple cameras (e.g., g
 
 **Example**
 
-```vb
-Camera.MakeCurrent cutsceneCam
-' ... play cutscene ...
-Camera.MakeCurrent gameplayCam
-```
+    Camera.MakeCurrent cutsceneCam
+    ' ... play cutscene ...
+    Camera.MakeCurrent gameplayCam
 
 **See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
 
@@ -5259,9 +5087,7 @@ Camera.MakeCurrent gameplayCam
 
 **Syntax**
 
-```vb
-Camera.PanTo(pos, duration [, h])
-```
+    Camera.PanTo(pos, duration [, h])
 
 **Parameters**
 
@@ -5275,10 +5101,8 @@ Tween-pans the active camera to pos over duration seconds. Smoother than setting
 
 **Example**
 
-```vb
-' Cinematic reveal
-Camera.PanTo Vector2(800, 400), 1.5
-```
+    ' Cinematic reveal
+    Camera.PanTo Vector2(800, 400), 1.5
 
 **See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
 
@@ -5290,9 +5114,7 @@ Camera.PanTo Vector2(800, 400), 1.5
 
 **Syntax**
 
-```vb
-Camera.Position(pos [, h])
-```
+    Camera.Position(pos [, h])
 
 **Parameters**
 
@@ -5307,12 +5129,10 @@ Called inside Sub _Process() it tracks any target — Camera.Position(player.Pos
 
 **Example**
 
-```vb
-' Snap to player every frame
-Sub _Process(delta)
-    Camera.Position(player.Position)
-End Sub
-```
+    ' Snap to player every frame
+    Sub _Process(delta)
+        Camera.Position(player.Position)
+    End Sub
 
 **See Also** — [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
 
@@ -5324,9 +5144,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Camera.Rotation(angle [, h])
-```
+    Camera.Rotation(angle [, h])
 
 **Parameters**
 
@@ -5339,10 +5157,8 @@ Rotates the camera. For Camera2D pass a number in radians; for Camera3D pass a V
 
 **Example**
 
-```vb
-' Quick screen tilt (Camera2D)
-Camera.Rotation 0.1   ' ~6 degrees
-```
+    ' Quick screen tilt (Camera2D)
+    Camera.Rotation 0.1   ' ~6 degrees
 
 **See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
 
@@ -5354,9 +5170,7 @@ Camera.Rotation 0.1   ' ~6 degrees
 
 **Syntax**
 
-```vb
-Camera.Shake(intensity, duration [, h])
-```
+    Camera.Shake(intensity, duration [, h])
 
 **Parameters**
 
@@ -5370,10 +5184,8 @@ Quick screen shake. Intensity is offset in pixels (2D) or units (3D). Duration i
 
 **Example**
 
-```vb
-' Boom!
-Camera.Shake 12, 0.4
-```
+    ' Boom!
+    Camera.Shake 12, 0.4
 
 **See Also** — [Camera.Position](#cameraposition), [Camera.Zoom](#camerazoom), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
 
@@ -5385,9 +5197,7 @@ Camera.Shake 12, 0.4
 
 **Syntax**
 
-```vb
-Camera.Zoom(zoom [, h])
-```
+    Camera.Zoom(zoom [, h])
 
 **Parameters**
 
@@ -5400,10 +5210,8 @@ Sets Camera2D zoom level. Pass a Vector2 for non-uniform zoom, or a scalar for u
 
 **Example**
 
-```vb
-Camera.Zoom Vector2(2, 2)       ' 2x zoom in
-Camera.Zoom 0.5                  ' zoom out to half
-```
+    Camera.Zoom Vector2(2, 2)       ' 2x zoom in
+    Camera.Zoom 0.5                  ' zoom out to half
 
 **See Also** — [Camera.Position](#cameraposition), [Camera.Rotation](#camerarotation), [Camera.FOV](#camerafov), [Camera.Follow](#camerafollow), [Camera.Shake](#camerashake), [Camera.Limits](#cameralimits), [Camera.MakeCurrent](#cameramakecurrent), [Camera.PanTo](#camerapanto), [Camera.Bounce](#camerabounce), [Camera.FlashColor](#cameraflashcolor)
 
@@ -5415,9 +5223,7 @@ Camera.Zoom 0.5                  ' zoom out to half
 
 **Syntax**
 
-```vb
-Case value [, value2] [To value3]
-```
+    Case value [, value2] [To value3]
 
 **Parameters**
 
@@ -5430,12 +5236,10 @@ Specifies a value or range to match in a Select Case block. Supports comma lists
 
 **Example**
 
-```vb
-Case 1, 2, 3     ' Match any of these
-Case 10 To 20    ' Match range
-Case Is > 100    ' Match comparison
-Case Else        ' Default case
-```
+    Case 1, 2, 3     ' Match any of these
+    Case 10 To 20    ' Match range
+    Case Is > 100    ' Match comparison
+    Case Else        ' Default case
 
 **See Also** — [Select](#select), [Select Case](#select-case), [End Select](#end-select)
 
@@ -5447,9 +5251,7 @@ Case Else        ' Default case
 
 **Syntax**
 
-```vb
-Catch [variableName As Exception]
-```
+    Catch [variableName As Exception]
 
 **Parameters**
 
@@ -5461,13 +5263,11 @@ Catches an exception thrown in the Try block. The exception object provides Desc
 
 **Example**
 
-```vb
-Try
-    riskyOperation()
-Catch ex As Exception
-    Print "Error #" & ex.Number & ": " & ex.Description
-End Try
-```
+    Try
+        riskyOperation()
+    Catch ex As Exception
+        Print "Error #" & ex.Number & ": " & ex.Description
+    End Try
 
 **See Also** — [On Error](#on-error), [Try](#try), [Finally](#finally), [Throw](#throw)
 
@@ -5479,9 +5279,7 @@ End Try
 
 **Syntax**
 
-```vb
-Cell.Clear(layer, x, y)
-```
+    Cell.Clear(layer, x, y)
 
 **Parameters**
 
@@ -5495,9 +5293,7 @@ Erases a single tile. Shortcut for Cell.Set with source = -1.
 
 **Example**
 
-```vb
-Cell.Clear world, 5, 10
-```
+    Cell.Clear world, 5, 10
 
 **See Also** — [Cell.Get](#cellget), [Cell.Set](#cellset), [Cell.ClearAll](#cellclearall), [Cell.Used](#cellused)
 
@@ -5509,9 +5305,7 @@ Cell.Clear world, 5, 10
 
 **Syntax**
 
-```vb
-Cell.ClearAll(layer)
-```
+    Cell.ClearAll(layer)
 
 **Parameters**
 
@@ -5523,9 +5317,7 @@ Erases all tiles in a TileMapLayer.
 
 **Example**
 
-```vb
-Cell.ClearAll world
-```
+    Cell.ClearAll world
 
 **See Also** — [Cell.Get](#cellget), [Cell.Set](#cellset), [Cell.Clear](#cellclear), [Cell.Used](#cellused)
 
@@ -5537,9 +5329,7 @@ Cell.ClearAll world
 
 **Syntax**
 
-```vb
-Cell.Get(layer, x, y) As Dictionary
-```
+    Cell.Get(layer, x, y) As Dictionary
 
 **Parameters**
 
@@ -5553,12 +5343,10 @@ Reads a tile at cell coords (x, y) on a TileMapLayer. Returns Dictionary: Source
 
 **Example**
 
-```vb
-Dim c = Cell.Get(world, 5, 10)
-If c.Source >= 0 Then
-    Print "Tile from source " & c.Source
-End If
-```
+    Dim c = Cell.Get(world, 5, 10)
+    If c.Source >= 0 Then
+        Print "Tile from source " & c.Source
+    End If
 
 **See Also** — [Cell.Set](#cellset), [Cell.Clear](#cellclear), [Cell.ClearAll](#cellclearall), [Cell.Used](#cellused)
 
@@ -5570,9 +5358,7 @@ End If
 
 **Syntax**
 
-```vb
-Cell.Set(layer, x, y, source, atlasX, atlasY [, alt])
-```
+    Cell.Set(layer, x, y, source, atlasX, atlasY [, alt])
 
 **Parameters**
 
@@ -5590,10 +5376,8 @@ Writes a tile at cell coords (x, y). source = -1 erases. atlasX/Y picks the tile
 
 **Example**
 
-```vb
-' Place a grass tile from source 0, atlas (3, 1)
-Cell.Set world, 5, 10, 0, 3, 1
-```
+    ' Place a grass tile from source 0, atlas (3, 1)
+    Cell.Set world, 5, 10, 0, 3, 1
 
 **See Also** — [Cell.Get](#cellget), [Cell.Clear](#cellclear), [Cell.ClearAll](#cellclearall), [Cell.Used](#cellused)
 
@@ -5605,9 +5389,7 @@ Cell.Set world, 5, 10, 0, 3, 1
 
 **Syntax**
 
-```vb
-Cell.Used(layer) As Array
-```
+    Cell.Used(layer) As Array
 
 **Parameters**
 
@@ -5619,12 +5401,10 @@ Returns an Array of Vector2 cell coordinates that contain a tile (non-empty).
 
 **Example**
 
-```vb
-Dim cells = Cell.Used(world)
-For Each c In cells
-    Print c.x & "," & c.y
-Next
-```
+    Dim cells = Cell.Used(world)
+    For Each c In cells
+        Print c.x & "," & c.y
+    Next
 
 **See Also** — [Cell.Get](#cellget), [Cell.Set](#cellset), [Cell.Clear](#cellclear), [Cell.ClearAll](#cellclearall)
 
@@ -5636,9 +5416,7 @@ Next
 
 **Syntax**
 
-```vb
-ChangeScene(scenePath)
-```
+    ChangeScene(scenePath)
 
 **Parameters**
 
@@ -5650,12 +5428,10 @@ Changes the current game scene to the specified .tscn file.
 
 **Example**
 
-```vb
-ChangeScene "res://levels/Level2.tscn"
+    ChangeScene "res://levels/Level2.tscn"
 
-' Or using GetTree:
-GetTree().change_scene_to_file("res://MainMenu.tscn")
-```
+    ' Or using GetTree:
+    GetTree().change_scene_to_file("res://MainMenu.tscn")
 
 **See Also** — [IsActionPressed](#isactionpressed), [IsKeyPressed](#iskeypressed), [PlaySound](#playsound), [CreateActor2D](#createactor2d)
 
@@ -5667,9 +5443,7 @@ GetTree().change_scene_to_file("res://MainMenu.tscn")
 
 **Syntax**
 
-```vb
-CInt(expression)
-```
+    CInt(expression)
 
 **Parameters**
 
@@ -5681,10 +5455,8 @@ Converts an expression to an Integer, rounding if necessary.
 
 **Example**
 
-```vb
-Dim n As Integer = CInt(3.7)   ' 4
-Dim m As Integer = CInt("42")  ' 42
-```
+    Dim n As Integer = CInt(3.7)   ' 4
+    Dim m As Integer = CInt("42")  ' 42
 
 **See Also** — [CStr](#cstr), [Val](#val), [Str](#str), [Int](#int)
 
@@ -5696,9 +5468,7 @@ Dim m As Integer = CInt("42")  ' 42
 
 **Syntax**
 
-```vb
-Clamp(value, min, max)
-```
+    Clamp(value, min, max)
 
 **Parameters**
 
@@ -5712,10 +5482,8 @@ Constrains a value to the range [min, max].
 
 **Example**
 
-```vb
-health = Clamp(health, 0, maxHealth)
-speed = Clamp(speed, 0.0, maxSpeed)
-```
+    health = Clamp(health, 0, maxHealth)
+    speed = Clamp(speed, 0.0, maxSpeed)
 
 **See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Lerp](#lerp), [Mod](#mod)
 
@@ -5727,21 +5495,10 @@ speed = Clamp(speed, 0.0, maxSpeed)
 
 **Syntax**
 
-```vb
-Class ClassName
-    [Inherits BaseClass]
-    ' fields, methods, properties
-End Class
-```
-
-**Parameters**
-
-- `ClassName
-    Inherits BaseClass
-    ' fields`
-- `methods`
-- `properties
-End Class`
+    Class ClassName
+        [Inherits BaseClass]
+        ' fields, methods, properties
+    End Class
 
 **Description**
 
@@ -5749,17 +5506,15 @@ Declares a new class type. Classes support inheritance, interfaces, properties, 
 
 **Example**
 
-```vb
-Class Player
-    Public Name As String
-    Public Health As Integer = 100
+    Class Player
+        Public Name As String
+        Public Health As Integer = 100
 
-    Sub TakeDamage(amount As Integer)
-        Health = Health - amount
-        If Health <= 0 Then Die()
-    End Sub
-End Class
-```
+        Sub TakeDamage(amount As Integer)
+            Health = Health - amount
+            If Health <= 0 Then Die()
+        End Sub
+    End Class
 
 **See Also** — [End Class](#end-class), [New](#new), [Set](#set), [Me](#me), [Implements](#implements), [Inherits](#inherits), [Interface](#interface), [Property](#property)
 
@@ -5771,9 +5526,7 @@ End Class
 
 **Syntax**
 
-```vb
-Close [#fileNumber [, #fileNumber ...]]
-```
+    Close [#fileNumber [, #fileNumber ...]]
 
 **Parameters**
 
@@ -5786,13 +5539,11 @@ Closes one or more open files. Always close files when done to flush data to dis
 
 **Example**
 
-```vb
-Open "data.txt" For Input As #1
-' ... read data ...
-Close #1
+    Open "data.txt" For Input As #1
+    ' ... read data ...
+    Close #1
 
-Close  ' Close all open files
-```
+    Close  ' Close all open files
 
 **See Also** — [Open](#open), [Line Input](#line-input), [Data](#data), [Read](#read), [Restore](#restore)
 
@@ -5804,10 +5555,8 @@ Close  ' Close all open files
 
 **Syntax**
 
-```vb
-CLS
-CLS()
-```
+    CLS
+    CLS()
 
 **Description**
 
@@ -5815,16 +5564,14 @@ Clears the screen/canvas. Removes all dynamically created child nodes and trigge
 
 **Example**
 
-```vb
-CLS  ' Clear everything
+    CLS  ' Clear everything
 
-' Typical usage: clear before redrawing
-Sub _Draw()
-    ' CLS is implicit in _Draw — each frame starts clean
-    DrawRect 0, 0, 640, 480, Color.Black   ' Background
-    DrawString GetThemeDefaultFont(), Vector2(10, 20), "Game Over", Color.White
-End Sub
-```
+    ' Typical usage: clear before redrawing
+    Sub _Draw()
+        ' CLS is implicit in _Draw — each frame starts clean
+        DrawRect 0, 0, 640, 480, Color.Black   ' Background
+        DrawString GetThemeDefaultFont(), Vector2(10, 20), "Game Over", Color.White
+    End Sub
 
 **See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [QueueRedraw](#queueredraw)
 
@@ -5836,9 +5583,7 @@ End Sub
 
 **Syntax**
 
-```vb
-ColorFromHSV(h, s, v [, a])
-```
+    ColorFromHSV(h, s, v [, a])
 
 **Parameters**
 
@@ -5853,13 +5598,11 @@ Builds a Color from Hue/Saturation/Value (each 0..1). Use when you want rainbow 
 
 **Example**
 
-```vb
-' Animate the rainbow
-For i = 0 To 60
-    Dim c = ColorFromHSV(i / 60.0, 0.8, 1.0)
-    DrawRect i * 10, 0, 10, 100, c
-Next
-```
+    ' Animate the rainbow
+    For i = 0 To 60
+        Dim c = ColorFromHSV(i / 60.0, 0.8, 1.0)
+        DrawRect i * 10, 0, 10, 100, c
+    Next
 
 **See Also** — [ColorToHSV](#colortohsv), [Lighten](#lighten), [Darken](#darken), [RGB](#rgb)
 
@@ -5871,9 +5614,7 @@ Next
 
 **Syntax**
 
-```vb
-ColorToHSV(color)
-```
+    ColorToHSV(color)
 
 **Parameters**
 
@@ -5885,11 +5626,9 @@ Splits a Color into its Hue, Saturation, Value, Alpha components. Returns a Dict
 
 **Example**
 
-```vb
-Dim parts = ColorToHSV(Color.Red)
-Print parts.h  ' 0.0  (red is hue 0)
-Print parts.s  ' 1.0
-```
+    Dim parts = ColorToHSV(Color.Red)
+    Print parts.h  ' 0.0  (red is hue 0)
+    Print parts.s  ' 1.0
 
 **See Also** — [ColorFromHSV](#colorfromhsv), [Lighten](#lighten), [Darken](#darken), [RGB](#rgb)
 
@@ -5901,9 +5640,7 @@ Print parts.s  ' 1.0
 
 **Syntax**
 
-```vb
-connect(signal_name As String, callable As Callable)
-```
+    connect(signal_name As String, callable As Callable)
 
 **Parameters**
 
@@ -5916,10 +5653,8 @@ Connects a signal to a callback method. Use Godot 4 Callable syntax.
 
 **Example**
 
-```vb
-connect("body_entered", _on_body_entered)
-timer.connect("timeout", _on_timeout)
-```
+    connect("body_entered", _on_body_entered)
+    timer.connect("timeout", _on_timeout)
 
 **Godot Mapping** — [`Object.connect()`](https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-connect)
 
@@ -5933,9 +5668,7 @@ timer.connect("timeout", _on_timeout)
 
 **Syntax**
 
-```vb
-Const CONSTANT_NAME As DataType = value
-```
+    Const CONSTANT_NAME As DataType = value
 
 **Parameters**
 
@@ -5947,11 +5680,9 @@ Declares a named constant whose value cannot be changed after initialization.
 
 **Example**
 
-```vb
-Const MAX_PLAYERS As Integer = 4
-Const PI As Double = 3.14159
-Const GAME_TITLE As String = "My Game"
-```
+    Const MAX_PLAYERS As Integer = 4
+    Const PI As Double = 3.14159
+    Const GAME_TITLE As String = "My Game"
 
 **See Also** — [Dim](#dim), [Private](#private), [Public](#public), [Global](#global), [Static](#static), [ReDim](#redim), [Type](#type)
 
@@ -5963,9 +5694,7 @@ Const GAME_TITLE As String = "My Game"
 
 **Syntax**
 
-```vb
-Continue For | Continue Do | Continue While
-```
+    Continue For | Continue Do | Continue While
 
 **Parameters**
 
@@ -5977,12 +5706,10 @@ Skips the rest of the current loop iteration and continues with the next iterati
 
 **Example**
 
-```vb
-For i = 0 To 99
-    If scores(i) < 0 Then Continue For
-    total = total + scores(i)
-Next
-```
+    For i = 0 To 99
+        If scores(i) < 0 Then Continue For
+        total = total + scores(i)
+    Next
 
 **See Also** — [For](#for), [Next](#next), [For Each](#for-each), [Exit](#exit)
 
@@ -5994,9 +5721,7 @@ Next
 
 **Syntax**
 
-```vb
-Cos(angle)
-```
+    Cos(angle)
 
 **Parameters**
 
@@ -6008,11 +5733,9 @@ Returns the cosine of an angle (in radians).
 
 **Example**
 
-```vb
-Dim x As Single = Cos(0)  ' 1.0
-' Circular motion
-x = Cos(angle) * radius
-```
+    Dim x As Single = Cos(0)  ' 1.0
+    ' Circular motion
+    x = Cos(angle) * radius
 
 **See Also** — [Sin](#sin)
 
@@ -6024,9 +5747,7 @@ x = Cos(angle) * radius
 
 **Syntax**
 
-```vb
-CreateActor2D(name, x, y [, texturePath])
-```
+    CreateActor2D(name, x, y [, texturePath])
 
 **Parameters**
 
@@ -6041,10 +5762,8 @@ Creates a 2D game actor (sprite) at the specified position.
 
 **Example**
 
-```vb
-CreateActor2D "Player", 100, 200, "res://player.png"
-CreateActor2D "Enemy", 400, 200
-```
+    CreateActor2D "Player", 100, 200, "res://player.png"
+    CreateActor2D "Enemy", 400, 200
 
 **See Also** — [IsActionPressed](#isactionpressed), [IsKeyPressed](#iskeypressed), [PlaySound](#playsound), [ChangeScene](#changescene)
 
@@ -6056,9 +5775,7 @@ CreateActor2D "Enemy", 400, 200
 
 **Syntax**
 
-```vb
-CreateImage(width, height [, fillColor]) As Image
-```
+    CreateImage(width, height [, fillColor]) As Image
 
 **Parameters**
 
@@ -6072,21 +5789,19 @@ Creates a new RGBA8 Image object with the specified dimensions (1-4096 pixels). 
 
 **Example**
 
-```vb
-' Create a white 640x480 canvas
-Dim img As Variant = CreateImage(640, 480, Color(1, 1, 1, 1))
+    ' Create a white 640x480 canvas
+    Dim img As Variant = CreateImage(640, 480, Color(1, 1, 1, 1))
 
-' Create a transparent 256x256 sprite sheet
-Dim sheet As Variant = CreateImage(256, 256)
+    ' Create a transparent 256x256 sprite sheet
+    Dim sheet As Variant = CreateImage(256, 256)
 
-' Draw on it
-SetImagePixel img, 100, 100, Color.Red
-SetImagePixel img, 101, 100, Color.Red
+    ' Draw on it
+    SetImagePixel img, 100, 100, Color.Red
+    SetImagePixel img, 101, 100, Color.Red
 
-' Display it
-Dim tex As Variant = CreateTexture(img)
-DrawTexture tex, 0, 0
-```
+    ' Display it
+    Dim tex As Variant = CreateTexture(img)
+    DrawTexture tex, 0, 0
 
 **See Also** — [FillImage](#fillimage), [FillImageRect](#fillimagerect), [GetImagePixel](#getimagepixel), [SetImagePixel](#setimagepixel), [BlitImage](#blitimage), [ImageWidth](#imagewidth), [ImageHeight](#imageheight)
 
@@ -6098,14 +5813,8 @@ DrawTexture tex, 0, 0
 
 **Syntax**
 
-```vb
-CreateTexture(image) As ImageTexture
-CreateTexture(width, height [, fillColor]) As ImageTexture
-```
-
-**Parameters**
-
-- `image`
+    CreateTexture(image) As ImageTexture
+    CreateTexture(width, height [, fillColor]) As ImageTexture
 
 **Description**
 
@@ -6113,19 +5822,17 @@ Creates an ImageTexture for display with DrawTexture. Can accept an existing Ima
 
 **Example**
 
-```vb
-' From an existing Image
-Dim img = CreateImage(320, 240, Color.White)
-Dim tex = CreateTexture(img)
+    ' From an existing Image
+    Dim img = CreateImage(320, 240, Color.White)
+    Dim tex = CreateTexture(img)
 
-' Quick one-liner: create texture directly
-Dim tex2 = CreateTexture(64, 64, Color.Blue)
+    ' Quick one-liner: create texture directly
+    Dim tex2 = CreateTexture(64, 64, Color.Blue)
 
-' Display in _Draw()
-Sub _Draw()
-    DrawTexture tex, 0, 0
-End Sub
-```
+    ' Display in _Draw()
+    Sub _Draw()
+        DrawTexture tex, 0, 0
+    End Sub
 
 **See Also** — [ImageToTexture](#imagetotexture), [UpdateTexture](#updatetexture), [GetTextureImage](#gettextureimage), [TextureWidth](#texturewidth), [TextureHeight](#textureheight)
 
@@ -6137,9 +5844,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Crypto.Base64(bytes) As String
-```
+    Crypto.Base64(bytes) As String
 
 **Parameters**
 
@@ -6151,9 +5856,7 @@ Short form of Crypto.Base64Encode — encodes bytes to a standard Base64 string.
 
 **Example**
 
-```vb
-Print Crypto.Base64("hello world")   ' "aGVsbG8gd29ybGQ="
-```
+    Print Crypto.Base64("hello world")   ' "aGVsbG8gd29ybGQ="
 
 **See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
 
@@ -6165,9 +5868,7 @@ Print Crypto.Base64("hello world")   ' "aGVsbG8gd29ybGQ="
 
 **Syntax**
 
-```vb
-Crypto.Base64Decode(b64 [, raw]) As String/Bytes
-```
+    Crypto.Base64Decode(b64 [, raw]) As String/Bytes
 
 **Parameters**
 
@@ -6180,10 +5881,8 @@ Decodes Base64. By default returns UTF-8 String. Pass True for raw PackedByteArr
 
 **Example**
 
-```vb
-Print Base64Decode("aGVsbG8=")  ' hello
-Dim bin = Base64Decode(encoded, True)
-```
+    Print Base64Decode("aGVsbG8=")  ' hello
+    Dim bin = Base64Decode(encoded, True)
 
 **See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode)
 
@@ -6195,9 +5894,7 @@ Dim bin = Base64Decode(encoded, True)
 
 **Syntax**
 
-```vb
-Crypto.Base64Encode(text_or_bytes) As String
-```
+    Crypto.Base64Encode(text_or_bytes) As String
 
 **Parameters**
 
@@ -6209,9 +5906,7 @@ Encodes input as Base64. String → UTF-8 → Base64. PackedByteArray → Base64
 
 **Example**
 
-```vb
-Print Base64Encode("hello world")  ' aGVsbG8gd29ybGQ=
-```
+    Print Base64Encode("hello world")  ' aGVsbG8gd29ybGQ=
 
 **See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Decode](#cryptobase64decode)
 
@@ -6223,9 +5918,7 @@ Print Base64Encode("hello world")  ' aGVsbG8gd29ybGQ=
 
 **Syntax**
 
-```vb
-Crypto.FromHex(hexString) As PackedByteArray
-```
+    Crypto.FromHex(hexString) As PackedByteArray
 
 **Parameters**
 
@@ -6237,9 +5930,7 @@ Parses a hex string back into raw bytes. Whitespace is ignored; case-insensitive
 
 **Example**
 
-```vb
-Dim raw = Crypto.FromHex("deadbeef")
-```
+    Dim raw = Crypto.FromHex("deadbeef")
 
 **See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
 
@@ -6251,9 +5942,7 @@ Dim raw = Crypto.FromHex("deadbeef")
 
 **Syntax**
 
-```vb
-Crypto.Hex(bytes) As String
-```
+    Crypto.Hex(bytes) As String
 
 **Parameters**
 
@@ -6265,9 +5954,7 @@ Converts a PackedByteArray (or hashable input) to a lowercase hex string. Invers
 
 **Example**
 
-```vb
-Print Crypto.Hex(Crypto.RandomBytes(8))   ' e.g. "a1b2c3d4e5f60718"
-```
+    Print Crypto.Hex(Crypto.RandomBytes(8))   ' e.g. "a1b2c3d4e5f60718"
 
 **See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
 
@@ -6279,9 +5966,7 @@ Print Crypto.Hex(Crypto.RandomBytes(8))   ' e.g. "a1b2c3d4e5f60718"
 
 **Syntax**
 
-```vb
-Crypto.HMAC(key, msg [, algorithm]) As String
-```
+    Crypto.HMAC(key, msg [, algorithm]) As String
 
 **Parameters**
 
@@ -6295,9 +5980,7 @@ Keyed-hash message auth code. algorithm = "sha256" (default), "sha1", or "md5".
 
 **Example**
 
-```vb
-Dim sig = Crypto.HMAC(secretKey, payload, "sha256")
-```
+    Dim sig = Crypto.HMAC(secretKey, payload, "sha256")
 
 **See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
 
@@ -6309,9 +5992,7 @@ Dim sig = Crypto.HMAC(secretKey, payload, "sha256")
 
 **Syntax**
 
-```vb
-Crypto.MD5(text_or_bytes) As String
-```
+    Crypto.MD5(text_or_bytes) As String
 
 **Parameters**
 
@@ -6323,9 +6004,7 @@ Returns the MD5 hash as lowercase hex. (MD5 is fast but not secure for passwords
 
 **Example**
 
-```vb
-Print MD5(fileContent)
-```
+    Print MD5(fileContent)
 
 **See Also** — [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
 
@@ -6337,9 +6016,7 @@ Print MD5(fileContent)
 
 **Syntax**
 
-```vb
-Crypto.RandomBytes(n) As PackedByteArray
-```
+    Crypto.RandomBytes(n) As PackedByteArray
 
 **Parameters**
 
@@ -6351,10 +6028,8 @@ Returns n cryptographically secure random bytes. Alias: RandomBytes.
 
 **Example**
 
-```vb
-Dim token = RandomBytes(32)
-Dim hex = Base64Encode(token)
-```
+    Dim token = RandomBytes(32)
+    Dim hex = Base64Encode(token)
 
 **See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
 
@@ -6366,9 +6041,7 @@ Dim hex = Base64Encode(token)
 
 **Syntax**
 
-```vb
-Crypto.SHA1(text_or_bytes) As String
-```
+    Crypto.SHA1(text_or_bytes) As String
 
 **Parameters**
 
@@ -6380,9 +6053,7 @@ Returns the SHA-1 hash as lowercase hex. Alias: SHA1.
 
 **Example**
 
-```vb
-Print SHA1("hello")
-```
+    Print SHA1("hello")
 
 **See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA256](#cryptosha256), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
 
@@ -6394,9 +6065,7 @@ Print SHA1("hello")
 
 **Syntax**
 
-```vb
-Crypto.SHA256(text_or_bytes) As String
-```
+    Crypto.SHA256(text_or_bytes) As String
 
 **Parameters**
 
@@ -6408,10 +6077,8 @@ Returns the SHA-256 hash as lowercase hex. Accepts a String (UTF-8) or PackedByt
 
 **Example**
 
-```vb
-Dim h = SHA256("password")
-Print h
-```
+    Dim h = SHA256("password")
+    Print h
 
 **See Also** — [Crypto.MD5](#cryptomd5), [Crypto.SHA1](#cryptosha1), [Crypto.HMAC](#cryptohmac), [Crypto.RandomBytes](#cryptorandombytes), [Crypto.Hex](#cryptohex), [Crypto.FromHex](#cryptofromhex), [Crypto.Base64](#cryptobase64), [Crypto.Base64Encode](#cryptobase64encode), [Crypto.Base64Decode](#cryptobase64decode)
 
@@ -6423,9 +6090,7 @@ Print h
 
 **Syntax**
 
-```vb
-CStr(expression)
-```
+    CStr(expression)
 
 **Parameters**
 
@@ -6437,10 +6102,8 @@ Explicitly converts any expression to a String.
 
 **Example**
 
-```vb
-Dim s As String = CStr(42)    ' "42"
-Dim t As String = CStr(True)  ' "True"
-```
+    Dim s As String = CStr(42)    ' "42"
+    Dim t As String = CStr(True)  ' "True"
 
 **See Also** — [CInt](#cint), [Val](#val), [Str](#str), [Int](#int)
 
@@ -6455,9 +6118,7 @@ Dim t As String = CStr(True)  ' "True"
 
 **Syntax**
 
-```vb
-Darken(color, amount)
-```
+    Darken(color, amount)
 
 **Parameters**
 
@@ -6470,9 +6131,7 @@ Returns a darker shade of the color. Amount is 0..1 (0=unchanged, 1=black).
 
 **Example**
 
-```vb
-shadow = Darken(skinColor, 0.4)
-```
+    shadow = Darken(skinColor, 0.4)
 
 **See Also** — [ColorFromHSV](#colorfromhsv), [ColorToHSV](#colortohsv), [Lighten](#lighten), [RGB](#rgb)
 
@@ -6484,20 +6143,8 @@ shadow = Darken(skinColor, 0.4)
 
 **Syntax**
 
-```vb
-Data value1, value2, value3, ...
-Data "string", 42, 3.14
-```
-
-**Parameters**
-
-- `value1`
-- `value2`
-- `value3`
-- `...
-Data "string"`
-- `42`
-- `3.14`
+    Data value1, value2, value3, ...
+    Data "string", 42, 3.14
 
 **Description**
 
@@ -6505,14 +6152,12 @@ Stores inline data values that can be read sequentially with Read. Supports stri
 
 **Example**
 
-```vb
-Data "Sword", 10, 50
-Data "Shield", 5, 30
-Data "Potion", 0, 15
+    Data "Sword", 10, 50
+    Data "Shield", 5, 30
+    Data "Potion", 0, 15
 
-Dim itemName As String, atk As Integer, cost As Integer
-Read itemName, atk, cost
-```
+    Dim itemName As String, atk As Integer, cost As Integer
+    Read itemName, atk, cost
 
 **See Also** — [Open](#open), [Close](#close), [Line Input](#line-input), [Read](#read), [Restore](#restore)
 
@@ -6524,9 +6169,7 @@ Read itemName, atk, cost
 
 **Syntax**
 
-```vb
-delta As Single
-```
+    delta As Single
 
 **Parameters**
 
@@ -6538,11 +6181,9 @@ The elapsed time since the previous frame (in seconds). Passed to [b]_Process[/b
 
 **Example**
 
-```vb
-Sub _Process(delta As Single)
-    position.x += speed * delta
-End Sub
-```
+    Sub _Process(delta As Single)
+        position.x += speed * delta
+    End Sub
 
 **Godot Mapping** — [`Node._process()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_process)
 
@@ -6556,9 +6197,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Dim variableName As DataType [= initialValue]
-```
+    Dim variableName As DataType [= initialValue]
 
 **Parameters**
 
@@ -6570,12 +6209,10 @@ Declares a local variable with an optional type and initial value. Variables dec
 
 **Example**
 
-```vb
-Dim score As Integer = 0
-Dim playerName As String = "Hero"
-Dim items() As String
-Dim health As Single = 100.0
-```
+    Dim score As Integer = 0
+    Dim playerName As String = "Hero"
+    Dim items() As String
+    Dim health As Single = 100.0
 
 **See Also** — [Private](#private), [Public](#public), [Global](#global), [Static](#static), [Const](#const), [ReDim](#redim), [Type](#type)
 
@@ -6587,17 +6224,9 @@ Dim health As Single = 100.0
 
 **Syntax**
 
-```vb
-Do [While|Until condition]
-    statements
-Loop [While|Until condition]
-```
-
-**Parameters**
-
-- `While|Until condition
-    statements
-Loop While|Until condition`
+    Do [While|Until condition]
+        statements
+    Loop [While|Until condition]
 
 **Description**
 
@@ -6605,17 +6234,15 @@ Repeats a block while or until a condition is met. The condition can appear at t
 
 **Example**
 
-```vb
-' Pre-check loop
-Do While health > 0
-    ProcessTurn()
-Loop
+    ' Pre-check loop
+    Do While health > 0
+        ProcessTurn()
+    Loop
 
-' Post-check loop (runs at least once)
-Do
-    answer = InputBox("Guess?")
-Loop Until answer = secretWord
-```
+    ' Post-check loop (runs at least once)
+    Do
+        answer = InputBox("Guess?")
+    Loop Until answer = secretWord
 
 **See Also** — [Loop](#loop), [While](#while), [Wend](#wend), [Until](#until), [Exit](#exit)
 
@@ -6627,9 +6254,7 @@ Loop Until answer = secretWord
 
 **Syntax**
 
-```vb
-DoEvents
-```
+    DoEvents
 
 **Description**
 
@@ -6637,12 +6262,10 @@ Yields control to the engine to process pending events (UI updates, input, etc.)
 
 **Example**
 
-```vb
-For i = 1 To 10000
-    ProcessItem(i)
-    If i Mod 100 = 0 Then DoEvents  ' Keep UI responsive
-Next
-```
+    For i = 1 To 10000
+        ProcessItem(i)
+        If i Mod 100 = 0 Then DoEvents  ' Keep UI responsive
+    Next
 
 **See Also** — [Async](#async), [Await](#await)
 
@@ -6654,9 +6277,7 @@ Next
 
 **Syntax**
 
-```vb
-Dim varName As Double
-```
+    Dim varName As Double
 
 **Parameters**
 
@@ -6668,10 +6289,8 @@ A double-precision floating-point number (64-bit). More precision than Single.
 
 **Example**
 
-```vb
-Dim pi As Double = 3.14159265358979
-Dim distance As Double
-```
+    Dim pi As Double = 3.14159265358979
+    Dim distance As Double
 
 **See Also** — [Integer](#integer), [Long](#long), [Single](#single), [String](#string), [Boolean](#boolean), [Variant](#variant), [Array](#array)
 
@@ -6683,9 +6302,7 @@ Dim distance As Double
 
 **Syntax**
 
-```vb
-DrawArc x, y, radius, startAngle, endAngle [, pointCount] [, color] [, width]
-```
+    DrawArc x, y, radius, startAngle, endAngle [, pointCount] [, color] [, width]
 
 **Parameters**
 
@@ -6704,16 +6321,14 @@ Draws an arc (partial circle outline) centered at (x,y). Angles are in radians (
 
 **Example**
 
-```vb
-Sub _Draw()
-    ' Half circle (0 to PI)
-    DrawArc 200, 200, 80, 0, 3.14159, 32, Color.Red, 2
-    ' Quarter circle
-    DrawArc 400, 200, 60, 0, 1.5708, 16, Color.Blue, 3
-    ' Full circle outline
-    DrawArc 300, 300, 100, 0, 6.28318, 64, Color.White, 1
-End Sub
-```
+    Sub _Draw()
+        ' Half circle (0 to PI)
+        DrawArc 200, 200, 80, 0, 3.14159, 32, Color.Red, 2
+        ' Quarter circle
+        DrawArc 400, 200, 60, 0, 1.5708, 16, Color.Blue, 3
+        ' Full circle outline
+        DrawArc 300, 300, 100, 0, 6.28318, 64, Color.White, 1
+    End Sub
 
 **See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
 
@@ -6725,15 +6340,8 @@ End Sub
 
 **Syntax**
 
-```vb
-DrawCircle x, y, radius, color
-DrawCircle Vector2(x, y), radius, color
-```
-
-**Parameters**
-
-- `x`
-- `y`
+    DrawCircle x, y, radius, color
+    DrawCircle Vector2(x, y), radius, color
 
 **Description**
 
@@ -6741,12 +6349,10 @@ Draws a filled circle at the specified center position with the given radius and
 
 **Example**
 
-```vb
-Sub _Draw()
-    DrawCircle 200, 150, 50, Color(0, 1, 0)        ' Green circle
-    DrawCircle Vector2(400, 300), 30, Color.Red      ' Godot-style
-End Sub
-```
+    Sub _Draw()
+        DrawCircle 200, 150, 50, Color(0, 1, 0)        ' Green circle
+        DrawCircle Vector2(400, 300), 30, Color.Red      ' Godot-style
+    End Sub
 
 **See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
 
@@ -6758,15 +6364,8 @@ End Sub
 
 **Syntax**
 
-```vb
-DrawLine x1, y1, x2, y2, color [, width]
-DrawLine Vector2(x1,y1), Vector2(x2,y2), color [, width]
-```
-
-**Parameters**
-
-- `x1`
-- `y1`
+    DrawLine x1, y1, x2, y2, color [, width]
+    DrawLine Vector2(x1,y1), Vector2(x2,y2), color [, width]
 
 **Description**
 
@@ -6774,12 +6373,10 @@ Draws a line between two points with an optional width.
 
 **Example**
 
-```vb
-Sub _Draw()
-    DrawLine 0, 0, 100, 100, Color(1, 1, 0), 2     ' Yellow 2px line
-    DrawLine Vector2(50, 50), Vector2(200, 100), Color.White
-End Sub
-```
+    Sub _Draw()
+        DrawLine 0, 0, 100, 100, Color(1, 1, 0), 2     ' Yellow 2px line
+        DrawLine Vector2(50, 50), Vector2(200, 100), Color.White
+    End Sub
 
 **See Also** — [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
 
@@ -6791,9 +6388,7 @@ End Sub
 
 **Syntax**
 
-```vb
-DrawPixel x, y, color
-```
+    DrawPixel x, y, color
 
 **Parameters**
 
@@ -6807,16 +6402,14 @@ Draws a single pixel at the specified position. Equivalent to PSet. For per-pixe
 
 **Example**
 
-```vb
-Sub _Draw()
-    DrawPixel 100, 50, Color(1, 0, 0)   ' Red pixel
-    PSet 101, 50, Color(0, 1, 0)         ' Green pixel (alias)
-End Sub
+    Sub _Draw()
+        DrawPixel 100, 50, Color(1, 0, 0)   ' Red pixel
+        PSet 101, 50, Color(0, 1, 0)         ' Green pixel (alias)
+    End Sub
 
-' For heavy pixel work, use Image APIs:
-Dim img = CreateImage(320, 240)
-SetImagePixel img, 100, 50, Color(1, 0, 0)
-```
+    ' For heavy pixel work, use Image APIs:
+    Dim img = CreateImage(320, 240)
+    SetImagePixel img, 100, 50, Color(1, 0, 0)
 
 **See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
 
@@ -6828,9 +6421,7 @@ SetImagePixel img, 100, 50, Color(1, 0, 0)
 
 **Syntax**
 
-```vb
-DrawPolygon points, color
-```
+    DrawPolygon points, color
 
 **Parameters**
 
@@ -6843,18 +6434,16 @@ Draws a filled polygon from an array of Vector2 points. Points should be in orde
 
 **Example**
 
-```vb
-Sub _Draw()
-    ' Triangle
-    Dim tri As Variant = Array(Vector2(100,200), Vector2(200,50), Vector2(300,200))
-    DrawPolygon tri, Color.Green
-    ' Pentagon
-    Dim pent As Variant = Array( _
-        Vector2(200,50), Vector2(300,120), Vector2(260,230), _
-        Vector2(140,230), Vector2(100,120))
-    DrawPolygon pent, Color(0.5, 0.2, 0.8)
-End Sub
-```
+    Sub _Draw()
+        ' Triangle
+        Dim tri As Variant = Array(Vector2(100,200), Vector2(200,50), Vector2(300,200))
+        DrawPolygon tri, Color.Green
+        ' Pentagon
+        Dim pent As Variant = Array( _
+            Vector2(200,50), Vector2(300,120), Vector2(260,230), _
+            Vector2(140,230), Vector2(100,120))
+        DrawPolygon pent, Color(0.5, 0.2, 0.8)
+    End Sub
 
 **See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
 
@@ -6866,9 +6455,7 @@ End Sub
 
 **Syntax**
 
-```vb
-DrawPolyline points, color [, width]
-```
+    DrawPolyline points, color [, width]
 
 **Parameters**
 
@@ -6882,15 +6469,13 @@ Draws a multi-segment line through an array of Vector2 points. Unlike DrawPolygo
 
 **Example**
 
-```vb
-Sub _Draw()
-    ' Zigzag line
-    Dim pts As Variant = Array( _
-        Vector2(10,100), Vector2(50,50), Vector2(90,100), _
-        Vector2(130,50), Vector2(170,100))
-    DrawPolyline pts, Color.Yellow, 2
-End Sub
-```
+    Sub _Draw()
+        ' Zigzag line
+        Dim pts As Variant = Array( _
+            Vector2(10,100), Vector2(50,50), Vector2(90,100), _
+            Vector2(130,50), Vector2(170,100))
+        DrawPolyline pts, Color.Yellow, 2
+    End Sub
 
 **See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
 
@@ -6902,17 +6487,8 @@ End Sub
 
 **Syntax**
 
-```vb
-DrawRect x, y, width, height, color [, filled]
-DrawRect Rect2(x, y, w, h), color
-```
-
-**Parameters**
-
-- `x`
-- `y`
-- `w`
-- `h`
+    DrawRect x, y, width, height, color [, filled]
+    DrawRect Rect2(x, y, w, h), color
 
 **Description**
 
@@ -6920,13 +6496,11 @@ Draws a rectangle on screen in _Draw(). Can use VB-style (x, y, w, h) or Godot-s
 
 **Example**
 
-```vb
-Sub _Draw()
-    DrawRect 10, 10, 200, 100, Color(1, 0, 0)     ' Filled red rect
-    DrawRect 10, 10, 200, 100, Color(0, 0, 0), False  ' Black outline
-    DrawRect Rect2(50, 50, 100, 80), Color(0, 0, 1)   ' Godot-style
-End Sub
-```
+    Sub _Draw()
+        DrawRect 10, 10, 200, 100, Color(1, 0, 0)     ' Filled red rect
+        DrawRect 10, 10, 200, 100, Color(0, 0, 0), False  ' Black outline
+        DrawRect Rect2(50, 50, 100, 80), Color(0, 0, 1)   ' Godot-style
+    End Sub
 
 **See Also** — [DrawLine](#drawline), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
 
@@ -6938,9 +6512,7 @@ End Sub
 
 **Syntax**
 
-```vb
-DrawString font, position, text, color [, fontSize]
-```
+    DrawString font, position, text, color [, fontSize]
 
 **Parameters**
 
@@ -6956,13 +6528,11 @@ Draws text using a Godot Font object at the specified position. Use GetThemeDefa
 
 **Example**
 
-```vb
-Sub _Draw()
-    Dim f As Variant = GetThemeDefaultFont()
-    DrawString f, Vector2(10, 20), "Hello World!", Color.White
-    DrawString f, Vector2(10, 40), "Score: " & score, Color.Yellow
-End Sub
-```
+    Sub _Draw()
+        Dim f As Variant = GetThemeDefaultFont()
+        DrawString f, Vector2(10, 20), "Hello World!", Color.White
+        DrawString f, Vector2(10, 40), "Score: " & score, Color.Yellow
+    End Sub
 
 **See Also** — [DrawTexture](#drawtexture), [DrawTextureRect](#drawtexturerect)
 
@@ -6974,15 +6544,8 @@ End Sub
 
 **Syntax**
 
-```vb
-DrawTexture texture, x, y [, modulate]
-DrawTexture texture, Vector2(x, y) [, modulate]
-```
-
-**Parameters**
-
-- `x`
-- `y`
+    DrawTexture texture, x, y [, modulate]
+    DrawTexture texture, Vector2(x, y) [, modulate]
 
 **Description**
 
@@ -6990,19 +6553,17 @@ Draws a Texture2D at the given position. Use with LoadPicture, CreateTexture, or
 
 **Example**
 
-```vb
-' Load and draw a texture
-Dim tex As Variant = LoadPicture("res://icon.png")
-Sub _Draw()
-    DrawTexture tex, 100, 100
-    DrawTexture tex, 300, 100, Color(1, 0.5, 0.5, 0.8)  ' Tinted
-End Sub
+    ' Load and draw a texture
+    Dim tex As Variant = LoadPicture("res://icon.png")
+    Sub _Draw()
+        DrawTexture tex, 100, 100
+        DrawTexture tex, 300, 100, Color(1, 0.5, 0.5, 0.8)  ' Tinted
+    End Sub
 
-' Draw from an Image
-Dim img = CreateImage(64, 64, Color.Red)
-Dim tex2 = CreateTexture(img)
-DrawTexture tex2, 0, 0
-```
+    ' Draw from an Image
+    Dim img = CreateImage(64, 64, Color.Red)
+    Dim tex2 = CreateTexture(img)
+    DrawTexture tex2, 0, 0
 
 **See Also** — [DrawString](#drawstring), [DrawTextureRect](#drawtexturerect)
 
@@ -7014,17 +6575,8 @@ DrawTexture tex2, 0, 0
 
 **Syntax**
 
-```vb
-DrawTextureRect texture, Rect2(x, y, w, h), tile [, modulate]
-DrawTextureRect texture, x, y, w, h [, tile] [, modulate]
-```
-
-**Parameters**
-
-- `x`
-- `y`
-- `w`
-- `h`
+    DrawTextureRect texture, Rect2(x, y, w, h), tile [, modulate]
+    DrawTextureRect texture, x, y, w, h [, tile] [, modulate]
 
 **Description**
 
@@ -7032,21 +6584,19 @@ Draws a texture stretched or tiled into a rectangular area. Set tile=True to til
 
 **Example**
 
-```vb
-' Stretch a texture to fill a region
-Dim tex = LoadPicture("res://icon.png")
-Sub _Draw()
-    DrawTextureRect tex, Rect2(0, 0, 640, 480), False
-End Sub
+    ' Stretch a texture to fill a region
+    Dim tex = LoadPicture("res://icon.png")
+    Sub _Draw()
+        DrawTextureRect tex, Rect2(0, 0, 640, 480), False
+    End Sub
 
-' Image-based canvas with scaled display:
-Dim img = CreateImage(160, 120)   ' Small canvas
-Dim tex = CreateTexture(img)
-Sub _Draw()
-    UpdateTexture tex, img
-    DrawTextureRect tex, Rect2(0, 0, 640, 480), False  ' 4x scale
-End Sub
-```
+    ' Image-based canvas with scaled display:
+    Dim img = CreateImage(160, 120)   ' Small canvas
+    Dim tex = CreateTexture(img)
+    Sub _Draw()
+        UpdateTexture tex, img
+        DrawTextureRect tex, Rect2(0, 0, 640, 480), False  ' 4x scale
+    End Sub
 
 **See Also** — [DrawString](#drawstring), [DrawTexture](#drawtexture)
 
@@ -7061,14 +6611,8 @@ End Sub
 
 **Syntax**
 
-```vb
-Else
-    statements
-```
-
-**Parameters**
-
-- `statements`
+    Else
+        statements
 
 **Description**
 
@@ -7076,13 +6620,11 @@ Specifies code to execute when the If condition (and all ElseIf conditions) are 
 
 **Example**
 
-```vb
-If IsKeyPressed("space") Then
-    Jump()
-Else
-    Fall()
-End If
-```
+    If IsKeyPressed("space") Then
+        Jump()
+    Else
+        Fall()
+    End If
 
 **See Also** — [If](#if), [Then](#then), [ElseIf](#elseif), [End If](#end-if), [Select Case](#select-case), [IIf](#iif)
 
@@ -7094,15 +6636,8 @@ End If
 
 **Syntax**
 
-```vb
-ElseIf condition Then
-    statements
-```
-
-**Parameters**
-
-- `condition Then
-    statements`
+    ElseIf condition Then
+        statements
 
 **Description**
 
@@ -7110,17 +6645,15 @@ Provides an additional condition to test when the preceding If or ElseIf was Fal
 
 **Example**
 
-```vb
-If score >= 90 Then
-    grade = "A"
-ElseIf score >= 80 Then
-    grade = "B"
-ElseIf score >= 70 Then
-    grade = "C"
-Else
-    grade = "F"
-End If
-```
+    If score >= 90 Then
+        grade = "A"
+    ElseIf score >= 80 Then
+        grade = "B"
+    ElseIf score >= 70 Then
+        grade = "C"
+    Else
+        grade = "F"
+    End If
 
 **See Also** — [If](#if), [Then](#then), [Else](#else), [End If](#end-if), [Select Case](#select-case), [IIf](#iif)
 
@@ -7132,9 +6665,7 @@ End If
 
 **Syntax**
 
-```vb
-emit_signal(signal_name As String, ...)
-```
+    emit_signal(signal_name As String, ...)
 
 **Parameters**
 
@@ -7147,10 +6678,8 @@ Emits the given signal, optionally passing arguments to connected callbacks.
 
 **Example**
 
-```vb
-emit_signal("health_changed", currentHP)
-emit_signal("died")
-```
+    emit_signal("health_changed", currentHP)
+    emit_signal("died")
 
 **Godot Mapping** — [`Object.emit_signal()`](https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-emit_signal)
 
@@ -7164,9 +6693,7 @@ emit_signal("died")
 
 **Syntax**
 
-```vb
-End [Sub|Function|If|Select|Class|Type|With|Enum|Try|Using|Whenever]
-```
+    End [Sub|Function|If|Select|Class|Type|With|Enum|Try|Using|Whenever]
 
 **Parameters**
 
@@ -7178,14 +6705,12 @@ Terminates a block or ends program execution. When used alone, terminates the ap
 
 **Example**
 
-```vb
-End Sub
-End Function
-End If
-End Select
-End Class
-End  ' Terminate program
-```
+    End Sub
+    End Function
+    End If
+    End Select
+    End Class
+    End  ' Terminate program
 
 ---
 
@@ -7195,9 +6720,7 @@ End  ' Terminate program
 
 **Syntax**
 
-```vb
-End Class
-```
+    End Class
 
 **Parameters**
 
@@ -7209,11 +6732,9 @@ Terminates a Class definition.
 
 **Example**
 
-```vb
-Class Enemy
-    Public Speed As Single = 1.0
-End Class
-```
+    Class Enemy
+        Public Speed As Single = 1.0
+    End Class
 
 **See Also** — [Class](#class), [New](#new), [Set](#set), [Me](#me), [Implements](#implements), [Inherits](#inherits), [Interface](#interface), [Property](#property)
 
@@ -7225,9 +6746,7 @@ End Class
 
 **Syntax**
 
-```vb
-End Function
-```
+    End Function
 
 **Parameters**
 
@@ -7239,11 +6758,9 @@ Terminates a Function definition.
 
 **Example**
 
-```vb
-Function Square(x As Integer) As Integer
-    Square = x * x
-End Function
-```
+    Function Square(x As Integer) As Integer
+        Square = x * x
+    End Function
 
 **See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda)
 
@@ -7255,9 +6772,7 @@ End Function
 
 **Syntax**
 
-```vb
-End If
-```
+    End If
 
 **Parameters**
 
@@ -7269,11 +6784,9 @@ Terminates a multi-line If...Then...Else block.
 
 **Example**
 
-```vb
-If score > 100 Then
-    Print "Winner!"
-End If
-```
+    If score > 100 Then
+        Print "Winner!"
+    End If
 
 **See Also** — [If](#if), [Then](#then), [Else](#else), [ElseIf](#elseif), [Select Case](#select-case), [IIf](#iif)
 
@@ -7285,9 +6798,7 @@ End If
 
 **Syntax**
 
-```vb
-End Select
-```
+    End Select
 
 **Parameters**
 
@@ -7299,12 +6810,10 @@ Terminates a Select Case block.
 
 **Example**
 
-```vb
-Select Case x
-    Case 1
-        Print "One"
-End Select
-```
+    Select Case x
+        Case 1
+            Print "One"
+    End Select
 
 **See Also** — [Select](#select), [Select Case](#select-case), [Case](#case)
 
@@ -7316,9 +6825,7 @@ End Select
 
 **Syntax**
 
-```vb
-End Sub
-```
+    End Sub
 
 **Parameters**
 
@@ -7330,11 +6837,9 @@ Terminates a Sub procedure definition.
 
 **Example**
 
-```vb
-Sub Form_Load()
-    Print "Ready!"
-End Sub
-```
+    Sub Form_Load()
+        Print "Ready!"
+    End Sub
 
 **See Also** — [Sub](#sub), [Function](#function), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda)
 
@@ -7346,9 +6851,7 @@ End Sub
 
 **Syntax**
 
-```vb
-End With
-```
+    End With
 
 **Parameters**
 
@@ -7360,12 +6863,10 @@ Terminates a With block.
 
 **Example**
 
-```vb
-With player
-    .Health = 100
-    .Score = 0
-End With
-```
+    With player
+        .Health = 100
+        .Score = 0
+    End With
 
 **See Also** — [With](#with), [Using](#using)
 
@@ -7377,21 +6878,11 @@ End With
 
 **Syntax**
 
-```vb
-Enum EnumName
-    Value1 [= number]
-    Value2
-    ...
-End Enum
-```
-
-**Parameters**
-
-- `EnumName
-    Value1 = number
-    Value2
-    ...
-End Enum`
+    Enum EnumName
+        Value1 [= number]
+        Value2
+        ...
+    End Enum
 
 **Description**
 
@@ -7399,16 +6890,14 @@ Declares an enumeration — a set of named integer constants.
 
 **Example**
 
-```vb
-Enum GameState
-    Menu = 0
-    Playing = 1
-    Paused = 2
-    GameOver = 3
-End Enum
+    Enum GameState
+        Menu = 0
+        Playing = 1
+        Paused = 2
+        GameOver = 3
+    End Enum
 
-Dim state As GameState = GameState.Playing
-```
+    Dim state As GameState = GameState.Playing
 
 ---
 
@@ -7418,9 +6907,7 @@ Dim state As GameState = GameState.Playing
 
 **Syntax**
 
-```vb
-Event EventName([parameters])
-```
+    Event EventName([parameters])
 
 **Parameters**
 
@@ -7432,12 +6919,10 @@ Declares a custom event that can be raised with RaiseEvent.
 
 **Example**
 
-```vb
-Class Timer
-    Event Tick()
-    Event Elapsed(seconds As Integer)
-End Class
-```
+    Class Timer
+        Event Tick()
+        Event Elapsed(seconds As Integer)
+    End Class
 
 **See Also** — [RaiseEvent](#raiseevent), [WithEvents](#withevents)
 
@@ -7449,9 +6934,7 @@ End Class
 
 **Syntax**
 
-```vb
-Exit Sub | Exit Function | Exit For | Exit Do | Exit While
-```
+    Exit Sub | Exit Function | Exit For | Exit Do | Exit While
 
 **Parameters**
 
@@ -7463,14 +6946,12 @@ Immediately exits the current procedure or loop. Control passes to the statement
 
 **Example**
 
-```vb
-For i = 1 To 100
-    If items(i) = target Then
-        foundAt = i
-        Exit For
-    End If
-Next
-```
+    For i = 1 To 100
+        If items(i) = target Then
+            foundAt = i
+            Exit For
+        End If
+    Next
 
 **See Also** — [For](#for), [Next](#next), [For Each](#for-each), [Continue](#continue), [Do](#do), [Loop](#loop), [While](#while), [Wend](#wend), [Until](#until)
 
@@ -7485,9 +6966,7 @@ Next
 
 **Syntax**
 
-```vb
-False
-```
+    False
 
 **Description**
 
@@ -7495,10 +6974,8 @@ Boolean literal representing a false/off state.
 
 **Example**
 
-```vb
-Dim gameOver As Boolean = False
-Enabled = False
-```
+    Dim gameOver As Boolean = False
+    Enabled = False
 
 **See Also** — [True](#true), [Nothing](#nothing)
 
@@ -7510,9 +6987,7 @@ Enabled = False
 
 **Syntax**
 
-```vb
-FillImage image, color
-```
+    FillImage image, color
 
 **Parameters**
 
@@ -7525,18 +7000,16 @@ Fills the entire Image with a solid color. Much faster than looping over every p
 
 **Example**
 
-```vb
-Dim img = CreateImage(640, 480)
+    Dim img = CreateImage(640, 480)
 
-' Clear to white
-FillImage img, Color(1, 1, 1, 1)
+    ' Clear to white
+    FillImage img, Color(1, 1, 1, 1)
 
-' Clear to black
-FillImage img, Color(0, 0, 0, 1)
+    ' Clear to black
+    FillImage img, Color(0, 0, 0, 1)
 
-' Using Color8
-FillImage img, Color8(100, 150, 200, 255)
-```
+    ' Using Color8
+    FillImage img, Color8(100, 150, 200, 255)
 
 **See Also** — [CreateImage](#createimage), [FillImageRect](#fillimagerect), [GetImagePixel](#getimagepixel), [SetImagePixel](#setimagepixel), [BlitImage](#blitimage), [ImageWidth](#imagewidth), [ImageHeight](#imageheight)
 
@@ -7548,17 +7021,8 @@ FillImage img, Color8(100, 150, 200, 255)
 
 **Syntax**
 
-```vb
-FillImageRect image, Rect2i(x, y, w, h), color
-FillImageRect image, x, y, w, h, color
-```
-
-**Parameters**
-
-- `x`
-- `y`
-- `w`
-- `h`
+    FillImageRect image, Rect2i(x, y, w, h), color
+    FillImageRect image, x, y, w, h, color
 
 **Description**
 
@@ -7566,15 +7030,13 @@ Fills a rectangular region of an Image with a color. Faster than per-pixel loops
 
 **Example**
 
-```vb
-Dim img = CreateImage(320, 240, Color.White)
+    Dim img = CreateImage(320, 240, Color.White)
 
-' Draw a green rectangle
-FillImageRect img, Rect2i(10, 10, 100, 50), Color(0, 1, 0, 1)
+    ' Draw a green rectangle
+    FillImageRect img, Rect2i(10, 10, 100, 50), Color(0, 1, 0, 1)
 
-' VB-style arguments
-FillImageRect img, 50, 80, 200, 30, Color.Blue
-```
+    ' VB-style arguments
+    FillImageRect img, 50, 80, 200, 30, Color.Blue
 
 **See Also** — [CreateImage](#createimage), [FillImage](#fillimage), [GetImagePixel](#getimagepixel), [SetImagePixel](#setimagepixel), [BlitImage](#blitimage), [ImageWidth](#imagewidth), [ImageHeight](#imageheight)
 
@@ -7586,14 +7048,8 @@ FillImageRect img, 50, 80, 200, 30, Color.Blue
 
 **Syntax**
 
-```vb
-Finally
-    cleanup statements
-```
-
-**Parameters**
-
-- `cleanup statements`
+    Finally
+        cleanup statements
 
 **Description**
 
@@ -7601,14 +7057,12 @@ Code in the Finally block always executes, whether or not an error occurred. Use
 
 **Example**
 
-```vb
-Try
-    Open "log.txt" For Output As #1
-    Print #1, "Log entry"
-Finally
-    Close #1  ' Always closes the file
-End Try
-```
+    Try
+        Open "log.txt" For Output As #1
+        Print #1, "Log entry"
+    Finally
+        Close #1  ' Always closes the file
+    End Try
 
 **See Also** — [On Error](#on-error), [Try](#try), [Catch](#catch), [Throw](#throw)
 
@@ -7620,17 +7074,9 @@ End Try
 
 **Syntax**
 
-```vb
-For counter = start To end [Step increment]
-    statements
-Next [counter]
-```
-
-**Parameters**
-
-- `counter = start To end Step increment
-    statements
-Next counter`
+    For counter = start To end [Step increment]
+        statements
+    Next [counter]
 
 **Description**
 
@@ -7638,19 +7084,17 @@ Repeats a block of code a specific number of times. The Step clause controls the
 
 **Example**
 
-```vb
-For i = 1 To 10
-    Print i
-Next i
+    For i = 1 To 10
+        Print i
+    Next i
 
-For i = 10 To 0 Step -1
-    Print "Countdown: " & i
-Next
+    For i = 10 To 0 Step -1
+        Print "Countdown: " & i
+    Next
 
-For i = 0 To 100 Step 5
-    Print i
-Next
-```
+    For i = 0 To 100 Step 5
+        Print i
+    Next
 
 **See Also** — [Next](#next), [For Each](#for-each), [Continue](#continue), [Exit](#exit)
 
@@ -7662,17 +7106,9 @@ Next
 
 **Syntax**
 
-```vb
-For Each element In collection
-    statements
-Next [element]
-```
-
-**Parameters**
-
-- `Each element In collection
-    statements
-Next element`
+    For Each element In collection
+        statements
+    Next [element]
 
 **Description**
 
@@ -7680,12 +7116,10 @@ Iterates over every element in an array, list, or collection.
 
 **Example**
 
-```vb
-Dim names() As String = {"Alice", "Bob", "Carol"}
-For Each name In names
-    Print "Hello, " & name
-Next
-```
+    Dim names() As String = {"Alice", "Bob", "Carol"}
+    For Each name In names
+        Print "Hello, " & name
+    Next
 
 **See Also** — [For](#for), [Next](#next), [Continue](#continue), [Exit](#exit)
 
@@ -7697,9 +7131,7 @@ Next
 
 **Syntax**
 
-```vb
-Format(expression, formatString)
-```
+    Format(expression, formatString)
 
 **Parameters**
 
@@ -7712,10 +7144,8 @@ Formats a number, date, or string according to the format pattern.
 
 **Example**
 
-```vb
-Print Format(1234.5, "#,##0.00")  ' "1,234.50"
-Print Format(0.75, "0%")          ' "75%"
-```
+    Print Format(1234.5, "#,##0.00")  ' "1,234.50"
+    Print Format(0.75, "0%")          ' "75%"
 
 **See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join)
 
@@ -7727,16 +7157,10 @@ Print Format(0.75, "0%")          ' "75%"
 
 **Syntax**
 
-```vb
-[Public|Private] Function name([params]) As ReturnType
-    statements
-    Function = returnValue  ' or: Return returnValue
-End Function
-```
-
-**Parameters**
-
-- `params`
+    [Public|Private] Function name([params]) As ReturnType
+        statements
+        Function = returnValue  ' or: Return returnValue
+    End Function
 
 **Description**
 
@@ -7744,18 +7168,16 @@ Declares a function that returns a value. Set the return value by assigning to t
 
 **Example**
 
-```vb
-Function AddScore(points As Integer) As Integer
-    score = score + points
-    AddScore = score  ' Return value
-End Function
+    Function AddScore(points As Integer) As Integer
+        score = score + points
+        AddScore = score  ' Return value
+    End Function
 
-Function GetGrade(score As Integer) As String
-    If score >= 90 Then Return "A"
-    If score >= 80 Then Return "B"
-    Return "C"
-End Function
-```
+    Function GetGrade(score As Integer) As String
+        If score >= 90 Then Return "A"
+        If score >= 80 Then Return "B"
+        Return "C"
+    End Function
 
 **See Also** — [Sub](#sub), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda)
 
@@ -7770,9 +7192,7 @@ End Function
 
 **Syntax**
 
-```vb
-get_global_mouse_position() As Vector2
-```
+    get_global_mouse_position() As Vector2
 
 **Description**
 
@@ -7780,10 +7200,8 @@ Returns the mouse position in global coordinates.
 
 **Example**
 
-```vb
-Dim mouse As Vector2 = get_global_mouse_position()
-look_at(mouse)
-```
+    Dim mouse As Vector2 = get_global_mouse_position()
+    look_at(mouse)
 
 **Godot Mapping** — [`CanvasItem.get_global_mouse_position()`](https://docs.godotengine.org/en/stable/classes/class_canvasitem.html#class-canvasitem-method-get_global_mouse_position)
 
@@ -7795,9 +7213,7 @@ look_at(mouse)
 
 **Syntax**
 
-```vb
-get_node(path As NodePath) As Node
-```
+    get_node(path As NodePath) As Node
 
 **Parameters**
 
@@ -7809,10 +7225,8 @@ Returns the node at the given path relative to this node. Also available via the
 
 **Example**
 
-```vb
-Dim player As Node = get_node("Player")
-Dim label As Node = get_node("UI/ScoreLabel")
-```
+    Dim player As Node = get_node("Player")
+    Dim label As Node = get_node("UI/ScoreLabel")
 
 **Godot Mapping** — [`Node.get_node()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get_node)
 
@@ -7826,9 +7240,7 @@ Dim label As Node = get_node("UI/ScoreLabel")
 
 **Syntax**
 
-```vb
-get_tree() As SceneTree
-```
+    get_tree() As SceneTree
 
 **Description**
 
@@ -7836,10 +7248,8 @@ Returns the SceneTree this node belongs to. Used for scene management, groups, a
 
 **Example**
 
-```vb
-get_tree().change_scene_to_file("res://GameOver.tscn")
-get_tree().quit()
-```
+    get_tree().change_scene_to_file("res://GameOver.tscn")
+    get_tree().quit()
 
 **Godot Mapping** — [`Node.get_tree()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get_tree)
 
@@ -7853,9 +7263,7 @@ get_tree().quit()
 
 **Syntax**
 
-```vb
-GetImagePixel(image, x, y) As Color
-```
+    GetImagePixel(image, x, y) As Color
 
 **Parameters**
 
@@ -7869,17 +7277,15 @@ Returns the color of a pixel from an Image. The returned Color has .r, .g, .b, .
 
 **Example**
 
-```vb
-Dim img = CreateImage(100, 100, Color.Red)
-Dim c As Variant = GetImagePixel(img, 50, 50)
-Print "R=" & Str(c.r)   ' 1.0
-Print "G=" & Str(c.g)   ' 0.0
+    Dim img = CreateImage(100, 100, Color.Red)
+    Dim c As Variant = GetImagePixel(img, 50, 50)
+    Print "R=" & Str(c.r)   ' 1.0
+    Print "G=" & Str(c.g)   ' 0.0
 
-' Get as integer 0-255
-Dim r As Integer = Int(c.r * 255)
-Dim g As Integer = Int(c.g * 255)
-Dim b As Integer = Int(c.b * 255)
-```
+    ' Get as integer 0-255
+    Dim r As Integer = Int(c.r * 255)
+    Dim g As Integer = Int(c.g * 255)
+    Dim b As Integer = Int(c.b * 255)
 
 **See Also** — [CreateImage](#createimage), [FillImage](#fillimage), [FillImageRect](#fillimagerect), [SetImagePixel](#setimagepixel), [BlitImage](#blitimage), [ImageWidth](#imagewidth), [ImageHeight](#imageheight)
 
@@ -7891,9 +7297,7 @@ Dim b As Integer = Int(c.b * 255)
 
 **Syntax**
 
-```vb
-GetTextureImage(texture) As Image
-```
+    GetTextureImage(texture) As Image
 
 **Parameters**
 
@@ -7905,12 +7309,10 @@ Extracts the Image data from an ImageTexture. Useful for reading pixel data from
 
 **Example**
 
-```vb
-Dim tex = LoadPicture("res://icon.png")
-Dim img = GetTextureImage(tex)
-Dim c = GetImagePixel(img, 0, 0)  ' Read top-left pixel
-Print "Top-left color: R=" & Str(Int(c.r * 255))
-```
+    Dim tex = LoadPicture("res://icon.png")
+    Dim img = GetTextureImage(tex)
+    Dim c = GetImagePixel(img, 0, 0)  ' Read top-left pixel
+    Print "Top-left color: R=" & Str(Int(c.r * 255))
 
 **See Also** — [ImageToTexture](#imagetotexture), [CreateTexture](#createtexture), [UpdateTexture](#updatetexture), [TextureWidth](#texturewidth), [TextureHeight](#textureheight)
 
@@ -7922,9 +7324,7 @@ Print "Top-left color: R=" & Str(Int(c.r * 255))
 
 **Syntax**
 
-```vb
-Global variableName As DataType
-```
+    Global variableName As DataType
 
 **Parameters**
 
@@ -7936,10 +7336,8 @@ Declares a module-level global variable accessible from any procedure in the for
 
 **Example**
 
-```vb
-Global highScore As Integer
-Global currentLevel As Integer = 1
-```
+    Global highScore As Integer
+    Global currentLevel As Integer = 1
 
 **See Also** — [Dim](#dim), [Private](#private), [Public](#public), [Static](#static), [Const](#const), [ReDim](#redim), [Type](#type)
 
@@ -7951,21 +7349,11 @@ Global currentLevel As Integer = 1
 
 **Syntax**
 
-```vb
-GoSub labelName
-...
-labelName:
-    statements
-Return
-```
-
-**Parameters**
-
-- `labelName
-...
-labelName:
-    statements
-Return`
+    GoSub labelName
+    ...
+    labelName:
+        statements
+    Return
 
 **Description**
 
@@ -7973,21 +7361,19 @@ Jumps to a labeled subroutine within the same procedure, then returns to the sta
 
 **Example**
 
-```vb
-Sub ProcessData()
-    GoSub ValidateInput
-    GoSub CalculateResult
-    Exit Sub
+    Sub ProcessData()
+        GoSub ValidateInput
+        GoSub CalculateResult
+        Exit Sub
 
-ValidateInput:
-    If data = "" Then Print "No data"
-    Return
+    ValidateInput:
+        If data = "" Then Print "No data"
+        Return
 
-CalculateResult:
-    result = data * 2
-    Return
-End Sub
-```
+    CalculateResult:
+        result = data * 2
+        Return
+    End Sub
 
 **See Also** — [GoTo](#goto), [Return](#return)
 
@@ -7999,9 +7385,7 @@ End Sub
 
 **Syntax**
 
-```vb
-GoTo labelName
-```
+    GoTo labelName
 
 **Parameters**
 
@@ -8013,15 +7397,13 @@ Transfers execution to the specified label. Primarily used in error handling (On
 
 **Example**
 
-```vb
-On Error GoTo ErrorHandler
-' ... code ...
-Exit Sub
+    On Error GoTo ErrorHandler
+    ' ... code ...
+    Exit Sub
 
-ErrorHandler:
-    Print "An error occurred"
-    Resume Next
-```
+    ErrorHandler:
+        Print "An error occurred"
+        Resume Next
 
 **See Also** — [GoSub](#gosub), [Return](#return)
 
@@ -8033,9 +7415,7 @@ ErrorHandler:
 
 **Syntax**
 
-```vb
-GPS.Accuracy() As Double
-```
+    GPS.Accuracy() As Double
 
 **Description**
 
@@ -8043,9 +7423,7 @@ Returns horizontal accuracy in meters. -1 means unknown / no fix yet.
 
 **Example**
 
-```vb
-If GPS.Accuracy() > 0 And GPS.Accuracy() < 20 Then UpdateMap()
-```
+    If GPS.Accuracy() > 0 And GPS.Accuracy() < 20 Then UpdateMap()
 
 **See Also** — [GPS.Lat](#gpslat), [GPS.Lng](#gpslng), [GPS.Alt](#gpsalt), [GPS.Speed](#gpsspeed)
 
@@ -8057,9 +7435,7 @@ If GPS.Accuracy() > 0 And GPS.Accuracy() < 20 Then UpdateMap()
 
 **Syntax**
 
-```vb
-GPS.Alt() As Double
-```
+    GPS.Alt() As Double
 
 **Description**
 
@@ -8067,9 +7443,7 @@ Returns altitude in meters above sea level. Stub returns 0.
 
 **Example**
 
-```vb
-Print GPS.Alt() & " m"
-```
+    Print GPS.Alt() & " m"
 
 **See Also** — [GPS.Lat](#gpslat), [GPS.Lng](#gpslng), [GPS.Accuracy](#gpsaccuracy), [GPS.Speed](#gpsspeed)
 
@@ -8081,9 +7455,7 @@ Print GPS.Alt() & " m"
 
 **Syntax**
 
-```vb
-GPS.Lat() As Double
-```
+    GPS.Lat() As Double
 
 **Description**
 
@@ -8091,9 +7463,7 @@ Returns latitude in decimal degrees. Returns 0 until a platform plugin publishes
 
 **Example**
 
-```vb
-Print "Lat: " & GPS.Lat()
-```
+    Print "Lat: " & GPS.Lat()
 
 **See Also** — [GPS.Lng](#gpslng), [GPS.Alt](#gpsalt), [GPS.Accuracy](#gpsaccuracy), [GPS.Speed](#gpsspeed)
 
@@ -8105,9 +7475,7 @@ Print "Lat: " & GPS.Lat()
 
 **Syntax**
 
-```vb
-GPS.Lng() As Double
-```
+    GPS.Lng() As Double
 
 **Description**
 
@@ -8115,9 +7483,7 @@ Returns longitude in decimal degrees. Returns 0 until a platform plugin publishe
 
 **Example**
 
-```vb
-Print "Lng: " & GPS.Lng()
-```
+    Print "Lng: " & GPS.Lng()
 
 **See Also** — [GPS.Lat](#gpslat), [GPS.Alt](#gpsalt), [GPS.Accuracy](#gpsaccuracy), [GPS.Speed](#gpsspeed)
 
@@ -8129,9 +7495,7 @@ Print "Lng: " & GPS.Lng()
 
 **Syntax**
 
-```vb
-GPS.Speed() As Double
-```
+    GPS.Speed() As Double
 
 **Description**
 
@@ -8139,9 +7503,7 @@ Returns ground speed in m/s. Stub returns 0.
 
 **Example**
 
-```vb
-Print (GPS.Speed() * 3.6) & " km/h"
-```
+    Print (GPS.Speed() * 3.6) & " km/h"
 
 **See Also** — [GPS.Lat](#gpslat), [GPS.Lng](#gpslng), [GPS.Alt](#gpsalt), [GPS.Accuracy](#gpsaccuracy)
 
@@ -8156,9 +7518,7 @@ Print (GPS.Speed() * 3.6) & " km/h"
 
 **Syntax**
 
-```vb
-hide()
-```
+    hide()
 
 **Description**
 
@@ -8166,9 +7526,7 @@ Makes this node invisible. Equivalent to setting [b]visible = False[/b].
 
 **Example**
 
-```vb
-hide   ' make invisible
-```
+    hide   ' make invisible
 
 **Godot Mapping** — [`CanvasItem.hide()`](https://docs.godotengine.org/en/stable/classes/class_canvasitem.html#class-canvasitem-method-hide)
 
@@ -8185,25 +7543,13 @@ hide   ' make invisible
 
 **Syntax**
 
-```vb
-If condition Then
-    statements
-[ElseIf condition Then]
-    statements
-[Else]
-    statements
-End If
-```
-
-**Parameters**
-
-- `condition Then
-    statements
-ElseIf condition Then
-    statements
-Else
-    statements
-End If`
+    If condition Then
+        statements
+    [ElseIf condition Then]
+        statements
+    [Else]
+        statements
+    End If
 
 **Description**
 
@@ -8211,19 +7557,17 @@ Executes code conditionally. Supports multi-line blocks with ElseIf and Else bra
 
 **Example**
 
-```vb
-If score > highScore Then
-    highScore = score
-    Print "New high score!"
-ElseIf score > 0 Then
-    Print "Good job!"
-Else
-    Print "Try again!"
-End If
+    If score > highScore Then
+        highScore = score
+        Print "New high score!"
+    ElseIf score > 0 Then
+        Print "Good job!"
+    Else
+        Print "Try again!"
+    End If
 
-' Single-line form:
-If health <= 0 Then gameOver = True
-```
+    ' Single-line form:
+    If health <= 0 Then gameOver = True
 
 **See Also** — [Then](#then), [Else](#else), [ElseIf](#elseif), [End If](#end-if), [Select Case](#select-case), [IIf](#iif)
 
@@ -8235,9 +7579,7 @@ If health <= 0 Then gameOver = True
 
 **Syntax**
 
-```vb
-IIf(condition, trueValue, falseValue)
-```
+    IIf(condition, trueValue, falseValue)
 
 **Parameters**
 
@@ -8251,10 +7593,8 @@ Inline If — returns one of two values based on a condition. Similar to the ter
 
 **Example**
 
-```vb
-message = IIf(score > 100, "Excellent!", "Keep trying!")
-color = IIf(health < 20, "Red", "Green")
-```
+    message = IIf(score > 100, "Excellent!", "Keep trying!")
+    color = IIf(health < 20, "Red", "Green")
 
 **See Also** — [If](#if), [Then](#then), [Else](#else), [ElseIf](#elseif), [End If](#end-if), [Select Case](#select-case)
 
@@ -8266,9 +7606,7 @@ color = IIf(health < 20, "Red", "Green")
 
 **Syntax**
 
-```vb
-ImageHeight(image) As Integer
-```
+    ImageHeight(image) As Integer
 
 **Parameters**
 
@@ -8280,17 +7618,15 @@ Returns the height of an Image in pixels.
 
 **Example**
 
-```vb
-Dim img = CreateImage(320, 240)
-Print ImageHeight(img)  ' 240
+    Dim img = CreateImage(320, 240)
+    Print ImageHeight(img)  ' 240
 
-' Iterate all pixels
-For y = 0 To ImageHeight(img) - 1
-    For x = 0 To ImageWidth(img) - 1
-        SetImagePixel img, x, y, Color(x/320.0, y/240.0, 0.5, 1)
+    ' Iterate all pixels
+    For y = 0 To ImageHeight(img) - 1
+        For x = 0 To ImageWidth(img) - 1
+            SetImagePixel img, x, y, Color(x/320.0, y/240.0, 0.5, 1)
+        Next
     Next
-Next
-```
 
 **See Also** — [CreateImage](#createimage), [FillImage](#fillimage), [FillImageRect](#fillimagerect), [GetImagePixel](#getimagepixel), [SetImagePixel](#setimagepixel), [BlitImage](#blitimage), [ImageWidth](#imagewidth)
 
@@ -8302,9 +7638,7 @@ Next
 
 **Syntax**
 
-```vb
-ImageToTexture(image) As ImageTexture
-```
+    ImageToTexture(image) As ImageTexture
 
 **Parameters**
 
@@ -8316,11 +7650,9 @@ Converts an Image object to a new ImageTexture. Similar to CreateTexture(image) 
 
 **Example**
 
-```vb
-Dim img = CreateImage(100, 100, Color.Green)
-Dim tex = ImageToTexture(img)
-DrawTexture tex, 50, 50
-```
+    Dim img = CreateImage(100, 100, Color.Green)
+    Dim tex = ImageToTexture(img)
+    DrawTexture tex, 50, 50
 
 **See Also** — [CreateTexture](#createtexture), [UpdateTexture](#updatetexture), [GetTextureImage](#gettextureimage), [TextureWidth](#texturewidth), [TextureHeight](#textureheight)
 
@@ -8332,9 +7664,7 @@ DrawTexture tex, 50, 50
 
 **Syntax**
 
-```vb
-ImageWidth(image) As Integer
-```
+    ImageWidth(image) As Integer
 
 **Parameters**
 
@@ -8346,11 +7676,9 @@ Returns the width of an Image in pixels.
 
 **Example**
 
-```vb
-Dim img = CreateImage(320, 240)
-Print ImageWidth(img)   ' 320
-Print ImageHeight(img)  ' 240
-```
+    Dim img = CreateImage(320, 240)
+    Print ImageWidth(img)   ' 320
+    Print ImageHeight(img)  ' 240
 
 **See Also** — [CreateImage](#createimage), [FillImage](#fillimage), [FillImageRect](#fillimagerect), [GetImagePixel](#getimagepixel), [SetImagePixel](#setimagepixel), [BlitImage](#blitimage), [ImageHeight](#imageheight)
 
@@ -8362,15 +7690,8 @@ Print ImageHeight(img)  ' 240
 
 **Syntax**
 
-```vb
-Class MyClass
-    Implements InterfaceName
-```
-
-**Parameters**
-
-- `MyClass
-    Implements InterfaceName`
+    Class MyClass
+        Implements InterfaceName
 
 **Description**
 
@@ -8378,18 +7699,16 @@ Declares that a class implements an interface and must provide all of its method
 
 **Example**
 
-```vb
-Interface IDamageable
-    Sub TakeDamage(amount As Integer)
-End Interface
+    Interface IDamageable
+        Sub TakeDamage(amount As Integer)
+    End Interface
 
-Class Player
-    Implements IDamageable
-    Sub TakeDamage(amount As Integer)
-        health = health - amount
-    End Sub
-End Class
-```
+    Class Player
+        Implements IDamageable
+        Sub TakeDamage(amount As Integer)
+            health = health - amount
+        End Sub
+    End Class
 
 **See Also** — [Class](#class), [End Class](#end-class), [New](#new), [Set](#set), [Me](#me), [Inherits](#inherits), [Interface](#interface), [Property](#property)
 
@@ -8401,15 +7720,8 @@ End Class
 
 **Syntax**
 
-```vb
-Class ChildClass
-    Inherits ParentClass
-```
-
-**Parameters**
-
-- `ChildClass
-    Inherits ParentClass`
+    Class ChildClass
+        Inherits ParentClass
 
 **Description**
 
@@ -8417,17 +7729,15 @@ Specifies that a class inherits from a base class, gaining its fields, propertie
 
 **Example**
 
-```vb
-Class Boss
-    Inherits Enemy
-    Public Phase As Integer = 1
+    Class Boss
+        Inherits Enemy
+        Public Phase As Integer = 1
 
-    Sub Attack()
-        MyBase.Attack()  ' Call parent method
-        ' Boss-specific attack
-    End Sub
-End Class
-```
+        Sub Attack()
+            MyBase.Attack()  ' Call parent method
+            ' Boss-specific attack
+        End Sub
+    End Class
 
 **See Also** — [Class](#class), [End Class](#end-class), [New](#new), [Set](#set), [Me](#me), [Implements](#implements), [Interface](#interface), [Property](#property)
 
@@ -8439,9 +7749,7 @@ End Class
 
 **Syntax**
 
-```vb
-result = InputBox(prompt [, title] [, default])
-```
+    result = InputBox(prompt [, title] [, default])
 
 **Parameters**
 
@@ -8455,11 +7763,9 @@ Displays a dialog with a text input field and returns the user's text.
 
 **Example**
 
-```vb
-Dim name As String
-name = InputBox("Enter your name:", "Player Setup", "Player 1")
-If name <> "" Then Print "Welcome, " & name
-```
+    Dim name As String
+    name = InputBox("Enter your name:", "Player Setup", "Player 1")
+    If name <> "" Then Print "Welcome, " & name
 
 **See Also** — [MsgBox](#msgbox), [LoadForm](#loadform)
 
@@ -8471,9 +7777,7 @@ If name <> "" Then Print "Welcome, " & name
 
 **Syntax**
 
-```vb
-instantiate() As Node
-```
+    instantiate() As Node
 
 **Description**
 
@@ -8481,11 +7785,9 @@ Creates an instance of a PackedScene. Load the scene first with [b]preload[/b] o
 
 **Example**
 
-```vb
-Dim scene As PackedScene = preload("res://Bullet.tscn")
-Dim bullet As Node = scene.instantiate()
-add_child bullet
-```
+    Dim scene As PackedScene = preload("res://Bullet.tscn")
+    Dim bullet As Node = scene.instantiate()
+    add_child bullet
 
 **Godot Mapping** — [`PackedScene.instantiate()`](https://docs.godotengine.org/en/stable/classes/class_packedscene.html#class-packedscene-method-instantiate)
 
@@ -8499,9 +7801,7 @@ add_child bullet
 
 **Syntax**
 
-```vb
-InStr([start,] string, search)
-```
+    InStr([start,] string, search)
 
 **Parameters**
 
@@ -8515,11 +7815,9 @@ Returns the position of the first occurrence of search within string (1-based). 
 
 **Example**
 
-```vb
-Dim pos As Integer
-pos = InStr("Hello World", "World")  ' 7
-pos = InStr("Hello", "xyz")  ' 0
-```
+    Dim pos As Integer
+    pos = InStr("Hello World", "World")  ' 7
+    pos = InStr("Hello", "xyz")  ' 0
 
 **See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
 
@@ -8531,9 +7829,7 @@ pos = InStr("Hello", "xyz")  ' 0
 
 **Syntax**
 
-```vb
-Int(number)
-```
+    Int(number)
 
 **Parameters**
 
@@ -8545,10 +7841,8 @@ Returns the integer portion of a number (truncates toward negative infinity).
 
 **Example**
 
-```vb
-Print Int(3.7)   ' 3
-Print Int(-3.7)  ' -4
-```
+    Print Int(3.7)   ' 3
+    Print Int(-3.7)  ' -4
 
 **See Also** — [CInt](#cint), [CStr](#cstr), [Val](#val), [Str](#str), [Abs](#abs), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod)
 
@@ -8560,9 +7854,7 @@ Print Int(-3.7)  ' -4
 
 **Syntax**
 
-```vb
-Dim varName As Integer
-```
+    Dim varName As Integer
 
 **Parameters**
 
@@ -8574,10 +7866,8 @@ A 32-bit signed integer type. Range: -2,147,483,648 to 2,147,483,647.
 
 **Example**
 
-```vb
-Dim score As Integer = 0
-Dim lives As Integer = 3
-```
+    Dim score As Integer = 0
+    Dim lives As Integer = 3
 
 **See Also** — [Long](#long), [Single](#single), [Double](#double), [String](#string), [Boolean](#boolean), [Variant](#variant), [Array](#array)
 
@@ -8589,16 +7879,10 @@ Dim lives As Integer = 3
 
 **Syntax**
 
-```vb
-Interface InterfaceName
-    Sub MethodName([params])
-    Function FuncName([params]) As Type
-End Interface
-```
-
-**Parameters**
-
-- `params`
+    Interface InterfaceName
+        Sub MethodName([params])
+        Function FuncName([params]) As Type
+    End Interface
 
 **Description**
 
@@ -8606,12 +7890,10 @@ Declares an interface — a contract that implementing classes must fulfill.
 
 **Example**
 
-```vb
-Interface ISerializable
-    Function Serialize() As String
-    Sub Deserialize(data As String)
-End Interface
-```
+    Interface ISerializable
+        Function Serialize() As String
+        Sub Deserialize(data As String)
+    End Interface
 
 **See Also** — [Class](#class), [End Class](#end-class), [New](#new), [Set](#set), [Me](#me), [Implements](#implements), [Inherits](#inherits), [Property](#property)
 
@@ -8623,9 +7905,7 @@ End Interface
 
 **Syntax**
 
-```vb
-Input.is_action_just_pressed(action As String) As Boolean
-```
+    Input.is_action_just_pressed(action As String) As Boolean
 
 **Parameters**
 
@@ -8637,11 +7917,9 @@ Returns True only on the frame the action was first pressed.
 
 **Example**
 
-```vb
-If Input.is_action_just_pressed("jump") And is_on_floor() Then
-    velocity.y = -jump_force
-End If
-```
+    If Input.is_action_just_pressed("jump") And is_on_floor() Then
+        velocity.y = -jump_force
+    End If
 
 **Godot Mapping** — [`Input.is_action_just_pressed()`](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-method-is_action_just_pressed)
 
@@ -8655,9 +7933,7 @@ End If
 
 **Syntax**
 
-```vb
-Input.is_action_just_released(action As String) As Boolean
-```
+    Input.is_action_just_released(action As String) As Boolean
 
 **Parameters**
 
@@ -8669,11 +7945,9 @@ Returns True only on the frame the action was released.
 
 **Example**
 
-```vb
-If Input.is_action_just_released("shoot") Then
-    ' fire charged shot
-End If
-```
+    If Input.is_action_just_released("shoot") Then
+        ' fire charged shot
+    End If
 
 **Godot Mapping** — [`Input.is_action_just_released()`](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-method-is_action_just_released)
 
@@ -8687,9 +7961,7 @@ End If
 
 **Syntax**
 
-```vb
-Input.is_action_pressed(action As String) As Boolean
-```
+    Input.is_action_pressed(action As String) As Boolean
 
 **Parameters**
 
@@ -8701,11 +7973,9 @@ Returns True while the specified input action is held down. Defined in Project �
 
 **Example**
 
-```vb
-If Input.is_action_pressed("move_left") Then
-    velocity.x = -speed
-End If
-```
+    If Input.is_action_pressed("move_left") Then
+        velocity.x = -speed
+    End If
 
 **Godot Mapping** — [`Input.is_action_pressed()`](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-method-is_action_pressed)
 
@@ -8719,9 +7989,7 @@ End If
 
 **Syntax**
 
-```vb
-is_on_floor() As Boolean
-```
+    is_on_floor() As Boolean
 
 **Description**
 
@@ -8729,11 +7997,9 @@ Returns True if the CharacterBody was on the floor during the last [b]move_and_s
 
 **Example**
 
-```vb
-If is_on_floor() Then
-    velocity.y = -jump_force
-End If
-```
+    If is_on_floor() Then
+        velocity.y = -jump_force
+    End If
 
 **Godot Mapping** — [`CharacterBody2D.is_on_floor()`](https://docs.godotengine.org/en/stable/classes/class_characterbody2d.html#class-characterbody2d-method-is_on_floor)
 
@@ -8747,9 +8013,7 @@ End If
 
 **Syntax**
 
-```vb
-is_on_wall() As Boolean
-```
+    is_on_wall() As Boolean
 
 **Description**
 
@@ -8757,11 +8021,9 @@ Returns True if the CharacterBody was touching a wall during the last [b]move_an
 
 **Example**
 
-```vb
-If is_on_wall() Then
-    ' wall slide or wall jump
-End If
-```
+    If is_on_wall() Then
+        ' wall slide or wall jump
+    End If
 
 **Godot Mapping** — [`CharacterBody2D.is_on_wall()`](https://docs.godotengine.org/en/stable/classes/class_characterbody2d.html#class-characterbody2d-method-is_on_wall)
 
@@ -8775,9 +8037,7 @@ End If
 
 **Syntax**
 
-```vb
-IsActionPressed(actionName) As Boolean
-```
+    IsActionPressed(actionName) As Boolean
 
 **Parameters**
 
@@ -8789,11 +8049,9 @@ Returns True if the specified input action (defined in Project Settings) is acti
 
 **Example**
 
-```vb
-If IsActionPressed("ui_accept") Then
-    SelectMenuItem()
-End If
-```
+    If IsActionPressed("ui_accept") Then
+        SelectMenuItem()
+    End If
 
 **See Also** — [IsKeyPressed](#iskeypressed), [PlaySound](#playsound), [ChangeScene](#changescene), [CreateActor2D](#createactor2d)
 
@@ -8805,9 +8063,7 @@ End If
 
 **Syntax**
 
-```vb
-IsKeyPressed(keyName) As Boolean
-```
+    IsKeyPressed(keyName) As Boolean
 
 **Parameters**
 
@@ -8819,14 +8075,12 @@ Returns True if the specified keyboard key is currently held down.
 
 **Example**
 
-```vb
-If IsKeyPressed("space") Then
-    Jump()
-End If
+    If IsKeyPressed("space") Then
+        Jump()
+    End If
 
-If IsKeyPressed("left") Then x = x - speed
-If IsKeyPressed("right") Then x = x + speed
-```
+    If IsKeyPressed("left") Then x = x - speed
+    If IsKeyPressed("right") Then x = x + speed
 
 **See Also** — [IsActionPressed](#isactionpressed), [PlaySound](#playsound), [ChangeScene](#changescene), [CreateActor2D](#createactor2d)
 
@@ -8841,9 +8095,7 @@ If IsKeyPressed("right") Then x = x + speed
 
 **Syntax**
 
-```vb
-Join(array, delimiter)
-```
+    Join(array, delimiter)
 
 **Parameters**
 
@@ -8856,10 +8108,8 @@ Joins an array of strings into a single string with a delimiter between each ele
 
 **Example**
 
-```vb
-Dim arr() As String = {"Red", "Green", "Blue"}
-Print Join(arr, ", ")  ' "Red, Green, Blue"
-```
+    Dim arr() As String = {"Red", "Green", "Blue"}
+    Print Join(arr, ", ")  ' "Red, Green, Blue"
 
 **See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Format](#format)
 
@@ -8871,9 +8121,7 @@ Print Join(arr, ", ")  ' "Red, Green, Blue"
 
 **Syntax**
 
-```vb
-Joypad.Axis(device, axisIndex) As Double
-```
+    Joypad.Axis(device, axisIndex) As Double
 
 **Parameters**
 
@@ -8886,12 +8134,10 @@ Returns the analog axis value (-1.0 to 1.0). Axis 0/1 = left stick, 2/3 = right 
 
 **Example**
 
-```vb
-' Move with left stick
-Dim mx = Joypad.Axis(0, 0)
-Dim my = Joypad.Axis(0, 1)
-position += Vector2(mx, my) * 200 * delta
-```
+    ' Move with left stick
+    Dim mx = Joypad.Axis(0, 0)
+    Dim my = Joypad.Axis(0, 1)
+    position += Vector2(mx, my) * 200 * delta
 
 **See Also** — [Joypad.Connected](#joypadconnected), [Joypad.IsConnected](#joypadisconnected), [Joypad.Name](#joypadname), [Joypad.Button](#joypadbutton), [Joypad.Stick](#joypadstick)
 
@@ -8903,9 +8149,7 @@ position += Vector2(mx, my) * 200 * delta
 
 **Syntax**
 
-```vb
-Joypad.Button(device, buttonIndex) As Boolean
-```
+    Joypad.Button(device, buttonIndex) As Boolean
 
 **Parameters**
 
@@ -8918,9 +8162,7 @@ Returns True if the given button is currently held down. 0=A/Cross, 1=B/Circle, 
 
 **Example**
 
-```vb
-If Joypad.Button(0, 0) Then Jump()
-```
+    If Joypad.Button(0, 0) Then Jump()
 
 **See Also** — [Joypad.Connected](#joypadconnected), [Joypad.IsConnected](#joypadisconnected), [Joypad.Name](#joypadname), [Joypad.Axis](#joypadaxis), [Joypad.Stick](#joypadstick)
 
@@ -8932,9 +8174,7 @@ If Joypad.Button(0, 0) Then Jump()
 
 **Syntax**
 
-```vb
-Joypad.Connected(device) As Boolean
-```
+    Joypad.Connected(device) As Boolean
 
 **Parameters**
 
@@ -8946,9 +8186,7 @@ Returns True if a joypad is connected at the given device index (0-based).
 
 **Example**
 
-```vb
-If Joypad.Connected(0) Then Print "Player 1 controller ready"
-```
+    If Joypad.Connected(0) Then Print "Player 1 controller ready"
 
 **See Also** — [Joypad.IsConnected](#joypadisconnected), [Joypad.Name](#joypadname), [Joypad.Axis](#joypadaxis), [Joypad.Button](#joypadbutton), [Joypad.Stick](#joypadstick)
 
@@ -8960,9 +8198,7 @@ If Joypad.Connected(0) Then Print "Player 1 controller ready"
 
 **Syntax**
 
-```vb
-Joypad.IsConnected(index) As Boolean
-```
+    Joypad.IsConnected(index) As Boolean
 
 **Parameters**
 
@@ -8974,9 +8210,7 @@ Returns True if a joypad/gamepad is currently connected at the given device inde
 
 **Example**
 
-```vb
-If Joypad.IsConnected(0) Then ShowPlayerJoinedIcon()
-```
+    If Joypad.IsConnected(0) Then ShowPlayerJoinedIcon()
 
 **See Also** — [Joypad.Connected](#joypadconnected), [Joypad.Name](#joypadname), [Joypad.Axis](#joypadaxis), [Joypad.Button](#joypadbutton), [Joypad.Stick](#joypadstick)
 
@@ -8988,9 +8222,7 @@ If Joypad.IsConnected(0) Then ShowPlayerJoinedIcon()
 
 **Syntax**
 
-```vb
-Joypad.Name(device) As String
-```
+    Joypad.Name(device) As String
 
 **Parameters**
 
@@ -9002,9 +8234,7 @@ Returns the joypad's name (e.g. "Xbox Wireless Controller"). Empty string if not
 
 **Example**
 
-```vb
-Print "P1: " & Joypad.Name(0)
-```
+    Print "P1: " & Joypad.Name(0)
 
 **See Also** — [Joypad.Connected](#joypadconnected), [Joypad.IsConnected](#joypadisconnected), [Joypad.Axis](#joypadaxis), [Joypad.Button](#joypadbutton), [Joypad.Stick](#joypadstick)
 
@@ -9016,9 +8246,7 @@ Print "P1: " & Joypad.Name(0)
 
 **Syntax**
 
-```vb
-Joypad.Stick(index, side) As Vector2
-```
+    Joypad.Stick(index, side) As Vector2
 
 **Parameters**
 
@@ -9031,10 +8259,8 @@ Returns the analog stick position as a Vector2 (-1..1 per axis). `side` is 0 for
 
 **Example**
 
-```vb
-Dim move = Joypad.Stick(0, 0)
-player.Velocity = move * speed
-```
+    Dim move = Joypad.Stick(0, 0)
+    player.Velocity = move * speed
 
 **See Also** — [Joypad.Connected](#joypadconnected), [Joypad.IsConnected](#joypadisconnected), [Joypad.Name](#joypadname), [Joypad.Axis](#joypadaxis), [Joypad.Button](#joypadbutton)
 
@@ -9046,9 +8272,7 @@ player.Velocity = move * speed
 
 **Syntax**
 
-```vb
-JS.Call(funcName, args...) As Variant
-```
+    JS.Call(funcName, args...) As Variant
 
 **Parameters**
 
@@ -9061,9 +8285,7 @@ Calls a JavaScript function in global scope. String args are quoted automaticall
 
 **Example**
 
-```vb
-JS.Call "console.log", "VG says hi"
-```
+    JS.Call "console.log", "VG says hi"
 
 **See Also** — [JS.Eval](#jseval), [JS.Get](#jsget)
 
@@ -9075,9 +8297,7 @@ JS.Call "console.log", "VG says hi"
 
 **Syntax**
 
-```vb
-JS.Eval(code [, useGlobal]) As Variant
-```
+    JS.Eval(code [, useGlobal]) As Variant
 
 **Parameters**
 
@@ -9090,10 +8310,8 @@ Evaluates a JavaScript expression and returns the result. useGlobal=True runs in
 
 **Example**
 
-```vb
-Dim t = JS.Eval("document.title", True)
-JS.Eval "alert('hi from VG')"
-```
+    Dim t = JS.Eval("document.title", True)
+    JS.Eval "alert('hi from VG')"
 
 **See Also** — [JS.Call](#jscall), [JS.Get](#jsget)
 
@@ -9105,9 +8323,7 @@ JS.Eval "alert('hi from VG')"
 
 **Syntax**
 
-```vb
-JS.Get(path) As Variant
-```
+    JS.Get(path) As Variant
 
 **Parameters**
 
@@ -9119,9 +8335,7 @@ Reads a JavaScript value by path (e.g. "window.location.href"). Shortcut for JS.
 
 **Example**
 
-```vb
-Print JS.Get("navigator.userAgent")
-```
+    Print JS.Get("navigator.userAgent")
 
 **See Also** — [JS.Eval](#jseval), [JS.Call](#jscall)
 
@@ -9136,16 +8350,10 @@ Print JS.Get("navigator.userAgent")
 
 **Syntax**
 
-```vb
-Lambda(params) expression
-Lambda(params)
-    statements
-End Lambda
-```
-
-**Parameters**
-
-- `params`
+    Lambda(params) expression
+    Lambda(params)
+        statements
+    End Lambda
 
 **Description**
 
@@ -9153,15 +8361,13 @@ Creates an anonymous function (closure) that can be stored in a variable or pass
 
 **Example**
 
-```vb
-Dim double As Function = Lambda(x) x * 2
-Print double(5)  ' 10
+    Dim double As Function = Lambda(x) x * 2
+    Print double(5)  ' 10
 
-Dim greet As Function = Lambda(name)
-    Print "Hello, " & name
-End Lambda
-greet("World")
-```
+    Dim greet As Function = Lambda(name)
+        Print "Hello, " & name
+    End Lambda
+    greet("World")
 
 **See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional)
 
@@ -9173,9 +8379,7 @@ greet("World")
 
 **Syntax**
 
-```vb
-LBound(arrayName [, dimension])
-```
+    LBound(arrayName [, dimension])
 
 **Parameters**
 
@@ -9188,11 +8392,9 @@ Returns the lowest valid index of an array (usually 0).
 
 **Example**
 
-```vb
-For i = LBound(arr) To UBound(arr)
-    Print arr(i)
-Next
-```
+    For i = LBound(arr) To UBound(arr)
+        Print arr(i)
+    Next
 
 **See Also** — [Array](#array), [ReDim](#redim), [UBound](#ubound)
 
@@ -9204,9 +8406,7 @@ Next
 
 **Syntax**
 
-```vb
-LCase(string)
-```
+    LCase(string)
 
 **Parameters**
 
@@ -9218,9 +8418,7 @@ Converts a string to lowercase.
 
 **Example**
 
-```vb
-Print LCase("HELLO")  ' "hello"
-```
+    Print LCase("HELLO")  ' "hello"
 
 **See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
 
@@ -9232,9 +8430,7 @@ Print LCase("HELLO")  ' "hello"
 
 **Syntax**
 
-```vb
-Left(string, length)
-```
+    Left(string, length)
 
 **Parameters**
 
@@ -9247,9 +8443,7 @@ Returns the specified number of characters from the beginning of a string.
 
 **Example**
 
-```vb
-Print Left("Hello World", 5)  ' "Hello"
-```
+    Print Left("Hello World", 5)  ' "Hello"
 
 **See Also** — [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
 
@@ -9261,9 +8455,7 @@ Print Left("Hello World", 5)  ' "Hello"
 
 **Syntax**
 
-```vb
-Len(string)
-```
+    Len(string)
 
 **Parameters**
 
@@ -9275,10 +8467,8 @@ Returns the number of characters in a string.
 
 **Example**
 
-```vb
-Dim s As String = "Hello"
-Print Len(s)  ' 5
-```
+    Dim s As String = "Hello"
+    Print Len(s)  ' 5
 
 **See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
 
@@ -9290,9 +8480,7 @@ Print Len(s)  ' 5
 
 **Syntax**
 
-```vb
-Lerp(a, b, t)
-```
+    Lerp(a, b, t)
 
 **Parameters**
 
@@ -9306,13 +8494,11 @@ Linearly interpolates between a and b by factor t (0.0 to 1.0).
 
 **Example**
 
-```vb
-' Smooth camera follow
-cameraX = Lerp(cameraX, playerX, 0.1)
+    ' Smooth camera follow
+    cameraX = Lerp(cameraX, playerX, 0.1)
 
-' Fade color
-alpha = Lerp(0.0, 1.0, fadeProgress)
-```
+    ' Fade color
+    alpha = Lerp(0.0, 1.0, fadeProgress)
 
 **See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Mod](#mod)
 
@@ -9324,9 +8510,7 @@ alpha = Lerp(0.0, 1.0, fadeProgress)
 
 **Syntax**
 
-```vb
-Lighten(color, amount)
-```
+    Lighten(color, amount)
 
 **Parameters**
 
@@ -9339,9 +8523,7 @@ Returns a lighter shade of the color. Amount is 0..1 (0=unchanged, 1=white).
 
 **Example**
 
-```vb
-buttonHover = Lighten(buttonNormal, 0.2)
-```
+    buttonHover = Lighten(buttonNormal, 0.2)
 
 **See Also** — [ColorFromHSV](#colorfromhsv), [ColorToHSV](#colortohsv), [Darken](#darken), [RGB](#rgb)
 
@@ -9353,9 +8535,7 @@ buttonHover = Lighten(buttonNormal, 0.2)
 
 **Syntax**
 
-```vb
-Line Input #fileNumber, variableName
-```
+    Line Input #fileNumber, variableName
 
 **Parameters**
 
@@ -9368,14 +8548,12 @@ Reads an entire line of text from a file (up to the newline character).
 
 **Example**
 
-```vb
-Open "names.txt" For Input As #1
-Do While Not EOF(1)
-    Line Input #1, currentLine
-    Print currentLine
-Loop
-Close #1
-```
+    Open "names.txt" For Input As #1
+    Do While Not EOF(1)
+        Line Input #1, currentLine
+        Print currentLine
+    Loop
+    Close #1
 
 **See Also** — [Open](#open), [Close](#close), [Data](#data), [Read](#read), [Restore](#restore)
 
@@ -9387,9 +8565,7 @@ Close #1
 
 **Syntax**
 
-```vb
-LoadForm formName
-```
+    LoadForm formName
 
 **Parameters**
 
@@ -9401,10 +8577,8 @@ Loads and displays a form by name.
 
 **Example**
 
-```vb
-LoadForm "SettingsForm"
-LoadForm "HighScores"
-```
+    LoadForm "SettingsForm"
+    LoadForm "HighScores"
 
 **See Also** — [MsgBox](#msgbox), [InputBox](#inputbox)
 
@@ -9416,9 +8590,7 @@ LoadForm "HighScores"
 
 **Syntax**
 
-```vb
-LoadImage(path) As Image
-```
+    LoadImage(path) As Image
 
 **Parameters**
 
@@ -9430,18 +8602,16 @@ Loads an image file (PNG, JPG, BMP, etc.) and returns it as an RGBA8 Image objec
 
 **Example**
 
-```vb
-Dim img = LoadImage("user://painting.png")
-Print "Size: " & Str(ImageWidth(img)) & "x" & Str(ImageHeight(img))
+    Dim img = LoadImage("user://painting.png")
+    Print "Size: " & Str(ImageWidth(img)) & "x" & Str(ImageHeight(img))
 
-' Read a pixel
-Dim c = GetImagePixel(img, 0, 0)
-Print "R=" & Str(Int(c.r * 255))
+    ' Read a pixel
+    Dim c = GetImagePixel(img, 0, 0)
+    Print "R=" & Str(Int(c.r * 255))
 
-' Convert to texture for display
-Dim tex = ImageToTexture(img)
-DrawTexture tex, 0, 0
-```
+    ' Convert to texture for display
+    Dim tex = ImageToTexture(img)
+    DrawTexture tex, 0, 0
 
 **See Also** — [LoadPicture](#loadpicture), [SaveImage](#saveimage), [RGB](#rgb)
 
@@ -9453,9 +8623,7 @@ DrawTexture tex, 0, 0
 
 **Syntax**
 
-```vb
-LoadPicture(path) As Texture2D
-```
+    LoadPicture(path) As Texture2D
 
 **Parameters**
 
@@ -9467,12 +8635,10 @@ Loads an image file from the given resource path and returns a Texture2D for use
 
 **Example**
 
-```vb
-Dim tex As Variant = LoadPicture("res://icon.png")
-Sub _Draw()
-    DrawTexture tex, 100, 100
-End Sub
-```
+    Dim tex As Variant = LoadPicture("res://icon.png")
+    Sub _Draw()
+        DrawTexture tex, 100, 100
+    End Sub
 
 **See Also** — [LoadImage](#loadimage), [SaveImage](#saveimage), [RGB](#rgb)
 
@@ -9484,9 +8650,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Dim varName As Long
-```
+    Dim varName As Long
 
 **Parameters**
 
@@ -9498,9 +8662,7 @@ A 64-bit signed integer type for very large numbers.
 
 **Example**
 
-```vb
-Dim bigNumber As Long = 9999999999
-```
+    Dim bigNumber As Long = 9999999999
 
 **See Also** — [Integer](#integer), [Single](#single), [Double](#double), [String](#string), [Boolean](#boolean), [Variant](#variant), [Array](#array)
 
@@ -9512,9 +8674,7 @@ Dim bigNumber As Long = 9999999999
 
 **Syntax**
 
-```vb
-look_at(target As Vector2)
-```
+    look_at(target As Vector2)
 
 **Parameters**
 
@@ -9526,9 +8686,7 @@ Rotates the node so it points toward the target position.
 
 **Example**
 
-```vb
-look_at(get_global_mouse_position())
-```
+    look_at(get_global_mouse_position())
 
 **Godot Mapping** — [`Node2D.look_at()`](https://docs.godotengine.org/en/stable/classes/class_node2d.html#class-node2d-method-look_at)
 
@@ -9542,9 +8700,7 @@ look_at(get_global_mouse_position())
 
 **Syntax**
 
-```vb
-Loop [While|Until condition]
-```
+    Loop [While|Until condition]
 
 **Parameters**
 
@@ -9556,11 +8712,9 @@ Terminates a Do loop. Optionally tests a condition after each iteration.
 
 **Example**
 
-```vb
-Do
-    x = x + 1
-Loop Until x >= 10
-```
+    Do
+        x = x + 1
+    Loop Until x >= 10
 
 **See Also** — [Do](#do), [While](#while), [Wend](#wend), [Until](#until), [Exit](#exit)
 
@@ -9575,9 +8729,7 @@ Loop Until x >= 10
 
 **Syntax**
 
-```vb
-Material.New(shader_code) As ShaderMaterial
-```
+    Material.New(shader_code) As ShaderMaterial
 
 **Parameters**
 
@@ -9589,12 +8741,10 @@ Compiles a shader from inline GLSL-like code and wraps it in a ShaderMaterial. A
 
 **Example**
 
-```vb
-Dim m = Material.New("shader_type canvas_item;\
-uniform float glow = 0.5;\
-void fragment() { COLOR = vec4(glow, 0.0, 0.0, 1.0); }")
-sprite.Material = m
-```
+    Dim m = Material.New("shader_type canvas_item;\
+    uniform float glow = 0.5;\
+    void fragment() { COLOR = vec4(glow, 0.0, 0.0, 1.0); }")
+    sprite.Material = m
 
 **See Also** — [Material.SetShader](#materialsetshader), [Shader.Param](#shaderparam), [Shader.GetParam](#shadergetparam), [Shader.Set](#shaderset), [Shader.Get](#shaderget)
 
@@ -9606,9 +8756,7 @@ sprite.Material = m
 
 **Syntax**
 
-```vb
-Material.SetShader(material, shader)
-```
+    Material.SetShader(material, shader)
 
 **Parameters**
 
@@ -9621,9 +8769,7 @@ Replaces the Shader resource of an existing ShaderMaterial.
 
 **Example**
 
-```vb
-Material.SetShader sprite.Material, glowShader
-```
+    Material.SetShader sprite.Material, glowShader
 
 **See Also** — [Material.New](#materialnew), [Shader.Param](#shaderparam), [Shader.GetParam](#shadergetparam), [Shader.Set](#shaderset), [Shader.Get](#shaderget)
 
@@ -9635,10 +8781,8 @@ Material.SetShader sprite.Material, glowShader
 
 **Syntax**
 
-```vb
-Me.PropertyName
-Me.MethodName()
-```
+    Me.PropertyName
+    Me.MethodName()
 
 **Description**
 
@@ -9646,14 +8790,12 @@ Refers to the current object instance. Similar to 'this' in C# or 'self' in Pyth
 
 **Example**
 
-```vb
-Class Player
-    Public Name As String
-    Sub Introduce()
-        Print "I am " & Me.Name
-    End Sub
-End Class
-```
+    Class Player
+        Public Name As String
+        Sub Introduce()
+            Print "I am " & Me.Name
+        End Sub
+    End Class
 
 **See Also** — [Class](#class), [End Class](#end-class), [New](#new), [Set](#set), [Implements](#implements), [Inherits](#inherits), [Interface](#interface), [Property](#property)
 
@@ -9665,9 +8807,7 @@ End Class
 
 **Syntax**
 
-```vb
-Mid(string, start [, length])
-```
+    Mid(string, start [, length])
 
 **Parameters**
 
@@ -9681,10 +8821,8 @@ Returns a substring starting at position start (1-based). If length is omitted, 
 
 **Example**
 
-```vb
-Print Mid("Hello World", 7)     ' "World"
-Print Mid("Hello World", 1, 5)  ' "Hello"
-```
+    Print Mid("Hello World", 7)     ' "World"
+    Print Mid("Hello World", 1, 5)  ' "Hello"
 
 **See Also** — [Left](#left), [Right](#right), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
 
@@ -9696,9 +8834,7 @@ Print Mid("Hello World", 1, 5)  ' "Hello"
 
 **Syntax**
 
-```vb
-number1 Mod number2
-```
+    number1 Mod number2
 
 **Parameters**
 
@@ -9710,13 +8846,11 @@ Modulo operator — returns the remainder after integer division.
 
 **Example**
 
-```vb
-If i Mod 2 = 0 Then
-    Print i & " is even"
-End If
+    If i Mod 2 = 0 Then
+        Print i & " is even"
+    End If
 
-frame = frame Mod maxFrames
-```
+    frame = frame Mod maxFrames
 
 **See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Lerp](#lerp)
 
@@ -9728,9 +8862,7 @@ frame = frame Mod maxFrames
 
 **Syntax**
 
-```vb
-move_and_slide() As Boolean
-```
+    move_and_slide() As Boolean
 
 **Description**
 
@@ -9738,12 +8870,10 @@ Moves the body based on [b]velocity[/b], sliding along collisions. Call in [b]_P
 
 **Example**
 
-```vb
-Sub _PhysicsProcess(delta As Single)
-    velocity.y += 980 * delta   ' gravity
-    move_and_slide
-End Sub
-```
+    Sub _PhysicsProcess(delta As Single)
+        velocity.y += 980 * delta   ' gravity
+        move_and_slide
+    End Sub
 
 **Godot Mapping** — [`CharacterBody2D.move_and_slide()`](https://docs.godotengine.org/en/stable/classes/class_characterbody2d.html#class-characterbody2d-method-move_and_slide)
 
@@ -9757,16 +8887,8 @@ End Sub
 
 **Syntax**
 
-```vb
-MsgBox prompt [, buttons] [, title]
-result = MsgBox(prompt, buttons, title)
-```
-
-**Parameters**
-
-- `prompt`
-- `buttons`
-- `title`
+    MsgBox prompt [, buttons] [, title]
+    result = MsgBox(prompt, buttons, title)
 
 **Description**
 
@@ -9774,14 +8896,12 @@ Displays a message dialog box. Can include OK/Cancel/Yes/No buttons and return t
 
 **Example**
 
-```vb
-MsgBox "Game Over!"
-MsgBox "Save game?", vbYesNo, "Save"
+    MsgBox "Game Over!"
+    MsgBox "Save game?", vbYesNo, "Save"
 
-Dim answer As Integer
-answer = MsgBox("Quit?", vbYesNo + vbQuestion, "Exit")
-If answer = vbYes Then End
-```
+    Dim answer As Integer
+    answer = MsgBox("Quit?", vbYesNo + vbQuestion, "Exit")
+    If answer = vbYes Then End
 
 **See Also** — [InputBox](#inputbox), [LoadForm](#loadform)
 
@@ -9796,9 +8916,7 @@ If answer = vbYes Then End
 
 **Syntax**
 
-```vb
-Nav.Distance(agent) As Double
-```
+    Nav.Distance(agent) As Double
 
 **Parameters**
 
@@ -9810,9 +8928,7 @@ Returns the remaining distance to the target along the path.
 
 **Example**
 
-```vb
-If Nav.Distance(enemyNav) < 50 Then Attack()
-```
+    If Nav.Distance(enemyNav) < 50 Then Attack()
 
 **See Also** — [Nav.SetTarget](#navsettarget), [Nav.NextPos](#navnextpos), [Nav.Reached](#navreached), [Nav.Path](#navpath)
 
@@ -9824,9 +8940,7 @@ If Nav.Distance(enemyNav) < 50 Then Attack()
 
 **Syntax**
 
-```vb
-Nav.NextPos(agent) As Vector
-```
+    Nav.NextPos(agent) As Vector
 
 **Parameters**
 
@@ -9838,13 +8952,11 @@ Returns the next step along the path. Call inside _PhysicsProcess to drive movem
 
 **Example**
 
-```vb
-Sub _PhysicsProcess(delta)
-    Dim step = Nav.NextPos(enemyNav)
-    velocity = (step - Position).Normalized() * 200
-    MoveAndSlide Me
-End Sub
-```
+    Sub _PhysicsProcess(delta)
+        Dim step = Nav.NextPos(enemyNav)
+        velocity = (step - Position).Normalized() * 200
+        MoveAndSlide Me
+    End Sub
 
 **See Also** — [Nav.SetTarget](#navsettarget), [Nav.Distance](#navdistance), [Nav.Reached](#navreached), [Nav.Path](#navpath)
 
@@ -9856,9 +8968,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Nav.Path(agent) As Array
-```
+    Nav.Path(agent) As Array
 
 **Parameters**
 
@@ -9870,11 +8980,9 @@ Returns the full computed path as an Array of Vector positions.
 
 **Example**
 
-```vb
-For Each pt In Nav.Path(enemyNav)
-    DrawCircle pt, 3, Color.Yellow
-Next
-```
+    For Each pt In Nav.Path(enemyNav)
+        DrawCircle pt, 3, Color.Yellow
+    Next
 
 **See Also** — [Nav.SetTarget](#navsettarget), [Nav.NextPos](#navnextpos), [Nav.Distance](#navdistance), [Nav.Reached](#navreached)
 
@@ -9886,9 +8994,7 @@ Next
 
 **Syntax**
 
-```vb
-Nav.Reached(agent) As Boolean
-```
+    Nav.Reached(agent) As Boolean
 
 **Parameters**
 
@@ -9900,9 +9006,7 @@ Returns True if the agent has finished navigating (arrived at target or path is 
 
 **Example**
 
-```vb
-If Nav.Reached(enemyNav) Then PickNewTarget()
-```
+    If Nav.Reached(enemyNav) Then PickNewTarget()
 
 **See Also** — [Nav.SetTarget](#navsettarget), [Nav.NextPos](#navnextpos), [Nav.Distance](#navdistance), [Nav.Path](#navpath)
 
@@ -9914,9 +9018,7 @@ If Nav.Reached(enemyNav) Then PickNewTarget()
 
 **Syntax**
 
-```vb
-Nav.SetTarget(agent, pos)
-```
+    Nav.SetTarget(agent, pos)
 
 **Parameters**
 
@@ -9929,9 +9031,7 @@ Sets the destination for a NavigationAgent. The agent computes a path and starts
 
 **Example**
 
-```vb
-Nav.SetTarget enemyNav, player.Position
-```
+    Nav.SetTarget enemyNav, player.Position
 
 **See Also** — [Nav.NextPos](#navnextpos), [Nav.Distance](#navdistance), [Nav.Reached](#navreached), [Nav.Path](#navpath)
 
@@ -9943,14 +9043,8 @@ Nav.SetTarget enemyNav, player.Position
 
 **Syntax**
 
-```vb
-Dim obj As New ClassName
-Set obj = New ClassName([args])
-```
-
-**Parameters**
-
-- `args`
+    Dim obj As New ClassName
+    Set obj = New ClassName([args])
 
 **Description**
 
@@ -9958,12 +9052,10 @@ Creates a new instance of a class or object type.
 
 **Example**
 
-```vb
-Dim player As New Player
-Dim enemies As New Collection
+    Dim player As New Player
+    Dim enemies As New Collection
 
-Set boss = New Boss("Dragon", 500)
-```
+    Set boss = New Boss("Dragon", 500)
 
 **See Also** — [Class](#class), [End Class](#end-class), [Set](#set), [Me](#me), [Implements](#implements), [Inherits](#inherits), [Interface](#interface), [Property](#property)
 
@@ -9975,9 +9067,7 @@ Set boss = New Boss("Dragon", 500)
 
 **Syntax**
 
-```vb
-NewCurve()
-```
+    NewCurve()
 
 **Description**
 
@@ -9985,13 +9075,11 @@ Creates an editable Curve resource for animation/easing. Use .AddPoint(Vector2(x
 
 **Example**
 
-```vb
-Dim arc = NewCurve()
-arc.AddPoint(Vector2(0, 0))
-arc.AddPoint(Vector2(0.5, 1.0))
-arc.AddPoint(Vector2(1.0, 0))
-Dim height = arc.Sample(t) * jumpMax
-```
+    Dim arc = NewCurve()
+    arc.AddPoint(Vector2(0, 0))
+    arc.AddPoint(Vector2(0.5, 1.0))
+    arc.AddPoint(Vector2(1.0, 0))
+    Dim height = arc.Sample(t) * jumpMax
 
 **See Also** — [NewRNG](#newrng), [NewNoise](#newnoise), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange)
 
@@ -10003,9 +9091,7 @@ Dim height = arc.Sample(t) * jumpMax
 
 **Syntax**
 
-```vb
-NewNoise([seed])
-```
+    NewNoise([seed])
 
 **Parameters**
 
@@ -10017,16 +9103,14 @@ Creates a FastNoiseLite generator for procedural content (terrain heightmaps, cl
 
 **Example**
 
-```vb
-Dim n = NewNoise(1337)
-n.Frequency = 0.05
-For x = 0 To 99
-    For y = 0 To 99
-        Dim h = (n.GetNoise2D(x, y) + 1) * 0.5  ' 0..1
-        heightmap(x, y) = h * 64
+    Dim n = NewNoise(1337)
+    n.Frequency = 0.05
+    For x = 0 To 99
+        For y = 0 To 99
+            Dim h = (n.GetNoise2D(x, y) + 1) * 0.5  ' 0..1
+            heightmap(x, y) = h * 64
+        Next
     Next
-Next
-```
 
 **See Also** — [NewRNG](#newrng), [NewCurve](#newcurve), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange)
 
@@ -10038,9 +9122,7 @@ Next
 
 **Syntax**
 
-```vb
-NewRNG([seed])
-```
+    NewRNG([seed])
 
 **Parameters**
 
@@ -10052,11 +9134,9 @@ Creates a per-stream RandomNumberGenerator. Unlike global Rnd(), each NewRNG has
 
 **Example**
 
-```vb
-Dim rng = NewRNG(42)            ' fixed seed
-Dim damage = rng.RandiRange(5, 10)
-Dim spread = rng.Randfn(0, 0.2)  ' normal distribution
-```
+    Dim rng = NewRNG(42)            ' fixed seed
+    Dim damage = rng.RandiRange(5, 10)
+    Dim spread = rng.Randfn(0, 0.2)  ' normal distribution
 
 **See Also** — [NewNoise](#newnoise), [NewCurve](#newcurve), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange)
 
@@ -10068,9 +9148,7 @@ Dim spread = rng.Randfn(0, 0.2)  ' normal distribution
 
 **Syntax**
 
-```vb
-Next [counter]
-```
+    Next [counter]
 
 **Parameters**
 
@@ -10082,11 +9160,9 @@ Marks the end of a For or For Each loop. The counter variable name is optional.
 
 **Example**
 
-```vb
-For i = 1 To 5
-    Print i
-Next i
-```
+    For i = 1 To 5
+        Print i
+    Next i
 
 **See Also** — [For](#for), [For Each](#for-each), [Continue](#continue), [Exit](#exit)
 
@@ -10098,9 +9174,7 @@ Next i
 
 **Syntax**
 
-```vb
-Not expression
-```
+    Not expression
 
 **Parameters**
 
@@ -10112,13 +9186,11 @@ Logical NOT — inverts a Boolean value.
 
 **Example**
 
-```vb
-If Not gameOver Then
-    UpdateGame()
-End If
+    If Not gameOver Then
+        UpdateGame()
+    End If
 
-Visible = Not Visible  ' Toggle
-```
+    Visible = Not Visible  ' Toggle
 
 **See Also** — [And](#and), [Or](#or), [Xor](#xor)
 
@@ -10130,15 +9202,8 @@ Visible = Not Visible  ' Toggle
 
 **Syntax**
 
-```vb
-Set obj = Nothing
-If obj Is Nothing Then ...
-```
-
-**Parameters**
-
-- `obj = Nothing
-If obj Is Nothing Then ...`
+    Set obj = Nothing
+    If obj Is Nothing Then ...
 
 **Description**
 
@@ -10146,13 +9211,11 @@ Represents a null object reference. Use to release object references or test if 
 
 **Example**
 
-```vb
-Set player = Nothing
+    Set player = Nothing
 
-If currentEnemy Is Nothing Then
-    Print "No enemy nearby"
-End If
-```
+    If currentEnemy Is Nothing Then
+        Print "No enemy nearby"
+    End If
 
 **See Also** — [True](#true), [False](#false)
 
@@ -10167,17 +9230,9 @@ End If
 
 **Syntax**
 
-```vb
-On Error GoTo labelName
-On Error Resume Next
-On Error GoTo 0
-```
-
-**Parameters**
-
-- `Error GoTo labelName
-On Error Resume Next
-On Error GoTo 0`
+    On Error GoTo labelName
+    On Error Resume Next
+    On Error GoTo 0
 
 **Description**
 
@@ -10185,19 +9240,17 @@ Sets up error handling. GoTo sends errors to a label. Resume Next skips errors. 
 
 **Example**
 
-```vb
-Sub LoadData()
-    On Error GoTo HandleError
-    Open "data.txt" For Input As #1
-    ' ... read data ...
-    Close #1
-    Exit Sub
+    Sub LoadData()
+        On Error GoTo HandleError
+        Open "data.txt" For Input As #1
+        ' ... read data ...
+        Close #1
+        Exit Sub
 
-HandleError:
-    Print "Error: " & Err.Description
-    Resume Next
-End Sub
-```
+    HandleError:
+        Print "Error: " & Err.Description
+        Resume Next
+    End Sub
 
 **See Also** — [Try](#try), [Catch](#catch), [Finally](#finally), [Throw](#throw)
 
@@ -10209,9 +9262,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Open filename For mode As #fileNumber
-```
+    Open filename For mode As #fileNumber
 
 **Parameters**
 
@@ -10223,17 +9274,15 @@ Opens a file for reading, writing, or appending. Modes: Input, Output, Append, B
 
 **Example**
 
-```vb
-' Read a file
-Open "scores.txt" For Input As #1
-Line Input #1, firstLine
-Close #1
+    ' Read a file
+    Open "scores.txt" For Input As #1
+    Line Input #1, firstLine
+    Close #1
 
-' Write a file
-Open "log.txt" For Output As #2
-Print #2, "Game started"
-Close #2
-```
+    ' Write a file
+    Open "log.txt" For Output As #2
+    Print #2, "Game started"
+    Close #2
 
 **See Also** — [Close](#close), [Line Input](#line-input), [Data](#data), [Read](#read), [Restore](#restore)
 
@@ -10245,9 +9294,7 @@ Close #2
 
 **Syntax**
 
-```vb
-Option Explicit
-```
+    Option Explicit
 
 **Parameters**
 
@@ -10259,14 +9306,12 @@ Requires all variables to be declared with Dim before use. Helps catch typos. Pl
 
 **Example**
 
-```vb
-Option Explicit
+    Option Explicit
 
-Sub Form_Load()
-    Dim score As Integer  ' Required with Option Explicit
-    score = 100
-End Sub
-```
+    Sub Form_Load()
+        Dim score As Integer  ' Required with Option Explicit
+        score = 100
+    End Sub
 
 ---
 
@@ -10276,9 +9321,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Sub ProcName(Optional paramName As Type = defaultValue)
-```
+    Sub ProcName(Optional paramName As Type = defaultValue)
 
 **Parameters**
 
@@ -10290,14 +9333,12 @@ Declares a parameter that the caller may omit. A default value is provided.
 
 **Example**
 
-```vb
-Sub ShowMessage(msg As String, Optional title As String = "Info")
-    MsgBox msg, title
-End Sub
+    Sub ShowMessage(msg As String, Optional title As String = "Info")
+        MsgBox msg, title
+    End Sub
 
-ShowMessage "Hello"         ' Uses default title
-ShowMessage "Error", "Oops"  ' Custom title
-```
+    ShowMessage "Hello"         ' Uses default title
+    ShowMessage "Error", "Oops"  ' Custom title
 
 **See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Lambda](#lambda)
 
@@ -10309,9 +9350,7 @@ ShowMessage "Error", "Oops"  ' Custom title
 
 **Syntax**
 
-```vb
-expression1 Or expression2
-```
+    expression1 Or expression2
 
 **Parameters**
 
@@ -10323,11 +9362,9 @@ Logical OR — returns True if either expression is True.
 
 **Example**
 
-```vb
-If key = "escape" Or key = "q" Then
-    QuitGame()
-End If
-```
+    If key = "escape" Or key = "q" Then
+        QuitGame()
+    End If
 
 **See Also** — [And](#and), [Not](#not), [Xor](#xor)
 
@@ -10342,9 +9379,7 @@ End If
 
 **Syntax**
 
-```vb
-Permission.All() As Array
-```
+    Permission.All() As Array
 
 **Description**
 
@@ -10352,11 +9387,9 @@ Returns an Array of all currently-granted permission strings.
 
 **Example**
 
-```vb
-For Each p In Permission.All()
-    Print p
-Next
-```
+    For Each p In Permission.All()
+        Print p
+    Next
 
 **See Also** — [Permission.Has](#permissionhas), [Permission.Request](#permissionrequest)
 
@@ -10368,9 +9401,7 @@ Next
 
 **Syntax**
 
-```vb
-Permission.Has(name) As Boolean
-```
+    Permission.Has(name) As Boolean
 
 **Parameters**
 
@@ -10382,9 +9413,7 @@ Returns True if the permission is currently granted. On desktop always True.
 
 **Example**
 
-```vb
-If Not Permission.Has("camera") Then Permission.Request "camera"
-```
+    If Not Permission.Has("camera") Then Permission.Request "camera"
 
 **See Also** — [Permission.Request](#permissionrequest), [Permission.All](#permissionall)
 
@@ -10396,9 +9425,7 @@ If Not Permission.Has("camera") Then Permission.Request "camera"
 
 **Syntax**
 
-```vb
-Permission.Request(name)
-```
+    Permission.Request(name)
 
 **Parameters**
 
@@ -10410,9 +9437,7 @@ Prompts the OS to ask the user for a permission. Resolves async — check Permis
 
 **Example**
 
-```vb
-Permission.Request "location"
-```
+    Permission.Request "location"
 
 **See Also** — [Permission.Has](#permissionhas), [Permission.All](#permissionall)
 
@@ -10424,9 +9449,7 @@ Permission.Request "location"
 
 **Syntax**
 
-```vb
-Physics.Bounce(value, body)
-```
+    Physics.Bounce(value, body)
 
 **Parameters**
 
@@ -10439,9 +9462,7 @@ Sets the restitution (bounciness) of a RigidBody, 0.0 = dead, 1.0 = full energy 
 
 **Example**
 
-```vb
-Physics.Bounce 0.8, ball   ' rubber ball
-```
+    Physics.Bounce 0.8, ball   ' rubber ball
 
 **See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
 
@@ -10453,9 +9474,7 @@ Physics.Bounce 0.8, ball   ' rubber ball
 
 **Syntax**
 
-```vb
-Physics.Force(body, vec [, pos])
-```
+    Physics.Force(body, vec [, pos])
 
 **Parameters**
 
@@ -10469,11 +9488,9 @@ Applies a continuous force to a RigidBody (call every frame for sustained push).
 
 **Example**
 
-```vb
-Sub _PhysicsProcess(delta)
-    Physics.Force rocket, Vector2(0, -800)   ' constant thrust
-End Sub
-```
+    Sub _PhysicsProcess(delta)
+        Physics.Force rocket, Vector2(0, -800)   ' constant thrust
+    End Sub
 
 **See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
 
@@ -10485,9 +9502,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Physics.Gravity(vector [, body])
-```
+    Physics.Gravity(vector [, body])
 
 **Parameters**
 
@@ -10500,10 +9515,8 @@ Sets the world gravity. Pass a scalar for default-direction gravity, or a Vector
 
 **Example**
 
-```vb
-Physics.Gravity 980        ' classic down
-Physics.Gravity Vector2(0, -980)  ' anti-gravity zone
-```
+    Physics.Gravity 980        ' classic down
+    Physics.Gravity Vector2(0, -980)  ' anti-gravity zone
 
 **See Also** — [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
 
@@ -10515,9 +9528,7 @@ Physics.Gravity Vector2(0, -980)  ' anti-gravity zone
 
 **Syntax**
 
-```vb
-Physics.GravityV2(Vector2 [, body])
-```
+    Physics.GravityV2(Vector2 [, body])
 
 **Parameters**
 
@@ -10530,9 +9541,7 @@ Explicit Vector2 form of Physics.Gravity — avoids overload guessing when you n
 
 **Example**
 
-```vb
-Physics.GravityV2 Vector2(0, 1200)
-```
+    Physics.GravityV2 Vector2(0, 1200)
 
 **See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
 
@@ -10544,9 +9553,7 @@ Physics.GravityV2 Vector2(0, 1200)
 
 **Syntax**
 
-```vb
-Physics.GravityV3(Vector3 [, body])
-```
+    Physics.GravityV3(Vector3 [, body])
 
 **Parameters**
 
@@ -10559,9 +9566,7 @@ Explicit Vector3 form of Physics.Gravity for 3D worlds.
 
 **Example**
 
-```vb
-Physics.GravityV3 Vector3(0, -9.8, 0)
-```
+    Physics.GravityV3 Vector3(0, -9.8, 0)
 
 **See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
 
@@ -10573,9 +9578,7 @@ Physics.GravityV3 Vector3(0, -9.8, 0)
 
 **Syntax**
 
-```vb
-Physics.Impulse(body, vec [, pos])
-```
+    Physics.Impulse(body, vec [, pos])
 
 **Parameters**
 
@@ -10589,9 +9592,7 @@ Applies an instant impulse (one-frame push) to a RigidBody. Optional pos is the 
 
 **Example**
 
-```vb
-Physics.Impulse ball, Vector2(500, -200)   ' kick the ball
-```
+    Physics.Impulse ball, Vector2(500, -200)   ' kick the ball
 
 **See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
 
@@ -10603,9 +9604,7 @@ Physics.Impulse ball, Vector2(500, -200)   ' kick the ball
 
 **Syntax**
 
-```vb
-Physics.Ray(from, to [, collisionMask]) As Dictionary
-```
+    Physics.Ray(from, to [, collisionMask]) As Dictionary
 
 **Parameters**
 
@@ -10619,12 +9618,10 @@ Casts an instant ray from one point to another and returns what it hit. Returns 
 
 **Example**
 
-```vb
-Dim hit = Physics.Ray(player.Position, mouse.Position)
-If hit.Hit Then
-    Print "Hit " & hit.Collider.Name & " at " & hit.Distance & " px"
-End If
-```
+    Dim hit = Physics.Ray(player.Position, mouse.Position)
+    If hit.Hit Then
+        Print "Hit " & hit.Collider.Name & " at " & hit.Distance & " px"
+    End If
 
 **See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Push](#push), [Pull](#pull), [Spin](#spin)
 
@@ -10636,9 +9633,7 @@ End If
 
 **Syntax**
 
-```vb
-Physics.Torque(body, amount)
-```
+    Physics.Torque(body, amount)
 
 **Parameters**
 
@@ -10651,9 +9646,7 @@ Applies a rotational impulse to a RigidBody. For 2D pass a number, for 3D pass a
 
 **Example**
 
-```vb
-Physics.Torque wheel, 50
-```
+    Physics.Torque wheel, 50
 
 **See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull), [Spin](#spin)
 
@@ -10665,9 +9658,7 @@ Physics.Torque wheel, 50
 
 **Syntax**
 
-```vb
-Plane() | Plane(normalVec3) | Plane(normalVec3, d) | Plane(a, b, c, d)
-```
+    Plane() | Plane(normalVec3) | Plane(normalVec3, d) | Plane(a, b, c, d)
 
 **Description**
 
@@ -10675,12 +9666,10 @@ Infinite plane defined by a normal vector and signed distance from origin. Used 
 
 **Example**
 
-```vb
-Dim floor = Plane(Vector3(0, 1, 0), 0)  ' ground plane (y=0)
-If floor.IsPointOver(actor.position) Then
-    Print "actor is above the floor"
-End If
-```
+    Dim floor = Plane(Vector3(0, 1, 0), 0)  ' ground plane (y=0)
+    If floor.IsPointOver(actor.position) Then
+        Print "actor is above the floor"
+    End If
 
 **See Also** — [Quaternion](#quaternion), [QuaternionFromEuler](#quaternionfromeuler), [Basis](#basis), [Transform2D](#transform2d), [Transform3D](#transform3d), [AABB](#aabb), [Slerp](#slerp)
 
@@ -10692,9 +9681,7 @@ End If
 
 **Syntax**
 
-```vb
-PlaySound(path [, volume] [, pitch])
-```
+    PlaySound(path [, volume] [, pitch])
 
 **Parameters**
 
@@ -10708,10 +9695,8 @@ Plays a sound effect from the specified resource path.
 
 **Example**
 
-```vb
-PlaySound "res://sounds/explosion.wav"
-PlaySound "res://sounds/jump.ogg", 0.8, 1.2
-```
+    PlaySound "res://sounds/explosion.wav"
+    PlaySound "res://sounds/jump.ogg", 0.8, 1.2
 
 **See Also** — [IsActionPressed](#isactionpressed), [IsKeyPressed](#iskeypressed), [ChangeScene](#changescene), [CreateActor2D](#createactor2d)
 
@@ -10723,16 +9708,8 @@ PlaySound "res://sounds/jump.ogg", 0.8, 1.2
 
 **Syntax**
 
-```vb
-Print expression [; expression ...]
-Print #fileNumber, expression
-```
-
-**Parameters**
-
-- `expression ; expression ...
-Print #fileNumber`
-- `expression`
+    Print expression [; expression ...]
+    Print #fileNumber, expression
 
 **Description**
 
@@ -10740,11 +9717,9 @@ Outputs text to the debug console (or to a file when used with a file number). S
 
 **Example**
 
-```vb
-Print "Score: " & score
-Print "X="; x; " Y="; y
-Print #1, "Log entry: " & message
-```
+    Print "Score: " & score
+    Print "X="; x; " Y="; y
+    Print #1, "Log entry: " & message
 
 ---
 
@@ -10754,10 +9729,8 @@ Print #1, "Log entry: " & message
 
 **Syntax**
 
-```vb
-Private variableName As DataType
-Private Sub ProcedureName()
-```
+    Private variableName As DataType
+    Private Sub ProcedureName()
 
 **Description**
 
@@ -10765,12 +9738,10 @@ Declares a private variable or procedure only accessible within the current modu
 
 **Example**
 
-```vb
-Private lives As Integer = 3
-Private Sub ResetLevel()
-    lives = 3
-End Sub
-```
+    Private lives As Integer = 3
+    Private Sub ResetLevel()
+        lives = 3
+    End Sub
 
 **See Also** — [Dim](#dim), [Public](#public), [Global](#global), [Static](#static), [Const](#const), [ReDim](#redim), [Type](#type)
 
@@ -10782,15 +9753,13 @@ End Sub
 
 **Syntax**
 
-```vb
-Property Get Name() As Type
-    Name = internalValue
-End Property
+    Property Get Name() As Type
+        Name = internalValue
+    End Property
 
-Property Let Name(value As Type)
-    internalValue = value
-End Property
-```
+    Property Let Name(value As Type)
+        internalValue = value
+    End Property
 
 **Description**
 
@@ -10798,19 +9767,17 @@ Declares a class property with Get (read) and Let/Set (write) accessors.
 
 **Example**
 
-```vb
-Class Circle
-    Private _radius As Single
+    Class Circle
+        Private _radius As Single
 
-    Property Get Radius() As Single
-        Radius = _radius
-    End Property
+        Property Get Radius() As Single
+            Radius = _radius
+        End Property
 
-    Property Let Radius(value As Single)
-        If value > 0 Then _radius = value
-    End Property
-End Class
-```
+        Property Let Radius(value As Single)
+            If value > 0 Then _radius = value
+        End Property
+    End Class
 
 **See Also** — [Class](#class), [End Class](#end-class), [New](#new), [Set](#set), [Me](#me), [Implements](#implements), [Inherits](#inherits), [Interface](#interface)
 
@@ -10822,9 +9789,7 @@ End Class
 
 **Syntax**
 
-```vb
-PSet x, y, color
-```
+    PSet x, y, color
 
 **Parameters**
 
@@ -10838,10 +9803,8 @@ Draws a single pixel (VB6-style name). Alias for DrawPixel.
 
 **Example**
 
-```vb
-PSet 100, 50, Color(1, 0, 0)   ' Red pixel
-PSet 101, 50, RGB(0, 255, 0)   ' Green pixel
-```
+    PSet 100, 50, Color(1, 0, 0)   ' Red pixel
+    PSet 101, 50, RGB(0, 255, 0)   ' Green pixel
 
 **See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [CLS](#cls), [QueueRedraw](#queueredraw)
 
@@ -10853,10 +9816,8 @@ PSet 101, 50, RGB(0, 255, 0)   ' Green pixel
 
 **Syntax**
 
-```vb
-Public variableName As DataType
-Public Sub ProcedureName()
-```
+    Public variableName As DataType
+    Public Sub ProcedureName()
 
 **Description**
 
@@ -10864,12 +9825,10 @@ Declares a public variable or procedure accessible from other modules and forms.
 
 **Example**
 
-```vb
-Public userName As String
-Public Sub SaveGame()
-    ' Save logic here
-End Sub
-```
+    Public userName As String
+    Public Sub SaveGame()
+        ' Save logic here
+    End Sub
 
 **See Also** — [Dim](#dim), [Private](#private), [Global](#global), [Static](#static), [Const](#const), [ReDim](#redim), [Type](#type)
 
@@ -10881,9 +9840,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Pull(body, vec [, pos])
-```
+    Pull(body, vec [, pos])
 
 **Parameters**
 
@@ -10897,9 +9854,7 @@ Continuous force — call each frame to keep applying. Plain-English alias for P
 
 **Example**
 
-```vb
-Pull magnet, towardPlayer * 800
-```
+    Pull magnet, towardPlayer * 800
 
 **See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Spin](#spin)
 
@@ -10911,9 +9866,7 @@ Pull magnet, towardPlayer * 800
 
 **Syntax**
 
-```vb
-Push(body, vec [, pos])
-```
+    Push(body, vec [, pos])
 
 **Parameters**
 
@@ -10927,9 +9880,7 @@ Instant impulse — kicks a RigidBody once. Plain-English alias for Physics.Impu
 
 **Example**
 
-```vb
-Push enemy, Vector2(-300, 0)
-```
+    Push enemy, Vector2(-300, 0)
 
 **See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Pull](#pull), [Spin](#spin)
 
@@ -10944,9 +9895,7 @@ Push enemy, Vector2(-300, 0)
 
 **Syntax**
 
-```vb
-Quaternion() | Quaternion(x, y, z, w)
-```
+    Quaternion() | Quaternion(x, y, z, w)
 
 **Description**
 
@@ -10954,13 +9903,11 @@ Creates a Quaternion — 3D rotation as four numbers. Identity rotation by defau
 
 **Example**
 
-```vb
-Dim qIdentity = Quaternion()
-Dim q = Quaternion(0, 0, 0, 1)  ' identity in (x,y,z,w)
+    Dim qIdentity = Quaternion()
+    Dim q = Quaternion(0, 0, 0, 1)  ' identity in (x,y,z,w)
 
-' Rotate halfway between two orientations
-Dim qHalf = Slerp(qStart, qEnd, 0.5)
-```
+    ' Rotate halfway between two orientations
+    Dim qHalf = Slerp(qStart, qEnd, 0.5)
 
 **See Also** — [QuaternionFromEuler](#quaternionfromeuler), [Basis](#basis), [Transform2D](#transform2d), [Transform3D](#transform3d), [Plane](#plane), [AABB](#aabb), [Slerp](#slerp)
 
@@ -10972,9 +9919,7 @@ Dim qHalf = Slerp(qStart, qEnd, 0.5)
 
 **Syntax**
 
-```vb
-QuaternionFromEuler(xRad, yRad, zRad)
-```
+    QuaternionFromEuler(xRad, yRad, zRad)
 
 **Parameters**
 
@@ -10988,11 +9933,9 @@ Builds a Quaternion from Euler angles (pitch, yaw, roll) in radians. Easier than
 
 **Example**
 
-```vb
-' 90-degree yaw (turn right)
-Dim qTurn = QuaternionFromEuler(0, 1.5707963, 0)
-player.quaternion = qTurn
-```
+    ' 90-degree yaw (turn right)
+    Dim qTurn = QuaternionFromEuler(0, 1.5707963, 0)
+    player.quaternion = qTurn
 
 **See Also** — [Quaternion](#quaternion), [Basis](#basis), [Transform2D](#transform2d), [Transform3D](#transform3d), [Plane](#plane), [AABB](#aabb), [Slerp](#slerp)
 
@@ -11004,9 +9947,7 @@ player.quaternion = qTurn
 
 **Syntax**
 
-```vb
-queue_free()
-```
+    queue_free()
 
 **Description**
 
@@ -11014,11 +9955,9 @@ Queues this node for deletion at the end of the current frame. Safer than callin
 
 **Example**
 
-```vb
-Sub _on_body_entered(body)
-    body.queue_free   ' destroy the other node
-End Sub
-```
+    Sub _on_body_entered(body)
+        body.queue_free   ' destroy the other node
+    End Sub
 
 **Godot Mapping** — [`Node.queue_free()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-queue_free)
 
@@ -11032,9 +9971,7 @@ End Sub
 
 **Syntax**
 
-```vb
-queue_redraw()
-```
+    queue_redraw()
 
 **Description**
 
@@ -11042,10 +9979,8 @@ Queues a redraw of this CanvasItem. This triggers [b]_Draw[/b] to be called agai
 
 **Example**
 
-```vb
-score += 1
-queue_redraw   ' refresh the display
-```
+    score += 1
+    queue_redraw   ' refresh the display
 
 **Godot Mapping** — [`CanvasItem.queue_redraw()`](https://docs.godotengine.org/en/stable/classes/class_canvasitem.html#class-canvasitem-method-queue_redraw)
 
@@ -11057,9 +9992,7 @@ queue_redraw   ' refresh the display
 
 **Syntax**
 
-```vb
-QueueRedraw
-```
+    QueueRedraw
 
 **Description**
 
@@ -11067,18 +10000,16 @@ Requests the node to redraw on the next frame. Call this after changing any visu
 
 **Example**
 
-```vb
-Sub _Process(delta)
-    If stateChanged Then
-        QueueRedraw  ' Triggers _Draw() next frame
-    End If
-End Sub
+    Sub _Process(delta)
+        If stateChanged Then
+            QueueRedraw  ' Triggers _Draw() next frame
+        End If
+    End Sub
 
-' Or simply call every frame:
-Sub _Process(delta)
-    QueueRedraw
-End Sub
-```
+    ' Or simply call every frame:
+    Sub _Process(delta)
+        QueueRedraw
+    End Sub
 
 **See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls)
 
@@ -11093,9 +10024,7 @@ End Sub
 
 **Syntax**
 
-```vb
-RaiseEvent EventName([arguments])
-```
+    RaiseEvent EventName([arguments])
 
 **Parameters**
 
@@ -11107,16 +10036,14 @@ Fires a declared Event, notifying all handlers connected with WithEvents.
 
 **Example**
 
-```vb
-Class GameManager
-    Event ScoreChanged(newScore As Integer)
+    Class GameManager
+        Event ScoreChanged(newScore As Integer)
 
-    Sub AddPoints(pts As Integer)
-        score = score + pts
-        RaiseEvent ScoreChanged(score)
-    End Sub
-End Class
-```
+        Sub AddPoints(pts As Integer)
+            score = score + pts
+            RaiseEvent ScoreChanged(score)
+        End Sub
+    End Class
 
 **See Also** — [Event](#event), [WithEvents](#withevents)
 
@@ -11128,9 +10055,7 @@ End Class
 
 **Syntax**
 
-```vb
-Randomize [seed]
-```
+    Randomize [seed]
 
 **Parameters**
 
@@ -11142,12 +10067,10 @@ Seeds the random number generator. Call once at program start for unpredictable 
 
 **Example**
 
-```vb
-Randomize
-Print Rnd()  ' Different each run
+    Randomize
+    Print Rnd()  ' Different each run
 
-Randomize 42  ' Reproducible sequence
-```
+    Randomize 42  ' Reproducible sequence
 
 **See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod), [NewRNG](#newrng), [NewNoise](#newnoise), [NewCurve](#newcurve)
 
@@ -11159,9 +10082,7 @@ Randomize 42  ' Reproducible sequence
 
 **Syntax**
 
-```vb
-RandRange(min, max)
-```
+    RandRange(min, max)
 
 **Parameters**
 
@@ -11174,10 +10095,8 @@ Returns a random number between min and max (inclusive).
 
 **Example**
 
-```vb
-Dim damage As Integer = RandRange(5, 20)
-Dim x As Single = RandRange(0.0, 1.0)
-```
+    Dim damage As Integer = RandRange(5, 20)
+    Dim x As Single = RandRange(0.0, 1.0)
 
 **See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [Round](#round), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod), [NewRNG](#newrng), [NewNoise](#newnoise), [NewCurve](#newcurve)
 
@@ -11189,9 +10108,7 @@ Dim x As Single = RandRange(0.0, 1.0)
 
 **Syntax**
 
-```vb
-Ray.Cast2D(from, to [, mask]) As Dictionary
-```
+    Ray.Cast2D(from, to [, mask]) As Dictionary
 
 **Parameters**
 
@@ -11205,10 +10122,8 @@ One-shot 2D raycast through PhysicsDirectSpaceState — no RayCast2D node requir
 
 **Example**
 
-```vb
-Dim hit = Ray.Cast2D(player.Position, Mouse.Position)
-If Not hit.is_empty() Then Print hit.collider.name
-```
+    Dim hit = Ray.Cast2D(player.Position, Mouse.Position)
+    If Not hit.is_empty() Then Print hit.collider.name
 
 **See Also** — [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
 
@@ -11220,9 +10135,7 @@ If Not hit.is_empty() Then Print hit.collider.name
 
 **Syntax**
 
-```vb
-Ray.Cast3D(from, to [, mask]) As Dictionary
-```
+    Ray.Cast3D(from, to [, mask]) As Dictionary
 
 **Parameters**
 
@@ -11236,9 +10149,7 @@ One-shot 3D raycast — see Ray.Cast2D. Useful for shooter logic without permane
 
 **Example**
 
-```vb
-Dim hit = Ray.Cast3D(cam.GlobalPosition, cam.GlobalPosition + cam.Basis.z * -100)
-```
+    Dim hit = Ray.Cast3D(cam.GlobalPosition, cam.GlobalPosition + cam.Basis.z * -100)
 
 **See Also** — [Ray.Cast2D](#raycast2d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
 
@@ -11250,9 +10161,7 @@ Dim hit = Ray.Cast3D(cam.GlobalPosition, cam.GlobalPosition + cam.Basis.z * -100
 
 **Syntax**
 
-```vb
-Ray.Collider(rayNode) As Object
-```
+    Ray.Collider(rayNode) As Object
 
 **Parameters**
 
@@ -11264,11 +10173,9 @@ Returns the node the ray is currently hitting, or Nothing if no hit.
 
 **Example**
 
-```vb
-If Ray.Hit(aimRay) Then
-    target = Ray.Collider(aimRay)
-End If
-```
+    If Ray.Hit(aimRay) Then
+        target = Ray.Collider(aimRay)
+    End If
 
 **See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
 
@@ -11280,9 +10187,7 @@ End If
 
 **Syntax**
 
-```vb
-Ray.Enable(rayNode, on)
-```
+    Ray.Enable(rayNode, on)
 
 **Parameters**
 
@@ -11295,9 +10200,7 @@ Enables or disables a RayCast node. Disabled rays don't query the physics world.
 
 **Example**
 
-```vb
-Ray.Enable scanner, True
-```
+    Ray.Enable scanner, True
 
 **See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
 
@@ -11309,9 +10212,7 @@ Ray.Enable scanner, True
 
 **Syntax**
 
-```vb
-Ray.ForceUpdate(rayNode)
-```
+    Ray.ForceUpdate(rayNode)
 
 **Parameters**
 
@@ -11323,11 +10224,9 @@ Forces an immediate raycast update (don't wait for next physics frame). Useful r
 
 **Example**
 
-```vb
-Ray.Target groundRay, Vector2(0, 50)
-Ray.ForceUpdate groundRay
-If Ray.Hit(groundRay) Then Print "floor below"
-```
+    Ray.Target groundRay, Vector2(0, 50)
+    Ray.ForceUpdate groundRay
+    If Ray.Hit(groundRay) Then Print "floor below"
 
 **See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
 
@@ -11339,9 +10238,7 @@ If Ray.Hit(groundRay) Then Print "floor below"
 
 **Syntax**
 
-```vb
-Ray.Hit(rayNode) As Boolean
-```
+    Ray.Hit(rayNode) As Boolean
 
 **Parameters**
 
@@ -11353,11 +10250,9 @@ Returns True if the RayCast2D/3D node is currently colliding with something.
 
 **Example**
 
-```vb
-If Ray.Hit(groundRay) Then
-    Print "On the ground"
-End If
-```
+    If Ray.Hit(groundRay) Then
+        Print "On the ground"
+    End If
 
 **See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Collider](#raycollider), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
 
@@ -11369,9 +10264,7 @@ End If
 
 **Syntax**
 
-```vb
-Ray.Normal(rayNode) As Vector
-```
+    Ray.Normal(rayNode) As Vector
 
 **Parameters**
 
@@ -11383,10 +10276,8 @@ Returns the surface normal at the hit point — useful for bouncing or aligning 
 
 **Example**
 
-```vb
-' Bounce projectile
-velocity = velocity.Bounce(Ray.Normal(hitRay))
-```
+    ' Bounce projectile
+    velocity = velocity.Bounce(Ray.Normal(hitRay))
 
 **See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Point](#raypoint)
 
@@ -11398,9 +10289,7 @@ velocity = velocity.Bounce(Ray.Normal(hitRay))
 
 **Syntax**
 
-```vb
-Ray.Point(rayNode) As Vector
-```
+    Ray.Point(rayNode) As Vector
 
 **Parameters**
 
@@ -11412,9 +10301,7 @@ Returns the world-space hit point of the ray, or Vector.Zero if no hit.
 
 **Example**
 
-```vb
-DrawCircle Ray.Point(aimRay), 5, Color.Red
-```
+    DrawCircle Ray.Point(aimRay), 5, Color.Red
 
 **See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Target](#raytarget), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Normal](#raynormal)
 
@@ -11426,9 +10313,7 @@ DrawCircle Ray.Point(aimRay), 5, Color.Red
 
 **Syntax**
 
-```vb
-Ray.Target(rayNode, pos)
-```
+    Ray.Target(rayNode, pos)
 
 **Parameters**
 
@@ -11441,9 +10326,7 @@ Sets the ray's target_position (relative to the ray's own position). Use to redi
 
 **Example**
 
-```vb
-Ray.Target aimRay, mousePos - aimRay.Position
-```
+    Ray.Target aimRay, mousePos - aimRay.Position
 
 **See Also** — [Ray.Cast2D](#raycast2d), [Ray.Cast3D](#raycast3d), [Ray.Enable](#rayenable), [Ray.ForceUpdate](#rayforceupdate), [Ray.Hit](#rayhit), [Ray.Collider](#raycollider), [Ray.Point](#raypoint), [Ray.Normal](#raynormal)
 
@@ -11455,17 +10338,8 @@ Ray.Target aimRay, mousePos - aimRay.Position
 
 **Syntax**
 
-```vb
-Read variable1 [, variable2, ...]
-Read variable As Type
-```
-
-**Parameters**
-
-- `variable1`
-- `variable2`
-- `...
-Read variable`
+    Read variable1 [, variable2, ...]
+    Read variable As Type
 
 **Description**
 
@@ -11473,16 +10347,14 @@ Reads the next value(s) from the Data tape into variables. Supports typed Read f
 
 **Example**
 
-```vb
-Data 100, 200, 300
+    Data 100, 200, 300
 
-Dim x As Integer, y As Integer, z As Integer
-Read x, y, z
-Print x  ' 100
+    Dim x As Integer, y As Integer, z As Integer
+    Read x, y, z
+    Print x  ' 100
 
-' Typed read
-Read score As Integer
-```
+    ' Typed read
+    Read score As Integer
 
 **See Also** — [Open](#open), [Close](#close), [Line Input](#line-input), [Data](#data), [Restore](#restore)
 
@@ -11494,9 +10366,7 @@ Read score As Integer
 
 **Syntax**
 
-```vb
-ReDim [Preserve] arrayName(newSize)
-```
+    ReDim [Preserve] arrayName(newSize)
 
 **Parameters**
 
@@ -11508,12 +10378,10 @@ Resizes a dynamic array. Use Preserve to keep existing data when resizing.
 
 **Example**
 
-```vb
-Dim scores() As Integer
-ReDim scores(10)
-scores(0) = 100
-ReDim Preserve scores(20)  ' Keeps old data
-```
+    Dim scores() As Integer
+    ReDim scores(10)
+    scores(0) = 100
+    ReDim Preserve scores(20)  ' Keeps old data
 
 **See Also** — [Dim](#dim), [Private](#private), [Public](#public), [Global](#global), [Static](#static), [Const](#const), [Type](#type), [Array](#array), [LBound](#lbound), [UBound](#ubound)
 
@@ -11525,9 +10393,7 @@ ReDim Preserve scores(20)  ' Keeps old data
 
 **Syntax**
 
-```vb
-remove_child(node As Node)
-```
+    remove_child(node As Node)
 
 **Parameters**
 
@@ -11539,10 +10405,8 @@ Removes a child node from this node without freeing it.
 
 **Example**
 
-```vb
-remove_child(oldNode)
-oldNode.queue_free
-```
+    remove_child(oldNode)
+    oldNode.queue_free
 
 **Godot Mapping** — [`Node.remove_child()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-remove_child)
 
@@ -11556,9 +10420,7 @@ oldNode.queue_free
 
 **Syntax**
 
-```vb
-Replace(string, find, replaceWith)
-```
+    Replace(string, find, replaceWith)
 
 **Parameters**
 
@@ -11572,10 +10434,8 @@ Returns a string with all occurrences of find replaced by replaceWith.
 
 **Example**
 
-```vb
-Dim s As String = Replace("Hello World", "World", "VB")
-Print s  ' "Hello VB"
-```
+    Dim s As String = Replace("Hello World", "World", "VB")
+    Print s  ' "Hello VB"
 
 **See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Split](#split), [Join](#join), [Format](#format)
 
@@ -11587,9 +10447,7 @@ Print s  ' "Hello VB"
 
 **Syntax**
 
-```vb
-ResetDrawTransform
-```
+    ResetDrawTransform
 
 **Description**
 
@@ -11597,12 +10455,10 @@ Resets the drawing transform to identity (no translation, rotation, or scale). A
 
 **Example**
 
-```vb
-SetDrawTransform 100, 100, 0.5, 2.0, 2.0
-DrawCircle 0, 0, 30, Color.Red   ' Drawn transformed
-ResetDrawTransform                    ' Back to normal
-DrawCircle 50, 50, 10, Color.Blue ' Drawn at actual 50,50
-```
+    SetDrawTransform 100, 100, 0.5, 2.0, 2.0
+    DrawCircle 0, 0, 30, Color.Red   ' Drawn transformed
+    ResetDrawTransform                    ' Back to normal
+    DrawCircle 50, 50, 10, Color.Blue ' Drawn at actual 50,50
 
 **See Also** — [SetDrawTransform](#setdrawtransform)
 
@@ -11614,9 +10470,7 @@ DrawCircle 50, 50, 10, Color.Blue ' Drawn at actual 50,50
 
 **Syntax**
 
-```vb
-Restore [labelName]
-```
+    Restore [labelName]
 
 **Parameters**
 
@@ -11628,15 +10482,13 @@ Resets the Data read pointer to the beginning, or to a named data section.
 
 **Example**
 
-```vb
-Data "First", 1
-data_section2:
-Data "Second", 2
+    Data "First", 1
+    data_section2:
+    Data "Second", 2
 
-Read a, b
-Restore data_section2
-Read c, d  ' Reads "Second", 2
-```
+    Read a, b
+    Restore data_section2
+    Read c, d  ' Reads "Second", 2
 
 **See Also** — [Open](#open), [Close](#close), [Line Input](#line-input), [Data](#data), [Read](#read)
 
@@ -11648,9 +10500,7 @@ Read c, d  ' Reads "Second", 2
 
 **Syntax**
 
-```vb
-Return [value]
-```
+    Return [value]
 
 **Parameters**
 
@@ -11662,16 +10512,14 @@ Returns from the current Sub or Function. In a Function, optionally provides the
 
 **Example**
 
-```vb
-Function IsPositive(n As Integer) As Boolean
-    Return n > 0
-End Function
+    Function IsPositive(n As Integer) As Boolean
+        Return n > 0
+    End Function
 
-Sub CheckHealth()
-    If health > 0 Then Return  ' Early exit
-    GameOver()
-End Sub
-```
+    Sub CheckHealth()
+        If health > 0 Then Return  ' Early exit
+        GameOver()
+    End Sub
 
 **See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [ByRef](#byref), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda), [GoTo](#goto), [GoSub](#gosub)
 
@@ -11683,9 +10531,7 @@ End Sub
 
 **Syntax**
 
-```vb
-RGB(red, green, blue) As Color
-```
+    RGB(red, green, blue) As Color
 
 **Parameters**
 
@@ -11699,10 +10545,8 @@ Creates a Color from integer red, green, blue values (0-255). VB6-compatible fun
 
 **Example**
 
-```vb
-Dim c As Variant = RGB(255, 0, 0)  ' Red
-DrawRect 0, 0, 100, 100, RGB(0, 128, 255)  ' Sky blue
-```
+    Dim c As Variant = RGB(255, 0, 0)  ' Red
+    DrawRect 0, 0, 100, 100, RGB(0, 128, 255)  ' Sky blue
 
 **See Also** — [LoadImage](#loadimage), [LoadPicture](#loadpicture), [SaveImage](#saveimage), [ColorFromHSV](#colorfromhsv), [ColorToHSV](#colortohsv), [Lighten](#lighten), [Darken](#darken)
 
@@ -11714,9 +10558,7 @@ DrawRect 0, 0, 100, 100, RGB(0, 128, 255)  ' Sky blue
 
 **Syntax**
 
-```vb
-Right(string, length)
-```
+    Right(string, length)
 
 **Parameters**
 
@@ -11729,9 +10571,7 @@ Returns the specified number of characters from the end of a string.
 
 **Example**
 
-```vb
-Print Right("Hello World", 5)  ' "World"
-```
+    Print Right("Hello World", 5)  ' "World"
 
 **See Also** — [Left](#left), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
 
@@ -11743,9 +10583,7 @@ Print Right("Hello World", 5)  ' "World"
 
 **Syntax**
 
-```vb
-Rnd([upperBound])
-```
+    Rnd([upperBound])
 
 **Parameters**
 
@@ -11757,11 +10595,9 @@ Returns a random floating-point number between 0 and 1 (or 0 and upperBound if s
 
 **Example**
 
-```vb
-Randomize
-Dim r As Single = Rnd()      ' 0.0 to 1.0
-Dim d As Integer = Int(Rnd(6)) + 1  ' Dice roll 1-6
-```
+    Randomize
+    Dim r As Single = Rnd()      ' 0.0 to 1.0
+    Dim d As Integer = Int(Rnd(6)) + 1  ' Dice roll 1-6
 
 **See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod), [NewRNG](#newrng), [NewNoise](#newnoise), [NewCurve](#newcurve)
 
@@ -11773,9 +10609,7 @@ Dim d As Integer = Int(Rnd(6)) + 1  ' Dice roll 1-6
 
 **Syntax**
 
-```vb
-Round(number [, decimals])
-```
+    Round(number [, decimals])
 
 **Parameters**
 
@@ -11788,10 +10622,8 @@ Rounds a number to the specified number of decimal places.
 
 **Example**
 
-```vb
-Print Round(3.14159, 2)  ' 3.14
-Print Round(2.5)         ' 2 (banker's rounding)
-```
+    Print Round(3.14159, 2)  ' 3.14
+    Print Round(2.5)         ' 2 (banker's rounding)
 
 **See Also** — [Abs](#abs), [Int](#int), [Sqr](#sqr), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod)
 
@@ -11806,9 +10638,7 @@ Print Round(2.5)         ' 2 (banker's rounding)
 
 **Syntax**
 
-```vb
-SaveImage(image, path) As Boolean
-```
+    SaveImage(image, path) As Boolean
 
 **Parameters**
 
@@ -11821,14 +10651,12 @@ Saves an Image to a PNG file. Returns True on success. Use user:// paths for wri
 
 **Example**
 
-```vb
-Dim img = CreateImage(640, 480, Color.White)
-' ... draw on img ...
-Dim ok As Boolean = SaveImage(img, "user://screenshot.png")
-If ok Then
-    Print "Saved!"
-End If
-```
+    Dim img = CreateImage(640, 480, Color.White)
+    ' ... draw on img ...
+    Dim ok As Boolean = SaveImage(img, "user://screenshot.png")
+    If ok Then
+        Print "Saved!"
+    End If
 
 **See Also** — [LoadImage](#loadimage), [LoadPicture](#loadpicture), [RGB](#rgb)
 
@@ -11840,9 +10668,7 @@ End If
 
 **Syntax**
 
-```vb
-Screen.DPI() As Long
-```
+    Screen.DPI() As Long
 
 **Description**
 
@@ -11850,9 +10676,7 @@ Returns the screen DPI (dots per inch). Useful for sizing UI on high-density dis
 
 **Example**
 
-```vb
-Dim scale = Screen.DPI() / 96.0   ' 1.0 on standard displays
-```
+    Dim scale = Screen.DPI() / 96.0   ' 1.0 on standard displays
 
 **See Also** — [Screen.Width](#screenwidth), [Screen.Height](#screenheight), [Screen.Orientation](#screenorientation), [Screen.KeepOn](#screenkeepon), [Screen.FullScreen](#screenfullscreen), [Screen.IsFullScreen](#screenisfullscreen)
 
@@ -11864,9 +10688,7 @@ Dim scale = Screen.DPI() / 96.0   ' 1.0 on standard displays
 
 **Syntax**
 
-```vb
-Screen.FullScreen(on)
-```
+    Screen.FullScreen(on)
 
 **Parameters**
 
@@ -11878,9 +10700,7 @@ Toggles fullscreen mode for the main window.
 
 **Example**
 
-```vb
-Screen.FullScreen True
-```
+    Screen.FullScreen True
 
 **See Also** — [Screen.Width](#screenwidth), [Screen.Height](#screenheight), [Screen.DPI](#screendpi), [Screen.Orientation](#screenorientation), [Screen.KeepOn](#screenkeepon), [Screen.IsFullScreen](#screenisfullscreen)
 
@@ -11892,9 +10712,7 @@ Screen.FullScreen True
 
 **Syntax**
 
-```vb
-Screen.Height() As Long
-```
+    Screen.Height() As Long
 
 **Description**
 
@@ -11902,9 +10720,7 @@ Returns the screen height in pixels.
 
 **Example**
 
-```vb
-Print Screen.Width() & "x" & Screen.Height()
-```
+    Print Screen.Width() & "x" & Screen.Height()
 
 **See Also** — [Screen.Width](#screenwidth), [Screen.DPI](#screendpi), [Screen.Orientation](#screenorientation), [Screen.KeepOn](#screenkeepon), [Screen.FullScreen](#screenfullscreen), [Screen.IsFullScreen](#screenisfullscreen)
 
@@ -11916,9 +10732,7 @@ Print Screen.Width() & "x" & Screen.Height()
 
 **Syntax**
 
-```vb
-Screen.IsFullScreen() As Boolean
-```
+    Screen.IsFullScreen() As Boolean
 
 **Description**
 
@@ -11926,9 +10740,7 @@ Returns True if the window is currently fullscreen.
 
 **Example**
 
-```vb
-If Not Screen.IsFullScreen() Then Screen.FullScreen True
-```
+    If Not Screen.IsFullScreen() Then Screen.FullScreen True
 
 **See Also** — [Screen.Width](#screenwidth), [Screen.Height](#screenheight), [Screen.DPI](#screendpi), [Screen.Orientation](#screenorientation), [Screen.KeepOn](#screenkeepon), [Screen.FullScreen](#screenfullscreen)
 
@@ -11940,9 +10752,7 @@ If Not Screen.IsFullScreen() Then Screen.FullScreen True
 
 **Syntax**
 
-```vb
-Screen.KeepOn(on)
-```
+    Screen.KeepOn(on)
 
 **Parameters**
 
@@ -11954,9 +10764,7 @@ Prevents the screen from auto-sleeping while True. Critical for games and video 
 
 **Example**
 
-```vb
-Screen.KeepOn True
-```
+    Screen.KeepOn True
 
 **See Also** — [Screen.Width](#screenwidth), [Screen.Height](#screenheight), [Screen.DPI](#screendpi), [Screen.Orientation](#screenorientation), [Screen.FullScreen](#screenfullscreen), [Screen.IsFullScreen](#screenisfullscreen)
 
@@ -11968,9 +10776,7 @@ Screen.KeepOn True
 
 **Syntax**
 
-```vb
-Screen.Orientation() As String
-```
+    Screen.Orientation() As String
 
 **Description**
 
@@ -11978,11 +10784,9 @@ Returns "portrait" or "landscape".
 
 **Example**
 
-```vb
-If Screen.Orientation() = "portrait" Then
-    UseVerticalLayout()
-End If
-```
+    If Screen.Orientation() = "portrait" Then
+        UseVerticalLayout()
+    End If
 
 **See Also** — [Screen.Width](#screenwidth), [Screen.Height](#screenheight), [Screen.DPI](#screendpi), [Screen.KeepOn](#screenkeepon), [Screen.FullScreen](#screenfullscreen), [Screen.IsFullScreen](#screenisfullscreen)
 
@@ -11994,9 +10798,7 @@ End If
 
 **Syntax**
 
-```vb
-Screen.Width() As Long
-```
+    Screen.Width() As Long
 
 **Description**
 
@@ -12004,9 +10806,7 @@ Returns the screen width in pixels.
 
 **Example**
 
-```vb
-If Screen.Width() < 600 Then SetMobileUI()
-```
+    If Screen.Width() < 600 Then SetMobileUI()
 
 **See Also** — [Screen.Height](#screenheight), [Screen.DPI](#screendpi), [Screen.Orientation](#screenorientation), [Screen.KeepOn](#screenkeepon), [Screen.FullScreen](#screenfullscreen), [Screen.IsFullScreen](#screenisfullscreen)
 
@@ -12018,9 +10818,7 @@ If Screen.Width() < 600 Then SetMobileUI()
 
 **Syntax**
 
-```vb
-Select Case expression
-```
+    Select Case expression
 
 **Parameters**
 
@@ -12032,14 +10830,12 @@ Begins a Select Case block for multi-way branching based on an expression's valu
 
 **Example**
 
-```vb
-Select Case dayOfWeek
-    Case 1
-        Print "Monday"
-    Case 7
-        Print "Sunday"
-End Select
-```
+    Select Case dayOfWeek
+        Case 1
+            Print "Monday"
+        Case 7
+            Print "Sunday"
+    End Select
 
 **See Also** — [Select Case](#select-case), [Case](#case), [End Select](#end-select)
 
@@ -12051,28 +10847,14 @@ End Select
 
 **Syntax**
 
-```vb
-Select Case testExpression
-    Case value1
-        statements
-    Case value2, value3
-        statements
-    Case Else
-        statements
-End Select
-```
-
-**Parameters**
-
-- `Case testExpression
-    Case value1
-        statements
-    Case value2`
-- `value3
-        statements
-    Case Else
-        statements
-End Select`
+    Select Case testExpression
+        Case value1
+            statements
+        Case value2, value3
+            statements
+        Case Else
+            statements
+    End Select
 
 **Description**
 
@@ -12080,18 +10862,16 @@ Evaluates an expression and branches to the matching Case block. Supports ranges
 
 **Example**
 
-```vb
-Select Case score
-    Case 100
-        Print "Perfect!"
-    Case 80 To 99
-        Print "Great!"
-    Case Is >= 50
-        Print "Passed"
-    Case Else
-        Print "Try again"
-End Select
-```
+    Select Case score
+        Case 100
+            Print "Perfect!"
+        Case 80 To 99
+            Print "Great!"
+        Case Is >= 50
+            Print "Passed"
+        Case Else
+            Print "Try again"
+    End Select
 
 **See Also** — [If](#if), [Then](#then), [Else](#else), [ElseIf](#elseif), [End If](#end-if), [IIf](#iif), [Select](#select), [Case](#case), [End Select](#end-select)
 
@@ -12103,9 +10883,7 @@ End Select
 
 **Syntax**
 
-```vb
-Sensor.Accel() As Vector3
-```
+    Sensor.Accel() As Vector3
 
 **Description**
 
@@ -12113,10 +10891,8 @@ Returns the accelerometer reading. In game units, ~1.0 G on the Y axis when the 
 
 **Example**
 
-```vb
-Dim a = Sensor.Accel()
-If a.Length() > 2.0 Then Print "Shake detected!"
-```
+    Dim a = Sensor.Accel()
+    If a.Length() > 2.0 Then Print "Shake detected!"
 
 **See Also** — [Sensor.Units](#sensorunits), [Sensor.Gyro](#sensorgyro), [Sensor.Magnet](#sensormagnet), [Sensor.Magnetometer](#sensormagnetometer), [Sensor.Gravity](#sensorgravity), [Sensor.Tilt](#sensortilt)
 
@@ -12128,9 +10904,7 @@ If a.Length() > 2.0 Then Print "Shake detected!"
 
 **Syntax**
 
-```vb
-Sensor.Gravity() As Vector3
-```
+    Sensor.Gravity() As Vector3
 
 **Description**
 
@@ -12138,10 +10912,8 @@ Returns just the gravity component (low-pass filtered accelerometer). In game un
 
 **Example**
 
-```vb
-' Use as level reference
-Dim down = Sensor.Gravity().Normalized()
-```
+    ' Use as level reference
+    Dim down = Sensor.Gravity().Normalized()
 
 **See Also** — [Sensor.Units](#sensorunits), [Sensor.Accel](#sensoraccel), [Sensor.Gyro](#sensorgyro), [Sensor.Magnet](#sensormagnet), [Sensor.Magnetometer](#sensormagnetometer), [Sensor.Tilt](#sensortilt)
 
@@ -12153,9 +10925,7 @@ Dim down = Sensor.Gravity().Normalized()
 
 **Syntax**
 
-```vb
-Sensor.Gyro() As Vector3
-```
+    Sensor.Gyro() As Vector3
 
 **Description**
 
@@ -12163,10 +10933,8 @@ Returns the gyroscope reading — angular velocity. In game units = degrees/sec.
 
 **Example**
 
-```vb
-Dim g = Sensor.Gyro()
-If Abs(g.y) > 90 Then Print "Fast spin!"
-```
+    Dim g = Sensor.Gyro()
+    If Abs(g.y) > 90 Then Print "Fast spin!"
 
 **See Also** — [Sensor.Units](#sensorunits), [Sensor.Accel](#sensoraccel), [Sensor.Magnet](#sensormagnet), [Sensor.Magnetometer](#sensormagnetometer), [Sensor.Gravity](#sensorgravity), [Sensor.Tilt](#sensortilt)
 
@@ -12178,9 +10946,7 @@ If Abs(g.y) > 90 Then Print "Fast spin!"
 
 **Syntax**
 
-```vb
-Sensor.Magnet() As Vector3
-```
+    Sensor.Magnet() As Vector3
 
 **Description**
 
@@ -12188,10 +10954,8 @@ Returns the magnetometer reading in µT (microtesla). Useful for compass apps.
 
 **Example**
 
-```vb
-Dim m = Sensor.Magnet()
-Dim heading = Atan2(m.y, m.x) * 57.2958
-```
+    Dim m = Sensor.Magnet()
+    Dim heading = Atan2(m.y, m.x) * 57.2958
 
 **See Also** — [Sensor.Units](#sensorunits), [Sensor.Accel](#sensoraccel), [Sensor.Gyro](#sensorgyro), [Sensor.Magnetometer](#sensormagnetometer), [Sensor.Gravity](#sensorgravity), [Sensor.Tilt](#sensortilt)
 
@@ -12203,9 +10967,7 @@ Dim heading = Atan2(m.y, m.x) * 57.2958
 
 **Syntax**
 
-```vb
-Sensor.Magnetometer() As Vector3
-```
+    Sensor.Magnetometer() As Vector3
 
 **Description**
 
@@ -12213,9 +10975,7 @@ Alias of Sensor.Magnet — returns the device magnetometer reading (µT). Provid
 
 **Example**
 
-```vb
-Dim compass = Sensor.Magnetometer()
-```
+    Dim compass = Sensor.Magnetometer()
 
 **See Also** — [Sensor.Units](#sensorunits), [Sensor.Accel](#sensoraccel), [Sensor.Gyro](#sensorgyro), [Sensor.Magnet](#sensormagnet), [Sensor.Gravity](#sensorgravity), [Sensor.Tilt](#sensortilt)
 
@@ -12227,9 +10987,7 @@ Dim compass = Sensor.Magnetometer()
 
 **Syntax**
 
-```vb
-Sensor.Tilt() As Double
-```
+    Sensor.Tilt() As Double
 
 **Description**
 
@@ -12237,9 +10995,7 @@ Returns device tilt in degrees (rotation around vertical axis). 0 = phone uprigh
 
 **Example**
 
-```vb
-player.Velocity.x = Sensor.Tilt() * 10   ' tilt-to-steer
-```
+    player.Velocity.x = Sensor.Tilt() * 10   ' tilt-to-steer
 
 **See Also** — [Sensor.Units](#sensorunits), [Sensor.Accel](#sensoraccel), [Sensor.Gyro](#sensorgyro), [Sensor.Magnet](#sensormagnet), [Sensor.Magnetometer](#sensormagnetometer), [Sensor.Gravity](#sensorgravity)
 
@@ -12251,9 +11007,7 @@ player.Velocity.x = Sensor.Tilt() * 10   ' tilt-to-steer
 
 **Syntax**
 
-```vb
-Sensor.Units(system)
-```
+    Sensor.Units(system)
 
 **Parameters**
 
@@ -12265,10 +11019,8 @@ Sets the unit system for subsequent Sensor reads. "game" (default) = Gs and degr
 
 **Example**
 
-```vb
-Sensor.Units "game"     ' default, easy mode
-Sensor.Units "metric"   ' physics-accurate
-```
+    Sensor.Units "game"     ' default, easy mode
+    Sensor.Units "metric"   ' physics-accurate
 
 **See Also** — [Sensor.Accel](#sensoraccel), [Sensor.Gyro](#sensorgyro), [Sensor.Magnet](#sensormagnet), [Sensor.Magnetometer](#sensormagnetometer), [Sensor.Gravity](#sensorgravity), [Sensor.Tilt](#sensortilt)
 
@@ -12280,15 +11032,8 @@ Sensor.Units "metric"   ' physics-accurate
 
 **Syntax**
 
-```vb
-Set objectVariable = objectExpression
-Set objectVariable = New ClassName
-```
-
-**Parameters**
-
-- `objectVariable = objectExpression
-Set objectVariable = New ClassName`
+    Set objectVariable = objectExpression
+    Set objectVariable = New ClassName
 
 **Description**
 
@@ -12296,11 +11041,9 @@ Assigns an object reference to a variable. Required for object types (not needed
 
 **Example**
 
-```vb
-Dim player As Object
-Set player = New Player
-Set player = Nothing  ' Release reference
-```
+    Dim player As Object
+    Set player = New Player
+    Set player = Nothing  ' Release reference
 
 **See Also** — [Class](#class), [End Class](#end-class), [New](#new), [Me](#me), [Implements](#implements), [Inherits](#inherits), [Interface](#interface), [Property](#property)
 
@@ -12312,9 +11055,7 @@ Set player = Nothing  ' Release reference
 
 **Syntax**
 
-```vb
-set_process(enable As Boolean)
-```
+    set_process(enable As Boolean)
 
 **Parameters**
 
@@ -12326,10 +11067,8 @@ Enables or disables [b]_Process[/b] for this node.
 
 **Example**
 
-```vb
-set_process(False)   ' pause processing
-set_process(True)    ' resume
-```
+    set_process(False)   ' pause processing
+    set_process(True)    ' resume
 
 **Godot Mapping** — [`Node.set_process()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-set_process)
 
@@ -12341,9 +11080,7 @@ set_process(True)    ' resume
 
 **Syntax**
 
-```vb
-SetDrawTransform x, y [, rotation] [, scaleX] [, scaleY]
-```
+    SetDrawTransform x, y [, rotation] [, scaleX] [, scaleY]
 
 **Parameters**
 
@@ -12359,19 +11096,17 @@ Sets a 2D transform for all subsequent draw calls. Translation (x,y), rotation i
 
 **Example**
 
-```vb
-Sub _Draw()
-    ' Draw a rotated square
-    SetDrawTransform 200, 200, 0.785  ' 45 degrees
-    DrawRect -25, -25, 50, 50, Color.Red
-    ResetDrawTransform
+    Sub _Draw()
+        ' Draw a rotated square
+        SetDrawTransform 200, 200, 0.785  ' 45 degrees
+        DrawRect -25, -25, 50, 50, Color.Red
+        ResetDrawTransform
 
-    ' Draw scaled UI
-    SetDrawTransform 0, 0, 0, 2.0, 2.0  ' 2x scale
-    DrawRect 0, 0, 50, 50, Color.Blue    ' Appears as 100x100
-    ResetDrawTransform
-End Sub
-```
+        ' Draw scaled UI
+        SetDrawTransform 0, 0, 0, 2.0, 2.0  ' 2x scale
+        DrawRect 0, 0, 50, 50, Color.Blue    ' Appears as 100x100
+        ResetDrawTransform
+    End Sub
 
 **See Also** — [ResetDrawTransform](#resetdrawtransform)
 
@@ -12383,9 +11118,7 @@ End Sub
 
 **Syntax**
 
-```vb
-SetImagePixel image, x, y, color
-```
+    SetImagePixel image, x, y, color
 
 **Parameters**
 
@@ -12400,19 +11133,17 @@ Sets a pixel color on an Image object. After modifying pixels, call UpdateTextur
 
 **Example**
 
-```vb
-Dim img = CreateImage(100, 100)
-Dim tex = CreateTexture(img)
+    Dim img = CreateImage(100, 100)
+    Dim tex = CreateTexture(img)
 
-' Draw a red diagonal line
-For i = 0 To 99
-    SetImagePixel img, i, i, Color(1, 0, 0, 1)
-Next
-UpdateTexture tex, img  ' Push changes to GPU
+    ' Draw a red diagonal line
+    For i = 0 To 99
+        SetImagePixel img, i, i, Color(1, 0, 0, 1)
+    Next
+    UpdateTexture tex, img  ' Push changes to GPU
 
-' Using Color8 (0-255 range)
-SetImagePixel img, 50, 50, Color8(0, 255, 0, 255)
-```
+    ' Using Color8 (0-255 range)
+    SetImagePixel img, 50, 50, Color8(0, 255, 0, 255)
 
 **See Also** — [CreateImage](#createimage), [FillImage](#fillimage), [FillImageRect](#fillimagerect), [GetImagePixel](#getimagepixel), [BlitImage](#blitimage), [ImageWidth](#imagewidth), [ImageHeight](#imageheight)
 
@@ -12424,9 +11155,7 @@ SetImagePixel img, 50, 50, Color8(0, 255, 0, 255)
 
 **Syntax**
 
-```vb
-Shader.Get(material, key) As Variant
-```
+    Shader.Get(material, key) As Variant
 
 **Parameters**
 
@@ -12439,9 +11168,7 @@ Alias of Shader.GetParam — reads a shader uniform.
 
 **Example**
 
-```vb
-Print Shader.Get(sprite.Material, "hit_flash")
-```
+    Print Shader.Get(sprite.Material, "hit_flash")
 
 **See Also** — [Material.New](#materialnew), [Material.SetShader](#materialsetshader), [Shader.Param](#shaderparam), [Shader.GetParam](#shadergetparam), [Shader.Set](#shaderset)
 
@@ -12453,9 +11180,7 @@ Print Shader.Get(sprite.Material, "hit_flash")
 
 **Syntax**
 
-```vb
-Shader.GetParam(material, key) As Variant
-```
+    Shader.GetParam(material, key) As Variant
 
 **Parameters**
 
@@ -12468,9 +11193,7 @@ Reads the current value of a shader uniform.
 
 **Example**
 
-```vb
-Print Shader.GetParam(sprite.Material, "glow")
-```
+    Print Shader.GetParam(sprite.Material, "glow")
 
 **See Also** — [Material.New](#materialnew), [Material.SetShader](#materialsetshader), [Shader.Param](#shaderparam), [Shader.Set](#shaderset), [Shader.Get](#shaderget)
 
@@ -12482,9 +11205,7 @@ Print Shader.GetParam(sprite.Material, "glow")
 
 **Syntax**
 
-```vb
-Shader.Param(material, key, value)
-```
+    Shader.Param(material, key, value)
 
 **Parameters**
 
@@ -12498,9 +11219,7 @@ Sets a shader uniform on a ShaderMaterial.
 
 **Example**
 
-```vb
-Shader.Param sprite.Material, "glow", 1.5
-```
+    Shader.Param sprite.Material, "glow", 1.5
 
 **See Also** — [Material.New](#materialnew), [Material.SetShader](#materialsetshader), [Shader.GetParam](#shadergetparam), [Shader.Set](#shaderset), [Shader.Get](#shaderget)
 
@@ -12512,9 +11231,7 @@ Shader.Param sprite.Material, "glow", 1.5
 
 **Syntax**
 
-```vb
-Shader.Set(material, key, value)
-```
+    Shader.Set(material, key, value)
 
 **Parameters**
 
@@ -12528,9 +11245,7 @@ Alias of Shader.Param — sets a shader uniform. Use whichever name reads better
 
 **Example**
 
-```vb
-Shader.Set sprite.Material, "hit_flash", 1.0
-```
+    Shader.Set sprite.Material, "hit_flash", 1.0
 
 **See Also** — [Material.New](#materialnew), [Material.SetShader](#materialsetshader), [Shader.Param](#shaderparam), [Shader.GetParam](#shadergetparam), [Shader.Get](#shaderget)
 
@@ -12542,9 +11257,7 @@ Shader.Set sprite.Material, "hit_flash", 1.0
 
 **Syntax**
 
-```vb
-show()
-```
+    show()
 
 **Description**
 
@@ -12552,9 +11265,7 @@ Makes this node visible. Equivalent to setting [b]visible = True[/b].
 
 **Example**
 
-```vb
-show   ' make visible
-```
+    show   ' make visible
 
 **Godot Mapping** — [`CanvasItem.show()`](https://docs.godotengine.org/en/stable/classes/class_canvasitem.html#class-canvasitem-method-show)
 
@@ -12568,9 +11279,7 @@ show   ' make visible
 
 **Syntax**
 
-```vb
-Sin(angle)
-```
+    Sin(angle)
 
 **Parameters**
 
@@ -12582,11 +11291,9 @@ Returns the sine of an angle (in radians).
 
 **Example**
 
-```vb
-Dim y As Single = Sin(3.14159 / 2)  ' 1.0
-' Oscillating motion
-y = Sin(time * 2.0) * amplitude
-```
+    Dim y As Single = Sin(3.14159 / 2)  ' 1.0
+    ' Oscillating motion
+    y = Sin(time * 2.0) * amplitude
 
 **See Also** — [Cos](#cos)
 
@@ -12598,9 +11305,7 @@ y = Sin(time * 2.0) * amplitude
 
 **Syntax**
 
-```vb
-Dim varName As Single
-```
+    Dim varName As Single
 
 **Parameters**
 
@@ -12612,10 +11317,8 @@ A single-precision floating-point number (32-bit). Use for positions, speeds, et
 
 **Example**
 
-```vb
-Dim speed As Single = 5.5
-Dim gravity As Single = 9.8
-```
+    Dim speed As Single = 5.5
+    Dim gravity As Single = 9.8
 
 **See Also** — [Integer](#integer), [Long](#long), [Double](#double), [String](#string), [Boolean](#boolean), [Variant](#variant), [Array](#array)
 
@@ -12627,9 +11330,7 @@ Dim gravity As Single = 9.8
 
 **Syntax**
 
-```vb
-Skeleton.Count(skeleton) As Long
-```
+    Skeleton.Count(skeleton) As Long
 
 **Parameters**
 
@@ -12641,11 +11342,9 @@ Returns the number of bones in the skeleton.
 
 **Example**
 
-```vb
-For i = 0 To Skeleton.Count(skel) - 1
-    Print Skeleton.Name(skel, i)
-Next
-```
+    For i = 0 To Skeleton.Count(skel) - 1
+        Print Skeleton.Name(skel, i)
+    Next
 
 **See Also** — [Skeleton.Name](#skeletonname), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
 
@@ -12657,9 +11356,7 @@ Next
 
 **Syntax**
 
-```vb
-Skeleton.Name(skeleton, idx) As String
-```
+    Skeleton.Name(skeleton, idx) As String
 
 **Parameters**
 
@@ -12672,9 +11369,7 @@ Returns the name of the bone at the given index.
 
 **Example**
 
-```vb
-Print Skeleton.Name(skel, 0)
-```
+    Print Skeleton.Name(skel, 0)
 
 **See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Reset](#skeletonreset), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
 
@@ -12686,9 +11381,7 @@ Print Skeleton.Name(skel, 0)
 
 **Syntax**
 
-```vb
-Skeleton.Reset(skeleton)
-```
+    Skeleton.Reset(skeleton)
 
 **Parameters**
 
@@ -12700,9 +11393,7 @@ Resets all bones back to their rest pose.
 
 **Example**
 
-```vb
-Skeleton.Reset character
-```
+    Skeleton.Reset character
 
 **See Also** — [Skeleton.Count](#skeletoncount), [Skeleton.Name](#skeletonname), [Bone.Find](#bonefind), [Bone.Pos](#bonepos), [Bone.Rot](#bonerot), [Bone.Scale](#bonescale), [Bone.SetPos](#bonesetpos), [Bone.SetRot](#bonesetrot), [Bone.SetScale](#bonesetscale), [Bone.LookAt](#bonelookat)
 
@@ -12714,9 +11405,7 @@ Skeleton.Reset character
 
 **Syntax**
 
-```vb
-Slerp(a, b, t)
-```
+    Slerp(a, b, t)
 
 **Parameters**
 
@@ -12730,13 +11419,11 @@ Spherical interpolation. Smoothly blends between two Quaternions, Vector3s, or V
 
 **Example**
 
-```vb
-' Rotate halfway from current to target
-player.quaternion = Slerp(player.quaternion, targetRot, 0.1)
+    ' Rotate halfway from current to target
+    player.quaternion = Slerp(player.quaternion, targetRot, 0.1)
 
-' Smooth aim direction
-aim = Slerp(aim, desiredAim, 0.2)
-```
+    ' Smooth aim direction
+    aim = Slerp(aim, desiredAim, 0.2)
 
 **See Also** — [Quaternion](#quaternion), [QuaternionFromEuler](#quaternionfromeuler), [Basis](#basis), [Transform2D](#transform2d), [Transform3D](#transform3d), [Plane](#plane), [AABB](#aabb)
 
@@ -12748,9 +11435,7 @@ aim = Slerp(aim, desiredAim, 0.2)
 
 **Syntax**
 
-```vb
-Sound.IsPlaying(h) As Boolean
-```
+    Sound.IsPlaying(h) As Boolean
 
 **Parameters**
 
@@ -12762,11 +11447,9 @@ Returns True if the sound is currently playing.
 
 **Example**
 
-```vb
-If Not Sound.IsPlaying(music) Then
-    music = Sound.Play("res://song.ogg")
-End If
-```
+    If Not Sound.IsPlaying(music) Then
+        music = Sound.Play("res://song.ogg")
+    End If
 
 **See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.Position](#soundposition)
 
@@ -12778,9 +11461,7 @@ End If
 
 **Syntax**
 
-```vb
-Sound.Pause(h)
-```
+    Sound.Pause(h)
 
 **Parameters**
 
@@ -12792,9 +11473,7 @@ Pauses a sound without stopping it. Resume with Sound.Resume(h).
 
 **Example**
 
-```vb
-Sound.Pause music
-```
+    Sound.Pause music
 
 **See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
 
@@ -12806,9 +11485,7 @@ Sound.Pause music
 
 **Syntax**
 
-```vb
-Sound.Pitch(scale, h)
-```
+    Sound.Pitch(scale, h)
 
 **Parameters**
 
@@ -12821,9 +11498,7 @@ Changes playback speed/pitch of a sound. 1.0 = normal, 2.0 = double speed (one o
 
 **Example**
 
-```vb
-Sound.Pitch 1.2, music   ' slightly faster/higher
-```
+    Sound.Pitch 1.2, music   ' slightly faster/higher
 
 **See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
 
@@ -12835,9 +11510,7 @@ Sound.Pitch 1.2, music   ' slightly faster/higher
 
 **Syntax**
 
-```vb
-Sound.Play(path [, busName]) As Long
-```
+    Sound.Play(path [, busName]) As Long
 
 **Parameters**
 
@@ -12850,14 +11523,12 @@ Plays a sound and returns a handle (Integer). Save the handle if you want to sto
 
 **Example**
 
-```vb
-' Fire and forget
-Sound.Play "res://blast.wav"
+    ' Fire and forget
+    Sound.Play "res://blast.wav"
 
-' Keep a handle to control it later
-Dim music = Sound.Play("res://song.ogg", "Music")
-Sound.Volume 60, music
-```
+    ' Keep a handle to control it later
+    Dim music = Sound.Play("res://song.ogg", "Music")
+    Sound.Volume 60, music
 
 **See Also** — [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
 
@@ -12869,9 +11540,7 @@ Sound.Volume 60, music
 
 **Syntax**
 
-```vb
-Sound.Position(h) As Double
-```
+    Sound.Position(h) As Double
 
 **Parameters**
 
@@ -12883,10 +11552,8 @@ Returns the current playback position in seconds.
 
 **Example**
 
-```vb
-Dim t = Sound.Position(music)
-Print "At " & Round(t, 1) & " seconds"
-```
+    Dim t = Sound.Position(music)
+    Print "At " & Round(t, 1) & " seconds"
 
 **See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying)
 
@@ -12898,9 +11565,7 @@ Print "At " & Round(t, 1) & " seconds"
 
 **Syntax**
 
-```vb
-Sound.Resume(h)
-```
+    Sound.Resume(h)
 
 **Parameters**
 
@@ -12912,9 +11577,7 @@ Resumes a paused sound from where it left off.
 
 **Example**
 
-```vb
-Sound.Resume music
-```
+    Sound.Resume music
 
 **See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
 
@@ -12926,9 +11589,7 @@ Sound.Resume music
 
 **Syntax**
 
-```vb
-Sound.Seek(h, seconds)
-```
+    Sound.Seek(h, seconds)
 
 **Parameters**
 
@@ -12941,9 +11602,7 @@ Jumps to a position (in seconds) inside a playing sound. Useful for skipping int
 
 **Example**
 
-```vb
-Sound.Seek music, 30.0   ' jump to 30 seconds in
-```
+    Sound.Seek music, 30.0   ' jump to 30 seconds in
 
 **See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
 
@@ -12955,9 +11614,7 @@ Sound.Seek music, 30.0   ' jump to 30 seconds in
 
 **Syntax**
 
-```vb
-Sound.Stop(h)
-```
+    Sound.Stop(h)
 
 **Parameters**
 
@@ -12969,9 +11626,7 @@ Stops a sound that was started with Sound.Play and frees it.
 
 **Example**
 
-```vb
-Sound.Stop music
-```
+    Sound.Stop music
 
 **See Also** — [Sound.Play](#soundplay), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Volume](#soundvolume), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
 
@@ -12983,9 +11638,7 @@ Sound.Stop music
 
 **Syntax**
 
-```vb
-Sound.Volume(pct [, h])
-```
+    Sound.Volume(pct [, h])
 
 **Parameters**
 
@@ -12998,10 +11651,8 @@ Sets volume in percent (0..100). With a handle, changes that one sound. Without 
 
 **Example**
 
-```vb
-Sound.Volume 75           ' master at 75%
-Sound.Volume 50, music    ' just this song at 50%
-```
+    Sound.Volume 75           ' master at 75%
+    Sound.Volume 50, music    ' just this song at 50%
 
 **See Also** — [Sound.Play](#soundplay), [Sound.Stop](#soundstop), [Sound.Pause](#soundpause), [Sound.Resume](#soundresume), [Sound.Seek](#soundseek), [Sound.Pitch](#soundpitch), [Sound.IsPlaying](#soundisplaying), [Sound.Position](#soundposition)
 
@@ -13013,9 +11664,7 @@ Sound.Volume 50, music    ' just this song at 50%
 
 **Syntax**
 
-```vb
-Speaker.Bus
-```
+    Speaker.Bus
 
 **Description**
 
@@ -13023,9 +11672,7 @@ Alias of the Speaker namespace — same verbs (Volume, Mute, Solo, etc.) just sp
 
 **Example**
 
-```vb
-Speaker.Bus.Volume "Master", 75
-```
+    Speaker.Bus.Volume "Master", 75
 
 **See Also** — [Speaker.Volume](#speakervolume), [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Name](#speakername)
 
@@ -13037,9 +11684,7 @@ Speaker.Bus.Volume "Master", 75
 
 **Syntax**
 
-```vb
-Speaker.Count() As Integer
-```
+    Speaker.Count() As Integer
 
 **Description**
 
@@ -13047,11 +11692,9 @@ Returns the number of configured speakers/buses.
 
 **Example**
 
-```vb
-For i = 0 To Speaker.Count() - 1
-    Print Speaker.Name(i)
-Next
-```
+    For i = 0 To Speaker.Count() - 1
+        Print Speaker.Name(i)
+    Next
 
 **See Also** — [Speaker.Volume](#speakervolume), [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Name](#speakername), [Speaker.Bus](#speakerbus)
 
@@ -13063,9 +11706,7 @@ Next
 
 **Syntax**
 
-```vb
-Speaker.Exists(name) As Boolean
-```
+    Speaker.Exists(name) As Boolean
 
 **Parameters**
 
@@ -13077,11 +11718,9 @@ Returns True if a speaker with this name exists in Project Settings → Audio �
 
 **Example**
 
-```vb
-If Speaker.Exists("Music") Then
-    Speaker.Volume "Music", 50
-End If
-```
+    If Speaker.Exists("Music") Then
+        Speaker.Volume "Music", 50
+    End If
 
 **See Also** — [Speaker.Volume](#speakervolume), [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Count](#speakercount), [Speaker.Name](#speakername), [Speaker.Bus](#speakerbus)
 
@@ -13093,9 +11732,7 @@ End If
 
 **Syntax**
 
-```vb
-Speaker.IsMuted(name) As Boolean
-```
+    Speaker.IsMuted(name) As Boolean
 
 **Parameters**
 
@@ -13107,11 +11744,9 @@ Returns True if the named speaker is currently muted.
 
 **Example**
 
-```vb
-If Speaker.IsMuted("Master") Then
-    Print "Audio is off"
-End If
-```
+    If Speaker.IsMuted("Master") Then
+        Print "Audio is off"
+    End If
 
 **See Also** — [Speaker.Volume](#speakervolume), [Speaker.Mute](#speakermute), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Name](#speakername), [Speaker.Bus](#speakerbus)
 
@@ -13123,9 +11758,7 @@ End If
 
 **Syntax**
 
-```vb
-Speaker.Mute(name, muted)
-```
+    Speaker.Mute(name, muted)
 
 **Parameters**
 
@@ -13138,10 +11771,8 @@ Mutes or unmutes a speaker. Pass True to mute, False to unmute.
 
 **Example**
 
-```vb
-Speaker.Mute "Music", True     ' silence music
-Speaker.Mute "Music", False    ' unmute
-```
+    Speaker.Mute "Music", True     ' silence music
+    Speaker.Mute "Music", False    ' unmute
 
 **See Also** — [Speaker.Volume](#speakervolume), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Name](#speakername), [Speaker.Bus](#speakerbus)
 
@@ -13153,9 +11784,7 @@ Speaker.Mute "Music", False    ' unmute
 
 **Syntax**
 
-```vb
-Speaker.Name(index) As String
-```
+    Speaker.Name(index) As String
 
 **Parameters**
 
@@ -13167,9 +11796,7 @@ Returns the name of the speaker at the given index (0-based).
 
 **Example**
 
-```vb
-Print Speaker.Name(0)   ' usually "Master"
-```
+    Print Speaker.Name(0)   ' usually "Master"
 
 **See Also** — [Speaker.Volume](#speakervolume), [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Bus](#speakerbus)
 
@@ -13181,9 +11808,7 @@ Print Speaker.Name(0)   ' usually "Master"
 
 **Syntax**
 
-```vb
-Speaker.Solo(name, soloed)
-```
+    Speaker.Solo(name, soloed)
 
 **Parameters**
 
@@ -13196,9 +11821,7 @@ Solos a speaker so only it is audible (others silent). Pass False to unsolo.
 
 **Example**
 
-```vb
-Speaker.Solo "SFX", True   ' only sound effects audible
-```
+    Speaker.Solo "SFX", True   ' only sound effects audible
 
 **See Also** — [Speaker.Volume](#speakervolume), [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Name](#speakername), [Speaker.Bus](#speakerbus)
 
@@ -13210,9 +11833,7 @@ Speaker.Solo "SFX", True   ' only sound effects audible
 
 **Syntax**
 
-```vb
-Speaker.Volume(name [, pct])
-```
+    Speaker.Volume(name [, pct])
 
 **Parameters**
 
@@ -13225,13 +11846,11 @@ Get or set a speaker's volume in percent (0..100). With one argument, returns cu
 
 **Example**
 
-```vb
-' Build a music slider
-Speaker.Volume "Music", musicSlider.Value
+    ' Build a music slider
+    Speaker.Volume "Music", musicSlider.Value
 
-' Read current
-lbl.Text = "Music: " & Round(Speaker.Volume("Music")) & "%"
-```
+    ' Read current
+    lbl.Text = "Music: " & Round(Speaker.Volume("Music")) & "%"
 
 **See Also** — [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Name](#speakername), [Speaker.Bus](#speakerbus)
 
@@ -13243,9 +11862,7 @@ lbl.Text = "Music: " & Round(Speaker.Volume("Music")) & "%"
 
 **Syntax**
 
-```vb
-Spin(body, amount)
-```
+    Spin(body, amount)
 
 **Parameters**
 
@@ -13258,9 +11875,7 @@ Rotational impulse. Plain-English alias for Physics.Torque.
 
 **Example**
 
-```vb
-Spin coin, 12.5
-```
+    Spin coin, 12.5
 
 **See Also** — [Physics.Gravity](#physicsgravity), [Physics.GravityV2](#physicsgravityv2), [Physics.GravityV3](#physicsgravityv3), [Physics.Bounce](#physicsbounce), [Physics.Force](#physicsforce), [Physics.Impulse](#physicsimpulse), [Physics.Torque](#physicstorque), [Physics.Ray](#physicsray), [Push](#push), [Pull](#pull)
 
@@ -13272,9 +11887,7 @@ Spin coin, 12.5
 
 **Syntax**
 
-```vb
-Split(string, delimiter)
-```
+    Split(string, delimiter)
 
 **Parameters**
 
@@ -13287,12 +11900,10 @@ Splits a string into an array of substrings based on a delimiter.
 
 **Example**
 
-```vb
-Dim parts() As String
-parts = Split("A,B,C", ",")
-Print parts(0)  ' "A"
-Print parts(1)  ' "B"
-```
+    Dim parts() As String
+    parts = Split("A,B,C", ",")
+    Print parts(0)  ' "A"
+    Print parts(1)  ' "B"
 
 **See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Join](#join), [Format](#format)
 
@@ -13304,9 +11915,7 @@ Print parts(1)  ' "B"
 
 **Syntax**
 
-```vb
-Sqr(number)
-```
+    Sqr(number)
 
 **Parameters**
 
@@ -13318,10 +11927,8 @@ Returns the square root of a number.
 
 **Example**
 
-```vb
-Print Sqr(16)   ' 4
-Print Sqr(2.0)  ' 1.41421...
-```
+    Print Sqr(16)   ' 4
+    Print Sqr(2.0)  ' 1.41421...
 
 **See Also** — [Abs](#abs), [Int](#int), [Rnd](#rnd), [Randomize](#randomize), [RandRange](#randrange), [Round](#round), [Clamp](#clamp), [Lerp](#lerp), [Mod](#mod)
 
@@ -13333,9 +11940,7 @@ Print Sqr(2.0)  ' 1.41421...
 
 **Syntax**
 
-```vb
-Static variableName As DataType
-```
+    Static variableName As DataType
 
 **Parameters**
 
@@ -13347,13 +11952,11 @@ Declares a variable that retains its value between procedure calls. Unlike Dim, 
 
 **Example**
 
-```vb
-Sub CountCalls()
-    Static callCount As Integer
-    callCount = callCount + 1
-    Print "Called " & callCount & " times"
-End Sub
-```
+    Sub CountCalls()
+        Static callCount As Integer
+        callCount = callCount + 1
+        Print "Called " & callCount & " times"
+    End Sub
 
 **See Also** — [Dim](#dim), [Private](#private), [Public](#public), [Global](#global), [Const](#const), [ReDim](#redim), [Type](#type)
 
@@ -13365,9 +11968,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Steps.Reset()
-```
+    Steps.Reset()
 
 **Description**
 
@@ -13375,9 +11976,7 @@ Resets the step counter to zero. Plugin-dependent.
 
 **Example**
 
-```vb
-Steps.Reset()
-```
+    Steps.Reset()
 
 **See Also** — [Steps.Today](#stepstoday), [Steps.Total](#stepstotal)
 
@@ -13389,9 +11988,7 @@ Steps.Reset()
 
 **Syntax**
 
-```vb
-Steps.Today() As Long
-```
+    Steps.Today() As Long
 
 **Description**
 
@@ -13399,9 +11996,7 @@ Returns step count for today (midnight rollover). Stub returns 0.
 
 **Example**
 
-```vb
-goalProgress = Steps.Today() / 10000.0
-```
+    goalProgress = Steps.Today() / 10000.0
 
 **See Also** — [Steps.Total](#stepstotal), [Steps.Reset](#stepsreset)
 
@@ -13413,9 +12008,7 @@ goalProgress = Steps.Today() / 10000.0
 
 **Syntax**
 
-```vb
-Steps.Total() As Long
-```
+    Steps.Total() As Long
 
 **Description**
 
@@ -13423,9 +12016,7 @@ Returns total step count since boot (or since plugin install). Stub returns 0.
 
 **Example**
 
-```vb
-Print "Today you walked " & Steps.Total() & " steps"
-```
+    Print "Today you walked " & Steps.Total() & " steps"
 
 **See Also** — [Steps.Today](#stepstoday), [Steps.Reset](#stepsreset)
 
@@ -13437,9 +12028,7 @@ Print "Today you walked " & Steps.Total() & " steps"
 
 **Syntax**
 
-```vb
-Str(number)
-```
+    Str(number)
 
 **Parameters**
 
@@ -13451,10 +12040,8 @@ Converts a number to its string representation.
 
 **Example**
 
-```vb
-Dim s As String = Str(42)  ' " 42" (note leading space)
-Print "Score: " & Str(score)
-```
+    Dim s As String = Str(42)  ' " 42" (note leading space)
+    Print "Score: " & Str(score)
 
 **See Also** — [CInt](#cint), [CStr](#cstr), [Val](#val), [Int](#int)
 
@@ -13466,9 +12053,7 @@ Print "Score: " & Str(score)
 
 **Syntax**
 
-```vb
-Dim varName As String [= "text"]
-```
+    Dim varName As String [= "text"]
 
 **Parameters**
 
@@ -13480,11 +12065,9 @@ A text string of any length. Concatenate with & or + operator.
 
 **Example**
 
-```vb
-Dim name As String = "Player 1"
-Dim greeting As String
-greeting = "Hello, " & name & "!"
-```
+    Dim name As String = "Player 1"
+    Dim greeting As String
+    greeting = "Hello, " & name & "!"
 
 **See Also** — [Integer](#integer), [Long](#long), [Single](#single), [Double](#double), [Boolean](#boolean), [Variant](#variant), [Array](#array)
 
@@ -13496,15 +12079,9 @@ greeting = "Hello, " & name & "!"
 
 **Syntax**
 
-```vb
-[Public|Private] Sub procedureName([parameters])
-    statements
-End Sub
-```
-
-**Parameters**
-
-- `parameters`
+    [Public|Private] Sub procedureName([parameters])
+        statements
+    End Sub
 
 **Description**
 
@@ -13512,16 +12089,14 @@ Declares a subroutine — a procedure that performs an action but does not retur
 
 **Example**
 
-```vb
-Sub btnStart_Click()
-    StartGame()
-End Sub
+    Sub btnStart_Click()
+        StartGame()
+    End Sub
 
-Private Sub ResetScore()
-    score = 0
-    UpdateDisplay()
-End Sub
-```
+    Private Sub ResetScore()
+        score = 0
+        UpdateDisplay()
+    End Sub
 
 **See Also** — [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional), [Lambda](#lambda)
 
@@ -13536,9 +12111,7 @@ End Sub
 
 **Syntax**
 
-```vb
-TextureHeight(texture) As Integer
-```
+    TextureHeight(texture) As Integer
 
 **Parameters**
 
@@ -13550,11 +12123,9 @@ Returns the height of a Texture2D in pixels.
 
 **Example**
 
-```vb
-Dim tex = CreateTexture(256, 128)
-Print TextureWidth(tex)    ' 256
-Print TextureHeight(tex)   ' 128
-```
+    Dim tex = CreateTexture(256, 128)
+    Print TextureWidth(tex)    ' 256
+    Print TextureHeight(tex)   ' 128
 
 **See Also** — [ImageToTexture](#imagetotexture), [CreateTexture](#createtexture), [UpdateTexture](#updatetexture), [GetTextureImage](#gettextureimage), [TextureWidth](#texturewidth)
 
@@ -13566,9 +12137,7 @@ Print TextureHeight(tex)   ' 128
 
 **Syntax**
 
-```vb
-TextureWidth(texture) As Integer
-```
+    TextureWidth(texture) As Integer
 
 **Parameters**
 
@@ -13580,11 +12149,9 @@ Returns the width of a Texture2D in pixels.
 
 **Example**
 
-```vb
-Dim tex = LoadPicture("res://icon.png")
-Print TextureWidth(tex)   ' e.g. 128
-Print TextureHeight(tex)  ' e.g. 128
-```
+    Dim tex = LoadPicture("res://icon.png")
+    Print TextureWidth(tex)   ' e.g. 128
+    Print TextureHeight(tex)  ' e.g. 128
 
 **See Also** — [ImageToTexture](#imagetotexture), [CreateTexture](#createtexture), [UpdateTexture](#updatetexture), [GetTextureImage](#gettextureimage), [TextureHeight](#textureheight)
 
@@ -13596,9 +12163,7 @@ Print TextureHeight(tex)  ' e.g. 128
 
 **Syntax**
 
-```vb
-Theme.Color(control, key) As Color
-```
+    Theme.Color(control, key) As Color
 
 **Parameters**
 
@@ -13611,9 +12176,7 @@ Reads a theme color override (or falls back to the inherited theme). Common keys
 
 **Example**
 
-```vb
-Print Theme.Color(myLabel, "font_color")
-```
+    Print Theme.Color(myLabel, "font_color")
 
 **See Also** — [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
 
@@ -13625,9 +12188,7 @@ Print Theme.Color(myLabel, "font_color")
 
 **Syntax**
 
-```vb
-Theme.Constant(control, key) As Long
-```
+    Theme.Constant(control, key) As Long
 
 **Parameters**
 
@@ -13640,9 +12201,7 @@ Reads a theme constant (e.g. "separation", "margin_left").
 
 **Example**
 
-```vb
-Print Theme.Constant(hbox, "separation")
-```
+    Print Theme.Constant(hbox, "separation")
 
 **See Also** — [Theme.Color](#themecolor), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
 
@@ -13654,9 +12213,7 @@ Print Theme.Constant(hbox, "separation")
 
 **Syntax**
 
-```vb
-Theme.Font(control, key) As Font
-```
+    Theme.Font(control, key) As Font
 
 **Parameters**
 
@@ -13669,9 +12226,7 @@ Reads the font assigned to a control for the given key (e.g. "font").
 
 **Example**
 
-```vb
-Dim f = Theme.Font(myLabel, "font")
-```
+    Dim f = Theme.Font(myLabel, "font")
 
 **See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
 
@@ -13683,9 +12238,7 @@ Dim f = Theme.Font(myLabel, "font")
 
 **Syntax**
 
-```vb
-Theme.Get(control, kind, name) As Variant
-```
+    Theme.Get(control, kind, name) As Variant
 
 **Parameters**
 
@@ -13699,9 +12252,7 @@ Generic theme-item reader. `kind` is "color" | "constant" | "font" | "font_size"
 
 **Example**
 
-```vb
-Dim panelBg = Theme.Get(myPanel, "color", "bg_color")
-```
+    Dim panelBg = Theme.Get(myPanel, "color", "bg_color")
 
 **See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Set](#themeset)
 
@@ -13713,9 +12264,7 @@ Dim panelBg = Theme.Get(myPanel, "color", "bg_color")
 
 **Syntax**
 
-```vb
-Theme.Set(control, kind, name, value)
-```
+    Theme.Set(control, kind, name, value)
 
 **Parameters**
 
@@ -13730,10 +12279,8 @@ Generic theme-item writer. Same kind values as Theme.Get. Convenience wrapper ar
 
 **Example**
 
-```vb
-Theme.Set lblTitle, "color", "font_color", RGB(255, 200, 0)
-Theme.Set lblTitle, "font_size", "font_size", 32
-```
+    Theme.Set lblTitle, "color", "font_color", RGB(255, 200, 0)
+    Theme.Set lblTitle, "font_size", "font_size", 32
 
 **See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget)
 
@@ -13745,9 +12292,7 @@ Theme.Set lblTitle, "font_size", "font_size", 32
 
 **Syntax**
 
-```vb
-Theme.SetColor(control, key, color)
-```
+    Theme.SetColor(control, key, color)
 
 **Parameters**
 
@@ -13761,9 +12306,7 @@ Overrides a theme color on a single control. Persists until the control is freed
 
 **Example**
 
-```vb
-Theme.SetColor warningLabel, "font_color", Color.Red
-```
+    Theme.SetColor warningLabel, "font_color", Color.Red
 
 **See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
 
@@ -13775,9 +12318,7 @@ Theme.SetColor warningLabel, "font_color", Color.Red
 
 **Syntax**
 
-```vb
-Theme.SetConstant(control, key, value)
-```
+    Theme.SetConstant(control, key, value)
 
 **Parameters**
 
@@ -13791,9 +12332,7 @@ Overrides a theme integer constant (margins, spacings, etc.).
 
 **Example**
 
-```vb
-Theme.SetConstant hbox, "separation", 20
-```
+    Theme.SetConstant hbox, "separation", 20
 
 **See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
 
@@ -13805,9 +12344,7 @@ Theme.SetConstant hbox, "separation", 20
 
 **Syntax**
 
-```vb
-Theme.SetFont(control, key, font)
-```
+    Theme.SetFont(control, key, font)
 
 **Parameters**
 
@@ -13821,9 +12358,7 @@ Overrides the font on a single control. font is a Font resource.
 
 **Example**
 
-```vb
-Theme.SetFont titleLabel, "font", myCustomFont
-```
+    Theme.SetFont titleLabel, "font", myCustomFont
 
 **See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFontSize](#themesetfontsize), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
 
@@ -13835,9 +12370,7 @@ Theme.SetFont titleLabel, "font", myCustomFont
 
 **Syntax**
 
-```vb
-Theme.SetFontSize(control, key, size)
-```
+    Theme.SetFontSize(control, key, size)
 
 **Parameters**
 
@@ -13851,9 +12384,7 @@ Overrides the font size for a control. key is usually "font_size".
 
 **Example**
 
-```vb
-Theme.SetFontSize titleLabel, "font_size", 48
-```
+    Theme.SetFontSize titleLabel, "font_size", 48
 
 **See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetStyle](#themesetstyle), [Theme.Get](#themeget), [Theme.Set](#themeset)
 
@@ -13865,9 +12396,7 @@ Theme.SetFontSize titleLabel, "font_size", 48
 
 **Syntax**
 
-```vb
-Theme.SetStyle(control, key, stylebox)
-```
+    Theme.SetStyle(control, key, stylebox)
 
 **Parameters**
 
@@ -13881,9 +12410,7 @@ Overrides a theme StyleBox (backgrounds, borders). Pass a StyleBox resource.
 
 **Example**
 
-```vb
-Theme.SetStyle myPanel, "panel", customStyleBox
-```
+    Theme.SetStyle myPanel, "panel", customStyleBox
 
 **See Also** — [Theme.Color](#themecolor), [Theme.Constant](#themeconstant), [Theme.Font](#themefont), [Theme.SetColor](#themesetcolor), [Theme.SetConstant](#themesetconstant), [Theme.SetFont](#themesetfont), [Theme.SetFontSize](#themesetfontsize), [Theme.Get](#themeget), [Theme.Set](#themeset)
 
@@ -13895,9 +12422,7 @@ Theme.SetStyle myPanel, "panel", customStyleBox
 
 **Syntax**
 
-```vb
-If condition Then statements
-```
+    If condition Then statements
 
 **Parameters**
 
@@ -13909,10 +12434,8 @@ Part of the If statement. Follows the condition and precedes the code to execute
 
 **Example**
 
-```vb
-If health <= 0 Then GameOver()
-If x > 10 Then x = 10
-```
+    If health <= 0 Then GameOver()
+    If x > 10 Then x = 10
 
 **See Also** — [If](#if), [Else](#else), [ElseIf](#elseif), [End If](#end-if), [Select Case](#select-case), [IIf](#iif)
 
@@ -13924,15 +12447,8 @@ If x > 10 Then x = 10
 
 **Syntax**
 
-```vb
-Throw exceptionObject
-Throw "error message"
-```
-
-**Parameters**
-
-- `exceptionObject
-Throw "error message"`
+    Throw exceptionObject
+    Throw "error message"
 
 **Description**
 
@@ -13940,15 +12456,13 @@ Raises an exception. Can throw a string message or an Exception object.
 
 **Example**
 
-```vb
-If amount < 0 Then
-    Throw "Amount cannot be negative"
-End If
+    If amount < 0 Then
+        Throw "Amount cannot be negative"
+    End If
 
-Sub Validate(age As Integer)
-    If age < 0 Or age > 150 Then Throw "Invalid age: " & age
-End Sub
-```
+    Sub Validate(age As Integer)
+        If age < 0 Or age > 150 Then Throw "Invalid age: " & age
+    End Sub
 
 **See Also** — [On Error](#on-error), [Try](#try), [Catch](#catch), [Finally](#finally)
 
@@ -13960,9 +12474,7 @@ End Sub
 
 **Syntax**
 
-```vb
-Transform2D() | Transform2D(rotationRad, origin) | Transform2D(rotation, scale, skew, origin)
-```
+    Transform2D() | Transform2D(rotationRad, origin) | Transform2D(rotation, scale, skew, origin)
 
 **Description**
 
@@ -13970,10 +12482,8 @@ Transform2D() | Transform2D(rotationRad, origin) | Transform2D(rotation, scale, 
 
 **Example**
 
-```vb
-Dim t = Transform2D(0.785, Vector2(100, 50))  ' 45 deg, at (100,50)
-Dim t2 = t.Translated(Vector2(10, 0)).Rotated(0.1)
-```
+    Dim t = Transform2D(0.785, Vector2(100, 50))  ' 45 deg, at (100,50)
+    Dim t2 = t.Translated(Vector2(10, 0)).Rotated(0.1)
 
 **See Also** — [Quaternion](#quaternion), [QuaternionFromEuler](#quaternionfromeuler), [Basis](#basis), [Transform3D](#transform3d), [Plane](#plane), [AABB](#aabb), [Slerp](#slerp)
 
@@ -13985,9 +12495,7 @@ Dim t2 = t.Translated(Vector2(10, 0)).Rotated(0.1)
 
 **Syntax**
 
-```vb
-Transform3D() | Transform3D(basis, origin)
-```
+    Transform3D() | Transform3D(basis, origin)
 
 **Description**
 
@@ -13995,10 +12503,8 @@ Transform3D() | Transform3D(basis, origin)
 
 **Example**
 
-```vb
-Dim tr = Transform3D(Basis(), Vector3(0, 2, 5))
-cam.transform = tr.LookingAt(player.position, Vector3(0, 1, 0))
-```
+    Dim tr = Transform3D(Basis(), Vector3(0, 2, 5))
+    cam.transform = tr.LookingAt(player.position, Vector3(0, 1, 0))
 
 **See Also** — [Quaternion](#quaternion), [QuaternionFromEuler](#quaternionfromeuler), [Basis](#basis), [Transform2D](#transform2d), [Plane](#plane), [AABB](#aabb), [Slerp](#slerp)
 
@@ -14010,9 +12516,7 @@ cam.transform = tr.LookingAt(player.position, Vector3(0, 1, 0))
 
 **Syntax**
 
-```vb
-Trim(string)
-```
+    Trim(string)
 
 **Parameters**
 
@@ -14024,9 +12528,7 @@ Removes leading and trailing spaces from a string.
 
 **Example**
 
-```vb
-Print Trim("  Hello  ")  ' "Hello"
-```
+    Print Trim("  Hello  ")  ' "Hello"
 
 **See Also** — [Left](#left), [Right](#right), [Mid](#mid), [LCase](#lcase), [UCase](#ucase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
 
@@ -14038,9 +12540,7 @@ Print Trim("  Hello  ")  ' "Hello"
 
 **Syntax**
 
-```vb
-True
-```
+    True
 
 **Description**
 
@@ -14048,10 +12548,8 @@ Boolean literal representing a true/on state.
 
 **Example**
 
-```vb
-Dim isReady As Boolean = True
-Visible = True
-```
+    Dim isReady As Boolean = True
+    Visible = True
 
 **See Also** — [False](#false), [Nothing](#nothing)
 
@@ -14063,24 +12561,13 @@ Visible = True
 
 **Syntax**
 
-```vb
-Try
-    statements
-Catch [ex As Exception]
-    error handling
-[Finally]
-    cleanup
-End Try
-```
-
-**Parameters**
-
-- `statements
-Catch ex As Exception
-    error handling
-Finally
-    cleanup
-End Try`
+    Try
+        statements
+    Catch [ex As Exception]
+        error handling
+    [Finally]
+        cleanup
+    End Try
 
 **Description**
 
@@ -14088,16 +12575,14 @@ Structured exception handling. Code in Try is protected; if an error occurs, exe
 
 **Example**
 
-```vb
-Try
-    Dim result As Integer = 100 / divisor
-    Print result
-Catch ex As Exception
-    Print "Error: " & ex.Message
-Finally
-    Print "Done"
-End Try
-```
+    Try
+        Dim result As Integer = 100 / divisor
+        Print result
+    Catch ex As Exception
+        Print "Error: " & ex.Message
+    Finally
+        Print "Done"
+    End Try
 
 **See Also** — [On Error](#on-error), [Catch](#catch), [Finally](#finally), [Throw](#throw)
 
@@ -14109,19 +12594,10 @@ End Try
 
 **Syntax**
 
-```vb
-Type TypeName
-    field1 As DataType
-    field2 As DataType
-End Type
-```
-
-**Parameters**
-
-- `TypeName
-    field1 As DataType
-    field2 As DataType
-End Type`
+    Type TypeName
+        field1 As DataType
+        field2 As DataType
+    End Type
 
 **Description**
 
@@ -14129,16 +12605,14 @@ Declares a user-defined type (structure) that groups related variables together.
 
 **Example**
 
-```vb
-Type Vector2D
-    X As Single
-    Y As Single
-End Type
+    Type Vector2D
+        X As Single
+        Y As Single
+    End Type
 
-Dim pos As Vector2D
-pos.X = 100
-pos.Y = 200
-```
+    Dim pos As Vector2D
+    pos.X = 100
+    pos.Y = 200
 
 **See Also** — [Dim](#dim), [Private](#private), [Public](#public), [Global](#global), [Static](#static), [Const](#const), [ReDim](#redim)
 
@@ -14153,9 +12627,7 @@ pos.Y = 200
 
 **Syntax**
 
-```vb
-UBound(arrayName [, dimension])
-```
+    UBound(arrayName [, dimension])
 
 **Parameters**
 
@@ -14168,14 +12640,12 @@ Returns the highest valid index of an array.
 
 **Example**
 
-```vb
-Dim arr(10) As Integer
-Print UBound(arr)  ' 10
+    Dim arr(10) As Integer
+    Print UBound(arr)  ' 10
 
-For i = 0 To UBound(arr)
-    arr(i) = i * 2
-Next
-```
+    For i = 0 To UBound(arr)
+        arr(i) = i * 2
+    Next
 
 **See Also** — [Array](#array), [ReDim](#redim), [LBound](#lbound)
 
@@ -14187,9 +12657,7 @@ Next
 
 **Syntax**
 
-```vb
-UCase(string)
-```
+    UCase(string)
 
 **Parameters**
 
@@ -14201,9 +12669,7 @@ Converts a string to uppercase.
 
 **Example**
 
-```vb
-Print UCase("hello")  ' "HELLO"
-```
+    Print UCase("hello")  ' "HELLO"
 
 **See Also** — [Left](#left), [Right](#right), [Mid](#mid), [Trim](#trim), [LCase](#lcase), [Len](#len), [InStr](#instr), [Replace](#replace), [Split](#split), [Join](#join), [Format](#format)
 
@@ -14215,15 +12681,8 @@ Print UCase("hello")  ' "HELLO"
 
 **Syntax**
 
-```vb
-Do ... Loop Until condition
-Do Until condition ... Loop
-```
-
-**Parameters**
-
-- `... Loop Until condition
-Do Until condition ... Loop`
+    Do ... Loop Until condition
+    Do Until condition ... Loop
 
 **Description**
 
@@ -14231,11 +12690,9 @@ Loop continuation condition — the loop repeats until the condition becomes Tru
 
 **Example**
 
-```vb
-Do
-    tries = tries + 1
-Loop Until success Or tries > 10
-```
+    Do
+        tries = tries + 1
+    Loop Until success Or tries > 10
 
 **See Also** — [Do](#do), [Loop](#loop), [While](#while), [Wend](#wend), [Exit](#exit)
 
@@ -14247,9 +12704,7 @@ Loop Until success Or tries > 10
 
 **Syntax**
 
-```vb
-UpdateTexture texture, image
-```
+    UpdateTexture texture, image
 
 **Parameters**
 
@@ -14262,23 +12717,21 @@ Pushes updated Image pixel data to an existing ImageTexture. Call this after mod
 
 **Example**
 
-```vb
-Dim img = CreateImage(320, 240)
-Dim tex = CreateTexture(img)
+    Dim img = CreateImage(320, 240)
+    Dim tex = CreateTexture(img)
 
-' Modify pixels
-For x = 0 To 319
-    SetImagePixel img, x, 120, Color.Red
-Next
+    ' Modify pixels
+    For x = 0 To 319
+        SetImagePixel img, x, 120, Color.Red
+    Next
 
-' IMPORTANT: Push to GPU
-UpdateTexture tex, img
+    ' IMPORTANT: Push to GPU
+    UpdateTexture tex, img
 
-' Now DrawTexture will show the changes
-Sub _Draw()
-    DrawTexture tex, 0, 0
-End Sub
-```
+    ' Now DrawTexture will show the changes
+    Sub _Draw()
+        DrawTexture tex, 0, 0
+    End Sub
 
 **See Also** — [ImageToTexture](#imagetotexture), [CreateTexture](#createtexture), [GetTextureImage](#gettextureimage), [TextureWidth](#texturewidth), [TextureHeight](#textureheight)
 
@@ -14290,17 +12743,9 @@ End Sub
 
 **Syntax**
 
-```vb
-Using resource = expression
-    statements
-End Using
-```
-
-**Parameters**
-
-- `resource = expression
-    statements
-End Using`
+    Using resource = expression
+        statements
+    End Using
 
 **Description**
 
@@ -14308,11 +12753,9 @@ Ensures a resource is properly disposed/cleaned up when the block exits.
 
 **Example**
 
-```vb
-Using conn = OpenDatabase("game.db")
-    conn.Execute "INSERT INTO scores VALUES(" & score & ")"
-End Using  ' Connection automatically closed
-```
+    Using conn = OpenDatabase("game.db")
+        conn.Execute "INSERT INTO scores VALUES(" & score & ")"
+    End Using  ' Connection automatically closed
 
 **See Also** — [With](#with), [End With](#end-with)
 
@@ -14327,9 +12770,7 @@ End Using  ' Connection automatically closed
 
 **Syntax**
 
-```vb
-Val(string)
-```
+    Val(string)
 
 **Parameters**
 
@@ -14341,10 +12782,8 @@ Converts the numeric portion of a string to a number.
 
 **Example**
 
-```vb
-Dim n As Integer = Val("42 cats")  ' 42
-Dim d As Double = Val("3.14")      ' 3.14
-```
+    Dim n As Integer = Val("42 cats")  ' 42
+    Dim d As Double = Val("3.14")      ' 3.14
 
 **See Also** — [CInt](#cint), [CStr](#cstr), [Str](#str), [Int](#int)
 
@@ -14356,15 +12795,8 @@ Dim d As Double = Val("3.14")      ' 3.14
 
 **Syntax**
 
-```vb
-Dim varName As Variant
-Dim varName  ' Also Variant by default
-```
-
-**Parameters**
-
-- `varName As Variant
-Dim varName  ' Also Variant by default`
+    Dim varName As Variant
+    Dim varName  ' Also Variant by default
 
 **Description**
 
@@ -14372,12 +12804,10 @@ A flexible type that can hold any value — integer, string, object, array, etc.
 
 **Example**
 
-```vb
-Dim value As Variant
-value = 42
-value = "Hello"
-value = True
-```
+    Dim value As Variant
+    value = 42
+    value = "Hello"
+    value = True
 
 **See Also** — [Integer](#integer), [Long](#long), [Single](#single), [Double](#double), [String](#string), [Boolean](#boolean), [Array](#array)
 
@@ -14389,9 +12819,7 @@ value = True
 
 **Syntax**
 
-```vb
-Vibrate ms [, amplitude]
-```
+    Vibrate ms [, amplitude]
 
 **Parameters**
 
@@ -14404,10 +12832,8 @@ Vibrates the device for the given milliseconds. Amplitude is 0.0–1.0 (default 
 
 **Example**
 
-```vb
-Vibrate 100           ' short buzz
-Vibrate 500, 0.3      ' half-second gentle
-```
+    Vibrate 100           ' short buzz
+    Vibrate 500, 0.3      ' half-second gentle
 
 ---
 
@@ -14417,9 +12843,7 @@ Vibrate 500, 0.3      ' half-second gentle
 
 **Syntax**
 
-```vb
-Video.IsPlaying(player) As Boolean
-```
+    Video.IsPlaying(player) As Boolean
 
 **Parameters**
 
@@ -14431,9 +12855,7 @@ Returns True if the video is currently playing.
 
 **Example**
 
-```vb
-If Not Video.IsPlaying(introVid) Then ShowMenu()
-```
+    If Not Video.IsPlaying(introVid) Then ShowMenu()
 
 **See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.Volume](#videovolume)
 
@@ -14445,9 +12867,7 @@ If Not Video.IsPlaying(introVid) Then ShowMenu()
 
 **Syntax**
 
-```vb
-Video.Length(player) As Double
-```
+    Video.Length(player) As Double
 
 **Parameters**
 
@@ -14459,9 +12879,7 @@ Returns video length in seconds. Returns 0 if the stream doesn't report a length
 
 **Example**
 
-```vb
-Print "Duration: " & Video.Length(introVid)
-```
+    Print "Duration: " & Video.Length(introVid)
 
 **See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
 
@@ -14473,9 +12891,7 @@ Print "Duration: " & Video.Length(introVid)
 
 **Syntax**
 
-```vb
-Video.Pause(player)
-```
+    Video.Pause(player)
 
 **Parameters**
 
@@ -14487,9 +12903,7 @@ Pauses without resetting position. Resume with Video.Resume.
 
 **Example**
 
-```vb
-Video.Pause introVid
-```
+    Video.Pause introVid
 
 **See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
 
@@ -14501,9 +12915,7 @@ Video.Pause introVid
 
 **Syntax**
 
-```vb
-Video.Play(player)
-```
+    Video.Play(player)
 
 **Parameters**
 
@@ -14515,9 +12927,7 @@ Starts video playback.
 
 **Example**
 
-```vb
-Video.Play introVid
-```
+    Video.Play introVid
 
 **See Also** — [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
 
@@ -14529,9 +12939,7 @@ Video.Play introVid
 
 **Syntax**
 
-```vb
-Video.Position(player) As Double
-```
+    Video.Position(player) As Double
 
 **Parameters**
 
@@ -14543,9 +12951,7 @@ Returns current playback position in seconds.
 
 **Example**
 
-```vb
-Print Video.Position(introVid)
-```
+    Print Video.Position(introVid)
 
 **See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
 
@@ -14557,9 +12963,7 @@ Print Video.Position(introVid)
 
 **Syntax**
 
-```vb
-Video.Resume(player)
-```
+    Video.Resume(player)
 
 **Parameters**
 
@@ -14571,9 +12975,7 @@ Resumes a paused video.
 
 **Example**
 
-```vb
-Video.Resume introVid
-```
+    Video.Resume introVid
 
 **See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
 
@@ -14585,9 +12987,7 @@ Video.Resume introVid
 
 **Syntax**
 
-```vb
-Video.Seek(player, seconds)
-```
+    Video.Seek(player, seconds)
 
 **Parameters**
 
@@ -14600,9 +13000,7 @@ Jumps to a specific time in the video.
 
 **Example**
 
-```vb
-Video.Seek introVid, 30
-```
+    Video.Seek introVid, 30
 
 **See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
 
@@ -14614,9 +13012,7 @@ Video.Seek introVid, 30
 
 **Syntax**
 
-```vb
-Video.Stop(player)
-```
+    Video.Stop(player)
 
 **Parameters**
 
@@ -14628,9 +13024,7 @@ Stops playback and resets position to 0.
 
 **Example**
 
-```vb
-Video.Stop introVid
-```
+    Video.Stop introVid
 
 **See Also** — [Video.Play](#videoplay), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying), [Video.Volume](#videovolume)
 
@@ -14642,9 +13036,7 @@ Video.Stop introVid
 
 **Syntax**
 
-```vb
-Video.Volume(player, percent)
-```
+    Video.Volume(player, percent)
 
 **Parameters**
 
@@ -14657,9 +13049,7 @@ Sets video audio volume (0-100%). Same percent system as Speaker.Volume.
 
 **Example**
 
-```vb
-Video.Volume introVid, 75
-```
+    Video.Volume introVid, 75
 
 **See Also** — [Video.Play](#videoplay), [Video.Stop](#videostop), [Video.Pause](#videopause), [Video.Resume](#videoresume), [Video.Seek](#videoseek), [Video.Position](#videoposition), [Video.Length](#videolength), [Video.IsPlaying](#videoisplaying)
 
@@ -14674,9 +13064,7 @@ Video.Volume introVid, 75
 
 **Syntax**
 
-```vb
-Wend
-```
+    Wend
 
 **Description**
 
@@ -14684,11 +13072,9 @@ Terminates a While loop (legacy syntax).
 
 **Example**
 
-```vb
-While x < 100
-    x = x + 1
-Wend
-```
+    While x < 100
+        x = x + 1
+    Wend
 
 **See Also** — [Do](#do), [Loop](#loop), [While](#while), [Until](#until), [Exit](#exit)
 
@@ -14700,17 +13086,9 @@ Wend
 
 **Syntax**
 
-```vb
-Whenever condition [Changes|Becomes|Exceeds|Below value]
-    statements
-End Whenever
-```
-
-**Parameters**
-
-- `condition Changes|Becomes|Exceeds|Below value
-    statements
-End Whenever`
+    Whenever condition [Changes|Becomes|Exceeds|Below value]
+        statements
+    End Whenever
 
 **Description**
 
@@ -14718,16 +13096,14 @@ Reactive programming — automatically triggers code when a monitored condition 
 
 **Example**
 
-```vb
-Whenever health Below 20
-    lblWarning.Visible = True
-    lblWarning.Caption = "Low Health!"
-End Whenever
+    Whenever health Below 20
+        lblWarning.Visible = True
+        lblWarning.Caption = "Low Health!"
+    End Whenever
 
-Whenever score Changes
-    lblScore.Caption = "Score: " & score
-End Whenever
-```
+    Whenever score Changes
+        lblScore.Caption = "Score: " & score
+    End Whenever
 
 ---
 
@@ -14737,17 +13113,9 @@ End Whenever
 
 **Syntax**
 
-```vb
-While condition
-    statements
-Wend
-```
-
-**Parameters**
-
-- `condition
-    statements
-Wend`
+    While condition
+        statements
+    Wend
 
 **Description**
 
@@ -14755,12 +13123,10 @@ Repeats a block as long as the condition is True. Legacy syntax; prefer Do...Loo
 
 **Example**
 
-```vb
-While Not gameOver
-    Update()
-    Draw()
-Wend
-```
+    While Not gameOver
+        Update()
+        Draw()
+    Wend
 
 **See Also** — [Do](#do), [Loop](#loop), [Wend](#wend), [Until](#until), [Exit](#exit)
 
@@ -14772,12 +13138,10 @@ Wend
 
 **Syntax**
 
-```vb
-With objectExpression
-    .Property = value
-    .Method()
-End With
-```
+    With objectExpression
+        .Property = value
+        .Method()
+    End With
 
 **Description**
 
@@ -14785,13 +13149,11 @@ Executes a series of statements on a single object without repeating the object 
 
 **Example**
 
-```vb
-With lblScore
-    .Caption = "Score: " & score
-    .ForeColor = IIf(score > 100, vbRed, vbBlack)
-    .Visible = True
-End With
-```
+    With lblScore
+        .Caption = "Score: " & score
+        .ForeColor = IIf(score > 100, vbRed, vbBlack)
+        .Visible = True
+    End With
 
 **See Also** — [End With](#end-with), [Using](#using)
 
@@ -14803,9 +13165,7 @@ End With
 
 **Syntax**
 
-```vb
-Dim WithEvents varName As ClassName
-```
+    Dim WithEvents varName As ClassName
 
 **Parameters**
 
@@ -14817,13 +13177,11 @@ Declares an object variable that can respond to the object's events through even
 
 **Example**
 
-```vb
-Dim WithEvents gameTimer As Timer
+    Dim WithEvents gameTimer As Timer
 
-Sub gameTimer_Tick()
-    UpdateGame()
-End Sub
-```
+    Sub gameTimer_Tick()
+        UpdateGame()
+    End Sub
 
 **See Also** — [Event](#event), [RaiseEvent](#raiseevent)
 
@@ -14838,9 +13196,7 @@ End Sub
 
 **Syntax**
 
-```vb
-expression1 Xor expression2
-```
+    expression1 Xor expression2
 
 **Parameters**
 
@@ -14852,11 +13208,9 @@ Logical XOR — returns True if exactly one expression is True.
 
 **Example**
 
-```vb
-If a Xor b Then
-    Print "Exactly one is true"
-End If
-```
+    If a Xor b Then
+        Print "Exactly one is true"
+    End If
 
 **See Also** — [And](#and), [Or](#or), [Not](#not)
 

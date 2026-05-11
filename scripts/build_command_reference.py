@@ -125,6 +125,18 @@ def parse_see_also(text: str) -> dict[str, list[str]]:
 
 
 # --- Markdown page rendering --------------------------------------------
+def indent_code(code: str) -> str:
+    """Render `code` as a 4-space-indented Markdown code block.
+
+    Indented blocks are the most-portable code-block form: they render
+    correctly in every Markdown engine, including basic ones that don't
+    have the `fenced_code` extension enabled (e.g. Calibre's MD
+    converter and some E-Book viewers). Fenced ```vb blocks render fine
+    on GitHub but degrade to literal backticks elsewhere.
+    """
+    return "\n".join("    " + line if line else "" for line in code.splitlines())
+
+
 def anchor_for(keyword: str) -> str:
     """GitHub-style anchor: lowercase, spaces->dashes, drop punctuation
     except dashes and dots (GitHub drops dots too)."""
@@ -138,6 +150,11 @@ def split_syntax_params(syntax: str) -> list[str]:
     """Best-effort parameter extraction from a syntax string like
     `Camera.Shake intensity, duration [, cam]` or `Foo(arg1, arg2)`.
     Returns list of parameter names (no types)."""
+    # Multi-line syntax means this is a block construct (If/For/Sub/Class
+    # /etc.), not a function call — there are no callable parameters to
+    # enumerate. Skip the Parameters section entirely in that case.
+    if "\n" in syntax:
+        return []
     s = syntax
     # If the syntax uses parentheses, take inside.
     pm = re.search(r"\(([^)]*)\)", s)
@@ -172,9 +189,8 @@ def render_entry(entry: dict, see_also: list[str]) -> str:
     syntax = entry["syntax"].strip()
     if syntax:
         out.append("**Syntax**\n")
-        out.append("```vb")
-        out.append(syntax)
-        out.append("```\n")
+        out.append(indent_code(syntax))
+        out.append("")
 
     # Parameters (best effort)
     params = split_syntax_params(syntax)
@@ -193,9 +209,8 @@ def render_entry(entry: dict, see_also: list[str]) -> str:
     code = entry["code"].strip()
     if code:
         out.append("**Example**\n")
-        out.append("```vb")
-        out.append(code)
-        out.append("```\n")
+        out.append(indent_code(code))
+        out.append("")
 
     # Godot mapping
     gc = entry["godot_class"]
