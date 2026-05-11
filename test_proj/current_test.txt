@@ -1,1 +1,1 @@
-res://test_suite/test_withevents.vg.uid
+res://test_suite/test_withevents.vg

@@ -30,7 +30,7 @@ func _draw() -> void:
 		return
 	var pct: float = clampf(value / max_value, 0.0, 1.0)
 	# Hue shift: green (120°) → yellow (60°) → red (0°).
-	var hue := lerp(0.0, 120.0, pct) / 360.0
+	var hue: float = lerp(0.0, 120.0, pct) / 360.0
 	var fill_color := Color.from_hsv(hue, 0.85, 0.95)
 	var fill_w := inner_size.x * pct
 	draw_rect(Rect2(inner_pos, Vector2(fill_w, inner_size.y)), fill_color, true)
