@@ -28,6 +28,16 @@
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
+// Pass 1 — math/utility wrappers (May 11 2026)
+#include <godot_cpp/variant/quaternion.hpp>
+#include <godot_cpp/variant/basis.hpp>
+#include <godot_cpp/variant/transform2d.hpp>
+#include <godot_cpp/variant/transform3d.hpp>
+#include <godot_cpp/variant/plane.hpp>
+#include <godot_cpp/variant/aabb.hpp>
+#include <godot_cpp/classes/random_number_generator.hpp>
+#include <godot_cpp/classes/fast_noise_lite.hpp>
+#include <godot_cpp/classes/curve.hpp>
 // System-level class headers for built-in function dispatch
 #include "visual_gasic_process.h"
 #include "visual_gasic_database.h"
@@ -819,6 +829,162 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         if (args.size() == 4) return Rect2((real_t)(double)args[0], (real_t)(double)args[1], (real_t)(double)args[2], (real_t)(double)args[3]);
         return Rect2();
     }
+
+    // ── Pass 1: math built-in type constructors ─────────────────────────
+    // Quaternion(x,y,z,w) | Quaternion() = identity
+    if (METHOD_IS("quaternion")) {
+        r_handled = true;
+        if (args.size() == 0) return Quaternion();
+        if (args.size() == 4) return Quaternion((real_t)(double)args[0], (real_t)(double)args[1], (real_t)(double)args[2], (real_t)(double)args[3]);
+        return Quaternion();
+    }
+    // QuaternionFromEuler(x_rad, y_rad, z_rad) — rotation from Euler XYZ
+    if (METHOD_IS("quaternionfromeuler") && args.size() == 3) {
+        r_handled = true;
+        Vector3 e((real_t)(double)args[0], (real_t)(double)args[1], (real_t)(double)args[2]);
+        return Quaternion::from_euler(e);
+    }
+    // Basis() = identity (full Basis construction goes via Quaternion or methods on the value)
+    if (METHOD_IS("basis")) {
+        r_handled = true;
+        if (args.size() == 0) return Basis();
+        if (args.size() == 1) {
+            // Basis from Quaternion
+            Quaternion q = args[0];
+            return Basis(q);
+        }
+        return Basis();
+    }
+    // Transform2D() | Transform2D(rotation_rad, origin_vec2) | Transform2D(rotation, scale, skew, origin)
+    if (METHOD_IS("transform2d")) {
+        r_handled = true;
+        if (args.size() == 0) return Transform2D();
+        if (args.size() == 2) {
+            real_t rot = (real_t)(double)args[0];
+            Vector2 origin = args[1];
+            return Transform2D(rot, origin);
+        }
+        if (args.size() == 4) {
+            real_t rot = (real_t)(double)args[0];
+            Vector2 scale = args[1];
+            real_t skew = (real_t)(double)args[2];
+            Vector2 origin = args[3];
+            return Transform2D(rot, scale, skew, origin);
+        }
+        return Transform2D();
+    }
+    // Transform3D() | Transform3D(basis, origin_vec3)
+    if (METHOD_IS("transform3d")) {
+        r_handled = true;
+        if (args.size() == 0) return Transform3D();
+        if (args.size() == 2) {
+            Basis b = args[0];
+            Vector3 origin = args[1];
+            return Transform3D(b, origin);
+        }
+        return Transform3D();
+    }
+    // Plane(a, b, c, d) plane equation | Plane(normal_vec3, d) | Plane(normal_vec3)
+    if (METHOD_IS("plane")) {
+        r_handled = true;
+        if (args.size() == 0) return Plane();
+        if (args.size() == 1) {
+            Vector3 n = args[0];
+            return Plane(n, 0.0f);
+        }
+        if (args.size() == 2) {
+            Vector3 n = args[0];
+            return Plane(n, (real_t)(double)args[1]);
+        }
+        if (args.size() == 4) {
+            return Plane((real_t)(double)args[0], (real_t)(double)args[1], (real_t)(double)args[2], (real_t)(double)args[3]);
+        }
+        return Plane();
+    }
+    // AABB() | AABB(position_vec3, size_vec3)
+    if (METHOD_IS("aabb")) {
+        r_handled = true;
+        if (args.size() == 0) return AABB();
+        if (args.size() == 2) {
+            Vector3 pos = args[0];
+            Vector3 size = args[1];
+            return AABB(pos, size);
+        }
+        return AABB();
+    }
+    // NewRNG([seed]) — fresh RandomNumberGenerator (per-stream RNG)
+    if (METHOD_IS("newrng")) {
+        r_handled = true;
+        Ref<RandomNumberGenerator> rng;
+        rng.instantiate();
+        if (args.size() == 1) rng->set_seed((uint64_t)(int64_t)args[0]);
+        else rng->randomize();
+        return rng;
+    }
+    // NewNoise([seed]) — FastNoiseLite generator (Perlin/Simplex etc.)
+    if (METHOD_IS("newnoise")) {
+        r_handled = true;
+        Ref<FastNoiseLite> n;
+        n.instantiate();
+        if (args.size() == 1) n->set_seed((int32_t)(int64_t)args[0]);
+        return n;
+    }
+    // NewCurve() — empty Curve, add points via Curve.add_point() / sample()
+    if (METHOD_IS("newcurve")) {
+        r_handled = true;
+        Ref<Curve> c;
+        c.instantiate();
+        return c;
+    }
+
+    // ── Pass 1: global math/color verbs ─────────────────────────────────
+    // Slerp(a, b, t) — overloaded: Quaternion / Vector3 / Vector2 / Color
+    if (METHOD_IS("slerp") && args.size() == 3) {
+        r_handled = true;
+        Variant a = args[0]; Variant b = args[1]; real_t t = (real_t)(double)args[2];
+        switch (a.get_type()) {
+            case Variant::QUATERNION: { Quaternion qa = a; Quaternion qb = b; return qa.slerp(qb, t); }
+            case Variant::VECTOR3:    { Vector3 va = a; Vector3 vb = b; return va.slerp(vb, t); }
+            case Variant::VECTOR2:    { Vector2 va = a; Vector2 vb = b; return va.slerp(vb, t); }
+            default: break;
+        }
+        return Variant();
+    }
+    // ColorFromHSV(h, s, v[, a]) — h/s/v in 0..1
+    if (METHOD_IS("colorfromhsv")) {
+        r_handled = true;
+        if (args.size() >= 3) {
+            float h = (float)(double)args[0];
+            float s = (float)(double)args[1];
+            float v = (float)(double)args[2];
+            float a = (args.size() >= 4) ? (float)(double)args[3] : 1.0f;
+            return Color::from_hsv(h, s, v, a);
+        }
+        return Color();
+    }
+    // ColorToHSV(c) — returns Dictionary {h, s, v, a}
+    if (METHOD_IS("colortohsv") && args.size() == 1) {
+        r_handled = true;
+        Color c = args[0];
+        Dictionary d;
+        d["h"] = c.get_h();
+        d["s"] = c.get_s();
+        d["v"] = c.get_v();
+        d["a"] = c.a;
+        return d;
+    }
+    // Lighten(c, amount) / Darken(c, amount) — amount in 0..1
+    if (METHOD_IS("lighten") && args.size() == 2) {
+        r_handled = true;
+        Color c = args[0];
+        return c.lightened((float)(double)args[1]);
+    }
+    if (METHOD_IS("darken") && args.size() == 2) {
+        r_handled = true;
+        Color c = args[0];
+        return c.darkened((float)(double)args[1]);
+    }
+
     // GetThemeDefaultFont() — returns fallback font for Godot-style DrawString calls
     if (METHOD_IS("getthemedefaultfont")) {
         r_handled = true;

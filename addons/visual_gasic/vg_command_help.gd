@@ -719,6 +719,87 @@ static func _build_db() -> void:
 		2299)
 
 	# =========================================================================
+	# PASS 1 — MATH BUILT-IN TYPES (Quaternion, Basis, Transform, Plane, AABB)
+	# =========================================================================
+	_add("Quaternion",
+		"Quaternion() | Quaternion(x, y, z, w)",
+		"Creates a Quaternion — 3D rotation as four numbers. Identity rotation by default. Use Slerp to blend two rotations smoothly. Multiply two Quaternions to combine rotations.",
+		"Dim qIdentity = Quaternion()\nDim q = Quaternion(0, 0, 0, 1)  ' identity in (x,y,z,w)\n\n' Rotate halfway between two orientations\nDim qHalf = Slerp(qStart, qEnd, 0.5)")
+
+	_add("QuaternionFromEuler",
+		"QuaternionFromEuler(xRad, yRad, zRad)",
+		"Builds a Quaternion from Euler angles (pitch, yaw, roll) in radians. Easier than constructing the four components directly.",
+		"' 90-degree yaw (turn right)\nDim qTurn = QuaternionFromEuler(0, 1.5707963, 0)\nplayer.quaternion = qTurn")
+
+	_add("Basis",
+		"Basis() | Basis(quaternion)",
+		"Creates a 3x3 rotation/scale matrix used inside Transform3D. Pass a Quaternion to build a rotation-only Basis. Methods like .Scaled(v), .Rotated(axis, angle), .Inverse(), .Orthonormalized() are available on the result.",
+		"Dim b = Basis(QuaternionFromEuler(0, 0.5, 0))\nDim b2 = b.Scaled(Vector3(2, 2, 2))")
+
+	_add("Transform2D",
+		"Transform2D() | Transform2D(rotationRad, origin) | Transform2D(rotation, scale, skew, origin)",
+		"2D transform (rotation + scale + skew + position). Defaults to identity. Useful for positioning Node2D children procedurally. Methods .Translated(v), .Rotated(rad), .Scaled(v), .AffineInverse() return new Transform2Ds.",
+		"Dim t = Transform2D(0.785, Vector2(100, 50))  ' 45 deg, at (100,50)\nDim t2 = t.Translated(Vector2(10, 0)).Rotated(0.1)")
+
+	_add("Transform3D",
+		"Transform3D() | Transform3D(basis, origin)",
+		"3D transform combining a Basis (rotation+scale) with an origin Vector3. Used for positioning Node3Ds. .LookingAt(target, up) is the easy way to face a point.",
+		"Dim tr = Transform3D(Basis(), Vector3(0, 2, 5))\ncam.transform = tr.LookingAt(player.position, Vector3(0, 1, 0))")
+
+	_add("Plane",
+		"Plane() | Plane(normalVec3) | Plane(normalVec3, d) | Plane(a, b, c, d)",
+		"Infinite plane defined by a normal vector and signed distance from origin. Used for clipping, side-of-plane tests, and raycast results. Methods include .IsPointOver(p), .DistanceTo(p), .Intersect3(plane2, plane3).",
+		"Dim floor = Plane(Vector3(0, 1, 0), 0)  ' ground plane (y=0)\nIf floor.IsPointOver(actor.position) Then\n    Print \"actor is above the floor\"\nEnd If")
+
+	_add("AABB",
+		"AABB() | AABB(positionVec3, sizeVec3)",
+		"Axis-aligned bounding box in 3D. Used for visibility culling, region tests. Methods: .HasPoint(p), .Intersects(other), .GetCenter(), .Grow(by), .Encloses(other), .GetVolume().",
+		"Dim region = AABB(Vector3(-5, 0, -5), Vector3(10, 4, 10))\nIf region.HasPoint(enemy.position) Then\n    enemy.Aggro()\nEnd If")
+
+	_add("NewRNG",
+		"NewRNG([seed])",
+		"Creates a per-stream RandomNumberGenerator. Unlike global Rnd(), each NewRNG has its own seed for reproducible sequences. Access via .Randf(), .RandiRange(lo, hi), .RandfRange(lo, hi), .Randfn(mean, deviation).",
+		"Dim rng = NewRNG(42)            ' fixed seed\nDim damage = rng.RandiRange(5, 10)\nDim spread = rng.Randfn(0, 0.2)  ' normal distribution")
+
+	_add("NewNoise",
+		"NewNoise([seed])",
+		"Creates a FastNoiseLite generator for procedural content (terrain heightmaps, cloud patterns, perlin/simplex noise). Set .Seed, .Frequency, .NoiseType. Sample with .GetNoise2D(x, y), .GetNoise3D(x, y, z) — returns -1..1.",
+		"Dim n = NewNoise(1337)\nn.Frequency = 0.05\nFor x = 0 To 99\n    For y = 0 To 99\n        Dim h = (n.GetNoise2D(x, y) + 1) * 0.5  ' 0..1\n        heightmap(x, y) = h * 64\n    Next\nNext")
+
+	_add("NewCurve",
+		"NewCurve()",
+		"Creates an editable Curve resource for animation/easing. Use .AddPoint(Vector2(x, y)) to add control points then .Sample(t) — where t is 0..1 — to read the interpolated value. Great for designer-tunable shapes (jump arc, damage falloff).",
+		"Dim arc = NewCurve()\narc.AddPoint(Vector2(0, 0))\narc.AddPoint(Vector2(0.5, 1.0))\narc.AddPoint(Vector2(1.0, 0))\nDim height = arc.Sample(t) * jumpMax")
+
+	# =========================================================================
+	# PASS 1 — GLOBAL MATH VERBS
+	# =========================================================================
+	_add("Slerp",
+		"Slerp(a, b, t)",
+		"Spherical interpolation. Smoothly blends between two Quaternions, Vector3s, or Vector2s by factor t (0..1). Like Lerp but preserves length/rotation rate — use for camera orbits, rotation interpolation, smooth aim.",
+		"' Rotate halfway from current to target\nplayer.quaternion = Slerp(player.quaternion, targetRot, 0.1)\n\n' Smooth aim direction\naim = Slerp(aim, desiredAim, 0.2)")
+
+	_add("ColorFromHSV",
+		"ColorFromHSV(h, s, v [, a])",
+		"Builds a Color from Hue/Saturation/Value (each 0..1). Use when you want rainbow effects, palette cycling, or to tint by hue without RGB math.",
+		"' Animate the rainbow\nFor i = 0 To 60\n    Dim c = ColorFromHSV(i / 60.0, 0.8, 1.0)\n    DrawRect i * 10, 0, 10, 100, c\nNext")
+
+	_add("ColorToHSV",
+		"ColorToHSV(color)",
+		"Splits a Color into its Hue, Saturation, Value, Alpha components. Returns a Dictionary with keys h, s, v, a (each 0..1).",
+		"Dim parts = ColorToHSV(Color.Red)\nPrint parts.h  ' 0.0  (red is hue 0)\nPrint parts.s  ' 1.0")
+
+	_add("Lighten",
+		"Lighten(color, amount)",
+		"Returns a lighter shade of the color. Amount is 0..1 (0=unchanged, 1=white).",
+		"buttonHover = Lighten(buttonNormal, 0.2)")
+
+	_add("Darken",
+		"Darken(color, amount)",
+		"Returns a darker shade of the color. Amount is 0..1 (0=unchanged, 1=black).",
+		"shadow = Darken(skinColor, 0.4)")
+
+	# =========================================================================
 	# ARRAY FUNCTIONS
 	# =========================================================================
 	_add("UBound",

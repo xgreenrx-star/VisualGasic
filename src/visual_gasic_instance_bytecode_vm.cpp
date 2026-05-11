@@ -90,6 +90,14 @@
 #include <godot_cpp/classes/kinematic_collision3d.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/variant_internal.hpp>
+// Pass 1 — value-type field access (May 11 2026)
+#include <godot_cpp/variant/quaternion.hpp>
+#include <godot_cpp/variant/plane.hpp>
+#include <godot_cpp/variant/aabb.hpp>
+#include <godot_cpp/variant/transform2d.hpp>
+#include <godot_cpp/variant/transform3d.hpp>
+#include <godot_cpp/variant/basis.hpp>
+#include <godot_cpp/variant/vector4.hpp>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/godot.hpp>
 
@@ -3233,6 +3241,58 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     if (member == "position") result = rect.position;
                     else if (member == "size") result = rect.size;
                     else if (member == "end") result = rect.get_end();
+                } else if (base.get_type() == Variant::QUATERNION) {
+                    // Pass 1: Quaternion.x/y/z/w
+                    Quaternion q = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "x") result = q.x;
+                    else if (member == "y") result = q.y;
+                    else if (member == "z") result = q.z;
+                    else if (member == "w") result = q.w;
+                } else if (base.get_type() == Variant::PLANE) {
+                    // Pass 1: Plane.normal / .d / .x / .y / .z
+                    Plane pl = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "normal") result = pl.normal;
+                    else if (member == "d") result = pl.d;
+                    else if (member == "x") result = pl.normal.x;
+                    else if (member == "y") result = pl.normal.y;
+                    else if (member == "z") result = pl.normal.z;
+                } else if (base.get_type() == Variant::AABB) {
+                    // Pass 1: AABB.position / .size / .end
+                    AABB box = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "position") result = box.position;
+                    else if (member == "size") result = box.size;
+                    else if (member == "end") result = box.get_end();
+                } else if (base.get_type() == Variant::TRANSFORM2D) {
+                    // Pass 1: Transform2D.origin / .x / .y (basis columns)
+                    Transform2D t = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "origin") result = t.get_origin();
+                    else if (member == "x") result = t.columns[0];
+                    else if (member == "y") result = t.columns[1];
+                } else if (base.get_type() == Variant::TRANSFORM3D) {
+                    // Pass 1: Transform3D.origin / .basis
+                    Transform3D t = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "origin") result = t.origin;
+                    else if (member == "basis") result = t.basis;
+                } else if (base.get_type() == Variant::BASIS) {
+                    // Pass 1: Basis.x / .y / .z (rows)
+                    Basis b = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "x") result = b.rows[0];
+                    else if (member == "y") result = b.rows[1];
+                    else if (member == "z") result = b.rows[2];
+                } else if (base.get_type() == Variant::VECTOR4) {
+                    // Pass 1: Vector4.x/y/z/w
+                    Vector4 v = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "x") result = v.x;
+                    else if (member == "y") result = v.y;
+                    else if (member == "z") result = v.z;
+                    else if (member == "w") result = v.w;
                 } else if (base.get_type() == Variant::OBJECT) {
                     Object *obj = base;
                     if (obj) {
@@ -3994,6 +4054,57 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (member == "b" || member == "blue") col.b = (float)(double)value;
                     else if (member == "a" || member == "alpha") col.a = (float)(double)value;
                     push_value(col);
+                } else if (base.get_type() == Variant::QUATERNION) {
+                    Quaternion q = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "x") q.x = (real_t)(double)value;
+                    else if (member == "y") q.y = (real_t)(double)value;
+                    else if (member == "z") q.z = (real_t)(double)value;
+                    else if (member == "w") q.w = (real_t)(double)value;
+                    push_value(q);
+                } else if (base.get_type() == Variant::PLANE) {
+                    Plane pl = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "normal") pl.normal = (Vector3)value;
+                    else if (member == "d") pl.d = (real_t)(double)value;
+                    else if (member == "x") pl.normal.x = (real_t)(double)value;
+                    else if (member == "y") pl.normal.y = (real_t)(double)value;
+                    else if (member == "z") pl.normal.z = (real_t)(double)value;
+                    push_value(pl);
+                } else if (base.get_type() == Variant::AABB) {
+                    AABB box = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "position") box.position = (Vector3)value;
+                    else if (member == "size") box.size = (Vector3)value;
+                    push_value(box);
+                } else if (base.get_type() == Variant::TRANSFORM2D) {
+                    Transform2D t = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "origin") t.set_origin((Vector2)value);
+                    else if (member == "x") t.columns[0] = (Vector2)value;
+                    else if (member == "y") t.columns[1] = (Vector2)value;
+                    push_value(t);
+                } else if (base.get_type() == Variant::TRANSFORM3D) {
+                    Transform3D t = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "origin") t.origin = (Vector3)value;
+                    else if (member == "basis") t.basis = (Basis)value;
+                    push_value(t);
+                } else if (base.get_type() == Variant::BASIS) {
+                    Basis b = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "x") b.rows[0] = (Vector3)value;
+                    else if (member == "y") b.rows[1] = (Vector3)value;
+                    else if (member == "z") b.rows[2] = (Vector3)value;
+                    push_value(b);
+                } else if (base.get_type() == Variant::VECTOR4) {
+                    Vector4 v = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "x") v.x = (real_t)(double)value;
+                    else if (member == "y") v.y = (real_t)(double)value;
+                    else if (member == "z") v.z = (real_t)(double)value;
+                    else if (member == "w") v.w = (real_t)(double)value;
+                    push_value(v);
                 } else if (base.get_type() == Variant::OBJECT) {
                     Object *obj = base;
                     if (obj) {
