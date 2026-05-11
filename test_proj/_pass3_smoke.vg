@@ -1,0 +1,49 @@
+' Pass 3 smoke test — Animation/Physics/Cell/Nav namespaces
+Sub _Ready()
+    Print "=== Pass 3 smoke ==="
+
+    ' --- Physics.Ray one-shot (no scene needed) ---
+    ' Empty world: a ray should return Hit=False
+    Dim hit = Physics.Ray(Vector2(0, 0), Vector2(100, 0))
+    Print "Empty-world ray Hit: " & hit.Hit & " (expect False)"
+    Print "Empty-world ray Distance: " & hit.Distance & " (expect 0)"
+
+    ' --- Force verb aliases exist and don't crash on Nothing-like args ---
+    ' Don't actually apply (no body) — just confirm dispatch
+    Push Nothing, Vector2(0, 0)
+    Pull Nothing, Vector2(0, 0)
+    Spin Nothing, 0
+    Physics.Impulse Nothing, Vector2(0, 0)
+    Physics.Force Nothing, Vector2(0, 0)
+    Physics.Torque Nothing, 0
+    Print "Force verbs dispatched OK"
+
+    ' --- Cell.* on a fresh TileMapLayer ---
+    Dim layer = CreateNode("TileMapLayer")
+    AddChild layer
+    Cell.Set layer, 0, 0, -1, 0, 0   ' source=-1 means erase
+    Dim c = Cell.Get(layer, 0, 0)
+    Print "Empty cell Source: " & c.Source & " (expect -1)"
+
+    ' Used cells before setting any
+    Dim used = Cell.Used(layer)
+    Print "Used cells (empty): " & used.Count & " (expect 0)"
+    Cell.ClearAll layer
+    Print "After ClearAll: " & Cell.Used(layer).Count & " (expect 0)"
+
+    ' --- Animation.* on a fresh AnimationPlayer (no anims, just verify dispatch) ---
+    Dim ap = CreateNode("AnimationPlayer")
+    AddChild ap
+    Print "Animation.IsPlaying: " & Animation.IsPlaying(ap) & " (expect False)"
+    Print "Animation.Current: '" & Animation.Current(ap) & "' (expect empty)"
+    Print "Animation.Length: " & Animation.Length(ap) & " (expect 0)"
+    Animation.Speed ap, 2.0  ' should not crash
+
+    ' --- Nav.* on a fresh agent ---
+    Dim agent = CreateNode("NavigationAgent2D")
+    AddChild agent
+    Nav.SetTarget agent, Vector2(100, 100)
+    Print "Nav target reached: " & Nav.Reached(agent) & " (expect True until map ready)"
+
+    Print "PASS 3 OK"
+End Sub

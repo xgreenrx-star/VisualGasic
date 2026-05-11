@@ -54,6 +54,30 @@
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/tween.hpp>
 #include <godot_cpp/classes/property_tweener.hpp>
+// Pass 3 — game-completeness wrappers
+#include <godot_cpp/classes/animation_player.hpp>
+#include <godot_cpp/classes/area2d.hpp>
+#include <godot_cpp/classes/area3d.hpp>
+#include <godot_cpp/classes/rigid_body2d.hpp>
+#include <godot_cpp/classes/rigid_body3d.hpp>
+#include <godot_cpp/classes/ray_cast2d.hpp>
+#include <godot_cpp/classes/ray_cast3d.hpp>
+#include <godot_cpp/classes/shape_cast2d.hpp>
+#include <godot_cpp/classes/shape_cast3d.hpp>
+#include <godot_cpp/classes/tile_map_layer.hpp>
+#include <godot_cpp/classes/navigation_agent2d.hpp>
+#include <godot_cpp/classes/navigation_agent3d.hpp>
+#include <godot_cpp/classes/navigation_server2d.hpp>
+#include <godot_cpp/classes/navigation_server3d.hpp>
+#include <godot_cpp/classes/physics_direct_space_state2d.hpp>
+#include <godot_cpp/classes/physics_direct_space_state3d.hpp>
+#include <godot_cpp/classes/physics_ray_query_parameters2d.hpp>
+#include <godot_cpp/classes/physics_ray_query_parameters3d.hpp>
+#include <godot_cpp/classes/physics_server2d.hpp>
+#include <godot_cpp/classes/physics_server3d.hpp>
+#include <godot_cpp/classes/world2d.hpp>
+#include <godot_cpp/classes/world3d.hpp>
+#include <godot_cpp/classes/animation.hpp>
 // System-level class headers for built-in function dispatch
 #include "visual_gasic_process.h"
 #include "visual_gasic_database.h"
@@ -1359,6 +1383,423 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             if (idx < 0 || idx >= as->get_bus_count()) return String();
             return String(as->get_bus_name(idx));
         }
+    }
+
+    // ── Pass 3: game-completeness namespaces ────────────────────────────
+    //
+    // Animation.* — AnimationPlayer control
+    // Physics.*   — one-shot ray/force/impulse/torque + Push/Pull/Spin verbs
+    // Ray.*       — placed RayCast2D/3D node accessors
+    // Cell.*      — TileMapLayer cell read/write
+    // Nav.*       — NavigationAgent + path query
+    //
+    // Every namespace verb operates on a passed-in node handle (no implicit
+    // "active" — these are scene-specific). Returns Variant() / false / 0
+    // when the handle is invalid so user code keeps running.
+    {
+        // ── Animation.* ───────────────────────────────────────────────
+        // Animation.Play(player, name [, speed])
+        // Animation.Stop(player [, keepState])
+        // Animation.Pause(player), Animation.Resume(player)
+        // Animation.Seek(player, seconds [, update])
+        // Animation.Speed(player, scale)         — playback speed
+        // Animation.Current(player) As String    — current anim name
+        // Animation.IsPlaying(player) As Boolean
+        // Animation.Length(player [, name]) As Double — anim length in sec
+        auto resolve_anim = [&](const Variant &h) -> AnimationPlayer* {
+            if (h.get_type() != Variant::OBJECT) return nullptr;
+            Object *o = h;
+            return Object::cast_to<AnimationPlayer>(o);
+        };
+        if (METHOD_IS("animation_play") && args.size() >= 2) {
+            r_handled = true;
+            AnimationPlayer *p = resolve_anim(args[0]);
+            if (!p) return Variant();
+            String name = args[1];
+            double speed = (args.size() >= 3) ? (double)args[2] : 1.0;
+            p->play(StringName(name), -1.0f, (float)speed, false);
+            return Variant();
+        }
+        if (METHOD_IS("animation_stop") && args.size() >= 1) {
+            r_handled = true;
+            AnimationPlayer *p = resolve_anim(args[0]);
+            if (!p) return Variant();
+            bool keep = (args.size() >= 2) ? (bool)args[1] : false;
+            p->stop(keep);
+            return Variant();
+        }
+        if (METHOD_IS("animation_pause") && args.size() == 1) {
+            r_handled = true;
+            AnimationPlayer *p = resolve_anim(args[0]);
+            if (p) p->pause();
+            return Variant();
+        }
+        if (METHOD_IS("animation_resume") && args.size() == 1) {
+            r_handled = true;
+            AnimationPlayer *p = resolve_anim(args[0]);
+            // Godot has no "resume"; replay current anim from its position.
+            if (p) p->play(p->get_assigned_animation(), -1.0f, p->get_speed_scale(), false);
+            return Variant();
+        }
+        if (METHOD_IS("animation_seek") && args.size() >= 2) {
+            r_handled = true;
+            AnimationPlayer *p = resolve_anim(args[0]);
+            if (!p) return Variant();
+            bool update = (args.size() >= 3) ? (bool)args[2] : true;
+            p->seek((double)args[1], update);
+            return Variant();
+        }
+        if (METHOD_IS("animation_speed") && args.size() == 2) {
+            r_handled = true;
+            AnimationPlayer *p = resolve_anim(args[0]);
+            if (p) p->set_speed_scale((float)(double)args[1]);
+            return Variant();
+        }
+        if (METHOD_IS("animation_current") && args.size() == 1) {
+            r_handled = true;
+            AnimationPlayer *p = resolve_anim(args[0]);
+            return p ? String(p->get_current_animation()) : String();
+        }
+        if (METHOD_IS("animation_isplaying") && args.size() == 1) {
+            r_handled = true;
+            AnimationPlayer *p = resolve_anim(args[0]);
+            return p ? p->is_playing() : false;
+        }
+        if (METHOD_IS("animation_length") && args.size() >= 1) {
+            r_handled = true;
+            AnimationPlayer *p = resolve_anim(args[0]);
+            if (!p) return 0.0;
+            String name = (args.size() >= 2) ? String(args[1]) : String(p->get_current_animation());
+            if (name.is_empty()) return 0.0;
+            Ref<Animation> a = p->get_animation(StringName(name));
+            return a.is_valid() ? (double)a->get_length() : 0.0;
+        }
+
+        // ── Physics.* — one-shot space queries + force verbs ──────────
+        //
+        // Physics.Ray(from, to[, mask]) returns Dictionary:
+        //   { Hit: Bool, Collider: Object, Point: V2/V3, Normal: V2/V3, Distance: Double }
+        // The 2D/3D dimension is picked from the type of `from`.
+        //
+        // Physics.Impulse(body, vec[, pos])  Physics.Force(body, vec[, pos])
+        // Physics.Torque(body, n)
+        //
+        // Verbs aliases (registered separately below as global verbs):
+        //   Push(body, vec) = Impulse, Pull(body, vec) = Force, Spin(body, n) = Torque
+        if (METHOD_IS("physics_ray") && args.size() >= 2) {
+            r_handled = true;
+            if (!instance || !instance->get_owner()) return Dictionary();
+            Node *owner_node = Object::cast_to<Node>(instance->get_owner());
+            if (!owner_node) return Dictionary();
+            uint32_t mask = (args.size() >= 3) ? (uint32_t)(int)args[2] : 0xFFFFFFFFu;
+            Dictionary out;
+
+            if (args[0].get_type() == Variant::VECTOR2) {
+                Viewport *vp = owner_node->get_viewport();
+                if (!vp) { out["Hit"] = false; return out; }
+                Ref<World2D> w = vp->find_world_2d();
+                if (!w.is_valid()) { out["Hit"] = false; return out; }
+                PhysicsDirectSpaceState2D *ss = PhysicsServer2D::get_singleton()->space_get_direct_state(w->get_space());
+                if (!ss) { out["Hit"] = false; return out; }
+                Ref<PhysicsRayQueryParameters2D> q;
+                q.instantiate();
+                q->set_from((Vector2)args[0]);
+                q->set_to((Vector2)args[1]);
+                q->set_collision_mask(mask);
+                Dictionary r = ss->intersect_ray(q);
+                if (r.is_empty()) { out["Hit"] = false; return out; }
+                out["Hit"]      = true;
+                out["Collider"] = r.get("collider", Variant());
+                out["Point"]    = r.get("position", Variant());
+                out["Normal"]   = r.get("normal", Variant());
+                Vector2 from2 = args[0], pt2 = r.get("position", Vector2());
+                out["Distance"] = (double)from2.distance_to(pt2);
+                return out;
+            }
+            if (args[0].get_type() == Variant::VECTOR3) {
+                Node3D *n3 = Object::cast_to<Node3D>(owner_node);
+                // Need a Node3D context to fetch the 3D world; walk up if needed
+                Node *n = owner_node;
+                while (n && !n3) { n = n->get_parent(); n3 = Object::cast_to<Node3D>(n); }
+                if (!n3) { out["Hit"] = false; return out; }
+                Ref<World3D> w = n3->get_world_3d();
+                if (!w.is_valid()) { out["Hit"] = false; return out; }
+                PhysicsDirectSpaceState3D *ss = PhysicsServer3D::get_singleton()->space_get_direct_state(w->get_space());
+                if (!ss) { out["Hit"] = false; return out; }
+                Ref<PhysicsRayQueryParameters3D> q;
+                q.instantiate();
+                q->set_from((Vector3)args[0]);
+                q->set_to((Vector3)args[1]);
+                q->set_collision_mask(mask);
+                Dictionary r = ss->intersect_ray(q);
+                if (r.is_empty()) { out["Hit"] = false; return out; }
+                out["Hit"]      = true;
+                out["Collider"] = r.get("collider", Variant());
+                out["Point"]    = r.get("position", Variant());
+                out["Normal"]   = r.get("normal", Variant());
+                Vector3 from3 = args[0], pt3 = r.get("position", Vector3());
+                out["Distance"] = (double)from3.distance_to(pt3);
+                return out;
+            }
+            out["Hit"] = false;
+            return out;
+        }
+        // Shared force/impulse/torque dispatcher.
+        auto apply_force = [&](Object *o, int kind, const Variant &amount, const Variant &pos_off) {
+            // kind: 0=impulse, 1=force (central), 2=torque
+            if (!o) return;
+            if (o->is_class("RigidBody2D")) {
+                RigidBody2D *b = Object::cast_to<RigidBody2D>(o);
+                if (kind == 0) {
+                    Vector2 imp = amount;
+                    if (pos_off.get_type() == Variant::VECTOR2) b->apply_impulse(imp, (Vector2)pos_off);
+                    else b->apply_central_impulse(imp);
+                } else if (kind == 1) {
+                    Vector2 f = amount;
+                    if (pos_off.get_type() == Variant::VECTOR2) b->apply_force(f, (Vector2)pos_off);
+                    else b->apply_central_force(f);
+                } else if (kind == 2) {
+                    b->apply_torque_impulse((double)amount);
+                }
+            } else if (o->is_class("RigidBody3D")) {
+                RigidBody3D *b = Object::cast_to<RigidBody3D>(o);
+                if (kind == 0) {
+                    Vector3 imp = amount;
+                    if (pos_off.get_type() == Variant::VECTOR3) b->apply_impulse(imp, (Vector3)pos_off);
+                    else b->apply_central_impulse(imp);
+                } else if (kind == 1) {
+                    Vector3 f = amount;
+                    if (pos_off.get_type() == Variant::VECTOR3) b->apply_force(f, (Vector3)pos_off);
+                    else b->apply_central_force(f);
+                } else if (kind == 2) {
+                    b->apply_torque_impulse((Vector3)amount);
+                }
+            }
+        };
+        if (METHOD_IS("physics_impulse") && args.size() >= 2) {
+            r_handled = true;
+            apply_force(args[0], 0, args[1], (args.size() >= 3) ? args[2] : Variant());
+            return Variant();
+        }
+        if (METHOD_IS("physics_force") && args.size() >= 2) {
+            r_handled = true;
+            apply_force(args[0], 1, args[1], (args.size() >= 3) ? args[2] : Variant());
+            return Variant();
+        }
+        if (METHOD_IS("physics_torque") && args.size() == 2) {
+            r_handled = true;
+            apply_force(args[0], 2, args[1], Variant());
+            return Variant();
+        }
+
+        // ── Ray.* — placed RayCast2D/3D node accessors ────────────────
+        auto ray2 = [&](const Variant &h) -> RayCast2D* {
+            return (h.get_type() == Variant::OBJECT) ? Object::cast_to<RayCast2D>((Object*)h) : nullptr;
+        };
+        auto ray3 = [&](const Variant &h) -> RayCast3D* {
+            return (h.get_type() == Variant::OBJECT) ? Object::cast_to<RayCast3D>((Object*)h) : nullptr;
+        };
+        if (METHOD_IS("ray_hit") && args.size() == 1) {
+            r_handled = true;
+            RayCast2D *r2 = ray2(args[0]); if (r2) return r2->is_colliding();
+            RayCast3D *r3 = ray3(args[0]); if (r3) return r3->is_colliding();
+            return false;
+        }
+        if (METHOD_IS("ray_collider") && args.size() == 1) {
+            r_handled = true;
+            RayCast2D *r2 = ray2(args[0]); if (r2) return r2->get_collider();
+            RayCast3D *r3 = ray3(args[0]); if (r3) return r3->get_collider();
+            return Variant();
+        }
+        if (METHOD_IS("ray_point") && args.size() == 1) {
+            r_handled = true;
+            RayCast2D *r2 = ray2(args[0]); if (r2) return r2->get_collision_point();
+            RayCast3D *r3 = ray3(args[0]); if (r3) return r3->get_collision_point();
+            return Variant();
+        }
+        if (METHOD_IS("ray_normal") && args.size() == 1) {
+            r_handled = true;
+            RayCast2D *r2 = ray2(args[0]); if (r2) return r2->get_collision_normal();
+            RayCast3D *r3 = ray3(args[0]); if (r3) return r3->get_collision_normal();
+            return Variant();
+        }
+        if (METHOD_IS("ray_enable") && args.size() == 2) {
+            r_handled = true;
+            RayCast2D *r2 = ray2(args[0]); if (r2) { r2->set_enabled((bool)args[1]); return Variant(); }
+            RayCast3D *r3 = ray3(args[0]); if (r3) { r3->set_enabled((bool)args[1]); }
+            return Variant();
+        }
+        if (METHOD_IS("ray_target") && args.size() == 2) {
+            r_handled = true;
+            // Set target_position
+            RayCast2D *r2 = ray2(args[0]); if (r2) { r2->set_target_position((Vector2)args[1]); return Variant(); }
+            RayCast3D *r3 = ray3(args[0]); if (r3) { r3->set_target_position((Vector3)args[1]); }
+            return Variant();
+        }
+        if (METHOD_IS("ray_forceupdate") && args.size() == 1) {
+            r_handled = true;
+            RayCast2D *r2 = ray2(args[0]); if (r2) { r2->force_raycast_update(); return Variant(); }
+            RayCast3D *r3 = ray3(args[0]); if (r3) { r3->force_raycast_update(); }
+            return Variant();
+        }
+
+        // ── Cell.* — TileMapLayer access (Godot 4.4+ split layer model) ─
+        // Cell.Get(layer, x, y) As Dictionary {Source, AtlasX, AtlasY, Alt}
+        //   (Empty cell → Source = -1)
+        // Cell.Set(layer, x, y, source, atlasX, atlasY[, alt])
+        // Cell.Clear(layer, x, y)
+        // Cell.ClearAll(layer)
+        // Cell.Used(layer) As Array of Vector2
+        auto resolve_layer = [&](const Variant &h) -> TileMapLayer* {
+            return (h.get_type() == Variant::OBJECT) ? Object::cast_to<TileMapLayer>((Object*)h) : nullptr;
+        };
+        if (METHOD_IS("cell_get") && args.size() == 3) {
+            r_handled = true;
+            TileMapLayer *lyr = resolve_layer(args[0]);
+            Dictionary d;
+            d["Source"] = -1; d["AtlasX"] = -1; d["AtlasY"] = -1; d["Alt"] = 0;
+            if (!lyr) return d;
+            Vector2i pos((int)args[1], (int)args[2]);
+            int src = lyr->get_cell_source_id(pos);
+            d["Source"] = src;
+            Vector2i atlas = lyr->get_cell_atlas_coords(pos);
+            d["AtlasX"] = atlas.x; d["AtlasY"] = atlas.y;
+            d["Alt"] = lyr->get_cell_alternative_tile(pos);
+            return d;
+        }
+        if (METHOD_IS("cell_set") && args.size() >= 6) {
+            r_handled = true;
+            TileMapLayer *lyr = resolve_layer(args[0]);
+            if (!lyr) return Variant();
+            Vector2i pos((int)args[1], (int)args[2]);
+            int src = (int)args[3];
+            Vector2i atlas((int)args[4], (int)args[5]);
+            int alt = (args.size() >= 7) ? (int)args[6] : 0;
+            lyr->set_cell(pos, src, atlas, alt);
+            return Variant();
+        }
+        if (METHOD_IS("cell_clear") && args.size() == 3) {
+            r_handled = true;
+            TileMapLayer *lyr = resolve_layer(args[0]);
+            if (lyr) lyr->set_cell(Vector2i((int)args[1], (int)args[2]), -1);
+            return Variant();
+        }
+        if (METHOD_IS("cell_clearall") && args.size() == 1) {
+            r_handled = true;
+            TileMapLayer *lyr = resolve_layer(args[0]);
+            if (lyr) lyr->clear();
+            return Variant();
+        }
+        if (METHOD_IS("cell_used") && args.size() == 1) {
+            r_handled = true;
+            TileMapLayer *lyr = resolve_layer(args[0]);
+            if (!lyr) return Array();
+            TypedArray<Vector2i> used = lyr->get_used_cells();
+            Array out;
+            for (int i = 0; i < used.size(); i++) {
+                Vector2i c = used[i];
+                out.push_back(Vector2(c.x, c.y));
+            }
+            return out;
+        }
+
+        // ── Nav.* — NavigationAgent driving ────────────────────────────
+        // Nav.SetTarget(agent, pos)         — sets target_position
+        // Nav.NextPos(agent) As V2/V3       — next path step (call inside _Process)
+        // Nav.Distance(agent) As Double     — meters to target
+        // Nav.Reached(agent) As Boolean     — is_navigation_finished
+        // Nav.Path(agent) As Array          — full path point list
+        auto nav2 = [&](const Variant &h) -> NavigationAgent2D* {
+            return (h.get_type() == Variant::OBJECT) ? Object::cast_to<NavigationAgent2D>((Object*)h) : nullptr;
+        };
+        auto nav3 = [&](const Variant &h) -> NavigationAgent3D* {
+            return (h.get_type() == Variant::OBJECT) ? Object::cast_to<NavigationAgent3D>((Object*)h) : nullptr;
+        };
+        if (METHOD_IS("nav_settarget") && args.size() == 2) {
+            r_handled = true;
+            NavigationAgent2D *a2 = nav2(args[0]);
+            if (a2) { a2->set_target_position((Vector2)args[1]); return Variant(); }
+            NavigationAgent3D *a3 = nav3(args[0]);
+            if (a3) a3->set_target_position((Vector3)args[1]);
+            return Variant();
+        }
+        if (METHOD_IS("nav_nextpos") && args.size() == 1) {
+            r_handled = true;
+            NavigationAgent2D *a2 = nav2(args[0]); if (a2) return a2->get_next_path_position();
+            NavigationAgent3D *a3 = nav3(args[0]); if (a3) return a3->get_next_path_position();
+            return Variant();
+        }
+        if (METHOD_IS("nav_distance") && args.size() == 1) {
+            r_handled = true;
+            NavigationAgent2D *a2 = nav2(args[0]); if (a2) return (double)a2->distance_to_target();
+            NavigationAgent3D *a3 = nav3(args[0]); if (a3) return (double)a3->distance_to_target();
+            return 0.0;
+        }
+        if (METHOD_IS("nav_reached") && args.size() == 1) {
+            r_handled = true;
+            NavigationAgent2D *a2 = nav2(args[0]); if (a2) return a2->is_navigation_finished();
+            NavigationAgent3D *a3 = nav3(args[0]); if (a3) return a3->is_navigation_finished();
+            return true;
+        }
+        if (METHOD_IS("nav_path") && args.size() == 1) {
+            r_handled = true;
+            NavigationAgent2D *a2 = nav2(args[0]);
+            if (a2) {
+                PackedVector2Array path = a2->get_current_navigation_path();
+                Array out;
+                for (int i = 0; i < path.size(); i++) out.push_back(path[i]);
+                return out;
+            }
+            NavigationAgent3D *a3 = nav3(args[0]);
+            if (a3) {
+                PackedVector3Array path = a3->get_current_navigation_path();
+                Array out;
+                for (int i = 0; i < path.size(); i++) out.push_back(path[i]);
+                return out;
+            }
+            return Array();
+        }
+    }
+
+    // ── Pass 3: global verb aliases for force ──────────────────────────
+    // Push(body, vec[, pos]) = Physics.Impulse
+    // Pull(body, vec[, pos]) = Physics.Force
+    // Spin(body, n)          = Physics.Torque
+    if ((METHOD_IS("push") || METHOD_IS("pull") || METHOD_IS("spin")) && args.size() >= 2) {
+        r_handled = true;
+        if (args[0].get_type() != Variant::OBJECT) return Variant();
+        Object *o = args[0];
+        // Inline force application (same dispatch as physics_*)
+        int kind = METHOD_IS("push") ? 0 : (METHOD_IS("pull") ? 1 : 2);
+        Variant pos_off = (args.size() >= 3) ? args[2] : Variant();
+        if (o->is_class("RigidBody2D")) {
+            RigidBody2D *b = Object::cast_to<RigidBody2D>(o);
+            if (kind == 0) {
+                Vector2 imp = args[1];
+                if (pos_off.get_type() == Variant::VECTOR2) b->apply_impulse(imp, (Vector2)pos_off);
+                else b->apply_central_impulse(imp);
+            } else if (kind == 1) {
+                Vector2 f = args[1];
+                if (pos_off.get_type() == Variant::VECTOR2) b->apply_force(f, (Vector2)pos_off);
+                else b->apply_central_force(f);
+            } else {
+                b->apply_torque_impulse((double)args[1]);
+            }
+        } else if (o->is_class("RigidBody3D")) {
+            RigidBody3D *b = Object::cast_to<RigidBody3D>(o);
+            if (kind == 0) {
+                Vector3 imp = args[1];
+                if (pos_off.get_type() == Variant::VECTOR3) b->apply_impulse(imp, (Vector3)pos_off);
+                else b->apply_central_impulse(imp);
+            } else if (kind == 1) {
+                Vector3 f = args[1];
+                if (pos_off.get_type() == Variant::VECTOR3) b->apply_force(f, (Vector3)pos_off);
+                else b->apply_central_force(f);
+            } else {
+                b->apply_torque_impulse((Vector3)args[1]);
+            }
+        }
+        return Variant();
     }
 
     // GetThemeDefaultFont() — returns fallback font for Godot-style DrawString calls

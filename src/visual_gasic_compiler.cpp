@@ -2970,7 +2970,10 @@ String VisualGasicCompiler::detect_namespace_call(ExpressionNode* base_obj) cons
     String name = ((VariableNode*)base_obj)->name;
     String lo = name.to_lower();
     if (lo == "bus") lo = "speaker"; // alias
-    if (lo != "camera" && lo != "sound" && lo != "speaker") return String();
+    if (lo != "camera" && lo != "sound" && lo != "speaker" &&
+        // Pass 3 namespaces
+        lo != "animation" && lo != "physics" && lo != "ray" &&
+        lo != "cell" && lo != "nav") return String();
     // Not shadowed by a known variable.
     String orig_lo = name.to_lower();
     if (local_slots.has(orig_lo) || param_vars.has(orig_lo) ||

@@ -945,6 +945,216 @@ static func _build_db() -> void:
 		"Print Speaker.Name(0)   ' usually \"Master\"")
 
 	# =========================================================================
+	# PASS 3 — ANIMATION NAMESPACE
+	#
+	# Wraps AnimationPlayer node. All verbs take the player node as the first
+	# argument. Signals (AnimationFinished, AnimationStarted, AnimationChanged)
+	# are auto-wired by name: name the AnimationPlayer "PlayerAnim", then write
+	# Sub PlayerAnim_AnimationFinished(anim_name)
+	#     Print "Done: " & anim_name
+	# End Sub
+	# =========================================================================
+	_add("Animation.Play",
+		"Animation.Play(player, name [, speed])",
+		"Plays a named animation on an AnimationPlayer node. Optional speed scale (1.0 = normal, 2.0 = double).",
+		"Animation.Play playerAnim, \"walk\"\nAnimation.Play playerAnim, \"sprint\", 1.5")
+
+	_add("Animation.Stop",
+		"Animation.Stop(player [, keepState])",
+		"Stops the current animation. Pass True for keepState to leave the animated properties at their current values (don't reset).",
+		"Animation.Stop playerAnim")
+
+	_add("Animation.Pause",
+		"Animation.Pause(player)",
+		"Pauses the current animation without resetting it. Resume with Animation.Resume.",
+		"Animation.Pause playerAnim")
+
+	_add("Animation.Resume",
+		"Animation.Resume(player)",
+		"Resumes a paused animation from its current position.",
+		"Animation.Resume playerAnim")
+
+	_add("Animation.Seek",
+		"Animation.Seek(player, seconds [, update])",
+		"Jumps to a specific time in the current animation. update=True applies the change immediately.",
+		"Animation.Seek playerAnim, 1.5")
+
+	_add("Animation.Speed",
+		"Animation.Speed(player, scale)",
+		"Sets playback speed for all animations on this player. 1.0 = normal, 0.5 = slow-mo, 2.0 = fast.",
+		"Animation.Speed playerAnim, 0.5   ' slow motion")
+
+	_add("Animation.Current",
+		"Animation.Current(player) As String",
+		"Returns the name of the currently playing animation, or empty string if none.",
+		"If Animation.Current(playerAnim) = \"die\" Then\n    GameOver()\nEnd If")
+
+	_add("Animation.IsPlaying",
+		"Animation.IsPlaying(player) As Boolean",
+		"Returns True if the player is currently playing an animation.",
+		"If Not Animation.IsPlaying(playerAnim) Then\n    Animation.Play playerAnim, \"idle\"\nEnd If")
+
+	_add("Animation.Length",
+		"Animation.Length(player [, name]) As Double",
+		"Returns the length in seconds of an animation. With no name, returns the current animation's length.",
+		"Dim total = Animation.Length(playerAnim, \"walk\")\nPrint \"Walk is \" & total & \"s long\"")
+
+	# =========================================================================
+	# PASS 3 — PHYSICS NAMESPACE
+	#
+	# Physics.Ray is a one-shot query — no node required. Returns a Dictionary
+	# with Hit, Collider, Point, Normal, Distance. 2D vs 3D is picked by the
+	# 'from' Vector type.
+	#
+	# For applying forces to RigidBody2D/3D, the plain-English verbs Push/Pull
+	# /Spin are aliases for Physics.Impulse/Force/Torque — both work.
+	# =========================================================================
+	_add("Physics.Ray",
+		"Physics.Ray(from, to [, collisionMask]) As Dictionary",
+		"Casts an instant ray from one point to another and returns what it hit. Returns Dictionary with keys: Hit (Boolean), Collider (Object), Point (Vector), Normal (Vector), Distance (Double). Pass Vector2 for 2D, Vector3 for 3D.",
+		"Dim hit = Physics.Ray(player.Position, mouse.Position)\nIf hit.Hit Then\n    Print \"Hit \" & hit.Collider.Name & \" at \" & hit.Distance & \" px\"\nEnd If")
+
+	_add("Physics.Impulse",
+		"Physics.Impulse(body, vec [, pos])",
+		"Applies an instant impulse (one-frame push) to a RigidBody. Optional pos is the offset from body center where the force is applied. Alias: Push.",
+		"Physics.Impulse ball, Vector2(500, -200)   ' kick the ball")
+
+	_add("Physics.Force",
+		"Physics.Force(body, vec [, pos])",
+		"Applies a continuous force to a RigidBody (call every frame for sustained push). Alias: Pull.",
+		"Sub _PhysicsProcess(delta)\n    Physics.Force rocket, Vector2(0, -800)   ' constant thrust\nEnd Sub")
+
+	_add("Physics.Torque",
+		"Physics.Torque(body, amount)",
+		"Applies a rotational impulse to a RigidBody. For 2D pass a number, for 3D pass a Vector3. Alias: Spin.",
+		"Physics.Torque wheel, 50")
+
+	_add("Push",
+		"Push(body, vec [, pos])",
+		"Instant impulse — kicks a RigidBody once. Plain-English alias for Physics.Impulse.",
+		"Push enemy, Vector2(-300, 0)")
+
+	_add("Pull",
+		"Pull(body, vec [, pos])",
+		"Continuous force — call each frame to keep applying. Plain-English alias for Physics.Force.",
+		"Pull magnet, towardPlayer * 800")
+
+	_add("Spin",
+		"Spin(body, amount)",
+		"Rotational impulse. Plain-English alias for Physics.Torque.",
+		"Spin coin, 12.5")
+
+	# =========================================================================
+	# PASS 3 — RAY NAMESPACE (placed RayCast2D/3D nodes)
+	#
+	# Use these when you have a RayCast2D/3D node in your scene that updates
+	# every frame. For one-off casts, use Physics.Ray instead.
+	# =========================================================================
+	_add("Ray.Hit",
+		"Ray.Hit(rayNode) As Boolean",
+		"Returns True if the RayCast2D/3D node is currently colliding with something.",
+		"If Ray.Hit(groundRay) Then\n    Print \"On the ground\"\nEnd If")
+
+	_add("Ray.Collider",
+		"Ray.Collider(rayNode) As Object",
+		"Returns the node the ray is currently hitting, or Nothing if no hit.",
+		"If Ray.Hit(aimRay) Then\n    target = Ray.Collider(aimRay)\nEnd If")
+
+	_add("Ray.Point",
+		"Ray.Point(rayNode) As Vector",
+		"Returns the world-space hit point of the ray, or Vector.Zero if no hit.",
+		"DrawCircle Ray.Point(aimRay), 5, Color.Red")
+
+	_add("Ray.Normal",
+		"Ray.Normal(rayNode) As Vector",
+		"Returns the surface normal at the hit point — useful for bouncing or aligning to surfaces.",
+		"' Bounce projectile\nvelocity = velocity.Bounce(Ray.Normal(hitRay))")
+
+	_add("Ray.Enable",
+		"Ray.Enable(rayNode, on)",
+		"Enables or disables a RayCast node. Disabled rays don't query the physics world.",
+		"Ray.Enable scanner, True")
+
+	_add("Ray.Target",
+		"Ray.Target(rayNode, pos)",
+		"Sets the ray's target_position (relative to the ray's own position). Use to redirect the ray.",
+		"Ray.Target aimRay, mousePos - aimRay.Position")
+
+	_add("Ray.ForceUpdate",
+		"Ray.ForceUpdate(rayNode)",
+		"Forces an immediate raycast update (don't wait for next physics frame). Useful right after moving the ray.",
+		"Ray.Target groundRay, Vector2(0, 50)\nRay.ForceUpdate groundRay\nIf Ray.Hit(groundRay) Then Print \"floor below\"")
+
+	# =========================================================================
+	# PASS 3 — CELL NAMESPACE (TileMapLayer)
+	#
+	# Cell.Get / Set treat a TileMapLayer like a 2D array of tiles. Each tile
+	# is identified by Source ID (which TileSet source) + AtlasX/Y (which tile
+	# within that source's atlas).
+	# =========================================================================
+	_add("Cell.Get",
+		"Cell.Get(layer, x, y) As Dictionary",
+		"Reads a tile at cell coords (x, y) on a TileMapLayer. Returns Dictionary: Source, AtlasX, AtlasY, Alt. Empty cells return Source = -1.",
+		"Dim c = Cell.Get(world, 5, 10)\nIf c.Source >= 0 Then\n    Print \"Tile from source \" & c.Source\nEnd If")
+
+	_add("Cell.Set",
+		"Cell.Set(layer, x, y, source, atlasX, atlasY [, alt])",
+		"Writes a tile at cell coords (x, y). source = -1 erases. atlasX/Y picks the tile within the source's atlas.",
+		"' Place a grass tile from source 0, atlas (3, 1)\nCell.Set world, 5, 10, 0, 3, 1")
+
+	_add("Cell.Clear",
+		"Cell.Clear(layer, x, y)",
+		"Erases a single tile. Shortcut for Cell.Set with source = -1.",
+		"Cell.Clear world, 5, 10")
+
+	_add("Cell.ClearAll",
+		"Cell.ClearAll(layer)",
+		"Erases all tiles in a TileMapLayer.",
+		"Cell.ClearAll world")
+
+	_add("Cell.Used",
+		"Cell.Used(layer) As Array",
+		"Returns an Array of Vector2 cell coordinates that contain a tile (non-empty).",
+		"Dim cells = Cell.Used(world)\nFor Each c In cells\n    Print c.x & \",\" & c.y\nNext")
+
+	# =========================================================================
+	# PASS 3 — NAV NAMESPACE (NavigationAgent2D / 3D)
+	#
+	# Wraps NavigationAgent for AI pathfinding. Drop a NavigationAgent2D/3D
+	# as a child of the unit you want to move, then:
+	#   Nav.SetTarget agent, destination
+	#   Inside _PhysicsProcess: move toward Nav.NextPos(agent)
+	#
+	# Signals auto-wire: name the agent "EnemyNav" and write
+	#   Sub EnemyNav_TargetReached()  →  goal reached
+	#   Sub EnemyNav_NavigationFinished()  →  path done (success or fail)
+	# =========================================================================
+	_add("Nav.SetTarget",
+		"Nav.SetTarget(agent, pos)",
+		"Sets the destination for a NavigationAgent. The agent computes a path and starts moving when you read NextPos each frame.",
+		"Nav.SetTarget enemyNav, player.Position")
+
+	_add("Nav.NextPos",
+		"Nav.NextPos(agent) As Vector",
+		"Returns the next step along the path. Call inside _PhysicsProcess to drive movement toward this point.",
+		"Sub _PhysicsProcess(delta)\n    Dim step = Nav.NextPos(enemyNav)\n    velocity = (step - Position).Normalized() * 200\n    MoveAndSlide Me\nEnd Sub")
+
+	_add("Nav.Distance",
+		"Nav.Distance(agent) As Double",
+		"Returns the remaining distance to the target along the path.",
+		"If Nav.Distance(enemyNav) < 50 Then Attack()")
+
+	_add("Nav.Reached",
+		"Nav.Reached(agent) As Boolean",
+		"Returns True if the agent has finished navigating (arrived at target or path is invalid).",
+		"If Nav.Reached(enemyNav) Then PickNewTarget()")
+
+	_add("Nav.Path",
+		"Nav.Path(agent) As Array",
+		"Returns the full computed path as an Array of Vector positions.",
+		"For Each pt In Nav.Path(enemyNav)\n    DrawCircle pt, 3, Color.Yellow\nNext")
+
+	# =========================================================================
 	# ARRAY FUNCTIONS
 	# =========================================================================
 	_add("UBound",

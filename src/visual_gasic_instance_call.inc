@@ -928,6 +928,35 @@ static void _connect_vb_signals_recursive(Node* node, VisualGasicInstance* insta
         _try_wire(node, name, "Timer", "timeout", vs, instance_owner);
     }
 
+    // --- Pass 3: AnimationPlayer ---
+    else if (node->is_class("AnimationPlayer")) {
+        _try_wire(node, name, "AnimationFinished", "animation_finished", vs, instance_owner);
+        _try_wire(node, name, "AnimationStarted",  "animation_started",  vs, instance_owner);
+        _try_wire(node, name, "AnimationChanged",  "animation_changed",  vs, instance_owner);
+    }
+
+    // --- Pass 3: Area2D / Area3D ---
+    else if (node->is_class("Area2D") || node->is_class("Area3D")) {
+        _try_wire(node, name, "BodyEntered", "body_entered", vs, instance_owner);
+        _try_wire(node, name, "BodyExited",  "body_exited",  vs, instance_owner);
+        _try_wire(node, name, "AreaEntered", "area_entered", vs, instance_owner);
+        _try_wire(node, name, "AreaExited",  "area_exited",  vs, instance_owner);
+    }
+
+    // --- Pass 3: RigidBody2D / RigidBody3D ---
+    else if (node->is_class("RigidBody2D") || node->is_class("RigidBody3D")) {
+        _try_wire(node, name, "BodyEntered", "body_entered", vs, instance_owner);
+        _try_wire(node, name, "BodyExited",  "body_exited",  vs, instance_owner);
+        _try_wire(node, name, "Sleep",       "sleeping_state_changed", vs, instance_owner);
+    }
+
+    // --- Pass 3: NavigationAgent2D / 3D ---
+    else if (node->is_class("NavigationAgent2D") || node->is_class("NavigationAgent3D")) {
+        _try_wire(node, name, "TargetReached",      "target_reached",      vs, instance_owner);
+        _try_wire(node, name, "NavigationFinished", "navigation_finished", vs, instance_owner);
+        _try_wire(node, name, "WaypointReached",    "waypoint_reached",    vs, instance_owner);
+    }
+
     // --- ItemList (ListBox) ---
     else if (node->is_class("ItemList")) {
         _try_wire(node, name, "Click",    "item_selected",  vs, instance_owner);
