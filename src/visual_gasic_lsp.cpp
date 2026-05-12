@@ -624,13 +624,214 @@ Dictionary VisualGasicLSP::get_current_settings() {
 
 Array VisualGasicLSP::get_code_actions(const String& uri, int p_start_line, int p_start_character, int p_end_line, int p_end_character) {
     Array actions;
-    // TODO: Implement code actions (quick fixes, refactorings)
+
+    // Need the document content to inspect the cursor line.
+    if (!parse_cache.has(uri)) {
+        return actions;
+    }
+    Dictionary doc_info = parse_cache[uri];
+    String content = doc_info.get("content", "");
+    if (content.is_empty()) {
+        return actions;
+    }
+    PackedStringArray lines = content.split("\n");
+    if (p_start_line < 0 || p_start_line >= lines.size()) {
+        return actions;
+    }
+    String line = lines[p_start_line];
+    String trimmed = line.strip_edges();
+    String trimmed_lc = trimmed.to_lower();
+
+    // Helper to build a CodeAction with a single-line TextEdit.
+    auto make_action = [&](const String &p_title, const String &p_kind,
+                           int p_line_idx, int p_start_ch, int p_end_ch,
+                           const String &p_new_text) -> Dictionary {
+        Dictionary edit;
+        edit["newText"] = p_new_text;
+        Dictionary range;
+        Dictionary start_pos;
+        start_pos["line"] = p_line_idx;
+        start_pos["character"] = p_start_ch;
+        Dictionary end_pos;
+        end_pos["line"] = p_line_idx;
+        end_pos["character"] = p_end_ch;
+        range["start"] = start_pos;
+        range["end"] = end_pos;
+        edit["range"] = range;
+
+        Array uri_edits;
+        uri_edits.push_back(edit);
+        Dictionary changes;
+        changes[uri] = uri_edits;
+        Dictionary workspace_edit;
+        workspace_edit["changes"] = changes;
+
+        Dictionary action;
+        action["title"] = p_title;
+        action["kind"] = p_kind;
+        action["edit"] = workspace_edit;
+        return action;
+    };
+
+    // QF1: bare Python-style "print(...)" → "Print ..."
+    if (trimmed_lc.begins_with("print(") && trimmed.ends_with(")")) {
+        int indent_chars = line.length() - line.lstrip(" \t").length();
+        String inner = trimmed.substr(6, trimmed.length() - 7);
+        actions.push_back(make_action(
+                "Replace Python-style print() with VG Print",
+                "quickfix",
+                p_start_line, indent_chars, line.length(),
+                String("Print ") + inner));
+    }
+
+    // QF2: "If <expr>" missing "Then" at end of line (single-line If form).
+    if (trimmed_lc.begins_with("if ") && !trimmed_lc.ends_with(" then")
+            && trimmed_lc.find(" then ") < 0
+            && !trimmed_lc.ends_with(":")) {
+        // Skip if the line is a multi-line If with body following on next line —
+        // we only patch lines that look complete-but-missing-Then.
+        if (trimmed_lc.find("=") >= 0 || trimmed_lc.find("<") >= 0 ||
+                trimmed_lc.find(">") >= 0) {
+            actions.push_back(make_action(
+                    "Add missing 'Then'",
+                    "quickfix",
+                    p_start_line, line.length(), line.length(),
+                    " Then"));
+        }
+    }
+
+    // QF3: "Dim x" with no type → suggest "Dim x As Variant".
+    if (trimmed_lc.begins_with("dim ") && trimmed_lc.find(" as ") < 0) {
+        actions.push_back(make_action(
+                "Add 'As Variant' to Dim",
+                "quickfix",
+                p_start_line, line.length(), line.length(),
+                " As Variant"));
+    }
+
+    // Source action: Format Document (callers can invoke without a diagnostic).
+    Dictionary fmt_action;
+    fmt_action["title"] = "Format document";
+    fmt_action["kind"] = "source.formatDocument";
+    actions.push_back(fmt_action);
+
+    (void)p_start_character;
+    (void)p_end_line;
+    (void)p_end_character;
     return actions;
 }
 
 Dictionary VisualGasicLSP::format_document(const String& uri) {
     Dictionary result;
-    // TODO: Implement document formatting
+    Array edits;
+    result["edits"] = edits;
+    result["success"] = false;
+
+    if (!parse_cache.has(uri)) {
+        result["message"] = "Document not opened";
+        return result;
+    }
+    Dictionary doc_info = parse_cache[uri];
+    String content = doc_info.get("content", "");
+    if (content.is_empty()) {
+        result["success"] = true;  // Nothing to do.
+        return result;
+    }
+
+    PackedStringArray lines = content.split("\n");
+    PackedStringArray out;
+    int depth = 0;
+    const int kIndent = 4;
+
+    for (int i = 0; i < lines.size(); i++) {
+        String line = lines[i];
+        String trimmed = line.strip_edges();
+        if (trimmed.is_empty()) {
+            out.push_back("");
+            continue;
+        }
+
+        String tl = trimmed.to_lower();
+
+        // Lines that dedent for their own indentation but block stays open.
+        bool dedent_self = tl.begins_with("else") || tl.begins_with("elseif ") ||
+                tl.begins_with("case ") || tl == "case else";
+
+        // Lines that close a block (dedent permanently before emitting).
+        bool dedent_perm = tl == "end sub" || tl == "end function" ||
+                tl == "end if" || tl == "end select" || tl == "end with" ||
+                tl == "end type" || tl == "end class" || tl == "end enum" ||
+                tl == "end module" || tl == "next" || tl.begins_with("next ") ||
+                tl == "loop" || tl.begins_with("loop ") || tl == "wend";
+
+        int line_depth = depth;
+        if (dedent_perm) {
+            depth = depth > 0 ? depth - 1 : 0;
+            line_depth = depth;
+        } else if (dedent_self) {
+            line_depth = depth > 0 ? depth - 1 : 0;
+        }
+
+        String pad;
+        for (int j = 0; j < line_depth * kIndent; j++) {
+            pad += " ";
+        }
+        out.push_back(pad + trimmed);
+
+        // Lines that open a new block (indent following lines).
+        // For If: only count multi-line If (ends with "then" with nothing after).
+        bool is_block_open = false;
+        if (tl.begins_with("sub ") || tl.begins_with("function ") ||
+                tl.begins_with("private sub ") || tl.begins_with("public sub ") ||
+                tl.begins_with("private function ") || tl.begins_with("public function ") ||
+                tl.begins_with("for ") || tl.begins_with("for each ") ||
+                tl.begins_with("while ") || tl.begins_with("do ") || tl == "do" ||
+                tl.begins_with("select case ") || tl.begins_with("with ") ||
+                tl.begins_with("type ") || tl.begins_with("class ") ||
+                tl.begins_with("enum ") || tl.begins_with("module ")) {
+            is_block_open = true;
+        } else if (tl.begins_with("if ") && tl.ends_with(" then")) {
+            is_block_open = true;
+        } else if (dedent_self) {
+            // Else / ElseIf / Case re-open the block at the parent depth+1.
+            is_block_open = true;
+            depth = depth > 0 ? depth - 1 : 0;  // We dedented the line; restore depth via the +1 below.
+        }
+
+        if (is_block_open) {
+            depth += 1;
+        }
+    }
+
+    String formatted;
+    for (int i = 0; i < out.size(); i++) {
+        if (i > 0) formatted += "\n";
+        formatted += out[i];
+    }
+
+    // Skip the edit if nothing actually changed.
+    if (formatted == content) {
+        result["success"] = true;
+        return result;
+    }
+
+    // Single full-document TextEdit replacing the whole buffer.
+    Dictionary edit;
+    edit["newText"] = formatted;
+    Dictionary range;
+    Dictionary start_pos;
+    start_pos["line"] = 0;
+    start_pos["character"] = 0;
+    Dictionary end_pos;
+    end_pos["line"] = lines.size();
+    end_pos["character"] = 0;
+    range["start"] = start_pos;
+    range["end"] = end_pos;
+    edit["range"] = range;
+
+    edits.push_back(edit);
+    result["edits"] = edits;
+    result["success"] = true;
     return result;
 }
 
