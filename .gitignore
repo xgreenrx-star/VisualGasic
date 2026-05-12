@@ -54,6 +54,9 @@ production_performance.conf
 # VS Code
 .vscode/
 
+# Working Nodes runtime output (generated on every Run Graph)
+_wn_run/
+
 # Test artifacts
 integration_test_*.txt
 integration_test_*.json

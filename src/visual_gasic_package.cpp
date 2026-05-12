@@ -11,11 +11,13 @@
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/zip_reader.hpp>
+#include <godot_cpp/classes/zip_packer.hpp>
 
 using namespace godot;
 
 // Forward declaration of static helper
 static void _remove_dir_recursive(const String &p_path);
+static bool _zip_add_dir_recursive(Ref<ZIPPacker> &p_zip, const String &p_root, const String &p_rel);
 
 // ---------------------------------------------------------------------------
 // _bind_methods
@@ -105,12 +107,17 @@ bool VisualGasicPackage::initialize(const String &p_workspace_path) {
         installed_packages = load_lock_file();
     }
 
-    // TODO(pkg-registry): seed a default registry here so the Package Browser
-    // has something to talk to out of the box. Something like:
-    //   add_registry("official", "https://raw.githubusercontent.com/<org>/vg-registry/main/");
-    // Until this is done, search_packages() iterates zero registries and the
-    // Registry tab in the IDE is permanently empty. See matching TODO in
-    // addons/visual_gasic/vg_package_browser.gd :: _create_package_manager().
+    // Seed a default registry so the Package Browser's Registry tab has
+    // something to talk to out of the box. Users can remove/replace via
+    // add_registry / remove_registry; the choice persists in registries.json.
+    // Override with VG_PKG_REGISTRY env var for self-hosted setups.
+    if (registries.is_empty()) {
+        String reg_url = OS::get_singleton()->get_environment("VG_PKG_REGISTRY");
+        if (reg_url.is_empty()) {
+            reg_url = "https://raw.githubusercontent.com/xgreenrx-star/vg-registry/main/";
+        }
+        add_registry("official", reg_url, "");
+    }
     UtilityFunctions::print("[VisualGasicPackage] Initialized at: ", workspace_root);
     return true;
 }
@@ -589,7 +596,26 @@ Dictionary VisualGasicPackage::build_package(const String &p_package_path) {
     String version = manifest.get("version", "1.0.0");
     String output_file = workspace_root.path_join(name + "-" + version + ".vgpkg.zip");
 
-    // TODO: Actually create a zip — for now just report success
+    // Write the actual .vgpkg.zip — recursively pack every file under
+    // p_package_path with paths relative to it. Excludes the build output
+    // itself (if the user happens to be building inside workspace_root) and
+    // common junk dirs.
+    Ref<ZIPPacker> zip;
+    zip.instantiate();
+    Error zerr = zip->open(output_file, ZIPPacker::APPEND_CREATE);
+    if (zerr != OK) {
+        result["success"] = false;
+        result["message"] = "Cannot create zip: " + output_file;
+        return result;
+    }
+    if (!_zip_add_dir_recursive(zip, p_package_path, "")) {
+        zip->close();
+        result["success"] = false;
+        result["message"] = "Failed to add files to zip";
+        return result;
+    }
+    zip->close();
+
     result["success"] = true;
     result["message"] = "Package built: " + output_file;
     result["output"] = output_file;
@@ -1133,4 +1159,53 @@ static void _remove_dir_recursive(const String &p_path) {
     }
     dir->list_dir_end();
     dir->remove(p_path);
+}
+
+// Recursively add every file under (p_root/p_rel) to the zip, storing entries
+// with paths relative to p_root. Returns false on any I/O error.
+// Skips common build/cache dirs and the .vgpkg.zip output itself.
+static bool _zip_add_dir_recursive(Ref<ZIPPacker> &p_zip, const String &p_root, const String &p_rel) {
+    String abs = p_rel.is_empty() ? p_root : p_root.path_join(p_rel);
+    Ref<DirAccess> dir = DirAccess::open(abs);
+    if (!dir.is_valid()) return false;
+
+    dir->list_dir_begin();
+    String item = dir->get_next();
+    while (!item.is_empty()) {
+        if (item == "." || item == "..") {
+            item = dir->get_next();
+            continue;
+        }
+        // Skip hidden / cache / VCS / build dirs and stale package archives.
+        if (item.begins_with(".") || item == "node_modules" || item == "__pycache__" ||
+                item == ".godot" || item == "bin" || item == "build" ||
+                item.ends_with(".vgpkg.zip")) {
+            item = dir->get_next();
+            continue;
+        }
+        String child_rel = p_rel.is_empty() ? item : p_rel.path_join(item);
+        String child_abs = abs.path_join(item);
+        if (dir->current_is_dir()) {
+            if (!_zip_add_dir_recursive(p_zip, p_root, child_rel)) {
+                dir->list_dir_end();
+                return false;
+            }
+        } else {
+            Ref<FileAccess> fr = FileAccess::open(child_abs, FileAccess::READ);
+            if (!fr.is_valid()) {
+                dir->list_dir_end();
+                return false;
+            }
+            PackedByteArray buf = fr->get_buffer(fr->get_length());
+            if (p_zip->start_file(child_rel) != OK) {
+                dir->list_dir_end();
+                return false;
+            }
+            p_zip->write_file(buf);
+            p_zip->close_file();
+        }
+        item = dir->get_next();
+    }
+    dir->list_dir_end();
+    return true;
 }
