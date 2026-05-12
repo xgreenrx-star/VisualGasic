@@ -3,7 +3,7 @@ extends Node
 class_name VGDashboardServer
 
 # ── VG Browser Dashboard — minimal embedded HTTP server ────────────────────
-# Phase-2 of the long-deferred Browser Dashboard (was a v5.0.1 blocker, now
+# Phase-3 of the long-deferred Browser Dashboard (was a v5.0.1 blocker, now
 # landed in v5.2).  Binds 127.0.0.1:8765 by default and serves:
 #
 #   GET  /                   → tabbed HTML dashboard (Info / Settings / Build)
@@ -11,8 +11,11 @@ class_name VGDashboardServer
 #   GET  /api/csrf-token     → fresh per-server CSRF token (also set as cookie)
 #   GET  /api/settings       → current dashboard settings JSON
 #   POST /api/settings       → replace settings (validated, persisted to disk)
+#   GET  /api/build/targets  → whitelisted target names + labels
 #   GET  /api/build/status   → current build state + last stdout tail
-#   POST /api/build/run      → run a whitelisted build command, blocking
+#   GET  /api/build/log      → incremental ?offset=N text fetch (live stream)
+#   POST /api/build/run      → start a whitelisted target non-blocking
+#   POST /api/build/cancel   → kill the running build, if any
 #
 # Why TCPServer (not godot-cpp HTTPServer)?  Godot has no first-party HTTP
 # server class — only client.  We hand-parse a tiny request-line subset
@@ -36,6 +39,8 @@ const MAX_REQUEST_BYTES := 65536  # Hard cap incl. body — refuse anything larg
 const POLL_INTERVAL_SEC := 0.05
 const SETTINGS_PATH := "user://vg_dashboard_settings.json"
 const BUILD_OUTPUT_TAIL_BYTES := 8192
+const BUILD_LOG_PATH := "user://vg_dashboard_build.log"
+const BUILD_LOG_MAX_BYTES := 4 * 1024 * 1024  # 4 MiB cap on the on-disk log.
 
 # Whitelist of buildable targets.  Each entry maps a stable API name to a
 # concrete argv that OS.execute will run from the project root.  Adding a
@@ -62,6 +67,8 @@ var _build_state: Dictionary = {
 	"finished_at_msec": 0,
 	"exit_code": -1,
 	"output_tail": "",
+	"log_bytes": 0,    # Total bytes written to BUILD_LOG_PATH so far.
+	"pid": -1,
 }
 
 
@@ -118,6 +125,10 @@ func get_url() -> String:
 func _on_poll() -> void:
 	if _server == null:
 		return
+	# Drain any newly-produced output from a running build process first,
+	# so /api/build/log readers see fresh bytes within one poll tick.
+	if _build_state.get("running", false):
+		_pump_build_state()
 	# Accept any pending connections.
 	while _server.is_connection_available():
 		var peer := _server.take_connection()
@@ -233,8 +244,9 @@ func _handle_request(peer: StreamPeerTCP, head: String, headers: Dictionary, bod
 	# Strip query string for routing.
 	var qs_idx := raw_path.find("?")
 	var path := raw_path if qs_idx < 0 else raw_path.substr(0, qs_idx)
+	var query := "" if qs_idx < 0 else raw_path.substr(qs_idx + 1)
 	if method == "GET":
-		_route_get(peer, path)
+		_route_get(peer, path, query)
 	else:
 		# All POSTs need a matching CSRF token.
 		var supplied := String(headers.get("x-csrf-token", ""))
@@ -245,7 +257,7 @@ func _handle_request(peer: StreamPeerTCP, head: String, headers: Dictionary, bod
 		_route_post(peer, path, headers, body)
 
 
-func _route_get(peer: StreamPeerTCP, path: String) -> void:
+func _route_get(peer: StreamPeerTCP, path: String, query: String = "") -> void:
 	match path:
 		"/", "/index.html":
 			# Stamp the CSRF cookie on every page load — convenient for
@@ -263,6 +275,11 @@ func _route_get(peer: StreamPeerTCP, path: String) -> void:
 			_send_response(peer, 200, "application/json",
 				JSON.stringify(_settings_cache, "  ").to_utf8_buffer())
 		"/api/build/status":
+			# Refresh the in-memory tail/log_bytes before reporting so callers
+			# polling this route alone (no /api/build/log fetches) still see
+			# progress.
+			if _build_state.get("running", false):
+				_pump_build_state()
 			_send_response(peer, 200, "application/json",
 				JSON.stringify(_build_state, "  ").to_utf8_buffer())
 		"/api/build/targets":
@@ -271,6 +288,8 @@ func _route_get(peer: StreamPeerTCP, path: String) -> void:
 				t[k] = BUILD_COMMANDS[k]["label"]
 			_send_response(peer, 200, "application/json",
 				JSON.stringify(t, "  ").to_utf8_buffer())
+		"/api/build/log":
+			_route_build_log(peer, query)
 		"/favicon.ico":
 			_send_response(peer, 204, "text/plain", PackedByteArray())
 		_:
@@ -311,9 +330,21 @@ func _route_post(peer: StreamPeerTCP, path: String, headers: Dictionary, body: P
 				_send_response(peer, 400, "application/json",
 					JSON.stringify({"error": "unknown_target", "valid": BUILD_COMMANDS.keys()}).to_utf8_buffer())
 				return
-			var result := _run_build(target)
+			var started := _start_build(target)
+			if not started.get("ok", false):
+				_send_response(peer, 500, "application/json",
+					JSON.stringify(started).to_utf8_buffer())
+				return
 			_send_response(peer, 200, "application/json",
-				JSON.stringify(result, "  ").to_utf8_buffer())
+				JSON.stringify({"ok": true, "target": target, "pid": _build_state["pid"]}).to_utf8_buffer())
+		"/api/build/cancel":
+			if not _build_state.get("running", false):
+				_send_response(peer, 409, "application/json",
+					JSON.stringify({"error": "no_build_running"}).to_utf8_buffer())
+				return
+			var cancelled := _cancel_build()
+			_send_response(peer, 200, "application/json",
+				JSON.stringify(cancelled).to_utf8_buffer())
 		_:
 			_send_response(peer, 404, "application/json",
 				JSON.stringify({"error": "not_found", "path": path}).to_utf8_buffer())
@@ -363,35 +394,128 @@ func _save_settings() -> void:
 	f.store_string(JSON.stringify(_settings_cache, "  "))
 
 
-# ── Build runner (synchronous, whitelisted) ───────────────────────────────
-func _run_build(target: String) -> Dictionary:
+# ── Build runner (non-blocking, whitelisted) ──────────────────────────────
+func _start_build(target: String) -> Dictionary:
+	# Wrap the target argv inside bash -c so a single shell pipeline can
+	# redirect both streams to BUILD_LOG_PATH.  This decouples reading the
+	# log from the child's pipe buffering — we read the file on every poll
+	# tick and OS never has to wait on us.
 	var argv: Array = BUILD_COMMANDS[target]["argv"]
+	var log_abs := ProjectSettings.globalize_path(BUILD_LOG_PATH)
+
+	# Reset the log file before each run so log_offset=0 always starts at
+	# the new build's first byte.
+	var fw := FileAccess.open(BUILD_LOG_PATH, FileAccess.WRITE)
+	if fw == null:
+		return {"ok": false, "error": "cannot_open_log", "path": log_abs}
+	fw.close()
+
+	# Build a properly quoted shell command from the argv whitelist entry.
+	var quoted_parts: Array[String] = []
+	for piece in argv:
+		quoted_parts.append(_shell_quote(String(piece)))
+	var cmd_str := " ".join(quoted_parts)
+	var shell_line := "set -o pipefail; { %s; } > %s 2>&1" % [cmd_str, _shell_quote(log_abs)]
+
+	var pid := OS.create_process("bash", ["-c", shell_line])
+	if pid <= 0:
+		return {"ok": false, "error": "spawn_failed"}
+
 	_build_state["running"] = true
 	_build_state["target"] = target
 	_build_state["started_at_msec"] = Time.get_ticks_msec()
 	_build_state["finished_at_msec"] = 0
 	_build_state["exit_code"] = -1
 	_build_state["output_tail"] = ""
+	_build_state["log_bytes"] = 0
+	_build_state["pid"] = pid
+	return {"ok": true, "pid": pid}
 
-	# Use the project root as the working directory.  OS.execute already
-	# does that on Linux when args[0] is relative; nothing to thread in.
-	var cmd: String = argv[0]
-	var args: Array = argv.slice(1)
-	var output: Array = []
-	var exit_code := OS.execute(cmd, args, output, true, true)
 
-	var combined := ""
-	for line in output:
-		combined += String(line)
-	# Keep just the tail — large build logs would balloon the response.
-	if combined.length() > BUILD_OUTPUT_TAIL_BYTES:
-		combined = "...(truncated)...\n" + combined.substr(combined.length() - BUILD_OUTPUT_TAIL_BYTES)
+func _cancel_build() -> Dictionary:
+	var pid := int(_build_state.get("pid", -1))
+	if pid <= 0:
+		return {"ok": false, "error": "no_pid"}
+	var err := OS.kill(pid)
+	if err != OK:
+		return {"ok": false, "error": "kill_failed", "code": err}
+	# Let _pump_build_state observe the exit on the next tick so log_bytes
+	# stays consistent for in-flight log readers.
+	return {"ok": true, "pid": pid}
 
-	_build_state["running"] = false
-	_build_state["finished_at_msec"] = Time.get_ticks_msec()
-	_build_state["exit_code"] = exit_code
-	_build_state["output_tail"] = combined
-	return _build_state.duplicate()
+
+func _pump_build_state() -> void:
+	# Refresh log_bytes from disk so /api/build/log readers can request the
+	# range they have not yet seen, and refresh output_tail for status
+	# pollers that don't fetch the log directly.
+	var fr := FileAccess.open(BUILD_LOG_PATH, FileAccess.READ)
+	if fr != null:
+		var n := fr.get_length()
+		if n > 0:
+			var tail_off: int = max(0, n - BUILD_OUTPUT_TAIL_BYTES)
+			fr.seek(tail_off)
+			var tail_buf := fr.get_buffer(n - tail_off)
+			var tail := tail_buf.get_string_from_utf8()
+			if tail_off > 0:
+				tail = "...(truncated head)...\n" + tail
+			_build_state["output_tail"] = tail
+		_build_state["log_bytes"] = n
+		fr.close()
+
+	var pid := int(_build_state.get("pid", -1))
+	if pid > 0 and not OS.is_process_running(pid):
+		_build_state["running"] = false
+		_build_state["finished_at_msec"] = Time.get_ticks_msec()
+		_build_state["exit_code"] = OS.get_process_exit_code(pid)
+
+
+# Plain-text incremental log slice starting at ?offset=N.  Headers carry
+# running flag, exit code, and current log_bytes so the client can decide
+# whether to keep polling.
+func _route_build_log(peer: StreamPeerTCP, query: String) -> void:
+	var params := _parse_query(query)
+	var offset := int(params.get("offset", "0"))
+	if offset < 0:
+		offset = 0
+	var headers := [
+		"X-Build-Running: " + ("1" if _build_state.get("running", false) else "0"),
+		"X-Build-Exit-Code: " + str(int(_build_state.get("exit_code", -1))),
+		"X-Build-Log-Bytes: " + str(int(_build_state.get("log_bytes", 0))),
+	]
+	var fr := FileAccess.open(BUILD_LOG_PATH, FileAccess.READ)
+	if fr == null:
+		_send_response(peer, 200, "text/plain; charset=utf-8", PackedByteArray(), headers)
+		return
+	var n := fr.get_length()
+	if offset >= n:
+		fr.close()
+		_send_response(peer, 200, "text/plain; charset=utf-8", PackedByteArray(), headers)
+		return
+	var to_read: int = min(n - offset, BUILD_LOG_MAX_BYTES)
+	fr.seek(offset)
+	var buf := fr.get_buffer(to_read)
+	fr.close()
+	_send_response(peer, 200, "text/plain; charset=utf-8", buf, headers)
+
+
+func _parse_query(query: String) -> Dictionary:
+	var out: Dictionary = {}
+	if query.is_empty():
+		return out
+	for pair in query.split("&", false):
+		var eq := pair.find("=")
+		if eq < 0:
+			out[pair.uri_decode()] = ""
+		else:
+			var k := pair.substr(0, eq).uri_decode()
+			var v := pair.substr(eq + 1).uri_decode()
+			out[k] = v
+	return out
+
+
+func _shell_quote(s: String) -> String:
+	# POSIX single-quote escaping: foo → 'foo' ; ' inside becomes '\''.
+	return "'" + s.replace("'", "'\\''") + "'"
 
 
 # ── CSRF helpers ──────────────────────────────────────────────────────────
@@ -417,7 +541,7 @@ func _csrf_cookie_headers() -> Array:
 # ── Payload generators ────────────────────────────────────────────────────
 func _collect_info() -> Dictionary:
 	var info := {}
-	info["dashboard_version"] = 2
+	info["dashboard_version"] = 3
 	info["uptime_msec"] = Time.get_ticks_msec() - _started_at_msec
 	info["bind"] = _bind
 	info["port"] = _port
@@ -481,7 +605,7 @@ pre { background: #0e1219; border: 1px solid #2a3142; padding: .8em;
 .bad { color: #ff6b6b; } .good { color: #6cd07a; }
 </style></head><body>
 <h1><span class=\"dot\"></span>VisualGasic Dashboard</h1>
-<div class=\"sub\">Phase 2 — Info / Settings / Build.  CSRF-protected POST endpoints.</div>
+<div class=\"sub\">Phase 3 — live streaming build logs.  CSRF-protected POST endpoints.</div>
 
 <div class=\"tabs\">
   <button class=\"tab active\" data-panel=\"info\">Info</button>
@@ -513,6 +637,7 @@ pre { background: #0e1219; border: 1px solid #2a3142; padding: .8em;
     <label style=\"margin:0\">Target&nbsp;</label>
     <select id=\"b-target\"></select>
     <button id=\"b-run\" onclick=\"runBuild()\">Run</button>
+    <button id=\"b-cancel\" onclick=\"cancelBuild()\" disabled>Cancel</button>
     <span id=\"build-status\" class=\"sub\"></span>
   </div>
   <pre id=\"build-output\">(no build yet)</pre>
@@ -605,13 +730,15 @@ async function loadBuildTargets() {
 }
 async function runBuild() {
   var btn = document.getElementById('b-run');
+  var cancelBtn = document.getElementById('b-cancel');
   var status = document.getElementById('build-status');
   var out = document.getElementById('build-output');
   var target = document.getElementById('b-target').value;
   btn.disabled = true;
-  status.textContent = 'Running ' + target + '…';
+  cancelBtn.disabled = false;
+  status.textContent = 'Starting ' + target + '…';
   status.className = 'sub';
-  out.textContent = '(running — this blocks until the command finishes)';
+  out.textContent = '';
   try {
     var r = await fetch('/api/build/run', {
       method: 'POST',
@@ -619,22 +746,54 @@ async function runBuild() {
       body: JSON.stringify({ target: target }),
     });
     var d = await r.json();
-    if (r.ok) {
-      var ok = d.exit_code === 0;
-      status.textContent = (ok ? 'Exit 0 (OK) — ' : 'Exit ' + d.exit_code + ' — ') +
-        ((d.finished_at_msec - d.started_at_msec) / 1000).toFixed(1) + 's';
-      status.className = ok ? 'good' : 'bad';
-      out.textContent = d.output_tail || '(no output)';
-    } else {
+    if (!r.ok || !d.ok) {
       status.textContent = 'Error: ' + (d.error || r.status);
       status.className = 'bad';
       out.textContent = JSON.stringify(d, null, 2);
+      btn.disabled = false;
+      cancelBtn.disabled = true;
+      return;
+    }
+    status.textContent = 'Running ' + target + ' (pid ' + d.pid + ')…';
+    // Stream the log into the <pre> by re-querying /api/build/log?offset=N
+    // until X-Build-Running flips to 0.  ~600ms polling keeps the UI
+    // responsive without flooding the server.
+    var offset = 0;
+    while (true) {
+      var lr = await fetch('/api/build/log?offset=' + offset, { cache: 'no-store' });
+      var chunk = await lr.text();
+      if (chunk) { out.textContent += chunk; out.scrollTop = out.scrollHeight; }
+      offset = parseInt(lr.headers.get('X-Build-Log-Bytes') || offset, 10);
+      var running = lr.headers.get('X-Build-Running') === '1';
+      if (!running) {
+        var exit = parseInt(lr.headers.get('X-Build-Exit-Code') || '-1', 10);
+        var ok = exit === 0;
+        status.textContent = ok ? ('Exit 0 (OK)') : ('Exit ' + exit);
+        status.className = ok ? 'good' : 'bad';
+        break;
+      }
+      await new Promise(function(res){ setTimeout(res, 600); });
     }
   } catch (e) {
     status.textContent = 'Network error: ' + e.message;
     status.className = 'bad';
   }
   btn.disabled = false;
+  cancelBtn.disabled = true;
+}
+async function cancelBuild() {
+  try {
+    var r = await fetch('/api/build/cancel', {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': CSRF },
+    });
+    var d = await r.json();
+    if (!d.ok) {
+      var s = document.getElementById('build-status');
+      s.textContent = 'Cancel failed: ' + (d.error || r.status);
+      s.className = 'bad';
+    }
+  } catch (e) { /* runBuild's loop will surface the exit code */ }
 }
 function scheduleRefresh(secs) {
   if (REFRESH_TIMER) clearInterval(REFRESH_TIMER);
