@@ -1,6 +1,6 @@
 [gd_scene format=3]
 
-[node name="Form1" type="Control" unique_id=1526697697]
+[node name="Form1" type="Control" unique_id=1721689276]
 custom_minimum_size = Vector2(300, 200)
 layout_mode = 3
 anchors_preset = 0
@@ -11,7 +11,7 @@ offset_bottom = 223.0
 metadata/title = "Smoke Test"
 metadata/startup_position = 3
 
-[node name="cmdHello" type="Button" parent="." unique_id=328660436]
+[node name="cmdHello" type="Button" parent="." unique_id=139335189]
 custom_minimum_size = Vector2(133.33333, 33)
 layout_mode = 0
 offset_left = 80.0
@@ -24,7 +24,7 @@ text = "Say Hello"
 metadata/vb6_class = "VB.CommandButton"
 metadata/tab_index = 1
 
-[node name="lblOutput" type="Label" parent="." unique_id=2006275520]
+[node name="lblOutput" type="Label" parent="." unique_id=1051618470]
 custom_minimum_size = Vector2(266.66666, 21)
 layout_mode = 0
 offset_left = 16.0

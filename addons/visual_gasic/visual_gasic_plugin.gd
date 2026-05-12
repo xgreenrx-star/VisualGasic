@@ -1047,6 +1047,7 @@ func _enter_tree():
 	add_tool_menu_item("Visual Gasic Tab Order", Callable(self, "_on_tab_order"))
 	add_tool_menu_item("Visual Gasic Components...", Callable(self, "_on_components"))
 	add_tool_menu_item("Visual Gasic Hex Editor...", Callable(self, "_on_hex_editor_menu"))
+	add_tool_menu_item("VG: Browser Dashboard...", Callable(self, "_on_browser_dashboard"))
 
 	# Tip of the Day — load preference and create dialog
 	_load_tip_config()
@@ -1653,6 +1654,7 @@ func _exit_tree():
 	remove_tool_menu_item("VG: Snippet Browser")
 	remove_tool_menu_item("VG: Theme Picker")
 	remove_tool_menu_item("Visual Gasic Hex Editor...")
+	remove_tool_menu_item("VG: Browser Dashboard...")
 
 	if is_instance_valid(_hex_editor):
 		if is_instance_valid(_embedded_code_editor):
@@ -8097,6 +8099,28 @@ func _on_hex_editor_menu() -> void:
 	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_bottom_tab"):
 		_embedded_code_editor.focus_bottom_tab(_hex_editor)
 	_hex_editor.open_with_dialog()
+
+## Toggles the embedded Browser Dashboard server and opens the URL in the
+## default browser.  Phase-1 server lives in `vg_dashboard_server.gd` — see
+## that file for the security model (loopback-only, GET-only).
+var _vg_dashboard_server = null
+func _on_browser_dashboard() -> void:
+	if _vg_dashboard_server == null:
+		var DashCls = load("res://addons/visual_gasic/vg_dashboard_server.gd")
+		if DashCls == null:
+			push_error("[VG] Cannot load vg_dashboard_server.gd")
+			return
+		_vg_dashboard_server = DashCls.new()
+		_vg_dashboard_server.name = "VGDashboardServer"
+		add_child(_vg_dashboard_server)
+	if _vg_dashboard_server.is_running():
+		var url := String(_vg_dashboard_server.get_url())
+		OS.shell_open(url)
+		print("[VG] Dashboard already running — opening %s" % url)
+		return
+	if _vg_dashboard_server.start_server():
+		var url := String(_vg_dashboard_server.get_url())
+		OS.shell_open(url)
 
 ## Switch the center panel from form canvas to code editor.
 func _show_code_view() -> void:
