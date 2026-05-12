@@ -16,6 +16,8 @@ var _clear_button: Button
 var _variables: Dictionary = {}
 var _watch_expressions: Array[Dictionary] = []
 var _watch_previous_values: Dictionary = {}  # Track previous values for change highlighting
+var _watch_filter: String = ""  # Substring filter for Watch tab
+var _watch_filter_edit: LineEdit = null
 var _var_tree: Tree
 var _watch_tree: Tree
 var _watch_context_menu: PopupMenu  # Right-click menu for watch expressions
@@ -517,6 +519,14 @@ func _setup_ui():
 	add_watch.text = "➕ Add"
 	add_watch.pressed.connect(_add_watch_expression)
 	watch_toolbar.add_child(add_watch)
+
+	_watch_filter_edit = LineEdit.new()
+	_watch_filter_edit.placeholder_text = "Filter…"
+	_watch_filter_edit.tooltip_text = "Show only watches whose expression or value contains this text (case-insensitive)"
+	_watch_filter_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_watch_filter_edit.custom_minimum_size = Vector2(80, 0)
+	_watch_filter_edit.text_changed.connect(_on_watch_filter_changed)
+	watch_toolbar.add_child(_watch_filter_edit)
 	
 	_watch_tree = Tree.new()
 	_watch_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1896,11 +1906,15 @@ func _update_watch_expressions():
 	_watch_tree.clear()
 	if _watch_expressions.is_empty():
 		return
-	
+
 	var root = _watch_tree.create_item()
+	var filter_lc := _watch_filter.to_lower()
 	for watch in _watch_expressions:
+		# Filter on expression text first; value match is checked after evaluation.
+		var expr_text: String = String(watch["expr"])
+		var match_expr := filter_lc.is_empty() or expr_text.to_lower().contains(filter_lc)
 		var item = _watch_tree.create_item(root)
-		item.set_text(0, watch["expr"])
+		item.set_text(0, expr_text)
 		
 		# Show condition in column 1
 		var condition: String = watch.get("condition", "")
@@ -1952,6 +1966,15 @@ func _update_watch_expressions():
 		item.set_editable(2, true)  # Make Value column editable
 		item.set_metadata(0, watch["expr"])  # Store expression name for editing
 		watch["value"] = value_str
+
+		# Apply filter at the end so value-substring matches also work.
+		if not filter_lc.is_empty() and not match_expr \
+				and not value_str.to_lower().contains(filter_lc):
+			item.free()
+
+func _on_watch_filter_changed(text: String) -> void:
+	_watch_filter = text
+	_update_watch_expressions()
 
 func _on_watch_tree_gui_input(event: InputEvent):
 	"""Handle right-click on watch tree for context menu"""
