@@ -3,25 +3,49 @@ extends Node
 class_name VGDashboardServer
 
 # ── VG Browser Dashboard — minimal embedded HTTP server ────────────────────
-# Phase-1 foundation for the long-deferred Browser Dashboard (was a v5.0.1
-# blocker, now landed in v5.2).  Binds 127.0.0.1:8765 by default, serves a
-# single static HTML page plus a JSON info endpoint.  Subsequent phases
-# will add a build monitor, settings panel, and project explorer.
+# Phase-2 of the long-deferred Browser Dashboard (was a v5.0.1 blocker, now
+# landed in v5.2).  Binds 127.0.0.1:8765 by default and serves:
+#
+#   GET  /                   → tabbed HTML dashboard (Info / Settings / Build)
+#   GET  /api/info           → project + engine version JSON
+#   GET  /api/csrf-token     → fresh per-server CSRF token (also set as cookie)
+#   GET  /api/settings       → current dashboard settings JSON
+#   POST /api/settings       → replace settings (validated, persisted to disk)
+#   GET  /api/build/status   → current build state + last stdout tail
+#   POST /api/build/run      → run a whitelisted build command, blocking
 #
 # Why TCPServer (not godot-cpp HTTPServer)?  Godot has no first-party HTTP
 # server class — only client.  We hand-parse a tiny request-line subset
-# (METHOD PATH HTTP/1.x + headers) which is all the dashboard fetches need.
+# (METHOD PATH HTTP/1.x + headers + optional Content-Length-framed body)
+# which is all the dashboard's fetches need.
 #
 # Security:
 #   - Default bind is 127.0.0.1 (loopback only).  External bind requires
-#     explicit `bind_address` param — caller's responsibility.
-#   - No write endpoints in Phase 1.  All routes are GET-only.
+#     an explicit `bind_address` param — caller's responsibility.
+#   - CSRF: every POST must carry a matching `X-CSRF-Token` header.  Token
+#     is generated once per server start; rotates on stop/start.  Clients
+#     fetch it from /api/csrf-token (which also sets it as a cookie).
+#   - Build runner accepts only commands from a hard-coded whitelist; raw
+#     shell command strings from the client are rejected.
 #   - No path-based file serving — pages are inlined to prevent traversal.
+#   - All responses set Cache-Control: no-store and X-Content-Type-Options.
 
 const DEFAULT_PORT := 8765
 const DEFAULT_BIND := "127.0.0.1"
-const MAX_REQUEST_BYTES := 16384  # Hard cap — refuse anything larger.
+const MAX_REQUEST_BYTES := 65536  # Hard cap incl. body — refuse anything larger.
 const POLL_INTERVAL_SEC := 0.05
+const SETTINGS_PATH := "user://vg_dashboard_settings.json"
+const BUILD_OUTPUT_TAIL_BYTES := 8192
+
+# Whitelist of buildable targets.  Each entry maps a stable API name to a
+# concrete argv that OS.execute will run from the project root.  Adding a
+# new target is the only supported way to enable it — accepting raw shell
+# strings from the client would be an obvious RCE.
+const BUILD_COMMANDS := {
+	"tests":     {"label": "Run test suite",     "argv": ["bash", "run_test_suite.sh"]},
+	"gd_tests":  {"label": "GDScript tests only", "argv": ["bash", "run_test_suite.sh", "--gd-only"]},
+	"scons":     {"label": "Build C++ extension", "argv": ["scons", "platform=linux", "target=editor", "-j2"]},
+}
 
 var _server: TCPServer
 var _connections: Array = []  # Array of {peer, buf, started_at_msec}
@@ -29,6 +53,16 @@ var _port: int = DEFAULT_PORT
 var _bind: String = DEFAULT_BIND
 var _started_at_msec: int = 0
 var _timer: Timer = null
+var _csrf_token: String = ""
+var _settings_cache: Dictionary = {}
+var _build_state: Dictionary = {
+	"running": false,
+	"target": "",
+	"started_at_msec": 0,
+	"finished_at_msec": 0,
+	"exit_code": -1,
+	"output_tail": "",
+}
 
 
 func start_server(p_port: int = DEFAULT_PORT, p_bind: String = DEFAULT_BIND) -> bool:
@@ -44,6 +78,9 @@ func start_server(p_port: int = DEFAULT_PORT, p_bind: String = DEFAULT_BIND) -> 
 	_port = p_port
 	_bind = p_bind
 	_started_at_msec = Time.get_ticks_msec()
+	# Fresh CSRF token per server lifetime — rotates on stop/start.
+	_csrf_token = _generate_csrf_token()
+	_load_settings()
 	if _timer == null:
 		_timer = Timer.new()
 		_timer.wait_time = POLL_INTERVAL_SEC
@@ -121,9 +158,28 @@ func _on_poll() -> void:
 				continue
 			still_alive.append(c)
 			continue
-		# Parse and handle.
-		var head := c["buf"].slice(0, sep).get_string_from_utf8()
-		_handle_request(peer, head)
+		# Parse the request line + headers up front so we know if there is
+		# a Content-Length-framed body still to wait for.
+		var head_bytes: PackedByteArray = c["buf"].slice(0, sep)
+		var head := head_bytes.get_string_from_utf8()
+		var headers := _parse_headers(head)
+		var content_length := int(headers.get("content-length", "0"))
+		if content_length < 0:
+			content_length = 0
+		var total_needed := sep + content_length
+		if total_needed > MAX_REQUEST_BYTES:
+			_send_response(peer, 413, "text/plain", "Request entity too large".to_utf8_buffer())
+			peer.disconnect_from_host()
+			continue
+		if c["buf"].size() < total_needed:
+			# Still waiting for body bytes.
+			if Time.get_ticks_msec() - c["started_at_msec"] > 10000:
+				peer.disconnect_from_host()
+				continue
+			still_alive.append(c)
+			continue
+		var body: PackedByteArray = c["buf"].slice(sep, total_needed)
+		_handle_request(peer, head, headers, body)
 		peer.disconnect_from_host()
 	_connections = still_alive
 
@@ -140,7 +196,25 @@ func _find_header_terminator(buf: PackedByteArray) -> int:
 	return -1
 
 
-func _handle_request(peer: StreamPeerTCP, head: String) -> void:
+func _parse_headers(head: String) -> Dictionary:
+	# Returns a dict with lower-cased header names → value.  The request line
+	# is intentionally skipped here — callers parse it separately.
+	var out: Dictionary = {}
+	var lines := head.split("\n", false)
+	for i in range(1, lines.size()):
+		var line := lines[i].strip_edges()
+		if line.is_empty():
+			continue
+		var colon := line.find(":")
+		if colon <= 0:
+			continue
+		var name := line.substr(0, colon).strip_edges().to_lower()
+		var value := line.substr(colon + 1).strip_edges()
+		out[name] = value
+	return out
+
+
+func _handle_request(peer: StreamPeerTCP, head: String, headers: Dictionary, body: PackedByteArray) -> void:
 	# Parse request line: "METHOD PATH HTTP/1.x"
 	var first_nl := head.find("\n")
 	if first_nl < 0:
@@ -153,35 +227,197 @@ func _handle_request(peer: StreamPeerTCP, head: String) -> void:
 		return
 	var method: String = parts[0].to_upper()
 	var raw_path: String = parts[1]
-	if method != "GET":
-		_send_response(peer, 405, "text/plain", "Only GET is supported".to_utf8_buffer())
+	if method != "GET" and method != "POST":
+		_send_response(peer, 405, "text/plain", "Only GET and POST are supported".to_utf8_buffer())
 		return
-	# Strip query string for routing — keep raw for ?refresh=1 etc later.
+	# Strip query string for routing.
 	var qs_idx := raw_path.find("?")
 	var path := raw_path if qs_idx < 0 else raw_path.substr(0, qs_idx)
-	_route(peer, path)
+	if method == "GET":
+		_route_get(peer, path)
+	else:
+		# All POSTs need a matching CSRF token.
+		var supplied := String(headers.get("x-csrf-token", ""))
+		if supplied.is_empty() or supplied != _csrf_token:
+			_send_response(peer, 403, "application/json",
+				JSON.stringify({"error": "csrf_mismatch"}).to_utf8_buffer())
+			return
+		_route_post(peer, path, headers, body)
 
 
-func _route(peer: StreamPeerTCP, path: String) -> void:
+func _route_get(peer: StreamPeerTCP, path: String) -> void:
 	match path:
 		"/", "/index.html":
+			# Stamp the CSRF cookie on every page load — convenient for
+			# clients that prefer reading it from document.cookie.
 			_send_response(peer, 200, "text/html; charset=utf-8",
-				_dashboard_html().to_utf8_buffer())
+				_dashboard_html().to_utf8_buffer(), _csrf_cookie_headers())
 		"/api/info":
 			_send_response(peer, 200, "application/json",
 				JSON.stringify(_collect_info(), "  ").to_utf8_buffer())
+		"/api/csrf-token":
+			_send_response(peer, 200, "application/json",
+				JSON.stringify({"csrf_token": _csrf_token}).to_utf8_buffer(),
+				_csrf_cookie_headers())
+		"/api/settings":
+			_send_response(peer, 200, "application/json",
+				JSON.stringify(_settings_cache, "  ").to_utf8_buffer())
+		"/api/build/status":
+			_send_response(peer, 200, "application/json",
+				JSON.stringify(_build_state, "  ").to_utf8_buffer())
+		"/api/build/targets":
+			var t := {}
+			for k in BUILD_COMMANDS.keys():
+				t[k] = BUILD_COMMANDS[k]["label"]
+			_send_response(peer, 200, "application/json",
+				JSON.stringify(t, "  ").to_utf8_buffer())
 		"/favicon.ico":
-			# Empty 204 to silence browser noise.
 			_send_response(peer, 204, "text/plain", PackedByteArray())
 		_:
 			_send_response(peer, 404, "text/plain",
 				("Not found: " + path).to_utf8_buffer())
 
 
+func _route_post(peer: StreamPeerTCP, path: String, headers: Dictionary, body: PackedByteArray) -> void:
+	var body_str := body.get_string_from_utf8()
+	var parsed: Variant = null
+	if not body_str.is_empty():
+		var j := JSON.new()
+		if j.parse(body_str) != OK:
+			_send_response(peer, 400, "application/json",
+				JSON.stringify({"error": "invalid_json", "detail": j.get_error_message()}).to_utf8_buffer())
+			return
+		parsed = j.data
+	match path:
+		"/api/settings":
+			if not (parsed is Dictionary):
+				_send_response(peer, 400, "application/json",
+					JSON.stringify({"error": "expected_object"}).to_utf8_buffer())
+				return
+			var validated := _validate_settings(parsed)
+			_settings_cache = validated
+			_save_settings()
+			_send_response(peer, 200, "application/json",
+				JSON.stringify({"ok": true, "settings": _settings_cache}).to_utf8_buffer())
+		"/api/build/run":
+			if _build_state["running"]:
+				_send_response(peer, 409, "application/json",
+					JSON.stringify({"error": "build_already_running"}).to_utf8_buffer())
+				return
+			var target: String = ""
+			if parsed is Dictionary:
+				target = String(parsed.get("target", ""))
+			if not BUILD_COMMANDS.has(target):
+				_send_response(peer, 400, "application/json",
+					JSON.stringify({"error": "unknown_target", "valid": BUILD_COMMANDS.keys()}).to_utf8_buffer())
+				return
+			var result := _run_build(target)
+			_send_response(peer, 200, "application/json",
+				JSON.stringify(result, "  ").to_utf8_buffer())
+		_:
+			_send_response(peer, 404, "application/json",
+				JSON.stringify({"error": "not_found", "path": path}).to_utf8_buffer())
+
+
+# ── Settings persistence ──────────────────────────────────────────────────
+func _settings_defaults() -> Dictionary:
+	return {
+		"auto_refresh_secs": 2,
+		"show_build_panel": true,
+		"theme": "dark",
+	}
+
+
+func _validate_settings(d: Dictionary) -> Dictionary:
+	# Whitelist-only: drop unknown keys, clamp known ones to safe ranges.
+	var defaults := _settings_defaults()
+	var out := defaults.duplicate()
+	if d.has("auto_refresh_secs"):
+		var r := int(d["auto_refresh_secs"])
+		out["auto_refresh_secs"] = clamp(r, 1, 60)
+	if d.has("show_build_panel"):
+		out["show_build_panel"] = bool(d["show_build_panel"])
+	if d.has("theme"):
+		var t := String(d["theme"])
+		out["theme"] = t if t in ["dark", "light"] else "dark"
+	return out
+
+
+func _load_settings() -> void:
+	_settings_cache = _settings_defaults()
+	if not FileAccess.file_exists(SETTINGS_PATH):
+		return
+	var f := FileAccess.open(SETTINGS_PATH, FileAccess.READ)
+	if f == null:
+		return
+	var j := JSON.new()
+	if j.parse(f.get_as_text()) == OK and j.data is Dictionary:
+		_settings_cache = _validate_settings(j.data)
+
+
+func _save_settings() -> void:
+	var f := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
+	if f == null:
+		push_error("[VGDashboard] Cannot persist settings to %s" % SETTINGS_PATH)
+		return
+	f.store_string(JSON.stringify(_settings_cache, "  "))
+
+
+# ── Build runner (synchronous, whitelisted) ───────────────────────────────
+func _run_build(target: String) -> Dictionary:
+	var argv: Array = BUILD_COMMANDS[target]["argv"]
+	_build_state["running"] = true
+	_build_state["target"] = target
+	_build_state["started_at_msec"] = Time.get_ticks_msec()
+	_build_state["finished_at_msec"] = 0
+	_build_state["exit_code"] = -1
+	_build_state["output_tail"] = ""
+
+	# Use the project root as the working directory.  OS.execute already
+	# does that on Linux when args[0] is relative; nothing to thread in.
+	var cmd: String = argv[0]
+	var args: Array = argv.slice(1)
+	var output: Array = []
+	var exit_code := OS.execute(cmd, args, output, true, true)
+
+	var combined := ""
+	for line in output:
+		combined += String(line)
+	# Keep just the tail — large build logs would balloon the response.
+	if combined.length() > BUILD_OUTPUT_TAIL_BYTES:
+		combined = "...(truncated)...\n" + combined.substr(combined.length() - BUILD_OUTPUT_TAIL_BYTES)
+
+	_build_state["running"] = false
+	_build_state["finished_at_msec"] = Time.get_ticks_msec()
+	_build_state["exit_code"] = exit_code
+	_build_state["output_tail"] = combined
+	return _build_state.duplicate()
+
+
+# ── CSRF helpers ──────────────────────────────────────────────────────────
+func _generate_csrf_token() -> String:
+	# 192 bits of entropy from RandomNumberGenerator — sufficient for
+	# loopback-only CSRF use.
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var bytes := PackedByteArray()
+	bytes.resize(24)
+	for i in range(24):
+		bytes[i] = rng.randi() & 0xFF
+	return Marshalls.raw_to_base64(bytes).replace("+", "-").replace("/", "_").replace("=", "")
+
+
+func _csrf_cookie_headers() -> Array:
+	# Returns extra raw header lines to attach to the response.
+	return [
+		"Set-Cookie: vg_csrf=%s; Path=/; SameSite=Strict" % _csrf_token,
+	]
+
+
 # ── Payload generators ────────────────────────────────────────────────────
 func _collect_info() -> Dictionary:
 	var info := {}
-	info["dashboard_version"] = 1
+	info["dashboard_version"] = 2
 	info["uptime_msec"] = Time.get_ticks_msec() - _started_at_msec
 	info["bind"] = _bind
 	info["port"] = _port
@@ -208,8 +444,8 @@ func _read_vg_version() -> String:
 
 func _dashboard_html() -> String:
 	# Inlined static page — no external assets so there's no second request
-	# to authorise.  The JS polls /api/info every 2s and renders into the
-	# table.  Keep simple — Phase 1 only.
+	# to authorise.  Three tabs: Info (auto-refresh), Settings (POST form),
+	# Build (POST trigger + status polling).
 	return """<!doctype html>
 <html lang=\"en\"><head>
 <meta charset=\"utf-8\">
@@ -220,6 +456,12 @@ body { font-family: -apple-system, Segoe UI, Roboto, sans-serif;
        background: #1a1f2b; color: #e0e6f0; margin: 0; padding: 2em; }
 h1 { margin: 0 0 .2em 0; color: #6fb3ff; }
 .sub { color: #8fa0b8; margin-bottom: 1.5em; }
+.tabs { display: flex; gap: .4em; margin-bottom: 1em; border-bottom: 1px solid #2a3142; }
+.tab { padding: .5em 1.2em; cursor: pointer; border-radius: 4px 4px 0 0;
+       color: #8fa0b8; background: transparent; border: 0; font: inherit; }
+.tab.active { background: #2c3447; color: #6fb3ff; }
+.panel { display: none; }
+.panel.active { display: block; }
 table { border-collapse: collapse; min-width: 320px; }
 th, td { text-align: left; padding: .35em .8em; border-bottom: 1px solid #2a3142; }
 th { color: #8fa0b8; font-weight: 500; }
@@ -227,16 +469,61 @@ td.val { color: #ffe7a3; font-family: ui-monospace, Menlo, Consolas, monospace; 
 .dot { display: inline-block; width: .6em; height: .6em; border-radius: 50%;
        background: #6cd07a; margin-right: .4em; vertical-align: middle; }
 .foot { margin-top: 2em; color: #5a6478; font-size: .85em; }
-button { background: #2c3447; color: #e0e6f0; border: 1px solid #3a4258;
-         padding: .4em .9em; border-radius: 4px; cursor: pointer; }
+button, select, input { background: #2c3447; color: #e0e6f0; border: 1px solid #3a4258;
+         padding: .4em .9em; border-radius: 4px; cursor: pointer; font: inherit; }
 button:hover { background: #3a4258; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+label { display: block; margin: .8em 0 .2em; color: #8fa0b8; }
+pre { background: #0e1219; border: 1px solid #2a3142; padding: .8em;
+      border-radius: 4px; max-height: 360px; overflow: auto;
+      font-family: ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; }
+.row { display: flex; gap: .6em; align-items: center; margin: .4em 0; }
+.bad { color: #ff6b6b; } .good { color: #6cd07a; }
 </style></head><body>
 <h1><span class=\"dot\"></span>VisualGasic Dashboard</h1>
-<div class=\"sub\">Phase 1 — project info &amp; uptime.  Auto-refreshes every 2s.</div>
-<table id=\"info\"></table>
-<p><button onclick=\"refresh()\">Refresh now</button></p>
-<div class=\"foot\">Served by VGDashboardServer · loopback only · GET-only API.</div>
+<div class=\"sub\">Phase 2 — Info / Settings / Build.  CSRF-protected POST endpoints.</div>
+
+<div class=\"tabs\">
+  <button class=\"tab active\" data-panel=\"info\">Info</button>
+  <button class=\"tab\" data-panel=\"settings\">Settings</button>
+  <button class=\"tab\" data-panel=\"build\">Build</button>
+</div>
+
+<section id=\"panel-info\" class=\"panel active\">
+  <table id=\"info\"></table>
+  <p><button onclick=\"refreshInfo()\">Refresh now</button></p>
+</section>
+
+<section id=\"panel-settings\" class=\"panel\">
+  <label>Auto-refresh interval (seconds)
+    <input type=\"number\" id=\"f-refresh\" min=\"1\" max=\"60\" value=\"2\">
+  </label>
+  <label>Show build panel
+    <input type=\"checkbox\" id=\"f-build\" checked>
+  </label>
+  <label>Theme
+    <select id=\"f-theme\"><option value=\"dark\">dark</option><option value=\"light\">light</option></select>
+  </label>
+  <p><button onclick=\"saveSettings()\">Save settings</button>
+     <span id=\"settings-status\" class=\"sub\"></span></p>
+</section>
+
+<section id=\"panel-build\" class=\"panel\">
+  <div class=\"row\">
+    <label style=\"margin:0\">Target&nbsp;</label>
+    <select id=\"b-target\"></select>
+    <button id=\"b-run\" onclick=\"runBuild()\">Run</button>
+    <span id=\"build-status\" class=\"sub\"></span>
+  </div>
+  <pre id=\"build-output\">(no build yet)</pre>
+</section>
+
+<div class=\"foot\">Served by VGDashboardServer · loopback only · CSRF token rotates per server start.</div>
+
 <script>
+var CSRF = '';
+var REFRESH_TIMER = null;
+
 function row(k, v) {
   return '<tr><th>' + k + '</th><td class=\"val\">' +
          (v === null || v === undefined || v === '' ? '—' :
@@ -247,7 +534,7 @@ function fmtUptime(ms) {
   var s = Math.floor(ms/1000), m = Math.floor(s/60), h = Math.floor(m/60);
   return h + 'h ' + (m%60) + 'm ' + (s%60) + 's';
 }
-async function refresh() {
+async function refreshInfo() {
   try {
     var r = await fetch('/api/info', { cache: 'no-store' });
     var d = await r.json();
@@ -258,20 +545,123 @@ async function refresh() {
       row('VG version',  d.vg_version) +
       row('Godot',       gv.string || (gv.major + '.' + gv.minor)) +
       row('Bind',        d.bind + ':' + d.port) +
-      row('Uptime',      fmtUptime(d.uptime_msec));
+      row('Uptime',      fmtUptime(d.uptime_msec)) +
+      row('Dashboard',   'v' + d.dashboard_version);
   } catch (e) {
     document.getElementById('info').innerHTML = row('Error', e.message);
   }
 }
-refresh();
-setInterval(refresh, 2000);
+async function loadCsrf() {
+  var r = await fetch('/api/csrf-token', { cache: 'no-store' });
+  var d = await r.json();
+  CSRF = d.csrf_token;
+}
+async function loadSettings() {
+  var r = await fetch('/api/settings', { cache: 'no-store' });
+  var d = await r.json();
+  document.getElementById('f-refresh').value = d.auto_refresh_secs;
+  document.getElementById('f-build').checked = !!d.show_build_panel;
+  document.getElementById('f-theme').value = d.theme || 'dark';
+  scheduleRefresh(d.auto_refresh_secs);
+}
+async function saveSettings() {
+  var body = {
+    auto_refresh_secs: parseInt(document.getElementById('f-refresh').value, 10) || 2,
+    show_build_panel:  document.getElementById('f-build').checked,
+    theme:             document.getElementById('f-theme').value,
+  };
+  var s = document.getElementById('settings-status');
+  s.textContent = 'Saving…';
+  try {
+    var r = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+      body: JSON.stringify(body),
+    });
+    var d = await r.json();
+    if (r.ok && d.ok) {
+      s.textContent = 'Saved.';
+      s.className = 'good';
+      scheduleRefresh(d.settings.auto_refresh_secs);
+    } else {
+      s.textContent = 'Error: ' + (d.error || r.status);
+      s.className = 'bad';
+    }
+  } catch (e) {
+    s.textContent = 'Network error: ' + e.message;
+    s.className = 'bad';
+  }
+}
+async function loadBuildTargets() {
+  var r = await fetch('/api/build/targets', { cache: 'no-store' });
+  var d = await r.json();
+  var sel = document.getElementById('b-target');
+  sel.innerHTML = '';
+  Object.keys(d).forEach(function(k){
+    var o = document.createElement('option');
+    o.value = k; o.textContent = d[k];
+    sel.appendChild(o);
+  });
+}
+async function runBuild() {
+  var btn = document.getElementById('b-run');
+  var status = document.getElementById('build-status');
+  var out = document.getElementById('build-output');
+  var target = document.getElementById('b-target').value;
+  btn.disabled = true;
+  status.textContent = 'Running ' + target + '…';
+  status.className = 'sub';
+  out.textContent = '(running — this blocks until the command finishes)';
+  try {
+    var r = await fetch('/api/build/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+      body: JSON.stringify({ target: target }),
+    });
+    var d = await r.json();
+    if (r.ok) {
+      var ok = d.exit_code === 0;
+      status.textContent = (ok ? 'Exit 0 (OK) — ' : 'Exit ' + d.exit_code + ' — ') +
+        ((d.finished_at_msec - d.started_at_msec) / 1000).toFixed(1) + 's';
+      status.className = ok ? 'good' : 'bad';
+      out.textContent = d.output_tail || '(no output)';
+    } else {
+      status.textContent = 'Error: ' + (d.error || r.status);
+      status.className = 'bad';
+      out.textContent = JSON.stringify(d, null, 2);
+    }
+  } catch (e) {
+    status.textContent = 'Network error: ' + e.message;
+    status.className = 'bad';
+  }
+  btn.disabled = false;
+}
+function scheduleRefresh(secs) {
+  if (REFRESH_TIMER) clearInterval(REFRESH_TIMER);
+  if (secs > 0) REFRESH_TIMER = setInterval(refreshInfo, secs * 1000);
+}
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(function(t){
+    t.classList.toggle('active', t.dataset.panel === name);
+  });
+  document.querySelectorAll('.panel').forEach(function(p){
+    p.classList.toggle('active', p.id === 'panel-' + name);
+  });
+}
+document.querySelectorAll('.tab').forEach(function(t){
+  t.addEventListener('click', function(){ switchTab(t.dataset.panel); });
+});
+(async function init() {
+  await loadCsrf();
+  await Promise.all([refreshInfo(), loadSettings(), loadBuildTargets()]);
+})();
 </script>
 </body></html>
 """
 
 
 # ── HTTP response writer ──────────────────────────────────────────────────
-func _send_response(peer: StreamPeerTCP, code: int, content_type: String, body: PackedByteArray) -> void:
+func _send_response(peer: StreamPeerTCP, code: int, content_type: String, body: PackedByteArray, extra_headers: Array = []) -> void:
 	var status_text := _status_text(code)
 	var head := "HTTP/1.1 %d %s\r\n" % [code, status_text]
 	head += "Content-Type: %s\r\n" % content_type
@@ -279,6 +669,8 @@ func _send_response(peer: StreamPeerTCP, code: int, content_type: String, body: 
 	head += "Connection: close\r\n"
 	head += "Cache-Control: no-store\r\n"
 	head += "X-Content-Type-Options: nosniff\r\n"
+	for h in extra_headers:
+		head += String(h) + "\r\n"
 	head += "\r\n"
 	var head_bytes := head.to_utf8_buffer()
 	peer.put_data(head_bytes)
@@ -291,8 +683,10 @@ func _status_text(code: int) -> String:
 		200: return "OK"
 		204: return "No Content"
 		400: return "Bad Request"
+		403: return "Forbidden"
 		404: return "Not Found"
 		405: return "Method Not Allowed"
+		409: return "Conflict"
 		413: return "Payload Too Large"
 		_:   return "OK"
 
