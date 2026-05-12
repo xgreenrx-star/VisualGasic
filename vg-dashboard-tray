@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# vg-dashboard-tray — VisualGasic Browser Dashboard with system tray icon
+#
+# Like vg-dashboard but spawns a display-server-backed Godot process and
+# installs a status indicator (tray icon) on macOS / Windows.  On platforms
+# without FEATURE_STATUS_INDICATOR (Linux), it still runs but logs a notice.
+#
+# Usage:
+#   ./vg-dashboard-tray [--project=DIR] [--port=N] [--bind=ADDR]
+#
+# Env overrides:
+#   VG_GODOT         Path to the Godot binary.
+#   VG_PROJECT_DIR   Default project directory.
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+PROJECT_DIR="${VG_PROJECT_DIR:-}"
+PASSTHROUGH=()
+
+for a in "$@"; do
+    case "$a" in
+        --project=*) PROJECT_DIR="${a#--project=}" ;;
+        -h|--help)
+            sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0
+            ;;
+        *) PASSTHROUGH+=("$a") ;;
+    esac
+done
+
+if [[ -z "$PROJECT_DIR" ]]; then
+    if [[ -f "$PWD/project.godot" ]]; then
+        PROJECT_DIR="$PWD"
+    elif [[ -f "$SCRIPT_DIR/test_proj/project.godot" ]]; then
+        PROJECT_DIR="$SCRIPT_DIR/test_proj"
+    fi
+fi
+if [[ -z "$PROJECT_DIR" || ! -f "$PROJECT_DIR/project.godot" ]]; then
+    echo "vg-dashboard-tray: no project.godot found." >&2
+    exit 2
+fi
+if [[ ! -f "$PROJECT_DIR/addons/visual_gasic/vg_dashboard_tray.gd" ]]; then
+    echo "vg-dashboard-tray: addons/visual_gasic/ missing in $PROJECT_DIR." >&2
+    exit 2
+fi
+
+GODOT_BIN="${VG_GODOT:-}"
+if [[ -z "$GODOT_BIN" ]]; then
+    case "$(uname -s)" in
+        Darwin*)
+            for c in "$SCRIPT_DIR/Godot.app/Contents/MacOS/Godot" \
+                     "$SCRIPT_DIR/Godot_v4.6.1-stable_macos.universal/Godot.app/Contents/MacOS/Godot" \
+                     "$SCRIPT_DIR/Godot_v4.5.1-stable_macos.universal/Godot.app/Contents/MacOS/Godot" \
+                     "/Applications/Godot.app/Contents/MacOS/Godot"; do
+                [[ -x "$c" ]] && { GODOT_BIN="$c"; break; }
+            done
+            ;;
+        *)
+            for c in "$SCRIPT_DIR/Godot_v4.6.1-stable_linux.x86_64" \
+                     "$SCRIPT_DIR/Godot_v4.5.1-stable_linux.x86_64" \
+                     "$SCRIPT_DIR/godot"; do
+                [[ -x "$c" ]] && { GODOT_BIN="$c"; break; }
+            done
+            ;;
+    esac
+fi
+if [[ -z "$GODOT_BIN" || ! -x "$GODOT_BIN" ]]; then
+    echo "vg-dashboard-tray: Godot binary not found. Set VG_GODOT." >&2
+    exit 2
+fi
+
+# No --headless: tray icon needs a real display server.
+exec "$GODOT_BIN" --path "$PROJECT_DIR" \
+    -s addons/visual_gasic/vg_dashboard_tray.gd \
+    -- "${PASSTHROUGH[@]}"
