@@ -3,10 +3,10 @@ extends Node
 class_name VGDashboardServer
 
 # ── VG Browser Dashboard — minimal embedded HTTP server ────────────────────
-# Phase-3 of the long-deferred Browser Dashboard (was a v5.0.1 blocker, now
+# Phase-4 of the long-deferred Browser Dashboard (was a v5.0.1 blocker, now
 # landed in v5.2).  Binds 127.0.0.1:8765 by default and serves:
 #
-#   GET  /                   → tabbed HTML dashboard (Info / Settings / Build)
+#   GET  /                   → tabbed HTML dashboard (Info / Settings / Build / Files)
 #   GET  /api/info           → project + engine version JSON
 #   GET  /api/csrf-token     → fresh per-server CSRF token (also set as cookie)
 #   GET  /api/settings       → current dashboard settings JSON
@@ -16,6 +16,8 @@ class_name VGDashboardServer
 #   GET  /api/build/log      → incremental ?offset=N text fetch (live stream)
 #   POST /api/build/run      → start a whitelisted target non-blocking
 #   POST /api/build/cancel   → kill the running build, if any
+#   GET  /api/files/list     → directory listing under res:// (read-only)
+#   GET  /api/files/read     → text file content under res:// (1 MiB cap)
 #
 # Why TCPServer (not godot-cpp HTTPServer)?  Godot has no first-party HTTP
 # server class — only client.  We hand-parse a tiny request-line subset
@@ -290,6 +292,10 @@ func _route_get(peer: StreamPeerTCP, path: String, query: String = "") -> void:
 				JSON.stringify(t, "  ").to_utf8_buffer())
 		"/api/build/log":
 			_route_build_log(peer, query)
+		"/api/files/list":
+			_route_files_list(peer, query)
+		"/api/files/read":
+			_route_files_read(peer, query)
 		"/favicon.ico":
 			_send_response(peer, 204, "text/plain", PackedByteArray())
 		_:
@@ -518,6 +524,129 @@ func _shell_quote(s: String) -> String:
 	return "'" + s.replace("'", "'\\''") + "'"
 
 
+# ── Project file explorer (read-only, res:// only) ────────────────────────
+# All paths are normalised to "/"-rooted relative paths inside res://.
+# Anything containing ".." or starting with "/" outside that prefix gets
+# rejected before touching the filesystem.
+const FILE_READ_MAX_BYTES := 1024 * 1024  # 1 MiB cap on a single viewer read.
+const FILE_TEXT_EXTS := [
+	"vg", "gd", "json", "tres", "tscn", "cfg", "txt", "md", "yaml", "yml",
+	"xml", "ini", "csv", "shader", "gdshader", "log", "html", "css", "js",
+	"py", "sh", "ps1", "c", "cpp", "h", "hpp", "scons", "uid",
+]
+const FILE_LIST_HIDDEN_PREFIXES := [".git", ".godot", ".import", ".vscode"]
+
+
+func _safe_res_path(rel: String) -> String:
+	# Returns a clean res:// path, or "" if `rel` tries to escape.
+	var p := rel.strip_edges()
+	while p.begins_with("/"):
+		p = p.substr(1)
+	if p == "" or p == ".":
+		return "res://"
+	# Reject any traversal attempt up front — also rejects encoded forms
+	# that survive uri_decode().
+	if "\\" in p:
+		return ""
+	var parts := p.split("/", false)
+	for part in parts:
+		if part == ".." or part == ".":
+			return ""
+	return "res://" + p
+
+
+func _route_files_list(peer: StreamPeerTCP, query: String) -> void:
+	var params := _parse_query(query)
+	var rel: String = String(params.get("path", ""))
+	var safe := _safe_res_path(rel)
+	if safe == "":
+		_send_response(peer, 400, "application/json",
+			JSON.stringify({"error": "bad_path"}).to_utf8_buffer())
+		return
+	var dir := DirAccess.open(safe)
+	if dir == null:
+		_send_response(peer, 404, "application/json",
+			JSON.stringify({"error": "not_found", "path": safe}).to_utf8_buffer())
+		return
+	var entries: Array = []
+	dir.list_dir_begin()
+	while true:
+		var name := dir.get_next()
+		if name == "":
+			break
+		if name == "." or name == "..":
+			continue
+		var is_dir := dir.current_is_dir()
+		var skip := false
+		for prefix in FILE_LIST_HIDDEN_PREFIXES:
+			if name.begins_with(prefix):
+				skip = true
+				break
+		if skip:
+			continue
+		var entry := {"name": name, "is_dir": is_dir}
+		if not is_dir:
+			# Cheap stat — open + length.
+			var f := FileAccess.open(safe.path_join(name), FileAccess.READ)
+			if f != null:
+				entry["size"] = f.get_length()
+				f.close()
+		entries.append(entry)
+	dir.list_dir_end()
+	# Sort: directories first, then by name.
+	entries.sort_custom(func(a, b):
+		if a["is_dir"] != b["is_dir"]:
+			return a["is_dir"]
+		return String(a["name"]).naturalnocasecmp_to(String(b["name"])) < 0
+	)
+	var out := {"path": safe, "entries": entries}
+	_send_response(peer, 200, "application/json",
+		JSON.stringify(out, "  ").to_utf8_buffer())
+
+
+func _route_files_read(peer: StreamPeerTCP, query: String) -> void:
+	var params := _parse_query(query)
+	var rel: String = String(params.get("path", ""))
+	var safe := _safe_res_path(rel)
+	if safe == "" or safe == "res://":
+		_send_response(peer, 400, "application/json",
+			JSON.stringify({"error": "bad_path"}).to_utf8_buffer())
+		return
+	if not FileAccess.file_exists(safe):
+		_send_response(peer, 404, "application/json",
+			JSON.stringify({"error": "not_found", "path": safe}).to_utf8_buffer())
+		return
+	var ext := safe.get_extension().to_lower()
+	var is_text := ext in FILE_TEXT_EXTS
+	var f := FileAccess.open(safe, FileAccess.READ)
+	if f == null:
+		_send_response(peer, 500, "application/json",
+			JSON.stringify({"error": "open_failed"}).to_utf8_buffer())
+		return
+	var n := f.get_length()
+	var truncated := false
+	var to_read := n
+	if to_read > FILE_READ_MAX_BYTES:
+		to_read = FILE_READ_MAX_BYTES
+		truncated = true
+	var buf := f.get_buffer(to_read)
+	f.close()
+	if not is_text:
+		# Return metadata only — refuse to ship raw binaries to the browser.
+		_send_response(peer, 200, "application/json",
+			JSON.stringify({
+				"path": safe, "size": n, "ext": ext,
+				"binary": true, "message": "Binary preview not supported.",
+			}, "  ").to_utf8_buffer())
+		return
+	var text := buf.get_string_from_utf8()
+	_send_response(peer, 200, "application/json",
+		JSON.stringify({
+			"path": safe, "size": n, "ext": ext,
+			"binary": false, "truncated": truncated, "content": text,
+		}, "  ").to_utf8_buffer())
+
+
 # ── CSRF helpers ──────────────────────────────────────────────────────────
 func _generate_csrf_token() -> String:
 	# 192 bits of entropy from RandomNumberGenerator — sufficient for
@@ -541,7 +670,7 @@ func _csrf_cookie_headers() -> Array:
 # ── Payload generators ────────────────────────────────────────────────────
 func _collect_info() -> Dictionary:
 	var info := {}
-	info["dashboard_version"] = 3
+	info["dashboard_version"] = 4
 	info["uptime_msec"] = Time.get_ticks_msec() - _started_at_msec
 	info["bind"] = _bind
 	info["port"] = _port
@@ -605,12 +734,13 @@ pre { background: #0e1219; border: 1px solid #2a3142; padding: .8em;
 .bad { color: #ff6b6b; } .good { color: #6cd07a; }
 </style></head><body>
 <h1><span class=\"dot\"></span>VisualGasic Dashboard</h1>
-<div class=\"sub\">Phase 3 — live streaming build logs.  CSRF-protected POST endpoints.</div>
+<div class=\"sub\">Phase 4 — project explorer added.  CSRF-protected POST endpoints.</div>
 
 <div class=\"tabs\">
   <button class=\"tab active\" data-panel=\"info\">Info</button>
   <button class=\"tab\" data-panel=\"settings\">Settings</button>
   <button class=\"tab\" data-panel=\"build\">Build</button>
+  <button class=\"tab\" data-panel=\"files\">Files</button>
 </div>
 
 <section id=\"panel-info\" class=\"panel active\">
@@ -641,6 +771,23 @@ pre { background: #0e1219; border: 1px solid #2a3142; padding: .8em;
     <span id=\"build-status\" class=\"sub\"></span>
   </div>
   <pre id=\"build-output\">(no build yet)</pre>
+</section>
+
+<section id=\"panel-files\" class=\"panel\">
+  <div class=\"row\">
+    <button onclick=\"filesGo('')\" title=\"Project root\">res://</button>
+    <span id=\"files-crumbs\" class=\"sub\"></span>
+  </div>
+  <div style=\"display:flex; gap:1em; align-items:flex-start;\">
+    <div style=\"flex:0 0 280px; max-height:480px; overflow:auto;
+                background:#0e1219; border:1px solid #2a3142; border-radius:4px;\">
+      <ul id=\"files-list\" style=\"list-style:none; margin:0; padding:.4em;\"></ul>
+    </div>
+    <div style=\"flex:1; min-width:0;\">
+      <div id=\"files-meta\" class=\"sub\">Select a file to view.</div>
+      <pre id=\"files-view\" style=\"max-height:480px;\"></pre>
+    </div>
+  </div>
 </section>
 
 <div class=\"foot\">Served by VGDashboardServer · loopback only · CSRF token rotates per server start.</div>
@@ -806,7 +953,105 @@ function switchTab(name) {
   document.querySelectorAll('.panel').forEach(function(p){
     p.classList.toggle('active', p.id === 'panel-' + name);
   });
+  if (name === 'files' && FILES_CWD === null) { filesGo(''); }
 }
+
+// ── Files tab ─────────────────────────────────────────────────────────────
+var FILES_CWD = null;  // Relative path under res://, '' = root.
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;').replace(/\"/g, '&quot;');
+}
+async function filesGo(rel) {
+  FILES_CWD = rel;
+  var meta = document.getElementById('files-meta');
+  var view = document.getElementById('files-view');
+  var crumbs = document.getElementById('files-crumbs');
+  var list = document.getElementById('files-list');
+  // Breadcrumb trail.
+  if (rel === '') {
+    crumbs.textContent = '';
+  } else {
+    var parts = rel.split('/');
+    var acc = '';
+    var html = '';
+    for (var i = 0; i < parts.length; i++) {
+      acc = acc ? (acc + '/' + parts[i]) : parts[i];
+      html += ' / <a href=\"#\" data-rel=\"' + escapeHtml(acc) + '\">' +
+              escapeHtml(parts[i]) + '</a>';
+    }
+    crumbs.innerHTML = html;
+    crumbs.querySelectorAll('a').forEach(function(a){
+      a.addEventListener('click', function(e){
+        e.preventDefault(); filesGo(a.dataset.rel);
+      });
+    });
+  }
+  list.innerHTML = '<li class=\"sub\">Loading…</li>';
+  view.textContent = '';
+  meta.textContent = 'Select a file to view.';
+  try {
+    var r = await fetch('/api/files/list?path=' + encodeURIComponent(rel), { cache: 'no-store' });
+    var d = await r.json();
+    if (!r.ok) {
+      list.innerHTML = '<li class=\"bad\">' + escapeHtml(d.error || r.status) + '</li>';
+      return;
+    }
+    list.innerHTML = '';
+    if (rel !== '') {
+      var up = rel.indexOf('/') >= 0 ? rel.substring(0, rel.lastIndexOf('/')) : '';
+      var li = document.createElement('li');
+      li.innerHTML = '<a href=\"#\" data-kind=\"up\">⬆ ..</a>';
+      li.querySelector('a').addEventListener('click', function(e){
+        e.preventDefault(); filesGo(up);
+      });
+      list.appendChild(li);
+    }
+    d.entries.forEach(function(ent){
+      var li = document.createElement('li');
+      li.style.padding = '.15em .25em';
+      var icon = ent.is_dir ? '📁' : '📄';
+      var sz = ent.is_dir ? '' : ('  <span class=\"sub\">(' + ent.size + ')</span>');
+      li.innerHTML = icon + ' <a href=\"#\">' + escapeHtml(ent.name) + '</a>' + sz;
+      li.querySelector('a').addEventListener('click', function(e){
+        e.preventDefault();
+        var child = rel ? (rel + '/' + ent.name) : ent.name;
+        if (ent.is_dir) filesGo(child); else filesView(child);
+      });
+      list.appendChild(li);
+    });
+  } catch (e) {
+    list.innerHTML = '<li class=\"bad\">' + escapeHtml(e.message) + '</li>';
+  }
+}
+async function filesView(rel) {
+  var meta = document.getElementById('files-meta');
+  var view = document.getElementById('files-view');
+  meta.textContent = 'Loading ' + rel + '…';
+  view.textContent = '';
+  try {
+    var r = await fetch('/api/files/read?path=' + encodeURIComponent(rel), { cache: 'no-store' });
+    var d = await r.json();
+    if (!r.ok) {
+      meta.textContent = 'Error: ' + (d.error || r.status);
+      meta.className = 'bad';
+      return;
+    }
+    meta.className = 'sub';
+    var info = d.path + ' · ' + d.size + ' bytes · .' + d.ext;
+    if (d.truncated) info += ' · (truncated to 1 MiB)';
+    meta.textContent = info;
+    if (d.binary) {
+      view.textContent = '(' + d.message + ')';
+    } else {
+      view.textContent = d.content;
+    }
+  } catch (e) {
+    meta.textContent = 'Network error: ' + e.message;
+    meta.className = 'bad';
+  }
+}
+
 document.querySelectorAll('.tab').forEach(function(t){
   t.addEventListener('click', function(){ switchTab(t.dataset.panel); });
 });
