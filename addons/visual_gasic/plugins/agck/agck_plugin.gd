@@ -690,51 +690,171 @@ func _apply_maze_template() -> void:
 # ─── New genre templates (added Apr 2026) ───────────────────
 
 func _apply_topdown_rpg_template() -> void:
+	# ── Top-Down RPG (3-level dungeon-crawl) ───────────────────────────
+	# A Sequential chain of three bird's-eye-view levels that escalates
+	# from a friendly village → a hostile forest → a boss chamber.  Each
+	# level uses goal teleport (block_type 5) on a north wall door to
+	# chain to the next, so the player feels like they're "descending"
+	# into the realm.
+	#
+	# Why TopHero and friends?  These are the bird's-eye sprite variants
+	# (gravity_scale 0, no jump physics) — using them keeps this distinct
+	# from the side-scrolling Platformer template.  Actor roles still
+	# follow normal AGCK semantics: Player-style controls (TopHero),
+	# Drone-style AI (TopGoblin/Bat/Boss), Computer-static (TopChest).
 	if _editors.size() > 4 and _editors[4]:
 		_editors[4].set_data({
 			"game_title": "Quest of the Realm",
+			# Friction keeps the hero from sliding after WASD release —
+			# critical for tile-grid feel.  Elasticity 0 = no bouncing.
 			"gravity": 0, "friction": 80, "elasticity": 0,
 			"screen_width": 640, "screen_height": 384,
+			"background_color": "#2a2030",
 			"lives": 3, "show_score": true, "show_lives": true,
 			"start_level": 1, "level_order": "Sequential",
+			"wrap_screen": false, "camera_zoom": 1.0,
+			"keyboard_enabled": true, "joystick_enabled": true,
+			"mouse_enabled": true, "touch_enabled": true,
+			"deadly_damage": 999,
 		})
 	if _editors.size() > 1 and _editors[1]:
 		_editors[1].set_data([
-			# Top-Down RPG uses bird's-eye-view actor sprites (TopHero/TopGoblin/TopChest)
-			# so it doesn't share visual style with the side-scrolling Platformer template.
-			# "type" still drives gameplay role: Player controls movement, Drone has AI, Computer is static.
-			{"name": "Hero", "type": "TopHero", "max_speed": 130, "gravity_scale": 0, "max_hp": 100, "damage": 25, "score_value": 0, "collision_mode": "Slide", "death_mode": "Respawn", "rebirth": 1.5},
-			{"name": "Goblin", "type": "TopGoblin", "max_speed": 70, "gravity_scale": 0, "max_hp": 40, "damage": 15, "score_value": 75, "ai_behavior": "Chase", "ai_patrol_speed": 70, "collision_mode": "Bounce", "death_mode": "Destroy"},
-			{"name": "NPC", "type": "NPC", "max_speed": 0, "gravity_scale": 0, "max_hp": 9999, "damage": 0, "score_value": 0, "collision_mode": "None", "death_mode": "Destroy"},
-			{"name": "Treasure", "type": "TopChest", "max_speed": 0, "gravity_scale": 0, "max_hp": 1, "damage": 0, "score_value": 250, "collision_mode": "None", "death_mode": "Destroy"},
+			# Hero: melee-range damage (25) lets a fresh hero one-shot
+			# normal goblins in 2 hits, takes ~3 hits before respawn.
+			{"name": "Hero", "type": "TopHero", "max_speed": 130, "gravity_scale": 0,
+				"max_hp": 100, "damage": 25, "score_value": 0,
+				"collision_mode": "Slide", "death_mode": "Respawn", "rebirth": 1.5},
+			# Goblin: standard chaser, 70 speed slower than hero so the
+			# player can kite — encourages combat positioning not flight.
+			{"name": "Goblin", "type": "TopGoblin", "max_speed": 70, "gravity_scale": 0,
+				"max_hp": 40, "damage": 15, "score_value": 75,
+				"ai_behavior": "Chase", "ai_patrol_speed": 70,
+				"collision_mode": "Bounce", "death_mode": "Destroy"},
+			# Bat: faster but glassier — patrol AI for unpredictable
+			# ambush vectors in the forest level.
+			{"name": "Bat", "type": "Bat", "max_speed": 110, "gravity_scale": 0,
+				"max_hp": 20, "damage": 10, "score_value": 50,
+				"ai_behavior": "Patrol", "ai_patrol_speed": 110,
+				"collision_mode": "Bounce", "death_mode": "Destroy"},
+			# Boss: stationary-ish but lethal, ends the chain.
+			{"name": "Boss", "type": "Boss", "max_speed": 50, "gravity_scale": 0,
+				"max_hp": 250, "damage": 35, "score_value": 1000,
+				"ai_behavior": "Chase", "ai_patrol_speed": 50,
+				"collision_mode": "Bounce", "death_mode": "Destroy"},
+			{"name": "NPC", "type": "NPC", "max_speed": 0, "gravity_scale": 0,
+				"max_hp": 9999, "damage": 0, "score_value": 0,
+				"collision_mode": "None", "death_mode": "Destroy"},
+			{"name": "Treasure", "type": "TopChest", "max_speed": 0, "gravity_scale": 0,
+				"max_hp": 1, "damage": 0, "score_value": 250,
+				"collision_mode": "None", "death_mode": "Destroy"},
+			# Health pickup — Powerup heals on contact (engine-default).
+			{"name": "Heart", "type": "Powerup", "max_speed": 0, "gravity_scale": 0,
+				"max_hp": 1, "damage": 0, "score_value": 25,
+				"collision_mode": "None", "death_mode": "Destroy"},
 		])
 	if _editors.size() > 0 and _editors[0]:
-		var GRID_W = 20; var GRID_H = 12
-		var lvl = _editors[0]._make_empty_level(1)
-		lvl["name"] = "Village Outskirts"
-		var grid = lvl["grid"]
-		# Border walls (forest edge)
-		for x in range(GRID_W):
-			grid[0][x] = {"block_type": 1, "tile_index": 0}
-			grid[GRID_H - 1][x] = {"block_type": 1, "tile_index": 0}
-		for y in range(GRID_H):
-			grid[y][0] = {"block_type": 1, "tile_index": 0}
-			grid[y][GRID_W - 1] = {"block_type": 1, "tile_index": 0}
-		# A pond / impassable terrain in the middle
-		for x in range(8, 12):
-			for y in range(4, 7):
-				grid[y][x] = {"block_type": 1, "tile_index": 0}
-		# Door north
-		grid[0][GRID_W / 2] = {"block_type": 5, "tile_index": 0}
-		lvl["actors"] = [
-			{"actor_id": 0, "x": 2, "y": GRID_H - 2, "path": []},   # Hero
-			{"actor_id": 1, "x": 14, "y": 2, "path": []},           # Goblin
-			{"actor_id": 1, "x": 16, "y": 8, "path": []},           # Goblin
-			{"actor_id": 2, "x": 4, "y": 2, "path": []},            # NPC
-			{"actor_id": 3, "x": 17, "y": 9, "path": []},           # Treasure
-			{"actor_id": 3, "x": 5, "y": 8, "path": []},            # Treasure
+		const GRID_W := 20
+		const GRID_H := 12
+		# Each chamber is a 20x12 walled room.  "walls" are obstacle
+		# rectangles carved INTO the empty floor (block_type 1).
+		# "door" is the (x,y) of the north exit teleport.
+		var rooms := [
+			{
+				"name": "Village Outskirts",
+				"spawn": Vector2i(2, GRID_H - 2),
+				"door": Vector2i(GRID_W / 2, 0),
+				# A central pond — pure decoration / kiting cover.
+				"walls": [
+					{"x0": 8, "y0": 4, "x1": 11, "y1": 6},
+				],
+				"goblins": [Vector2i(14, 2), Vector2i(16, 8)],
+				"bats": [],
+				"npcs": [Vector2i(4, 2), Vector2i(3, 5)],
+				"chests": [Vector2i(17, 9), Vector2i(5, 8)],
+				"hearts": [Vector2i(10, 9)],
+				"boss": null,
+			},
+			{
+				"name": "Whispering Forest",
+				"spawn": Vector2i(GRID_W / 2, GRID_H - 2),
+				"door": Vector2i(GRID_W - 2, 0),
+				# Two tree-clusters create choke points for bat ambushes.
+				"walls": [
+					{"x0": 4, "y0": 3, "x1": 7, "y1": 5},
+					{"x0": 12, "y0": 6, "x1": 15, "y1": 8},
+					{"x0": 9, "y0": 2, "x1": 10, "y1": 2},
+				],
+				"goblins": [Vector2i(3, 9), Vector2i(17, 4)],
+				"bats": [Vector2i(8, 6), Vector2i(14, 3), Vector2i(11, 9)],
+				"npcs": [],
+				"chests": [Vector2i(2, 2), Vector2i(18, 9)],
+				"hearts": [Vector2i(8, 4), Vector2i(15, 2)],
+				"boss": null,
+			},
+			{
+				"name": "Throne of the Realm",
+				"spawn": Vector2i(GRID_W / 2, GRID_H - 2),
+				"door": null, # Final level — no further teleport.
+				# Pillars flanking the boss — visual symmetry + cover.
+				"walls": [
+					{"x0": 5, "y0": 3, "x1": 6, "y1": 4},
+					{"x0": 13, "y0": 3, "x1": 14, "y1": 4},
+					{"x0": 5, "y0": 7, "x1": 6, "y1": 8},
+					{"x0": 13, "y0": 7, "x1": 14, "y1": 8},
+				],
+				"goblins": [Vector2i(2, 2), Vector2i(17, 2), Vector2i(2, 9), Vector2i(17, 9)],
+				"bats": [Vector2i(8, 2), Vector2i(11, 2)],
+				"npcs": [],
+				"chests": [Vector2i(9, 9), Vector2i(10, 9)],
+				"hearts": [Vector2i(2, 5), Vector2i(17, 5)],
+				"boss": Vector2i(GRID_W / 2, 3),
+			},
 		]
-		_editors[0].levels.append(lvl)
+		# Actor IDs match the order set above on _editors[1]:
+		# 0=Hero, 1=Goblin, 2=Bat, 3=Boss, 4=NPC, 5=Treasure, 6=Heart
+		for i in range(rooms.size()):
+			var room = rooms[i]
+			var lvl = _editors[0]._make_empty_level(i + 1, GRID_W, GRID_H)
+			lvl["name"] = room["name"]
+			# Death = restart current level (per-room checkpoints).
+			lvl["death_action"] = "Restart Level"
+			lvl["death_action_target"] = i + 1
+			var grid = lvl["grid"]
+			# Perimeter walls.
+			for x in range(GRID_W):
+				grid[0][x] = {"block_type": 1, "tile_index": 0}
+				grid[GRID_H - 1][x] = {"block_type": 1, "tile_index": 0}
+			for y in range(GRID_H):
+				grid[y][0] = {"block_type": 1, "tile_index": 0}
+				grid[y][GRID_W - 1] = {"block_type": 1, "tile_index": 0}
+			# Inner obstacles (ponds / trees / pillars).
+			for w in room["walls"]:
+				for xx in range(w["x0"], w["x1"] + 1):
+					for yy in range(w["y0"], w["y1"] + 1):
+						grid[yy][xx] = {"block_type": 1, "tile_index": 0}
+			# North door (goal teleport) — skipped on the final level.
+			if room["door"] != null:
+				var dr: Vector2i = room["door"]
+				grid[dr.y][dr.x] = {"block_type": 5, "tile_index": 0}
+			# Actors: hero first, then enemies, then friendlies/loot.
+			var actors := [
+				{"actor_id": 0, "x": room["spawn"].x, "y": room["spawn"].y, "path": []},
+			]
+			for p in room["goblins"]:
+				actors.append({"actor_id": 1, "x": p.x, "y": p.y, "path": []})
+			for p in room["bats"]:
+				actors.append({"actor_id": 2, "x": p.x, "y": p.y, "path": []})
+			if room["boss"] != null:
+				var bp: Vector2i = room["boss"]
+				actors.append({"actor_id": 3, "x": bp.x, "y": bp.y, "path": []})
+			for p in room["npcs"]:
+				actors.append({"actor_id": 4, "x": p.x, "y": p.y, "path": []})
+			for p in room["chests"]:
+				actors.append({"actor_id": 5, "x": p.x, "y": p.y, "path": []})
+			for p in room["hearts"]:
+				actors.append({"actor_id": 6, "x": p.x, "y": p.y, "path": []})
+			lvl["actors"] = actors
+			_editors[0].levels.append(lvl)
 
 
 func _apply_side_shmup_template() -> void:
