@@ -10,6 +10,7 @@
 #include <godot_cpp/classes/http_client.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/os.hpp>
+#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/zip_reader.hpp>
 #include <godot_cpp/classes/zip_packer.hpp>
 
@@ -18,6 +19,141 @@ using namespace godot;
 // Forward declaration of static helper
 static void _remove_dir_recursive(const String &p_path);
 static bool _zip_add_dir_recursive(Ref<ZIPPacker> &p_zip, const String &p_root, const String &p_rel);
+
+// ── HTTP upload helper (synchronous, used by publish_package) ───────────────
+// Parses a URL into scheme/host/port/path and POSTs `p_body` with the given
+// content-type and optional bearer token.  Returns a Dictionary with:
+//   { "success": bool, "status_code": int, "body": String, "message": String }
+// Times out after `p_timeout_ms` total wall-time across all poll phases.
+// Only http:// and https:// schemes are supported; anything else returns
+// success=false without contacting the network.
+static Dictionary _http_post_upload(const String &p_url, const PackedByteArray &p_body,
+        const String &p_content_type, const String &p_auth_token, int p_timeout_ms = 30000) {
+    Dictionary out;
+    out["success"] = false;
+    out["status_code"] = 0;
+    out["body"] = "";
+    out["message"] = "";
+
+    // ── Parse URL ──────────────────────────────────────────────────────
+    String url = p_url.strip_edges();
+    bool use_tls;
+    String rest;
+    if (url.begins_with("https://")) {
+        use_tls = true;
+        rest = url.substr(8);
+    } else if (url.begins_with("http://")) {
+        use_tls = false;
+        rest = url.substr(7);
+    } else {
+        out["message"] = "Unsupported URL scheme (need http:// or https://): " + p_url;
+        return out;
+    }
+    int slash = rest.find("/");
+    String host_port = (slash < 0) ? rest : rest.substr(0, slash);
+    String path = (slash < 0) ? "/" : rest.substr(slash);
+    int colon = host_port.find(":");
+    String host = (colon < 0) ? host_port : host_port.substr(0, colon);
+    int port;
+    if (colon < 0) {
+        port = use_tls ? 443 : 80;
+    } else {
+        port = host_port.substr(colon + 1).to_int();
+    }
+    if (host.is_empty()) {
+        out["message"] = "Could not parse host from URL: " + p_url;
+        return out;
+    }
+
+    // ── Connect ────────────────────────────────────────────────────────
+    Ref<HTTPClient> http;
+    http.instantiate();
+    Error err = http->connect_to_host(host, port);
+    if (err != OK) {
+        out["message"] = "connect_to_host failed (err=" + itos((int)err) + ")";
+        return out;
+    }
+
+    OS *os = OS::get_singleton();
+    Time *tm = Time::get_singleton();
+    uint64_t deadline = tm->get_ticks_msec() + (uint64_t)p_timeout_ms;
+    // Wait for connection — Status enum: STATUS_CONNECTING/RESOLVING transition to STATUS_CONNECTED.
+    while (true) {
+        HTTPClient::Status s = http->get_status();
+        if (s == HTTPClient::STATUS_CONNECTED) break;
+        if (s == HTTPClient::STATUS_CANT_CONNECT || s == HTTPClient::STATUS_CANT_RESOLVE
+                || s == HTTPClient::STATUS_CONNECTION_ERROR || s == HTTPClient::STATUS_TLS_HANDSHAKE_ERROR) {
+            out["message"] = "Connection failed (status=" + itos((int)s) + ")";
+            return out;
+        }
+        http->poll();
+        if (tm->get_ticks_msec() > deadline) {
+            out["message"] = "Connection timed out";
+            return out;
+        }
+        os->delay_msec(10);
+    }
+
+    // ── Send request ───────────────────────────────────────────────────
+    PackedStringArray headers;
+    headers.push_back("Content-Type: " + p_content_type);
+    headers.push_back("Content-Length: " + itos(p_body.size()));
+    headers.push_back("Accept: application/json");
+    if (!p_auth_token.is_empty()) {
+        headers.push_back("Authorization: Bearer " + p_auth_token);
+    }
+    err = http->request_raw(HTTPClient::METHOD_POST, path, headers, p_body);
+    if (err != OK) {
+        out["message"] = "request_raw failed (err=" + itos((int)err) + ")";
+        return out;
+    }
+
+    // ── Wait for response ──────────────────────────────────────────────
+    while (true) {
+        HTTPClient::Status s = http->get_status();
+        if (s == HTTPClient::STATUS_BODY || s == HTTPClient::STATUS_CONNECTED) break;
+        if (s == HTTPClient::STATUS_DISCONNECTED || s == HTTPClient::STATUS_CONNECTION_ERROR
+                || s == HTTPClient::STATUS_CANT_CONNECT) {
+            out["message"] = "Request aborted (status=" + itos((int)s) + ")";
+            return out;
+        }
+        http->poll();
+        if (tm->get_ticks_msec() > deadline) {
+            out["message"] = "Request timed out waiting for response";
+            return out;
+        }
+        os->delay_msec(10);
+    }
+
+    int code = http->get_response_code();
+    out["status_code"] = code;
+
+    // ── Drain response body ────────────────────────────────────────────
+    PackedByteArray body_bytes;
+    if (http->has_response()) {
+        while (http->get_status() == HTTPClient::STATUS_BODY) {
+            http->poll();
+            PackedByteArray chunk = http->read_response_body_chunk();
+            if (chunk.size() > 0) {
+                body_bytes.append_array(chunk);
+            } else {
+                if (tm->get_ticks_msec() > deadline) break;
+                os->delay_msec(5);
+            }
+        }
+    }
+    String body_str = String::utf8((const char *)body_bytes.ptr(), body_bytes.size());
+    out["body"] = body_str;
+
+    // 2xx → success.
+    if (code >= 200 && code < 300) {
+        out["success"] = true;
+        out["message"] = "HTTP " + itos(code);
+    } else {
+        out["message"] = "HTTP " + itos(code) + ": " + body_str.substr(0, 256);
+    }
+    return out;
+}
 
 // ---------------------------------------------------------------------------
 // _bind_methods
@@ -652,11 +788,86 @@ Dictionary VisualGasicPackage::publish_package(const String &p_package_path, con
         return result;
     }
 
-    // TODO: Upload to registry via HTTP
-    result["success"] = true;
-    result["message"] = "Published to: " + target->name;
+    // ── Upload the built .vgpkg.zip to the registry ────────────────────
+    // Endpoint convention (matches the read side which lives under
+    // `<registry>/packages/<name>/<version>` per download_package_info):
+    //   POST <registry_url>/upload/<name>/<version>
+    //     Content-Type: application/zip
+    //     Authorization: Bearer <auth_token>   (if configured)
+    //     <raw .vgpkg.zip bytes as body>
+    //
+    // The endpoint path can be overridden via the env var
+    // `VG_PKG_UPLOAD_PATH` (e.g. "/v1/publish/{name}/{version}") for
+    // registries with a different layout — {name} and {version} are
+    // substituted literally.
+    String output_file = build_result.get("output", "");
+    if (output_file.is_empty() || !FileAccess::file_exists(output_file)) {
+        result["success"] = false;
+        result["message"] = "Built artifact not found at " + output_file;
+        return result;
+    }
+    Ref<FileAccess> zf = FileAccess::open(output_file, FileAccess::READ);
+    if (!zf.is_valid()) {
+        result["success"] = false;
+        result["message"] = "Cannot open built artifact: " + output_file;
+        return result;
+    }
+    int64_t zsize = zf->get_length();
+    PackedByteArray zbytes = zf->get_buffer(zsize);
+    zf.unref();
 
-    UtilityFunctions::print("[VisualGasicPackage] Published to: ", target->name);
+    // Re-read the manifest to learn name + version for the upload path.
+    String manifest_path = p_package_path.path_join("vgpkg.json");
+    Ref<FileAccess> mf = FileAccess::open(manifest_path, FileAccess::READ);
+    String pkg_name = "";
+    String pkg_version = "1.0.0";
+    if (mf.is_valid()) {
+        Ref<JSON> mjson;
+        mjson.instantiate();
+        if (mjson->parse(mf->get_as_text()) == OK) {
+            Dictionary m = mjson->get_data();
+            pkg_name = m.get("name", "");
+            pkg_version = m.get("version", "1.0.0");
+        }
+    }
+    if (pkg_name.is_empty()) {
+        result["success"] = false;
+        result["message"] = "Manifest is missing 'name'";
+        return result;
+    }
+
+    String upload_path_tmpl = OS::get_singleton()->get_environment("VG_PKG_UPLOAD_PATH");
+    if (upload_path_tmpl.is_empty()) {
+        upload_path_tmpl = "/upload/{name}/{version}";
+    }
+    String upload_path = upload_path_tmpl.replace("{name}", pkg_name).replace("{version}", pkg_version);
+    String base = target->url;
+    while (base.ends_with("/")) base = base.substr(0, base.length() - 1);
+    String full_url = base + upload_path;
+
+    Dictionary http_result = _http_post_upload(full_url, zbytes,
+            "application/zip", target->auth_token, 30000);
+
+    if (!(bool)http_result.get("success", false)) {
+        result["success"] = false;
+        result["message"] = "Upload failed: " + String(http_result.get("message", ""));
+        result["status_code"] = http_result.get("status_code", 0);
+        result["registry"] = target->name;
+        result["url"] = full_url;
+        UtilityFunctions::printerr("[VisualGasicPackage] Upload failed (",
+                target->name, "): ", String(http_result.get("message", "")));
+        return result;
+    }
+
+    result["success"] = true;
+    result["message"] = "Published " + pkg_name + " " + pkg_version + " to " + target->name;
+    result["registry"] = target->name;
+    result["url"] = full_url;
+    result["status_code"] = http_result.get("status_code", 200);
+    result["response"] = http_result.get("body", "");
+
+    UtilityFunctions::print("[VisualGasicPackage] Published ", pkg_name, " ", pkg_version,
+            " to ", target->name, " (HTTP ", (int)http_result.get("status_code", 0), ")");
     return result;
 }
 
