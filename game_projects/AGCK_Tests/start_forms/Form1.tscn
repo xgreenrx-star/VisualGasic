@@ -1,0 +1,40 @@
+[gd_scene format=3]
+
+[node name="Form1" type="Control" unique_id=1998833222]
+custom_minimum_size = Vector2(300, 200)
+layout_mode = 3
+anchors_preset = 0
+offset_left = 4.0
+offset_top = 23.0
+offset_right = 304.0
+offset_bottom = 223.0
+metadata/title = "Smoke Test"
+metadata/startup_position = 3
+
+[node name="cmdHello" type="Button" parent="." unique_id=1484395522]
+custom_minimum_size = Vector2(133.33333, 33)
+layout_mode = 0
+offset_left = 80.0
+offset_top = 80.0
+offset_right = 213.33333
+offset_bottom = 113.0
+focus_next = NodePath("../lblOutput")
+focus_previous = NodePath("../lblOutput")
+text = "Say Hello"
+metadata/vb6_class = "VB.CommandButton"
+metadata/tab_index = 1
+
+[node name="lblOutput" type="Label" parent="." unique_id=1864465594]
+custom_minimum_size = Vector2(266.66666, 21)
+layout_mode = 0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 282.66666
+offset_bottom = 39.0
+focus_next = NodePath("../cmdHello")
+focus_previous = NodePath("../cmdHello")
+text = "Ready."
+metadata/vb6_class = "VB.Label"
+metadata/tab_index = 0
+
+[connection signal="pressed" from="cmdHello" to="." method="cmdHello_Click"]

@@ -840,7 +840,7 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 			code += "Dim JumpBufferTimer As Single\n"
 			code += "Dim IsPowered As Boolean  ' Set by mushroom Powerup() pickup\n\n"
 			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "player")
-			code += _gen_player_physics(speed, gravity * grav_scale, collision, actor_sounds)
+			code += _gen_player_physics(speed, gravity * grav_scale, collision, actor_sounds, actor)
 			code += _gen_collision_handler(atype, actor_sounds)
 			code += _gen_damage_sub(death, rebirth, true, actor_sounds)
 
@@ -854,7 +854,7 @@ func _generate_actor_vg(path: String, aname: String, actor: Dictionary, settings
 			runner_init += "    IsJumping = False\n"
 			runner_init += "    AirRotation = 0.0\n"
 			code += _gen_ready_sub(aname, speed, gravity * grav_scale, max_hp, damage, score_val, "player", runner_init)
-			code += _gen_runner_physics(speed, gravity * grav_scale, jf, actor_sounds)
+			code += _gen_runner_physics(speed, gravity * grav_scale, jf, actor_sounds, actor)
 			code += _gen_collision_handler(atype, actor_sounds)
 			code += _gen_damage_sub(death, rebirth, true, actor_sounds)
 
@@ -1074,7 +1074,14 @@ func _gen_add_path_point_sub() -> String:
 	return s
 
 
-func _gen_player_physics(speed: float, gravity: float, collision: String, actor_sounds: Dictionary = {}) -> String:
+func _gen_player_physics(speed: float, gravity: float, collision: String, actor_sounds: Dictionary = {}, actor: Dictionary = {}) -> String:
+	# Phase-1 actor-data overrides with safe defaults. Existing projects are
+	# unaffected: defaults below match the literals that were here before.
+	var jump_velocity: float = float(actor.get("jump_velocity", 400.0))
+	var run_multiplier: float = float(actor.get("run_multiplier", 1.7))
+	var variable_jump_cut: float = float(actor.get("variable_jump_cut", 0.5))
+	var coyote_time: float = float(actor.get("coyote_time", 0.1))
+	var jump_buffer_time: float = float(actor.get("jump_buffer_time", 0.1))
 	var s = ""
 	s += "Sub _PhysicsProcess(delta As Single)\n"
 	s += "    ' Read current velocity from CharacterBody2D\n"
@@ -1131,7 +1138,7 @@ func _gen_player_physics(speed: float, gravity: float, collision: String, actor_
 	s += "    ' the player walks at the configured base Speed.\n"
 	s += "    Dim run_mult As Single = 1.0\n"
 	s += "    If InputMap.HasAction(\"agck_run\") And Input.IsActionPressed(\"agck_run\") Then\n"
-	s += "        run_mult = 1.7\n"
+	s += "        run_mult = " + _fstr(run_multiplier) + "\n"
 	s += "    End If\n"
 	s += "    If Input.IsActionPressed(\"ui_left\") Then\n"
 	s += "        vx = -Speed * run_mult\n"
@@ -1151,19 +1158,19 @@ func _gen_player_physics(speed: float, gravity: float, collision: String, actor_
 	s += "    ' the player is grounded (or in coyote window), forgiving\n"
 	s += "    ' early presses while still falling.\n"
 	s += "    If IsOnFloor(Me) Then\n"
-	s += "        CoyoteTimer = 0.1\n"
+	s += "        CoyoteTimer = " + _fstr(coyote_time) + "\n"
 	s += "    Else\n"
 	s += "        CoyoteTimer = CoyoteTimer - delta\n"
 	s += "        If CoyoteTimer < 0 Then CoyoteTimer = 0\n"
 	s += "    End If\n"
 	s += "    If Input.IsActionJustPressed(\"ui_accept\") Then\n"
-	s += "        JumpBufferTimer = 0.1\n"
+	s += "        JumpBufferTimer = " + _fstr(jump_buffer_time) + "\n"
 	s += "    Else\n"
 	s += "        JumpBufferTimer = JumpBufferTimer - delta\n"
 	s += "        If JumpBufferTimer < 0 Then JumpBufferTimer = 0\n"
 	s += "    End If\n"
 	s += "    If JumpBufferTimer > 0 And CoyoteTimer > 0 And Not on_ladder Then\n"
-	s += "        vy = -400.0\n"
+	s += "        vy = -" + _fstr(jump_velocity) + "\n"
 	s += "        JumpBufferTimer = 0\n"
 	s += "        CoyoteTimer = 0\n"
 	var jump_sfx = _gen_play_sfx_call(actor_sounds.get("jump", "(None)"), "        ")
@@ -1174,7 +1181,7 @@ func _gen_player_physics(speed: float, gravity: float, collision: String, actor_
 	s += "    ' half. Short tap = small hop, hold = full jump. Match for\n"
 	s += "    ' Mario / Celeste / Hollow Knight feel.\n"
 	s += "    If Input.IsActionJustReleased(\"ui_accept\") And vy < 0 Then\n"
-	s += "        vy = vy * 0.5\n"
+	s += "        vy = vy * " + _fstr(variable_jump_cut) + "\n"
 	s += "    End If\n"
 	s += "\n"
 	s += "    ' Write velocity back and move\n"
@@ -1228,7 +1235,12 @@ func _gen_player_physics(speed: float, gravity: float, collision: String, actor_
 # to the nearest 90° on landing for that satisfying GD "tumble" feel.
 # Hold-to-rejump: as long as ui_accept is held and the runner is on the floor,
 # it keeps re-launching every frame (matches GD's hold-jump cube behavior).
-func _gen_runner_physics(speed: float, gravity: float, jump_force: float, actor_sounds: Dictionary = {}) -> String:
+func _gen_runner_physics(speed: float, gravity: float, jump_force: float, actor_sounds: Dictionary = {}, actor: Dictionary = {}) -> String:
+	# Phase-1 actor-data overrides. Defaults below preserve the original
+	# Geometry-Dash feel (~9 rad/s = one full rotation per 0.7s, snap to 90°).
+	var rotation_speed: float = float(actor.get("rotation_speed", 9.0))
+	var snap_angle_deg: float = float(actor.get("snap_angle_deg", 90.0))
+	var snap_angle_rad: float = deg_to_rad(snap_angle_deg)
 	var s = ""
 	s += "Sub _PhysicsProcess(delta As Single)\n"
 	s += "    ' Read current velocity\n"
@@ -1259,14 +1271,14 @@ func _gen_runner_physics(speed: float, gravity: float, jump_force: float, actor_
 	s += "    ' Cube rotation: spin while airborne, snap to nearest 90° on landing.\n"
 	s += "    ' ~9 rad/s ≈ one full rotation per 0.7s — feels like classic GD.\n"
 	s += "    If IsOnFloor(Me) Then\n"
-	s += "        ' Snap rotation to nearest 90° (PI/2 rad) — the chunky landing pose.\n"
-	s += "        Dim quarter As Single = 1.5707963\n"
+	s += "        ' Snap rotation to nearest configured snap angle.\n"
+	s += "        Dim quarter As Single = " + _fstr(snap_angle_rad) + "\n"
 	s += "        Dim r As Single = Me.rotation\n"
 	s += "        Dim snap As Single = Round(r / quarter) * quarter\n"
 	s += "        Me.rotation = snap\n"
 	s += "        IsJumping = False\n"
 	s += "    Else\n"
-	s += "        Me.rotation = Me.rotation + 9.0 * delta\n"
+	s += "        Me.rotation = Me.rotation + " + _fstr(rotation_speed) + " * delta\n"
 	s += "    End If\n"
 	s += "\n"
 	s += "    ' Invincibility timer — visual blink after a near-miss\n"

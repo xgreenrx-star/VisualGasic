@@ -1,0 +1,11 @@
+' VisualGasic - Imported from VB6
+' Form: Form1
+' Note: Some manual adjustments may be required
+Option Explicit
+
+Option Explicit
+
+Private Sub cmdHello_Click()
+    lblOutput.text = "Hello, World!"
+End Sub
+
