@@ -279,6 +279,13 @@ var _build_form_btn: Button = null
 # but in addition to materialising it also saves the .tscn, writes Sub
 # stubs into the matching .vg file, and opens the code editor on it.
 var _make_this_btn: Button = null
+# Form-from-description button — lean-v1 Narcea form-builder entry point.
+# Always enabled.  Opens a prose dialog, wraps the user's description in a
+# hardened prompt that requires a vg-form-spec block, and auto-sends.
+# Reply lands -> Build-form button enables -> single click materialises.
+var _form_from_desc_btn: Button = null
+var _form_from_desc_dialog: AcceptDialog = null
+var _form_from_desc_input: TextEdit = null
 # Tier-3 chat-only project-creation buttons.  Disabled until a parseable
 # vg-code-spec / vg-project-spec block is in the latest reply.  Run is
 # enabled whenever something has been built or the user opens an existing
@@ -828,6 +835,16 @@ func _setup_ui() -> void:
 	_make_this_btn.pressed.connect(_on_make_this)
 	_style_small_button(_make_this_btn)
 	toolbar.add_child(_make_this_btn)
+
+	# 📐 Form-from-description — lean-v1 Narcea form-builder.  Always
+	# enabled; opens a prose-description dialog and auto-sends a hardened
+	# prompt that requires a vg-form-spec reply.
+	_form_from_desc_btn = Button.new()
+	_form_from_desc_btn.text = "📐 From description"
+	_form_from_desc_btn.tooltip_text = "Describe a form in plain English — Narcea will design the layout and the 🔨 Build form button will enable when it's ready"
+	_form_from_desc_btn.pressed.connect(_on_form_from_desc_pressed)
+	_style_small_button(_form_from_desc_btn)
+	toolbar.add_child(_form_from_desc_btn)
 
 	# 📝 Make-code button — multi-file vg-code-spec applier with diff preview.
 	_make_code_btn = Button.new()
@@ -2098,6 +2115,73 @@ func _refresh_build_form_btn() -> void:
 		else:
 			_make_project_btn.disabled = false
 			_make_project_btn.tooltip_text = "Preview and scaffold: %s" % _project_spec.describe(proj_spec_d)
+
+
+## Lean-v1 Narcea form-builder entry point.  Pops a small dialog asking
+## the user to describe the form in prose; on confirm, switches to the
+## Narcea persona (so the form-spec rules from vg_ai_narcea.gd are
+## injected) and auto-sends a hardened prompt that REQUIRES a fenced
+## vg-form-spec block in the reply.  When the reply arrives, the regular
+## 🔨 Build form / 🤖 Make this buttons enable as usual.
+func _on_form_from_desc_pressed() -> void:
+	if _form_from_desc_dialog == null:
+		_form_from_desc_dialog = AcceptDialog.new()
+		_form_from_desc_dialog.title = "Build form from description"
+		_form_from_desc_dialog.ok_button_text = "Design with Narcea"
+		_form_from_desc_dialog.add_cancel_button("Cancel")
+		_form_from_desc_dialog.min_size = Vector2(480, 280)
+		var vb := VBoxContainer.new()
+		vb.add_theme_constant_override("separation", 6)
+		var lbl := Label.new()
+		lbl.text = "Describe the form in plain English (controls, sizes, behaviour).\nNarcea will reply with a vg-form-spec — then click 🔨 Build form."
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vb.add_child(lbl)
+		_form_from_desc_input = TextEdit.new()
+		_form_from_desc_input.placeholder_text = "Example: a Login form ~280x160 with two labelled fields (User, Password), an OK button and a Cancel button. auto_events on."
+		_form_from_desc_input.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		_form_from_desc_input.custom_minimum_size = Vector2(0, 180)
+		_form_from_desc_input.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+		vb.add_child(_form_from_desc_input)
+		_form_from_desc_dialog.add_child(vb)
+		_form_from_desc_dialog.confirmed.connect(_on_form_from_desc_confirmed)
+		add_child(_form_from_desc_dialog)
+	_form_from_desc_input.text = ""
+	_form_from_desc_dialog.popup_centered()
+	_form_from_desc_input.grab_focus()
+
+
+func _on_form_from_desc_confirmed() -> void:
+	if _form_from_desc_input == null:
+		return
+	var desc: String = _form_from_desc_input.text.strip_edges()
+	if desc.is_empty():
+		_append_system("[color=#ff8888]No description entered.[/color]\n")
+		return
+	# Switch to Narcea so vg_ai_narcea.gd's form-spec rules + VG knowledge
+	# get injected into the system prompt.
+	if _persona_id != "narcea" and _personas.has("narcea"):
+		_persona_id = "narcea"
+		_save_persona()
+		_apply_persona_voice()
+		_conversation_history.clear()
+		if is_instance_valid(_persona_dropdown):
+			for i in _persona_dropdown.item_count:
+				if _persona_dropdown.get_item_metadata(i) == "narcea":
+					_persona_dropdown.select(i)
+					break
+		_append_system("[color=#bb88ff]Persona:[/color] switched to Narcea for form design.\n")
+	# Hardened prompt: forces the spec block, sets auto_events, and tells
+	# Narcea to keep prose terse so the spec is the headline output.
+	var prompt := "Design a Form Designer layout from this description.\n\n"
+	prompt += "Description: " + desc + "\n\n"
+	prompt += "Reply with: (a) one short sentence of context, then (b) a fenced ```vg-form-spec``` JSON block per the schema you already know. "
+	prompt += "Set \"auto_events\": true so the IDE wires Sub stubs. "
+	prompt += "Use the VB6 → Godot type mapping (CommandButton → Button, TextBox → LineEdit, ComboBox → OptionButton, ListBox → ItemList). "
+	prompt += "Use integer Left/Top/Width/Height pixels. Do not include any other fenced code blocks."
+	if not is_instance_valid(_input):
+		return
+	_input.text = prompt
+	_on_send()
 
 
 func _on_build_form() -> void:
