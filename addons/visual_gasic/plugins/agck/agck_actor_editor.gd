@@ -1042,6 +1042,27 @@ func _rebuild_detail() -> void:
 	_add_slider_row(mc_grid, "Gravity", "gravity_scale", actor, 0, 5, 0.1)
 	_add_option_row(mc_grid, "Entrance", "entrance_mode", actor, ["Instant", "FadeIn", "SlideIn", "DropIn"])
 
+	# Platformer-feel card (Player / TopHero) — exposes Phase-1 actor-data
+	# fields the code-gen now reads.  Defaults match the prior hard-coded
+	# literals, so leaving every row untouched preserves old behavior.
+	if atype == "Player" or atype == "TopHero":
+		var feel_card = _card("🦘 Platformer Feel")
+		prop_grid.add_child(feel_card)
+		var fc_grid = _card_body(feel_card)
+		_add_slider_row(fc_grid, "Jump Velocity", "jump_velocity", actor, 100, 1200, 10)
+		_add_slider_row(fc_grid, "Run Multiplier", "run_multiplier", actor, 1.0, 3.0, 0.05)
+		_add_slider_row(fc_grid, "Var-Jump Cut", "variable_jump_cut", actor, 0.0, 1.0, 0.05)
+		_add_slider_row(fc_grid, "Coyote Time(s)", "coyote_time", actor, 0.0, 0.5, 0.01)
+		_add_slider_row(fc_grid, "Jump Buffer(s)", "jump_buffer_time", actor, 0.0, 0.5, 0.01)
+
+	# Cube-spin card (Runner) — exposes Phase-1 rotation fields.
+	if atype == "Runner":
+		var spin_card = _card("🌀 Cube Spin")
+		prop_grid.add_child(spin_card)
+		var sp_grid = _card_body(spin_card)
+		_add_slider_row(sp_grid, "Rotation (rad/s)", "rotation_speed", actor, 0.0, 30.0, 0.5)
+		_add_slider_row(sp_grid, "Snap Angle (°)", "snap_angle_deg", actor, 1.0, 180.0, 1.0)
+
 	# Combat card
 	var combat_card = _card("⚔️ Combat")
 	prop_grid.add_child(combat_card)
