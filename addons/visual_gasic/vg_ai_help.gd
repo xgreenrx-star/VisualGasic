@@ -2710,7 +2710,50 @@ func _ensure_ai_tools() -> bool:
 	if tscript == null:
 		return false
 	_ai_tools = tscript.new()
+	# Tier-3 Phase 6a: let the model drive ▶ Run via play.run_main /
+	# play.stop tools.  Output continues to stream through _on_run_line
+	# and lands in the chat so the next agent hop can read it.
+	if _ai_tools.has_method("set_run_handler"):
+		_ai_tools.set_run_handler(Callable(self, "_ai_tool_run_handler"))
 	return true
+
+
+## Tier-3 Phase 6a run-loop adapter.  Bridges vg_ai_tools.gd's
+## play.run_main / play.stop dispatches to the same _run_session helper
+## the ▶ Run button uses.  Returns a one-line status string for the tool
+## log.  Errors are reported as strings, never raised.
+func _ai_tool_run_handler(tool_name: String, _args: Dictionary) -> String:
+	match tool_name:
+		"play.run_main":
+			if _last_run_scene.is_empty():
+				return "[play.run_main] nothing to run — build a form or project first"
+			if _run_session == null or not is_instance_valid(_run_session):
+				var rs := load("res://addons/visual_gasic/vg_ai_run_session.gd")
+				if rs == null:
+					return "[play.run_main] run-session helper unavailable"
+				_run_session = rs.new()
+				add_child(_run_session)
+				_run_session.output_line.connect(_on_run_line)
+				_run_session.finished.connect(_on_run_finished)
+			if _run_session.is_running():
+				return "[play.run_main] already running — call play.stop first"
+			var root_path := _last_project_root if not _last_project_root.is_empty() else "res://"
+			if _run_session.start(_last_run_scene, root_path):
+				if is_instance_valid(_run_btn):
+					_run_btn.disabled = true
+				if is_instance_valid(_run_stop_btn):
+					_run_stop_btn.visible = true
+				return "[play.run_main] launched %s" % _last_run_scene
+			return "[play.run_main] failed to launch %s" % _last_run_scene
+		"play.stop":
+			if _run_session == null or not is_instance_valid(_run_session):
+				return "[play.stop] no run session"
+			if not _run_session.is_running():
+				return "[play.stop] not currently running"
+			_run_session.stop()
+			return "[play.stop] stop signal sent"
+		_:
+			return "[%s] unhandled run-loop tool" % tool_name
 
 func _dispatch_tool_calls(reply_text: String) -> void:
 	if not _ensure_ai_tools():

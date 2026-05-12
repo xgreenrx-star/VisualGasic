@@ -72,12 +72,22 @@ const MUTATING_TOOLS := [
 	"insert_text", "replace_range", "replace_in_buffer",
 	"set_buffer_text", "save_file", "write_file",
 	"vb6_canonicalize",
+	# Tier-3 agent run-loop tools.  Mutating-classified so they go
+	# through the approval bar by default.
+	"play.run_main", "play.stop",
 ]
 
 const UNDO_MAX := 32
 
 # Lazy-loaded SafeWrite singleton instance.
 var _safe = null
+
+# Tier-3 run-loop handler.  vg_ai_help.gd registers a Callable here so
+# the play.run_main / play.stop tools can drive the same run session the
+# "▶ Run" button uses.  Signature: f(tool_name: String, args: Dictionary)
+# -> String.  When unset, the tools return a clear error instead of
+# crashing.
+var _run_handler: Callable = Callable()
 
 # Track painted lines per CodeEdit instance so clear_highlights() can wipe
 # only what we painted (won't clobber the editor's own current-line bg).
@@ -521,6 +531,10 @@ func execute_tool(d: Dictionary) -> String:
 			return _do_find_in_files(d)
 		"vb6_canonicalize":
 			return _do_vb6_canonicalize(d)
+		"play.run_main":
+			return _do_play_run_main(d)
+		"play.stop":
+			return _do_play_stop(d)
 		_:
 			return "[tool] unknown tool: %s" % tool_name
 
@@ -974,6 +988,30 @@ func _do_vb6_canonicalize(d: Dictionary) -> String:
 		" (dry run)" if dry_run else ""
 	]
 	return summary + "\n" + "\n".join(rewrites)
+
+
+# ---------------------------------------------------------------------------
+# Tier-3 run-loop tools (play.run_main / play.stop)
+# ---------------------------------------------------------------------------
+
+## Register a callback that handles run-loop tool dispatch.  Signature:
+## `f(tool_name: String, args: Dictionary) -> String`.  vg_ai_help.gd wires
+## this to a wrapper around its `_run_session` so the AI can launch and stop
+## the same scene the "▶ Run" button uses.
+func set_run_handler(cb: Callable) -> void:
+	_run_handler = cb
+
+
+func _do_play_run_main(d: Dictionary) -> String:
+	if not _run_handler.is_valid():
+		return "[play.run_main] no run handler registered (Tier-3 run loop disabled in this context)"
+	return str(_run_handler.call("play.run_main", d))
+
+
+func _do_play_stop(d: Dictionary) -> String:
+	if not _run_handler.is_valid():
+		return "[play.stop] no run handler registered"
+	return str(_run_handler.call("play.stop", d))
 
 
 func _walk_dir(base: String, recursive: bool, out: Array, cap: int) -> void:
