@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# vg-dashboard — VisualGasic Browser Dashboard headless launcher
+#
+# Starts the embedded HTTP dashboard server *without* opening the VG IDE.
+# Useful for autostart (systemd --user, cron @reboot, login items) or for
+# running the dashboard on a build server.
+#
+# Usage:
+#   ./vg-dashboard [--project=DIR] [--port=N] [--bind=ADDR] [--open]
+#
+# Flags:
+#   --project=DIR  VG project directory (must contain project.godot).
+#                  Defaults to $VG_PROJECT_DIR, else the current dir if it
+#                  has a project.godot, else this repo's test_proj/.
+#   --port=N       Listen port (default 8765).
+#   --bind=ADDR    Bind address (default 127.0.0.1, loopback only).
+#   --open         After the server prints its URL, open it in the default
+#                  browser via xdg-open / open.
+#
+# Env overrides:
+#   VG_GODOT         Path to the Godot binary.
+#   VG_PROJECT_DIR   Default project directory.
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+PROJECT_DIR="${VG_PROJECT_DIR:-}"
+PORT=""
+BIND=""
+OPEN_BROWSER=0
+PASSTHROUGH=()
+
+for a in "$@"; do
+    case "$a" in
+        --project=*) PROJECT_DIR="${a#--project=}" ;;
+        --port=*)    PORT="${a#--port=}"; PASSTHROUGH+=("$a") ;;
+        --bind=*)    BIND="${a#--bind=}"; PASSTHROUGH+=("$a") ;;
+        --open)      OPEN_BROWSER=1 ;;
+        -h|--help)
+            sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0
+            ;;
+        *) PASSTHROUGH+=("$a") ;;
+    esac
+done
+
+# ── Resolve project directory ───────────────────────────────────────────────
+if [[ -z "$PROJECT_DIR" ]]; then
+    if [[ -f "$PWD/project.godot" ]]; then
+        PROJECT_DIR="$PWD"
+    elif [[ -f "$SCRIPT_DIR/test_proj/project.godot" ]]; then
+        PROJECT_DIR="$SCRIPT_DIR/test_proj"
+    fi
+fi
+if [[ -z "$PROJECT_DIR" || ! -f "$PROJECT_DIR/project.godot" ]]; then
+    echo "vg-dashboard: no project.godot found." >&2
+    echo "  Pass --project=/path/to/vg-project or set VG_PROJECT_DIR." >&2
+    exit 2
+fi
+if [[ ! -f "$PROJECT_DIR/addons/visual_gasic/vg_dashboard_headless.gd" ]]; then
+    echo "vg-dashboard: addons/visual_gasic/ missing in $PROJECT_DIR." >&2
+    echo "  Install the VG addon there first." >&2
+    exit 2
+fi
+
+# ── Locate the Godot binary (mirrors vg-ide) ────────────────────────────────
+GODOT_BIN="${VG_GODOT:-}"
+if [[ -z "$GODOT_BIN" ]]; then
+    case "$(uname -s)" in
+        Darwin*)
+            for c in "$SCRIPT_DIR/Godot.app/Contents/MacOS/Godot" \
+                     "$SCRIPT_DIR/Godot_v4.6.1-stable_macos.universal/Godot.app/Contents/MacOS/Godot" \
+                     "$SCRIPT_DIR/Godot_v4.5.1-stable_macos.universal/Godot.app/Contents/MacOS/Godot" \
+                     "/Applications/Godot.app/Contents/MacOS/Godot"; do
+                [[ -x "$c" ]] && { GODOT_BIN="$c"; break; }
+            done
+            ;;
+        *)
+            for c in "$SCRIPT_DIR/Godot_v4.6.1-stable_linux.x86_64" \
+                     "$SCRIPT_DIR/Godot_v4.5.1-stable_linux.x86_64" \
+                     "$SCRIPT_DIR/godot"; do
+                [[ -x "$c" ]] && { GODOT_BIN="$c"; break; }
+            done
+            ;;
+    esac
+fi
+if [[ -z "$GODOT_BIN" || ! -x "$GODOT_BIN" ]]; then
+    echo "vg-dashboard: Godot binary not found. Set VG_GODOT=/path/to/godot." >&2
+    exit 2
+fi
+
+# ── Optional: open the URL once the server is up ────────────────────────────
+if [[ "$OPEN_BROWSER" == "1" ]]; then
+    P="${PORT:-8765}"
+    B="${BIND:-127.0.0.1}"
+    URL="http://${B}:${P}/"
+    (
+        # Wait for the port to accept connections, then open it.
+        for _ in $(seq 1 60); do
+            if (echo > "/dev/tcp/${B}/${P}") 2>/dev/null; then
+                if command -v xdg-open >/dev/null 2>&1; then xdg-open "$URL" >/dev/null 2>&1 || true
+                elif command -v open >/dev/null 2>&1; then open "$URL" >/dev/null 2>&1 || true
+                fi
+                break
+            fi
+            sleep 0.25
+        done
+    ) &
+fi
+
+exec "$GODOT_BIN" --headless --path "$PROJECT_DIR" \
+    -s addons/visual_gasic/vg_dashboard_headless.gd \
+    -- "${PASSTHROUGH[@]}"
