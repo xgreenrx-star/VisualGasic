@@ -3,10 +3,10 @@ extends Node
 class_name VGDashboardServer
 
 # ── VG Browser Dashboard — minimal embedded HTTP server ────────────────────
-# Phase-4 of the long-deferred Browser Dashboard (was a v5.0.1 blocker, now
+# Phase-5 of the long-deferred Browser Dashboard (was a v5.0.1 blocker, now
 # landed in v5.2).  Binds 127.0.0.1:8765 by default and serves:
 #
-#   GET  /                   → tabbed HTML dashboard (Info / Settings / Build / Files)
+#   GET  /                   → tabbed HTML dashboard (Info / Settings / Build / Files / Projects)
 #   GET  /api/info           → project + engine version JSON
 #   GET  /api/csrf-token     → fresh per-server CSRF token (also set as cookie)
 #   GET  /api/settings       → current dashboard settings JSON
@@ -18,6 +18,10 @@ class_name VGDashboardServer
 #   POST /api/build/cancel   → kill the running build, if any
 #   GET  /api/files/list     → directory listing under res:// (read-only)
 #   GET  /api/files/read     → text file content under res:// (1 MiB cap)
+#   GET  /api/projects/list  → current + saved project entries
+#   POST /api/projects/add   → add absolute path (must contain project.godot)
+#   POST /api/projects/remove→ drop a saved entry
+#   POST /api/projects/open  → spawn a fresh Godot editor with the chosen project
 #
 # Why TCPServer (not godot-cpp HTTPServer)?  Godot has no first-party HTTP
 # server class — only client.  We hand-parse a tiny request-line subset
@@ -296,6 +300,9 @@ func _route_get(peer: StreamPeerTCP, path: String, query: String = "") -> void:
 			_route_files_list(peer, query)
 		"/api/files/read":
 			_route_files_read(peer, query)
+		"/api/projects/list":
+			_send_response(peer, 200, "application/json",
+				JSON.stringify(_collect_projects(), "  ").to_utf8_buffer())
 		"/favicon.ico":
 			_send_response(peer, 204, "text/plain", PackedByteArray())
 		_:
@@ -351,6 +358,30 @@ func _route_post(peer: StreamPeerTCP, path: String, headers: Dictionary, body: P
 			var cancelled := _cancel_build()
 			_send_response(peer, 200, "application/json",
 				JSON.stringify(cancelled).to_utf8_buffer())
+		"/api/projects/add":
+			var p_path: String = ""
+			if parsed is Dictionary:
+				p_path = String(parsed.get("path", ""))
+			var added := _projects_add(p_path)
+			var code := 200 if added.get("ok", false) else 400
+			_send_response(peer, code, "application/json",
+				JSON.stringify(added).to_utf8_buffer())
+		"/api/projects/remove":
+			var r_path: String = ""
+			if parsed is Dictionary:
+				r_path = String(parsed.get("path", ""))
+			var removed := _projects_remove(r_path)
+			var code2 := 200 if removed.get("ok", false) else 400
+			_send_response(peer, code2, "application/json",
+				JSON.stringify(removed).to_utf8_buffer())
+		"/api/projects/open":
+			var o_path: String = ""
+			if parsed is Dictionary:
+				o_path = String(parsed.get("path", ""))
+			var opened := _projects_open(o_path)
+			var code3 := 200 if opened.get("ok", false) else 400
+			_send_response(peer, code3, "application/json",
+				JSON.stringify(opened).to_utf8_buffer())
 		_:
 			_send_response(peer, 404, "application/json",
 				JSON.stringify({"error": "not_found", "path": path}).to_utf8_buffer())
@@ -647,6 +678,141 @@ func _route_files_read(peer: StreamPeerTCP, query: String) -> void:
 		}, "  ").to_utf8_buffer())
 
 
+# ── Project registry (multi-project switcher) ─────────────────────────────
+# A small persisted list of known VG/Godot projects.  Each entry is the
+# absolute path to a directory containing project.godot.  The current
+# project is included automatically as a synthetic first entry.  Adding
+# a path validates that project.godot exists before persisting.  Opening
+# launches a fresh Godot editor instance via OS.create_process so the
+# running editor (and its dashboard) keep operating.
+const PROJECTS_PATH := "user://vg_dashboard_projects.json"
+
+
+func _projects_load_list() -> Array:
+	if not FileAccess.file_exists(PROJECTS_PATH):
+		return []
+	var f := FileAccess.open(PROJECTS_PATH, FileAccess.READ)
+	if f == null:
+		return []
+	var j := JSON.new()
+	if j.parse(f.get_as_text()) != OK:
+		return []
+	if not (j.data is Array):
+		return []
+	var clean: Array = []
+	for entry in j.data:
+		var p := String(entry).strip_edges()
+		if p != "" and not (p in clean):
+			clean.append(p)
+	return clean
+
+
+func _projects_save_list(list: Array) -> bool:
+	var f := FileAccess.open(PROJECTS_PATH, FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(JSON.stringify(list, "  "))
+	return true
+
+
+func _project_meta(abs_path: String) -> Dictionary:
+	# Returns {path, name, exists}.  `name` is read from project.godot's
+	# `application/config/name` line if available, falling back to dir
+	# basename.
+	var meta := {"path": abs_path, "name": abs_path.get_file(), "exists": false}
+	var godot_file := abs_path.path_join("project.godot")
+	if not FileAccess.file_exists(godot_file):
+		return meta
+	meta["exists"] = true
+	var f := FileAccess.open(godot_file, FileAccess.READ)
+	if f == null:
+		return meta
+	# Cheap line scan — project.godot is ini-ish; the first match wins.
+	while not f.eof_reached():
+		var line := f.get_line()
+		if line.begins_with("config/name="):
+			var v := line.substr("config/name=".length()).strip_edges()
+			if v.begins_with("\"") and v.ends_with("\""):
+				v = v.substr(1, v.length() - 2)
+			meta["name"] = v
+			break
+	return meta
+
+
+func _current_project_dir() -> String:
+	return ProjectSettings.globalize_path("res://").rstrip("/")
+
+
+func _collect_projects() -> Dictionary:
+	var current := _current_project_dir()
+	var entries: Array = []
+	var seen: Array = []
+	# Synthetic first entry: the running project.
+	var cur_meta := _project_meta(current)
+	cur_meta["current"] = true
+	entries.append(cur_meta)
+	seen.append(current)
+	for p in _projects_load_list():
+		if p in seen:
+			continue
+		var m := _project_meta(p)
+		m["current"] = false
+		entries.append(m)
+		seen.append(p)
+	return {"current": current, "entries": entries}
+
+
+func _projects_add(p_path: String) -> Dictionary:
+	var abs := p_path.strip_edges()
+	if abs == "":
+		return {"ok": false, "error": "empty_path"}
+	# Reject relative paths — caller must pass an absolute filesystem path.
+	if not abs.is_absolute_path():
+		return {"ok": false, "error": "not_absolute"}
+	abs = abs.rstrip("/")
+	if not FileAccess.file_exists(abs.path_join("project.godot")):
+		return {"ok": false, "error": "no_project_godot", "path": abs}
+	var list := _projects_load_list()
+	if abs in list:
+		return {"ok": true, "added": false, "path": abs}
+	list.append(abs)
+	if not _projects_save_list(list):
+		return {"ok": false, "error": "save_failed"}
+	return {"ok": true, "added": true, "path": abs}
+
+
+func _projects_remove(p_path: String) -> Dictionary:
+	var abs := p_path.strip_edges().rstrip("/")
+	if abs == "":
+		return {"ok": false, "error": "empty_path"}
+	var list := _projects_load_list()
+	if not (abs in list):
+		return {"ok": false, "error": "not_in_list", "path": abs}
+	list.erase(abs)
+	if not _projects_save_list(list):
+		return {"ok": false, "error": "save_failed"}
+	return {"ok": true, "path": abs}
+
+
+func _projects_open(p_path: String) -> Dictionary:
+	var abs := p_path.strip_edges().rstrip("/")
+	if abs == "":
+		return {"ok": false, "error": "empty_path"}
+	if not abs.is_absolute_path():
+		return {"ok": false, "error": "not_absolute"}
+	var godot_file := abs.path_join("project.godot")
+	if not FileAccess.file_exists(godot_file):
+		return {"ok": false, "error": "no_project_godot", "path": abs}
+	# Re-use whatever Godot binary launched the current editor.  This is
+	# how we keep the AGCK plugin and other VG addons sharing the same
+	# editor build across projects.
+	var godot_bin := OS.get_executable_path()
+	var pid := OS.create_process(godot_bin, ["-e", "--path", abs])
+	if pid <= 0:
+		return {"ok": false, "error": "spawn_failed", "godot": godot_bin}
+	return {"ok": true, "pid": pid, "path": abs, "godot": godot_bin}
+
+
 # ── CSRF helpers ──────────────────────────────────────────────────────────
 func _generate_csrf_token() -> String:
 	# 192 bits of entropy from RandomNumberGenerator — sufficient for
@@ -670,7 +836,7 @@ func _csrf_cookie_headers() -> Array:
 # ── Payload generators ────────────────────────────────────────────────────
 func _collect_info() -> Dictionary:
 	var info := {}
-	info["dashboard_version"] = 4
+	info["dashboard_version"] = 5
 	info["uptime_msec"] = Time.get_ticks_msec() - _started_at_msec
 	info["bind"] = _bind
 	info["port"] = _port
@@ -734,13 +900,14 @@ pre { background: #0e1219; border: 1px solid #2a3142; padding: .8em;
 .bad { color: #ff6b6b; } .good { color: #6cd07a; }
 </style></head><body>
 <h1><span class=\"dot\"></span>VisualGasic Dashboard</h1>
-<div class=\"sub\">Phase 4 — project explorer added.  CSRF-protected POST endpoints.</div>
+<div class=\"sub\">Phase 5 — multi-project switcher added.  CSRF-protected POST endpoints.</div>
 
 <div class=\"tabs\">
   <button class=\"tab active\" data-panel=\"info\">Info</button>
   <button class=\"tab\" data-panel=\"settings\">Settings</button>
   <button class=\"tab\" data-panel=\"build\">Build</button>
   <button class=\"tab\" data-panel=\"files\">Files</button>
+  <button class=\"tab\" data-panel=\"projects\">Projects</button>
 </div>
 
 <section id=\"panel-info\" class=\"panel active\">
@@ -788,6 +955,16 @@ pre { background: #0e1219; border: 1px solid #2a3142; padding: .8em;
       <pre id=\"files-view\" style=\"max-height:480px;\"></pre>
     </div>
   </div>
+</section>
+
+<section id=\"panel-projects\" class=\"panel\">
+  <div class=\"row\">
+    <input id=\"p-add-path\" type=\"text\" placeholder=\"/absolute/path/to/project_dir\" style=\"flex:1; min-width:24em;\">
+    <button onclick=\"addProject()\">Add</button>
+    <button onclick=\"loadProjects()\">Refresh</button>
+    <span id=\"projects-status\" class=\"sub\"></span>
+  </div>
+  <table id=\"projects-table\" style=\"margin-top:1em; width:100%;\"></table>
 </section>
 
 <div class=\"foot\">Served by VGDashboardServer · loopback only · CSRF token rotates per server start.</div>
@@ -954,6 +1131,7 @@ function switchTab(name) {
     p.classList.toggle('active', p.id === 'panel-' + name);
   });
   if (name === 'files' && FILES_CWD === null) { filesGo(''); }
+  if (name === 'projects') { loadProjects(); }
 }
 
 // ── Files tab ─────────────────────────────────────────────────────────────
@@ -1050,6 +1228,89 @@ async function filesView(rel) {
     meta.textContent = 'Network error: ' + e.message;
     meta.className = 'bad';
   }
+}
+
+// ── Projects tab ──────────────────────────────────────────────────────────
+async function loadProjects() {
+  var tbl = document.getElementById('projects-table');
+  var status = document.getElementById('projects-status');
+  status.textContent = '';
+  status.className = 'sub';
+  tbl.innerHTML = '<tr><th>Loading…</th></tr>';
+  try {
+    var r = await fetch('/api/projects/list', { cache: 'no-store' });
+    var d = await r.json();
+    if (!r.ok) {
+      tbl.innerHTML = '<tr><td class=\"bad\">' + escapeHtml(d.error || r.status) + '</td></tr>';
+      return;
+    }
+    var rows = '<tr><th>Name</th><th>Path</th><th>State</th><th></th></tr>';
+    d.entries.forEach(function(p){
+      var state = p.current ? '<span class=\"good\">current</span>'
+                : (p.exists ? 'available' : '<span class=\"bad\">missing</span>');
+      var actions = '';
+      if (!p.current && p.exists) {
+        actions += '<button data-act=\"open\" data-path=\"' + escapeHtml(p.path) + '\">Open</button> ';
+      }
+      if (!p.current) {
+        actions += '<button data-act=\"remove\" data-path=\"' + escapeHtml(p.path) + '\">Remove</button>';
+      }
+      rows += '<tr><td class=\"val\">' + escapeHtml(p.name) + '</td>' +
+              '<td class=\"val\">' + escapeHtml(p.path) + '</td>' +
+              '<td>' + state + '</td>' +
+              '<td>' + actions + '</td></tr>';
+    });
+    tbl.innerHTML = rows;
+    tbl.querySelectorAll('button[data-act]').forEach(function(b){
+      b.addEventListener('click', function(){
+        if (b.dataset.act === 'open') openProject(b.dataset.path);
+        else removeProject(b.dataset.path);
+      });
+    });
+  } catch (e) {
+    tbl.innerHTML = '<tr><td class=\"bad\">' + escapeHtml(e.message) + '</td></tr>';
+  }
+}
+async function _projectsPost(url, body, label) {
+  var status = document.getElementById('projects-status');
+  status.textContent = label + '…';
+  status.className = 'sub';
+  try {
+    var r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+      body: JSON.stringify(body),
+    });
+    var d = await r.json();
+    if (!r.ok || !d.ok) {
+      status.textContent = 'Error: ' + (d.error || r.status);
+      status.className = 'bad';
+      return null;
+    }
+    status.textContent = label + ' OK.';
+    status.className = 'good';
+    return d;
+  } catch (e) {
+    status.textContent = 'Network error: ' + e.message;
+    status.className = 'bad';
+    return null;
+  }
+}
+async function addProject() {
+  var inp = document.getElementById('p-add-path');
+  var path = inp.value.trim();
+  if (!path) return;
+  var d = await _projectsPost('/api/projects/add', { path: path }, 'Adding');
+  if (d) { inp.value = ''; loadProjects(); }
+}
+async function removeProject(path) {
+  var d = await _projectsPost('/api/projects/remove', { path: path }, 'Removing');
+  if (d) loadProjects();
+}
+async function openProject(path) {
+  var d = await _projectsPost('/api/projects/open', { path: path }, 'Opening');
+  // Successful open just keeps the row — the new editor spawns its own
+  // dashboard on the next free port.
 }
 
 document.querySelectorAll('.tab').forEach(function(t){
