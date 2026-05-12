@@ -310,21 +310,25 @@ func _build_ui() -> void:
 
 	var btn_new := Button.new()
 	btn_new.text = "New"
+	btn_new.tooltip_text = "Clear the canvas and start a fresh graph"
 	btn_new.pressed.connect(_new_graph)
 	toolbar.add_child(btn_new)
 
 	var btn_save := Button.new()
 	btn_save.text = "Save"
+	btn_save.tooltip_text = "Save the graph to its current .wnodes file"
 	btn_save.pressed.connect(_save_current)
 	toolbar.add_child(btn_save)
 
 	var btn_save_as := Button.new()
 	btn_save_as.text = "Save As"
+	btn_save_as.tooltip_text = "Save the graph to a new .wnodes file"
 	btn_save_as.pressed.connect(_show_save_dialog)
 	toolbar.add_child(btn_save_as)
 
 	var btn_load := Button.new()
 	btn_load.text = "Load"
+	btn_load.tooltip_text = "Open an existing .wnodes graph"
 	btn_load.pressed.connect(_show_load_dialog)
 	toolbar.add_child(btn_load)
 
@@ -364,16 +368,19 @@ func _build_ui() -> void:
 
 	var btn_event := Button.new()
 	btn_event.text = "+ Event"
+	btn_event.tooltip_text = "Add an Event node (graph entry point, e.g. Ready / Input / Timer)"
 	btn_event.pressed.connect(func(): _add_node(TYPE_EVENT))
 	toolbar.add_child(btn_event)
 
 	var btn_action := Button.new()
 	btn_action.text = "+ Action"
+	btn_action.tooltip_text = "Add an Action node (do something — print, set property, call sub, etc.)"
 	btn_action.pressed.connect(func(): _add_node(TYPE_ACTION))
 	toolbar.add_child(btn_action)
 
 	var btn_math := Button.new()
 	btn_math.text = "+ Math"
+	btn_math.tooltip_text = "Add a Math node (arithmetic / comparison feeding other nodes)"
 	btn_math.pressed.connect(func(): _add_node(TYPE_MATH))
 	toolbar.add_child(btn_math)
 
@@ -411,11 +418,13 @@ func _build_ui() -> void:
 
 	var btn_group := Button.new()
 	btn_group.text = "+ Group"
+	btn_group.tooltip_text = "Create a new Group from the currently selected nodes"
 	btn_group.pressed.connect(_create_group_from_selection)
 	toolbar_mid.add_child(btn_group)
 
 	var btn_assign := Button.new()
 	btn_assign.text = "Assign Group"
+	btn_assign.tooltip_text = "Add the selected nodes to the currently active Group(s)"
 	btn_assign.pressed.connect(_assign_selected_nodes_to_active_groups)
 	toolbar_mid.add_child(btn_assign)
 
