@@ -848,42 +848,159 @@ func _apply_asteroids_template() -> void:
 
 
 func _apply_endless_runner_template() -> void:
+	# ── Endless Runner (coin chase, Runner-physics) ────────────────────
+	# Distinct from Geometry Dash: same auto-run engine but tuned for a
+	# *score-attack* loop — wide gaps over a deathfloor, dense coin
+	# trails along the ideal jump arcs, and Sequential teleport chain
+	# of THREE 60-cell levels so a full run lasts ~12s before looping.
+	#
+	# Why Runner (not Player)?  We want hold-to-rejump cadence + auto
+	# horizontal velocity so the player only thinks about jump timing.
+	# Phase-1 fields (rotation_speed, snap_angle_deg) are not overridden
+	# here so the sprite stays upright — overriding rotation_speed=0
+	# would freeze it visually if a future skin uses a directional
+	# sprite.  Leaving at default 9 rad/s gives a tumble that reads as
+	# "running animation" without authoring frames.
 	if _editors.size() > 4 and _editors[4]:
 		_editors[4].set_data({
 			"game_title": "Forever Run",
-			"gravity": 1100, "friction": 50, "elasticity": 0,
+			# Gravity 1300 + jump_force 460 → ~1.7-cell jump arc, ~0.5s
+			# airtime.  Lower than GD so coin lines feel reachable.
+			"gravity": 1300, "friction": 0, "elasticity": 0,
 			"screen_width": 640, "screen_height": 384,
+			"background_color": "#1a2030",
 			"lives": 1, "show_score": true, "show_lives": false,
 			"start_level": 1, "level_order": "Sequential",
+			"wrap_screen": false, "camera_zoom": 1.0,
+			"keyboard_enabled": true, "joystick_enabled": true,
+			"mouse_enabled": true, "touch_enabled": true,
+			"deadly_damage": 999,
 		})
 	if _editors.size() > 1 and _editors[1]:
 		_editors[1].set_data([
-			{"name": "Runner", "type": "Player", "max_speed": 280, "gravity_scale": 1.0, "max_hp": 1, "damage": 0, "score_value": 0, "collision_mode": "Slide", "death_mode": "GameOver", "rebirth": 0},
-			{"name": "Spike", "type": "Drone", "max_speed": 0, "gravity_scale": 0, "max_hp": 9999, "damage": 100, "score_value": 0, "ai_behavior": "Idle", "ai_patrol_speed": 0, "collision_mode": "None", "death_mode": "Destroy"},
-			{"name": "Coin", "type": "Computer", "max_speed": 0, "gravity_scale": 0, "max_hp": 1, "damage": 0, "score_value": 25, "collision_mode": "None", "death_mode": "Destroy"},
+			# Speed 240 ≈ 15 cells/sec — easier to read coin lines than
+			# GD's 260.  jump_force 460 pairs with gravity 1300 for the
+			# arc described above.
+			{"name": "Runner", "type": "Runner", "max_speed": 240, "gravity_scale": 1.0,
+				"max_hp": 1, "damage": 0, "score_value": 0,
+				"collision_mode": "Slide", "death_mode": "GameOver", "rebirth": 0,
+				"jump_force": 460},
+			{"name": "Spike", "type": "Drone", "max_speed": 0, "gravity_scale": 0,
+				"max_hp": 9999, "damage": 100, "score_value": 0,
+				"ai_behavior": "Idle", "ai_patrol_speed": 0,
+				"collision_mode": "None", "death_mode": "Destroy"},
+			{"name": "Coin", "type": "Computer", "max_speed": 0, "gravity_scale": 0,
+				"max_hp": 1, "damage": 0, "score_value": 10,
+				"collision_mode": "None", "death_mode": "Destroy"},
 		])
 	if _editors.size() > 0 and _editors[0]:
-		var GRID_W = 20; var GRID_H = 12
-		var lvl = _editors[0]._make_empty_level(1)
-		lvl["name"] = "The Track"
-		var grid = lvl["grid"]
-		# Ground line
-		for x in range(GRID_W):
-			grid[GRID_H - 1][x] = {"block_type": 1, "tile_index": 0}
-		# Some elevated platforms for variety
-		for x in range(8, 11):
-			grid[7][x] = {"block_type": 1, "tile_index": 0}
-		for x in range(14, 17):
-			grid[5][x] = {"block_type": 1, "tile_index": 0}
-		lvl["actors"] = [
-			{"actor_id": 0, "x": 1, "y": GRID_H - 2, "path": []},   # Runner
-			{"actor_id": 1, "x": 6,  "y": GRID_H - 2, "path": []},  # Spike
-			{"actor_id": 1, "x": 12, "y": GRID_H - 2, "path": []},  # Spike
-			{"actor_id": 1, "x": 18, "y": GRID_H - 2, "path": []},  # Spike
-			{"actor_id": 2, "x": 9,  "y": 6, "path": []},           # Coin
-			{"actor_id": 2, "x": 15, "y": 4, "path": []},           # Coin
+		const LVL_W := 60
+		const LVL_H := 14
+		# Each chunk: gaps (deathfloor segments), spike columns, and the
+		# coin arcs.  Coin arcs are authored as relative (dx, dy) offsets
+		# from a centre tile so they sit on the natural jump curve.
+		var chunks := [
+			{
+				"name": "Sunrise Sprint",
+				"spawn_x": 1,
+				"gaps": [[20, 23], [38, 41]],
+				"spikes": [12, 30, 50],
+				# Coin arcs at the apex over each obstacle/gap.
+				"coin_arcs": [
+					{"cx": 12, "cy": LVL_H - 4},
+					{"cx": 21, "cy": LVL_H - 4},
+					{"cx": 30, "cy": LVL_H - 4},
+					{"cx": 39, "cy": LVL_H - 4},
+					{"cx": 50, "cy": LVL_H - 4},
+				],
+				# Free-floating coin streamers between obstacles.
+				"coin_rows": [
+					{"row": LVL_H - 6, "x0": 4, "x1": 9},
+					{"row": LVL_H - 6, "x0": 44, "x1": 47},
+				],
+			},
+			{
+				"name": "Canyon Chase",
+				"spawn_x": 0,
+				# Tighter cluster of gaps with a "land + jump again" beat.
+				"gaps": [[14, 17], [22, 25], [40, 44]],
+				"spikes": [9, 32, 52],
+				"coin_arcs": [
+					{"cx": 9, "cy": LVL_H - 4},
+					{"cx": 15, "cy": LVL_H - 4},
+					{"cx": 23, "cy": LVL_H - 4},
+					{"cx": 32, "cy": LVL_H - 4},
+					{"cx": 42, "cy": LVL_H - 4},
+					{"cx": 52, "cy": LVL_H - 4},
+				],
+				"coin_rows": [
+					{"row": LVL_H - 6, "x0": 4, "x1": 7},
+					{"row": LVL_H - 6, "x0": 28, "x1": 30},
+				],
+			},
+			{
+				"name": "Skyline Finale",
+				"spawn_x": 0,
+				# Wider gaps + clustered spikes — payoff level.
+				"gaps": [[16, 20], [32, 37], [46, 50]],
+				"spikes": [10, 11, 26, 41, 42, 54],
+				"coin_arcs": [
+					{"cx": 10, "cy": LVL_H - 4},
+					{"cx": 18, "cy": LVL_H - 4},
+					{"cx": 26, "cy": LVL_H - 4},
+					{"cx": 34, "cy": LVL_H - 4},
+					{"cx": 41, "cy": LVL_H - 4},
+					{"cx": 48, "cy": LVL_H - 4},
+					{"cx": 54, "cy": LVL_H - 4},
+				],
+				"coin_rows": [
+					{"row": LVL_H - 6, "x0": 4, "x1": 7},
+				],
+			},
 		]
-		_editors[0].levels.append(lvl)
+		for i in range(chunks.size()):
+			var ck = chunks[i]
+			var lvl = _editors[0]._make_empty_level(i + 1, LVL_W, LVL_H)
+			lvl["name"] = ck["name"]
+			lvl["death_action"] = "Restart Level"
+			lvl["death_action_target"] = i + 1
+			var grid = lvl["grid"]
+			# Solid floor across the bottom — punch out gaps below.
+			for x in range(LVL_W):
+				grid[LVL_H - 1][x] = {"block_type": 1, "tile_index": 0}
+			# Carve out gaps (death pits the Runner must jump over).
+			for g in ck["gaps"]:
+				for x in range(g[0], g[1] + 1):
+					grid[LVL_H - 1][x] = null
+			# Spike columns on the row above the floor.
+			for sx in ck["spikes"]:
+				grid[LVL_H - 2][sx] = {"block_type": 3, "tile_index": 0}
+			# Goal teleport tile at far right.
+			grid[LVL_H - 5][LVL_W - 2] = {"block_type": 5, "tile_index": 0}
+			# Actor list — Runner first, then all coins.
+			var actors := [
+				{"actor_id": 0, "x": ck["spawn_x"], "y": LVL_H - 2, "path": []},
+			]
+			# Coin arcs: 5 coins shaped like an inverted V around (cx, cy).
+			# Pattern (relative): (-2,+1), (-1, 0), (0,-1), (+1, 0), (+2,+1).
+			var arc_offsets := [
+				Vector2i(-2, 1), Vector2i(-1, 0), Vector2i(0, -1),
+				Vector2i(1, 0), Vector2i(2, 1),
+			]
+			for arc in ck["coin_arcs"]:
+				var cx: int = arc["cx"]
+				var cy: int = arc["cy"]
+				for off in arc_offsets:
+					var ax: int = cx + off.x
+					var ay: int = cy + off.y
+					if ax >= 0 and ax < LVL_W and ay >= 0 and ay < LVL_H:
+						actors.append({"actor_id": 2, "x": ax, "y": ay, "path": []})
+			# Straight coin streamers between obstacles.
+			for r in ck["coin_rows"]:
+				for x in range(r["x0"], r["x1"] + 1):
+					actors.append({"actor_id": 2, "x": x, "y": r["row"], "path": []})
+			lvl["actors"] = actors
+			_editors[0].levels.append(lvl)
 
 
 func _apply_geometry_dash_template() -> void:
