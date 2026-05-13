@@ -5625,6 +5625,154 @@ func _on_make_exe() -> void:
 	_do_save_all()
 	_show_export_platform_picker()
 
+## Returns the Godot export-templates directory for the running engine version.
+## Follows the standard OS-specific paths Godot uses for template lookup.
+func _get_templates_dir() -> String:
+	var v := Engine.get_version_info()
+	var patch: int = v.get("patch", 0)
+	var status: String = v.get("status", "stable")
+	var ver_dir := "%d.%d.%d.%s" % [v["major"], v["minor"], patch, status]
+	var home := OS.get_environment("HOME")
+	var os_name := OS.get_name()
+	if os_name == "Windows":
+		return OS.get_environment("APPDATA") + "/Godot/export_templates/" + ver_dir
+	elif os_name == "macOS":
+		return home + "/Library/Application Support/Godot/export_templates/" + ver_dir
+	return home + "/.local/share/godot/export_templates/" + ver_dir
+
+## Returns the template filenames that Godot expects for a given export preset.
+func _required_template_files(preset: String) -> PackedStringArray:
+	match preset:
+		"Windows Desktop":
+			return PackedStringArray(["windows_debug_x86_64.exe", "windows_release_x86_64.exe"])
+		"Linux":
+			return PackedStringArray(["linux_debug.x86_64", "linux_release.x86_64"])
+		"macOS":
+			return PackedStringArray(["macos.zip"])
+		"Web":
+			return PackedStringArray(["web_debug.zip", "web_release.zip"])
+	return PackedStringArray()
+
+## Returns true if all required template files for the preset exist on disk.
+func _templates_installed(preset: String) -> bool:
+	var tdir := _get_templates_dir()
+	for f in _required_template_files(preset):
+		if not FileAccess.file_exists(tdir + "/" + f):
+			return false
+	return true
+
+## Shows a ConfirmationDialog asking the user if they want to download + install
+## the missing export templates.  On confirmation, starts a background install.
+func _prompt_install_templates(preset: String) -> void:
+	var v := Engine.get_version_info()
+	var patch: int = v.get("patch", 0)
+	var ver := "%d.%d.%d.stable" % [v["major"], v["minor"], patch]
+	var dlg := ConfirmationDialog.new()
+	dlg.title = "Export Templates Missing"
+	dlg.ok_button_text = "Download & Install"
+	dlg.cancel_button_text = "Cancel"
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 8)
+	dlg.add_child(vb)
+	var msg := Label.new()
+	msg.text = (
+		"Export templates for [%s] are not installed.\n\n"
+		+ "Required version: %s\n"
+		+ "Location: %s\n\n"
+		+ "Download and install export templates now?\n"
+		+ "(Linux templates ~500 MB; full set ~1.3 GB)"
+	) % [preset, ver, _get_templates_dir()]
+	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	msg.custom_minimum_size.x = 480
+	vb.add_child(msg)
+	dlg.confirmed.connect(func(): _install_templates_async(preset, dlg))
+	dlg.canceled.connect(dlg.queue_free)
+	EditorInterface.get_base_control().add_child(dlg)
+	dlg.popup_centered(Vector2i(520, 260))
+
+## Starts a background install of the export templates for *preset*.
+## On Linux/macOS this spawns a background Python download + extract.
+## On Windows it opens the browser to the GitHub release page.
+func _install_templates_async(preset: String, parent_dlg: ConfirmationDialog) -> void:
+	parent_dlg.queue_free()
+	var v := Engine.get_version_info()
+	var patch: int = v.get("patch", 0)
+	var ver_tag := "%d.%d.%d-stable" % [v["major"], v["minor"], patch]
+	var tpz_url := (
+		"https://github.com/godotengine/godot/releases/download/%s/Godot_v%s_export_templates.tpz"
+		% [ver_tag, ver_tag]
+	)
+	var dest_dir := _get_templates_dir()
+	var os_name := OS.get_name()
+
+	if os_name == "Windows" or os_name == "macOS":
+		# No reliable headless download tool guaranteed on these platforms.
+		# Open the browser to the TPZ so the user can install manually via
+		# the Godot editor's "Manage Export Templates" dialog.
+		OS.shell_open(tpz_url)
+		var info := AcceptDialog.new()
+		info.title = "Install Export Templates"
+		var lbl := Label.new()
+		lbl.text = (
+			"The export templates page has been opened in your browser.\n\n"
+			+ "After downloading, install via:\n"
+			+ "  Editor → Manage Export Templates → Install From File\n\n"
+			+ "Then reopen File → Make EXE."
+		)
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		lbl.custom_minimum_size.x = 440
+		info.add_child(lbl)
+		EditorInterface.get_base_control().add_child(info)
+		info.popup_centered(Vector2i(480, 220))
+		return
+
+	# Linux: write a small Python install script and spawn it in the background.
+	var install_py := """
+import sys, subprocess, zipfile, shutil, os, stat
+
+dest    = sys.argv[1]
+tpz_url = sys.argv[2]
+tpz     = '/tmp/vg_godot_templates.tpz'
+
+os.makedirs(dest, exist_ok=True)
+subprocess.run(['wget', '-q', '-c', tpz_url, '-O', tpz], check=True)
+
+with zipfile.ZipFile(tpz) as z:
+    for name in z.namelist():
+        base = os.path.basename(name)
+        if not base or name.endswith('/'):
+            continue
+        out = os.path.join(dest, base)
+        with z.open(name) as src, open(out, 'wb') as dst:
+            shutil.copyfileobj(src, dst)
+        os.chmod(out, stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
+
+done = os.path.join(dest, 'vg_install_done.txt')
+with open(done, 'w') as f:
+    f.write('ok')
+"""
+	var tmp_py := "/tmp/vg_install_godot_templates.py"
+	var f := FileAccess.open(tmp_py, FileAccess.WRITE)
+	if f:
+		f.store_string(install_py)
+		f.close()
+	OS.create_process("python3", [tmp_py, dest_dir, tpz_url])
+
+	var info := AcceptDialog.new()
+	info.title = "Installing Export Templates"
+	var lbl := Label.new()
+	lbl.text = (
+		"Downloading Godot export templates in the background.\n\n"
+		+ "The download is ~1.3 GB and may take several minutes\n"
+		+ "depending on your connection speed.\n\n"
+		+ "Once finished, reopen File → Make EXE to build."
+	)
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.custom_minimum_size.x = 440
+	info.add_child(lbl)
+	EditorInterface.get_base_control().add_child(info)
+	info.popup_centered(Vector2i(480, 220))
+
 ## Step 1: ask the user which platform to target.  The previous version
 ## auto-picked the host OS, which is wrong — users want to cross-compile.
 func _show_export_platform_picker() -> void:
@@ -5663,6 +5811,10 @@ func _on_export_platform_confirmed() -> void:
 		return
 	var entry: Dictionary = _EXPORT_PLATFORMS[idx]
 	_export_target_platform = entry["preset"]
+	# Check that export templates are installed before proceeding.
+	if not _templates_installed(entry["preset"]):
+		_prompt_install_templates(entry["preset"])
+		return
 	# Step 2: now ask where to save.  We rebuild the FileDialog each time
 	# so its filter / default name match the chosen platform.
 	if is_instance_valid(_export_dialog):
