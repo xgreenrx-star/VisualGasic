@@ -1650,7 +1650,11 @@ func _update_proc_selection() -> void:
 		# Update Index Map for the current object
 		_update_index_map_for_current_object()
 	else:
-		if _object_combo.selected != 0:
+		# Guard select(0) against an empty OptionButton popup — in formless
+		# code-mode projects the object combo can be unpopulated when this
+		# fires during the initial load_file() pass, and OptionButton.select()
+		# triggers a noisy "Index out of bounds" error on an empty popup.
+		if _object_combo.item_count > 0 and _object_combo.selected != 0:
 			_object_combo.select(0)
 			_rebuild_general_proc_list()
 		elif _proc_combo.item_count > 0:

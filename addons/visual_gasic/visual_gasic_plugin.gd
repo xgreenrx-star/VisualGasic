@@ -8727,9 +8727,18 @@ func _scaffold_starter_module() -> String:
 	f.store_string("' " + name + ".vg — VisualGasic module\n' Type your code here.\n\nSub Main()\n\tPrint(\"Hello from \" & \"" + name + "\")\nEnd Sub\n")
 	f.close()
 	# Refresh the editor's filesystem dock so the new file appears.
+	# IMPORTANT: defer the scan().  When _scaffold_starter_module is called
+	# from inside _auto_open_formless_module (itself a call_deferred
+	# callback), invoking fs.scan() synchronously kicks off the editor's
+	# progress-dialog system *while the message queue is being flushed* —
+	# Godot 4.6 then logs "Do not use progress dialog (task) while flushing
+	# the message queue or using call_deferred()!" and the cascading
+	# plugin/editor reloads have crashed the editor with SIGSEGV in deep
+	# recursion.  Deferring the scan to the next idle frame lets the
+	# current message flush complete first.
 	var fs := EditorInterface.get_resource_filesystem()
 	if fs != null:
-		fs.scan()
+		fs.call_deferred("scan")
 	return path
 
 
