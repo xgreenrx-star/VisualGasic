@@ -10597,6 +10597,10 @@ func setup_toolbox():
 		# progress styles. Done after the C++ defaults so they slot in
 		# cleanly without a recompile.
 		_register_extra_tools()
+		# Wrap each tab's GridContainer in a ScrollContainer so the tool
+		# list can scroll vertically when the panel is shorter than its
+		# content.  Deferred so the nodes are in the scene tree first.
+		call_deferred("_wrap_toolbox_grids_in_scroll")
 	else:
 		var err = Label.new()
 		err.text = "VisualGasicToolbox Missing!"
@@ -10680,6 +10684,48 @@ func _get_toolbox_instance():
 			if c.get_class() == "VisualGasicToolbox":
 				return c
 	return null
+
+## Wraps each tab's GridContainer inside the VisualGasicToolbox in a
+## ScrollContainer so the tool list scrolls vertically when the panel is
+## shorter than its content.  Also ensures the grid fills horizontally
+## when the panel is expanded.  Called deferred from setup_toolbox().
+func _wrap_toolbox_grids_in_scroll() -> void:
+	var tb = _get_toolbox_instance()
+	if tb == null:
+		return
+	# Find the TabContainer — direct child of VisualGasicToolbox.
+	var tab_container: TabContainer = null
+	for c in tb.get_children():
+		if c is TabContainer:
+			tab_container = c
+			break
+	if tab_container == null:
+		return
+	# Collect all GridContainer tab children in their current order.
+	var grids: Array = []
+	for c in tab_container.get_children():
+		if c is GridContainer:
+			grids.append(c)
+	# Wrap each grid in a ScrollContainer, preserving tab order and title.
+	for grid in grids:
+		var idx: int = grid.get_index()
+		var tab_title: String = tab_container.get_tab_title(idx)
+		var scroll := ScrollContainer.new()
+		scroll.name = grid.name
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+		# Grid fills the scroll width but uses its natural height so the
+		# scroll container has content taller than itself to scroll.
+		tab_container.remove_child(grid)
+		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		scroll.add_child(grid)
+		tab_container.add_child(scroll)
+		tab_container.move_child(scroll, idx)
+		# Restore the tab title in case Godot's name-sanitiser changed it.
+		tab_container.set_tab_title(idx, tab_title)
 
 ## Disables mouse input on all MenuBars in a scene tree.
 ## This prevents MenuBars from intercepting editor drag-drop operations.
