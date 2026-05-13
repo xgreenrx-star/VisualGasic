@@ -335,6 +335,29 @@ func _build_inline_fallback(host: Control, reason: String) -> void:
 	row4.add_child(VSeparator.new())
 	_wn_btn(row4, "📖 Help", _open_manual)
 
+	# ── In code mode, collapse node-tool rows 2/3/4 by default ───────────
+	# They are irrelevant until the user actually wants to build a node graph.
+	# A toggle button on row 1 lets them expand on demand.
+	var mode: String = ProjectSettings.get_setting("vg/default_mode", "")
+	if mode == "code":
+		row2.visible = false
+		row3.visible = false
+		row4.visible = false
+		var toggle_btn := Button.new()
+		toggle_btn.text = "▼ Node tools"
+		toggle_btn.flat = true
+		toggle_btn.add_theme_color_override("font_color", Color(0.55, 0.75, 1.0))
+		toggle_btn.tooltip_text = "Show / hide node-addition toolbar rows"
+		toggle_btn.pressed.connect(func():
+			var showing := not row2.visible
+			row2.visible = showing
+			row3.visible = showing
+			row4.visible = showing
+			toggle_btn.text = ("▲ Node tools" if showing else "▼ Node tools")
+		)
+		row1.add_child(VSeparator.new())
+		row1.add_child(toggle_btn)
+
 	# ── GraphEdit ─────────────────────────────────────────────────────────
 	var graph := GraphEdit.new()
 	graph.size_flags_horizontal = Control.SIZE_EXPAND_FILL
