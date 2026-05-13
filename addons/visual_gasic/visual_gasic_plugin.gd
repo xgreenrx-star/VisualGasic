@@ -5605,136 +5605,299 @@ func _on_open_animation_editor() -> void:
 # MAKE EXE — One-click export
 # =============================================================================
 var _export_dialog: FileDialog = null
+var _export_platform_dialog: AcceptDialog = null
+var _export_platform_option: OptionButton = null
+## Currently chosen target platform (set by the platform picker dialog).
+## One of: "Windows Desktop", "Linux", "macOS", "Web".
+var _export_target_platform: String = ""
+
+## Platform metadata: display label, preset name, default file extension,
+## default-file template suffix.
+const _EXPORT_PLATFORMS: Array = [
+	{"label": "Windows  (.exe)",     "preset": "Windows Desktop", "ext": "exe"},
+	{"label": "Linux  (.x86_64)",    "preset": "Linux",           "ext": "x86_64"},
+	{"label": "macOS  (.zip)",       "preset": "macOS",           "ext": "zip"},
+	{"label": "Web  (.html)",        "preset": "Web",             "ext": "html"},
+]
 
 func _on_make_exe() -> void:
 	# Save everything first
 	_do_save_all()
+	_show_export_platform_picker()
 
-	if not is_instance_valid(_export_dialog):
-		_export_dialog = FileDialog.new()
-		_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
-		_export_dialog.title = "Make EXE — Choose Output Location"
-		_export_dialog.access = FileDialog.ACCESS_FILESYSTEM
-		# Determine platform-specific defaults
-		var platform := OS.get_name()
-		if platform == "Windows":
-			_export_dialog.filters = PackedStringArray(["*.exe ; Windows Executable"])
-			_export_dialog.current_file = ProjectSettings.get_setting("application/config/name", "Game") + ".exe"
-		elif platform == "macOS":
-			_export_dialog.filters = PackedStringArray(["*.app ; macOS Application", "*.zip ; macOS Archive"])
-			_export_dialog.current_file = ProjectSettings.get_setting("application/config/name", "Game") + ".app"
-		else:
-			_export_dialog.filters = PackedStringArray(["*.x86_64 ; Linux Executable", "* ; All Files"])
-			_export_dialog.current_file = ProjectSettings.get_setting("application/config/name", "Game") + ".x86_64"
-		_export_dialog.size = Vector2i(700, 500)
-		_export_dialog.file_selected.connect(_on_export_path_selected)
-		EditorInterface.get_base_control().add_child(_export_dialog)
+## Step 1: ask the user which platform to target.  The previous version
+## auto-picked the host OS, which is wrong — users want to cross-compile.
+func _show_export_platform_picker() -> void:
+	if not is_instance_valid(_export_platform_dialog):
+		_export_platform_dialog = AcceptDialog.new()
+		_export_platform_dialog.title = "Make EXE — Choose Target Platform"
+		_export_platform_dialog.ok_button_text = "Choose Output File…"
+		_export_platform_dialog.add_cancel_button("Cancel")
+		var vb := VBoxContainer.new()
+		vb.add_theme_constant_override("separation", 8)
+		_export_platform_dialog.add_child(vb)
+		var lbl := Label.new()
+		lbl.text = "Build this project for which platform?"
+		vb.add_child(lbl)
+		_export_platform_option = OptionButton.new()
+		for entry in _EXPORT_PLATFORMS:
+			_export_platform_option.add_item(entry["label"])
+		# Default to host OS
+		var host := OS.get_name()
+		var default_idx := 1
+		if host == "Windows": default_idx = 0
+		elif host == "macOS": default_idx = 2
+		_export_platform_option.select(default_idx)
+		vb.add_child(_export_platform_option)
+		var hint := Label.new()
+		hint.text = "Note: requires Godot's export templates to be installed\nfor the chosen platform (Editor → Manage Export Templates)."
+		hint.add_theme_color_override("font_color", Color(0.45, 0.45, 0.5))
+		vb.add_child(hint)
+		_export_platform_dialog.confirmed.connect(_on_export_platform_confirmed)
+		EditorInterface.get_base_control().add_child(_export_platform_dialog)
+	_export_platform_dialog.popup_centered(Vector2i(420, 200))
 
+func _on_export_platform_confirmed() -> void:
+	var idx: int = _export_platform_option.selected
+	if idx < 0 or idx >= _EXPORT_PLATFORMS.size():
+		return
+	var entry: Dictionary = _EXPORT_PLATFORMS[idx]
+	_export_target_platform = entry["preset"]
+	# Step 2: now ask where to save.  We rebuild the FileDialog each time
+	# so its filter / default name match the chosen platform.
+	if is_instance_valid(_export_dialog):
+		_export_dialog.queue_free()
+	_export_dialog = FileDialog.new()
+	_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	_export_dialog.title = "Make EXE — Choose Output Location (" + str(entry["preset"]) + ")"
+	_export_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	var ext: String = entry["ext"]
+	_export_dialog.filters = PackedStringArray(["*." + ext + " ; " + str(entry["preset"]) + " build"])
+	var proj_name: String = String(ProjectSettings.get_setting("application/config/name", "Game"))
+	_export_dialog.current_file = proj_name + "." + ext
+	_export_dialog.size = Vector2i(700, 500)
+	_export_dialog.file_selected.connect(_on_export_path_selected)
+	EditorInterface.get_base_control().add_child(_export_dialog)
 	_export_dialog.popup_centered()
 
 func _on_export_path_selected(path: String) -> void:
 	if path.is_empty():
 		return
-
-	_log_output("📦 Building export to: " + path, Color(0.0, 0.4, 0.0))
-
-	# Find or create an export preset
-	var export_plugin := EditorInterface.get_editor_settings()
-	var platform := OS.get_name()
-
-	# Determine the export preset name based on platform
-	var preset_name := ""
-	if platform == "Windows" or path.ends_with(".exe"):
-		preset_name = "Windows Desktop"
-	elif platform == "macOS" or path.ends_with(".app"):
-		preset_name = "macOS"
-	else:
+	var preset_name: String = _export_target_platform
+	if preset_name.is_empty():
+		# Shouldn't happen — picker always runs first — but be safe.
 		preset_name = "Linux"
 
-	# Use the EditorExportPlatform API if available
-	# For now, use Godot's command-line export as a reliable fallback
+	_log_output("📦 Building [%s] export to: %s" % [preset_name, path], Color(0.0, 0.4, 0.0))
+
+	# Always (re)write the preset with the correct export_path.  The old
+	# code's "create only if missing" path produced an invalid preset.cfg
+	# with no export_path so `--export-release` had nowhere to write.
+	_write_export_preset(preset_name, path)
+
+	# Subprocess godot needs --path so it loads the user's project, not
+	# whatever happens to be in the IDE's cwd.  This was the primary
+	# cause of "didn't seem to make an executable" — the secondary godot
+	# was operating on the wrong (or no) project.
+	var project_dir: String = ProjectSettings.globalize_path("res://").rstrip("/")
 	var godot_path := OS.get_executable_path()
 	var args := PackedStringArray([
 		"--headless",
-		"--export-release",
-		preset_name,
-		path,
+		"--path", project_dir,
+		"--export-release", preset_name, path,
+		"--quit-after", "200",
 	])
 
 	_log_output("Running: " + godot_path + " " + " ".join(args), Color(0.5, 0.5, 0.5))
 
-	# Check if the export preset exists
-	var presets_path := "res://export_presets.cfg"
-	if not FileAccess.file_exists(presets_path):
-		# Create a minimal export_presets.cfg
-		_create_default_export_preset(preset_name, path)
-
-	var output := []
+	var output: Array = []
 	var exit_code := OS.execute(godot_path, args, output, true, false)
+	var output_text: String = "\n".join(output) if output.size() > 0 else "(no output)"
 
-	if exit_code == 0:
+	# Treat the file actually existing as authoritative; subprocess godot
+	# can return 0 in some cases even when templates are missing.
+	var ok := exit_code == 0 and FileAccess.file_exists(path)
+	if ok:
 		_log_output("✅ Export complete: " + path, Color(0.0, 0.5, 0.0))
-		# Open the output folder
+		_show_export_result_dialog(true, path, preset_name, output_text)
 		OS.shell_show_in_file_manager(path)
 	else:
-		var error_text := "\n".join(output) if output.size() > 0 else "Unknown error"
-		_log_output("❌ Export failed (code %d): %s" % [exit_code, error_text], Color(0.8, 0.0, 0.0))
-		push_error("[VG] Export failed: " + error_text)
+		_log_output("❌ Export failed (code %d)" % exit_code, Color(0.8, 0.0, 0.0))
+		_show_export_result_dialog(false, path, preset_name, output_text)
+		push_error("[VG] Export failed: " + output_text)
 
-func _create_default_export_preset(preset_name: String, output_path: String) -> void:
-	var content := ""
+## Shows the build log to the user — previously errors went only to the
+## hidden Output panel, leaving the user with no feedback.
+func _show_export_result_dialog(success: bool, path: String, preset: String, log_text: String) -> void:
+	var dlg := AcceptDialog.new()
+	dlg.title = ("Export Succeeded" if success else "Export Failed") + " — " + preset
+	dlg.exclusive = false
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 6)
+	dlg.add_child(vb)
+	var header := Label.new()
+	if success:
+		header.text = "Built: " + path
+	else:
+		header.text = "Failed to build: " + path \
+			+ "\n\nCommon causes:\n" \
+			+ "  • Export templates for [" + preset + "] not installed.\n" \
+			+ "    Open the editor → Editor → Manage Export Templates → Download.\n" \
+			+ "  • Project has unsaved errors.\n" \
+			+ "  • Disk full or permission denied at the output path."
+	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(header)
+	var sep := HSeparator.new()
+	vb.add_child(sep)
+	var lbl := Label.new()
+	lbl.text = "Godot output:"
+	vb.add_child(lbl)
+	var log_view := TextEdit.new()
+	log_view.text = log_text
+	log_view.editable = false
+	log_view.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	log_view.custom_minimum_size = Vector2(640, 280)
+	vb.add_child(log_view)
+	EditorInterface.get_base_control().add_child(dlg)
+	dlg.popup_centered(Vector2i(720, 480))
+
+## Rewrites res://export_presets.cfg with a single, fully-formed preset
+## for the chosen platform.  Must include `export_path` (the destination)
+## and a complete `[preset.0.options]` section — Godot's `--export-release`
+## reads both, and the previous minimal preset had neither.
+func _write_export_preset(preset_name: String, output_path: String) -> void:
+	var platform_id := ""
+	var options_section := ""
 	match preset_name:
 		"Windows Desktop":
-			content = """[preset.0]
-
-name="Windows Desktop"
-platform="Windows Desktop"
-runnable=true
-dedicated_server=false
-custom_features=""
-export_filter="all_resources"
-include_filter=""
-exclude_filter=""
-
-[preset.0.options]
-
-"""
+			platform_id = "Windows Desktop"
+			options_section = """custom_template/debug=""
+custom_template/release=""
+debug/export_console_wrapper=1
+binary_format/embed_pck=false
+texture_format/s3tc_bptc=true
+texture_format/etc2_astc=true
+binary_format/architecture=\"x86_64\"
+codesign/enable=false
+application/modify_resources=true
+application/icon=\"\"
+application/console_wrapper_icon=\"\"
+application/icon_interpolation=4
+application/file_version=\"\"
+application/product_version=\"\"
+application/company_name=\"\"
+application/product_name=\"\"
+application/file_description=\"\"
+application/copyright=\"\"
+application/trademarks=\"\"
+application/export_angle=0
+application/export_d3d12=0
+application/d3d12_agility_sdk_multiarch=true"""
 		"Linux":
-			content = """[preset.0]
-
-name="Linux"
-platform="Linux"
-runnable=true
-dedicated_server=false
-custom_features=""
-export_filter="all_resources"
-include_filter=""
-exclude_filter=""
-
-[preset.0.options]
-
-"""
+			platform_id = "Linux"
+			options_section = """custom_template/debug=""
+custom_template/release=""
+debug/export_console_wrapper=1
+binary_format/embed_pck=false
+texture_format/s3tc_bptc=true
+texture_format/etc2_astc=true
+binary_format/architecture=\"x86_64\"
+ssh_remote_deploy/enabled=false"""
 		"macOS":
-			content = """[preset.0]
+			platform_id = "macOS"
+			options_section = """export/distribution_type=1
+binary_format/architecture=\"universal\"
+custom_template/debug=""
+custom_template/release=""
+debug/export_console_wrapper=1
+application/icon=\"\"
+application/icon_interpolation=4
+application/bundle_identifier=\"\"
+application/signature=\"\"
+application/app_category=\"Games\"
+application/short_version=\"1.0\"
+application/version=\"1.0\"
+application/copyright=\"\"
+application/min_macos_version=\"10.12\"
+application/export_angle=0
+display/high_res=true
+xcode/platform_build=\"14C18\"
+xcode/sdk_version=\"13.1\"
+xcode/sdk_build=\"22C55\"
+xcode/sdk_name=\"macosx13.1\"
+xcode/xcode_version=\"1420\"
+xcode/xcode_build=\"14C18\"
+codesign/codesign=0
+notarization/notarization=0
+privacy/microphone_usage_description=\"\"
+privacy/camera_usage_description=\"\"
+privacy/location_usage_description=\"\"
+privacy/address_book_usage_description=\"\"
+privacy/calendar_usage_description=\"\"
+privacy/photos_library_usage_description=\"\"
+privacy/desktop_folder_usage_description=\"\"
+privacy/documents_folder_usage_description=\"\"
+privacy/downloads_folder_usage_description=\"\"
+privacy/network_volumes_usage_description=\"\"
+privacy/removable_volumes_usage_description=\"\"
+ssh_remote_deploy/enabled=false"""
+		"Web":
+			platform_id = "Web"
+			options_section = """custom_template/debug=""
+custom_template/release=""
+variant/extensions_support=false
+variant/thread_support=true
+vram_texture_compression/for_desktop=true
+vram_texture_compression/for_mobile=false
+html/export_icon=true
+html/custom_html_shell=\"\"
+html/head_include=\"\"
+html/canvas_resize_policy=2
+html/focus_canvas_on_start=true
+html/experimental_virtual_keyboard=false
+progressive_web_app/enabled=false
+progressive_web_app/ensure_cross_origin_isolation_headers=true
+progressive_web_app/offline_page=\"\"
+progressive_web_app/display=1
+progressive_web_app/orientation=0
+progressive_web_app/icon_144x144=\"\"
+progressive_web_app/icon_180x180=\"\"
+progressive_web_app/icon_512x512=\"\"
+progressive_web_app/background_color=Color(0, 0, 0, 1)"""
+		_:
+			platform_id = preset_name
 
-name="macOS"
-platform="macOS"
-runnable=true
-dedicated_server=false
-custom_features=""
-export_filter="all_resources"
-include_filter=""
-exclude_filter=""
-
-[preset.0.options]
-
-"""
+	var content := "[preset.0]\n\n" \
+		+ "name=\"" + preset_name + "\"\n" \
+		+ "platform=\"" + platform_id + "\"\n" \
+		+ "runnable=true\n" \
+		+ "advanced_options=false\n" \
+		+ "dedicated_server=false\n" \
+		+ "custom_features=\"\"\n" \
+		+ "export_filter=\"all_resources\"\n" \
+		+ "include_filter=\"\"\n" \
+		+ "exclude_filter=\"\"\n" \
+		+ "export_path=\"" + output_path + "\"\n" \
+		+ "encryption_include_filters=\"\"\n" \
+		+ "encryption_exclude_filters=\"\"\n" \
+		+ "seed=0\n" \
+		+ "encrypt_pck=false\n" \
+		+ "encrypt_directory=false\n" \
+		+ "script_export_mode=2\n" \
+		+ "\n[preset.0.options]\n\n" \
+		+ options_section + "\n"
 
 	var file := FileAccess.open("res://export_presets.cfg", FileAccess.WRITE)
 	if file:
 		file.store_string(content)
 		file.close()
-		print("[VG] Created default export preset: ", preset_name)
+		print("[VG] Wrote export preset: %s → %s" % [preset_name, output_path])
+	else:
+		push_error("[VG] Could not write res://export_presets.cfg")
+
+## Back-compat shim — older code paths called this. Now just delegates.
+func _create_default_export_preset(preset_name: String, output_path: String) -> void:
+	_write_export_preset(preset_name, output_path)
 
 # =============================================================================
 # EDIT MENU HELPERS — Code editor operations
