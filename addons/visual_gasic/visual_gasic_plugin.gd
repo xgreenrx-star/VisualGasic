@@ -5727,14 +5727,22 @@ func _on_export_path_selected(path: String) -> void:
 		push_error("[VG] Export failed: " + output_text)
 
 ## Shows the build log to the user — previously errors went only to the
-## hidden Output panel, leaving the user with no feedback.
+## hidden Output panel, leaving the user with no feedback.  Dialog size
+## is clamped to the host editor viewport so it never overflows the
+## screen (per gdscript_landmines.md § "Window/AcceptDialog sizing").
 func _show_export_result_dialog(success: bool, path: String, preset: String, log_text: String) -> void:
 	var dlg := AcceptDialog.new()
 	dlg.title = ("Export Succeeded" if success else "Export Failed") + " — " + preset
 	dlg.exclusive = false
+	# Outer scroll keeps everything reachable even on a small display.
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	dlg.add_child(scroll)
 	var vb := VBoxContainer.new()
+	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_theme_constant_override("separation", 6)
-	dlg.add_child(vb)
+	scroll.add_child(vb)
 	var header := Label.new()
 	if success:
 		header.text = "Built: " + path
@@ -5746,9 +5754,9 @@ func _show_export_result_dialog(success: bool, path: String, preset: String, log
 			+ "  • Project has unsaved errors.\n" \
 			+ "  • Disk full or permission denied at the output path."
 	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	header.custom_minimum_size.x = 600
 	vb.add_child(header)
-	var sep := HSeparator.new()
-	vb.add_child(sep)
+	vb.add_child(HSeparator.new())
 	var lbl := Label.new()
 	lbl.text = "Godot output:"
 	vb.add_child(lbl)
@@ -5756,10 +5764,22 @@ func _show_export_result_dialog(success: bool, path: String, preset: String, log
 	log_view.text = log_text
 	log_view.editable = false
 	log_view.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
-	log_view.custom_minimum_size = Vector2(640, 280)
+	log_view.custom_minimum_size = Vector2(600, 220)
+	log_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	log_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vb.add_child(log_view)
 	EditorInterface.get_base_control().add_child(dlg)
-	dlg.popup_centered(Vector2i(720, 480))
+	# Clamp final size to fit within the editor's main window — popup_centered
+	# argument is only a *minimum*, and the dialog can otherwise grow to
+	# its content's natural height (the log TextEdit + wrapped header).
+	var base := EditorInterface.get_base_control()
+	var host: Vector2i = Vector2i(base.size) if base != null else Vector2i(get_viewport().get_visible_rect().size)
+	var target_w: int = min(720, max(400, host.x - 80))
+	var target_h: int = min(520, max(260, host.y - 80))
+	var target := Vector2i(target_w, target_h)
+	dlg.popup_centered(target)
+	dlg.size = target
+	call_deferred("_force_first_run_dialog_size", dlg, target)
 
 ## Rewrites res://export_presets.cfg with a single, fully-formed preset
 ## for the chosen platform.  Must include `export_path` (the destination)
