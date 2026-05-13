@@ -5765,13 +5765,38 @@ with open(done, 'w') as f:
 		"Downloading Godot export templates in the background.\n\n"
 		+ "The download is ~1.3 GB and may take several minutes\n"
 		+ "depending on your connection speed.\n\n"
-		+ "Once finished, reopen File → Make EXE to build."
+		+ "A notification will appear when the install is complete."
 	)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lbl.custom_minimum_size.x = 440
 	info.add_child(lbl)
 	EditorInterface.get_base_control().add_child(info)
 	info.popup_centered(Vector2i(480, 220))
+
+	# Poll every 3 s for the sentinel file the Python script writes on completion.
+	var done_path := dest_dir + "/vg_install_done.txt"
+	var poll := Timer.new()
+	poll.wait_time = 3.0
+	poll.autostart = true
+	EditorInterface.get_base_control().add_child(poll)
+	poll.timeout.connect(func():
+		if not FileAccess.file_exists(done_path):
+			return
+		poll.stop()
+		poll.queue_free()
+		var toast := AcceptDialog.new()
+		toast.title = "Export Templates Installed"
+		var msg := Label.new()
+		msg.text = (
+			"Godot export templates installed successfully.\n\n"
+			+ "You can now use File → Make EXE to build your project."
+		)
+		msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		msg.custom_minimum_size.x = 360
+		toast.add_child(msg)
+		EditorInterface.get_base_control().add_child(toast)
+		toast.popup_centered(Vector2i(400, 160))
+	)
 
 ## Step 1: ask the user which platform to target.  The previous version
 ## auto-picked the host OS, which is wrong — users want to cross-compile.
@@ -5895,6 +5920,12 @@ func _show_export_result_dialog(success: bool, path: String, preset: String, log
 	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_theme_constant_override("separation", 6)
 	scroll.add_child(vb)
+	if success:
+		dlg.add_button("Show in Files", false, "show_in_files")
+		dlg.custom_action.connect(func(action: StringName):
+			if action == &"show_in_files":
+				OS.shell_show_in_file_manager(path)
+		)
 	var header := Label.new()
 	if success:
 		header.text = "Built: " + path
