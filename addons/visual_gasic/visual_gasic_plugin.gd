@@ -5675,12 +5675,14 @@ func _prompt_install_templates(preset: String) -> void:
 	vb.add_theme_constant_override("separation", 8)
 	dlg.add_child(vb)
 	var msg := Label.new()
+	var size_hint: String = ("(Web templates ~60 MB)" if preset == "Web"
+		else "(Linux templates ~500 MB; full set ~1.3 GB)")
 	msg.text = (
 		"Export templates for [%s] are not installed.\n\n"
 		+ "Required version: %s\n"
 		+ "Location: %s\n\n"
 		+ "Download and install export templates now?\n"
-		+ "(Linux templates ~500 MB; full set ~1.3 GB)"
+		+ size_hint
 	) % [preset, ver, _get_templates_dir()]
 	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	msg.custom_minimum_size.x = 480
@@ -5929,6 +5931,14 @@ func _show_export_result_dialog(success: bool, path: String, preset: String, log
 	var header := Label.new()
 	if success:
 		header.text = "Built: " + path
+		if preset == "Web":
+			header.text += (
+				"\n\nWeb builds cannot be opened directly in a browser.\n"
+				+ "Serve the output folder with a local HTTP server first:\n"
+				+ "  cd " + path.get_base_dir() + "\n"
+				+ "  python3 -m http.server 8080\n"
+				+ "Then open  http://localhost:8080  in your browser."
+			)
 	else:
 		header.text = "Failed to build: " + path \
 			+ "\n\nCommon causes:\n" \
@@ -6049,7 +6059,7 @@ ssh_remote_deploy/enabled=false"""
 			options_section = """custom_template/debug=""
 custom_template/release=""
 variant/extensions_support=false
-variant/thread_support=true
+variant/thread_support=false
 vram_texture_compression/for_desktop=true
 vram_texture_compression/for_mobile=false
 html/export_icon=true
