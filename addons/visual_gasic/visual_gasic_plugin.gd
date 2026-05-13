@@ -10714,11 +10714,15 @@ func _wrap_toolbox_grids_in_scroll() -> void:
 		scroll.name = grid.name
 		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 		# Grid fills the scroll width but uses its natural height so the
 		# scroll container has content taller than itself to scroll.
 		tab_container.remove_child(grid)
+		# TabContainer marks non-active tab children invisible.  Restore
+		# visibility before reparenting so the grid renders inside the
+		# ScrollContainer when that tab is later selected.
+		grid.show()
 		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		scroll.add_child(grid)
@@ -10726,6 +10730,43 @@ func _wrap_toolbox_grids_in_scroll() -> void:
 		tab_container.move_child(scroll, idx)
 		# Restore the tab title in case Godot's name-sanitiser changed it.
 		tab_container.set_tab_title(idx, tab_title)
+		# Style the scrollbar grabber — the editor theme's default is near-
+		# transparent so the track shows but the thumb is invisible.
+		# Must happen AFTER add_child so get_v_scroll_bar() is valid.
+		_style_toolbox_scroll(scroll)
+
+## Applies visible scrollbar styling to a toolbox ScrollContainer.
+## The editor theme's default grabber StyleBox is near-transparent —
+## the track is visible but the thumb is not.  Override grabber,
+## grabber_highlight and grabber_pressed with opaque StyleBoxFlats.
+## See gdscript_landmines.md § "ScrollContainer grabber invisible".
+func _style_toolbox_scroll(sc: ScrollContainer) -> void:
+	if not is_instance_valid(sc):
+		return
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(0.12, 0.12, 0.15)
+	track.set_corner_radius_all(2)
+	var grab := StyleBoxFlat.new()
+	grab.bg_color = Color(0.50, 0.50, 0.60)
+	grab.set_corner_radius_all(3)
+	grab.content_margin_left = 2; grab.content_margin_right = 2
+	grab.content_margin_top = 2;  grab.content_margin_bottom = 2
+	var grab_hi: StyleBoxFlat = grab.duplicate()
+	grab_hi.bg_color = Color(0.65, 0.65, 0.78)
+	var grab_pr: StyleBoxFlat = grab.duplicate()
+	grab_pr.bg_color = Color(0.80, 0.80, 0.92)
+	for bar in [sc.get_v_scroll_bar(), sc.get_h_scroll_bar()]:
+		if bar == null:
+			continue
+		bar.add_theme_stylebox_override("scroll", track)
+		bar.add_theme_stylebox_override("scroll_focus", track)
+		bar.add_theme_stylebox_override("grabber", grab)
+		bar.add_theme_stylebox_override("grabber_highlight", grab_hi)
+		bar.add_theme_stylebox_override("grabber_pressed", grab_pr)
+		if bar is VScrollBar:
+			bar.custom_minimum_size.x = 12
+		elif bar is HScrollBar:
+			bar.custom_minimum_size.y = 12
 
 ## Disables mouse input on all MenuBars in a scene tree.
 ## This prevents MenuBars from intercepting editor drag-drop operations.

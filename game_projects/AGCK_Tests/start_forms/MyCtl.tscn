@@ -1,10 +1,10 @@
 [gd_scene format=3]
 
-[node name="MyCtl" type="Control" unique_id=1653979157]
+[node name="MyCtl" type="Control" unique_id=580085945]
 layout_mode = 3
 anchors_preset = 0
 
-[node name="MyCtl" type="Control" parent="." unique_id=710857990]
+[node name="MyCtl" type="Control" parent="." unique_id=614709178]
 custom_minimum_size = Vector2(13.333333, 6.6666665)
 anchors_preset = 0
 offset_right = 13.333333
