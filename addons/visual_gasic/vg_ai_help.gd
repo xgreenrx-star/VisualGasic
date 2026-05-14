@@ -21,6 +21,7 @@ const STREAM_POLL_INTERVAL := 0.016  # ~60 fps polling for streaming chunks
 
 # Provider system
 var AIProviders = null  # Loaded dynamically
+var VgAiFC = null       # Phase 6c: native function-calling adapter (vg_ai_function_calling.gd)
 var _provider_id := "ollama"
 var _provider_info = null  # current ProviderInfo
 var _provider_dropdown: OptionButton
@@ -263,6 +264,12 @@ var _stream_token_count := 0           # Tokens received so far
 var _stream_start_time := 0.0          # Time.get_ticks_msec() when query sent
 var _stream_first_token_time := 0.0    # Time of first token (0 = not yet)
 var _stream_http_phase := 0            # 0=idle, 1=connecting, 2=requesting, 3=body
+# Phase 6c: native FC call fragments accumulated during streaming.
+var _fc_fragments: Array = []
+
+# Phase 6e: NDJSON agent run transcript.
+# One file per agent session, written to user://vg_agent_runs/<timestamp>.ndjson.
+var _agent_transcript_file: FileAccess = null
 
 # Preset quick-action buttons
 var _explain_error_btn: Button
@@ -393,6 +400,8 @@ func _get_editor_selected_code() -> String:
 func _ready() -> void:
 	# Load the provider abstraction
 	AIProviders = load("res://addons/visual_gasic/vg_ai_providers.gd")
+	# Phase 6c: load native function-calling adapter (optional — degrades gracefully).
+	VgAiFC = load("res://addons/visual_gasic/vg_ai_function_calling.gd")
 	if AIProviders:
 		_provider_id = AIProviders.load_preferred_provider()
 		_provider_info = AIProviders.find_provider(_provider_id)
@@ -529,6 +538,11 @@ func _on_poll_timer() -> void:
 								_stream_error = parsed.get("message", "Unknown API error")
 								_stream_done = true
 								break
+							# Phase 6c: collect native FC fragments alongside text tokens.
+							if VgAiFC and VgAiFC.supports_native_fc(_provider_id):
+								var fc_frag = VgAiFC.parse_stream_line_for_fc(_provider_id, line)
+								if fc_frag:
+									_fc_fragments.append(fc_frag)
 						else:
 							# Ollama: raw JSON lines
 							if line[0] != "{":
@@ -631,6 +645,20 @@ func _finish_generation() -> void:
 	# This is what lets Narcea (and the other personas) actually drive the
 	# editor — highlight lines, jump the caret, insert/replace code, save,
 	# write whole files via the SafeWrite chokepoint.  See vg_ai_tools.gd.
+	#
+	# Phase 6c: if the model used native function-calling (OpenAI/Claude/Gemini),
+	# the streamed tool_calls / input_json_delta / functionCall fragments are in
+	# _fc_fragments.  Assemble and convert them to fenced vg-tool blocks so the
+	# existing dispatch path handles them without modification.
+	if VgAiFC and not _fc_fragments.is_empty():
+		var calls := VgAiFC.assemble_fc_calls(_fc_fragments)
+		if not calls.is_empty():
+			var fenced := VgAiFC.to_fenced_text(calls)
+			if not _accumulated_response.is_empty():
+				_accumulated_response += "\n"
+			_accumulated_response += fenced
+			_output.append_text("[color=#888888]  (native function calls converted)[/color]\n")
+		_fc_fragments.clear()
 	if not _accumulated_response.is_empty():
 		_dispatch_tool_calls(_accumulated_response)
 	_stream_tool_watermark = 0
@@ -1273,6 +1301,11 @@ func _on_send() -> void:
 	# preserve the count for that follow-up turn only.
 	if _agent_continuation:
 		_agent_continuation = false
+		# Phase 6d: visual hop marker so users can follow the agent loop.
+		_output.append_text("\n[color=#4477cc][b]── Agent hop %d ──[/b][/color]\n" % _agent_hops)
+		# Phase 6e: open transcript on first continuation, write hop entry.
+		_transcript_open()
+		_transcript_append({"type": "hop_start", "hop": _agent_hops, "prompt_len": prompt.length()})
 	else:
 		_agent_hops = 0
 		_agent_total_tokens = 0
@@ -1281,6 +1314,7 @@ func _on_send() -> void:
 		_agent_run_output_lines.clear()
 		_agent_abort_requested = false
 		_hide_abort_agent_btn()
+		_transcript_close("user_new_turn")  # Phase 6e: close any open transcript.
 	_send_query(prompt)
 
 ## Quick health check — verifies Ollama can accept requests before sending.
@@ -1916,6 +1950,14 @@ func _send_cloud_query(prompt: String) -> void:
 		_provider_id, _current_model, _get_active_system_prompt(),
 		_conversation_history, prompt, api_key)
 
+	# Phase 6c: inject native FC tool schemas for cloud providers that support it.
+	# Parse → augment → re-serialise so we don't duplicate the JSON builders in providers.gd.
+	if VgAiFC and VgAiFC.supports_native_fc(_provider_id):
+		var body_dict = JSON.parse_string(req_data["body"])
+		if body_dict != null and typeof(body_dict) == TYPE_DICTIONARY:
+			VgAiFC.inject_tools_into_body(_provider_id, body_dict)
+			req_data["body"] = JSON.stringify(body_dict)
+
 	_stream_json_body = req_data["body"]
 	_current_prompt = prompt
 
@@ -1929,6 +1971,7 @@ func _send_cloud_query(prompt: String) -> void:
 	_stream_first_token_time = 0.0
 	_accumulated_response = ""
 	_stream_tool_watermark = 0
+	_fc_fragments.clear()  # Phase 6c: reset FC fragment accumulator.
 
 	# Create HTTPClient and connect with TLS for cloud providers
 	if _stream_http != null:
@@ -2657,18 +2700,23 @@ func _continue_agent_after_run(exit_code: int) -> void:
 		_agent_abort_requested = false
 		_hide_abort_agent_btn()
 		_output.append_text("[color=#888888]  (agent aborted by user)[/color]\n")
+		_transcript_close("aborted")
 		return
 	if _agent_hops >= _max_agent_hops:
 		_output.append_text("[color=#888888]  (agent hop limit reached — stopping)[/color]\n")
 		_hide_abort_agent_btn()
+		_transcript_close("hop_limit")
 		return
 	if _check_agent_budget_exceeded():
 		_hide_abort_agent_btn()
+		_transcript_close("budget_exceeded")
 		return
 	_agent_hops += 1
 	var captured := _agent_run_output_lines.duplicate()
 	_agent_run_output_lines.clear()
 	var lines_text := "\n".join(captured) if not captured.is_empty() else "(no output)"
+	_transcript_append({"type": "run_result", "hop": _agent_hops, "exit_code": exit_code,
+			"output_lines": captured.size()})
 	var follow_up: String
 	if exit_code == 0:
 		follow_up = (
@@ -2744,6 +2792,50 @@ func _on_abort_agent() -> void:
 		_agent_continuation = false
 		_hide_abort_agent_btn()
 		_output.append_text("[color=#ffaa44]  🛑 Agent loop aborted.[/color]\n")
+		_transcript_close("aborted")
+
+# ---------------------------------------------------------------------------
+# Phase 6e: NDJSON agent run transcript
+# ---------------------------------------------------------------------------
+# Writes one file per agent session under user://vg_agent_runs/<timestamp>.ndjson.
+# Each line is a JSON object: {ts_ms:int, type:string, ...extra fields}.
+# The harness at bench/ai_correctness/ can replay these to score agent runs.
+
+func _transcript_open() -> void:
+	if _agent_transcript_file != null:
+		return  # Already open.
+	DirAccess.make_dir_recursive_absolute("user://vg_agent_runs")
+	var ts := Time.get_datetime_string_from_system().replace(":", "-").replace(" ", "T")
+	var path := "user://vg_agent_runs/%s.ndjson" % ts
+	_agent_transcript_file = FileAccess.open(path, FileAccess.WRITE)
+	if _agent_transcript_file:
+		_transcript_append({
+			"type": "session_start",
+			"provider": _provider_id,
+			"model": _current_model,
+			"max_hops": _max_agent_hops,
+		})
+
+
+func _transcript_append(data: Dictionary) -> void:
+	if _agent_transcript_file == null:
+		return
+	data["ts_ms"] = Time.get_ticks_msec()
+	_agent_transcript_file.store_line(JSON.stringify(data))
+
+
+func _transcript_close(reason: String) -> void:
+	if _agent_transcript_file == null:
+		return
+	_transcript_append({
+		"type": "session_end",
+		"reason": reason,
+		"total_hops": _agent_hops,
+		"total_tokens": _agent_total_tokens,
+	})
+	_agent_transcript_file.close()
+	_agent_transcript_file = null
+
 
 # ---------------------------------------------------------------------------
 # Personas (Bob, Skippy, default) — system-prompt flavor + TTS voice
@@ -2953,6 +3045,7 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 	var muts: Array = plan.get("mutating", [])
 	var blocked: Array = plan.get("blocked", [])
 	if not blocked.is_empty():
+		_transcript_close("blocked")
 		return
 	# Phase 6b: if the model emitted a play.run_main call, defer the next
 	# hop until _on_run_finished fires (which calls _continue_agent_after_run).
@@ -2968,15 +3061,20 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 			_agent_triggered_run = true
 			_agent_run_output_lines.clear()
 			_show_abort_agent_btn()
+		else:
+			_transcript_close("mutation_stop")
 		# Whether run or not, stop here — _continue_agent_after_run handles it.
 		return
 	var reads: Array = _ai_tools.get_read_results()
 	if reads.is_empty():
+		_transcript_close("complete")
 		return
 	if _agent_hops >= _max_agent_hops:
 		_output.append_text("[color=#888888]  (agent hop limit reached — stopping)[/color]\n")
+		_transcript_close("hop_limit")
 		return
 	if _check_agent_budget_exceeded():
+		_transcript_close("budget_exceeded")
 		return
 	_agent_hops += 1
 	_show_abort_agent_btn()
