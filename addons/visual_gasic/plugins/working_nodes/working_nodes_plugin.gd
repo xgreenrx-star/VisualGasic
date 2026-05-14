@@ -3,6 +3,10 @@ extends "res://addons/visual_gasic/vg_plugin_base.gd"
 
 var _editor: Control = null
 var _right_panel: PanelContainer = null
+var _left_panel_ref: PanelContainer = null
+var _left_content_ref: VBoxContainer = null
+var _left_toggle_btn: Button = null
+var _left_collapsed: bool = false
 # Play-menu (unified ▶) entry ids registered with the host's form_preview_toolbar.
 # Stored so _on_cleanup() can deregister them when WN is unloaded or disabled.
 var _play_menu_ids: Array[int] = []
@@ -63,10 +67,28 @@ func _build_ui() -> void:
 	left_style.bg_color = Color(0.10, 0.11, 0.15)
 	left_panel.add_theme_stylebox_override("panel", left_style)
 	_view.add_child(left_panel)
+	_left_panel_ref = left_panel
+
+	var left_outer := VBoxContainer.new()
+	left_outer.add_theme_constant_override("separation", 0)
+	left_panel.add_child(left_outer)
+
+	var toggle_row := HBoxContainer.new()
+	left_outer.add_child(toggle_row)
+	var toggle_spacer := Control.new()
+	toggle_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toggle_row.add_child(toggle_spacer)
+	_left_toggle_btn = Button.new()
+	_left_toggle_btn.text = "\u00ab"
+	_left_toggle_btn.tooltip_text = "Collapse panel"
+	_left_toggle_btn.flat = true
+	_left_toggle_btn.pressed.connect(_toggle_left_panel)
+	toggle_row.add_child(_left_toggle_btn)
 
 	var left_v := VBoxContainer.new()
 	left_v.add_theme_constant_override("separation", 6)
-	left_panel.add_child(left_v)
+	left_outer.add_child(left_v)
+	_left_content_ref = left_v
 
 	var title := Label.new()
 	title.text = "Working Nodes"
@@ -120,6 +142,20 @@ func _build_ui() -> void:
 		_editor._ensure_initialized()
 	_connect_editor_export_signals()
 	call_deferred("_verify_editor_surface")
+
+
+func _toggle_left_panel() -> void:
+	_left_collapsed = not _left_collapsed
+	if is_instance_valid(_left_content_ref):
+		_left_content_ref.visible = not _left_collapsed
+	var new_width := 28 if _left_collapsed else 220
+	if is_instance_valid(_left_panel_ref):
+		_left_panel_ref.custom_minimum_size.x = new_width
+	if _view is HSplitContainer:
+		(_view as HSplitContainer).split_offset = new_width
+	if is_instance_valid(_left_toggle_btn):
+		_left_toggle_btn.text = "\u00bb" if _left_collapsed else "\u00ab"
+		_left_toggle_btn.tooltip_text = "Expand panel" if _left_collapsed else "Collapse panel"
 
 
 func _try_mount_full_editor(host: Control) -> bool:
