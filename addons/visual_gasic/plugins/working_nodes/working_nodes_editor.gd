@@ -215,6 +215,7 @@ signal run_graph_requested(data: Dictionary, is_3d: bool)
 
 var _graph: GraphEdit
 var _overlay: Control
+var _side_panel: VBoxContainer = null
 
 var _show_all_wires: CheckButton
 var _smart_routing: CheckButton
@@ -289,21 +290,7 @@ func _ensure_initialized() -> void:
 	_new_graph()
 
 func _build_ui() -> void:
-	var top_banner := PanelContainer.new()
-	var banner_style := StyleBoxFlat.new()
-	banner_style.bg_color = Color(0.14, 0.19, 0.30, 0.95)
-	banner_style.set_corner_radius_all(4)
-	top_banner.add_theme_stylebox_override("panel", banner_style)
-	var banner_row := HBoxContainer.new()
-	var banner_label := Label.new()
-	banner_label.text = "Working Nodes"
-	banner_label.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
-	banner_label.add_theme_font_size_override("font_size", 14)
-	banner_row.add_child(banner_label)
-	top_banner.add_child(banner_row)
-	add_child(top_banner)
-
-	# ─ Toolbar row 1: File + Export + Add nodes ──────────────────────────
+	# ─ Toolbar row 1: File + Export + Run ────────────────────────────────
 	var toolbar := HBoxContainer.new()
 	toolbar.add_theme_constant_override("separation", 6)
 	add_child(toolbar)
@@ -334,35 +321,40 @@ func _build_ui() -> void:
 
 	toolbar.add_child(VSeparator.new())
 
-	var btn_export_vg := Button.new()
-	btn_export_vg.text = "▶ Export VG"
-	btn_export_vg.tooltip_text = "Generate VG code from this graph and save as a .vg file"
-	btn_export_vg.pressed.connect(_on_export_vg_pressed)
-	toolbar.add_child(btn_export_vg)
+	var export_menu := MenuButton.new()
+	export_menu.text = "▶ Export ▾"
+	export_menu.tooltip_text = "Export graph as VG code or Godot scene"
+	var ep: PopupMenu = export_menu.get_popup()
+	ep.add_item("▶ Export VG", 0)
+	ep.add_item("⬡ 2D Scene", 1)
+	ep.add_item("◈ 3D Scene", 2)
+	ep.id_pressed.connect(_on_export_menu_pressed)
+	_do_style_wn_popup(ep)
+	ep.about_to_popup.connect(_on_wn_popup_about_to_show.bind(ep))
+	toolbar.add_child(export_menu)
 
-	var btn_export_2d := Button.new()
-	btn_export_2d.text = "⬡ 2D Scene"
-	btn_export_2d.tooltip_text = "Generate a Godot 2D .tscn scene + companion .vg script"
-	btn_export_2d.pressed.connect(_on_export_scene_2d_pressed)
-	toolbar.add_child(btn_export_2d)
+	var run_menu := MenuButton.new()
+	run_menu.text = "▶ Run ▾"
+	run_menu.tooltip_text = "Export + launch in Godot"
+	var rp: PopupMenu = run_menu.get_popup()
+	rp.add_item("▶ Run 2D", 0)
+	rp.add_item("▶ Run 3D", 1)
+	rp.id_pressed.connect(_on_run_menu_pressed)
+	_do_style_wn_popup(rp)
+	rp.about_to_popup.connect(_on_wn_popup_about_to_show.bind(rp))
+	toolbar.add_child(run_menu)
 
-	var btn_export_3d := Button.new()
-	btn_export_3d.text = "◈ 3D Scene"
-	btn_export_3d.tooltip_text = "Generate a Godot 3D .tscn scene + companion .vg script"
-	btn_export_3d.pressed.connect(_on_export_scene_3d_pressed)
-	toolbar.add_child(btn_export_3d)
+	var toolbar_end_spacer := Control.new()
+	toolbar_end_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toolbar.add_child(toolbar_end_spacer)
 
-	var btn_run_2d := Button.new()
-	btn_run_2d.text = "▶ Run 2D"
-	btn_run_2d.tooltip_text = "Generate 2D scene + VG + copy runtime, then launch"
-	btn_run_2d.pressed.connect(_on_run_graph_2d_pressed)
-	toolbar.add_child(btn_run_2d)
-
-	var btn_run_3d := Button.new()
-	btn_run_3d.text = "▶ Run 3D"
-	btn_run_3d.tooltip_text = "Generate 3D scene + VG + copy runtime, then launch"
-	btn_run_3d.pressed.connect(_on_run_graph_3d_pressed)
-	toolbar.add_child(btn_run_3d)
+	var btn_toggle_side := Button.new()
+	btn_toggle_side.text = "Groups ◄"
+	btn_toggle_side.tooltip_text = "Show/hide the Groups panel"
+	btn_toggle_side.toggle_mode = true
+	btn_toggle_side.button_pressed = true
+	btn_toggle_side.toggled.connect(func(on: bool): if is_instance_valid(_side_panel): _side_panel.visible = on)
+	toolbar.add_child(btn_toggle_side)
 
 	# ─ Toolbar row 2: Groups + View controls ─────────────────────────────
 	# Note: + Event / + Action / + Math / trigger shortcuts removed from the
@@ -508,6 +500,7 @@ func _build_ui() -> void:
 	add_child(body)
 
 	var side := VBoxContainer.new()
+	_side_panel = side
 	side.custom_minimum_size = Vector2(220, 200)
 	side.add_theme_constant_override("separation", 4)
 	body.add_child(side)
@@ -1459,6 +1452,17 @@ func _on_run_graph_2d_pressed() -> void:
 
 func _on_run_graph_3d_pressed() -> void:
 	run_graph_requested.emit(_collect_graph_data(), true)
+
+func _on_export_menu_pressed(id: int) -> void:
+	match id:
+		0: _on_export_vg_pressed()
+		1: _on_export_scene_2d_pressed()
+		2: _on_export_scene_3d_pressed()
+
+func _on_run_menu_pressed(id: int) -> void:
+	match id:
+		0: _on_run_graph_2d_pressed()
+		1: _on_run_graph_3d_pressed()
 
 
 # ══════════════════════════════════════════════════════════════════════════════

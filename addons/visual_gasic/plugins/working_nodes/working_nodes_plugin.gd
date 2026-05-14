@@ -74,6 +74,7 @@ func _build_ui() -> void:
 	left_panel.add_child(left_outer)
 
 	var toggle_row := HBoxContainer.new()
+	toggle_row.custom_minimum_size = Vector2(0, 28)
 	left_outer.add_child(toggle_row)
 	var toggle_spacer := Control.new()
 	toggle_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -81,7 +82,7 @@ func _build_ui() -> void:
 	_left_toggle_btn = Button.new()
 	_left_toggle_btn.text = "\u00ab"
 	_left_toggle_btn.tooltip_text = "Collapse panel"
-	_left_toggle_btn.flat = true
+	_left_toggle_btn.custom_minimum_size = Vector2(28, 24)
 	_left_toggle_btn.pressed.connect(_toggle_left_panel)
 	toggle_row.add_child(_left_toggle_btn)
 
