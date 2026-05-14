@@ -498,6 +498,14 @@ class _VGGen:
 				b_expr = str(prm.get("B", "0"))
 			var op := str(prm.get("OpSelect", prm.get("math_op", "add"))).to_lower()
 			return _math_inline_expr(a_expr, b_expr, op)
+		# get_prop node output — emit GetNode("path").property inline
+		if src_kind == "get_prop":
+			var prm := src.get("params", {})
+			var path := str(prm.get("Node_Path", ""))
+			var prop  := str(prm.get("Property",  ""))
+			if not path.is_empty() and not prop.is_empty():
+				return "GetNode(\"%s\").%s" % [path, prop]
+			return ""
 		return ""
 
 	## Returns either a value-wire inline expression (if a Math node feeds this param)

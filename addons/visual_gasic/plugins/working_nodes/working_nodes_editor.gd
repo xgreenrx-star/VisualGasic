@@ -215,6 +215,7 @@ signal run_graph_requested(data: Dictionary, is_3d: bool)
 
 var _graph: GraphEdit
 var _overlay: Control
+var _canvas_hint: Label = null
 var _side_panel: VBoxContainer = null
 
 var _show_all_wires: CheckButton
@@ -630,6 +631,25 @@ func _build_ui() -> void:
 	_graph.add_child(_overlay)
 	_graph.scroll_offset_changed.connect(func(_o): _queue_wire_redraw())
 
+	# Empty-canvas hint — shown when no nodes exist
+	_canvas_hint = Label.new()
+	_canvas_hint.text = "Right-click or Shift+A to add nodes\n+ Event  →  + Action  →  + Math"
+	_canvas_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_canvas_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_canvas_hint.anchor_left   = 0.5
+	_canvas_hint.anchor_top    = 0.5
+	_canvas_hint.anchor_right  = 0.5
+	_canvas_hint.anchor_bottom = 0.5
+	_canvas_hint.offset_left   = -200.0
+	_canvas_hint.offset_right  =  200.0
+	_canvas_hint.offset_top    = -30.0
+	_canvas_hint.offset_bottom =  30.0
+	_canvas_hint.add_theme_color_override("font_color", Color(0.50, 0.50, 0.60))
+	_canvas_hint.add_theme_font_size_override("font_size", 14)
+	_canvas_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_canvas_hint.visible = false
+	_graph.add_child(_canvas_hint)
+
 	# Dialogs are created on-demand in _show_save_dialog / _show_load_dialog
 
 func _new_graph() -> void:
@@ -757,6 +777,7 @@ func _apply_loaded_data(data: Dictionary) -> void:
 			_graph.connect_node(fn, fp, tn, tp)
 	_refresh_group_ui()
 	_queue_wire_redraw()
+	_update_canvas_hint()
 
 func _serialize_groups() -> Array:
 	var out: Array = []
@@ -854,6 +875,10 @@ func _refresh_group_ui() -> void:
 
 	_queue_wire_redraw()
 
+func _update_canvas_hint() -> void:
+	if is_instance_valid(_canvas_hint):
+		_canvas_hint.visible = _nodes.is_empty()
+
 func _add_node(node_type: String) -> void:
 	var n := _create_node_ui(node_type)
 	n.name = "WN_%d" % _next_node_id
@@ -865,6 +890,7 @@ func _add_node(node_type: String) -> void:
 	_apply_node_color(n)
 	_queue_wire_redraw()
 	_update_vg_preview()
+	_update_canvas_hint()
 
 func _create_node_ui(node_type: String) -> GraphNode:
 	var n := GraphNode.new()
@@ -997,7 +1023,7 @@ func _build_trigger_node(n: GraphNode, def: Dictionary) -> void:
 	var params:   Array = def.get("params",   [])
 	var col: Color = Color.from_string("#" + def.get("color_hex", "888888"), Color.WHITE)
 
-	n.custom_minimum_size = Vector2(260, max(96, 74 + params.size() * 30 + (26 if else_out else 0)))
+	n.custom_minimum_size = Vector2(260, max(96, 74 + params.size() * 30 + (26 if else_out else 0) + (30 if kind == "get_prop" else 0)))
 
 	# ── Slot 0: execution-flow header (True / main exec output) ──────────
 	var exec_row := HBoxContainer.new()
@@ -1047,6 +1073,22 @@ func _build_trigger_node(n: GraphNode, def: Dictionary) -> void:
 		n.add_child(row)
 		n.set_slot(slot_offset + i, true, PORT_VALUE, VALUE_PORT_COLOR, false, 0, Color.WHITE)
 
+	# ── Optional Result output port (get_prop only) ───────────────────────
+	var extra_slots := 0
+	if kind == "get_prop":
+		var res_row := HBoxContainer.new()
+		res_row.add_theme_constant_override("separation", 4)
+		var res_lbl := Label.new()
+		res_lbl.text = "Result →"
+		res_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		res_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		res_lbl.add_theme_color_override("font_color", VALUE_PORT_COLOR)
+		res_lbl.add_theme_font_size_override("font_size", 11)
+		res_row.add_child(res_lbl)
+		n.add_child(res_row)
+		n.set_slot(slot_offset + params.size(), false, 0, Color.WHITE, true, PORT_VALUE, VALUE_PORT_COLOR)
+		extra_slots = 1
+
 	# ── Last slot: group-membership label (no ports) ─────────────────────
 	var gl := Label.new()
 	gl.name = "GroupLabel"
@@ -1054,7 +1096,7 @@ func _build_trigger_node(n: GraphNode, def: Dictionary) -> void:
 	gl.add_theme_color_override("font_color", Color(0.52, 0.52, 0.52))
 	gl.add_theme_font_size_override("font_size", 10)
 	n.add_child(gl)
-	n.set_slot(slot_offset + params.size(), false, 0, Color.WHITE, false, 0, Color.WHITE)
+	n.set_slot(slot_offset + params.size() + extra_slots, false, 0, Color.WHITE, false, 0, Color.WHITE)
 
 
 ## Create a parameter row: [Label "name:"]  [LineEdit value]
@@ -1924,6 +1966,7 @@ func _delete_nodes_by_name(node_names: Array[StringName]) -> void:
 		_graph.connect_node(c["from"], c["from_port"], c["to"], c["to_port"])
 	_queue_wire_redraw()
 	_update_vg_preview()
+	_update_canvas_hint()
 
 func _rename_node_inline(node: GraphNode) -> void:
 	var d := AcceptDialog.new()

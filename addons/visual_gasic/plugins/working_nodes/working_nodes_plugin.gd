@@ -111,6 +111,20 @@ func _build_ui() -> void:
 	hint.add_theme_color_override("font_color", Color(0.75, 0.75, 0.8))
 	left_v.add_child(hint)
 
+	var quick_add_row := HBoxContainer.new()
+	quick_add_row.add_theme_constant_override("separation", 4)
+	left_v.add_child(quick_add_row)
+	for qa in [["+ Event", "event"], ["+ Action", "action"], ["+ Math", "math"]]:
+		var qa_btn := Button.new()
+		qa_btn.text = qa[0]
+		qa_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		qa_btn.add_theme_font_size_override("font_size", 11)
+		var qa_type: String = qa[1]
+		qa_btn.pressed.connect(func():
+			if is_instance_valid(_editor) and _editor.has_method("_add_node"):
+				_editor._add_node(qa_type))
+		quick_add_row.add_child(qa_btn)
+
 	var right_panel := PanelContainer.new()
 	right_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
