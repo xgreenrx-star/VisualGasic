@@ -447,7 +447,7 @@ func _build_ui() -> void:
 	wire_label.text = "Wire Group:"
 	toolbar_mid.add_child(wire_label)
 
-	_group_filter = OptionButton.new()
+	_group_filter = _make_option_btn()
 	_group_filter.custom_minimum_size = Vector2(140, 0)
 	_group_filter.item_selected.connect(func(_i): _queue_wire_redraw())
 	toolbar_mid.add_child(_group_filter)
@@ -937,14 +937,14 @@ func _create_node_ui(node_type: String) -> GraphNode:
 	root.add_child(type_label)
 
 	if node_type == TYPE_EVENT:
-		var event_option := OptionButton.new()
+		var event_option := _make_option_btn()
 		event_option.add_item("On Start")
 		event_option.add_item("On Touch")
 		event_option.add_item("On Timer")
 		event_option.add_item("On Signal")
 		root.add_child(event_option)
 	else:  # TYPE_ACTION
-		var action_option := OptionButton.new()
+		var action_option := _make_option_btn()
 		action_option.add_item("Move")
 		action_option.add_item("Rotate")
 		action_option.add_item("Scale")
@@ -980,7 +980,7 @@ func _build_math_node(n: GraphNode) -> void:
 	op_lbl.add_theme_font_size_override("font_size", 11)
 	op_lbl.add_theme_color_override("font_color", Color(0.70, 0.75, 0.80))
 	op_row.add_child(op_lbl)
-	var math_opt := OptionButton.new()
+	var math_opt := _make_option_btn()
 	math_opt.name = "OpSelect"
 	math_opt.add_item("Add")
 	math_opt.add_item("Subtract")
@@ -2195,3 +2195,92 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_paste_selection()
 			get_viewport().set_input_as_handled()
 
+
+
+# ---------------------------------------------------------------------------
+# OptionButton popup styling helpers
+# ---------------------------------------------------------------------------
+
+func _make_option_btn() -> OptionButton:
+var btn := OptionButton.new()
+_style_wn_option_btn(btn)
+return btn
+
+func _style_wn_option_btn(btn: OptionButton) -> void:
+if not is_instance_valid(btn):
+
+var popup := btn.get_popup()
+if popup == null:
+
+_do_style_wn_popup(popup)
+if not popup.about_to_popup.is_connected(_on_wn_popup_about_to_show):
+nect(_on_wn_popup_about_to_show.bind(popup))
+
+func _on_wn_popup_about_to_show(popup: PopupMenu) -> void:
+if is_instance_valid(popup):
+le_wn_popup(popup)
+
+func _do_style_wn_popup(popup: PopupMenu) -> void:
+var panel_style := StyleBoxFlat.new()
+panel_style.bg_color = Color(0.94, 0.94, 0.96)
+panel_style.set_border_width_all(1)
+panel_style.border_color = Color(0.55, 0.55, 0.62)
+panel_style.set_corner_radius_all(4)
+panel_style.set_content_margin_all(4)
+
+var hover_style := StyleBoxFlat.new()
+hover_style.bg_color = Color(0.30, 0.50, 0.85)
+hover_style.set_corner_radius_all(3)
+
+var sep_style := StyleBoxFlat.new()
+sep_style.bg_color = Color(0.70, 0.70, 0.75)
+sep_style.content_margin_top = 1
+sep_style.content_margin_bottom = 1
+
+var t := Theme.new()
+t.set_stylebox("panel", "PopupMenu", panel_style)
+t.set_stylebox("hover", "PopupMenu", hover_style)
+t.set_stylebox("separator", "PopupMenu", sep_style)
+t.set_stylebox("labeled_separator_left", "PopupMenu", sep_style)
+t.set_stylebox("labeled_separator_right", "PopupMenu", sep_style)
+t.set_color("font_color", "PopupMenu", Color.BLACK)
+t.set_color("font_hover_color", "PopupMenu", Color.WHITE)
+t.set_color("font_disabled_color", "PopupMenu", Color(0.55, 0.55, 0.55))
+t.set_color("font_separator_color", "PopupMenu", Color(0.4, 0.4, 0.4))
+t.set_color("font_accelerator_color", "PopupMenu", Color(0.25, 0.35, 0.6))
+t.set_stylebox("panel", "PopupPanel", panel_style)
+popup.theme = t
+
+popup.add_theme_stylebox_override("panel", panel_style)
+popup.add_theme_stylebox_override("hover", hover_style)
+popup.add_theme_stylebox_override("separator", sep_style)
+popup.add_theme_stylebox_override("labeled_separator_left", sep_style)
+popup.add_theme_stylebox_override("labeled_separator_right", sep_style)
+popup.add_theme_color_override("font_color", Color.BLACK)
+popup.add_theme_color_override("font_hover_color", Color.WHITE)
+popup.add_theme_color_override("font_disabled_color", Color(0.55, 0.55, 0.55))
+popup.add_theme_color_override("font_separator_color", Color(0.4, 0.4, 0.4))
+popup.add_theme_color_override("font_accelerator_color", Color(0.25, 0.35, 0.6))
+popup.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0))
+popup.add_theme_constant_override("outline_size", 0)
+for c: String in ["font_focus_color", "font_pressed_color", "font_selected_color"]:
+Color.BLACK)
+
+var good_font: Font = null
+var owner_btn := popup.get_parent() as OptionButton
+if owner_btn != null:
+t = owner_btn.get_theme_font("font")
+if good_font == null and Engine.is_editor_hint():
+base := EditorInterface.get_base_control()
+base != null:
+t = base.get_theme_font("font")
+if good_font != null:
+t_override("font", good_font)
+fs := 0
+owner_btn != null:
+= owner_btn.get_theme_font_size("font_size")
+fs > 0:
+t_size_override("font_size", fs)
+
+popup.transparent = false
+popup.notification(Window.NOTIFICATION_THEME_CHANGED)

@@ -952,7 +952,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 	if node_kind == "Event":
 		var ol := Label.new(); ol.text = "▶ trigger out"
 		ol.add_theme_color_override("font_color", COLOR_EXEC); dc.add_child(ol)
-		var ch := OptionButton.new()
+		var ch := _make_option_btn()
 		for s in ["On Ready","On Process","On Signal","On Input","On Timer"]: ch.add_item(s)
 		dc.add_child(ch)
 		node.set_slot(0, false, PORT_EXEC, COLOR_EXEC, true, PORT_EXEC, COLOR_EXEC)
@@ -960,7 +960,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 	elif node_kind == "Action":
 		var il := Label.new(); il.text = "▶ exec in";  il.add_theme_color_override("font_color", COLOR_EXEC); dc.add_child(il)
 		var ol := Label.new(); ol.text = "▶ exec out"; ol.add_theme_color_override("font_color", COLOR_EXEC); dc.add_child(ol)
-		var ch := OptionButton.new()
+		var ch := _make_option_btn()
 		for s in ["Move","Rotate","Scale","Play Anim","Emit Signal","Set Property","Call Method","Tween","Wait","Print"]: ch.add_item(s)
 		dc.add_child(ch)
 		var tgt := LineEdit.new(); tgt.placeholder_text = "Target node path..."; dc.add_child(tgt)
@@ -979,10 +979,10 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 			"Conversion": ["To Radians","To Degrees"],
 			"Interpolation":["Lerp","Smooth Step","Inverse Lerp","Clamp"]
 		}
-		var cat_btn := OptionButton.new()
+		var cat_btn := _make_option_btn()
 		for cat in cat_ops.keys(): cat_btn.add_item(cat)
 		dc.add_child(cat_btn)
-		var op_btn := OptionButton.new()
+		var op_btn := _make_option_btn()
 		for op2 in cat_ops["Arithmetic"]: op_btn.add_item(op2)
 		dc.add_child(op_btn)
 		cat_btn.item_selected.connect(func(idx: int):
@@ -999,7 +999,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		var il := Label.new(); il.text = "▶ exec in";  il.add_theme_color_override("font_color", COLOR_EXEC); dc.add_child(il)
 		var tl := Label.new(); tl.text = "✔ True";     tl.add_theme_color_override("font_color", COLOR_INT);  dc.add_child(tl)
 		var fl := Label.new(); fl.text = "✘ False";    fl.add_theme_color_override("font_color", COLOR_BOOL); dc.add_child(fl)
-		var ch := OptionButton.new()
+		var ch := _make_option_btn()
 		for s in ["== Equal","!= Not Equal","> Greater","< Less",">= Gte","<= Lte","Is Null","Has Signal"]: ch.add_item(s)
 		dc.add_child(ch)
 		var vr := HBoxContainer.new(); var vl := Label.new(); vl.text = "Value:"; vr.add_child(vl)
@@ -1013,7 +1013,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		var ne := LineEdit.new(); ne.placeholder_text = "my_var"; ne.size_flags_horizontal = Control.SIZE_EXPAND_FILL; nr.add_child(ne)
 		dc.add_child(nr)
 		var tr := HBoxContainer.new(); var tl := Label.new(); tl.text = "Type:"; tr.add_child(tl)
-		var to := OptionButton.new()
+		var to := _make_option_btn()
 		for s in ["float","int","bool","String","Vector2","Vector3","Color","NodePath"]: to.add_item(s)
 		tr.add_child(to); dc.add_child(tr)
 		var vr := HBoxContainer.new(); var vl := Label.new(); vl.text = "Value:"; vr.add_child(vl)
@@ -1026,7 +1026,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		var il := Label.new(); il.text = "▶ exec in";  il.add_theme_color_override("font_color", COLOR_EXEC); dc.add_child(il)
 		var bl := Label.new(); bl.text = "↺ body";     bl.add_theme_color_override("font_color", COLOR_INT);  dc.add_child(bl)
 		var dl := Label.new(); dl.text = "▶ done";     dl.add_theme_color_override("font_color", COLOR_EXEC); dc.add_child(dl)
-		var ch := OptionButton.new()
+		var ch := _make_option_btn()
 		for s in ["For (count)","While (condition)","For Each (array)","Repeat Timed"]: ch.add_item(s)
 		dc.add_child(ch)
 		var cr := HBoxContainer.new(); var cl := Label.new(); cl.text = "Count:"; cr.add_child(cl)
@@ -1058,7 +1058,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		var p2l := Label.new(); p2l.text = "param_b (float)"; p2l.add_theme_color_override("font_color", COLOR_FLOAT); dc.add_child(p2l)
 		var rl  := Label.new(); rl.text  = "→ return";        rl.add_theme_color_override("font_color", COLOR_FLOAT); dc.add_child(rl)
 		var rr := HBoxContainer.new(); var rtl := Label.new(); rtl.text = "Returns:"; rr.add_child(rtl)
-		var rto := OptionButton.new()
+		var rto := _make_option_btn()
 		for s in ["void","float","int","bool","String","Variant"]: rto.add_item(s)
 		rr.add_child(rto); dc.add_child(rr)
 		node.set_slot(0, true, PORT_EXEC,  COLOR_EXEC,  true, PORT_EXEC,  COLOR_EXEC)
@@ -1074,7 +1074,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		var l3 := Label.new(); l3.text = "Scale";      l3.add_theme_color_override("font_color", COLOR_FLOAT); dc.add_child(l3)
 		var l4 := Label.new(); l4.text = "→ Vector";   l4.add_theme_color_override("font_color", COLOR_INT);   dc.add_child(l4)
 		var l5 := Label.new(); l5.text = "→ Float";    l5.add_theme_color_override("font_color", COLOR_FLOAT); dc.add_child(l5)
-		var op := OptionButton.new()
+		var op := _make_option_btn()
 		for s in ["Add","Subtract","Multiply","Divide","Scale","Length","Distance","Normalize",
 				"Dot Product","Cross Product","Project","Reflect","Refract","Face Forward",
 				"Wrap","Snap","Floor","Ceil","Round","Modulo","Fraction","Absolute","Min","Max"]: op.add_item(s)
@@ -1088,7 +1088,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		for pair in [["Value",COLOR_FLOAT],["From Min",COLOR_FLOAT],["From Max",COLOR_FLOAT],
 				["To Min",COLOR_FLOAT],["To Max",COLOR_FLOAT],["→ Result",COLOR_FLOAT]]:
 			var ll := Label.new(); ll.text = pair[0]; ll.add_theme_color_override("font_color", pair[1]); dc.add_child(ll)
-		var mode_btn := OptionButton.new()
+		var mode_btn := _make_option_btn()
 		for s in ["Linear","Stepped","Smooth Step","Smoother Step"]: mode_btn.add_item(s)
 		dc.add_child(mode_btn)
 		var clamp_r := HBoxContainer.new(); var cl := Label.new(); cl.text = "Clamp:"; clamp_r.add_child(cl)
@@ -1100,7 +1100,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		var la2 := Label.new(); la2.text = "A (bool)"; la2.add_theme_color_override("font_color", COLOR_BOOL); dc.add_child(la2)
 		var lb2 := Label.new(); lb2.text = "B (bool)"; lb2.add_theme_color_override("font_color", COLOR_BOOL); dc.add_child(lb2)
 		var lo2 := Label.new(); lo2.text = "→ Result"; lo2.add_theme_color_override("font_color", COLOR_BOOL); dc.add_child(lo2)
-		var op2 := OptionButton.new()
+		var op2 := _make_option_btn()
 		for s in ["AND","OR","NOT","NAND","NOR","XOR","XNOR"]: op2.add_item(s)
 		dc.add_child(op2)
 		node.set_slot(0, true, PORT_BOOL, COLOR_BOOL, true, PORT_BOOL, COLOR_BOOL)
@@ -1113,7 +1113,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		var lf := Label.new(); lf.text = "False value";   lf.add_theme_color_override("font_color", COLOR_FLOAT); dc.add_child(lf)
 		var lo3 := Label.new(); lo3.text = "→ Output";    lo3.add_theme_color_override("font_color", COLOR_FLOAT); dc.add_child(lo3)
 		var tr := HBoxContainer.new(); var tll := Label.new(); tll.text = "Type:"; tr.add_child(tll)
-		var tob := OptionButton.new()
+		var tob := _make_option_btn()
 		for s in ["Float","Int","Bool","String","Vector2","Vector3","Color"]: tob.add_item(s)
 		tr.add_child(tob); dc.add_child(tr)
 		node.set_slot(0, true, PORT_BOOL,  COLOR_BOOL,  true,  PORT_FLOAT, COLOR_FLOAT)
@@ -1127,10 +1127,10 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		var le  := Label.new(); le.text  = "Epsilon";     le.add_theme_color_override("font_color", COLOR_FLOAT);  dc.add_child(le)
 		var lo4 := Label.new(); lo4.text = "→ Result (bool)"; lo4.add_theme_color_override("font_color", COLOR_BOOL); dc.add_child(lo4)
 		var dt_r := HBoxContainer.new(); var dtl := Label.new(); dtl.text = "Type:"; dt_r.add_child(dtl)
-		var dto := OptionButton.new()
+		var dto := _make_option_btn()
 		for s in ["Float","Int","Vector","String","Color"]: dto.add_item(s)
 		dt_r.add_child(dto); dc.add_child(dt_r)
-		var op3 := OptionButton.new()
+		var op3 := _make_option_btn()
 		for s in ["< Less Than","> Greater Than","<= Lte",">= Gte","== Equal","!= Not Equal"]: op3.add_item(s)
 		dc.add_child(op3)
 		node.set_slot(0, true, PORT_FLOAT, COLOR_FLOAT, true,  PORT_BOOL, COLOR_BOOL)
@@ -1144,7 +1144,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		var lsed := Label.new(); lsed.text = "Seed";   lsed.add_theme_color_override("font_color", COLOR_INT);   dc.add_child(lsed)
 		var lout := Label.new(); lout.text = "→ Value"; lout.add_theme_color_override("font_color", COLOR_FLOAT); dc.add_child(lout)
 		var rv_tr := HBoxContainer.new(); var rv_tl := Label.new(); rv_tl.text = "Type:"; rv_tr.add_child(rv_tl)
-		var rv_to := OptionButton.new()
+		var rv_to := _make_option_btn()
 		for s in ["Float","Int","Bool","Vector2","Vector3"]: rv_to.add_item(s)
 		rv_tr.add_child(rv_to); dc.add_child(rv_tr)
 		node.set_slot(0, true, PORT_FLOAT, COLOR_FLOAT, true,  PORT_FLOAT, COLOR_FLOAT)
@@ -1172,7 +1172,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		_mk_row(dc, "Channel (1-1000):", 1, 1000, 1)
 		var cc_cpb := ColorPickerButton.new(); cc_cpb.color = Color(1,1,1); cc_cpb.custom_minimum_size = Vector2(140,24); dc.add_child(cc_cpb)
 		_mk_row(dc, "Duration (s):", 0.0, 99.0, 0.1)
-		var blend := OptionButton.new()
+		var blend := _make_option_btn()
 		for s in ["None","Pulse","Blending"]: blend.add_item(s)
 		dc.add_child(blend)
 		node.set_slot(0, true, PORT_EXEC, COLOR_EXEC, true, PORT_EXEC, COLOR_EXEC)
@@ -1185,7 +1185,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		_mk_row(dc, "Move X:", -9999, 9999, 1)
 		_mk_row(dc, "Move Y:", -9999, 9999, 1)
 		_mk_row(dc, "Duration (s):", 0.0, 99.0, 0.1)
-		var ease_btn := OptionButton.new()
+		var ease_btn := _make_option_btn()
 		for s in ["None","Ease In","Ease Out","Ease In/Out","Elastic In","Elastic Out","Bounce In","Bounce Out","Back In","Back Out"]: ease_btn.add_item(s)
 		dc.add_child(ease_btn)
 		var lk_r := HBoxContainer.new(); var lk_l := Label.new(); lk_l.text = "Lock to Camera:"; lk_r.add_child(lk_l)
@@ -1199,7 +1199,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		_mk_row(dc, "Group ID:", 0, 9999, 1)
 		_mk_row(dc, "Degrees:", -3600, 3600, 1)
 		_mk_row(dc, "Duration (s):", 0.0, 99.0, 0.1)
-		var ease_btn2 := OptionButton.new()
+		var ease_btn2 := _make_option_btn()
 		for s in ["None","Ease In","Ease Out","Ease In/Out"]: ease_btn2.add_item(s)
 		dc.add_child(ease_btn2)
 		var lkr_r := HBoxContainer.new(); var lkr_l := Label.new(); lkr_l.text = "Lock Obj Rot:"; lkr_r.add_child(lkr_l)
@@ -1232,7 +1232,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		var il := Label.new(); il.text = "▶ exec in";  il.add_theme_color_override("font_color", COLOR_EXEC); dc.add_child(il)
 		var ol := Label.new(); ol.text = "▶ exec out"; ol.add_theme_color_override("font_color", COLOR_EXEC); dc.add_child(ol)
 		_mk_row(dc, "Group ID:", 0, 9999, 1)
-		var mode_btn2 := OptionButton.new()
+		var mode_btn2 := _make_option_btn()
 		for s in ["Toggle On","Toggle Off","Flip"]: mode_btn2.add_item(s)
 		dc.add_child(mode_btn2)
 		_mk_row(dc, "Activate Group:", 0, 9999, 1)
@@ -1246,7 +1246,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		_mk_row(dc, "Block B ID:", 0, 9999, 1)
 		_mk_row(dc, "Trigger Group:", 0, 9999, 1)
 		var act_r := HBoxContainer.new(); var act_l := Label.new(); act_l.text = "Activate On:"; act_r.add_child(act_l)
-		var act_o := OptionButton.new()
+		var act_o := _make_option_btn()
 		for s in ["Overlap Begin","Overlap End","While Overlapping"]: act_o.add_item(s)
 		act_r.add_child(act_o); dc.add_child(act_r)
 		node.set_slot(0, true, PORT_EXEC, COLOR_EXEC, true, PORT_EXEC, COLOR_EXEC)
@@ -1258,7 +1258,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		var fl := Label.new(); fl.text = "✘ no match"; fl.add_theme_color_override("font_color", COLOR_BOOL); dc.add_child(fl)
 		_mk_row(dc, "Item ID:", 0, 9999, 1)
 		_mk_row(dc, "Target Count:", 0, 9999, 1)
-		var cmp_btn := OptionButton.new()
+		var cmp_btn := _make_option_btn()
 		for s in ["== Equal","!= Not Equal","> Greater","< Less",">= Gte","<= Lte"]: cmp_btn.add_item(s)
 		dc.add_child(cmp_btn)
 		var sub_r := HBoxContainer.new(); var sub_l := Label.new(); sub_l.text = "Subtract?"; sub_r.add_child(sub_l)
@@ -1271,7 +1271,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		var il := Label.new(); il.text = "▶ exec in";  il.add_theme_color_override("font_color", COLOR_EXEC); dc.add_child(il)
 		var ol := Label.new(); ol.text = "▶ exec out"; ol.add_theme_color_override("font_color", COLOR_EXEC); dc.add_child(ol)
 		_mk_row(dc, "Group/Channel:", 0, 9999, 1)
-		var pul_t := OptionButton.new()
+		var pul_t := _make_option_btn()
 		for s in ["Color","HSV","Channel"]: pul_t.add_item(s)
 		dc.add_child(pul_t)
 		var pul_cpb := ColorPickerButton.new(); pul_cpb.color = Color(1,1,1); pul_cpb.custom_minimum_size = Vector2(140,24); dc.add_child(pul_cpb)
@@ -1297,12 +1297,12 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 	elif node_kind == "CameraControl":
 		var il := Label.new(); il.text = "▶ exec in";  il.add_theme_color_override("font_color", COLOR_EXEC); dc.add_child(il)
 		var ol := Label.new(); ol.text = "▶ exec out"; ol.add_theme_color_override("font_color", COLOR_EXEC); dc.add_child(ol)
-		var cam_t := OptionButton.new()
+		var cam_t := _make_option_btn()
 		for s in ["Zoom","Pan X","Pan Y","Offset X","Offset Y","Static","Free Mode","Reset"]: cam_t.add_item(s)
 		dc.add_child(cam_t)
 		_mk_row(dc, "Value:", -9999, 9999, 0.1)
 		_mk_row(dc, "Duration (s):", 0.0, 99.0, 0.1)
-		var cam_e := OptionButton.new()
+		var cam_e := _make_option_btn()
 		for s in ["None","Ease In","Ease Out","Ease In/Out"]: cam_e.add_item(s)
 		dc.add_child(cam_e)
 		node.set_slot(0, true, PORT_EXEC, COLOR_EXEC, true, PORT_EXEC, COLOR_EXEC)
@@ -1317,7 +1317,7 @@ func _fallback_add_node(node_kind: String, at_pos: Vector2 = Vector2(-1, -1)) ->
 		var te_lp_r := HBoxContainer.new(); var te_lp_l := Label.new(); te_lp_l.text = "Loop:"; te_lp_r.add_child(te_lp_l)
 		var te_lp_c := CheckButton.new(); te_lp_r.add_child(te_lp_c); dc.add_child(te_lp_r)
 		var te_tu_r := HBoxContainer.new(); var te_tu_l := Label.new(); te_tu_l.text = "Time Unit:"; te_tu_r.add_child(te_tu_l)
-		var te_tu_o := OptionButton.new()
+		var te_tu_o := _make_option_btn()
 		for s in ["Seconds","BPM Beats","Frames"]: te_tu_o.add_item(s)
 		te_tu_r.add_child(te_tu_o); dc.add_child(te_tu_r)
 		node.set_slot(0, false, PORT_EXEC, COLOR_EXEC, true, PORT_EXEC, COLOR_EXEC)
@@ -1679,7 +1679,7 @@ func _show_scene_root_selector(is_3d: bool, data: Dictionary) -> void:
 		var lbl := Label.new()
 		lbl.text = "Select root node type for the exported scene:"
 		vb.add_child(lbl)
-		_root_selector_option = OptionButton.new()
+		_root_selector_option = _make_option_btn()
 		vb.add_child(_root_selector_option)
 		var ok_btn := Button.new(); ok_btn.text = "Export"
 		ok_btn.pressed.connect(_on_root_selector_confirmed)
@@ -1966,3 +1966,92 @@ func _fallback_paste() -> void:
 	_fallback_update_node_count()
 
 
+
+
+# ---------------------------------------------------------------------------
+# OptionButton popup styling helpers
+# ---------------------------------------------------------------------------
+
+func _make_option_btn() -> OptionButton:
+var btn := OptionButton.new()
+_style_wn_option_btn(btn)
+return btn
+
+func _style_wn_option_btn(btn: OptionButton) -> void:
+if not is_instance_valid(btn):
+
+var popup := btn.get_popup()
+if popup == null:
+
+_do_style_wn_popup(popup)
+if not popup.about_to_popup.is_connected(_on_wn_popup_about_to_show):
+nect(_on_wn_popup_about_to_show.bind(popup))
+
+func _on_wn_popup_about_to_show(popup: PopupMenu) -> void:
+if is_instance_valid(popup):
+le_wn_popup(popup)
+
+func _do_style_wn_popup(popup: PopupMenu) -> void:
+var panel_style := StyleBoxFlat.new()
+panel_style.bg_color = Color(0.94, 0.94, 0.96)
+panel_style.set_border_width_all(1)
+panel_style.border_color = Color(0.55, 0.55, 0.62)
+panel_style.set_corner_radius_all(4)
+panel_style.set_content_margin_all(4)
+
+var hover_style := StyleBoxFlat.new()
+hover_style.bg_color = Color(0.30, 0.50, 0.85)
+hover_style.set_corner_radius_all(3)
+
+var sep_style := StyleBoxFlat.new()
+sep_style.bg_color = Color(0.70, 0.70, 0.75)
+sep_style.content_margin_top = 1
+sep_style.content_margin_bottom = 1
+
+var t := Theme.new()
+t.set_stylebox("panel", "PopupMenu", panel_style)
+t.set_stylebox("hover", "PopupMenu", hover_style)
+t.set_stylebox("separator", "PopupMenu", sep_style)
+t.set_stylebox("labeled_separator_left", "PopupMenu", sep_style)
+t.set_stylebox("labeled_separator_right", "PopupMenu", sep_style)
+t.set_color("font_color", "PopupMenu", Color.BLACK)
+t.set_color("font_hover_color", "PopupMenu", Color.WHITE)
+t.set_color("font_disabled_color", "PopupMenu", Color(0.55, 0.55, 0.55))
+t.set_color("font_separator_color", "PopupMenu", Color(0.4, 0.4, 0.4))
+t.set_color("font_accelerator_color", "PopupMenu", Color(0.25, 0.35, 0.6))
+t.set_stylebox("panel", "PopupPanel", panel_style)
+popup.theme = t
+
+popup.add_theme_stylebox_override("panel", panel_style)
+popup.add_theme_stylebox_override("hover", hover_style)
+popup.add_theme_stylebox_override("separator", sep_style)
+popup.add_theme_stylebox_override("labeled_separator_left", sep_style)
+popup.add_theme_stylebox_override("labeled_separator_right", sep_style)
+popup.add_theme_color_override("font_color", Color.BLACK)
+popup.add_theme_color_override("font_hover_color", Color.WHITE)
+popup.add_theme_color_override("font_disabled_color", Color(0.55, 0.55, 0.55))
+popup.add_theme_color_override("font_separator_color", Color(0.4, 0.4, 0.4))
+popup.add_theme_color_override("font_accelerator_color", Color(0.25, 0.35, 0.6))
+popup.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0))
+popup.add_theme_constant_override("outline_size", 0)
+for c: String in ["font_focus_color", "font_pressed_color", "font_selected_color"]:
+Color.BLACK)
+
+var good_font: Font = null
+var owner_btn := popup.get_parent() as OptionButton
+if owner_btn != null:
+t = owner_btn.get_theme_font("font")
+if good_font == null and Engine.is_editor_hint():
+base := EditorInterface.get_base_control()
+base != null:
+t = base.get_theme_font("font")
+if good_font != null:
+t_override("font", good_font)
+fs := 0
+owner_btn != null:
+= owner_btn.get_theme_font_size("font_size")
+fs > 0:
+t_size_override("font_size", fs)
+
+popup.transparent = false
+popup.notification(Window.NOTIFICATION_THEME_CHANGED)
