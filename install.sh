@@ -178,6 +178,80 @@ fi
 # ── Install 'visualgasic' alias (conflict-proof) ───────────────────────────
 ln -sf "$BIN_DIR/vg" "$BIN_DIR/visualgasic"
 
+# ── Check / install Godot ───────────────────────────────────────────────────
+GODOT_VERSION="4.6.1"
+GODOT_VERSION_STABLE="4.6.1-stable"
+GODOT_BIN=""
+
+# Probe in priority order: PATH → vg-managed symlink → vg-managed raw binary
+if command -v godot &>/dev/null; then
+    GODOT_BIN=$(command -v godot)
+    GODOT_VER_LINE=$(godot --version 2>/dev/null | head -1 || echo "unknown")
+    success "Godot already installed: $GODOT_BIN ($GODOT_VER_LINE)"
+elif [[ -x "$VG_GLOBAL_DIR/godot" ]]; then
+    GODOT_BIN="$VG_GLOBAL_DIR/godot"
+    success "Godot already installed (VG-managed): $GODOT_BIN"
+fi
+
+if [[ -z "$GODOT_BIN" ]]; then
+    warn "Godot not found on PATH."
+    echo ""
+    echo "  Godot $GODOT_VERSION is required to run VisualGasic projects."
+    echo ""
+    SKIP_GODOT=0
+    if [[ -t 0 && -t 1 && "${VG_INSTALL_GODOT:-}" != "0" ]]; then
+        read -r -p "  Download Godot $GODOT_VERSION now? (~80 MB) [Y/n] " ans
+        [[ "$ans" =~ ^[Nn]$ ]] && SKIP_GODOT=1
+    elif [[ "${VG_INSTALL_GODOT:-1}" == "0" ]]; then
+        SKIP_GODOT=1
+        info "Skipping Godot download (VG_INSTALL_GODOT=0)."
+    fi
+
+    if [[ "$SKIP_GODOT" == "0" ]]; then
+        ARCH=$(uname -m)
+        case "$ARCH" in
+            aarch64|arm64) GODOT_ARCH="arm64" ;;
+            *)             GODOT_ARCH="x86_64" ;;
+        esac
+
+        if [[ "$PLATFORM" == "macOS" ]]; then
+            GODOT_ZIP_URL="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION_STABLE}/Godot_v${GODOT_VERSION_STABLE}_macos.universal.zip"
+            GODOT_BIN_INSIDE="Godot.app/Contents/MacOS/Godot"
+        else
+            GODOT_ZIP_URL="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION_STABLE}/Godot_v${GODOT_VERSION_STABLE}_linux.${GODOT_ARCH}.zip"
+            GODOT_BIN_INSIDE="Godot_v${GODOT_VERSION_STABLE}_linux.${GODOT_ARCH}"
+        fi
+
+        info "Downloading Godot $GODOT_VERSION..."
+        GODOT_DEST_DIR="$VG_GLOBAL_DIR/bin"
+        mkdir -p "$GODOT_DEST_DIR"
+        if curl -sSL --progress-bar "$GODOT_ZIP_URL" -o "$TEMP_DIR/godot.zip"; then
+            cd "$TEMP_DIR"
+            unzip -q godot.zip -d "$TEMP_DIR/godot_extracted"
+            if [[ "$PLATFORM" == "macOS" ]]; then
+                cp -r "$TEMP_DIR/godot_extracted/Godot.app" "$GODOT_DEST_DIR/"
+                GODOT_REAL="$GODOT_DEST_DIR/Godot.app/Contents/MacOS/Godot"
+            else
+                GODOT_REAL="$GODOT_DEST_DIR/godot_engine"
+                mv "$TEMP_DIR/godot_extracted/$GODOT_BIN_INSIDE" "$GODOT_REAL"
+                chmod +x "$GODOT_REAL"
+            fi
+            # Canonical symlink at $VG_GLOBAL_DIR/godot (picked up by vg CLI)
+            ln -sf "$GODOT_REAL" "$VG_GLOBAL_DIR/godot"
+            # Also add to ~/.local/bin so `godot .` works in the shell
+            ln -sf "$GODOT_REAL" "$BIN_DIR/godot"
+            GODOT_BIN="$BIN_DIR/godot"
+            cd "$TEMP_DIR"  # reset cwd after unzip
+            success "Godot $GODOT_VERSION installed to $GODOT_DEST_DIR"
+        else
+            warn "Download failed. Install Godot manually: https://godotengine.org/download/"
+        fi
+    else
+        info "Skipped. Install Godot from: https://godotengine.org/download/"
+        warn "VisualGasic requires Godot to run. Make sure 'godot' is on your PATH."
+    fi
+fi
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 echo ""
 VG_VER="unknown"
@@ -197,7 +271,11 @@ echo "  CLI:      $BIN_DIR/vg  (also available as 'visualgasic')"
 echo ""
 echo -e "  ${BOLD}Quick Start:${NC}"
 echo "    vg new MyGame        # Create a new VG project"
-echo "    cd MyGame && godot . # Open in Godot"
+if [[ -n "$GODOT_BIN" ]]; then
+    echo "    cd MyGame && godot . # Open in Godot (using: $GODOT_BIN)"
+else
+    echo "    cd MyGame && godot . # Open in Godot  ← install Godot first!"
+fi
 echo ""
 echo -e "  ${BOLD}Add VG to an existing project:${NC}"
 echo "    cd /path/to/project"

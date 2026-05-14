@@ -201,7 +201,7 @@ def install(source_dir):
     return global_dir, addon_dir, bin_dir
 
 
-def print_summary(global_dir, addon_dir, bin_dir):
+def print_summary(global_dir, addon_dir, bin_dir, godot_bin=None):
     """Print installation summary."""
     version = "unknown"
     ver_file = global_dir / "VERSION"
@@ -231,7 +231,10 @@ def print_summary(global_dir, addon_dir, bin_dir):
     print()
     print("  Quick Start:")
     print("    vg new MyGame        # Create a new VG project")
-    print("    cd MyGame && godot . # Open in Godot")
+    if godot_bin:
+        print(f"    cd MyGame && godot . # Open in Godot  (using: {godot_bin})")
+    else:
+        print("    cd MyGame && godot . # Open in Godot  ← install Godot first!")
     print()
     print("  Add VG to an existing project:")
     print("    cd /path/to/project")
@@ -277,6 +280,101 @@ def print_summary(global_dir, addon_dir, bin_dir):
 
 # ── Main ────────────────────────────────────────────────────────────────────
 
+def check_or_install_godot(global_dir, bin_dir):
+    """Detect Godot on PATH or in the VG-managed dir; offer to download if missing.
+    Returns the path to the godot binary string, or None if not installed."""
+    import shutil as _shutil
+    import zipfile
+    import urllib.request
+
+    GODOT_VERSION = "4.6.1"
+    GODOT_TAG = "4.6.1-stable"
+
+    # 1. Already on PATH?
+    godot_on_path = _shutil.which("godot")
+    if godot_on_path:
+        print(f"  ✅ Godot found: {godot_on_path}")
+        return godot_on_path
+
+    # 2. VG-managed canonical symlink / binary?
+    vg_godot = global_dir / "godot"
+    if vg_godot.exists() or vg_godot.is_symlink():
+        print(f"  ✅ Godot found (VG-managed): {vg_godot}")
+        return str(vg_godot)
+
+    # 3. Not found — prompt
+    print()
+    print(f"  ⚠  Godot {GODOT_VERSION} not found on PATH.")
+    print(f"     Godot is required to run VisualGasic projects.")
+    print()
+
+    skip = False
+    if sys.stdin.isatty() and sys.stdout.isatty() and os.environ.get("VG_INSTALL_GODOT", "1") != "0":
+        ans = input(f"  Download Godot {GODOT_VERSION} now? (~80 MB) [Y/n] ").strip().lower()
+        if ans in ("n", "no"):
+            skip = True
+    elif os.environ.get("VG_INSTALL_GODOT", "1") == "0":
+        skip = True
+        print("  Skipping Godot download (VG_INSTALL_GODOT=0).")
+
+    if skip:
+        print(f"  Skipped. Download Godot from: https://godotengine.org/download/")
+        print(f"  ⚠  Make sure 'godot' is on your PATH before running VG projects.")
+        return None
+
+    # 4. Download
+    system = platform.system()
+    machine = platform.machine().lower()
+    if system == "Darwin":
+        zip_url = f"https://github.com/godotengine/godot/releases/download/{GODOT_TAG}/Godot_v{GODOT_TAG}_macos.universal.zip"
+        bin_inside = "Godot.app/Contents/MacOS/Godot"
+    elif "arm" in machine or "aarch64" in machine:
+        zip_url = f"https://github.com/godotengine/godot/releases/download/{GODOT_TAG}/Godot_v{GODOT_TAG}_linux.arm64.zip"
+        bin_inside = f"Godot_v{GODOT_TAG}_linux.arm64"
+    else:
+        zip_url = f"https://github.com/godotengine/godot/releases/download/{GODOT_TAG}/Godot_v{GODOT_TAG}_linux.x86_64.zip"
+        bin_inside = f"Godot_v{GODOT_TAG}_linux.x86_64"
+
+    print(f"  Downloading Godot {GODOT_VERSION}...")
+    godot_bin_dir = global_dir / "bin"
+    godot_bin_dir.mkdir(parents=True, exist_ok=True)
+    zip_path = godot_bin_dir / "godot.zip"
+
+    try:
+        def _progress(block, block_size, total):
+            if total > 0:
+                pct = min(100, block * block_size * 100 // total)
+                print(f"\r    {pct}%", end="", flush=True)
+        urllib.request.urlretrieve(zip_url, zip_path, reporthook=_progress)
+        print()
+
+        with zipfile.ZipFile(zip_path) as z:
+            z.extractall(godot_bin_dir)
+        zip_path.unlink(missing_ok=True)
+
+        if system == "Darwin":
+            godot_real = godot_bin_dir / "Godot.app" / "Contents" / "MacOS" / "Godot"
+        else:
+            godot_real = godot_bin_dir / bin_inside
+        godot_real.chmod(0o755)
+
+        # Canonical VG symlink (picked up by `vg` CLI without PATH changes)
+        vg_godot.unlink(missing_ok=True)
+        vg_godot.symlink_to(godot_real)
+        # Also symlink into ~/.local/bin so `godot .` works in the shell
+        shell_godot = bin_dir / "godot"
+        shell_godot.unlink(missing_ok=True)
+        shell_godot.symlink_to(godot_real)
+
+        print(f"  ✅ Godot {GODOT_VERSION} installed to {godot_bin_dir}")
+        return str(shell_godot)
+
+    except Exception as e:
+        print(f"\n  ⚠  Godot download failed: {e}")
+        print(f"     Install manually from: https://godotengine.org/download/")
+        return None
+
+
 def main():
     print()
     print("  ╔══════════════════════════════════════╗")
@@ -311,7 +409,8 @@ def main():
 
     try:
         global_dir, addon_dir, bin_dir = install(source_dir)
-        print_summary(global_dir, addon_dir, bin_dir)
+        godot_bin = check_or_install_godot(global_dir, bin_dir)
+        print_summary(global_dir, addon_dir, bin_dir, godot_bin=godot_bin)
     finally:
         if temp_dir:
             shutil.rmtree(temp_dir, ignore_errors=True)
