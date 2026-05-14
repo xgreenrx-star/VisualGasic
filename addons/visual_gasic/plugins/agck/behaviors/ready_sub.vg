@@ -1,0 +1,12 @@
+Sub _Ready()
+    Speed = {{SPEED}}
+    Gravity = {{GRAVITY}}
+    MaxHP = {{HP}}
+    CurrentHP = MaxHP
+    Damage = {{DMG}}
+    ScoreValue = {{SCORE}}
+    IsInvincible = False
+    InvincibleTimer = 0.0
+    CurrentAnim = "Idle"
+{{GROUP_ADD}}{{EXTRA_INIT}}End Sub
+

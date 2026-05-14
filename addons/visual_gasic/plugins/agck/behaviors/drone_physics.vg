@@ -1,0 +1,40 @@
+Sub _PhysicsProcess(delta As Single)
+    If HasPath And PathCount >= 2 Then
+        ' Follow waypoint path (overrides normal movement)
+        Dim tx As Single = PathX(PathIndex)
+        Dim ty As Single = PathY(PathIndex)
+        Dim dx As Single = tx - Me.GlobalPosition.X
+        Dim dy As Single = ty - Me.GlobalPosition.Y
+        Dim dist As Single = Sqr(dx * dx + dy * dy)
+        If dist < 4.0 Then
+            ' Reached waypoint — advance to next (loop)
+            PathIndex = PathIndex + 1
+            If PathIndex >= PathCount Then PathIndex = 0
+        Else
+            ' Move toward waypoint via direct position
+            Dim mx As Single = (dx / dist) * PatrolSpeed * delta
+            Dim my As Single = (dy / dist) * PatrolSpeed * delta
+            Me.GlobalPosition = Vector2(Me.GlobalPosition.X + mx, Me.GlobalPosition.Y + my)
+        End If
+        Exit Sub
+    End If
+
+    ' ── Normal AI movement ──
+    ' Read current velocity
+    vx = Me.velocity.x
+    vy = Me.velocity.y
+
+    ' Apply gravity
+    vy = vy + Gravity * delta
+
+{{AI_BLOCK}}
+    ' Write velocity and move
+    SetVelocity Me, vx, vy
+    MoveAndSlide Me
+
+    ' Reverse at walls
+    If IsOnWall(Me) Then
+        Direction = -Direction
+    End If
+{{LEDGE_BLOCK}}End Sub
+

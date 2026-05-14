@@ -1,0 +1,57 @@
+Sub _PhysicsProcess(delta As Single)
+    ' Read current velocity
+    vx = Me.velocity.x
+    vy = Me.velocity.y
+
+    ' Auto-run: horizontal velocity is locked to Speed every frame.
+    ' No left/right input — this is the core Geometry-Dash mechanic.
+    vx = Speed
+
+    ' Gravity is always applied (no ladder logic for runner).
+    vy = vy + Gravity * delta
+
+    ' Jump on accept while on floor. Hold-to-rejump: every floor-contact
+    ' frame the button stays pressed will retrigger the launch.
+    If Input.IsActionPressed("ui_accept") And IsOnFloor(Me) Then
+        vy = -{{JUMP_FORCE}}
+        IsJumping = True
+{{JUMP_SFX}}    End If
+
+    ' Write velocity back and move
+    SetVelocity Me, vx, vy
+    MoveAndSlide Me
+
+    ' Cube rotation: spin while airborne, snap to nearest 90° on landing.
+    ' ~9 rad/s ≈ one full rotation per 0.7s — feels like classic GD.
+    If IsOnFloor(Me) Then
+        ' Snap rotation to nearest configured snap angle.
+        Dim quarter As Single = {{SNAP_ANGLE_RAD}}
+        Dim r As Single = Me.rotation
+        Dim snap As Single = Round(r / quarter) * quarter
+        Me.rotation = snap
+        IsJumping = False
+    Else
+        Me.rotation = Me.rotation + {{ROTATION_SPEED}} * delta
+    End If
+
+    ' Invincibility timer — visual blink after a near-miss
+    If IsInvincible Then
+        InvincibleTimer = InvincibleTimer - delta
+        If InvincibleTimer <= 0 Then
+            IsInvincible = False
+            Me.visible = True
+            Me.modulate = Color(1, 1, 1, 1)
+        Else
+            Me.visible = Not Me.visible
+        End If
+    End If
+
+    ' Fall-off-map detection
+    If Me.GlobalPosition.Y > {{KILL_Y}} Then
+        Dim main As Node2D = GetTree().CurrentScene
+        If main <> Nothing And main.HasMethod("LoseLife") Then
+            main.LoseLife()
+        End If
+    End If
+End Sub
+

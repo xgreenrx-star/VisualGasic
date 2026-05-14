@@ -1,0 +1,16 @@
+Sub _PhysicsProcess(delta As Single)
+    ' Missiles move in a straight line
+    Position = Position + MoveDirection * Speed * delta
+
+    ' Destroy after lifetime expires
+    LifeTime = LifeTime - delta
+    If LifeTime <= 0 Then
+        QueueFree()
+    End If
+End Sub
+
+Sub Launch(dir As Vector2)
+    MoveDirection = dir.Normalized()
+    LifeTime = 3.0
+End Sub
+

@@ -1,0 +1,12 @@
+' NPC responds to player interaction
+Sub Hitbox_BodyEntered(body As Node2D)
+    If body.IsInGroup("player") Then
+        ' Player is nearby — interact
+        ' Add your dialog or quest logic here
+    End If
+End Sub
+
+Sub Hitbox_AreaEntered(area As Area2D)
+    ' Area interaction
+End Sub
+

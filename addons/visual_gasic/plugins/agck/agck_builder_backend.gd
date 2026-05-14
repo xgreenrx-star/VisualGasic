@@ -1039,39 +1039,22 @@ func _gen_play_sfx_call(sound_name: String, indent: String = "    ") -> String:
 	return s
 
 func _gen_ready_sub(aname: String, speed: float, gravity: float, hp: int, dmg: int, score: int, group: String = "", extra_init: String = "") -> String:
-	var s = "Sub _Ready()\n"
-	s += "    Speed = " + _fstr(speed) + "\n"
-	s += "    Gravity = " + _fstr(gravity) + "\n"
-	s += "    MaxHP = " + str(hp) + "\n"
-	s += "    CurrentHP = MaxHP\n"
-	s += "    Damage = " + str(dmg) + "\n"
-	s += "    ScoreValue = " + str(score) + "\n"
-	s += "    IsInvincible = False\n"
-	s += "    InvincibleTimer = 0.0\n"
-	s += "    CurrentAnim = \"Idle\"\n"
-	if speed > 0:
-		s += "    vx = 0.0\n"
-		s += "    vy = 0.0\n"
+	var group_add := ""
 	if group != "":
-		s += "    AddToGroup(\"" + group + "\")\n"
-	if extra_init != "":
-		s += extra_init
-	s += "End Sub\n\n"
-	return s
+		group_add = "    AddToGroup(\"" + group + "\")\n"
+	return _load_behavior("ready_sub", {
+		"SPEED": _fstr(speed),
+		"GRAVITY": _fstr(gravity),
+		"HP": str(hp),
+		"DMG": str(dmg),
+		"SCORE": str(score),
+		"GROUP_ADD": group_add,
+		"EXTRA_INIT": extra_init,
+	})
 
 
 func _gen_add_path_point_sub() -> String:
-	var s = ""
-	s += "' Called by level script to set waypoints for this actor\n"
-	s += "Sub AddPathPoint(px As Single, py As Single)\n"
-	s += "    If PathCount < 20 Then\n"
-	s += "        PathX(PathCount) = px\n"
-	s += "        PathY(PathCount) = py\n"
-	s += "        PathCount = PathCount + 1\n"
-	s += "        HasPath = True\n"
-	s += "    End If\n"
-	s += "End Sub\n\n"
-	return s
+	return _load_behavior("add_path_point", {})
 
 
 func _gen_player_physics(speed: float, gravity: float, collision: String, actor_sounds: Dictionary = {}, actor: Dictionary = {}) -> String:
@@ -1082,151 +1065,20 @@ func _gen_player_physics(speed: float, gravity: float, collision: String, actor_
 	var variable_jump_cut: float = float(actor.get("variable_jump_cut", 0.5))
 	var coyote_time: float = float(actor.get("coyote_time", 0.1))
 	var jump_buffer_time: float = float(actor.get("jump_buffer_time", 0.1))
-	var s = ""
-	s += "Sub _PhysicsProcess(delta As Single)\n"
-	s += "    ' Read current velocity from CharacterBody2D\n"
-	s += "    vx = Me.velocity.x\n"
-	s += "    vy = Me.velocity.y\n"
-	s += "\n"
-	# ── Ladder detection ──
-	# A ladder is any node in the "ladder" group whose centre is within one
-	# half-cell horizontally and one full-cell vertically of the player. When
-	# overlapping, gravity is suppressed and ui_up/ui_down drive vy directly.
-	s += "    ' Ladder detection — reset module-scoped flag each frame\n"
-	s += "    on_ladder = False\n"
-	s += "    Dim ladders As Variant = GetTree().GetNodesInGroup(\"ladder\")\n"
-	s += "    Dim half_sq As Single = " + str(pow(CELL_PX / 2.0 + 2.0, 2)) + "\n"
-	s += "    Dim full_sq As Single = " + str(pow(float(CELL_PX), 2)) + "\n"
-	s += "    Dim hx As Single = Me.position.x\n"
-	s += "    Dim hy As Single = Me.position.y\n"
-	s += "    If ladders <> Nothing Then\n"
-	s += "        Dim li As Integer\n"
-	s += "        For li = 0 To ladders.size() - 1\n"
-	s += "            Dim lnode As Variant = ladders.Get(li)\n"
-	s += "            If lnode <> Nothing Then\n"
-	s += "                Dim ldx As Single = lnode.global_position.x - hx\n"
-	s += "                Dim ldy As Single = lnode.global_position.y - hy\n"
-	s += "                Dim ldx2 As Single = ldx * ldx\n"
-	s += "                Dim ldy2 As Single = ldy * ldy\n"
-	s += "                If ldx2 < half_sq Then\n"
-	s += "                    If ldy2 < full_sq Then\n"
-	s += "                        on_ladder = True\n"
-	s += "                    End If\n"
-	s += "                End If\n"
-	s += "            End If\n"
-	s += "        Next\n"
-	s += "    End If\n"
-	s += "\n"
-	s += "    Dim climb_speed As Single = " + _fstr(max(60.0, speed * 0.75)) + "\n"
-	s += "    If on_ladder Then\n"
-	s += "        ' On ladder — suppress gravity, climb with up/down\n"
-	s += "        If Input.IsActionPressed(\"ui_up\") Then\n"
-	s += "            vy = -climb_speed\n"
-	s += "        ElseIf Input.IsActionPressed(\"ui_down\") Then\n"
-	s += "            vy = climb_speed\n"
-	s += "        Else\n"
-	s += "            vy = 0\n"
-	s += "        End If\n"
-	s += "    Else\n"
-	s += "        ' Apply gravity normally\n"
-	s += "        vy = vy + Gravity * delta\n"
-	s += "    End If\n"
-	s += "\n"
-	s += "    ' Horizontal movement\n"
-	s += "    ' Hold Shift / pad-X to run (Mario-style sprint). The run\n"
-	s += "    ' multiplier kicks Speed up to a sprint top speed; without it\n"
-	s += "    ' the player walks at the configured base Speed.\n"
-	s += "    Dim run_mult As Single = 1.0\n"
-	s += "    If InputMap.HasAction(\"agck_run\") And Input.IsActionPressed(\"agck_run\") Then\n"
-	s += "        run_mult = " + _fstr(run_multiplier) + "\n"
-	s += "    End If\n"
-	s += "    If Input.IsActionPressed(\"ui_left\") Then\n"
-	s += "        vx = -Speed * run_mult\n"
-	s += "    ElseIf Input.IsActionPressed(\"ui_right\") Then\n"
-	s += "        vx = Speed * run_mult\n"
-	s += "    Else\n"
-	s += "        vx = 0\n"
-	s += "    End If\n"
-	s += "\n"
-	s += "    ' Jumping (disabled while climbing a ladder).\n"
-	s += "    ' ── Coyote time + jump buffer (Tier-1 platformer feel) ──\n"
-	s += "    ' Coyote: keep CoyoteTimer = 0.1s while on the floor; otherwise\n"
-	s += "    ' tick it down. The player can jump as long as it's > 0, even\n"
-	s += "    ' if they've already walked off the ledge.\n"
-	s += "    ' Jump buffer: when the player presses jump, set\n"
-	s += "    ' JumpBufferTimer = 0.1s. The actual jump fires the next frame\n"
-	s += "    ' the player is grounded (or in coyote window), forgiving\n"
-	s += "    ' early presses while still falling.\n"
-	s += "    If IsOnFloor(Me) Then\n"
-	s += "        CoyoteTimer = " + _fstr(coyote_time) + "\n"
-	s += "    Else\n"
-	s += "        CoyoteTimer = CoyoteTimer - delta\n"
-	s += "        If CoyoteTimer < 0 Then CoyoteTimer = 0\n"
-	s += "    End If\n"
-	s += "    If Input.IsActionJustPressed(\"ui_accept\") Then\n"
-	s += "        JumpBufferTimer = " + _fstr(jump_buffer_time) + "\n"
-	s += "    Else\n"
-	s += "        JumpBufferTimer = JumpBufferTimer - delta\n"
-	s += "        If JumpBufferTimer < 0 Then JumpBufferTimer = 0\n"
-	s += "    End If\n"
-	s += "    If JumpBufferTimer > 0 And CoyoteTimer > 0 And Not on_ladder Then\n"
-	s += "        vy = -" + _fstr(jump_velocity) + "\n"
-	s += "        JumpBufferTimer = 0\n"
-	s += "        CoyoteTimer = 0\n"
-	var jump_sfx = _gen_play_sfx_call(actor_sounds.get("jump", "(None)"), "        ")
-	if jump_sfx != "":
-		s += jump_sfx
-	s += "    End If\n"
-	s += "    ' Variable jump height — releasing jump mid-rise cuts vy in\n"
-	s += "    ' half. Short tap = small hop, hold = full jump. Match for\n"
-	s += "    ' Mario / Celeste / Hollow Knight feel.\n"
-	s += "    If Input.IsActionJustReleased(\"ui_accept\") And vy < 0 Then\n"
-	s += "        vy = vy * " + _fstr(variable_jump_cut) + "\n"
-	s += "    End If\n"
-	s += "\n"
-	s += "    ' Write velocity back and move\n"
-	s += "    SetVelocity Me, vx, vy\n"
-	s += "    MoveAndSlide Me\n"
-	s += "\n"
-	s += "    ' Invincibility timer — blink and restore after damage\n"
-	s += "    If IsInvincible Then\n"
-	s += "        InvincibleTimer = InvincibleTimer - delta\n"
-	s += "        If InvincibleTimer <= 0 Then\n"
-	s += "            IsInvincible = False\n"
-	s += "            Me.visible = True\n"
-	s += "            Me.modulate = Color(1, 1, 1, 1)\n"
-	s += "        Else\n"
-	s += "            ' Blink effect\n"
-	s += "            Me.visible = Not Me.visible\n"
-	s += "        End If\n"
-	s += "    End If\n"
-	s += "\n"
-	# Fall-off-map detection — if the player falls below the map, lose a life.
-	# Use a generous flat threshold so this works for any level height up
-	# to ~1500 cells. Per-actor scripts don't know the host level's height
-	# at codegen time, so a fixed (very large) Y wins us tall-level support.
+	var jump_sfx := _gen_play_sfx_call(actor_sounds.get("jump", "(None)"), "        ")
 	var kill_y: int = 50000
-	s += "    ' Fall-off-map detection\n"
-	s += "    If Me.GlobalPosition.Y > " + str(kill_y) + " Then\n"
-	s += "        Dim main As Node2D = GetTree().CurrentScene\n"
-	s += "        If main <> Nothing And main.HasMethod(\"LoseLife\") Then\n"
-	s += "            main.LoseLife()\n"
-	s += "        End If\n"
-	s += "    End If\n"
-	s += "End Sub\n\n"
-	# ── Powerup buff (called by mushroom pickup) ──
-	# Heals to MaxHP and grants a permanent +50 max-HP boost the first
-	# time it's applied. Subsequent mushrooms just heal. Sets IsPowered
-	# so future Tier 2 work (fireball, big-Mario sprite swap) can read it.
-	s += "' Called by Powerup actors (mushroom, star) when picked up.\n"
-	s += "Sub Powerup()\n"
-	s += "    If Not IsPowered Then\n"
-	s += "        IsPowered = True\n"
-	s += "        MaxHP = MaxHP + 50\n"
-	s += "    End If\n"
-	s += "    CurrentHP = MaxHP\n"
-	s += "End Sub\n\n"
-	return s
+	return _load_behavior("player_physics", {
+		"HALF_SQ": str(pow(CELL_PX / 2.0 + 2.0, 2)),
+		"FULL_SQ": str(pow(float(CELL_PX), 2)),
+		"CLIMB_SPEED": _fstr(max(60.0, speed * 0.75)),
+		"RUN_MULTIPLIER": _fstr(run_multiplier),
+		"COYOTE_TIME": _fstr(coyote_time),
+		"JUMP_BUFFER_TIME": _fstr(jump_buffer_time),
+		"JUMP_VELOCITY": _fstr(jump_velocity),
+		"VARIABLE_JUMP_CUT": _fstr(variable_jump_cut),
+		"JUMP_SFX": jump_sfx,
+		"KILL_Y": str(kill_y),
+	})
 
 
 # ─── Runner physics (Geometry-Dash-style auto-runner) ──────────────────────
@@ -1241,412 +1093,255 @@ func _gen_runner_physics(speed: float, gravity: float, jump_force: float, actor_
 	var rotation_speed: float = float(actor.get("rotation_speed", 9.0))
 	var snap_angle_deg: float = float(actor.get("snap_angle_deg", 90.0))
 	var snap_angle_rad: float = deg_to_rad(snap_angle_deg)
-	var s = ""
-	s += "Sub _PhysicsProcess(delta As Single)\n"
-	s += "    ' Read current velocity\n"
-	s += "    vx = Me.velocity.x\n"
-	s += "    vy = Me.velocity.y\n"
-	s += "\n"
-	s += "    ' Auto-run: horizontal velocity is locked to Speed every frame.\n"
-	s += "    ' No left/right input — this is the core Geometry-Dash mechanic.\n"
-	s += "    vx = Speed\n"
-	s += "\n"
-	s += "    ' Gravity is always applied (no ladder logic for runner).\n"
-	s += "    vy = vy + Gravity * delta\n"
-	s += "\n"
-	s += "    ' Jump on accept while on floor. Hold-to-rejump: every floor-contact\n"
-	s += "    ' frame the button stays pressed will retrigger the launch.\n"
-	s += "    If Input.IsActionPressed(\"ui_accept\") And IsOnFloor(Me) Then\n"
-	s += "        vy = -" + _fstr(jump_force) + "\n"
-	s += "        IsJumping = True\n"
-	var jump_sfx = _gen_play_sfx_call(actor_sounds.get("jump", "(None)"), "        ")
-	if jump_sfx != "":
-		s += jump_sfx
-	s += "    End If\n"
-	s += "\n"
-	s += "    ' Write velocity back and move\n"
-	s += "    SetVelocity Me, vx, vy\n"
-	s += "    MoveAndSlide Me\n"
-	s += "\n"
-	s += "    ' Cube rotation: spin while airborne, snap to nearest 90° on landing.\n"
-	s += "    ' ~9 rad/s ≈ one full rotation per 0.7s — feels like classic GD.\n"
-	s += "    If IsOnFloor(Me) Then\n"
-	s += "        ' Snap rotation to nearest configured snap angle.\n"
-	s += "        Dim quarter As Single = " + _fstr(snap_angle_rad) + "\n"
-	s += "        Dim r As Single = Me.rotation\n"
-	s += "        Dim snap As Single = Round(r / quarter) * quarter\n"
-	s += "        Me.rotation = snap\n"
-	s += "        IsJumping = False\n"
-	s += "    Else\n"
-	s += "        Me.rotation = Me.rotation + " + _fstr(rotation_speed) + " * delta\n"
-	s += "    End If\n"
-	s += "\n"
-	s += "    ' Invincibility timer — visual blink after a near-miss\n"
-	s += "    If IsInvincible Then\n"
-	s += "        InvincibleTimer = InvincibleTimer - delta\n"
-	s += "        If InvincibleTimer <= 0 Then\n"
-	s += "            IsInvincible = False\n"
-	s += "            Me.visible = True\n"
-	s += "            Me.modulate = Color(1, 1, 1, 1)\n"
-	s += "        Else\n"
-	s += "            Me.visible = Not Me.visible\n"
-	s += "        End If\n"
-	s += "    End If\n"
-	s += "\n"
-	# Fall-off-map detection — same as Player; if cube falls below the map, it dies.
-	# Use a generous flat threshold so this works for any level height.
+	var jump_sfx := _gen_play_sfx_call(actor_sounds.get("jump", "(None)"), "        ")
 	var kill_y: int = 50000
-	s += "    ' Fall-off-map detection\n"
-	s += "    If Me.GlobalPosition.Y > " + str(kill_y) + " Then\n"
-	s += "        Dim main As Node2D = GetTree().CurrentScene\n"
-	s += "        If main <> Nothing And main.HasMethod(\"LoseLife\") Then\n"
-	s += "            main.LoseLife()\n"
-	s += "        End If\n"
-	s += "    End If\n"
-	s += "End Sub\n\n"
-	return s
+	return _load_behavior("runner_physics", {
+		"JUMP_FORCE": _fstr(jump_force),
+		"JUMP_SFX": jump_sfx,
+		"SNAP_ANGLE_RAD": _fstr(snap_angle_rad),
+		"ROTATION_SPEED": _fstr(rotation_speed),
+		"KILL_Y": str(kill_y),
+	})
 
 
 func _gen_drone_physics(ai: String, patrol_speed: float, gravity: float) -> String:
-	var s = ""
-	s += "Sub _PhysicsProcess(delta As Single)\n"
-	# ── Waypoint path mode: bypass all normal AI ──
-	s += "    If HasPath And PathCount >= 2 Then\n"
-	s += "        ' Follow waypoint path (overrides normal movement)\n"
-	s += "        Dim tx As Single = PathX(PathIndex)\n"
-	s += "        Dim ty As Single = PathY(PathIndex)\n"
-	s += "        Dim dx As Single = tx - Me.GlobalPosition.X\n"
-	s += "        Dim dy As Single = ty - Me.GlobalPosition.Y\n"
-	s += "        Dim dist As Single = Sqr(dx * dx + dy * dy)\n"
-	s += "        If dist < 4.0 Then\n"
-	s += "            ' Reached waypoint — advance to next (loop)\n"
-	s += "            PathIndex = PathIndex + 1\n"
-	s += "            If PathIndex >= PathCount Then PathIndex = 0\n"
-	s += "        Else\n"
-	s += "            ' Move toward waypoint via direct position\n"
-	s += "            Dim mx As Single = (dx / dist) * PatrolSpeed * delta\n"
-	s += "            Dim my As Single = (dy / dist) * PatrolSpeed * delta\n"
-	s += "            Me.GlobalPosition = Vector2(Me.GlobalPosition.X + mx, Me.GlobalPosition.Y + my)\n"
-	s += "        End If\n"
-	s += "        Exit Sub\n"
-	s += "    End If\n\n"
-	s += "    ' ── Normal AI movement ──\n"
-	s += "    ' Read current velocity\n"
-	s += "    vx = Me.velocity.x\n"
-	s += "    vy = Me.velocity.y\n"
-	s += "\n"
-	s += "    ' Apply gravity\n"
-	s += "    vy = vy + Gravity * delta\n"
-	s += "\n"
-	# Original AI behavior when no path set
+	# Build the AI movement block based on mode
+	var ai_block := ""
 	match ai:
 		"Chase":
-			s += "    ' Chase: move toward player\n"
-			s += "    Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
-			s += "    If player <> Nothing Then\n"
-			s += "        If player.GlobalPosition.X < GlobalPosition.X Then\n"
-			s += "            vx = -Speed\n"
-			s += "        Else\n"
-			s += "            vx = Speed\n"
-			s += "        End If\n"
-			s += "    Else\n"
-			s += "        vx = PatrolSpeed * Direction\n"
-			s += "    End If\n"
+			ai_block  = "    ' Chase: move toward player\n"
+			ai_block += "    Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
+			ai_block += "    If player <> Nothing Then\n"
+			ai_block += "        If player.GlobalPosition.X < GlobalPosition.X Then\n"
+			ai_block += "            vx = -Speed\n"
+			ai_block += "        Else\n"
+			ai_block += "            vx = Speed\n"
+			ai_block += "        End If\n"
+			ai_block += "    Else\n"
+			ai_block += "        vx = PatrolSpeed * Direction\n"
+			ai_block += "    End If"
 		"Flee":
-			s += "    ' Flee: run from player\n"
-			s += "    Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
-			s += "    If player <> Nothing Then\n"
-			s += "        If player.GlobalPosition.X < GlobalPosition.X Then\n"
-			s += "            vx = Speed\n"
-			s += "        Else\n"
-			s += "            vx = -Speed\n"
-			s += "        End If\n"
-			s += "    Else\n"
-			s += "        vx = PatrolSpeed * Direction\n"
-			s += "    End If\n"
+			ai_block  = "    ' Flee: run from player\n"
+			ai_block += "    Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
+			ai_block += "    If player <> Nothing Then\n"
+			ai_block += "        If player.GlobalPosition.X < GlobalPosition.X Then\n"
+			ai_block += "            vx = Speed\n"
+			ai_block += "        Else\n"
+			ai_block += "            vx = -Speed\n"
+			ai_block += "        End If\n"
+			ai_block += "    Else\n"
+			ai_block += "        vx = PatrolSpeed * Direction\n"
+			ai_block += "    End If"
 		_:  # Patrol, Wander, Guard
-			s += "    ' Patrol: walk back and forth\n"
-			s += "    vx = PatrolSpeed * Direction\n"
-	s += "\n"
-	s += "    ' Write velocity and move\n"
-	s += "    SetVelocity Me, vx, vy\n"
-	s += "    MoveAndSlide Me\n"
-	s += "\n"
-	s += "    ' Reverse at walls\n"
-	s += "    If IsOnWall(Me) Then\n"
-	s += "        Direction = -Direction\n"
-	s += "    End If\n"
-	# Ledge-aware turn-around (Goomba AI). Only applies when gravity is
-	# present — flying enemies (Bat) shouldn't fall, so we skip this. The
-	# RayCasts are emitted by _generate_actor_tscn for ground enemy types.
+			ai_block  = "    ' Patrol: walk back and forth\n"
+			ai_block += "    vx = PatrolSpeed * Direction"
+
+	# Build the ledge-detection block (ground enemies only)
+	var ledge_block := ""
 	if gravity > 0:
-		s += "\n"
-		s += "    ' Reverse at ledges (don't walk off platforms)\n"
-		s += "    If IsOnFloor(Me) Then\n"
-		s += "        Dim ledge As Node = Nothing\n"
-		s += "        If Direction > 0 Then\n"
-		s += "            ledge = GetNodeOrNull(\"LedgeRight\")\n"
-		s += "        Else\n"
-		s += "            ledge = GetNodeOrNull(\"LedgeLeft\")\n"
-		s += "        End If\n"
-		s += "        If ledge <> Nothing And Not ledge.IsColliding() Then\n"
-		s += "            Direction = -Direction\n"
-		s += "        End If\n"
-		s += "    End If\n"
-	s += "End Sub\n\n"
-	return s
+		ledge_block  = "\n"
+		ledge_block += "    ' Reverse at ledges (don't walk off platforms)\n"
+		ledge_block += "    If IsOnFloor(Me) Then\n"
+		ledge_block += "        Dim ledge As Node = Nothing\n"
+		ledge_block += "        If Direction > 0 Then\n"
+		ledge_block += "            ledge = GetNodeOrNull(\"LedgeRight\")\n"
+		ledge_block += "        Else\n"
+		ledge_block += "            ledge = GetNodeOrNull(\"LedgeLeft\")\n"
+		ledge_block += "        End If\n"
+		ledge_block += "        If ledge <> Nothing And Not ledge.IsColliding() Then\n"
+		ledge_block += "            Direction = -Direction\n"
+		ledge_block += "        End If\n"
+		ledge_block += "    End If\n"
+
+	return _load_behavior("drone_physics", {
+		"AI_BLOCK": ai_block,
+		"LEDGE_BLOCK": ledge_block,
+	})
 
 
 func _gen_missile_physics(speed: float) -> String:
-	var s = ""
-	s += "Sub _PhysicsProcess(delta As Single)\n"
-	s += "    ' Missiles move in a straight line\n"
-	s += "    Position = Position + MoveDirection * Speed * delta\n"
-	s += "\n"
-	s += "    ' Destroy after lifetime expires\n"
-	s += "    LifeTime = LifeTime - delta\n"
-	s += "    If LifeTime <= 0 Then\n"
-	s += "        QueueFree()\n"
-	s += "    End If\n"
-	s += "End Sub\n\n"
-	s += "Sub Launch(dir As Vector2)\n"
-	s += "    MoveDirection = dir.Normalized()\n"
-	s += "    LifeTime = 3.0\n"
-	s += "End Sub\n\n"
-	return s
+	return _load_behavior("missile_physics", {})
 
 
 func _gen_sentry_physics(patrol_speed: float, gravity: float, auto_shoot: bool, fire_rate: float, actor_sounds: Dictionary = {}) -> String:
-	var s = ""
-	s += "Sub _PhysicsProcess(delta As Single)\n"
-	# ── Waypoint path mode: bypass all normal AI ──
-	s += "    If HasPath And PathCount >= 2 Then\n"
-	s += "        ' Follow waypoint path (overrides normal movement)\n"
-	s += "        Dim tx As Single = PathX(PathIndex)\n"
-	s += "        Dim ty As Single = PathY(PathIndex)\n"
-	s += "        Dim dx As Single = tx - Me.GlobalPosition.X\n"
-	s += "        Dim dy As Single = ty - Me.GlobalPosition.Y\n"
-	s += "        Dim dist As Single = Sqr(dx * dx + dy * dy)\n"
-	s += "        If dist < 4.0 Then\n"
-	s += "            ' Reached waypoint — advance to next (loop)\n"
-	s += "            PathIndex = PathIndex + 1\n"
-	s += "            If PathIndex >= PathCount Then PathIndex = 0\n"
-	s += "        Else\n"
-	s += "            ' Move toward waypoint via direct position\n"
-	s += "            Dim mx As Single = (dx / dist) * PatrolSpeed * delta\n"
-	s += "            Dim my As Single = (dy / dist) * PatrolSpeed * delta\n"
-	s += "            Me.GlobalPosition = Vector2(Me.GlobalPosition.X + mx, Me.GlobalPosition.Y + my)\n"
-	s += "        End If\n"
+	# Build auto-shoot block for path mode
+	var auto_shoot_path_block := ""
 	if auto_shoot:
-		s += "\n"
-		s += "        ' Auto-shoot timer (still active during path mode)\n"
-		s += "        ShootTimer = ShootTimer + delta\n"
-		s += "        If ShootTimer >= FireRate Then\n"
-		s += "            ShootTimer = 0\n"
-		# Play shoot sound
-		var shoot_sfx_path = _gen_play_sfx_call(actor_sounds.get("shoot", "(None)"), "            ")
+		var shoot_sfx_path := _gen_play_sfx_call(actor_sounds.get("shoot", "(None)"), "            ")
+		auto_shoot_path_block  = "\n"
+		auto_shoot_path_block += "        ' Auto-shoot timer (still active during path mode)\n"
+		auto_shoot_path_block += "        ShootTimer = ShootTimer + delta\n"
+		auto_shoot_path_block += "        If ShootTimer >= FireRate Then\n"
+		auto_shoot_path_block += "            ShootTimer = 0\n"
 		if shoot_sfx_path != "":
-			s += shoot_sfx_path
-		s += "            ' Spawn a missile toward the player\n"
-		s += "            Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
-		s += "            If player <> Nothing Then\n"
-		s += "                Dim dir As Vector2\n"
-		s += "                dir = (player.GlobalPosition - Me.GlobalPosition).Normalized()\n"
-		s += "                Dim bullet As CharacterBody2D = CharacterBody2D.New()\n"
-		s += "                GetParent().AddChild(bullet)\n"
-		s += "                bullet.GlobalPosition = Me.GlobalPosition\n"
-		s += "                SetVelocity bullet, dir.x * 300.0, dir.y * 300.0\n"
-		s += "                bullet.AddToGroup(\"enemies\")\n"
-		s += "            End If\n"
-		s += "        End If\n"
-	s += "        Exit Sub\n"
-	s += "    End If\n\n"
-	s += "    ' ── Normal AI movement ──\n"
-	s += "    ' Read current velocity\n"
-	s += "    vx = Me.velocity.x\n"
-	s += "    vy = Me.velocity.y\n"
-	s += "\n"
-	s += "    ' Apply gravity\n"
-	s += "    vy = vy + Gravity * delta\n"
-	s += "\n"
-	s += "    ' Patrol back and forth\n"
-	s += "    vx = PatrolSpeed * Direction\n"
-	s += "\n"
-	s += "    SetVelocity Me, vx, vy\n"
-	s += "    MoveAndSlide Me\n"
-	s += "\n"
-	s += "    ' Reverse at walls\n"
-	s += "    If IsOnWall(Me) Then\n"
-	s += "        Direction = -Direction\n"
-	s += "    End If\n"
-	# Ledge-aware turn-around (matches _gen_drone_physics).
+			auto_shoot_path_block += shoot_sfx_path
+		auto_shoot_path_block += "            ' Spawn a missile toward the player\n"
+		auto_shoot_path_block += "            Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
+		auto_shoot_path_block += "            If player <> Nothing Then\n"
+		auto_shoot_path_block += "                Dim dir As Vector2\n"
+		auto_shoot_path_block += "                dir = (player.GlobalPosition - Me.GlobalPosition).Normalized()\n"
+		auto_shoot_path_block += "                Dim bullet As CharacterBody2D = CharacterBody2D.New()\n"
+		auto_shoot_path_block += "                GetParent().AddChild(bullet)\n"
+		auto_shoot_path_block += "                bullet.GlobalPosition = Me.GlobalPosition\n"
+		auto_shoot_path_block += "                SetVelocity bullet, dir.x * 300.0, dir.y * 300.0\n"
+		auto_shoot_path_block += "                bullet.AddToGroup(\"enemies\")\n"
+		auto_shoot_path_block += "            End If\n"
+		auto_shoot_path_block += "        End If\n"
+
+	# Build ledge block
+	var ledge_block := ""
 	if gravity > 0:
-		s += "\n"
-		s += "    ' Reverse at ledges (don't walk off platforms)\n"
-		s += "    If IsOnFloor(Me) Then\n"
-		s += "        Dim ledge As Node = Nothing\n"
-		s += "        If Direction > 0 Then\n"
-		s += "            ledge = GetNodeOrNull(\"LedgeRight\")\n"
-		s += "        Else\n"
-		s += "            ledge = GetNodeOrNull(\"LedgeLeft\")\n"
-		s += "        End If\n"
-		s += "        If ledge <> Nothing And Not ledge.IsColliding() Then\n"
-		s += "            Direction = -Direction\n"
-		s += "        End If\n"
-		s += "    End If\n"
+		ledge_block  = "\n"
+		ledge_block += "    ' Reverse at ledges (don't walk off platforms)\n"
+		ledge_block += "    If IsOnFloor(Me) Then\n"
+		ledge_block += "        Dim ledge As Node = Nothing\n"
+		ledge_block += "        If Direction > 0 Then\n"
+		ledge_block += "            ledge = GetNodeOrNull(\"LedgeRight\")\n"
+		ledge_block += "        Else\n"
+		ledge_block += "            ledge = GetNodeOrNull(\"LedgeLeft\")\n"
+		ledge_block += "        End If\n"
+		ledge_block += "        If ledge <> Nothing And Not ledge.IsColliding() Then\n"
+		ledge_block += "            Direction = -Direction\n"
+		ledge_block += "        End If\n"
+		ledge_block += "    End If\n"
+
+	# Build normal-mode auto-shoot block
+	var auto_shoot_normal_block := ""
 	if auto_shoot:
-		s += "\n"
-		s += "    ' Auto-shoot timer\n"
-		s += "    ShootTimer = ShootTimer + delta\n"
-		s += "    If ShootTimer >= FireRate Then\n"
-		s += "        ShootTimer = 0\n"
-		# Play shoot sound
-		var shoot_sfx = _gen_play_sfx_call(actor_sounds.get("shoot", "(None)"), "        ")
+		var shoot_sfx := _gen_play_sfx_call(actor_sounds.get("shoot", "(None)"), "        ")
+		auto_shoot_normal_block  = "\n"
+		auto_shoot_normal_block += "    ' Auto-shoot timer\n"
+		auto_shoot_normal_block += "    ShootTimer = ShootTimer + delta\n"
+		auto_shoot_normal_block += "    If ShootTimer >= FireRate Then\n"
+		auto_shoot_normal_block += "        ShootTimer = 0\n"
 		if shoot_sfx != "":
-			s += shoot_sfx
-		s += "        ' Spawn a missile toward the player\n"
-		s += "        Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
-		s += "        If player <> Nothing Then\n"
-		s += "            Dim dir As Vector2\n"
-		s += "            dir = (player.GlobalPosition - Me.GlobalPosition).Normalized()\n"
-		s += "            Dim bullet As CharacterBody2D = CharacterBody2D.New()\n"
-		s += "            GetParent().AddChild(bullet)\n"
-		s += "            bullet.GlobalPosition = Me.GlobalPosition\n"
-		s += "            SetVelocity bullet, dir.x * 300.0, dir.y * 300.0\n"
-		s += "            bullet.AddToGroup(\"enemies\")\n"
-		s += "        End If\n"
-		s += "    End If\n"
-	s += "End Sub\n\n"
-	return s
+			auto_shoot_normal_block += shoot_sfx
+		auto_shoot_normal_block += "        ' Spawn a missile toward the player\n"
+		auto_shoot_normal_block += "        Dim player As Node2D = GetTree().GetFirstNodeInGroup(\"player\")\n"
+		auto_shoot_normal_block += "        If player <> Nothing Then\n"
+		auto_shoot_normal_block += "            Dim dir As Vector2\n"
+		auto_shoot_normal_block += "            dir = (player.GlobalPosition - Me.GlobalPosition).Normalized()\n"
+		auto_shoot_normal_block += "            Dim bullet As CharacterBody2D = CharacterBody2D.New()\n"
+		auto_shoot_normal_block += "            GetParent().AddChild(bullet)\n"
+		auto_shoot_normal_block += "            bullet.GlobalPosition = Me.GlobalPosition\n"
+		auto_shoot_normal_block += "            SetVelocity bullet, dir.x * 300.0, dir.y * 300.0\n"
+		auto_shoot_normal_block += "            bullet.AddToGroup(\"enemies\")\n"
+		auto_shoot_normal_block += "        End If\n"
+		auto_shoot_normal_block += "    End If\n"
+
+	return _load_behavior("sentry_physics", {
+		"AUTO_SHOOT_PATH_BLOCK": auto_shoot_path_block,
+		"LEDGE_BLOCK": ledge_block,
+		"AUTO_SHOOT_NORMAL_BLOCK": auto_shoot_normal_block,
+	})
 
 
 # ─── Powerup physics (Mario-style mushroom / star) ────────────────────────
 # Falls under gravity, walks at PatrolSpeed, reverses at walls. The pickup
 # itself is handled by the Powerup arm in _gen_collision_handler.
 func _gen_powerup_physics(patrol_speed: float, gravity: float) -> String:
-	var s = ""
-	s += "Sub _PhysicsProcess(delta As Single)\n"
-	s += "    vx = Me.velocity.x\n"
-	s += "    vy = Me.velocity.y\n"
-	s += "    ' Gravity pulls the powerup down until it lands on a platform\n"
-	s += "    vy = vy + Gravity * delta\n"
-	s += "    ' Slow horizontal patrol so the mushroom \"walks\" off the block\n"
-	s += "    vx = PatrolSpeed * Direction\n"
-	s += "    SetVelocity Me, vx, vy\n"
-	s += "    MoveAndSlide Me\n"
-	s += "    ' Reverse at walls so the mushroom never gets stuck in a corner\n"
-	s += "    If IsOnWall(Me) Then\n"
-	s += "        Direction = -Direction\n"
-	s += "    End If\n"
-	s += "End Sub\n\n"
-	return s
+	return _load_behavior("powerup_physics", {})
 
 
 func _gen_damage_sub(death_mode: String, rebirth: float, is_player: bool = false, actor_sounds: Dictionary = {}) -> String:
-	var s = ""
-	s += "' Called when this actor takes damage\n"
-	s += "Sub TakeDamage(amount As Integer)\n"
+	# Build conditional sub-blocks
+	var invincible_guard := ""
 	if is_player:
-		s += "    ' Skip if currently invincible (just took a hit)\n"
-		s += "    If IsInvincible Then Exit Sub\n"
-	s += "    CurrentHP = CurrentHP - amount\n"
-	# Play hit sound effect
-	var hit_sfx = _gen_play_sfx_call(actor_sounds.get("hit", "(None)"), "    ")
-	if hit_sfx != "":
-		s += hit_sfx
+		invincible_guard  = "    ' Skip if currently invincible (just took a hit)\n"
+		invincible_guard += "    If IsInvincible Then Exit Sub\n"
+
+	var hit_sfx := _gen_play_sfx_call(actor_sounds.get("hit", "(None)"), "    ")
+
+	var player_hit_anim := ""
 	if is_player:
-		s += "    ' Trigger hit animation\n"
-		s += "    Dim main As Node2D = GetTree().CurrentScene\n"
-		s += "    If main <> Nothing And main.HasMethod(\"TriggerHeroAnim\") Then\n"
-		s += "        main.TriggerHeroAnim(\"hit\")\n"
-		s += "    End If\n"
-		s += "    ' Brief invincibility after taking damage\n"
-		s += "    IsInvincible = True\n"
-		s += "    InvincibleTimer = 1.5\n"
-		s += "    Me.modulate = Color(1, 1, 1, 0.5)\n"
-	s += "    If CurrentHP <= 0 Then\n"
-	# Play death sound effect
-	var death_sfx = _gen_play_sfx_call(actor_sounds.get("death", "(None)"), "        ")
-	if death_sfx != "":
-		s += death_sfx
+		player_hit_anim  = "    ' Trigger hit animation\n"
+		player_hit_anim += "    Dim main As Node2D = GetTree().CurrentScene\n"
+		player_hit_anim += "    If main <> Nothing And main.HasMethod(\"TriggerHeroAnim\") Then\n"
+		player_hit_anim += "        main.TriggerHeroAnim(\"hit\")\n"
+		player_hit_anim += "    End If\n"
+
+	var player_invincible := ""
 	if is_player:
-		s += "        IsInvincible = False\n"
-		s += "        Me.visible = True\n"
-		s += "        Me.modulate = Color(1, 1, 1, 1)\n"
+		player_invincible  = "    ' Brief invincibility after taking damage\n"
+		player_invincible += "    IsInvincible = True\n"
+		player_invincible += "    InvincibleTimer = 1.5\n"
+		player_invincible += "    Me.modulate = Color(1, 1, 1, 0.5)\n"
+
+	var death_sfx := _gen_play_sfx_call(actor_sounds.get("death", "(None)"), "        ")
+
+	var player_reset_vis := ""
+	if is_player:
+		player_reset_vis  = "        IsInvincible = False\n"
+		player_reset_vis += "        Me.visible = True\n"
+		player_reset_vis += "        Me.modulate = Color(1, 1, 1, 1)\n"
+
+	var death_block := ""
 	match death_mode:
 		"Destroy":
 			if is_player:
-				s += "        ' Tell game controller we lost a life\n"
-				s += "        Dim main As Node2D = GetTree().CurrentScene\n"
-				s += "        If main <> Nothing And main.HasMethod(\"LoseLife\") Then\n"
-				s += "            main.LoseLife()\n"
-				s += "        End If\n"
-			s += "        QueueFree()\n"
+				death_block  = "        ' Tell game controller we lost a life\n"
+				death_block += "        Dim main As Node2D = GetTree().CurrentScene\n"
+				death_block += "        If main <> Nothing And main.HasMethod(\"LoseLife\") Then\n"
+				death_block += "            main.LoseLife()\n"
+				death_block += "        End If\n"
+			death_block += "        QueueFree()\n"
 		"GameOver":
-			s += "        ' Game over\n"
-			s += "        Dim main As Node2D = GetTree().CurrentScene\n"
-			s += "        If main <> Nothing And main.HasMethod(\"GameOver\") Then\n"
-			s += "            main.GameOver()\n"
-			s += "        Else\n"
-			s += "            GetTree().ReloadCurrentScene()\n"
-			s += "        End If\n"
+			death_block  = "        ' Game over\n"
+			death_block += "        Dim main As Node2D = GetTree().CurrentScene\n"
+			death_block += "        If main <> Nothing And main.HasMethod(\"GameOver\") Then\n"
+			death_block += "            main.GameOver()\n"
+			death_block += "        Else\n"
+			death_block += "            GetTree().ReloadCurrentScene()\n"
+			death_block += "        End If\n"
 		_:  # Respawn
 			if is_player:
-				s += "        ' Tell game controller we lost a life\n"
-				s += "        Dim main As Node2D = GetTree().CurrentScene\n"
-				s += "        If main <> Nothing And main.HasMethod(\"LoseLife\") Then\n"
-				s += "            main.LoseLife()\n"
-				s += "        End If\n"
-			s += "        ' Respawn — reset HP\n"
-			s += "        CurrentHP = MaxHP\n"
-	s += "    End If\n"
-	s += "End Sub\n\n"
-	return s
+				death_block  = "        ' Tell game controller we lost a life\n"
+				death_block += "        Dim main As Node2D = GetTree().CurrentScene\n"
+				death_block += "        If main <> Nothing And main.HasMethod(\"LoseLife\") Then\n"
+				death_block += "            main.LoseLife()\n"
+				death_block += "        End If\n"
+			death_block += "        ' Respawn — reset HP\n"
+			death_block += "        CurrentHP = MaxHP\n"
+
+	return _load_behavior("damage_sub", {
+		"INVINCIBLE_GUARD": invincible_guard,
+		"HIT_SFX": hit_sfx,
+		"PLAYER_HIT_ANIM": player_hit_anim,
+		"PLAYER_INVINCIBLE": player_invincible,
+		"DEATH_SFX": death_sfx,
+		"PLAYER_RESET_VIS": player_reset_vis,
+		"DEATH_BLOCK": death_block,
+	})
 
 
 func _gen_computer_interaction(death_mode: String, score_val: int, actor_sounds: Dictionary = {}) -> String:
-	var s = ""
-	s += "' Computer objects respond to collisions (coins, keys, etc.)\n"
-	s += "Sub Hitbox_BodyEntered(body As Node2D)\n"
-	s += "    ' Check if the player touched us\n"
-	s += "    If body.IsInGroup(\"player\") Then\n"
-	# Play pickup sound
-	var pickup_sfx = _gen_play_sfx_call(actor_sounds.get("pickup", "(None)"), "        ")
-	if pickup_sfx != "":
-		s += pickup_sfx
+	var pickup_sfx := _gen_play_sfx_call(actor_sounds.get("pickup", "(None)"), "        ")
+
+	var score_block := ""
 	if score_val > 0:
-		s += "        ' Award points via the game controller\n"
-		s += "        Dim main As Node2D = GetTree().CurrentScene\n"
-		s += "        If main <> Nothing And main.HasMethod(\"AddScore\") Then\n"
-		s += "            main.AddScore(ScoreValue)\n"
-		s += "        End If\n"
+		score_block  = "        ' Award points via the game controller\n"
+		score_block += "        Dim main As Node2D = GetTree().CurrentScene\n"
+		score_block += "        If main <> Nothing And main.HasMethod(\"AddScore\") Then\n"
+		score_block += "            main.AddScore(ScoreValue)\n"
+		score_block += "        End If\n"
+
+	var death_block := ""
 	if death_mode == "Destroy":
-		s += "        ' Collect and vanish\n"
-		s += "        QueueFree()\n"
+		death_block  = "        ' Collect and vanish\n"
+		death_block += "        QueueFree()\n"
 	else:
-		s += "        ' Interact\n"
-		s += "        ' TODO: Add your interaction logic here\n"
-	s += "    End If\n"
-	s += "End Sub\n\n"
-	s += "Sub Hitbox_AreaEntered(area As Area2D)\n"
-	s += "    ' Area-based interaction\n"
-	s += "End Sub\n\n"
-	return s
+		death_block  = "        ' Interact\n"
+		death_block += "        ' TODO: Add your interaction logic here\n"
+
+	return _load_behavior("computer_interaction", {
+		"PICKUP_SFX": pickup_sfx,
+		"SCORE_BLOCK": score_block,
+		"DEATH_BLOCK": death_block,
+	})
 
 
 func _gen_npc_interaction() -> String:
-	var s = ""
-	s += "' NPC responds to player interaction\n"
-	s += "Sub Hitbox_BodyEntered(body As Node2D)\n"
-	s += "    If body.IsInGroup(\"player\") Then\n"
-	s += "        ' Player is nearby — interact\n"
-	s += "        ' Add your dialog or quest logic here\n"
-	s += "    End If\n"
-	s += "End Sub\n\n"
-	s += "Sub Hitbox_AreaEntered(area As Area2D)\n"
-	s += "    ' Area interaction\n"
-	s += "End Sub\n\n"
-	return s
+	return _load_behavior("npc_interaction", {})
 
 
 func _gen_collision_handler(atype: String, actor_sounds: Dictionary = {}) -> String:
@@ -3834,6 +3529,30 @@ func _extract_user_code(path: String) -> Dictionary:
 ## Generates a user-code block with delimiters.
 ## If preserved_sections contains code for this section, uses that;
 ## otherwise emits the default_code placeholder.
+# ─── Behavior template loader ─────────────────────────────────────────────
+## Path prefix for all actor behavior templates.
+const BEHAVIOR_DIR := "res://addons/visual_gasic/plugins/agck/behaviors/"
+
+## Replace every {{KEY}} token in `text` with vars[KEY] (converted to String).
+func _expand_template(text: String, vars: Dictionary) -> String:
+	for key in vars:
+		text = text.replace("{{" + key + "}}", str(vars[key]))
+	return text
+
+## Load a behavior template by name (without .vg extension), expand tokens,
+## and return the resulting VG code. Returns a comment placeholder on failure.
+func _load_behavior(name: String, vars: Dictionary = {}) -> String:
+	var path := BEHAVIOR_DIR + name + ".vg"
+	var abs_path := ProjectSettings.globalize_path(path)
+	var f := FileAccess.open(abs_path, FileAccess.READ)
+	if not f:
+		push_warning("AGCK: behavior template not found: " + path)
+		return "' [behavior template missing: " + name + ".vg]\n"
+	var text := f.get_as_text()
+	f.close()
+	return _expand_template(text, vars)
+
+
 func _user_code_block(section_name: String, default_code: String, preserved: Dictionary) -> String:
 	var s = "'--- USER CODE: " + section_name + " ---\n"
 	if preserved.has(section_name) and preserved[section_name].strip_edges() != "":

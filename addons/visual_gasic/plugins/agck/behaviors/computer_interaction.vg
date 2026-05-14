@@ -1,0 +1,11 @@
+' Computer objects respond to collisions (coins, keys, etc.)
+Sub Hitbox_BodyEntered(body As Node2D)
+    ' Check if the player touched us
+    If body.IsInGroup("player") Then
+{{PICKUP_SFX}}{{SCORE_BLOCK}}{{DEATH_BLOCK}}    End If
+End Sub
+
+Sub Hitbox_AreaEntered(area As Area2D)
+    ' Area-based interaction
+End Sub
+
