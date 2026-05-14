@@ -206,6 +206,7 @@ var _abort_agent_btn: Button = null   # Phase 6b — shown during multi-hop agen
 var _models_btn: Button
 var _model_picker: AcceptDialog
 var _approvals_dropdown: OptionButton
+var _agent_mode_dropdown: OptionButton
 var _audit_btn: Button
 
 # Per-turn streaming tool dispatch watermark + multi-turn agent hop counter.
@@ -826,6 +827,17 @@ func _setup_ui() -> void:
 	toolbar.add_child(_approvals_dropdown)
 	# Position will be set after _load_approval_mode() runs.
 
+	# ── 🤖 Agent mode (off / Narcea only / all / always-ask) ──
+	_agent_mode_dropdown = OptionButton.new()
+	_agent_mode_dropdown.add_item("🤖 Narcea only", 0)
+	_agent_mode_dropdown.add_item("🤖 All personas", 1)
+	_agent_mode_dropdown.add_item("❓ Always ask", 2)
+	_agent_mode_dropdown.add_item("🚫 Agent off", 3)
+	_agent_mode_dropdown.tooltip_text = "Which personas can trigger the auto-run agent loop:\n  Narcea only — default; only the Narcea persona auto-loops\n  All personas — any persona may auto-loop\n  Always ask — show confirmation before each agent hop\n  Agent off — agent loop disabled; tool blocks show but need manual approval"
+	_agent_mode_dropdown.item_selected.connect(_on_agent_mode_selected)
+	_style_option_button(_agent_mode_dropdown)
+	toolbar.add_child(_agent_mode_dropdown)
+
 	# ── 📜 Audit log viewer ──
 	_audit_btn = Button.new()
 	_audit_btn.text = "📜"
@@ -966,10 +978,11 @@ func _setup_ui() -> void:
 	# Editor's default OptionButton popup theme renders nearly invisible
 	# dark text on the dark VG bottom panel — force the proven dark popup
 	# styling used by vg_2d_editor's _style_popup_dark(). Applied to all
-	# three dropdowns in this toolbar (provider, model, persona).
+	# dropdowns in this toolbar (provider, model, persona, agent_mode).
 	_style_dropdown_popup_dark(_provider_dropdown)
 	_style_dropdown_popup_dark(_model_dropdown)
 	_style_dropdown_popup_dark(_persona_dropdown)
+	_style_dropdown_popup_dark(_agent_mode_dropdown)
 
 	# --- Quick action buttons ---
 	var actions := HBoxContainer.new()
@@ -2869,6 +2882,9 @@ var _ai_tools = null
 const _APPROVAL_CFG_PATH := "user://vg_ai_approvals.cfg"
 var _approval_mode: String = "ask"
 var _approval_loaded: bool = false
+# Phase 6f: agent mode — controls which personas can trigger the auto-loop.
+# Values: "narcea_only" (default) | "all" | "always_ask" | "off"
+var _agent_mode: String = "narcea_only"
 
 func _load_approval_mode() -> void:
 	if _approval_loaded:
@@ -2883,7 +2899,12 @@ func _load_approval_mode() -> void:
 		_max_agent_hops = int(cfg.get_value("ai", "max_agent_hops", _max_agent_hops))
 		_max_agent_tokens = int(cfg.get_value("ai", "max_agent_tokens", _AGENT_MAX_TOKENS_DEFAULT))
 		_max_agent_seconds = float(cfg.get_value("ai", "max_agent_seconds", _AGENT_MAX_SECONDS_DEFAULT))
+		# Phase 6f: agent mode gating.
+		var am: String = str(cfg.get_value("ai", "agent_mode", "narcea_only"))
+		if am in ["narcea_only", "all", "always_ask", "off"]:
+			_agent_mode = am
 	_sync_approvals_dropdown()
+	_sync_agent_mode_dropdown()
 
 func _sync_approvals_dropdown() -> void:
 	if not is_instance_valid(_approvals_dropdown):
@@ -2898,8 +2919,32 @@ func _sync_approvals_dropdown() -> void:
 
 func _save_approval_mode() -> void:
 	var cfg := ConfigFile.new()
+	cfg.load(_APPROVAL_CFG_PATH)  # preserve existing keys
 	cfg.set_value("ai", "mode", _approval_mode)
+	cfg.set_value("ai", "agent_mode", _agent_mode)
 	cfg.save(_APPROVAL_CFG_PATH)
+
+func _sync_agent_mode_dropdown() -> void:
+	if not is_instance_valid(_agent_mode_dropdown):
+		return
+	var idx := 0
+	match _agent_mode:
+		"all": idx = 1
+		"always_ask": idx = 2
+		"off": idx = 3
+		_: idx = 0
+	if _agent_mode_dropdown.selected != idx:
+		_agent_mode_dropdown.selected = idx
+
+func _on_agent_mode_selected(idx: int) -> void:
+	match idx:
+		0: _agent_mode = "narcea_only"
+		1: _agent_mode = "all"
+		2: _agent_mode = "always_ask"
+		3: _agent_mode = "off"
+		_: _agent_mode = "narcea_only"
+	_save_approval_mode()
+	_output.append_text("[color=#aaccff]  Agent mode → %s[/color]\n" % _agent_mode)
 
 func _on_approvals_selected(idx: int) -> void:
 	match idx:
@@ -3046,6 +3091,31 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 	var blocked: Array = plan.get("blocked", [])
 	if not blocked.is_empty():
 		_transcript_close("blocked")
+		return
+	# Phase 6f: persona / agent-mode gating.
+	var _loop_allowed := false
+	match _agent_mode:
+		"all":
+			_loop_allowed = true
+		"narcea_only":
+			_loop_allowed = (_persona_id == "narcea")
+		"always_ask", "off":
+			_loop_allowed = false
+	if not _loop_allowed:
+		var reason := "agent_gated_off" if _agent_mode == "off" else "agent_gated_persona"
+		if _agent_mode == "always_ask":
+			reason = "agent_gated_always_ask"
+		if not muts.is_empty() or not (plan.get("read_results", []) as Array).is_empty():
+			var hint: String
+			match _agent_mode:
+				"narcea_only":
+					hint = "(agent loop gated — switch to Narcea persona to enable auto-loop)"
+				"always_ask":
+					hint = "(agent loop paused — 'Always ask' mode: approve manually via the approval bar)"
+				_:
+					hint = "(agent loop disabled — enable in the 🤖 Agent mode dropdown)"
+			_output.append_text("[color=#888888]  %s[/color]\n" % hint)
+		_transcript_close(reason)
 		return
 	# Phase 6b: if the model emitted a play.run_main call, defer the next
 	# hop until _on_run_finished fires (which calls _continue_agent_after_run).
