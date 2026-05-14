@@ -80,6 +80,16 @@ var _vad_spoke_once: bool = false  # true once user has spoken ≥1 non-silent c
 # silence her until this was added (May 3 2026 user request).
 var _tts_pid: int = -1
 
+# Tier 2.5c: TTS sentence-queue for streaming replies.
+# Sentences are extracted from the incoming token stream and played back
+# sequentially so the user hears the first sentence while the model is
+# still generating the rest — typically saves 5-20 s of perceived latency.
+var _tts_queue: Array = []          # Array[String] sentences awaiting playback
+var _stream_buf: String = ""        # raw token accumulator during streaming
+var _stream_fence_depth: int = 0    # parity counter for ``` fences (odd = inside)
+var _stream_active: bool = false     # true while speak_streaming_chunk() is in use
+var _speech_filter = null            # lazy-loaded vg_ai_speech_filter
+
 # Settings (loaded from CFG_PATH)
 var vad_enabled: bool = true              # auto-stop on silence
 var stt_backend: String = "openai"        # "openai" | "whisper" | "off"
@@ -530,6 +540,12 @@ func speak(text: String) -> void:
 			speech_failed.emit("Unknown TTS backend: %s" % tts_backend)
 
 func stop_speaking() -> void:
+	# Tier 2.5c: clear the sentence queue and streaming buffer so no further
+	# sentences play after an explicit stop.
+	_tts_queue.clear()
+	_stream_buf = ""
+	_stream_fence_depth = 0
+	_stream_active = false
 	# 1. Stop any AudioStreamPlayer-driven playback (OpenAI / Piper produce a
 	#    WAV that we play in-process).
 	if is_instance_valid(_tts_player):
@@ -544,6 +560,112 @@ func stop_speaking() -> void:
 	if _is_speaking:
 		_is_speaking = false
 		speech_finished.emit()
+
+# ─── TTS streaming sentence queue (Tier 2.5c) ───────────────────────────────
+## Feed a raw token from the AI stream into the TTS pipeline.
+## Complete sentences are dispatched to TTS as soon as their terminal
+## punctuation is detected, so the user hears the first sentence within
+## ~300 ms of it completing rather than after the entire reply arrives.
+func speak_streaming_chunk(chunk: String) -> void:
+	if tts_backend == "off":
+		return
+	_stream_active = true
+	_stream_buf += chunk
+	# Track code-fence depth so we don't split sentences inside a block.
+	var fence_count := chunk.count("```")
+	_stream_fence_depth = (_stream_fence_depth + fence_count) % 2
+	# Only extract sentences when outside a code fence.
+	if _stream_fence_depth == 0:
+		_extract_and_enqueue_sentences()
+
+## Called at the end of a streaming reply to flush any remaining buffered
+## text (partial sentence without terminal punctuation, or a closing fence).
+func flush_streaming_speak() -> void:
+	if not _stream_active:
+		return
+	_stream_active = false
+	var remaining := _stream_buf.strip_edges()
+	_stream_buf = ""
+	_stream_fence_depth = 0
+	if not remaining.is_empty():
+		_enqueue_sentence(remaining)
+
+## Extract complete sentences from `_stream_buf` and enqueue them.
+## Leaves any incomplete trailing fragment in `_stream_buf`.
+func _extract_and_enqueue_sentences() -> void:
+	while true:
+		var idx := _find_sentence_boundary(_stream_buf)
+		if idx == -1:
+			break
+		var sentence := _stream_buf.substr(0, idx + 1).strip_edges()
+		_stream_buf = _stream_buf.substr(idx + 1).lstrip(" \t")
+		if not sentence.is_empty():
+			_enqueue_sentence(sentence)
+
+## Find the end index (inclusive) of the first complete sentence in `s`.
+## Returns -1 if no sentence boundary is found.  Does not split on:
+##   • "..."  (ellipsis)          • digit.digit (decimals like 3.14)
+func _find_sentence_boundary(s: String) -> int:
+	var i := 0
+	var n := s.length()
+	while i < n:
+		var c := s[i]
+		if c == "." or c == "!" or c == "?":
+			# Ellipsis: skip "..."
+			if c == "." and i + 2 < n and s[i + 1] == "." and s[i + 2] == ".":
+				i += 3
+				continue
+			# Decimal number e.g. "3.14" — don't split
+			if c == "." and i > 0 and i + 1 < n:
+				var prev := s[i - 1]
+				var nxt := s[i + 1]
+				if prev >= "0" and prev <= "9" and nxt >= "0" and nxt <= "9":
+					i += 1
+					continue
+			# Consume optional trailing closing punctuation / quote
+			var end_idx := i
+			while end_idx + 1 < n and (s[end_idx + 1] == "\"" or s[end_idx + 1] == "'" \
+					or s[end_idx + 1] == ")" or s[end_idx + 1] == "]"):
+				end_idx += 1
+			# Must be followed by whitespace, newline, or end of string
+			if end_idx + 1 >= n or s[end_idx + 1] == " " or s[end_idx + 1] == "\n":
+				return end_idx
+		elif c == "\n" and i + 1 < n and s[i + 1] == "\n":
+			# Paragraph break — treat as sentence boundary
+			return i
+		i += 1
+	return -1
+
+## Filter and enqueue one sentence for TTS playback.
+func _enqueue_sentence(s: String) -> void:
+	s = s.strip_edges()
+	if s.is_empty():
+		return
+	# Apply the speech filter so code blocks and markdown noise are never spoken.
+	var filtered := _apply_speech_filter(s)
+	if filtered.is_empty():
+		return
+	_tts_queue.append(filtered)
+	if not _is_speaking:
+		_dequeue_and_speak()
+
+## Pop the front of the queue and speak it (no-op if already speaking or empty).
+func _dequeue_and_speak() -> void:
+	if _tts_queue.is_empty() or _is_speaking:
+		return
+	var s: String = _tts_queue.pop_front()
+	speak(s)
+
+## Lazily load vg_ai_speech_filter and run `text` through it.
+## Returns empty string when the sentence contains nothing worth voicing.
+func _apply_speech_filter(text: String) -> String:
+	if _speech_filter == null:
+		var sf := load("res://addons/visual_gasic/vg_ai_speech_filter.gd")
+		if sf != null:
+			_speech_filter = sf.new()
+	if _speech_filter == null:
+		return text
+	return _speech_filter.for_speech(text)
 
 # ─── Transcription dispatch ─────────────────────────────────────────────────
 func _transcribe_recorded() -> void:
@@ -791,6 +913,8 @@ func _on_tts_response(result: int, code: int, _headers: PackedStringArray, body:
 func _on_tts_finished() -> void:
 	_is_speaking = false
 	speech_finished.emit()
+	# Tier 2.5c: play the next queued sentence immediately.
+	_dequeue_and_speak()
 
 # ─── TTS: local piper ───────────────────────────────────────────────────────
 func _speak_piper(text: String) -> void:

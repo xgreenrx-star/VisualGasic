@@ -612,6 +612,12 @@ func _display_token(token: String) -> void:
 	_agent_total_tokens += 1   # Phase 6b: accumulate across agent hops
 	_accumulated_response += token
 	_output.append_text(_escape_bbcode(token))
+	# Tier 2.5c: stream token directly into TTS pipeline so sentences begin
+	# playing as soon as they complete, rather than after the full reply.
+	if is_instance_valid(_voice_speak_toggle) and _voice_speak_toggle.button_pressed:
+		_ensure_voice_ctrl()
+		if _voice_ctrl != null and _voice_ctrl.has_method("speak_streaming_chunk"):
+			_voice_ctrl.speak_streaming_chunk(token)
 	# Streaming tool dispatch: as soon as a closing fence appears in the
 	# accumulated reply, run any complete vg-tool blocks.  This lets the
 	# model see read-tool results sooner and produces faster UX feedback.
@@ -677,14 +683,17 @@ func _finish_generation() -> void:
 		_status_label.add_theme_color_override("font_color",
 			Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
 
-	# Voice mode (Tier 2.5): speak the completed reply aloud if enabled.
-	# Strip code blocks / form-specs / markdown noise first — reading raw
-	# generated VG code aloud was the #1 voice-mode complaint.
-	if is_instance_valid(_voice_speak_toggle) and _voice_speak_toggle.button_pressed \
-			and not _accumulated_response.strip_edges().is_empty():
+	# Voice mode (Tier 2.5c): flush any remaining buffered tokens to the TTS
+	# sentence queue now that the stream is complete.  The first sentences
+	# have typically been dispatched and may already be playing.
+	if is_instance_valid(_voice_speak_toggle) and _voice_speak_toggle.button_pressed:
 		_ensure_voice_ctrl()
 		if _voice_ctrl != null:
-			_voice_ctrl.speak(_speech_text(_accumulated_response))
+			if _voice_ctrl.has_method("flush_streaming_speak"):
+				_voice_ctrl.flush_streaming_speak()
+			elif not _accumulated_response.strip_edges().is_empty():
+				# Fallback for voice controllers that don't support streaming.
+				_voice_ctrl.speak(_speech_text(_accumulated_response))
 
 	# Build-Form button: enable iff the reply contains a parseable form spec.
 	_refresh_build_form_btn()
