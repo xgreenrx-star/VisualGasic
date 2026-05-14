@@ -295,6 +295,9 @@ var _voice_ctrl = null
 var _mic_btn: Button = null
 var _voice_speak_toggle: CheckBox = null
 var _voice_vad_toggle: CheckBox = null   # Tier 2.5b VAD auto-stop
+# Tier 2.5d — full-duplex realtime voice (OpenAI Realtime / Gemini Live)
+var _realtime_ctrl = null
+var _realtime_btn: CheckBox = null       # ⚡ toggle in toolbar
 # Stop-Speaking button — added May 2026 because Narcea was uninterruptible.
 # Visible only while she's actually speaking.
 var _stop_speak_btn: Button = null
@@ -885,6 +888,14 @@ func _setup_ui() -> void:
 	_voice_vad_toggle.button_pressed = true
 	_voice_vad_toggle.toggled.connect(_on_vad_toggled)
 	toolbar.add_child(_voice_vad_toggle)
+
+	# ⚡ Realtime mode toggle (Tier 2.5d — OpenAI Realtime / Gemini Live)
+	_realtime_btn = CheckBox.new()
+	_realtime_btn.text = "⚡"
+	_realtime_btn.tooltip_text = "Realtime voice mode: continuous full-duplex conversation (OpenAI Realtime / Gemini Live). Configure backend in ⚙️ Voice Settings."
+	_realtime_btn.button_pressed = false
+	_realtime_btn.toggled.connect(_on_realtime_toggled)
+	toolbar.add_child(_realtime_btn)
 
 	# ⏹ Stop-Speaking button — hidden until Narcea actually starts talking.
 	_stop_speak_btn = Button.new()
@@ -2074,6 +2085,28 @@ func _ensure_voice_ctrl() -> void:
 		_voice_vad_toggle.set_pressed_no_signal(_voice_ctrl.vad_enabled)
 
 func _on_mic_toggled(pressed: bool) -> void:
+	# ⚡ Realtime mode: the mic button starts/stops the WS session.
+	if is_instance_valid(_realtime_btn) and _realtime_btn.button_pressed:
+		_ensure_realtime_ctrl()
+		if _realtime_ctrl == null:
+			_mic_btn.button_pressed = false
+			return
+		if pressed:
+			var problem: String = _realtime_ctrl.diagnose()
+			if not problem.is_empty():
+				_append_system("[color=yellow]⚡ %s[/color]\n" % problem)
+				_mic_btn.button_pressed = false
+				return
+			_realtime_ctrl.system_instructions = _get_active_system_prompt()
+			var ok := _realtime_ctrl.start_session()
+			if not ok:
+				_mic_btn.button_pressed = false
+		else:
+			if _realtime_ctrl.is_session_active():
+				_realtime_ctrl.stop_session()
+		return
+
+	# Standard PTT mode.
 	_ensure_voice_ctrl()
 	if _voice_ctrl == null:
 		_mic_btn.button_pressed = false
@@ -2107,6 +2140,101 @@ func _on_vad_toggled(pressed: bool) -> void:
 	if _voice_ctrl != null:
 		_voice_ctrl.vad_enabled = pressed
 		_voice_ctrl.save_settings()
+
+# ── Tier 2.5d: realtime toggle handler ──────────────────────────────────────
+func _on_realtime_toggled(pressed: bool) -> void:
+	if pressed:
+		_append_system("[color=#aaddff]⚡ Realtime mode active — click 🎙 to start a live session.[/color]\n")
+		_mic_btn.tooltip_text = "Start realtime session: click to connect, click again to disconnect"
+	else:
+		if _realtime_ctrl != null and is_instance_valid(_realtime_ctrl):
+			if _realtime_ctrl.is_session_active():
+				_realtime_ctrl.stop_session()
+		_mic_btn.tooltip_text = "Push-to-talk: click to record, click again to stop and transcribe"
+		_mic_btn.button_pressed = false
+
+func _ensure_realtime_ctrl() -> void:
+	if _realtime_ctrl != null and is_instance_valid(_realtime_ctrl):
+		return
+	var rt_script = load("res://addons/visual_gasic/vg_ai_realtime.gd")
+	if rt_script == null:
+		_append_system("[color=red]Realtime module not found.[/color]\n")
+		return
+	_realtime_ctrl = rt_script.new()
+	add_child(_realtime_ctrl)
+	if _realtime_ctrl.has_signal("session_started"):
+		_realtime_ctrl.session_started.connect(_on_realtime_session_started)
+	if _realtime_ctrl.has_signal("session_stopped"):
+		_realtime_ctrl.session_stopped.connect(_on_realtime_session_stopped)
+	if _realtime_ctrl.has_signal("session_failed"):
+		_realtime_ctrl.session_failed.connect(_on_realtime_session_failed)
+	if _realtime_ctrl.has_signal("listening_started"):
+		_realtime_ctrl.listening_started.connect(_on_realtime_listening_started)
+	if _realtime_ctrl.has_signal("listening_stopped"):
+		_realtime_ctrl.listening_stopped.connect(_on_realtime_listening_stopped)
+	if _realtime_ctrl.has_signal("transcript_delta"):
+		_realtime_ctrl.transcript_delta.connect(_on_realtime_transcript_delta)
+	if _realtime_ctrl.has_signal("reply_delta"):
+		_realtime_ctrl.reply_delta.connect(_on_realtime_reply_delta)
+	if _realtime_ctrl.has_signal("reply_done"):
+		_realtime_ctrl.reply_done.connect(_on_realtime_reply_done)
+	if _realtime_ctrl.has_signal("reply_audio_started"):
+		_realtime_ctrl.reply_audio_started.connect(_on_realtime_audio_started)
+	if _realtime_ctrl.has_signal("reply_audio_done"):
+		_realtime_ctrl.reply_audio_done.connect(_on_realtime_audio_done)
+
+# ── Tier 2.5d: realtime signal handlers ─────────────────────────────────────
+func _on_realtime_session_started() -> void:
+	_append_system("[color=#aaddff]⚡ Realtime session open — speak freely.[/color]\n")
+	if is_instance_valid(_mic_btn):
+		_mic_btn.text = "🔴"
+		_mic_btn.tooltip_text = "Realtime session active — click to disconnect"
+
+func _on_realtime_session_stopped() -> void:
+	_append_system("[color=#aaddff]⚡ Realtime session closed.[/color]\n")
+	if is_instance_valid(_mic_btn):
+		_mic_btn.button_pressed = false
+		_mic_btn.text = "🎙"
+		_mic_btn.tooltip_text = "Start realtime session: click to connect, click again to disconnect"
+
+func _on_realtime_session_failed(reason: String) -> void:
+	_append_system("[color=red]⚡ Realtime error: %s[/color]\n" % reason)
+	if is_instance_valid(_mic_btn):
+		_mic_btn.button_pressed = false
+		_mic_btn.text = "🎙"
+
+func _on_realtime_listening_started() -> void:
+	# VAD detected speech — subtle visual cue.
+	if is_instance_valid(_mic_btn):
+		_mic_btn.text = "🎤"
+
+func _on_realtime_listening_stopped() -> void:
+	if is_instance_valid(_mic_btn):
+		_mic_btn.text = "🔴"
+
+var _realtime_transcript_buf: String = ""
+
+func _on_realtime_transcript_delta(text: String) -> void:
+	_realtime_transcript_buf += text
+
+func _on_realtime_reply_delta(text: String) -> void:
+	# Append incrementally to the output so the user sees text as it arrives.
+	_output.append_text(_escape_bbcode(text))
+
+func _on_realtime_reply_done(_full_text: String) -> void:
+	# Print the user's transcript if we accumulated one.
+	if not _realtime_transcript_buf.is_empty():
+		_append_system("[color=#88ddff]🎤 You said:[/color] %s\n" % _escape_bbcode(_realtime_transcript_buf))
+		_realtime_transcript_buf = ""
+	_output.append_text("\n")
+
+func _on_realtime_audio_started() -> void:
+	if is_instance_valid(_stop_speak_btn):
+		_stop_speak_btn.visible = true
+
+func _on_realtime_audio_done() -> void:
+	if is_instance_valid(_stop_speak_btn):
+		_stop_speak_btn.visible = false
 
 func _on_voice_recording_started() -> void:
 	_append_system("[color=#ff6666]🔴 Recording…[/color] [color=gray](click 🎙 again to stop)[/color]\n")
@@ -2162,6 +2290,10 @@ func _on_voice_speech_finished() -> void:
 func _on_stop_speak() -> void:
 	if _voice_ctrl != null and is_instance_valid(_voice_ctrl):
 		_voice_ctrl.stop_speaking()
+	# Also stop realtime AI audio (barge-in via the ⏹ button).
+	if _realtime_ctrl != null and is_instance_valid(_realtime_ctrl):
+		if _realtime_ctrl.has_method("stop_ai_audio"):
+			_realtime_ctrl.stop_ai_audio()
 	if is_instance_valid(_stop_speak_btn):
 		_stop_speak_btn.visible = false
 
