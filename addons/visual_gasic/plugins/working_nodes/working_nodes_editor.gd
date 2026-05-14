@@ -648,6 +648,8 @@ func _build_ui() -> void:
 	_canvas_context_menu.add_item("Clear Graph",   31)
 	_canvas_context_menu.id_pressed.connect(_on_canvas_context_menu_id)
 	add_child(_canvas_context_menu)
+	_do_style_wn_popup(_canvas_context_menu)
+	_canvas_context_menu.about_to_popup.connect(_on_wn_popup_about_to_show.bind(_canvas_context_menu))
 
 	# Node right-click context menu
 	_node_context_menu = PopupMenu.new()
@@ -659,6 +661,8 @@ func _build_ui() -> void:
 	_node_context_menu.add_item("🗑 Delete",          3)
 	_node_context_menu.id_pressed.connect(_on_node_context_menu_id)
 	add_child(_node_context_menu)
+	_do_style_wn_popup(_node_context_menu)
+	_node_context_menu.about_to_popup.connect(_on_wn_popup_about_to_show.bind(_node_context_menu))
 
 	var overlay_script := load("res://addons/visual_gasic/plugins/working_nodes/working_nodes_wire_overlay.gd")
 	_overlay = overlay_script.new()

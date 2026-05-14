@@ -405,6 +405,8 @@ func _build_inline_fallback(host: Control, reason: String) -> void:
 	canvas_menu.add_item("Select All",  10); canvas_menu.add_item("Clear Graph", 11)
 	canvas_menu.id_pressed.connect(_on_canvas_menu_id_pressed)
 	graph.add_child(canvas_menu)
+	_do_style_wn_popup(canvas_menu)
+	canvas_menu.about_to_popup.connect(_on_wn_popup_about_to_show.bind(canvas_menu))
 	_fallback_canvas_menu = canvas_menu
 
 	# Feature 18: node right-click menu
@@ -417,6 +419,8 @@ func _build_inline_fallback(host: Control, reason: String) -> void:
 	node_menu.add_item("🔴 Set Breakpoint",   3)
 	node_menu.id_pressed.connect(_on_node_menu_id_pressed)
 	graph.add_child(node_menu)
+	_do_style_wn_popup(node_menu)
+	node_menu.about_to_popup.connect(_on_wn_popup_about_to_show.bind(node_menu))
 	_fallback_node_menu = node_menu
 
 	# Feature 8: auto-save every 30 s
