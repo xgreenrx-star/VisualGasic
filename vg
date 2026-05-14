@@ -51,6 +51,34 @@ banner() {
     echo -e "${NC}"
 }
 
+# ── Locate Godot binary (shared by cmd_new + cmd_pkg) ──────────────────────
+find_godot_bin() {
+    if command -v godot &>/dev/null; then
+        echo "godot"; return
+    fi
+    if [[ -f "$VG_GLOBAL_DIR/godot" ]]; then
+        echo "$VG_GLOBAL_DIR/godot"; return
+    fi
+    for candidate in \
+        "$HOME/.local/share/VisualGasic/godot" \
+        "$HOME/Library/Application Support/VisualGasic/godot" \
+        /usr/local/bin/godot /usr/bin/godot "$HOME/bin/godot"; do
+        if [[ -x "$candidate" ]]; then
+            echo "$candidate"; return
+        fi
+    done
+    # Try versioned binaries in the VG workspace (e.g. dev installs)
+    for f in "$(dirname "$0")"/Godot_v*_linux.x86_64 \
+             "$(dirname "$0")"/Godot_v*_linux.x86 \
+             "$(dirname "$0")"/Godot_v*_macos.universal \
+             "$(dirname "$0")"/Godot_v*_win64.exe; do
+        if [[ -x "$f" ]]; then
+            echo "$f"; return
+        fi
+    done
+    echo ""
+}
+
 # ── Check if global addon is installed ──────────────────────────────────────
 check_global_install() {
     if [[ ! -d "$VG_ADDON_DIR" ]]; then
@@ -69,6 +97,15 @@ check_global_install() {
 # ── vg new <name> ──────────────────────────────────────────────────────────
 cmd_new() {
     local project_name="$1"
+    local no_open=false
+    shift || true
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --no-open) no_open=true ;;
+            *) warn "Unknown option: $1" ;;
+        esac
+        shift
+    done
 
     if [[ -z "$project_name" ]]; then
         error "Usage: vg new <project-name>"
@@ -184,10 +221,36 @@ GI
     echo ""
     success "Project '${BOLD}$project_name${NC}' created!"
     echo ""
-    echo -e "  ${BOLD}Next steps:${NC}"
-    echo "    cd $project_name"
-    echo "    godot ."
-    echo ""
+
+    # ── Auto-launch Godot editor ────────────────────────────────────────────
+    local abs_project
+    abs_project="$(cd "$project_name" && pwd)"
+
+    if [[ "$no_open" == "true" ]]; then
+        echo -e "  ${BOLD}Next steps:${NC}"
+        echo "    cd $project_name"
+        echo -e "    godot --path . --editor  ${CYAN}# open in Godot IDE${NC}"
+        echo ""
+    else
+        local godot_bin
+        godot_bin=$(find_godot_bin)
+        if [[ -n "$godot_bin" ]]; then
+            info "Opening project in Godot editor…"
+            "$godot_bin" --path "$abs_project" --editor &
+            echo ""
+            echo -e "  Godot is starting in the background. ${CYAN}(Use --no-open to skip.)${NC}"
+            echo ""
+        else
+            echo -e "  ${BOLD}Next steps:${NC}"
+            echo "    cd $project_name"
+            echo -e "    godot --path . --editor  ${CYAN}# open in Godot IDE${NC}"
+            echo ""
+            warn "Godot binary not found in PATH or VisualGasic install dir."
+            warn "Install Godot 4.6 and add it to PATH to enable auto-open."
+            echo ""
+        fi
+    fi
+
     echo -e "  Your starter file: ${BOLD}Form1.vg${NC}"
     echo "  The VisualGasic addon is already enabled — just open and code!"
     echo ""
@@ -334,6 +397,7 @@ cmd_help() {
     banner
     echo -e "  ${BOLD}Usage:${NC}"
     echo "    vg new <project-name>    Create a new Godot project with VG pre-installed"
+    echo "      --no-open              Skip auto-launching the Godot editor"
     echo "    vg install               Install VG addon into the current Godot project"
     echo "    vg update                Update the global VG installation from source"
     echo "    vg version               Show version info"
@@ -386,21 +450,8 @@ cmd_pkg() {
     fi
 
     # Locate Godot binary
-    local godot_bin=""
-    if command -v godot &>/dev/null; then
-        godot_bin="godot"
-    elif [[ -f "$VG_GLOBAL_DIR/godot" ]]; then
-        godot_bin="$VG_GLOBAL_DIR/godot"
-    else
-        # Try common locations
-        for candidate in /usr/local/bin/godot /usr/bin/godot "$HOME/bin/godot"; do
-            if [[ -x "$candidate" ]]; then
-                godot_bin="$candidate"
-                break
-            fi
-        done
-    fi
-
+    local godot_bin
+    godot_bin=$(find_godot_bin)
     if [[ -z "$godot_bin" ]]; then
         error "Godot binary not found. Install Godot or add it to PATH."
         exit 1
@@ -424,7 +475,7 @@ cmd_pkg() {
 
 # ── Main dispatcher ─────────────────────────────────────────────────────────
 case "${1:-help}" in
-    new)     cmd_new "$2" ;;
+    new)     shift; cmd_new "$@" ;;
     install) cmd_install ;;
     update)  cmd_update ;;
     pkg)     shift; cmd_pkg "$@" ;;

@@ -207,8 +207,45 @@ echo End Sub
 
 echo.
 echo   Project '%PROJ%' created!
-echo   Next: cd %PROJ% ^&^& godot .
 echo.
+
+REM Auto-launch Godot editor (skip with --no-open)
+set "NO_OPEN=0"
+if "%~3"=="--no-open" set "NO_OPEN=1"
+
+if "%NO_OPEN%"=="1" (
+    echo   Next: cd %PROJ% ^&^& godot --path . --editor
+    echo.
+    exit /b 0
+)
+
+REM Locate Godot binary
+set "GODOT_BIN="
+if defined VG_GODOT (
+    set "GODOT_BIN=%VG_GODOT%"
+) else (
+    for %%G in (godot.exe Godot.exe godot) do (
+        where %%G >nul 2>&1 && set "GODOT_BIN=%%G" && goto :godot_found
+    )
+    for %%G in (
+        "%APPDATA%\VisualGasic\Godot.exe"
+        "%LOCALAPPDATA%\Programs\Godot\Godot.exe"
+        "C:\Program Files\Godot\Godot.exe"
+    ) do (
+        if exist %%G set "GODOT_BIN=%%G" && goto :godot_found
+    )
+)
+:godot_found
+
+if defined GODOT_BIN (
+    echo   Opening project in Godot editor...  (use --no-open to skip)
+    echo.
+    start "" "%GODOT_BIN%" --path "%CD%\%PROJ%" --editor
+) else (
+    echo   Next: cd %PROJ% ^&^& godot --path . --editor
+    echo   (Godot not found in PATH -- install Godot 4.6 to enable auto-open)
+    echo.
+)
 exit /b 0
 
 :install
