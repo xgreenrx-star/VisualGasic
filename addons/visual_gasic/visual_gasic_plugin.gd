@@ -1059,6 +1059,12 @@ func _enter_tree():
 	# setup, defer a switch to our main screen so _make_visible(true) fires,
 	# the IDE layout becomes active, and (via _auto_open_formless_module)
 	# the welcome dialog or starter module is shown.
+	# ── MCP server (item 5) ────────────────────────────────────────────────
+	# Auto-start the MCP server on loopback so external AI clients can call
+	# VG tools via JSON-RPC 2.0.  Uses a separate port (8766) from the
+	# Browser Dashboard (8765) so both can run simultaneously.
+	call_deferred("_start_mcp_server")
+
 	call_deferred("_select_vg_main_screen_on_first_run")
 
 # =============================================================================
@@ -8480,6 +8486,19 @@ func _on_hex_editor_menu() -> void:
 ## default browser.  Phase-1 server lives in `vg_dashboard_server.gd` — see
 ## that file for the security model (loopback-only, GET-only).
 var _vg_dashboard_server = null
+var _vg_mcp_server = null
+
+func _start_mcp_server() -> void:
+	if _vg_mcp_server != null and is_instance_valid(_vg_mcp_server):
+		return
+	var McpCls = load("res://addons/visual_gasic/vg_mcp_server.gd")
+	if McpCls == null:
+		push_warning("[VG] Cannot load vg_mcp_server.gd — MCP server unavailable")
+		return
+	_vg_mcp_server = McpCls.new()
+	_vg_mcp_server.name = "VGMcpServer"
+	add_child(_vg_mcp_server)
+	_vg_mcp_server.start_server()
 func _on_browser_dashboard() -> void:
 	if _vg_dashboard_server == null:
 		var DashCls = load("res://addons/visual_gasic/vg_dashboard_server.gd")
