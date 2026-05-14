@@ -111,13 +111,17 @@ func discover_plugins() -> void:
 		folder_name = dir.get_next()
 	dir.list_dir_end()
 
-	# Built-in entries — surface bundled IDE modes (Form Designer, etc.)
-	# alongside discovered plugins so users see them in the same strip and
-	# can switch to them without remembering a hidden setting. These don't
-	# go through the VGPluginBase activation flow because they're built
-	# into the host plugin already; the button just calls the host's view
-	# switcher directly.
-	_register_builtin_form_designer()
+	# Auto-enable the Form Designer sub-plugin when the project contains
+	# .frm / .vgform files — ensures legacy projects get the designer
+	# without the user having to manually enable it.
+	if _project_has_form_files():
+		_auto_enable_form_designer()
+
+	# Built-in entries — only register the old builtin Form Designer shim
+	# if the proper plugins/form_designer/ sub-plugin was NOT discovered.
+	# This avoids a duplicate "Form Designer" button in the strip.
+	if not _plugins.has("form_designer"):
+		_register_builtin_form_designer()
 
 	print("VisualGasic: Plugin Manager loaded ", _plugins.size(), " plugin(s)")
 
@@ -128,6 +132,41 @@ func discover_plugins() -> void:
 ## typically don't need it taking up toolbar space).
 const BUILTIN_FORM_DESIGNER_ID := "__builtin_form_designer__"
 const BUILTIN_FORM_DESIGNER_SETTING := "vg/form_designer_enabled"
+
+## Returns true if the project contains at least one .frm or .vgform file.
+func _project_has_form_files() -> bool:
+	return _dir_has_form_file("res://")
+
+func _dir_has_form_file(path: String, depth: int = 0) -> bool:
+	if depth > 6:
+		return false
+	var d := DirAccess.open(path)
+	if d == null:
+		return false
+	d.list_dir_begin()
+	while true:
+		var name := d.get_next()
+		if name.is_empty():
+			break
+		if name.begins_with("."):
+			continue
+		if d.current_is_dir():
+			if _dir_has_form_file(path.path_join(name), depth + 1):
+				return true
+		elif name.ends_with(".frm") or name.ends_with(".vgform"):
+			return true
+	d.list_dir_end()
+	return false
+
+## Ensure the form_designer sub-plugin is enabled when form files are present.
+## Writes vg/form_designer_enabled = true so _auto_open_formless_module
+## treats the project as a forms project.
+func _auto_enable_form_designer() -> void:
+	if not ProjectSettings.has_setting(BUILTIN_FORM_DESIGNER_SETTING) or \
+	   not bool(ProjectSettings.get_setting(BUILTIN_FORM_DESIGNER_SETTING, true)):
+		ProjectSettings.set_setting(BUILTIN_FORM_DESIGNER_SETTING, true)
+		ProjectSettings.save()
+		print("VisualGasic: Form files detected — auto-enabled Form Designer")
 
 
 ## Register the Form Designer as a pseudo-plugin: gets a row in the
