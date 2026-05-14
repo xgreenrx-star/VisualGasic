@@ -917,7 +917,12 @@ func _create_node_ui(node_type: String) -> GraphNode:
 		_build_trigger_node(n, _GD_TRIGGERS[node_type])
 		return n
 
-	# ── Legacy single-port nodes (event / action / math) ─────────────────
+	# ── Math node — orange value ports (Blender-style) ────────────────────
+	if node_type == TYPE_MATH:
+		_build_math_node(n)
+		return n
+
+	# ── Legacy single-port nodes (event / action) ─────────────────────────
 	n.custom_minimum_size = Vector2(220, 120)
 	n.set_slot(0, true, 0, Color.WHITE, true, 0, Color.WHITE)
 
@@ -938,7 +943,7 @@ func _create_node_ui(node_type: String) -> GraphNode:
 		event_option.add_item("On Timer")
 		event_option.add_item("On Signal")
 		root.add_child(event_option)
-	elif node_type == TYPE_ACTION:
+	else:  # TYPE_ACTION
 		var action_option := OptionButton.new()
 		action_option.add_item("Move")
 		action_option.add_item("Rotate")
@@ -946,26 +951,6 @@ func _create_node_ui(node_type: String) -> GraphNode:
 		action_option.add_item("Play SFX")
 		action_option.add_item("Set Variable")
 		root.add_child(action_option)
-	else:
-		var math_option := OptionButton.new()
-		math_option.add_item("Add")
-		math_option.add_item("Subtract")
-		math_option.add_item("Multiply")
-		math_option.add_item("Divide")
-		math_option.add_item("Clamp")
-		math_option.add_item("Map Range")
-		math_option.add_item("Sine")
-		math_option.add_item("Cosine")
-		root.add_child(math_option)
-
-		var value_row := HBoxContainer.new()
-		var a := LineEdit.new()
-		a.placeholder_text = "A"
-		var b := LineEdit.new()
-		b.placeholder_text = "B"
-		value_row.add_child(a)
-		value_row.add_child(b)
-		root.add_child(value_row)
 
 	var group_label := Label.new()
 	group_label.text = "Group: 1"
@@ -977,6 +962,65 @@ func _create_node_ui(node_type: String) -> GraphNode:
 # ══════════════════════════════════════════════════════════════════════════════
 # Trigger node builder (data-driven)
 # ══════════════════════════════════════════════════════════════════════════════
+
+## Build a Math node with Blender-style orange value ports.
+## Slot 0  = Operator selector row  (no ports).
+## Slot 1  = A input row            (orange PORT_VALUE in).
+## Slot 2  = B input row            (orange PORT_VALUE in).
+## Slot 3  = Result output row      (orange PORT_VALUE out).
+func _build_math_node(n: GraphNode) -> void:
+	n.custom_minimum_size = Vector2(210, 140)
+
+	# Slot 0: operator selector (no ports)
+	var op_row := HBoxContainer.new()
+	op_row.add_theme_constant_override("separation", 4)
+	var op_lbl := Label.new()
+	op_lbl.text = "Op:"
+	op_lbl.custom_minimum_size = Vector2(28, 0)
+	op_lbl.add_theme_font_size_override("font_size", 11)
+	op_lbl.add_theme_color_override("font_color", Color(0.70, 0.75, 0.80))
+	op_row.add_child(op_lbl)
+	var math_opt := OptionButton.new()
+	math_opt.name = "OpSelect"
+	math_opt.add_item("Add")
+	math_opt.add_item("Subtract")
+	math_opt.add_item("Multiply")
+	math_opt.add_item("Divide")
+	math_opt.add_item("Min")
+	math_opt.add_item("Max")
+	math_opt.add_item("Modulo")
+	math_opt.add_item("Power")
+	math_opt.add_item("Abs")
+	math_opt.add_item("Floor")
+	math_opt.add_item("Round")
+	math_opt.add_item("Sine")
+	math_opt.add_item("Cosine")
+	math_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	op_row.add_child(math_opt)
+	n.add_child(op_row)
+	n.set_slot(0, false, 0, Color.WHITE, false, 0, Color.WHITE)
+
+	# Slot 1: A input (orange)
+	n.add_child(_make_param_row("A", "0"))
+	n.set_slot(1, true, PORT_VALUE, VALUE_PORT_COLOR, false, 0, Color.WHITE)
+
+	# Slot 2: B input (orange)
+	n.add_child(_make_param_row("B", "0"))
+	n.set_slot(2, true, PORT_VALUE, VALUE_PORT_COLOR, false, 0, Color.WHITE)
+
+	# Slot 3: Result output (orange)
+	var res_row := HBoxContainer.new()
+	res_row.add_theme_constant_override("separation", 4)
+	var res_lbl := Label.new()
+	res_lbl.text = "Result"
+	res_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	res_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	res_lbl.add_theme_font_size_override("font_size", 11)
+	res_lbl.add_theme_color_override("font_color", VALUE_PORT_COLOR.lightened(0.15))
+	res_row.add_child(res_lbl)
+	n.add_child(res_row)
+	n.set_slot(3, false, 0, Color.WHITE, true, PORT_VALUE, VALUE_PORT_COLOR)
+
 
 ## Build a multi-port trigger node from a _GD_TRIGGERS definition dict.
 ## Slot 0  = execution-flow row   (exec in/out, type PORT_EXEC).
@@ -1066,10 +1110,12 @@ func _get_node_params(node: GraphNode) -> Dictionary:
 			for sub in child.get_children():
 				if sub is LineEdit and sub.name != "":
 					out[sub.name] = sub.text
+				elif sub is OptionButton and sub.name != "":
+					out[sub.name] = sub.get_item_text(sub.selected) if sub.selected >= 0 else ""
 	return out
 
 
-## Restore LineEdit values from a saved params dict.
+## Restore LineEdit / OptionButton values from a saved params dict.
 func _apply_node_params(node: GraphNode, params: Dictionary) -> void:
 	if params.is_empty():
 		return
@@ -1078,6 +1124,12 @@ func _apply_node_params(node: GraphNode, params: Dictionary) -> void:
 			for sub in child.get_children():
 				if sub is LineEdit and params.has(sub.name):
 					sub.text = str(params[sub.name])
+				elif sub is OptionButton and params.has(sub.name):
+					var saved := str(params[sub.name]).to_lower()
+					for idx in sub.item_count:
+						if sub.get_item_text(idx).to_lower() == saved:
+							sub.select(idx)
+							break
 
 func _layout_seed_nodes() -> void:
 	if _nodes.has("WN_1"):

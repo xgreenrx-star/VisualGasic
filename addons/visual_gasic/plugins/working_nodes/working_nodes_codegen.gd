@@ -420,6 +420,99 @@ class _VGGen:
 					out.append(_nodes[tn])
 		return out
 
+	# ─── Value-wire helpers ───────────────────────────────────────────────────
+
+	## Ordered param keys per trigger kind (matches slot_offset + index).
+	## Used by _resolve_param to look up which slot corresponds to a param key.
+	const _TRIGGER_PARAM_ORDER: Dictionary = {
+		"move":          ["Group_ID", "X", "Y", "Duration", "Easing"],
+		"rotate":        ["Group_ID", "Degrees", "Duration", "Lock_Rot"],
+		"scale":         ["Group_ID", "Scale_X", "Scale_Y", "Duration"],
+		"alpha":         ["Group_ID", "Alpha", "Duration"],
+		"color trigger": ["Channel", "R", "G", "B", "Duration"],
+		"pulse":         ["Group_ID", "R", "G", "B", "Fade_In", "Hold", "Fade_Out"],
+		"spawn":         ["Group_ID", "Delay"],
+		"stop":          ["Group_ID"],
+		"toggle":        ["Group_ID", "Active"],
+		"follow":        ["Group_ID", "Target_Group", "X_Mod", "Y_Mod", "Duration"],
+		"shake":         ["Strength", "Interval", "Duration"],
+		"play sfx":      ["Sound", "Volume", "Pitch"],
+		"animate":       ["Group_ID", "Animation", "Speed"],
+		"counter":       ["Name", "Op", "Value"],
+		"random trig":   ["Min", "Max", "Store_To"],
+		"timer":         ["Delay", "Repeat"],
+		"zoom":          ["Zoom", "Duration"],
+		"camera move":   ["Target_Group", "Duration", "X_Offset", "Y_Offset"],
+		"get prop":      ["Node_Path", "Property", "Store_To"],
+		"set prop":      ["Node_Path", "Property", "Value"],
+		"input poll":    ["Action", "Mode"],
+		"expr":          ["Store_To", "Expression"],
+		"delta var":     ["Var", "Op", "Rate"],
+	}
+
+	## Returns the exec-flow slot offset for a trigger kind.
+	## Kinds with an else-out port start params at slot 2; all others at slot 1.
+	func _slot_offset_for_kind(kind: String) -> int:
+		match kind:
+			"branch", "cmp trig", "input poll": return 2
+			_: return 1
+
+	## Builds an inline VG expression for a Math node's operation.
+	func _math_inline_expr(a: String, b: String, op: String) -> String:
+		match op:
+			"add":                return "(%s + %s)" % [a, b]
+			"subtract":           return "(%s - %s)" % [a, b]
+			"multiply":           return "(%s * %s)" % [a, b]
+			"divide":             return "(IIF(%s <> 0, %s / %s, 0))" % [b, a, b]
+			"min":                return "IIF(%s < %s, %s, %s)" % [a, b, a, b]
+			"max":                return "IIF(%s > %s, %s, %s)" % [a, b, a, b]
+			"modulo":             return "(%s Mod %s)" % [a, b]
+			"power":              return "(%s ^ %s)" % [a, b]
+			"abs", "absolute":    return "Abs(%s)" % a
+			"floor":              return "Int(%s)" % a
+			"round":              return "CLng(%s)" % a
+			"sine", "sin":        return "Sin(%s)" % a
+			"cosine", "cos":      return "Cos(%s)" % a
+			_:                    return "(%s + %s)" % [a, b]
+
+	## Returns an inline VG expression for any value wire arriving at (to_name, to_slot).
+	## Returns "" when no wire is connected.  Recursively resolves chained math nodes.
+	func _value_wire_expr(to_name: String, to_slot: int) -> String:
+		for c in _conns:
+			if str(c.get("to", "")) != to_name or int(c.get("to_port", -1)) != to_slot:
+				continue
+			var from_name := str(c.get("from", ""))
+			if not _nodes.has(from_name):
+				continue
+			var src     := _nodes[from_name]
+			var src_kind := str(src.get("_kind", "")).to_lower()
+			if src_kind != "math":
+				continue
+			var prm := src.get("params", {})
+			# Recursively resolve A and B (handles chained math nodes)
+			var a_expr := _value_wire_expr(from_name, 1)
+			if a_expr.is_empty():
+				a_expr = str(prm.get("A", "0"))
+			var b_expr := _value_wire_expr(from_name, 2)
+			if b_expr.is_empty():
+				b_expr = str(prm.get("B", "0"))
+			var op := str(prm.get("OpSelect", prm.get("math_op", "add"))).to_lower()
+			return _math_inline_expr(a_expr, b_expr, op)
+		return ""
+
+	## Returns either a value-wire inline expression (if a Math node feeds this param)
+	## or the literal string from the params dict.
+	func _resolve_param(nd: Dictionary, prm: Dictionary, key: String, default: String) -> String:
+		var n_name := str(nd.get("_name", ""))
+		var kind   := str(nd.get("_kind", "")).to_lower()
+		var order: Array = _TRIGGER_PARAM_ORDER.get(kind, [])
+		var idx := order.find(key)
+		if idx >= 0:
+			var wire := _value_wire_expr(n_name, _slot_offset_for_kind(kind) + idx)
+			if not wire.is_empty():
+				return wire
+		return str(prm.get(key, default))
+
 	func _emit_inline_input_poll(nd: Dictionary, indent: String) -> void:
 		var prm    := nd.get("params", {})
 		var action := str(prm.get("Action", "move_right"))
@@ -511,94 +604,94 @@ class _VGGen:
 			# ── New trigger-style action nodes ─────────────────────────────
 			"move":
 				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
-				var mx  := str(prm.get("X",        "0"))
-				var my  := str(prm.get("Y",        "0"))
-				var dur := str(prm.get("Duration", "0.5"))
+				var gid := _resolve_param(nd, prm, "Group_ID", "1")
+				var mx  := _resolve_param(nd, prm, "X",        "0")
+				var my  := _resolve_param(nd, prm, "Y",        "0")
+				var dur := _resolve_param(nd, prm, "Duration", "0.5")
 				_w(indent + "Call WN_Move(" + gid + ", " + mx + ", " + my + ", " + dur + ")")
 			"rotate":
 				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
-				var deg := str(prm.get("Degrees",  "90"))
-				var dur := str(prm.get("Duration", "0.5"))
+				var gid := _resolve_param(nd, prm, "Group_ID", "1")
+				var deg := _resolve_param(nd, prm, "Degrees",  "90")
+				var dur := _resolve_param(nd, prm, "Duration", "0.5")
 				_w(indent + "Call WN_Rotate(" + gid + ", " + deg + ", " + dur + ")")
 			"scale":
 				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
-				var sx  := str(prm.get("Scale_X",  "1"))
-				var sy  := str(prm.get("Scale_Y",  "1"))
-				var dur := str(prm.get("Duration", "0.5"))
+				var gid := _resolve_param(nd, prm, "Group_ID", "1")
+				var sx  := _resolve_param(nd, prm, "Scale_X",  "1")
+				var sy  := _resolve_param(nd, prm, "Scale_Y",  "1")
+				var dur := _resolve_param(nd, prm, "Duration", "0.5")
 				_w(indent + "Call WN_Scale(" + gid + ", " + sx + ", " + sy + ", " + dur + ")")
 			"alpha":
 				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
-				var opa := str(prm.get("Alpha",    "1.0"))
-				var dur := str(prm.get("Duration", "0.5"))
+				var gid := _resolve_param(nd, prm, "Group_ID", "1")
+				var opa := _resolve_param(nd, prm, "Alpha",    "1.0")
+				var dur := _resolve_param(nd, prm, "Duration", "0.5")
 				_w(indent + "Call WN_Alpha(" + gid + ", " + opa + ", " + dur + ")")
 			"color trigger":
 				var prm := nd.get("params", {})
-				var ch  := str(prm.get("Channel",  "1"))
-				var r   := str(prm.get("R",        "255"))
-				var g   := str(prm.get("G",        "255"))
-				var b   := str(prm.get("B",        "255"))
-				var dur := str(prm.get("Duration", "0.5"))
+				var ch  := _resolve_param(nd, prm, "Channel",  "1")
+				var r   := _resolve_param(nd, prm, "R",        "255")
+				var g   := _resolve_param(nd, prm, "G",        "255")
+				var b   := _resolve_param(nd, prm, "B",        "255")
+				var dur := _resolve_param(nd, prm, "Duration", "0.5")
 				_w(indent + "Call WN_ColorTrigger(" + ch + ", " + r + ", " + g + ", " + b + ", " + dur + ")")
 			"pulse":
 				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
-				var r   := str(prm.get("R",        "255"))
-				var g   := str(prm.get("G",        "100"))
-				var b   := str(prm.get("B",        "100"))
-				var fi  := str(prm.get("Fade_In",  "0.2"))
-				var hld := str(prm.get("Hold",     "0.5"))
-				var fo  := str(prm.get("Fade_Out", "0.2"))
+				var gid := _resolve_param(nd, prm, "Group_ID", "1")
+				var r   := _resolve_param(nd, prm, "R",        "255")
+				var g   := _resolve_param(nd, prm, "G",        "100")
+				var b   := _resolve_param(nd, prm, "B",        "100")
+				var fi  := _resolve_param(nd, prm, "Fade_In",  "0.2")
+				var hld := _resolve_param(nd, prm, "Hold",     "0.5")
+				var fo  := _resolve_param(nd, prm, "Fade_Out", "0.2")
 				_w(indent + "Call WN_Pulse(" + gid + ", " + r + ", " + g + ", " + b + ", " + fi + ", " + hld + ", " + fo + ")")
 			"spawn":
 				var prm   := nd.get("params", {})
-				var gid   := str(prm.get("Group_ID", "1"))
-				var delay := str(prm.get("Delay",    "0"))
+				var gid   := _resolve_param(nd, prm, "Group_ID", "1")
+				var delay := _resolve_param(nd, prm, "Delay",    "0")
 				_w(indent + "Call WN_Spawn(" + gid + ", " + delay + ")")
 			"stop":
 				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
+				var gid := _resolve_param(nd, prm, "Group_ID", "1")
 				_w(indent + "Call WN_Stop(" + gid + ")")
 			"toggle":
 				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID", "1"))
-				var act := str(prm.get("Active",   "1"))
+				var gid := _resolve_param(nd, prm, "Group_ID", "1")
+				var act := _resolve_param(nd, prm, "Active",   "1")
 				_w(indent + "Call WN_Toggle(" + gid + ", " + act + ")")
 			"follow":
 				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID",     "1"))
-				var tgt := str(prm.get("Target_Group", "2"))
-				var xm  := str(prm.get("X_Mod",        "1"))
-				var ym  := str(prm.get("Y_Mod",        "1"))
-				var dur := str(prm.get("Duration",     "1.0"))
+				var gid := _resolve_param(nd, prm, "Group_ID",     "1")
+				var tgt := _resolve_param(nd, prm, "Target_Group", "2")
+				var xm  := _resolve_param(nd, prm, "X_Mod",        "1")
+				var ym  := _resolve_param(nd, prm, "Y_Mod",        "1")
+				var dur := _resolve_param(nd, prm, "Duration",     "1.0")
 				_w(indent + "Call WN_Follow(" + gid + ", " + tgt + ", " + xm + ", " + ym + ", " + dur + ")")
 			"shake":
 				var prm  := nd.get("params", {})
-				var str_ := str(prm.get("Strength", "1"))
-				var intv := str(prm.get("Interval", "0.1"))
-				var dur  := str(prm.get("Duration", "0.5"))
+				var str_ := _resolve_param(nd, prm, "Strength", "1")
+				var intv := _resolve_param(nd, prm, "Interval", "0.1")
+				var dur  := _resolve_param(nd, prm, "Duration", "0.5")
 				_w(indent + "Call WN_Shake(" + str_ + ", " + intv + ", " + dur + ")")
 			"play sfx":
 				var prm := nd.get("params", {})
-				var snd := str(prm.get("Sound",  ""))
-				var vol := str(prm.get("Volume", "1"))
-				var pit := str(prm.get("Pitch",  "1"))
+				var snd := _resolve_param(nd, prm, "Sound",  "")
+				var vol := _resolve_param(nd, prm, "Volume", "1")
+				var pit := _resolve_param(nd, prm, "Pitch",  "1")
 				_w(indent + "Call WN_PlaySFX(\"" + snd + "\", " + vol + ", " + pit + ")")
 			"animate":
 				var prm := nd.get("params", {})
-				var gid := str(prm.get("Group_ID",  "1"))
-				var ani := str(prm.get("Animation", "0"))
-				var spd := str(prm.get("Speed",     "1"))
+				var gid := _resolve_param(nd, prm, "Group_ID",  "1")
+				var ani := _resolve_param(nd, prm, "Animation", "0")
+				var spd := _resolve_param(nd, prm, "Speed",     "1")
 				_w(indent + "Call WN_Animate(" + gid + ", " + ani + ", " + spd + ")")
 			# ── New GD-equivalent nodes ───────────────────────────────────────────
 			"counter":
-				var prm := nd.get("params", {})
-				var cname := str(prm.get("Name",  "score"))
-				var op    := str(prm.get("Op",    "+="))
-				var val   := str(prm.get("Value", "1"))
+				var prm   := nd.get("params", {})
+				var cname := _resolve_param(nd, prm, "Name",  "score")
+				var op    := _resolve_param(nd, prm, "Op",    "+=")
+				var val   := _resolve_param(nd, prm, "Value", "1")
 				match op:
 					"+=": _w(indent + cname + " = " + cname + " + " + val)
 					"-=": _w(indent + cname + " = " + cname + " - " + val)
@@ -609,9 +702,9 @@ class _VGGen:
 					_:    _w(indent + cname + " = " + cname + " + " + val + "  ' op=" + op)
 			"random trig":
 				var prm   := nd.get("params", {})
-				var min_v := str(prm.get("Min",      "0"))
-				var max_v := str(prm.get("Max",      "100"))
-				var store := str(prm.get("Store_To", "result"))
+				var min_v := _resolve_param(nd, prm, "Min",      "0")
+				var max_v := _resolve_param(nd, prm, "Max",      "100")
+				var store := _resolve_param(nd, prm, "Store_To", "result")
 				_w(indent + store + " = " + min_v + " + Rnd() * (" + max_v + " - " + min_v + ")")
 			"branch":
 				_emit_inline_branch(nd, indent)
@@ -619,41 +712,41 @@ class _VGGen:
 				_emit_inline_cmp_trig(nd, indent)
 			"timer":
 				var prm   := nd.get("params", {})
-				var delay := str(prm.get("Delay",  "1.0"))
-				var rep   := str(prm.get("Repeat", "0"))
+				var delay := _resolve_param(nd, prm, "Delay",  "1.0")
+				var rep   := _resolve_param(nd, prm, "Repeat", "0")
 				_w(indent + "Call WN_Timer(" + delay + ", " + rep + ")")
 			"sequence":
 				_emit_inline_sequence(nd, indent)
 			"zoom":
 				var prm := nd.get("params", {})
-				var z   := str(prm.get("Zoom",     "1.0"))
-				var dur := str(prm.get("Duration", "0.5"))
+				var z   := _resolve_param(nd, prm, "Zoom",     "1.0")
+				var dur := _resolve_param(nd, prm, "Duration", "0.5")
 				_w(indent + "Call WN_Zoom(" + z + ", " + dur + ")")
 			"camera move":
 				var prm := nd.get("params", {})
-				var tgt := str(prm.get("Target_Group", "1"))
-				var dur := str(prm.get("Duration",     "1.0"))
-				var ox  := str(prm.get("X_Offset",     "0"))
-				var oy  := str(prm.get("Y_Offset",     "0"))
+				var tgt := _resolve_param(nd, prm, "Target_Group", "1")
+				var dur := _resolve_param(nd, prm, "Duration",     "1.0")
+				var ox  := _resolve_param(nd, prm, "X_Offset",     "0")
+				var oy  := _resolve_param(nd, prm, "Y_Offset",     "0")
 				_w(indent + "Call WN_CameraMove(" + tgt + ", " + dur + ", " + ox + ", " + oy + ")")
 			"get prop":
 				var prm   := nd.get("params", {})
-				var path  := str(prm.get("Node_Path", "Player"))
-				var prop  := str(prm.get("Property",  "position.x"))
-				var store := str(prm.get("Store_To",  "result"))
+				var path  := _resolve_param(nd, prm, "Node_Path", "Player")
+				var prop  := _resolve_param(nd, prm, "Property",  "position.x")
+				var store := _resolve_param(nd, prm, "Store_To",  "result")
 				_w(indent + store + " = GetNode(\"" + path + "\")." + prop)
 			"set prop":
 				var prm  := nd.get("params", {})
-				var path := str(prm.get("Node_Path", "Player"))
-				var prop := str(prm.get("Property",  "position.x"))
-				var val  := str(prm.get("Value",     "0"))
+				var path := _resolve_param(nd, prm, "Node_Path", "Player")
+				var prop := _resolve_param(nd, prm, "Property",  "position.x")
+				var val  := _resolve_param(nd, prm, "Value",     "0")
 				_w(indent + "GetNode(\"" + path + "\")." + prop + " = " + val)
 			"input poll":
 				_emit_inline_input_poll(nd, indent)
 			"expr":
 				var prm   := nd.get("params", {})
-				var store := str(prm.get("Store_To",   "result"))
-				var xpr   := str(prm.get("Expression", "0"))
+				var store := _resolve_param(nd, prm, "Store_To",   "result")
+				var xpr   := _resolve_param(nd, prm, "Expression", "0")
 				_w(indent + store + " = " + xpr)
 			"delta var":
 				_emit_inline_delta_var(nd, indent)
