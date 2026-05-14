@@ -201,6 +201,7 @@ var _model_dropdown: OptionButton
 var _status_label: Label
 var _clear_btn: Button
 var _stop_btn: Button
+var _abort_agent_btn: Button = null   # Phase 6b — shown during multi-hop agent runs
 var _models_btn: Button
 var _model_picker: AcceptDialog
 var _approvals_dropdown: OptionButton
@@ -210,7 +211,24 @@ var _audit_btn: Button
 var _stream_tool_watermark: int = 0
 var _agent_hops: int = 0
 var _agent_continuation: bool = false
-const _MAX_AGENT_HOPS := 3
+# Phase 6b: configurable hop cap (user://vg_ai_approvals.cfg [ai] max_agent_hops)
+var _max_agent_hops: int = 6
+
+# Phase 6b: wall-time + token budget guards.
+# Loaded from user://vg_ai_approvals.cfg [ai] section; hardcoded defaults below.
+const _AGENT_MAX_TOKENS_DEFAULT := 30000
+const _AGENT_MAX_SECONDS_DEFAULT := 120.0
+var _max_agent_tokens: int = _AGENT_MAX_TOKENS_DEFAULT
+var _max_agent_seconds: float = _AGENT_MAX_SECONDS_DEFAULT
+var _agent_start_time: float = 0.0   # Time.get_ticks_msec()/1000 at first hop
+var _agent_total_tokens: int = 0     # Tokens streamed since first hop
+
+# Phase 6b: mutation→run→ingest loop state.
+# When the agent emits play.run_main, we wait for _on_run_finished and
+# feed the captured output back as the next hop context.
+var _agent_triggered_run: bool = false
+var _agent_run_output_lines: PackedStringArray = PackedStringArray()
+const _AGENT_RUN_MAX_LINES := 80   # How many output lines to feed back
 
 # Read-only personas get a tool whitelist applied per turn.  Empty array
 # means "unrestricted" (the chokepoint is still SafeWrite for any disk
@@ -575,6 +593,7 @@ func _display_token(token: String) -> void:
 		_output.append_text("\n[color=#44bb88][b]%s:[/b][/color]\n[color=#dddddd]" % _label)
 		_stream_first_token_time = Time.get_ticks_msec()
 	_stream_token_count += 1
+	_agent_total_tokens += 1   # Phase 6b: accumulate across agent hops
 	_accumulated_response += token
 	_output.append_text(_escape_bbcode(token))
 	# Streaming tool dispatch: as soon as a closing fence appears in the
@@ -1017,6 +1036,15 @@ func _setup_ui() -> void:
 	_style_stop_button(_stop_btn)
 	btn_col.add_child(_stop_btn)
 
+	# Phase 6b: Abort agent button — visible while a multi-hop loop is running.
+	_abort_agent_btn = Button.new()
+	_abort_agent_btn.text = "🛑 Abort"
+	_abort_agent_btn.custom_minimum_size = Vector2(70, 0)
+	_abort_agent_btn.pressed.connect(_on_abort_agent)
+	_abort_agent_btn.visible = false
+	_abort_agent_btn.tooltip_text = "Abort the running agent loop"
+	btn_col.add_child(_abort_agent_btn)
+
 # ---------------------------------------------------------------------------
 # Styling helpers
 # ---------------------------------------------------------------------------
@@ -1247,6 +1275,12 @@ func _on_send() -> void:
 		_agent_continuation = false
 	else:
 		_agent_hops = 0
+		_agent_total_tokens = 0
+		_agent_start_time = Time.get_ticks_msec() / 1000.0
+		_agent_triggered_run = false
+		_agent_run_output_lines.clear()
+		_agent_abort_requested = false
+		_hide_abort_agent_btn()
 	_send_query(prompt)
 
 ## Quick health check — verifies Ollama can accept requests before sending.
@@ -2594,7 +2628,10 @@ func _on_run_stop() -> void:
 
 func _on_run_line(stream: String, line: String) -> void:
 	var color := "#cccccc" if stream == "stdout" else "#ff8888"
-	_append_system("[color=%s]%s %s[/color]\n" % [color, "\u2502", line])
+	_append_system("[color=%s]%s %s[/color]\n" % [color, "│", line])
+	# Phase 6b: buffer output lines when running inside an agent loop.
+	if _agent_triggered_run and _agent_run_output_lines.size() < _AGENT_RUN_MAX_LINES:
+		_agent_run_output_lines.append(("[stderr] " if stream == "stderr" else "") + line)
 
 
 func _on_run_finished(exit_code: int) -> void:
@@ -2603,7 +2640,110 @@ func _on_run_finished(exit_code: int) -> void:
 	if is_instance_valid(_run_stop_btn):
 		_run_stop_btn.visible = false
 	var color := "#aaffaa" if exit_code == 0 else "#ffaa66"
-	_append_system("[color=%s]\u25fc Scene finished (exit %d).[/color]\n" % [color, exit_code])
+	_append_system("[color=%s]■ Scene finished (exit %d).[/color]\n" % [color, exit_code])
+	# Phase 6b: if this run was triggered by the agent loop, ingest the
+	# output and continue the agent so it can react to errors or confirm
+	# success without user intervention.
+	if _agent_triggered_run:
+		_agent_triggered_run = false
+		_continue_agent_after_run(exit_code)
+
+
+## Phase 6b: called from _on_run_finished when the run was agent-triggered.
+## Feeds the captured output back as the next agent hop prompt so Narcea
+## can patch errors or confirm success without user intervention.
+func _continue_agent_after_run(exit_code: int) -> void:
+	if _agent_abort_requested:
+		_agent_abort_requested = false
+		_hide_abort_agent_btn()
+		_output.append_text("[color=#888888]  (agent aborted by user)[/color]\n")
+		return
+	if _agent_hops >= _max_agent_hops:
+		_output.append_text("[color=#888888]  (agent hop limit reached — stopping)[/color]\n")
+		_hide_abort_agent_btn()
+		return
+	if _check_agent_budget_exceeded():
+		_hide_abort_agent_btn()
+		return
+	_agent_hops += 1
+	var captured := _agent_run_output_lines.duplicate()
+	_agent_run_output_lines.clear()
+	var lines_text := "\n".join(captured) if not captured.is_empty() else "(no output)"
+	var follow_up: String
+	if exit_code == 0:
+		follow_up = (
+			"The program ran successfully (exit 0). Output:\n%s\n\n"
+			"If the task is complete, summarise what was done. "
+			"Otherwise continue with the next step."
+		) % lines_text
+	else:
+		follow_up = (
+			"The program exited with an error (exit code %d). Output:\n%s\n\n"
+			"Fix the error — apply the minimal change, save the file, "
+			"and call play.run_main again to verify."
+		) % [exit_code, lines_text]
+	if not is_instance_valid(_input):
+		return
+	_input.text = follow_up
+	_agent_continuation = true
+	_on_send()
+
+
+## Phase 6b: budget guard — returns true (and prints a notice) if the
+## current agent session has hit either the token or wall-time ceiling.
+func _check_agent_budget_exceeded() -> bool:
+	if _max_agent_tokens > 0 and _agent_total_tokens >= _max_agent_tokens:
+		_output.append_text(
+			"[color=#ff8888]  (agent token budget (%d) exhausted — stopping)[/color]\n"
+			% _max_agent_tokens
+		)
+		_hide_abort_agent_btn()
+		return true
+	if _max_agent_seconds > 0.0:
+		var elapsed := (Time.get_ticks_msec() / 1000.0) - _agent_start_time
+		if elapsed >= _max_agent_seconds:
+			_output.append_text(
+				"[color=#ff8888]  (agent time limit (%.0fs) reached — stopping)[/color]\n"
+				% _max_agent_seconds
+			)
+			_hide_abort_agent_btn()
+			return true
+	return false
+
+
+## Phase 6b: show/hide the Abort agent button in the button column.
+var _abort_agent_visible: bool = false
+var _agent_abort_requested: bool = false
+
+func _show_abort_agent_btn() -> void:
+	if not is_instance_valid(_abort_agent_btn) or _abort_agent_visible:
+		return
+	_abort_agent_visible = true
+	_abort_agent_btn.visible = true
+
+func _hide_abort_agent_btn() -> void:
+	if not is_instance_valid(_abort_agent_btn):
+		return
+	_abort_agent_visible = false
+	_abort_agent_btn.visible = false
+	_agent_abort_requested = false
+
+
+## Phase 6b: user pressed the Abort button — halt the agent loop cleanly.
+func _on_abort_agent() -> void:
+	# Signal any in-flight run to stop.
+	if _run_session != null and is_instance_valid(_run_session) and _run_session.is_running():
+		_run_session.stop()
+	# Mark abort so _continue_agent_after_run bails out when _on_run_finished fires.
+	_agent_abort_requested = true
+	# If no run is pending, clear loop state immediately.
+	if not _agent_triggered_run:
+		_agent_hops = 0
+		_agent_total_tokens = 0
+		_agent_run_output_lines.clear()
+		_agent_continuation = false
+		_hide_abort_agent_btn()
+		_output.append_text("[color=#ffaa44]  🛑 Agent loop aborted.[/color]\n")
 
 # ---------------------------------------------------------------------------
 # Personas (Bob, Skippy, default) — system-prompt flavor + TTS voice
@@ -2647,6 +2787,10 @@ func _load_approval_mode() -> void:
 		var v: String = str(cfg.get_value("ai", "mode", "ask"))
 		if v == "ask" or v == "bypass" or v == "read_only":
 			_approval_mode = v
+		# Phase 6b: agent budget settings.
+		_max_agent_hops = int(cfg.get_value("ai", "max_agent_hops", _max_agent_hops))
+		_max_agent_tokens = int(cfg.get_value("ai", "max_agent_tokens", _AGENT_MAX_TOKENS_DEFAULT))
+		_max_agent_seconds = float(cfg.get_value("ai", "max_agent_seconds", _AGENT_MAX_SECONDS_DEFAULT))
 	_sync_approvals_dropdown()
 
 func _sync_approvals_dropdown() -> void:
@@ -2808,15 +2952,34 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 		return
 	var muts: Array = plan.get("mutating", [])
 	var blocked: Array = plan.get("blocked", [])
-	if not muts.is_empty() or not blocked.is_empty():
+	if not blocked.is_empty():
+		return
+	# Phase 6b: if the model emitted a play.run_main call, defer the next
+	# hop until _on_run_finished fires (which calls _continue_agent_after_run).
+	# Any other mutation (code edit) stops the loop — the user reviews changes.
+	if not muts.is_empty():
+		var has_run_main := false
+		for m in muts:
+			if str(m.get("tool", "")) == "play.run_main":
+				has_run_main = true
+				break
+		if has_run_main:
+			# Arm the ingest path; _on_run_finished will trigger next hop.
+			_agent_triggered_run = true
+			_agent_run_output_lines.clear()
+			_show_abort_agent_btn()
+		# Whether run or not, stop here — _continue_agent_after_run handles it.
 		return
 	var reads: Array = _ai_tools.get_read_results()
 	if reads.is_empty():
 		return
-	if _agent_hops >= _MAX_AGENT_HOPS:
+	if _agent_hops >= _max_agent_hops:
 		_output.append_text("[color=#888888]  (agent hop limit reached — stopping)[/color]\n")
 		return
+	if _check_agent_budget_exceeded():
+		return
 	_agent_hops += 1
+	_show_abort_agent_btn()
 	var summary := PackedStringArray()
 	for r in reads:
 		summary.append("- " + str(r))
