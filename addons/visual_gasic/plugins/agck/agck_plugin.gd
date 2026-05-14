@@ -177,6 +177,10 @@ func _build_ui() -> void:
 		_editors[5].preview_requested.connect(_on_preview_requested)
 	if _editors.size() > 5 and _editors[5] and _editors[5].has_signal("template_requested"):
 		_editors[5].template_requested.connect(_on_template_requested)
+	if _editors.size() > 5 and _editors[5] and _editors[5].has_signal("save_template_requested"):
+		_editors[5].save_template_requested.connect(_on_save_template_requested)
+	if _editors.size() > 5 and _editors[5] and _editors[5].has_signal("load_template_requested"):
+		_editors[5].load_template_requested.connect(_on_load_template_requested)
 	if _editors.size() > 5 and _editors[5] and _editors[5].has_signal("web_publish_requested"):
 		_editors[5].web_publish_requested.connect(_on_web_publish_requested)
 
@@ -536,6 +540,148 @@ func _on_template_requested(template_name: String) -> void:
 		_editors[1].refresh_all()
 	_switch_to(0)  # Jump to Levels view
 	_forward_build_log("[color=#8f8]  ✓ Template applied! Edit to your liking, then press PLAY PREVIEW.[/color]")
+
+
+# ─── User template save / load ───────────────────────────────────────────────
+
+const AGCK_TEMPLATES_DIR := "user://agck_templates"
+
+func _on_save_template_requested() -> void:
+	var dlg := AcceptDialog.new()
+	dlg.title = "Save Template"
+	dlg.dialog_text = ""
+	# Build a compact VBox with a label + LineEdit for the template name.
+	var vb := VBoxContainer.new()
+	var lbl := Label.new()
+	lbl.text = "Template name:"
+	vb.add_child(lbl)
+	var le := LineEdit.new()
+	le.placeholder_text = "My Game Template"
+	le.custom_minimum_size = Vector2(300, 0)
+	vb.add_child(le)
+	dlg.add_child(vb)
+	# Position the VBox inside the dialog after it is ready.
+	dlg.get_ok_button().text = "Save"
+	add_child(dlg)
+	dlg.popup_centered()
+	# Focus the LineEdit once visible.
+	await dlg.visibility_changed
+	le.grab_focus()
+	dlg.confirmed.connect(func():
+		var tname: String = le.text.strip_edges()
+		if tname.is_empty():
+			tname = "Untitled"
+		_save_user_template(tname)
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(dlg.queue_free)
+
+func _save_user_template(template_name: String) -> void:
+	var game_data := _collect_all_data()
+	game_data["_template_name"] = template_name
+	game_data["_saved_at"] = Time.get_datetime_string_from_system()
+	DirAccess.make_dir_recursive_absolute(AGCK_TEMPLATES_DIR)
+	# Sanitise name → safe filename.
+	var safe := template_name.strip_edges()
+	for ch in ["/", "\\", ":", "*", "?", "\"", "<", ">", "|"]:
+		safe = safe.replace(ch, "_")
+	if safe.is_empty():
+		safe = "template"
+	var path := AGCK_TEMPLATES_DIR + "/" + safe + ".agckt"
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f == null:
+		_forward_build_log("[color=#f55]✗ Could not write template: " + path + "[/color]")
+		return
+	f.store_string(JSON.stringify(game_data, "\t"))
+	f.close()
+	_forward_build_log("[color=#8f8]  💾 Template saved: " + safe + ".agckt[/color]")
+
+func _on_load_template_requested() -> void:
+	# Gather *.agckt files in the templates dir.
+	var dir := DirAccess.open(AGCK_TEMPLATES_DIR)
+	var files: Array[String] = []
+	if dir != null:
+		dir.list_dir_begin()
+		while true:
+			var f := dir.get_next()
+			if f.is_empty():
+				break
+			if f.ends_with(".agckt"):
+				files.append(f)
+		dir.list_dir_end()
+	if files.is_empty():
+		var info := AcceptDialog.new()
+		info.title = "No saved templates"
+		info.dialog_text = "You haven't saved any templates yet.\nUse '💾 Save as Template...' to create one."
+		add_child(info)
+		info.popup_centered()
+		info.confirmed.connect(info.queue_free)
+		return
+	# Show a popup list.
+	var dlg := AcceptDialog.new()
+	dlg.title = "Load Template"
+	dlg.dialog_text = ""
+	var vb := VBoxContainer.new()
+	var lbl := Label.new()
+	lbl.text = "Choose a template:"
+	vb.add_child(lbl)
+	var opt := OptionButton.new()
+	opt.custom_minimum_size = Vector2(320, 0)
+	files.sort()
+	for fn in files:
+		opt.add_item(fn.trim_suffix(".agckt"))
+	vb.add_child(opt)
+	dlg.add_child(vb)
+	dlg.get_ok_button().text = "Load"
+	add_child(dlg)
+	dlg.popup_centered()
+	dlg.confirmed.connect(func():
+		var chosen: String = files[opt.selected]
+		_load_user_template(AGCK_TEMPLATES_DIR + "/" + chosen)
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(dlg.queue_free)
+
+func _load_user_template(path: String) -> void:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		_forward_build_log("[color=#f55]✗ Cannot open template: " + path + "[/color]")
+		return
+	var raw := f.get_as_text()
+	f.close()
+	var parsed = JSON.parse_string(raw)
+	if not parsed is Dictionary:
+		_forward_build_log("[color=#f55]✗ Template file is corrupt: " + path + "[/color]")
+		return
+	var data: Dictionary = parsed
+	var tname: String = data.get("_template_name", path.get_file().trim_suffix(".agckt"))
+	_forward_build_log("[color=#ffcc55]📋 Loading user template: " + tname + "[/color]")
+	# Clear current levels.
+	if _editors.size() > 0 and _editors[0] and "levels" in _editors[0]:
+		_editors[0].levels.clear()
+	# Restore each editor section.
+	if data.has("settings") and _editors.size() > 4 and _editors[4]:
+		_editors[4].set_data(data["settings"])
+	if data.has("actors") and _editors.size() > 1 and _editors[1]:
+		_editors[1].set_data(data["actors"])
+	if data.has("sounds") and _editors.size() > 2 and _editors[2]:
+		_editors[2].set_data(data["sounds"])
+	if data.has("levels") and _editors.size() > 0 and _editors[0]:
+		_editors[0].set_data(data["levels"])
+	if data.has("shaders") and _editors.size() > 3 and _editors[3]:
+		_editors[3].set_data(data["shaders"])
+	_dirty = true
+	_sync_actor_names()
+	_sync_start_level_count()
+	if _editors.size() > 0 and _editors[0] and _editors[0].has_method("refresh_all"):
+		_editors[0].refresh_all()
+	if _editors.size() > 0 and _editors[0]:
+		_editors[0]._refresh_level_list()
+		_editors[0]._refresh_ui()
+	if _editors.size() > 1 and _editors[1] and _editors[1].has_method("refresh_all"):
+		_editors[1].refresh_all()
+	_switch_to(0)
+	_forward_build_log("[color=#8f8]  ✓ Template '" + tname + "' loaded![/color]")
 
 
 func _apply_platformer_template() -> void:

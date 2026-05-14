@@ -7,6 +7,8 @@ extends VBoxContainer
 signal build_requested()
 signal preview_requested()
 signal template_requested(template_name: String)
+signal save_template_requested()
+signal load_template_requested()
 signal web_publish_requested(web_config: Dictionary)
 
 # ─── Theme ───────────────────────────────────────────────────
@@ -319,6 +321,48 @@ func _build_ui() -> void:
 		var tname: String = tmpl["name"]
 		tbtn.pressed.connect(func(): template_requested.emit(tname))
 		tmpl_hbox.add_child(tbtn)
+
+	# Second row: save / load user templates
+	var tmpl_io_hbox := HBoxContainer.new()
+	tmpl_io_hbox.add_theme_constant_override("separation", 8)
+	tmpl_io_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	tmpl_vbox.add_child(tmpl_io_hbox)
+
+	var save_tmpl_btn := Button.new()
+	save_tmpl_btn.text = "💾 Save as Template..."
+	save_tmpl_btn.tooltip_text = "Save the current game configuration as a reusable template"
+	save_tmpl_btn.add_theme_font_size_override("font_size", 12)
+	var save_style := StyleBoxFlat.new()
+	save_style.bg_color = Color(0.20, 0.40, 0.20)
+	save_style.set_corner_radius_all(6)
+	save_style.content_margin_left = 10; save_style.content_margin_right = 10
+	save_style.content_margin_top = 4;   save_style.content_margin_bottom = 4
+	save_tmpl_btn.add_theme_stylebox_override("normal", save_style)
+	var save_hover := save_style.duplicate()
+	save_hover.bg_color = Color(0.25, 0.55, 0.25)
+	save_tmpl_btn.add_theme_stylebox_override("hover", save_hover)
+	save_tmpl_btn.add_theme_color_override("font_color", WHITE)
+	save_tmpl_btn.add_theme_color_override("font_hover_color", WHITE)
+	save_tmpl_btn.pressed.connect(func(): save_template_requested.emit())
+	tmpl_io_hbox.add_child(save_tmpl_btn)
+
+	var load_tmpl_btn := Button.new()
+	load_tmpl_btn.text = "📂 Load Template..."
+	load_tmpl_btn.tooltip_text = "Load a previously saved template"
+	load_tmpl_btn.add_theme_font_size_override("font_size", 12)
+	var load_style := StyleBoxFlat.new()
+	load_style.bg_color = Color(0.20, 0.25, 0.45)
+	load_style.set_corner_radius_all(6)
+	load_style.content_margin_left = 10; load_style.content_margin_right = 10
+	load_style.content_margin_top = 4;   load_style.content_margin_bottom = 4
+	load_tmpl_btn.add_theme_stylebox_override("normal", load_style)
+	var load_hover := load_style.duplicate()
+	load_hover.bg_color = Color(0.25, 0.35, 0.65)
+	load_tmpl_btn.add_theme_stylebox_override("hover", load_hover)
+	load_tmpl_btn.add_theme_color_override("font_color", WHITE)
+	load_tmpl_btn.add_theme_color_override("font_hover_color", WHITE)
+	load_tmpl_btn.pressed.connect(func(): load_template_requested.emit())
+	tmpl_io_hbox.add_child(load_tmpl_btn)
 
 	# ══════════════════════════════════════════════════════════
 	# BUILD OPTIONS — compact card
