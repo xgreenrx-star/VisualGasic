@@ -2894,14 +2894,14 @@ func _continue_agent_after_run(exit_code: int) -> void:
 	if exit_code == 0:
 		follow_up = (
 			"The program ran successfully (exit 0). Output:\n%s\n\n"
-			"If the task is complete, summarise what was done. "
-			"Otherwise continue with the next step."
+			+ "If the task is complete, summarise what was done. "
+			+ "Otherwise continue with the next step."
 		) % lines_text
 	else:
 		follow_up = (
 			"The program exited with an error (exit code %d). Output:\n%s\n\n"
-			"Fix the error — apply the minimal change, save the file, "
-			"and call play.run_main again to verify."
+			+ "Fix the error — apply the minimal change, save the file, "
+			+ "and call play.run_main again to verify."
 		) % [exit_code, lines_text]
 	if not is_instance_valid(_input):
 		return
