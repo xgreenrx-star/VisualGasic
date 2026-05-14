@@ -83,7 +83,7 @@ func _build_ui() -> void:
 	left_v.add_child(HSeparator.new())
 
 	var hint := Label.new()
-	hint.text = "Use +Event / +Action / +Math\nin the main panel to build logic."
+	hint.text = "Right-click the canvas or press Shift+A\nto add Event / Action / Math nodes."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_color_override("font_color", Color(0.75, 0.75, 0.8))
 	left_v.add_child(hint)

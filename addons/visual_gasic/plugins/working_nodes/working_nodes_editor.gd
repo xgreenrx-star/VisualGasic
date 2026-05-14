@@ -364,46 +364,9 @@ func _build_ui() -> void:
 	btn_run_3d.pressed.connect(_on_run_graph_3d_pressed)
 	toolbar.add_child(btn_run_3d)
 
-	toolbar.add_child(VSeparator.new())
-
-	var btn_event := Button.new()
-	btn_event.text = "+ Event"
-	btn_event.tooltip_text = "Add an Event node (graph entry point, e.g. Ready / Input / Timer)"
-	btn_event.pressed.connect(func(): _add_node(TYPE_EVENT))
-	toolbar.add_child(btn_event)
-
-	var btn_action := Button.new()
-	btn_action.text = "+ Action"
-	btn_action.tooltip_text = "Add an Action node (do something — print, set property, call sub, etc.)"
-	btn_action.pressed.connect(func(): _add_node(TYPE_ACTION))
-	toolbar.add_child(btn_action)
-
-	var btn_math := Button.new()
-	btn_math.text = "+ Math"
-	btn_math.tooltip_text = "Add a Math node (arithmetic / comparison feeding other nodes)"
-	btn_math.pressed.connect(func(): _add_node(TYPE_MATH))
-	toolbar.add_child(btn_math)
-
-	# ─ Toolbar row 1b: Trigger node shortcuts ───────────────────────────────────
-	var toolbar_gd := HBoxContainer.new()
-	toolbar_gd.add_theme_constant_override("separation", 4)
-	add_child(toolbar_gd)
-	var gd_lbl := Label.new()
-	gd_lbl.text = "Triggers:"
-	gd_lbl.add_theme_color_override("font_color", Color(0.50, 0.90, 0.50))
-	toolbar_gd.add_child(gd_lbl)
-	for _gd_k: String in ["on_start", "move", "rotate", "scale", "alpha",
-	              "color_trigger", "spawn", "stop", "toggle", "play_sfx",
-	              "follow", "shake", "pulse", "animate"]:
-		var _d: Dictionary = _GD_TRIGGERS.get(_gd_k, {})
-		var _gbtn := Button.new()
-		_gbtn.text = "%s %s" % [_d.get("icon", "\u2699"), _d.get("title", _gd_k)]
-		_gbtn.tooltip_text = "Add %s node  (also in Shift+A palette)" % _d.get("title", _gd_k)
-		var _capture: String = _gd_k
-		_gbtn.pressed.connect(func(): _add_node(_capture))
-		toolbar_gd.add_child(_gbtn)
-
 	# ─ Toolbar row 2: Groups + View controls ─────────────────────────────
+	# Note: + Event / + Action / + Math / trigger shortcuts removed from the
+	# toolbar — use right-click on the canvas or Shift+A to add nodes.
 	var toolbar_mid := HBoxContainer.new()
 	toolbar_mid.add_theme_constant_override("separation", 6)
 	add_child(toolbar_mid)
