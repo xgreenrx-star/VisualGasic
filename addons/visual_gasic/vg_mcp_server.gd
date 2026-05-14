@@ -19,7 +19,7 @@ class_name VGMcpServer
 ##   write_file          {"path": "res://…", "contents": "…"}
 ##   list_dir            {"path": "res://…"}
 ##   find_in_files       {"query": "…", "path": "res://…"}
-##   run_benchmark       {} → runs bench/ai_correctness suite, returns summary
+##   apply_diff         {"path": "res://…", "diff": "unified diff string"}
 ##
 ## Security:
 ##   - Loopback-only by default (127.0.0.1).
@@ -308,6 +308,18 @@ func _tool_definitions() -> Array:
 			},
 		},
 		{
+			"name": "apply_diff",
+			"description": "Apply a unified diff (--- / +++ / @@ hunks) to an existing res:// file. Lines beginning with '-' are removed and lines beginning with '+' are inserted at the matched position. Context lines (no prefix or ' ' prefix) are used to locate each hunk. Returns the number of hunks applied or an error if any hunk failed to match.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"path": {"type": "string", "description": "res:// path of the file to patch"},
+					"diff": {"type": "string", "description": "Unified diff string (as produced by `diff -u` or git diff). Must contain at least one @@ hunk."},
+				},
+				"required": ["path", "diff"],
+			},
+		},
+		{
 			"name": "run_benchmark",
 			"description": "Run the AI correctness benchmark suite and return a summary of pass/fail counts.",
 			"inputSchema": {
@@ -329,6 +341,8 @@ func _invoke_tool(tool_name: String, args: Dictionary) -> Dictionary:
 			return _tool_list_dir(args)
 		"find_in_files":
 			return _tool_find_in_files(args)
+		"apply_diff":
+			return _tool_apply_diff(args)
 		"run_benchmark":
 			return _tool_run_benchmark()
 		_:
@@ -437,6 +451,129 @@ func _grep_file(path: String, query: String, out: PackedStringArray) -> void:
 			if out.size() >= 200:
 				break
 	f.close()
+
+func _tool_apply_diff(args: Dictionary) -> Dictionary:
+	var path: String = str(args.get("path", ""))
+	if not _is_safe_res_path(path):
+		return {"error": "Unsafe or non-res:// path: " + path}
+	var diff: String = str(args.get("diff", ""))
+	if diff.strip_edges().is_empty():
+		return {"error": "diff must not be empty"}
+	if not FileAccess.file_exists(path):
+		return {"error": "File not found: " + path}
+	# Read original lines.
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return {"error": "Cannot open: " + path}
+	var original_text := f.get_as_text()
+	f.close()
+	var lines: Array = Array(original_text.split("\n"))
+	# Trim a single trailing empty element that split() adds for files ending with \n.
+	if not lines.is_empty() and lines[-1] == "":
+		lines.pop_back()
+		var had_trailing_newline := true
+	# Parse and apply hunks.
+	var diff_lines: Array = Array(diff.split("\n"))
+	var hunks_applied := 0
+	var i := 0
+	var n := diff_lines.size()
+	while i < n:
+		var dl: String = diff_lines[i]
+		# Skip file headers (--- +++ index diff --git etc.)
+		if dl.begins_with("---") or dl.begins_with("+++") or \
+				dl.begins_with("diff ") or dl.begins_with("index ") or \
+				dl.begins_with("new file") or dl.begins_with("old file") or \
+				dl.begins_with("deleted file"):
+			i += 1
+			continue
+		if not dl.begins_with("@@"):
+			i += 1
+			continue
+		# Parse @@ -start[,count] +start[,count] @@ ...
+		# We only need the original start line to anchor the search.
+		var hunk_start := _parse_hunk_start(dl)
+		i += 1
+		# Collect hunk body.
+		var context_before: Array = []
+		var removes: Array = []
+		var adds: Array = []
+		var after_first_change := false
+		while i < n:
+			var hl: String = diff_lines[i]
+			if hl.begins_with("@@") or hl.begins_with("---") or hl.begins_with("+++"):
+				break
+			if hl.begins_with("-"):
+				removes.append(hl.substr(1))
+				after_first_change = true
+			elif hl.begins_with("+"):
+				adds.append(hl.substr(1))
+				after_first_change = true
+			else:
+				# Context line (" " prefix or no prefix).
+				var ctx := hl.substr(1) if hl.begins_with(" ") else hl
+				if not after_first_change:
+					context_before.append(ctx)
+			i += 1
+		# Find the exact position in `lines` where the hunk matches.
+		# Search near hunk_start first (0-indexed = hunk_start - 1), then expand.
+		var anchor := _find_hunk_anchor(lines, context_before, removes, hunk_start)
+		if anchor < 0:
+			return {"error": "Hunk %d failed to match near line %d" % [hunks_applied + 1, hunk_start]}
+		# Apply: remove then insert.
+		var insert_pos := anchor + context_before.size()
+		for _r in removes.size():
+			lines.remove_at(insert_pos)
+		var add_idx := adds.size() - 1
+		while add_idx >= 0:
+			lines.insert(insert_pos, adds[add_idx])
+			add_idx -= 1
+		hunks_applied += 1
+	if hunks_applied == 0:
+		return {"error": "No @@ hunks found in diff"}
+	# Write back.
+	var fw := FileAccess.open(path, FileAccess.WRITE)
+	if fw == null:
+		return {"error": "Cannot write: " + path}
+	fw.store_string("\n".join(lines) + "\n")
+	fw.close()
+	return {"output": "Applied %d hunk(s) to %s" % [hunks_applied, path]}
+
+## Parse the original-file start line from a unified diff @@ header.
+## e.g. "@@ -12,7 +12,9 @@ func foo():" → 12 (1-based)
+func _parse_hunk_start(header: String) -> int:
+	# Format: @@ -<start>[,<count>] +<start>[,<count>] @@
+	var rx := RegEx.new()
+	rx.compile(r"@@ -(?P<start>\d+)")
+	var m := rx.search(header)
+	if m == null:
+		return 1
+	return int(m.get_string("start"))
+
+## Find where context_before + removes begins in `lines`, starting near
+## `hunk_start` (1-based).  Searches ±50 lines from the anchor.
+func _find_hunk_anchor(lines: Array, context_before: Array, removes: Array, hunk_start: int) -> int:
+	var pattern: Array = context_before + removes
+	if pattern.is_empty():
+		# No context or removes — insert at anchor position.
+		return maxi(0, hunk_start - 1)
+	var total := lines.size()
+	var ideal := maxi(0, hunk_start - 1 - context_before.size())
+	var search_range := 50
+	for delta in range(0, search_range + 1):
+		for sign in [0, 1, -1] if delta == 0 else [1, -1]:
+			if delta == 0 and sign == -1:
+				continue
+			var candidate := ideal + delta * sign
+			if candidate < 0 or candidate + pattern.size() > total:
+				continue
+			var match := true
+			for pi in pattern.size():
+				if lines[candidate + pi] != pattern[pi]:
+					match = false
+					break
+			if match:
+				return candidate
+	return -1
 
 func _tool_run_benchmark() -> Dictionary:
 	# Run the aggregate.py script from bench/ai_correctness and return stdout.
