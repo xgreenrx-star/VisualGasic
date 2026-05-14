@@ -223,6 +223,10 @@ var _group_filter: OptionButton
 var _group_selector: ItemList
 var _node_color_picker: ColorPickerButton
 
+# Callables injected by working_nodes_plugin so the editor can query the scene tree.
+var _get_scene_nodes_fn: Callable = Callable()
+var _get_node_properties_fn: Callable = Callable()
+
 var _save_dialog: FileDialog
 var _load_dialog: FileDialog
 
@@ -1023,9 +1027,23 @@ func _build_trigger_node(n: GraphNode, def: Dictionary) -> void:
 		slot_offset = 2
 
 	# ── Slots slot_offset..N: parameter rows ─────────────────────────────
+	var kind := str(n.get_meta("wn_type", ""))
+	var node_path_le: LineEdit = null
 	for i in params.size():
 		var p: Array = params[i]
-		var row := _make_param_row(str(p[0]), str(p[1]) if p.size() > 1 else "")
+		var plabel   := str(p[0])
+		var pdefault := str(p[1]) if p.size() > 1 else ""
+		var row: HBoxContainer
+		if (kind == "set_prop" or kind == "get_prop") and plabel == "Node Path":
+			row = _make_node_path_row(plabel, pdefault)
+			for rc in row.get_children():
+				if rc is LineEdit:
+					node_path_le = rc
+					break
+		elif (kind == "set_prop" or kind == "get_prop") and plabel == "Property":
+			row = _make_property_row(plabel, pdefault, node_path_le)
+		else:
+			row = _make_param_row(plabel, pdefault)
 		n.add_child(row)
 		n.set_slot(slot_offset + i, true, PORT_VALUE, VALUE_PORT_COLOR, false, 0, Color.WHITE)
 
@@ -1058,8 +1076,108 @@ func _make_param_row(label_text: String, default_val: String) -> HBoxContainer:
 	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	le.custom_minimum_size = Vector2(54, 0)
 	le.add_theme_font_size_override("font_size", 11)
+	le.add_theme_color_override("caret_color", Color(0.9, 0.95, 1.0))
 	row.add_child(le)
 	return row
+
+
+## Node-path param row: LineEdit + scene-picker button (⋮).
+func _make_node_path_row(label_text: String, default_val: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	var lbl := Label.new()
+	lbl.text = label_text + ":"
+	lbl.custom_minimum_size = Vector2(80, 0)
+	lbl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_color_override("font_color", Color(0.80, 0.80, 0.80))
+	row.add_child(lbl)
+	var le := LineEdit.new()
+	le.name = label_text.replace(" ", "_")
+	le.text = default_val
+	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	le.custom_minimum_size = Vector2(36, 0)
+	le.add_theme_font_size_override("font_size", 11)
+	le.add_theme_color_override("caret_color", Color(0.9, 0.95, 1.0))
+	row.add_child(le)
+	var btn := Button.new()
+	btn.text = "⋮"
+	btn.tooltip_text = "Pick a node from the current scene"
+	btn.custom_minimum_size = Vector2(22, 0)
+	btn.flat = true
+	btn.pressed.connect(_open_node_picker.bind(le))
+	row.add_child(btn)
+	return row
+
+
+## Property param row: LineEdit + property-picker button (⋮).
+func _make_property_row(label_text: String, default_val: String, path_le: LineEdit) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	var lbl := Label.new()
+	lbl.text = label_text + ":"
+	lbl.custom_minimum_size = Vector2(80, 0)
+	lbl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_color_override("font_color", Color(0.80, 0.80, 0.80))
+	row.add_child(lbl)
+	var le := LineEdit.new()
+	le.name = label_text.replace(" ", "_")
+	le.text = default_val
+	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	le.custom_minimum_size = Vector2(36, 0)
+	le.add_theme_font_size_override("font_size", 11)
+	le.add_theme_color_override("caret_color", Color(0.9, 0.95, 1.0))
+	row.add_child(le)
+	var btn := Button.new()
+	btn.text = "⋮"
+	btn.tooltip_text = "Pick a property from the selected node"
+	btn.custom_minimum_size = Vector2(22, 0)
+	btn.flat = true
+	btn.pressed.connect(_open_property_picker.bind(le, path_le))
+	row.add_child(btn)
+	return row
+
+
+## Open a scene-node picker popup; the selected path is written to target_le.
+func _open_node_picker(target_le: LineEdit) -> void:
+	if not _get_scene_nodes_fn.is_valid():
+		return
+	var paths: Array = _get_scene_nodes_fn.call()
+	if paths.is_empty():
+		return
+	var popup := PopupMenu.new()
+	add_child(popup)
+	_do_style_wn_popup(popup)
+	for p in paths:
+		popup.add_item(str(p))
+	popup.index_pressed.connect(func(idx: int):
+		if is_instance_valid(target_le):
+			target_le.text = popup.get_item_text(idx))
+	popup.popup_hide.connect(popup.queue_free)
+	var gpos := target_le.get_screen_position() + Vector2(0, target_le.size.y)
+	popup.popup(Rect2i(Vector2i(gpos), Vector2i(220, 0)))
+
+
+## Open a property picker for the node at path_le.text; selection fills target_le.
+func _open_property_picker(target_le: LineEdit, path_le: LineEdit) -> void:
+	if not _get_node_properties_fn.is_valid():
+		return
+	var node_path := path_le.text if is_instance_valid(path_le) else ""
+	var props: Array = _get_node_properties_fn.call(node_path)
+	if props.is_empty():
+		return
+	var popup := PopupMenu.new()
+	add_child(popup)
+	_do_style_wn_popup(popup)
+	for prop in props:
+		popup.add_item(str(prop))
+	popup.index_pressed.connect(func(idx: int):
+		if is_instance_valid(target_le):
+			target_le.text = popup.get_item_text(idx))
+	popup.popup_hide.connect(popup.queue_free)
+	var gpos := target_le.get_screen_position() + Vector2(0, target_le.size.y)
+	popup.popup(Rect2i(Vector2i(gpos), Vector2i(260, 0)))
 
 
 ## Collect all LineEdit values (keyed by node name) from a trigger node's children.

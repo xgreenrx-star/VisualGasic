@@ -141,6 +141,7 @@ func _build_ui() -> void:
 	right_panel.add_child(_editor)
 	if _editor.has_method("_ensure_initialized"):
 		_editor._ensure_initialized()
+	_wire_editor_scene_pickers(_editor)
 	_connect_editor_export_signals()
 	call_deferred("_verify_editor_surface")
 
@@ -181,6 +182,7 @@ func _try_mount_full_editor(host: Control) -> bool:
 
 	if _editor.has_method("_ensure_initialized"):
 		_editor._ensure_initialized()
+	_wire_editor_scene_pickers(_editor)
 	_connect_editor_export_signals()
 	call_deferred("_verify_editor_surface")
 	return true
@@ -1438,6 +1440,45 @@ func _on_fallback_try_full_editor(host: Control) -> void:
 
 
 # ── Export signal wiring ──────────────────────────────────────────────
+## Inject scene-query callables into the editor so node-path / property
+## param rows can offer live scene-tree pickers.
+func _wire_editor_scene_pickers(ed: Control) -> void:
+	if not is_instance_valid(ed):
+		return
+	ed.set("_get_scene_nodes_fn", func() -> Array:
+		var root: Node = null
+		if Engine.is_editor_hint() and is_instance_valid(get_editor_interface()):
+			root = get_editor_interface().get_edited_scene_root()
+		var paths: Array = []
+		if is_instance_valid(root):
+			_wn_collect_paths(root, root, paths)
+		return paths)
+	ed.set("_get_node_properties_fn", func(node_path: String) -> Array:
+		var root: Node = null
+		if Engine.is_editor_hint() and is_instance_valid(get_editor_interface()):
+			root = get_editor_interface().get_edited_scene_root()
+		if not is_instance_valid(root):
+			return []
+		var target: Node = root.get_node_or_null(node_path) if not node_path.is_empty() else root
+		if not is_instance_valid(target):
+			return []
+		var props: Array = []
+		for p in target.get_property_list():
+			var usage: int = p.get("usage", 0)
+			if (usage & PROPERTY_USAGE_EDITOR) and not (usage & PROPERTY_USAGE_INTERNAL):
+				props.append(p["name"])
+		props.sort()
+		return props)
+
+
+## Recursively collect node paths relative to root into out[].
+func _wn_collect_paths(node: Node, root: Node, out: Array) -> void:
+	if node != root:
+		out.append(str(root.get_path_to(node)))
+	for child in node.get_children():
+		_wn_collect_paths(child, root, out)
+
+
 func _connect_editor_export_signals() -> void:
 	if _editor == null or not is_instance_valid(_editor):
 		return
