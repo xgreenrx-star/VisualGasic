@@ -535,8 +535,12 @@ func get_plugin_ids() -> Array:
 
 ## Show the plugin settings popup with enable/disable toggles + install option.
 func _show_settings_popup() -> void:
-	# Clean up previous popup
+	# Clean up previous popup. hide() releases the exclusive-child slot on the
+	# parent Window synchronously so that the new popup can claim it immediately.
+	# queue_free() alone is deferred — the old exclusive window would still be
+	# registered when we set exclusive = true on the new one, causing a crash.
 	if is_instance_valid(_settings_popup):
+		_settings_popup.hide()
 		_settings_popup.queue_free()
 		_settings_popup = null
 
