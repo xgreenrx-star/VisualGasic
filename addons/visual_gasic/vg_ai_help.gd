@@ -662,9 +662,9 @@ func _finish_generation() -> void:
 	# _fc_fragments.  Assemble and convert them to fenced vg-tool blocks so the
 	# existing dispatch path handles them without modification.
 	if VgAiFC and not _fc_fragments.is_empty():
-		var calls := VgAiFC.assemble_fc_calls(_fc_fragments)
+		var calls: Array = VgAiFC.assemble_fc_calls(_fc_fragments)
 		if not calls.is_empty():
-			var fenced := VgAiFC.to_fenced_text(calls)
+			var fenced: String = VgAiFC.to_fenced_text(calls)
 			if not _accumulated_response.is_empty():
 				_accumulated_response += "\n"
 			_accumulated_response += fenced
@@ -2098,7 +2098,7 @@ func _on_mic_toggled(pressed: bool) -> void:
 				_mic_btn.button_pressed = false
 				return
 			_realtime_ctrl.system_instructions = _get_active_system_prompt()
-			var ok := _realtime_ctrl.start_session()
+			var ok: bool = _realtime_ctrl.start_session()
 			if not ok:
 				_mic_btn.button_pressed = false
 		else:
