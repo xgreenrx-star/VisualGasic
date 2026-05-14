@@ -1447,16 +1447,16 @@ func _wire_editor_scene_pickers(ed: Control) -> void:
 		return
 	ed.set("_get_scene_nodes_fn", func() -> Array:
 		var root: Node = null
-		if Engine.is_editor_hint() and is_instance_valid(get_editor_interface()):
-			root = get_editor_interface().get_edited_scene_root()
+		if Engine.is_editor_hint():
+			root = EditorInterface.get_edited_scene_root()
 		var paths: Array = []
 		if is_instance_valid(root):
 			_wn_collect_paths(root, root, paths)
 		return paths)
 	ed.set("_get_node_properties_fn", func(node_path: String) -> Array:
 		var root: Node = null
-		if Engine.is_editor_hint() and is_instance_valid(get_editor_interface()):
-			root = get_editor_interface().get_edited_scene_root()
+		if Engine.is_editor_hint():
+			root = EditorInterface.get_edited_scene_root()
 		if not is_instance_valid(root):
 			return []
 		var target: Node = root.get_node_or_null(node_path) if not node_path.is_empty() else root
