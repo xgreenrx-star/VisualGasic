@@ -27,6 +27,15 @@ const RECORD_BUS_NAME := "VGRecord"
 const SAMPLE_RATE := 16000        # Whisper expects 16 kHz mono; we'll downmix on save
 const MAX_RECORD_SECONDS := 30.0  # Hard cap so a runaway PTT can't exhaust RAM
 
+# ── VAD (voice-activity detection) ──────────────────────────────────────────
+## RMS amplitude below which a frame is considered silent.  0.01 corresponds
+## to about -40 dBFS — quiet enough to ignore background hiss while still
+## catching soft speech.  Tune via voice settings if needed.
+const VAD_SILENCE_THRESHOLD := 0.01
+## How long (seconds) continuous silence must last after the user has spoken
+## at least one non-silent chunk before recording is stopped automatically.
+const VAD_SILENCE_SECONDS := 1.2
+
 # OpenAI endpoints
 const OPENAI_STT_URL := "https://api.openai.com/v1/audio/transcriptions"
 const OPENAI_TTS_URL := "https://api.openai.com/v1/audio/speech"
@@ -61,6 +70,10 @@ var _tts_http: HTTPRequest = null
 var _tts_player: AudioStreamPlayer = null
 var _is_transcribing: bool = false
 var _is_speaking: bool = false
+
+# VAD runtime state (reset on each start_recording)
+var _vad_silence_ticks: int = 0   # consecutive silent ticks (at 20 Hz = 50 ms each)
+var _vad_spoke_once: bool = false  # true once user has spoken ≥1 non-silent chunk
 # PID of the most recent external TTS subprocess (system espeak / SAPI), or
 # -1 when none is alive.  Tracked so stop_speaking() can actually interrupt
 # Narcea mid-sentence — fire-and-forget OS.create_process gave us no way to
@@ -68,6 +81,7 @@ var _is_speaking: bool = false
 var _tts_pid: int = -1
 
 # Settings (loaded from CFG_PATH)
+var vad_enabled: bool = true              # auto-stop on silence
 var stt_backend: String = "openai"        # "openai" | "whisper" | "off"
 var tts_backend: String = "openai"        # "openai" | "piper" | "system" | "off"
 var tts_voice: String = OPENAI_TTS_DEFAULT_VOICE
@@ -167,6 +181,7 @@ func _load_settings() -> void:
 	var cfg := ConfigFile.new()
 	var had_cfg := cfg.load(CFG_PATH) == OK
 	if had_cfg:
+		vad_enabled = cfg.get_value("voice", "vad_enabled", vad_enabled)
 		stt_backend = cfg.get_value("voice", "stt_backend", stt_backend)
 		tts_backend = cfg.get_value("voice", "tts_backend", tts_backend)
 		tts_voice = cfg.get_value("voice", "tts_voice", tts_voice)
@@ -372,6 +387,7 @@ func _find_piper_voice() -> String:
 func save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(CFG_PATH)  # ok if missing
+	cfg.set_value("voice", "vad_enabled", vad_enabled)
 	cfg.set_value("voice", "stt_backend", stt_backend)
 	cfg.set_value("voice", "tts_backend", tts_backend)
 	cfg.set_value("voice", "tts_voice", tts_voice)
@@ -424,6 +440,8 @@ func start_recording() -> bool:
 		return false
 
 	_record_frames.clear()
+	_vad_silence_ticks = 0
+	_vad_spoke_once = false
 	# Drain any stale frames the capture effect held from a previous session.
 	if _capture_effect:
 		_capture_effect.clear_buffer()
@@ -458,6 +476,25 @@ func _on_record_tick() -> void:
 	if available > 0:
 		var chunk := _capture_effect.get_buffer(available)
 		_record_frames.append_array(chunk)
+		# VAD: compute RMS of this chunk.
+		if vad_enabled:
+			var sum_sq := 0.0
+			for v in chunk:
+				var mono := (v.x + v.y) * 0.5
+				sum_sq += mono * mono
+			var rms: float = sqrt(sum_sq / max(chunk.size(), 1))
+			if rms >= VAD_SILENCE_THRESHOLD:
+				_vad_spoke_once = true
+				_vad_silence_ticks = 0
+			else:
+				_vad_silence_ticks += 1
+				# Auto-stop after VAD_SILENCE_SECONDS of silence, but only once
+				# the user has spoken at least one non-silent chunk (avoids
+				# stopping immediately on a room-noise-only open).
+				var silence_elapsed := _vad_silence_ticks * _record_timer.wait_time
+				if _vad_spoke_once and silence_elapsed >= VAD_SILENCE_SECONDS:
+					stop_recording()
+					return
 	# Hard cap.
 	var elapsed: float = (Time.get_ticks_msec() - _record_start_ms) / 1000.0
 	if elapsed >= MAX_RECORD_SECONDS:

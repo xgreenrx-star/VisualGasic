@@ -294,6 +294,7 @@ var _last_selected_code := ""
 var _voice_ctrl = null
 var _mic_btn: Button = null
 var _voice_speak_toggle: CheckBox = null
+var _voice_vad_toggle: CheckBox = null   # Tier 2.5b VAD auto-stop
 # Stop-Speaking button — added May 2026 because Narcea was uninterruptible.
 # Visible only while she's actually speaking.
 var _stop_speak_btn: Button = null
@@ -868,6 +869,13 @@ func _setup_ui() -> void:
 	_voice_speak_toggle.button_pressed = true
 	_voice_speak_toggle.toggled.connect(_on_auto_speak_toggled)
 	toolbar.add_child(_voice_speak_toggle)
+
+	_voice_vad_toggle = CheckBox.new()
+	_voice_vad_toggle.text = "VAD"
+	_voice_vad_toggle.tooltip_text = "Auto-stop recording after silence (Voice Activity Detection)"
+	_voice_vad_toggle.button_pressed = true
+	_voice_vad_toggle.toggled.connect(_on_vad_toggled)
+	toolbar.add_child(_voice_vad_toggle)
 
 	# ⏹ Stop-Speaking button — hidden until Narcea actually starts talking.
 	_stop_speak_btn = Button.new()
@@ -2050,6 +2058,11 @@ func _ensure_voice_ctrl() -> void:
 		_voice_ctrl.speech_started.connect(_on_voice_speech_started)
 	if _voice_ctrl.has_signal("speech_finished"):
 		_voice_ctrl.speech_finished.connect(_on_voice_speech_finished)
+	# Sync checkboxes to persisted settings.
+	if is_instance_valid(_voice_speak_toggle):
+		_voice_speak_toggle.set_pressed_no_signal(_voice_ctrl.auto_speak_replies)
+	if is_instance_valid(_voice_vad_toggle):
+		_voice_vad_toggle.set_pressed_no_signal(_voice_ctrl.vad_enabled)
 
 func _on_mic_toggled(pressed: bool) -> void:
 	_ensure_voice_ctrl()
@@ -2079,6 +2092,12 @@ func _on_auto_speak_toggled(pressed: bool) -> void:
 	# Also stop any in-flight playback if user just turned it off.
 	if not pressed and _voice_ctrl != null and _voice_ctrl.is_speaking():
 		_voice_ctrl.stop_speaking()
+
+func _on_vad_toggled(pressed: bool) -> void:
+	_ensure_voice_ctrl()
+	if _voice_ctrl != null:
+		_voice_ctrl.vad_enabled = pressed
+		_voice_ctrl.save_settings()
 
 func _on_voice_recording_started() -> void:
 	_append_system("[color=#ff6666]🔴 Recording…[/color] [color=gray](click 🎙 again to stop)[/color]\n")
