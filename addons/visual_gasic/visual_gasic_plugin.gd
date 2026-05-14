@@ -9233,9 +9233,9 @@ func _show_first_run_dialog() -> void:
 	var dlg = dlg_script.new()
 	dlg.project_type_chosen.connect(_on_first_run_type_chosen)
 	EditorInterface.get_base_control().add_child(dlg)
-	dlg.popup_centered(Vector2i(640, 420))
-	dlg.size = Vector2i(640, 420)
-	call_deferred("_force_first_run_dialog_size", dlg, Vector2i(640, 420))
+	dlg.popup_centered(Vector2i(600, 340))
+	dlg.size = Vector2i(600, 340)
+	call_deferred("_force_first_run_dialog_size", dlg, Vector2i(600, 340))
 
 
 func _force_first_run_dialog_size(dlg: Window, sz: Vector2i) -> void:
@@ -9247,10 +9247,15 @@ func _force_first_run_dialog_size(dlg: Window, sz: Vector2i) -> void:
 	dlg.position = (host_size - sz) / 2
 
 
-func _on_first_run_type_chosen(kind: String) -> void:
+func _on_first_run_type_chosen(kind: String, plugins_to_enable: Array = []) -> void:
 	var dlg_script := load("res://addons/visual_gasic/vg_first_run_dialog.gd")
 	if dlg_script and dlg_script.has_method("apply_choice"):
-		dlg_script.apply_choice(kind)
+		dlg_script.apply_choice(kind, plugins_to_enable)
+	# Live-activate each requested plugin via the plugin manager so the
+	# toolbar buttons appear immediately without an editor restart.
+	for pid in plugins_to_enable:
+		if _vg_plugin_manager and _vg_plugin_manager.has_method("set_plugin_enabled"):
+			_vg_plugin_manager.set_plugin_enabled(pid, true)
 	# Defer so the dialog's own queue_free finishes before we run the
 	# normal startup path (which may itself open editors / create windows).
 	call_deferred("_auto_open_formless_module")

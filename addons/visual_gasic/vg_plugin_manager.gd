@@ -766,6 +766,13 @@ func _build_plugin_settings_row(plugin_id: String, meta: Dictionary) -> HBoxCont
 	return row
 
 
+## Public API: enable or disable a plugin by ID.
+## Used by the first-run wizard and any other caller that needs to toggle
+## a plugin without going through the settings popup UI.
+func set_plugin_enabled(plugin_id: String, enabled: bool) -> void:
+	_on_plugin_toggle(enabled, plugin_id)
+
+
 ## Toggle a plugin's enabled state in its plugin.cfg (or in ProjectSettings
 ## for built-in pseudo-plugins like the Form Designer).
 func _on_plugin_toggle(enabled: bool, plugin_id: String) -> void:
