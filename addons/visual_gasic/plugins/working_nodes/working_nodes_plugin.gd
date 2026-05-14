@@ -1446,29 +1446,48 @@ func _wire_editor_scene_pickers(ed: Control) -> void:
 	if not is_instance_valid(ed):
 		return
 	ed.set("_get_scene_nodes_fn", func() -> Array:
-		var root: Node = null
-		if Engine.is_editor_hint():
-			root = EditorInterface.get_edited_scene_root()
 		var paths: Array = []
-		if is_instance_valid(root):
-			_wn_collect_paths(root, root, paths)
+		# 1. Godot scene editor nodes
+		if Engine.is_editor_hint():
+			var root: Node = EditorInterface.get_edited_scene_root()
+			if is_instance_valid(root):
+				_wn_collect_paths(root, root, paths)
+		# 2. VG Form Designer controls
+		if _host_plugin != null and "_form_designer" in _host_plugin \
+				and _host_plugin._form_designer != null \
+				and _host_plugin._form_designer.has_method("get_control_count"):
+			var fd = _host_plugin._form_designer
+			for i in fd.get_control_count():
+				var info = fd.get_control_info(i)
+				var n: String = info.get("name", "")
+				if not n.is_empty() and not paths.has(n):
+					paths.append(n)
 		return paths)
 	ed.set("_get_node_properties_fn", func(node_path: String) -> Array:
-		var root: Node = null
+		# 1. Try Godot scene editor
 		if Engine.is_editor_hint():
-			root = EditorInterface.get_edited_scene_root()
-		if not is_instance_valid(root):
-			return []
-		var target: Node = root.get_node_or_null(node_path) if not node_path.is_empty() else root
-		if not is_instance_valid(target):
-			return []
-		var props: Array = []
-		for p in target.get_property_list():
-			var usage: int = p.get("usage", 0)
-			if (usage & PROPERTY_USAGE_EDITOR) and not (usage & PROPERTY_USAGE_INTERNAL):
-				props.append(p["name"])
-		props.sort()
-		return props)
+			var root: Node = EditorInterface.get_edited_scene_root()
+			if is_instance_valid(root):
+				var target: Node = root.get_node_or_null(node_path) if not node_path.is_empty() else root
+				if is_instance_valid(target):
+					var props: Array = []
+					for p in target.get_property_list():
+						var usage: int = p.get("usage", 0)
+						if (usage & PROPERTY_USAGE_EDITOR) and not (usage & PROPERTY_USAGE_INTERNAL):
+							props.append(p["name"])
+					props.sort()
+					return props
+		# 2. Form Designer controls — look up the control type, then enumerate
+		#    properties by instantiating a blank node of that Godot type.
+		if _host_plugin != null and "_form_designer" in _host_plugin \
+				and _host_plugin._form_designer != null \
+				and _host_plugin._form_designer.has_method("get_control_count"):
+			var fd = _host_plugin._form_designer
+			for i in fd.get_control_count():
+				var info = fd.get_control_info(i)
+				if info.get("name", "") == node_path:
+					return _wn_props_for_fd_type(info.get("type", ""))
+		return [])
 
 
 ## Recursively collect node paths relative to root into out[].
@@ -1477,6 +1496,47 @@ func _wn_collect_paths(node: Node, root: Node, out: Array) -> void:
 		out.append(str(root.get_path_to(node)))
 	for child in node.get_children():
 		_wn_collect_paths(child, root, out)
+
+
+## Return an editable property list for a VG Form Designer control type.
+## Instantiates a blank Godot node of the matching class, queries its property
+## list, then immediately frees it — no scene file needed.
+func _wn_props_for_fd_type(ctrl_type: String) -> Array:
+	# Map VG Form Designer type name → Godot class name
+	var class_map: Dictionary = {
+		"Button": "Button", "CheckBox": "CheckBox", "CheckButton": "CheckButton",
+		"RadioButton": "CheckBox", "Label": "Label", "LineEdit": "LineEdit",
+		"TextEdit": "TextEdit", "RichTextLabel": "RichTextLabel",
+		"SpinBox": "SpinBox", "HSlider": "HSlider", "VSlider": "VSlider",
+		"HScrollBar": "HScrollBar", "VScrollBar": "VScrollBar",
+		"ProgressBar": "ProgressBar", "TextureRect": "TextureRect",
+		"ColorRect": "ColorRect", "Panel": "Panel", "PanelContainer": "PanelContainer",
+		"HSeparator": "HSeparator", "VSeparator": "VSeparator",
+		"OptionButton": "OptionButton", "MenuButton": "MenuButton",
+		"TabContainer": "TabContainer", "TabBar": "TabBar",
+		"HBoxContainer": "HBoxContainer", "VBoxContainer": "VBoxContainer",
+		"GridContainer": "GridContainer", "ScrollContainer": "ScrollContainer",
+		"Tree": "Tree", "ItemList": "ItemList", "VideoStreamPlayer": "VideoStreamPlayer",
+		"TextureButton": "TextureButton", "LinkButton": "LinkButton",
+		"Timer": "Timer", "SubViewport": "SubViewport",
+	}
+	var godot_class: String = class_map.get(ctrl_type, ctrl_type)
+	if not ClassDB.class_exists(godot_class):
+		return []
+	if not ClassDB.can_instantiate(godot_class):
+		return []
+	var tmp = ClassDB.instantiate(godot_class)
+	if tmp == null:
+		return []
+	var props: Array = []
+	for p in tmp.get_property_list():
+		var usage: int = p.get("usage", 0)
+		if (usage & PROPERTY_USAGE_EDITOR) and not (usage & PROPERTY_USAGE_INTERNAL):
+			props.append(p["name"])
+	if tmp.has_method("queue_free"):
+		tmp.queue_free()
+	props.sort()
+	return props
 
 
 func _connect_editor_export_signals() -> void:
