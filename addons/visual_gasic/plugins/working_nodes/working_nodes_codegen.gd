@@ -143,13 +143,16 @@ class _VGGen:
 		# ── Event handlers ────────────────────────────────────────────────
 		# Simple editor uses lowercase "event"; fallback uses "Event"
 		# Trigger-style editor uses "on_start" → capitalized to "On Start"
+		# "On Input" nodes are merged into a single Sub Form_KeyDown to avoid
+		# duplicate sub names when multiple On Input nodes exist in the graph.
 		var event_kinds := ["Event", "Timedevent", "Collisiontrigger", "On Start",
-							"On Frame", "On Input", "On Collision"]
+							"On Frame", "On Collision"]
 		var event_nodes: Array = []
 		for kind in event_kinds:
 			event_nodes.append_array(_nodes_of_kind(kind))
+		var input_nodes: Array = _nodes_of_kind("On Input")
 
-		if event_nodes.is_empty():
+		if event_nodes.is_empty() and input_nodes.is_empty():
 			# No explicit event nodes — wrap all actions in Form_Load
 			_w("Sub Form_Load()")
 			_w("    ' No Event nodes found; all actions placed here.")
@@ -160,6 +163,9 @@ class _VGGen:
 		else:
 			for nd in event_nodes:
 				_emit_event_sub(nd)
+			# Merge all On Input nodes into one Sub Form_KeyDown
+			if not input_nodes.is_empty():
+				_emit_merged_input_sub(input_nodes)
 
 		# ── Action subs (implementations) ────────────────────────────────
 		var action_kinds := [
@@ -300,6 +306,55 @@ class _VGGen:
 				_:
 					_emit_action_call(linked_nd, indent)
 
+		_w("End Sub")
+
+	# ─── Merged On Input sub ─────────────────────────────────────────────────
+	# Multiple On Input nodes must share a single Sub Form_KeyDown to avoid
+	# duplicate sub names.  Each node's key becomes an If / ElseIf guard.
+
+	func _emit_merged_input_sub(input_nodes: Array) -> void:
+		_w("")
+		_w("' On Input: handles key events from all On Input nodes")
+		_w("Sub Form_KeyDown(ByVal key As String)")
+		var indent := "    "
+		var is_first := true
+		for nd in input_nodes:
+			var n_name  := str(nd.get("_name", "WN_0"))
+			var prm     := nd.get("params", {})
+			# Key param can be nested dict {"Key":"space"} or flat {"Key":"space"}
+			var raw_key := str(prm.get("Key", prm.get("key", "space")))
+			var key_lbl := raw_key.to_lower()
+			var keyword := "ElseIf"
+			if is_first:
+				keyword = "If"
+				is_first = false
+			_w(indent + keyword + " key = \"" + key_lbl + "\" Then")
+			var chain := _exec_chain(n_name)
+			for linked_nd in chain:
+				if str(linked_nd.get("_name", "")) == n_name:
+					continue
+				var kind := str(linked_nd.get("_kind", "")).to_lower()
+				match kind:
+					"variable":
+						pass
+					"condition":
+						_emit_inline_condition(linked_nd, indent + "    ")
+					"loop":
+						_emit_inline_loop(linked_nd, indent + "    ")
+					"sequence":
+						_emit_inline_sequence(linked_nd, indent + "    ")
+					"branch":
+						_emit_inline_branch(linked_nd, indent + "    ")
+					"cmp trig":
+						_emit_inline_cmp_trig(linked_nd, indent + "    ")
+					"input poll":
+						_emit_inline_input_poll(linked_nd, indent + "    ")
+					"math", "boolmath", "vectormath", "maprange", "randomvalue", "compare":
+						pass
+					_:
+						_emit_action_call(linked_nd, indent + "    ")
+		if not is_first:
+			_w(indent + "End If")
 		_w("End Sub")
 
 	func _event_signature(ev_type: String, n_name: String) -> String:
