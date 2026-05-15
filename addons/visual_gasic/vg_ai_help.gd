@@ -93,6 +93,14 @@ Palette indices 0-7: Red, Green, Blue, Yellow, Purple, Orange, Cyan, White. \
 Grid is 0-15 on X/Z, 0-7 on Y (stack height). \
 Use get_3d_scene to read, load_3d_scene {"data":{...}} to replace.
 
+=== VGMUSIC ===
+VGMusic is a Bosca Ceoil-style in-IDE music tracker. 
+The current song is accessed via Controller autoload. 
+Song schema: {title, bpm, filename, pattern_count, instrument_count, arrangement_bars}. 
+Patterns hold note grids; instruments are single-voice or drumkit synthesizer configs. 
+Use get_vgmusic_project to read a summary of the current song. 
+To edit the song, write a .ceol file via write_file and ask the user to File→Open it.
+
 === IDE SELF-MODIFICATION ===
 VG's own source lives in res://addons/visual_gasic/ (core IDE scripts) and 
 res://addons/visual_gasic/plugins/<id>/ (per-plugin scripts, e.g. 
@@ -132,6 +140,8 @@ Available tools:
   save_file        {}
   write_file       {"path":"res://forms/NewForm.vg","contents":"..."}
   read_file        {"path":"res://forms/Form1.vg","max_lines":200}
+  list_dir         {"path":"res://","recursive":false,"max_entries":200}
+  find_in_files    {"pattern":"Sub Form_Load","path":"res://","regex":false,"max_hits":50}
 
 === WORKING NODES TOOLS ===
   get_wn_project   {}                   ; returns current graph JSON
@@ -156,13 +166,19 @@ Available tools:
   get_3d_scene     {}                   ; returns voxel block layout JSON
   load_3d_scene    {"data":{"blocks":[[x,y,z,ci],...]}} ; replace 3D voxels
 
+=== VGMUSIC TOOLS ===
+  get_vgmusic_project {}               ; returns current song summary (title, bpm, instruments, patterns)
+
 === IDE SELF-MODIFICATION TOOLS ===
   backup_addon     {}                   ; snapshot addons/visual_gasic/ → backups/vg_addon_backup_<ts>.zip
+  restore_addon    {"path":"res://backups/vg_addon_backup_<ts>.zip"} ; restore from a backup zip
+  reload_scripts   {}                   ; trigger Godot filesystem scan so edited scripts take effect
   enable_addon_editing {}               ; backup + unlock write access to addon files (REQUIRED first step)
   disable_addon_editing {}              ; re-lock addon write guard (call when done)
 
 IMPORTANT: always call enable_addon_editing before writing to any 
 res://addons/visual_gasic/ path.  The tool creates a full backup automatically.
+After writing addon files, call reload_scripts to make them take effect.
 Call disable_addon_editing when all edits are done.
 
 When the user asks you to point at something, USE highlight_lines (don't just \
@@ -176,8 +192,7 @@ fence — exactly ```vg-tool on its own line, then one JSON object, then \
 ``` on its own line.  Do NOT paste tool JSON into a plain text or ```json \
 block — the editor only executes vg-tool fences.  Mutating tools \
 (insert_text, replace_range, replace_in_buffer, set_buffer_text, save_file, \
-write_file, load_wn_project, load_agck_project, build_form, \
-set_form_control_prop, load_2d_scene, load_3d_scene) prompt the user for \
+write_file) prompt the user for \
 approval and are reversible via the Undo button, so prefer making the \
 change directly over describing it."""
 
@@ -339,12 +354,33 @@ const _AGENT_RUN_MAX_LINES := 80   # How many output lines to feed back
 # read-only critics by default; users can promote them via the per-persona
 # config if they want.
 const PERSONA_TOOL_WHITELIST := {
-	"bob": ["highlight_lines", "clear_highlights", "goto_line", "open_file", "read_file", "list_dir", "find_in_files"],
-	"skippy": ["highlight_lines", "clear_highlights", "goto_line", "open_file", "read_file", "list_dir", "find_in_files"],
-	"orac": ["highlight_lines", "clear_highlights", "goto_line", "open_file", "read_file", "list_dir", "find_in_files"],
-	"hal": ["highlight_lines", "clear_highlights", "goto_line", "open_file", "read_file", "list_dir", "find_in_files"],
-	"narcea": [],
-	"default": [],
+	# Read-only personas: all read/inspect tools but no mutating tools.
+	"bob": [
+		"highlight_lines", "clear_highlights", "goto_line", "open_file",
+		"read_file", "list_dir", "find_in_files",
+		"get_wn_project", "get_agck_project", "get_form_controls",
+		"get_2d_scene_tree", "get_3d_scene", "get_vgmusic_project",
+	],
+	"skippy": [
+		"highlight_lines", "clear_highlights", "goto_line", "open_file",
+		"read_file", "list_dir", "find_in_files",
+		"get_wn_project", "get_agck_project", "get_form_controls",
+		"get_2d_scene_tree", "get_3d_scene", "get_vgmusic_project",
+	],
+	"orac": [
+		"highlight_lines", "clear_highlights", "goto_line", "open_file",
+		"read_file", "list_dir", "find_in_files",
+		"get_wn_project", "get_agck_project", "get_form_controls",
+		"get_2d_scene_tree", "get_3d_scene", "get_vgmusic_project",
+	],
+	"hal": [
+		"highlight_lines", "clear_highlights", "goto_line", "open_file",
+		"read_file", "list_dir", "find_in_files",
+		"get_wn_project", "get_agck_project", "get_form_controls",
+		"get_2d_scene_tree", "get_3d_scene", "get_vgmusic_project",
+	],
+	"narcea": [],  # unrestricted
+	"default": [],  # unrestricted
 }
 
 var _ollama_available := false

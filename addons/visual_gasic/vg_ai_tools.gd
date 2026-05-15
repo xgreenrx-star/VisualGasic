@@ -67,6 +67,9 @@ const READ_ONLY_TOOLS := [
 	# Plugin read tools
 	"get_wn_project", "get_agck_project",
 	"get_form_controls", "get_2d_scene_tree", "get_3d_scene",
+	"get_vgmusic_project",
+	# Triggers a filesystem rescan — no file writes, safe to auto-run.
+	"reload_scripts",
 ]
 
 # All known mutating tool names.  Anything not in here AND not in
@@ -84,6 +87,7 @@ const MUTATING_TOOLS := [
 	"load_2d_scene", "load_3d_scene",
 	# IDE self-modification tools
 	"backup_addon", "enable_addon_editing", "disable_addon_editing",
+	"restore_addon",
 ]
 
 const UNDO_MAX := 32
@@ -574,6 +578,12 @@ func execute_tool(d: Dictionary) -> String:
 			return _do_enable_addon_editing()
 		"disable_addon_editing":
 			return _do_disable_addon_editing()
+		"restore_addon":
+			return _do_restore_addon(d)
+		"reload_scripts":
+			return _do_reload_scripts()
+		"get_vgmusic_project":
+			return _do_get_vgmusic_project()
 		_:
 			return "[tool] unknown tool: %s" % tool_name
 
@@ -1211,6 +1221,84 @@ func _do_disable_addon_editing() -> String:
 		return "[disable_addon_editing] SafeWrite not available"
 	safe.allow_addon_writes(false)
 	return "[disable_addon_editing] addon editing re-locked."
+
+
+func _do_restore_addon(d: Dictionary) -> String:
+	var zip_path: String = str(d.get("path", "")).strip_edges()
+	if zip_path.is_empty():
+		return "[restore_addon] 'path' required (e.g. res://backups/vg_addon_backup_<ts>.zip)"
+	if not FileAccess.file_exists(zip_path):
+		return "[restore_addon] file not found: %s" % zip_path
+	var zip_abs := ProjectSettings.globalize_path(zip_path)
+	var zr := ZIPReader.new()
+	var zerr := zr.open(zip_abs)
+	if zerr != OK:
+		return "[restore_addon] could not open zip (err %d): %s" % [zerr, zip_abs]
+	var count := 0
+	for rel in zr.get_files():
+		var data := zr.read_file(rel)
+		var dest := "res://" + rel
+		var dest_abs := ProjectSettings.globalize_path(dest)
+		var ddir := dest_abs.get_base_dir()
+		DirAccess.make_dir_recursive_absolute(ddir)
+		var f := FileAccess.open(dest, FileAccess.WRITE)
+		if f:
+			f.store_buffer(data)
+			f.close()
+			count += 1
+	zr.close()
+	# Rescan so Godot picks up the restored scripts.
+	if Engine.is_editor_hint():
+		var efs = EditorInterface.get_resource_filesystem()
+		if efs:
+			efs.scan()
+	return "[restore_addon] restored %d files from %s" % [count, zip_path]
+
+
+func _do_reload_scripts() -> String:
+	if not Engine.is_editor_hint():
+		return "[reload_scripts] only available in editor"
+	var efs = EditorInterface.get_resource_filesystem()
+	if efs == null:
+		return "[reload_scripts] resource filesystem not available"
+	efs.scan()
+	return "[reload_scripts] filesystem scan triggered — Godot will reload changed scripts"
+
+
+func _do_get_vgmusic_project() -> String:
+	# VGMusic uses a Controller autoload exposed via SceneTree root.
+	var loop := Engine.get_main_loop() as SceneTree
+	if loop == null:
+		return "[get_vgmusic_project] no SceneTree available"
+	var ctrl = loop.root.get_node_or_null("Controller")
+	if ctrl == null:
+		return "[get_vgmusic_project] VGMusic Controller not found (plugin may not be active)"
+	var song = ctrl.get("current_song") if "current_song" in ctrl else null
+	if song == null:
+		return "[get_vgmusic_project] no song loaded"
+	var result := {
+		"title": song.get("title") if "title" in song else "",
+		"filename": song.get("filename") if "filename" in song else "",
+		"bpm": song.get("bpm") if "bpm" in song else 0,
+		"pattern_count": song.get("patterns").size() if "patterns" in song else 0,
+		"instrument_count": song.get("instruments").size() if "instruments" in song else 0,
+	}
+	# Arrangement length
+	if "arrangement" in song:
+		var arr = song.get("arrangement")
+		if arr and "timeline_length" in arr:
+			result["arrangement_bars"] = arr.get("timeline_length")
+	# Instrument names
+	if "instruments" in song:
+		var names: Array = []
+		for inst in song.get("instruments"):
+			names.append(inst.get("name") if "name" in inst else "?")
+		result["instruments"] = names
+	var json := JSON.stringify(result, "\t")
+	_read_results_buffer.append({"tool": "get_vgmusic_project", "args": {}, "output": json})
+	return "[get_vgmusic_project] bpm=%d patterns=%d\n%s" % [
+		result.get("bpm", 0), result.get("pattern_count", 0), json
+	]
 
 
 # ---------------------------------------------------------------------------
