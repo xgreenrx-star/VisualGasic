@@ -321,6 +321,7 @@ var _stop_btn: Button
 var _abort_agent_btn: Button = null   # Phase 6b — shown during multi-hop agent runs
 var _models_btn: Button
 var _model_picker: AcceptDialog
+var _api_key_dialog: AcceptDialog = null
 var _approvals_dropdown: OptionButton
 var _agent_mode_dropdown: OptionButton
 var _audit_btn: Button
@@ -564,12 +565,9 @@ func _reinit_after_reparent() -> void:
 	if _is_generating:
 		_stop_generation()
 	_warmup_http.cancel_request()
-	if _health_check_http != null:
-		_health_check_http.cancel_request()
 	if _stream_http != null:
 		_stream_http.close()
 		_stream_http = null
-	_health_pending_prompt = ""
 	_is_generating = false
 	_ollama_available = false
 	_model_warm = false
@@ -588,7 +586,7 @@ func _exit_tree() -> void:
 func _setup_poll_timer() -> void:
 	_poll_timer = Timer.new()
 	_poll_timer.name = "StreamPollTimer"
-	_poll_timer.wait_time = 0.05  # 20 Hz — fast enough for smooth token display
+	_poll_timer.wait_time = STREAM_POLL_INTERVAL
 	_poll_timer.one_shot = false
 	_poll_timer.autostart = false
 	add_child(_poll_timer)
@@ -660,6 +658,10 @@ func _on_poll_timer() -> void:
 				var chunk := _stream_http.read_response_body_chunk()
 				if chunk.size() > 0:
 					_stream_buf += chunk.get_string_from_utf8()
+					# Guard against runaway / malformed responses (no-newline output, hung connection).
+					if _stream_buf.length() > 524288:  # 512 KB
+						_stream_error = "Response too large (>512 KB) — possible runaway model output"
+						_stream_done = true
 					# Parse complete lines (JSON for Ollama, SSE for cloud)
 					while _stream_buf.find("\n") >= 0:
 						var nl := _stream_buf.find("\n")
@@ -864,6 +866,13 @@ func _stop_generation() -> void:
 	_stream_token_count = 0
 	_stream_buf = ""
 	_accumulated_response = ""
+	_agent_continuation = false
+	_agent_hops = 0
+	_agent_total_tokens = 0
+	_stream_tool_watermark = 0
+	_fc_fragments.clear()
+	_agent_abort_requested = false
+	_hide_abort_agent_btn()
 	if is_instance_valid(_send_btn):
 		_send_btn.visible = true
 	if is_instance_valid(_stop_btn):
@@ -1495,38 +1504,6 @@ func _on_send() -> void:
 		_transcript_close("user_new_turn")  # Phase 6e: close any open transcript.
 	_send_query(prompt)
 
-## Quick health check — verifies Ollama can accept requests before sending.
-## Detects a hung model runner that still passes /api/tags but can't generate.
-var _health_check_http: HTTPRequest
-var _health_pending_prompt := ""
-
-func _ensure_health_check_http() -> void:
-	if _health_check_http == null:
-		_health_check_http = HTTPRequest.new()
-		_health_check_http.name = "HealthCheckRequest"
-		_health_check_http.timeout = 10.0  # Fast check
-		add_child(_health_check_http)
-		_health_check_http.request_completed.connect(_on_health_check_response)
-	else:
-		_health_check_http.cancel_request()
-
-func _on_health_check_response(result: int, code: int, _h: PackedStringArray, _b: PackedByteArray) -> void:
-	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
-		_append_system("[color=red]Ollama health check failed — the service may need restarting.[/color]\n")
-		_append_system("[color=yellow]Try: [color=gray]sudo systemctl restart ollama[/color][/color]\n")
-		_model_warm = false
-		if is_instance_valid(_send_btn):
-			_send_btn.visible = true
-		if is_instance_valid(_stop_btn):
-			_stop_btn.visible = false
-		_health_pending_prompt = ""
-		return
-	# Health check passed — send the pending query
-	if not _health_pending_prompt.is_empty():
-		var p := _health_pending_prompt
-		_health_pending_prompt = ""
-		_send_query_internal(p)
-
 func _send_query(prompt: String) -> void:
 	if not _ollama_available:
 		if _provider_info and _provider_info.is_local:
@@ -1549,36 +1526,12 @@ func _send_query(prompt: String) -> void:
 		_send_cloud_query(prompt)
 		return
 
-	# If the model is still loading into memory, send anyway — the query itself
-	# will warm the model. We used to queue here, but if warmup never completes
-	# the query would sit forever. Better to just send and let it take longer.
-	if not _model_warm:
-		_model_warm = true  # The actual query will warm it
-
-	# Skip the health-check round-trip once the model is warm — saves ~1-2s per query.
-	# The main request will surface any connection issue on its own.
-	if _model_warm:
-		_history.append(prompt)
-		_history_idx = _history.size()
-		_input.text = ""
-		_append_user(prompt)
-		_send_query_internal(prompt)
-		return
-
-	# Run a fast health check before sending the real query
-	_ensure_health_check_http()
-	_health_pending_prompt = prompt
+	# Send directly — the request itself surfaces any connectivity issue.
 	_history.append(prompt)
 	_history_idx = _history.size()
 	_input.text = ""
 	_append_user(prompt)
-	var hc_body := JSON.stringify({"model": _current_model, "prompt": "", "stream": false, "options": {"num_predict": 0}})
-	var hc_err := _health_check_http.request(OLLAMA_URL, ["Content-Type: application/json"], HTTPClient.METHOD_POST, hc_body)
-	if hc_err != OK:
-		# Health check couldn't even start — just send directly
-		_health_pending_prompt = ""
-		_send_query_internal(prompt)
-	return
+	_send_query_internal(prompt)
 
 ## Internal: actually sends the query (called after health check passes).
 var _stream_json_body := ""  # Stored for deferred sending after connect
@@ -1610,7 +1563,7 @@ func _send_query_internal(prompt: String) -> void:
 		"options": {
 			"temperature": 0.3,
 			"num_predict": 2048,
-			"num_ctx": 2048,     # Smaller context = faster prompt eval on CPU
+			"num_ctx": 8192,     # Enough context for the full system prompt + history
 		}
 	}
 	_stream_json_body = JSON.stringify(body)
@@ -1693,7 +1646,7 @@ func _format_code_blocks(text: String) -> String:
 			in_code = true
 			result += "[color=#1a1a2e]━━━━━━━━━━━━━━━━━━━━━━━━━[/color]\n"
 			continue
-		elif stripped == "```" and in_code:
+		elif stripped.begins_with("```") and in_code:
 			in_code = false
 			result += "[color=#1a1a2e]━━━━━━━━━━━━━━━━━━━━━━━━━[/color]\n"
 			continue
@@ -1701,8 +1654,11 @@ func _format_code_blocks(text: String) -> String:
 		if in_code:
 			result += "[color=#e0c080]%s[/color]\n" % _escape_bbcode(line)
 		else:
+			# Escape BBCode-significant chars first so user text like arr[0] is safe.
+			# The markdown patterns (**, backtick) contain no BBCode-special chars,
+			# so detection still works on the already-escaped string.
+			var formatted_line := _escape_bbcode(line)
 			# Bold markdown **text** → BBCode [b]text[/b]
-			var formatted_line := line
 			while formatted_line.find("**") >= 0:
 				var start := formatted_line.find("**")
 				var end := formatted_line.find("**", start + 2)
@@ -1712,7 +1668,7 @@ func _format_code_blocks(text: String) -> String:
 				var bold_text := formatted_line.substr(start + 2, end - start - 2)
 				var after := formatted_line.substr(end + 2)
 				formatted_line = before + "[b]" + bold_text + "[/b]" + after
-			# Inline code `text` → colored
+			# Inline code `text` → colored (content already escaped above)
 			while formatted_line.find("`") >= 0:
 				var start := formatted_line.find("`")
 				var end := formatted_line.find("`", start + 1)
@@ -1721,7 +1677,7 @@ func _format_code_blocks(text: String) -> String:
 				var before := formatted_line.left(start)
 				var code_text := formatted_line.substr(start + 1, end - start - 1)
 				var after := formatted_line.substr(end + 1)
-				formatted_line = before + "[color=#e0c080]" + _escape_bbcode(code_text) + "[/color]" + after
+				formatted_line = before + "[color=#e0c080]" + code_text + "[/color]" + after
 			result += "[color=#dddddd]%s[/color]\n" % formatted_line
 
 	return result
@@ -1767,6 +1723,7 @@ func _on_model_selected(idx: int) -> void:
 	_append_system("Model changed to [color=cyan]%s[/color]\n" % _current_model)
 
 func _on_clear() -> void:
+	_transcript_close("cleared")
 	_output.clear()
 	_conversation_history.clear()
 	_append_system("Conversation cleared.\n")
@@ -2017,7 +1974,11 @@ func _update_model_dropdown() -> void:
 func _show_api_key_dialog() -> void:
 	if not AIProviders:
 		return
-	var dlg := AcceptDialog.new()
+	if is_instance_valid(_api_key_dialog):
+		_api_key_dialog.popup_centered(Vector2i(520, 360))
+		return
+	_api_key_dialog = AcceptDialog.new()
+	var dlg := _api_key_dialog
 	dlg.title = "⚙️  AI Provider API Keys"
 	# Force a fixed compact size. `wrap_controls = false` stops Window
 	# from auto-growing to fit children, and `popup_centered(size)`'s
@@ -2093,6 +2054,11 @@ func _show_api_key_dialog() -> void:
 			AIProviders.save_api_key(pid, key_edits[pid].text.strip_edges())
 		_append_system("[color=green]API keys saved.[/color]\n")
 		_activate_provider()
+		_api_key_dialog = null
+		dlg.queue_free()
+	)
+	dlg.close_requested.connect(func():
+		_api_key_dialog = null
 		dlg.queue_free()
 	)
 
@@ -2949,19 +2915,25 @@ func _print_project_result(result: Dictionary) -> void:
 ## Launch the last AI-built scene (or main_scene from the last project)
 ## in a child Godot process and stream its output into the chat.  Narcea
 ## sees the last N lines on her next prompt via the run-output context.
+func _ensure_run_session() -> bool:
+	if _run_session != null and is_instance_valid(_run_session):
+		return true
+	var rs := load("res://addons/visual_gasic/vg_ai_run_session.gd")
+	if rs == null:
+		return false
+	_run_session = rs.new()
+	add_child(_run_session)
+	_run_session.output_line.connect(_on_run_line)
+	_run_session.finished.connect(_on_run_finished)
+	return true
+
 func _on_run() -> void:
 	if _last_run_scene.is_empty():
 		_append_system("[color=#ff8888]Nothing to run \u2014 use \ud83e\udd16 Make this or \ud83c\udd95 Make project first.[/color]\n")
 		return
-	if _run_session == null or not is_instance_valid(_run_session):
-		var rs := load("res://addons/visual_gasic/vg_ai_run_session.gd")
-		if rs == null:
-			_append_system("[color=#ff8888]Run-session helper unavailable.[/color]\n")
-			return
-		_run_session = rs.new()
-		add_child(_run_session)
-		_run_session.output_line.connect(_on_run_line)
-		_run_session.finished.connect(_on_run_finished)
+	if not _ensure_run_session():
+		_append_system("[color=#ff8888]Run-session helper unavailable.[/color]\n")
+		return
 	if _run_session.is_running():
 		_append_system("[color=#ffaa66]Already running \u2014 stop the current scene first.[/color]\n")
 		return
@@ -2980,7 +2952,8 @@ func _on_run_stop() -> void:
 
 
 func _on_run_line(stream: String, line: String) -> void:
-	var color := "#cccccc" if stream == "stdout" else "#ff8888"
+	var is_error := stream != "stdout" or line.begins_with("ERROR:") or line.begins_with("SCRIPT ERROR:")
+	var color := "#ff8888" if is_error else "#cccccc"
 	_append_system("[color=%s]%s %s[/color]\n" % [color, "│", line])
 	# Phase 6b: buffer output lines when running inside an agent loop.
 	if _agent_triggered_run and _agent_run_output_lines.size() < _AGENT_RUN_MAX_LINES:
@@ -3166,6 +3139,8 @@ func _get_active_system_prompt() -> String:
 ## prompt block.  Cached on the panel so the tutorial walk only happens
 ## once per editor session.
 var _narcea_provider = null
+var _narcea_ctx_cache := ""
+var _narcea_ctx_cache_ts: int = 0
 
 # Lazy-loaded AI tool dispatcher (vg_ai_tools.gd).  Lets the model drive
 # the editor via ```vg-tool``` blocks — highlight, goto, insert, replace,
@@ -3305,14 +3280,8 @@ func _ai_tool_run_handler(tool_name: String, _args: Dictionary) -> String:
 		"play.run_main":
 			if _last_run_scene.is_empty():
 				return "[play.run_main] nothing to run — build a form or project first"
-			if _run_session == null or not is_instance_valid(_run_session):
-				var rs := load("res://addons/visual_gasic/vg_ai_run_session.gd")
-				if rs == null:
-					return "[play.run_main] run-session helper unavailable"
-				_run_session = rs.new()
-				add_child(_run_session)
-				_run_session.output_line.connect(_on_run_line)
-				_run_session.finished.connect(_on_run_finished)
+			if not _ensure_run_session():
+				return "[play.run_main] run-session helper unavailable"
 			if _run_session.is_running():
 				return "[play.run_main] already running — call play.stop first"
 			var root_path := _last_project_root if not _last_project_root.is_empty() else "res://"
@@ -3633,6 +3602,9 @@ func _on_ai_meta_clicked(meta: Variant) -> void:
 			pass
 
 func _narcea_context_block() -> String:
+	const CACHE_TTL_MS := 30000  # 30 seconds
+	if not _narcea_ctx_cache.is_empty() and Time.get_ticks_msec() - _narcea_ctx_cache_ts < CACHE_TTL_MS:
+		return _narcea_ctx_cache
 	if _narcea_provider == null:
 		var script := load("res://addons/visual_gasic/vg_ai_narcea.gd")
 		if script == null:
@@ -3645,7 +3617,10 @@ func _narcea_context_block() -> String:
 			plugin = base.get_meta("visual_gasic_plugin_instance")
 	var block: String = _narcea_provider.build_context_block(plugin)
 	# Sandwich the block in clear delimiters so the model can find it.
-	return "\n--- BEGIN NARCEA CONTEXT ---\n" + block + "\n--- END NARCEA CONTEXT ---\n\n"
+	var result := "\n--- BEGIN NARCEA CONTEXT ---\n" + block + "\n--- END NARCEA CONTEXT ---\n\n"
+	_narcea_ctx_cache = result
+	_narcea_ctx_cache_ts = Time.get_ticks_msec()
+	return result
 
 func _apply_persona_voice() -> void:
 	if _voice_ctrl == null or not is_instance_valid(_voice_ctrl):
@@ -3733,7 +3708,10 @@ func _load_custom_personas() -> void:
 				else {"display": pid, "avatar": "", "prefix": "",
 					"openai_voice": "alloy", "greeting": "", "error_intro": ""})
 		for k in entry.keys():
-			base[str(k)] = entry[k]
+			var val = entry[k]
+			if str(k) == "prefix" and typeof(val) == TYPE_STRING:
+				val = val.left(2000)
+			base[str(k)] = val
 		_personas[pid] = base
 		if not _persona_order.has(pid):
 			_persona_order.append(pid)
