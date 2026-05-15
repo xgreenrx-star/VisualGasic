@@ -82,6 +82,8 @@ const MUTATING_TOOLS := [
 	"load_wn_project", "load_agck_project",
 	"build_form", "set_form_control_prop",
 	"load_2d_scene", "load_3d_scene",
+	# IDE self-modification tools
+	"backup_addon", "enable_addon_editing", "disable_addon_editing",
 ]
 
 const UNDO_MAX := 32
@@ -565,6 +567,13 @@ func execute_tool(d: Dictionary) -> String:
 			return _do_get_3d_scene()
 		"load_3d_scene":
 			return _do_load_3d_scene(d)
+		# ── IDE self-modification tools ───────────────────────────
+		"backup_addon":
+			return _do_backup_addon()
+		"enable_addon_editing":
+			return _do_enable_addon_editing()
+		"disable_addon_editing":
+			return _do_disable_addon_editing()
 		_:
 			return "[tool] unknown tool: %s" % tool_name
 
@@ -1132,6 +1141,76 @@ func _do_find_in_files(d: Dictionary) -> String:
 	return "[find_in_files] %d hit(s)%s\n%s" % [
 		hits.size(), " (capped)" if trimmed else "", "\n".join(hits)
 	]
+
+
+# ---------------------------------------------------------------------------
+# IDE self-modification tools
+# ---------------------------------------------------------------------------
+
+const ADDON_ROOT := "res://addons/visual_gasic/"
+const BACKUP_DIR := "res://backups/"
+
+func _do_backup_addon() -> String:
+	# Walk the entire addon tree and zip it.
+	var ts := Time.get_datetime_string_from_system().replace(":", "-").replace(" ", "_")
+	var zip_name := "vg_addon_backup_%s.zip" % ts
+	var zip_res := BACKUP_DIR + zip_name
+	var zip_abs := ProjectSettings.globalize_path(zip_res)
+	var backups_abs := ProjectSettings.globalize_path(BACKUP_DIR)
+
+	var derr := DirAccess.make_dir_recursive_absolute(backups_abs)
+	if derr != OK and derr != ERR_ALREADY_EXISTS:
+		return "[backup_addon] could not create backups/ dir (err %d)" % derr
+
+	var files: Array = []
+	_walk_dir(ADDON_ROOT, true, files, 999999)
+
+	var zp := ZIPPacker.new()
+	var zerr := zp.open(zip_abs)
+	if zerr != OK:
+		return "[backup_addon] could not open zip for writing (err %d): %s" % [zerr, zip_abs]
+
+	var count := 0
+	for entry in files:
+		var fp := str(entry)
+		if fp.ends_with("/"):
+			continue
+		var fh := FileAccess.open(fp, FileAccess.READ)
+		if fh == null:
+			continue
+		var data := fh.get_buffer(fh.get_length())
+		fh.close()
+		# Store with path relative to res:// so it's easy to restore.
+		var rel := fp.trim_prefix("res://")
+		zp.start_file(rel)
+		zp.write_file(data)
+		zp.close_file()
+		count += 1
+
+	zp.close()
+	_read_results_buffer.append({"tool": "backup_addon", "args": {}, "output": zip_res})
+	return "[backup_addon] archived %d files → %s" % [count, zip_res]
+
+
+func _do_enable_addon_editing() -> String:
+	# 1. Create backup first.
+	var backup_result := _do_backup_addon()
+	if not backup_result.begins_with("[backup_addon] archived"):
+		return "[enable_addon_editing] backup failed — addon editing NOT unlocked.\n%s" % backup_result
+	# 2. Unlock writes.
+	var safe = _get_safe()
+	if safe == null:
+		return "[enable_addon_editing] SafeWrite not available"
+	safe.allow_addon_writes(true)
+	return "[enable_addon_editing] addon editing UNLOCKED.\n%s\nYou may now use write_file on res://addons/visual_gasic/ paths.\nCall disable_addon_editing when finished." % backup_result
+
+
+func _do_disable_addon_editing() -> String:
+	var safe = _get_safe()
+	if safe == null:
+		return "[disable_addon_editing] SafeWrite not available"
+	safe.allow_addon_writes(false)
+	return "[disable_addon_editing] addon editing re-locked."
 
 
 # ---------------------------------------------------------------------------

@@ -93,6 +93,19 @@ Palette indices 0-7: Red, Green, Blue, Yellow, Purple, Orange, Cyan, White. \
 Grid is 0-15 on X/Z, 0-7 on Y (stack height). \
 Use get_3d_scene to read, load_3d_scene {"data":{...}} to replace.
 
+=== IDE SELF-MODIFICATION ===
+VG's own source lives in res://addons/visual_gasic/ (core IDE scripts) and 
+res://addons/visual_gasic/plugins/<id>/ (per-plugin scripts, e.g. 
+working_nodes, agck, vg3d, vgmusic). You CAN read and modify these files but 
+YOU MUST follow this workflow every time:
+  1. enable_addon_editing {} — atomically creates a full zip backup AND 
+     unlocks write access. Never skip this step.
+  2. read_file to inspect files before changing them.
+  3. write_file / replace_range / etc. to make targeted edits.
+  4. disable_addon_editing {} — re-locks the guard.
+NEVER modify: vg_ai_safe_write.gd, vg_ai_audit.log, .git/**, .godot/**.
+Godot reloads changed scripts automatically so edits take effect immediately.
+
 Rules: Keep answers concise. Use VB6/VisualGasic syntax in examples, never GDScript \
 unless asked for a translation."""
 
@@ -142,6 +155,15 @@ Available tools:
 === 3D SCENE TOOLS ===
   get_3d_scene     {}                   ; returns voxel block layout JSON
   load_3d_scene    {"data":{"blocks":[[x,y,z,ci],...]}} ; replace 3D voxels
+
+=== IDE SELF-MODIFICATION TOOLS ===
+  backup_addon     {}                   ; snapshot addons/visual_gasic/ → backups/vg_addon_backup_<ts>.zip
+  enable_addon_editing {}               ; backup + unlock write access to addon files (REQUIRED first step)
+  disable_addon_editing {}              ; re-lock addon write guard (call when done)
+
+IMPORTANT: always call enable_addon_editing before writing to any 
+res://addons/visual_gasic/ path.  The tool creates a full backup automatically.
+Call disable_addon_editing when all edits are done.
 
 When the user asks you to point at something, USE highlight_lines (don't just \
 list line numbers in prose).  When the user asks you to change code, USE \

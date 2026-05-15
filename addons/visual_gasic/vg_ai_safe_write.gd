@@ -32,6 +32,9 @@ const AUDIT_PATH := "user://vg_ai_audit.log"
 # narrow this further to e.g. res://ai_projects/<name>/.
 var _root_abs: String = ""
 
+# When true the addon self-edit guard is lifted (backup must be created first).
+var _addon_writes_allowed: bool = false
+
 
 func _init() -> void:
 	set_root("res://")
@@ -49,6 +52,14 @@ func get_root() -> String:
 	return _root_abs
 
 
+## Unlock (or re-lock) writes to res://addons/visual_gasic/.
+## Always create a backup_addon snapshot before calling allow_addon_writes(true).
+func allow_addon_writes(enabled: bool) -> void:
+	_addon_writes_allowed = enabled
+	_audit("ADDON_WRITES_%s" % ("UNLOCKED" if enabled else "LOCKED"),
+		"res://addons/visual_gasic/", 0, "")
+
+
 ## Cheap check — same logic as write() runs but no I/O.
 func is_safe(path: String) -> Array:
 	if path.strip_edges().is_empty():
@@ -63,6 +74,9 @@ func is_safe(path: String) -> Array:
 	if not abs.begins_with(_root_abs):
 		return [false, "outside project root (%s): %s" % [_root_abs, abs]]
 	for pat in FORBIDDEN_GLOBS:
+		# Skip the addon guard if the user has explicitly unlocked it.
+		if pat == "*/addons/visual_gasic/*" and _addon_writes_allowed:
+			continue
 		if abs.matchn(pat):
 			return [false, "forbidden path (matches %s): %s" % [pat, abs]]
 	return [true, ""]
