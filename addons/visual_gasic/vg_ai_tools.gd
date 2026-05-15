@@ -64,6 +64,9 @@ const SNAPSHOT_COMPRESS_THRESHOLD := 4096   # bytes — buffers bigger than this
 const READ_ONLY_TOOLS := [
 	"highlight_lines", "clear_highlights", "goto_line",
 	"open_file", "read_file", "list_dir", "find_in_files", "_invalid",
+	# Plugin read tools
+	"get_wn_project", "get_agck_project",
+	"get_form_controls", "get_2d_scene_tree", "get_3d_scene",
 ]
 
 # All known mutating tool names.  Anything not in here AND not in
@@ -75,6 +78,10 @@ const MUTATING_TOOLS := [
 	# Tier-3 agent run-loop tools.  Mutating-classified so they go
 	# through the approval bar by default.
 	"play.run_main", "play.stop",
+	# Plugin mutating tools
+	"load_wn_project", "load_agck_project",
+	"build_form", "set_form_control_prop",
+	"load_2d_scene", "load_3d_scene",
 ]
 
 const UNDO_MAX := 32
@@ -535,6 +542,29 @@ func execute_tool(d: Dictionary) -> String:
 			return _do_play_run_main(d)
 		"play.stop":
 			return _do_play_stop(d)
+		# ── Plugin tools ─────────────────────────────────────────
+		"get_wn_project":
+			return _do_get_wn_project()
+		"load_wn_project":
+			return _do_load_wn_project(d)
+		"get_agck_project":
+			return _do_get_agck_project()
+		"load_agck_project":
+			return _do_load_agck_project(d)
+		"get_form_controls":
+			return _do_get_form_controls()
+		"build_form":
+			return _do_build_form(d)
+		"set_form_control_prop":
+			return _do_set_form_control_prop(d)
+		"get_2d_scene_tree":
+			return _do_get_2d_scene_tree()
+		"load_2d_scene":
+			return _do_load_2d_scene(d)
+		"get_3d_scene":
+			return _do_get_3d_scene()
+		"load_3d_scene":
+			return _do_load_3d_scene(d)
 		_:
 			return "[tool] unknown tool: %s" % tool_name
 
@@ -1105,8 +1135,242 @@ func _do_find_in_files(d: Dictionary) -> String:
 
 
 # ---------------------------------------------------------------------------
+# Plugin tools — Working Nodes
+# ---------------------------------------------------------------------------
+
+func _do_get_wn_project() -> String:
+	var pm = _get_plugin_manager()
+	if pm == null:
+		return "[get_wn_project] plugin manager not found"
+	var wn = pm.get_plugin("working_nodes")
+	if wn == null:
+		return "[get_wn_project] working_nodes plugin not loaded"
+	if not ("_editor" in wn) or not is_instance_valid(wn.get("_editor")):
+		return "[get_wn_project] working_nodes editor not ready"
+	var editor = wn.get("_editor")
+	if not editor.has_method("_collect_graph_data"):
+		return "[get_wn_project] _collect_graph_data not found"
+	var data: Dictionary = editor._collect_graph_data()
+	var json := JSON.stringify(data, "\t")
+	_read_results_buffer.append({"tool": "get_wn_project", "args": {}, "output": json})
+	return "[get_wn_project] returned %d node(s)\n%s" % [data.get("nodes", []).size(), json]
+
+
+func _do_load_wn_project(d: Dictionary) -> String:
+	var pm = _get_plugin_manager()
+	if pm == null:
+		return "[load_wn_project] plugin manager not found"
+	var wn = pm.get_plugin("working_nodes")
+	if wn == null:
+		return "[load_wn_project] working_nodes plugin not loaded"
+	if not ("_editor" in wn) or not is_instance_valid(wn.get("_editor")):
+		return "[load_wn_project] working_nodes editor not ready"
+	var editor = wn.get("_editor")
+	if not editor.has_method("_apply_loaded_data"):
+		return "[load_wn_project] _apply_loaded_data not found"
+	var data = d.get("data", null)
+	if typeof(data) != TYPE_DICTIONARY:
+		return "[load_wn_project] missing 'data' dict"
+	editor._apply_loaded_data(data)
+	return "[load_wn_project] applied %d node(s)" % data.get("nodes", []).size()
+
+
+# ---------------------------------------------------------------------------
+# Plugin tools — AGCK
+# ---------------------------------------------------------------------------
+
+func _do_get_agck_project() -> String:
+	var pm = _get_plugin_manager()
+	if pm == null:
+		return "[get_agck_project] plugin manager not found"
+	var agck = pm.get_plugin("agck")
+	if agck == null:
+		return "[get_agck_project] agck plugin not loaded"
+	if not agck.has_method("_collect_all_data"):
+		return "[get_agck_project] _collect_all_data not found"
+	var data: Dictionary = agck._collect_all_data()
+	var json := JSON.stringify(data, "\t")
+	_read_results_buffer.append({"tool": "get_agck_project", "args": {}, "output": json})
+	return "[get_agck_project] returned project data\n%s" % json
+
+
+func _do_load_agck_project(d: Dictionary) -> String:
+	var pm = _get_plugin_manager()
+	if pm == null:
+		return "[load_agck_project] plugin manager not found"
+	var agck = pm.get_plugin("agck")
+	if agck == null:
+		return "[load_agck_project] agck plugin not loaded"
+	var path: String = str(d.get("path", "")).strip_edges()
+	if path.is_empty():
+		return "[load_agck_project] missing 'path' (res:// path to .agck file)"
+	if not agck.has_method("load_project"):
+		return "[load_agck_project] load_project not found"
+	var ok: bool = agck.load_project(path)
+	return "[load_agck_project] %s" % ("loaded: " + path if ok else "failed to load: " + path)
+
+
+# ---------------------------------------------------------------------------
+# Plugin tools — Forms
+# ---------------------------------------------------------------------------
+
+func _do_get_form_controls() -> String:
+	var host = _get_plugin()
+	if host == null:
+		return "[get_form_controls] host plugin not found"
+	if not ("_form_designer" in host) or not is_instance_valid(host.get("_form_designer")):
+		return "[get_form_controls] form designer not ready"
+	var fd = host.get("_form_designer")
+	if not fd.has_method("get_control_count"):
+		return "[get_form_controls] get_control_count not found"
+	var count: int = fd.get_control_count()
+	var form_name: String = fd.get_form_name() if fd.has_method("get_form_name") else "Form1"
+	var controls: Array = []
+	for i in range(count):
+		var info: Dictionary = fd.get_control_info(i) if fd.has_method("get_control_info") else {}
+		info["index"] = i
+		controls.append(info)
+	var result := {"form_name": form_name, "controls": controls}
+	var json := JSON.stringify(result, "\t")
+	_read_results_buffer.append({"tool": "get_form_controls", "args": {}, "output": json})
+	return "[get_form_controls] form '%s' has %d control(s)\n%s" % [form_name, count, json]
+
+
+func _do_build_form(d: Dictionary) -> String:
+	var host = _get_plugin()
+	if host == null:
+		return "[build_form] host plugin not found"
+	if not ("_form_designer" in host) or not is_instance_valid(host.get("_form_designer")):
+		return "[build_form] form designer not ready"
+	var fd = host.get("_form_designer")
+	# Load vg_ai_form_spec helper to reuse its apply logic.
+	var spec_script = load("res://addons/visual_gasic/vg_ai_form_spec.gd")
+	if spec_script == null:
+		return "[build_form] vg_ai_form_spec.gd not found"
+	var spec_helper = spec_script.new()
+	# Accept either a raw spec dict or a JSON string.
+	var spec = d.get("spec", d)
+	if typeof(spec) == TYPE_STRING:
+		spec = JSON.parse_string(spec)
+	if typeof(spec) != TYPE_DICTIONARY:
+		return "[build_form] 'spec' must be a JSON object matching the form spec schema"
+	var errs: Array = spec_helper.apply_to_designer(spec, fd)
+	if errs.is_empty():
+		return "[build_form] form '%s' built with %d control(s)" % [
+			spec.get("form_name", "Form1"), spec.get("controls", []).size()
+		]
+	return "[build_form] built with warnings: %s" % str(errs)
+
+
+func _do_set_form_control_prop(d: Dictionary) -> String:
+	var host = _get_plugin()
+	if host == null:
+		return "[set_form_control_prop] host plugin not found"
+	if not ("_form_designer" in host) or not is_instance_valid(host.get("_form_designer")):
+		return "[set_form_control_prop] form designer not ready"
+	var fd = host.get("_form_designer")
+	if not fd.has_method("set_control_property"):
+		return "[set_form_control_prop] set_control_property not available"
+	var idx = d.get("index", -1)
+	if typeof(idx) != TYPE_INT and typeof(idx) != TYPE_FLOAT:
+		return "[set_form_control_prop] 'index' (int) required"
+	var prop: String = str(d.get("property", "")).strip_edges()
+	if prop.is_empty():
+		return "[set_form_control_prop] 'property' required"
+	var value = d.get("value", null)
+	if value == null:
+		return "[set_form_control_prop] 'value' required"
+	fd.set_control_property(int(idx), prop, value)
+	return "[set_form_control_prop] control[%d].%s = %s" % [int(idx), prop, str(value)]
+
+
+# ---------------------------------------------------------------------------
+# Plugin tools — 2D Scene
+# ---------------------------------------------------------------------------
+
+func _do_get_2d_scene_tree() -> String:
+	var host = _get_plugin()
+	if host == null:
+		return "[get_2d_scene_tree] host plugin not found"
+	if not ("_vg_2d_editor" in host) or not is_instance_valid(host.get("_vg_2d_editor")):
+		return "[get_2d_scene_tree] 2D editor not ready"
+	var ed = host.get("_vg_2d_editor")
+	if not ed.has_method("get_scene_node_info"):
+		return "[get_2d_scene_tree] get_scene_node_info not found"
+	var info: Array = ed.get_scene_node_info()
+	var path: String = ed.get_scene_path() if ed.has_method("get_scene_path") else ""
+	var result := {"scene_path": path, "nodes": info}
+	var json := JSON.stringify(result, "\t")
+	_read_results_buffer.append({"tool": "get_2d_scene_tree", "args": {}, "output": json})
+	return "[get_2d_scene_tree] %d node(s) in '%s'\n%s" % [info.size(), path, json]
+
+
+func _do_load_2d_scene(d: Dictionary) -> String:
+	var host = _get_plugin()
+	if host == null:
+		return "[load_2d_scene] host plugin not found"
+	if not ("_vg_2d_editor" in host) or not is_instance_valid(host.get("_vg_2d_editor")):
+		return "[load_2d_scene] 2D editor not ready"
+	var ed = host.get("_vg_2d_editor")
+	var path: String = str(d.get("path", "")).strip_edges()
+	if path.is_empty():
+		return "[load_2d_scene] missing 'path'"
+	if not ed.has_method("load_scene"):
+		return "[load_2d_scene] load_scene not found"
+	ed.load_scene(path)
+	return "[load_2d_scene] loaded '%s'" % path
+
+
+# ---------------------------------------------------------------------------
+# Plugin tools — 3D Scene
+# ---------------------------------------------------------------------------
+
+func _do_get_3d_scene() -> String:
+	var pm = _get_plugin_manager()
+	if pm == null:
+		return "[get_3d_scene] plugin manager not found"
+	var vg3d = pm.get_plugin("vg3d")
+	if vg3d == null:
+		return "[get_3d_scene] vg3d plugin not loaded"
+	if not vg3d.has_method("get_project_data"):
+		return "[get_3d_scene] get_project_data not available (vg3d plugin needs update)"
+	var data: Dictionary = vg3d.get_project_data()
+	var json := JSON.stringify(data, "\t")
+	_read_results_buffer.append({"tool": "get_3d_scene", "args": {}, "output": json})
+	return "[get_3d_scene] %d block(s)\n%s" % [data.get("blocks", []).size(), json]
+
+
+func _do_load_3d_scene(d: Dictionary) -> String:
+	var pm = _get_plugin_manager()
+	if pm == null:
+		return "[load_3d_scene] plugin manager not found"
+	var vg3d = pm.get_plugin("vg3d")
+	if vg3d == null:
+		return "[load_3d_scene] vg3d plugin not loaded"
+	if not vg3d.has_method("set_project_data"):
+		return "[load_3d_scene] set_project_data not available (vg3d plugin needs update)"
+	var data = d.get("data", null)
+	if typeof(data) != TYPE_DICTIONARY:
+		return "[load_3d_scene] missing 'data' dict with 'blocks' array"
+	vg3d.set_project_data(data)
+	return "[load_3d_scene] applied %d block(s)" % data.get("blocks", []).size()
+
+
+# ---------------------------------------------------------------------------
 # Editor / safe-write lookups
 # ---------------------------------------------------------------------------
+
+func _get_plugin_manager():
+	var p := _get_plugin()
+	if p == null:
+		return null
+	if not ("_vg_plugin_manager" in p):
+		return null
+	var pm = p.get("_vg_plugin_manager")
+	if pm == null or not is_instance_valid(pm):
+		return null
+	return pm
+
 
 func _get_plugin() -> Object:
 	if not Engine.is_editor_hint():

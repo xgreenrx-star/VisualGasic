@@ -428,6 +428,39 @@ func _update_block_count() -> void:
 	if _block_count_label:
 		_block_count_label.text = "Blocks: %d" % _blocks.size()
 
+
+# ─── AI / persistence helpers ────────────────────────────────
+
+## Returns the current block layout as a serialisable dictionary.
+## Schema: { "blocks": [[x,y,z,color_index], ...], "palette": ["#rrggbb", ...] }
+func get_project_data() -> Dictionary:
+	var blocks_arr: Array = []
+	for pos in _blocks:
+		blocks_arr.append([pos.x, pos.y, pos.z, _blocks[pos]])
+	var palette_arr: Array = []
+	for c in PALETTE:
+		palette_arr.append(c.to_html(false))
+	return {"blocks": blocks_arr, "palette": palette_arr}
+
+
+## Replaces the current block layout from a dictionary produced by get_project_data().
+func set_project_data(data: Dictionary) -> void:
+	# Clear existing meshes.
+	_blocks.clear()
+	if is_instance_valid(_block_parent):
+		for child in _block_parent.get_children():
+			child.queue_free()
+	# Rebuild from data.
+	for item in data.get("blocks", []):
+		if not (item is Array) or item.size() < 4:
+			continue
+		var pos := Vector3i(int(item[0]), int(item[1]), int(item[2]))
+		var ci := clamp(int(item[3]), 0, PALETTE.size() - 1)
+		_blocks[pos] = ci
+		_spawn_block_mesh(pos, ci)
+	_update_block_count()
+
+
 # ─── Camera ──────────────────────────────────────────────────
 
 func _update_orbit_camera() -> void:

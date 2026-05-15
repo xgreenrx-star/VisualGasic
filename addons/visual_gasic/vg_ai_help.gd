@@ -39,6 +39,60 @@ Virtual callbacks: _Ready, _Process(delta), _PhysicsProcess(delta), _Input(event
 VB6 aliases on nodes: Caption→text, Left→position.x, Width→size.x, Visible→visible. \
 ConnectSignal \"signal_name\", \"HandlerName\".
 
+=== WORKING NODES ===
+Working Nodes (.wnodes) is a trigger-graph plugin. \
+JSON schema: {"nodes":[{name,type,position:[x,y],params:{},group,color}], \
+"connections":[{from,from_port,to,to_port}], \
+"groups":[{id,name,color}], next_node_id, next_group_id}
+
+Node types and their key params:
+  on_start {}  on_frame {}  on_input {action}  on_collision {layer}
+  move {target,speed,relative}  rotate {degrees,speed}  scale {to,speed}
+  alpha {to,speed}  color_trigger {color}  pulse {interval,count}
+  spawn {scene,position,parent}  stop {target}  toggle {target,property}
+  follow {target,speed}  shake {strength,duration}  play_sfx {sound,volume}
+  animate {player,animation,blend}  zoom {to,speed}
+  camera_move {target,speed}  get_prop {object,property}
+  set_prop {object,property,value}  input_poll {action}
+  expr {expression}  delta_var {variable,delta}  math {a,op,b}
+  counter {start,step,max}  random_trig {min,max}  branch {condition}
+  cmp_trig {a,op,b}  timer {duration,autostart}  sequence {}
+  event {name}  action {action}
+
+=== AGCK ===
+AGCK (.agck) is the Arcade Game Construction Kit. \
+Top-level keys: settings, actors, sounds, shaders, levels, build, tile_library. \
+Use get_agck_project to read the current project. \
+To load a saved .agck file: load_agck_project {"path":"res://game.agck"}.
+
+=== FORMS ===
+VG Forms (.vg + .tscn pair). The form designer holds controls indexed 0…N-1. \
+Control types accepted by build_form / add_control:
+  Label, Button, TextBox, CheckBox, ComboBox, ListBox, PictureBox,
+  Timer, HScrollBar, VScrollBar, ProgressBar, TrackBar, Image,
+  Panel, GroupBox, TabControl, Frame, LineShape, BoxShape.
+Properties settable via set_form_control_prop:
+  Caption, Text, Left, Top, Width, Height, Visible, Enabled,
+  BackColor, ForeColor, FontSize, FontBold, Value, Min, Max,
+  Interval, MultiLine, PasswordChar, ReadOnly.
+build_form spec: {"form_name":"Form1","controls":[{"type":"Button","Caption":"OK","Left":10,"Top":10,"Width":80,"Height":30},...]}
+
+=== 2D SCENE ===
+The 2D editor loads Godot .tscn files. \
+Common node types: Node2D, Sprite2D, AnimatedSprite2D, CharacterBody2D, \
+RigidBody2D, StaticBody2D, Area2D, CollisionShape2D, Camera2D, \
+Label, Button, Panel, TextureRect, NinePatchRect, \
+AudioStreamPlayer2D, Timer, AnimationPlayer. \
+Use get_2d_scene_tree to read the loaded scene, then write_file + load_2d_scene \
+to add or modify nodes.
+
+=== 3D SCENE ===
+The 3D voxel editor stores colored blocks. \
+Schema: {"blocks":[[x,y,z,color_index],...], "palette":["#rrggbb",...]}. \
+Palette indices 0-7: Red, Green, Blue, Yellow, Purple, Orange, Cyan, White. \
+Grid is 0-15 on X/Z, 0-7 on Y (stack height). \
+Use get_3d_scene to read, load_3d_scene {"data":{...}} to replace.
+
 Rules: Keep answers concise. Use VB6/VisualGasic syntax in examples, never GDScript \
 unless asked for a translation."""
 
@@ -66,6 +120,29 @@ Available tools:
   write_file       {"path":"res://forms/NewForm.vg","contents":"..."}
   read_file        {"path":"res://forms/Form1.vg","max_lines":200}
 
+=== WORKING NODES TOOLS ===
+  get_wn_project   {}                   ; returns current graph JSON
+  load_wn_project  {"data":{...}}       ; replace graph with provided dict
+
+=== AGCK TOOLS ===
+  get_agck_project {}                   ; returns current AGCK project JSON
+  load_agck_project{"path":"res://game.agck"} ; load saved .agck file
+
+=== FORM TOOLS ===
+  get_form_controls {}                  ; returns form name + all control info
+  build_form       {"form_name":"Form1","controls":[{"type":"Button",...},...]}
+                                        ; destructive rebuild of the form
+  set_form_control_prop {"index":0,"property":"Caption","value":"OK"}
+                                        ; non-destructive single-property update
+
+=== 2D SCENE TOOLS ===
+  get_2d_scene_tree {}                  ; returns loaded scene path + node list
+  load_2d_scene    {"path":"res://Level1.tscn"} ; load a .tscn into the 2D editor
+
+=== 3D SCENE TOOLS ===
+  get_3d_scene     {}                   ; returns voxel block layout JSON
+  load_3d_scene    {"data":{"blocks":[[x,y,z,ci],...]}} ; replace 3D voxels
+
 When the user asks you to point at something, USE highlight_lines (don't just \
 list line numbers in prose).  When the user asks you to change code, USE \
 the editing tools and then save_file.  Always explain in plain language \
@@ -77,8 +154,10 @@ fence — exactly ```vg-tool on its own line, then one JSON object, then \
 ``` on its own line.  Do NOT paste tool JSON into a plain text or ```json \
 block — the editor only executes vg-tool fences.  Mutating tools \
 (insert_text, replace_range, replace_in_buffer, set_buffer_text, save_file, \
-write_file) prompt the user for approval and are reversible via the Undo \
-button, so prefer making the change directly over describing it."""
+write_file, load_wn_project, load_agck_project, build_form, \
+set_form_control_prop, load_2d_scene, load_3d_scene) prompt the user for \
+approval and are reversible via the Undo button, so prefer making the \
+change directly over describing it."""
 
 # ---------------------------------------------------------------------------
 # AI Personas — flavor layers that wrap the technical SYSTEM_PROMPT.
