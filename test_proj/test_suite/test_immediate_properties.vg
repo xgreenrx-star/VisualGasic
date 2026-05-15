@@ -40,4 +40,5 @@ Sub _Ready()
     AddChild pnl
 
     Print "READY: controls_created"
+    Print "PASS: setup_complete"
 End Sub

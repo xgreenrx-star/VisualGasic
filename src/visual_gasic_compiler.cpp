@@ -3106,9 +3106,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 compile_expression(s->array_sizes[0]);
                 emit_constant(Variant((int64_t)1));
                 emit_byte(OP_ADD);
-                String t = s->type_name.to_lower();
-                if (t == "integer" || t == "long" || t == "longlong") emit_byte(OP_NEW_ARRAY_I64);
-                else emit_byte(OP_NEW_ARRAY);
+                emit_byte(OP_NEW_ARRAY);
 
                 int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
@@ -3122,9 +3120,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 // Dynamic array with empty parentheses: Dim arr() As Integer
                 // Initialize as empty array to be resized with ReDim later
                 emit_constant(Variant((int64_t)0));
-                String t = s->type_name.to_lower();
-                if (t == "integer" || t == "long" || t == "longlong") emit_byte(OP_NEW_ARRAY_I64);
-                else emit_byte(OP_NEW_ARRAY);
+                emit_byte(OP_NEW_ARRAY);
 
                 int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
@@ -4664,8 +4660,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 emit_constant(Variant((int64_t)1));
                 emit_byte(OP_ADD);
                 String key = s->variable_name.to_lower();
-                if (array_types.has(key) && array_types[key] == VT_INT) emit_byte(OP_NEW_ARRAY_I64);
-                else emit_byte(OP_NEW_ARRAY);
+                emit_byte(OP_NEW_ARRAY);
 
                 int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);

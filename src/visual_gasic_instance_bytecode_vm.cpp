@@ -2747,6 +2747,36 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = psa[idx];
                     }
+                } else if (base.get_type() == Variant::PACKED_INT64_ARRAY && arg_count == 1) {
+                    PackedInt64Array arr = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_GET_ARRAY_UNCHECKED) {
+                            result = Variant();
+                        } else {
+                            raise_error("Array subscript out of range", 9);
+                            if (try_recover_error(Variant())) break;
+                            success = false;
+                            goto cleanup;
+                        }
+                    } else {
+                        result = Variant((int64_t)arr[idx]);
+                    }
+                } else if (base.get_type() == Variant::PACKED_FLOAT64_ARRAY && arg_count == 1) {
+                    PackedFloat64Array arr = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_GET_ARRAY_UNCHECKED) {
+                            result = Variant();
+                        } else {
+                            raise_error("Array subscript out of range", 9);
+                            if (try_recover_error(Variant())) break;
+                            success = false;
+                            goto cleanup;
+                        }
+                    } else {
+                        result = Variant(arr[idx]);
+                    }
                 } else if (base.get_type() == Variant::DICTIONARY && arg_count == 1) {
                     Dictionary dict = base;
                     result = dict.get(indices[0], Variant());
@@ -2874,6 +2904,38 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     Dictionary dict = base;
                     dict[indices[0]] = value;
                     updated = dict;
+                } else if (base.get_type() == Variant::PACKED_INT64_ARRAY && arg_count == 1) {
+                    PackedInt64Array arr = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_SET_ARRAY_UNCHECKED) {
+                            ok = false;
+                        } else {
+                            raise_error("Array subscript out of range", 9);
+                            if (try_recover_error(base)) break;
+                            success = false;
+                            goto cleanup;
+                        }
+                    } else if (ok) {
+                        arr[idx] = (int64_t)to_int(value);
+                        updated = arr;
+                    }
+                } else if (base.get_type() == Variant::PACKED_FLOAT64_ARRAY && arg_count == 1) {
+                    PackedFloat64Array arr = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_SET_ARRAY_UNCHECKED) {
+                            ok = false;
+                        } else {
+                            raise_error("Array subscript out of range", 9);
+                            if (try_recover_error(base)) break;
+                            success = false;
+                            goto cleanup;
+                        }
+                    } else if (ok) {
+                        arr[idx] = (double)value;
+                        updated = arr;
+                    }
                 } else {
                     raise_error("Unsupported array assignment base");
                     if (try_recover_error(base)) break;

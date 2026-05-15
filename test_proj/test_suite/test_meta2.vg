@@ -8,17 +8,21 @@ Sub _Ready()
     Set btn = CreateNode("Button")
     btn.name = "btnM2"
     AddChild btn
-    ' These existing properties work:
+    ' Tag and TabStop (existing properties)
     btn.Tag = "hello"
-    Print "Tag: " & btn.Tag
+    Assert btn.Tag = "hello", "tag_roundtrip"
+    Print "PASS: tag_roundtrip"
     btn.TabStop = True
-    Print "TabStop: " & btn.TabStop
-    ' These new properties:
-    Print "Testing BackStyle write..."
+    Assert btn.TabStop = True, "tabstop_true"
+    Print "PASS: tabstop_true"
+    ' BackStyle write/read
     btn.BackStyle = 1
-    Print "Testing BackStyle read..."
     Dim bs
     bs = btn.BackStyle
-    Print "BackStyle raw: " & bs
+    Assert bs = 1, "backstyle_1"
+    Print "PASS: backstyle_1"
+    btn.BackStyle = 0
+    Assert btn.BackStyle = 0, "backstyle_0"
+    Print "PASS: backstyle_0"
     Print "DONE"
 End Sub

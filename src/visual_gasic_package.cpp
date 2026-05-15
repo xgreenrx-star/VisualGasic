@@ -1227,9 +1227,113 @@ VisualGasicPackage::PackageInfo VisualGasicPackage::load_package_manifest(const 
 // ---------------------------------------------------------------------------
 
 Dictionary VisualGasicPackage::query_registry(const Registry &p_registry, const String &p_endpoint, const Dictionary &p_params) {
-    // In a full implementation, this would use HTTPClient to query the registry.
-    // For now, return empty dictionary as a stub.
-    // When HTTPRequest is available in a scene tree context, this would perform actual HTTP calls.
+    // Build URL: base_url + endpoint + optional query string
+    String base = p_registry.url;
+    if (base.ends_with("/")) base = base.substr(0, base.length() - 1);
+    String url = base + p_endpoint;
+
+    // Append query params
+    if (!p_params.is_empty()) {
+        url += "?";
+        bool first = true;
+        for (int i = 0; i < p_params.keys().size(); i++) {
+            Variant k = p_params.keys()[i];
+            Variant v = p_params.values()[i];
+            if (!first) url += "&";
+            first = false;
+            url += String(k).uri_encode() + "=" + String(v).uri_encode();
+        }
+    }
+
+    // Parse URL
+    bool use_tls;
+    String rest;
+    if (url.begins_with("https://")) {
+        use_tls = true;
+        rest = url.substr(8);
+    } else if (url.begins_with("http://")) {
+        use_tls = false;
+        rest = url.substr(7);
+    } else {
+        return Dictionary();
+    }
+    int slash = rest.find("/");
+    String host_port = (slash < 0) ? rest : rest.substr(0, slash);
+    String path = (slash < 0) ? "/" : rest.substr(slash);
+    int colon = host_port.find(":");
+    String host = (colon < 0) ? host_port : host_port.substr(0, colon);
+    int port = (colon < 0) ? (use_tls ? 443 : 80) : host_port.substr(colon + 1).to_int();
+    if (host.is_empty()) return Dictionary();
+
+    const int TIMEOUT_MS = 15000;
+    Ref<HTTPClient> http;
+    http.instantiate();
+    Error err = http->connect_to_host(host, port);
+    if (err != OK) return Dictionary();
+
+    OS *os = OS::get_singleton();
+    Time *tm = Time::get_singleton();
+    uint64_t deadline = tm->get_ticks_msec() + (uint64_t)TIMEOUT_MS;
+
+    while (true) {
+        HTTPClient::Status s = http->get_status();
+        if (s == HTTPClient::STATUS_CONNECTED) break;
+        if (s == HTTPClient::STATUS_CANT_CONNECT || s == HTTPClient::STATUS_CANT_RESOLVE
+                || s == HTTPClient::STATUS_CONNECTION_ERROR || s == HTTPClient::STATUS_TLS_HANDSHAKE_ERROR) {
+            return Dictionary();
+        }
+        http->poll();
+        if (tm->get_ticks_msec() > deadline) return Dictionary();
+        os->delay_msec(10);
+    }
+
+    PackedStringArray headers;
+    headers.push_back("Accept: application/json");
+    if (!p_registry.auth_token.is_empty()) {
+        headers.push_back("Authorization: Bearer " + p_registry.auth_token);
+    }
+    err = http->request(HTTPClient::METHOD_GET, path, headers);
+    if (err != OK) return Dictionary();
+
+    while (true) {
+        HTTPClient::Status s = http->get_status();
+        if (s == HTTPClient::STATUS_BODY || s == HTTPClient::STATUS_CONNECTED) break;
+        if (s == HTTPClient::STATUS_DISCONNECTED || s == HTTPClient::STATUS_CONNECTION_ERROR
+                || s == HTTPClient::STATUS_CANT_CONNECT) {
+            return Dictionary();
+        }
+        http->poll();
+        if (tm->get_ticks_msec() > deadline) return Dictionary();
+        os->delay_msec(10);
+    }
+
+    int code = http->get_response_code();
+    if (code < 200 || code >= 300) return Dictionary();
+
+    PackedByteArray body_bytes;
+    if (http->has_response()) {
+        while (http->get_status() == HTTPClient::STATUS_BODY) {
+            http->poll();
+            PackedByteArray chunk = http->read_response_body_chunk();
+            if (chunk.size() > 0) {
+                body_bytes.append_array(chunk);
+            } else {
+                if (tm->get_ticks_msec() > deadline) break;
+                os->delay_msec(5);
+            }
+        }
+    }
+
+    if (body_bytes.is_empty()) return Dictionary();
+    String body_str = String::utf8((const char *)body_bytes.ptr(), body_bytes.size());
+
+    Ref<JSON> json;
+    json.instantiate();
+    Error parse_err = json->parse(body_str);
+    if (parse_err != OK) return Dictionary();
+
+    Variant result = json->get_data();
+    if (result.get_type() == Variant::DICTIONARY) return result;
     return Dictionary();
 }
 

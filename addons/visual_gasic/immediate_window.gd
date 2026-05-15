@@ -2194,8 +2194,30 @@ func _on_inspector_item_activated():
 			_inspect_object(meta["obj"])
 
 func _filter_inspector(text: String):
-	# TODO: Implement filtering
-	pass
+	if _inspector_tree == null:
+		return
+	var query := text.to_lower().strip_edges()
+	# Walk every top-level section (Properties, Methods, Children) and show/hide
+	# leaf items based on whether their text matches the query.  A parent item
+	# stays visible as long as at least one child is visible.
+	var root := _inspector_tree.get_root()
+	if root == null:
+		return
+	var section := root.get_first_child()
+	while section != null:
+		var any_child_visible := false
+		var child := section.get_first_child()
+		while child != null:
+			var matches := query.is_empty() or \
+				child.get_text(0).to_lower().contains(query) or \
+				child.get_text(1).to_lower().contains(query)
+			child.visible = matches
+			if matches:
+				any_child_visible = true
+			child = child.get_next()
+		# Show the section header if it has any matching children (or no filter).
+		section.visible = query.is_empty() or any_child_visible
+		section = section.get_next()
 
 func _repeat_last():
 	if not _history.is_empty():

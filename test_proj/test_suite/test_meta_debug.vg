@@ -17,23 +17,27 @@ Sub _Ready()
     Print "btn.BackStyle type: " & TypeName(btn.BackStyle)
     Print "btn.BackStyle value: " & btn.BackStyle
     Assert btn.BackStyle = 1, "btn_backstyle_1"
+    Print "PASS: btn_backstyle_1"
 
     btn.TabIndex = 5
     Print "btn.TabIndex type: " & TypeName(btn.TabIndex)
     Print "btn.TabIndex value: " & btn.TabIndex
     Assert btn.TabIndex = 5, "btn_tabindex_5"
+    Print "PASS: btn_tabindex_5"
 
     ' Now test on Me (Node)
     Me.Tag = "test123"
     Print "Me.Tag type: " & TypeName(Me.Tag)
     Print "Me.Tag value: " & Me.Tag
     Assert Me.Tag = "test123", "me_tag"
+    Print "PASS: me_tag"
 
     Me.BackStyle = 0
     Print "Me.BackStyle type: " & TypeName(Me.BackStyle)
     Print "Me.BackStyle value: " & Me.BackStyle
     Print "Comparison result: " & (Me.BackStyle = 0)
     Assert Me.BackStyle = 0, "me_backstyle_0"
+    Print "PASS: me_backstyle_0"
 
     Print "DONE"
 End Sub

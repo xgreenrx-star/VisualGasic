@@ -1,0 +1,16 @@
+' MAX_FRAMES: 5
+Attribute VB_Name = "TestArr2"
+Sub _Ready()
+    Dim arr(2) As Integer
+    arr(0) = 10
+    arr(1) = 20
+    arr(2) = 30
+    Dim bigger As Variant
+    bigger = Push(arr, 40)
+    Print "bigger type ok"
+    Print "UBound=" & UBound(bigger)
+    Dim v As Variant
+    v = bigger(3)
+    Print "bigger(3)=" & v
+    Print "PASS: push_access"
+End Sub

@@ -79,17 +79,18 @@ Hard-coded behaviours live in agck_builder_backend.gd around line 691
   Event(Input)        - on key/mouse
   Move                - tween position over time, group-targeted
   ColorTrigger        - tween modulate over time
-  Wait                - delay (TODO: Await SceneTree.create_timer().timeout)
-  Spawn               - instantiate prefab (TODO: delay support)
-  Animate             - run AnimationPlayer track (TODO: auto-attach AP child)
+  Wait                - delay (awaits SceneTree.create_timer().timeout)
+  Spawn               - instantiate prefab (delay param supported)
+  Animate             - run AnimationPlayer track (auto-creates AP child if absent)
   Conditional         - branch on group/value
 Every trigger has a 'group' int input — multiple targets share a group ID.
 
 === Common VG gotchas ===
   * Forms persist in user:// — re-import after editing the .frm file or
     the IDE keeps showing the old layout.
-  * Working Nodes "Animate" needs an AnimationPlayer child; the runtime
-    can't auto-attach one yet (open TODO in wn_runtime.vg).
+  * Working Nodes "Animate" auto-creates an AnimationPlayer child if one is
+    not already present; it falls back to a scale-pulse tween if no animation
+    track matching the requested name exists.
   * VGComboBox != ComboBox — the VG-prefixed prototypes live under
     addons/visual_gasic/prototypes/ and have extra signals/methods.
   * String concat is &, not +.  + on strings will silently fail or

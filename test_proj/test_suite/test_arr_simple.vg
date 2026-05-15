@@ -1,0 +1,13 @@
+' MAX_FRAMES: 5
+Attribute VB_Name = "TestArrSimple"
+Sub _Ready()
+    Dim arr(2) As Integer
+    Print "arr created"
+    arr(0) = 10
+    Print "arr(0) set"
+    arr(1) = 20
+    arr(2) = 30
+    Print "all set"
+    Print "arr(0)=" & arr(0)
+    Print "PASS: simple_array"
+End Sub

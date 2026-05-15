@@ -1788,9 +1788,10 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     // Push(body, vec[, pos]) = Physics.Impulse
     // Pull(body, vec[, pos]) = Physics.Force
     // Spin(body, n)          = Physics.Torque
-    if ((METHOD_IS("push") || METHOD_IS("pull") || METHOD_IS("spin")) && args.size() >= 2) {
+    // Only match when the first argument is a physics Object, not an Array/Dict.
+    if ((METHOD_IS("push") || METHOD_IS("pull") || METHOD_IS("spin")) && args.size() >= 2
+            && args[0].get_type() == Variant::OBJECT) {
         r_handled = true;
-        if (args[0].get_type() != Variant::OBJECT) return Variant();
         Object *o = args[0];
         // Inline force application (same dispatch as physics_*)
         int kind = METHOD_IS("push") ? 0 : (METHOD_IS("pull") ? 1 : 2);

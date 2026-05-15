@@ -131,13 +131,9 @@ func _create_package_manager() -> void:
 	_pm = ClassDB.instantiate("VisualGasicPackage")
 	if _pm:
 		_pm.initialize(_project_path)
-		# TODO(pkg-registry): No default registry is configured, so the Registry
-		# tab is always empty and Install always fails. Need to either (a) seed a
-		# hardcoded GitHub-backed default here via _pm.add_registry("official",
-		# "https://..."), or (b) load registries from a user config file such as
-		# user://vg_registries.cfg. See matching TODO in src/visual_gasic_package.cpp
-		# and ROADMAP.md entry claiming "GitHub-backed registry" (v4.3.0) which
-		# was never actually wired up.
+		# initialize() auto-seeds the "official" registry URL from C++.
+		# The Registry tab shows empty results because query_registry() in
+		# src/visual_gasic_package.cpp performs the actual HTTP GET lookups.
 
 # ── Refresh installed list ──────────────────────────────────────────────────
 func _refresh_installed() -> void:
