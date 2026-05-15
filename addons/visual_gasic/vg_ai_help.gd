@@ -384,6 +384,16 @@ const PERSONA_TOOL_WHITELIST := {
 	"default": [],  # unrestricted
 }
 
+# Cached concatenation of SYSTEM_PROMPT + TOOLS_PROMPT — built once at
+# instantiation, avoids re-allocating ~8 KB on every query.
+var _base_system_prompt := SYSTEM_PROMPT + TOOLS_PROMPT
+
+# Cached popup theme objects — built once, reused for every dropdown open.
+var _popup_panel_style: StyleBoxFlat = null
+var _popup_hover_style: StyleBoxFlat = null
+var _popup_sep_style: StyleBoxFlat = null
+var _popup_theme: Theme = null
+
 var _ollama_available := false
 var _is_generating := false
 var _model_warm := false
@@ -1621,18 +1631,11 @@ func _append_system(text: String) -> void:
 	_output.append_text("[color=gray]%s[/color]" % text)
 
 func _escape_bbcode(text: String) -> String:
-	# Character-by-character to avoid double-escaping
-	# (the old .replace("[","[lb]").replace("]","[rb]") mangled [lb] → [lb[rb])
-	var result := ""
-	for i in text.length():
-		var c := text[i]
-		if c == "[":
-			result += "[lb]"
-		elif c == "]":
-			result += "[rb]"
-		else:
-			result += c
-	return result
+	# Single native C++ replace — far faster than a GDScript character loop.
+	# In Godot 4 RichTextLabel BBCode, only "[" is special (starts a tag);
+	# "]" in text content is treated as a literal character by the parser,
+	# so it needs no escaping.
+	return text.replace("[", "[lb]")
 
 func _format_code_blocks(text: String) -> String:
 	# Convert ```vb ... ``` or ```bas ... ``` blocks to colored BBCode
@@ -1801,42 +1804,44 @@ func _on_dropdown_popup_about_to_show(popup: PopupMenu) -> void:
 		_apply_dark_popup_styling(popup)
 
 func _apply_dark_popup_styling(popup: PopupMenu) -> void:
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.94, 0.94, 0.96)
-	panel_style.set_border_width_all(1)
-	panel_style.border_color = Color(0.55, 0.55, 0.62)
-	panel_style.set_corner_radius_all(4)
-	panel_style.set_content_margin_all(4)
+	# Build the shared StyleBoxFlat / Theme objects once; reuse on every open.
+	if _popup_theme == null:
+		_popup_panel_style = StyleBoxFlat.new()
+		_popup_panel_style.bg_color = Color(0.94, 0.94, 0.96)
+		_popup_panel_style.set_border_width_all(1)
+		_popup_panel_style.border_color = Color(0.55, 0.55, 0.62)
+		_popup_panel_style.set_corner_radius_all(4)
+		_popup_panel_style.set_content_margin_all(4)
 
-	var hover_style := StyleBoxFlat.new()
-	hover_style.bg_color = Color(0.30, 0.50, 0.85)
-	hover_style.set_corner_radius_all(3)
+		_popup_hover_style = StyleBoxFlat.new()
+		_popup_hover_style.bg_color = Color(0.30, 0.50, 0.85)
+		_popup_hover_style.set_corner_radius_all(3)
 
-	var sep_style := StyleBoxFlat.new()
-	sep_style.bg_color = Color(0.70, 0.70, 0.75)
-	sep_style.set_content_margin_all(0)
-	sep_style.content_margin_top = 1
-	sep_style.content_margin_bottom = 1
+		_popup_sep_style = StyleBoxFlat.new()
+		_popup_sep_style.bg_color = Color(0.70, 0.70, 0.75)
+		_popup_sep_style.set_content_margin_all(0)
+		_popup_sep_style.content_margin_top = 1
+		_popup_sep_style.content_margin_bottom = 1
 
-	var t := Theme.new()
-	t.set_stylebox("panel", "PopupMenu", panel_style)
-	t.set_stylebox("hover", "PopupMenu", hover_style)
-	t.set_stylebox("separator", "PopupMenu", sep_style)
-	t.set_stylebox("labeled_separator_left", "PopupMenu", sep_style)
-	t.set_stylebox("labeled_separator_right", "PopupMenu", sep_style)
-	t.set_color("font_color", "PopupMenu", Color.BLACK)
-	t.set_color("font_hover_color", "PopupMenu", Color.WHITE)
-	t.set_color("font_disabled_color", "PopupMenu", Color(0.55, 0.55, 0.55))
-	t.set_color("font_separator_color", "PopupMenu", Color(0.4, 0.4, 0.4))
-	t.set_color("font_accelerator_color", "PopupMenu", Color(0.25, 0.35, 0.6))
-	t.set_stylebox("panel", "PopupPanel", panel_style)
-	popup.theme = t
+		_popup_theme = Theme.new()
+		_popup_theme.set_stylebox("panel", "PopupMenu", _popup_panel_style)
+		_popup_theme.set_stylebox("hover", "PopupMenu", _popup_hover_style)
+		_popup_theme.set_stylebox("separator", "PopupMenu", _popup_sep_style)
+		_popup_theme.set_stylebox("labeled_separator_left", "PopupMenu", _popup_sep_style)
+		_popup_theme.set_stylebox("labeled_separator_right", "PopupMenu", _popup_sep_style)
+		_popup_theme.set_color("font_color", "PopupMenu", Color.BLACK)
+		_popup_theme.set_color("font_hover_color", "PopupMenu", Color.WHITE)
+		_popup_theme.set_color("font_disabled_color", "PopupMenu", Color(0.55, 0.55, 0.55))
+		_popup_theme.set_color("font_separator_color", "PopupMenu", Color(0.4, 0.4, 0.4))
+		_popup_theme.set_color("font_accelerator_color", "PopupMenu", Color(0.25, 0.35, 0.6))
+		_popup_theme.set_stylebox("panel", "PopupPanel", _popup_panel_style)
 
-	popup.add_theme_stylebox_override("panel", panel_style)
-	popup.add_theme_stylebox_override("hover", hover_style)
-	popup.add_theme_stylebox_override("separator", sep_style)
-	popup.add_theme_stylebox_override("labeled_separator_left", sep_style)
-	popup.add_theme_stylebox_override("labeled_separator_right", sep_style)
+	popup.theme = _popup_theme
+	popup.add_theme_stylebox_override("panel", _popup_panel_style)
+	popup.add_theme_stylebox_override("hover", _popup_hover_style)
+	popup.add_theme_stylebox_override("separator", _popup_sep_style)
+	popup.add_theme_stylebox_override("labeled_separator_left", _popup_sep_style)
+	popup.add_theme_stylebox_override("labeled_separator_right", _popup_sep_style)
 	popup.add_theme_color_override("font_color", Color.BLACK)
 	popup.add_theme_color_override("font_hover_color", Color.WHITE)
 	popup.add_theme_color_override("font_disabled_color", Color(0.55, 0.55, 0.55))
@@ -3132,8 +3137,8 @@ func _get_active_system_prompt() -> String:
 	if _persona_id == "narcea":
 		narcea_ctx = _narcea_context_block()
 	if prefix.is_empty() and narcea_ctx.is_empty():
-		return SYSTEM_PROMPT + TOOLS_PROMPT
-	return prefix + narcea_ctx + SYSTEM_PROMPT + TOOLS_PROMPT
+		return _base_system_prompt
+	return prefix + narcea_ctx + _base_system_prompt
 
 ## Lazy-instantiate the Narcea context provider and ask it for a system-
 ## prompt block.  Cached on the panel so the tutorial walk only happens
