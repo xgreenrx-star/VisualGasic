@@ -2,7 +2,7 @@
 
 *A comprehensive reference for Godot developers evaluating VisualGasic.*
 
-Version 4.2.0 — March 2026
+Version 5.2.0-Beta1 — May 2026
 
 ---
 

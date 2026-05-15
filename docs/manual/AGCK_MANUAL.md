@@ -29,7 +29,7 @@ AGCK appears as a single **🕹️ AGCK** button in the VG IDE toolbar.  Click i
 
 ## Quick Start
 
-1. **Open VisualGasic** in Godot 4.
+1. **Open VisualGasic** in Godot 4.6.1+.
 2. Click the **🕹️ AGCK** button in the toolbar.
 3. You'll see five tabs.  Start with **Game Settings** to name your game and set up physics.
 4. Switch to **Actors** to define your player character and enemies.
@@ -577,7 +577,7 @@ The VisualGasic AGCK plugin is inspired by the 1988 Commodore 64 *Arcade Game Co
 
 | Feature | Original AGCK (C64) | VG AGCK |
 |---------|---------------------|---------|
-| **Platform** | Commodore 64 | Godot 4 (Windows, Linux, macOS) |
+| **Platform** | Commodore 64 | Godot 4.6.1+ (Windows, Linux, macOS) |
 | **Resolution** | 160×200 (multicolor) | Configurable (320×240 default, up to 1920×1080) |
 | **Colors** | 16 fixed C64 colors | Full 24-bit color |
 | **Actors** | 8 maximum | 16 maximum |

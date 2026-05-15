@@ -647,7 +647,7 @@ xl.Cells(1, 1).Value = "Hello from VisualGasic!"
 Run the smoke test:
 ```bash
 cd demo
-../Godot_v4.5.1-stable_linux.x86_64 --headless -s run_v3_features.gd
+../Godot_v4.6.1-stable_linux.x86_64 --headless -s run_v3_features.gd
 ```
 
 ---

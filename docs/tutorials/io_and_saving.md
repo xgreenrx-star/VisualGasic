@@ -32,8 +32,8 @@ To load data, use `Input` mode.
 
 ```basic
 Sub LoadGame()
-    ' Check if file exists using Godot's FileAccess (Future feature)
-    ' For now, ensure file exists or handle error
+    ' Check if file exists before loading
+    If Not FileExists("user://savegame.dat") Then Exit Sub
     
     Dim f = 1
     Open "user://savegame.dat" For Input As f

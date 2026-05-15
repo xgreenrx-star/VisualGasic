@@ -41,7 +41,7 @@ Visual call stack display during debugging.
 Full code completion for VB6-style programming.
 *   **50+ VB6 Keywords**: Dim, Sub, Function, If, For, etc.
 *   **12 VB6 Data Types**: Integer, Long, String, Boolean, etc.
-*   **80+ Built-in Functions**: With signatures and descriptions
+*   **122+ Built-in Functions**: With signatures and descriptions
 *   **62+ VB6 Property Completions**: Caption, Text, Visible, Enabled, Left, Top, Width, Height, BackColor, ForeColor, FontSize, FontBold, Tag, BackStyle, Appearance, TabIndex, Parent, DragMode, and more — appears when typing a dot after any control name
 *   **Type-Specific Properties**: LineEdit shows MaxLength/PasswordChar/SelStart; Timer shows Interval/OneShot/Autostart; Button shows Style/Flat/ClipText/Icon
 *   **Common Methods**: Show, Hide, Move, SetFocus, Refresh

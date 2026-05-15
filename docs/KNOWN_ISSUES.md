@@ -1,10 +1,9 @@
 # VisualGasic — Known Issues & Engine Limitations
 
-*Last updated: v4.1.0 (March 2026)*
+*Last updated: v5.2.0-Beta1 (May 2026)*
 
 This document lists **confirmed** engine bugs and limitations discovered during
-the automated test suite (69 files, 611 assertions, 609 pass — 2 env-only
-failures in `test_file_permissions.vg` symlink tests).
+the automated test suite (91 VG files, 700 assertions — all passing; 289 GDScript — all passing).
 
 ---
 
@@ -88,4 +87,4 @@ failures in `test_file_permissions.vg` symlink tests).
   argument list as a Godot Array.
 
 - All workarounds above are exercised by the automated test suite
-  (`test_proj/test_suite/`) — 447/449 pass (2 env-only failures).
+  (`test_proj/test_suite/`) — 700/700 VG assertions pass, 289/289 GDScript pass.

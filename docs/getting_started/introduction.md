@@ -38,7 +38,7 @@ VisualGasic is built for **speed of development**:
 - **Event-driven programming** — Write `Sub btnSave_Click()` and you're done. No signal wiring, no boilerplate.
 - **One-line controls** — `CreateButton "Play", 100, 50, "OnPlay"` creates a button, positions it, and wires its click handler in one line.
 - **VB6 property aliases** — Use familiar names like `.Caption`, `.Text`, `.BackColor`, `.Visible` instead of memorizing Godot's API.
-- **108 built-in functions** — String, math, file I/O, date/time, collections, JSON, regex, and more — all available without imports.
+- **122+ built-in functions** — String, math, file I/O, date/time, collections, JSON, regex, and more — all available without imports.
 
 ### 📖 Easy to Learn
 

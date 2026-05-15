@@ -4,9 +4,9 @@ This tutorial will guide you through creating a simple "Dodge the Creeps" style 
 
 ## Project Setup
 
-1.  Open Godot Engine.
+1.  Open Godot Engine 4.6.1+.
 2.  Create a new project named "VisualGasicGame".
-3.  Ensure the **Visual Gasic** GDExtension is compiled and present in your project binary folder.
+3.  Copy `addons/visual_gasic/` into the project directory and enable the plugin under **Project → Project Settings → Plugins**.
 
 ## Scene Structure
 
@@ -21,9 +21,9 @@ We will create a scene with a Player, a Mob, and the game logic.
     *   Message (Label)
     *   StartButton (Button)
 
-## The Script (`main.bas`)
+## The Script (`main.vg`)
 
-Create a text file named `main.bas` (or `.gas`) in your project folder.
+Create a text file named `main.vg` in your project folder.
 
 ### 1. Variables and Initialization
 

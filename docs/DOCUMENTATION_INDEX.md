@@ -212,15 +212,17 @@
 
 ### Status & Performance
 - [ROADMAP.md](../ROADMAP.md) - **Development roadmap and feature status**
-- [PROJECT_STATUS.md](../PROJECT_STATUS.md) - Current project status
-- [IMPLEMENTATION_STATUS.md](development/IMPLEMENTATION_STATUS.md) - Current implementation status
+- [IMPLEMENTATION_STATUS.md](development/IMPLEMENTATION_STATUS.md) - Historical refactoring notes (v2.x era; see ROADMAP for current status)
 - [performance.md](manual/performance.md) - Benchmark results with charts
 - [TODO_FUTURE_OPTIMIZATIONS.md](development/TODO_FUTURE_OPTIMIZATIONS.md) - Future optimization opportunities
 - [TODO_VG_DEBUGGING.md](development/TODO_VG_DEBUGGING.md) - Debugging system implementation
 
 ### Release Notes
 - [CHANGELOG.md](../CHANGELOG.md) - Full change log
-- [RELEASE_NOTES_v5.1.0-Beta1.md](../RELEASE_NOTES_v5.1.0-Beta1.md) - v5.1.0-Beta1 (latest)
+- [RELEASE_NOTES_v5.2.0-Beta1.md](../RELEASE_NOTES_v5.2.0-Beta1.md) - **v5.2.0-Beta1 (latest)** — Android plugin, Pass-6 verbs, 358-entry Command Help, 100% AI correctness, Browser Dashboard
+- [RELEASE_NOTES_v5.1.0-rc.2.md](../RELEASE_NOTES_v5.1.0-rc.2.md) - v5.1.0-rc.2
+- [RELEASE_NOTES_v5.1.0-rc.1.md](../RELEASE_NOTES_v5.1.0-rc.1.md) - v5.1.0-rc.1 — Fix-with-AI diff repair, AI voice mode
+- [RELEASE_NOTES_v5.1.0-Beta1.md](../RELEASE_NOTES_v5.1.0-Beta1.md) - v5.1.0-Beta1
 - [RELEASE_NOTES_v5.0.1-beta5.md](../RELEASE_NOTES_v5.0.1-beta5.md) - v5.0.1-beta5
 - [RELEASE_NOTES_v5.0.1-beta1.md](../RELEASE_NOTES_v5.0.1-beta1.md) - v5.0.1-beta1
 - [RELEASE_NOTES_v4.4.0-rc5.md](../RELEASE_NOTES_v4.4.0-rc5.md) - v4.4.0-rc5
@@ -229,7 +231,6 @@
 ### Development
 - [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
 - [REFACTORING_GUIDE.md](guides/REFACTORING_GUIDE.md) - Code refactoring guide
-- [COMMUNITY_HUB.md](../COMMUNITY_HUB.md) - Community resources
 
 ## Plugin Files Reference
 

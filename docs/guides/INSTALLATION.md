@@ -1,6 +1,6 @@
 # VisualGasic Installation Guide
 
-**Version**: 5.2.0-Beta1 (May 3 2026)
+**Version**: 5.2.0-Beta1 (May 11, 2026)
 **Requires**: Godot 4.6.1+ (handled automatically by the one-click installer)
 
 Choose your preferred installation method. **Method 1 (one-click installer) is the fastest and easiest way to get started** — no terminal, no Godot setup, no file editing required.

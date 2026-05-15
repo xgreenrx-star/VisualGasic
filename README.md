@@ -1,7 +1,7 @@
 # VisualGasic — The language you read when you don't trust the AI.
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-5.1.0--rc.2-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-5.2.0--Beta1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.6.1+-purple.svg)](https://godotengine.org)
 
@@ -278,9 +278,9 @@ VisualGasic/
 ├── docs/                        # Comprehensive documentation
 │   ├── reference/              # API and syntax references
 │   ├── guides/                 # Getting started and tutorials
-│   ├── development/            # Implementation status and TODOs
-│   └── archive/                # Historical documentation
+│   └── development/            # Implementation status and TODOs
 ├── demo/                        # Godot test project
+├── demos/                       # Example VisualGasic projects (2D, 3D, UI, Audio, Mobile, …)
 ├── examples/                    # Example VisualGasic projects
 ├── tests/                       # Test suite
 ├── godot-cpp/                   # Godot C++ bindings (submodule)
@@ -396,19 +396,19 @@ End Sub
 ### **Interactive Development**
 ```bash
 # Start REPL for live coding
-gasic repl
+vg repl
 
 # Package management
-gasic pkg install MathLibrary@^2.1.0
-gasic pkg publish MyAwesomeLib
+vg pkg install MathLibrary@^2.1.0
+vg pkg publish MyAwesomeLib
 
 # Advanced debugging
-gasic debug --time-travel MyProject.vg
+vg debug --time-travel MyProject.vg
 ```
 
 ## 🎮 **Demo Projects (Included in Release)**
 
-VisualGasic ships with **14 playable demo projects** — open any of them in Godot and hit F5:
+VisualGasic ships with **13 playable demo projects** — open any of them in Godot and hit F5:
 
 | Demo | Type | Description |
 |------|------|-------------|
@@ -554,7 +554,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 ### 🚧 Coming Soon
 
 See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
-- **Stable Release (v5.1.0)** - Pending community testing of `v5.1.0-rc.1`
+- **Stable Release (v5.2.0)** - Community testing of `v5.2.0-Beta1` ongoing
 - **macOS `.dmg` graphical installer** — Linux AppImage and Windows `.exe` are shipped; macOS still WIP
 - **Asset Library** - Publish to Godot Asset Library
 - **WebAssembly Validation** - Verify HTML5 export compatibility

@@ -4,7 +4,7 @@ VisualGasic is distributed as a **GDExtension** — native C++ code that extends
 
 ## Prerequisites
 
-- **Godot Engine 4.5 or newer** (4.6+ recommended)
+- **Godot Engine 4.6.1 or newer**
 - A created Godot project (or use `vg new` to create one — see below)
 
 ---

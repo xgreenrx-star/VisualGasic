@@ -230,10 +230,10 @@ Declare Function sqrt Lib "libm.so.6" (ByVal x As Double) As Double
 
 **Package Commands:**
 ```bash
-gasic pkg install MyLibrary@^1.2.0
-gasic pkg update
-gasic pkg publish
-gasic pkg search "utilities"
+vg pkg install MyLibrary@^1.2.0
+vg pkg update
+vg pkg publish
+vg pkg search "utilities"
 ```
 
 **Files Created:**
@@ -279,11 +279,10 @@ Debug.IdentifyPerformanceHotspots()  ' Prints top 5 slowest functions
 **Description**: Compile VisualGasic to WebAssembly for web deployment
 **Requirements**: LLVM backend, WebAssembly toolchain integration
 
-#### 10. Mobile Platform Support 📋 FUTURE
-**Status**: Long-term Feature  
-**Target**: Phase 3 Implementation
-**Description**: Native mobile development capabilities
-**Requirements**: Platform-specific toolchains, mobile-optimized runtime
+#### 10. Mobile Platform Support ✅ COMPLETED
+**Status**: Shipped — v5.2.0-Beta1
+**Description**: Native Android mobile support via VGAndroidBridge
+**Details**: VGAndroidBridge exposes Sensor, GPS, Steps, Permission, Vibrate, Joypad, Touch, and Screen orientation APIs on Android targets.
 
 #### 11. AI/ML Integration 📋 FUTURE
 **Status**: Long-term Feature

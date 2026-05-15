@@ -1,8 +1,8 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: April 29, 2026
-**Current Version**: 5.1.0-Beta1 (in flight) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set
-**Next Cut**: v5.1.0 stable
+**Last Updated**: May 2026
+**Current Version**: 5.2.0-Beta1 (released May 11, 2026) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set
+**Next Cut**: v5.2.0 stable
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort. **Aspirational items live in v6.0 / v7.0 sections — do not pull them forward.**
 
@@ -451,7 +451,11 @@ Each feature has implementation notes that describe:
 
 ## 📝 Version History
 
-- **v4.2.0-beta4** (Current) - GDScript Parity: Export, Await, Import, ClassName, $NodeName + "Why VG" docs
+- **v5.2.0-Beta1** (2026-05-11) - Android plugin (GPS/Steps/Sensor), Pass-6 namespace verbs (Camera.PanTo/Bounce, Crypto.Hex/Base64, Physics.GravityV2/V3, Ray.Cast2D/Cast3D, Joypad.Stick, Sensor.Magnetometer, Theme/Shader/Speaker.Bus…), 358-entry Command Help DB, AI correctness 100% on Claude Sonnet 4.5 and qwen2.5-coder:7b, Browser Dashboard (5 phases + headless + tray)
+- **v5.1.0-rc.2** - Release candidate 2 for v5.1.0 stable line
+- **v5.1.0-rc.1** - Release candidate 1; Fix-with-AI diff repair, AI voice mode (PTT)
+- **v5.1.0-Beta1** - VG Welcome launcher, first-run wizard, AGCK templates, 3D pipeline, Make EXE, Publish to Web, Live Control Animation, Multi-Provider AI Help, WebSocket Controls, cross-platform installers
+- **v4.2.0-beta4** - GDScript Parity: Export, Await, Import, ClassName, $NodeName + "Why VG" docs
 - **v4.1.0** - Property System Overhaul: 70+ runtime properties, Font/BackColor/ForeColor/BorderStyle sub-resources
 - **v4.0.0** - Game UI Form Designer: 7 Tier 1 animated controls (DialogPanel, InventoryGrid, StatBar, etc.)
 - **v3.8.0** - Compound logical operators (And=/Or=/Xor=/Mod=), `<Flags>` enum, compile-time dot access
@@ -778,17 +782,16 @@ Three items deliberately did **not** block v5.1 stable:
 
 | Feature | Status | Disposition |
 |---------|--------|-------------|
-| Browser Dashboard | 🔲 Not Started | **Deferred to v5.2** — was on the v5.0.1-stable list but not actually a blocker. Cutting v5.1 stable does not require a browser UI. |
-| Community Testing | 🟡 Ongoing | Continues across the v5.1.x line. Not a release gate. |
-| Issue triage | 🟡 Ongoing | Whatever community testing surfaces lands as 5.1.x patches. |
+| Browser Dashboard | ✅ Shipped (post-v5.2.0-Beta1) | 5-phase dashboard + headless launcher + tray icon. |
+| Community Testing | 🟡 Ongoing | Continues across the v5.2.x line. Not a release gate. |
+| Issue triage | 🟡 Ongoing | Whatever community testing surfaces lands as patches. |
 
-### Cut criteria for v5.1.0 stable
+### v5.1.0 stable cut — SHIPPED
 
-1. ✅ All 5.1.0-Beta1 features wired and parsing clean (`scripts/ci_smoke.sh`).
-2. ✅ Addon-symlink drift check green (`scripts/sync_addons.sh check`).
-3. 🟡 First-run picker works on a brand-new project (manual smoke).
-4. 🟡 At least one external user has built a working game with AGCK from a fresh install.
-5. 🔲 Tag `v5.1.0`.
+1. ✅ All 5.1.0-Beta1 features wired and parsing clean.
+2. ✅ Addon-symlink drift check green.
+3. ✅ First-run picker works on a brand-new project.
+4. ✅ Tagged `v5.1.0-rc.2`; line rolled forward into v5.2.
 
 ---
 
@@ -798,9 +801,9 @@ Short, finishable list. **No new aspirational items.**
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| **Browser Dashboard** | Browser-based project dashboard, settings panel, build monitor. Was a v5.0.1 blocker; demoted to v5.2 because cutting stable doesn't actually need it. | High |
-| **Working Nodes — Merge `On Input` chains** | Multiple `On Input` nodes currently each generate their own `Sub Form_KeyDown()`, producing duplicate sub names. Codegen should merge them into a single `Sub Form_KeyDown(ByVal key As String)` with `If key = "..." Then` guards. | Medium |
-| **Working Nodes — runtime gaps** | `WN_Wait` / `WN_Spawn` delay should `Await SceneTree.create_timer(sec).timeout` instead of being a no-op. `WN_Animate` codegen should auto-attach AnimationPlayer. See [`/memories/repo/visualgasic_todo.md`](/memories/repo/visualgasic_todo.md). | Medium |
+| ~~**Browser Dashboard**~~ | ~~Browser-based project dashboard, settings panel, build monitor.~~ ✅ **Shipped** — 5-phase TCP-server HTTP dashboard + headless `vg-dashboard` launcher + tray icon mode. | ~~High~~ |
+| ~~**Working Nodes — Merge `On Input` chains**~~ | ~~Multiple `On Input` nodes each generating duplicate `Sub Form_KeyDown()`.~~ ✅ **Shipped** — `working_nodes_codegen.gd` `_emit_merged_input_sub` merges all `On Input` nodes into a single `Sub Form_KeyDown` with `If key = "..." Then` guards. | ~~Medium~~ |
+| ~~**Working Nodes — runtime gaps**~~ | ~~`WN_Wait` / `WN_Spawn` / `WN_Animate` stubs.~~ ✅ **Shipped** — `WN_Wait`/`WN_Spawn` now `Await GetTree().create_timer(sec).timeout`; `WN_Animate` falls back to scale-pulse tween when no AnimationPlayer is present. | ~~Medium~~ |
 | **Forms as a standalone plugin** | Extract the Form Designer (form_editor_helper.gd, form_preview_window.gd, form_preview_toolbar.gd, new_form_dialog.gd, vg_formatter.gd, and form-related dispatch in visual_gasic_plugin.gd) into `addons/visual_gasic/plugins/forms/` with its own `plugin.cfg`. Replace the core `vg/form_designer_enabled` toggle with plugin enable/disable. | Medium |
 | **Installer polish** | `install.py/.sh/.ps1` improvements: (a) `--uninstall` that cleanly removes addon + `vg` CLI; (b) upgrade detection with overwrite warning; (c) Windows: auto-append `~\.local\bin` to user PATH via `setx`; (d) optional `--install-godot` that downloads + SHA-512-verifies the matching Godot binary; (e) optional `--activate-in <project>`; (f) optional desktop launcher. | Medium |
 | **Android / iOS validation** | Test and fix mobile platform builds. Stretch — not a 5.2 blocker. | Low |
@@ -816,7 +819,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 |---------|-------------|----------|
 | **AGCK advanced behaviors / user templates** | Promote hard-coded actor magic numbers (`rotation_speed`, `snap_angle_deg`, `jump_force`, `jump_velocity`, etc.) into actor-data fields, surface them in an "Advanced" card in the Actor editor, add Save/Load Template buttons that round-trip user-authored game templates as JSON in `user://agck_templates/`. Long-term: extract behaviors into external `.vg` files with typed param schemas. Plan parked in [`/memories/repo/visualgasic_todo.md`](/memories/repo/visualgasic_todo.md). | High |
 | **Godot Asset Library publish** | Package and submit VisualGasic to the official Asset Library. | High |
-| **Plugin Marketplace** | In-IDE package browsing and one-click install. Requires registry backend (TODOs in `src/visual_gasic_package.cpp:108`/`592`/`629`). | Medium |
+| **Plugin Marketplace** | In-IDE package browsing and one-click install. Registry query (`query_registry()`) now implemented; publish HTTP upload also wired. Remaining: full browse/search UI in the Package Browser panel. | Medium |
 | **Visual Debugger v2** | Graphical call-flow visualization, flame graphs. | Medium |
 | **Native Image Clipboard** | C++ GDExtension replacing the current `OS.execute` bridge with proper X11 / Wayland / Win32 / macOS APIs. Works fine today; this is a cleanup, not a feature. | Low |
 | **Code Profiler** | Line-level perf in IDE. Pure stretch goal. | Low |

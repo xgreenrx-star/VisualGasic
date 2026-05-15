@@ -49,7 +49,7 @@ The complete language specification and syntax reference.
 |----------|-------------|
 | [Language Reference](VisualGasic_Language_Reference.md) | **Comprehensive reference** (6400+ lines) — every keyword, statement, operator, and data type |
 | [Keywords Reference](manual/keywords.md) | Core BASIC keywords and syntax quick-reference |
-| [Built-in Functions](reference/BUILTIN_FUNCTIONS_REFERENCE.md) | All 108+ built-in functions with signatures and examples (Print, Input, MsgBox, Len, Mid, Val, Format, etc.) |
+| [Built-in Functions](reference/BUILTIN_FUNCTIONS_REFERENCE.md) | All 122+ built-in functions with signatures and examples (Print, Input, MsgBox, Len, Mid, Val, Format, etc.) |
 | [Godot Functions](reference/GODOT_FUNCTIONS_REFERENCE.md) | Godot-specific functions (CreateNode, AddChild, LoadScene, GetTree, etc.) |
 | [Godot Quick Reference](reference/GODOT_QUICK_REF.md) | Essential Godot functions at a glance for game development |
 | [API Commands](reference/commands.md) | All built-in commands and their Godot equivalents |
@@ -238,8 +238,6 @@ Internal docs for contributors and maintainers.
 | [GitHub Upload Checklist](development/GITHUB_UPLOAD_CHECKLIST.md) | Release checklist for GitHub uploads |
 | [Asset Library Submission](development/ASSET_LIBRARY_SUBMISSION.md) | Steps to submit to the Godot Asset Library |
 | [Contributing Guide](../CONTRIBUTING.md) | How to contribute — code style, PR process, testing |
-| [Community Hub](../COMMUNITY_HUB.md) | Community resources and links |
-
 ---
 
 ## 📋 Project Status & Releases
@@ -247,13 +245,11 @@ Internal docs for contributors and maintainers.
 | Document | Description |
 |----------|-------------|
 | [README](../README.md) | Project overview, feature list, screenshots, and quick start |
-| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.0.1-beta) |
+| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.2.0-Beta1) |
+| [Roadmap](../ROADMAP.md) | Development roadmap and feature timeline |2.0-Beta1) |
 | [Roadmap](../ROADMAP.md) | Development roadmap and feature timeline |
-| [Project Status](../PROJECT_STATUS.md) | Current project status summary |
 | [Security Policy](../SECURITY.md) | Security policy and vulnerability reporting |
-| [License](../LICENSE) | MIT License |
-
-### Release Notes
+| [License](../LICENSE) | GPL-3.0
 
 | Version | File | Highlights |
 |---------|------|------------|
@@ -266,53 +262,5 @@ Internal docs for contributors and maintainers.
 | v4.4.0-rc5 | [RELEASE_NOTES_v4.4.0-rc5.md](../RELEASE_NOTES_v4.4.0-rc5.md) | Debugger stability, built-in constants |
 
 Older release notes: see git tags / [GitHub Releases](https://github.com/xgreenrx-star/VisualGasic/releases).
-| v2.10.0 | [RELEASE_NOTES_v2.10.0.md](../RELEASE_NOTES_v2.10.0.md) | COM Objects, VB6 Globals, GoSub |
-| v2.9.0 | [RELEASE_NOTES_v2.9.0.md](../RELEASE_NOTES_v2.9.0.md) | |
-| v2.8.0 | [RELEASE_NOTES_v2.8.0.md](../RELEASE_NOTES_v2.8.0.md) | C++ Visual Gasic IDE, Live Preview |
 
 ---
-
-## 📁 Archive
-
-Historical development docs preserved for reference. These cover completed work and are not actively maintained.
-
-| Document | Description |
-|----------|-------------|
-| [Async/JIT/REPL Status](archive/ASYNC_JIT_REPL_STATUS.md) | Implementation status of async, JIT, and REPL features |
-| [Complete Implementation Summary](archive/COMPLETE_IMPLEMENTATION_SUMMARY.md) | Full summary of all implemented features |
-| [Comprehensive Gap Analysis](archive/COMPREHENSIVE_GAP_ANALYSIS.md) | Feature gap analysis vs VB6 |
-| [Dictionary Performance Analysis](archive/DICT_PERFORMANCE_ANALYSIS.md) | HashMap optimization analysis |
-| [Integration Testing Report](archive/INTEGRATION_TESTING_FINAL_REPORT.md) | Final integration test results |
-| [Modernization Summary](archive/MODERNIZATION_SUMMARY.md) | Language modernization changelog |
-| [Multitasking Implementation](archive/MULTITASKING_IMPLEMENTATION_COMPLETE.md) | Threading and async implementation details |
-| [Optimization Results](archive/OPTIMIZATION_RESULTS.md) | Performance optimization results |
-| [Performance Reports](archive/PERFORMANCE_REPORT.md) | Historical performance benchmarks |
-| [Phase 1 Checklist](archive/PHASE_1_COMPLETION_CHECKLIST.md) | Phase 1 completion status |
-| [Priority Improvements](archive/PRIORITY_IMPROVEMENTS.md) | Prioritized improvement backlog |
-| [Test Results](archive/TEST_RESULTS_FINAL.md) | Historical test suite results |
-
----
-
-## 📰 Community & Marketing
-
-| Document | Description |
-|----------|-------------|
-| [Reddit Announcement](reddit_announcement.md) | Pre-formatted Reddit announcement post |
-| [Community Hub](../COMMUNITY_HUB.md) | Community resources, links, and support channels |
-
----
-
-## 🗂️ Existing Index Files
-
-These older index files are preserved but this document (`DOCS.md`) supersedes them as the primary documentation hub.
-
-| File | Description |
-|------|-------------|
-| [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) | Previous detailed index with plugin file listings and demo tables |
-| [DOCUMENTATION_INDEX_OLD.md](DOCUMENTATION_INDEX_OLD.md) | Legacy documentation index |
-| [index.md](index.md) | Short landing page linking to getting started and manual sections |
-| [archive/FILE_INDEX.md](archive/FILE_INDEX.md) | Historical file listing |
-
----
-
-*Last updated: April 9, 2026 — v5.0.1-beta*

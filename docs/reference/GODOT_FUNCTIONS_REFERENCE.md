@@ -1283,7 +1283,7 @@ These functions provide seamless integration between VB6-style syntax and Godot 
 
 ---
 
-## Godot Namespace Wrappers (v4.x – v5.1)
+## Godot Namespace Wrappers (v4.x – v5.2)
 
 In addition to the low-level helpers above, VisualGasic ships a layered namespace
 API for the most common Godot subsystems. These wrappers are dispatched directly

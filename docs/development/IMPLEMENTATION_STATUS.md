@@ -1,5 +1,7 @@
 # VisualGasic Refactoring: Implementation Status
 
+> **⚠️ HISTORICAL DOCUMENT.** This document was written in February 2026 when VisualGasic was at v2.x. All items listed as ⏳ "Integration Plan" (scope system, error reporter, bytecode cache) and ⏳ "Long-term" work (module extraction, form designer, advanced debugging) are now **fully implemented** as of v5.2.0-Beta1. For current implementation status see [ROADMAP.md](../../ROADMAP.md) and [CHANGELOG.md](../../CHANGELOG.md).
+
 **Date**: February 2026  
 **Status**: ✅ **BUILD SUCCESSFUL** - Core infrastructure in place, ready for integration
 

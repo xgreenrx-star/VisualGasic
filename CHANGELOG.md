@@ -10,8 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🌐 New — VG⇄Godot coverage roadmap (Pass 1-5, ~140 plain-English verbs)
 Five-pass rollout of namespace wrappers so VG programs can reach the full
 Godot 4.6 capability surface in plain-English BASIC, no `get_node()` chains.
-All passes smoke-verified; suite 699/700 (one pre-existing stress-arrays
-failure unrelated).
+All passes smoke-verified; suite 700/700 VG assertions, 289/289 GDScript — all pass.
 
 - **Pass 1 — math / utility** (commit `56416637`): `Quaternion`, `Basis`,
   `Transform2D` / `Transform3D`, `Plane`, `AABB` constructors;
