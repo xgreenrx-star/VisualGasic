@@ -2154,6 +2154,11 @@ func _send_cloud_query(prompt: String) -> void:
 		var body_dict = JSON.parse_string(req_data["body"])
 		if body_dict != null and typeof(body_dict) == TYPE_DICTIONARY:
 			VgAiFC.inject_tools_into_body(_provider_id, body_dict)
+			# JSON.parse_string() converts integers to floats; re-cast known int fields
+			# before re-serialising or Anthropic rejects with "Input should be a valid integer".
+			for _int_key in ["max_tokens", "max_output_tokens", "maxOutputTokens"]:
+				if body_dict.has(_int_key):
+					body_dict[_int_key] = int(body_dict[_int_key])
 			req_data["body"] = JSON.stringify(body_dict)
 
 	_stream_json_body = req_data["body"]
