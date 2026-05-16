@@ -29,6 +29,23 @@ extends RefCounted
 const CODE_FENCE_RE := "```vg-form-spec\\s*([\\s\\S]*?)```"
 const FALLBACK_FENCE_RE := "```(?:json|form|form-spec)?\\s*(\\{[\\s\\S]*?\"controls\"[\\s\\S]*?\\})\\s*```"
 
+# VB6 type aliases → canonical Godot type names.  The model may emit either
+# the VB6 name (TextBox, CommandButton) or the Godot name (LineEdit, Button).
+# This table normalises both forms so neither gets silently skipped.
+const TYPE_ALIASES := {
+	"TextBox":       "LineEdit",
+	"MultiLine":     "TextEdit",
+	"CommandButton": "Button",
+	"ComboBox":      "OptionButton",
+	"ListBox":       "ItemList",
+	"PictureBox":    "TextureRect",
+	"Shape":         "ColorRect",
+	"Frame":         "GroupBox",
+	"ScrollBar":     "VScrollBar",
+	"HScrollBar":    "HSlider",
+	"VScrollBar":    "VScrollBar",
+}
+
 # Whitelist: bare Godot type names the FormDesigner accepts via add_control(type, "", ...)
 const ALLOWED_TYPES := [
 	"Button",          # CommandButton in VB6 dialect
@@ -173,6 +190,8 @@ func apply_to_designer(spec: Dictionary, designer: Object) -> Array:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var ctype := str(entry.get("type", ""))
+		# Normalise VB6 aliases (TextBox → LineEdit, CommandButton → Button, …)
+		ctype = TYPE_ALIASES.get(ctype, ctype)
 		if not ALLOWED_TYPES.has(ctype):
 			skipped.append("'%s' (type not whitelisted)" % ctype)
 			continue
@@ -232,6 +251,9 @@ func generate_event_stubs(spec: Dictionary, existing_source: String = "") -> Str
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var ctype := str(entry.get("type", ""))
+		# Normalise VB6 aliases so DEFAULT_EVENT lookup works regardless of
+		# whether the model used the VB6 name (TextBox) or Godot name (LineEdit).
+		ctype = TYPE_ALIASES.get(ctype, ctype)
 		var ctrl_name := _safe_identifier(str(entry.get("name", "")), "")
 		if ctrl_name.is_empty():
 			continue

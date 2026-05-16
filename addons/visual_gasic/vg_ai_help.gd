@@ -2660,8 +2660,9 @@ func _on_form_from_desc_confirmed() -> void:
 			prompt += "Description: " + desc + "\n\n"
 			prompt += "Reply with: (a) one short sentence of context, then (b) a fenced ```vg-form-spec``` JSON block per the schema you already know. "
 			prompt += "Set \"auto_events\": true so the IDE wires Sub stubs. "
-			prompt += "Use the VB6 → Godot type mapping (CommandButton → Button, TextBox → LineEdit, ComboBox → OptionButton, ListBox → ItemList). "
-			prompt += "Use integer Left/Top/Width/Height pixels. Do not include any other fenced code blocks."
+			prompt += "IMPORTANT: in each control's \"type\" field use the GODOT name only — LineEdit (not TextBox), Button (not CommandButton), OptionButton (not ComboBox), ItemList (not ListBox), TextEdit (not MultiLine). "
+			prompt += "Use integer Left/Top/Width/Height pixels. "
+			prompt += "After the form spec, if the description includes any behaviour (e.g. a button that does something), use your agent tools to write the full VB6 Sub implementations — not just empty stubs — into the .vg file via set_buffer_text + save_file."
 	if not is_instance_valid(_input):
 		return
 	_input.text = prompt
