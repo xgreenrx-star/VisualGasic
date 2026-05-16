@@ -916,10 +916,15 @@ func _setup_ui() -> void:
 	main_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(main_vbox)
 
-	# --- Toolbar ---
+	# --- Toolbar (two rows to prevent overflow at narrow widths) ---
+	var toolbar_vbox := VBoxContainer.new()
+	toolbar_vbox.add_theme_constant_override("separation", 2)
+	main_vbox.add_child(toolbar_vbox)
+
+	# Row 1: provider/model/status + config controls
 	var toolbar := HBoxContainer.new()
 	toolbar.add_theme_constant_override("separation", 6)
-	main_vbox.add_child(toolbar)
+	toolbar_vbox.add_child(toolbar)
 
 	var title := Label.new()
 	title.text = "🤖 AI Pair"
@@ -979,6 +984,7 @@ func _setup_ui() -> void:
 	_status_label.text = "⏳ Checking %s..." % _init_pname
 	_status_label.add_theme_font_size_override("font_size", 11)
 	_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	toolbar.add_child(_status_label)
 
 	var spacer := Control.new()
@@ -1022,127 +1028,6 @@ func _setup_ui() -> void:
 	_style_small_button(_clear_btn)
 	toolbar.add_child(_clear_btn)
 
-	# 🎙 Voice mode — push-to-talk button + auto-speak toggle (Tier 2.5)
-	_mic_btn = Button.new()
-	_mic_btn.text = "🎙"
-	_mic_btn.tooltip_text = "Push-to-talk: click to record, click again to stop and transcribe"
-	_mic_btn.toggle_mode = true
-	_mic_btn.toggled.connect(_on_mic_toggled)
-	_style_small_button(_mic_btn)
-	toolbar.add_child(_mic_btn)
-
-	_voice_speak_toggle = CheckBox.new()
-	_voice_speak_toggle.text = "🔊"
-	_voice_speak_toggle.tooltip_text = "Speak AI replies aloud"
-	_voice_speak_toggle.button_pressed = true
-	_voice_speak_toggle.toggled.connect(_on_auto_speak_toggled)
-	toolbar.add_child(_voice_speak_toggle)
-
-	_voice_vad_toggle = CheckBox.new()
-	_voice_vad_toggle.text = "VAD"
-	_voice_vad_toggle.tooltip_text = "Auto-stop recording after silence (Voice Activity Detection)"
-	_voice_vad_toggle.button_pressed = true
-	_voice_vad_toggle.toggled.connect(_on_vad_toggled)
-	toolbar.add_child(_voice_vad_toggle)
-
-	# ⚡ Realtime mode toggle (Tier 2.5d — OpenAI Realtime / Gemini Live)
-	_realtime_btn = CheckBox.new()
-	_realtime_btn.text = "⚡"
-	_realtime_btn.tooltip_text = "Realtime voice mode: continuous full-duplex conversation (OpenAI Realtime / Gemini Live). Configure backend in ⚙️ Voice Settings."
-	_realtime_btn.button_pressed = false
-	_realtime_btn.toggled.connect(_on_realtime_toggled)
-	toolbar.add_child(_realtime_btn)
-
-	# ⏹ Stop-Speaking button — hidden until Narcea actually starts talking.
-	_stop_speak_btn = Button.new()
-	_stop_speak_btn.text = "⏹"
-	_stop_speak_btn.tooltip_text = "Stop the current spoken reply"
-	_stop_speak_btn.visible = false
-	_stop_speak_btn.pressed.connect(_on_stop_speak)
-	_style_small_button(_stop_speak_btn)
-	toolbar.add_child(_stop_speak_btn)
-
-	# 🔨 Build-Form button — disabled until a reply contains a form spec.
-	_build_form_btn = Button.new()
-	_build_form_btn.text = "🔨 Build form"
-	_build_form_btn.tooltip_text = "Materialise the form spec from the latest reply in the Form Designer"
-	_build_form_btn.disabled = true
-	_build_form_btn.pressed.connect(_on_build_form)
-	_style_small_button(_build_form_btn)
-	toolbar.add_child(_build_form_btn)
-
-	# 🤖 Make-this button — lean v1 agent mode.  Chains: build form ->
-	# save .tscn -> generate Sub stubs into .vg -> open code.  Disabled
-	# until a parseable form spec exists in the latest reply.
-	_make_this_btn = Button.new()
-	_make_this_btn.text = "🤖 Make this"
-	_make_this_btn.tooltip_text = "Build the form, save it, and write event-handler stubs in one go"
-	_make_this_btn.disabled = true
-	_make_this_btn.pressed.connect(_on_make_this)
-	_style_small_button(_make_this_btn)
-	toolbar.add_child(_make_this_btn)
-
-	# 📐 Form-from-description — lean-v1 Narcea form-builder.  Always
-	# enabled; opens a prose-description dialog and auto-sends a hardened
-	# prompt that requires a vg-form-spec reply.
-	_form_from_desc_btn = Button.new()
-	_form_from_desc_btn.text = "📐 Form…"
-	_form_from_desc_btn.tooltip_text = "Describe a form in plain English — Narcea will design the layout and the 🔨 Build form button will enable when it's ready"
-	_form_from_desc_btn.pressed.connect(_on_form_from_desc_pressed)
-	_style_small_button(_form_from_desc_btn)
-	toolbar.add_child(_form_from_desc_btn)
-
-	# 📝 Code-from-description — same flow but requires a vg-code-spec block.
-	_code_from_desc_btn = Button.new()
-	_code_from_desc_btn.text = "📝 Code…"
-	_code_from_desc_btn.tooltip_text = "Describe code changes / new files — Narcea replies with a vg-code-spec, then 📝 Make code enables"
-	_code_from_desc_btn.pressed.connect(_on_code_from_desc_pressed)
-	_style_small_button(_code_from_desc_btn)
-	toolbar.add_child(_code_from_desc_btn)
-
-	# 🆕 Project-from-description — requires a vg-project-spec block.
-	_project_from_desc_btn = Button.new()
-	_project_from_desc_btn.text = "🆕 Project…"
-	_project_from_desc_btn.tooltip_text = "Describe a runnable mini-project — Narcea replies with a vg-project-spec, then 🆕 Make project enables"
-	_project_from_desc_btn.pressed.connect(_on_project_from_desc_pressed)
-	_style_small_button(_project_from_desc_btn)
-	toolbar.add_child(_project_from_desc_btn)
-
-	# 📝 Make-code button — multi-file vg-code-spec applier with diff preview.
-	_make_code_btn = Button.new()
-	_make_code_btn.text = "\ud83d\udcdd Make code"
-	_make_code_btn.tooltip_text = "Preview and apply the latest vg-code-spec block (multi-file write)"
-	_make_code_btn.disabled = true
-	_make_code_btn.pressed.connect(_on_make_code)
-	_style_small_button(_make_code_btn)
-	toolbar.add_child(_make_code_btn)
-
-	# \ud83c\udd95 Make-project — scaffold a runnable sub-project from a vg-project-spec block.
-	_make_project_btn = Button.new()
-	_make_project_btn.text = "\ud83c\udd95 Make project"
-	_make_project_btn.tooltip_text = "Preview and scaffold the latest vg-project-spec block under res://ai_projects/"
-	_make_project_btn.disabled = true
-	_make_project_btn.pressed.connect(_on_make_project)
-	_style_small_button(_make_project_btn)
-	toolbar.add_child(_make_project_btn)
-
-	# \u25b6 Run — launch the last-built (or main) scene, pipe stdout into chat.
-	_run_btn = Button.new()
-	_run_btn.text = "\u25b6 Run"
-	_run_btn.tooltip_text = "Run the last AI-built scene and stream its output into this panel"
-	_run_btn.disabled = true
-	_run_btn.pressed.connect(_on_run)
-	_style_small_button(_run_btn)
-	toolbar.add_child(_run_btn)
-
-	_run_stop_btn = Button.new()
-	_run_stop_btn.text = "\u23f9"
-	_run_stop_btn.tooltip_text = "Stop the running scene"
-	_run_stop_btn.visible = false
-	_run_stop_btn.pressed.connect(_on_run_stop)
-	_style_small_button(_run_stop_btn)
-	toolbar.add_child(_run_stop_btn)
-
 	# Persona dropdown — swaps system-prompt prefix + TTS voice
 	_persona_dropdown = OptionButton.new()
 	_persona_dropdown.tooltip_text = "AI persona — changes voice and style without affecting correctness"
@@ -1167,6 +1052,138 @@ func _setup_ui() -> void:
 	_style_dropdown_popup_dark(_model_dropdown)
 	_style_dropdown_popup_dark(_persona_dropdown)
 	_style_dropdown_popup_dark(_agent_mode_dropdown)
+
+	# Row 2: voice controls + spec/build/run action buttons
+	var toolbar2 := HBoxContainer.new()
+	toolbar2.add_theme_constant_override("separation", 4)
+	toolbar_vbox.add_child(toolbar2)
+
+	# 🎙 Voice mode — push-to-talk button + auto-speak toggle (Tier 2.5)
+	_mic_btn = Button.new()
+	_mic_btn.text = "🎙"
+	_mic_btn.tooltip_text = "Push-to-talk: click to record, click again to stop and transcribe"
+	_mic_btn.toggle_mode = true
+	_mic_btn.toggled.connect(_on_mic_toggled)
+	_style_small_button(_mic_btn)
+	toolbar2.add_child(_mic_btn)
+
+	_voice_speak_toggle = CheckBox.new()
+	_voice_speak_toggle.text = "🔊"
+	_voice_speak_toggle.tooltip_text = "Speak AI replies aloud"
+	_voice_speak_toggle.button_pressed = true
+	_voice_speak_toggle.toggled.connect(_on_auto_speak_toggled)
+	toolbar2.add_child(_voice_speak_toggle)
+
+	_voice_vad_toggle = CheckBox.new()
+	_voice_vad_toggle.text = "VAD"
+	_voice_vad_toggle.tooltip_text = "Auto-stop recording after silence (Voice Activity Detection)"
+	_voice_vad_toggle.button_pressed = true
+	_voice_vad_toggle.toggled.connect(_on_vad_toggled)
+	toolbar2.add_child(_voice_vad_toggle)
+
+	# ⚡ Realtime mode toggle (Tier 2.5d — OpenAI Realtime / Gemini Live)
+	_realtime_btn = CheckBox.new()
+	_realtime_btn.text = "⚡"
+	_realtime_btn.tooltip_text = "Realtime voice mode: continuous full-duplex conversation (OpenAI Realtime / Gemini Live). Configure backend in ⚙️ Voice Settings."
+	_realtime_btn.button_pressed = false
+	_realtime_btn.toggled.connect(_on_realtime_toggled)
+	toolbar2.add_child(_realtime_btn)
+
+	# ⏹ Stop-Speaking button — hidden until Narcea actually starts talking.
+	_stop_speak_btn = Button.new()
+	_stop_speak_btn.text = "⏹"
+	_stop_speak_btn.tooltip_text = "Stop the current spoken reply"
+	_stop_speak_btn.visible = false
+	_stop_speak_btn.pressed.connect(_on_stop_speak)
+	_style_small_button(_stop_speak_btn)
+	toolbar2.add_child(_stop_speak_btn)
+
+	toolbar2.add_child(_make_separator())
+
+	# 📐 Form-from-description — lean-v1 Narcea form-builder.  Always
+	# enabled; opens a prose-description dialog and auto-sends a hardened
+	# prompt that requires a vg-form-spec reply.
+	_form_from_desc_btn = Button.new()
+	_form_from_desc_btn.text = "📐 Form…"
+	_form_from_desc_btn.tooltip_text = "Describe a form in plain English — Narcea will design the layout and the 🔨 Build form button will enable when it's ready"
+	_form_from_desc_btn.pressed.connect(_on_form_from_desc_pressed)
+	_style_small_button(_form_from_desc_btn)
+	toolbar2.add_child(_form_from_desc_btn)
+
+	# 📝 Code-from-description — same flow but requires a vg-code-spec block.
+	_code_from_desc_btn = Button.new()
+	_code_from_desc_btn.text = "📝 Code…"
+	_code_from_desc_btn.tooltip_text = "Describe code changes / new files — Narcea replies with a vg-code-spec, then 📝 Make code enables"
+	_code_from_desc_btn.pressed.connect(_on_code_from_desc_pressed)
+	_style_small_button(_code_from_desc_btn)
+	toolbar2.add_child(_code_from_desc_btn)
+
+	# 🆕 Project-from-description — requires a vg-project-spec block.
+	_project_from_desc_btn = Button.new()
+	_project_from_desc_btn.text = "🆕 Project…"
+	_project_from_desc_btn.tooltip_text = "Describe a runnable mini-project — Narcea replies with a vg-project-spec, then 🆕 Make project enables"
+	_project_from_desc_btn.pressed.connect(_on_project_from_desc_pressed)
+	_style_small_button(_project_from_desc_btn)
+	toolbar2.add_child(_project_from_desc_btn)
+
+	toolbar2.add_child(_make_separator())
+
+	# 🔨 Build-Form button — disabled until a reply contains a form spec.
+	_build_form_btn = Button.new()
+	_build_form_btn.text = "🔨 Build form"
+	_build_form_btn.tooltip_text = "Materialise the form spec from the latest reply in the Form Designer"
+	_build_form_btn.disabled = true
+	_build_form_btn.pressed.connect(_on_build_form)
+	_style_small_button(_build_form_btn)
+	toolbar2.add_child(_build_form_btn)
+
+	# 🤖 Make-this button — lean v1 agent mode.  Chains: build form ->
+	# save .tscn -> generate Sub stubs into .vg -> open code.  Disabled
+	# until a parseable form spec exists in the latest reply.
+	_make_this_btn = Button.new()
+	_make_this_btn.text = "🤖 Make this"
+	_make_this_btn.tooltip_text = "Build the form, save it, and write event-handler stubs in one go"
+	_make_this_btn.disabled = true
+	_make_this_btn.pressed.connect(_on_make_this)
+	_style_small_button(_make_this_btn)
+	toolbar2.add_child(_make_this_btn)
+
+	# 📝 Make-code button — multi-file vg-code-spec applier with diff preview.
+	_make_code_btn = Button.new()
+	_make_code_btn.text = "\ud83d\udcdd Make code"
+	_make_code_btn.tooltip_text = "Preview and apply the latest vg-code-spec block (multi-file write)"
+	_make_code_btn.disabled = true
+	_make_code_btn.pressed.connect(_on_make_code)
+	_style_small_button(_make_code_btn)
+	toolbar2.add_child(_make_code_btn)
+
+	# \ud83c\udd95 Make-project — scaffold a runnable sub-project from a vg-project-spec block.
+	_make_project_btn = Button.new()
+	_make_project_btn.text = "\ud83c\udd95 Make project"
+	_make_project_btn.tooltip_text = "Preview and scaffold the latest vg-project-spec block under res://ai_projects/"
+	_make_project_btn.disabled = true
+	_make_project_btn.pressed.connect(_on_make_project)
+	_style_small_button(_make_project_btn)
+	toolbar2.add_child(_make_project_btn)
+
+	toolbar2.add_child(_make_separator())
+
+	# \u25b6 Run — launch the last-built (or main) scene, pipe stdout into chat.
+	_run_btn = Button.new()
+	_run_btn.text = "\u25b6 Run"
+	_run_btn.tooltip_text = "Run the last AI-built scene and stream its output into this panel"
+	_run_btn.disabled = true
+	_run_btn.pressed.connect(_on_run)
+	_style_small_button(_run_btn)
+	toolbar2.add_child(_run_btn)
+
+	_run_stop_btn = Button.new()
+	_run_stop_btn.text = "\u23f9"
+	_run_stop_btn.tooltip_text = "Stop the running scene"
+	_run_stop_btn.visible = false
+	_run_stop_btn.pressed.connect(_on_run_stop)
+	_style_small_button(_run_stop_btn)
+	toolbar2.add_child(_run_stop_btn)
 
 	# --- Quick action buttons ---
 	var actions := HBoxContainer.new()
