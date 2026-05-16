@@ -412,7 +412,9 @@ var _stream_started := false           # True once we've printed the "AI:" heade
 var _stream_token_count := 0           # Tokens received so far
 var _stream_start_time := 0.0          # Time.get_ticks_msec() when query sent
 var _stream_first_token_time := 0.0    # Time of first token (0 = not yet)
-var _stream_http_phase := 0            # 0=idle, 1=connecting, 2=requesting, 3=body
+var _stream_http_phase := 0            # 0=idle, 1=connecting, 2=requesting, 3=body, 4=error body
+var _stream_http_error_code := 0       # HTTP status code when phase==4
+var _stream_http_error_name := ""      # Provider display name when phase==4
 # Phase 6c: native FC call fragments accumulated during streaming.
 var _fc_fragments: Array = []
 
@@ -655,8 +657,9 @@ func _on_poll_timer() -> void:
 				var code := _stream_http.get_response_code()
 				if code != 200:
 					var pname: String = _provider_info.display_name if _provider_info else "API"
-					_stream_error = "%s error: HTTP %d" % [pname, code]
-					_stream_done = true
+					_stream_http_error_code = code
+					_stream_http_error_name = pname
+					_stream_http_phase = 4  # Read error body before setting _stream_error
 				else:
 					_stream_http_phase = 3
 			elif status != HTTPClient.STATUS_REQUESTING and status != HTTPClient.STATUS_CONNECTED:
@@ -712,6 +715,33 @@ func _on_poll_timer() -> void:
 								break
 			elif status == HTTPClient.STATUS_CONNECTED or status == HTTPClient.STATUS_DISCONNECTED:
 				# Body finished (connection closed or no more body)
+				_stream_done = true
+
+		elif _stream_http_phase == 4:  # Reading error response body
+			if status == HTTPClient.STATUS_BODY:
+				var chunk := _stream_http.read_response_body_chunk()
+				if chunk.size() > 0:
+					_stream_buf += chunk.get_string_from_utf8()
+			elif status == HTTPClient.STATUS_CONNECTED or status == HTTPClient.STATUS_DISCONNECTED:
+				# Parse a human-readable detail out of the error body
+				var detail := ""
+				var parsed = JSON.parse_string(_stream_buf)
+				if parsed != null and typeof(parsed) == TYPE_DICTIONARY:
+					# Anthropic: { "error": { "message": "..." } }
+					# OpenAI:    { "error": { "message": "..." } }
+					# Gemini:    { "error": { "message": "..." } }
+					var err_obj = parsed.get("error", null)
+					if typeof(err_obj) == TYPE_DICTIONARY:
+						detail = err_obj.get("message", "")
+					elif typeof(err_obj) == TYPE_STRING:
+						detail = err_obj
+				if detail.is_empty() and not _stream_buf.is_empty():
+					detail = _stream_buf.strip_edges().left(200)
+				if detail.is_empty():
+					_stream_error = "%s error: HTTP %d" % [_stream_http_error_name, _stream_http_error_code]
+				else:
+					_stream_error = "%s error: HTTP %d — %s" % [_stream_http_error_name, _stream_http_error_code, detail]
+				_stream_buf = ""
 				_stream_done = true
 
 	# --- Check for completion or error ---
@@ -870,6 +900,8 @@ func _stop_generation() -> void:
 
 	_is_generating = false
 	_stream_http_phase = 0
+	_stream_http_error_code = 0
+	_stream_http_error_name = ""
 	_stream_done = false
 	_stream_error = ""
 	_stream_started = false
