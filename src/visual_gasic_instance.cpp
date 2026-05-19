@@ -776,6 +776,66 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     builtin_constants["vbKeyF10"] = (int)Key::KEY_F10;
     builtin_constants["vbKeyF11"] = (int)Key::KEY_F11;
     builtin_constants["vbKeyF12"] = (int)Key::KEY_F12;
+    // VB6 letter key constants (A-Z)
+    builtin_constants["vbKeyA"] = (int)Key::KEY_A;
+    builtin_constants["vbKeyB"] = (int)Key::KEY_B;
+    builtin_constants["vbKeyC"] = (int)Key::KEY_C;
+    builtin_constants["vbKeyD"] = (int)Key::KEY_D;
+    builtin_constants["vbKeyE"] = (int)Key::KEY_E;
+    builtin_constants["vbKeyF"] = (int)Key::KEY_F;
+    builtin_constants["vbKeyG"] = (int)Key::KEY_G;
+    builtin_constants["vbKeyH"] = (int)Key::KEY_H;
+    builtin_constants["vbKeyI"] = (int)Key::KEY_I;
+    builtin_constants["vbKeyJ"] = (int)Key::KEY_J;
+    builtin_constants["vbKeyK"] = (int)Key::KEY_K;
+    builtin_constants["vbKeyL"] = (int)Key::KEY_L;
+    builtin_constants["vbKeyM"] = (int)Key::KEY_M;
+    builtin_constants["vbKeyN"] = (int)Key::KEY_N;
+    builtin_constants["vbKeyO"] = (int)Key::KEY_O;
+    builtin_constants["vbKeyP"] = (int)Key::KEY_P;
+    builtin_constants["vbKeyQ"] = (int)Key::KEY_Q;
+    builtin_constants["vbKeyR"] = (int)Key::KEY_R;
+    builtin_constants["vbKeyS"] = (int)Key::KEY_S;
+    builtin_constants["vbKeyT"] = (int)Key::KEY_T;
+    builtin_constants["vbKeyU"] = (int)Key::KEY_U;
+    builtin_constants["vbKeyV"] = (int)Key::KEY_V;
+    builtin_constants["vbKeyW"] = (int)Key::KEY_W;
+    builtin_constants["vbKeyX"] = (int)Key::KEY_X;
+    builtin_constants["vbKeyY"] = (int)Key::KEY_Y;
+    builtin_constants["vbKeyZ"] = (int)Key::KEY_Z;
+    // VB6 digit key constants (0-9)
+    builtin_constants["vbKey0"] = (int)Key::KEY_0;
+    builtin_constants["vbKey1"] = (int)Key::KEY_1;
+    builtin_constants["vbKey2"] = (int)Key::KEY_2;
+    builtin_constants["vbKey3"] = (int)Key::KEY_3;
+    builtin_constants["vbKey4"] = (int)Key::KEY_4;
+    builtin_constants["vbKey5"] = (int)Key::KEY_5;
+    builtin_constants["vbKey6"] = (int)Key::KEY_6;
+    builtin_constants["vbKey7"] = (int)Key::KEY_7;
+    builtin_constants["vbKey8"] = (int)Key::KEY_8;
+    builtin_constants["vbKey9"] = (int)Key::KEY_9;
+    // VB6 numpad key constants
+    builtin_constants["vbKeyNumpad0"] = (int)Key::KEY_KP_0;
+    builtin_constants["vbKeyNumpad1"] = (int)Key::KEY_KP_1;
+    builtin_constants["vbKeyNumpad2"] = (int)Key::KEY_KP_2;
+    builtin_constants["vbKeyNumpad3"] = (int)Key::KEY_KP_3;
+    builtin_constants["vbKeyNumpad4"] = (int)Key::KEY_KP_4;
+    builtin_constants["vbKeyNumpad5"] = (int)Key::KEY_KP_5;
+    builtin_constants["vbKeyNumpad6"] = (int)Key::KEY_KP_6;
+    builtin_constants["vbKeyNumpad7"] = (int)Key::KEY_KP_7;
+    builtin_constants["vbKeyNumpad8"] = (int)Key::KEY_KP_8;
+    builtin_constants["vbKeyNumpad9"] = (int)Key::KEY_KP_9;
+    builtin_constants["vbKeyMultiply"] = (int)Key::KEY_KP_MULTIPLY;
+    builtin_constants["vbKeyAdd"] = (int)Key::KEY_KP_ADD;
+    builtin_constants["vbKeySubtract"] = (int)Key::KEY_KP_SUBTRACT;
+    builtin_constants["vbKeyDecimal"] = (int)Key::KEY_KP_PERIOD;
+    builtin_constants["vbKeyDivide"] = (int)Key::KEY_KP_DIVIDE;
+    // VB6 lock / special keys
+    builtin_constants["vbKeyCapital"] = (int)Key::KEY_CAPSLOCK;
+    builtin_constants["vbKeyNumlock"] = (int)Key::KEY_NUMLOCK;
+    builtin_constants["vbKeyScrollLock"] = (int)Key::KEY_SCROLLLOCK;
+    builtin_constants["vbKeyPause"] = (int)Key::KEY_PAUSE;
+    builtin_constants["vbKeySnapshot"] = (int)Key::KEY_PRINT;
     
     // Godot-style Key Constants (for Input.IsKeyPressed)
     builtin_constants["KEY_NONE"] = (int)Key::KEY_NONE;
@@ -874,6 +934,22 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     builtin_constants["KEY_KP_MULTIPLY"] = (int)Key::KEY_KP_MULTIPLY;
     builtin_constants["KEY_KP_DIVIDE"] = (int)Key::KEY_KP_DIVIDE;
     builtin_constants["KEY_KP_PERIOD"] = (int)Key::KEY_KP_PERIOD;
+    // Lock / special function keys
+    builtin_constants["KEY_NUMLOCK"] = (int)Key::KEY_NUMLOCK;
+    builtin_constants["KEY_SCROLLLOCK"] = (int)Key::KEY_SCROLLLOCK;
+    builtin_constants["KEY_PAUSE"] = (int)Key::KEY_PAUSE;
+    builtin_constants["KEY_PRINT"] = (int)Key::KEY_PRINT;
+    builtin_constants["KEY_SYSREQ"] = (int)Key::KEY_SYSREQ;
+    // Punctuation keys
+    builtin_constants["KEY_COMMA"] = (int)Key::KEY_COMMA;
+    builtin_constants["KEY_SEMICOLON"] = (int)Key::KEY_SEMICOLON;
+    builtin_constants["KEY_COLON"] = (int)Key::KEY_COLON;
+    builtin_constants["KEY_APOSTROPHE"] = (int)Key::KEY_APOSTROPHE;
+    builtin_constants["KEY_QUOTELEFT"] = (int)Key::KEY_QUOTELEFT;
+    builtin_constants["KEY_QUOTEDBL"] = (int)Key::KEY_QUOTEDBL;
+    builtin_constants["KEY_BRACKETLEFT"] = (int)Key::KEY_BRACKETLEFT;
+    builtin_constants["KEY_BRACKETRIGHT"] = (int)Key::KEY_BRACKETRIGHT;
+    builtin_constants["KEY_BACKSLASH"] = (int)Key::KEY_BACKSLASH;
     // Mouse button constants
     builtin_constants["MOUSE_BUTTON_LEFT"] = (int)MouseButton::MOUSE_BUTTON_LEFT;
     builtin_constants["MOUSE_BUTTON_RIGHT"] = (int)MouseButton::MOUSE_BUTTON_RIGHT;
