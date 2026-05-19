@@ -243,7 +243,7 @@ End If
 
 **Common Key Codes:**
 - Space: 32
-- Enter: 13
+- Enter: 4194309
 - Escape: 4194305
 - Arrow Up: 4194320
 - Arrow Down: 4194322

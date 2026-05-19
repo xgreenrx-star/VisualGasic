@@ -429,7 +429,7 @@ speed = MoveToward(speed, 100, 5)  ' Accelerate
 ' Letters: 65-90 (A-Z) or 97-122 (a-z)
 ' Numbers: 48-57 (0-9)
 ' Space: 32
-' Enter: 13
+' Enter: 4194309
 ' Escape: 4194305
 ' Arrow Up: 4194320
 ' Arrow Down: 4194322
