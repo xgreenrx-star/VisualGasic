@@ -989,12 +989,79 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     builtin_constants["vbIgnore"] = 5;
     builtin_constants["vbYes"] = 6;
     builtin_constants["vbNo"] = 7;
-    
+    // MsgBox default button / modal modifiers
+    builtin_constants["vbDefaultButton1"] = 0;
+    builtin_constants["vbDefaultButton2"] = 256;
+    builtin_constants["vbDefaultButton3"] = 512;
+    builtin_constants["vbApplicationModal"] = 0;
+    builtin_constants["vbSystemModal"] = 4096;
+
+    // VarType Constants
+    builtin_constants["vbEmpty"] = 0;
+    builtin_constants["vbNull"] = 1;
+    builtin_constants["vbInteger"] = 2;
+    builtin_constants["vbLong"] = 3;
+    builtin_constants["vbSingle"] = 4;
+    builtin_constants["vbDouble"] = 5;
+    builtin_constants["vbCurrency"] = 6;
+    builtin_constants["vbDate"] = 7;
+    builtin_constants["vbString"] = 8;
+    builtin_constants["vbObject"] = 9;
+    builtin_constants["vbError"] = 10;
+    builtin_constants["vbBoolean"] = 11;
+    builtin_constants["vbVariant"] = 12;
+    builtin_constants["vbDataObject"] = 13;
+    builtin_constants["vbDecimal"] = 14;
+    builtin_constants["vbByte"] = 17;
+    builtin_constants["vbArray"] = 8192;
+
+    // String Comparison Constants
+    builtin_constants["vbBinaryCompare"] = 0;
+    builtin_constants["vbTextCompare"] = 1;
+    builtin_constants["vbDatabaseCompare"] = 2;
+
+    // Weekday Constants
+    builtin_constants["vbSunday"] = 1;
+    builtin_constants["vbMonday"] = 2;
+    builtin_constants["vbTuesday"] = 3;
+    builtin_constants["vbWednesday"] = 4;
+    builtin_constants["vbThursday"] = 5;
+    builtin_constants["vbFriday"] = 6;
+    builtin_constants["vbSaturday"] = 7;
+    // First week of year constants
+    builtin_constants["vbUseSystem"] = 0;
+    builtin_constants["vbFirstJan1"] = 1;
+    builtin_constants["vbFirstFourDays"] = 2;
+    builtin_constants["vbFirstFullWeek"] = 3;
+
+    // File Attribute Constants
+    builtin_constants["vbNormal"] = 0;
+    builtin_constants["vbReadOnly"] = 1;
+    builtin_constants["vbHidden"] = 2;
+    builtin_constants["vbSystem"] = 4;
+    builtin_constants["vbVolume"] = 8;
+    builtin_constants["vbDirectory"] = 16;
+    builtin_constants["vbArchive"] = 32;
+    builtin_constants["vbAlias"] = 64;
+
+    // Shell Window Style Constants
+    builtin_constants["vbHide"] = 0;
+    builtin_constants["vbNormalFocus"] = 1;
+    builtin_constants["vbMinimizedFocus"] = 2;
+    builtin_constants["vbMaximizedFocus"] = 3;
+    builtin_constants["vbNormalNoFocus"] = 4;
+    builtin_constants["vbMinimizedNoFocus"] = 6;
+
     // Strings
     builtin_constants["vbTab"] = "\t";
     builtin_constants["vbCr"] = "\r";
     builtin_constants["vbLf"] = "\n";
     builtin_constants["vbCrLf"] = "\r\n";
+    builtin_constants["vbNewLine"] = "\n";
+    builtin_constants["vbNullChar"] = "\0";
+    builtin_constants["vbBack"] = "\b";
+    builtin_constants["vbFormFeed"] = "\f";
+    builtin_constants["vbVerticalTab"] = "\v";
     builtin_constants["vbNullString"] = "";
 
     // MSComm Constants

@@ -1038,12 +1038,78 @@ const VB6_CONSTANTS: Array[Dictionary] = [
 	{"name": "vbIgnore", "detail": "Integer = 5 — User clicked Ignore", "category": "MsgBox"},
 	{"name": "vbYes", "detail": "Integer = 6 — User clicked Yes", "category": "MsgBox"},
 	{"name": "vbNo", "detail": "Integer = 7 — User clicked No", "category": "MsgBox"},
+	# Default button / modal modifiers
+	{"name": "vbDefaultButton1", "detail": "Integer = 0 — First button is default", "category": "MsgBox"},
+	{"name": "vbDefaultButton2", "detail": "Integer = 256 — Second button is default", "category": "MsgBox"},
+	{"name": "vbDefaultButton3", "detail": "Integer = 512 — Third button is default", "category": "MsgBox"},
+	{"name": "vbApplicationModal", "detail": "Integer = 0 — Application modal dialog", "category": "MsgBox"},
+	{"name": "vbSystemModal", "detail": "Integer = 4096 — System modal dialog", "category": "MsgBox"},
+
+	# ── VarType Constants ──
+	{"name": "vbEmpty", "detail": "Integer = 0 — Uninitialized variable", "category": "VarType"},
+	{"name": "vbNull", "detail": "Integer = 1 — No valid data (Null)", "category": "VarType"},
+	{"name": "vbInteger", "detail": "Integer = 2 — Integer type", "category": "VarType"},
+	{"name": "vbLong", "detail": "Integer = 3 — Long integer type", "category": "VarType"},
+	{"name": "vbSingle", "detail": "Integer = 4 — Single-precision float", "category": "VarType"},
+	{"name": "vbDouble", "detail": "Integer = 5 — Double-precision float", "category": "VarType"},
+	{"name": "vbCurrency", "detail": "Integer = 6 — Currency type", "category": "VarType"},
+	{"name": "vbDate", "detail": "Integer = 7 — Date/time type", "category": "VarType"},
+	{"name": "vbString", "detail": "Integer = 8 — String type", "category": "VarType"},
+	{"name": "vbObject", "detail": "Integer = 9 — Object type", "category": "VarType"},
+	{"name": "vbError", "detail": "Integer = 10 — Error type", "category": "VarType"},
+	{"name": "vbBoolean", "detail": "Integer = 11 — Boolean type", "category": "VarType"},
+	{"name": "vbVariant", "detail": "Integer = 12 — Variant type", "category": "VarType"},
+	{"name": "vbDataObject", "detail": "Integer = 13 — Data object", "category": "VarType"},
+	{"name": "vbDecimal", "detail": "Integer = 14 — Decimal type", "category": "VarType"},
+	{"name": "vbByte", "detail": "Integer = 17 — Byte type", "category": "VarType"},
+	{"name": "vbArray", "detail": "Integer = 8192 — Array type (OR'd with element type)", "category": "VarType"},
+
+	# ── String Comparison Constants ──
+	{"name": "vbBinaryCompare", "detail": "Integer = 0 — Case-sensitive comparison", "category": "Comparison"},
+	{"name": "vbTextCompare", "detail": "Integer = 1 — Case-insensitive comparison", "category": "Comparison"},
+	{"name": "vbDatabaseCompare", "detail": "Integer = 2 — Database sort order comparison", "category": "Comparison"},
+
+	# ── Weekday Constants ──
+	{"name": "vbSunday", "detail": "Integer = 1 — Sunday", "category": "Date"},
+	{"name": "vbMonday", "detail": "Integer = 2 — Monday", "category": "Date"},
+	{"name": "vbTuesday", "detail": "Integer = 3 — Tuesday", "category": "Date"},
+	{"name": "vbWednesday", "detail": "Integer = 4 — Wednesday", "category": "Date"},
+	{"name": "vbThursday", "detail": "Integer = 5 — Thursday", "category": "Date"},
+	{"name": "vbFriday", "detail": "Integer = 6 — Friday", "category": "Date"},
+	{"name": "vbSaturday", "detail": "Integer = 7 — Saturday", "category": "Date"},
+	{"name": "vbUseSystem", "detail": "Integer = 0 — Use system first day of week", "category": "Date"},
+	{"name": "vbFirstJan1", "detail": "Integer = 1 — Week containing Jan 1 is first week", "category": "Date"},
+	{"name": "vbFirstFourDays", "detail": "Integer = 2 — First week with at least 4 days", "category": "Date"},
+	{"name": "vbFirstFullWeek", "detail": "Integer = 3 — First full week of the year", "category": "Date"},
+
+	# ── File Attribute Constants ──
+	{"name": "vbNormal", "detail": "Integer = 0 — Normal file (no special attributes)", "category": "FileAttr"},
+	{"name": "vbReadOnly", "detail": "Integer = 1 — Read-only file", "category": "FileAttr"},
+	{"name": "vbHidden", "detail": "Integer = 2 — Hidden file", "category": "FileAttr"},
+	{"name": "vbSystem", "detail": "Integer = 4 — System file", "category": "FileAttr"},
+	{"name": "vbVolume", "detail": "Integer = 8 — Volume label", "category": "FileAttr"},
+	{"name": "vbDirectory", "detail": "Integer = 16 — Directory/folder", "category": "FileAttr"},
+	{"name": "vbArchive", "detail": "Integer = 32 — File changed since last backup", "category": "FileAttr"},
+	{"name": "vbAlias", "detail": "Integer = 64 — Symbolic link / alias", "category": "FileAttr"},
+
+	# ── Shell Window Style Constants ──
+	{"name": "vbHide", "detail": "Integer = 0 — Hide window", "category": "Shell"},
+	{"name": "vbNormalFocus", "detail": "Integer = 1 — Normal window with focus", "category": "Shell"},
+	{"name": "vbMinimizedFocus", "detail": "Integer = 2 — Minimized with focus", "category": "Shell"},
+	{"name": "vbMaximizedFocus", "detail": "Integer = 3 — Maximized with focus", "category": "Shell"},
+	{"name": "vbNormalNoFocus", "detail": "Integer = 4 — Normal window, no focus", "category": "Shell"},
+	{"name": "vbMinimizedNoFocus", "detail": "Integer = 6 — Minimized, no focus", "category": "Shell"},
 
 	# ── String Constants ──
 	{"name": "vbTab", "detail": "String — Tab character (Chr(9))", "category": "String"},
 	{"name": "vbCr", "detail": "String — Carriage return (Chr(13))", "category": "String"},
 	{"name": "vbLf", "detail": "String — Line feed (Chr(10))", "category": "String"},
 	{"name": "vbCrLf", "detail": "String — Carriage return + line feed", "category": "String"},
+	{"name": "vbNewLine", "detail": "String — Platform newline character (Chr(10) on Linux/Mac)", "category": "String"},
+	{"name": "vbNullChar", "detail": "String — Null character (Chr(0))", "category": "String"},
+	{"name": "vbBack", "detail": "String — Backspace character (Chr(8))", "category": "String"},
+	{"name": "vbFormFeed", "detail": "String — Form feed character (Chr(12))", "category": "String"},
+	{"name": "vbVerticalTab", "detail": "String — Vertical tab character (Chr(11))", "category": "String"},
 	{"name": "vbNullString", "detail": "String — Empty string (\"\")", "category": "String"},
 
 	# ── VB6 Key Constants ──
