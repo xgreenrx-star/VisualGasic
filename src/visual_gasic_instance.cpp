@@ -753,6 +753,29 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     builtin_constants["vbKeyDown"] = (int)Key::KEY_DOWN;
     builtin_constants["vbKeyLeft"] = (int)Key::KEY_LEFT;
     builtin_constants["vbKeyRight"] = (int)Key::KEY_RIGHT;
+    builtin_constants["vbKeyBack"] = (int)Key::KEY_BACKSPACE;
+    builtin_constants["vbKeyTab"] = (int)Key::KEY_TAB;
+    builtin_constants["vbKeyDelete"] = (int)Key::KEY_DELETE;
+    builtin_constants["vbKeyInsert"] = (int)Key::KEY_INSERT;
+    builtin_constants["vbKeyHome"] = (int)Key::KEY_HOME;
+    builtin_constants["vbKeyEnd"] = (int)Key::KEY_END;
+    builtin_constants["vbKeyPageUp"] = (int)Key::KEY_PAGEUP;
+    builtin_constants["vbKeyPageDown"] = (int)Key::KEY_PAGEDOWN;
+    builtin_constants["vbKeyShift"] = (int)Key::KEY_SHIFT;
+    builtin_constants["vbKeyControl"] = (int)Key::KEY_CTRL;
+    builtin_constants["vbKeyMenu"] = (int)Key::KEY_ALT;
+    builtin_constants["vbKeyF1"] = (int)Key::KEY_F1;
+    builtin_constants["vbKeyF2"] = (int)Key::KEY_F2;
+    builtin_constants["vbKeyF3"] = (int)Key::KEY_F3;
+    builtin_constants["vbKeyF4"] = (int)Key::KEY_F4;
+    builtin_constants["vbKeyF5"] = (int)Key::KEY_F5;
+    builtin_constants["vbKeyF6"] = (int)Key::KEY_F6;
+    builtin_constants["vbKeyF7"] = (int)Key::KEY_F7;
+    builtin_constants["vbKeyF8"] = (int)Key::KEY_F8;
+    builtin_constants["vbKeyF9"] = (int)Key::KEY_F9;
+    builtin_constants["vbKeyF10"] = (int)Key::KEY_F10;
+    builtin_constants["vbKeyF11"] = (int)Key::KEY_F11;
+    builtin_constants["vbKeyF12"] = (int)Key::KEY_F12;
     
     // Godot-style Key Constants (for Input.IsKeyPressed)
     builtin_constants["KEY_NONE"] = (int)Key::KEY_NONE;
