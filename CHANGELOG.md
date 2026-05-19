@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.0-Beta2] - 2026-05-18
+
+### 🌐 New — Browser Dashboard
+Embedded HTTP server serving a browser-based project dashboard with live
+build logs, file explorer, multi-project switcher, headless launcher, and
+system tray icon mode.
+
+### 🎙️ New — Full-duplex realtime voice (Tier 2.5)
+OpenAI Realtime API + Gemini Live full-duplex voice; VAD auto-stop; streaming
+TTS sentence queue.
+
+### 🔗 Improved — Working Nodes
+Collapsible left panel, decluttered toolbar, Get Property output port, value
+ports (orange Math sockets), scene-node/property pickers, quick-add buttons,
+merged On Input nodes, invisible-caret fix, popup styling fixes.
+
+### 🤖 Improved — AI Pair
+Two-row toolbar (overflow fix), streaming performance pass, cross-plugin tools
+(WN/AGCK/Forms/2D/3D), IDE self-modification with addon backup, Claude
+max_tokens fix, real error message display.
+
+### 🏗️ Improved — AGCK
+Phase 4 behavior `.vg` files with `{{TOKEN}}` substitution; Save/Load Template;
+fleshed-out Top-Down RPG and Endless Runner templates.
+
+### 📦 Improved — Make EXE
+Platform picker, missing template detection + download prompt, Web export
+validation, dialog polish.
+
+### 🏁 Improved — First-run & installer
+2-step first-run wizard, Godot 4.6.1 auto-detect in installer, `vg new`
+auto-launches Godot after project creation.
+
+### 🧩 New — MCP Server
+`apply_diff` tool; VG play/stop/read/write tools exposed to MCP clients.
+
+### 🛠️ Improved — Form Designer
+Promoted to proper sub-plugin; VB6 type names (TextBox, CommandButton); WN
+node/property picker integration.
+
+### 🐛 Fixed
+- SIGSEGV crash creating a blank code-mode project
+- Toolbox blank tabs and scrollbar styling
+- GDScript parse errors (explicit types for calls/fenced/ok)
+- Working Nodes settings popup exclusive-window crash
+- plugin.cfg version corrected to 5.2.0-Beta1
+
+### ⚠️ Known issue
+VGMusic (Bosca Ceoil) shows a blank tab on first load; a VG restart fixes it.
+
 ### 🌐 New — VG⇄Godot coverage roadmap (Pass 1-5, ~140 plain-English verbs)
 Five-pass rollout of namespace wrappers so VG programs can reach the full
 Godot 4.6 capability surface in plain-English BASIC, no `get_node()` chains.
