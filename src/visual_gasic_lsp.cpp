@@ -401,7 +401,7 @@ Array VisualGasicLSP::get_keyword_completions(const String& context) {
     Array completions;
     
     Vector<String> keywords = {
-        "Async", "Await", "Task", "Parallel", "Select", "Match", "Case", "When", "Else",
+        "Async", "Await", "Task", "Thread", "Parallel", "Select", "Match", "Case", "When", "Else",
         "If", "Then", "ElseIf", "End", "For", "Next", "While", "Do", "Loop", "Until",
         "Sub", "Function", "Property", "Class", "Module", "Interface", "Inherits",
         "Implements", "Dim", "Const", "Static", "Private", "Public", "Protected",

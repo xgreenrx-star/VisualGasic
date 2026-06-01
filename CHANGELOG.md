@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.0-Beta3] - 2026-06-01
+
+### 🧩 New — 2D Scene Editor: Instance Child Scene
+Right-click the scene tree → **Instance Child Scene…** (or click the 🔗
+button in the tree action row) to add an existing `.tscn` as a nested
+scene under the selected node. The instance is parented to the selected
+Node2D (or scene root), positioned at the view center, and uniquified by
+name. `_save_scene` was hardened to preserve instance references on save
+— `Node.duplicate()` now uses `DUPLICATE_USE_INSTANTIATION` and ownership
+is set non-recursively so the saver writes `[node ... instance=ExtResource(…)]`
+instead of flattening the instance into editable overrides.
+
+### 🛠️ New — 2D Scene Editor: Drag-and-Drop Reparent + Change Type
+The scene tree now accepts drag-and-drop reparenting. Drop **onto** a row
+makes the dragged node a child of that row; drop **between** rows makes
+it a sibling at that index. Global transforms are preserved when both
+source and new parent are `Node2D`, so visuals don't jump. Cycle guard
+prevents dropping a node onto itself or its descendants; name collisions
+auto-uniquify.
+
+A new **Change Type…** context-menu entry converts the selected node
+between common 2D classes (`Node2D`, `Sprite2D`, `AnimatedSprite2D`,
+`Area2D`, `StaticBody2D`, `RigidBody2D`, `CharacterBody2D`, `Camera2D`,
+`Path2D`, `PathFollow2D`, `Marker2D`) by copying the common
+Node2D/CanvasItem properties and re-parenting all children onto the new
+node at the same tree index.
+
+### 📦 Improved — Make EXE preserves presets across platforms
+`File → Make EXE…` previously rewrote `export_presets.cfg` from scratch
+on every build, wiping any preset for a different platform. Other
+presets are now parsed out, preserved, and renumbered after the active
+preset so building Linux then Web (or vice-versa) keeps both
+configurations.
+
+### 🛠️ New — Tweak Overlay: Source write-back (D3 MVP)
+A new **→ Source** button in the tweak overlay writes runtime color
+changes (`color`, `fill_color`, `modulate`, `self_modulate`) back into
+the originating `.vg` source file via `VGTweakSource.patch_property`.
+Supports both `Color(r, g, b[, a])` and named `Color.RED` forms. Other
+properties continue to persist in the JSON tweak bag. Failure is
+non-destructive — the runtime tweak is retained regardless.
+
+### 🐛 Fixed
+- **Tweak Overlay: asteroid / multi-command ghosting.** When a clicked
+  draw command belonged to a `BeginGroup`/`EndGroup` block (e.g. an
+  asteroid built from a fill polygon **plus** an outline polyline), the
+  overlay would only move the topmost sibling — the other commands
+  stayed at their original positions, leaving "ghost" geometry behind
+  and a stretched selection rectangle covering both. Clicks on a
+  grouped command now select the **whole group** so dragging moves
+  every sibling together. Hold `Alt` to address one sibling individually
+  (e.g. recolor just the outline). `VectorCanvas.get_target_bounds()`
+  was added so group-target selection rectangles also track live
+  position overrides.
+- Two pre-existing `Cannot infer the type` parse errors in
+  `vg_tweak_overlay.gd` and `vg_tweak/vg_tweak_inspector.gd` (loop-var
+  type inference under Godot 4.6.1 strict mode).
+
 ## [5.2.0-Beta2] - 2026-05-18
 
 ### 🌐 New — Browser Dashboard

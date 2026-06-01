@@ -838,10 +838,22 @@ func _do_save_file() -> String:
 	var ece := _get_embedded_editor()
 	if ece == null or not ece.has_method("save_file"):
 		return "[save_file] embedded code editor not available"
-	ece.save_file()
+	# If the buffer is a .vg form file, normalize before saving — AI tool
+	# sequences (open_file → insert_text → save_file) bypass _do_write_file
+	# so the Class wrapper / VB6 alias / duplicate-Option-Explicit landmines
+	# reappear here.
 	var path := ""
 	if ece.has_method("get_file_path"):
 		path = ece.get_file_path()
+	if path.ends_with(".vg"):
+		var ce := _get_code_edit()
+		if ce != null:
+			var src: String = ce.text
+			var alias_map: Dictionary = _build_vb6_alias_map_from_designer()
+			var normalized: String = _normalize_vg_source(src, alias_map)
+			if normalized != src:
+				ce.text = normalized
+	ece.save_file()
 	return "[save_file] saved %s" % path
 
 
@@ -858,11 +870,142 @@ func _do_write_file(d: Dictionary) -> String:
 		var canonical := _case_insensitive_path(path)
 		if not canonical.is_empty():
 			path = canonical
+	var contents := str(d.get("contents"))
+	# --- VB6 form .vg post-processing ---------------------------------
+	# When Narcea (or any AI) writes a .vg file via the tool channel
+	# (bypassing vg-code-spec), it tends to:
+	#   • wrap the body in `Class Form1 / Inherits Form … End Class`
+	#     (VB6 forms have no Class wrapper)
+	#   • use VB6 alias names (`TextBox1`, `Command1`) that don't
+	#     match the actual Godot control names (`LineEdit1`, `Button1`)
+	# Both produce non-running code.  Normalize here before the write.
+	if path.ends_with(".vg"):
+		contents = _normalize_vg_for_form(contents, path)
+	# -----------------------------------------------------------------
 	var safe = _get_safe()
 	if safe == null:
 		return "[write_file] safe-write not available"
-	var res: Array = safe.write(path, str(d.get("contents")))
+	var res: Array = safe.write(path, contents)
+	# After a successful .vg write, reload it in the embedded code
+	# editor so the user immediately sees the new code (instead of
+	# the Module1.vg placeholder that opened the IDE).
+	if res[0] and path.ends_with(".vg"):
+		_reload_vg_in_editor(path)
 	return "[write_file] " + ("ok: " + str(res[1]) if res[0] else "REFUSED: " + str(res[1]))
+
+
+## Normalize a .vg form source written via the raw write_file tool.
+## Strips spurious `Class X / Inherits Form / End Class` wrappers and
+## remaps VB6 alias control names (TextBox1, Command1, …) onto the
+## actual Godot-style names declared by the FormDesigner for the
+## sibling .tscn.  Idempotent: if nothing matches, returns src as-is.
+func _normalize_vg_for_form(src: String, vg_path: String) -> String:
+	if src.is_empty():
+		return src
+	# 1. Build VB6-alias → actual-name map from the live form designer.
+	var alias_map: Dictionary = _build_vb6_alias_map_from_designer()
+	return _normalize_vg_source(src, alias_map)
+
+
+## Pure-source normalizer — no plugin/designer access, fully testable.
+func _normalize_vg_source(src: String, alias_map: Dictionary) -> String:
+	if src.is_empty():
+		return src
+	# 2. Strip Class wrapper.  We match a `Class XXX` line optionally
+	#    followed by `Inherits Form/UserForm`, and the matching `End
+	#    Class` at the tail, preserving everything in between.
+	var lines: PackedStringArray = src.split("\n")
+	var out_lines: Array[String] = []
+	var skip_inherits := false
+	for ln in lines:
+		var s := ln.strip_edges()
+		var sl := s.to_lower()
+		if sl.begins_with("class ") and not sl.begins_with("classmodule"):
+			skip_inherits = true
+			continue
+		if skip_inherits and sl.begins_with("inherits "):
+			skip_inherits = false
+			continue
+		skip_inherits = false
+		if sl == "end class":
+			continue
+		out_lines.append(ln)
+	# 2b. Collapse duplicate `Option Explicit` lines and duplicate
+	#     `' Visual Gasic Form Script` headers — keep only the first
+	#     occurrence of each.  AI insert_text sequences love to glue
+	#     a second header onto the buffer.
+	var seen_opt_explicit := false
+	var seen_form_header := false
+	var dedup_lines: Array[String] = []
+	for ln in out_lines:
+		var sl := ln.strip_edges().to_lower()
+		if sl == "option explicit":
+			if seen_opt_explicit:
+				continue
+			seen_opt_explicit = true
+		elif sl.begins_with("' visual gasic form script") or sl.begins_with("'visual gasic form script"):
+			if seen_form_header:
+				continue
+			seen_form_header = true
+		dedup_lines.append(ln)
+	src = "\n".join(dedup_lines)
+	# 3. Remap VB6 alias names onto actual names (whole-word).
+	for vb6_name in alias_map:
+		var real_name: String = alias_map[vb6_name]
+		src = src.replace(vb6_name + ".", real_name + ".")
+		src = src.replace(vb6_name + "_", real_name + "_")
+		src = src.replace(vb6_name + " ", real_name + " ")
+		src = src.replace(vb6_name + "\t", real_name + "\t")
+		src = src.replace(vb6_name + "\n", real_name + "\n")
+	return src
+
+
+## Inspect the live FormDesigner (if any) and produce a map of
+## VB6-alias control names → actual Godot-style names.
+func _build_vb6_alias_map_from_designer() -> Dictionary:
+	var alias_map: Dictionary = {}
+	var host = _get_plugin()
+	if host == null or not ("_form_designer" in host):
+		return alias_map
+	var fd = host.get("_form_designer")
+	if not is_instance_valid(fd) or not fd.has_method("get_control_count") or not fd.has_method("get_control_info"):
+		return alias_map
+	const VB6_ALIASES: Dictionary = {
+		"TextBox": "LineEdit", "Text": "LineEdit",
+		"Command": "Button", "Frame": "Panel",
+		"ComboBox": "OptionButton", "ListBox": "ItemList",
+		"Shape": "ColorRect", "Image": "TextureRect",
+		"PictureBox": "TextureRect",
+	}
+	for i in range(fd.get_control_count()):
+		var info: Dictionary = fd.get_control_info(i)
+		var actual_name: String = str(info.get("name", ""))
+		var actual_type: String = str(info.get("type", ""))
+		if actual_name.is_empty() or actual_type.is_empty():
+			continue
+		for vb6_type in VB6_ALIASES:
+			if actual_type.begins_with(VB6_ALIASES[vb6_type]):
+				var suffix: String = actual_name.substr(VB6_ALIASES[vb6_type].length())
+				var vb6_guess: String = vb6_type + suffix
+				if vb6_guess != actual_name:
+					alias_map[vb6_guess] = actual_name
+	return alias_map
+
+
+## Reload `vg_path` in the embedded VB6-style code editor so the user
+## sees freshly-written code instead of the stale placeholder.
+func _reload_vg_in_editor(vg_path: String) -> void:
+	var host = _get_plugin()
+	if host == null or not is_instance_valid(host):
+		return
+	if not ("_embedded_code_editor" in host):
+		return
+	var ece = host.get("_embedded_code_editor")
+	if ece == null or not is_instance_valid(ece) or not ece.has_method("load_file"):
+		return
+	if not FileAccess.file_exists(vg_path):
+		return
+	ece.call_deferred("load_file", vg_path)
 
 
 ## Look for a case-insensitive sibling of `path`. Returns the actual on-disk
@@ -1422,9 +1565,52 @@ func _do_build_form(d: Dictionary) -> String:
 	if typeof(spec) != TYPE_DICTIONARY:
 		return "[build_form] 'spec' must be a JSON object matching the form spec schema"
 	var errs: Array = spec_helper.apply_to_designer(spec, fd)
+	# After building, save the form to disk so the .tscn file exists before
+	# open_form_in_designer tries to load it as a Godot scene tab.
+	# CRITICAL: form_name MUST be non-empty — empty name produces "res://.tscn"
+	# which Godot's resource saver mangles into a garbage temp filename.
+	var form_name: String = str(spec.get("form_name", "Form1")).strip_edges()
+	if form_name.is_empty():
+		form_name = "Form1"
+	var tscn_path := ""
+	if fd.has_method("get_form_path"):
+		tscn_path = str(fd.get_form_path())
+	# Validate any existing path — reject degenerate forms like "res://.tscn".
+	if not tscn_path.is_empty():
+		var _fn := tscn_path.get_file().get_basename()
+		if _fn.is_empty():
+			tscn_path = ""
+	if tscn_path.is_empty():
+		# Derive from the spec's vg-code-spec path, or fall back to convention.
+		var spec_path := str(spec.get("path", "")).strip_edges()
+		if not spec_path.is_empty() and spec_path.ends_with(".vg"):
+			tscn_path = spec_path.get_basename() + ".tscn"
+		else:
+			tscn_path = "res://forms/%s.tscn" % form_name
+	if not tscn_path.is_empty():
+		# Ensure parent directory exists — save_form_as() fails silently
+		# if it doesn't (test17 landmine: no forms/ → no .tscn).
+		var _dir_abs := ProjectSettings.globalize_path(tscn_path.get_base_dir())
+		DirAccess.make_dir_recursive_absolute(_dir_abs)
+		# Save to disk first (creating the .tscn) then open in designer.
+		var _save_ok := true
+		if fd.has_method("save_form_as"):
+			fd.save_form_as(tscn_path)
+			_save_ok = FileAccess.file_exists(tscn_path)
+		if _save_ok:
+			# Make this form the project's main scene so the Play button
+			# actually runs something (otherwise pressing Play opens the
+			# "Choose main scene" dialog and the user sees nothing happen).
+			if ProjectSettings.get_setting("application/run/main_scene", "") == "":
+				ProjectSettings.set_setting("application/run/main_scene", tscn_path)
+				ProjectSettings.save()
+			if host.has_method("open_form_in_designer"):
+				host.call_deferred("open_form_in_designer", tscn_path)
+		else:
+			push_warning("[build_form] save_form_as('%s') produced no file" % tscn_path)
 	if errs.is_empty():
-		return "[build_form] form '%s' built with %d control(s)" % [
-			spec.get("form_name", "Form1"), spec.get("controls", []).size()
+		return "[build_form] form '%s' built with %d control(s) — saved %s" % [
+			form_name, spec.get("controls", []).size(), tscn_path
 		]
 	return "[build_form] built with warnings: %s" % str(errs)
 
@@ -1541,6 +1727,10 @@ func _get_plugin_manager():
 
 func _get_plugin() -> Object:
 	if not Engine.is_editor_hint():
+		return null
+	# EditorInterface may not be initialised in script-only / headless
+	# runs (e.g. test harnesses).  Guard so we never crash here.
+	if not OS.has_feature("editor"):
 		return null
 	var base := EditorInterface.get_base_control()
 	if base == null or not base.has_meta("visual_gasic_plugin_instance"):

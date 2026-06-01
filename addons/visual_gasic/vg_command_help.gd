@@ -843,6 +843,57 @@ static func _build_db() -> void:
 		"Print Speaker.Name(0)   ' usually \"Master\"", 11782)
 
 	# =========================================================================
+	# PASS 2.5 — SOUNDGEN NAMESPACE
+	#
+	# Real-time PCM synthesis via Godot's AudioStreamGenerator.
+	# SoundGen.Open creates an AudioStreamPlayer with an AudioStreamGenerator
+	# stream attached, starts playback, and returns a handle (Long/ObjectID).
+	# Call SoundGen.Available(h) each _Process() to get available buffer space,
+	# then push exactly that many frames with SoundGen.PushMono or PushStereo.
+	# Always call SoundGen.Close(h) when done (era exit, scene change).
+	#
+	# Typical pattern:
+	#   Dim hum As Long
+	#   Sub _Ready()
+	#       hum = SoundGen.Open(44100.0, 0.1)
+	#   End Sub
+	#   Sub _Process(delta)
+	#       Dim n As Integer = SoundGen.Available(hum)
+	#       For i = 0 To n - 1
+	#           phase += f / 44100.0 * 6.28318
+	#           SoundGen.PushMono hum, Sin(phase) * 0.1
+	#       Next
+	#   End Sub
+	#   Sub _ExitTree()
+	#       SoundGen.Close hum
+	#   End Sub
+	# =========================================================================
+	_add("SoundGen.Open",
+		"SoundGen.Open(mix_rate As Single, buffer_length As Single) As Long",
+		"Creates an AudioStreamGenerator player and starts playback. Returns a handle used by all other SoundGen verbs.\n\nmix_rate: samples per second (typically 44100.0)\nbuffer_length: ring-buffer size in seconds (0.05–0.2 recommended).\n\nThe player is added as a child of the current node and plays silently until frames are pushed.",
+		"Dim hum As Long = SoundGen.Open(44100.0, 0.1)", 11850)
+
+	_add("SoundGen.Close",
+		"SoundGen.Close(h As Long)",
+		"Stops and frees the AudioStreamPlayer created by SoundGen.Open. Call this when the sound is no longer needed (e.g. in _ExitTree or when the era ends).",
+		"SoundGen.Close hum", 11820)
+
+	_add("SoundGen.Available",
+		"SoundGen.Available(h As Long) As Integer",
+		"Returns the number of stereo frames the playback buffer can accept right now. Call once per _Process() and push exactly this many frames to keep the buffer full without blocking.",
+		"Dim n As Integer = SoundGen.Available(hum)\nFor i = 0 To n - 1\n    SoundGen.PushMono hum, Sin(phase) * 0.05\n    phase += freq / 44100.0 * 6.28318\nNext", 11838)
+
+	_add("SoundGen.PushMono",
+		"SoundGen.PushMono(h As Long, sample As Single)",
+		"Pushes one mono PCM sample into the playback buffer. The sample is broadcast to both L and R channels. Values outside ±1.0 will clip.\n\nCall inside a For loop after SoundGen.Available(h) to fill the buffer each frame.",
+		"' Sine wave hum\nphase += 440.0 / 44100.0 * 6.28318\nSoundGen.PushMono hum, Sin(phase) * 0.12", 11862)
+
+	_add("SoundGen.PushStereo",
+		"SoundGen.PushStereo(h As Long, left As Single, right As Single)",
+		"Pushes one stereo PCM frame into the playback buffer. Use when L and R channels differ (e.g. panning effects). Values outside ±1.0 will clip.",
+		"SoundGen.PushStereo hum, leftSample, rightSample", 11870)
+
+	# =========================================================================
 	# PASS 3 — ANIMATION NAMESPACE
 	#
 	# Wraps AnimationPlayer node. All verbs take the player node as the first
@@ -2222,6 +2273,9 @@ static func _build_see_also() -> void:
 		# Speaker namespace
 		["Speaker.Volume", "Speaker.Mute", "Speaker.IsMuted", "Speaker.Solo",
 			"Speaker.Exists", "Speaker.Count", "Speaker.Name", "Speaker.Bus"],
+		# SoundGen namespace
+		["SoundGen.Open", "SoundGen.Close", "SoundGen.Available",
+			"SoundGen.PushMono", "SoundGen.PushStereo"],
 		# Animation namespace
 		["Animation.Play", "Animation.Stop", "Animation.Pause", "Animation.Resume",
 			"Animation.Seek", "Animation.Speed", "Animation.Current", "Animation.IsPlaying",

@@ -12,7 +12,7 @@ config_version=5
 
 config/name="AGCK Tests"
 config/description="Test project for AGCK (Arcade Game Construction Kit)"
-run/main_scene="res://build/Cube_Beat/Main.tscn"
+run/main_scene="res://build/BLUE_SCREEN/Main.tscn"
 config/features=PackedStringArray("4.6")
 config/icon="res://icon.svg"
 
@@ -28,7 +28,7 @@ Controller="*res://addons/visual_gasic/plugins/vgmusic/bosca/globals/Controller.
 [display]
 
 window/size/viewport_width=640
-window/size/viewport_height=384
+window/size/viewport_height=480
 window/size/mode=3
 window/stretch/mode="viewport"
 window/vsync/vsync_mode=3
@@ -50,3 +50,4 @@ renderer/rendering_method="gl_compatibility"
 
 form_designer_enabled=true
 plugin_registry/defaults/asset_editor.test=""
+ai_art/backend="pollinations"

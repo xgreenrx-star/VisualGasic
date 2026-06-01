@@ -386,16 +386,53 @@ All standard VB6 functions are supported:
 
 ##### VB6 Constants
 
-All VB6 constants are recognized:
+All VB6 standard constants are supported:
 
-**MsgBox:**
-`vbOKOnly`, `vbOKCancel`, `vbYesNo`, `vbYesNoCancel`, `vbCritical`, `vbQuestion`, `vbExclamation`, `vbInformation`, `vbOK`, `vbCancel`, `vbYes`, `vbNo`
+**MsgBox Buttons (additive):**
+`vbOKOnly`, `vbOKCancel`, `vbYesNo`, `vbYesNoCancel`, `vbAbortRetryIgnore`, `vbRetryCancel`
+
+**MsgBox Icons (additive):**
+`vbCritical`, `vbQuestion`, `vbExclamation`, `vbInformation`
+
+**MsgBox Return Values:**
+`vbOK`, `vbCancel`, `vbAbort`, `vbRetry`, `vbIgnore`, `vbYes`, `vbNo`
+
+**MsgBox Modifiers:**
+`vbDefaultButton1` (0), `vbDefaultButton2` (256), `vbDefaultButton3` (512), `vbApplicationModal` (0), `vbSystemModal` (4096)
 
 **String:**
-`vbCrLf`, `vbCr`, `vbLf`, `vbTab`, `vbNewLine`, `vbNullChar`, `vbNullString`
+`vbCrLf`, `vbCr`, `vbLf`, `vbTab`, `vbNewLine`, `vbNullChar`, `vbNullString`, `vbBack`, `vbFormFeed`, `vbVerticalTab`
 
-**Other:**
-`True`, `False`, `Nothing`, `vbEmpty`, `vbNull`, `vbBinaryCompare`, `vbTextCompare`
+**VarType:**
+`vbEmpty` (0), `vbNull` (1), `vbInteger` (2), `vbLong` (3), `vbSingle` (4), `vbDouble` (5), `vbCurrency` (6), `vbDate` (7), `vbString` (8), `vbObject` (9), `vbError` (10), `vbBoolean` (11), `vbVariant` (12), `vbDataObject` (13), `vbDecimal` (14), `vbByte` (17), `vbArray` (8192)
+
+**String Comparison:**
+`vbBinaryCompare` (0), `vbTextCompare` (1), `vbDatabaseCompare` (2)
+
+**Weekday:**
+`vbSunday` (1), `vbMonday` (2), `vbTuesday` (3), `vbWednesday` (4), `vbThursday` (5), `vbFriday` (6), `vbSaturday` (7)
+First-week: `vbUseSystem` (0), `vbFirstJan1` (1), `vbFirstFourDays` (2), `vbFirstFullWeek` (3)
+
+**File Attributes:**
+`vbNormal` (0), `vbReadOnly` (1), `vbHidden` (2), `vbSystem` (4), `vbVolume` (8), `vbDirectory` (16), `vbArchive` (32), `vbAlias` (64)
+
+**Shell Window Style:**
+`vbHide` (0), `vbNormalFocus` (1), `vbMinimizedFocus` (2), `vbMaximizedFocus` (3), `vbNormalNoFocus` (4), `vbMinimizedNoFocus` (6)
+
+**Colors:**
+`vbBlack`, `vbRed`, `vbGreen`, `vbYellow`, `vbBlue`, `vbMagenta`, `vbCyan`, `vbWhite`
+
+**Key Constants:**
+Navigation: `vbKeyBack`, `vbKeyTab`, `vbKeyReturn`, `vbKeyEnter`, `vbKeyEscape`, `vbKeySpace`, `vbKeyPageUp`, `vbKeyPageDown`, `vbKeyEnd`, `vbKeyHome`, `vbKeyLeft`, `vbKeyUp`, `vbKeyRight`, `vbKeyDown`, `vbKeyInsert`, `vbKeyDelete`
+Modifiers: `vbKeyShift`, `vbKeyControl`, `vbKeyMenu`
+Function keys: `vbKeyF1`–`vbKeyF12`
+Letters: `vbKeyA`–`vbKeyZ`
+Digits: `vbKey0`–`vbKey9`
+Numpad: `vbKeyNumpad0`–`vbKeyNumpad9`, `vbKeyMultiply`, `vbKeyAdd`, `vbKeySubtract`, `vbKeyDecimal`, `vbKeyDivide`
+Lock/Misc: `vbKeyCapital`, `vbKeyNumlock`, `vbKeyScrollLock`, `vbKeyPause`, `vbKeySnapshot`
+
+**Misc:**
+`True`, `False`, `Nothing`
 
 ##### Import Report
 
@@ -11854,6 +11891,159 @@ Get or set a speaker's volume in percent (0..100). With one argument, returns cu
     lbl.Text = "Music: " & Round(Speaker.Volume("Music")) & "%"
 
 **See Also** — [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Name](#speakername), [Speaker.Bus](#speakerbus)
+
+---
+
+## SoundGen.Open
+
+**Purpose** — Create a real-time PCM audio generator and start playback.
+
+**Syntax**
+
+    SoundGen.Open(mix_rate As Single, buffer_length As Single) As Long
+
+**Parameters**
+
+- `mix_rate` — samples per second (typically `44100.0`)
+- `buffer_length` — ring-buffer size in seconds (`0.05`–`0.2` recommended; smaller = lower latency, higher CPU risk)
+
+**Description**
+
+Creates an `AudioStreamGenerator` resource and an `AudioStreamPlayer` node, attaches them to the current script's owner node, and starts playback. Returns a handle (`Long`) that must be passed to all other `SoundGen.*` verbs.
+
+Declare the handle at module level (not inside a Sub) so it persists across frames.
+
+**Example**
+
+    Dim hum As Long
+
+    Sub _Ready()
+        hum = SoundGen.Open(44100.0, 0.1)
+    End Sub
+
+    Sub _Process(delta)
+        Dim n As Integer = SoundGen.Available(hum)
+        For i = 0 To n - 1
+            phase += 440.0 / 44100.0 * 6.28318
+            SoundGen.PushMono hum, Sin(phase) * 0.1
+        Next
+    End Sub
+
+    Sub _ExitTree()
+        SoundGen.Close hum
+    End Sub
+
+**See Also** — [SoundGen.Close](#soundgenclose), [SoundGen.Available](#soundgenavailable), [SoundGen.PushMono](#soundgenpushmono), [SoundGen.PushStereo](#soundgenpushstereo)
+
+---
+
+## SoundGen.Close
+
+**Purpose** — Stop and free a real-time audio generator.
+
+**Syntax**
+
+    SoundGen.Close(h As Long)
+
+**Parameters**
+
+- `h` — handle returned by `SoundGen.Open`
+
+**Description**
+
+Stops playback and queues the underlying `AudioStreamPlayer` for deletion. Call this in `_ExitTree` or when switching eras to avoid orphaned audio nodes.
+
+**Example**
+
+    Sub _ExitTree()
+        SoundGen.Close hum
+    End Sub
+
+**See Also** — [SoundGen.Open](#soundgenopen), [SoundGen.Available](#soundgenavailable), [SoundGen.PushMono](#soundgenpushmono), [SoundGen.PushStereo](#soundgenpushstereo)
+
+---
+
+## SoundGen.Available
+
+**Purpose** — Number of stereo frames the buffer can accept right now.
+
+**Syntax**
+
+    SoundGen.Available(h As Long) As Integer
+
+**Parameters**
+
+- `h` — handle returned by `SoundGen.Open`
+
+**Description**
+
+Returns how many frames can be pushed to the buffer without blocking. Call once per `_Process()` and push exactly that many frames to keep the audio stream fed without overflow.
+
+If you push fewer frames the buffer will underrun and you'll hear dropouts. If you push more the extras are dropped.
+
+**Example**
+
+    Dim n As Integer = SoundGen.Available(hum)
+    For i = 0 To n - 1
+        SoundGen.PushMono hum, Sin(phase) * 0.05
+        phase += freq / 44100.0 * 6.28318
+    Next
+
+**See Also** — [SoundGen.Open](#soundgenopen), [SoundGen.PushMono](#soundgenpushmono), [SoundGen.PushStereo](#soundgenpushstereo)
+
+---
+
+## SoundGen.PushMono
+
+**Purpose** — Push one mono PCM sample into the generator buffer.
+
+**Syntax**
+
+    SoundGen.PushMono(h As Long, sample As Single)
+
+**Parameters**
+
+- `h` — handle returned by `SoundGen.Open`
+- `sample` — PCM value in the range `−1.0` to `+1.0`; values outside this range clip
+
+**Description**
+
+Pushes a single mono sample as a stereo frame with L = R = `sample`. Call inside a `For` loop after checking `SoundGen.Available(h)`.
+
+**Example**
+
+    ' 440 Hz sine wave
+    phase += 440.0 / 44100.0 * 6.28318
+    SoundGen.PushMono hum, Sin(phase) * 0.12
+
+**See Also** — [SoundGen.Open](#soundgenopen), [SoundGen.Available](#soundgenavailable), [SoundGen.PushStereo](#soundgenpushstereo)
+
+---
+
+## SoundGen.PushStereo
+
+**Purpose** — Push one stereo PCM frame into the generator buffer.
+
+**Syntax**
+
+    SoundGen.PushStereo(h As Long, left As Single, right As Single)
+
+**Parameters**
+
+- `h` — handle returned by `SoundGen.Open`
+- `left` — left-channel sample (`−1.0` to `+1.0`)
+- `right` — right-channel sample (`−1.0` to `+1.0`)
+
+**Description**
+
+Pushes a stereo frame with independent L and R samples. Use for panning effects or any synthesis where the two channels differ.
+
+**Example**
+
+    ' Ping-pong delay — alternate sides
+    SoundGen.PushStereo hum, leftSample, rightSample
+
+**See Also** — [SoundGen.Open](#soundgenopen), [SoundGen.Available](#soundgenavailable), [SoundGen.PushMono](#soundgenpushmono)
 
 ---
 

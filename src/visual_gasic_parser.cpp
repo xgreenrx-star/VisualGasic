@@ -564,7 +564,19 @@ SubDefinition* VisualGasicParser::parse_sub() {
         }
     }
     
-    // Skip to newline (e.g. ignore "As Variant" for return type roughly for now, or parse it)
+    // Skip to newline — but warn when a Sub (not Function) declares a return type.
+    // VB6 rule: only Function can have a return type after the parameter list.
+    if (!is_function) {
+        // Look for "As" keyword immediately after the closing paren — that means
+        // the programmer wrote `Sub Foo() As Boolean` which is invalid VB6/VG.
+        if (!is_at_end() && peek().type == VisualGasicTokenizer::TOKEN_KEYWORD
+            && String(peek().value).nocasecmp_to("As") == 0) {
+            UtilityFunctions::push_warning(
+                "[VG] Warning: Sub '" + name + "' has a return type declaration — "
+                "did you mean Function? Return type will be ignored.",
+                __FUNCTION__, __FILE__, __LINE__);
+        }
+    }
     while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
           // Store return type if we want
           current_pos++;
@@ -979,8 +991,8 @@ Statement* VisualGasicParser::parse_statement() {
         if (val == "await") {
             return set_line(parse_await());
         }
-        if (val == "task") {
-            advance(); // consume "task"
+        if (val == "task" || val == "thread") {
+            advance(); // consume "task" or "thread" (Thread is an alias for Task)
             // Handle both "Task Run" and "Task.Run" syntax
             if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && String(peek().value) == ".") {
                 advance(); // consume "."
@@ -992,7 +1004,7 @@ Statement* VisualGasicParser::parse_statement() {
             } else if (next_val == "wait" || next_val == "waitall" || next_val == "waitany") {
                 return set_line(parse_task_wait());
             }
-            error("Expected 'Run', 'Wait', 'WaitAll', or 'WaitAny' after 'Task'");
+            error("Expected 'Run', 'Wait', 'WaitAll', or 'WaitAny' after 'Task'/'Thread'");
             return nullptr;
         }
         if (val == "lock") {
@@ -5126,11 +5138,14 @@ TaskRunStatement* VisualGasicParser::parse_task_run() {
         }
     }
     
-    // End Task
+    // End Task / End Thread
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "end") {
         advance();
-        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "task") {
-            advance();
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+            String et = String(peek().value).to_lower();
+            if (et == "task" || et == "thread") {
+                advance();
+            }
         }
     }
     

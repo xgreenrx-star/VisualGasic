@@ -1,4 +1,4 @@
-#!/bin/bash
+
 # vg-ide — VisualGasic IDE launcher
 #
 # Skips Godot's Project Manager. On launch:
@@ -93,21 +93,7 @@ read_first_recent() {
     ' "$RECENT_CFG"
 }
 
-# ── Dispatch ────────────────────────────────────────────────────────────────
-if [[ "$#" -gt 0 && -d "$1" && -f "$1/project.godot" ]]; then
-    exec "$GODOT_BIN" --path "$1" --editor "${@:2}"
-fi
-
-# --last / VG_OPEN_LAST=1 → jump straight into the most-recent project.
-if [[ "$OPEN_LAST" == "1" ]]; then
-    LAST="$(read_first_recent || true)"
-    if [[ -n "$LAST" && -f "$LAST/project.godot" ]]; then
-        exec "$GODOT_BIN" --path "$LAST" --editor "$@"
-    fi
-    echo "vg-ide: --last requested but no usable recent project found." >&2
-fi
-
-# Default: open the bundled Welcome shell.
+# ── Welcome-shell location (needed for the cover-window behaviour) ──────────
 WELCOME_DIR=""
 for cand in "$SCRIPT_DIR/welcome_shell" \
             "/opt/visual_gasic/welcome_shell" \
@@ -118,6 +104,31 @@ for cand in "$SCRIPT_DIR/welcome_shell" \
     fi
 done
 
+# ── Dispatch ────────────────────────────────────────────────────────────────
+if [[ "$#" -gt 0 && -d "$1" && -f "$1/project.godot" ]]; then
+    if [[ -n "$WELCOME_DIR" ]]; then
+        # Route through the welcome shell so its fullscreen cover hides the
+        # Godot editor during load (same behaviour as opening from the list).
+        exec "$GODOT_BIN" --path "$WELCOME_DIR" -- --open "$(realpath "$1")"
+    else
+        exec "$GODOT_BIN" --path "$1" --editor "${@:2}"
+    fi
+fi
+
+# --last / VG_OPEN_LAST=1 → jump straight into the most-recent project.
+if [[ "$OPEN_LAST" == "1" ]]; then
+    LAST="$(read_first_recent || true)"
+    if [[ -n "$LAST" && -f "$LAST/project.godot" ]]; then
+        if [[ -n "$WELCOME_DIR" ]]; then
+            exec "$GODOT_BIN" --path "$WELCOME_DIR" -- --open "$LAST"
+        else
+            exec "$GODOT_BIN" --path "$LAST" --editor "$@"
+        fi
+    fi
+    echo "vg-ide: --last requested but no usable recent project found." >&2
+fi
+
+# Default: open the bundled Welcome shell.
 if [[ -n "$WELCOME_DIR" ]]; then
     exec "$GODOT_BIN" --path "$WELCOME_DIR" "$@"
 fi

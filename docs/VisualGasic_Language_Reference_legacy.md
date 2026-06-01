@@ -498,16 +498,53 @@ All standard VB6 functions are supported:
 
 ##### VB6 Constants
 
-All VB6 constants are recognized:
+All VB6 standard constants are supported:
 
-**MsgBox:**
-`vbOKOnly`, `vbOKCancel`, `vbYesNo`, `vbYesNoCancel`, `vbCritical`, `vbQuestion`, `vbExclamation`, `vbInformation`, `vbOK`, `vbCancel`, `vbYes`, `vbNo`
+**MsgBox Buttons (additive):**
+`vbOKOnly`, `vbOKCancel`, `vbYesNo`, `vbYesNoCancel`, `vbAbortRetryIgnore`, `vbRetryCancel`
+
+**MsgBox Icons (additive):**
+`vbCritical`, `vbQuestion`, `vbExclamation`, `vbInformation`
+
+**MsgBox Return Values:**
+`vbOK`, `vbCancel`, `vbAbort`, `vbRetry`, `vbIgnore`, `vbYes`, `vbNo`
+
+**MsgBox Modifiers:**
+`vbDefaultButton1` (0), `vbDefaultButton2` (256), `vbDefaultButton3` (512), `vbApplicationModal` (0), `vbSystemModal` (4096)
 
 **String:**
-`vbCrLf`, `vbCr`, `vbLf`, `vbTab`, `vbNewLine`, `vbNullChar`, `vbNullString`
+`vbCrLf`, `vbCr`, `vbLf`, `vbTab`, `vbNewLine`, `vbNullChar`, `vbNullString`, `vbBack`, `vbFormFeed`, `vbVerticalTab`
 
-**Other:**
-`True`, `False`, `Nothing`, `vbEmpty`, `vbNull`, `vbBinaryCompare`, `vbTextCompare`
+**VarType:**
+`vbEmpty` (0), `vbNull` (1), `vbInteger` (2), `vbLong` (3), `vbSingle` (4), `vbDouble` (5), `vbCurrency` (6), `vbDate` (7), `vbString` (8), `vbObject` (9), `vbError` (10), `vbBoolean` (11), `vbVariant` (12), `vbDataObject` (13), `vbDecimal` (14), `vbByte` (17), `vbArray` (8192)
+
+**String Comparison:**
+`vbBinaryCompare` (0), `vbTextCompare` (1), `vbDatabaseCompare` (2)
+
+**Weekday:**
+`vbSunday` (1), `vbMonday` (2), `vbTuesday` (3), `vbWednesday` (4), `vbThursday` (5), `vbFriday` (6), `vbSaturday` (7)
+First-week: `vbUseSystem` (0), `vbFirstJan1` (1), `vbFirstFourDays` (2), `vbFirstFullWeek` (3)
+
+**File Attributes:**
+`vbNormal` (0), `vbReadOnly` (1), `vbHidden` (2), `vbSystem` (4), `vbVolume` (8), `vbDirectory` (16), `vbArchive` (32), `vbAlias` (64)
+
+**Shell Window Style:**
+`vbHide` (0), `vbNormalFocus` (1), `vbMinimizedFocus` (2), `vbMaximizedFocus` (3), `vbNormalNoFocus` (4), `vbMinimizedNoFocus` (6)
+
+**Colors:**
+`vbBlack`, `vbRed`, `vbGreen`, `vbYellow`, `vbBlue`, `vbMagenta`, `vbCyan`, `vbWhite`
+
+**Key Constants:**
+Navigation: `vbKeyBack`, `vbKeyTab`, `vbKeyReturn`, `vbKeyEnter`, `vbKeyEscape`, `vbKeySpace`, `vbKeyPageUp`, `vbKeyPageDown`, `vbKeyEnd`, `vbKeyHome`, `vbKeyLeft`, `vbKeyUp`, `vbKeyRight`, `vbKeyDown`, `vbKeyInsert`, `vbKeyDelete`
+Modifiers: `vbKeyShift`, `vbKeyControl`, `vbKeyMenu`
+Function keys: `vbKeyF1`–`vbKeyF12`
+Letters: `vbKeyA`–`vbKeyZ`
+Digits: `vbKey0`–`vbKey9`
+Numpad: `vbKeyNumpad0`–`vbKeyNumpad9`, `vbKeyMultiply`, `vbKeyAdd`, `vbKeySubtract`, `vbKeyDecimal`, `vbKeyDivide`
+Lock/Misc: `vbKeyCapital`, `vbKeyNumlock`, `vbKeyScrollLock`, `vbKeyPause`, `vbKeySnapshot`
+
+**Misc:**
+`True`, `False`, `Nothing`
 
 ##### Import Report
 
@@ -6210,10 +6247,29 @@ Print "Line 1" & vbCrLf & "Line 2"
 Print "Col1" & vbTab & "Col2"
 Dim empty = vbNullString
 
-' All available constants:
-' vbCrLf, vbCr, vbLf, vbTab, vbNullString, vbNullChar
-' vbNewLine, vbBack, vbFormFeed, vbVerticalTab
-' vbTrue, vbFalse, Nothing, Null, Empty
+' String:    vbCrLf, vbCr, vbLf, vbTab, vbNewLine, vbNullChar, vbNullString
+'            vbBack, vbFormFeed, vbVerticalTab
+' Misc:      True, False, Nothing
+' VarType:   vbEmpty(0), vbNull(1), vbInteger(2), vbLong(3), vbSingle(4),
+'            vbDouble(5), vbCurrency(6), vbDate(7), vbString(8), vbObject(9),
+'            vbError(10), vbBoolean(11), vbVariant(12), vbDataObject(13),
+'            vbDecimal(14), vbByte(17), vbArray(8192)
+' Comparison: vbBinaryCompare(0), vbTextCompare(1), vbDatabaseCompare(2)
+' Weekday:   vbSunday(1)..vbSaturday(7), vbUseSystem(0), vbFirstJan1(1),
+'            vbFirstFourDays(2), vbFirstFullWeek(3)
+' FileAttr:  vbNormal(0), vbReadOnly(1), vbHidden(2), vbSystem(4),
+'            vbVolume(8), vbDirectory(16), vbArchive(32), vbAlias(64)
+' Shell:     vbHide(0), vbNormalFocus(1), vbMinimizedFocus(2),
+'            vbMaximizedFocus(3), vbNormalNoFocus(4), vbMinimizedNoFocus(6)
+' Colors:    vbBlack, vbRed, vbGreen, vbYellow, vbBlue, vbMagenta, vbCyan, vbWhite
+' Keys:      vbKeyBack, vbKeyTab, vbKeyReturn, vbKeyEnter, vbKeyEscape,
+'            vbKeySpace, vbKeyPageUp, vbKeyPageDown, vbKeyEnd, vbKeyHome,
+'            vbKeyLeft, vbKeyUp, vbKeyRight, vbKeyDown, vbKeyInsert, vbKeyDelete,
+'            vbKeyShift, vbKeyControl, vbKeyMenu, vbKeyF1..vbKeyF12,
+'            vbKeyA..vbKeyZ, vbKey0..vbKey9,
+'            vbKeyNumpad0..vbKeyNumpad9, vbKeyMultiply, vbKeyAdd,
+'            vbKeySubtract, vbKeyDecimal, vbKeyDivide,
+'            vbKeyCapital, vbKeyNumlock, vbKeyScrollLock, vbKeyPause, vbKeySnapshot
 ```
 
 ### Module Statement

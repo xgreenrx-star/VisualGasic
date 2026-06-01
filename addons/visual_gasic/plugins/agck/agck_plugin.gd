@@ -562,7 +562,7 @@ func _on_save_template_requested() -> void:
 	dlg.add_child(vb)
 	# Position the VBox inside the dialog after it is ready.
 	dlg.get_ok_button().text = "Save"
-	add_child(dlg)
+	_view.add_child(dlg)
 	dlg.popup_centered()
 	# Focus the LineEdit once visible.
 	await dlg.visibility_changed
@@ -613,7 +613,7 @@ func _on_load_template_requested() -> void:
 		var info := AcceptDialog.new()
 		info.title = "No saved templates"
 		info.dialog_text = "You haven't saved any templates yet.\nUse '💾 Save as Template...' to create one."
-		add_child(info)
+		_view.add_child(info)
 		info.popup_centered()
 		info.confirmed.connect(info.queue_free)
 		return
@@ -633,7 +633,7 @@ func _on_load_template_requested() -> void:
 	vb.add_child(opt)
 	dlg.add_child(vb)
 	dlg.get_ok_button().text = "Load"
-	add_child(dlg)
+	_view.add_child(dlg)
 	dlg.popup_centered()
 	dlg.confirmed.connect(func():
 		var chosen: String = files[opt.selected]

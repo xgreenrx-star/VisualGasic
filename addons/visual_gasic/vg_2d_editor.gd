@@ -315,17 +315,26 @@ func _build_ui() -> void:
 	var toolbox_tree_split := VSplitContainer.new()
 	toolbox_tree_split.size_flags_vertical = SIZE_EXPAND_FILL
 	toolbox_tree_split.size_flags_horizontal = SIZE_EXPAND_FILL
-	toolbox_tree_split.custom_minimum_size.y = 520
-	toolbox_tree_split.split_offset = 0  # 50/50 by default
+	toolbox_tree_split.custom_minimum_size.y = 600
+	toolbox_tree_split.split_offset = -240  # give the Scene Tree more room
+	# Make the drag handle visible so users can find and resize it.
+	var grab_style := StyleBoxFlat.new()
+	grab_style.bg_color = Color(0.35, 0.55, 0.85)
+	grab_style.set_corner_radius_all(2)
+	grab_style.content_margin_top = 1
+	grab_style.content_margin_bottom = 1
+	toolbox_tree_split.add_theme_stylebox_override("grabber", grab_style)
+	toolbox_tree_split.add_theme_constant_override("separation", 6)
+	toolbox_tree_split.add_theme_constant_override("autohide", 0)
 
 	var toolbox_pane := VBoxContainer.new()
 	toolbox_pane.size_flags_vertical = SIZE_EXPAND_FILL
-	toolbox_pane.custom_minimum_size.y = 80
+	toolbox_pane.custom_minimum_size.y = 120
 	toolbox_tree_split.add_child(toolbox_pane)
 
 	var scene_pane := VBoxContainer.new()
 	scene_pane.size_flags_vertical = SIZE_EXPAND_FILL
-	scene_pane.custom_minimum_size.y = 80
+	scene_pane.custom_minimum_size.y = 220
 	toolbox_tree_split.add_child(scene_pane)
 
 	# ── 2D Toolbox ──
@@ -354,7 +363,9 @@ func _build_ui() -> void:
 	_toolbox_list.max_columns = 1
 	_toolbox_list.same_column_width = true
 	_toolbox_list.allow_reselect = true
-	_toolbox_list.auto_height = true
+	# auto_height = true would make the list grow to fit every row, defeating
+	# the VSplitContainer above and starving the Scene Tree pane of space.
+	_toolbox_list.auto_height = false
 	_toolbox_list.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
 	_toolbox_list.add_theme_color_override("font_selected_color", Color(1.0, 1.0, 1.0))
 	_toolbox_list.add_theme_color_override("font_hovered_color", Color(0.95, 0.95, 0.95))
@@ -441,6 +452,13 @@ func _build_ui() -> void:
 	_scene_tree.item_selected.connect(_on_scene_tree_selected)
 	_scene_tree.item_activated.connect(_on_scene_tree_double_clicked)
 	_scene_tree.item_mouse_selected.connect(_on_scene_tree_rmb)
+	# Drag-and-drop reparent support.
+	_scene_tree.drop_mode_flags = Tree.DROP_MODE_INBETWEEN | Tree.DROP_MODE_ON_ITEM
+	_scene_tree.set_drag_forwarding(
+		_tree_get_drag_data,
+		_tree_can_drop_data,
+		_tree_drop_data,
+	)
 	scene_pane.add_child(_scene_tree)
 
 	# Scene tree action buttons
@@ -484,6 +502,14 @@ func _build_ui() -> void:
 	del_btn.add_theme_stylebox_override("hover", del_hover)
 	del_btn.pressed.connect(_delete_selected)
 	tree_actions.add_child(del_btn)
+
+	var inst_btn = Button.new()
+	inst_btn.text = "🔗"
+	inst_btn.tooltip_text = "Instance Child Scene (.tscn)"
+	inst_btn.add_theme_stylebox_override("normal", action_btn_style)
+	inst_btn.add_theme_stylebox_override("hover", action_btn_hover)
+	inst_btn.pressed.connect(_on_instance_scene_pressed)
+	tree_actions.add_child(inst_btn)
 
 	left_vbox.add_child(HSeparator.new())
 
@@ -2012,6 +2038,261 @@ func _add_2d_object(type_name: String, display_name: String) -> void:
 		print("VG 2D Editor: Added ", display_name, " → ", node.name)
 
 # ─────────────────────────────────────────────────────────────────────────────
+# INSTANCE CHILD SCENE
+# ─────────────────────────────────────────────────────────────────────────────
+var _instance_file_dialog: FileDialog = null
+
+func _on_instance_scene_pressed() -> void:
+	if _instance_file_dialog:
+		_instance_file_dialog.queue_free()
+	_instance_file_dialog = FileDialog.new()
+	_instance_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_instance_file_dialog.access = FileDialog.ACCESS_RESOURCES
+	_instance_file_dialog.filters = PackedStringArray(["*.tscn,*.scn;Godot Scene"])
+	_instance_file_dialog.title = "Instance Child Scene"
+	_instance_file_dialog.size = Vector2i(600, 400)
+	_style_dialog_dark(_instance_file_dialog)
+	_instance_file_dialog.file_selected.connect(func(path):
+		_instance_scene_from_path(path)
+		_instance_file_dialog.queue_free()
+		_instance_file_dialog = null
+	)
+	add_child(_instance_file_dialog)
+	_instance_file_dialog.popup_centered()
+
+func _instance_scene_from_path(path: String) -> void:
+	# Refuse to instance the scene we're currently editing — would recurse.
+	if path == _loaded_scene_path:
+		push_warning("VG 2D Editor: cannot instance the currently-open scene into itself.")
+		return
+	var res := ResourceLoader.load(path)
+	if not (res is PackedScene):
+		push_warning("VG 2D Editor: not a PackedScene: " + path)
+		return
+	var inst: Node = (res as PackedScene).instantiate()
+	if inst == null:
+		push_warning("VG 2D Editor: failed to instantiate: " + path)
+		return
+	# Attach under selected Node2D if any, else under scene root.
+	var parent: Node = _scene_root
+	if is_instance_valid(_primary_selected) and _primary_selected is Node:
+		parent = _primary_selected
+	# Position at view center if the instance root is a Node2D.
+	if inst is Node2D and parent == _scene_root:
+		var pos := _cam_offset
+		if _snap_enabled:
+			pos = Vector2(snappedf(pos.x, _snap_value), snappedf(pos.y, _snap_value))
+		(inst as Node2D).position = pos
+	# Give it a unique name based on the scene file.
+	var base := path.get_file().get_basename()
+	inst.name = _unique_name(base, parent)
+	parent.add_child(inst)
+	# scene_file_path is set automatically by instantiate(); preserve it.
+	_push_undo({"type": "add", "nodes": [{"node": inst, "name": inst.name}]})
+	# _select_node only handles CanvasItem; skip selection for non-CanvasItem
+	# instance roots (rare in 2D scenes, but possible — e.g. a pure Node root).
+	if inst is CanvasItem:
+		_select_node(inst)
+	_rebuild_scene_tree()
+	_scene_dirty = true
+	print("VG 2D Editor: Instanced → ", path, " as ", inst.name)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DRAG-DROP REPARENT (scene tree)
+# ─────────────────────────────────────────────────────────────────────────────
+func _tree_get_drag_data(_at: Vector2):
+	var sel := _scene_tree.get_selected()
+	if sel == null:
+		return null
+	var node = sel.get_metadata(0)
+	if node == null or node == _scene_root:
+		return null  # don't allow dragging the root
+	# Build a small drag preview label.
+	var preview := Label.new()
+	preview.text = "↪ " + str(node.name)
+	preview.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95))
+	_scene_tree.set_drag_preview(preview)
+	return {"type": "vg_scene_node", "node": node}
+
+func _tree_can_drop_data(_at: Vector2, data) -> bool:
+	if typeof(data) != TYPE_DICTIONARY or data.get("type", "") != "vg_scene_node":
+		return false
+	var src: Node = data.get("node", null)
+	if not is_instance_valid(src):
+		return false
+	var target_item := _scene_tree.get_item_at_position(_at)
+	if target_item == null:
+		return false
+	var target_node = target_item.get_metadata(0)
+	if target_node == null:
+		# Dropping onto the "Scene" root item — allowed (reparent to _scene_root).
+		return src.get_parent() != _scene_root or _scene_tree.get_drop_section_at_position(_at) != 0
+	if not is_instance_valid(target_node):
+		return false
+	# Disallow dropping a node onto itself or any of its descendants.
+	if target_node == src or _node_is_descendant_of(target_node, src):
+		return false
+	return true
+
+func _node_is_descendant_of(node: Node, ancestor: Node) -> bool:
+	var p := node.get_parent()
+	while p != null:
+		if p == ancestor:
+			return true
+		p = p.get_parent()
+	return false
+
+func _tree_drop_data(_at: Vector2, data) -> void:
+	if typeof(data) != TYPE_DICTIONARY or data.get("type", "") != "vg_scene_node":
+		return
+	var src: Node = data.get("node", null)
+	if not is_instance_valid(src):
+		return
+	var target_item := _scene_tree.get_item_at_position(_at)
+	if target_item == null:
+		return
+	var target_node = target_item.get_metadata(0)
+	var section := _scene_tree.get_drop_section_at_position(_at)  # -1=before, 0=on, +1=after
+	# Resolve new parent + index.
+	var new_parent: Node
+	var new_index: int = -1
+	if target_node == null:
+		# Dropped on the "Scene" root row.
+		new_parent = _scene_root
+	elif section == 0:
+		# Drop ONTO the item → make it a child (append at end).
+		new_parent = target_node
+	else:
+		# Drop BETWEEN — sibling of target_node.
+		new_parent = target_node.get_parent()
+		if new_parent == null:
+			return
+		new_index = target_node.get_index()
+		if section > 0:
+			new_index += 1
+	# Preserve world transform if both are Node2D.
+	var src_was_n2d := src is Node2D
+	var preserved_xform: Transform2D
+	if src_was_n2d:
+		preserved_xform = (src as Node2D).global_transform
+	# Reparent.
+	var old_parent := src.get_parent()
+	if old_parent == new_parent and new_index == src.get_index():
+		return  # no-op
+	if old_parent != null:
+		old_parent.remove_child(src)
+	if new_index >= 0:
+		new_parent.add_child(src)
+		new_parent.move_child(src, min(new_index, new_parent.get_child_count() - 1))
+	else:
+		new_parent.add_child(src)
+	# Restore world transform.
+	if src_was_n2d and new_parent is Node2D:
+		(src as Node2D).global_transform = preserved_xform
+	# Re-uniquify name if a sibling collides.
+	var base_name := str(src.name)
+	if _name_collides(new_parent, src):
+		src.name = _unique_name(base_name, new_parent)
+	_scene_dirty = true
+	_rebuild_scene_tree()
+	if src is CanvasItem:
+		_select_node(src)
+	print("VG 2D Editor: reparented ", base_name, " → ", new_parent.name)
+
+func _name_collides(parent: Node, exclude: Node) -> bool:
+	for child in parent.get_children():
+		if child != exclude and child.name == exclude.name:
+			return true
+	return false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CHANGE TYPE
+# ─────────────────────────────────────────────────────────────────────────────
+const _CHANGE_TYPE_CANDIDATES: Array = [
+	"Node2D", "Sprite2D", "AnimatedSprite2D", "Area2D",
+	"StaticBody2D", "RigidBody2D", "CharacterBody2D",
+	"Camera2D", "Path2D", "PathFollow2D", "Marker2D",
+]
+var _change_type_dialog: AcceptDialog = null
+
+func _on_change_type_pressed() -> void:
+	if not is_instance_valid(_primary_selected):
+		push_warning("VG 2D Editor: select a node first.")
+		return
+	if _primary_selected == _scene_root:
+		push_warning("VG 2D Editor: cannot change type of the scene root.")
+		return
+	if _change_type_dialog:
+		_change_type_dialog.queue_free()
+	_change_type_dialog = AcceptDialog.new()
+	_change_type_dialog.title = "Change Type — " + str(_primary_selected.name) + " (" + _primary_selected.get_class() + ")"
+	_change_type_dialog.size = Vector2i(360, 420)
+	_style_dialog_dark(_change_type_dialog)
+	var list := ItemList.new()
+	list.custom_minimum_size = Vector2(320, 320)
+	list.auto_height = false
+	var current_cls := _primary_selected.get_class()
+	for cls in _CHANGE_TYPE_CANDIDATES:
+		if cls == current_cls:
+			continue
+		list.add_item(cls)
+	_change_type_dialog.add_child(list)
+	_change_type_dialog.get_ok_button().text = "Convert"
+	var target_node: Node = _primary_selected
+	_change_type_dialog.confirmed.connect(func():
+		var sel_ids := list.get_selected_items()
+		if sel_ids.is_empty():
+			return
+		var new_cls := list.get_item_text(sel_ids[0])
+		_apply_change_type(target_node, new_cls)
+		_change_type_dialog.queue_free()
+		_change_type_dialog = null
+	)
+	_change_type_dialog.canceled.connect(func():
+		_change_type_dialog.queue_free()
+		_change_type_dialog = null
+	)
+	add_child(_change_type_dialog)
+	_change_type_dialog.popup_centered()
+
+func _apply_change_type(old_node: Node, new_class: String) -> void:
+	if not ClassDB.class_exists(new_class) or not ClassDB.can_instantiate(new_class):
+		push_warning("VG 2D Editor: cannot instantiate " + new_class)
+		return
+	var new_node = ClassDB.instantiate(new_class)
+	if new_node == null:
+		push_warning("VG 2D Editor: instantiate returned null for " + new_class)
+		return
+	# Copy common Node2D / CanvasItem properties when both sides support them.
+	new_node.name = old_node.name + "_tmp"
+	var copy_props := [
+		"position", "rotation", "scale", "skew",  # Node2D
+		"visible", "modulate", "self_modulate", "z_index", "z_as_relative",  # CanvasItem
+	]
+	for p in copy_props:
+		if p in old_node and p in new_node:
+			new_node.set(p, old_node.get(p))
+	# Re-parent children.
+	var children := old_node.get_children().duplicate()
+	for c in children:
+		old_node.remove_child(c)
+		new_node.add_child(c)
+	# Insert into the same parent at the same index.
+	var parent := old_node.get_parent()
+	var idx := old_node.get_index()
+	var final_name := str(old_node.name)
+	parent.remove_child(old_node)
+	old_node.queue_free()
+	parent.add_child(new_node)
+	parent.move_child(new_node, idx)
+	new_node.name = final_name
+	_scene_dirty = true
+	_rebuild_scene_tree()
+	if new_node is CanvasItem:
+		_select_node(new_node)
+	print("VG 2D Editor: changed type → ", new_class, " (", final_name, ")")
+
+# ─────────────────────────────────────────────────────────────────────────────
 # IMPORT TEXTURE
 # ─────────────────────────────────────────────────────────────────────────────
 func _on_import_texture_pressed() -> void:
@@ -2065,6 +2346,10 @@ func _rebuild_scene_tree() -> void:
 
 	if is_instance_valid(_scene_root):
 		_add_tree_children(_scene_root, root_item)
+
+	# Auto-expand so the user can see children without hunting for the
+	# disclosure triangle in a small pane.
+	root_item.set_collapsed_recursive(false)
 
 func _add_tree_children(parent: Node, tree_item: TreeItem) -> void:
 	for child in parent.get_children():
@@ -2248,6 +2533,9 @@ func _show_tree_context_menu(_screen_pos: Vector2) -> void:
 		{"text": "Delete", "id": 3},
 		{"text": "Toggle Visibility", "id": 4},
 		{"text": "Reset Transform", "id": 5},
+		{"separator": true},
+		{"text": "Instance Child Scene…", "id": 6},
+		{"text": "Change Type…", "id": 7},
 	]
 	_show_dark_popup_menu(items, _on_tree_context_menu_item)
 
@@ -2276,6 +2564,8 @@ func _on_tree_context_menu_item(id: int) -> void:
 		3: _delete_selected()
 		4: _toggle_visibility_selected()
 		5: _reset_transform_selected()
+		6: _on_instance_scene_pressed()
+		7: _on_change_type_pressed()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # UNDO / REDO
@@ -2594,14 +2884,23 @@ func _save_scene() -> void:
 	var temp_root = Node2D.new()
 	temp_root.name = _loaded_scene_path.get_file().get_basename()
 
-	# Duplicate children into temp root
+	# Duplicate children into temp root. Pass DUPLICATE_USE_INSTANTIATION
+	# (flag 8) so any child that was added via PackedScene.instantiate() keeps
+	# its scene_file_path on the duplicate — otherwise PackedScene.pack() below
+	# would flatten the instance and the .tscn would lose its [instance=...]
+	# reference.
+	var dup_flags := 1 | 2 | 4 | 8  # signals|groups|scripts|use_instantiation
 	for child in _scene_root.get_children():
-		var dup = child.duplicate()
+		var dup = child.duplicate(dup_flags)
 		temp_root.add_child(dup)
 		dup.owner = temp_root
 
-	# Recursively set owner for deep children
-	_set_owner_recursive(temp_root, temp_root)
+	# Recursively set owner so deep descendants are packed too. Stop at
+	# instance boundaries: nodes inside an instanced scene must stay owned
+	# by that instance's root or the saver will serialise every internal
+	# child as an "editable override", bloating the scene and breaking the
+	# instance link.
+	_set_owner_for_save(temp_root, temp_root)
 
 	var err = packed.pack(temp_root)
 	temp_root.queue_free()
@@ -2671,6 +2970,15 @@ func _set_owner_recursive(node: Node, owner: Node) -> void:
 	for child in node.get_children():
 		child.owner = owner
 		_set_owner_recursive(child, owner)
+
+func _set_owner_for_save(node: Node, root: Node) -> void:
+	for child in node.get_children():
+		child.owner = root
+		# Do NOT recurse into instances — their internal nodes are owned by
+		# the instance root, not us, and re-owning them would force the
+		# saver to write them as edited overrides.
+		if child.scene_file_path == "":
+			_set_owner_for_save(child, root)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HELP DIALOG

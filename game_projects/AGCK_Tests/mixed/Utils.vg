@@ -1,0 +1,7 @@
+' VisualGasic - Imported from VB6
+' Form: Utils
+' Note: Some manual adjustments may be required
+Option Explicit
+
+Public Sub Hello()
+End Sub

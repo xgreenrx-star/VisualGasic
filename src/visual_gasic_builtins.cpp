@@ -46,6 +46,8 @@
 #include <godot_cpp/classes/audio_stream_player2d.hpp>
 #include <godot_cpp/classes/audio_stream_player3d.hpp>
 #include <godot_cpp/classes/audio_server.hpp>
+#include <godot_cpp/classes/audio_stream_generator.hpp>
+#include <godot_cpp/classes/audio_stream_generator_playback.hpp>
 #include <godot_cpp/classes/remote_transform2d.hpp>
 #include <godot_cpp/classes/remote_transform3d.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
@@ -1405,6 +1407,91 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             int idx = (int)args[0];
             if (idx < 0 || idx >= as->get_bus_count()) return String();
             return String(as->get_bus_name(idx));
+        }
+
+        // ── SoundGen.* — AudioStreamGenerator real-time synthesis ────────────
+        //
+        // SoundGen.Open(mix_rate, buffer_length)  → handle (Long)
+        //   Creates an AudioStreamGenerator + AudioStreamPlayer, starts playing,
+        //   returns the player's ObjectID as a handle.
+        //   mix_rate     : samples/second (e.g. 44100.0)
+        //   buffer_length: ring-buffer length in seconds (e.g. 0.1)
+        //
+        // SoundGen.Close(h)
+        //   Stops and frees the stream player.
+        //
+        // SoundGen.Available(h)  → Integer
+        //   Number of stereo frames that can be pushed without blocking.
+        //   Call each _Process() and push exactly this many frames.
+        //
+        // SoundGen.PushMono(h, sample)
+        //   Pushes one mono sample (Single) as a stereo frame (L=R=sample).
+        //   Call inside a For loop: For i = 0 To SoundGen.Available(h) - 1
+        //
+        // SoundGen.PushStereo(h, left, right)
+        //   Pushes one stereo frame (two Singles).
+
+        auto resolve_gen_playback = [&](const Variant &h) -> AudioStreamGeneratorPlayback* {
+            if (h.get_type() != Variant::INT) return nullptr;
+            int64_t id = (int64_t)h;
+            Object *o = ObjectDB::get_instance(ObjectID((uint64_t)id));
+            AudioStreamPlayer *p = Object::cast_to<AudioStreamPlayer>(o);
+            if (!p) return nullptr;
+            Ref<AudioStreamPlayback> pb = p->get_stream_playback();
+            if (!pb.is_valid()) return nullptr;
+            return Object::cast_to<AudioStreamGeneratorPlayback>(pb.ptr());
+        };
+
+        if (METHOD_IS("soundgen_open") && args.size() >= 2) {
+            r_handled = true;
+            if (!instance || !instance->get_owner()) return Variant();
+            Node *n = Object::cast_to<Node>(instance->get_owner());
+            if (!n) return Variant();
+            float mix_rate = (float)(double)args[0];
+            float buf_len  = (float)(double)args[1];
+            Ref<AudioStreamGenerator> gen;
+            gen.instantiate();
+            gen->set_mix_rate(mix_rate);
+            gen->set_buffer_length(buf_len);
+            AudioStreamPlayer *p = memnew(AudioStreamPlayer);
+            p->set_stream(gen);
+            n->add_child(p);
+            p->play();
+            return (int64_t)(uint64_t)p->get_instance_id();
+        }
+        if (METHOD_IS("soundgen_close") && args.size() == 1) {
+            r_handled = true;
+            if (args[0].get_type() == Variant::INT) {
+                int64_t id = (int64_t)args[0];
+                Object *o = ObjectDB::get_instance(ObjectID((uint64_t)id));
+                AudioStreamPlayer *p = Object::cast_to<AudioStreamPlayer>(o);
+                if (p) { p->stop(); p->queue_free(); }
+            }
+            return Variant();
+        }
+        if (METHOD_IS("soundgen_available") && args.size() == 1) {
+            r_handled = true;
+            AudioStreamGeneratorPlayback *pb = resolve_gen_playback(args[0]);
+            return pb ? (int)pb->get_frames_available() : 0;
+        }
+        if (METHOD_IS("soundgen_pushmono") && args.size() == 2) {
+            r_handled = true;
+            AudioStreamGeneratorPlayback *pb = resolve_gen_playback(args[0]);
+            if (pb) {
+                float s = (float)(double)args[1];
+                pb->push_frame(Vector2(s, s));
+            }
+            return Variant();
+        }
+        if (METHOD_IS("soundgen_pushstereo") && args.size() == 3) {
+            r_handled = true;
+            AudioStreamGeneratorPlayback *pb = resolve_gen_playback(args[0]);
+            if (pb) {
+                float l = (float)(double)args[1];
+                float r = (float)(double)args[2];
+                pb->push_frame(Vector2(l, r));
+            }
+            return Variant();
         }
     }
 
@@ -3271,6 +3358,10 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         if (a.get_type() == Variant::VECTOR3 && b.get_type() == Variant::INT) return Vector3(a) * (double)(int64_t)b;
         if (a.get_type() == Variant::VECTOR2 && b.get_type() == Variant::FLOAT) return Vector2(a) * (double)b;
         if (a.get_type() == Variant::VECTOR2 && b.get_type() == Variant::INT) return Vector2(a) * (double)(int64_t)b;
+        if (a.get_type() == Variant::FLOAT && b.get_type() == Variant::VECTOR3) return Vector3(b) * (double)a;
+        if (a.get_type() == Variant::INT && b.get_type() == Variant::VECTOR3) return Vector3(b) * (double)(int64_t)a;
+        if (a.get_type() == Variant::FLOAT && b.get_type() == Variant::VECTOR2) return Vector2(b) * (double)a;
+        if (a.get_type() == Variant::INT && b.get_type() == Variant::VECTOR2) return Vector2(b) * (double)(int64_t)a;
         return Variant();
     }
     if (METHOD_IS("vdot") && args.size() == 2) {
@@ -6321,6 +6412,65 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
     }
 
     // Err object — VB6 Err.Raise, Err.Clear, Err.Number, Err.Description
+    // ── SoundGen.* — real-time audio generator namespace ────────────────
+    if (p_base_name == "SoundGen") {
+        auto resolve_gen_pb = [&](const Variant &h) -> AudioStreamGeneratorPlayback* {
+            if (h.get_type() != Variant::INT) return nullptr;
+            int64_t id = (int64_t)h;
+            Object *o = ObjectDB::get_instance(ObjectID((uint64_t)id));
+            AudioStreamPlayer *p = Object::cast_to<AudioStreamPlayer>(o);
+            if (!p) return nullptr;
+            Ref<AudioStreamPlayback> pb = p->get_stream_playback();
+            if (!pb.is_valid()) return nullptr;
+            return Object::cast_to<AudioStreamGeneratorPlayback>(pb.ptr());
+        };
+        if (p_method == "Open" && p_args.size() >= 2) {
+            if (!instance || !instance->get_owner()) { r_ret = (int64_t)0; return true; }
+            Node *n = Object::cast_to<Node>(instance->get_owner());
+            if (!n) { r_ret = (int64_t)0; return true; }
+            float mix_rate = (float)(double)p_args[0];
+            float buf_len  = (float)(double)p_args[1];
+            Ref<AudioStreamGenerator> gen;
+            gen.instantiate();
+            gen->set_mix_rate(mix_rate);
+            gen->set_buffer_length(buf_len);
+            AudioStreamPlayer *player = memnew(AudioStreamPlayer);
+            player->set_stream(gen);
+            n->add_child(player);
+            player->play();
+            r_ret = (int64_t)(uint64_t)player->get_instance_id();
+            return true;
+        }
+        if (p_method == "Close" && p_args.size() == 1) {
+            if (p_args[0].get_type() == Variant::INT) {
+                int64_t id = (int64_t)p_args[0];
+                Object *o = ObjectDB::get_instance(ObjectID((uint64_t)id));
+                AudioStreamPlayer *p = Object::cast_to<AudioStreamPlayer>(o);
+                if (p) { p->stop(); p->queue_free(); }
+            }
+            r_ret = Variant();
+            return true;
+        }
+        if (p_method == "Available" && p_args.size() == 1) {
+            AudioStreamGeneratorPlayback *pb = resolve_gen_pb(p_args[0]);
+            r_ret = pb ? (int)pb->get_frames_available() : 0;
+            return true;
+        }
+        if (p_method == "PushMono" && p_args.size() == 2) {
+            AudioStreamGeneratorPlayback *pb = resolve_gen_pb(p_args[0]);
+            if (pb) { float s = (float)(double)p_args[1]; pb->push_frame(Vector2(s, s)); }
+            r_ret = Variant();
+            return true;
+        }
+        if (p_method == "PushStereo" && p_args.size() == 3) {
+            AudioStreamGeneratorPlayback *pb = resolve_gen_pb(p_args[0]);
+            if (pb) { float l = (float)(double)p_args[1]; float r = (float)(double)p_args[2]; pb->push_frame(Vector2(l, r)); }
+            r_ret = Variant();
+            return true;
+        }
+        return false;
+    }
+
     if (p_base_name == "Err") {
         if (p_method == "Raise" || p_method == "raise") {
             int err_num = p_args.size() >= 1 ? (int)p_args[0] : 0;
@@ -6443,7 +6593,13 @@ bool call_builtin_for_base_variant(VisualGasicInstance *instance, const Variant 
     // Handle DICTIONARY-based types
     if (p_base.get_type() == Variant::DICTIONARY) {
         Dictionary d = p_base;
-        
+
+        // ── Builtin namespace sentinel (set by OP_GET_GLOBAL for SoundGen et al.) ──
+        if (d.has("__vg_namespace")) {
+            String ns = String(d["__vg_namespace"]);
+            return call_builtin_for_base_variable(instance, ns, p_method, p_args, r_ret);
+        }
+
         // ── StringBuilder dispatch ──
         if (d.has("__vg_stringbuilder")) {
             if (p_method.nocasecmp_to("Append") == 0 && p_args.size() >= 1) {

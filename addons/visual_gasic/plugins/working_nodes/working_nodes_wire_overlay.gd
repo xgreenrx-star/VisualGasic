@@ -74,7 +74,7 @@ func _draw() -> void:
 
 	for c in visible_connections:
 		var waypoints: PackedVector2Array = c.get("waypoints", PackedVector2Array())
-		if waypoints.size() < 2:
+		if waypoints.is_empty():
 			continue
 		var color:    Color = c.get("color", Color(0.8, 0.8, 0.9, 0.95))
 		var width:    float = c.get("width", 2.0)

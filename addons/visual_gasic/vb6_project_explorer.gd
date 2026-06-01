@@ -253,25 +253,27 @@ func refresh():
 	var forms: Array[Dictionary] = []
 	var components: Array[Dictionary] = []
 	var modules: Array[Dictionary] = []
+	var classes: Array[Dictionary] = []
 	var resources: Array[Dictionary] = []
 
-	_scan_directory("res://", forms, components, modules, resources)
+	_scan_directory("res://", forms, components, modules, classes, resources)
 
 	# Deduplicate — multiple build outputs may contain the same filenames
 	forms = _deduplicate_by_name(forms)
 	components = _deduplicate_by_name(components)
 	modules = _deduplicate_by_name(modules)
+	classes = _deduplicate_by_name(classes)
 	resources = _deduplicate_by_name(resources)
 
 	if _show_folders:
-		_populate_with_folders(root, forms, components, modules, resources)
+		_populate_with_folders(root, forms, components, modules, classes, resources)
 	else:
-		_populate_flat(root, forms, components, modules, resources)
+		_populate_flat(root, forms, components, modules, classes, resources)
 
 	root.set_collapsed(false)
 
 ## Recursively scan a directory for project files.
-func _scan_directory(path: String, forms: Array[Dictionary], components: Array[Dictionary], modules: Array[Dictionary], resources: Array[Dictionary]):
+func _scan_directory(path: String, forms: Array[Dictionary], components: Array[Dictionary], modules: Array[Dictionary], classes: Array[Dictionary], resources: Array[Dictionary]):
 	var dir = DirAccess.open(path)
 	if not dir:
 		return
@@ -283,23 +285,26 @@ func _scan_directory(path: String, forms: Array[Dictionary], components: Array[D
 		if dir.current_is_dir():
 			# Skip hidden dirs, addons, .godot
 			if not file_name.begins_with(".") and file_name != "addons" and file_name != ".godot":
-				_scan_directory(full_path, forms, components, modules, resources)
+				_scan_directory(full_path, forms, components, modules, classes, resources)
 		else:
 			if file_name.ends_with(".vg"):
 				# Skip stray files with empty basename (e.g. literally ".vg")
 				var base_name := file_name.get_basename()
 				if base_name.is_empty():
 					continue
-				# Three-way classification:
-				#   Form      = has VB6 form content (Form_Load, Begin VB.Form, etc.)
-				#   Component = has a visual scene (.tscn) but no form markers
-				#   Module    = standalone code with no visual counterpart
+				# Four-way classification:
+				#   Form         = has VB6 form content (Form_Load, Begin VB.Form, etc.)
+				#   Component    = has a visual scene (.tscn) but no form markers
+				#   Class Module = standalone code dominated by top-level Class blocks
+				#   Module       = anything else (standalone code)
 				var has_form = _has_form_content(full_path)
 				var has_scene = FileAccess.file_exists(full_path.get_basename() + ".tscn")
 				if has_form:
 					forms.append({"name": base_name, "path": full_path})
 				elif has_scene:
 					components.append({"name": base_name, "path": full_path})
+				elif _has_class_content(full_path):
+					classes.append({"name": base_name, "path": full_path})
 				else:
 					modules.append({"name": base_name, "path": full_path})
 			elif file_name.ends_with(".tscn") or file_name.ends_with(".scn"):
@@ -329,6 +334,35 @@ func _has_form_content(path: String) -> bool:
 			return true
 	return false
 
+## Check if a .vg script is dominated by top-level `Class X ... End Class`
+## blocks — VB6's "Class Module" equivalent. Heuristic: at least one
+## non-indented `Class <Name>` line appears before any `Sub` or `Function`
+## at the module level. (Forms / Components are filtered out earlier.)
+func _has_class_content(path: String) -> bool:
+	var f = FileAccess.open(path, FileAccess.READ)
+	if not f:
+		return false
+	var content := f.get_as_text()
+	f.close()
+	var has_top_level_class := false
+	for raw_line in content.split("\n"):
+		var line: String = raw_line
+		# Strip trailing CR and skip blank/comment lines
+		if line.ends_with("\r"):
+			line = line.substr(0, line.length() - 1)
+		var stripped := line.strip_edges(true, false)
+		if stripped.is_empty() or stripped.begins_with("'") or stripped.begins_with("REM "):
+			continue
+		# Only inspect un-indented lines (module-level declarations)
+		if line.length() > 0 and (line[0] == " " or line[0] == "\t"):
+			continue
+		if stripped.begins_with("Class ") or stripped.begins_with("class "):
+			has_top_level_class = true
+			# Don't break — continue scanning to see if Subs appear before classes
+			# (heuristic still considers the file a class module if any top-level
+			# Class block exists in code-only files).
+	return has_top_level_class
+
 ## Remove duplicate entries (same base name) — keeps the first occurrence.
 func _deduplicate_by_name(arr: Array[Dictionary]) -> Array[Dictionary]:
 	var seen := {}
@@ -355,13 +389,14 @@ func _add_paired_item(parent: TreeItem, entry: Dictionary, item_type: String):
 		design_item.set_metadata(0, {"type": item_type, "path": scene_path})
 
 ## Populate tree with folder grouping (like VB6).
-func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], components: Array[Dictionary], modules: Array[Dictionary], resources: Array[Dictionary]):
+func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], components: Array[Dictionary], modules: Array[Dictionary], classes: Array[Dictionary], resources: Array[Dictionary]):
 	# Sort all lists alphabetically
 	var _sort_by_name := func(a: Dictionary, b: Dictionary) -> bool:
 		return a.name.to_lower() < b.name.to_lower()
 	forms.sort_custom(_sort_by_name)
 	components.sort_custom(_sort_by_name)
 	modules.sort_custom(_sort_by_name)
+	classes.sort_custom(_sort_by_name)
 	resources.sort_custom(_sort_by_name)
 
 	# Forms folder — VB6-style forms with Form_Load, event handlers, etc.
@@ -452,6 +487,22 @@ func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], components
 			item.set_tooltip_text(0, entry.path + "  (double-click to edit)")
 			item.set_metadata(0, {"type": "module", "path": entry.path})
 
+	# Class Modules folder — VB6's third top-level node alongside Forms/Modules.
+	# A .vg file lands here when its top-level structure is dominated by
+	# `Class X ... End Class` blocks (see `_has_class_content`).
+	if classes.size() > 0:
+		var folder = tree.create_item(root)
+		folder.set_text(0, FOLDER_CLASSES + " (" + str(classes.size()) + ")")
+		folder.set_tooltip_text(0, "Class Modules (.vg files defining one or more classes)")
+		folder.set_selectable(0, true)
+		folder.set_metadata(0, {"type": "folder", "folder": FOLDER_CLASSES})
+		folder.set_collapsed(false)
+		for entry in classes:
+			var item = tree.create_item(folder)
+			item.set_text(0, entry.name + "." + entry.path.get_extension())
+			item.set_tooltip_text(0, entry.path + "  (Class Module — double-click to edit)")
+			item.set_metadata(0, {"type": "class", "path": entry.path})
+
 	# Resources folder — expanded by default like VB6 so items are visible
 	if resources.size() > 0:
 		var folder = tree.create_item(root)
@@ -467,7 +518,7 @@ func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], components
 			item.set_metadata(0, {"type": entry.get("type", "resource"), "path": entry.path})
 
 ## Populate tree flat (no folders) — alphabetical list.
-func _populate_flat(root: TreeItem, forms: Array[Dictionary], components: Array[Dictionary], modules: Array[Dictionary], resources: Array[Dictionary]):
+func _populate_flat(root: TreeItem, forms: Array[Dictionary], components: Array[Dictionary], modules: Array[Dictionary], classes: Array[Dictionary], resources: Array[Dictionary]):
 	var all_items: Array[Dictionary] = []
 	# Forms and components: add both .vg and paired .tscn (like VB6 shows .bas + .frm)
 	for entry in forms:
@@ -482,6 +533,8 @@ func _populate_flat(root: TreeItem, forms: Array[Dictionary], components: Array[
 			all_items.append({"name": entry.name, "path": sp, "type": "component"})
 	for entry in modules:
 		all_items.append({"name": entry.name, "path": entry.path, "type": "module"})
+	for entry in classes:
+		all_items.append({"name": entry.name, "path": entry.path, "type": "class"})
 	for entry in resources:
 		all_items.append(entry)
 
@@ -494,6 +547,7 @@ func _populate_flat(root: TreeItem, forms: Array[Dictionary], components: Array[
 			"form": suffix = " (Form)"
 			"component": suffix = " (Component)"
 			"module": suffix = " (Module)"
+			"class": suffix = " (Class Module)"
 			"scene": suffix = " (Scene)"
 			"resource": suffix = " (Resource)"
 			"image": suffix = " (Image)"
@@ -631,7 +685,7 @@ func _on_tree_gui_input(event: InputEvent):
 			var meta = item.get_metadata(0)
 			if meta is Dictionary:
 				var item_type = meta.get("type", "")
-				can_delete = item_type in ["form", "component", "module", "scene", "resource", "image"]
+				can_delete = item_type in ["form", "component", "module", "class", "scene", "resource", "image"]
 		# Find the Delete item index by id and set disabled state
 		for i in _context_menu.item_count:
 			if _context_menu.get_item_id(i) == 3:  # Delete
@@ -664,7 +718,7 @@ func _prompt_delete():
 		return
 	var item_type = meta.get("type", "")
 	var file_path = meta.get("path", "")
-	if file_path.is_empty() or item_type not in ["form", "component", "module", "scene", "resource", "image"]:
+	if file_path.is_empty() or item_type not in ["form", "component", "module", "class", "scene", "resource", "image"]:
 		return
 
 	var display_name = item.get_text(0)

@@ -328,6 +328,136 @@ The plugin will be discovered automatically when Godot loads the editor.
 
 ---
 
+## GDAI / AI Provider Integration
+
+VisualGasic includes a reusable AI integration layer under `addons/visual_gasic/gdai.gd`.
+This singleton exposes a normalized provider abstraction, project settings persistence,
+and a small provider registry so plugins and IDE features can all call the same AI API.
+
+### Core `GDAI` API
+
+The singleton is designed for plugin and tool authors who want to consume or extend
+VisualGasic's AI assistant support.
+
+- `GDAI.initialize(config: Dictionary)`
+  - Validates the configuration and instantiates the configured provider.
+- `GDAI.initialize_from_project_settings()`
+  - Loads saved project settings from `vg/gdai/*` and initializes the provider.
+- `GDAI.save_project_settings(config: Dictionary)`
+  - Writes `vg/gdai/*` settings back into `ProjectSettings`.
+- `GDAI.is_enabled()`
+  - Returns `true` when AI is enabled and a provider is ready.
+- `GDAI.complete(prompt: String, options: Dictionary = {})`
+  - Async completion API.
+- `GDAI.chat(messages: Array, options: Dictionary = {})`
+  - Async chat-style interaction API.
+- `GDAI.embed(text: String, options: Dictionary = {})`
+  - Async embedding API.
+- `GDAI.generate_image(prompt: String, options: Dictionary = {})`
+  - Async image generation API.
+- `GDAI.register_provider(provider_id: String, script_path: String, metadata: Dictionary = {})`
+  - Registers a custom provider implementation.
+- `GDAI.supported_providers()`
+  - Returns the list of registered provider IDs.
+- `GDAI.get_provider_info(provider_id: String)`
+  - Returns metadata for a provider.
+- `GDAI.get_last_error()` / `GDAI.has_error()`
+  - Read the last validation or provider error.
+
+### Provider contract
+
+Custom providers should extend `res://addons/visual_gasic/gdai_provider.gd` and
+implement the provider interface:
+
+```gdscript
+@tool
+extends "res://addons/visual_gasic/gdai_provider.gd"
+
+func initialize(config: Dictionary) -> void:
+    pass
+
+func complete(prompt: String, options: Dictionary = {}) -> String:
+    return ""
+
+func chat(messages: Array, options: Dictionary = {}) -> String:
+    return ""
+
+func embed(text: String, options: Dictionary = {}) -> Array:
+    return []
+
+func generate_image(prompt: String, options: Dictionary = {}) -> Dictionary:
+    return {}
+```
+
+### Built-in providers
+
+The default registry includes two providers:
+
+- `openai` — hosted OpenAI-compatible API endpoint.
+- `local` — local OpenAI-compatible endpoint for private/offline deployments.
+
+### Project settings
+
+The AI integration stores configuration under `vg/gdai/`.
+The supported keys are:
+
+- `enabled`
+- `provider`
+- `api_key`
+- `endpoint`
+- `model`
+- `embedding_model`
+- `temperature`
+- `max_tokens`
+- `top_p`
+- `n`
+- `timeout_ms`
+
+Use `GDAI.initialize_from_project_settings()` during plugin startup to read the
+current project configuration, or call `GDAI.load_project_settings()` directly.
+A dedicated **Project Properties → GDAI** tab is also available in the IDE.
+
+### Registering a custom provider
+
+```gdscript
+GDAI.register_provider("my_local", "res://addons/visual_gasic/gdai_my_local_provider.gd", {
+    "display_name": "My Local LLM",
+    "description": "Local OpenAI-compatible provider",
+    "requires_api_key": false,
+    "default_endpoint": "http://127.0.0.1:8000/v1",
+    "default_model": "gpt-4o-mini",
+    "help_url": ""
+})
+```
+
+Then initialize the integration with your provider:
+
+```gdscript
+GDAI.initialize({
+    "enabled": true,
+    "provider": "my_local",
+    "endpoint": "http://127.0.0.1:8000/v1",
+    "model": "gpt-4o-mini",
+})
+```
+
+Provider IDs are case-insensitive.
+
+### Plugin capabilities
+
+If your plugin exposes AI-related features, declare them in `plugin.cfg`:
+
+```ini
+[capabilities]
+provides = ["ai.assistant", "ai.prompt"]
+handles_extensions = []
+priority = 5
+```
+
+This makes it easy for the host and other plugins to discover and route AI helpers.
+
+---
+
 ## Complete Example: AGCK
 
 The **Arcade Game Construction Kit** is the reference implementation for the plugin system.  It demonstrates how to build a complex, multi-tab plugin with five sub-editors.

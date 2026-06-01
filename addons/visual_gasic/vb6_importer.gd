@@ -462,6 +462,7 @@ static func import_project(path: String) -> Dictionary:
 		"success": false,
 		"forms": [],
 		"modules": [],
+		"classes": [],
 		"errors": [],
 		"warnings": []
 	}
@@ -568,14 +569,15 @@ static func import_project(path: String) -> Dictionary:
 		print("VB6 Importer: Importing Class: ", cls_path)
 		var cls_result = import_class(cls_path)
 		if cls_result.success:
-			result.modules.append(cls_result)
+			result.classes.append(cls_result)
 		else:
 			result.errors.append_array(cls_result.errors)
 	
 	result.success = result.errors.size() == 0
 	print("VB6 Importer: Project Import Complete. ", 
 		  result.forms.size(), " forms, ", 
-		  result.modules.size(), " modules imported.")
+		  result.modules.size(), " modules, ",
+		  result.classes.size(), " classes imported.")
 	
 	return result
 
@@ -845,9 +847,13 @@ static func _parse_form_content(file: FileAccess, root: Control) -> Dictionary:
 					result.control_arrays[current_control_name] = []
 				result.control_arrays[current_control_name].append(current_control_index)
 				
-				# Rename control to include index
+				# Rename control to include index (Godot needs unique sibling names)
+				# but preserve the VB6 logical base name + array index as metadata so
+				# the runtime can route <BaseName>_<Event>(Index, ...) handlers.
 				if current_parent:
 					current_parent.name = current_control_name + "_" + str(current_control_index)
+					current_parent.set_meta("vb6_base_name", current_control_name)
+					current_parent.set_meta("vb6_control_array_index", current_control_index)
 			
 			current_control_name = ""
 			current_control_index = -1
@@ -2712,6 +2718,7 @@ static func generate_import_report(project_result: Dictionary) -> String:
 	report += "-" .repeat(40) + "\n"
 	report += "Forms Imported:   %d\n" % project_result.get("forms", []).size()
 	report += "Modules Imported: %d\n" % project_result.get("modules", []).size()
+	report += "Classes Imported: %d\n" % project_result.get("classes", []).size()
 	report += "Errors:           %d\n" % project_result.get("errors", []).size()
 	report += "Warnings:         %d\n" % project_result.get("warnings", []).size()
 	report += "\n"
@@ -2743,6 +2750,16 @@ static func generate_import_report(project_result: Dictionary) -> String:
 		for mod in modules:
 			report += "  [OK] %s\n" % mod.get("name", "Unknown")
 			report += "       Path: %s\n" % mod.get("path", "N/A")
+		report += "\n"
+
+	# Classes
+	var classes = project_result.get("classes", [])
+	if classes.size() > 0:
+		report += "IMPORTED CLASS MODULES\n"
+		report += "-" .repeat(40) + "\n"
+		for cls in classes:
+			report += "  [OK] %s\n" % cls.get("name", "Unknown")
+			report += "       Path: %s\n" % cls.get("path", "N/A")
 		report += "\n"
 	
 	# Errors

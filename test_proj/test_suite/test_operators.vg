@@ -25,7 +25,21 @@ Sub _Ready()
 	Else
 		Print "FAIL: multiplication"
 	End If
-	
+
+	' --- Vector2 scalar multiplication ---
+	If Vector2(3, 4) * 2 = Vector2(6, 8) Then
+		Print "PASS: vector2_scalar_mul"
+	Else
+		Print "FAIL: vector2_scalar_mul"
+	End If
+
+	' --- Scalar Vector2 multiplication ---
+	If 2 * Vector2(3, 4) = Vector2(6, 8) Then
+		Print "PASS: scalar_vector2_mul"
+	Else
+		Print "FAIL: scalar_vector2_mul"
+	End If
+
 	' --- Division ---
 	Dim d As Double = 10.0 / 3.0
 	If d > 3.33 And d < 3.34 Then

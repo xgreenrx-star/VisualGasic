@@ -54,6 +54,11 @@ private:
     // Special built-in sub names that should never be flagged as unused
     bool is_builtin_sub(const String& name) const;
 
+    // VB6 control-event convention: <CtrlName>_<EventName> (e.g. Command1_Click,
+    // Text1_KeyPress). These have implicit signatures and may legitimately have
+    // unused params (esp. the Index arg of control-array members).
+    bool is_vb6_event_handler(const String& lower_name) const;
+
     // Phase 1: Collect all definitions
     void collect_definitions(const ModuleNode* root);
 

@@ -158,6 +158,7 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Async");
     keywords.push_back("Await");
     keywords.push_back("Task");
+    keywords.push_back("Thread");   // alias for Task (Thread.Run / End Thread)
     keywords.push_back("Parallel");
     keywords.push_back("Lock");
     keywords.push_back("Unlock");

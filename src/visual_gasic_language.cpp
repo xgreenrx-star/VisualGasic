@@ -411,6 +411,7 @@ PackedStringArray VisualGasicLanguage::_get_reserved_words() const {
     words.push_back("Async");
     words.push_back("Await");
     words.push_back("Task");
+    words.push_back("Thread");
     words.push_back("Parallel");
     words.push_back("Of");
     words.push_back("Where");
@@ -652,7 +653,8 @@ void VisualGasicLanguage::_add_control_properties_to_completion(const String& co
     add_opt("FontStrikethrough", M, "Strikethrough font (Boolean)");
     add_opt("BorderStyle", M, "Border style (0=None, 1=Solid)");
     add_opt("Opacity", M, "Opacity 0-100");
-    add_opt("ZOrder", M, "Z-index / draw order");
+    add_opt("ZOrder", M, "Z-index / draw order (alias: ZIndex)");
+    add_opt("ZIndex", M, "Z-index / draw order (alias: ZOrder)");
     add_opt("Rotation", M, "Rotation in degrees");
     add_opt("hWnd", M, "Instance ID / handle");
     add_opt("BackStyle", M, "0=Transparent, 1=Opaque");

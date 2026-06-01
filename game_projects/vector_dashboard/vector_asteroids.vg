@@ -1,0 +1,727 @@
+' Vector Asteroids — vector graphics showcase
+Option Explicit
+
+Dim vg As Object
+Dim canvas_background As Object
+Dim canvas_game As Object
+Dim canvas_ui As Object
+
+Dim ship_position As Vector2
+Dim ship_velocity As Vector2
+Dim ship_angle As Single
+Dim ship_thrusting As Boolean
+Dim ship_shield As Single
+Dim ship_lives As Integer
+Dim ship_invulnerable As Single
+
+Const PI As Single = 3.14159265
+Const ScreenSize As Vector2 = Vector2(960, 600)
+Const MaxBullets As Integer = 12
+Const MaxAsteroids As Integer = 14
+Const BeepSoundPath As String = "res://sounds/explosion.wav"
+
+Dim bullet_x(MaxBullets - 1) As Single
+Dim bullet_y(MaxBullets - 1) As Single
+Dim bullet_vel_x(MaxBullets - 1) As Single
+Dim bullet_vel_y(MaxBullets - 1) As Single
+Dim bullet_life(MaxBullets - 1) As Single
+
+Dim asteroid_x(MaxAsteroids - 1) As Single
+Dim asteroid_y(MaxAsteroids - 1) As Single
+Dim asteroid_vel_x(MaxAsteroids - 1) As Single
+Dim asteroid_vel_y(MaxAsteroids - 1) As Single
+Dim asteroid_size(MaxAsteroids - 1) As Integer
+Dim asteroid_angle(MaxAsteroids - 1) As Single
+Dim asteroid_rot(MaxAsteroids - 1) As Single
+
+Dim cube_rotation As Vector3
+Dim cube_spin As Vector3
+Dim cube_shake As Single
+Dim cube_hit_timer As Single
+Dim fullscreen_attempts As Integer
+
+Dim score As Integer
+Dim level As Integer
+Dim shoot_cooldown As Single
+Dim game_over As Boolean
+
+Sub _Ready()
+	Print("ASTEROIDS _Ready")
+	If vg = Null Then
+		Set vg = Load("res://addons/visual_gasic/plugins/vector_graphics/vg_vector_api.gd")
+	End If
+	If vg <> Null And vg.has_method("Get") Then
+		Set vg = vg.Get()
+	End If
+
+	Set canvas_background = vg.CreateVectorCanvas()
+	Set canvas_game = vg.CreateVectorCanvas()
+	Set canvas_ui = vg.CreateVectorCanvas()
+
+	AddChild(canvas_background)
+	AddChild(canvas_game)
+	AddChild(canvas_ui)
+
+	If DisplayServer.get_name() <> "headless" Then
+		Call _ApplyFullscreen()
+		Call call_deferred("_ApplyFullscreen")
+	End If
+
+	Randomize()
+	fullscreen_attempts = 0
+	Call _InitGame()
+	Call _DrawBackground()
+
+	Call _ApplyFullscreen()
+	Set_Process(True)
+End Sub
+
+Sub _ApplyFullscreen()
+	If DisplayServer.get_name() = "headless" Then
+		Return
+	End If
+
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	If DisplayServer.window_get_mode() <> DisplayServer.WINDOW_MODE_FULLSCREEN Then
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN_BORDERLESS)
+	End If
+End Sub
+
+Sub _InitGame()
+	score = 0
+	level = 1
+	ship_position = Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.5)
+	ship_velocity = Vector2(0, 0)
+	ship_angle = - 1.0 * PI * 0.5
+	ship_thrusting = False
+	ship_shield = 1.0
+	ship_lives = 3
+	ship_invulnerable = 0.0
+	shoot_cooldown = 0.0
+	game_over = False
+	cube_rotation = Vector3(14.0, 22.0, 8.0)
+	cube_spin = Vector3(0, 0, 0)
+	cube_shake = 0.0
+	cube_hit_timer = 0.0
+
+	For i = 0 To MaxBullets - 1
+		bullet_x(i) = 0.0
+		bullet_y(i) = 0.0
+		bullet_vel_x(i) = 0.0
+		bullet_vel_y(i) = 0.0
+		bullet_life(i) = 0.0
+	Next
+
+	For i = 0 To MaxAsteroids - 1
+		asteroid_x(i) = 0.0
+		asteroid_y(i) = 0.0
+		asteroid_vel_x(i) = 0.0
+		asteroid_vel_y(i) = 0.0
+		asteroid_size(i) = 0
+		asteroid_angle(i) = 0.0
+		asteroid_rot(i) = 0.0
+	Next
+
+	Call _SpawnAsteroids(5 + level)
+End Sub
+
+Sub _DrawBackground()
+	If canvas_background = Null Then Exit Sub
+
+	Call vg.Clear(canvas_background)
+	Call vg.DrawRect(canvas_background, Rect2(0, 0, ScreenSize.x, ScreenSize.y), 0.0, Color8(10, 16, 32), True, Color8(6, 12, 24))
+
+	Dim i As Integer
+	For i = 0 To 120
+		Dim star As Vector2
+		star = Vector2(Rnd() * ScreenSize.x, Rnd() * ScreenSize.y)
+		Dim starSize As Single
+		starSize = (Rnd() * 2.0) + 0.8
+		Call vg.DrawCircle(canvas_background, star, starSize, Color8(180, 220, 255, 210), True, Color8(180, 220, 255, 24))
+	Next
+
+	Call _DrawArcStroke(canvas_background, Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.5), 320.0, - 1.0 * PI * 0.7, - 1.0 * PI * 0.3, 72, 5.0, Color8(50, 120, 220, 80))
+	Call _DrawArcStroke(canvas_background, Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.5), 320.0, 2.0, 2.5, 72, 3.0, Color8(90, 190, 255, 60))
+	Call _DrawArcStroke(canvas_background, Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.5), 260.0, 0.5, 1.0, 52, 2.0, Color8(120, 220, 255, 40))
+	Call vg.DrawTextCentered(canvas_background, Vector2(ScreenSize.x * 0.5, 40), "Vector Asteroids", Color8(210, 245, 255), Null)
+	Call vg.DrawTextCentered(canvas_background, Vector2(ScreenSize.x * 0.5, 68), "Built with VisualGasic vector rendering", Color8(160, 190, 220), Null)
+	Call vg.Render(canvas_background)
+End Sub
+
+Sub _Process(delta As Single)
+	If canvas_game = Null Or canvas_ui = Null Then Exit Sub
+
+	If shoot_cooldown > 0 Then
+		shoot_cooldown = shoot_cooldown - delta
+	End If
+
+	If ship_invulnerable > 0 Then
+		ship_invulnerable = ship_invulnerable - delta
+	End If
+
+	If Input.IsKeyPressed(KEY_ESCAPE) Then
+		get_tree().quit()
+	End If
+
+	If game_over Then
+		If Input.IsKeyPressed(KEY_SPACE) Or Input.IsActionJustPressed("ui_accept") Then
+			Call _InitGame()
+			Call _DrawBackground()
+		End If
+		Call _RenderFrame()
+		Exit Sub
+	End If
+
+	ship_thrusting = False
+	If Input.IsKeyPressed(KEY_LEFT) Then
+		ship_angle = ship_angle - 3.5 * delta
+	End If
+	If Input.IsKeyPressed(KEY_RIGHT) Then
+		ship_angle = ship_angle + 3.5 * delta
+	End If
+	If Input.IsKeyPressed(KEY_UP) And ship_shield > 0 Then
+		ship_velocity = ship_velocity + Vector2(Cos(ship_angle), Sin(ship_angle)) * (230.0 * delta)
+		ship_thrusting = True
+		ship_shield = ship_shield - 0.32 * delta
+		If ship_shield < 0 Then ship_shield = 0
+	End If
+
+	If (Input.IsKeyPressed(KEY_SPACE) Or Input.IsActionJustPressed("ui_accept")) And shoot_cooldown <= 0 Then
+		Call _FireBullet()
+		shoot_cooldown = 0.18
+	End If
+
+	ship_velocity = ship_velocity * 0.996
+	Dim speed As Single
+	speed = Sqr(ship_velocity.x * ship_velocity.x + ship_velocity.y * ship_velocity.y)
+	If speed > 520 Then
+		ship_velocity = ship_velocity * (520.0 / speed)
+	End If
+
+	ship_position = ship_position + ship_velocity * delta
+	Call _WrapPosition(ship_position)
+
+	Dim i As Integer
+	For i = 0 To MaxAsteroids - 1
+		If asteroid_size(i) > 0 Then
+			Dim asteroid_pos As Vector2
+			asteroid_pos = Vector2(asteroid_x(i), asteroid_y(i))
+			Dim vel As Vector2
+			vel = Vector2(asteroid_vel_x(i), asteroid_vel_y(i))
+			asteroid_pos = asteroid_pos + vel * delta
+			asteroid_angle(i) = asteroid_angle(i) + asteroid_rot(i) * delta
+			Call _WrapPosition(asteroid_pos)
+			asteroid_x(i) = asteroid_pos.x
+			asteroid_y(i) = asteroid_pos.y
+		End If
+	Next
+
+	Call _ResolveAsteroidCollisions()
+
+	For i = 0 To MaxBullets - 1
+		If bullet_life(i) > 0 Then
+			bullet_life(i) = bullet_life(i) - delta
+			If bullet_life(i) <= 0 Then
+				bullet_life(i) = 0
+			Else
+				Dim pos As Vector2
+				pos = Vector2(bullet_x(i), bullet_y(i))
+				pos = pos + Vector2(bullet_vel_x(i), bullet_vel_y(i)) * delta
+				Call _WrapPosition(pos)
+				bullet_x(i) = pos.x
+				bullet_y(i) = pos.y
+				Dim j As Integer
+							For j = 0 To MaxAsteroids - 1
+								If asteroid_size(j) > 0 Then
+									Dim dist As Single
+									dist = Sqr((pos.x - asteroid_x(j)) * (pos.x - asteroid_x(j)) + (pos.y - asteroid_y(j)) * (pos.y - asteroid_y(j)))
+									Dim hit_radius As Single
+									hit_radius = asteroid_size(j) * 16.0 + 24.0
+									If dist < hit_radius Then
+										Call _DestroyAsteroid(j)
+										bullet_life(i) = 0
+										Exit For
+									End If
+								End If
+							Next
+			End If
+		End If
+	Next
+
+	If ship_invulnerable <= 0 Then
+		For i = 0 To MaxAsteroids - 1
+			If asteroid_size(i) > 0 Then
+				Dim dx As Single
+				dx = ship_position.x - asteroid_x(i)
+				Dim dy As Single
+				dy = ship_position.y - asteroid_y(i)
+				Dim dist2 As Single
+				dist2 = dx * dx + dy * dy
+				Dim hit_radius As Single
+				hit_radius = asteroid_size(i) * 16.0 + 24.0
+				If dist2 < hit_radius * hit_radius Then
+					Call _HitShip()
+					Exit For
+				End If
+			End If
+		Next
+	End If
+
+	If _AsteroidsRemaining() = 0 Then
+		level = level + 1
+		Call _SpawnAsteroids(5 + level)
+		score = score + 250
+	End If
+
+	If ship_shield < 1.0 Then
+		ship_shield = ship_shield + 0.08 * delta
+		If ship_shield > 1.0 Then ship_shield = 1.0
+	End If
+
+	cube_rotation.x = cube_rotation.x + (12.0 + cube_spin.x) * delta
+	cube_rotation.y = cube_rotation.y + (16.0 + cube_spin.y) * delta
+	cube_rotation.z = cube_rotation.z + (9.0 + cube_spin.z) * delta
+	cube_spin = cube_spin * 0.92
+	If Abs(cube_spin.x) < 0.05 Then cube_spin.x = 0.0
+	If Abs(cube_spin.y) < 0.05 Then cube_spin.y = 0.0
+	If Abs(cube_spin.z) < 0.05 Then cube_spin.z = 0.0
+	cube_shake = cube_shake * 0.80
+	If cube_shake < 0.01 Then cube_shake = 0.0
+	If cube_hit_timer > 0 Then
+		cube_hit_timer = cube_hit_timer - delta
+		If cube_hit_timer < 0 Then cube_hit_timer = 0
+	End If
+
+	If fullscreen_attempts < 16 And DisplayServer.window_get_mode() <> DisplayServer.WINDOW_MODE_FULLSCREEN And DisplayServer.window_get_mode() <> DisplayServer.WINDOW_MODE_FULLSCREEN_BORDERLESS Then
+		fullscreen_attempts = fullscreen_attempts + 1
+		Call _ApplyFullscreen()
+	End If
+
+	Call _RenderFrame()
+End Sub
+
+Sub _RenderFrame()
+	Call vg.Clear(canvas_game)
+	Call vg.Clear(canvas_ui)
+
+	Call _DrawCubeDemo(canvas_game)
+
+If game_over Then
+		Call vg.DrawTextCentered(canvas_game, Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.5), "GAME OVER", Color8(240, 150, 180), Null)
+		Call vg.DrawTextCentered(canvas_game, Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.5) + Vector2(0, 30), "Press Space to restart", Color8(180, 200, 240), Null)
+	Else
+		Call _DrawAsteroids(canvas_game)
+		Call _DrawShip(canvas_game)
+		Call _DrawBullets(canvas_game)
+	End If
+
+	Call vg.DrawText(canvas_ui, Vector2(24, 24), "Score: " & CStr(score) & " Level: " & CStr(level) & " Lives: " & CStr(ship_lives), Color8(200, 230, 255), Null)
+	Call vg.DrawTextRightAligned(canvas_ui, Vector2(ScreenSize.x - 24, 24), "Arrows = turn/thrust, Space = fire, Esc = exit", Color8(170, 210, 240), Null)
+	Call vg.DrawRoundedRect(canvas_ui, Rect2(ScreenSize.x - 246, 24, 228, 120), 16.0, 2.0, Color8(80, 120, 160, 200), True, Color8(10, 16, 32, 220))
+	Call vg.DrawText(canvas_ui, Vector2(ScreenSize.x - 232, 50), "Lives: " & CStr(ship_lives), Color8(205, 225, 255), Null)
+	Dim status_text As String
+	Dim window_mode As Integer
+	window_mode = DisplayServer.window_get_mode()
+	If window_mode = DisplayServer.WINDOW_MODE_FULLSCREEN Or window_mode = DisplayServer.WINDOW_MODE_FULLSCREEN_BORDERLESS Then
+		status_text = "Fullscreen"
+	Else
+		status_text = "Windowed"
+	End If
+	Call vg.DrawText(canvas_ui, Vector2(ScreenSize.x - 232, 74), status_text, Color8(180, 220, 245), Null)
+	Call vg.DrawText(canvas_ui, Vector2(ScreenSize.x - 232, 98), "Esc = exit", Color8(160, 190, 220), Null)
+
+	Call vg.Render(canvas_game)
+	Call vg.Render(canvas_ui)
+End Sub
+
+Sub _DrawShip(canvas As Object)
+	Call vg.BeginGroup(canvas, "ship")
+	' Bind the ship's initial position literal to the overlay so "->src" can rewrite it.
+	Call vg.TagSource(canvas, "ship", "translate", "vector_asteroids.vg", 93, "Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.5)")
+	Dim half As Single
+	half = 18.0
+	Dim front As Vector2
+	front = ship_position + Vector2(Cos(ship_angle) * half, Sin(ship_angle) * half)
+	Dim left As Vector2
+	left = ship_position + Vector2(Cos(ship_angle + 2.4) * (half * 0.82), Sin(ship_angle + 2.4) * (half * 0.82))
+	Dim right As Vector2
+	right = ship_position + Vector2(Cos(ship_angle - 2.4) * (half * 0.82), Sin(ship_angle - 2.4) * (half * 0.82))
+	Call vg.DrawLine(canvas, front, right, 3.0, Color8(220, 245, 255))
+	Call vg.DrawLine(canvas, right, left, 3.0, Color8(220, 245, 255))
+	Call vg.DrawLine(canvas, left, front, 3.0, Color8(220, 245, 255))
+	If ship_thrusting Then
+		Dim flame As Vector2
+		flame = ship_position - Vector2(Cos(ship_angle) * 14.0, Sin(ship_angle) * 14.0)
+		Call vg.DrawLine(canvas, left, flame, 2.0, Color8(255, 180, 100))
+		Call vg.DrawLine(canvas, right, flame, 2.0, Color8(255, 180, 100))
+	End If
+	Call vg.EndGroup(canvas)
+End Sub
+
+Sub _DrawAsteroids(canvas As Object)
+	Dim i As Integer
+	For i = 0 To MaxAsteroids - 1
+		If asteroid_size(i) > 0 Then
+			Call vg.BeginGroup(canvas, "asteroid_" & i)
+			Dim scale As Single
+			scale = asteroid_size(i) * 0.8 + 2.0
+			Dim base0 As Vector2
+			Dim base1 As Vector2
+			Dim base2 As Vector2
+			Dim base3 As Vector2
+			Dim base4 As Vector2
+			Dim base5 As Vector2
+			Dim base6 As Vector2
+			Dim base7 As Vector2
+			base0 = Vector2(10.0 * scale, 3.0 * scale)
+			base1 = Vector2(5.0 * scale, - 11.0 * scale)
+			base2 = Vector2(- 4.0 * scale, - 14.0 * scale)
+			base3 = Vector2(- 14.0 * scale, - 6.0 * scale)
+			base4 = Vector2(- 12.0 * scale, 10.0 * scale)
+			base5 = Vector2(- 8.0 * scale, 16.0 * scale)
+			base6 = Vector2(8.0 * scale, 12.0 * scale)
+			base7 = Vector2(16.0 * scale, 8.0 * scale)
+			Dim asteroid_pos As Vector2
+			asteroid_pos = Vector2(asteroid_x(i), asteroid_y(i))
+			Dim p0 As Vector2
+			Dim p1 As Vector2
+			Dim p2 As Vector2
+			Dim p3 As Vector2
+			Dim p4 As Vector2
+			Dim p5 As Vector2
+			Dim p6 As Vector2
+			Dim p7 As Vector2
+			p0 = asteroid_pos + _RotateVec2(base0, asteroid_angle(i))
+			p1 = asteroid_pos + _RotateVec2(base1, asteroid_angle(i))
+			p2 = asteroid_pos + _RotateVec2(base2, asteroid_angle(i))
+			p3 = asteroid_pos + _RotateVec2(base3, asteroid_angle(i))
+			p4 = asteroid_pos + _RotateVec2(base4, asteroid_angle(i))
+			p5 = asteroid_pos + _RotateVec2(base5, asteroid_angle(i))
+			p6 = asteroid_pos + _RotateVec2(base6, asteroid_angle(i))
+			p7 = asteroid_pos + _RotateVec2(base7, asteroid_angle(i))
+			Dim poly_points As Object
+			poly_points = Array(p0, p1, p2, p3, p4, p5, p6, p7)
+			Call vg.DrawPolygon(canvas, poly_points, 0.0, Color8(255, 255, 255), True, Color8(120, 180, 240, 60))
+			Call vg.DrawPolyline(canvas, poly_points, 6.0, Color8(255, 255, 255), False, Color8(0, 0, 0, 0), True)
+			Call vg.EndGroup(canvas)
+		End If
+	Next
+End Sub
+
+Sub _DrawBullets(canvas As Object)
+	Dim i As Integer
+	For i = 0 To MaxBullets - 1
+		If bullet_life(i) > 0 Then
+			Dim bullet_pos As Vector2
+			Dim dir As Vector2
+			bullet_pos = Vector2(bullet_x(i), bullet_y(i))
+			Dim speed As Single
+			speed = Sqr(bullet_vel_x(i) * bullet_vel_x(i) + bullet_vel_y(i) * bullet_vel_y(i))
+			If speed > 0 Then
+				dir = Vector2(bullet_vel_x(i) / speed, bullet_vel_y(i) / speed)
+			Else
+				dir = Vector2(0, -1)
+			End If
+			Dim tail_x As Single
+			Dim tail_y As Single
+			Dim tail As Vector2
+			tail_x = bullet_x(i) - dir.x * 6.0
+			tail_y = bullet_y(i) - dir.y * 6.0
+			tail = Vector2(tail_x, tail_y)
+			Dim tip_x As Single
+			Dim tip_y As Single
+			tip_x = bullet_x(i) + dir.x * 6.0
+			tip_y = bullet_y(i) + dir.y * 6.0
+			Dim tip As Vector2
+			tip = Vector2(tip_x, tip_y)
+			Call vg.DrawLine(canvas, tail, tip, 5.0, Color8(255, 255, 220))
+			Call vg.DrawCircle(canvas, bullet_pos, 2.5, Color8(255, 255, 245), True, Color8(255, 255, 255, 255))
+		End If
+	Next
+End Sub
+
+Sub _DrawCubeDemo(canvas As Object)
+	Dim shake_offset As Vector2
+	shake_offset = Vector2((Rnd() - 0.5) * cube_shake, (Rnd() - 0.5) * cube_shake)
+	Dim cube_center As Vector2
+	cube_center = Vector2(220, 170) + shake_offset
+	Dim size As Single
+	size = 34.0
+	Dim angle_x As Single
+	Dim angle_y As Single
+	agle_x = cube_rotation.x * PI / 180.0
+	angle_y = cube_rotation.y * PI / 180.0
+	Dim depth_offset As Vector2
+	depth_offset = Vector2(14, -10)
+	depth_offset = Vector2(Cos(angle_y) * depth_offset.x - Sin(angle_x) * depth_offset.y, Sin(angle_y) * depth_offset.x + Cos(angle_x) * depth_offset.y)
+	Dim front0 As Vector2
+	Dim front1 As Vector2
+	Dim front2 As Vector2
+	Dim front3 As Vector2
+	Dim back0 As Vector2
+	Dim back1 As Vector2
+	Dim back2 As Vector2
+	Dim back3 As Vector2
+	front0 = cube_center + Vector2(-size, -size)
+	front1 = cube_center + Vector2(size, -size)
+	front2 = cube_center + Vector2(size, size)
+	front3 = cube_center + Vector2(-size, size)
+	back0 = front0 + depth_offset
+	back1 = front1 + depth_offset
+	back2 = front2 + depth_offset
+	back3 = front3 + depth_offset
+	Dim front_points As Object
+	front_points = Array(front0, front1, front2, front3)
+	Dim back_points As Object
+	back_points = Array(back0, back1, back2, back3)
+	Call vg.DrawRoundedRect(canvas, Rect2(cube_center - Vector2(72, 72), Vector2(144, 144)), 14.0, 2.0, Color8(100, 140, 180, 90), False, Color8(120, 190, 235, 30))
+	Call vg.DrawPolyline(canvas, front_points, 3.0, Color8(220, 245, 255), True, Color8(80, 120, 160, 60), True)
+	Call vg.DrawPolyline(canvas, back_points, 2.0, Color8(220, 245, 255), False, Color8(0, 0, 0, 0), True)
+	Call vg.DrawLine(canvas, front0, back0, 2.5, Color8(220, 245, 255))
+	Call vg.DrawLine(canvas, front1, back1, 2.5, Color8(220, 245, 255))
+	Call vg.DrawLine(canvas, front2, back2, 2.5, Color8(220, 245, 255))
+	Call vg.DrawLine(canvas, front3, back3, 2.5, Color8(220, 245, 255))
+	Call vg.DrawTextCentered(canvas, cube_center + Vector2(0, -72), "3D CUBE", Color8(220, 245, 255), Null)
+End Sub
+
+Sub _FireBullet()
+	Dim index As Integer
+	index = _NextBulletSlot()
+	If index < 0 Then Exit Sub
+
+	bullet_x(index) = ship_position.x + Cos(ship_angle) * 24.0
+	bullet_y(index) = ship_position.y + Sin(ship_angle) * 24.0
+	bullet_vel_x(index) = ship_velocity.x + Cos(ship_angle) * 760.0
+	bullet_vel_y(index) = ship_velocity.y + Sin(ship_angle) * 760.0
+	bullet_life(index) = 1.2
+	Print("FIRE BULLET INDEX " & CStr(index))
+	Beep()
+End Sub
+
+Sub Beep()
+	If DisplayServer.get_name() = "headless" Then
+		Return
+	End If
+	Call Sound.Play(BeepSoundPath)
+End Sub
+
+Function _NextBulletSlot() As Integer
+	Dim i As Integer
+	For i = 0 To MaxBullets - 1
+		If bullet_life(i) < = 0 Then
+			Return i
+		End If
+	Next
+	Return - 1
+End Function
+
+Function _BuildArcPoints(center As Vector2, radius As Single, start_angle As Single, end_angle As Single, segments As Integer) As Object
+	Dim points As Object
+	points = Array()
+	If segments < 1 Then segments = 1
+	Dim i As Integer
+	For i = 0 To segments
+		Dim angle As Single
+		angle = start_angle + (end_angle - start_angle) * i / segments
+		points.Add(center + Vector2(Cos(angle), Sin(angle)) * radius)
+	Next
+	Return points
+End Function
+
+Function _RotateVec2(point As Vector2, angle As Single) As Vector2
+	Return Vector2(point.x * Cos(angle) - point.y * Sin(angle), point.x * Sin(angle) + point.y * Cos(angle))
+End Function
+
+Function _NormalizedVec2(point As Vector2) As Vector2
+	Dim length As Single
+	length = Sqr(point.x * point.x + point.y * point.y)
+	If length = 0 Then
+		Return Vector2(0, 0)
+	End If
+	Return Vector2(point.x / length, point.y / length)
+End Function
+
+Sub _DrawArcStroke(canvas As Object, center As Vector2, radius As Single, start_angle As Single, end_angle As Single, segments As Integer, width As Single, color As Color)
+	If segments < 1 Then segments = 1
+	Dim i As Integer
+	Dim angle As Single
+	Dim prev_point As Vector2
+	Dim current_point As Vector2
+	For i = 0 To segments
+		angle = start_angle + (end_angle - start_angle) * i / segments
+		current_point = center + Vector2(Cos(angle), Sin(angle)) * radius
+		If i > 0 Then
+			Call vg.DrawLine(canvas, prev_point, current_point, width, color)
+		End If
+		prev_point = current_point
+	Next
+End Sub
+
+Sub _SpawnAsteroids(count As Integer)
+	Dim created As Integer
+	created = 0
+	Dim i As Integer
+	For i = 0 To MaxAsteroids - 1
+		If asteroid_size(i) = 0 Then
+			Dim edge As Single
+			edge = Rnd()
+			If edge < 0.25 Then
+				asteroid_x(i) = -40.0
+				asteroid_y(i) = Rnd() * ScreenSize.y
+				asteroid_angle(i) = Rnd() * PI - PI * 0.5
+			ElseIf edge < 0.5 Then
+				asteroid_x(i) = ScreenSize.x + 40.0
+				asteroid_y(i) = Rnd() * ScreenSize.y
+				asteroid_angle(i) = Rnd() * PI + PI * 0.5
+			ElseIf edge < 0.75 Then
+				asteroid_x(i) = Rnd() * ScreenSize.x
+				asteroid_y(i) = -40.0
+				asteroid_angle(i) = Rnd() * PI
+			Else
+				asteroid_x(i) = Rnd() * ScreenSize.x
+				asteroid_y(i) = ScreenSize.y + 40.0
+				asteroid_angle(i) = Rnd() * PI + PI
+			End If
+			asteroid_size(i) = Int(Rnd() * 2.0) + 1
+			asteroid_rot(i) = (Rnd() - 0.5) * 1.6
+			Dim speed As Single
+			speed = 40.0 + (3 - asteroid_size(i)) * 24.0 + (level * 5.0)
+			asteroid_vel_x(i) = Cos(asteroid_angle(i)) * speed
+			asteroid_vel_y(i) = Sin(asteroid_angle(i)) * speed
+			created = created + 1
+			If created > = count Then
+				Exit For
+			End If
+		End If
+	Next
+End Sub
+
+Sub _DestroyAsteroid(index As Integer)
+	If asteroid_size(index) < = 0 Then Exit Sub
+	Dim original_size As Integer
+	original_size = asteroid_size(index)
+	score = score + original_size * 60
+	Beep()
+	If original_size > 1 Then
+		asteroid_size(index) = original_size - 1
+		asteroid_rot(index) = asteroid_rot(index) * 1.2
+		Dim vx As Single
+		Dim vy As Single
+		vx = asteroid_vel_x(index)
+		vy = asteroid_vel_y(index)
+		asteroid_vel_x(index) = vx * 1.4
+		asteroid_vel_y(index) = vy * 1.4
+		Dim frag_vel As Vector2
+		frag_vel = Vector2(-vy, vx) * 0.85 + Vector2(vx, vy) * 0.25
+		Call _SpawnAsteroidFragment(original_size - 1, Vector2(asteroid_x(index), asteroid_y(index)), frag_vel)
+	Else
+		asteroid_size(index) = 0
+		asteroid_vel_x(index) = 0.0
+		asteroid_vel_y(index) = 0.0
+	End If
+End Sub
+
+Sub _SpawnAsteroidFragment(size As Integer, position As Vector2, velocity As Vector2)
+	Dim i As Integer
+	For i = 0 To MaxAsteroids - 1
+		If asteroid_size(i) = 0 Then
+			asteroid_size(i) = size
+			asteroid_x(i) = position.x
+			asteroid_y(i) = position.y
+			asteroid_angle(i) = Rnd() * PI * 2.0
+			asteroid_rot(i) = (Rnd() - 0.5) * 2.4
+			asteroid_vel_x(i) = velocity.x
+			asteroid_vel_y(i) = velocity.y
+			Exit For
+		End If
+	Next
+End Sub
+
+Sub _HitShip()
+	ship_lives = ship_lives - 1
+	ship_invulnerable = 2.0
+	ship_velocity = Vector2(0, 0)
+	cube_spin = cube_spin + Vector3((Rnd() - 0.5) * 180.0, (Rnd() - 0.5) * 200.0, (Rnd() - 0.5) * 160.0)
+	cube_shake = 6.0
+	cube_hit_timer = 0.4
+	Beep()
+	If ship_lives < = 0 Then
+		game_over = True
+	End If
+End Sub
+
+Sub _ResolveAsteroidCollisions()
+	Dim i As Integer
+	For i = 0 To MaxAsteroids - 2
+		If asteroid_size(i) > 0 Then
+			Dim j As Integer
+			For j = i + 1 To MaxAsteroids - 1
+				If asteroid_size(j) > 0 Then
+					Dim dx As Single
+					dx = asteroid_x(j) - asteroid_x(i)
+					Dim dy As Single
+					dy = asteroid_y(j) - asteroid_y(i)
+					Dim dist2 As Single
+					dist2 = dx * dx + dy * dy
+					Dim min_dist As Single
+					min_dist = asteroid_size(i) * 8.0 + asteroid_size(j) * 8.0 + 10.0
+					If dist2 < min_dist * min_dist Then
+						Dim dist As Single
+						dist = Sqr(dist2)
+						If dist = 0 Then
+							dist = 1.0
+						End If
+						Dim nx As Single
+						nx = dx / dist
+						Dim ny As Single
+						ny = dy / dist
+						Dim overlap As Single
+						overlap = min_dist - dist
+						asteroid_x(i) = asteroid_x(i) - nx * overlap * 0.5
+						asteroid_y(i) = asteroid_y(i) - ny * overlap * 0.5
+						asteroid_x(j) = asteroid_x(j) + nx * overlap * 0.5
+						asteroid_y(j) = asteroid_y(j) + ny * overlap * 0.5
+						Dim vi_x As Single
+						Dim vi_y As Single
+						Dim vj_x As Single
+						Dim vj_y As Single
+						vi_x = asteroid_vel_x(i)
+						vi_y = asteroid_vel_y(i)
+						vj_x = asteroid_vel_x(j)
+						vj_y = asteroid_vel_y(j)
+						Dim na As Single
+						na = vi_x * nx + vi_y * ny
+						Dim nb As Single
+						nb = vj_x * nx + vj_y * ny
+						Dim p As Single
+						p = (2.0 * (na - nb)) / 2.0
+						asteroid_vel_x(i) = vi_x - p * nx
+						asteroid_vel_y(i) = vi_y - p * ny
+						asteroid_vel_x(j) = vj_x + p * nx
+						asteroid_vel_y(j) = vj_y + p * ny
+						Beep()
+					End If
+				End If
+			Next
+		End If
+	Next
+End Sub
+
+Sub _WrapPosition(ByRef position As Vector2)
+	If position.x < - 30 Then position.x = position.x + ScreenSize.x + 60
+	If position.x > ScreenSize.x + 30 Then position.x = position.x - ScreenSize.x - 60
+	If position.y < - 30 Then position.y = position.y + ScreenSize.y + 60
+	If position.y > ScreenSize.y + 30 Then position.y = position.y - ScreenSize.y - 60
+End Sub
+
+Function _AsteroidsRemaining() As Integer
+	Dim count As Integer
+	count = 0
+	Dim i As Integer
+	For i = 0 To MaxAsteroids - 1
+		If asteroid_size(i) > 0 Then
+			count = count + 1
+		End If
+	Next
+	Return count
+End Function

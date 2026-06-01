@@ -716,6 +716,13 @@ const VB6_GLOBAL_OBJECTS: Dictionary = {
 		{"text": "IsMuted", "kind": "method", "detail": "IsMuted(name) As Boolean"},
 		{"text": "Solo", "kind": "method", "detail": "Solo(name, on As Boolean)"},
 	],
+	"SoundGen": [
+		{"text": "Open", "kind": "method", "detail": "Open(mix_rate As Single, buffer_length As Single) As Long — Create generator; returns handle"},
+		{"text": "Close", "kind": "method", "detail": "Close(h As Long) — Stop and free generator"},
+		{"text": "Available", "kind": "method", "detail": "Available(h As Long) As Integer — Frames available to push this tick"},
+		{"text": "PushMono", "kind": "method", "detail": "PushMono(h As Long, sample As Single) — Push mono PCM sample (L=R)"},
+		{"text": "PushStereo", "kind": "method", "detail": "PushStereo(h As Long, left As Single, right As Single) — Push stereo PCM frame"},
+	],
 	"Animation": [
 		{"text": "Play", "kind": "method", "detail": "Play([player_name,] anim_name) — Play an animation"},
 		{"text": "Stop", "kind": "method", "detail": "Stop([player_name])"},

@@ -89,6 +89,7 @@ auto-labelled in the UI.
 | `game_builder.<kind>` | Compiles/exports a runnable game.                  | `game_builder.platformer`     |
 | `panel.<location>`    | Provides a dockable panel.                         | `panel.right_dock`            |
 | `command.<id>`        | Adds a command-palette entry.                      | `command.open_release_notes`  |
+| `ai.<kind>`           | Adds AI/assistant or prompt integration points.    | `ai.assistant`, `ai.prompt`   |
 
 **Subcapabilities** (`asset_editor.scene.2d`) are valid — the registry
 treats them as opaque strings, so dotted hierarchy is purely a convention.

@@ -1,0 +1,116 @@
+' Vector Dashboard VG Script
+Option Explicit
+
+Dim vg As Object
+Dim canvas_static As Object
+Dim canvas_dynamic As Object
+Dim elapsed As Single
+Dim _gauge_ticks As Object
+
+Sub _Ready()
+	If vg = Null Then
+		Set vg = Load("res://addons/visual_gasic/plugins/vector_graphics/vg_vector_api.gd")
+	End If
+	If vg <> Null And vg.has_method("Get") Then
+		Set vg = vg.Get()
+	End If
+	If vg = Null Then
+		Print "ERROR: Failed to load vector graphics API."
+		Exit Sub
+	End If
+
+	Set canvas_static = vg.CreateVectorCanvas()
+	Set canvas_dynamic = vg.CreateVectorCanvas()
+	If canvas_static = Null Or canvas_dynamic = Null Then
+		Print "ERROR: Failed to create VectorCanvas layers."
+		Exit Sub
+	End If
+
+	canvas_static.position = Vector2(24, 110)
+	canvas_dynamic.position = Vector2(24, 110)
+	AddChild(canvas_static)
+	AddChild(canvas_dynamic)
+
+	Call _InitializeGaugeTicks()
+	Call _DrawStaticDashboard()
+	Call _DrawDynamicDashboard()
+End Sub
+
+Sub _Process(delta As Single)
+	elapsed = elapsed + delta
+	Call _DrawDynamicDashboard()
+End Sub
+
+Sub _InitializeGaugeTicks()
+	_gauge_ticks = Array()
+	Dim i As Integer
+	For i = 0 To 10
+		Dim tickAngle As Single
+		tickAngle = Lerp(-1.0 * PI * 0.75, PI * 0.25, i / 10.0)
+		_gauge_ticks.Add(tickAngle)
+	Next
+End Sub
+
+Sub _DrawStaticDashboard()
+	If canvas_static = Null Then Exit Sub
+
+	Call vg.Clear(canvas_static)
+	Call vg.DrawRoundedRect(canvas_static, Rect2(0, 0, 912, 460), 28.0, 2.0, Color8(120, 160, 220), True, Color8(30, 40, 70, 180))
+	Call vg.DrawArc(canvas_static, Vector2(160, 160), 116.0, -1.0 * PI * 0.75, PI * 0.25, 48, 3.0, Color8(110, 160, 220), False)
+	Call vg.DrawArc(canvas_static, Vector2(160, 160), 104.0, -1.0 * PI * 0.75, PI * 0.25, 48, 2.0, Color8(255, 255, 255), False)
+
+	Dim i As Integer
+	For i = 0 To _gauge_ticks.Count - 1
+		Dim tickAngle As Single
+		tickAngle = _gauge_ticks[i]
+		Dim inner As Vector2
+		inner = Vector2(104, 0).Rotated(tickAngle) + Vector2(160, 160)
+		Dim outer As Vector2
+		outer = Vector2(116, 0).Rotated(tickAngle) + Vector2(160, 160)
+		Call vg.DrawLine(canvas_static, inner, outer, 3.0, Color8(255, 255, 255))
+	Next
+
+	Call _DrawStaticBarFrame(canvas_static, Vector2(320, 56), "CPU")
+	Call _DrawStaticBarFrame(canvas_static, Vector2(320, 156), "Memory")
+	Call _DrawStaticBarFrame(canvas_static, Vector2(320, 256), "Network")
+
+	Call _DrawInfoCardBackground(canvas_static, Rect2(320, 360, 260, 120))
+	Call _DrawInfoCardBackground(canvas_static, Rect2(598, 360, 260, 120))
+
+	Call vg.DrawTextCentered(canvas_static, Vector2(760, 84), "Vector Canvas Dashboard", Color8(220, 230, 255), Null)
+	Call vg.Render(canvas_static)
+End Sub
+
+Sub _DrawDynamicDashboard()
+	If canvas_dynamic = Null Then Exit Sub
+
+	Call vg.Clear(canvas_dynamic)
+
+	Dim progress As Single
+	progress = (Sin(elapsed * 0.8) * 0.5 + 0.5)
+	Dim center As Vector2
+	center = Vector2(160, 160)
+
+	Call vg.DrawGauge(canvas_dynamic, center, 116.0, progress, 6.0, Color8(240, 100, 100), Color8(80, 90, 140, 120))
+	Call vg.DrawTextCentered(canvas_dynamic, Vector2(160, 240), "Gauge status", Color8(220, 230, 255), Null)
+
+	Call _DrawBar(canvas_dynamic, Vector2(320, 56), "CPU", progress, Color8(80, 200, 145))
+	Call _DrawBar(canvas_dynamic, Vector2(320, 156), "Memory", (Sin(elapsed * 0.6) * 0.4 + 0.6), Color8(140, 120, 240))
+	Call _DrawBar(canvas_dynamic, Vector2(320, 256), "Network", (Cos(elapsed * 0.5) * 0.4 + 0.6), Color8(240, 170, 90))
+
+	Call vg.DrawTextRightAligned(canvas_dynamic, Vector2(832, 420), "Realtime gauge + bar updates", Color8(220, 230, 255), Null)
+	Call vg.Render(canvas_dynamic)
+End Sub
+
+Sub _DrawStaticBarFrame(canvas As Object, origin As Vector2, label As String)
+	Call vg.DrawRect(canvas, Rect2(origin.x, origin.y, 520, 28), 2.0, Color8(100, 120, 150), True, Color8(20, 30, 50, 180))
+	Call vg.DrawText(canvas, Vector2(origin.x + 8, origin.y + 18), label, Color8(220, 230, 255), Null)
+End Sub
+
+Sub _DrawBar(canvas As Object, origin As Vector2, label As String, value As Single, color As Color)
+	Call vg.DrawRect(canvas, Rect2(origin.x, origin.y, 520 * Clamp(value, 0.0, 1.0), 28), 0.0, color, True, color)
+End Sub
+
+Sub _DrawInfoCardBackground(canvas As Object, rect As Rect2)
+	Call vg.DrawRoundedRect(canvas, rect, 14.0, 2.0, Color8(160, 180, 210), True, Color8(10, 18, 35, 220))
+End Sub

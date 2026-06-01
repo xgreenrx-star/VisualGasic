@@ -13,6 +13,13 @@ var _breakpoints: Dictionary = {}
 var _capture_registered := false
 var _capture_prefix := "visualgasic"
 
+const TWEAK_OVERLAY_SCRIPT := "res://addons/visual_gasic/vg_tweak_overlay.gd"
+const TWEAK_OVERRIDE_FILE := "user://vg_tweak_overrides.json"
+var _tweak_overlay: Node = null
+var _tweak_override_history: Array = []
+var _tweak_redo_stack: Array = []
+var _tweak_saved_overrides: Dictionary = {}
+
 func _ready() -> void:
 	# Load breakpoints from file FIRST - before any scripts run
 	# This ensures breakpoints work for init code
@@ -20,6 +27,8 @@ func _ready() -> void:
 	
 	# Enable _process for idle-break polling
 	set_process(true)
+	# Allow runtime hotkey handling while the game window is focused.
+	set_process_input(true)
 	
 	# Register our message capture with the engine debugger.
 	# The C++ language runtime already registers "visualgasic" when loaded,
@@ -66,6 +75,15 @@ func _exit_tree() -> void:
 	if _capture_registered and EngineDebugger.is_active():
 		EngineDebugger.unregister_message_capture(_capture_prefix)
 		_capture_registered = false
+
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	var ke := event as InputEventKey
+	if ke.keycode == KEY_T and ke.ctrl_pressed and ke.shift_pressed:
+		_toggle_tweak_overlay()
+		if get_viewport():
+			get_viewport().set_input_as_handled()
 
 func _on_debugger_message(message: String, data: Array) -> bool:
 	match message:
@@ -188,6 +206,34 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 		"get_form_controls":
 			if data.size() >= 1:
 				_send_form_controls(data[0])
+			return true
+
+		"toggle_tweak_overlay":
+			_toggle_tweak_overlay()
+			return true
+
+		"get_tweak_targets":
+			if data.size() >= 1:
+				_send_tweak_targets(data[0])
+			else:
+				_send_tweak_targets(0)
+			return true
+
+		"apply_tweak_override":
+			if data.size() >= 2:
+				_apply_tweak_override(data[0], data[1])
+			return true
+
+		"undo_tweak_override":
+			_undo_tweak_override()
+			return true
+
+		"redo_tweak_override":
+			_redo_tweak_override()
+			return true
+
+		"reset_tweak_overrides":
+			_reset_tweak_overrides()
 			return true
 		
 		# Tracepoints (Log Points) — breakpoints that log a message instead of pausing
@@ -782,6 +828,158 @@ func _send_form_controls(instance_id: int) -> void:
 	var controls: Array = []
 	_collect_controls(owner_node, controls)
 	EngineDebugger.send_message("visualgasic:form_controls", [controls])
+
+func _send_tweak_targets(instance_id: int) -> void:
+	var inst = _get_instance_flexible(instance_id)
+	if inst == null:
+		EngineDebugger.send_message("visualgasic:tweak_targets", [[]])
+		return
+
+	var targets: Array = []
+	_collect_control_targets(inst, targets)
+	_collect_vector_canvas_targets(inst, targets)
+	EngineDebugger.send_message("visualgasic:tweak_targets", [targets])
+
+func _toggle_tweak_overlay() -> void:
+	if _tweak_overlay and is_instance_valid(_tweak_overlay):
+		_tweak_overlay.queue_free()
+		_tweak_overlay = null
+		_send_tweak_overlay_state(false)
+		return
+	
+	_ensure_tweak_overlay()
+
+func _ensure_tweak_overlay() -> void:
+	var overlay_script = load(TWEAK_OVERLAY_SCRIPT)
+	if not overlay_script:
+		print("[VisualGasic] Cannot load tweak overlay script: ", TWEAK_OVERLAY_SCRIPT)
+		return
+
+	var root = get_tree().get_root()
+	_tweak_overlay = overlay_script.new()
+	if _tweak_overlay == null:
+		print("[VisualGasic] Failed to instantiate tweak overlay")
+		return
+
+	_tweak_overlay.name = "VGTweakOverlay"
+	root.add_child(_tweak_overlay)
+	if _tweak_overlay.has_method("load_overrides"):
+		_tweak_overlay.load_overrides(_load_tweak_overrides())
+	if _tweak_overlay.has_signal("overlay_closed"):
+		_tweak_overlay.connect("overlay_closed", Callable(self, "_on_tweak_overlay_closed"))
+	if _tweak_overlay.has_signal("ai_edit_requested"):
+		_tweak_overlay.connect("ai_edit_requested", Callable(self, "_on_tweak_ai_edit_requested"))
+	_send_tweak_overlay_state(true)
+	print("[VisualGasic] Tweak overlay enabled")
+
+func _on_tweak_ai_edit_requested(request: Dictionary) -> void:
+	# Forward to the editor; the visual_gasic editor plugin opens vg_ai_help
+	# prefilled with the structured prompt.
+	if EngineDebugger.is_active():
+		EngineDebugger.send_message("visualgasic:tweak_ai_edit", [request])
+	else:
+		print("[VisualGasic] AI edit request (no debugger attached): ", request)
+
+func _on_tweak_overlay_closed() -> void:
+	if _tweak_overlay and is_instance_valid(_tweak_overlay):
+		_tweak_overlay.queue_free()
+	_tweak_overlay = null
+	_send_tweak_overlay_state(false)
+
+func _send_tweak_overlay_state(enabled: bool) -> void:
+	if not EngineDebugger.is_active():
+		return
+	EngineDebugger.send_message("visualgasic:tweak_overlay_state", [{"enabled": enabled}])
+
+func _apply_tweak_override(target_id: String, override: Dictionary) -> void:
+	if _tweak_overlay and is_instance_valid(_tweak_overlay) and _tweak_overlay.has_method("apply_tweak_override"):
+		_tweak_overlay.apply_tweak_override(target_id, override)
+		_push_tweak_history(target_id, override)
+		_save_tweak_overrides()
+	_send_tweak_overlay_state(_tweak_overlay != null)
+
+func _undo_tweak_override() -> void:
+	if _tweak_override_history.is_empty():
+		return
+	var step = _tweak_override_history.pop_back()
+	_tweak_redo_stack.append(step)
+	# TODO: restore previous override state once history contains original values.
+	_send_tweak_overlay_state(_tweak_overlay != null)
+
+func _redo_tweak_override() -> void:
+	if _tweak_redo_stack.is_empty():
+		return
+	var step = _tweak_redo_stack.pop_back()
+	_tweak_override_history.append(step)
+	if _tweak_overlay and is_instance_valid(_tweak_overlay) and _tweak_overlay.has_method("apply_tweak_override"):
+		_tweak_overlay.apply_tweak_override(step["target_id"].to_int(), step["override"])
+	_send_tweak_overlay_state(_tweak_overlay != null)
+
+func _reset_tweak_overrides() -> void:
+	_tweak_override_history.clear()
+	_tweak_redo_stack.clear()
+	_tweak_saved_overrides.clear()
+	if _tweak_overlay and is_instance_valid(_tweak_overlay) and _tweak_overlay.has_method("load_overrides"):
+		_tweak_overlay.load_overrides({})
+	_save_tweak_overrides()
+	_send_tweak_overlay_state(_tweak_overlay != null)
+
+func _push_tweak_history(target_id: String, override: Dictionary) -> void:
+	_tweak_override_history.append({"target_id": target_id, "override": override.duplicate(true)})
+	_tweak_redo_stack.clear()
+	_tweak_saved_overrides[target_id] = override.duplicate(true)
+
+func _save_tweak_overrides() -> void:
+	var file = FileAccess.open(TWEAK_OVERRIDE_FILE, FileAccess.WRITE)
+	if not file:
+		print("[VisualGasic] Failed to save tweak overrides to ", TWEAK_OVERRIDE_FILE)
+		return
+	var json = JSON.stringify(_tweak_saved_overrides)
+	file.store_string(json)
+	file.close()
+
+func _load_tweak_overrides() -> Dictionary:
+	if not FileAccess.file_exists(TWEAK_OVERRIDE_FILE):
+		return {}
+	var file = FileAccess.open(TWEAK_OVERRIDE_FILE, FileAccess.READ)
+	if not file:
+		return {}
+	var content = file.get_as_text()
+	file.close()
+	var parsed = JSON.parse_string(content)
+	if parsed is Dictionary:
+		return parsed
+	return {}
+
+func _collect_control_targets(node: Node, out: Array) -> void:
+	if node is Control:
+		out.append({
+			"target_id": str(node.get_path()),
+			"type": "Control",
+			"kind": node.get_class(),
+			"name": node.name,
+			"rect": node.get_global_rect(),
+			"description": node.name + " (" + node.get_class() + ")"
+		})
+	for child in node.get_children():
+		if child is Node:
+			_collect_control_targets(child, out)
+
+func _collect_vector_canvas_targets(node: Node, out: Array) -> void:
+	if node.has_method("get_tweak_targets"):
+		for target in node.get_tweak_targets():
+			var target_info = {
+				"target_id": target.target_id,
+				"type": "VectorCanvas",
+				"kind": "Shape",
+				"name": "VectorCanvas " + node.name,
+				"rect": target.rect,
+				"description": target.description
+			}
+			out.append(target_info)
+	for child in node.get_children():
+		if child is Node:
+			_collect_vector_canvas_targets(child, out)
 
 func _collect_controls(node: Node, out: Array) -> void:
 	## Recursively collect child controls with their properties.

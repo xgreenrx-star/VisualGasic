@@ -1,0 +1,6 @@
+' Module1.vg — VisualGasic module
+' Type your code here.
+
+Sub Main()
+	Print("Hello from " & "Module1")
+End Sub

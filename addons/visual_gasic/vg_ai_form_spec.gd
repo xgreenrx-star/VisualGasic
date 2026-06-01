@@ -145,6 +145,68 @@ func _parse_json(text: String) -> Dictionary:
 	return parsed
 
 
+## Validate the layout of a parsed spec.  Returns an Array of human-readable
+## warning strings.  An empty array means no issues were detected.
+## Checks: (a) every visible control is within form_size bounds,
+##         (b) no two visible controls have overlapping bounding boxes.
+## Call before or after apply_to_designer.
+func check_layout(spec: Dictionary) -> Array:
+	var warnings: Array = []
+	var controls: Array = spec.get("controls", [])
+	if controls.is_empty():
+		return warnings
+
+	# Resolve form dimensions.
+	var form_w := 400.0
+	var form_h := 300.0
+	var fs = spec.get("form_size")
+	if typeof(fs) == TYPE_ARRAY and (fs as Array).size() == 2:
+		form_w = float((fs as Array)[0])
+		form_h = float((fs as Array)[1])
+
+	# Build resolved rect list, honouring parent offsets same as apply_to_designer.
+	var rects: Array = []  # [{name, l, t, r, b}]
+	var name_to_origin: Dictionary = {}  # name -> Vector2 absolute top-left
+	for entry in controls:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var ctype: String = TYPE_ALIASES.get(str(entry.get("type", "")), str(entry.get("type", "")))
+		if ctype == "Timer":
+			continue  # invisible — skip overlap checks
+		var cname := str(entry.get("name", ctype))
+		var parent_name := str(entry.get("parent", ""))
+		var origin := Vector2.ZERO
+		if not parent_name.is_empty() and name_to_origin.has(parent_name):
+			origin = name_to_origin[parent_name]
+		var l := origin.x + float(entry.get("left", 0))
+		var t := origin.y + float(entry.get("top", 0))
+		var w := float(entry.get("width", 0))
+		var h := float(entry.get("height", 0))
+		name_to_origin[cname] = Vector2(l, t)
+		if w <= 0 or h <= 0:
+			continue  # no geometry — nothing to check
+		# Bounds check.
+		if l + w > form_w:
+			warnings.append("'%s' exceeds form width: left(%d)+width(%d)=%d > %d" \
+				% [cname, int(l), int(w), int(l + w), int(form_w)])
+		if t + h > form_h:
+			warnings.append("'%s' exceeds form height: top(%d)+height(%d)=%d > %d" \
+				% [cname, int(t), int(h), int(t + h), int(form_h)])
+		rects.append({"name": cname, "l": l, "t": t, "r": l + w, "b": t + h})
+
+	# Pairwise overlap check.
+	for i in rects.size():
+		for j in range(i + 1, rects.size()):
+			var a: Dictionary = rects[i]
+			var b: Dictionary = rects[j]
+			if a["l"] < b["r"] and a["r"] > b["l"] and a["t"] < b["b"] and a["b"] > b["t"]:
+				var ox := int(minf(a["r"], b["r"]) - maxf(a["l"], b["l"]))
+				var oy := int(minf(a["b"], b["b"]) - maxf(a["t"], b["t"]))
+				warnings.append("'%s' and '%s' overlap by %dx%d px" \
+					% [a["name"], b["name"], ox, oy])
+	return warnings
+
+
 ## Build a one-line summary for the confirm dialog.
 func describe(spec: Dictionary) -> String:
 	if spec.is_empty():
@@ -181,9 +243,10 @@ func apply_to_designer(spec: Dictionary, designer: Object) -> Array:
 	var controls: Array = spec.get("controls", [])
 	# Round 2: support a logical "parent" name that points at a container
 	# control declared earlier in the spec.  We resolve to absolute pixel
-	# offsets so the FormDesigner's flat layout stays correct \u2014 the C++
+	# offsets so the FormDesigner's flat layout stays correct — the C++
 	# side does not (yet) reparent runtime nodes by name.
 	var name_to_origin: Dictionary = {}  # control name -> Vector2 absolute origin
+	var placed_rects: Array = []          # [{l,t,r,b}] for auto-restack safety net
 	var added := 0
 	var skipped: Array[String] = []
 	for entry in controls:
@@ -207,6 +270,11 @@ func apply_to_designer(spec: Dictionary, designer: Object) -> Array:
 		if not parent_name.is_empty() and name_to_origin.has(parent_name):
 			origin = name_to_origin[parent_name]
 		var pos := origin + local_pos
+		# Safety net: if the AI produced overlapping coordinates, push this
+		# control down until it clears every already-placed control.
+		var ew := size.x if size.x > 0.0 else 80.0
+		var eh := size.y if size.y > 0.0 else 24.0
+		pos.y = _auto_restack_top(pos.x, pos.y, ew, eh, placed_rects)
 		var idx: int = designer.add_control(ctype, "", pos, size)
 		if idx < 0:
 			skipped.append("'%s' (designer rejected add_control)" % ctype)
@@ -221,6 +289,8 @@ func apply_to_designer(spec: Dictionary, designer: Object) -> Array:
 				continue
 			if designer.has_method("set_control_property"):
 				designer.set_control_property(idx, sk, entry[key])
+		# Track placed bounding box for subsequent overlap checks.
+		placed_rects.append({"l": pos.x, "t": pos.y, "r": pos.x + ew, "b": pos.y + eh})
 		# Register this control as a possible parent for later entries.
 		var ctrl_name := str(entry.get("name", ""))
 		if not ctrl_name.is_empty():
@@ -231,6 +301,26 @@ func apply_to_designer(spec: Dictionary, designer: Object) -> Array:
 	if not skipped.is_empty():
 		msg += "; skipped %d (%s)" % [skipped.size(), ", ".join(skipped)]
 	return [added > 0, msg]
+
+
+## Push a proposed control's top coordinate down until it no longer overlaps
+## any already-placed bounding box.  Runs in O(n²) which is fine for the
+## small number of controls on a form.
+func _auto_restack_top(nl: float, nt: float, nw: float, nh: float, placed: Array) -> float:
+	const GAP := 8.0
+	var candidate := nt
+	var changed := true
+	while changed:
+		changed = false
+		var nr := nl + nw
+		var nb := candidate + nh
+		for rect in placed:
+			if nl < rect["r"] and nr > rect["l"] \
+					and candidate < rect["b"] and nb > rect["t"]:
+				candidate = rect["b"] + GAP
+				changed = true
+				break
+	return candidate
 
 
 ## Generate VB6-style event-handler stubs from a spec.  Returns the .vg

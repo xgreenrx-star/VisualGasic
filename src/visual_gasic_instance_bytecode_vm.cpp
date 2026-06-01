@@ -1549,6 +1549,23 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
 
+                // If not found in variables, try owner node properties (PascalCase → snake_case)
+                // e.g. "Position" → owner->get("position") for Area2D/CharacterBody2D
+                if (val.get_type() == Variant::NIL && owner) {
+                    Variant prop = owner->get(name);
+                    if (prop.get_type() != Variant::NIL) {
+                        val = prop;
+                    } else {
+                        String snake = name.to_snake_case();
+                        if (snake != name) {
+                            prop = owner->get(snake);
+                            if (prop.get_type() != Variant::NIL) {
+                                val = prop;
+                            }
+                        }
+                    }
+                }
+
                 // If not found in variables, search for child control by name (VB6 style)
                 if (val.get_type() == Variant::NIL && owner) {
                     Node* owner_node = Object::cast_to<Node>(owner);
@@ -1559,7 +1576,25 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                     }
                 }
-                
+
+                // Builtin namespace sentinels — names like SoundGen, Clipboard,
+                // Debug, RegExp are not variables but dispatch targets handled by
+                // call_builtin_for_base_variable.  Push a sentinel dict so that
+                // OP_METHOD_CALL's call_builtin_for_base_variant can recognise them.
+                if (val.get_type() == Variant::NIL) {
+                    static const char *known_ns[] = {
+                        "SoundGen", "Clipboard", "Debug", "RegExp", "Array", nullptr
+                    };
+                    for (int ni = 0; known_ns[ni]; ni++) {
+                        if (name.nocasecmp_to(known_ns[ni]) == 0) {
+                            Dictionary ns_dict;
+                            ns_dict["__vg_namespace"] = name;
+                            val = ns_dict;
+                            break;
+                        }
+                    }
+                }
+
                 push_value(val);
                 break;
             }
@@ -1603,7 +1638,28 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         variables[name] = value;
                     }
                 } else {
-                    variables[name] = value;
+                    // Check if it's an owner node property (PascalCase → snake_case)
+                    // e.g. "Position = val" → owner->set("position", val) for Area2D
+                    bool wrote_to_owner = false;
+                    if (owner) {
+                        Variant current = owner->get(name);
+                        if (current.get_type() != Variant::NIL) {
+                            owner->set(name, value);
+                            wrote_to_owner = true;
+                        } else {
+                            String snake = name.to_snake_case();
+                            if (snake != name) {
+                                current = owner->get(snake);
+                                if (current.get_type() != Variant::NIL) {
+                                    owner->set(snake, value);
+                                    wrote_to_owner = true;
+                                }
+                            }
+                        }
+                    }
+                    if (!wrote_to_owner) {
+                        variables[name] = value;
+                    }
                 }
                 
                 // Trigger Whenever system (must match assign_variable behavior)
@@ -3929,8 +3985,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             }
                         }
                         // ---- Misc ----
-                        // ZOrder → z_index (Control/Node2D)
-                        else if (prop_name == "ZOrder") {
+                        // ZOrder / ZIndex → z_index (Control/Node2D)
+                        else if (prop_name == "ZOrder" || prop_name == "ZIndex") {
                             result = obj->get("z_index");
                             handled = true;
                         }
@@ -4809,8 +4865,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             break;
                         }
                         // ---- Misc (SET) ----
-                        // ZOrder → z_index
-                        else if (prop_name == "ZOrder") {
+                        // ZOrder / ZIndex → z_index (both spellings accepted)
+                        else if (prop_name == "ZOrder" || prop_name == "ZIndex") {
                             godot_prop = "z_index";
                         }
                         // Rotation → rotation in degrees

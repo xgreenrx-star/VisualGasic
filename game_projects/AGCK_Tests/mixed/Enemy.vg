@@ -1,0 +1,8 @@
+Class Enemy
+' VisualGasic - Imported from VB6
+' Form: Enemy
+' Note: Some manual adjustments may be required
+Option Explicit
+
+Public HP As Integer
+End Class

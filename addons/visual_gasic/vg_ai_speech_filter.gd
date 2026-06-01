@@ -86,8 +86,8 @@ func for_speech(text: String) -> String:
 
 ## Decide what (if anything) to say in place of a code/spec block.
 func _summarise_block(lang: String, body: String) -> String:
-	# Form spec is structural data — never read aloud, never summarised.
-	if lang == "vg-form-spec":
+	# Form spec and tool calls are structural data — never read aloud.
+	if lang == "vg-form-spec" or lang == "vg-tool":
 		return ""
 	# Count non-empty lines for a quick "X lines of code" summary.
 	var line_count := 0

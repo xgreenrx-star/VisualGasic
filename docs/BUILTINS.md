@@ -36,7 +36,7 @@ for full verb lists and signatures):
 
 - **Pass 1** math helpers — `Quaternion`, `Basis`, `Transform2D/3D`, `Plane`, `AABB`,
   `NewRNG`, `NewNoise`, `NewCurve`, `Slerp`, `ColorFromHSV`, `ColorToHSV`, `Lighten`, `Darken`
-- **Pass 2** audio/camera — `Camera.*`, `Sound.*`, `Speaker.*`
+- **Pass 2** audio/camera — `Camera.*`, `Sound.*`, `Speaker.*`, `SoundGen.*`
 - **Pass 3** gameplay — `Animation.*`, `Physics.*`, `Ray.*`, `Cell.*`, `Nav.*`, plus globals `Push`, `Pull`, `Spin`
 - **Pass 4** device — `Screen.*`, `Joypad.*`, `Sensor.*`, `Permission.*`, `Vibrate`
 - **Pass 5** pro features — `Crypto.*`, `Theme.*`, `Shader.*`, `Material.*`, `Skeleton.*`, `Bone.*`, `Video.*`, `JS.*`
@@ -196,6 +196,101 @@ Else
     ' Cancel
 End If
 ```
+
+### VarType Constants
+
+Used with `VarType()` to identify a value's type:
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `vbEmpty` | 0 | Uninitialized |
+| `vbNull` | 1 | Contains no valid data |
+| `vbInteger` | 2 | Integer |
+| `vbLong` | 3 | Long integer |
+| `vbSingle` | 4 | Single-precision float |
+| `vbDouble` | 5 | Double-precision float |
+| `vbCurrency` | 6 | Currency |
+| `vbDate` | 7 | Date/Time |
+| `vbString` | 8 | String |
+| `vbObject` | 9 | Object |
+| `vbError` | 10 | Error |
+| `vbBoolean` | 11 | Boolean |
+| `vbVariant` | 12 | Variant |
+| `vbDataObject` | 13 | Data access object |
+| `vbDecimal` | 14 | Decimal |
+| `vbByte` | 17 | Byte |
+| `vbArray` | 8192 | Array (OR'd with base type) |
+
+### String Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `vbCrLf` | Chr(13)+Chr(10) | Carriage return + line feed |
+| `vbCr` | Chr(13) | Carriage return |
+| `vbLf` | Chr(10) | Line feed |
+| `vbTab` | Chr(9) | Horizontal tab |
+| `vbNewLine` | Chr(10) | Platform newline |
+| `vbNullChar` | Chr(0) | Null character |
+| `vbNullString` | "" | Empty string |
+| `vbBack` | Chr(8) | Backspace |
+| `vbFormFeed` | Chr(12) | Form feed |
+| `vbVerticalTab` | Chr(11) | Vertical tab |
+
+### Key Constants
+
+Used with `Form_KeyDown(KeyCode As Integer)` and `Input.IsKeyPressed()`:
+
+**Navigation:** `vbKeyBack`, `vbKeyTab`, `vbKeyReturn`, `vbKeyEnter`, `vbKeyEscape`, `vbKeySpace`, `vbKeyPageUp`, `vbKeyPageDown`, `vbKeyEnd`, `vbKeyHome`, `vbKeyLeft`, `vbKeyUp`, `vbKeyRight`, `vbKeyDown`, `vbKeyInsert`, `vbKeyDelete`
+
+**Modifiers:** `vbKeyShift`, `vbKeyControl`, `vbKeyMenu`
+
+**Function Keys:** `vbKeyF1`–`vbKeyF12`
+
+**Letters / Digits:** `vbKeyA`–`vbKeyZ`, `vbKey0`–`vbKey9`
+
+**Numpad:** `vbKeyNumpad0`–`vbKeyNumpad9`, `vbKeyMultiply`, `vbKeyAdd`, `vbKeySubtract`, `vbKeyDecimal`, `vbKeyDivide`
+
+**Lock/Misc:** `vbKeyCapital`, `vbKeyNumlock`, `vbKeyScrollLock`, `vbKeyPause`, `vbKeySnapshot`
+
+### Weekday Constants
+
+Used with `Weekday()` and `DatePart()`:
+
+`vbSunday` (1), `vbMonday` (2), `vbTuesday` (3), `vbWednesday` (4), `vbThursday` (5), `vbFriday` (6), `vbSaturday` (7)
+
+First-week constants: `vbUseSystem` (0), `vbFirstJan1` (1), `vbFirstFourDays` (2), `vbFirstFullWeek` (3)
+
+### File Attribute Constants
+
+Used with `GetAttr()` and `SetAttr()`:
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `vbNormal` | 0 | Normal |
+| `vbReadOnly` | 1 | Read-only |
+| `vbHidden` | 2 | Hidden |
+| `vbSystem` | 4 | System |
+| `vbVolume` | 8 | Volume label |
+| `vbDirectory` | 16 | Directory |
+| `vbArchive` | 32 | Archive |
+| `vbAlias` | 64 | Alias (symlink) |
+
+### Shell Window Style Constants
+
+Used with `Shell()`:
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `vbHide` | 0 | Hidden |
+| `vbNormalFocus` | 1 | Normal with focus |
+| `vbMinimizedFocus` | 2 | Minimized with focus |
+| `vbMaximizedFocus` | 3 | Maximized with focus |
+| `vbNormalNoFocus` | 4 | Normal without focus |
+| `vbMinimizedNoFocus` | 6 | Minimized without focus |
+
+### Color Constants
+
+`vbBlack`, `vbRed`, `vbGreen`, `vbYellow`, `vbBlue`, `vbMagenta`, `vbCyan`, `vbWhite`
 
 Base-specific handlers:
 - `Clipboard.GetText()`, `Clipboard.SetText(text)`, `Clipboard.Clear()`

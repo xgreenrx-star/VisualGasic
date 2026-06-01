@@ -138,13 +138,10 @@ func _run_main_scene() -> void:
 		return
 	var editor = _editor_plugin.get_editor_interface()
 	editor.save_all_scenes()
-	var main_scene = ProjectSettings.get_setting("application/run/main_scene", "")
-	if main_scene is String and not main_scene.is_empty():
-		print("VisualGasic: Running main scene: ", main_scene)
-		editor.play_main_scene()
-	else:
-		push_warning("No main scene configured (Project Settings → Application → Run). Running current scene instead.")
-		_run_project()
+	# Always defer to the unified _run_project() so the form-designer-open-
+	# form fallback is used.  Without this, hitting Play in a project with
+	# no main_scene set silently does nothing.
+	_run_project()
 
 
 func _preview_current_form(with_debug: bool) -> void:
@@ -320,6 +317,20 @@ func _run_project() -> void:
 		editor.play_main_scene()
 		return
 
+	# 1b. Prefer the form currently open in the Form Designer (VB6 style:
+	# pressing Run from inside a form always launches that form).
+	var designer = _editor_plugin.get("_form_designer") if "_form_designer" in _editor_plugin else null
+	if designer and is_instance_valid(designer):
+		var fd_path := ""
+		if designer.has_method("get_form_path"):
+			fd_path = str(designer.get_form_path())
+		if fd_path.is_empty() and designer.has_method("get_form_scene_path"):
+			fd_path = str(designer.get_form_scene_path())
+		if not fd_path.is_empty() and FileAccess.file_exists(fd_path):
+			print("VisualGasic: Running open form: ", fd_path)
+			editor.play_custom_scene(fd_path)
+			return
+
 	# 2. Prefer the currently edited scene (the user is looking at it)
 	var scene_root = editor.get_edited_scene_root()
 	if scene_root and not scene_root.scene_file_path.is_empty():
@@ -342,18 +353,34 @@ func _find_startup_form() -> String:
 	for candidate in ["res://Form1.tscn", "res://Main.tscn", "res://frmMain.tscn", "res://start_forms/Form1.tscn"]:
 		if FileAccess.file_exists(candidate):
 			return candidate
-	
-	# Scan for any .tscn file at project root
-	var dir = DirAccess.open("res://")
-	if dir:
-		dir.list_dir_begin()
-		var file_name = dir.get_next()
-		while file_name != "":
-			if file_name.ends_with(".tscn"):
-				return "res://" + file_name
-			file_name = dir.get_next()
-		dir.list_dir_end()
-	
+
+	# Scan project tree (root + one level of subdirs) for any .tscn file.
+	return _scan_dir_for_tscn("res://", 0)
+
+func _scan_dir_for_tscn(path: String, depth: int) -> String:
+	if depth > 2:
+		return ""
+	var dir := DirAccess.open(path)
+	if dir == null:
+		return ""
+	var subdirs: PackedStringArray = []
+	dir.list_dir_begin()
+	while true:
+		var entry := dir.get_next()
+		if entry.is_empty():
+			break
+		if entry.begins_with(".") or entry == ".godot" or entry == "addons":
+			continue
+		if dir.current_is_dir():
+			subdirs.append(path.path_join(entry))
+		elif entry.ends_with(".tscn"):
+			dir.list_dir_end()
+			return path.path_join(entry)
+	dir.list_dir_end()
+	for sub in subdirs:
+		var found := _scan_dir_for_tscn(sub, depth + 1)
+		if not found.is_empty():
+			return found
 	return ""
 
 func _save_breakpoints_for_preview() -> void:

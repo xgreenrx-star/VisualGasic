@@ -24,6 +24,7 @@ const VGCommandHelp = preload("res://addons/visual_gasic/vg_command_help.gd")
 
 signal view_object_requested          ## user clicked "View Object" or pressed F7
 signal code_saved(path: String)       ## code was flushed to disk
+signal edit_in_working_nodes_requested(wnodes_path: String)  ## user clicked "Edit in WN"
 
 # =============================================================================
 # STATE
@@ -34,6 +35,12 @@ var _vg_path: String = ""
 
 ## Whether unsaved changes exist
 var _dirty: bool = false
+
+## Label showing the currently open file name in the nav bar
+var _file_label: Label = null
+
+## Button shown when a sibling .wnodes file exists for the open .vg
+var _edit_in_wn_btn: Button = null
 
 ## The code editor widget
 var _code_edit: CodeEdit = null  # will be VGCodeEdit
@@ -131,6 +138,32 @@ func _build_ui() -> void:
 
 	var nav_hbox := HBoxContainer.new()
 	nav_hbox.add_theme_constant_override("separation", 8)
+
+	# File name label (leftmost in nav bar)
+	_file_label = Label.new()
+	_file_label.name = "FileLabel"
+	_file_label.text = "(General)"
+	_file_label.add_theme_font_size_override("font_size", 12)
+	_file_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.1))
+	_file_label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_file_label.custom_minimum_size.x = 120
+	_file_label.clip_text = true
+	nav_hbox.add_child(_file_label)
+
+	# "Edit in WN" — appears only when a sibling .wnodes exists.
+	_edit_in_wn_btn = Button.new()
+	_edit_in_wn_btn.name = "EditInWN"
+	_edit_in_wn_btn.text = "→ Edit in WN"
+	_edit_in_wn_btn.tooltip_text = "Open the companion .wnodes graph in the Working Nodes editor"
+	_edit_in_wn_btn.add_theme_font_size_override("font_size", 11)
+	_edit_in_wn_btn.visible = false
+	_edit_in_wn_btn.pressed.connect(_on_edit_in_wn_pressed)
+	nav_hbox.add_child(_edit_in_wn_btn)
+
+	# Separator between file label and object combo
+	var sep := VSeparator.new()
+	sep.custom_minimum_size.x = 1
+	nav_hbox.add_child(sep)
 
 	# Object dropdown (left half)
 	_object_combo = OptionButton.new()
@@ -598,6 +631,20 @@ func _update_errors_tab(errors: Array, warnings: Array) -> void:
 		var idx: int = _error_list.add_item(display_text)
 		_error_list.set_item_metadata(idx, {"line": line_num, "type": "warning"})
 		_error_list.set_item_custom_fg_color(idx, Color(0.7, 0.5, 0.0))
+
+## Append a runtime error from the running game to the Errors tab.
+## Does not clear existing compile errors — runtime entries accumulate
+## until the next compile that calls _update_errors_tab (which clears all).
+func log_runtime_error(file: String, line: int, message: String, code: int) -> void:
+	if not _error_list:
+		return
+	var short_file: String = file.get_file() if not file.is_empty() else "(unknown)"
+	var timestamp: String = Time.get_time_string_from_system()
+	var display_text: String = "  🔴  [%s] %s:%d  (Error %d)  %s" % [timestamp, short_file, line, code, message]
+	var idx: int = _error_list.add_item(display_text)
+	_error_list.set_item_metadata(idx, {"line": line, "type": "runtime", "file": file})
+	_error_list.set_item_custom_fg_color(idx, Color(0.9, 0.4, 0.0))
+	focus_errors()
 
 ## Write errors/warnings to the Output tab.
 func _update_output_with_errors(errors: Array, warnings: Array) -> void:
@@ -1265,8 +1312,21 @@ func load_file(path: String) -> void:
 
 	_vg_path = path
 
+	# Update the file label in the nav bar
+	if is_instance_valid(_file_label):
+		_file_label.text = path.get_file()
+		_file_label.tooltip_text = path
+
+	# Show the Edit-in-WN button if a sibling .wnodes exists.
+	if is_instance_valid(_edit_in_wn_btn):
+		var sibling := path.get_basename() + ".wnodes"
+		_edit_in_wn_btn.visible = FileAccess.file_exists(sibling)
+		_edit_in_wn_btn.set_meta("wnodes_path", sibling)
+
 	# Create the file if it doesn't exist (now in canonical casing)
 	if not FileAccess.file_exists(path):
+		var dir_path := ProjectSettings.globalize_path(path.get_base_dir())
+		DirAccess.make_dir_recursive_absolute(dir_path)
 		var f := FileAccess.open(path, FileAccess.WRITE)
 		if f:
 			f.store_string("' Visual Gasic Form Script\nOption Explicit\n\n")
@@ -1346,6 +1406,16 @@ func save_file() -> void:
 func get_file_path() -> String:
 	return _vg_path
 
+## Handler for the "Edit in WN" nav-bar button. Emits a signal carrying the
+## sibling .wnodes path so the plugin can switch tabs / open it.
+func _on_edit_in_wn_pressed() -> void:
+	if not is_instance_valid(_edit_in_wn_btn):
+		return
+	var wp := str(_edit_in_wn_btn.get_meta("wnodes_path", ""))
+	if wp.is_empty() or not FileAccess.file_exists(wp):
+		return
+	edit_in_working_nodes_requested.emit(wp)
+
 ## Flush the current buffer to disk for a transient Run, WITHOUT marking the
 ## file as formally saved. The editor keeps its dirty indicator so the user
 ## knows their changes are still uncommitted (only Ctrl+S / File→Save clears
@@ -1402,6 +1472,26 @@ func select_object_and_event(obj_name: String, event_name: String) -> void:
 func ensure_event_handler(sub_name: String, params: String = "") -> void:
 	if not _code_edit:
 		return
+
+	# Defensive: if the buffer hasn't been modified by the user (_dirty is
+	# false) and the on-disk content differs from what we have in memory,
+	# re-read from disk before mutating the text.
+	# This handles two cases:
+	#   a) load_file was called before the .vg file existed — the file was
+	#      created with a boilerplate stub, then the AI overwrote it via
+	#      write_file AFTER load_file ran.  Buffer = stale boilerplate.
+	#   b) Buffer is empty because load_file hasn't been called yet.
+	# We only re-read when NOT dirty so we never discard the user's own edits.
+	if not _dirty and not _vg_path.is_empty() and FileAccess.file_exists(_vg_path):
+		var _df := FileAccess.open(_vg_path, FileAccess.READ)
+		if _df:
+			var _disk := _df.get_as_text()
+			_df.close()
+			if not _disk.strip_edges().is_empty() and _disk != _code_edit.text:
+				_code_edit.text = _disk
+				_dirty = false
+				_rebuild_proc_list()
+				_rebuild_object_combo()
 
 	var param_str := "(" + params + ")" if not params.is_empty() else "()"
 	var full_sub := "Sub " + sub_name + param_str
@@ -1479,6 +1569,7 @@ func _rebuild_event_list_for_object(obj_name: String) -> void:
 
 	# Determine the control's Godot type
 	var godot_type := "Control"
+	var is_array_member := false
 	if obj_name == "Form":
 		godot_type = "Form"
 	else:
@@ -1487,6 +1578,8 @@ func _rebuild_event_list_for_object(obj_name: String) -> void:
 			var vb6_type: String = info.get("type", "")
 			if not vb6_type.is_empty():
 				godot_type = VGIntelliSense.resolve_control_type(vb6_type)
+			if int(info.get("control_array_index", -1)) >= 0:
+				is_array_member = true
 
 	# Get all available events for this type
 	var events: Array = VGIntelliSense.get_control_events(godot_type)
@@ -1499,15 +1592,20 @@ func _rebuild_event_list_for_object(obj_name: String) -> void:
 			var event_part: String = p_name.substr(obj_name.length() + 1)
 			existing_events[event_part] = idx
 
+	# Suffix applied to every event label when the object is a control-array
+	# member, signalling to the developer that VB6 will inject `Index As Integer`
+	# as the first parameter of the generated handler.
+	var array_suffix: String = "  [array]" if is_array_member else ""
+
 	# Populate the dropdown — existing events shown bold, others normal
 	for event_name in events:
 		var ev_str: String = str(event_name)
 		var full_proc_name: String = obj_name + "_" + ev_str
 		var is_implemented: bool = existing_events.has(ev_str)
 		if is_implemented:
-			_proc_combo.add_item("● " + ev_str)
+			_proc_combo.add_item("● " + ev_str + array_suffix)
 		else:
-			_proc_combo.add_item("  " + ev_str)
+			_proc_combo.add_item("  " + ev_str + array_suffix)
 		var item_idx: int = _proc_combo.item_count - 1
 		# Store the event name and implemented flag as metadata
 		_proc_combo.set_item_metadata(item_idx, {
@@ -1525,7 +1623,7 @@ func _rebuild_event_list_for_object(obj_name: String) -> void:
 	for extra_event in existing_events:
 		var extra_str: String = str(extra_event)
 		if extra_str not in events:
-			_proc_combo.add_item("● " + extra_str)
+			_proc_combo.add_item("● " + extra_str + array_suffix)
 			var item_idx2: int = _proc_combo.item_count - 1
 			_proc_combo.set_item_metadata(item_idx2, {
 				"obj_name": obj_name,
@@ -1728,6 +1826,12 @@ func _on_proc_selected(index: int) -> void:
 		else:
 			# Create a stub for this event and navigate to it
 			var params := _get_event_params(event_name)
+			# VB6 control-array convention: if this control has Index ≥ 0, every
+			# event handler receives `Index As Integer` first.
+			var obj_part: String = full_name.get_slice("_", 0)
+			var ci := _find_control_info(obj_part)
+			if int(ci.get("control_array_index", -1)) >= 0:
+				params = "Index As Integer" + ("" if params.is_empty() else ", " + params)
 			ensure_event_handler(full_name, params)
 			# Rebuild to update the implemented status
 			_rebuild_proc_list()

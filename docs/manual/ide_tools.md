@@ -510,3 +510,5 @@ In‑editor AI assistant with a VisualGasic‑aware system prompt. Supports **lo
 **System prompt**: every request is prefixed with a VG‑aware preamble covering VB6 syntax, auto‑wired events, virtual callbacks (`_Ready`, `_Process`, `_PhysicsProcess`, `_Input`), VB6 property aliases, and `ConnectSignal`. See `SYSTEM_PROMPT` in [vg_ai_help.gd](../../addons/visual_gasic/vg_ai_help.gd) for the full text.
 
 **Privacy**: when using Ollama everything stays on your machine. Cloud providers send the prompt (plus the last N exchanges and any selected code) to the respective API; don't paste secrets.
+
+**Developer note**: plugin authors can extend or consume the same AI integration via `addons/visual_gasic/gdai.gd`; see `docs/guides/PLUGIN_SYSTEM.md` for provider registration, project settings, and `ai.*` capability metadata.

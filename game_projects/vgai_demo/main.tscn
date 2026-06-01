@@ -1,0 +1,21 @@
+[gd_scene load_steps=2 format=3 uid="uid://vgai_demo_main"]
+
+[ext_resource type="Script" path="res://vgai_demo.gd" id=1]
+
+[node name="VGAIDemo" type="Node2D"]
+script = ExtResource("1")
+
+[node name="Status" type="Label" parent="."]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 780.0
+offset_bottom = 60.0
+theme_override_font_sizes/font_size = 18
+text = "Initializing VGAI..."
+
+[node name="QueryButton" type="Button" parent="."]
+offset_left = 20.0
+offset_top = 80.0
+offset_right = 260.0
+offset_bottom = 120.0
+text = "Ask VGAI"

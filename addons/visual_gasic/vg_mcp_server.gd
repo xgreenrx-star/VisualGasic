@@ -127,7 +127,7 @@ func _poll() -> void:
 			continue
 		# Try to parse a complete HTTP request.
 		var result := _try_parse_request(c["buf"])
-		if result != null:
+		if not result.is_empty() and not result.get("_incomplete", false):
 			_handle_http_request(peer, result)
 			stale.append(c)  # HTTP/1.0 — one request per connection
 
@@ -145,7 +145,7 @@ func _try_parse_request(buf: PackedByteArray) -> Dictionary:
 	var raw := buf.get_string_from_utf8()
 	var header_end := raw.find("\r\n\r\n")
 	if header_end == -1:
-		return null  # Not complete yet.
+		return {"_incomplete": true}  # Not complete yet.
 	var header_section := raw.substr(0, header_end)
 	var lines := header_section.split("\r\n")
 	if lines.is_empty():
@@ -166,7 +166,7 @@ func _try_parse_request(buf: PackedByteArray) -> Dictionary:
 	var content_length: int = int(headers.get("content-length", "0"))
 	var body_start := header_end + 4
 	if buf.size() < body_start + content_length:
-		return null  # Body not fully received yet.
+		return {"_incomplete": true}  # Body not fully received yet.
 	var body_bytes := buf.slice(body_start, body_start + content_length)
 	return {
 		"method": method,
@@ -563,15 +563,15 @@ func _find_hunk_anchor(lines: Array, context_before: Array, removes: Array, hunk
 		for sign in [0, 1, -1] if delta == 0 else [1, -1]:
 			if delta == 0 and sign == -1:
 				continue
-			var candidate := ideal + delta * sign
+			var candidate: int = ideal + delta * int(sign)
 			if candidate < 0 or candidate + pattern.size() > total:
 				continue
-			var match := true
+			var is_match := true
 			for pi in pattern.size():
 				if lines[candidate + pi] != pattern[pi]:
-					match = false
+					is_match = false
 					break
-			if match:
+			if is_match:
 				return candidate
 	return -1
 

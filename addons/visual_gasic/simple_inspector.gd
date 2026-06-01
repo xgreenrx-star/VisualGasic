@@ -117,7 +117,8 @@ const PROPERTY_DESCRIPTIONS: Dictionary = {
 	"tabindex": "Returns/sets the tab order of the control within its container.",
 	"cancel_button": "Returns/sets whether a command button is the Cancel button for a form.",
 	"default_button": "Returns/sets whether a command button is the default button for a form.",
-	"index": "Returns the index of the control in the Form Designer's control array.",
+	"index": "Returns/sets the Index property for control arrays. Set Index ≥ 0 to make this control part of a control array (e.g. Command1(0), Command1(1)). -1 = standalone control.",
+	"control_array_index": "Returns/sets the Index property for control arrays. Set Index ≥ 0 to make this control part of a control array (e.g. Command1(0), Command1(1)). -1 = standalone control.",
 	"windowtype": "Returns/sets the window type for the form. Game=SubViewport, Windows=Window, Linux=Window+CSD, Mac=Window+CSD.",
 	"Opacity": "Returns/sets the opacity of the control (0 = fully transparent, 100 = fully opaque).",
 	"Rotation": "Returns/sets the rotation of the control in degrees.",
@@ -857,7 +858,9 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 		_property_entries.append({"label": "MousePointer", "value": int(props.get("MousePointer", 0)), "prop_key": "MousePointer", "type": "fd_enum_mousepointer", "category": CATEGORY_MISC})
 		_property_entries.append({"label": "MouseDefaultCursorShape", "value": int(props.get("MouseDefaultCursorShape", 0)), "prop_key": "MouseDefaultCursorShape", "type": "number", "category": CATEGORY_MISC})
 		_property_entries.append({"label": "ThemeTypeVariation", "value": str(props.get("ThemeTypeVariation", "")), "prop_key": "ThemeTypeVariation", "type": "string", "category": CATEGORY_MISC})
-	_property_entries.append({"label": "Index", "value": ctrl_index, "prop_key": "index", "type": "readonly", "category": CATEGORY_MISC})
+	# VB6 Index property — sets control_array_index to make this control part of a
+	# control array (e.g. Command1(0), Command1(1)). -1 = standalone control.
+	_property_entries.append({"label": "Index", "value": int(info.get("control_array_index", -1)), "prop_key": "control_array_index", "type": "number", "category": CATEGORY_MISC})
 
 	# Render based on view mode
 	if _view_mode == 0:

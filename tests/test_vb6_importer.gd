@@ -120,6 +120,7 @@ func run_all_tests():
 	test_ocx_runtime_calls()
 	test_user_control_listed()
 	test_user_document_warning()
+	test_project_import_tracks_class_modules_separately()
 	test_frx_picture_extracted()
 
 # --------------- Individual test functions ---------------
@@ -746,6 +747,26 @@ func test_fixture_control_array():
 			var src := f.get_as_text()
 			f.close()
 			assert_contains(src, "FindControl", "02_control_array: FindControl helper present")
+	# Verify the saved .tscn carries the runtime metadata Phase 4b needs:
+	#   metadata/vb6_base_name + metadata/vb6_control_array_index for each member
+	var scene_path: String = r.get("scene_path", "")
+	if not scene_path.is_empty():
+		var sf := FileAccess.open(scene_path, FileAccess.READ)
+		if sf != null:
+			var tscn := sf.get_as_text()
+			sf.close()
+			assert_contains(tscn, "metadata/vb6_base_name = \"Btn\"",
+				"02_control_array: tscn carries vb6_base_name metadata")
+			assert_contains(tscn, "metadata/vb6_control_array_index = 0",
+				"02_control_array: tscn carries Index=0 metadata")
+			assert_contains(tscn, "metadata/vb6_control_array_index = 1",
+				"02_control_array: tscn carries Index=1 metadata")
+			assert_contains(tscn, "metadata/vb6_control_array_index = 2",
+				"02_control_array: tscn carries Index=2 metadata")
+			# Sibling names must be unique
+			assert_contains(tscn, "name=\"Btn_0\"", "02_control_array: Btn_0 sibling exists")
+			assert_contains(tscn, "name=\"Btn_1\"", "02_control_array: Btn_1 sibling exists")
+			assert_contains(tscn, "name=\"Btn_2\"", "02_control_array: Btn_2 sibling exists")
 
 func test_fixture_menus():
 	print("\n--- Fixture: 03_menus ---")
@@ -1187,6 +1208,36 @@ func test_user_document_warning():
 			pag_seen = true
 	assert_true(dob_seen, "UserDocument warning explains why")
 	assert_true(pag_seen, "PropertyPage warning explains why")
+
+
+func test_project_import_tracks_class_modules_separately():
+	print("\n--- Project import reports classes separately from modules ---")
+	var tmp_root := "user://_test_class_proj"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(tmp_root))
+	var vbp_path := tmp_root + "/proj.vbp"
+	var bas_path := tmp_root + "/Utils.bas"
+	var cls_path := tmp_root + "/Enemy.cls"
+
+	var f1 := FileAccess.open(vbp_path, FileAccess.WRITE)
+	f1.store_string("Type=Exe\nName=\"Demo\"\nModule=Utils; Utils.bas\nClass=Enemy; Enemy.cls\n")
+	f1.close()
+
+	var f2 := FileAccess.open(bas_path, FileAccess.WRITE)
+	f2.store_string("Attribute VB_Name = \"Utils\"\nPublic Sub Hello()\nEnd Sub\n")
+	f2.close()
+
+	var f3 := FileAccess.open(cls_path, FileAccess.WRITE)
+	f3.store_string("VERSION 1.0 CLASS\nAttribute VB_Name = \"Enemy\"\nPublic HP As Integer\n")
+	f3.close()
+
+	var r: Dictionary = VB6Importer.import_project(vbp_path)
+	assert_true(r.get("success", false), "project import should succeed")
+	assert_eq(r.get("modules", []).size(), 1, "standard modules counted separately")
+	assert_eq(r.get("classes", []).size(), 1, "class modules counted separately")
+
+	var imported_class: Dictionary = r.get("classes", [])[0]
+	assert_eq(imported_class.get("name", ""), "Enemy", "class result preserves class name")
+	assert_eq(imported_class.get("path", ""), "res://mixed/Enemy.vg", "class result points at imported class file")
 
 
 func test_frx_picture_extracted():

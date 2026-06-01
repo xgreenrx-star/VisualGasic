@@ -200,6 +200,7 @@ signatures in the
 | `Camera.*` | Camera2D/3D control | `Position`, `Zoom`, `Rotation`, `FOV`, `Follow`, `Shake`, `Limits`, `MakeCurrent`, `PanTo`, `Bounce`, `FlashColor` |
 | `Sound.*` | Polyphonic audio | `Play`, `Stop`, `Pause`, `Resume`, `Volume`, `Pitch`, `Seek`, `Position`, `IsPlaying` |
 | `Speaker.*` | Audio buses | `Count`, `Exists`, `Name`, `Volume`, `Mute`, `IsMuted`, `Solo` |
+| `SoundGen.*` | Real-time PCM synthesis | `Open`, `Close`, `Available`, `PushMono`, `PushStereo` |
 | `Animation.*` | AnimationPlayer | `Play`, `Stop`, `Pause`, `Resume`, `Seek`, `Speed`, `Current`, `IsPlaying`, `Length`, `Loop` |
 | `Physics.*` | Rigid/Character bodies | `Gravity`, `GravityV2`, `GravityV3`, `Force`, `Impulse`, `Torque`, `Bounce`, `Ray` |
 | `Ray.*` | RayCast2D/3D | `Cast2D`, `Cast3D`, `Target`, `Enable`, `ForceUpdate`, `Hit`, `Collider`, `Point`, `Normal` |

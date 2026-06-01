@@ -293,7 +293,7 @@ syntax — if unsure, say so and point at a corpus/ or demos/ example.  \
 Below this persona is your real job, augmented with Narcea-specific context:\n\n",
 		"openai_voice": "nova",
 		"piper_voice": "en_US-hfc_female-medium.onnx",
-		"speech_speed": 1.0,
+		"speech_speed": 1.15,
 		"greeting": "\ud83c\udf3f Narcea here. I can see what you're working on — ask me anything VG-specific.",
 		"error_intro": "Let's look at this together. I can see the panel and the file — diagnosing now.",
 	},
@@ -410,6 +410,9 @@ var _stream_done := false              # True when Ollama sends done
 var _stream_error := ""                # Non-empty on error
 var _stream_started := false           # True once we've printed the "AI:" header
 var _stream_token_count := 0           # Tokens received so far
+var _stream_vgtool_suppress := false   # True while inside a ```vg-tool block (suppressed from display)
+var _stream_line_buf := ""             # Partial-line buffer for vg-tool fence detection
+var _stream_line_displayed := 0        # How many bytes of _stream_line_buf have already been shown
 var _stream_start_time := 0.0          # Time.get_ticks_msec() when query sent
 var _stream_first_token_time := 0.0    # Time of first token (0 = not yet)
 var _stream_http_phase := 0            # 0=idle, 1=connecting, 2=requesting, 3=body, 4=error body
@@ -438,6 +441,11 @@ var _current_prompt := ""  # Tracks the prompt of the in-flight query
 
 # External context (set by plugin.gd)
 var _last_error_context := {}
+# Lines from the last manual ▶ Run that looked like errors (stderr or
+# lines starting with ERROR:/SCRIPT ERROR:).  Used as a fallback for
+# 🐛 Explain Last Error when the debugger didn't capture a structured
+# error context — closes the manual-run side of the reflect loop.
+var _run_error_lines: PackedStringArray = PackedStringArray()
 var _last_selected_code := ""
 
 # Voice I/O (Tier 2.5) — controller is created lazily on first use
@@ -469,6 +477,8 @@ var _project_from_desc_btn: Button = null
 var _form_from_desc_dialog: AcceptDialog = null
 var _form_from_desc_input: TextEdit = null
 var _form_from_desc_mode: String = "form"  # "form" | "code" | "project"
+var _last_send_was_desc_mode: bool = false  # set by Form…/Code…/Project… dialogs; cleared after refresh
+var _build_form_ran_this_turn: bool = false  # set when build_form tool executes; prevents double-build
 # Tier-3 chat-only project-creation buttons.  Disabled until a parseable
 # vg-code-spec / vg-project-spec block is in the latest reply.  Run is
 # enabled whenever something has been built or the user opens an existing
@@ -477,15 +487,42 @@ var _make_code_btn: Button = null
 var _make_project_btn: Button = null
 var _run_btn: Button = null
 var _run_stop_btn: Button = null
+# Toolbar additions (Phase 7): per-feature buttons added in batch.
+var _make_test_btn: Button = null
+var _make_wnodes_btn: Button = null
+var _undo_btn: Button = null
+var _pin_btn: Button = null
+var _summarize_errors_btn: Button = null
+var _retry_patch_btn: Button = null
 # Lazy-loaded helpers for the speech sanitiser and form-spec applier.
 var _speech_filter = null  # vg_ai_speech_filter.gd instance
 var _form_spec = null      # vg_ai_form_spec.gd instance
 var _safe_writer = null    # vg_ai_safe_write.gd instance
 var _code_spec = null      # vg_ai_code_spec.gd instance
+var _patch_spec = null     # vg_ai_patch_spec.gd instance
 var _project_spec = null   # vg_ai_project_spec.gd instance
+var _test_spec = null      # vg_ai_test_spec.gd instance
+var _wnodes_spec = null    # vg_ai_wnodes_spec.gd instance
+var _lesson_spec = null    # vg_ai_lesson_spec.gd instance
 var _run_session = null    # vg_ai_run_session.gd Node
 var _last_run_scene := ""  # res:// path of the last thing we ran
 var _last_project_root := ""  # res:// dir scaffolded by Make project
+
+# --- Phase 7 feature state -------------------------------------------------
+# Undo stack: newest last.  Each entry = {label, ts, files:[{path,old}]}.
+# Capped at _UNDO_DEPTH so memory stays bounded.
+var _undo_stack: Array = []
+const _UNDO_DEPTH := 20
+# Pinned files pushed to Narcea on every prompt build.
+var _pinned_files: PackedStringArray = PackedStringArray()
+# Last patch result — drives the "🔁 Retry patch" button + diff-aware
+# follow-ups (#11).  Empty until the first apply.
+var _last_apply_result: Dictionary = {}
+var _last_apply_kind := ""   # "Code" / "Patch" / "Test" / ""
+# Compact diff string of the most recent apply ("path: +N -M lines …").
+# Prepended to user prompts that look like follow-ups ("also", "undo",
+# "why did you", "now make it ...").
+var _last_apply_diff_summary := ""
 
 ## Grab the current selection from the embedded VB6 code editor.
 ## Falls back to the text of the Sub/Function surrounding the caret,
@@ -790,10 +827,45 @@ func _display_token(token: String) -> void:
 		var _label: String = _pdata.get("display", "AI") if typeof(_pdata) == TYPE_DICTIONARY else "AI"
 		_output.append_text("\n[color=#44bb88][b]%s:[/b][/color]\n[color=#dddddd]" % _label)
 		_stream_first_token_time = Time.get_ticks_msec()
+		_stream_vgtool_suppress = false
+		_stream_line_buf = ""
+		_stream_line_displayed = 0
 	_stream_token_count += 1
 	_agent_total_tokens += 1   # Phase 6b: accumulate across agent hops
 	_accumulated_response += token
-	_output.append_text(_escape_bbcode(token))
+	# --- vg-tool block suppression ---
+	# Buffer tokens by line so we can detect ```vg-tool fences and suppress
+	# their raw JSON content from the chat panel.  A compact indicator is shown
+	# instead so the user knows a tool ran without seeing the raw payload.
+	_stream_line_buf += token
+	while "\n" in _stream_line_buf:
+		var nl := _stream_line_buf.find("\n")
+		var line := _stream_line_buf.substr(0, nl)
+		_stream_line_buf = _stream_line_buf.substr(nl + 1)
+		var stripped := line.strip_edges()
+		if stripped == "```vg-tool":
+			_stream_vgtool_suppress = true
+			_stream_line_displayed = 0
+		elif stripped == "```" and _stream_vgtool_suppress:
+			_stream_vgtool_suppress = false
+			_stream_line_displayed = 0
+			_output.append_text("[color=#888888]⚙ (tool running…)[/color]\n")
+		elif not _stream_vgtool_suppress:
+			# Display only the portion of this line not yet shown (handles
+			# partial-line pre-display of non-fence content).
+			var to_show := line.substr(_stream_line_displayed) + "\n"
+			_output.append_text(_escape_bbcode(to_show))
+			_stream_line_displayed = 0
+		else:
+			_stream_line_displayed = 0
+	# Flush partial (not-yet-newline) content immediately when we're sure
+	# it can't be a vg-tool fence opener (lines starting with `` ` `` are
+	# held until the full line is known).
+	if not _stream_vgtool_suppress and not _stream_line_buf.strip_edges().begins_with("`"):
+		var undisplayed := _stream_line_buf.substr(_stream_line_displayed)
+		if not undisplayed.is_empty():
+			_output.append_text(_escape_bbcode(undisplayed))
+			_stream_line_displayed = _stream_line_buf.length()
 	# Tier 2.5c: stream token directly into TTS pipeline so sentences begin
 	# playing as soon as they complete, rather than after the full reply.
 	if is_instance_valid(_voice_speak_toggle) and _voice_speak_toggle.button_pressed:
@@ -851,6 +923,13 @@ func _finish_generation() -> void:
 		_fc_fragments.clear()
 	if not _accumulated_response.is_empty():
 		_dispatch_tool_calls(_accumulated_response)
+	# Flush any partial line that was buffered for vg-tool fence detection.
+	if not _stream_vgtool_suppress and not _stream_line_buf.is_empty():
+		var undisplayed := _stream_line_buf.substr(_stream_line_displayed)
+		if not undisplayed.is_empty():
+			_output.append_text(_escape_bbcode(undisplayed))
+	_stream_line_buf = ""
+	_stream_line_displayed = 0
 	_stream_tool_watermark = 0
 
 	_current_prompt = ""
@@ -912,6 +991,9 @@ func _stop_generation() -> void:
 	_agent_hops = 0
 	_agent_total_tokens = 0
 	_stream_tool_watermark = 0
+	_stream_vgtool_suppress = false
+	_stream_line_buf = ""
+	_stream_line_displayed = 0
 	_fc_fragments.clear()
 	_agent_abort_requested = false
 	_hide_abort_agent_btn()
@@ -1217,6 +1299,41 @@ func _setup_ui() -> void:
 	_style_small_button(_run_stop_btn)
 	toolbar2.add_child(_run_stop_btn)
 
+	# 🧪 Make test — write + run a vg-test-spec.
+	_make_test_btn = Button.new()
+	_make_test_btn.text = "\ud83e\uddea Make test"
+	_make_test_btn.tooltip_text = "Ask Narcea for a vg-test-spec block to enable this."
+	_make_test_btn.disabled = true
+	_make_test_btn.pressed.connect(_on_make_test)
+	_style_small_button(_make_test_btn)
+	toolbar2.add_child(_make_test_btn)
+
+	# 🧩 Make .wnodes — write a Working Nodes graph from a vg-wnodes-spec.
+	_make_wnodes_btn = Button.new()
+	_make_wnodes_btn.text = "\ud83e\udde9 Make WN"
+	_make_wnodes_btn.tooltip_text = "Ask Narcea for a vg-wnodes-spec block to enable this."
+	_make_wnodes_btn.disabled = true
+	_make_wnodes_btn.pressed.connect(_on_make_wnodes)
+	_style_small_button(_make_wnodes_btn)
+	toolbar2.add_child(_make_wnodes_btn)
+
+	# ↩ Undo last AI edit — restores files captured before the last apply.
+	_undo_btn = Button.new()
+	_undo_btn.text = "\u21a9 Undo"
+	_undo_btn.tooltip_text = "Restore the file(s) from before the last AI edit."
+	_undo_btn.disabled = true
+	_undo_btn.pressed.connect(_on_undo_last_edit)
+	_style_small_button(_undo_btn)
+	toolbar2.add_child(_undo_btn)
+
+	# 📌 Pin file — opens a small dialog to pin the open file (or a path).
+	_pin_btn = Button.new()
+	_pin_btn.text = "\ud83d\udccc Pin"
+	_pin_btn.tooltip_text = "Pin the currently-open file so Narcea always sees its contents."
+	_pin_btn.pressed.connect(_on_pin_file)
+	_style_small_button(_pin_btn)
+	toolbar2.add_child(_pin_btn)
+
 	# --- Quick action buttons ---
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 4)
@@ -1242,6 +1359,24 @@ func _setup_ui() -> void:
 	_translate_btn.pressed.connect(_on_translate)
 	_style_action_button(_translate_btn, Color(0.6, 1.0, 0.6))
 	actions.add_child(_translate_btn)
+
+	# 📋 Summarize errors — visible only when the buffer has > 20 lines.
+	_summarize_errors_btn = Button.new()
+	_summarize_errors_btn.text = "\ud83d\udccb Summarize errors"
+	_summarize_errors_btn.tooltip_text = "Cluster repeated errors from the last run and find the root cause."
+	_summarize_errors_btn.pressed.connect(_on_summarize_errors)
+	_style_action_button(_summarize_errors_btn, Color(1.0, 0.8, 0.5))
+	_summarize_errors_btn.visible = false
+	actions.add_child(_summarize_errors_btn)
+
+	# 🔁 Retry patch — only visible after a patch had anchor failures.
+	_retry_patch_btn = Button.new()
+	_retry_patch_btn.text = "\ud83d\udd01 Retry patch"
+	_retry_patch_btn.tooltip_text = "Ask Narcea for a corrected vg-patch-spec for the anchors that failed."
+	_retry_patch_btn.pressed.connect(_on_retry_patch)
+	_style_action_button(_retry_patch_btn, Color(1.0, 0.7, 0.7))
+	_retry_patch_btn.visible = false
+	actions.add_child(_retry_patch_btn)
 
 	# --- Output area ---
 	_output = RichTextLabel.new()
@@ -1559,6 +1694,7 @@ func _on_send() -> void:
 		_agent_triggered_run = false
 		_agent_run_output_lines.clear()
 		_agent_abort_requested = false
+		_build_form_ran_this_turn = false
 		_hide_abort_agent_btn()
 		_transcript_close("user_new_turn")  # Phase 6e: close any open transcript.
 	_send_query(prompt)
@@ -1575,6 +1711,14 @@ func _send_query(prompt: String) -> void:
 	if _is_generating:
 		_append_system("[color=yellow]Already generating — click Stop first.[/color]\n")
 		return
+	# Push pinned files to Narcea before context build (#8).
+	if _narcea_provider != null and _narcea_provider.has_method("set_pinned_files"):
+		_narcea_provider.set_pinned_files(_pinned_files)
+		_narcea_ctx_cache = ""
+	# Diff-aware follow-ups (#11): if the user is referring to the prior
+	# edit, silently prepend a short diff summary so Narcea has context
+	# for "undo that", "also do X", "why did you change Y", "now ...".
+	var augmented := _maybe_prepend_diff(prompt)
 
 	# Cloud providers — skip warmup and health check, send directly
 	if _provider_info and not _provider_info.is_local:
@@ -1582,7 +1726,7 @@ func _send_query(prompt: String) -> void:
 		_history_idx = _history.size()
 		_input.text = ""
 		_append_user(prompt)
-		_send_cloud_query(prompt)
+		_send_cloud_query(augmented)
 		return
 
 	# Send directly — the request itself surfaces any connectivity issue.
@@ -1590,7 +1734,27 @@ func _send_query(prompt: String) -> void:
 	_history_idx = _history.size()
 	_input.text = ""
 	_append_user(prompt)
-	_send_query_internal(prompt)
+	_send_query_internal(augmented)
+
+
+## Detect follow-up trigger words and prepend the last apply's diff
+## summary to the prompt.  Display copy stays untouched.
+func _maybe_prepend_diff(prompt: String) -> String:
+	if _last_apply_diff_summary.is_empty():
+		return prompt
+	var low := prompt.to_lower()
+	var triggers := ["undo", "revert", "also", "now ", "why did you", "why are you",
+		"that change", "that edit", "previous edit", "what you just"]
+	var hit := false
+	for t in triggers:
+		if low.find(t) != -1:
+			hit = true
+			break
+	if not hit:
+		return prompt
+	return ("[Context: your most recent edit changed %s.  The user's next "
+		+ "message references that change.]\n\n%s") % [
+			_last_apply_diff_summary, prompt]
 
 ## Internal: actually sends the query (called after health check passes).
 var _stream_json_body := ""  # Stored for deferred sending after connect
@@ -1637,6 +1801,9 @@ func _send_query_internal(prompt: String) -> void:
 	_stream_first_token_time = 0.0
 	_accumulated_response = ""
 	_stream_tool_watermark = 0
+	_stream_vgtool_suppress = false
+	_stream_line_buf = ""
+	_stream_line_displayed = 0
 
 	# Create HTTPClient and start non-blocking connect
 	# The poll timer will drive the state machine (connect → request → read body)
@@ -1687,23 +1854,36 @@ func _escape_bbcode(text: String) -> String:
 	return text.replace("[", "[lb]")
 
 func _format_code_blocks(text: String) -> String:
-	# Convert ```vb ... ``` or ```bas ... ``` blocks to colored BBCode
+	# Convert ```vb ... ``` or ```bas ... ``` blocks to colored BBCode.
+	# ```vg-tool blocks are collapsed to a compact indicator — the raw JSON
+	# is never shown to the user.
 	var result := ""
 	var lines := text.split("\n")
 	var in_code := false
+	var in_vgtool := false
 
 	for line in lines:
 		var stripped := line.strip_edges()
 		if stripped.begins_with("```") and not in_code:
 			in_code = true
-			result += "[color=#1a1a2e]━━━━━━━━━━━━━━━━━━━━━━━━━[/color]\n"
+			if stripped == "```vg-tool":
+				in_vgtool = true
+				# Don't emit an opening divider for tool blocks
+			else:
+				result += "[color=#1a1a2e]━━━━━━━━━━━━━━━━━━━━━━━━━[/color]\n"
 			continue
 		elif stripped.begins_with("```") and in_code:
 			in_code = false
-			result += "[color=#1a1a2e]━━━━━━━━━━━━━━━━━━━━━━━━━[/color]\n"
+			if in_vgtool:
+				in_vgtool = false
+				result += "[color=#888888]⚙ (tool executed)[/color]\n"
+			else:
+				result += "[color=#1a1a2e]━━━━━━━━━━━━━━━━━━━━━━━━━[/color]\n"
 			continue
 
-		if in_code:
+		if in_vgtool:
+			continue  # suppress vg-tool JSON from display
+		elif in_code:
 			result += "[color=#e0c080]%s[/color]\n" % _escape_bbcode(line)
 		else:
 			# Escape BBCode-significant chars first so user text like arr[0] is safe.
@@ -1738,28 +1918,39 @@ func _format_code_blocks(text: String) -> String:
 # Quick actions
 # ---------------------------------------------------------------------------
 func _on_explain_error() -> void:
-	if _last_error_context.is_empty():
+	if _last_error_context.is_empty() and _run_error_lines.is_empty():
 		_append_system("[color=yellow]No error to explain. Run your program and trigger an error first.[/color]\n")
 		return
 	_show_persona_error_intro()
 	var prompt := "Explain this VisualGasic runtime error and suggest a fix:\n\n"
-	prompt += "File: %s\n" % _last_error_context.get("file", "unknown")
-	prompt += "Line: %s\n" % str(_last_error_context.get("line", "?"))
-	prompt += "Error: %s\n" % _last_error_context.get("message", "unknown error")
-	if _last_error_context.has("code_context"):
-		prompt += "\nCode around the error:\n```vb\n%s\n```\n" % _last_error_context["code_context"]
-	if _last_error_context.has("variables"):
-		prompt += "\nVariable values at the time of error:\n"
-		for k in _last_error_context["variables"]:
-			prompt += "  %s = %s\n" % [k, str(_last_error_context["variables"][k])]
+	if not _last_error_context.is_empty():
+		prompt += "File: %s\n" % _last_error_context.get("file", "unknown")
+		prompt += "Line: %s\n" % str(_last_error_context.get("line", "?"))
+		prompt += "Error: %s\n" % _last_error_context.get("message", "unknown error")
+		if _last_error_context.has("code_context"):
+			prompt += "\nCode around the error:\n```vb\n%s\n```\n" % _last_error_context["code_context"]
+		if _last_error_context.has("variables"):
+			prompt += "\nVariable values at the time of error:\n"
+			for k in _last_error_context["variables"]:
+				prompt += "  %s = %s\n" % [k, str(_last_error_context["variables"][k])]
+	elif not _run_error_lines.is_empty():
+		# Manual ▶ Run fallback — feed the captured stderr verbatim so
+		# Narcea can spot the file:line in the traceback herself.
+		prompt += "Run output (stderr / SCRIPT ERROR lines from the last run):\n```\n"
+		prompt += "\n".join(_run_error_lines)
+		prompt += "\n```\n\nDiagnose the cause and emit a vg-patch-spec (or vg-code-spec) that fixes the file referenced above."
 	_send_query(prompt)
 
 func _on_explain_code() -> void:
 	var code := _get_editor_selected_code()
 	if code.strip_edges().is_empty():
-		_append_system("[color=yellow]No code selected. Select code in the editor first, or it will use the current Sub.[/color]\n")
+		_append_system("[color=yellow]Nothing to explain — open a .vg file in the editor, then place the caret in a Sub or select code first.[/color]\n")
 		return
-	var prompt := "Explain this VisualGasic code line by line:\n\n```vb\n%s\n```" % code
+	# If the user has no selection we got the Sub body around the caret —
+	# tell Narcea so she can mention which Sub she's explaining.
+	var prompt := ("Explain this VisualGasic code in 2-3 short paragraphs, plain English, "
+		+ "for someone learning to program. End with one sentence about what they might "
+		+ "want to try next.\n\n```vb\n%s\n```") % code
 	_send_query(prompt)
 
 func _on_translate() -> void:
@@ -1770,6 +1961,253 @@ func _on_translate() -> void:
 	var prompt := "Translate this GDScript code to VisualGasic (VB6 syntax):\n\n```gdscript\n%s\n```\n\nProvide only the VisualGasic translation." % code
 	_send_query(prompt)
 
+
+# ---------------------------------------------------------------------------
+# Phase 7 quick-action handlers
+# ---------------------------------------------------------------------------
+
+## Look up `line` in the Narcea decoder dictionary.  Returns "" if no
+## entry matches, otherwise a one-sentence plain-English hint.
+func _decode_run_error(line: String) -> String:
+	if _narcea_provider == null:
+		var script := load("res://addons/visual_gasic/vg_ai_narcea.gd")
+		if script == null:
+			return ""
+		_narcea_provider = script.new()
+	if not _narcea_provider.has_method("decode_error"):
+		return ""
+	return _narcea_provider.decode_error(line)
+
+
+## Capture pre-edit snapshots of every path in `paths` so the user can
+## roll back with the Undo button.  Stores at most _UNDO_DEPTH entries.
+func _undo_capture(label: String, paths: Array) -> void:
+	var snap := {"label": label, "ts": Time.get_ticks_msec(), "files": []}
+	for p in paths:
+		var sp := str(p)
+		var old := ""
+		if FileAccess.file_exists(sp):
+			var f := FileAccess.open(sp, FileAccess.READ)
+			if f != null:
+				old = f.get_as_text()
+				f.close()
+		snap["files"].append({"path": sp, "old": old})
+	_undo_stack.append(snap)
+	if _undo_stack.size() > _UNDO_DEPTH:
+		_undo_stack.pop_front()
+	if is_instance_valid(_undo_btn):
+		_undo_btn.disabled = false
+		_undo_btn.tooltip_text = "Undo: %s (%d file(s))" % [label, snap["files"].size()]
+
+
+## Compute a 1-line summary of the change for diff-aware follow-ups.
+func _summarise_diff(written: Array, snap: Dictionary) -> String:
+	if snap.is_empty():
+		return ""
+	var parts: Array[String] = []
+	var by_path := {}
+	for fe in snap.get("files", []):
+		by_path[str(fe.get("path", ""))] = str(fe.get("old", ""))
+	for p in written:
+		var sp := str(p)
+		var old: String = by_path.get(sp, "")
+		var new_text := ""
+		if FileAccess.file_exists(sp):
+			var f := FileAccess.open(sp, FileAccess.READ)
+			if f != null:
+				new_text = f.get_as_text()
+				f.close()
+		var old_lines := old.split("\n").size() if not old.is_empty() else 0
+		var new_lines := new_text.split("\n").size() if not new_text.is_empty() else 0
+		var delta := new_lines - old_lines
+		var sign := "+" if delta >= 0 else ""
+		parts.append("%s (%s%d lines)" % [sp.get_file(), sign, delta])
+	return ", ".join(parts)
+
+
+func _on_undo_last_edit() -> void:
+	if _undo_stack.is_empty():
+		_append_system("[color=yellow]Nothing to undo.[/color]\n")
+		return
+	_ensure_agent_helpers()
+	if _safe_writer == null:
+		_append_system("[color=#ff8888]Safe-writer unavailable — cannot undo.[/color]\n")
+		return
+	_safe_writer.set_root("res://")
+	var snap: Dictionary = _undo_stack.pop_back()
+	var restored: Array = []
+	var failed: Array = []
+	for fe in snap.get("files", []):
+		var p: String = str(fe.get("path", ""))
+		var old: String = str(fe.get("old", ""))
+		if p.is_empty():
+			continue
+		# Empty `old` means the file didn't exist before the edit — delete it.
+		if old.is_empty() and FileAccess.file_exists(p):
+			var abs := ProjectSettings.globalize_path(p)
+			if DirAccess.remove_absolute(abs) == OK:
+				restored.append(p + " (deleted)")
+			else:
+				failed.append(p)
+			continue
+		var res: Array = _safe_writer.write(p, old)
+		if res[0]:
+			restored.append(p)
+		else:
+			failed.append("%s — %s" % [p, str(res[1])])
+	_append_system("[color=#aaffaa]\u21a9 Restored '%s' — %d file(s).[/color]\n" % [
+		str(snap.get("label", "?")), restored.size()])
+	for r in restored:
+		_append_system("  [color=#aaffaa]\u21bb %s[/color]\n" % r)
+	for fl in failed:
+		_append_system("  [color=#ff8888]\u2716 %s[/color]\n" % fl)
+	if Engine.is_editor_hint():
+		EditorInterface.get_resource_filesystem().scan()
+	# Reload the first .vg in editor so the user sees the rollback.
+	var reload_shim := {"files": []}
+	for fe in snap.get("files", []):
+		reload_shim["files"].append({"path": str(fe.get("path", ""))})
+	_reload_first_vg_in_editor(reload_shim)
+	if is_instance_valid(_undo_btn):
+		_undo_btn.disabled = _undo_stack.is_empty()
+		if _undo_stack.is_empty():
+			_undo_btn.tooltip_text = "Nothing to undo."
+
+
+## Pin the currently-open .vg file (or whatever the editor has focused)
+## so its full contents are always injected into Narcea's context.  Click
+## again with the same file to unpin.
+func _on_pin_file() -> void:
+	var path := ""
+	if Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base and base.has_meta("visual_gasic_plugin_instance"):
+			var plugin = base.get_meta("visual_gasic_plugin_instance")
+			if plugin and is_instance_valid(plugin) and "_embedded_code_editor" in plugin:
+				var ece = plugin._embedded_code_editor
+				if ece != null and is_instance_valid(ece):
+					for prop in ["current_file", "_current_path", "current_path"]:
+						if prop in ece:
+							var v = ece.get(prop)
+							if typeof(v) == TYPE_STRING and not v.is_empty():
+								path = v
+								break
+	if path.is_empty():
+		_append_system("[color=yellow]Open a file in the editor first, then click \ud83d\udccc Pin.[/color]\n")
+		return
+	# Toggle.
+	var idx := -1
+	for i in _pinned_files.size():
+		if _pinned_files[i] == path:
+			idx = i
+			break
+	if idx >= 0:
+		_pinned_files.remove_at(idx)
+		_append_system("[color=#cccccc]Unpinned %s.[/color]\n" % path)
+	else:
+		_pinned_files.append(path)
+		_append_system("[color=#88ccff]\ud83d\udccc Pinned %s \u2014 Narcea will always see its contents.[/color]\n" % path)
+	# Bust the context cache so the next prompt rebuilds with the new pins.
+	_narcea_ctx_cache = ""
+	if is_instance_valid(_pin_btn):
+		var n: int = _pinned_files.size()
+		_pin_btn.tooltip_text = "Pinned: %d file(s). Click to toggle the current file." % n
+
+
+func _on_summarize_errors() -> void:
+	if _run_error_lines.is_empty():
+		_append_system("[color=yellow]No errors captured yet.[/color]\n")
+		return
+	var joined: String = "\n".join(_run_error_lines)
+	var prompt := ("The last run produced %d error/warning lines.  Cluster repeated "
+		+ "messages, identify the most likely root cause (one sentence), and propose "
+		+ "the next concrete fix (one sentence).  Do NOT dump the raw log back at me.\n\n"
+		+ "```\n%s\n```") % [_run_error_lines.size(), joined]
+	_send_query(prompt)
+
+
+## Write a vg-test-spec to disk, then immediately run it through the
+## run-session so the user sees pass/fail in the same panel.
+func _on_make_test() -> void:
+	_ensure_agent_helpers()
+	if _test_spec == null or _safe_writer == null:
+		_append_system("[color=#ff8888]Test-spec helpers unavailable.[/color]\n")
+		return
+	var spec: Dictionary = _test_spec.extract_spec(_accumulated_response)
+	if spec.is_empty():
+		_append_system("[color=#ff8888]No vg-test-spec block in the latest reply.[/color]\n")
+		return
+	_safe_writer.set_root("res://")
+	var paths: Array = []
+	for t in spec.get("tests", []):
+		paths.append(str(t.get("path", "")))
+	_undo_capture("Make test", paths)
+	var result: Dictionary = _test_spec.apply(spec, _safe_writer, false)
+	_last_apply_result = result
+	_last_apply_kind = "Test"
+	_print_apply_result("Test", result)
+	# Run the first test through the existing run-session.
+	if not result.get("written", []).is_empty():
+		var first: String = str(result["written"][0])
+		_last_run_scene = first
+		if is_instance_valid(_run_btn):
+			_run_btn.disabled = false
+		call_deferred("_on_run")
+
+
+## Write the latest vg-wnodes-spec block to disk as a `.wnodes` graph.
+## The user can then open it in the Working Nodes editor.
+func _on_make_wnodes() -> void:
+	_ensure_agent_helpers()
+	if _wnodes_spec == null or _safe_writer == null:
+		_append_system("[color=#ff8888]vg-wnodes-spec helpers unavailable.[/color]\n")
+		return
+	var spec: Dictionary = _wnodes_spec.extract_spec(_accumulated_response)
+	if spec.is_empty():
+		_append_system("[color=#ff8888]No vg-wnodes-spec block in the latest reply.[/color]\n")
+		return
+	_safe_writer.set_root("res://")
+	var target_path := str(spec.get("path", ""))
+	_undo_capture("Make WN graph", [target_path] if not target_path.is_empty() else [])
+	var result: Dictionary = _wnodes_spec.apply(spec, _safe_writer, false)
+	_last_apply_result = result
+	_last_apply_kind = "WN"
+	_print_apply_result("Working Nodes", result)
+	# Auto-open the new graph in the Working Nodes editor if a path was written.
+	var written: Array = result.get("written", [])
+	if not written.is_empty():
+		var first := str(written[0])
+		_append_system("[color=#88ddff]Open in Working Nodes:[/color] %s\n" % first)
+		# Surface via the plugin's existing open-graph hook if available.
+		var root := get_tree().get_root() if is_inside_tree() else null
+		if root and root.has_method("emit_signal"):
+			# Best-effort: a global signal name the WN plugin can listen for.
+			Engine.set_meta("vg_open_wnodes_request", first)
+
+
+## When the most recent patch had anchor-not-found failures, give the
+## user a one-click way to feed them back to Narcea for a corrected spec.
+func _on_retry_patch() -> void:
+	if _last_apply_result.is_empty():
+		_append_system("[color=yellow]No patch to retry.[/color]\n")
+		return
+	var failed: Array = []
+	for entry in _last_apply_result.get("skipped", []):
+		var reason := str(entry.get("reason", ""))
+		if reason.find("anchor not found") != -1 or reason.find("`find` not found") != -1:
+			failed.append("  %s: %s" % [str(entry.get("path", "?")), reason])
+	if failed.is_empty():
+		_append_system("[color=yellow]No anchor failures to retry.[/color]\n")
+		return
+	var prompt := ("Your previous vg-patch-spec had anchors that didn't match the live "
+		+ "file contents.  The following edits failed:\n\n%s\n\nEmit a corrected "
+		+ "vg-patch-spec that uses anchors / `find` strings that DO appear verbatim "
+		+ "in the file.  Use the 'Open file CONTENTS' block in the system prompt as "
+		+ "your source of truth.") % "\n".join(failed)
+	_send_query(prompt)
+
+
+# ---------------------------------------------------------------------------
 func _on_model_selected(idx: int) -> void:
 	_current_model = _model_dropdown.get_item_text(idx)
 	_append_system("Model changed to [color=cyan]%s[/color]\n" % _current_model)
@@ -2174,6 +2612,9 @@ func _send_cloud_query(prompt: String) -> void:
 	_stream_first_token_time = 0.0
 	_accumulated_response = ""
 	_stream_tool_watermark = 0
+	_stream_vgtool_suppress = false
+	_stream_line_buf = ""
+	_stream_line_displayed = 0
 	_fc_fragments.clear()  # Phase 6c: reset FC fragment accumulator.
 
 	# Create HTTPClient and connect with TLS for cloud providers
@@ -2496,10 +2937,26 @@ func _ensure_agent_helpers() -> void:
 		var cs := load("res://addons/visual_gasic/vg_ai_code_spec.gd")
 		if cs != null:
 			_code_spec = cs.new()
+	if _patch_spec == null:
+		var pps := load("res://addons/visual_gasic/vg_ai_patch_spec.gd")
+		if pps != null:
+			_patch_spec = pps.new()
 	if _project_spec == null:
 		var ps := load("res://addons/visual_gasic/vg_ai_project_spec.gd")
 		if ps != null:
 			_project_spec = ps.new()
+	if _test_spec == null:
+		var ts := load("res://addons/visual_gasic/vg_ai_test_spec.gd")
+		if ts != null:
+			_test_spec = ts.new()
+	if _wnodes_spec == null:
+		var ws := load("res://addons/visual_gasic/vg_ai_wnodes_spec.gd")
+		if ws != null:
+			_wnodes_spec = ws.new()
+	if _lesson_spec == null:
+		var ls := load("res://addons/visual_gasic/vg_ai_lesson_spec.gd")
+		if ls != null:
+			_lesson_spec = ls.new()
 
 
 ## Toggle the 🔨 Build-form button based on whether the latest reply
@@ -2532,12 +2989,16 @@ func _refresh_build_form_btn() -> void:
 	_ensure_agent_helpers()
 	if is_instance_valid(_make_code_btn):
 		var code_spec_d: Dictionary = {} if _code_spec == null else _code_spec.extract_spec(_accumulated_response)
-		if code_spec_d.is_empty():
-			_make_code_btn.disabled = true
-			_make_code_btn.tooltip_text = "Ask Narcea for a vg-code-spec block to enable multi-file writes."
-		else:
+		var patch_spec_d: Dictionary = {} if _patch_spec == null else _patch_spec.extract_spec(_accumulated_response)
+		if not code_spec_d.is_empty():
 			_make_code_btn.disabled = false
 			_make_code_btn.tooltip_text = "Preview and apply: %s" % _code_spec.describe(code_spec_d)
+		elif not patch_spec_d.is_empty():
+			_make_code_btn.disabled = false
+			_make_code_btn.tooltip_text = "Preview and apply patch: %s" % _patch_spec.describe(patch_spec_d)
+		else:
+			_make_code_btn.disabled = true
+			_make_code_btn.tooltip_text = "Ask Narcea for a vg-code-spec or vg-patch-spec block to enable file writes."
 	if is_instance_valid(_make_project_btn):
 		var proj_spec_d: Dictionary = {} if _project_spec == null else _project_spec.extract_spec(_accumulated_response)
 		if proj_spec_d.is_empty():
@@ -2546,6 +3007,79 @@ func _refresh_build_form_btn() -> void:
 		else:
 			_make_project_btn.disabled = false
 			_make_project_btn.tooltip_text = "Preview and scaffold: %s" % _project_spec.describe(proj_spec_d)
+	# Test-spec gating + lesson-spec auto-render.
+	if is_instance_valid(_make_test_btn):
+		var test_spec_d: Dictionary = {} if _test_spec == null else _test_spec.extract_spec(_accumulated_response)
+		if test_spec_d.is_empty():
+			_make_test_btn.disabled = true
+			_make_test_btn.tooltip_text = "Ask Narcea for a vg-test-spec block to enable this."
+		else:
+			_make_test_btn.disabled = false
+			_make_test_btn.tooltip_text = "Write and run: %s" % _test_spec.describe(test_spec_d)
+	if is_instance_valid(_make_wnodes_btn):
+		var wn_spec_d: Dictionary = {} if _wnodes_spec == null else _wnodes_spec.extract_spec(_accumulated_response)
+		if wn_spec_d.is_empty():
+			_make_wnodes_btn.disabled = true
+			_make_wnodes_btn.tooltip_text = "Ask Narcea for a vg-wnodes-spec block to enable this."
+		else:
+			_make_wnodes_btn.disabled = false
+			_make_wnodes_btn.tooltip_text = "Write: %s" % _wnodes_spec.describe(wn_spec_d)
+	# Lesson specs render immediately (display-only) so the user doesn't
+	# have to hunt for them in the chat scrollback.
+	if _lesson_spec != null:
+		var lesson_d: Dictionary = _lesson_spec.extract_spec(_accumulated_response)
+		if not lesson_d.is_empty() and lesson_d.get("_rendered", false) != true:
+			lesson_d["_rendered"] = true  # local flag, not persisted
+			var bb: String = _lesson_spec.render_bbcode(lesson_d)
+			if not bb.is_empty():
+				_output.append_text("\n" + bb + "\n")
+	# Auto-apply spec when:
+	#   a) user came via Form…/Code…/Project… button (_last_send_was_desc_mode), OR
+	#   b) Narcea persona returned a spec without using the build_form tool
+	#      directly (e.g. user typed in chat instead of using the dialog).
+	var _narcea_auto := (_persona_id == "narcea" and not _build_form_ran_this_turn)
+	# (c) Narcea used the build_form tool AND emitted a vg-code-spec —
+	#     the form is already built but the code still needs to be written.
+	#     Auto-apply the code-spec silently (no diff dialog) so the user
+	#     gets a runnable project without extra clicks.
+	if _persona_id == "narcea" and _build_form_ran_this_turn:
+		var _code_spec_after_build: Dictionary = {} if _code_spec == null else _code_spec.extract_spec(_accumulated_response)
+		if not _code_spec_after_build.is_empty():
+			call_deferred("_auto_apply_code_spec_no_dialog", _code_spec_after_build)
+	if _last_send_was_desc_mode or _narcea_auto:
+		_last_send_was_desc_mode = false
+		var _spec_missing := false
+		var _hint := ""
+		match _form_from_desc_mode:
+			"code":
+				if is_instance_valid(_make_code_btn) and not _make_code_btn.disabled:
+					call_deferred("_on_make_code")
+				else:
+					_spec_missing = true
+					_hint = "📝 Make code button — she needs to include a fenced ```vg-code-spec``` JSON block."
+			"project":
+				if is_instance_valid(_make_project_btn) and not _make_project_btn.disabled:
+					call_deferred("_on_make_project")
+				else:
+					_spec_missing = true
+					_hint = "🆕 Make project button — she needs to include a fenced ```vg-project-spec``` JSON block."
+			_:
+				if is_instance_valid(_build_form_btn) and not _build_form_btn.disabled:
+					call_deferred("_on_make_this")
+				# FALLBACK: free-text Narcea replies have no explicit
+				# desc mode.  If the reply contains only a code-spec
+				# (e.g. "change the textbox background to black"), apply
+				# it silently instead of nagging the user about a
+				# missing form-spec.
+				elif is_instance_valid(_make_code_btn) and not _make_code_btn.disabled:
+					call_deferred("_on_make_code")
+				elif is_instance_valid(_make_project_btn) and not _make_project_btn.disabled:
+					call_deferred("_on_make_project")
+				else:
+					_spec_missing = true
+					_hint = "🔨 Build form button — she needs to include a fenced ```vg-form-spec``` JSON block with a \"controls\" array, or a ```vg-code-spec``` block to modify existing code."
+		if _spec_missing:
+			_append_system("[color=#ff8888]Narcea's reply didn't contain the expected spec block, so the %s stays disabled. Click the button again to retry, or scroll the reply to check if she described the layout in prose instead.[/color]\n" % _hint)
 
 
 ## Lean-v1 Narcea spec-builder entry points.  Three sibling actions —
@@ -2646,9 +3180,11 @@ func _on_form_from_desc_confirmed() -> void:
 		"code":
 			prompt = "Write or modify code per this description.\n\n"
 			prompt += "Description: " + desc + "\n\n"
-			prompt += "Reply with: (a) one short sentence of context, then (b) a fenced ```vg-code-spec``` JSON block per the schema you already know. "
-			prompt += "Use res:// paths only. Keep new .vg files in valid VB6/VG syntax (Option Explicit, Dim, & for concat). "
-			prompt += "Do not include any other fenced code blocks."
+			prompt += "Reply with: (a) one short sentence of context, then (b) a fenced ```vg-code-spec``` JSON block. "
+			prompt += "The .vg source MUST be a FLAT MODULE — no Class, no Inherits, no Dim for controls. "
+			prompt += "Use this exact shape for any .vg file:\n"
+			prompt += "  ' FormName.vg — VisualGasic module\n  Option Explicit\n\n  Sub Form_Load()\n  End Sub\n\n  Sub btnOK_Click()\n  End Sub\n"
+			prompt += "Use res:// paths only. String concat is &, not +. Do not include any other fenced code blocks."
 		"project":
 			prompt = "Scaffold a small runnable project per this description.\n\n"
 			prompt += "Description: " + desc + "\n\n"
@@ -2658,14 +3194,88 @@ func _on_form_from_desc_confirmed() -> void:
 		_:
 			prompt = "Design a Form Designer layout from this description.\n\n"
 			prompt += "Description: " + desc + "\n\n"
-			prompt += "Reply with: (a) one short sentence of context, then (b) a fenced ```vg-form-spec``` JSON block per the schema you already know. "
-			prompt += "Set \"auto_events\": true so the IDE wires Sub stubs. "
-			prompt += "IMPORTANT: in each control's \"type\" field use the GODOT name only — LineEdit (not TextBox), Button (not CommandButton), OptionButton (not ComboBox), ItemList (not ListBox), TextEdit (not MultiLine). "
-			prompt += "Use integer Left/Top/Width/Height pixels. "
-			prompt += "After the form spec, if the description includes any behaviour (e.g. a button that does something), use your agent tools to write the full VB6 Sub implementations — not just empty stubs — into the .vg file via set_buffer_text + save_file."
+			prompt += "Reply with: (a) one short sentence of context, then (b) a fenced ```vg-form-spec``` block using EXACTLY this JSON shape — no other top-level keys:\n"
+			prompt += "```vg-form-spec\n"
+			prompt += "{\"form_name\":\"FrmExample\",\"form_size\":[320,110],\"auto_events\":true,\"controls\":[\n"
+			prompt += "  {\"type\":\"Label\",   \"name\":\"lblInput\",\"text\":\"Input:\",\"left\":8, \"top\":8, \"width\":60,\"height\":20},\n"
+			prompt += "  {\"type\":\"LineEdit\",\"name\":\"txtInput\",\"left\":76,\"top\":5, \"width\":228,\"height\":24},\n"
+			prompt += "  {\"type\":\"Button\", \"name\":\"btnOK\",  \"text\":\"OK\",  \"left\":76,\"top\":45,\"width\":80, \"height\":28},\n"
+			prompt += "  {\"type\":\"Button\", \"name\":\"btnCancel\",\"text\":\"Cancel\",\"left\":164,\"top\":45,\"width\":80,\"height\":28}\n"
+			prompt += "]}\n"
+			prompt += "```\n"
+			prompt += "═════ LAYOUT RULES (MANDATORY — forms must look professional, like VB6) ═════\n"
+			prompt += "Standard sizes (use these, NOT smaller):\n"
+			prompt += "  • Label: width = max(60, len(text)*7); height = 20\n"
+			prompt += "  • LineEdit (single-line input): width >= 200; height = 24\n"
+			prompt += "  • Button: width = max(80, len(caption)*8 + 16); height = 28\n"
+			prompt += "  • TextEdit (multi-line): width >= 240; height >= 80\n"
+			prompt += "  • CheckBox: width = max(120, len(text)*7); height = 22\n"
+			prompt += "  • ItemList / TreeView: width >= 220; height >= 120\n"
+			prompt += "Form sizing (content-driven, NOT default 600×400):\n"
+			prompt += "  Step 1: lay out all controls starting at top=8, left=8 using the row_gap=8 stacking rule below.\n"
+			prompt += "  Step 2: compute content_width = max(left+width) over all controls; content_height = max(top+height) over all controls.\n"
+			prompt += "  Step 3: form_width = content_width + 16 (8px margin each side); form_height = content_height + 16; then round both UP to the nearest 10.\n"
+			prompt += "  Step 4: ENFORCE minimums — form_width >= 240, form_height >= 100.  Never emit a form larger than the content needs.\n"
+			prompt += "Horizontal alignment (CRITICAL — controls must look centered):\n"
+			prompt += "  • Single-column forms (label+input rows, or just inputs): center the WIDEST control horizontally → set its left = (form_width - widest_width) / 2.  Align all other rows' leading edge to that same left.  Labels go to the LEFT of their inputs at left = input_left - label_width - 8.\n"
+			prompt += "  • Button rows: center the GROUP horizontally — total_buttons_width = sum(widths) + (n-1)*8; group_left = (form_width - total_buttons_width) / 2; place buttons left-to-right from group_left.\n"
+			prompt += "  • Full-width controls (TextEdit, ItemList, TreeView spanning the form): left = 8, width = form_width - 16.\n"
+			prompt += "Vertical stacking:\n"
+			prompt += "  margin_top = 8; row_gap = 8 between rows; section_gap = 16 before a button row.\n"
+			prompt += "  Each control's top = previous_bottom + row_gap (or + section_gap if starting buttons).\n"
+			prompt += "  NEVER place two controls at the same top — they will overlap.\n"
+			prompt += "Validation BEFORE emitting JSON:\n"
+			prompt += "  • For every control: left >= 8 AND left+width <= form_width-8 AND top+height <= form_height-8.\n"
+			prompt += "  • If any check fails, grow form_size or re-center; do NOT shrink the controls.\n"
+			prompt += "IMPORTANT: use GODOT type names only — LineEdit (not TextBox), Button (not CommandButton), OptionButton (not ComboBox), ItemList (not ListBox), TextEdit (not MultiLine). "
+			prompt += "Use integer left/top/width/height pixels. "
+			prompt += "Do NOT emit a vg-project-spec or vg-code-spec block — only vg-form-spec. "
+			prompt += "After the form spec, if the description includes any behaviour (e.g. a button that does something), ALSO emit a ```vg-code-spec``` block immediately after it. "
+			prompt += "In the code-spec, use path \"res://<form_name>.vg\" (replacing <form_name> with the actual form_name value). "
+			prompt += "Include Option Explicit, Sub Form_Load(), and FULL Sub implementations for every event — NOT empty stubs. "
+			prompt += "String concatenation is & (not +). Never use GDScript syntax."
+	# If the Form Designer already has controls, inject their geometry so
+	# Narcea places new controls below the existing ones, not on top.
+	if _form_from_desc_mode == "" or _form_from_desc_mode == "form":
+		var _existing_ctrl_info := ""
+		if Engine.is_editor_hint():
+			var _base := EditorInterface.get_base_control()
+			if _base and _base.has_meta("visual_gasic_plugin_instance"):
+				var _plug = _base.get_meta("visual_gasic_plugin_instance")
+				if _plug and is_instance_valid(_plug) and "_form_designer" in _plug:
+					var _fd = _plug._form_designer
+					if _fd != null and is_instance_valid(_fd):
+						# Inject the current form's name so Narcea uses it in form_name.
+						var _cur_name := ""
+						if _fd.has_method("get_form_name"):
+							_cur_name = str(_fd.get_form_name())
+						elif _fd.has_method("get_form_path"):
+							var _fp: String = str(_fd.get_form_path())
+							if not _fp.is_empty():
+								_cur_name = _fp.get_file().get_basename()
+						if not _cur_name.is_empty():
+							prompt += "\n\nThe Form Designer already has a form open named \"%s\". " % _cur_name
+							prompt += "Use \"%s\" as the form_name in your vg-form-spec (do NOT rename it). " % _cur_name
+							prompt += "In the vg-code-spec, use path \"res://%s.vg\"." % _cur_name
+						# Inject existing control geometry.
+						if _fd.has_method("get_control_count") \
+								and _fd.get_control_count() > 0:
+							var _rows: Array[String] = []
+							for _i in _fd.get_control_count():
+								var _info: Dictionary = _fd.get_control_info(_i)
+								var _r: Rect2 = _info.get("rect", Rect2())
+								_rows.append("  %s (%s) top=%d height=%d → bottom=%d" % [
+									_info.get("name","?"), _info.get("type","?"),
+									int(_r.position.y), int(_r.size.y),
+									int(_r.position.y + _r.size.y)])
+							_existing_ctrl_info = "\n\nThe form already has %d control(s) — place ALL new controls BELOW them:\n%s\nSet top_cursor = max_bottom_above + 8 before placing the first new control." \
+								% [_fd.get_control_count(), "\n".join(_rows)]
+		if not _existing_ctrl_info.is_empty():
+			prompt += _existing_ctrl_info
 	if not is_instance_valid(_input):
 		return
 	_input.text = prompt
+	_last_send_was_desc_mode = true
 	_on_send()
 
 
@@ -2695,6 +3305,13 @@ func _on_build_form() -> void:
 	var color := "#aaffaa" if ok else "#ff8888"
 	var icon := "🛠" if ok else "⚠"
 	_append_system("[color=%s]%s %s[/color]\n" % [color, icon, msg])
+	# Layout sanity check — report any overlaps or out-of-bounds controls.
+	if ok and _form_spec.has_method("check_layout"):
+		var layout_warns: Array = _form_spec.check_layout(spec)
+		for w: String in layout_warns:
+			_append_system("[color=#ffcc44]⚠ Layout: %s[/color]\n" % w)
+		if not layout_warns.is_empty():
+			_append_system("[color=#ffcc44]Tip: ask Narcea to fix the layout using the warnings above.[/color]\n")
 	# Bring the Form Designer into view if we just built something useful.
 	if ok and is_instance_valid(designer) and designer.has_method("grab_focus"):
 		designer.grab_focus()
@@ -2733,47 +3350,202 @@ func _on_make_this() -> void:
 	if not build_ok:
 		_append_system("[color=#ff8888]⚠ %s[/color]\n" % build_msg)
 		return
+	# Layout sanity check — warn but don't abort.
+	if _form_spec.has_method("check_layout"):
+		var layout_warns: Array = _form_spec.check_layout(spec)
+		for w: String in layout_warns:
+			_append_system("[color=#ffcc44]⚠ Layout: %s[/color]\n" % w)
 
 	# 2. Save the .tscn to res://<form_name>.tscn (don't clobber if path
 	#    already set by the user — let save_form() handle that case).
-	var form_name: String = str(spec.get("form_name", "Form1"))
+	# CRITICAL: form_name MUST be non-empty — empty name produces
+	# "res://.tscn" which Godot's resource saver mangles into a random
+	# temp filename and writes the script ext_resource as just ".vg",
+	# leaving the project with orphaned files and no working form.
+	var form_name: String = str(spec.get("form_name", "Form1")).strip_edges()
+	if form_name.is_empty():
+		form_name = "Form1"
+	# If a vg-code-spec is present with a .vg path, prefer placing the
+	# .tscn next to it so the form and the code live together.
+	_ensure_agent_helpers()
+	var code_spec_d: Dictionary = {} if _code_spec == null else _code_spec.extract_spec(_accumulated_response)
+	var _ai_vg_path: String = ""
+	if not code_spec_d.is_empty():
+		for _fe in code_spec_d.get("files", []):
+			var _fp: String = str(_fe.get("path", "")).strip_edges()
+			if _fp.ends_with(".vg") and _fp.get_file().get_basename() == form_name:
+				_ai_vg_path = _fp
+				break
 	var tscn_path: String = ""
 	if designer.has_method("get_form_path"):
 		tscn_path = designer.get_form_path()
+	# Reject a degenerate existing path (no basename).
+	if not tscn_path.is_empty() and tscn_path.get_file().get_basename().is_empty():
+		tscn_path = ""
 	if tscn_path.is_empty():
-		tscn_path = "res://%s.tscn" % form_name
+		if not _ai_vg_path.is_empty():
+			tscn_path = _ai_vg_path.get_basename() + ".tscn"
+		else:
+			tscn_path = "res://%s.tscn" % form_name
 		if designer.has_method("save_form_as"):
+			# Ensure the destination dir exists.
+			DirAccess.make_dir_recursive_absolute(
+				ProjectSettings.globalize_path(tscn_path.get_base_dir()))
 			designer.save_form_as(tscn_path)
 	else:
 		if designer.has_method("save_form"):
 			designer.save_form()
 
-	# 3. Generate / append Sub stubs to the .vg file.  Read existing
-	#    source first so the helper can skip duplicates.
+	# Validate the save actually produced a .tscn — abort loudly if not.
+	if not FileAccess.file_exists(tscn_path):
+		_append_system("[color=#ff8888]⚠ Could not save form to %s — aborting code write to avoid orphaned files.[/color]\n" % tscn_path)
+		return
+
+	# 3. Write event code.  Prefer a full vg-code-spec from the AI reply
+	#    (produced when Narcea was asked with the form-from-desc flow);
+	#    fall back to auto-generated stubs from the form spec.
 	var vg_path: String = tscn_path.get_basename() + ".vg"
-	var existing := ""
-	if FileAccess.file_exists(vg_path):
-		var rf := FileAccess.open(vg_path, FileAccess.READ)
-		if rf:
-			existing = rf.get_as_text()
-			rf.close()
-	var stubs: String = _form_spec.generate_event_stubs(spec, existing)
-	if not stubs.is_empty():
-		var contents := existing
-		if contents.is_empty():
-			contents = "' Visual Gasic Form Script\nOption Explicit\n"
-		# Ensure exactly one trailing newline before appending.
-		while contents.ends_with("\n\n"):
-			contents = contents.substr(0, contents.length() - 1)
-		if not contents.ends_with("\n"):
-			contents += "\n"
-		contents += stubs
-		var wf := FileAccess.open(vg_path, FileAccess.WRITE)
-		if wf:
-			wf.store_string(contents)
-			wf.close()
-		else:
-			_append_system("[color=#ffaa66]⚠ Could not write %s — form was built but stubs were not added.[/color]\n" % vg_path)
+	var code_written := false
+	if not code_spec_d.is_empty():
+		# Full implementations supplied — apply them directly.
+		# The .vg entry is written to vg_path (the path derived from the
+		# actual saved form scene) so that double-clicking controls later
+		# opens the right file.  Non-.vg entries go through the safe_writer.
+		_safe_writer.set_root("res://")
+
+		# Build a VB6-alias → actual-name map from the form spec so we can
+		# fix up wrong control names the AI may have used (e.g. TextBox1
+		# instead of LineEdit1, Command1 instead of Button1).
+		var _vb6_alias_to_actual: Dictionary = {}
+		var _spec_controls: Array = spec.get("controls", [])
+		const _VB6_TYPE_ALIASES: Dictionary = {
+			"TextBox": "LineEdit", "Command": "Button", "Frame": "Panel",
+			"ComboBox": "OptionButton", "ListBox": "ItemList",
+			"Shape": "ColorRect", "Image": "TextureRect",
+			"PictureBox": "TextureRect", "HScrollBar": "HScrollBar",
+			"VScrollBar": "VScrollBar", "Timer": "Timer",
+		}
+		for _ci in _spec_controls:
+			if typeof(_ci) != TYPE_DICTIONARY:
+				continue
+			var _actual_name: String = str(_ci.get("name", ""))
+			var _actual_type: String = str(_ci.get("type", ""))
+			if _actual_name.is_empty():
+				continue
+			# Check every VB6 alias type — if the actual type starts with
+			# an alias prefix, derive what the alias name would have been.
+			for _vb6_type in _VB6_TYPE_ALIASES:
+				if _actual_type.begins_with(_VB6_TYPE_ALIASES[_vb6_type]):
+					# e.g. actual "LineEdit1" → vb6 guess "TextBox1"
+					var _suffix: String = _actual_name.substr(_actual_type.length())
+					var _vb6_guess: String = _vb6_type + _suffix
+					if _vb6_guess != _actual_name:
+						_vb6_alias_to_actual[_vb6_guess] = _actual_name
+
+		var files_to_apply: Array = code_spec_d.get("files", [])
+		var vg_written := false
+		for file_entry in files_to_apply:
+			var fp: String = str(file_entry.get("path", ""))
+			if fp.ends_with(".vg"):
+				var src: String = str(file_entry.get("source", ""))
+				if not src.is_empty():
+					# --- Normalize header to top ---
+					# Remove any 'Option Explicit' line and standard header
+					# comment from wherever the AI placed them, then re-prepend.
+					var _lines: PackedStringArray = src.split("\n")
+					var _header_comment := ""
+					var _body_lines: Array[String] = []
+					var _has_opt_explicit := false
+					for _ln in _lines:
+						var _stripped := _ln.strip_edges()
+						if _stripped.to_lower() == "option explicit":
+							_has_opt_explicit = true
+						elif _stripped.begins_with("' ") and _stripped.to_lower().contains("form script") and _header_comment.is_empty():
+							pass  # discard stray "' Visual Gasic Form Script" duplicate
+						else:
+							_body_lines.append(_ln)
+					# Rebuild: header comment (if any) → Option Explicit → body.
+					# Find the first non-empty line in body to use as header.
+					var _first_comment := ""
+					var _real_body: Array[String] = []
+					var _found_first := false
+					for _bl in _body_lines:
+						if not _found_first:
+							if _bl.strip_edges().begins_with("'"):
+								_first_comment = _bl
+								_found_first = true
+								continue
+							elif not _bl.strip_edges().is_empty():
+								_found_first = true
+						_real_body.append(_bl)
+					var _normalized := ""
+					if not _first_comment.is_empty():
+						_normalized += _first_comment + "\n"
+					if _has_opt_explicit:
+						_normalized += "Option Explicit\n"
+					# Strip leading blank lines from body.
+					var _body_str := "\n".join(_real_body)
+					while _body_str.begins_with("\n"):
+						_body_str = _body_str.substr(1)
+					_normalized += "\n" + _body_str
+					src = _normalized
+
+					# --- Remap VB6 alias names → actual names ---
+					# Replace whole-word occurrences (followed by . or _)
+					# so TextBox1.Text → LineEdit1.Text, etc.
+					for _vb6_name in _vb6_alias_to_actual:
+						var _real_name: String = _vb6_alias_to_actual[_vb6_name]
+						# Use a simple loop to replace word-boundary occurrences.
+						src = src.replace(_vb6_name + ".", _real_name + ".")
+						src = src.replace(_vb6_name + "_", _real_name + "_")
+						src = src.replace(_vb6_name + " ", _real_name + " ")
+						src = src.replace(_vb6_name + "\t", _real_name + "\t")
+						src = src.replace(_vb6_name + "\n", _real_name + "\n")
+
+					var dir_abs := ProjectSettings.globalize_path(vg_path.get_base_dir())
+					DirAccess.make_dir_recursive_absolute(dir_abs)
+					var wf := FileAccess.open(vg_path, FileAccess.WRITE)
+					if wf:
+						wf.store_string(src)
+						wf.close()
+						vg_written = true
+					else:
+						_append_system("[color=#ffaa66]⚠ Could not write %s[/color]\n" % vg_path)
+			else:
+				# Non-.vg file (assets, GDScript, etc.) — apply normally.
+				var single: Dictionary = {"files": [file_entry]}
+				_code_spec.apply(single, _safe_writer, false)
+		if vg_written:
+			code_written = true
+		elif not vg_written:
+			# Spec had no .vg entry — fall through to stub generation below.
+			pass
+	else:
+		# No full code spec — generate stub shells from the form spec.
+		var existing := ""
+		if FileAccess.file_exists(vg_path):
+			var rf := FileAccess.open(vg_path, FileAccess.READ)
+			if rf:
+				existing = rf.get_as_text()
+				rf.close()
+		var stubs: String = _form_spec.generate_event_stubs(spec, existing)
+		if not stubs.is_empty():
+			var contents := existing
+			if contents.is_empty():
+				contents = "' Visual Gasic Form Script\nOption Explicit\n"
+			# Ensure exactly one trailing newline before appending.
+			while contents.ends_with("\n\n"):
+				contents = contents.substr(0, contents.length() - 1)
+			if not contents.ends_with("\n"):
+				contents += "\n"
+			contents += stubs
+			var wf := FileAccess.open(vg_path, FileAccess.WRITE)
+			if wf:
+				wf.store_string(contents)
+				wf.close()
+				code_written = true
+			else:
+				_append_system("[color=#ffaa66]⚠ Could not write %s — form was built but stubs were not added.[/color]\n" % vg_path)
 
 	# 4. Tell the editor about the new files so the file browser refreshes.
 	if Engine.is_editor_hint():
@@ -2786,8 +3558,8 @@ func _on_make_this() -> void:
 			ece.load_file(vg_path)
 
 	var summary := "🤖 %s; saved %s" % [build_msg, tscn_path.get_file()]
-	if not stubs.is_empty():
-		summary += "; added stubs to %s" % vg_path.get_file()
+	if code_written:
+		summary += "; code written to %s — click ▶ Run to test" % vg_path.get_file()
 	_append_system("[color=#aaffaa]%s[/color]\n" % summary)
 	# Make-this output is runnable; offer the Run button.
 	_last_run_scene = tscn_path
@@ -2801,23 +3573,114 @@ func _on_make_this() -> void:
 ## involvement — pure file-system writes routed through the audit log.
 func _on_make_code() -> void:
 	_ensure_agent_helpers()
-	if _code_spec == null or _safe_writer == null:
+	if _safe_writer == null:
 		_append_system("[color=#ff8888]Code-spec helpers unavailable.[/color]\n")
 		return
-	var spec: Dictionary = _code_spec.extract_spec(_accumulated_response)
-	if spec.is_empty():
-		_append_system("[color=#ff8888]No vg-code-spec block in the latest reply.[/color]\n")
-		return
-	# Reset writer to the project root so the diff plan reflects what
-	# will actually be allowed.
 	_safe_writer.set_root("res://")
-	var plan: Array = _code_spec.plan(spec, _safe_writer)
-	_show_diff_dialog(plan, func() -> void:
-		var result: Dictionary = _code_spec.apply(spec, _safe_writer, false)
-		_print_apply_result("Code", result)
-		if Engine.is_editor_hint():
-			EditorInterface.get_resource_filesystem().scan()
-	)
+	# Prefer vg-code-spec when present; fall back to vg-patch-spec.
+	var spec: Dictionary = {} if _code_spec == null else _code_spec.extract_spec(_accumulated_response)
+	if not spec.is_empty():
+		var plan: Array = _code_spec.plan(spec, _safe_writer)
+		_show_diff_dialog(plan, func() -> void:
+			var paths_pre: Array = []
+			for item in plan:
+				paths_pre.append(str(item.get("path", "")))
+			_undo_capture("Make code", paths_pre)
+			var snap_local: Dictionary = _undo_stack.back() if not _undo_stack.is_empty() else {}
+			var result: Dictionary = _code_spec.apply(spec, _safe_writer, false)
+			_last_apply_result = result
+			_last_apply_kind = "Code"
+			_last_apply_diff_summary = _summarise_diff(result.get("written", []), snap_local)
+			_print_apply_result("Code", result)
+			if Engine.is_editor_hint():
+				EditorInterface.get_resource_filesystem().scan()
+			_reload_first_vg_in_editor(spec)
+		)
+		return
+	var patch: Dictionary = {} if _patch_spec == null else _patch_spec.extract_spec(_accumulated_response)
+	if not patch.is_empty():
+		var pplan: Array = _patch_spec.plan(patch, _safe_writer)
+		# Synthesise a code-spec-shaped object for _reload_first_vg_in_editor
+		# (it just walks .files[].path).
+		var reload_shim := {"files": []}
+		for item in pplan:
+			reload_shim["files"].append({"path": item["path"]})
+		_show_diff_dialog(pplan, func() -> void:
+			var paths_pre: Array = []
+			for item in pplan:
+				paths_pre.append(str(item.get("path", "")))
+			_undo_capture("Make patch", paths_pre)
+			var snap_local: Dictionary = _undo_stack.back() if not _undo_stack.is_empty() else {}
+			var result: Dictionary = _patch_spec.apply(patch, _safe_writer, false)
+			_last_apply_result = result
+			_last_apply_kind = "Patch"
+			_last_apply_diff_summary = _summarise_diff(result.get("written", []), snap_local)
+			_print_apply_result("Patch", result)
+			if Engine.is_editor_hint():
+				EditorInterface.get_resource_filesystem().scan()
+			_reload_first_vg_in_editor(reload_shim)
+		)
+		return
+	_append_system("[color=#ff8888]No vg-code-spec or vg-patch-spec block in the latest reply.[/color]\n")
+
+
+## Find the embedded code editor and reload the first .vg file listed
+## in `spec.files` — used by both _on_make_code() and the silent
+## auto-apply path to keep the UI in sync with disk.
+func _reload_first_vg_in_editor(spec: Dictionary) -> void:
+	var plugin: Object = null
+	if Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base and base.has_meta("visual_gasic_plugin_instance"):
+			plugin = base.get_meta("visual_gasic_plugin_instance")
+	if plugin == null or not is_instance_valid(plugin):
+		return
+	if not ("_embedded_code_editor" in plugin):
+		return
+	var ece = plugin._embedded_code_editor
+	if ece == null or not is_instance_valid(ece) or not ece.has_method("load_file"):
+		return
+	for _fe in spec.get("files", []):
+		var _fp: String = str(_fe.get("path", "")).strip_edges()
+		if _fp.ends_with(".vg") and FileAccess.file_exists(_fp):
+			ece.load_file(_fp)
+			break
+
+
+## Apply a vg-code-spec silently (no diff dialog) — used when Narcea
+## already built the form via the build_form tool, so the code-spec is
+## the only thing left to write.  Reloads the embedded code editor on
+## the first .vg file written so the user sees the new code immediately.
+func _auto_apply_code_spec_no_dialog(spec: Dictionary) -> void:
+	_ensure_agent_helpers()
+	if _code_spec == null or _safe_writer == null:
+		return
+	if spec.is_empty():
+		return
+	_safe_writer.set_root("res://")
+	var result: Dictionary = _code_spec.apply(spec, _safe_writer, false)
+	_print_apply_result("Code (auto)", result)
+	if Engine.is_editor_hint():
+		EditorInterface.get_resource_filesystem().scan()
+	# Reload the first .vg file in the embedded editor so the placeholder
+	# stub the user is looking at gets replaced by the real code.
+	var plugin: Object = null
+	if Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base and base.has_meta("visual_gasic_plugin_instance"):
+			plugin = base.get_meta("visual_gasic_plugin_instance")
+	if plugin == null or not is_instance_valid(plugin):
+		return
+	if not ("_embedded_code_editor" in plugin):
+		return
+	var ece = plugin._embedded_code_editor
+	if ece == null or not is_instance_valid(ece) or not ece.has_method("load_file"):
+		return
+	for _fe in spec.get("files", []):
+		var _fp: String = str(_fe.get("path", "")).strip_edges()
+		if _fp.ends_with(".vg") and FileAccess.file_exists(_fp):
+			ece.load_file(_fp)
+			break
 
 
 ## Auto-apply Narcea's first project-spec reply when the project was
@@ -2949,14 +3812,47 @@ func _print_apply_result(label: String, result: Dictionary) -> void:
 	_append_system("[color=%s]📝 %s: %s[/color]\n" % [color, label, str(result.get("summary", ""))])
 	for p in w:
 		_append_system("  [color=#aaffaa]+ %s[/color]\n" % str(p))
+	# Detect patch anchor failures and surface the Retry button.
+	var anchor_fails := 0
+	for entry in s:
+		var reason := str(entry.get("reason", ""))
+		if reason.find("anchor not found") != -1 or reason.find("`find` not found") != -1:
+			anchor_fails += 1
+	if is_instance_valid(_retry_patch_btn):
+		_retry_patch_btn.visible = anchor_fails > 0
+		if anchor_fails > 0:
+			_retry_patch_btn.tooltip_text = "%d patch anchor(s) didn't match the file. Click to ask Narcea for a corrected spec." % anchor_fails
 	for entry in s:
 		_append_system("  [color=#ff8888]\u2716 %s — %s[/color]\n" % [
 			str(entry.get("path", "")), str(entry.get("reason", ""))])
+	# Show lint issues inline; collect errors to auto-feed back to Narcea.
+	var has_errors := false
+	var lint_msg_parts: Array[String] = []
 	for entry in result.get("lint", []):
 		var path := str(entry.get("path", ""))
 		var issues: Array = entry.get("issues", [])
-		if not issues.is_empty():
-			_append_system("  [color=#ffcc66]\u26a0 %s — %d lint issue(s)[/color]\n" % [path, issues.size()])
+		if issues.is_empty():
+			continue
+		_append_system("  [color=#ffcc66]\u26a0 %s — %d lint issue(s)[/color]\n" % [path, issues.size()])
+		var file_lines: Array[String] = []
+		for issue in issues:
+			var sev := str(issue.get("severity", "")).to_lower()
+			var msg := str(issue.get("message", ""))
+			var ln := int(issue.get("line", 0))
+			if sev == "error" or sev == "fatal":
+				_append_system("    [color=#ff6666]error[/color] line %d: %s\n" % [ln, msg])
+				has_errors = true
+			else:
+				_append_system("    [color=#ffcc66]warn[/color]  line %d: %s\n" % [ln, msg])
+			file_lines.append("  line %d: %s" % [ln, msg])
+		if not file_lines.is_empty():
+			lint_msg_parts.append("%s:\n%s" % [path, "\n".join(file_lines)])
+	# Auto-feed error lint back into Narcea so she self-corrects.
+	if has_errors and not lint_msg_parts.is_empty():
+		var follow_up := ("The following lint errors were found in the files you just wrote."
+			+ " Please fix them:\n\n" + "\n\n".join(lint_msg_parts))
+		_input.text = follow_up
+		_on_send()
 
 
 func _print_project_result(result: Dictionary) -> void:
@@ -2997,6 +3893,11 @@ func _on_run() -> void:
 	if _run_session.is_running():
 		_append_system("[color=#ffaa66]Already running \u2014 stop the current scene first.[/color]\n")
 		return
+	# Reset captured stderr at the start of every run so 🐛 Explain Last
+	# Error reflects only the current invocation, not stale output.
+	_run_error_lines.clear()
+	if is_instance_valid(_summarize_errors_btn):
+		_summarize_errors_btn.visible = false
 	var root_path := _last_project_root if not _last_project_root.is_empty() else "res://"
 	if _run_session.start(_last_run_scene, root_path):
 		if is_instance_valid(_run_btn):
@@ -3018,6 +3919,20 @@ func _on_run_line(stream: String, line: String) -> void:
 	# Phase 6b: buffer output lines when running inside an agent loop.
 	if _agent_triggered_run and _agent_run_output_lines.size() < _AGENT_RUN_MAX_LINES:
 		_agent_run_output_lines.append(("[stderr] " if stream == "stderr" else "") + line)
+	# Auto-reflect: always capture stderr / error-tagged lines so the
+	# 🐛 Explain Last Error button works after a manual ▶ Run, not just
+	# during the autonomous agent loop.
+	if is_error:
+		_run_error_lines.append(line)
+		if _run_error_lines.size() > 40:
+			_run_error_lines = _run_error_lines.slice(_run_error_lines.size() - 40)
+		# Inline a plain-English hint when our decoder recognises the line.
+		var hint := _decode_run_error(line)
+		if not hint.is_empty():
+			_append_system("[color=#ffcc66]    ↳ %s[/color]\n" % hint)
+		# Reveal the summarize-errors button once we've collected enough.
+		if is_instance_valid(_summarize_errors_btn) and _run_error_lines.size() >= 20:
+			_summarize_errors_btn.visible = true
 
 
 func _on_run_finished(exit_code: int) -> void:
@@ -3027,6 +3942,11 @@ func _on_run_finished(exit_code: int) -> void:
 		_run_stop_btn.visible = false
 	var color := "#aaffaa" if exit_code == 0 else "#ffaa66"
 	_append_system("[color=%s]■ Scene finished (exit %d).[/color]\n" % [color, exit_code])
+	# Auto-reflect (manual run): when a non-agent run fails and we
+	# captured stderr lines, nudge the user to click 🐛 Explain Last Error
+	# so Narcea can patch the bug.
+	if not _agent_triggered_run and exit_code != 0 and not _run_error_lines.is_empty():
+		_append_system("[color=#ffcc66]  Click \ud83d\udc1b Explain Last Error to ask %s to fix it.[/color]\n" % _persona_id.capitalize())
 	# Phase 6b: if this run was triggered by the agent loop, ingest the
 	# output and continue the agent so it can react to errors or confirm
 	# success without user intervention.
@@ -3201,6 +4121,7 @@ func _get_active_system_prompt() -> String:
 var _narcea_provider = null
 var _narcea_ctx_cache := ""
 var _narcea_ctx_cache_ts: int = 0
+var _narcea_ctx_cache_hint := ""
 
 # Lazy-loaded AI tool dispatcher (vg_ai_tools.gd).  Lets the model drive
 # the editor via ```vg-tool``` blocks — highlight, goto, insert, replace,
@@ -3601,10 +4522,32 @@ func _ask_apply_mutations(muts: Array) -> void:
 	dlg.popup_centered()
 
 func _apply_mutations(muts: Array) -> void:
+	var written_tscn_paths: Array[String] = []
 	for m in muts:
 		var line: String = _ai_tools.execute_mutation_with_undo(m)
 		_output.append_text("[color=#aaaaaa]  %s[/color]\n" % _escape_bbcode(line))
+		# Track .tscn files written so we can auto-open them in Form Designer.
+		if str(m.get("tool", "")) == "write_file":
+			var wpath := str(m.get("path", ""))
+			if wpath.ends_with(".tscn"):
+				written_tscn_paths.append(wpath)
+		# Track build_form so _refresh_action_buttons skips the duplicate apply.
+		elif str(m.get("tool", "")) == "build_form":
+			_build_form_ran_this_turn = true
 	_render_action_bar()
+	# Auto-open any form scenes the AI just wrote — deferred so the files are
+	# fully flushed to disk before the Form Designer tries to load them.
+	if not written_tscn_paths.is_empty():
+		var base := EditorInterface.get_base_control()
+		if base and base.has_meta("visual_gasic_plugin_instance"):
+			var plugin = base.get_meta("visual_gasic_plugin_instance")
+			for tp in written_tscn_paths:
+				if FileAccess.file_exists(tp) and plugin.has_method("open_form_in_designer"):
+					call_deferred("_deferred_open_form", plugin, tp)
+
+func _deferred_open_form(plugin, tscn_path: String) -> void:
+	if is_instance_valid(plugin) and plugin.has_method("open_form_in_designer"):
+		plugin.open_form_in_designer(tscn_path)
 
 func _render_action_bar() -> void:
 	var has_undo: bool = _ai_tools != null and bool(_ai_tools.has_undo())
@@ -3663,13 +4606,23 @@ func _on_ai_meta_clicked(meta: Variant) -> void:
 
 func _narcea_context_block() -> String:
 	const CACHE_TTL_MS := 30000  # 30 seconds
-	if not _narcea_ctx_cache.is_empty() and Time.get_ticks_msec() - _narcea_ctx_cache_ts < CACHE_TTL_MS:
+	# Use the current input as a relevance hint for the tutorial index.
+	# When the hint changes the cache must be invalidated so a fresh
+	# ranking reflects the new question.
+	var query_hint := ""
+	if is_instance_valid(_input):
+		query_hint = _input.text
+	if not _narcea_ctx_cache.is_empty() \
+			and Time.get_ticks_msec() - _narcea_ctx_cache_ts < CACHE_TTL_MS \
+			and query_hint == _narcea_ctx_cache_hint:
 		return _narcea_ctx_cache
 	if _narcea_provider == null:
 		var script := load("res://addons/visual_gasic/vg_ai_narcea.gd")
 		if script == null:
 			return ""
 		_narcea_provider = script.new()
+	if _narcea_provider.has_method("set_query_hint"):
+		_narcea_provider.set_query_hint(query_hint)
 	var plugin = null
 	if Engine.is_editor_hint():
 		var base := EditorInterface.get_base_control()
@@ -3680,6 +4633,7 @@ func _narcea_context_block() -> String:
 	var result := "\n--- BEGIN NARCEA CONTEXT ---\n" + block + "\n--- END NARCEA CONTEXT ---\n\n"
 	_narcea_ctx_cache = result
 	_narcea_ctx_cache_ts = Time.get_ticks_msec()
+	_narcea_ctx_cache_hint = query_hint
 	return result
 
 func _apply_persona_voice() -> void:

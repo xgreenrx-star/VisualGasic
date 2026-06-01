@@ -2,6 +2,34 @@
 
 [sub_resource type="AudioEffectCapture" id="AudioEffectCapture_j3pel"]
 
+[sub_resource type="AudioEffectLowPassFilter" id="LP_Atari"]
+cutoff_hz = 4000.0
+resonance = 0.3
+
+[sub_resource type="AudioEffectLowPassFilter" id="LP_EarlyChip"]
+cutoff_hz = 8000.0
+resonance = 0.3
+
+[sub_resource type="AudioEffectLowPassFilter" id="LP_SID"]
+cutoff_hz = 11025.0
+
+[sub_resource type="AudioEffectLowPassFilter" id="LP_MidChip"]
+cutoff_hz = 16000.0
+resonance = 0.2
+
+[sub_resource type="AudioEffectDistortion" id="Dist_DOS"]
+drive = 0.15
+
+[sub_resource type="AudioEffectDistortion" id="Dist_AI"]
+mode = 2
+drive = 0.65
+
+[sub_resource type="AudioEffectReverb" id="Reverb_AI"]
+room_size = 0.9
+damping = 0.1
+dry = 0.4
+wet = 0.65
+
 [resource]
 bus/1/name = &"VGRecord"
 bus/1/solo = false
@@ -11,3 +39,65 @@ bus/1/volume_db = 0.0
 bus/1/send = &""
 bus/1/effect/0/effect = SubResource("AudioEffectCapture_j3pel")
 bus/1/effect/0/enabled = true
+bus/2/name = &"Bus_Atari"
+bus/2/solo = false
+bus/2/mute = false
+bus/2/bypass_fx = false
+bus/2/volume_db = 0.0
+bus/2/send = &"Master"
+bus/2/effect/0/effect = SubResource("LP_Atari")
+bus/2/effect/0/enabled = true
+bus/3/name = &"Bus_EarlyChip"
+bus/3/solo = false
+bus/3/mute = false
+bus/3/bypass_fx = false
+bus/3/volume_db = 0.0
+bus/3/send = &"Master"
+bus/3/effect/0/effect = SubResource("LP_EarlyChip")
+bus/3/effect/0/enabled = true
+bus/4/name = &"Bus_SID"
+bus/4/solo = false
+bus/4/mute = false
+bus/4/bypass_fx = false
+bus/4/volume_db = 0.0
+bus/4/send = &"Master"
+bus/4/effect/0/effect = SubResource("LP_SID")
+bus/4/effect/0/enabled = true
+bus/5/name = &"Bus_MidChip"
+bus/5/solo = false
+bus/5/mute = false
+bus/5/bypass_fx = false
+bus/5/volume_db = 0.0
+bus/5/send = &"Master"
+bus/5/effect/0/effect = SubResource("LP_MidChip")
+bus/5/effect/0/enabled = true
+bus/6/name = &"Bus_Amiga"
+bus/6/solo = false
+bus/6/mute = false
+bus/6/bypass_fx = false
+bus/6/volume_db = 0.0
+bus/6/send = &"Master"
+bus/7/name = &"Bus_DOS"
+bus/7/solo = false
+bus/7/mute = false
+bus/7/bypass_fx = false
+bus/7/volume_db = 0.0
+bus/7/send = &"Master"
+bus/7/effect/0/effect = SubResource("Dist_DOS")
+bus/7/effect/0/enabled = true
+bus/8/name = &"Bus_CD"
+bus/8/solo = false
+bus/8/mute = false
+bus/8/bypass_fx = false
+bus/8/volume_db = 0.0
+bus/8/send = &"Master"
+bus/9/name = &"Bus_AI"
+bus/9/solo = false
+bus/9/mute = false
+bus/9/bypass_fx = false
+bus/9/volume_db = 0.0
+bus/9/send = &"Master"
+bus/9/effect/0/effect = SubResource("Dist_AI")
+bus/9/effect/0/enabled = true
+bus/9/effect/1/effect = SubResource("Reverb_AI")
+bus/9/effect/1/enabled = true

@@ -279,6 +279,8 @@ func _enter_tree():
 	if debugger_script:
 		debugger_plugin = debugger_script.new()
 		add_debugger_plugin(debugger_plugin)
+		if debugger_plugin.has_signal("tweak_ai_edit_requested"):
+			debugger_plugin.tweak_ai_edit_requested.connect(_on_tweak_ai_edit_requested)
 	
 	# Add autoload for game-side debug handler
 	if not ProjectSettings.has_setting("autoload/VGDebugHandler"):
@@ -357,6 +359,8 @@ func _enter_tree():
 		add_child(form_preview_toolbar)  # NOT in container yet — added on VB6 mode toggle
 		form_preview_toolbar.visible = false
 		print("VisualGasic: Preview toolbar created (will add to 2D bar in VB6 mode)")
+		if form_preview_toolbar.has_method("add_menu_item"):
+			form_preview_toolbar.add_menu_item("Toggle Tweak Overlay", Callable(self, "_on_toggle_tweak_overlay"))
 	
 	# Add VB6-style Color Palette toolbar
 	var color_palette_script = load("res://addons/visual_gasic/color_palette_toolbar.gd")
@@ -506,8 +510,9 @@ func _enter_tree():
 		_layout_manager.setup(self, toolbox, _project_explorer, _properties_inspector, [alignment_toolbar, _color_palette, form_preview_toolbar])
 		add_child(_layout_manager)
 		add_tool_menu_item("Toggle VG IDE Layout", Callable(self, "_on_toggle_vb6_layout"))
+		add_tool_menu_item("Toggle Tweak Overlay", Callable(self, "_on_toggle_tweak_overlay"))
 		_layout_manager.layout_changed.connect(_on_vb6_mode_changed)
-		print("VisualGasic: Added 'Toggle VG IDE Layout' to Project > Tools menu")
+		print("VisualGasic: Added 'Toggle VG IDE Layout' and 'Toggle Tweak Overlay' to Project > Tools menu")
 	
 	# NOTE: The "Form Designer" button in the main screen bar is created
 	# automatically by Godot because _has_main_screen() returns true.
@@ -597,6 +602,31 @@ func _enter_tree():
 					remove_child(tb)
 				tb.visible = true
 				toolbar_row.add_child(tb)
+
+		# ── Tweak overlay toggle — visible in the VG toolbar row for easy access.
+		var tweak_btn = Button.new()
+		tweak_btn.name = "ToggleTweakOverlayBtn"
+		tweak_btn.text = "Tweak"
+		tweak_btn.tooltip_text = "Toggle the runtime tweak overlay (Ctrl+Shift+T)"
+		tweak_btn.flat = false
+		tweak_btn.add_theme_font_size_override("font_size", 11)
+		tweak_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+		var tweak_style = StyleBoxFlat.new()
+		tweak_style.bg_color = Color(0.15, 0.45, 0.45)
+		tweak_style.set_corner_radius_all(4)
+		tweak_style.content_margin_left = 8
+		tweak_style.content_margin_right = 8
+		tweak_style.content_margin_top = 2
+		tweak_style.content_margin_bottom = 2
+		tweak_btn.add_theme_stylebox_override("normal", tweak_style)
+		var tweak_hover = tweak_style.duplicate()
+		tweak_hover.bg_color = Color(0.2, 0.55, 0.55)
+		tweak_btn.add_theme_stylebox_override("hover", tweak_hover)
+		var tweak_pressed = tweak_style.duplicate()
+		tweak_pressed.bg_color = Color(0.1, 0.35, 0.35)
+		tweak_btn.add_theme_stylebox_override("pressed", tweak_pressed)
+		tweak_btn.pressed.connect(_on_toggle_tweak_overlay)
+		toolbar_row.add_child(tweak_btn)
 
 		# ── Coordinate/Size display (like VB6's "0, 0  4800 x 3600") ──
 		var coord_sep = VSeparator.new()
@@ -840,6 +870,10 @@ func _enter_tree():
 			_embedded_code_editor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			_embedded_code_editor.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			_embedded_code_editor.view_object_requested.connect(_show_form_view)
+			# Wire the "→ Edit in WN" nav-bar button to open the WN editor.
+			if _embedded_code_editor.has_signal("edit_in_working_nodes_requested"):
+				_embedded_code_editor.edit_in_working_nodes_requested.connect(
+					_open_working_nodes_for_path)
 			center_stack.add_child(_embedded_code_editor)
 			# Register with VGPluginRegistry so .vg / .gd opens can be routed
 			# through registry.open_asset() generically (file-browser dbl-click,
@@ -1647,6 +1681,7 @@ func _exit_tree():
 		_form_designer = null
 	
 	remove_tool_menu_item("Toggle VG IDE Layout")
+	remove_tool_menu_item("Toggle Tweak Overlay")
 	remove_tool_menu_item("Add Form...")
 	remove_tool_menu_item("New Module...")
 	remove_tool_menu_item("New VG Project...")
@@ -1885,6 +1920,30 @@ func _input(event: InputEvent) -> void:
 			_form_designer.remove_selected()
 			_flash_status_message("Deleted control")
 		get_viewport().set_input_as_handled()
+		return
+
+	# Skip the rest of these VB6 shortcuts if a text editor is focused —
+	# F4 / Ctrl+R / Ctrl+G should not steal keystrokes from a typing user.
+	var _focused = get_viewport().gui_get_focus_owner()
+	var _typing := _focused is LineEdit or _focused is TextEdit or _focused is CodeEdit
+
+	# ── F4  →  Properties Window (VB6) ──
+	if event.keycode == KEY_F4 and not event.ctrl_pressed and not event.alt_pressed and not event.shift_pressed and not _typing:
+		_vb6_focus_properties()
+		get_viewport().set_input_as_handled()
+		return
+
+	# ── Ctrl+R  →  Project Explorer (VB6) ──
+	if event.keycode == KEY_R and event.ctrl_pressed and not event.alt_pressed and not event.shift_pressed and not _typing:
+		_vb6_focus_project_explorer()
+		get_viewport().set_input_as_handled()
+		return
+
+	# ── Ctrl+I  →  Immediate Window (VB6 was Ctrl+G, but Ctrl+G is reserved for Go-to-Line) ──
+	if event.keycode == KEY_I and event.ctrl_pressed and not event.alt_pressed and not event.shift_pressed and not _typing:
+		_vb6_focus_immediate_window()
+		get_viewport().set_input_as_handled()
+		return
 
 ## Fallback keyboard handler connected to the Form Designer canvas's gui_input.
 ## If _input() somehow misses an event (e.g., Godot processes the canvas
@@ -1911,6 +1970,52 @@ func _on_canvas_gui_input(event: InputEvent) -> void:
 			_form_designer.remove_selected()
 			_flash_status_message("Deleted control")
 		_form_designer.accept_event()
+
+## ── VB6 classic shortcuts: F4 / Ctrl+R / Ctrl+G helpers ─────────────────
+## Each helper makes the target panel visible, populates it with reasonable
+## default content if applicable, and grabs focus so the user can interact.
+
+func _vb6_focus_properties() -> void:
+	if not is_instance_valid(_properties_inspector):
+		_flash_status_message("Properties window not available")
+		return
+	_properties_inspector.visible = true
+	# Populate with selected control's properties, or fall back to form-level.
+	if is_instance_valid(_form_designer):
+		var sel: int = _fd_last_selected_index
+		if sel >= 0 and _properties_inspector.has_method("show_control_properties"):
+			var info = _form_designer.get_control_info(sel)
+			_properties_inspector.show_control_properties(info, _form_designer, sel)
+		elif _properties_inspector.has_method("show_form_properties"):
+			_properties_inspector.show_form_properties(_form_designer)
+	if _properties_inspector is Control:
+		(_properties_inspector as Control).grab_focus()
+	_flash_status_message("Properties (F4)")
+
+func _vb6_focus_project_explorer() -> void:
+	if not is_instance_valid(_project_explorer):
+		_flash_status_message("Project Explorer not available")
+		return
+	_project_explorer.visible = true
+	if _project_explorer is Control:
+		(_project_explorer as Control).grab_focus()
+	_flash_status_message("Project Explorer (Ctrl+R)")
+
+func _vb6_focus_immediate_window() -> void:
+	# VB6 Ctrl+G — pops the Immediate Window. In VG it lives as tab 0 of the
+	# embedded code editor's bottom tabbed panel.
+	# Switch to code view first so the tabs are visible.
+	if is_instance_valid(_embedded_code_editor) and not _embedded_code_editor.visible:
+		_on_view_code()
+	if is_instance_valid(_embedded_code_editor):
+		var tabs = _embedded_code_editor.get("_bottom_tabs")
+		if tabs is TabContainer:
+			(tabs as TabContainer).current_tab = 0
+	if is_instance_valid(immediate_window):
+		immediate_window.visible = true
+		if immediate_window is Control:
+			(immediate_window as Control).grab_focus()
+	_flash_status_message("Immediate Window (Ctrl+G)")
 
 ## Called every frame. Detects vg_control drag end and handles drop.
 ## When the C++ Form Designer is active and visible, it handles drops directly
@@ -2274,12 +2379,13 @@ func _show_import_results_dialog(result: Dictionary, source_path: String) -> voi
 	var header = Label.new()
 	var forms_ok = result.get("forms", []).size()
 	var mods_ok = result.get("modules", []).size()
+	var classes_ok = result.get("classes", []).size()
 	var errs = result.get("errors", []).size()
 	var warns = result.get("warnings", []).size()
 	var success = result.get("success", false)
 	header.text = ("✅  Import Successful" if success else "❌  Import Failed") + \
 		"\nSource: " + source_path.get_file() + \
-		"\nForms: %d   Modules: %d   Errors: %d   Warnings: %d" % [forms_ok, mods_ok, errs, warns]
+		"\nForms: %d   Modules: %d   Classes: %d   Errors: %d   Warnings: %d" % [forms_ok, mods_ok, classes_ok, errs, warns]
 	header.add_theme_font_size_override("font_size", 14)
 	vbox.add_child(header)
 	vbox.add_child(HSeparator.new())
@@ -2314,6 +2420,13 @@ func _show_import_results_dialog(result: Dictionary, source_path: String) -> voi
 	for mod in result.get("modules", []):
 		var lbl = Label.new()
 		lbl.text = "  ✔ Module: %s → %s" % [mod.get("name", "?"), mod.get("path", "?")]
+		lbl.add_theme_color_override("font_color", Color(0.3, 0.85, 0.3))
+		details.add_child(lbl)
+
+	# Class Modules
+	for cls in result.get("classes", []):
+		var lbl = Label.new()
+		lbl.text = "  ✔ Class Module: %s → %s" % [cls.get("name", "?"), cls.get("path", "?")]
 		lbl.add_theme_color_override("font_color", Color(0.3, 0.85, 0.3))
 		details.add_child(lbl)
 
@@ -2709,7 +2822,9 @@ func open_form_in_designer(tscn_path: String) -> void:
 		return
 	# Open as a Godot scene tab FIRST so _sync_form_state_to_scene_tree()
 	# can patch Godot's in-memory tree when saving.
-	if not tscn_path in EditorInterface.get_open_scenes():
+	# Only try to open if the file actually exists — build_form creates the
+	# form in memory first; the .tscn may not be on disk yet.
+	if FileAccess.file_exists(tscn_path) and not tscn_path in EditorInterface.get_open_scenes():
 		EditorInterface.open_scene_from_path(tscn_path)
 	_form_designer.open_form(tscn_path)
 	_fixup_form_size_from_tscn(tscn_path)
@@ -4143,6 +4258,20 @@ func _create_vb6_menu_bar() -> MenuBar:
 	tools_menu.id_pressed.connect(_on_vb6_tools_menu)
 	mb.add_child(tools_menu)
 
+	# ── Add-Ins (VB6 parity) ──
+	# In VB6 this hosted the Add-In Manager + per-add-in entries. VG plugins
+	# live under the Plugin Manager today, so we route both entries through
+	# the existing plugin-manager dialog opener and append the active plugin
+	# list dynamically each popup.
+	var addins_menu = PopupMenu.new()
+	addins_menu.name = "Add-Ins"
+	_style_popup_menu(addins_menu)
+	addins_menu.add_item("Add-In Manager...", 0)
+	addins_menu.add_separator()
+	addins_menu.add_item("Visual Component Manager...", 1)
+	addins_menu.id_pressed.connect(_on_vb6_addins_menu)
+	mb.add_child(addins_menu)
+
 	# ── Window ──
 	var window_menu = PopupMenu.new()
 	window_menu.name = "Window"
@@ -4737,6 +4866,95 @@ func _clear_vg_launching_flag() -> void:
 	# fullscreen cover splash — otherwise some window managers leave
 	# focus on the (now-quitting) welcome window for a beat.
 	DisplayServer.window_move_to_foreground()
+
+func _on_tweak_ai_edit_requested(request: Dictionary) -> void:
+	# Game's tweak overlay asked us to pre-fill vg_ai_help with a structured
+	# edit prompt. request = { target_id, label, requests: [ { action, target,
+	# property, old_value, new_value, file, instruction } ] }
+	# Bring the editor window to the foreground so the AI panel is visible
+	# even when the running game window is covering it on single-monitor setups.
+	DisplayServer.window_move_to_foreground()
+	var reqs: Array = request.get("requests", [])
+	if reqs.is_empty():
+		return
+	var lines: Array = []
+	lines.append("# Tweak Overlay edit request")
+	lines.append("Target: %s" % str(request.get("label", request.get("target_id", "?"))))
+	for r in reqs:
+		var prop := str(r.get("property", "?"))
+		var ov = r.get("old_value", "")
+		var nv = r.get("new_value", "")
+		var file := str(r.get("file", ""))
+		var instr := str(r.get("instruction", ""))
+		lines.append("")
+		lines.append("- Property: `%s`" % prop)
+		lines.append("- File: `%s`" % file)
+		lines.append("- Old value: `%s`" % str(ov))
+		lines.append("- New value: `%s`" % str(nv))
+		if not instr.is_empty():
+			lines.append("- Note: %s" % instr)
+	lines.append("")
+	lines.append("Please update the source so this change persists, or explain why it can't be applied automatically.")
+	var prompt := "\n".join(lines)
+	_prefill_ai_help_panel(prompt)
+
+func _prefill_ai_help_panel(prompt: String) -> void:
+	var panel: Object = _ai_help_panel
+	if panel == null or not is_instance_valid(panel):
+		# AI panel hasn't been built yet — retry shortly.
+		var t := get_tree().create_timer(0.5)
+		t.timeout.connect(_prefill_ai_help_panel.bind(prompt), CONNECT_ONE_SHOT)
+		return
+	if not ("_input" in panel) or not is_instance_valid(panel.get("_input")):
+		var t2 := get_tree().create_timer(0.5)
+		t2.timeout.connect(_prefill_ai_help_panel.bind(prompt), CONNECT_ONE_SHOT)
+		return
+	var input = panel.get("_input")
+	if input.has_method("set_text"):
+		input.set_text(prompt)
+	elif "text" in input:
+		input.text = prompt
+	# Surface the AI Pair tab so the user doesn't have to switch manually.
+	# Defer so layout has settled and any concurrent focus calls (immediate,
+	# output, etc.) don't immediately overwrite our selection.
+	_focus_ai_help_panel_deferred(panel)
+	if "visible" in panel:
+		panel.visible = true
+	if is_instance_valid(input) and input.has_method("grab_focus"):
+		input.grab_focus()
+
+func _focus_ai_help_panel_deferred(panel: Control) -> void:
+	if not is_instance_valid(panel):
+		return
+	# Walk up to find the panel's TabContainer parent and set current_tab.
+	var node: Node = panel
+	var tabs: TabContainer = null
+	while node != null:
+		if node is TabContainer:
+			tabs = node
+			break
+		node = node.get_parent()
+	if tabs != null:
+		var target: Node = panel
+		while target != null and target.get_parent() != tabs:
+			target = target.get_parent()
+		if target != null:
+			var idx := target.get_index()
+			tabs.current_tab = idx
+			tabs.call_deferred("set_current_tab", idx)
+			return
+	# Fallback: search by tab name on the embedded editor's bottom tabs.
+	if is_instance_valid(_embedded_code_editor) and "_bottom_tabs" in _embedded_code_editor:
+		var bt = _embedded_code_editor.get("_bottom_tabs")
+		if bt is TabContainer:
+			for i in range((bt as TabContainer).get_tab_count()):
+				if (bt as TabContainer).get_tab_title(i) == "AI Pair":
+					(bt as TabContainer).current_tab = i
+					(bt as TabContainer).call_deferred("set_current_tab", i)
+					return
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_bottom_tab"):
+		_embedded_code_editor.call_deferred("focus_bottom_tab", panel)
+
 ## describing what the user wants Narcea to build, prefill the AI panel's
 ## prompt input with it and surface a status message. The seed file is
 ## renamed to `.narcea_seed.consumed` so this fires only once.
@@ -5571,7 +5789,24 @@ func _on_vb6_window_menu(id: int) -> void:
 	match id:
 		10: _on_toggle_vb6_layout()
 
+func _on_vb6_addins_menu(id: int) -> void:
+	# Both entries currently route to the VG Plugin Manager (View ▸ Plugins…).
+	match id:
+		0, 1:
+			if _vg_plugin_manager:
+				var ids = _vg_plugin_manager.get_plugin_ids()
+				if ids.size() > 0:
+					_vg_plugin_manager.activate_plugin(ids[0])
+				else:
+					_flash_status_message("No plugins installed. Add plugins to addons/visual_gasic/plugins/")
+			else:
+				_flash_status_message("Plugin Manager not initialized.")
+
 func _on_vb6_help_menu(id: int) -> void:
+	match id:
+		0: OS.shell_open("https://github.com/nickshouse/VisualGasic")
+		1: pass # About dialog
+		2: _show_tip_of_day()
 	match id:
 		0: OS.shell_open("https://github.com/nickshouse/VisualGasic")
 		1: pass # About dialog
@@ -6106,13 +6341,81 @@ progressive_web_app/background_color=Color(0, 0, 0, 1)"""
 		+ "\n[preset.0.options]\n\n" \
 		+ options_section + "\n"
 
+	# Preserve any existing presets for OTHER platforms so building Linux
+	# doesn't wipe the user's Web preset (or vice-versa). The new/updated
+	# preset is always slot .0; survivors are renumbered to .1, .2, ….
+	var preserved := _collect_other_presets(preset_name)
+	if not preserved.is_empty():
+		var slot := 1
+		for pair in preserved:
+			content += "\n[preset." + str(slot) + "]\n\n" + pair[0]
+			if pair[1] != "":
+				content += "\n[preset." + str(slot) + ".options]\n\n" + pair[1]
+			slot += 1
+
 	var file := FileAccess.open("res://export_presets.cfg", FileAccess.WRITE)
 	if file:
 		file.store_string(content)
 		file.close()
-		print("[VG] Wrote export preset: %s → %s" % [preset_name, output_path])
+		print("[VG] Wrote export preset: %s → %s (preserved %d other preset(s))" % [
+			preset_name, output_path, preserved.size()
+		])
 	else:
 		push_error("[VG] Could not write res://export_presets.cfg")
+
+## Reads export_presets.cfg and returns every preset whose `name=` differs
+## from `exclude_name`, as [header_body, options_body] pairs (without the
+## `[preset.N]` / `[preset.N.options]` headers). Caller renumbers and
+## re-emits them so `_write_export_preset` can upsert without clobbering
+## presets the user built for other platforms.
+func _collect_other_presets(exclude_name: String) -> Array:
+	var path := "res://export_presets.cfg"
+	if not FileAccess.file_exists(path):
+		return []
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return []
+	var text := f.get_as_text()
+	f.close()
+	var lines := text.split("\n")
+	var i := 0
+	var result: Array = []
+	while i < lines.size():
+		var ln := String(lines[i]).strip_edges()
+		var is_header := ln.begins_with("[preset.") and ln.ends_with("]") and not ln.ends_with(".options]")
+		if not is_header:
+			i += 1
+			continue
+		i += 1
+		var head_body := ""
+		var name_in_block := ""
+		while i < lines.size():
+			var l2 := String(lines[i])
+			if l2.strip_edges().begins_with("["):
+				break
+			head_body += l2 + "\n"
+			var stripped := l2.strip_edges()
+			if stripped.begins_with("name="):
+				var rhs := stripped.substr(5).strip_edges()
+				if rhs.length() >= 2 and rhs.begins_with("\"") and rhs.ends_with("\""):
+					name_in_block = rhs.substr(1, rhs.length() - 2)
+				else:
+					name_in_block = rhs
+			i += 1
+		var opts_body := ""
+		if i < lines.size():
+			var next_hdr := String(lines[i]).strip_edges()
+			if next_hdr.begins_with("[preset.") and next_hdr.ends_with(".options]"):
+				i += 1
+				while i < lines.size():
+					var l3 := String(lines[i])
+					if l3.strip_edges().begins_with("["):
+						break
+					opts_body += l3 + "\n"
+					i += 1
+		if name_in_block != exclude_name and name_in_block != "":
+			result.append([head_body, opts_body])
+	return result
 
 ## Back-compat shim — older code paths called this. Now just delegates.
 func _create_default_export_preset(preset_name: String, output_path: String) -> void:
@@ -6565,6 +6868,63 @@ func _get_tips() -> PackedStringArray:
 		"Hold Shift and click to select multiple controls for group operations.",
 		"The Menu Editor (Project > Tools) lets you build VB6-style menu bars visually.",
 		"Check the documentation at Help > Visual Gasic Documentation for guides and tutorials.",
+
+		# ── Tweak Overlay (live runtime editing) ──
+		"Press Ctrl+Shift+T while your game runs to open the Tweak Overlay — edit nodes and draw commands live, without stopping the game.",
+		"In the Tweak Overlay, click '→ Source' to write color changes (Color(...) or Color.NAME) back into the originating .vg file.",
+		"Tweak Overlay's 'Save' button persists every override to user://vg_tweaks.json; 'Save Sel' only saves the currently selected target.",
+		"Use the Tweak Overlay's Place row to add a new rect/ellipse/line/text directly into a running canvas — perfect for prototyping HUD layouts in motion.",
+		"The Tweak Overlay's Pause button freezes physics and _process so you can fine-tune values while the world holds still.",
+		"In the Tweak Overlay, right-click a target → Copy color / fill / position, then paste it onto another target to clone visual settings.",
+		"The Tweak Overlay enumerates each vg.Draw* call queued at runtime as its own target — you can recolor a procedural shape that doesn't exist as a node.",
+		"The Tweak Overlay's undo stack remembers 64 edits — experiment freely.",
+		"Alt+click in the Tweak Overlay picks one individual draw command inside a BeginGroup — useful when you want to recolor just the outline, not the fill.",
+		"See docs/guides/TWEAK_OVERLAY.md for the full Tweak Overlay guide, including why it beats a basic WYSIWYG editor for procedural and runtime content.",
+
+		# ── 2D Scene Editor (Instance / Reparent / Change Type) ──
+		"In the 2D Scene Editor, click the 🔗 button (or right-click → Instance Child Scene…) to nest an existing .tscn under the selected node.",
+		"Drag any node in the 2D Scene Tree onto another row to reparent it — global transforms are preserved automatically for Node2D moves.",
+		"Dropping a node *between* two rows in the Scene Tree makes it a sibling at that index. Dropping it *onto* a row makes it a child.",
+		"Right-click a node in the 2D Scene Tree → Change Type… to convert between Sprite2D, Area2D, RigidBody2D, etc. without losing children or transforms.",
+		"Instanced child scenes survive Save → Reload as proper [instance=ExtResource(...)] references, not flattened overrides.",
+
+		# ── Export / Make EXE ──
+		"File > Make EXE… now preserves presets for every other platform — exporting Linux no longer wipes your Windows or Web preset.",
+		"You can build standalone Linux, Windows, macOS, and Web exports back-to-back from Make EXE… without touching export_presets.cfg by hand.",
+		"The Browser Dashboard (vg-dashboard) shows live build logs from every Make EXE job — great for watching multi-platform exports finish in the background.",
+
+		# ── Debugging / Data Tips ──
+		"While paused at a breakpoint, hover over any variable name in the code editor to see its live value — VB6-style Data Tips.",
+		"Press F9 in the code editor to toggle a breakpoint on the current line; F5 runs, F10 steps over, F11 steps into.",
+		"The Immediate Window understands full VG expressions — call functions, mutate variables, or inspect deeply nested values inline.",
+		"Print to the Immediate Window from running code with Debug.Print expr — output is queued even if the window is closed.",
+
+		# ── AI / Narcea ──
+		"The AI panel (View > AI Assistant) can patch your code in place — describe the change in natural language and review the diff before accepting.",
+		"Narcea is VG's local AI agent — it reads your project tree, runs grep/edit/test cycles, and reports back without leaving the IDE.",
+		"Voice mode (Ctrl+Shift+V) opens the realtime voice channel — talk to the AI while VAD auto-stops your turn when you pause speaking.",
+		"AI patches always show a diff with accept/reject buttons. Reject is non-destructive; the AI keeps your context for the next try.",
+
+		# ── Browser dashboard / launcher ──
+		"Run ./vg-dashboard (or vg-dashboard.ps1 on Windows) for a browser-based project switcher with live build logs and a file explorer.",
+		"The system-tray dashboard (vg-dashboard-tray) keeps a small icon running so you can launch any VG project with two clicks.",
+		"The IDE remembers your recent VG projects — relaunching ./vg-ide skips Godot's Project Manager and reopens the last project directly.",
+
+		# ── VectorCanvas / Drawing ──
+		"vg.DrawRect / DrawEllipse / DrawLine queue commands on the active VectorCanvas — each is independently editable from the Tweak Overlay.",
+		"Every queued draw command is stamped with __src_file and __src_line so the Tweak Overlay can jump straight to the line that produced it.",
+		"Color.NAME constants (Color.RED, Color.SKY_BLUE…) work everywhere a Color() constructor does — and the Tweak Overlay knows how to rewrite either form back to source.",
+
+		# ── Code editor power ──
+		"Right-click a symbol in the code editor → Rename to refactor it across the whole project safely.",
+		"Type a function name followed by '(' to trigger parameter signature hints — works for built-ins and your own Subs/Functions.",
+		"Ctrl+Space forces autocomplete at the caret — useful when intellisense hasn't kicked in yet.",
+		"Use the Snippet Browser (Project > Tools > VG: Snippet Browser) to insert ready-made loops, file I/O, HTTP requests, and threading scaffolds.",
+
+		# ── Project organization ──
+		"VG projects live anywhere on disk — there's no enforced project root. Symlink an addon folder to share code between projects.",
+		"Keep secrets out of res:// — VG's user:// folder maps to a per-user writable path on every platform, perfect for API keys and tweak bags.",
+		"Add a custom shortcut by editing Project > Tools > Customize Shortcuts — every IDE action is rebindable.",
 	])
 
 ## Builds the Tip of the Day Window dialog with VB6/Win95 styling.
@@ -7168,6 +7528,7 @@ func _populate_properties_for_form() -> void:
 func _on_fd_control_selected(index: int) -> void:
 	if not _form_designer:
 		return
+	_fd_last_selected_index = index
 	var info = _form_designer.get_control_info(index)
 	print("FormDesigner: Selected ", info.get("name", "?"), " (", info.get("type", "?"), ")")
 	# Update properties inspector if available — pass designer ref + index
@@ -7232,6 +7593,7 @@ func _flash_status_message(msg: String) -> void:
 ## @param position: Global screen position for popup placement
 var _fd_context_menu: PopupMenu = null
 var _fd_context_ctrl_index: int = -1
+var _fd_last_selected_index: int = -1
 var _editing_external_scene: bool = false
 var _saving_external: bool = false  ## reentrancy guard for _save_external_data
 var _switching_to_code_editor: bool = false  ## suppress reload in _make_visible(false) during double-click
@@ -7258,30 +7620,30 @@ func _on_fd_control_right_clicked(index: int, position: Vector2) -> void:
 			_fd_context_menu.add_separator()
 		
 		# Common actions
-		_fd_context_menu.add_item("View Code (" + ctrl_name + "_Click)", 10)
+		_fd_context_menu.add_item("View Code (" + ctrl_name + "_Click)\tF7", 10)
 		_fd_context_menu.add_separator()
-		_fd_context_menu.add_item("Cut", 31)
-		_fd_context_menu.add_item("Copy", 32)
-		_fd_context_menu.add_item("Delete", 30)
+		_fd_context_menu.add_item("Cut\tCtrl+X", 31)
+		_fd_context_menu.add_item("Copy\tCtrl+C", 32)
+		_fd_context_menu.add_item("Delete\tDel", 30)
 		_fd_context_menu.add_separator()
 		_fd_context_menu.add_item("Bring to Front", 60)
 		_fd_context_menu.add_item("Send to Back", 61)
 		_fd_context_menu.add_separator()
 		var is_locked = _locked_controls.has(ctrl_name)
-		_fd_context_menu.add_check_item("Lock Position", 70)
+		_fd_context_menu.add_check_item("Lock Controls", 70)
 		_fd_context_menu.set_item_checked(_fd_context_menu.get_item_index(70), is_locked)
 		_fd_context_menu.add_separator()
 		_fd_context_menu.add_item("Edit Control Scene...", 20)
 		var idx = _fd_context_menu.get_item_index(20)
 		_fd_context_menu.set_item_disabled(idx, true)
 		_fd_context_menu.add_separator()
-		_fd_context_menu.add_item("Properties", 40)
+		_fd_context_menu.add_item("Properties\tF4", 40)
 	else:
 		# Right-clicked on empty form area
-		_fd_context_menu.add_item("View Code", 11)
-		_fd_context_menu.add_item("Paste", 50)
+		_fd_context_menu.add_item("View Code\tF7", 11)
+		_fd_context_menu.add_item("Paste\tCtrl+V", 50)
 		_fd_context_menu.add_separator()
-		_fd_context_menu.add_item("Form Properties", 41)
+		_fd_context_menu.add_item("Form Properties\tF4", 41)
 	
 	_fd_context_menu.id_pressed.connect(_on_fd_context_menu_pressed)
 	_style_popup_menu(_fd_context_menu)
@@ -7461,6 +7823,11 @@ func _on_fd_control_double_clicked(index: int) -> void:
 						var vb_type = _godot_type_to_vb6(arg.get("type", 0))
 						parts.append(arg["name"] + " As " + vb_type)
 					event_params = ", ".join(parts)
+	# VB6 control-array convention: if this control has an Index property set
+	# (control_array_index >= 0), every event handler receives `Index As Integer`
+	# as the first argument so the same Sub can serve all elements of the array.
+	if int(info.get("control_array_index", -1)) >= 0:
+		event_params = "Index As Integer" + ("" if event_params.is_empty() else ", " + event_params)
 	# Get form path — try multiple fallbacks
 	var form_path = _form_designer.get_form_path()
 	if form_path.is_empty():
@@ -8016,6 +8383,9 @@ func _on_error_break_received(file: String, line: int, message: String, code: in
 	# state settle before we pop the dialog to the front.
 	if is_instance_valid(_exception_assistant):
 		_exception_assistant.call_deferred("show_error", file, line, message, code, _last_error_variables)
+	# Log to the Errors tab so it persists after the popup is dismissed
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("log_runtime_error"):
+		_embedded_code_editor.log_runtime_error(file, line, message, code)
 	# Also update AI Help panel's error context silently
 	if is_instance_valid(_ai_help_panel):
 		_ai_help_panel.set_error_context(file, line, message, _last_error_variables)
@@ -8599,6 +8969,18 @@ func _show_code_view() -> void:
 	_set_form_designer_widgets_visible(false)
 
 	print("VisualGasic: Switched to Code View")
+
+## Open the Working Nodes editor for a sibling .wnodes file. Wired to the
+## code editor's edit_in_working_nodes_requested signal. Routes through
+## VGPluginRegistry so the registered .wnodes provider does the actual open.
+func _open_working_nodes_for_path(wnodes_path: String) -> void:
+	if wnodes_path.is_empty() or not FileAccess.file_exists(wnodes_path):
+		return
+	var registry = VGPluginRegistry.get_instance()
+	if registry and registry.has_method("open_asset"):
+		registry.open_asset(wnodes_path)
+	else:
+		push_warning("VGPluginRegistry unavailable; cannot open " + wnodes_path)
 
 ## Switch the center panel from code editor or 3D editor back to form canvas.
 func _show_form_view() -> void:
@@ -9266,15 +9648,19 @@ func _force_first_run_dialog_size(dlg: Window, sz: Vector2i) -> void:
 	dlg.position = (host_size - sz) / 2
 
 
-func _on_first_run_type_chosen(kind: String, plugins_to_enable: Array = []) -> void:
+func _on_first_run_type_chosen(kind: String, plugins_to_enable: Array = [], plugins_to_disable: Array = []) -> void:
 	var dlg_script := load("res://addons/visual_gasic/vg_first_run_dialog.gd")
 	if dlg_script and dlg_script.has_method("apply_choice"):
-		dlg_script.apply_choice(kind, plugins_to_enable)
+		dlg_script.apply_choice(kind, plugins_to_enable, plugins_to_disable)
 	# Live-activate each requested plugin via the plugin manager so the
 	# toolbar buttons appear immediately without an editor restart.
 	for pid in plugins_to_enable:
 		if _vg_plugin_manager and _vg_plugin_manager.has_method("set_plugin_enabled"):
 			_vg_plugin_manager.set_plugin_enabled(pid, true)
+	# Live-deactivate unchecked plugins.
+	for pid in plugins_to_disable:
+		if _vg_plugin_manager and _vg_plugin_manager.has_method("set_plugin_enabled"):
+			_vg_plugin_manager.set_plugin_enabled(pid, false)
 	# Defer so the dialog's own queue_free finishes before we run the
 	# normal startup path (which may itself open editors / create windows).
 	call_deferred("_auto_open_formless_module")
@@ -9437,6 +9823,12 @@ func _on_toggle_vb6_layout():
 		_layout_manager.toggle()
 	else:
 		push_warning("VisualGasic: Layout manager not available")
+
+func _on_toggle_tweak_overlay() -> void:
+	if debugger_plugin and debugger_plugin.has_method("toggle_tweak_overlay"):
+		debugger_plugin.toggle_tweak_overlay()
+	else:
+		push_warning("VisualGasic: Cannot toggle tweak overlay — debugger plugin unavailable or no active session.")
 
 ## Opens the Snippet Browser dialog (v2.4.1)
 func _on_open_snippet_browser():

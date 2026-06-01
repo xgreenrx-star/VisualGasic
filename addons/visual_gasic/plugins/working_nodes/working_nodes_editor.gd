@@ -324,6 +324,12 @@ func _build_ui() -> void:
 	btn_load.pressed.connect(_show_load_dialog)
 	toolbar.add_child(btn_load)
 
+	var btn_import_vg := Button.new()
+	btn_import_vg.text = "← Import VG"
+	btn_import_vg.tooltip_text = "Reverse-engineer a .vg file into a Working Nodes graph"
+	btn_import_vg.pressed.connect(_show_import_vg_dialog)
+	toolbar.add_child(btn_import_vg)
+
 	toolbar.add_child(VSeparator.new())
 
 	var export_menu := MenuButton.new()
@@ -531,6 +537,7 @@ func _build_ui() -> void:
 	_graph = GraphEdit.new()
 	_graph.show_zoom_label = true
 	_graph.right_disconnects = true
+	_hide_native_connection_lines()
 	_graph.connection_request.connect(_on_connection_request)
 	_graph.disconnection_request.connect(_on_disconnection_request)
 	_graph.node_selected.connect(_on_graph_node_selected)
@@ -628,6 +635,7 @@ func _build_ui() -> void:
 	var overlay_script := load("res://addons/visual_gasic/plugins/working_nodes/working_nodes_wire_overlay.gd")
 	_overlay = overlay_script.new()
 	_overlay.editor = self
+	_overlay.z_index = 100
 	_graph.add_child(_overlay)
 	_graph.scroll_offset_changed.connect(func(_o): _queue_wire_redraw())
 
@@ -739,6 +747,45 @@ func _load_from_path(path: String) -> void:
 		return
 	_apply_loaded_data(parsed)
 
+# ─── Import-from-VG (reverse round-trip) ─────────────────────────────────────
+
+func _show_import_vg_dialog() -> void:
+	var dlg := FileDialog.new()
+	dlg.access = FileDialog.ACCESS_RESOURCES
+	dlg.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	dlg.filters = PackedStringArray(["*.vg ; VisualGasic Code"])
+	dlg.title = "Import VG file into Working Nodes"
+	add_child(dlg)
+	dlg.file_selected.connect(func(p: String):
+		_import_vg_from_path(p)
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func(): dlg.queue_free())
+	dlg.popup_centered_ratio(0.7)
+
+func _import_vg_from_path(path: String) -> void:
+	if not FileAccess.file_exists(path):
+		push_warning("Working Nodes: file not found " + path)
+		return
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return
+	var src := f.get_as_text()
+	f.close()
+	# working_nodes_codegen.gd lives next to this file as a sibling script.
+	var Codegen = load("res://addons/visual_gasic/plugins/working_nodes/working_nodes_codegen.gd")
+	if Codegen == null:
+		push_warning("Working Nodes: codegen script missing")
+		return
+	var graph: Dictionary = Codegen.parse_vg_to_graph_data(src)
+	if graph.is_empty() or not graph.has("nodes"):
+		push_warning("Working Nodes: VG import produced no nodes")
+		return
+	_apply_loaded_data(graph)
+	# Track that the imported file is the canonical .vg companion so that
+	# subsequent Export-VG offers to overwrite the same path.
+	_last_path = path.get_basename() + ".wnodes"
+
 func _apply_loaded_data(data: Dictionary) -> void:
 	for c in _graph.get_children():
 		if c is GraphNode:
@@ -771,10 +818,8 @@ func _apply_loaded_data(data: Dictionary) -> void:
 	for c in _connections:
 		var fn := str(c.get("from", ""))
 		var tn := str(c.get("to", ""))
-		var fp := int(c.get("from_port", 0))
-		var tp := int(c.get("to_port", 0))
-		if _nodes.has(fn) and _nodes.has(tn):
-			_graph.connect_node(fn, fp, tn, tp)
+		if not (_nodes.has(fn) and _nodes.has(tn)):
+			continue
 	_refresh_group_ui()
 	_queue_wire_redraw()
 	_update_canvas_hint()
@@ -1023,7 +1068,8 @@ func _build_trigger_node(n: GraphNode, def: Dictionary) -> void:
 	var params:   Array = def.get("params",   [])
 	var col: Color = Color.from_string("#" + def.get("color_hex", "888888"), Color.WHITE)
 
-	n.custom_minimum_size = Vector2(260, max(96, 74 + params.size() * 30 + (26 if else_out else 0) + (30 if kind == "get_prop" else 0)))
+	var _node_kind: String = n.get_meta("_kind", "") if n.has_meta("_kind") else ""
+	n.custom_minimum_size = Vector2(260, max(96, 74 + params.size() * 30 + (26 if else_out else 0) + (30 if _node_kind == "get_prop" else 0)))
 
 	# ── Slot 0: execution-flow header (True / main exec output) ──────────
 	var exec_row := HBoxContainer.new()
@@ -1395,7 +1441,6 @@ func _on_connection_request(from_node: StringName, from_port: int, to_node: Stri
 	for c in _connections:
 		if c.get("from", "") == String(from_node) and c.get("to", "") == String(to_node) and c.get("from_port", -1) == from_port and c.get("to_port", -1) == to_port:
 			return
-	_graph.connect_node(from_node, from_port, to_node, to_port)
 	var from_n: GraphNode = _nodes[String(from_node)]
 	var gid := int(from_n.get_meta("wn_group", 1))
 	_connections.append({
@@ -1411,7 +1456,6 @@ func _on_connection_request(from_node: StringName, from_port: int, to_node: Stri
 	_update_vg_preview()
 
 func _on_disconnection_request(from_node: StringName, from_port: int, to_node: StringName, to_port: int) -> void:
-	_graph.disconnect_node(from_node, from_port, to_node, to_port)
 	for i in range(_connections.size() - 1, -1, -1):
 		var c: Dictionary = _connections[i]
 		if c.get("from", "") == String(from_node) and c.get("to", "") == String(to_node) and c.get("from_port", -1) == from_port and c.get("to_port", -1) == to_port:
@@ -1430,6 +1474,14 @@ func _smart_connect_selected() -> void:
 func _queue_wire_redraw() -> void:
 	if _overlay and is_instance_valid(_overlay):
 		_overlay.queue_redraw()
+
+
+func _hide_native_connection_lines() -> void:
+	# Keep GraphEdit connections functional (requests/disconnects), but render them invisible
+	# so only the custom overlay wire with joints is visible.
+	_graph.add_theme_color_override("connection_rim_color", Color(1, 1, 1, 0))
+	_graph.add_theme_color_override("connection_hover_tint_color", Color(1, 1, 1, 0))
+	_graph.add_theme_color_override("activity", Color(1, 1, 1, 0))
 
 
 func _on_graph_gui_input(_event: InputEvent) -> void:
@@ -1610,13 +1662,60 @@ func _collect_graph_data() -> Dictionary:
 	}
 
 func _on_export_vg_pressed() -> void:
-	export_vg_requested.emit(_collect_graph_data())
+	var data := _collect_graph_data()
+	if not await _validate_export_or_confirm(data, "VG"):
+		return
+	export_vg_requested.emit(data)
 
 func _on_export_scene_2d_pressed() -> void:
-	export_scene_2d_requested.emit(_collect_graph_data())
+	var data := _collect_graph_data()
+	if not await _validate_export_or_confirm(data, "2D scene"):
+		return
+	export_scene_2d_requested.emit(data)
 
 func _on_export_scene_3d_pressed() -> void:
-	export_scene_3d_requested.emit(_collect_graph_data())
+	var data := _collect_graph_data()
+	if not await _validate_export_or_confirm(data, "3D scene"):
+		return
+	export_scene_3d_requested.emit(data)
+
+## Generates VG code from `data`, runs it through the VG validator, and
+## (when errors are found) prompts the user to fix-then-export. Returns
+## true when export should proceed.
+func _validate_export_or_confirm(data: Dictionary, label: String) -> bool:
+	if not ClassDB.class_exists(&"VisualGasicLanguage"):
+		return true  # validator unavailable; skip pre-check
+	var code: String = working_nodes_codegen.generate_vg_code(data)
+	var result: Dictionary = ClassDB.class_call_static(
+		&"VisualGasicLanguage", &"vg_validate_code", code, "res://__wn_preview.vg")
+	var errors: Array = result.get("errors", [])
+	if errors.is_empty():
+		return true
+	# Build a short summary popup.
+	var lines: PackedStringArray = PackedStringArray()
+	lines.append("The generated %s code has %d error(s):" % [label, errors.size()])
+	lines.append("")
+	for i in min(errors.size(), 6):
+		var e: Dictionary = errors[i]
+		lines.append("  • line %d: %s" % [int(e.get("line", 0)), str(e.get("message", ""))])
+	if errors.size() > 6:
+		lines.append("  • …and %d more." % (errors.size() - 6))
+	lines.append("")
+	lines.append("Export anyway?")
+	var dlg := ConfirmationDialog.new()
+	dlg.title = "Working Nodes — Validation"
+	dlg.dialog_text = "\n".join(Array(lines))
+	dlg.get_ok_button().text = "Export anyway"
+	dlg.get_cancel_button().text = "Cancel & fix"
+	add_child(dlg)
+	# Run modally and return user's choice synchronously via a flag.
+	var proceed: Array = [false]
+	dlg.confirmed.connect(func(): proceed[0] = true)
+	dlg.popup_centered()
+	await dlg.visibility_changed  # waits until closed
+	dlg.queue_free()
+	return proceed[0]
+
 
 func _on_run_graph_2d_pressed() -> void:
 	run_graph_requested.emit(_collect_graph_data(), false)
@@ -1957,13 +2056,9 @@ func _delete_nodes_by_name(node_names: Array[StringName]) -> void:
 		var key := String(nm)
 		if _nodes.has(key):
 			var n: GraphNode = _nodes[key]
-			_graph.clear_connections()
 			_nodes.erase(key)
 			if is_instance_valid(n):
 				n.queue_free()
-	# Re-add remaining connections to GraphEdit
-	for c in _connections:
-		_graph.connect_node(c["from"], c["from_port"], c["to"], c["to_port"])
 	_queue_wire_redraw()
 	_update_vg_preview()
 	_update_canvas_hint()

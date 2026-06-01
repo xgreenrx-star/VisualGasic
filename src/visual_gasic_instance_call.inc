@@ -595,12 +595,56 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
          }
     }
 
+    // Intercept _OnArraySignal — VB6 control-array dispatcher.
+    // Args: [SignalArg1, ..., SignalArgN, BaseName, EventName, ArrayIndex]
+    // The handler is named <BaseName>_<EventName> and receives Index as its
+    // first parameter, followed by the original signal args. All members of a
+    // control array share the same handler.
+    if (p_method == StringName("_OnArraySignal")) {
+         if (args.size() >= 3) {
+             String name = args[args.size()-3];
+             String event = args[args.size()-2];
+             int arr_idx = int(args[args.size()-1]);
+             String sub_name = name + "_" + event;
+
+             Array sub_args;
+             sub_args.push_back(arr_idx);
+             for(int i=0; i < args.size() - 3; i++) {
+                 sub_args.push_back(args[i]);
+             }
+
+             bool found = false;
+             call_internal(sub_name, sub_args, found);
+
+             if (error_state.has_error && error_state.mode == ErrorState::NONE) {
+                 String err_msg = "Run-time error '" + String::num_int64(error_state.code) + "':\n\n"
+                     + error_state.message;
+                 if (error_state.error_line > 0) {
+                     err_msg += "\n\nLine: " + String::num_int64(error_state.error_line);
+                 }
+                 UtilityFunctions::printerr(
+                     "Unhandled runtime error in '", sub_name, "' (Index ", arr_idx,
+                     "): Error ", error_state.code, ": ", error_state.message,
+                     " (Line ", error_state.error_line, ")");
+                 VisualGasicBuiltins::native_msgbox(err_msg, "VisualGasic", 0);
+                 error_state.has_error = false;
+             }
+
+             if (r_return) *r_return = Variant();
+             r_error->error = GDEXTENSION_CALL_OK;
+             return;
+         }
+    }
+
     // Intercept _OnGuiInput — demuxes gui_input InputEvents into VB6 events
-    // Args: [InputEvent, ControlName]  (ControlName is the bound arg)
+    // ArrayIndex == -1 means the control is NOT part of a VB6 control array;
+    // otherwise it is prepended to every demuxed handler call as `Index`.
     if (p_method == StringName("_OnGuiInput")) {
-         if (args.size() >= 2) {
+         if (args.size() >= 3) {
              Ref<InputEvent> event = args[0];
-             String ctrl_name = args[args.size() - 1];
+             String ctrl_name = args[args.size() - 2];
+             int gui_arr_idx = int(args[args.size() - 1]);
+             bool is_array = (gui_arr_idx >= 0);
 
              // Check if the source control is a LineEdit (TextBox).
              // LineEdit already has text_submitted wired to _KeyPress, so we
@@ -636,10 +680,12 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
                          if (mb->is_double_click()) {
                              // DblClick
                              Array dbl_args;
+                             if (is_array) dbl_args.push_back(gui_arr_idx);
                              call_internal(ctrl_name + "_DblClick", dbl_args, found);
                          } else {
                              // MouseDown(Button, Shift, X, Y)
                              Array md_args;
+                             if (is_array) md_args.push_back(gui_arr_idx);
                              md_args.push_back(button);
                              md_args.push_back(shift_state);
                              md_args.push_back(x);
@@ -649,12 +695,14 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
                              // Also fire Click for left button single-click
                              if (button == 1) {
                                  Array click_args;
+                                 if (is_array) click_args.push_back(gui_arr_idx);
                                  call_internal(ctrl_name + "_Click", click_args, found);
                              }
                          }
                      } else {
                          // MouseUp(Button, Shift, X, Y)
                          Array mu_args;
+                         if (is_array) mu_args.push_back(gui_arr_idx);
                          mu_args.push_back(button);
                          mu_args.push_back(shift_state);
                          mu_args.push_back(x);
@@ -674,6 +722,7 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
                      float y = mm->get_position().y;
 
                      Array move_args;
+                     if (is_array) move_args.push_back(gui_arr_idx);
                      move_args.push_back(button_mask);
                      move_args.push_back(shift_state);
                      move_args.push_back(x);
@@ -692,6 +741,7 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
                      if (key->is_pressed() && !key->is_echo()) {
                          // KeyDown(KeyCode, Shift)
                          Array kd_args;
+                         if (is_array) kd_args.push_back(gui_arr_idx);
                          kd_args.push_back(keycode);
                          kd_args.push_back(shift_state);
                          call_internal(ctrl_name + "_KeyDown", kd_args, found);
@@ -701,12 +751,14 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
                          int unicode = (int)key->get_unicode();
                          if (unicode > 0 && !is_line_edit) {
                              Array kp_args;
+                             if (is_array) kp_args.push_back(gui_arr_idx);
                              kp_args.push_back(unicode);
                              call_internal(ctrl_name + "_KeyPress", kp_args, found);
                          }
                      } else if (!key->is_pressed()) {
                          // KeyUp(KeyCode, Shift)
                          Array ku_args;
+                         if (is_array) ku_args.push_back(gui_arr_idx);
                          ku_args.push_back(keycode);
                          ku_args.push_back(shift_state);
                          call_internal(ctrl_name + "_KeyUp", ku_args, found);
@@ -841,17 +893,44 @@ void VisualGasicInstance::raise_error(String msg, int code, const String &source
 static bool _try_wire(Node* node, const String& name, const String& evt_name,
                       const String& signal_name, VisualGasicScript* vs,
                       Node* instance_owner, uint32_t flags = 0) {
-    String sub_name = name + String("_") + evt_name;
+    // VB6 control-array support: when this node was emitted with a disambiguated
+    // sibling name, its logical VB6 base name lives in metadata/vb6_base_name.
+    // All array members share the same <BaseName>_<Event> handler and receive
+    // the array Index as the first argument.
+    String vb_name = name;
+    bool is_array_member = false;
+    int arr_idx = -1;
+    if (node->has_meta("vb6_base_name")) {
+        vb_name = String(node->get_meta("vb6_base_name"));
+    }
+    if (node->has_meta("vb6_control_array_index")) {
+        arr_idx = int(node->get_meta("vb6_control_array_index"));
+        if (arr_idx >= 0) is_array_member = true;
+    }
+
+    String sub_name = vb_name + String("_") + evt_name;
     if (!vs->_has_method(sub_name)) return false;
 
-    Callable target(instance_owner, "_OnSignal");
-    Array binds;
-    binds.push_back(name);
-    binds.push_back(evt_name);
-    Callable bound = target.bindv(binds);
+    if (is_array_member) {
+        Callable target(instance_owner, "_OnArraySignal");
+        Array binds;
+        binds.push_back(vb_name);
+        binds.push_back(evt_name);
+        binds.push_back(arr_idx);
+        Callable bound = target.bindv(binds);
+        if (!node->is_connected(signal_name, target)) {
+            node->connect(signal_name, bound, flags);
+        }
+    } else {
+        Callable target(instance_owner, "_OnSignal");
+        Array binds;
+        binds.push_back(vb_name);
+        binds.push_back(evt_name);
+        Callable bound = target.bindv(binds);
 
-    if (!node->is_connected(signal_name, target)) {
-        node->connect(signal_name, bound, flags);
+        if (!node->is_connected(signal_name, target)) {
+            node->connect(signal_name, bound, flags);
+        }
     }
     return true;
 }
@@ -860,6 +939,12 @@ static void _connect_vb_signals_recursive(Node* node, VisualGasicInstance* insta
     if (!node) return;
 
     String name = node->get_name();
+    // Control-array members store their VB6 logical base name as metadata
+    // (multiple siblings share it). Use that for handler lookup so all members
+    // route to the same <BaseName>_<Event> sub.
+    if (node->has_meta("vb6_base_name")) {
+        name = String(node->get_meta("vb6_base_name"));
+    }
 
     // Get VG script for _has_method checks
     Ref<Script> s = instance->get_script();
@@ -1052,9 +1137,15 @@ static void _connect_vb_signals_recursive(Node* node, VisualGasicInstance* insta
             vs->_has_method(name + "_MouseMove")
         );
         if (needs_gui_input) {
+            // Read array index from metadata so we can prepend it to handler args.
+            int gui_arr_idx = -1;
+            if (node->has_meta("vb6_control_array_index")) {
+                gui_arr_idx = int(node->get_meta("vb6_control_array_index"));
+            }
             Callable target(instance_owner, "_OnGuiInput");
             Array binds;
             binds.push_back(name);
+            binds.push_back(gui_arr_idx);  // -1 = not an array member
             Callable bound = target.bindv(binds);
             if (!node->is_connected("gui_input", target)) {
                 node->connect("gui_input", bound);
@@ -1402,7 +1493,15 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
              bool is_prop = false;
              if (owner) {
                  Variant current = owner->get(name);
-                 if (current.get_type() != Variant::NIL) is_prop = true;
+                 if (current.get_type() != Variant::NIL) {
+                     is_prop = true;
+                 } else {
+                     String snake = name.to_snake_case();
+                     if (snake != name) {
+                         current = owner->get(snake);
+                         if (current.get_type() != Variant::NIL) is_prop = true;
+                     }
+                 }
              }
              
              if (!is_prop) {
@@ -1455,6 +1554,15 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
          if (current.get_type() != Variant::NIL) {
              owner->set(name, val);
              return;
+         }
+         // Snake_case fallback: Position → position, Rotation → rotation, etc.
+         String snake = name.to_snake_case();
+         if (snake != name) {
+             current = owner->get(snake);
+             if (current.get_type() != Variant::NIL) {
+                 owner->set(snake, val);
+                 return;
+             }
          }
          variables[name] = val;
     } else {

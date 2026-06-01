@@ -320,7 +320,7 @@ class _VGGen:
 		var is_first := true
 		for nd in input_nodes:
 			var n_name  := str(nd.get("_name", "WN_0"))
-			var prm     := nd.get("params", {})
+			var prm: Dictionary = nd.get("params", {})
 			# Key param can be nested dict {"Key":"space"} or flat {"Key":"space"}
 			var raw_key := str(prm.get("Key", prm.get("key", "space")))
 			var key_lbl := raw_key.to_lower()
@@ -394,8 +394,9 @@ class _VGGen:
 	# ─── Inline loop ──────────────────────────────────────────────────────────
 
 	func _emit_inline_loop(nd: Dictionary, indent: String) -> void:
-		var count := int(nd.get("loop_count", 3))
-		var loop_type := str(nd.get("loop_type", "For (count)")).to_lower()
+		var count := int(nd.get("loop_count", nd.get("params", {}).get("Count", 3)))
+		var loop_type := str(nd.get("loop_type", nd.get("params", {}).get("Type", "For (count)"))).to_lower()
+		var prm: Dictionary = nd.get("params", {})
 		if "for" in loop_type and "each" not in loop_type:
 			_w(indent + "Dim _i As Long")
 			_w(indent + "For _i = 0 To " + str(count - 1) + " Step 1")
@@ -404,14 +405,30 @@ class _VGGen:
 				_emit_action_call(bn, indent + "    ")
 			_w(indent + "Next _i")
 		elif "while" in loop_type:
-			_w(indent + "Do While True  ' condition loop from node: " + str(nd.get("title", "")))
-			_w(indent + "    ' TODO: break when done")
+			# Honour explicit Condition param when present (default True keeps
+			# back-compatible behaviour but emits a Break-on-counter sentinel).
+			var cond := str(nd.get("condition", prm.get("Condition", ""))).strip_edges()
+			if cond.is_empty():
+				cond = "True"
+			_w(indent + "Do While " + cond + "  ' loop node: " + str(nd.get("title", "")))
+			var wbody := _downstream_of(str(nd.get("_name", "")))
+			for bn in wbody:
+				_emit_action_call(bn, indent + "    ")
+			if cond == "True":
+				_w(indent + "    Exit Do  ' safety: remove or replace with a real break")
 			_w(indent + "Loop")
 		elif "each" in loop_type:
-			_w(indent + "' For Each loop — replace arr() with your array variable")
+			var src := str(nd.get("source_array", prm.get("Source_Array", prm.get("Array", "")))).strip_edges()
+			if src.is_empty():
+				src = "arr"
+			# Strip any trailing () the user may have typed.
+			if src.ends_with("()"):
+				src = src.substr(0, src.length() - 2)
 			_w(indent + "Dim _item As Variant")
-			_w(indent + "For Each _item In arr()")
-			_w(indent + "    ' process _item")
+			_w(indent + "For Each _item In " + src + "()")
+			var ebody := _downstream_of(str(nd.get("_name", "")))
+			for bn in ebody:
+				_emit_action_call(bn, indent + "    ")
 			_w(indent + "Next _item")
 
 	# ─── Inline sequence ──────────────────────────────────────────────────────
@@ -539,28 +556,25 @@ class _VGGen:
 			var from_name := str(c.get("from", ""))
 			if not _nodes.has(from_name):
 				continue
-			var src     := _nodes[from_name]
+			var src: Dictionary = _nodes[from_name]
 			var src_kind := str(src.get("_kind", "")).to_lower()
-			if src_kind != "math":
-				continue
-			var prm := src.get("params", {})
-			# Recursively resolve A and B (handles chained math nodes)
-			var a_expr := _value_wire_expr(from_name, 1)
-			if a_expr.is_empty():
-				a_expr = str(prm.get("A", "0"))
-			var b_expr := _value_wire_expr(from_name, 2)
-			if b_expr.is_empty():
-				b_expr = str(prm.get("B", "0"))
-			var op := str(prm.get("OpSelect", prm.get("math_op", "add"))).to_lower()
-			return _math_inline_expr(a_expr, b_expr, op)
-		# get_prop node output — emit GetNode("path").property inline
-		if src_kind == "get_prop":
-			var prm := src.get("params", {})
-			var path := str(prm.get("Node_Path", ""))
-			var prop  := str(prm.get("Property",  ""))
-			if not path.is_empty() and not prop.is_empty():
-				return "GetNode(\"%s\").%s" % [path, prop]
-			return ""
+			var prm: Dictionary = src.get("params", {})
+			if src_kind == "math":
+				# Recursively resolve A and B (handles chained math nodes)
+				var a_expr := _value_wire_expr(from_name, 1)
+				if a_expr.is_empty():
+					a_expr = str(prm.get("A", "0"))
+				var b_expr := _value_wire_expr(from_name, 2)
+				if b_expr.is_empty():
+					b_expr = str(prm.get("B", "0"))
+				var op := str(prm.get("OpSelect", prm.get("math_op", "add"))).to_lower()
+				return _math_inline_expr(a_expr, b_expr, op)
+			elif src_kind == "get_prop" or src_kind == "get prop":
+				# get_prop node output — emit GetNode("path").property inline
+				var path := str(prm.get("Node_Path", ""))
+				var prop  := str(prm.get("Property",  ""))
+				if not path.is_empty() and not prop.is_empty():
+					return "GetNode(\"%s\").%s" % [path, prop]
 		return ""
 
 	## Returns either a value-wire inline expression (if a Math node feeds this param)
@@ -820,6 +834,69 @@ class _VGGen:
 
 	# ─── Action sub (implementation body) ────────────────────────────────────
 
+	## Look up a WN-palette intent hint from a free-form title.
+	## Returns a 3-element array: [intent_key, runtime_call_line, comment].
+	## intent_key is one of: "spawn","stop","toggle","move","rotate","scale",
+	## "alpha","play_sfx","animate","shake","pulse","camera_move","zoom",
+	## "set_prop","emit","wait","print","".  Empty key means "no hint found".
+	static func _intent_from_title(title: String) -> Array:
+		var t := title.to_lower()
+		# Keyword → (intent, suggested runtime call, comment)
+		var rules := [
+			["shoot",   "spawn",     "Call WN_Spawn(1, 0)  ' fire a bullet from group 1"],
+			["fire",    "spawn",     "Call WN_Spawn(1, 0)  ' fire a bullet from group 1"],
+			["spawn",   "spawn",     "Call WN_Spawn(1, 0)  ' spawn a member of group 1"],
+			["explode", "spawn",     "Call WN_Spawn(1, 0)  ' spawn explosion FX"],
+			["die",     "stop",      "Call WN_Stop(1)  ' stop / despawn group 1"],
+			["kill",    "stop",      "Call WN_Stop(1)  ' stop / despawn group 1"],
+			["hide",    "toggle",    "Call WN_Toggle(1, 0)  ' hide group 1"],
+			["show",    "toggle",    "Call WN_Toggle(1, 1)  ' show group 1"],
+			["jump",    "set_prop",  "GetNode(\"Player\").velocity.y = -400  ' jump impulse"],
+			["dash",    "move",      "Call WN_Move(1, 200, 0, 0.1)  ' short dash"],
+			["fly",     "move",      "Call WN_Move(1, 0, -100, 1.0)  ' upward motion"],
+			["walk",    "move",      "Call WN_Move(1, 40, 0, 1.0)  ' walk right"],
+			["run",     "move",      "Call WN_Move(1, 80, 0, 1.0)  ' run right"],
+			["move",    "move",      "Call WN_Move(1, 100, 0, 0.5)"],
+			["push",    "move",      "Call WN_Move(1, 50, 0, 0.3)"],
+			["spin",    "rotate",    "Call WN_Rotate(1, 360, 1.0)"],
+			["rotat",   "rotate",    "Call WN_Rotate(1, 90, 0.5)"],
+			["turn",    "rotate",    "Call WN_Rotate(1, 90, 0.5)"],
+			["grow",    "scale",     "Call WN_Scale(1, 2, 2, 0.3)"],
+			["shrink",  "scale",     "Call WN_Scale(1, 0.5, 0.5, 0.3)"],
+			["scale",   "scale",     "Call WN_Scale(1, 1.5, 1.5, 0.3)"],
+			["fade",    "alpha",     "Call WN_Alpha(1, 0.0, 0.5)"],
+			["dim",     "alpha",     "Call WN_Alpha(1, 0.3, 0.5)"],
+			["alpha",   "alpha",     "Call WN_Alpha(1, 1.0, 0.5)"],
+			["pulse",   "pulse",     "Call WN_Pulse(1, 255, 100, 100, 0.2, 0.5, 0.2)"],
+			["flash",   "pulse",     "Call WN_Pulse(1, 255, 255, 255, 0.05, 0.05, 0.1)"],
+			["shake",   "shake",     "Call WN_Shake(1, 0.1, 0.5)"],
+			["rumble",  "shake",     "Call WN_Shake(2, 0.05, 1.0)"],
+			["zoom",    "zoom",      "Call WN_Zoom(1.5, 0.5)"],
+			["pan",     "camera_move","Call WN_CameraMove(1, 1.0, 0, 0)"],
+			["follow",  "set_prop",  "Call WN_Follow(1, 2, 1, 1, 1.0)"],
+			["beep",    "play_sfx",  "Call WN_PlaySFX(\"\", 1, 1)  ' fill in sound path"],
+			["ding",    "play_sfx",  "Call WN_PlaySFX(\"\", 1, 1)  ' fill in sound path"],
+			["sound",   "play_sfx",  "Call WN_PlaySFX(\"\", 1, 1)  ' fill in sound path"],
+			["sfx",     "play_sfx",  "Call WN_PlaySFX(\"\", 1, 1)  ' fill in sound path"],
+			["play",    "play_sfx",  "Call WN_PlaySFX(\"\", 1, 1)  ' fill in sound path"],
+			["music",   "play_sfx",  "Call WN_PlaySFX(\"\", 1, 1)  ' fill in music path"],
+			["anim",    "animate",   "Call WN_Animate(1, 0, 1)"],
+			["dance",   "animate",   "Call WN_Animate(1, 0, 1)  ' dance animation"],
+			["set",     "set_prop",  "GetNode(\"Player\").position.x = 0  ' adjust property"],
+			["assign",  "set_prop",  "GetNode(\"Player\").position.x = 0  ' adjust property"],
+			["emit",    "emit",      "RaiseEvent OnAction"],
+			["signal",  "emit",      "RaiseEvent OnAction"],
+			["wait",    "wait",      "Call WN_Wait(0.5)"],
+			["delay",   "wait",      "Call WN_Wait(0.5)"],
+			["print",   "print",     "Print \"...\""],
+			["log",     "print",     "Print \"...\""],
+			["debug",   "print",     "Print \"DEBUG: \""],
+		]
+		for r in rules:
+			if str(r[0]) in t:
+				return [str(r[1]), str(r[2]), ""]
+		return ["", "", ""]
+
 	func _emit_action_sub(nd: Dictionary) -> void:
 		var kind   := str(nd.get("_kind", "")).to_lower()
 		var n_name := str(nd.get("_name", "WN_0"))
@@ -827,41 +904,34 @@ class _VGGen:
 
 		match kind:
 			"action":
-				var act_type := str(nd.get("action_type", nd.get("title", "Print"))).to_lower()
+				# Prefer explicit action_type, fall back to scanning the title.
+				var act_type := str(nd.get("action_type", "")).to_lower()
+				var hint := _intent_from_title(title if act_type.is_empty() else act_type)
 				_w("Sub Action_" + n_name + "()  ' " + title)
-				_w("    Dim target As String")
-				_w("    target = \"\" ' Set to target node path")
-				if "move" in act_type:
-					_w("    ' Move target node")
-					_w("    ' GetNode(target).position.x += 10")
-					_w("    Print \"Action_" + n_name + ": Move\"")
-				elif "rotat" in act_type:
-					_w("    ' Rotate target node")
-					_w("    Print \"Action_" + n_name + ": Rotate\"")
-				elif "scale" in act_type:
-					_w("    ' Scale target node")
-					_w("    Print \"Action_" + n_name + ": Scale\"")
-				elif "anim" in act_type or "play" in act_type:
-					_w("    ' Play animation or sound")
-					_w("    Print \"Action_" + n_name + ": Play\"")
-				elif "print" in act_type or "log" in act_type:
-					_w("    Print \"Action_" + n_name + " executed\"")
-				elif "tween" in act_type:
-					_w("    ' Tween target node property")
-					_w("    Print \"Action_" + n_name + ": Tween\"")
-				elif "wait" in act_type:
-					_w("    ' Wait / yield")
-					_w("    Print \"Action_" + n_name + ": Wait\"")
-				elif "set" in act_type:
-					_w("    ' Set property on target")
-					_w("    Print \"Action_" + n_name + ": SetProperty\"")
-				elif "emit" in act_type:
-					_w("    ' Emit a signal")
-					_w("    Print \"Action_" + n_name + ": EmitSignal\"")
-				elif "call" in act_type:
-					_w("    ' Call method on target")
-					_w("    Print \"Action_" + n_name + ": CallMethod\"")
+				if hint[0] != "":
+					_w("    ' Inferred from title \"" + title + "\" → " + str(hint[0]))
+					_w("    " + str(hint[1]))
 				else:
+					# Last-resort: keep the original substring-based fallbacks so we never
+					# regress, but always end with a Print.
+					if "move" in act_type:
+						_w("    ' Move target node (no group context)")
+					elif "rotat" in act_type:
+						_w("    ' Rotate target node")
+					elif "scale" in act_type:
+						_w("    ' Scale target node")
+					elif "anim" in act_type or "play" in act_type:
+						_w("    ' Play animation or sound")
+					elif "tween" in act_type:
+						_w("    ' Tween target node property")
+					elif "wait" in act_type:
+						_w("    ' Wait / yield")
+					elif "set" in act_type:
+						_w("    ' Set property on target")
+					elif "emit" in act_type:
+						_w("    ' Emit a signal")
+					elif "call" in act_type:
+						_w("    ' Call method on target")
 					_w("    Print \"Action_" + n_name + ": " + title + "\"")
 				_w("End Sub")
 				_w("")
@@ -1438,95 +1508,141 @@ class _GDScriptGen:
 
 class _VGParser:
 
+	# Map from WN_xxx runtime call → (kind, [param_key1, param_key2, ...]).
+	# Mirrors the call signatures emitted by _emit_action_call().
+	const _WN_CALL_TABLE := {
+		"wn_move":         ["move",          ["Group_ID","X","Y","Duration"]],
+		"wn_rotate":       ["rotate",        ["Group_ID","Degrees","Duration"]],
+		"wn_scale":        ["scale",         ["Group_ID","Scale_X","Scale_Y","Duration"]],
+		"wn_alpha":        ["alpha",         ["Group_ID","Alpha","Duration"]],
+		"wn_pulse":        ["pulse",         ["Group_ID","R","G","B","Fade_In","Hold","Fade_Out"]],
+		"wn_shake":        ["shake",         ["Strength","Interval","Duration"]],
+		"wn_spawn":        ["spawn",         ["Group_ID","Delay"]],
+		"wn_stop":         ["stop",          ["Group_ID"]],
+		"wn_toggle":       ["toggle",        ["Group_ID","Active"]],
+		"wn_follow":       ["follow",        ["Group_ID","Target_Group","X_Mod","Y_Mod","Duration"]],
+		"wn_playsfx":      ["play sfx",      ["Sound","Volume","Pitch"]],
+		"wn_play_sfx":     ["play sfx",      ["Sound","Volume","Pitch"]],
+		"wn_animate":      ["animate",       ["Group_ID","Animation","Speed"]],
+		"wn_zoom":         ["zoom",          ["Zoom","Duration"]],
+		"wn_cameramove":   ["camera move",   ["Target_Group","Duration","X_Offset","Y_Offset"]],
+		"wn_camera_move":  ["camera move",   ["Target_Group","Duration","X_Offset","Y_Offset"]],
+		"wn_timer":        ["timer",         ["Delay","Repeat"]],
+		"wn_colortrigger": ["color trigger", ["Channel","R","G","B","Duration"]],
+		"wn_color_trigger":["color trigger", ["Channel","R","G","B","Duration"]],
+	}
+
 	func parse(vg_code: String) -> Dictionary:
 		var lines := vg_code.split("\n")
 		var nodes: Array = []
 		var connections: Array = []
-		var node_id := 1
+		var id_box: Array = [1]  # boxed so helpers can ++ it
 
-		var event_entries: Array = []  # {title, sub_line}
-		var action_entries: Array = [] # {title, sub_line}
-		var fn_entries: Array = []     # {title, sub_line}
+		var event_entries: Array = []   # {title, event_type, body_lines}
+		var action_entries: Array = []  # {title, body_lines}
+		var fn_entries: Array = []      # {title, body_lines}
 
+		# ── Pass 1: split into Sub / Function regions, capture bodies ────
+		var cur_kind := ""   # "" | "sub" | "function"
+		var cur_title := ""
+		var cur_body: Array = []
 		for raw_line in lines:
 			var line := raw_line.strip_edges()
 			if line.is_empty() or line.begins_with("'"):
+				if cur_kind != "":
+					cur_body.append(line)
 				continue
 			var tl := line.to_lower()
 
-			# Variable: Dim name As Type
-			if tl.begins_with("dim "):
+			# Variable declarations at top level only.
+			if cur_kind == "" and tl.begins_with("dim "):
 				var parts := line.split(" ", false)
 				if parts.size() >= 4:
 					nodes.append({
-						"name": "WN_Var_%d" % node_id,
+						"name": "WN_Var_%d" % id_box[0],
 						"title": parts[1],
 						"kind": "Variable", "type": "variable",
 						"var_name": parts[1], "var_type": parts[3],
-						"position": [60, 60 + node_id * 90],
+						"position": [60, 60 + id_box[0] * 90],
 					})
-					node_id += 1
+					id_box[0] += 1
 				continue
 
-			# Sub / End Sub
+			# Sub start
 			if tl.begins_with("sub "):
-				var sub_name := _extract_sub_name(line)
-				var ev_type := _classify_event(sub_name)
-				if ev_type != "":
-					event_entries.append({"title": sub_name, "event_type": ev_type})
-				else:
-					action_entries.append({"title": sub_name})
+				cur_kind = "sub"
+				cur_title = _extract_sub_name(line)
+				cur_body = []
 				continue
-
-			# Function
+			# Function start
 			if tl.begins_with("function "):
-				var fn_name := _extract_sub_name(line)
-				fn_entries.append({"title": fn_name})
+				cur_kind = "function"
+				cur_title = _extract_sub_name(line)
+				cur_body = []
+				continue
+			# End Sub / End Function
+			if tl == "end sub" or tl == "end function":
+				if cur_kind == "sub":
+					var ev_type := _classify_event(cur_title)
+					if ev_type != "":
+						event_entries.append({"title": cur_title, "event_type": ev_type, "body": cur_body})
+					else:
+						action_entries.append({"title": cur_title, "body": cur_body})
+				elif cur_kind == "function":
+					fn_entries.append({"title": cur_title, "body": cur_body})
+				cur_kind = ""
+				cur_title = ""
+				cur_body = []
 				continue
 
-		# Emit event nodes
+			if cur_kind != "":
+				cur_body.append(line)
+
+		# ── Pass 2: emit Event nodes + parse their bodies into child nodes
 		var x := 120
-		var prev_name := ""
+		var first_event_name := ""
 		for i in event_entries.size():
 			var e: Dictionary = event_entries[i]
-			var en := "WN_Ev_%d" % node_id
+			var en := "WN_Ev_%d" % id_box[0]
 			nodes.append({
-				"name": en, "title": e.title,
+				"name": en, "title": str(e.title),
 				"kind": "Event", "type": "event",
 				"event_type": e.get("event_type", "On Start"),
 				"position": [x + i * 340, 120],
 			})
-			node_id += 1
-			if i == 0: prev_name = en
+			id_box[0] += 1
+			if first_event_name.is_empty():
+				first_event_name = en
+			_parse_body_into_nodes(e.get("body", []), en, x + i * 340, 220, nodes, connections, id_box)
 
-		# Emit action nodes and chain them from first event
+		# Emit action subs as Action nodes (chain to first event for back-compat,
+		# but don't bury their bodies — they get their own child chain too).
+		var prev_name := first_event_name
 		for i in action_entries.size():
 			var a: Dictionary = action_entries[i]
-			var an := "WN_Act_%d" % node_id
+			var an := "WN_Act_%d" % id_box[0]
 			nodes.append({
-				"name": an, "title": a.title,
+				"name": an, "title": str(a.title),
 				"kind": "Action", "type": "action",
-				"position": [x + i * 240, 320],
-			})
-			if not prev_name.is_empty():
-				connections.append({
-					"from": prev_name, "from_port": 0,
-					"to": an, "to_port": 0,
-				})
-				prev_name = an
-			node_id += 1
-
-		# Emit function nodes
-		for i in fn_entries.size():
-			var f: Dictionary = fn_entries[i]
-			var fn := "WN_Fn_%d" % node_id
-			nodes.append({
-				"name": fn, "title": f.title,
-				"kind": "Function", "type": "function",
-				"fn_name": f.title,
 				"position": [x + i * 240, 500],
 			})
-			node_id += 1
+			id_box[0] += 1
+			if not prev_name.is_empty():
+				connections.append({"from": prev_name, "from_port": 0, "to": an, "to_port": 0})
+				prev_name = an
+			_parse_body_into_nodes(a.get("body", []), an, x + i * 240, 600, nodes, connections, id_box)
+
+		# Function nodes (display only — bodies are still text for now)
+		for i in fn_entries.size():
+			var f: Dictionary = fn_entries[i]
+			var fn := "WN_Fn_%d" % id_box[0]
+			nodes.append({
+				"name": fn, "title": str(f.title),
+				"kind": "Function", "type": "function",
+				"fn_name": str(f.title),
+				"position": [x + i * 240, 800],
+			})
+			id_box[0] += 1
 
 		if nodes.is_empty() and connections.is_empty():
 			# Fallback: create a single Event + Action node
@@ -1536,12 +1652,357 @@ class _VGParser:
 
 		return {
 			"version": 1,
-			"next_node_id": node_id,
+			"next_node_id": id_box[0],
 			"next_group_id": 2,
 			"nodes": nodes,
 			"connections": connections,
 			"groups": [{"id": 1, "name": "Group 1", "color": "#88AAFF"}],
 		}
+
+	## Parses a Sub body into a chain of child nodes hanging off parent_name.
+	## Handles `Call WN_xxx(args)`, top-level `If X op Y Then ... Else ... End If`,
+	## `GetNode("path").prop = value`, `var = GetNode("path").prop`, and
+	## bare assignments. Falls back to a Print/comment node for unrecognised
+	## statements so nothing is silently lost.
+	func _parse_body_into_nodes(body: Array, parent_name: String, base_x: int, base_y: int,
+								nodes: Array, connections: Array, id_box: Array) -> void:
+		var prev := parent_name
+		var y := base_y
+		var i := 0
+		while i < body.size():
+			var raw: String = str(body[i])
+			var s := raw.strip_edges()
+			if s.is_empty() or s.begins_with("'"):
+				i += 1
+				continue
+			var sl := s.to_lower()
+
+			# Call WN_xxx(args...)
+			if sl.begins_with("call wn_") or sl.begins_with("call  wn_"):
+				var name_dict := _parse_wn_call(s, id_box, base_x, y)
+				if not name_dict.is_empty():
+					nodes.append(name_dict)
+					connections.append({"from": prev, "from_port": 0,
+						"to": name_dict["name"], "to_port": 0})
+					prev = name_dict["name"]
+					y += 90
+					i += 1
+					continue
+
+			# If <expr> Then [ ... Else ... ] End If  (single-line or block)
+			if sl.begins_with("if ") and " then" in sl:
+				var consumed: Array = [0]
+				var br := _parse_if_block(body, i, id_box, base_x, y, consumed)
+				if not br.is_empty():
+					nodes.append(br["node"])
+					connections.append({"from": prev, "from_port": 0,
+						"to": br["node"]["name"], "to_port": 0})
+					# Wire branch true/false to any inline single-line tails
+					for child in br.get("children", []):
+						nodes.append(child["node"])
+						connections.append({"from": br["node"]["name"],
+							"from_port": int(child.get("port", 0)),
+							"to": child["node"]["name"], "to_port": 0})
+					prev = br["node"]["name"]
+					y += 90
+					i += consumed[0]
+					continue
+
+			# GetNode("path").prop = value  → set_prop node
+			if sl.begins_with("getnode("):
+				var sp := _parse_set_prop(s, id_box, base_x, y)
+				if not sp.is_empty():
+					nodes.append(sp)
+					connections.append({"from": prev, "from_port": 0,
+						"to": sp["name"], "to_port": 0})
+					prev = sp["name"]
+					y += 90
+					i += 1
+					continue
+
+			# var = GetNode("path").prop  → get_prop node
+			var eq_idx := s.find("=")
+			if eq_idx > 0 and "getnode(" in sl.substr(eq_idx):
+				var gp := _parse_get_prop(s, eq_idx, id_box, base_x, y)
+				if not gp.is_empty():
+					nodes.append(gp)
+					connections.append({"from": prev, "from_port": 0,
+						"to": gp["name"], "to_port": 0})
+					prev = gp["name"]
+					y += 90
+					i += 1
+					continue
+
+			# Print "..." → Action node
+			if sl.begins_with("print "):
+				var pn := {
+					"name": "WN_Print_%d" % id_box[0],
+					"title": "Print", "kind": "Action", "type": "action",
+					"action_type": "print",
+					"position": [base_x, y],
+					"params": {"Text": s.substr(6).strip_edges()},
+				}
+				id_box[0] += 1
+				nodes.append(pn)
+				connections.append({"from": prev, "from_port": 0, "to": pn["name"], "to_port": 0})
+				prev = pn["name"]
+				y += 90
+				i += 1
+				continue
+
+			# Fallback: keep the raw line as an Action node with the source
+			# preserved in params so the round-trip is lossless.
+			var fb := {
+				"name": "WN_Raw_%d" % id_box[0],
+				"title": s if s.length() <= 32 else s.substr(0, 29) + "...",
+				"kind": "Action", "type": "action",
+				"action_type": "raw",
+				"position": [base_x, y],
+				"params": {"Source": s},
+			}
+			id_box[0] += 1
+			nodes.append(fb)
+			connections.append({"from": prev, "from_port": 0, "to": fb["name"], "to_port": 0})
+			prev = fb["name"]
+			y += 90
+			i += 1
+
+	## Parse a single `Call WN_xxx(a, b, c)` line into a node dict.
+	## Returns {} when the call name isn't in the table.
+	func _parse_wn_call(line: String, id_box: Array, x: int, y: int) -> Dictionary:
+		# Strip leading "Call " (case-insensitive).
+		var l := line.strip_edges()
+		var lower := l.to_lower()
+		if lower.begins_with("call "):
+			l = l.substr(5).strip_edges()
+		var lp := l.find("(")
+		var rp := l.rfind(")")
+		if lp < 0 or rp < lp:
+			return {}
+		var fn_name := l.substr(0, lp).strip_edges().to_lower()
+		if not _WN_CALL_TABLE.has(fn_name):
+			return {}
+		var args_str := l.substr(lp + 1, rp - lp - 1)
+		var args := _split_args(args_str)
+		var entry: Array = _WN_CALL_TABLE[fn_name]
+		var kind := str(entry[0])
+		var keys: Array = entry[1]
+		var params := {}
+		for j in min(keys.size(), args.size()):
+			params[str(keys[j])] = str(args[j]).strip_edges()
+		var nd := {
+			"name": "WN_%s_%d" % [kind.capitalize().replace(" ", ""), id_box[0]],
+			"title": kind.capitalize(),
+			"kind": kind.capitalize(), "type": kind.replace(" ", "_"),
+			"position": [x, y], "params": params,
+		}
+		id_box[0] += 1
+		return nd
+
+	## Split a comma-arg list, respecting nested parens and double-quoted strings.
+	func _split_args(s: String) -> Array:
+		var out: Array = []
+		var depth := 0
+		var in_str := false
+		var buf := ""
+		for ch in s:
+			if in_str:
+				buf += ch
+				if ch == "\"":
+					in_str = false
+				continue
+			if ch == "\"":
+				in_str = true
+				buf += ch
+				continue
+			if ch == "(":
+				depth += 1
+				buf += ch
+				continue
+			if ch == ")":
+				depth -= 1
+				buf += ch
+				continue
+			if ch == "," and depth == 0:
+				out.append(buf.strip_edges())
+				buf = ""
+				continue
+			buf += ch
+		if not buf.strip_edges().is_empty():
+			out.append(buf.strip_edges())
+		return out
+
+	## Parse an `If <a> <op> <b> Then [...]` line (and surrounding multi-line
+	## If/Else/End If if it is a block) into a Branch node + optional child tails.
+	## Returns {} when the header is unparseable.
+	func _parse_if_block(body: Array, start_i: int, id_box: Array, x: int, y: int,
+						 consumed_out: Array) -> Dictionary:
+		var first: String = str(body[start_i]).strip_edges()
+		var first_l := first.to_lower()
+		var then_idx := first_l.find(" then")
+		if then_idx < 0:
+			return {}
+		var head := first.substr(3, then_idx - 3).strip_edges()  # everything between "If " and " Then"
+		var op_info := _split_condition(head)
+		if op_info.is_empty():
+			return {}
+		var tail := first.substr(then_idx + 5).strip_edges()  # text after "Then"
+
+		var node := {
+			"name": "WN_Branch_%d" % id_box[0],
+			"title": "If %s %s %s" % [op_info[0], op_info[1], op_info[2]],
+			"kind": "Cmp Trig", "type": "cmp_trig",
+			"position": [x, y],
+			"params": {"A": op_info[0], "Op": op_info[1], "B": op_info[2]},
+		}
+		id_box[0] += 1
+
+		var children: Array = []
+
+		# Single-line If: `If X = Y Then doSomething`  (no Else, no End If)
+		if not tail.is_empty():
+			consumed_out[0] = 1
+			# Try parsing the tail as its own statement (WN call or Print).
+			var child := _parse_single_statement_to_node(tail, id_box, x + 240, y)
+			if not child.is_empty():
+				children.append({"node": child, "port": 0})
+			return {"node": node, "children": children}
+
+		# Block form: scan for matching End If, capturing then/else bodies.
+		var j := start_i + 1
+		var depth := 1
+		var in_else := false
+		var then_body: Array = []
+		var else_body: Array = []
+		while j < body.size():
+			var ln := str(body[j]).strip_edges()
+			var lnl := ln.to_lower()
+			if lnl.begins_with("if ") and " then" in lnl and not lnl.ends_with("then"):
+				# inline if inside body — depth doesn't change, treat as raw
+				pass
+			elif lnl.begins_with("if ") and lnl.ends_with("then"):
+				depth += 1
+			elif lnl == "end if":
+				depth -= 1
+				if depth == 0:
+					j += 1
+					break
+			elif lnl == "else" and depth == 1:
+				in_else = true
+				j += 1
+				continue
+			if in_else:
+				else_body.append(ln)
+			else:
+				then_body.append(ln)
+			j += 1
+		consumed_out[0] = j - start_i
+
+		# Take the first statement from each branch and wire as a child.
+		for stmt in then_body:
+			var c := _parse_single_statement_to_node(stmt, id_box, x + 240, y)
+			if not c.is_empty():
+				children.append({"node": c, "port": 0})
+				break
+		for stmt in else_body:
+			var c2 := _parse_single_statement_to_node(stmt, id_box, x + 240, y + 90)
+			if not c2.is_empty():
+				children.append({"node": c2, "port": 1})
+				break
+
+		return {"node": node, "children": children}
+
+	## Split "a OP b" using the longest matching VG operator.
+	## Returns [a, op, b] or [] if no operator was found.
+	func _split_condition(head: String) -> Array:
+		var ops := ["<>", ">=", "<=", "==", "=", ">", "<"]
+		for op in ops:
+			var idx := head.find(op)
+			if idx >= 0:
+				var a := head.substr(0, idx).strip_edges()
+				var b := head.substr(idx + op.length()).strip_edges()
+				return [a, op, b]
+		return []
+
+	func _parse_single_statement_to_node(stmt: String, id_box: Array, x: int, y: int) -> Dictionary:
+		var sl := stmt.to_lower().strip_edges()
+		if sl.begins_with("call wn_"):
+			return _parse_wn_call(stmt, id_box, x, y)
+		if sl.begins_with("getnode("):
+			return _parse_set_prop(stmt, id_box, x, y)
+		if sl.begins_with("print "):
+			var pn := {
+				"name": "WN_Print_%d" % id_box[0],
+				"title": "Print", "kind": "Action", "type": "action",
+				"action_type": "print",
+				"position": [x, y],
+				"params": {"Text": stmt.substr(6).strip_edges()},
+			}
+			id_box[0] += 1
+			return pn
+		# Generic raw fallback
+		var fb := {
+			"name": "WN_Raw_%d" % id_box[0],
+			"title": stmt if stmt.length() <= 32 else stmt.substr(0, 29) + "...",
+			"kind": "Action", "type": "action",
+			"action_type": "raw",
+			"position": [x, y],
+			"params": {"Source": stmt},
+		}
+		id_box[0] += 1
+		return fb
+
+	## Parse `GetNode("path").prop = value` → set_prop node.
+	func _parse_set_prop(line: String, id_box: Array, x: int, y: int) -> Dictionary:
+		var eq := line.find("=")
+		if eq < 0:
+			return {}
+		var lhs := line.substr(0, eq).strip_edges()
+		var rhs := line.substr(eq + 1).strip_edges()
+		var lhs_l := lhs.to_lower()
+		if not lhs_l.begins_with("getnode("):
+			return {}
+		# Extract path
+		var q1 := lhs.find("\"")
+		var q2 := lhs.find("\"", q1 + 1)
+		if q1 < 0 or q2 < 0:
+			return {}
+		var path := lhs.substr(q1 + 1, q2 - q1 - 1)
+		# Property is everything after the closing `).`
+		var dot := lhs.find(").", q2)
+		if dot < 0:
+			return {}
+		var prop := lhs.substr(dot + 2).strip_edges()
+		var nd := {
+			"name": "WN_SetProp_%d" % id_box[0],
+			"title": "Set " + prop, "kind": "Set Prop", "type": "set_prop",
+			"position": [x, y],
+			"params": {"Node_Path": path, "Property": prop, "Value": rhs},
+		}
+		id_box[0] += 1
+		return nd
+
+	## Parse `var = GetNode("path").prop` → get_prop node.
+	func _parse_get_prop(line: String, eq_idx: int, id_box: Array, x: int, y: int) -> Dictionary:
+		var lhs := line.substr(0, eq_idx).strip_edges()
+		var rhs := line.substr(eq_idx + 1).strip_edges()
+		var q1 := rhs.find("\"")
+		var q2 := rhs.find("\"", q1 + 1)
+		if q1 < 0 or q2 < 0:
+			return {}
+		var path := rhs.substr(q1 + 1, q2 - q1 - 1)
+		var dot := rhs.find(").", q2)
+		if dot < 0:
+			return {}
+		var prop := rhs.substr(dot + 2).strip_edges()
+		var nd := {
+			"name": "WN_GetProp_%d" % id_box[0],
+			"title": "Get " + prop, "kind": "Get Prop", "type": "get_prop",
+			"position": [x, y],
+			"params": {"Node_Path": path, "Property": prop, "Store_To": lhs},
+		}
+		id_box[0] += 1
+		return nd
 
 	func _extract_sub_name(line: String) -> String:
 		var after_kw := line.split(" ", false)
@@ -1551,6 +2012,8 @@ class _VGParser:
 	func _classify_event(sub_name: String) -> String:
 		var tl := sub_name.to_lower()
 		if "form_load" in tl or "form_ready" in tl: return "On Start"
+		elif "form_process" in tl or "_process" in tl: return "On Frame"
+		elif "form_keydown" in tl or "keydown" in tl: return "On Input"
 		elif "form_timer" in tl or "timer" in tl: return "On Timer"
 		elif "form_click" in tl or "click" in tl: return "On Click"
 		elif "form_signal" in tl or "signal" in tl: return "On Signal"

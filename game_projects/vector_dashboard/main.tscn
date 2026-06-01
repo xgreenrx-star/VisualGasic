@@ -1,0 +1,29 @@
+[gd_scene load_steps=2 format=3 uid="uid://vector_dashboard_main"]
+
+[ext_resource type="Script" path="res://vector_asteroids.vg" id="1"]
+
+[node name="VectorDashboard" type="Node2D"]
+script = ExtResource("1")
+
+[node name="Panel" type="ColorRect" parent="."]
+color = Color(0.08, 0.10, 0.16, 1.0)
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 960.0
+offset_bottom = 600.0
+
+[node name="Title" type="Label" parent="."]
+offset_left = 24.0
+offset_top = 18.0
+offset_right = 560.0
+offset_bottom = 58.0
+theme_override_font_sizes/font_size = 28
+text = "Vector Dashboard"
+
+[node name="Status" type="Label" parent="."]
+offset_left = 24.0
+offset_top = 54.0
+offset_right = 780.0
+offset_bottom = 86.0
+theme_override_font_sizes/font_size = 18
+text = "A minimal demo of vector drawing in VisualGasic."

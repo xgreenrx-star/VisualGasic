@@ -4485,15 +4485,43 @@ void VisualGasicFormDesigner::_init_vb6_defaults(FormControlItem &item) const {
 // =============================================================================
 
 String VisualGasicFormDesigner::_make_unique_name(const String &p_base) const {
+    // Keep internal/runtime types intact, but expose VB6-style default control
+    // names in the designer.
+    String base = p_base;
+    if (base == "LineEdit") base = "TextBox";
+    else if (base == "OptionButton") base = "ComboBox";
+    else if (base == "Panel") base = "Frame";
+    else if (base == "TabContainer") base = "TabStrip";
+    else if (base == "ItemList") base = "ListBox";
+    else if (base == "Tree") base = "TreeView";
+    else if (base == "RichTextLabel") base = "RichText";
+    else if (base == "TextEdit") base = "TextArea";
+    else if (base == "TextureRect") base = "Picture";
+    else if (base == "ColorRect") base = "Shape";
+    else if (base == "HSeparator") base = "HLine";
+    else if (base == "VSeparator") base = "VLine";
+    else if (base == "HScrollBar") base = "HScroll";
+    else if (base == "VScrollBar") base = "VScroll";
+    else if (base == "FileDialog") base = "Files";
+    else if (base == "PanelContainer") base = "Panel";
+    else if (base == "GridContainer") base = "Grid";
+    else if (base == "PopupPanel") base = "Popup";
+    else if (base == "SubViewport") base = "Viewport";
+    else if (base == "VBoxContainer") base = "VBox";
+    else if (base == "HBoxContainer") base = "HBox";
+    else if (base == "AcceptDialog") base = "Dialog";
+    else if (base == "TextureButton") base = "Button";
+    else if (base == "GraphEdit") base = "Graph";
+
     for (int n = 1; n < 1000; n++) {
-        String candidate = p_base + String::num_int64(n);
+        String candidate = base + String::num_int64(n);
         bool found = false;
         for (int i = 0; i < controls.size(); i++) {
             if (controls[i].name == candidate) { found = true; break; }
         }
         if (!found) return candidate;
     }
-    return p_base + String("_") + String::num_int64(controls.size());
+    return base + String("_") + String::num_int64(controls.size());
 }
 
 // =============================================================================
@@ -5387,9 +5415,33 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
     }
 
     // User controls
+    // VB6 control arrays share a logical base name (e.g. Command1) but Godot
+    // requires unique sibling node names. Build a per-control unique node name
+    // here and persist the original VB6 base name via metadata/vb6_base_name so
+    // the runtime (_connect_vb_signals_recursive) can locate the shared
+    // <BaseName>_<Event> handler and pass the Index argument.
+    HashMap<String, int> emitted_name_counts;  // per-parent uniqueness scope
+    Vector<String> emitted_unique_names;
+    emitted_unique_names.resize(controls.size());
+    for (int i = 0; i < controls.size(); i++) {
+        const FormControlItem &c = controls[i];
+        String unique = c.name;
+        // Scope uniqueness by parent_path to mirror Godot's sibling rule
+        String scope_key = c.parent_path + String("|") + c.name;
+        if (emitted_name_counts.has(scope_key)) {
+            int n = emitted_name_counts[scope_key] + 1;
+            emitted_name_counts[scope_key] = n;
+            unique = c.name + String("_") + String::num_int64(n);
+        } else {
+            emitted_name_counts[scope_key] = 1;
+        }
+        emitted_unique_names.write[i] = unique;
+    }
+
     for (int i = 0; i < controls.size(); i++) {
         const FormControlItem &ctrl = controls[i];
         String sp = ctrl.scene_path;
+        const String &unique_node_name = emitted_unique_names[i];
 
         // Use the control's own parent_path if it was imported from a nested scene
         // (e.g. AGCK games with HUD/MainMenuOverlay/GameOverOverlay children).
@@ -5401,10 +5453,10 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
 
         if (!sp.is_empty() && path_to_idx.has(sp)) {
             // Instance from prototype scene
-            out += "[node name=\"" + ctrl.name + "\" parent=\"" + ctrl_parent + "\" instance=ExtResource(\"" + String::num_int64(path_to_idx[sp]) + "\")]\n";
+            out += "[node name=\"" + unique_node_name + "\" parent=\"" + ctrl_parent + "\" instance=ExtResource(\"" + String::num_int64(path_to_idx[sp]) + "\")]\n";
         } else {
             // Fallback: bare type node
-            out += "[node name=\"" + ctrl.name + "\" type=\"" + ctrl.type + "\" parent=\"" + ctrl_parent + "\"]\n";
+            out += "[node name=\"" + unique_node_name + "\" type=\"" + ctrl.type + "\" parent=\"" + ctrl_parent + "\"]\n";
         }
 
         out += "offset_left = " + String::num_int64((int)ctrl.rect.position.x) + ".0\n";
@@ -5429,6 +5481,12 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
         // VB6 control array index (persisted as metadata)
         if (ctrl.control_array_index >= 0) {
             out += "metadata/vb6_control_array_index = " + String::num_int64(ctrl.control_array_index) + "\n";
+        }
+        // Preserve the VB6 logical base name when the .tscn node name had to be
+        // disambiguated (control arrays share a base name in VB6, but Godot
+        // siblings must be unique). The runtime uses this for event dispatch.
+        if (unique_node_name != ctrl.name) {
+            out += "metadata/vb6_base_name = \"" + ctrl.name + "\"\n";
         }
 
         // Tag RadioButton controls so form_editor_helper.gd can apply circle
@@ -6416,7 +6474,14 @@ bool VisualGasicFormDesigner::save_form_as(const String &p_tscn_path) {
     if (!FileAccess::file_exists(vg_path)) {
         Ref<FileAccess> vg_file = FileAccess::open(vg_path, FileAccess::WRITE);
         if (vg_file.is_valid()) {
-            vg_file->store_string("' " + form_name + " - VisualGasic Form\n\nPrivate Sub Form_Load()\n    ' Initialization code here\nEnd Sub\n");
+            // VB6-style default scaffolding: the four form lifecycle events
+            // that every classic VB6 form gets as starter stubs.
+            String stub = "' " + form_name + " - VisualGasic Form\n\n";
+            stub += "Private Sub Form_Load()\n    ' Initialization code here — runs once when the form is loaded.\nEnd Sub\n\n";
+            stub += "Private Sub Form_Activate()\n    ' Runs each time the form becomes the active form.\nEnd Sub\n\n";
+            stub += "Private Sub Form_Resize()\n    ' Runs when the user resizes the form.\nEnd Sub\n\n";
+            stub += "Private Sub Form_Unload(Cancel As Integer)\n    ' Runs as the form is being closed. Set Cancel = 1 to abort.\nEnd Sub\n";
+            vg_file->store_string(stub);
             vg_file.unref();
         }
     }

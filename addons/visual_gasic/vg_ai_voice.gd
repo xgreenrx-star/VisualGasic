@@ -219,12 +219,14 @@ func _autodetect_whisper(had_cfg: bool) -> void:
 		var found_model := _find_whisper_model()
 		if not found_model.is_empty():
 			whisper_cpp_model = found_model
-	# Auto-switch backend on first run when local whisper is reachable but
-	# no OpenAI key is set — avoids the "requires an OpenAI API key" error
-	# screen for users who already have whisper.cpp installed locally.
+	# Auto-switch backend when local whisper is reachable but no OpenAI key
+	# is set — avoids the "requires an OpenAI API key" error on every new
+	# project.  We do this whenever stt_backend is still "openai" with no
+	# key, not just on first run, so projects that saved vad_enabled but
+	# never saved stt_backend also get corrected automatically.
 	var local_ready := _binary_exists(whisper_cpp_path) and not whisper_cpp_model.is_empty()
 	var has_openai_key := not AIProviders.load_api_key("openai").is_empty()
-	if not had_cfg and local_ready and not has_openai_key and stt_backend == "openai":
+	if local_ready and not has_openai_key and stt_backend == "openai":
 		stt_backend = "whisper"
 
 func _find_whisper_binary() -> String:

@@ -54,11 +54,23 @@ func _ready() -> void:
 	_browse_btn.pressed.connect(_on_browse_pressed)
 	_forget_btn.pressed.connect(_on_forget_pressed)
 	_quit_btn.pressed.connect(_on_quit_pressed)
+	_sweep_stale_launching_flag()
+
+	# If launched with "-- --open /abs/path/to/project", skip the list UI
+	# and open the project directly (used by the vg-ide shell script so the
+	# welcome-shell's fullscreen cover hides the Godot editor during load).
+	var _open_args := OS.get_cmdline_user_args()
+	var _open_idx := _open_args.find("--open")
+	if _open_idx >= 0 and _open_idx + 1 < _open_args.size():
+		var _proj: String = _open_args[_open_idx + 1]
+		if DirAccess.dir_exists_absolute(_proj) and FileAccess.file_exists(_proj + "/project.godot"):
+			_launch_godot(_proj)
+			return
+
 	_load_recent()
 	_rebuild_tag_chips()
 	_apply_filter()
 	_clear_detail()
-	_sweep_stale_launching_flag()
 
 
 ## If a previous welcome-shell run was killed mid-launch, a stale

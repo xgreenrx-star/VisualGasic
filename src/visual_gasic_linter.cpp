@@ -423,6 +423,9 @@ void VisualGasicLinter::check_unused_subs(const ModuleNode* root) {
 
         // Skip built-in lifecycle methods
         if (is_builtin_sub(lower)) continue;
+        // Skip VB6 event handlers (Command1_Click, Text1_Change, ...): they
+        // are wired by signal at runtime and won't appear as static call refs.
+        if (is_vb6_event_handler(lower)) continue;
 
         if (!referenced_names.has(lower)) {
             int line = find_line_for_sub(sub);
@@ -500,6 +503,7 @@ void VisualGasicLinter::check_unused_parameters(const ModuleNode* root) {
         if (sub->parameters.size() == 0) continue;
         // Skip event handlers (may have unused params by convention)
         if (is_builtin_sub(sub->name.to_lower())) continue;
+        if (is_vb6_event_handler(sub->name.to_lower())) continue;
 
         // Collect all variable references within this sub
         HashSet<String> local_refs;
@@ -527,9 +531,48 @@ bool VisualGasicLinter::is_builtin_sub(const String& name) const {
            name == "_unhandled_input" || name == "_physics_process" ||
            name == "_enter_tree" || name == "_exit_tree" ||
            name == "_notification" ||
+           // VB6 Form lifecycle events
            name == "form_load" || name == "form_unload" ||
+           name == "form_activate" || name == "form_deactivate" ||
+           name == "form_resize" || name == "form_paint" ||
+           name == "form_initialize" || name == "form_terminate" ||
+           name == "form_queryunload" ||
+           name == "form_gotfocus" || name == "form_lostfocus" ||
+           name == "form_click" || name == "form_dblclick" ||
+           name == "form_keydown" || name == "form_keyup" || name == "form_keypress" ||
+           name == "form_mousemove" || name == "form_mousedown" || name == "form_mouseup" ||
+           // VB6 Class lifecycle
            name == "class_initialize" || name == "class_terminate" ||
            name == "main";
+}
+
+bool VisualGasicLinter::is_vb6_event_handler(const String& lower_name) const {
+    // Match <ctrlname>_<event> where <event> is a known VB6 control event.
+    // Names are already lower-cased by callers.
+    int us = lower_name.rfind("_");
+    if (us <= 0 || us >= lower_name.length() - 1) return false;
+    String suffix = lower_name.substr(us + 1);
+    // Reject if the prefix part is empty or starts with underscore (private-style)
+    String prefix = lower_name.substr(0, us);
+    if (prefix.is_empty() || prefix[0] == '_') return false;
+    // Form_* lifecycle handlers are already covered by is_builtin_sub.
+    // Keep this list aligned with the runtime dispatcher in
+    // visual_gasic_instance_call.inc and _get_event_params in
+    // vg_embedded_code_editor.gd.
+    static const char *kEvents[] = {
+        "click", "dblclick", "change", "gotfocus", "lostfocus",
+        "keydown", "keyup", "keypress",
+        "mousedown", "mouseup", "mousemove",
+        "scroll", "resize", "load", "unload",
+        "timer", "activate", "deactivate",
+        "validate", "initialize", "terminate",
+        "itemcheck", "dropdown",
+        nullptr
+    };
+    for (int i = 0; kEvents[i] != nullptr; i++) {
+        if (suffix == kEvents[i]) return true;
+    }
+    return false;
 }
 
 void VisualGasicLinter::add_warning(int line, const String& message, int code) {

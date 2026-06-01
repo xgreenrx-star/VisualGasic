@@ -206,14 +206,23 @@ func _build_ui() -> void:
 	var toolbox_tree_split := VSplitContainer.new()
 	toolbox_tree_split.size_flags_vertical = SIZE_EXPAND_FILL
 	toolbox_tree_split.size_flags_horizontal = SIZE_EXPAND_FILL
-	toolbox_tree_split.custom_minimum_size.y = 520
+	toolbox_tree_split.custom_minimum_size.y = 600
+	toolbox_tree_split.split_offset = -240  # give the Scene Tree more room
+	var grab_style := StyleBoxFlat.new()
+	grab_style.bg_color = Color(0.35, 0.55, 0.85)
+	grab_style.set_corner_radius_all(2)
+	grab_style.content_margin_top = 1
+	grab_style.content_margin_bottom = 1
+	toolbox_tree_split.add_theme_stylebox_override("grabber", grab_style)
+	toolbox_tree_split.add_theme_constant_override("separation", 6)
+	toolbox_tree_split.add_theme_constant_override("autohide", 0)
 	var toolbox_pane := VBoxContainer.new()
 	toolbox_pane.size_flags_vertical = SIZE_EXPAND_FILL
-	toolbox_pane.custom_minimum_size.y = 80
+	toolbox_pane.custom_minimum_size.y = 120
 	toolbox_tree_split.add_child(toolbox_pane)
 	var scene_pane := VBoxContainer.new()
 	scene_pane.size_flags_vertical = SIZE_EXPAND_FILL
-	scene_pane.custom_minimum_size.y = 80
+	scene_pane.custom_minimum_size.y = 220
 	toolbox_tree_split.add_child(scene_pane)
 	left_vbox.add_child(toolbox_tree_split)
 
@@ -2199,6 +2208,9 @@ func _rebuild_scene_tree() -> void:
 	root_item.set_metadata(0, _scene_root)
 
 	_add_tree_children(root_item, _scene_root)
+	# Auto-expand so children are visible without hunting for the
+	# disclosure triangle in a small pane.
+	root_item.set_collapsed_recursive(false)
 
 func _add_tree_children(parent_item: TreeItem, parent_node: Node) -> void:
 	for child in parent_node.get_children():

@@ -12,6 +12,9 @@ signal debug_break_hit(file: String, line: int)
 signal debug_print_received(text: String)
 signal profiler_data_received(report: Dictionary)
 signal form_controls_received(controls: Array)
+signal tweak_targets_received(targets: Array)
+signal tweak_overlay_state_received(state: Dictionary)
+signal tweak_ai_edit_requested(request: Dictionary)
 signal debug_continued()
 signal debug_session_stopped()
 signal debug_session_started()
@@ -54,6 +57,30 @@ func _has_capture(prefix: String) -> bool:
 	if prefix.begins_with("visual"):
 		print("[VG Debugger Plugin] _has_capture called with prefix: ", prefix)
 	return prefix == "visualgasic"
+
+func toggle_tweak_overlay() -> void:
+	if _active_session:
+		_active_session.send_message("visualgasic:toggle_tweak_overlay", [])
+
+func request_tweak_targets(instance_id: int = 0) -> void:
+	if _active_session:
+		_active_session.send_message("visualgasic:get_tweak_targets", [instance_id])
+
+func apply_tweak_override(target_id: String, override: Dictionary) -> void:
+	if _active_session:
+		_active_session.send_message("visualgasic:apply_tweak_override", [target_id, override])
+
+func undo_tweak_override() -> void:
+	if _active_session:
+		_active_session.send_message("visualgasic:undo_tweak_override", [])
+
+func redo_tweak_override() -> void:
+	if _active_session:
+		_active_session.send_message("visualgasic:redo_tweak_override", [])
+
+func reset_tweak_overrides() -> void:
+	if _active_session:
+		_active_session.send_message("visualgasic:reset_tweak_overrides", [])
 
 func _goto_script_line(script: Script, line: int) -> void:
 	"""Called by Godot when user clicks on a breakpoint line in the debugger panel."""
@@ -183,6 +210,23 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			# v4.3: Controls Inspector — list of form controls with properties
 			if data.size() >= 1:
 				form_controls_received.emit(data[0])
+			return true
+		
+		"tweak_targets":
+			if data.size() >= 1:
+				tweak_targets_received.emit(data[0])
+			return true
+		
+		"tweak_overlay_state":
+			if data.size() >= 1:
+				tweak_overlay_state_received.emit(data[0])
+			return true
+
+		"tweak_ai_edit":
+			# Game-side overlay asked the editor to invoke vg_ai_help with a
+			# structured edit prompt. visual_gasic_plugin.gd listens.
+			if data.size() >= 1:
+				tweak_ai_edit_requested.emit(data[0])
 			return true
 		
 		"call_stack":

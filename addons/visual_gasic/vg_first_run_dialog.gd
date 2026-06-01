@@ -22,11 +22,12 @@ class_name VGFirstRunDialog
 ##   - vg/default_mode = "code" | "forms"
 ##   - vg/form_designer_enabled = true | false
 ##   - vg/first_run_completed = true
-##   …and emits project_type_chosen(kind, plugins_to_enable).
+##   …and emits project_type_chosen(kind, plugins_to_enable, plugins_to_disable).
 
 ## kind = "code" | "forms" | "agck"
 ## plugins_to_enable = Array of plugin folder names that should be enabled
-signal project_type_chosen(kind: String, plugins_to_enable: Array)
+## plugins_to_disable = Array of plugin folder names that should be disabled
+signal project_type_chosen(kind: String, plugins_to_enable: Array, plugins_to_disable: Array)
 
 const _TYPES := [
 	{
@@ -193,23 +194,38 @@ func _build_step2(root: VBoxContainer) -> void:
 
 	var grid := GridContainer.new()
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 24)
-	grid.add_theme_constant_override("v_separation", 6)
+	grid.add_theme_constant_override("h_separation", 32)
+	grid.add_theme_constant_override("v_separation", 2)
 	_step2_panel.add_child(grid)
 
-	for plug in _PLUGINS:
+	# Split plugins into two columns so all 7 fit without extra height.
+	var left_plugins: Array = []
+	var right_plugins: Array = []
+	for i in _PLUGINS.size():
+		if i < int(ceil(_PLUGINS.size() / 2.0)):
+			left_plugins.append(_PLUGINS[i])
+		else:
+			right_plugins.append(_PLUGINS[i])
+
+	var left_col := VBoxContainer.new()
+	left_col.add_theme_constant_override("separation", 2)
+	grid.add_child(left_col)
+	var right_col := VBoxContainer.new()
+	right_col.add_theme_constant_override("separation", 2)
+	grid.add_child(right_col)
+
+	for plug in left_plugins:
 		var cb := CheckBox.new()
 		cb.text = "%s  %s" % [plug["emoji"], plug["name"]]
 		cb.tooltip_text = plug["blurb"]
 		_checkboxes[plug["id"]] = cb
-		grid.add_child(cb)
-
-		var blurb := Label.new()
-		blurb.text = plug["blurb"]
-		blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		blurb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		blurb.add_theme_color_override("font_color", Color(0.70, 0.70, 0.74))
-		grid.add_child(blurb)
+		left_col.add_child(cb)
+	for plug in right_plugins:
+		var cb := CheckBox.new()
+		cb.text = "%s  %s" % [plug["emoji"], plug["name"]]
+		cb.tooltip_text = plug["blurb"]
+		_checkboxes[plug["id"]] = cb
+		right_col.add_child(cb)
 
 	_step2_panel.add_child(HSeparator.new())
 
@@ -248,7 +264,7 @@ func _on_type_pressed(kind: String) -> void:
 	_step1_panel.visible = false
 	_step2_panel.visible = true
 	# Resize to fit Step 2.
-	size = Vector2i(640, 480)
+	size = Vector2i(640, 340)
 
 
 func _on_back_pressed() -> void:
@@ -258,12 +274,16 @@ func _on_back_pressed() -> void:
 
 
 func _on_start_pressed() -> void:
-	var plugins: Array = []
+	var plugins_on: Array = []
+	var plugins_off: Array = []
 	for plug in _PLUGINS:
 		var cb: CheckBox = _checkboxes.get(plug["id"])
-		if cb and cb.button_pressed:
-			plugins.append(plug["id"])
-	project_type_chosen.emit(_chosen_kind, plugins)
+		if cb:
+			if cb.button_pressed:
+				plugins_on.append(plug["id"])
+			else:
+				plugins_off.append(plug["id"])
+	project_type_chosen.emit(_chosen_kind, plugins_on, plugins_off)
 	hide()
 	queue_free()
 
@@ -272,7 +292,7 @@ func _on_start_pressed() -> void:
 ## Also writes plugin.cfg enabled=true for each requested plugin so the
 ## setting persists across editor restarts (the live activation is handled
 ## by the host plugin via set_plugin_enabled on the plugin manager).
-static func apply_choice(kind: String, plugins_to_enable: Array = []) -> void:
+static func apply_choice(kind: String, plugins_to_enable: Array = [], plugins_to_disable: Array = []) -> void:
 	match kind:
 		"code", "agck":
 			ProjectSettings.set_setting("vg/default_mode", "code")
@@ -287,14 +307,22 @@ static func apply_choice(kind: String, plugins_to_enable: Array = []) -> void:
 	var err := ProjectSettings.save()
 	if err != OK:
 		push_warning("VGFirstRunDialog: ProjectSettings.save() returned " + str(err))
-	# Persist plugin enabled flags so they survive a restart even if live
-	# activation below fails (plugin manager not yet ready, etc.).
+	# Persist plugin enabled/disabled flags so they survive a restart even if
+	# live activation below fails (plugin manager not yet ready, etc.).
 	const PLUGINS_DIR := "res://addons/visual_gasic/plugins/"
 	for pid in plugins_to_enable:
-		var cfg_path := PLUGINS_DIR + pid + "/plugin.cfg"
+		var cfg_path: String = PLUGINS_DIR + str(pid) + "/plugin.cfg"
 		if not FileAccess.file_exists(cfg_path):
 			continue
 		var cfg := ConfigFile.new()
 		if cfg.load(cfg_path) == OK:
 			cfg.set_value("plugin", "enabled", true)
+			cfg.save(cfg_path)
+	for pid in plugins_to_disable:
+		var cfg_path: String = PLUGINS_DIR + str(pid) + "/plugin.cfg"
+		if not FileAccess.file_exists(cfg_path):
+			continue
+		var cfg := ConfigFile.new()
+		if cfg.load(cfg_path) == OK:
+			cfg.set_value("plugin", "enabled", false)
 			cfg.save(cfg_path)

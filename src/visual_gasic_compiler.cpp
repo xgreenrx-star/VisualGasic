@@ -307,6 +307,14 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     non_local_names.insert("screen");
     non_local_names.insert("err");
     non_local_names.insert("printer"); // VB6 Printer global (v3.5.0)
+    // Builtin namespace sentinels — must route through OP_GET_GLOBAL so the
+    // VM's sentinel-dict creation fires (see known_ns[] in bytecode_vm).
+    non_local_names.insert("soundgen");
+    non_local_names.insert("clipboard");
+    non_local_names.insert("debug");
+    non_local_names.insert("regexp");
+    // "Array" sentinel omitted intentionally — Array is also a type keyword
+    // and registering it as non-local causes issues with array-variable handling.
     // Godot engine singletons — must route through OP_GET_GLOBAL so the
     // VM can resolve them via Engine::get_singleton() at runtime.
     static const char *godot_singletons[] = {
@@ -899,6 +907,12 @@ void VisualGasicCompiler::collect_assigned_vars_stmt(Statement* stmt, HashSet<St
 void VisualGasicCompiler::collect_used_vars_stmt(Statement* stmt) {
     if (!stmt) return;
     switch (stmt->type) {
+        case STMT_DIM: {
+            DimStatement* s = (DimStatement*)stmt;
+            if (s->initializer) collect_used_vars_expr(s->initializer);
+            for (int i = 0; i < s->array_sizes.size(); i++) collect_used_vars_expr(s->array_sizes[i]);
+            break;
+        }
         case STMT_ASSIGNMENT: {
             AssignmentStatement* s = (AssignmentStatement*)stmt;
             collect_used_vars_expr(s->value);
