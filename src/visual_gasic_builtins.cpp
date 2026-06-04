@@ -1493,6 +1493,48 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             }
             return Variant();
         }
+        // SoundGen.PushMonoBuffer(h, samples)
+        //   Push an entire PackedFloat32Array as mono frames in one call.
+        //   Dramatically cheaper than calling PushMono N times — the tight
+        //   native loop skips all VG dispatch overhead per sample.
+        //   Only pushes min(samples.size(), frames_available) frames; does
+        //   NOT push silence for the remainder (caller manages that).
+        if (METHOD_IS("soundgen_pushmonobuffer") && args.size() == 2) {
+            r_handled = true;
+            AudioStreamGeneratorPlayback *pb = resolve_gen_playback(args[0]);
+            if (pb) {
+                PackedFloat32Array buf = (PackedFloat32Array)args[1];
+                int n = (int)buf.size();
+                int avail = (int)pb->get_frames_available();
+                if (n > avail) n = avail;
+                const float *rd = buf.ptr();
+                for (int ii = 0; ii < n; ++ii) {
+                    float s = rd[ii];
+                    pb->push_frame(Vector2(s, s));
+                }
+            }
+            return Variant();
+        }
+        // SoundGen.PushStereoBuffer(h, samples)
+        //   Push a PackedFloat32Array as stereo frames.  Samples are
+        //   interleaved: [L0, R0, L1, R1, ...].  Pushes
+        //   min(samples.size()/2, frames_available) frames.
+        if (METHOD_IS("soundgen_pushstereobuffer") && args.size() == 2) {
+            r_handled = true;
+            AudioStreamGeneratorPlayback *pb = resolve_gen_playback(args[0]);
+            if (pb) {
+                PackedFloat32Array buf = (PackedFloat32Array)args[1];
+                int total = (int)buf.size();
+                int frames = total / 2;
+                int avail = (int)pb->get_frames_available();
+                if (frames > avail) frames = avail;
+                const float *rd = buf.ptr();
+                for (int ii = 0; ii < frames; ++ii) {
+                    pb->push_frame(Vector2(rd[ii * 2], rd[ii * 2 + 1]));
+                }
+            }
+            return Variant();
+        }
     }
 
     // ── Pass 3: game-completeness namespaces ────────────────────────────

@@ -691,8 +691,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             
             // Only print error once per second max
             if (now - last_error_time > 1000) {
-                String debug_msg = vformat("Op:%d TypeA:%d TypeB:%d ValA:%s ValB:%s (count: %d)", 
-                    (int)op, (int)a.get_type(), (int)b.get_type(), a, b, error_count);
+                String debug_msg = vformat("Op:%d TypeA:%d TypeB:%d ValA:%s ValB:%s line:%d (count: %d)", 
+                    (int)op, (int)a.get_type(), (int)b.get_type(), a, b, debug_state.current_line, error_count);
                 UtilityFunctions::printerr("VisualGasic: invalid operation in bytecode - ", debug_msg);
                 last_error_time = now;
                 error_count = 0;
@@ -1243,6 +1243,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     push_value(arr);
                 } else if (arr_v.get_type() == Variant::PACKED_FLOAT64_ARRAY) {
                     PackedFloat64Array arr = arr_v;
+                    arr.resize(new_size);
+                    push_value(arr);
+                } else if (arr_v.get_type() == Variant::PACKED_VECTOR2_ARRAY) {
+                    PackedVector2Array arr = arr_v;
                     arr.resize(new_size);
                     push_value(arr);
                 } else {
@@ -2014,9 +2018,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
-                double b = to_double(pop_value());
-                double a = to_double(pop_value());
-                push_value(a + b);
+                {
+                    Variant bv2 = pop_value();
+                    Variant av2 = pop_value();
+                    Variant::Type at2 = av2.get_type(), bt2 = bv2.get_type();
+                    bool an2 = (at2 == Variant::INT || at2 == Variant::FLOAT || at2 == Variant::BOOL || at2 == Variant::NIL);
+                    bool bn2 = (bt2 == Variant::INT || bt2 == Variant::FLOAT || bt2 == Variant::BOOL || bt2 == Variant::NIL);
+                    if (an2 && bn2) {
+                        push_value(to_double(av2) + to_double(bv2));
+                    } else {
+                        Variant res2; bool ok2 = false;
+                        Variant::evaluate(Variant::OP_ADD, av2, bv2, res2, ok2);
+                        if (!ok2) { success = false; goto cleanup; }
+                        push_value(res2);
+                    }
+                }
                 break;
             }
             VG_CASE(vg_op_sub_f64, OP_SUB_F64): {
@@ -2024,9 +2040,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
-                double b = to_double(pop_value());
-                double a = to_double(pop_value());
-                push_value(a - b);
+                {
+                    Variant bv2 = pop_value();
+                    Variant av2 = pop_value();
+                    Variant::Type at2 = av2.get_type(), bt2 = bv2.get_type();
+                    bool an2 = (at2 == Variant::INT || at2 == Variant::FLOAT || at2 == Variant::BOOL || at2 == Variant::NIL);
+                    bool bn2 = (bt2 == Variant::INT || bt2 == Variant::FLOAT || bt2 == Variant::BOOL || bt2 == Variant::NIL);
+                    if (an2 && bn2) {
+                        push_value(to_double(av2) - to_double(bv2));
+                    } else {
+                        Variant res2; bool ok2 = false;
+                        Variant::evaluate(Variant::OP_SUBTRACT, av2, bv2, res2, ok2);
+                        if (!ok2) { success = false; goto cleanup; }
+                        push_value(res2);
+                    }
+                }
                 break;
             }
             VG_CASE(vg_op_mul_f64, OP_MUL_F64): {
@@ -2034,9 +2062,36 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
-                double b = to_double(pop_value());
-                double a = to_double(pop_value());
-                push_value(a * b);
+                Variant bv = pop_value();
+                Variant av = pop_value();
+                // Only use fast float path for numeric types; fall back to
+                // generic Variant::evaluate for Vector2, Color, etc.
+                Variant::Type at = av.get_type();
+                Variant::Type bt = bv.get_type();
+                bool a_numeric = (at == Variant::INT || at == Variant::FLOAT || at == Variant::BOOL || at == Variant::NIL);
+                bool b_numeric = (bt == Variant::INT || bt == Variant::FLOAT || bt == Variant::BOOL || bt == Variant::NIL);
+                if (a_numeric && b_numeric) {
+                    push_value(to_double(av) * to_double(bv));
+                } else {
+                    Variant result;
+                    bool valid = false;
+                    Variant::evaluate(Variant::OP_MULTIPLY, av, bv, result, valid);
+                    if (!valid) {
+                        // Report and bail
+                        static int mul_err_count = 0;
+                        static uint64_t mul_err_time = 0;
+                        uint64_t now2 = Time::get_singleton()->get_ticks_msec();
+                        mul_err_count++;
+                        if (now2 - mul_err_time > 1000) {
+                            UtilityFunctions::printerr("VisualGasic: MUL_F64 fallback failed Op:8 TypeA:", (int)at, " TypeB:", (int)bt, " line:", debug_state.current_line);
+                            mul_err_time = now2;
+                            mul_err_count = 0;
+                        }
+                        success = false;
+                        goto cleanup;
+                    }
+                    push_value(result);
+                }
                 break;
             }
             VG_CASE(vg_op_div_f64, OP_DIV_F64): {
@@ -2044,16 +2099,28 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
-                double b = to_double(pop_value());
-                double a = to_double(pop_value());
-                // v3.2: Division-by-zero check (mirrors OP_DIVIDE)
-                if (b == 0.0) {
-                    raise_error("Division by zero", 11);
-                    if (try_recover_error(Variant(0.0))) break;
-                    success = false;
-                    goto cleanup;
+                {
+                    Variant bv3 = pop_value();
+                    Variant av3 = pop_value();
+                    Variant::Type at3 = av3.get_type(), bt3 = bv3.get_type();
+                    bool an3 = (at3 == Variant::INT || at3 == Variant::FLOAT || at3 == Variant::BOOL || at3 == Variant::NIL);
+                    bool bn3 = (bt3 == Variant::INT || bt3 == Variant::FLOAT || bt3 == Variant::BOOL || bt3 == Variant::NIL);
+                    if (an3 && bn3) {
+                        double b3 = to_double(bv3);
+                        if (b3 == 0.0) {
+                            raise_error("Division by zero", 11);
+                            if (try_recover_error(Variant(0.0))) break;
+                            success = false;
+                            goto cleanup;
+                        }
+                        push_value(to_double(av3) / b3);
+                    } else {
+                        Variant res3; bool ok3 = false;
+                        Variant::evaluate(Variant::OP_DIVIDE, av3, bv3, res3, ok3);
+                        if (!ok3) { success = false; goto cleanup; }
+                        push_value(res3);
+                    }
                 }
-                push_value(a / b);
                 break;
             }
             VG_CASE(vg_op_add_i64_const, OP_ADD_I64_CONST): {

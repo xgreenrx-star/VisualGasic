@@ -1,0 +1,1288 @@
+#include "visual_gasic_vector_canvas.h"
+#include "visual_gasic_language.h"
+
+#include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/classes/image_texture.hpp>
+#include <godot_cpp/classes/canvas_item_material.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
+#include <godot_cpp/variant/string.hpp>
+
+#include <cmath>
+
+using namespace godot;
+
+VGVectorCanvas2D::VGVectorCanvas2D() {
+	_transform_stack.append(Transform2D());
+}
+
+VGVectorCanvas2D::~VGVectorCanvas2D() {}
+
+// ---------------------------------------------------------------------------
+// _bind_methods
+// ---------------------------------------------------------------------------
+void VGVectorCanvas2D::_bind_methods() {
+	// Enum exposure for GDScript: VGVectorCanvas2D.CMD_LINE etc.
+	BIND_ENUM_CONSTANT(CMD_LINE);
+	BIND_ENUM_CONSTANT(CMD_RECT);
+	BIND_ENUM_CONSTANT(CMD_ROUNDED_RECT);
+	BIND_ENUM_CONSTANT(CMD_ELLIPSE);
+	BIND_ENUM_CONSTANT(CMD_ARC);
+	BIND_ENUM_CONSTANT(CMD_PIE_SLICE);
+	BIND_ENUM_CONSTANT(CMD_POLYGON);
+	BIND_ENUM_CONSTANT(CMD_POLYLINE);
+	BIND_ENUM_CONSTANT(CMD_TEXT);
+	BIND_ENUM_CONSTANT(CMD_MULTILINE);
+	BIND_ENUM_CONSTANT(CMD_SPRITE_LINES);
+
+	// ---- Draw* (preserve VB-style PascalCase names) ----
+	ClassDB::bind_method(D_METHOD("DrawLine", "from", "to", "width", "color"),
+			&VGVectorCanvas2D::DrawLine,
+			DEFVAL(2.0f), DEFVAL(Color(1, 1, 1, 1)));
+	ClassDB::bind_method(D_METHOD("DrawRect", "rect", "width", "color", "fill", "fill_color"),
+			&VGVectorCanvas2D::DrawRect,
+			DEFVAL(2.0f), DEFVAL(Color(1, 1, 1, 1)), DEFVAL(false), DEFVAL(Color(1, 1, 1, 0)));
+	ClassDB::bind_method(D_METHOD("DrawRoundedRect", "rect", "radius", "width", "color", "fill", "fill_color", "segments"),
+			&VGVectorCanvas2D::DrawRoundedRect,
+			DEFVAL(16.0f), DEFVAL(2.0f), DEFVAL(Color(1, 1, 1, 1)), DEFVAL(false), DEFVAL(Color(1, 1, 1, 0)), DEFVAL(8));
+	ClassDB::bind_method(D_METHOD("DrawEllipse", "rect", "width", "color", "fill", "fill_color", "segments"),
+			&VGVectorCanvas2D::DrawEllipse,
+			DEFVAL(2.0f), DEFVAL(Color(1, 1, 1, 1)), DEFVAL(false), DEFVAL(Color(1, 1, 1, 0)), DEFVAL(32));
+	ClassDB::bind_method(D_METHOD("DrawArc", "center", "radius", "start_angle", "end_angle", "segments", "width", "color", "fill", "fill_color"),
+			&VGVectorCanvas2D::DrawArc,
+			DEFVAL(32), DEFVAL(2.0f), DEFVAL(Color(1, 1, 1, 1)), DEFVAL(false), DEFVAL(Color(1, 1, 1, 0)));
+	ClassDB::bind_method(D_METHOD("DrawPolygon", "points", "width", "color", "fill", "fill_color"),
+			&VGVectorCanvas2D::DrawPolygon,
+			DEFVAL(2.0f), DEFVAL(Color(1, 1, 1, 1)), DEFVAL(false), DEFVAL(Color(1, 1, 1, 0)));
+	ClassDB::bind_method(D_METHOD("DrawPolyline", "points", "width", "color", "fill", "fill_color", "close"),
+			&VGVectorCanvas2D::DrawPolyline,
+			DEFVAL(2.0f), DEFVAL(Color(1, 1, 1, 1)), DEFVAL(false), DEFVAL(Color(1, 1, 1, 0)), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("DrawLines", "segments", "width", "color"),
+			&VGVectorCanvas2D::DrawLines,
+			DEFVAL(2.0f), DEFVAL(Color(1, 1, 1, 1)));
+	ClassDB::bind_method(D_METHOD("DrawSpriteLines", "texture", "segments", "width", "color"),
+			&VGVectorCanvas2D::DrawSpriteLines,
+			DEFVAL(6.0f), DEFVAL(Color(1, 1, 1, 1)));
+	ClassDB::bind_method(D_METHOD("MakeGlowTexture", "size", "core_color"),
+			&VGVectorCanvas2D::MakeGlowTexture,
+			DEFVAL(32), DEFVAL(Color(1, 1, 1, 1)));
+	ClassDB::bind_method(D_METHOD("MakeRadialGlowTexture", "size", "core_color"),
+			&VGVectorCanvas2D::MakeRadialGlowTexture,
+			DEFVAL(48), DEFVAL(Color(1, 1, 1, 1)));
+	ClassDB::bind_method(D_METHOD("SetAdditiveBlend", "enable"),
+			&VGVectorCanvas2D::SetAdditiveBlend);
+	ClassDB::bind_method(D_METHOD("DrawPath", "points", "width", "color", "fill", "fill_color", "close"),
+			&VGVectorCanvas2D::DrawPath,
+			DEFVAL(2.0f), DEFVAL(Color(1, 1, 1, 1)), DEFVAL(false), DEFVAL(Color(1, 1, 1, 0)), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("DrawCircle", "center", "radius", "color", "fill", "fill_color"),
+			&VGVectorCanvas2D::DrawCircle,
+			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(false), DEFVAL(Color(1, 1, 1, 0)));
+	ClassDB::bind_method(D_METHOD("DrawText", "position", "text", "color", "font"),
+			&VGVectorCanvas2D::DrawText,
+			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(Variant()));
+	ClassDB::bind_method(D_METHOD("DrawTextCentered", "position", "text", "color", "font"),
+			&VGVectorCanvas2D::DrawTextCentered,
+			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(Variant()));
+	ClassDB::bind_method(D_METHOD("DrawTextRightAligned", "position", "text", "color", "font"),
+			&VGVectorCanvas2D::DrawTextRightAligned,
+			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(Variant()));
+
+	// Vector text
+	ClassDB::bind_method(D_METHOD("DrawVectorText", "position", "text", "color", "scale", "width", "align", "spacing", "font_name"),
+			&VGVectorCanvas2D::DrawVectorText,
+			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f), DEFVAL(2.0f), DEFVAL("left"), DEFVAL(2.0f), DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("DrawVectorTextCentered", "position", "text", "color", "scale", "width", "spacing", "font_name"),
+			&VGVectorCanvas2D::DrawVectorTextCentered,
+			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f), DEFVAL(2.0f), DEFVAL(2.0f), DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("DrawVectorTextRightAligned", "position", "text", "color", "scale", "width", "spacing", "font_name"),
+			&VGVectorCanvas2D::DrawVectorTextRightAligned,
+			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f), DEFVAL(2.0f), DEFVAL(2.0f), DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("RegisterVectorFont", "name", "glyphs", "make_default"),
+			&VGVectorCanvas2D::RegisterVectorFont, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("SetVectorFont", "name"), &VGVectorCanvas2D::SetVectorFont);
+	ClassDB::bind_method(D_METHOD("GetVectorFontNames"), &VGVectorCanvas2D::GetVectorFontNames);
+
+	// State / transform
+	ClassDB::bind_method(D_METHOD("SetStrokeColor", "color"), &VGVectorCanvas2D::SetStrokeColor);
+	ClassDB::bind_method(D_METHOD("SetFillColor", "color"), &VGVectorCanvas2D::SetFillColor);
+	ClassDB::bind_method(D_METHOD("SetDefaultFont", "font"), &VGVectorCanvas2D::SetDefaultFont);
+	ClassDB::bind_method(D_METHOD("PushTransform", "transform"), &VGVectorCanvas2D::PushTransform);
+	ClassDB::bind_method(D_METHOD("PopTransform"), &VGVectorCanvas2D::PopTransform);
+	ClassDB::bind_method(D_METHOD("Translate", "offset"), &VGVectorCanvas2D::Translate);
+	ClassDB::bind_method(D_METHOD("Rotate", "angle"), &VGVectorCanvas2D::Rotate);
+	ClassDB::bind_method(D_METHOD("Scale", "scale"), &VGVectorCanvas2D::Scale);
+	ClassDB::bind_method(D_METHOD("Clear"), &VGVectorCanvas2D::Clear);
+	ClassDB::bind_method(D_METHOD("Render"), &VGVectorCanvas2D::Render);
+
+	// Groups & source tagging
+	ClassDB::bind_method(D_METHOD("BeginGroup", "name"), &VGVectorCanvas2D::BeginGroup);
+	ClassDB::bind_method(D_METHOD("EndGroup"), &VGVectorCanvas2D::EndGroup);
+	ClassDB::bind_method(D_METHOD("TagSource", "group_name", "prop", "file", "line", "literal", "col"),
+			&VGVectorCanvas2D::TagSource, DEFVAL(-1));
+
+	// Exposed internal state (named with leading underscore to match the
+	// pre-port GDScript variable names so the subclass touches the same
+	// objects without renaming).
+	ClassDB::bind_method(D_METHOD("_get_commands"), &VGVectorCanvas2D::get_commands_array);
+	ClassDB::bind_method(D_METHOD("_set_commands", "value"), &VGVectorCanvas2D::set_commands_array);
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "_commands"), "_set_commands", "_get_commands");
+
+	ClassDB::bind_method(D_METHOD("_get_runtime_commands"), &VGVectorCanvas2D::get_runtime_commands_array);
+	ClassDB::bind_method(D_METHOD("_set_runtime_commands", "value"), &VGVectorCanvas2D::set_runtime_commands_array);
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "_runtime_commands"), "_set_runtime_commands", "_get_runtime_commands");
+
+	ClassDB::bind_method(D_METHOD("_get_group_overrides"), &VGVectorCanvas2D::get_group_overrides_dict);
+	ClassDB::bind_method(D_METHOD("_set_group_overrides", "value"), &VGVectorCanvas2D::set_group_overrides_dict);
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "_group_overrides"), "_set_group_overrides", "_get_group_overrides");
+
+	ClassDB::bind_method(D_METHOD("_get_command_overrides"), &VGVectorCanvas2D::get_command_overrides_dict);
+	ClassDB::bind_method(D_METHOD("_set_command_overrides", "value"), &VGVectorCanvas2D::set_command_overrides_dict);
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "_command_overrides"), "_set_command_overrides", "_get_command_overrides");
+
+	ClassDB::bind_method(D_METHOD("_get_group_source_hints"), &VGVectorCanvas2D::get_group_source_hints_dict);
+	ClassDB::bind_method(D_METHOD("_set_group_source_hints", "value"), &VGVectorCanvas2D::set_group_source_hints_dict);
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "_group_source_hints"), "_set_group_source_hints", "_get_group_source_hints");
+
+	ClassDB::bind_method(D_METHOD("_get_group_stack"), &VGVectorCanvas2D::get_group_stack_array);
+	ClassDB::bind_method(D_METHOD("_set_group_stack", "value"), &VGVectorCanvas2D::set_group_stack_array);
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "_group_stack"), "_set_group_stack", "_get_group_stack");
+
+	ClassDB::bind_method(D_METHOD("_get_transform_stack"), &VGVectorCanvas2D::get_transform_stack_array);
+	ClassDB::bind_method(D_METHOD("_set_transform_stack", "value"), &VGVectorCanvas2D::set_transform_stack_array);
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "_transform_stack"), "_set_transform_stack", "_get_transform_stack");
+
+	ClassDB::bind_method(D_METHOD("_get_frame_line_ord"), &VGVectorCanvas2D::get_frame_line_ord_dict);
+	ClassDB::bind_method(D_METHOD("_set_frame_line_ord", "value"), &VGVectorCanvas2D::set_frame_line_ord_dict);
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "_frame_line_ord"), "_set_frame_line_ord", "_get_frame_line_ord");
+
+	ClassDB::bind_method(D_METHOD("get_stroke_color"), &VGVectorCanvas2D::get_stroke_color);
+	ClassDB::bind_method(D_METHOD("set_stroke_color", "value"), &VGVectorCanvas2D::set_stroke_color_prop);
+	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "stroke_color"), "set_stroke_color", "get_stroke_color");
+
+	ClassDB::bind_method(D_METHOD("get_fill_color"), &VGVectorCanvas2D::get_fill_color_prop);
+	ClassDB::bind_method(D_METHOD("set_fill_color", "value"), &VGVectorCanvas2D::set_fill_color_prop);
+	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "fill_color"), "set_fill_color", "get_fill_color");
+
+	ClassDB::bind_method(D_METHOD("get_stroke_width"), &VGVectorCanvas2D::get_stroke_width);
+	ClassDB::bind_method(D_METHOD("set_stroke_width", "value"), &VGVectorCanvas2D::set_stroke_width);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "stroke_width"), "set_stroke_width", "get_stroke_width");
+
+	ClassDB::bind_method(D_METHOD("get_default_font"), &VGVectorCanvas2D::get_default_font);
+	ClassDB::bind_method(D_METHOD("set_default_font", "value"), &VGVectorCanvas2D::set_default_font_prop);
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "default_font", PROPERTY_HINT_RESOURCE_TYPE, "Font"), "set_default_font", "get_default_font");
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle
+// ---------------------------------------------------------------------------
+void VGVectorCanvas2D::_ready() {
+	queue_redraw();
+}
+
+// ---------------------------------------------------------------------------
+// Transform stack
+// ---------------------------------------------------------------------------
+Transform2D VGVectorCanvas2D::_get_current_transform() const {
+	int n = _transform_stack.size();
+	if (n == 0) {
+		return Transform2D();
+	}
+	return (Transform2D)_transform_stack[n - 1];
+}
+
+PackedVector2Array VGVectorCanvas2D::_transform_points_array(const Array &points, const Transform2D &t) const {
+	// Fast path: identity transform — common case for game projects that
+	// don't push transforms on the canvas. Pack directly.
+	if (t == Transform2D()) {
+		return PackedVector2Array(points);
+	}
+	int n = points.size();
+	PackedVector2Array result;
+	result.resize(n);
+	for (int i = 0; i < n; ++i) {
+		result[i] = t.xform((Vector2)points[i]);
+	}
+	return result;
+}
+
+PackedVector2Array VGVectorCanvas2D::_transform_points_packed(const PackedVector2Array &points, const Transform2D &t) const {
+	if (t == Transform2D()) {
+		return points;
+	}
+	int n = points.size();
+	PackedVector2Array result;
+	result.resize(n);
+	for (int i = 0; i < n; ++i) {
+		result[i] = t.xform(points[i]);
+	}
+	return result;
+}
+
+PackedColorArray VGVectorCanvas2D::_make_fill_color_array(const Color &c, int count) {
+	PackedColorArray result;
+	result.resize(count);
+	for (int i = 0; i < count; ++i) {
+		result[i] = c;
+	}
+	return result;
+}
+
+Array VGVectorCanvas2D::_rect_corner_points(const Rect2 &rect) {
+	Array out;
+	out.append(rect.position);
+	out.append(rect.position + Vector2(rect.size.x, 0));
+	out.append(rect.position + rect.size);
+	out.append(rect.position + Vector2(0, rect.size.y));
+	return out;
+}
+
+Array VGVectorCanvas2D::_ellipse_corner_points(const Rect2 &rect, int segments) {
+	Array out;
+	Vector2 center = rect.position + rect.size * 0.5f;
+	Vector2 radius = rect.size * 0.5f;
+	for (int i = 0; i < segments; ++i) {
+		double angle = Math_TAU * (double)i / (double)segments;
+		out.append(center + Vector2(std::cos(angle) * radius.x, std::sin(angle) * radius.y));
+	}
+	return out;
+}
+
+Array VGVectorCanvas2D::_rounded_rect_corner_points(const Rect2 &rect, float radius, int segments) {
+	float max_r = std::min(rect.size.x, rect.size.y) * 0.5f;
+	float r = std::min(radius, max_r);
+	Array out;
+	Vector2 end = rect.position + rect.size;
+
+	for (int i = 0; i <= segments; ++i) {
+		double a = -Math_PI * 0.5 + Math_PI * 0.5 * (double)i / (double)segments;
+		out.append(Vector2(end.x - r + std::cos(a) * r, rect.position.y + r + std::sin(a) * r));
+	}
+	for (int i = 0; i <= segments; ++i) {
+		double a = Math_PI * 0.5 * (double)i / (double)segments;
+		out.append(Vector2(end.x - r + std::cos(a) * r, end.y - r + std::sin(a) * r));
+	}
+	for (int i = 0; i <= segments; ++i) {
+		double a = Math_PI * 0.5 + Math_PI * 0.5 * (double)i / (double)segments;
+		out.append(Vector2(rect.position.x + r + std::cos(a) * r, end.y - r + std::sin(a) * r));
+	}
+	for (int i = 0; i <= segments; ++i) {
+		double a = Math_PI + Math_PI * 0.5 * (double)i / (double)segments;
+		out.append(Vector2(rect.position.x + r + std::cos(a) * r, rect.position.y + r + std::sin(a) * r));
+	}
+	return out;
+}
+
+Array VGVectorCanvas2D::_arc_corner_points(const Vector2 &center, float radius, float start_angle, float end_angle, int segments) {
+	Array out;
+	double sweep = (double)end_angle - (double)start_angle;
+	for (int i = 0; i <= segments; ++i) {
+		double angle = (double)start_angle + sweep * (double)i / (double)segments;
+		out.append(center + Vector2(std::cos(angle) * radius, std::sin(angle) * radius));
+	}
+	return out;
+}
+
+// ---------------------------------------------------------------------------
+// _queue_command — appends to buffer and triggers redraw.
+// Mirrors the GDScript fast path/slow path split.
+// ---------------------------------------------------------------------------
+void VGVectorCanvas2D::_queue_command(Dictionary command) {
+	command["command_id"] = _command_id_counter++;
+
+	bool overlay_in_use = _group_stack.size() > 0
+			|| !_group_overrides.is_empty()
+			|| !_command_overrides.is_empty()
+			|| !_group_source_hints.is_empty();
+
+	if (!overlay_in_use) {
+		// Fast path: ~100% of frames in production games.
+		_commands.append(command);
+		if (!_pending_redraw) {
+			_pending_redraw = true;
+			queue_redraw();
+		}
+		return;
+	}
+
+	// Slow path: Tweak Overlay is active. Capture per-command provenance.
+	String cmd_id_str = String::num_int64((int64_t)command["command_id"]);
+	if (!command.has("target_id")) {
+		command["target_id"] = cmd_id_str;
+	}
+	String gname = _group_stack.size() > 0 ? (String)_group_stack[_group_stack.size() - 1] : String("");
+	command["group"] = gname;
+
+	String src_file = VisualGasicLanguage::get_current_debug_file();
+	int src_line = VisualGasicLanguage::get_current_debug_line();
+	command["__src_file"] = src_file;
+	command["__src_line"] = src_line;
+
+	String lkey = src_file + ":" + String::num_int64((int64_t)src_line);
+	int ord = (int)_frame_line_ord.get(lkey, 0);
+	_frame_line_ord[lkey] = ord + 1;
+	command["__src_ord"] = ord;
+	command["__stable_id"] = !src_file.is_empty()
+			? (src_file + ":" + String::num_int64((int64_t)src_line) + ":" + String::num_int64((int64_t)ord))
+			: String("");
+
+	String gkey = gname.is_empty() ? String("__misc") : gname;
+	if (!src_file.is_empty() && src_line > 0 && !_group_source_hints.has(gkey)) {
+		Dictionary auto_hint;
+		auto_hint["file"] = src_file;
+		auto_hint["line"] = src_line;
+		auto_hint["col"] = -1;
+		auto_hint["literal"] = String("");
+		Dictionary hint_entry;
+		hint_entry["position"] = auto_hint;
+		hint_entry["color"] = auto_hint;
+		hint_entry["fill_color"] = auto_hint;
+		hint_entry["width"] = auto_hint;
+		hint_entry["visible"] = auto_hint;
+		_group_source_hints[gkey] = hint_entry;
+	}
+
+	Dictionary ov = _group_overrides.get(gkey, Dictionary());
+	if (!ov.is_empty()) {
+		_apply_override_to_command(command, ov);
+	}
+	String stable_id = (String)command["__stable_id"];
+	if (!stable_id.is_empty()) {
+		Dictionary cov = _command_overrides.get(stable_id, Dictionary());
+		if (!cov.is_empty()) {
+			_apply_override_to_command(command, cov);
+		}
+	}
+
+	_commands.append(command);
+	if (!_pending_redraw) {
+		_pending_redraw = true;
+		queue_redraw();
+	}
+}
+
+void VGVectorCanvas2D::_apply_override_to_command(Dictionary &command, const Dictionary &override_dict) {
+	Array keys = override_dict.keys();
+	for (int i = 0; i < keys.size(); ++i) {
+		String prop = keys[i];
+		Variant value = override_dict[prop];
+		if (prop == "position" || prop == "translate") {
+			Transform2D base = command.has("_base_transform")
+					? (Transform2D)command["_base_transform"]
+					: (command.has("transform") ? (Transform2D)command["transform"] : Transform2D());
+			command["_base_transform"] = base;
+			Transform2D t = base;
+			t.set_origin(base.get_origin() + (Vector2)value);
+			command["transform"] = t;
+		} else if (prop == "visible") {
+			command["_visible"] = (bool)value;
+		} else {
+			if (command.has(prop)) {
+				command[prop] = value;
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// _draw — main dispatch loop.
+// ---------------------------------------------------------------------------
+void VGVectorCanvas2D::_draw() {
+	_pending_redraw = false;
+	_sprite_pool_index = 0;
+	int n = _commands.size();
+	for (int i = 0; i < n; ++i) {
+		Dictionary cmd = _commands[i];
+		Variant vis = cmd.get("_visible", true);
+		if (vis.get_type() == Variant::BOOL && !(bool)vis) {
+			continue;
+		}
+		int t = (int)cmd["type"];
+		switch (t) {
+			case CMD_LINE:
+				_draw_line_command(cmd);
+				break;
+			case CMD_RECT:
+				_draw_rect_command(cmd);
+				break;
+			case CMD_ROUNDED_RECT:
+				_draw_rounded_rect_command(cmd);
+				break;
+			case CMD_ELLIPSE:
+				_draw_ellipse_command(cmd);
+				break;
+			case CMD_ARC:
+				_draw_arc_command(cmd);
+				break;
+			case CMD_PIE_SLICE:
+				_draw_pie_slice_command(cmd);
+				break;
+			case CMD_POLYGON:
+				_draw_polygon_command(cmd);
+				break;
+			case CMD_POLYLINE:
+				_draw_polyline_command(cmd);
+				break;
+			case CMD_TEXT:
+				_draw_text_command(cmd);
+				break;
+			case CMD_MULTILINE:
+				_draw_multiline_command(cmd);
+				break;
+			case CMD_SPRITE_LINES:
+				_draw_sprite_lines_command(cmd);
+				break;
+			default:
+				break;
+		}
+	}
+}
+
+void VGVectorCanvas2D::_draw_line_command(const Dictionary &cmd) {
+	Transform2D t = (Transform2D)cmd["transform"];
+	Vector2 from = t.xform((Vector2)cmd["from"]);
+	Vector2 to = t.xform((Vector2)cmd["to"]);
+	draw_line(from, to, (Color)cmd["color"], (double)cmd["width"]);
+}
+
+void VGVectorCanvas2D::_draw_rect_command(const Dictionary &cmd) {
+	Transform2D t = (Transform2D)cmd["transform"];
+	Rect2 rect = (Rect2)cmd["rect"];
+	bool fill = (bool)cmd["fill"];
+	float width = (float)cmd["width"];
+	Color color = (Color)cmd["color"];
+	Color fc = (Color)cmd["fill_color"];
+
+	if (t == Transform2D()) {
+		if (fill) {
+			draw_rect(rect, fc, true);
+		}
+		if (width > 0.0f) {
+			draw_rect(rect, color, false, (double)width);
+		}
+	} else {
+		PackedVector2Array points = _transform_points_array(_rect_corner_points(rect), t);
+		if (fill) {
+			draw_polygon(points, _make_fill_color_array(fc, points.size()));
+		}
+		if (width > 0.0f) {
+			PackedVector2Array outline = points;
+			if (points.size() > 0) {
+				outline.append(points[0]);
+			}
+			draw_polyline(outline, color, (double)width);
+		}
+	}
+}
+
+void VGVectorCanvas2D::_draw_rounded_rect_command(const Dictionary &cmd) {
+	Transform2D t = (Transform2D)cmd["transform"];
+	Array raw = _rounded_rect_corner_points((Rect2)cmd["rect"], (float)cmd["radius"], (int)cmd["segments"]);
+	PackedVector2Array points = _transform_points_array(raw, t);
+	bool fill = (bool)cmd["fill"];
+	float width = (float)cmd["width"];
+	if (fill) {
+		draw_polygon(points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
+	}
+	if (width > 0.0f) {
+		PackedVector2Array outline = points;
+		if (points.size() > 0) {
+			outline.append(points[0]);
+		}
+		draw_polyline(outline, (Color)cmd["color"], (double)width);
+	}
+}
+
+void VGVectorCanvas2D::_draw_ellipse_command(const Dictionary &cmd) {
+	Transform2D t = (Transform2D)cmd["transform"];
+	Array raw = _ellipse_corner_points((Rect2)cmd["rect"], (int)cmd["segments"]);
+	PackedVector2Array points = _transform_points_array(raw, t);
+	bool fill = (bool)cmd["fill"];
+	float width = (float)cmd["width"];
+	if (fill) {
+		draw_polygon(points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
+	}
+	if (width > 0.0f) {
+		draw_polyline(points, (Color)cmd["color"], (double)width);
+	}
+}
+
+void VGVectorCanvas2D::_draw_arc_command(const Dictionary &cmd) {
+	Transform2D t = (Transform2D)cmd["transform"];
+	Vector2 center = (Vector2)cmd["center"];
+	Array raw = _arc_corner_points(center, (float)cmd["radius"],
+			(float)cmd["start_angle"], (float)cmd["end_angle"], (int)cmd["segments"]);
+	PackedVector2Array points = _transform_points_array(raw, t);
+	bool fill = (bool)cmd["fill"];
+	float width = (float)cmd["width"];
+	Color color = (Color)cmd["color"];
+	if (fill) {
+		PackedVector2Array filled = points;
+		filled.append(t.xform(center));
+		draw_polygon(filled, _make_fill_color_array((Color)cmd["fill_color"], filled.size()));
+	}
+	if (width > 0.0f || !fill) {
+		draw_polyline(points, color, (double)width);
+	}
+}
+
+void VGVectorCanvas2D::_draw_pie_slice_command(const Dictionary &cmd) {
+	Transform2D t = (Transform2D)cmd["transform"];
+	Vector2 center = (Vector2)cmd["center"];
+	Array raw = _arc_corner_points(center, (float)cmd["radius"],
+			(float)cmd["start_angle"], (float)cmd["end_angle"], (int)cmd["segments"]);
+	// Insert center at the front (matches GDScript: points.insert(0, center)).
+	Array with_center;
+	with_center.append(center);
+	for (int i = 0; i < raw.size(); ++i) {
+		with_center.append(raw[i]);
+	}
+	PackedVector2Array points = _transform_points_array(with_center, t);
+	bool fill = (bool)cmd["fill"];
+	float width = (float)cmd["width"];
+	if (fill) {
+		draw_polygon(points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
+	}
+	if (width > 0.0f && points.size() > 1) {
+		PackedVector2Array outline = points;
+		outline.append(points[1]); // close back to first arc point, not center
+		draw_polyline(outline, (Color)cmd["color"], (double)width);
+	}
+}
+
+void VGVectorCanvas2D::_draw_polygon_command(const Dictionary &cmd) {
+	Transform2D t = (Transform2D)cmd["transform"];
+	PackedVector2Array points = _transform_points_packed((PackedVector2Array)cmd["points"], t);
+	bool fill = (bool)cmd["fill"];
+	float width = (float)cmd["width"];
+	if (fill) {
+		draw_polygon(points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
+	}
+	if (width > 0.0f) {
+		PackedVector2Array outline = points;
+		if (outline.size() > 0) {
+			outline.append(outline[0]);
+		}
+		draw_polyline(outline, (Color)cmd["color"], (double)width);
+	}
+}
+
+void VGVectorCanvas2D::_draw_polyline_command(const Dictionary &cmd) {
+	Transform2D t = (Transform2D)cmd["transform"];
+	PackedVector2Array points = _transform_points_packed((PackedVector2Array)cmd["points"], t);
+	bool fill = (bool)cmd["fill"];
+	float width = (float)cmd["width"];
+	bool close = (bool)cmd["close"];
+	if (fill) {
+		draw_polygon(points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
+	}
+	if (width > 0.0f) {
+		if (close && points.size() > 0) {
+			PackedVector2Array outline = points;
+			outline.append(points[0]);
+			draw_polyline(outline, (Color)cmd["color"], (double)width);
+		} else {
+			draw_polyline(points, (Color)cmd["color"], (double)width);
+		}
+	}
+}
+
+void VGVectorCanvas2D::_draw_multiline_command(const Dictionary &cmd) {
+	Transform2D t = (Transform2D)cmd["transform"];
+	PackedVector2Array segments = _transform_points_packed((PackedVector2Array)cmd["segments"], t);
+	float width = (float)cmd["width"];
+	Color color = (Color)cmd["color"];
+	// Drop trailing odd point if any (segments must come in pairs).
+	int sz = segments.size();
+	if (sz < 2) {
+		return;
+	}
+	if (sz & 1) {
+		segments.resize(sz - 1);
+	}
+	draw_multiline(segments, color, (double)width);
+}
+
+void VGVectorCanvas2D::_draw_sprite_lines_command(const Dictionary &cmd) {
+	Ref<Texture2D> tex = cmd["texture"];
+	if (tex.is_null()) {
+		return;
+	}
+	PackedVector2Array segs = _transform_points_packed((PackedVector2Array)cmd["segments"], (Transform2D)cmd["transform"]);
+	int n_inst = segs.size() / 2;
+	if (n_inst <= 0) {
+		return;
+	}
+	float width = (float)cmd["width"];
+	Color tint = (Color)cmd["color"];
+
+	// Lazy-init shared QuadMesh (unit quad in XY plane, centered at origin).
+	if (_sprite_quad.is_null()) {
+		_sprite_quad.instantiate();
+		_sprite_quad->set_size(Vector2(1.0f, 1.0f));
+	}
+	// Grab a MultiMesh from the per-frame pool, allocating if needed.
+	while (_sprite_pool_index >= _sprite_multimesh_pool.size()) {
+		Ref<MultiMesh> mm;
+		mm.instantiate();
+		mm->set_transform_format(MultiMesh::TRANSFORM_2D);
+		mm->set_use_colors(true);
+		mm->set_mesh(_sprite_quad);
+		_sprite_multimesh_pool.push_back(mm);
+	}
+	Ref<MultiMesh> mm = _sprite_multimesh_pool[_sprite_pool_index++];
+	mm->set_instance_count(n_inst);
+
+	const Vector2 *pts = segs.ptr();
+	for (int i = 0; i < n_inst; ++i) {
+		Vector2 a = pts[i * 2];
+		Vector2 b = pts[i * 2 + 1];
+		Vector2 dir = b - a;
+		float len = dir.length();
+		if (len < 0.0001f) {
+			len = 1.0f;
+		}
+		float ang = std::atan2(dir.y, dir.x);
+		Vector2 mid = (a + b) * 0.5f;
+		float cs = std::cos(ang);
+		float sn = std::sin(ang);
+		// Column-major Transform2D: x basis = (cos*len, sin*len),
+		// y basis = (-sin*width, cos*width), origin = mid.
+		Transform2D xf(Vector2(cs * len, sn * len), Vector2(-sn * width, cs * width), mid);
+		mm->set_instance_transform_2d(i, xf);
+		mm->set_instance_color(i, tint);
+	}
+
+	draw_multimesh(mm, tex);
+}
+
+void VGVectorCanvas2D::DrawSpriteLines(const Ref<Texture2D> &texture, const PackedVector2Array &segments, float width, const Color &color) {
+	Dictionary c;
+	c["type"] = (int)CMD_SPRITE_LINES;
+	c["texture"] = texture;
+	c["segments"] = segments;
+	c["width"] = width;
+	c["color"] = color;
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+Ref<Texture2D> VGVectorCanvas2D::MakeGlowTexture(int size, const Color &core_color) {
+	if (size < 2) {
+		size = 2;
+	}
+	Ref<Image> img = Image::create_empty(size, size, false, Image::FORMAT_RGBA8);
+	float half = (size - 1) * 0.5f;
+	for (int y = 0; y < size; ++y) {
+		float ny = (y - half) / half; // -1..1 across the short axis
+		float fy = 1.0f - ny * ny;
+		if (fy < 0.0f) {
+			fy = 0.0f;
+		}
+		// Sharper bright core in the middle, soft halo at the edges.
+		float core = fy * fy * fy;
+		for (int x = 0; x < size; ++x) {
+			float nx = (x - half) / half;
+			float fx = 1.0f - nx * nx * 0.4f; // mild end-fade
+			if (fx < 0.0f) {
+				fx = 0.0f;
+			}
+			float a = core * fx * core_color.a;
+			if (a < 0.0f) {
+				a = 0.0f;
+			}
+			if (a > 1.0f) {
+				a = 1.0f;
+			}
+			img->set_pixel(x, y, Color(core_color.r, core_color.g, core_color.b, a));
+		}
+	}
+	Ref<ImageTexture> tex = ImageTexture::create_from_image(img);
+	return tex;
+}
+
+Ref<Texture2D> VGVectorCanvas2D::MakeRadialGlowTexture(int size, const Color &core_color) {
+	if (size < 2) {
+		size = 2;
+	}
+	Ref<Image> img = Image::create_empty(size, size, false, Image::FORMAT_RGBA8);
+	float half = (size - 1) * 0.5f;
+	for (int y = 0; y < size; ++y) {
+		float ny = (y - half) / half;
+		for (int x = 0; x < size; ++x) {
+			float nx = (x - half) / half;
+			float r2 = nx * nx + ny * ny;
+			float f = 1.0f - r2;
+			if (f < 0.0f) {
+				f = 0.0f;
+			}
+			// Bright hot core, soft falloff: f^3 keeps a tight bright center
+			// with a gentle additive halo around it.
+			float a = f * f * f * core_color.a;
+			if (a > 1.0f) {
+				a = 1.0f;
+			}
+			img->set_pixel(x, y, Color(core_color.r, core_color.g, core_color.b, a));
+		}
+	}
+	Ref<ImageTexture> tex = ImageTexture::create_from_image(img);
+	return tex;
+}
+
+void VGVectorCanvas2D::SetAdditiveBlend(bool enable) {
+	if (enable) {
+		if (_additive_material.is_null()) {
+			_additive_material.instantiate();
+			_additive_material->set_blend_mode(CanvasItemMaterial::BLEND_MODE_ADD);
+		}
+		set_material(_additive_material);
+	} else {
+		set_material(Ref<Material>());
+	}
+}
+
+void VGVectorCanvas2D::_draw_text_command(const Dictionary &cmd) {
+	Variant font_v = cmd.get("font", Variant());
+	String text = (String)cmd["text"];
+	Color color = (Color)cmd["color"];
+	String align = (String)cmd.get("align", "left");
+	Transform2D t = (Transform2D)cmd["transform"];
+	Vector2 position = t.xform((Vector2)cmd["position"]);
+
+	if (font_v.get_type() == Variant::NIL && !text.is_empty()) {
+		DrawVectorText(position, text, color, 1.0f, 2.0f, align);
+		return;
+	}
+	if (font_v.get_type() == Variant::STRING) {
+		DrawVectorText(position, text, color, 1.0f, 2.0f, align, 2.0f, (String)font_v);
+		return;
+	}
+	Ref<Font> font;
+	if (font_v.get_type() == Variant::OBJECT) {
+		font = Ref<Font>(font_v);
+	}
+	if (font.is_null()) {
+		font = _default_font;
+	}
+	if (font.is_valid()) {
+		Vector2 text_size = font->get_string_size(text);
+		Vector2 pos = position;
+		if (align == "center") {
+			pos.x -= text_size.x * 0.5f;
+		} else if (align == "right") {
+			pos.x -= text_size.x;
+		}
+		draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, color);
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Public Draw* — queue methods.
+// ---------------------------------------------------------------------------
+void VGVectorCanvas2D::DrawLine(const Vector2 &from, const Vector2 &to, float width, const Color &color) {
+	Dictionary c;
+	c["type"] = (int)CMD_LINE;
+	c["from"] = from;
+	c["to"] = to;
+	c["width"] = width;
+	c["color"] = color;
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawRect(const Rect2 &rect, float width, const Color &color, bool fill, const Color &fill_color) {
+	Dictionary c;
+	c["type"] = (int)CMD_RECT;
+	c["rect"] = rect;
+	c["width"] = width;
+	c["color"] = color;
+	c["fill"] = fill;
+	c["fill_color"] = fill_color;
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawRoundedRect(const Rect2 &rect, float radius, float width, const Color &color, bool fill, const Color &fill_color, int segments) {
+	Dictionary c;
+	c["type"] = (int)CMD_ROUNDED_RECT;
+	c["rect"] = rect;
+	c["radius"] = radius;
+	c["width"] = width;
+	c["color"] = color;
+	c["fill"] = fill;
+	c["fill_color"] = fill_color;
+	c["segments"] = segments;
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawEllipse(const Rect2 &rect, float width, const Color &color, bool fill, const Color &fill_color, int segments) {
+	Dictionary c;
+	c["type"] = (int)CMD_ELLIPSE;
+	c["rect"] = rect;
+	c["width"] = width;
+	c["color"] = color;
+	c["fill"] = fill;
+	c["fill_color"] = fill_color;
+	c["segments"] = segments;
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawArc(const Vector2 &center, float radius, float start_angle, float end_angle, int segments, float width, const Color &color, bool fill, const Color &fill_color) {
+	Dictionary c;
+	c["type"] = (int)CMD_ARC;
+	c["center"] = center;
+	c["radius"] = radius;
+	c["start_angle"] = start_angle;
+	c["end_angle"] = end_angle;
+	c["segments"] = segments;
+	c["width"] = width;
+	c["color"] = color;
+	c["fill"] = fill;
+	c["fill_color"] = fill_color;
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawPolygon(const Array &points, float width, const Color &color, bool fill, const Color &fill_color) {
+	Dictionary c;
+	c["type"] = (int)CMD_POLYGON;
+	c["points"] = PackedVector2Array(points);
+	c["width"] = width;
+	c["color"] = color;
+	c["fill"] = fill;
+	c["fill_color"] = fill_color;
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawPolyline(const Array &points, float width, const Color &color, bool fill, const Color &fill_color, bool close) {
+	Dictionary c;
+	c["type"] = (int)CMD_POLYLINE;
+	c["points"] = PackedVector2Array(points);
+	c["width"] = width;
+	c["color"] = color;
+	c["fill"] = fill;
+	c["fill_color"] = fill_color;
+	c["close"] = close;
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawLines(const PackedVector2Array &segments, float width, const Color &color) {
+	Dictionary c;
+	c["type"] = (int)CMD_MULTILINE;
+	c["segments"] = segments;
+	c["width"] = width;
+	c["color"] = color;
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawPath(const Array &points, float width, const Color &color, bool fill, const Color &fill_color, bool close) {
+	DrawPolyline(points, width, color, fill, fill_color, close);
+}
+
+void VGVectorCanvas2D::DrawCircle(const Vector2 &center, float radius, const Color &color, bool fill, const Color &fill_color) {
+	DrawEllipse(Rect2(center - Vector2(radius, radius), Vector2(radius * 2.0f, radius * 2.0f)), 0.0f, color, fill, fill_color);
+}
+
+void VGVectorCanvas2D::DrawText(const Vector2 &position, const String &text, const Color &color, const Variant &font) {
+	Dictionary c;
+	c["type"] = (int)CMD_TEXT;
+	c["position"] = position;
+	c["text"] = text;
+	c["color"] = color;
+	c["font"] = font;
+	c["align"] = String("left");
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawTextCentered(const Vector2 &position, const String &text, const Color &color, const Variant &font) {
+	Dictionary c;
+	c["type"] = (int)CMD_TEXT;
+	c["position"] = position;
+	c["text"] = text;
+	c["color"] = color;
+	c["font"] = font;
+	c["align"] = String("center");
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawTextRightAligned(const Vector2 &position, const String &text, const Color &color, const Variant &font) {
+	Dictionary c;
+	c["type"] = (int)CMD_TEXT;
+	c["position"] = position;
+	c["text"] = text;
+	c["color"] = color;
+	c["font"] = font;
+	c["align"] = String("right");
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+// ---------------------------------------------------------------------------
+// State + transform
+// ---------------------------------------------------------------------------
+void VGVectorCanvas2D::SetStrokeColor(const Color &color) { _stroke_color = color; }
+void VGVectorCanvas2D::SetFillColor(const Color &color) { _fill_color = color; }
+void VGVectorCanvas2D::SetDefaultFont(const Ref<Font> &font) { _default_font = font; }
+
+void VGVectorCanvas2D::PushTransform(const Transform2D &transform) {
+	_transform_stack.append(_get_current_transform() * transform);
+}
+
+void VGVectorCanvas2D::PopTransform() {
+	if (_transform_stack.size() > 1) {
+		_transform_stack.pop_back();
+	}
+}
+
+void VGVectorCanvas2D::Translate(const Vector2 &offset) {
+	int top = _transform_stack.size() - 1;
+	if (top < 0) {
+		_transform_stack.append(Transform2D().translated(offset));
+		return;
+	}
+	Transform2D cur = (Transform2D)_transform_stack[top];
+	_transform_stack[top] = cur.translated(offset);
+}
+
+void VGVectorCanvas2D::Rotate(float angle) {
+	int top = _transform_stack.size() - 1;
+	if (top < 0) {
+		return;
+	}
+	Transform2D cur = (Transform2D)_transform_stack[top];
+	_transform_stack[top] = cur.rotated(angle);
+}
+
+void VGVectorCanvas2D::Scale(const Vector2 &scale) {
+	int top = _transform_stack.size() - 1;
+	if (top < 0) {
+		return;
+	}
+	Transform2D cur = (Transform2D)_transform_stack[top];
+	_transform_stack[top] = cur.scaled(scale);
+}
+
+void VGVectorCanvas2D::Clear() {
+	_commands.clear();
+	_group_stack.clear();
+	_frame_line_ord.clear();
+	_pending_redraw = false;
+	// Re-attach runtime-placed commands so they survive Clear/Draw cycles.
+	for (int i = 0; i < _runtime_commands.size(); ++i) {
+		Dictionary rc = _runtime_commands[i];
+		_commands.append(rc.duplicate(true));
+	}
+	queue_redraw();
+}
+
+void VGVectorCanvas2D::Render() {
+	if (!_pending_redraw) {
+		_pending_redraw = true;
+		queue_redraw();
+	}
+}
+
+void VGVectorCanvas2D::BeginGroup(const String &name) {
+	_group_stack.append(name);
+}
+
+void VGVectorCanvas2D::EndGroup() {
+	if (_group_stack.size() > 0) {
+		_group_stack.pop_back();
+	}
+}
+
+void VGVectorCanvas2D::TagSource(const String &group_name, const String &prop, const String &file, int line, const String &literal, int col) {
+	String key = group_name.is_empty() ? String("__misc") : group_name;
+	Dictionary hints = _group_source_hints.get(key, Dictionary());
+	Dictionary entry;
+	entry["file"] = file;
+	entry["line"] = line;
+	entry["col"] = col;
+	entry["literal"] = literal;
+	hints[prop] = entry;
+	_group_source_hints[key] = hints;
+}
+
+// ---------------------------------------------------------------------------
+// Vector font
+// ---------------------------------------------------------------------------
+void VGVectorCanvas2D::RegisterVectorFont(const String &name, const Dictionary &glyphs, bool make_default) {
+	if (name.is_empty()) {
+		return;
+	}
+	_vector_fonts[name] = glyphs;
+	if (make_default) {
+		_vector_font_name = name;
+	}
+}
+
+void VGVectorCanvas2D::SetVectorFont(const String &name) {
+	if (_vector_fonts.has(name)) {
+		_vector_font_name = name;
+	}
+}
+
+Array VGVectorCanvas2D::GetVectorFontNames() {
+	return _vector_fonts.keys();
+}
+
+void VGVectorCanvas2D::_ensure_default_vector_font() {
+	if (_default_font_registered) {
+		return;
+	}
+	_default_font_registered = true;
+
+	// Helper macros to build glyph entries succinctly.
+	#define V2(x, y) Vector2((real_t)(x), (real_t)(y))
+	#define STROKE_BEGIN(arr) Array arr;
+	#define STROKE_APPEND(arr, ...) { Array __s; \
+		Vector2 __pts[] = { __VA_ARGS__ }; \
+		for (size_t __i = 0; __i < sizeof(__pts)/sizeof(__pts[0]); ++__i) { __s.append(__pts[__i]); } \
+		arr.append(__s); }
+	#define GLYPH(font, ch, w, body) { \
+		Dictionary __g; __g["width"] = (real_t)(w); \
+		STROKE_BEGIN(__strokes) \
+		body \
+		__g["strokes"] = __strokes; \
+		(font)[String(ch)] = __g; \
+	}
+
+	Dictionary font;
+
+	{ Dictionary g; g["width"] = (real_t)6.0; g["strokes"] = Array(); font[" "] = g; }
+
+	GLYPH(font, "A", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 10), V2(4, 0), V2(8, 10))
+		STROKE_APPEND(__strokes, V2(2, 5), V2(6, 5))
+	);
+	GLYPH(font, "B", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(0, 10), V2(5, 10), V2(7, 8), V2(7, 6), V2(5, 4), V2(0, 4))
+		STROKE_APPEND(__strokes, V2(5, 4), V2(7, 2), V2(7, 0), V2(5, 0), V2(0, 0))
+	);
+	GLYPH(font, "C", 10.0,
+		STROKE_APPEND(__strokes, V2(8, 0), V2(2, 0), V2(0, 2), V2(0, 8), V2(2, 10), V2(8, 10))
+	);
+	GLYPH(font, "D", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(0, 10), V2(5, 10), V2(8, 7), V2(8, 3), V2(5, 0), V2(0, 0))
+	);
+	GLYPH(font, "E", 10.0,
+		STROKE_APPEND(__strokes, V2(8, 0), V2(0, 0), V2(0, 10), V2(8, 10))
+		STROKE_APPEND(__strokes, V2(0, 5), V2(6, 5))
+	);
+	GLYPH(font, "F", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(0, 10), V2(8, 10))
+		STROKE_APPEND(__strokes, V2(0, 5), V2(6, 5))
+	);
+	GLYPH(font, "G", 10.0,
+		STROKE_APPEND(__strokes, V2(8, 2), V2(6, 0), V2(2, 0), V2(0, 2), V2(0, 8), V2(2, 10), V2(8, 10), V2(8, 6), V2(5, 6))
+	);
+	GLYPH(font, "H", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(0, 10))
+		STROKE_APPEND(__strokes, V2(8, 0), V2(8, 10))
+		STROKE_APPEND(__strokes, V2(0, 5), V2(8, 5))
+	);
+	GLYPH(font, "I", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(8, 0))
+		STROKE_APPEND(__strokes, V2(4, 0), V2(4, 10))
+		STROKE_APPEND(__strokes, V2(0, 10), V2(8, 10))
+	);
+	GLYPH(font, "J", 10.0,
+		STROKE_APPEND(__strokes, V2(8, 0), V2(8, 10), V2(4, 10), V2(2, 8), V2(2, 6))
+	);
+	GLYPH(font, "K", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(0, 10))
+		STROKE_APPEND(__strokes, V2(8, 0), V2(0, 5), V2(8, 10))
+	);
+	GLYPH(font, "L", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(0, 10), V2(8, 10))
+	);
+	GLYPH(font, "M", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 10), V2(0, 0), V2(4, 6), V2(8, 0), V2(8, 10))
+	);
+	GLYPH(font, "N", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 10), V2(0, 0), V2(8, 10), V2(8, 0))
+	);
+	GLYPH(font, "O", 10.0,
+		STROKE_APPEND(__strokes, V2(2, 0), V2(6, 0), V2(8, 2), V2(8, 8), V2(6, 10), V2(2, 10), V2(0, 8), V2(0, 2), V2(2, 0))
+	);
+	GLYPH(font, "P", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 10), V2(0, 0), V2(6, 0), V2(8, 2), V2(8, 4), V2(6, 6), V2(0, 6))
+	);
+	GLYPH(font, "Q", 10.0,
+		STROKE_APPEND(__strokes, V2(2, 0), V2(6, 0), V2(8, 2), V2(8, 8), V2(6, 10), V2(2, 10), V2(0, 8), V2(0, 2), V2(2, 0))
+		STROKE_APPEND(__strokes, V2(5, 6), V2(8, 10))
+	);
+	GLYPH(font, "R", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 10), V2(0, 0), V2(6, 0), V2(8, 2), V2(8, 4), V2(6, 6), V2(0, 6))
+		STROKE_APPEND(__strokes, V2(0, 6), V2(8, 10))
+	);
+	GLYPH(font, "S", 10.0,
+		STROKE_APPEND(__strokes, V2(8, 0), V2(2, 0), V2(0, 2), V2(0, 4), V2(2, 6), V2(6, 6), V2(8, 8), V2(8, 10), V2(2, 10), V2(0, 8))
+	);
+	GLYPH(font, "T", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(8, 0))
+		STROKE_APPEND(__strokes, V2(4, 0), V2(4, 10))
+	);
+	GLYPH(font, "U", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(0, 8), V2(2, 10), V2(6, 10), V2(8, 8), V2(8, 0))
+	);
+	GLYPH(font, "V", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(4, 10), V2(8, 0))
+	);
+	GLYPH(font, "W", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(2, 10), V2(4, 4), V2(6, 10), V2(8, 0))
+	);
+	GLYPH(font, "X", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(8, 10))
+		STROKE_APPEND(__strokes, V2(8, 0), V2(0, 10))
+	);
+	GLYPH(font, "Y", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(4, 5), V2(8, 0))
+		STROKE_APPEND(__strokes, V2(4, 5), V2(4, 10))
+	);
+	GLYPH(font, "Z", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(8, 0), V2(0, 10), V2(8, 10))
+	);
+	GLYPH(font, "0", 10.0,
+		STROKE_APPEND(__strokes, V2(2, 0), V2(6, 0), V2(8, 2), V2(8, 8), V2(6, 10), V2(2, 10), V2(0, 8), V2(0, 2), V2(2, 0))
+	);
+	GLYPH(font, "1", 10.0,
+		STROKE_APPEND(__strokes, V2(4, 0), V2(4, 10))
+		STROKE_APPEND(__strokes, V2(2, 2), V2(4, 0), V2(6, 2))
+	);
+	GLYPH(font, "2", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 2), V2(2, 0), V2(6, 0), V2(8, 2), V2(8, 4), V2(0, 10), V2(8, 10))
+	);
+	GLYPH(font, "3", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(6, 0), V2(8, 2), V2(6, 4), V2(8, 6), V2(8, 8), V2(6, 10), V2(0, 10))
+	);
+	GLYPH(font, "4", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(0, 4), V2(8, 4))
+		STROKE_APPEND(__strokes, V2(8, 0), V2(8, 10))
+	);
+	GLYPH(font, "5", 10.0,
+		STROKE_APPEND(__strokes, V2(8, 0), V2(0, 0), V2(0, 4), V2(6, 4), V2(8, 6), V2(8, 10), V2(0, 10))
+	);
+	GLYPH(font, "6", 10.0,
+		STROKE_APPEND(__strokes, V2(8, 0), V2(2, 0), V2(0, 2), V2(0, 8), V2(2, 10), V2(6, 10), V2(8, 8), V2(8, 6), V2(6, 4), V2(2, 4))
+	);
+	GLYPH(font, "7", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 0), V2(8, 0), V2(4, 10))
+	);
+	GLYPH(font, "8", 10.0,
+		STROKE_APPEND(__strokes, V2(2, 0), V2(6, 0), V2(8, 2), V2(8, 4), V2(6, 6), V2(8, 8), V2(8, 10), V2(6, 10), V2(2, 10), V2(0, 8), V2(0, 6), V2(2, 4), V2(0, 2), V2(2, 0))
+	);
+	GLYPH(font, "9", 10.0,
+		STROKE_APPEND(__strokes, V2(8, 8), V2(6, 10), V2(2, 10), V2(0, 8), V2(0, 6), V2(2, 4), V2(6, 4), V2(8, 6), V2(8, 0), V2(0, 0))
+	);
+	GLYPH(font, "-", 10.0,
+		STROKE_APPEND(__strokes, V2(1, 5), V2(9, 5))
+	);
+	GLYPH(font, "=", 10.0,
+		STROKE_APPEND(__strokes, V2(1, 4), V2(9, 4))
+		STROKE_APPEND(__strokes, V2(1, 6), V2(9, 6))
+	);
+	GLYPH(font, ":", 10.0,
+		STROKE_APPEND(__strokes, V2(4, 2), V2(6, 2))
+		STROKE_APPEND(__strokes, V2(4, 8), V2(6, 8))
+	);
+	GLYPH(font, ".", 10.0,
+		STROKE_APPEND(__strokes, V2(5, 8), V2(5, 10))
+	);
+
+	#undef V2
+	#undef STROKE_BEGIN
+	#undef STROKE_APPEND
+	#undef GLYPH
+
+	_vector_fonts["default"] = font;
+}
+
+Dictionary VGVectorCanvas2D::_get_vector_font(const String &name) {
+	if (_vector_fonts.is_empty()) {
+		_ensure_default_vector_font();
+	}
+	String selected = name.is_empty() ? _vector_font_name : name;
+	if (_vector_fonts.has(selected)) {
+		return _vector_fonts[selected];
+	}
+	return _vector_fonts.get("default", Dictionary());
+}
+
+void VGVectorCanvas2D::DrawVectorText(const Vector2 &position, const String &text, const Color &color, float scale, float width, const String &align, float spacing, const String &font_name) {
+	String upper_text = text.to_upper();
+	Dictionary font_map = _get_vector_font(font_name);
+
+	double total_width = 0.0;
+	int n = upper_text.length();
+	Array glyphs;
+	glyphs.resize(n);
+	for (int i = 0; i < n; ++i) {
+		String ch = upper_text.substr(i, 1);
+		Variant g_v = font_map.get(ch, Variant());
+		Dictionary g;
+		if (g_v.get_type() == Variant::DICTIONARY) {
+			g = (Dictionary)g_v;
+		} else {
+			g["width"] = (real_t)8.0;
+			g["strokes"] = Array();
+		}
+		glyphs[i] = g;
+		total_width += (double)((real_t)g["width"]) * (double)scale;
+		if (i < n - 1) {
+			total_width += (double)spacing;
+		}
+	}
+
+	Vector2 pos = position;
+	if (total_width > 0.0) {
+		if (align == "center") {
+			pos.x -= (real_t)(total_width * 0.5);
+		} else if (align == "right") {
+			pos.x -= (real_t)total_width;
+		}
+	}
+
+	double x_offset = 0.0;
+	for (int gi = 0; gi < glyphs.size(); ++gi) {
+		Dictionary g = glyphs[gi];
+		Array strokes = g["strokes"];
+		for (int si = 0; si < strokes.size(); ++si) {
+			Array stroke = strokes[si];
+			PackedVector2Array pts;
+			pts.resize(stroke.size());
+			for (int pi = 0; pi < stroke.size(); ++pi) {
+				Vector2 op = (Vector2)stroke[pi];
+				pts[pi] = pos + Vector2((real_t)(x_offset + (double)op.x * (double)scale),
+						(real_t)((double)op.y * (double)scale));
+			}
+			if (pts.size() > 1) {
+				// Push directly through DrawPolyline → _queue_command so tweaks
+				// still apply to vector-rendered text strokes.
+				Array as_array;
+				as_array.resize(pts.size());
+				for (int i = 0; i < pts.size(); ++i) {
+					as_array[i] = pts[i];
+				}
+				DrawPolyline(as_array, width, color, false, Color(1, 1, 1, 0), false);
+			}
+		}
+		x_offset += (double)((real_t)g["width"]) * (double)scale + (double)spacing;
+	}
+}
+
+void VGVectorCanvas2D::DrawVectorTextCentered(const Vector2 &position, const String &text, const Color &color, float scale, float width, float spacing, const String &font_name) {
+	DrawVectorText(position, text, color, scale, width, "center", spacing, font_name);
+}
+
+void VGVectorCanvas2D::DrawVectorTextRightAligned(const Vector2 &position, const String &text, const Color &color, float scale, float width, float spacing, const String &font_name) {
+	DrawVectorText(position, text, color, scale, width, "right", spacing, font_name);
+}

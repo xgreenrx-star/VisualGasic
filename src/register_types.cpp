@@ -28,6 +28,7 @@
 #include "visual_gasic_socket.h"
 #include "visual_gasic_systray.h"
 #include "visual_gasic_settings.h"
+#include "visual_gasic_vector_canvas.h"
 #include "visual_gasic_com_interop.h"
 #include "visual_gasic_http.h"
 #include "visual_gasic_collection.h"
@@ -88,6 +89,7 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ClassDB::register_class<VisualGasicTestRunner>();
         ClassDB::register_class<VisualGasicImmediate>();
         ClassDB::register_class<VisualGasicDebugger>();
+        ClassDB::register_class<VGVectorCanvas2D>();
 
         // System-level classes (v2.9.0)
         ClassDB::register_class<VGProcess>();
