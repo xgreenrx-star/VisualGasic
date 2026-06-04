@@ -2909,6 +2909,33 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = Variant(arr[idx]);
                     }
+                } else if (base.get_type() == Variant::PACKED_FLOAT32_ARRAY && arg_count == 1) {
+                    PackedFloat32Array arr = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_GET_ARRAY_UNCHECKED) { result = Variant(); }
+                        else { raise_error("Array subscript out of range", 9); if (try_recover_error(Variant())) break; success = false; goto cleanup; }
+                    } else {
+                        result = Variant((double)arr[idx]);
+                    }
+                } else if (base.get_type() == Variant::PACKED_INT32_ARRAY && arg_count == 1) {
+                    PackedInt32Array arr = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_GET_ARRAY_UNCHECKED) { result = Variant(); }
+                        else { raise_error("Array subscript out of range", 9); if (try_recover_error(Variant())) break; success = false; goto cleanup; }
+                    } else {
+                        result = Variant((int64_t)arr[idx]);
+                    }
+                } else if (base.get_type() == Variant::PACKED_BYTE_ARRAY && arg_count == 1) {
+                    PackedByteArray arr = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_GET_ARRAY_UNCHECKED) { result = Variant(); }
+                        else { raise_error("Array subscript out of range", 9); if (try_recover_error(Variant())) break; success = false; goto cleanup; }
+                    } else {
+                        result = Variant((int64_t)arr[idx]);
+                    }
                 } else if (base.get_type() == Variant::DICTIONARY && arg_count == 1) {
                     Dictionary dict = base;
                     result = dict.get(indices[0], Variant());

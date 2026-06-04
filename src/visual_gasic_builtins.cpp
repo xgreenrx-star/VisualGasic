@@ -1535,6 +1535,84 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             }
             return Variant();
         }
+
+        // SoundGen.FillVoices(h, sample_rate,
+        //   arp_phase, arp_freq,
+        //   kick_active, kick_t, kick_dur,
+        //   noise_active, noise_t, noise_decay)
+        // → PackedFloat32Array [new_arp_phase, new_kick_t, new_noise_t]
+        //
+        // Synthesizes exactly SoundGen.Available() mono frames in C++ — no
+        // VG loop overhead.  Mixes three voices:
+        //   1. Square-wave arpeggio  (always on)
+        //   2. Bass kick sine-sweep  (when kick_active != 0)
+        //   3. White-noise burst     (when noise_active != 0)
+        // Pushes frames directly into the ring-buffer and returns updated
+        // phase/time state so VG can advance its globals.
+        if (METHOD_IS("soundgen_fillvoices") && args.size() == 10) {
+            r_handled = true;
+            AudioStreamGeneratorPlayback *pb = resolve_gen_playback(args[0]);
+            PackedFloat32Array result;
+            result.resize(3);
+            float new_arp_phase = (float)(double)args[2];
+            float new_kick_t    = (float)(double)args[6];
+            float new_noise_t   = (float)(double)args[8];
+            result[0] = new_arp_phase;
+            result[1] = new_kick_t;
+            result[2] = new_noise_t;
+            if (!pb) return result;
+
+            float sample_rate  = (float)(double)args[1];
+            float arp_phase    = (float)(double)args[2];
+            float arp_freq     = (float)(double)args[3];
+            bool  kick_active  = (bool)args[4];
+            float kick_t       = (float)(double)args[5];
+            float kick_dur     = (float)(double)args[6];
+            bool  noise_active = (bool)args[7];
+            float noise_t      = (float)(double)args[8];
+            float noise_decay  = (float)(double)args[9];
+
+            float inv_sr       = 1.0f / sample_rate;
+            float phase_inc    = arp_freq * inv_sr;
+            int   n_frames     = (int)pb->get_frames_available();
+
+            // Simple LCG for noise — fast, deterministic, no heap alloc
+            uint32_t rng = 12345u + (uint32_t)(noise_t * 44100.0f);
+
+            for (int i = 0; i < n_frames; ++i) {
+                float t_offset = i * inv_sr;
+
+                // Voice 1: square arpeggio
+                arp_phase += phase_inc;
+                if (arp_phase >= 1.0f) arp_phase -= 1.0f;
+                float samp = (arp_phase < 0.5f) ? 0.25f : -0.25f;
+
+                // Voice 2: bass kick (sine sweep 120→40 Hz)
+                if (kick_active) {
+                    float kt  = kick_t + t_offset;
+                    float env = 1.0f - kt / kick_dur;
+                    if (env < 0.0f) env = 0.0f;
+                    float freq = 120.0f - 80.0f * (kt / kick_dur);
+                    samp += Math::sin(kt * freq * Math_TAU) * env * 0.45f;
+                }
+
+                // Voice 3: white noise burst
+                if (noise_active) {
+                    rng = rng * 1664525u + 1013904223u;
+                    float n01 = (float)(rng >> 1) / (float)0x7FFFFFFFu - 1.0f;
+                    float nt  = noise_t + t_offset;
+                    float env = Math::exp(-noise_decay * nt);
+                    samp += n01 * env * 0.3f;
+                }
+
+                pb->push_frame(Vector2(samp, samp));
+            }
+
+            result[0] = arp_phase;
+            result[1] = kick_t + n_frames * inv_sr;
+            result[2] = noise_t + n_frames * inv_sr;
+            return result;
+        }
     }
 
     // ── Pass 3: game-completeness namespaces ────────────────────────────
@@ -6508,6 +6586,57 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
             AudioStreamGeneratorPlayback *pb = resolve_gen_pb(p_args[0]);
             if (pb) { float l = (float)(double)p_args[1]; float r = (float)(double)p_args[2]; pb->push_frame(Vector2(l, r)); }
             r_ret = Variant();
+            return true;
+        }
+        // SoundGen.FillVoices(h, sample_rate,
+        //   arp_phase, arp_freq,
+        //   kick_active, kick_dur,
+        //   noise_active, noise_t, noise_decay)
+        // → Array [new_arp_phase, new_kick_t, new_noise_t]
+        if (p_method == "FillVoices" && p_args.size() == 10) {
+            AudioStreamGeneratorPlayback *pb = resolve_gen_pb(p_args[0]);
+            PackedFloat32Array ret3;
+            ret3.resize(3);
+            float ap = (float)(double)p_args[2];
+            float kt = (float)(double)p_args[5];
+            float nt = (float)(double)p_args[8];
+            ret3[0] = ap; ret3[1] = kt; ret3[2] = nt;
+            if (!pb) { r_ret = ret3; return true; }
+
+            float sr          = (float)(double)p_args[1];
+            float arp_freq    = (float)(double)p_args[3];
+            bool  kick_active = (bool)p_args[4];
+            float kick_dur    = (float)(double)p_args[6];
+            bool  noise_act   = (bool)p_args[7];
+            float noise_decay = (float)(double)p_args[9];
+            float inv_sr      = 1.0f / sr;
+            float phase_inc   = arp_freq * inv_sr;
+            int   nf          = (int)pb->get_frames_available();
+            uint32_t rng      = 12345u + (uint32_t)(nt * sr);
+
+            for (int i = 0; i < nf; ++i) {
+                float toff = i * inv_sr;
+                ap += phase_inc;
+                if (ap >= 1.0f) ap -= 1.0f;
+                float s = (ap < 0.5f) ? 0.25f : -0.25f;
+                if (kick_active) {
+                    float k = kt + toff;
+                    float env = 1.0f - k / kick_dur;
+                    if (env < 0.0f) env = 0.0f;
+                    s += Math::sin(k * (120.0f - 80.0f * (k / kick_dur)) * Math_TAU) * env * 0.45f;
+                }
+                if (noise_act) {
+                    rng = rng * 1664525u + 1013904223u;
+                    float n01 = (float)(int32_t)rng / (float)0x7FFFFFFF;
+                    float env = Math::exp(-noise_decay * (nt + toff));
+                    s += n01 * env * 0.3f;
+                }
+                pb->push_frame(Vector2(s, s));
+            }
+            ret3[0] = ap;
+            ret3[1] = kt + nf * inv_sr;
+            ret3[2] = nt + nf * inv_sr;
+            r_ret = ret3;
             return true;
         }
         return false;
