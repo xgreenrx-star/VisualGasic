@@ -2585,6 +2585,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     handled = true;
                 }
 
+                // Sleep(ms) — block the calling thread for N milliseconds.
+                // Mirror the AST interpreter handler (execute.inc ~1006).
+                if (!handled && method.nocasecmp_to("Sleep") == 0 && args.size() == 1) {
+                    int ms = (int)(int64_t)args[0];
+                    if (ms > 0) OS::get_singleton()->delay_msec(ms);
+                    call_ret = Variant();
+                    handled = true;
+                }
+
                 // Kill <path> — VB6 file/symlink delete. Mirror the AST
                 // interpreter handler in visual_gasic_instance_execute.inc
                 // so bytecode-compiled subs delete files too. Falls back to

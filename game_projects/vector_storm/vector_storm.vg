@@ -339,6 +339,7 @@ Sub _Process(ByVal delta As Single)
 		Call _UpdateParticles(delta)
 		Call _UpdateShake(delta)
 		Call _UpdateMultiplier(delta)
+		Call _UpdateAudio(delta)
 		Call _DrawScene()
 		Call _DrawHud(delta)
 		Exit Sub
@@ -359,6 +360,7 @@ Sub _Process(ByVal delta As Single)
 		Call _UpdateParticles(delta)
 		Call _UpdateShake(delta)
 		Call _UpdateMultiplier(delta)
+		Call _UpdateAudio(delta)
 		If respawn_timer <= 0.0 Then
 			respawn_timer = 0.0
 			Call _RespawnPlayer()
@@ -377,6 +379,7 @@ Sub _Process(ByVal delta As Single)
 	Call _UpdateParticles(delta)
 	Call _UpdateShake(delta)
 	Call _UpdateMultiplier(delta)
+	Call _UpdateAudio(delta)
 	Call _SpawnTick(delta)
 	Call _DrawScene()
 	Call _DrawHud(delta)
@@ -1523,6 +1526,89 @@ Sub _UpdateParticles(ByVal delta As Single)
 			End If
 		End If
 	Next
+End Sub
+
+' -------------------------------------------------------------------
+' A9 real-time audio — three voices mixed per frame into SoundGen.
+'   Voice 1: square-wave arpeggio (A-minor, always on)
+'   Voice 2: bass kick (sine sweep, fires on player shoot)
+'   Voice 3: white-noise burst (fires on enemy kill)
+' Called every _Process frame.  Pushes exactly SoundGen.Available
+' frames so the ring-buffer stays full at any frame rate.
+' -------------------------------------------------------------------
+Sub _UpdateAudio(ByVal delta As Single)
+	If sg_handle = 0 Then Exit Sub
+
+	Dim n As Integer = SoundGen.Available(sg_handle)
+	If n <= 0 Then Exit Sub
+
+	' Advance arpeggio note timer by the wall-clock delta, then convert
+	' remaining note duration into a per-sample increment so the note
+	' advances correctly regardless of how many samples we push this frame.
+	arp_note_t = arp_note_t + delta
+	If arp_note_t >= ArpNoteDur Then
+		arp_note_t = arp_note_t - ArpNoteDur
+		arp_idx = arp_idx + 1
+		If arp_idx >= 8 Then arp_idx = 0
+		arp_freq = arp_notes(arp_idx)
+	End If
+
+	' Advance kick and noise timers
+	If kick_active Then
+		kick_t = kick_t + delta
+		If kick_t >= KickDur Then
+			kick_active = False
+			kick_t = 0.0
+		End If
+	End If
+	If noise_active Then
+		noise_t = noise_t + delta
+		If noise_t >= NoiseDur Then
+			noise_active = False
+			noise_t = 0.0
+		End If
+	End If
+
+	' Build the sample buffer
+	Dim buf(n - 1) As Single
+	Dim phaseInc As Single = arp_freq * AudioSampleRateInv
+	Dim j As Integer
+	Dim samp As Single
+	Dim kickSamp As Single
+	Dim noiseSamp As Single
+	Dim kickFreq As Single
+	Dim kickPhase As Single
+	Dim kickEnv As Single
+	Dim noiseEnv As Single
+
+	For j = 0 To n - 1
+		' Voice 1: square wave arpeggio (±0.25 amplitude)
+		arp_phase = arp_phase + phaseInc
+		If arp_phase >= 1.0 Then arp_phase = arp_phase - 1.0
+		If arp_phase < 0.5 Then samp = 0.25 Else samp = -0.25
+
+		' Voice 2: bass kick — sine sweep from 120 Hz → 40 Hz with envelope
+		kickSamp = 0.0
+		If kick_active Then
+			Dim kt As Single = kick_t + j * AudioSampleRateInv
+			kickEnv = 1.0 - kt / KickDur
+			kickFreq = 120.0 - 80.0 * (kt / KickDur)
+			kickPhase = kt * kickFreq
+			kickSamp = Sin(kickPhase * 6.28318530718) * kickEnv * 0.45
+		End If
+
+		' Voice 3: white-noise burst with exponential decay
+		noiseSamp = 0.0
+		If noise_active Then
+			Dim nt As Single = noise_t + j * AudioSampleRateInv
+			noiseEnv = Exp(-noise_decay * nt)
+			noiseSamp = (Rnd() * 2.0 - 1.0) * noiseEnv * 0.3
+		End If
+
+		buf(j) = samp + kickSamp + noiseSamp
+	Next
+
+	SoundGen.PushMonoBuffer(sg_handle, buf)
 End Sub
 
 Sub _DrawParticles(ByVal canvas As Object)
