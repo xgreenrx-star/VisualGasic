@@ -179,9 +179,9 @@ Dim hud_last_multiplier As Integer
 '   1. Square-wave arpeggio (always on, 8-note A-minor pattern)
 '   2. Bass kick (sine sweep, triggered on player fire)
 '   3. White-noise burst (triggered on enemy kill, pitched by multiplier)
-Const AudioSampleRate As Single = 22050.0
-Const AudioSampleRateInv As Single = 0.0000453514739229025
-Const ArpNoteDur As Single = 0.13
+Const AudioSampleRate As Single = 8000.0
+Const AudioSampleRateInv As Single = 0.000125
+Const ArpNoteDur As Single = 0.12
 Const KickDur As Single = 0.10
 Const NoiseDur As Single = 0.18
 Dim sg_handle As Long
@@ -296,16 +296,17 @@ Sub _Ready()
 	multiplier_decay_t = 999.0
 	hud_last_multiplier = -1
 
-	' Audio: open the 22 kHz mono stream and load the arpeggio scale.
-	sg_handle = SoundGen.Open(22050, 0.1)
+	' Audio: open the 8 kHz mono stream (~110 samples/frame at 60fps).
+	' A-minor melody: root, 3rd, 5th, octave, down, rest pattern.
+	sg_handle = SoundGen.Open(8000, 0.15)
 	arp_notes(0) = 110.0
-	arp_notes(1) = 130.8
-	arp_notes(2) = 164.8
-	arp_notes(3) = 220.0
-	arp_notes(4) = 164.8
-	arp_notes(5) = 196.0
-	arp_notes(6) = 164.8
-	arp_notes(7) = 130.8
+	arp_notes(1) = 0.0
+	arp_notes(2) = 130.8
+	arp_notes(3) = 164.8
+	arp_notes(4) = 196.0
+	arp_notes(5) = 0.0
+	arp_notes(6) = 220.0
+	arp_notes(7) = 164.8
 	arp_idx = 0
 	arp_freq = arp_notes(0)
 	arp_phase = 0.0
@@ -1529,11 +1530,11 @@ Sub _UpdateParticles(ByVal delta As Single)
 End Sub
 
 ' -------------------------------------------------------------------
-' A9 real-time audio — three voices mixed in C++ via SoundGen.FillVoices.
-' No VG loop: the entire synthesis runs natively for zero frame cost.
-'   Voice 1: square-wave arpeggio (A-minor, always on)
-'   Voice 2: bass kick (sine sweep, fires on player shoot)
-'   Voice 3: white-noise burst (fires on enemy kill)
+' A9 real-time audio — three voices mixed in pure VG, per frame.
+' Sample rate is 8000 Hz so each frame needs ~110-135 samples max.
+'   Voice 1: square-wave arpeggio with rests (A-minor, freq=0 = silent)
+'   Voice 2: bass kick sine sweep (fires on player shoot)
+'   Voice 3: white-noise burst with exp decay (fires on enemy kill)
 ' -------------------------------------------------------------------
 Sub _UpdateAudio(ByVal delta As Single)
 	If sg_handle = 0 Then Exit Sub
@@ -1547,7 +1548,7 @@ Sub _UpdateAudio(ByVal delta As Single)
 		arp_freq = arp_notes(arp_idx)
 	End If
 
-	' Advance kick / noise lifetime timers (expire stale voices)
+	' Advance kick / noise lifetime timers
 	If kick_active Then
 		kick_t = kick_t + delta
 		If kick_t >= KickDur Then kick_active = False : kick_t = 0.0
@@ -1557,12 +1558,41 @@ Sub _UpdateAudio(ByVal delta As Single)
 		If noise_t >= NoiseDur Then noise_active = False : noise_t = 0.0
 	End If
 
-	' FillVoices does all synthesis + pushes frames in C++ — no VG loop.
-	' Returns [new_arp_phase, new_kick_t, new_noise_t] as a packed array.
-	Dim state As Variant = SoundGen.FillVoices(sg_handle, AudioSampleRate, arp_phase, arp_freq, kick_active, kick_t, KickDur, noise_active, noise_t, noise_decay)
-	arp_phase = state(0)
-	kick_t    = state(1)
-	noise_t   = state(2)
+	Dim n As Integer = SoundGen.Available(sg_handle)
+	If n <= 0 Then Exit Sub
+
+	Dim buf(n - 1) As Single
+	Dim phaseInc As Single = arp_freq * AudioSampleRateInv
+	Dim j As Integer
+	Dim s As Single
+	For j = 0 To n - 1
+		' Voice 1: square arpeggio (silent when freq = 0)
+		If arp_freq > 0.0 Then
+			arp_phase = arp_phase + phaseInc
+			If arp_phase >= 1.0 Then arp_phase = arp_phase - 1.0
+			If arp_phase < 0.5 Then s = 0.12 Else s = -0.12
+		Else
+			s = 0.0
+		End If
+
+		' Voice 2: bass kick sine sweep 120→40 Hz
+		If kick_active Then
+			Dim kt As Single = kick_t + j * AudioSampleRateInv
+			Dim kenv As Single = 1.0 - kt / KickDur
+			If kenv < 0.0 Then kenv = 0.0
+			s = s + Sin(kt * (120.0 - 80.0 * kt / KickDur) * 6.28318) * kenv * 0.45
+		End If
+
+		' Voice 3: noise burst with exponential decay
+		If noise_active Then
+			Dim nt As Single = noise_t + j * AudioSampleRateInv
+			Dim nenv As Single = Exp(-noise_decay * nt)
+			s = s + (Rnd() * 2.0 - 1.0) * nenv * 0.3
+		End If
+
+		buf(j) = s
+	Next
+	SoundGen.PushMonoBuffer(sg_handle, buf)
 End Sub
 
 Sub _DrawParticles(ByVal canvas As Object)
