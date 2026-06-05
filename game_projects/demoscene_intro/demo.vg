@@ -731,8 +731,9 @@ Sub _UpdateAudio(ByVal delta As Single)
 	bass_phase = state(1)
 	arp_phase = state(2)
 	hihat_t = state(3)
+	' Advance kick timer in VG with delta — no need to read state(4)
 	If kick_on Then
-		kick_t_state = state(4)
+		kick_t_state = kick_t_state + delta
 		If kick_t_state > = 0.3 Then kick_on = False
 	End If
 End Sub

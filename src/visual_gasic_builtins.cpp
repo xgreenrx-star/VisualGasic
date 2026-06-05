@@ -1697,13 +1697,18 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
                     if (henv < 0.001f) hihat_on = false;
                 }
 
-                // Voice 5: heartbeat kick drum (sine sweep 100→25 Hz, fast linear decay)
+                // Voice 5: kick drum — layered for all speakers
+                // Layer A: sub-bass 120→30 Hz (subwoofers/headphones)
+                // Layer B: body 180→55 Hz + click transient (laptop speakers)
                 if (kick_on_) {
                     float kt = kick_t_ + i * inv_sr;
                     if (kt < kick_dur_) {
-                        float env = 1.0f - kt / kick_dur_;
-                        float freq = 100.0f - 75.0f * (kt / kick_dur_);
-                        s += Math::sin(kt * freq * Math_TAU) * env * 0.32f;
+                        float env  = 1.0f - kt / kick_dur_;
+                        float ratio = kt / kick_dur_;
+                        s += Math::sin(kt * (120.0f - 90.0f * ratio) * Math_TAU) * env * 0.22f;  // sub
+                        s += Math::sin(kt * (180.0f - 125.0f * ratio) * Math_TAU) * env * 0.28f; // body
+                        if (kt < 0.002f)
+                            s += Math::sin(kt * 1200.0f * Math_TAU) * (1.0f - kt / 0.002f) * 0.16f; // click
                     }
                 }
 
@@ -6805,13 +6810,16 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
                     ht += hihat_inv;
                     if (env < 0.001f) hihat_on = false;
                 }
-                // Voice 5: heartbeat kick drum (sine sweep 100→25 Hz, fast linear decay)
+                // Voice 5: kick drum — layered for all speakers
                 if (kick_on_) {
                     float kt = kick_t_ + i * inv_sr;
                     if (kt < kick_dur_) {
-                        float env = 1.0f - kt / kick_dur_;
-                        float freq = 100.0f - 75.0f * (kt / kick_dur_);
-                        s += Math::sin(kt * freq * Math_TAU) * env * 0.32f;
+                        float env   = 1.0f - kt / kick_dur_;
+                        float ratio = kt / kick_dur_;
+                        s += Math::sin(kt * (120.0f - 90.0f * ratio) * Math_TAU) * env * 0.22f;
+                        s += Math::sin(kt * (180.0f - 125.0f * ratio) * Math_TAU) * env * 0.28f;
+                        if (kt < 0.002f)
+                            s += Math::sin(kt * 1200.0f * Math_TAU) * (1.0f - kt / 0.002f) * 0.16f;
                     }
                 }
                 // Soft-clip to prevent clipping (tanh limiter)
