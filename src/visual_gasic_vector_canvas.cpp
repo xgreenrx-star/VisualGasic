@@ -37,6 +37,8 @@ void VGVectorCanvas2D::_bind_methods() {
 	BIND_ENUM_CONSTANT(CMD_SPRITE_LINES);
 	BIND_ENUM_CONSTANT(CMD_RECTS);
 	BIND_ENUM_CONSTANT(CMD_RECTS_UNIFORM);
+	BIND_ENUM_CONSTANT(CMD_PLASMA_CELLS);
+	BIND_ENUM_CONSTANT(CMD_TORUS_WIREFRAME);
 
 	// ---- Draw* (preserve VB-style PascalCase names) ----
 	ClassDB::bind_method(D_METHOD("DrawLine", "from", "to", "width", "color"),
@@ -446,6 +448,12 @@ void VGVectorCanvas2D::_draw() {
 			case CMD_RECTS_UNIFORM:
 				_draw_rects_uniform_command(cmd);
 				break;
+			case CMD_PLASMA_CELLS:
+				_draw_plasma_cells_command(cmd);
+				break;
+			case CMD_TORUS_WIREFRAME:
+				_draw_torus_wireframe_command(cmd);
+				break;
 			default:
 				break;
 		}
@@ -522,6 +530,83 @@ void VGVectorCanvas2D::_draw_rects_uniform_command(const Dictionary &cmd) {
 			draw_rect(rect, color, true);
 		} else {
 			draw_rect(rect, color, false, 1.0f);
+		}
+	}
+}
+
+void VGVectorCanvas2D::_draw_plasma_cells_command(const Dictionary &cmd) {
+	int gw     = (int)(int64_t)cmd["gw"];
+	int gh     = (int)(int64_t)cmd["gh"];
+	int parity = (int)(int64_t)cmd["parity"];
+	float spd  = (float)(double)cmd["spd"];
+	float fade = (float)(double)cmd["fade"];
+	float pw   = (float)(double)cmd["pw"];
+	float ph   = (float)(double)cmd["ph"];
+	const float TAU = 6.28318530718f;
+	for (int cy = 0; cy < gh; ++cy) {
+		for (int cx = 0; cx < gw; ++cx) {
+			if ((cx + cy) % 2 != parity) continue;
+			float v = ::sinf(cx * 0.42f + spd)
+					+ ::sinf(cy * 0.31f + spd * 1.07f)
+					+ ::sinf((cx + cy) * 0.23f + spd * 0.73f);
+			v = (v + 3.0f) / 6.0f;
+			float cr = ::sinf(v * TAU) * 0.5f + 0.5f;
+			float cg = ::sinf(v * TAU + 2.094f) * 0.5f + 0.5f;
+			float cb = ::sinf(v * TAU + 4.189f) * 0.5f + 0.5f;
+			draw_rect(Rect2(cx * pw, cy * ph, pw + 1.0f, ph + 1.0f), Color(cr, cg, cb, fade), true);
+		}
+	}
+}
+
+void VGVectorCanvas2D::_draw_torus_wireframe_command(const Dictionary &cmd) {
+	float rot_y  = (float)(double)cmd["rot_y"];
+	float rot_x  = (float)(double)cmd["rot_x"];
+	float hue_off= (float)(double)cmd["hue_off"];
+	float tt     = (float)(double)cmd["tt"];
+	float fade   = (float)(double)cmd["fade"];
+	const int U = 20, V = 14;
+	const float R = 0.68f, r = 0.27f, proj_d = 3.4f, scale = 320.0f;
+	const float TAU = 6.28318530718f;
+	Rect2i vr = get_viewport_rect();
+	float vcx = vr.size.x * 0.5f;
+	float vcy = vr.size.y * 0.5f;
+	float cos_ry = ::cosf(rot_y), sin_ry = ::sinf(rot_y);
+	float cos_rx = ::cosf(rot_x), sin_rx = ::sinf(rot_x);
+	for (int ui = 0; ui < U; ++ui) {
+		float u0 = ui * TAU / U;
+		float u1 = (ui + 1) * TAU / U;
+		for (int vi = 0; vi < V; ++vi) {
+			float v0 = vi * TAU / V;
+			// Point A (u0, v0)
+			float rcv0 = r * ::cosf(v0), rsv0 = r * ::sinf(v0);
+			float ax3  = (R + rcv0) * ::cosf(u0);
+			float ay3  = (R + rcv0) * ::sinf(u0);
+			float az3  = rsv0;
+			float ax3r = ax3 * cos_ry + az3 * sin_ry;
+			float az3r = -ax3 * sin_ry + az3 * cos_ry;
+			float ay3f = ay3 * cos_rx - az3r * sin_rx;
+			float az3f = ay3 * sin_rx + az3r * cos_rx + proj_d;
+			if (az3f < 0.1f) az3f = 0.1f;
+			float asx = ax3r / az3f * scale + vcx;
+			float asy = ay3f / az3f * scale + vcy;
+			// Point B (u1, v0)
+			float bx3  = (R + rcv0) * ::cosf(u1);
+			float by3  = (R + rcv0) * ::sinf(u1);
+			float bz3  = rsv0;
+			float bx3r = bx3 * cos_ry + bz3 * sin_ry;
+			float bz3r = -bx3 * sin_ry + bz3 * cos_ry;
+			float by3f = by3 * cos_rx - bz3r * sin_rx;
+			float bz3f = by3 * sin_rx + bz3r * cos_rx + proj_d;
+			if (bz3f < 0.1f) bz3f = 0.1f;
+			float bsx = bx3r / bz3f * scale + vcx;
+			float bsy = by3f / bz3f * scale + vcy;
+			// Hue
+			float hue = (float)ui / U + tt * 0.08f + hue_off;
+			hue -= ::floorf(hue);
+			float cr = ::sinf(hue * TAU) * 0.5f + 0.5f;
+			float cg = ::sinf(hue * TAU + 2.094f) * 0.5f + 0.5f;
+			float cb = ::sinf(hue * TAU + 4.189f) * 0.5f + 0.5f;
+			draw_line(Vector2(asx, asy), Vector2(bsx, bsy), Color(cr, cg, cb, fade * 0.85f), 1.4f);
 		}
 	}
 }
@@ -948,6 +1033,30 @@ void VGVectorCanvas2D::DrawRectsUniform(const PackedVector2Array &rects_xywh, co
 	c["color"] = color;
 	c["fill"] = fill;
 	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawPlasmaCells(int gw, int gh, float spd, float fade, float pw, float ph, int parity) {
+	Dictionary c;
+	c["type"] = (int)CMD_PLASMA_CELLS;
+	c["gw"] = gw;
+	c["gh"] = gh;
+	c["spd"] = spd;
+	c["fade"] = fade;
+	c["pw"] = pw;
+	c["ph"] = ph;
+	c["parity"] = parity;
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawTorusWireframe(float rot_y, float rot_x, float hue_off, float tt, float fade) {
+	Dictionary c;
+	c["type"] = (int)CMD_TORUS_WIREFRAME;
+	c["rot_y"] = rot_y;
+	c["rot_x"] = rot_x;
+	c["hue_off"] = hue_off;
+	c["tt"] = tt;
+	c["fade"] = fade;
 	_queue_command(c);
 }
 

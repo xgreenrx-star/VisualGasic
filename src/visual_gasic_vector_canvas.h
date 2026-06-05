@@ -42,8 +42,10 @@ public:
 		CMD_TEXT = 8,
 		CMD_MULTILINE = 9,
 		CMD_SPRITE_LINES = 10,
-        CMD_RECTS = 11,       // Batch rectangles: PackedVector2Array(x,y,w,h pairs) + per-rect colors
-        CMD_RECTS_UNIFORM = 12, // Batch rectangles: all same color
+        CMD_RECTS = 11,          // Batch rectangles: PackedVector2Array(x,y,w,h pairs) + per-rect colors
+        CMD_RECTS_UNIFORM = 12,   // Batch rectangles: all same color
+        CMD_PLASMA_CELLS = 13,    // Compute+draw plasma grid in C++ — no VG loop needed
+        CMD_TORUS_WIREFRAME = 14, // Compute+draw full torus wireframe in C++ — no VG loop needed
     };
 private:
 	// Command buffer + bookkeeping. Stored as Array<Dictionary> so the
@@ -104,6 +106,8 @@ private:
 	void _draw_sprite_lines_command(const Dictionary &cmd);
 	void _draw_rects_command(const Dictionary &cmd);
 	void _draw_rects_uniform_command(const Dictionary &cmd);
+	void _draw_plasma_cells_command(const Dictionary &cmd);
+	void _draw_torus_wireframe_command(const Dictionary &cmd);
 
 	void _ensure_default_vector_font();
 	Dictionary _get_vector_font(const String &name);
@@ -132,6 +136,10 @@ public:
 	// DrawRectsUniform: all rects share one color.
 	void DrawRects(const PackedVector2Array &rects_xywh, const PackedColorArray &colors, bool fill = true);
 	void DrawRectsUniform(const PackedVector2Array &rects_xywh, const Color &color = Color(1, 1, 1, 1), bool fill = true);
+	// DrawPlasmaCells: compute HSV plasma grid and render all cells matching parity (0=even, 1=odd) entirely in C++.
+	void DrawPlasmaCells(int gw, int gh, float spd, float fade, float pw, float ph, int parity);
+	// DrawTorusWireframe: compute and render full torus wireframe with hue-cycling in C++.
+	void DrawTorusWireframe(float rot_y, float rot_x, float hue_off, float tt, float fade);
 	void DrawSpriteLines(const Ref<Texture2D> &texture, const PackedVector2Array &segments, float width = 6.0f, const Color &color = Color(1, 1, 1, 1));
 	Ref<Texture2D> MakeGlowTexture(int size = 32, const Color &core_color = Color(1, 1, 1, 1));
 	Ref<Texture2D> MakeRadialGlowTexture(int size = 48, const Color &core_color = Color(1, 1, 1, 1));

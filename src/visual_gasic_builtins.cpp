@@ -1668,11 +1668,11 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
                     s += Math::sin(bp * Math_TAU) * 0.18f;
                 }
 
-                // Voice 3: square arp
+                // Voice 3: sawtooth arp
                 if (arp_f > 0.0f) {
                     ap += arp_inc;
                     if (ap >= 1.0f) ap -= 1.0f;
-                    s += (ap < 0.5f) ? 0.07f : -0.07f;
+                    s += (ap * 2.0f - 1.0f) * 0.07f;
                 }
 
                 // Voice 4: noise hi-hat (exponential decay)
@@ -6759,7 +6759,7 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
                 }
                 if (arp_f > 0.0f) {
                     ap += arp_inc; if (ap >= 1.0f) ap -= 1.0f;
-                    s += (ap < 0.5f) ? 0.07f : -0.07f;
+                    s += (ap * 2.0f - 1.0f) * 0.07f;
                 }
                 if (hihat_on) {
                     rng = rng * 1664525u + 1013904223u;
