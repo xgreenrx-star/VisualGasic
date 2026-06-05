@@ -96,8 +96,9 @@ Dim arp_notes(15) As Single
 Sub _Ready()
 	is_headless = DisplayServer.get_name() = "headless"
 
-	' Create VectorCanvas2D dynamically (same pattern as vector_storm)
+	' Create VectorCanvas2D and add it to the scene tree
 	Set canvas = CreateNode("VGVectorCanvas2D")
+	AddChild(canvas)
 
 	Randomize()
 
