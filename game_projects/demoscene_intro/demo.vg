@@ -622,7 +622,12 @@ End Sub
 Sub _DrawCredits(ByVal delta As Single)
 	Dim tt As Single = t - T_CREDITS_START
 	Dim fade As Single = 1.0
-	If tt < 1.5 Then fade = tt / 1.5
+	If tt < 0.0 Then
+		' Cross-fade overlap from plasma: ramp in over final 1.5s of approach
+		fade = (tt + 1.5) / 1.5
+	ElseIf tt < 1.5 Then
+		fade = tt / 1.5
+	End If
 	If tt > 43.5 Then fade = (45.0 - tt) / 1.5
 	If fade < 0.0 Then fade = 0.0
 	If fade > 1.0 Then fade = 1.0
@@ -634,7 +639,7 @@ Sub _DrawCredits(ByVal delta As Single)
 
 	' --- Helix: "VISUAL GASIC" orbiting the screen centre ---
 	Call canvas.BeginGroup("LogoColor")
-	Call canvas.DrawVectorTextHelix("VISUAL GASIC", CX, CY, tt, Color(0.2, 0.7, 1.0, fade), 2.6, 2.2, 260.0, 0.55, 0.0, 0.9, 0.32, "")
+	Call canvas.DrawVectorTextHelix("VISUAL GASIC", CX, CY, tt, Color(0.2, 0.7, 1.0, fade), 2.6, 2.2, 180.0, 0.55, 0.0, 0.9, 0.22, "")
 	Call canvas.EndGroup()
 
 	' --- Sine wave scroller below the helix ---
@@ -660,6 +665,9 @@ End Sub
 Sub _DrawCard(ByVal tt As Single)
 	Dim fade As Single = 1.0
 	If tt < 2.0 Then fade = tt / 2.0
+	If tt > 28.0 Then fade = (30.0 - tt) / 2.0
+	If fade < 0.0 Then fade = 0.0
+	If fade > 1.0 Then fade = 1.0
 
 	' Border frame
 	Dim m As Single = 36.0
