@@ -1,4 +1,11 @@
 ; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
 config_version=5
 
 [application]
@@ -21,6 +28,12 @@ window/stretch/mode="viewport"
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+
+[editor]
+
+movie_writer/movie_file="res://demoscene_intro.avi"
+movie_writer/fps=60
+movie_writer/mix_rate=22050
 
 [rendering]
 

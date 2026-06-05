@@ -84,6 +84,9 @@ Dim scene_bar_offset As Integer
 ' Torus arrival/explosion flash
 Dim flash_alpha As Single
 
+' Set True when running with --write-movie (auto-detected at startup)
+Dim movie_mode As Boolean
+
 ' ===========================================================================
 ' Audio globals
 ' ===========================================================================
@@ -278,6 +281,9 @@ Sub _Ready()
 		arp_notes(ai) = 0.0
 	Next
 
+	' Auto-detect Godot movie-writer mode (set by --write-movie flag)
+	movie_mode = OS.has_feature("movie")
+
 	beat_idx = 0
 	beat_phase = 0.0
 	bar_count = 0
@@ -325,8 +331,12 @@ End Sub
 Sub _Process(ByVal delta As Single)
 	t = t + delta
 
-	' Loop at end of card section
+	' End of card section — quit cleanly in movie mode, loop otherwise
 	If t > = T_CARD_END Then
+		If movie_mode Then
+			GetTree().Quit()
+			Exit Sub
+		End If
 		t = t - T_CARD_END
 		scroll_x = SW
 		credits_started = False
