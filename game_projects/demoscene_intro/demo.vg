@@ -1,4 +1,4 @@
-
+hh
 ' VG Demoscene Intro
 ' Pure procedural vector effects + chiptune. No external assets.
 '
@@ -122,29 +122,29 @@ Sub _Ready()
 	' Audio note tables  (5 scenes × 16 sixteenth-note steps)
 	' Scene 0 — Starfield  (slow Mountain King intro, E minor, ~80 BPM)
 	' Lead: E4 _ F#4 _ G4 _ A4 _  (half-time feel, sparse)
-	lead_notes(0)  = 329.6 : lead_notes(1)  = 0.0
-	lead_notes(2)  = 370.0 : lead_notes(3)  = 0.0
-	lead_notes(4)  = 392.0 : lead_notes(5)  = 0.0
-	lead_notes(6)  = 440.0 : lead_notes(7)  = 0.0
-	lead_notes(8)  = 329.6 : lead_notes(9)  = 0.0
+	lead_notes(0) = 329.6 : lead_notes(1) = 0.0
+	lead_notes(2) = 370.0 : lead_notes(3) = 0.0
+	lead_notes(4) = 392.0 : lead_notes(5) = 0.0
+	lead_notes(6) = 440.0 : lead_notes(7) = 0.0
+	lead_notes(8) = 329.6 : lead_notes(9) = 0.0
 	lead_notes(10) = 370.0 : lead_notes(11) = 0.0
 	lead_notes(12) = 392.0 : lead_notes(13) = 0.0
 	lead_notes(14) = 440.0 : lead_notes(15) = 0.0
 	' Bass scene 0: E2/B2 drone
-	bass_notes(0)  = 82.4  : bass_notes(1)  = 0.0
-	bass_notes(2)  = 82.4  : bass_notes(3)  = 0.0
-	bass_notes(4)  = 123.5 : bass_notes(5)  = 0.0
-	bass_notes(6)  = 123.5 : bass_notes(7)  = 0.0
-	bass_notes(8)  = 82.4  : bass_notes(9)  = 0.0
-	bass_notes(10) = 82.4  : bass_notes(11) = 0.0
+	bass_notes(0) = 82.4 : bass_notes(1) = 0.0
+	bass_notes(2) = 82.4 : bass_notes(3) = 0.0
+	bass_notes(4) = 123.5 : bass_notes(5) = 0.0
+	bass_notes(6) = 123.5 : bass_notes(7) = 0.0
+	bass_notes(8) = 82.4 : bass_notes(9) = 0.0
+	bass_notes(10) = 82.4 : bass_notes(11) = 0.0
 	bass_notes(12) = 123.5 : bass_notes(13) = 0.0
 	bass_notes(14) = 123.5 : bass_notes(15) = 0.0
 	' Arp scene 0: very quiet E minor chord, slow
-	arp_notes(0)  = 659.3 : arp_notes(1)  = 0.0
-	arp_notes(2)  = 784.0 : arp_notes(3)  = 0.0
-	arp_notes(4)  = 987.8 : arp_notes(5)  = 0.0
-	arp_notes(6)  = 784.0 : arp_notes(7)  = 0.0
-	arp_notes(8)  = 659.3 : arp_notes(9)  = 0.0
+	arp_notes(0) = 659.3 : arp_notes(1) = 0.0
+	arp_notes(2) = 784.0 : arp_notes(3) = 0.0
+	arp_notes(4) = 987.8 : arp_notes(5) = 0.0
+	arp_notes(6) = 784.0 : arp_notes(7) = 0.0
+	arp_notes(8) = 659.3 : arp_notes(9) = 0.0
 	arp_notes(10) = 784.0 : arp_notes(11) = 0.0
 	arp_notes(12) = 987.8 : arp_notes(13) = 0.0
 	arp_notes(14) = 784.0 : arp_notes(15) = 0.0
@@ -216,16 +216,16 @@ Sub _Ready()
 	lead_notes(56) = 440.0 : lead_notes(57) = 0.0
 	lead_notes(58) = 493.9 : lead_notes(59) = 0.0
 	lead_notes(60) = 523.2 : lead_notes(61) = 0.0
-	lead_notes(62) = 0.0   : lead_notes(63) = 0.0
+	lead_notes(62) = 0.0 : lead_notes(63) = 0.0
 	' Bass scene 3: A2/E2 sparse
 	bass_notes(48) = 110.0 : bass_notes(49) = 0.0
-	bass_notes(50) = 0.0   : bass_notes(51) = 0.0
+	bass_notes(50) = 0.0 : bass_notes(51) = 0.0
 	bass_notes(52) = 164.8 : bass_notes(53) = 0.0
-	bass_notes(54) = 0.0   : bass_notes(55) = 0.0
+	bass_notes(54) = 0.0 : bass_notes(55) = 0.0
 	bass_notes(56) = 110.0 : bass_notes(57) = 0.0
-	bass_notes(58) = 0.0   : bass_notes(59) = 0.0
+	bass_notes(58) = 0.0 : bass_notes(59) = 0.0
 	bass_notes(60) = 164.8 : bass_notes(61) = 0.0
-	bass_notes(62) = 0.0   : bass_notes(63) = 0.0
+	bass_notes(62) = 0.0 : bass_notes(63) = 0.0
 	' Arp scene 3: silent (let melody breathe)
 	Dim ai As Integer
 	For ai = 48 To 63
@@ -234,21 +234,21 @@ Sub _Ready()
 
 	' Scene 4 — Card  (E minor sustained chord, very slow 60 BPM, fade to silence)
 	lead_notes(64) = 329.6 : lead_notes(65) = 0.0
-	lead_notes(66) = 0.0   : lead_notes(67) = 0.0
+	lead_notes(66) = 0.0 : lead_notes(67) = 0.0
 	lead_notes(68) = 329.6 : lead_notes(69) = 0.0
-	lead_notes(70) = 0.0   : lead_notes(71) = 0.0
+	lead_notes(70) = 0.0 : lead_notes(71) = 0.0
 	lead_notes(72) = 392.0 : lead_notes(73) = 0.0
-	lead_notes(74) = 0.0   : lead_notes(75) = 0.0
+	lead_notes(74) = 0.0 : lead_notes(75) = 0.0
 	lead_notes(76) = 493.9 : lead_notes(77) = 0.0
-	lead_notes(78) = 0.0   : lead_notes(79) = 0.0
-	bass_notes(64) = 82.4  : bass_notes(65) = 0.0
-	bass_notes(66) = 0.0   : bass_notes(67) = 0.0
+	lead_notes(78) = 0.0 : lead_notes(79) = 0.0
+	bass_notes(64) = 82.4 : bass_notes(65) = 0.0
+	bass_notes(66) = 0.0 : bass_notes(67) = 0.0
 	bass_notes(68) = 123.5 : bass_notes(69) = 0.0
-	bass_notes(70) = 0.0   : bass_notes(71) = 0.0
-	bass_notes(72) = 82.4  : bass_notes(73) = 0.0
-	bass_notes(74) = 0.0   : bass_notes(75) = 0.0
+	bass_notes(70) = 0.0 : bass_notes(71) = 0.0
+	bass_notes(72) = 82.4 : bass_notes(73) = 0.0
+	bass_notes(74) = 0.0 : bass_notes(75) = 0.0
 	bass_notes(76) = 123.5 : bass_notes(77) = 0.0
-	bass_notes(78) = 0.0   : bass_notes(79) = 0.0
+	bass_notes(78) = 0.0 : bass_notes(79) = 0.0
 	For ai = 64 To 79
 		arp_notes(ai) = 0.0
 	Next
@@ -272,11 +272,11 @@ End Sub
 ' _UnhandledInput — any keypress / mouse click skips to next section
 ' VG auto-enables unhandled input processing when this sub is present.
 ' ===========================================================================
-Sub _UnhandledInput(ByVal event As Object)
-	Dim is_key As Boolean = event Is InputEventKey
-	Dim is_click As Boolean = event Is InputEventMouseButton
+Sub _UnhandledInput(ByVal Event As Object)
+	Dim is_key As Boolean = Event Is InputEventKey
+	Dim is_click As Boolean = Event Is InputEventMouseButton
 	If Not is_key And Not is_click Then Exit Sub
-	If Not event.Pressed Then Exit Sub
+	If Not Event.Pressed Then Exit Sub
 
 	' Skip to next section boundary
 	If t < T_STARS_END Then
@@ -468,11 +468,8 @@ Sub _DrawCredits(ByVal delta As Single)
 	Call canvas.EndGroup()
 
 	' --- Sine wave scroller below the helix ---
-	' Speed oscillates between 30 px/s (readable pause) and 140 px/s (fast)
-	' Abs(Sin) gives a trough near zero every ~9 seconds.
-	Dim scroll_speed As Single = 30.0 + 110.0 * Abs(Sin(tt * 0.35))
-	scroll_x = scroll_x - delta * scroll_speed
-	Dim credits_text As String = "VISUAL GASIC  *  WRITTEN IN VB-STYLE BASIC  *  100% PROCEDURAL  *  NO ASSETS HARMED  *  VECTOR STORM  *  FIVE EFFECTS ONE FILE  *  "
+	scroll_x = scroll_x - delta * 140.0
+	Dim credits_text As String = "VISUAL GASIC * WRITTEN IN VB-STYLE BASIC * 100% PROCEDURAL * NO ASSETS HARMED * VECTOR STORM * FIVE EFFECTS ONE FILE * "
 	Dim text_width As Single = Len(credits_text) * 22.0
 	If scroll_x < - text_width Then scroll_x = SW
 	Call canvas.DrawVectorTextWave(credits_text, scroll_x, 560.0, tt, Color(1.0, 0.85, 0.2, fade), 1.2, 1.4, 28.0, 0.15, 2.5, 1.5, True, "")
@@ -508,7 +505,7 @@ Sub _DrawCard(ByVal tt As Single)
 
 	' Wave title "VISUAL GASIC" across the card
 	Dim wave_x As Single = 120.0
-	Call canvas.DrawVectorTextWave("VISUAL GASIC", wave_x, 270.0, tt, Color(0.2, 0.7, 1.0, fade), 2.8, 2.5, 22.0, 0.28, 1.8, 2.0, False, "")
+	Call canvas.DrawVectorTextWave("VISUAL GASIC", wave_x, 270.0, tt, Color(0.2, 0.7, 1.0, fade), 2.8, 2.5, 7.0, 0.18, 1.2, 2.0, False, "")
 
 	' Tagline
 	Call canvas.DrawVectorTextCentered(Vector2(CX, 380.0), "A VB6-STYLE LANGUAGE FOR GODOT 4", Color(1.0, 1.0, 1.0, fade * 0.85), 1.1, 1.2, 2.2, "")
@@ -544,7 +541,7 @@ Sub _UpdateAudio(ByVal delta As Single)
 	' Smooth tempo glide (10 BPM/s)
 	Dim bpm_diff As Single = target_bpm - bpm_current
 	If bpm_diff > 10.0 * delta Then bpm_diff = 10.0 * delta
-	If bpm_diff < - 10.0 * delta Then bpm_diff = -10.0 * delta
+	If bpm_diff < - 10.0 * delta Then bpm_diff = - 10.0 * delta
 	bpm_current = bpm_current + bpm_diff
 	Dim note_offset As Integer = scene * 16
 
