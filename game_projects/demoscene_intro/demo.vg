@@ -75,12 +75,12 @@ Dim plasma_speed As Single
 Dim sg_handle As Long
 Const AudioSR As Single = 22050.0
 Const AudioSRInv As Single = 0.0000453514
-Dim bpm_current As Single      ' accelerates each loop
+Dim bpm_current As Single
 Const BeatsPerBar As Integer = 16
 
 Dim beat_phase As Single
 Dim beat_idx As Integer
-Dim bar_count As Integer       ' counts completed loops for BPM ramp
+Dim bar_count As Integer
 
 Dim lead_phase As Single
 Dim bass_phase As Single
@@ -88,9 +88,10 @@ Dim arp_phase As Single
 Dim hihat_t As Single
 Dim hihat_active As Boolean
 
-Dim lead_notes(15) As Single
-Dim bass_notes(15) As Single
-Dim arp_notes(15) As Single
+' 5 scenes × 16 steps  (0=stars 1=torus 2=plasma 3=credits 4=card)
+Dim lead_notes(79) As Single
+Dim bass_notes(79) As Single
+Dim arp_notes(79) As Single
 
 ' ===========================================================================
 ' _Ready
@@ -117,44 +118,145 @@ Sub _Ready()
 	torus_hue_offset = 0.0
 	plasma_speed = 1.0
 
-	' --- In the Hall of the Mountain King (Grieg, 1876 — public domain) ---
-	' Lead: E minor ascending run  E4 F#4 G4 A4 B4 G4 B4 _ (x2)
-	' E4=329.6 F#4=370.0 G4=392.0 A4=440.0 B4=493.9
-	lead_notes(0) = 329.6 : lead_notes(1) = 370.0
-	lead_notes(2) = 392.0 : lead_notes(3) = 440.0
-	lead_notes(4) = 493.9 : lead_notes(5) = 392.0
-	lead_notes(6) = 493.9 : lead_notes(7) = 0.0
-	lead_notes(8) = 329.6 : lead_notes(9) = 370.0
-	lead_notes(10) = 392.0 : lead_notes(11) = 440.0
-	lead_notes(12) = 493.9 : lead_notes(13) = 392.0
-	lead_notes(14) = 493.9 : lead_notes(15) = 0.0
+	' -----------------------------------------------------------------------
+	' Audio note tables  (5 scenes × 16 sixteenth-note steps)
+	' Scene 0 — Starfield  (slow Mountain King intro, E minor, ~80 BPM)
+	' Lead: E4 _ F#4 _ G4 _ A4 _  (half-time feel, sparse)
+	lead_notes(0)  = 329.6 : lead_notes(1)  = 0.0
+	lead_notes(2)  = 370.0 : lead_notes(3)  = 0.0
+	lead_notes(4)  = 392.0 : lead_notes(5)  = 0.0
+	lead_notes(6)  = 440.0 : lead_notes(7)  = 0.0
+	lead_notes(8)  = 329.6 : lead_notes(9)  = 0.0
+	lead_notes(10) = 370.0 : lead_notes(11) = 0.0
+	lead_notes(12) = 392.0 : lead_notes(13) = 0.0
+	lead_notes(14) = 440.0 : lead_notes(15) = 0.0
+	' Bass scene 0: E2/B2 drone
+	bass_notes(0)  = 82.4  : bass_notes(1)  = 0.0
+	bass_notes(2)  = 82.4  : bass_notes(3)  = 0.0
+	bass_notes(4)  = 123.5 : bass_notes(5)  = 0.0
+	bass_notes(6)  = 123.5 : bass_notes(7)  = 0.0
+	bass_notes(8)  = 82.4  : bass_notes(9)  = 0.0
+	bass_notes(10) = 82.4  : bass_notes(11) = 0.0
+	bass_notes(12) = 123.5 : bass_notes(13) = 0.0
+	bass_notes(14) = 123.5 : bass_notes(15) = 0.0
+	' Arp scene 0: very quiet E minor chord, slow
+	arp_notes(0)  = 659.3 : arp_notes(1)  = 0.0
+	arp_notes(2)  = 784.0 : arp_notes(3)  = 0.0
+	arp_notes(4)  = 987.8 : arp_notes(5)  = 0.0
+	arp_notes(6)  = 784.0 : arp_notes(7)  = 0.0
+	arp_notes(8)  = 659.3 : arp_notes(9)  = 0.0
+	arp_notes(10) = 784.0 : arp_notes(11) = 0.0
+	arp_notes(12) = 987.8 : arp_notes(13) = 0.0
+	arp_notes(14) = 784.0 : arp_notes(15) = 0.0
 
-	' Bass: same melody one octave down  E3 F#3 G3 A3 B3 G3 B3 _
-	' E3=164.8 F#3=185.0 G3=196.0 A3=220.0 B3=246.9
-	bass_notes(0) = 164.8 : bass_notes(1) = 185.0
-	bass_notes(2) = 196.0 : bass_notes(3) = 220.0
-	bass_notes(4) = 246.9 : bass_notes(5) = 196.0
-	bass_notes(6) = 246.9 : bass_notes(7) = 0.0
-	bass_notes(8) = 164.8 : bass_notes(9) = 185.0
-	bass_notes(10) = 196.0 : bass_notes(11) = 220.0
-	bass_notes(12) = 246.9 : bass_notes(13) = 196.0
-	bass_notes(14) = 246.9 : bass_notes(15) = 0.0
+	' Scene 1 — Torus  (Mountain King main run, accelerating 100→180 BPM)
+	' Lead: E4 F#4 G4 A4 B4 G4 B4 _ (the classic ascending phrase)
+	lead_notes(16) = 329.6 : lead_notes(17) = 370.0
+	lead_notes(18) = 392.0 : lead_notes(19) = 440.0
+	lead_notes(20) = 493.9 : lead_notes(21) = 392.0
+	lead_notes(22) = 493.9 : lead_notes(23) = 0.0
+	lead_notes(24) = 329.6 : lead_notes(25) = 370.0
+	lead_notes(26) = 392.0 : lead_notes(27) = 440.0
+	lead_notes(28) = 493.9 : lead_notes(29) = 392.0
+	lead_notes(30) = 493.9 : lead_notes(31) = 0.0
+	' Bass scene 1: octave below
+	bass_notes(16) = 164.8 : bass_notes(17) = 185.0
+	bass_notes(18) = 196.0 : bass_notes(19) = 220.0
+	bass_notes(20) = 246.9 : bass_notes(21) = 196.0
+	bass_notes(22) = 246.9 : bass_notes(23) = 0.0
+	bass_notes(24) = 164.8 : bass_notes(25) = 185.0
+	bass_notes(26) = 196.0 : bass_notes(27) = 220.0
+	bass_notes(28) = 246.9 : bass_notes(29) = 196.0
+	bass_notes(30) = 246.9 : bass_notes(31) = 0.0
+	' Arp scene 1: E minor chord tones every step
+	arp_notes(16) = 659.3 : arp_notes(17) = 784.0
+	arp_notes(18) = 987.8 : arp_notes(19) = 784.0
+	arp_notes(20) = 659.3 : arp_notes(21) = 987.8
+	arp_notes(22) = 784.0 : arp_notes(23) = 659.3
+	arp_notes(24) = 659.3 : arp_notes(25) = 784.0
+	arp_notes(26) = 987.8 : arp_notes(27) = 784.0
+	arp_notes(28) = 659.3 : arp_notes(29) = 987.8
+	arp_notes(30) = 784.0 : arp_notes(31) = 659.3
 
-	' Arp: E minor chord tones cycling (E5 G5 B5 G5 pattern)
-	' E5=659.3 G5=784.0 B5=987.8 D5=587.3
-	arp_notes(0) = 659.3 : arp_notes(1) = 784.0
-	arp_notes(2) = 987.8 : arp_notes(3) = 784.0
-	arp_notes(4) = 659.3 : arp_notes(5) = 987.8
-	arp_notes(6) = 784.0 : arp_notes(7) = 659.3
-	arp_notes(8) = 659.3 : arp_notes(9) = 784.0
-	arp_notes(10) = 987.8 : arp_notes(11) = 784.0
-	arp_notes(12) = 659.3 : arp_notes(13) = 987.8
-	arp_notes(14) = 784.0 : arp_notes(15) = 659.3
+	' Scene 2 — Plasma  (frantic, locked at 200 BPM, Mountain King high variant)
+	' Lead: B4 A4 G4 F#4 E4 F#4 G4 A4  (descending answer phrase)
+	lead_notes(32) = 493.9 : lead_notes(33) = 440.0
+	lead_notes(34) = 392.0 : lead_notes(35) = 370.0
+	lead_notes(36) = 329.6 : lead_notes(37) = 370.0
+	lead_notes(38) = 392.0 : lead_notes(39) = 440.0
+	lead_notes(40) = 493.9 : lead_notes(41) = 440.0
+	lead_notes(42) = 392.0 : lead_notes(43) = 370.0
+	lead_notes(44) = 329.6 : lead_notes(45) = 370.0
+	lead_notes(46) = 392.0 : lead_notes(47) = 440.0
+	' Bass scene 2: driving root E2 every beat
+	bass_notes(32) = 164.8 : bass_notes(33) = 164.8
+	bass_notes(34) = 246.9 : bass_notes(35) = 246.9
+	bass_notes(36) = 164.8 : bass_notes(37) = 164.8
+	bass_notes(38) = 246.9 : bass_notes(39) = 246.9
+	bass_notes(40) = 164.8 : bass_notes(41) = 164.8
+	bass_notes(42) = 246.9 : bass_notes(43) = 246.9
+	bass_notes(44) = 164.8 : bass_notes(45) = 164.8
+	bass_notes(46) = 246.9 : bass_notes(47) = 246.9
+	' Arp scene 2: rapid E minor chord stabs every step
+	arp_notes(32) = 987.8 : arp_notes(33) = 784.0
+	arp_notes(34) = 659.3 : arp_notes(35) = 784.0
+	arp_notes(36) = 987.8 : arp_notes(37) = 784.0
+	arp_notes(38) = 659.3 : arp_notes(39) = 784.0
+	arp_notes(40) = 987.8 : arp_notes(41) = 784.0
+	arp_notes(42) = 659.3 : arp_notes(43) = 784.0
+	arp_notes(44) = 987.8 : arp_notes(45) = 784.0
+	arp_notes(46) = 659.3 : arp_notes(47) = 784.0
+
+	' Scene 3 — Credits  (slow, melodic — A minor, single-voice feel, 90 BPM)
+	' Lead: A4 _ G4 _ E4 _ C5 _ A4 _ B4 _ C5 _ _ _
+	lead_notes(48) = 440.0 : lead_notes(49) = 0.0
+	lead_notes(50) = 392.0 : lead_notes(51) = 0.0
+	lead_notes(52) = 329.6 : lead_notes(53) = 0.0
+	lead_notes(54) = 523.2 : lead_notes(55) = 0.0
+	lead_notes(56) = 440.0 : lead_notes(57) = 0.0
+	lead_notes(58) = 493.9 : lead_notes(59) = 0.0
+	lead_notes(60) = 523.2 : lead_notes(61) = 0.0
+	lead_notes(62) = 0.0   : lead_notes(63) = 0.0
+	' Bass scene 3: A2/E2 sparse
+	bass_notes(48) = 110.0 : bass_notes(49) = 0.0
+	bass_notes(50) = 0.0   : bass_notes(51) = 0.0
+	bass_notes(52) = 164.8 : bass_notes(53) = 0.0
+	bass_notes(54) = 0.0   : bass_notes(55) = 0.0
+	bass_notes(56) = 110.0 : bass_notes(57) = 0.0
+	bass_notes(58) = 0.0   : bass_notes(59) = 0.0
+	bass_notes(60) = 164.8 : bass_notes(61) = 0.0
+	bass_notes(62) = 0.0   : bass_notes(63) = 0.0
+	' Arp scene 3: silent (let melody breathe)
+	Dim ai As Integer
+	For ai = 48 To 63
+		arp_notes(ai) = 0.0
+	Next
+
+	' Scene 4 — Card  (E minor sustained chord, very slow 60 BPM, fade to silence)
+	lead_notes(64) = 329.6 : lead_notes(65) = 0.0
+	lead_notes(66) = 0.0   : lead_notes(67) = 0.0
+	lead_notes(68) = 329.6 : lead_notes(69) = 0.0
+	lead_notes(70) = 0.0   : lead_notes(71) = 0.0
+	lead_notes(72) = 392.0 : lead_notes(73) = 0.0
+	lead_notes(74) = 0.0   : lead_notes(75) = 0.0
+	lead_notes(76) = 493.9 : lead_notes(77) = 0.0
+	lead_notes(78) = 0.0   : lead_notes(79) = 0.0
+	bass_notes(64) = 82.4  : bass_notes(65) = 0.0
+	bass_notes(66) = 0.0   : bass_notes(67) = 0.0
+	bass_notes(68) = 123.5 : bass_notes(69) = 0.0
+	bass_notes(70) = 0.0   : bass_notes(71) = 0.0
+	bass_notes(72) = 82.4  : bass_notes(73) = 0.0
+	bass_notes(74) = 0.0   : bass_notes(75) = 0.0
+	bass_notes(76) = 123.5 : bass_notes(77) = 0.0
+	bass_notes(78) = 0.0   : bass_notes(79) = 0.0
+	For ai = 64 To 79
+		arp_notes(ai) = 0.0
+	Next
 
 	beat_idx = 0
 	beat_phase = 0.0
 	bar_count = 0
-	bpm_current = 100.0
+	bpm_current = 80.0
 	lead_phase = 0.0
 	bass_phase = 0.0
 	arp_phase = 0.0
@@ -390,13 +492,37 @@ Sub _DrawCard(ByVal tt As Single)
 End Sub
 
 ' ===========================================================================
-' Audio: 4-voice chiptune at 132 BPM
-' Voices: square lead, sine bass, square arp, noise hi-hat
+' Audio: In the Hall of the Mountain King (Grieg 1876)
+' Per-scene tempo + notes.  Triangle lead, sine bass, sawtooth arp, noise hat.
 ' ===========================================================================
 Sub _UpdateAudio(ByVal delta As Single)
 	If sg_handle = 0 Then Exit Sub
 
-	' Advance beat clock — accelerates each loop (Mountain King effect)
+	' --- Select scene (0-4) and configure tempo ---
+	Dim scene As Integer = 0
+	Dim target_bpm As Single = 80.0
+	If t > = T_TORUS_START And t < T_TORUS_END Then
+		scene = 1
+		target_bpm = 100.0 + bar_count * 8.0
+		If target_bpm > 180.0 Then target_bpm = 180.0
+	ElseIf t > = T_PLASMA_START And t < T_PLASMA_END Then
+		scene = 2
+		target_bpm = 200.0
+	ElseIf t > = T_CREDITS_START And t < T_CREDITS_END Then
+		scene = 3
+		target_bpm = 90.0
+	ElseIf t > = T_CARD_START Then
+		scene = 4
+		target_bpm = 60.0
+	End If
+	' Smooth tempo glide (10 BPM/s)
+	Dim bpm_diff As Single = target_bpm - bpm_current
+	If bpm_diff > 10.0 * delta Then bpm_diff = 10.0 * delta
+	If bpm_diff < - 10.0 * delta Then bpm_diff = -10.0 * delta
+	bpm_current = bpm_current + bpm_diff
+	Dim note_offset As Integer = scene * 16
+
+	' --- Advance beat clock ---
 	Dim step_dur As Single = 60.0 / (bpm_current * 4.0)
 	beat_phase = beat_phase + delta / step_dur
 	Do While beat_phase > = 1.0
@@ -405,12 +531,12 @@ Sub _UpdateAudio(ByVal delta As Single)
 		If beat_idx > = BeatsPerBar Then
 			beat_idx = 0
 			bar_count = bar_count + 1
-			' Speed up by 8 BPM each loop, cap at 220
-			bpm_current = bpm_current + 8.0
-			If bpm_current > 220.0 Then bpm_current = 220.0
 		End If
-		' Hi-hat on every 2nd step
-		If beat_idx Mod 2 = 0 Then
+		' Hi-hat: every step in plasma (frantic), every 2nd elsewhere
+		Dim hat_div As Integer = 2
+		If scene = 2 Then hat_div = 1
+		If scene > = 3 Then hat_div = 4
+		If beat_idx Mod hat_div = 0 Then
 			hihat_active = True
 			hihat_t = 0.0
 		End If
@@ -418,11 +544,9 @@ Sub _UpdateAudio(ByVal delta As Single)
 
 	If SoundGen.Available(sg_handle) < = 0 Then Exit Sub
 
-	' FillVoices4 synthesises all 4 voices in C++ and pushes PCM directly.
-	' Returns PackedFloat32Array [new_lead_phase, new_bass_phase, new_arp_phase, new_hihat_t].
-	Dim lead_f As Single = lead_notes(beat_idx)
-	Dim bass_f As Single = bass_notes(beat_idx)
-	Dim arp_f As Single = arp_notes(beat_idx)
+	Dim lead_f As Single = lead_notes(note_offset + beat_idx)
+	Dim bass_f As Single = bass_notes(note_offset + beat_idx)
+	Dim arp_f As Single = arp_notes(note_offset + beat_idx)
 
 	Dim state As Variant = SoundGen.FillVoices4(sg_handle, AudioSR, lead_f, lead_phase, bass_f, bass_phase, arp_f, arp_phase, hihat_active, hihat_t, AudioSRInv)
 	lead_phase = state(0)

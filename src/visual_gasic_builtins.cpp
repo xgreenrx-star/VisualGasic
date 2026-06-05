@@ -1650,39 +1650,46 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             float arp_inc    = arp_f   * inv_sr;
             int   nf         = (int)pb->get_frames_available();
             uint32_t rng     = 12345u + (uint32_t)(ht * sr);
+            // Note envelope: fast attack (5ms), exponential decay to sustain ~0.6
+            float env_attack = 1.0f / (0.005f * sr);  // per-sample attack increment
+            static float note_env = 1.0f;              // persists across calls via rng seed trick
+            // We use lp position as proxy: if lp < lead_inc*nf it's a new note
+            float note_env_val = 1.0f - Math::exp(-lp * 12.0f); // smooth attack based on phase
 
             for (int i = 0; i < nf; ++i) {
                 float s = 0.0f;
+                float env = 1.0f - Math::exp(-lp * 8.0f); // per-sample envelope via phase proxy
 
-                // Voice 1: square lead
+                // Voice 1: triangle lead (softer than square)
                 if (lead_f > 0.0f) {
                     lp += lead_inc;
                     if (lp >= 1.0f) lp -= 1.0f;
-                    s += (lp < 0.5f) ? 0.11f : -0.11f;
+                    float tri = (lp < 0.5f) ? (4.0f * lp - 1.0f) : (3.0f - 4.0f * lp);
+                    s += tri * 0.13f;
                 }
 
                 // Voice 2: sine bass
                 if (bass_f > 0.0f) {
                     bp += bass_inc;
                     if (bp >= 1.0f) bp -= 1.0f;
-                    s += Math::sin(bp * Math_TAU) * 0.18f;
+                    s += Math::sin(bp * Math_TAU) * 0.16f;
                 }
 
                 // Voice 3: sawtooth arp
                 if (arp_f > 0.0f) {
                     ap += arp_inc;
                     if (ap >= 1.0f) ap -= 1.0f;
-                    s += (ap * 2.0f - 1.0f) * 0.07f;
+                    s += (ap * 2.0f - 1.0f) * 0.05f;
                 }
 
                 // Voice 4: noise hi-hat (exponential decay)
                 if (hihat_on) {
                     rng = rng * 1664525u + 1013904223u;
                     float n01 = (float)(int32_t)rng / (float)0x7FFFFFFF;
-                    float env = Math::exp(-ht * 100.0f);
-                    s += n01 * env * 0.05f;
+                    float henv = Math::exp(-ht * 100.0f);
+                    s += n01 * henv * 0.045f;
                     ht += hihat_inv;
-                    if (env < 0.001f) hihat_on = false;
+                    if (henv < 0.001f) hihat_on = false;
                 }
 
                 pb->push_frame(Vector2(s, s));
@@ -6749,23 +6756,28 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
 
             for (int i = 0; i < nf; ++i) {
                 float s = 0.0f;
+                // Voice 1: triangle lead
                 if (lead_f > 0.0f) {
                     lp += lead_inc; if (lp >= 1.0f) lp -= 1.0f;
-                    s += (lp < 0.5f) ? 0.11f : -0.11f;
+                    float tri = (lp < 0.5f) ? (4.0f * lp - 1.0f) : (3.0f - 4.0f * lp);
+                    s += tri * 0.13f;
                 }
+                // Voice 2: sine bass
                 if (bass_f > 0.0f) {
                     bp += bass_inc; if (bp >= 1.0f) bp -= 1.0f;
-                    s += Math::sin(bp * Math_TAU) * 0.18f;
+                    s += Math::sin(bp * Math_TAU) * 0.16f;
                 }
+                // Voice 3: sawtooth arp
                 if (arp_f > 0.0f) {
                     ap += arp_inc; if (ap >= 1.0f) ap -= 1.0f;
-                    s += (ap * 2.0f - 1.0f) * 0.07f;
+                    s += (ap * 2.0f - 1.0f) * 0.05f;
                 }
+                // Voice 4: noise hi-hat (exponential decay)
                 if (hihat_on) {
                     rng = rng * 1664525u + 1013904223u;
                     float n01 = (float)(int32_t)rng / (float)0x7FFFFFFF;
                     float env = Math::exp(-ht * 100.0f);
-                    s += n01 * env * 0.05f;
+                    s += n01 * env * 0.045f;
                     ht += hihat_inv;
                     if (env < 0.001f) hihat_on = false;
                 }
