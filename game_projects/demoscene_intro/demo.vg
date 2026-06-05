@@ -75,11 +75,12 @@ Dim plasma_speed As Single
 Dim sg_handle As Long
 Const AudioSR As Single = 22050.0
 Const AudioSRInv As Single = 0.0000453514
-Const BPM As Single = 150.0
-Const BeatsPerBar As Integer = 16 ' 16 sixteenth-note steps per bar
+Dim bpm_current As Single      ' accelerates each loop
+Const BeatsPerBar As Integer = 16
 
-Dim beat_phase As Single ' 0..1 within current step
-Dim beat_idx As Integer ' 0..15
+Dim beat_phase As Single
+Dim beat_idx As Integer
+Dim bar_count As Integer       ' counts completed loops for BPM ramp
 
 Dim lead_phase As Single
 Dim bass_phase As Single
@@ -116,39 +117,44 @@ Sub _Ready()
 	torus_hue_offset = 0.0
 	plasma_speed = 1.0
 
-	' --- Audio note tables (A minor, 150 BPM) ---------------------------
-	' Lead melody — two-phrase hook: E5 D5 C5 B4 | A4 _ C5 E5 | G5 E5 D5 C5 | E5 A4 _ _
-	lead_notes(0) = 659.3 : lead_notes(1) = 587.3
-	lead_notes(2) = 523.2 : lead_notes(3) = 493.9
-	lead_notes(4) = 440.0 : lead_notes(5) = 0.0
-	lead_notes(6) = 523.2 : lead_notes(7) = 659.3
-	lead_notes(8) = 784.0 : lead_notes(9) = 659.3
-	lead_notes(10) = 587.3 : lead_notes(11) = 523.2
-	lead_notes(12) = 659.3 : lead_notes(13) = 440.0
-	lead_notes(14) = 0.0 : lead_notes(15) = 0.0
+	' --- In the Hall of the Mountain King (Grieg, 1876 — public domain) ---
+	' Lead: E minor ascending run  E4 F#4 G4 A4 B4 G4 B4 _ (x2)
+	' E4=329.6 F#4=370.0 G4=392.0 A4=440.0 B4=493.9
+	lead_notes(0) = 329.6 : lead_notes(1) = 370.0
+	lead_notes(2) = 392.0 : lead_notes(3) = 440.0
+	lead_notes(4) = 493.9 : lead_notes(5) = 392.0
+	lead_notes(6) = 493.9 : lead_notes(7) = 0.0
+	lead_notes(8) = 329.6 : lead_notes(9) = 370.0
+	lead_notes(10) = 392.0 : lead_notes(11) = 440.0
+	lead_notes(12) = 493.9 : lead_notes(13) = 392.0
+	lead_notes(14) = 493.9 : lead_notes(15) = 0.0
 
-	' Bass (A2=110, E3=164.8, C3=130.8, D3=146.8, G2=98.0) — driving root-fifth groove
-	bass_notes(0) = 110.0 : bass_notes(1) = 0.0
-	bass_notes(2) = 110.0 : bass_notes(3) = 0.0
-	bass_notes(4) = 164.8 : bass_notes(5) = 0.0
-	bass_notes(6) = 164.8 : bass_notes(7) = 0.0
-	bass_notes(8) = 130.8 : bass_notes(9) = 0.0
-	bass_notes(10) = 146.8 : bass_notes(11) = 0.0
-	bass_notes(12) = 110.0 : bass_notes(13) = 0.0
-	bass_notes(14) = 164.8 : bass_notes(15) = 0.0
+	' Bass: same melody one octave down  E3 F#3 G3 A3 B3 G3 B3 _
+	' E3=164.8 F#3=185.0 G3=196.0 A3=220.0 B3=246.9
+	bass_notes(0) = 164.8 : bass_notes(1) = 185.0
+	bass_notes(2) = 196.0 : bass_notes(3) = 220.0
+	bass_notes(4) = 246.9 : bass_notes(5) = 196.0
+	bass_notes(6) = 246.9 : bass_notes(7) = 0.0
+	bass_notes(8) = 164.8 : bass_notes(9) = 185.0
+	bass_notes(10) = 196.0 : bass_notes(11) = 220.0
+	bass_notes(12) = 246.9 : bass_notes(13) = 196.0
+	bass_notes(14) = 246.9 : bass_notes(15) = 0.0
 
-	' Arp (A minor chord tones sawtooth — A5/E5/C5/G4 rotating arpeggio)
-	arp_notes(0) = 880.0 : arp_notes(1) = 659.3
-	arp_notes(2) = 523.2 : arp_notes(3) = 659.3
-	arp_notes(4) = 880.0 : arp_notes(5) = 784.0
-	arp_notes(6) = 659.3 : arp_notes(7) = 523.2
-	arp_notes(8) = 880.0 : arp_notes(9) = 659.3
-	arp_notes(10) = 523.2 : arp_notes(11) = 440.0
-	arp_notes(12) = 659.3 : arp_notes(13) = 784.0
-	arp_notes(14) = 880.0 : arp_notes(15) = 659.3
+	' Arp: E minor chord tones cycling (E5 G5 B5 G5 pattern)
+	' E5=659.3 G5=784.0 B5=987.8 D5=587.3
+	arp_notes(0) = 659.3 : arp_notes(1) = 784.0
+	arp_notes(2) = 987.8 : arp_notes(3) = 784.0
+	arp_notes(4) = 659.3 : arp_notes(5) = 987.8
+	arp_notes(6) = 784.0 : arp_notes(7) = 659.3
+	arp_notes(8) = 659.3 : arp_notes(9) = 784.0
+	arp_notes(10) = 987.8 : arp_notes(11) = 784.0
+	arp_notes(12) = 659.3 : arp_notes(13) = 987.8
+	arp_notes(14) = 784.0 : arp_notes(15) = 659.3
 
 	beat_idx = 0
 	beat_phase = 0.0
+	bar_count = 0
+	bpm_current = 100.0
 	lead_phase = 0.0
 	bass_phase = 0.0
 	arp_phase = 0.0
@@ -390,14 +396,20 @@ End Sub
 Sub _UpdateAudio(ByVal delta As Single)
 	If sg_handle = 0 Then Exit Sub
 
-	' Advance beat clock — 16 steps per bar at 132 BPM
-	Dim step_dur As Single = 60.0 / (BPM * 4.0)
+	' Advance beat clock — accelerates each loop (Mountain King effect)
+	Dim step_dur As Single = 60.0 / (bpm_current * 4.0)
 	beat_phase = beat_phase + delta / step_dur
 	Do While beat_phase > = 1.0
 		beat_phase = beat_phase - 1.0
 		beat_idx = beat_idx + 1
-		If beat_idx > = BeatsPerBar Then beat_idx = 0
-		' Trigger hi-hat on every 2nd step (8th-note drive)
+		If beat_idx > = BeatsPerBar Then
+			beat_idx = 0
+			bar_count = bar_count + 1
+			' Speed up by 8 BPM each loop, cap at 220
+			bpm_current = bpm_current + 8.0
+			If bpm_current > 220.0 Then bpm_current = 220.0
+		End If
+		' Hi-hat on every 2nd step
 		If beat_idx Mod 2 = 0 Then
 			hihat_active = True
 			hihat_t = 0.0
