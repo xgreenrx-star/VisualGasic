@@ -1626,16 +1626,21 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         //   Voice 3: square arp   (±0.07 at 50% duty)
         //   Voice 4: noise hi-hat (exponential decay ×0.05)
         // Pushes PCM directly into the ring-buffer.  Returns updated phase state.
-        if (METHOD_IS("soundgen_fillvoices4") && args.size() == 11) {
+        if (METHOD_IS("soundgen_fillvoices4") && (args.size() == 11 || args.size() == 14)) {
             r_handled = true;
             AudioStreamGeneratorPlayback *pb = resolve_gen_playback(args[0]);
             PackedFloat32Array result4;
-            result4.resize(4);
+            bool has_kick = (args.size() >= 14);
+            result4.resize(has_kick ? 5 : 4);
             float lp = (float)(double)args[3];
             float bp = (float)(double)args[5];
             float ap = (float)(double)args[7];
             float ht = (float)(double)args[9];
+            bool  kick_on_  = has_kick && (bool)args[11];
+            float kick_t_   = has_kick ? (float)(double)args[12] : 0.0f;
+            float kick_dur_ = has_kick ? (float)(double)args[13] : 0.3f;
             result4[0] = lp; result4[1] = bp; result4[2] = ap; result4[3] = ht;
+            if (has_kick) result4[4] = kick_t_;
             if (!pb) return result4;
 
             float sr         = (float)(double)args[1];
@@ -1692,6 +1697,16 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
                     if (henv < 0.001f) hihat_on = false;
                 }
 
+                // Voice 5: heartbeat kick drum (sine sweep 100→25 Hz, fast linear decay)
+                if (kick_on_) {
+                    float kt = kick_t_ + i * inv_sr;
+                    if (kt < kick_dur_) {
+                        float env = 1.0f - kt / kick_dur_;
+                        float freq = 100.0f - 75.0f * (kt / kick_dur_);
+                        s += Math::sin(kt * freq * Math_TAU) * env * 0.22f;
+                    }
+                }
+
                 pb->push_frame(Vector2(s, s));
             }
 
@@ -1699,6 +1714,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             result4[1] = bp;
             result4[2] = ap;
             result4[3] = ht;
+            if (has_kick) result4[4] = kick_t_ + nf * inv_sr;
             return result4;
         }
     }
@@ -6730,15 +6746,20 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
         // SoundGen.FillVoices4(h, sample_rate, lead_f, lead_phase, bass_f, bass_phase,
         //                       arp_f, arp_phase, hihat_active, hihat_t, hihat_inv_sr)
         // → PackedFloat32Array [new_lead_phase, new_bass_phase, new_arp_phase, new_hihat_t]
-        if (p_method == "FillVoices4" && p_args.size() == 11) {
+        if (p_method == "FillVoices4" && (p_args.size() == 11 || p_args.size() == 14)) {
             AudioStreamGeneratorPlayback *pb = resolve_gen_pb(p_args[0]);
             PackedFloat32Array ret4;
-            ret4.resize(4);
+            bool has_kick = (p_args.size() >= 14);
+            ret4.resize(has_kick ? 5 : 4);
             float lp = (float)(double)p_args[3];
             float bp = (float)(double)p_args[5];
             float ap = (float)(double)p_args[7];
             float ht = (float)(double)p_args[9];
+            bool  kick_on_  = has_kick && (bool)p_args[11];
+            float kick_t_   = has_kick ? (float)(double)p_args[12] : 0.0f;
+            float kick_dur_ = has_kick ? (float)(double)p_args[13] : 0.3f;
             ret4[0] = lp; ret4[1] = bp; ret4[2] = ap; ret4[3] = ht;
+            if (has_kick) ret4[4] = kick_t_;
             if (!pb) { r_ret = ret4; return true; }
 
             float sr        = (float)(double)p_args[1];
@@ -6781,9 +6802,19 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
                     ht += hihat_inv;
                     if (env < 0.001f) hihat_on = false;
                 }
+                // Voice 5: heartbeat kick drum (sine sweep 100→25 Hz, fast linear decay)
+                if (kick_on_) {
+                    float kt = kick_t_ + i * inv_sr;
+                    if (kt < kick_dur_) {
+                        float env = 1.0f - kt / kick_dur_;
+                        float freq = 100.0f - 75.0f * (kt / kick_dur_);
+                        s += Math::sin(kt * freq * Math_TAU) * env * 0.22f;
+                    }
+                }
                 pb->push_frame(Vector2(s, s));
             }
             ret4[0] = lp; ret4[1] = bp; ret4[2] = ap; ret4[3] = ht;
+            if (has_kick) ret4[4] = kick_t_ + nf * inv_sr;
             r_ret = ret4;
             return true;
         }

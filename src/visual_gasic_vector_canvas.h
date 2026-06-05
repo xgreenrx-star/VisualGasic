@@ -139,7 +139,7 @@ public:
 	// DrawPlasmaCells: compute HSV plasma grid and render all cells matching parity (0=even, 1=odd) entirely in C++.
 	void DrawPlasmaCells(int gw, int gh, float spd, float fade, float pw, float ph, int parity);
 	// DrawTorusWireframe: compute and render full torus wireframe with hue-cycling in C++.
-	void DrawTorusWireframe(float rot_y, float rot_x, float hue_off, float tt, float fade, float cx, float cy);
+	void DrawTorusWireframe(float rot_y, float rot_x, float hue_off, float tt, float fade, float cx, float cy, float scale = 1.0f);
 	void DrawSpriteLines(const Ref<Texture2D> &texture, const PackedVector2Array &segments, float width = 6.0f, const Color &color = Color(1, 1, 1, 1));
 	Ref<Texture2D> MakeGlowTexture(int size = 32, const Color &core_color = Color(1, 1, 1, 1));
 	Ref<Texture2D> MakeRadialGlowTexture(int size = 48, const Color &core_color = Color(1, 1, 1, 1));

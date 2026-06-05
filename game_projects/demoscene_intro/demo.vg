@@ -68,6 +68,15 @@ Dim credits_started As Boolean
 Dim torus_hue_offset As Single
 Dim plasma_speed As Single
 
+' Torus: BPM-driven accumulated rotation + heartbeat pulse
+Dim torus_rot_x As Single
+Dim torus_rot_y As Single
+Dim heart_phase As Single
+Dim heart_bpm As Single
+Dim heart_pulse As Single
+Dim kick_on As Boolean
+Dim kick_t_state As Single
+
 ' ===========================================================================
 ' Audio globals
 ' ===========================================================================
@@ -116,6 +125,13 @@ Sub _Ready()
 	credits_started = False
 	torus_hue_offset = 0.0
 	plasma_speed = 1.0
+	torus_rot_x = 0.0
+	torus_rot_y = 0.0
+	heart_phase = 0.0
+	heart_bpm = 50.0
+	heart_pulse = 0.0
+	kick_on = False
+	kick_t_state = 0.0
 
 	' -----------------------------------------------------------------------
 	' Audio note tables  (5 scenes × 16 sixteenth-note steps)
@@ -325,6 +341,7 @@ Sub _Process(ByVal delta As Single)
 			Call _DrawTorus(t - T_STARS_END)
 		End If
 	ElseIf t > = T_TORUS_START And t < T_TORUS_END Then
+		Call _DrawStarsAlpha(delta, 0.2)
 		Call _DrawTorus(t - T_TORUS_START)
 		If t > T_TORUS_END - T_OVERLAP Then
 			Call _DrawPlasma(t - T_TORUS_END)
@@ -370,6 +387,11 @@ Sub _DrawStars(ByVal delta As Single)
 	If spd_ramp > 1.0 Then spd_ramp = 1.0
 	Dim star_spd As Single = delta * (bpm_current / 80.0) * 0.38 * spd_ramp
 
+	' Drifting vanishing point — two overlapping sines give a Lissajous-style
+	' banking path. Drift scales up from 0 over the first 4s with the speed ramp.
+	Dim vp_x As Single = CX + Sin(t * 0.17) * 110.0 * spd_ramp
+	Dim vp_y As Single = CY + Sin(t * 0.11) * 65.0 * spd_ramp
+
 	Dim i As Integer
 	For i = 0 To StarCount - 1
 		Dim old_z As Single = star_z(i)
@@ -382,10 +404,10 @@ Sub _DrawStars(ByVal delta As Single)
 			old_z = 1.0
 		End If
 
-		Dim sx As Single = (star_x(i) - 0.5) / star_z(i) * 900.0 + CX
-		Dim sy As Single = (star_y(i) - 0.5) / star_z(i) * 900.0 + CY
-		Dim ox As Single = (star_x(i) - 0.5) / old_z * 900.0 + CX
-		Dim oy As Single = (star_y(i) - 0.5) / old_z * 900.0 + CY
+		Dim sx As Single = (star_x(i) - 0.5) / star_z(i) * 900.0 + vp_x
+		Dim sy As Single = (star_y(i) - 0.5) / star_z(i) * 900.0 + vp_y
+		Dim ox As Single = (star_x(i) - 0.5) / old_z * 900.0 + vp_x
+		Dim oy As Single = (star_y(i) - 0.5) / old_z * 900.0 + vp_y
 
 		If sx < - 20 Or sx > SW + 20 Or sy < - 20 Or sy > SH + 20 Then GoTo _next_star
 
@@ -440,6 +462,10 @@ Sub _DrawStarsAlpha(ByVal delta As Single, ByVal alpha_scale As Single)
 	Dim n_mid As Integer = 0
 	Dim n_bri As Integer = 0
 
+	' Same drifting VP formula as _DrawStars, computed from global t
+	Dim vp_x As Single = CX + Sin(t * 0.17) * 110.0
+	Dim vp_y As Single = CY + Sin(t * 0.11) * 65.0
+
 	Dim i As Integer
 	For i = 0 To StarCount - 1
 		Dim old_z As Single = star_z(i)
@@ -450,10 +476,10 @@ Sub _DrawStarsAlpha(ByVal delta As Single, ByVal alpha_scale As Single)
 			star_z(i) = 1.0
 			old_z = 1.0
 		End If
-		Dim sx As Single = (star_x(i) - 0.5) / star_z(i) * 900.0 + CX
-		Dim sy As Single = (star_y(i) - 0.5) / star_z(i) * 900.0 + CY
-		Dim ox As Single = (star_x(i) - 0.5) / old_z * 900.0 + CX
-		Dim oy As Single = (star_y(i) - 0.5) / old_z * 900.0 + CY
+		Dim sx As Single = (star_x(i) - 0.5) / star_z(i) * 900.0 + vp_x
+		Dim sy As Single = (star_y(i) - 0.5) / star_z(i) * 900.0 + vp_y
+		Dim ox As Single = (star_x(i) - 0.5) / old_z * 900.0 + vp_x
+		Dim oy As Single = (star_y(i) - 0.5) / old_z * 900.0 + vp_y
 		If sx < - 20 Or sx > SW + 20 Or sy < - 20 Or sy > SH + 20 Then GoTo _next_star_a
 		Dim bright As Single = (1.0 - star_z(i)) * fade
 		If bright > 0.65 * alpha_scale Then
@@ -496,8 +522,11 @@ Sub _DrawTorus(ByVal tt As Single)
 	If fade < 0.0 Then fade = 0.0
 	If fade > 1.0 Then fade = 1.0
 
+	' Heartbeat scale pulse: torus swells on each beat like a heart
+	Dim torus_scale As Single = 1.0 + 0.22 * heart_pulse
+
 	Call canvas.BeginGroup("TorusColor")
-	Call canvas.DrawTorusWireframe(tt * 0.65, tt * 0.38, torus_hue_offset, tt, fade, CX, CY)
+	Call canvas.DrawTorusWireframe(torus_rot_y, torus_rot_x, torus_hue_offset, tt, fade, CX, CY, torus_scale)
 	Call canvas.EndGroup()
 End Sub
 
@@ -655,15 +684,41 @@ Sub _UpdateAudio(ByVal delta As Single)
 		End If
 	Loop
 
+	' --- BPM-driven torus rotation + hue cycle (all scenes, keeps spinning) ---
+	torus_rot_x = torus_rot_x + delta * (bpm_current / 100.0) * 1.1
+	torus_rot_y = torus_rot_y + delta * (bpm_current / 100.0) * 0.65
+	torus_hue_offset = torus_hue_offset + delta * (bpm_current / 100.0) * 0.06
+
+	' --- Heartbeat oscillator (active during torus scene) ---
+	' BPM oscillates 32-68 over ~48s giving a slow living pulse
+	If t > = T_TORUS_START And t < T_TORUS_END Then
+		Dim tt_h As Single = t - T_TORUS_START
+		heart_bpm = 50.0 + 18.0 * Sin(tt_h * 0.13)
+		heart_phase = heart_phase + delta * heart_bpm / 60.0
+		If heart_phase > = 1.0 Then
+			heart_phase = heart_phase - 1.0
+			heart_pulse = 1.0
+			kick_on = True
+			kick_t_state = 0.0
+		End If
+	End If
+	' Decay pulse regardless of scene (fast: half-life ~0.1s)
+	heart_pulse = heart_pulse * (1.0 - delta * 7.0)
+	If heart_pulse < 0.0 Then heart_pulse = 0.0
+
 	If SoundGen.Available(sg_handle) < = 0 Then Exit Sub
 
 	Dim lead_f As Single = lead_notes(note_offset + beat_idx)
 	Dim bass_f As Single = bass_notes(note_offset + beat_idx)
 	Dim arp_f As Single = arp_notes(note_offset + beat_idx)
 
-	Dim state As Variant = SoundGen.FillVoices4(sg_handle, AudioSR, lead_f, lead_phase, bass_f, bass_phase, arp_f, arp_phase, hihat_active, hihat_t, AudioSRInv)
+	Dim state As Variant = SoundGen.FillVoices4(sg_handle, AudioSR, lead_f, lead_phase, bass_f, bass_phase, arp_f, arp_phase, hihat_active, hihat_t, AudioSRInv, kick_on, kick_t_state, 0.3)
 	lead_phase = state(0)
 	bass_phase = state(1)
 	arp_phase = state(2)
 	hihat_t = state(3)
+	If kick_on Then
+		kick_t_state = state(4)
+		If kick_t_state > = 0.3 Then kick_on = False
+	End If
 End Sub

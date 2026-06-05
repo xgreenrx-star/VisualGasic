@@ -73,8 +73,8 @@ void VGVectorCanvas2D::_bind_methods() {
 			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("DrawPlasmaCells", "gw", "gh", "spd", "fade", "pw", "ph", "parity"),
 			&VGVectorCanvas2D::DrawPlasmaCells);
-	ClassDB::bind_method(D_METHOD("DrawTorusWireframe", "rot_y", "rot_x", "hue_off", "tt", "fade", "cx", "cy"),
-			&VGVectorCanvas2D::DrawTorusWireframe);
+	ClassDB::bind_method(D_METHOD("DrawTorusWireframe", "rot_y", "rot_x", "hue_off", "tt", "fade", "cx", "cy", "scale"),
+			&VGVectorCanvas2D::DrawTorusWireframe, DEFVAL(1.0));
 	ClassDB::bind_method(D_METHOD("DrawSpriteLines", "texture", "segments", "width", "color"),
 			&VGVectorCanvas2D::DrawSpriteLines,
 			DEFVAL(6.0f), DEFVAL(Color(1, 1, 1, 1)));
@@ -583,7 +583,9 @@ void VGVectorCanvas2D::_draw_torus_wireframe_command(const Dictionary &cmd) {
 	float vcx    = (float)(double)cmd["cx"];
 	float vcy    = (float)(double)cmd["cy"];
 	const int U = 20, V = 14;
-	const float R = 0.68f, r = 0.27f, proj_d = 3.4f, scale = 320.0f;
+	float scale_v = cmd.has("scale") ? (float)(double)cmd["scale"] : 1.0f;
+	const float R = 0.68f, r = 0.27f, proj_d = 3.4f;
+	const float scale = 320.0f * scale_v;
 	const float TAU = 6.28318530718f;
 	float cos_ry = ::cosf(rot_y), sin_ry = ::sinf(rot_y);
 	float cos_rx = ::cosf(rot_x), sin_rx = ::sinf(rot_x);
@@ -1064,7 +1066,7 @@ void VGVectorCanvas2D::DrawPlasmaCells(int gw, int gh, float spd, float fade, fl
 	_queue_command(c);
 }
 
-void VGVectorCanvas2D::DrawTorusWireframe(float rot_y, float rot_x, float hue_off, float tt, float fade, float cx, float cy) {
+void VGVectorCanvas2D::DrawTorusWireframe(float rot_y, float rot_x, float hue_off, float tt, float fade, float cx, float cy, float scale) {
 	Dictionary c;
 	c["type"] = (int)CMD_TORUS_WIREFRAME;
 	c["rot_y"] = rot_y;
@@ -1074,6 +1076,7 @@ void VGVectorCanvas2D::DrawTorusWireframe(float rot_y, float rot_x, float hue_of
 	c["fade"] = fade;
 	c["cx"] = cx;
 	c["cy"] = cy;
+	c["scale"] = scale;
 	_queue_command(c);
 }
 
