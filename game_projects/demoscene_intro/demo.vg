@@ -363,29 +363,46 @@ Sub _DrawPlasma(ByVal tt As Single)
 
 	Dim cy_loop As Integer
 	Dim cx_loop As Integer
+	Dim v As Single
+	Dim hue As Single
+	Dim cr As Single
+	Dim cg As Single
+	Dim cb As Single
+
+	' Two passes — one BeginGroup/EndGroup per pass instead of one per cell.
+	' Drops 1840 GDExtension calls/frame to 2 while keeping both Tweak groups.
+
+	Call canvas.BeginGroup("PlasmaA")
 	For cy_loop = 0 To PlasmaH - 1
 		For cx_loop = 0 To PlasmaW - 1
-			' Plasma value — sum of three sine waves
-			Dim v As Single = Sin(cx_loop * 0.42 + spd) + Sin(cy_loop * 0.31 + spd * 1.07) + Sin((cx_loop + cy_loop) * 0.23 + spd * 0.73)
-			v = (v + 3.0) / 6.0
-
-			' HSV-to-RGB via sine trick
-			Dim hue As Single = v
-			Dim cr As Single = Sin(hue * Tau) * 0.5 + 0.5
-			Dim cg As Single = Sin(hue * Tau + 2.094) * 0.5 + 0.5
-			Dim cb As Single = Sin(hue * Tau + 4.189) * 0.5 + 0.5
-
-			' Split cells into two groups so the overlay shows two colour pickers
 			If (cx_loop + cy_loop) Mod 2 = 0 Then
-				Call canvas.BeginGroup("PlasmaA")
-			Else
-				Call canvas.BeginGroup("PlasmaB")
+				v = Sin(cx_loop * 0.42 + spd) + Sin(cy_loop * 0.31 + spd * 1.07) + Sin((cx_loop + cy_loop) * 0.23 + spd * 0.73)
+				v = (v + 3.0) / 6.0
+				hue = v
+				cr = Sin(hue * Tau) * 0.5 + 0.5
+				cg = Sin(hue * Tau + 2.094) * 0.5 + 0.5
+				cb = Sin(hue * Tau + 4.189) * 0.5 + 0.5
+				Call canvas.DrawRect(Rect2(cx_loop * pw, cy_loop * ph, pw + 1.0, ph + 1.0), 0.0, Color(cr, cg, cb, fade), True, Color(cr, cg, cb, fade))
 			End If
-
-			Call canvas.DrawRect(Rect2(cx_loop * pw, cy_loop * ph, pw + 1.0, ph + 1.0), 0.0, Color(cr, cg, cb, fade), True, Color(cr, cg, cb, fade))
-			Call canvas.EndGroup()
 		Next
 	Next
+	Call canvas.EndGroup()
+
+	Call canvas.BeginGroup("PlasmaB")
+	For cy_loop = 0 To PlasmaH - 1
+		For cx_loop = 0 To PlasmaW - 1
+			If (cx_loop + cy_loop) Mod 2 = 1 Then
+				v = Sin(cx_loop * 0.42 + spd) + Sin(cy_loop * 0.31 + spd * 1.07) + Sin((cx_loop + cy_loop) * 0.23 + spd * 0.73)
+				v = (v + 3.0) / 6.0
+				hue = v
+				cr = Sin(hue * Tau) * 0.5 + 0.5
+				cg = Sin(hue * Tau + 2.094) * 0.5 + 0.5
+				cb = Sin(hue * Tau + 4.189) * 0.5 + 0.5
+				Call canvas.DrawRect(Rect2(cx_loop * pw, cy_loop * ph, pw + 1.0, ph + 1.0), 0.0, Color(cr, cg, cb, fade), True, Color(cr, cg, cb, fade))
+			End If
+		Next
+	Next
+	Call canvas.EndGroup()
 End Sub
 
 ' ===========================================================================
@@ -483,65 +500,17 @@ Sub _UpdateAudio(ByVal delta As Single)
 		End If
 	Loop
 
-	Dim n As Integer = SoundGen.Available(sg_handle)
-	If n < = 0 Then Exit Sub
+	If SoundGen.Available(sg_handle) < = 0 Then Exit Sub
 
-	Dim buf(n - 1) As Single
-
+	' FillVoices4 synthesises all 4 voices in C++ and pushes PCM directly.
+	' Returns PackedFloat32Array [new_lead_phase, new_bass_phase, new_arp_phase, new_hihat_t].
 	Dim lead_f As Single = lead_notes(beat_idx)
 	Dim bass_f As Single = bass_notes(beat_idx)
 	Dim arp_f As Single = arp_notes(beat_idx)
 
-	Dim lead_inc As Single = 0.0
-	Dim bass_inc As Single = 0.0
-	Dim arp_inc As Single = 0.0
-	If lead_f > 0.0 Then lead_inc = lead_f * AudioSRInv
-	If bass_f > 0.0 Then bass_inc = bass_f * AudioSRInv
-	If arp_f > 0.0 Then arp_inc = arp_f * AudioSRInv
-
-	Dim hihat_inv_sr As Single = AudioSRInv
-
-	Dim lead_samp As Single
-	Dim bass_samp As Single
-	Dim arp_samp As Single
-	Dim hihat_samp As Single
-	Dim env As Single
-	Dim i As Integer
-	For i = 0 To n - 1
-		lead_samp = 0.0
-		If lead_f > 0.0 Then
-			lead_phase = lead_phase + lead_inc
-			If lead_phase > = 1.0 Then lead_phase = lead_phase - 1.0
-			If lead_phase < 0.5 Then lead_samp = 0.11 Else lead_samp = - 0.11
-		End If
-
-		bass_samp = 0.0
-		If bass_f > 0.0 Then
-			bass_phase = bass_phase + bass_inc
-			If bass_phase > = 1.0 Then bass_phase = bass_phase - 1.0
-			bass_samp = Sin(bass_phase * Tau) * 0.18
-		End If
-
-		arp_samp = 0.0
-		If arp_f > 0.0 Then
-			arp_phase = arp_phase + arp_inc
-			If arp_phase > = 1.0 Then arp_phase = arp_phase - 1.0
-			If arp_phase < 0.5 Then arp_samp = 0.07 Else arp_samp = - 0.07
-		End If
-
-		hihat_samp = 0.0
-		If hihat_active Then
-			hihat_t = hihat_t + hihat_inv_sr
-			env = 1.0 - hihat_t * 100.0
-			If env < 0.0 Then
-				env = 0.0
-				hihat_active = False
-			End If
-			hihat_samp = (Rnd() * 2.0 - 1.0) * env * 0.05
-		End If
-
-		buf(i) = lead_samp + bass_samp + arp_samp + hihat_samp
-	Next
-
-	Call SoundGen.PushMonoBuffer(sg_handle, buf)
+	Dim state As Variant = SoundGen.FillVoices4(sg_handle, AudioSR, lead_f, lead_phase, bass_f, bass_phase, arp_f, arp_phase, hihat_active, hihat_t, AudioSRInv)
+	lead_phase = state(0)
+	bass_phase = state(1)
+	arp_phase = state(2)
+	hihat_t = state(3)
 End Sub

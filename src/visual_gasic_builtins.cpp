@@ -1585,7 +1585,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
                 // Voice 1: square arpeggio
                 arp_phase += phase_inc;
                 if (arp_phase >= 1.0f) arp_phase -= 1.0f;
-                float samp = (arp_phase < 0.5f) ? 0.25f : -0.25f;
+                float samp = (arp_phase < 0.5f) ? 0.10f : -0.10f;
 
                 // Voice 2: bass kick (sine sweep 120→40 Hz)
                 if (kick_active) {
@@ -1593,7 +1593,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
                     float env = 1.0f - kt / kick_dur;
                     if (env < 0.0f) env = 0.0f;
                     float freq = 120.0f - 80.0f * (kt / kick_dur);
-                    samp += Math::sin(kt * freq * Math_TAU) * env * 0.45f;
+                    samp += Math::sin(kt * freq * Math_TAU) * env * 0.65f;
                 }
 
                 // Voice 3: white noise burst
@@ -1602,7 +1602,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
                     float n01 = (float)(rng >> 1) / (float)0x7FFFFFFFu - 1.0f;
                     float nt  = noise_t + t_offset;
                     float env = Math::exp(-noise_decay * nt);
-                    samp += n01 * env * 0.3f;
+                    samp += n01 * env * 0.50f;
                 }
 
                 pb->push_frame(Vector2(samp, samp));
@@ -1612,6 +1612,87 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             result[1] = kick_t + n_frames * inv_sr;
             result[2] = noise_t + n_frames * inv_sr;
             return result;
+        }
+
+        // SoundGen.FillVoices4(h, sample_rate,
+        //   lead_f, lead_phase,
+        //   bass_f, bass_phase,
+        //   arp_f,  arp_phase,
+        //   hihat_active, hihat_t, hihat_inv_sr)
+        // → PackedFloat32Array [new_lead_phase, new_bass_phase, new_arp_phase, new_hihat_t]
+        // Synthesizes exactly SoundGen.Available() mono frames in C++ for all 4 voices:
+        //   Voice 1: square lead  (±0.11 at 50% duty)
+        //   Voice 2: sine bass    (×0.18)
+        //   Voice 3: square arp   (±0.07 at 50% duty)
+        //   Voice 4: noise hi-hat (exponential decay ×0.05)
+        // Pushes PCM directly into the ring-buffer.  Returns updated phase state.
+        if (METHOD_IS("soundgen_fillvoices4") && args.size() == 11) {
+            r_handled = true;
+            AudioStreamGeneratorPlayback *pb = resolve_gen_playback(args[0]);
+            PackedFloat32Array result4;
+            result4.resize(4);
+            float lp = (float)(double)args[3];
+            float bp = (float)(double)args[5];
+            float ap = (float)(double)args[7];
+            float ht = (float)(double)args[9];
+            result4[0] = lp; result4[1] = bp; result4[2] = ap; result4[3] = ht;
+            if (!pb) return result4;
+
+            float sr         = (float)(double)args[1];
+            float lead_f     = (float)(double)args[2];
+            float bass_f     = (float)(double)args[4];
+            float arp_f      = (float)(double)args[6];
+            bool  hihat_on   = (bool)args[8];
+            float hihat_inv  = (float)(double)args[10];
+            float inv_sr     = 1.0f / sr;
+            float lead_inc   = lead_f  * inv_sr;
+            float bass_inc   = bass_f  * inv_sr;
+            float arp_inc    = arp_f   * inv_sr;
+            int   nf         = (int)pb->get_frames_available();
+            uint32_t rng     = 12345u + (uint32_t)(ht * sr);
+
+            for (int i = 0; i < nf; ++i) {
+                float s = 0.0f;
+
+                // Voice 1: square lead
+                if (lead_f > 0.0f) {
+                    lp += lead_inc;
+                    if (lp >= 1.0f) lp -= 1.0f;
+                    s += (lp < 0.5f) ? 0.11f : -0.11f;
+                }
+
+                // Voice 2: sine bass
+                if (bass_f > 0.0f) {
+                    bp += bass_inc;
+                    if (bp >= 1.0f) bp -= 1.0f;
+                    s += Math::sin(bp * Math_TAU) * 0.18f;
+                }
+
+                // Voice 3: square arp
+                if (arp_f > 0.0f) {
+                    ap += arp_inc;
+                    if (ap >= 1.0f) ap -= 1.0f;
+                    s += (ap < 0.5f) ? 0.07f : -0.07f;
+                }
+
+                // Voice 4: noise hi-hat (exponential decay)
+                if (hihat_on) {
+                    rng = rng * 1664525u + 1013904223u;
+                    float n01 = (float)(int32_t)rng / (float)0x7FFFFFFF;
+                    float env = Math::exp(-ht * 100.0f);
+                    s += n01 * env * 0.05f;
+                    ht += hihat_inv;
+                    if (env < 0.001f) hihat_on = false;
+                }
+
+                pb->push_frame(Vector2(s, s));
+            }
+
+            result4[0] = lp;
+            result4[1] = bp;
+            result4[2] = ap;
+            result4[3] = ht;
+            return result4;
         }
     }
 
@@ -6618,18 +6699,18 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
                 float toff = i * inv_sr;
                 ap += phase_inc;
                 if (ap >= 1.0f) ap -= 1.0f;
-                float s = (ap < 0.5f) ? 0.25f : -0.25f;
+                float s = (ap < 0.5f) ? 0.10f : -0.10f;
                 if (kick_active) {
                     float k = kt + toff;
                     float env = 1.0f - k / kick_dur;
                     if (env < 0.0f) env = 0.0f;
-                    s += Math::sin(k * (120.0f - 80.0f * (k / kick_dur)) * Math_TAU) * env * 0.45f;
+                    s += Math::sin(k * (120.0f - 80.0f * (k / kick_dur)) * Math_TAU) * env * 0.65f;
                 }
                 if (noise_act) {
                     rng = rng * 1664525u + 1013904223u;
                     float n01 = (float)(int32_t)rng / (float)0x7FFFFFFF;
                     float env = Math::exp(-noise_decay * (nt + toff));
-                    s += n01 * env * 0.3f;
+                    s += n01 * env * 0.50f;
                 }
                 pb->push_frame(Vector2(s, s));
             }
@@ -6637,6 +6718,61 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
             ret3[1] = kt + nf * inv_sr;
             ret3[2] = nt + nf * inv_sr;
             r_ret = ret3;
+            return true;
+        }
+        // SoundGen.FillVoices4(h, sample_rate, lead_f, lead_phase, bass_f, bass_phase,
+        //                       arp_f, arp_phase, hihat_active, hihat_t, hihat_inv_sr)
+        // → PackedFloat32Array [new_lead_phase, new_bass_phase, new_arp_phase, new_hihat_t]
+        if (p_method == "FillVoices4" && p_args.size() == 11) {
+            AudioStreamGeneratorPlayback *pb = resolve_gen_pb(p_args[0]);
+            PackedFloat32Array ret4;
+            ret4.resize(4);
+            float lp = (float)(double)p_args[3];
+            float bp = (float)(double)p_args[5];
+            float ap = (float)(double)p_args[7];
+            float ht = (float)(double)p_args[9];
+            ret4[0] = lp; ret4[1] = bp; ret4[2] = ap; ret4[3] = ht;
+            if (!pb) { r_ret = ret4; return true; }
+
+            float sr        = (float)(double)p_args[1];
+            float lead_f    = (float)(double)p_args[2];
+            float bass_f    = (float)(double)p_args[4];
+            float arp_f     = (float)(double)p_args[6];
+            bool  hihat_on  = (bool)p_args[8];
+            float hihat_inv = (float)(double)p_args[10];
+            float inv_sr    = 1.0f / sr;
+            float lead_inc  = lead_f * inv_sr;
+            float bass_inc  = bass_f * inv_sr;
+            float arp_inc   = arp_f  * inv_sr;
+            int   nf        = (int)pb->get_frames_available();
+            uint32_t rng    = 12345u + (uint32_t)(ht * sr);
+
+            for (int i = 0; i < nf; ++i) {
+                float s = 0.0f;
+                if (lead_f > 0.0f) {
+                    lp += lead_inc; if (lp >= 1.0f) lp -= 1.0f;
+                    s += (lp < 0.5f) ? 0.11f : -0.11f;
+                }
+                if (bass_f > 0.0f) {
+                    bp += bass_inc; if (bp >= 1.0f) bp -= 1.0f;
+                    s += Math::sin(bp * Math_TAU) * 0.18f;
+                }
+                if (arp_f > 0.0f) {
+                    ap += arp_inc; if (ap >= 1.0f) ap -= 1.0f;
+                    s += (ap < 0.5f) ? 0.07f : -0.07f;
+                }
+                if (hihat_on) {
+                    rng = rng * 1664525u + 1013904223u;
+                    float n01 = (float)(int32_t)rng / (float)0x7FFFFFFF;
+                    float env = Math::exp(-ht * 100.0f);
+                    s += n01 * env * 0.05f;
+                    ht += hihat_inv;
+                    if (env < 0.001f) hihat_on = false;
+                }
+                pb->push_frame(Vector2(s, s));
+            }
+            ret4[0] = lp; ret4[1] = bp; ret4[2] = ap; ret4[3] = ht;
+            r_ret = ret4;
             return true;
         }
         return false;

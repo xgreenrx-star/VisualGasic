@@ -35,6 +35,8 @@ void VGVectorCanvas2D::_bind_methods() {
 	BIND_ENUM_CONSTANT(CMD_TEXT);
 	BIND_ENUM_CONSTANT(CMD_MULTILINE);
 	BIND_ENUM_CONSTANT(CMD_SPRITE_LINES);
+	BIND_ENUM_CONSTANT(CMD_RECTS);
+	BIND_ENUM_CONSTANT(CMD_RECTS_UNIFORM);
 
 	// ---- Draw* (preserve VB-style PascalCase names) ----
 	ClassDB::bind_method(D_METHOD("DrawLine", "from", "to", "width", "color"),
@@ -61,6 +63,12 @@ void VGVectorCanvas2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("DrawLines", "segments", "width", "color"),
 			&VGVectorCanvas2D::DrawLines,
 			DEFVAL(2.0f), DEFVAL(Color(1, 1, 1, 1)));
+	ClassDB::bind_method(D_METHOD("DrawRects", "rects_xywh", "colors", "fill"),
+			&VGVectorCanvas2D::DrawRects,
+			DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("DrawRectsUniform", "rects_xywh", "color", "fill"),
+			&VGVectorCanvas2D::DrawRectsUniform,
+			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("DrawSpriteLines", "texture", "segments", "width", "color"),
 			&VGVectorCanvas2D::DrawSpriteLines,
 			DEFVAL(6.0f), DEFVAL(Color(1, 1, 1, 1)));
@@ -432,6 +440,12 @@ void VGVectorCanvas2D::_draw() {
 			case CMD_SPRITE_LINES:
 				_draw_sprite_lines_command(cmd);
 				break;
+			case CMD_RECTS:
+				_draw_rects_command(cmd);
+				break;
+			case CMD_RECTS_UNIFORM:
+				_draw_rects_uniform_command(cmd);
+				break;
 			default:
 				break;
 		}
@@ -471,6 +485,43 @@ void VGVectorCanvas2D::_draw_rect_command(const Dictionary &cmd) {
 				outline.append(points[0]);
 			}
 			draw_polyline(outline, color, (double)width);
+		}
+	}
+}
+
+void VGVectorCanvas2D::_draw_rects_command(const Dictionary &cmd) {
+	// rects_xywh: flat PackedVector2Array — pairs (pos, size) per rect
+	// colors: one Color per rect (PackedColorArray)
+	PackedVector2Array rects = (PackedVector2Array)cmd["rects"];
+	PackedColorArray colors = (PackedColorArray)cmd["colors"];
+	bool fill = (bool)cmd["fill"];
+	int n = rects.size() / 2;
+	for (int i = 0; i < n; i++) {
+		Vector2 pos = rects[i * 2];
+		Vector2 sz  = rects[i * 2 + 1];
+		Rect2 rect(pos, sz);
+		Color c = (i < colors.size()) ? colors[i] : Color(1, 1, 1, 1);
+		if (fill) {
+			draw_rect(rect, c, true);
+		} else {
+			draw_rect(rect, c, false, 1.0f);
+		}
+	}
+}
+
+void VGVectorCanvas2D::_draw_rects_uniform_command(const Dictionary &cmd) {
+	PackedVector2Array rects = (PackedVector2Array)cmd["rects"];
+	Color color = (Color)cmd["color"];
+	bool fill = (bool)cmd["fill"];
+	int n = rects.size() / 2;
+	for (int i = 0; i < n; i++) {
+		Vector2 pos = rects[i * 2];
+		Vector2 sz  = rects[i * 2 + 1];
+		Rect2 rect(pos, sz);
+		if (fill) {
+			draw_rect(rect, color, true);
+		} else {
+			draw_rect(rect, color, false, 1.0f);
 		}
 	}
 }
@@ -876,6 +927,26 @@ void VGVectorCanvas2D::DrawLines(const PackedVector2Array &segments, float width
 	c["segments"] = segments;
 	c["width"] = width;
 	c["color"] = color;
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawRects(const PackedVector2Array &rects_xywh, const PackedColorArray &colors, bool fill) {
+	Dictionary c;
+	c["type"] = (int)CMD_RECTS;
+	c["rects"] = rects_xywh;
+	c["colors"] = colors;
+	c["fill"] = fill;
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawRectsUniform(const PackedVector2Array &rects_xywh, const Color &color, bool fill) {
+	Dictionary c;
+	c["type"] = (int)CMD_RECTS_UNIFORM;
+	c["rects"] = rects_xywh;
+	c["color"] = color;
+	c["fill"] = fill;
 	c["transform"] = _get_current_transform();
 	_queue_command(c);
 }

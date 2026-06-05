@@ -6544,14 +6544,73 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 bool is_local = local_slots.has(var_name.to_lower());
                 bool is_param = param_vars.has(var_name.to_lower());
                 if (!is_array && !is_dict && !is_local && !is_param) {
-                    // Not a known array/dict/local/parameter variable — treat as function call
-                    for (int i = 0; i < aa->indices.size(); i++) {
-                        compile_expression(aa->indices[i]);
+                    String vn_lower = var_name.to_lower();
+
+                    // ── Phase 5: Godot Variant type constructors ──
+                    // Vector2(x,y), Color(r,g,b,a), Rect2(x,y,w,h) etc. should
+                    // use OP_NEW_OBJECT, not OP_CALL (OP_CALL returns NIL for
+                    // these since they are not VG subs or builtins).
+                    static const char* _godot_type_ctors[] = {
+                        "vector2", "vector2i", "vector3", "vector3i",
+                        "vector4", "vector4i", "rect2", "rect2i",
+                        "color", "transform2d", "transform3d",
+                        "basis", "quaternion", "plane", "aabb",
+                        nullptr
+                    };
+                    for (int _gi = 0; _godot_type_ctors[_gi]; ++_gi) {
+                        if (vn_lower == _godot_type_ctors[_gi]) {
+                            for (int i = 0; i < aa->indices.size(); i++) {
+                                compile_expression(aa->indices[i]);
+                            }
+                            int name_idx = current_chunk->add_constant(var_name);
+                            emit_byte(OP_NEW_OBJECT);
+                            emit_const_index(name_idx);
+                            emit_byte((uint8_t)aa->indices.size());
+                            goto _func_call_emitted;
+                        }
                     }
-                    int idx = current_chunk->add_constant(var_name);
-                    emit_byte(OP_CALL);
-                    emit_const_index(idx);
-                    emit_byte((uint8_t)aa->indices.size());
+
+                    // ── Phase 1: Trig/math dedicated opcodes ──
+                    // Avoids OP_CALL string dispatch overhead for hot math ops.
+                    {
+                        struct { const char* name; OpCode op; int nargs; } _trig_ops[] = {
+                            {"sin",   OP_SIN,    1},
+                            {"cos",   OP_COS,    1},
+                            {"sqr",   OP_SQRT,   1},  // VB: Sqr() = sqrt
+                            {"sqrt",  OP_SQRT,   1},
+                            {"tan",   OP_TAN,    1},
+                            {"atan2", OP_ATAN2,  2},
+                            {"floor", OP_FLOOR_F,1},
+                            {"ceil",  OP_CEIL_F, 1},
+                            {"ceiling",OP_CEIL_F,1}, // VB alias
+                            {"exp",   OP_EXP,    1},
+                            {"log",   OP_LOG,    1},
+                            {nullptr, OP_COUNT_, 0},
+                        };
+                        for (int _ti = 0; _trig_ops[_ti].name; ++_ti) {
+                            if (vn_lower == _trig_ops[_ti].name &&
+                                aa->indices.size() == _trig_ops[_ti].nargs) {
+                                // push args then emit dedicated opcode
+                                for (int i = 0; i < aa->indices.size(); i++) {
+                                    compile_expression(aa->indices[i]);
+                                }
+                                emit_byte((uint8_t)_trig_ops[_ti].op);
+                                goto _func_call_emitted;
+                            }
+                        }
+                    }
+
+                    // ── Generic function call ──
+                    {
+                        for (int i = 0; i < aa->indices.size(); i++) {
+                            compile_expression(aa->indices[i]);
+                        }
+                        int idx = current_chunk->add_constant(var_name);
+                        emit_byte(OP_CALL);
+                        emit_const_index(idx);
+                        emit_byte((uint8_t)aa->indices.size());
+                    }
+                    _func_call_emitted:
                     break;
                 }
             }

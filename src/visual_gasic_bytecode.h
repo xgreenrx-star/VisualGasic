@@ -64,6 +64,15 @@ enum OpCode {
     OP_STRING_REPEAT_OUTER,
     OP_ABS,
     OP_SGN,
+    OP_SIN,        // [OP] - Pop double, push sin(v)
+    OP_COS,        // [OP] - Pop double, push cos(v)
+    OP_SQRT,       // [OP] - Pop double, push sqrt(v)
+    OP_TAN,        // [OP] - Pop double, push tan(v)
+    OP_ATAN2,      // [OP] - Pop y then x (x pushed first), push atan2(y,x)
+    OP_FLOOR_F,    // [OP] - Pop double, push floor(v)
+    OP_CEIL_F,     // [OP] - Pop double, push ceil(v)
+    OP_EXP,        // [OP] - Pop double, push exp(v)
+    OP_LOG,        // [OP] - Pop double, push log(v)
 
     // String/collection helpers
     OP_LEN,

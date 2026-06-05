@@ -42,8 +42,9 @@ public:
 		CMD_TEXT = 8,
 		CMD_MULTILINE = 9,
 		CMD_SPRITE_LINES = 10,
-	};
-
+        CMD_RECTS = 11,       // Batch rectangles: PackedVector2Array(x,y,w,h pairs) + per-rect colors
+        CMD_RECTS_UNIFORM = 12, // Batch rectangles: all same color
+    };
 private:
 	// Command buffer + bookkeeping. Stored as Array<Dictionary> so the
 	// GDScript overlay subclass can still read/modify entries in place.
@@ -101,6 +102,8 @@ private:
 	void _draw_text_command(const Dictionary &cmd);
 	void _draw_multiline_command(const Dictionary &cmd);
 	void _draw_sprite_lines_command(const Dictionary &cmd);
+	void _draw_rects_command(const Dictionary &cmd);
+	void _draw_rects_uniform_command(const Dictionary &cmd);
 
 	void _ensure_default_vector_font();
 	Dictionary _get_vector_font(const String &name);
@@ -124,6 +127,11 @@ public:
 	void DrawPolygon(const Array &points, float width = 2.0f, const Color &color = Color(1, 1, 1, 1), bool fill = false, const Color &fill_color = Color(1, 1, 1, 0));
 	void DrawPolyline(const Array &points, float width = 2.0f, const Color &color = Color(1, 1, 1, 1), bool fill = false, const Color &fill_color = Color(1, 1, 1, 0), bool close = false);
 	void DrawLines(const PackedVector2Array &segments, float width = 2.0f, const Color &color = Color(1, 1, 1, 1));
+	// Batch rect drawing: rects_xywh is a flat PackedVector2Array where each pair (Vector2(x,y), Vector2(w,h)) is one rect.
+	// DrawRects: per-rect colors supplied in PackedColorArray (same count as rect count).
+	// DrawRectsUniform: all rects share one color.
+	void DrawRects(const PackedVector2Array &rects_xywh, const PackedColorArray &colors, bool fill = true);
+	void DrawRectsUniform(const PackedVector2Array &rects_xywh, const Color &color = Color(1, 1, 1, 1), bool fill = true);
 	void DrawSpriteLines(const Ref<Texture2D> &texture, const PackedVector2Array &segments, float width = 6.0f, const Color &color = Color(1, 1, 1, 1));
 	Ref<Texture2D> MakeGlowTexture(int size = 32, const Color &core_color = Color(1, 1, 1, 1));
 	Ref<Texture2D> MakeRadialGlowTexture(int size = 48, const Color &core_color = Color(1, 1, 1, 1));

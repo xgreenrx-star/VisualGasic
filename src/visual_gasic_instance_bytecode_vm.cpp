@@ -12,6 +12,7 @@
 #include "visual_gasic_jit_tier3.h"
 #include "gasic_ai_controller.h"
 #include "visual_gasic_comm.h"
+#include <cmath>  // ::sin, ::cos, ::sqrt, ::tan, ::atan2, ::floor, ::ceil, ::exp, ::log
 
 // POSIX unlink / Win32 DeleteFile for Kill symlink fallback
 #if defined(__linux__) || defined(__APPLE__) || defined(__unix__)
@@ -1065,6 +1066,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_STRING_REPEAT_OUTER] = &&vg_op_string_repeat_outer;
         dispatch_table[OP_ABS]            = &&vg_op_abs;
         dispatch_table[OP_SGN]            = &&vg_op_sgn;
+        dispatch_table[OP_SIN]            = &&vg_op_sin;
+        dispatch_table[OP_COS]            = &&vg_op_cos;
+        dispatch_table[OP_SQRT]           = &&vg_op_sqrt;
+        dispatch_table[OP_TAN]            = &&vg_op_tan;
+        dispatch_table[OP_ATAN2]          = &&vg_op_atan2;
+        dispatch_table[OP_FLOOR_F]        = &&vg_op_floor_f;
+        dispatch_table[OP_CEIL_F]         = &&vg_op_ceil_f;
+        dispatch_table[OP_EXP]            = &&vg_op_exp;
+        dispatch_table[OP_LOG]            = &&vg_op_log;
         dispatch_table[OP_LEN]            = &&vg_op_len;
         dispatch_table[OP_EQUAL]          = &&vg_op_equal;
         dispatch_table[OP_NOT_EQUAL]      = &&vg_op_not_equal;
@@ -5137,6 +5147,54 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 double v = to_double(pop_value());
                 int64_t sign = (v > 0.0) - (v < 0.0);
                 push_value(sign);
+                break;
+            }
+            VG_CASE(vg_op_sin, OP_SIN): {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                push_value(::sin(to_double(pop_value())));
+                break;
+            }
+            VG_CASE(vg_op_cos, OP_COS): {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                push_value(::cos(to_double(pop_value())));
+                break;
+            }
+            VG_CASE(vg_op_sqrt, OP_SQRT): {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                push_value(::sqrt(to_double(pop_value())));
+                break;
+            }
+            VG_CASE(vg_op_tan, OP_TAN): {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                push_value(::tan(to_double(pop_value())));
+                break;
+            }
+            VG_CASE(vg_op_atan2, OP_ATAN2): {
+                // x pushed first, y pushed second → y is TOS
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                double y = to_double(pop_value());
+                double x = to_double(pop_value());
+                push_value(::atan2(y, x));
+                break;
+            }
+            VG_CASE(vg_op_floor_f, OP_FLOOR_F): {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                push_value(::floor(to_double(pop_value())));
+                break;
+            }
+            VG_CASE(vg_op_ceil_f, OP_CEIL_F): {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                push_value(::ceil(to_double(pop_value())));
+                break;
+            }
+            VG_CASE(vg_op_exp, OP_EXP): {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                push_value(::exp(to_double(pop_value())));
+                break;
+            }
+            VG_CASE(vg_op_log, OP_LOG): {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                push_value(::log(to_double(pop_value())));
                 break;
             }
             VG_CASE(vg_op_dict_has_key, OP_DICT_HAS_KEY): {
