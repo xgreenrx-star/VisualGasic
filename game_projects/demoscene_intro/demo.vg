@@ -335,10 +335,10 @@ Sub _Process(ByVal delta As Single)
 			Call _DrawCredits(delta)
 		End If
 	ElseIf t > = T_CREDITS_START And t < T_CREDITS_END Then
+		Call _DrawStarsAlpha(delta, 0.25)
 		Call _DrawCredits(delta)
 	ElseIf t > = T_CARD_START Then
-		' Starfield at 20% alpha underneath the card for visual continuity
-		Call _DrawStarsAlpha(delta, 0.2)
+		Call _DrawStarsAlpha(delta, 0.35)
 		Call _DrawCard(t - T_CARD_START)
 	End If
 
