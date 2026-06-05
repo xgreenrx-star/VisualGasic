@@ -523,7 +523,7 @@ Sub _DrawTorus(ByVal tt As Single)
 	If fade > 1.0 Then fade = 1.0
 
 	' Heartbeat scale pulse: torus swells on each beat like a heart
-	Dim torus_scale As Single = 1.0 + 0.22 * heart_pulse
+	Dim torus_scale As Single = 1.0 + 0.35 * heart_pulse
 
 	Call canvas.BeginGroup("TorusColor")
 	Call canvas.DrawTorusWireframe(torus_rot_y, torus_rot_x, torus_hue_offset, tt, fade, CX, CY, torus_scale)
@@ -645,8 +645,8 @@ Sub _UpdateAudio(ByVal delta As Single)
 	End If
 	If t > = T_TORUS_START And t < T_TORUS_END Then
 		scene = 1
-		target_bpm = 100.0 + bar_count * 8.0
-		If target_bpm > 180.0 Then target_bpm = 180.0
+		target_bpm = 60.0 + bar_count * 5.0
+		If target_bpm > 120.0 Then target_bpm = 120.0
 	ElseIf t > = T_PLASMA_START And t < T_PLASMA_END Then
 		scene = 2
 		target_bpm = 200.0
@@ -685,8 +685,8 @@ Sub _UpdateAudio(ByVal delta As Single)
 	Loop
 
 	' --- BPM-driven torus rotation + hue cycle (all scenes, keeps spinning) ---
-	torus_rot_x = torus_rot_x + delta * (bpm_current / 100.0) * 1.1
-	torus_rot_y = torus_rot_y + delta * (bpm_current / 100.0) * 0.65
+	torus_rot_x = torus_rot_x + delta * (bpm_current / 100.0) * 0.45
+	torus_rot_y = torus_rot_y + delta * (bpm_current / 100.0) * 0.28
 	torus_hue_offset = torus_hue_offset + delta * (bpm_current / 100.0) * 0.06
 
 	' --- Heartbeat oscillator (active during torus scene) ---
@@ -702,8 +702,8 @@ Sub _UpdateAudio(ByVal delta As Single)
 			kick_t_state = 0.0
 		End If
 	End If
-	' Decay pulse regardless of scene (fast: half-life ~0.1s)
-	heart_pulse = heart_pulse * (1.0 - delta * 7.0)
+	' Decay pulse — slower decay so swell is visible for ~0.25s
+	heart_pulse = heart_pulse * (1.0 - delta * 4.0)
 	If heart_pulse < 0.0 Then heart_pulse = 0.0
 
 	If SoundGen.Available(sg_handle) < = 0 Then Exit Sub

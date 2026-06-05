@@ -1703,7 +1703,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
                     if (kt < kick_dur_) {
                         float env = 1.0f - kt / kick_dur_;
                         float freq = 100.0f - 75.0f * (kt / kick_dur_);
-                        s += Math::sin(kt * freq * Math_TAU) * env * 0.22f;
+                        s += Math::sin(kt * freq * Math_TAU) * env * 0.45f;
                     }
                 }
 
@@ -6808,7 +6808,7 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
                     if (kt < kick_dur_) {
                         float env = 1.0f - kt / kick_dur_;
                         float freq = 100.0f - 75.0f * (kt / kick_dur_);
-                        s += Math::sin(kt * freq * Math_TAU) * env * 0.22f;
+                        s += Math::sin(kt * freq * Math_TAU) * env * 0.45f;
                     }
                 }
                 pb->push_frame(Vector2(s, s));
