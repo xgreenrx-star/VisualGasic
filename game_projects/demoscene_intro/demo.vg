@@ -364,10 +364,16 @@ Sub _DrawStars(ByVal delta As Single)
 	Dim n_mid As Integer = 0
 	Dim n_bri As Integer = 0
 
+	' Speed ramps from 0 to full over the first 3s, then tracks BPM.
+	' At 80 BPM (base) speed = 0.38.  At 200 BPM (plasma) = 0.95.
+	Dim spd_ramp As Single = t / 3.0
+	If spd_ramp > 1.0 Then spd_ramp = 1.0
+	Dim star_spd As Single = delta * (bpm_current / 80.0) * 0.38 * spd_ramp
+
 	Dim i As Integer
 	For i = 0 To StarCount - 1
 		Dim old_z As Single = star_z(i)
-		star_z(i) = star_z(i) - delta * 0.38
+		star_z(i) = star_z(i) - star_spd
 
 		If star_z(i) < 0.006 Then
 			star_x(i) = Rnd() * 0.28 + 0.36
@@ -418,10 +424,14 @@ Sub _DrawStars(ByVal delta As Single)
 	Call canvas.EndGroup()
 End Sub
 
-' Thin wrapper — draws starfield with all colours scaled by alpha_scale.
-' Used to show stars at reduced opacity under the final title card.
+' Draws starfield at reduced opacity AND updates star positions.
+' Used during the title card scene so stars stay alive and track BPM.
 Sub _DrawStarsAlpha(ByVal delta As Single, ByVal alpha_scale As Single)
 	Dim fade As Single = alpha_scale
+
+	' Same BPM-driven speed as _DrawStars (no slow-start ramp here — card
+	' stars should already be moving at tempo when the scene begins)
+	Dim star_spd As Single = delta * (bpm_current / 80.0) * 0.38
 
 	Dim segs_dim(1199) As Vector2
 	Dim segs_mid(1199) As Vector2
@@ -432,20 +442,30 @@ Sub _DrawStarsAlpha(ByVal delta As Single, ByVal alpha_scale As Single)
 
 	Dim i As Integer
 	For i = 0 To StarCount - 1
+		Dim old_z As Single = star_z(i)
+		star_z(i) = star_z(i) - star_spd
+		If star_z(i) < 0.006 Then
+			star_x(i) = Rnd() * 0.28 + 0.36
+			star_y(i) = Rnd() * 0.28 + 0.36
+			star_z(i) = 1.0
+			old_z = 1.0
+		End If
 		Dim sx As Single = (star_x(i) - 0.5) / star_z(i) * 900.0 + CX
 		Dim sy As Single = (star_y(i) - 0.5) / star_z(i) * 900.0 + CY
+		Dim ox As Single = (star_x(i) - 0.5) / old_z * 900.0 + CX
+		Dim oy As Single = (star_y(i) - 0.5) / old_z * 900.0 + CY
 		If sx < - 20 Or sx > SW + 20 Or sy < - 20 Or sy > SH + 20 Then GoTo _next_star_a
 		Dim bright As Single = (1.0 - star_z(i)) * fade
 		If bright > 0.65 * alpha_scale Then
-			segs_bri(n_bri) = Vector2(sx, sy)
+			segs_bri(n_bri) = Vector2(ox, oy)
 			segs_bri(n_bri + 1) = Vector2(sx, sy)
 			n_bri = n_bri + 2
 		ElseIf bright > 0.3 * alpha_scale Then
-			segs_mid(n_mid) = Vector2(sx, sy)
+			segs_mid(n_mid) = Vector2(ox, oy)
 			segs_mid(n_mid + 1) = Vector2(sx, sy)
 			n_mid = n_mid + 2
 		Else
-			segs_dim(n_dim) = Vector2(sx, sy)
+			segs_dim(n_dim) = Vector2(ox, oy)
 			segs_dim(n_dim + 1) = Vector2(sx, sy)
 			n_dim = n_dim + 2
 		End If
