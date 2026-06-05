@@ -72,8 +72,8 @@ Dim plasma_speed As Single
 ' Audio globals
 ' ===========================================================================
 Dim sg_handle As Long
-Const AudioSR As Single = 22050.0
-Const AudioSRInv As Single = 0.0000453514739229025
+Const AudioSR As Single = 8000.0
+Const AudioSRInv As Single = 0.000125
 Const BPM As Single = 132.0
 Const BeatsPerBar As Integer = 16      ' 16 sixteenth-note steps per bar
 
@@ -154,7 +154,7 @@ Sub _Ready()
 	hihat_active = False
 	hihat_t = 0.0
 
-	sg_handle = SoundGen.Open(22050, 0.15)
+	sg_handle = SoundGen.Open(8000, 0.15)
 
 	Set_Process(True)
 End Sub
@@ -206,16 +206,19 @@ Sub _DrawStars(ByVal delta As Single)
 	If fade < 0.0 Then fade = 0.0
 	If fade > 1.0 Then fade = 1.0
 
-	' Subtle canvas rotation for drift feel
-	Dim drift_angle As Single = Sin(t * 0.07) * 0.04
-	Call canvas.BeginGroup("StarsColor")
+	' Pre-allocate three brightness-bucket segment arrays (worst-case all stars in one)
+	Dim segs_dim(1199) As Vector2
+	Dim segs_mid(1199) As Vector2
+	Dim segs_bri(1199) As Vector2
+	Dim n_dim As Integer = 0
+	Dim n_mid As Integer = 0
+	Dim n_bri As Integer = 0
+
 	Dim i As Integer
 	For i = 0 To StarCount - 1
-		' Advance depth (stars approach viewer)
 		Dim old_z As Single = star_z(i)
 		star_z(i) = star_z(i) - delta * 0.38
 
-		' Reset star to back when it passes camera
 		If star_z(i) < 0.006 Then
 			star_x(i) = Rnd() * 0.28 + 0.36
 			star_y(i) = Rnd() * 0.28 + 0.36
@@ -223,20 +226,41 @@ Sub _DrawStars(ByVal delta As Single)
 			old_z = 1.0
 		End If
 
-		' Perspective project current and previous position for streak
 		Dim sx As Single = (star_x(i) - 0.5) / star_z(i) * 900.0 + CX
 		Dim sy As Single = (star_y(i) - 0.5) / star_z(i) * 900.0 + CY
 		Dim ox As Single = (star_x(i) - 0.5) / old_z * 900.0 + CX
 		Dim oy As Single = (star_y(i) - 0.5) / old_z * 900.0 + CY
 
-		' Skip if off-screen
 		If sx < -20 Or sx > SW + 20 Or sy < -20 Or sy > SH + 20 Then GoTo _next_star
 
 		Dim bright As Single = (1.0 - star_z(i)) * fade
-		Dim wid As Single = bright * 1.8 + 0.3
-		Call canvas.DrawLine(Vector2(ox, oy), Vector2(sx, sy), wid, Color(bright, bright, bright * 0.9 + 0.1, fade))
+		Dim from_v As Vector2 = Vector2(ox, oy)
+		Dim to_v As Vector2 = Vector2(sx, sy)
+
+		If bright > 0.65 Then
+			segs_bri(n_bri) = from_v : segs_bri(n_bri + 1) = to_v : n_bri = n_bri + 2
+		ElseIf bright > 0.3 Then
+			segs_mid(n_mid) = from_v : segs_mid(n_mid + 1) = to_v : n_mid = n_mid + 2
+		Else
+			segs_dim(n_dim) = from_v : segs_dim(n_dim + 1) = to_v : n_dim = n_dim + 2
+		End If
 		_next_star:
 	Next
+
+	' Three batch calls instead of 600 individual DrawLine calls
+	Call canvas.BeginGroup("StarsColor")
+	If n_dim > 0 Then
+		ReDim Preserve segs_dim(n_dim - 1) As Vector2
+		Call canvas.DrawLines(segs_dim, 0.7, Color(0.35 * fade, 0.35 * fade, 0.38 * fade, fade))
+	End If
+	If n_mid > 0 Then
+		ReDim Preserve segs_mid(n_mid - 1) As Vector2
+		Call canvas.DrawLines(segs_mid, 1.1, Color(0.6 * fade, 0.6 * fade, 0.65 * fade, fade))
+	End If
+	If n_bri > 0 Then
+		ReDim Preserve segs_bri(n_bri - 1) As Vector2
+		Call canvas.DrawLines(segs_bri, 1.6, Color(fade, fade, fade * 0.95 + 0.05, fade))
+	End If
 	Call canvas.EndGroup()
 End Sub
 
