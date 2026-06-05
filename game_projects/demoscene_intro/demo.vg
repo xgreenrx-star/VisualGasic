@@ -1,3 +1,4 @@
+
 ' VG Demoscene Intro
 ' Pure procedural vector effects + chiptune. No external assets.
 '
@@ -27,15 +28,15 @@ Const Tau As Single = 6.28318530717959
 
 ' Effect time windows
 Const T_STARS_START As Single = 0.0
-Const T_STARS_END   As Single = 30.0
+Const T_STARS_END As Single = 30.0
 Const T_TORUS_START As Single = 30.0
-Const T_TORUS_END   As Single = 60.0
+Const T_TORUS_END As Single = 60.0
 Const T_PLASMA_START As Single = 60.0
-Const T_PLASMA_END   As Single = 90.0
+Const T_PLASMA_END As Single = 90.0
 Const T_CREDITS_START As Single = 90.0
-Const T_CREDITS_END   As Single = 135.0
-Const T_CARD_START  As Single = 135.0
-Const T_CARD_END    As Single = 165.0
+Const T_CREDITS_END As Single = 135.0
+Const T_CARD_START As Single = 135.0
+Const T_CARD_END As Single = 165.0
 
 ' Starfield
 Const StarCount As Integer = 600
@@ -75,10 +76,10 @@ Dim sg_handle As Long
 Const AudioSR As Single = 8000.0
 Const AudioSRInv As Single = 0.000125
 Const BPM As Single = 132.0
-Const BeatsPerBar As Integer = 16      ' 16 sixteenth-note steps per bar
+Const BeatsPerBar As Integer = 16 ' 16 sixteenth-note steps per bar
 
-Dim beat_phase As Single               ' 0..1 within current step
-Dim beat_idx As Integer                ' 0..15
+Dim beat_phase As Single ' 0..1 within current step
+Dim beat_idx As Integer ' 0..15
 
 Dim lead_phase As Single
 Dim bass_phase As Single
@@ -117,34 +118,34 @@ Sub _Ready()
 
 	' --- Audio note tables (C minor pentatonic, 132 BPM) -----------------
 	' Lead melody  (C4=261.6, Eb4=311.1, F4=349.2, G4=392.0, Bb4=466.2 Hz)
-	lead_notes(0) = 261.6   : lead_notes(1) = 0.0
-	lead_notes(2) = 311.1   : lead_notes(3) = 349.2
-	lead_notes(4) = 392.0   : lead_notes(5) = 0.0
-	lead_notes(6) = 466.2   : lead_notes(7) = 392.0
-	lead_notes(8) = 261.6   : lead_notes(9) = 0.0
-	lead_notes(10) = 349.2  : lead_notes(11) = 311.1
-	lead_notes(12) = 392.0  : lead_notes(13) = 466.2
-	lead_notes(14) = 0.0    : lead_notes(15) = 392.0
+	lead_notes(0) = 261.6 : lead_notes(1) = 0.0
+	lead_notes(2) = 311.1 : lead_notes(3) = 349.2
+	lead_notes(4) = 392.0 : lead_notes(5) = 0.0
+	lead_notes(6) = 466.2 : lead_notes(7) = 392.0
+	lead_notes(8) = 261.6 : lead_notes(9) = 0.0
+	lead_notes(10) = 349.2 : lead_notes(11) = 311.1
+	lead_notes(12) = 392.0 : lead_notes(13) = 466.2
+	lead_notes(14) = 0.0 : lead_notes(15) = 392.0
 
 	' Bass (C2=65.4, Eb2=77.8, G2=98.0 Hz) — half-time feel, every other step
-	bass_notes(0) = 65.4    : bass_notes(1) = 0.0
-	bass_notes(2) = 0.0     : bass_notes(3) = 0.0
-	bass_notes(4) = 77.8    : bass_notes(5) = 0.0
-	bass_notes(6) = 0.0     : bass_notes(7) = 0.0
-	bass_notes(8) = 65.4    : bass_notes(9) = 0.0
-	bass_notes(10) = 0.0    : bass_notes(11) = 0.0
-	bass_notes(12) = 98.0   : bass_notes(13) = 0.0
-	bass_notes(14) = 77.8   : bass_notes(15) = 0.0
+	bass_notes(0) = 65.4 : bass_notes(1) = 0.0
+	bass_notes(2) = 0.0 : bass_notes(3) = 0.0
+	bass_notes(4) = 77.8 : bass_notes(5) = 0.0
+	bass_notes(6) = 0.0 : bass_notes(7) = 0.0
+	bass_notes(8) = 65.4 : bass_notes(9) = 0.0
+	bass_notes(10) = 0.0 : bass_notes(11) = 0.0
+	bass_notes(12) = 98.0 : bass_notes(13) = 0.0
+	bass_notes(14) = 77.8 : bass_notes(15) = 0.0
 
 	' Arp (C5=523.2, Eb5=622.3, G5=784.0, Bb5=932.3 Hz)
-	arp_notes(0) = 523.2    : arp_notes(1) = 622.3
-	arp_notes(2) = 784.0    : arp_notes(3) = 932.3
-	arp_notes(4) = 784.0    : arp_notes(5) = 622.3
-	arp_notes(6) = 523.2    : arp_notes(7) = 784.0
-	arp_notes(8) = 523.2    : arp_notes(9) = 622.3
-	arp_notes(10) = 932.3   : arp_notes(11) = 784.0
-	arp_notes(12) = 622.3   : arp_notes(13) = 523.2
-	arp_notes(14) = 784.0   : arp_notes(15) = 932.3
+	arp_notes(0) = 523.2 : arp_notes(1) = 622.3
+	arp_notes(2) = 784.0 : arp_notes(3) = 932.3
+	arp_notes(4) = 784.0 : arp_notes(5) = 622.3
+	arp_notes(6) = 523.2 : arp_notes(7) = 784.0
+	arp_notes(8) = 523.2 : arp_notes(9) = 622.3
+	arp_notes(10) = 932.3 : arp_notes(11) = 784.0
+	arp_notes(12) = 622.3 : arp_notes(13) = 523.2
+	arp_notes(14) = 784.0 : arp_notes(15) = 932.3
 
 	beat_idx = 0
 	beat_phase = 0.0
@@ -166,7 +167,7 @@ Sub _Process(ByVal delta As Single)
 	t = t + delta
 
 	' Loop at end of card section
-	If t >= T_CARD_END Then
+	If t > = T_CARD_END Then
 		t = t - T_CARD_END
 		scroll_x = SW
 		credits_started = False
@@ -180,15 +181,15 @@ Sub _Process(ByVal delta As Single)
 	Call canvas.DrawRect(Rect2(0, 0, SW, SH), 1.0, Color(0, 0, 0, 1), True, Color(0, 0, 0, 1))
 	Call canvas.EndGroup()
 
-	If t >= T_STARS_START And t < T_STARS_END Then
+	If t > = T_STARS_START And t < T_STARS_END Then
 		Call _DrawStars(delta)
-	ElseIf t >= T_TORUS_START And t < T_TORUS_END Then
+	ElseIf t > = T_TORUS_START And t < T_TORUS_END Then
 		Call _DrawTorus(t - T_TORUS_START)
-	ElseIf t >= T_PLASMA_START And t < T_PLASMA_END Then
+	ElseIf t > = T_PLASMA_START And t < T_PLASMA_END Then
 		Call _DrawPlasma(t - T_PLASMA_START)
-	ElseIf t >= T_CREDITS_START And t < T_CREDITS_END Then
+	ElseIf t > = T_CREDITS_START And t < T_CREDITS_END Then
 		Call _DrawCredits(delta)
-	ElseIf t >= T_CARD_START Then
+	ElseIf t > = T_CARD_START Then
 		Call _DrawCard(t - T_CARD_START)
 	End If
 
@@ -231,18 +232,22 @@ Sub _DrawStars(ByVal delta As Single)
 		Dim ox As Single = (star_x(i) - 0.5) / old_z * 900.0 + CX
 		Dim oy As Single = (star_y(i) - 0.5) / old_z * 900.0 + CY
 
-		If sx < -20 Or sx > SW + 20 Or sy < -20 Or sy > SH + 20 Then GoTo _next_star
+		If sx < - 20 Or sx > SW + 20 Or sy < - 20 Or sy > SH + 20 Then GoTo _next_star
 
 		Dim bright As Single = (1.0 - star_z(i)) * fade
-		Dim from_v As Vector2 = Vector2(ox, oy)
-		Dim to_v As Vector2 = Vector2(sx, sy)
 
 		If bright > 0.65 Then
-			segs_bri(n_bri) = from_v : segs_bri(n_bri + 1) = to_v : n_bri = n_bri + 2
+			segs_bri(n_bri) = Vector2(ox, oy)
+			segs_bri(n_bri + 1) = Vector2(sx, sy)
+			n_bri = n_bri + 2
 		ElseIf bright > 0.3 Then
-			segs_mid(n_mid) = from_v : segs_mid(n_mid + 1) = to_v : n_mid = n_mid + 2
+			segs_mid(n_mid) = Vector2(ox, oy)
+			segs_mid(n_mid + 1) = Vector2(sx, sy)
+			n_mid = n_mid + 2
 		Else
-			segs_dim(n_dim) = from_v : segs_dim(n_dim + 1) = to_v : n_dim = n_dim + 2
+			segs_dim(n_dim) = Vector2(ox, oy)
+			segs_dim(n_dim + 1) = Vector2(sx, sy)
+			n_dim = n_dim + 2
 		End If
 		_next_star:
 	Next
@@ -283,8 +288,8 @@ Sub _DrawTorus(ByVal tt As Single)
 	Dim cos_rx As Single = Cos(rot_x)
 	Dim sin_rx As Single = Sin(rot_x)
 
-	Dim R As Single = 0.68    ' major radius
-	Dim r As Single = 0.27    ' minor radius
+	Dim R As Single = 0.68 ' major radius
+	Dim r As Single = 0.27 ' minor radius
 	Dim proj_d As Single = 3.4
 	Dim scale As Single = 320.0
 
@@ -307,7 +312,7 @@ Sub _DrawTorus(ByVal tt As Single)
 			Dim az3 As Single = r * Sin(v0)
 			' rotate Y
 			Dim ax3r As Single = ax3 * cos_ry + az3 * sin_ry
-			Dim az3r As Single = -ax3 * sin_ry + az3 * cos_ry
+			Dim az3r As Single = - ax3 * sin_ry + az3 * cos_ry
 			' rotate X
 			Dim ay3f As Single = ay3 * cos_rx - az3r * sin_rx
 			Dim az3f As Single = ay3 * sin_rx + az3r * cos_rx
@@ -321,7 +326,7 @@ Sub _DrawTorus(ByVal tt As Single)
 			Dim by3 As Single = (R + r * Cos(v0)) * Sin(u1)
 			Dim bz3 As Single = r * Sin(v0)
 			Dim bx3r As Single = bx3 * cos_ry + bz3 * sin_ry
-			Dim bz3r As Single = -bx3 * sin_ry + bz3 * cos_ry
+			Dim bz3r As Single = - bx3 * sin_ry + bz3 * cos_ry
 			Dim by3f As Single = by3 * cos_rx - bz3r * sin_rx
 			Dim bz3f As Single = by3 * sin_rx + bz3r * cos_rx
 			Dim bz3fa As Single = bz3f + proj_d
@@ -402,9 +407,9 @@ Sub _DrawCredits(ByVal delta As Single)
 
 	' Advance scroll
 	scroll_x = scroll_x - delta * 175.0
-	Dim credits_text As String = "VISUAL GASIC  *  WRITTEN IN BASIC  *  100% PROCEDURAL  *  NO ASSETS HARMED  *  VECTOR STORM  *  FIVE EFFECTS, ONE FILE  *  "
+	Dim credits_text As String = "VISUAL GASIC * WRITTEN IN BASIC * 100% PROCEDURAL * NO ASSETS HARMED * VECTOR STORM * FIVE EFFECTS, ONE FILE * "
 	Dim text_width As Single = Len(credits_text) * 24.0
-	If scroll_x < -text_width Then scroll_x = SW
+	If scroll_x < - text_width Then scroll_x = SW
 
 	' Draw divider lines
 	Call canvas.DrawLine(Vector2(0, 290), Vector2(SW, 290), 1.0, Color(0.3, 0.5, 0.8, fade * 0.5))
@@ -467,10 +472,10 @@ Sub _UpdateAudio(ByVal delta As Single)
 	' Advance beat clock — 16 steps per bar at 132 BPM
 	Dim step_dur As Single = 60.0 / (BPM * 4.0)
 	beat_phase = beat_phase + delta / step_dur
-	Do While beat_phase >= 1.0
+	Do While beat_phase > = 1.0
 		beat_phase = beat_phase - 1.0
 		beat_idx = beat_idx + 1
-		If beat_idx >= BeatsPerBar Then beat_idx = 0
+		If beat_idx > = BeatsPerBar Then beat_idx = 0
 		' Trigger hi-hat on every 4th step
 		If beat_idx Mod 4 = 0 Then
 			hihat_active = True
@@ -479,54 +484,55 @@ Sub _UpdateAudio(ByVal delta As Single)
 	Loop
 
 	Dim n As Integer = SoundGen.Available(sg_handle)
-	If n <= 0 Then Exit Sub
+	If n < = 0 Then Exit Sub
 
 	Dim buf(n - 1) As Single
 
 	Dim lead_f As Single = lead_notes(beat_idx)
 	Dim bass_f As Single = bass_notes(beat_idx)
-	Dim arp_f  As Single = arp_notes(beat_idx)
+	Dim arp_f As Single = arp_notes(beat_idx)
 
 	Dim lead_inc As Single = 0.0
 	Dim bass_inc As Single = 0.0
-	Dim arp_inc  As Single = 0.0
+	Dim arp_inc As Single = 0.0
 	If lead_f > 0.0 Then lead_inc = lead_f * AudioSRInv
 	If bass_f > 0.0 Then bass_inc = bass_f * AudioSRInv
-	If arp_f  > 0.0 Then arp_inc  = arp_f  * AudioSRInv
+	If arp_f > 0.0 Then arp_inc = arp_f * AudioSRInv
 
 	Dim hihat_inv_sr As Single = AudioSRInv
 
+	Dim lead_samp As Single
+	Dim bass_samp As Single
+	Dim arp_samp As Single
+	Dim hihat_samp As Single
+	Dim env As Single
 	Dim i As Integer
 	For i = 0 To n - 1
-		' Voice 1: square wave lead  (pulse width 50%)
-		Dim lead_samp As Single = 0.0
+		lead_samp = 0.0
 		If lead_f > 0.0 Then
 			lead_phase = lead_phase + lead_inc
-			If lead_phase >= 1.0 Then lead_phase = lead_phase - 1.0
-			If lead_phase < 0.5 Then lead_samp = 0.11 Else lead_samp = -0.11
+			If lead_phase > = 1.0 Then lead_phase = lead_phase - 1.0
+			If lead_phase < 0.5 Then lead_samp = 0.11 Else lead_samp = - 0.11
 		End If
 
-		' Voice 2: sine bass
-		Dim bass_samp As Single = 0.0
+		bass_samp = 0.0
 		If bass_f > 0.0 Then
 			bass_phase = bass_phase + bass_inc
-			If bass_phase >= 1.0 Then bass_phase = bass_phase - 1.0
+			If bass_phase > = 1.0 Then bass_phase = bass_phase - 1.0
 			bass_samp = Sin(bass_phase * Tau) * 0.18
 		End If
 
-		' Voice 3: square arp (quieter)
-		Dim arp_samp As Single = 0.0
+		arp_samp = 0.0
 		If arp_f > 0.0 Then
 			arp_phase = arp_phase + arp_inc
-			If arp_phase >= 1.0 Then arp_phase = arp_phase - 1.0
-			If arp_phase < 0.5 Then arp_samp = 0.07 Else arp_samp = -0.07
+			If arp_phase > = 1.0 Then arp_phase = arp_phase - 1.0
+			If arp_phase < 0.5 Then arp_samp = 0.07 Else arp_samp = - 0.07
 		End If
 
-		' Voice 4: noise hi-hat (short burst, 200-sample decay)
-		Dim hihat_samp As Single = 0.0
+		hihat_samp = 0.0
 		If hihat_active Then
 			hihat_t = hihat_t + hihat_inv_sr
-			Dim env As Single = 1.0 - hihat_t * 100.0
+			env = 1.0 - hihat_t * 100.0
 			If env < 0.0 Then
 				env = 0.0
 				hihat_active = False
