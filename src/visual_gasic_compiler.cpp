@@ -250,6 +250,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     array_bound_vars.clear();
     local_slots.clear();
     local_types.clear();
+    local_const_map.clear();
     typed_locals.clear();
     non_local_names.clear();
     used_vars.clear();
@@ -5978,7 +5979,12 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             break;
         }
         case STMT_CONST: {
-            // Const declarations are no-ops at runtime (values inlined at parse time)
+            // Evaluate the constant expression and store in the local const map.
+            // References to this name in compile_expression will be inlined directly.
+            ConstStatement* cs = (ConstStatement*)stmt;
+            if (cs->value && is_constant_expr(cs->value)) {
+                local_const_map[cs->name.to_lower()] = eval_constant_expr(cs->value);
+            }
             break;
         }
         case STMT_PASS: {
@@ -6255,6 +6261,12 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
         }
         case ExpressionNode::VARIABLE: {
             VariableNode* v = (VariableNode*)expr;
+            // Check procedure-scoped Const map first — inline the value directly.
+            String lower_name = v->name.to_lower();
+            if (local_const_map.has(lower_name)) {
+                emit_constant(local_const_map[lower_name]);
+                break;
+            }
             int slot = get_or_add_local(v->name, VT_UNKNOWN);
             if (slot >= 0) {
                 emit_bytes(OP_GET_LOCAL, (uint8_t)slot);

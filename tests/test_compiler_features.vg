@@ -8,6 +8,7 @@ Sub Main()
     TestSelectCase
     TestForEach
     TestMethodCalls
+    TestLocalConst
     Print ""
     Print "=== ALL TESTS PASSED ==="
 End Sub
@@ -179,5 +180,42 @@ Sub TestMethodCalls()
         Print "INFO: Me.HasMethod('_ready') = False (method name may differ)"
     End If
     
+    Print ""
+End Sub
+
+' ── Test 4: Const inside Sub (VB6-compatible local constants) ──────────────
+Sub TestLocalConst()
+    Print "--- Local Const ---"
+
+    Const PI As Single = 3.14159
+    Const GREETING As String = "hello"
+    Const MAGIC As Integer = 42
+
+    If Abs(PI - 3.14159) < 0.0001 Then
+        Print "PASS: Const Single value correct"
+    Else
+        Print "FAIL: Const Single wrong, got " & PI
+    End If
+
+    If GREETING = "hello" Then
+        Print "PASS: Const String value correct"
+    Else
+        Print "FAIL: Const String wrong, got " & GREETING
+    End If
+
+    If MAGIC = 42 Then
+        Print "PASS: Const Integer value correct"
+    Else
+        Print "FAIL: Const Integer wrong, got " & MAGIC
+    End If
+
+    ' Const used in expression
+    Dim area As Single = PI * 2.0 * 2.0
+    If Abs(area - 12.56636) < 0.001 Then
+        Print "PASS: Const used in expression"
+    Else
+        Print "FAIL: Const in expression wrong, got " & area
+    End If
+
     Print ""
 End Sub

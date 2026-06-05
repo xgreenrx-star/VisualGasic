@@ -1,6 +1,5 @@
 ' Test: Constants
-' Tests Const declaration at module level, usage in expressions
-' NOTE: Local Const inside Sub/Function not supported — use Dim instead
+' Tests Const declaration at module level and local to Sub/Function
 Attribute VB_Name = "TestConstants"
 
 Const MAX_SIZE As Integer = 100
@@ -51,5 +50,40 @@ Sub _Ready()
 		Print "PASS: const_module_level"
 	Else
 		Print "FAIL: const_module_level"
+	End If
+
+	TestLocalConst
+End Sub
+
+Sub TestLocalConst()
+	' VB6-compatible: Const declared inside a Sub is procedure-scoped
+	Const LOCAL_PI As Single = 3.14159
+	Const LOCAL_STR As String = "world"
+	Const LOCAL_INT As Integer = 7
+
+	If Abs(LOCAL_PI - 3.14159) < 0.0001 Then
+		Print "PASS: local_const_single"
+	Else
+		Print "FAIL: local_const_single: got " & CStr(LOCAL_PI)
+	End If
+
+	If LOCAL_STR = "world" Then
+		Print "PASS: local_const_string"
+	Else
+		Print "FAIL: local_const_string: got " & LOCAL_STR
+	End If
+
+	If LOCAL_INT = 7 Then
+		Print "PASS: local_const_integer"
+	Else
+		Print "FAIL: local_const_integer: got " & CStr(LOCAL_INT)
+	End If
+
+	' Const used in an expression
+	Dim circumference As Single = LOCAL_PI * 2.0 * 5.0
+	If Abs(circumference - 31.4159) < 0.01 Then
+		Print "PASS: local_const_in_expression"
+	Else
+		Print "FAIL: local_const_in_expression: got " & CStr(circumference)
 	End If
 End Sub
