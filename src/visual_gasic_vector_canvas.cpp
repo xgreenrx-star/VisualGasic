@@ -1263,7 +1263,7 @@ void VGVectorCanvas2D::_ensure_default_vector_font() {
 		STROKE_APPEND(__strokes, V2(0, 5), V2(6, 5))
 	);
 	GLYPH(font, "F", 10.0,
-		STROKE_APPEND(__strokes, V2(0, 0), V2(0, 10), V2(8, 10))
+		STROKE_APPEND(__strokes, V2(0, 10), V2(0, 0), V2(8, 0))
 		STROKE_APPEND(__strokes, V2(0, 5), V2(6, 5))
 	);
 	GLYPH(font, "G", 10.0,
