@@ -25,15 +25,18 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="viewport"
 
-[editor_plugins]
+[audio]
 
-enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+driver/mix_rate=22050
 
 [editor]
 
-movie_writer/movie_file="res://demoscene_intro.avi"
-movie_writer/fps=60
 movie_writer/mix_rate=22050
+movie_writer/movie_file="res://demoscene_intro.avi"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
 
 [rendering]
 
