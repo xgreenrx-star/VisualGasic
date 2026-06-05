@@ -304,16 +304,9 @@ End Sub
 ' VG auto-enables unhandled input processing when this sub is present.
 ' ===========================================================================
 Sub _UnhandledInput(ByVal Event As Object)
-	Dim is_key As Boolean = Event Is InputEventKey
 	Dim is_click As Boolean = Event Is InputEventMouseButton
-	If Not is_key And Not is_click Then Exit Sub
+	If Not is_click Then Exit Sub
 	If Not Event.Pressed Then Exit Sub
-
-	' Ignore any combo that has a modifier held (Ctrl / Shift / Alt).
-	' This lets Ctrl+Shift+T open the Tweak Overlay without skipping scenes.
-	If is_key Then
-		If Event.get_modifiers_mask() <> 0 Then Exit Sub
-	End If
 
 	' Skip to next section boundary
 	If t < T_STARS_END Then
