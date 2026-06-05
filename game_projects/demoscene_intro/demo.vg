@@ -1,0 +1,516 @@
+' VG Demoscene Intro
+' Pure procedural vector effects + chiptune. No external assets.
+'
+' Effect timeline (loops at 165s):
+'   0-30s   : Starfield — perspective starfield with camera drift
+'  30-60s   : Torus    — rotating wireframe torus (2D perspective math)
+'  60-90s   : Plasma   — flowing HSV colour-wave grid  [TWEAK: PlasmaA, PlasmaB]
+'  90-135s  : Credits  — vector text scroll + logo
+' 135-165s  : Card     — final title card with fade-in
+'
+' Tweak Overlay groups exposed for the recording:
+'   "PlasmaA"  — inner colour of the plasma wave
+'   "PlasmaB"  — outer colour of the plasma wave
+'   "TorusColor" — torus wireframe colour
+'   "StarsColor" — star streak tint
+'   "LogoColor"  — credits logo tint
+
+' ===========================================================================
+' Constants
+' ===========================================================================
+Const SW As Single = 1280.0
+Const SH As Single = 720.0
+Const CX As Single = 640.0
+Const CY As Single = 360.0
+Const Pi As Single = 3.14159265358979
+Const Tau As Single = 6.28318530717959
+
+' Effect time windows
+Const T_STARS_START As Single = 0.0
+Const T_STARS_END   As Single = 30.0
+Const T_TORUS_START As Single = 30.0
+Const T_TORUS_END   As Single = 60.0
+Const T_PLASMA_START As Single = 60.0
+Const T_PLASMA_END   As Single = 90.0
+Const T_CREDITS_START As Single = 90.0
+Const T_CREDITS_END   As Single = 135.0
+Const T_CARD_START  As Single = 135.0
+Const T_CARD_END    As Single = 165.0
+
+' Starfield
+Const StarCount As Integer = 600
+
+' Torus
+Const TorusU As Integer = 20
+Const TorusV As Integer = 14
+
+' Plasma grid
+Const PlasmaW As Integer = 40
+Const PlasmaH As Integer = 23
+
+' ===========================================================================
+' Globals
+' ===========================================================================
+Dim canvas As Object
+Dim t As Single
+Dim is_headless As Boolean
+
+' Starfield pools
+Dim star_x(599) As Single
+Dim star_y(599) As Single
+Dim star_z(599) As Single
+
+' Credits scroll
+Dim scroll_x As Single
+Dim credits_started As Boolean
+
+' Tweak-overlay colour parameters (changed live via overlay)
+Dim torus_hue_offset As Single
+Dim plasma_speed As Single
+
+' ===========================================================================
+' Audio globals
+' ===========================================================================
+Dim sg_handle As Long
+Const AudioSR As Single = 22050.0
+Const AudioSRInv As Single = 0.0000453514739229025
+Const BPM As Single = 132.0
+Const BeatsPerBar As Integer = 16      ' 16 sixteenth-note steps per bar
+
+Dim beat_phase As Single               ' 0..1 within current step
+Dim beat_idx As Integer                ' 0..15
+
+Dim lead_phase As Single
+Dim bass_phase As Single
+Dim arp_phase As Single
+Dim hihat_t As Single
+Dim hihat_active As Boolean
+
+Dim lead_notes(15) As Single
+Dim bass_notes(15) As Single
+Dim arp_notes(15) As Single
+
+' ===========================================================================
+' _Ready
+' ===========================================================================
+Sub _Ready()
+	is_headless = DisplayServer.get_name() = "headless"
+
+	' Create VectorCanvas2D dynamically (same pattern as vector_storm)
+	Set canvas = CreateNode("VGVectorCanvas2D")
+
+	Randomize()
+
+	' Seed starfield — random positions with staggered depth
+	Dim i As Integer
+	For i = 0 To StarCount - 1
+		star_x(i) = Rnd()
+		star_y(i) = Rnd()
+		star_z(i) = Rnd() * 0.98 + 0.02
+	Next
+
+	scroll_x = SW
+	credits_started = False
+	torus_hue_offset = 0.0
+	plasma_speed = 1.0
+
+	' --- Audio note tables (C minor pentatonic, 132 BPM) -----------------
+	' Lead melody  (C4=261.6, Eb4=311.1, F4=349.2, G4=392.0, Bb4=466.2 Hz)
+	lead_notes(0) = 261.6   : lead_notes(1) = 0.0
+	lead_notes(2) = 311.1   : lead_notes(3) = 349.2
+	lead_notes(4) = 392.0   : lead_notes(5) = 0.0
+	lead_notes(6) = 466.2   : lead_notes(7) = 392.0
+	lead_notes(8) = 261.6   : lead_notes(9) = 0.0
+	lead_notes(10) = 349.2  : lead_notes(11) = 311.1
+	lead_notes(12) = 392.0  : lead_notes(13) = 466.2
+	lead_notes(14) = 0.0    : lead_notes(15) = 392.0
+
+	' Bass (C2=65.4, Eb2=77.8, G2=98.0 Hz) — half-time feel, every other step
+	bass_notes(0) = 65.4    : bass_notes(1) = 0.0
+	bass_notes(2) = 0.0     : bass_notes(3) = 0.0
+	bass_notes(4) = 77.8    : bass_notes(5) = 0.0
+	bass_notes(6) = 0.0     : bass_notes(7) = 0.0
+	bass_notes(8) = 65.4    : bass_notes(9) = 0.0
+	bass_notes(10) = 0.0    : bass_notes(11) = 0.0
+	bass_notes(12) = 98.0   : bass_notes(13) = 0.0
+	bass_notes(14) = 77.8   : bass_notes(15) = 0.0
+
+	' Arp (C5=523.2, Eb5=622.3, G5=784.0, Bb5=932.3 Hz)
+	arp_notes(0) = 523.2    : arp_notes(1) = 622.3
+	arp_notes(2) = 784.0    : arp_notes(3) = 932.3
+	arp_notes(4) = 784.0    : arp_notes(5) = 622.3
+	arp_notes(6) = 523.2    : arp_notes(7) = 784.0
+	arp_notes(8) = 523.2    : arp_notes(9) = 622.3
+	arp_notes(10) = 932.3   : arp_notes(11) = 784.0
+	arp_notes(12) = 622.3   : arp_notes(13) = 523.2
+	arp_notes(14) = 784.0   : arp_notes(15) = 932.3
+
+	beat_idx = 0
+	beat_phase = 0.0
+	lead_phase = 0.0
+	bass_phase = 0.0
+	arp_phase = 0.0
+	hihat_active = False
+	hihat_t = 0.0
+
+	sg_handle = SoundGen.Open(22050, 0.15)
+
+	Set_Process(True)
+End Sub
+
+' ===========================================================================
+' _Process
+' ===========================================================================
+Sub _Process(ByVal delta As Single)
+	t = t + delta
+
+	' Loop at end of card section
+	If t >= T_CARD_END Then
+		t = t - T_CARD_END
+		scroll_x = SW
+		credits_started = False
+	End If
+
+	Call _UpdateAudio(delta)
+
+	' Draw current effect onto canvas
+	Call canvas.Clear()
+	Call canvas.BeginGroup("Background")
+	Call canvas.DrawRect(Rect2(0, 0, SW, SH), 1.0, Color(0, 0, 0, 1), True, Color(0, 0, 0, 1))
+	Call canvas.EndGroup()
+
+	If t >= T_STARS_START And t < T_STARS_END Then
+		Call _DrawStars(delta)
+	ElseIf t >= T_TORUS_START And t < T_TORUS_END Then
+		Call _DrawTorus(t - T_TORUS_START)
+	ElseIf t >= T_PLASMA_START And t < T_PLASMA_END Then
+		Call _DrawPlasma(t - T_PLASMA_START)
+	ElseIf t >= T_CREDITS_START And t < T_CREDITS_END Then
+		Call _DrawCredits(delta)
+	ElseIf t >= T_CARD_START Then
+		Call _DrawCard(t - T_CARD_START)
+	End If
+
+	Call canvas.Render()
+End Sub
+
+' ===========================================================================
+' Effect 1: Starfield
+' Perspective-projected stars streaking toward camera. 600 stars, 2D only.
+' ===========================================================================
+Sub _DrawStars(ByVal delta As Single)
+	Dim fade As Single = 1.0
+	If t < 1.5 Then fade = t / 1.5
+	If t > 28.5 Then fade = (T_STARS_END - t) / 1.5
+	If fade < 0.0 Then fade = 0.0
+	If fade > 1.0 Then fade = 1.0
+
+	' Subtle canvas rotation for drift feel
+	Dim drift_angle As Single = Sin(t * 0.07) * 0.04
+	Call canvas.BeginGroup("StarsColor")
+	Dim i As Integer
+	For i = 0 To StarCount - 1
+		' Advance depth (stars approach viewer)
+		Dim old_z As Single = star_z(i)
+		star_z(i) = star_z(i) - delta * 0.38
+
+		' Reset star to back when it passes camera
+		If star_z(i) < 0.006 Then
+			star_x(i) = Rnd() * 0.28 + 0.36
+			star_y(i) = Rnd() * 0.28 + 0.36
+			star_z(i) = 1.0
+			old_z = 1.0
+		End If
+
+		' Perspective project current and previous position for streak
+		Dim sx As Single = (star_x(i) - 0.5) / star_z(i) * 900.0 + CX
+		Dim sy As Single = (star_y(i) - 0.5) / star_z(i) * 900.0 + CY
+		Dim ox As Single = (star_x(i) - 0.5) / old_z * 900.0 + CX
+		Dim oy As Single = (star_y(i) - 0.5) / old_z * 900.0 + CY
+
+		' Skip if off-screen
+		If sx < -20 Or sx > SW + 20 Or sy < -20 Or sy > SH + 20 Then GoTo _next_star
+
+		Dim bright As Single = (1.0 - star_z(i)) * fade
+		Dim wid As Single = bright * 1.8 + 0.3
+		Call canvas.DrawLine(Vector2(ox, oy), Vector2(sx, sy), wid, Color(bright, bright, bright * 0.9 + 0.1, fade))
+		_next_star:
+	Next
+	Call canvas.EndGroup()
+End Sub
+
+' ===========================================================================
+' Effect 2: Wireframe Torus  (2D perspective projection, no 3D API needed)
+' Torus parameterised by (u, v) angles. Rotated on two axes per frame.
+' ===========================================================================
+Sub _DrawTorus(ByVal tt As Single)
+	Dim fade As Single = 1.0
+	If tt < 1.5 Then fade = tt / 1.5
+	If tt > 28.5 Then fade = (30.0 - tt) / 1.5
+	If fade < 0.0 Then fade = 0.0
+	If fade > 1.0 Then fade = 1.0
+
+	Dim rot_y As Single = tt * 0.65
+	Dim rot_x As Single = tt * 0.38
+
+	Dim cos_ry As Single = Cos(rot_y)
+	Dim sin_ry As Single = Sin(rot_y)
+	Dim cos_rx As Single = Cos(rot_x)
+	Dim sin_rx As Single = Sin(rot_x)
+
+	Dim R As Single = 0.68    ' major radius
+	Dim r As Single = 0.27    ' minor radius
+	Dim proj_d As Single = 3.4
+	Dim scale As Single = 320.0
+
+	Dim ui As Integer
+	Dim vi As Integer
+
+	Call canvas.BeginGroup("TorusColor")
+
+	For ui = 0 To TorusU - 1
+		Dim u0 As Single = ui * Tau / TorusU
+		Dim u1 As Single = (ui + 1) * Tau / TorusU
+		For vi = 0 To TorusV - 1
+			Dim v0 As Single = vi * Tau / TorusV
+			Dim v1 As Single = (vi + 1) * Tau / TorusV
+
+			' Draw the u-edge (vary u, keep v=v0)
+			' --- point A: (u0, v0)
+			Dim ax3 As Single = (R + r * Cos(v0)) * Cos(u0)
+			Dim ay3 As Single = (R + r * Cos(v0)) * Sin(u0)
+			Dim az3 As Single = r * Sin(v0)
+			' rotate Y
+			Dim ax3r As Single = ax3 * cos_ry + az3 * sin_ry
+			Dim az3r As Single = -ax3 * sin_ry + az3 * cos_ry
+			' rotate X
+			Dim ay3f As Single = ay3 * cos_rx - az3r * sin_rx
+			Dim az3f As Single = ay3 * sin_rx + az3r * cos_rx
+			Dim az3fa As Single = az3f + proj_d
+			If az3fa < 0.1 Then az3fa = 0.1
+			Dim asx As Single = ax3r / az3fa * scale + CX
+			Dim asy As Single = ay3f / az3fa * scale + CY
+
+			' --- point B: (u1, v0)
+			Dim bx3 As Single = (R + r * Cos(v0)) * Cos(u1)
+			Dim by3 As Single = (R + r * Cos(v0)) * Sin(u1)
+			Dim bz3 As Single = r * Sin(v0)
+			Dim bx3r As Single = bx3 * cos_ry + bz3 * sin_ry
+			Dim bz3r As Single = -bx3 * sin_ry + bz3 * cos_ry
+			Dim by3f As Single = by3 * cos_rx - bz3r * sin_rx
+			Dim bz3f As Single = by3 * sin_rx + bz3r * cos_rx
+			Dim bz3fa As Single = bz3f + proj_d
+			If bz3fa < 0.1 Then bz3fa = 0.1
+			Dim bsx As Single = bx3r / bz3fa * scale + CX
+			Dim bsy As Single = by3f / bz3fa * scale + CY
+
+			' Hue from ui position + time for colour cycling
+			Dim hue As Single = (ui * 1.0 / TorusU + tt * 0.08 + torus_hue_offset)
+			hue = hue - Int(hue)
+			Dim cr As Single = Sin(hue * Tau) * 0.5 + 0.5
+			Dim cg As Single = Sin(hue * Tau + 2.094) * 0.5 + 0.5
+			Dim cb As Single = Sin(hue * Tau + 4.189) * 0.5 + 0.5
+			Call canvas.DrawLine(Vector2(asx, asy), Vector2(bsx, bsy), 1.4, Color(cr, cg, cb, fade * 0.85))
+		Next
+	Next
+	Call canvas.EndGroup()
+End Sub
+
+' ===========================================================================
+' Effect 3: Plasma  (HSV colour-wave over a cell grid)
+' Three sine waves superposed. Two named groups for Tweak Overlay demo.
+' ===========================================================================
+Sub _DrawPlasma(ByVal tt As Single)
+	Dim fade As Single = 1.0
+	If tt < 1.5 Then fade = tt / 1.5
+	If tt > 28.5 Then fade = (30.0 - tt) / 1.5
+	If fade < 0.0 Then fade = 0.0
+	If fade > 1.0 Then fade = 1.0
+
+	Dim pw As Single = SW / PlasmaW
+	Dim ph As Single = SH / PlasmaH
+	Dim spd As Single = tt * plasma_speed
+
+	Dim cy_loop As Integer
+	Dim cx_loop As Integer
+	For cy_loop = 0 To PlasmaH - 1
+		For cx_loop = 0 To PlasmaW - 1
+			' Plasma value — sum of three sine waves
+			Dim v As Single = Sin(cx_loop * 0.42 + spd) + Sin(cy_loop * 0.31 + spd * 1.07) + Sin((cx_loop + cy_loop) * 0.23 + spd * 0.73)
+			v = (v + 3.0) / 6.0
+
+			' HSV-to-RGB via sine trick
+			Dim hue As Single = v
+			Dim cr As Single = Sin(hue * Tau) * 0.5 + 0.5
+			Dim cg As Single = Sin(hue * Tau + 2.094) * 0.5 + 0.5
+			Dim cb As Single = Sin(hue * Tau + 4.189) * 0.5 + 0.5
+
+			' Split cells into two groups so the overlay shows two colour pickers
+			If (cx_loop + cy_loop) Mod 2 = 0 Then
+				Call canvas.BeginGroup("PlasmaA")
+			Else
+				Call canvas.BeginGroup("PlasmaB")
+			End If
+
+			Call canvas.DrawRect(Rect2(cx_loop * pw, cy_loop * ph, pw + 1.0, ph + 1.0), 0.0, Color(cr, cg, cb, fade), True, Color(cr, cg, cb, fade))
+			Call canvas.EndGroup()
+		Next
+	Next
+End Sub
+
+' ===========================================================================
+' Effect 4: Credits scroll  (horizontal vector text + logo)
+' ===========================================================================
+Sub _DrawCredits(ByVal delta As Single)
+	Dim tt As Single = t - T_CREDITS_START
+	Dim fade As Single = 1.0
+	If tt < 1.5 Then fade = tt / 1.5
+	If tt > 43.5 Then fade = (45.0 - tt) / 1.5
+	If fade < 0.0 Then fade = 0.0
+	If fade > 1.0 Then fade = 1.0
+
+	' Initialise scroll position on first entry
+	If Not credits_started Then
+		scroll_x = SW
+		credits_started = True
+	End If
+
+	' Advance scroll
+	scroll_x = scroll_x - delta * 175.0
+	Dim credits_text As String = "VISUAL GASIC  *  WRITTEN IN BASIC  *  100% PROCEDURAL  *  NO ASSETS HARMED  *  VECTOR STORM  *  FIVE EFFECTS, ONE FILE  *  "
+	Dim text_width As Single = Len(credits_text) * 24.0
+	If scroll_x < -text_width Then scroll_x = SW
+
+	' Draw divider lines
+	Call canvas.DrawLine(Vector2(0, 290), Vector2(SW, 290), 1.0, Color(0.3, 0.5, 0.8, fade * 0.5))
+	Call canvas.DrawLine(Vector2(0, 430), Vector2(SW, 430), 1.0, Color(0.3, 0.5, 0.8, fade * 0.5))
+
+	' Logo
+	Call canvas.BeginGroup("LogoColor")
+	Call canvas.DrawVectorTextCentered(Vector2(CX, 230), "VISUAL GASIC", Color(0.2, 0.7, 1.0, fade), 2.2, 2.0, 2.5, "")
+	Call canvas.EndGroup()
+
+	' Scrolling credits line
+	Call canvas.DrawVectorText(Vector2(scroll_x, 365), credits_text, Color(1.0, 0.85, 0.2, fade), 1.4, 1.4, "left", 2.0, "")
+
+	' Blinking "PRESS ANY KEY" prompt (blink every ~0.5s based on t)
+	Dim blink As Single = Sin(t * 6.5)
+	If blink > 0.0 Then
+		Call canvas.DrawVectorTextCentered(Vector2(CX, 500), "PRESS ANY KEY TO CONTINUE", Color(0.9, 0.9, 1.0, fade * 0.7), 0.9, 1.0, 2.0, "")
+	End If
+End Sub
+
+' ===========================================================================
+' Effect 5: Final title card  (fade-in + border)
+' ===========================================================================
+Sub _DrawCard(ByVal tt As Single)
+	Dim fade As Single = 1.0
+	If tt < 2.0 Then fade = tt / 2.0
+
+	' Border frame
+	Dim m As Single = 36.0
+	Call canvas.DrawRect(Rect2(m, m, SW - m * 2, SH - m * 2), 1.5, Color(0.25, 0.45, 0.75, fade * 0.55), False, Color(0, 0, 0, 0))
+
+	' Corner accents
+	Dim a As Single = 48.0
+	Call canvas.DrawLine(Vector2(m, m), Vector2(m + a, m), 2.0, Color(0.3, 0.6, 1.0, fade))
+	Call canvas.DrawLine(Vector2(m, m), Vector2(m, m + a), 2.0, Color(0.3, 0.6, 1.0, fade))
+	Call canvas.DrawLine(Vector2(SW - m, m), Vector2(SW - m - a, m), 2.0, Color(0.3, 0.6, 1.0, fade))
+	Call canvas.DrawLine(Vector2(SW - m, m), Vector2(SW - m, m + a), 2.0, Color(0.3, 0.6, 1.0, fade))
+	Call canvas.DrawLine(Vector2(m, SH - m), Vector2(m + a, SH - m), 2.0, Color(0.3, 0.6, 1.0, fade))
+	Call canvas.DrawLine(Vector2(m, SH - m), Vector2(m, SH - m - a), 2.0, Color(0.3, 0.6, 1.0, fade))
+	Call canvas.DrawLine(Vector2(SW - m, SH - m), Vector2(SW - m - a, SH - m), 2.0, Color(0.3, 0.6, 1.0, fade))
+	Call canvas.DrawLine(Vector2(SW - m, SH - m), Vector2(SW - m, SH - m - a), 2.0, Color(0.3, 0.6, 1.0, fade))
+
+	' Title
+	Call canvas.DrawVectorTextCentered(Vector2(CX, 265), "VISUAL GASIC", Color(0.2, 0.7, 1.0, fade), 3.0, 2.5, 3.0, "")
+
+	' Tagline
+	Call canvas.DrawVectorTextCentered(Vector2(CX, 360), "A VB6-STYLE LANGUAGE FOR GODOT 4", Color(1.0, 1.0, 1.0, fade * 0.85), 1.1, 1.2, 2.2, "")
+
+	' URL
+	Call canvas.DrawVectorTextCentered(Vector2(CX, 435), "VISUALGASIC.IO", Color(1.0, 0.85, 0.2, fade), 1.5, 1.5, 2.5, "")
+End Sub
+
+' ===========================================================================
+' Audio: 4-voice chiptune at 132 BPM
+' Voices: square lead, sine bass, square arp, noise hi-hat
+' ===========================================================================
+Sub _UpdateAudio(ByVal delta As Single)
+	If sg_handle = 0 Then Exit Sub
+
+	' Advance beat clock — 16 steps per bar at 132 BPM
+	Dim step_dur As Single = 60.0 / (BPM * 4.0)
+	beat_phase = beat_phase + delta / step_dur
+	Do While beat_phase >= 1.0
+		beat_phase = beat_phase - 1.0
+		beat_idx = beat_idx + 1
+		If beat_idx >= BeatsPerBar Then beat_idx = 0
+		' Trigger hi-hat on every 4th step
+		If beat_idx Mod 4 = 0 Then
+			hihat_active = True
+			hihat_t = 0.0
+		End If
+	Loop
+
+	Dim n As Integer = SoundGen.Available(sg_handle)
+	If n <= 0 Then Exit Sub
+
+	Dim buf(n - 1) As Single
+
+	Dim lead_f As Single = lead_notes(beat_idx)
+	Dim bass_f As Single = bass_notes(beat_idx)
+	Dim arp_f  As Single = arp_notes(beat_idx)
+
+	Dim lead_inc As Single = 0.0
+	Dim bass_inc As Single = 0.0
+	Dim arp_inc  As Single = 0.0
+	If lead_f > 0.0 Then lead_inc = lead_f * AudioSRInv
+	If bass_f > 0.0 Then bass_inc = bass_f * AudioSRInv
+	If arp_f  > 0.0 Then arp_inc  = arp_f  * AudioSRInv
+
+	Dim hihat_inv_sr As Single = AudioSRInv
+
+	Dim i As Integer
+	For i = 0 To n - 1
+		' Voice 1: square wave lead  (pulse width 50%)
+		Dim lead_samp As Single = 0.0
+		If lead_f > 0.0 Then
+			lead_phase = lead_phase + lead_inc
+			If lead_phase >= 1.0 Then lead_phase = lead_phase - 1.0
+			If lead_phase < 0.5 Then lead_samp = 0.11 Else lead_samp = -0.11
+		End If
+
+		' Voice 2: sine bass
+		Dim bass_samp As Single = 0.0
+		If bass_f > 0.0 Then
+			bass_phase = bass_phase + bass_inc
+			If bass_phase >= 1.0 Then bass_phase = bass_phase - 1.0
+			bass_samp = Sin(bass_phase * Tau) * 0.18
+		End If
+
+		' Voice 3: square arp (quieter)
+		Dim arp_samp As Single = 0.0
+		If arp_f > 0.0 Then
+			arp_phase = arp_phase + arp_inc
+			If arp_phase >= 1.0 Then arp_phase = arp_phase - 1.0
+			If arp_phase < 0.5 Then arp_samp = 0.07 Else arp_samp = -0.07
+		End If
+
+		' Voice 4: noise hi-hat (short burst, 200-sample decay)
+		Dim hihat_samp As Single = 0.0
+		If hihat_active Then
+			hihat_t = hihat_t + hihat_inv_sr
+			Dim env As Single = 1.0 - hihat_t * 100.0
+			If env < 0.0 Then
+				env = 0.0
+				hihat_active = False
+			End If
+			hihat_samp = (Rnd() * 2.0 - 1.0) * env * 0.05
+		End If
+
+		buf(i) = lead_samp + bass_samp + arp_samp + hihat_samp
+	Next
+
+	Call SoundGen.PushMonoBuffer(sg_handle, buf)
+End Sub

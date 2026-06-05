@@ -1,0 +1,28 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="VG Demoscene"
+config/description="Five procedural vector effects + chiptune. Pure VG, no assets."
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.6")
+
+[autoload]
+
+VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="viewport"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="gl_compatibility"
