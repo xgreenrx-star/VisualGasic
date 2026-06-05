@@ -71,6 +71,10 @@ void VGVectorCanvas2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("DrawRectsUniform", "rects_xywh", "color", "fill"),
 			&VGVectorCanvas2D::DrawRectsUniform,
 			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("DrawPlasmaCells", "gw", "gh", "spd", "fade", "pw", "ph", "parity"),
+			&VGVectorCanvas2D::DrawPlasmaCells);
+	ClassDB::bind_method(D_METHOD("DrawTorusWireframe", "rot_y", "rot_x", "hue_off", "tt", "fade", "cx", "cy"),
+			&VGVectorCanvas2D::DrawTorusWireframe);
 	ClassDB::bind_method(D_METHOD("DrawSpriteLines", "texture", "segments", "width", "color"),
 			&VGVectorCanvas2D::DrawSpriteLines,
 			DEFVAL(6.0f), DEFVAL(Color(1, 1, 1, 1)));
