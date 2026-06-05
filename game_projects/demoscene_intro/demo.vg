@@ -81,6 +81,9 @@ Dim kick_t_state As Single
 Dim prev_scene As Integer
 Dim scene_bar_offset As Integer
 
+' Torus arrival/explosion flash
+Dim flash_alpha As Single
+
 ' ===========================================================================
 ' Audio globals
 ' ===========================================================================
@@ -138,6 +141,7 @@ Sub _Ready()
 	kick_t_state = 0.0
 	prev_scene = 0
 	scene_bar_offset = 0
+	flash_alpha = 0.0
 
 	' -----------------------------------------------------------------------
 	' Audio note tables  (5 scenes × 16 sixteenth-note steps)
@@ -343,6 +347,7 @@ Sub _Process(ByVal delta As Single)
 	Const T_OVERLAP As Single = 3.0
 	If t > = T_STARS_START And t < T_STARS_END Then
 		Call _DrawStars(delta)
+		' Torus appears as tiny dot 3s before starfield ends; grows to full size.
 		If t > T_STARS_END - T_OVERLAP Then
 			Call _DrawTorus(t - T_STARS_END)
 		End If
@@ -363,6 +368,14 @@ Sub _Process(ByVal delta As Single)
 	ElseIf t > = T_CARD_START Then
 		Call _DrawStarsAlpha(delta, 0.35)
 		Call _DrawCard(t - T_CARD_START)
+	End If
+
+	' Flash overlay — drawn last so it sits above everything.
+	' Set by _DrawTorus explosion phase; decays automatically each frame.
+	If flash_alpha > 0.001 Then
+		Call canvas.DrawRect(Rect2(0, 0, SW, SH), 0.0, Color(1.0, 0.6, 0.2, flash_alpha), True, Color(1.0, 0.6, 0.2, flash_alpha))
+		flash_alpha = flash_alpha - delta * 3.5
+		If flash_alpha < 0.0 Then flash_alpha = 0.0
 	End If
 
 	Call canvas.Render()
@@ -388,15 +401,24 @@ Sub _DrawStars(ByVal delta As Single)
 	Dim n_bri As Integer = 0
 
 	' Speed ramps from 0 to full over the first 3s, then tracks BPM.
-	' At 80 BPM (base) speed = 0.38.  At 200 BPM (plasma) = 0.95.
+	' In the final 3s of the starfield, boost speed 1×→2.8× — warp rush toward torus.
 	Dim spd_ramp As Single = t / 3.0
 	If spd_ramp > 1.0 Then spd_ramp = 1.0
-	Dim star_spd As Single = delta * (bpm_current / 80.0) * 0.38 * spd_ramp
+	Dim warp_boost As Single = 1.0
+	If t > T_STARS_END - 3.0 Then
+		warp_boost = 1.0 + 1.8 * ((t - (T_STARS_END - 3.0)) / 3.0)
+	End If
+	Dim star_spd As Single = delta * (bpm_current / 80.0) * 0.38 * spd_ramp * warp_boost
 
-	' Drifting vanishing point — two overlapping sines give a Lissajous-style
-	' banking path. Drift scales up from 0 over the first 4s with the speed ramp.
-	Dim vp_x As Single = CX + Sin(t * 0.17) * 110.0 * spd_ramp
-	Dim vp_y As Single = CY + Sin(t * 0.11) * 65.0 * spd_ramp
+	' Vanishing point: drift normally, then lock to screen centre in final 3s
+	' so all stars converge on the torus position during the approach.
+	Dim vp_drift As Single = 1.0
+	If t > T_STARS_END - 3.0 Then
+		vp_drift = 1.0 - (t - (T_STARS_END - 3.0)) / 3.0
+		If vp_drift < 0.0 Then vp_drift = 0.0
+	End If
+	Dim vp_x As Single = CX + Sin(t * 0.17) * 110.0 * spd_ramp * vp_drift
+	Dim vp_y As Single = CY + Sin(t * 0.11) * 65.0 * spd_ramp * vp_drift
 
 	Dim i As Integer
 	For i = 0 To StarCount - 1
@@ -522,14 +544,45 @@ End Sub  (2D perspective projection, no 3D API needed)
 ' Torus parameterised by (u, v) angles. Rotated on two axes per frame.
 ' ===========================================================================
 Sub _DrawTorus(ByVal tt As Single)
+	' --- Arrival phase (tt = -3 → 0): torus grows from a distant dot ---
+	' --- Full phase  (tt = 0 → 28.5): normal heartbeat + rotation     ---
+	' --- Explosion   (tt = 27 → 30): scale rockets outward, screen flashes ---
+
+	' Arrival: scale 0.04 → 1.0 over the 3s approach window
+	Dim arrival_scale As Single = 1.0
+	Dim arrival_fade As Single = 1.0
+	If tt < 0.0 Then
+		Dim approach As Single = (tt + 3.0) / 3.0
+		If approach < 0.0 Then approach = 0.0
+		arrival_scale = 0.04 + 0.96 * approach
+		' Fade in during last 1.5s of approach
+		arrival_fade = (tt + 1.5) / 1.5
+		If arrival_fade < 0.0 Then arrival_fade = 0.0
+		If arrival_fade > 1.0 Then arrival_fade = 1.0
+	End If
+
+	' Scene fade (normal in/out)
 	Dim fade As Single = 1.0
-	If tt < 1.5 Then fade = tt / 1.5
+	If tt > = 0.0 And tt < 1.5 Then fade = tt / 1.5
 	If tt > 28.5 Then fade = (30.0 - tt) / 1.5
 	If fade < 0.0 Then fade = 0.0
 	If fade > 1.0 Then fade = 1.0
+	If tt < 0.0 Then fade = arrival_fade
 
-	' Heartbeat scale pulse: torus swells on each beat like a heart
-	Dim torus_scale As Single = 1.0 + 0.35 * heart_pulse
+	' Explosion phase (tt = 27 → 30): scale rockets to 4x, trigger flash
+	Dim explode_scale As Single = 1.0
+	If tt > 27.0 Then
+		Dim explode_t As Single = (tt - 27.0) / 3.0
+		explode_scale = 1.0 + 3.0 * explode_t * explode_t
+		' Peak flash at tt=29, then it fades with the fade-out
+		flash_alpha = explode_t * explode_t * fade
+		' Turbo hue cycle during explosion
+		torus_hue_offset = torus_hue_offset + 0.08
+		If torus_hue_offset > 1.0 Then torus_hue_offset = torus_hue_offset - 1.0
+	End If
+
+	' Combine all scale factors
+	Dim torus_scale As Single = arrival_scale * explode_scale * (1.0 + 0.35 * heart_pulse)
 
 	Call canvas.BeginGroup("TorusColor")
 	Call canvas.DrawTorusWireframe(torus_rot_y, torus_rot_x, torus_hue_offset, tt, fade, CX, CY, torus_scale)
