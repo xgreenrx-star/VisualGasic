@@ -154,6 +154,22 @@ public:
 	void DrawVectorText(const Vector2 &position, const String &text, const Color &color = Color(1, 1, 1, 1), float scale = 1.0f, float width = 2.0f, const String &align = "left", float spacing = 2.0f, const String &font_name = "");
 	void DrawVectorTextCentered(const Vector2 &position, const String &text, const Color &color = Color(1, 1, 1, 1), float scale = 1.0f, float width = 2.0f, float spacing = 2.0f, const String &font_name = "");
 	void DrawVectorTextRightAligned(const Vector2 &position, const String &text, const Color &color = Color(1, 1, 1, 1), float scale = 1.0f, float width = 2.0f, float spacing = 2.0f, const String &font_name = "");
+	// Helix: text orbits a 3D helix projected to 2D. Characters tilt to follow
+	//   the curve tangent and scale with perspective. cx/cy = screen centre,
+	//   radius = orbit radius, perspective = flatten factor (0=flat circle, 1=full 3D),
+	//   helical_pitch = vertical rise per character, twist_speed = angular speed (rad/s),
+	//   char_spacing = angular gap between chars (radians), time = running time.
+	void DrawVectorTextHelix(const String &text, float cx, float cy, float time,
+			const Color &color = Color(1, 1, 1, 1), float scale = 1.0f, float width = 2.0f,
+			float radius = 200.0f, float perspective = 0.6f, float helical_pitch = 18.0f,
+			float twist_speed = 1.2f, float char_spacing = 0.22f, const String &font_name = "");
+	// Wave: text scrolls horizontally with per-character sinusoidal Y displacement,
+	//   hue cycling, and foreshortening scale — classic demoscene sine scroller.
+	//   x_offset drives the horizontal position (decrease each frame to scroll left).
+	void DrawVectorTextWave(const String &text, float x_offset, float base_y, float time,
+			const Color &color = Color(1, 1, 1, 1), float scale = 1.0f, float width = 2.0f,
+			float amplitude = 60.0f, float wave_freq = 0.18f, float wave_speed = 3.0f,
+			float spacing = 2.0f, bool hue_cycle = true, const String &font_name = "");
 	void RegisterVectorFont(const String &name, const Dictionary &glyphs, bool make_default = false);
 	void SetVectorFont(const String &name);
 	Array GetVectorFontNames();

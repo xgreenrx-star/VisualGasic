@@ -269,6 +269,32 @@ Sub _Ready()
 End Sub
 
 ' ===========================================================================
+' _UnhandledInput — any keypress / mouse click skips to next section
+' VG auto-enables unhandled input processing when this sub is present.
+' ===========================================================================
+Sub _UnhandledInput(ByVal event As Object)
+	Dim is_key As Boolean = event Is InputEventKey
+	Dim is_click As Boolean = event Is InputEventMouseButton
+	If Not is_key And Not is_click Then Exit Sub
+	If Not event.Pressed Then Exit Sub
+
+	' Skip to next section boundary
+	If t < T_STARS_END Then
+		t = T_STARS_END
+	ElseIf t < T_TORUS_END Then
+		t = T_TORUS_END
+	ElseIf t < T_PLASMA_END Then
+		t = T_PLASMA_END
+	ElseIf t < T_CREDITS_END Then
+		t = T_CREDITS_END
+	Else
+		t = 0.0
+		scroll_x = SW
+		credits_started = False
+	End If
+End Sub
+
+' ===========================================================================
 ' _Process
 ' ===========================================================================
 Sub _Process(ByVal delta As Single)
@@ -420,6 +446,9 @@ End Sub
 ' ===========================================================================
 ' Effect 4: Credits scroll  (horizontal vector text + logo)
 ' ===========================================================================
+' ===========================================================================
+' Effect 4: Credits  — helix text orbit + sine scroller
+' ===========================================================================
 Sub _DrawCredits(ByVal delta As Single)
 	Dim tt As Single = t - T_CREDITS_START
 	Dim fade As Single = 1.0
@@ -428,39 +457,32 @@ Sub _DrawCredits(ByVal delta As Single)
 	If fade < 0.0 Then fade = 0.0
 	If fade > 1.0 Then fade = 1.0
 
-	' Initialise scroll position on first entry
 	If Not credits_started Then
 		scroll_x = SW
 		credits_started = True
 	End If
 
-	' Advance scroll
-	scroll_x = scroll_x - delta * 175.0
-	Dim credits_text As String = "VISUAL GASIC * WRITTEN IN BASIC * 100% PROCEDURAL * NO ASSETS HARMED * VECTOR STORM * FIVE EFFECTS, ONE FILE * "
-	Dim text_width As Single = Len(credits_text) * 24.0
-	If scroll_x < - text_width Then scroll_x = SW
-
-	' Draw divider lines
-	Call canvas.DrawLine(Vector2(0, 290), Vector2(SW, 290), 1.0, Color(0.3, 0.5, 0.8, fade * 0.5))
-	Call canvas.DrawLine(Vector2(0, 430), Vector2(SW, 430), 1.0, Color(0.3, 0.5, 0.8, fade * 0.5))
-
-	' Logo
+	' --- Helix: "VISUAL GASIC" orbiting the screen centre ---
 	Call canvas.BeginGroup("LogoColor")
-	Call canvas.DrawVectorTextCentered(Vector2(CX, 230), "VISUAL GASIC", Color(0.2, 0.7, 1.0, fade), 2.2, 2.0, 2.5, "")
+	Call canvas.DrawVectorTextHelix("VISUAL GASIC", CX, CY, tt, Color(0.2, 0.7, 1.0, fade), 2.6, 2.2, 260.0, 0.55, 0.0, 0.9, 0.32, "")
 	Call canvas.EndGroup()
 
-	' Scrolling credits line
-	Call canvas.DrawVectorText(Vector2(scroll_x, 365), credits_text, Color(1.0, 0.85, 0.2, fade), 1.4, 1.4, "left", 2.0, "")
+	' --- Sine wave scroller below the helix ---
+	scroll_x = scroll_x - delta * 140.0
+	Dim credits_text As String = "VISUAL GASIC  *  WRITTEN IN VB-STYLE BASIC  *  100% PROCEDURAL  *  NO ASSETS HARMED  *  VECTOR STORM  *  FIVE EFFECTS ONE FILE  *  "
+	Dim text_width As Single = Len(credits_text) * 22.0
+	If scroll_x < - text_width Then scroll_x = SW
+	Call canvas.DrawVectorTextWave(credits_text, scroll_x, 560.0, tt, Color(1.0, 0.85, 0.2, fade), 1.2, 1.4, 28.0, 0.15, 2.5, 1.5, True, "")
 
-	' Blinking "PRESS ANY KEY" prompt (blink every ~0.5s based on t)
-	Dim blink As Single = Sin(t * 6.5)
+	' --- "PRESS ANY KEY" blinking hint ---
+	Dim blink As Single = Sin(t * 5.0)
 	If blink > 0.0 Then
-		Call canvas.DrawVectorTextCentered(Vector2(CX, 500), "PRESS ANY KEY TO CONTINUE", Color(0.9, 0.9, 1.0, fade * 0.7), 0.9, 1.0, 2.0, "")
+		Call canvas.DrawVectorTextCentered(Vector2(CX, 640.0), "PRESS ANY KEY TO CONTINUE", Color(0.7, 0.7, 1.0, fade * 0.6), 0.75, 1.0, 2.0, "")
 	End If
 End Sub
 
 ' ===========================================================================
-' Effect 5: Final title card  (fade-in + border)
+' Effect 5: Final title card  — wave title + border
 ' ===========================================================================
 Sub _DrawCard(ByVal tt As Single)
 	Dim fade As Single = 1.0
@@ -481,14 +503,15 @@ Sub _DrawCard(ByVal tt As Single)
 	Call canvas.DrawLine(Vector2(SW - m, SH - m), Vector2(SW - m - a, SH - m), 2.0, Color(0.3, 0.6, 1.0, fade))
 	Call canvas.DrawLine(Vector2(SW - m, SH - m), Vector2(SW - m, SH - m - a), 2.0, Color(0.3, 0.6, 1.0, fade))
 
-	' Title
-	Call canvas.DrawVectorTextCentered(Vector2(CX, 265), "VISUAL GASIC", Color(0.2, 0.7, 1.0, fade), 3.0, 2.5, 3.0, "")
+	' Wave title "VISUAL GASIC" across the card
+	Dim wave_x As Single = 120.0
+	Call canvas.DrawVectorTextWave("VISUAL GASIC", wave_x, 270.0, tt, Color(0.2, 0.7, 1.0, fade), 2.8, 2.5, 22.0, 0.28, 1.8, 2.0, False, "")
 
 	' Tagline
-	Call canvas.DrawVectorTextCentered(Vector2(CX, 360), "A VB6-STYLE LANGUAGE FOR GODOT 4", Color(1.0, 1.0, 1.0, fade * 0.85), 1.1, 1.2, 2.2, "")
+	Call canvas.DrawVectorTextCentered(Vector2(CX, 380.0), "A VB6-STYLE LANGUAGE FOR GODOT 4", Color(1.0, 1.0, 1.0, fade * 0.85), 1.1, 1.2, 2.2, "")
 
 	' URL
-	Call canvas.DrawVectorTextCentered(Vector2(CX, 435), "VISUALGASIC.IO", Color(1.0, 0.85, 0.2, fade), 1.5, 1.5, 2.5, "")
+	Call canvas.DrawVectorTextCentered(Vector2(CX, 450.0), "VISUALGASIC.IO", Color(1.0, 0.85, 0.2, fade), 1.5, 1.5, 2.5, "")
 End Sub
 
 ' ===========================================================================

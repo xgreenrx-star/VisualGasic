@@ -112,6 +112,18 @@ void VGVectorCanvas2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("DrawVectorTextRightAligned", "position", "text", "color", "scale", "width", "spacing", "font_name"),
 			&VGVectorCanvas2D::DrawVectorTextRightAligned,
 			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f), DEFVAL(2.0f), DEFVAL(2.0f), DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("DrawVectorTextHelix",
+			"text", "cx", "cy", "time", "color", "scale", "width",
+			"radius", "perspective", "helical_pitch", "twist_speed", "char_spacing", "font_name"),
+			&VGVectorCanvas2D::DrawVectorTextHelix,
+			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f), DEFVAL(2.0f),
+			DEFVAL(200.0f), DEFVAL(0.6f), DEFVAL(18.0f), DEFVAL(1.2f), DEFVAL(0.22f), DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("DrawVectorTextWave",
+			"text", "x_offset", "base_y", "time", "color", "scale", "width",
+			"amplitude", "wave_freq", "wave_speed", "spacing", "hue_cycle", "font_name"),
+			&VGVectorCanvas2D::DrawVectorTextWave,
+			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f), DEFVAL(2.0f),
+			DEFVAL(60.0f), DEFVAL(0.18f), DEFVAL(3.0f), DEFVAL(2.0f), DEFVAL(true), DEFVAL(""));
 	ClassDB::bind_method(D_METHOD("RegisterVectorFont", "name", "glyphs", "make_default"),
 			&VGVectorCanvas2D::RegisterVectorFont, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("SetVectorFont", "name"), &VGVectorCanvas2D::SetVectorFont);
@@ -1470,4 +1482,152 @@ void VGVectorCanvas2D::DrawVectorTextCentered(const Vector2 &position, const Str
 
 void VGVectorCanvas2D::DrawVectorTextRightAligned(const Vector2 &position, const String &text, const Color &color, float scale, float width, float spacing, const String &font_name) {
 	DrawVectorText(position, text, color, scale, width, "right", spacing, font_name);
+}
+
+// ---------------------------------------------------------------------------
+// DrawVectorTextHelix — text orbiting a 3D helix projected to 2D.
+// Each character is placed at angle = base_angle + i*char_spacing, orbiting
+// cx/cy at the given radius. Y is offset by helical_pitch*i and a 3D
+// perspective sine. Each glyph is rotated to follow the orbit tangent.
+// ---------------------------------------------------------------------------
+void VGVectorCanvas2D::DrawVectorTextHelix(const String &text, float cx, float cy, float time,
+		const Color &color, float scale, float width,
+		float radius, float perspective, float helical_pitch,
+		float twist_speed, float char_spacing, const String &font_name) {
+	_ensure_default_vector_font();
+	String upper_text = text.to_upper();
+	Dictionary font_map = _get_vector_font(font_name);
+	int n = upper_text.length();
+	const float TAU = 6.28318530718f;
+
+	for (int gi = 0; gi < n; ++gi) {
+		String ch = upper_text.substr(gi, 1);
+		Variant g_v = font_map.get(ch, Variant());
+		Dictionary g;
+		if (g_v.get_type() == Variant::DICTIONARY) {
+			g = (Dictionary)g_v;
+		} else {
+			g["width"] = (real_t)8.0;
+			g["strokes"] = Array();
+		}
+
+		// Angle on the helix for this character
+		float angle = (float)gi * char_spacing - time * twist_speed;
+		float cos_a = ::cosf(angle);
+		float sin_a = ::sinf(angle);
+
+		// 3D perspective: cos_a controls front/back depth
+		float depth = (cos_a + 1.0f) * 0.5f; // 0=back, 1=front
+		float persp = 1.0f - perspective * (1.0f - depth) * 0.5f; // scale: back chars smaller
+		float char_scale = scale * persp;
+
+		// Position on orbit
+		float px = cx + radius * sin_a;
+		float py = cy + radius * cos_a * perspective + (float)gi * helical_pitch - (float)n * helical_pitch * 0.5f;
+
+		// Tangent direction (perpendicular to radial) = direction of character baseline
+		float tan_x = cos_a;
+		float tan_y = -sin_a * perspective;
+		// Normalise tangent
+		float tan_len = ::sqrtf(tan_x * tan_x + tan_y * tan_y);
+		if (tan_len > 0.001f) { tan_x /= tan_len; tan_y /= tan_len; }
+		// Normal = perpendicular to tangent (for glyph height direction)
+		float nor_x = -tan_y;
+		float nor_y = tan_x;
+
+		// Glyph char_width for centring
+		float gw = (float)(real_t)g["width"] * char_scale;
+
+		// Hue cycling along the string
+		float hue = (float)gi / (float)n;
+		float cr = ::sinf(hue * TAU) * 0.5f + 0.5f;
+		float cg = ::sinf(hue * TAU + 2.094f) * 0.5f + 0.5f;
+		float cb = ::sinf(hue * TAU + 4.189f) * 0.5f + 0.5f;
+		// Blend with base colour
+		Color char_color(
+			color.r * 0.4f + cr * 0.6f,
+			color.g * 0.4f + cg * 0.6f,
+			color.b * 0.4f + cb * 0.6f,
+			color.a * persp  // fade chars at back
+		);
+
+		// Draw each stroke, transforming points by (tangent, normal) basis
+		Array strokes = g["strokes"];
+		for (int si = 0; si < strokes.size(); ++si) {
+			Array stroke = strokes[si];
+			if (stroke.size() < 2) continue;
+			Array pts_array;
+			for (int pi = 0; pi < stroke.size(); ++pi) {
+				Vector2 op = (Vector2)stroke[pi];
+				// Local glyph space: x along baseline (centred), y up into normal
+				float lx = (op.x - gw * 0.5f / char_scale) * char_scale;
+				float ly = op.y * char_scale;
+				// Transform into world space using tangent/normal basis
+				float wx = px + tan_x * lx + nor_x * ly;
+				float wy = py + tan_y * lx + nor_y * ly;
+				pts_array.append(Vector2(wx, wy));
+			}
+			DrawPolyline(pts_array, width * persp, char_color, false, Color(1, 1, 1, 0), false);
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// DrawVectorTextWave — horizontal sine scroller with per-character
+// Y displacement, foreshortening scale, and optional hue cycling.
+// ---------------------------------------------------------------------------
+void VGVectorCanvas2D::DrawVectorTextWave(const String &text, float x_offset, float base_y, float time,
+		const Color &color, float scale, float width,
+		float amplitude, float wave_freq, float wave_speed,
+		float spacing, bool hue_cycle, const String &font_name) {
+	_ensure_default_vector_font();
+	String upper_text = text.to_upper();
+	Dictionary font_map = _get_vector_font(font_name);
+	int n = upper_text.length();
+	const float TAU = 6.28318530718f;
+
+	float x_cur = x_offset;
+	for (int gi = 0; gi < n; ++gi) {
+		String ch = upper_text.substr(gi, 1);
+		Variant g_v = font_map.get(ch, Variant());
+		Dictionary g;
+		if (g_v.get_type() == Variant::DICTIONARY) {
+			g = (Dictionary)g_v;
+		} else {
+			g["width"] = (real_t)8.0;
+			g["strokes"] = Array();
+		}
+		float gw = (float)(real_t)g["width"];
+
+		// Wave: Y displacement + slight scale foreshortening
+		float phase = x_cur * wave_freq + time * wave_speed;
+		float dy = ::sinf(phase) * amplitude;
+		float char_scale = scale * (1.0f + 0.18f * ::cosf(phase));
+
+		// Hue cycling
+		Color char_color = color;
+		if (hue_cycle) {
+			float hue = (float)gi / MAX(1.0f, (float)n) + time * 0.25f;
+			hue -= ::floorf(hue);
+			char_color.r = color.r * 0.5f + (::sinf(hue * TAU) * 0.5f + 0.5f) * 0.5f;
+			char_color.g = color.g * 0.5f + (::sinf(hue * TAU + 2.094f) * 0.5f + 0.5f) * 0.5f;
+			char_color.b = color.b * 0.5f + (::sinf(hue * TAU + 4.189f) * 0.5f + 0.5f) * 0.5f;
+		}
+
+		Array strokes = g["strokes"];
+		for (int si = 0; si < strokes.size(); ++si) {
+			Array stroke = strokes[si];
+			if (stroke.size() < 2) continue;
+			Array pts_array;
+			for (int pi = 0; pi < stroke.size(); ++pi) {
+				Vector2 op = (Vector2)stroke[pi];
+				pts_array.append(Vector2(
+					x_cur + op.x * char_scale,
+					base_y + dy + op.y * char_scale
+				));
+			}
+			DrawPolyline(pts_array, width, char_color, false, Color(1, 1, 1, 0), false);
+		}
+		x_cur += gw * char_scale + spacing;
+	}
 }
