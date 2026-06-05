@@ -1,4 +1,3 @@
-hh
 ' VG Demoscene Intro
 ' Pure procedural vector effects + chiptune. No external assets.
 '
@@ -468,11 +467,14 @@ Sub _DrawCredits(ByVal delta As Single)
 	Call canvas.EndGroup()
 
 	' --- Sine wave scroller below the helix ---
-	scroll_x = scroll_x - delta * 140.0
-	Dim credits_text As String = "VISUAL GASIC * WRITTEN IN VB-STYLE BASIC * 100% PROCEDURAL * NO ASSETS HARMED * VECTOR STORM * FIVE EFFECTS ONE FILE * "
-	Dim text_width As Single = Len(credits_text) * 22.0
+	' Speed oscillates between 20 px/s (readable pause) and 70 px/s (cruise)
+	Dim scroll_speed As Single = 20.0 + 50.0 * Abs(Sin(tt * 0.3))
+	scroll_x = scroll_x - delta * scroll_speed
+	Dim credits_text As String = "VISUAL GASIC  *  WRITTEN IN VB-STYLE BASIC  *  100% PROCEDURAL  *  NO ASSETS HARMED  *  VECTOR STORM  *  FIVE EFFECTS ONE FILE  *  "
+	Dim text_width As Single = Len(credits_text) * 28.0
 	If scroll_x < - text_width Then scroll_x = SW
-	Call canvas.DrawVectorTextWave(credits_text, scroll_x, 560.0, tt, Color(1.0, 0.85, 0.2, fade), 1.2, 1.4, 28.0, 0.15, 2.5, 1.5, True, "")
+	' spacing=8.0 spreads letters out; amplitude=14 keeps wave gentle; wave_freq=0.07 stretches the wave long
+	Call canvas.DrawVectorTextWave(credits_text, scroll_x, 560.0, tt, Color(1.0, 0.85, 0.2, fade), 1.2, 1.4, 14.0, 0.07, 1.5, 8.0, True, "")
 
 	' --- "PRESS ANY KEY" blinking hint ---
 	Dim blink As Single = Sin(t * 5.0)
