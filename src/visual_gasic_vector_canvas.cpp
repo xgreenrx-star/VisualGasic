@@ -1406,6 +1406,75 @@ void VGVectorCanvas2D::_ensure_default_vector_font() {
 		STROKE_APPEND(__strokes, V2(0, 10), V2(10, 0))
 		STROKE_APPEND(__strokes, V2(7, 6), V2(9, 6), V2(10, 7), V2(10, 9), V2(9, 10), V2(7, 10), V2(6, 9), V2(6, 7), V2(7, 6))
 	);
+	// + — horizontal and vertical through centre
+	GLYPH(font, "+", 10.0,
+		STROKE_APPEND(__strokes, V2(5, 1), V2(5, 9))
+		STROKE_APPEND(__strokes, V2(1, 5), V2(9, 5))
+	);
+	// _ — baseline underline
+	GLYPH(font, "_", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 10), V2(10, 10))
+	);
+	// / — forward slash
+	GLYPH(font, "/", 10.0,
+		STROKE_APPEND(__strokes, V2(8, 0), V2(2, 10))
+	);
+	// ! — vertical stroke + dot
+	GLYPH(font, "!", 6.0,
+		STROKE_APPEND(__strokes, V2(3, 0), V2(3, 7))
+		STROKE_APPEND(__strokes, V2(3, 9), V2(3, 10))
+	);
+	// ? — arc, vertical gap, dot
+	GLYPH(font, "?", 10.0,
+		STROKE_APPEND(__strokes, V2(0, 2), V2(2, 0), V2(6, 0), V2(8, 2), V2(8, 4), V2(5, 6), V2(5, 7))
+		STROKE_APPEND(__strokes, V2(5, 9), V2(5, 10))
+	);
+	// ' — short top-right tick
+	GLYPH(font, "'", 4.0,
+		STROKE_APPEND(__strokes, V2(2, 0), V2(2, 3))
+	);
+	// , — descending dot
+	GLYPH(font, ",", 6.0,
+		STROKE_APPEND(__strokes, V2(3, 8), V2(3, 10), V2(1, 12))
+	);
+	// ; — colon with descending lower dot
+	GLYPH(font, ";", 6.0,
+		STROKE_APPEND(__strokes, V2(3, 2), V2(3, 3))
+		STROKE_APPEND(__strokes, V2(3, 7), V2(3, 9), V2(1, 11))
+	);
+	// ( — left parenthesis
+	GLYPH(font, "(", 6.0,
+		STROKE_APPEND(__strokes, V2(5, 0), V2(2, 3), V2(2, 7), V2(5, 10))
+	);
+	// ) — right parenthesis
+	GLYPH(font, ")", 6.0,
+		STROKE_APPEND(__strokes, V2(1, 0), V2(4, 3), V2(4, 7), V2(1, 10))
+	);
+	// # — two horizontal bars + two verticals
+	GLYPH(font, "#", 10.0,
+		STROKE_APPEND(__strokes, V2(2, 0), V2(2, 10))
+		STROKE_APPEND(__strokes, V2(7, 0), V2(7, 10))
+		STROKE_APPEND(__strokes, V2(0, 3), V2(10, 3))
+		STROKE_APPEND(__strokes, V2(0, 7), V2(10, 7))
+	);
+	// @ — circle with inner hook
+	GLYPH(font, "@", 12.0,
+		STROKE_APPEND(__strokes, V2(9, 4), V2(7, 2), V2(5, 2), V2(4, 4), V2(4, 6), V2(5, 8), V2(7, 8), V2(9, 6), V2(9, 2), V2(7, 0), V2(4, 0), V2(1, 2), V2(0, 5), V2(1, 9), V2(4, 11), V2(7, 11), V2(10, 9))
+	);
+	// < and >
+	GLYPH(font, "<", 10.0,
+		STROKE_APPEND(__strokes, V2(8, 0), V2(2, 5), V2(8, 10))
+	);
+	GLYPH(font, ">", 10.0,
+		STROKE_APPEND(__strokes, V2(2, 0), V2(8, 5), V2(2, 10))
+	);
+	// [ and ]
+	GLYPH(font, "[", 6.0,
+		STROKE_APPEND(__strokes, V2(5, 0), V2(2, 0), V2(2, 10), V2(5, 10))
+	);
+	GLYPH(font, "]", 6.0,
+		STROKE_APPEND(__strokes, V2(1, 0), V2(4, 0), V2(4, 10), V2(1, 10))
+	);
 
 	#undef V2
 	#undef STROKE_BEGIN

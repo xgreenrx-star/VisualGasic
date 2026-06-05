@@ -314,23 +314,31 @@ Sub _Process(ByVal delta As Single)
 	Call canvas.DrawRect(Rect2(0, 0, SW, SH), 1.0, Color(0, 0, 0, 1), True, Color(0, 0, 0, 1))
 	Call canvas.EndGroup()
 
-	' Overlap window: torus fades in during last 3s of starfield
+	' 3-second cross-fade overlap between every adjacent scene pair.
+	' Each incoming scene gets tt = (t - scene_start) which is negative during
+	' the overlap window; the per-scene fade formula clamps negatives to 0
+	' until the last 1.5s where it ramps up naturally.
 	Const T_OVERLAP As Single = 3.0
 	If t > = T_STARS_START And t < T_STARS_END Then
 		Call _DrawStars(delta)
 		If t > T_STARS_END - T_OVERLAP Then
-			' Pass negative tt so torus fade-in starts at tt = -T_OVERLAP,
-			' reaching tt=0 exactly when stars end (fade clamps negatives to 0
-			' until the last 1.5s where it ramps up)
 			Call _DrawTorus(t - T_STARS_END)
 		End If
 	ElseIf t > = T_TORUS_START And t < T_TORUS_END Then
 		Call _DrawTorus(t - T_TORUS_START)
+		If t > T_TORUS_END - T_OVERLAP Then
+			Call _DrawPlasma(t - T_TORUS_END)
+		End If
 	ElseIf t > = T_PLASMA_START And t < T_PLASMA_END Then
 		Call _DrawPlasma(t - T_PLASMA_START)
+		If t > T_PLASMA_END - T_OVERLAP Then
+			Call _DrawCredits(delta)
+		End If
 	ElseIf t > = T_CREDITS_START And t < T_CREDITS_END Then
 		Call _DrawCredits(delta)
 	ElseIf t > = T_CARD_START Then
+		' Starfield at 20% alpha underneath the card for visual continuity
+		Call _DrawStarsAlpha(delta, 0.2)
 		Call _DrawCard(t - T_CARD_START)
 	End If
 
@@ -410,8 +418,55 @@ Sub _DrawStars(ByVal delta As Single)
 	Call canvas.EndGroup()
 End Sub
 
-' ===========================================================================
-' Effect 2: Wireframe Torus  (2D perspective projection, no 3D API needed)
+' Thin wrapper — draws starfield with all colours scaled by alpha_scale.
+' Used to show stars at reduced opacity under the final title card.
+Sub _DrawStarsAlpha(ByVal delta As Single, ByVal alpha_scale As Single)
+	Dim fade As Single = alpha_scale
+
+	Dim segs_dim(1199) As Vector2
+	Dim segs_mid(1199) As Vector2
+	Dim segs_bri(1199) As Vector2
+	Dim n_dim As Integer = 0
+	Dim n_mid As Integer = 0
+	Dim n_bri As Integer = 0
+
+	Dim i As Integer
+	For i = 0 To StarCount - 1
+		Dim sx As Single = (star_x(i) - 0.5) / star_z(i) * 900.0 + CX
+		Dim sy As Single = (star_y(i) - 0.5) / star_z(i) * 900.0 + CY
+		If sx < - 20 Or sx > SW + 20 Or sy < - 20 Or sy > SH + 20 Then GoTo _next_star_a
+		Dim bright As Single = (1.0 - star_z(i)) * fade
+		If bright > 0.65 * alpha_scale Then
+			segs_bri(n_bri) = Vector2(sx, sy)
+			segs_bri(n_bri + 1) = Vector2(sx, sy)
+			n_bri = n_bri + 2
+		ElseIf bright > 0.3 * alpha_scale Then
+			segs_mid(n_mid) = Vector2(sx, sy)
+			segs_mid(n_mid + 1) = Vector2(sx, sy)
+			n_mid = n_mid + 2
+		Else
+			segs_dim(n_dim) = Vector2(sx, sy)
+			segs_dim(n_dim + 1) = Vector2(sx, sy)
+			n_dim = n_dim + 2
+		End If
+		_next_star_a:
+	Next
+
+	Call canvas.BeginGroup("StarsColor")
+	If n_dim > 0 Then
+		ReDim Preserve segs_dim(n_dim - 1) As Vector2
+		Call canvas.DrawLines(segs_dim, 0.7, Color(0.35 * fade, 0.35 * fade, 0.38 * fade, fade))
+	End If
+	If n_mid > 0 Then
+		ReDim Preserve segs_mid(n_mid - 1) As Vector2
+		Call canvas.DrawLines(segs_mid, 1.1, Color(0.6 * fade, 0.6 * fade, 0.65 * fade, fade))
+	End If
+	If n_bri > 0 Then
+		ReDim Preserve segs_bri(n_bri - 1) As Vector2
+		Call canvas.DrawLines(segs_bri, 1.6, Color(fade, fade, fade, fade))
+	End If
+	Call canvas.EndGroup()
+End Sub  (2D perspective projection, no 3D API needed)
 ' Torus parameterised by (u, v) angles. Rotated on two axes per frame.
 ' ===========================================================================
 Sub _DrawTorus(ByVal tt As Single)
@@ -534,6 +589,11 @@ Sub _UpdateAudio(ByVal delta As Single)
 	' --- Select scene (0-4) and configure tempo ---
 	Dim scene As Integer = 0
 	Dim target_bpm As Single = 80.0
+	' Pre-ramp starfield to 95 BPM in the last 3s so the torus cross-fade
+	' doesn't cause an abrupt tempo jump when scene 1 takes over at 100 BPM
+	If t > T_STARS_END - 3.0 And t < T_STARS_END Then
+		target_bpm = 95.0
+	End If
 	If t > = T_TORUS_START And t < T_TORUS_END Then
 		scene = 1
 		target_bpm = 100.0 + bar_count * 8.0
