@@ -17,6 +17,48 @@ on the published microbenchmarks.
 
 ---
 
+## 🎬 See It In Action
+
+> **[▶ Watch the VisualGasic Demoscene — YouTube](https://youtu.be/TODO)**
+
+A 165-second procedural demoscene written entirely in VG — **zero external
+assets, one `.vg` file.** Five effects, live chiptune, all rendered through
+`VGVectorCanvas2D`:
+
+- **Starfield** — 600 perspective-projected star streaks, BPM-driven speed,
+  Lissajous camera drift, warp-rush into the torus
+- **Torus** — full wireframe rotation with heartbeat kick-drum pulse and
+  BPM-accelerating colour cycle; arrives from the starfield and explodes
+  into plasma
+- **Plasma** — 40×23 HSV colour-wave grid locked at 200 BPM
+- **Credits** — helix-orbit logo + sine-wave text scroller
+- **Title card** — wave title, border frame, corner accents, fade-in/out
+
+### The Tweak Overlay demo
+
+The video shows the **Tweak Overlay** (`Ctrl+Shift+T`) in use on **live
+procedurally generated graphics** — the plasma wave, torus wireframe,
+starfield tint, and credits logo are all being adjusted in real time while
+the chiptune plays. The five named `BeginGroup`/`EndGroup` blocks
+(`PlasmaA`, `PlasmaB`, `TorusColor`, `StarsColor`, `LogoColor`) expose
+themselves as live colour pickers in the overlay panel.
+
+Hitting **→ Source** patches the chosen colour directly into the `.vg`
+source line — so what you hear and see while tweaking is exactly what ends
+up committed to the file. No re-typing, no guessing hex values.
+
+The entire demo is at [`game_projects/demoscene_intro/demo.vg`](game_projects/demoscene_intro/demo.vg)
+and can be run headlessly or recorded with Godot's built-in movie writer:
+
+```bash
+./Godot_v4.6.1-stable_linux.x86_64 \
+  --path game_projects/demoscene_intro \
+  --fixed-fps 60 \
+  --write-movie demoscene_intro.avi
+```
+
+---
+
 ## ⚠️ Known issues
 
 - **VGMusic (Bosca Ceoil) requires a restart to work** — unchanged from
