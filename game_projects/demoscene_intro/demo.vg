@@ -309,6 +309,12 @@ Sub _UnhandledInput(ByVal Event As Object)
 	If Not is_key And Not is_click Then Exit Sub
 	If Not Event.Pressed Then Exit Sub
 
+	' Ignore any combo that has a modifier held (Ctrl / Shift / Alt).
+	' This lets Ctrl+Shift+T open the Tweak Overlay without skipping scenes.
+	If is_key Then
+		If Event.CtrlPressed Or Event.ShiftPressed Or Event.AltPressed Then Exit Sub
+	End If
+
 	' Skip to next section boundary
 	If t < T_STARS_END Then
 		t = T_STARS_END
