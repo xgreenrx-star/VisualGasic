@@ -281,7 +281,7 @@ Sub _DrawTorus(ByVal tt As Single)
 	If fade > 1.0 Then fade = 1.0
 
 	Call canvas.BeginGroup("TorusColor")
-	Call canvas.DrawTorusWireframe(tt * 0.65, tt * 0.38, torus_hue_offset, tt, fade)
+	Call canvas.DrawTorusWireframe(tt * 0.65, tt * 0.38, torus_hue_offset, tt, fade, CX, CY)
 	Call canvas.EndGroup()
 End Sub
 
