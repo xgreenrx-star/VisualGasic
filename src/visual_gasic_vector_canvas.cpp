@@ -1394,6 +1394,18 @@ void VGVectorCanvas2D::_ensure_default_vector_font() {
 	GLYPH(font, ".", 10.0,
 		STROKE_APPEND(__strokes, V2(5, 8), V2(5, 10))
 	);
+	// * — three lines crossing at centre (5,5)
+	GLYPH(font, "*", 10.0,
+		STROKE_APPEND(__strokes, V2(5, 1), V2(5, 9))
+		STROKE_APPEND(__strokes, V2(1, 3), V2(9, 7))
+		STROKE_APPEND(__strokes, V2(9, 3), V2(1, 7))
+	);
+	// % — top-left circle, diagonal slash, bottom-right circle
+	GLYPH(font, "%", 12.0,
+		STROKE_APPEND(__strokes, V2(1, 0), V2(3, 0), V2(4, 1), V2(4, 3), V2(3, 4), V2(1, 4), V2(0, 3), V2(0, 1), V2(1, 0))
+		STROKE_APPEND(__strokes, V2(0, 10), V2(10, 0))
+		STROKE_APPEND(__strokes, V2(7, 6), V2(9, 6), V2(10, 7), V2(10, 9), V2(9, 10), V2(7, 10), V2(6, 9), V2(6, 7), V2(7, 6))
+	);
 
 	#undef V2
 	#undef STROKE_BEGIN
