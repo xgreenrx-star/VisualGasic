@@ -314,8 +314,16 @@ Sub _Process(ByVal delta As Single)
 	Call canvas.DrawRect(Rect2(0, 0, SW, SH), 1.0, Color(0, 0, 0, 1), True, Color(0, 0, 0, 1))
 	Call canvas.EndGroup()
 
+	' Overlap window: torus fades in during last 3s of starfield
+	Const T_OVERLAP As Single = 3.0
 	If t > = T_STARS_START And t < T_STARS_END Then
 		Call _DrawStars(delta)
+		If t > T_STARS_END - T_OVERLAP Then
+			' Pass negative tt so torus fade-in starts at tt = -T_OVERLAP,
+			' reaching tt=0 exactly when stars end (fade clamps negatives to 0
+			' until the last 1.5s where it ramps up)
+			Call _DrawTorus(t - T_STARS_END)
+		End If
 	ElseIf t > = T_TORUS_START And t < T_TORUS_END Then
 		Call _DrawTorus(t - T_TORUS_START)
 	ElseIf t > = T_PLASMA_START And t < T_PLASMA_END Then
@@ -505,9 +513,9 @@ Sub _DrawCard(ByVal tt As Single)
 	Call canvas.DrawLine(Vector2(SW - m, SH - m), Vector2(SW - m - a, SH - m), 2.0, Color(0.3, 0.6, 1.0, fade))
 	Call canvas.DrawLine(Vector2(SW - m, SH - m), Vector2(SW - m, SH - m - a), 2.0, Color(0.3, 0.6, 1.0, fade))
 
-	' Wave title "VISUAL GASIC" across the card
-	Dim wave_x As Single = 120.0
-	Call canvas.DrawVectorTextWave("VISUAL GASIC", wave_x, 270.0, tt, Color(0.2, 0.7, 1.0, fade), 2.8, 2.5, 7.0, 0.18, 1.2, 2.0, False, "")
+	' Wave title "VISUAL GASIC" centered — 12 chars * (8*2.8 + 2.0 spacing) ≈ 293px total
+	Dim wave_x As Single = CX - 147.0
+	Call canvas.DrawVectorTextWave("VISUAL GASIC", wave_x, 270.0, tt, Color(0.2, 0.7, 1.0, fade), 2.8, 2.5, 7.0, 0.18, 2.8, 2.0, False, "")
 
 	' Tagline
 	Call canvas.DrawVectorTextCentered(Vector2(CX, 380.0), "A VB6-STYLE LANGUAGE FOR GODOT 4", Color(1.0, 1.0, 1.0, fade * 0.85), 1.1, 1.2, 2.2, "")
