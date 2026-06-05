@@ -468,7 +468,10 @@ Sub _DrawCredits(ByVal delta As Single)
 	Call canvas.EndGroup()
 
 	' --- Sine wave scroller below the helix ---
-	scroll_x = scroll_x - delta * 140.0
+	' Speed oscillates between 30 px/s (readable pause) and 140 px/s (fast)
+	' Abs(Sin) gives a trough near zero every ~9 seconds.
+	Dim scroll_speed As Single = 30.0 + 110.0 * Abs(Sin(tt * 0.35))
+	scroll_x = scroll_x - delta * scroll_speed
 	Dim credits_text As String = "VISUAL GASIC  *  WRITTEN IN VB-STYLE BASIC  *  100% PROCEDURAL  *  NO ASSETS HARMED  *  VECTOR STORM  *  FIVE EFFECTS ONE FILE  *  "
 	Dim text_width As Single = Len(credits_text) * 22.0
 	If scroll_x < - text_width Then scroll_x = SW
