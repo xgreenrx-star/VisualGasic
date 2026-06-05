@@ -353,8 +353,7 @@ Sub _Process(ByVal delta As Single)
 	' Each incoming scene gets tt = (t - scene_start) which is negative during
 	' the overlap window; the per-scene fade formula clamps negatives to 0
 	' until the last 1.5s where it ramps up naturally.
-	Dim T_OVERLAP As Single
-	T_OVERLAP = 3.0
+	Const T_OVERLAP As Single = 3.0
 	If t > = T_STARS_START And t < T_STARS_END Then
 		Call _DrawStars(delta)
 		' Torus appears as tiny dot 3s before starfield ends; grows to full size.
