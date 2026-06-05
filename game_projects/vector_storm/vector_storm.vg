@@ -11,6 +11,7 @@ Const ScreenSize As Vector2 = Vector2(1280, 720)
 Const StickDeadzone As Single = 0.15
 
 Const PlayerAccel As Single = 1400.0
+
 Const PlayerMaxSpeed As Single = 460.0
 Const PlayerFriction As Single = 0.92
 Const PlayerRadius As Single = 16.0
@@ -27,11 +28,11 @@ Const EBulletSpeed As Single = 320.0
 Const EBulletLifetime As Single = 3.5
 Const EBulletTracerSec As Single = 0.04
 
-Const KindDrifter  As Integer = 1
-Const KindDiamond  As Integer = 2
+Const KindDrifter As Integer = 1
+Const KindDiamond As Integer = 2
 Const KindPinwheel As Integer = 3
 Const KindSnakeHead As Integer = 4
-Const KindSnakeSeg  As Integer = 5
+Const KindSnakeSeg As Integer = 5
 
 Const DrifterSpeed As Single = 60.0
 Const DrifterRadius As Single = 12.0
@@ -56,8 +57,9 @@ Const EnemyMaxAlive As Integer = 24
 
 Const StartingLives As Integer = 3
 Const RespawnDelay As Single = 2.0
-Const InvulnDuration As Single = 2.0
-Const InvulnBlinkHz As Single = 6.0
+Const InvulnDuration As Single = 3.5
+Const InvulnBlinkHz As Single = 8.0
+Const InvulnWarnTime As Single = 0.8
 
 ' Warping grid (A7). Cells = Cols*Rows = 20*12 = 240.
 Const GridCols As Integer = 20
@@ -179,9 +181,9 @@ Dim hud_last_multiplier As Integer
 '   1. Square-wave arpeggio (always on, 8-note A-minor pattern)
 '   2. Bass kick (sine sweep, triggered on player fire)
 '   3. White-noise burst (triggered on enemy kill, pitched by multiplier)
-Const AudioSampleRate As Single = 8000.0
-Const AudioSampleRateInv As Single = 0.000125
-Const ArpNoteDur As Single = 0.12
+Const AudioSampleRate As Single = 22050.0
+Const AudioSampleRateInv As Single = 0.0000453514739229025
+Const ArpNoteDur As Single = 0.13
 Const KickDur As Single = 0.10
 Const NoiseDur As Single = 0.18
 Dim sg_handle As Long
@@ -204,10 +206,10 @@ Sub _Ready()
 	' Instantiate C++ VGVectorCanvas2D nodes directly — bypasses the GDScript
 	' vg_vector_api wrapper which fails to compile outside the editor (its
 	' class_name VGVectorAPI is only registered when the editor plugin is active).
-	Set canvas_bg   = CreateNode("VGVectorCanvas2D")
+	Set canvas_bg = CreateNode("VGVectorCanvas2D")
 	Set canvas_game = CreateNode("VGVectorCanvas2D")
-	Set canvas_fx   = CreateNode("VGVectorCanvas2D")
-	Set canvas_ui   = CreateNode("VGVectorCanvas2D")
+	Set canvas_fx = CreateNode("VGVectorCanvas2D")
+	Set canvas_ui = CreateNode("VGVectorCanvas2D")
 
 	AddChild(canvas_bg)
 	AddChild(canvas_game)
@@ -241,7 +243,7 @@ Sub _Ready()
 		enemy_value(i) = 0
 		enemy_phase(i) = 0.0
 		enemy_t(i) = 0.0
-		enemy_parent(i) = -1
+		enemy_parent(i) = - 1
 	Next
 	enemy_max = 0
 	For i = 0 To EBulletPoolSize - 1
@@ -269,11 +271,11 @@ Sub _Ready()
 	cached_aim = Vector2(0, 0)
 	cached_fire = False
 
-	hud_last_fps = -1
-	hud_last_score = -1
-	hud_last_lives = -1
-	hud_last_n_enemies = -1
-	hud_last_n_bullets = -1
+	hud_last_fps = - 1
+	hud_last_score = - 1
+	hud_last_lives = - 1
+	hud_last_n_enemies = - 1
+	hud_last_n_bullets = - 1
 	hud_last_game_over = False
 
 	grid_tick = 0
@@ -294,19 +296,18 @@ Sub _Ready()
 
 	multiplier = 1.0
 	multiplier_decay_t = 999.0
-	hud_last_multiplier = -1
+	hud_last_multiplier = - 1
 
-	' Audio: open the 8 kHz mono stream (~110 samples/frame at 60fps).
-	' A-minor melody: root, 3rd, 5th, octave, down, rest pattern.
-	sg_handle = SoundGen.Open(8000, 0.15)
+	' Audio: open the 22 kHz mono stream and load the arpeggio scale.
+	sg_handle = SoundGen.Open(22050, 0.1)
 	arp_notes(0) = 110.0
-	arp_notes(1) = 0.0
-	arp_notes(2) = 130.8
-	arp_notes(3) = 164.8
-	arp_notes(4) = 196.0
-	arp_notes(5) = 0.0
-	arp_notes(6) = 220.0
-	arp_notes(7) = 164.8
+	arp_notes(1) = 130.8
+	arp_notes(2) = 164.8
+	arp_notes(3) = 220.0
+	arp_notes(4) = 164.8
+	arp_notes(5) = 196.0
+	arp_notes(6) = 164.8
+	arp_notes(7) = 130.8
 	arp_idx = 0
 	arp_freq = arp_notes(0)
 	arp_phase = 0.0
@@ -362,7 +363,7 @@ Sub _Process(ByVal delta As Single)
 		Call _UpdateShake(delta)
 		Call _UpdateMultiplier(delta)
 		Call _UpdateAudio(delta)
-		If respawn_timer <= 0.0 Then
+		If respawn_timer < = 0.0 Then
 			respawn_timer = 0.0
 			Call _RespawnPlayer()
 		End If
@@ -424,7 +425,7 @@ Sub _UpdatePlayer(ByVal delta As Single)
 	' Aim: right stick if active, else mouse cursor
 	Dim aim As Vector2 = cached_aim
 	Dim aim_len As Single = Sqr(aim.x * aim.x + aim.y * aim.y)
-	If aim_len >= StickDeadzone Then
+	If aim_len > = StickDeadzone Then
 		player_angle = Atan2(aim.y, aim.x)
 	ElseIf Not is_headless Then
 		Dim mouse_pos As Vector2 = get_global_mouse_position()
@@ -457,12 +458,12 @@ End Sub
 Sub _UpdateBullets(ByVal delta As Single)
 	fire_cooldown = fire_cooldown - delta
 	If fire_cooldown < 0.0 Then fire_cooldown = 0.0
-	If cached_fire And fire_cooldown <= 0.0 Then
-		Call _SpawnBullet()
-		fire_cooldown = FireInterval
-		kick_active = True
-		kick_t = 0.0
-	End If
+        If cached_fire And fire_cooldown < = 0.0 And respawn_timer < = 0.0 And Not game_over Then
+                Call _SpawnBullet()
+                fire_cooldown = FireInterval
+                kick_active = True
+                kick_t = 0.0
+        End If
 
 	Dim i As Integer
 	Dim life As Single
@@ -473,7 +474,7 @@ Sub _UpdateBullets(ByVal delta As Single)
 			p = bullet_pos(i) + bullet_vel(i) * delta
 			bullet_pos(i) = p
 			life = life - delta
-			If life <= 0.0 Or p.x < 0.0 Or p.x > ScreenSize.x Or p.y < 0.0 Or p.y > ScreenSize.y Then
+			If life < = 0.0 Or p.x < 0.0 Or p.x > ScreenSize.x Or p.y < 0.0 Or p.y > ScreenSize.y Then
 				bullet_life(i) = 0.0
 			Else
 				bullet_life(i) = life
@@ -482,7 +483,7 @@ Sub _UpdateBullets(ByVal delta As Single)
 	Next
 	Dim trimming As Boolean = True
 	Do While trimming
-		If bullet_max <= 0 Then
+		If bullet_max < = 0 Then
 			trimming = False
 		ElseIf bullet_life(bullet_max - 1) > 0.0 Then
 			trimming = False
@@ -502,21 +503,21 @@ Sub _SpawnBullet()
 	Dim tries As Integer = 0
 	Do While bullet_life(slot) > 0.0 And tries < BulletPoolSize
 		slot = slot + 1
-		If slot >= BulletPoolSize Then slot = 0
+		If slot > = BulletPoolSize Then slot = 0
 		tries = tries + 1
 	Loop
 	bullet_pos(slot) = nose
 	bullet_vel(slot) = vel
 	bullet_life(slot) = BulletLifetime
 	bullet_cursor = slot + 1
-	If bullet_cursor >= BulletPoolSize Then bullet_cursor = 0
+	If bullet_cursor > = BulletPoolSize Then bullet_cursor = 0
 	If slot + 1 > bullet_max Then bullet_max = slot + 1
 End Sub
 
 Sub _DrawBullets(ByVal canvas As Object)
 	' #3: render bullets as additive-feel glowing sprites via MultiMesh batch.
 	' Tracer is lengthened so the soft glow has a visible body.
-	Dim segs(511) As Vector2  ' BulletPoolSize * 2 - 1
+	Dim segs(511) As Vector2 ' BulletPoolSize * 2 - 1
 	Dim n As Integer = 0
 	Dim i As Integer
 	Dim p As Vector2
@@ -525,7 +526,7 @@ Sub _DrawBullets(ByVal canvas As Object)
 	For i = 0 To bullet_max - 1
 		If bullet_life(i) > 0.0 Then
 			p = bullet_pos(i)
-			If p.x >= -20.0 And p.x <= ScreenSize.x + 20.0 And p.y >= -20.0 And p.y <= ScreenSize.y + 20.0 Then
+			If p.x > = - 20.0 And p.x < = ScreenSize.x + 20.0 And p.y > = - 20.0 And p.y < = ScreenSize.y + 20.0 Then
 				v = bullet_vel(i)
 				segs(n) = Vector2(p.x - v.x * trail, p.y - v.y * trail)
 				segs(n + 1) = p
@@ -568,6 +569,22 @@ Sub _DrawPlayer(ByVal canvas As Object)
 
 	Call canvas.DrawPolyline(pts, 2.5, Color8(180, 230, 255), False, Color8(0, 0, 0, 0), True)
 
+	' Shield ring: visible while invulnerable, pulses with cyan glow
+	If invuln_timer > 0.0 Then
+		Dim shield_pulse As Single = Sin(invuln_timer * 12.0) * 0.5 + 0.5
+		Dim shield_r As Single = PlayerRadius * 1.6 + shield_pulse * 6.0
+		Dim shield_fade As Single = invuln_timer / InvulnDuration
+		If shield_fade > 1.0 Then shield_fade = 1.0
+		Dim shield_a As Single = (0.5 + shield_pulse * 0.5) * shield_fade
+		Dim shield_segs(33) As Vector2
+		Dim si As Integer
+		For si = 0 To 33
+			Dim sang As Single = si * 0.18479956785822313
+			shield_segs(si) = Vector2(player_pos.x + Cos(sang) * shield_r, player_pos.y + Sin(sang) * shield_r)
+		Next
+		Call canvas.DrawPolyline(shield_segs, 2.0, Color8(80, 220, 255, Int(shield_a * 220)), False, Color8(0, 0, 0, 0), True)
+	End If
+
 	' Thrust flame (small line out the back when accelerating)
 	If player_thrusting Then
 		Dim bx As Single = 0 - r * 0.9
@@ -595,13 +612,21 @@ Function TwinStickLeft() As Vector2
 	Dim mag As Single = Sqr(v.x * v.x + v.y * v.y)
 	If mag < StickDeadzone Then
 		v = Vector2(0, 0)
-		If Input.IsKeyPressed(KEY_A) Or Input.IsKeyPressed(KEY_LEFT) Then v.x = v.x - 1.0
-		If Input.IsKeyPressed(KEY_D) Or Input.IsKeyPressed(KEY_RIGHT) Then v.x = v.x + 1.0
-		If Input.IsKeyPressed(KEY_W) Or Input.IsKeyPressed(KEY_UP) Then v.y = v.y - 1.0
-		If Input.IsKeyPressed(KEY_S) Or Input.IsKeyPressed(KEY_DOWN) Then v.y = v.y + 1.0
-		mag = Sqr(v.x * v.x + v.y * v.y)
-		If mag > 1.0 Then
-			v = Vector2(v.x / mag, v.y / mag)
+		If Input.IsMouseButtonPressed(2) Then
+			Dim mp As Vector2 = get_global_mouse_position()
+			Dim mdx As Single = mp.x - player_pos.x
+			Dim mdy As Single = mp.y - player_pos.y
+			Dim mdist As Single = Sqr(mdx * mdx + mdy * mdy)
+			If mdist > 4.0 Then v = Vector2(mdx / mdist, mdy / mdist)
+		Else
+			If Input.IsKeyPressed(KEY_A) Or Input.IsKeyPressed(KEY_LEFT) Then v.x = v.x - 1.0
+			If Input.IsKeyPressed(KEY_D) Or Input.IsKeyPressed(KEY_RIGHT) Then v.x = v.x + 1.0
+			If Input.IsKeyPressed(KEY_W) Or Input.IsKeyPressed(KEY_UP) Then v.y = v.y - 1.0
+			If Input.IsKeyPressed(KEY_S) Or Input.IsKeyPressed(KEY_DOWN) Then v.y = v.y + 1.0
+			mag = Sqr(v.x * v.x + v.y * v.y)
+			If mag > 1.0 Then
+				v = Vector2(v.x / mag, v.y / mag)
+			End If
 		End If
 	End If
 	TwinStickLeft = v
@@ -613,7 +638,7 @@ Function TwinStickRight() As Vector2
 		v = Vector2(Joypad.Axis(0, 2), Joypad.Axis(0, 3))
 	End If
 	Dim mag As Single = Sqr(v.x * v.x + v.y * v.y)
-	If mag >= StickDeadzone Then
+	If mag > = StickDeadzone Then
 		TwinStickRight = v
 	Else
 		TwinStickRight = Vector2(0, 0)
@@ -676,9 +701,9 @@ Sub _SpawnTick(ByVal delta As Single)
 	Dim alive As Integer = 0
 	Dim ai As Integer
 	For ai = 0 To enemy_max - 1
-		If enemy_kind(ai) <> 0 Then alive = alive + 1
+		If enemy_kind(ai) < > 0 Then alive = alive + 1
 	Next
-	If alive >= EnemyMaxAlive Then Exit Sub
+	If alive > = EnemyMaxAlive Then Exit Sub
 
 	Dim r As Single = Rnd()
 	If r < 0.5 Then
@@ -784,9 +809,9 @@ Sub _UpdateEnemies(ByVal delta As Single)
 	Next
 	Dim trimming As Boolean = True
 	Do While trimming
-		If enemy_max <= 0 Then
+		If enemy_max < = 0 Then
 			trimming = False
-		ElseIf enemy_kind(enemy_max - 1) <> 0 Then
+		ElseIf enemy_kind(enemy_max - 1) < > 0 Then
 			trimming = False
 		Else
 			enemy_max = enemy_max - 1
@@ -820,7 +845,7 @@ Sub _UpdatePinwheel(ByVal i As Integer, ByVal delta As Single)
 	enemy_pos(i) = enemy_pos(i) + enemy_vel(i) * delta
 
 	enemy_t(i) = enemy_t(i) - delta
-	If enemy_t(i) <= 0.0 Then
+	If enemy_t(i) < = 0.0 Then
 		Call _FireEBulletAtPlayer(enemy_pos(i))
 		enemy_t(i) = PinwheelFireInterval
 	End If
@@ -867,14 +892,14 @@ Sub _FireEBulletAtPlayer(ByVal from As Vector2)
 	Dim tries As Integer = 0
 	Do While ebullet_life(slot) > 0.0 And tries < EBulletPoolSize
 		slot = slot + 1
-		If slot >= EBulletPoolSize Then slot = 0
+		If slot > = EBulletPoolSize Then slot = 0
 		tries = tries + 1
 	Loop
 	ebullet_pos(slot) = from
 	ebullet_vel(slot) = vel
 	ebullet_life(slot) = EBulletLifetime
 	ebullet_cursor = slot + 1
-	If ebullet_cursor >= EBulletPoolSize Then ebullet_cursor = 0
+	If ebullet_cursor > = EBulletPoolSize Then ebullet_cursor = 0
 	If slot + 1 > ebullet_max Then ebullet_max = slot + 1
 End Sub
 
@@ -888,7 +913,7 @@ Sub _UpdateEBullets(ByVal delta As Single)
 			p = ebullet_pos(i) + ebullet_vel(i) * delta
 			ebullet_pos(i) = p
 			life = life - delta
-			If life <= 0.0 Or p.x < 0.0 Or p.x > ScreenSize.x Or p.y < 0.0 Or p.y > ScreenSize.y Then
+			If life < = 0.0 Or p.x < 0.0 Or p.x > ScreenSize.x Or p.y < 0.0 Or p.y > ScreenSize.y Then
 				ebullet_life(i) = 0.0
 			Else
 				ebullet_life(i) = life
@@ -897,7 +922,7 @@ Sub _UpdateEBullets(ByVal delta As Single)
 	Next
 	Dim trimming As Boolean = True
 	Do While trimming
-		If ebullet_max <= 0 Then
+		If ebullet_max < = 0 Then
 			trimming = False
 		ElseIf ebullet_life(ebullet_max - 1) > 0.0 Then
 			trimming = False
@@ -918,7 +943,7 @@ Sub _DrawEnemies(ByVal canvas As Object)
 		Else
 			' #5: skip draw if entity is fully offscreen (max radius ~16).
 			ep = enemy_pos(i)
-			If ep.x >= -20.0 And ep.x <= ScreenSize.x + 20.0 And ep.y >= -20.0 And ep.y <= ScreenSize.y + 20.0 Then
+			If ep.x > = - 20.0 And ep.x < = ScreenSize.x + 20.0 And ep.y > = - 20.0 And ep.y < = ScreenSize.y + 20.0 Then
 				If k = KindDrifter Then
 					Call _DrawDrifter(canvas, i)
 				ElseIf k = KindDiamond Then
@@ -984,19 +1009,19 @@ Sub _DrawSnakeBlob(ByVal canvas As Object, ByVal i As Integer, ByVal r As Single
 	Dim p As Vector2 = enemy_pos(i)
 	' Hex approximation - 6 sides costs ~30% less than the previous 8
 	Dim pts(6) As Vector2
-	pts(0) = Vector2(p.x + r,         p.y)
-	pts(1) = Vector2(p.x + r * 0.5,   p.y + r * 0.866)
-	pts(2) = Vector2(p.x - r * 0.5,   p.y + r * 0.866)
-	pts(3) = Vector2(p.x - r,         p.y)
-	pts(4) = Vector2(p.x - r * 0.5,   p.y - r * 0.866)
-	pts(5) = Vector2(p.x + r * 0.5,   p.y - r * 0.866)
+	pts(0) = Vector2(p.x + r, p.y)
+	pts(1) = Vector2(p.x + r * 0.5, p.y + r * 0.866)
+	pts(2) = Vector2(p.x - r * 0.5, p.y + r * 0.866)
+	pts(3) = Vector2(p.x - r, p.y)
+	pts(4) = Vector2(p.x - r * 0.5, p.y - r * 0.866)
+	pts(5) = Vector2(p.x + r * 0.5, p.y - r * 0.866)
 	pts(6) = pts(0)
 	Call canvas.DrawPolyline(pts, 2.0, col, False, Color8(0, 0, 0, 0), True)
 End Sub
 
 Sub _DrawEBullets(ByVal canvas As Object)
 	' #3: enemy bullets share the white glow texture, tinted red.
-	Dim segs(127) As Vector2  ' EBulletPoolSize * 2 - 1
+	Dim segs(127) As Vector2 ' EBulletPoolSize * 2 - 1
 	Dim n As Integer = 0
 	Dim i As Integer
 	Dim p As Vector2
@@ -1005,7 +1030,7 @@ Sub _DrawEBullets(ByVal canvas As Object)
 	For i = 0 To ebullet_max - 1
 		If ebullet_life(i) > 0.0 Then
 			p = ebullet_pos(i)
-			If p.x >= -20.0 And p.x <= ScreenSize.x + 20.0 And p.y >= -20.0 And p.y <= ScreenSize.y + 20.0 Then
+			If p.x > = - 20.0 And p.x < = ScreenSize.x + 20.0 And p.y > = - 20.0 And p.y < = ScreenSize.y + 20.0 Then
 				v = ebullet_vel(i)
 				segs(n) = Vector2(p.x - v.x * trail, p.y - v.y * trail)
 				segs(n + 1) = p
@@ -1022,7 +1047,7 @@ End Sub
 Sub _DrawHud(ByVal delta As Single)
 	fps_timer = fps_timer + delta
 	Dim fps_tick As Boolean = False
-	If fps_timer >= 0.25 Then
+	If fps_timer > = 0.25 Then
 		fps_timer = 0.0
 		fps_value = Engine.get_frames_per_second()
 		fps_tick = True
@@ -1031,12 +1056,12 @@ Sub _DrawHud(ByVal delta As Single)
 	' Cheap state checks first; skip the count loops + repaint if nothing changed.
 	Dim fps_int As Integer = Int(fps_value)
 	Dim need_repaint As Boolean = False
-	If fps_tick And fps_int <> hud_last_fps Then need_repaint = True
-	If score <> hud_last_score Then need_repaint = True
-	If lives <> hud_last_lives Then need_repaint = True
-	If game_over <> hud_last_game_over Then need_repaint = True
+	If fps_tick And fps_int < > hud_last_fps Then need_repaint = True
+	If score < > hud_last_score Then need_repaint = True
+	If lives < > hud_last_lives Then need_repaint = True
+	If game_over < > hud_last_game_over Then need_repaint = True
 	Dim mult_int As Integer = Int(multiplier * 10.0 + 0.5)
-	If mult_int <> hud_last_multiplier Then need_repaint = True
+	If mult_int < > hud_last_multiplier Then need_repaint = True
 
 	' Counters only matter when we're already repainting (they're displayed),
 	' but they also drive the diag string so recount when an fps tick fires.
@@ -1047,13 +1072,13 @@ Sub _DrawHud(ByVal delta As Single)
 		n_bullets = 0
 		Dim i As Integer
 		For i = 0 To enemy_max - 1
-			If enemy_kind(i) <> 0 Then n_enemies = n_enemies + 1
+			If enemy_kind(i) < > 0 Then n_enemies = n_enemies + 1
 		Next
 		For i = 0 To bullet_max - 1
 			If bullet_life(i) > 0.0 Then n_bullets = n_bullets + 1
 		Next
-		If n_enemies <> hud_last_n_enemies Then need_repaint = True
-		If n_bullets <> hud_last_n_bullets Then need_repaint = True
+		If n_enemies < > hud_last_n_enemies Then need_repaint = True
+		If n_bullets < > hud_last_n_bullets Then need_repaint = True
 	End If
 
 	If Not need_repaint Then Exit Sub
@@ -1067,7 +1092,7 @@ Sub _DrawHud(ByVal delta As Single)
 	hud_last_multiplier = mult_int
 
 	canvas_ui.Clear()
-	Dim diag As String = "FPS " & fps_int & "  E " & n_enemies & "  B " & n_bullets
+	Dim diag As String = "FPS " & fps_int & " E " & n_enemies & " B " & n_bullets
 	Call canvas_ui.DrawVectorText(Vector2(12, 18), diag, Color8(180, 230, 255), 1.6, 1.5, "left", 2.0, "")
 	Dim score_str As String = "SCORE " & score
 	Call canvas_ui.DrawVectorText(Vector2(12, 46), score_str, Color8(255, 240, 160), 2.0, 1.8, "left", 2.4, "")
@@ -1127,7 +1152,7 @@ Sub _UpdateCollisions(ByVal delta As Single)
 
 	' Bullet -> enemy (snake segments excluded; only head is killable)
 	For i = 0 To bullet_max - 1
-		If bullet_life(i) <= 0.0 Then GoTo _next_bullet
+		If bullet_life(i) < = 0.0 Then GoTo _next_bullet
 		bp = bullet_pos(i)
 		For j = 0 To enemy_max - 1
 			k = enemy_kind(j)
@@ -1136,10 +1161,10 @@ Sub _UpdateCollisions(ByVal delta As Single)
 			dx = ep.x - bp.x
 			dy = ep.y - bp.y
 			hit_r = _EnemyRadius(k) + 4.0
-			If dx * dx + dy * dy <= hit_r * hit_r Then
+			If dx * dx + dy * dy < = hit_r * hit_r Then
 				bullet_life(i) = 0.0
 				enemy_hp(j) = enemy_hp(j) - 1
-				If enemy_hp(j) <= 0 Then
+				If enemy_hp(j) < = 0 Then
 					score = score + Int(enemy_value(j) * multiplier)
 					If multiplier_decay_t < MultiplierWindow Then
 						multiplier = multiplier + 0.1
@@ -1158,9 +1183,9 @@ Sub _UpdateCollisions(ByVal delta As Single)
 				End If
 				GoTo _next_bullet
 			End If
-_next_enemy:
+			_next_enemy:
 		Next
-_next_bullet:
+		_next_bullet:
 	Next
 
 	If respawn_timer > 0.0 Or invuln_timer > 0.0 Or game_over Then Exit Sub
@@ -1173,26 +1198,26 @@ _next_bullet:
 		dx = ep.x - player_pos.x
 		dy = ep.y - player_pos.y
 		hit_r = _EnemyRadius(k) + PlayerRadius
-		If dx * dx + dy * dy <= hit_r * hit_r Then
+		If dx * dx + dy * dy < = hit_r * hit_r Then
 			Call _OnPlayerHit()
 			Exit Sub
 		End If
-_next_enemy2:
+		_next_enemy2:
 	Next
 
 	' Enemy bullet -> player
 	For i = 0 To ebullet_max - 1
-		If ebullet_life(i) <= 0.0 Then GoTo _next_eb
+		If ebullet_life(i) < = 0.0 Then GoTo _next_eb
 		bp = ebullet_pos(i)
 		dx = bp.x - player_pos.x
 		dy = bp.y - player_pos.y
 		hit_r = PlayerRadius + 4.0
-		If dx * dx + dy * dy <= hit_r * hit_r Then
+		If dx * dx + dy * dy < = hit_r * hit_r Then
 			ebullet_life(i) = 0.0
 			Call _OnPlayerHit()
 			Exit Sub
 		End If
-_next_eb:
+		_next_eb:
 	Next
 End Sub
 
@@ -1203,7 +1228,7 @@ Sub _OnPlayerHit()
 	Call _AddShake(14.0)
 	multiplier = 1.0
 	multiplier_decay_t = 999.0
-	If lives <= 0 Then
+	If lives < = 0 Then
 		lives = 0
 		game_over = True
 		restart_armed = False
@@ -1220,9 +1245,9 @@ Sub _RespawnPlayer()
 	Dim j As Integer
 	Dim dx As Single
 	Dim dy As Single
-	Dim clear_r As Single = 140.0
+	Dim clear_r As Single = 200.0
 	For j = 0 To enemy_max - 1
-		If enemy_kind(j) <> 0 Then
+		If enemy_kind(j) < > 0 Then
 			dx = enemy_pos(j).x - player_pos.x
 			dy = enemy_pos(j).y - player_pos.y
 			If dx * dx + dy * dy < clear_r * clear_r Then
@@ -1408,7 +1433,7 @@ Sub _DrawGrid(ByVal canvas As Object)
 	Dim xc As Single
 
 	' Horizontal segments per band. GridRows=12 split 4/4/4 rows.
-	Dim h_dim(151) As Vector2  ' 4 rows * 19 segs * 2 - 1
+	Dim h_dim(151) As Vector2 ' 4 rows * 19 segs * 2 - 1
 	Dim h_mid(151) As Vector2
 	Dim h_bri(151) As Vector2
 	Dim hn_d As Integer = 0
@@ -1452,8 +1477,8 @@ Sub _DrawGrid(ByVal canvas As Object)
 	Call canvas.DrawLines(h_bri, 1.0, col_bright)
 
 	' Vertical segments per band. GridCols=20 split 8/6/6 cols.
-	Dim v_dim(175) As Vector2  ' 8 cols * 11 segs * 2 - 1
-	Dim v_mid(131) As Vector2  ' 6 cols * 11 segs * 2 - 1
+	Dim v_dim(175) As Vector2 ' 8 cols * 11 segs * 2 - 1
+	Dim v_mid(131) As Vector2 ' 6 cols * 11 segs * 2 - 1
 	Dim v_bri(131) As Vector2
 	Dim vn_d As Integer = 0
 	Dim vn_m As Integer = 0
@@ -1505,13 +1530,13 @@ Sub _SpawnBloom(ByVal pos As Vector2, ByVal count As Integer)
 	For i = 0 To count - 1
 		slot = particle_cursor
 		particle_cursor = particle_cursor + 1
-		If particle_cursor >= ParticlePoolSize Then particle_cursor = 0
+		If particle_cursor > = ParticlePoolSize Then particle_cursor = 0
 		ang = Rnd() * 6.28318530718
 		spd = ParticleSpeedMin + Rnd() * (ParticleSpeedMax - ParticleSpeedMin)
 		particle_pos(slot) = pos
 		particle_vel(slot) = Vector2(Cos(ang) * spd, Sin(ang) * spd)
 		particle_life(slot) = ParticleMaxLife
-		If slot >= particle_max Then particle_max = slot + 1
+		If slot > = particle_max Then particle_max = slot + 1
 	Next
 End Sub
 
@@ -1530,73 +1555,44 @@ Sub _UpdateParticles(ByVal delta As Single)
 End Sub
 
 ' -------------------------------------------------------------------
-' A9 real-time audio — three voices mixed in pure VG, per frame.
-' Sample rate is 8000 Hz so each frame needs ~110-135 samples max.
-'   Voice 1: square-wave arpeggio with rests (A-minor, freq=0 = silent)
-'   Voice 2: bass kick sine sweep (fires on player shoot)
-'   Voice 3: white-noise burst with exp decay (fires on enemy kill)
+' A9 real-time audio — three voices mixed in C++ via SoundGen.FillVoices.
+' No VG loop: the entire synthesis runs natively for zero frame cost.
+'   Voice 1: square-wave arpeggio (A-minor, always on)
+'   Voice 2: bass kick (sine sweep, fires on player shoot)
+'   Voice 3: white-noise burst (fires on enemy kill)
 ' -------------------------------------------------------------------
 Sub _UpdateAudio(ByVal delta As Single)
 	If sg_handle = 0 Then Exit Sub
 
 	' Advance arpeggio note timer
 	arp_note_t = arp_note_t + delta
-	If arp_note_t >= ArpNoteDur Then
+	If arp_note_t > = ArpNoteDur Then
 		arp_note_t = arp_note_t - ArpNoteDur
 		arp_idx = arp_idx + 1
-		If arp_idx >= 8 Then arp_idx = 0
+		If arp_idx > = 8 Then arp_idx = 0
 		arp_freq = arp_notes(arp_idx)
 	End If
 
-	' Advance kick / noise lifetime timers
+	' Advance kick / noise lifetime timers (expire stale voices)
 	If kick_active Then
 		kick_t = kick_t + delta
-		If kick_t >= KickDur Then kick_active = False : kick_t = 0.0
+		If kick_t > = KickDur Then kick_active = False : kick_t = 0.0
 	End If
 	If noise_active Then
 		noise_t = noise_t + delta
-		If noise_t >= NoiseDur Then noise_active = False : noise_t = 0.0
+		If noise_t > = NoiseDur Then noise_active = False : noise_t = 0.0
 	End If
 
-	Dim n As Integer = SoundGen.Available(sg_handle)
-	If n <= 0 Then Exit Sub
-
-	Dim buf(n - 1) As Single
-	Dim phaseInc As Single = arp_freq * AudioSampleRateInv
-	Dim j As Integer
-	Dim s As Single
-	For j = 0 To n - 1
-		' Voice 1: square arpeggio (silent when freq = 0)
-		If arp_freq > 0.0 Then
-			arp_phase = arp_phase + phaseInc
-			If arp_phase >= 1.0 Then arp_phase = arp_phase - 1.0
-			If arp_phase < 0.5 Then s = 0.12 Else s = -0.12
-		Else
-			s = 0.0
-		End If
-
-		' Voice 2: bass kick sine sweep 120→40 Hz
-		If kick_active Then
-			Dim kt As Single = kick_t + j * AudioSampleRateInv
-			Dim kenv As Single = 1.0 - kt / KickDur
-			If kenv < 0.0 Then kenv = 0.0
-			s = s + Sin(kt * (120.0 - 80.0 * kt / KickDur) * 6.28318) * kenv * 0.45
-		End If
-
-		' Voice 3: noise burst with exponential decay
-		If noise_active Then
-			Dim nt As Single = noise_t + j * AudioSampleRateInv
-			Dim nenv As Single = Exp(-noise_decay * nt)
-			s = s + (Rnd() * 2.0 - 1.0) * nenv * 0.3
-		End If
-
-		buf(j) = s
-	Next
-	SoundGen.PushMonoBuffer(sg_handle, buf)
+	' FillVoices does all synthesis + pushes frames in C++ — no VG loop.
+	' Returns [new_arp_phase, new_kick_t, new_noise_t] as a packed array.
+	Dim state As Variant = SoundGen.FillVoices(sg_handle, AudioSampleRate, arp_phase, arp_freq, kick_active, kick_t, KickDur, noise_active, noise_t, noise_decay)
+	arp_phase = state(0)
+	kick_t = state(1)
+	noise_t = state(2)
 End Sub
 
 Sub _DrawParticles(ByVal canvas As Object)
-	If particle_max <= 0 Then Exit Sub
+	If particle_max < = 0 Then Exit Sub
 	Dim segs(2047) As Vector2
 	Dim n As Integer = 0
 	Dim i As Integer
@@ -1611,7 +1607,7 @@ Sub _DrawParticles(ByVal canvas As Object)
 			n = n + 2
 		End If
 	Next
-	If n <= 0 Then Exit Sub
+	If n < = 0 Then Exit Sub
 	ReDim Preserve segs(n - 1) As Vector2
 	Call canvas.DrawSpriteLines(bullet_glow_tex, segs, 6.0, Color8(255, 220, 140, 220))
 End Sub
@@ -1652,9 +1648,9 @@ Sub _DrawHalos(ByVal canvas As Object)
 	Dim i As Integer
 	Dim n_alive As Integer = 0
 	For i = 0 To enemy_max - 1
-		If enemy_kind(i) <> 0 Then
+		If enemy_kind(i) < > 0 Then
 			Dim ep As Vector2 = enemy_pos(i)
-			If ep.x >= -20.0 And ep.x <= ScreenSize.x + 20.0 And ep.y >= -20.0 And ep.y <= ScreenSize.y + 20.0 Then
+			If ep.x > = - 20.0 And ep.x < = ScreenSize.x + 20.0 And ep.y > = - 20.0 And ep.y < = ScreenSize.y + 20.0 Then
 				n_alive = n_alive + 1
 			End If
 		End If
@@ -1664,9 +1660,9 @@ Sub _DrawHalos(ByVal canvas As Object)
 		ReDim segs(n_alive * 2 - 1) As Vector2
 		Dim j As Integer = 0
 		For i = 0 To enemy_max - 1
-			If enemy_kind(i) <> 0 Then
+			If enemy_kind(i) < > 0 Then
 				Dim p As Vector2 = enemy_pos(i)
-				If p.x >= -20.0 And p.x <= ScreenSize.x + 20.0 And p.y >= -20.0 And p.y <= ScreenSize.y + 20.0 Then
+				If p.x > = - 20.0 And p.x < = ScreenSize.x + 20.0 And p.y > = - 20.0 And p.y < = ScreenSize.y + 20.0 Then
 					segs(j) = Vector2(p.x - half_e, p.y)
 					segs(j + 1) = Vector2(p.x + half_e, p.y)
 					j = j + 2
@@ -1676,14 +1672,22 @@ Sub _DrawHalos(ByVal canvas As Object)
 		Call canvas.DrawSpriteLines(halo_tex, segs, EnemyHaloSize, Color8(140, 180, 230, 90))
 	End If
 	' Player halo: brighter, warmer, only when not respawning.
-	If respawn_timer <= 0.0 And Not game_over Then
+	If respawn_timer < = 0.0 And Not game_over Then
 		Dim psegs(1) As Vector2
 		psegs(0) = Vector2(player_pos.x - half_p, player_pos.y)
 		psegs(1) = Vector2(player_pos.x + half_p, player_pos.y)
 		Dim a As Integer = 130
 		If invuln_timer > 0.0 Then
 			' Flicker during invulnerability frames.
-			If Int(invuln_timer * 12.0) Mod 2 = 0 Then a = 60
+			If invuln_timer < InvulnWarnTime Then
+					If invuln_timer < InvulnWarnTime Then
+				If Int(invuln_timer * 12.0) Mod 2 = 0 Then a = 60
+			Else
+				a = 180
+			End If
+				Else
+					a = 180
+				End If
 		End If
 		Call canvas.DrawSpriteLines(halo_tex, psegs, PlayerHaloSize, Color8(255, 200, 130, a))
 	End If
