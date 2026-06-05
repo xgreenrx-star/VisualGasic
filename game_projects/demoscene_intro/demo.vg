@@ -73,8 +73,8 @@ Dim plasma_speed As Single
 ' Audio globals
 ' ===========================================================================
 Dim sg_handle As Long
-Const AudioSR As Single = 8000.0
-Const AudioSRInv As Single = 0.000125
+Const AudioSR As Single = 22050.0
+Const AudioSRInv As Single = 0.0000453514
 Const BPM As Single = 132.0
 Const BeatsPerBar As Integer = 16 ' 16 sixteenth-note steps per bar
 
@@ -155,7 +155,7 @@ Sub _Ready()
 	hihat_active = False
 	hihat_t = 0.0
 
-	sg_handle = SoundGen.Open(8000, 0.15)
+	sg_handle = SoundGen.Open(22050, 0.5)
 
 	Set_Process(True)
 End Sub
