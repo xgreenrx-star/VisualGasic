@@ -30,7 +30,9 @@ Const CY  As Single = 360.0
 Const Pi  As Single = 3.14159265358979
 Const Tau As Single = 6.28318530717959
 
-' Scene time windows
+' Scene time windows — each constant marks the START of that effect in seconds.
+' Consecutive scenes overlap by T_OVERLAP (3s) so cross-fades look smooth.
+' See _Process for the dispatch logic.
 Const T_INTRO_START   As Single = 0.0
 Const T_INTRO_END     As Single = 8.0
 Const T_ROTO_START    As Single = 6.0
@@ -54,18 +56,18 @@ Const T_CREDITS_END   As Single = 290.0
 Const T_CARD_START    As Single = 286.0
 Const T_CARD_END      As Single = 318.0
 
-' Starfield
-Const StarCount As Integer = 300
+' Effect-specific sizing constants
+Const StarCount As Integer = 300  ' number of perspective stars
 
-' Torus
+' Torus resolution — major × minor ring subdivisions. Kept low for wireframe clarity.
 Const TorusU As Integer = 16
 Const TorusV As Integer = 10
 
-' Plasma grid
+' Plasma grid resolution — 28×16 cells at 1280×720 gives ~46×45px cells.
 Const PlasmaW As Integer = 28
 Const PlasmaH As Integer = 16
 
-' Fire grid
+' Fire grid resolution — 32×18 cells (classic Doom-fire ratio scaled to 16:9).
 Const FireW As Integer = 32
 Const FireH As Integer = 18
 
@@ -77,7 +79,8 @@ Dim t           As Single
 Dim is_headless As Boolean
 Dim movie_mode  As Boolean
 
-' Starfield
+' Starfield — each star stored in normalised [0,1] space; z is depth (1=far, 0=near).
+' Perspective projection: screen_x = (star_x - 0.5) / star_z * 900 + viewpoint_x
 Dim star_x(299) As Single
 Dim star_y(299) As Single
 Dim star_z(299) As Single
@@ -87,8 +90,9 @@ Dim scroll_x        As Single
 Dim scroller_x      As Single
 Dim credits_started As Boolean
 
-' Rotozoomer: puddle circles use local arrays inside _DrawRotozoom
-' Tunnel: one-ring buffer — 20 dots × 2 Vector2 = 40 entries
+' Rotozoomer: all working arrays are local to _DrawRotozoom to keep scope tight.
+' Tunnel: one ring buffer, reused each frame. 20 dots per ring × 2 Vector2
+' (position + size) = 40 entries, passed to DrawRectsUniform in a single C++ call.
 Dim tunnel_ring(39) As Vector2
 
 ' Torus / heartbeat
@@ -109,6 +113,8 @@ Dim fire_acc         As Single
 Dim copper_music_paused As Boolean
 
 ' Audio state
+' tracker_handle is the Tracker.Open() handle — same object ID used by Sound.Pause/Resume.
+' AudioSR is the sample rate; AudioSRInv = 1/AudioSR (precomputed to avoid divisions).
 Dim tracker_handle As Long
 Const AudioSR      As Single = 22050.0
 Const AudioSRInv   As Single = 0.0000453514
@@ -125,11 +131,15 @@ Dim arp_phase      As Single
 Dim hihat_t        As Single
 Dim hihat_active   As Boolean
 
+' Note tables: 80 steps = 5 bars × 16 steps per bar (semiquaver resolution).
+' Frequencies in Hz (A4=440 standard tuning). 0.0 = rest.
 Dim lead_notes(79) As Single
 Dim bass_notes(79) As Single
 Dim arp_notes(79)  As Single
 
-' Icosahedron (12 vertices, 20 faces)
+' Icosahedron geometry — a regular icosahedron has 12 vertices and 20 faces.
+' Vertices are built from three perpendicular golden rectangles.
+' IcoPhi = golden ratio (1+√5)/2 ; IcoNorm = 1/√(1+IcoPhi²) normalises to unit sphere.
 Const IcoPhi  As Single = 1.6180339887
 Const IcoNorm As Single = 0.5257311121
 Dim ivx(11) As Single
@@ -147,17 +157,20 @@ Dim irz(11) As Single
 Dim ifd(19) As Single
 Dim ifo(19) As Integer
 
-' Fire grid  (FireW * FireH = 960)
+' Fire grid — heat values [0,1] for each cell.
+' FireW*FireH = 32*18 = 576 cells (array is 0-based so size 575).
 Dim fire_grid(575) As Single
 
 ' ===========================================================================
 ' _Ready
 ' ===========================================================================
 Sub _Ready()
+	' is_headless lets effects skip sound/input that fail under Godot --headless.
 	is_headless = DisplayServer.get_name() = "headless"
+	' canvas is our VGVectorCanvas2D draw surface. All drawing goes through it.
 	Set canvas = CreateNode("VGVectorCanvas2D")
 	AddChild(canvas)
-	Randomize()
+	Randomize()  ' seed the RNG so stars look different each run
 
 	Dim i As Integer
 	For i = 0 To StarCount - 1
@@ -184,7 +197,9 @@ Sub _Ready()
 
 	Call _InitIcosahedron()
 
-	' Grieg "In the Hall of the Mountain King" — E minor, bar 1
+	' Synthesised chiptune: three voices (lead / bass / arpeggio) over 5 bars.
+	' The melody is inspired by Grieg — "In the Hall of the Mountain King", E minor.
+	' Bar 1
 	lead_notes(0)=493.9:lead_notes(1)=493.9:lead_notes(2)=554.4:lead_notes(3)=554.4
 	lead_notes(4)=622.3:lead_notes(5)=622.3:lead_notes(6)=659.3:lead_notes(7)=659.3
 	lead_notes(8)=740.0:lead_notes(9)=740.0:lead_notes(10)=622.3:lead_notes(11)=622.3
@@ -218,12 +233,16 @@ Sub _Ready()
 		arp_notes(ai)=arp_notes(ai-32)
 	Next
 
+	' movie_mode = True when Godot is launched with --write-movie.
+	' In that mode timing is driven by fixed-fps delta, ensuring frame-perfect recordings.
 	movie_mode = OS.has_feature("movie")
 	beat_idx = 0 : prev_beat_idx = -1 : note_age = 0.0 : beat_phase = 0.0
 	bar_count = 0 : bpm_current = 120.0
 	lead_phase = 0.0 : bass_phase = 0.0 : arp_phase = 0.0
 	hihat_active = False : hihat_t = 0.0
 
+	' Load and play the S3M tracker module. Tracker.Open() returns an ObjectID
+	' which is reused by Sound.Pause/Resume to sync the music to scene transitions.
 	tracker_handle = Tracker.Open(44100, 2.0)
 	If tracker_handle <> 0 Then
 		Tracker.Load(tracker_handle, "res://music/UNREALPM.S3M")
@@ -452,9 +471,12 @@ End Sub
 ' _Process
 ' ===========================================================================
 Sub _Process(ByVal delta As Single)
+	' t is the global demo clock in seconds. All scene timings are relative to it.
 	t = t + delta
+	' Tracker.Fill pushes the next audio buffer chunk every frame.
 	If tracker_handle <> 0 Then Tracker.Fill(tracker_handle)
 
+	' Loop the demo once the title card ends. In movie_mode quit instead (clean recording).
 	If t >= T_CARD_END Then
 		If movie_mode Then
 			GetTree().Quit()
@@ -474,6 +496,9 @@ Sub _Process(ByVal delta As Single)
 	Call canvas.DrawRect(Rect2(0,0,SW,SH), 1.0, Color(0,0,0,1), True, Color(0,0,0,1))
 	Call canvas.EndGroup()
 
+	' T_OVERLAP: cross-fade window in seconds. When t exceeds a scene's END the next
+	' scene has already started; both run simultaneously and the outgoing scene
+	' linearly fades its alpha from 1 to 0 over T_OVERLAP seconds.
 	Dim T_OVERLAP As Single = 3.0
 
 	If t >= T_INTRO_START And t < T_INTRO_END + T_OVERLAP Then
@@ -541,6 +566,8 @@ Sub _Process(ByVal delta As Single)
 		Call _DrawCard(t - T_CARD_START)
 	End If
 
+	' Global flash overlay — drawn on top of everything.
+	' Set to 0.18 by the torus heartbeat; decays at 3.5/s (~280ms flash duration).
 	If flash_alpha > 0.001 Then
 		Call canvas.DrawRect(Rect2(0,0,SW,SH), 0, Color(1.0,0.6,0.2,flash_alpha), True, Color(1.0,0.6,0.2,flash_alpha))
 		flash_alpha = flash_alpha - delta * 3.5
@@ -553,9 +580,13 @@ End Sub
 ' ===========================================================================
 ' _UpdateAudio
 ' ===========================================================================
+' _UpdateAudio — runs every frame before drawing.
+' Manages the BPM timeline, beat tick, arpeggios, and the torus heartbeat.
+' The BPM changes smoothly (up to 10 BPM/s) between scenes so the synth
+' speeds up/slows down gradually rather than snapping.
 Sub _UpdateAudio(ByVal delta As Single)
 	Dim scene As Integer = 0
-	Dim target_bpm As Single = 120.0
+	Dim target_bpm As Single = 120.0  ' default BPM for intro, rotozoom, stars, bounce
 	If t >= T_TORUS_START And t < T_TORUS_END Then
 		scene = 1
 		Dim torus_bars As Integer = bar_count - scene_bar_offset
@@ -576,6 +607,7 @@ Sub _UpdateAudio(ByVal delta As Single)
 
 	If scene <> prev_scene Then scene_bar_offset = bar_count : prev_scene = scene
 
+	' step_dur = seconds per semiquaver (1/4 beat). beat_phase accumulates 0→1 per step.
 	Dim step_dur As Single = 60.0 / (bpm_current * 4.0)
 	beat_phase = beat_phase + delta / step_dur
 	Dim hat_div As Integer = 2
@@ -615,8 +647,8 @@ Sub _UpdateAudio(ByVal delta As Single)
 End Sub
 
 ' ===========================================================================
-' _DrawIntro
-' ===========================================================================
+' _DrawIntro — simple title card.
+' Fades in over 3s, holds, then fades out over 3s starting at tt=5.
 Sub _DrawIntro(ByVal tt As Single)
 	Dim fade As Single = tt / 3.0
 	If fade > 1.0 Then fade = 1.0
@@ -629,7 +661,9 @@ Sub _DrawIntro(ByVal tt As Single)
 End Sub
 
 ' ===========================================================================
-' _DrawRotozoom
+' _DrawRotozoom — two rotating grid "puddles" with water-drop ripple distortion.
+' Each puddle contains two families of chord lines (horizontal + vertical)
+' clipped to its circular boundary. Additive blend: overlapping lines glow bright.
 ' ===========================================================================
 Sub _DrawRotozoom(ByVal tt As Single, ByVal fade As Single)
 	' Two circular "puddles", each containing a rotating grid with water-drop ripple.
@@ -637,6 +671,8 @@ Sub _DrawRotozoom(ByVal tt As Single, ByVal fade As Single)
 	Dim TileSize As Single = 70.0
 	Dim RN       As Integer = 20
 
+	' Each puddle centre follows a Lissajous path (two incommensurable sine freqs)
+	' so it never exactly repeats. Amplitude ~390px keeps it near the screen edges.
 	' Puddle 1: fast Lissajous, amplitude ~390px so it sweeps near all 4 edges
 	Dim c1x As Single = CX + Sin(tt * 0.93) * 390.0 + Sin(tt * 0.37) * 110.0
 	Dim c1y As Single = CY + Cos(tt * 0.71) * 200.0 + Cos(tt * 0.29) * 75.0
@@ -647,6 +683,7 @@ Sub _DrawRotozoom(ByVal tt As Single, ByVal fade As Single)
 	Dim c2y As Single = CY - Cos(tt * 0.61 + 0.7) * 195.0 - Cos(tt * 0.33) * 70.0
 	Dim R2  As Single = 160.0 + Cos(tt * 0.87) * 40.0
 
+	' Each puddle contains two grid families (horizontal + vertical chord lines).
 	' Grid 1: forward spin with breathing zoom
 	Dim angle  As Single = tt * 0.55
 	Dim zoom   As Single = 1.0 / (1.2 + Sin(tt * 0.35) * 0.55)
@@ -824,12 +861,14 @@ Sub _DrawRotozoom(ByVal tt As Single, ByVal fade As Single)
 End Sub
 
 ' ===========================================================================
-' _DrawStars
-' ===========================================================================
+' _DrawStars — full-featured starfield used during the stars and bounce scenes.
+' Stars are bucketed into three brightness tiers (dim/mid/bright) drawn with
+' different line widths, giving cheap per-star apparent magnitude variation.
+' The viewpoint drifts on a three-frequency meander so it never feels static.
 Sub _DrawStars(ByVal delta As Single)
 	Dim fade As Single = 1.0
-	If t < T_STARS_START + 1.5 Then fade = (t - T_STARS_START) / 1.5
-	If t > T_BOUNCE_END - 2.0 Then fade = (T_BOUNCE_END - t) / 2.0
+	If t < T_STARS_START + 1.5 Then fade = (t - T_STARS_START) / 1.5  ' 1.5s fade-in
+	If t > T_BOUNCE_END - 2.0 Then fade = (T_BOUNCE_END - t) / 2.0   ' 2s fade-out
 	If fade < 0.0 Then fade = 0.0
 	If fade > 1.0 Then fade = 1.0
 
@@ -842,6 +881,8 @@ Sub _DrawStars(ByVal delta As Single)
 
 	Dim spd_ramp As Single = (t - T_STARS_START) / 3.0
 	If spd_ramp > 1.0 Then spd_ramp = 1.0
+	' Speed pulse gives the impression of thrusting forward and coasting.
+	' warp_boost kicks in at 3s before scene end for the "jump to hyperspace" rush.
 	' Mid-scene speed pulse: fast → slow → fast, period ~14s. Range 0.20–1.10.
 	Dim spd_pulse As Single = 0.65 + 0.45 * Sin(t * 0.45)
 	Dim warp_boost As Single = 1.0
@@ -950,11 +991,14 @@ Sub _DrawStarsAlpha(ByVal delta As Single, ByVal alpha_scale As Single)
 End Sub
 
 ' ===========================================================================
-' _DrawBounceShape — flat-shaded icosahedron with squash/stretch
-' ===========================================================================
+' _DrawBounceShape — flat-shaded icosahedron with squash/stretch + explosion.
+' Physics: y = Abs(Sin(tt*2.2)) gives a symmetric bounce; squash/stretch are
+' applied per-vertex so the shape flattens at the floor and stretches in the air.
+' The last 3 seconds (tt 29→32) trigger an explosion: the icosahedron
+' scales up to fill the screen while the camera crashes toward it.
 Sub _DrawBounceShape(ByVal tt As Single, ByVal fade As Single)
 	If tt < 0 Then Exit Sub
-	' Bounce: abs(sin) gives symmetric bounce, squash at ground
+	' Bounce: Abs(Sin) gives symmetric bounce; squash at ground, stretch in air
 	Dim bounce_t As Single = Abs(Sin(tt * 2.2))
 	Dim shape_y  As Single = CY + 201.0 - bounce_t * 210.0
 	Dim squash   As Single = 1.0 - 0.42 * bounce_t * bounce_t
@@ -1025,6 +1069,8 @@ Sub _DrawBounceShape(ByVal tt As Single, ByVal fade As Single)
 		iry(vi) = vy2
 	Next
 
+	' Painter's algorithm: sort faces by average Z (back-to-front) before drawing.
+	' Insertion sort is fine for N=20; avoids allocating a temporary array.
 	' Insertion sort faces back-to-front
 	Dim fi As Integer
 	Dim j As Integer
@@ -1048,6 +1094,8 @@ Sub _DrawBounceShape(ByVal tt As Single, ByVal fade As Single)
 	Next
 
 	Call canvas.BeginGroup("Background")
+	' Checkerboard floor uses manual perspective projection — no matrix math.
+	' fscale = 1/(depth) gives correct foreshortening; horizon clips top edge.
 	' Perspective checkerboard floor
 	Dim floor_y  As Single = CY + 230.0
 	Dim horizon  As Single = floor_y - 80.0
@@ -1182,6 +1230,8 @@ Sub _DrawBounceShape(ByVal tt As Single, ByVal fade As Single)
 		End If
 	Next
 
+	' Two expanding rings at different delays and speeds give the explosion depth.
+	' ring2 (cyan) leads; blast (orange) follows at 0.25s lag.
 	' Expanding blast rings during explosion — two rings at slightly different speeds
 	If explode_t > 0.08 Then
 		ring2_t = (explode_t - 0.08) / 0.92
@@ -1201,8 +1251,12 @@ Sub _DrawBounceShape(ByVal tt As Single, ByVal fade As Single)
 	Call canvas.EndGroup()
 End Sub
 
-' ===========================================================================
-' _DrawCopperBars
+' _DrawCopperBars — two-part scene:
+'   1) Copper bars: 30 horizontal bands each with a sine-wave horizontal offset
+'      and a vertical brightness gradient, cycling hue over time. A "speed race"
+'      overlay compares VG vs GDScript benchmark results.
+'   2) Shatter explosion (final 3s): music pauses, a white flash fires, then each
+'      bar flies off-screen with physics (velocity + gravity). Music resumes after.
 ' ===========================================================================
 Sub _DrawCopperBars(ByVal tt As Single, ByVal fade As Single)
 	' ── Shatter explosion: bars fly off in last 3 seconds ───────────────────
@@ -1306,7 +1360,9 @@ Sub _DrawCopperBars(ByVal tt As Single, ByVal fade As Single)
 	Next
 	Call canvas.EndGroup()
 
-	' ── Speed Race overlay ───────────────────────────────────────────────────
+	' ── Speed Race overlay ─────────────────────────────────────────────────────
+	' Five benchmark races animate one at a time. Each bar races across the screen;
+	' VG finishes in vg_finish seconds; GDScript takes mult×longer and may not finish.
 	Call canvas.BeginGroup("SpeedRace")
 
 	Dim tf       As Single
@@ -1414,11 +1470,14 @@ Sub _DrawCopperBars(ByVal tt As Single, ByVal fade As Single)
 	Call canvas.EndGroup()
 End Sub
 
-' ===========================================================================
-' _DrawTorus
+' _DrawTorus — wireframe torus + two helix text ribbons + beat-reactive pulse rings.
+' The torus itself is drawn by the C++ DrawTorusWireframe builtin (fastest path).
+' heartbeat: a separate slow sine oscillator triggers a pulse ring + screen flash.
+' BPM ramps from 60 toward 130 over the scene, driven by bar_count in _UpdateAudio.
 ' ===========================================================================
 Sub _DrawTorus(ByVal tt As Single, ByVal fade As Single)
 	If tt < 0 Then Exit Sub
+	' torus_scale pulses with each heartbeat: > 1.0 during the beat, decays to 1.0.
 	Dim torus_scale As Single = 1.0 + 0.22 * heart_pulse
 
 	' Beat-reactive concentric pulse rings expanding from torus centre
@@ -1478,11 +1537,10 @@ Sub _DrawTorus(ByVal tt As Single, ByVal fade As Single)
 	Call canvas.SetAdditiveBlend(False)
 End Sub
 
-' ===========================================================================
-' _DrawTunnel
+' _DrawTunnel — perspective dot-tunnel.
 ' ===========================================================================
 Sub _DrawTunnel(ByVal tt As Single, ByVal fade As Single)
-	' Immersive perspective dot-tunnel: you are INSIDE the tube.
+	' You are INSIDE the tube looking forward. Each ring is a circle of dots.
 	' Far rings are tiny at the vanishing point; near rings fill the screen edges.
 	' 28 rings × 20 dots, one DrawRectsUniform per ring (28 calls, each 40-entry array).
 	Dim NRings   As Integer
@@ -1539,7 +1597,7 @@ Sub _DrawTunnel(ByVal tt As Single, ByVal fade As Single)
 		' Cubic fade: far rings nearly invisible, near rings bright
 		alpha  = pz * pz * pz * 2.2 * fade
 		If alpha > fade Then alpha = fade
-		' Twist increases with depth
+		' Twist accumulates with depth so far rings appear rotated relative to near ones.
 		twist  = z_par * Pi * 1.2 + tt * 0.55
 		' More aggressive turning: two meander frequencies, larger amplitude
 		off_x  = CX + (Sin(tt * 0.53 + z_par * 1.3) * 340.0 + Sin(tt * 0.19 + z_par * 0.7) * 130.0) * (1.0 - pz)
@@ -1559,8 +1617,13 @@ Sub _DrawTunnel(ByVal tt As Single, ByVal fade As Single)
 	Call canvas.EndGroup()
 End Sub
 
-' ===========================================================================
-' _DrawFire
+' _DrawFire — Doom-style cellular automata fire simulation.
+' Algorithm: each cell = average of the cell directly below + two diagonal neighbours
+'   one row lower + the cell two rows below, divided by 4.6 (controls flame height).
+'   Then subtract 0.018 decay so heat dissipates as it rises.
+' The bottom row is re-seeded every step with random values, boosted by the beat.
+' An accumulator caps the simulation at 20 steps/s regardless of frame rate,
+' so the fire speed stays constant even if the GPU is fast.
 ' ===========================================================================
 Sub _DrawFire(ByVal delta As Single, ByVal fade As Single)
 	Dim x As Integer
@@ -1596,6 +1659,7 @@ Sub _DrawFire(ByVal delta As Single, ByVal fade As Single)
 				fire_grid(y*FireW+x) = avg
 			Next
 		Next
+		' Bottom row reseeded every step with base heat + beat-sync kick pulse.
 		' Beat-reactive seeding
 		Dim fire_base As Single = 0.40 + Sin(beat_phase * Tau) * 0.09
 		Dim fire_kick As Single = heart_pulse * 0.48
@@ -1607,7 +1671,8 @@ Sub _DrawFire(ByVal delta As Single, ByVal fade As Single)
 	FireCellW = SW / FireW
 	FireCellH = SH / FireH
 	Call canvas.BeginGroup("Background")
-	' Skip top 4 rows (~160px) so text banner always has a clear dark zone
+	' Colour ramp: black → red → orange → white (three linear segments in [0,1]).
+	' Skip top 4 rows (~160px) so the fire text banner always has a clear dark zone.
 	For y = 4 To FireH - 1
 		For x = 0 To FireW - 1
 			heat = fire_grid(y*FireW+x) * fade
@@ -1630,8 +1695,13 @@ Sub _DrawFire(ByVal delta As Single, ByVal fade As Single)
 	Call canvas.EndGroup()
 End Sub
 
-' ===========================================================================
-' _DrawFireText
+' _DrawFireText — scrolling coin-tumble text over the fire.
+' Uses DrawVectorTextFlip (C++ builtin) which squishes each glyph's Y coordinate
+' around its vertical midpoint by cos(time * flip_speed + i * flip_wave), making
+' every letter look like a tumbling coin. Brightness is proportional to squish²
+' so edge-on letters fade out smoothly as they pass through the flat phase.
+' A dark semi-transparent backdrop rect is drawn first so the text reads
+' clearly against the bright fire glow underneath.
 ' ===========================================================================
 Sub _DrawFireText(ByVal tt As Single, ByVal fade As Single)
 	Dim tf As Single = tt / 2.5
@@ -1657,12 +1727,14 @@ Sub _DrawFireText(ByVal tt As Single, ByVal fade As Single)
 End Sub
 
 
-' ===========================================================================
-' _DrawPlasma
+' _DrawPlasma — HSV colour-wave grid using the C++ DrawPlasmaCells builtin.
+' The plasma formula sums several sine waves over (x, y, time) and maps the
+' result to a hue, producing a smoothly shifting colour field.
+' Two passes (parity 0 and 1) split the grid into checkerboard halves so each
+' call draws half the cells — this avoids ~448 individual DrawRect calls per frame.
 ' ===========================================================================
 Sub _DrawPlasma(ByVal tt As Single, ByVal fade As Single)
-	' C++ builtin — computes and renders the entire HSV plasma grid in one native call.
-	' Two passes (parity 0 + 1) cover every cell. Avoids ~448 per-frame DrawRect calls.
+	' spd modulates slightly on a long sine so the plasma "breathes" over the scene.
 	Dim pw As Single = SW / PlasmaW
 	Dim ph As Single = SH / PlasmaH
 	Dim spd As Single = tt * (1.0 + Sin(tt*0.08)*0.4)
@@ -1674,8 +1746,12 @@ Sub _DrawPlasma(ByVal tt As Single, ByVal fade As Single)
 	Call canvas.EndGroup()
 End Sub
 
-' ===========================================================================
-' _DrawCredits
+' _DrawCredits — scrolling credits sequence.
+' A horizontal scroller (scroll_x) carries all the credit text off to the right;
+' separate sx offsets stagger each block so they arrive and leave independently.
+' A secondary wave-scroller (scroller_x) runs along the bottom as a ticker.
+' Both scrollers wrap seamlessly: the ticker appends a second copy of its string
+' offset by one full string-width so there is never a gap.
 ' ===========================================================================
 Sub _DrawCredits(ByVal delta As Single)
 	Dim tt As Single = t - T_CREDITS_START
@@ -1763,7 +1839,8 @@ Sub _DrawCredits(ByVal delta As Single)
 End Sub
 
 ' ===========================================================================
-' _DrawCard
+' _DrawCard — final title card with animated border frame and wave text.
+' Fades in over 3s, holds, then fades out over 4s before the loop restarts.
 ' ===========================================================================
 Sub _DrawCard(ByVal tt As Single)
 	Dim fade As Single = tt / 3.0
@@ -1788,8 +1865,10 @@ Sub _DrawCard(ByVal tt As Single)
 	Call canvas.EndGroup()
 End Sub
 
-' ===========================================================================
-' _DrawVectorTextWave — like _DrawVectorText but each char bobs on a sine wave
+' _DrawVectorTextWave — VG-side wave text (used where the C++ builtin isn't needed).
+' Each character is drawn at y + Sin(i*freq + t*spd) * amp, giving a simple sine bob.
+' For the credits bottom scroller, canvas.DrawVectorTextWave (C++ builtin) is used
+' instead because it handles seamless wrapping and is faster for long strings.
 ' ===========================================================================
 Sub _DrawVectorTextWave(ByVal txt As String, ByVal x0 As Single, ByVal y0 As Single, ByVal sz As Single, ByVal col As Color, ByVal amp As Single, ByVal freq As Single, ByVal spd As Single)
 	Dim char_w As Single = sz * 0.68
@@ -1803,14 +1882,14 @@ Sub _DrawVectorTextWave(ByVal txt As String, ByVal x0 As Single, ByVal y0 As Sin
 	Next
 End Sub
 
-' ===========================================================================
-' _DrawVectorText
+' _DrawVectorText — draws a string using the VG stroke glyph font (_DrawGlyph).
+' Culls the whole string if its bounding box is off-screen (fast path for scrollers).
 ' ===========================================================================
 Sub _DrawVectorText(ByVal txt As String, ByVal x0 As Single, ByVal y0 As Single, ByVal sz As Single, ByVal col As Color)
-	Dim char_w As Single = sz * 0.68
+	Dim char_w As Single = sz * 0.68  ' 0.68× height = typical stroke-font aspect ratio
 	Dim txt_w As Single = Len(txt) * char_w
-	If x0 > SW + 20 Then Exit Sub
-	If x0 + txt_w < -20 Then Exit Sub
+	If x0 > SW + 20 Then Exit Sub         ' off right edge — skip
+	If x0 + txt_w < -20 Then Exit Sub     ' off left edge — skip
 	Dim cx As Single = x0
 	Dim i As Integer
 	For i = 0 To Len(txt) - 1
@@ -1821,14 +1900,16 @@ Sub _DrawVectorText(ByVal txt As String, ByVal x0 As Single, ByVal y0 As Single,
 	Next
 End Sub
 
-' ===========================================================================
-' _DrawGlyph — stroke font
+' _DrawGlyph — minimal stroke font, uppercase A–Z and common punctuation.
+' Each character is drawn as a small set of canvas.DrawLine calls.
+' gw = glyph width, gh = glyph height, gm = midpoint (y), lw = line width.
+' Strokes are proportional to size s so the font scales cleanly from tiny to huge.
 ' ===========================================================================
 Sub _DrawGlyph(ByVal ch As String, ByVal x As Single, ByVal y As Single, ByVal s As Single, ByVal c As Color)
-	Dim gw As Single = s*0.6
-	Dim gh As Single = s
-	Dim gm As Single = s*0.5
-	Dim lw As Single = s*0.07
+	Dim gw As Single = s*0.6   ' width is 60% of height (slightly condensed)
+	Dim gh As Single = s       ' height = size parameter
+	Dim gm As Single = s*0.5   ' midpoint (for crossbars)
+	Dim lw As Single = s*0.07  ' stroke width; clamped to 1px minimum
 	If lw < 1.0 Then lw = 1.0
 	Select Case ch
 	Case "A"
