@@ -440,6 +440,13 @@ If t > = T_COPPER_START And t < T_COPPER_END Then
 	If cpf > 0.01 Then Call _DrawCopperBars(t - T_COPPER_START, cpf)
 End If
 
+' Resume music after copper shatter ends (the resume inside _DrawCopperBars fires
+' at shatter_t=1.0 which is t=T_COPPER_END — the exact frame the sub stops being called)
+If t > = T_COPPER_END And copper_music_paused Then
+	copper_music_paused = False
+	If tracker_handle < > 0 Then Call Sound.Resume(tracker_handle)
+End If
+
 If t > = T_TORUS_START And t < T_TORUS_END + T_OVERLAP Then
 	' Full starfield — torus lives in space
 	Dim torus_star_f As Single = 1.0
@@ -1159,10 +1166,8 @@ If shatter_t > 0.0 And Not copper_music_paused Then
 	copper_music_paused = True
 	If tracker_handle < > 0 Then Call Sound.Pause(tracker_handle)
 End If
-If shatter_t > = 1.0 And copper_music_paused Then
-	copper_music_paused = False
-	If tracker_handle < > 0 Then Call Sound.Resume(tracker_handle)
-End If
+' Note: resume is handled in _Process once t >= T_COPPER_END, because shatter_t
+' reaches 1.0 exactly when this sub stops being called.
 
 ' Once shatter starts, skip all bars + UI — blank screen only
 If shatter_t > 0.0 Then
