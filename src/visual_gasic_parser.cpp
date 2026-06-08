@@ -2695,11 +2695,20 @@ Statement* VisualGasicParser::parse_for() {
         }
     }
     
-    match(VisualGasicTokenizer::TOKEN_NEWLINE);
+    // Accept newline OR colon to start the body.
+    // Colon enables inline single-line For: For i = 0 To N : stmt : Next
+    // This is non-standard VB6 but follows C64 BASIC convention.
+    // Prefer the multi-line form for readability; this is supported but not encouraged.
+    bool inline_for = check(VisualGasicTokenizer::TOKEN_COLON);
+    if (inline_for) advance(); // eat ':'
+    else match(VisualGasicTokenizer::TOKEN_NEWLINE);
     
     // Body
     int body_depth = 0;
     while (!is_at_end() && error_count < MAX_ERRORS) {
+        // Colon separates multiple statements on one line (inline For body)
+        if (check(VisualGasicTokenizer::TOKEN_COLON)) { advance(); continue; }
+
         if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER))) {
             String kw = String(peek().value);
             
@@ -2723,6 +2732,12 @@ Statement* VisualGasicParser::parse_for() {
             }
         }
         
+        // In inline mode, a newline ends the For body (Next must be on the same line)
+        if (inline_for && check(VisualGasicTokenizer::TOKEN_NEWLINE)) {
+            UtilityFunctions::print("Parser Error: Missing 'Next' statement for inline For loop");
+            break;
+        }
+
         Statement* s = parse_statement();
         if (s) { stmt->body.push_back(s); unregister_node(s); }
         else if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();

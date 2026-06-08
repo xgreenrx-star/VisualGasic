@@ -150,6 +150,94 @@ Dim ifo(19) As Integer
 ' Fire grid  (FireW * FireH = 960)
 Dim fire_grid(575) As Single
 
+' ---------------------------------------------------------------------------
+' Note tables — Grieg "In the Hall of the Mountain King", E minor, 2 bars.
+' Three voices: lead / bass / arp. Bars 3-5 repeat bars 1-2 via a loop.
+' ---------------------------------------------------------------------------
+NoteDataLead:
+Data 493.9, 493.9, 554.4, 554.4, 622.3, 622.3, 659.3, 659.3  ' bar 1, beat 1-2
+Data 740.0, 740.0, 622.3, 622.3, 740.0, 740.0, 740.0, 740.0  ' bar 1, beat 3-4
+Data 784.0, 784.0, 622.3, 622.3, 784.0, 784.0, 784.0, 784.0  ' bar 2, beat 1-2
+Data 740.0, 740.0, 622.3, 622.3, 740.0, 740.0, 740.0, 740.0  ' bar 2, beat 3-4
+
+NoteDataBass:
+Data 246.9, 0.0, 277.2, 0.0, 311.1, 0.0, 329.6, 0.0  ' bar 1
+Data 370.0, 0.0, 311.1, 0.0, 370.0, 0.0, 370.0, 0.0
+Data 392.0, 0.0, 311.1, 0.0, 392.0, 0.0, 392.0, 0.0  ' bar 2
+Data 370.0, 0.0, 311.1, 0.0, 370.0, 0.0, 370.0, 0.0
+
+NoteDataArp:
+Data 659.3, 0.0, 784.0, 0.0, 987.8, 0.0, 784.0, 0.0  ' bar 1
+Data 659.3, 0.0, 784.0, 0.0, 987.8, 0.0, 784.0, 0.0
+Data 987.8, 784.0, 659.3, 987.8, 784.0, 659.3, 987.8, 784.0  ' bar 2
+Data 987.8, 784.0, 659.3, 987.8, 784.0, 659.3, 987.8, 784.0
+
+' ---------------------------------------------------------------------------
+' Icosahedron geometry — 12 vertices (x,y,z), 20 face index triples (a,b,c),
+' and 20 face colours (r,g,b). Vertex coords use pre-computed float literals
+' where IcoNorm=0.5257311121 and IcoNorm*IcoPhi=0.8506508084.
+' ---------------------------------------------------------------------------
+IcoVerts:
+' x           y             z
+Data  0.0,  0.5257311121,  0.8506508084  ' 0
+Data  0.0, -0.5257311121,  0.8506508084  ' 1
+Data  0.0,  0.5257311121, -0.8506508084  ' 2
+Data  0.0, -0.5257311121, -0.8506508084  ' 3
+Data  0.5257311121,  0.8506508084,  0.0  ' 4
+Data -0.5257311121,  0.8506508084,  0.0  ' 5
+Data  0.5257311121, -0.8506508084,  0.0  ' 6
+Data -0.5257311121, -0.8506508084,  0.0  ' 7
+Data  0.8506508084,  0.0,  0.5257311121  ' 8
+Data -0.8506508084,  0.0,  0.5257311121  ' 9
+Data  0.8506508084,  0.0, -0.5257311121  ' 10
+Data -0.8506508084,  0.0, -0.5257311121  ' 11
+
+IcoFaces:
+' a,  b,  c
+Data  0,  4,  8
+Data  0,  8,  1
+Data  0,  1,  9
+Data  0,  9,  5
+Data  0,  5,  4
+Data  1,  8,  6
+Data  8,  4, 10
+Data  4,  5,  2
+Data  5,  9, 11
+Data  9,  1,  7
+Data  6,  8, 10
+Data 10,  4,  2
+Data  2,  5, 11
+Data 11,  9,  7
+Data  7,  1,  6
+Data  6, 10,  3
+Data 10,  2,  3
+Data  2, 11,  3
+Data 11,  7,  3
+Data  7,  6,  3
+
+IcoColors:
+' r,   g,   b
+Data 1.0, 0.1, 0.1
+Data 1.0, 0.4, 0.0
+Data 1.0, 0.9, 0.0
+Data 0.2, 1.0, 0.2
+Data 0.0, 0.7, 1.0
+Data 0.0, 0.1, 1.0
+Data 0.6, 0.0, 1.0
+Data 1.0, 0.0, 0.8
+Data 0.0, 1.0, 0.8
+Data 1.0, 1.0, 1.0
+Data 0.9, 0.2, 0.0
+Data 0.0, 0.9, 0.4
+Data 0.4, 0.0, 0.9
+Data 1.0, 0.6, 0.0
+Data 0.0, 0.5, 1.0
+Data 0.8, 0.0, 0.3
+Data 0.3, 1.0, 0.0
+Data 1.0, 0.0, 0.4
+Data 0.0, 0.8, 0.8
+Data 1.0, 0.8, 0.2
+
 ' ===========================================================================
 ' _Ready
 ' ===========================================================================
@@ -184,33 +272,19 @@ Sub _Ready()
 
 	Call _InitIcosahedron()
 
-	' Grieg "In the Hall of the Mountain King" — E minor, bar 1
-	lead_notes(0) = 493.9:lead_notes(1) = 493.9:lead_notes(2) = 554.4:lead_notes(3) = 554.4
-	lead_notes(4) = 622.3:lead_notes(5) = 622.3:lead_notes(6) = 659.3:lead_notes(7) = 659.3
-	lead_notes(8) = 740.0:lead_notes(9) = 740.0:lead_notes(10) = 622.3:lead_notes(11) = 622.3
-	lead_notes(12) = 740.0:lead_notes(13) = 740.0:lead_notes(14) = 740.0:lead_notes(15) = 740.0
-	bass_notes(0) = 246.9:bass_notes(1) = 0.0:bass_notes(2) = 277.2:bass_notes(3) = 0.0
-	bass_notes(4) = 311.1:bass_notes(5) = 0.0:bass_notes(6) = 329.6:bass_notes(7) = 0.0
-	bass_notes(8) = 370.0:bass_notes(9) = 0.0:bass_notes(10) = 311.1:bass_notes(11) = 0.0
-	bass_notes(12) = 370.0:bass_notes(13) = 0.0:bass_notes(14) = 370.0:bass_notes(15) = 0.0
-	arp_notes(0) = 659.3:arp_notes(1) = 0.0:arp_notes(2) = 784.0:arp_notes(3) = 0.0
-	arp_notes(4) = 987.8:arp_notes(5) = 0.0:arp_notes(6) = 784.0:arp_notes(7) = 0.0
-	arp_notes(8) = 659.3:arp_notes(9) = 0.0:arp_notes(10) = 784.0:arp_notes(11) = 0.0
-	arp_notes(12) = 987.8:arp_notes(13) = 0.0:arp_notes(14) = 784.0:arp_notes(15) = 0.0
-	' Bar 2
-	lead_notes(16) = 784.0:lead_notes(17) = 784.0:lead_notes(18) = 622.3:lead_notes(19) = 622.3
-	lead_notes(20) = 784.0:lead_notes(21) = 784.0:lead_notes(22) = 784.0:lead_notes(23) = 784.0
-	lead_notes(24) = 740.0:lead_notes(25) = 740.0:lead_notes(26) = 622.3:lead_notes(27) = 622.3
-	lead_notes(28) = 740.0:lead_notes(29) = 740.0:lead_notes(30) = 740.0:lead_notes(31) = 740.0
-	bass_notes(16) = 392.0:bass_notes(17) = 0.0:bass_notes(18) = 311.1:bass_notes(19) = 0.0
-	bass_notes(20) = 392.0:bass_notes(21) = 0.0:bass_notes(22) = 392.0:bass_notes(23) = 0.0
-	bass_notes(24) = 370.0:bass_notes(25) = 0.0:bass_notes(26) = 311.1:bass_notes(27) = 0.0
-	bass_notes(28) = 370.0:bass_notes(29) = 0.0:bass_notes(30) = 370.0:bass_notes(31) = 0.0
-	arp_notes(16) = 987.8:arp_notes(17) = 784.0:arp_notes(18) = 659.3:arp_notes(19) = 987.8
-	arp_notes(20) = 784.0:arp_notes(21) = 659.3:arp_notes(22) = 987.8:arp_notes(23) = 784.0
-	arp_notes(24) = 987.8:arp_notes(25) = 784.0:arp_notes(26) = 659.3:arp_notes(27) = 987.8
-	arp_notes(28) = 784.0:arp_notes(29) = 659.3:arp_notes(30) = 987.8:arp_notes(31) = 784.0
-	' Scenes 2-4: repeat bars
+	' Load the two-bar melody from DATA, then repeat bars 1-2 into slots 32-79.
+	Restore NoteDataLead
+	For i = 0 To 31
+		Read lead_notes(i)
+	Next
+	Restore NoteDataBass
+	For i = 0 To 31
+		Read bass_notes(i)
+	Next
+	Restore NoteDataArp
+	For i = 0 To 31
+		Read arp_notes(i)
+	Next
 	Dim ai As Integer
 	For ai = 32 To 79
 		lead_notes(ai) = lead_notes(ai - 32)
@@ -237,165 +311,22 @@ End Sub
 ' _InitIcosahedron
 ' ===========================================================================
 Sub _InitIcosahedron()
-	Dim ica As Single = IcoNorm
-	Dim icb As Single = IcoNorm * IcoPhi
-	ivx(0) = 0
-	ivy(0) = ica
-	ivz(0) = icb
-	ivx(1) = 0
-	ivy(1) = - ica
-	ivz(1) = icb
-	ivx(2) = 0
-	ivy(2) = ica
-	ivz(2) = - icb
-	ivx(3) = 0
-	ivy(3) = - ica
-	ivz(3) = - icb
-	ivx(4) = ica
-	ivy(4) = icb
-	ivz(4) = 0
-	ivx(5) = - ica
-	ivy(5) = icb
-	ivz(5) = 0
-	ivx(6) = ica
-	ivy(6) = - icb
-	ivz(6) = 0
-	ivx(7) = - ica
-	ivy(7) = - icb
-	ivz(7) = 0
-	ivx(8) = icb
-	ivy(8) = 0
-	ivz(8) = ica
-	ivx(9) = - icb
-	ivy(9) = 0
-	ivz(9) = ica
-	ivx(10) = icb
-	ivy(10) = 0
-	ivz(10) = - ica
-	ivx(11) = - icb
-	ivy(11) = 0
-	ivz(11) = - ica
-	ifa(0) = 0
-	ifb(0) = 4
-	ifc(0) = 8
-	ifa(1) = 0
-	ifb(1) = 8
-	ifc(1) = 1
-	ifa(2) = 0
-	ifb(2) = 1
-	ifc(2) = 9
-	ifa(3) = 0
-	ifb(3) = 9
-	ifc(3) = 5
-	ifa(4) = 0
-	ifb(4) = 5
-	ifc(4) = 4
-	ifa(5) = 1
-	ifb(5) = 8
-	ifc(5) = 6
-	ifa(6) = 8
-	ifb(6) = 4
-	ifc(6) = 10
-	ifa(7) = 4
-	ifb(7) = 5
-	ifc(7) = 2
-	ifa(8) = 5
-	ifb(8) = 9
-	ifc(8) = 11
-	ifa(9) = 9
-	ifb(9) = 1
-	ifc(9) = 7
-	ifa(10) = 6
-	ifb(10) = 8
-	ifc(10) = 10
-	ifa(11) = 10
-	ifb(11) = 4
-	ifc(11) = 2
-	ifa(12) = 2
-	ifb(12) = 5
-	ifc(12) = 11
-	ifa(13) = 11
-	ifb(13) = 9
-	ifc(13) = 7
-	ifa(14) = 7
-	ifb(14) = 1
-	ifc(14) = 6
-	ifa(15) = 6
-	ifb(15) = 10
-	ifc(15) = 3
-	ifa(16) = 10
-	ifb(16) = 2
-	ifc(16) = 3
-	ifa(17) = 2
-	ifb(17) = 11
-	ifc(17) = 3
-	ifa(18) = 11
-	ifb(18) = 7
-	ifc(18) = 3
-	ifa(19) = 7
-	ifb(19) = 6
-	ifc(19) = 3
-	' Face colours
-	ifcr(0) = 1.0
-	ifcg(0) = 0.1
-	ifcb(0) = 0.1
-	ifcr(1) = 1.0
-	ifcg(1) = 0.4
-	ifcb(1) = 0.0
-	ifcr(2) = 1.0
-	ifcg(2) = 0.9
-	ifcb(2) = 0.0
-	ifcr(3) = 0.2
-	ifcg(3) = 1.0
-	ifcb(3) = 0.2
-	ifcr(4) = 0.0
-	ifcg(4) = 0.7
-	ifcb(4) = 1.0
-	ifcr(5) = 0.0
-	ifcg(5) = 0.1
-	ifcb(5) = 1.0
-	ifcr(6) = 0.6
-	ifcg(6) = 0.0
-	ifcb(6) = 1.0
-	ifcr(7) = 1.0
-	ifcg(7) = 0.0
-	ifcb(7) = 0.8
-	ifcr(8) = 0.0
-	ifcg(8) = 1.0
-	ifcb(8) = 0.8
-	ifcr(9) = 1.0
-	ifcg(9) = 1.0
-	ifcb(9) = 1.0
-	ifcr(10) = 0.9
-	ifcg(10) = 0.2
-	ifcb(10) = 0.0
-	ifcr(11) = 0.0
-	ifcg(11) = 0.9
-	ifcb(11) = 0.4
-	ifcr(12) = 0.4
-	ifcg(12) = 0.0
-	ifcb(12) = 0.9
-	ifcr(13) = 1.0
-	ifcg(13) = 0.6
-	ifcb(13) = 0.0
-	ifcr(14) = 0.0
-	ifcg(14) = 0.5
-	ifcb(14) = 1.0
-	ifcr(15) = 0.8
-	ifcg(15) = 0.0
-	ifcb(15) = 0.3
-	ifcr(16) = 0.3
-	ifcg(16) = 1.0
-	ifcb(16) = 0.0
-	ifcr(17) = 1.0
-	ifcg(17) = 0.0
-	ifcb(17) = 0.4
-	ifcr(18) = 0.0
-	ifcg(18) = 0.8
-	ifcb(18) = 0.8
-	ifcr(19) = 1.0
-	ifcg(19) = 0.8
-	ifcb(19) = 0.2
+	Dim i As Integer
+	' 12 vertices: each DATA row is x, y, z
+	Restore IcoVerts
+	For i = 0 To 11
+		Read ivx(i), ivy(i), ivz(i)
+	Next
+	' 20 face index triples: each DATA row is a, b, c
+	Restore IcoFaces
+	For i = 0 To 19
+		Read ifa(i), ifb(i), ifc(i)
+	Next
+	' 20 face colours: each DATA row is r, g, b
+	Restore IcoColors
+	For i = 0 To 19
+		Read ifcr(i), ifcg(i), ifcb(i)
+	Next
 End Sub
 
 ' ===========================================================================

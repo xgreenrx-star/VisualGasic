@@ -1905,6 +1905,25 @@ For i = 10 To 1 Step -1
 Next
 ```
 
+**Inline single-line form (supported, discouraged)**
+
+VisualGasic also accepts a C64 BASIC-style inline `For` where the header,
+body, and `Next` all appear on the same line, separated by colons:
+
+```vb
+For i = 0 To 11 : Read ivx(i), ivy(i), ivz(i) : Next
+```
+
+This is **not** valid VB6 syntax and is intentionally not encouraged.
+Prefer the standard multi-line form — it is easier to read, easier to step
+through in the debugger, and unambiguous when the body contains multiple
+statements.  The inline form exists only as a convenience for compact data
+initialisation loops (e.g. loading `DATA` blocks).
+
+> **Note:** Nesting an inline `For` inside another loop or `If` block is
+> not supported.  The `Next` keyword must appear before any newline; if a
+> newline is encountered before `Next`, the parser emits an error.
+
 #### For-Each Loop
 ```vb
 Dim items As Array = ["apple", "banana", "cherry"]
