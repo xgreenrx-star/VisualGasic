@@ -7236,6 +7236,26 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
         }
         return false;
     }
+    // ── Audio/Tracker namespace forwarding ───────────────────────────────
+    // Handles calls like Tracker.Open(), Tracker.Fill(), Sound.Pause(),
+    // Sound.Resume(), SoundGen.*, Music.* etc. when invoked via the sentinel-
+    // dict path (OP_GET_GLOBAL → call_builtin_for_base_variant → here).
+    //
+    // call_builtin() recognises these as "namespace_method" keys (e.g.
+    // "tracker_open", "sound_pause"). We just forward with the prefix.
+    {
+        String ns_lo = p_base_name.to_lower();
+        if (ns_lo == "tracker" || ns_lo == "sound" || ns_lo == "soundgen" || ns_lo == "music") {
+            String fwd_method = ns_lo + "_" + p_method.to_lower();
+            bool found = false;
+            Variant fwd_ret;
+            call_builtin(instance, fwd_method, p_args, fwd_ret, found);
+            if (found) {
+                r_ret = fwd_ret;
+                return true;
+            }
+        }
+    }
     return false;
 }
 
