@@ -69,6 +69,13 @@ Const PlasmaH As Integer = 16
 Const FireW As Integer = 32
 Const FireH As Integer = 18
 
+' Audio timing
+Const HeartFreq As Single = 0.13       ' BPM sine-wave frequency (rad/s)
+Const PulseDecay As Single = 6.0       ' heart_pulse decay rate
+Const HihatDuration As Single = 0.08   ' hihat active duration (seconds)
+Const KickDuration As Single = 0.3     ' kick active duration (seconds)
+Const HueRotSpeed As Single = 0.06     ' torus hue rotation rate (relative to BPM)
+
 ' ===========================================================================
 ' Globals
 ' ===========================================================================
@@ -144,6 +151,7 @@ Dim ifcb(19) As Single
 Dim irx(11) As Single
 Dim iry(11) As Single
 Dim irz(11) As Single
+Dim isp(11) As Single    ' cached scale / (pz - irz*0.8) per vertex
 Dim ifd(19) As Single
 Dim ifo(19) As Integer
 
@@ -242,1349 +250,1353 @@ Data 1.0, 0.8, 0.2
 ' _Ready
 ' ===========================================================================
 Sub _Ready()
-	is_headless = DisplayServer.get_name() = "headless"
-	Set canvas = CreateNode("VGVectorCanvas2D")
-	AddChild(canvas)
-	Randomize()
+is_headless = DisplayServer.get_name() = "headless"
+Set canvas = CreateNode("VGVectorCanvas2D")
+AddChild(canvas)
+Randomize()
 
-	Dim i As Integer
-	For i = 0 To StarCount - 1
-		star_x(i) = Rnd()
-		star_y(i) = Rnd()
-		star_z(i) = Rnd() * 0.98 + 0.02
+Dim i As Integer
+For i = 0 To StarCount - 1
+	star_x(i) = Rnd()
+	star_y(i) = Rnd()
+	star_z(i) = Rnd() * 0.98 + 0.02
+Next
+Dim fy As Integer
+Dim fx As Integer
+' Zero the whole grid — fire propagates up from the bottom row each frame
+For fy = 0 To FireH - 1
+	For fx = 0 To FireW - 1
+		fire_grid(fy * FireW + fx) = 0.0
 	Next
-	Dim fy As Integer
-	Dim fx As Integer
-	' Zero the whole grid — fire propagates up from the bottom row each frame
-	For fy = 0 To FireH - 1
-		For fx = 0 To FireW - 1
-			fire_grid(fy * FireW + fx) = 0.0
-		Next
-	Next
+Next
 
-	scroll_x = SW + 200
-	credits_started = False
-	torus_hue_offset = 0.0
-	torus_rot_x = 0.0 : torus_rot_y = 0.0
-	heart_phase = 0.0 : heart_bpm = 50.0 : heart_pulse = 0.0
-	kick_on = False : kick_t_state = 0.0
-	prev_scene = 0 : scene_bar_offset = 0 : flash_alpha = 0.0
+scroll_x = SW + 200
+credits_started = False
+torus_hue_offset = 0.0
+torus_rot_x = 0.0 : torus_rot_y = 0.0
+heart_phase = 0.0 : heart_bpm = 50.0 : heart_pulse = 0.0
+kick_on = False : kick_t_state = 0.0
+prev_scene = 0 : scene_bar_offset = 0 : flash_alpha = 0.0
 
-	Call _InitIcosahedron()
+Call _InitIcosahedron()
 
-	' Load the two-bar melody from DATA, then repeat bars 1-2 into slots 32-79.
-	Restore NoteDataLead
-	For i = 0 To 31
-		Read lead_notes(i)
-	Next
-	Restore NoteDataBass
-	For i = 0 To 31
-		Read bass_notes(i)
-	Next
-	Restore NoteDataArp
-	For i = 0 To 31
-		Read arp_notes(i)
-	Next
-	Dim ai As Integer
-	For ai = 32 To 79
-		lead_notes(ai) = lead_notes(ai - 32)
-		bass_notes(ai) = bass_notes(ai - 32)
-		arp_notes(ai) = arp_notes(ai - 32)
-	Next
+' Load the two-bar melody from DATA, then repeat bars 1-2 into slots 32-79.
+Restore NoteDataLead
+For i = 0 To 31
+	Read lead_notes(i)
+Next
+Restore NoteDataBass
+For i = 0 To 31
+	Read bass_notes(i)
+Next
+Restore NoteDataArp
+For i = 0 To 31
+	Read arp_notes(i)
+Next
+Dim ai As Integer
+For ai = 32 To 79
+	lead_notes(ai) = lead_notes(ai - 32)
+	bass_notes(ai) = bass_notes(ai - 32)
+	arp_notes(ai) = arp_notes(ai - 32)
+Next
 
-	movie_mode = OS.has_feature("movie")
-	beat_idx = 0 : prev_beat_idx = - 1 : note_age = 0.0 : beat_phase = 0.0
-	bar_count = 0 : bpm_current = 120.0
-	lead_phase = 0.0 : bass_phase = 0.0 : arp_phase = 0.0
-	hihat_active = False : hihat_t = 0.0
+movie_mode = OS.has_feature("movie")
+beat_idx = 0 : prev_beat_idx = - 1 : note_age = 0.0 : beat_phase = 0.0
+bar_count = 0 : bpm_current = 120.0
+lead_phase = 0.0 : bass_phase = 0.0 : arp_phase = 0.0
+hihat_active = False : hihat_t = 0.0
 
-	tracker_handle = Tracker.Open(44100, 2.0)
-	If tracker_handle < > 0 Then
-		Tracker.load(tracker_handle, "res://music/UNREALPM.S3M")
-		Tracker.Play(tracker_handle)
-	End If
+tracker_handle = Tracker.Open(44100, 2.0)
+If tracker_handle < > 0 Then
+	Tracker.load(tracker_handle, "res://music/UNREALPM.S3M")
+	Tracker.Play(tracker_handle)
+End If
 
-	Set_Process(True)
+Set_Process(True)
 End Sub
 
 ' ===========================================================================
 ' _InitIcosahedron
 ' ===========================================================================
 Sub _InitIcosahedron()
-	Dim i As Integer
-	' 12 vertices: each DATA row is x, y, z
-	Restore IcoVerts
-	For i = 0 To 11
-		Read ivx(i), ivy(i), ivz(i)
-	Next
-	' 20 face index triples: each DATA row is a, b, c
-	Restore IcoFaces
-	For i = 0 To 19
-		Read ifa(i), ifb(i), ifc(i)
-	Next
-	' 20 face colours: each DATA row is r, g, b
-	Restore IcoColors
-	For i = 0 To 19
-		Read ifcr(i), ifcg(i), ifcb(i)
-	Next
+Dim i As Integer
+' 12 vertices: each DATA row is x, y, z
+Restore IcoVerts
+For i = 0 To 11
+	Read ivx(i), ivy(i), ivz(i)
+Next
+' 20 face index triples: each DATA row is a, b, c
+Restore IcoFaces
+For i = 0 To 19
+	Read ifa(i), ifb(i), ifc(i)
+Next
+' 20 face colours: each DATA row is r, g, b
+Restore IcoColors
+For i = 0 To 19
+	Read ifcr(i), ifcg(i), ifcb(i)
+Next
 End Sub
 
 ' ===========================================================================
 ' _UnhandledInput
 ' ===========================================================================
 Sub _UnhandledInput(ByVal Event As Object)
-	Dim is_key As Boolean = Event Is InputEventKey
-	Dim is_click As Boolean = Event Is InputEventMouseButton
-	If Not is_key And Not is_click Then Exit Sub
-	If Not Event.Pressed Then Exit Sub
-	' ESC quits immediately
-	If is_key Then
-		If Event.Keycode = vbKeyEscape Then
-			GetTree().Quit()
-			Exit Sub
-		End If
-		If Event.Keycode < > vbKeySpace Then Exit Sub
+Dim is_key As Boolean = Event Is InputEventKey
+Dim is_click As Boolean = Event Is InputEventMouseButton
+If Not is_key And Not is_click Then Exit Sub
+If Not Event.Pressed Then Exit Sub
+' ESC quits immediately
+If is_key Then
+	If Event.Keycode = vbKeyEscape Then
+		GetTree().Quit()
+		Exit Sub
 	End If
-	' Space or click skips to next scene
-	If t < T_ROTO_END Then
-		t = T_ROTO_END
-	ElseIf t < T_STARS_END Then
-		t = T_STARS_END
-	ElseIf t < T_BOUNCE_END Then
-		t = T_BOUNCE_END
-	ElseIf t < T_COPPER_END Then
-		t = T_COPPER_END
-	ElseIf t < T_TORUS_END Then
-		t = T_TORUS_END
-	ElseIf t < T_TUNNEL_END Then
-		t = T_TUNNEL_END
-	ElseIf t < T_FIRE_END Then
-		t = T_FIRE_END
-	ElseIf t < T_PLASMA_END Then
-		t = T_PLASMA_END
-	ElseIf t < T_CREDITS_END Then
-		t = T_CREDITS_END
-	Else
-		t = 0.0 : scroll_x = SW + 200 : credits_started = False
-	End If
+	If Event.Keycode < > vbKeySpace Then Exit Sub
+End If
+' Space or click skips to next scene
+If t < T_ROTO_END Then
+	t = T_ROTO_END
+ElseIf t < T_STARS_END Then
+	t = T_STARS_END
+ElseIf t < T_BOUNCE_END Then
+	t = T_BOUNCE_END
+ElseIf t < T_COPPER_END Then
+	t = T_COPPER_END
+ElseIf t < T_TORUS_END Then
+	t = T_TORUS_END
+ElseIf t < T_TUNNEL_END Then
+	t = T_TUNNEL_END
+ElseIf t < T_FIRE_END Then
+	t = T_FIRE_END
+ElseIf t < T_PLASMA_END Then
+	t = T_PLASMA_END
+ElseIf t < T_CREDITS_END Then
+	t = T_CREDITS_END
+Else
+	t = 0.0 : scroll_x = SW + 200 : credits_started = False
+End If
 End Sub
 
 ' ===========================================================================
 ' _ExitTree
 ' ===========================================================================
 Sub _ExitTree()
-	If tracker_handle < > 0 Then
-		Tracker.Close(tracker_handle)
-		tracker_handle = 0
-	End If
+If tracker_handle < > 0 Then
+	Tracker.Close(tracker_handle)
+	tracker_handle = 0
+End If
 End Sub
 
 ' ===========================================================================
 ' _Process
 ' ===========================================================================
 Sub _Process(ByVal delta As Single)
-	t = t + delta
-	If tracker_handle < > 0 Then Tracker.Fill(tracker_handle)
+t = t + delta
+If tracker_handle < > 0 Then Tracker.Fill(tracker_handle)
 
-	If t > = T_CARD_END Then
-		If movie_mode Then
-			GetTree().Quit()
-			Exit Sub
-		End If
-		t = t - T_CARD_END
-		scroll_x = SW + 200
-		scroller_x = SW
-		credits_started = False
-		copper_music_paused = False
+If t > = T_CARD_END Then
+	If movie_mode Then
+		GetTree().Quit()
+		Exit Sub
 	End If
+	t = t - T_CARD_END
+	scroll_x = SW + 200
+	scroller_x = SW
+	credits_started = False
+	copper_music_paused = False
+End If
 
-	Call _UpdateAudio(delta)
+Call _UpdateAudio(delta)
 
-	Call canvas.Clear()
-	Call canvas.BeginGroup("Background")
-	Call canvas.DrawRect(Rect2(0, 0, SW, SH), 1.0, Color(0, 0, 0, 1), True, Color(0, 0, 0, 1))
-	Call canvas.EndGroup()
+Call canvas.Clear()
+Call canvas.BeginGroup("Background")
+Call canvas.DrawRect(Rect2(0, 0, SW, SH), 1.0, Color(0, 0, 0, 1), True, Color(0, 0, 0, 1))
+Call canvas.EndGroup()
 
-	Dim T_OVERLAP As Single = 3.0
+Dim T_OVERLAP As Single = 3.0
 
-	If t > = T_INTRO_START And t < T_INTRO_END + T_OVERLAP Then
-		Call _DrawIntro(t - T_INTRO_START)
-	End If
+If t > = T_INTRO_START And t < T_INTRO_END + T_OVERLAP Then
+	Call _DrawIntro(t - T_INTRO_START)
+End If
 
-	If t > = T_ROTO_START And t < T_ROTO_END + T_OVERLAP Then
-		Dim rf As Single = 1.0
-		If t > T_ROTO_END Then rf = 1.0 - (t - T_ROTO_END) / T_OVERLAP
-		If rf > 0.01 Then Call _DrawRotozoom(t - T_ROTO_START, rf)
-	End If
+If t > = T_ROTO_START And t < T_ROTO_END + T_OVERLAP Then
+	Dim rf As Single = 1.0
+	If t > T_ROTO_END Then rf = 1.0 - (t - T_ROTO_END) / T_OVERLAP
+	If rf > 0.01 Then Call _DrawRotozoom(t - T_ROTO_START, rf)
+End If
 
-	If t > = T_STARS_START And t < T_BOUNCE_END Then
-		Call _DrawStars(delta)
-	End If
+If t > = T_STARS_START And t < T_BOUNCE_END Then
+	Call _DrawStars(delta)
+End If
 
-	If t > = T_BOUNCE_START And t < T_BOUNCE_END + T_OVERLAP Then
-		Dim bf As Single = 1.0
-		If t > T_BOUNCE_END Then bf = 1.0 - (t - T_BOUNCE_END) / T_OVERLAP
-		If bf > 0.01 Then Call _DrawBounceShape(t - T_BOUNCE_START, bf)
-	End If
+If t > = T_BOUNCE_START And t < T_BOUNCE_END + T_OVERLAP Then
+	Dim bf As Single = 1.0
+	If t > T_BOUNCE_END Then bf = 1.0 - (t - T_BOUNCE_END) / T_OVERLAP
+	If bf > 0.01 Then Call _DrawBounceShape(t - T_BOUNCE_START, bf)
+End If
 
-	If t > = T_COPPER_START And t < T_COPPER_END Then
-		Dim cpf As Single = 1.0
-		If cpf > 0.01 Then Call _DrawCopperBars(t - T_COPPER_START, cpf)
-	End If
+If t > = T_COPPER_START And t < T_COPPER_END Then
+	Dim cpf As Single = 1.0
+	If cpf > 0.01 Then Call _DrawCopperBars(t - T_COPPER_START, cpf)
+End If
 
-	If t > = T_TORUS_START And t < T_TORUS_END + T_OVERLAP Then
-		' Full starfield — torus lives in space
-		Dim torus_star_f As Single = 1.0
-		If t < T_TORUS_START + 2.0 Then torus_star_f = (t - T_TORUS_START) / 2.0
-		If t > T_TORUS_END Then torus_star_f = 1.0 - (t - T_TORUS_END) / T_OVERLAP
-		Call _DrawStarsAlpha(delta, torus_star_f)
-		Dim tf As Single = 1.0
-		If t > T_TORUS_END Then tf = 1.0 - (t - T_TORUS_END) / T_OVERLAP
-		If tf > 0.01 Then Call _DrawTorus(t - T_TORUS_START, tf)
-	End If
+If t > = T_TORUS_START And t < T_TORUS_END + T_OVERLAP Then
+	' Full starfield — torus lives in space
+	Dim torus_star_f As Single = 1.0
+	If t < T_TORUS_START + 2.0 Then torus_star_f = (t - T_TORUS_START) / 2.0
+	If t > T_TORUS_END Then torus_star_f = 1.0 - (t - T_TORUS_END) / T_OVERLAP
+	Call _DrawStarsAlpha(delta, torus_star_f)
+	Dim tf As Single = 1.0
+	If t > T_TORUS_END Then tf = 1.0 - (t - T_TORUS_END) / T_OVERLAP
+	If tf > 0.01 Then Call _DrawTorus(t - T_TORUS_START, tf)
+End If
 
-	If t > = T_TUNNEL_START And t < T_TUNNEL_END + T_OVERLAP Then
-		Dim tnf As Single = 1.0
-		If t > T_TUNNEL_END Then tnf = 1.0 - (t - T_TUNNEL_END) / T_OVERLAP
-		If tnf > 0.01 Then Call _DrawTunnel(t - T_TUNNEL_START, tnf)
-	End If
+If t > = T_TUNNEL_START And t < T_TUNNEL_END + T_OVERLAP Then
+	Dim tnf As Single = 1.0
+	If t > T_TUNNEL_END Then tnf = 1.0 - (t - T_TUNNEL_END) / T_OVERLAP
+	If tnf > 0.01 Then Call _DrawTunnel(t - T_TUNNEL_START, tnf)
+End If
 
-	If t > = T_FIRE_START And t < T_FIRE_END + T_OVERLAP Then
-		Dim ff As Single = 1.0
-		If t > T_FIRE_END Then ff = 1.0 - (t - T_FIRE_END) / T_OVERLAP
-		If ff > 0.01 Then Call _DrawFire(delta, ff)
-		If ff > 0.01 Then Call _DrawFireText(t - T_FIRE_START, ff)
-	End If
+If t > = T_FIRE_START And t < T_FIRE_END + T_OVERLAP Then
+	Dim ff As Single = 1.0
+	If t > T_FIRE_END Then ff = 1.0 - (t - T_FIRE_END) / T_OVERLAP
+	If ff > 0.01 Then Call _DrawFire(delta, ff)
+	If ff > 0.01 Then Call _DrawFireText(t - T_FIRE_START, ff)
+End If
 
-	If t > = T_PLASMA_START And t < T_PLASMA_END + T_OVERLAP Then
-		Dim plf As Single = 1.0
-		If t > T_PLASMA_END Then plf = 1.0 - (t - T_PLASMA_END) / T_OVERLAP
-		If plf > 0.01 Then Call _DrawPlasma(t - T_PLASMA_START, plf)
-	End If
+If t > = T_PLASMA_START And t < T_PLASMA_END + T_OVERLAP Then
+	Dim plf As Single = 1.0
+	If t > T_PLASMA_END Then plf = 1.0 - (t - T_PLASMA_END) / T_OVERLAP
+	If plf > 0.01 Then Call _DrawPlasma(t - T_PLASMA_START, plf)
+End If
 
-	If t > = T_CREDITS_START And t < T_CREDITS_END Then
-		Call _DrawStarsAlpha(delta, 0.25)
-		Call _DrawCredits(delta)
-	End If
+If t > = T_CREDITS_START And t < T_CREDITS_END Then
+	Call _DrawStarsAlpha(delta, 0.25)
+	Call _DrawCredits(delta)
+End If
 
-	If t > = T_CARD_START Then
-		Call _DrawStarsAlpha(delta, 0.35)
-		Call _DrawCard(t - T_CARD_START)
-	End If
+If t > = T_CARD_START Then
+	Call _DrawStarsAlpha(delta, 0.35)
+	Call _DrawCard(t - T_CARD_START)
+End If
 
-	If flash_alpha > 0.001 Then
-		Call canvas.DrawRect(Rect2(0, 0, SW, SH), 0, Color(1.0, 0.6, 0.2, flash_alpha), True, Color(1.0, 0.6, 0.2, flash_alpha))
-		flash_alpha = flash_alpha - delta * 3.5
-		If flash_alpha < 0.0 Then flash_alpha = 0.0
-	End If
+If flash_alpha > 0.001 Then
+	Call canvas.DrawRect(Rect2(0, 0, SW, SH), 0, Color(1.0, 0.6, 0.2, flash_alpha), True, Color(1.0, 0.6, 0.2, flash_alpha))
+	flash_alpha = flash_alpha - delta * 3.5
+	If flash_alpha < 0.0 Then flash_alpha = 0.0
+End If
 
-	Call canvas.Render()
+Call canvas.Render()
 End Sub
 
 ' ===========================================================================
 ' _UpdateAudio
 ' ===========================================================================
 Sub _UpdateAudio(ByVal delta As Single)
-	Dim scene As Integer = 0
-	Dim target_bpm As Single = 120.0
-	If t > = T_TORUS_START And t < T_TORUS_END Then
-		scene = 1
-		Dim torus_bars As Integer = bar_count - scene_bar_offset
-		target_bpm = 60.0 + torus_bars * 4.0
-		If target_bpm > 130.0 Then target_bpm = 130.0
-	ElseIf t > = T_PLASMA_START And t < T_PLASMA_END Then
-		scene = 2 : target_bpm = 200.0
-	ElseIf t > = T_CREDITS_START And t < T_CREDITS_END Then
-		scene = 3 : target_bpm = 90.0
-	ElseIf t > = T_CARD_START Then
-		scene = 4 : target_bpm = 60.0
+Dim scene As Integer = 0
+Dim target_bpm As Single = 120.0
+If t > = T_TORUS_START And t < T_TORUS_END Then
+	scene = 1
+	Dim torus_bars As Integer = bar_count - scene_bar_offset
+	target_bpm = 60.0 + torus_bars * 4.0
+	If target_bpm > 130.0 Then target_bpm = 130.0
+ElseIf t > = T_PLASMA_START And t < T_PLASMA_END Then
+	scene = 2 : target_bpm = 200.0
+ElseIf t > = T_CREDITS_START And t < T_CREDITS_END Then
+	scene = 3 : target_bpm = 90.0
+ElseIf t > = T_CARD_START Then
+	scene = 4 : target_bpm = 60.0
+End If
+
+Dim bpm_diff As Single = target_bpm - bpm_current
+If bpm_diff > 10.0 * delta Then bpm_diff = 10.0 * delta
+If bpm_diff < - 10.0 * delta Then bpm_diff = - 10.0 * delta
+bpm_current = bpm_current + bpm_diff
+
+If scene < > prev_scene Then scene_bar_offset = bar_count : prev_scene = scene
+
+Dim step_dur As Single = 60.0 / (bpm_current * 4.0)
+beat_phase = beat_phase + delta / step_dur
+Dim hat_div As Integer = 2
+Do While beat_phase > = 1.0
+	beat_phase = beat_phase - 1.0
+	beat_idx = beat_idx + 1
+	If beat_idx > = BeatsPerBar Then beat_idx = 0 : bar_count = bar_count + 1
+	hat_div = 2
+	If scene = 2 Then hat_div = 1
+	If scene > = 3 Then hat_div = 4
+	If beat_idx Mod hat_div = 0 Then hihat_active = True : hihat_t = 0.0
+Loop
+
+torus_rot_x = torus_rot_x + delta * (bpm_current / 100.0) * 1.1
+torus_rot_y = torus_rot_y + delta * (bpm_current / 100.0) * 0.65
+torus_hue_offset = torus_hue_offset + delta * (bpm_current / 100.0) * HueRotSpeed
+
+If t > = T_TORUS_START And t < T_TORUS_END Then
+	heart_bpm = 50.0 + 18.0 * Sin((t - T_TORUS_START) * HeartFreq)
+	heart_phase = heart_phase + delta * heart_bpm / 60.0
+	If heart_phase > = 1.0 Then
+		heart_phase = heart_phase - 1.0
+		heart_pulse = 1.0 : kick_on = True : kick_t_state = 0.0 : flash_alpha = 0.18
 	End If
+End If
 
-	Dim bpm_diff As Single = target_bpm - bpm_current
-	If bpm_diff > 10.0 * delta Then bpm_diff = 10.0 * delta
-	If bpm_diff < - 10.0 * delta Then bpm_diff = - 10.0 * delta
-	bpm_current = bpm_current + bpm_diff
-
-	If scene < > prev_scene Then scene_bar_offset = bar_count : prev_scene = scene
-
-	Dim step_dur As Single = 60.0 / (bpm_current * 4.0)
-	beat_phase = beat_phase + delta / step_dur
-	Dim hat_div As Integer = 2
-	Do While beat_phase > = 1.0
-		beat_phase = beat_phase - 1.0
-		beat_idx = beat_idx + 1
-		If beat_idx > = BeatsPerBar Then beat_idx = 0 : bar_count = bar_count + 1
-		hat_div = 2
-		If scene = 2 Then hat_div = 1
-		If scene > = 3 Then hat_div = 4
-		If beat_idx Mod hat_div = 0 Then hihat_active = True : hihat_t = 0.0
-	Loop
-
-	torus_rot_x = torus_rot_x + delta * (bpm_current / 100.0) * 1.1
-	torus_rot_y = torus_rot_y + delta * (bpm_current / 100.0) * 0.65
-	torus_hue_offset = torus_hue_offset + delta * (bpm_current / 100.0) * 0.06
-
-	If t > = T_TORUS_START And t < T_TORUS_END Then
-		heart_bpm = 50.0 + 18.0 * Sin((t - T_TORUS_START) * 0.13)
-		heart_phase = heart_phase + delta * heart_bpm / 60.0
-		If heart_phase > = 1.0 Then
-			heart_phase = heart_phase - 1.0
-			heart_pulse = 1.0 : kick_on = True : kick_t_state = 0.0 : flash_alpha = 0.18
-		End If
-	End If
-
-	heart_pulse = heart_pulse * (1.0 - delta * 6.0)
-	If heart_pulse < 0.0 Then heart_pulse = 0.0
-	If hihat_active Then
-		hihat_t = hihat_t + delta
-		If hihat_t > 0.08 Then hihat_active = False
-	End If
-	If kick_on Then
-		kick_t_state = kick_t_state + delta
-		If kick_t_state > = 0.3 Then kick_on = False
-	End If
+heart_pulse = heart_pulse * (1.0 - delta * PulseDecay)
+If heart_pulse < 0.0 Then heart_pulse = 0.0
+If hihat_active Then
+	hihat_t = hihat_t + delta
+	If hihat_t > HihatDuration Then hihat_active = False
+End If
+If kick_on Then
+	kick_t_state = kick_t_state + delta
+	If kick_t_state > = KickDuration Then kick_on = False
+End If
 End Sub
 
 ' ===========================================================================
 ' _DrawIntro
 ' ===========================================================================
 Sub _DrawIntro(ByVal tt As Single)
-	Dim fade As Single = tt / 3.0
-	If fade > 1.0 Then fade = 1.0
-	If tt > 5.0 Then fade = 1.0 - (tt - 5.0) / 3.0
-	If fade < 0.0 Then fade = 0.0
-	Call canvas.BeginGroup("Background")
-	Call _DrawVectorText("NARCEAN TECHNOLOGIES", CX - 440, CY - 45, 44, Color(0.2 * fade, 0.55 * fade, 1.0 * fade, fade))
-	Call _DrawVectorText("P R E S E N T S", CX - 295, CY + 40, 30, Color(1.0 * fade, 0.8 * fade, 0.0, fade))
-	Call canvas.EndGroup()
+Dim fade As Single = tt / 3.0
+If fade > 1.0 Then fade = 1.0
+If tt > 5.0 Then fade = 1.0 - (tt - 5.0) / 3.0
+If fade < 0.0 Then fade = 0.0
+Call canvas.BeginGroup("Background")
+Call _DrawVectorText("NARCEAN TECHNOLOGIES", CX - 440, CY - 45, 44, Color(0.2 * fade, 0.55 * fade, 1.0 * fade, fade))
+Call _DrawVectorText("P R E S E N T S", CX - 295, CY + 40, 30, Color(1.0 * fade, 0.8 * fade, 0.0, fade))
+Call canvas.EndGroup()
 End Sub
 
 ' ===========================================================================
 ' _DrawRotozoom
 ' ===========================================================================
 Sub _DrawRotozoom(ByVal tt As Single, ByVal fade As Single)
-	' Two circular "puddles", each containing a rotating grid with water-drop ripple.
-	' Lines chord-clipped to puddle boundary. Additive blend: overlaps glow bright.
-	Dim TileSize As Single = 70.0
-	Dim RN As Integer = 20
+' Two circular "puddles", each containing a rotating grid with water-drop ripple.
+' Lines chord-clipped to puddle boundary. Additive blend: overlaps glow bright.
+Dim TileSize As Single = 70.0
+Dim RN As Integer = 20
 
-	' Puddle 1: fast Lissajous, amplitude ~390px so it sweeps near all 4 edges
-	Dim c1x As Single = CX + Sin(tt * 0.93) * 390.0 + Sin(tt * 0.37) * 110.0
-	Dim c1y As Single = CY + Cos(tt * 0.71) * 200.0 + Cos(tt * 0.29) * 75.0
-	Dim R1 As Single = 170.0 + Sin(tt * 1.1) * 45.0
+' Puddle 1: fast Lissajous, amplitude ~390px so it sweeps near all 4 edges
+Dim c1x As Single = CX + Sin(tt * 0.93) * 390.0 + Sin(tt * 0.37) * 110.0
+Dim c1y As Single = CY + Cos(tt * 0.71) * 200.0 + Cos(tt * 0.29) * 75.0
+Dim R1 As Single = 170.0 + Sin(tt * 1.1) * 45.0
 
-	' Puddle 2: different fast path, roughly opposite phase
-	Dim c2x As Single = CX - Sin(tt * 0.79 + 1.1) * 370.0 - Sin(tt * 0.43) * 95.0
-	Dim c2y As Single = CY - Cos(tt * 0.61 + 0.7) * 195.0 - Cos(tt * 0.33) * 70.0
-	Dim R2 As Single = 160.0 + Cos(tt * 0.87) * 40.0
+' Puddle 2: different fast path, roughly opposite phase
+Dim c2x As Single = CX - Sin(tt * 0.79 + 1.1) * 370.0 - Sin(tt * 0.43) * 95.0
+Dim c2y As Single = CY - Cos(tt * 0.61 + 0.7) * 195.0 - Cos(tt * 0.33) * 70.0
+Dim R2 As Single = 160.0 + Cos(tt * 0.87) * 40.0
 
-	' Grid 1: forward spin with breathing zoom
-	Dim angle As Single = tt * 0.55
-	Dim zoom As Single = 1.0 / (1.2 + Sin(tt * 0.35) * 0.55)
-	Dim ca As Single = Cos(angle)
-	Dim sa As Single = Sin(angle)
-	Dim Step As Single = TileSize * zoom
+' Grid 1: forward spin with breathing zoom
+Dim angle As Single = tt * 0.55
+Dim zoom As Single = 1.0 / (1.2 + Sin(tt * 0.35) * 0.55)
+Dim ca As Single = Cos(angle)
+Dim sa As Single = Sin(angle)
+Dim Step As Single = TileSize * zoom
 
-	' Grid 2: counter spin, independent zoom
-	Dim angle2 As Single = - (tt * 0.37)
-	Dim zoom2 As Single = 1.0 / (1.4 + Cos(tt * 0.28) * 0.40)
-	Dim ca2 As Single = Cos(angle2)
-	Dim sa2 As Single = Sin(angle2)
-	Dim step2 As Single = TileSize * zoom2
+' Grid 2: counter spin, independent zoom
+Dim angle2 As Single = - (tt * 0.37)
+Dim zoom2 As Single = 1.0 / (1.4 + Cos(tt * 0.28) * 0.40)
+Dim ca2 As Single = Cos(angle2)
+Dim sa2 As Single = Sin(angle2)
+Dim step2 As Single = TileSize * zoom2
 
-	' Colours: grids 120 deg apart in hue
-	Dim hue1 As Single
-	Dim hue2 As Single
-	Dim hue3 As Single
-	Dim hue4 As Single
-	Dim cr1 As Single
-	Dim cg1 As Single
-	Dim cb1 As Single
-	Dim cr2 As Single
-	Dim cg2 As Single
-	Dim cb2 As Single
-	Dim cr3 As Single
-	Dim cg3 As Single
-	Dim cb3 As Single
-	Dim cr4 As Single
-	Dim cg4 As Single
-	Dim cb4 As Single
-	hue1 = Frac(tt * 0.07)
-	hue2 = Frac(hue1 + 0.5)
-	hue3 = Frac(hue1 + 0.33)
-	hue4 = Frac(hue1 + 0.83)
-	Call _HsvToRgb(hue1, 1.0, fade, cr1, cg1, cb1)
-	Call _HsvToRgb(hue2, 0.85, fade * 0.90, cr2, cg2, cb2)
-	Call _HsvToRgb(hue3, 0.9, fade * 0.85, cr3, cg3, cb3)
-	Call _HsvToRgb(hue4, 0.8, fade * 0.75, cr4, cg4, cb4)
+' Colours: grids 120 deg apart in hue
+Dim hue1 As Single
+Dim hue2 As Single
+Dim hue3 As Single
+Dim hue4 As Single
+Dim cr1 As Single
+Dim cg1 As Single
+Dim cb1 As Single
+Dim cr2 As Single
+Dim cg2 As Single
+Dim cb2 As Single
+Dim cr3 As Single
+Dim cg3 As Single
+Dim cb3 As Single
+Dim cr4 As Single
+Dim cg4 As Single
+Dim cb4 As Single
+hue1 = Frac(tt * 0.07)
+hue2 = Frac(hue1 + 0.5)
+hue3 = Frac(hue1 + 0.33)
+hue4 = Frac(hue1 + 0.83)
+Call _HsvToRgb(hue1, 1.0, fade, cr1, cg1, cb1)
+Call _HsvToRgb(hue2, 0.85, fade * 0.90, cr2, cg2, cb2)
+Call _HsvToRgb(hue3, 0.9, fade * 0.85, cr3, cg3, cb3)
+Call _HsvToRgb(hue4, 0.8, fade * 0.75, cr4, cg4, cb4)
 
-	Dim lw As Single = 1.8 + Sin(tt * 2.7) * 0.5
-	If lw < 1.0 Then lw = 1.0
+Dim lw As Single = 1.8 + Sin(tt * 2.7) * 0.5
+If lw < 1.0 Then lw = 1.0
 
-	' Water-drop ripple: rip = A*sin(d*k - t*w)*exp(-d*decay)
-	' d = |off| = perpendicular pixel distance from puddle centre-line
-	' Two drops 2.8s apart keep a ring visible at all times
-	Dim rip_A As Single = 22.0
-	Dim rip_k As Single = 0.042
-	Dim rip_w As Single = 6.5
-	Dim rip_dec As Single = 0.004
+' Water-drop ripple: rip = A*sin(d*k - t*w)*exp(-d*decay)
+' d = |off| = perpendicular pixel distance from puddle centre-line
+' Two drops 2.8s apart keep a ring visible at all times
+Dim rip_A As Single = 22.0
+Dim rip_k As Single = 0.042
+Dim rip_w As Single = 6.5
+Dim rip_dec As Single = 0.004
 
-	' Loop temps (all outside loops - VG quirk)
-	Dim ni As Integer
-	Dim fni As Single
-	Dim off As Single
-	Dim d As Single
-	Dim rip As Single
-	Dim sqd As Single
-	Dim px As Single
-	Dim py As Single
-	Dim n As Integer
-	Dim ci As Integer
+' Loop temps (all outside loops - VG quirk)
+Dim ni As Integer
+Dim fni As Single
+Dim off As Single
+Dim d As Single
+Dim rip As Single
+Dim sqd As Single
+Dim px As Single
+Dim py As Single
+Dim n As Integer
+Dim ci As Integer
 
-	' Chord arrays: RN=20 -> max 41 intersecting lines -> 82 Vector2 entries
-	Dim segs1(81) As Vector2
-	Dim segs2(81) As Vector2
-	Dim segs3(81) As Vector2
-	Dim segs4(81) As Vector2
+' Chord arrays: RN=20 -> max 41 intersecting lines -> 82 Vector2 entries
+Dim segs1(81) As Vector2
+Dim segs2(81) As Vector2
+Dim segs3(81) As Vector2
+Dim segs4(81) As Vector2
 
-	' Puddle rim outlines (24 pts each)
-	Dim rim1(23) As Vector2
-	Dim rim2(23) As Vector2
-	For ci = 0 To 23
-		rim1(ci) = Vector2(c1x + Cos(CSng(ci) / 24.0 * Tau) * R1, c1y + Sin(CSng(ci) / 24.0 * Tau) * R1)
-		rim2(ci) = Vector2(c2x + Cos(CSng(ci) / 24.0 * Tau) * R2, c2y + Sin(CSng(ci) / 24.0 * Tau) * R2)
-	Next
+' Puddle rim outlines (24 pts each)
+Dim rim1(23) As Vector2
+Dim rim2(23) As Vector2
+For ci = 0 To 23
+	rim1(ci) = Vector2(c1x + Cos(CSng(ci) / 24.0 * Tau) * R1, c1y + Sin(CSng(ci) / 24.0 * Tau) * R1)
+	rim2(ci) = Vector2(c2x + Cos(CSng(ci) / 24.0 * Tau) * R2, c2y + Sin(CSng(ci) / 24.0 * Tau) * R2)
+Next
 
-	' === Puddle 1, Family A: lines run in direction (ca, sa) ===
-	' Closest point on line ni to puddle centre: (c1x - off*sa, c1y + off*ca)
-	' Chord half-length: sqrt(R1^2 - off^2)  (only valid when |off| < R1)
-	n = 0
-	For ni = - RN To RN
-		fni = CSng(ni)
-		off = fni * Step
-		d = Abs(off)
-		rip = rip_A * Sin(d * rip_k - tt * rip_w) * Exp( - d * rip_dec)
-		rip = rip + rip_A * 0.55 * Sin(d * rip_k - (tt - 2.8) * rip_w) * Exp( - d * rip_dec)
-		off = off + rip
-		If Abs(off) < R1 Then
-			sqd = Sqr(R1 * R1 - off * off)
-			px = c1x - off * sa
-			py = c1y + off * ca
-			segs1(n) = Vector2(px - sqd * ca, py - sqd * sa)
-			segs1(n + 1) = Vector2(px + sqd * ca, py + sqd * sa)
-			n = n + 2
-		End If
-	Next
-	Dim n1 As Integer = n
-	If n1 > 0 Then ReDim Preserve segs1(n1 - 1) As Vector2
+' === Puddle 1, Family A: lines run in direction (ca, sa) ===
+' Closest point on line ni to puddle centre: (c1x - off*sa, c1y + off*ca)
+' Chord half-length: sqrt(R1^2 - off^2)  (only valid when |off| < R1)
+n = 0
+For ni = - RN To RN
+	fni = CSng(ni)
+	off = fni * Step
+	d = Abs(off)
+	rip = rip_A * Sin(d * rip_k - tt * rip_w) * Exp( - d * rip_dec)
+	rip = rip + rip_A * 0.55 * Sin(d * rip_k - (tt - 2.8) * rip_w) * Exp( - d * rip_dec)
+	off = off + rip
+	If Abs(off) < R1 Then
+		sqd = Sqr(R1 * R1 - off * off)
+		px = c1x - off * sa
+		py = c1y + off * ca
+		segs1(n) = Vector2(px - sqd * ca, py - sqd * sa)
+		segs1(n + 1) = Vector2(px + sqd * ca, py + sqd * sa)
+		n = n + 2
+	End If
+Next
+Dim n1 As Integer = n
+If n1 > 0 Then ReDim Preserve segs1(n1 - 1) As Vector2
 
-	' === Puddle 1, Family B: lines run in direction (-sa, ca) ===
-	n = 0
-	For ni = - RN To RN
-		fni = CSng(ni)
-		off = fni * Step
-		d = Abs(off)
-		rip = rip_A * Sin(d * rip_k - tt * rip_w + Pi * 0.5) * Exp( - d * rip_dec)
-		rip = rip + rip_A * 0.55 * Sin(d * rip_k - (tt - 2.8) * rip_w + Pi * 0.5) * Exp( - d * rip_dec)
-		off = off + rip
-		If Abs(off) < R1 Then
-			sqd = Sqr(R1 * R1 - off * off)
-			px = c1x + off * ca
-			py = c1y + off * sa
-			segs2(n) = Vector2(px + sqd * sa, py - sqd * ca)
-			segs2(n + 1) = Vector2(px - sqd * sa, py + sqd * ca)
-			n = n + 2
-		End If
-	Next
-	Dim n2 As Integer = n
-	If n2 > 0 Then ReDim Preserve segs2(n2 - 1) As Vector2
+' === Puddle 1, Family B: lines run in direction (-sa, ca) ===
+n = 0
+For ni = - RN To RN
+	fni = CSng(ni)
+	off = fni * Step
+	d = Abs(off)
+	rip = rip_A * Sin(d * rip_k - tt * rip_w + Pi * 0.5) * Exp( - d * rip_dec)
+	rip = rip + rip_A * 0.55 * Sin(d * rip_k - (tt - 2.8) * rip_w + Pi * 0.5) * Exp( - d * rip_dec)
+	off = off + rip
+	If Abs(off) < R1 Then
+		sqd = Sqr(R1 * R1 - off * off)
+		px = c1x + off * ca
+		py = c1y + off * sa
+		segs2(n) = Vector2(px + sqd * sa, py - sqd * ca)
+		segs2(n + 1) = Vector2(px - sqd * sa, py + sqd * ca)
+		n = n + 2
+	End If
+Next
+Dim n2 As Integer = n
+If n2 > 0 Then ReDim Preserve segs2(n2 - 1) As Vector2
 
-	' === Puddle 2, Family A: lines run in direction (ca2, sa2) ===
-	n = 0
-	For ni = - RN To RN
-		fni = CSng(ni)
-		off = fni * step2
-		d = Abs(off)
-		rip = rip_A * Sin(d * rip_k - tt * rip_w + Pi) * Exp( - d * rip_dec)
-		rip = rip + rip_A * 0.55 * Sin(d * rip_k - (tt - 2.8) * rip_w + Pi) * Exp( - d * rip_dec)
-		off = off + rip
-		If Abs(off) < R2 Then
-			sqd = Sqr(R2 * R2 - off * off)
-			px = c2x - off * sa2
-			py = c2y + off * ca2
-			segs3(n) = Vector2(px - sqd * ca2, py - sqd * sa2)
-			segs3(n + 1) = Vector2(px + sqd * ca2, py + sqd * sa2)
-			n = n + 2
-		End If
-	Next
-	Dim n3 As Integer = n
-	If n3 > 0 Then ReDim Preserve segs3(n3 - 1) As Vector2
+' === Puddle 2, Family A: lines run in direction (ca2, sa2) ===
+n = 0
+For ni = - RN To RN
+	fni = CSng(ni)
+	off = fni * step2
+	d = Abs(off)
+	rip = rip_A * Sin(d * rip_k - tt * rip_w + Pi) * Exp( - d * rip_dec)
+	rip = rip + rip_A * 0.55 * Sin(d * rip_k - (tt - 2.8) * rip_w + Pi) * Exp( - d * rip_dec)
+	off = off + rip
+	If Abs(off) < R2 Then
+		sqd = Sqr(R2 * R2 - off * off)
+		px = c2x - off * sa2
+		py = c2y + off * ca2
+		segs3(n) = Vector2(px - sqd * ca2, py - sqd * sa2)
+		segs3(n + 1) = Vector2(px + sqd * ca2, py + sqd * sa2)
+		n = n + 2
+	End If
+Next
+Dim n3 As Integer = n
+If n3 > 0 Then ReDim Preserve segs3(n3 - 1) As Vector2
 
-	' === Puddle 2, Family B: lines run in direction (-sa2, ca2) ===
-	n = 0
-	For ni = - RN To RN
-		fni = CSng(ni)
-		off = fni * step2
-		d = Abs(off)
-		rip = rip_A * Sin(d * rip_k - tt * rip_w + Pi * 1.5) * Exp( - d * rip_dec)
-		rip = rip + rip_A * 0.55 * Sin(d * rip_k - (tt - 2.8) * rip_w + Pi * 1.5) * Exp( - d * rip_dec)
-		off = off + rip
-		If Abs(off) < R2 Then
-			sqd = Sqr(R2 * R2 - off * off)
-			px = c2x + off * ca2
-			py = c2y + off * sa2
-			segs4(n) = Vector2(px + sqd * sa2, py - sqd * ca2)
-			segs4(n + 1) = Vector2(px - sqd * sa2, py + sqd * ca2)
-			n = n + 2
-		End If
-	Next
-	Dim n4 As Integer = n
-	If n4 > 0 Then ReDim Preserve segs4(n4 - 1) As Vector2
+' === Puddle 2, Family B: lines run in direction (-sa2, ca2) ===
+n = 0
+For ni = - RN To RN
+	fni = CSng(ni)
+	off = fni * step2
+	d = Abs(off)
+	rip = rip_A * Sin(d * rip_k - tt * rip_w + Pi * 1.5) * Exp( - d * rip_dec)
+	rip = rip + rip_A * 0.55 * Sin(d * rip_k - (tt - 2.8) * rip_w + Pi * 1.5) * Exp( - d * rip_dec)
+	off = off + rip
+	If Abs(off) < R2 Then
+		sqd = Sqr(R2 * R2 - off * off)
+		px = c2x + off * ca2
+		py = c2y + off * sa2
+		segs4(n) = Vector2(px + sqd * sa2, py - sqd * ca2)
+		segs4(n + 1) = Vector2(px - sqd * sa2, py + sqd * ca2)
+		n = n + 2
+	End If
+Next
+Dim n4 As Integer = n
+If n4 > 0 Then ReDim Preserve segs4(n4 - 1) As Vector2
 
-	Call canvas.SetAdditiveBlend(True)
-	Call canvas.BeginGroup("Background")
-	If n1 > 0 Then Call canvas.DrawLines(segs1, lw, Color(cr1, cg1, cb1, fade))
-	If n2 > 0 Then Call canvas.DrawLines(segs2, lw, Color(cr2, cg2, cb2, fade * 0.85))
-	If n3 > 0 Then Call canvas.DrawLines(segs3, lw * 0.9, Color(cr3, cg3, cb3, fade * 0.80))
-	If n4 > 0 Then Call canvas.DrawLines(segs4, lw * 0.9, Color(cr4, cg4, cb4, fade * 0.70))
-	' Rim outlines glow faintly at puddle edge
-	Call canvas.DrawPolyline(rim1, 1.2, Color(cr1, cg1, cb1, fade * 0.45), False, Color(0, 0, 0, 0), True)
-	Call canvas.DrawPolyline(rim2, 1.2, Color(cr3, cg3, cb3, fade * 0.40), False, Color(0, 0, 0, 0), True)
-	Call canvas.EndGroup()
-	Call canvas.SetAdditiveBlend(False)
+Call canvas.SetAdditiveBlend(True)
+Call canvas.BeginGroup("Background")
+If n1 > 0 Then Call canvas.DrawLines(segs1, lw, Color(cr1, cg1, cb1, fade))
+If n2 > 0 Then Call canvas.DrawLines(segs2, lw, Color(cr2, cg2, cb2, fade * 0.85))
+If n3 > 0 Then Call canvas.DrawLines(segs3, lw * 0.9, Color(cr3, cg3, cb3, fade * 0.80))
+If n4 > 0 Then Call canvas.DrawLines(segs4, lw * 0.9, Color(cr4, cg4, cb4, fade * 0.70))
+' Rim outlines glow faintly at puddle edge
+Call canvas.DrawPolyline(rim1, 1.2, Color(cr1, cg1, cb1, fade * 0.45), False, Color(0, 0, 0, 0), True)
+Call canvas.DrawPolyline(rim2, 1.2, Color(cr3, cg3, cb3, fade * 0.40), False, Color(0, 0, 0, 0), True)
+Call canvas.EndGroup()
+Call canvas.SetAdditiveBlend(False)
 End Sub
 
 ' ===========================================================================
 ' _DrawStars
 ' ===========================================================================
 Sub _DrawStars(ByVal delta As Single)
-	Dim fade As Single = 1.0
-	If t < T_STARS_START + 1.5 Then fade = (t - T_STARS_START) / 1.5
-	If t > T_BOUNCE_END - 2.0 Then fade = (T_BOUNCE_END - t) / 2.0
-	If fade < 0.0 Then fade = 0.0
-	If fade > 1.0 Then fade = 1.0
+Dim fade As Single = 1.0
+If t < T_STARS_START + 1.5 Then fade = (t - T_STARS_START) / 1.5
+If t > T_BOUNCE_END - 2.0 Then fade = (T_BOUNCE_END - t) / 2.0
+If fade < 0.0 Then fade = 0.0
+If fade > 1.0 Then fade = 1.0
 
-	Dim segs_dim(1199) As Vector2
-	Dim segs_mid(1199) As Vector2
-	Dim segs_bri(1199) As Vector2
-	Dim n_dim As Integer = 0
-	Dim n_mid As Integer = 0
-	Dim n_bri As Integer = 0
+Dim segs_dim(1199) As Vector2
+Dim segs_mid(1199) As Vector2
+Dim segs_bri(1199) As Vector2
+Dim n_dim As Integer = 0
+Dim n_mid As Integer = 0
+Dim n_bri As Integer = 0
 
-	Dim spd_ramp As Single = (t - T_STARS_START) / 3.0
-	If spd_ramp > 1.0 Then spd_ramp = 1.0
-	' Mid-scene speed pulse: fast → slow → fast, period ~14s. Range 0.20–1.10.
-	Dim spd_pulse As Single = 0.65 + 0.45 * Sin(t * 0.45)
-	Dim warp_boost As Single = 1.0
-	If t > T_STARS_END - 3.0 Then warp_boost = 1.0 + 2.5 * ((t - (T_STARS_END - 3.0)) / 3.0)
-	Dim star_spd As Single = delta * (bpm_current / 80.0) * 0.38 * spd_ramp * spd_pulse * warp_boost
+Dim spd_ramp As Single = (t - T_STARS_START) / 3.0
+If spd_ramp > 1.0 Then spd_ramp = 1.0
+' Mid-scene speed pulse: fast → slow → fast, period ~14s. Range 0.20–1.10.
+Dim spd_pulse As Single = 0.65 + 0.45 * Sin(t * 0.45)
+Dim warp_boost As Single = 1.0
+If t > T_STARS_END - 3.0 Then warp_boost = 1.0 + 2.5 * ((t - (T_STARS_END - 3.0)) / 3.0)
+Dim star_spd As Single = delta * (bpm_current / 80.0) * 0.38 * spd_ramp * spd_pulse * warp_boost
 
-	Dim vp_drift As Single = 1.0
-	If t > T_STARS_END - 3.0 Then
-		vp_drift = 1.0 - (t - (T_STARS_END - 3.0)) / 3.0
-		If vp_drift < 0.0 Then vp_drift = 0.0
+Dim vp_drift As Single = 1.0
+If t > T_STARS_END - 3.0 Then
+	vp_drift = 1.0 - (t - (T_STARS_END - 3.0)) / 3.0
+	If vp_drift < 0.0 Then vp_drift = 0.0
+End If
+' Three-frequency meander — larger swings, incommensurable periods = never repeats
+Dim vp_x As Single = CX + (Sin(t * 0.23) * 260.0 + Sin(t * 0.07) * 130.0 + Sin(t * 0.51) * 60.0) * spd_ramp * vp_drift
+Dim vp_y As Single = CY + (Sin(t * 0.17) * 170.0 + Sin(t * 0.05) * 90.0 + Sin(t * 0.37) * 45.0) * spd_ramp * vp_drift
+
+Dim i As Integer
+Dim old_z As Single
+Dim ssx As Single
+Dim ssy As Single
+Dim ox As Single
+Dim oy As Single
+Dim bright As Single
+For i = 0 To StarCount - 1
+	old_z = star_z(i)
+	star_z(i) = star_z(i) - star_spd
+	If star_z(i) < 0.006 Then
+		star_x(i) = Rnd()
+		star_y(i) = Rnd()
+		star_z(i) = 1.0
+		old_z = 1.0
 	End If
-	' Three-frequency meander — larger swings, incommensurable periods = never repeats
-	Dim vp_x As Single = CX + (Sin(t * 0.23) * 260.0 + Sin(t * 0.07) * 130.0 + Sin(t * 0.51) * 60.0) * spd_ramp * vp_drift
-	Dim vp_y As Single = CY + (Sin(t * 0.17) * 170.0 + Sin(t * 0.05) * 90.0 + Sin(t * 0.37) * 45.0) * spd_ramp * vp_drift
-
-	Dim i As Integer
-	Dim old_z As Single
-	Dim ssx As Single
-	Dim ssy As Single
-	Dim ox As Single
-	Dim oy As Single
-	Dim bright As Single
-	For i = 0 To StarCount - 1
-		old_z = star_z(i)
-		star_z(i) = star_z(i) - star_spd
-		If star_z(i) < 0.006 Then
-			star_x(i) = Rnd()
-			star_y(i) = Rnd()
-			star_z(i) = 1.0
-			old_z = 1.0
+	ssx = (star_x(i) - 0.5) / star_z(i) * 900.0 + vp_x
+	ssy = (star_y(i) - 0.5) / star_z(i) * 900.0 + vp_y
+	ox = (star_x(i) - 0.5) / old_z * 900.0 + vp_x
+	oy = (star_y(i) - 0.5) / old_z * 900.0 + vp_y
+	If ssx > = - 20 AndAlso ssx < = SW + 20 AndAlso ssy > = - 20 AndAlso ssy < = SH + 20 Then
+		bright = (1.0 - star_z(i)) * fade
+		If bright > 0.65 Then
+			segs_bri(n_bri) = Vector2(ox, oy)
+			segs_bri(n_bri + 1) = Vector2(ssx, ssy)
+			n_bri = n_bri + 2
+		ElseIf bright > 0.3 Then
+			segs_mid(n_mid) = Vector2(ox, oy)
+			segs_mid(n_mid + 1) = Vector2(ssx, ssy)
+			n_mid = n_mid + 2
+		Else
+			segs_dim(n_dim) = Vector2(ox, oy)
+			segs_dim(n_dim + 1) = Vector2(ssx, ssy)
+			n_dim = n_dim + 2
 		End If
-		ssx = (star_x(i) - 0.5) / star_z(i) * 900.0 + vp_x
-		ssy = (star_y(i) - 0.5) / star_z(i) * 900.0 + vp_y
-		ox = (star_x(i) - 0.5) / old_z * 900.0 + vp_x
-		oy = (star_y(i) - 0.5) / old_z * 900.0 + vp_y
-		If ssx > = - 20 AndAlso ssx < = SW + 20 AndAlso ssy > = - 20 AndAlso ssy < = SH + 20 Then
-			bright = (1.0 - star_z(i)) * fade
-			If bright > 0.65 Then
-				segs_bri(n_bri) = Vector2(ox, oy)
-				segs_bri(n_bri + 1) = Vector2(ssx, ssy)
-				n_bri = n_bri + 2
-			ElseIf bright > 0.3 Then
-				segs_mid(n_mid) = Vector2(ox, oy)
-				segs_mid(n_mid + 1) = Vector2(ssx, ssy)
-				n_mid = n_mid + 2
-			Else
-				segs_dim(n_dim) = Vector2(ox, oy)
-				segs_dim(n_dim + 1) = Vector2(ssx, ssy)
-				n_dim = n_dim + 2
-			End If
-		End If
-	Next
-	Call canvas.BeginGroup("StarsColor")
-	If n_dim > 0 Then
-		ReDim Preserve segs_dim(n_dim - 1) As Vector2
-		Call canvas.DrawLines(segs_dim, 0.7, Color(0.35 * fade, 0.35 * fade, 0.38 * fade, fade))
 	End If
-	If n_mid > 0 Then
-		ReDim Preserve segs_mid(n_mid - 1) As Vector2
-		Call canvas.DrawLines(segs_mid, 1.1, Color(0.6 * fade, 0.6 * fade, 0.65 * fade, fade))
-	End If
-	If n_bri > 0 Then
-		ReDim Preserve segs_bri(n_bri - 1) As Vector2
-		Call canvas.DrawLines(segs_bri, 1.5, Color(0.9 * fade, 0.9 * fade, 1.0 * fade, fade))
-	End If
-	Call canvas.EndGroup()
+Next
+Call canvas.BeginGroup("StarsColor")
+If n_dim > 0 Then
+	ReDim Preserve segs_dim(n_dim - 1) As Vector2
+	Call canvas.DrawLines(segs_dim, 0.7, Color(0.35 * fade, 0.35 * fade, 0.38 * fade, fade))
+End If
+If n_mid > 0 Then
+	ReDim Preserve segs_mid(n_mid - 1) As Vector2
+	Call canvas.DrawLines(segs_mid, 1.1, Color(0.6 * fade, 0.6 * fade, 0.65 * fade, fade))
+End If
+If n_bri > 0 Then
+	ReDim Preserve segs_bri(n_bri - 1) As Vector2
+	Call canvas.DrawLines(segs_bri, 1.5, Color(0.9 * fade, 0.9 * fade, 1.0 * fade, fade))
+End If
+Call canvas.EndGroup()
 End Sub
 
 Sub _DrawStarsAlpha(ByVal delta As Single, ByVal alpha_scale As Single)
-	Dim segs_bri(1199) As Vector2
-	Dim n_bri As Integer = 0
-	Dim star_spd As Single = delta * (bpm_current / 80.0) * 0.22
-	Dim vp_x As Single = CX + (Sin(t * 0.23) * 80.0 + Sin(t * 0.07) * 40.0)
-	Dim vp_y As Single = CY + (Sin(t * 0.17) * 55.0 + Sin(t * 0.05) * 25.0)
-	Dim i As Integer
-	Dim old_z As Single
-	Dim ssx As Single
-	Dim ssy As Single
-	Dim ox As Single
-	Dim oy As Single
-	For i = 0 To StarCount - 1
-		old_z = star_z(i)
-		star_z(i) = star_z(i) - star_spd
-		If star_z(i) < 0.006 Then
-			star_x(i) = Rnd()
-			star_y(i) = Rnd()
-			star_z(i) = 1.0
-			old_z = 1.0
-		End If
-		ssx = (star_x(i) - 0.5) / star_z(i) * 900.0 + vp_x
-		ssy = (star_y(i) - 0.5) / star_z(i) * 900.0 + vp_y
-		ox = (star_x(i) - 0.5) / old_z * 900.0 + vp_x
-		oy = (star_y(i) - 0.5) / old_z * 900.0 + vp_y
-		If ssx > = - 20 AndAlso ssx < = SW + 20 AndAlso ssy > = - 20 AndAlso ssy < = SH + 20 Then
-			If (1.0 - star_z(i)) > 0.5 Then
-				segs_bri(n_bri) = Vector2(ox, oy)
-				segs_bri(n_bri + 1) = Vector2(ssx, ssy)
-				n_bri = n_bri + 2
-			End If
-		End If
-	Next
-	If n_bri > 0 Then
-		ReDim Preserve segs_bri(n_bri - 1) As Vector2
-		Call canvas.DrawLines(segs_bri, 1.0, Color(0.7, 0.7, 0.9, alpha_scale))
+Dim segs_bri(1199) As Vector2
+Dim n_bri As Integer = 0
+Dim star_spd As Single = delta * (bpm_current / 80.0) * 0.22
+Dim vp_x As Single = CX + (Sin(t * 0.23) * 80.0 + Sin(t * 0.07) * 40.0)
+Dim vp_y As Single = CY + (Sin(t * 0.17) * 55.0 + Sin(t * 0.05) * 25.0)
+Dim i As Integer
+Dim old_z As Single
+Dim ssx As Single
+Dim ssy As Single
+Dim ox As Single
+Dim oy As Single
+For i = 0 To StarCount - 1
+	old_z = star_z(i)
+	star_z(i) = star_z(i) - star_spd
+	If star_z(i) < 0.006 Then
+		star_x(i) = Rnd()
+		star_y(i) = Rnd()
+		star_z(i) = 1.0
+		old_z = 1.0
 	End If
+	ssx = (star_x(i) - 0.5) / star_z(i) * 900.0 + vp_x
+	ssy = (star_y(i) - 0.5) / star_z(i) * 900.0 + vp_y
+	ox = (star_x(i) - 0.5) / old_z * 900.0 + vp_x
+	oy = (star_y(i) - 0.5) / old_z * 900.0 + vp_y
+	If ssx > = - 20 AndAlso ssx < = SW + 20 AndAlso ssy > = - 20 AndAlso ssy < = SH + 20 Then
+		If (1.0 - star_z(i)) > 0.5 Then
+			segs_bri(n_bri) = Vector2(ox, oy)
+			segs_bri(n_bri + 1) = Vector2(ssx, ssy)
+			n_bri = n_bri + 2
+		End If
+	End If
+Next
+If n_bri > 0 Then
+	ReDim Preserve segs_bri(n_bri - 1) As Vector2
+	Call canvas.DrawLines(segs_bri, 1.0, Color(0.7, 0.7, 0.9, alpha_scale))
+End If
 End Sub
 
 ' ===========================================================================
 ' _DrawBounceShape — flat-shaded icosahedron with squash/stretch
 ' ===========================================================================
 Sub _DrawBounceShape(ByVal tt As Single, ByVal fade As Single)
-	If tt < 0 Then Exit Sub
-	' Bounce: abs(sin) gives symmetric bounce, squash at ground
-	Dim bounce_t As Single = Abs(Sin(tt * 2.2))
-	Dim shape_y As Single = CY + 201.0 - bounce_t * 210.0
-	Dim squash As Single = 1.0 - 0.42 * bounce_t * bounce_t
-	Dim stretch As Single = 1.0 / (squash + 0.001)
-	Dim scale As Single = 145.0
+If tt < 0 Then Exit Sub
+' Bounce: abs(sin) gives symmetric bounce, squash at ground
+Dim bounce_t As Single = Abs(Sin(tt * 2.2))
+Dim shape_y As Single = CY + 201.0 - bounce_t * 210.0
+Dim squash As Single = 1.0 - 0.42 * bounce_t * bounce_t
+Dim stretch As Single = 1.0 / (squash + 0.001)
+Dim scale As Single = 145.0
 
-	' Explosion: fires during the last 3 seconds of the bounce scene (tt 29→32)
-	Dim explode_t As Single = (tt - 29.0) / 3.0
-	If explode_t < 0.0 Then explode_t = 0.0
-	If explode_t > 1.0 Then explode_t = 1.0
-	Dim exp_sq As Single = explode_t * explode_t
-	Dim blast_t As Single
-	Dim blast_r As Single
-	Dim blast_a As Single
-	Dim ring2_t As Single
-	Dim ring2_r As Single
-	Dim ring2_a As Single
-	If explode_t > 0.0 Then
-		' Scale rockets to fill the screen — at explode_t=0.45 projected vertex > 640px
-		scale = 145.0 + exp_sq * 8500.0
-		' Rush towards centre
-		shape_y = shape_y + (CY - shape_y) * (explode_t * 1.4)
-		If shape_y < CY - 10.0 Then shape_y = CY - 10.0
-		' Fade: stay fully bright until shape fills screen, then fast flash-cut
-		If explode_t > = 0.70 Then
-			fade = fade * (1.0 - (explode_t - 0.70) / 0.30)
-			If fade < 0.0 Then fade = 0.0
-		End If
+' Explosion: fires during the last 3 seconds of the bounce scene (tt 29→32)
+Dim explode_t As Single = (tt - 29.0) / 3.0
+If explode_t < 0.0 Then explode_t = 0.0
+If explode_t > 1.0 Then explode_t = 1.0
+Dim exp_sq As Single = explode_t * explode_t
+Dim blast_t As Single
+Dim blast_r As Single
+Dim blast_a As Single
+Dim ring2_t As Single
+Dim ring2_r As Single
+Dim ring2_a As Single
+If explode_t > 0.0 Then
+	' Scale rockets to fill the screen — at explode_t=0.45 projected vertex > 640px
+	scale = 145.0 + exp_sq * 8500.0
+	' Rush towards centre
+	shape_y = shape_y + (CY - shape_y) * (explode_t * 1.4)
+	If shape_y < CY - 10.0 Then shape_y = CY - 10.0
+	' Fade: stay fully bright until shape fills screen, then fast flash-cut
+	If explode_t > = 0.70 Then
+		fade = fade * (1.0 - (explode_t - 0.70) / 0.30)
+		If fade < 0.0 Then fade = 0.0
 	End If
+End If
 
-	Dim rx As Single = tt * 0.72 + Sin(tt * 0.31) * 0.4
-	Dim ry As Single = tt * 0.51 + Cos(tt * 0.24) * 0.3
-	Dim rz As Single = tt * 0.16
+Dim rx As Single = tt * 0.72 + Sin(tt * 0.31) * 0.4
+Dim ry As Single = tt * 0.51 + Cos(tt * 0.24) * 0.3
+Dim rz As Single = tt * 0.16
 
-	Dim lx As Single = 0.5774
-	Dim ly As Single = 0.5774
-	Dim lz As Single = - 0.5774
+Dim lx As Single = 0.5774
+Dim ly As Single = 0.5774
+Dim lz As Single = - 0.5774
 
-	Dim cX1 As Single = Cos(rx)
-	Dim sX1 As Single = Sin(rx)
-	Dim cY1 As Single = Cos(ry)
-	Dim sY1 As Single = Sin(ry)
-	Dim cZ1 As Single = Cos(rz)
-	Dim sZ1 As Single = Sin(rz)
+Dim cX1 As Single = Cos(rx)
+Dim sX1 As Single = Sin(rx)
+Dim cY1 As Single = Cos(ry)
+Dim sY1 As Single = Sin(ry)
+Dim cZ1 As Single = Cos(rz)
+Dim sZ1 As Single = Sin(rz)
 
-	Dim vi As Integer
-	Dim vx0 As Single
-	Dim vy0 As Single
-	Dim vz0 As Single
-	Dim vx1 As Single
-	Dim vy1 As Single
-	Dim vz1 As Single
-	Dim vy2 As Single
-	Dim vz2 As Single
-	Dim vx2 As Single
-	For vi = 0 To 11
-		vx0 = ivx(vi) * stretch
-		vy0 = ivy(vi) * squash
-		vz0 = ivz(vi) * stretch
-		vx1 = vx0 * cZ1 - vy0 * sZ1
-		vy1 = vx0 * sZ1 + vy0 * cZ1
-		vz1 = vz0
-		vy2 = vy1 * cX1 - vz1 * sX1
-		vz2 = vy1 * sX1 + vz1 * cX1
-		vx2 = vx1
-		irx(vi) = vx2 * cY1 + vz2 * sY1
-		irz(vi) = - vx2 * sY1 + vz2 * cY1
-		iry(vi) = vy2
+Dim vi As Integer
+Dim vx0 As Single
+Dim vy0 As Single
+Dim vz0 As Single
+Dim vx1 As Single
+Dim vy1 As Single
+Dim vz1 As Single
+Dim vy2 As Single
+Dim vz2 As Single
+Dim vx2 As Single
+For vi = 0 To 11
+	vx0 = ivx(vi) * stretch
+	vy0 = ivy(vi) * squash
+	vz0 = ivz(vi) * stretch
+	vx1 = vx0 * cZ1 - vy0 * sZ1
+	vy1 = vx0 * sZ1 + vy0 * cZ1
+	vz1 = vz0
+	vy2 = vy1 * cX1 - vz1 * sX1
+	vz2 = vy1 * sX1 + vz1 * cX1
+	vx2 = vx1
+	irx(vi) = vx2 * cY1 + vz2 * sY1
+	irz(vi) = - vx2 * sY1 + vz2 * cY1
+	iry(vi) = vy2
+Next
+
+' Insertion sort faces back-to-front
+Dim fi As Integer
+Dim j As Integer
+Dim key As Single
+Dim keyi As Integer
+For fi = 0 To 19
+	ifd(fi) = (irz(ifa(fi)) + irz(ifb(fi)) + irz(ifc(fi))) / 3.0
+	ifo(fi) = fi
+Next
+For fi = 1 To 19
+	key = ifd(fi)
+	keyi = ifo(fi)
+	j = fi - 1
+	Do While j > = 0 AndAlso ifd(j) < key
+		ifd(j + 1) = ifd(j)
+		ifo(j + 1) = ifo(j)
+		j = j - 1
+	Loop
+	ifd(j + 1) = key
+	ifo(j + 1) = keyi
+Next
+
+Call canvas.BeginGroup("Background")
+' Perspective checkerboard floor
+Dim floor_y As Single = CY + 230.0
+Dim horizon As Single = floor_y - 80.0
+Dim fgx As Integer
+Dim fgy As Integer
+Dim fx0 As Single
+Dim fy0 As Single
+Dim fx1 As Single
+Dim fy1 As Single
+Dim fx2 As Single
+Dim fy2 As Single
+Dim fx3 As Single
+Dim fy3 As Single
+Dim ft As Single
+Dim fdepth0 As Single
+Dim fdepth1 As Single
+Dim fscale0 As Single
+Dim fscale1 As Single
+Dim fcheck As Integer
+Dim fbright As Single
+Dim fpts(3) As Vector2
+For fgy = 0 To 7
+	For fgx = - 5 To 4
+		ft = (fgy + tt * 0.5) / 8.0
+		ft = ft - Floor(ft)
+		fdepth0 = (fgy + 0) / 8.0
+		fdepth1 = (fgy + 1) / 8.0
+		fscale0 = 1.0 / (0.05 + fdepth0 * 1.2)
+		fscale1 = 1.0 / (0.05 + fdepth1 * 1.2)
+		fx0 = CX + (fgx ) * fscale0 * 60.0
+		fy0 = floor_y - fdepth0 * 200.0
+		fx1 = CX + (fgx + 1) * fscale0 * 60.0
+		fy1 = fy0
+		fx2 = CX + (fgx + 1) * fscale1 * 60.0
+		fy2 = floor_y - fdepth1 * 200.0
+		fx3 = CX + (fgx ) * fscale1 * 60.0
+		fy3 = fy2
+		If fy0 > = horizon AndAlso fy2 > = horizon Then
+			fpts(0) = Vector2(fx0, fy0)
+			fpts(1) = Vector2(fx1, fy1)
+			fpts(2) = Vector2(fx2, fy2)
+			fpts(3) = Vector2(fx3, fy3)
+			fcheck = (fgx + fgy) Mod 2
+			If fcheck < 0 Then fcheck = fcheck + 2
+			' Floor vanishes as explosion takes over
+			Dim floor_f As Single = 1.0 - explode_t * 1.5
+			If floor_f < 0.0 Then floor_f = 0.0
+			fbright = (0.12 + fdepth1 * 0.35) * fade * floor_f
+			If fcheck = 0 Then
+				Call canvas.DrawPolygon(fpts, 0, Color(fbright * 0.4, fbright * 0.5, fbright * 1.0, fade), True, Color(fbright * 0.4, fbright * 0.5, fbright * 1.0, fade))
+			Else
+				Call canvas.DrawPolygon(fpts, 0, Color(fbright * 0.08, fbright * 0.08, fbright * 0.12, fade), True, Color(fbright * 0.08, fbright * 0.08, fbright * 0.12, fade))
+			End If
+		End If
 	Next
+Next
 
-	' Insertion sort faces back-to-front
-	Dim fi As Integer
-	Dim j As Integer
-	Dim key As Single
-	Dim keyi As Integer
-	For fi = 0 To 19
-		ifd(fi) = (irz(ifa(fi)) + irz(ifb(fi)) + irz(ifc(fi))) / 3.0
-			ifo(fi) = fi
-			Next
-			For fi = 1 To 19
-				key = ifd(fi)
-				keyi = ifo(fi)
-				j = fi - 1
-				Do While j > = 0 AndAlso ifd(j) < key
-					ifd(j + 1) = ifd(j)
-						ifo(j + 1) = ifo(j)
-							j = j - 1
-						Loop
-						ifd(j + 1) = key
-							ifo(j + 1) = keyi
-							Next
+' Ground shadow
+Dim shadow_r As Single = scale * (0.18 + bounce_t * 0.12) * stretch
+Dim shadow_a As Single = (0.12 + bounce_t * 0.28) * fade
+Call canvas.DrawCircle(Vector2(CX, CY + 230), shadow_r, Color(0, 0, 0, shadow_a), True, Color(0, 0, 0, shadow_a))
 
-							Call canvas.BeginGroup("Background")
-							' Perspective checkerboard floor
-							Dim floor_y As Single = CY + 230.0
-							Dim horizon As Single = floor_y - 80.0
-							Dim fgx As Integer
-							Dim fgy As Integer
-							Dim fx0 As Single
-							Dim fy0 As Single
-							Dim fx1 As Single
-							Dim fy1 As Single
-							Dim fx2 As Single
-							Dim fy2 As Single
-							Dim fx3 As Single
-							Dim fy3 As Single
-							Dim ft As Single
-							Dim fdepth0 As Single
-							Dim fdepth1 As Single
-							Dim fscale0 As Single
-							Dim fscale1 As Single
-							Dim fcheck As Integer
-							Dim fbright As Single
-							Dim fpts(3) As Vector2
-							For fgy = 0 To 7
-								For fgx = - 5 To 4
-									ft = (fgy + tt * 0.5) / 8.0
-									ft = ft - Floor(ft)
-									fdepth0 = (fgy + 0) / 8.0
-									fdepth1 = (fgy + 1) / 8.0
-									fscale0 = 1.0 / (0.05 + fdepth0 * 1.2)
-									fscale1 = 1.0 / (0.05 + fdepth1 * 1.2)
-									fx0 = CX + (fgx ) * fscale0 * 60.0
-									fy0 = floor_y - fdepth0 * 200.0
-									fx1 = CX + (fgx + 1) * fscale0 * 60.0
-									fy1 = fy0
-									fx2 = CX + (fgx + 1) * fscale1 * 60.0
-									fy2 = floor_y - fdepth1 * 200.0
-									fx3 = CX + (fgx ) * fscale1 * 60.0
-									fy3 = fy2
-									If fy0 > = horizon AndAlso fy2 > = horizon Then
-										fpts(0) = Vector2(fx0, fy0)
-										fpts(1) = Vector2(fx1, fy1)
-										fpts(2) = Vector2(fx2, fy2)
-										fpts(3) = Vector2(fx3, fy3)
-										fcheck = (fgx + fgy) Mod 2
-										If fcheck < 0 Then fcheck = fcheck + 2
-										' Floor vanishes as explosion takes over
-										Dim floor_f As Single = 1.0 - explode_t * 1.5
-										If floor_f < 0.0 Then floor_f = 0.0
-										fbright = (0.12 + fdepth1 * 0.35) * fade * floor_f
-										If fcheck = 0 Then
-											Call canvas.DrawPolygon(fpts, 0, Color(fbright * 0.4, fbright * 0.5, fbright * 1.0, fade), True, Color(fbright * 0.4, fbright * 0.5, fbright * 1.0, fade))
-										Else
-											Call canvas.DrawPolygon(fpts, 0, Color(fbright * 0.08, fbright * 0.08, fbright * 0.12, fade), True, Color(fbright * 0.08, fbright * 0.08, fbright * 0.12, fade))
-										End If
-									End If
-								Next
-							Next
+' Perspective collapses hard during explosion — camera crashes toward the object
+Dim pz As Single = 5.0 - exp_sq * 4.25
+If pz < 0.82 Then pz = 0.82
+Dim di As Integer
+Dim ai As Integer
+Dim bi As Integer
+Dim ci As Integer
+Dim ex As Single
+Dim ey As Single
+Dim ez As Single
+Dim fx As Single
+Dim fy As Single
+Dim fz As Single
+Dim nz As Single
+Dim nx As Single
+Dim ny As Single
+Dim nlen As Single
+Dim diff As Single
+Dim bright As Single
+Dim pa_x As Single
+Dim pa_y As Single
+Dim pb_x As Single
+Dim pb_y As Single
+Dim pc_x As Single
+Dim pc_y As Single
+Dim fr As Single
+Dim fg As Single
+Dim fb As Single
+Dim er As Single
+Dim eg As Single
+Dim eb As Single
+Dim pts(2) As Variant
+' Cache per-vertex projection divisor — avoids 6 divisions per face
+For vi = 0 To 11
+	isp(vi) = scale / (pz - irz(vi) * 0.8)
+Next
+For di = 0 To 19
+	fi = ifo(di)
+	ai = ifa(fi)
+	bi = ifb(fi)
+	ci = ifc(fi)
+	ex = irx(bi) - irx(ai)
+	ey = iry(bi) - iry(ai)
+	ez = irz(bi) - irz(ai)
+	fx = irx(ci) - irx(ai)
+	fy = iry(ci) - iry(ai)
+	fz = irz(ci) - irz(ai)
+	nz = ex * fy - ey * fx
+	If nz > 0 Then
+		nx = ey * fz - ez * fy
+		ny = ez * fx - ex * fz
+		nlen = Sqr(nx * nx + ny * ny + nz * nz)
+		If nlen > 0.0001 Then nx = nx / nlen : ny = ny / nlen : nz = nz / nlen
+		diff = nx * lx + ny * ly + nz * lz
+		If diff < 0 Then diff = 0
+		bright = 0.2 + 0.8 * diff
+		pa_x = CX + irx(ai) * isp(ai)
+		pa_y = shape_y + iry(ai) * isp(ai)
+		pb_x = CX + irx(bi) * isp(bi)
+		pb_y = shape_y + iry(bi) * isp(bi)
+		pc_x = CX + irx(ci) * isp(ci)
+		pc_y = shape_y + iry(ci) * isp(ci)
+		pts(0) = Vector2(pa_x, pa_y)
+		pts(1) = Vector2(pb_x, pb_y)
+		pts(2) = Vector2(pc_x, pc_y)
+		fr = ifcr(fi) * bright * fade
+		fg = ifcg(fi) * bright * fade
+		fb = ifcb(fi) * bright * fade
+		Call canvas.DrawPolygon(pts, 0, Color(fr, fg, fb, fade), True, Color(fr, fg, fb, fade))
+		er = (ifcr(fi) * 0.4 + 0.6) * fade
+		eg = (ifcg(fi) * 0.4 + 0.6) * fade
+		eb = (ifcb(fi) * 0.4 + 0.6) * fade
+		Call canvas.DrawPolygon(pts, 0.9, Color(er, eg, eb, fade * 0.6), False, Color(0, 0, 0, 0))
+	End If
+Next
 
-							' Ground shadow
-							Dim shadow_r As Single = scale * (0.18 + bounce_t * 0.12) * stretch
-							Dim shadow_a As Single = (0.12 + bounce_t * 0.28) * fade
-							Call canvas.DrawCircle(Vector2(CX, CY + 230), shadow_r, Color(0, 0, 0, shadow_a), True, Color(0, 0, 0, shadow_a))
+' Expanding blast rings during explosion — two rings at slightly different speeds
+If explode_t > 0.08 Then
+	ring2_t = (explode_t - 0.08) / 0.92
+	ring2_r = ring2_t * 680.0
+	ring2_a = (1.0 - ring2_t) * (fade + 0.35)
+	If ring2_a > 1.0 Then ring2_a = 1.0
+	If ring2_a > 0.01 Then Call canvas.DrawCircle(Vector2(CX, CY), ring2_r, Color(ring2_a * 0.7, ring2_a * 0.9, ring2_a, ring2_a), False, Color(ring2_a * 0.7, ring2_a * 0.9, ring2_a, ring2_a))
+End If
+If explode_t > 0.25 Then
+	blast_t = (explode_t - 0.25) / 0.75
+	blast_r = blast_t * 950.0
+	blast_a = (1.0 - blast_t) * (fade + 0.30)
+	If blast_a > 1.0 Then blast_a = 1.0
+	If blast_a > 0.01 Then Call canvas.DrawCircle(Vector2(CX, CY), blast_r, Color(blast_a, blast_a * 0.75, blast_a * 0.3, blast_a), False, Color(blast_a, blast_a * 0.75, blast_a * 0.3, blast_a))
+End If
 
-							' Perspective collapses hard during explosion — camera crashes toward the object
-							Dim pz As Single = 5.0 - exp_sq * 4.25
-							If pz < 0.82 Then pz = 0.82
-							Dim di As Integer
-							Dim ai As Integer
-							Dim bi As Integer
-							Dim ci As Integer
-							Dim ex As Single
-							Dim ey As Single
-							Dim ez As Single
-							Dim fx As Single
-							Dim fy As Single
-							Dim fz As Single
-							Dim nz As Single
-							Dim nx As Single
-							Dim ny As Single
-							Dim nlen As Single
-							Dim diff As Single
-							Dim bright As Single
-							Dim pa_x As Single
-							Dim pa_y As Single
-							Dim pb_x As Single
-							Dim pb_y As Single
-							Dim pc_x As Single
-							Dim pc_y As Single
-							Dim fr As Single
-							Dim fg As Single
-							Dim fb As Single
-							Dim er As Single
-							Dim eg As Single
-							Dim eb As Single
-							Dim pts(2) As Variant
-							For di = 0 To 19
-								fi = ifo(di)
-								ai = ifa(fi)
-								bi = ifb(fi)
-								ci = ifc(fi)
-								ex = irx(bi) - irx(ai)
-								ey = iry(bi) - iry(ai)
-								ez = irz(bi) - irz(ai)
-								fx = irx(ci) - irx(ai)
-								fy = iry(ci) - iry(ai)
-								fz = irz(ci) - irz(ai)
-								nz = ex * fy - ey * fx
-								If nz > 0 Then
-									nx = ey * fz - ez * fy
-									ny = ez * fx - ex * fz
-									nlen = Sqr(nx * nx + ny * ny + nz * nz)
-									If nlen > 0.0001 Then nx = nx / nlen : ny = ny / nlen : nz = nz / nlen
-									diff = nx * lx + ny * ly + nz * lz
-									If diff < 0 Then diff = 0
-									bright = 0.2 + 0.8 * diff
-									pa_x = CX + irx(ai) * scale / (pz - irz(ai) * 0.8)
-									pa_y = shape_y + iry(ai) * scale / (pz - irz(ai) * 0.8)
-									pb_x = CX + irx(bi) * scale / (pz - irz(bi) * 0.8)
-									pb_y = shape_y + iry(bi) * scale / (pz - irz(bi) * 0.8)
-									pc_x = CX + irx(ci) * scale / (pz - irz(ci) * 0.8)
-									pc_y = shape_y + iry(ci) * scale / (pz - irz(ci) * 0.8)
-									pts(0) = Vector2(pa_x, pa_y)
-									pts(1) = Vector2(pb_x, pb_y)
-									pts(2) = Vector2(pc_x, pc_y)
-									fr = ifcr(fi) * bright * fade
-									fg = ifcg(fi) * bright * fade
-									fb = ifcb(fi) * bright * fade
-									Call canvas.DrawPolygon(pts, 0, Color(fr, fg, fb, fade), True, Color(fr, fg, fb, fade))
-									er = (ifcr(fi) * 0.4 + 0.6) * fade
-									eg = (ifcg(fi) * 0.4 + 0.6) * fade
-									eb = (ifcb(fi) * 0.4 + 0.6) * fade
-									Call canvas.DrawPolygon(pts, 0.9, Color(er, eg, eb, fade * 0.6), False, Color(0, 0, 0, 0))
-								End If
-							Next
-
-							' Expanding blast rings during explosion — two rings at slightly different speeds
-							If explode_t > 0.08 Then
-								ring2_t = (explode_t - 0.08) / 0.92
-								ring2_r = ring2_t * 680.0
-								ring2_a = (1.0 - ring2_t) * (fade + 0.35)
-								If ring2_a > 1.0 Then ring2_a = 1.0
-								If ring2_a > 0.01 Then Call canvas.DrawCircle(Vector2(CX, CY), ring2_r, Color(ring2_a * 0.7, ring2_a * 0.9, ring2_a, ring2_a), False, Color(ring2_a * 0.7, ring2_a * 0.9, ring2_a, ring2_a))
-							End If
-							If explode_t > 0.25 Then
-								blast_t = (explode_t - 0.25) / 0.75
-								blast_r = blast_t * 950.0
-								blast_a = (1.0 - blast_t) * (fade + 0.30)
-								If blast_a > 1.0 Then blast_a = 1.0
-								If blast_a > 0.01 Then Call canvas.DrawCircle(Vector2(CX, CY), blast_r, Color(blast_a, blast_a * 0.75, blast_a * 0.3, blast_a), False, Color(blast_a, blast_a * 0.75, blast_a * 0.3, blast_a))
-							End If
-
-							Call canvas.EndGroup()
-						End Sub
+Call canvas.EndGroup()
+End Sub
 
 ' ===========================================================================
 ' _DrawCopperBars
 ' ===========================================================================
 Sub _DrawCopperBars(ByVal tt As Single, ByVal fade As Single)
-	' ── Shatter explosion: bars fly off in last 3 seconds ───────────────────
-	' shatter_t 0→1 over the final 3 seconds of the scene
-	Dim shatter_t As Single = (tt - 15.0) / 3.0
-	If shatter_t < 0.0 Then shatter_t = 0.0
-	If shatter_t > 1.0 Then shatter_t = 1.0
+' ── Shatter explosion: bars fly off in last 3 seconds ───────────────────
+' shatter_t 0→1 over the final 3 seconds of the scene
+Dim shatter_t As Single = (tt - 15.0) / 3.0
+If shatter_t < 0.0 Then shatter_t = 0.0
+If shatter_t > 1.0 Then shatter_t = 1.0
 
-	' Pause music the moment shatter begins; resume after it ends
-	If shatter_t > 0.0 And Not copper_music_paused Then
-		copper_music_paused = True
-		If tracker_handle < > 0 Then Call Sound.Pause(tracker_handle)
-	End If
-	If shatter_t > = 1.0 And copper_music_paused Then
-		copper_music_paused = False
-		If tracker_handle < > 0 Then Call Sound.Resume(tracker_handle)
-	End If
+' Pause music the moment shatter begins; resume after it ends
+If shatter_t > 0.0 And Not copper_music_paused Then
+	copper_music_paused = True
+	If tracker_handle < > 0 Then Call Sound.Pause(tracker_handle)
+End If
+If shatter_t > = 1.0 And copper_music_paused Then
+	copper_music_paused = False
+	If tracker_handle < > 0 Then Call Sound.Resume(tracker_handle)
+End If
 
-	' Once shatter starts, skip all bars + UI — blank screen only
-	If shatter_t > 0.0 Then
-		Call canvas.BeginGroup("CopperShatter")
-		Call canvas.SetAdditiveBlend(True)
+' Once shatter starts, skip all bars + UI — blank screen only
+If shatter_t > 0.0 Then
+	Call canvas.BeginGroup("CopperShatter")
+	Call canvas.SetAdditiveBlend(True)
 
-		' Bright white flash at detonation moment (shatter_t 0→0.15)
-		Dim flash_f As Single = (1.0 - shatter_t / 0.15)
-		If flash_f < 0.0 Then flash_f = 0.0
-		If flash_f > 0.0 Then
-			Call canvas.DrawRect(Rect2(0, 0, CSng(SW), CSng(SH)), 0, Color(flash_f, flash_f, flash_f * 0.8, flash_f), True, Color(flash_f, flash_f, flash_f * 0.8, flash_f))
-		End If
-
-		' Each bar explodes outward from its vertical position toward screen edges
-		' Bars near top fly up, bars near bottom fly down, middle bars split both ways
-		Dim sb As Integer
-		Dim shard_vy As Single
-		Dim shard_vx As Single
-		Dim shard_y As Single
-		Dim shard_x As Single
-		Dim shard_a As Single
-		Dim shard_hue As Single
-		Dim shard_cr As Single
-		Dim shard_cg As Single
-		Dim shard_cb As Single
-		Dim shard_spin As Single
-		Dim st2 As Single = shatter_t * shatter_t
-		For sb = 0 To 29
-			' Direction: bars above centre fly up, below fly down, with random x spread
-			Dim centre_bias As Single = (CSng(sb) / 29.0 - 0.5) * 2.0 ' -1..+1
-			shard_vy = centre_bias * 1400.0 + (CSng(sb Mod 7) - 3.0) * 80.0
-			shard_vx = (CSng(sb Mod 9) - 4.0) * 220.0
-			' Extra kick outward from centre
-			shard_vy = shard_vy - CSng(sb Mod 3) * 120.0 * (1.0 - Abs(centre_bias))
-			Dim orig_y As Single = CSng(sb) * 24.0
-			' Physics: v*t + 0.5*gravity*t^2  (gravity pulls all back toward centre slightly)
-			shard_y = orig_y + shard_vy * shatter_t + (centre_bias * - 300.0) * st2
-			shard_x = shard_vx * shatter_t
-			' Alpha: sharp fade, gone by shatter_t=0.85
-			shard_a = (1.0 - shatter_t / 0.85) * fade
-			If shard_a < 0.0 Then shard_a = 0.0
-			' Hue cycles to full saturation as it flies
-			shard_hue = CSng(sb) / 30.0 + shatter_t * 0.5
-			shard_hue = shard_hue - Floor(shard_hue)
-			Call _HsvToRgb(shard_hue, 1.0, 1.0, shard_cr, shard_cg, shard_cb)
-			' Bar gets narrower as it spins away (fake 3D tumble)
-			shard_spin = Abs(Cos(shatter_t * 8.0 + CSng(sb) * 0.7))
-			Dim shard_h As Single = 22.0 * (0.2 + shard_spin * 0.8)
-			Dim shard_yo As Single = shard_y + (22.0 - shard_h) * 0.5
-			Call canvas.DrawRect(Rect2(shard_x, shard_yo, CSng(SW), shard_h), 0, Color(shard_cr * shard_a, shard_cg * shard_a, shard_cb * shard_a, shard_a), True, Color(shard_cr * shard_a, shard_cg * shard_a, shard_cb * shard_a, shard_a))
-		Next
-		Call canvas.SetAdditiveBlend(False)
-		Call canvas.EndGroup()
-		Exit Sub
+	' Bright white flash at detonation moment (shatter_t 0→0.15)
+	Dim flash_f As Single = (1.0 - shatter_t / 0.15)
+	If flash_f < 0.0 Then flash_f = 0.0
+	If flash_f > 0.0 Then
+		Call canvas.DrawRect(Rect2(0, 0, CSng(SW), CSng(SH)), 0, Color(flash_f, flash_f, flash_f * 0.8, flash_f), True, Color(flash_f, flash_f, flash_f * 0.8, flash_f))
 	End If
 
-	' ── Copper bar backdrop ──────────────────────────────────────────────────
-	Call canvas.BeginGroup("Background")
-	Dim BarH As Integer = 24
-	Dim NSlices As Integer = 12
-	Dim band As Integer
-	Dim sl As Integer
-	Dim base_y As Single
-	Dim wave_off As Single
-	Dim hue As Single
-	Dim cr As Single
-	Dim cg As Single
-	Dim cb As Single
-	Dim t_mid As Single
-	Dim bv As Single
-	Dim sliceH As Single
-	sliceH = BarH / NSlices
-	For band = 0 To 29
-		base_y = band * BarH
-		wave_off = Sin(band * 0.55 + tt * 1.4) * 80.0 + Sin(band * 0.9 + tt * 0.7) * 40.0
-		hue = (band / 30.0) + tt * 0.06
-		hue = hue - Floor(hue)
-		For sl = 0 To NSlices - 1
-			t_mid = Abs((sl / CSng(NSlices - 1)) * 2.0 - 1.0)
-			bv = (1.0 - t_mid * t_mid) * fade * 0.55
-			Call _HsvToRgb(hue, 0.85, bv, cr, cg, cb)
-			Call canvas.DrawRect(Rect2(wave_off, base_y + sl * sliceH, SW, sliceH + 1), 0, Color(cr, cg, cb, fade), True, Color(cr, cg, cb, fade))
-		Next
+	' Each bar explodes outward from its vertical position toward screen edges
+	' Bars near top fly up, bars near bottom fly down, middle bars split both ways
+	Dim sb As Integer
+	Dim shard_vy As Single
+	Dim shard_vx As Single
+	Dim shard_y As Single
+	Dim shard_x As Single
+	Dim shard_a As Single
+	Dim shard_hue As Single
+	Dim shard_cr As Single
+	Dim shard_cg As Single
+	Dim shard_cb As Single
+	Dim shard_spin As Single
+	Dim st2 As Single = shatter_t * shatter_t
+	For sb = 0 To 29
+		' Direction: bars above centre fly up, below fly down, with random x spread
+		Dim centre_bias As Single = (CSng(sb) / 29.0 - 0.5) * 2.0 ' -1..+1
+		shard_vy = centre_bias * 1400.0 + (CSng(sb Mod 7) - 3.0) * 80.0
+		shard_vx = (CSng(sb Mod 9) - 4.0) * 220.0
+		' Extra kick outward from centre
+		shard_vy = shard_vy - CSng(sb Mod 3) * 120.0 * (1.0 - Abs(centre_bias))
+		Dim orig_y As Single = CSng(sb) * 24.0
+		' Physics: v*t + 0.5*gravity*t^2  (gravity pulls all back toward centre slightly)
+		shard_y = orig_y + shard_vy * shatter_t + (centre_bias * - 300.0) * st2
+		shard_x = shard_vx * shatter_t
+		' Alpha: sharp fade, gone by shatter_t=0.85
+		shard_a = (1.0 - shatter_t / 0.85) * fade
+		If shard_a < 0.0 Then shard_a = 0.0
+		' Hue cycles to full saturation as it flies
+		shard_hue = CSng(sb) / 30.0 + shatter_t * 0.5
+		shard_hue = shard_hue - Floor(shard_hue)
+		Call _HsvToRgb(shard_hue, 1.0, 1.0, shard_cr, shard_cg, shard_cb)
+		' Bar gets narrower as it spins away (fake 3D tumble)
+		shard_spin = Abs(Cos(shatter_t * 8.0 + CSng(sb) * 0.7))
+		Dim shard_h As Single = 22.0 * (0.2 + shard_spin * 0.8)
+		Dim shard_yo As Single = shard_y + (22.0 - shard_h) * 0.5
+		Call canvas.DrawRect(Rect2(shard_x, shard_yo, CSng(SW), shard_h), 0, Color(shard_cr * shard_a, shard_cg * shard_a, shard_cb * shard_a, shard_a), True, Color(shard_cr * shard_a, shard_cg * shard_a, shard_cb * shard_a, shard_a))
 	Next
+	Call canvas.SetAdditiveBlend(False)
 	Call canvas.EndGroup()
+	Exit Sub
+End If
 
-	' ── Speed Race overlay ───────────────────────────────────────────────────
-	Call canvas.BeginGroup("SpeedRace")
-
-	Dim tf As Single
-	Dim races As Integer
-	Dim ri As Integer
-	Dim r_start As Single
-	Dim r_tt As Single
-	Dim vg_us As Single
-	Dim gd_us As Single
-	Dim vg_bar As Single
-	Dim gd_bar As Single
-	Dim bar_left As Single
-	Dim bar_w As Single
-	Dim bar_right As Single
-	Dim row_y As Single
-	Dim label As String
-	Dim mult As Single
-	Dim mult_i As Integer
-	Dim mult_s As String
-	Dim rf As Single
-	Dim vg_finish As Single
-	Dim gd_race_t As Single
-	Dim mf As Single
-	Dim ha As Single
-	Dim quip_idx As Integer
-	Dim quip As String
-	Dim qf As Single
-
-	tf = tt / 1.5
-	If tf > 1.0 Then tf = 1.0
-	tf = tf * fade
-	Call canvas.DrawVectorTextCentered(Vector2(CX, 28), "SPEED TEST: VG vs GDSCRIPT", Color(1.0 * tf, 0.9 * tf, 0.1 * tf, tf), 1.8, 1.8, 2.0, "")
-
-	races = 5
-	bar_left = 130.0
-	bar_w = SW - bar_left - 200.0
-	bar_right = bar_left + bar_w
-	vg_finish = 2.5
-
-	For ri = 0 To races - 1
-		r_start = CSng(ri) * 4.2
-		r_tt = tt - r_start
-		If r_tt < 0.0 Then r_tt = 0.0
-		If r_tt > 9.0 Then r_tt = 9.0
-		rf = r_tt / 0.5
-		If rf > 1.0 Then rf = 1.0
-		rf = rf * fade
-
-		row_y = 88.0 + ri * 108.0
-
-		Select Case ri
-		Case 0 : label = "BRANCHING" : vg_us = 59.0 : gd_us = 6988.0
-		Case 1 : label = "STRING CONCAT": vg_us = 60.0 : gd_us = 5007.0
-		Case 2 : label = "INTEROP" : vg_us = 120.0 : gd_us = 8096.0
-		Case 3 : label = "ARITHMETIC" : vg_us = 331.0 : gd_us = 5333.0
-		Case 4 : label = "ARRAY SUM" : vg_us = 130.0 : gd_us = 4644.0
-		End Select
-
-		mult = gd_us / vg_us
-
-		' VG bar: finishes in vg_finish seconds
-		vg_bar = (r_tt / vg_finish) * bar_w
-		If vg_bar > bar_w Then vg_bar = bar_w
-
-		' GDScript bar: proportionally slower — no cap so each mult shows its true ratio
-		gd_race_t = vg_finish * mult
-		gd_bar = (r_tt / gd_race_t) * bar_w
-		If gd_bar > bar_w Then gd_bar = bar_w
-
-		' Row label left of bars
-		Call _DrawVectorText(label, 8, row_y, 14, Color(0.9 * rf, 0.9 * rf, 0.9 * rf, rf))
-
-		' VG bar (cyan)
-		ha = rf * 0.85
-		Call canvas.DrawRect(Rect2(bar_left, row_y + 18, vg_bar, 17), 0, Color(0.1 * rf, 0.85 * rf, 1.0 * rf, ha), True, Color(0.1 * rf, 0.85 * rf, 1.0 * rf, ha))
-		Call _DrawVectorText("VG", bar_left - 26, row_y + 18, 13, Color(0.1 * rf, 1.0 * rf, 1.0 * rf, rf))
-
-		' GDScript bar (orange)
-		Call canvas.DrawRect(Rect2(bar_left, row_y + 44, gd_bar, 17), 0, Color(1.0 * rf, 0.45 * rf, 0.0, ha), True, Color(1.0 * rf, 0.45 * rf, 0.0, ha))
-		Call _DrawVectorText("GD", bar_left - 26, row_y + 44, 13, Color(1.0 * rf, 0.5 * rf, 0.0, rf))
-
-		' Multiplier badge — fixed right column, pops when VG finishes
-		If r_tt > = vg_finish Then
-			mf = (r_tt - vg_finish) / 0.4
-			If mf > 1.0 Then mf = 1.0
-			mf = mf * rf
-			mult_i = CInt(mult)
-			mult_s = CStr(mult_i) & "X FASTER"
-			Call _DrawVectorText(mult_s, bar_right + 8, row_y + 18, 17, Color(0.2 * mf, 1.0 * mf, 0.3 * mf, mf))
-		End If
+' ── Copper bar backdrop ──────────────────────────────────────────────────
+Call canvas.BeginGroup("Background")
+Dim BarH As Integer = 24
+Dim NSlices As Integer = 12
+Dim band As Integer
+Dim sl As Integer
+Dim base_y As Single
+Dim wave_off As Single
+Dim hue As Single
+Dim cr As Single
+Dim cg As Single
+Dim cb As Single
+Dim t_mid As Single
+Dim bv As Single
+Dim sliceH As Single
+sliceH = BarH / NSlices
+For band = 0 To 29
+	base_y = band * BarH
+	wave_off = Sin(band * 0.55 + tt * 1.4) * 80.0 + Sin(band * 0.9 + tt * 0.7) * 40.0
+	hue = (band / 30.0) + tt * 0.06
+	hue = hue - Floor(hue)
+	For sl = 0 To NSlices - 1
+		t_mid = Abs((sl / CSng(NSlices - 1)) * 2.0 - 1.0)
+		bv = (1.0 - t_mid * t_mid) * fade * 0.55
+		Call _HsvToRgb(hue, 0.85, bv, cr, cg, cb)
+		Call canvas.DrawRect(Rect2(wave_off, base_y + sl * sliceH, SW, sliceH + 1), 0, Color(cr, cg, cb, fade), True, Color(cr, cg, cb, fade))
 	Next
+Next
+Call canvas.EndGroup()
 
-	' Rotating quip
-	quip_idx = CInt(tt / 5.0) Mod 5
-	Select Case quip_idx
-	Case 0 : quip = "GDSCRIPT: STILL COUNTING..."
-	Case 1 : quip = "GDSCRIPT: PLEASE HOLD..."
-	Case 2 : quip = "GDSCRIPT: OPTIMIZING THE OPTIMIZER..."
-	Case 3 : quip = "GDSCRIPT: HAVE YOU TRIED WAITING"
-	Case 4 : quip = "GDSCRIPT: BRB COLLECTING GARBAGE"
+' ── Speed Race overlay ───────────────────────────────────────────────────
+Call canvas.BeginGroup("SpeedRace")
+
+Dim tf As Single
+Dim races As Integer
+Dim ri As Integer
+Dim r_start As Single
+Dim r_tt As Single
+Dim vg_us As Single
+Dim gd_us As Single
+Dim vg_bar As Single
+Dim gd_bar As Single
+Dim bar_left As Single
+Dim bar_w As Single
+Dim bar_right As Single
+Dim row_y As Single
+Dim label As String
+Dim mult As Single
+Dim mult_i As Integer
+Dim mult_s As String
+Dim rf As Single
+Dim vg_finish As Single
+Dim gd_race_t As Single
+Dim mf As Single
+Dim ha As Single
+Dim quip_idx As Integer
+Dim quip As String
+Dim qf As Single
+
+tf = tt / 1.5
+If tf > 1.0 Then tf = 1.0
+tf = tf * fade
+Call canvas.DrawVectorTextCentered(Vector2(CX, 28), "SPEED TEST: VG vs GDSCRIPT", Color(1.0 * tf, 0.9 * tf, 0.1 * tf, tf), 1.8, 1.8, 2.0, "")
+
+races = 5
+bar_left = 130.0
+bar_w = SW - bar_left - 200.0
+bar_right = bar_left + bar_w
+vg_finish = 2.5
+
+For ri = 0 To races - 1
+	r_start = CSng(ri) * 4.2
+	r_tt = tt - r_start
+	If r_tt < 0.0 Then r_tt = 0.0
+	If r_tt > 9.0 Then r_tt = 9.0
+	rf = r_tt / 0.5
+	If rf > 1.0 Then rf = 1.0
+	rf = rf * fade
+
+	row_y = 88.0 + ri * 108.0
+
+	Select Case ri
+	Case 0 : label = "BRANCHING" : vg_us = 59.0 : gd_us = 6988.0
+	Case 1 : label = "STRING CONCAT": vg_us = 60.0 : gd_us = 5007.0
+	Case 2 : label = "INTEROP" : vg_us = 120.0 : gd_us = 8096.0
+	Case 3 : label = "ARITHMETIC" : vg_us = 331.0 : gd_us = 5333.0
+	Case 4 : label = "ARRAY SUM" : vg_us = 130.0 : gd_us = 4644.0
 	End Select
-	qf = fade * (0.6 + Sin(tt * 3.1) * 0.4)
-	Call canvas.DrawVectorTextCentered(Vector2(CX, SH - 38), quip, Color(1.0 * qf, 0.4 * qf, 0.1 * qf, qf), 1.4, 1.4, 2.0, "")
 
-	Call canvas.EndGroup()
+	mult = gd_us / vg_us
+
+	' VG bar: finishes in vg_finish seconds
+	vg_bar = (r_tt / vg_finish) * bar_w
+	If vg_bar > bar_w Then vg_bar = bar_w
+
+	' GDScript bar: proportionally slower — no cap so each mult shows its true ratio
+	gd_race_t = vg_finish * mult
+	gd_bar = (r_tt / gd_race_t) * bar_w
+	If gd_bar > bar_w Then gd_bar = bar_w
+
+	' Row label left of bars
+	Call _DrawVectorText(label, 8, row_y, 14, Color(0.9 * rf, 0.9 * rf, 0.9 * rf, rf))
+
+	' VG bar (cyan)
+	ha = rf * 0.85
+	Call canvas.DrawRect(Rect2(bar_left, row_y + 18, vg_bar, 17), 0, Color(0.1 * rf, 0.85 * rf, 1.0 * rf, ha), True, Color(0.1 * rf, 0.85 * rf, 1.0 * rf, ha))
+	Call _DrawVectorText("VG", bar_left - 26, row_y + 18, 13, Color(0.1 * rf, 1.0 * rf, 1.0 * rf, rf))
+
+	' GDScript bar (orange)
+	Call canvas.DrawRect(Rect2(bar_left, row_y + 44, gd_bar, 17), 0, Color(1.0 * rf, 0.45 * rf, 0.0, ha), True, Color(1.0 * rf, 0.45 * rf, 0.0, ha))
+	Call _DrawVectorText("GD", bar_left - 26, row_y + 44, 13, Color(1.0 * rf, 0.5 * rf, 0.0, rf))
+
+	' Multiplier badge — fixed right column, pops when VG finishes
+	If r_tt > = vg_finish Then
+		mf = (r_tt - vg_finish) / 0.4
+		If mf > 1.0 Then mf = 1.0
+		mf = mf * rf
+		mult_i = CInt(mult)
+		mult_s = CStr(mult_i) & "X FASTER"
+		Call _DrawVectorText(mult_s, bar_right + 8, row_y + 18, 17, Color(0.2 * mf, 1.0 * mf, 0.3 * mf, mf))
+	End If
+Next
+
+' Rotating quip
+quip_idx = CInt(tt / 5.0) Mod 5
+Select Case quip_idx
+Case 0 : quip = "GDSCRIPT: STILL COUNTING..."
+Case 1 : quip = "GDSCRIPT: PLEASE HOLD..."
+Case 2 : quip = "GDSCRIPT: OPTIMIZING THE OPTIMIZER..."
+Case 3 : quip = "GDSCRIPT: HAVE YOU TRIED WAITING"
+Case 4 : quip = "GDSCRIPT: BRB COLLECTING GARBAGE"
+End Select
+qf = fade * (0.6 + Sin(tt * 3.1) * 0.4)
+Call canvas.DrawVectorTextCentered(Vector2(CX, SH - 38), quip, Color(1.0 * qf, 0.4 * qf, 0.1 * qf, qf), 1.4, 1.4, 2.0, "")
+
+Call canvas.EndGroup()
 End Sub
 
 ' ===========================================================================
 ' _DrawTorus
 ' ===========================================================================
 Sub _DrawTorus(ByVal tt As Single, ByVal fade As Single)
-	If tt < 0 Then Exit Sub
-	Dim torus_scale As Single = 1.0 + 0.22 * heart_pulse
+If tt < 0 Then Exit Sub
+Dim torus_scale As Single = 1.0 + 0.22 * heart_pulse
 
-	' Beat-reactive concentric pulse rings expanding from torus centre
-	Dim ring_hue As Single
-	Dim ring_cr As Single
-	Dim ring_cg As Single
-	Dim ring_cb As Single
-	Dim ring_age As Single
-	Dim ring_r As Single
-	Dim ring_a As Single
-	ring_age = 1.0 - heart_pulse
-	ring_r = ring_age * 440.0
-	ring_a = heart_pulse * fade
-	ring_hue = Frac(torus_hue_offset)
-	Call _HsvToRgb(ring_hue, 0.7, 1.0, ring_cr, ring_cg, ring_cb)
-	Call canvas.SetAdditiveBlend(True)
-	Call canvas.BeginGroup("TorusRings")
-	If ring_a > 0.02 Then
-		Call canvas.DrawCircle(Vector2(CX, CY), ring_r, Color(ring_cr * ring_a, ring_cg * ring_a, ring_cb * ring_a, ring_a), False, Color(0, 0, 0, 0))
+' Beat-reactive concentric pulse rings expanding from torus centre
+Dim ring_hue As Single
+Dim ring_cr As Single
+Dim ring_cg As Single
+Dim ring_cb As Single
+Dim ring_age As Single
+Dim ring_r As Single
+Dim ring_a As Single
+ring_age = 1.0 - heart_pulse
+ring_r = ring_age * 440.0
+ring_a = heart_pulse * fade
+ring_hue = Frac(torus_hue_offset)
+Call _HsvToRgb(ring_hue, 0.7, 1.0, ring_cr, ring_cg, ring_cb)
+Call canvas.SetAdditiveBlend(True)
+Call canvas.BeginGroup("TorusRings")
+If ring_a > 0.02 Then
+	Call canvas.DrawCircle(Vector2(CX, CY), ring_r, Color(ring_cr * ring_a, ring_cg * ring_a, ring_cb * ring_a, ring_a), False, Color(0, 0, 0, 0))
+End If
+Dim ring2_age As Single = ring_age - 0.22
+If ring2_age > 0.0 Then
+	Dim ring2_r As Single = ring2_age * 440.0
+	Dim ring2_a As Single = (1.0 - ring2_age) * fade * 0.55
+	If ring2_a > 0.0 Then
+		Call canvas.DrawCircle(Vector2(CX, CY), ring2_r, Color(ring_cr * ring2_a, ring_cg * ring2_a, ring_cb * ring2_a, ring2_a), False, Color(0, 0, 0, 0))
 	End If
-	Dim ring2_age As Single = ring_age - 0.22
-	If ring2_age > 0.0 Then
-		Dim ring2_r As Single = ring2_age * 440.0
-		Dim ring2_a As Single = (1.0 - ring2_age) * fade * 0.55
-		If ring2_a > 0.0 Then
-			Call canvas.DrawCircle(Vector2(CX, CY), ring2_r, Color(ring_cr * ring2_a, ring_cg * ring2_a, ring_cb * ring2_a, ring2_a), False, Color(0, 0, 0, 0))
-		End If
-	End If
-	Call canvas.EndGroup()
-	Call canvas.SetAdditiveBlend(False)
+End If
+Call canvas.EndGroup()
+Call canvas.SetAdditiveBlend(False)
 
-	Call canvas.BeginGroup("TorusColor")
-	Call canvas.DrawTorusWireframe(torus_rot_y, torus_rot_x, torus_hue_offset, tt, fade, CX, CY, torus_scale)
-	Call canvas.EndGroup()
+Call canvas.BeginGroup("TorusColor")
+Call canvas.DrawTorusWireframe(torus_rot_y, torus_rot_x, torus_hue_offset, tt, fade, CX, CY, torus_scale)
+Call canvas.EndGroup()
 
-	' "VISUAL GASIC" as two twisted fabric ribbons orbiting in 3D
-	' The orbit CENTRE bobs and weaves on independent sine paths.
-	' Two ribbons spin at different speeds — they cross and interleave like cloth.
-	' perspective=0.88 gives strong foreshortening so rear chars shrink and fade,
-	' creating the illusion that parts of the banner twist away from the viewer.
-	Dim htx As Single = CX + Sin(tt * 0.47) * 95.0 + Sin(tt * 1.13) * 32.0
-	Dim hty As Single = CY + Cos(tt * 0.33) * 62.0 + Cos(tt * 0.89) * 24.0
-	Dim htx2 As Single = CX - Sin(tt * 0.43 + 0.9) * 88.0 - Sin(tt * 0.77) * 28.0
-	Dim hty2 As Single = CY - Cos(tt * 0.37 + 0.6) * 55.0 - Cos(tt * 1.03) * 20.0
-	Dim helix_r As Single = 270.0 + heart_pulse * 50.0 + Sin(tt * 0.62) * 30.0
-	Dim helix_r2 As Single = helix_r * 0.86
-	Dim htxt_a As Single = fade * (0.55 + heart_pulse * 0.45)
-	Dim htxt_a2 As Single = fade * 0.42
-	Call canvas.SetAdditiveBlend(True)
-	Call canvas.BeginGroup("TorusText")
-	' Ribbon 1: fast spin, cyan-blue, high perspective
-	Call canvas.DrawVectorTextHelix("VISUAL GASIC", htx, hty, tt, Color(0.15 * htxt_a, 0.85 * htxt_a, 1.0 * htxt_a, htxt_a), 1.65, 2.1, helix_r, 0.88, 0.0, 1.35, 0.30, "")
-	' Ribbon 2: slower spin (+Pi start phase via negative char_spacing offset trick),
-	'           magenta-pink, slightly smaller orbit — the two ribbons cross continually
-	Call canvas.DrawVectorTextHelix("VISUAL GASIC", htx2, hty2, tt, Color(1.0 * htxt_a2, 0.35 * htxt_a2, 0.9 * htxt_a2, htxt_a2), 1.45, 1.9, helix_r2, 0.88, 0.0, 1.05, 0.30, "")
-	Call canvas.EndGroup()
-	Call canvas.SetAdditiveBlend(False)
+' "VISUAL GASIC" as two twisted fabric ribbons orbiting in 3D
+' The orbit CENTRE bobs and weaves on independent sine paths.
+' Two ribbons spin at different speeds — they cross and interleave like cloth.
+' perspective=0.88 gives strong foreshortening so rear chars shrink and fade,
+' creating the illusion that parts of the banner twist away from the viewer.
+Dim htx As Single = CX + Sin(tt * 0.47) * 95.0 + Sin(tt * 1.13) * 32.0
+Dim hty As Single = CY + Cos(tt * 0.33) * 62.0 + Cos(tt * 0.89) * 24.0
+Dim htx2 As Single = CX - Sin(tt * 0.43 + 0.9) * 88.0 - Sin(tt * 0.77) * 28.0
+Dim hty2 As Single = CY - Cos(tt * 0.37 + 0.6) * 55.0 - Cos(tt * 1.03) * 20.0
+Dim helix_r As Single = 270.0 + heart_pulse * 50.0 + Sin(tt * 0.62) * 30.0
+Dim helix_r2 As Single = helix_r * 0.86
+Dim htxt_a As Single = fade * (0.55 + heart_pulse * 0.45)
+Dim htxt_a2 As Single = fade * 0.42
+Call canvas.SetAdditiveBlend(True)
+Call canvas.BeginGroup("TorusText")
+' Ribbon 1: fast spin, cyan-blue, high perspective
+Call canvas.DrawVectorTextHelix("VISUAL GASIC", htx, hty, tt, Color(0.15 * htxt_a, 0.85 * htxt_a, 1.0 * htxt_a, htxt_a), 1.65, 2.1, helix_r, 0.88, 0.0, 1.35, 0.30, "")
+' Ribbon 2: slower spin (+Pi start phase via negative char_spacing offset trick),
+'           magenta-pink, slightly smaller orbit — the two ribbons cross continually
+Call canvas.DrawVectorTextHelix("VISUAL GASIC", htx2, hty2, tt, Color(1.0 * htxt_a2, 0.35 * htxt_a2, 0.9 * htxt_a2, htxt_a2), 1.45, 1.9, helix_r2, 0.88, 0.0, 1.05, 0.30, "")
+Call canvas.EndGroup()
+Call canvas.SetAdditiveBlend(False)
 End Sub
 
 ' ===========================================================================
 ' _DrawTunnel
 ' ===========================================================================
 Sub _DrawTunnel(ByVal tt As Single, ByVal fade As Single)
-	' Immersive perspective dot-tunnel: you are INSIDE the tube.
-	' Far rings are tiny at the vanishing point; near rings fill the screen edges.
-	' 28 rings × 20 dots, one DrawRectsUniform per ring (28 calls, each 40-entry array).
-	Dim NRings As Integer
-	Dim NSeg As Integer
-	Dim ri As Integer
-	Dim si As Integer
-	Dim z_par As Single
-	Dim pz As Single
-	Dim rx As Single
-	Dim ry As Single
-	Dim alpha As Single
-	Dim ds As Single
-	Dim twist As Single
-	Dim off_x As Single
-	Dim off_y As Single
-	Dim hue As Single
-	Dim cr As Single
-	Dim cg As Single
-	Dim cb As Single
-	Dim angle As Single
-	Dim seg_step As Single
-	Dim flow As Single
+' Immersive perspective dot-tunnel: you are INSIDE the tube.
+' Far rings are tiny at the vanishing point; near rings fill the screen edges.
+' 28 rings × 20 dots, one DrawRectsUniform per ring (28 calls, each 40-entry array).
+Dim NRings As Integer
+Dim NSeg As Integer
+Dim ri As Integer
+Dim si As Integer
+Dim z_par As Single
+Dim pz As Single
+Dim rx As Single
+Dim ry As Single
+Dim alpha As Single
+Dim ds As Single
+Dim twist As Single
+Dim off_x As Single
+Dim off_y As Single
+Dim hue As Single
+Dim cr As Single
+Dim cg As Single
+Dim cb As Single
+Dim angle As Single
+Dim seg_step As Single
+Dim flow As Single
 
-	NRings = 36
-	NSeg = 20
-	seg_step = Tau / 20.0
-	' Slower flow = bigger tunnel, more apparent depth
-	flow = Frac(tt * 1.1)
+NRings = 36
+NSeg = 20
+seg_step = Tau / 20.0
+' Slower flow = bigger tunnel, more apparent depth
+flow = Frac(tt * 1.1)
 
-	Call canvas.SetAdditiveBlend(True)
-	Call canvas.BeginGroup("Tunnel")
+Call canvas.SetAdditiveBlend(True)
+Call canvas.BeginGroup("Tunnel")
 
-	' Vanishing-point glow — light at the end of the tunnel
-	Dim vp_hue As Single = Frac(tt * 0.09)
-	Dim vp_cr As Single
-	Dim vp_cg As Single
-	Dim vp_cb As Single
-	Dim vp_a As Single = fade * (0.55 + Sin(tt * 2.1) * 0.22)
-	If vp_a < 0.0 Then vp_a = 0.0
-	Call _HsvToRgb(vp_hue, 0.5, 1.0, vp_cr, vp_cg, vp_cb)
-	Call canvas.DrawCircle(Vector2(CX, CY), 60.0, Color(vp_cr * vp_a * 0.28, vp_cg * vp_a * 0.28, vp_cb * vp_a * 0.28, vp_a * 0.28), True, Color(0, 0, 0, 0))
-	Call canvas.DrawCircle(Vector2(CX, CY), 18.0, Color(vp_cr * vp_a, vp_cg * vp_a, vp_cb * vp_a, vp_a), True, Color(0, 0, 0, 0))
+' Vanishing-point glow — light at the end of the tunnel
+Dim vp_hue As Single = Frac(tt * 0.09)
+Dim vp_cr As Single
+Dim vp_cg As Single
+Dim vp_cb As Single
+Dim vp_a As Single = fade * (0.55 + Sin(tt * 2.1) * 0.22)
+If vp_a < 0.0 Then vp_a = 0.0
+Call _HsvToRgb(vp_hue, 0.5, 1.0, vp_cr, vp_cg, vp_cb)
+Call canvas.DrawCircle(Vector2(CX, CY), 60.0, Color(vp_cr * vp_a * 0.28, vp_cg * vp_a * 0.28, vp_cb * vp_a * 0.28, vp_a * 0.28), True, Color(0, 0, 0, 0))
+Call canvas.DrawCircle(Vector2(CX, CY), 18.0, Color(vp_cr * vp_a, vp_cg * vp_a, vp_cb * vp_a, vp_a), True, Color(0, 0, 0, 0))
 
-	For ri = 0 To NRings - 1
-		' ri=0 is the FAR end (tiny, at vanishing point)
-		' ri=NRings-1 is the NEAR end (large, at screen edges)
-		z_par = (CSng(NRings - 1 - ri) + flow) / CSng(NRings)
-		' Perspective factor 13.0: far ring is 14x smaller than near — genuine depth
-		pz = 1.0 / (1.0 + z_par * 13.0)
-		' rx/ry must exceed screen half-diagonal (~734px) at pz=1 to fill corners
-		rx = pz * 820.0
-		ry = pz * 510.0
-		ds = pz * 9.0 + 1.0
-		' Cubic fade: far rings nearly invisible, near rings bright
-		alpha = pz * pz * pz * 2.2 * fade
-		If alpha > fade Then alpha = fade
-		' Twist increases with depth
-		twist = z_par * Pi * 1.2 + tt * 0.55
-		' More aggressive turning: two meander frequencies, larger amplitude
-		off_x = CX + (Sin(tt * 0.53 + z_par * 1.3) * 340.0 + Sin(tt * 0.19 + z_par * 0.7) * 130.0) * (1.0 - pz)
-		off_y = CY + (Cos(tt * 0.41 + z_par * 0.9) * 220.0 + Cos(tt * 0.13 + z_par * 0.5) * 85.0) * (1.0 - pz)
-		hue = Frac(z_par * 0.7 + tt * 0.09)
-		Call _HsvToRgb(hue, 0.85, 1.0, cr, cg, cb)
+For ri = 0 To NRings - 1
+	' ri=0 is the FAR end (tiny, at vanishing point)
+	' ri=NRings-1 is the NEAR end (large, at screen edges)
+	z_par = (CSng(NRings - 1 - ri) + flow) / CSng(NRings)
+	' Perspective factor 13.0: far ring is 14x smaller than near — genuine depth
+	pz = 1.0 / (1.0 + z_par * 13.0)
+	' rx/ry must exceed screen half-diagonal (~734px) at pz=1 to fill corners
+	rx = pz * 820.0
+	ry = pz * 510.0
+	ds = pz * 9.0 + 1.0
+	' Cubic fade: far rings nearly invisible, near rings bright
+	alpha = pz * pz * pz * 2.2 * fade
+	If alpha > fade Then alpha = fade
+	' Twist increases with depth
+	twist = z_par * Pi * 1.2 + tt * 0.55
+	' More aggressive turning: two meander frequencies, larger amplitude
+	off_x = CX + (Sin(tt * 0.53 + z_par * 1.3) * 340.0 + Sin(tt * 0.19 + z_par * 0.7) * 130.0) * (1.0 - pz)
+	off_y = CY + (Cos(tt * 0.41 + z_par * 0.9) * 220.0 + Cos(tt * 0.13 + z_par * 0.5) * 85.0) * (1.0 - pz)
+	hue = Frac(z_par * 0.7 + tt * 0.09)
+	Call _HsvToRgb(hue, 0.85, 1.0, cr, cg, cb)
 
-		For si = 0 To NSeg - 1
-			angle = CSng(si) * seg_step + twist
-			tunnel_ring(si * 2) = Vector2(off_x + Cos(angle) * rx - ds * 0.5, off_y + Sin(angle) * ry - ds * 0.5)
-			tunnel_ring(si * 2 + 1) = Vector2(ds, ds)
-		Next
-		Call canvas.DrawRectsUniform(tunnel_ring, Color(cr, cg, cb, alpha), True)
+	For si = 0 To NSeg - 1
+		angle = CSng(si) * seg_step + twist
+		tunnel_ring(si * 2) = Vector2(off_x + Cos(angle) * rx - ds * 0.5, off_y + Sin(angle) * ry - ds * 0.5)
+		tunnel_ring(si * 2 + 1) = Vector2(ds, ds)
 	Next
+	Call canvas.DrawRectsUniform(tunnel_ring, Color(cr, cg, cb, alpha), True)
+Next
 
-	Call canvas.SetAdditiveBlend(False)
-	Call canvas.EndGroup()
+Call canvas.SetAdditiveBlend(False)
+Call canvas.EndGroup()
 End Sub
 
 ' ===========================================================================
 ' _DrawFire
 ' ===========================================================================
 Sub _DrawFire(ByVal delta As Single, ByVal fade As Single)
-	Dim x As Integer
-	Dim y As Integer
-	Dim xl As Integer
-	Dim xr As Integer
-	Dim y2 As Integer
-	Dim y3 As Integer
-	Dim avg As Single
-	Dim heat As Single
-	Dim cr As Single
-	Dim cg As Single
-	Dim cb As Single
-	Dim t2 As Single
-	Dim t3 As Single
-	Dim FireCellW As Single
-	Dim FireCellH As Single
-	' Cap simulation at 20 steps/s using accumulator
-	' This prevents the fire from speeding up as the scene stabilises
-	fire_acc = fire_acc + delta
-	Do While fire_acc > = 0.05
-		fire_acc = fire_acc - 0.05
-		For y = 0 To FireH - 2
-			For x = 0 To FireW - 1
-				xl = (x - 1 + FireW) Mod FireW
-				xr = (x + 1) Mod FireW
-				y2 = y + 1
-				y3 = y + 2
-				If y3 > = FireH Then y3 = FireH - 1
-				avg = (fire_grid(y2 * FireW + x) + fire_grid(y2 * FireW + xl) + fire_grid(y2 * FireW + xr) + fire_grid(y3 * FireW + x)) / 4.6
-				avg = avg - 0.018
-				If avg < 0.0 Then avg = 0.0
-				fire_grid(y * FireW + x) = avg
-			Next
-		Next
-		' Beat-reactive seeding
-		Dim fire_base As Single = 0.40 + Sin(beat_phase * Tau) * 0.09
-		Dim fire_kick As Single = heart_pulse * 0.48
+Dim x As Integer
+Dim y As Integer
+Dim xl As Integer
+Dim xr As Integer
+Dim y2 As Integer
+Dim y3 As Integer
+Dim avg As Single
+Dim heat As Single
+Dim cr As Single
+Dim cg As Single
+Dim cb As Single
+Dim t2 As Single
+Dim t3 As Single
+Dim FireCellW As Single
+Dim FireCellH As Single
+' Cap simulation at 20 steps/s using accumulator
+' This prevents the fire from speeding up as the scene stabilises
+fire_acc = fire_acc + delta
+Do While fire_acc > = 0.05
+	fire_acc = fire_acc - 0.05
+	For y = 0 To FireH - 2
 		For x = 0 To FireW - 1
-			fire_grid((FireH - 1) * FireW + x) = Rnd() * 0.22 + fire_base + fire_kick
-			If fire_grid((FireH - 1) * FireW + x) > 1.0 Then fire_grid((FireH - 1) * FireW + x) = 1.0
-		Next
-	Loop
-	FireCellW = SW / FireW
-	FireCellH = SH / FireH
-	Call canvas.BeginGroup("Background")
-	' Skip top 4 rows (~160px) so text banner always has a clear dark zone
-	For y = 4 To FireH - 1
-		For x = 0 To FireW - 1
-			heat = fire_grid(y * FireW + x) * fade
-			If heat > = 0.05 Then
-				If heat < 0.333 Then
-					cr = heat * 3.0 : cg = 0.0 : cb = 0.0
-				ElseIf heat < 0.667 Then
-					t2 = (heat - 0.333) * 3.0
-					cr = 1.0 : cg = t2 * 0.6 : cb = 0.0
-				Else
-					t3 = (heat - 0.667) * 3.0
-					cr = 1.0 : cg = 0.6 + t3 * 0.4 : cb = t3
-				End If
-				Dim ha As Single = heat * 5.0
-				If ha > 1.0 Then ha = 1.0
-				Call canvas.DrawRect(Rect2(x * FireCellW, y * FireCellH, FireCellW + 1, FireCellH + 1), 0, Color(cr, cg, cb, ha), True, Color(cr, cg, cb, ha))
-			End If
+			xl = (x - 1 + FireW) Mod FireW
+			xr = (x + 1) Mod FireW
+			y2 = y + 1
+			y3 = y + 2
+			If y3 > = FireH Then y3 = FireH - 1
+			avg = (fire_grid(y2 * FireW + x) + fire_grid(y2 * FireW + xl) + fire_grid(y2 * FireW + xr) + fire_grid(y3 * FireW + x)) / 4.6
+			avg = avg - 0.018
+			If avg < 0.0 Then avg = 0.0
+			fire_grid(y * FireW + x) = avg
 		Next
 	Next
-	Call canvas.EndGroup()
+	' Beat-reactive seeding
+	Dim fire_base As Single = 0.40 + Sin(beat_phase * Tau) * 0.09
+	Dim fire_kick As Single = heart_pulse * 0.48
+	For x = 0 To FireW - 1
+		fire_grid((FireH - 1) * FireW + x) = Rnd() * 0.22 + fire_base + fire_kick
+		If fire_grid((FireH - 1) * FireW + x) > 1.0 Then fire_grid((FireH - 1) * FireW + x) = 1.0
+	Next
+Loop
+FireCellW = SW / FireW
+FireCellH = SH / FireH
+Call canvas.BeginGroup("Background")
+' Skip top 4 rows (~160px) so text banner always has a clear dark zone
+For y = 4 To FireH - 1
+	For x = 0 To FireW - 1
+		heat = fire_grid(y * FireW + x) * fade
+		If heat > = 0.05 Then
+			If heat < 0.333 Then
+				cr = heat * 3.0 : cg = 0.0 : cb = 0.0
+			ElseIf heat < 0.667 Then
+				t2 = (heat - 0.333) * 3.0
+				cr = 1.0 : cg = t2 * 0.6 : cb = 0.0
+			Else
+				t3 = (heat - 0.667) * 3.0
+				cr = 1.0 : cg = 0.6 + t3 * 0.4 : cb = t3
+			End If
+			Dim ha As Single = heat * 5.0
+			If ha > 1.0 Then ha = 1.0
+			Call canvas.DrawRect(Rect2(x * FireCellW, y * FireCellH, FireCellW + 1, FireCellH + 1), 0, Color(cr, cg, cb, ha), True, Color(cr, cg, cb, ha))
+		End If
+	Next
+Next
+Call canvas.EndGroup()
 End Sub
 
 ' ===========================================================================
 ' _DrawFireText
 ' ===========================================================================
 Sub _DrawFireText(ByVal tt As Single, ByVal fade As Single)
-	Dim tf As Single = tt / 2.5
-	If tf > 1.0 Then tf = 1.0
-	Dim a1 As Single = tf * fade
-	Dim a2 As Single = tf * fade * 0.85
-	' Line 1 scrolls at 95px/s; line 2 slightly slower for parallax feel
-	Dim x1 As Single = CSng(SW) + 200.0 - tt * 95.0
-	Dim x2 As Single = CSng(SW) + 200.0 - tt * 78.0
-	' Dark semi-transparent backdrop so text reads over the fire glow
-	Call canvas.SetAdditiveBlend(False)
-	Call canvas.BeginGroup("FireTextBg")
-	Dim pa As Single = a1 * 0.72
-	Call canvas.DrawRect(Rect2(0.0, 0.0, CSng(SW), 195.0), 0.0, Color(0.0, 0.0, 0.0, 0.0), True, Color(0.0, 0.0, 0.04, pa))
-	Call canvas.EndGroup()
-	' Text with coin-flip spin — flip_speed 2.8 = visible ~2s per cycle
-	Call canvas.SetAdditiveBlend(True)
-	Call canvas.BeginGroup("FireText")
-	Call canvas.DrawVectorTextFlip("CODING FOR THE MASSES NOT THE CLASSES", x1, 68.0, tt, Color(1.0 * a1, 0.70 * a1, 0.10 * a1, a1), 2.7, 3.8, 56.0, 2.8, 0.37, "")
-	Call canvas.DrawVectorTextFlip("FOR WHEN YOU DONT TRUST AI", x2, 148.0, tt, Color(1.0 * a2, 0.45 * a2, 0.05 * a2, a2), 2.5, 3.3, 56.0, 2.4, 0.42, "")
-	Call canvas.EndGroup()
-	Call canvas.SetAdditiveBlend(False)
+Dim tf As Single = tt / 2.5
+If tf > 1.0 Then tf = 1.0
+Dim a1 As Single = tf * fade
+Dim a2 As Single = tf * fade * 0.85
+' Line 1 scrolls at 95px/s; line 2 slightly slower for parallax feel
+Dim x1 As Single = CSng(SW) + 200.0 - tt * 95.0
+Dim x2 As Single = CSng(SW) + 200.0 - tt * 78.0
+' Dark semi-transparent backdrop so text reads over the fire glow
+Call canvas.SetAdditiveBlend(False)
+Call canvas.BeginGroup("FireTextBg")
+Dim pa As Single = a1 * 0.72
+Call canvas.DrawRect(Rect2(0.0, 0.0, CSng(SW), 195.0), 0.0, Color(0.0, 0.0, 0.0, 0.0), True, Color(0.0, 0.0, 0.04, pa))
+Call canvas.EndGroup()
+' Text with coin-flip spin — flip_speed 2.8 = visible ~2s per cycle
+Call canvas.SetAdditiveBlend(True)
+Call canvas.BeginGroup("FireText")
+Call canvas.DrawVectorTextFlip("CODING FOR THE MASSES NOT THE CLASSES", x1, 68.0, tt, Color(1.0 * a1, 0.70 * a1, 0.10 * a1, a1), 2.7, 3.8, 56.0, 2.8, 0.37, "")
+Call canvas.DrawVectorTextFlip("FOR WHEN YOU DONT TRUST AI", x2, 148.0, tt, Color(1.0 * a2, 0.45 * a2, 0.05 * a2, a2), 2.5, 3.3, 56.0, 2.4, 0.42, "")
+Call canvas.EndGroup()
+Call canvas.SetAdditiveBlend(False)
 End Sub
 
 
@@ -1592,442 +1604,442 @@ End Sub
 ' _DrawPlasma
 ' ===========================================================================
 Sub _DrawPlasma(ByVal tt As Single, ByVal fade As Single)
-	' C++ builtin — computes and renders the entire HSV plasma grid in one native call.
-	' Two passes (parity 0 + 1) cover every cell. Avoids ~448 per-frame DrawRect calls.
-	Dim pw As Single = SW / PlasmaW
-	Dim ph As Single = SH / PlasmaH
-	Dim spd As Single = tt * (1.0 + Sin(tt * 0.08) * 0.4)
-	Call canvas.BeginGroup("PlasmaA")
-	Call canvas.DrawPlasmaCells(PlasmaW, PlasmaH, spd, fade, pw, ph, 0)
-	Call canvas.EndGroup()
-	Call canvas.BeginGroup("PlasmaB")
-	Call canvas.DrawPlasmaCells(PlasmaW, PlasmaH, spd, fade, pw, ph, 1)
-	Call canvas.EndGroup()
+' C++ builtin — computes and renders the entire HSV plasma grid in one native call.
+' Two passes (parity 0 + 1) cover every cell. Avoids ~448 per-frame DrawRect calls.
+Dim pw As Single = SW / PlasmaW
+Dim ph As Single = SH / PlasmaH
+Dim spd As Single = tt * (1.0 + Sin(tt * 0.08) * 0.4)
+Call canvas.BeginGroup("PlasmaA")
+Call canvas.DrawPlasmaCells(PlasmaW, PlasmaH, spd, fade, pw, ph, 0)
+Call canvas.EndGroup()
+Call canvas.BeginGroup("PlasmaB")
+Call canvas.DrawPlasmaCells(PlasmaW, PlasmaH, spd, fade, pw, ph, 1)
+Call canvas.EndGroup()
 End Sub
 
 ' ===========================================================================
 ' _DrawCredits
 ' ===========================================================================
 Sub _DrawCredits(ByVal delta As Single)
-	Dim tt As Single = t - T_CREDITS_START
-	Dim fade As Single = tt / 2.0
-	If fade > 1.0 Then fade = 1.0
-	Dim tend As Single = T_CREDITS_END - T_CREDITS_START
-	If tt > tend - 4.0 Then fade = (tend - tt) / 4.0
-	If fade < 0.0 Then fade = 0.0
+Dim tt As Single = t - T_CREDITS_START
+Dim fade As Single = tt / 2.0
+If fade > 1.0 Then fade = 1.0
+Dim tend As Single = T_CREDITS_END - T_CREDITS_START
+If tt > tend - 4.0 Then fade = (tend - tt) / 4.0
+If fade < 0.0 Then fade = 0.0
 
-	If Not credits_started Then scroll_x = SW + 200 : scroller_x = SW : credits_started = True
+If Not credits_started Then scroll_x = SW + 200 : scroller_x = SW : credits_started = True
 
-	Dim spd As Single = 195.0
-	If tt > tend - 6.0 Then spd = 290.0
-	scroll_x = scroll_x - spd * delta
+Dim spd As Single = 195.0
+If tt > tend - 6.0 Then spd = 290.0
+scroll_x = scroll_x - spd * delta
 
-	Call canvas.BeginGroup("Background")
-	' Fully opaque black backdrop — immediately covers any plasma bleed-through
-	Call canvas.DrawRect(Rect2(0, 0, SW, SH), 0, Color(0, 0, 0, 1), True, Color(0, 0, 0, 1))
+Call canvas.BeginGroup("Background")
+' Fully opaque black backdrop — immediately covers any plasma bleed-through
+Call canvas.DrawRect(Rect2(0, 0, SW, SH), 0, Color(0, 0, 0, 1), True, Color(0, 0, 0, 1))
 
-	' "VISUAL GASIC" helix orbit — the signature credits effect
-	Call canvas.BeginGroup("LogoColor")
-	Call canvas.DrawVectorTextHelix("VISUAL GASIC", CX, CY, tt, Color(0.2, 0.7, 1.0, fade), 2.6, 2.2, 260.0, 0.55, 0.0, 0.9, 0.32, "")
-	Call canvas.EndGroup()
+' "VISUAL GASIC" helix orbit — the signature credits effect
+Call canvas.BeginGroup("LogoColor")
+Call canvas.DrawVectorTextHelix("VISUAL GASIC", CX, CY, tt, Color(0.2, 0.7, 1.0, fade), 2.6, 2.2, 260.0, 0.55, 0.0, 0.9, 0.32, "")
+Call canvas.EndGroup()
 
-	' Scan-line borders
-	Dim sc As Integer
-	Dim sy As Single
-	For sc = 0 To 2
-		sy = 28.0 + sc * 5.0
-		Call canvas.DrawLine(Vector2(0, sy), Vector2(SW, sy), 1.2, Color(0.2 * fade, 0.5 * fade, 1.0 * fade, fade * 0.7))
-		Call canvas.DrawLine(Vector2(0, SH - sy), Vector2(SW, SH - sy), 1.2, Color(0.2 * fade, 0.5 * fade, 1.0 * fade, fade * 0.7))
-	Next
+' Scan-line borders
+Dim sc As Integer
+Dim sy As Single
+For sc = 0 To 2
+	sy = 28.0 + sc * 5.0
+	Call canvas.DrawLine(Vector2(0, sy), Vector2(SW, sy), 1.2, Color(0.2 * fade, 0.5 * fade, 1.0 * fade, fade * 0.7))
+	Call canvas.DrawLine(Vector2(0, SH - sy), Vector2(SW, SH - sy), 1.2, Color(0.2 * fade, 0.5 * fade, 1.0 * fade, fade * 0.7))
+Next
 
-	' Group title
-	Dim sx0 As Single = scroll_x
-	Call _DrawVectorTextWave("NARCEAN TECHNOLOGIES", sx0, CY - 195, 52, Color(0.2 * fade, 0.6 * fade, 1.0 * fade, fade), 10.0, 0.55, 2.2)
-	Call _DrawVectorTextWave("2 0 2 6", sx0 + 310, CY - 125, 36, Color(1.0 * fade, 0.8 * fade, 0.0, fade), 7.0, 0.7, 2.8)
+' Group title
+Dim sx0 As Single = scroll_x
+Call _DrawVectorTextWave("NARCEAN TECHNOLOGIES", sx0, CY - 195, 52, Color(0.2 * fade, 0.6 * fade, 1.0 * fade, fade), 10.0, 0.55, 2.2)
+Call _DrawVectorTextWave("2 0 2 6", sx0 + 310, CY - 125, 36, Color(1.0 * fade, 0.8 * fade, 0.0, fade), 7.0, 0.7, 2.8)
 
-	' Slogan 1
-	Dim sx1 As Single = scroll_x + 130
-	Call _DrawVectorText("CODING FOR THE MASSES,", sx1, CY - 55, 31, Color(fade, fade, fade, fade))
-	Call _DrawVectorText("NOT THE CLASSES", sx1 + 70, CY - 10, 31, Color(fade, fade, fade, fade))
+' Slogan 1
+Dim sx1 As Single = scroll_x + 130
+Call _DrawVectorText("CODING FOR THE MASSES,", sx1, CY - 55, 31, Color(fade, fade, fade, fade))
+Call _DrawVectorText("NOT THE CLASSES", sx1 + 70, CY - 10, 31, Color(fade, fade, fade, fade))
 
-	' Slogan 2
-	Dim sx2 As Single = scroll_x + 1650
-	Call _DrawVectorText("FOR WHEN YOU DON'T TRUST AI", sx2, CY - 35, 29, Color(0.3 * fade, 1.0 * fade, 0.3 * fade, fade))
+' Slogan 2
+Dim sx2 As Single = scroll_x + 1650
+Call _DrawVectorText("FOR WHEN YOU DON'T TRUST AI", sx2, CY - 35, 29, Color(0.3 * fade, 1.0 * fade, 0.3 * fade, fade))
 
-	' Slogan 3
-	Dim sx3 As Single = scroll_x + 3150
-	Call _DrawVectorText("THIS DEMO PUSHES", sx3, CY - 50, 27, Color(1.0 * fade, 0.6 * fade, 0.0, fade))
-	Call _DrawVectorText("ZERO FIXED HARDWARE", sx3 + 20, CY, 27, Color(1.0 * fade, 0.6 * fade, 0.0, fade))
-	Call _DrawVectorText("BUT RUNS ON GODOT 4", sx3 + 40, CY + 48, 25, Color(0.8 * fade, 0.5 * fade, 0.0, fade))
+' Slogan 3
+Dim sx3 As Single = scroll_x + 3150
+Call _DrawVectorText("THIS DEMO PUSHES", sx3, CY - 50, 27, Color(1.0 * fade, 0.6 * fade, 0.0, fade))
+Call _DrawVectorText("ZERO FIXED HARDWARE", sx3 + 20, CY, 27, Color(1.0 * fade, 0.6 * fade, 0.0, fade))
+Call _DrawVectorText("BUT RUNS ON GODOT 4", sx3 + 40, CY + 48, 25, Color(0.8 * fade, 0.5 * fade, 0.0, fade))
 
-	' Tech credit
-	Dim sx4 As Single = scroll_x + 4600
-	Call _DrawVectorText("BUILT WITH VISUAL GASIC", sx4, CY - 40, 28, Color(fade, 0.4 * fade, 1.0 * fade, fade))
-	Call _DrawVectorText("GDEXTENSION + GODOT 4", sx4, CY + 10, 24, Color(0.8 * fade, 0.3 * fade, 0.9 * fade, fade))
+' Tech credit
+Dim sx4 As Single = scroll_x + 4600
+Call _DrawVectorText("BUILT WITH VISUAL GASIC", sx4, CY - 40, 28, Color(fade, 0.4 * fade, 1.0 * fade, fade))
+Call _DrawVectorText("GDEXTENSION + GODOT 4", sx4, CY + 10, 24, Color(0.8 * fade, 0.3 * fade, 0.9 * fade, fade))
 
-	' Music credit
-	Dim mx As Single = scroll_x + 650
-	Dim my As Single = CY + 85
-	Call _DrawVectorText("MUSIC:", mx, my, 27, Color(1.0 * fade, 0.8 * fade, 0.0, fade))
-	Call _DrawVectorText("UNREALPM.S3M", mx + 190, my, 27, Color(1.0 * fade, 0.9 * fade, 0.1 * fade, fade))
-	Call _DrawVectorText("BY PURPLE MOTION", mx, my + 43, 25, Color(0.9 * fade, 0.7 * fade, 0.0, fade))
-	Call _DrawVectorText("(FUTURE CREW, 1993)", mx, my + 83, 22, Color(0.7 * fade, 0.55 * fade, 0.0, fade))
+' Music credit
+Dim mx As Single = scroll_x + 650
+Dim my As Single = CY + 85
+Call _DrawVectorText("MUSIC:", mx, my, 27, Color(1.0 * fade, 0.8 * fade, 0.0, fade))
+Call _DrawVectorText("UNREALPM.S3M", mx + 190, my, 27, Color(1.0 * fade, 0.9 * fade, 0.1 * fade, fade))
+Call _DrawVectorText("BY PURPLE MOTION", mx, my + 43, 25, Color(0.9 * fade, 0.7 * fade, 0.0, fade))
+Call _DrawVectorText("(FUTURE CREW, 1993)", mx, my + 83, 22, Color(0.7 * fade, 0.55 * fade, 0.0, fade))
 
-	' Greetings
-	Dim gx As Single = scroll_x + 2450
-	Dim gy As Single = CY + 85
-	Call _DrawVectorText("GREETINGS TO ALL DEMO CODERS", gx, gy, 25, Color(0.4 * fade, 1.0 * fade, 0.4 * fade, fade))
-	Call _DrawVectorText("KEEP THE SCENE ALIVE - 2026", gx, gy + 42, 23, Color(0.3 * fade, 0.8 * fade, 0.3 * fade, fade))
+' Greetings
+Dim gx As Single = scroll_x + 2450
+Dim gy As Single = CY + 85
+Call _DrawVectorText("GREETINGS TO ALL DEMO CODERS", gx, gy, 25, Color(0.4 * fade, 1.0 * fade, 0.4 * fade, fade))
+Call _DrawVectorText("KEEP THE SCENE ALIVE - 2026", gx, gy + 42, 23, Color(0.3 * fade, 0.8 * fade, 0.3 * fade, fade))
 
-	If scroll_x < - 6200 Then scroll_x = SW + 200
+If scroll_x < - 6200 Then scroll_x = SW + 200
 
-	' Bottom wave scroller — canvas C++ builtin handles all chars cleanly
-	Dim scroller_txt As String = "VISUAL GASIC * 100% PROCEDURAL * NO ASSETS HARMED * WRITTEN IN VB-STYLE BASIC * FIVE EFFECTS ONE FILE * ZERO FIXED HARDWARE * VECTOR STORM * "
-	Dim scroller_w As Single = Len(scroller_txt) * 26.0
-	scroller_x = scroller_x - 120.0 * delta
-	If scroller_x < - scroller_w Then scroller_x = scroller_x + scroller_w
-	Call canvas.DrawVectorTextWave(scroller_txt, scroller_x, SH - 90, t, Color(1.0 * fade, 0.85 * fade, 0.2 * fade, fade), 2.3, 1.8, 9.0, 0.18, 2.5, 2.0, False, "")
-	' Second copy for seamless loop
-	Call canvas.DrawVectorTextWave(scroller_txt, scroller_x + scroller_w, SH - 90, t, Color(1.0 * fade, 0.85 * fade, 0.2 * fade, fade), 2.3, 1.8, 9.0, 0.18, 2.5, 2.0, False, "")
+' Bottom wave scroller — canvas C++ builtin handles all chars cleanly
+Dim scroller_txt As String = "VISUAL GASIC * 100% PROCEDURAL * NO ASSETS HARMED * WRITTEN IN VB-STYLE BASIC * FIVE EFFECTS ONE FILE * ZERO FIXED HARDWARE * VECTOR STORM * "
+Dim scroller_w As Single = Len(scroller_txt) * 26.0
+scroller_x = scroller_x - 120.0 * delta
+If scroller_x < - scroller_w Then scroller_x = scroller_x + scroller_w
+Call canvas.DrawVectorTextWave(scroller_txt, scroller_x, SH - 90, t, Color(1.0 * fade, 0.85 * fade, 0.2 * fade, fade), 2.3, 1.8, 9.0, 0.18, 2.5, 2.0, False, "")
+' Second copy for seamless loop
+Call canvas.DrawVectorTextWave(scroller_txt, scroller_x + scroller_w, SH - 90, t, Color(1.0 * fade, 0.85 * fade, 0.2 * fade, fade), 2.3, 1.8, 9.0, 0.18, 2.5, 2.0, False, "")
 
-	Call canvas.EndGroup()
+Call canvas.EndGroup()
 End Sub
 
 ' ===========================================================================
 ' _DrawCard
 ' ===========================================================================
 Sub _DrawCard(ByVal tt As Single)
-	Dim fade As Single = tt / 3.0
-	If fade > 1.0 Then fade = 1.0
-	Dim tend As Single = T_CARD_END - T_CARD_START
-	If tt > tend - 4.0 Then fade = (tend - tt) / 4.0
-	If fade < 0.0 Then fade = 0.0
+Dim fade As Single = tt / 3.0
+If fade > 1.0 Then fade = 1.0
+Dim tend As Single = T_CARD_END - T_CARD_START
+If tt > tend - 4.0 Then fade = (tend - tt) / 4.0
+If fade < 0.0 Then fade = 0.0
 
-	Dim i As Integer
-	Dim gf As Single
-	For i = 0 To 3
-		gf = (0.4 - i * 0.08) * fade
-		Call canvas.DrawRect(Rect2(50 + i * 6, 50 + i * 6, SW - 100 - i * 12, SH - 100 - i * 12), 1.5 + i, Color(0.2 * gf, 0.5 * gf, gf, gf), False, Color(0, 0, 0, 0))
-	Next
+Dim i As Integer
+Dim gf As Single
+For i = 0 To 3
+	gf = (0.4 - i * 0.08) * fade
+	Call canvas.DrawRect(Rect2(50 + i * 6, 50 + i * 6, SW - 100 - i * 12, SH - 100 - i * 12), 1.5 + i, Color(0.2 * gf, 0.5 * gf, gf, gf), False, Color(0, 0, 0, 0))
+Next
 
-	Call canvas.BeginGroup("Background")
-	Call _DrawVectorTextWave("NARCEAN", CX - 340, CY - 110, 68, Color(0.2 * fade, 0.55 * fade, 1.0 * fade, fade), 8.0, 0.8, 2.1)
-	Call _DrawVectorTextWave("TECHNOLOGIES", CX - 455, CY - 5, 54, Color(0.15 * fade, 0.45 * fade, 0.9 * fade, fade), 6.0, 0.7, 1.8)
-	Call _DrawVectorTextWave("2 0 2 6", CX - 205, CY + 92, 37, Color(1.0 * fade, 0.8 * fade, 0.0, fade), 5.0, 0.9, 2.4)
-	Call _DrawVectorText("CODING FOR THE MASSES, NOT THE CLASSES", CX - 520, CY + 178, 21, Color(0.7 * fade, 0.7 * fade, 0.7 * fade, fade))
-	Call _DrawVectorText("MUSIC BY PURPLE MOTION | CODE: VISUAL GASIC | ENGINE: GODOT 4", CX - 560, SH - 75, 17, Color(0.4 * fade, 0.4 * fade, 0.5 * fade, fade * 0.8))
-	Call canvas.EndGroup()
+Call canvas.BeginGroup("Background")
+Call _DrawVectorTextWave("NARCEAN", CX - 340, CY - 110, 68, Color(0.2 * fade, 0.55 * fade, 1.0 * fade, fade), 8.0, 0.8, 2.1)
+Call _DrawVectorTextWave("TECHNOLOGIES", CX - 455, CY - 5, 54, Color(0.15 * fade, 0.45 * fade, 0.9 * fade, fade), 6.0, 0.7, 1.8)
+Call _DrawVectorTextWave("2 0 2 6", CX - 205, CY + 92, 37, Color(1.0 * fade, 0.8 * fade, 0.0, fade), 5.0, 0.9, 2.4)
+Call _DrawVectorText("CODING FOR THE MASSES, NOT THE CLASSES", CX - 520, CY + 178, 21, Color(0.7 * fade, 0.7 * fade, 0.7 * fade, fade))
+Call _DrawVectorText("MUSIC BY PURPLE MOTION | CODE: VISUAL GASIC | ENGINE: GODOT 4", CX - 560, SH - 75, 17, Color(0.4 * fade, 0.4 * fade, 0.5 * fade, fade * 0.8))
+Call canvas.EndGroup()
 End Sub
 
 ' ===========================================================================
 ' _DrawVectorTextWave — like _DrawVectorText but each char bobs on a sine wave
 ' ===========================================================================
 Sub _DrawVectorTextWave(ByVal txt As String, ByVal x0 As Single, ByVal y0 As Single, ByVal sz As Single, ByVal col As Color, ByVal amp As Single, ByVal freq As Single, ByVal spd As Single)
-	Dim char_w As Single = sz * 0.68
-	Dim cx As Single = x0
-	Dim i As Integer
-	Dim wy As Single
-	For i = 0 To Len(txt) - 1
-		wy = Sin(i * freq + t * spd) * amp
-		Call _DrawGlyph(Mid(txt, i + 1, 1), cx, y0 + wy, sz, col)
-		cx = cx + char_w
-	Next
+Dim char_w As Single = sz * 0.68
+Dim cx As Single = x0
+Dim i As Integer
+Dim wy As Single
+For i = 0 To Len(txt) - 1
+	wy = Sin(i * freq + t * spd) * amp
+	Call _DrawGlyph(Mid(txt, i + 1, 1), cx, y0 + wy, sz, col)
+	cx = cx + char_w
+Next
 End Sub
 
 ' ===========================================================================
 ' _DrawVectorText
 ' ===========================================================================
 Sub _DrawVectorText(ByVal txt As String, ByVal x0 As Single, ByVal y0 As Single, ByVal sz As Single, ByVal col As Color)
-	Dim char_w As Single = sz * 0.68
-	Dim txt_w As Single = Len(txt) * char_w
-	If x0 > SW + 20 Then Exit Sub
-	If x0 + txt_w < - 20 Then Exit Sub
-	Dim cx As Single = x0
-	Dim i As Integer
-	For i = 0 To Len(txt) - 1
-		If cx > = - sz And cx < = SW + sz Then
-			Call _DrawGlyph(Mid(txt, i + 1, 1), cx, y0, sz, col)
-		End If
-		cx = cx + char_w
-	Next
+Dim char_w As Single = sz * 0.68
+Dim txt_w As Single = Len(txt) * char_w
+If x0 > SW + 20 Then Exit Sub
+If x0 + txt_w < - 20 Then Exit Sub
+Dim cx As Single = x0
+Dim i As Integer
+For i = 0 To Len(txt) - 1
+	If cx > = - sz And cx < = SW + sz Then
+		Call _DrawGlyph(Mid(txt, i + 1, 1), cx, y0, sz, col)
+	End If
+	cx = cx + char_w
+Next
 End Sub
 
 ' ===========================================================================
 ' _DrawGlyph — stroke font
 ' ===========================================================================
 Sub _DrawGlyph(ByVal ch As String, ByVal x As Single, ByVal y As Single, ByVal s As Single, ByVal c As Color)
-	Dim gw As Single = s * 0.6
-	Dim gh As Single = s
-	Dim gm As Single = s * 0.5
-	Dim lw As Single = s * 0.07
-	If lw < 1.0 Then lw = 1.0
-	Select Case ch
-	Case "A"
-		Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw * 0.5, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.2, y + gh * 0.5), Vector2(x + gw * 0.8, y + gh * 0.5), lw, c)
-	Case "B"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.7, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw, y + gm * 0.5), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gm * 0.5), Vector2(x + gw * 0.7, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw * 0.7, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gm), Vector2(x + gw, y + gh * 0.75), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.75), Vector2(x + gw * 0.7, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw * 0.7, y + gh), lw, c)
-	Case "C"
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.2), Vector2(x + gw * 0.5, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x, y + gh * 0.2), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.2), Vector2(x, y + gh * 0.8), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.8), Vector2(x + gw * 0.5, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x + gw, y + gh * 0.8), lw, c)
-	Case "D"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.6, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.6, y), Vector2(x + gw, y + gh * 0.3), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.3), Vector2(x + gw, y + gh * 0.7), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.7), Vector2(x + gw * 0.6, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.6, y + gh), Vector2(x, y + gh), lw, c)
-	Case "E"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw * 0.75, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw, y + gh), lw, c)
-	Case "F"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw * 0.75, y + gm), lw, c)
-	Case "G"
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.2), Vector2(x + gw * 0.5, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x, y + gh * 0.2), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.2), Vector2(x, y + gh * 0.8), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.8), Vector2(x + gw * 0.5, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x + gw, y + gh * 0.8), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.8), Vector2(x + gw, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gm), Vector2(x + gw * 0.5, y + gm), lw, c)
-	Case "H"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x + gw, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw, y + gm), lw, c)
-	Case "I"
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw * 0.5, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw, y + gh), lw, c)
-	Case "J"
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw * 0.7, y + gh * 0.8), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gh * 0.8), Vector2(x + gw * 0.3, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.3, y + gh), Vector2(x, y + gh * 0.8), lw, c)
-	Case "K"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw, y + gh), lw, c)
-	Case "L"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw, y + gh), lw, c)
-	Case "M"
-		Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x, y), lw, c)
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.5, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gm), Vector2(x + gw, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x + gw, y + gh), lw, c)
-	Case "N"
-		Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x, y), lw, c)
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh), Vector2(x + gw, y), lw, c)
-	Case "O"
-		Call canvas.DrawLine(Vector2(x + gw * 0.3, y), Vector2(x + gw * 0.7, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw, y + gh * 0.25), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.25), Vector2(x + gw, y + gh * 0.75), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.75), Vector2(x + gw * 0.7, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gh), Vector2(x + gw * 0.3, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.3, y + gh), Vector2(x, y + gh * 0.75), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.75), Vector2(x, y + gh * 0.25), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.25), Vector2(x + gw * 0.3, y), lw, c)
-	Case "P"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.7, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw, y + gh * 0.2), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.2), Vector2(x + gw * 0.7, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gm), Vector2(x, y + gm), lw, c)
-	Case "Q"
-		Call canvas.DrawLine(Vector2(x + gw * 0.3, y), Vector2(x + gw * 0.7, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw, y + gh * 0.25), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.25), Vector2(x + gw, y + gh * 0.75), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.75), Vector2(x + gw * 0.7, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gh), Vector2(x + gw * 0.3, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.3, y + gh), Vector2(x, y + gh * 0.75), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.75), Vector2(x, y + gh * 0.25), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.25), Vector2(x + gw * 0.3, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.6, y + gh * 0.65), Vector2(x + gw, y + gh), lw, c)
-	Case "R"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.7, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw, y + gh * 0.2), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.2), Vector2(x + gw * 0.7, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gm), Vector2(x, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.4, y + gm), Vector2(x + gw, y + gh), lw, c)
-	Case "S"
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.15), Vector2(x + gw * 0.5, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x, y + gh * 0.15), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.15), Vector2(x, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw, y + gh * 0.65), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.65), Vector2(x + gw, y + gh * 0.85), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.85), Vector2(x + gw * 0.5, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x, y + gh * 0.85), lw, c)
-	Case "T"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw * 0.5, y + gh), lw, c)
-	Case "U"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh * 0.8), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.8), Vector2(x + gw * 0.3, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.3, y + gh), Vector2(x + gw * 0.7, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gh), Vector2(x + gw, y + gh * 0.8), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.8), Vector2(x + gw, y), lw, c)
-	Case "V"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.5, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x + gw, y), lw, c)
-	Case "W"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.2, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.2, y + gh), Vector2(x + gw * 0.5, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gm), Vector2(x + gw * 0.8, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.8, y + gh), Vector2(x + gw, y), lw, c)
-	Case "X"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x, y + gh), lw, c)
-	Case "Y"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.5, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x + gw * 0.5, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gm), Vector2(x + gw * 0.5, y + gh), lw, c)
-	Case "Z"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw, y + gh), lw, c)
-	Case "0"
-		Call canvas.DrawLine(Vector2(x + gw * 0.3, y), Vector2(x + gw * 0.7, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw, y + gh * 0.25), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.25), Vector2(x + gw, y + gh * 0.75), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.75), Vector2(x + gw * 0.7, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gh), Vector2(x + gw * 0.3, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.3, y + gh), Vector2(x, y + gh * 0.75), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.75), Vector2(x, y + gh * 0.25), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.25), Vector2(x + gw * 0.3, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.2, y + gh * 0.2), Vector2(x + gw * 0.8, y + gh * 0.8), lw, c)
-	Case "1"
-		Call canvas.DrawLine(Vector2(x + gw * 0.3, y + gh * 0.2), Vector2(x + gw * 0.5, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw * 0.5, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.1, y + gh), Vector2(x + gw * 0.9, y + gh), lw, c)
-	Case "2"
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.2), Vector2(x + gw * 0.5, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw, y + gh * 0.2), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.2), Vector2(x, y + gh * 0.75), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.75), Vector2(x, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw, y + gh), lw, c)
-	Case "3"
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.1), Vector2(x + gw, y + gh * 0.1), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.1), Vector2(x + gw * 0.5, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gm), Vector2(x + gw, y + gh * 0.65), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.65), Vector2(x + gw * 0.5, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x, y + gh * 0.9), lw, c)
-	Case "4"
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.6), Vector2(x, y + gh * 0.6), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.6), Vector2(x + gw * 0.65, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.65, y), Vector2(x + gw * 0.65, y + gh), lw, c)
-	Case "5"
-		Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x, y), lw, c)
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw * 0.7, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gm), Vector2(x + gw, y + gh * 0.65), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.65), Vector2(x + gw * 0.5, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x, y + gh * 0.85), lw, c)
-	Case "6"
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.1), Vector2(x + gw * 0.3, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.3, y), Vector2(x, y + gh * 0.3), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.3), Vector2(x, y + gh * 0.75), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.75), Vector2(x + gw * 0.5, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x + gw, y + gh * 0.75), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.75), Vector2(x + gw, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gm), Vector2(x, y + gm), lw, c)
-	Case "7"
-		Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x + gw * 0.3, y + gh), lw, c)
-	Case "8"
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x, y + gh * 0.25), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.25), Vector2(x, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw * 0.5, y + gh * 0.55), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh * 0.55), Vector2(x + gw, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gm), Vector2(x + gw, y + gh * 0.25), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.25), Vector2(x + gw * 0.5, y), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x, y + gh * 0.75), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.75), Vector2(x + gw * 0.5, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x + gw, y + gh * 0.75), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.75), Vector2(x + gw, y + gm), lw, c)
-	Case "9"
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.9), Vector2(x + gw * 0.7, y + gh), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gh), Vector2(x + gw, y + gh * 0.7), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.7), Vector2(x + gw, y + gh * 0.25), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.25), Vector2(x + gw * 0.5, y), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x, y + gh * 0.25), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gh * 0.25), Vector2(x, y + gm), lw, c)
-		Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw, y + gm), lw, c)
-	Case "." : Call canvas.DrawLine(Vector2(x + gw * 0.35, y + gh * 0.85), Vector2(x + gw * 0.65, y + gh), lw * 1.5, c)
-	Case "," : Call canvas.DrawLine(Vector2(x + gw * 0.4, y + gh * 0.8), Vector2(x + gw * 0.3, y + gh), lw, c)
-	Case "'" : Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw * 0.4, y + gh * 0.2), lw, c)
-	Case "|" : Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw * 0.5, y + gh), lw, c)
-	Case "-" : Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw, y + gm), lw, c)
-	Case "*"
-		Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh * 0.1), Vector2(x + gw * 0.5, y + gh * 0.7), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.1, y + gh * 0.2), Vector2(x + gw * 0.9, y + gh * 0.6), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.9, y + gh * 0.2), Vector2(x + gw * 0.1, y + gh * 0.6), lw, c)
-	Case "%"
-		Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x, y + gh), lw, c)
-		Call canvas.DrawCircle(Vector2(x + gw * 0.2, y + gh * 0.2), lw * 1.5, c, True, c)
-		Call canvas.DrawCircle(Vector2(x + gw * 0.8, y + gh * 0.8), lw * 1.5, c, True, c)
-	Case ":" : Call canvas.DrawLine(Vector2(x + gw * 0.4, y + gh * 0.3), Vector2(x + gw * 0.6, y + gh * 0.3), lw, c) : Call canvas.DrawLine(Vector2(x + gw * 0.4, y + gh * 0.7), Vector2(x + gw * 0.6, y + gh * 0.7), lw, c)
-	Case "("
-		Call canvas.DrawLine(Vector2(x + gw * 0.6, y), Vector2(x + gw * 0.2, y + gh * 0.2), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.2, y + gh * 0.2), Vector2(x + gw * 0.2, y + gh * 0.8), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.2, y + gh * 0.8), Vector2(x + gw * 0.6, y + gh), lw, c)
-	Case ")"
-		Call canvas.DrawLine(Vector2(x + gw * 0.4, y), Vector2(x + gw * 0.8, y + gh * 0.2), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.8, y + gh * 0.2), Vector2(x + gw * 0.8, y + gh * 0.8), lw, c)
-		Call canvas.DrawLine(Vector2(x + gw * 0.8, y + gh * 0.8), Vector2(x + gw * 0.4, y + gh), lw, c)
-	Case Else
-	End Select
+Dim gw As Single = s * 0.6
+Dim gh As Single = s
+Dim gm As Single = s * 0.5
+Dim lw As Single = s * 0.07
+If lw < 1.0 Then lw = 1.0
+Select Case ch
+Case "A"
+	Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw * 0.5, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.2, y + gh * 0.5), Vector2(x + gw * 0.8, y + gh * 0.5), lw, c)
+Case "B"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.7, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw, y + gm * 0.5), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gm * 0.5), Vector2(x + gw * 0.7, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw * 0.7, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gm), Vector2(x + gw, y + gh * 0.75), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.75), Vector2(x + gw * 0.7, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw * 0.7, y + gh), lw, c)
+Case "C"
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.2), Vector2(x + gw * 0.5, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x, y + gh * 0.2), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.2), Vector2(x, y + gh * 0.8), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.8), Vector2(x + gw * 0.5, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x + gw, y + gh * 0.8), lw, c)
+Case "D"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.6, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.6, y), Vector2(x + gw, y + gh * 0.3), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.3), Vector2(x + gw, y + gh * 0.7), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.7), Vector2(x + gw * 0.6, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.6, y + gh), Vector2(x, y + gh), lw, c)
+Case "E"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw * 0.75, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw, y + gh), lw, c)
+Case "F"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw * 0.75, y + gm), lw, c)
+Case "G"
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.2), Vector2(x + gw * 0.5, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x, y + gh * 0.2), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.2), Vector2(x, y + gh * 0.8), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.8), Vector2(x + gw * 0.5, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x + gw, y + gh * 0.8), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.8), Vector2(x + gw, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gm), Vector2(x + gw * 0.5, y + gm), lw, c)
+Case "H"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x + gw, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw, y + gm), lw, c)
+Case "I"
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw * 0.5, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw, y + gh), lw, c)
+Case "J"
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw * 0.7, y + gh * 0.8), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gh * 0.8), Vector2(x + gw * 0.3, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.3, y + gh), Vector2(x, y + gh * 0.8), lw, c)
+Case "K"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw, y + gh), lw, c)
+Case "L"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw, y + gh), lw, c)
+Case "M"
+	Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x, y), lw, c)
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.5, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gm), Vector2(x + gw, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x + gw, y + gh), lw, c)
+Case "N"
+	Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x, y), lw, c)
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh), Vector2(x + gw, y), lw, c)
+Case "O"
+	Call canvas.DrawLine(Vector2(x + gw * 0.3, y), Vector2(x + gw * 0.7, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw, y + gh * 0.25), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.25), Vector2(x + gw, y + gh * 0.75), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.75), Vector2(x + gw * 0.7, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gh), Vector2(x + gw * 0.3, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.3, y + gh), Vector2(x, y + gh * 0.75), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.75), Vector2(x, y + gh * 0.25), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.25), Vector2(x + gw * 0.3, y), lw, c)
+Case "P"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.7, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw, y + gh * 0.2), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.2), Vector2(x + gw * 0.7, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gm), Vector2(x, y + gm), lw, c)
+Case "Q"
+	Call canvas.DrawLine(Vector2(x + gw * 0.3, y), Vector2(x + gw * 0.7, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw, y + gh * 0.25), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.25), Vector2(x + gw, y + gh * 0.75), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.75), Vector2(x + gw * 0.7, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gh), Vector2(x + gw * 0.3, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.3, y + gh), Vector2(x, y + gh * 0.75), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.75), Vector2(x, y + gh * 0.25), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.25), Vector2(x + gw * 0.3, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.6, y + gh * 0.65), Vector2(x + gw, y + gh), lw, c)
+Case "R"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.7, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw, y + gh * 0.2), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.2), Vector2(x + gw * 0.7, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gm), Vector2(x, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.4, y + gm), Vector2(x + gw, y + gh), lw, c)
+Case "S"
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.15), Vector2(x + gw * 0.5, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x, y + gh * 0.15), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.15), Vector2(x, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw, y + gh * 0.65), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.65), Vector2(x + gw, y + gh * 0.85), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.85), Vector2(x + gw * 0.5, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x, y + gh * 0.85), lw, c)
+Case "T"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw * 0.5, y + gh), lw, c)
+Case "U"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gh * 0.8), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.8), Vector2(x + gw * 0.3, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.3, y + gh), Vector2(x + gw * 0.7, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gh), Vector2(x + gw, y + gh * 0.8), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.8), Vector2(x + gw, y), lw, c)
+Case "V"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.5, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x + gw, y), lw, c)
+Case "W"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.2, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.2, y + gh), Vector2(x + gw * 0.5, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gm), Vector2(x + gw * 0.8, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.8, y + gh), Vector2(x + gw, y), lw, c)
+Case "X"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x, y + gh), lw, c)
+Case "Y"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw * 0.5, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x + gw * 0.5, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gm), Vector2(x + gw * 0.5, y + gh), lw, c)
+Case "Z"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw, y + gh), lw, c)
+Case "0"
+	Call canvas.DrawLine(Vector2(x + gw * 0.3, y), Vector2(x + gw * 0.7, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y), Vector2(x + gw, y + gh * 0.25), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.25), Vector2(x + gw, y + gh * 0.75), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.75), Vector2(x + gw * 0.7, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gh), Vector2(x + gw * 0.3, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.3, y + gh), Vector2(x, y + gh * 0.75), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.75), Vector2(x, y + gh * 0.25), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.25), Vector2(x + gw * 0.3, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.2, y + gh * 0.2), Vector2(x + gw * 0.8, y + gh * 0.8), lw, c)
+Case "1"
+	Call canvas.DrawLine(Vector2(x + gw * 0.3, y + gh * 0.2), Vector2(x + gw * 0.5, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw * 0.5, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.1, y + gh), Vector2(x + gw * 0.9, y + gh), lw, c)
+Case "2"
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.2), Vector2(x + gw * 0.5, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw, y + gh * 0.2), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.2), Vector2(x, y + gh * 0.75), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.75), Vector2(x, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh), Vector2(x + gw, y + gh), lw, c)
+Case "3"
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.1), Vector2(x + gw, y + gh * 0.1), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.1), Vector2(x + gw * 0.5, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gm), Vector2(x + gw, y + gh * 0.65), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.65), Vector2(x + gw * 0.5, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x, y + gh * 0.9), lw, c)
+Case "4"
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.6), Vector2(x, y + gh * 0.6), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.6), Vector2(x + gw * 0.65, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.65, y), Vector2(x + gw * 0.65, y + gh), lw, c)
+Case "5"
+	Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x, y), lw, c)
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw * 0.7, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gm), Vector2(x + gw, y + gh * 0.65), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.65), Vector2(x + gw * 0.5, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x, y + gh * 0.85), lw, c)
+Case "6"
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.1), Vector2(x + gw * 0.3, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.3, y), Vector2(x, y + gh * 0.3), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.3), Vector2(x, y + gh * 0.75), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.75), Vector2(x + gw * 0.5, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x + gw, y + gh * 0.75), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.75), Vector2(x + gw, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gm), Vector2(x, y + gm), lw, c)
+Case "7"
+	Call canvas.DrawLine(Vector2(x, y), Vector2(x + gw, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x + gw * 0.3, y + gh), lw, c)
+Case "8"
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x, y + gh * 0.25), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.25), Vector2(x, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw * 0.5, y + gh * 0.55), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh * 0.55), Vector2(x + gw, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gm), Vector2(x + gw, y + gh * 0.25), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.25), Vector2(x + gw * 0.5, y), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x, y + gh * 0.75), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.75), Vector2(x + gw * 0.5, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh), Vector2(x + gw, y + gh * 0.75), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.75), Vector2(x + gw, y + gm), lw, c)
+Case "9"
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.9), Vector2(x + gw * 0.7, y + gh), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.7, y + gh), Vector2(x + gw, y + gh * 0.7), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.7), Vector2(x + gw, y + gh * 0.25), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw, y + gh * 0.25), Vector2(x + gw * 0.5, y), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x, y + gh * 0.25), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gh * 0.25), Vector2(x, y + gm), lw, c)
+	Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw, y + gm), lw, c)
+Case "." : Call canvas.DrawLine(Vector2(x + gw * 0.35, y + gh * 0.85), Vector2(x + gw * 0.65, y + gh), lw * 1.5, c)
+Case "," : Call canvas.DrawLine(Vector2(x + gw * 0.4, y + gh * 0.8), Vector2(x + gw * 0.3, y + gh), lw, c)
+Case "'" : Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw * 0.4, y + gh * 0.2), lw, c)
+Case "|" : Call canvas.DrawLine(Vector2(x + gw * 0.5, y), Vector2(x + gw * 0.5, y + gh), lw, c)
+Case "-" : Call canvas.DrawLine(Vector2(x, y + gm), Vector2(x + gw, y + gm), lw, c)
+Case "*"
+	Call canvas.DrawLine(Vector2(x + gw * 0.5, y + gh * 0.1), Vector2(x + gw * 0.5, y + gh * 0.7), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.1, y + gh * 0.2), Vector2(x + gw * 0.9, y + gh * 0.6), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.9, y + gh * 0.2), Vector2(x + gw * 0.1, y + gh * 0.6), lw, c)
+Case "%"
+	Call canvas.DrawLine(Vector2(x + gw, y), Vector2(x, y + gh), lw, c)
+	Call canvas.DrawCircle(Vector2(x + gw * 0.2, y + gh * 0.2), lw * 1.5, c, True, c)
+	Call canvas.DrawCircle(Vector2(x + gw * 0.8, y + gh * 0.8), lw * 1.5, c, True, c)
+Case ":" : Call canvas.DrawLine(Vector2(x + gw * 0.4, y + gh * 0.3), Vector2(x + gw * 0.6, y + gh * 0.3), lw, c) : Call canvas.DrawLine(Vector2(x + gw * 0.4, y + gh * 0.7), Vector2(x + gw * 0.6, y + gh * 0.7), lw, c)
+Case "("
+	Call canvas.DrawLine(Vector2(x + gw * 0.6, y), Vector2(x + gw * 0.2, y + gh * 0.2), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.2, y + gh * 0.2), Vector2(x + gw * 0.2, y + gh * 0.8), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.2, y + gh * 0.8), Vector2(x + gw * 0.6, y + gh), lw, c)
+Case ")"
+	Call canvas.DrawLine(Vector2(x + gw * 0.4, y), Vector2(x + gw * 0.8, y + gh * 0.2), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.8, y + gh * 0.2), Vector2(x + gw * 0.8, y + gh * 0.8), lw, c)
+	Call canvas.DrawLine(Vector2(x + gw * 0.8, y + gh * 0.8), Vector2(x + gw * 0.4, y + gh), lw, c)
+Case Else
+End Select
 End Sub
 
 ' ===========================================================================
 ' _Frac — fractional part of x (not a VG builtin)
 ' ===========================================================================
 Function Frac(ByVal x As Single) As Single
-	Frac = x - Floor(x)
+Frac = x - Floor(x)
 End Function
 
 ' ===========================================================================
 ' _HsvToRgb
 ' ===========================================================================
 Sub _HsvToRgb(ByVal h As Single, ByVal s As Single, ByVal v As Single, ByRef r As Single, ByRef g As Single, ByRef b As Single)
-	If s = 0 Then
-		r = v
-		g = v
-		b = v
-		Exit Sub
-	End If
-	Dim i As Integer = CInt(Floor(h * 6.0))
-	Dim f As Single = h * 6.0 - i
-	Dim p As Single = v * (1.0 - s)
-	Dim q As Single = v * (1.0 - s * f)
-	Dim tv As Single = v * (1.0 - s * (1.0 - f))
-	Select Case i Mod 6
-	Case 0
-		r = v : g = tv : b = p
-	Case 1
-		r = q : g = v : b = p
-	Case 2
-		r = p : g = v : b = tv
-	Case 3
-		r = p : g = q : b = v
-	Case 4
-		r = tv : g = p : b = v
-	Case 5
-		r = v : g = p : b = q
-	End Select
+If s = 0 Then
+	r = v
+	g = v
+	b = v
+	Exit Sub
+End If
+Dim i As Integer = CInt(Floor(h * 6.0))
+Dim f As Single = h * 6.0 - i
+Dim p As Single = v * (1.0 - s)
+Dim q As Single = v * (1.0 - s * f)
+Dim tv As Single = v * (1.0 - s * (1.0 - f))
+Select Case i Mod 6
+Case 0
+	r = v : g = tv : b = p
+Case 1
+	r = q : g = v : b = p
+Case 2
+	r = p : g = v : b = tv
+Case 3
+	r = p : g = q : b = v
+Case 4
+	r = tv : g = p : b = v
+Case 5
+	r = v : g = p : b = q
+End Select
 End Sub
