@@ -1,6 +1,11 @@
 #include "visual_gasic_builtins.h"
 #include <godot_cpp/classes/json.hpp>
 #include <godot_cpp/classes/file_access.hpp>
+#ifdef VG_HAS_OPENMPT
+#include <libopenmpt/libopenmpt.h>
+#include <unordered_map>
+#include <vector>
+#endif
 #include <godot_cpp/classes/theme_db.hpp>
 #include <godot_cpp/classes/font.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
@@ -1508,10 +1513,9 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
                 int avail = (int)pb->get_frames_available();
                 if (n > avail) n = avail;
                 const float *rd = buf.ptr();
-                for (int ii = 0; ii < n; ++ii) {
-                    float s = rd[ii];
-                    pb->push_frame(Vector2(s, s));
-                }
+                PackedVector2Array mono_out; mono_out.resize(n);
+                for (int ii = 0; ii < n; ++ii) mono_out[ii] = Vector2(rd[ii], rd[ii]);
+                pb->push_buffer(mono_out);
             }
             return Variant();
         }
@@ -1529,9 +1533,9 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
                 int avail = (int)pb->get_frames_available();
                 if (frames > avail) frames = avail;
                 const float *rd = buf.ptr();
-                for (int ii = 0; ii < frames; ++ii) {
-                    pb->push_frame(Vector2(rd[ii * 2], rd[ii * 2 + 1]));
-                }
+                PackedVector2Array stereo_out; stereo_out.resize(frames);
+                for (int ii = 0; ii < frames; ++ii) stereo_out[ii] = Vector2(rd[ii * 2], rd[ii * 2 + 1]);
+                pb->push_buffer(stereo_out);
             }
             return Variant();
         }
@@ -1579,6 +1583,8 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             // Simple LCG for noise — fast, deterministic, no heap alloc
             uint32_t rng = 12345u + (uint32_t)(noise_t * 44100.0f);
 
+            PackedVector2Array out_frames3;
+            out_frames3.resize(n_frames);
             for (int i = 0; i < n_frames; ++i) {
                 float t_offset = i * inv_sr;
 
@@ -1587,13 +1593,18 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
                 if (arp_phase >= 1.0f) arp_phase -= 1.0f;
                 float samp = (arp_phase < 0.5f) ? 0.10f : -0.10f;
 
-                // Voice 2: bass kick (sine sweep 120→40 Hz)
+                // Voice 2: bass kick — exponential chirp, correct integrated phase
+                // f(t) = 50 + 110*exp(-30t), φ(t) = 50t + 3.667*(1 - exp(-30t))
                 if (kick_active) {
                     float kt  = kick_t + t_offset;
-                    float env = 1.0f - kt / kick_dur;
-                    if (env < 0.0f) env = 0.0f;
-                    float freq = 120.0f - 80.0f * (kt / kick_dur);
-                    samp += Math::sin(kt * freq * Math_TAU) * env * 0.65f;
+                    float env = Math::exp(-kt * 7.0f);
+                    float phase = 50.0f * kt + 3.667f * (1.0f - Math::exp(-30.0f * kt));
+                    samp += Math::sin(phase * Math_TAU) * env * 0.80f;
+                    if (kt < 0.006f) {
+                        uint32_t h = (uint32_t)(kt * sample_rate) ^ 0xDEADBEEFu;
+                        h = h * 2654435761u;
+                        samp += ((float)(int32_t)h / (float)0x7FFFFFFF) * (1.0f - kt / 0.006f) * 0.28f;
+                    }
                 }
 
                 // Voice 3: white noise burst
@@ -1605,8 +1616,9 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
                     samp += n01 * env * 0.50f;
                 }
 
-                pb->push_frame(Vector2(samp, samp));
+                out_frames3[i] = Vector2(samp, samp);
             }
+            pb->push_buffer(out_frames3);
 
             result[0] = arp_phase;
             result[1] = kick_t + n_frames * inv_sr;
@@ -1626,19 +1638,21 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         //   Voice 3: square arp   (±0.07 at 50% duty)
         //   Voice 4: noise hi-hat (exponential decay ×0.05)
         // Pushes PCM directly into the ring-buffer.  Returns updated phase state.
-        if (METHOD_IS("soundgen_fillvoices4") && (args.size() == 11 || args.size() == 14)) {
+        if (METHOD_IS("soundgen_fillvoices4") && (args.size() == 11 || args.size() == 14 || args.size() == 15)) {
             r_handled = true;
             AudioStreamGeneratorPlayback *pb = resolve_gen_playback(args[0]);
             PackedFloat32Array result4;
-            bool has_kick = (args.size() >= 14);
+            bool has_kick     = (args.size() >= 14);
+            bool has_note_age = (args.size() >= 15);
             result4.resize(has_kick ? 5 : 4);
             float lp = (float)(double)args[3];
             float bp = (float)(double)args[5];
             float ap = (float)(double)args[7];
             float ht = (float)(double)args[9];
-            bool  kick_on_  = has_kick && (bool)args[11];
-            float kick_t_   = has_kick ? (float)(double)args[12] : 0.0f;
-            float kick_dur_ = has_kick ? (float)(double)args[13] : 0.3f;
+            bool  kick_on_   = has_kick && (bool)args[11];
+            float kick_t_    = has_kick ? (float)(double)args[12] : 0.0f;
+            float kick_dur_  = has_kick ? (float)(double)args[13] : 0.3f;
+            float note_age   = has_note_age ? (float)(double)args[14] : 0.1f;
             result4[0] = lp; result4[1] = bp; result4[2] = ap; result4[3] = ht;
             if (has_kick) result4[4] = kick_t_;
             if (!pb) return result4;
@@ -1655,36 +1669,38 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             float arp_inc    = arp_f   * inv_sr;
             int   nf         = (int)pb->get_frames_available();
             uint32_t rng     = 12345u + (uint32_t)(ht * sr);
-            // Note envelope: fast attack (5ms), exponential decay to sustain ~0.6
-            float env_attack = 1.0f / (0.005f * sr);  // per-sample attack increment
-            static float note_env = 1.0f;              // persists across calls via rng seed trick
-            // We use lp position as proxy: if lp < lead_inc*nf it's a new note
-            float note_env_val = 1.0f - Math::exp(-lp * 12.0f); // smooth attack based on phase
 
+            // Per-note attack: 4ms linear ramp from note_age (seconds since step start).
+            // VG resets note_age=0 each beat, giving clean articulation every note.
+            const float ATTACK_DUR = 0.004f;
+
+            PackedVector2Array out_frames4;
+            out_frames4.resize(nf);
             for (int i = 0; i < nf; ++i) {
-                float s = 0.0f;
-                float env = 1.0f - Math::exp(-lp * 8.0f); // per-sample envelope via phase proxy
+                float s    = 0.0f;
+                float nt   = note_age + (float)i * inv_sr;   // seconds into current note
+                float att = nt < ATTACK_DUR ? nt / ATTACK_DUR : 1.0f;
 
-                // Voice 1: triangle lead (softer than square)
+                // Voice 1: 25% pulse lead — classic NES tone, with attack envelope
                 if (lead_f > 0.0f) {
                     lp += lead_inc;
                     if (lp >= 1.0f) lp -= 1.0f;
-                    float tri = (lp < 0.5f) ? (4.0f * lp - 1.0f) : (3.0f - 4.0f * lp);
-                    s += tri * 0.13f;
+                    s += ((lp < 0.25f) ? 0.12f : -0.04f) * att;
                 }
 
-                // Voice 2: sine bass
+                // Voice 2: sine bass — warm, round, 5ms attack
                 if (bass_f > 0.0f) {
                     bp += bass_inc;
                     if (bp >= 1.0f) bp -= 1.0f;
-                    s += Math::sin(bp * Math_TAU) * 0.16f;
+                    float batt = nt < 0.005f ? nt / 0.005f : 1.0f;
+                    s += Math::sin(bp * Math_TAU) * batt * 0.14f;
                 }
 
-                // Voice 3: sawtooth arp
+                // Voice 3: 50% square arp — percussive, no attack
                 if (arp_f > 0.0f) {
                     ap += arp_inc;
                     if (ap >= 1.0f) ap -= 1.0f;
-                    s += (ap * 2.0f - 1.0f) * 0.05f;
+                    s += (ap < 0.5f) ? 0.05f : -0.05f;
                 }
 
                 // Voice 4: noise hi-hat (exponential decay)
@@ -1692,31 +1708,35 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
                     rng = rng * 1664525u + 1013904223u;
                     float n01 = (float)(int32_t)rng / (float)0x7FFFFFFF;
                     float henv = Math::exp(-ht * 100.0f);
-                    s += n01 * henv * 0.045f;
+                    s += n01 * henv * 0.040f;
                     ht += hihat_inv;
                     if (henv < 0.001f) hihat_on = false;
                 }
 
-                // Voice 5: kick drum — layered for all speakers
-                // Layer A: sub-bass 120→30 Hz (subwoofers/headphones)
-                // Layer B: body 180→55 Hz + click transient (laptop speakers)
+                // Voice 5: 808-style kick
+                // φ(t) = 55t + 6.59*(1−exp(−22t))  →  200Hz→55Hz in ~90ms
+                // cosine so t=0 = full amplitude; 2nd harmonic for small speakers
                 if (kick_on_) {
                     float kt = kick_t_ + i * inv_sr;
                     if (kt < kick_dur_) {
-                        float env  = 1.0f - kt / kick_dur_;
-                        float ratio = kt / kick_dur_;
-                        s += Math::sin(kt * (120.0f - 90.0f * ratio) * Math_TAU) * env * 0.22f;  // sub
-                        s += Math::sin(kt * (180.0f - 125.0f * ratio) * Math_TAU) * env * 0.28f; // body
-                        if (kt < 0.002f)
-                            s += Math::sin(kt * 1200.0f * Math_TAU) * (1.0f - kt / 0.002f) * 0.16f; // click
+                        float e      = Math::exp(-22.0f * kt);
+                        float kphase = 55.0f * kt + 6.59f * (1.0f - e);
+                        float kenv   = Math::exp(-12.0f * kt);
+                        s += Math::cos(kphase * Math_TAU)        * kenv * 0.50f;
+                        s += Math::cos(kphase * 2.0f * Math_TAU) * kenv * 0.15f;
+                        if (kt < 0.010f) {
+                            uint32_t kh = (uint32_t)(kt * sr) ^ 0xCAFEBABEu;
+                            kh = kh * 2654435761u;
+                            s += ((float)(int32_t)kh / (float)0x7FFFFFFF) * (1.0f - kt / 0.010f) * 0.25f;
+                        }
                     }
                 }
 
-                // Soft-clip to prevent clipping (tanh limiter)
-                s = Math::tanh(s * 1.4f) / 1.4f;
-
-                pb->push_frame(Vector2(s, s));
+                // Gentle soft-clip
+                s = Math::tanh(s * 1.2f) / 1.2f;
+                out_frames4[i] = Vector2(s, s);
             }
+            pb->push_buffer(out_frames4);
 
             result4[0] = lp;
             result4[1] = bp;
@@ -1725,6 +1745,353 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             if (has_kick) result4[4] = kick_t_ + nf * inv_sr;
             return result4;
         }
+    }
+
+    // ── Music.* — GDSiON FM/chip synthesis + MML sequencer ─────────────
+    //
+    // Powered by GDSiON (SiONDriver) — a full FM synthesizer with:
+    //   • FM synthesis (OPM, OPN2, OPL3 operators)
+    //   • Chip emulation (SID/C64, AY/ZX Spectrum, PSG, DTMF, etc.)
+    //   • MML (Music Macro Language) sequencer — export from Bosca Ceoil
+    //   • Real-time note triggering (note_on / note_off)
+    //   • BPM control, volume, per-track voice assignment
+    //
+    // NOTE: Requires the vgmusic plugin and GDSiON binaries.
+    //   Requires: Canvas.SetBatchMode(False) or the node "SiONDriver" in ClassDB.
+    //   If GDSiON is not installed, Music.Open() returns 0 and all other
+    //   Music.* calls are no-ops.
+    //
+    // BASIC USAGE:
+    //   Dim mh As Long = Music.Open()
+    //   Music.Play(mh, "res://music/song.mml")   ' or raw MML string
+    //   Music.SetBPM(mh, 140.0)
+    //   Music.NoteOn(mh, 60)                     ' middle C
+    //   Music.Close(mh)
+    //
+    // MML QUICK REFERENCE:
+    //   t120 o5 l8 cdefgab   — tempo 120, octave 5, 8th notes, c d e f g a b
+    //   @0                   — sine wave; @1 = triangle; @2 = saw; @3 = square
+    //   v10                  — volume (0-15); V100 = PCM volume (0-127)
+    //   r4                   — quarter rest
+    {
+        auto resolve_sion = [](const Variant &h) -> Object* {
+            if (h.get_type() != Variant::INT) return nullptr;
+            int64_t id = (int64_t)h;
+            return ObjectDB::get_instance(ObjectID((uint64_t)id));
+        };
+
+        if (METHOD_IS("music_open")) {
+            r_handled = true;
+            if (!instance || !instance->get_owner()) return (int64_t)0;
+            Node *n = Object::cast_to<Node>(instance->get_owner());
+            if (!n) return (int64_t)0;
+            // SiONDriver.create() is a static factory — call via ClassDB singleton
+            if (!ClassDB::can_instantiate("SiONDriver")) return (int64_t)0;
+            Variant driver_v = ClassDB::instantiate("SiONDriver");
+            Object *driver_obj = (Object*)driver_v;
+            if (!driver_obj) return (int64_t)0;
+            Node *driver = Object::cast_to<Node>(driver_obj);
+            if (!driver) return (int64_t)0;
+            // Optional buffer size arg
+            if (args.size() >= 1 && args[0].get_type() == Variant::INT) {
+                driver->call("set_buffer_length", (int)args[0]);
+            }
+            n->add_child(driver);
+            return (int64_t)(uint64_t)driver->get_instance_id();
+        }
+
+        if (METHOD_IS("music_close") && args.size() == 1) {
+            r_handled = true;
+            Object *o = resolve_sion(args[0]);
+            if (o) {
+                o->call("stop");
+                Node *nd = Object::cast_to<Node>(o);
+                if (nd) nd->queue_free();
+            }
+            return Variant();
+        }
+
+        if (METHOD_IS("music_play") && args.size() >= 2) {
+            r_handled = true;
+            Object *o = resolve_sion(args[0]);
+            if (!o) return Variant();
+            String mml_or_path = (String)args[1];
+            bool loop = args.size() >= 3 ? (bool)args[2] : true;
+            // If it looks like a file path, load it
+            if (mml_or_path.ends_with(".mml") || mml_or_path.begins_with("res://")) {
+                if (FileAccess::file_exists(mml_or_path)) {
+                    mml_or_path = FileAccess::get_file_as_string(mml_or_path);
+                }
+            }
+            o->call("play", mml_or_path, loop);
+            return Variant();
+        }
+
+        if (METHOD_IS("music_stop") && args.size() == 1) {
+            r_handled = true;
+            Object *o = resolve_sion(args[0]);
+            if (o) o->call("stop");
+            return Variant();
+        }
+
+        if (METHOD_IS("music_pause") && args.size() == 1) {
+            r_handled = true;
+            Object *o = resolve_sion(args[0]);
+            if (o) o->call("pause");
+            return Variant();
+        }
+
+        if (METHOD_IS("music_resume") && args.size() == 1) {
+            r_handled = true;
+            Object *o = resolve_sion(args[0]);
+            if (o) o->call("resume");
+            return Variant();
+        }
+
+        if (METHOD_IS("music_setbpm") && args.size() == 2) {
+            r_handled = true;
+            Object *o = resolve_sion(args[0]);
+            if (o) o->call("set_bpm", (double)args[1]);
+            return Variant();
+        }
+
+        if (METHOD_IS("music_getbpm") && args.size() == 1) {
+            r_handled = true;
+            Object *o = resolve_sion(args[0]);
+            if (!o) return 120.0;
+            return (double)o->call("get_bpm");
+        }
+
+        if (METHOD_IS("music_setvolume") && args.size() == 2) {
+            r_handled = true;
+            Object *o = resolve_sion(args[0]);
+            if (o) o->call("set_volume", (double)args[1]);
+            return Variant();
+        }
+
+        if (METHOD_IS("music_isplaying") && args.size() == 1) {
+            r_handled = true;
+            Object *o = resolve_sion(args[0]);
+            if (!o) return false;
+            return (bool)o->call("is_streaming");
+        }
+
+        if (METHOD_IS("music_ispaused") && args.size() == 1) {
+            r_handled = true;
+            Object *o = resolve_sion(args[0]);
+            if (!o) return false;
+            return (bool)o->call("is_paused");
+        }
+
+        // Music.NoteOn(handle, note [, length [, track_id]])
+        // note: MIDI note number (60 = middle C)
+        // length: in 1/16th note units (0 = sustain until NoteOff)
+        // track_id: 0 = auto-assign
+        if (METHOD_IS("music_noteon") && args.size() >= 2) {
+            r_handled = true;
+            Object *o = resolve_sion(args[0]);
+            if (!o) return Variant();
+            int note     = (int)args[1];
+            int length   = args.size() >= 3 ? (int)args[2] : 0;
+            int track_id = args.size() >= 4 ? (int)args[3] : 0;
+            // note_on(note, voice=null, length=0, delay=0, quantize=0, track_id, disposable=true)
+            o->call("note_on", note, Variant(), length, 0, 0, track_id, length == 0);
+            return Variant();
+        }
+
+        // Music.NoteOff(handle, note [, track_id])
+        if (METHOD_IS("music_noteoff") && args.size() >= 2) {
+            r_handled = true;
+            Object *o = resolve_sion(args[0]);
+            if (!o) return Variant();
+            int note     = (int)args[1];
+            int track_id = args.size() >= 3 ? (int)args[2] : 0;
+            // note_off(note, track_id, delay=0, quantize=0, stop_immediately=false)
+            o->call("note_off", note, track_id, 0, 0, false);
+            return Variant();
+        }
+    }
+
+    // ── Tracker.* — libopenmpt real-time .xm/.mod/.s3m/.it playback ─────
+    //
+    // Plays actual demoscene tracker files in real-time — same as the original
+    // demos. Uses libopenmpt to interpret the tracker data live (FastTracker,
+    // ProTracker, Impulse Tracker formats). Feeds into AudioStreamGenerator.
+    //
+    // USAGE:
+    //   Dim th As Long = Tracker.Open(22050, 0.1)       ' creates AudioStreamGenerator
+    //   Tracker.Load(th, "res://music/second_reality.xm")
+    //   Tracker.Play(th)
+    //   Tracker.SetTempo(th, 1.5)                        ' 1.0 = original speed
+    //   Tracker.Fill(th)                                 ' call each _Process()
+    //   Tracker.Close(th)
+    //
+    // Tracker.Fill() generates exactly Available() frames of PCM from the
+    // module — one C++ call per frame, zero VG loop overhead.
+    {
+#ifdef VG_HAS_OPENMPT
+        // TrackerState: bundled alongside the AudioStreamPlayer by ObjectID.
+        // We store the openmpt_module* (C API) in a static map keyed by player ID.
+        static std::unordered_map<int64_t, openmpt_module*> s_tracker_modules;
+        static std::unordered_map<int64_t, double> s_tracker_tempo;
+
+        auto resolve_tracker_pb = [&](const Variant &h) -> AudioStreamGeneratorPlayback* {
+            if (h.get_type() != Variant::INT) return nullptr;
+            int64_t id = (int64_t)h;
+            Object *o = ObjectDB::get_instance(ObjectID((uint64_t)id));
+            AudioStreamPlayer *p = Object::cast_to<AudioStreamPlayer>(o);
+            if (!p) return nullptr;
+            Ref<AudioStreamPlayback> pb = p->get_stream_playback();
+            if (!pb.is_valid()) return nullptr;
+            return Object::cast_to<AudioStreamGeneratorPlayback>(pb.ptr());
+        };
+
+        if (METHOD_IS("tracker_open") && args.size() >= 1) {
+            r_handled = true;
+            if (!instance || !instance->get_owner()) return (int64_t)0;
+            Node *n = Object::cast_to<Node>(instance->get_owner());
+            if (!n) return (int64_t)0;
+            float mix_rate = args.size() >= 1 ? (float)(double)args[0] : 44100.0f;
+            float buf_len  = args.size() >= 2 ? (float)(double)args[1] : 0.1f;
+            Ref<AudioStreamGenerator> gen; gen.instantiate();
+            gen->set_mix_rate(mix_rate);
+            gen->set_buffer_length(buf_len);
+            AudioStreamPlayer *p = memnew(AudioStreamPlayer);
+            p->set_stream(gen);
+            n->add_child(p);
+            p->play();
+            int64_t id = (int64_t)(uint64_t)p->get_instance_id();
+            s_tracker_tempo[id] = 1.0;
+            return id;
+        }
+
+        if (METHOD_IS("tracker_load") && args.size() == 2) {
+            r_handled = true;
+            int64_t id = (int64_t)args[0];
+            String path = (String)args[1];
+            // Free existing module if any
+            auto it = s_tracker_modules.find(id);
+            if (it != s_tracker_modules.end()) { openmpt_module_destroy(it->second); s_tracker_modules.erase(it); }
+            // Load file bytes via Godot FileAccess
+            Ref<FileAccess> f = FileAccess::open(path, FileAccess::READ);
+            if (!f.is_valid()) return false;
+            PackedByteArray data = f->get_buffer(f->get_length());
+            f->close();
+            // C API — no exceptions, returns NULL on failure
+            openmpt_module *mod = openmpt_module_create_from_memory2(
+                data.ptr(), (size_t)data.size(), NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+            if (!mod) return false;
+            s_tracker_modules[id] = mod;
+            return true;
+        }
+
+        if (METHOD_IS("tracker_play") && args.size() == 1) {
+            r_handled = true;
+            // Module already loaded and AudioStreamPlayer is already playing.
+            // Just reset position to beginning.
+            int64_t id = (int64_t)args[0];
+            auto it = s_tracker_modules.find(id);
+            if (it != s_tracker_modules.end()) openmpt_module_set_position_seconds(it->second, 0.0);
+            return Variant();
+        }
+
+        if (METHOD_IS("tracker_stop") && args.size() == 1) {
+            r_handled = true;
+            int64_t id = (int64_t)args[0];
+            Object *o = ObjectDB::get_instance(ObjectID((uint64_t)id));
+            AudioStreamPlayer *p = Object::cast_to<AudioStreamPlayer>(o);
+            if (p) p->stop();
+            return Variant();
+        }
+
+        if (METHOD_IS("tracker_close") && args.size() == 1) {
+            r_handled = true;
+            int64_t id = (int64_t)args[0];
+            auto it = s_tracker_modules.find(id);
+            if (it != s_tracker_modules.end()) { openmpt_module_destroy(it->second); s_tracker_modules.erase(it); }
+            s_tracker_tempo.erase(id);
+            Object *o = ObjectDB::get_instance(ObjectID((uint64_t)id));
+            AudioStreamPlayer *p = Object::cast_to<AudioStreamPlayer>(o);
+            if (p) { p->stop(); p->queue_free(); }
+            return Variant();
+        }
+
+        if (METHOD_IS("tracker_settempo") && args.size() == 2) {
+            r_handled = true;
+            int64_t id = (int64_t)args[0];
+            s_tracker_tempo[id] = (double)args[1];
+            return Variant();
+        }
+
+        if (METHOD_IS("tracker_getposition") && args.size() == 1) {
+            r_handled = true;
+            int64_t id = (int64_t)args[0];
+            auto it = s_tracker_modules.find(id);
+            if (it == s_tracker_modules.end()) return 0.0;
+            return openmpt_module_get_position_seconds(it->second);
+        }
+
+        if (METHOD_IS("tracker_getduration") && args.size() == 1) {
+            r_handled = true;
+            int64_t id = (int64_t)args[0];
+            auto it = s_tracker_modules.find(id);
+            if (it == s_tracker_modules.end()) return 0.0;
+            return openmpt_module_get_duration_seconds(it->second);
+        }
+
+        // Tracker.Fill(handle) — call each _Process(delta)
+        // Reads exactly Available() frames from libopenmpt and pushes them
+        // in a single push_buffer() call. No VG loop needed.
+        if (METHOD_IS("tracker_fill") && args.size() == 1) {
+            r_handled = true;
+            int64_t id = (int64_t)args[0];
+            AudioStreamGeneratorPlayback *pb = resolve_tracker_pb(args[0]);
+            if (!pb) return Variant();
+            auto it = s_tracker_modules.find(id);
+            if (it == s_tracker_modules.end()) return Variant();
+            openmpt_module *mod = it->second;
+
+            // Get sample rate from the generator
+            Object *o = ObjectDB::get_instance(ObjectID((uint64_t)id));
+            AudioStreamPlayer *p = Object::cast_to<AudioStreamPlayer>(o);
+            if (!p) return Variant();
+            Ref<AudioStream> stream = p->get_stream();
+            Ref<AudioStreamGenerator> gen = stream;
+            if (!gen.is_valid()) return Variant();
+            int sr = (int)gen->get_mix_rate();
+
+            int nf = (int)pb->get_frames_available();
+            if (nf <= 0) return Variant();
+
+            // Render stereo PCM from libopenmpt (C API)
+            std::vector<float> left(nf), right(nf);
+            double tempo = s_tracker_tempo.count(id) ? s_tracker_tempo[id] : 1.0;
+            openmpt_module_set_render_param(mod, OPENMPT_MODULE_RENDER_INTERPOLATIONFILTER_LENGTH, 8);
+            openmpt_module_ctl_set_floatingpoint(mod, "play.tempo_factor", tempo);
+            int rendered = (int)openmpt_module_read_float_stereo(mod, sr, nf, left.data(), right.data());
+            if (rendered == 0) {
+                // End of module — loop back
+                openmpt_module_set_position_seconds(mod, 0.0);
+                rendered = (int)openmpt_module_read_float_stereo(mod, sr, nf, left.data(), right.data());
+            }
+
+            PackedVector2Array frames;
+            frames.resize(rendered);
+            for (int i = 0; i < rendered; ++i) {
+                frames[i] = Vector2(left[i], right[i]);
+            }
+            pb->push_buffer(frames);
+            return Variant();
+        }
+#else
+        // libopenmpt not available — Tracker.* calls are no-ops returning 0/false
+        if (METHOD_IS("tracker_open") || METHOD_IS("tracker_load") || METHOD_IS("tracker_play") ||
+            METHOD_IS("tracker_stop") || METHOD_IS("tracker_close") || METHOD_IS("tracker_fill") ||
+            METHOD_IS("tracker_settempo") || METHOD_IS("tracker_getposition") || METHOD_IS("tracker_getduration")) {
+            r_handled = true;
+            return (int64_t)0;
+        }
+#endif
     }
 
     // ── Pass 3: game-completeness namespaces ────────────────────────────
@@ -6754,10 +7121,11 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
         // SoundGen.FillVoices4(h, sample_rate, lead_f, lead_phase, bass_f, bass_phase,
         //                       arp_f, arp_phase, hihat_active, hihat_t, hihat_inv_sr)
         // → PackedFloat32Array [new_lead_phase, new_bass_phase, new_arp_phase, new_hihat_t]
-        if (p_method == "FillVoices4" && (p_args.size() == 11 || p_args.size() == 14)) {
+        if (p_method == "FillVoices4" && (p_args.size() == 11 || p_args.size() == 14 || p_args.size() == 15)) {
             AudioStreamGeneratorPlayback *pb = resolve_gen_pb(p_args[0]);
             PackedFloat32Array ret4;
-            bool has_kick = (p_args.size() >= 14);
+            bool has_kick     = (p_args.size() >= 14);
+            bool has_note_age = (p_args.size() >= 15);
             ret4.resize(has_kick ? 5 : 4);
             float lp = (float)(double)p_args[3];
             float bp = (float)(double)p_args[5];
@@ -6766,6 +7134,7 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
             bool  kick_on_  = has_kick && (bool)p_args[11];
             float kick_t_   = has_kick ? (float)(double)p_args[12] : 0.0f;
             float kick_dur_ = has_kick ? (float)(double)p_args[13] : 0.3f;
+            float note_age  = has_note_age ? (float)(double)p_args[14] : 0.1f;
             ret4[0] = lp; ret4[1] = bp; ret4[2] = ap; ret4[3] = ht;
             if (has_kick) ret4[4] = kick_t_;
             if (!pb) { r_ret = ret4; return true; }
@@ -6782,50 +7151,59 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
             float arp_inc   = arp_f  * inv_sr;
             int   nf        = (int)pb->get_frames_available();
             uint32_t rng    = 12345u + (uint32_t)(ht * sr);
+            const float ATTACK_DUR = 0.004f;
 
+            PackedVector2Array out_frames4p;
+            out_frames4p.resize(nf);
             for (int i = 0; i < nf; ++i) {
                 float s = 0.0f;
-                // Voice 1: triangle lead
+                float nt  = note_age + (float)i * inv_sr;
+                float att = nt < ATTACK_DUR ? nt / ATTACK_DUR : 1.0f;
+                // Voice 1: 25% pulse lead with attack envelope
                 if (lead_f > 0.0f) {
                     lp += lead_inc; if (lp >= 1.0f) lp -= 1.0f;
-                    float tri = (lp < 0.5f) ? (4.0f * lp - 1.0f) : (3.0f - 4.0f * lp);
-                    s += tri * 0.13f;
+                    s += ((lp < 0.25f) ? 0.12f : -0.04f) * att;
                 }
-                // Voice 2: sine bass
+                // Voice 2: sine bass with 5ms attack
                 if (bass_f > 0.0f) {
                     bp += bass_inc; if (bp >= 1.0f) bp -= 1.0f;
-                    s += Math::sin(bp * Math_TAU) * 0.16f;
+                    float batt = nt < 0.005f ? nt / 0.005f : 1.0f;
+                    s += Math::sin(bp * Math_TAU) * batt * 0.14f;
                 }
-                // Voice 3: sawtooth arp
+                // Voice 3: 50% square arp
                 if (arp_f > 0.0f) {
                     ap += arp_inc; if (ap >= 1.0f) ap -= 1.0f;
-                    s += (ap * 2.0f - 1.0f) * 0.05f;
+                    s += (ap < 0.5f) ? 0.05f : -0.05f;
                 }
                 // Voice 4: noise hi-hat (exponential decay)
                 if (hihat_on) {
                     rng = rng * 1664525u + 1013904223u;
                     float n01 = (float)(int32_t)rng / (float)0x7FFFFFFF;
                     float env = Math::exp(-ht * 100.0f);
-                    s += n01 * env * 0.045f;
+                    s += n01 * env * 0.040f;
                     ht += hihat_inv;
                     if (env < 0.001f) hihat_on = false;
                 }
-                // Voice 5: kick drum — layered for all speakers
+                // Voice 5: 808-style kick — φ(t)=55t+6.59*(1−exp(−22t)), 200→55Hz
                 if (kick_on_) {
                     float kt = kick_t_ + i * inv_sr;
                     if (kt < kick_dur_) {
-                        float env   = 1.0f - kt / kick_dur_;
-                        float ratio = kt / kick_dur_;
-                        s += Math::sin(kt * (120.0f - 90.0f * ratio) * Math_TAU) * env * 0.22f;
-                        s += Math::sin(kt * (180.0f - 125.0f * ratio) * Math_TAU) * env * 0.28f;
-                        if (kt < 0.002f)
-                            s += Math::sin(kt * 1200.0f * Math_TAU) * (1.0f - kt / 0.002f) * 0.16f;
+                        float e      = Math::exp(-22.0f * kt);
+                        float kphase = 55.0f * kt + 6.59f * (1.0f - e);
+                        float kenv   = Math::exp(-12.0f * kt);
+                        s += Math::cos(kphase * Math_TAU)        * kenv * 0.50f;
+                        s += Math::cos(kphase * 2.0f * Math_TAU) * kenv * 0.15f;
+                        if (kt < 0.010f) {
+                            uint32_t kh = (uint32_t)(kt * sr) ^ 0xCAFEBABEu;
+                            kh = kh * 2654435761u;
+                            s += ((float)(int32_t)kh / (float)0x7FFFFFFF) * (1.0f - kt / 0.010f) * 0.25f;
+                        }
                     }
                 }
-                // Soft-clip to prevent clipping (tanh limiter)
-                s = Math::tanh(s * 1.4f) / 1.4f;
-                pb->push_frame(Vector2(s, s));
+                s = Math::tanh(s * 1.2f) / 1.2f;
+                out_frames4p[i] = Vector2(s, s);
             }
+            pb->push_buffer(out_frames4p);
             ret4[0] = lp; ret4[1] = bp; ret4[2] = ap; ret4[3] = ht;
             if (has_kick) ret4[4] = kick_t_ + nf * inv_sr;
             r_ret = ret4;

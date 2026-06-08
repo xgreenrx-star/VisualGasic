@@ -1597,7 +1597,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // OP_METHOD_CALL's call_builtin_for_base_variant can recognise them.
                 if (val.get_type() == Variant::NIL) {
                     static const char *known_ns[] = {
-                        "SoundGen", "Clipboard", "Debug", "RegExp", "Array", nullptr
+                        "SoundGen", "Clipboard", "Debug", "RegExp", "Array",
+                        "Music", "Tracker", nullptr
                     };
                     for (int ni = 0; known_ns[ni]; ni++) {
                         if (name.nocasecmp_to(known_ns[ni]) == 0) {

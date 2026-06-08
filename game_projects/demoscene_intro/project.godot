@@ -15,6 +15,11 @@ config/description="Five procedural vector effects + chiptune. Pure VG, no asset
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.6")
 
+[audio]
+
+driver/mix_rate=22050
+driver/buffer_frames=4096
+
 [autoload]
 
 VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
@@ -23,11 +28,8 @@ VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
+window/size/mode=4
 window/stretch/mode="viewport"
-
-[audio]
-
-driver/mix_rate=22050
 
 [editor]
 

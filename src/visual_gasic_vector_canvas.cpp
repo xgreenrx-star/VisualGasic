@@ -86,6 +86,8 @@ void VGVectorCanvas2D::_bind_methods() {
 			DEFVAL(48), DEFVAL(Color(1, 1, 1, 1)));
 	ClassDB::bind_method(D_METHOD("SetAdditiveBlend", "enable"),
 			&VGVectorCanvas2D::SetAdditiveBlend);
+	ClassDB::bind_method(D_METHOD("SetBatchMode", "enable"),
+			&VGVectorCanvas2D::SetBatchMode);
 	ClassDB::bind_method(D_METHOD("DrawPath", "points", "width", "color", "fill", "fill_color", "close"),
 			&VGVectorCanvas2D::DrawPath,
 			DEFVAL(2.0f), DEFVAL(Color(1, 1, 1, 1)), DEFVAL(false), DEFVAL(Color(1, 1, 1, 0)), DEFVAL(false));
@@ -124,6 +126,12 @@ void VGVectorCanvas2D::_bind_methods() {
 			&VGVectorCanvas2D::DrawVectorTextWave,
 			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f), DEFVAL(2.0f),
 			DEFVAL(60.0f), DEFVAL(0.18f), DEFVAL(3.0f), DEFVAL(2.0f), DEFVAL(true), DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("DrawVectorTextFlip",
+			"text", "x_offset", "base_y", "time", "color", "scale", "width",
+			"char_spacing", "flip_speed", "flip_wave", "font_name"),
+			&VGVectorCanvas2D::DrawVectorTextFlip,
+			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f), DEFVAL(2.0f),
+			DEFVAL(52.0f), DEFVAL(0.9f), DEFVAL(0.38f), DEFVAL(""));
 	ClassDB::bind_method(D_METHOD("RegisterVectorFont", "name", "glyphs", "make_default"),
 			&VGVectorCanvas2D::RegisterVectorFont, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("SetVectorFont", "name"), &VGVectorCanvas2D::SetVectorFont);
@@ -134,6 +142,7 @@ void VGVectorCanvas2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("SetFillColor", "color"), &VGVectorCanvas2D::SetFillColor);
 	ClassDB::bind_method(D_METHOD("SetDefaultFont", "font"), &VGVectorCanvas2D::SetDefaultFont);
 	ClassDB::bind_method(D_METHOD("PushTransform", "transform"), &VGVectorCanvas2D::PushTransform);
+	ClassDB::bind_method(D_METHOD("PushIdentity"), &VGVectorCanvas2D::PushIdentity);
 	ClassDB::bind_method(D_METHOD("PopTransform"), &VGVectorCanvas2D::PopTransform);
 	ClassDB::bind_method(D_METHOD("Translate", "offset"), &VGVectorCanvas2D::Translate);
 	ClassDB::bind_method(D_METHOD("Rotate", "angle"), &VGVectorCanvas2D::Rotate);
@@ -417,62 +426,115 @@ void VGVectorCanvas2D::_draw() {
 	_pending_redraw = false;
 	_sprite_pool_index = 0;
 	int n = _commands.size();
+
+	// Batch mode: collect all CMD_LINE segments with matching (color, width)
+	// into groups and emit as draw_multiline() calls — reduces N draw calls to
+	// at most N_unique_colors draw calls. Off by default; enable with
+	// Canvas.SetBatchMode(True) before drawing. Useful for starfields, grids,
+	// and other scenes with many same-color lines.
+	if (_batch_mode) {
+		// Two-pass: first collect non-line commands and line groups, then draw.
+		struct LineGroup {
+			PackedVector2Array pts;
+			Color color;
+			float width;
+		};
+		std::vector<LineGroup> groups;
+		// Map (color_as_uint64, width_as_bits) → group index — simple linear
+		// scan is fine for the typical <20 unique colors per frame.
+		auto find_group = [&](const Color &c, float w) -> int {
+			for (int g = 0; g < (int)groups.size(); ++g) {
+				if (groups[g].color == c && groups[g].width == w) return g;
+			}
+			groups.push_back({PackedVector2Array(), c, w});
+			return (int)groups.size() - 1;
+		};
+		for (int i = 0; i < n; ++i) {
+			Dictionary cmd = _commands[i];
+			Variant vis = cmd.get("_visible", true);
+			if (vis.get_type() == Variant::BOOL && !(bool)vis) continue;
+			int t = (int)cmd["type"];
+			if (t == CMD_LINE) {
+				Transform2D xf = (Transform2D)cmd["transform"];
+				Color col = (Color)cmd["color"];
+				float w   = (float)cmd["width"];
+				int g = find_group(col, w);
+				groups[g].pts.append(xf.xform((Vector2)cmd["from"]));
+				groups[g].pts.append(xf.xform((Vector2)cmd["to"]));
+			} else {
+				// Flush accumulated lines before any non-line command.
+				for (auto &g : groups) {
+					if (g.pts.size() >= 2) draw_multiline(g.pts, g.color, g.width);
+				}
+				groups.clear();
+				_dispatch_command(cmd, t);
+			}
+		}
+		for (auto &g : groups) {
+			if (g.pts.size() >= 2) draw_multiline(g.pts, g.color, g.width);
+		}
+		return;
+	}
+
 	for (int i = 0; i < n; ++i) {
 		Dictionary cmd = _commands[i];
 		Variant vis = cmd.get("_visible", true);
 		if (vis.get_type() == Variant::BOOL && !(bool)vis) {
 			continue;
 		}
-		int t = (int)cmd["type"];
-		switch (t) {
-			case CMD_LINE:
-				_draw_line_command(cmd);
-				break;
-			case CMD_RECT:
-				_draw_rect_command(cmd);
-				break;
-			case CMD_ROUNDED_RECT:
-				_draw_rounded_rect_command(cmd);
-				break;
-			case CMD_ELLIPSE:
-				_draw_ellipse_command(cmd);
-				break;
-			case CMD_ARC:
-				_draw_arc_command(cmd);
-				break;
-			case CMD_PIE_SLICE:
-				_draw_pie_slice_command(cmd);
-				break;
-			case CMD_POLYGON:
-				_draw_polygon_command(cmd);
-				break;
-			case CMD_POLYLINE:
-				_draw_polyline_command(cmd);
-				break;
-			case CMD_TEXT:
-				_draw_text_command(cmd);
-				break;
-			case CMD_MULTILINE:
-				_draw_multiline_command(cmd);
-				break;
-			case CMD_SPRITE_LINES:
-				_draw_sprite_lines_command(cmd);
-				break;
-			case CMD_RECTS:
-				_draw_rects_command(cmd);
-				break;
-			case CMD_RECTS_UNIFORM:
-				_draw_rects_uniform_command(cmd);
-				break;
-			case CMD_PLASMA_CELLS:
-				_draw_plasma_cells_command(cmd);
-				break;
-			case CMD_TORUS_WIREFRAME:
-				_draw_torus_wireframe_command(cmd);
-				break;
-			default:
-				break;
-		}
+		_dispatch_command(cmd, (int)cmd["type"]);
+	}
+}
+
+void VGVectorCanvas2D::_dispatch_command(const Dictionary &cmd, int t) {
+	switch (t) {
+		case CMD_LINE:
+			_draw_line_command(cmd);
+			break;
+		case CMD_RECT:
+			_draw_rect_command(cmd);
+			break;
+		case CMD_ROUNDED_RECT:
+			_draw_rounded_rect_command(cmd);
+			break;
+		case CMD_ELLIPSE:
+			_draw_ellipse_command(cmd);
+			break;
+		case CMD_ARC:
+			_draw_arc_command(cmd);
+			break;
+		case CMD_PIE_SLICE:
+			_draw_pie_slice_command(cmd);
+			break;
+		case CMD_POLYGON:
+			_draw_polygon_command(cmd);
+			break;
+		case CMD_POLYLINE:
+			_draw_polyline_command(cmd);
+			break;
+		case CMD_TEXT:
+			_draw_text_command(cmd);
+			break;
+		case CMD_MULTILINE:
+			_draw_multiline_command(cmd);
+			break;
+		case CMD_SPRITE_LINES:
+			_draw_sprite_lines_command(cmd);
+			break;
+		case CMD_RECTS:
+			_draw_rects_command(cmd);
+			break;
+		case CMD_RECTS_UNIFORM:
+			_draw_rects_uniform_command(cmd);
+			break;
+		case CMD_PLASMA_CELLS:
+			_draw_plasma_cells_command(cmd);
+			break;
+		case CMD_TORUS_WIREFRAME:
+			_draw_torus_wireframe_command(cmd);
+			break;
+		default:
+			break;
 	}
 }
 
@@ -589,9 +651,23 @@ void VGVectorCanvas2D::_draw_torus_wireframe_command(const Dictionary &cmd) {
 	const float TAU = 6.28318530718f;
 	float cos_ry = ::cosf(rot_y), sin_ry = ::sinf(rot_y);
 	float cos_rx = ::cosf(rot_x), sin_rx = ::sinf(rot_x);
+
+	// Batch all U*V line segments into a single draw_multiline_colors call.
+	// Reduces ~280 individual draw_line() calls to 1 GPU-side batch.
+	const int SEG = U * V;
+	PackedVector2Array pts;  pts.resize(SEG * 2);
+	PackedColorArray   cols; cols.resize(SEG);
+
+	int seg = 0;
 	for (int ui = 0; ui < U; ++ui) {
 		float u0 = ui * TAU / U;
 		float u1 = (ui + 1) * TAU / U;
+		float hue = (float)ui / U + tt * 0.08f + hue_off;
+		hue -= ::floorf(hue);
+		float cr = ::sinf(hue * TAU) * 0.5f + 0.5f;
+		float cg = ::sinf(hue * TAU + 2.094f) * 0.5f + 0.5f;
+		float cb = ::sinf(hue * TAU + 4.189f) * 0.5f + 0.5f;
+		Color c(cr, cg, cb, fade * 0.85f);
 		for (int vi = 0; vi < V; ++vi) {
 			float v0 = vi * TAU / V;
 			// Point A (u0, v0)
@@ -604,8 +680,6 @@ void VGVectorCanvas2D::_draw_torus_wireframe_command(const Dictionary &cmd) {
 			float ay3f = ay3 * cos_rx - az3r * sin_rx;
 			float az3f = ay3 * sin_rx + az3r * cos_rx + proj_d;
 			if (az3f < 0.1f) az3f = 0.1f;
-			float asx = ax3r / az3f * scale + vcx;
-			float asy = ay3f / az3f * scale + vcy;
 			// Point B (u1, v0)
 			float bx3  = (R + rcv0) * ::cosf(u1);
 			float by3  = (R + rcv0) * ::sinf(u1);
@@ -615,17 +689,13 @@ void VGVectorCanvas2D::_draw_torus_wireframe_command(const Dictionary &cmd) {
 			float by3f = by3 * cos_rx - bz3r * sin_rx;
 			float bz3f = by3 * sin_rx + bz3r * cos_rx + proj_d;
 			if (bz3f < 0.1f) bz3f = 0.1f;
-			float bsx = bx3r / bz3f * scale + vcx;
-			float bsy = by3f / bz3f * scale + vcy;
-			// Hue
-			float hue = (float)ui / U + tt * 0.08f + hue_off;
-			hue -= ::floorf(hue);
-			float cr = ::sinf(hue * TAU) * 0.5f + 0.5f;
-			float cg = ::sinf(hue * TAU + 2.094f) * 0.5f + 0.5f;
-			float cb = ::sinf(hue * TAU + 4.189f) * 0.5f + 0.5f;
-			draw_line(Vector2(asx, asy), Vector2(bsx, bsy), Color(cr, cg, cb, fade * 0.85f), 1.4f);
+			pts[seg * 2]     = Vector2(ax3r / az3f * scale + vcx, ay3f / az3f * scale + vcy);
+			pts[seg * 2 + 1] = Vector2(bx3r / bz3f * scale + vcx, by3f / bz3f * scale + vcy);
+			cols[seg]        = c;
+			++seg;
 		}
 	}
+	draw_multiline_colors(pts, cols, 1.4f);
 }
 
 void VGVectorCanvas2D::_draw_rounded_rect_command(const Dictionary &cmd) {
@@ -894,6 +964,10 @@ void VGVectorCanvas2D::SetAdditiveBlend(bool enable) {
 	}
 }
 
+void VGVectorCanvas2D::SetBatchMode(bool enable) {
+	_batch_mode = enable;
+}
+
 void VGVectorCanvas2D::_draw_text_command(const Dictionary &cmd) {
 	Variant font_v = cmd.get("font", Variant());
 	String text = (String)cmd["text"];
@@ -1133,6 +1207,12 @@ void VGVectorCanvas2D::SetDefaultFont(const Ref<Font> &font) { _default_font = f
 
 void VGVectorCanvas2D::PushTransform(const Transform2D &transform) {
 	_transform_stack.append(_get_current_transform() * transform);
+}
+
+void VGVectorCanvas2D::PushIdentity() {
+	// Save current transform and push a fresh identity so that subsequent
+	// Translate/Rotate/Scale calls start from a clean slate.
+	_transform_stack.append(Transform2D());
 }
 
 void VGVectorCanvas2D::PopTransform() {
@@ -1713,5 +1793,73 @@ void VGVectorCanvas2D::DrawVectorTextWave(const String &text, float x_offset, fl
 			DrawPolyline(pts_array, width, char_color, false, Color(1, 1, 1, 0), false);
 		}
 		x_cur += gw * char_scale + spacing;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// DrawVectorTextFlip — horizontal scroller with per-character vertical-axis spin.
+// Each letter x-squishes around its own centre as |cos(phase)|, giving a
+// coin-flip / revolving-door effect. Brightness tracks x_squish so edge-on
+// chars fade to invisible.
+// ---------------------------------------------------------------------------
+void VGVectorCanvas2D::DrawVectorTextFlip(const String &text, float x_offset, float base_y, float time,
+		const Color &color, float scale, float width,
+		float char_spacing, float flip_speed, float flip_wave,
+		const String &font_name) {
+	_ensure_default_vector_font();
+	String upper_text = text.to_upper();
+	Dictionary font_map = _get_vector_font(font_name);
+	int n = upper_text.length();
+
+	for (int gi = 0; gi < n; ++gi) {
+		float char_left = x_offset + (float)gi * char_spacing;
+		float char_cx   = char_left + char_spacing * 0.5f;
+		// Viewport cull (generous margin for wide chars)
+		if (char_cx + char_spacing < -50.0f || char_cx - char_spacing > 3000.0f) continue;
+
+		// Flip phase — each character offset by flip_wave radians.
+		// y_squish rotates around the HORIZONTAL axis: head-over-heels tumble.
+		// cos() full range -1..1 so the letter passes through upside-down.
+		float phase    = time * flip_speed + (float)gi * flip_wave;
+		float y_squish = ::cosf(phase);           // -1..1, negative = upside-down
+		float abs_sq   = ::fabsf(y_squish);
+		if (abs_sq < 0.02f) continue;             // edge-on: skip
+
+		// Brightness dims toward edge-on for a natural lighting feel
+		float bright = abs_sq * abs_sq;
+		Color char_color(color.r * bright, color.g * bright, color.b * bright, color.a * bright);
+
+		String ch = upper_text.substr(gi, 1);
+		Variant g_v = font_map.get(ch, Variant());
+		Dictionary g;
+		if (g_v.get_type() == Variant::DICTIONARY) {
+			g = (Dictionary)g_v;
+		} else {
+			g["width"]   = (real_t)8.0;
+			g["strokes"] = Array();
+		}
+		float gw              = (float)(real_t)g["width"];
+		float glyph_center_lx = gw * 0.5f * scale;
+		// Glyph vertical centre: vector fonts typically span 0..10 units
+		const float GLYPH_HALF_H = 5.0f;
+		float glyph_cy = GLYPH_HALF_H * scale;
+
+		Array strokes = g["strokes"];
+		for (int si = 0; si < strokes.size(); ++si) {
+			Array stroke = strokes[si];
+			if (stroke.size() < 2) continue;
+			Array pts_array;
+			for (int pi = 0; pi < stroke.size(); ++pi) {
+				Vector2 op = (Vector2)stroke[pi];
+				float local_x = op.x * scale;
+				float local_y = op.y * scale;
+				// X: full width (no horizontal squish)
+				float sx = char_cx + (local_x - glyph_center_lx);
+				// Y: squish around vertical centre — creates head-over-heels spin
+				float sy = base_y + glyph_cy + (local_y - glyph_cy) * y_squish;
+				pts_array.append(Vector2(sx, sy));
+			}
+			DrawPolyline(pts_array, width * (0.5f + abs_sq * 0.5f), char_color, false, Color(1, 1, 1, 0), false);
+		}
 	}
 }

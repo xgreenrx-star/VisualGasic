@@ -314,6 +314,8 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     non_local_names.insert("clipboard");
     non_local_names.insert("debug");
     non_local_names.insert("regexp");
+    non_local_names.insert("music");
+    non_local_names.insert("tracker");
     // "Array" sentinel omitted intentionally — Array is also a type keyword
     // and registering it as non-local causes issues with array-variable handling.
     // Godot engine singletons — must route through OP_GET_GLOBAL so the
@@ -2996,7 +2998,9 @@ String VisualGasicCompiler::detect_namespace_call(ExpressionNode* base_obj) cons
         // Pass 5 namespaces (crypto/theme/js/shader/material/skeleton/bone/video)
         lo != "crypto" && lo != "theme" && lo != "js" &&
         lo != "shader" && lo != "material" && lo != "skeleton" &&
-        lo != "bone" && lo != "video") return String();
+        lo != "bone" && lo != "video" &&
+        // Audio synthesis namespaces
+        lo != "soundgen" && lo != "music" && lo != "tracker") return String();
     // Not shadowed by a known variable.
     String orig_lo = name.to_lower();
     if (local_slots.has(orig_lo) || param_vars.has(orig_lo) ||
@@ -6295,6 +6299,30 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     emit_byte(OP_IS_CLASS);                  // type-check
                     break;
                 }
+            }
+
+            // Short-circuit AndAlso / OrElse
+            // AndAlso: evaluate left; if false, skip right and push False
+            if (b->op.nocasecmp_to("AndAlso") == 0) {
+                compile_expression(b->left);
+                int short_circuit = emit_jump(OP_JUMP_IF_FALSE); // pops left; jumps if false
+                compile_expression(b->right);                    // right result stays on stack
+                int skip_false = emit_jump(OP_JUMP);
+                patch_jump(short_circuit);
+                emit_byte(OP_FALSE);
+                patch_jump(skip_false);
+                break;
+            }
+            // OrElse: evaluate left; if true, skip right and push True
+            if (b->op.nocasecmp_to("OrElse") == 0) {
+                compile_expression(b->left);
+                int short_circuit = emit_jump(OP_JUMP_IF_TRUE);  // pops left; jumps if true
+                compile_expression(b->right);                    // right result stays on stack
+                int skip_true = emit_jump(OP_JUMP);
+                patch_jump(short_circuit);
+                emit_byte(OP_TRUE);
+                patch_jump(skip_true);
+                break;
             }
 
             if ((b->left->type == ExpressionNode::VARIABLE || b->left->type == ExpressionNode::LITERAL) &&

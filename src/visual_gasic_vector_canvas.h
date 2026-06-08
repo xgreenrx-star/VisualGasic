@@ -18,6 +18,7 @@
 #include <godot_cpp/templates/vector.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <vector>
 #include <godot_cpp/variant/packed_vector2_array.hpp>
 #include <godot_cpp/variant/packed_color_array.hpp>
 #include <godot_cpp/variant/transform2d.hpp>
@@ -61,6 +62,7 @@ private:
 	Dictionary _command_overrides;
 	Dictionary _frame_line_ord;
 	bool _pending_redraw = false;
+	bool _batch_mode = false;
 
 	// Drawing state.
 	Color _stroke_color = Color(1, 1, 1, 1);
@@ -93,6 +95,7 @@ private:
 	void _apply_override_to_command(Dictionary &command, const Dictionary &override_dict);
 	void _queue_command(Dictionary command);
 
+	void _dispatch_command(const Dictionary &cmd, int t);
 	void _draw_line_command(const Dictionary &cmd);
 	void _draw_rect_command(const Dictionary &cmd);
 	void _draw_rounded_rect_command(const Dictionary &cmd);
@@ -144,6 +147,7 @@ public:
 	Ref<Texture2D> MakeGlowTexture(int size = 32, const Color &core_color = Color(1, 1, 1, 1));
 	Ref<Texture2D> MakeRadialGlowTexture(int size = 48, const Color &core_color = Color(1, 1, 1, 1));
 	void SetAdditiveBlend(bool enable);
+	void SetBatchMode(bool enable);
 	void DrawPath(const Array &points, float width = 2.0f, const Color &color = Color(1, 1, 1, 1), bool fill = false, const Color &fill_color = Color(1, 1, 1, 0), bool close = false);
 	void DrawCircle(const Vector2 &center, float radius, const Color &color = Color(1, 1, 1, 1), bool fill = false, const Color &fill_color = Color(1, 1, 1, 0));
 	void DrawText(const Vector2 &position, const String &text, const Color &color = Color(1, 1, 1, 1), const Variant &font = Variant());
@@ -170,6 +174,14 @@ public:
 			const Color &color = Color(1, 1, 1, 1), float scale = 1.0f, float width = 2.0f,
 			float amplitude = 60.0f, float wave_freq = 0.18f, float wave_speed = 3.0f,
 			float spacing = 2.0f, bool hue_cycle = true, const String &font_name = "");
+	// Flip: horizontal scroller where each letter spins on its own vertical axis
+	//   (coin-flip / revolving-door effect). x_squish = |cos(time*flip_speed + i*flip_wave)|.
+	//   char_spacing = pixels between character centres. flip_speed = radians/sec.
+	//   flip_wave = phase offset per character (radians) — spreads the wave across letters.
+	void DrawVectorTextFlip(const String &text, float x_offset, float base_y, float time,
+			const Color &color = Color(1, 1, 1, 1), float scale = 1.0f, float width = 2.0f,
+			float char_spacing = 52.0f, float flip_speed = 0.9f, float flip_wave = 0.38f,
+			const String &font_name = "");
 	void RegisterVectorFont(const String &name, const Dictionary &glyphs, bool make_default = false);
 	void SetVectorFont(const String &name);
 	Array GetVectorFontNames();
@@ -179,6 +191,7 @@ public:
 	void SetFillColor(const Color &color);
 	void SetDefaultFont(const Ref<Font> &font);
 	void PushTransform(const Transform2D &transform);
+	void PushIdentity();
 	void PopTransform();
 	void Translate(const Vector2 &offset);
 	void Rotate(float angle);

@@ -83,6 +83,16 @@ elif env["platform"] == "windows":
         env.Append(LIBS=['ffi'])
         env.Append(CPPDEFINES=["VG_HAS_LIBFFI"])
 
+# --- libopenmpt linking (required by Tracker.* namespace — .xm/.mod/.s3m playback) ---
+# Real-time tracker file synthesis — plays the actual Second Reality .xm file etc.
+if env["platform"] in ["linux", "macos"]:
+    try:
+        env.ParseConfig('pkg-config --cflags --libs libopenmpt')
+        env.Append(CPPDEFINES=["VG_HAS_OPENMPT"])
+    except Exception:
+        env.Append(LIBS=["openmpt"])
+        env.Append(CPPDEFINES=["VG_HAS_OPENMPT"])
+
 # --- POSIX libraries required by v3.1 system-level classes ---
 # librt: shm_open/shm_unlink (VGIPC shared memory)
 # libpthread: threading in VGTask, Parallel For

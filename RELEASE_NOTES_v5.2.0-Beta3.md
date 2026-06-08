@@ -19,7 +19,9 @@ on the published microbenchmarks.
 
 ## 🎬 See It In Action
 
-> **[▶ Watch the VisualGasic Demoscene — YouTube](https://www.youtube.com/watch?v=pNtBU2Enk1s)**
+> **[▶ VisualGasic Demoscene — Completed Demo (YouTube)](https://youtu.be/H1fGWK1kxcA)**
+
+> **[▶ Making of the Demoscene (YouTube)](https://www.youtube.com/watch?v=pNtBU2Enk1s)**
 
 A 165-second procedural demoscene written entirely in VG — **zero external
 assets, one `.vg` file.** Five effects, live chiptune, all rendered through

@@ -883,6 +883,62 @@ func SetVectorFont(name: String) -> void:
 func GetVectorFontNames() -> Array:
 	return _vector_fonts.keys()
 
+# ── Sine-wave horizontal scroller ──────────────────────────────────────────
+func DrawVectorTextWave(text: String, x_offset: float, base_y: float, time: float,
+		color: Color = Color(1,1,1,1), scale: float = 1.0, width: float = 2.0,
+		amplitude: float = 60.0, wave_freq: float = 0.18, wave_speed: float = 3.0,
+		spacing: float = 2.0, hue_cycle: bool = true, font_name: String = "") -> void:
+	pass  # implemented in C++ parent VGVectorCanvas2D
+
+# ── 3-D helix orbit ────────────────────────────────────────────────────────
+func DrawVectorTextHelix(text: String, cx: float, cy: float, time: float,
+		color: Color = Color(1,1,1,1), scale: float = 1.0, width: float = 2.0,
+		radius: float = 200.0, perspective: float = 0.6, helical_pitch: float = 18.0,
+		twist_speed: float = 1.2, char_spacing: float = 0.22, font_name: String = "") -> void:
+	pass  # implemented in C++ parent VGVectorCanvas2D
+
+# ── Head-over-heels per-character flip (coin-tumble) ───────────────────────
+func DrawVectorTextFlip(text: String, x_offset: float, base_y: float, time: float,
+		color: Color = Color(1,1,1,1), scale: float = 1.0, width: float = 2.0,
+		char_spacing: float = 52.0, flip_speed: float = 0.9, flip_wave: float = 0.38,
+		font_name: String = "") -> void:
+	pass  # implemented in C++ parent VGVectorCanvas2D
+
+# ── Batch draw helpers ─────────────────────────────────────────────────────
+func DrawLines(segments: PackedVector2Array, width: float = 2.0, color: Color = Color(1,1,1,1)) -> void:
+	pass  # implemented in C++ parent VGVectorCanvas2D
+
+func DrawRects(rects_xywh: PackedVector2Array, colors: PackedColorArray, fill: bool = true) -> void:
+	pass  # implemented in C++ parent VGVectorCanvas2D
+
+func DrawRectsUniform(rects_xywh: PackedVector2Array, color: Color = Color(1,1,1,1), fill: bool = true) -> void:
+	pass  # implemented in C++ parent VGVectorCanvas2D
+
+# ── Demoscene C++ effects ──────────────────────────────────────────────────
+func DrawPlasmaCells(gw: int, gh: int, spd: float, fade: float, pw: float, ph: float, parity: int) -> void:
+	pass  # implemented in C++ parent VGVectorCanvas2D
+
+func DrawTorusWireframe(rot_y: float, rot_x: float, hue_off: float, tt: float,
+		fade: float, cx: float, cy: float, scale: float = 1.0) -> void:
+	pass  # implemented in C++ parent VGVectorCanvas2D
+
+func DrawSpriteLines(texture: Texture2D, segments: PackedVector2Array, width: float = 6.0, color: Color = Color(1,1,1,1)) -> void:
+	pass  # implemented in C++ parent VGVectorCanvas2D
+
+# ── Blend / batch mode ────────────────────────────────────────────────────
+func SetAdditiveBlend(enable: bool) -> void:
+	pass  # implemented in C++ parent VGVectorCanvas2D
+
+func SetBatchMode(enable: bool) -> void:
+	pass  # implemented in C++ parent VGVectorCanvas2D
+
+# ── Texture helpers ───────────────────────────────────────────────────────
+func MakeGlowTexture(size: int = 32, core_color: Color = Color(1,1,1,1)) -> Texture2D:
+	return null  # implemented in C++ parent VGVectorCanvas2D
+
+func MakeRadialGlowTexture(size: int = 48, core_color: Color = Color(1,1,1,1)) -> Texture2D:
+	return null  # implemented in C++ parent VGVectorCanvas2D
+
 func _get_vector_font(name: String = "") -> Dictionary:
 	if _vector_fonts.size() == 0:
 		_register_default_vector_font()
@@ -1072,6 +1128,9 @@ func SetDefaultFont(font: Font) -> void:
 
 func PushTransform(transform: Transform2D) -> void:
 	_transform_stack.append(_get_current_transform() * transform)
+
+func PushIdentity() -> void:
+	_transform_stack.append(Transform2D())
 
 func PopTransform() -> void:
 	if _transform_stack.size() > 1:
