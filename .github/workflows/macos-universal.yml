@@ -35,12 +35,15 @@ jobs:
       - name: Install libffi (for VGNativeLibrary FFI support)
         run: brew install libffi
 
+      - name: Install libopenmpt (for Tracker namespace — .xm/.mod/.s3m playback)
+        run: brew install libopenmpt
+
       - name: Build Universal Binary
         run: |
           chmod +x scripts/build_macos_universal.sh
           ./scripts/build_macos_universal.sh ${{ matrix.target }}
         env:
-          PKG_CONFIG_PATH: /opt/homebrew/opt/libffi/lib/pkgconfig
+          PKG_CONFIG_PATH: /opt/homebrew/opt/libffi/lib/pkgconfig:/opt/homebrew/opt/libopenmpt/lib/pkgconfig:/opt/homebrew/lib/pkgconfig
 
       - name: Verify Universal Binary
         run: |
