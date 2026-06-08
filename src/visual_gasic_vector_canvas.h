@@ -47,6 +47,7 @@ public:
         CMD_RECTS_UNIFORM = 12,   // Batch rectangles: all same color
         CMD_PLASMA_CELLS = 13,    // Compute+draw plasma grid in C++ — no VG loop needed
         CMD_TORUS_WIREFRAME = 14, // Compute+draw full torus wireframe in C++ — no VG loop needed
+        CMD_FIRE_CELLS = 15,      // Compute+draw fire simulation colour pass in C++ — no VG loop needed
     };
 private:
 	// Command buffer + bookkeeping. Stored as Array<Dictionary> so the
@@ -111,6 +112,7 @@ private:
 	void _draw_rects_uniform_command(const Dictionary &cmd);
 	void _draw_plasma_cells_command(const Dictionary &cmd);
 	void _draw_torus_wireframe_command(const Dictionary &cmd);
+	void _draw_fire_cells_command(const Dictionary &cmd);
 
 	void _ensure_default_vector_font();
 	Dictionary _get_vector_font(const String &name);
@@ -139,6 +141,9 @@ public:
 	// DrawRectsUniform: all rects share one color.
 	void DrawRects(const PackedVector2Array &rects_xywh, const PackedColorArray &colors, bool fill = true);
 	void DrawRectsUniform(const PackedVector2Array &rects_xywh, const Color &color = Color(1, 1, 1, 1), bool fill = true);
+	// DrawFireCells: render all fire grid cells — colour mapped from heat values (Array of Singles).
+	// skip_rows = number of top rows to skip (typically 4 for text clearance).
+	void DrawFireCells(const Array &grid, int gw, int gh, float pw, float ph, float fade, int skip_rows);
 	// DrawPlasmaCells: compute HSV plasma grid and render all cells matching parity (0=even, 1=odd) entirely in C++.
 	void DrawPlasmaCells(int gw, int gh, float spd, float fade, float pw, float ph, int parity);
 	// DrawTorusWireframe: compute and render full torus wireframe with hue-cycling in C++.

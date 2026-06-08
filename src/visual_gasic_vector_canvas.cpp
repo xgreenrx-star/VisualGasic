@@ -39,6 +39,7 @@ void VGVectorCanvas2D::_bind_methods() {
 	BIND_ENUM_CONSTANT(CMD_RECTS_UNIFORM);
 	BIND_ENUM_CONSTANT(CMD_PLASMA_CELLS);
 	BIND_ENUM_CONSTANT(CMD_TORUS_WIREFRAME);
+	BIND_ENUM_CONSTANT(CMD_FIRE_CELLS);
 
 	// ---- Draw* (preserve VB-style PascalCase names) ----
 	ClassDB::bind_method(D_METHOD("DrawLine", "from", "to", "width", "color"),
@@ -75,6 +76,8 @@ void VGVectorCanvas2D::_bind_methods() {
 			&VGVectorCanvas2D::DrawPlasmaCells);
 	ClassDB::bind_method(D_METHOD("DrawTorusWireframe", "rot_y", "rot_x", "hue_off", "tt", "fade", "cx", "cy", "scale"),
 			&VGVectorCanvas2D::DrawTorusWireframe, DEFVAL(1.0));
+	ClassDB::bind_method(D_METHOD("DrawFireCells", "grid", "gw", "gh", "pw", "ph", "fade", "skip_rows"),
+			&VGVectorCanvas2D::DrawFireCells, DEFVAL(4));
 	ClassDB::bind_method(D_METHOD("DrawSpriteLines", "texture", "segments", "width", "color"),
 			&VGVectorCanvas2D::DrawSpriteLines,
 			DEFVAL(6.0f), DEFVAL(Color(1, 1, 1, 1)));
@@ -532,6 +535,9 @@ void VGVectorCanvas2D::_dispatch_command(const Dictionary &cmd, int t) {
 			break;
 		case CMD_TORUS_WIREFRAME:
 			_draw_torus_wireframe_command(cmd);
+			break;
+		case CMD_FIRE_CELLS:
+			_draw_fire_cells_command(cmd);
 			break;
 		default:
 			break;
@@ -1138,6 +1144,55 @@ void VGVectorCanvas2D::DrawPlasmaCells(int gw, int gh, float spd, float fade, fl
 	c["ph"] = ph;
 	c["parity"] = parity;
 	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawFireCells(const Array &grid, int gw, int gh, float pw, float ph, float fade, int skip_rows) {
+	Dictionary c;
+	c["type"]      = (int)CMD_FIRE_CELLS;
+	c["grid"]      = grid;
+	c["gw"]        = gw;
+	c["gh"]        = gh;
+	c["pw"]        = pw;
+	c["ph"]        = ph;
+	c["fade"]      = fade;
+	c["skip_rows"] = skip_rows;
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::_draw_fire_cells_command(const Dictionary &cmd) {
+	Array grid = (Array)cmd["grid"];
+	int   gw        = (int)(int64_t)cmd["gw"];
+	int   gh        = (int)(int64_t)cmd["gh"];
+	float pw        = (float)(double)cmd["pw"];
+	float ph        = (float)(double)cmd["ph"];
+	float fade      = (float)(double)cmd["fade"];
+	int   skip_rows = (int)(int64_t)cmd["skip_rows"];
+
+	// Colour ramp: black → red → orange/yellow → white
+	//   heat < 0.333  →  black..red
+	//   heat < 0.667  →  red..orange-yellow
+	//   heat >= 0.667 →  orange..white
+	for (int y = skip_rows; y < gh; ++y) {
+		for (int x = 0; x < gw; ++x) {
+			float heat = (float)(double)grid[y * gw + x] * fade;
+			if (heat < 0.05f) continue;
+			float cr, cg, cb, ha;
+			if (heat < 0.333f) {
+				float s = heat * 3.0f;
+				cr = s;  cg = 0.0f; cb = 0.0f;
+			} else if (heat < 0.667f) {
+				float s = (heat - 0.333f) * 3.0f;
+				cr = 1.0f; cg = s * 0.6f; cb = 0.0f;
+			} else {
+				float s = (heat - 0.667f) * 3.0f;
+				cr = 1.0f; cg = 0.6f + s * 0.4f; cb = s;
+			}
+			ha = heat * 5.0f;
+			if (ha > 1.0f) ha = 1.0f;
+			draw_rect(Rect2(x * pw, y * ph, pw + 1.0f, ph + 1.0f),
+					  Color(cr, cg, cb, ha), true);
+		}
+	}
 }
 
 void VGVectorCanvas2D::DrawTorusWireframe(float rot_y, float rot_x, float hue_off, float tt, float fade, float cx, float cy, float scale) {

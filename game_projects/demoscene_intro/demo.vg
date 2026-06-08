@@ -1513,12 +1513,6 @@ Dim xr As Integer
 Dim y2 As Integer
 Dim y3 As Integer
 Dim avg As Single
-Dim heat As Single
-Dim cr As Single
-Dim cg As Single
-Dim cb As Single
-Dim t2 As Single
-Dim t3 As Single
 Dim FireCellW As Single
 Dim FireCellH As Single
 ' Cap simulation at 20 steps/s using accumulator
@@ -1550,26 +1544,8 @@ Loop
 FireCellW = SW / FireW
 FireCellH = SH / FireH
 Call canvas.BeginGroup("Background")
-' Skip top 4 rows (~160px) so text banner always has a clear dark zone
-For y = 4 To FireH - 1
-	For x = 0 To FireW - 1
-		heat = fire_grid(y * FireW + x) * fade
-		If heat > = 0.05 Then
-			If heat < 0.333 Then
-				cr = heat * 3.0 : cg = 0.0 : cb = 0.0
-			ElseIf heat < 0.667 Then
-				t2 = (heat - 0.333) * 3.0
-				cr = 1.0 : cg = t2 * 0.6 : cb = 0.0
-			Else
-				t3 = (heat - 0.667) * 3.0
-				cr = 1.0 : cg = 0.6 + t3 * 0.4 : cb = t3
-			End If
-			Dim ha As Single = heat * 5.0
-			If ha > 1.0 Then ha = 1.0
-			Call canvas.DrawRect(Rect2(x * FireCellW, y * FireCellH, FireCellW + 1, FireCellH + 1), 0, Color(cr, cg, cb, ha), True, Color(cr, cg, cb, ha))
-		End If
-	Next
-Next
+' All colour-mapping and rect drawing done in C++ (DrawFireCells) — skips top 4 rows for text clearance
+Call canvas.DrawFireCells(fire_grid, FireW, FireH, FireCellW, FireCellH, fade, 4)
 Call canvas.EndGroup()
 End Sub
 
