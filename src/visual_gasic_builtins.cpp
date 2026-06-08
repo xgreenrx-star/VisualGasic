@@ -7248,8 +7248,7 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
         if (ns_lo == "tracker" || ns_lo == "sound" || ns_lo == "soundgen" || ns_lo == "music") {
             String fwd_method = ns_lo + "_" + p_method.to_lower();
             bool found = false;
-            Variant fwd_ret;
-            call_builtin(instance, fwd_method, p_args, fwd_ret, found);
+            Variant fwd_ret = call_builtin_expr_evaluated(instance, fwd_method, p_args, found);
             if (found) {
                 r_ret = fwd_ret;
                 return true;
