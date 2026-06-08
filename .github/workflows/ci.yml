@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y scons build-essential python3 python3-pip
+          sudo apt-get install -y scons build-essential python3 python3-pip libopenmpt-dev pkg-config
 
       - name: Dim linter
         run: |
@@ -130,7 +130,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y scons build-essential python3 g++-mingw-w64-x86-64
+          sudo apt-get install -y scons build-essential python3 g++-mingw-w64-x86-64 libopenmpt-dev pkg-config
 
       - name: Build (Windows template_debug)
         run: scons platform=windows target=template_debug -j$(nproc)
