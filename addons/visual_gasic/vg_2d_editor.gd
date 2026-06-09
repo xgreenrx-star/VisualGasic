@@ -2077,7 +2077,7 @@ func _prompt_add_canvas_layer_for_control(control_type_name: String) -> void:
 		print("VG 2D Editor: Added CanvasLayer → ", canvas_layer.name)
 		
 		# Now create the Control node as child of CanvasLayer
-		# Control nodes in CanvasLayer use screen-space coordinates
+		# Control nodes in CanvasLayer use screen-space coordinates relative to the viewport
 		# Position it in the center of the viewport so it's visible
 		var control_node: Control = null
 		match control_type_name:
@@ -2086,9 +2086,9 @@ func _prompt_add_canvas_layer_for_control(control_type_name: String) -> void:
 				cr.name = _unique_name("ColorRect", canvas_layer)
 				cr.size = Vector2(200, 200)
 				cr.color = Color(0.5, 0.5, 0.8, 1.0)
-				# Center in viewport (screen space, not world space)
-				if _viewport_container:
-					var viewport_size = _viewport_container.size
+				# Center in viewport using the actual viewport size (not container size)
+				if _viewport:
+					var viewport_size = _viewport.size
 					cr.position = (viewport_size - cr.size) / 2.0
 				else:
 					cr.position = Vector2(300, 200)  # Fallback position
