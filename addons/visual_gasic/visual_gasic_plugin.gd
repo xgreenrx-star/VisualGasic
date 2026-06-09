@@ -8938,7 +8938,9 @@ func _show_code_view() -> void:
 	if is_instance_valid(_embedded_code_editor):
 		_embedded_code_editor.visible = true
 		# Deferred focus so layout settles
-		_embedded_code_editor.get_code_edit().grab_focus.call_deferred()
+		var ce = _embedded_code_editor.get_code_edit()
+		if ce:
+			ce.grab_focus.call_deferred()
 
 	# Swap left panel: hide Toolbox (wrapper + header), show Command Help + Index Map
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")

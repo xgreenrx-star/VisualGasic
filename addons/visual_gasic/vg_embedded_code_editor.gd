@@ -1337,6 +1337,9 @@ func load_file(path: String) -> void:
 	if f:
 		var content := f.get_as_text()
 		f.close()
+		if not _code_edit:
+			push_warning("VG Code Editor: _code_edit not yet initialized, deferring load")
+			return
 		_code_edit.text = content
 		_dirty = false
 		_rebuild_proc_list()
@@ -1636,6 +1639,8 @@ func _rebuild_event_list_for_object(obj_name: String) -> void:
 	_update_proc_selection_for_object(obj_name)
 
 func _rebuild_object_combo() -> void:
+	if not _object_combo:
+		return
 	_object_combo.clear()
 	_object_combo.add_item("(General)")
 
