@@ -1913,6 +1913,7 @@ func _add_2d_object(type_name: String, display_name: String) -> void:
 		"CanvasLayer":
 			node = CanvasLayer.new()
 			node.name = _unique_name("CanvasLayer", _scene_root)
+			print("VG 2D Editor: Creating CanvasLayer node: ", node.name)
 		"CharacterBody2D":
 			var body = CharacterBody2D.new()
 			body.name = _unique_name("CharacterBody2D", _scene_root)
@@ -2049,7 +2050,10 @@ func _add_2d_object(type_name: String, display_name: String) -> void:
 
 		_scene_root.add_child(node)
 		_push_undo({"type": "add", "nodes": [{"node": node, "name": node.name}]})
-		_select_node(node)
+		# Only select if it's a CanvasItem (Node2D or Control)
+		# CanvasLayer is just a Node, so skip selection
+		if node is CanvasItem:
+			_select_node(node)
 		_rebuild_scene_tree()
 		_scene_dirty = true
 		print("VG 2D Editor: Added ", display_name, " → ", node.name)
