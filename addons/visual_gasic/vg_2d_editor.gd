@@ -2072,6 +2072,7 @@ func _prompt_add_canvas_layer_for_control(control_type_name: String) -> void:
 	_style_dialog_dark(dialog)
 	
 	dialog.confirmed.connect(func():
+		print("VG 2D Editor: Dialog confirmed - starting to create CanvasLayer + ", control_type_name)
 		# Create CanvasLayer first (CanvasLayer doesn't have position - it's a viewport-wide UI layer)
 		var canvas_layer = CanvasLayer.new()
 		canvas_layer.name = _unique_name("CanvasLayer", _scene_root)
@@ -2094,15 +2095,20 @@ func _prompt_add_canvas_layer_for_control(control_type_name: String) -> void:
 				if _viewport:
 					var viewport_size = _viewport.size
 					cr.position = (viewport_size - cr.size) / 2.0
+					print("VG 2D Editor: Viewport size = ", viewport_size, ", ColorRect pos = ", cr.position)
 				else:
 					cr.position = Vector2(300, 200)  # Fallback position
+					print("VG 2D Editor: No viewport, using fallback position")
 				control_node = cr
+				print("VG 2D Editor: Created ColorRect node")
 		
 		if control_node:
 			canvas_layer.add_child(control_node)
 			_push_undo({"type": "add", "nodes": [{"node": control_node, "name": control_node.name}]})
 			_select_node(control_node)
 			print("VG 2D Editor: Added ", control_type_name, " → ", control_node.name)
+		else:
+			print("VG 2D Editor: ERROR - control_node is null!")
 		
 		_rebuild_scene_tree()
 		_scene_dirty = true
