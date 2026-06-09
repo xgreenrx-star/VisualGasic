@@ -2092,29 +2092,26 @@ func _prompt_add_canvas_layer_for_control(control_type_name: String) -> void:
 			"ColorRect":
 				var cr = ColorRect.new()
 				cr.name = _unique_name("ColorRect", canvas_layer)
-				cr.size = Vector2(200, 200)
-				cr.color = Color(0.5, 0.5, 0.8, 1.0)
-				# Center in viewport using the actual viewport size (not container size)
-				if _viewport:
-					var viewport_size = _viewport.size
-					cr.position = (viewport_size - cr.size) / 2.0
-					print("VG 2D Editor: Viewport size = ", viewport_size, ", ColorRect pos = ", cr.position)
-				else:
-					cr.position = Vector2(300, 200)  # Fallback position
-					print("VG 2D Editor: No viewport, using fallback position")
+				cr.size = Vector2(300, 200)  # Larger size, easier to see
+				cr.color = Color(1.0, 0.0, 0.0, 1.0)  # Bright red - very visible
+				# Simple, reliable positioning - top-left with margin
+				cr.position = Vector2(50, 50)
+				push_error("[VG 2D] DEBUG: Created ColorRect size=", cr.size, " pos=", cr.position, " color=red")
 				control_node = cr
-				print("VG 2D Editor: Created ColorRect node")
 		
 		if control_node:
+			push_error("[VG 2D] DEBUG: About to add control_node to canvas_layer")
 			canvas_layer.add_child(control_node)
+			push_error("[VG 2D] DEBUG: control_node added to canvas_layer, name=", control_node.name)
 			_push_undo({"type": "add", "nodes": [{"node": control_node, "name": control_node.name}]})
 			_select_node(control_node)
-			print("VG 2D Editor: Added ", control_type_name, " → ", control_node.name)
+			push_error("[VG 2D] DEBUG: Added ", control_type_name, " → ", control_node.name)
 		else:
-			print("VG 2D Editor: ERROR - control_node is null!")
+			push_error("[VG 2D] DEBUG: ERROR - control_node is null!")
 		
 		_rebuild_scene_tree()
 		_scene_dirty = true
+		push_error("[VG 2D] DEBUG: Scene tree rebuilt, scene marked dirty")
 		dialog.queue_free()
 	)
 	
