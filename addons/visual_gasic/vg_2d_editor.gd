@@ -1254,7 +1254,8 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 
 				# Normal click — try to select
 				var world_pos = _screen_to_world(event.position, vp_size)
-				var hit = _pick_node_at(world_pos)
+				var screen_pos = event.position  # For Control nodes in CanvasLayer
+				var hit = _pick_node_at(world_pos, screen_pos)
 
 				if event.double_click and hit:
 					node_double_clicked.emit(hit)
@@ -1409,14 +1410,18 @@ func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
 
 	match _interact_mode:
 		InteractMode.DRAGGING:
+			# Calculate deltas for both world-space (Node2D) and screen-space (Control) nodes
 			var delta_screen = event.position - _drag_start_screen
 			var delta_world = delta_screen / _cam_zoom
 			for i in range(_selected_nodes.size()):
 				if i < _drag_start_positions.size():
-					var new_pos = _drag_start_positions[i] + delta_world
+					var node = _selected_nodes[i]
+					# Control nodes use screen-space coordinates, Node2D use world-space
+					var delta = delta_screen if node is Control else delta_world
+					var new_pos = _drag_start_positions[i] + delta
 					if _snap_enabled:
 						new_pos = Vector2(snappedf(new_pos.x, _snap_value), snappedf(new_pos.y, _snap_value))
-					_selected_nodes[i].position = new_pos
+					node.position = new_pos
 			_update_transform_panel()
 			_overlay.queue_redraw()
 
@@ -1580,7 +1585,7 @@ func _check_shape_resize_handle(screen_pos: Vector2, node: Node, vp_size: Vector
 			return i
 	return -1
 
-func _pick_node_at(world_pos: Vector2) -> Node:
+func _pick_node_at(world_pos: Vector2, screen_pos: Vector2 = Vector2.ZERO) -> Node:
 	if not is_instance_valid(_scene_root):
 		return null
 
@@ -1590,14 +1595,21 @@ func _pick_node_at(world_pos: Vector2) -> Node:
 	_collect_pickable_nodes(_scene_root, candidates)
 
 	for node in candidates:
-		var rect = _get_node_visual_rect(node)
-		if rect.size.x > 0 or rect.size.y > 0:
-			if rect.has_point(world_pos):
-				best = node  # Last hit wins (front-most)
-		else:
-			# No visual rect — use small proximity check
-			if world_pos.distance_to(node.global_position) < 16.0:
+		# Handle Control nodes specially - they use screen-space coordinates
+		if node is Control:
+			var control_rect = Rect2(node.global_position, node.size * node.scale)
+			if control_rect.has_point(screen_pos):
 				best = node
+		else:
+			# Node2D nodes use world-space coordinates
+			var rect = _get_node_visual_rect(node)
+			if rect.size.x > 0 or rect.size.y > 0:
+				if rect.has_point(world_pos):
+					best = node  # Last hit wins (front-most)
+			else:
+				# No visual rect — use small proximity check
+				if world_pos.distance_to(node.global_position) < 16.0:
+					best = node
 	return best
 
 func _collect_pickable_nodes(parent: Node, out: Array[Node]) -> void:
@@ -2065,13 +2077,21 @@ func _prompt_add_canvas_layer_for_control(control_type_name: String) -> void:
 		print("VG 2D Editor: Added CanvasLayer → ", canvas_layer.name)
 		
 		# Now create the Control node as child of CanvasLayer
+		# Control nodes in CanvasLayer use screen-space coordinates
+		# Position it in the center of the viewport so it's visible
 		var control_node: Control = null
 		match control_type_name:
 			"ColorRect":
 				var cr = ColorRect.new()
 				cr.name = _unique_name("ColorRect", canvas_layer)
-				cr.size = Vector2(64, 64)
+				cr.size = Vector2(200, 200)
 				cr.color = Color(0.5, 0.5, 0.8, 1.0)
+				# Center in viewport (screen space, not world space)
+				if _viewport_container:
+					var viewport_size = _viewport_container.size
+					cr.position = (viewport_size - cr.size) / 2.0
+				else:
+					cr.position = Vector2(300, 200)  # Fallback position
 				control_node = cr
 		
 		if control_node:
