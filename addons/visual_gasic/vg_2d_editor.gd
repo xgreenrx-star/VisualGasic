@@ -50,7 +50,7 @@ const COLLISION_SHAPE_BORDER := Color(0.0, 0.6, 1.0, 0.8)
 # ENUMS
 # ─────────────────────────────────────────────────────────────────────────────
 enum ToolMode { SELECT, MOVE, ROTATE, SCALE }
-enum InteractMode { NONE, RUBBER_BAND, DRAGGING, ROTATING, SCALING, PANNING, RESIZING_SHAPE }
+enum InteractMode { NONE, RUBBER_BAND, DRAGGING, ROTATING, SCALING, PANNING, RESIZING_SHAPE, RESIZING_CONTROL }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STATE VARIABLES
@@ -93,6 +93,12 @@ var _resize_shape_node: Node = null
 var _resize_corner: int = -1
 var _resize_start_size: Vector2 = Vector2.ZERO
 var _resize_start_radius: float = 0.0
+
+# Control resize (corner-drag for UI Controls like ColorRect)
+var _resize_control_node: Control = null
+var _resize_control_corner: int = -1
+var _resize_control_start_size: Vector2 = Vector2.ZERO
+var _resize_control_start_pos: Vector2 = Vector2.ZERO
 
 # Snap
 var _snap_enabled: bool = true
@@ -1280,6 +1286,21 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 					_overlay.queue_redraw()
 					return
 
+				# Check if clicking on a resize handle of a selected Control node
+				var _control_resize_check := -1
+				if _primary_selected and is_instance_valid(_primary_selected):
+					if _primary_selected is Control:
+						_control_resize_check = _check_control_resize_handle(event.position, _primary_selected)
+				if _control_resize_check >= 0:
+					# Start control resize interaction
+					_interact_mode = InteractMode.RESIZING_CONTROL
+					_resize_control_node = _primary_selected
+					_resize_control_corner = _control_resize_check
+					_resize_control_start_size = _primary_selected.size
+					_resize_control_start_pos = _primary_selected.position
+					_overlay.queue_redraw()
+					return
+
 				# Normal click — try to select
 				var world_pos = _screen_to_world(event.position, vp_size)
 				var screen_pos = event.position  # For Control nodes in CanvasLayer
@@ -1404,6 +1425,21 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 					_resize_shape_node = null
 					_resize_corner = -1
 					_scene_dirty = true
+				elif _interact_mode == InteractMode.RESIZING_CONTROL:
+					if _resize_control_node and is_instance_valid(_resize_control_node):
+						var undo_entry: Dictionary = {
+							"type": "control_resize",
+							"node": _resize_control_node,
+							"before_pos": _resize_control_start_pos,
+							"before_size": _resize_control_start_size,
+							"after_pos": _resize_control_node.position,
+							"after_size": _resize_control_node.size
+						}
+						_push_undo(undo_entry)
+					_interact_mode = InteractMode.NONE
+					_resize_control_node = null
+					_resize_control_corner = -1
+					_scene_dirty = true
 				else:
 					_interact_mode = InteractMode.NONE
 				_overlay.queue_redraw()
@@ -1519,6 +1555,58 @@ func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
 						cs.shape.height = new_h
 					_overlay.queue_redraw()
 
+		InteractMode.RESIZING_CONTROL:
+			if _resize_control_node and is_instance_valid(_resize_control_node):
+				var ctrl = _resize_control_node
+				# Control nodes use screen-space coordinates directly
+				var mouse_screen = event.position
+				
+				# Calculate new size based on which corner is being dragged
+				# Corners: 0=TL, 1=TR, 2=BR, 3=BL
+				var orig_pos = _resize_control_start_pos
+				var orig_size = _resize_control_start_size
+				var new_pos = ctrl.position
+				var new_size = ctrl.size
+				
+				match _resize_control_corner:
+					0:  # Top-Left - changes position and size
+						var delta = mouse_screen - orig_pos
+						if _snap_enabled:
+							delta = Vector2(snappedf(delta.x, _snap_value), snappedf(delta.y, _snap_value))
+						new_pos = orig_pos + delta
+						new_size = orig_size - delta
+					1:  # Top-Right - changes y position, width, and height
+						var delta_x = mouse_screen.x - (orig_pos.x + orig_size.x)
+						var delta_y = mouse_screen.y - orig_pos.y
+						if _snap_enabled:
+							delta_x = snappedf(delta_x, _snap_value)
+							delta_y = snappedf(delta_y, _snap_value)
+						new_pos.y = orig_pos.y + delta_y
+						new_size.x = orig_size.x + delta_x
+						new_size.y = orig_size.y - delta_y
+					2:  # Bottom-Right - changes width and height only
+						var delta = mouse_screen - (orig_pos + orig_size)
+						if _snap_enabled:
+							delta = Vector2(snappedf(delta.x, _snap_value), snappedf(delta.y, _snap_value))
+						new_size = orig_size + delta
+					3:  # Bottom-Left - changes x position, width, and height
+						var delta_x = mouse_screen.x - orig_pos.x
+						var delta_y = mouse_screen.y - (orig_pos.y + orig_size.y)
+						if _snap_enabled:
+							delta_x = snappedf(delta_x, _snap_value)
+							delta_y = snappedf(delta_y, _snap_value)
+						new_pos.x = orig_pos.x + delta_x
+						new_size.x = orig_size.x - delta_x
+						new_size.y = orig_size.y + delta_y
+				
+				# Enforce minimum size
+				new_size = new_size.max(Vector2(8, 8))
+				
+				ctrl.position = new_pos
+				ctrl.size = new_size
+				_update_transform_panel()
+				_overlay.queue_redraw()
+
 func _handle_key(event: InputEventKey) -> void:
 	if not event.pressed:
 		return
@@ -1609,6 +1697,24 @@ func _check_shape_resize_handle(screen_pos: Vector2, node: Node, vp_size: Vector
 	var br = _world_to_screen(rect.position + rect.size, vp_size)
 	var corners = [tl, Vector2(br.x, tl.y), br, Vector2(tl.x, br.y)]
 	var grab_dist = HANDLE_SIZE + 6.0  # slightly larger for easier grabbing
+	for i in range(corners.size()):
+		if screen_pos.distance_to(corners[i]) <= grab_dist:
+			return i
+	return -1
+
+func _check_control_resize_handle(screen_pos: Vector2, node: Control) -> int:
+	## Returns corner index (0=TL,1=TR,2=BR,3=BL) if screen_pos is near a
+	## corner handle of a Control node, otherwise -1.
+	## Control nodes in CanvasLayer use screen-space coordinates directly.
+	if not node is Control:
+		return -1
+	if not _is_in_canvas_layer(node):
+		return -1
+	# Control node rect in screen space
+	var tl = node.global_position
+	var br = node.global_position + node.size
+	var corners = [tl, Vector2(br.x, tl.y), br, Vector2(tl.x, br.y)]
+	var grab_dist = HANDLE_SIZE + 6.0
 	for i in range(corners.size()):
 		if screen_pos.distance_to(corners[i]) <= grab_dist:
 			return i
@@ -2526,8 +2632,8 @@ func _add_tree_children(parent: Node, tree_item: TreeItem) -> void:
 		item.set_text(0, vis + child.name + "  (" + type_hint + ")")
 		item.set_metadata(0, child)
 
-		# Highlight selected
-		if child in _selected_nodes:
+		# Highlight selected (only check for CanvasItem children - CanvasLayer is not a CanvasItem)
+		if child is CanvasItem and child in _selected_nodes:
 			item.set_custom_color(0, SELECTION_COLOR)
 
 		# Recurse
@@ -2535,18 +2641,18 @@ func _add_tree_children(parent: Node, tree_item: TreeItem) -> void:
 
 func _on_scene_tree_selected() -> void:
 	var sel = _scene_tree.get_selected()
-	if sel and sel.get_metadata(0) is Node2D:
+	if sel and sel.get_metadata(0) is CanvasItem:
 		_select_node(sel.get_metadata(0))
 		_viewport_container.grab_focus()
 
 func _on_scene_tree_double_clicked() -> void:
 	var sel = _scene_tree.get_selected()
-	if sel and sel.get_metadata(0) is Node2D:
+	if sel and sel.get_metadata(0) is CanvasItem:
 		node_double_clicked.emit(sel.get_metadata(0))
 
 func _on_scene_tree_rmb(_pos: Vector2, _mouse_btn: int) -> void:
 	var sel = _scene_tree.get_selected()
-	if sel and sel.get_metadata(0) is Node2D:
+	if sel and sel.get_metadata(0) is CanvasItem:
 		_select_node(sel.get_metadata(0))
 	_show_tree_context_menu(_scene_tree.get_global_mouse_position())
 
