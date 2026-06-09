@@ -1,0 +1,17 @@
+' Read-only ByRef helper — should NOT trigger fallback after #0b
+Sub ReadOnly(x As Integer)
+	Print("read x=" & x)
+End Sub
+
+' Writing ByRef helper — SHOULD still trigger fallback (correct behavior)
+Sub Writes(x As Integer)
+	x = x + 100
+End Sub
+
+Sub Main()
+	Dim n As Integer = 5
+	Call ReadOnly(n)
+	Print("n after readonly=" & n)
+	Call Writes(n)
+	Print("n after writes=" & n)
+End Sub

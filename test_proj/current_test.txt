@@ -1,1 +1,1 @@
-res://test_suite/test_withevents.vg
+res://test_suite/test_constants.vg

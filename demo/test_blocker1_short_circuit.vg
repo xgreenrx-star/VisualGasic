@@ -1,0 +1,53 @@
+' Smoke test: AndAlso/OrElse must short-circuit (not evaluate right when left decides)
+Sub Main()
+	Dim arr(2) As Integer
+	arr(0) = 10
+	arr(1) = 20
+	arr(2) = 30
+
+	' Test 1: AndAlso skips right when left is false
+	Dim i As Integer = -1
+	If i >= 0 AndAlso arr(i) > 0 Then
+		Print("FAIL: AndAlso evaluated right (would have OOB)")
+	Else
+		Print("PASS: AndAlso short-circuited on false left")
+	End If
+
+	' Test 2: AndAlso evaluates right when left is true
+	i = 1
+	If i >= 0 AndAlso arr(i) > 0 Then
+		Print("PASS: AndAlso evaluated right when left true (arr(1)=" & arr(i) & ")")
+	Else
+		Print("FAIL: AndAlso did not return true")
+	End If
+
+	' Test 3: OrElse skips right when left is true
+	i = 100
+	If i >= 0 OrElse arr(i) > 0 Then
+		Print("PASS: OrElse short-circuited on true left")
+	Else
+		Print("FAIL: OrElse evaluated right (would have OOB)")
+	End If
+
+	' Test 4: OrElse evaluates right when left is false
+	i = -1
+	If i >= 0 OrElse i = -1 Then
+		Print("PASS: OrElse evaluated right when left false")
+	Else
+		Print("FAIL: OrElse did not return true")
+	End If
+
+	' Test 5: constant fold AndAlso
+	If False AndAlso True Then
+		Print("FAIL: constant-fold False AndAlso True")
+	Else
+		Print("PASS: constant-fold False AndAlso True = False")
+	End If
+
+	' Test 6: constant fold OrElse
+	If True OrElse False Then
+		Print("PASS: constant-fold True OrElse False = True")
+	Else
+		Print("FAIL: constant-fold True OrElse False")
+	End If
+End Sub

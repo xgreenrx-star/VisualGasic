@@ -983,15 +983,34 @@ func _draw_origin_axes(vp_size: Vector2) -> void:
 		_overlay.draw_line(Vector2(origin_screen.x, 0), Vector2(origin_screen.x, vp_size.y), ORIGIN_Y_COLOR, 2.0)
 
 func _draw_selection_handle(node: CanvasItem, vp_size: Vector2) -> void:
-	var screen_pos = _world_to_screen(node.global_position, vp_size)
 	var color = SELECTION_COLOR if node == _primary_selected else MULTI_SELECTION_COLOR
+	
+	# Control nodes in CanvasLayer use screen-space coordinates directly
+	# Node2D nodes need world-to-screen transformation
+	var is_control_in_canvas_layer = node is Control and _is_in_canvas_layer(node)
+	
+	var screen_pos: Vector2
+	if is_control_in_canvas_layer:
+		# Control nodes already use screen-space coordinates
+		screen_pos = node.global_position
+	else:
+		# Node2D uses world coordinates, need transformation
+		screen_pos = _world_to_screen(node.global_position, vp_size)
 
 	# Get visual bounds
 	var rect = _get_node_visual_rect(node)
 	if rect.size.x > 0 or rect.size.y > 0:
 		# Draw bounding box
-		var tl = _world_to_screen(rect.position, vp_size)
-		var br = _world_to_screen(rect.position + rect.size, vp_size)
+		var tl: Vector2
+		var br: Vector2
+		if is_control_in_canvas_layer:
+			# Control nodes - rect is already in screen space
+			tl = rect.position
+			br = rect.position + rect.size
+		else:
+			# Node2D - transform from world to screen
+			tl = _world_to_screen(rect.position, vp_size)
+			br = _world_to_screen(rect.position + rect.size, vp_size)
 		var screen_rect = Rect2(tl, br - tl)
 		_overlay.draw_rect(screen_rect, color, false, 2.0)
 
@@ -1014,6 +1033,15 @@ func _draw_selection_handle(node: CanvasItem, vp_size: Vector2) -> void:
 	# Label
 	var label_pos = screen_pos + Vector2(8, -12)
 	_overlay.draw_string(ThemeDB.fallback_font, label_pos, node.name, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, color)
+
+## Check if a node is inside a CanvasLayer
+func _is_in_canvas_layer(node: Node) -> bool:
+	var parent = node.get_parent()
+	while parent:
+		if parent is CanvasLayer:
+			return true
+		parent = parent.get_parent()
+	return false
 
 func _draw_collision_shapes(_vp_size: Vector2) -> void:
 	if not is_instance_valid(_scene_root):
@@ -1391,7 +1419,8 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 				# Only show context menu if mouse didn't move much (not a pan drag)
 				if event.position.distance_to(_rmb_press_pos) < 5.0:
 					var world_pos = _screen_to_world(event.position, vp_size)
-					var hit = _pick_node_at(world_pos)
+					var screen_pos = event.position  # For Control nodes in CanvasLayer
+					var hit = _pick_node_at(world_pos, screen_pos)
 					if hit:
 						if hit not in _selected_nodes:
 							_select_node(hit)
@@ -2088,66 +2117,86 @@ func _add_2d_object(type_name: String, display_name: String) -> void:
 # ─────────────────────────────────────────────────────────────────────────────
 func _prompt_add_canvas_layer_for_control(control_type_name: String) -> void:
 	push_error("[VG 2D] DEBUG: _prompt_add_canvas_layer_for_control called for: " + control_type_name)
-	var dialog = AcceptDialog.new()
-	dialog.title = "CanvasLayer Required"
-	dialog.dialog_text = control_type_name + " is a UI Control node and needs a CanvasLayer parent when added to a Node2D scene.\n\nAdd CanvasLayer automatically?"
-	dialog.ok_button_text = "Yes, Add CanvasLayer"
-	dialog.add_cancel_button("No, Cancel")
 	
-	# Style the dialog
-	_style_dialog_dark(dialog)
+	# Check if there's already a CanvasLayer in the scene we can reuse
+	var existing_canvas_layer: CanvasLayer = null
+	for child in _scene_root.get_children():
+		if child is CanvasLayer:
+			existing_canvas_layer = child
+			break
 	
-	push_error("[VG 2D] DEBUG: About to connect dialog.confirmed signal")
-	dialog.confirmed.connect(func():
-		push_error("[VG 2D] DEBUG: Dialog confirmed callback triggered!")
-		# Create CanvasLayer first (CanvasLayer doesn't have position - it's a viewport-wide UI layer)
-		var canvas_layer = CanvasLayer.new()
-		canvas_layer.name = _unique_name("CanvasLayer", _scene_root)
+	if existing_canvas_layer:
+		# Reuse existing CanvasLayer - just add the Control directly
+		push_error("[VG 2D] DEBUG: Reusing existing CanvasLayer: " + existing_canvas_layer.name)
+		_add_control_to_canvas_layer(control_type_name, existing_canvas_layer)
+	else:
+		# No existing CanvasLayer - show dialog to create one
+		var dialog = AcceptDialog.new()
+		dialog.title = "CanvasLayer Required"
+		dialog.dialog_text = control_type_name + " is a UI Control node and needs a CanvasLayer parent when added to a Node2D scene.\n\nAdd CanvasLayer automatically?"
+		dialog.ok_button_text = "Yes, Add CanvasLayer"
+		dialog.add_cancel_button("No, Cancel")
 		
-		_scene_root.add_child(canvas_layer)
-		_push_undo({"type": "add", "nodes": [{"node": canvas_layer, "name": canvas_layer.name}]})
-		print("VG 2D Editor: Added CanvasLayer → ", canvas_layer.name)
+		# Style the dialog
+		_style_dialog_dark(dialog)
 		
-		# Now create the Control node as child of CanvasLayer
-		# Control nodes in CanvasLayer use screen-space coordinates relative to the viewport
-		# Position it in the center of the viewport so it's visible
-		var control_node: Control = null
-		match control_type_name:
-			"ColorRect":
-				var cr = ColorRect.new()
-				cr.name = _unique_name("ColorRect", canvas_layer)
-				cr.size = Vector2(300, 200)  # Larger size, easier to see
-				cr.color = Color(1.0, 0.0, 0.0, 1.0)  # Bright red - very visible
-				# Simple, reliable positioning - top-left with margin
-				cr.position = Vector2(50, 50)
-				push_error("[VG 2D] DEBUG: Created ColorRect size=", cr.size, " pos=", cr.position, " color=red")
-				control_node = cr
+		push_error("[VG 2D] DEBUG: About to connect dialog.confirmed signal")
+		dialog.confirmed.connect(func():
+			push_error("[VG 2D] DEBUG: Dialog confirmed callback triggered!")
+			# Create CanvasLayer first (CanvasLayer doesn't have position - it's a viewport-wide UI layer)
+			var canvas_layer = CanvasLayer.new()
+			canvas_layer.name = _unique_name("CanvasLayer", _scene_root)
+			
+			_scene_root.add_child(canvas_layer)
+			_push_undo({"type": "add", "nodes": [{"node": canvas_layer, "name": canvas_layer.name}]})
+			print("VG 2D Editor: Added CanvasLayer → ", canvas_layer.name)
+			
+			# Add the Control node to the new CanvasLayer
+			_add_control_to_canvas_layer(control_type_name, canvas_layer)
+			
+			dialog.queue_free()
+		)
 		
-		if control_node:
-			push_error("[VG 2D] DEBUG: About to add control_node to canvas_layer")
-			canvas_layer.add_child(control_node)
-			push_error("[VG 2D] DEBUG: control_node added to canvas_layer, name=", control_node.name)
-			_push_undo({"type": "add", "nodes": [{"node": control_node, "name": control_node.name}]})
-			_select_node(control_node)
-			push_error("[VG 2D] DEBUG: Added ", control_type_name, " → ", control_node.name)
-		else:
-			push_error("[VG 2D] DEBUG: ERROR - control_node is null!")
+		dialog.canceled.connect(func():
+			push_error("[VG 2D] DEBUG: Dialog canceled")
+			dialog.queue_free()
+		)
 		
-		_rebuild_scene_tree()
-		_scene_dirty = true
-		push_error("[VG 2D] DEBUG: Scene tree rebuilt, scene marked dirty")
-		dialog.queue_free()
-	)
+		push_error("[VG 2D] DEBUG: Adding dialog as child and showing popup")
+		add_child(dialog)
+		dialog.popup_centered()
+		push_error("[VG 2D] DEBUG: Dialog popup_centered() called")
+
+## Helper function to add a Control node to a CanvasLayer
+func _add_control_to_canvas_layer(control_type_name: String, canvas_layer: CanvasLayer) -> void:
+	# Now create the Control node as child of CanvasLayer
+	# Control nodes in CanvasLayer use screen-space coordinates relative to the viewport
+	# Position it in the center of the viewport so it's visible
+	var control_node: Control = null
+	match control_type_name:
+		"ColorRect":
+			var cr = ColorRect.new()
+			cr.name = _unique_name("ColorRect", canvas_layer)
+			cr.size = Vector2(300, 200)  # Larger size, easier to see
+			cr.color = Color(1.0, 0.0, 0.0, 1.0)  # Bright red - very visible
+			# Simple, reliable positioning - top-left with margin
+			cr.position = Vector2(50, 50)
+			push_error("[VG 2D] DEBUG: Created ColorRect size=", cr.size, " pos=", cr.position, " color=red")
+			control_node = cr
 	
-	dialog.canceled.connect(func():
-		push_error("[VG 2D] DEBUG: Dialog canceled")
-		dialog.queue_free()
-	)
+	if control_node:
+		push_error("[VG 2D] DEBUG: About to add control_node to canvas_layer")
+		canvas_layer.add_child(control_node)
+		push_error("[VG 2D] DEBUG: control_node added to canvas_layer, name=", control_node.name)
+		_push_undo({"type": "add", "nodes": [{"node": control_node, "name": control_node.name}]})
+		_select_node(control_node)
+		push_error("[VG 2D] DEBUG: Added ", control_type_name, " → ", control_node.name)
+	else:
+		push_error("[VG 2D] DEBUG: ERROR - control_node is null!")
 	
-	push_error("[VG 2D] DEBUG: Adding dialog as child and showing popup")
-	add_child(dialog)
-	dialog.popup_centered()
-	push_error("[VG 2D] DEBUG: Dialog popup_centered() called")
+	_rebuild_scene_tree()
+	_scene_dirty = true
+	push_error("[VG 2D] DEBUG: Scene tree rebuilt, scene marked dirty")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # INSTANCE CHILD SCENE

@@ -1,0 +1,10 @@
+' Read-only ByRef helper — pre-#0b would fall back, post-#0b should NOT
+Sub ReadOnly(x As Integer)
+	Print("read x=" & x)
+End Sub
+
+Sub Main()
+	Dim n As Integer = 5
+	Call ReadOnly(n)
+	Print("n=" & n)
+End Sub

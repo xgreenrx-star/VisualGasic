@@ -1,0 +1,31 @@
+Function MinBench(ByVal iterations As Long, ByVal size As Long) As Long
+    Dim arr(0) As Long
+    Dim keys(0) As String
+    Dim dict As Dictionary
+    Dim i As Long
+    Dim iter As Long
+    Dim sum As Long
+    ReDim arr(size - 1)
+    ReDim keys(size - 1)
+    For i = 0 To size - 1 Step 1
+        arr(i) = i
+        keys(i) = CStr(i)
+    Next i
+    Set dict = New Dictionary
+    For i = 0 To size - 1 Step 1
+        dict(keys(i)) = size - i
+    Next i
+    For iter = 0 To iterations - 1 Step 1
+        For i = 0 To size - 1 Step 1
+            sum = sum + arr(i)
+            sum = sum + dict(keys(i))
+        Next i
+    Next iter
+    MinBench = sum
+End Function
+
+Sub Main()
+    Dim r As Long
+    r = MinBench(1, 8)
+    Print "min(1,8) expect 64 = " & CStr(r)
+End Sub

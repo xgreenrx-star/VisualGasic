@@ -1,0 +1,66 @@
+' Test: typed Dim arrays should use PackedFloat64Array / PackedInt64Array storage
+' and should pass through OP_GET/SET_ARRAY_FAST without crashing.
+
+Sub TestSingleArray()
+	Dim arr(7) As Single
+	Dim i As Integer
+	For i = 0 To 7
+		arr(i) = i * 0.5
+	Next
+	Dim sum As Double
+	sum = 0.0
+	For i = 0 To 7
+		sum = sum + arr(i)
+	Next
+	' expected: 0 + 0.5 + 1.0 + 1.5 + 2.0 + 2.5 + 3.0 + 3.5 = 14.0
+	Print("Single sum: " & sum)
+End Sub
+
+Sub TestLongArray()
+	Dim arr(9) As Long
+	Dim i As Integer
+	For i = 0 To 9
+		arr(i) = i * 3
+	Next
+	Dim total As Long
+	total = 0
+	For i = 0 To 9
+		total = total + arr(i)
+	Next
+	' expected: 3 * (0+1+...+9) = 3*45 = 135
+	Print("Long sum: " & total)
+End Sub
+
+Sub TestUntypedArrayStillWorks()
+	Dim arr(4) As Variant
+	arr(0) = "hello"
+	arr(1) = 42
+	arr(2) = 3.14
+	Print("Untyped: " & arr(0) & " " & arr(1) & " " & arr(2))
+End Sub
+
+Sub TestVector2Array()
+	Dim v(7) As Vector2
+	Dim i As Integer
+	For i = 0 To 7
+		v(i) = Vector2(i, i * 2)
+	Next
+	Dim sx As Double
+	Dim sy As Double
+	sx = 0.0
+	sy = 0.0
+	For i = 0 To 7
+		sx = sx + v(i).x
+		sy = sy + v(i).y
+	Next
+	' expected: sx = 0+1+...+7 = 28, sy = 56
+	Print("Vector2 sum: (" & sx & ", " & sy & ")")
+End Sub
+
+Sub Main()
+	Call TestSingleArray()
+	Call TestLongArray()
+	Call TestUntypedArrayStillWorks()
+	Call TestVector2Array()
+	Print("ALL TESTS DONE")
+End Sub
