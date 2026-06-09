@@ -274,11 +274,11 @@ static func _scan_for_tscn(path: String) -> String:
 # BUILD UI
 # ─────────────────────────────────────────────────────────────────────────────
 func _build_ui() -> void:
-	split_offset = 250
+	split_offset = 180
 
 	# ── LEFT PANEL ──────────────────────────────────────────────────────────
 	var left_panel = PanelContainer.new()
-	left_panel.custom_minimum_size.x = 240
+	left_panel.custom_minimum_size.x = 170
 	var left_panel_style = StyleBoxFlat.new()
 	left_panel_style.bg_color = Color(0.16, 0.16, 0.19)
 	left_panel_style.set_border_width_all(0)
@@ -323,7 +323,7 @@ func _build_ui() -> void:
 	toolbox_tree_split.size_flags_vertical = SIZE_EXPAND_FILL
 	toolbox_tree_split.size_flags_horizontal = SIZE_EXPAND_FILL
 	toolbox_tree_split.custom_minimum_size.y = 600
-	toolbox_tree_split.split_offset = -240  # give the Scene Tree more room
+	toolbox_tree_split.split_offset = 200  # give the 2D Objects list more room
 	# Make the drag handle visible so users can find and resize it.
 	var grab_style := StyleBoxFlat.new()
 	grab_style.bg_color = Color(0.35, 0.55, 0.85)
@@ -336,12 +336,12 @@ func _build_ui() -> void:
 
 	var toolbox_pane := VBoxContainer.new()
 	toolbox_pane.size_flags_vertical = SIZE_EXPAND_FILL
-	toolbox_pane.custom_minimum_size.y = 120
+	toolbox_pane.custom_minimum_size.y = 350
 	toolbox_tree_split.add_child(toolbox_pane)
 
 	var scene_pane := VBoxContainer.new()
 	scene_pane.size_flags_vertical = SIZE_EXPAND_FILL
-	scene_pane.custom_minimum_size.y = 220
+	scene_pane.custom_minimum_size.y = 150
 	toolbox_tree_split.add_child(scene_pane)
 
 	# ── 2D Toolbox ──
