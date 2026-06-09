@@ -832,7 +832,7 @@ func _build_ui() -> void:
 	vp_outer.add_child(vp_row)
 
 	_viewport_container = SubViewportContainer.new()
-	_viewport_container.stretch = true
+	_viewport_container.stretch = false  # Disable stretch so we can manually sync size in _process()
 	_viewport_container.size_flags_horizontal = SIZE_EXPAND_FILL
 	_viewport_container.size_flags_vertical = SIZE_EXPAND_FILL
 	_viewport_container.focus_mode = Control.FOCUS_ALL
@@ -2007,6 +2007,7 @@ func _add_2d_object(type_name: String, display_name: String) -> void:
 		"ColorRect":
 			# ColorRect is a Control node - needs CanvasLayer parent with Node2D root
 			# Since _scene_root is typed as Node2D, always prompt to add CanvasLayer
+			push_error("[VG 2D] DEBUG: ColorRect case triggered, calling _prompt_add_canvas_layer_for_control")
 			_prompt_add_canvas_layer_for_control("ColorRect")
 			return
 		"Line2D":
@@ -2062,6 +2063,7 @@ func _add_2d_object(type_name: String, display_name: String) -> void:
 # SMART CANVASLAYER INSERTION FOR CONTROL NODES
 # ─────────────────────────────────────────────────────────────────────────────
 func _prompt_add_canvas_layer_for_control(control_type_name: String) -> void:
+	push_error("[VG 2D] DEBUG: _prompt_add_canvas_layer_for_control called for: " + control_type_name)
 	var dialog = AcceptDialog.new()
 	dialog.title = "CanvasLayer Required"
 	dialog.dialog_text = control_type_name + " is a UI Control node and needs a CanvasLayer parent when added to a Node2D scene.\n\nAdd CanvasLayer automatically?"
@@ -2071,8 +2073,9 @@ func _prompt_add_canvas_layer_for_control(control_type_name: String) -> void:
 	# Style the dialog
 	_style_dialog_dark(dialog)
 	
+	push_error("[VG 2D] DEBUG: About to connect dialog.confirmed signal")
 	dialog.confirmed.connect(func():
-		print("VG 2D Editor: Dialog confirmed - starting to create CanvasLayer + ", control_type_name)
+		push_error("[VG 2D] DEBUG: Dialog confirmed callback triggered!")
 		# Create CanvasLayer first (CanvasLayer doesn't have position - it's a viewport-wide UI layer)
 		var canvas_layer = CanvasLayer.new()
 		canvas_layer.name = _unique_name("CanvasLayer", _scene_root)
@@ -2116,11 +2119,14 @@ func _prompt_add_canvas_layer_for_control(control_type_name: String) -> void:
 	)
 	
 	dialog.canceled.connect(func():
+		push_error("[VG 2D] DEBUG: Dialog canceled")
 		dialog.queue_free()
 	)
 	
+	push_error("[VG 2D] DEBUG: Adding dialog as child and showing popup")
 	add_child(dialog)
 	dialog.popup_centered()
+	push_error("[VG 2D] DEBUG: Dialog popup_centered() called")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # INSTANCE CHILD SCENE
@@ -2759,7 +2765,7 @@ func _ensure_scene_ready() -> void:
 	if _viewport == null:
 		if _viewport_container == null:
 			_viewport_container = SubViewportContainer.new()
-			_viewport_container.stretch = true
+			_viewport_container.stretch = false  # Disable stretch so we can manually sync size in _process()
 			_viewport_container.size_flags_horizontal = SIZE_EXPAND_FILL
 			_viewport_container.size_flags_vertical = SIZE_EXPAND_FILL
 			add_child(_viewport_container)
