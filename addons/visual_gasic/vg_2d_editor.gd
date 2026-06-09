@@ -2028,10 +2028,12 @@ func _add_2d_object(type_name: String, display_name: String) -> void:
 			return
 
 	if node:
-		# Place at camera center (current view center)
-		node.position = _cam_offset
-		if _snap_enabled:
-			node.position = Vector2(snappedf(node.position.x, _snap_value), snappedf(node.position.y, _snap_value))
+		# Place at camera center (current view center) - but only for Node2D nodes
+		# (CanvasLayer and other non-spatial nodes don't have position)
+		if node is Node2D:
+			node.position = _cam_offset
+			if _snap_enabled:
+				node.position = Vector2(snappedf(node.position.x, _snap_value), snappedf(node.position.y, _snap_value))
 
 		_scene_root.add_child(node)
 		_push_undo({"type": "add", "nodes": [{"node": node, "name": node.name}]})
@@ -2054,12 +2056,9 @@ func _prompt_add_canvas_layer_for_control(control_type_name: String) -> void:
 	_style_dialog_dark(dialog)
 	
 	dialog.confirmed.connect(func():
-		# Create CanvasLayer first
+		# Create CanvasLayer first (CanvasLayer doesn't have position - it's a viewport-wide UI layer)
 		var canvas_layer = CanvasLayer.new()
 		canvas_layer.name = _unique_name("CanvasLayer", _scene_root)
-		canvas_layer.position = _cam_offset
-		if _snap_enabled:
-			canvas_layer.position = Vector2(snappedf(canvas_layer.position.x, _snap_value), snappedf(canvas_layer.position.y, _snap_value))
 		
 		_scene_root.add_child(canvas_layer)
 		_push_undo({"type": "add", "nodes": [{"node": canvas_layer, "name": canvas_layer.name}]})
