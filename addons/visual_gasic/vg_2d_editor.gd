@@ -1718,26 +1718,46 @@ func _update_transform_panel() -> void:
 		_scl_y.set_value_no_signal(1)
 		return
 
-	_pos_x.set_value_no_signal(_primary_selected.position.x)
-	_pos_y.set_value_no_signal(_primary_selected.position.y)
-	_rot_z.set_value_no_signal(rad_to_deg(_primary_selected.rotation))
-	_scl_x.set_value_no_signal(_primary_selected.scale.x)
-	_scl_y.set_value_no_signal(_primary_selected.scale.y)
+	# Control nodes only have position (and size), not rotation/scale like Node2D
+	if _primary_selected is Control:
+		_pos_x.set_value_no_signal(_primary_selected.position.x)
+		_pos_y.set_value_no_signal(_primary_selected.position.y)
+		_rot_z.set_value_no_signal(0)  # Control doesn't have rotation
+		_scl_x.set_value_no_signal(1)  # Control doesn't have scale
+		_scl_y.set_value_no_signal(1)
+	elif _primary_selected is Node2D:
+		_pos_x.set_value_no_signal(_primary_selected.position.x)
+		_pos_y.set_value_no_signal(_primary_selected.position.y)
+		_rot_z.set_value_no_signal(rad_to_deg(_primary_selected.rotation))
+		_scl_x.set_value_no_signal(_primary_selected.scale.x)
+		_scl_y.set_value_no_signal(_primary_selected.scale.y)
+	else:
+		# Fallback for other CanvasItem types
+		_pos_x.set_value_no_signal(0)
+		_pos_y.set_value_no_signal(0)
+		_rot_z.set_value_no_signal(0)
+		_scl_x.set_value_no_signal(1)
+		_scl_y.set_value_no_signal(1)
 
 func _on_transform_value_changed(_value: float = 0.0) -> void:
 	if not _primary_selected or not is_instance_valid(_primary_selected):
 		return
 
-	var before = {"node": _primary_selected, "position": _primary_selected.position,
-		"rotation": _primary_selected.rotation, "scale": _primary_selected.scale}
-
-	_primary_selected.position = Vector2(_pos_x.value, _pos_y.value)
-	_primary_selected.rotation = deg_to_rad(_rot_z.value)
-	_primary_selected.scale = Vector2(_scl_x.value, _scl_y.value)
-
-	var after = {"node": _primary_selected, "position": _primary_selected.position,
-		"rotation": _primary_selected.rotation, "scale": _primary_selected.scale}
-	_push_undo({"type": "transform", "before": [before], "after": [after]})
+	# Control nodes only have position, Node2D has position/rotation/scale
+	if _primary_selected is Control:
+		var before = {"node": _primary_selected, "position": _primary_selected.position}
+		_primary_selected.position = Vector2(_pos_x.value, _pos_y.value)
+		var after = {"node": _primary_selected, "position": _primary_selected.position}
+		_push_undo({"type": "transform", "before": [before], "after": [after]})
+	elif _primary_selected is Node2D:
+		var before = {"node": _primary_selected, "position": _primary_selected.position,
+			"rotation": _primary_selected.rotation, "scale": _primary_selected.scale}
+		_primary_selected.position = Vector2(_pos_x.value, _pos_y.value)
+		_primary_selected.rotation = deg_to_rad(_rot_z.value)
+		_primary_selected.scale = Vector2(_scl_x.value, _scl_y.value)
+		var after = {"node": _primary_selected, "position": _primary_selected.position,
+			"rotation": _primary_selected.rotation, "scale": _primary_selected.scale}
+		_push_undo({"type": "transform", "before": [before], "after": [after]})
 
 	_scene_dirty = true
 	_overlay.queue_redraw()
@@ -1753,9 +1773,13 @@ func _delete_selected() -> void:
 	for node in _selected_nodes:
 		if is_instance_valid(node):
 			var dup = node.duplicate()
-			deleted.append({"node_dup": dup, "parent": node.get_parent(), "name": node.name,
-				"position": node.position, "rotation": node.rotation, "scale": node.scale,
-				"index": node.get_index()})
+			var node_data = {"node_dup": dup, "parent": node.get_parent(), "name": node.name,
+				"position": node.position, "index": node.get_index()}
+			# Only Node2D has rotation and scale properties
+			if node is Node2D:
+				node_data["rotation"] = node.rotation
+				node_data["scale"] = node.scale
+			deleted.append(node_data)
 			node.get_parent().remove_child(node)
 			node.queue_free()
 
@@ -2485,7 +2509,8 @@ func _update_scene_tree_selection() -> void:
 
 func _update_tree_item_selection(item: TreeItem) -> void:
 	var node = item.get_metadata(0)
-	if node is Node2D:
+	# Only check CanvasItem nodes for selection (CanvasLayer is not a CanvasItem)
+	if node is CanvasItem:
 		if node in _selected_nodes:
 			item.set_custom_color(0, SELECTION_COLOR)
 		else:
