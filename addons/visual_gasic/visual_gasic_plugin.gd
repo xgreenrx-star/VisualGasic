@@ -2676,6 +2676,11 @@ func _finish_form_creation(path: String, form_name: String, vg_path: String, tem
 	packed.pack(root)
 	ResourceSaver.save(packed, path)
 	print("VisualGasic: Created form at ", path)
+	# Set as main scene if none is configured yet — new projects need this
+	# so F5 / the Run button works immediately after creation.
+	if ProjectSettings.get_setting("application/run/main_scene", "") == "":
+		ProjectSettings.set_setting("application/run/main_scene", path)
+		ProjectSettings.save()
 	
 	# Open the scene
 	get_editor_interface().open_scene_from_path(path)
@@ -4411,6 +4416,11 @@ func _do_save_form() -> void:
 	# Notify Godot's filesystem so it doesn't treat this as external change
 	if not saved_path.is_empty():
 		EditorInterface.get_resource_filesystem().update_file(saved_path)
+	# Set as main scene if none is configured yet — new projects need this
+	# so F5 / the Run button works immediately after the first save.
+	if not saved_path.is_empty() and ProjectSettings.get_setting("application/run/main_scene", "") == "":
+		ProjectSettings.set_setting("application/run/main_scene", saved_path)
+		ProjectSettings.save()
 	# Patch Godot's in-memory scene tree so its scene saver won't overwrite
 	# our .tscn with stale values when the editor closes.
 	_sync_form_state_to_scene_tree()
@@ -4441,6 +4451,10 @@ func _do_save_form_as() -> void:
 		_form_designer.save_form_as(path)
 		print("[VisualGasic] Form saved as: ", path)
 		EditorInterface.get_resource_filesystem().update_file(path)
+		# Set as main scene if none is configured yet.
+		if ProjectSettings.get_setting("application/run/main_scene", "") == "":
+			ProjectSettings.set_setting("application/run/main_scene", path)
+			ProjectSettings.save()
 		_sync_form_state_to_scene_tree()
 		_reload_scene_after_form_save(path)
 		fd.queue_free()
@@ -9501,8 +9515,38 @@ func _scaffold_starter_module() -> String:
 	if f == null:
 		push_warning("VisualGasic: cannot create starter module at " + path)
 		return ""
-	f.store_string("' " + name + ".vg — VisualGasic module\n' Type your code here.\n\nSub Main()\n\tPrint(\"Hello from \" & \"" + name + "\")\nEnd Sub\n")
+	# Include Sub _Ready() so pressing F5 actually runs the code.
+	# The VG runtime calls _Ready() automatically (like Godot's _ready).
+	# Without it, Sub Main() is never invoked when the scene starts.
+	var code := "' " + name + ".vg \u2014 VisualGasic module\n"
+	code += "' Type your code here.\n\n"
+	code += "Sub _Ready()\n\tMain()\nEnd Sub\n\n"
+	code += "Sub Main()\n\tPrint(\"Hello from \" & \"" + name + "\")\nEnd Sub\n"
+	f.store_string(code)
 	f.close()
+
+	# Create a matching launcher scene (Node2D root + this script) and register
+	# it as run/main_scene so F5 / the Run button works immediately.
+	# Uses Node2D (not Node) so users can add 2D objects in the editor.
+	var tscn_path := base + name + ".tscn"
+	if not FileAccess.file_exists(tscn_path):
+		var vg_res_path := "res://" + name + ".vg"
+		var tscn_text := "[gd_scene load_steps=2 format=3]\n\n"
+		tscn_text += "[ext_resource type=\"Script\" path=\"" + vg_res_path + "\" id=\"1\"]\n\n"
+		tscn_text += "[node name=\"App\" type=\"Node2D\"]\n"
+		tscn_text += "script = ExtResource(\"1\")\n"
+		var tf := FileAccess.open(tscn_path, FileAccess.WRITE)
+		if tf != null:
+			tf.store_string(tscn_text)
+			tf.close()
+			print("VisualGasic: Created launcher scene: ", tscn_path)
+
+	# Set as main scene if none configured yet.
+	if ProjectSettings.get_setting("application/run/main_scene", "") == "":
+		ProjectSettings.set_setting("application/run/main_scene", tscn_path)
+		ProjectSettings.save()
+		print("VisualGasic: Set run/main_scene = ", tscn_path)
+
 	# Refresh the editor's filesystem dock so the new file appears.
 	# IMPORTANT: defer the scan().  When _scaffold_starter_module is called
 	# from inside _auto_open_formless_module (itself a call_deferred
@@ -9594,6 +9638,15 @@ func _auto_open_formless_module() -> void:
 		if not first_form.is_empty():
 			print("VisualGasic: Auto-opening first form: ", first_form)
 			call_deferred("open_form_in_designer", first_form)
+			return
+		# Brand-new forms-mode project: no .tscn on disk yet, but the C++
+		# designer already has a blank Form1 in memory from new_form("Form1").
+		# Save it now so (a) the user sees their form persisted and (b) the
+		# project has a run/main_scene set — without this pressing F5 shows
+		# "Can't run project: no main scene defined."
+		if is_instance_valid(_form_designer) and _form_designer.get_form_path().is_empty():
+			print("VisualGasic: New forms project — scaffolding Form1.tscn as main scene")
+			call_deferred("_do_save_form")
 			return
 
 	# No forms → try to find a standalone .vg module for formless projects

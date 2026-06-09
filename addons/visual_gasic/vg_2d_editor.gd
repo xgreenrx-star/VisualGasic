@@ -160,6 +160,7 @@ var _toolbox_items: Array = [
 	{name = "Sprite 2D", type = "Sprite2D", icon = "🖼️"},
 	{name = "Animated Sprite", type = "AnimatedSprite2D", icon = "🎞️"},
 	{name = "Camera 2D", type = "Camera2D", icon = "📷"},
+	{name = "Canvas Layer", type = "CanvasLayer", icon = "🎨"},
 	{name = "Char Body 2D", type = "CharacterBody2D", icon = "🏃"},
 	{name = "Rigid Body 2D", type = "RigidBody2D", icon = "⚙️"},
 	{name = "Static Body 2D", type = "StaticBody2D", icon = "🧱"},
@@ -1885,7 +1886,7 @@ func _on_toolbox_item_double_clicked(idx: int) -> void:
 		_add_2d_object(item.type, item.name)
 
 func _add_2d_object(type_name: String, display_name: String) -> void:
-	var node: Node2D = null
+	var node: Node = null  # Changed from Node2D to Node to support Control nodes
 
 	match type_name:
 		"Sprite2D":
@@ -1897,6 +1898,9 @@ func _add_2d_object(type_name: String, display_name: String) -> void:
 		"Camera2D":
 			node = Camera2D.new()
 			node.name = _unique_name("Camera2D", _scene_root)
+		"CanvasLayer":
+			node = CanvasLayer.new()
+			node.name = _unique_name("CanvasLayer", _scene_root)
 		"CharacterBody2D":
 			var body = CharacterBody2D.new()
 			body.name = _unique_name("CharacterBody2D", _scene_root)
@@ -1988,6 +1992,11 @@ func _add_2d_object(type_name: String, display_name: String) -> void:
 			node = Marker2D.new()
 			node.name = _unique_name("Marker2D", _scene_root)
 		"ColorRect":
+			# ColorRect is a Control node - check if parent can accept it
+			if not (_scene_root is CanvasLayer or _scene_root is Control):
+				# Parent is Node2D or similar - needs CanvasLayer in between
+				_prompt_add_canvas_layer_for_control("ColorRect")
+				return
 			var cr = ColorRect.new()
 			cr.name = _unique_name("ColorRect", _scene_root)
 			cr.size = Vector2(64, 64)
@@ -2036,6 +2045,59 @@ func _add_2d_object(type_name: String, display_name: String) -> void:
 		_rebuild_scene_tree()
 		_scene_dirty = true
 		print("VG 2D Editor: Added ", display_name, " → ", node.name)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SMART CANVASLAYER INSERTION FOR CONTROL NODES
+# ─────────────────────────────────────────────────────────────────────────────
+func _prompt_add_canvas_layer_for_control(control_type_name: String) -> void:
+	var dialog = AcceptDialog.new()
+	dialog.title = "CanvasLayer Required"
+	dialog.dialog_text = control_type_name + " is a UI Control node and needs a CanvasLayer parent when added to a Node2D scene.\n\nAdd CanvasLayer automatically?"
+	dialog.ok_button_text = "Yes, Add CanvasLayer"
+	dialog.add_cancel_button("No, Cancel")
+	
+	# Style the dialog
+	_style_dialog_dark(dialog)
+	
+	dialog.confirmed.connect(func():
+		# Create CanvasLayer first
+		var canvas_layer = CanvasLayer.new()
+		canvas_layer.name = _unique_name("CanvasLayer", _scene_root)
+		canvas_layer.position = _cam_offset
+		if _snap_enabled:
+			canvas_layer.position = Vector2(snappedf(canvas_layer.position.x, _snap_value), snappedf(canvas_layer.position.y, _snap_value))
+		
+		_scene_root.add_child(canvas_layer)
+		_push_undo({"type": "add", "nodes": [{"node": canvas_layer, "name": canvas_layer.name}]})
+		print("VG 2D Editor: Added CanvasLayer → ", canvas_layer.name)
+		
+		# Now create the Control node as child of CanvasLayer
+		var control_node: Control = null
+		match control_type_name:
+			"ColorRect":
+				var cr = ColorRect.new()
+				cr.name = _unique_name("ColorRect", canvas_layer)
+				cr.size = Vector2(64, 64)
+				cr.color = Color(0.5, 0.5, 0.8, 1.0)
+				control_node = cr
+		
+		if control_node:
+			canvas_layer.add_child(control_node)
+			_push_undo({"type": "add", "nodes": [{"node": control_node, "name": control_node.name}]})
+			_select_node(control_node)
+			print("VG 2D Editor: Added ", control_type_name, " → ", control_node.name)
+		
+		_rebuild_scene_tree()
+		_scene_dirty = true
+		dialog.queue_free()
+	)
+	
+	dialog.canceled.connect(func():
+		dialog.queue_free()
+	)
+	
+	add_child(dialog)
+	dialog.popup_centered()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # INSTANCE CHILD SCENE
