@@ -1992,16 +1992,10 @@ func _add_2d_object(type_name: String, display_name: String) -> void:
 			node = Marker2D.new()
 			node.name = _unique_name("Marker2D", _scene_root)
 		"ColorRect":
-			# ColorRect is a Control node - check if parent can accept it
-			if not (_scene_root is CanvasLayer or _scene_root is Control):
-				# Parent is Node2D or similar - needs CanvasLayer in between
-				_prompt_add_canvas_layer_for_control("ColorRect")
-				return
-			var cr = ColorRect.new()
-			cr.name = _unique_name("ColorRect", _scene_root)
-			cr.size = Vector2(64, 64)
-			cr.color = Color(0.5, 0.5, 0.8, 1.0)
-			node = cr
+			# ColorRect is a Control node - needs CanvasLayer parent with Node2D root
+			# Since _scene_root is typed as Node2D, always prompt to add CanvasLayer
+			_prompt_add_canvas_layer_for_control("ColorRect")
+			return
 		"Line2D":
 			var line = Line2D.new()
 			line.name = _unique_name("Line2D", _scene_root)
