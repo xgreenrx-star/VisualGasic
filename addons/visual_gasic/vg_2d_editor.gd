@@ -204,6 +204,31 @@ func _ready() -> void:
 	_build_context_menus()
 	_populate_toolbox()
 
+# ── Drag-and-drop target handling ───────────────────────────────────────────
+func _can_drop_data(at_position: Vector2, data: Variant) -> bool:
+	if not data is Dictionary:
+		return false
+	if data.get("type") != "toolbox_item":
+		return false
+	# Check if drop is over the viewport container
+	if _viewport_container:
+		var vp_rect = _viewport_container.get_global_rect()
+		var global_pos = get_global_position() + at_position
+		return vp_rect.has_point(global_pos)
+	return false
+
+func _drop_data(at_position: Vector2, data: Variant) -> void:
+	if not data is Dictionary or data.get("type") != "toolbox_item":
+		return
+	var item_type: String = data.get("item_type", "")
+	var item_name: String = data.get("item_name", "")
+	if item_type.is_empty():
+		return
+	# Convert drop position to viewport-local, then to world coordinates
+	var global_pos = get_global_position() + at_position
+	var vp_local = global_pos - _viewport_container.get_global_position()
+	_add_2d_object_at_position(item_type, item_name, vp_local)
+
 func _notification(what: int) -> void:
 	# When the 2D editor becomes visible and has no scene loaded, try to
 	# auto-load the project's main scene.  This acts as a reliable fallback
@@ -274,11 +299,11 @@ static func _scan_for_tscn(path: String) -> String:
 # BUILD UI
 # ─────────────────────────────────────────────────────────────────────────────
 func _build_ui() -> void:
-	split_offset = 180
+	split_offset = -50  # Negative value = larger viewport area (moves divider left)
 
 	# ── LEFT PANEL ──────────────────────────────────────────────────────────
 	var left_panel = PanelContainer.new()
-	left_panel.custom_minimum_size.x = 170
+	left_panel.custom_minimum_size.x = 160
 	var left_panel_style = StyleBoxFlat.new()
 	left_panel_style.bg_color = Color(0.16, 0.16, 0.19)
 	left_panel_style.set_border_width_all(0)
@@ -395,6 +420,8 @@ func _build_ui() -> void:
 	_toolbox_list.add_theme_stylebox_override("hovered", item_hover_style)
 	_toolbox_list.theme = _build_dark_scrollbar_theme()
 	_toolbox_list.item_activated.connect(_on_toolbox_item_double_clicked)
+	# Enable drag-and-drop from toolbox to viewport
+	_toolbox_list.set_drag_forwarding(_toolbox_get_drag_data, _toolbox_can_drop_data, _toolbox_drop_data)
 	toolbox_pane.add_child(_toolbox_list)
 
 	var add_btn = Button.new()
@@ -2056,6 +2083,31 @@ func _on_toolbox_item_double_clicked(idx: int) -> void:
 		var item = _toolbox_items[idx]
 		_add_2d_object(item.type, item.name)
 
+# ── Drag-and-drop from toolbox ──────────────────────────────────────────────
+func _toolbox_get_drag_data(at_position: Vector2) -> Variant:
+	var idx = _toolbox_list.get_item_at_position(at_position, true)
+	if idx < 0 or idx >= _toolbox_items.size():
+		return null
+	var item = _toolbox_items[idx]
+	# Create drag preview label
+	var preview = Label.new()
+	preview.text = item.icon + " " + item.name
+	preview.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+	preview.add_theme_font_size_override("font_size", 12)
+	var bg = StyleBoxFlat.new()
+	bg.bg_color = Color(0.2, 0.4, 0.6, 0.9)
+	bg.set_corner_radius_all(4)
+	bg.set_content_margin_all(6)
+	preview.add_theme_stylebox_override("normal", bg)
+	_toolbox_list.set_drag_preview(preview)
+	return {"type": "toolbox_item", "item_type": item.type, "item_name": item.name}
+
+func _toolbox_can_drop_data(_at_position: Vector2, _data: Variant) -> bool:
+	return false  # Toolbox doesn't accept drops
+
+func _toolbox_drop_data(_at_position: Vector2, _data: Variant) -> void:
+	pass  # Toolbox doesn't accept drops
+
 func _add_2d_object(type_name: String, display_name: String) -> void:
 	var node: Node = null  # Changed from Node2D to Node to support Control nodes
 
@@ -2217,6 +2269,19 @@ func _add_2d_object(type_name: String, display_name: String) -> void:
 		_rebuild_scene_tree()
 		_scene_dirty = true
 		print("VG 2D Editor: Added ", display_name, " → ", node.name)
+
+## Add a 2D object at a specific viewport-local position (used for drag-and-drop)
+func _add_2d_object_at_position(type_name: String, display_name: String, vp_local_pos: Vector2) -> void:
+	# Convert viewport-local to world coordinates
+	var world_pos: Vector2 = _cam_offset + (vp_local_pos - _viewport_container.size * 0.5) / _zoom
+	if _snap_enabled:
+		world_pos = Vector2(snappedf(world_pos.x, _snap_value), snappedf(world_pos.y, _snap_value))
+	
+	# Store the position temporarily and use existing add function
+	var old_cam_offset := _cam_offset
+	_cam_offset = world_pos
+	_add_2d_object(type_name, display_name)
+	_cam_offset = old_cam_offset
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SMART CANVASLAYER INSERTION FOR CONTROL NODES
