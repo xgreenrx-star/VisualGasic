@@ -95,3 +95,8 @@ Makefile.tests
 # Third-party reference sources (cloned for porting; not shipped)
 vendor/
 /ai_projects/
+
+# Secrets / credentials — never commit these
+tools/client_secrets.json
+*client_secrets*.json
+*service_account*.json
