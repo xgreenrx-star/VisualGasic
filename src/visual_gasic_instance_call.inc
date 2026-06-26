@@ -878,8 +878,23 @@ void VisualGasicInstance::raise_error(String msg, int code, const String &source
     error_state.message = msg;
     error_state.code = code;
     error_state.error_line = debug_state.current_line; // Capture line for Erl
+
+    // Always log runtime errors — even when an On Error handler is active.
+    // On Error Resume Next / Goto suppresses the DIALOG but should never
+    // hide errors from the developer's Output panel.
+    String sub_name = current_sub ? String(current_sub->name) : String("(unknown)");
+    String script_path = script.is_valid() ? script->get_path() : String("(unknown)");
     if (error_state.mode == ErrorState::NONE) {
-        UtilityFunctions::print("Runtime Error ", code, ": ", msg);
+        UtilityFunctions::printerr("[VG Runtime Error ", code, "] ", msg,
+            " — Sub: ", sub_name,
+            " Line: ", debug_state.current_line,
+            " (", script_path, ")");
+    } else {
+        // Handled by On Error — log at lower severity so it's visible but not alarming
+        UtilityFunctions::print("[VG Handled Error ", code, "] ", msg,
+            " — Sub: ", sub_name,
+            " Line: ", debug_state.current_line,
+            " (handled by On Error)");
     }
 }
 

@@ -196,6 +196,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         if (name.nocasecmp_to("vbBack") == 0) return String(String::chr(8));
         if (name.nocasecmp_to("vbFormFeed") == 0) return String(String::chr(12));
         if (name.nocasecmp_to("vbVerticalTab") == 0) return String(String::chr(11));
+        if (name.nocasecmp_to("vbQuote") == 0) return String("\"");
+        if (name.nocasecmp_to("vbSpace") == 0) return String(" ");
+        if (name.nocasecmp_to("vbComma") == 0) return String(",");
+        if (name.nocasecmp_to("vbPipe") == 0) return String("|");
         // VB6 Boolean constants
         if (name.nocasecmp_to("vbTrue") == 0) return true;
         if (name.nocasecmp_to("vbFalse") == 0) return false;

@@ -1519,7 +1519,10 @@ func ensure_event_handler(sub_name: String, params: String = "") -> void:
 			var body_line := i + 1
 			_code_edit.set_caret_line(body_line)
 			_code_edit.set_caret_column(4)
-			# Deferred scroll
+			# Double-deferred scroll: first hop gets past grab_focus and layout
+			# settle after a file load + view switch; second hop ensures the
+			# CodeEdit has fully laid out before centering.
+			_deferred_center_caret.call_deferred()
 			_deferred_center_caret.call_deferred()
 			break
 
@@ -1527,6 +1530,7 @@ func ensure_event_handler(sub_name: String, params: String = "") -> void:
 
 func _deferred_center_caret() -> void:
 	if is_instance_valid(_code_edit):
+		_code_edit.set_caret_line(_code_edit.get_caret_line())  # re-assert position
 		_code_edit.center_viewport_to_caret()
 
 # =============================================================================

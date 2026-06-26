@@ -1,6 +1,6 @@
 # VisualGasic — Known Issues & Engine Limitations
 
-*Last updated: v5.2.0-Beta1 (May 2026)*
+*Last updated: v5.2.0-Beta4 (May 2026)*
 
 This document lists **confirmed** engine bugs and limitations discovered during
 the automated test suite (91 VG files, 700 assertions — all passing; 289 GDScript — all passing).

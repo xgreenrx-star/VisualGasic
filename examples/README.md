@@ -179,7 +179,7 @@ The `vg` CLI stores the addon globally so you never need to copy it manually. Se
 3. A new VG-ready project is created and opened
 
 **From GitHub Release:**
-1. Download from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/latest)
+1. Download from [v5.2.0-Beta4 release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.2.0-Beta4)
 2. Copy the `addons/visual_gasic/` folder into your project's `addons/` directory
 3. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
 

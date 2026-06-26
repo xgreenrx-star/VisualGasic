@@ -235,6 +235,10 @@ Used with `VarType()` to identify a value's type:
 | `vbBack` | Chr(8) | Backspace |
 | `vbFormFeed` | Chr(12) | Form feed |
 | `vbVerticalTab` | Chr(11) | Vertical tab |
+| `vbQuote` | Chr(34) | Double-quote character |
+| `vbSpace` | Chr(32) | Space character (`Space(1)` is equivalent) |
+| `vbComma` | Chr(44) | Comma character |
+| `vbPipe` | Chr(124) | Pipe / vertical-bar character |
 
 ### Key Constants
 

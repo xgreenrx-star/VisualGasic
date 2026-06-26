@@ -280,7 +280,7 @@ Debug.IdentifyPerformanceHotspots()  ' Prints top 5 slowest functions
 **Requirements**: LLVM backend, WebAssembly toolchain integration
 
 #### 10. Mobile Platform Support ✅ COMPLETED
-**Status**: Shipped — v5.2.0-Beta1
+**Status**: Shipped — v5.2.0-Beta4
 **Description**: Native Android mobile support via VGAndroidBridge
 **Details**: VGAndroidBridge exposes Sensor, GPS, Steps, Permission, Vibrate, Joypad, Touch, and Screen orientation APIs on Android targets.
 

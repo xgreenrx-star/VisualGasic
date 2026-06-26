@@ -2517,19 +2517,37 @@ IfStatement* VisualGasicParser::parse_if() {
             else advance(); // Skip garbage
         }
     } else {
-        // Single line If - Parse one statement
-        // Or multiple separated by colon?
-        // For now, accept one statement.
+        // Single line If - parse one or more colon-separated statements
+        // VB6: If x Then stmt1 : stmt2 : stmt3 [Else stmt4 : stmt5]
         Statement* s = parse_statement();
         if (s) {
             stmt->then_branch.push_back(s);
             unregister_node(s);
 
+            // Parse additional colon-separated statements for then_branch
+            while (check(VisualGasicTokenizer::TOKEN_COLON)) {
+                advance(); // Eat :
+                if (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_EOF)) break;
+                if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Else") == 0) break;
+                Statement* extra = parse_statement();
+                if (extra) { stmt->then_branch.push_back(extra); unregister_node(extra); }
+            }
+
             // Check for Else (Single Line)
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Else") == 0) {
-                 advance();
-                 Statement* el = parse_statement();
-                 if (el) { stmt->else_branch.push_back(el); unregister_node(el); }
+                advance();
+                Statement* el = parse_statement();
+                if (el) {
+                    stmt->else_branch.push_back(el);
+                    unregister_node(el);
+                    // Parse additional colon-separated statements for else_branch
+                    while (check(VisualGasicTokenizer::TOKEN_COLON)) {
+                        advance(); // Eat :
+                        if (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_EOF)) break;
+                        Statement* extra_el = parse_statement();
+                        if (extra_el) { stmt->else_branch.push_back(extra_el); unregister_node(extra_el); }
+                    }
+                }
             }
         }
     }

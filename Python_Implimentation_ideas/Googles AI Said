@@ -1,0 +1,345 @@
+To give your AI agent the exact specification it needs to build or enhance this architecture, this breakdown covers the implementation blueprint, concrete C++ code architectures, and the required data structures.Part 1: Architecture Blueprint (System Topology)To integrate Python safely into VisualGasic (built on Godot 4’s GDExtension in C++), your AI agent must establish a dual-path bridge.Control Path (High Compatibility): Handles standard script logic (strings, variables, function calls). It relies on the Python C API to wrap and manage object references dynamically.Data Path (High Performance): Handles heavy bulk arrays (images, audio buffers, vertex data). It uses Python’s internal Buffer Protocol to share raw memory addresses between Godot and Python with zero data copying.       [ VisualGasic Script Layer (VB6 Syntax) ]
+                           │
+                           ▼
+          [ GDExtension / C++ Engine Core ]
+                           │
+         ┌─────────────────┴─────────────────┐
+         ▼                                   ▼
+ [ Control Path: C API ]           [ Data Path: Buffer Protocol ]
+ ├─ Method Invocation              ├─ Zero-copy Pixel Buffers
+ ├─ Dynamic Type Unboxing          ├─ Direct Pointer Pinning
+ └─ PyObject_CallObject()          └─ PyMemoryView_FromMemory()
+         │                                   │
+         └─────────────────┬─────────────────┘
+                           ▼
+             [ Embedded Python Interpreter ]
+Part 2: High-Compatibility Path (The Object Wrap Framework)To call Python methods using VisualGasic's object syntax, your agent needs to build a dynamic C++ wrapper. This wrapper maps Godot’s Variant class to Python’s native PyObject* system.The C++ Handler StrategyYour agent must create a custom class inherited from Godot's base types (like RefCounted or a custom VisualGasic Variant handler). This class manages the life cycle of a underlying Python object.Reference Counting: The C++ destructor must call Py_DECREF() to prevent massive memory leaks.Argument Marshaling: Before a method call execution, Godot arrays or individual arguments must be unboxed, converted via PyLong_FromLong or PyUnicode_FromString, and packed into a PyTuple.Core Implementation TemplateProvide this exact template to your agent so it knows how to handle the initialization and function routing:cpp#include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/variant/variant.hpp>
+#include <Python.h>
+
+using namespace godot;
+
+class PyObjectWrapper : public RefCounted {
+    GDCLASS(PyObjectWrapper, RefCounted);
+
+private:
+    PyObject* py_instance;
+
+protected:
+    static void _bind_methods() {
+        ClassDB::bind_method(D_METHOD("call_method", "method_name", "args"), &PyObjectWrapper::call_method);
+    }
+
+public:
+    PyObjectWrapper() : py_instance(nullptr) {}
+    
+    ~PyObjectWrapper() {
+        if (py_instance) {
+            Py_DECREF(py_instance); // Crucial: Frees Python memory when Godot drops the reference
+        }
+    }
+
+    void set_instance(PyObject* inst) {
+        if (py_instance) Py_DECREF(py_instance);
+        py_instance = inst;
+        if (py_instance) Py_INCREF(py_instance);
+    }
+
+    Variant call_method(String method_name, Array args) {
+        if (!py_instance) return Variant();
+
+        // Convert Godot String to standard C-string
+        CharString ascii_method = method_name.ascii();
+        PyObject* py_method = PyObject_GetAttrString(py_instance, ascii_method.get_data());
+        
+        if (!py_method || !PyCallable_Check(py_method)) {
+            Py_XDECREF(py_method);
+            return Variant(); // Method not found or not callable
+        }
+
+        // Convert Godot Array arguments to a Python Tuple
+        int arg_count = args.size();
+        PyObject* py_args = PyTuple_New(arg_count);
+        
+        for (int i = 0; i < arg_count; ++i) {
+            Variant v = args[i];
+            PyObject* py_val = nullptr;
+            
+            // Simple Type Marshaling Example
+            if (v.get_type() == Variant::INT) {
+                py_val = PyLong_FromLong(v.operator int64_t());
+            } else if (v.get_type() == Variant::STRING) {
+                py_val = PyUnicode_FromString(v.operator String().ascii().get_data());
+            } else {
+                py_val = Py_None;
+                Py_INCREF(Py_None);
+            }
+            PyTuple_SetItem(py_args, i, py_val); // Steals the reference
+        }
+
+        // Execute the native Python function
+        PyObject* py_result = PyObject_CallObject(py_method, py_args);
+        Py_DECREF(py_args);
+        Py_DECREF(py_method);
+
+        // Convert the returned Python value back into a native Godot Variant
+        Variant return_variant;
+        if (py_result) {
+            if (PyLong_Check(py_result)) {
+                return_variant = (int64_t)PyLong_AsLong(py_result);
+            } else if (PyUnicode_Check(py_result)) {
+                return_variant = String(PyUnicode_AsUTF8(py_result));
+            }
+            Py_DECREF(py_result);
+        }
+        
+        return return_variant;
+    }
+};
+Use code with caution.Part 3: High-Performance Path (The Buffer Protocol Framework)When processing heavy datasets (such as real-time image updates via OpenCV or complex coordinate crunching via NumPy), converting data element-by-element inside a loop will lock up Godot's frame rate.Your AI agent must implement a Zero-Copy Memory Share using Python's raw buffer utility.The Zero-Copy Data Share StrategyInstead of cloning values, pass the direct memory address of Godot’s internal buffers (like PackedByteArray) straight into Python via PyMemoryView_FromMemory.Python treats the block of memory as a local array.Modifications made by NumPy or a specialized Python script affect the underlying Godot data container instantly, bypassing allocation delays.Zero-Copy Data Share TemplateInstruct your agent to use this structure whenever heavy data arrays are passed back and forth:cppVariant process_godot_buffer_in_python(PackedByteArray godot_buffer, PyObject* python_function) {
+    // Step 1: Lock and pin the Godot data array pointer to prevent the engine from moving it
+    uint8_t* raw_pointer = godot_buffer.ptrw();
+    int64_t buffer_size = godot_buffer.size();
+
+    // Step 2: Create a light wrapper view pointing directly to Godot's memory address
+    // PyBUF_WRITE allows Python libraries (like NumPy) to modify this array directly in-place
+    PyObject* py_memory_view = PyMemoryView_FromMemory(
+        reinterpret_cast<char*>(raw_pointer), 
+        buffer_size, 
+        PyBUF_WRITE
+    );
+
+    if (!py_memory_view) {
+        return Variant(false); // Failed to establish memory link
+    }
+
+    // Step 3: Pass the raw buffer view straight into your target Python script/library
+    PyObject* py_args = PyTuple_Pack(1, py_memory_view);
+    PyObject* py_result = PyObject_CallObject(python_function, py_args);
+
+    // Step 4: Cleanup handles. The underlying Godot array memory remains completely safe.
+    Py_DECREF(py_args);
+    Py_DECREF(py_memory_view);
+    if (py_result) Py_DECREF(py_result);
+
+    return Variant(true);
+}
+Use code with caution.Part 4: Technical Requirements for the AI AgentWhen your AI agent reviews this plan, it must address these explicit pipeline challenges during development:Global Interpreter Lock (GIL) Management: Godot uses multiple processing threads for physics and rendering. Python cannot handle concurrent execution threads naturally due to the GIL. The agent must wrap every execution block in PyGILState_Ensure() and PyGILState_Release() to avoid engine crashes.Environment Portability: VisualGasic scripts must work cleanly on user systems without requiring them to install specific Python versions manually. Your agent must configure the build script to copy a standalone, localized python distribution path directly into the GDExtension binary output library directory.Your agent can use this prompt data to begin writing the C++ bindings and designing the compiler token modifications for VisualGasic.How would you like to proceed? I can break down how the lexer/compiler handles the syntax parsing for these calls, or we can look at the build setup configurations for compiling Python directly alongside GDExtension.3 sitesLess copies in Python with the buffer protocol and memoryviewsNov 28, 2011 — The buffer protocol is an internal implementation detail of Python, accessible only on the C-API level. And that's a good thing, s...Eli Bendersky's websiteManaging data buffer with Bytearray, buffer protocol, and Memoryview in PythonDec 5, 2024 — The buffer protocol is a low-level feature in Python ( Python Programming ) designed to provide direct access to the raw memory re...Medium[Design pattern 12 — Structural]Proxy Pattern in C++ What you should know …Feb 5, 2026 — They control the lifecycle of the underlying object.MediumYou said: break down how the lexer/compiler handles the syntax parsing then we can look at the build setup configurations for compiling Python directly alongside GDExtension
+I will forward this to my AI agent as well.To integrate Python libraries seamlessly into VisualGasic, its engine compiler needs a structured pipeline to parse, validate, and execute Python interactions using a clean, VB6-compatible syntax.Here is the exact technical breakdown your AI agent needs to modify the VisualGasic Lexer, Parser, and AST (Abstract Syntax Tree), followed by the automated Build Setup Configuration.Part 1: Syntax Parsing & Compilation PipelineYour agent must inject three new constructs into VisualGasic’s compiler frontend: an Imports or Set ... = PyImport() statement, a specialized Variable Type tracking system, and a Dynamic Method Invocation handler.[ Raw Source Code ] ──> [ Lexer (Tokens) ] ──> [ Parser (AST Nodes) ] ──> [ GDExtension Runtime ]
+  "Set m = PyImport"       TK_SET, TK_PYIMPORT    AST_PyImportNode          Resolves & Caches
+  "res = m.sqrt(64)"       TK_IDENTIFIER, '.'     AST_PyMethodCallNode      Invokes Python C API
+1. The Lexer Stage (Tokenization)The lexer reads raw text stream and breaks it into recognizable tokens. Your agent must add new keywords to the Lexer's keyword dictionary.New Tokens Required:TK_PYIMPORT (Matches the keyword string "PyImport")TK_DOT (Matches the existing dot . operator, but must flag subsequent identifiers differently if the base object is a Python instance)Lexer Rule Example:cpp// Inside Lexer::next_token()
+if (current_word == "PyImport") {
+    return Token(TK_PYIMPORT, current_word, line_number);
+}
+Use code with caution.2. The Parser Stage (AST Node Generation)The parser processes tokens into hierarchical tree structures. When it encounters the new tokens, it must generate specialized Abstract Syntax Tree (AST) nodes.AST Node 1: AST_PyImportNodeTriggers on: Set <Variable> = PyImport("<module_name>")Payload: Stores the module name string (e.g., "math", "numpy").AST Node 2: AST_PyMethodCallNodeTriggers on: <Variable>.<MethodName>(<Arguments>)Payload: Stores the target variable name, the target Python method name string, and a list/array of child argument nodes.3. Code Generation / Execution PhaseDuring script execution, VisualGasic’s runtime evaluation loop processes these AST nodes by calling the C++ GDExtension backends we mapped out previously:When evaluating AST_PyImportNode:Call PyImport_ImportModule(module_name).Wrap the resulting PyObject* pointer into the C++ wrapper class (PyObjectWrapper).Register this wrapper into VisualGasic's local variable symbol table as an OBJECT type.When evaluating AST_PyMethodCallNode:Look up the variable in the symbol table. Verify it holds a valid PyObjectWrapper.Evaluate all child argument nodes into an array of Godot Variants.Pass the method name and arguments directly to the C++ wrapper's call_method() handler.Part 2: Build Setup Configuration (GDExtension + Python)To compile this architecture successfully, your agent must configure the build scripts (SConstruct or CMakeLists.txt) to link Python's development headers and bundle a portable Python run-time directly inside the GDExtension binary folder.1. SCons Configuration (SConstruct Template)VisualGasic and Godot GDExtension heavily rely on SCons for building cross-platform C++ binaries. Your agent should inject Python path auto-detection and linking flags into the existing file:pythonimport os
+import sys
+from SCons.Script import *
+
+Import("env")
+
+# 1. Locate Python Development Environment Header Paths
+# This uses the host's python-config utility to automatically get correct compile flags
+if env["platform"] in ["linux", "macos"]:
+    env.ParseConfig("python3-config --cflags --ldflags --embed")
+elif env["platform"] == "windows":
+    # On Windows, your agent must specify a hardcoded path or relative embeddable zip path
+    python_sdk_dir = "#thirdparty/python-embed" 
+    env.Append(CPPPATH=[os.path.join(python_sdk_dir, "include")])
+    env.Append(LIBPATH=[os.path.join(python_sdk_dir, "libs")])
+    env.Append(LIBS=["python3"]) # Links against python3.lib / python3.dll
+
+# 2. Track Custom GDExtension Sources
+sources = Glob("src/*.cpp") + Glob("src/python_bridge/*.cpp")
+
+# 3. Build Shared GDExtension Library Target
+env.SharedLibrary(
+    target="demo/bin/libvisualgasic.{}",
+    source=sources
+)
+Use code with caution.2. Cross-Platform Runtime Distribution SetupWhen a user compiles or exports a Godot project using VisualGasic, they shouldn't have to install Python on their computer. The agent must enforce this directory distribution model inside the GDExtension workspace:visualgasic/
+├── demo/
+│   └── bin/
+│       ├── libvisualgasic.windows.template_release.x86_64.dll  <-- GDExtension Binary
+│       ├── python311.dll                                       <-- Portable Shared Library
+│       ├── python311._pth                                      <-- Python Isolation Config
+│       └── python_env/                                         <-- Custom Project Modules Directory
+│           └── lib/
+│               └── site-packages/                              <-- Where pip packages go
+Crucial Isolation Trick (pythonXXX._pth)To ensure the embedded engine ignores the user's system-installed Python environment variables (which causes frequent version mismatch crashes), your agent must ship a file named exactly matching your library version (e.g., python311._pth) in the same folder as the binary. It should contain only these lines:text.
+./python_env/lib/site-packages
+# Uncommenting the line below completely isolates the environment:
+# import site
+Use code with caution.This forces the embedded interpreter to only look inside the local demo/bin/ and python_env/ paths for dependencies.Summary Checklist for your AI AgentLexer: Add the TK_PYIMPORT token mapping.Parser: Create AST_PyImportNode and AST_PyMethodCallNode classes.SConstruct: Configure CPPPATH and LIBPATH to link Python.h and libraries.Initialization: Call Py_Initialize() within gdextension_initialize.Distribution: Ship a portable Python .dll / .so alongside the project.Your agent now has a comprehensive blueprint spanning syntax design, memory management, zero-copy optimization, and pipeline building to implement Python support into VisualGasic.Once your agent reviews this information, what specific implementation milestones or testing criteria would you like to lay out next?4 sitesHow do compilers work?Apr 16, 2026 — Lexical analysis: From strings to tokens When we look at code, we automatically break it down into words and see constants, variab...DEV CommunityParsing in python and its purposeAug 24, 2024 — Details: Parsing converts the linear sequence of tokens from lexical analysis into a hierarchical structure (syntax tree or abstra...DEV CommunityI wrote a programming language. Here’s how you can, too.Mar 30, 2017 — The second stage of the pipeline is the parser. The parser turns a list of tokens into a tree of nodes. A tree used for storing th...MediumShow allYou said: do you have suggestionsBased on how VisualGasic is constructed, here are four critical recommendations to give your AI agent before it writes any code. These suggestions target the biggest hidden pitfalls when blending a synchronous scripting language (like VisualGasic/VB6) with an asynchronous game engine (Godot 4) and an external runtime (Python).1. Execute Python on Godot's Background ThreadsGame engines require scripts to complete within milliseconds to prevent frame drops (stuttering). If a VisualGasic script triggers a heavy Python script (e.g., machine learning inference or a slow web request), it will lock up the main thread and freeze the game.The Fix: Direct your AI agent to utilize Godot's built-in WorkerThreadPool inside the GDExtension layer.How it works: VisualGasic can dispatch the Python task to a background thread, release the main engine loop immediately, and run a callback function back into VisualGasic once Python finishes its execution.2. Handle Errors Gracefully (No Hard Crashes)An unhandled exception in standard C++ or Python will instantly crash the entire Godot editor or the compiled game to the desktop without warning.The Fix: Force the AI agent to wrap all internal C API execution calls in native Python error fetching handlers.The Implementation: Right after executing PyObject_CallObject, check if an error occurred using PyErr_Occurred(). If a crash is detected, intercept it, call PyErr_Fetch(), translate the python traceback into a readable string, and route it to Godot's ERR_PRINT() system. This allows the game to keep running while printing a clean error stack to the Godot console.3. Use Lazy Initialization for the Python EngineSpanning up a Python interpreter (Py_Initialize()) takes an average of several hundred milliseconds and consumes unnecessary memory out of the gate. If a user is making a simple game in VisualGasic that doesn't use Python libraries, they shouldn't pay a performance penalty.The Fix: Implement a lazy initialization routine. Do not initialize Python inside gdextension_initialize.The Implementation: Keep a global boolean tracker flag like bool is_python_ready = false;. Only initialize the interpreter the very first moment a script evaluates an AST_PyImportNode statement.4. Build a Automated pip Package Installer SetupIf a developer wants to use a library like NumPy, they shouldn't have to manually download, unzip, and drag files into their Godot project folder.The Fix: Create a built-in bootstrap manager script inside the VisualGasic GDExtension asset folder.The Implementation: Expose an editor plugin or a simple function like VisualGasic.install_package("numpy"). Under the hood, this function invokes a headless background command process (get_embedded_python_path() -m pip install numpy --target=res://bin/python_env/lib/site-packages) to safely download packages straight into the isolated project sandbox.Suggested Next Steps for You and Your AgentTo approach this systematically, you can have your AI agent tackle this project in distinct phases:Phase 1 (Proof of Concept): Build the basic build configuration path (SConstruct) to link Python.h and just try getting a simple print("Hello from Python") string to show up in the Godot output log when the engine boots.Phase 2 (The Data Type Bridge): Implement the basic object wrapper mapping for simple numbers and strings.Phase 3 (The Syntax Compiler Upgrade): Modify the lexer and parser to recognize the PyImport token rules.Would you like your AI agent to focus first on creating the C++ exception logging mechanics (Phase 1/2) or drafting the initial token structure files for the parser compiler changes (Phase 3)?
+
+
+I recommend starting with Phase 1 & 2: Building the C++ Exception Logging and Core Bridge Mechanics.Starting here is the safest bet because it establishes a stable diagnostic foundation. If your AI agent tries to modify the compiler syntax (Phase 3) first without a solid error-handling bridge, any small typo or runtime mismatch will instantly crash Godot to the desktop, leaving you with zero error logs to figure out what went wrong.By building the exception handler first, your agent guarantees that any future integration bugs will print clean, readable error stacks directly to the Godot console instead of hard-crashing.The Blueprint for Your AI Agent: Phase 1 & 2 ImplementationInstruct your AI agent to implement the following production-ready C++ error isolation utility. This code hooks directly into Godot 4's macro logging framework (ERR_PRINT) and safely intercepts Python runtime failures.cpp#include <godot_cpp/variant/variant.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
+#include <Python.h>
+
+using namespace godot;
+
+class PyBridgeDiagnostics {
+public:
+    // Safely intercepts Python exceptions and routes them to the Godot Console
+    static bool check_and_print_python_errors() {
+        if (!PyErr_Occurred()) {
+            return false; // No errors detected, execution was safe
+        }
+
+        PyObject *type = nullptr, *value = nullptr, *traceback = nullptr;
+        PyErr_Fetch(&type, &value, &traceback);
+        PyErr_NormalizeException(&type, &value, &traceback);
+
+        String error_message = "[VisualGasic Python Error]: ";
+
+        if (value) {
+            PyObject* py_str = PyObject_Str(value);
+            if (py_str) {
+                error_message += String(PyUnicode_AsUTF8(py_str));
+                Py_DECREF(py_str);
+            }
+        } else {
+            error_message += "An unknown error occurred inside the Python runtime.";
+        }
+
+        // If a traceback is available, extract the exact file and line failure
+        if (traceback) {
+            PyObject* traceback_module = PyImport_ImportModule("traceback");
+            if (traceback_module) {
+                PyObject* format_exception = PyObject_GetAttrString(traceback_module, "format_exception");
+                if (format_exception && PyCallable_Check(format_exception)) {
+                    PyObject* py_list = PyObject_CallFunctionObjArgs(format_exception, type, value, traceback, nullptr);
+                    if (py_list && PyList_Check(py_list)) {
+                        Py_ssize_t size = PyList_Size(py_list);
+                        error_message += "\n--- Traceback ---";
+                        for (Py_ssize_t i = 0; i < size; ++i) {
+                            PyObject* item = PyList_GetItem(py_list, i);
+                            error_message += "\n" + String(PyUnicode_AsUTF8(item)).strip_edges();
+                        }
+                    }
+                    Py_XDECREF(py_list);
+                }
+                Py_XDECREF(format_exception);
+                Py_DECREF(traceback_module);
+            }
+        }
+
+        // Send the formatted error straight to Godot's built-in debugger panel
+        UtilityFunctions::printerr(error_message);
+
+        // Clean up references to prevent memory leaks
+        Py_XDECREF(type);
+        Py_XDECREF(value);
+        Py_XDECREF(traceback);
+
+        return true; // Error was caught and processed
+    }
+};
+Use code with caution.How Your Agent Should Use This in Execution BlocksWhenever your agent writes a wrapper function that calls Python scripts (like invoking a library method), it must structure the call like this to guarantee engine stability:cppVariant safe_execute_python_call(PyObject* py_method, PyObject* py_args) {
+    // 1. Execute the Python C API call
+    PyObject* py_result = PyObject_CallObject(py_method, py_args);
+
+    // 2. Immediately intercept potential crashes before trying to read the result
+    if (PyBridgeDiagnostics::check_and_print_python_errors()) {
+        Py_XDECREF(py_result);
+        return Variant(); // Return an empty Godot Variant safely, preventing an engine crash
+    }
+
+    // 3. Proceed with normal type conversions if the call was successful
+    Variant return_val = convert_python_to_godot(py_result);
+    Py_XDECREF(py_result);
+    return return_val;
+}
+What to Instruct Your AI Agent NextPass this diagnostic framework directly to your AI agent with these two immediate tasks:Integrate this PyBridgeDiagnostics handler into the project's primary GDExtension source directory.Update the SConstruct file (from our previous step) to cleanly link the target operating system's localized Python development library headers so this code successfully compiles.
+
+🤖 AI Agent Engineering Specification: Implementing the VisualGasic Python Core Bridge (Phase 1 & 2)Objective:Integrate an embedded Python runtime bridge into the VisualGasic GDExtension (Godot 4, C++) framework. To ensure system stability and cross-platform compilation, you must implement a robust runtime diagnostic exception-catcher before modifying any compiler frontend syntax.📋 Task 1: Integrate the PyBridgeDiagnostics HandlerCreate a new utility class inside the primary GDExtension source directory (src/python_bridge/py_bridge_diagnostics.h and .cpp) to capture Python exceptions. It must intercept Python runtime crashes and safely route the stack trace directly to Godot's console via UtilityFunctions::printerr(), bypassing hard system crashes.Implementation Source Code Codebase:cpp#ifndef PY_BRIDGE_DIAGNOSTICS_H
+#define PY_BRIDGE_DIAGNOSTICS_H
+
+#include <godot_cpp/variant/variant.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
+#include <Python.h>
+
+using namespace godot;
+
+class PyBridgeDiagnostics {
+public:
+    static bool check_and_print_python_errors() {
+        if (!PyErr_Occurred()) {
+            return false; 
+        }
+
+        PyObject *type = nullptr, *value = nullptr, *traceback = nullptr;
+        PyErr_Fetch(&type, &value, &traceback);
+        PyErr_NormalizeException(&type, &value, &traceback);
+
+        String error_message = "[VisualGasic Python Error]: ";
+
+        if (value) {
+            PyObject* py_str = PyObject_Str(value);
+            if (py_str) {
+                error_message += String(PyUnicode_AsUTF8(py_str));
+                Py_DECREF(py_str);
+            }
+        } else {
+            error_message += "An unknown error occurred inside the Python runtime.";
+        }
+
+        if (traceback) {
+            PyObject* traceback_module = PyImport_ImportModule("traceback");
+            if (traceback_module) {
+                PyObject* format_exception = PyObject_GetAttrString(traceback_module, "format_exception");
+                if (format_exception && PyCallable_Check(format_exception)) {
+                    PyObject* py_list = PyObject_CallFunctionObjArgs(format_exception, type, value, traceback, nullptr);
+                    if (py_list && PyList_Check(py_list)) {
+                        Py_ssize_t size = PyList_Size(py_list);
+                        error_message += "\n--- Traceback ---";
+                        for (Py_ssize_t i = 0; i < size; ++i) {
+                            PyObject* item = PyList_GetItem(py_list, i);
+                            error_message += "\n" + String(PyUnicode_AsUTF8(item)).strip_edges();
+                        }
+                    }
+                    Py_XDECREF(py_list);
+                }
+                Py_XDECREF(format_exception);
+                Py_DECREF(traceback_module);
+            }
+        }
+
+        UtilityFunctions::printerr(error_message);
+
+        Py_XDECREF(type);
+        Py_XDECREF(value);
+        Py_XDECREF(traceback);
+
+        return true; 
+    }
+};
+
+#endif // PY_BRIDGE_DIAGNOSTICS_H
+Use code with caution.📋 Task 2: Update the SConstruct File for Python Component LinkingModify the VisualGasic project's existing SConstruct file to link the localized Python development environment flags. Ensure cross-platform compatibility mapping for Linux, macOS (using python3-config), and Windows (using targeted localized paths or vendor setups).Append/Modify the build environment loop using this template logic:pythonimport os
+import sys
+from SCons.Script import *
+
+Import("env")
+
+# Auto-detect target platform flags for Python Development Environment
+if env["platform"] in ["linux", "macos"]:
+    # Automatically extract cflags, ldflags, and embed configuration
+    env.ParseConfig("python3-config --cflags --ldflags --embed")
+elif env["platform"] == "windows":
+    # Configure path pointing to your localized/embedded python binaries directory
+    python_sdk_dir = "#thirdparty/python-embed" 
+    env.Append(CPPPATH=[os.path.join(python_sdk_dir, "include")])
+    env.Append(LIBPATH=[os.path.join(python_sdk_dir, "libs")])
+    env.Append(LIBS=["python3"])
+
+# Register the new source sub-directory into the tracking environment
+sources = Glob("src/*.cpp") + Glob("src/python_bridge/*.cpp")
+
+# Update build target registration path
+env.SharedLibrary(
+    target="demo/bin/libvisualgasic.{}",
+    source=sources
+)
+Use code with caution.🛠️ Verification & Next Step Goals:Ensure the project builds successfully without symbols compilation mismatch errors.Initialize Py_Initialize() safely inside your main extension setup hook.Once completed, report back with your architecture choices regarding data type marshaling (mapping Python dict/list containers cleanly back to Godot Dictionary/Array variants).

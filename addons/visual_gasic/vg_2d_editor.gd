@@ -63,6 +63,7 @@ var _panning: bool = false
 var _alt_panning: bool = false
 var _rmb_panning: bool = false
 var _last_mouse_pos: Vector2 = Vector2.ZERO
+var _drop_overlay: Control = null  # Transparent overlay for drag-drop
 
 # Selection
 var _selected_nodes: Array[CanvasItem] = []
@@ -115,6 +116,7 @@ var _import_file_dialog: FileDialog = null
 var _undo_stack: Array = []
 var _redo_stack: Array = []
 var _drag_transforms_before: Array[Dictionary] = []
+var _pending_control_position: Vector2 = Vector2.ZERO  # Position for Control nodes added via drop
 
 # Right-click tracking
 var _rmb_press_pos: Vector2 = Vector2.ZERO
@@ -197,6 +199,7 @@ var _toolbox_items: Array = [
 # LIFECYCLE
 # ─────────────────────────────────────────────────────────────────────────────
 func _ready() -> void:
+	set_process_shortcut_input(true)  # Enable DEL key handling via _shortcut_input
 	_build_ui()
 	_build_2d_scene()
 	_build_overlay()
@@ -204,30 +207,28 @@ func _ready() -> void:
 	_build_context_menus()
 	_populate_toolbox()
 
-# ── Drag-and-drop target handling ───────────────────────────────────────────
-func _can_drop_data(at_position: Vector2, data: Variant) -> bool:
+# ── Drag-and-drop target handling for viewport container ────────────────────
+# These are called via set_drag_forwarding on _drop_overlay
+func _vp_get_drag_data(_at_position: Vector2) -> Variant:
+	return null  # Viewport itself doesn't provide drag data
+
+func _vp_can_drop_data(_at_position: Vector2, data: Variant) -> bool:
+	print("[VG2D] _vp_can_drop_data called, data=", data)
 	if not data is Dictionary:
 		return false
-	if data.get("type") != "toolbox_item":
-		return false
-	# Check if drop is over the viewport container
-	if _viewport_container:
-		var vp_rect = _viewport_container.get_global_rect()
-		var global_pos = get_global_position() + at_position
-		return vp_rect.has_point(global_pos)
-	return false
+	return data.get("type") == "toolbox_item"
 
-func _drop_data(at_position: Vector2, data: Variant) -> void:
+func _vp_drop_data(at_position: Vector2, data: Variant) -> void:
+	print("[VG2D] _vp_drop_data called at ", at_position, " data=", data)
 	if not data is Dictionary or data.get("type") != "toolbox_item":
 		return
 	var item_type: String = data.get("item_type", "")
 	var item_name: String = data.get("item_name", "")
 	if item_type.is_empty():
 		return
-	# Convert drop position to viewport-local, then to world coordinates
-	var global_pos = get_global_position() + at_position
-	var vp_local = global_pos - _viewport_container.get_global_position()
-	_add_2d_object_at_position(item_type, item_name, vp_local)
+	# at_position is in overlay-local coordinates (same as viewport-local)
+	print("[VG2D] Dropping ", item_type, "/", item_name, " at ", at_position)
+	_add_2d_object_at_position(item_type, item_name, at_position)
 
 func _notification(what: int) -> void:
 	# When the 2D editor becomes visible and has no scene loaded, try to
@@ -873,6 +874,15 @@ func _build_ui() -> void:
 	_viewport_container.gui_input.connect(_on_viewport_input)
 	vp_row.add_child(_viewport_container)
 
+	# Transparent overlay to handle drag-and-drop (SubViewportContainer doesn't forward drops)
+	_drop_overlay = Control.new()
+	_drop_overlay.name = "DropOverlay"
+	_drop_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_drop_overlay.mouse_filter = Control.MOUSE_FILTER_PASS  # Pass clicks through, catch drops
+	_drop_overlay.focus_mode = Control.FOCUS_NONE  # Never take focus - let viewport_container have it
+	_drop_overlay.set_drag_forwarding(_vp_get_drag_data, _vp_can_drop_data, _vp_drop_data)
+	_viewport_container.add_child(_drop_overlay)
+
 	_viewport = SubViewport.new()
 	_viewport.size = Vector2i(1024, 768)
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
@@ -1160,8 +1170,10 @@ func _reset_camera() -> void:
 	if is_instance_valid(_scene_root) and _scene_root.get_child_count() > 0:
 		_fit_scene_in_view()
 	else:
-		_cam_offset = Vector2.ZERO
+		# Position camera so origin (0,0) is at top-left of viewport
+		var vp_size := Vector2(_viewport.size) if is_instance_valid(_viewport) else Vector2(1024, 768)
 		_cam_zoom = DEFAULT_ZOOM
+		_cam_offset = vp_size * 0.5 / _cam_zoom
 		_update_camera()
 	if is_instance_valid(_overlay):
 		_overlay.queue_redraw()
@@ -1218,7 +1230,7 @@ func _strip_shader_materials(root: Node) -> void:
 ## so everything fits in the viewport with some padding.
 var _fit_scene_defer_count := 0
 func _fit_scene_in_view() -> void:
-	if not is_instance_valid(_scene_root) or _scene_root.get_child_count() == 0:
+	if not is_instance_valid(_scene_root):
 		_fit_scene_defer_count = 0
 		return
 	var vp_size := Vector2(_viewport.size)
@@ -1232,13 +1244,11 @@ func _fit_scene_in_view() -> void:
 			_fit_scene_defer_count = 0
 		return
 	_fit_scene_defer_count = 0
-	# Mimic Godot's default 2D view: 100% zoom, origin in upper-left area.
+	# Position camera so origin (0,0) is at top-left of viewport.
 	# Camera position is the world-space center of the viewport.
-	# Place origin ~100px from left, ~50px from top so game content fills
-	# the viewport — exactly like Godot's 2D editor.
+	# For (0,0) at top-left, camera center should be at (vp_size/2) in world coords.
 	_cam_zoom = DEFAULT_ZOOM
-	_cam_offset.x = vp_size.x * 0.5 - 100.0
-	_cam_offset.y = vp_size.y * 0.5 - 50.0
+	_cam_offset = vp_size * 0.5 / _cam_zoom
 	_update_camera()
 	if is_instance_valid(_overlay):
 		_overlay.queue_redraw()
@@ -1284,6 +1294,9 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 
 		MOUSE_BUTTON_LEFT:
 			if event.pressed:
+				# Ensure viewport has keyboard focus for key shortcuts
+				_viewport_container.grab_focus()
+				
 				# Alt+LMB → pan (laptop friendly)
 				if event.alt_pressed and event.shift_pressed:
 					_alt_panning = true
@@ -1473,6 +1486,7 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 
 		MOUSE_BUTTON_RIGHT:
 			if event.pressed:
+				_viewport_container.grab_focus()
 				_rmb_press_pos = event.position
 				_rmb_panning = true
 				_last_mouse_pos = event.position
@@ -2273,9 +2287,12 @@ func _add_2d_object(type_name: String, display_name: String) -> void:
 ## Add a 2D object at a specific viewport-local position (used for drag-and-drop)
 func _add_2d_object_at_position(type_name: String, display_name: String, vp_local_pos: Vector2) -> void:
 	# Convert viewport-local to world coordinates
-	var world_pos: Vector2 = _cam_offset + (vp_local_pos - _viewport_container.size * 0.5) / _zoom
+	var world_pos: Vector2 = _cam_offset + (vp_local_pos - _viewport_container.size * 0.5) / _cam_zoom
 	if _snap_enabled:
 		world_pos = Vector2(snappedf(world_pos.x, _snap_value), snappedf(world_pos.y, _snap_value))
+	
+	# Store position for Control nodes (ColorRect etc.) which need screen-space position
+	_pending_control_position = vp_local_pos
 	
 	# Store the position temporarily and use existing add function
 	var old_cam_offset := _cam_offset
@@ -2342,7 +2359,10 @@ func _prompt_add_canvas_layer_for_control(control_type_name: String) -> void:
 func _add_control_to_canvas_layer(control_type_name: String, canvas_layer: CanvasLayer) -> void:
 	# Now create the Control node as child of CanvasLayer
 	# Control nodes in CanvasLayer use screen-space coordinates relative to the viewport
-	# Position it in the center of the viewport so it's visible
+	# Use pending position if set, otherwise center in viewport
+	var control_pos := _pending_control_position if _pending_control_position != Vector2.ZERO else Vector2(50, 50)
+	_pending_control_position = Vector2.ZERO  # Reset for next use
+	
 	var control_node: Control = null
 	match control_type_name:
 		"ColorRect":
@@ -2350,8 +2370,8 @@ func _add_control_to_canvas_layer(control_type_name: String, canvas_layer: Canva
 			cr.name = _unique_name("ColorRect", canvas_layer)
 			cr.size = Vector2(300, 200)  # Larger size, easier to see
 			cr.color = Color(1.0, 0.0, 0.0, 1.0)  # Bright red - very visible
-			# Simple, reliable positioning - top-left with margin
-			cr.position = Vector2(50, 50)
+			# Position at drop location (top-left corner of control)
+			cr.position = control_pos
 			push_error("[VG 2D] DEBUG: Created ColorRect size=", cr.size, " pos=", cr.position, " color=red")
 			control_node = cr
 	
@@ -3640,6 +3660,41 @@ func _build_dark_toolbar_theme() -> Theme:
 	t.set_stylebox("separator", "VSeparator", vsep)
 
 	return t
+
+# ─────────────────────────────────────────────────────────────────────────────
+# _shortcut_input — Handle keyboard shortcuts (DEL key, etc.)
+# ─────────────────────────────────────────────────────────────────────────────
+func _shortcut_input(event: InputEvent) -> void:
+	if not visible:
+		return
+	if not event is InputEventKey:
+		return
+	if not event.pressed:
+		return
+	
+	# DEL key - delete selected nodes
+	if event.keycode == KEY_DELETE:
+		if _selected_nodes.size() > 0:
+			_delete_selected()
+			get_viewport().set_input_as_handled()
+
+func _input(event: InputEvent) -> void:
+	if not visible:
+		return
+	if not event is InputEventKey:
+		return
+	if not event.pressed:
+		return
+	
+	# DEL key - delete selected nodes (fallback if _shortcut_input doesn't fire)
+	if event.keycode == KEY_DELETE:
+		# Only handle if viewport container has focus or mouse is over viewport
+		if _viewport_container and is_instance_valid(_viewport_container):
+			var has_focus := _viewport_container.has_focus()
+			var mouse_over := _viewport_container.get_global_rect().has_point(get_global_mouse_position())
+			if (has_focus or mouse_over) and _selected_nodes.size() > 0:
+				_delete_selected()
+				get_viewport().set_input_as_handled()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # _process — Sync viewport size and overlay

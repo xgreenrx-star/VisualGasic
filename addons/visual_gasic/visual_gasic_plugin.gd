@@ -7864,8 +7864,16 @@ func _on_fd_control_double_clicked(index: int) -> void:
 	# operations or Godot save cycles happen during the view switch.
 	_form_designer.save_form()
 
-	var vg_path = form_path.get_basename() + ".vg"
+	var vg_path := _get_vg_path_from_tscn(form_path)
+	if vg_path.is_empty():
+		vg_path = form_path.get_basename() + ".vg"
 	var sub_name = ctrl_name + "_" + event_suffix
+	# ── Check if the .tscn already wires this control to a differently-named method.
+	# This handles the case where the connection was added manually or by VS Code/AI
+	# rather than through the VG form designer.
+	var tscn_method := _get_tscn_connection_method(form_path, ctrl_name)
+	if not tscn_method.is_empty():
+		sub_name = tscn_method
 	print("VisualGasic: Double-click → opening ", sub_name, " in ", vg_path)
 
 	# ── Use embedded code editor (VB6 style: stays within Form Designer) ──
@@ -7875,6 +7883,77 @@ func _on_fd_control_double_clicked(index: int) -> void:
 		# Fallback: open in Godot's Script editor (old behavior)
 		_switching_to_code_editor = true
 		_open_or_create_event_handler(vg_path, sub_name)
+
+## Returns the .vg script path declared in a .tscn's ext_resource block,
+## or "" if not found. Handles projects where the .vg basename differs from the .tscn.
+## Example: [ext_resource type="Script" path="res://infoview_companion.vg" id="1"]
+func _get_vg_path_from_tscn(tscn_path: String) -> String:
+	if tscn_path.is_empty():
+		return ""
+	var abs_path := ProjectSettings.globalize_path(tscn_path) if tscn_path.begins_with("res://") else tscn_path
+	var read_path := abs_path if FileAccess.file_exists(abs_path) else tscn_path
+	if not FileAccess.file_exists(read_path):
+		return ""
+	var f := FileAccess.open(read_path, FileAccess.READ)
+	if not f:
+		return ""
+	var text := f.get_as_text()
+	f.close()
+	var rx := RegEx.new()
+	rx.compile("\\[ext_resource[^\\]]*type=\"Script\"[^\\]]*path=\"([^\"]+\\.vg)\"")
+	var m := rx.search(text)
+	if m:
+		var res_path: String = m.get_string(1)
+		# Convert res:// to absolute if needed
+		if res_path.begins_with("res://"):
+			return ProjectSettings.globalize_path(res_path)
+		return res_path
+	return ""
+
+## Returns the method name wired to `ctrl_name`'s primary signal in the .tscn,
+## or "" if no connection is found. Handles both full-path and short-name from= values.
+## Example match: [connection signal="pressed" from="Shell/Row/btnOK" to="." method="btnOK_Click"]
+func _get_tscn_connection_method(tscn_path: String, ctrl_name: String) -> String:
+	if tscn_path.is_empty() or ctrl_name.is_empty():
+		return ""
+	var abs_path := ProjectSettings.globalize_path(tscn_path) if tscn_path.begins_with("res://") else tscn_path
+	if not FileAccess.file_exists(abs_path) and not FileAccess.file_exists(tscn_path):
+		return ""
+	var f := FileAccess.open(abs_path if FileAccess.file_exists(abs_path) else tscn_path, FileAccess.READ)
+	if not f:
+		return ""
+	var text := f.get_as_text()
+	f.close()
+	# Scan every [connection ...] line
+	for line in text.split("\n"):
+		var stripped := line.strip_edges()
+		if not stripped.begins_with("[connection "):
+			continue
+		# from= value ends with the control name (may be a path like "Shell/Row/btnOK")
+		var from_match := false
+		var from_idx := stripped.find("from=\"")
+		if from_idx >= 0:
+			var from_start := from_idx + 6
+			var from_end := stripped.find("\"", from_start)
+			if from_end > from_start:
+				var from_val := stripped.substr(from_start, from_end - from_start)
+				# Match if the path ends with /ctrl_name or equals ctrl_name
+				if from_val == ctrl_name or from_val.ends_with("/" + ctrl_name):
+					from_match = true
+		if not from_match:
+			continue
+		# to="." only — skip connections to other nodes
+		if stripped.find("to=\".\"") < 0:
+			continue
+		# Extract method=
+		var method_idx := stripped.find("method=\"")
+		if method_idx < 0:
+			continue
+		var method_start := method_idx + 8
+		var method_end := stripped.find("\"", method_start)
+		if method_end > method_start:
+			return stripped.substr(method_start, method_end - method_start)
+	return ""
 
 # =============================================================================
 # 3D SCENE EDITOR — Double-click / View Code → VG event handler (v4.4.0)
@@ -8068,8 +8147,17 @@ func _on_2d_node_double_clicked(node: Node) -> void:
 		return
 
 	# ── Scene is saved — derive .vg path from the .tscn ──
-	var vg_path: String = scene_path.get_basename() + ".vg"
+	# Prefer the Script resource declared in the .tscn over the basename convention,
+	# so projects where the .vg name differs from the .tscn name work correctly.
+	var vg_path: String = _get_vg_path_from_tscn(scene_path)
+	if vg_path.is_empty():
+		vg_path = scene_path.get_basename() + ".vg"
 	var sub_name = node_name + "_" + event_suffix
+
+	# ── Check .tscn [connection] entries first ──
+	var tscn_method := _get_tscn_connection_method(scene_path, node_name)
+	if not tscn_method.is_empty():
+		sub_name = tscn_method
 
 	# ── Scan .vg for an existing Connect() wiring this node to a handler ──
 	# AGCK generates: Connect(GetNode("Path/NodeName"), "pressed", "OnHandler")
@@ -8101,10 +8189,17 @@ func _on_2d_node_double_clicked(node: Node) -> void:
 	print("VisualGasic: 2D double-click → opening ", sub_name, " in ", vg_path)
 
 	if is_instance_valid(_embedded_code_editor):
+		# Derive the event part from the resolved sub_name so the dropdown matches.
+		var resolved_event := event_suffix
+		if sub_name.begins_with(node_name + "_"):
+			resolved_event = sub_name.substr(node_name.length() + 1)
 		_open_in_embedded_editor(vg_path, sub_name, event_params)
 		_feed_2d_node_names_to_editor()
+		# Defer select_object_and_event so it runs AFTER ensure_event_handler's
+		# deferred center_viewport_to_caret — otherwise the dropdown rebuild
+		# resets the caret to line 0 before the scroll fires.
 		if _embedded_code_editor.has_method("select_object_and_event"):
-			_embedded_code_editor.select_object_and_event(node_name, event_suffix)
+			_embedded_code_editor.select_object_and_event.call_deferred(node_name, resolved_event)
 	else:
 		_switching_to_code_editor = true
 		_open_or_create_event_handler(vg_path, sub_name)
@@ -8588,6 +8683,11 @@ func _on_controls_navigate_to_event(control_name: String, event_suffix: String) 
 		push_warning("VisualGasic: Controls Inspector — no .vg file associated with the current form.")
 		return
 	var sub_name = control_name + "_" + event_suffix
+	# Check .tscn for an existing wired method name
+	if _form_designer:
+		var tscn_method := _get_tscn_connection_method(_form_designer.get_form_path(), control_name)
+		if not tscn_method.is_empty():
+			sub_name = tscn_method
 	print("VisualGasic: Controls Inspector → opening ", sub_name, " in ", vg_path)
 	if is_instance_valid(_embedded_code_editor):
 		_open_in_embedded_editor(vg_path, sub_name)

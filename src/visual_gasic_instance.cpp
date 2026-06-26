@@ -1063,6 +1063,10 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     builtin_constants["vbFormFeed"] = "\f";
     builtin_constants["vbVerticalTab"] = "\v";
     builtin_constants["vbNullString"] = "";
+    builtin_constants["vbQuote"] = "\"";
+    builtin_constants["vbSpace"] = " ";
+    builtin_constants["vbComma"] = ",";
+    builtin_constants["vbPipe"] = "|";
 
     // MSComm Constants
     builtin_constants["comNone"] = 0;

@@ -1,0 +1,38 @@
+AI Agent Engineering Prompt: VisualGasic Python Core Bridge & Facade ArchitectureObjective:Implement the initial architectural scaffolding for the VisualGasic Python Integration (v6.0). You will build the unified C++ frontend facade, implement the basic skeleton for the Tier A IPC process runner, and setup the compilation flags in SConstruct
+
+Task 1: Update the Build System (SConstruct)Modify the SConstruct file to introduce an optional python=1 build flag. If enabled, inject the compilation defines to prepare the codebase for future Tier B compilation without breaking default clean engine builds.Add a conditional compilation check mirroring the existing libffi logic.If python=1 is passed, set the preprocessor macro flag VG_HAS_PYTHON.Configure platform tracking: use python3-config for Linux/macOS, and look in #thirdparty/python-embed for Windows headers.
+
+Task 2: Create the Unified Backend Facade (PyBridgeFacade)Create src/python_bridge/visual_gasic_py_facade.h and .cpp. This class acts as the internal engine router that switches between Tier A (IPC worker) and Tier B (Embedded) transparently based on project settings.Requirements:Expose a core initialization method that checks the Godot project setting vg/python/embedded_enabled.Expose py_import(String module_name) which returns a wrapped runtime object.Expose a placeholder for py_process_buffer() to handle the zero-copy data routing pathway.Draft Infrastructure Template for the Facade:
+#ifndef VISUAL_GASIC_PY_FACADE_H
+#define VISUAL_GASIC_PY_FACADE_H
+
+#include <godot_cpp/classes/ref_counted.hpp>
+#include <godot_cpp/variant/variant.hpp>
+#include <godot_cpp/variant/string.hpp>
+
+using namespace godot;
+
+class PyBridgeFacade : public RefCounted {
+    GDCLASS(PyBridgeFacade, RefCounted);
+
+private:
+    bool use_embedded_tier = false;
+    bool is_initialized = false;
+
+protected:
+    static void _bind_methods();
+
+public:
+    PyBridgeFacade();
+    ~PyBridgeFacade();
+
+    void initialize_bridge();
+    Variant py_import(const String &module_name);
+    bool py_process_buffer(const Variant &py_object_handle, const String &function_name, PackedByteArray buffer);
+};
+
+#endif // VISUAL_GASIC_PY_FACADE_H
+
+Task 3: Bootstrap Tier A (visual_gasic_process.cpp Hook)Begin building the Tier A worker management lifecycle.Map out the code that checks for a localized virtual environment interpreter or system python path.Write the initialization loop that invokes the external background script file python_worker.py using VisualGasic's existing visual_gasic_process.cpp framework.Ensure the process is monitored: if the process exits unexpectedly, log a structured warning using visual_gasic_error_reporter.h and queue a background restart task.
+
+Verification Criteria:Ensure the code compiles cleanly both with and without the python=1 build flag.Verify that initialize_bridge() accurately reads the Godot project engine settings profile.Report back with the initial structural designs for the length-prefixed framed message system layout you choose for Tier A's JSON/msgpack IPC protocol channel.

@@ -245,14 +245,14 @@ Internal docs for contributors and maintainers.
 | Document | Description |
 |----------|-------------|
 | [README](../README.md) | Project overview, feature list, screenshots, and quick start |
-| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.2.0-Beta1) |
-| [Roadmap](../ROADMAP.md) | Development roadmap and feature timeline |2.0-Beta1) |
+| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.2.0-Beta4) |
 | [Roadmap](../ROADMAP.md) | Development roadmap and feature timeline |
 | [Security Policy](../SECURITY.md) | Security policy and vulnerability reporting |
 | [License](../LICENSE) | GPL-3.0
 
 | Version | File | Highlights |
 |---------|------|------------|
+| **v5.2.0-Beta4** | [RELEASE_NOTES_v5.2.0-Beta4.md](../RELEASE_NOTES_v5.2.0-Beta4.md) | Current public beta release with latest installers and release packaging updates. |
 | **v5.2.0-Beta1** | [RELEASE_NOTES_v5.2.0-Beta1.md](../RELEASE_NOTES_v5.2.0-Beta1.md) | **Android plugin** (GPS, step counter, permissions auto-wire), **Pass-6 namespace gap-fillers** (Camera/Crypto/Physics/Ray/Joypad/Sensor/Theme/Shader/Speaker), **358-entry Command Help DB** with see-also navigation, **AI correctness 100%** on Claude 4.5 + qwen2.5-coder:7b, Linux + Windows installers (macOS deferred). |
 | v5.1.0-rc.2 | [RELEASE_NOTES_v5.1.0-rc.2.md](../RELEASE_NOTES_v5.1.0-rc.2.md) | **Welcome shell loading overhaul** (always-on-top fullscreen cover + circular spinner), **15 new Form Designer toolbox controls** (10 Standard + 5 Game UI: pixel/segmented/retro progress bars, badge, toggle switch, breadcrumbs, splits, …) |
 | v5.1.0-rc.1 | [RELEASE_NOTES_v5.1.0-rc.1.md](../RELEASE_NOTES_v5.1.0-rc.1.md) | VGAssetBus/Broker/Registry, Default Editors UI, Command Palette MRU, External Watcher, Cross-asset rename rewriter, AGCK 8 templates, plugin capability lint |

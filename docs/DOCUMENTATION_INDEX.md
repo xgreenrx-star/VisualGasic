@@ -219,7 +219,8 @@
 
 ### Release Notes
 - [CHANGELOG.md](../CHANGELOG.md) - Full change log
-- [RELEASE_NOTES_v5.2.0-Beta1.md](../RELEASE_NOTES_v5.2.0-Beta1.md) - **v5.2.0-Beta1 (latest)** — Android plugin, Pass-6 verbs, 358-entry Command Help, 100% AI correctness, Browser Dashboard
+- [RELEASE_NOTES_v5.2.0-Beta4.md](../RELEASE_NOTES_v5.2.0-Beta4.md) - **v5.2.0-Beta4 (latest)** — current public beta with latest installers and packaging updates
+- [RELEASE_NOTES_v5.2.0-Beta1.md](../RELEASE_NOTES_v5.2.0-Beta1.md) - v5.2.0-Beta1 — Android plugin, Pass-6 verbs, 358-entry Command Help, 100% AI correctness, Browser Dashboard
 - [RELEASE_NOTES_v5.1.0-rc.2.md](../RELEASE_NOTES_v5.1.0-rc.2.md) - v5.1.0-rc.2
 - [RELEASE_NOTES_v5.1.0-rc.1.md](../RELEASE_NOTES_v5.1.0-rc.1.md) - v5.1.0-rc.1 — Fix-with-AI diff repair, AI voice mode
 - [RELEASE_NOTES_v5.1.0-Beta1.md](../RELEASE_NOTES_v5.1.0-Beta1.md) - v5.1.0-Beta1

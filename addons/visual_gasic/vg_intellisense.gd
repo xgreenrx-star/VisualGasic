@@ -1118,6 +1118,10 @@ const VB6_CONSTANTS: Array[Dictionary] = [
 	{"name": "vbFormFeed", "detail": "String — Form feed character (Chr(12))", "category": "String"},
 	{"name": "vbVerticalTab", "detail": "String — Vertical tab character (Chr(11))", "category": "String"},
 	{"name": "vbNullString", "detail": "String — Empty string (\"\")", "category": "String"},
+	{"name": "vbQuote", "detail": "String — Double-quote character (Chr(34))", "category": "String"},
+	{"name": "vbSpace", "detail": "String — Space character (Chr(32)); Space(1) is equivalent", "category": "String"},
+	{"name": "vbComma", "detail": "String — Comma character (Chr(44))", "category": "String"},
+	{"name": "vbPipe", "detail": "String — Pipe/vertical-bar character (Chr(124))", "category": "String"},
 
 	# ── VB6 Key Constants ──
 	{"name": "vbKeyReturn", "detail": "Integer — Enter/Return key", "category": "Key"},

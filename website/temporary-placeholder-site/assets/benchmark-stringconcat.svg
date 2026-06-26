@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640" role="img" aria-labelledby="title desc">
+  <title id="title">Visual Gasic string concatenation benchmark</title>
+  <desc id="desc">String concatenation benchmark comparing Visual Gasic, C++, and GDScript. Lower is faster.</desc>
+  <rect width="960" height="640" fill="#09131a"/>
+  <rect x="36" y="36" width="888" height="568" rx="28" fill="#10212a" stroke="#294451"/>
+  <text x="72" y="105" fill="#ecf4f2" font-family="Georgia, serif" font-size="42">StringConcat Speed Test</text>
+  <text x="72" y="146" fill="#f2b95d" font-family="Trebuchet MS, sans-serif" font-size="22">Lower is faster • published results from docs/manual/performance.md</text>
+  <line x1="90" y1="520" x2="870" y2="520" stroke="#446270" stroke-width="2"/>
+  <line x1="90" y1="170" x2="90" y2="520" stroke="#446270" stroke-width="2"/>
+  <rect x="180" y="515.8" width="120" height="4.2" rx="12" fill="#68d4d0"/>
+  <rect x="420" y="486.19" width="120" height="33.81" rx="12" fill="#f2b95d"/>
+  <rect x="660" y="169.51" width="120" height="350.49" rx="12" fill="#f07c77"/>
+  <text x="240" y="560" text-anchor="middle" fill="#ecf4f2" font-family="Trebuchet MS, sans-serif" font-size="28">Visual Gasic</text>
+  <text x="240" y="595" text-anchor="middle" fill="#68d4d0" font-family="Georgia, serif" font-size="34">60 us</text>
+  <text x="480" y="560" text-anchor="middle" fill="#ecf4f2" font-family="Trebuchet MS, sans-serif" font-size="28">C++</text>
+  <text x="480" y="595" text-anchor="middle" fill="#f2b95d" font-family="Georgia, serif" font-size="34">483 us</text>
+  <text x="720" y="560" text-anchor="middle" fill="#ecf4f2" font-family="Trebuchet MS, sans-serif" font-size="28">GDScript</text>
+  <text x="720" y="595" text-anchor="middle" fill="#f07c77" font-family="Georgia, serif" font-size="34">5007 us</text>
+  <text x="72" y="188" fill="#b6c7c7" font-family="Trebuchet MS, sans-serif" font-size="20">Visual Gasic wins outright here: 83.5x faster than GDScript and about 8x faster than C++.</text>
+</svg>

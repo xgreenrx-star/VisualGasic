@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: May 2026
-**Current Version**: 5.2.0-Beta1 (released May 11, 2026) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set
+**Current Version**: 5.2.0-Beta4 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set
 **Next Cut**: v5.2.0 stable
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort. **Aspirational items live in v6.0 / v7.0 sections — do not pull them forward.**
@@ -451,7 +451,7 @@ Each feature has implementation notes that describe:
 
 ## 📝 Version History
 
-- **v5.2.0-Beta1** (2026-05-11) - Android plugin (GPS/Steps/Sensor), Pass-6 namespace verbs (Camera.PanTo/Bounce, Crypto.Hex/Base64, Physics.GravityV2/V3, Ray.Cast2D/Cast3D, Joypad.Stick, Sensor.Magnetometer, Theme/Shader/Speaker.Bus…), 358-entry Command Help DB, AI correctness 100% on Claude Sonnet 4.5 and qwen2.5-coder:7b, Browser Dashboard (5 phases + headless + tray)
+- **v5.2.0-Beta4** (2026-05-11) - Android plugin (GPS/Steps/Sensor), Pass-6 namespace verbs (Camera.PanTo/Bounce, Crypto.Hex/Base64, Physics.GravityV2/V3, Ray.Cast2D/Cast3D, Joypad.Stick, Sensor.Magnetometer, Theme/Shader/Speaker.Bus…), 358-entry Command Help DB, AI correctness 100% on Claude Sonnet 4.5 and qwen2.5-coder:7b, Browser Dashboard (5 phases + headless + tray)
 - **v5.1.0-rc.2** - Release candidate 2 for v5.1.0 stable line
 - **v5.1.0-rc.1** - Release candidate 1; Fix-with-AI diff repair, AI voice mode (PTT)
 - **v5.1.0-Beta1** - VG Welcome launcher, first-run wizard, AGCK templates, 3D pipeline, Make EXE, Publish to Web, Live Control Animation, Multi-Provider AI Help, WebSocket Controls, cross-platform installers
@@ -782,7 +782,7 @@ Three items deliberately did **not** block v5.1 stable:
 
 | Feature | Status | Disposition |
 |---------|--------|-------------|
-| Browser Dashboard | ✅ Shipped (post-v5.2.0-Beta1) | 5-phase dashboard + headless launcher + tray icon. |
+| Browser Dashboard | ✅ Shipped (post-v5.2.0-Beta4) | 5-phase dashboard + headless launcher + tray icon. |
 | Community Testing | 🟡 Ongoing | Continues across the v5.2.x line. Not a release gate. |
 | Issue triage | 🟡 Ongoing | Whatever community testing surfaces lands as patches. |
 
@@ -804,10 +804,63 @@ Short, finishable list. **No new aspirational items.**
 | ~~**Browser Dashboard**~~ | ~~Browser-based project dashboard, settings panel, build monitor.~~ ✅ **Shipped** — 5-phase TCP-server HTTP dashboard + headless `vg-dashboard` launcher + tray icon mode. | ~~High~~ |
 | ~~**Working Nodes — Merge `On Input` chains**~~ | ~~Multiple `On Input` nodes each generating duplicate `Sub Form_KeyDown()`.~~ ✅ **Shipped** — `working_nodes_codegen.gd` `_emit_merged_input_sub` merges all `On Input` nodes into a single `Sub Form_KeyDown` with `If key = "..." Then` guards. | ~~Medium~~ |
 | ~~**Working Nodes — runtime gaps**~~ | ~~`WN_Wait` / `WN_Spawn` / `WN_Animate` stubs.~~ ✅ **Shipped** — `WN_Wait`/`WN_Spawn` now `Await GetTree().create_timer(sec).timeout`; `WN_Animate` falls back to scale-pulse tween when no AnimationPlayer is present. | ~~Medium~~ |
-| **Forms as a standalone plugin** | Extract the Form Designer (form_editor_helper.gd, form_preview_window.gd, form_preview_toolbar.gd, new_form_dialog.gd, vg_formatter.gd, and form-related dispatch in visual_gasic_plugin.gd) into `addons/visual_gasic/plugins/forms/` with its own `plugin.cfg`. Replace the core `vg/form_designer_enabled` toggle with plugin enable/disable. | Medium |
+| **Fix boolean `Or` runtime/parser regression** | MUST FIX: some boolean conditions using inline `If ... Or (...) Then` can throw runtime `Err 35: Sub or Function not defined: Or` (observed in `infoview_companion.vg`). Patch parser/runtime operator handling so `Or` is always treated as boolean operator in condition expressions; add regression tests for single-line and multi-clause `If` conditions. | High |
+| **UI Forms plugin (new lightweight WYSIWYG)** | Build a new form editor plugin named **UI Forms** using the existing codebase as reference, but re-centered on a lean architecture: strict Godot Control nodes only, true WYSIWYG authoring in the **2D viewport**, and no legacy bloated Form Designer coupling. Ship as its own plugin with `plugin.cfg` and own repository page (target: `xgreenrx-star/vg-plugin-ui-forms`). Keep old Form Designer in maintenance mode until UI Forms reaches parity for core workflows. | High |
 | **Installer polish** | `install.py/.sh/.ps1` improvements: (a) `--uninstall` that cleanly removes addon + `vg` CLI; (b) upgrade detection with overwrite warning; (c) Windows: auto-append `~\.local\bin` to user PATH via `setx`; (d) optional `--install-godot` that downloads + SHA-512-verifies the matching Godot binary; (e) optional `--activate-in <project>`; (f) optional desktop launcher. | Medium |
 | **Android / iOS validation** | Test and fix mobile platform builds. Stretch — not a 5.2 blocker. | Low |
 | **WebAssembly Export validation** | Ensure HTML5 export compatibility end-to-end. | Low |
+
+### UI Forms Execution Plan (4 Milestones)
+
+This plan defines the replacement path for the legacy Form Designer with the new lightweight **UI Forms** plugin.
+
+1. **M1 — Plugin Scaffold + 2D Viewport Binding** (1 week)
+   - Create plugin shell in `addons/visual_gasic/plugins/ui_forms/` with independent `plugin.cfg`.
+   - Add dock/panel entry points and bind editor interactions to Godot 2D viewport.
+   - Enable create/select/move for core `Control` nodes in viewport.
+   - Deliverable: open a form scene and manipulate controls visually in 2D editor.
+
+    **M1 file-by-file checklist (implementation-ready):**
+    - Create `addons/visual_gasic/plugins/ui_forms/plugin.cfg`.
+    - Create `addons/visual_gasic/plugins/ui_forms/ui_forms_plugin.gd` as the plugin entrypoint (pattern: existing `plugins/form_designer/form_designer_plugin.gd`).
+    - Create `addons/visual_gasic/plugins/ui_forms/ui_forms_viewport_adapter.gd` for 2D viewport event routing (select/move/create).
+    - Create `addons/visual_gasic/plugins/ui_forms/ui_forms_scene_bridge.gd` for scene open/save/reopen sync.
+    - Create `addons/visual_gasic/plugins/ui_forms/ui_forms_selection_overlay.gd` for handles and selection rectangles.
+    - Reuse/adapt logic from:
+       - `addons/visual_gasic/form_editor_helper.gd`
+       - `addons/visual_gasic/new_form_dialog.gd`
+       - `addons/visual_gasic/form_preview_toolbar.gd` (only where needed for preview toggle workflow)
+    - Add host integration switch in `addons/visual_gasic/visual_gasic_plugin.gd`:
+       - Route Form Designer entry to UI Forms plugin when enabled.
+       - Keep legacy Form Designer fallback path intact.
+    - Acceptance checks for M1:
+       - Create form, add Button/Label/LineEdit in 2D viewport.
+       - Select and drag controls with visible selection feedback.
+       - Save `.tscn`, close, reopen, and preserve positions.
+
+2. **M2 — Core WYSIWYG Authoring** (1-2 weeks)
+   - Implement add/delete/duplicate controls, drag-resize handles, parent/child hierarchy editing.
+   - Add snap-to-grid, alignment, distribute, and anchor/margin presets.
+   - Save/load stable `.tscn` + `.vg` wiring path for basic form scripts.
+   - Deliverable: build and persist real forms end-to-end using only Godot Control nodes.
+
+3. **M3 — Inspector + Workflow Parity** (1 week)
+   - Add focused inspector for common Control properties (text, font, theme, size flags, anchors).
+   - Add preview/run-form action and basic event stub generation.
+   - Reuse existing formatter/linter hooks for generated/edited code.
+   - Deliverable: daily-use parity for primary workflows (create/edit/preview/save).
+
+4. **M4 — Migration + Deprecation Path** (1 week)
+   - Keep legacy Form Designer in maintenance mode; route new work to UI Forms.
+   - Add compatibility import pass for existing forms where possible.
+   - Publish plugin documentation and repository handoff guidance (`xgreenrx-star/vg-plugin-ui-forms`).
+   - Deliverable: UI Forms declared default path; legacy designer marked deprecated.
+
+**Release gating for UI Forms default switch**:
+- No custom non-Control node dependency in authoring path.
+- 2D viewport WYSIWYG is stable on create/edit/save/reopen cycles.
+- Core parity achieved: create/edit/save/preview + alignment + basic inspector.
+- Legacy designer remains available until parity gate is met.
 
 ---
 
@@ -817,7 +870,12 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
+| **`Let` keyword — block-scoped variables** | Add `Let x As Type` as a block-scoped variable declaration (C++/JS semantics: variable is re-initialized on each block entry and destroyed on exit). `Dim` retains VB6 sub-scope hoisting behavior. This keeps VB6 compatibility while giving C++/modern programmers an intuitive opt-in for loop-local variables. `Let` is already obsolete in VB6 (it was just an optional prefix for assignment: `Let x = 5`), so repurposing it is safe and zero-breaking. AI code generators trained on JavaScript will naturally reach for `let`-style semantics inside loops — this makes their output correct without restructuring. IDE IntelliSense should suggest `Let` when `Dim` is typed inside a block. Runtime: requires a scope stack in the bytecode VM (push/pop on block enter/exit). Implementation notes: (1) parser: if keyword is `LET` followed by an identifier and `AS`, treat as block-scoped `DimStatement` with a `is_block_scoped` flag; (2) compiler: don't hoist to sub-level slots — allocate a fresh slot on each block entry via a new `OP_PUSH_SCOPE`/`OP_POP_SCOPE` pair; (3) VM: small scope stack alongside `locals[]`. See also: conversation thread Jun 26, 2026. | High |
 | **Vextrex OS / narcean.com Website Launch** | **Critical for VG legitimacy & marketing.** Complete narcean.com with fully interactive Vextrex OS — a GEOS-inspired vector desktop environment built entirely in VG, playable in browser. **Desktop Shell**: Icon grid, taskbar, draggable vector windows with minimize/close, app launcher. **Built-in Apps**: VexWrite (text editor), VexPaint (vector drawing tool with Bezier curves), Terminal (BASIC-style prompt), Vector Storm (embedded playable), DEMOscen Gallery (showcase runner), Downloads Manager (triggers real VG installer downloads), About VG (interactive tutorial). **Visual Aesthetic**: Monochrome phosphor green (CRT shader with scan lines, bloom/glow), pure vector rendering via VGVectorCanvas2D, fake 1987 boot sequence ("Vextrex OS v1.2 - Discovered Archive"). **Website Integration**: narcean.com gets "⚡ The Visual Gasic Initiative" prominent link → launches fullscreen Vextrex OS web player (Escape or "Shut Down" to exit). **Repo Strategy**: Separate `narcean/vextrex-os` repo for clean deployment, mirrored from VG development. **Narrative**: Present as "lost 1980s vector workstation" with retro manual PDF, easter eggs, hidden demos. **Estimate**: ~7-8 weeks (3wk core OS, 2wk apps, 1wk demo integration, 3d website, 1wk polish). **Impact**: Demonstrates VG's web export, UI toolkit, vector rendering, and game engine capabilities in one self-documenting interactive experience. Shareable, viral-ready, establishes VG as serious platform. | High |
+| **Full Python library support** | Include full Python library support in v6.0 so VG projects can use Python ecosystems through a supported integration path. Start with a stable bridge/service architecture and document export/runtime limits clearly. Detailed implementation plan: [`/memories/repo/v6.0_blockers.md`](/memories/repo/v6.0_blockers.md), section "v6.0 plan — Full Python library support". | High |
+| **C++ library interoperability support** | Add a supported C++ interop path (native bridge/FFI + packaging docs) so VG projects can call external C++ libraries without custom engine forks. Ship desktop-first and clearly document mobile/web constraints. | High |
+| **Browser embed stack** | Add a browser surface to VG for InfoView-style workflows and web-powered tools. The goal is a VG-owned browser/window experience that feels integrated into the app and supports the project's browser-driven workflows. | High |
+| **Java library support (v6.x, Android-first)** | Add Java interop for Android plugins and Java ecosystems, with import tooling and runtime bridge documentation. Stage this for v6.x after Python/C++ foundations are stable. | Medium |
 | **AGCK advanced behaviors / user templates** | Promote hard-coded actor magic numbers (`rotation_speed`, `snap_angle_deg`, `jump_force`, `jump_velocity`, etc.) into actor-data fields, surface them in an "Advanced" card in the Actor editor, add Save/Load Template buttons that round-trip user-authored game templates as JSON in `user://agck_templates/`. Long-term: extract behaviors into external `.vg` files with typed param schemas. Plan parked in [`/memories/repo/visualgasic_todo.md`](/memories/repo/visualgasic_todo.md). | High |
 | **Narcea Full Agent Parity** | Extend Narcea beyond Tier 3 (tool dispatcher + run loop) with full IDE access: debug integration (set breakpoints, step through code, inspect variables), sandboxed terminal (whitelist-only commands: build/test/git), git operations (status, diff, commit, branch), asset pipeline (view images, import assets, slice spritesheets), project management (settings, autoloads, plugins), advanced refactoring (rename across files, extract/inline subs). 8 phases, 8-10 weeks total. Security: approval UI for all mutations, no network access, project-directory jail, budget caps. Target: Narcea can complete "make a demoscene demo" end-to-end (code + debug + iterate) with ≥60% success on local 7B models, ≥90% on Claude. Full plan in [`/memories/repo/visualgasic_todo.md`](/memories/repo/visualgasic_todo.md) Tier 3+ section. Phased rollout: v5.4 (debug), v5.5 (terminal+diagnostics), v6.0 (git+assets+project), v6.1+ (refactoring). | High |
 | **Godot Asset Library publish** | Package and submit VisualGasic to the official Asset Library. | High |

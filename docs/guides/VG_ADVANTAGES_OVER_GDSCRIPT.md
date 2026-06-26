@@ -681,7 +681,7 @@ VisualGasic can run and port existing VB6 code:
 | **VB6 syntax** | Dim, If/Then/Else, For/Next, Do/Loop, Select Case, GoTo, GoSub, On Error |
 | **VB6 file I/O** | `Open For Binary/Random/Append`, `Print #`, `Write #`, `Input #`, `Line Input #`, `Get #`, `Put #` with mode/access/lock keywords |
 | **108+ VB6 functions** | MkDir, RmDir, ChDir, CurDir, FileCopy, Environ, QBColor, Weekday, MonthName, and many more |
-| **VB6 constants** | `vbCrLf`, `vbTab`, `vbNullString`, `PI`, `E`, `vbOKOnly`, `vbYesNo`, `KEY_*` |
+| **VB6 constants** | `vbCrLf`, `vbTab`, `vbNullString`, `vbQuote`, `vbSpace`, `vbComma`, `vbPipe`, `PI`, `E`, `vbOKOnly`, `vbYesNo`, `KEY_*` |
 | **Data/Read/Restore** | Embedded data tables with labeled sections, typed reads, 14 introspection functions |
 | **VB6 project import** | `.vbp` / `.frm` / `.bas` file parsing and migration |
 | **VB6-style error handling** | `On Error GoTo`, `On Error Resume Next`, `Err.Number`, `Err.Description`, `Resume` |

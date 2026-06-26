@@ -112,7 +112,7 @@ Double-click any control to jump straight to its event handler. It's the RAD wor
 # Get it
 
 - **GitHub**: [https://github.com/xgreenrx-star/VisualGasic](https://github.com/xgreenrx-star/VisualGasic)
-- **Download**: [v3.4.1 release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v3.4.1) (includes all platform binaries and 66 demos)
+- **Download**: [v5.2.0-Beta4 release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.2.0-Beta4) (includes current installers, portable zips, and offline bundles)
 - **License**: MIT
 
 **Install:** copy `addons/visual_gasic/` into your Godot project → enable the plugin → create `.vg` files.

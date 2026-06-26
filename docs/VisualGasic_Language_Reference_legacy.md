@@ -513,7 +513,7 @@ All VB6 standard constants are supported:
 `vbDefaultButton1` (0), `vbDefaultButton2` (256), `vbDefaultButton3` (512), `vbApplicationModal` (0), `vbSystemModal` (4096)
 
 **String:**
-`vbCrLf`, `vbCr`, `vbLf`, `vbTab`, `vbNewLine`, `vbNullChar`, `vbNullString`, `vbBack`, `vbFormFeed`, `vbVerticalTab`
+`vbCrLf`, `vbCr`, `vbLf`, `vbTab`, `vbNewLine`, `vbNullChar`, `vbNullString`, `vbBack`, `vbFormFeed`, `vbVerticalTab`, `vbQuote`, `vbSpace`, `vbComma`, `vbPipe`
 
 **VarType:**
 `vbEmpty` (0), `vbNull` (1), `vbInteger` (2), `vbLong` (3), `vbSingle` (4), `vbDouble` (5), `vbCurrency` (6), `vbDate` (7), `vbString` (8), `vbObject` (9), `vbError` (10), `vbBoolean` (11), `vbVariant` (12), `vbDataObject` (13), `vbDecimal` (14), `vbByte` (17), `vbArray` (8192)
@@ -6268,6 +6268,7 @@ Dim empty = vbNullString
 
 ' String:    vbCrLf, vbCr, vbLf, vbTab, vbNewLine, vbNullChar, vbNullString
 '            vbBack, vbFormFeed, vbVerticalTab
+'            vbQuote(Chr 34), vbSpace(Chr 32), vbComma(Chr 44), vbPipe(Chr 124)
 ' Misc:      True, False, Nothing
 ' VarType:   vbEmpty(0), vbNull(1), vbInteger(2), vbLong(3), vbSingle(4),
 '            vbDouble(5), vbCurrency(6), vbDate(7), vbString(8), vbObject(9),
