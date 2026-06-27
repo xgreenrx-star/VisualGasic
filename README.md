@@ -52,6 +52,27 @@ If the next decade really is auditor-bound, then the language that wins is the o
 
 ➡ **Read the full argument: [Why the AI Era Needs BASIC Again](docs/manifesto.md)**
 
+## 🗺️ Where we're headed
+
+VG is a public beta. The language, JIT compiler, and debugger work. The Form Designer has known bugs and is being **actively replaced** by UI Forms. Here is the explicit priority list:
+
+**Fixing now (these block the positioning story):**
+- `Boolean Or` runtime regression — basic operator, must be solid
+- Unhandled errors corrupt app state — demos that hit a bug should fail gracefully, not freeze
+- Double-click ignores existing `.tscn` signal connections — directly undermines AI+VG workflow
+- Phantom button double-press on blocking async calls
+
+**Shipping next:**
+- **20 proven working examples** — every file in the repo compiles and runs correctly, no exceptions
+- **UI Forms** (experimental) — WYSIWYG form editing in Godot's 2D viewport; floating control picker → ghost placement → single-click to place → double-click to auto-wire and insert a VG event stub; all handlers live in `Form1.vg` like VB6; ships behind the `vg/enable_experimental_plugins` project setting
+- **Code Navigator upgrade** — extend the existing Object/Event dropdown bar to surface every script on every node in the open scene; select a node, the right dropdown fills with its procedures; no scene-tree hunting
+- **Narcea AI pair** — describe what you want in plain English, Narcea writes the VG code, you can read every line; the 60-second demo that proves the positioning
+- **AI Transport Compaction** — reversible codec that reduces AI prompt/response token usage 15–60% at the provider boundary; source files unchanged
+- **Installer polish** — if install fails, nobody sees the rest
+
+**Deferred (post-MVP):**
+Form Designer extraction to a standalone plugin, full IDE plugin architecture refactor, VG3D, Working Nodes expansion. The Form Designer stays in place behind an Experimental Plugins toggle until UI Forms reaches parity.
+
 > 🚀 **v5.2.0-Beta4 — Current public beta.** This README points to the Beta4 release artifacts directly so download links stay correct even if GitHub's "Latest" flag is stale. See [release notes](RELEASE_NOTES_v5.2.0-Beta4.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
 >
 > 📚 **Docs from the main page:** every guide, reference, and tutorial is one click away from [`docs/DOCS.md`](docs/DOCS.md). Quick jumps: [Getting Started](docs/guides/GET_STARTED.md) · [Installation](docs/guides/INSTALLATION.md) · [Language Reference](docs/VisualGasic_Language_Reference.md) · [Built-in Functions](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) · [Custom Controls](docs/guides/CUSTOM_CONTROLS.md) · [Plugin SDK](addons/visual_gasic/PLUGIN_SDK.md).
@@ -81,9 +102,9 @@ cd VisualGasic && ./scripts/bootstrap_install.sh
 
 - **🧠 An AI-readable language.** VB6/VB.NET-style syntax — verbose, explicit, no hidden control flow. Designed so a human can verify an AI-generated Sub in seconds, not minutes. Same syntax that pairs well with the AI when *it* is doing the writing.
 - **🤖 An AI Pair panel built into the IDE.** Push-to-talk voice mode, 5 personas (default + Bob / Skippy / Orac / HAL — drop a `vg_personas.json` to add your own), multi-provider (OpenAI / Claude / Gemini / **Ollama** local — free, no API key), and an Explain-Last-Error button that diagnoses runtime failures in your own VG code.
-- **🎮 A real game maker.** Drop controls, double-click for handlers, hit F5. 8 AGCK templates, 14 playable demos in the box, full 3D pipeline, sprite/animation/audio editors, one-click Make EXE. Or describe a game in plain English and let AGCK generate a runnable VG project from a template.
+- **🎮 A real game maker.** 8 AGCK templates, 14 playable demos in the box, full 3D pipeline, sprite/animation/audio editors, one-click Make EXE. Or describe a game in plain English and let AGCK generate a runnable VG project from a template.
 - **🚀 Native-class speed.** 5-tier JIT (interpreter → x86-64). On hot paths VG is **30–119× faster than GDScript** and **beats C++ on string concat by 5×**. Honest numbers below — we lose two benchmarks and we say so.
-- **🧰 The IDE you actually want.** VB6-style Form Designer + Code Editor + Immediate Window + Object Browser + Debugger + Profiler, all docked, all themed. Plus a plugin SDK with a process-wide signal bus and capability-based editor routing.
+- **🧰 The IDE you actually want.** Code Editor + Immediate Window + Object Browser + Debugger + Profiler, all docked, all themed. Plus a plugin SDK with a process-wide signal bus and capability-based editor routing. Form Designer exists but has known bugs — the **UI Forms** replacement (2D viewport-based WYSIWYG) is in active development.
 - **📥 One-shot installers for Linux & Windows.** AppImage on Linux, signed-style `.exe` on Windows — both bundle Godot 4.6.1 and land you directly in the VG IDE. macOS `.dmg` is the last platform still in progress and needs a tester. See the [Download & install](#-download--install) section above.
 - **🚪 VG Welcome launcher.** `./vg-ide` (Linux/macOS) and `.\vg-ide.ps1` (Windows) skip Godot's Project Manager and open a VG-branded picker with thumbnails, tag filtering, and an "Ask Narcea to Make a Project" entry that scaffolds a project from a chat prompt. `--last` / `-Last` jumps straight into the most-recent project. From inside the IDE, **File → Exit to VG Welcome** rounds back to the picker.
 - **🆓 Free & open source.** GPL-3.0. Real source, no opaque blobs — even AGCK's output is plain `.vg` files you can edit, audit, and version-control.
@@ -182,7 +203,7 @@ own model with `python bench/ai_correctness/scripts/run_bench.py`.
 - **Code Linting** - Static analysis with 10 issue codes (VG001-VG010)
 - **Snippet Manager** - 40+ built-in snippets with custom snippet support
 - **Theme Support** - 8 built-in themes with full IDE chrome theming + Custom Theme Editor
-- **Visual Gasic IDE** - Full C++ WYSIWYG form editor with VB6-style Toolbox, Properties Panel, live Preview, 40+ controls
+- **Visual Gasic IDE** — Code editor, debugger, profiler, immediate window, object browser, and form tooling. Note: the Form Designer C++ control has known bugs and is being replaced by **UI Forms** (new WYSIWYG plugin in active development — see [Where we're headed](#%EF%B8%8F-where-were-headed)).
 - **Full Property Wiring** - 62+ VB6 runtime property aliases with O(1) StringName HashMap dispatch, including Font, Colors, Border sub-resources, and `_Change` event firing on programmatic SET
 - **Game UI Controls** - 7 Tier 1 animated controls: DialogPanel, InventoryGrid, StatBar, HUDCounter, CooldownButton, NotificationToast, GameMenu
 - **IDE Bottom Panel** - Draggable VSplitContainer with Immediate Window (REPL), Output (Debug.Print + lifecycle), and System Console (live Godot log tailing)

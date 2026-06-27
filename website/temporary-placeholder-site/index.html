@@ -3,23 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Visual Gasic | Temporary Site</title>
-  <meta name="description" content="Temporary Visual Gasic website with downloads, manuals, benchmark highlights, demo links, and videos while the full Narcean.com site is in development.">
+  <title>Visual Gasic | Human-readable code for the AI era</title>
+  <meta name="description" content="Visual Gasic — VB6-style BASIC syntax redesigned for auditing AI-generated code. Free, open source, runs on Godot 4.6. Explicit, readable, fast.">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="page-shell">
     <header class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">Temporary Visual Gasic Site | Narcean Technologies</p>
+        <p class="eyebrow">Narcean Technologies | Visual Gasic</p>
         <h1>Coding for the masses, not the classes.</h1>
         <p class="tagline-strip">For when you don't trust AI.</p>
         <p class="lede">
           Visual Gasic takes the directness of classic VB6-era programming and repositions it for the AI era: explicit,
-          readable, auditable code on top of a serious Godot-powered toolchain. This temporary page is here to get you
-          from curiosity to install, docs, demos, benchmarks, and release media while the full Narcean.com site is rebuilt.
+          readable, auditable code on top of a serious Godot-powered toolchain. Get from curiosity to install, docs,
+          demos, benchmarks, and release media below.
         </p>
-        <p class="roadmap-strip">v6.0 roadmap: full Python library support is planned through a bridge-first integration path.</p>
+        <p class="roadmap-strip">Active development: fixing known bugs, shipping 20 proven examples, building UI Forms and Code Navigator upgrades.</p>
         <div class="hero-actions">
           <a class="button primary" href="#downloads">Get Visual Gasic</a>
           <a class="button secondary" href="#manuals">Read The Manuals</a>
@@ -29,11 +29,11 @@
       <div class="hero-panel notice-card">
         <p class="notice-title">Status</p>
         <ul class="notice-list">
-          <li>Public beta available for Linux x86_64 and Windows x64</li>
-          <li>This is an unstable beta release and is not ready for production use</li>
-          <li>One-click installers and offline bundles are published</li>
-          <li>macOS package is not available yet</li>
-          <li>New Narcean.com site is in progress</li>
+            <li>Public beta — Linux x86_64 and Windows x64 available</li>
+            <li>Core language, JIT compiler, and debugger are working</li>
+            <li>Form Designer has known issues and is being replaced by UI Forms</li>
+            <li>One-click installers and offline bundles are published</li>
+            <li>macOS package is not available yet</li>
         </ul>
       </div>
     </header>
@@ -49,8 +49,9 @@
             use the offline bundle.
           </p>
           <p>
-            Important: Visual Gasic is currently a beta product. Expect rough edges, missing polish, and breaking changes.
-            It is suitable for evaluation, experimentation, and demo work, but not yet positioned as a production-ready release.
+            Visual Gasic is an active public beta. Core language features, the JIT compiler, and the debugger work today.
+            The Form Designer has known issues and is being replaced by UI Forms. Expect rough edges and occasional breaking
+            changes between beta releases. Install today and write real Godot projects in VG Script.
           </p>
         </div>
         <div class="download-grid">
@@ -116,21 +117,56 @@
       </section>
 
       <section id="roadmap" class="section">
-        <p class="section-kicker">Roadmap</p>
-        <h2>v6.0 keeps the big platform bets in view</h2>
+        <p class="section-kicker">What We Are Building Now</p>
+        <h2>Fixing the language, shipping examples, building the tools that prove the pitch</h2>
+        <p>
+          VG is a public beta. The thesis is proven by the AI correctness benchmarks above. What comes next
+          is making the product reliable and demonstrable enough to hand to someone during the AI trust collapse
+          and say: <em>this is how you write code you can actually read.</em>
+        </p>
         <div class="manual-grid">
           <article class="card link-card accent-gold">
-            <strong>Full Python library support</strong>
+            <strong>Fix the four known bugs</strong>
             <span>
-              Full Python library support is planned for v6.0 so VG projects can use Python ecosystems through a supported
-              bridge-first integration path.
+              Boolean Or runtime regression, unhandled errors corrupting app state, phantom button double-press on async calls,
+              and double-click ignoring existing .tscn signal connections. These must be solid before any public push.
+            </span>
+          </article>
+          <article class="card link-card accent-gold">
+            <strong>20 proven working examples</strong>
+            <span>
+              Every example in the repo must compile and run correctly. Currently the corpus has unproven files.
+              The cleanup pass produces 20 examples that work, period — the proof points that make VG credible to a newcomer.
             </span>
           </article>
           <article class="card link-card">
-            <strong>Bridge-first implementation</strong>
+            <strong>UI Forms — WYSIWYG in Godot's 2D viewport</strong>
             <span>
-              The roadmap favors external Python process and service integration first, with export/runtime limits documented
-              clearly before any embedded runtime experiment.
+              A new lightweight form editor that works with Godot's 2D editor, not against it. Floating control picker
+              window, ghost placement, single click to place, double-click to auto-wire and generate a VG event stub.
+              Replaces the current Form Designer, which has known bugs. Ships as an experimental plugin.
+            </span>
+          </article>
+          <article class="card link-card">
+            <strong>Code Navigator upgrade</strong>
+            <span>
+              Extend the existing VB6-style Object/Event dropdown bar to surface every script attached to any node
+              in the open scene. Select a node, the right dropdown fills with its procedures — VG Sub or GDScript func.
+              No hunting through the scene tree to open a child node's script.
+            </span>
+          </article>
+          <article class="card link-card">
+            <strong>Narcea AI pair — generate VG from plain English</strong>
+            <span>
+              Describe what you want. Narcea writes the VG code. You can read every line of it. This is the
+              60-second demo that makes the positioning real: AI writes it, you understand it, you trust it.
+            </span>
+          </article>
+          <article class="card link-card">
+            <strong>AI Transport Compaction</strong>
+            <span>
+              Reversible codec that reduces AI prompt and response token usage 15&ndash;60% at the provider boundary.
+              Source files are never changed. Pays for itself immediately in API costs.
             </span>
           </article>
         </div>
@@ -182,7 +218,7 @@
         <h2>Readable does not have to mean slow</h2>
         <p>
           Visual Gasic is built to be inspectable, but it is not a toy interpreter. The published benchmark suite shows it beating GDScript in all 11 tests
-          and winning 6 of 9 measured matchups against C++ in the current results set. The charts below are bundled into this temporary site so the performance
+          and winning 6 of 9 measured matchups against C++ in the current results set. The charts below are here so the performance
           claim is visible immediately instead of buried in a PDF or release thread.
         </p>
         <div class="stats-row">
@@ -257,7 +293,7 @@
 
       <section id="gallery" class="section">
         <p class="section-kicker">Screenshots</p>
-        <h2>Included images for the temporary upload bundle</h2>
+        <h2>IDE and demoscene screenshots</h2>
         <div class="gallery-grid">
           <figure class="card image-card tall">
             <img src="assets/installer_install.png" alt="Visual Gasic installer screenshot">
@@ -288,7 +324,7 @@
     </main>
 
     <footer class="footer">
-      <p>Temporary Visual Gasic site for Narcean.com upload. Replace when the full site is ready.</p>
+      <p>Visual Gasic &mdash; Narcean Technologies &mdash; GPL-3.0</p>
       <div class="footer-links">
         <a href="https://github.com/xgreenrx-star/VisualGasic">GitHub Repository</a>
         <a href="https://github.com/xgreenrx-star/VisualGasic/releases/latest">Latest Release</a>
