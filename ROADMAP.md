@@ -805,62 +805,220 @@ Short, finishable list. **No new aspirational items.**
 | ~~**Working Nodes — Merge `On Input` chains**~~ | ~~Multiple `On Input` nodes each generating duplicate `Sub Form_KeyDown()`.~~ ✅ **Shipped** — `working_nodes_codegen.gd` `_emit_merged_input_sub` merges all `On Input` nodes into a single `Sub Form_KeyDown` with `If key = "..." Then` guards. | ~~Medium~~ |
 | ~~**Working Nodes — runtime gaps**~~ | ~~`WN_Wait` / `WN_Spawn` / `WN_Animate` stubs.~~ ✅ **Shipped** — `WN_Wait`/`WN_Spawn` now `Await GetTree().create_timer(sec).timeout`; `WN_Animate` falls back to scale-pulse tween when no AnimationPlayer is present. | ~~Medium~~ |
 | **Fix boolean `Or` runtime/parser regression** | MUST FIX: some boolean conditions using inline `If ... Or (...) Then` can throw runtime `Err 35: Sub or Function not defined: Or` (observed in `infoview_companion.vg`). Patch parser/runtime operator handling so `Or` is always treated as boolean operator in condition expressions; add regression tests for single-line and multi-clause `If` conditions. | High |
-| **UI Forms plugin (new lightweight WYSIWYG)** | Build a new form editor plugin named **UI Forms** using the existing codebase as reference, but re-centered on a lean architecture: strict Godot Control nodes only, true WYSIWYG authoring in the **2D viewport**, and no legacy bloated Form Designer coupling. Ship as its own plugin with `plugin.cfg` and own repository page (target: `xgreenrx-star/vg-plugin-ui-forms`). Keep old Form Designer in maintenance mode until UI Forms reaches parity for core workflows. | High |
+| **UI Forms — 2D viewport authoring (new approach)** | New lightweight form editor that works WITH Godot's 2D editor, not against it. **Toolbox as transient popup**: clicking `[+ Add Control]` opens a native floating `Window` with the Godot Control palette; click a control → window closes → ghost/outline follows mouse → single click places it on the form; double-click an already-placed control to auto-wire + create a VG event stub. **Signal architecture (two-layer)**: Layer 1 — controls connect their default Godot signals to `Form1.vg` exactly like VB6 (`Sub Button1_Click()`); Layer 2 — the form declares `Event` declarations for high-level outcomes (`Event FormSubmitted(data)`) that parent scenes connect to. Both layers visible in Godot's signal graph. **No extraction yet**: Form Designer stays in place behind the Experimental Plugins gate. Separate repo target: `xgreenrx-star/vg-plugin-ui-forms`. | High |
+| **Experimental Plugins setting** | Add `vg/enable_experimental_plugins` boolean in Godot Project Settings (VisualGasic category, default: `false`). When `false`, experimental plugins (UI Forms; others added later) are hidden from the toolbar and plugin manager. When `true` they appear at the user's own risk. Check this setting in `visual_gasic_plugin.gd` alongside the existing `vg/form_designer_enabled` check (~line 669). UI Forms is the first plugin behind this gate; Form Designer extraction deferred to v6.0+. | High |
 | **Installer polish** | `install.py/.sh/.ps1` improvements: (a) `--uninstall` that cleanly removes addon + `vg` CLI; (b) upgrade detection with overwrite warning; (c) Windows: auto-append `~\.local\bin` to user PATH via `setx`; (d) optional `--install-godot` that downloads + SHA-512-verifies the matching Godot binary; (e) optional `--activate-in <project>`; (f) optional desktop launcher. | Medium |
 | **Android / iOS validation** | Test and fix mobile platform builds. Stretch — not a 5.2 blocker. | Low |
 | **WebAssembly Export validation** | Ensure HTML5 export compatibility end-to-end. | Low |
 
-### UI Forms Execution Plan (4 Milestones)
+---
 
-This plan defines the replacement path for the legacy Form Designer with the new lightweight **UI Forms** plugin.
+## 🎯 AI Crash Positioning — Feature Priority (Jun 27 2026)
 
-1. **M1 — Plugin Scaffold + 2D Viewport Binding** (1 week)
-   - Create plugin shell in `addons/visual_gasic/plugins/ui_forms/` with independent `plugin.cfg`.
-   - Add dock/panel entry points and bind editor interactions to Godot 2D viewport.
-   - Enable create/select/move for core `Control` nodes in viewport.
-   - Deliverable: open a form scene and manipulate controls visually in 2D editor.
+> **Context**: When the trust collapse in AI-generated code arrives, VG's pitch is: human-readable, auditable, English-like code for Godot. VG is ironically *better* for AI generation than GDScript because it is simpler and more auditable. We need a working, usable VG before that window opens. Below is the explicit advance/mothball list.
 
-    **M1 file-by-file checklist (implementation-ready):**
-    - Create `addons/visual_gasic/plugins/ui_forms/plugin.cfg`.
-    - Create `addons/visual_gasic/plugins/ui_forms/ui_forms_plugin.gd` as the plugin entrypoint (pattern: existing `plugins/form_designer/form_designer_plugin.gd`).
-    - Create `addons/visual_gasic/plugins/ui_forms/ui_forms_viewport_adapter.gd` for 2D viewport event routing (select/move/create).
-    - Create `addons/visual_gasic/plugins/ui_forms/ui_forms_scene_bridge.gd` for scene open/save/reopen sync.
-    - Create `addons/visual_gasic/plugins/ui_forms/ui_forms_selection_overlay.gd` for handles and selection rectangles.
-    - Reuse/adapt logic from:
-       - `addons/visual_gasic/form_editor_helper.gd`
-       - `addons/visual_gasic/new_form_dialog.gd`
-       - `addons/visual_gasic/form_preview_toolbar.gd` (only where needed for preview toggle workflow)
-    - Add host integration switch in `addons/visual_gasic/visual_gasic_plugin.gd`:
-       - Route Form Designer entry to UI Forms plugin when enabled.
-       - Keep legacy Form Designer fallback path intact.
-    - Acceptance checks for M1:
-       - Create form, add Button/Label/LineEdit in 2D viewport.
-       - Select and drag controls with visible selection feedback.
-       - Save `.tscn`, close, reopen, and preserve positions.
+### 🗓️ Milestone Timeline — Stable Target: November 1 2026
 
-2. **M2 — Core WYSIWYG Authoring** (1-2 weeks)
-   - Implement add/delete/duplicate controls, drag-resize handles, parent/child hierarchy editing.
-   - Add snap-to-grid, alignment, distribute, and anchor/margin presets.
-   - Save/load stable `.tscn` + `.vg` wiring path for basic form scripts.
-   - Deliverable: build and persist real forms end-to-end using only Godot Control nodes.
+**Why November 1:** The AI code trust collapse is not a single event — it's a window that has already begun opening. The evidence:
+- **Sequoia Capital, June 2024**: Identified a $600B gap between AI infrastructure spending and actual revenue/value delivered. Called it a speculative bubble with no historical parallel.
+- **Goldman Sachs, 2024**: "Gen AI: Too Much Spend, Too Little Benefit" — enterprise customers increasingly unable to demonstrate ROI on AI coding tools.
+- **Vibe coding backlash, 2025–2026**: Production failures, unmaintainable AI-generated codebases, and growing developer distrust of AI output are already visible and accelerating. The term "vibe debt" (technical debt from unchecked AI generation) entered common use in 2025.
+- **The pattern**: AI investment bubble (financial) and AI code trust collapse (technical) are two separate events. The financial bubble may take until 2027–2028 to fully resolve. The code trust collapse — the moment developers and organizations actively seek alternatives to unreadable AI output — is happening *now* and will peak in **Q4 2026 – Q2 2027**.
 
-3. **M3 — Inspector + Workflow Parity** (1 week)
-   - Add focused inspector for common Control properties (text, font, theme, size flags, anchors).
-   - Add preview/run-form action and basic event stub generation.
-   - Reuse existing formatter/linter hooks for generated/edited code.
-   - Deliverable: daily-use parity for primary workflows (create/edit/preview/save).
+**The window**: VG needs to be stable, reliable, and demonstrable before Q4 2026. A credible, working stable release by November 1 puts VG in position to be the answer when the question becomes mainstream.
 
-4. **M4 — Migration + Deprecation Path** (1 week)
-   - Keep legacy Form Designer in maintenance mode; route new work to UI Forms.
-   - Add compatibility import pass for existing forms where possible.
-   - Publish plugin documentation and repository handoff guidance (`xgreenrx-star/vg-plugin-ui-forms`).
-   - Deliverable: UI Forms declared default path; legacy designer marked deprecated.
+| Milestone | Target Date | Exit Criteria |
+|-----------|------------|---------------|
+| **M0 — Restart** | July 1 2026 | Codebase reviewed, bug list confirmed, all known regressions documented |
+| **M1 — Bug fixes** | July 31 2026 | All 4 critical bugs fixed and regression-tested: `Or` operator, error state corruption, phantom double-press, `.tscn` signal mismatch |
+| **M2 — 20 proven examples** | August 15 2026 | Every example in the repo compiles and runs correctly. Unproven files deleted. |
+| **M3 — Code Navigator upgrade** | August 31 2026 | Object dropdown surfaces all scripts on all scene nodes; GDScript `func` definitions in Event dropdown; clicking navigates to correct line |
+| **M4 — UI Forms experimental** | September 30 2026 | Control picker popup → ghost placement → single-click place → double-click wire → `Sub Button1_Click()` in `Form1.vg`. Save/reopen preserves everything. Gated behind `vg/enable_experimental_plugins`. |
+| **M5 — Narcea AI pair** | October 15 2026 | "Describe a form in English → Narcea generates working VG code" demo runs end-to-end on Claude and local Ollama |
+| **M6 — Causal Chain Visualization (teaser)** | October 31 2026 | Static AST walk generates a readable call-chain report for any VG form. Even a text-mode output qualifies. Visual panel is v6.1+. |
+| **🎉 Stable v6.0 release** | November 1 2026 | All M1–M5 complete. Installer works first try. 20 examples run. Public announcement. |
 
-**Release gating for UI Forms default switch**:
-- No custom non-Control node dependency in authoring path.
-- 2D viewport WYSIWYG is stable on create/edit/save/reopen cycles.
-- Core parity achieved: create/edit/save/preview + alignment + basic inspector.
-- Legacy designer remains available until parity gate is met.
+**Buffer**: October is the buffer month. If M4 slips, M5 and M6 compress, not the release date.
+
+**What stable means**: language core is reliable, bugs above are fixed, examples work, installer works. It does NOT mean every feature is complete — it means what ships is honest and solid.
+
+### ✅ ADVANCE — required for positioning
+
+| Feature | Why it matters |
+|---------|---------------|
+| **VG Core stability** (parser/compiler/VM/JIT) | The product itself. Nothing else matters if the language is broken. |
+| **Debugger** (breakpoints, watch, call stack) | Auditability: humans must be able to step through and verify AI-generated VG code. |
+| **Linter + formatter** | Keeps AI-generated code clean. Core audit tool. |
+| **IntelliSense / CBM completion** | Reduces friction for non-GDScript developers. |
+| **Human-readable error messages** | When AI gets it wrong, humans must understand what broke. |
+| **Narcea basic AI help** | Generates VG. The AI coding assistant that proves the pitch. |
+| **20 clean working examples** | Proof points. Newcomers need to see VG work before trusting it. |
+| **Installer polish** | First impression. If install fails, nobody sees the rest. |
+| **AI Transport Compaction (VG6.1)** | Cuts AI development costs. Pays for itself immediately. |
+| **UI Forms (experimental)** | Demonstrates VG for app/UI development. Differentiator from game-only tools. |
+| **Code Navigator enhancement** | Extend existing `code_navigator.gd` to surface ALL scene scripts in the Object dropdown — critical for UI Forms workflow where multiple nodes each have scripts. |
+| **Causal Chain Visualization (teaser in v6.0, full in v6.1)** | Static analysis of a VG form's AST produces a human-readable causal chain: every user action → every Sub it calls → every outcome it produces. The auditor reads the chain, not the code, to verify AI-generated output. Text-mode output for v6.0; visual panel for v6.1. |
+| **Language reference + 5 tutorials** | When AI crashes, humans read docs again. This is the moment docs matter. |
+
+### 🛑 MOTHBALL — defer until post-positioning
+
+| Feature | Reason |
+|---------|--------|
+| **Form Designer extraction to standalone plugin/repo** | Too complex, not a positioning feature. Keep in-place with Experimental Plugins gate. Defer to v6.0+. |
+| **Full IDE refactor to plugin architecture** | Architecturally correct but months of risk. Post-VG Core MVP. |
+| **Working Nodes new features** | Maintenance-only. Do not expand. |
+| **AGCK new features** | Maintenance-only. Do not expand. |
+| **VGMusic / VGSFX / VGAIArt plugins** | Already separate. No new work. |
+| **Package manager enhancements** | Low-value for positioning. |
+| **Python / C++ / Java interop** | v6.0. Important but not positioning-critical. |
+| **Narcea full agent parity (Tiers 4-8)** | Continue phased. Don't block on it. |
+| **Browser Dashboard new features** | Already shipped. Freeze it. |
+| **VG3D / VGVR** | v7.0. Do not touch. |
+| **Plugin Marketplace UI** | Post-positioning. |
+| **Causal Chain Visualization — full visual panel** | Text-mode teaser ships in v6.0. Full interactive panel (graph in Godot 2D viewport) is v6.1 scope — requires stable Code Navigator and UI Forms first. |
+| **Vextrex OS / narcean.com website** | Genuinely great viral concept. Mothball until post-stable. Does not help a developer find and trust VG during the crash window. |
+
+---
+
+### Causal Chain Visualization — Design Spec
+
+**The problem it solves**: When AI generates a VG form, the auditor currently must read every line of code to verify what happens when a button is clicked. For a 200-line form this takes minutes. For a 2000-line form it is impractical. No existing tool answers the question *"does this code do what I asked, and is there anything hiding in it I didn’t ask for?"*
+
+**The idea**: VG’s explicit event model (`Sub Button1_Click()`, `RaiseEvent FormSubmitted(data)`, `Call ValidateForm()`) means the entire causal chain from user action to outcome is statically traceable from the AST. The parser already builds the AST. A single recursive walk produces the chain — no runtime required.
+
+**What the auditor sees (text-mode v6.0):**
+```
+User clicks [Submit]
+  └─ Sub SubmitButton_Click()
+      ├─ Call ValidateForm()
+      │   ├─ If txtName.Text = "" → MsgBox "Name required" → EXIT
+      │   └─ Returns True
+      ├─ Call SaveData(userName, txtName.Text)
+      │   └─ File.Write("save.dat", ...)
+      └─ RaiseEvent FormSubmitted(txtName.Text)
+          └─ [Parent scene connects here]
+```
+
+**What the auditor sees (visual panel v6.1):** The same graph rendered in Godot’s 2D viewport as a node graph. Each box is a Sub or outcome. Edges are calls and signal paths. Clicking a box navigates to that line in the code editor.
+
+**Why VG is uniquely suited to this:**
+1. `Sub Button1_Click()` is an unambiguous entry point — the parser already knows every entry point without running the code
+2. BASIC has no hidden side effects, metaclasses, or decorators that change what a function does — static analysis is reliable and complete
+3. The two-layer signal architecture (Layer 1: controls → form; Layer 2: form → parent) makes the causal chain traceable across scene boundaries
+4. The Code Navigator already walks the AST — the chain generator reuses the same infrastructure
+
+**What Python, GDScript, C# cannot do:** They have implicit control flow (metaclasses, decorators, dynamic dispatch, `__getattr__`). A static walk of their AST does not reliably represent what runs. VG’s "what you see is what runs" guarantee is what makes causal chain analysis trustworthy.
+
+**The AI audit workflow this enables:**
+1. AI generates a VG form
+2. Developer clicks “Show Causal Chain”
+3. Reads the chain in 30 seconds — confirms it matches intent
+4. Spots any surprise call or side effect
+5. Accepts or rejects the AI output *before* it runs
+
+**v6.0 implementation (text-mode, low cost):**
+- AST walker: `_walk_chain(sub_name, depth)` — recursive, returns an indented string
+- Entry points: every `Sub <ControlName>_<EventName>()` in the file
+- Calls: every `Call` statement and `RaiseEvent` in each Sub
+- Output: printed to the Output panel or a dedicated “Audit” tab
+- File: extend `code_navigator.gd` or add `vg_causal_chain.gd` (~100 lines)
+- Trigger: “Show Causal Chain” button in the code editor toolbar or right-click menu
+
+**v6.1 implementation (visual panel):**
+- Render chain as a graph in a Godot `SubViewport` embedded in a dock panel
+- Nodes: `Panel` + `Label` per Sub, colored by type (event handler, helper, signal emitter)
+- Edges: `Line2D` for calls, dashed `Line2D` for signals
+- Click a node → navigate to that line in the code editor (reuses `_navigate_to_offset`)
+- Reuses `VGVectorCanvas2D` infrastructure already in the codebase
+
+**Prerequisite**: Code Navigator upgrade must be complete (M3) before v6.1 visual panel.
+
+**Differentiator statement** (for website/README when it ships): *"VG is the only Godot language where you can read what AI wrote without reading the code."*
+
+---
+
+### UI Forms — Design Spec (2D viewport + floating toolbox + signal architecture)
+
+**Why this approach stops fighting Godot**: the previous Form Designer recreated Godot's windowing system from scratch. This approach uses Godot's 2D viewport as the canvas and a single transient native popup for control selection. Minimal surface contact with the windowing system.
+
+**Interaction flow:**
+1. User clicks `[+ Add Control]` toolbar button in VG
+2. A native `Window` popup opens showing the Godot Control palette (Button, Label, LineEdit, Panel, etc.)
+3. User clicks a control — window closes immediately
+4. Mouse cursor shows a ghost/outline of the chosen control
+5. Single click in 2D viewport — places the control as a child node at that position
+6. Double-click an already-placed control — auto-wires it: connects its default Godot signal to a stub in `Form1.vg`, inserts `Sub Button1_Click()`, done
+
+**Signal architecture (two-layer pattern):**
+
+*Layer 1 — Controls → Form (VB6-familiar):*
+- All event handlers live in `Form1.vg` — exactly like VB6
+- When wired, VG connects `Button1.pressed` → `Form1.vg::Sub Button1_Click()`
+- Controls do NOT get their own `.vg` script by default
+- The form's `.tscn` stores Godot signal connections as normal Godot metadata (auditable, visible in the Godot signal graph)
+
+*Layer 2 — Form → Parent Scene (Godot-native):*
+- `Form1.vg` declares `Event` declarations for form-level outcomes
+- Parent scenes connect to these to react to the form completing
+- Generated pattern:
+  ```vb
+  ' Form1.vg
+  Event FormSubmitted(data As Variant)
+  Event FormCancelled()
+
+  Sub SubmitButton_Click()
+      RaiseEvent FormSubmitted(txtName.Text)
+  End Sub
+
+  Sub CancelButton_Click()
+      RaiseEvent FormCancelled()
+  End Sub
+  ```
+
+**Why this is the right architecture:** the form is a Godot scene node. It can be instanced, themed, tested, and inspected in Godot's normal workflow. Every connection is visible in the Godot signal graph — auditable by humans, generatable by AI. VB6 and Godot solve the same problem the same way; VG is the bridge.
+
+---
+
+### Code Navigator Enhancement — All-Scene Script Navigation
+
+**Problem**: Godot's default code workflow requires the user to find a node in the Scene tree, right-click it, and select "Open Script" — cumbersome when a form has 10 controls each with scripts.
+
+**Solution**: Extend the existing `code_navigator.gd` Object/Event dropdown bar (already part of VG's code editor) so that it surfaces **all scripts attached to any node in the open scene** alongside the VG form script. This gives VB6-style two-dropdown navigation over the entire form's code surface.
+
+**Existing foundation** (`code_navigator.gd`):
+- Already walks all scene nodes recursively via `_add_node_recursive(root)`
+- Already lists nodes in the Object dropdown (left)
+- Already parses VG `Sub`/`Function`/`Property` definitions for the Event dropdown (right)
+- Already navigates to a line in the VG code editor when an event is selected
+
+**Enhancement needed — Object dropdown additions:**
+- When a node in the Object dropdown is selected, check `node.get_script()`
+- If the script is a `.vg` file: populate Event dropdown with `Sub`/`Function`/`Property` entries as today
+- If the script is a `.gd` file: populate Event dropdown with all `func` definitions (parsed via regex `^func (\w+)\(` or Godot's `get_script_method_list()`)
+- If the script is any other type: show a single entry `[Open Script]` which calls `editor_interface.edit_resource(script)`
+- Clicking any entry in the Event dropdown navigates directly to that procedure in that script — no Scene tree hunting
+
+**Enhancement needed — Object dropdown scope for UI Forms:**
+- Add a second section separator `── Scene Scripts ──` below the form's own nodes
+- List any `.vg` or `.gd` script attached to child nodes, labelled `Button1.vg`, `Button1.gd`, etc.
+- Selecting a script from this section opens it in the code editor and populates the Event dropdown with its procedures
+- This replaces the need to hunt through the scene tree to find and open a child node's script
+
+**Implementation reference**: `code_navigator.gd` already has all the infrastructure (`_add_node_recursive`, `_parse_procedures`, `_on_object_selected`, `_navigate_to_offset`). The change is additive — extend `_on_object_selected` to branch on script type.
+
+**M1 file-by-file checklist (implementation-ready):**
+- Create `addons/visual_gasic/plugins/ui_forms/plugin.cfg` (hidden unless `vg/enable_experimental_plugins` is `true`)
+- Create `addons/visual_gasic/plugins/ui_forms/ui_forms_plugin.gd` (entrypoint; based on existing `plugins/form_designer/form_designer_plugin.gd`)
+- Create `addons/visual_gasic/plugins/ui_forms/ui_forms_control_picker.gd` (transient `Window` popup with Control palette)
+- Create `addons/visual_gasic/plugins/ui_forms/ui_forms_viewport_adapter.gd` (ghost placement, click-to-place, double-click-to-wire)
+- Create `addons/visual_gasic/plugins/ui_forms/ui_forms_scene_bridge.gd` (scene save/open sync + VG stub insertion)
+- Create `addons/visual_gasic/plugins/ui_forms/ui_forms_selection_overlay.gd` (selection rect + resize handles)
+- Reuse/adapt: `form_editor_helper.gd` (alignment/grid logic), `new_form_dialog.gd` (form init), `code_navigator.gd` (dropdown bar — extend don't replace)
+- Host integration: `visual_gasic_plugin.gd` checks `vg/enable_experimental_plugins` before showing UI Forms toolbar button
+- Code Navigator enhancement: extend `code_navigator.gd` `_on_object_selected` to branch on `.get_script()` type; parse GDScript `func` definitions alongside VG `Sub`/`Function`
+- M1 acceptance:
+  - Place Button/Label/LineEdit via popup → double-click to wire → `Sub Button1_Click()` appears in `Form1.vg` → save/reopen preserves everything
+  - Object dropdown lists all scene nodes; selecting a node with a `.gd` script populates Event dropdown with its `func` definitions; clicking a func navigates to that line
 
 ---
 
