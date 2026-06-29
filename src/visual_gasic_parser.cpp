@@ -1367,8 +1367,21 @@ Statement* VisualGasicParser::parse_statement() {
     }
     
     // Unrecognized keyword used as a variable name (e.g., Seconds, Frames, Over, etc.)
-    // Route to assignment/call handler so keywords can be used as identifiers
+    // Route to assignment/call handler so keywords can be used as identifiers.
+    // BUT: boolean operator keywords (Or, And, Xor, Not) must NOT be treated as
+    // identifiers — they indicate a condition continuation from the previous line
+    // that the parser failed to consume. Emit a clear error instead of creating
+    // a bogus CallStatement that causes Err 35 at runtime.
     if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD) {
+        String kw_val = String(t.value);
+        if (kw_val.nocasecmp_to("Or") == 0 || kw_val.nocasecmp_to("And") == 0 ||
+            kw_val.nocasecmp_to("Xor") == 0 || kw_val.nocasecmp_to("Not") == 0 ||
+            kw_val.nocasecmp_to("Eqv") == 0 || kw_val.nocasecmp_to("Imp") == 0) {
+            error("Boolean operator '" + kw_val + "' at start of statement is invalid. "
+                  "If this was meant to continue a condition, place it on the same line.");
+            advance(); // skip the operator keyword to recover
+            return nullptr;
+        }
         return set_line(parse_assignment_or_call());
     }
     
@@ -2098,10 +2111,17 @@ ExpressionNode* VisualGasicParser::parse_factor() {
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
          // Treat any unrecognized keyword as an identifier (variable name).
          // Keywords like True, False, Me, Nothing, New, IIf, TypeOf, Lambda
-         // are already handled above; operator keywords (Mod, And, Or, Not)
-         // are consumed by higher-precedence parsers.  Anything reaching here
-         // can safely be treated as a user-defined variable name
-         // (e.g., Seconds, Frames, Over, Input, From, etc.).
+         // are already handled above; operator keywords (Mod, And, Or, Not, Xor)
+         // are consumed by higher-precedence parsers.  If they somehow reach here
+         // it means the expression structure is wrong — do NOT treat them as
+         // variable/function names (that causes Err 35 at runtime).
+         String kf = String(peek().value);
+         if (kf.nocasecmp_to("Or") == 0 || kf.nocasecmp_to("And") == 0 ||
+             kf.nocasecmp_to("Xor") == 0 || kf.nocasecmp_to("Not") == 0 ||
+             kf.nocasecmp_to("Eqv") == 0 || kf.nocasecmp_to("Imp") == 0) {
+             // Do NOT consume — return nullptr so higher-level parser can handle it
+             return nullptr;
+         }
          is_special_base = true;
     }
 
@@ -2447,6 +2467,47 @@ IfStatement* VisualGasicParser::parse_if() {
         }
         stmt->condition = _tmp;
         unregister_node(_tmp);
+    }
+
+    // Implicit line continuation for boolean operators in conditions.
+    // VB6 allows: If a _\n Or b Then  but VG has no explicit _ continuation.
+    // Handle the common pattern where a boolean operator starts the next line:
+    //   If someCondition
+    //      Or otherCondition Then
+    // Without this, "Or" would be parsed as a statement (CallStatement) → Err 35.
+    while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) {
+        // Peek past the newline to see if next meaningful token is a boolean operator
+        int saved_pos = current_pos;
+        advance(); // skip newline
+        // Skip additional newlines and comments
+        while (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_COMMENT)) {
+            advance();
+        }
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+            String kw = String(peek().value);
+            if (kw.nocasecmp_to("Or") == 0 || kw.nocasecmp_to("And") == 0 ||
+                kw.nocasecmp_to("Xor") == 0 || kw.nocasecmp_to("OrElse") == 0 ||
+                kw.nocasecmp_to("AndAlso") == 0 || kw.nocasecmp_to("Eqv") == 0 ||
+                kw.nocasecmp_to("Imp") == 0) {
+                // Continue parsing: wrap existing condition with the boolean operator
+                String op = peek().value;
+                advance(); // eat the boolean operator keyword
+                ExpressionNode* right = parse_expression();
+                if (right) {
+                    BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+                    bin->left = stmt->condition;
+                    bin->right = right;
+                    unregister_node(right);
+                    bin->op = op;
+                    stmt->condition = bin;
+                    // Loop again in case there are more continuation lines
+                    continue;
+                }
+            }
+        }
+        // Not a boolean continuation — restore position and break
+        current_pos = saved_pos;
+        break;
     }
     
     bool is_block = false;

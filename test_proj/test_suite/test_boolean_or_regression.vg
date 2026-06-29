@@ -1,0 +1,47 @@
+Attribute VB_Name = "TestBooleanOrRegression"
+' Regression test for Err 35: "Sub or Function not defined: Or"
+' Tests boolean operators in conditions — especially multi-line and parenthesized forms.
+' Expected output: PASS:boolean_or_regression
+Sub _Ready()
+    Dim pass_count As Integer = 0
+    Dim x As Integer = 5
+    Dim y As Integer = 10
+
+    ' Basic boolean Or in If condition
+    If x = 5 Or y = 10 Then pass_count = pass_count + 1
+
+    ' Parenthesized right operand — was creating CallExpression("Or")
+    If x = 5 Or (y = 10) Then pass_count = pass_count + 1
+
+    ' Parenthesized left operand
+    If (x = 5) Or y = 10 Then pass_count = pass_count + 1
+
+    ' Both sides parenthesized
+    If (x = 5) Or (y = 10) Then pass_count = pass_count + 1
+
+    ' Multi-line condition with Or on next line (implicit continuation)
+    If x = 5
+        Or y = 10 Then
+        pass_count = pass_count + 1
+    End If
+
+    ' Multi-line condition with And on next line
+    If x = 5
+        And y = 10 Then
+        pass_count = pass_count + 1
+    End If
+
+    ' Complex compound condition
+    If (x >= 1 And x <= 10) Or (y >= 5 And y <= 15) Then
+        pass_count = pass_count + 1
+    End If
+
+    ' Or with Not
+    If Not (x = 99) Or y = 10 Then pass_count = pass_count + 1
+
+    If pass_count = 8 Then
+        Print "PASS:boolean_or_regression"
+    Else
+        Print "FAIL:boolean_or_regression count=" & Str(pass_count)
+    End If
+End Sub
