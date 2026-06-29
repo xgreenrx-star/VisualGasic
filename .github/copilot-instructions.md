@@ -42,8 +42,14 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 - GDScript: `snake_case` for functions and variables, `PascalCase` for classes
 - VG language: VB6-style — `Sub`, `Function`, `End Sub`, `Dim x As String`, `If ... Then ... End If`
 - C++: follow existing style in `src/` — no trailing whitespace, tabs not spaces
+- C++ memory: strict manual management within GDExtension bounds; verify zero leaks on node destruction
+- C++ errors: no generic panics — use clean, actionable error messages with exact line numbers
 - Do not add docstrings, comments, or type annotations to code you didn't change
 - Do not refactor or rename symbols outside the scope of the current task
+
+## Documentation tone
+
+- Technical, precise, highly instructional — no marketing language
 
 ## Known active bugs (M1 — fix these first)
 
