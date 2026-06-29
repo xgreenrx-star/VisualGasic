@@ -4,13 +4,13 @@
 
 | Task | Model to use |
 |---|---|
-| C++ parser / runtime bugs (M1) | **Claude Opus 4** — max mode |
-| GDScript plugin architecture (M4 UI Forms) | **Claude Opus 4** — max mode |
-| AST walker / algorithm design (M6) | **Claude Opus 4** — standard mode |
-| Extending existing GDScript files (M3) | **Claude Sonnet 4.5** — standard mode |
-| Examples audit / mechanical fixes (M2) | **Claude Sonnet 4.5** — standard mode |
-| Narcea prompt engineering (M5) | **Claude Sonnet 4.5** — standard mode |
-| README / docs / issue bodies | **Claude Sonnet 4.5** — standard mode |
+| C++ parser / runtime bugs (M1) | **Claude Opus 4.8** — max mode |
+| GDScript plugin architecture (M4 UI Forms) | **Claude Opus 4.8** — max mode |
+| AST walker / algorithm design (M6) | **Claude Opus 4.8** — standard mode |
+| Extending existing GDScript files (M3) | **Claude Sonnet 4.6** — standard mode |
+| Examples audit / mechanical fixes (M2) | **Claude Sonnet 4.6** — standard mode |
+| Narcea prompt engineering (M5) | **Claude Sonnet 4.6** — standard mode |
+| README / docs / issue bodies | **Claude Sonnet 4.6** — standard mode |
 | Quick questions / one-liners | **Claude Haiku** |
 
 Switch the model in the Copilot chat dropdown before pasting a large prompt.
@@ -23,7 +23,7 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 - **Runtime:** Godot 4.6.1 plugin via GDExtension (`.gdextension`)
 - **IDE plugin:** GDScript — `addons/visual_gasic/visual_gasic_plugin.gd`
 - **AI providers:** `addons/visual_gasic/vg_ai_providers.gd` — Ollama, OpenAI, Claude, Gemini
-- **Canonical Claude models:** `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-haiku-4-5` (verify at docs.anthropic.com/en/docs/about-claude/models before adding new ones)
+- **Canonical Claude models:** `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5` (verified 2026-06-29 at docs.anthropic.com/en/docs/about-claude/models)
 
 ## Milestone schedule
 
