@@ -1243,7 +1243,70 @@ End Sub
 
 ### Syntax Overview
 
-VisualGasic features an intuitive syntax with case-insensitive keywords and end-of-line statement termination:
+VisualGasic features an intuitive syntax with case-insensitive keywords and end-of-line statement termination.
+
+Each logical statement ends at a newline. Multiple statements on one line are separated by `:`.
+
+```vb
+Dim x As Integer : Dim y As Integer = 10
+```
+
+### Line Continuation
+
+Long logical lines can span multiple physical lines in two ways.
+
+#### Explicit continuation with `_`
+
+A `_` at the end of a line (preceded by a space) joins the next line, as in VB6. No newline token is emitted, so the parser sees the two physical lines as one.
+
+```vb
+If userName = "admin" _
+    Or userName = "root" _
+    Or userName = "superuser" Then
+    MsgBox "Access granted"
+End If
+
+Dim result As Integer = someVeryLongFunctionName(arg1, arg2) _
+    + anotherFunction(arg3)
+```
+
+> VB6 compatibility note: `_` must be preceded by at least one space. A trailing `_` with no space before it (e.g. `x_`) starts an identifier, not a continuation.
+
+#### Implicit continuation with a leading boolean operator
+
+In `If`, `ElseIf`, `While`, `Do While`, and `Do Until` conditions, a boolean operator (`Or`, `And`, `Xor`, `OrElse`, `AndAlso`, `Eqv`, `Imp`) at the start of the next line automatically continues the condition. No `_` is required.
+
+```vb
+If userName = "admin"
+    Or userName = "root"
+    Or userName = "superuser" Then
+    MsgBox "Access granted"
+End If
+
+While retries < maxRetries
+    Or lastError = ERROR_RETRY Then
+    Call TryAgain()
+Wend
+
+Do While queue.Count > 0
+    Or processingActive = True
+    Call ProcessNext()
+Loop
+```
+
+This style — operator at the start of the continuation line — is recommended for readability in new VG code. It makes the structure of compound conditions immediately visible.
+
+> **Plain `Do` (no condition):** implicit continuation does not apply. A `Do` loop with no `While`/`Until` has no condition to continue, so `Or` appearing in the body is treated as a statement.
+
+#### Comparison with VB.NET
+
+VB.NET also supports trailing-operator continuation (the operator ends the current line). VG does not support this form — the parser cannot determine intent unambiguously when a boolean operator ends a line outside of a condition context.
+
+| Style | Example | Supported |
+|---|---|---|
+| VB6 explicit `_` | `If a = 1 _`⏎`    Or b = 2 Then` | ✅ |
+| Leading operator | `If a = 1`⏎`    Or b = 2 Then` | ✅ VG extension |
+| Trailing operator | `If a = 1 Or`⏎`    b = 2 Then` | ❌ not supported |
 
 
 ## Control Flow
