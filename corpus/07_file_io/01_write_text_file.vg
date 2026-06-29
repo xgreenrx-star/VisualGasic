@@ -1,25 +1,18 @@
-' Write a text file using FileSystemObject.
-' The CreateTextFile call overwrites any existing file at the path.
-' Always Close the stream when done; otherwise the OS may buffer the
-' content and a reader will see an empty file.
+' Write a text file using VisualGasic's built-in file I/O.
+' Open path For Output overwrites any existing file.
+' Print #n writes a line; Close #n flushes and closes the stream.
 
 Sub Main()
-    Dim fso As Variant = CreateObject("Scripting.FileSystemObject")
-    Dim path As String = "hello.txt"
+    Dim path As String = "user://hello.txt"
 
-    Dim out As Variant = fso.CreateTextFile(path, True)
-    out.WriteLine("Hello from VisualGasic")
-    out.WriteLine("Line 2")
-    out.WriteLine("Line 3")
-    out.Close()
+    Open path For Output As #1
+    Print #1, "Hello from VisualGasic"
+    Print #1, "Line 2"
+    Print #1, "Line 3"
+    Close #1
 
     Print "Wrote " & path
 End Sub
 
 ' Expected output:
-' Wrote hello.txt
-'
-' Side effect: the file hello.txt now contains:
-'   Hello from VisualGasic
-'   Line 2
-'   Line 3
+' Wrote user://hello.txt

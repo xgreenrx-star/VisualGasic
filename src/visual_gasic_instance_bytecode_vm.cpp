@@ -773,7 +773,6 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_ON_ERROR_GOTO:
                     case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST:
                     case OP_COERCE_TYPE:
-                    case OP_INPUT_FILE: case OP_LINE_INPUT:
                         scan_ip += 2; break;
                     // 2-operand opcodes: two 1-byte non-const operands
                     case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE:
@@ -6123,17 +6122,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 VG_BREAK;
             }
             VG_CASE(vg_op_input_file, OP_INPUT_FILE): {
-                int var_idx = read_const_index();
-                String var_name = read_constant(var_idx);
                 int file_num = (int)pop_value();
                 if (open_files.has(file_num)) {
                     Ref<FileAccess> fa = open_files[file_num];
                     PackedStringArray csv = fa->get_csv_line();
-                    if (csv.size() > 0) {
-                        variables[var_name] = csv[0];
-                    }
+                    push_value(csv.size() > 0 ? Variant(csv[0]) : Variant(String()));
                 } else {
                     raise_error(String("Bad file number: ") + String::num(file_num), 52);
+                    push_value(String());
                     if (!try_recover_error(Variant(), false)) {
                         // NONE mode: error printed, continue
                     }
@@ -6141,15 +6137,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 VG_BREAK;
             }
             VG_CASE(vg_op_line_input, OP_LINE_INPUT): {
-                int var_idx = read_const_index();
-                String var_name = read_constant(var_idx);
                 int file_num = (int)pop_value();
                 if (open_files.has(file_num)) {
                     Ref<FileAccess> fa = open_files[file_num];
-                    String line = fa->get_line();
-                    variables[var_name] = line;
+                    push_value(fa->get_line());
                 } else {
                     raise_error(String("Bad file number: ") + String::num(file_num), 52);
+                    push_value(String());
                     if (!try_recover_error(Variant(), false)) {
                         // NONE mode: error printed, continue
                     }

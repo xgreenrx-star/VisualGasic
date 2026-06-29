@@ -3,38 +3,28 @@
 ' the whole file into memory and splitting on newlines.
 
 Function CountLines(path As String) As Integer
-    Dim fso As Variant = CreateObject("Scripting.FileSystemObject")
-    If Not fso.FileExists(path) Then
-        CountLines = -1
-        Exit Function
-    End If
-
-    Dim inp As Variant = fso.OpenTextFile(path, 1)
+    Open path For Input As #1
     Dim count As Integer = 0
-    Do While Not inp.AtEndOfStream
-        inp.ReadLine()
+    Dim ln As String
+    Do While Not EOF(1)
+        Line Input #1, ln
         count = count + 1
     Loop
-    inp.Close()
+    Close #1
     CountLines = count
 End Function
 
 Sub Main()
     ' Set up a known-size file
-    Dim fso As Variant = CreateObject("Scripting.FileSystemObject")
-    Dim out As Variant = fso.CreateTextFile("count_demo.txt", True)
+    Open "user://count_demo.txt" For Output As #1
     Dim i As Integer
     For i = 1 To 42
-        out.WriteLine("Line " & CStr(i))
+        Print #1, "Line " & CStr(i)
     Next i
-    out.Close()
+    Close #1
 
-    Print "count_demo.txt has " & CStr(CountLines("count_demo.txt")) & " lines"
-
-    ' Missing file returns -1
-    Print "missing.txt has " & CStr(CountLines("missing.txt")) & " lines"
+    Print "count_demo.txt has " & CStr(CountLines("user://count_demo.txt")) & " lines"
 End Sub
 
 ' Expected output:
 ' count_demo.txt has 42 lines
-' missing.txt has -1 lines

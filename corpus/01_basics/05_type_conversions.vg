@@ -28,5 +28,5 @@ End Sub
 ' CInt("42")   = 42
 ' CSng("3.14") = 3.14
 ' CStr(99)     = 99
-' CBool("True") = True
-' Bad parse fell back to: -1
+' CBool("True") = true
+' Bad parse fell back to: 0

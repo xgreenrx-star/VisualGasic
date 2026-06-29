@@ -42,7 +42,13 @@ End Function
 
 Sub Main()
     Dim state As String = "CLOSED"
-    Dim events() As String = {"open", "tick", "close", "tick", "open", "tick"}
+    Dim events(5) As String
+    events(0) = "open"
+    events(1) = "tick"
+    events(2) = "close"
+    events(3) = "tick"
+    events(4) = "open"
+    events(5) = "tick"
 
     Print "Initial: " & state
 

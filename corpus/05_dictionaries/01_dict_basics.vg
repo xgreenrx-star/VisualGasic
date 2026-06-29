@@ -9,7 +9,7 @@ Sub Main()
     ages.Add("Bob", 25)
     ages.Add("Carol", 42)
 
-    Print "Count: " & CStr(ages.Count)
+    Print "Count: " & CStr(ages.Count())
     Print "Alice's age: " & CStr(ages("Alice"))
 
     ' Defensive lookup
@@ -25,7 +25,7 @@ Sub Main()
 
     ' Removal
     ages.Remove("Carol")
-    Print "After removing Carol, count = " & CStr(ages.Count)
+    Print "After removing Carol, count = " & CStr(ages.Count())
 End Sub
 
 ' Expected output:

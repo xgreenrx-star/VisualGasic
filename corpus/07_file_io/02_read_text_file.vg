@@ -1,27 +1,31 @@
-' Read a text file line by line.
-' The 1 in OpenTextFile means ForReading. We loop while AtEndOfStream
-' is false; the standard idiom is exactly the form below.
+' Read a text file line by line using VisualGasic's built-in file I/O.
+' Open path For Input opens for reading.
+' Line Input #n reads one line; EOF(n) returns True at end of file.
+' This example assumes 01_write_text_file.vg was run first.
 
 Sub Main()
-    Dim fso As Variant = CreateObject("Scripting.FileSystemObject")
-    Dim path As String = "hello.txt"
+    Dim path As String = "user://hello.txt"
 
-    If Not fso.FileExists(path) Then
-        Print "File not found: " & path
-        Exit Sub
-    End If
+    ' Write a known file so this example is self-contained
+    Open path For Output As #1
+    Print #1, "Hello from VisualGasic"
+    Print #1, "Line 2"
+    Print #1, "Line 3"
+    Close #1
 
-    Dim inp As Variant = fso.OpenTextFile(path, 1)
+    ' Now read it back
+    Open path For Input As #2
     Dim lineNumber As Integer = 0
-    Do While Not inp.AtEndOfStream
+    Dim ln As String
+    Do While Not EOF(2)
         lineNumber = lineNumber + 1
-        Dim line As String = inp.ReadLine()
-        Print CStr(lineNumber) & ": " & line
+        Line Input #2, ln
+        Print CStr(lineNumber) & ": " & ln
     Loop
-    inp.Close()
+    Close #2
 End Sub
 
-' Expected output (assumes hello.txt was created by 01_write_text_file.vg):
+' Expected output:
 ' 1: Hello from VisualGasic
 ' 2: Line 2
 ' 3: Line 3

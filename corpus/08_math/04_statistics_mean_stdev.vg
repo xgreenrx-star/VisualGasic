@@ -24,11 +24,21 @@ Function StdDev(values() As Single) As Single
 End Function
 
 Sub Main()
-    Dim heights() As Single = {165.0, 170.0, 175.0, 180.0, 185.0}
+    Dim heights(4) As Single
+    heights(0) = 165.0
+    heights(1) = 170.0
+    heights(2) = 175.0
+    heights(3) = 180.0
+    heights(4) = 185.0
     Print "Mean:   " & CStr(Mean(heights))
     Print "StdDev: " & CStr(StdDev(heights))
 
-    Dim spread() As Single = {10.0, 20.0, 30.0, 40.0, 50.0}
+    Dim spread(4) As Single
+    spread(0) = 10.0
+    spread(1) = 20.0
+    spread(2) = 30.0
+    spread(3) = 40.0
+    spread(4) = 50.0
     Print "Mean:   " & CStr(Mean(spread))
     Print "StdDev: " & CStr(StdDev(spread))
 End Sub

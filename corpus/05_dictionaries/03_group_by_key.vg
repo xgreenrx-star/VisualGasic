@@ -1,18 +1,20 @@
 ' Group an array of records by a key.
 ' The result is a dictionary whose values are arrays of the matching records.
+' Uses a Dictionary of Dictionaries as an append-friendly list.
 
 Sub Main()
     ' (city, person) tuples encoded as "city|person"
-    Dim records() As String = { _
-        "London|Alice", _
-        "Paris|Bob", _
-        "London|Carol", _
-        "Tokyo|Dave", _
-        "Paris|Eve", _
-        "London|Frank" _
-    }
+    Dim records(5) As String
+    records(0) = "London|Alice"
+    records(1) = "Paris|Bob"
+    records(2) = "London|Carol"
+    records(3) = "Tokyo|Dave"
+    records(4) = "Paris|Eve"
+    records(5) = "London|Frank"
 
+    ' groups: city → Dictionary(index → name) for ordered insertion
     Dim groups As New Dictionary
+    Dim counts As New Dictionary
 
     Dim r As String
     For Each r In records
@@ -21,16 +23,31 @@ Sub Main()
         Dim person As String = parts(1)
 
         If Not groups.Exists(city) Then
-            groups.Add(city, New ArrayList)
+            groups.Add(city, New Dictionary)
+            counts.Add(city, 0)
         End If
-        groups(city).Add(person)
+        Dim idx As Integer = counts(city)
+        groups(city).Add(CStr(idx), person)
+        counts(city) = idx + 1
     Next r
 
-    ' Print each group
-    Dim city2 As String
-    For Each city2 In groups.Keys
-        Print city2 & ": " & Join(groups(city2).ToArray(), ", ")
-    Next city2
+    ' Print each group in insertion order: London, Paris, Tokyo
+    Dim cityList(2) As String
+    cityList(0) = "London"
+    cityList(1) = "Paris"
+    cityList(2) = "Tokyo"
+
+    Dim c As String
+    For Each c In cityList
+        Dim members As Dictionary = groups(c)
+        Dim line As String = ""
+        Dim j As Integer
+        For j = 0 To counts(c) - 1
+            If j > 0 Then line = line & ", "
+            line = line & members(CStr(j))
+        Next j
+        Print c & ": " & line
+    Next c
 End Sub
 
 ' Expected output:

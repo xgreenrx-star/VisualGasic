@@ -45,7 +45,14 @@ End Function
 
 Sub Main()
     Dim state As String = "MAIN"
-    Dim choices() As String = {"2", "1", "back", "1", "2", "back", "back"}
+    Dim choices(6) As String
+    choices(0) = "2"
+    choices(1) = "1"
+    choices(2) = "back"
+    choices(3) = "1"
+    choices(4) = "2"
+    choices(5) = "back"
+    choices(6) = "back"
 
     Print "Start: " & state
     Dim c As String

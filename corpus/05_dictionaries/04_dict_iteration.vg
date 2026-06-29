@@ -6,26 +6,26 @@ Sub Main()
     prices.Add("bread", 2.25)
     prices.Add("cheese", 5.99)
 
-    ' Method 1: For Each over .Keys, look up the value
+    ' Method 1: For Each over .Keys(), look up the value
     Print "-- Method 1: keys --"
     Dim k As String
-    For Each k In prices.Keys
+    For Each k In prices.Keys()
         Print k & " = $" & CStr(prices(k))
     Next k
 
-    ' Method 2: For Each over .Values (no keys, just values)
+    ' Method 2: For Each over .Values() (no keys, just values)
     Print "-- Method 2: values --"
     Dim total As Single = 0.0
     Dim v As Single
-    For Each v In prices.Values
+    For Each v In prices.Values()
         total = total + v
     Next v
     Print "Total: $" & CStr(total)
 
-    ' Method 3: parallel arrays from .Keys and .Values
+    ' Method 3: parallel arrays from .Keys() and .Values()
     Print "-- Method 3: parallel arrays --"
-    Dim keys() As String = prices.Keys
-    Dim values() As Single = prices.Values
+    Dim keys() As Variant = prices.Keys()
+    Dim values() As Variant = prices.Values()
     Dim i As Integer
     For i = 0 To UBound(keys)
         Print "  " & keys(i) & " = $" & CStr(values(i))

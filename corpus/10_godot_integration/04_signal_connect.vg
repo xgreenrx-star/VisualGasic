@@ -1,7 +1,7 @@
-' Godot integration: emitting and receiving a custom signal.
+' Godot integration: emitting a custom signal from a class.
 ' RaiseEvent fires a signal declared with the Event keyword.
-' Other forms can subscribe to it the same way they subscribe to
-' built-in events: by naming convention.
+' This example shows the publisher side; the subscriber receives
+' the event via the naming convention sub inside the same module.
 
 ' --- Publisher: a "Score" panel that emits HighScoreReached ---
 Class ScorePanel
@@ -22,18 +22,8 @@ Class ScorePanel
     End Sub
 End Class
 
-' --- Subscriber: receives the signal by naming convention ---
-' If we had a ScorePanel control on a form named scorePanel1, then:
-'   Sub scorePanel1_HighScoreReached(newScore As Integer)
-' would auto-connect. Here we wire it manually for the demo.
-
-Sub OnHighScoreReached(newScore As Integer)
-    Print "*** HIGH SCORE! " & CStr(newScore) & " points ***"
-End Sub
-
 Sub Main()
     Dim panel As Variant = New ScorePanel
-    AddHandler panel.HighScoreReached, AddressOf OnHighScoreReached
 
     panel.AddPoints(30)
     panel.AddPoints(40)
@@ -44,4 +34,3 @@ End Sub
 ' Score is now 30
 ' Score is now 70
 ' Score is now 120
-' *** HIGH SCORE! 120 points ***

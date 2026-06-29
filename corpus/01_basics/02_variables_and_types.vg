@@ -19,4 +19,4 @@ End Sub
 ' Name:   Alice
 ' Level:  7
 ' Health: 87.5
-' Alive:  True
+' Alive:  true

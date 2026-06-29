@@ -1138,6 +1138,13 @@ void VisualGasicCompiler::_check_expr_escapes(ExpressionNode* expr, HashSet<Stri
         }
         case ExpressionNode::EXPRESSION_CALL: {
             CallExpression* c = (CallExpression*)expr;
+            // Method call on a dict var (e.g. ages.Count()) requires a real Dictionary
+            if (c->base_object && c->base_object->type == ExpressionNode::VARIABLE) {
+                String name = ((VariableNode*)c->base_object)->name.to_lower();
+                if (sole_owner_dict_vars.has(name)) {
+                    escaped.insert(name);
+                }
+            }
             // If any dict var is passed as an argument to a call, it escapes
             for (int i = 0; i < c->arguments.size(); i++) {
                 ExpressionNode* arg = c->arguments[i];
@@ -1305,8 +1312,37 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
             for (int i = 0; i < s->body.size(); i++) _check_dict_escapes(s->body[i], escaped);
             break;
         }
+        case STMT_DIM: {
+            DimStatement* s = (DimStatement*)stmt;
+            if (s->initializer) {
+                // Non-New initializer means the variable receives an existing object —
+                // not a sole-owner dict, so the VGDict optimisation must not apply.
+                bool is_new_dict = false;
+                if (s->initializer->type == ExpressionNode::NEW) {
+                    NewNode* nn = (NewNode*)s->initializer;
+                    if (nn->class_name.nocasecmp_to("Dictionary") == 0 && nn->args.size() == 0) {
+                        is_new_dict = true;
+                    }
+                }
+                if (!is_new_dict) {
+                    String name = s->variable_name.to_lower();
+                    if (sole_owner_dict_vars.has(name)) {
+                        escaped.insert(name);
+                    }
+                }
+                _check_expr_escapes(s->initializer, escaped);
+            }
+            break;
+        }
         case STMT_CALL: {
             CallStatement* s = (CallStatement*)stmt;
+            // Method call on a dict var requires a real Dictionary object (not VGDict slot)
+            if (s->base_object && s->base_object->type == ExpressionNode::VARIABLE) {
+                String name = ((VariableNode*)s->base_object)->name.to_lower();
+                if (sole_owner_dict_vars.has(name)) {
+                    escaped.insert(name);
+                }
+            }
             // If a dict var is passed as argument, it escapes
             for (int i = 0; i < s->arguments.size(); i++) {
                 ExpressionNode* arg = s->arguments[i];
@@ -4949,17 +4985,15 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 // Check condition at the end
                 compile_expression(s->condition);
                 if (s->condition_type == DoStatement::WHILE) {
-                    // Loop While - continue if true
-                    int continue_offset = current_chunk->code.size() - loop_start + 3;
-                    emit_byte(OP_JUMP_IF_TRUE);
-                    emit_byte((uint8_t)((~continue_offset + 1) & 0xFF));
-                    emit_byte((uint8_t)(((~continue_offset + 1) >> 8) & 0xFF));
+                    // Loop While: if condition FALSE, exit; otherwise jump back
+                    int exit_jump = emit_jump(OP_JUMP_IF_FALSE);
+                    emit_loop(loop_start);
+                    patch_jump(exit_jump);
                 } else { // UNTIL
-                    // Loop Until - continue if false
-                    int continue_offset = current_chunk->code.size() - loop_start + 3;
-                    emit_byte(OP_JUMP_IF_FALSE);
-                    emit_byte((uint8_t)((~continue_offset + 1) & 0xFF));
-                    emit_byte((uint8_t)(((~continue_offset + 1) >> 8) & 0xFF));
+                    // Loop Until: if condition TRUE, exit; otherwise jump back
+                    int exit_jump = emit_jump(OP_JUMP_IF_TRUE);
+                    emit_loop(loop_start);
+                    patch_jump(exit_jump);
                 }
             } else {
                 // Infinite loop: Do ... Loop (no condition)
@@ -6018,21 +6052,39 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             InputStatement* s = (InputStatement*)stmt;
             if (s->file_number && s->is_line_input) {
                 // Line Input #n, var
+                // Emit: push file_num, OP_LINE_INPUT (pushes line), then store to var
                 compile_expression(s->file_number);
-                // Push var name as constant for assignment
+                emit_byte(OP_LINE_INPUT);
                 if (s->variables.size() > 0 && s->variables[0]->type == ExpressionNode::VARIABLE) {
-                    int idx = current_chunk->add_constant(((VariableNode*)s->variables[0])->name);
-                    emit_byte(OP_LINE_INPUT);
-                    emit_const_index(idx);
+                    String vname = ((VariableNode*)s->variables[0])->name;
+                    int slot = get_or_add_local(vname, VT_UNKNOWN);
+                    if (slot >= 0) {
+                        emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                    } else {
+                        int idx = current_chunk->add_constant(vname);
+                        emit_byte(OP_SET_GLOBAL);
+                        emit_const_index(idx);
+                    }
+                } else {
+                    emit_byte(OP_POP); // discard result if target unknown
                 }
             } else if (s->file_number) {
                 // Input #n, var1, var2...
-                compile_expression(s->file_number);
                 for (int i = 0; i < s->variables.size(); i++) {
+                    compile_expression(s->file_number);
+                    emit_byte(OP_INPUT_FILE);
                     if (s->variables[i]->type == ExpressionNode::VARIABLE) {
-                        int idx = current_chunk->add_constant(((VariableNode*)s->variables[i])->name);
-                        emit_byte(OP_INPUT_FILE);
-                        emit_const_index(idx);
+                        String vname = ((VariableNode*)s->variables[i])->name;
+                        int slot = get_or_add_local(vname, VT_UNKNOWN);
+                        if (slot >= 0) {
+                            emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                        } else {
+                            int idx = current_chunk->add_constant(vname);
+                            emit_byte(OP_SET_GLOBAL);
+                            emit_const_index(idx);
+                        }
+                    } else {
+                        emit_byte(OP_POP);
                     }
                 }
             }

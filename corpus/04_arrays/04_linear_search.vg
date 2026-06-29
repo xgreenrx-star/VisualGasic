@@ -13,7 +13,12 @@ Function IndexOf(values() As String, target As String) As Integer
 End Function
 
 Sub Main()
-    Dim fruits() As String = {"apple", "banana", "cherry", "date", "elderberry"}
+    Dim fruits(4) As String
+    fruits(0) = "apple"
+    fruits(1) = "banana"
+    fruits(2) = "cherry"
+    fruits(3) = "date"
+    fruits(4) = "elderberry"
 
     Dim idx As Integer = IndexOf(fruits, "cherry")
     If idx >= 0 Then

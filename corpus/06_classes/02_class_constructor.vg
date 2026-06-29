@@ -34,6 +34,6 @@ Sub Main()
 End Sub
 
 ' Expected output:
-' Goblin has 100 HP, alive=True
+' Goblin has 100 HP, alive=true
 ' After 30 damage: 70 HP
-' After 80 more:   0 HP, alive=False
+' After 80 more:   0 HP, alive=false

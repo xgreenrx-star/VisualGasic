@@ -3,35 +3,36 @@
 ' The first line is treated as a header; subsequent lines are records.
 
 Sub Main()
-    Dim fso As Variant = CreateObject("Scripting.FileSystemObject")
-    Dim path As String = "people.csv"
+    Dim path As String = "user://people.csv"
 
-    ' For the demo, write a small CSV first
-    Dim out As Variant = fso.CreateTextFile(path, True)
-    out.WriteLine("name,age,city")
-    out.WriteLine("Alice,30,London")
-    out.WriteLine("Bob,25,Paris")
-    out.WriteLine("Carol,42,Tokyo")
-    out.Close()
+    ' Write a small CSV first so the example is self-contained
+    Open path For Output As #1
+    Print #1, "name,age,city"
+    Print #1, "Alice,30,London"
+    Print #1, "Bob,25,Paris"
+    Print #1, "Carol,42,Tokyo"
+    Close #1
 
-    ' Now read it back
-    Dim inp As Variant = fso.OpenTextFile(path, 1)
-    Dim header As String = inp.ReadLine()
+    ' Read it back
+    Open path For Input As #2
+    Dim header As String
+    Line Input #2, header
     Print "Columns: " & header
 
     Dim totalAge As Integer = 0
     Dim rowCount As Integer = 0
-    Do While Not inp.AtEndOfStream
-        Dim row As String = inp.ReadLine()
+    Dim row As String
+    Do While Not EOF(2)
+        Line Input #2, row
         Dim fields() As String = Split(row, ",")
-        Dim name As String = fields(0)
+        Dim nm As String = fields(0)
         Dim age As Integer = CInt(fields(1))
         Dim city As String = fields(2)
-        Print "  " & name & ", " & CStr(age) & ", " & city
+        Print "  " & nm & ", " & CStr(age) & ", " & city
         totalAge = totalAge + age
         rowCount = rowCount + 1
     Loop
-    inp.Close()
+    Close #2
 
     Print "Average age: " & CStr(totalAge / rowCount)
 End Sub

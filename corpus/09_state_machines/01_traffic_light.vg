@@ -4,10 +4,10 @@
 
 Sub Main()
     Dim state As String = "RED"
-    Dim cycle As Integer
+    Dim cyc As Integer
 
-    For cycle = 1 To 7
-        Print "Cycle " & CStr(cycle) & ": " & state
+    For cyc = 1 To 7
+        Print "Cycle " & CStr(cyc) & ": " & state
 
         Select Case state
             Case "RED"
@@ -20,7 +20,7 @@ Sub Main()
                 Print "ERROR: unknown state " & state
                 Exit Sub
         End Select
-    Next cycle
+    Next cyc
 End Sub
 
 ' Expected output:

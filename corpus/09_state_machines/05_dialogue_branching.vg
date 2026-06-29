@@ -19,25 +19,31 @@ Sub Main()
     Dim tree As New Dictionary
 
     Dim n As Variant
+    Dim ch As Variant
     n = MakeNode("Greetings, traveler. What brings you to the inn?")
-    n.choices.Add("Just passing through.", "polite")
-    n.choices.Add("None of your business!", "rude")
+    ch = n.choices
+    ch.Add("Just passing through.", "polite")
+    ch.Add("None of your business!", "rude")
     tree.Add("start", n)
 
     n = MakeNode("Then I wish you safe roads.")
-    n.choices.Add("Thank you.", "END")
+    ch = n.choices
+    ch.Add("Thank you.", "END")
     tree.Add("polite", n)
 
     n = MakeNode("Then mind your tongue, stranger.")
-    n.choices.Add("Apologies.", "polite")
-    n.choices.Add("Make me.", "fight")
+    ch = n.choices
+    ch.Add("Apologies.", "polite")
+    ch.Add("Make me.", "fight")
     tree.Add("rude", n)
 
     n = MakeNode("The innkeeper raises a heavy club. Combat begins.")
     tree.Add("fight", n)
 
     ' Walk a fixed script through the tree
-    Dim script() As String = {"Just passing through.", "Thank you."}
+    Dim script(1) As String
+    script(0) = "Just passing through."
+    script(1) = "Thank you."
     Dim current As String = "start"
     Dim choiceIdx As Integer = 0
 
@@ -45,12 +51,13 @@ Sub Main()
         Dim node As Variant = tree(current)
         Print "NPC: " & node.text
 
-        If node.choices.Count = 0 Then Exit Do
+        Dim nodeChoices As Variant = node.choices
+        If nodeChoices.Count() = 0 Then Exit Do
         If choiceIdx > UBound(script) Then Exit Do
 
         Dim choice As String = script(choiceIdx)
         Print "YOU: " & choice
-        current = node.choices(choice)
+        current = nodeChoices(choice)
         choiceIdx = choiceIdx + 1
     Loop
 

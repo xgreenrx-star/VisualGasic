@@ -1,5 +1,6 @@
-' Storing class instances in an ArrayList and operating on them
-' uniformly. This is the canonical "list of game objects" pattern.
+' Storing class instances in an array and operating on them uniformly.
+' This is the canonical "list of game objects" pattern using a
+' fixed-size array -- the simplest approach in VisualGasic.
 
 Class Item
     Public name As String
@@ -13,21 +14,20 @@ Class Item
     End Sub
 End Class
 
-Function MakeItem(name As String, weight As Single, value As Integer) As Variant
+Function MakeItem(nm As String, wt As Single, val As Integer) As Variant
     Dim it As Variant = New Item
-    it.name = name
-    it.weight = weight
-    it.value = value
+    it.name = nm
+    it.weight = wt
+    it.value = val
     MakeItem = it
 End Function
 
 Sub Main()
-    Dim inventory As New ArrayList
-
-    inventory.Add(MakeItem("Sword",  3.0, 50))
-    inventory.Add(MakeItem("Shield", 5.5, 30))
-    inventory.Add(MakeItem("Potion", 0.5, 10))
-    inventory.Add(MakeItem("Helmet", 2.0, 25))
+    Dim inventory(3) As Variant
+    inventory(0) = MakeItem("Sword",  3.0, 50)
+    inventory(1) = MakeItem("Shield", 5.5, 30)
+    inventory(2) = MakeItem("Potion", 0.5, 10)
+    inventory(3) = MakeItem("Helmet", 2.0, 25)
 
     ' Total weight + total value
     Dim totalWeight As Single = 0.0
@@ -38,7 +38,7 @@ Sub Main()
         totalValue = totalValue + it.value
     Next it
 
-    Print "Items:        " & CStr(inventory.Count)
+    Print "Items:        " & CStr(UBound(inventory) + 1)
     Print "Total weight: " & CStr(totalWeight)
     Print "Total value:  " & CStr(totalValue)
 

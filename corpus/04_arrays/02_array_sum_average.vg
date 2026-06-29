@@ -21,7 +21,12 @@ Function ArrayAverage(values() As Single) As Single
 End Function
 
 Sub Main()
-    Dim scores() As Single = {72.0, 85.5, 91.0, 68.5, 78.0}
+    Dim scores(4) As Single
+    scores(0) = 72.0
+    scores(1) = 85.5
+    scores(2) = 91.0
+    scores(3) = 68.5
+    scores(4) = 78.0
 
     Print "Sum:     " & CStr(ArraySum(scores))
     Print "Average: " & CStr(ArrayAverage(scores))

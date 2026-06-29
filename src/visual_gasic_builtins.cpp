@@ -6021,6 +6021,19 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return (int64_t)font_size; // Rough fallback
     }
 
+    // EOF(filenumber) — True if at end of file
+    if (METHOD_IS("eof") && args.size() == 1) {
+        r_handled = true;
+        int fn = (int)args[0];
+        if (instance->get_open_files().has(fn)) {
+            Ref<FileAccess> fa = instance->get_open_files()[fn];
+            if (fa.is_valid()) {
+                return fa->get_position() >= fa->get_length();
+            }
+        }
+        return true; // File not open → treated as EOF
+    }
+
     // Input$(n, filenumber) — read n characters from file
     if ((METHOD_IS("input$") || METHOD_IS("inputstr")) && args.size() == 2) {
         r_handled = true;

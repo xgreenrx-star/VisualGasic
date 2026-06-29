@@ -21,11 +21,29 @@ Sub BubbleSort(values() As Integer)
 End Sub
 
 Sub Main()
-    Dim nums() As Integer = {64, 25, 12, 22, 11, 90, 7}
+    Dim nums(6) As Integer
+    nums(0) = 64
+    nums(1) = 25
+    nums(2) = 12
+    nums(3) = 22
+    nums(4) = 11
+    nums(5) = 90
+    nums(6) = 7
 
-    Print "Before: " & Join(nums, ", ")
+    Dim i As Integer
+    Dim before As String = ""
+    Dim after As String = ""
+    For i = 0 To UBound(nums)
+        If i > 0 Then before = before & ", "
+        before = before & CStr(nums(i))
+    Next i
+    Print "Before: " & before
     BubbleSort(nums)
-    Print "After:  " & Join(nums, ", ")
+    For i = 0 To UBound(nums)
+        If i > 0 Then after = after & ", "
+        after = after & CStr(nums(i))
+    Next i
+    Print "After:  " & after
 End Sub
 
 ' Expected output:

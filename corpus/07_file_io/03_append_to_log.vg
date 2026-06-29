@@ -1,12 +1,11 @@
-' Append to a log file. The 8 passed to OpenTextFile means ForAppending.
-' The True argument tells the FSO to create the file if it does not yet
-' exist. This is a one-line, idempotent log helper.
+' Append to a log file using Open For Append.
+' If the file does not exist, Open For Append creates it.
+' This is a one-liner, idempotent log helper.
 
 Sub LogMessage(message As String)
-    Dim fso As Variant = CreateObject("Scripting.FileSystemObject")
-    Dim out As Variant = fso.OpenTextFile("app.log", 8, True)
-    out.WriteLine(Now() & " | " & message)
-    out.Close()
+    Open "user://app.log" For Append As #1
+    Print #1, message
+    Close #1
 End Sub
 
 Sub Main()
@@ -20,7 +19,3 @@ End Sub
 
 ' Expected output:
 ' Wrote 4 entries to app.log
-'
-' Side effect: app.log gains 4 timestamped lines like:
-'   2026-05-01 14:23:09 | Application started
-'   ...

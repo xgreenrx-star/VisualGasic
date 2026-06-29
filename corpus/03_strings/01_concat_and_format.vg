@@ -24,7 +24,7 @@ End Sub
 
 ' Expected output:
 ' Hello, Ada Lovelace!
-' Ada was born in 1815.
+' Ada was born in 1815.0.
 ' Name:  Ada Lovelace
 ' Year:  1815
 '

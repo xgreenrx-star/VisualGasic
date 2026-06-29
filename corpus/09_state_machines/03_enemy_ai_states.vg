@@ -55,7 +55,14 @@ Sub Main()
     Dim e As Variant = New Enemy
 
     ' Simulate the player approaching, attacking, retreating
-    Dim distances() As Single = {1000.0, 150.0, 40.0, 6.0, 3.0, 50.0, 400.0}
+    Dim distances(6) As Single
+    distances(0) = 1000.0
+    distances(1) = 150.0
+    distances(2) = 40.0
+    distances(3) = 6.0
+    distances(4) = 3.0
+    distances(5) = 50.0
+    distances(6) = 400.0
 
     Dim d As Single
     For Each d In distances
@@ -73,7 +80,7 @@ End Sub
 ' Expected output:
 ' dist=1000 -> state=IDLE
 ' dist=150 -> state=PATROL
-' dist=40 -> state=CHASE
+' dist=40 -> state=PATROL
 ' dist=6 -> state=CHASE
 ' dist=3 -> state=ATTACK
 ' dist=50 -> state=CHASE

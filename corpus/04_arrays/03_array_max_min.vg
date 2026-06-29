@@ -28,7 +28,14 @@ Function ArrayMin(values() As Integer) As Integer
 End Function
 
 Sub Main()
-    Dim temps() As Integer = {-5, 12, 8, -10, 22, 0, 17}
+    Dim temps(6) As Integer
+    temps(0) = -5
+    temps(1) = 12
+    temps(2) = 8
+    temps(3) = -10
+    temps(4) = 22
+    temps(5) = 0
+    temps(6) = 17
 
     Print "Max: " & CStr(ArrayMax(temps))
     Print "Min: " & CStr(ArrayMin(temps))
