@@ -1,0 +1,71 @@
+' ===========================================================================
+' Bug #2 regression fixture — unhandled runtime error recovery via _OnError.
+'
+' Scenario: an event-style Sub (StartWork) marks the app busy, then hits an
+' unhandled runtime error BEFORE its own cleanup line runs. Without the
+' dispatcher fix the WorkerBusy flag stays stuck True forever. The synthetic
+' _OnError callback gives the form a single place to reset that state.
+'
+' Driven by tests/test_onerror_recovery.gd, which calls StartWork() through
+' the VisualGasic signal dispatcher (ScriptInstance::call) — the same path a
+' real button click takes — and inspects the flags afterwards.
+' ===========================================================================
+
+Dim WorkerBusy As Boolean
+Dim Recovered As Boolean
+Dim CleanupRan As Boolean
+Dim LastErrSub As String
+Dim LastErrMsg As String
+Dim LastErrNum As Integer
+
+Sub _Ready()
+    WorkerBusy = False
+    Recovered = False
+    CleanupRan = False
+    LastErrSub = ""
+    LastErrMsg = ""
+    LastErrNum = 0
+End Sub
+
+' Simulated button-click handler. Marks the form busy, then fails mid-way.
+Sub StartWork()
+    WorkerBusy = True
+    Err.Raise 51, "StartWork", "Simulated device failure"
+    ' --- Cleanup below never executes: the error aborts the Sub here. ---
+    WorkerBusy = False
+    CleanupRan = True
+End Sub
+
+' Synthetic callback fired by the dispatcher when StartWork left an unhandled
+' error. This is the single place the form recovers its state.
+Sub _OnError(subName As String, errMsg As String, errNum As Integer, errLine As Integer)
+    LastErrSub = subName
+    LastErrMsg = errMsg
+    LastErrNum = errNum
+    WorkerBusy = False
+    Recovered = True
+End Sub
+
+Function GetWorkerBusy() As Boolean
+    GetWorkerBusy = WorkerBusy
+End Function
+
+Function GetRecovered() As Boolean
+    GetRecovered = Recovered
+End Function
+
+Function GetCleanupRan() As Boolean
+    GetCleanupRan = CleanupRan
+End Function
+
+Function GetLastErrSub() As String
+    GetLastErrSub = LastErrSub
+End Function
+
+Function GetLastErrMsg() As String
+    GetLastErrMsg = LastErrMsg
+End Function
+
+Function GetLastErrNum() As Integer
+    GetLastErrNum = LastErrNum
+End Function

@@ -574,20 +574,8 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
              bool found = false;
              call_internal(sub_name, sub_args, found);
 
-             // VB6-style: show native error dialog for unhandled runtime errors
-             if (error_state.has_error && error_state.mode == ErrorState::NONE) {
-                 String err_msg = "Run-time error '" + String::num_int64(error_state.code) + "':\n\n"
-                     + error_state.message;
-                 if (error_state.error_line > 0) {
-                     err_msg += "\n\nLine: " + String::num_int64(error_state.error_line);
-                 }
-                 UtilityFunctions::printerr(
-                     "Unhandled runtime error in '", sub_name, "': Error ",
-                     error_state.code, ": ", error_state.message,
-                     " (Line ", error_state.error_line, ")");
-                 VisualGasicBuiltins::native_msgbox(err_msg, "VisualGasic", 0);
-                 error_state.has_error = false;
-             }
+             // Unhandled runtime error → log, fire _OnError, or show dialog.
+             report_unhandled_error(sub_name);
              
              if (r_return) *r_return = Variant();
              r_error->error = GDEXTENSION_CALL_OK;
@@ -616,19 +604,8 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
              bool found = false;
              call_internal(sub_name, sub_args, found);
 
-             if (error_state.has_error && error_state.mode == ErrorState::NONE) {
-                 String err_msg = "Run-time error '" + String::num_int64(error_state.code) + "':\n\n"
-                     + error_state.message;
-                 if (error_state.error_line > 0) {
-                     err_msg += "\n\nLine: " + String::num_int64(error_state.error_line);
-                 }
-                 UtilityFunctions::printerr(
-                     "Unhandled runtime error in '", sub_name, "' (Index ", arr_idx,
-                     "): Error ", error_state.code, ": ", error_state.message,
-                     " (Line ", error_state.error_line, ")");
-                 VisualGasicBuiltins::native_msgbox(err_msg, "VisualGasic", 0);
-                 error_state.has_error = false;
-             }
+             // Unhandled runtime error → log, fire _OnError, or show dialog.
+             report_unhandled_error(sub_name + " (Index " + String::num_int64(arr_idx) + ")");
 
              if (r_return) *r_return = Variant();
              r_error->error = GDEXTENSION_CALL_OK;
@@ -766,20 +743,8 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
                  }
              }
 
-             // VB6-style: show native error dialog for unhandled runtime errors
-             if (error_state.has_error && error_state.mode == ErrorState::NONE) {
-                 String err_msg = "Run-time error '" + String::num_int64(error_state.code) + "':\n\n"
-                     + error_state.message;
-                 if (error_state.error_line > 0) {
-                     err_msg += "\n\nLine: " + String::num_int64(error_state.error_line);
-                 }
-                 UtilityFunctions::printerr(
-                     "Unhandled runtime error in '", ctrl_name, "' event handler: Error ",
-                     error_state.code, ": ", error_state.message,
-                     " (Line ", error_state.error_line, ")");
-                 VisualGasicBuiltins::native_msgbox(err_msg, "VisualGasic", 0);
-                 error_state.has_error = false;
-             }
+             // Unhandled runtime error → log, fire _OnError, or show dialog.
+             report_unhandled_error(ctrl_name);
 
              if (r_return) *r_return = Variant();
              r_error->error = GDEXTENSION_CALL_OK;
@@ -826,20 +791,8 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
         if (r_return) *r_return = ret;
         r_error->error = GDEXTENSION_CALL_OK;
         
-        // VB6-style: show native error dialog for unhandled runtime errors
-        if (error_state.has_error && error_state.mode == ErrorState::NONE) {
-            String err_msg = "Run-time error '" + String::num_int64(error_state.code) + "':\n\n"
-                + error_state.message;
-            if (error_state.error_line > 0) {
-                err_msg += "\n\nLine: " + String::num_int64(error_state.error_line);
-            }
-            UtilityFunctions::printerr(
-                "Unhandled runtime error in '", String(p_method), "': Error ",
-                error_state.code, ": ", error_state.message,
-                " (Line ", error_state.error_line, ")");
-            VisualGasicBuiltins::native_msgbox(err_msg, "VisualGasic", 0);
-            error_state.has_error = false;
-        }
+        // Unhandled runtime error → log, fire _OnError, or show dialog.
+        report_unhandled_error(String(p_method));
         
         // After handling input events, trigger a redraw so visual changes
         // (e.g. updated display text) are painted on the next frame.
@@ -895,6 +848,80 @@ void VisualGasicInstance::raise_error(String msg, int code, const String &source
             " — Sub: ", sub_name,
             " Line: ", debug_state.current_line,
             " (handled by On Error)");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// report_unhandled_error: central handler for an unhandled runtime error that
+// surfaced from an event Sub.  Every top-level dispatcher in call() invokes
+// this after the user Sub returns.  It:
+//   1. Logs the error to the Output panel (developer visibility).
+//   2. Fires a synthetic _OnError(subName, errMessage, errNumber, errLine)
+//      callback — if the form defines one — so user code can reset app-level
+//      state (e.g. WorkerBusy = False, button captions) that the aborted Sub
+//      never reached.  This is the fix for the "stuck WorkerBusy" class of bug:
+//      when an event handler errors mid-way, its own cleanup code never runs,
+//      so _OnError gives the form a single place to recover.
+//   3. If no _OnError handler exists, falls back to the VB6-style native error
+//      dialog so the failure is never silent.
+// Re-entrancy: while _OnError runs, in_error_handler is set so a fresh error
+// raised inside _OnError is reported directly instead of recursing.
+// ---------------------------------------------------------------------------
+void VisualGasicInstance::report_unhandled_error(const String &p_sub_name) {
+    if (!error_state.has_error || error_state.mode != ErrorState::NONE) {
+        return; // No unhandled error to report.
+    }
+
+    // Snapshot the error details before any dispatch mutates error_state.
+    int err_code = error_state.code;
+    String err_message = error_state.message;
+    int err_line = error_state.error_line;
+
+    UtilityFunctions::printerr(
+        "Unhandled runtime error in '", p_sub_name, "': Error ",
+        err_code, ": ", err_message, " (Line ", err_line, ")");
+
+    // Clear now so the _OnError handler starts with a clean slate and so a
+    // re-entrant error inside _OnError is reported directly (not recursed).
+    error_state.has_error = false;
+    error_state.mode = ErrorState::NONE;
+
+    bool handled_by_user = false;
+    if (!in_error_handler && script.is_valid() &&
+        script->_has_method(StringName("_OnError"))) {
+        in_error_handler = true;
+
+        Array err_args;
+        err_args.push_back(p_sub_name);
+        err_args.push_back(err_message);
+        err_args.push_back(err_code);
+        err_args.push_back(err_line);
+
+        bool found = false;
+        call_internal("_OnError", err_args, found);
+        handled_by_user = found;
+
+        // If _OnError itself raised an unhandled error, report it directly —
+        // never recurse back into this function.
+        if (error_state.has_error && error_state.mode == ErrorState::NONE) {
+            UtilityFunctions::printerr(
+                "Unhandled runtime error inside _OnError: Error ",
+                error_state.code, ": ", error_state.message,
+                " (Line ", error_state.error_line, ")");
+            error_state.has_error = false;
+            error_state.mode = ErrorState::NONE;
+        }
+
+        in_error_handler = false;
+    }
+
+    // No user handler → VB6-style native dialog so the failure is visible.
+    if (!handled_by_user) {
+        String dlg = "Run-time error '" + String::num_int64(err_code) + "':\n\n" + err_message;
+        if (err_line > 0) {
+            dlg += "\n\nLine: " + String::num_int64(err_line);
+        }
+        VisualGasicBuiltins::native_msgbox(dlg, "VisualGasic", 0);
     }
 }
 

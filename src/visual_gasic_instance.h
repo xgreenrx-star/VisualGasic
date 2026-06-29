@@ -189,6 +189,11 @@ class VisualGasicInstance {
         int code; // Added
         int error_line = 0; // Line number where error occurred (Erl)
     } error_state;
+
+    // Re-entrancy guard for the synthetic _OnError callback.  Set while the
+    // user's _OnError handler runs so an error raised inside it is reported
+    // directly instead of recursing back into report_unhandled_error().
+    bool in_error_handler = false;
     
     // Debug state for breakpoint support
     struct DebugState {
@@ -222,6 +227,12 @@ class VisualGasicInstance {
     Variant _evaluate_expression_impl(ExpressionNode* expr);
     void _execute_statement_impl(Statement* stmt);
     void raise_error(String msg, int code = 5, const String &source = "");
+
+    // Central handler for an unhandled runtime error surfacing from an event
+    // Sub.  Logs the error, fires a synthetic _OnError() callback (if the form
+    // defines one) so user code can reset app-level state, and otherwise shows
+    // the VB6-style native error dialog.  Called by the dispatchers in call().
+    void report_unhandled_error(const String &p_sub_name);
     Variant *get_cached_fast_dict_key(const Variant &key_source);
     Variant *insert_fast_dict_key_entry(const StringName &key_name, const Variant &key_source, uint32_t initial_hits);
     void prune_fast_dict_cache_if_needed();
