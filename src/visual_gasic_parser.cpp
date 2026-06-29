@@ -2977,6 +2977,37 @@ WhileStatement* VisualGasicParser::parse_while() {
         stmt->condition = nullptr;
         return stmt;
     }
+
+    // Implicit line continuation for boolean operators in condition.
+    while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) {
+        int saved_pos = current_pos;
+        advance();
+        while (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_COMMENT)) {
+            advance();
+        }
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+            String kw = String(peek().value);
+            if (kw.nocasecmp_to("Or") == 0 || kw.nocasecmp_to("And") == 0 ||
+                kw.nocasecmp_to("Xor") == 0 || kw.nocasecmp_to("OrElse") == 0 ||
+                kw.nocasecmp_to("AndAlso") == 0 || kw.nocasecmp_to("Eqv") == 0 ||
+                kw.nocasecmp_to("Imp") == 0) {
+                String op = peek().value;
+                advance();
+                ExpressionNode* right = parse_expression();
+                if (right) {
+                    BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+                    bin->left = condition;
+                    bin->right = right;
+                    unregister_node(right);
+                    bin->op = op;
+                    condition = bin;
+                    continue;
+                }
+            }
+        }
+        current_pos = saved_pos;
+        break;
+    }
     
     match(VisualGasicTokenizer::TOKEN_NEWLINE);
     
@@ -3036,6 +3067,36 @@ DoStatement* VisualGasicParser::parse_do() {
             stmt->condition = _tmp;
             unregister_node(_tmp);
         }
+        // Implicit line continuation for boolean operators in condition.
+        while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) {
+            int saved_pos = current_pos;
+            advance();
+            while (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_COMMENT)) {
+                advance();
+            }
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                String kw = String(peek().value);
+                if (kw.nocasecmp_to("Or") == 0 || kw.nocasecmp_to("And") == 0 ||
+                    kw.nocasecmp_to("Xor") == 0 || kw.nocasecmp_to("OrElse") == 0 ||
+                    kw.nocasecmp_to("AndAlso") == 0 || kw.nocasecmp_to("Eqv") == 0 ||
+                    kw.nocasecmp_to("Imp") == 0) {
+                    String op = peek().value;
+                    advance();
+                    ExpressionNode* right = parse_expression();
+                    if (right) {
+                        BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+                        bin->left = stmt->condition;
+                        bin->right = right;
+                        unregister_node(right);
+                        bin->op = op;
+                        stmt->condition = bin;
+                        continue;
+                    }
+                }
+            }
+            current_pos = saved_pos;
+            break;
+        }
     } else if (val.nocasecmp_to("Until") == 0) {
         advance();
         stmt->condition_type = DoStatement::UNTIL;
@@ -3043,6 +3104,36 @@ DoStatement* VisualGasicParser::parse_do() {
             ExpressionNode* _tmp = parse_expression();
             stmt->condition = _tmp;
             unregister_node(_tmp);
+        }
+        // Implicit line continuation for boolean operators in condition.
+        while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) {
+            int saved_pos = current_pos;
+            advance();
+            while (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_COMMENT)) {
+                advance();
+            }
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                String kw = String(peek().value);
+                if (kw.nocasecmp_to("Or") == 0 || kw.nocasecmp_to("And") == 0 ||
+                    kw.nocasecmp_to("Xor") == 0 || kw.nocasecmp_to("OrElse") == 0 ||
+                    kw.nocasecmp_to("AndAlso") == 0 || kw.nocasecmp_to("Eqv") == 0 ||
+                    kw.nocasecmp_to("Imp") == 0) {
+                    String op = peek().value;
+                    advance();
+                    ExpressionNode* right = parse_expression();
+                    if (right) {
+                        BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+                        bin->left = stmt->condition;
+                        bin->right = right;
+                        unregister_node(right);
+                        bin->op = op;
+                        stmt->condition = bin;
+                        continue;
+                    }
+                }
+            }
+            current_pos = saved_pos;
+            break;
         }
     }
     

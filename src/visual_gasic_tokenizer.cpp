@@ -380,6 +380,30 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
             continue;
         }
 
+        // Line continuation: standalone _ before newline joins the next line.
+        // Must check before identifier parsing since _ is in is_alpha().
+        if (c == '_') {
+            // Peek ahead: if _ is followed only by whitespace then newline/EOF,
+            // it's a continuation character, not an identifier.
+            int probe = current + 1;
+            while (probe < length && (p_source_code[probe] == ' ' || p_source_code[probe] == '\t' || p_source_code[probe] == '\r')) {
+                probe++;
+            }
+            if (probe >= length || p_source_code[probe] == '\n') {
+                // Swallow the _ and trailing whitespace + newline — no NEWLINE token emitted.
+                current = probe;
+                if (current < length && p_source_code[current] == '\n') {
+                    current++;
+                    line++;
+                    column = 1;
+                } else {
+                    column += (probe - (int)(current));
+                }
+                continue;
+            }
+            // Otherwise fall through to identifier parsing (e.g., _myVar)
+        }
+
         // Identifiers and Keywords
         if (is_alpha(c)) {
             int start = current;

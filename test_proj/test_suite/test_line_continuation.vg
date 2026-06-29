@@ -1,0 +1,98 @@
+Attribute VB_Name = "TestLineContinuation"
+' Tests line continuation: _ character (VB6 compat) and implicit boolean operator continuation.
+' Expected output: PASS:line_continuation
+Sub _Ready()
+    Dim pass_count As Integer = 0
+    Dim x As Integer = 5
+    Dim y As Integer = 10
+    Dim z As Integer = 15
+
+    ' --- VB6 _ continuation ---
+
+    ' Basic _ continuation in If
+    If x = 5 _
+        Or y = 10 Then
+        pass_count = pass_count + 1
+    End If
+
+    ' _ continuation with And
+    If x = 5 _
+        And y = 10 Then
+        pass_count = pass_count + 1
+    End If
+
+    ' Multiple _ continuations
+    If x = 5 _
+        Or y = 10 _
+        Or z = 15 Then
+        pass_count = pass_count + 1
+    End If
+
+    ' _ in assignment (non-boolean context)
+    Dim long_result As Integer = 1 + _
+        2 + 3
+    If long_result = 6 Then pass_count = pass_count + 1
+
+    ' --- Implicit continuation (VG extension) ---
+
+    ' Leading Or on next line (no _)
+    If x = 5
+        Or y = 10 Then
+        pass_count = pass_count + 1
+    End If
+
+    ' Leading And on next line (no _)
+    If x = 5
+        And y = 10 Then
+        pass_count = pass_count + 1
+    End If
+
+    ' Multiple leading operators (no _)
+    If x = 5
+        Or y = 10
+        Or z = 15 Then
+        pass_count = pass_count + 1
+    End If
+
+    ' --- While with continuation ---
+
+    Dim w_count As Integer = 0
+    Dim flag As Boolean = True
+    While flag = True
+        Or w_count < 3
+        w_count = w_count + 1
+        If w_count >= 3 Then flag = False
+    Wend
+    If w_count = 3 Then pass_count = pass_count + 1
+
+    ' --- Do While with continuation ---
+
+    Dim d_count As Integer = 0
+    Do While d_count < 2
+        Or d_count = 0
+        d_count = d_count + 1
+    Loop
+    If d_count = 2 Then pass_count = pass_count + 1
+
+    ' --- Do Until with continuation ---
+
+    Dim u_count As Integer = 0
+    Do Until u_count >= 3
+        And flag = False
+        u_count = u_count + 1
+    Loop
+    If u_count = 3 Then pass_count = pass_count + 1
+
+    ' --- Plain Do (no continuation — Or in body should error) ---
+    ' This is intentionally NOT tested for continuation because plain Do has no condition.
+
+    ' --- _myVar identifiers still work ---
+    Dim _myVar As Integer = 42
+    If _myVar = 42 Then pass_count = pass_count + 1
+
+    If pass_count = 11 Then
+        Print "PASS:line_continuation"
+    Else
+        Print "FAIL:line_continuation count=" & Str(pass_count)
+    End If
+End Sub
