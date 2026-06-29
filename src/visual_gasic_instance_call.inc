@@ -572,10 +572,21 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
              }
              
              bool found = false;
+
+             // Re-entrancy guard (Bug #3): if this sub is already executing
+             // (e.g. blocked inside Proc.RunAndCapture), skip the phantom
+             // repeat triggered by queued OS events.
+             if (_active_signal_subs.has(sub_name)) {
+                 if (r_return) *r_return = Variant();
+                 r_error->error = GDEXTENSION_CALL_OK;
+                 return;
+             }
+             _active_signal_subs.insert(sub_name);
              call_internal(sub_name, sub_args, found);
 
              // Unhandled runtime error → log, fire _OnError, or show dialog.
              report_unhandled_error(sub_name);
+             _active_signal_subs.erase(sub_name);
              
              if (r_return) *r_return = Variant();
              r_error->error = GDEXTENSION_CALL_OK;
@@ -602,10 +613,19 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
              }
 
              bool found = false;
+
+             // Re-entrancy guard (Bug #3): same as _OnSignal above.
+             if (_active_signal_subs.has(sub_name)) {
+                 if (r_return) *r_return = Variant();
+                 r_error->error = GDEXTENSION_CALL_OK;
+                 return;
+             }
+             _active_signal_subs.insert(sub_name);
              call_internal(sub_name, sub_args, found);
 
              // Unhandled runtime error → log, fire _OnError, or show dialog.
              report_unhandled_error(sub_name + " (Index " + String::num_int64(arr_idx) + ")");
+             _active_signal_subs.erase(sub_name);
 
              if (r_return) *r_return = Variant();
              r_error->error = GDEXTENSION_CALL_OK;
@@ -671,9 +691,16 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
 
                              // Also fire Click for left button single-click
                              if (button == 1) {
-                                 Array click_args;
-                                 if (is_array) click_args.push_back(gui_arr_idx);
-                                 call_internal(ctrl_name + "_Click", click_args, found);
+                                 String click_sub = ctrl_name + "_Click";
+                                 // Re-entrancy guard (Bug #3): skip if already
+                                 // executing (blocked in a sync call).
+                                 if (!_active_signal_subs.has(click_sub)) {
+                                     _active_signal_subs.insert(click_sub);
+                                     Array click_args;
+                                     if (is_array) click_args.push_back(gui_arr_idx);
+                                     call_internal(click_sub, click_args, found);
+                                     _active_signal_subs.erase(click_sub);
+                                 }
                              }
                          }
                      } else {

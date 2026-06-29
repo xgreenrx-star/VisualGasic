@@ -10,6 +10,7 @@
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/engine_debugger.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
+#include <godot_cpp/templates/hash_set.hpp>
 #include "vg_fast_dict.h"
 #include <mutex>
 
@@ -194,6 +195,14 @@ class VisualGasicInstance {
     // user's _OnError handler runs so an error raised inside it is reported
     // directly instead of recursing back into report_unhandled_error().
     bool in_error_handler = false;
+
+    // Re-entrancy guard for signal-dispatched Subs (Bug #3 fix).  When a Sub
+    // like Button1_Click calls a synchronous blocking function (e.g.
+    // Proc.RunAndCapture), the OS queues input events.  On return Godot flushes
+    // the backlog and may fire the same signal again before the first handler
+    // completes.  This set tracks which signal Subs are currently executing;
+    // a second dispatch of the same sub is silently dropped.
+    HashSet<String> _active_signal_subs;
     
     // Debug state for breakpoint support
     struct DebugState {

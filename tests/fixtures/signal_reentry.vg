@@ -1,0 +1,37 @@
+' ===========================================================================
+' Bug #3 regression fixture — phantom button double-press prevention.
+'
+' Scenario: Button1_Click calls a synchronous operation.  During the block,
+' OS-queued events can fire the same signal again.  The re-entrancy guard
+' in the _OnSignal dispatcher must silently drop the phantom repeat.
+'
+' This fixture is driven by tests/test_signal_reentry_guard.gd which
+' simulates the double-dispatch by calling _OnSignal twice in rapid
+' succession (the second call arrives while the first is "active" from
+' the dispatcher's perspective).
+' ===========================================================================
+
+Dim ClickCount As Integer
+Dim WorkerBusy As Boolean
+
+Sub _Ready()
+    ClickCount = 0
+    WorkerBusy = False
+End Sub
+
+' Simulated button click handler.
+Sub Button1_Click()
+    ClickCount = ClickCount + 1
+    WorkerBusy = True
+    ' In production this would call Proc.RunAndCapture() or similar.
+    ' The test driver simulates the phantom re-dispatch externally.
+    WorkerBusy = False
+End Sub
+
+Function GetClickCount() As Integer
+    GetClickCount = ClickCount
+End Function
+
+Function GetWorkerBusy() As Boolean
+    GetWorkerBusy = WorkerBusy
+End Function
