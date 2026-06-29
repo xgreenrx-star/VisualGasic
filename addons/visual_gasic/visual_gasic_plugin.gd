@@ -7859,6 +7859,11 @@ func _on_fd_control_double_clicked(index: int) -> void:
 		push_warning("VisualGasic: Cannot open code — form has no save path. Save the form first (File > Save).")
 		return
 
+	# ── Read existing .tscn signal connections BEFORE save_form() overwrites the file.
+	# save_form() rewrites the .tscn from _serialize_to_tscn() which preserves
+	# [connection] lines, but we read here first as a belt-and-suspenders guard.
+	var tscn_method := _get_tscn_connection_method(form_path, ctrl_name)
+
 	# ── Persist controls to disk BEFORE switching to the code editor ──
 	# This guarantees the .tscn is up-to-date regardless of what deferred
 	# operations or Godot save cycles happen during the view switch.
@@ -7871,7 +7876,6 @@ func _on_fd_control_double_clicked(index: int) -> void:
 	# ── Check if the .tscn already wires this control to a differently-named method.
 	# This handles the case where the connection was added manually or by VS Code/AI
 	# rather than through the VG form designer.
-	var tscn_method := _get_tscn_connection_method(form_path, ctrl_name)
 	if not tscn_method.is_empty():
 		sub_name = tscn_method
 	print("VisualGasic: Double-click → opening ", sub_name, " in ", vg_path)

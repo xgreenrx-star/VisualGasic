@@ -6488,6 +6488,33 @@ bool VisualGasicFormDesigner::save_form_as(const String &p_tscn_path) {
 
     String tscn_text = _serialize_to_tscn();
 
+    // Preserve any existing [connection] lines from the current .tscn on disk.
+    // _serialize_to_tscn() does not emit connections (VG uses _try_wire), but
+    // users or external tools may have added Godot-native signal connections
+    // via the editor's Node panel — don't destroy them on save.
+    if (FileAccess::file_exists(p_tscn_path)) {
+        Ref<FileAccess> existing = FileAccess::open(p_tscn_path, FileAccess::READ);
+        if (existing.is_valid()) {
+            String old_text = existing->get_as_text();
+            existing.unref();
+            PackedStringArray lines = old_text.split("\n");
+            String conn_block;
+            for (int i = 0; i < lines.size(); i++) {
+                String stripped = lines[i].strip_edges();
+                if (stripped.begins_with("[connection ")) {
+                    conn_block += lines[i] + "\n";
+                }
+            }
+            if (!conn_block.is_empty()) {
+                // Ensure a blank line separator before connection block
+                if (!tscn_text.ends_with("\n\n")) {
+                    tscn_text += "\n";
+                }
+                tscn_text += conn_block;
+            }
+        }
+    }
+
     Ref<FileAccess> file = FileAccess::open(p_tscn_path, FileAccess::WRITE);
     if (!file.is_valid()) {
         UtilityFunctions::printerr("FormDesigner: Could not write: ", p_tscn_path);
