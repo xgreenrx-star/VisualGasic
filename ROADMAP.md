@@ -817,15 +817,9 @@ Short, finishable list. **No new aspirational items.**
 
 > **Context**: When the trust collapse in AI-generated code arrives, VG's pitch is: human-readable, auditable, English-like code for Godot. VG is ironically *better* for AI generation than GDScript because it is simpler and more auditable. We need a working, usable VG before that window opens. Below is the explicit advance/mothball list.
 
-### 🗓️ Milestone Timeline — Stable Target: November 1 2026
+### 🗓️ Milestone Timeline — Stable Target: January 1 2027
 
-**Why November 1:** The AI code trust collapse is not a single event — it's a window that has already begun opening. The evidence:
-- **Sequoia Capital, June 2024**: Identified a $600B gap between AI infrastructure spending and actual revenue/value delivered. Called it a speculative bubble with no historical parallel.
-- **Goldman Sachs, 2024**: "Gen AI: Too Much Spend, Too Little Benefit" — enterprise customers increasingly unable to demonstrate ROI on AI coding tools.
-- **Vibe coding backlash, 2025–2026**: Production failures, unmaintainable AI-generated codebases, and growing developer distrust of AI output are already visible and accelerating. The term "vibe debt" (technical debt from unchecked AI generation) entered common use in 2025.
-- **The pattern**: AI investment bubble (financial) and AI code trust collapse (technical) are two separate events. The financial bubble may take until 2027–2028 to fully resolve. The code trust collapse — the moment developers and organizations actively seek alternatives to unreadable AI output — is happening *now* and will peak in **Q4 2026 – Q2 2027**.
-
-**The window**: VG needs to be stable, reliable, and demonstrable before Q4 2026. A credible, working stable release by November 1 puts VG in position to be the answer when the question becomes mainstream.
+**Why January 1:** The AI code trust collapse window runs through Q4 2026 – Q2 2027. A credible, working stable release by January 1 2027 puts VG in position to be the answer when the question becomes mainstream — and allows time to ship Python integration, C++ interop, `Let` keyword, and language parity before tagging stable.
 
 | Milestone | Target Date | Exit Criteria |
 |-----------|------------|---------------|
@@ -837,7 +831,9 @@ Short, finishable list. **No new aspirational items.**
 | **M5 — Narcea AI pair** | October 15 2026 | "Describe a form in English → Narcea generates working VG code" demo runs end-to-end on Claude and local Ollama |
 | **M6 — Causal Chain Visualization (teaser)** | October 31 2026 | Static AST walk generates a readable call-chain report for any VG form. Even a text-mode output qualifies. Visual panel is v6.1+. |
 | **M7 — Python Library Integration (Tier A)** | November 15 2026 | `PyImport("numpy")` / `PyCallAsync` / `Await` works end-to-end on Linux + Windows desktop. Out-of-process worker via existing IPC/process/async stack. Native wheels (numpy, opencv) load without engine changes. Clean error on missing Python. |
-| **🎉 Stable v6.0 release** | December 1 2026 | All M1–M7 complete. Installer works first try. 47+ corpus examples run. Public announcement. |
+| **M8 — Language parity + `Let` keyword** | November 22 2026 | (1) Corpus tests for `Try`/`Catch`/`Finally`, `Lambda`, `?.` null-conditional — confirms bytecode compiler handles them, no silent AST fallback. (2) `AndAlso`/`OrElse` CHANGELOG entry added. (3) `Let x As Type` block-scoped variable: fresh slot per block entry via `OP_PUSH_SCOPE`/`OP_POP_SCOPE`; `Dim` retains VB6 sub-scope hoisting. (4) C++ library interop: supported `Declare` / `DllImport` path on Linux + Windows desktop via existing `visual_gasic_ffi.cpp`; packaging docs; clean failure on unsupported platforms. |
+| **M9 — Release readiness** | November 28 2026 | (1) Godot Asset Library package prepared and submitted. (2) Installer smoke-tested on clean Linux + Windows VMs — first-run works without manual steps. (3) 50+ corpus examples pass. (4) README and CHANGELOG reflect v6.0 features accurately. |
+| **🎉 Stable v6.0 release** | January 1 2027 | All M1–M9 complete. Installer works first try. Asset Library submission accepted or in review. Public announcement. |
 
 **Buffer**: October is the buffer month. If M4 slips, M5 and M6 compress, not the release date.
 
@@ -1057,7 +1053,9 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **M5** | Narcea AI pair (#13): pair-programming mode, provider routing, system prompt templates | Oct 15 | — |
 | **M6** | Causal Chain text-mode (#14): new AST evaluator path, narrative code generation, explain-before-compute | Oct 31 | — |
 | **M7** | Python Library Integration: `PyImport` / `PyCallAsync` / `Await` via out-of-process worker. numpy, opencv, torch usable from VG scripts. | Nov 15 | — |
-| **v6.0** | Stable release | Dec 1 | — |
+| **M8** | Language parity (Try/Catch/Lambda/`?.` corpus tests), `Let` block-scoped vars, C++ library interop via `Declare`/`DllImport` | Nov 22 | — |
+| **M9** | Release readiness: Asset Library submission, installer smoke test (Linux + Windows), 50+ corpus, docs current | Nov 28 | — |
+| **v6.0** | Stable release | Jan 1 2027 | — |
 
 ---
 

@@ -37,7 +37,9 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 | M5 | Oct 15 | — | Narcea AI pair (#13) |
 | M6 | Oct 31 | — | Causal Chain text-mode (#14) |
 | M7 | Nov 15 | — | Python Library Integration (PyImport, PyCallAsync, numpy/opencv) |
-| Stable v6.0 | Dec 1 | — | — |
+| M8 | Nov 22 | — | Language parity (Try/Catch/Lambda/`?.` tests), `Let` keyword, C++ interop |
+| M9 | Nov 28 | — | Asset Library submission, installer smoke test, 50+ corpus, docs |
+| Stable v6.0 | Jan 1 2027 | — | — |
 
 ## Code conventions
 
