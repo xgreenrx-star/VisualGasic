@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <!-- Dark background -->
+  <rect width="180" height="180" fill="#0a0f0a"/>
+
+  <!-- Tree: top tier -->
+  <polygon points="90,14 66,52 114,52" fill="#1a6e3c"/>
+  <polygon points="90,14 66,52 114,52" fill="none" stroke="#39ff8a" stroke-width="1.5"/>
+
+  <!-- Tree: middle tier -->
+  <polygon points="90,36 50,82 130,82" fill="#1a6e3c"/>
+  <polygon points="90,36 50,82 130,82" fill="none" stroke="#39ff8a" stroke-width="1.5"/>
+
+  <!-- Tree: bottom tier -->
+  <polygon points="90,60 34,116 146,116" fill="#1a6e3c"/>
+  <polygon points="90,60 34,116 146,116" fill="none" stroke="#39ff8a" stroke-width="1.5"/>
+
+  <!-- Trunk -->
+  <rect x="82" y="116" width="16" height="30" fill="#1a6e3c" stroke="#39ff8a" stroke-width="1.2"/>
+
+  <!-- Base platform -->
+  <rect x="28" y="146" width="124" height="9" rx="1" fill="#1a3a1a" stroke="#39ff8a" stroke-width="1.5"/>
+
+  <!-- Phosphor glow on peak -->
+  <circle cx="90" cy="14" r="2.5" fill="#39ff8a" opacity="0.95"/>
+</svg>
