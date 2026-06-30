@@ -36,7 +36,8 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 | M4 | Sep 30 | — | UI Forms experimental (#8–#12) |
 | M5 | Oct 15 | — | Narcea AI pair (#13) |
 | M6 | Oct 31 | — | Causal Chain text-mode (#14) |
-| Stable v6.0 | Nov 1 | — | — |
+| M7 | Nov 15 | — | Python Library Integration (PyImport, PyCallAsync, numpy/opencv) |
+| Stable v6.0 | Dec 1 | — | — |
 
 ## Code conventions
 

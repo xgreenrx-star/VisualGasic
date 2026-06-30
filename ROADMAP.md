@@ -836,7 +836,8 @@ Short, finishable list. **No new aspirational items.**
 | **M4 — UI Forms experimental** | September 30 2026 | Control picker popup → ghost placement → single-click place → double-click wire → `Sub Button1_Click()` in `Form1.vg`. Save/reopen preserves everything. Gated behind `vg/enable_experimental_plugins`. |
 | **M5 — Narcea AI pair** | October 15 2026 | "Describe a form in English → Narcea generates working VG code" demo runs end-to-end on Claude and local Ollama |
 | **M6 — Causal Chain Visualization (teaser)** | October 31 2026 | Static AST walk generates a readable call-chain report for any VG form. Even a text-mode output qualifies. Visual panel is v6.1+. |
-| **🎉 Stable v6.0 release** | November 1 2026 | All M1–M5 complete. Installer works first try. 20 examples run. Public announcement. |
+| **M7 — Python Library Integration (Tier A)** | November 15 2026 | `PyImport("numpy")` / `PyCallAsync` / `Await` works end-to-end on Linux + Windows desktop. Out-of-process worker via existing IPC/process/async stack. Native wheels (numpy, opencv) load without engine changes. Clean error on missing Python. |
+| **🎉 Stable v6.0 release** | December 1 2026 | All M1–M7 complete. Installer works first try. 47+ corpus examples run. Public announcement. |
 
 **Buffer**: October is the buffer month. If M4 slips, M5 and M6 compress, not the release date.
 
@@ -1055,7 +1056,8 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **M4** | UI Forms experimental (#8–#12): VB6 visual form designer, control picker popup, ghost placement, signal wiring, two-layer events | Sep 30 | — |
 | **M5** | Narcea AI pair (#13): pair-programming mode, provider routing, system prompt templates | Oct 15 | — |
 | **M6** | Causal Chain text-mode (#14): new AST evaluator path, narrative code generation, explain-before-compute | Oct 31 | — |
-| **v6.0** | Stable release | Nov 1 | — |
+| **M7** | Python Library Integration: `PyImport` / `PyCallAsync` / `Await` via out-of-process worker. numpy, opencv, torch usable from VG scripts. | Nov 15 | — |
+| **v6.0** | Stable release | Dec 1 | — |
 
 ---
 
