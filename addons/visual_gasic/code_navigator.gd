@@ -188,7 +188,22 @@ func refresh_objects():
 	
 	# Add Objects recursively
 	_add_node_recursive(root)
-	
+
+	# Add Scene Scripts section — nodes with .gd scripts
+	var gd_nodes: Array = []
+	_collect_gd_script_nodes(root, gd_nodes)
+	if gd_nodes.size() > 0:
+		var sep_idx = object_list.item_count
+		object_list.add_item("\u2500\u2500 Scene Scripts \u2500\u2500")
+		object_list.set_item_metadata(sep_idx, {"type": "separator"})
+		object_list.set_item_disabled(sep_idx, true)
+		for gd_node in gd_nodes:
+			var s = gd_node.get_script()
+			var label = gd_node.name + " (" + s.resource_path.get_file() + ")"
+			var nidx = object_list.item_count
+			object_list.add_item(label)
+			object_list.set_item_metadata(nidx, {"type": "gd_script", "node": gd_node, "script": s})
+
 	# Restore Selection
 	var found = false
 	if current_node_name != "":
@@ -323,6 +338,53 @@ func _parse_procedures(text: String) -> Array:
 	)
 	return procedures
 
+func _parse_gd_functions(text: String) -> Array:
+	"""Parse all func definitions from a .gd file.
+	Returns [{name, line}] sorted by line order.
+	"""
+	var funcs: Array = []
+	var regex = RegEx.new()
+	regex.compile("^(?:static\\s+)?func\\s+(\\w+)\\s*\\(")
+	var lines = text.split("\n")
+	for i in lines.size():
+		var result = regex.search(lines[i])
+		if result:
+			funcs.append({"name": result.get_string(1), "line": i})
+	return funcs
+
+func _collect_gd_script_nodes(node: Node, result: Array) -> void:
+	"""Recursively collect nodes that have a .gd script attached."""
+	if not node:
+		return
+	var script = node.get_script()
+	if script and script.resource_path.ends_with(".gd"):
+		result.append(node)
+	for i in node.get_child_count():
+		_collect_gd_script_nodes(node.get_child(i), result)
+
+func _populate_gd_script_funcs(meta: Dictionary) -> void:
+	"""Populate event_list with func definitions from a .gd script."""
+	event_list.clear()
+	var script = meta.get("script", null)
+	if not script:
+		return
+	var path: String = script.resource_path
+	if not FileAccess.file_exists(path):
+		return
+	var text = FileAccess.get_file_as_string(path)
+	var funcs = _parse_gd_functions(text)
+	if funcs.is_empty():
+		var oidx = event_list.item_count
+		event_list.add_item("[Open Script]")
+		event_list.set_item_metadata(oidx, {"type": "gd_open", "path": path})
+	else:
+		for f in funcs:
+			var eidx = event_list.item_count
+			event_list.add_item(f["name"])
+			event_list.set_item_metadata(eidx, {"type": "gd_func", "line": f["line"], "path": path})
+	if event_list.item_count > 0:
+		event_list.select(0)
+
 func _extract_proc_name(after_keyword: String) -> String:
 	"""Extract the procedure name from text after 'Sub '/'Function '/etc."""
 	var s = after_keyword.strip_edges()
@@ -360,13 +422,22 @@ func _on_object_selected(idx):
 			event_list.select(0)
 		return
 	
+	# Handle scene-script entries (nodes with .gd scripts)
+	if meta is Dictionary:
+		var dtype = meta.get("type", "")
+		if dtype == "separator":
+			return
+		elif dtype == "gd_script":
+			_populate_gd_script_funcs(meta)
+			return
+
 	if not is_instance_valid(meta):
 		# Object might have been deleted
 		return
-		
+
 	var node = meta as Node
 	if not node: return
-	
+
 	# Populate based on type
 	var events = []
 	if node == editor_plugin.get_editor_interface().get_edited_scene_root():
@@ -423,14 +494,26 @@ func _on_event_selected(idx):
 				return
 		return
 	
+	# --- GD script func entry ---
+	if event_meta is Dictionary:
+		var etype = event_meta.get("type", "")
+		if etype == "gd_func":
+			navigate_to_line(event_meta["path"], event_meta["line"] + 1)
+			return
+		elif etype == "gd_open":
+			var script = load(event_meta["path"])
+			if script:
+				editor_plugin.get_editor_interface().edit_resource(script)
+			return
+
 	# --- Control event handler ---
 	if not is_instance_valid(obj_meta):
 		refresh_objects()
 		return
-		
+
 	var node = obj_meta as Node
 	if not node: return
-	
+
 	var event_name = event_meta["event"] if event_meta and event_meta.has("event") else event_list.get_item_text(idx).strip_edges()
 	_navigate_to_handler(node, event_name)
 
