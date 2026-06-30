@@ -556,7 +556,18 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
         if (v.get_type() == Variant::ARRAY) {
             Array arr = v;
             PackedStringArray psa;
-            for (int i=0;i<arr.size();i++) psa.push_back((String)arr[i]);
+            for (int i = 0; i < arr.size(); i++) {
+                Variant elem = arr[i];
+                if (elem.get_type() == Variant::FLOAT) {
+                    double d = (double)elem;
+                    if (Math::is_finite(d) && d == Math::floor(d) && d >= (double)INT64_MIN && d <= (double)INT64_MAX)
+                        psa.push_back(String::num_int64((int64_t)d));
+                    else
+                        psa.push_back((String)elem);
+                } else {
+                    psa.push_back((String)elem);
+                }
+            }
             return String(args[1]).join(psa);
         }
         return String();
@@ -3816,7 +3827,18 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         if (v.get_type() == Variant::ARRAY) {
             Array arr = v;
             PackedStringArray psa;
-            for (int i=0;i<arr.size();i++) psa.push_back((String)arr[i]);
+            for (int i = 0; i < arr.size(); i++) {
+                Variant elem = arr[i];
+                if (elem.get_type() == Variant::FLOAT) {
+                    double d = (double)elem;
+                    if (Math::is_finite(d) && d == Math::floor(d) && d >= (double)INT64_MIN && d <= (double)INT64_MAX)
+                        psa.push_back(String::num_int64((int64_t)d));
+                    else
+                        psa.push_back((String)elem);
+                } else {
+                    psa.push_back((String)elem);
+                }
+            }
             return String(args[1]).join(psa);
         }
         return String();
