@@ -273,6 +273,7 @@ Each feature includes:
 - **Issues**: GitHub Issues for bug reports and feature requests
 - **Discussions**: GitHub Discussions for general questions
 - **Discord**: Join our community Discord server
+- **Facebook**: [Visual Gasic on Facebook](https://www.facebook.com/profile.php?id=61590509923862)
 - **Email**: Contact maintainers directly for sensitive issues
 
 ### Resources

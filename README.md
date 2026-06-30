@@ -538,6 +538,12 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 - Documentation guidelines
 - Pull request process
 
+## 💬 **Community**
+
+- **Facebook**: [Visual Gasic on Facebook](https://www.facebook.com/profile.php?id=61590509923862)
+- **GitHub Discussions**: Questions, ideas, and general conversation
+- **GitHub Issues**: Bug reports and feature requests
+
 ## 📊 **Project Status**
 
 **Current Version**: `v5.2.0-Beta4` (Current Public Beta)
