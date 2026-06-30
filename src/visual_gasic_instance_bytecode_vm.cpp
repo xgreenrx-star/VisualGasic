@@ -3482,7 +3482,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 if (base.get_type() == Variant::DICTIONARY) {
                     const Dictionary *dict = VariantInternal::get_dictionary(&base);
-                    result = dict->get(cache.primary_string, Variant());
+                    String member = cache.primary_string;
+                    if (member.nocasecmp_to("Count") == 0) result = dict->size();
+                    else if (member.nocasecmp_to("Keys") == 0) result = dict->keys();
+                    else if (member.nocasecmp_to("Items") == 0 || member.nocasecmp_to("Values") == 0) result = dict->values();
+                    else result = dict->get(cache.primary_string, Variant());
                 } else if (base.get_type() == Variant::VECTOR2) {
                     // Handle Vector2.x, Vector2.y member access
                     Vector2 vec = base;
