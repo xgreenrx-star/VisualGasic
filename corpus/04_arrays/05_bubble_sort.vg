@@ -30,20 +30,9 @@ Sub Main()
     nums(5) = 90
     nums(6) = 7
 
-    Dim i As Integer
-    Dim before As String = ""
-    Dim after As String = ""
-    For i = 0 To UBound(nums)
-        If i > 0 Then before = before & ", "
-        before = before & CStr(nums(i))
-    Next i
-    Print "Before: " & before
+    Print "Before: " & Join(nums, ", ")
     BubbleSort(nums)
-    For i = 0 To UBound(nums)
-        If i > 0 Then after = after & ", "
-        after = after & CStr(nums(i))
-    Next i
-    Print "After:  " & after
+    Print "After:  " & Join(nums, ", ")
 End Sub
 
 ' Expected output:

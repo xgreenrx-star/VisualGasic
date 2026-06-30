@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🐛 Fixed — M1 Final Bugs (Jun 30, 2026)
+
+- **Dictionary property access without parens**: `dict.Count`, `dict.Keys`, `dict.Items` now work as VB6-style properties. Previously only `dict.Count()` with parens worked; the bytecode VM's `OP_GET_MEMBER` treated all dictionary member access as key lookups. Now checks for VB6 property aliases before falling through to key lookup.
+- **Join() integer formatting**: Arrays declared `As Integer` store values internally as floats; `Join(intArray, ",")` now formats them without `.0` suffix (`"64"` instead of `"64.0"`). Fractional floats pass through unchanged.
+- **ByRef default parameters in recursive calls**: Fixed corruption caused by `byref_captures` re-applying the callee's parameter value after `saved_locals` restore. Recursive functions with `ByRef` parameters now work correctly.
+
 ## [5.2.0-Beta3] - 2026-06-01
 
 ### 🧩 New — 2D Scene Editor: Instance Child Scene

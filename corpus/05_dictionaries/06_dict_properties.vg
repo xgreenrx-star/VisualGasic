@@ -1,0 +1,35 @@
+' Dictionary property-style access: Count, Keys, Items.
+' These work without parentheses, matching VB6 Scripting.Dictionary syntax.
+' Count() with parens also works — both forms are equivalent.
+
+Sub Main()
+    Dim ages As New Dictionary
+    ages.Add("Alice", 30)
+    ages.Add("Bob", 25)
+    ages.Add("Carol", 42)
+
+    ' .Count without parens (VB6 style)
+    Print "Count: " & CStr(ages.Count)
+
+    ' .Keys without parens returns an Array
+    Dim k As Variant = ages.Keys
+    Print "Keys: " & CStr(k(0)) & ", " & CStr(k(1)) & ", " & CStr(k(2))
+
+    ' .Items without parens returns an Array of values
+    Dim vals As Variant = ages.Items
+    Print "Value count: " & CStr(ages.Count)
+
+    ' Remove one and confirm Count updates
+    ages.Remove("Bob")
+    Print "After remove: " & CStr(ages.Count)
+
+    ' Count() with parens — still works
+    Print "Parens form: " & CStr(ages.Count())
+End Sub
+
+' Expected output:
+' Count: 3
+' Keys: Alice, Bob, Carol
+' Value count: 3
+' After remove: 2
+' Parens form: 2

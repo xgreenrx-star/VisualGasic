@@ -1045,7 +1045,21 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 
 ---
 
-## 🚀 v7.0 Long-term — explicitly out of scope for 5.x / 6.x
+## � Milestone Schedule — v5.1+
+
+| Milestone | Focus | Due | Status |
+|-----------|-------|-----|--------|
+| **M1** | 4 critical bugs (ByRef recursion, Join float format, Dict properties, chained calls) | Jul 31 | ✅ **DONE** (Jun 29) |
+| **M2** | 44 corpus examples pass (all domains: basics, control flow, strings, arrays, dicts, classes, I/O, math, state machines, Godot) | Aug 15 | ✅ **DONE** (Jun 30) |
+| **M3** | Code Navigator upgrade (#7): multi-file symbol search, definition/reference indexing, call hierarchy, VB6 import resolver | Aug 31 | 🔄 **NEXT** |
+| **M4** | UI Forms experimental (#8–#12): VB6 visual form designer, control picker popup, ghost placement, signal wiring, two-layer events | Sep 30 | — |
+| **M5** | Narcea AI pair (#13): pair-programming mode, provider routing, system prompt templates | Oct 15 | — |
+| **M6** | Causal Chain text-mode (#14): new AST evaluator path, narrative code generation, explain-before-compute | Oct 31 | — |
+| **v6.0** | Stable release | Nov 1 | — |
+
+---
+
+## �🚀 v7.0 Long-term — explicitly out of scope for 5.x / 6.x
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
