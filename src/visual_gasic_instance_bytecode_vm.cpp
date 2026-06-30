@@ -3487,6 +3487,27 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (member.nocasecmp_to("Keys") == 0) result = dict->keys();
                     else if (member.nocasecmp_to("Items") == 0 || member.nocasecmp_to("Values") == 0) result = dict->values();
                     else result = dict->get(cache.primary_string, Variant());
+                } else if (base.get_type() == Variant::ARRAY) {
+                    const Array *arr = VariantInternal::get_array(&base);
+                    String member = cache.primary_string;
+                    if (member.nocasecmp_to("Count") == 0 || member.nocasecmp_to("Length") == 0)
+                        result = (int64_t)arr->size();
+                    else result = Variant();
+                } else if (base.get_type() == Variant::PACKED_INT64_ARRAY ||
+                           base.get_type() == Variant::PACKED_FLOAT64_ARRAY ||
+                           base.get_type() == Variant::PACKED_STRING_ARRAY ||
+                           base.get_type() == Variant::PACKED_INT32_ARRAY ||
+                           base.get_type() == Variant::PACKED_FLOAT32_ARRAY) {
+                    String member = cache.primary_string;
+                    if (member.nocasecmp_to("Count") == 0 || member.nocasecmp_to("Length") == 0) {
+                        int sz = 0;
+                        if (base.get_type() == Variant::PACKED_INT64_ARRAY) sz = VariantInternal::get_int64_array(&base)->size();
+                        else if (base.get_type() == Variant::PACKED_FLOAT64_ARRAY) sz = VariantInternal::get_float64_array(&base)->size();
+                        else if (base.get_type() == Variant::PACKED_STRING_ARRAY) sz = VariantInternal::get_string_array(&base)->size();
+                        else if (base.get_type() == Variant::PACKED_INT32_ARRAY) sz = VariantInternal::get_int32_array(&base)->size();
+                        else if (base.get_type() == Variant::PACKED_FLOAT32_ARRAY) sz = VariantInternal::get_float32_array(&base)->size();
+                        result = (int64_t)sz;
+                    } else result = Variant();
                 } else if (base.get_type() == Variant::VECTOR2) {
                     // Handle Vector2.x, Vector2.y member access
                     Vector2 vec = base;
