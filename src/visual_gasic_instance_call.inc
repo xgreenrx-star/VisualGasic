@@ -341,11 +341,11 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         }
     }
 
-    // Re-apply captured ByRef parameter values so the caller's
-    // STMT_CALL ByRef write-back reads the correct post-execution values.
-    for (int i = 0; i < byref_captures.size(); i++) {
-        variables[byref_captures[i].first] = byref_captures[i].second;
-    }
+    // Store captured ByRef parameter values for the AST executor's
+    // STMT_CALL ByRef write-back.  Do NOT re-apply to variables[] here —
+    // that corrupts the caller's restored locals during recursion when
+    // the param name collides with a caller variable (e.g. Fib(n-1)).
+    _last_byref_captures = byref_captures;
     
     return ret;
 }

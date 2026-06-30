@@ -5,7 +5,7 @@
 
 Dim memo As New Dictionary
 
-Function Fib(ByVal n As Integer) As Long
+Function Fib(n As Integer) As Long
     If n < 2 Then
         Fib = n
         Exit Function

@@ -26,6 +26,7 @@ class VisualGasicInstance {
     Dictionary open_files; // Map<int, Ref<FileAccess>>
     Dictionary static_variables; // Persist across calls (Static keyword)
     Dictionary module_registry; // Module name -> Dictionary of module variables
+    Vector<Pair<String, Variant>> _last_byref_captures; // ByRef param values from last call_internal (for AST writeback)
 
     // Debug: pointer to the current bytecode frame's locals so the debugger
     // can inspect local variables during a breakpoint pause.

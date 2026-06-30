@@ -2066,12 +2066,12 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                             // If ByRef (not ByVal), and the argument was a variable, write back
                             if (param.is_by_ref && s->arguments[i]->type == ExpressionNode::VARIABLE) {
                                 String caller_var_name = ((VariableNode*)s->arguments[i])->name;
-                                // Get the parameter's current value from the function's scope
-                                if (variables.has(param.name)) {
-                                    // Capture value before write to avoid Godot Dictionary
-                                    // self-reference issue when caller_var_name == param.name
-                                    Variant byref_val = variables[param.name];
-                                    variables[caller_var_name] = byref_val;
+                                // Read from _last_byref_captures (set by call_internal)
+                                for (int j = 0; j < _last_byref_captures.size(); j++) {
+                                    if (_last_byref_captures[j].first == param.name) {
+                                        variables[caller_var_name] = _last_byref_captures[j].second;
+                                        break;
+                                    }
                                 }
                             }
                         }
