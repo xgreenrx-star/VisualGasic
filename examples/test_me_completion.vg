@@ -1,8 +1,0 @@
-' Test file for Me. completion
-Option Explicit
-
-Sub TestCompletion()
-    ' Type Me. here and trigger completion
-    Dim x
-    x = Me.
-End Sub

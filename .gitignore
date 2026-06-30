@@ -96,6 +96,9 @@ Makefile.tests
 vendor/
 /ai_projects/
 
+# Development test harnesses — not user-facing, kept locally only
+/examples/
+
 # Secrets / credentials — never commit these
 tools/client_secrets.json
 *client_secrets*.json

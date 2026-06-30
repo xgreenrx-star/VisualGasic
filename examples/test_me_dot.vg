@@ -1,7 +1,0 @@
-' Test Me. completion
-Option Explicit
-
-Sub TestMe()
-    ' This should trigger completion when typing Me.
-    Me.
-End Sub
