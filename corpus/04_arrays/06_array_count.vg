@@ -1,0 +1,35 @@
+' corpus/04_arrays/06_array_count.vg
+' Tests arr.Count and arr.Length as VB6-style properties (no parens required).
+' Both should equal UBound(arr) + 1.
+
+Sub Main()
+    Dim nums(4) As Integer
+    nums(0) = 10
+    nums(1) = 20
+    nums(2) = 30
+    nums(3) = 40
+    nums(4) = 50
+    Print "Integer array Count: " & nums.Count
+    Print "Integer array Length: " & nums.Length
+
+    Dim words(2) As String
+    words(0) = "alpha"
+    words(1) = "beta"
+    words(2) = "gamma"
+    Print "String array Count: " & words.Count
+    Print "UBound+1 matches Count: " & CStr((UBound(words) + 1) = words.Count)
+
+    Dim vals(3) As Double
+    vals(0) = 1.1
+    vals(1) = 2.2
+    vals(2) = 3.3
+    vals(3) = 4.4
+    Print "Double array Count: " & vals.Count
+End Sub
+
+' Expected output:
+' Integer array Count: 5
+' Integer array Length: 5
+' String array Count: 3
+' UBound+1 matches Count: true
+' Double array Count: 4

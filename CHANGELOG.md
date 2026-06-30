@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✨ Added — Array.Count / Array.Length (Jun 30, 2026)
+
+- **`arr.Count` and `arr.Length`** now work as VB6-style properties on all array types (`Integer`, `String`, `Double`, etc.). Returns the element count equivalent to `UBound(arr) + 1`. Implemented in the bytecode VM `OP_GET_MEMBER` handler alongside the existing `dict.Count` alias.
+
 ### 🐛 Fixed — M1 Final Bugs (Jun 30, 2026)
 
 - **Dictionary property access without parens**: `dict.Count`, `dict.Keys`, `dict.Items` now work as VB6-style properties. Previously only `dict.Count()` with parens worked; the bytecode VM's `OP_GET_MEMBER` treated all dictionary member access as key lookups. Now checks for VB6 property aliases before falling through to key lookup.
