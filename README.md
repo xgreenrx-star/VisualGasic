@@ -73,7 +73,7 @@ VG is a public beta. The language, JIT compiler, and debugger work. The Form Des
 **Deferred (post-MVP):**
 Form Designer extraction to a standalone plugin, full IDE plugin architecture refactor, VG3D, Working Nodes expansion. The Form Designer stays in place behind an Experimental Plugins toggle until UI Forms reaches parity.
 
-> 🚀 **v5.2.0-Beta4 — Current public beta.** This README points to the Beta4 release artifacts directly so download links stay correct even if GitHub's "Latest" flag is stale. See [release notes](RELEASE_NOTES_v5.2.0-Beta4.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
+> 🚀 **v5.2.0-Beta4 — Current public beta.** This README points to the Beta4 release artifacts directly so download links stay correct even if GitHub's "Latest" flag is stale. See [release notes](docs/release/RELEASE_NOTES_v5.2.0-Beta4.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
 >
 > 📚 **Docs from the main page:** every guide, reference, and tutorial is one click away from [`docs/DOCS.md`](docs/DOCS.md). Quick jumps: [Getting Started](docs/guides/GET_STARTED.md) · [Installation](docs/guides/INSTALLATION.md) · [Language Reference](docs/VisualGasic_Language_Reference.md) · [Built-in Functions](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) · [Custom Controls](docs/guides/CUSTOM_CONTROLS.md) · [Plugin SDK](addons/visual_gasic/PLUGIN_SDK.md).
 
@@ -329,7 +329,7 @@ Downloads Godot 4.6.1, installs the addon globally, drops a `~/.local/bin/visual
 
 **📦 From the GitHub Beta4 release (all platforms):**
 
-Download the platform zip from [v5.2.0-Beta4](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.2.0-Beta4) (e.g. `VisualGasic_v5.2.0-Beta4_linux_x86_64.zip`), extract, and either point the `vg` CLI at it or copy `addons/visual_gasic/` into your project. Release notes: [v5.2.0-Beta4](RELEASE_NOTES_v5.2.0-Beta4.md).
+Download the platform zip from [v5.2.0-Beta4](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.2.0-Beta4) (e.g. `VisualGasic_v5.2.0-Beta4_linux_x86_64.zip`), extract, and either point the `vg` CLI at it or copy `addons/visual_gasic/` into your project. Release notes: [v5.2.0-Beta4](docs/release/RELEASE_NOTES_v5.2.0-Beta4.md).
 
 **From Godot Asset Library:**
 1. Open your Godot project
@@ -542,7 +542,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 **Current Version**: `v5.2.0-Beta4` (Current Public Beta)
 
-> See [CHANGELOG.md](CHANGELOG.md) and the [v5.2.0-Beta4 release notes](RELEASE_NOTES_v5.2.0-Beta4.md) for the latest changes.
+> See [CHANGELOG.md](CHANGELOG.md) and the [v5.2.0-Beta4 release notes](docs/release/RELEASE_NOTES_v5.2.0-Beta4.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
