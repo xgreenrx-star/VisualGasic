@@ -54,7 +54,7 @@ The auditor needs **what-you-see-is-what-runs**. Mainstream languages do not del
 
 BASIC was designed in 1964 by John Kemeny and Thomas Kurtz with one explicit goal:
 make programming readable by people who had never programmed before.
-**Beginner's All-purpose Symbolic Instruction Code.**
+**BASIC All-purpose Symbolic Instruction Code.**
 That goal was abandoned by the industry as "not serious" because BASIC, as it was
 historically implemented, lacked a competitive compiler.
 
