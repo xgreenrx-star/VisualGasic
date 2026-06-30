@@ -1,1 +1,0 @@
-res://test_suite/test_constants.vg
