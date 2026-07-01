@@ -12661,7 +12661,7 @@ func _on_help_link_meta_clicked(meta: Variant) -> void:
 		_open_vg_language_reference(url.substr(4))
 
 
-func _open_vg_language_reference(_line_str: String) -> void:
+func _open_vg_language_reference(line_str: String) -> void:
 	# Walk up the directory tree from the plugin's absolute path until we find
 	# a directory that contains docs/VisualGasic_Language_Reference.md.
 	# This works regardless of how many levels deep the current project is
@@ -12675,7 +12675,11 @@ func _open_vg_language_reference(_line_str: String) -> void:
 	for _i in range(10):
 		var candidate := search_dir.path_join("docs/VisualGasic_Language_Reference.md")
 		if FileAccess.file_exists(candidate):
-			OS.shell_open(candidate)  # bare path — matches working VG IDE code
+			# Open in VS Code at the exact heading line via the vscode:// protocol.
+			# Format: vscode://file/ABSOLUTE_PATH:LINE:COL
+			# On Linux the absolute path starts with /, giving vscode://file//home/...
+			var line_num := max(1, line_str.to_int())
+			OS.shell_open("vscode://file/" + candidate + ":" + str(line_num) + ":1")
 			return
 		var parent := search_dir.get_base_dir()
 		if parent == search_dir:
