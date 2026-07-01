@@ -66,6 +66,11 @@ var _canvas_right_split: Control = null
 ## Plugins base path
 const PLUGINS_DIR = "res://addons/visual_gasic/plugins/"
 
+## Project setting that opts a project into loading experimental plugins.
+## Off by default so experimental plugins (e.g. the UI Forms designer) never
+## load unless the user explicitly turns them on.
+const EXPERIMENTAL_PLUGINS_SETTING := "vg/enable_experimental_plugins"
+
 
 # ─── Initialization ─────────────────────────────────────────
 
@@ -96,6 +101,7 @@ func setup(host_plugin, toolbar_row: HBoxContainer, canvas_right_split: Control)
 
 ## Discover and load all plugins from the plugins/ directory.
 func discover_plugins() -> void:
+	_ensure_experimental_setting()
 	var dir = DirAccess.open(PLUGINS_DIR)
 	if not dir:
 		print("VisualGasic: No plugins directory found at ", PLUGINS_DIR)
@@ -157,6 +163,25 @@ func _dir_has_form_file(path: String, depth: int = 0) -> bool:
 			return true
 	d.list_dir_end()
 	return false
+
+## Register the experimental-plugins opt-in project setting (default false) so
+## it shows up in Project Settings and can be toggled per project. Registered
+## non-destructively — never clobbers an existing user choice.
+func _ensure_experimental_setting() -> void:
+	if not ProjectSettings.has_setting(EXPERIMENTAL_PLUGINS_SETTING):
+		ProjectSettings.set_setting(EXPERIMENTAL_PLUGINS_SETTING, false)
+	ProjectSettings.set_initial_value(EXPERIMENTAL_PLUGINS_SETTING, false)
+	ProjectSettings.add_property_info({
+		"name": EXPERIMENTAL_PLUGINS_SETTING,
+		"type": TYPE_BOOL,
+		"hint": PROPERTY_HINT_NONE,
+	})
+
+
+## Whether experimental plugins should load in this project.
+func _experimental_plugins_enabled() -> bool:
+	return bool(ProjectSettings.get_setting(EXPERIMENTAL_PLUGINS_SETTING, false))
+
 
 ## Ensure the form_designer sub-plugin is enabled when form files are present.
 ## Writes vg/form_designer_enabled = true so _auto_open_formless_module
@@ -270,6 +295,9 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 		"description": cfg.get_value("plugin", "description", ""),
 		"script": cfg.get_value("plugin", "script", ""),
 		"enabled": cfg.get_value("plugin", "enabled", true),
+		# Experimental plugins are hidden unless the user opts in via the
+		# vg/enable_experimental_plugins project setting (default false).
+		"experimental": bool(cfg.get_value("plugin", "experimental", false)),
 		"autoloads": _read_autoloads_section(cfg, plugin_id),
 		# Capability fields — optional [capabilities] section in plugin.cfg.
 		# Plugins use these to advertise what they can do (e.g. edit sprites)
@@ -283,6 +311,13 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 	# Register with capability registry up front (even if disabled), so
 	# the settings/command-palette UIs can list every known plugin.
 	VGPluginRegistry.get_instance().register_provider(plugin_id, meta, null)
+
+	# Gate experimental plugins behind the opt-in project setting. They stay
+	# registered (so they appear in the settings dialog) but are not loaded
+	# or given a toolbar button unless experimental plugins are enabled.
+	if meta["experimental"] and not _experimental_plugins_enabled():
+		print("VisualGasic: Plugin '", meta["name"], "' is experimental and disabled (set ", EXPERIMENTAL_PLUGINS_SETTING, "=true to enable)")
+		return
 
 	if not meta["enabled"]:
 		print("VisualGasic: Plugin '", meta["name"], "' is disabled, skipping")

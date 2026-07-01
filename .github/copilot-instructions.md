@@ -33,8 +33,8 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 | M1 | Jul 31 | ✅ DONE (Jun 29) | 4 critical bugs — all fixed |
 | M2 | Aug 15 | ✅ DONE (Jun 30) | 44/44 corpus examples passing |
 | M3 | Aug 31 | ✅ DONE (Jul 1) | Code Navigator upgrade (#7) |
-| M4 | Sep 30 | 🔄 NEXT | UI Forms experimental (#8–12) |
-| M5 | Oct 15 | — | Narcea AI pair (#13) |
+| M4 | Sep 30 | ✅ DONE (Jul 1) | UI Forms experimental (#8–12) |
+| M5 | Oct 15 | 🔄 NEXT | Narcea AI pair (#13) |
 | M6 | Oct 31 | — | Causal Chain text-mode (#14) |
 | M7 | Nov 15 | — | Python Library Integration (PyImport, PyCallAsync, numpy/opencv) |
 | M8 | Nov 22 | — | Language parity (Try/Catch/Lambda/`?.` tests), `Let` keyword, C++ interop |
