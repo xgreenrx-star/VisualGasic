@@ -11299,8 +11299,10 @@ func _forward_canvas_gui_input(event):
 			_form_designer.nudge_selected(nudge)
 			return true
 
-	# ── Ctrl+Scroll: canvas zoom ──
-	if event is InputEventMouseButton and event.ctrl_pressed:
+	# ── Ctrl+Scroll: canvas zoom (legacy C++ form designer only) ──
+	# Guarded so it never consumes Godot's native 2D zoom when the mothballed
+	# VB6 form designer isn't the active surface.
+	if event is InputEventMouseButton and event.ctrl_pressed and is_instance_valid(_form_designer):
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			_canvas_zoom = clampf(_canvas_zoom + 0.1, 0.25, 4.0)
 			_apply_canvas_zoom()
@@ -12691,6 +12693,12 @@ func _setup_ui_forms_toolbar_button() -> void:
 	_ui_forms_btn.pressed.connect(_on_ui_forms_btn_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _ui_forms_btn)
 
+	# _handles() only accepts Texture2D, so the canvas forward callbacks would
+	# normally never fire during scene editing. Force them always-on so the
+	# ghost draws and placement clicks are intercepted over any 2D scene.
+	set_input_event_forwarding_always_enabled()
+	set_force_draw_over_forwarding_enabled()
+
 func _on_ui_forms_btn_pressed() -> void:
 	# Create the picker Window on first use.
 	if not is_instance_valid(_ui_forms_picker):
@@ -12712,25 +12720,19 @@ func _on_ui_forms_control_chosen(godot_type: String) -> void:
 	update_overlays()
 
 
-## EditorPlugin override — draw the placement ghost over the 2D canvas.
-func _forward_canvas_draw_over_viewport(overlay: Control) -> void:
+## EditorPlugin override — always called (force draw enabled) so the ghost
+## renders over the 2D canvas regardless of what object is being edited.
+func _forward_canvas_force_draw_over_viewport(overlay: Control) -> void:
 	if _ui_forms_armed_type.is_empty():
 		return
 	if _ui_forms_ghost_screen_pos == Vector2.ZERO:
 		return
 
-	# Compute screen-space ghost size from world-space default size × zoom.
+	# Screen-space ghost size = world default size × the canvas zoom scale.
 	var world_sz := _ui_forms_default_world_size(_ui_forms_armed_type)
-	var vp_container := get_editor_interface().get_editor_viewport_2d()
-	var sub_vp: SubViewport = null
-	for child in vp_container.get_children():
-		if child is SubViewport:
-			sub_vp = child
-			break
-	var screen_sz := world_sz
-	if sub_vp:
-		var t: Transform2D = sub_vp.canvas_transform
-		screen_sz = Vector2(world_sz.x * t.x.x, world_sz.y * t.y.y)
+	var vp := get_editor_interface().get_editor_viewport_2d()
+	var scale := vp.get_canvas_transform().get_scale()
+	var screen_sz := Vector2(world_sz.x * scale.x, world_sz.y * scale.y)
 
 	var grect := Rect2(_ui_forms_ghost_screen_pos, screen_sz)
 	overlay.draw_rect(grect, Color(0.30, 0.60, 1.0, 0.18))
@@ -12757,10 +12759,9 @@ static func _ui_forms_default_world_size(godot_type: String) -> Vector2:
 
 ## Convert 2D canvas screen-pixel position to world coordinates.
 func _ui_forms_screen_to_world(screen_pos: Vector2) -> Vector2:
-	var vp_container := get_editor_interface().get_editor_viewport_2d()
-	for child in vp_container.get_children():
-		if child is SubViewport:
-			return child.canvas_transform.affine_inverse() * screen_pos
+	var vp := get_editor_interface().get_editor_viewport_2d()
+	if vp:
+		return vp.get_canvas_transform().affine_inverse() * screen_pos
 	return screen_pos
 
 
