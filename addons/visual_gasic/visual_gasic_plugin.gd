@@ -183,6 +183,14 @@ var _vg_plugin_manager = null
 ## Created lazily on first invocation to keep startup snappy.
 var _vg_command_palette = null
 
+## UI Forms — Godot 2D toolbar button + control picker popup.
+## Loaded directly from visual_gasic_plugin.gd (not via vg_plugin_base /
+## plugin manager) so the button lives in Godot's native 2D canvas toolbar
+## and does not depend on the VG IDE panel being visible.
+var _ui_forms_btn: Button = null
+var _ui_forms_picker: Window = null
+var _ui_forms_adapter = null   # ui_forms_viewport_adapter.gd instance
+
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
 
@@ -1106,6 +1114,11 @@ func _enter_tree():
 	# the real Godot docs in the user's browser.
 	get_tree().node_added.connect(_on_node_added_for_help_links)
 
+	# ── UI Forms toolbar button ────────────────────────────────────────────────
+	# Add "🧩 Add Control" to Godot's native 2D canvas toolbar so UI Forms
+	# is accessible without the VG IDE panel being open.
+	call_deferred("_setup_ui_forms_toolbar_button")
+
 	call_deferred("_select_vg_main_screen_on_first_run")
 
 # =============================================================================
@@ -1643,6 +1656,16 @@ func _exit_tree():
 	# Disconnect hover-link watcher
 	if get_tree().node_added.is_connected(_on_node_added_for_help_links):
 		get_tree().node_added.disconnect(_on_node_added_for_help_links)
+
+	# Remove UI Forms toolbar button
+	if is_instance_valid(_ui_forms_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _ui_forms_btn)
+		_ui_forms_btn.queue_free()
+		_ui_forms_btn = null
+	if is_instance_valid(_ui_forms_picker):
+		_ui_forms_picker.queue_free()
+		_ui_forms_picker = null
+	_ui_forms_adapter = null
 
 	# Auto-save the form before cleanup so Godot doesn't lose our work
 	if is_instance_valid(_form_designer):
@@ -12624,6 +12647,114 @@ func _open_command_palette(initial_query: String = "") -> void:
 			base = get_tree().root if Engine.is_editor_hint() else self
 		base.add_child(_vg_command_palette)
 	_vg_command_palette.open_palette(initial_query)
+
+
+# =============================================================================
+# UI FORMS — Godot native 2D toolbar button + control picker
+# =============================================================================
+
+func _setup_ui_forms_toolbar_button() -> void:
+	if is_instance_valid(_ui_forms_btn):
+		return
+	_ui_forms_btn = Button.new()
+	_ui_forms_btn.text = "🧩 Add Control"
+	_ui_forms_btn.tooltip_text = "UI Forms: open control picker to place a VB6-style control in the scene"
+	_ui_forms_btn.flat = true
+	_ui_forms_btn.pressed.connect(_on_ui_forms_btn_pressed)
+	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _ui_forms_btn)
+
+func _on_ui_forms_btn_pressed() -> void:
+	# Create the picker Window on first use.
+	if not is_instance_valid(_ui_forms_picker):
+		var PickerScript = load("res://addons/visual_gasic/plugins/ui_forms/ui_forms_control_picker.gd")
+		if not PickerScript:
+			push_warning("[UI Forms] Could not load control picker script")
+			return
+		_ui_forms_picker = PickerScript.new()
+		# Add to the editor base so it appears over Godot's 2D viewport
+		get_editor_interface().get_base_control().add_child(_ui_forms_picker)
+		_ui_forms_picker.control_chosen.connect(_on_ui_forms_control_chosen)
+	_ui_forms_picker.popup_picker()
+
+func _on_ui_forms_control_chosen(godot_type: String) -> void:
+	# Get the root Control node of the currently edited scene.
+	var edited = get_editor_interface().get_edited_scene_root()
+	if not edited:
+		push_warning("[UI Forms] No scene is open — open or create a scene first")
+		return
+
+	# Walk up to the first Control ancestor (handles Node2D roots too).
+	var canvas: Control = null
+	var node = edited
+	while node:
+		if node is Control:
+			canvas = node
+			break
+		node = node.get_parent()
+
+	if not canvas:
+		# No Control found — create the chosen control directly under root
+		# so the user at least gets the node added.
+		canvas = edited as Control
+
+	# Instantiate the chosen control and add it to the scene.
+	var cls = ClassDB.instantiate(godot_type)
+	if not cls:
+		push_warning("[UI Forms] Could not instantiate: " + godot_type)
+		return
+	var ctrl := cls as Control
+	if not ctrl:
+		push_warning("[UI Forms] %s is not a Control node" % godot_type)
+		cls.free()
+		return
+
+	# Give it a sensible name (VB6 style: Button1, Label1, etc.)
+	var siblings := (canvas if canvas else edited).get_children()
+	var count := 0
+	for s in siblings:
+		if s.get_class() == godot_type:
+			count += 1
+	ctrl.name = godot_type + str(count + 1)
+
+	# Place at centre of viewport.
+	var vp_size := get_editor_interface().get_editor_viewport_2d().size
+	ctrl.position = vp_size * 0.5 - ctrl.size * 0.5
+
+	# Add to scene and select it so the user can move/resize immediately.
+	(canvas if canvas else edited).add_child(ctrl)
+	ctrl.owner = get_editor_interface().get_edited_scene_root()
+	get_editor_interface().get_selection().clear()
+	get_editor_interface().get_selection().add_node(ctrl)
+
+	# Generate event stub in the matching .vg file.
+	_ui_forms_wire_stub(ctrl, godot_type)
+
+func _ui_forms_wire_stub(ctrl: Control, godot_type: String) -> void:
+	# Find the .vg file alongside the open .tscn and append a stub Sub
+	# for the primary event of the chosen control type.
+	var scene_path := get_editor_interface().get_edited_scene_root().scene_file_path
+	if scene_path.is_empty():
+		return
+	var vg_path := scene_path.get_basename() + ".vg"
+	if not FileAccess.file_exists(vg_path):
+		return
+
+	var primary_event := {
+		"Button": "Click", "CheckBox": "Click", "OptionButton": "Click",
+		"LineEdit": "Change", "TextEdit": "Change", "ItemList": "Click",
+		"Label": "Click",
+	}.get(godot_type, "Click")
+
+	var stub := "\nSub %s_%s()\n\nEnd Sub\n" % [ctrl.name, primary_event]
+	var existing := FileAccess.get_file_as_string(vg_path)
+	if stub.strip_edges() in existing:
+		return  # already wired
+	var f := FileAccess.open(vg_path, FileAccess.READ_WRITE)
+	if f:
+		f.seek_end()
+		f.store_string(stub)
+		f.close()
+		EditorInterface.get_resource_filesystem().update_file(vg_path)
 
 
 # =============================================================================
