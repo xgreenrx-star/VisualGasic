@@ -1099,6 +1099,13 @@ func _enter_tree():
 	# Browser Dashboard (8765) so both can run simultaneously.
 	call_deferred("_start_mcp_server")
 
+	# ── Hover-link watcher ─────────────────────────────────────────────────────
+	# Godot's EditorHelpBit routes [url] meta_clicked to the internal help
+	# browser only. We intercept after it: for https:// URLs we call
+	# OS.shell_open() so clicking "Godot Docs ↗" in a VG hover tooltip opens
+	# the real Godot docs in the user's browser.
+	get_tree().node_added.connect(_on_node_added_for_help_links)
+
 	call_deferred("_select_vg_main_screen_on_first_run")
 
 # =============================================================================
@@ -1633,6 +1640,10 @@ func _save_external_data() -> void:
 ## Called when the plugin exits the editor tree.
 ## Cleans up all plugin components and disconnects signals.
 func _exit_tree():
+	# Disconnect hover-link watcher
+	if get_tree().node_added.is_connected(_on_node_added_for_help_links):
+		get_tree().node_added.disconnect(_on_node_added_for_help_links)
+
 	# Auto-save the form before cleanup so Godot doesn't lose our work
 	if is_instance_valid(_form_designer):
 		var fp = _form_designer.get_form_path()
@@ -12613,3 +12624,35 @@ func _open_command_palette(initial_query: String = "") -> void:
 			base = get_tree().root if Engine.is_editor_hint() else self
 		base.add_child(_vg_command_palette)
 	_vg_command_palette.open_palette(initial_query)
+
+
+# =============================================================================
+# HOVER LINK WATCHER — open https:// [url] clicks from VG tooltip docs in
+# the user's real browser instead of Godot's internal help browser.
+# =============================================================================
+
+func _on_node_added_for_help_links(node: Node) -> void:
+	# EditorHelpBit is the tooltip widget Godot's script editor uses for
+	# hover documentation. We defer so its children are fully constructed.
+	if node.get_class() == "EditorHelpBit":
+		call_deferred("_wire_help_bit_rtl", node)
+
+
+func _wire_help_bit_rtl(help_bit: Node) -> void:
+	if not is_instance_valid(help_bit):
+		return
+	_connect_rtl_meta_recursive(help_bit)
+
+
+func _connect_rtl_meta_recursive(node: Node) -> void:
+	if node is RichTextLabel:
+		if not node.meta_clicked.is_connected(_on_help_link_meta_clicked):
+			node.meta_clicked.connect(_on_help_link_meta_clicked)
+	for child in node.get_children():
+		_connect_rtl_meta_recursive(child)
+
+
+func _on_help_link_meta_clicked(meta: Variant) -> void:
+	var url := str(meta)
+	if url.begins_with("https://") or url.begins_with("http://"):
+		OS.shell_open(url)

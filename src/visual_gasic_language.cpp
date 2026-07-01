@@ -2522,7 +2522,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "btn.Disabled = True\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nGetNodeOrNull, FindChild, GetParent, GetChild, HasNode\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-node[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-node]Godot Docs ↗[/url]" },
 
     { "getnodeornull",
       "[b]Syntax[/b]\n[code]GetNodeOrNull(path As NodePath) As Node[/code]\n\n"
@@ -2538,7 +2538,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "End If\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nGetNode, HasNode, FindChild\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-node-or-null[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-node-or-null]Godot Docs ↗[/url]" },
 
     { "hasnode",
       "[b]Syntax[/b]\n[code]HasNode(path As NodePath) As Boolean[/code]\n\n"
@@ -2554,7 +2554,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "End If\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nGetNode, GetNodeOrNull, FindChild\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-has-node[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-has-node]Godot Docs ↗[/url]" },
 
     { "addchild",
       "[b]Syntax[/b]\n[code]AddChild(node As Node [, forceReadableName As Boolean])[/code]\n\n"
@@ -2574,7 +2574,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "AddChild(bullet)\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nRemoveChild, QueueFree, GetChildren, GetChildCount\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-add-child[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-add-child]Godot Docs ↗[/url]" },
 
     { "removechild",
       "[b]Syntax[/b]\n[code]RemoveChild(node As Node)[/code]\n\n"
@@ -2590,7 +2590,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "old.QueueFree()\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nAddChild, QueueFree, GetChildren\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-remove-child[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-remove-child]Godot Docs ↗[/url]" },
 
     { "getparent",
       "[b]Syntax[/b]\n[code]GetParent() As Node[/code]\n\n"
@@ -2606,7 +2606,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "End If\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nGetOwner, GetNode, GetChildren\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-parent[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-parent]Godot Docs ↗[/url]" },
 
     { "getchildren",
       "[b]Syntax[/b]\n[code]GetChildren() As Array[/code]\n\n"
@@ -2622,7 +2622,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Next\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nGetChild, GetChildCount, AddChild, RemoveChild\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-children[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-children]Godot Docs ↗[/url]" },
 
     { "getchildcount",
       "[b]Syntax[/b]\n[code]GetChildCount() As Integer[/code]\n\n"
@@ -2640,7 +2640,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Next i\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nGetChild, GetChildren, AddChild\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-child-count[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-child-count]Godot Docs ↗[/url]" },
 
     { "getchild",
       "[b]Syntax[/b]\n[code]GetChild(index As Integer) As Node[/code]\n\n"
@@ -2655,7 +2655,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Print first.Name & \" -> \" & last.Name\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nGetChildren, GetChildCount, GetNode\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-child[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-child]Godot Docs ↗[/url]" },
 
     { "findchild",
       "[b]Syntax[/b]\n[code]FindChild(pattern As String [, recursive As Boolean [, owned As Boolean]]) As Node[/code]\n\n"
@@ -2673,7 +2673,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Dim btn As Button = FindChild(\"btn_*\")\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nGetNode, GetNodeOrNull, HasNode\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-find-child[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-find-child]Godot Docs ↗[/url]" },
 
     { "getowner",
       "[b]Syntax[/b]\n[code]GetOwner() As Node[/code]\n\n"
@@ -2689,7 +2689,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "End If\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nGetParent, GetTree, GetNode\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-owner[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-owner]Godot Docs ↗[/url]" },
 
     { "gettree",
       "[b]Syntax[/b]\n[code]GetTree() As SceneTree[/code]\n\n"
@@ -2710,7 +2710,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Dim enemies As Array = GetTree().GetNodesInGroup(\"enemies\")\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nGetParent, GetOwner, IsInsideTree\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-tree[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get-tree]Godot Docs ↗[/url]" },
 
     { "isinsidetree",
       "[b]Syntax[/b]\n[code]IsInsideTree() As Boolean[/code]\n\n"
@@ -2725,7 +2725,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "End If\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nGetTree, GetParent\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-is-inside-tree[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-is-inside-tree]Godot Docs ↗[/url]" },
 
     { "queuefree",
       "[b]Syntax[/b]\n[code]QueueFree()[/code]\n\n"
@@ -2746,7 +2746,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "GetNode(\"Bullet\").QueueFree()\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nRemoveChild, AddChild, IsInsideTree\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-queue-free[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-queue-free]Godot Docs ↗[/url]" },
 
     { "emitsignal",
       "[b]Syntax[/b]\n[code]EmitSignal(signalName As String [, args...])[/code]\n\n"
@@ -2768,7 +2768,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "End Sub\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nConnect, Event\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-emit-signal[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-emit-signal]Godot Docs ↗[/url]" },
 
     { "connect",
       "[b]Syntax[/b]\n[code]Connect(sourceNode As Node, signalName As String, handlerMethod As String) As Integer[/code]\n\n"
@@ -2788,7 +2788,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "End Sub\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nEmitSignal, Event, Disconnect\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-connect[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-connect]Godot Docs ↗[/url]" },
 
     { "disconnect",
       "[b]Syntax[/b]\n[code]Disconnect(sourceNode As Node, signalName As String, handlerMethod As String)[/code]\n\n"
@@ -2801,7 +2801,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Disconnect(timer, \"timeout\", \"OnTimerDone\")\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nConnect, EmitSignal\n\n"
-      "[i]Godot docs: https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-disconnect[/i]" },
+      "[url=https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-disconnect]Godot Docs ↗[/url]" },
 
     { nullptr, nullptr }
 };
