@@ -12172,6 +12172,13 @@ func _check_script_editor_for_vg():
 	if code_edit == _current_code_edit:
 		return
 	
+	# New CodeEdit — clear any VG IDE override so the native editor path wins.
+	# If _override_vg_path pointed to (e.g.) main.vg from a previous VG IDE
+	# session, it would silently hijack every _get_current_vg_path() call and
+	# return 0 procedures regardless of which .vg is open here.
+	if _code_navigator and _code_navigator.has_method("set_override_vg_path"):
+		_code_navigator.set_override_vg_path("")
+	
 	# New CodeEdit — hook into it
 	_current_code_edit = code_edit
 	if not code_edit.gui_input.is_connected(_on_code_edit_gui_input):
