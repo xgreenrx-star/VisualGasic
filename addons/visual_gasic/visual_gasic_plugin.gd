@@ -183,6 +183,11 @@ var _vg_plugin_manager = null
 ## Created lazily on first invocation to keep startup snappy.
 var _vg_command_palette = null
 
+## Debounce state for hover-link watcher: EditorHelpBit contains multiple
+## RichTextLabels, so meta_clicked can fire more than once per click.
+var _help_link_last_url: String = ""
+var _help_link_last_time: int = 0
+
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
 
@@ -12654,5 +12659,40 @@ func _connect_rtl_meta_recursive(node: Node) -> void:
 
 func _on_help_link_meta_clicked(meta: Variant) -> void:
 	var url := str(meta)
+
+	# Debounce: EditorHelpBit has multiple RichTextLabels (title + content),
+	# all connected to this handler. Guard against opening the same URL twice
+	# within 500 ms from a single click.
+	var now := Time.get_ticks_msec()
+	if url == _help_link_last_url and now - _help_link_last_time < 500:
+		return
+	_help_link_last_url = url
+	_help_link_last_time = now
+
 	if url.begins_with("https://") or url.begins_with("http://"):
 		OS.shell_open(url)
+	elif url.begins_with("ref:"):
+		_open_vg_language_reference(url.substr(4))
+
+
+func _open_vg_language_reference(_line_str: String) -> void:
+	# Resolve the Language Reference .md file (same logic as vg_embedded_code_editor.gd).
+	# We open the whole file; jumping to the exact line requires an OS-level
+	# editor integration that varies by platform, so we open at the root for now.
+	var candidates: Array[String] = [
+		"res://docs/VisualGasic_Language_Reference.md",
+	]
+	var plugin_script := get_script() as Script
+	if plugin_script:
+		var plugin_dir: String = plugin_script.resource_path.get_base_dir()
+		candidates.append(plugin_dir.path_join("../../docs/VisualGasic_Language_Reference.md"))
+	for candidate in candidates:
+		if FileAccess.file_exists(candidate):
+			OS.shell_open(ProjectSettings.globalize_path(candidate))
+			return
+	# Last resort: look next to the Godot executable
+	var fallback := OS.get_executable_path().get_base_dir().path_join("docs/VisualGasic_Language_Reference.md")
+	if FileAccess.file_exists(fallback):
+		OS.shell_open(fallback)
+	else:
+		push_warning("[VG] Could not find VisualGasic_Language_Reference.md")

@@ -1451,7 +1451,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "s = Left(\"Hello World\", 5)  ' s = \"Hello\"\n"
       "Print Left(\"ABCDE\", 3)        ' Prints \"ABC\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nRight, Mid, Len, InStr" },
+      "[b]See Also[/b]\nRight, Mid, Len, InStr\n\n[url=ref:8528]📖 VG Language Reference[/url]" },
 
     { "right",
       "[b]Syntax[/b]\nRight(str, length)\n\n"
@@ -1465,7 +1465,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "s = Right(\"Hello World\", 5)  ' s = \"World\"\n"
       "Print Right(\"ABCDE\", 2)        ' Prints \"DE\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nLeft, Mid, Len, InStr" },
+      "[b]See Also[/b]\nLeft, Mid, Len, InStr\n\n[url=ref:10656]📖 VG Language Reference[/url]" },
 
     { "mid",
       "[b]Syntax[/b]\nMid(str, start [, length])\n\n"
@@ -1478,7 +1478,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Print Mid(s, 7)      ' \"World\"\n"
       "Print Mid(s, 1, 5)   ' \"Hello\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nLeft, Right, Len, InStr" },
+      "[b]See Also[/b]\nLeft, Right, Len, InStr\n\n[url=ref:8905]📖 VG Language Reference[/url]" },
 
     { "len",
       "[b]Syntax[/b]\nLen(str)\n\n"
@@ -1491,7 +1491,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "n = Len(\"\")           ' 0\n"
       "Print Len(\"VisualGasic\")  ' 11\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nLeft, Right, Mid" },
+      "[b]See Also[/b]\nLeft, Right, Mid\n\n[url=ref:8553]📖 VG Language Reference[/url]" },
 
     { "instr",
       "[b]Syntax[/b]\nInStr([start,] str, find)\n\n"
@@ -1505,7 +1505,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "pos = InStr(\"Hello World\", \"xyz\")    ' 0\n"
       "pos = InStr(5, \"abcabc\", \"c\")        ' 6\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nInStrRev, Left, Mid, Replace" },
+      "[b]See Also[/b]\nInStrRev, Left, Mid, Replace\n\n[url=ref:7899]📖 VG Language Reference[/url]" },
 
     { "instrrev",
       "[b]Syntax[/b]\nInStrRev(str, find [, start])\n\n"
@@ -1531,7 +1531,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "s = LCase(\"Hello World\")  ' \"hello world\"\n"
       "s = LCase(\"ABCDE123\")     ' \"abcde123\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nUCase, Trim, Replace" },
+      "[b]See Also[/b]\nUCase, Trim, Replace\n\n[url=ref:8504]📖 VG Language Reference[/url]" },
 
     { "ucase",
       "[b]Syntax[/b]\nUCase(str)\n\n"
@@ -1544,7 +1544,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "s = UCase(\"Hello World\")  ' \"HELLO WORLD\"\n"
       "s = UCase(\"abcde123\")     ' \"ABCDE123\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nLCase, Trim, Replace" },
+      "[b]See Also[/b]\nLCase, Trim, Replace\n\n[url=ref:12908]📖 VG Language Reference[/url]" },
 
     { "trim",
       "[b]Syntax[/b]\nTrim(str)\n\n"
@@ -1557,7 +1557,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "s = Trim(\"  Hello  \")    ' \"Hello\"\n"
       "s = Trim(\"  Hi There  \") ' \"Hi There\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nLTrim, RTrim, Len" },
+      "[b]See Also[/b]\nLTrim, RTrim, Len\n\n[url=ref:12767]📖 VG Language Reference[/url]" },
 
     { "ltrim",
       "[b]Syntax[/b]\nLTrim(str)\n\n"
@@ -1597,7 +1597,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "s = Replace(\"Hello World\", \"World\", \"Earth\")  ' \"Hello Earth\"\n"
       "s = Replace(\"aabbcc\", \"b\", \"X\")               ' \"aaXXcc\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nInStr, Left, Mid, Split" },
+      "[b]See Also[/b]\nInStr, Left, Mid, Split\n\n[url=ref:10518]📖 VG Language Reference[/url]" },
 
     { "split",
       "[b]Syntax[/b]\nSplit(str [, delimiter [, limit]])\n\n"
@@ -1613,7 +1613,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "    Print parts(i)\n"
       "Next\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nJoin, UBound, Replace, InStr" },
+      "[b]See Also[/b]\nJoin, UBound, Replace, InStr\n\n[url=ref:12138]📖 VG Language Reference[/url]" },
 
     { "join",
       "[b]Syntax[/b]\nJoin(array [, delimiter])\n\n"
@@ -1629,7 +1629,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "s = Join(parts, \", \")  ' \"Hello, World\"\n"
       "Print Join(parts, \" \")  ' \"Hello World\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nSplit, UBound" },
+      "[b]See Also[/b]\nSplit, UBound\n\n[url=ref:8193]📖 VG Language Reference[/url]" },
 
     { "space",
       "[b]Syntax[/b]\nSpace(count)\n\n"
@@ -1700,7 +1700,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "s = Str(-3.14)   ' \"-3.14\"\n"
       "s = CStr(42)     ' \"42\"   (no leading space)\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nCStr, Val, Format, CInt" },
+      "[b]See Also[/b]\nCStr, Val, Format, CInt\n\n[url=ref:12279]📖 VG Language Reference[/url]" },
 
     { "val",
       "[b]Syntax[/b]\nVal(str)\n\n"
@@ -1715,7 +1715,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "n = Val(\"3.14 extra\")  ' 3.14\n"
       "n = Val(\"hello\")       ' 0\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nStr, CInt, CDbl, IsNumeric" },
+      "[b]See Also[/b]\nStr, CInt, CDbl, IsNumeric\n\n[url=ref:13021]📖 VG Language Reference[/url]" },
 
     { "format",
       "[b]Syntax[/b]\nFormat(value, format)\n\n"
@@ -1730,7 +1730,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Print Format(1234567, \"#,##0\")   ' \"1,234,567\"\n"
       "Print Format(0.5, \"0%\")          ' \"50%\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nStr, CStr, Val" },
+      "[b]See Also[/b]\nStr, CStr, Val\n\n[url=ref:7229]📖 VG Language Reference[/url]" },
 
     // ── Math functions ────────────────────────────────────────────────────
     { "abs",
@@ -1745,7 +1745,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Dim diff As Double\n"
       "diff = Abs(a - b)  ' Distance between a and b\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nSgn, Sqr, Fix, Int" },
+      "[b]See Also[/b]\nSgn, Sqr, Fix, Int\n\n[url=ref:4238]📖 VG Language Reference[/url]" },
 
     { "int",
       "[b]Syntax[/b]\nInt(number)\n\n"
@@ -1759,7 +1759,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Print Int(-2.9)  ' -3\n"
       "Print Int(4.0)   ' 4\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nFix, CInt, Round, Abs" },
+      "[b]See Also[/b]\nFix, CInt, Round, Abs\n\n[url=ref:7927]📖 VG Language Reference[/url]" },
 
     { "fix",
       "[b]Syntax[/b]\nFix(number)\n\n"
@@ -1797,7 +1797,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Print Sqr(2.0)   ' 1.41421356...\n"
       "Print Sqr(0)     ' 0\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nAbs, Log, Exp, Round" },
+      "[b]See Also[/b]\nAbs, Log, Exp, Round\n\n[url=ref:12166]📖 VG Language Reference[/url]" },
 
     { "rnd",
       "[b]Syntax[/b]\nRnd()\n\n"
@@ -1811,7 +1811,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Dim die As Integer\n"
       "die = Int(Rnd() * 6) + 1  ' Random 1-6\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nRandRange, Int" },
+      "[b]See Also[/b]\nRandRange, Int\n\n[url=ref:10681]📖 VG Language Reference[/url]" },
 
     { "round",
       "[b]Syntax[/b]\nRound(number [, digits])\n\n"
@@ -1824,7 +1824,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Print Round(3.5)       ' 4\n"
       "Print Round(2.5)       ' 2   (banker's rounding)\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nInt, Fix, CInt, Format" },
+      "[b]See Also[/b]\nInt, Fix, CInt, Format\n\n[url=ref:10707]📖 VG Language Reference[/url]" },
 
     { "sin",
       "[b]Syntax[/b]\nSin(radians)\n\n"
@@ -1839,7 +1839,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Dim s As Double\n"
       "s = Sin(45 * PI / 180)         ' Sin of 45 degrees\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nCos, Tan, Atn, Exp" },
+      "[b]See Also[/b]\nCos, Tan, Atn, Exp\n\n[url=ref:11377]📖 VG Language Reference[/url]" },
 
     { "cos",
       "[b]Syntax[/b]\nCos(radians)\n\n"
@@ -1854,7 +1854,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Dim c As Double\n"
       "c = Cos(60 * PI / 180)         ' Cos of 60 degrees\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nSin, Tan, Atn, Exp" },
+      "[b]See Also[/b]\nSin, Tan, Atn, Exp\n\n[url=ref:5819]📖 VG Language Reference[/url]" },
 
     { "tan",
       "[b]Syntax[/b]\nTan(radians)\n\n"
@@ -1927,7 +1927,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Dim f As Double\n"
       "f = RandRange(0.0, 1.0)   ' Random float 0.0 to 1.0\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nRnd, Int, Abs" },
+      "[b]See Also[/b]\nRnd, Int, Abs\n\n[url=ref:10180]📖 VG Language Reference[/url]" },
 
     { "lerp",
       "[b]Syntax[/b]\nLerp(a, b, t)\n\n"
@@ -1940,7 +1940,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Print Lerp(0, 10, 0.25)  ' 2.5\n"
       "Print Lerp(10, 20, 1.0)  ' 20.0\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nClamp, Abs, RandRange" },
+      "[b]See Also[/b]\nClamp, Abs, RandRange\n\n[url=ref:8578]📖 VG Language Reference[/url]" },
 
     { "clamp",
       "[b]Syntax[/b]\nClamp(value, min, max)\n\n"
@@ -1954,7 +1954,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Print Clamp(-3, 0, 10)   ' 0   (below min)\n"
       "Print Clamp(15, 0, 10)   ' 10  (above max)\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nLerp, Abs, Int" },
+      "[b]See Also[/b]\nLerp, Abs, Int\n\n[url=ref:5566]📖 VG Language Reference[/url]" },
 
     // ── Array functions ───────────────────────────────────────────────────
     { "ubound",
@@ -1971,7 +1971,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Next\n"
       "Print UBound(nums)  ' 4\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nLBound, ReDim, IsArray, Len" },
+      "[b]See Also[/b]\nLBound, ReDim, IsArray, Len\n\n[url=ref:12878]📖 VG Language Reference[/url]" },
 
     { "lbound",
       "[b]Syntax[/b]\nLBound(array [, dimension])\n\n"
@@ -1986,7 +1986,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "    Print nums(i)\n"
       "Next\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nUBound, ReDim, IsArray" },
+      "[b]See Also[/b]\nUBound, ReDim, IsArray\n\n[url=ref:8477]📖 VG Language Reference[/url]" },
 
     { "array",
       "[b]Syntax[/b]\nArray(item1, item2, ...)\n\n"
@@ -2000,7 +2000,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Print colors(0)            ' \"Red\"\n"
       "Print UBound(colors) + 1   ' 3 (element count)\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nUBound, LBound, ReDim, IsArray" },
+      "[b]See Also[/b]\nUBound, LBound, ReDim, IsArray\n\n[url=ref:4572]📖 VG Language Reference[/url]" },
 
     { "isarray",
       "[b]Syntax[/b]\nIsArray(value)\n\n"
@@ -2031,7 +2031,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "n = CInt(3.5)    ' 4   (rounds to even)\n"
       "n = CInt(\"42\")  ' 42\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nCLng, CDbl, CStr, Int, Fix, Round" },
+      "[b]See Also[/b]\nCLng, CDbl, CStr, Int, Fix, Round\n\n[url=ref:5541]📖 VG Language Reference[/url]" },
 
     { "clng",
       "[b]Syntax[/b]\nCLng(expr)\n\n"
@@ -2090,7 +2090,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "s = CStr(True)    ' \"True\"\n"
       "s = CStr(False)   ' \"False\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nStr, Val, CInt, CDbl, Format" },
+      "[b]See Also[/b]\nStr, Val, CInt, CDbl, Format\n\n[url=ref:6188]📖 VG Language Reference[/url]" },
 
     { "cbool",
       "[b]Syntax[/b]\nCBool(expr)\n\n"
@@ -2202,7 +2202,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "    Call DoSomething()\n"
       "End If\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nInputBox, Print" },
+      "[b]See Also[/b]\nInputBox, Print\n\n[url=ref:8985]📖 VG Language Reference[/url]" },
 
     { "inputbox",
       "[b]Syntax[/b]\nInputBox(prompt [, title [, default]])\n\n"
@@ -2218,7 +2218,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "    MsgBox \"Hello, \" & name & \"!\"\n"
       "End If\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nMsgBox, Print, Dim" },
+      "[b]See Also[/b]\nMsgBox, Print, Dim\n\n[url=ref:7847]📖 VG Language Reference[/url]" },
 
     { "print",
       "[b]Syntax[/b]\nPrint expr\nPrint expr1, expr2, ...\n\n"
@@ -2234,7 +2234,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Dim x As Integer = 10\n"
       "Print \"x = \"; x; \"  doubled = \"; x * 2\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nMsgBox, CStr, Format" },
+      "[b]See Also[/b]\nMsgBox, CStr, Format\n\n[url=ref:9806]📖 VG Language Reference[/url]" },
 
     // ── Statement keywords ────────────────────────────────────────────────
     { "dim",
@@ -2252,7 +2252,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Dim health As Single = 100.0\n"
       "Dim grid(9, 9) As Integer\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nPrivate, Public, Static, Const, ReDim" },
+      "[b]See Also[/b]\nPrivate, Public, Static, Const, ReDim\n\n[url=ref:6295]📖 VG Language Reference[/url]" },
 
     { "sub",
       "[b]Syntax[/b]\nSub name([parameters])\n"
@@ -2272,7 +2272,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "    Call ShowGreeting(\"World\")\n"
       "End Sub\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nFunction, Call, Return, Dim" },
+      "[b]See Also[/b]\nFunction, Call, Return, Dim\n\n[url=ref:12330]📖 VG Language Reference[/url]" },
 
     { "function",
       "[b]Syntax[/b]\nFunction name([parameters]) [As Type]\n"
@@ -2292,7 +2292,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Dim result As Integer\n"
       "result = Add(3, 4)  ' result = 7\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nSub, Return, Dim" },
+      "[b]See Also[/b]\nSub, Return, Dim\n\n[url=ref:7255]📖 VG Language Reference[/url]" },
 
     { "if",
       "[b]Syntax[/b]\nIf condition Then\n"
@@ -2317,7 +2317,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "    Print \"Keep trying\"\n"
       "End If\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nSelect Case, While, Do" },
+      "[b]See Also[/b]\nSelect Case, While, Do\n\n[url=ref:7541]📖 VG Language Reference[/url]" },
 
     { "for",
       "[b]Syntax[/b]\nFor counter = start To end [Step n]\n"
@@ -2339,7 +2339,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "    Print i\n"
       "Next\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nWhile, Do, Exit For" },
+      "[b]See Also[/b]\nWhile, Do, Exit For\n\n[url=ref:1340]📖 VG Language Reference[/url]" },
 
     { "while",
       "[b]Syntax[/b]\nWhile condition\n"
@@ -2357,7 +2357,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "    i = i + 1\n"
       "Wend\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nDo, For, If" },
+      "[b]See Also[/b]\nDo, For, If\n\n[url=ref:1376]📖 VG Language Reference[/url]" },
 
     { "do",
       "[b]Syntax[/b]\nDo [While/Until condition]\n"
@@ -2381,7 +2381,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "    input = InputBox(\"Enter 0 to quit:\")\n"
       "Loop Until input = \"0\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nWhile, For, Exit Do" },
+      "[b]See Also[/b]\nWhile, For, Exit Do\n\n[url=ref:1386]📖 VG Language Reference[/url]" },
 
     { "select",
       "[b]Syntax[/b]\nSelect Case expression\n"
@@ -2410,7 +2410,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "        Print \"Weekend\"\n"
       "End Select\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nIf, For, While" },
+      "[b]See Also[/b]\nIf, For, While\n\n[url=ref:10816]📖 VG Language Reference[/url]" },
 
     { "return",
       "[b]Syntax[/b]\nReturn [value]\n\n"
@@ -2432,7 +2432,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "    Print \"Age: \" & age\n"
       "End Sub\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nSub, Function, Exit" },
+      "[b]See Also[/b]\nSub, Function, Exit\n\n[url=ref:10598]📖 VG Language Reference[/url]" },
 
     { "call",
       "[b]Syntax[/b]\nCall subName([arguments])\n\n"
@@ -2449,7 +2449,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Call PrintLine(\"Hello\")\n"
       "PrintLine \"Hello\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nSub, Function, Return" },
+      "[b]See Also[/b]\nSub, Function, Return\n\n[url=ref:4996]📖 VG Language Reference[/url]" },
 
     { "set",
       "[b]Syntax[/b]\nSet objectVar = objectExpression\n"
@@ -2467,7 +2467,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "' Release the reference\n"
       "Set btn = Nothing\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nNew, Dim, IsObject, IsNull" },
+      "[b]See Also[/b]\nNew, Dim, IsObject, IsNull\n\n[url=ref:11130]📖 VG Language Reference[/url]" },
 
     { "new",
       "[b]Syntax[/b]\nSet var = New ClassName\n"
@@ -2485,7 +2485,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Dim btn As New Button\n"
       "btn.Text = \"OK\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nSet, Dim, Class, IsObject" },
+      "[b]See Also[/b]\nSet, Dim, Class, IsObject\n\n[url=ref:9141]📖 VG Language Reference[/url]" },
 
     { "redim",
       "[b]Syntax[/b]\nReDim [Preserve] arrayName(newSize)\n\n"
@@ -2503,7 +2503,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "ReDim Preserve items(19)  ' Now 20 elements\n"
       "Print items(0)             ' Still \"first\"\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nDim, UBound, LBound, IsArray" },
+      "[b]See Also[/b]\nDim, UBound, LBound, IsArray\n\n[url=ref:10464]📖 VG Language Reference[/url]" },
 
     // ── Godot Node methods ──
     { "getnode",
