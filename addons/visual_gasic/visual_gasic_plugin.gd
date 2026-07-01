@@ -183,13 +183,6 @@ var _vg_plugin_manager = null
 ## Created lazily on first invocation to keep startup snappy.
 var _vg_command_palette = null
 
-## Dedup state for hover-link watcher.
-## Engine.get_process_frames() is the same value for all signals fired by
-## the same input event — lets us block the second RTL's meta_clicked that
-## arrives in the same frame from the sibling label inside EditorHelpBit.
-var _help_link_last_frame: int = -1
-var _help_link_last_url: String = ""
-
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
 
@@ -12660,21 +12653,11 @@ func _connect_rtl_meta_recursive(node: Node) -> void:
 
 
 func _on_help_link_meta_clicked(meta: Variant) -> void:
+	# Godot 4.4+ already handles http:// and https:// URLs natively in
+	# EditorHelpBit::_meta_clicked → OS.shell_open. We only need to handle
+	# the "ref:LINE" scheme that Godot silently ignores.
 	var url := str(meta)
-	# Only handle links we care about.
-	if not (url.begins_with("https://") or url.begins_with("http://") or url.begins_with("ref:")):
-		return
-	# Dedup: EditorHelpBit contains a title RTL + content RTL, both connected.
-	# Both fire meta_clicked for the same click in the same process frame.
-	# Engine.get_process_frames() is identical for all signals within one frame.
-	var frame := Engine.get_process_frames()
-	if frame == _help_link_last_frame and url == _help_link_last_url:
-		return
-	_help_link_last_frame = frame
-	_help_link_last_url = url
-	if url.begins_with("https://") or url.begins_with("http://"):
-		OS.shell_open(url)
-	elif url.begins_with("ref:"):
+	if url.begins_with("ref:"):
 		_open_vg_language_reference(url.substr(4))
 
 
