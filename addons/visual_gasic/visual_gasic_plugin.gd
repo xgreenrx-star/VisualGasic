@@ -191,15 +191,9 @@ var _ui_forms_btn: Button = null
 var _ui_forms_picker: Window = null
 var _ui_forms_adapter = null   # ui_forms_viewport_adapter.gd instance
 
-## Ghost placement state — set when user picks a control from the picker.
+## Placement state — set when user picks a control from the picker.
 ## The type name ("Button", "Label", …) while placement is armed; "" when idle.
 var _ui_forms_armed_type: String = ""
-var _ui_forms_ghost_screen_pos: Vector2 = Vector2.ZERO
-## A transparent overlay Control placed on top of the 2D canvas that handles
-## all mouse input and draws the ghost when armed. This bypasses
-## _forward_canvas_gui_input entirely (which requires _handles to match or
-## set_input_event_forwarding_always_enabled, which proved unreliable).
-var _ui_forms_overlay: Control = null
 
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
@@ -1675,9 +1669,6 @@ func _exit_tree():
 	if is_instance_valid(_ui_forms_picker):
 		_ui_forms_picker.queue_free()
 		_ui_forms_picker = null
-	if is_instance_valid(_ui_forms_overlay):
-		_ui_forms_overlay.queue_free()
-		_ui_forms_overlay = null
 	_ui_forms_adapter = null
 
 	# Auto-save the form before cleanup so Godot doesn't lose our work
@@ -11257,6 +11248,22 @@ var _recent_forms: Array[String] = []
 const MAX_RECENT_FORMS := 5
 
 func _forward_canvas_gui_input(event):
+	# ── UI Forms: armed placement — intercept left-click to place ──────────
+	if _ui_forms_armed_type != "":
+		if event is InputEventMouseButton and event.pressed:
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				var godot_type := _ui_forms_armed_type
+				_ui_forms_disarm()
+				_ui_forms_place_at_screen(godot_type, event.position)
+				return true
+			elif event.button_index == MOUSE_BUTTON_RIGHT:
+				_ui_forms_disarm()
+				return true
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			_ui_forms_disarm()
+			return true
+		return false
+
 	# ── Ctrl+Arrow: nudge selected control by 1 pixel (ignoring snap) ──
 	if event is InputEventKey and event.pressed and event.ctrl_pressed and not event.shift_pressed:
 		var nudge := Vector2.ZERO
@@ -12692,47 +12699,18 @@ func _on_ui_forms_btn_pressed() -> void:
 	_ui_forms_picker.popup_picker()
 
 func _on_ui_forms_control_chosen(godot_type: String) -> void:
-	# Arm ghost placement via our overlay on the 2D viewport.
+	# Arm placement — the next left-click on the 2D canvas will place.
 	_ui_forms_armed_type = godot_type
-	_ui_forms_ghost_screen_pos = Vector2.ZERO
-	_ui_forms_show_overlay()
+	# Update the toolbar button to show what's being placed.
+	if is_instance_valid(_ui_forms_btn):
+		_ui_forms_btn.text = "🧩 Placing: %s (click canvas)" % godot_type
 
 
-## Creates (or shows) the transparent placement overlay on the 2D canvas.
-func _ui_forms_show_overlay() -> void:
-	if is_instance_valid(_ui_forms_overlay):
-		_ui_forms_overlay.visible = true
-		_ui_forms_overlay.queue_redraw()
-		return
-	# Find the SubViewportContainer that holds the 2D canvas.
-	var vp := get_editor_interface().get_editor_viewport_2d()
-	if not vp:
-		push_warning("[UI Forms] Cannot find 2D viewport")
-		return
-	var container: Control = null
-	var node = vp.get_parent()
-	while node:
-		if node is Control:
-			container = node
-			break
-		node = node.get_parent()
-	if not container:
-		push_warning("[UI Forms] Cannot find viewport container")
-		return
-
-	_ui_forms_overlay = _UIFormsGhostOverlay.new()
-	_ui_forms_overlay.plugin = self
-	_ui_forms_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_ui_forms_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	container.add_child(_ui_forms_overlay)
-
-
-## Hides the overlay and disarms placement.
-func _ui_forms_hide_overlay() -> void:
+## Disarm placement mode and reset the toolbar button text.
+func _ui_forms_disarm() -> void:
 	_ui_forms_armed_type = ""
-	_ui_forms_ghost_screen_pos = Vector2.ZERO
-	if is_instance_valid(_ui_forms_overlay):
-		_ui_forms_overlay.visible = false
+	if is_instance_valid(_ui_forms_btn):
+		_ui_forms_btn.text = "🧩 Add Control"
 
 
 static func _ui_forms_default_world_size(godot_type: String) -> Vector2:
@@ -12745,7 +12723,7 @@ static func _ui_forms_default_world_size(godot_type: String) -> Vector2:
 		_:              return Vector2(100, 30)
 
 
-## Convert overlay-local position to world coordinates via the 2D viewport.
+## Convert 2D canvas event position to world coordinates.
 func _ui_forms_screen_to_world(screen_pos: Vector2) -> Vector2:
 	var vp := get_editor_interface().get_editor_viewport_2d()
 	if vp:
@@ -12783,12 +12761,15 @@ func _ui_forms_place_at_screen(godot_type: String, screen_pos: Vector2) -> void:
 			count += 1
 	ctrl.name = godot_type + str(count + 1)
 	ctrl.position = world_pos
+	ctrl.custom_minimum_size = _ui_forms_default_world_size(godot_type)
+	ctrl.size = ctrl.custom_minimum_size
 
 	parent.add_child(ctrl)
 	ctrl.owner = get_editor_interface().get_edited_scene_root()
 
 	get_editor_interface().get_selection().clear()
 	get_editor_interface().get_selection().add_node(ctrl)
+	print("[UI Forms] Placed %s at %s" % [ctrl.name, world_pos])
 
 
 func _ui_forms_wire_stub(ctrl: Control, godot_type: String) -> void:
@@ -12815,53 +12796,6 @@ func _ui_forms_wire_stub(ctrl: Control, godot_type: String) -> void:
 		f.store_string(stub)
 		f.close()
 		EditorInterface.get_resource_filesystem().update_file(vg_path)
-
-
-# ─── Inner class: transparent overlay for ghost drawing + input ──────────────
-class _UIFormsGhostOverlay extends Control:
-	var plugin = null  # back-reference to the EditorPlugin
-
-	func _draw() -> void:
-		if not plugin or plugin._ui_forms_armed_type.is_empty():
-			return
-		if plugin._ui_forms_ghost_screen_pos == Vector2.ZERO:
-			return
-
-		var world_sz = plugin._ui_forms_default_world_size(plugin._ui_forms_armed_type)
-		var vp = plugin.get_editor_interface().get_editor_viewport_2d()
-		var scale_v = vp.get_canvas_transform().get_scale() if vp else Vector2.ONE
-		var screen_sz = Vector2(world_sz.x * scale_v.x, world_sz.y * scale_v.y)
-
-		var grect = Rect2(plugin._ui_forms_ghost_screen_pos, screen_sz)
-		draw_rect(grect, Color(0.30, 0.60, 1.0, 0.18))
-		draw_rect(grect, Color(0.30, 0.60, 1.0, 0.90), false, 1.5)
-		var font = ThemeDB.fallback_font
-		if font:
-			draw_string(
-				font,
-				plugin._ui_forms_ghost_screen_pos + Vector2(4, screen_sz.y * 0.68),
-				plugin._ui_forms_armed_type,
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.WHITE
-			)
-
-	func _gui_input(event: InputEvent) -> void:
-		if not plugin or plugin._ui_forms_armed_type.is_empty():
-			return
-		if event is InputEventMouseMotion:
-			plugin._ui_forms_ghost_screen_pos = event.position
-			queue_redraw()
-			accept_event()
-		elif event is InputEventMouseButton and event.pressed:
-			if event.button_index == MOUSE_BUTTON_LEFT:
-				plugin._ui_forms_place_at_screen(plugin._ui_forms_armed_type, event.position)
-				plugin._ui_forms_hide_overlay()
-				accept_event()
-			elif event.button_index == MOUSE_BUTTON_RIGHT:
-				plugin._ui_forms_hide_overlay()
-				accept_event()
-		elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-			plugin._ui_forms_hide_overlay()
-			accept_event()
 
 
 # =============================================================================
