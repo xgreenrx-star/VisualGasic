@@ -14,6 +14,7 @@ var event_list   # VGComboBox — right dropdown (Event/Procedure)
 ## Override .vg path pushed by the host when working inside the VG IDE's
 ## embedded code editor (where the file isn't open in Godot's script editor).
 var _override_vg_path: String = ""
+var _last_known_vg_path: String = ""  # Cached — survives transient null from get_current_script()
 
 func set_override_vg_path(path: String) -> void:
 	_override_vg_path = path
@@ -258,24 +259,20 @@ func _get_current_vg_path() -> String:
 		return ""
 	# Host-pushed override (set when a .vg file is loaded in the embedded editor).
 	if _override_vg_path != "" and FileAccess.file_exists(_override_vg_path):
+		_last_known_vg_path = _override_vg_path
 		return _override_vg_path
-	# First try: get the currently edited script directly from the script editor
+	# First try: get the currently edited script directly from the script editor.
 	var script_editor = editor_plugin.get_editor_interface().get_script_editor()
 	if script_editor:
 		var current_script = script_editor.get_current_script()
 		if current_script and current_script.resource_path.ends_with(".vg"):
-			return current_script.resource_path
-	# Fallback: derive from scene path — only used in form-designer context
-	# where no Godot script editor tab is active. If get_current_script() was
-	# null above this means either (a) we're in the VG IDE form designer (root
-	# exists, no script tab open) or (b) we're mid screen-transition.
-	# Guard: only use the scene path if the script editor has no current editor
-	# at all (i.e. truly no tab open), to avoid returning main.vg when
-	# infoview_companion.vg is open but get_current_script() transiently null.
-	if script_editor and script_editor.get_current_editor() != null:
-		# A script tab IS open — get_current_script() returned null transiently.
-		# Don't guess from scene path; return empty and let the retry handle it.
-		return ""
+			_last_known_vg_path = current_script.resource_path
+			return _last_known_vg_path
+	# Fallback: use cached path from the last time get_current_script() succeeded.
+	# This handles transient null during screen transitions and scene reloads.
+	if _last_known_vg_path != "" and FileAccess.file_exists(_last_known_vg_path):
+		return _last_known_vg_path
+	# Last resort: derive from scene path (form-designer context, no script tab).
 	var root = editor_plugin.get_editor_interface().get_edited_scene_root()
 	if not root:
 		return ""
