@@ -2317,7 +2317,7 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "    Print \"Keep trying\"\n"
       "End If\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nSelect Case, While, Do\n\n[url=ref:description]📖 VG Language Reference[/url]" },
+      "[b]See Also[/b]\nSelect Case, While, Do\n\n[url=ref:if]📖 VG Language Reference[/url]" },
 
     { "for",
       "[b]Syntax[/b]\nFor counter = start To end [Step n]\n"
