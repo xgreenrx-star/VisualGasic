@@ -1562,13 +1562,13 @@ func _on_text_changed() -> void:
 func _request_completion_deferred() -> void:
 	if not has_focus():
 		return
-	# Trigger when the caret is at the end of a word OR right after a dot
-	# (dot triggers member-access completion even with no partial word typed yet)
+	# Trigger when the caret is at the end of a word, right after a dot (member
+	# access), or right after '(' so that parameter hints fire immediately.
 	var line := get_line(get_caret_line())
 	var col := get_caret_column()
 	if col > 0:
 		var last_char := line[col - 1]
-		if _is_word_char(last_char) or last_char == ".":
+		if _is_word_char(last_char) or last_char == "." or last_char == "(":
 			request_code_completion(true)
 
 func _handle_auto_indent() -> void:

@@ -2803,6 +2803,547 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "[b]See Also[/b]\nConnect, EmitSignal\n\n"
       "[url=https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-disconnect]Godot Docs ↗[/url]" },
 
+    // ── Group 1: Logical / Bitwise Operators ──────────────────────────────────
+    { "and",
+      "[b]Syntax[/b]\nresult = expression1 [b]And[/b] expression2\n\n"
+      "[b]Description[/b]\n"
+      "Boolean AND. Returns True only if [i]both[/i] operands are True. "
+      "Also performs bitwise AND on integer operands.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "If x > 0 And x < 100 Then Print \"In range\"\n"
+      "Dim flags As Integer = 12 And 10  ' Result: 8\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nOr, Not, Xor\n\n[url=ref:and]📖 VG Language Reference[/url]" },
+
+    { "or",
+      "[b]Syntax[/b]\nresult = expression1 [b]Or[/b] expression2\n\n"
+      "[b]Description[/b]\n"
+      "Boolean OR. Returns True if [i]either[/i] operand is True. "
+      "Also performs bitwise OR on integer operands.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "If name = \"Admin\" Or level >= 10 Then\n"
+      "    Print \"Access granted\"\n"
+      "End If\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nAnd, Not, Xor\n\n[url=ref:or]📖 VG Language Reference[/url]" },
+
+    { "not",
+      "[b]Syntax[/b]\nresult = [b]Not[/b] expression\n\n"
+      "[b]Description[/b]\n"
+      "Boolean NOT. Negates a Boolean: True→False, False→True. "
+      "Also performs bitwise complement on integer operands.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "If Not IsEmpty(list) Then Print \"Has items\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nAnd, Or\n\n[url=ref:not]📖 VG Language Reference[/url]" },
+
+    { "xor",
+      "[b]Syntax[/b]\nresult = expression1 [b]Xor[/b] expression2\n\n"
+      "[b]Description[/b]\n"
+      "Exclusive OR. Returns True if [i]exactly one[/i] operand is True (not both). "
+      "Also performs bitwise XOR on integers.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "If hasSword Xor hasShield Then Print \"One item only\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nAnd, Or, Not\n\n[url=ref:xor]📖 VG Language Reference[/url]" },
+
+    { "is",
+      "[b]Syntax[/b]\nresult = [b]TypeOf[/b] object [b]Is[/b] TypeName\n\n"
+      "[b]Description[/b]\n"
+      "Type-test operator. Returns True if [i]object[/i] is an instance of [i]TypeName[/i]. "
+      "Checks the full inheritance chain.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "If TypeOf node Is Sprite2D Then\n"
+      "    Print \"It is a sprite\"\n"
+      "End If\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nIsNot, TypeOf, TypeName, IsObject\n\n[url=ref:and]📖 VG Language Reference[/url]" },
+
+    { "isnot",
+      "[b]Syntax[/b]\nresult = object [b]IsNot[/b] Nothing\n\n"
+      "[b]Description[/b]\n"
+      "Negative type or null test. Returns True if the object is [i]not[/i] the given value or type. "
+      "Equivalent to [code]Not (TypeOf obj Is T)[/code] or [code]Not (obj Is Nothing)[/code].\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "If node IsNot Nothing Then node.QueueFree()\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nIs, TypeOf, Nothing\n\n[url=ref:and]📖 VG Language Reference[/url]" },
+
+    { "eqv",
+      "[b]Syntax[/b]\nresult = expression1 [b]Eqv[/b] expression2\n\n"
+      "[b]Description[/b]\n"
+      "Logical equivalence (VB6 compatibility). Returns True if both operands have the same Boolean value. "
+      "Equivalent to [code]Not (a Xor b)[/code].\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim same As Boolean = (a > 0) Eqv (b > 0)\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nXor, And, Or\n\n[url=ref:and]📖 VG Language Reference[/url]" },
+
+    { "imp",
+      "[b]Syntax[/b]\nresult = expression1 [b]Imp[/b] expression2\n\n"
+      "[b]Description[/b]\n"
+      "Logical implication (VB6 compatibility). Returns False only when the first expression is True and the second is False. "
+      "Rarely needed; prefer [code]Not a Or b[/code] for clarity.\n\n"
+      "[b]See Also[/b]\nAnd, Or, Not, Eqv\n\n[url=ref:and]📖 VG Language Reference[/url]" },
+
+    // ── Group 2: Secondary Control-Flow Keywords ──────────────────────────────
+    { "else",
+      "[b]Syntax[/b]\n[code]If ... Then ... [b]Else[/b] ... End If[/code]\n\n"
+      "[b]Description[/b]\n"
+      "Introduces the false branch of an [code]If[/code] block. "
+      "Executes when the condition is False and no earlier [code]ElseIf[/code] matched.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "If hp > 0 Then\n"
+      "    Print \"Alive\"\n"
+      "Else\n"
+      "    Print \"Dead\"\n"
+      "End If\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nIf, ElseIf, Then, End If\n\n[url=ref:else]📖 VG Language Reference[/url]" },
+
+    { "end",
+      "[b]Syntax[/b]\n[b]End[/b] Sub | Function | If | Class | Select | With | Property\n\n"
+      "[b]Description[/b]\n"
+      "Closes a block. Paired with its opener:\n"
+      "[code]End Sub[/code], [code]End Function[/code], [code]End If[/code], [code]End Class[/code], "
+      "[code]End Select[/code], [code]End With[/code], [code]End Property[/code].\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub Greet(name As String)\n"
+      "    If name <> \"\" Then\n"
+      "        Print \"Hello, \" & name\n"
+      "    End If\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nSub, Function, If, Select Case\n\n[url=ref:end]📖 VG Language Reference[/url]" },
+
+    { "next",
+      "[b]Syntax[/b]\n[b]Next[/b] [i]counter[/i]\n\n"
+      "[b]Description[/b]\n"
+      "Closes a [code]For[/code] loop. Increments the counter and re-evaluates the range. "
+      "The variable name after [code]Next[/code] is optional but recommended.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "For i = 1 To 10\n"
+      "    Print i\n"
+      "Next i\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nFor, Step, To\n\n[url=ref:next]📖 VG Language Reference[/url]" },
+
+    { "wend",
+      "[b]Syntax[/b]\n[b]Wend[/b]\n\n"
+      "[b]Description[/b]\n"
+      "Closes a [code]While[/code] loop (VB6 style). Control returns to the [code]While[/code] condition. "
+      "[code]End While[/code] is also accepted in modern VG style.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "While hp > 0\n"
+      "    hp -= damage\n"
+      "Wend\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nWhile, Do, Loop\n\n[url=ref:wend]📖 VG Language Reference[/url]" },
+
+    { "loop",
+      "[b]Syntax[/b]\n[b]Loop[/b] [While|Until [i]condition[/i]]\n\n"
+      "[b]Description[/b]\n"
+      "Closes a [code]Do[/code] loop. Optionally rechecks a condition before repeating. "
+      "[code]Loop While cond[/code] continues while true; [code]Loop Until cond[/code] continues until true.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Do\n"
+      "    Dim n As Integer = Int(Rnd() * 6) + 1\n"
+      "    Print n\n"
+      "Loop Until n = 6\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nDo, While, Wend, Exit\n\n[url=ref:loop]📖 VG Language Reference[/url]" },
+
+    { "then",
+      "[b]Syntax[/b]\nIf [i]condition[/i] [b]Then[/b]\n\n"
+      "[b]Description[/b]\n"
+      "Separates the condition from the body of an [code]If[/code] statement. "
+      "Required for multi-line blocks. Also valid in single-line form: [code]If x > 0 Then Print x[/code].\n\n"
+      "[b]See Also[/b]\nIf, Else, ElseIf, End If\n\n[url=ref:then]📖 VG Language Reference[/url]" },
+
+    { "exit",
+      "[b]Syntax[/b]\n[b]Exit[/b] Sub | Function | For | While | Do | Select\n\n"
+      "[b]Description[/b]\n"
+      "Immediately exits the enclosing block. "
+      "[code]Exit Sub[/code] / [code]Exit Function[/code] returns from the current procedure. "
+      "[code]Exit For[/code], [code]Exit While[/code], [code]Exit Do[/code] break out of the enclosing loop.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "For i = 1 To 100\n"
+      "    If arr(i) = target Then Exit For\n"
+      "Next i\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nReturn, Do, For, While\n\n[url=ref:exit]📖 VG Language Reference[/url]" },
+
+    { "step",
+      "[b]Syntax[/b]\nFor i = [i]start[/i] To [i]end[/i] [b]Step[/b] [i]increment[/i]\n\n"
+      "[b]Description[/b]\n"
+      "Optional [code]For[/code] modifier. Sets the amount added to the counter each iteration. "
+      "Defaults to 1. Use a negative value to count down.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "For i = 10 To 1 Step -1\n"
+      "    Print i\n"
+      "Next i\n"
+      "For x = 0.0 To 1.0 Step 0.25\n"
+      "    Print x\n"
+      "Next x\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nFor, To, Next\n\n[url=ref:for]📖 VG Language Reference[/url]" },
+
+    { "to",
+      "[b]Syntax[/b]\nFor i = [i]start[/i] [b]To[/b] [i]end[/i]\n\n"
+      "[b]Description[/b]\n"
+      "Defines the upper bound of a [code]For[/code] loop range. "
+      "The loop variable counts from [i]start[/i] to [i]end[/i] inclusive.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "For i = 1 To UBound(arr)\n"
+      "    Print arr(i)\n"
+      "Next i\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nFor, Step, Next\n\n[url=ref:for]📖 VG Language Reference[/url]" },
+
+    // ── Group 3: Async / Parallel ─────────────────────────────────────────────
+    { "async",
+      "[b]Syntax[/b]\n[b]Async[/b] Sub | Function ...\n\n"
+      "[b]Description[/b]\n"
+      "Declares a Sub or Function as asynchronous. "
+      "Inside an [code]Async[/code] procedure you can use [code]Await[/code] to suspend execution until a task completes without blocking the game loop.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Async Sub LoadLevel(path As String)\n"
+      "    Await Task.Delay(500)\n"
+      "    ChangeScene(path)\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nAwait, Task\n\n[url=ref:async]📖 VG Language Reference[/url]" },
+
+    { "await",
+      "[b]Syntax[/b]\n[b]Await[/b] taskExpression\n\n"
+      "[b]Description[/b]\n"
+      "Suspends the current [code]Async[/code] procedure until the awaited task completes. "
+      "The Godot main loop keeps running while waiting — unlike [code]Sleep()[/code] which blocks it.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Async Sub FetchData()\n"
+      "    Dim data As String = Await LoadFileAsync(\"data.json\")\n"
+      "    Print data\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nAsync, Task\n\n[url=ref:await]📖 VG Language Reference[/url]" },
+
+    { "task",
+      "[b]Syntax[/b]\nDim t As [b]Task[/b] = Task.Run(...)\n\n"
+      "[b]Description[/b]\n"
+      "Represents an asynchronous operation. "
+      "[code]Task.Run(fn)[/code] starts work on a background thread. "
+      "[code]Task.Delay(ms)[/code] waits asynchronously. "
+      "Use [code]Await[/code] to wait for completion inside an [code]Async[/code] procedure.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Async Sub Crunch()\n"
+      "    Dim t As Task = Task.Run(Function() HeavyCompute())\n"
+      "    Await t\n"
+      "    Print \"Done\"\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nAsync, Await\n\n[url=ref:async]📖 VG Language Reference[/url]" },
+
+    { "parallel",
+      "[b]Syntax[/b]\n[b]Parallel[/b] For i = [i]start[/i] To [i]end[/i]\n\n"
+      "[b]Description[/b]\n"
+      "Runs a [code]For[/code] loop across multiple threads simultaneously. "
+      "Each iteration is independent — do not share mutable state without synchronisation.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Parallel For i = 0 To UBound(data)\n"
+      "    results(i) = Process(data(i))\n"
+      "Next i\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nFor, Async, Await, Task\n\n[url=ref:async]📖 VG Language Reference[/url]" },
+
+    { "suspend",
+      "[b]Syntax[/b]\n[b]Suspend[/b]\n\n"
+      "[b]Description[/b]\n"
+      "Pauses execution of the current Causal Chain [code]Section[/code] block. "
+      "Used inside [code]Whenever[/code] / [code]Section[/code] state-machine constructs to halt the current step.\n\n"
+      "[b]See Also[/b]\nAsync, Await, Section, Whenever\n\n[url=ref:async]📖 VG Language Reference[/url]" },
+
+    // ── Group 4: File I/O ─────────────────────────────────────────────────────
+    { "open",
+      "[b]Syntax[/b]\n[b]Open[/b] path [b]For[/b] mode [b]As[/b] #fileNum\n\n"
+      "[b]Description[/b]\n"
+      "Opens a file for reading or writing. "
+      "[i]mode[/i]: [code]Input[/code] (read), [code]Output[/code] (write/create), [code]Append[/code] (write to end). "
+      "[i]fileNum[/i] is an integer handle used in subsequent [code]Print #[/code], [code]Line Input #[/code], and [code]Close[/code] statements.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Open \"scores.txt\" For Output As #1\n"
+      "Print #1, \"Player1: 1000\"\n"
+      "Close #1\n"
+      "\n"
+      "Open \"scores.txt\" For Input As #2\n"
+      "Dim line As String\n"
+      "Line Input #2, line\n"
+      "Close #2\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nClose, Print, Input, Append, Reset\n\n[url=ref:open]📖 VG Language Reference[/url]" },
+
+    { "close",
+      "[b]Syntax[/b]\n[b]Close[/b] #fileNum\n\n"
+      "[b]Description[/b]\n"
+      "Closes an open file and flushes any buffered writes. "
+      "Always close files when done. Omitting [i]fileNum[/i] closes all open files (same as [code]Reset[/code]).\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Open \"log.txt\" For Output As #1\n"
+      "Print #1, \"Entry\"\n"
+      "Close #1\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nOpen, Reset, Print\n\n[url=ref:close]📖 VG Language Reference[/url]" },
+
+    { "append",
+      "[b]Syntax[/b]\nOpen path [b]For Append[/b] As #fileNum\n\n"
+      "[b]Description[/b]\n"
+      "File-open mode that writes new content to the [i]end[/i] of an existing file without erasing it. "
+      "If the file does not exist it is created.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Open \"log.txt\" For Append As #1\n"
+      "Print #1, Now() & \" - Game started\"\n"
+      "Close #1\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nOpen, Close, Output\n\n[url=ref:open]📖 VG Language Reference[/url]" },
+
+    { "mkdir",
+      "[b]Syntax[/b]\n[b]MkDir[/b] path\n\n"
+      "[b]Description[/b]\n"
+      "Creates a new directory at [i]path[/i]. The parent directory must already exist. "
+      "Raises a runtime error if the directory already exists.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "MkDir \"user://saves\"\n"
+      "Open \"user://saves/slot1.dat\" For Output As #1\n"
+      "Close #1\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nOpen, Close\n\n[url=ref:open]📖 VG Language Reference[/url]" },
+
+    { "reset",
+      "[b]Syntax[/b]\n[b]Reset[/b]\n\n"
+      "[b]Description[/b]\n"
+      "Closes all currently open files and flushes their buffers. "
+      "Equivalent to calling [code]Close[/code] with no arguments.\n\n"
+      "[b]See Also[/b]\nClose, Open\n\n[url=ref:open]📖 VG Language Reference[/url]" },
+
+    { "shell",
+      "[b]Syntax[/b]\n[b]Shell[/b](command As String) As Integer\n\n"
+      "[b]Description[/b]\n"
+      "Executes an OS shell command and returns the process ID. "
+      "The VG script does [i]not[/i] wait for the subprocess — it runs asynchronously in the background.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Shell \"open https://example.com\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nSleep, Open\n\n[url=ref:open]📖 VG Language Reference[/url]" },
+
+    { "sleep",
+      "[b]Syntax[/b]\n[b]Sleep[/b](milliseconds As Integer)\n\n"
+      "[b]Description[/b]\n"
+      "Pauses execution for [i]milliseconds[/i]. "
+      "[b]Warning:[/b] blocks the Godot main thread and freezes the game. "
+      "Prefer [code]Await Task.Delay(ms)[/code] inside an [code]Async Sub[/code] for non-blocking waits.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "' Non-blocking (preferred):\n"
+      "Async Sub WaitAndFire()\n"
+      "    Await Task.Delay(1000)\n"
+      "    FireProjectile()\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nAsync, Await, Task\n\n[url=ref:async]📖 VG Language Reference[/url]" },
+
+    // ── Group 5: Drawing ──────────────────────────────────────────────────────
+    { "drawline",
+      "[b]Syntax[/b]\n[b]DrawLine[/b](x1, y1, x2, y2, color[, width])\n\n"
+      "[b]Description[/b]\n"
+      "Draws a line from (x1,y1) to (x2,y2). Wraps Godot's [code]draw_line()[/code]. "
+      "Call inside [code]_draw()[/code]. [i]width[/i] defaults to 1.0.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub _draw()\n"
+      "    DrawLine(0, 0, 100, 100, Color(1,0,0), 2.0)\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nDrawRect, DrawCircle, DrawArc, QueueRedraw\n\n[url=ref:drawline]📖 VG Language Reference[/url]" },
+
+    { "drawcircle",
+      "[b]Syntax[/b]\n[b]DrawCircle[/b](x, y, radius, color)\n\n"
+      "[b]Description[/b]\n"
+      "Draws a filled circle centred at (x,y). Wraps Godot's [code]draw_circle()[/code]. "
+      "Call inside [code]_draw()[/code].\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub _draw()\n"
+      "    DrawCircle(200, 150, 50, Color(0,1,0))\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nDrawLine, DrawRect, DrawArc\n\n[url=ref:drawcircle]📖 VG Language Reference[/url]" },
+
+    { "drawrect",
+      "[b]Syntax[/b]\n[b]DrawRect[/b](x, y, width, height, color[, filled])\n\n"
+      "[b]Description[/b]\n"
+      "Draws a rectangle. [i]filled[/i] is True (default) for solid fill, False for outline only. "
+      "Wraps Godot's [code]draw_rect()[/code]. Call inside [code]_draw()[/code].\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub _draw()\n"
+      "    DrawRect(10, 10, 200, 100, Color(0,0,1))         ' Filled\n"
+      "    DrawRect(10, 10, 200, 100, Color(1,1,0), False)  ' Outline\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nDrawLine, DrawCircle, DrawArc\n\n[url=ref:drawrect]📖 VG Language Reference[/url]" },
+
+    { "drawstring",
+      "[b]Syntax[/b]\n[b]DrawString[/b](text, x, y, color[, fontSize])\n\n"
+      "[b]Description[/b]\n"
+      "Draws text at (x,y) using the default font. Wraps Godot's [code]draw_string()[/code]. "
+      "Call inside [code]_draw()[/code]. [code]DrawText[/code] is an alias.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub _draw()\n"
+      "    DrawString(\"Score: \" & score, 10, 30, Color(1,1,1), 20)\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nDrawLine, DrawRect, TextWidth, TextHeight\n\n[url=ref:drawstring]📖 VG Language Reference[/url]" },
+
+    { "drawtext",
+      "[b]Syntax[/b]\n[b]DrawText[/b](text, x, y, color[, fontSize])\n\n"
+      "[b]Description[/b]\n"
+      "Alias for [code]DrawString[/code]. Draws text at (x,y) using the default font. "
+      "Call inside [code]_draw()[/code].\n\n"
+      "[b]See Also[/b]\nDrawString, DrawLine, DrawRect\n\n[url=ref:drawstring]📖 VG Language Reference[/url]" },
+
+    { "drawarc",
+      "[b]Syntax[/b]\n[b]DrawArc[/b](x, y, radius, startAngle, endAngle[, pointCount][, color][, width])\n\n"
+      "[b]Description[/b]\n"
+      "Draws an arc (partial circle outline) centred at (x,y). Angles are in [b]radians[/b]. "
+      "Wraps Godot's [code]draw_arc()[/code]. Call inside [code]_draw()[/code].\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub _draw()\n"
+      "    DrawArc(100, 100, 60, 0, PI, 32, Color(1, 0.5, 0), 2.0)\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nDrawCircle, DrawLine\n\n[url=ref:drawarc]📖 VG Language Reference[/url]" },
+
+    { "drawpolygon",
+      "[b]Syntax[/b]\n[b]DrawPolygon[/b](points As Array, color)\n\n"
+      "[b]Description[/b]\n"
+      "Draws a filled polygon from an array of [code]Vector2[/code] points. "
+      "Wraps Godot's [code]draw_polygon()[/code]. Call inside [code]_draw()[/code].\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub _draw()\n"
+      "    Dim pts = Array(Vector2(0,0), Vector2(100,0), Vector2(50,80))\n"
+      "    DrawPolygon(pts, Color(1,0,1))\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nDrawPolyline, DrawRect, DrawLine\n\n[url=ref:drawpolygon]📖 VG Language Reference[/url]" },
+
+    { "drawpolyline",
+      "[b]Syntax[/b]\n[b]DrawPolyline[/b](points As Array, color[, width])\n\n"
+      "[b]Description[/b]\n"
+      "Draws an open polyline connecting an array of [code]Vector2[/code] points. "
+      "Unlike [code]DrawPolygon[/code], the last point is [i]not[/i] connected back to the first. "
+      "Wraps Godot's [code]draw_polyline()[/code]. Call inside [code]_draw()[/code].\n\n"
+      "[b]See Also[/b]\nDrawPolygon, DrawLine\n\n[url=ref:drawpolyline]📖 VG Language Reference[/url]" },
+
+    { "cls",
+      "[b]Syntax[/b]\n[b]CLS[/b]()\n\n"
+      "[b]Description[/b]\n"
+      "Clears the canvas. Resets all drawn content so the next [code]_draw()[/code] call starts with a blank frame. "
+      "Equivalent to calling [code]QueueRedraw()[/code] and issuing no draw calls.\n\n"
+      "[b]See Also[/b]\nQueueRedraw, DrawLine, DrawRect\n\n[url=ref:cls]📖 VG Language Reference[/url]" },
+
+    { "pset",
+      "[b]Syntax[/b]\n[b]PSet[/b](x, y, color)\n\n"
+      "[b]Description[/b]\n"
+      "Draws a single pixel at (x,y). VB6-compatible alias for [code]DrawPixel[/code]. "
+      "Call inside [code]_draw()[/code] for on-screen output.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub _draw()\n"
+      "    PSet(50, 50, Color(1, 1, 0))\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nDrawLine, DrawPixel\n\n[url=ref:pset]📖 VG Language Reference[/url]" },
+
+    { "queueredraw",
+      "[b]Syntax[/b]\n[b]QueueRedraw[/b]()\n\n"
+      "[b]Description[/b]\n"
+      "Schedules [code]_draw()[/code] to be called on the next frame. "
+      "Call this whenever a value that affects the canvas changes. "
+      "Wraps Godot's [code]Node2D.queue_redraw()[/code].\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub UpdateScore(newScore As Integer)\n"
+      "    score = newScore\n"
+      "    QueueRedraw()\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nDrawLine, DrawRect, CLS\n\n[url=ref:queueredraw]📖 VG Language Reference[/url]" },
+
+    // ── Bonus: Godot/system helpers ───────────────────────────────────────────
+    { "changescene",
+      "[b]Syntax[/b]\n[b]ChangeScene[/b](scenePath As String)\n\n"
+      "[b]Description[/b]\n"
+      "Transitions to a different Godot scene. "
+      "Wraps [code]get_tree().change_scene_to_file()[/code]. "
+      "The current scene is freed and the new one is loaded.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub OnPlayButton_Click()\n"
+      "    ChangeScene(\"res://scenes/Level1.tscn\")\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nGetTree, QueueFree\n\n[url=ref:changescene]📖 VG Language Reference[/url]" },
+
+    { "playsound",
+      "[b]Syntax[/b]\n[b]PlaySound[/b](soundPath As String, volume As Double)\n\n"
+      "[b]Description[/b]\n"
+      "Plays an audio file once at the given volume (0.0–1.0). "
+      "The path is a Godot resource path (e.g. [code]\"res://audio/jump.wav\"[/code]).\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "PlaySound(\"res://audio/explosion.wav\", 0.8)\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nPlayTone\n\n[url=ref:playsound]📖 VG Language Reference[/url]" },
+
+    { "randomize",
+      "[b]Syntax[/b]\n[b]Randomize[/b]()\n\n"
+      "[b]Description[/b]\n"
+      "Seeds the random number generator with a time-based value so that [code]Rnd()[/code] produces a unique sequence each run. "
+      "Call once at startup. Without [code]Randomize[/code], [code]Rnd()[/code] always produces the same sequence.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub _ready()\n"
+      "    Randomize()\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nRnd, RandRange\n\n[url=ref:randomize]📖 VG Language Reference[/url]" },
+
     { nullptr, nullptr }
 };
 
