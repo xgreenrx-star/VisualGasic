@@ -286,9 +286,13 @@ func _get_current_vg_text() -> String:
 		var current_editor = script_editor.get_current_editor()
 		if current_editor:
 			var code_edit = current_editor.get_base_editor()
-			if code_edit:
+			# Guard: code_edit.text can be empty on the first timer tick before
+			# Godot finishes populating the CodeEdit buffer (timing issue).
+			# Fall through to the disk fallback in that case.
+			if code_edit and not code_edit.text.is_empty():
 				return code_edit.text
-	# Fallback: read from disk
+	# Fallback: read from disk — used by VG IDE (file not in Godot's script
+	# editor) and by Godot's editor when CodeEdit hasn't loaded text yet.
 	var path = _get_current_vg_path()
 	if path != "" and FileAccess.file_exists(path):
 		return FileAccess.get_file_as_string(path)

@@ -12174,9 +12174,12 @@ func _check_script_editor_for_vg():
 	if not code_edit.gui_input.is_connected(_on_code_edit_gui_input):
 		code_edit.gui_input.connect(_on_code_edit_gui_input)
 	
-	# Refresh navigator for the new script
+	# Refresh navigator for the new script.
+	# Schedule a second refresh 0.3s later in case the CodeEdit text buffer
+	# wasn't populated yet on the first tick (Godot fills it async on open).
 	if _code_navigator:
 		_code_navigator.refresh_objects()
+		get_tree().create_timer(0.3).timeout.connect(_code_navigator.refresh_objects)
 
 	# NOTE: Do NOT apply a custom CodeHighlighter to .vg files!
 	# Godot's script editor uses the ScriptLanguageExtension's built-in
