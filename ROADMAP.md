@@ -1048,7 +1048,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 |-----------|-------|-----|--------|
 | **M1** | 4 critical bugs (ByRef recursion, Join float format, Dict properties, chained calls) | Jul 31 | ✅ **DONE** (Jun 29) |
 | **M2** | 44 corpus examples pass (all domains: basics, control flow, strings, arrays, dicts, classes, I/O, math, state machines, Godot) | Aug 15 | ✅ **DONE** (Jun 30) |
-| **M3** | Code Navigator upgrade (#7): multi-file symbol search, definition/reference indexing, call hierarchy, VB6 import resolver | Aug 31 | 🔄 **NEXT** |
+| **M3** | Code Navigator upgrade (#7): multi-file symbol search, definition/reference indexing, call hierarchy, VB6 import resolver | Aug 31 | ✅ **DONE** (Jul 1) |
 | **M4** | UI Forms experimental (#8–#12): VB6 visual form designer, control picker popup, ghost placement, signal wiring, two-layer events | Sep 30 | — |
 | **M5** | Narcea AI pair (#13): pair-programming mode, provider routing, system prompt templates | Oct 15 | — |
 | **M6** | Causal Chain text-mode (#14): new AST evaluator path, narrative code generation, explain-before-compute | Oct 31 | — |
