@@ -1428,88 +1428,1083 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
 }
 
 // Hover / lookup documentation table for VisualGasic keywords and built-in
-// functions. Names are lowercase (VG is case-insensitive). Each entry is a
-// one-line signature followed by a one-line description separated by '\n'.
+// functions. Names are lowercase (VG is case-insensitive). Doc strings use
+// Godot's BBCode subset rendered by EditorHelpBit: [b], [i], [code],
+// [codeblock lang=vgbasic], [br], [color=...]. A bare \n between plain-text
+// regions renders as a paragraph break (blank line).
 struct VGBuiltinDoc {
     const char *name;
     const char *doc;
 };
 
 static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
-    // String functions.
-    { "left", "Left(str, length)\nReturns the leftmost characters of a string." },
-    { "right", "Right(str, length)\nReturns the rightmost characters of a string." },
-    { "mid", "Mid(str, start, [length])\nReturns a substring beginning at start (1-based)." },
-    { "len", "Len(str)\nReturns the number of characters in a string." },
-    { "instr", "InStr([start], str, find)\nReturns the 1-based position of find in str, or 0 if not found." },
-    { "instrrev", "InStrRev(str, find)\nReturns the position of the last occurrence of find in str." },
-    { "lcase", "LCase(str)\nReturns the string converted to lowercase." },
-    { "ucase", "UCase(str)\nReturns the string converted to uppercase." },
-    { "trim", "Trim(str)\nRemoves leading and trailing spaces." },
-    { "ltrim", "LTrim(str)\nRemoves leading spaces." },
-    { "rtrim", "RTrim(str)\nRemoves trailing spaces." },
-    { "replace", "Replace(str, find, replacement)\nReplaces every occurrence of find with replacement." },
-    { "split", "Split(str, [delimiter])\nSplits a string into an array using the delimiter." },
-    { "join", "Join(array, [delimiter])\nJoins array elements into a single string." },
-    { "space", "Space(count)\nReturns a string of the given number of spaces." },
-    { "strreverse", "StrReverse(str)\nReturns the string with its characters reversed." },
-    { "chr", "Chr(code)\nReturns the character for the given character code." },
-    { "asc", "Asc(str)\nReturns the character code of the first character." },
-    { "str", "Str(number)\nConverts a number to its string representation." },
-    { "val", "Val(str)\nConverts the leading numeric part of a string to a number." },
-    { "format", "Format(value, format)\nFormats a value using a format string." },
-    // Math functions.
-    { "abs", "Abs(number)\nReturns the absolute value of a number." },
-    { "int", "Int(number)\nReturns the integer part, rounding toward negative infinity." },
-    { "fix", "Fix(number)\nReturns the integer part, truncating toward zero." },
-    { "sgn", "Sgn(number)\nReturns the sign of a number: -1, 0, or 1." },
-    { "sqr", "Sqr(number)\nReturns the square root of a number." },
-    { "rnd", "Rnd()\nReturns a random number between 0 and 1." },
-    { "round", "Round(number, [digits])\nRounds a number to the given number of decimal digits." },
-    { "sin", "Sin(radians)\nReturns the sine of an angle in radians." },
-    { "cos", "Cos(radians)\nReturns the cosine of an angle in radians." },
-    { "tan", "Tan(radians)\nReturns the tangent of an angle in radians." },
-    { "atn", "Atn(number)\nReturns the arctangent in radians." },
-    { "log", "Log(number)\nReturns the natural logarithm of a number." },
-    { "exp", "Exp(number)\nReturns e raised to the given power." },
-    { "randrange", "RandRange(min, max)\nReturns a random number within the given range." },
-    { "lerp", "Lerp(a, b, t)\nLinear interpolation between a and b by factor t." },
-    { "clamp", "Clamp(value, min, max)\nConstrains a value to the range between min and max." },
-    // Array functions.
-    { "ubound", "UBound(array)\nReturns the largest valid index of an array." },
-    { "lbound", "LBound(array)\nReturns the smallest valid index of an array (usually 0)." },
-    { "array", "Array(item1, item2, ...)\nCreates a new array from the given items." },
-    { "isarray", "IsArray(value)\nReturns True if the value is an array." },
-    // Type conversion and checks.
-    { "cint", "CInt(expr)\nConverts an expression to an Integer." },
-    { "clng", "CLng(expr)\nConverts an expression to a Long integer." },
-    { "cdbl", "CDbl(expr)\nConverts an expression to a Double." },
-    { "csng", "CSng(expr)\nConverts an expression to a Single." },
-    { "cstr", "CStr(expr)\nConverts an expression to a String." },
-    { "cbool", "CBool(expr)\nConverts an expression to a Boolean." },
-    { "isnumeric", "IsNumeric(expr)\nReturns True if the expression can be read as a number." },
-    { "isnull", "IsNull(expr)\nReturns True if the expression is Null." },
-    { "isempty", "IsEmpty(expr)\nReturns True if a variable is uninitialized." },
-    { "isobject", "IsObject(expr)\nReturns True if the expression references an object." },
-    { "typename", "TypeName(value)\nReturns the name of the value's type as a string." },
-    // Dialogs and console.
-    { "msgbox", "MsgBox(prompt, [buttons], [title])\nShows a message box and returns the button clicked." },
-    { "inputbox", "InputBox(prompt, [title], [default])\nPrompts for input and returns the entered text." },
-    { "print", "Print expr\nOutputs a value to the console." },
-    // Statement keywords.
-    { "dim", "Dim name As Type\nDeclares a variable." },
-    { "sub", "Sub name(args)\nDefines a subroutine that does not return a value." },
-    { "function", "Function name(args) As Type\nDefines a procedure that returns a value." },
-    { "if", "If condition Then ... [Else ...] End If\nConditional execution." },
-    { "for", "For i = start To end [Step n] ... Next\nRepeats a block over a numeric range." },
-    { "while", "While condition ... Wend\nRepeats a block while the condition is True." },
-    { "do", "Do [While/Until cond] ... Loop\nRepeats a block with a loop condition." },
-    { "select", "Select Case expr ... End Select\nBranches based on the value of an expression." },
-    { "return", "Return [value]\nReturns from a Function, optionally with a value." },
-    { "call", "Call name(args)\nInvokes a subroutine." },
-    { "set", "Set obj = expr\nAssigns an object reference to a variable." },
-    { "new", "New ClassName\nCreates a new instance of a class." },
-    { "redim", "ReDim [Preserve] array(size)\nResizes a dynamic array." },
+    // ── String functions ──────────────────────────────────────────────────
+    { "left",
+      "[b]Syntax[/b]\nLeft(str, length)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the leftmost [i]length[/i] characters of [i]str[/i]. "
+      "If [i]length[/i] is 0, an empty string is returned. "
+      "If [i]length[/i] exceeds the string length, the entire string is returned.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = Left(\"Hello World\", 5)  ' s = \"Hello\"\n"
+      "Print Left(\"ABCDE\", 3)        ' Prints \"ABC\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nRight, Mid, Len, InStr" },
+
+    { "right",
+      "[b]Syntax[/b]\nRight(str, length)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the rightmost [i]length[/i] characters of [i]str[/i]. "
+      "If [i]length[/i] is 0, an empty string is returned. "
+      "If [i]length[/i] exceeds the string length, the entire string is returned.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = Right(\"Hello World\", 5)  ' s = \"World\"\n"
+      "Print Right(\"ABCDE\", 2)        ' Prints \"DE\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nLeft, Mid, Len, InStr" },
+
+    { "mid",
+      "[b]Syntax[/b]\nMid(str, start [, length])\n\n"
+      "[b]Description[/b]\n"
+      "Returns a substring of [i]str[/i] starting at [i]start[/i] (1-based). "
+      "If [i]length[/i] is omitted, all characters to the end of the string are returned.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String = \"Hello World\"\n"
+      "Print Mid(s, 7)      ' \"World\"\n"
+      "Print Mid(s, 1, 5)   ' \"Hello\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nLeft, Right, Len, InStr" },
+
+    { "len",
+      "[b]Syntax[/b]\nLen(str)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the number of characters in [i]str[/i]. Returns 0 for an empty string.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim n As Integer\n"
+      "n = Len(\"Hello\")      ' 5\n"
+      "n = Len(\"\")           ' 0\n"
+      "Print Len(\"VisualGasic\")  ' 11\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nLeft, Right, Mid" },
+
+    { "instr",
+      "[b]Syntax[/b]\nInStr([start,] str, find)\n\n"
+      "[b]Description[/b]\n"
+      "Searches [i]str[/i] for the substring [i]find[/i] and returns its 1-based position. "
+      "Returns 0 if not found. Optional [i]start[/i] specifies where to begin searching (default 1).\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim pos As Integer\n"
+      "pos = InStr(\"Hello World\", \"World\")  ' 7\n"
+      "pos = InStr(\"Hello World\", \"xyz\")    ' 0\n"
+      "pos = InStr(5, \"abcabc\", \"c\")        ' 6\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nInStrRev, Left, Mid, Replace" },
+
+    { "instrrev",
+      "[b]Syntax[/b]\nInStrRev(str, find [, start])\n\n"
+      "[b]Description[/b]\n"
+      "Searches [i]str[/i] from the end and returns the 1-based position of the last "
+      "occurrence of [i]find[/i]. Returns 0 if not found.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim pos As Integer\n"
+      "pos = InStrRev(\"abcabc\", \"c\")   ' 6\n"
+      "pos = InStrRev(\"abcabc\", \"a\")   ' 4\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nInStr, Left, Mid, Replace" },
+
+    { "lcase",
+      "[b]Syntax[/b]\nLCase(str)\n\n"
+      "[b]Description[/b]\n"
+      "Returns a copy of [i]str[/i] with all alphabetic characters converted to lowercase. "
+      "Non-alphabetic characters are unchanged.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = LCase(\"Hello World\")  ' \"hello world\"\n"
+      "s = LCase(\"ABCDE123\")     ' \"abcde123\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nUCase, Trim, Replace" },
+
+    { "ucase",
+      "[b]Syntax[/b]\nUCase(str)\n\n"
+      "[b]Description[/b]\n"
+      "Returns a copy of [i]str[/i] with all alphabetic characters converted to uppercase. "
+      "Non-alphabetic characters are unchanged.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = UCase(\"Hello World\")  ' \"HELLO WORLD\"\n"
+      "s = UCase(\"abcde123\")     ' \"ABCDE123\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nLCase, Trim, Replace" },
+
+    { "trim",
+      "[b]Syntax[/b]\nTrim(str)\n\n"
+      "[b]Description[/b]\n"
+      "Removes all leading and trailing space characters from [i]str[/i]. "
+      "Spaces within the string are not affected.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = Trim(\"  Hello  \")    ' \"Hello\"\n"
+      "s = Trim(\"  Hi There  \") ' \"Hi There\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nLTrim, RTrim, Len" },
+
+    { "ltrim",
+      "[b]Syntax[/b]\nLTrim(str)\n\n"
+      "[b]Description[/b]\n"
+      "Removes all leading (left-side) space characters from [i]str[/i]. "
+      "Trailing spaces and interior spaces are not affected.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = LTrim(\"  Hello  \")  ' \"Hello  \"\n"
+      "Print LTrim(\"   ABC\")    ' \"ABC\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nRTrim, Trim, Len" },
+
+    { "rtrim",
+      "[b]Syntax[/b]\nRTrim(str)\n\n"
+      "[b]Description[/b]\n"
+      "Removes all trailing (right-side) space characters from [i]str[/i]. "
+      "Leading spaces and interior spaces are not affected.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = RTrim(\"  Hello  \")  ' \"  Hello\"\n"
+      "Print RTrim(\"ABC   \")    ' \"ABC\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nLTrim, Trim, Len" },
+
+    { "replace",
+      "[b]Syntax[/b]\nReplace(str, find, replacement [, start [, count]])\n\n"
+      "[b]Description[/b]\n"
+      "Returns a copy of [i]str[/i] with every occurrence of [i]find[/i] replaced by "
+      "[i]replacement[/i]. Optional [i]start[/i] (1-based) and maximum replacement [i]count[/i] "
+      "can be specified.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = Replace(\"Hello World\", \"World\", \"Earth\")  ' \"Hello Earth\"\n"
+      "s = Replace(\"aabbcc\", \"b\", \"X\")               ' \"aaXXcc\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nInStr, Left, Mid, Split" },
+
+    { "split",
+      "[b]Syntax[/b]\nSplit(str [, delimiter [, limit]])\n\n"
+      "[b]Description[/b]\n"
+      "Splits [i]str[/i] into an array of substrings using [i]delimiter[/i] as the separator. "
+      "If [i]delimiter[/i] is omitted, a space is used. "
+      "Optional [i]limit[/i] restricts the number of substrings returned.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim parts() As String\n"
+      "parts = Split(\"a,b,c\", \",\")  ' Array [\"a\",\"b\",\"c\"]\n"
+      "For i = 0 To UBound(parts)\n"
+      "    Print parts(i)\n"
+      "Next\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nJoin, UBound, Replace, InStr" },
+
+    { "join",
+      "[b]Syntax[/b]\nJoin(array [, delimiter])\n\n"
+      "[b]Description[/b]\n"
+      "Joins all elements of an array into a single string, separated by [i]delimiter[/i]. "
+      "If [i]delimiter[/i] is omitted, a space is used.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim parts(2) As String\n"
+      "parts(0) = \"Hello\"\n"
+      "parts(1) = \"World\"\n"
+      "Dim s As String\n"
+      "s = Join(parts, \", \")  ' \"Hello, World\"\n"
+      "Print Join(parts, \" \")  ' \"Hello World\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nSplit, UBound" },
+
+    { "space",
+      "[b]Syntax[/b]\nSpace(count)\n\n"
+      "[b]Description[/b]\n"
+      "Returns a string consisting of [i]count[/i] space characters. "
+      "Useful for padding or aligning output.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = \"Name:\" & Space(5) & \"Value\"  ' \"Name:     Value\"\n"
+      "Print Space(10) & \"Indented text\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nLen, Trim, Chr" },
+
+    { "strreverse",
+      "[b]Syntax[/b]\nStrReverse(str)\n\n"
+      "[b]Description[/b]\n"
+      "Returns a copy of [i]str[/i] with its characters in reverse order.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = StrReverse(\"Hello\")    ' \"olleH\"\n"
+      "s = StrReverse(\"12345\")    ' \"54321\"\n"
+      "Print StrReverse(\"abcde\")  ' \"edcba\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nLen, Mid, Left, Right" },
+
+    { "chr",
+      "[b]Syntax[/b]\nChr(code)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the character corresponding to the given Unicode character code. "
+      "[code]Chr(10)[/code] = line feed, [code]Chr(13)[/code] = carriage return, "
+      "[code]Chr(9)[/code] = tab, [code]Chr(65)[/code] = 'A'.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = Chr(65)                    ' \"A\"\n"
+      "s = Chr(97)                    ' \"a\"\n"
+      "Dim newline As String\n"
+      "newline = Chr(13) & Chr(10)    ' Windows line ending\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nAsc, Len, Mid" },
+
+    { "asc",
+      "[b]Syntax[/b]\nAsc(str)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the Unicode character code of the first character of [i]str[/i]. "
+      "Raises a runtime error if [i]str[/i] is empty.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim code As Integer\n"
+      "code = Asc(\"A\")      ' 65\n"
+      "code = Asc(\"a\")      ' 97\n"
+      "code = Asc(\"Hello\")  ' 72  (code of 'H')\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nChr, Len, Mid" },
+
+    { "str",
+      "[b]Syntax[/b]\nStr(number)\n\n"
+      "[b]Description[/b]\n"
+      "Converts a numeric value to its string representation. "
+      "For positive numbers, Str includes a leading space. "
+      "To avoid the leading space, use CStr instead.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = Str(42)      ' \" 42\"  (note leading space)\n"
+      "s = Str(-3.14)   ' \"-3.14\"\n"
+      "s = CStr(42)     ' \"42\"   (no leading space)\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nCStr, Val, Format, CInt" },
+
+    { "val",
+      "[b]Syntax[/b]\nVal(str)\n\n"
+      "[b]Description[/b]\n"
+      "Converts the leading numeric part of [i]str[/i] to a number. "
+      "Stops at the first character that cannot be part of a number. "
+      "Returns 0 if [i]str[/i] does not begin with a numeric character.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim n As Double\n"
+      "n = Val(\"42\")          ' 42\n"
+      "n = Val(\"3.14 extra\")  ' 3.14\n"
+      "n = Val(\"hello\")       ' 0\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nStr, CInt, CDbl, IsNumeric" },
+
+    { "format",
+      "[b]Syntax[/b]\nFormat(value, format)\n\n"
+      "[b]Description[/b]\n"
+      "Formats a numeric value according to a format string. "
+      "Common codes: [code]0[/code] digit placeholder, [code]#[/code] optional digit, "
+      "[code].[/code] decimal point, [code],[/code] thousands separator, "
+      "[code]%[/code] percentage.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print Format(3.14159, \"0.00\")    ' \"3.14\"\n"
+      "Print Format(1234567, \"#,##0\")   ' \"1,234,567\"\n"
+      "Print Format(0.5, \"0%\")          ' \"50%\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nStr, CStr, Val" },
+
+    // ── Math functions ────────────────────────────────────────────────────
+    { "abs",
+      "[b]Syntax[/b]\nAbs(number)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the absolute (non-negative) value of a number. "
+      "[code]Abs(-5)[/code] = 5, [code]Abs(5)[/code] = 5.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print Abs(-10)    ' 10\n"
+      "Print Abs(3.14)   ' 3.14\n"
+      "Dim diff As Double\n"
+      "diff = Abs(a - b)  ' Distance between a and b\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nSgn, Sqr, Fix, Int" },
+
+    { "int",
+      "[b]Syntax[/b]\nInt(number)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the largest integer less than or equal to [i]number[/i] (floor). "
+      "For negative numbers, Int rounds away from zero: "
+      "[code]Int(-2.9)[/code] = -3.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print Int(3.7)   ' 3\n"
+      "Print Int(-2.9)  ' -3\n"
+      "Print Int(4.0)   ' 4\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nFix, CInt, Round, Abs" },
+
+    { "fix",
+      "[b]Syntax[/b]\nFix(number)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the integer part of [i]number[/i], truncating toward zero. "
+      "[code]Fix(-2.9)[/code] = -2 (unlike Int which gives -3).\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print Fix(3.7)   ' 3\n"
+      "Print Fix(-2.9)  ' -2\n"
+      "Print Fix(4.0)   ' 4\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nInt, CInt, Round, Abs" },
+
+    { "sgn",
+      "[b]Syntax[/b]\nSgn(number)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the sign of a number: -1 if negative, 0 if zero, 1 if positive.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print Sgn(-5)    ' -1\n"
+      "Print Sgn(0)     ' 0\n"
+      "Print Sgn(3.14)  ' 1\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nAbs, Int, Fix" },
+
+    { "sqr",
+      "[b]Syntax[/b]\nSqr(number)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the square root of a non-negative number. "
+      "Raises a runtime error if [i]number[/i] is negative.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print Sqr(9)     ' 3\n"
+      "Print Sqr(2.0)   ' 1.41421356...\n"
+      "Print Sqr(0)     ' 0\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nAbs, Log, Exp, Round" },
+
+    { "rnd",
+      "[b]Syntax[/b]\nRnd()\n\n"
+      "[b]Description[/b]\n"
+      "Returns a pseudo-random Single in the range [0.0, 1.0). "
+      "Use RandRange for integers or a specific range.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim n As Double\n"
+      "n = Rnd()               ' e.g. 0.7312...\n"
+      "Dim die As Integer\n"
+      "die = Int(Rnd() * 6) + 1  ' Random 1-6\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nRandRange, Int" },
+
+    { "round",
+      "[b]Syntax[/b]\nRound(number [, digits])\n\n"
+      "[b]Description[/b]\n"
+      "Rounds [i]number[/i] to [i]digits[/i] decimal places using banker's rounding "
+      "(round-half-to-even). If [i]digits[/i] is omitted, rounds to the nearest integer.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print Round(3.456, 2)  ' 3.46\n"
+      "Print Round(3.5)       ' 4\n"
+      "Print Round(2.5)       ' 2   (banker's rounding)\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nInt, Fix, CInt, Format" },
+
+    { "sin",
+      "[b]Syntax[/b]\nSin(radians)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the trigonometric sine of an angle in radians. "
+      "To convert degrees to radians, multiply by PI/180.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Const PI As Double = 3.14159265358979\n"
+      "Print Sin(PI / 2)              ' 1.0\n"
+      "Print Sin(0)                   ' 0.0\n"
+      "Dim s As Double\n"
+      "s = Sin(45 * PI / 180)         ' Sin of 45 degrees\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nCos, Tan, Atn, Exp" },
+
+    { "cos",
+      "[b]Syntax[/b]\nCos(radians)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the trigonometric cosine of an angle in radians. "
+      "To convert degrees to radians, multiply by PI/180.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Const PI As Double = 3.14159265358979\n"
+      "Print Cos(0)                   ' 1.0\n"
+      "Print Cos(PI)                  ' -1.0\n"
+      "Dim c As Double\n"
+      "c = Cos(60 * PI / 180)         ' Cos of 60 degrees\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nSin, Tan, Atn, Exp" },
+
+    { "tan",
+      "[b]Syntax[/b]\nTan(radians)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the trigonometric tangent of an angle in radians. "
+      "Undefined at 90 degrees (PI/2 radians).\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Const PI As Double = 3.14159265358979\n"
+      "Print Tan(0)                    ' 0.0\n"
+      "Print Tan(PI / 4)               ' 1.0\n"
+      "Dim t As Double\n"
+      "t = Tan(45 * PI / 180)          ' Tan of 45 degrees\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nSin, Cos, Atn" },
+
+    { "atn",
+      "[b]Syntax[/b]\nAtn(number)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the arctangent of [i]number[/i] in radians (range -PI/2 to PI/2). "
+      "The classic trick for computing PI is [code]4 * Atn(1)[/code].\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Const PI As Double = 4 * Atn(1)   ' Compute PI\n"
+      "Dim angle As Double\n"
+      "angle = Atn(1) * 180 / PI          ' 45 degrees\n"
+      "Print Atn(0)                        ' 0.0\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nSin, Cos, Tan" },
+
+    { "log",
+      "[b]Syntax[/b]\nLog(number)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the natural logarithm (base e) of [i]number[/i]. "
+      "[i]number[/i] must be greater than 0. "
+      "Log base 10: [code]Log(x)/Log(10)[/code]. Log base 2: [code]Log(x)/Log(2)[/code].\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print Log(1)              ' 0.0\n"
+      "Print Log(Exp(1))         ' 1.0\n"
+      "Dim log10 As Double\n"
+      "log10 = Log(100) / Log(10)  ' 2.0\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nExp, Sqr, Abs" },
+
+    { "exp",
+      "[b]Syntax[/b]\nExp(number)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the mathematical constant e raised to the power of [i]number[/i]. "
+      "[code]Exp(1)[/code] = 2.71828... (Euler's number). The inverse of Log.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print Exp(0)    ' 1.0\n"
+      "Print Exp(1)    ' 2.71828...\n"
+      "Print Exp(2)    ' 7.38905...\n"
+      "Dim e As Double\n"
+      "e = Exp(1)      ' e itself\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nLog, Sqr, Abs" },
+
+    { "randrange",
+      "[b]Syntax[/b]\nRandRange(min, max)\n\n"
+      "[b]Description[/b]\n"
+      "Returns a pseudo-random number in the range [min, max] (both inclusive for integers, "
+      "or as a float interval). Uses the engine's random number generator.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim n As Integer\n"
+      "n = RandRange(1, 6)       ' Random 1 through 6 (die roll)\n"
+      "Dim f As Double\n"
+      "f = RandRange(0.0, 1.0)   ' Random float 0.0 to 1.0\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nRnd, Int, Abs" },
+
+    { "lerp",
+      "[b]Syntax[/b]\nLerp(a, b, t)\n\n"
+      "[b]Description[/b]\n"
+      "Returns a linear interpolation between [i]a[/i] and [i]b[/i] by factor [i]t[/i]. "
+      "When t=0, returns a; when t=1, returns b; intermediate values return a point between them.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print Lerp(0, 10, 0.5)   ' 5.0\n"
+      "Print Lerp(0, 10, 0.25)  ' 2.5\n"
+      "Print Lerp(10, 20, 1.0)  ' 20.0\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nClamp, Abs, RandRange" },
+
+    { "clamp",
+      "[b]Syntax[/b]\nClamp(value, min, max)\n\n"
+      "[b]Description[/b]\n"
+      "Constrains [i]value[/i] to the range [min, max]. "
+      "Returns [i]min[/i] if value < min, [i]max[/i] if value > max, "
+      "otherwise returns [i]value[/i] unchanged.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print Clamp(5, 0, 10)    ' 5   (within range)\n"
+      "Print Clamp(-3, 0, 10)   ' 0   (below min)\n"
+      "Print Clamp(15, 0, 10)   ' 10  (above max)\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nLerp, Abs, Int" },
+
+    // ── Array functions ───────────────────────────────────────────────────
+    { "ubound",
+      "[b]Syntax[/b]\nUBound(array [, dimension])\n\n"
+      "[b]Description[/b]\n"
+      "Returns the largest available subscript index for the specified dimension of an array. "
+      "For a zero-based array of 5 elements, UBound returns 4. "
+      "Use in For loops to iterate all elements safely.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim nums(4) As Integer  ' Indices 0 to 4\n"
+      "For i = 0 To UBound(nums)\n"
+      "    nums(i) = i * 2\n"
+      "Next\n"
+      "Print UBound(nums)  ' 4\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nLBound, ReDim, IsArray, Len" },
+
+    { "lbound",
+      "[b]Syntax[/b]\nLBound(array [, dimension])\n\n"
+      "[b]Description[/b]\n"
+      "Returns the smallest available subscript index for the specified dimension of an array. "
+      "VisualGasic arrays are zero-based, so LBound typically returns 0.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim nums(9) As Integer   ' Indices 0 to 9\n"
+      "Print LBound(nums)        ' 0\n"
+      "For i = LBound(nums) To UBound(nums)\n"
+      "    Print nums(i)\n"
+      "Next\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nUBound, ReDim, IsArray" },
+
+    { "array",
+      "[b]Syntax[/b]\nArray(item1, item2, ...)\n\n"
+      "[b]Description[/b]\n"
+      "Creates and returns a new zero-based array containing the specified items. "
+      "The type is inferred from the items passed.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim colors() As String\n"
+      "colors = Array(\"Red\", \"Green\", \"Blue\")\n"
+      "Print colors(0)            ' \"Red\"\n"
+      "Print UBound(colors) + 1   ' 3 (element count)\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nUBound, LBound, ReDim, IsArray" },
+
+    { "isarray",
+      "[b]Syntax[/b]\nIsArray(value)\n\n"
+      "[b]Description[/b]\n"
+      "Returns True if [i]value[/i] is an array, False otherwise. "
+      "Useful for validating arguments before calling UBound or LBound.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim nums(3) As Integer\n"
+      "Dim x As Integer = 5\n"
+      "Print IsArray(nums)   ' True\n"
+      "Print IsArray(x)      ' False\n"
+      "Print IsArray(\"hi\")  ' False\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nUBound, LBound, Array, IsNumeric" },
+
+    // ── Type conversion and checks ────────────────────────────────────────
+    { "cint",
+      "[b]Syntax[/b]\nCInt(expr)\n\n"
+      "[b]Description[/b]\n"
+      "Converts an expression to an Integer (whole number). "
+      "Rounds to the nearest integer using banker's rounding. "
+      "Raises an overflow error if the value is outside the Integer range.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim n As Integer\n"
+      "n = CInt(3.7)    ' 4\n"
+      "n = CInt(3.5)    ' 4   (rounds to even)\n"
+      "n = CInt(\"42\")  ' 42\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nCLng, CDbl, CStr, Int, Fix, Round" },
+
+    { "clng",
+      "[b]Syntax[/b]\nCLng(expr)\n\n"
+      "[b]Description[/b]\n"
+      "Converts an expression to a Long integer value. "
+      "Similar to CInt but supports a wider numeric range for large integers.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim n As Long\n"
+      "n = CLng(3.7)        ' 4\n"
+      "n = CLng(\"123456\")  ' 123456\n"
+      "n = CLng(99.5)       ' 100\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nCInt, CDbl, CStr, Int, Fix" },
+
+    { "cdbl",
+      "[b]Syntax[/b]\nCDbl(expr)\n\n"
+      "[b]Description[/b]\n"
+      "Converts an expression to a Double-precision floating-point number. "
+      "Preserves decimal precision.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim d As Double\n"
+      "d = CDbl(\"3.14\")  ' 3.14\n"
+      "d = CDbl(42)       ' 42.0\n"
+      "d = CDbl(True)     ' 1.0\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nCSng, CInt, CLng, CStr, Val" },
+
+    { "csng",
+      "[b]Syntax[/b]\nCSng(expr)\n\n"
+      "[b]Description[/b]\n"
+      "Converts an expression to a Single-precision floating-point number. "
+      "Less precise than Double but uses less memory.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As Single\n"
+      "s = CSng(\"3.14\")   ' 3.14 (Single precision)\n"
+      "s = CSng(42)        ' 42.0\n"
+      "Dim d As Double = 3.14159265358979\n"
+      "s = CSng(d)         ' Reduced precision\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nCDbl, CInt, CLng, CStr" },
+
+    { "cstr",
+      "[b]Syntax[/b]\nCStr(expr)\n\n"
+      "[b]Description[/b]\n"
+      "Converts an expression to a String. "
+      "Numbers convert without a leading space (unlike Str). "
+      "Booleans become \"True\" or \"False\".\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = CStr(42)      ' \"42\"\n"
+      "s = CStr(3.14)    ' \"3.14\"\n"
+      "s = CStr(True)    ' \"True\"\n"
+      "s = CStr(False)   ' \"False\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nStr, Val, CInt, CDbl, Format" },
+
+    { "cbool",
+      "[b]Syntax[/b]\nCBool(expr)\n\n"
+      "[b]Description[/b]\n"
+      "Converts an expression to a Boolean value. "
+      "Zero (0) and empty string convert to False; all other values convert to True.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print CBool(0)       ' False\n"
+      "Print CBool(1)       ' True\n"
+      "Print CBool(-1)      ' True\n"
+      "Print CBool(\"\")     ' False\n"
+      "Print CBool(\"Yes\")  ' True\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nCInt, CStr, IsNumeric" },
+
+    { "isnumeric",
+      "[b]Syntax[/b]\nIsNumeric(expr)\n\n"
+      "[b]Description[/b]\n"
+      "Returns True if [i]expr[/i] can be evaluated as a number. "
+      "Useful for validating user input before converting with Val or CInt.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print IsNumeric(42)        ' True\n"
+      "Print IsNumeric(\"3.14\")   ' True\n"
+      "Print IsNumeric(\"hello\")  ' False\n"
+      "Print IsNumeric(\"\")       ' False\n"
+      "Print IsNumeric(True)      ' True\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nVal, CInt, CDbl, IsNull, IsEmpty" },
+
+    { "isnull",
+      "[b]Syntax[/b]\nIsNull(expr)\n\n"
+      "[b]Description[/b]\n"
+      "Returns True if [i]expr[/i] evaluates to Null. "
+      "Note: uninitialized variables are Empty, not Null. "
+      "Null typically comes from database operations or an explicit Null assignment.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim v As Variant\n"
+      "Print IsNull(v)     ' False  (v is Empty, not Null)\n"
+      "v = Null\n"
+      "Print IsNull(v)     ' True\n"
+      "Print IsNull(\"\")   ' False\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nIsEmpty, IsNumeric, IsObject, TypeName" },
+
+    { "isempty",
+      "[b]Syntax[/b]\nIsEmpty(expr)\n\n"
+      "[b]Description[/b]\n"
+      "Returns True if [i]expr[/i] has not been initialized (is in the Empty state). "
+      "Variant variables start as Empty until they are assigned a value.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim v As Variant\n"
+      "Print IsEmpty(v)    ' True  (not yet assigned)\n"
+      "v = 0\n"
+      "Print IsEmpty(v)    ' False (explicitly 0)\n"
+      "v = \"\"\n"
+      "Print IsEmpty(v)    ' False (explicitly empty string)\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nIsNull, IsNumeric, IsArray, TypeName" },
+
+    { "isobject",
+      "[b]Syntax[/b]\nIsObject(expr)\n\n"
+      "[b]Description[/b]\n"
+      "Returns True if [i]expr[/i] is an object reference (assigned with Set). "
+      "Returns False for scalar values, arrays, or Nothing.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim btn As Object\n"
+      "Set btn = GetNode(\"Button\")\n"
+      "Print IsObject(btn)   ' True\n"
+      "Set btn = Nothing\n"
+      "Print IsObject(btn)   ' False\n"
+      "Print IsObject(42)    ' False\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nIsNull, IsEmpty, IsArray, TypeName, Set" },
+
+    { "typename",
+      "[b]Syntax[/b]\nTypeName(value)\n\n"
+      "[b]Description[/b]\n"
+      "Returns the name of the data type of [i]value[/i] as a string. "
+      "Common results: \"Integer\", \"Double\", \"String\", \"Boolean\", "
+      "\"Object\", \"Empty\", \"Null\".\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print TypeName(42)       ' \"Integer\"\n"
+      "Print TypeName(3.14)     ' \"Double\"\n"
+      "Print TypeName(\"Hi\")    ' \"String\"\n"
+      "Print TypeName(True)     ' \"Boolean\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nIsNumeric, IsNull, IsEmpty, IsObject, IsArray" },
+
+    // ── Dialogs and console ───────────────────────────────────────────────
+    { "msgbox",
+      "[b]Syntax[/b]\nMsgBox(prompt [, buttons [, title]])\n\n"
+      "[b]Description[/b]\n"
+      "Displays a modal message box dialog and returns an integer indicating which button "
+      "was clicked. [i]buttons[/i]: 0=OK only, 1=OK/Cancel, 2=Abort/Retry/Ignore, "
+      "3=Yes/No/Cancel, 4=Yes/No, 5=Retry/Cancel. "
+      "Return values: 1=OK, 2=Cancel, 3=Abort, 4=Retry, 5=Ignore, 6=Yes, 7=No.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "MsgBox \"Operation complete!\"\n"
+      "Dim choice As Integer\n"
+      "choice = MsgBox(\"Are you sure?\", 1, \"Confirm\")\n"
+      "If choice = 1 Then\n"
+      "    Call DoSomething()\n"
+      "End If\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nInputBox, Print" },
+
+    { "inputbox",
+      "[b]Syntax[/b]\nInputBox(prompt [, title [, default]])\n\n"
+      "[b]Description[/b]\n"
+      "Displays a dialog that prompts the user to enter text. "
+      "Returns the string the user typed, or an empty string if cancelled. "
+      "Optional [i]title[/i] sets the dialog title and [i]default[/i] pre-fills the input field.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim name As String\n"
+      "name = InputBox(\"Enter your name:\", \"Name\", \"Player1\")\n"
+      "If name <> \"\" Then\n"
+      "    MsgBox \"Hello, \" & name & \"!\"\n"
+      "End If\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nMsgBox, Print, Dim" },
+
+    { "print",
+      "[b]Syntax[/b]\nPrint expr\nPrint expr1, expr2, ...\n\n"
+      "[b]Description[/b]\n"
+      "Outputs one or more values to the debug console. "
+      "Multiple expressions can be separated by commas or semicolons. "
+      "Use Print without arguments to output a blank line.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Print \"Hello, World!\"\n"
+      "Print 42\n"
+      "Print \"Score: \"; score\n"
+      "Dim x As Integer = 10\n"
+      "Print \"x = \"; x; \"  doubled = \"; x * 2\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nMsgBox, CStr, Format" },
+
+    // ── Statement keywords ────────────────────────────────────────────────
+    { "dim",
+      "[b]Syntax[/b]\nDim variableName As DataType [= initialValue]\n"
+      "Dim arr(size) As DataType\n\n"
+      "[b]Description[/b]\n"
+      "Declares a variable with an optional type and initial value. "
+      "Variables declared with Dim are local to the Sub or Function they appear in. "
+      "Use Public or Global for module-level variables.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim score As Integer = 0\n"
+      "Dim playerName As String = \"Hero\"\n"
+      "Dim items() As String\n"
+      "Dim health As Single = 100.0\n"
+      "Dim grid(9, 9) As Integer\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nPrivate, Public, Static, Const, ReDim" },
+
+    { "sub",
+      "[b]Syntax[/b]\nSub name([parameters])\n"
+      "    ' body\n"
+      "End Sub\n\n"
+      "[b]Description[/b]\n"
+      "Defines a subroutine: a named block of code that performs an action but does "
+      "not return a value. Invoke it with Call or by name alone. "
+      "Parameters can be passed ByVal (copy) or ByRef (reference, the default).\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub ShowGreeting(name As String)\n"
+      "    MsgBox \"Hello, \" & name & \"!\"\n"
+      "End Sub\n"
+      "\n"
+      "Sub _Ready()\n"
+      "    Call ShowGreeting(\"World\")\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nFunction, Call, Return, Dim" },
+
+    { "function",
+      "[b]Syntax[/b]\nFunction name([parameters]) [As Type]\n"
+      "    ' body\n"
+      "    Return returnValue\n"
+      "End Function\n\n"
+      "[b]Description[/b]\n"
+      "Defines a function: a named block of code that returns a value. "
+      "Set the return value with Return or by assigning to the function name. "
+      "The return type is declared with As.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Function Add(a As Integer, b As Integer) As Integer\n"
+      "    Return a + b\n"
+      "End Function\n"
+      "\n"
+      "Dim result As Integer\n"
+      "result = Add(3, 4)  ' result = 7\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nSub, Return, Dim" },
+
+    { "if",
+      "[b]Syntax[/b]\nIf condition Then\n"
+      "    ' true branch\n"
+      "[ElseIf condition Then\n"
+      "    ' elseif branch]\n"
+      "[Else\n"
+      "    ' false branch]\n"
+      "End If\n\n"
+      "[b]Description[/b]\n"
+      "Conditional execution. If [i]condition[/i] is True, the Then branch executes. "
+      "ElseIf and Else branches are optional. "
+      "[b]Note:[/b] single-line [code]If cond Then stmt[/code] terminates the block; "
+      "ElseIf/Else cannot follow a single-line If.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "If score > 100 Then\n"
+      "    Print \"High score!\"\n"
+      "ElseIf score > 50 Then\n"
+      "    Print \"Good score\"\n"
+      "Else\n"
+      "    Print \"Keep trying\"\n"
+      "End If\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nSelect Case, While, Do" },
+
+    { "for",
+      "[b]Syntax[/b]\nFor counter = start To end [Step n]\n"
+      "    ' body\n"
+      "Next [counter]\n\n"
+      "[b]Description[/b]\n"
+      "Repeats a block of code for each value of [i]counter[/i] from [i]start[/i] to [i]end[/i]. "
+      "Optional [i]Step[/i] controls the increment (default 1). "
+      "Use a negative Step to count down.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "' Count up\n"
+      "For i = 1 To 5\n"
+      "    Print i\n"
+      "Next\n"
+      "\n"
+      "' Count down by 2\n"
+      "For i = 10 To 0 Step -2\n"
+      "    Print i\n"
+      "Next\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nWhile, Do, Exit For" },
+
+    { "while",
+      "[b]Syntax[/b]\nWhile condition\n"
+      "    ' body\n"
+      "Wend\n\n"
+      "[b]Description[/b]\n"
+      "Repeats a block of code as long as [i]condition[/i] is True. "
+      "The condition is tested before each iteration; if it is False on entry, "
+      "the body never executes.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim i As Integer = 1\n"
+      "While i <= 5\n"
+      "    Print i\n"
+      "    i = i + 1\n"
+      "Wend\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nDo, For, If" },
+
+    { "do",
+      "[b]Syntax[/b]\nDo [While/Until condition]\n"
+      "    ' body\n"
+      "    [Exit Do]\n"
+      "Loop [While/Until condition]\n\n"
+      "[b]Description[/b]\n"
+      "Repeats a block of code. The condition can appear at the start (test-first) "
+      "or at the end (test-last, always runs at least once). "
+      "[code]Exit Do[/code] exits the loop immediately.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "' Test-first\n"
+      "Do While i < 10\n"
+      "    i = i + 1\n"
+      "Loop\n"
+      "\n"
+      "' Test-last (runs at least once)\n"
+      "Dim input As String\n"
+      "Do\n"
+      "    input = InputBox(\"Enter 0 to quit:\")\n"
+      "Loop Until input = \"0\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nWhile, For, Exit Do" },
+
+    { "select",
+      "[b]Syntax[/b]\nSelect Case expression\n"
+      "    Case value1\n"
+      "        ' ...\n"
+      "    Case value2, value3\n"
+      "        ' ...\n"
+      "    Case Else\n"
+      "        ' ...\n"
+      "End Select\n\n"
+      "[b]Description[/b]\n"
+      "Branches execution based on the value of an expression. "
+      "Each Case can specify one or more values (or ranges with Is). "
+      "Case Else handles all unmatched values.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim day As Integer = 3\n"
+      "Select Case day\n"
+      "    Case 1\n"
+      "        Print \"Monday\"\n"
+      "    Case 2\n"
+      "        Print \"Tuesday\"\n"
+      "    Case 3, 4, 5\n"
+      "        Print \"Midweek\"\n"
+      "    Case Else\n"
+      "        Print \"Weekend\"\n"
+      "End Select\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nIf, For, While" },
+
+    { "return",
+      "[b]Syntax[/b]\nReturn [value]\n\n"
+      "[b]Description[/b]\n"
+      "Exits the current Sub or Function. "
+      "In a Function, [code]Return value[/code] sets the return value and exits immediately. "
+      "In a Sub, [code]Return[/code] (without a value) exits early.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Function IsPositive(n As Integer) As Boolean\n"
+      "    If n > 0 Then\n"
+      "        Return True\n"
+      "    End If\n"
+      "    Return False\n"
+      "End Function\n"
+      "\n"
+      "Sub CheckAge(age As Integer)\n"
+      "    If age < 0 Then Return  ' Early exit\n"
+      "    Print \"Age: \" & age\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nSub, Function, Exit" },
+
+    { "call",
+      "[b]Syntax[/b]\nCall subName([arguments])\n\n"
+      "[b]Description[/b]\n"
+      "Invokes a Sub or Function. The Call keyword is optional; you may call a Sub by name alone. "
+      "When Call is used, parentheses around arguments are required.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub PrintLine(msg As String)\n"
+      "    Print msg\n"
+      "End Sub\n"
+      "\n"
+      "' These are equivalent:\n"
+      "Call PrintLine(\"Hello\")\n"
+      "PrintLine \"Hello\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nSub, Function, Return" },
+
+    { "set",
+      "[b]Syntax[/b]\nSet objectVar = objectExpression\n"
+      "Set objectVar = Nothing\n\n"
+      "[b]Description[/b]\n"
+      "Assigns an object reference to a variable. "
+      "Use Set for all object assignments (not just =). "
+      "[code]Set obj = Nothing[/code] releases the reference.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim btn As Object\n"
+      "Set btn = GetNode(\"Button\")\n"
+      "btn.Text = \"Click Me\"\n"
+      "\n"
+      "' Release the reference\n"
+      "Set btn = Nothing\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nNew, Dim, IsObject, IsNull" },
+
+    { "new",
+      "[b]Syntax[/b]\nSet var = New ClassName\n"
+      "Dim var As New ClassName\n\n"
+      "[b]Description[/b]\n"
+      "Creates a new instance of a class. "
+      "Use with Set to assign the new object to a variable, "
+      "or use [code]Dim var As New ClassName[/code] for automatic creation.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim p As Object\n"
+      "Set p = New Process\n"
+      "p.Start()\n"
+      "\n"
+      "Dim btn As New Button\n"
+      "btn.Text = \"OK\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nSet, Dim, Class, IsObject" },
+
+    { "redim",
+      "[b]Syntax[/b]\nReDim [Preserve] arrayName(newSize)\n\n"
+      "[b]Description[/b]\n"
+      "Resizes a dynamic array. Without Preserve, all existing data is lost. "
+      "With Preserve, existing elements are kept (only the last dimension can be resized). "
+      "Use ReDim to size an array declared with empty parentheses.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim items() As String\n"
+      "ReDim items(9)           ' 10 elements (0-9)\n"
+      "items(0) = \"first\"\n"
+      "\n"
+      "' Resize and keep existing data\n"
+      "ReDim Preserve items(19)  ' Now 20 elements\n"
+      "Print items(0)             ' Still \"first\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nDim, UBound, LBound, IsArray" },
+
     { nullptr, nullptr }
 };
 
