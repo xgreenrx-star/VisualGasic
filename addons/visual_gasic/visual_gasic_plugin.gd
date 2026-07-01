@@ -5516,6 +5516,14 @@ func _force_godot_scene_reload(tscn_path: String) -> void:
 	# previously-applied theme is lost.  Force-apply unconditionally.
 	_force_apply_vb6_theme_to_scene_root()
 
+	# Refresh the Code Navigator now that the scene root is guaranteed valid.
+	# (The navigator refresh on screen-change fires before open_scene_from_path
+	# resolves, so get_edited_scene_root() is null at that point.  This call
+	# runs after the reload completes and the root is available.)
+	var _nav_fgsr = _get_navigator()
+	if _nav_fgsr:
+		_nav_fgsr.refresh_objects()
+
 ## Patches Godot's in-memory scene tree to match the C++ FormDesigner state.
 ## This is CRITICAL because Godot's own scene saver writes the in-memory tree
 ## to disk when the editor closes.  If the tree is stale (e.g. because
@@ -8724,6 +8732,14 @@ func _open_in_embedded_editor(vg_path: String, sub_name: String, params: String 
 
 	# Switch to code view
 	_show_code_view()
+
+	# Push vg path to Code Navigator so both dropdowns work inside the VG IDE
+	# (the file isn't open in Godot's native script editor, so the navigator
+	# can't derive the path from get_current_script()).
+	var _nav_ece = _get_navigator()
+	if _nav_ece and _nav_ece.has_method("set_override_vg_path"):
+		_nav_ece.set_override_vg_path(vg_path)
+		_nav_ece.refresh_objects()
 
 ## Opens a standalone .vg module file in the embedded code editor (no form needed).
 ## Called from the Project Explorer when double-clicking a module or clicking View Code.

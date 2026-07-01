@@ -11,6 +11,12 @@ const VGComboBox = preload("res://addons/visual_gasic/vg_combo_box.gd")
 var editor_plugin: EditorPlugin
 var object_list  # VGComboBox — left dropdown (Object)
 var event_list   # VGComboBox — right dropdown (Event/Procedure)
+## Override .vg path pushed by the host when working inside the VG IDE's
+## embedded code editor (where the file isn't open in Godot's script editor).
+var _override_vg_path: String = ""
+
+func set_override_vg_path(path: String) -> void:
+	_override_vg_path = path
 var refresh_button: Button
 var _separator: VSeparator
 var _debugger_plugin: EditorDebuggerPlugin = null
@@ -242,6 +248,9 @@ func _get_current_vg_path() -> String:
 	"""Get the .vg file path for the current scene."""
 	if not editor_plugin:
 		return ""
+	# Host-pushed override (set when a .vg file is loaded in the embedded editor).
+	if _override_vg_path != "" and FileAccess.file_exists(_override_vg_path):
+		return _override_vg_path
 	# First try: get the currently edited script directly from the script editor
 	var script_editor = editor_plugin.get_editor_interface().get_script_editor()
 	if script_editor:
