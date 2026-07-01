@@ -24,6 +24,7 @@ signal edit_and_continue_requested()             ## Emitted for Edit & Continue 
 signal pin_inline_value_requested(line: int, variable: String) ## Emitted when user pins an inline value
 signal bookmark_toggled(line: int, enabled: bool)              ## Emitted when user toggles a bookmark
 signal go_to_definition_requested(symbol: String, line: int)   ## Emitted for Ctrl+Click Go To Definition
+signal find_references_requested(symbol: String)               ## Emitted for Find All References (Ctrl+Shift+F)
 
 # =============================================================================
 # VARIABLES
@@ -371,6 +372,7 @@ enum ContextMenuItem {
 	COMMENT_TOGGLE,
 	GOTO_LINE,
 	GOTO_DEFINITION,
+	FIND_REFERENCES,
 	TOGGLE_BREAKPOINT,
 	TOGGLE_BOOKMARK,
 	FOLD_ALL,
@@ -405,6 +407,7 @@ func _setup_context_menu() -> void:
 	_context_menu.add_separator()
 	_context_menu.add_item("Go To Line...           Ctrl+G", ContextMenuItem.GOTO_LINE)
 	_context_menu.add_item("Go To Definition     Ctrl+Click", ContextMenuItem.GOTO_DEFINITION)
+	_context_menu.add_item("Find All References  Ctrl+Shift+F", ContextMenuItem.FIND_REFERENCES)
 	_context_menu.add_item("Toggle Breakpoint       F9", ContextMenuItem.TOGGLE_BREAKPOINT)
 	_context_menu.add_item("Toggle Bookmark         Ctrl+B", ContextMenuItem.TOGGLE_BOOKMARK)
 	_context_menu.add_separator()
@@ -459,6 +462,10 @@ func _on_context_menu_item(id: int) -> void:
 			toggle_bookmark(get_caret_line())
 		ContextMenuItem.GOTO_DEFINITION:
 			_go_to_definition_at_caret()
+		ContextMenuItem.FIND_REFERENCES:
+			var fr_sym := _get_word_under_caret()
+			if fr_sym != "":
+				find_references_requested.emit(fr_sym)
 		ContextMenuItem.MOVE_LINES_UP:
 			move_lines_up()
 		ContextMenuItem.MOVE_LINES_DOWN:
@@ -2448,6 +2455,11 @@ func _get_word_under_caret() -> String:
 	if start == end_pos:
 		return ""
 	return line_text.substr(start, end_pos - start)
+
+## Public accessor for the identifier under the caret. Used by the embedded
+## editor's Find All References keybinding (Ctrl+Shift+F).
+func get_symbol_under_caret() -> String:
+	return _get_word_under_caret()
 
 ## Draw semi-transparent highlight rectangles behind every visible occurrence
 ## of _highlight_word.  Scope-aware: local variables only highlight within

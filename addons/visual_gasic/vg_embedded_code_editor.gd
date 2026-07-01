@@ -4,6 +4,7 @@ extends VBoxContainer
 
 const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
 const VGCommandHelp = preload("res://addons/visual_gasic/vg_command_help.gd")
+const FindReferencesPanel = preload("res://addons/visual_gasic/find_references_panel.gd")
 ##
 ## Replaces the Form Designer canvas in-place when the user double-clicks a
 ## control or chooses View → Code.  The Toolbox, Properties panel, and Project
@@ -216,6 +217,8 @@ func _build_ui() -> void:
 
 	_code_edit.text_changed.connect(_on_code_changed)
 	_code_edit.caret_changed.connect(_on_caret_moved)
+	if _code_edit.has_signal("find_references_requested"):
+		_code_edit.find_references_requested.connect(_show_find_references)
 	VGTheme.hook_text_edit(_code_edit)
 
 	# ── Left-panel content: Command Help + Index Map (reparented by plugin) ──
@@ -2947,6 +2950,15 @@ func _input(event: InputEvent) -> void:
 		elif event.ctrl_pressed and event.keycode == KEY_G and not event.alt_pressed and not event.shift_pressed:
 			_show_goto_line_dialog()
 			get_viewport().set_input_as_handled()
+		# Ctrl+Shift+F → Find All References (selection or symbol under caret)
+		elif event.ctrl_pressed and event.shift_pressed and event.keycode == KEY_F and not event.alt_pressed:
+			var fr_symbol := ""
+			if _code_edit.has_selection():
+				fr_symbol = _code_edit.get_selected_text().strip_edges()
+			elif _code_edit.has_method("get_symbol_under_caret"):
+				fr_symbol = _code_edit.get_symbol_under_caret()
+			_show_find_references(fr_symbol)
+			get_viewport().set_input_as_handled()
 
 # =============================================================================
 # GO TO LINE DIALOG (Ctrl+G)
@@ -3001,6 +3013,44 @@ func _on_goto_confirmed() -> void:
 		_code_edit.set_caret_column(0)
 		_code_edit.center_viewport_to_caret()
 		_code_edit.grab_focus()
+
+# =============================================================================
+# FIND ALL REFERENCES (Ctrl+Shift+F / context menu)
+# =============================================================================
+
+## Workspace-wide "Find All References" panel (lazily created on first use).
+var _find_refs_panel: Window = null
+
+## Opens the Find All References panel for the given symbol. Searches every
+## .vg file under res://. Triggered by Ctrl+Shift+F or the editor context menu.
+func _show_find_references(symbol: String) -> void:
+	var sym := symbol.strip_edges()
+	if sym.is_empty():
+		return
+	# Flush pending edits so on-disk results reflect the current buffer.
+	if _dirty and not _vg_path.is_empty():
+		save_file()
+	if _find_refs_panel == null or not is_instance_valid(_find_refs_panel):
+		_find_refs_panel = FindReferencesPanel.new()
+		add_child(_find_refs_panel)
+		_find_refs_panel.reference_selected.connect(_on_reference_selected)
+	_find_refs_panel.find_references(sym, "res://")
+
+## Navigates to a reference chosen in the Find All References panel. Loads the
+## target .vg file first if it differs from the one currently open. `line` is
+## 1-based and `column` is 0-based (as emitted by the panel).
+func _on_reference_selected(file_path: String, line: int, column: int) -> void:
+	if file_path != _vg_path and FileAccess.file_exists(file_path):
+		if _dirty and not _vg_path.is_empty():
+			save_file()
+		load_file(file_path)
+	if not _code_edit:
+		return
+	var target := clampi(line - 1, 0, maxi(_code_edit.get_line_count() - 1, 0))
+	_code_edit.set_caret_line(target)
+	_code_edit.set_caret_column(maxi(column, 0))
+	_code_edit.center_viewport_to_caret()
+	_code_edit.grab_focus()
 
 # =============================================================================
 # PRETTY LISTING (VB6 Auto-Format on Save)
