@@ -378,6 +378,7 @@ func _update_arrow_icon() -> void:
 		_arrow_btn.icon = icon
 		_arrow_btn.text = ""
 	else:
+		_arrow_btn.icon = null  # prevent icon+text coexistence on theme-change race
 		_arrow_btn.text = "▼"
 
 # =============================================================================

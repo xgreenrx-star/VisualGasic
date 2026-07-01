@@ -12144,16 +12144,25 @@ func _check_script_editor_for_vg():
 		if _code_navigator:
 			_code_navigator.visible = false
 		return
-	
+
+	# For .gd files: show the navigator in its current position (no injection
+	# or reparenting). Reparenting triggers NOTIFICATION_THEME_CHANGED mid-move
+	# which makes get_theme_icon() return null and corrupts the arrow icons.
+	if script_path.ends_with(".gd"):
+		if _code_navigator:
+			_code_navigator.visible = true
+			_code_navigator.refresh_objects()
+		return
+
 	# Get the CodeEdit for this script
 	var current_editor = script_editor.get_current_editor()
 	if not current_editor:
 		return
-	
+
 	var code_edit = current_editor.get_base_editor() as CodeEdit
 	if not code_edit:
 		return
-	
+
 	# --- Inject Code Navigator above the code editor (VB6-style) ---
 	if _code_navigator and is_instance_valid(_code_navigator):
 		# Find the VBoxContainer parent of the CodeEdit — this is the
