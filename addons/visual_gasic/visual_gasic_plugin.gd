@@ -183,11 +183,10 @@ var _vg_plugin_manager = null
 ## Created lazily on first invocation to keep startup snappy.
 var _vg_command_palette = null
 
-## Single-frame guard for the hover-link watcher.
-## EditorHelpBit contains a title RichTextLabel AND a content RichTextLabel,
-## both connected to meta_clicked. This flag blocks the second signal that
-## arrives in the same frame from the sibling label.
-var _help_link_opening: bool = false
+## Pending URL for the hover-link watcher deferred-open.
+## Any number of meta_clicked signals in the same frame overwrite this;
+## _do_open_help_link is queued only once (when transitioning from empty).
+var _help_link_pending_url: String = ""
 
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
@@ -12659,37 +12658,42 @@ func _connect_rtl_meta_recursive(node: Node) -> void:
 
 
 func _on_help_link_meta_clicked(meta: Variant) -> void:
-	# Guard: both the title and content RichTextLabels inside EditorHelpBit
-	# emit meta_clicked for the same click. The flag is set for the remainder
-	# of this frame then cleared by call_deferred, so a subsequent hover-click
-	# on a different tooltip always works.
-	if _help_link_opening:
-		return
-	_help_link_opening = true
-	call_deferred("_clear_help_link_opening")
-
 	var url := str(meta)
+	# Only handle links we care about; Godot's own $Class:method links are ignored.
+	if not (url.begins_with("https://") or url.begins_with("http://") or url.begins_with("ref:")):
+		return
+	# Coalesce: EditorHelpBit has a title RTL + content RTL, both connected.
+	# They can fire meta_clicked in the same frame or successive frames for the
+	# same click. Only queue one deferred open; all signals just overwrite the
+	# same pending slot. The first signal queues the deferred call; duplicates
+	# do not queue a second one.
+	var was_empty := _help_link_pending_url.is_empty()
+	_help_link_pending_url = url
+	if was_empty:
+		call_deferred("_do_open_help_link")
+
+
+func _do_open_help_link() -> void:
+	var url := _help_link_pending_url
+	_help_link_pending_url = ""
 	if url.begins_with("https://") or url.begins_with("http://"):
 		OS.shell_open(url)
 	elif url.begins_with("ref:"):
 		_open_vg_language_reference(url.substr(4))
 
 
-func _clear_help_link_opening() -> void:
-	_help_link_opening = false
-
-
 func _open_vg_language_reference(_line_str: String) -> void:
-	# FileAccess.file_exists() cannot resolve res:// paths containing '../..'
-	# so we globalize the plugin script path to an OS absolute path first,
-	# then navigate: .../addons/visual_gasic/ -> ../../ -> repo root -> docs/
+	# Walk: plugin_script → addons/visual_gasic → addons → repo root → docs/
 	var plugin_script := get_script() as Script
 	if plugin_script:
 		var abs_plugin := ProjectSettings.globalize_path(plugin_script.resource_path)
-		# abs_plugin = /path/to/repo/addons/visual_gasic/visual_gasic_plugin.gd
 		var abs_repo_root := abs_plugin.get_base_dir().get_base_dir().get_base_dir()
 		var abs_doc := abs_repo_root.path_join("docs/VisualGasic_Language_Reference.md")
 		if FileAccess.file_exists(abs_doc):
-			OS.shell_open(abs_doc)
+			# Use file:// URI so xdg-open / Explorer / open all recognise it
+			# as a local file regardless of whether .md has a system association.
+			OS.shell_open("file://" + abs_doc)
 			return
-	push_warning("[VG] Could not find VisualGasic_Language_Reference.md")
+		push_warning("[VG hover] Language Reference not found at: " + abs_plugin.get_base_dir().get_base_dir().get_base_dir().path_join("docs/VisualGasic_Language_Reference.md"))
+		return
+	push_warning("[VG hover] Could not resolve plugin script path for Language Reference")
