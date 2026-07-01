@@ -12661,28 +12661,9 @@ func _on_help_link_meta_clicked(meta: Variant) -> void:
 		_open_vg_language_reference(url.substr(4))
 
 
-func _open_vg_language_reference(line_str: String) -> void:
-	# Walk up the directory tree from the plugin's absolute path until we find
-	# a directory that contains docs/VisualGasic_Language_Reference.md.
-	# This works regardless of how many levels deep the current project is
-	# (demo/, local_projects/infoview_companion/, demos/2D_Games/Pong/, etc.).
-	var plugin_script := get_script() as Script
-	if not plugin_script:
-		push_warning("[VG hover] Cannot resolve plugin script path")
-		return
-	var abs_plugin := ProjectSettings.globalize_path(plugin_script.resource_path)
-	var search_dir := abs_plugin.get_base_dir()  # .../addons/visual_gasic
-	for _i in range(10):
-		var candidate := search_dir.path_join("docs/VisualGasic_Language_Reference.md")
-		if FileAccess.file_exists(candidate):
-			# Open in VS Code at the exact heading line via the vscode:// protocol.
-			# Format: vscode://file/ABSOLUTE_PATH:LINE:COL
-			# On Linux the absolute path starts with /, giving vscode://file//home/...
-			var line_num := max(1, line_str.to_int())
-			OS.shell_open("vscode://file/" + candidate + ":" + str(line_num) + ":1")
-			return
-		var parent := search_dir.get_base_dir()
-		if parent == search_dir:
-			break  # filesystem root
-		search_dir = parent
-	push_warning("[VG hover] VisualGasic_Language_Reference.md not found (searched from: " + abs_plugin.get_base_dir() + ")")
+func _open_vg_language_reference(anchor: String) -> void:
+	# Open the Language Reference on GitHub at the exact heading anchor.
+	# The ref: value is a pre-computed GitHub slug (e.g. "left", "instr", "lcase").
+	# GitHub renders the Markdown and scrolls directly to the ## Heading.
+	const BASE_URL := "https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/VisualGasic_Language_Reference.md"
+	OS.shell_open(BASE_URL + "#" + anchor)
