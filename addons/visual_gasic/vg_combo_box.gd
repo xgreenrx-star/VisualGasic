@@ -357,7 +357,13 @@ func _load_design_time_list() -> void:
 		AddItem(item_text)
 
 func _notification(what: int):
-	if what == NOTIFICATION_THEME_CHANGED or what == NOTIFICATION_READY:
+	if what == NOTIFICATION_THEME_CHANGED:
+		# Defer so the call runs after any reparent sequence is complete and
+		# the editor theme is fully re-established. A direct call here can
+		# fire mid-remove_child when get_theme_icon() returns null, leaving
+		# the button in a corrupted icon+text state.
+		_update_arrow_icon.call_deferred()
+	elif what == NOTIFICATION_READY:
 		_update_arrow_icon()
 	if what == NOTIFICATION_RESIZED:
 		_update_layout()
