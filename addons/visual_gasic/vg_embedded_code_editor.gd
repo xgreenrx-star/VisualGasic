@@ -219,6 +219,8 @@ func _build_ui() -> void:
 	_code_edit.caret_changed.connect(_on_caret_moved)
 	if _code_edit.has_signal("find_references_requested"):
 		_code_edit.find_references_requested.connect(_show_find_references)
+	if _code_edit.has_signal("find_callers_requested"):
+		_code_edit.find_callers_requested.connect(_show_call_hierarchy)
 	VGTheme.hook_text_edit(_code_edit)
 
 	# ── Left-panel content: Command Help + Index Map (reparented by plugin) ──
@@ -2959,6 +2961,15 @@ func _input(event: InputEvent) -> void:
 				fr_symbol = _code_edit.get_symbol_under_caret()
 			_show_find_references(fr_symbol)
 			get_viewport().set_input_as_handled()
+		# Ctrl+Shift+H → Call Hierarchy (who calls the proc under the caret)
+		elif event.ctrl_pressed and event.shift_pressed and event.keycode == KEY_H and not event.alt_pressed:
+			var ch_symbol := ""
+			if _code_edit.has_selection():
+				ch_symbol = _code_edit.get_selected_text().strip_edges()
+			elif _code_edit.has_method("get_symbol_under_caret"):
+				ch_symbol = _code_edit.get_symbol_under_caret()
+			_show_call_hierarchy(ch_symbol)
+			get_viewport().set_input_as_handled()
 
 # =============================================================================
 # GO TO LINE DIALOG (Ctrl+G)
@@ -3035,6 +3046,20 @@ func _show_find_references(symbol: String) -> void:
 		add_child(_find_refs_panel)
 		_find_refs_panel.reference_selected.connect(_on_reference_selected)
 	_find_refs_panel.find_references(sym, "res://")
+
+## Opens the Call Hierarchy panel for the given symbol (Ctrl+Shift+H).
+## Re-uses the Find All References panel pre-filtered to Call sites.
+func _show_call_hierarchy(symbol: String) -> void:
+	var sym := symbol.strip_edges()
+	if sym.is_empty():
+		return
+	if _dirty and not _vg_path.is_empty():
+		save_file()
+	if _find_refs_panel == null or not is_instance_valid(_find_refs_panel):
+		_find_refs_panel = FindReferencesPanel.new()
+		add_child(_find_refs_panel)
+		_find_refs_panel.reference_selected.connect(_on_reference_selected)
+	_find_refs_panel.find_callers(sym, "res://")
 
 ## Navigates to a reference chosen in the Find All References panel. Loads the
 ## target .vg file first if it differs from the one currently open. `line` is

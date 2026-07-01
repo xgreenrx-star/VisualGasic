@@ -25,6 +25,7 @@ signal pin_inline_value_requested(line: int, variable: String) ## Emitted when u
 signal bookmark_toggled(line: int, enabled: bool)              ## Emitted when user toggles a bookmark
 signal go_to_definition_requested(symbol: String, line: int)   ## Emitted for Ctrl+Click Go To Definition
 signal find_references_requested(symbol: String)               ## Emitted for Find All References (Ctrl+Shift+F)
+signal find_callers_requested(symbol: String)                  ## Emitted for Call Hierarchy (Ctrl+Shift+H)
 
 # =============================================================================
 # VARIABLES
@@ -373,6 +374,7 @@ enum ContextMenuItem {
 	GOTO_LINE,
 	GOTO_DEFINITION,
 	FIND_REFERENCES,
+	FIND_CALLERS,
 	TOGGLE_BREAKPOINT,
 	TOGGLE_BOOKMARK,
 	FOLD_ALL,
@@ -408,6 +410,7 @@ func _setup_context_menu() -> void:
 	_context_menu.add_item("Go To Line...           Ctrl+G", ContextMenuItem.GOTO_LINE)
 	_context_menu.add_item("Go To Definition     Ctrl+Click", ContextMenuItem.GOTO_DEFINITION)
 	_context_menu.add_item("Find All References  Ctrl+Shift+F", ContextMenuItem.FIND_REFERENCES)
+	_context_menu.add_item("Call Hierarchy       Ctrl+Shift+H", ContextMenuItem.FIND_CALLERS)
 	_context_menu.add_item("Toggle Breakpoint       F9", ContextMenuItem.TOGGLE_BREAKPOINT)
 	_context_menu.add_item("Toggle Bookmark         Ctrl+B", ContextMenuItem.TOGGLE_BOOKMARK)
 	_context_menu.add_separator()
@@ -466,6 +469,10 @@ func _on_context_menu_item(id: int) -> void:
 			var fr_sym := _get_word_under_caret()
 			if fr_sym != "":
 				find_references_requested.emit(fr_sym)
+		ContextMenuItem.FIND_CALLERS:
+			var fc_sym := _get_word_under_caret()
+			if fc_sym != "":
+				find_callers_requested.emit(fc_sym)
 		ContextMenuItem.MOVE_LINES_UP:
 			move_lines_up()
 		ContextMenuItem.MOVE_LINES_DOWN:

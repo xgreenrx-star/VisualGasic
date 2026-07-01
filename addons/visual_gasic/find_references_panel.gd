@@ -100,7 +100,7 @@ func _build_ui() -> void:
 ## Finds all references to a symbol in the workspace
 func find_references(symbol: String, workspace_path: String = "res://") -> void:
 	_search_term = symbol
-	title = "Find All References - '%s'" % symbol
+	title = "Find All References — '%s'" % symbol
 	
 	# Update header
 	var term_label = get_node_or_null("VBoxContainer/HBoxContainer/TermLabel")
@@ -119,6 +119,14 @@ func find_references(symbol: String, workspace_path: String = "res://") -> void:
 	_status_label.text = "%d references found in %d files" % [_results.size(), vg_files.size()]
 	_display_results()
 	popup_centered()
+
+## Opens the panel pre-filtered to Calls — shows every line that calls 'symbol'.
+## This is the Call Hierarchy entry point (Ctrl+Shift+H / context menu).
+func find_callers(symbol: String, workspace_path: String = "res://") -> void:
+	find_references(symbol, workspace_path)
+	title = "Call Hierarchy — '%s'" % symbol
+	_filter_option.select(RefType.CALL)  # index == value for this enum
+	_display_results()
 
 ## Recursively finds all .vg files
 func _find_vg_files(path: String) -> Array[String]:
