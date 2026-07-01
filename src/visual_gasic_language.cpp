@@ -1427,49 +1427,159 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
     return result;
 }
 
+// Hover / lookup documentation table for VisualGasic keywords and built-in
+// functions. Names are lowercase (VG is case-insensitive). Each entry is a
+// one-line signature followed by a one-line description separated by '\n'.
+struct VGBuiltinDoc {
+    const char *name;
+    const char *doc;
+};
+
+static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
+    // String functions.
+    { "left", "Left(str, length)\nReturns the leftmost characters of a string." },
+    { "right", "Right(str, length)\nReturns the rightmost characters of a string." },
+    { "mid", "Mid(str, start, [length])\nReturns a substring beginning at start (1-based)." },
+    { "len", "Len(str)\nReturns the number of characters in a string." },
+    { "instr", "InStr([start], str, find)\nReturns the 1-based position of find in str, or 0 if not found." },
+    { "instrrev", "InStrRev(str, find)\nReturns the position of the last occurrence of find in str." },
+    { "lcase", "LCase(str)\nReturns the string converted to lowercase." },
+    { "ucase", "UCase(str)\nReturns the string converted to uppercase." },
+    { "trim", "Trim(str)\nRemoves leading and trailing spaces." },
+    { "ltrim", "LTrim(str)\nRemoves leading spaces." },
+    { "rtrim", "RTrim(str)\nRemoves trailing spaces." },
+    { "replace", "Replace(str, find, replacement)\nReplaces every occurrence of find with replacement." },
+    { "split", "Split(str, [delimiter])\nSplits a string into an array using the delimiter." },
+    { "join", "Join(array, [delimiter])\nJoins array elements into a single string." },
+    { "space", "Space(count)\nReturns a string of the given number of spaces." },
+    { "strreverse", "StrReverse(str)\nReturns the string with its characters reversed." },
+    { "chr", "Chr(code)\nReturns the character for the given character code." },
+    { "asc", "Asc(str)\nReturns the character code of the first character." },
+    { "str", "Str(number)\nConverts a number to its string representation." },
+    { "val", "Val(str)\nConverts the leading numeric part of a string to a number." },
+    { "format", "Format(value, format)\nFormats a value using a format string." },
+    // Math functions.
+    { "abs", "Abs(number)\nReturns the absolute value of a number." },
+    { "int", "Int(number)\nReturns the integer part, rounding toward negative infinity." },
+    { "fix", "Fix(number)\nReturns the integer part, truncating toward zero." },
+    { "sgn", "Sgn(number)\nReturns the sign of a number: -1, 0, or 1." },
+    { "sqr", "Sqr(number)\nReturns the square root of a number." },
+    { "rnd", "Rnd()\nReturns a random number between 0 and 1." },
+    { "round", "Round(number, [digits])\nRounds a number to the given number of decimal digits." },
+    { "sin", "Sin(radians)\nReturns the sine of an angle in radians." },
+    { "cos", "Cos(radians)\nReturns the cosine of an angle in radians." },
+    { "tan", "Tan(radians)\nReturns the tangent of an angle in radians." },
+    { "atn", "Atn(number)\nReturns the arctangent in radians." },
+    { "log", "Log(number)\nReturns the natural logarithm of a number." },
+    { "exp", "Exp(number)\nReturns e raised to the given power." },
+    { "randrange", "RandRange(min, max)\nReturns a random number within the given range." },
+    { "lerp", "Lerp(a, b, t)\nLinear interpolation between a and b by factor t." },
+    { "clamp", "Clamp(value, min, max)\nConstrains a value to the range between min and max." },
+    // Array functions.
+    { "ubound", "UBound(array)\nReturns the largest valid index of an array." },
+    { "lbound", "LBound(array)\nReturns the smallest valid index of an array (usually 0)." },
+    { "array", "Array(item1, item2, ...)\nCreates a new array from the given items." },
+    { "isarray", "IsArray(value)\nReturns True if the value is an array." },
+    // Type conversion and checks.
+    { "cint", "CInt(expr)\nConverts an expression to an Integer." },
+    { "clng", "CLng(expr)\nConverts an expression to a Long integer." },
+    { "cdbl", "CDbl(expr)\nConverts an expression to a Double." },
+    { "csng", "CSng(expr)\nConverts an expression to a Single." },
+    { "cstr", "CStr(expr)\nConverts an expression to a String." },
+    { "cbool", "CBool(expr)\nConverts an expression to a Boolean." },
+    { "isnumeric", "IsNumeric(expr)\nReturns True if the expression can be read as a number." },
+    { "isnull", "IsNull(expr)\nReturns True if the expression is Null." },
+    { "isempty", "IsEmpty(expr)\nReturns True if a variable is uninitialized." },
+    { "isobject", "IsObject(expr)\nReturns True if the expression references an object." },
+    { "typename", "TypeName(value)\nReturns the name of the value's type as a string." },
+    // Dialogs and console.
+    { "msgbox", "MsgBox(prompt, [buttons], [title])\nShows a message box and returns the button clicked." },
+    { "inputbox", "InputBox(prompt, [title], [default])\nPrompts for input and returns the entered text." },
+    { "print", "Print expr\nOutputs a value to the console." },
+    // Statement keywords.
+    { "dim", "Dim name As Type\nDeclares a variable." },
+    { "sub", "Sub name(args)\nDefines a subroutine that does not return a value." },
+    { "function", "Function name(args) As Type\nDefines a procedure that returns a value." },
+    { "if", "If condition Then ... [Else ...] End If\nConditional execution." },
+    { "for", "For i = start To end [Step n] ... Next\nRepeats a block over a numeric range." },
+    { "while", "While condition ... Wend\nRepeats a block while the condition is True." },
+    { "do", "Do [While/Until cond] ... Loop\nRepeats a block with a loop condition." },
+    { "select", "Select Case expr ... End Select\nBranches based on the value of an expression." },
+    { "return", "Return [value]\nReturns from a Function, optionally with a value." },
+    { "call", "Call name(args)\nInvokes a subroutine." },
+    { "set", "Set obj = expr\nAssigns an object reference to a variable." },
+    { "new", "New ClassName\nCreates a new instance of a class." },
+    { "redim", "ReDim [Preserve] array(size)\nResizes a dynamic array." },
+    { nullptr, nullptr }
+};
+
 Dictionary VisualGasicLanguage::_lookup_code(const String &p_code, const String &p_symbol, const String &p_path, Object *p_owner) const {
-    Dictionary result;
-    
-    // Ctrl+Click sends the symbol (word) under cursor.
-    // We should look for "Sub <p_symbol>" or "Function <p_symbol>" or "<p_symbol>:" (Label) in p_code.
-    
-    String symbol_lower = p_symbol.to_lower();
-    PackedStringArray lines = p_code.split("\n");
-    
-    for (int i = 0; i < lines.size(); i++) {
-        String line = lines[i].strip_edges().to_lower();
-        
-        // Check for Sub/Function Definition
-        if (line.begins_with("sub " + symbol_lower) || 
-            (line.begins_with("function " + symbol_lower) && (line.length() == 9 + symbol_lower.length() || line[9+symbol_lower.length()] == '(')) ||
-            (line.begins_with("sub ") && line.contains(" " + symbol_lower + "(")) ) { // Handle "Sub Foo("
-            
-            // Check exact match for Subs
-            int name_start = -1;
-            if (line.begins_with("sub ")) name_start = 4;
-            if (line.begins_with("function ")) name_start = 9;
-            
-            if (name_start != -1) {
-                // Verify it's actually the symbol
-                // Simple check: does line contain the symbol properly?
-                // The p_symbol is usually exact.
-                
-                result["type"] = 1; // SCRIPT_LOCATION_LOCAL (0=OTHER, 1=LOCAL, 2=MEMBER)
-                result["line"] = i;
-                result["column"] = 0;
+    // 1) Built-in keyword / function documentation -> hover tooltip.
+    // Godot's ScriptTextEditor::_show_symbol_tooltip only renders an arbitrary
+    // description for LOOKUP_RESULT_LOCAL_VARIABLE / LOCAL_CONSTANT results
+    // (it reads result.description directly, without requiring the symbol to
+    // exist in the engine's documentation database).
+    {
+        String sym = p_symbol.to_lower();
+        for (int i = 0; VG_BUILTIN_DOCS[i].name != nullptr; i++) {
+            if (sym == VG_BUILTIN_DOCS[i].name) {
+                Dictionary result;
+                result["result"] = OK;
+                result["type"] = ScriptLanguageExtension::LOOKUP_RESULT_LOCAL_VARIABLE;
+                result["description"] = String(VG_BUILTIN_DOCS[i].doc);
                 return result;
             }
         }
-        
-        // Check for Label Definition "Label:"
-        if (line.begins_with(symbol_lower + ":")) {
-             result["type"] = 1;
-             result["line"] = i;
-             result["column"] = 0;
-             return result;
+    }
+
+    // 2) User-defined Sub / Function / Property / Label -> jump to definition.
+    // Ctrl+Click sends the symbol (word) under the cursor. Godot navigates to
+    // result.location - 1, so location must be the 1-based line number.
+    String symbol_lower = p_symbol.to_lower();
+    PackedStringArray lines = p_code.split("\n");
+    static const char *MODIFIERS[] = { "public ", "private ", "friend ", "static ", nullptr };
+
+    for (int i = 0; i < lines.size(); i++) {
+        String line = lines[i].strip_edges().to_lower();
+
+        // Strip any leading access / scope modifiers.
+        bool changed = true;
+        while (changed) {
+            changed = false;
+            for (int m = 0; MODIFIERS[m] != nullptr; m++) {
+                if (line.begins_with(MODIFIERS[m])) {
+                    line = line.substr(String(MODIFIERS[m]).length()).strip_edges();
+                    changed = true;
+                }
+            }
+        }
+
+        bool is_definition = false;
+
+        if (line.begins_with("sub " + symbol_lower) || line.begins_with("function " + symbol_lower)) {
+            // Ensure the match ends at the name boundary, not a longer name.
+            int name_end = (line.begins_with("sub ") ? 4 : 9) + symbol_lower.length();
+            if (name_end >= line.length() || line[name_end] == '(' || line[name_end] == ' ' || line[name_end] == '\t') {
+                is_definition = true;
+            }
+        } else if (line.begins_with("property get " + symbol_lower) ||
+                   line.begins_with("property let " + symbol_lower) ||
+                   line.begins_with("property set " + symbol_lower)) {
+            is_definition = true;
+        } else if (line.begins_with(symbol_lower + ":")) {
+            is_definition = true; // Label.
+        }
+
+        if (is_definition) {
+            Dictionary result;
+            result["result"] = OK;
+            result["type"] = ScriptLanguageExtension::LOOKUP_RESULT_SCRIPT_LOCATION;
+            result["location"] = i + 1; // 1-based; editor navigates to location - 1.
+            return result;
         }
     }
 
+    // Nothing found: no "result" key signals ERR_UNAVAILABLE to Godot.
     return Dictionary();
 }
 
