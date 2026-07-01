@@ -183,10 +183,12 @@ var _vg_plugin_manager = null
 ## Created lazily on first invocation to keep startup snappy.
 var _vg_command_palette = null
 
-## Pending URL for the hover-link watcher deferred-open.
-## Any number of meta_clicked signals in the same frame overwrite this;
-## _do_open_help_link is queued only once (when transitioning from empty).
-var _help_link_pending_url: String = ""
+## Dedup state for hover-link watcher.
+## Engine.get_process_frames() is the same value for all signals fired by
+## the same input event — lets us block the second RTL's meta_clicked that
+## arrives in the same frame from the sibling label inside EditorHelpBit.
+var _help_link_last_frame: int = -1
+var _help_link_last_url: String = ""
 
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
@@ -12659,23 +12661,17 @@ func _connect_rtl_meta_recursive(node: Node) -> void:
 
 func _on_help_link_meta_clicked(meta: Variant) -> void:
 	var url := str(meta)
-	# Only handle links we care about; Godot's own $Class:method links are ignored.
+	# Only handle links we care about.
 	if not (url.begins_with("https://") or url.begins_with("http://") or url.begins_with("ref:")):
 		return
-	# Coalesce: EditorHelpBit has a title RTL + content RTL, both connected.
-	# They can fire meta_clicked in the same frame or successive frames for the
-	# same click. Only queue one deferred open; all signals just overwrite the
-	# same pending slot. The first signal queues the deferred call; duplicates
-	# do not queue a second one.
-	var was_empty := _help_link_pending_url.is_empty()
-	_help_link_pending_url = url
-	if was_empty:
-		call_deferred("_do_open_help_link")
-
-
-func _do_open_help_link() -> void:
-	var url := _help_link_pending_url
-	_help_link_pending_url = ""
+	# Dedup: EditorHelpBit contains a title RTL + content RTL, both connected.
+	# Both fire meta_clicked for the same click in the same process frame.
+	# Engine.get_process_frames() is identical for all signals within one frame.
+	var frame := Engine.get_process_frames()
+	if frame == _help_link_last_frame and url == _help_link_last_url:
+		return
+	_help_link_last_frame = frame
+	_help_link_last_url = url
 	if url.begins_with("https://") or url.begins_with("http://"):
 		OS.shell_open(url)
 	elif url.begins_with("ref:"):
@@ -12683,17 +12679,23 @@ func _do_open_help_link() -> void:
 
 
 func _open_vg_language_reference(_line_str: String) -> void:
-	# Walk: plugin_script → addons/visual_gasic → addons → repo root → docs/
+	# Walk up the directory tree from the plugin's absolute path until we find
+	# a directory that contains docs/VisualGasic_Language_Reference.md.
+	# This works regardless of how many levels deep the current project is
+	# (demo/, local_projects/infoview_companion/, demos/2D_Games/Pong/, etc.).
 	var plugin_script := get_script() as Script
-	if plugin_script:
-		var abs_plugin := ProjectSettings.globalize_path(plugin_script.resource_path)
-		var abs_repo_root := abs_plugin.get_base_dir().get_base_dir().get_base_dir()
-		var abs_doc := abs_repo_root.path_join("docs/VisualGasic_Language_Reference.md")
-		if FileAccess.file_exists(abs_doc):
-			# Use file:// URI so xdg-open / Explorer / open all recognise it
-			# as a local file regardless of whether .md has a system association.
-			OS.shell_open("file://" + abs_doc)
-			return
-		push_warning("[VG hover] Language Reference not found at: " + abs_plugin.get_base_dir().get_base_dir().get_base_dir().path_join("docs/VisualGasic_Language_Reference.md"))
+	if not plugin_script:
+		push_warning("[VG hover] Cannot resolve plugin script path")
 		return
-	push_warning("[VG hover] Could not resolve plugin script path for Language Reference")
+	var abs_plugin := ProjectSettings.globalize_path(plugin_script.resource_path)
+	var search_dir := abs_plugin.get_base_dir()  # .../addons/visual_gasic
+	for _i in range(10):
+		var candidate := search_dir.path_join("docs/VisualGasic_Language_Reference.md")
+		if FileAccess.file_exists(candidate):
+			OS.shell_open(candidate)  # bare path — matches working VG IDE code
+			return
+		var parent := search_dir.get_base_dir()
+		if parent == search_dir:
+			break  # filesystem root
+		search_dir = parent
+	push_warning("[VG hover] VisualGasic_Language_Reference.md not found (searched from: " + abs_plugin.get_base_dir() + ")")
