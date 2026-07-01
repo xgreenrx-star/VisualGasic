@@ -177,7 +177,14 @@ func refresh_objects():
 		# scene whose .tscn corresponds to the currently open .vg script.
 		root = _find_root_for_current_vg()
 	if not root:
-		object_list.add_item("(No Scene Open)")
+		# No form scene — treat as a standalone code module (VB6 .bas equivalent).
+		# Add (General) and populate procedures directly from the .vg text,
+		# just as VB6 does for modules with no form.
+		var gen_only := object_list.item_count
+		object_list.add_item("(General)")
+		object_list.set_item_metadata(gen_only, "(General)")
+		object_list.select(gen_only)
+		_on_object_selected(gen_only)
 		return
 
 	# Add (General) entry — VB6-style module-level declarations
