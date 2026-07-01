@@ -1,32 +1,30 @@
 @tool
-## UI Forms control picker (experimental).
+## UI Forms control picker.
 ##
-## A small transient popup that lists the placeable VB6 controls.  When the
-## user chooses one (double-click a row or press "Place"), it emits
-## control_chosen(godot_type) and hides itself.  The plugin controller then
-## arms the viewport adapter to place a control of that type on the next click.
+## A resizable popup that shows each placeable VB6 control at its actual
+## rendered size so you can see exactly what you're about to drop.  Clicking
+## a row closes the window and emits control_chosen(godot_type), which arms
+## the canvas ghost-placement mode.
 extends Window
 
 ## Emitted with the Godot class name of the chosen control (e.g. "Button").
 signal control_chosen(godot_type: String)
 
-## Palette of placeable controls: display label (VB6 name), Godot class, icon.
+## Palette of placeable controls: VB6 display name + Godot class.
 const PALETTE := [
-	{"label": "Button", "type": "Button", "icon": "🔘"},
-	{"label": "Label", "type": "Label", "icon": "🏷"},
-	{"label": "TextBox", "type": "LineEdit", "icon": "⌨"},
-	{"label": "CheckBox", "type": "CheckBox", "icon": "☑"},
-	{"label": "ComboBox", "type": "OptionButton", "icon": "▾"},
-	{"label": "ListBox", "type": "ItemList", "icon": "📋"},
+	{"label": "Button",   "type": "Button"},
+	{"label": "Label",    "type": "Label"},
+	{"label": "TextBox",  "type": "LineEdit"},
+	{"label": "CheckBox", "type": "CheckBox"},
+	{"label": "ComboBox", "type": "OptionButton"},
+	{"label": "ListBox",  "type": "ItemList"},
 ]
-
-var _list: ItemList = null
 
 
 func _init() -> void:
 	title = "Add Control"
-	size = Vector2i(240, 320)
-	min_size = Vector2i(200, 240)
+	size = Vector2i(300, 380)
+	min_size = Vector2i(220, 260)
 	unresizable = false
 	exclusive = false
 
@@ -34,65 +32,83 @@ func _init() -> void:
 func _ready() -> void:
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
+	for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+		margin.add_theme_constant_override(side, 8)
 	add_child(margin)
 
 	var vb := VBoxContainer.new()
 	margin.add_child(vb)
 
 	var hint := Label.new()
-	hint.text = "Choose a control to place:"
+	hint.text = "Click a control to place it:"
 	vb.add_child(hint)
 
-	_list = ItemList.new()
-	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vb.add_child(scroll)
+
+	var item_list := VBoxContainer.new()
+	item_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(item_list)
+
 	for entry in PALETTE:
-		var idx := _list.add_item(entry["icon"] + "  " + entry["label"])
-		_list.set_item_metadata(idx, entry["type"])
-	_list.item_activated.connect(_on_item_activated)
-	vb.add_child(_list)
-
-	var btns := HBoxContainer.new()
-	btns.alignment = BoxContainer.ALIGNMENT_END
-	vb.add_child(btns)
-
-	var place_btn := Button.new()
-	place_btn.text = "Place"
-	place_btn.pressed.connect(_on_place_pressed)
-	btns.add_child(place_btn)
+		item_list.add_child(_make_row(entry))
 
 	var cancel_btn := Button.new()
 	cancel_btn.text = "Cancel"
 	cancel_btn.pressed.connect(hide)
-	btns.add_child(cancel_btn)
+	vb.add_child(cancel_btn)
 
 	close_requested.connect(hide)
 
 
-## Show the picker centered over its parent, with the first item selected.
+## Build one clickable row: VB6 name | separator | live rendered control.
+func _make_row(entry: Dictionary) -> Control:
+	var btn := Button.new()
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.custom_minimum_size = Vector2(0, 44)
+	btn.clip_contents = true
+	btn.focus_mode = Control.FOCUS_ALL
+	btn.tooltip_text = "Place a %s" % entry["label"]
+
+	var hb := HBoxContainer.new()
+	hb.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hb.add_theme_constant_override("separation", 8)
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(hb)
+
+	# VB6 name label (fixed 80 px column)
+	var name_lbl := Label.new()
+	name_lbl.text = entry["label"]
+	name_lbl.custom_minimum_size = Vector2(80, 0)
+	name_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hb.add_child(name_lbl)
+
+	var sep := VSeparator.new()
+	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hb.add_child(sep)
+
+	# Actual rendered control preview — non-interactive (purely visual).
+	var preview = ClassDB.instantiate(entry["type"])
+	if preview is Control:
+		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		preview.focus_mode = Control.FOCUS_NONE
+		preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		preview.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		if preview.has_method("set_text"):
+			preview.set_text(entry["label"])
+		hb.add_child(preview)
+
+	var godot_type: String = entry["type"]
+	btn.pressed.connect(func() -> void:
+		hide()
+		control_chosen.emit(godot_type)
+	)
+	return btn
+
+
+## Show the picker centered on screen.
 func popup_picker() -> void:
-	if _list and _list.item_count > 0:
-		_list.select(0)
 	popup_centered()
-
-
-func _on_item_activated(idx: int) -> void:
-	_emit_choice(idx)
-
-
-func _on_place_pressed() -> void:
-	var sel := _list.get_selected_items()
-	if sel.is_empty():
-		return
-	_emit_choice(sel[0])
-
-
-func _emit_choice(idx: int) -> void:
-	if idx < 0 or idx >= _list.item_count:
-		return
-	var godot_type := str(_list.get_item_metadata(idx))
-	hide()
-	control_chosen.emit(godot_type)

@@ -191,6 +191,11 @@ var _ui_forms_btn: Button = null
 var _ui_forms_picker: Window = null
 var _ui_forms_adapter = null   # ui_forms_viewport_adapter.gd instance
 
+## Ghost placement state — set when user picks a control from the picker.
+## The type name ("Button", "Label", …) while placement is armed; "" when idle.
+var _ui_forms_armed_type: String = ""
+var _ui_forms_ghost_screen_pos: Vector2 = Vector2.ZERO
+
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
 
@@ -11244,6 +11249,29 @@ var _recent_forms: Array[String] = []
 const MAX_RECENT_FORMS := 5
 
 func _forward_canvas_gui_input(event):
+	# ── UI Forms ghost placement (takes priority when armed) ───────────────
+	if _ui_forms_armed_type != "":
+		if event is InputEventMouseMotion:
+			_ui_forms_ghost_screen_pos = event.position
+			update_overlays()
+			return true
+		if event is InputEventMouseButton and event.pressed:
+			match event.button_index:
+				MOUSE_BUTTON_LEFT:
+					_ui_forms_place_at_screen(_ui_forms_armed_type, event.position)
+					_ui_forms_armed_type = ""
+					update_overlays()
+					return true
+				MOUSE_BUTTON_RIGHT:
+					_ui_forms_armed_type = ""
+					update_overlays()
+					return true
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			_ui_forms_armed_type = ""
+			update_overlays()
+			return true
+		return false
+
 	# ── Ctrl+Arrow: nudge selected control by 1 pixel (ignoring snap) ──
 	if event is InputEventKey and event.pressed and event.ctrl_pressed and not event.shift_pressed:
 		var nudge := Vector2.ZERO
@@ -12677,57 +12705,105 @@ func _on_ui_forms_btn_pressed() -> void:
 	_ui_forms_picker.popup_picker()
 
 func _on_ui_forms_control_chosen(godot_type: String) -> void:
-	# Get the root Control node of the currently edited scene.
-	var edited = get_editor_interface().get_edited_scene_root()
-	if not edited:
-		push_warning("[UI Forms] No scene is open — open or create a scene first")
+	# Arm ghost placement mode — the canvas draw override shows the ghost and
+	# _forward_canvas_gui_input intercepts the next left-click to place it.
+	_ui_forms_armed_type = godot_type
+	_ui_forms_ghost_screen_pos = Vector2.ZERO
+	update_overlays()
+
+
+## EditorPlugin override — draw the placement ghost over the 2D canvas.
+func _forward_canvas_draw_over_viewport(overlay: Control) -> void:
+	if _ui_forms_armed_type.is_empty():
+		return
+	if _ui_forms_ghost_screen_pos == Vector2.ZERO:
 		return
 
-	# Walk up to the first Control ancestor (handles Node2D roots too).
-	var canvas: Control = null
-	var node = edited
-	while node:
-		if node is Control:
-			canvas = node
+	# Compute screen-space ghost size from world-space default size × zoom.
+	var world_sz := _ui_forms_default_world_size(_ui_forms_armed_type)
+	var vp_container := get_editor_interface().get_editor_viewport_2d()
+	var sub_vp: SubViewport = null
+	for child in vp_container.get_children():
+		if child is SubViewport:
+			sub_vp = child
 			break
-		node = node.get_parent()
+	var screen_sz := world_sz
+	if sub_vp:
+		var t: Transform2D = sub_vp.canvas_transform
+		screen_sz = Vector2(world_sz.x * t.x.x, world_sz.y * t.y.y)
 
-	if not canvas:
-		# No Control found — create the chosen control directly under root
-		# so the user at least gets the node added.
-		canvas = edited as Control
+	var grect := Rect2(_ui_forms_ghost_screen_pos, screen_sz)
+	overlay.draw_rect(grect, Color(0.30, 0.60, 1.0, 0.18))
+	overlay.draw_rect(grect, Color(0.30, 0.60, 1.0, 0.90), false, 1.5)
+	var font := ThemeDB.fallback_font
+	if font:
+		overlay.draw_string(
+			font,
+			_ui_forms_ghost_screen_pos + Vector2(4, screen_sz.y * 0.68),
+			_ui_forms_armed_type,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.WHITE
+		)
 
-	# Instantiate the chosen control and add it to the scene.
-	var cls = ClassDB.instantiate(godot_type)
-	if not cls:
-		push_warning("[UI Forms] Could not instantiate: " + godot_type)
+
+static func _ui_forms_default_world_size(godot_type: String) -> Vector2:
+	match godot_type:
+		"Label":        return Vector2(96,  24)
+		"LineEdit":     return Vector2(140, 30)
+		"CheckBox":     return Vector2(120, 28)
+		"OptionButton": return Vector2(140, 30)
+		"ItemList":     return Vector2(140, 100)
+		_:              return Vector2(100, 30)
+
+
+## Convert 2D canvas screen-pixel position to world coordinates.
+func _ui_forms_screen_to_world(screen_pos: Vector2) -> Vector2:
+	var vp_container := get_editor_interface().get_editor_viewport_2d()
+	for child in vp_container.get_children():
+		if child is SubViewport:
+			return child.canvas_transform.affine_inverse() * screen_pos
+	return screen_pos
+
+
+## Instantiate godot_type at the world position that corresponds to screen_pos
+## and add it to the currently edited scene.
+func _ui_forms_place_at_screen(godot_type: String, screen_pos: Vector2) -> void:
+	var edited := get_editor_interface().get_edited_scene_root()
+	if not edited:
+		push_warning("[UI Forms] No scene open — create or open a scene first")
 		return
+
+	var world_pos := _ui_forms_screen_to_world(screen_pos)
+
+	# Find a Control parent; fall back to the scene root.
+	var parent: Node = edited
+	if not (edited is Control):
+		for child in edited.get_children():
+			if child is Control:
+				parent = child
+				break
+
+	var cls = ClassDB.instantiate(godot_type)
 	var ctrl := cls as Control
 	if not ctrl:
-		push_warning("[UI Forms] %s is not a Control node" % godot_type)
-		cls.free()
+		push_warning("[UI Forms] %s is not a Control" % godot_type)
+		if cls:
+			cls.free()
 		return
 
-	# Give it a sensible name (VB6 style: Button1, Label1, etc.)
-	var siblings := (canvas if canvas else edited).get_children()
+	# VB6-style name: Button1, Button2, …
 	var count := 0
-	for s in siblings:
-		if s.get_class() == godot_type:
+	for c in parent.get_children():
+		if c.get_class() == godot_type:
 			count += 1
 	ctrl.name = godot_type + str(count + 1)
+	ctrl.position = world_pos
 
-	# Place at centre of viewport.
-	var vp_size := get_editor_interface().get_editor_viewport_2d().size
-	ctrl.position = vp_size * 0.5 - ctrl.size * 0.5
-
-	# Add to scene and select it so the user can move/resize immediately.
-	(canvas if canvas else edited).add_child(ctrl)
+	parent.add_child(ctrl)
 	ctrl.owner = get_editor_interface().get_edited_scene_root()
+
 	get_editor_interface().get_selection().clear()
 	get_editor_interface().get_selection().add_node(ctrl)
 
-	# Generate event stub in the matching .vg file.
-	_ui_forms_wire_stub(ctrl, godot_type)
 
 func _ui_forms_wire_stub(ctrl: Control, godot_type: String) -> void:
 	# Find the .vg file alongside the open .tscn and append a stub Sub
