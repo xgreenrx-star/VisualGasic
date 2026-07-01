@@ -299,9 +299,8 @@ func _build_ui() -> void:
 	_line_edit.name = &"_LE"
 	_line_edit.set_anchors_preset(PRESET_FULL_RECT)
 	_line_edit.offset_right = -arrow_w
-	if not in_editor:
-		_line_edit.select_all_on_focus = true
-		_line_edit.gui_input.connect(_on_line_edit_gui_input)
+	_line_edit.select_all_on_focus = true
+	_line_edit.gui_input.connect(_on_line_edit_gui_input)
 	_line_edit.text_changed.connect(_on_text_changed)
 	add_child(_line_edit, false, INTERNAL_MODE_FRONT)
 
@@ -317,8 +316,7 @@ func _build_ui() -> void:
 	_arrow_btn.offset_top = 0
 	_arrow_btn.offset_bottom = 0
 	_arrow_btn.focus_mode = Control.FOCUS_NONE
-	if not in_editor:
-		_arrow_btn.pressed.connect(_on_arrow_pressed)
+	_arrow_btn.pressed.connect(_on_arrow_pressed)
 	add_child(_arrow_btn, false, INTERNAL_MODE_FRONT)
 	_update_arrow_icon()
 
@@ -329,9 +327,8 @@ func _build_ui() -> void:
 	_popup_list = ItemList.new()
 	_popup_list.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_popup_list.auto_height = false
-	if not in_editor:
-		_popup_list.item_clicked.connect(_on_item_clicked)
-		_popup_list.item_activated.connect(_on_item_activated)
+	_popup_list.item_clicked.connect(_on_item_clicked)
+	_popup_list.item_activated.connect(_on_item_activated)
 	_popup.add_child(_popup_list)
 	add_child(_popup, false, INTERNAL_MODE_FRONT)
 
@@ -342,9 +339,8 @@ func _build_ui() -> void:
 	_inline_list.custom_minimum_size = Vector2(0, 100)
 	_inline_list.auto_height = false
 	_inline_list.visible = false
-	if not in_editor:
-		_inline_list.item_clicked.connect(_on_item_clicked)
-		_inline_list.item_activated.connect(_on_item_activated)
+	_inline_list.item_clicked.connect(_on_item_clicked)
+	_inline_list.item_activated.connect(_on_item_activated)
 
 	# Active list pointer
 	_item_list = _popup_list

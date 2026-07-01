@@ -160,6 +160,20 @@ func refresh_objects():
 	if not editor_plugin: 
 		# print("CodeNavigator: No editor_plugin set.")
 		return
+
+	# If the currently open script is a .gd file, populate with its functions
+	# and return early — .gd files don't have a VB6 object model.
+	var script_editor = editor_plugin.get_editor_interface().get_script_editor()
+	if script_editor:
+		var current_script = script_editor.get_current_script()
+		if current_script and current_script.resource_path.ends_with(".gd"):
+			object_list.clear()
+			event_list.clear()
+			object_list.add_item("(General)")
+			object_list.set_item_metadata(0, "(General)")
+			object_list.select(0)
+			_populate_gd_script_funcs({"type": "gd_script", "script": current_script})
+			return
 	
 	# Remember selection
 	var current_node_name = ""

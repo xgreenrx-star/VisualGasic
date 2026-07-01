@@ -12138,9 +12138,9 @@ func _check_script_editor_for_vg():
 		return
 	
 	var script_path = current_script.resource_path
-	if not script_path.ends_with(".vg"):
+	if not script_path.ends_with(".vg") and not script_path.ends_with(".gd"):
 		_current_code_edit = null
-		# Not a .vg file — hide navigator
+		# Not a navigable script — hide navigator
 		if _code_navigator:
 			_code_navigator.visible = false
 		return
