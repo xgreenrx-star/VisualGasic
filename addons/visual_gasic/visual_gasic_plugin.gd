@@ -11534,6 +11534,9 @@ func _on_main_screen_changed(screen_name: String):
 	var nav = _get_navigator()
 	if nav:
 		nav.refresh_objects()
+		# Deferred retry: get_current_script() may be null mid-transition.
+		# 0.5s later the script editor is stable and returns the correct path.
+		get_tree().create_timer(0.5).timeout.connect(nav.refresh_objects)
 
 	# Refresh Project Explorer on screen change
 	if _project_explorer and is_instance_valid(_project_explorer) and _project_explorer.visible:

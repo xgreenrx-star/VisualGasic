@@ -8,7 +8,7 @@ extends HBoxContainer
 
 const VGComboBox = preload("res://addons/visual_gasic/vg_combo_box.gd")
 
-var editor_plugin: EditorPlugin
+var editor_plugin  # EditorPlugin (untyped to allow test mocking)
 var object_list  # VGComboBox — left dropdown (Object)
 var event_list   # VGComboBox — right dropdown (Event/Procedure)
 ## Override .vg path pushed by the host when working inside the VG IDE's
@@ -265,7 +265,17 @@ func _get_current_vg_path() -> String:
 		var current_script = script_editor.get_current_script()
 		if current_script and current_script.resource_path.ends_with(".vg"):
 			return current_script.resource_path
-	# Fallback: derive from scene path
+	# Fallback: derive from scene path — only used in form-designer context
+	# where no Godot script editor tab is active. If get_current_script() was
+	# null above this means either (a) we're in the VG IDE form designer (root
+	# exists, no script tab open) or (b) we're mid screen-transition.
+	# Guard: only use the scene path if the script editor has no current editor
+	# at all (i.e. truly no tab open), to avoid returning main.vg when
+	# infoview_companion.vg is open but get_current_script() transiently null.
+	if script_editor and script_editor.get_current_editor() != null:
+		# A script tab IS open — get_current_script() returned null transiently.
+		# Don't guess from scene path; return empty and let the retry handle it.
+		return ""
 	var root = editor_plugin.get_editor_interface().get_edited_scene_root()
 	if not root:
 		return ""
