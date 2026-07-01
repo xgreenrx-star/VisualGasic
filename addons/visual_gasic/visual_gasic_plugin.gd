@@ -11225,6 +11225,8 @@ func _on_scene_changed(scene_root: Node):
 func _handles(object):
 	if object is Texture2D:
 		return true
+	if object is CanvasItem:
+		return true
 	return false
 
 
