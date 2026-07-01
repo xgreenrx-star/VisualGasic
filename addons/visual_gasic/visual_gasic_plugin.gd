@@ -12177,12 +12177,7 @@ func _check_script_editor_for_vg():
 	# Refresh navigator for the new script
 	if _code_navigator:
 		_code_navigator.refresh_objects()
-	
-	# Apply VGThemeManager theme to the code editor (v2.4.1)
-	var theme_mgr_script = load("res://addons/visual_gasic/vg_theme_manager.gd")
-	if theme_mgr_script:
-		theme_mgr_script.apply_to_code_edit(code_edit)
-	
+
 	# NOTE: Do NOT apply a custom CodeHighlighter to .vg files!
 	# Godot's script editor uses the ScriptLanguageExtension's built-in
 	# highlighting methods (_get_comment_delimiters, _get_string_delimiters).

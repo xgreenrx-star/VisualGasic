@@ -170,23 +170,16 @@ func refresh_objects():
 			current_node_name = meta  # "(General)"
 	
 	object_list.clear()
-	
+
 	var root = editor_plugin.get_editor_interface().get_edited_scene_root()
 	if not root:
-		# Try fallback to open scenes
-		var scenes = editor_plugin.get_editor_interface().get_open_scenes()
-		if scenes.size() > 0:
-			# If we have open scenes, maybe the active one is just not "edited_scene_root"?
-			# In Script view, sometimes this happens.
-			# Let's verify if the first one is valid.
-			var maybe_root = scenes[scenes.size()-1] # Last one usually?
-			# Actually, let's just create a timer to retry? 
-			# Or just show (No Active Scene)
-			object_list.add_item("(No Active Scene)")
-		else:
-			object_list.add_item("(No Scene Open)")
+		# In Script view get_edited_scene_root() returns null.  Find the open
+		# scene whose .tscn corresponds to the currently open .vg script.
+		root = _find_root_for_current_vg()
+	if not root:
+		object_list.add_item("(No Scene Open)")
 		return
-		
+
 	# Add (General) entry — VB6-style module-level declarations
 	var general_idx = object_list.item_count
 	object_list.add_item("(General)")
@@ -230,6 +223,38 @@ func refresh_objects():
 	if not found and object_list.item_count > 0:
 		object_list.select(0)
 		_on_object_selected(0)
+
+## Find the scene root corresponding to the currently open .vg script when
+## get_edited_scene_root() returns null (Script view).  Iterates open scene
+## paths, loads each as a PackedScene, and returns the instantiated root if
+## the scene's attached script matches the open .vg file.
+func _find_root_for_current_vg() -> Node:
+	var vg_path := _get_current_vg_path()
+	if vg_path.is_empty():
+		return null
+	# Derive the expected .tscn path — same base name as the .vg.
+	var tscn_path := vg_path.get_basename() + ".tscn"
+	var open_scenes = editor_plugin.get_editor_interface().get_open_scenes()
+	# Prefer the scene whose path matches the .vg base name exactly.
+	var candidate_path := ""
+	if FileAccess.file_exists(tscn_path) and tscn_path in open_scenes:
+		candidate_path = tscn_path
+	else:
+		# Search all open scenes for one that references this .vg as a script.
+		for sp in open_scenes:
+			if not FileAccess.file_exists(sp):
+				continue
+			var text := FileAccess.get_file_as_string(sp)
+			if text.contains(vg_path.get_file()):
+				candidate_path = sp
+				break
+	if candidate_path.is_empty():
+		return null
+	var packed = load(candidate_path)
+	if packed == null or not (packed is PackedScene):
+		return null
+	return packed.instantiate()
+
 
 func _add_node_recursive(node: Node):
 	if not node: return
