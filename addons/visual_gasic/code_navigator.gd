@@ -68,7 +68,9 @@ func _init():
 	add_child(refresh_button)
 
 func _notification(what):
-	if what == NOTIFICATION_THEME_CHANGED or what == NOTIFICATION_READY:
+	if what == NOTIFICATION_THEME_CHANGED:
+		_set_refresh_icon.call_deferred()
+	elif what == NOTIFICATION_READY:
 		_set_refresh_icon()
 
 func _set_refresh_icon():
