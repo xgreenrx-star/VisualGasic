@@ -195,6 +195,13 @@ var _ui_forms_adapter = null   # ui_forms_viewport_adapter.gd instance
 ## The type name ("Button", "Label", …) while placement is armed; "" when idle.
 var _ui_forms_armed_type: String = ""
 
+## Floating Toolbox window (opened from 2D canvas right-click menu).
+var _ui_forms_toolbox_window: Window = null
+## Floating VG Properties window (opened from 2D canvas right-click menu).
+var _ui_forms_props_window: Window = null
+## Canvas right-click context menu.
+var _ui_forms_context_menu: PopupMenu = null
+
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
 
@@ -1669,6 +1676,15 @@ func _exit_tree():
 	if is_instance_valid(_ui_forms_picker):
 		_ui_forms_picker.queue_free()
 		_ui_forms_picker = null
+	if is_instance_valid(_ui_forms_toolbox_window):
+		_ui_forms_toolbox_window.queue_free()
+		_ui_forms_toolbox_window = null
+	if is_instance_valid(_ui_forms_props_window):
+		_ui_forms_props_window.queue_free()
+		_ui_forms_props_window = null
+	if is_instance_valid(_ui_forms_context_menu):
+		_ui_forms_context_menu.queue_free()
+		_ui_forms_context_menu = null
 	_ui_forms_adapter = null
 
 	# Auto-save the form before cleanup so Godot doesn't lose our work
@@ -11264,6 +11280,12 @@ func _forward_canvas_gui_input(event):
 			return true
 		return false
 
+	# ── Right-click context menu (VG Controls / VG Properties) ─────────────
+	if event is InputEventMouseButton and event.pressed and not event.double_click:
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			_ui_forms_show_context_menu(event.position)
+			return true
+
 	# ── Ctrl+Arrow: nudge selected control by 1 pixel (ignoring snap) ──
 	if event is InputEventKey and event.pressed and event.ctrl_pressed and not event.shift_pressed:
 		var nudge := Vector2.ZERO
@@ -12796,6 +12818,160 @@ func _ui_forms_wire_stub(ctrl: Control, godot_type: String) -> void:
 		f.store_string(stub)
 		f.close()
 		EditorInterface.get_resource_filesystem().update_file(vg_path)
+
+
+# =============================================================================
+# UI FORMS — Right-click context menu + floating Toolbox + floating Properties
+# =============================================================================
+
+## Show the VG context menu at the given canvas-local position.
+func _ui_forms_show_context_menu(canvas_pos: Vector2) -> void:
+	if not is_instance_valid(_ui_forms_context_menu):
+		_ui_forms_context_menu = PopupMenu.new()
+		_ui_forms_context_menu.add_item("🧩 Add VG Control…", 0)
+		_ui_forms_context_menu.add_item("🔧 VG Properties", 1)
+		_ui_forms_context_menu.add_separator()
+		_ui_forms_context_menu.add_item("⚡ Wire Event…", 2)
+		_ui_forms_context_menu.id_pressed.connect(_on_ui_forms_context_menu_id)
+		get_editor_interface().get_base_control().add_child(_ui_forms_context_menu)
+	_ui_forms_context_menu.position = Vector2i(DisplayServer.mouse_get_position())
+	_ui_forms_context_menu.popup()
+
+
+func _on_ui_forms_context_menu_id(id: int) -> void:
+	match id:
+		0:  # Add VG Control — open floating Toolbox
+			_ui_forms_show_toolbox_window()
+		1:  # VG Properties
+			_ui_forms_show_props_window()
+		2:  # Wire Event
+			var sel = get_editor_interface().get_selection().get_selected_nodes()
+			if sel.size() == 1:
+				_generate_event_handler(sel[0])
+
+
+# ─── Floating Toolbox Window ─────────────────────────────────────────────────
+
+func _ui_forms_show_toolbox_window() -> void:
+	if is_instance_valid(_ui_forms_toolbox_window):
+		_ui_forms_toolbox_window.popup_centered()
+		return
+
+	_ui_forms_toolbox_window = Window.new()
+	_ui_forms_toolbox_window.title = "VG Toolbox"
+	_ui_forms_toolbox_window.size = Vector2i(280, 400)
+	_ui_forms_toolbox_window.min_size = Vector2i(200, 300)
+	_ui_forms_toolbox_window.unresizable = false
+	_ui_forms_toolbox_window.exclusive = false
+	_ui_forms_toolbox_window.close_requested.connect(func(): _ui_forms_toolbox_window.hide())
+
+	var content: Control = null
+
+	# Try to use the C++ VisualGasicToolbox if available
+	if ClassDB.class_exists("VisualGasicToolbox"):
+		var real_tb = ClassDB.instantiate("VisualGasicToolbox")
+		real_tb.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		real_tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content = real_tb
+		# Register the extra GDScript tools on this floating copy too
+		if real_tb.has_method("add_tool"):
+			real_tb.add_tool("Spinner", "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/Spinner.tscn")
+			real_tb.add_tool("BusyDots", "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/BusyDots.tscn")
+			real_tb.add_tool("ToggleSwitch", "Control", "CheckBox", "res://addons/visual_gasic/prototypes/ToggleSwitch.tscn")
+			real_tb.add_tool("LinkButton", "LinkButton", "LinkButton", "res://addons/visual_gasic/prototypes/LinkButton.tscn")
+		# Wire tool_selected → same _vg_active_drag mechanism
+		if real_tb.has_signal("tool_selected"):
+			real_tb.tool_selected.connect(_on_toolbox_tool_selected)
+	else:
+		# Fallback: use the GDScript picker as content
+		var PickerScript = load("res://addons/visual_gasic/plugins/ui_forms/ui_forms_control_picker.gd")
+		if PickerScript:
+			# Create a non-popup version (just its VBox content)
+			var picker_vb := VBoxContainer.new()
+			picker_vb.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			var hint := Label.new()
+			hint.text = "Drag a control onto the 2D canvas:"
+			picker_vb.add_child(hint)
+			var scroll := ScrollContainer.new()
+			scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+			picker_vb.add_child(scroll)
+			var rows := VBoxContainer.new()
+			rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			rows.add_theme_constant_override("separation", 8)
+			scroll.add_child(rows)
+			var palette = PickerScript.PALETTE
+			for entry in palette:
+				var btn := Button.new()
+				btn.text = entry["label"]
+				btn.custom_minimum_size = Vector2(0, 36)
+				var godot_type: String = entry["type"]
+				btn.pressed.connect(func():
+					_on_ui_forms_control_chosen(godot_type)
+					_ui_forms_toolbox_window.hide()
+				)
+				rows.add_child(btn)
+			content = picker_vb
+
+	if content:
+		_ui_forms_toolbox_window.add_child(content)
+
+	get_editor_interface().get_base_control().add_child(_ui_forms_toolbox_window)
+	_ui_forms_toolbox_window.popup_centered()
+
+
+# ─── Floating VG Properties Window ───────────────────────────────────────────
+
+func _ui_forms_show_props_window() -> void:
+	if is_instance_valid(_ui_forms_props_window):
+		_ui_forms_props_window.popup_centered()
+		# Refresh for current selection
+		_ui_forms_props_refresh()
+		return
+
+	_ui_forms_props_window = Window.new()
+	_ui_forms_props_window.title = "VG Properties"
+	_ui_forms_props_window.size = Vector2i(320, 500)
+	_ui_forms_props_window.min_size = Vector2i(260, 300)
+	_ui_forms_props_window.unresizable = false
+	_ui_forms_props_window.exclusive = false
+	_ui_forms_props_window.close_requested.connect(func(): _ui_forms_props_window.hide())
+
+	# Load the VB6-style properties inspector
+	var inspector_script = load("res://addons/visual_gasic/simple_inspector.gd")
+	if inspector_script:
+		var inspector = inspector_script.new()
+		inspector.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		inspector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if inspector.has_method("setup"):
+			inspector.setup(self)
+		_ui_forms_props_window.add_child(inspector)
+		_ui_forms_props_window.set_meta("_inspector", inspector)
+	else:
+		var lbl := Label.new()
+		lbl.text = "Properties inspector not found"
+		_ui_forms_props_window.add_child(lbl)
+
+	get_editor_interface().get_base_control().add_child(_ui_forms_props_window)
+	_ui_forms_props_window.popup_centered()
+
+	# Connect to editor selection changes
+	get_editor_interface().get_selection().selection_changed.connect(_ui_forms_props_refresh)
+	_ui_forms_props_refresh()
+
+
+## Refresh the floating properties window for the currently selected node.
+func _ui_forms_props_refresh() -> void:
+	if not is_instance_valid(_ui_forms_props_window) or not _ui_forms_props_window.visible:
+		return
+	var inspector = _ui_forms_props_window.get_meta("_inspector") if _ui_forms_props_window.has_meta("_inspector") else null
+	if not inspector:
+		return
+	var sel = get_editor_interface().get_selection().get_selected_nodes()
+	if sel.size() == 1 and inspector.has_method("inspect_node"):
+		inspector.inspect_node(sel[0])
+	elif inspector.has_method("clear"):
+		inspector.clear()
 
 
 # =============================================================================
