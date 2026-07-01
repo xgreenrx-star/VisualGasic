@@ -173,18 +173,26 @@ func refresh_objects():
 
 	var root = editor_plugin.get_editor_interface().get_edited_scene_root()
 	if not root:
-		# In Script view get_edited_scene_root() returns null.  Find the open
-		# scene whose .tscn corresponds to the currently open .vg script.
-		root = _find_root_for_current_vg()
-	if not root:
-		# No form scene — treat as a standalone code module (VB6 .bas equivalent).
-		# Add (General) and populate procedures directly from the .vg text,
-		# just as VB6 does for modules with no form.
-		var gen_only := object_list.item_count
+		# get_edited_scene_root() returns null in Script view and in the VG IDE.
+		# Treat as a standalone code module: show (General) and scan the .vg
+		# text for all Sub/Function/Property declarations — same as VB6 .bas.
+		var gen_only: int = object_list.item_count
 		object_list.add_item("(General)")
 		object_list.set_item_metadata(gen_only, "(General)")
 		object_list.select(gen_only)
-		_on_object_selected(gen_only)
+		event_list.clear()
+		event_list.add_item("(Declarations)")
+		event_list.set_item_metadata(0, {"type": "declarations"})
+		var procedures := _parse_procedures(_get_current_vg_text())
+		for proc in procedures:
+			var display: String = proc["name"]
+			if proc["kind"].begins_with("Property"):
+				display += " [" + proc["kind"] + "]"
+			var eidx: int = event_list.item_count
+			event_list.add_item(display)
+			event_list.set_item_metadata(eidx, {"type": "procedure", "line": proc["line"], "name": proc["name"], "kind": proc["kind"]})
+		if event_list.item_count > 0:
+			event_list.select(0)
 		return
 
 	# Add (General) entry — VB6-style module-level declarations
@@ -230,38 +238,6 @@ func refresh_objects():
 	if not found and object_list.item_count > 0:
 		object_list.select(0)
 		_on_object_selected(0)
-
-## Find the scene root corresponding to the currently open .vg script when
-## get_edited_scene_root() returns null (Script view).  Iterates open scene
-## paths, loads each as a PackedScene, and returns the instantiated root if
-## the scene's attached script matches the open .vg file.
-func _find_root_for_current_vg() -> Node:
-	var vg_path := _get_current_vg_path()
-	if vg_path.is_empty():
-		return null
-	# Derive the expected .tscn path — same base name as the .vg.
-	var tscn_path := vg_path.get_basename() + ".tscn"
-	var open_scenes = editor_plugin.get_editor_interface().get_open_scenes()
-	# Prefer the scene whose path matches the .vg base name exactly.
-	var candidate_path := ""
-	if FileAccess.file_exists(tscn_path) and tscn_path in open_scenes:
-		candidate_path = tscn_path
-	else:
-		# Search all open scenes for one that references this .vg as a script.
-		for sp in open_scenes:
-			if not FileAccess.file_exists(sp):
-				continue
-			var text := FileAccess.get_file_as_string(sp)
-			if text.contains(vg_path.get_file()):
-				candidate_path = sp
-				break
-	if candidate_path.is_empty():
-		return null
-	var packed = load(candidate_path)
-	if packed == null or not (packed is PackedScene):
-		return null
-	return packed.instantiate()
-
 
 func _add_node_recursive(node: Node):
 	if not node: return
