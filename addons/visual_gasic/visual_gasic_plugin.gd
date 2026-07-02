@@ -1937,6 +1937,15 @@ func get_debugger_breakpoints() -> Dictionary:
 ## This is critical because _shortcut_input() fires too late: by that
 ## point Godot's editor has already consumed Ctrl+S, Delete, etc.
 func _input(event: InputEvent) -> void:
+	# ── Double-click in native 2D editor: wire VB6 event handler ──────────
+	# _forward_canvas_gui_input does NOT receive double-clicks in Godot 4.6.1
+	# because CanvasItemEditor consumes them before forwarding to plugins.
+	# Intercept here at _input() level which fires before all viewport handling.
+	if event is InputEventMouseButton and event.double_click and event.button_index == MOUSE_BUTTON_LEFT:
+		if _try_wire_event_on_double_click():
+			get_viewport().set_input_as_handled()
+			return
+
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	# Only intercept when our Form Designer main screen is visible
@@ -11410,6 +11419,40 @@ func _handle_vg_control_drop(canvas_pos: Vector2, drag_data: Dictionary) -> bool
 		drag_data["drop_position"] = canvas_pos.snapped(Vector2(8, 8))
 	
 	_handle_vg_drop_delayed(drag_data)
+	return true
+
+## Checks if a double-click should wire a VB6 event handler.
+## Called from _input() to intercept double-clicks that CanvasItemEditor
+## would otherwise consume (preventing _forward_canvas_gui_input from seeing them).
+## Returns true if an event was wired (caller should consume the input event).
+func _try_wire_event_on_double_click() -> bool:
+	# Skip if the VG Form Designer internal view is the active surface —
+	# it has its own double-click handler via control_double_clicked signal.
+	if is_instance_valid(_ide_layout) and _ide_layout.visible:
+		return false
+	# Must have exactly one selected node
+	var sel = get_editor_interface().get_selection().get_selected_nodes()
+	if sel.size() != 1:
+		return false
+	var node = sel[0]
+	# Only intercept for Controls (Button, Label, etc.) — not Camera2D, Sprite, etc.
+	if not (node is Control):
+		return false
+	# Don't intercept legitimate sub-scene instances the user wants to open,
+	# BUT DO intercept our own VG prototype instances (scene_file_path was cleared
+	# on placement, but handle legacy nodes where it might still be set).
+	if not node.scene_file_path.is_empty() and not node.scene_file_path.contains("visual_gasic/prototypes"):
+		return false
+	# Don't intercept if the node IS the scene root (user double-clicked empty space)
+	var root = get_editor_interface().get_edited_scene_root()
+	if node == root:
+		return false
+	# Verify the click is near the 2D viewport — check that a text field doesn't have focus
+	var focused = get_viewport().gui_get_focus_owner()
+	if focused is LineEdit or focused is TextEdit or focused is CodeEdit:
+		return false
+	print("[VG-DBL] _input double-click → wiring event for: ", node.name)
+	_generate_event_handler(node)
 	return true
 
 ## Generates an event handler for the given node.
