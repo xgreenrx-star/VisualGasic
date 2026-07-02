@@ -2193,22 +2193,22 @@ func _handle_vg_drop_delayed(drag_data: Dictionary, _retry_count: int = 0) -> vo
 		_vg_drop_in_progress = false
 		return
 
-	# Safety: test if the root is actually usable by calling get_child_count().
-	# After a screen switch (e.g. double-click wiring → Script view), the root
-	# can pass is_instance_valid() but its internal tree data is stale, causing
-	# get_children() to SIGSEGV. We detect this by checking if the current main
-	# screen is "2D" — if not, switch to 2D and retry on the next frame so the
-	# editor has time to fully reconstruct the scene context.
-	if _current_main_screen != "2D":
-		if _retry_count < 5:
-			EditorInterface.set_main_screen_editor("2D")
+	# Safety: After a screen switch (double-click wiring → Script → back to 2D),
+	# the root reference can pass is_instance_valid() but NOT be in the tree yet.
+	# add_child silently fails on a node not in the tree. We must wait until the
+	# root is fully re-attached before attempting placement.
+	var root_in_tree: bool = root.is_inside_tree() if is_instance_valid(root) else false
+	if _current_main_screen != "2D" or not root_in_tree:
+		if _retry_count < 10:
+			if _current_main_screen != "2D":
+				EditorInterface.set_main_screen_editor("2D")
 			_vg_drop_in_progress = false  # Allow retry
-			get_tree().create_timer(0.15).timeout.connect(
+			get_tree().create_timer(0.2).timeout.connect(
 				func(): _handle_vg_drop_delayed(drag_data, _retry_count + 1)
 			)
 			return
 		else:
-			printerr("VisualGasic: Could not switch to 2D for drop after retries")
+			printerr("VisualGasic: Scene root not in tree after 10 retries (screen=", _current_main_screen, ")")
 			_vg_drop_in_progress = false
 			return
 
@@ -2263,22 +2263,21 @@ func _handle_vg_drop_delayed(drag_data: Dictionary, _retry_count: int = 0) -> vo
 	# scene-state tracker reacts to the change on a live tree node.
 	new_node.scene_file_path = ""
 
-	# Add directly to the scene tree. EditorUndoRedoManager's add_do_method pattern
-	# fails with "Invalid owner" because add_child executed through the undo system
-	# doesn't always establish the parent relationship before set_owner runs.
-	# Direct placement is reliable. Ctrl+Z won't undo placement, but deletion
-	# through the scene tree still works normally.
+	# Add directly to the scene tree.
 	root.add_child(new_node, true)
 	if new_node.get_parent() != root:
-		printerr("VisualGasic: add_child FAILED — parent is ", new_node.get_parent(), " expected ", root)
+		printerr("VisualGasic: add_child FAILED — root.is_inside_tree()=", root.is_inside_tree())
+		new_node.queue_free()
 		_vg_drop_in_progress = false
 		return
-	new_node.set_owner(root)
+	# set_owner is REQUIRED for the node to appear in the Scene Tree dock and be
+	# serialized to the .tscn file.
+	new_node.owner = root
 	# Also set owner on all children of the instantiated node (sub-nodes from the
 	# prototype .tscn) so they get saved with the scene.
 	for child in new_node.get_children():
 		if is_instance_valid(child):
-			child.set_owner(root)
+			child.owner = root
 
 	# Apply VB6 theme so the control looks correct regardless of scene structure.
 	# If the scene root is a Control (e.g. Window, Panel), set the theme there so
@@ -11530,16 +11529,19 @@ func _generate_event_handler(node):
 		
 	var scene_path = root.scene_file_path
 	if scene_path.is_empty():
-		# Scene hasn't been saved yet — derive a filename so code generation can
-		# compute the adjacent .vg path. We do NOT save the .tscn to disk here
-		# because EditorInterface.save_scene() and ResourceSaver.save() both
-		# cause the editor to internally rebind the scene root, which breaks
-		# set_owner() for all subsequent control placements. The editor will
-		# prompt the user to save (or auto-save on close / Ctrl+S).
+		# Scene hasn't been saved yet — we MUST save to disk so that when the
+		# editor switches to Script view and back to 2D, it can reload the scene.
+		# Without a file on disk, the root enters a zombie state (valid reference
+		# but not in the tree) after the round-trip.
 		var auto_name = root.name if not root.name.is_empty() else "Form1"
 		scene_path = "res://" + auto_name + ".tscn"
 		root.scene_file_path = scene_path
-		print("VisualGasic: Set scene path to ", scene_path, " for code generation")
+		var packed = PackedScene.new()
+		var err = packed.pack(root)
+		if err == OK:
+			ResourceSaver.save(packed, scene_path)
+		get_editor_interface().get_resource_filesystem().scan()
+		print("VisualGasic: Saved scene to ", scene_path, " for code generation")
 	
 	# Assume .vg file is adjacent to scene
 	var bas_path = scene_path.get_basename() + ".vg"
