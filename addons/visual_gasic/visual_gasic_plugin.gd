@@ -2102,7 +2102,8 @@ func _process(_delta: float) -> void:
 			# We'll keep retrying each frame until found (editor UI loads asynchronously)
 
 	# C++ Form Designer handles its own drops — skip old code path
-	if _form_designer and _form_designer.visible:
+	# Use is_visible_in_tree() because .visible may be true while parent layout is hidden
+	if _form_designer and _form_designer.is_visible_in_tree():
 		if _vg_drag_active and not get_viewport().gui_is_dragging():
 			_vg_drag_active = false  # Reset flag, C++ consumed the meta
 		return
@@ -12968,8 +12969,8 @@ func _ui_forms_show_toolbox_window() -> void:
 func _on_floating_toolbox_selected(ctrl_class: String, scene_path: String) -> void:
 	if ctrl_class.is_empty() or scene_path.is_empty():
 		return
-	# If C++ FormDesigner is active, route to it normally
-	if is_instance_valid(_form_designer) and _form_designer.visible:
+	# If C++ FormDesigner is active and visible on screen, route to it normally
+	if is_instance_valid(_form_designer) and _form_designer.is_visible_in_tree():
 		_on_toolbox_tool_selected(ctrl_class, scene_path)
 		return
 	# Direct placement: compute viewport center in world coords
