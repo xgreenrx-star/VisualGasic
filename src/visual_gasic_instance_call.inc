@@ -2127,6 +2127,16 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
          MemberAccessNode* ma = (MemberAccessNode*)target;
          Variant base = evaluate_expression(ma->base_object);
 
+         // Error on Nothing/Null base — user likely has a typo or control doesn't exist
+         if (base.get_type() == Variant::NIL) {
+             String base_name = "?";
+             if (ma->base_object && ma->base_object->type == ExpressionNode::VARIABLE) {
+                 base_name = ((VariableNode*)ma->base_object)->name;
+             }
+             raise_error("Object variable not set: '" + base_name + "' is Nothing (cannot access ." + ma->member_name + ")");
+             return;
+         }
+
          // VG class instance member assignment (object ID is an integer)
          if (base.get_type() == Variant::INT) {
              int obj_id = (int)base;

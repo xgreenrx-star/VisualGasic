@@ -756,6 +756,9 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                      Node *n = Object::cast_to<Node>(owner);
                      if (n) {
                          Node *found = n->find_child(name, true, false);
+                         if (!found && n->get_parent()) {
+                             found = n->get_parent()->find_child(name, true, false);
+                         }
                          if (found) return found;
                      }
                  }
