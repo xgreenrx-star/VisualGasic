@@ -11529,14 +11529,15 @@ func _generate_event_handler(node):
 		
 	var scene_path = root.scene_file_path
 	if scene_path.is_empty():
-		# Scene hasn't been saved yet — save via the editor API so the editor's
-		# internal state stays in sync with disk. ResourceSaver.save() causes the
-		# "reload external changes" dialog. EditorInterface.save_scene() does not.
+		# Scene hasn't been saved yet — just set the path so we can compute the
+		# .vg filename. DO NOT call save_scene() or ResourceSaver here — any scene
+		# modification during the wiring flow corrupts the root's state and breaks
+		# all subsequent placements (even Godot's own controls fail).
+		# The scene will be saved when the user presses Ctrl+S or Godot auto-saves.
 		var auto_name = root.name if not root.name.is_empty() else "Form1"
 		scene_path = "res://" + auto_name + ".tscn"
 		root.scene_file_path = scene_path
-		EditorInterface.save_scene()
-		print("VisualGasic: Saved scene to ", scene_path, " for code generation")
+		print("VisualGasic: Set scene path to ", scene_path, " for code generation")
 	
 	# Assume .vg file is adjacent to scene
 	var bas_path = scene_path.get_basename() + ".vg"
@@ -11594,37 +11595,20 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int, p
 	if ResourceLoader.exists(path):
 		var res = load(path)
 		if res:
-			# Attach to Scene Root (Form) to act as Code-Behind
+			# DO NOT modify the scene root here (no set_script, no save_scene).
+			# Any modification to the edited scene root during the wiring flow
+			# corrupts its state — even Godot's own controls can't be placed
+			# afterward. The VG runtime finds scripts by naming convention
+			# (same basename as the .tscn), so attachment is not required.
 			var root = get_editor_interface().get_edited_scene_root()
-			if root:
-				# Only attach if no script is present or it's the same script
-				if root.get_script() == null:
-					root.set_script(res)
-					print("VisualGasic: Attached " + path.get_file() + " to Form (" + root.name + ").")
-				# Do NOT call save_scene() here — modifying the root's script already
-				# marks the scene dirty in the editor. Forcing a save at this point
-				# (while about to switch to Script screen) causes the editor to
-				# internally rebind the scene root, breaking set_owner() for all
-				# subsequent placements ("Invalid owner" errors).
 			
 			# Pre-populate the navigator cache while scene root is still valid,
 			# then switch screens. After the switch, schedule the dropdown selection
 			# deferred so it runs AFTER _on_main_screen_changed's refresh fires.
 			var nav = _get_navigator()
 			if is_instance_valid(nav):
-				if nav.has_method("set_cached_controls_from_scene"):
+				if nav.has_method("set_cached_controls_from_scene") and root:
 					nav.set_cached_controls_from_scene(root)
-
-			# Save the scene BEFORE switching to Script editor. This ensures the
-			# .tscn exists on disk so that when we return to 2D, the reload can
-			# restore a fully-valid root that's inside the tree.
-			EditorInterface.save_scene()
-			# Schedule a reload when the user switches back to 2D. Without this,
-			# the root reference becomes a zombie (valid but not in tree) after
-			# the Script→2D transition, and add_child silently fails.
-			var scene_reload_path = root.scene_file_path if root else ""
-			if not scene_reload_path.is_empty():
-				_pending_reload_path = scene_reload_path
 
 			# Open in Editor — switch to Script view
 			get_editor_interface().edit_resource(res)
@@ -11698,11 +11682,11 @@ func _deferred_scroll_to_caret(code_edit: CodeEdit) -> void:
 ## @param screen_name: Name of the screen ("2D", "3D", "Script", etc.)
 func _on_main_screen_changed(screen_name: String):
 	_current_main_screen = screen_name
-	# ── Handle pending scene reload ──
-	# Fires when switching AWAY from Script back to 2D or VisualGasic.
-	# Don't consume the pending path if switching TO Script (the wiring flow
-	# sets it before switching to Script — we want it to fire on return).
-	if not _pending_reload_path.is_empty() and screen_name != "Script":
+	# ── Handle pending Form Designer → Godot reload ──
+	# _make_visible(false) saved the .tscn but couldn't reload because
+	# Godot was mid-scene-transition (is_changing_scene() == true).
+	# Now the transition is complete, so the reload will actually work.
+	if not _pending_reload_path.is_empty():
 		var reload_path = _pending_reload_path
 		_pending_reload_path = ""
 		print("[VG-SYNC] main_screen_changed('", screen_name, "') → reloading '", reload_path, "'")
