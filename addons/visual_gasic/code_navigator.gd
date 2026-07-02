@@ -25,6 +25,17 @@ var _pending_event: String = ""
 
 func set_override_vg_path(path: String) -> void:
 	_override_vg_path = path
+
+## Pre-populate the control cache directly from the caller (same pattern as VG IDE).
+## Called from _poll_for_inject before set_main_screen_editor("Script") so the cache
+## is always valid even when get_edited_scene_root() returns null afterward.
+func set_cached_controls_from_scene(scene_root: Node) -> void:
+	if not is_instance_valid(scene_root):
+		return
+	_cached_controls.clear()
+	for child in scene_root.get_children():
+		if child is Control:
+			_cached_controls.append({"name": child.name, "class_name": child.get_class()})
 var refresh_button: Button
 var _separator: VSeparator
 var _debugger_plugin: EditorDebuggerPlugin = null
@@ -262,9 +273,10 @@ func refresh_objects():
 
 	# Cache the Control children for use when get_edited_scene_root() returns null
 	_cached_controls.clear()
-	for child in root.get_children():
-		if child is Control:
-			_cached_controls.append({"name": child.name, "class_name": child.get_class()})
+	if is_instance_valid(root):
+		for child in root.get_children():
+			if child is Control:
+				_cached_controls.append({"name": child.name, "class_name": child.get_class()})
 
 	# Add Scene Scripts section — nodes with .gd scripts
 	var gd_nodes: Array = []

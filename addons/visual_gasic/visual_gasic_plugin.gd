@@ -11587,6 +11587,10 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int, p
 			# null so the navigator can no longer see the scene nodes. Do it now.
 			var nav = _get_navigator()
 			if is_instance_valid(nav):
+				# Pre-populate the control cache while scene root is still valid
+				# (same pattern as VG IDE's _feed_control_names_to_editor).
+				if nav.has_method("set_cached_controls_from_scene"):
+					nav.set_cached_controls_from_scene(root)
 				nav.refresh_objects()
 				if nav.has_method("select_object_and_event"):
 					nav.select_object_and_event(obj, event)
