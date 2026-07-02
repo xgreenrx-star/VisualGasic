@@ -2104,30 +2104,6 @@ func _process(_delta: float) -> void:
 				_bottom_panel_search_done = true
 			# We'll keep retrying each frame until found (editor UI loads asynchronously)
 
-	# ── Double-click detection via _process() polling ──
-	# Must run BEFORE the _form_designer early-return below.
-	# Neither _input() nor _forward_canvas_gui_input receives double_click events
-	# from the 2D canvas in Godot 4.6.1. Input.is_mouse_button_pressed() always works.
-	var mouse_pressed = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-	if mouse_pressed and not _dbl_mouse_was_pressed:
-		# Rising edge: mouse just pressed this frame
-		var sel = get_editor_interface().get_selection().get_selected_nodes()
-		var current_node: Node = sel[0] if sel.size() == 1 else null
-		if current_node and current_node is Control:
-			var root = get_editor_interface().get_edited_scene_root()
-			if current_node != root:
-				var now = Time.get_ticks_msec()
-				if current_node == _last_canvas_click_node and (now - _last_canvas_click_time) < _DOUBLE_CLICK_MS:
-					# Double-click detected → wire event (same as Wire Event menu)
-					print("[VG-DBL] _process() double-click → wiring: ", current_node.name)
-					call_deferred("_generate_event_handler", current_node)
-					_last_canvas_click_node = null
-					_last_canvas_click_time = 0
-				else:
-					_last_canvas_click_time = now
-					_last_canvas_click_node = current_node
-	_dbl_mouse_was_pressed = mouse_pressed
-
 	# C++ Form Designer handles its own drops — skip old code path
 	# Use is_visible_in_tree() because .visible may be true while parent layout is hidden
 	if _form_designer and _form_designer.is_visible_in_tree():
@@ -11299,11 +11275,11 @@ const MAX_RECENT_FORMS := 5
 
 ## Timer-based double-click detection for 2D canvas.
 ## Godot 4.6.1 does NOT forward double_click events to _forward_canvas_gui_input
-## or _input() for the 2D viewport. But mouse RELEASES are forwarded.
-## So we detect two rapid left-button presses on the same selected node.
+## or _input() for the 2D viewport. But mouse presses ARE forwarded via
+## set_input_event_forwarding_always_enabled(). Two rapid left-presses on the
+## same selected Control node are detected in _forward_canvas_gui_input.
 var _last_canvas_click_time: int = 0  # msec
 var _last_canvas_click_node: Node = null
-var _dbl_mouse_was_pressed: bool = false  # previous frame mouse state
 const _DOUBLE_CLICK_MS := 400
 
 func _forward_canvas_gui_input(event):
