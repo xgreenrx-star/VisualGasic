@@ -2180,6 +2180,19 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 		_vg_drop_in_progress = false
 		return
 
+	# Ensure we're on the 2D screen. After a double-click wiring, the user might
+	# drag a control while the Script editor is still active. In that state,
+	# get_edited_scene_root() can return a stale pointer where get_children()
+	# SIGSEGVs. Switching back to 2D guarantees the scene root is fully live.
+	EditorInterface.set_main_screen_editor("2D")
+
+	# Re-fetch root after screen switch — it may have changed.
+	root = get_editor_interface().get_edited_scene_root()
+	if not root or not is_instance_valid(root):
+		printerr("VisualGasic: Scene root invalid after screen switch")
+		_vg_drop_in_progress = false
+		return
+
 	# Use the pre-captured drop position
 	var drop_pos: Vector2 = drag_data.get("drop_position", Vector2.ZERO)
 	if drop_pos == Vector2.ZERO:
