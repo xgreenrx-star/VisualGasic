@@ -12850,9 +12850,10 @@ func _ui_forms_show_toolbox_window() -> void:
 		# Register extras (same as IDE)
 		if real_tb.has_method("add_tool"):
 			_register_extra_tools_on(real_tb)
-		# Wire tool_selected → drag-drop placement
+		# Wire tool_selected → direct placement (not drag-drop, which can't
+		# cross Windows). Single-click a tool = place at viewport center.
 		if real_tb.has_signal("tool_selected"):
-			real_tb.tool_selected.connect(_on_toolbox_tool_selected)
+			real_tb.tool_selected.connect(_on_floating_toolbox_selected)
 		# Apply VB6 list-style restyling (deferred so nodes are in tree)
 		call_deferred("_restyle_toolbox_instance", real_tb)
 	else:
@@ -12862,6 +12863,43 @@ func _ui_forms_show_toolbox_window() -> void:
 
 	get_editor_interface().get_base_control().add_child(_ui_forms_toolbox_window)
 	_ui_forms_toolbox_window.popup_centered()
+
+
+## Handle tool selection from the floating Toolbox window.
+## Since drag-and-drop can't cross Godot Windows, we place the control
+## directly at the center of the visible 2D viewport (like VB6 double-click).
+func _on_floating_toolbox_selected(ctrl_class: String, scene_path: String) -> void:
+	if ctrl_class.is_empty() or scene_path.is_empty():
+		return
+	# If C++ FormDesigner is active, route to it normally
+	if is_instance_valid(_form_designer) and _form_designer.visible:
+		_on_toolbox_tool_selected(ctrl_class, scene_path)
+		return
+	# Direct placement: compute viewport center in world coords
+	var root = get_editor_interface().get_edited_scene_root()
+	if not root:
+		push_warning("[VG Toolbox] No edited scene root")
+		return
+	var viewport = get_editor_interface().get_editor_viewport_2d()
+	if not viewport:
+		push_warning("[VG Toolbox] No 2D viewport")
+		return
+	var vp_center = viewport.size / 2.0
+	var canvas_xform = viewport.get_canvas_transform()
+	var world_pos = canvas_xform.affine_inverse() * Vector2(vp_center)
+	var form_offset := Vector2.ZERO
+	if root is Window:
+		form_offset = Vector2(root.position)
+	elif root is Control:
+		form_offset = root.position
+	var local_pos = (world_pos - form_offset).snapped(Vector2(8, 8))
+	var drag_data := {
+		"type": "vg_control",
+		"scene_path": scene_path,
+		"control_class": ctrl_class,
+		"drop_position": local_pos,
+	}
+	_handle_vg_drop_delayed(drag_data)
 
 
 ## Register extra GDScript tools on a given VisualGasicToolbox instance.
@@ -12936,14 +12974,15 @@ func _restyle_toolbox_instance(cpp_toolbox) -> void:
 		if grid is GridContainer:
 			grid.set_columns(2)
 			grid.add_theme_constant_override("h_separation", 2)
-			grid.add_theme_constant_override("v_separation", 1)
+			grid.add_theme_constant_override("v_separation", 2)
 			for btn_idx in range(grid.get_child_count()):
 				var btn = grid.get_child(btn_idx)
 				if btn is Button:
 					var tool_name: String = btn.name
 					btn.text = display_names.get(tool_name, tool_name)
-					btn.custom_minimum_size = Vector2(0, 26)
+					btn.custom_minimum_size = Vector2(120, 28)
 					btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+					btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 					btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
 					btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 					btn.expand_icon = false
