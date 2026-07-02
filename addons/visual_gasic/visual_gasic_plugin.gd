@@ -85,6 +85,11 @@ var _vg_drag_active: bool = false
 ## Reentrancy guard: prevents _handle_vg_drop_delayed from recursing
 var _vg_drop_in_progress: bool = false
 
+## Tracks the currently active main screen ("2D", "3D", "Script", "AssetLib").
+## Updated by _on_main_screen_changed. Used to gate scene-tree operations that
+## crash when attempted from the wrong screen.
+var _current_main_screen: String = "2D"
+
 ## VB6 Layout Manager — toolbar toggle for VB6/Godot IDE modes
 var _layout_manager = null
 
@@ -2186,12 +2191,7 @@ func _handle_vg_drop_delayed(drag_data: Dictionary, _retry_count: int = 0) -> vo
 	# get_children() to SIGSEGV. We detect this by checking if the current main
 	# screen is "2D" — if not, switch to 2D and retry on the next frame so the
 	# editor has time to fully reconstruct the scene context.
-	# NOTE: There's no public API to query the current main screen name, so we
-	# check if get_editor_viewport_2d() has nonzero size (only true when 2D is
-	# the active screen and the viewport is laid out).
-	var vp2d = get_editor_interface().get_editor_viewport_2d()
-	var is_2d_active: bool = vp2d != null and vp2d.size.x > 50 and vp2d.size.y > 50
-	if not is_2d_active:
+	if _current_main_screen != "2D":
 		if _retry_count < 5:
 			EditorInterface.set_main_screen_editor("2D")
 			_vg_drop_in_progress = false  # Allow retry
@@ -11677,6 +11677,7 @@ func _deferred_scroll_to_caret(code_edit: CodeEdit) -> void:
 ## deactivate Form Designer (like switching away from any main screen).
 ## @param screen_name: Name of the screen ("2D", "3D", "Script", etc.)
 func _on_main_screen_changed(screen_name: String):
+	_current_main_screen = screen_name
 	# ── Handle pending Form Designer → Godot reload ──
 	# _make_visible(false) saved the .tscn but couldn't reload because
 	# Godot was mid-scene-transition (is_changing_scene() == true).
