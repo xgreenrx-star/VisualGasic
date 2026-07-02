@@ -2201,6 +2201,13 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 		_vg_drop_in_progress = false
 		return
 
+	# Unlink the node from its prototype .tscn immediately.
+	# An instanced-scene node (scene_file_path != "") causes Godot's 2D editor
+	# to open the source .tscn on double-click, bypassing our canvas input handler.
+	# Clearing it makes the node standalone so double-click goes through
+	# _forward_canvas_gui_input and triggers VB6-style event wiring instead.
+	new_node.scene_file_path = ""
+
 	# Generate a unique name based on existing siblings with the same base
 	var control_name = scene_path.get_file().get_basename()
 	var sibling_count := 0
@@ -11169,6 +11176,16 @@ func _post_init():
 ## Automatically switches toolbox tabs to show relevant controls.
 ## @param scene_root: The root node of the newly active scene
 func _on_scene_changed(scene_root: Node):
+	# Safety net: if Godot somehow opened a VG prototype scene (e.g. via
+	# scene-tree right-click → Open), close it immediately and stay put.
+	# The correct action (event wiring) is triggered via double-click in the
+	# 2D canvas which goes through _forward_canvas_gui_input instead.
+	if scene_root and scene_root.scene_file_path.contains("addons/visual_gasic/prototypes/"):
+		print("[VG] Blocked accidental open of prototype scene: ", scene_root.scene_file_path)
+		get_editor_interface().reload_scene_from_path(scene_root.scene_file_path)
+		call_deferred("_close_prototype_scene_tab", scene_root.scene_file_path)
+		return
+
 	# Auto-refresh navigator when switching scenes
 	var nav = _get_navigator()
 	if nav:
@@ -11188,6 +11205,15 @@ func _on_scene_changed(scene_root: Node):
 		if not new_path.is_empty() and new_path != _vg_2d_editor.get_scene_path():
 			print("[VG-SYNC] scene_changed → loading '", new_path, "' into 2D editor")
 			_vg_2d_editor.load_scene(new_path)
+
+## Closes an editor tab for a prototype scene that was accidentally opened.
+func _close_prototype_scene_tab(proto_path: String) -> void:
+	# Discard the prototype scene without saving — it was never modified
+	var ei = get_editor_interface()
+	# Reloading is sufficient; Godot will have already switched back.
+	# If the tab is still open, close it via reload (discards unsaved state).
+	if ei.get_edited_scene_root() and ei.get_edited_scene_root().scene_file_path == proto_path:
+		ei.reload_scene_from_path(proto_path)
 
 ## Determines if this plugin handles input for the given object.
 ## Returns true for image resources so double-clicking a PNG in the
