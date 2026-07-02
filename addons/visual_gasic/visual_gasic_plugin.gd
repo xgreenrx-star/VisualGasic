@@ -82,8 +82,10 @@ var _nav_injected_parent = null
 ## Tracks if a vg_control drag was in progress (for detecting drag end)
 var _vg_drag_active: bool = false
 
-## Reentrancy guard: prevents _handle_vg_drop_delayed from recursing
+## Reentrancy guard: prevents _handle_vg_drop_delayed from recursing.
+## Auto-resets after 2 seconds to prevent permanent lockout from edge cases.
 var _vg_drop_in_progress: bool = false
+var _vg_drop_in_progress_time: int = 0  # msec when set to true
 
 ## Tracks the currently active main screen ("2D", "3D", "Script", "AssetLib").
 ## Updated by _on_main_screen_changed. Used to gate scene-tree operations that
@@ -2168,9 +2170,15 @@ func _process(_delta: float) -> void:
 ## This integrates with Godot's undo/redo system so placement is undoable (Ctrl+Z)
 ## and deletion works through the normal scene-tree delete flow.
 func _handle_vg_drop_delayed(drag_data: Dictionary, _retry_count: int = 0) -> void:
+	# Reentrancy guard with auto-reset: if the flag has been stuck for >2s,
+	# something went wrong — reset it so placements aren't permanently blocked.
 	if _vg_drop_in_progress and _retry_count == 0:
-		return
+		if (Time.get_ticks_msec() - _vg_drop_in_progress_time) < 2000:
+			return
+		# Stale lock — force reset
+		_vg_drop_in_progress = false
 	_vg_drop_in_progress = true
+	_vg_drop_in_progress_time = Time.get_ticks_msec()
 
 	var scene_path = drag_data.get("scene_path", "")
 	if scene_path.is_empty():
@@ -11521,16 +11529,17 @@ func _generate_event_handler(node):
 		# Derive a filename from the root node's name (e.g. "Node2D" → "Node2D.tscn").
 		var auto_name = root.name if not root.name.is_empty() else "Form1"
 		scene_path = "res://" + auto_name + ".tscn"
-		var packed = PackedScene.new()
-		var err = packed.pack(root)
-		if err != OK:
-			printerr("VisualGasic: Failed to pack scene for auto-save")
-			return
-		err = ResourceSaver.save(packed, scene_path)
-		if err != OK:
-			printerr("VisualGasic: Failed to auto-save scene to ", scene_path)
-			return
 		root.scene_file_path = scene_path
+		# Use EditorInterface.save_scene() so the editor tracks the save and
+		# does NOT show "external changes" dialogs later. ResourceSaver.save()
+		# bypasses the editor's dirty-tracking and causes the stale-tree bug
+		# where subsequent placements silently fail until the user reloads.
+		var save_err = EditorInterface.save_scene()
+		if save_err != OK:
+			# Fallback: direct save (will trigger external-changes dialog, but at least works)
+			var packed = PackedScene.new()
+			packed.pack(root)
+			ResourceSaver.save(packed, scene_path)
 		get_editor_interface().get_resource_filesystem().scan()
 		print("VisualGasic: Auto-saved scene to ", scene_path, " for code generation")
 	
@@ -11597,6 +11606,10 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int, p
 				if root.get_script() == null:
 					root.set_script(res)
 					print("VisualGasic: Attached " + path.get_file() + " to Form (" + root.name + ").")
+				# Save through the editor API so its in-memory state stays in sync.
+				# Without this, returning to 2D shows a stale tree and placements
+				# silently fail until the user manually reloads external changes.
+				EditorInterface.save_scene()
 			
 			# Pre-populate the navigator cache while scene root is still valid,
 			# then switch screens. After the switch, schedule the dropdown selection
