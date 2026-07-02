@@ -324,6 +324,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              Node* owner_node = Object::cast_to<Node>(owner);
              if (owner_node) {
                  Node *found = owner_node->find_child(name, true, false);
+                 // Fallback: search parent (VGASIC helper node pattern)
+                 if (!found && owner_node->get_parent()) {
+                     found = owner_node->get_parent()->find_child(name, true, false);
+                 }
                  if (found) {
                      return found;
                  }

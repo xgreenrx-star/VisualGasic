@@ -551,7 +551,11 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
                  Node *n = Object::cast_to<Node>(owner);
                  if (n) {
                      // Note: find_child is slow, but Menus are not high freq
-                     Node *menu = n->find_child(name, true, false); 
+                     Node *menu = n->find_child(name, true, false);
+                     // Fallback: search parent (VGASIC helper node pattern)
+                     if (!menu && n->get_parent()) {
+                         menu = n->get_parent()->find_child(name, true, false);
+                     } 
                      if (menu) {
                          PopupMenu *pm = Object::cast_to<PopupMenu>(menu);
                          if (pm && pm->has_meta("callbacks")) {
@@ -651,6 +655,10 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
              Node *owner_node = Object::cast_to<Node>(owner);
              if (owner_node) {
                  Node *ctrl_node = owner_node->find_child(ctrl_name, true, false);
+                 // Fallback: search parent (VGASIC helper node pattern)
+                 if (!ctrl_node && owner_node->get_parent()) {
+                     ctrl_node = owner_node->get_parent()->find_child(ctrl_name, true, false);
+                 }
                  if (ctrl_node && ctrl_node->is_class("LineEdit")) {
                      is_line_edit = true;
                  }
@@ -1276,7 +1284,16 @@ void VisualGasicInstance::notification(int32_t p_what) {
                  if (!node->is_processing_unhandled_input() && script->_has_method("_UnhandledInput")) node->set_process_unhandled_input(true);
                  
                  // Run Auto-Wire for Signals
-                 _connect_vb_signals_recursive(node, this, node);
+                 // If this node is not the scene root (e.g. "VGASIC" helper node),
+                 // wire from the parent so sibling controls are found.
+                 Node *wire_root = node;
+                 if (node->get_parent() && node->get_name() == StringName("VGASIC")) {
+                     wire_root = node->get_parent();
+                 } else if (node->get_parent() && node->get_parent()->get_owner() == nullptr && !node->get_parent()->is_class("Window")) {
+                     // Parent is the scene root (owner==null means it IS the root)
+                     wire_root = node->get_parent();
+                 }
+                 _connect_vb_signals_recursive(wire_root, this, node);
 
                  // Pass-4 Android plugin: wire VGAndroidPlugin's permission /
                  // GPS / steps signals to global VG subs of matching names

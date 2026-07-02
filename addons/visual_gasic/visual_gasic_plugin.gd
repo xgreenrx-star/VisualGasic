@@ -86,7 +86,6 @@ var _vg_drag_active: bool = false
 ## Auto-resets after 2 seconds to prevent permanent lockout from edge cases.
 var _vg_drop_in_progress: bool = false
 var _vg_drop_in_progress_time: int = 0  # msec when set to true
-var _vg_injected_paths: PackedStringArray = []  # .tscn paths modified by _build()
 
 ## Tracks the currently active main screen ("2D", "3D", "Script", "AssetLib").
 ## Updated by _on_main_screen_changed. Used to gate scene-tree operations that
@@ -1674,74 +1673,17 @@ func _save_external_data() -> void:
 	_saving_external = false
 
 
-## Called before the game runs (F5/F6). Injects .vg script references into
-## scene files that have a matching .vg but don't already reference it.
-## This allows placement to work during editing (no .vg attached to root)
-## while ensuring the runtime can find the script when the game runs.
+## Called before the game runs (F5/F6). Ensures every scene with a matching
+## .vg file has a permanent VGASIC child node holding the script. The root
+## node stays script-free so placement always works.
 func _build() -> bool:
-	_inject_vg_scripts_into_scenes()
-	# Strip injections after a short delay — game has already loaded the .tscn
-	# by then, so the disk version can revert to clean. If Godot asks "reload?"
-	# the user can safely say yes (file is clean again).
-	if _vg_injected_paths.size() > 0:
-		var timer = get_tree().create_timer(1.5)
-		timer.timeout.connect(_strip_vg_injections)
+	_ensure_vgasic_nodes_in_scenes()
 	return true
 
 
-## Strips .vg script references that were injected by _build(), restoring .tscn
-## files to their clean editing state.
-func _strip_vg_injections() -> void:
-	for tscn_path in _vg_injected_paths:
-		_strip_vg_script_from_tscn(tscn_path)
-	_vg_injected_paths.clear()
-	EditorInterface.get_resource_filesystem().scan()
-
-
-## Removes the auto-injected ext_resource and script= lines from a .tscn file.
-func _strip_vg_script_from_tscn(tscn_path: String) -> void:
-	var content = FileAccess.get_file_as_string(tscn_path)
-	if content.is_empty():
-		return
-	var lines = content.split("\n")
-	var new_lines: PackedStringArray = []
-	var removed_ext := false
-	for line in lines:
-		# Remove our injected ext_resource line
-		if line.begins_with('[ext_resource') and 'id="vg_auto_' in line:
-			removed_ext = true
-			continue
-		# Remove our injected script= line
-		if line.begins_with('script = ExtResource("vg_auto_'):
-			continue
-		new_lines.append(line)
-	if not removed_ext:
-		return  # Nothing was ours — don't rewrite
-	# Decrement load_steps
-	for i in new_lines.size():
-		if new_lines[i].begins_with("[gd_scene"):
-			var idx = new_lines[i].find("load_steps=")
-			if idx >= 0:
-				var after = new_lines[i].substr(idx + 11)
-				var steps_str = ""
-				for c in after:
-					if c.is_valid_int() or c == "-":
-						steps_str += c
-					else:
-						break
-				if not steps_str.is_empty():
-					var old_steps = int(steps_str)
-					new_lines[i] = new_lines[i].replace("load_steps=" + steps_str, "load_steps=" + str(old_steps - 1))
-			break
-	var f = FileAccess.open(tscn_path, FileAccess.WRITE)
-	if f:
-		f.store_string("\n".join(new_lines))
-		f.close()
-		print("VisualGasic: Stripped auto-injected .vg from ", tscn_path)
-
-
-## Scans all .tscn files in res:// and injects .vg script references where needed.
-func _inject_vg_scripts_into_scenes() -> void:
+## Scans all .tscn files in res:// and ensures a VGASIC child node exists
+## for any scene that has a matching .vg file.
+func _ensure_vgasic_nodes_in_scenes() -> void:
 	var dir = DirAccess.open("res://")
 	if not dir:
 		return
@@ -1752,92 +1694,106 @@ func _inject_vg_scripts_into_scenes() -> void:
 			var vg_path = "res://" + file_name.get_basename() + ".vg"
 			if FileAccess.file_exists(vg_path):
 				var tscn_path = "res://" + file_name
-				_ensure_vg_script_in_tscn(tscn_path, vg_path)
+				_ensure_vgasic_child_in_tscn(tscn_path, vg_path)
 		file_name = dir.get_next()
 	dir.list_dir_end()
 
 
-## Checks if a .tscn already references the .vg script on its root node.
-## If not, injects the ext_resource and script= lines into the file.
-func _ensure_vg_script_in_tscn(tscn_path: String, vg_path: String) -> void:
-	var abs_tscn = ProjectSettings.globalize_path(tscn_path)
+## Ensures a .tscn has a VGASIC child node with the .vg script attached.
+## If the node already exists, does nothing. If the ROOT already has the .vg
+## script (legacy), migrates it to a VGASIC child instead.
+func _ensure_vgasic_child_in_tscn(tscn_path: String, vg_path: String) -> void:
 	var content = FileAccess.get_file_as_string(tscn_path)
 	if content.is_empty():
 		return
-	# Already has this .vg referenced — skip
-	if content.find(vg_path) != -1:
+	# Already has a VGASIC node — skip
+	if 'name="VGASIC"' in content:
 		return
-	# Already has a script on the root node line — skip (might be GDScript)
-	# Find the first [node ...] line (root node — no parent= attribute)
+	
 	var lines = content.split("\n")
-	var root_node_line_idx := -1
-	var root_script_line_idx := -1
 	var last_ext_resource_idx := -1
 	var load_steps_line_idx := -1
+	var root_node_line_idx := -1
+	var root_script_line_idx := -1
+	var has_vg_ext_resource := false
+	var existing_res_id := ""
+	
 	for i in lines.size():
 		var line = lines[i]
 		if line.begins_with("[ext_resource"):
 			last_ext_resource_idx = i
+			if vg_path in line:
+				has_vg_ext_resource = true
+				# Extract existing resource ID
+				var id_pos = line.find('id="')
+				if id_pos >= 0:
+					var after_id = line.substr(id_pos + 4)
+					existing_res_id = after_id.substr(0, after_id.find('"'))
 		if line.begins_with("[gd_scene"):
 			load_steps_line_idx = i
 		if line.begins_with("[node ") and "parent=" not in line:
 			root_node_line_idx = i
-		# Check if there's a script= between root node and next [node or [sub_resource
 		if root_node_line_idx >= 0 and root_script_line_idx < 0 and i > root_node_line_idx:
 			if line.begins_with("script = "):
 				root_script_line_idx = i
 				break
 			if line.begins_with("["):
-				break  # Hit next section without finding script
+				break
 	
 	if root_node_line_idx < 0:
-		return  # Can't find root node
-	if root_script_line_idx >= 0:
-		return  # Root already has a script
+		return
 	
-	# Generate a unique resource ID
-	var res_id = "vg_auto_" + vg_path.get_file().get_basename()
+	var res_id: String
+	var needs_ext_resource := false
 	
-	# Inject ext_resource line after the last existing one
-	var ext_line = '[ext_resource type="Script" path="' + vg_path + '" id="' + res_id + '"]'
-	if last_ext_resource_idx >= 0:
-		lines.insert(last_ext_resource_idx + 1, ext_line)
-		# Adjust indices
-		if root_node_line_idx > last_ext_resource_idx:
-			root_node_line_idx += 1
+	if has_vg_ext_resource:
+		res_id = existing_res_id
+		# If the .vg is on the ROOT, remove it from there (migration)
+		if root_script_line_idx >= 0 and ('ExtResource("' + res_id + '")') in lines[root_script_line_idx]:
+			lines.remove_at(root_script_line_idx)
 	else:
-		# No ext_resources yet — insert after [gd_scene ...] line
-		lines.insert(load_steps_line_idx + 1, ext_line)
-		root_node_line_idx += 1
+		# Need to add ext_resource
+		res_id = "vg_auto_" + vg_path.get_file().get_basename()
+		needs_ext_resource = true
 	
-	# Inject script= after the root node line (find the right spot)
-	# Insert it right after the root [node ...] line
-	lines.insert(root_node_line_idx + 1, 'script = ExtResource("' + res_id + '")')
+	# Add ext_resource if needed
+	if needs_ext_resource:
+		var ext_line = '[ext_resource type="Script" path="' + vg_path + '" id="' + res_id + '"]'
+		if last_ext_resource_idx >= 0:
+			lines.insert(last_ext_resource_idx + 1, ext_line)
+		else:
+			lines.insert(load_steps_line_idx + 1, ext_line)
+		# Update load_steps
+		for i in lines.size():
+			if lines[i].begins_with("[gd_scene"):
+				var idx = lines[i].find("load_steps=")
+				if idx >= 0:
+					var after = lines[i].substr(idx + 11)
+					var steps_str = ""
+					for c in after:
+						if c.is_valid_int() or c == "-":
+							steps_str += c
+						else:
+							break
+					if not steps_str.is_empty():
+						var old_steps = int(steps_str)
+						lines[i] = lines[i].replace("load_steps=" + steps_str, "load_steps=" + str(old_steps + 1))
+				break
 	
-	# Update load_steps
-	for i in lines.size():
-		if lines[i].begins_with("[gd_scene"):
-			var regex_match = lines[i].find("load_steps=")
-			if regex_match >= 0:
-				var after = lines[i].substr(regex_match + 11)
-				var steps_str = ""
-				for c in after:
-					if c.is_valid_int() or c == "-":
-						steps_str += c
-					else:
-						break
-				if not steps_str.is_empty():
-					var old_steps = int(steps_str)
-					lines[i] = lines[i].replace("load_steps=" + steps_str, "load_steps=" + str(old_steps + 1))
-			break
+	# Append VGASIC child node at the end of the file
+	# Ensure there's a newline before the new node
+	while lines.size() > 0 and lines[lines.size() - 1].strip_edges() == "":
+		lines.remove_at(lines.size() - 1)
+	lines.append("")
+	lines.append('[node name="VGASIC" type="Node" parent="."]')
+	lines.append('script = ExtResource("' + res_id + '")')
+	lines.append("")
 	
-	# Write back
 	var f = FileAccess.open(tscn_path, FileAccess.WRITE)
 	if f:
 		f.store_string("\n".join(lines))
 		f.close()
-		_vg_injected_paths.append(tscn_path)
-		print("VisualGasic: Injected ", vg_path, " into ", tscn_path, " for runtime")
+		print("VisualGasic: Added VGASIC node with ", vg_path, " to ", tscn_path)
 
 ## Called when the plugin exits the editor tree.
 ## Cleans up all plugin components and disconnects signals.
