@@ -13235,7 +13235,16 @@ func _on_floating_toolbox_selected(ctrl_class: String, scene_path: String) -> vo
 	if is_instance_valid(_form_designer) and _form_designer.is_visible_in_tree():
 		_on_toolbox_tool_selected(ctrl_class, scene_path)
 		return
-	# Direct placement: compute viewport center in world coords
+	# Direct placement: compute viewport center in world coords.
+	# MUST defer — this signal fires from the C++ VisualGasicToolbox during its
+	# own processing. Calling load(), add_child(), or set_main_screen_editor()
+	# synchronously inside the signal callback can trigger a SIGSEGV (the C++
+	# extension is still mid-call and Godot re-enters internal state).
+	call_deferred("_floating_toolbox_place_deferred", ctrl_class, scene_path)
+
+
+## Deferred handler for floating toolbox placement (called outside signal dispatch).
+func _floating_toolbox_place_deferred(ctrl_class: String, scene_path: String) -> void:
 	var root = get_editor_interface().get_edited_scene_root()
 	if not root:
 		push_warning("[VG Toolbox] No edited scene root")
