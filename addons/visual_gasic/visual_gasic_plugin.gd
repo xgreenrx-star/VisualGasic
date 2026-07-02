@@ -1937,15 +1937,6 @@ func get_debugger_breakpoints() -> Dictionary:
 ## This is critical because _shortcut_input() fires too late: by that
 ## point Godot's editor has already consumed Ctrl+S, Delete, etc.
 func _input(event: InputEvent) -> void:
-	# ── Double-click in native 2D editor: wire VB6 event handler ──────────
-	# _forward_canvas_gui_input does NOT receive double-clicks in Godot 4.6.1
-	# because CanvasItemEditor consumes them before forwarding to plugins.
-	# Intercept here at _input() level which fires before all viewport handling.
-	if event is InputEventMouseButton and event.double_click and event.button_index == MOUSE_BUTTON_LEFT:
-		if _try_wire_event_on_double_click():
-			get_viewport().set_input_as_handled()
-			return
-
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	# Only intercept when our Form Designer main screen is visible
@@ -11277,6 +11268,14 @@ var _form_dirty: bool = false
 var _recent_forms: Array[String] = []
 const MAX_RECENT_FORMS := 5
 
+## Timer-based double-click detection for 2D canvas.
+## Godot 4.6.1 does NOT forward double_click events to _forward_canvas_gui_input
+## or _input() for the 2D viewport. But mouse RELEASES are forwarded.
+## So we detect two rapid left-button presses on the same selected node.
+var _last_canvas_click_time: int = 0  # msec
+var _last_canvas_click_node: Node = null
+const _DOUBLE_CLICK_MS := 400
+
 func _forward_canvas_gui_input(event):
 	# ── UI Forms: armed placement — intercept left-click to place ──────────
 	if _ui_forms_armed_type != "":
@@ -11334,12 +11333,11 @@ func _forward_canvas_gui_input(event):
 			_apply_canvas_zoom()
 			return true
 
-	# Handle mouse button events for vg_control drag-drop
+	# Handle mouse button events for vg_control drag-drop AND double-click
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if not event.pressed:
 				# Mouse released - check if we have active vg_control drag from C++ toolbox
-				# The C++ toolbox stores drag data in Engine singleton metadata
 				if Engine.has_meta("_vg_active_drag"):
 					var drag_data = Engine.get_meta("_vg_active_drag")
 					if drag_data is Dictionary and drag_data.get("type") == "vg_control":
@@ -11347,41 +11345,29 @@ func _forward_canvas_gui_input(event):
 						Engine.remove_meta("_vg_active_drag")
 						if result:
 							return true
-		
-		# Double-click: wire VB6 default event handler instead of opening the
-		# packed-scene prototype. Always consume the event so Godot never
-		# navigates into Button.tscn / CheckBox.tscn etc.
-		if event.double_click and event.button_index == MOUSE_BUTTON_LEFT:
-			print("[VG-DBL] Double-click intercepted in _forward_canvas_gui_input")
-			var sel = get_editor_interface().get_selection().get_selected_nodes()
-			# On a fresh double-click the first click selects the node but the
-			# selection update may be deferred — fall back to the node under the
-			# canvas cursor so we always have something to wire.
-			var target: Node = null
-			if sel.size() == 1:
-				target = sel[0]
-			if target == null:
-				# Try to find the topmost Control directly under the cursor
-				var root = get_editor_interface().get_edited_scene_root()
-				if root:
-					var vp = get_editor_interface().get_editor_viewport_2d()
-					if vp:
-						var world_pos = vp.get_canvas_transform().affine_inverse() * event.position
-						# Walk children in reverse (topmost drawn last = highest z-index)
-						for i in range(root.get_child_count() - 1, -1, -1):
-							var child = root.get_child(i)
-							if child is Control:
-								var rect = child.get_global_rect()
-								if rect.has_point(world_pos):
-									target = child
-									break
-			if target:
-				print("[VG-DBL] Wiring event for: ", target.name)
-				_generate_event_handler(target)
-			else:
-				print("[VG-DBL] No target found under cursor (sel=", sel.size(), ")")
-			# Always consume so Godot never opens the prototype .tscn
-			return true
+
+			if event.pressed:
+				# ── Timer-based double-click detection ──
+				# Godot 4.6.1 does NOT forward event.double_click to plugins for
+				# the 2D canvas. So we detect two rapid left-presses on the same
+				# selected Control node manually.
+				var now = Time.get_ticks_msec()
+				var sel = get_editor_interface().get_selection().get_selected_nodes()
+				var current_node: Node = sel[0] if sel.size() == 1 else null
+				
+				if current_node and current_node is Control:
+					var root = get_editor_interface().get_edited_scene_root()
+					if current_node != root:
+						if current_node == _last_canvas_click_node and (now - _last_canvas_click_time) < _DOUBLE_CLICK_MS:
+							# Double-click detected! Wire event (same as Wire Event menu).
+							print("[VG-DBL] Timer double-click → wiring event for: ", current_node.name)
+							_generate_event_handler(current_node)
+							_last_canvas_click_node = null
+							_last_canvas_click_time = 0
+							return true
+				
+				_last_canvas_click_time = now
+				_last_canvas_click_node = current_node
 	
 	return false
 
