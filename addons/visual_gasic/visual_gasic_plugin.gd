@@ -11296,7 +11296,10 @@ func _forward_canvas_gui_input(event):
 			if event.button_index == MOUSE_BUTTON_LEFT:
 				var godot_type := _ui_forms_armed_type
 				_ui_forms_disarm()
-				_ui_forms_place_at_screen(godot_type, event.position)
+				# MUST defer — adding children to the scene tree during input dispatch
+				# violates Godot 4.6.1's thread-group rules and causes SIGSEGV via
+				# "The caller thread can't call propagate_notification()".
+				call_deferred("_ui_forms_place_at_screen", godot_type, event.position)
 				return true
 			elif event.button_index == MOUSE_BUTTON_RIGHT:
 				_ui_forms_disarm()
@@ -13028,8 +13031,16 @@ func _ui_forms_place_at_screen(godot_type: String, screen_pos: Vector2) -> void:
 	ctrl.custom_minimum_size = _ui_forms_default_world_size(godot_type)
 	ctrl.size = ctrl.custom_minimum_size
 
-	parent.add_child(ctrl)
-	ctrl.owner = get_editor_interface().get_edited_scene_root()
+	# Use EditorUndoRedoManager so placement is undoable (Ctrl+Z) and goes
+	# through the editor's sanctioned tree-modification API.
+	var undo_redo = get_undo_redo()
+	undo_redo.create_action("Place " + ctrl.name, UndoRedo.MERGE_DISABLE, edited)
+	undo_redo.add_do_method(parent, "add_child", ctrl, true)
+	undo_redo.add_do_reference(ctrl)
+	undo_redo.add_do_method(ctrl, "set_owner", edited)
+	undo_redo.add_undo_method(parent, "remove_child", ctrl)
+	undo_redo.add_undo_reference(ctrl)
+	undo_redo.commit_action()
 
 	get_editor_interface().get_selection().clear()
 	get_editor_interface().get_selection().add_node(ctrl)
