@@ -192,6 +192,8 @@ func refresh_objects():
 			current_node_name = meta.name
 		elif meta is String:
 			current_node_name = meta  # "(General)"
+		elif meta is Dictionary:
+			current_node_name = meta.get("name", "")  # cached_control or gd_script node name
 	
 	object_list.clear()
 
@@ -284,12 +286,14 @@ func refresh_objects():
 	if current_node_name != "":
 		for i in object_list.item_count:
 			var meta = object_list.get_item_metadata(i)
-			if meta is String and meta == current_node_name:
-				object_list.select(i)
-				_on_object_selected(i)
-				found = true
-				break
-			elif meta is Node and is_instance_valid(meta) and meta.name == current_node_name:
+			var meta_name = ""
+			if meta is String:
+				meta_name = meta
+			elif meta is Node and is_instance_valid(meta):
+				meta_name = meta.name
+			elif meta is Dictionary:
+				meta_name = meta.get("name", "")
+			if meta_name == current_node_name:
 				object_list.select(i)
 				_on_object_selected(i)
 				found = true
