@@ -11425,11 +11425,8 @@ func _handle_vg_control_drop(canvas_pos: Vector2, drag_data: Dictionary) -> bool
 ## Called from _input() to intercept double-clicks that CanvasItemEditor
 ## would otherwise consume (preventing _forward_canvas_gui_input from seeing them).
 ## Returns true if an event was wired (caller should consume the input event).
+## Identical to the "Wire Event" right-click menu action.
 func _try_wire_event_on_double_click() -> bool:
-	# Skip if the C++ Form Designer is actually visible and handling input —
-	# it fires its own control_double_clicked signal → _on_fd_control_double_clicked.
-	if is_instance_valid(_form_designer) and _form_designer.is_visible_in_tree():
-		return false
 	# Must have exactly one selected node
 	var sel = get_editor_interface().get_selection().get_selected_nodes()
 	if sel.size() != 1:
@@ -11438,16 +11435,11 @@ func _try_wire_event_on_double_click() -> bool:
 	# Only intercept for Controls (Button, Label, etc.) — not Camera2D, Sprite, etc.
 	if not (node is Control):
 		return false
-	# Don't intercept legitimate sub-scene instances the user wants to open,
-	# BUT DO intercept our own VG prototype instances (scene_file_path was cleared
-	# on placement, but handle legacy nodes where it might still be set).
-	if not node.scene_file_path.is_empty() and not node.scene_file_path.contains("visual_gasic/prototypes"):
-		return false
-	# Don't intercept if the node IS the scene root (user double-clicked empty space)
+	# Don't intercept if the node IS the scene root
 	var root = get_editor_interface().get_edited_scene_root()
 	if node == root:
 		return false
-	# Verify the click is near the 2D viewport — check that a text field doesn't have focus
+	# Don't intercept if a text field has focus (user is typing, not clicking viewport)
 	var focused = get_viewport().gui_get_focus_owner()
 	if focused is LineEdit or focused is TextEdit or focused is CodeEdit:
 		return false
