@@ -11615,6 +11615,17 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int, p
 				if nav.has_method("set_cached_controls_from_scene"):
 					nav.set_cached_controls_from_scene(root)
 
+			# Save the scene BEFORE switching to Script editor. This ensures the
+			# .tscn exists on disk so that when we return to 2D, the reload can
+			# restore a fully-valid root that's inside the tree.
+			EditorInterface.save_scene()
+			# Schedule a reload when the user switches back to 2D. Without this,
+			# the root reference becomes a zombie (valid but not in tree) after
+			# the Script→2D transition, and add_child silently fails.
+			var scene_reload_path = root.scene_file_path if root else ""
+			if not scene_reload_path.is_empty():
+				_pending_reload_path = scene_reload_path
+
 			# Open in Editor — switch to Script view
 			get_editor_interface().edit_resource(res)
 			# Switch to the Script editor screen so the CodeEdit is visible
@@ -11687,11 +11698,11 @@ func _deferred_scroll_to_caret(code_edit: CodeEdit) -> void:
 ## @param screen_name: Name of the screen ("2D", "3D", "Script", etc.)
 func _on_main_screen_changed(screen_name: String):
 	_current_main_screen = screen_name
-	# ── Handle pending Form Designer → Godot reload ──
-	# _make_visible(false) saved the .tscn but couldn't reload because
-	# Godot was mid-scene-transition (is_changing_scene() == true).
-	# Now the transition is complete, so the reload will actually work.
-	if not _pending_reload_path.is_empty():
+	# ── Handle pending scene reload ──
+	# Fires when switching AWAY from Script back to 2D or VisualGasic.
+	# Don't consume the pending path if switching TO Script (the wiring flow
+	# sets it before switching to Script — we want it to fire on return).
+	if not _pending_reload_path.is_empty() and screen_name != "Script":
 		var reload_path = _pending_reload_path
 		_pending_reload_path = ""
 		print("[VG-SYNC] main_screen_changed('", screen_name, "') → reloading '", reload_path, "'")
