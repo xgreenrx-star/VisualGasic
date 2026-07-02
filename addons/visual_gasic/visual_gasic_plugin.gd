@@ -11367,13 +11367,15 @@ func _forward_canvas_gui_input(event):
 					if current_node != root:
 						if is_instance_valid(_last_canvas_click_node) and current_node == _last_canvas_click_node and (now - _last_canvas_click_time) < _DOUBLE_CLICK_MS:
 							# Double-click detected! Wire event (same as Wire Event menu).
-							print("[VG-DBL] Timer double-click → wiring event for: ", current_node.name)
-							_generate_event_handler(current_node)
-							_last_canvas_click_node = null
-							_last_canvas_click_time = 0
-							return true
-				
-				_last_canvas_click_time = now
+						# Return false so Godot still gets the press→release cycle — this
+						# prevents the 2D editor entering a dangling drag state when we
+						# switch to the Script screen. scene_file_path="" on all placed
+						# controls prevents Godot from opening the prototype .tscn.
+						print("[VG-DBL] Timer double-click → wiring event for: ", current_node.name)
+						_last_canvas_click_node = null
+						_last_canvas_click_time = 0
+						call_deferred("_generate_event_handler", current_node)
+						return false
 				_last_canvas_click_node = current_node
 	
 	return false
@@ -11580,6 +11582,15 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int, p
 					root.set_script(res)
 					print("VisualGasic: Attached " + path.get_file() + " to Form (" + root.name + ").")
 			
+			# Refresh + select Code Navigator BEFORE switching screens.
+			# After set_main_screen_editor("Script"), get_edited_scene_root() returns
+			# null so the navigator can no longer see the scene nodes. Do it now.
+			var nav = _get_navigator()
+			if is_instance_valid(nav):
+				nav.refresh_objects()
+				if nav.has_method("select_object_and_event"):
+					nav.select_object_and_event(obj, event)
+
 			# Open in Editor — switch to Script view
 			get_editor_interface().edit_resource(res)
 			# Switch to the Script editor screen so the CodeEdit is visible
@@ -11616,12 +11627,6 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int, p
 					# Deferred scroll — wait for the editor to finish layout
 					_deferred_scroll_to_caret.call_deferred(code_edit)
 
-			# Update the Code Navigator dropdowns to show the correct object/event
-			var nav = _get_navigator()
-			if is_instance_valid(nav):
-				nav.refresh_objects()
-				if nav.has_method("select_object_and_event"):
-					nav.select_object_and_event.call_deferred(obj, event)
 			return  # Injection complete — do not retry
 	else:
 		await get_tree().create_timer(0.1).timeout

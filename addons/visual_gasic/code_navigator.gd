@@ -15,6 +15,9 @@ var event_list   # VGComboBox — right dropdown (Event/Procedure)
 ## embedded code editor (where the file isn't open in Godot's script editor).
 var _override_vg_path: String = ""
 var _last_known_vg_path: String = ""  # Cached — survives transient null from get_current_script()
+## Cache of Control children from the last time get_edited_scene_root() was non-null.
+## Used when the scene root becomes temporarily inaccessible (e.g. Godot Script editor view).
+var _cached_controls: Array = []  # Each element: {name: String, class_name: String}
 
 func set_override_vg_path(path: String) -> void:
 	_override_vg_path = path
@@ -191,8 +194,38 @@ func refresh_objects():
 	var root = editor_plugin.get_editor_interface().get_edited_scene_root()
 	if not root:
 		# get_edited_scene_root() returns null in Script view and in the VG IDE.
-		# Treat as a standalone code module: show (General) and scan the .vg
-		# text for all Sub/Function/Property declarations — same as VB6 .bas.
+		# If we have a cached node list from a previous 2D-view refresh, rebuild
+		# the object model from that cache so dropdowns stay meaningful.
+		if _cached_controls.size() > 0:
+			# Add (General) first
+			var gen_idx := object_list.item_count
+			object_list.add_item("(General)")
+			object_list.set_item_metadata(gen_idx, "(General)")
+			# Add cached controls
+			for entry in _cached_controls:
+				var oidx := object_list.item_count
+				object_list.add_item(entry["name"])
+				object_list.set_item_metadata(oidx, {"type": "cached_control", "name": entry["name"], "class_name": entry["class_name"]})
+			# Restore selection
+			var sel_restored := false
+			if current_node_name != "":
+				for i in object_list.item_count:
+					var meta = object_list.get_item_metadata(i)
+					var match_name := ""
+					if meta is String:
+						match_name = meta
+					elif meta is Dictionary:
+						match_name = meta.get("name", "")
+					if match_name == current_node_name:
+						object_list.select(i)
+						_on_object_selected(i)
+						sel_restored = true
+						break
+			if not sel_restored:
+				object_list.select(0)
+				_on_object_selected(0)
+			return
+		# No cache — fall back to (General)-only standalone module view
 		var gen_only: int = object_list.item_count
 		object_list.add_item("(General)")
 		object_list.set_item_metadata(gen_only, "(General)")
@@ -219,6 +252,12 @@ func refresh_objects():
 	
 	# Add Objects recursively
 	_add_node_recursive(root)
+
+	# Cache the Control children for use when get_edited_scene_root() returns null
+	_cached_controls.clear()
+	for child in root.get_children():
+		if child is Control:
+			_cached_controls.append({"name": child.name, "class_name": child.get_class()})
 
 	# Add Scene Scripts section — nodes with .gd scripts
 	var gd_nodes: Array = []
@@ -455,6 +494,8 @@ func select_object_and_event(obj_name: String, event_name: String) -> void:
 			name_match = true
 		elif meta is String and meta == obj_name:
 			name_match = true
+		elif meta is Dictionary and meta.get("type") == "cached_control" and meta.get("name") == obj_name:
+			name_match = true
 		if name_match:
 			object_list.select(i)
 			_on_object_selected(i)
@@ -494,13 +535,41 @@ func _on_object_selected(idx):
 			event_list.select(0)
 		return
 	
-	# Handle scene-script entries (nodes with .gd scripts)
+	# Handle scene-script entries (nodes with .gd scripts) and cached controls
 	if meta is Dictionary:
 		var dtype = meta.get("type", "")
 		if dtype == "separator":
 			return
 		elif dtype == "gd_script":
 			_populate_gd_script_funcs(meta)
+			return
+		elif dtype == "cached_control":
+			# Rebuild event list from class name (node not in tree, use cached class)
+			var cls := meta.get("class_name", "")
+			var events: Array = EVENTS_COMMON
+			if cls in ["Button", "CheckButton", "LinkButton", "ToolButton", "CheckBox", "OptionButton"]:
+				events = EVENTS_BUTTON
+			elif cls in ["LineEdit"]:
+				events = EVENTS_TEXT
+			elif cls in ["TextEdit"]:
+				events = EVENTS_TEXT
+			elif cls in ["HScrollBar", "VScrollBar", "HSlider", "VSlider"]:
+				events = EVENTS_SCROLL
+			elif cls == "Timer":
+				events = EVENTS_TIMER
+			var text := _get_current_vg_text()
+			var ctrl_name := meta.get("name", "")
+			for evt in events:
+				var eidx := event_list.item_count
+				var has_handler := text.contains("Sub " + ctrl_name + "_" + evt)
+				event_list.add_item(evt)
+				event_list.set_item_metadata(eidx, {"type": "event", "event": evt, "has_handler": has_handler})
+			for i in event_list.item_count:
+				var emeta = event_list.get_item_metadata(i)
+				if emeta and emeta.has("has_handler") and not emeta["has_handler"]:
+					event_list.set_item_custom_color(i, COLOR_DIM)
+			if event_list.item_count > 0:
+				event_list.select(0)
 			return
 
 	if not is_instance_valid(meta):
