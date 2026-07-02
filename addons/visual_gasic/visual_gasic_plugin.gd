@@ -12827,20 +12827,24 @@ func _ui_forms_wire_stub(ctrl: Control, godot_type: String) -> void:
 # UI FORMS — Floating Toolbox + floating Properties (opened from context menu)
 # =============================================================================
 
-## Creates a draggable floating panel (PanelContainer in same viewport, NOT a
-## Window). This enables drag-and-drop to work — the C++ Toolbox's drag data
-## flows through the same viewport as the 2D canvas, so _process polling
+## Creates a draggable, resizable floating panel (PanelContainer in same viewport,
+## NOT a Window). This enables drag-and-drop to work — the C++ Toolbox's drag
+## data flows through the same viewport as the 2D canvas, so _process polling
 ## detects it via gui_is_dragging() + Engine._vg_active_drag meta.
 func _create_floating_panel(title: String, panel_size: Vector2) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = panel_size
+	panel.custom_minimum_size = Vector2(200, 200)
 	panel.size = panel_size
-	# Dark background matching editor
+	# VB6 light background matching the IDE
+	var panel_bg: Color = _theme.get("panel_background", Color("#F0EDE8"))
+	var panel_border: Color = _theme.get("panel_border", Color(0.72, 0.71, 0.68))
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.18, 0.18, 0.22, 0.98)
-	sb.border_color = Color(0.35, 0.35, 0.4)
+	sb.bg_color = panel_bg
+	sb.border_color = panel_border
 	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(4)
+	sb.set_corner_radius_all(2)
+	sb.content_margin_left = 2; sb.content_margin_right = 2
+	sb.content_margin_top = 2; sb.content_margin_bottom = 2
 	panel.add_theme_stylebox_override("panel", sb)
 
 	var vbox := VBoxContainer.new()
@@ -12850,34 +12854,45 @@ func _create_floating_panel(title: String, panel_size: Vector2) -> PanelContaine
 
 	# Title bar (draggable + close button)
 	var title_bar := HBoxContainer.new()
-	title_bar.custom_minimum_size = Vector2(0, 24)
+	title_bar.custom_minimum_size = Vector2(0, 22)
+	var title_bar_sb := StyleBoxFlat.new()
+	title_bar_sb.bg_color = Color(0.25, 0.35, 0.60)
+	title_bar_sb.content_margin_left = 4; title_bar_sb.content_margin_right = 2
+	title_bar_sb.content_margin_top = 1; title_bar_sb.content_margin_bottom = 1
+	title_bar.add_theme_stylebox_override("panel", title_bar_sb)
+	# HBoxContainer doesn't use "panel" stylebox; wrap in a PanelContainer
+	var title_panel := PanelContainer.new()
+	title_panel.add_theme_stylebox_override("panel", title_bar_sb)
+	title_panel.add_child(title_bar)
+	vbox.add_child(title_panel)
+
 	var title_label := Label.new()
 	title_label.text = title
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85))
+	title_label.add_theme_color_override("font_color", Color.WHITE)
 	title_bar.add_child(title_label)
 	var close_btn := Button.new()
 	close_btn.text = "✕"
 	close_btn.flat = true
-	close_btn.custom_minimum_size = Vector2(24, 24)
+	close_btn.custom_minimum_size = Vector2(20, 20)
+	close_btn.add_theme_color_override("font_color", Color.WHITE)
 	close_btn.pressed.connect(func(): panel.visible = false)
 	title_bar.add_child(close_btn)
-	vbox.add_child(title_bar)
 
 	# Make title bar draggable
-	title_bar.set_meta("_dragging", false)
-	title_bar.set_meta("_drag_offset", Vector2.ZERO)
-	title_bar.gui_input.connect(func(event: InputEvent):
+	title_panel.set_meta("_dragging", false)
+	title_panel.set_meta("_drag_offset", Vector2.ZERO)
+	title_panel.gui_input.connect(func(event: InputEvent):
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
-				title_bar.set_meta("_dragging", true)
-				title_bar.set_meta("_drag_offset", event.global_position - panel.position)
-				title_bar.accept_event()
+				title_panel.set_meta("_dragging", true)
+				title_panel.set_meta("_drag_offset", event.global_position - panel.position)
+				title_panel.accept_event()
 			else:
-				title_bar.set_meta("_dragging", false)
-		elif event is InputEventMouseMotion and title_bar.get_meta("_dragging"):
-			panel.position = event.global_position - title_bar.get_meta("_drag_offset")
-			title_bar.accept_event()
+				title_panel.set_meta("_dragging", false)
+		elif event is InputEventMouseMotion and title_panel.get_meta("_dragging"):
+			panel.position = event.global_position - title_panel.get_meta("_drag_offset")
+			title_panel.accept_event()
 	)
 
 	# Content area (where the actual toolbox/inspector goes)
@@ -12886,6 +12901,29 @@ func _create_floating_panel(title: String, panel_size: Vector2) -> PanelContaine
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(content)
 	panel.set_meta("_content", content)
+
+	# Resize handle (bottom-right corner)
+	var resize_handle := Control.new()
+	resize_handle.custom_minimum_size = Vector2(12, 12)
+	resize_handle.size_flags_horizontal = Control.SIZE_SHRINK_END
+	resize_handle.mouse_default_cursor_shape = Control.CURSOR_FDIAGSIZE
+	resize_handle.set_meta("_resizing", false)
+	resize_handle.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				resize_handle.set_meta("_resizing", true)
+				resize_handle.accept_event()
+			else:
+				resize_handle.set_meta("_resizing", false)
+		elif event is InputEventMouseMotion and resize_handle.get_meta("_resizing"):
+			var new_size = event.global_position - panel.position + Vector2(4, 4)
+			new_size.x = maxf(new_size.x, panel.custom_minimum_size.x)
+			new_size.y = maxf(new_size.y, panel.custom_minimum_size.y)
+			panel.custom_minimum_size = new_size
+			panel.size = new_size
+			resize_handle.accept_event()
+	)
+	vbox.add_child(resize_handle)
 
 	return panel
 
@@ -12983,12 +13021,51 @@ func _register_extra_tools_on(tb) -> void:
 
 
 ## Restyle a VisualGasicToolbox instance to VB6 TwinBasic list layout.
-## This is the same transform as _restyle_toolbox_buttons() but takes a
-## specific instance rather than using _get_toolbox_instance().
+## Replicates _restyle_toolbox_buttons() + _wrap_toolbox_grids_in_scroll()
+## from the VG IDE, applying the same VB6 theme, button styles, and scroll wrap.
 func _restyle_toolbox_instance(cpp_toolbox) -> void:
 	if not is_instance_valid(cpp_toolbox):
 		return
 
+	# ── 1. Apply the full VB6 theme (fixes dark bg, tab colors, text) ──
+	var toolbox_theme := _build_vb6_theme()
+	var tooltip_sb := StyleBoxFlat.new()
+	tooltip_sb.bg_color = Color(1.0, 1.0, 0.94)
+	tooltip_sb.border_color = Color(0.0, 0.0, 0.0)
+	tooltip_sb.set_border_width_all(1)
+	tooltip_sb.set_content_margin_all(4)
+	toolbox_theme.set_stylebox("panel", "TooltipPanel", tooltip_sb)
+	toolbox_theme.set_color("font_color", "TooltipLabel", Color.BLACK)
+	cpp_toolbox.theme = toolbox_theme
+
+	# ── 2. Override PanelContainer panel style ──
+	var panel_bg: Color = _theme.get("panel_background", Color("#F0EDE8"))
+	var toolbox_panel_sb := StyleBoxFlat.new()
+	toolbox_panel_sb.bg_color = panel_bg
+	toolbox_panel_sb.set_content_margin_all(0)
+	cpp_toolbox.add_theme_stylebox_override("panel", toolbox_panel_sb)
+
+	# ── 3. Find TabContainer ──
+	var tabs: TabContainer = null
+	for c in cpp_toolbox.get_children():
+		if c is TabContainer:
+			tabs = c
+			break
+	if not tabs:
+		return
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	# Style TabContainer panel
+	var tab_panel_sb := StyleBoxFlat.new()
+	tab_panel_sb.bg_color = panel_bg
+	tab_panel_sb.content_margin_left = 2
+	tab_panel_sb.content_margin_right = 2
+	tab_panel_sb.content_margin_top = 2
+	tab_panel_sb.content_margin_bottom = 2
+	tabs.add_theme_stylebox_override("panel", tab_panel_sb)
+
+	# ── 4. Load icons and display names ──
 	var _VB6Icons = load("res://addons/visual_gasic/vb6_toolbox_icons.gd")
 	if not _VB6Icons:
 		return
@@ -13015,44 +13092,65 @@ func _restyle_toolbox_instance(cpp_toolbox) -> void:
 		"VideoPlayer": "VideoPlayer", "Expander": "Expander",
 		"Breadcrumbs": "Breadcrumbs",
 	}
-
 	var icon_key_map := {"DriveListBox": "DriveList"}
 
-	# Find TabContainer
-	var tabs: TabContainer = null
-	for c in cpp_toolbox.get_children():
-		if c is TabContainer:
-			tabs = c
-			break
-	if not tabs:
-		return
-	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# ── 5. Style buttons (same as _restyle_toolbox_buttons) ──
+	var white := Color(1, 1, 1, 1)
+	var btn_bg: Color = _theme.get("toolbox_btn_normal", Color("#F0EDE8"))
+	var hover_bg: Color = _theme.get("toolbox_btn_hover", Color(0.91, 0.95, 1.0))
+	var pressed_bg: Color = _theme.get("toolbox_btn_pressed", Color(0.26, 0.59, 0.98))
 
-	# Style each button with icon + text label (2-column layout)
 	for tab_idx in range(tabs.get_tab_count()):
 		var grid = tabs.get_child(tab_idx)
 		if grid is GridContainer:
 			grid.set_columns(2)
 			grid.add_theme_constant_override("h_separation", 2)
-			grid.add_theme_constant_override("v_separation", 2)
+			grid.add_theme_constant_override("v_separation", 1)
 			for btn_idx in range(grid.get_child_count()):
 				var btn = grid.get_child(btn_idx)
 				if btn is Button:
 					var tool_name: String = btn.name
 					btn.text = display_names.get(tool_name, tool_name)
-					btn.custom_minimum_size = Vector2(120, 28)
+					btn.custom_minimum_size = Vector2(0, 26)
 					btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-					btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 					btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
 					btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 					btn.expand_icon = false
-					# Icon colors — prevent green tint
-					var white := Color(1, 1, 1, 1)
+					# Icon colors
 					btn.add_theme_color_override("icon_normal_color", white)
 					btn.add_theme_color_override("icon_hover_color", white)
 					btn.add_theme_color_override("icon_pressed_color", white)
-					# Apply SVG icon
+					btn.add_theme_color_override("icon_focus_color", white)
+					btn.add_theme_color_override("icon_disabled_color", white)
+					# Text colors
+					btn.add_theme_color_override("font_color", _theme.get("toolbox_text", Color.BLACK))
+					btn.add_theme_color_override("font_hover_color", _theme.get("toolbox_text", Color.BLACK))
+					btn.add_theme_color_override("font_pressed_color", _theme.get("toolbox_text_pressed", Color.WHITE))
+					btn.add_theme_color_override("font_focus_color", _theme.get("toolbox_text", Color.BLACK))
+					# Normal: off-white
+					var normal_sb := StyleBoxFlat.new()
+					normal_sb.bg_color = btn_bg
+					normal_sb.content_margin_left = 6
+					normal_sb.content_margin_right = 4
+					normal_sb.content_margin_top = 2
+					normal_sb.content_margin_bottom = 2
+					btn.add_theme_stylebox_override("normal", normal_sb)
+					# Hover: light blue tint
+					var hover_sb := StyleBoxFlat.new()
+					hover_sb.bg_color = hover_bg
+					hover_sb.border_width_top = 1; hover_sb.border_width_left = 1
+					hover_sb.border_width_bottom = 1; hover_sb.border_width_right = 1
+					hover_sb.border_color = _theme.get("toolbox_btn_hover_border", Color(0.55, 0.73, 0.95))
+					hover_sb.content_margin_left = 5; hover_sb.content_margin_right = 3
+					hover_sb.content_margin_top = 1; hover_sb.content_margin_bottom = 1
+					btn.add_theme_stylebox_override("hover", hover_sb)
+					# Pressed: blue highlight
+					var pressed_sb := StyleBoxFlat.new()
+					pressed_sb.bg_color = pressed_bg
+					pressed_sb.content_margin_left = 6; pressed_sb.content_margin_right = 4
+					pressed_sb.content_margin_top = 2; pressed_sb.content_margin_bottom = 2
+					btn.add_theme_stylebox_override("pressed", pressed_sb)
+					# SVG icon (LAST — after all theme overrides)
 					var icon_key: String = icon_key_map.get(tool_name, tool_name)
 					if vb6_icons.has(icon_key):
 						btn.icon = vb6_icons[icon_key]
@@ -13061,21 +13159,29 @@ func _restyle_toolbox_instance(cpp_toolbox) -> void:
 					if btn.has_method("set_icon_name"):
 						btn.set_icon_name("")
 
-	# Wrap grids in ScrollContainers
-	for tab_idx in range(tabs.get_tab_count()):
-		var grid = tabs.get_child(tab_idx)
-		if grid is GridContainer:
-			var scroll := ScrollContainer.new()
-			scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-			scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-			var parent = grid.get_parent()
-			var idx = grid.get_index()
-			parent.remove_child(grid)
-			scroll.add_child(grid)
-			grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			parent.add_child(scroll)
-			parent.move_child(scroll, idx)
+	# ── 6. Wrap grids in ScrollContainers (preserving tab titles) ──
+	var grids: Array = []
+	for c in tabs.get_children():
+		if c is GridContainer:
+			grids.append(c)
+	for grid in grids:
+		var idx: int = grid.get_index()
+		var tab_title: String = tabs.get_tab_title(idx)
+		var scroll := ScrollContainer.new()
+		scroll.name = grid.name
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+		tabs.remove_child(grid)
+		grid.show()
+		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		scroll.add_child(grid)
+		tabs.add_child(scroll)
+		tabs.move_child(scroll, idx)
+		# Restore tab title
+		tabs.set_tab_title(idx, tab_title)
 
 
 # ─── Floating VG Properties Panel ─────────────────────────────────────────────
@@ -13086,7 +13192,7 @@ func _ui_forms_show_props_window() -> void:
 		_ui_forms_props_refresh()
 		return
 
-	_ui_forms_props_window = _create_floating_panel("Properties", Vector2(300, 500))
+	_ui_forms_props_window = _create_floating_panel("Properties", Vector2(300, 560))
 
 	var content_area = _ui_forms_props_window.get_meta("_content")
 	var inspector_script = load("res://addons/visual_gasic/simple_inspector.gd")
@@ -13094,6 +13200,8 @@ func _ui_forms_show_props_window() -> void:
 		var inspector = inspector_script.new()
 		inspector.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		inspector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Apply VB6 theme so colors match the IDE
+		inspector.theme = _build_vb6_theme()
 		if inspector.has_method("setup"):
 			inspector.setup(self)
 		content_area.add_child(inspector)
