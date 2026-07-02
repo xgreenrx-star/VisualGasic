@@ -2162,8 +2162,8 @@ func _process(_delta: float) -> void:
 ## Places a VG control into the active scene using Godot's EditorUndoRedoManager.
 ## This integrates with Godot's undo/redo system so placement is undoable (Ctrl+Z)
 ## and deletion works through the normal scene-tree delete flow.
-func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
-	if _vg_drop_in_progress:
+func _handle_vg_drop_delayed(drag_data: Dictionary, _retry_count: int = 0) -> void:
+	if _vg_drop_in_progress and _retry_count == 0:
 		return
 	_vg_drop_in_progress = true
 
@@ -2180,18 +2180,29 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 		_vg_drop_in_progress = false
 		return
 
-	# Ensure we're on the 2D screen. After a double-click wiring, the user might
-	# drag a control while the Script editor is still active. In that state,
-	# get_edited_scene_root() can return a stale pointer where get_children()
-	# SIGSEGVs. Switching back to 2D guarantees the scene root is fully live.
-	EditorInterface.set_main_screen_editor("2D")
-
-	# Re-fetch root after screen switch — it may have changed.
-	root = get_editor_interface().get_edited_scene_root()
-	if not root or not is_instance_valid(root):
-		printerr("VisualGasic: Scene root invalid after screen switch")
-		_vg_drop_in_progress = false
-		return
+	# Safety: test if the root is actually usable by calling get_child_count().
+	# After a screen switch (e.g. double-click wiring → Script view), the root
+	# can pass is_instance_valid() but its internal tree data is stale, causing
+	# get_children() to SIGSEGV. We detect this by checking if the current main
+	# screen is "2D" — if not, switch to 2D and retry on the next frame so the
+	# editor has time to fully reconstruct the scene context.
+	# NOTE: There's no public API to query the current main screen name, so we
+	# check if get_editor_viewport_2d() has nonzero size (only true when 2D is
+	# the active screen and the viewport is laid out).
+	var vp2d = get_editor_interface().get_editor_viewport_2d()
+	var is_2d_active: bool = vp2d != null and vp2d.size.x > 50 and vp2d.size.y > 50
+	if not is_2d_active:
+		if _retry_count < 5:
+			EditorInterface.set_main_screen_editor("2D")
+			_vg_drop_in_progress = false  # Allow retry
+			get_tree().create_timer(0.15).timeout.connect(
+				func(): _handle_vg_drop_delayed(drag_data, _retry_count + 1)
+			)
+			return
+		else:
+			printerr("VisualGasic: Could not switch to 2D for drop after retries")
+			_vg_drop_in_progress = false
+			return
 
 	# Use the pre-captured drop position
 	var drop_pos: Vector2 = drag_data.get("drop_position", Vector2.ZERO)
@@ -2214,11 +2225,15 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 		_vg_drop_in_progress = false
 		return
 
-	# Generate a unique name based on existing siblings with the same base
+	# Generate a unique name based on existing siblings with the same base.
+	# Use index-based iteration (get_child_count + get_child) instead of
+	# get_children() which returns an Array via the tree — safer against stale roots.
 	var control_name = scene_path.get_file().get_basename()
 	var sibling_count := 0
-	for child in root.get_children():
-		if child.name.begins_with(control_name):
+	var child_count: int = root.get_child_count()
+	for i in child_count:
+		var child = root.get_child(i)
+		if is_instance_valid(child) and child.name.begins_with(control_name):
 			sibling_count += 1
 	var node_name = control_name + str(sibling_count + 1)
 	new_node.name = node_name
