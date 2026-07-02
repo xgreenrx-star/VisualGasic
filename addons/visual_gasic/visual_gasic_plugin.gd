@@ -12707,7 +12707,7 @@ func _setup_ui_forms_toolbar_button() -> void:
 		if CtxScript:
 			_ui_forms_ctx_plugin = CtxScript.new()
 			_ui_forms_ctx_plugin.host_plugin = self
-			add_context_menu_plugin(EditorPlugin.CONTEXT_SLOT_2D_EDITOR, _ui_forms_ctx_plugin)
+			add_context_menu_plugin(EditorContextMenuPlugin.CONTEXT_SLOT_2D_EDITOR, _ui_forms_ctx_plugin)
 
 func _on_ui_forms_btn_pressed() -> void:
 	# Create the picker Window on first use.
