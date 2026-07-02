@@ -2218,6 +2218,15 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 		if new_node.has_method("set_text"):
 			new_node.set_text(node_name)
 
+	# Clear scene_file_path BEFORE the node enters the tree. The prototype .tscn
+	# gives the instantiated node a scene_file_path that tells Godot to treat it as
+	# a sub-scene instance (double-click opens the .tscn). We don't want that.
+	# Clearing it while the node is standalone (not parented, not in any tree) is
+	# safe — no editor internals are watching it yet. Doing it AFTER commit_action()
+	# was the previous approach but caused random SIGSEGV because the editor's
+	# scene-state tracker reacts to the change on a live tree node.
+	new_node.scene_file_path = ""
+
 	# Add via EditorUndoRedoManager — identical to Godot's own scene drag-drop.
 	# This makes placement undoable (Ctrl+Z) and deletion work through the
 	# normal undo/redo mechanism without any file manipulation or reload.
@@ -2229,13 +2238,6 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	undo_redo.add_undo_method(root, "remove_child", new_node)
 	undo_redo.add_undo_reference(new_node)
 	undo_redo.commit_action()
-
-	# Clear scene_file_path AFTER the node is in the tree.
-	# Clearing it on an unparented instantiated node can corrupt Godot's internal
-	# scene state and cause a SIGSEGV. Doing it post-commit is safe and still
-	# prevents Godot's native double-click subscene-open behavior.
-	if is_instance_valid(new_node) and new_node.is_inside_tree():
-		new_node.scene_file_path = ""
 
 	# Apply VB6 theme so the control looks correct regardless of scene structure.
 	# If the scene root is a Control (e.g. Window, Panel), set the theme there so
@@ -10126,11 +10128,15 @@ func _find_main_screen_bar() -> HBoxContainer:
 	return _search_main_screen_bar(base)
 
 func _search_main_screen_bar(node: Node) -> HBoxContainer:
+	if not is_instance_valid(node):
+		return null
 	if node is HBoxContainer:
 		for child in node.get_children():
 			if child is Button and child.text == "AssetLib":
 				return node
 	for child in node.get_children():
+		if not is_instance_valid(child):
+			continue
 		var result = _search_main_screen_bar(child)
 		if result:
 			return result
@@ -12105,6 +12111,9 @@ func _find_canvas_item_editor_viewport(node: Node) -> Control:
 	# The CanvasItemEditor contains a Control that receives all 2D input.
 	# In Godot 4.6, it's typically: CanvasItemEditor → CanvasItemEditorViewport
 	# We look for a Control whose class is "CanvasItemEditorViewport" or similar.
+	# Guard: during project open/switch, internal nodes may be freed mid-walk.
+	if not is_instance_valid(node):
+		return null
 	if node.get_class() == "CanvasItemEditorViewport":
 		return node as Control
 	# Also try by name — Godot uses this internally
@@ -12113,15 +12122,18 @@ func _find_canvas_item_editor_viewport(node: Node) -> Control:
 	# Look for SubViewportContainer children of CanvasItemEditor
 	if node.get_class() == "CanvasItemEditor":
 		for child in node.get_children():
+			if not is_instance_valid(child):
+				continue
 			if child is SubViewportContainer:
 				return child
 			if child is Control and child.get_class().contains("Viewport"):
 				return child
 			# The direct drawing surface is usually the first large Control child
 			if child is Control and child.size.x > 100 and child.size.y > 100:
-				# Check if this has gui_input signal (all Controls do)
 				return child
 	for child in node.get_children():
+		if not is_instance_valid(child):
+			continue
 		var result = _find_canvas_item_editor_viewport(child)
 		if result:
 			return result
@@ -12174,6 +12186,8 @@ func _on_canvas_viewport_gui_input(event: InputEvent) -> void:
 func _find_scene_tree_widget(node: Node) -> Tree:
 	# The Scene Tree dock contains a SceneTreeEditor which contains a Tree.
 	# We identify it by class name hints in the node path.
+	if not is_instance_valid(node):
+		return null
 	if node is Tree:
 		# Check if this tree is inside something that looks like the SceneTreeDock
 		var parent = node.get_parent()
@@ -12182,6 +12196,8 @@ func _find_scene_tree_widget(node: Node) -> Tree:
 				return node
 			parent = parent.get_parent()
 	for child in node.get_children():
+		if not is_instance_valid(child):
+			continue
 		var result = _find_scene_tree_widget(child)
 		if result:
 			return result
