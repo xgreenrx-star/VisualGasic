@@ -11194,11 +11194,12 @@ func _post_init():
 	# Hook into node_added to catch drops inside MenuBar and reparent them
 	get_tree().node_added.connect(_on_node_added)
 
-	# Hook into the Scene Tree dock's internal Tree to intercept double-clicks.
-	# In Godot 4.6.1, _forward_canvas_gui_input may not receive double-clicks
-	# because CanvasItemEditor consumes them before forwarding to plugins.
-	# This fallback catches double-clicks in BOTH the Scene Tree dock AND the
-	# 2D viewport (via selection_changed + timing).
+	# Enable always-on canvas input forwarding so _forward_canvas_gui_input
+	# fires regardless of what _handles() returns. Without this, Godot only
+	# calls _forward_canvas_gui_input when _handles() returns true for the
+	# currently edited object — which is unreliable for our mixed use case.
+	set_input_event_forwarding_always_enabled()
+
 	call_deferred("_hook_scene_tree_double_click")
 
 	print("VisualGasic: Initialized. Monitoring nesting & double-click events.")
