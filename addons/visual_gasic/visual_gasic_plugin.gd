@@ -1672,6 +1672,114 @@ func _save_external_data() -> void:
 		_sync_form_state_to_scene_tree()
 	_saving_external = false
 
+
+## Called before the game runs (F5/F6). Injects .vg script references into
+## scene files that have a matching .vg but don't already reference it.
+## This allows placement to work during editing (no .vg attached to root)
+## while ensuring the runtime can find the script when the game runs.
+func _build() -> bool:
+	_inject_vg_scripts_into_scenes()
+	return true
+
+
+## Scans all .tscn files in res:// and injects .vg script references where needed.
+func _inject_vg_scripts_into_scenes() -> void:
+	var dir = DirAccess.open("res://")
+	if not dir:
+		return
+	dir.list_dir_begin()
+	var file_name = dir.get_next()
+	while file_name != "":
+		if file_name.ends_with(".tscn") and not file_name.begins_with("."):
+			var vg_path = "res://" + file_name.get_basename() + ".vg"
+			if FileAccess.file_exists(vg_path):
+				var tscn_path = "res://" + file_name
+				_ensure_vg_script_in_tscn(tscn_path, vg_path)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+
+
+## Checks if a .tscn already references the .vg script on its root node.
+## If not, injects the ext_resource and script= lines into the file.
+func _ensure_vg_script_in_tscn(tscn_path: String, vg_path: String) -> void:
+	var abs_tscn = ProjectSettings.globalize_path(tscn_path)
+	var content = FileAccess.get_file_as_string(tscn_path)
+	if content.is_empty():
+		return
+	# Already has this .vg referenced — skip
+	if content.find(vg_path) != -1:
+		return
+	# Already has a script on the root node line — skip (might be GDScript)
+	# Find the first [node ...] line (root node — no parent= attribute)
+	var lines = content.split("\n")
+	var root_node_line_idx := -1
+	var root_script_line_idx := -1
+	var last_ext_resource_idx := -1
+	var load_steps_line_idx := -1
+	for i in lines.size():
+		var line = lines[i]
+		if line.begins_with("[ext_resource"):
+			last_ext_resource_idx = i
+		if line.begins_with("[gd_scene"):
+			load_steps_line_idx = i
+		if line.begins_with("[node ") and "parent=" not in line:
+			root_node_line_idx = i
+		# Check if there's a script= between root node and next [node or [sub_resource
+		if root_node_line_idx >= 0 and root_script_line_idx < 0 and i > root_node_line_idx:
+			if line.begins_with("script = "):
+				root_script_line_idx = i
+				break
+			if line.begins_with("["):
+				break  # Hit next section without finding script
+	
+	if root_node_line_idx < 0:
+		return  # Can't find root node
+	if root_script_line_idx >= 0:
+		return  # Root already has a script
+	
+	# Generate a unique resource ID
+	var res_id = "vg_auto_" + vg_path.get_file().get_basename()
+	
+	# Inject ext_resource line after the last existing one
+	var ext_line = '[ext_resource type="Script" path="' + vg_path + '" id="' + res_id + '"]'
+	if last_ext_resource_idx >= 0:
+		lines.insert(last_ext_resource_idx + 1, ext_line)
+		# Adjust indices
+		if root_node_line_idx > last_ext_resource_idx:
+			root_node_line_idx += 1
+	else:
+		# No ext_resources yet — insert after [gd_scene ...] line
+		lines.insert(load_steps_line_idx + 1, ext_line)
+		root_node_line_idx += 1
+	
+	# Inject script= after the root node line (find the right spot)
+	# Insert it right after the root [node ...] line
+	lines.insert(root_node_line_idx + 1, 'script = ExtResource("' + res_id + '")')
+	
+	# Update load_steps
+	for i in lines.size():
+		if lines[i].begins_with("[gd_scene"):
+			var regex_match = lines[i].find("load_steps=")
+			if regex_match >= 0:
+				var after = lines[i].substr(regex_match + 11)
+				var steps_str = ""
+				for c in after:
+					if c.is_valid_int() or c == "-":
+						steps_str += c
+					else:
+						break
+				if not steps_str.is_empty():
+					var old_steps = int(steps_str)
+					lines[i] = lines[i].replace("load_steps=" + steps_str, "load_steps=" + str(old_steps + 1))
+			break
+	
+	# Write back
+	var f = FileAccess.open(tscn_path, FileAccess.WRITE)
+	if f:
+		f.store_string("\n".join(lines))
+		f.close()
+		print("VisualGasic: Injected ", vg_path, " into ", tscn_path, " for runtime")
+
 ## Called when the plugin exits the editor tree.
 ## Cleans up all plugin components and disconnects signals.
 func _exit_tree():
