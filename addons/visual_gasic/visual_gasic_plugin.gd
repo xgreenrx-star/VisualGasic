@@ -11231,8 +11231,6 @@ func _close_prototype_scene_tab(proto_path: String) -> void:
 ## @param object: The object being edited
 ## @returns: true if this plugin wants to handle input for this object
 func _handles(object):
-	if object is Node:
-		return true
 	if object is Texture2D:
 		return true
 	return false
@@ -11364,7 +11362,7 @@ func _forward_canvas_gui_input(event):
 				if current_node and current_node is Control:
 					var root = get_editor_interface().get_edited_scene_root()
 					if current_node != root:
-						if current_node == _last_canvas_click_node and (now - _last_canvas_click_time) < _DOUBLE_CLICK_MS:
+						if is_instance_valid(_last_canvas_click_node) and current_node == _last_canvas_click_node and (now - _last_canvas_click_time) < _DOUBLE_CLICK_MS:
 							# Double-click detected! Wire event (same as Wire Event menu).
 							print("[VG-DBL] Timer double-click → wiring event for: ", current_node.name)
 							_generate_event_handler(current_node)
