@@ -195,10 +195,11 @@ var _ui_forms_adapter = null   # ui_forms_viewport_adapter.gd instance
 ## The type name ("Button", "Label", …) while placement is armed; "" when idle.
 var _ui_forms_armed_type: String = ""
 
-## Floating Toolbox window (opened from 2D canvas right-click menu).
-var _ui_forms_toolbox_window: Window = null
-## Floating VG Properties window (opened from 2D canvas right-click menu).
-var _ui_forms_props_window: Window = null
+## Floating Toolbox panel (opened from 2D canvas right-click menu).
+## NOT a Window — a Control in the same viewport so drag-and-drop works.
+var _ui_forms_toolbox_window: PanelContainer = null
+## Floating VG Properties panel (opened from 2D canvas right-click menu).
+var _ui_forms_props_window: PanelContainer = null
 ## Canvas right-click context menu (EditorContextMenuPlugin).
 var _ui_forms_ctx_plugin: RefCounted = null
 
@@ -12826,43 +12827,101 @@ func _ui_forms_wire_stub(ctrl: Control, godot_type: String) -> void:
 # UI FORMS — Floating Toolbox + floating Properties (opened from context menu)
 # =============================================================================
 
-# ─── Floating Toolbox Window ─────────────────────────────────────────────────
+## Creates a draggable floating panel (PanelContainer in same viewport, NOT a
+## Window). This enables drag-and-drop to work — the C++ Toolbox's drag data
+## flows through the same viewport as the 2D canvas, so _process polling
+## detects it via gui_is_dragging() + Engine._vg_active_drag meta.
+func _create_floating_panel(title: String, panel_size: Vector2) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = panel_size
+	panel.size = panel_size
+	# Dark background matching editor
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.18, 0.18, 0.22, 0.98)
+	sb.border_color = Color(0.35, 0.35, 0.4)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(4)
+	panel.add_theme_stylebox_override("panel", sb)
+
+	var vbox := VBoxContainer.new()
+	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_child(vbox)
+
+	# Title bar (draggable + close button)
+	var title_bar := HBoxContainer.new()
+	title_bar.custom_minimum_size = Vector2(0, 24)
+	var title_label := Label.new()
+	title_label.text = title
+	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85))
+	title_bar.add_child(title_label)
+	var close_btn := Button.new()
+	close_btn.text = "✕"
+	close_btn.flat = true
+	close_btn.custom_minimum_size = Vector2(24, 24)
+	close_btn.pressed.connect(func(): panel.visible = false)
+	title_bar.add_child(close_btn)
+	vbox.add_child(title_bar)
+
+	# Make title bar draggable
+	title_bar.set_meta("_dragging", false)
+	title_bar.set_meta("_drag_offset", Vector2.ZERO)
+	title_bar.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				title_bar.set_meta("_dragging", true)
+				title_bar.set_meta("_drag_offset", event.global_position - panel.position)
+				title_bar.accept_event()
+			else:
+				title_bar.set_meta("_dragging", false)
+		elif event is InputEventMouseMotion and title_bar.get_meta("_dragging"):
+			panel.position = event.global_position - title_bar.get_meta("_drag_offset")
+			title_bar.accept_event()
+	)
+
+	# Content area (where the actual toolbox/inspector goes)
+	var content := VBoxContainer.new()
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(content)
+	panel.set_meta("_content", content)
+
+	return panel
+
+
+# ─── Floating Toolbox Panel (same viewport — drag-and-drop works) ────────────
 
 func _ui_forms_show_toolbox_window() -> void:
 	if is_instance_valid(_ui_forms_toolbox_window):
-		_ui_forms_toolbox_window.popup_centered()
+		_ui_forms_toolbox_window.visible = true
 		return
 
-	_ui_forms_toolbox_window = Window.new()
-	_ui_forms_toolbox_window.title = "VG Toolbox"
-	_ui_forms_toolbox_window.size = Vector2i(280, 600)
-	_ui_forms_toolbox_window.min_size = Vector2i(240, 300)
-	_ui_forms_toolbox_window.unresizable = false
-	_ui_forms_toolbox_window.exclusive = false
-	_ui_forms_toolbox_window.close_requested.connect(func(): _ui_forms_toolbox_window.hide())
+	_ui_forms_toolbox_window = _create_floating_panel("Toolbox", Vector2(280, 560))
 
 	# Use the same C++ VisualGasicToolbox + VB6 restyling as the IDE
+	var content_area = _ui_forms_toolbox_window.get_meta("_content")
 	if ClassDB.class_exists("VisualGasicToolbox"):
 		var real_tb = ClassDB.instantiate("VisualGasicToolbox")
 		real_tb.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		real_tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_ui_forms_toolbox_window.add_child(real_tb)
+		content_area.add_child(real_tb)
 		# Register extras (same as IDE)
 		if real_tb.has_method("add_tool"):
 			_register_extra_tools_on(real_tb)
-		# Wire tool_selected → direct placement (not drag-drop, which can't
-		# cross Windows). Single-click a tool = place at viewport center.
+		# Wire tool_selected → FormDesigner (VG IDE) or direct placement (Godot 2D)
 		if real_tb.has_signal("tool_selected"):
 			real_tb.tool_selected.connect(_on_floating_toolbox_selected)
 		# Apply VB6 list-style restyling (deferred so nodes are in tree)
 		call_deferred("_restyle_toolbox_instance", real_tb)
 	else:
 		var lbl := Label.new()
-		lbl.text = "VisualGasicToolbox not available (GDExtension not loaded)"
-		_ui_forms_toolbox_window.add_child(lbl)
+		lbl.text = "VisualGasicToolbox not available\n(GDExtension not loaded)"
+		content_area.add_child(lbl)
 
 	get_editor_interface().get_base_control().add_child(_ui_forms_toolbox_window)
-	_ui_forms_toolbox_window.popup_centered()
+	# Position near top-left of editor viewport
+	_ui_forms_toolbox_window.position = Vector2(180, 60)
 
 
 ## Handle tool selection from the floating Toolbox window.
@@ -12967,6 +13026,8 @@ func _restyle_toolbox_instance(cpp_toolbox) -> void:
 			break
 	if not tabs:
 		return
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	# Style each button with icon + text label (2-column layout)
 	for tab_idx in range(tabs.get_tab_count()):
@@ -13017,24 +13078,17 @@ func _restyle_toolbox_instance(cpp_toolbox) -> void:
 			parent.move_child(scroll, idx)
 
 
-# ─── Floating VG Properties Window ───────────────────────────────────────────
+# ─── Floating VG Properties Panel ─────────────────────────────────────────────
 
 func _ui_forms_show_props_window() -> void:
 	if is_instance_valid(_ui_forms_props_window):
-		_ui_forms_props_window.popup_centered()
-		# Refresh for current selection
+		_ui_forms_props_window.visible = true
 		_ui_forms_props_refresh()
 		return
 
-	_ui_forms_props_window = Window.new()
-	_ui_forms_props_window.title = "VG Properties"
-	_ui_forms_props_window.size = Vector2i(320, 500)
-	_ui_forms_props_window.min_size = Vector2i(260, 300)
-	_ui_forms_props_window.unresizable = false
-	_ui_forms_props_window.exclusive = false
-	_ui_forms_props_window.close_requested.connect(func(): _ui_forms_props_window.hide())
+	_ui_forms_props_window = _create_floating_panel("Properties", Vector2(300, 500))
 
-	# Load the VB6-style properties inspector
+	var content_area = _ui_forms_props_window.get_meta("_content")
 	var inspector_script = load("res://addons/visual_gasic/simple_inspector.gd")
 	if inspector_script:
 		var inspector = inspector_script.new()
@@ -13042,15 +13096,15 @@ func _ui_forms_show_props_window() -> void:
 		inspector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if inspector.has_method("setup"):
 			inspector.setup(self)
-		_ui_forms_props_window.add_child(inspector)
+		content_area.add_child(inspector)
 		_ui_forms_props_window.set_meta("_inspector", inspector)
 	else:
 		var lbl := Label.new()
 		lbl.text = "Properties inspector not found"
-		_ui_forms_props_window.add_child(lbl)
+		content_area.add_child(lbl)
 
 	get_editor_interface().get_base_control().add_child(_ui_forms_props_window)
-	_ui_forms_props_window.popup_centered()
+	_ui_forms_props_window.position = Vector2(900, 60)
 
 	# Connect to editor selection changes
 	get_editor_interface().get_selection().selection_changed.connect(_ui_forms_props_refresh)
