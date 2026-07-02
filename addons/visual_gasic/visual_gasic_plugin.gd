@@ -82,6 +82,9 @@ var _nav_injected_parent = null
 ## Tracks if a vg_control drag was in progress (for detecting drag end)
 var _vg_drag_active: bool = false
 
+## Reentrancy guard: prevents _handle_vg_drop_delayed from recursing
+var _vg_drop_in_progress: bool = false
+
 ## VB6 Layout Manager — toolbar toggle for VB6/Godot IDE modes
 var _layout_manager = null
 
@@ -2145,9 +2148,8 @@ func _process(_delta: float) -> void:
 				var local_pos = world_pos - form_offset
 				drag_data["drop_position"] = local_pos.snapped(Vector2(8, 8))
 			
-			# Use a timer to give Godot time to fully process the drag end
-			var timer = get_tree().create_timer(0.05)  # 50ms delay
-			timer.timeout.connect(_handle_vg_drop_delayed.bind(drag_data))
+			# Use call_deferred to give Godot time to fully process the drag end
+			call_deferred("_handle_vg_drop_delayed", drag_data)
 	
 	# Safety reset: if drag was active but meta was consumed by _drop_data()
 	# (form_editor_helper handled it), just reset the flag
@@ -2160,21 +2162,28 @@ func _process(_delta: float) -> void:
 ## Improved over the original: uses proper UIDs, max-based ext_resource IDs,
 ## and reuses existing ext_resource entries to prevent scene corruption.
 func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
+	if _vg_drop_in_progress:
+		return
+	_vg_drop_in_progress = true
+
 	var scene_path = drag_data.get("scene_path", "")
 	if scene_path.is_empty():
 		printerr("VisualGasic: Empty scene_path in drag data")
+		_vg_drop_in_progress = false
 		return
 	
 	# Get fresh reference to scene root
 	var root = get_editor_interface().get_edited_scene_root()
 	if not root or not is_instance_valid(root):
 		printerr("VisualGasic: No valid scene root for drop")
+		_vg_drop_in_progress = false
 		return
 	
 	# Scene must be saved to disk for text manipulation
 	var edited_scene_path = root.scene_file_path
 	if edited_scene_path.is_empty():
 		printerr("VisualGasic: Scene has no file path")
+		_vg_drop_in_progress = false
 		return
 	
 	# Use the pre-captured drop position (captured at moment of drop, not after delay)
@@ -2268,6 +2277,7 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	file = FileAccess.open(edited_scene_path, FileAccess.WRITE)
 	if not file:
 		printerr("VisualGasic: Could not write scene file: ", edited_scene_path)
+		_vg_drop_in_progress = false
 		return
 	file.store_string(scene_text)
 	file.close()
@@ -2280,6 +2290,7 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	select_timer.timeout.connect(_select_node_by_name.bind(node_name))
 	
 	print("VisualGasic: Dropped ", node_name, " at ", drop_pos)
+	_vg_drop_in_progress = false
 
 ## Selects a node by name after scene reload
 func _select_node_by_name(node_name: String) -> void:
