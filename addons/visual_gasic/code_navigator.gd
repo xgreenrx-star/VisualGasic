@@ -443,6 +443,34 @@ func _extract_proc_name(after_keyword: String) -> String:
 		return ""
 	return name
 
+## Selects the given object and event in the dropdowns programmatically.
+## Called after Wire Event / double-click wires a new Sub so the dropdowns
+## reflect the currently open procedure.
+func select_object_and_event(obj_name: String, event_name: String) -> void:
+	# Find the object in the object_list
+	for i in object_list.item_count:
+		var meta = object_list.get_item_metadata(i)
+		var name_match := false
+		if meta is Node and is_instance_valid(meta) and meta.name == obj_name:
+			name_match = true
+		elif meta is String and meta == obj_name:
+			name_match = true
+		if name_match:
+			object_list.select(i)
+			_on_object_selected(i)
+			break
+	# Now find the event in the event_list
+	for i in event_list.item_count:
+		var emeta = event_list.get_item_metadata(i)
+		var event_match := false
+		if emeta is Dictionary:
+			event_match = (emeta.get("event", "") == event_name or emeta.get("name", "") == obj_name + "_" + event_name)
+		elif emeta is String:
+			event_match = (emeta == event_name)
+		if event_match:
+			event_list.select(i)
+			break
+
 func _on_object_selected(idx):
 	event_list.clear()
 	var meta = object_list.get_item_metadata(idx)

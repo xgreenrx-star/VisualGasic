@@ -11638,8 +11638,13 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int, p
 					
 					# Deferred scroll — wait for the editor to finish layout
 					_deferred_scroll_to_caret.call_deferred(code_edit)
-	else:
-		await get_tree().create_timer(0.1).timeout
+
+			# Update the Code Navigator dropdowns to show the correct object/event
+			var nav = _get_navigator()
+			if is_instance_valid(nav):
+				nav.refresh_objects()
+				if nav.has_method("select_object_and_event"):
+					nav.select_object_and_event.call_deferred(obj, event)
 		_poll_for_inject(path, obj, event, attempts + 1, params)
 
 ## Deferred helper: scrolls the CodeEdit viewport to the caret position.
