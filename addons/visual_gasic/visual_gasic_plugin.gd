@@ -2159,8 +2159,9 @@ func _process(_delta: float) -> void:
 ## Handles vg_control drop after a short delay for editor stability.
 ## Modifies the .tscn file on disk and reloads — the ONLY approach that
 ## correctly registers ownership in the Godot editor scene tree.
-## Improved over the original: uses proper UIDs, max-based ext_resource IDs,
-## and reuses existing ext_resource entries to prevent scene corruption.
+## Places a VG control into the active scene using Godot's EditorUndoRedoManager.
+## This integrates with Godot's undo/redo system so placement is undoable (Ctrl+Z)
+## and deletion works through the normal scene-tree delete flow.
 func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	if _vg_drop_in_progress:
 		return
@@ -2171,125 +2172,68 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 		printerr("VisualGasic: Empty scene_path in drag data")
 		_vg_drop_in_progress = false
 		return
-	
+
 	# Get fresh reference to scene root
 	var root = get_editor_interface().get_edited_scene_root()
 	if not root or not is_instance_valid(root):
 		printerr("VisualGasic: No valid scene root for drop")
 		_vg_drop_in_progress = false
 		return
-	
-	# Scene must be saved to disk for text manipulation
-	var edited_scene_path = root.scene_file_path
-	if edited_scene_path.is_empty():
-		printerr("VisualGasic: Scene has no file path")
-		_vg_drop_in_progress = false
-		return
-	
-	# Use the pre-captured drop position (captured at moment of drop, not after delay)
+
+	# Use the pre-captured drop position
 	var drop_pos: Vector2 = drag_data.get("drop_position", Vector2.ZERO)
 	if drop_pos == Vector2.ZERO:
-		# Fallback to current mouse position if not captured
 		var editor_viewport = get_editor_interface().get_editor_viewport_2d()
 		if editor_viewport:
-			var mouse_pos = editor_viewport.get_mouse_position()
 			var canvas_xform = editor_viewport.get_canvas_transform()
-			var world_pos = canvas_xform.affine_inverse() * mouse_pos
-			drop_pos = world_pos.snapped(Vector2(8, 8))
-	
-	var control_name = scene_path.get_file().get_basename()
-	
-	# Save any pending editor changes before modifying the file on disk
-	get_editor_interface().save_scene()
-	
-	# Read the current scene file
-	var file = FileAccess.open(edited_scene_path, FileAccess.READ)
-	if not file:
-		printerr("VisualGasic: Could not open scene file: ", edited_scene_path)
-		return
-	var scene_text = file.get_as_text()
-	file.close()
-	
-	# Check if this scene_path already has an ext_resource entry (reuse it)
-	var ext_id_str := ""
-	var lines = scene_text.split("\n")
-	for line in lines:
-		if line.begins_with("[ext_resource") and line.find('path="' + scene_path + '"') >= 0:
-			var id_start = line.find('id="') + 4
-			var id_end = line.find('"', id_start)
-			if id_start > 3 and id_end > id_start:
-				ext_id_str = line.substr(id_start, id_end - id_start)
-			break
-	
-	if ext_id_str.is_empty():
-		# Need a new ext_resource — find the maximum existing numeric ID
-		var max_num := 0
-		for line in lines:
-			if line.begins_with("[ext_resource"):
-				var id_start = line.find('id="') + 4
-				var id_end = line.find('"', id_start)
-				if id_start > 3 and id_end > id_start:
-					var id_val = line.substr(id_start, id_end - id_start)
-					# Handle Godot 4 "3_abc" style IDs — extract numeric prefix
-					var num_part = id_val.split("_")[0]
-					if num_part.is_valid_int() and int(num_part) > max_num:
-						max_num = int(num_part)
-		ext_id_str = str(max_num + 1)
-		
-		# Get proper UID for the prototype scene
-		var uid_str := ""
-		var uid_val = ResourceLoader.get_resource_uid(scene_path)
-		if uid_val >= 0:
-			uid_str = ResourceUID.id_to_text(uid_val)
-		
-		# Build the new ext_resource line
-		var ext_line := '[ext_resource type="PackedScene"'
-		if not uid_str.is_empty():
-			ext_line += ' uid="' + uid_str + '"'
-		ext_line += ' path="' + scene_path + '" id="' + ext_id_str + '"]\n'
-		
-		# Insert after the last ext_resource line
-		var last_ext_pos = scene_text.rfind("[ext_resource")
-		if last_ext_pos >= 0:
-			var end_of_line = scene_text.find("\n", last_ext_pos)
-			scene_text = scene_text.insert(end_of_line + 1, ext_line)
-		else:
-			# No ext_resources yet — insert before first [node
-			var first_node_pos = scene_text.find("\n[node ")
-			if first_node_pos >= 0:
-				scene_text = scene_text.insert(first_node_pos, "\n" + ext_line)
-	
-	# Generate unique node name (always numbered)
-	var existing_count = scene_text.count('[node name="' + control_name)
-	var node_name = control_name + str(existing_count + 1)
-	
-	# Build the new node entry
-	var node_line = '\n[node name="' + node_name + '" parent="." instance=ExtResource("' + ext_id_str + '")]\n'
-	node_line += "offset_left = " + str(int(drop_pos.x)) + ".0\n"
-	node_line += "offset_top = " + str(int(drop_pos.y)) + ".0\n"
-	if control_name in ["Button", "Label", "CheckBox", "OptionButton"]:
-		node_line += 'text = "' + node_name + '"\n'
-	
-	# Append node at the end
-	scene_text += node_line
-	
-	# Write back
-	file = FileAccess.open(edited_scene_path, FileAccess.WRITE)
-	if not file:
-		printerr("VisualGasic: Could not write scene file: ", edited_scene_path)
+			drop_pos = (canvas_xform.affine_inverse() * editor_viewport.get_mouse_position()).snapped(Vector2(8, 8))
+
+	# Load the prototype scene
+	var packed_scene: PackedScene = load(scene_path)
+	if not packed_scene:
+		printerr("VisualGasic: Could not load prototype scene: ", scene_path)
 		_vg_drop_in_progress = false
 		return
-	file.store_string(scene_text)
-	file.close()
-	
-	# Reload the scene in the editor (evict stale cache first)
-	_force_godot_scene_reload(edited_scene_path)
-	
-	# Select the new node after a short delay (to let the scene fully reload)
-	var select_timer = get_tree().create_timer(0.1)
-	select_timer.timeout.connect(_select_node_by_name.bind(node_name))
-	
-	print("VisualGasic: Dropped ", node_name, " at ", drop_pos)
+
+	var new_node = packed_scene.instantiate()
+	if not new_node:
+		printerr("VisualGasic: Could not instantiate: ", scene_path)
+		_vg_drop_in_progress = false
+		return
+
+	# Generate a unique name based on existing siblings with the same base
+	var control_name = scene_path.get_file().get_basename()
+	var sibling_count := 0
+	for child in root.get_children():
+		if child.name.begins_with(control_name):
+			sibling_count += 1
+	var node_name = control_name + str(sibling_count + 1)
+	new_node.name = node_name
+
+	# Set position and text before the node enters the scene tree
+	if new_node is Control:
+		new_node.offset_left = drop_pos.x
+		new_node.offset_top = drop_pos.y
+	if control_name in ["Button", "Label", "CheckBox", "OptionButton"]:
+		if new_node.has_method("set_text"):
+			new_node.set_text(node_name)
+
+	# Add via EditorUndoRedoManager — identical to Godot's own scene drag-drop.
+	# This makes placement undoable (Ctrl+Z) and deletion work through the
+	# normal undo/redo mechanism without any file manipulation or reload.
+	var undo_redo = get_undo_redo()
+	undo_redo.create_action("Place " + node_name, UndoRedo.MERGE_DISABLE, root)
+	undo_redo.add_do_method(root, "add_child", new_node, true)
+	undo_redo.add_do_reference(new_node)
+	undo_redo.add_do_method(new_node, "set_owner", root)
+	undo_redo.add_undo_method(root, "remove_child", new_node)
+	undo_redo.add_undo_reference(new_node)
+	undo_redo.commit_action()
+
+	# Select the newly placed node
+	call_deferred("_select_dropped_node", new_node)
+
+	print("VisualGasic: Placed ", node_name, " at ", drop_pos)
 	_vg_drop_in_progress = false
 
 ## Selects a node by name after scene reload
