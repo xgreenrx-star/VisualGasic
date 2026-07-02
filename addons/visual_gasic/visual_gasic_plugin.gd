@@ -11340,7 +11340,11 @@ func _forward_canvas_gui_input(event):
 			_apply_canvas_zoom()
 			return true
 
-	# Handle mouse button events for vg_control drag-drop AND double-click
+	# Handle mouse button events for vg_control drag-drop.
+	# NOTE: double-click detection lives ONLY in _on_canvas_viewport_gui_input()
+	# (hooked directly to the canvas viewport's gui_input signal). Doing it here as
+	# well would mutate the shared _last_canvas_click_* state and cause false/again
+	# double-clicks. This handler now only finalizes toolbox drag-drops.
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if not event.pressed:
@@ -11352,31 +11356,6 @@ func _forward_canvas_gui_input(event):
 						Engine.remove_meta("_vg_active_drag")
 						if result:
 							return true
-
-			if event.pressed:
-				# ── Timer-based double-click detection ──
-				# Godot 4.6.1 does NOT forward event.double_click to plugins for
-				# the 2D canvas. So we detect two rapid left-presses on the same
-				# selected Control node manually.
-				var now = Time.get_ticks_msec()
-				var sel = get_editor_interface().get_selection().get_selected_nodes()
-				var current_node: Node = sel[0] if sel.size() == 1 else null
-				
-				if current_node and current_node is Control:
-					var root = get_editor_interface().get_edited_scene_root()
-					if current_node != root:
-						if is_instance_valid(_last_canvas_click_node) and current_node == _last_canvas_click_node and (now - _last_canvas_click_time) < _DOUBLE_CLICK_MS:
-							# Double-click detected! Consume the event (return true) so
-							# Godot never starts a node-move drag on this press.
-							# scene_file_path="" on all VG controls means Godot won't
-							# try to open a prototype .tscn even though we consume it.
-							print("[VG-DBL] Timer double-click → wiring event for: ", current_node.name)
-							_last_canvas_click_node = null
-							_last_canvas_click_time = 0
-							call_deferred("_generate_event_handler", current_node)
-							return true
-						_last_canvas_click_time = now
-						_last_canvas_click_node = current_node
 	
 	return false
 
@@ -12164,11 +12143,29 @@ func _on_canvas_viewport_gui_input(event: InputEvent) -> void:
 		var root = get_editor_interface().get_edited_scene_root()
 		if current_node != root:
 			if current_node == _last_canvas_click_node and (now - _last_canvas_click_time) < _DOUBLE_CLICK_MS:
-				# Double-click! Wire event — same as Wire Event right-click menu.
-				print("[VG-DBL] Canvas viewport double-click → wiring: ", current_node.name)
-				_generate_event_handler(current_node)
+				# Double-click detected. The CanvasItemEditor connected to this
+				# viewport's gui_input signal BEFORE we did, so by now it has already
+				# armed a node-move drag on this press. Because we're about to switch
+				# to the Script screen, that drag would never receive its matching
+				# button-release and the control would "stick" to the mouse when you
+				# return to the 2D editor. Feed a synthetic LEFT-button release into
+				# the viewport now so the editor ends the drag cleanly. No mouse motion
+				# happened between the press and this release, so the node does not move.
 				_last_canvas_click_node = null
 				_last_canvas_click_time = 0
+				var vp := get_viewport()
+				if vp:
+					var release := InputEventMouseButton.new()
+					release.button_index = MOUSE_BUTTON_LEFT
+					release.pressed = false
+					release.position = event.position
+					release.global_position = event.global_position
+					vp.push_input(release)
+					vp.set_input_as_handled()
+				print("[VG-DBL] Canvas viewport double-click → wiring: ", current_node.name)
+				# Defer the screen switch so it happens after this input event (and the
+				# synthetic release above) are fully processed — no reentrancy.
+				call_deferred("_generate_event_handler", current_node)
 				return
 	
 	_last_canvas_click_time = now

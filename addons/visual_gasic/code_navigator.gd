@@ -209,7 +209,14 @@ func refresh_objects():
 	object_list.clear()
 
 	var root = editor_plugin.get_editor_interface().get_edited_scene_root()
-	if not root:
+	# During a main-screen switch the root can be null OR valid-but-mid-teardown,
+	# where get_children() returns Nil (this crashed the tree-walk below). In BOTH
+	# cases rebuild from the cache that set_cached_controls_from_scene() populated
+	# while the scene was still live — the same way the VG IDE feeds control names.
+	var live_children = null
+	if is_instance_valid(root):
+		live_children = root.get_children()
+	if live_children == null:
 		# get_edited_scene_root() returns null in Script view and in the VG IDE.
 		# If we have a cached node list from a previous 2D-view refresh, rebuild
 		# the object model from that cache so dropdowns stay meaningful.
@@ -218,10 +225,11 @@ func refresh_objects():
 			var gen_idx: int = object_list.item_count
 			object_list.add_item("(General)")
 			object_list.set_item_metadata(gen_idx, "(General)")
-			# Add cached controls
+			# Add cached controls — format the label the same as the live tree walk
+			# ("Button1 (CommandButton)") using the VB6 dialect name.
 			for entry in _cached_controls:
 				var oidx: int = object_list.item_count
-				object_list.add_item(entry["name"])
+				object_list.add_item(VGIntelliSense.format_node_label(entry["name"], entry["class_name"]))
 				object_list.set_item_metadata(oidx, {"type": "cached_control", "name": entry["name"], "class_name": entry["class_name"]})
 			# Restore selection
 			var sel_restored: bool = false
@@ -271,12 +279,13 @@ func refresh_objects():
 	# Add Objects recursively
 	_add_node_recursive(root)
 
-	# Cache the Control children for use when get_edited_scene_root() returns null
+	# Cache the Control children for use when get_edited_scene_root() returns null.
+	# Reuse the children we already fetched safely above — never re-call
+	# get_children() here, it can return Nil mid-teardown and crash the iteration.
 	_cached_controls.clear()
-	if is_instance_valid(root):
-		for child in root.get_children():
-			if child is Control:
-				_cached_controls.append({"name": child.name, "class_name": child.get_class()})
+	for child in live_children:
+		if child is Control:
+			_cached_controls.append({"name": child.name, "class_name": child.get_class()})
 
 	# Add Scene Scripts section — nodes with .gd scripts
 	var gd_nodes: Array = []
@@ -285,7 +294,8 @@ func refresh_objects():
 		var sep_idx = object_list.item_count
 		object_list.add_item("\u2500\u2500 Scene Scripts \u2500\u2500")
 		object_list.set_item_metadata(sep_idx, {"type": "separator"})
-		object_list.set_item_disabled(sep_idx, true)
+		# NOTE: VGComboBox has no set_item_disabled(); the separator is inert anyway
+		# because _on_object_selected() returns early for {"type":"separator"}.
 		for gd_node in gd_nodes:
 			var s = gd_node.get_script()
 			var label = gd_node.name + " (" + s.resource_path.get_file() + ")"
