@@ -188,6 +188,15 @@ void VisualGasicFormDesigner::_process(double p_delta) {
     // ── Animated form designer: always tick animation clock ──
     anim_time += (float)p_delta;
     if (anim_time > 3600.0f) anim_time -= 3600.0f;
+
+    // Skip all visual updates when not visible (parent layout hidden)
+    if (!is_visible_in_tree()) {
+        if (show_preview) {
+            show_preview = false;
+        }
+        return;
+    }
+
     // Keep overlay in sync (selection handles, rubber band)
     if (overlay_node) overlay_node->queue_redraw();
 
