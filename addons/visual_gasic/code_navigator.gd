@@ -18,6 +18,10 @@ var _last_known_vg_path: String = ""  # Cached — survives transient null from 
 ## Cache of Control children from the last time get_edited_scene_root() was non-null.
 ## Used when the scene root becomes temporarily inaccessible (e.g. Godot Script editor view).
 var _cached_controls: Array = []  # Each element: {name: String, class_name: String}
+## Pending selection to restore after the next refresh_objects() call.
+## Set by select_object_and_event() so deferred refreshes don't clobber it.
+var _pending_obj: String = ""
+var _pending_event: String = ""
 
 func set_override_vg_path(path: String) -> void:
 	_override_vg_path = path
@@ -224,6 +228,7 @@ func refresh_objects():
 			if not sel_restored:
 				object_list.select(0)
 				_on_object_selected(0)
+			_apply_pending_selection()
 			return
 		# No cache — fall back to (General)-only standalone module view
 		var gen_only: int = object_list.item_count
@@ -294,6 +299,10 @@ func refresh_objects():
 	if not found and object_list.item_count > 0:
 		object_list.select(0)
 		_on_object_selected(0)
+
+	# Re-apply any pending programmatic selection (from Wire Event / double-click).
+	# This runs AFTER the normal selection-restore so it always wins.
+	_apply_pending_selection()
 
 func _add_node_recursive(node: Node):
 	if not node: return
@@ -486,6 +495,16 @@ func _extract_proc_name(after_keyword: String) -> String:
 ## Called after Wire Event / double-click wires a new Sub so the dropdowns
 ## reflect the currently open procedure.
 func select_object_and_event(obj_name: String, event_name: String) -> void:
+	# Store as pending so any subsequent deferred refresh_objects() restores it.
+	_pending_obj = obj_name
+	_pending_event = event_name
+	_apply_pending_selection()
+
+func _apply_pending_selection() -> void:
+	if _pending_obj.is_empty():
+		return
+	var obj_name := _pending_obj
+	var event_name := _pending_event
 	# Find the object in the object_list
 	for i in object_list.item_count:
 		var meta = object_list.get_item_metadata(i)
@@ -511,6 +530,9 @@ func select_object_and_event(obj_name: String, event_name: String) -> void:
 		if event_match:
 			event_list.select(i)
 			break
+	# Clear pending — selection is now applied
+	_pending_obj = ""
+	_pending_event = ""
 
 func _on_object_selected(idx):
 	event_list.clear()
