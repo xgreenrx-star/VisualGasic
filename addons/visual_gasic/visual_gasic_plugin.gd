@@ -2230,6 +2230,21 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	undo_redo.add_undo_reference(new_node)
 	undo_redo.commit_action()
 
+	# Apply VB6 theme so the control looks correct regardless of scene structure.
+	# If the scene root is a Control (e.g. Window, Panel), set the theme there so
+	# all children inherit it. If the root is a Node2D or similar, set it directly
+	# on the placed control so it still gets the correct appearance.
+	if new_node is Control:
+		if root is Control:
+			if not root.has_meta("_vb6_scene_theme_applied"):
+				root.theme = _build_vb6_scene_theme()
+				root.set_meta("_vb6_scene_theme_applied", true)
+		else:
+			# Non-Control root (e.g. Node2D) — apply theme directly to this node
+			if not new_node.has_meta("_vb6_scene_theme_applied"):
+				new_node.theme = _build_vb6_scene_theme()
+				new_node.set_meta("_vb6_scene_theme_applied", true)
+
 	# Select the newly placed node
 	call_deferred("_select_dropped_node", new_node)
 
