@@ -2104,6 +2104,30 @@ func _process(_delta: float) -> void:
 				_bottom_panel_search_done = true
 			# We'll keep retrying each frame until found (editor UI loads asynchronously)
 
+	# ── Double-click detection via _process() polling ──
+	# Must run BEFORE the _form_designer early-return below.
+	# Neither _input() nor _forward_canvas_gui_input receives double_click events
+	# from the 2D canvas in Godot 4.6.1. Input.is_mouse_button_pressed() always works.
+	var mouse_pressed = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	if mouse_pressed and not _dbl_mouse_was_pressed:
+		# Rising edge: mouse just pressed this frame
+		var sel = get_editor_interface().get_selection().get_selected_nodes()
+		var current_node: Node = sel[0] if sel.size() == 1 else null
+		if current_node and current_node is Control:
+			var root = get_editor_interface().get_edited_scene_root()
+			if current_node != root:
+				var now = Time.get_ticks_msec()
+				if current_node == _last_canvas_click_node and (now - _last_canvas_click_time) < _DOUBLE_CLICK_MS:
+					# Double-click detected → wire event (same as Wire Event menu)
+					print("[VG-DBL] _process() double-click → wiring: ", current_node.name)
+					call_deferred("_generate_event_handler", current_node)
+					_last_canvas_click_node = null
+					_last_canvas_click_time = 0
+				else:
+					_last_canvas_click_time = now
+					_last_canvas_click_node = current_node
+	_dbl_mouse_was_pressed = mouse_pressed
+
 	# C++ Form Designer handles its own drops — skip old code path
 	# Use is_visible_in_tree() because .visible may be true while parent layout is hidden
 	if _form_designer and _form_designer.is_visible_in_tree():
@@ -2155,31 +2179,6 @@ func _process(_delta: float) -> void:
 	# (form_editor_helper handled it), just reset the flag
 	if _vg_drag_active and not is_dragging and not has_vg_drag:
 		_vg_drag_active = false
-
-	# ── Double-click detection via _process() polling ──
-	# Neither _input() nor _forward_canvas_gui_input receives double_click events
-	# from the 2D canvas in Godot 4.6.1. So we detect it here by checking if the
-	# mouse button transitioned from released→pressed and the same node was
-	# clicked within the double-click window.
-	var mouse_pressed = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-	if mouse_pressed and not _dbl_mouse_was_pressed:
-		# Rising edge: mouse just pressed this frame
-		var sel = get_editor_interface().get_selection().get_selected_nodes()
-		var current_node: Node = sel[0] if sel.size() == 1 else null
-		if current_node and current_node is Control:
-			var root = get_editor_interface().get_edited_scene_root()
-			if current_node != root:
-				var now = Time.get_ticks_msec()
-				if current_node == _last_canvas_click_node and (now - _last_canvas_click_time) < _DOUBLE_CLICK_MS:
-					# Double-click detected → wire event (same as Wire Event menu)
-					print("[VG-DBL] _process() double-click → wiring: ", current_node.name)
-					call_deferred("_generate_event_handler", current_node)
-					_last_canvas_click_node = null
-					_last_canvas_click_time = 0
-				else:
-					_last_canvas_click_time = now
-					_last_canvas_click_node = current_node
-	_dbl_mouse_was_pressed = mouse_pressed
 
 ## Handles vg_control drop after a short delay for editor stability.
 ## Modifies the .tscn file on disk and reloads — the ONLY approach that
