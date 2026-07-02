@@ -12835,65 +12835,147 @@ func _ui_forms_show_toolbox_window() -> void:
 
 	_ui_forms_toolbox_window = Window.new()
 	_ui_forms_toolbox_window.title = "VG Toolbox"
-	_ui_forms_toolbox_window.size = Vector2i(280, 400)
-	_ui_forms_toolbox_window.min_size = Vector2i(200, 300)
+	_ui_forms_toolbox_window.size = Vector2i(280, 600)
+	_ui_forms_toolbox_window.min_size = Vector2i(240, 300)
 	_ui_forms_toolbox_window.unresizable = false
 	_ui_forms_toolbox_window.exclusive = false
 	_ui_forms_toolbox_window.close_requested.connect(func(): _ui_forms_toolbox_window.hide())
 
-	var content: Control = null
-
-	# Try to use the C++ VisualGasicToolbox if available
+	# Use the same C++ VisualGasicToolbox + VB6 restyling as the IDE
 	if ClassDB.class_exists("VisualGasicToolbox"):
 		var real_tb = ClassDB.instantiate("VisualGasicToolbox")
 		real_tb.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		real_tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		content = real_tb
-		# Register the extra GDScript tools on this floating copy too
+		_ui_forms_toolbox_window.add_child(real_tb)
+		# Register extras (same as IDE)
 		if real_tb.has_method("add_tool"):
-			real_tb.add_tool("Spinner", "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/Spinner.tscn")
-			real_tb.add_tool("BusyDots", "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/BusyDots.tscn")
-			real_tb.add_tool("ToggleSwitch", "Control", "CheckBox", "res://addons/visual_gasic/prototypes/ToggleSwitch.tscn")
-			real_tb.add_tool("LinkButton", "LinkButton", "LinkButton", "res://addons/visual_gasic/prototypes/LinkButton.tscn")
-		# Wire tool_selected → same _vg_active_drag mechanism
+			_register_extra_tools_on(real_tb)
+		# Wire tool_selected → drag-drop placement
 		if real_tb.has_signal("tool_selected"):
 			real_tb.tool_selected.connect(_on_toolbox_tool_selected)
+		# Apply VB6 list-style restyling (deferred so nodes are in tree)
+		call_deferred("_restyle_toolbox_instance", real_tb)
 	else:
-		# Fallback: use the GDScript picker as content
-		var PickerScript = load("res://addons/visual_gasic/plugins/ui_forms/ui_forms_control_picker.gd")
-		if PickerScript:
-			# Create a non-popup version (just its VBox content)
-			var picker_vb := VBoxContainer.new()
-			picker_vb.size_flags_vertical = Control.SIZE_EXPAND_FILL
-			var hint := Label.new()
-			hint.text = "Drag a control onto the 2D canvas:"
-			picker_vb.add_child(hint)
-			var scroll := ScrollContainer.new()
-			scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-			scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-			picker_vb.add_child(scroll)
-			var rows := VBoxContainer.new()
-			rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			rows.add_theme_constant_override("separation", 8)
-			scroll.add_child(rows)
-			var palette = PickerScript.PALETTE
-			for entry in palette:
-				var btn := Button.new()
-				btn.text = entry["label"]
-				btn.custom_minimum_size = Vector2(0, 36)
-				var godot_type: String = entry["type"]
-				btn.pressed.connect(func():
-					_on_ui_forms_control_chosen(godot_type)
-					_ui_forms_toolbox_window.hide()
-				)
-				rows.add_child(btn)
-			content = picker_vb
-
-	if content:
-		_ui_forms_toolbox_window.add_child(content)
+		var lbl := Label.new()
+		lbl.text = "VisualGasicToolbox not available (GDExtension not loaded)"
+		_ui_forms_toolbox_window.add_child(lbl)
 
 	get_editor_interface().get_base_control().add_child(_ui_forms_toolbox_window)
 	_ui_forms_toolbox_window.popup_centered()
+
+
+## Register extra GDScript tools on a given VisualGasicToolbox instance.
+func _register_extra_tools_on(tb) -> void:
+	tb.add_tool("Spinner", "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/Spinner.tscn")
+	tb.add_tool("BusyDots", "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/BusyDots.tscn")
+	tb.add_tool("ToggleSwitch", "Control", "CheckBox", "res://addons/visual_gasic/prototypes/ToggleSwitch.tscn")
+	tb.add_tool("ColorPicker", "ColorPickerButton", "ColorPickerButton", "res://addons/visual_gasic/prototypes/ColorPickerButton.tscn")
+	tb.add_tool("LinkButton", "LinkButton", "LinkButton", "res://addons/visual_gasic/prototypes/LinkButton.tscn")
+	tb.add_tool("HSplit", "HSplitContainer", "HSplitContainer", "res://addons/visual_gasic/prototypes/HSplit.tscn")
+	tb.add_tool("VSplit", "VSplitContainer", "VSplitContainer", "res://addons/visual_gasic/prototypes/VSplit.tscn")
+	tb.add_tool("VideoPlayer", "VideoStreamPlayer", "VideoStreamPlayer", "res://addons/visual_gasic/prototypes/VideoPlayer.tscn")
+	tb.add_tool("Expander", "VBoxContainer", "VBoxContainer", "res://addons/visual_gasic/prototypes/Expander.tscn")
+	tb.add_tool("Breadcrumbs", "HBoxContainer", "HBoxContainer", "res://addons/visual_gasic/prototypes/Breadcrumbs.tscn")
+	tb.add_tool("PixelProgressBar", "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/game_ui/PixelProgressBar.tscn", "Game UI")
+	tb.add_tool("SegmentedProgressBar", "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/game_ui/SegmentedProgressBar.tscn", "Game UI")
+	tb.add_tool("RetroLifeBar", "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/game_ui/RetroLifeBar.tscn", "Game UI")
+	tb.add_tool("CircularProgress", "Control", "ProgressBar", "res://addons/visual_gasic/prototypes/game_ui/CircularProgress.tscn", "Game UI")
+	tb.add_tool("Badge", "Control", "Label", "res://addons/visual_gasic/prototypes/game_ui/Badge.tscn", "Game UI")
+	if tb.has_method("mark_defaults"):
+		tb.mark_defaults()
+
+
+## Restyle a VisualGasicToolbox instance to VB6 TwinBasic list layout.
+## This is the same transform as _restyle_toolbox_buttons() but takes a
+## specific instance rather than using _get_toolbox_instance().
+func _restyle_toolbox_instance(cpp_toolbox) -> void:
+	if not is_instance_valid(cpp_toolbox):
+		return
+
+	var _VB6Icons = load("res://addons/visual_gasic/vb6_toolbox_icons.gd")
+	if not _VB6Icons:
+		return
+	var vb6_icons: Dictionary = _VB6Icons.create_all(20)
+
+	var display_names := {
+		"Pointer": "Pointer", "Picture": "PictureBox", "Label": "Label",
+		"TextBox": "TextBox", "Button": "CommandButton", "CheckBox": "CheckBox",
+		"ComboBox": "ComboBox", "Frame": "Frame", "GroupBox": "GroupBox",
+		"ListBox": "ListBox", "TreeView": "TreeView", "HScroll": "HScrollBar",
+		"VScroll": "VScrollBar", "ProgressBar": "ProgressBar", "HSlider": "HSlider",
+		"VSlider": "VSlider", "SpinBox": "SpinBox", "Shape": "Shape",
+		"HLine": "Line", "VLine": "Line", "RichText": "RichTextBox",
+		"TextArea": "TextArea", "TabStrip": "TabStrip", "Timer": "Timer",
+		"Files": "FileDialog", "VGComboBox": "VGComboBox",
+		"RadioButton": "RadioButton", "MenuBar": "MenuBar",
+		"PictureButton": "PictureButton", "Line": "Line",
+		"DriveListBox": "DriveListBox", "FlexGrid": "FlexGrid",
+		"Form": "Form", "Option": "Option", "CommonDialog": "CommonDialog",
+		"ColorBtn": "ColorBtn", "Video": "Video", "Viewport": "Viewport",
+		"Spinner": "Spinner", "BusyDots": "BusyDots",
+		"ToggleSwitch": "ToggleSwitch", "ColorPicker": "ColorPicker",
+		"LinkButton": "LinkButton", "HSplit": "HSplit", "VSplit": "VSplit",
+		"VideoPlayer": "VideoPlayer", "Expander": "Expander",
+		"Breadcrumbs": "Breadcrumbs",
+	}
+
+	var icon_key_map := {"DriveListBox": "DriveList"}
+
+	# Find TabContainer
+	var tabs: TabContainer = null
+	for c in cpp_toolbox.get_children():
+		if c is TabContainer:
+			tabs = c
+			break
+	if not tabs:
+		return
+
+	# Style each button with icon + text label (2-column layout)
+	for tab_idx in range(tabs.get_tab_count()):
+		var grid = tabs.get_child(tab_idx)
+		if grid is GridContainer:
+			grid.set_columns(2)
+			grid.add_theme_constant_override("h_separation", 2)
+			grid.add_theme_constant_override("v_separation", 1)
+			for btn_idx in range(grid.get_child_count()):
+				var btn = grid.get_child(btn_idx)
+				if btn is Button:
+					var tool_name: String = btn.name
+					btn.text = display_names.get(tool_name, tool_name)
+					btn.custom_minimum_size = Vector2(0, 26)
+					btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+					btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+					btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+					btn.expand_icon = false
+					# Icon colors — prevent green tint
+					var white := Color(1, 1, 1, 1)
+					btn.add_theme_color_override("icon_normal_color", white)
+					btn.add_theme_color_override("icon_hover_color", white)
+					btn.add_theme_color_override("icon_pressed_color", white)
+					# Apply SVG icon
+					var icon_key: String = icon_key_map.get(tool_name, tool_name)
+					if vb6_icons.has(icon_key):
+						btn.icon = vb6_icons[icon_key]
+					elif vb6_icons.has("_CustomControl"):
+						btn.icon = vb6_icons["_CustomControl"]
+					if btn.has_method("set_icon_name"):
+						btn.set_icon_name("")
+
+	# Wrap grids in ScrollContainers
+	for tab_idx in range(tabs.get_tab_count()):
+		var grid = tabs.get_child(tab_idx)
+		if grid is GridContainer:
+			var scroll := ScrollContainer.new()
+			scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+			var parent = grid.get_parent()
+			var idx = grid.get_index()
+			parent.remove_child(grid)
+			scroll.add_child(grid)
+			grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			parent.add_child(scroll)
+			parent.move_child(scroll, idx)
 
 
 # ─── Floating VG Properties Window ───────────────────────────────────────────
@@ -12944,10 +13026,10 @@ func _ui_forms_props_refresh() -> void:
 	if not inspector:
 		return
 	var sel = get_editor_interface().get_selection().get_selected_nodes()
-	if sel.size() == 1 and inspector.has_method("inspect_node"):
-		inspector.inspect_node(sel[0])
-	elif inspector.has_method("clear"):
-		inspector.clear()
+	if sel.size() == 1 and inspector.has_method("update_properties"):
+		inspector.update_properties(sel[0])
+	elif inspector.has_method("clear_properties"):
+		inspector.clear_properties()
 
 
 # =============================================================================
