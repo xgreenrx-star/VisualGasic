@@ -86,6 +86,7 @@ var _vg_drag_active: bool = false
 ## Auto-resets after 2 seconds to prevent permanent lockout from edge cases.
 var _vg_drop_in_progress: bool = false
 var _vg_drop_in_progress_time: int = 0  # msec when set to true
+var _vg_injected_paths: PackedStringArray = []  # .tscn paths modified by _build()
 
 ## Tracks the currently active main screen ("2D", "3D", "Script", "AssetLib").
 ## Updated by _on_main_screen_changed. Used to gate scene-tree operations that
@@ -1679,7 +1680,64 @@ func _save_external_data() -> void:
 ## while ensuring the runtime can find the script when the game runs.
 func _build() -> bool:
 	_inject_vg_scripts_into_scenes()
+	# Strip injections after a short delay — game has already loaded the .tscn
+	# by then, so the disk version can revert to clean. If Godot asks "reload?"
+	# the user can safely say yes (file is clean again).
+	if _vg_injected_paths.size() > 0:
+		var timer = get_tree().create_timer(1.5)
+		timer.timeout.connect(_strip_vg_injections)
 	return true
+
+
+## Strips .vg script references that were injected by _build(), restoring .tscn
+## files to their clean editing state.
+func _strip_vg_injections() -> void:
+	for tscn_path in _vg_injected_paths:
+		_strip_vg_script_from_tscn(tscn_path)
+	_vg_injected_paths.clear()
+	EditorInterface.get_resource_filesystem().scan()
+
+
+## Removes the auto-injected ext_resource and script= lines from a .tscn file.
+func _strip_vg_script_from_tscn(tscn_path: String) -> void:
+	var content = FileAccess.get_file_as_string(tscn_path)
+	if content.is_empty():
+		return
+	var lines = content.split("\n")
+	var new_lines: PackedStringArray = []
+	var removed_ext := false
+	for line in lines:
+		# Remove our injected ext_resource line
+		if line.begins_with('[ext_resource') and 'id="vg_auto_' in line:
+			removed_ext = true
+			continue
+		# Remove our injected script= line
+		if line.begins_with('script = ExtResource("vg_auto_'):
+			continue
+		new_lines.append(line)
+	if not removed_ext:
+		return  # Nothing was ours — don't rewrite
+	# Decrement load_steps
+	for i in new_lines.size():
+		if new_lines[i].begins_with("[gd_scene"):
+			var idx = new_lines[i].find("load_steps=")
+			if idx >= 0:
+				var after = new_lines[i].substr(idx + 11)
+				var steps_str = ""
+				for c in after:
+					if c.is_valid_int() or c == "-":
+						steps_str += c
+					else:
+						break
+				if not steps_str.is_empty():
+					var old_steps = int(steps_str)
+					new_lines[i] = new_lines[i].replace("load_steps=" + steps_str, "load_steps=" + str(old_steps - 1))
+			break
+	var f = FileAccess.open(tscn_path, FileAccess.WRITE)
+	if f:
+		f.store_string("\n".join(new_lines))
+		f.close()
+		print("VisualGasic: Stripped auto-injected .vg from ", tscn_path)
 
 
 ## Scans all .tscn files in res:// and injects .vg script references where needed.
@@ -1778,6 +1836,7 @@ func _ensure_vg_script_in_tscn(tscn_path: String, vg_path: String) -> void:
 	if f:
 		f.store_string("\n".join(lines))
 		f.close()
+		_vg_injected_paths.append(tscn_path)
 		print("VisualGasic: Injected ", vg_path, " into ", tscn_path, " for runtime")
 
 ## Called when the plugin exits the editor tree.
