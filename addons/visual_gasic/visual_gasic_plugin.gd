@@ -11582,24 +11582,24 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int, p
 					root.set_script(res)
 					print("VisualGasic: Attached " + path.get_file() + " to Form (" + root.name + ").")
 			
-			# Refresh + select Code Navigator BEFORE switching screens.
-			# After set_main_screen_editor("Script"), get_edited_scene_root() returns
-			# null so the navigator can no longer see the scene nodes. Do it now.
+			# Pre-populate the navigator cache while scene root is still valid,
+			# then switch screens. After the switch, schedule the dropdown selection
+			# deferred so it runs AFTER _on_main_screen_changed's refresh fires.
 			var nav = _get_navigator()
 			if is_instance_valid(nav):
-				# Pre-populate the control cache while scene root is still valid
-				# (same pattern as VG IDE's _feed_control_names_to_editor).
 				if nav.has_method("set_cached_controls_from_scene"):
 					nav.set_cached_controls_from_scene(root)
-				nav.refresh_objects()
-				if nav.has_method("select_object_and_event"):
-					nav.select_object_and_event(obj, event)
 
 			# Open in Editor — switch to Script view
 			get_editor_interface().edit_resource(res)
 			# Switch to the Script editor screen so the CodeEdit is visible
 			EditorInterface.set_main_screen_editor("Script")
 			print("VisualGasic: Opened script in Godot Editor -> " + path)
+
+			# Select the dropdown AFTER the screen switch so _pending_obj is still
+			# set when _on_main_screen_changed's deferred refreshes fire.
+			if is_instance_valid(nav) and nav.has_method("select_object_and_event"):
+				nav.select_object_and_event.call_deferred(obj, event)
 			
 			# INJECT CODE INTO BUFFER
 			var sub_name = "Sub " + obj + "_" + event

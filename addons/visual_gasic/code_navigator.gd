@@ -522,6 +522,7 @@ func _apply_pending_selection() -> void:
 	var obj_name := _pending_obj
 	var event_name := _pending_event
 	# Find the object in the object_list
+	var obj_found := false
 	for i in object_list.item_count:
 		var meta = object_list.get_item_metadata(i)
 		var name_match := false
@@ -534,7 +535,10 @@ func _apply_pending_selection() -> void:
 		if name_match:
 			object_list.select(i)
 			_on_object_selected(i)
+			obj_found = true
 			break
+	if not obj_found:
+		return  # List not built yet — keep pending so next refresh tries again
 	# Now find the event in the event_list
 	for i in event_list.item_count:
 		var emeta = event_list.get_item_metadata(i)
@@ -546,7 +550,7 @@ func _apply_pending_selection() -> void:
 		if event_match:
 			event_list.select(i)
 			break
-	# Clear pending — selection is now applied
+	# Clear pending only after successful selection
 	_pending_obj = ""
 	_pending_event = ""
 
