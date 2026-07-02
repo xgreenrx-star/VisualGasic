@@ -11525,23 +11525,16 @@ func _generate_event_handler(node):
 		
 	var scene_path = root.scene_file_path
 	if scene_path.is_empty():
-		# Scene hasn't been saved yet — auto-save so code generation can proceed.
-		# Derive a filename from the root node's name (e.g. "Node2D" → "Node2D.tscn").
+		# Scene hasn't been saved yet — derive a filename so code generation can
+		# compute the adjacent .vg path. We do NOT save the .tscn to disk here
+		# because EditorInterface.save_scene() and ResourceSaver.save() both
+		# cause the editor to internally rebind the scene root, which breaks
+		# set_owner() for all subsequent control placements. The editor will
+		# prompt the user to save (or auto-save on close / Ctrl+S).
 		var auto_name = root.name if not root.name.is_empty() else "Form1"
 		scene_path = "res://" + auto_name + ".tscn"
 		root.scene_file_path = scene_path
-		# Use EditorInterface.save_scene() so the editor tracks the save and
-		# does NOT show "external changes" dialogs later. ResourceSaver.save()
-		# bypasses the editor's dirty-tracking and causes the stale-tree bug
-		# where subsequent placements silently fail until the user reloads.
-		var save_err = EditorInterface.save_scene()
-		if save_err != OK:
-			# Fallback: direct save (will trigger external-changes dialog, but at least works)
-			var packed = PackedScene.new()
-			packed.pack(root)
-			ResourceSaver.save(packed, scene_path)
-		get_editor_interface().get_resource_filesystem().scan()
-		print("VisualGasic: Auto-saved scene to ", scene_path, " for code generation")
+		print("VisualGasic: Set scene path to ", scene_path, " for code generation")
 	
 	# Assume .vg file is adjacent to scene
 	var bas_path = scene_path.get_basename() + ".vg"
@@ -11606,10 +11599,11 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int, p
 				if root.get_script() == null:
 					root.set_script(res)
 					print("VisualGasic: Attached " + path.get_file() + " to Form (" + root.name + ").")
-				# Save through the editor API so its in-memory state stays in sync.
-				# Without this, returning to 2D shows a stale tree and placements
-				# silently fail until the user manually reloads external changes.
-				EditorInterface.save_scene()
+				# Do NOT call save_scene() here — modifying the root's script already
+				# marks the scene dirty in the editor. Forcing a save at this point
+				# (while about to switch to Script screen) causes the editor to
+				# internally rebind the scene root, breaking set_owner() for all
+				# subsequent placements ("Invalid owner" errors).
 			
 			# Pre-populate the navigator cache while scene root is still valid,
 			# then switch screens. After the switch, schedule the dropdown selection
