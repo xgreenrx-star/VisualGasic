@@ -202,20 +202,20 @@ func refresh_objects():
 		# the object model from that cache so dropdowns stay meaningful.
 		if _cached_controls.size() > 0:
 			# Add (General) first
-			var gen_idx := object_list.item_count
+			var gen_idx: int = object_list.item_count
 			object_list.add_item("(General)")
 			object_list.set_item_metadata(gen_idx, "(General)")
 			# Add cached controls
 			for entry in _cached_controls:
-				var oidx := object_list.item_count
+				var oidx: int = object_list.item_count
 				object_list.add_item(entry["name"])
 				object_list.set_item_metadata(oidx, {"type": "cached_control", "name": entry["name"], "class_name": entry["class_name"]})
 			# Restore selection
-			var sel_restored := false
+			var sel_restored: bool = false
 			if current_node_name != "":
 				for i in object_list.item_count:
 					var meta = object_list.get_item_metadata(i)
-					var match_name := ""
+					var match_name: String = ""
 					if meta is String:
 						match_name = meta
 					elif meta is Dictionary:
@@ -567,7 +567,7 @@ func _on_object_selected(idx):
 			return
 		elif dtype == "cached_control":
 			# Rebuild event list from class name (node not in tree, use cached class)
-			var cls := meta.get("class_name", "")
+			var cls: String = meta.get("class_name", "")
 			var events: Array = EVENTS_COMMON
 			if cls in ["Button", "CheckButton", "LinkButton", "ToolButton", "CheckBox", "OptionButton"]:
 				events = EVENTS_BUTTON
@@ -579,11 +579,11 @@ func _on_object_selected(idx):
 				events = EVENTS_SCROLL
 			elif cls == "Timer":
 				events = EVENTS_TIMER
-			var text := _get_current_vg_text()
-			var ctrl_name := meta.get("name", "")
+			var text: String = _get_current_vg_text()
+			var ctrl_name: String = meta.get("name", "")
 			for evt in events:
-				var eidx := event_list.item_count
-				var has_handler := text.contains("Sub " + ctrl_name + "_" + evt)
+				var eidx: int = event_list.item_count
+				var has_handler: bool = text.contains("Sub " + ctrl_name + "_" + evt)
 				event_list.add_item(evt)
 				event_list.set_item_metadata(eidx, {"type": "event", "event": evt, "has_handler": has_handler})
 			for i in event_list.item_count:

@@ -11366,15 +11366,15 @@ func _forward_canvas_gui_input(event):
 					var root = get_editor_interface().get_edited_scene_root()
 					if current_node != root:
 						if is_instance_valid(_last_canvas_click_node) and current_node == _last_canvas_click_node and (now - _last_canvas_click_time) < _DOUBLE_CLICK_MS:
-							# Double-click detected! Return false so Godot gets a
-							# clean press→release cycle (prevents dangling drag state).
-							# scene_file_path="" on VG controls means Godot won't
-							# open the prototype .tscn on this click.
+							# Double-click detected! Consume the event (return true) so
+							# Godot never starts a node-move drag on this press.
+							# scene_file_path="" on all VG controls means Godot won't
+							# try to open a prototype .tscn even though we consume it.
 							print("[VG-DBL] Timer double-click → wiring event for: ", current_node.name)
 							_last_canvas_click_node = null
 							_last_canvas_click_time = 0
 							call_deferred("_generate_event_handler", current_node)
-							return false
+							return true
 						_last_canvas_click_time = now
 						_last_canvas_click_node = current_node
 	
