@@ -199,8 +199,8 @@ var _ui_forms_armed_type: String = ""
 var _ui_forms_toolbox_window: Window = null
 ## Floating VG Properties window (opened from 2D canvas right-click menu).
 var _ui_forms_props_window: Window = null
-## Canvas right-click context menu.
-var _ui_forms_context_menu: PopupMenu = null
+## Canvas right-click context menu (EditorContextMenuPlugin).
+var _ui_forms_ctx_plugin: RefCounted = null
 
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
@@ -1682,9 +1682,9 @@ func _exit_tree():
 	if is_instance_valid(_ui_forms_props_window):
 		_ui_forms_props_window.queue_free()
 		_ui_forms_props_window = null
-	if is_instance_valid(_ui_forms_context_menu):
-		_ui_forms_context_menu.queue_free()
-		_ui_forms_context_menu = null
+	if _ui_forms_ctx_plugin:
+		remove_context_menu_plugin(_ui_forms_ctx_plugin)
+		_ui_forms_ctx_plugin = null
 	_ui_forms_adapter = null
 
 	# Auto-save the form before cleanup so Godot doesn't lose our work
@@ -11225,8 +11225,6 @@ func _on_scene_changed(scene_root: Node):
 func _handles(object):
 	if object is Texture2D:
 		return true
-	if object is CanvasItem:
-		return true
 	return false
 
 
@@ -11281,12 +11279,6 @@ func _forward_canvas_gui_input(event):
 			_ui_forms_disarm()
 			return true
 		return false
-
-	# ── Right-click context menu (VG Controls / VG Properties) ─────────────
-	if event is InputEventMouseButton and event.pressed and not event.double_click:
-		if event.button_index == MOUSE_BUTTON_RIGHT:
-			_ui_forms_show_context_menu(event.position)
-			return true
 
 	# ── Ctrl+Arrow: nudge selected control by 1 pixel (ignoring snap) ──
 	if event is InputEventKey and event.pressed and event.ctrl_pressed and not event.shift_pressed:
@@ -12709,6 +12701,14 @@ func _setup_ui_forms_toolbar_button() -> void:
 	_ui_forms_btn.pressed.connect(_on_ui_forms_btn_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _ui_forms_btn)
 
+	# Register context menu items into Godot's native 2D editor right-click popup
+	if not _ui_forms_ctx_plugin:
+		var CtxScript = load("res://addons/visual_gasic/plugins/ui_forms/vg_canvas_context_menu.gd")
+		if CtxScript:
+			_ui_forms_ctx_plugin = CtxScript.new()
+			_ui_forms_ctx_plugin.host_plugin = self
+			add_context_menu_plugin(EditorPlugin.CONTEXT_SLOT_2D_EDITOR, _ui_forms_ctx_plugin)
+
 func _on_ui_forms_btn_pressed() -> void:
 	# Create the picker Window on first use.
 	if not is_instance_valid(_ui_forms_picker):
@@ -12823,34 +12823,8 @@ func _ui_forms_wire_stub(ctrl: Control, godot_type: String) -> void:
 
 
 # =============================================================================
-# UI FORMS — Right-click context menu + floating Toolbox + floating Properties
+# UI FORMS — Floating Toolbox + floating Properties (opened from context menu)
 # =============================================================================
-
-## Show the VG context menu at the given canvas-local position.
-func _ui_forms_show_context_menu(canvas_pos: Vector2) -> void:
-	if not is_instance_valid(_ui_forms_context_menu):
-		_ui_forms_context_menu = PopupMenu.new()
-		_ui_forms_context_menu.add_item("🧩 Add VG Control…", 0)
-		_ui_forms_context_menu.add_item("🔧 VG Properties", 1)
-		_ui_forms_context_menu.add_separator()
-		_ui_forms_context_menu.add_item("⚡ Wire Event…", 2)
-		_ui_forms_context_menu.id_pressed.connect(_on_ui_forms_context_menu_id)
-		get_editor_interface().get_base_control().add_child(_ui_forms_context_menu)
-	_ui_forms_context_menu.position = Vector2i(DisplayServer.mouse_get_position())
-	_ui_forms_context_menu.popup()
-
-
-func _on_ui_forms_context_menu_id(id: int) -> void:
-	match id:
-		0:  # Add VG Control — open floating Toolbox
-			_ui_forms_show_toolbox_window()
-		1:  # VG Properties
-			_ui_forms_show_props_window()
-		2:  # Wire Event
-			var sel = get_editor_interface().get_selection().get_selected_nodes()
-			if sel.size() == 1:
-				_generate_event_handler(sel[0])
-
 
 # ─── Floating Toolbox Window ─────────────────────────────────────────────────
 
