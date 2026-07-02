@@ -11426,9 +11426,9 @@ func _handle_vg_control_drop(canvas_pos: Vector2, drag_data: Dictionary) -> bool
 ## would otherwise consume (preventing _forward_canvas_gui_input from seeing them).
 ## Returns true if an event was wired (caller should consume the input event).
 func _try_wire_event_on_double_click() -> bool:
-	# Skip if the VG Form Designer internal view is the active surface —
-	# it has its own double-click handler via control_double_clicked signal.
-	if is_instance_valid(_ide_layout) and _ide_layout.visible:
+	# Skip if the C++ Form Designer is actually visible and handling input —
+	# it fires its own control_double_clicked signal → _on_fd_control_double_clicked.
+	if is_instance_valid(_form_designer) and _form_designer.is_visible_in_tree():
 		return false
 	# Must have exactly one selected node
 	var sel = get_editor_interface().get_selection().get_selected_nodes()
