@@ -11170,6 +11170,13 @@ func _post_init():
 	# Hook into node_added to catch drops inside MenuBar and reparent them
 	get_tree().node_added.connect(_on_node_added)
 
+	# Hook into the Scene Tree dock's internal Tree to intercept double-clicks.
+	# In Godot 4.6.1, _forward_canvas_gui_input may not receive double-clicks
+	# because CanvasItemEditor consumes them before forwarding to plugins.
+	# This fallback catches double-clicks in BOTH the Scene Tree dock AND the
+	# 2D viewport (via selection_changed + timing).
+	call_deferred("_hook_scene_tree_double_click")
+
 	print("VisualGasic: Initialized. Monitoring nesting & double-click events.")
 
 ## Called when the editor switches between 2D, 3D, Script, and AssetLib screens.
@@ -11336,6 +11343,7 @@ func _forward_canvas_gui_input(event):
 		# packed-scene prototype. Always consume the event so Godot never
 		# navigates into Button.tscn / CheckBox.tscn etc.
 		if event.double_click and event.button_index == MOUSE_BUTTON_LEFT:
+			print("[VG-DBL] Double-click intercepted in _forward_canvas_gui_input")
 			var sel = get_editor_interface().get_selection().get_selected_nodes()
 			# On a fresh double-click the first click selects the node but the
 			# selection update may be deferred — fall back to the node under the
@@ -11343,24 +11351,26 @@ func _forward_canvas_gui_input(event):
 			var target: Node = null
 			if sel.size() == 1:
 				target = sel[0]
-			elif sel.size() == 0:
+			if target == null:
 				# Try to find the topmost Control directly under the cursor
 				var root = get_editor_interface().get_edited_scene_root()
 				if root:
 					var vp = get_editor_interface().get_editor_viewport_2d()
 					if vp:
 						var world_pos = vp.get_canvas_transform().affine_inverse() * event.position
-						# Walk children in reverse (topmost last = highest z-index drawn first)
+						# Walk children in reverse (topmost drawn last = highest z-index)
 						for i in range(root.get_child_count() - 1, -1, -1):
 							var child = root.get_child(i)
 							if child is Control:
-								var rect = Rect2(Vector2(child.offset_left, child.offset_top),
-												 child.size)
+								var rect = child.get_global_rect()
 								if rect.has_point(world_pos):
 									target = child
 									break
 			if target:
+				print("[VG-DBL] Wiring event for: ", target.name)
 				_generate_event_handler(target)
+			else:
+				print("[VG-DBL] No target found under cursor (sel=", sel.size(), ")")
 			# Always consume so Godot never opens the prototype .tscn
 			return true
 	
@@ -11461,9 +11471,23 @@ func _generate_event_handler(node):
 		
 	var scene_path = root.scene_file_path
 	if scene_path.is_empty():
-		printerr("VisualGasic: Scene must be saved to generate code.")
-		return
-		
+		# Scene hasn't been saved yet — auto-save so code generation can proceed.
+		# Derive a filename from the root node's name (e.g. "Node2D" → "Node2D.tscn").
+		var auto_name = root.name if not root.name.is_empty() else "Form1"
+		scene_path = "res://" + auto_name + ".tscn"
+		var packed = PackedScene.new()
+		var err = packed.pack(root)
+		if err != OK:
+			printerr("VisualGasic: Failed to pack scene for auto-save")
+			return
+		err = ResourceSaver.save(packed, scene_path)
+		if err != OK:
+			printerr("VisualGasic: Failed to auto-save scene to ", scene_path)
+			return
+		root.scene_file_path = scene_path
+		get_editor_interface().get_resource_filesystem().scan()
+		print("VisualGasic: Auto-saved scene to ", scene_path, " for code generation")
+	
 	# Assume .vg file is adjacent to scene
 	var bas_path = scene_path.get_basename() + ".vg"
 	# absolute path for OS shell
@@ -12003,6 +12027,60 @@ func _deferred_reparent_to_root(node: Node, root: Node):
 # =============================================================================
 # SELECTION & NESTING MANAGEMENT
 # =============================================================================
+
+## Hooks into the Scene Tree dock's internal Tree widget to intercept
+## item_activated (double-click). This is more reliable than
+## _forward_canvas_gui_input for double-clicks because CanvasItemEditor
+## may consume the event before forwarding to plugins.
+var _scene_tree_dock_tree: Tree = null
+
+func _hook_scene_tree_double_click() -> void:
+	# Find the Scene Tree dock's Tree widget by walking the editor UI.
+	# Structure: EditorNode → ... → SceneTreeDock → SceneTreeEditor → Tree
+	var base = get_editor_interface().get_base_control()
+	var tree = _find_scene_tree_widget(base)
+	if tree:
+		_scene_tree_dock_tree = tree
+		if not tree.item_activated.is_connected(_on_scene_tree_item_activated):
+			tree.item_activated.connect(_on_scene_tree_item_activated)
+		print("[VG] Hooked Scene Tree double-click (item_activated)")
+	else:
+		print("[VG] Could not find Scene Tree dock's Tree widget — relying on _forward_canvas_gui_input only")
+
+func _find_scene_tree_widget(node: Node) -> Tree:
+	# The Scene Tree dock contains a SceneTreeEditor which contains a Tree.
+	# We identify it by class name hints in the node path.
+	if node is Tree:
+		# Check if this tree is inside something that looks like the SceneTreeDock
+		var parent = node.get_parent()
+		while parent:
+			if parent.get_class() == "SceneTreeEditor" or (parent.name.contains("Scene") and parent.name.contains("Tree")):
+				return node
+			parent = parent.get_parent()
+	for child in node.get_children():
+		var result = _find_scene_tree_widget(child)
+		if result:
+			return result
+	return null
+
+func _on_scene_tree_item_activated() -> void:
+	# item_activated fires when the user double-clicks in the Scene Tree dock.
+	# Wire the VG event handler instead of the default Godot behavior.
+	var sel = get_editor_interface().get_selection().get_selected_nodes()
+	if sel.size() != 1:
+		return
+	var node = sel[0]
+	# Only intercept for VG-placed controls (children of scene root that are Controls)
+	var root = get_editor_interface().get_edited_scene_root()
+	if not root or node == root:
+		return
+	if not (node is Control):
+		return
+	# Don't intercept if it's a sub-scene instance (user might legitimately want to open it)
+	if not node.scene_file_path.is_empty() and not node.scene_file_path.contains("visual_gasic/prototypes"):
+		return
+	print("[VG-DBL] Scene Tree double-click → wiring event for: ", node.name)
+	_generate_event_handler(node)
 
 ## Called when the editor selection changes.
 ## Handles VB6-style nesting restrictions and auto-text updates.
