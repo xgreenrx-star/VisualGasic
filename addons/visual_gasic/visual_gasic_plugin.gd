@@ -2201,13 +2201,6 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 		_vg_drop_in_progress = false
 		return
 
-	# Unlink the node from its prototype .tscn immediately.
-	# An instanced-scene node (scene_file_path != "") causes Godot's 2D editor
-	# to open the source .tscn on double-click, bypassing our canvas input handler.
-	# Clearing it makes the node standalone so double-click goes through
-	# _forward_canvas_gui_input and triggers VB6-style event wiring instead.
-	new_node.scene_file_path = ""
-
 	# Generate a unique name based on existing siblings with the same base
 	var control_name = scene_path.get_file().get_basename()
 	var sibling_count := 0
@@ -2236,6 +2229,13 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	undo_redo.add_undo_method(root, "remove_child", new_node)
 	undo_redo.add_undo_reference(new_node)
 	undo_redo.commit_action()
+
+	# Clear scene_file_path AFTER the node is in the tree.
+	# Clearing it on an unparented instantiated node can corrupt Godot's internal
+	# scene state and cause a SIGSEGV. Doing it post-commit is safe and still
+	# prevents Godot's native double-click subscene-open behavior.
+	if is_instance_valid(new_node) and new_node.is_inside_tree():
+		new_node.scene_file_path = ""
 
 	# Apply VB6 theme so the control looks correct regardless of scene structure.
 	# If the scene root is a Control (e.g. Window, Panel), set the theme there so
@@ -11202,6 +11202,9 @@ func _on_scene_changed(scene_root: Node):
 	# Disable mouse input on any MenuBars in the scene (prevents drop interception)
 	if scene_root:
 		_disable_menubar_mouse_in_editor(scene_root)
+		# Clear scene_file_path on any VG-placed controls that still link to prototypes.
+		# This fixes nodes placed before the post-commit clear was introduced.
+		_clear_prototype_scene_file_paths(scene_root)
 	
 	# If the Form Designer is visible, sync the newly active scene into it
 	if _form_designer and is_instance_valid(_form_designer) and _form_designer.visible:
@@ -11619,6 +11622,9 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int, p
 				nav.refresh_objects()
 				if nav.has_method("select_object_and_event"):
 					nav.select_object_and_event.call_deferred(obj, event)
+			return  # Injection complete — do not retry
+	else:
+		await get_tree().create_timer(0.1).timeout
 		_poll_for_inject(path, obj, event, attempts + 1, params)
 
 ## Deferred helper: scrolls the CodeEdit viewport to the caret position.
@@ -11895,6 +11901,15 @@ func _disable_menubar_mouse_in_editor(root: Node):
 		return
 	# Find all MenuBars in the scene
 	_find_and_disable_menubars(root)
+
+## Clears scene_file_path on any VG controls whose path still points to a prototype
+## .tscn inside the plugin. Called on scene load to fix nodes placed before the
+## post-commit clear was introduced (those would still open a new Godot session
+## on double-click via Godot's native subscene-open handler).
+func _clear_prototype_scene_file_paths(root: Node) -> void:
+	for child in root.get_children():
+		if child is Control and child.scene_file_path.contains("addons/visual_gasic/prototypes/"):
+			child.scene_file_path = ""
 
 ## Recursively finds MenuBars and disables their mouse input.
 ## @param node: Current node to check
