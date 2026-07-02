@@ -2156,6 +2156,31 @@ func _process(_delta: float) -> void:
 	if _vg_drag_active and not is_dragging and not has_vg_drag:
 		_vg_drag_active = false
 
+	# ── Double-click detection via _process() polling ──
+	# Neither _input() nor _forward_canvas_gui_input receives double_click events
+	# from the 2D canvas in Godot 4.6.1. So we detect it here by checking if the
+	# mouse button transitioned from released→pressed and the same node was
+	# clicked within the double-click window.
+	var mouse_pressed = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	if mouse_pressed and not _dbl_mouse_was_pressed:
+		# Rising edge: mouse just pressed this frame
+		var sel = get_editor_interface().get_selection().get_selected_nodes()
+		var current_node: Node = sel[0] if sel.size() == 1 else null
+		if current_node and current_node is Control:
+			var root = get_editor_interface().get_edited_scene_root()
+			if current_node != root:
+				var now = Time.get_ticks_msec()
+				if current_node == _last_canvas_click_node and (now - _last_canvas_click_time) < _DOUBLE_CLICK_MS:
+					# Double-click detected → wire event (same as Wire Event menu)
+					print("[VG-DBL] _process() double-click → wiring: ", current_node.name)
+					call_deferred("_generate_event_handler", current_node)
+					_last_canvas_click_node = null
+					_last_canvas_click_time = 0
+				else:
+					_last_canvas_click_time = now
+					_last_canvas_click_node = current_node
+	_dbl_mouse_was_pressed = mouse_pressed
+
 ## Handles vg_control drop after a short delay for editor stability.
 ## Modifies the .tscn file on disk and reloads — the ONLY approach that
 ## correctly registers ownership in the Godot editor scene tree.
@@ -11274,6 +11299,7 @@ const MAX_RECENT_FORMS := 5
 ## So we detect two rapid left-button presses on the same selected node.
 var _last_canvas_click_time: int = 0  # msec
 var _last_canvas_click_node: Node = null
+var _dbl_mouse_was_pressed: bool = false  # previous frame mouse state
 const _DOUBLE_CLICK_MS := 400
 
 func _forward_canvas_gui_input(event):
@@ -12056,8 +12082,7 @@ func _deferred_reparent_to_root(node: Node, root: Node):
 var _scene_tree_dock_tree: Tree = null
 
 func _hook_scene_tree_double_click() -> void:
-	# Find the Scene Tree dock's Tree widget by walking the editor UI.
-	# Structure: EditorNode → ... → SceneTreeDock → SceneTreeEditor → Tree
+	# ── Strategy 1: Hook the Scene Tree dock's Tree widget ──
 	var base = get_editor_interface().get_base_control()
 	var tree = _find_scene_tree_widget(base)
 	if tree:
@@ -12066,7 +12091,81 @@ func _hook_scene_tree_double_click() -> void:
 			tree.item_activated.connect(_on_scene_tree_item_activated)
 		print("[VG] Hooked Scene Tree double-click (item_activated)")
 	else:
-		print("[VG] Could not find Scene Tree dock's Tree widget — relying on _forward_canvas_gui_input only")
+		print("[VG] Could not find Scene Tree dock's Tree widget")
+
+	# ── Strategy 2: Hook the 2D canvas viewport's gui_input ──
+	# _forward_canvas_gui_input does NOT receive double-clicks in Godot 4.6.1.
+	# But the CanvasItemEditor's viewport SubViewportContainer DOES process them.
+	# Find it and connect to its gui_input signal.
+	var canvas_viewport = _find_canvas_item_editor_viewport(base)
+	if canvas_viewport:
+		if not canvas_viewport.gui_input.is_connected(_on_canvas_viewport_gui_input):
+			canvas_viewport.gui_input.connect(_on_canvas_viewport_gui_input)
+		print("[VG] Hooked 2D canvas viewport gui_input for double-click detection")
+	else:
+		print("[VG] Could not find CanvasItemEditor viewport — trying deferred")
+		# The viewport may not exist yet; retry after 1 second
+		get_tree().create_timer(1.0).timeout.connect(_retry_hook_canvas_viewport)
+
+func _retry_hook_canvas_viewport() -> void:
+	var base = get_editor_interface().get_base_control()
+	var canvas_viewport = _find_canvas_item_editor_viewport(base)
+	if canvas_viewport:
+		if not canvas_viewport.gui_input.is_connected(_on_canvas_viewport_gui_input):
+			canvas_viewport.gui_input.connect(_on_canvas_viewport_gui_input)
+		print("[VG] Hooked 2D canvas viewport gui_input (deferred)")
+
+func _find_canvas_item_editor_viewport(node: Node) -> Control:
+	# The CanvasItemEditor contains a Control that receives all 2D input.
+	# In Godot 4.6, it's typically: CanvasItemEditor → CanvasItemEditorViewport
+	# We look for a Control whose class is "CanvasItemEditorViewport" or similar.
+	if node.get_class() == "CanvasItemEditorViewport":
+		return node as Control
+	# Also try by name — Godot uses this internally
+	if node.get_class() == "Control" and node.name == "CanvasItemEditorViewport":
+		return node as Control
+	# Look for SubViewportContainer children of CanvasItemEditor
+	if node.get_class() == "CanvasItemEditor":
+		for child in node.get_children():
+			if child is SubViewportContainer:
+				return child
+			if child is Control and child.get_class().contains("Viewport"):
+				return child
+			# The direct drawing surface is usually the first large Control child
+			if child is Control and child.size.x > 100 and child.size.y > 100:
+				# Check if this has gui_input signal (all Controls do)
+				return child
+	for child in node.get_children():
+		var result = _find_canvas_item_editor_viewport(child)
+		if result:
+			return result
+	return null
+
+func _on_canvas_viewport_gui_input(event: InputEvent) -> void:
+	# This receives ALL input events from the 2D canvas viewport.
+	if not (event is InputEventMouseButton):
+		return
+	if event.button_index != MOUSE_BUTTON_LEFT or not event.pressed:
+		return
+	
+	# Timer-based double-click: two presses within 400ms on the same Control
+	var now = Time.get_ticks_msec()
+	var sel = get_editor_interface().get_selection().get_selected_nodes()
+	var current_node: Node = sel[0] if sel.size() == 1 else null
+	
+	if current_node and current_node is Control:
+		var root = get_editor_interface().get_edited_scene_root()
+		if current_node != root:
+			if current_node == _last_canvas_click_node and (now - _last_canvas_click_time) < _DOUBLE_CLICK_MS:
+				# Double-click! Wire event — same as Wire Event right-click menu.
+				print("[VG-DBL] Canvas viewport double-click → wiring: ", current_node.name)
+				_generate_event_handler(current_node)
+				_last_canvas_click_node = null
+				_last_canvas_click_time = 0
+				return
+	
+	_last_canvas_click_time = now
+	_last_canvas_click_node = current_node
 
 func _find_scene_tree_widget(node: Node) -> Tree:
 	# The Scene Tree dock contains a SceneTreeEditor which contains a Tree.
