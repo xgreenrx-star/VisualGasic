@@ -13204,7 +13204,7 @@ func _ui_forms_show_props_window() -> void:
 		_ui_forms_props_refresh()
 		return
 
-	_ui_forms_props_window = _create_floating_panel("Properties", Vector2(300, 560))
+	_ui_forms_props_window = _create_floating_panel("Properties", Vector2(300, 700))
 
 	var content_area = _ui_forms_props_window.get_meta("_content")
 	var inspector_script = load("res://addons/visual_gasic/simple_inspector.gd")
