@@ -11306,13 +11306,37 @@ func _forward_canvas_gui_input(event):
 						if result:
 							return true
 		
-		# Double-click handling for event generation
-		if event.double_click:
-			if event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT:
-				var sel = get_editor_interface().get_selection().get_selected_nodes()
-				if sel.size() == 1:
-					_generate_event_handler(sel[0])
-					return true
+		# Double-click: wire VB6 default event handler instead of opening the
+		# packed-scene prototype. Always consume the event so Godot never
+		# navigates into Button.tscn / CheckBox.tscn etc.
+		if event.double_click and event.button_index == MOUSE_BUTTON_LEFT:
+			var sel = get_editor_interface().get_selection().get_selected_nodes()
+			# On a fresh double-click the first click selects the node but the
+			# selection update may be deferred — fall back to the node under the
+			# canvas cursor so we always have something to wire.
+			var target: Node = null
+			if sel.size() == 1:
+				target = sel[0]
+			elif sel.size() == 0:
+				# Try to find the topmost Control directly under the cursor
+				var root = get_editor_interface().get_edited_scene_root()
+				if root:
+					var vp = get_editor_interface().get_editor_viewport_2d()
+					if vp:
+						var world_pos = vp.get_canvas_transform().affine_inverse() * event.position
+						# Walk children in reverse (topmost last = highest z-index drawn first)
+						for i in range(root.get_child_count() - 1, -1, -1):
+							var child = root.get_child(i)
+							if child is Control:
+								var rect = Rect2(Vector2(child.offset_left, child.offset_top),
+												 child.size)
+								if rect.has_point(world_pos):
+									target = child
+									break
+			if target:
+				_generate_event_handler(target)
+			# Always consume so Godot never opens the prototype .tscn
+			return true
 	
 	return false
 
