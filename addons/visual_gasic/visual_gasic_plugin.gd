@@ -11247,11 +11247,15 @@ func _close_prototype_scene_tab(proto_path: String) -> void:
 		ei.reload_scene_from_path(proto_path)
 
 ## Determines if this plugin handles input for the given object.
-## Returns true for image resources so double-clicking a PNG in the
-## filesystem dock opens VG's Sprite Editor.
+## Returns true for:
+## - Node objects: enables _forward_canvas_gui_input for 2D canvas interaction
+##   (double-click event wiring, drag-drop, armed placement)
+## - Texture2D: double-clicking a PNG opens VG's Sprite Editor
 ## @param object: The object being edited
-## @returns: true for Texture2D / CompressedTexture2D resources
+## @returns: true if this plugin wants to handle input for this object
 func _handles(object):
+	if object is Node:
+		return true
 	if object is Texture2D:
 		return true
 	return false
