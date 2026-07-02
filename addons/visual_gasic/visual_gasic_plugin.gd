@@ -11529,18 +11529,13 @@ func _generate_event_handler(node):
 		
 	var scene_path = root.scene_file_path
 	if scene_path.is_empty():
-		# Scene hasn't been saved yet — we MUST save to disk so that when the
-		# editor switches to Script view and back to 2D, it can reload the scene.
-		# Without a file on disk, the root enters a zombie state (valid reference
-		# but not in the tree) after the round-trip.
+		# Scene hasn't been saved yet — save via the editor API so the editor's
+		# internal state stays in sync with disk. ResourceSaver.save() causes the
+		# "reload external changes" dialog. EditorInterface.save_scene() does not.
 		var auto_name = root.name if not root.name.is_empty() else "Form1"
 		scene_path = "res://" + auto_name + ".tscn"
 		root.scene_file_path = scene_path
-		var packed = PackedScene.new()
-		var err = packed.pack(root)
-		if err == OK:
-			ResourceSaver.save(packed, scene_path)
-		get_editor_interface().get_resource_filesystem().scan()
+		EditorInterface.save_scene()
 		print("VisualGasic: Saved scene to ", scene_path, " for code generation")
 	
 	# Assume .vg file is adjacent to scene
