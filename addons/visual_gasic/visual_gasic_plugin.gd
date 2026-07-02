@@ -2263,17 +2263,22 @@ func _handle_vg_drop_delayed(drag_data: Dictionary, _retry_count: int = 0) -> vo
 	# scene-state tracker reacts to the change on a live tree node.
 	new_node.scene_file_path = ""
 
-	# Add via EditorUndoRedoManager — identical to Godot's own scene drag-drop.
-	# This makes placement undoable (Ctrl+Z) and deletion work through the
-	# normal undo/redo mechanism without any file manipulation or reload.
-	var undo_redo = get_undo_redo()
-	undo_redo.create_action("Place " + node_name, UndoRedo.MERGE_DISABLE, root)
-	undo_redo.add_do_method(root, "add_child", new_node, true)
-	undo_redo.add_do_reference(new_node)
-	undo_redo.add_do_method(new_node, "set_owner", root)
-	undo_redo.add_undo_method(root, "remove_child", new_node)
-	undo_redo.add_undo_reference(new_node)
-	undo_redo.commit_action()
+	# Add directly to the scene tree. EditorUndoRedoManager's add_do_method pattern
+	# fails with "Invalid owner" because add_child executed through the undo system
+	# doesn't always establish the parent relationship before set_owner runs.
+	# Direct placement is reliable. Ctrl+Z won't undo placement, but deletion
+	# through the scene tree still works normally.
+	root.add_child(new_node, true)
+	if new_node.get_parent() != root:
+		printerr("VisualGasic: add_child FAILED — parent is ", new_node.get_parent(), " expected ", root)
+		_vg_drop_in_progress = false
+		return
+	new_node.set_owner(root)
+	# Also set owner on all children of the instantiated node (sub-nodes from the
+	# prototype .tscn) so they get saved with the scene.
+	for child in new_node.get_children():
+		if is_instance_valid(child):
+			child.set_owner(root)
 
 	# Apply VB6 theme so the control looks correct regardless of scene structure.
 	# If the scene root is a Control (e.g. Window, Panel), set the theme there so
@@ -13067,16 +13072,9 @@ func _ui_forms_place_at_screen(godot_type: String, screen_pos: Vector2) -> void:
 	ctrl.custom_minimum_size = _ui_forms_default_world_size(godot_type)
 	ctrl.size = ctrl.custom_minimum_size
 
-	# Use EditorUndoRedoManager so placement is undoable (Ctrl+Z) and goes
-	# through the editor's sanctioned tree-modification API.
-	var undo_redo = get_undo_redo()
-	undo_redo.create_action("Place " + ctrl.name, UndoRedo.MERGE_DISABLE, edited)
-	undo_redo.add_do_method(parent, "add_child", ctrl, true)
-	undo_redo.add_do_reference(ctrl)
-	undo_redo.add_do_method(ctrl, "set_owner", edited)
-	undo_redo.add_undo_method(parent, "remove_child", ctrl)
-	undo_redo.add_undo_reference(ctrl)
-	undo_redo.commit_action()
+	# Use direct add_child + set_owner for reliable placement.
+	parent.add_child(ctrl, true)
+	ctrl.set_owner(edited)
 
 	get_editor_interface().get_selection().clear()
 	get_editor_interface().get_selection().add_node(ctrl)
