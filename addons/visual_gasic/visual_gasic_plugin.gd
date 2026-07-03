@@ -13291,13 +13291,6 @@ const VG_PROTOTYPE_PALETTE := [
 func _on_vg_ctrl_btn_pressed() -> void:
 	_ui_forms_show_toolbox_window()
 
-func _on_vg_ctrl_chosen(item_id: int) -> void:
-	var path: String = _vg_ctrl_popup.get_item_metadata(item_id)
-	var label: String = _vg_ctrl_popup.get_item_text(item_id)
-	_vg_ctrl_armed_path = path
-	if is_instance_valid(_vg_ctrl_btn):
-		_vg_ctrl_btn.text = "🖼 Placing: %s (click canvas)" % label
-
 func _vg_ctrl_disarm() -> void:
 	_vg_ctrl_armed_path = ""
 	if is_instance_valid(_vg_ctrl_btn):
