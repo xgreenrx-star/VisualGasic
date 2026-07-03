@@ -2146,6 +2146,39 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# ── Alt+T / Alt+P / Alt+W  →  2D toolbar windows (work from any screen) ──
+	# These are safe in Godot 4.6.1 — no built-in bindings on Alt+T/P/W.
+	if event.alt_pressed and not event.ctrl_pressed and not event.shift_pressed and not _typing:
+		match event.keycode:
+			KEY_T:
+				_ui_forms_show_toolbox_window()
+				get_viewport().set_input_as_handled()
+				return
+			KEY_P:
+				_ui_forms_show_props_window()
+				get_viewport().set_input_as_handled()
+				return
+			KEY_W:
+				_on_wire_event_btn_pressed()
+				get_viewport().set_input_as_handled()
+				return
+
+	# ── Alt+T / Alt+P / Alt+W  →  2D toolbar shortcuts (work in VG IDE too) ──
+	if event.alt_pressed and not event.ctrl_pressed and not event.shift_pressed and not _typing:
+		match event.keycode:
+			KEY_T:
+				_ui_forms_show_toolbox_window()
+				get_viewport().set_input_as_handled()
+				return
+			KEY_P:
+				_ui_forms_show_props_window()
+				get_viewport().set_input_as_handled()
+				return
+			KEY_W:
+				_on_wire_event_btn_pressed()
+				get_viewport().set_input_as_handled()
+				return
+
 ## Fallback keyboard handler connected to the Form Designer canvas's gui_input.
 ## If _input() somehow misses an event (e.g., Godot processes the canvas
 ## control's gui_input before _input fires on our plugin node), this catches it.
@@ -11516,6 +11549,20 @@ func _forward_canvas_gui_input(event):
 			return true
 		return false
 
+	# ── Alt+T / Alt+P / Alt+W in 2D canvas ────────────────────────────────
+	if event is InputEventKey and event.pressed and not event.echo and \
+			event.alt_pressed and not event.ctrl_pressed and not event.shift_pressed:
+		match event.keycode:
+			KEY_T:
+				_ui_forms_show_toolbox_window()
+				return true
+			KEY_P:
+				_ui_forms_show_props_window()
+				return true
+			KEY_W:
+				_on_wire_event_btn_pressed()
+				return true
+
 	# ── VG Ctrl: armed prototype placement — intercept left-click ───────────
 	if _vg_ctrl_armed_path != "":
 		if event is InputEventMouseButton and event.pressed:
@@ -13163,7 +13210,7 @@ func _setup_ui_forms_toolbar_button() -> void:
 	# ── Add VG Control ───────────────────────────────────────────────────────
 	_vg_ctrl_btn = Button.new()
 	_vg_ctrl_btn.text = "🖼 Add VG Control"
-	_vg_ctrl_btn.tooltip_text = "Place a VG prototype control (VB6 naming: Text1, Command1, …)"
+	_vg_ctrl_btn.tooltip_text = "Open VG Toolbox to place controls  [Alt+T]"
 	_vg_ctrl_btn.flat = true
 	_vg_ctrl_btn.pressed.connect(_on_vg_ctrl_btn_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_ctrl_btn)
@@ -13171,7 +13218,7 @@ func _setup_ui_forms_toolbar_button() -> void:
 	# ── VG Properties ────────────────────────────────────────────────────────
 	_vg_props_btn = Button.new()
 	_vg_props_btn.text = "📋 VG Properties"
-	_vg_props_btn.tooltip_text = "Inspect selected node in Godot's Inspector panel"
+	_vg_props_btn.tooltip_text = "Open VG Properties window  [Alt+P]"
 	_vg_props_btn.flat = true
 	_vg_props_btn.pressed.connect(_on_vg_props_btn_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_props_btn)
@@ -13179,7 +13226,7 @@ func _setup_ui_forms_toolbar_button() -> void:
 	# ── Wire Event ───────────────────────────────────────────────────────────
 	_wire_event_btn = Button.new()
 	_wire_event_btn.text = "⚡ Wire Event"
-	_wire_event_btn.tooltip_text = "Create the primary VB6 event stub for the selected control in its .vg script"
+	_wire_event_btn.tooltip_text = "Create VB6 event stub for selected control  [Alt+W]"
 	_wire_event_btn.flat = true
 	_wire_event_btn.pressed.connect(_on_wire_event_btn_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _wire_event_btn)
