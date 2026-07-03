@@ -13335,6 +13335,9 @@ func _on_wire_event_btn_pressed() -> void:
 				print("[Wire Event] Wired %s → %s" % [ctrl.name, sub_name])
 			else:
 				OS.alert("No .vg script found for this scene.\nExpected: %s" % vg_path, "No .vg Script")
+
+
+static func _ui_forms_default_world_size(godot_type: String) -> Vector2:
 	match godot_type:
 		"Label":        return Vector2(96,  24)
 		"LineEdit":     return Vector2(140, 30)
