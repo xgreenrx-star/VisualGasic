@@ -2712,7 +2712,7 @@ func _add_tree_children(parent: Node, tree_item: TreeItem) -> void:
 			continue
 
 		var item = _scene_tree.create_item(tree_item)
-		var vis = "👁️ " if child.is_visible() else "🚫 " if child is CanvasItem else ""
+		var vis = "👁️ " if (child is CanvasItem and child.is_visible()) else "🚫 " if (child is CanvasItem and not child.is_visible()) else ""
 		var type_hint = child.get_class()
 		item.set_text(0, vis + child.name + "  (" + type_hint + ")")
 		item.set_metadata(0, child)

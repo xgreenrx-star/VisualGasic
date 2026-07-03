@@ -3539,10 +3539,11 @@ func _expand_template(text: String, vars: Dictionary) -> String:
 		text = text.replace("{{" + key + "}}", str(vars[key]))
 	return text
 
-## Load a behavior template by name (without .vg extension), expand tokens,
+## Load a behavior template by name (without extension), expand tokens,
 ## and return the resulting VG code. Returns a comment placeholder on failure.
+## Templates use .vgt extension so the VG parser never tries to parse them.
 func _load_behavior(name: String, vars: Dictionary = {}) -> String:
-	var path := BEHAVIOR_DIR + name + ".vg"
+	var path := BEHAVIOR_DIR + name + ".vgt"
 	var abs_path := ProjectSettings.globalize_path(path)
 	var f := FileAccess.open(abs_path, FileAccess.READ)
 	if not f:

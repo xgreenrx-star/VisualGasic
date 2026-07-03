@@ -3413,10 +3413,11 @@ Dictionary VisualGasicLanguage::_lookup_code(const String &p_code, const String 
         }
     }
 
-    // Nothing found: return {"result": ERR_UNAVAILABLE} so Godot suppresses
-    // the ERR_FAIL_COND print at script_language_extension.h:449.
+    // Nothing found: return {result, type} so Godot suppresses both
+    // ERR_FAIL_COND checks at script_language_extension.h:449 and :452.
     Dictionary not_found;
     not_found["result"] = (int)ERR_UNAVAILABLE;
+    not_found["type"] = (int)ScriptLanguageExtension::LOOKUP_RESULT_MAX;
     return not_found;
 }
 
