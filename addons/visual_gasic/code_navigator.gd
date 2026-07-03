@@ -590,16 +590,39 @@ func _on_object_selected(idx):
 	event_list.clear()
 	var meta = object_list.get_item_metadata(idx)
 	
-	# Handle (General) selection — VB6 shows (Declarations) + all Subs/Functions/Properties
+	# Handle (General) selection — VB6 shows (Declarations) + standalone procedures only.
+	# Control event handlers (Button1_Click, etc.) belong under their own object entry.
 	if meta is String and meta == "(General)":
 		event_list.add_item("(Declarations)")
 		event_list.set_item_metadata(0, {"type": "declarations"})
-		# Parse the .vg file to find all procedures
+
+		# Collect all known object names from the Object dropdown so we can exclude
+		# procedures of the form <ObjectName>_<EventName>.
+		var known_objects: Array = []
+		for i in object_list.item_count:
+			var ometa = object_list.get_item_metadata(i)
+			var oname: String = ""
+			if ometa is Node and is_instance_valid(ometa):
+				oname = ometa.name
+			elif ometa is Dictionary:
+				oname = ometa.get("name", "")
+			if not oname.is_empty() and oname != "(General)":
+				known_objects.append(oname.to_lower())
+
+		# Parse the .vg file — show only procedures that are NOT control event handlers
 		var text = _get_current_vg_text()
 		var procedures = _parse_procedures(text)
 		for proc in procedures:
+			# Check: does the name start with "<KnownObject>_"?
+			var pname_lower: String = proc["name"].to_lower()
+			var is_event_handler: bool = false
+			for oname in known_objects:
+				if pname_lower.begins_with(oname + "_"):
+					is_event_handler = true
+					break
+			if is_event_handler:
+				continue
 			var display = proc["name"]
-			# Show kind suffix like VB6 does for Property variants
 			if proc["kind"].begins_with("Property"):
 				display += " [" + proc["kind"] + "]"
 			var eidx = event_list.item_count
