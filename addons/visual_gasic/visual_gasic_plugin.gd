@@ -2360,13 +2360,44 @@ func _handle_vg_drop_delayed(drag_data: Dictionary, _retry_count: int = 0) -> vo
 	# Use index-based iteration (get_child_count + get_child) instead of
 	# get_children() which returns an Array via the tree — safer against stale roots.
 	var control_name = scene_path.get_file().get_basename()
+	# Map Godot prototype names to VB6 canonical prefixes so placed nodes
+	# get names like Text1, Command1, Check1, etc. by default.
+	const VB6_PREFIX_MAP: Dictionary = {
+		"LineEdit":          "Text",
+		"TextEdit":          "Text",
+		"Button":            "Command",
+		"Label":             "Label",
+		"CheckBox":          "Check",
+		"OptionButton":      "Combo",
+		"ItemList":          "List",
+		"TextureRect":       "Image",
+		"Timer":             "Timer",
+		"HSlider":           "HScroll",
+		"VSlider":           "VScroll",
+		"HScrollBar":        "HScroll",
+		"VScrollBar":        "VScroll",
+		"ProgressBar":       "ProgressBar",
+		"SpinBox":           "Spin",
+		"RichTextLabel":     "RichText",
+		"Tree":              "TreeView",
+		"TabContainer":      "Tab",
+		"Panel":             "Frame",
+		"PanelContainer":    "Frame",
+		"ColorRect":         "Shape",
+		"Sprite2D":          "Sprite",
+		"AnimatedSprite2D":  "Sprite",
+		"Area2D":            "Area",
+		"Camera2D":          "Camera",
+		"AudioStreamPlayer": "Sound",
+	}
+	var vb6_prefix: String = VB6_PREFIX_MAP.get(control_name, control_name)
 	var sibling_count := 0
 	var child_count: int = root.get_child_count()
 	for i in child_count:
 		var child = root.get_child(i)
-		if is_instance_valid(child) and child.name.begins_with(control_name):
+		if is_instance_valid(child) and child.name.begins_with(vb6_prefix):
 			sibling_count += 1
-	var node_name = control_name + str(sibling_count + 1)
+	var node_name = vb6_prefix + str(sibling_count + 1)
 	new_node.name = node_name
 
 	# Set position and text before the node enters the scene tree
