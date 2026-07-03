@@ -6,7 +6,7 @@ var _config: Dictionary = {}
 func initialize(config: Dictionary) -> void:
 	_config = config.duplicate(true)
 
-func complete(prompt: String, options: Dictionary = {}) -> Variant:
+func complete(prompt: String, options: Dictionary = {}) -> String:
 	var endpoint = _get_endpoint() + "/completions"
 	var body: Dictionary = {
 		"model": _get_model(),
@@ -29,7 +29,7 @@ func complete(prompt: String, options: Dictionary = {}) -> Variant:
 		return {"error": "no_choices"}
 	return String(choices[0].get("text", ""))
 
-func chat(messages: Array, options: Dictionary = {}) -> Variant:
+func chat(messages: Array, options: Dictionary = {}) -> String:
 	var endpoint = _get_endpoint() + "/chat/completions"
 	var body: Dictionary = {
 		"model": _get_model(),
@@ -53,7 +53,7 @@ func chat(messages: Array, options: Dictionary = {}) -> Variant:
 	var message = choices[0].get("message", {})
 	return String(message.get("content", ""))
 
-func embed(text: String, options: Dictionary = {}) -> Variant:
+func embed(text: String, options: Dictionary = {}) -> Array:
 	var endpoint = _get_endpoint() + "/embeddings"
 	var body: Dictionary = {
 		"model": _config.get("embedding_model", "text-embedding-3-large"),
@@ -70,7 +70,7 @@ func embed(text: String, options: Dictionary = {}) -> Variant:
 		return {"error": "no_embedding_data"}
 	return data[0].get("embedding", [])
 
-func generate_image(prompt: String, options: Dictionary = {}) -> Variant:
+func generate_image(prompt: String, options: Dictionary = {}) -> Dictionary:
 	return {"error": "unsupported_operation", "details": "Image generation is not supported by the generic local provider."}
 
 func _get_endpoint() -> String:

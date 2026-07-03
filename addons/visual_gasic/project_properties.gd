@@ -333,7 +333,7 @@ func _load_settings():
 	_load_gdai_settings()
 
 func _load_gdai_settings() -> void:
-	_gdai_enabled_checkbox.pressed = bool(ProjectSettings.get_setting("vg/gdai/enabled", true))
+	_gdai_enabled_checkbox.button_pressed = bool(ProjectSettings.get_setting("vg/gdai/enabled", true))
 	_gdai_provider_edit.text = str(ProjectSettings.get_setting("vg/gdai/provider", "openai"))
 	_gdai_api_key_edit.text = str(ProjectSettings.get_setting("vg/gdai/api_key", ""))
 	_gdai_endpoint_edit.text = str(ProjectSettings.get_setting("vg/gdai/endpoint", "https://api.openai.com/v1"))

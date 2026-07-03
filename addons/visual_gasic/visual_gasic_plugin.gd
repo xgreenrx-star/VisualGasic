@@ -2163,22 +2163,6 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 
-	# ── Alt+T / Alt+P / Alt+W  →  2D toolbar shortcuts (work in VG IDE too) ──
-	if event.alt_pressed and not event.ctrl_pressed and not event.shift_pressed and not _typing:
-		match event.keycode:
-			KEY_T:
-				_ui_forms_show_toolbox_window()
-				get_viewport().set_input_as_handled()
-				return
-			KEY_P:
-				_ui_forms_show_props_window()
-				get_viewport().set_input_as_handled()
-				return
-			KEY_W:
-				_on_wire_event_btn_pressed()
-				get_viewport().set_input_as_handled()
-				return
-
 ## Fallback keyboard handler connected to the Form Designer canvas's gui_input.
 ## If _input() somehow misses an event (e.g., Godot processes the canvas
 ## control's gui_input before _input fires on our plugin node), this catches it.
