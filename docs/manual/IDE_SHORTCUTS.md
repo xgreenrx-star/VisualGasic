@@ -354,6 +354,18 @@ The embedded 2D Scene Editor lets you build 2D game scenes visually — placing
 sprites, physics bodies, cameras, lights, tilemaps, and more. Access it via
 the **🎮 2D Scene Editor** button in the VG toolbar.
 
+### 2D Toolbar — VG Buttons
+
+Three VG-specific buttons appear in the 2D editor toolbar when the plugin is active:
+
+| Button | Action |
+|--------|--------|
+| **🖼 Add VG Control** | Opens the floating **Toolbox** window — drag a control type onto the 2D canvas to place it with VB6 naming (`Command1`, `Text1`, etc.) |
+| **📋 VG Properties** | Opens the floating **Properties** window — inspect and edit VB6-style properties of the selected control |
+| **⚡ Wire Event** | Creates the primary VB6 event stub (e.g. `Command1_Click`) for the selected control in the associated `.vg` script and opens it in the code editor |
+
+These same actions are available from the **right-click context menu** on the 2D canvas (under the Godot default items).
+
 ### Camera Controls
 
 | Shortcut | Action |

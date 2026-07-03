@@ -788,11 +788,12 @@ player.TakeDamage(10)
 
 ### Code Navigator
 
-The **Code Navigator** (in Toolbox) provides quick navigation through your code:
+The **Code Navigator** appears as two dropdowns above the code editor (VB6-style):
 
-- **Procedure Dropdown** - Jump to any Sub or Function
-- **Object Dropdown** - Select control or module
-- **Region Navigation** - Jump to code regions
+- **Left dropdown (Object)** — Lists `(General)` plus every control on the form (e.g. `Command1`, `Text1`, `Timer1`). Selecting a control filters the right dropdown to its events.
+- **Right dropdown (Procedure)** — When `(General)` is selected, shows standalone `Sub`/`Function` procedures (no control event handlers). When a control is selected, shows that control's wired events (e.g. `Click`, `Change`, `Timer`).
+
+Selecting an entry navigates the editor to that procedure.
 
 ### Object Browser
 

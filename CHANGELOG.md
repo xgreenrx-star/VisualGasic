@@ -7,15 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### ✨ Added — Array.Count / Array.Length (Jun 30, 2026)
+## [5.3.0-Beta1] - 2026-07-03
 
-- **`arr.Count` and `arr.Length`** now work as VB6-style properties on all array types (`Integer`, `String`, `Double`, etc.). Returns the element count equivalent to `UBound(arr) + 1`. Implemented in the bytecode VM `OP_GET_MEMBER` handler alongside the existing `dict.Count` alias.
+### ✨ Added — 2D Canvas Toolbar Buttons (Jul 3, 2026)
 
-### 🐛 Fixed — M1 Final Bugs (Jun 30, 2026)
+- **🖼 Add VG Control** — opens the floating Toolbox window; select a control type, then click the 2D canvas to place it with VB6 naming (`Command1`, `Text1`, etc.)
+- **📋 VG Properties** — opens the floating Properties window to inspect/edit VB6-style properties of the selected control
+- **⚡ Wire Event** — creates the primary VB6 event stub (e.g. `Command1_Click`) for the selected control in the associated `.vg` script and opens the code editor at that location
+- All three actions also available via **right-click context menu** on the 2D canvas
 
-- **Dictionary property access without parens**: `dict.Count`, `dict.Keys`, `dict.Items` now work as VB6-style properties. Previously only `dict.Count()` with parens worked; the bytecode VM's `OP_GET_MEMBER` treated all dictionary member access as key lookups. Now checks for VB6 property aliases before falling through to key lookup.
-- **Join() integer formatting**: Arrays declared `As Integer` store values internally as floats; `Join(intArray, ",")` now formats them without `.0` suffix (`"64"` instead of `"64.0"`). Fractional floats pass through unchanged.
-- **ByRef default parameters in recursive calls**: Fixed corruption caused by `byref_captures` re-applying the callee's parameter value after `saved_locals` restore. Recursive functions with `ByRef` parameters now work correctly.
+### ✨ Added — Plugin Opt-In via Project Settings (Jul 1, 2026)
+
+- VG sub-plugins (AGCK, Working Nodes, UI Forms, VGMusic, etc.) are now **disabled by default**
+- Enable per-project via `vg/plugins/<id>/enabled = true` in Project Settings
+- The VG IDE layout no longer auto-opens on startup — switch to it via the "Visual Gasic IDE" toolbar button
+
+### ✨ Added — Code Navigator Upgrade (Jul 1, 2026)
+
+- Left dropdown (Object): lists `(General)` plus every control on the form
+- Right dropdown (Procedure): shows only standalone procedures for `(General)`, or control-specific events when a control is selected
+- `(General)` no longer shows control event handlers — matching VB6 behavior
+
+### 🐛 Fixed (Jun 30–Jul 3, 2026)
+
+- `dict.Count` / `dict.Keys` / `dict.Items` without parens — property access now works
+- `arr.Count` / `arr.Length` without parens — VB6-style property on all array types
+- `Join()` integer formatting — no `.0` suffix on integer arrays
+- ByRef default parameters in recursive calls — no longer corrupts locals
+- Removed dead `_on_vg_ctrl_chosen` referencing deleted `_vg_ctrl_popup`
+- Fixed `project_properties.gd` — `.pressed` is a signal in Godot 4.6, use `.button_pressed`
+- Fixed `gdai_local_provider.gd` — return types now match parent class signatures
+- Removed duplicate shortcut handler block in `_input()`
 
 ## [5.2.0-Beta3] - 2026-06-01
 

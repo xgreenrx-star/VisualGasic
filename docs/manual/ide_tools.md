@@ -4,6 +4,43 @@ VisualGasic extends the Godot Editor with several tools designed to make Visual 
 
 ---
 
+## Plugin Activation (v5.3.0+)
+
+As of v5.3.0, VG sub-plugins (AGCK, Working Nodes, UI Forms, VGMusic, etc.) are
+**disabled by default** and must be opted-in via **Project → Project Settings**:
+
+```
+vg/plugins/agck/enabled = true
+vg/plugins/working_nodes/enabled = true
+vg/plugins/ui_forms/enabled = true
+vg/plugins/vector_graphics/enabled = true
+vg/plugins/gdai/enabled = true
+```
+
+Set any of these to `true` in your project's settings to load the corresponding
+plugin. The VG IDE itself no longer auto-opens on project load — switch to it
+via the **Visual Gasic IDE** button in the top toolbar.
+
+---
+
+## 2D Canvas Toolbar
+
+Three VG-specific buttons are added to the Godot 2D editor toolbar:
+
+| Button | Action |
+|--------|--------|
+| **🖼 Add VG Control** | Opens the floating **Toolbox** window. Select a control type, then click the canvas to place it with VB6 naming (`Command1`, `Text1`, etc.) |
+| **📋 VG Properties** | Opens the floating **Properties** window to inspect and edit VB6-style properties of the selected control |
+| **⚡ Wire Event** | Creates the primary VB6 event stub for the selected control (e.g. `Command1_Click`) and opens the `.vg` script at that location |
+
+These actions are also available from the **right-click context menu** on the 2D canvas.
+
+![2D toolbar with Toolbox and Properties windows open](../screenshots/v5.3.0-Beta1/2d_toolbar_toolbox_properties.png)
+
+![2D canvas right-click context menu showing VG actions](../screenshots/v5.3.0-Beta1/2d_toolbar_context_menu.png)
+
+---
+
 ## High-Priority Features (Complete)
 
 ### Watch Window
