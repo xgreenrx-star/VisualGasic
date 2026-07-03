@@ -13396,7 +13396,6 @@ func _ui_forms_place_at_screen(godot_type: String, screen_pos: Vector2) -> void:
 	undo_redo.create_action("Place %s" % ctrl.name)
 	undo_redo.add_do_method(parent, "add_child", ctrl, true)
 	undo_redo.add_do_method(ctrl, "set_owner", edited)
-	undo_redo.add_do_reference(ctrl)
 	undo_redo.add_undo_method(parent, "remove_child", ctrl)
 	undo_redo.commit_action()
 
