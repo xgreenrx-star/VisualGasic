@@ -276,15 +276,17 @@ func refresh_objects():
 	object_list.add_item("(General)")
 	object_list.set_item_metadata(general_idx, "(General)")
 	
-	# Add Objects recursively
-	_add_node_recursive(root)
+	# Add Objects — root first (as Form/game root), then filtered children
+	_add_node_filtered(root, true)
 
-	# Cache the Control children for use when get_edited_scene_root() returns null.
-	# Reuse the children we already fetched safely above — never re-call
-	# get_children() here, it can return Nil mid-teardown and crash the iteration.
+	# Cache relevant children for when get_edited_scene_root() returns null.
 	_cached_controls.clear()
 	for child in live_children:
-		if child is Control:
+		var s = child.get_script()
+		var sp: String = s.resource_path if s else ""
+		if sp.ends_with(".vg"):
+			continue  # skip VGASIC helper
+		if VGIntelliSense.is_relevant_node_class(child.get_class()):
 			_cached_controls.append({"name": child.name, "class_name": child.get_class()})
 
 	# Add Scene Scripts section — nodes with .gd scripts
@@ -330,18 +332,38 @@ func refresh_objects():
 	# This runs AFTER the normal selection-restore so it always wins.
 	_apply_pending_selection()
 
-func _add_node_recursive(node: Node):
+func _add_node_filtered(node: Node, is_root: bool) -> void:
+	## Add a node to the Object dropdown if it is relevant.
+	## Root is always shown (as Form / game root). Children are filtered:
+	## skip VGASIC script hosts, skip pure layout containers.
 	if not node: return
-	
-	# Include Type in label — use VB6 dialect, e.g. "Text1 (TextBox)"
-	# instead of "Text1 (LineEdit)".
+
+	# Detect VGASIC script-host nodes: their script resource path ends with .vg
+	var script = node.get_script()
+	var script_path: String = script.resource_path if script else ""
+	var has_vg_script: bool = script_path.ends_with(".vg")
+
+	# For non-root children: skip the VGASIC helper node itself
+	# (it hosts the script but is not a UI control or game object)
+	if not is_root and has_vg_script:
+		return
+
+	# For non-root children: skip irrelevant layout-only classes
+	if not is_root and not has_vg_script:
+		if not VGIntelliSense.is_relevant_node_class(node.get_class()):
+			return
+
 	var label = VGIntelliSense.format_node_label(node.name, node.get_class())
 	var idx = object_list.item_count
-	object_list.add_item(label, idx)
+	object_list.add_item(label)
 	object_list.set_item_metadata(idx, node)
-	
+
+	# Walk children (one extra level for controls inside Panel/Frame containers)
 	for i in node.get_child_count():
-		_add_node_recursive(node.get_child(i))
+		var child = node.get_child(i)
+		if not is_root:
+			return  # already one level deep — stop here
+		_add_node_filtered(child, false)
 
 func _get_current_vg_path() -> String:
 	"""Get the .vg file path for the current scene."""
@@ -631,38 +653,32 @@ func _on_object_selected(idx):
 	var node = meta as Node
 	if not node: return
 
-	# Populate based on type
-	var events = []
-	if node == editor_plugin.get_editor_interface().get_edited_scene_root():
-		events = EVENTS_FORM
-	elif node is BaseButton:
-		events = EVENTS_BUTTON
-	elif node is LineEdit or node is TextEdit:
-		events = EVENTS_TEXT
-	elif node is ScrollBar or node is Slider:
-		events = EVENTS_SCROLL
-	elif node is Timer:
-		events = EVENTS_TIMER
-	else:
-		events = EVENTS_COMMON # Fallback
-	
+	# Determine the VB6 event list for this node.
+	# Root Control → "Form" events; game nodes + UI controls → VGIntelliSense lookup.
+	var godot_class := node.get_class()
+	var lookup_class := godot_class
+	var scene_root = editor_plugin.get_editor_interface().get_edited_scene_root()
+	if node == scene_root and node is Control:
+		lookup_class = "Form"
+
+	var events: Array = VGIntelliSense.get_control_events(lookup_class)
+
 	# Check which handlers already exist in the .vg file (VB6 shows these bold)
 	var text = _get_current_vg_text()
-	var handler_prefix = node.name + "_"
-	
+
 	for evt in events:
 		var eidx = event_list.item_count
 		var handler_name = "Sub " + node.name + "_" + evt
 		var has_handler = text.contains(handler_name)
 		event_list.add_item(evt)
 		event_list.set_item_metadata(eidx, {"type": "event", "event": evt, "has_handler": has_handler})
-	
-	# Dim unimplemented events (VB6 shows implemented handlers in bold)
+
+	# Dim unimplemented events; VB6 shows implemented handlers in bold
 	for i in event_list.item_count:
 		var emeta = event_list.get_item_metadata(i)
 		if emeta and emeta.has("has_handler") and not emeta["has_handler"]:
 			event_list.set_item_custom_color(i, COLOR_DIM)
-	
+
 	# Auto-select first event so the textbox is never blank
 	if event_list.item_count > 0:
 		event_list.select(0)
@@ -699,7 +715,18 @@ func _on_event_selected(idx):
 				editor_plugin.get_editor_interface().edit_resource(script)
 			return
 
-	# --- Control event handler ---
+	# --- Control event handler (live node or cached_control) ---
+	var event_name: String = ""
+	if event_meta is Dictionary:
+		event_name = event_meta.get("event", event_list.get_item_text(idx).strip_edges())
+	else:
+		event_name = event_list.get_item_text(idx).strip_edges()
+
+	# Cached control — no live node reference; navigate/create via path + name
+	if obj_meta is Dictionary and obj_meta.get("type", "") == "cached_control":
+		_navigate_to_handler_by_name(obj_meta.get("name", ""), event_name)
+		return
+
 	if not is_instance_valid(obj_meta):
 		refresh_objects()
 		return
@@ -707,7 +734,6 @@ func _on_event_selected(idx):
 	var node = obj_meta as Node
 	if not node: return
 
-	var event_name = event_meta["event"] if event_meta and event_meta.has("event") else event_list.get_item_text(idx).strip_edges()
 	_navigate_to_handler(node, event_name)
 
 func _navigate_to_line_in_vg(line_number: int):
@@ -779,6 +805,28 @@ func _navigate_to_declarations():
 			code_edit.center_viewport_to_caret()
 			code_edit.grab_focus()
 
+func _navigate_to_handler_by_name(obj_name: String, event: String) -> void:
+	## Navigate/create a handler when we only have the control name (no live node).
+	## Used by the cached_control path.
+	if obj_name.is_empty() or event.is_empty() or not editor_plugin:
+		return
+	var root = editor_plugin.get_editor_interface().get_edited_scene_root()
+	var scene_path: String = ""
+	if is_instance_valid(root):
+		scene_path = root.scene_file_path
+	if scene_path.is_empty():
+		var vg_path = _get_current_vg_path()
+		if not vg_path.is_empty():
+			_edit_and_goto(vg_path, "Sub " + obj_name + "_" + event, obj_name, event)
+		return
+	var bas_path = scene_path.get_basename() + ".vg"
+	if not FileAccess.file_exists(bas_path):
+		var f = FileAccess.open(bas_path, FileAccess.WRITE)
+		if f:
+			f.store_string("' Visual Gasic Form Script\nOption Explicit\n\n")
+			f.close()
+	_edit_and_goto(bas_path, "Sub " + obj_name + "_" + event, obj_name, event)
+
 func _navigate_to_handler(node: Node, event: String):
 	if not editor_plugin: return
 	
@@ -827,12 +875,9 @@ func _edit_and_goto(path: String, sub_name: String, obj_name: String, event_name
 			var text = code_edit.text
 			
 			if text.find(sub_name) == -1:
-				# Append Handler
-				var new_code = "\n" + sub_name + "()\n    Print \"" + obj_name + " " + event_name + "\"\nEnd Sub\n"
-				# Append to buffer
+				# Append new stub — empty body, cursor will land inside it
+				var new_code = "\nPrivate " + sub_name + "()\n\nEnd Sub\n"
 				code_edit.text += new_code
-				
-				# Get fresh text
 				text = code_edit.text
 			
 			# Find line number
@@ -844,7 +889,12 @@ func _edit_and_goto(path: String, sub_name: String, obj_name: String, event_name
 					break
 			
 			if line_no != -1:
-				code_edit.set_caret_line(line_no + 1)
+				# Place cursor on the blank line inside the Sub body
+				var body_line = line_no + 1
+				code_edit.set_caret_line(body_line)
 				code_edit.set_caret_column(4)
 				code_edit.center_viewport_to_caret()
 				code_edit.grab_focus()
+
+				# Refresh the event list so the new handler shows bold
+				call_deferred("refresh_objects")

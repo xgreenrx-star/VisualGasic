@@ -606,9 +606,39 @@ const VB6_CONTROL_EVENTS: Dictionary = {
 		"QueryUnload", "Initialize", "Terminate",
 		"Click", "DblClick", "KeyDown", "KeyPress", "KeyUp",
 		"MouseDown", "MouseUp", "MouseMove", "GotFocus", "LostFocus"],
+	# ── 2D game nodes ──────────────────────────────────────────────────────
+	"Node2D":            ["Ready", "Process", "PhysicsProcess", "Input", "Draw"],
+	"Sprite2D":          ["Ready", "Process", "FrameChanged", "TextureChanged"],
+	"AnimatedSprite2D":  ["Ready", "AnimationFinished", "AnimationLooped", "FrameChanged"],
+	"Area2D":            ["Ready", "Process", "PhysicsProcess",
+		"BodyEntered", "BodyExited", "AreaEntered", "AreaExited"],
+	"CharacterBody2D":   ["Ready", "Process", "PhysicsProcess", "Input"],
+	"RigidBody2D":       ["Ready", "Process", "PhysicsProcess",
+		"BodyEntered", "BodyExited", "SleepingStateChanged"],
+	"StaticBody2D":      ["Ready"],
+	"AnimationPlayer":   ["Ready", "AnimationFinished", "AnimationStarted", "AnimationChanged"],
+	"AudioStreamPlayer": ["Ready", "Finished"],
+	"AudioStreamPlayer2D": ["Ready", "Finished"],
+	"Camera2D":          ["Ready", "Process"],
+	"TileMap":           ["Ready", "Process"],
+	"TileMapLayer":      ["Ready", "Process"],
+	"GPUParticles2D":    ["Ready", "Finished"],
+	"CPUParticles2D":    ["Ready", "Finished"],
+	# ── 3D game nodes ──────────────────────────────────────────────────────
+	"Node3D":            ["Ready", "Process", "PhysicsProcess", "Input"],
+	"MeshInstance3D":    ["Ready", "Process"],
+	"Sprite3D":          ["Ready", "Process", "TextureChanged", "FrameChanged"],
+	"Area3D":            ["Ready", "Process", "PhysicsProcess",
+		"BodyEntered", "BodyExited", "AreaEntered", "AreaExited"],
+	"CharacterBody3D":   ["Ready", "Process", "PhysicsProcess", "Input"],
+	"RigidBody3D":       ["Ready", "Process", "PhysicsProcess",
+		"BodyEntered", "BodyExited", "SleepingStateChanged"],
+	"AnimationPlayer3D": ["Ready", "AnimationFinished", "AnimationStarted", "AnimationChanged"],
+	"AudioStreamPlayer3D": ["Ready", "Finished"],
+	"Camera3D":          ["Ready", "Process"],
 }
 
-## Returns available VB6 events for a Godot control type.
+## Returns available events for a Godot node type (UI or game).
 ## Falls back to a basic set if the type isn't explicitly mapped.
 static func get_control_events(godot_type: String) -> Array:
 	if VB6_CONTROL_EVENTS.has(godot_type):
@@ -616,6 +646,20 @@ static func get_control_events(godot_type: String) -> Array:
 	# Fallback: basic universal events
 	return ["Click", "GotFocus", "LostFocus", "KeyDown", "KeyPress", "KeyUp",
 		"MouseDown", "MouseUp", "MouseMove", "MouseEnter", "MouseExit"]
+
+## Returns true if a node of this Godot class should appear in the Object dropdown.
+## Excludes pure layout containers, separators, and sub-viewport wrappers.
+static func is_relevant_node_class(godot_class: String) -> bool:
+	if VB6_CONTROL_EVENTS.has(godot_class):
+		return true
+	# Accept any Control subclass that isn't a pure layout container
+	const LAYOUT_ONLY: Array = [
+		"HBoxContainer", "VBoxContainer", "GridContainer", "FlowContainer",
+		"HFlowContainer", "VFlowContainer", "MarginContainer", "AspectRatioContainer",
+		"CenterContainer", "SubViewportContainer", "PanelContainer",
+		"HSeparator", "VSeparator", "Control",
+	]
+	return not (godot_class in LAYOUT_ONLY)
 
 # =============================================================================
 # VB6 GLOBAL OBJECTS — App, Screen, Clipboard, Err, Debug, Printer
