@@ -3413,8 +3413,11 @@ Dictionary VisualGasicLanguage::_lookup_code(const String &p_code, const String 
         }
     }
 
-    // Nothing found: no "result" key signals ERR_UNAVAILABLE to Godot.
-    return Dictionary();
+    // Nothing found: return {"result": ERR_UNAVAILABLE} so Godot suppresses
+    // the ERR_FAIL_COND print at script_language_extension.h:449.
+    Dictionary not_found;
+    not_found["result"] = (int)ERR_UNAVAILABLE;
+    return not_found;
 }
 
 // ── Profiler bridge (static wrappers around VisualGasicProfiler singleton) ──
