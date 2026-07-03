@@ -205,14 +205,12 @@ var _ui_forms_adapter = null   # ui_forms_viewport_adapter.gd instance
 ## The type name ("Button", "Label", …) while placement is armed; "" when idle.
 var _ui_forms_armed_type: String = ""
 
-## Three extra 2D toolbar buttons added alongside "Add Control".
-var _vg_ctrl_btn: Button = null    ## "Add VG Control" — place a VG prototype
-var _vg_props_btn: Button = null   ## "VG Properties"  — inspect selected node
+## Three 2D toolbar buttons for VG control placement and wiring.
+var _vg_ctrl_btn: Button = null    ## "Add VG Control" — open floating Toolbox
+var _vg_props_btn: Button = null   ## "VG Properties"  — open floating Properties
 var _wire_event_btn: Button = null ## "Wire Event"     — create VB6 event stub
 ## Prototype .tscn path while armed VG placement is active; "" when idle.
 var _vg_ctrl_armed_path: String = ""
-## PopupMenu showing available VG control prototypes.
-var _vg_ctrl_popup: PopupMenu = null
 
 ## Floating Toolbox panel (opened from 2D canvas right-click menu).
 ## NOT a Window — a Control in the same viewport so drag-and-drop works.
@@ -1809,11 +1807,7 @@ func _exit_tree():
 	if get_tree().node_added.is_connected(_on_node_added_for_help_links):
 		get_tree().node_added.disconnect(_on_node_added_for_help_links)
 
-	# Remove UI Forms toolbar button
-	if is_instance_valid(_ui_forms_btn):
-		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _ui_forms_btn)
-		_ui_forms_btn.queue_free()
-		_ui_forms_btn = null
+	# Remove UI Forms toolbar buttons
 	if is_instance_valid(_vg_ctrl_btn):
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_ctrl_btn)
 		_vg_ctrl_btn.queue_free()
@@ -1826,9 +1820,6 @@ func _exit_tree():
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _wire_event_btn)
 		_wire_event_btn.queue_free()
 		_wire_event_btn = null
-	if is_instance_valid(_vg_ctrl_popup):
-		_vg_ctrl_popup.queue_free()
-		_vg_ctrl_popup = null
 	if is_instance_valid(_ui_forms_picker):
 		_ui_forms_picker.queue_free()
 		_ui_forms_picker = null
@@ -13166,14 +13157,8 @@ func _open_command_palette(initial_query: String = "") -> void:
 # =============================================================================
 
 func _setup_ui_forms_toolbar_button() -> void:
-	if is_instance_valid(_ui_forms_btn):
+	if is_instance_valid(_vg_ctrl_btn):
 		return
-	_ui_forms_btn = Button.new()
-	_ui_forms_btn.text = "🧩 Add Control"
-	_ui_forms_btn.tooltip_text = "UI Forms: open control picker to place a Godot Control in the scene"
-	_ui_forms_btn.flat = true
-	_ui_forms_btn.pressed.connect(_on_ui_forms_btn_pressed)
-	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _ui_forms_btn)
 
 	# ── Add VG Control ───────────────────────────────────────────────────────
 	_vg_ctrl_btn = Button.new()
@@ -13257,21 +13242,7 @@ const VG_PROTOTYPE_PALETTE := [
 ]
 
 func _on_vg_ctrl_btn_pressed() -> void:
-	if not is_instance_valid(_vg_ctrl_popup):
-		_vg_ctrl_popup = PopupMenu.new()
-		_vg_ctrl_popup.name = "VGCtrlPopup"
-		for i in VG_PROTOTYPE_PALETTE.size():
-			var entry: Array = VG_PROTOTYPE_PALETTE[i]
-			_vg_ctrl_popup.add_item(entry[0], i)
-			_vg_ctrl_popup.set_item_metadata(i, "res://addons/visual_gasic/prototypes/" + entry[1])
-		_vg_ctrl_popup.id_pressed.connect(_on_vg_ctrl_chosen)
-		get_editor_interface().get_base_control().add_child(_vg_ctrl_popup)
-	# Pop near the button
-	if is_instance_valid(_vg_ctrl_btn):
-		var gr := _vg_ctrl_btn.get_global_rect()
-		_vg_ctrl_popup.popup(Rect2i(int(gr.position.x), int(gr.position.y + gr.size.y), 180, 0))
-	else:
-		_vg_ctrl_popup.popup_centered()
+	_ui_forms_show_toolbox_window()
 
 func _on_vg_ctrl_chosen(item_id: int) -> void:
 	var path: String = _vg_ctrl_popup.get_item_metadata(item_id)
@@ -13289,16 +13260,7 @@ func _vg_ctrl_disarm() -> void:
 # ─── VG Properties ───────────────────────────────────────────────────────────
 
 func _on_vg_props_btn_pressed() -> void:
-	var sel := get_editor_interface().get_selection().get_selected_nodes()
-	if sel.is_empty():
-		OS.alert("Select a node in the Scene tree first.", "No Selection")
-		return
-	var node: Node = sel[0]
-	# Inspect via Godot's built-in inspector (right dock).
-	get_editor_interface().inspect_object(node)
-	# If the VG IDE properties inspector is available, populate it too.
-	if is_instance_valid(_properties_inspector) and _properties_inspector.has_method("inspect_node"):
-		_properties_inspector.inspect_node(node)
+	_ui_forms_show_props_window()
 
 
 # ─── Wire Event ──────────────────────────────────────────────────────────────
