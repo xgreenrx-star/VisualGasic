@@ -205,6 +205,15 @@ var _ui_forms_adapter = null   # ui_forms_viewport_adapter.gd instance
 ## The type name ("Button", "Label", …) while placement is armed; "" when idle.
 var _ui_forms_armed_type: String = ""
 
+## Three extra 2D toolbar buttons added alongside "Add Control".
+var _vg_ctrl_btn: Button = null    ## "Add VG Control" — place a VG prototype
+var _vg_props_btn: Button = null   ## "VG Properties"  — inspect selected node
+var _wire_event_btn: Button = null ## "Wire Event"     — create VB6 event stub
+## Prototype .tscn path while armed VG placement is active; "" when idle.
+var _vg_ctrl_armed_path: String = ""
+## PopupMenu showing available VG control prototypes.
+var _vg_ctrl_popup: PopupMenu = null
+
 ## Floating Toolbox panel (opened from 2D canvas right-click menu).
 ## NOT a Window — a Control in the same viewport so drag-and-drop works.
 var _ui_forms_toolbox_window: PanelContainer = null
@@ -1805,6 +1814,21 @@ func _exit_tree():
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _ui_forms_btn)
 		_ui_forms_btn.queue_free()
 		_ui_forms_btn = null
+	if is_instance_valid(_vg_ctrl_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_ctrl_btn)
+		_vg_ctrl_btn.queue_free()
+		_vg_ctrl_btn = null
+	if is_instance_valid(_vg_props_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_props_btn)
+		_vg_props_btn.queue_free()
+		_vg_props_btn = null
+	if is_instance_valid(_wire_event_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _wire_event_btn)
+		_wire_event_btn.queue_free()
+		_wire_event_btn = null
+	if is_instance_valid(_vg_ctrl_popup):
+		_vg_ctrl_popup.queue_free()
+		_vg_ctrl_popup = null
 	if is_instance_valid(_ui_forms_picker):
 		_ui_forms_picker.queue_free()
 		_ui_forms_picker = null
@@ -11501,6 +11525,28 @@ func _forward_canvas_gui_input(event):
 			return true
 		return false
 
+	# ── VG Ctrl: armed prototype placement — intercept left-click ───────────
+	if _vg_ctrl_armed_path != "":
+		if event is InputEventMouseButton and event.pressed:
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				var proto_path := _vg_ctrl_armed_path
+				_vg_ctrl_disarm()
+				# Fake drop_data so _handle_vg_drop_delayed applies VB6 naming + theme.
+				var world_pos := _ui_forms_screen_to_world(event.position)
+				call_deferred("_handle_vg_drop_delayed", {
+					"type": "vg_control",
+					"scene_path": proto_path,
+					"drop_position": world_pos,
+				})
+				return true
+			elif event.button_index == MOUSE_BUTTON_RIGHT:
+				_vg_ctrl_disarm()
+				return true
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			_vg_ctrl_disarm()
+			return true
+		return false
+
 	# ── Ctrl+Arrow: nudge selected control by 1 pixel (ignoring snap) ──
 	if event is InputEventKey and event.pressed and event.ctrl_pressed and not event.shift_pressed:
 		var nudge := Vector2.ZERO
@@ -13124,10 +13170,34 @@ func _setup_ui_forms_toolbar_button() -> void:
 		return
 	_ui_forms_btn = Button.new()
 	_ui_forms_btn.text = "🧩 Add Control"
-	_ui_forms_btn.tooltip_text = "UI Forms: open control picker to place a VB6-style control in the scene"
+	_ui_forms_btn.tooltip_text = "UI Forms: open control picker to place a Godot Control in the scene"
 	_ui_forms_btn.flat = true
 	_ui_forms_btn.pressed.connect(_on_ui_forms_btn_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _ui_forms_btn)
+
+	# ── Add VG Control ───────────────────────────────────────────────────────
+	_vg_ctrl_btn = Button.new()
+	_vg_ctrl_btn.text = "🖼 Add VG Control"
+	_vg_ctrl_btn.tooltip_text = "Place a VG prototype control (VB6 naming: Text1, Command1, …)"
+	_vg_ctrl_btn.flat = true
+	_vg_ctrl_btn.pressed.connect(_on_vg_ctrl_btn_pressed)
+	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_ctrl_btn)
+
+	# ── VG Properties ────────────────────────────────────────────────────────
+	_vg_props_btn = Button.new()
+	_vg_props_btn.text = "📋 VG Properties"
+	_vg_props_btn.tooltip_text = "Inspect selected node in Godot's Inspector panel"
+	_vg_props_btn.flat = true
+	_vg_props_btn.pressed.connect(_on_vg_props_btn_pressed)
+	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_props_btn)
+
+	# ── Wire Event ───────────────────────────────────────────────────────────
+	_wire_event_btn = Button.new()
+	_wire_event_btn.text = "⚡ Wire Event"
+	_wire_event_btn.tooltip_text = "Create the primary VB6 event stub for the selected control in its .vg script"
+	_wire_event_btn.flat = true
+	_wire_event_btn.pressed.connect(_on_wire_event_btn_pressed)
+	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _wire_event_btn)
 
 	# Register context menu items into Godot's native 2D editor right-click popup
 	if not _ui_forms_ctx_plugin:
@@ -13165,7 +13235,106 @@ func _ui_forms_disarm() -> void:
 		_ui_forms_btn.text = "🧩 Add Control"
 
 
-static func _ui_forms_default_world_size(godot_type: String) -> Vector2:
+# ─── Add VG Control ──────────────────────────────────────────────────────────
+
+## VG prototype palette: [display label, prototype filename, VB6 category].
+const VG_PROTOTYPE_PALETTE := [
+	["Command Button", "Button.tscn"],
+	["TextBox",        "LineEdit.tscn"],
+	["Label",          "Label.tscn"],
+	["CheckBox",       "CheckBox.tscn"],
+	["ComboBox",       "OptionButton.tscn"],
+	["ListBox",        "ItemList.tscn"],
+	["TextEdit",       "TextEdit.tscn"],
+	["Image",          "TextureRect.tscn"],
+	["ProgressBar",    "ProgressBar.tscn"],
+	["HSlider",        "HSlider.tscn"],
+	["VSlider",        "VSlider.tscn"],
+	["Panel",          "Panel.tscn"],
+	["RichText",       "RichTextLabel.tscn"],
+	["Timer",          "Timer.tscn"],
+	["SpinBox",        "SpinBox.tscn"],
+]
+
+func _on_vg_ctrl_btn_pressed() -> void:
+	if not is_instance_valid(_vg_ctrl_popup):
+		_vg_ctrl_popup = PopupMenu.new()
+		_vg_ctrl_popup.name = "VGCtrlPopup"
+		for i in VG_PROTOTYPE_PALETTE.size():
+			var entry: Array = VG_PROTOTYPE_PALETTE[i]
+			_vg_ctrl_popup.add_item(entry[0], i)
+			_vg_ctrl_popup.set_item_metadata(i, "res://addons/visual_gasic/prototypes/" + entry[1])
+		_vg_ctrl_popup.id_pressed.connect(_on_vg_ctrl_chosen)
+		get_editor_interface().get_base_control().add_child(_vg_ctrl_popup)
+	# Pop near the button
+	if is_instance_valid(_vg_ctrl_btn):
+		var gr := _vg_ctrl_btn.get_global_rect()
+		_vg_ctrl_popup.popup(Rect2i(int(gr.position.x), int(gr.position.y + gr.size.y), 180, 0))
+	else:
+		_vg_ctrl_popup.popup_centered()
+
+func _on_vg_ctrl_chosen(item_id: int) -> void:
+	var path: String = _vg_ctrl_popup.get_item_metadata(item_id)
+	var label: String = _vg_ctrl_popup.get_item_text(item_id)
+	_vg_ctrl_armed_path = path
+	if is_instance_valid(_vg_ctrl_btn):
+		_vg_ctrl_btn.text = "🖼 Placing: %s (click canvas)" % label
+
+func _vg_ctrl_disarm() -> void:
+	_vg_ctrl_armed_path = ""
+	if is_instance_valid(_vg_ctrl_btn):
+		_vg_ctrl_btn.text = "🖼 Add VG Control"
+
+
+# ─── VG Properties ───────────────────────────────────────────────────────────
+
+func _on_vg_props_btn_pressed() -> void:
+	var sel := get_editor_interface().get_selection().get_selected_nodes()
+	if sel.is_empty():
+		OS.alert("Select a node in the Scene tree first.", "No Selection")
+		return
+	var node: Node = sel[0]
+	# Inspect via Godot's built-in inspector (right dock).
+	get_editor_interface().inspect_object(node)
+	# If the VG IDE properties inspector is available, populate it too.
+	if is_instance_valid(_properties_inspector) and _properties_inspector.has_method("inspect_node"):
+		_properties_inspector.inspect_node(node)
+
+
+# ─── Wire Event ──────────────────────────────────────────────────────────────
+
+func _on_wire_event_btn_pressed() -> void:
+	var sel := get_editor_interface().get_selection().get_selected_nodes()
+	if sel.is_empty():
+		OS.alert("Select a control in the Scene tree first.", "No Selection")
+		return
+	var node: Node = sel[0]
+	if not (node is Control):
+		OS.alert("'%s' is not a Control node. Select a Button, TextBox, etc." % node.name, "Not a Control")
+		return
+	var ctrl := node as Control
+	var godot_type := ctrl.get_class()
+	_ui_forms_wire_stub(ctrl, godot_type)
+	# Open the .vg file in the code editor and navigate to the stub.
+	var scene_root := get_editor_interface().get_edited_scene_root()
+	if scene_root:
+		var scene_path := scene_root.scene_file_path
+		if not scene_path.is_empty():
+			var vg_path := scene_path.get_basename() + ".vg"
+			if FileAccess.file_exists(vg_path):
+				var primary_event: String = {
+					"Button": "Click", "CheckBox": "Click", "OptionButton": "Click",
+					"LineEdit": "Change", "TextEdit": "Change", "ItemList": "Click",
+					"Label": "Click",
+				}.get(godot_type, "Click")
+				var sub_name := "%s_%s" % [ctrl.name, primary_event]
+				if has_method("_open_in_embedded_editor"):
+					_open_in_embedded_editor(vg_path, sub_name, "")
+				elif is_instance_valid(_embedded_code_editor):
+					_embedded_code_editor.load_file(vg_path)
+				print("[Wire Event] Wired %s → %s" % [ctrl.name, sub_name])
+			else:
+				OS.alert("No .vg script found for this scene.\nExpected: %s" % vg_path, "No .vg Script")
 	match godot_type:
 		"Label":        return Vector2(96,  24)
 		"LineEdit":     return Vector2(140, 30)
@@ -13187,7 +13356,8 @@ func _ui_forms_screen_to_world(screen_pos: Vector2) -> Vector2:
 func _ui_forms_place_at_screen(godot_type: String, screen_pos: Vector2) -> void:
 	var edited := get_editor_interface().get_edited_scene_root()
 	if not edited:
-		push_warning("[UI Forms] No scene open — create or open a scene first")
+		print("[UI Forms] No scene open — create a root node first, then place controls")
+		OS.alert("Create a root node first (2D Scene / User Interface), then place controls.", "No Scene Open")
 		return
 
 	var world_pos := _ui_forms_screen_to_world(screen_pos)
@@ -13199,26 +13369,36 @@ func _ui_forms_place_at_screen(godot_type: String, screen_pos: Vector2) -> void:
 				parent = child
 				break
 
-	var cls = ClassDB.instantiate(godot_type)
-	var ctrl := cls as Control
+	var ctrl: Control = ClassDB.instantiate(godot_type) as Control
 	if not ctrl:
 		push_warning("[UI Forms] %s is not a Control" % godot_type)
-		if cls:
-			cls.free()
 		return
 
+	# VB6 naming: count siblings of the same type using the prefix map
+	const VB6_PREFIX_MAP := {
+		"Button": "Command", "Label": "Label", "LineEdit": "Text", "TextEdit": "Text",
+		"CheckBox": "Check", "OptionButton": "Combo", "ItemList": "List",
+	}
+	var vb6_prefix: String = VB6_PREFIX_MAP.get(godot_type, godot_type)
 	var count := 0
 	for c in parent.get_children():
-		if c.get_class() == godot_type:
+		if c.name.begins_with(vb6_prefix):
 			count += 1
-	ctrl.name = godot_type + str(count + 1)
+	ctrl.name = vb6_prefix + str(count + 1)
 	ctrl.position = world_pos
 	ctrl.custom_minimum_size = _ui_forms_default_world_size(godot_type)
 	ctrl.size = ctrl.custom_minimum_size
+	if ctrl.has_method("set_text"):
+		ctrl.set_text(ctrl.name)
 
-	# Use direct add_child + set_owner for reliable placement.
-	parent.add_child(ctrl, true)
-	ctrl.set_owner(edited)
+	# Integrate with editor undo/redo so Ctrl+Z works and scene is marked modified.
+	var undo_redo := get_undo_redo()
+	undo_redo.create_action("Place %s" % ctrl.name)
+	undo_redo.add_do_method(parent, "add_child", ctrl, true)
+	undo_redo.add_do_method(ctrl, "set_owner", edited)
+	undo_redo.add_do_reference(ctrl)
+	undo_redo.add_undo_method(parent, "remove_child", ctrl)
+	undo_redo.commit_action()
 
 	get_editor_interface().get_selection().clear()
 	get_editor_interface().get_selection().add_node(ctrl)
