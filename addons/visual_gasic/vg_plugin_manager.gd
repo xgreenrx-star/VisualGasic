@@ -71,6 +71,11 @@ const PLUGINS_DIR = "res://addons/visual_gasic/plugins/"
 ## load unless the user explicitly turns them on.
 const EXPERIMENTAL_PLUGINS_SETTING := "vg/enable_experimental_plugins"
 
+## Project setting prefix for per-plugin enabled toggles.
+## Each plugin gets a "vg/plugins/<id>/enabled" bool (default false).
+## Plugins must be explicitly enabled by the user in Project Settings.
+const PLUGIN_SETTING_PREFIX := "vg/plugins/"
+
 
 # ─── Initialization ─────────────────────────────────────────
 
@@ -181,6 +186,22 @@ func _ensure_experimental_setting() -> void:
 ## Whether experimental plugins should load in this project.
 func _experimental_plugins_enabled() -> bool:
 	return bool(ProjectSettings.get_setting(EXPERIMENTAL_PLUGINS_SETTING, false))
+
+
+## Register a per-plugin enabled toggle in Project Settings so it surfaces
+## under vg/plugins/<plugin_id>/enabled.  Default is false (opt-in).
+## Non-destructive — never clobbers an existing user choice.
+func _register_plugin_setting(plugin_id: String) -> void:
+	var path := PLUGIN_SETTING_PREFIX + plugin_id + "/enabled"
+	if not ProjectSettings.has_setting(path):
+		ProjectSettings.set_setting(path, false)
+	ProjectSettings.set_initial_value(path, false)
+	ProjectSettings.add_property_info({
+		"name": path,
+		"type": TYPE_BOOL,
+		"hint": PROPERTY_HINT_NONE,
+		"hint_string": "",
+	})
 
 
 ## Ensure the form_designer sub-plugin is enabled when form files are present.
@@ -312,6 +333,12 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 	# the settings/command-palette UIs can list every known plugin.
 	VGPluginRegistry.get_instance().register_provider(plugin_id, meta, null)
 
+	# Hard block: plugin.cfg enabled=false means the author has disabled this
+	# plugin (incomplete, deprecated, etc.) and it cannot be overridden by the user.
+	if not meta["enabled"]:
+		print("VisualGasic: Plugin '", meta["name"], "' is disabled, skipping")
+		return
+
 	# Gate experimental plugins behind the opt-in project setting. They stay
 	# registered (so they appear in the settings dialog) but are not loaded
 	# or given a toolbar button unless experimental plugins are enabled.
@@ -319,8 +346,12 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 		print("VisualGasic: Plugin '", meta["name"], "' is experimental and disabled (set ", EXPERIMENTAL_PLUGINS_SETTING, "=true to enable)")
 		return
 
-	if not meta["enabled"]:
-		print("VisualGasic: Plugin '", meta["name"], "' is disabled, skipping")
+	# Per-plugin Project Setting gate: plugins are opt-in (default disabled).
+	# Users enable individual plugins via Project Settings → vg/plugins/<id>/enabled.
+	_register_plugin_setting(plugin_id)
+	var ps_key := PLUGIN_SETTING_PREFIX + plugin_id + "/enabled"
+	if not bool(ProjectSettings.get_setting(ps_key, false)):
+		print("VisualGasic: Plugin '", meta["name"], "' not enabled (enable via Project Settings → ", ps_key, ")")
 		return
 
 	# Register autoloads BEFORE loading the plugin script — the plugin's

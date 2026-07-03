@@ -1141,8 +1141,6 @@ func _enter_tree():
 	# is accessible without the VG IDE panel being open.
 	call_deferred("_setup_ui_forms_toolbar_button")
 
-	call_deferred("_select_vg_main_screen_on_first_run")
-
 # =============================================================================
 # DOCK MANAGEMENT — called by layout manager on mode toggle
 # =============================================================================
