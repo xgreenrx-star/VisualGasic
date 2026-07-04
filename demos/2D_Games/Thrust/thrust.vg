@@ -100,6 +100,10 @@ Dim tbul_alive(NUM_TURRETS) As Boolean
 Dim game_state As Integer
 Dim respawn_t  As Single    ' seconds until respawn after death
 
+' ── Per-frame input cache (set in _Process, consumed in _Draw) ───────────────
+Dim thrust_on As Boolean
+Dim beam_on   As Boolean
+
 ' ============================================================================
 ' INIT
 ' ============================================================================
@@ -186,7 +190,8 @@ Sub _Process(delta As Single)
     End If
 
     ' ── Thrust ────────────────────────────────────────────────────────────
-    If Input.IsActionPressed("ui_up") And fuel > 0.0 Then
+    thrust_on = Input.IsActionPressed("ui_up")
+    If thrust_on And fuel > 0.0 Then
         ship_vx = ship_vx + Cos(ship_angle) * THRUST_FORCE * delta
         ship_vy = ship_vy + Sin(ship_angle) * THRUST_FORCE * delta
         fuel = fuel - FUEL_BURN * delta
@@ -221,7 +226,6 @@ Sub _Process(delta As Single)
     End If
 
     ' ── Tractor beam ──────────────────────────────────────────────────────
-    Dim beam_on As Boolean
     beam_on = Input.IsActionPressed("ui_down")
 
     If beam_on And Not pod_attached Then
@@ -543,40 +547,59 @@ Sub DrawCave()
     DrawLine GAP_R - 10.0, 18.0, (GAP_L + GAP_R) / 2.0, 38.0, gap_col
 End Sub
 
-' ── Ship (wireframe triangle + thrust flame + beam) ──────────────────────────
+' ── Ship — larger Thrust-style rocket silhouette ─────────────────────────────
+' Angles are explicit radians (no Pi literal) to avoid Draw-context issues.
+' Shape: diamond/arrowhead — nose → left wing → aft nozzle → right wing → nose
 Sub DrawShip()
-    ' Triangle vertices: nose forward, two wings swept back
+    ' Nose: 28 px forward
     Dim nx As Single
     Dim ny As Single
+    nx = ship_x + Cos(ship_angle) * 28.0
+    ny = ship_y + Sin(ship_angle) * 28.0
+
+    ' Left wing: 22 px at +2.09 rad (~120°) from forward
     Dim lx As Single
     Dim ly As Single
+    lx = ship_x + Cos(ship_angle + 2.09) * 22.0
+    ly = ship_y + Sin(ship_angle + 2.09) * 22.0
+
+    ' Right wing: 22 px at -2.09 rad (~120°) from forward
     Dim rx As Single
     Dim ry As Single
-    nx = ship_x + Cos(ship_angle) * 14.0
-    ny = ship_y + Sin(ship_angle) * 14.0
-    lx = ship_x + Cos(ship_angle + Pi * 0.6) * 11.0
-    ly = ship_y + Sin(ship_angle + Pi * 0.6) * 11.0
-    rx = ship_x + Cos(ship_angle - Pi * 0.6) * 11.0
-    ry = ship_y + Sin(ship_angle - Pi * 0.6) * 11.0
+    rx = ship_x + Cos(ship_angle - 2.09) * 22.0
+    ry = ship_y + Sin(ship_angle - 2.09) * 22.0
 
-    ' Hull lines
-    DrawLine nx, ny, lx, ly, Color(0.2, 0.8, 1.0, 1.0)
-    DrawLine nx, ny, rx, ry, Color(0.2, 0.8, 1.0, 1.0)
-    DrawLine lx, ly, rx, ry, Color(0.1, 0.5, 0.7, 1.0)
+    ' Aft nozzle: 14 px directly aft (3.14159 = Pi)
+    Dim ex As Single
+    Dim ey As Single
+    ex = ship_x + Cos(ship_angle + 3.14159) * 14.0
+    ey = ship_y + Sin(ship_angle + 3.14159) * 14.0
 
-    ' Thrust flame (orange plume from rear)
-    If Input.IsActionPressed("ui_up") And fuel > 0.0 Then
+    ' Hull — bright leading edges, dimmer body sides
+    Dim hull_col As Variant
+    Dim body_col As Variant
+    hull_col = Color(0.25, 0.9, 1.0, 1.0)
+    body_col = Color(0.1, 0.55, 0.75, 1.0)
+    DrawLine nx, ny, lx, ly, hull_col       ' nose → left wing
+    DrawLine nx, ny, rx, ry, hull_col       ' nose → right wing
+    DrawLine lx, ly, ex, ey, body_col       ' left wing → nozzle
+    DrawLine rx, ry, ex, ey, body_col       ' right wing → nozzle
+
+    ' Small nozzle highlight (bright dot at aft)
+    DrawCircle ex, ey, 3.0, Color(0.5, 0.7, 1.0, 0.8)
+
+    ' Thrust flame — from nozzle tip, explicit angle arithmetic
+    If thrust_on And fuel > 0.0 Then
         Dim ta As Single
-        ta = ship_angle + Pi
-        DrawLine ship_x, ship_y, ship_x + Cos(ta) * 20.0, ship_y + Sin(ta) * 20.0, Color(1.0, 0.55, 0.1, 0.95)
-        DrawLine ship_x, ship_y, ship_x + Cos(ta + 0.22) * 12.0, ship_y + Sin(ta + 0.22) * 12.0, Color(1.0, 0.85, 0.2, 0.7)
-        DrawLine ship_x, ship_y, ship_x + Cos(ta - 0.22) * 12.0, ship_y + Sin(ta - 0.22) * 12.0, Color(1.0, 0.85, 0.2, 0.7)
+        ta = ship_angle + 3.14159
+        DrawLine ex, ey, ex + Cos(ta) * 38.0,        ey + Sin(ta) * 38.0,        Color(1.0, 0.55, 0.1, 0.95)
+        DrawLine ex, ey, ex + Cos(ta + 0.22) * 26.0, ey + Sin(ta + 0.22) * 26.0, Color(1.0, 0.85, 0.2, 0.7)
+        DrawLine ex, ey, ex + Cos(ta - 0.22) * 26.0, ey + Sin(ta - 0.22) * 26.0, Color(1.0, 0.85, 0.2, 0.7)
     End If
 
     ' Tractor beam ray (cyan, shows range when searching)
-    If Input.IsActionPressed("ui_down") Then
+    If beam_on Then
         If Not pod_attached Then
-            ' Show a "searching" beam toward pod position
             DrawLine ship_x, ship_y, pod_x, pod_y, Color(0.3, 0.75, 1.0, 0.35)
         End If
     End If
