@@ -73,21 +73,21 @@ VG is a public beta. The language, JIT compiler, and debugger work. The Form Des
 **Deferred (post-MVP):**
 Form Designer extraction to a standalone plugin, full IDE plugin architecture refactor, VG3D, Working Nodes expansion. The Form Designer stays in place behind an Experimental Plugins toggle until UI Forms reaches parity.
 
-> 🚀 **v5.2.0-Beta4 — Current public beta.** This README points to the Beta4 release artifacts directly so download links stay correct even if GitHub's "Latest" flag is stale. See [release notes](docs/release/RELEASE_NOTES_v5.2.0-Beta4.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
+> 🚀 **v5.3.0-Beta1 — Current public beta.** This README points to the Beta4 release artifacts directly so download links stay correct even if GitHub's "Latest" flag is stale. See [release notes](docs/release/RELEASE_NOTES_v5.3.0-Beta1.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
 >
 > 📚 **Docs from the main page:** every guide, reference, and tutorial is one click away from [`docs/DOCS.md`](docs/DOCS.md). Quick jumps: [Getting Started](docs/guides/GET_STARTED.md) · [Installation](docs/guides/INSTALLATION.md) · [Language Reference](docs/VisualGasic_Language_Reference.md) · [Built-in Functions](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) · [Custom Controls](docs/guides/CUSTOM_CONTROLS.md) · [Plugin SDK](addons/visual_gasic/PLUGIN_SDK.md).
 
 ## 📥 Download & install
 
-**Grab a one-shot installer for your OS — no build step, no separate Godot download.** All assets below target [v5.2.0-Beta4](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.2.0-Beta4).
+**Grab a one-shot installer for your OS — no build step, no separate Godot download.** All assets below target [v5.3.0-Beta1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta1).
 
 | Platform | Installer | Notes |
 | --- | --- | --- |
-| 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.2.0-Beta4-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.2.0-Beta4/VisualGasic-Installer-v5.2.0-Beta4-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
-| 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.2.0-Beta4-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.2.0-Beta4/VisualGasic-Installer-v5.2.0-Beta4-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
+| 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.3.0-Beta1-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta1/VisualGasic-Installer-v5.3.0-Beta1-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
+| 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.3.0-Beta1-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta1/VisualGasic-Installer-v5.3.0-Beta1-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
 | 🍏 **macOS (Intel & Apple Silicon)** | *not yet available in Beta4* — use the `vg` CLI for now | Cross-compiled `.dmg` planned; needs a tester. |
-| 📦 **Source zip / portable** | [VisualGasic_v5.2.0-Beta4_linux_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.2.0-Beta4/VisualGasic_v5.2.0-Beta4_linux_x86_64.zip) · [windows_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.2.0-Beta4/VisualGasic_v5.2.0-Beta4_windows_x86_64.zip) | For users who prefer to unzip and run. Bring your own Godot 4.6.1+. |
-| 🌐 **Offline bundle** (Godot included) | [linux-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.2.0-Beta4/VisualGasic-Installer-Offline-v5.2.0-Beta4-linux-x86_64.zip) · [windows-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.2.0-Beta4/VisualGasic-Installer-Offline-v5.2.0-Beta4-windows-x86_64.zip) | No internet needed during install — ships Godot 4.6.1 inside. |
+| 📦 **Source zip / portable** | [VisualGasic_v5.3.0-Beta1_linux_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta1/VisualGasic_v5.3.0-Beta1_linux_x86_64.zip) · [windows_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta1/VisualGasic_v5.3.0-Beta1_windows_x86_64.zip) | For users who prefer to unzip and run. Bring your own Godot 4.6.1+. |
+| 🌐 **Offline bundle** (Godot included) | [linux-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta1/VisualGasic-Installer-Offline-v5.3.0-Beta1-linux-x86_64.zip) · [windows-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta1/VisualGasic-Installer-Offline-v5.3.0-Beta1-windows-x86_64.zip) | No internet needed during install — ships Godot 4.6.1 inside. |
 
 **Linux one-shot bootstrap (alternative to AppImage):**
 
@@ -315,7 +315,7 @@ VisualGasic/
 
 ### **Installation**
 
-> 🚧 **Installer status (v5.2.0-Beta4):** Linux AppImage and Windows `.exe` one-shot installers are shipped — see the [Download & install](#-download--install) section at the top of this README. macOS `.dmg` is still in progress; on macOS use the `vg` CLI or unzip the release for now.
+> 🚧 **Installer status (v5.3.0-Beta1):** Linux AppImage and Windows `.exe` one-shot installers are shipped — see the [Download & install](#-download--install) section at the top of this README. macOS `.dmg` is still in progress; on macOS use the `vg` CLI or unzip the release for now.
 
 **🐧 Linux — one-shot bootstrap (recommended):**
 
@@ -329,7 +329,7 @@ Downloads Godot 4.6.1, installs the addon globally, drops a `~/.local/bin/visual
 
 **📦 From the GitHub Beta4 release (all platforms):**
 
-Download the platform zip from [v5.2.0-Beta4](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.2.0-Beta4) (e.g. `VisualGasic_v5.2.0-Beta4_linux_x86_64.zip`), extract, and either point the `vg` CLI at it or copy `addons/visual_gasic/` into your project. Release notes: [v5.2.0-Beta4](docs/release/RELEASE_NOTES_v5.2.0-Beta4.md).
+Download the platform zip from [v5.3.0-Beta1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta1) (e.g. `VisualGasic_v5.3.0-Beta1_linux_x86_64.zip`), extract, and either point the `vg` CLI at it or copy `addons/visual_gasic/` into your project. Release notes: [v5.3.0-Beta1](docs/release/RELEASE_NOTES_v5.3.0-Beta1.md).
 
 **From Godot Asset Library:**
 1. Open your Godot project
@@ -546,9 +546,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: `v5.2.0-Beta4` (Current Public Beta)
+**Current Version**: `v5.3.0-Beta1` (Current Public Beta)
 
-> See [CHANGELOG.md](CHANGELOG.md) and the [v5.2.0-Beta4 release notes](docs/release/RELEASE_NOTES_v5.2.0-Beta4.md) for the latest changes.
+> See [CHANGELOG.md](CHANGELOG.md) and the [v5.3.0-Beta1 release notes](docs/release/RELEASE_NOTES_v5.3.0-Beta1.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
@@ -581,7 +581,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 ### 🚧 Coming Soon
 
 See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
-- **Stable Release (v5.2.0)** - Community testing of `v5.2.0-Beta4` ongoing
+- **Stable Release (v5.2.0)** - Community testing of `v5.3.0-Beta1` ongoing
 - **macOS `.dmg` graphical installer** — Linux AppImage and Windows `.exe` are shipped; macOS still WIP
 - **Asset Library** - Publish to Godot Asset Library
 - **WebAssembly Validation** - Verify HTML5 export compatibility
