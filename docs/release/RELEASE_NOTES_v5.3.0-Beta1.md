@@ -74,6 +74,42 @@ to see its events on the right; select `(General)` to see utility procedures.
 
 ---
 
+## ✨ Plugins Dropdown on 2D Toolbar
+
+The per-plugin toolbar buttons have been replaced with a single compact
+**"Plugins ▾"** MenuButton on the 2D canvas toolbar. Selecting a plugin
+from the dropdown activates it directly — no need to switch to the VG IDE
+first.
+
+---
+
+## ✨ Live Plugin Reload via Project Settings
+
+Enabling or disabling a plugin in **Project → Project Settings** now takes
+effect immediately — no editor restart required. The plugin manager listens
+to `ProjectSettings.settings_changed` and loads/unloads plugins on the fly.
+
+---
+
+## ✨ Code Completion in Godot's Native Script Editor
+
+When editing `.vg` files in Godot's built-in Script editor (not just the
+VG IDE), you now get full VB6-aware autocomplete:
+
+- **Control names:** `TextBox1`, `Command1`, `Timer1` — sourced from the
+  scene tree and form designer
+- **Dot-completion:** Type `TextBox1.` to see VB6-style properties first
+  (Text, Enabled, MaxLength, BackColor, etc.) followed by Godot's native
+  ClassDB properties and methods below
+- **`Me.`** shows all form controls plus form-level members (Caption,
+  Width, Height, Show, Hide, etc.)
+- **Keywords & variables:** VB6 keywords (Dim, Sub, If, etc.) and locally
+  declared variables (`Dim x As String` → `x` appears in completions)
+- **Godot's own completions preserved** — VG items are merged alongside
+  Godot's native suggestions, not replacing them
+
+---
+
 ## 🐛 Bug Fixes
 
 | Fix | Details |
@@ -86,6 +122,8 @@ to see its events on the right; select `(General)` to see utility procedures.
 | `project_properties.gd` constant assignment | `.pressed` is a signal in Godot 4.6 — fixed to `.button_pressed` |
 | `gdai_local_provider.gd` signature mismatch | Return types now match parent class (`String`/`Array`/`Dictionary`) |
 | Console error suppression | 4 recurring non-critical errors silenced |
+| Code Navigator null class crash | Fixed null `get_class()` return in scene tree iteration |
+| Bosca "Controller not declared" spam | Bosca directories now `.gdignore`d when vgmusic plugin is disabled |
 
 ---
 

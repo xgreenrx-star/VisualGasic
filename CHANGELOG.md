@@ -21,6 +21,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - VG sub-plugins (AGCK, Working Nodes, UI Forms, VGMusic, etc.) are now **disabled by default**
 - Enable per-project via `vg/plugins/<id>/enabled = true` in Project Settings
 - The VG IDE layout no longer auto-opens on startup — switch to it via the "Visual Gasic IDE" toolbar button
+- **Live reload** — toggling a plugin in Project Settings takes effect immediately (no editor restart)
+
+### ✨ Added — Compact Plugins Dropdown (Jul 4, 2026)
+
+- Per-plugin toolbar buttons replaced with a single **"Plugins ▾"** MenuButton on the 2D canvas toolbar
+- Selecting a plugin from the dropdown activates it directly — no need to switch to the VG IDE first
+
+### ✨ Added — Code Completion in Godot's Native Script Editor (Jul 4, 2026)
+
+- Full VB6-aware autocomplete when editing `.vg` files in Godot's built-in Script editor
+- **Dot-completion**: `TextBox1.` shows VB6-style properties (Text, Enabled, MaxLength, BackColor, etc.) first, then Godot ClassDB properties/methods below
+- **`Me.`** shows all form controls plus form-level members (Caption, Width, Show, Hide, etc.)
+- Control names, VB6 keywords, and `Dim`-declared variables all appear in regular completions
+- Godot's own native completions preserved alongside VG items
 
 ### ✨ Added — Code Navigator Upgrade (Jul 1, 2026)
 
@@ -28,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Right dropdown (Procedure): shows only standalone procedures for `(General)`, or control-specific events when a control is selected
 - `(General)` no longer shows control event handlers — matching VB6 behavior
 
-### 🐛 Fixed (Jun 30–Jul 3, 2026)
+### 🐛 Fixed (Jun 30–Jul 4, 2026)
 
 - `dict.Count` / `dict.Keys` / `dict.Items` without parens — property access now works
 - `arr.Count` / `arr.Length` without parens — VB6-style property on all array types
@@ -38,6 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `project_properties.gd` — `.pressed` is a signal in Godot 4.6, use `.button_pressed`
 - Fixed `gdai_local_provider.gd` — return types now match parent class signatures
 - Removed duplicate shortcut handler block in `_input()`
+- Code Navigator null class crash — fixed null `get_class()` in scene tree iteration
+- Bosca "Controller not declared" errors — directories `.gdignore`d when vgmusic plugin is disabled
 
 ## [5.2.0-Beta3] - 2026-06-01
 

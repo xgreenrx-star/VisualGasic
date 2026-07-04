@@ -73,17 +73,19 @@ Visual call stack display during debugging.
 *   **Auto-Request**: Call stack fetched on breakpoint hit
 
 ### IntelliSense / Autocomplete
-**Location**: Automatic in `.vg` script files
+**Location**: Automatic in `.vg` script files (VG IDE and Godot's native Script editor)
 
 Full code completion for VB6-style programming.
 *   **50+ VB6 Keywords**: Dim, Sub, Function, If, For, etc.
 *   **12 VB6 Data Types**: Integer, Long, String, Boolean, etc.
 *   **122+ Built-in Functions**: With signatures and descriptions
 *   **62+ VB6 Property Completions**: Caption, Text, Visible, Enabled, Left, Top, Width, Height, BackColor, ForeColor, FontSize, FontBold, Tag, BackStyle, Appearance, TabIndex, Parent, DragMode, and more — appears when typing a dot after any control name
-*   **Type-Specific Properties**: LineEdit shows MaxLength/PasswordChar/SelStart; Timer shows Interval/OneShot/Autostart; Button shows Style/Flat/ClipText/Icon
+*   **Type-Specific Properties**: LineEdit shows MaxLength/PasswordMode/SelStart; Timer shows Interval/Enabled; Button shows Default/Cancel; CheckBox shows Value/Checked
 *   **Common Methods**: Show, Hide, Move, SetFocus, Refresh
+*   **Godot Native Properties**: After VB6 properties, ClassDB properties and methods for the control's actual Godot class are listed
 *   **30+ Godot Types**: Node, Control, Sprite2D, etc.
 *   **14 Code Snippets**: sub, func, if, for, select, try, class
+*   **Works in Godot's Script Editor**: Dot-completion, control names, keywords, and variables all available when editing `.vg` files in Godot's built-in editor — Godot's own completions preserved alongside VG's
 
 ### Breakpoint Conditions
 **Location**: Right-click on breakpoint gutter
