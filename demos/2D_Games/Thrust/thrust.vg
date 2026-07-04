@@ -520,29 +520,48 @@ Sub DrawStars()
     Next i
 End Sub
 
-' ── Cave walls and escape gap ─────────────────────────────────────────────────
+' ── Cave: solid filled rock slabs + lit inner faces ─────────────────────────
+'
+' Layout (rock = filled; space = void):
+'
+'  ROCK | space |ROCK  ROCK | GAP | ROCK  ROCK |         | ROCK
+'  ─────┼───────┼────  ─────┴─────┴────  ──────┤  cave   ├──────
+'  left | open  |right  ceiling (2 slabs) left wall│       │right
+'  wall |  sky  |wall                         ──────┤       ├──────
+'       |       |                              ROCK |_floor_| ROCK
+'
 Sub DrawCave()
-    Dim wall_col As Variant
+    Dim rock    As Variant
+    Dim rock_hi As Variant
     Dim gap_col As Variant
-    wall_col = Color(0.3, 0.72, 0.3, 1.0)
-    gap_col  = Color(0.12, 0.35, 0.12, 1.0)
+    rock    = Color(0.16, 0.35, 0.16, 1.0)   ' dark earthy rock fill
+    rock_hi = Color(0.32, 0.65, 0.32, 1.0)   ' bright inner-face edge
+    gap_col = Color(0.10, 0.24, 0.10, 1.0)   ' dim gap-corridor guides
 
-    ' Left wall
-    DrawLine CAVE_L, CAVE_TOP, CAVE_L, CAVE_BOT, wall_col
-    ' Right wall
-    DrawLine CAVE_R, CAVE_TOP, CAVE_R, CAVE_BOT, wall_col
+    ' ── Solid rock slabs ─────────────────────────────────────────────────
+    ' Left wall — full screen height
+    DrawRect 0.0,    0.0, CAVE_L,                CSng(SH),            rock
+    ' Right wall — full screen height
+    DrawRect CAVE_R, 0.0, CSng(SW) - CAVE_R,     CSng(SH),            rock
     ' Floor
-    DrawLine CAVE_L, CAVE_BOT, CAVE_R, CAVE_BOT, wall_col
-    ' Ceiling — left side (up to gap)
-    DrawLine CAVE_L, CAVE_TOP, GAP_L, CAVE_TOP, wall_col
-    ' Ceiling — right side (after gap)
-    DrawLine GAP_R, CAVE_TOP, CAVE_R, CAVE_TOP, wall_col
+    DrawRect CAVE_L, CAVE_BOT, CAVE_R - CAVE_L,  CSng(SH) - CAVE_BOT, rock
+    ' Ceiling left of gap
+    DrawRect CAVE_L, 0.0, GAP_L - CAVE_L,        CAVE_TOP,            rock
+    ' Ceiling right of gap
+    DrawRect GAP_R,  0.0, CAVE_R - GAP_R,        CAVE_TOP,            rock
 
-    ' Gap guide lines extending upward (dim, hint the escape corridor)
+    ' ── Inner-face edge highlights (1-px bright line where rock meets void) ──
+    DrawLine CAVE_L, CAVE_TOP, CAVE_L, CAVE_BOT, rock_hi  ' left wall face
+    DrawLine CAVE_R, CAVE_TOP, CAVE_R, CAVE_BOT, rock_hi  ' right wall face
+    DrawLine CAVE_L, CAVE_BOT, CAVE_R, CAVE_BOT, rock_hi  ' floor ceiling face
+    DrawLine CAVE_L, CAVE_TOP, GAP_L,  CAVE_TOP, rock_hi  ' ceiling left face
+    DrawLine GAP_R,  CAVE_TOP, CAVE_R, CAVE_TOP, rock_hi  ' ceiling right face
+
+    ' ── Gap corridor guides (dim vertical lines marking escape route) ─────
     DrawLine GAP_L, 0.0, GAP_L, CAVE_TOP, gap_col
     DrawLine GAP_R, 0.0, GAP_R, CAVE_TOP, gap_col
 
-    ' Small chevron at very top marking the gap (↓ entry, ↑ escape)
+    ' Chevron at top marking gap entry point
     DrawLine GAP_L + 10.0, 18.0, (GAP_L + GAP_R) / 2.0, 38.0, gap_col
     DrawLine GAP_R - 10.0, 18.0, (GAP_L + GAP_R) / 2.0, 38.0, gap_col
 End Sub
