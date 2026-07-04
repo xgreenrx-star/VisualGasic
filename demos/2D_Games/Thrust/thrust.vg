@@ -96,7 +96,7 @@ Dim tbul_vy(NUM_TURRETS)    As Single
 Dim tbul_alive(NUM_TURRETS) As Boolean
 
 ' ── Game state ──────────────────────────────────────────────────────────────
-' 0 = playing   1 = dead (respawning)   2 = escaped (victory)
+' -1 = splash   0 = playing   1 = dead (respawning)   2 = escaped (victory)
 Dim game_state As Integer
 Dim respawn_t  As Single    ' seconds until respawn after death
 
@@ -108,10 +108,9 @@ Dim beam_on   As Boolean
 ' INIT
 ' ============================================================================
 Sub _Ready()
-    Call InitGame()
+    game_state = -1   ' start on splash screen
     Print "=== THRUST — VG Proof of Concept ==="
-    Print "LEFT/RIGHT = rotate   UP = thrust   SPACE = fire   DOWN (hold) = beam"
-    Print "Goal: grab the yellow pod, escape through the gap at the top!"
+    Print "SPACE to start"
 End Sub
 
 Sub InitGame()
@@ -164,6 +163,14 @@ End Sub
 ' UPDATE (called every frame by Godot)
 ' ============================================================================
 Sub _Process(delta As Single)
+    ' ── Splash — wait for SPACE ───────────────────────────────────────────
+    If game_state = -1 Then
+        If Input.IsActionJustPressed("ui_accept") Then
+            Call InitGame()
+        End If
+        Return
+    End If
+
     ' ── Dead — count down to respawn ──────────────────────────────────────
     If game_state = 1 Then
         respawn_t = respawn_t - delta
@@ -433,6 +440,12 @@ End Sub
 ' DRAW (called every frame by Godot's rendering pipeline)
 ' ============================================================================
 Sub _Draw()
+    ' ── Splash screen ─────────────────────────────────────────────────────
+    If game_state = -1 Then
+        Call DrawSplash()
+        Return
+    End If
+
     ' Deep space background
     DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.06, 1.0)
 
@@ -630,27 +643,142 @@ Sub DrawShip()
     End If
 End Sub
 
-' ── HUD ──────────────────────────────────────────────────────────────────────
+' ── HUD — top status bar in the style of the original ───────────────────────
+' Layout mirrors classic Thrust: SHIELDS bar left, SCORE right, thin separator.
 Sub DrawHUD()
-    ' Fuel bar (outline + fill)
-    DrawRect 20, 14, 204, 16, Color(0.12, 0.12, 0.12, 1.0)
+    ' Status bar background strip
+    DrawRect 0, 0, CSng(SW), 36.0, Color(0.0, 0.0, 0.0, 1.0)
+    DrawLine 0.0, 36.0, CSng(SW), 36.0, Color(0.25, 0.65, 0.25, 1.0)
+
+    ' "SHIELDS" label
+    DrawString "SHIELDS", 10, 9, Color(0.5, 0.5, 0.5, 1.0), 15
+
+    ' Shields / fuel bar — segmented look (10 blocks of 20px each)
     Dim fuel_pct As Single
-    Dim bar_w As Single
     fuel_pct = fuel / FUEL_MAX
-    bar_w = fuel_pct * 200.0
-    If bar_w > 0.5 Then
-        If fuel_pct > 0.4 Then
-            DrawRect 22, 16, bar_w, 12, Color(0.2, 0.85, 0.2, 1.0)
-        ElseIf fuel_pct > 0.15 Then
-            DrawRect 22, 16, bar_w, 12, Color(0.9, 0.72, 0.1, 1.0)
+    Dim seg As Integer
+    Dim seg_lit As Integer
+    seg_lit = Int(fuel_pct * 10.0 + 0.5)
+    For seg = 0 To 9
+        Dim sx As Single
+        sx = 82.0 + CSng(seg) * 22.0
+        If seg < seg_lit Then
+            If fuel_pct > 0.4 Then
+                DrawRect sx, 8.0, 18.0, 18.0, Color(0.15, 0.75, 0.15, 1.0)
+            ElseIf fuel_pct > 0.15 Then
+                DrawRect sx, 8.0, 18.0, 18.0, Color(0.85, 0.65, 0.05, 1.0)
+            Else
+                DrawRect sx, 8.0, 18.0, 18.0, Color(0.85, 0.12, 0.08, 1.0)
+            End If
         Else
-            DrawRect 22, 16, bar_w, 12, Color(0.9, 0.2, 0.1, 1.0)
+            DrawRect sx, 8.0, 18.0, 18.0, Color(0.06, 0.06, 0.06, 1.0)
         End If
-    End If
-    DrawString "FUEL", 230, 14, Color(0.6, 0.6, 0.6, 1.0), 16
+    Next seg
 
-    DrawString "SCORE: " & Str(score), 22, 38, Color.White, 18
+    ' Score — right-justified in the bar
+    Dim score_str As String
+    score_str = "SCORE  " & Str(score)
+    DrawString score_str, CSng(SW) - 200.0, 9, Color.White, 15
 
-    ' Controls reminder at bottom
-    DrawString "LEFT/RIGHT rotate   UP thrust   SPACE fire   DOWN beam — grab yellow pod, escape through the gap", 22, CSng(SH) - 22.0, Color(0.35, 0.35, 0.35, 1.0), 13
+    ' Controls reminder — very dim, bottom of screen
+    DrawString "ROTATE ◄►   THRUST ▲   FIRE SPACE   BEAM ▼", 22, CSng(SH) - 20.0, Color(0.22, 0.22, 0.22, 1.0), 13
+End Sub
+
+' ── Splash screen ────────────────────────────────────────────────────────────
+' Retro title card: big planet, decorative ship pulling a pod, "Hal Labs" credit.
+Sub DrawSplash()
+    ' Black background
+    DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0, 1.0)
+
+    ' ── Planet / asteroid (right side) — large circle, scanline-textured ──
+    Dim pc_x As Single   ' planet centre
+    Dim pc_y As Single
+    Dim pr   As Single   ' planet radius
+    pc_x = 870.0
+    pc_y = 320.0
+    pr   = 230.0
+    ' Horizontal scanlines inside planet (every 5px)
+    Dim pyi As Integer
+    For pyi = Int(pc_y - pr) To Int(pc_y + pr) Step 5
+        Dim py As Single
+        py = CSng(pyi)
+        Dim half_w As Single
+        half_w = Sqr(pr * pr - (py - pc_y) * (py - pc_y))
+        DrawLine pc_x - half_w, py, pc_x + half_w, py, Color(0.22, 0.22, 0.22, 1.0)
+    Next pyi
+    ' Bright planet edge
+    Dim pei As Integer
+    For pei = 0 To 62
+        Dim pa1 As Single
+        Dim pa2 As Single
+        pa1 = CSng(pei) * 0.10053
+        pa2 = CSng(pei + 1) * 0.10053
+        DrawLine pc_x + Cos(pa1) * pr, pc_y + Sin(pa1) * pr, _
+                 pc_x + Cos(pa2) * pr, pc_y + Sin(pa2) * pr, Color(0.75, 0.75, 0.75, 1.0)
+    Next pei
+    ' Crater suggestion — small dark circle
+    DrawCircle pc_x - 60.0, pc_y + 70.0, 44.0, Color(0.0, 0.0, 0.0, 1.0)
+    DrawCircle pc_x - 60.0, pc_y + 70.0, 44.0, Color(0.35, 0.35, 0.35, 1.0)
+    DrawCircle pc_x + 80.0, pc_y - 100.0, 24.0, Color(0.0, 0.0, 0.0, 1.0)
+    DrawCircle pc_x + 80.0, pc_y - 100.0, 24.0, Color(0.30, 0.30, 0.30, 1.0)
+
+    ' ── Decorative ship (centre-left, larger than gameplay ship) ───────────
+    Dim sa  As Single   ' ship angle for splash — pointing right
+    Dim scx As Single
+    Dim scy As Single
+    sa  = 0.0
+    scx = 330.0
+    scy = 380.0
+    ' Nose (56px), wings (44px at ±2.09 rad), nozzle (28px aft)
+    Dim snx As Single : snx = scx + Cos(sa) * 56.0
+    Dim sny As Single : sny = scy + Sin(sa) * 56.0
+    Dim slx As Single : slx = scx + Cos(sa + 2.09) * 44.0
+    Dim sly As Single : sly = scy + Sin(sa + 2.09) * 44.0
+    Dim srx As Single : srx = scx + Cos(sa - 2.09) * 44.0
+    Dim sry As Single : sry = scy + Sin(sa - 2.09) * 44.0
+    Dim sex As Single : sex = scx + Cos(sa + 3.14159) * 28.0
+    Dim sey As Single : sey = scy + Sin(sa + 3.14159) * 28.0
+    DrawLine snx, sny, slx, sly, Color(0.85, 0.85, 0.85, 1.0)
+    DrawLine snx, sny, srx, sry, Color(0.85, 0.85, 0.85, 1.0)
+    DrawLine slx, sly, sex, sey, Color(0.55, 0.55, 0.55, 1.0)
+    DrawLine srx, sry, sex, sey, Color(0.55, 0.55, 0.55, 1.0)
+    ' Engine glow dots
+    DrawCircle sex, sey, 5.0, Color(1.0, 0.6, 0.15, 1.0)
+    DrawCircle sex - 14.0, sey + 8.0,  4.0, Color(1.0, 0.5, 0.1, 0.8)
+    DrawCircle sex - 14.0, sey - 8.0, 4.0, Color(1.0, 0.5, 0.1, 0.8)
+    ' Cross-hatch ribs on the hull (detail lines)
+    DrawLine scx - 10.0, scy - 16.0, scx + 28.0, scy - 10.0, Color(0.4, 0.4, 0.4, 1.0)
+    DrawLine scx - 10.0, scy + 16.0, scx + 28.0, scy + 10.0, Color(0.4, 0.4, 0.4, 1.0)
+    DrawLine scx - 10.0, scy - 8.0,  scx + 18.0, scy - 4.0,  Color(0.35, 0.35, 0.35, 1.0)
+    DrawLine scx - 10.0, scy + 8.0,  scx + 18.0, scy + 4.0,  Color(0.35, 0.35, 0.35, 1.0)
+
+    ' ── Tether + mission pod ───────────────────────────────────────────────
+    Dim tpx As Single : tpx = scx + 40.0
+    Dim tpy As Single : tpy = scy + 100.0
+    DrawLine scx, scy + 20.0, tpx, tpy, Color(0.55, 0.55, 0.55, 0.9)
+    DrawCircle tpx, tpy, 20.0, Color(0.45, 0.30, 0.0,  1.0)
+    DrawCircle tpx, tpy, 12.0, Color(0.75, 0.55, 0.05, 1.0)
+
+    ' ── A few background stars ─────────────────────────────────────────────
+    Dim si As Integer
+    For si = 0 To 29
+        Dim stx As Single : stx = CSng((si * 397 + 41) Mod 1240) + 20.0
+        Dim sty As Single : sty = CSng((si * 211 + 83) Mod 680) + 20.0
+        Dim sbr As Single : sbr = 0.2 + CSng(si Mod 5) * 0.08
+        DrawCircle stx, sty, 1.0, Color(sbr, sbr, sbr, 1.0)
+    Next si
+
+    ' ── Title text ────────────────────────────────────────────────────────
+    ' Shadow
+    DrawString "THRUST", 82, 62, Color(0.0, 0.0, 0.0, 1.0), 88
+    DrawString "THRUST", 80, 60, Color(0.90, 0.12, 0.08, 1.0), 88
+
+    ' ── Subtitle ──────────────────────────────────────────────────────────
+    DrawString "A VisualGasic Tribute", 84, 158, Color(0.50, 0.50, 0.50, 1.0), 20
+
+    ' ── Prompt ────────────────────────────────────────────────────────────
+    DrawString "PRESS SPACE TO BEGIN", 430, 660, Color(0.65, 0.65, 0.65, 1.0), 20
+
+    ' ── Credit — bottom-right ─────────────────────────────────────────────
+    DrawString "Hal Labs", CSng(SW) - 120.0, CSng(SH) - 28.0, Color(0.22, 0.55, 0.90, 1.0), 18
 End Sub
