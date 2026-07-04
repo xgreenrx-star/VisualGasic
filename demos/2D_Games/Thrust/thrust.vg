@@ -685,100 +685,112 @@ Sub DrawHUD()
 End Sub
 
 ' ── Splash screen ────────────────────────────────────────────────────────────
-' Retro title card: big planet, decorative ship pulling a pod, "Hal Labs" credit.
 Sub DrawSplash()
     ' Black background
     DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0, 1.0)
 
-    ' ── Planet / asteroid (right side) — large circle, scanline-textured ──
-    Dim pc_x As Single   ' planet centre
+    ' ── Planet (right side) — scanline-textured circle ────────────────────
+    Dim pc_x As Single
     Dim pc_y As Single
-    Dim pr   As Single   ' planet radius
+    Dim pr   As Single
     pc_x = 870.0
     pc_y = 320.0
     pr   = 230.0
-    ' Horizontal scanlines inside planet (every 5px)
     Dim pyi As Integer
-    For pyi = Int(pc_y - pr) To Int(pc_y + pr) Step 5
+    For pyi = -230 To 230 Step 5
         Dim py As Single
-        py = CSng(pyi)
+        py = pc_y + CSng(pyi)
         Dim half_w As Single
-        half_w = Sqr(pr * pr - (py - pc_y) * (py - pc_y))
+        half_w = Sqr(pr * pr - CSng(pyi) * CSng(pyi))
         DrawLine pc_x - half_w, py, pc_x + half_w, py, Color(0.22, 0.22, 0.22, 1.0)
     Next pyi
-    ' Bright planet edge
+    ' Planet edge — draw as 63 short segments (one Dim per line, no colon / no backslash)
     Dim pei As Integer
+    Dim pa1 As Single
+    Dim pa2 As Single
+    Dim pe_x1 As Single
+    Dim pe_y1 As Single
+    Dim pe_x2 As Single
+    Dim pe_y2 As Single
     For pei = 0 To 62
-        Dim pa1 As Single
-        Dim pa2 As Single
         pa1 = CSng(pei) * 0.10053
         pa2 = CSng(pei + 1) * 0.10053
-        DrawLine pc_x + Cos(pa1) * pr, pc_y + Sin(pa1) * pr, _
-                 pc_x + Cos(pa2) * pr, pc_y + Sin(pa2) * pr, Color(0.75, 0.75, 0.75, 1.0)
+        pe_x1 = pc_x + Cos(pa1) * pr
+        pe_y1 = pc_y + Sin(pa1) * pr
+        pe_x2 = pc_x + Cos(pa2) * pr
+        pe_y2 = pc_y + Sin(pa2) * pr
+        DrawLine pe_x1, pe_y1, pe_x2, pe_y2, Color(0.75, 0.75, 0.75, 1.0)
     Next pei
-    ' Crater suggestion — small dark circle
-    DrawCircle pc_x - 60.0, pc_y + 70.0, 44.0, Color(0.0, 0.0, 0.0, 1.0)
-    DrawCircle pc_x - 60.0, pc_y + 70.0, 44.0, Color(0.35, 0.35, 0.35, 1.0)
-    DrawCircle pc_x + 80.0, pc_y - 100.0, 24.0, Color(0.0, 0.0, 0.0, 1.0)
-    DrawCircle pc_x + 80.0, pc_y - 100.0, 24.0, Color(0.30, 0.30, 0.30, 1.0)
+    ' Craters
+    DrawCircle pc_x - 60.0,  pc_y + 70.0,  44.0, Color(0.0,  0.0,  0.0,  1.0)
+    DrawCircle pc_x - 60.0,  pc_y + 70.0,  44.0, Color(0.35, 0.35, 0.35, 1.0)
+    DrawCircle pc_x + 80.0,  pc_y - 100.0, 24.0, Color(0.0,  0.0,  0.0,  1.0)
+    DrawCircle pc_x + 80.0,  pc_y - 100.0, 24.0, Color(0.30, 0.30, 0.30, 1.0)
 
-    ' ── Decorative ship (centre-left, larger than gameplay ship) ───────────
-    Dim sa  As Single   ' ship angle for splash — pointing right
+    ' ── Decorative ship (left of planet, pointing right) ──────────────────
+    ' sa = 0 → nose points right; sa + 3.14159 → nozzle points left
     Dim scx As Single
     Dim scy As Single
-    sa  = 0.0
     scx = 330.0
     scy = 380.0
-    ' Nose (56px), wings (44px at ±2.09 rad), nozzle (28px aft)
-    Dim snx As Single : snx = scx + Cos(sa) * 56.0
-    Dim sny As Single : sny = scy + Sin(sa) * 56.0
-    Dim slx As Single : slx = scx + Cos(sa + 2.09) * 44.0
-    Dim sly As Single : sly = scy + Sin(sa + 2.09) * 44.0
-    Dim srx As Single : srx = scx + Cos(sa - 2.09) * 44.0
-    Dim sry As Single : sry = scy + Sin(sa - 2.09) * 44.0
-    Dim sex As Single : sex = scx + Cos(sa + 3.14159) * 28.0
-    Dim sey As Single : sey = scy + Sin(sa + 3.14159) * 28.0
+    Dim snx As Single
+    Dim sny As Single
+    Dim slx As Single
+    Dim sly As Single
+    Dim srx As Single
+    Dim sry As Single
+    Dim sex As Single
+    Dim sey As Single
+    snx = scx + 56.0           ' Cos(0) = 1, Sin(0) = 0
+    sny = scy
+    slx = scx + Cos(2.09) * 44.0
+    sly = scy + Sin(2.09) * 44.0
+    srx = scx + Cos(-2.09) * 44.0
+    sry = scy + Sin(-2.09) * 44.0
+    sex = scx - 28.0           ' Cos(Pi) = -1
+    sey = scy
+    ' Hull
     DrawLine snx, sny, slx, sly, Color(0.85, 0.85, 0.85, 1.0)
     DrawLine snx, sny, srx, sry, Color(0.85, 0.85, 0.85, 1.0)
     DrawLine slx, sly, sex, sey, Color(0.55, 0.55, 0.55, 1.0)
     DrawLine srx, sry, sex, sey, Color(0.55, 0.55, 0.55, 1.0)
-    ' Engine glow dots
-    DrawCircle sex, sey, 5.0, Color(1.0, 0.6, 0.15, 1.0)
-    DrawCircle sex - 14.0, sey + 8.0,  4.0, Color(1.0, 0.5, 0.1, 0.8)
-    DrawCircle sex - 14.0, sey - 8.0, 4.0, Color(1.0, 0.5, 0.1, 0.8)
-    ' Cross-hatch ribs on the hull (detail lines)
-    DrawLine scx - 10.0, scy - 16.0, scx + 28.0, scy - 10.0, Color(0.4, 0.4, 0.4, 1.0)
-    DrawLine scx - 10.0, scy + 16.0, scx + 28.0, scy + 10.0, Color(0.4, 0.4, 0.4, 1.0)
-    DrawLine scx - 10.0, scy - 8.0,  scx + 18.0, scy - 4.0,  Color(0.35, 0.35, 0.35, 1.0)
-    DrawLine scx - 10.0, scy + 8.0,  scx + 18.0, scy + 4.0,  Color(0.35, 0.35, 0.35, 1.0)
+    ' Hull detail ribs
+    DrawLine scx - 8.0,  scy - 18.0, scx + 26.0, scy - 10.0, Color(0.4,  0.4,  0.4,  1.0)
+    DrawLine scx - 8.0,  scy + 18.0, scx + 26.0, scy + 10.0, Color(0.4,  0.4,  0.4,  1.0)
+    DrawLine scx - 8.0,  scy - 8.0,  scx + 16.0, scy - 4.0,  Color(0.35, 0.35, 0.35, 1.0)
+    DrawLine scx - 8.0,  scy + 8.0,  scx + 16.0, scy + 4.0,  Color(0.35, 0.35, 0.35, 1.0)
+    ' Engine glow
+    DrawCircle sex, sey,       5.0, Color(1.0, 0.6,  0.15, 1.0)
+    DrawCircle sex - 12.0, scy + 8.0, 4.0, Color(1.0, 0.5, 0.1, 0.8)
+    DrawCircle sex - 12.0, scy - 8.0, 4.0, Color(1.0, 0.5, 0.1, 0.8)
 
-    ' ── Tether + mission pod ───────────────────────────────────────────────
-    Dim tpx As Single : tpx = scx + 40.0
-    Dim tpy As Single : tpy = scy + 100.0
+    ' ── Tether + mission pod ──────────────────────────────────────────────
+    Dim tpx As Single
+    Dim tpy As Single
+    tpx = scx + 30.0
+    tpy = scy + 110.0
     DrawLine scx, scy + 20.0, tpx, tpy, Color(0.55, 0.55, 0.55, 0.9)
     DrawCircle tpx, tpy, 20.0, Color(0.45, 0.30, 0.0,  1.0)
     DrawCircle tpx, tpy, 12.0, Color(0.75, 0.55, 0.05, 1.0)
 
-    ' ── A few background stars ─────────────────────────────────────────────
+    ' ── Background stars ──────────────────────────────────────────────────
     Dim si As Integer
+    Dim stx As Single
+    Dim sty As Single
+    Dim sbr As Single
     For si = 0 To 29
-        Dim stx As Single : stx = CSng((si * 397 + 41) Mod 1240) + 20.0
-        Dim sty As Single : sty = CSng((si * 211 + 83) Mod 680) + 20.0
-        Dim sbr As Single : sbr = 0.2 + CSng(si Mod 5) * 0.08
+        stx = CSng((si * 397 + 41) Mod 1240) + 20.0
+        sty = CSng((si * 211 + 83) Mod 680) + 20.0
+        sbr = 0.2 + CSng(si Mod 5) * 0.08
         DrawCircle stx, sty, 1.0, Color(sbr, sbr, sbr, 1.0)
     Next si
 
-    ' ── Title text ────────────────────────────────────────────────────────
-    ' Shadow
-    DrawString "THRUST", 82, 62, Color(0.0, 0.0, 0.0, 1.0), 88
+    ' ── Title ─────────────────────────────────────────────────────────────
+    DrawString "THRUST", 82, 62, Color(0.0,  0.0,  0.0,  1.0), 88
     DrawString "THRUST", 80, 60, Color(0.90, 0.12, 0.08, 1.0), 88
-
-    ' ── Subtitle ──────────────────────────────────────────────────────────
     DrawString "A VisualGasic Tribute", 84, 158, Color(0.50, 0.50, 0.50, 1.0), 20
 
-    ' ── Prompt ────────────────────────────────────────────────────────────
-    DrawString "PRESS SPACE TO BEGIN", 430, 660, Color(0.65, 0.65, 0.65, 1.0), 20
-
-    ' ── Credit — bottom-right ─────────────────────────────────────────────
+    ' ── Prompt & credit ───────────────────────────────────────────────────
+    DrawString "PRESS SPACE TO BEGIN",  430,            660,           Color(0.65, 0.65, 0.65, 1.0), 20
     DrawString "Hal Labs", CSng(SW) - 120.0, CSng(SH) - 28.0, Color(0.22, 0.55, 0.90, 1.0), 18
 End Sub
