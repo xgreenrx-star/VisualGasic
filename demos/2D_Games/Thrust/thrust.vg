@@ -31,7 +31,8 @@ Const FUEL_BURN    As Single = 120.0    ' fuel units / s
 
 ' ── Array sizes ─────────────────────────────────────────────────────────────
 Const MAX_BULLETS  As Integer = 8
-Const NUM_TURRETS  As Integer = 2
+Const NUM_TURRETS  As Integer = 4   ' max; per-level count varies
+Const MAX_LEVEL    As Integer = 3
 
 ' ── Cave geometry ────────────────────────────────────────────────────────────
 ' A rectangular cavern with a narrow escape gap at the top centre.
@@ -50,8 +51,7 @@ Const CAVE_L   As Single = 150.0
 Const CAVE_R   As Single = 1130.0
 Const CAVE_TOP As Single = 120.0
 Const CAVE_BOT As Single = 670.0
-Const GAP_L    As Single = 520.0    ' escape gap left edge
-Const GAP_R    As Single = 760.0    ' escape gap right edge  (240 px wide)
+' gap_l and gap_r are set at runtime in InitLevel()
 
 ' ── Ship state ──────────────────────────────────────────────────────────────
 Dim ship_x     As Single
@@ -96,9 +96,14 @@ Dim tbul_vy(NUM_TURRETS)    As Single
 Dim tbul_alive(NUM_TURRETS) As Boolean
 
 ' ── Game state ──────────────────────────────────────────────────────────────
-' -1 = splash   0 = playing   1 = dead (respawning)   2 = escaped (victory)
+' -1 = splash   0 = playing   1 = dead (respawning)   2 = level complete
 Dim game_state As Integer
-Dim respawn_t  As Single    ' seconds until respawn after death
+Dim respawn_t  As Single
+Dim level      As Integer
+
+' ── Runtime cave gap (varies per level) ────────────────────────────────
+Dim gap_l As Single
+Dim gap_r As Single
 
 ' ── Per-frame input cache (set in _Process, consumed in _Draw) ───────────────
 Dim thrust_on As Boolean
@@ -114,39 +119,26 @@ Sub _Ready()
 End Sub
 
 Sub InitGame()
-    ' Ship starts in space above the gap
+    level = 1
+    score = 0
+    Call ResetShip()
+    game_state = 0
+    Call InitLevel()
+End Sub
+
+Sub ResetShip()
     ship_x = 640.0
     ship_y = 55.0
     ship_vx = 0.0
     ship_vy = 0.0
-    ship_angle = -(Pi / 2.0)    ' facing up
+    ship_angle = -1.5708    ' facing up (-Pi/2)
     ship_alive = True
     fuel = FUEL_MAX
-    score = 0
-
-    ' Mission pod sits near the cave floor, centre
-    pod_x = 640.0
-    pod_y = 620.0
     pod_attached = False
     tether_angle = 0.0
     tether_vel = 0.0
-
-    ' Fuel pod on the left side
-    fpod_x = 340.0
-    fpod_y = 612.0
     fpod_alive = True
-
-    ' Two turrets on the floor
-    tur_x(0) = 290.0
-    tur_y(0) = CAVE_BOT
-    tur_alive(0) = True
-    tur_cd(0) = 1.5     ' first shot after 1.5s
-
-    tur_x(1) = 910.0
-    tur_y(1) = CAVE_BOT
-    tur_alive(1) = True
-    tur_cd(1) = 2.7
-
+    respawn_t = 0.0
     Dim i As Integer
     For i = 0 To MAX_BULLETS - 1
         bul_alive(i) = False
@@ -154,9 +146,72 @@ Sub InitGame()
     For i = 0 To NUM_TURRETS - 1
         tbul_alive(i) = False
     Next i
+End Sub
 
+Sub NextLevel()
+    level = level + 1
+    If level > MAX_LEVEL Then level = 1
+    Call ResetShip()
     game_state = 0
-    respawn_t = 0.0
+    Call InitLevel()
+End Sub
+
+Sub InitLevel()
+    ' ── Gap position per level ─────────────────────────────────────────────
+    If level = 1 Then
+        gap_l = 520.0
+        gap_r = 760.0
+    ElseIf level = 2 Then
+        gap_l = 310.0
+        gap_r = 490.0
+    Else
+        gap_l = 700.0
+        gap_r = 860.0
+    End If
+
+    ' ── Pod positions ───────────────────────────────────────────────
+    If level = 1 Then
+        pod_x  = 640.0
+        pod_y  = 620.0
+        fpod_x = 340.0
+        fpod_y = 612.0
+    ElseIf level = 2 Then
+        pod_x  = 820.0
+        pod_y  = 612.0
+        fpod_x = 480.0
+        fpod_y = 612.0
+    Else
+        pod_x  = 360.0
+        pod_y  = 612.0
+        fpod_x = 880.0
+        fpod_y = 615.0
+    End If
+
+    ' ── Turrets (disable all, then enable per level) ──────────────────────
+    Dim i As Integer
+    For i = 0 To NUM_TURRETS - 1
+        tur_alive(i) = False
+    Next i
+    tur_x(0) = 290.0
+    tur_y(0) = CAVE_BOT
+    tur_alive(0) = True
+    tur_cd(0) = 1.5
+    tur_x(1) = 910.0
+    tur_y(1) = CAVE_BOT
+    tur_alive(1) = True
+    tur_cd(1) = 2.7
+    If level >= 2 Then
+        tur_x(2) = 580.0
+        tur_y(2) = CAVE_BOT
+        tur_alive(2) = True
+        tur_cd(2) = 2.0
+    End If
+    If level >= 3 Then
+        tur_x(3) = 760.0
+        tur_y(3) = CAVE_BOT
+        tur_alive(3) = True
+        tur_cd(3) = 3.2
+    End If
 End Sub
 
 ' ============================================================================
@@ -165,7 +220,7 @@ End Sub
 Sub _Process(delta As Single)
     ' ── Splash — wait for SPACE ───────────────────────────────────────────
     If game_state = -1 Then
-        If Input.IsActionJustPressed("ui_accept") Then
+        If Input.IsActionJustPressed("vg_fire") Then
             Call InitGame()
         End If
         Return
@@ -180,24 +235,28 @@ Sub _Process(delta As Single)
         Return
     End If
 
-    ' ── Escaped — wait for SPACE to restart ───────────────────────────────
+    ' ── Level complete ──────────────────────────────────────────────────
     If game_state = 2 Then
-        If Input.IsActionJustPressed("ui_accept") Then
-            Call InitGame()
+        If Input.IsActionJustPressed("vg_fire") Then
+            If level >= MAX_LEVEL Then
+                Call InitGame()
+            Else
+                Call NextLevel()
+            End If
         End If
         Return
     End If
 
     ' ── Rotate ────────────────────────────────────────────────────────────
-    If Input.IsActionPressed("ui_left") Then
+    If Input.IsActionPressed("vg_left") Then
         ship_angle = ship_angle - ROTATE_SPD * delta
     End If
-    If Input.IsActionPressed("ui_right") Then
+    If Input.IsActionPressed("vg_right") Then
         ship_angle = ship_angle + ROTATE_SPD * delta
     End If
 
     ' ── Thrust ────────────────────────────────────────────────────────────
-    thrust_on = Input.IsActionPressed("ui_up")
+    thrust_on = Input.IsActionPressed("vg_thrust")
     If thrust_on And fuel > 0.0 Then
         ship_vx = ship_vx + Cos(ship_angle) * THRUST_FORCE * delta
         ship_vy = ship_vy + Sin(ship_angle) * THRUST_FORCE * delta
@@ -205,8 +264,8 @@ Sub _Process(delta As Single)
         If fuel < 0.0 Then fuel = 0.0
     End If
 
-    ' ── Fire ──────────────────────────────────────────────────────────────
-    If Input.IsActionJustPressed("ui_accept") Then
+    ' ── Fire ────────────────────────────────────────────────────────────
+    If Input.IsActionJustPressed("vg_fire") Then
         Call FireBullet()
     End If
 
@@ -233,7 +292,7 @@ Sub _Process(delta As Single)
     End If
 
     ' ── Tractor beam ──────────────────────────────────────────────────────
-    beam_on = Input.IsActionPressed("ui_down")
+    beam_on = Input.IsActionPressed("vg_beam")
 
     If beam_on And Not pod_attached Then
         Dim bx As Single
@@ -278,10 +337,10 @@ Sub _Process(delta As Single)
         End If
 
         ' Escape check: ship has left the cave through the gap with the pod
-        If ship_y < CAVE_TOP And ship_x > GAP_L And ship_x < GAP_R Then
+        If ship_y < CAVE_TOP And ship_x > gap_l And ship_x < gap_r Then
             game_state = 2
             score = score + 5000
-            Print "POD DELIVERED!  Final score: " & Str(score)
+            Print "Level " & Str(level) & " complete!  Score: " & Str(score)
         End If
     End If
 
@@ -372,8 +431,8 @@ Sub CheckCollisions()
     End If
 
     ' ── Ship vs cave ceiling (horizontal part, not the gap) ─────────────
-    If ship_y > CAVE_TOP - 12.0 And ship_y < CAVE_TOP + 12.0 Then
-        If Not (ship_x > GAP_L And ship_x < GAP_R) Then
+    If ship_y > CAVE_TOP - 16.0 And ship_y < CAVE_TOP + 16.0 Then
+        If Not (ship_x > gap_l And ship_x < gap_r) Then
             Call KillShip()
             Return
         End If
@@ -511,9 +570,14 @@ Sub _Draw()
 
     ' Victory overlay
     If game_state = 2 Then
-        DrawRect 0, 298, SW, 86, Color(0.0, 0.12, 0.0, 0.88)
-        DrawString "POD DELIVERED!", 488, 308, Color(0.3, 1.0, 0.4, 1.0), 30
-        DrawString "SCORE: " & Str(score) & "        PRESS SPACE to play again", 340, 352, Color.White, 20
+        DrawRect 0, 288, SW, 96, Color(0.0, 0.1, 0.0, 0.92)
+        If level < MAX_LEVEL Then
+            DrawString "LEVEL " & Str(level) & " COMPLETE!", 430, 298, Color(0.3, 1.0, 0.4, 1.0), 30
+            DrawString "SCORE: " & Str(score) & "        SPACE for next level", 350, 352, Color.White, 20
+        Else
+            DrawString "ALL LEVELS CLEAR!", 450, 298, Color(0.3, 1.0, 0.4, 1.0), 30
+            DrawString "FINAL SCORE: " & Str(score) & "        SPACE to restart", 340, 352, Color.White, 20
+        End If
     End If
 End Sub
 
@@ -561,72 +625,94 @@ Sub DrawCave()
         DrawLine CAVE_L, CSng(yi), CAVE_R, CSng(yi), rock_col
     Next yi
 
-    ' Ceiling left of gap — above CAVE_TOP, x CAVE_L..GAP_L
+    ' Ceiling left of gap
     For yi = 0 To 119 Step 4
-        DrawLine CAVE_L, CSng(yi), GAP_L, CSng(yi), rock_col
+        DrawLine CAVE_L, CSng(yi), gap_l, CSng(yi), rock_col
     Next yi
 
-    ' Ceiling right of gap — above CAVE_TOP, x GAP_R..CAVE_R
+    ' Ceiling right of gap
     For yi = 0 To 119 Step 4
-        DrawLine GAP_R, CSng(yi), CAVE_R, CSng(yi), rock_col
+        DrawLine gap_r, CSng(yi), CAVE_R, CSng(yi), rock_col
     Next yi
 
-    ' Inner-face edges — single bright line where rock meets open cave
+    ' Inner-face edges
     DrawLine CAVE_L, CAVE_TOP, CAVE_L, CAVE_BOT, edge_col
     DrawLine CAVE_R, CAVE_TOP, CAVE_R, CAVE_BOT, edge_col
     DrawLine CAVE_L, CAVE_BOT, CAVE_R, CAVE_BOT, edge_col
-    DrawLine CAVE_L, CAVE_TOP, GAP_L,  CAVE_TOP, edge_col
-    DrawLine GAP_R,  CAVE_TOP, CAVE_R, CAVE_TOP, edge_col
+    DrawLine CAVE_L, CAVE_TOP, gap_l,  CAVE_TOP, edge_col
+    DrawLine gap_r,  CAVE_TOP, CAVE_R, CAVE_TOP, edge_col
 
     ' Gap corridor guides + entry chevron
-    DrawLine GAP_L, 0.0, GAP_L, CAVE_TOP, gap_col
-    DrawLine GAP_R, 0.0, GAP_R, CAVE_TOP, gap_col
-    DrawLine GAP_L + 10.0, 18.0, (GAP_L + GAP_R) / 2.0, 38.0, gap_col
-    DrawLine GAP_R - 10.0, 18.0, (GAP_L + GAP_R) / 2.0, 38.0, gap_col
+    DrawLine gap_l, 0.0, gap_l, CAVE_TOP, gap_col
+    DrawLine gap_r, 0.0, gap_r, CAVE_TOP, gap_col
+    DrawLine gap_l + 10.0, 18.0, (gap_l + gap_r) / 2.0, 38.0, gap_col
+    DrawLine gap_r - 10.0, 18.0, (gap_l + gap_r) / 2.0, 38.0, gap_col
 End Sub
 
-' ── Ship — larger Thrust-style rocket silhouette ─────────────────────────────
-' Angles are explicit radians (no Pi literal) to avoid Draw-context issues.
-' Shape: diamond/arrowhead — nose → left wing → aft nozzle → right wing → nose
+' ── Ship — delta-wing shuttle with fuselage detail ─────────────────────────────
 Sub DrawShip()
-    ' Nose: 28 px forward
+    ' ─ vertices ─────────────────────────────────────────────────────
     Dim nx As Single
     Dim ny As Single
     nx = ship_x + Cos(ship_angle) * 28.0
     ny = ship_y + Sin(ship_angle) * 28.0
 
-    ' Left wing: 22 px at +2.09 rad (~120°) from forward
     Dim lx As Single
     Dim ly As Single
     lx = ship_x + Cos(ship_angle + 2.09) * 22.0
     ly = ship_y + Sin(ship_angle + 2.09) * 22.0
 
-    ' Right wing: 22 px at -2.09 rad (~120°) from forward
     Dim rx As Single
     Dim ry As Single
     rx = ship_x + Cos(ship_angle - 2.09) * 22.0
     ry = ship_y + Sin(ship_angle - 2.09) * 22.0
 
-    ' Aft nozzle: 14 px directly aft (3.14159 = Pi)
     Dim ex As Single
     Dim ey As Single
     ex = ship_x + Cos(ship_angle + 3.14159) * 14.0
     ey = ship_y + Sin(ship_angle + 3.14159) * 14.0
 
-    ' Hull — bright leading edges, dimmer body sides
+    ' ─ hull (4 edges + trailing edge connecting wing tips) ──────────────
     Dim hull_col As Variant
     Dim body_col As Variant
-    hull_col = Color(0.25, 0.9, 1.0, 1.0)
-    body_col = Color(0.1, 0.55, 0.75, 1.0)
-    DrawLine nx, ny, lx, ly, hull_col       ' nose → left wing
-    DrawLine nx, ny, rx, ry, hull_col       ' nose → right wing
-    DrawLine lx, ly, ex, ey, body_col       ' left wing → nozzle
-    DrawLine rx, ry, ex, ey, body_col       ' right wing → nozzle
+    Dim trim_col As Variant
+    hull_col = Color(0.25, 0.9,  1.0,  1.0)
+    body_col = Color(0.10, 0.55, 0.75, 1.0)
+    trim_col = Color(0.08, 0.38, 0.56, 1.0)
+    DrawLine nx, ny, lx, ly, hull_col   ' nose → left tip
+    DrawLine nx, ny, rx, ry, hull_col   ' nose → right tip
+    DrawLine lx, ly, ex, ey, body_col   ' left tip → nozzle
+    DrawLine rx, ry, ex, ey, body_col   ' right tip → nozzle
+    DrawLine lx, ly, rx, ry, trim_col   ' trailing edge (spans wing tips)
 
-    ' Small nozzle highlight (bright dot at aft)
-    DrawCircle ex, ey, 3.0, Color(0.5, 0.7, 1.0, 0.8)
+    ' ─ cockpit crossbar (1/3 back from nose) ─────────────────────────
+    Dim ckx As Single
+    Dim cky As Single
+    Dim cl_x As Single
+    Dim cl_y As Single
+    Dim cr_x As Single
+    Dim cr_y As Single
+    ckx  = ship_x + Cos(ship_angle) * 10.0
+    cky  = ship_y + Sin(ship_angle) * 10.0
+    cl_x = ckx + Cos(ship_angle + 1.5708) * 9.0
+    cl_y = cky + Sin(ship_angle + 1.5708) * 9.0
+    cr_x = ckx + Cos(ship_angle - 1.5708) * 9.0
+    cr_y = cky + Sin(ship_angle - 1.5708) * 9.0
+    DrawLine cl_x, cl_y, cr_x, cr_y, Color(0.15, 0.6, 0.85, 0.9)   ' cockpit bar
 
-    ' Thrust flame — from nozzle tip, explicit angle arithmetic
+    ' ─ engine bell rim at nozzle ────────────────────────────────────
+    Dim bl_x As Single
+    Dim bl_y As Single
+    Dim br_x As Single
+    Dim br_y As Single
+    bl_x = ex + Cos(ship_angle + 3.14159 + 0.52) * 7.0
+    bl_y = ey + Sin(ship_angle + 3.14159 + 0.52) * 7.0
+    br_x = ex + Cos(ship_angle + 3.14159 - 0.52) * 7.0
+    br_y = ey + Sin(ship_angle + 3.14159 - 0.52) * 7.0
+    DrawLine bl_x, bl_y, br_x, br_y, Color(0.35, 0.6, 0.85, 0.85)  ' bell rim
+    DrawCircle ex, ey, 3.0, Color(0.5, 0.7, 1.0, 0.8)              ' nozzle dot
+
+    ' ─ thrust flame from nozzle ───────────────────────────────────────
     If thrust_on And fuel > 0.0 Then
         Dim ta As Single
         ta = ship_angle + 3.14159
@@ -635,25 +721,19 @@ Sub DrawShip()
         DrawLine ex, ey, ex + Cos(ta - 0.22) * 26.0, ey + Sin(ta - 0.22) * 26.0, Color(1.0, 0.85, 0.2, 0.7)
     End If
 
-    ' Tractor beam ray (cyan, shows range when searching)
-    If beam_on Then
-        If Not pod_attached Then
-            DrawLine ship_x, ship_y, pod_x, pod_y, Color(0.3, 0.75, 1.0, 0.35)
-        End If
+    ' ─ tractor beam ray ───────────────────────────────────────────────
+    If beam_on And Not pod_attached Then
+        DrawLine ship_x, ship_y, pod_x, pod_y, Color(0.3, 0.75, 1.0, 0.35)
     End If
 End Sub
 
-' ── HUD — top status bar in the style of the original ───────────────────────
-' Layout mirrors classic Thrust: SHIELDS bar left, SCORE right, thin separator.
+' ── HUD ──────────────────────────────────────────────────────────────────────
 Sub DrawHUD()
-    ' Status bar background strip
     DrawRect 0, 0, CSng(SW), 36.0, Color(0.0, 0.0, 0.0, 1.0)
     DrawLine 0.0, 36.0, CSng(SW), 36.0, Color(0.25, 0.65, 0.25, 1.0)
 
-    ' "SHIELDS" label
     DrawString "SHIELDS", 10, 9, Color(0.5, 0.5, 0.5, 1.0), 15
 
-    ' Shields / fuel bar — segmented look (10 blocks of 20px each)
     Dim fuel_pct As Single
     fuel_pct = fuel / FUEL_MAX
     Dim seg As Integer
@@ -675,13 +755,13 @@ Sub DrawHUD()
         End If
     Next seg
 
-    ' Score — right-justified in the bar
+    DrawString "LVL " & Str(level), 320.0, 9, Color(0.75, 0.75, 0.35, 1.0), 15
+
     Dim score_str As String
     score_str = "SCORE  " & Str(score)
     DrawString score_str, CSng(SW) - 200.0, 9, Color.White, 15
 
-    ' Controls reminder — very dim, bottom of screen
-    DrawString "ROTATE ◄►   THRUST ▲   FIRE SPACE   BEAM ▼", 22, CSng(SH) - 20.0, Color(0.22, 0.22, 0.22, 1.0), 13
+    DrawString "ROTATE A/D   THRUST W   FIRE SPACE   BEAM SHIFT", 22, CSng(SH) - 20.0, Color(0.22, 0.22, 0.22, 1.0), 13
 End Sub
 
 ' ── Splash screen ────────────────────────────────────────────────────────────
