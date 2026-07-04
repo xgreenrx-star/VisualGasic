@@ -520,48 +520,54 @@ Sub DrawStars()
     Next i
 End Sub
 
-' ── Cave: solid filled rock slabs + lit inner faces ─────────────────────────
-'
-' Layout (rock = filled; space = void):
-'
-'  ROCK | space |ROCK  ROCK | GAP | ROCK  ROCK |         | ROCK
-'  ─────┼───────┼────  ─────┴─────┴────  ──────┤  cave   ├──────
-'  left | open  |right  ceiling (2 slabs) left wall│       │right
-'  wall |  sky  |wall                         ──────┤       ├──────
-'       |       |                              ROCK |_floor_| ROCK
-'
+' ── Cave: BBC Micro-style horizontal scanline fill ───────────────────────────
+' The original Thrust uses dense horizontal lines to texture rock faces, not
+' solid fills. ~4 px spacing, bright green — black interior = open cave space.
 Sub DrawCave()
-    Dim rock    As Variant
-    Dim rock_hi As Variant
-    Dim gap_col As Variant
-    rock    = Color(0.16, 0.35, 0.16, 1.0)   ' dark earthy rock fill
-    rock_hi = Color(0.32, 0.65, 0.32, 1.0)   ' bright inner-face edge
-    gap_col = Color(0.10, 0.24, 0.10, 1.0)   ' dim gap-corridor guides
+    Dim rock_col As Variant
+    Dim edge_col As Variant
+    Dim gap_col  As Variant
+    rock_col = Color(0.15, 0.65, 0.15, 1.0)   ' green scanlines
+    edge_col = Color(0.35, 0.95, 0.35, 1.0)   ' bright cave-face highlight
+    gap_col  = Color(0.08, 0.30, 0.08, 1.0)   ' dim gap guide
 
-    ' ── Solid rock slabs ─────────────────────────────────────────────────
-    ' Left wall — full screen height
-    DrawRect 0.0,    0.0, CAVE_L,                CSng(SH),            rock
-    ' Right wall — full screen height
-    DrawRect CAVE_R, 0.0, CSng(SW) - CAVE_R,     CSng(SH),            rock
-    ' Floor
-    DrawRect CAVE_L, CAVE_BOT, CAVE_R - CAVE_L,  CSng(SH) - CAVE_BOT, rock
-    ' Ceiling left of gap
-    DrawRect CAVE_L, 0.0, GAP_L - CAVE_L,        CAVE_TOP,            rock
-    ' Ceiling right of gap
-    DrawRect GAP_R,  0.0, CAVE_R - GAP_R,        CAVE_TOP,            rock
+    Dim yi As Integer
 
-    ' ── Inner-face edge highlights (1-px bright line where rock meets void) ──
-    DrawLine CAVE_L, CAVE_TOP, CAVE_L, CAVE_BOT, rock_hi  ' left wall face
-    DrawLine CAVE_R, CAVE_TOP, CAVE_R, CAVE_BOT, rock_hi  ' right wall face
-    DrawLine CAVE_L, CAVE_BOT, CAVE_R, CAVE_BOT, rock_hi  ' floor ceiling face
-    DrawLine CAVE_L, CAVE_TOP, GAP_L,  CAVE_TOP, rock_hi  ' ceiling left face
-    DrawLine GAP_R,  CAVE_TOP, CAVE_R, CAVE_TOP, rock_hi  ' ceiling right face
+    ' Left wall — full screen height, x 0..CAVE_L
+    For yi = 0 To 719 Step 4
+        DrawLine 0.0, CSng(yi), CAVE_L, CSng(yi), rock_col
+    Next yi
 
-    ' ── Gap corridor guides (dim vertical lines marking escape route) ─────
+    ' Right wall — full screen height, x CAVE_R..SW
+    For yi = 0 To 719 Step 4
+        DrawLine CAVE_R, CSng(yi), CSng(SW), CSng(yi), rock_col
+    Next yi
+
+    ' Floor — below CAVE_BOT, x CAVE_L..CAVE_R
+    For yi = 670 To 719 Step 4
+        DrawLine CAVE_L, CSng(yi), CAVE_R, CSng(yi), rock_col
+    Next yi
+
+    ' Ceiling left of gap — above CAVE_TOP, x CAVE_L..GAP_L
+    For yi = 0 To 119 Step 4
+        DrawLine CAVE_L, CSng(yi), GAP_L, CSng(yi), rock_col
+    Next yi
+
+    ' Ceiling right of gap — above CAVE_TOP, x GAP_R..CAVE_R
+    For yi = 0 To 119 Step 4
+        DrawLine GAP_R, CSng(yi), CAVE_R, CSng(yi), rock_col
+    Next yi
+
+    ' Inner-face edges — single bright line where rock meets open cave
+    DrawLine CAVE_L, CAVE_TOP, CAVE_L, CAVE_BOT, edge_col
+    DrawLine CAVE_R, CAVE_TOP, CAVE_R, CAVE_BOT, edge_col
+    DrawLine CAVE_L, CAVE_BOT, CAVE_R, CAVE_BOT, edge_col
+    DrawLine CAVE_L, CAVE_TOP, GAP_L,  CAVE_TOP, edge_col
+    DrawLine GAP_R,  CAVE_TOP, CAVE_R, CAVE_TOP, edge_col
+
+    ' Gap corridor guides + entry chevron
     DrawLine GAP_L, 0.0, GAP_L, CAVE_TOP, gap_col
     DrawLine GAP_R, 0.0, GAP_R, CAVE_TOP, gap_col
-
-    ' Chevron at top marking gap entry point
     DrawLine GAP_L + 10.0, 18.0, (GAP_L + GAP_R) / 2.0, 38.0, gap_col
     DrawLine GAP_R - 10.0, 18.0, (GAP_L + GAP_R) / 2.0, 38.0, gap_col
 End Sub
