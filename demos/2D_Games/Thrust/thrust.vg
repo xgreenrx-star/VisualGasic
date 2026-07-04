@@ -1,0 +1,608 @@
+' ============================================================================
+' THRUST — VisualGasic Proof of Concept
+' A tribute to the 1986 classic by Jeremy C. Smith (Firebird/Superior)
+' ============================================================================
+' Controls:
+'   LEFT / RIGHT   — rotate ship
+'   UP             — thrust (burns fuel)
+'   SPACE          — fire
+'   DOWN (hold)    — tractor beam (picks up pod when close; grab fuel too)
+'
+' Goal: fly into the cave, latch onto the yellow mission pod with the beam,
+'       fly back up and escape through the gap at the top. Watch your fuel!
+'
+' The pod hangs on a tether and swings like a pendulum — classic Thrust feel.
+' ============================================================================
+Attribute VB_Name = "Thrust"
+
+' ── Screen ──────────────────────────────────────────────────────────────────
+Const SW As Integer = 1280
+Const SH As Integer = 720
+
+' ── Physics ─────────────────────────────────────────────────────────────────
+Const GRAVITY      As Single = 120.0    ' pixels / s²
+Const THRUST_FORCE As Single = 220.0    ' pixels / s² when thrusting
+Const ROTATE_SPD   As Single = 2.8      ' radians / s
+Const TETHER_LEN   As Single = 55.0     ' pixels — pod hangs this far below ship
+Const BULLET_SPD   As Single = 480.0    ' pixels / s
+Const TURRET_SPD   As Single = 200.0    ' pixels / s
+Const FUEL_MAX     As Single = 1000.0
+Const FUEL_BURN    As Single = 120.0    ' fuel units / s
+
+' ── Array sizes ─────────────────────────────────────────────────────────────
+Const MAX_BULLETS  As Integer = 8
+Const NUM_TURRETS  As Integer = 2
+
+' ── Cave geometry ────────────────────────────────────────────────────────────
+' A rectangular cavern with a narrow escape gap at the top centre.
+' Space is above CAVE_TOP; the cave is below.
+'
+'   ←── CAVE_L         GAP_L   GAP_R         CAVE_R ──→
+'  ─────────────────────┈  ┈────────────────────────── CAVE_TOP (ceiling)
+'  |                                                  |
+'  |   [FPOD]           [POD]                         |
+'  |   (fuel)        (mission)                        |
+'  |                                                  |
+'  |                [TUR0]        [TUR1]              |
+'  ────────────────────────────────────────────────── CAVE_BOT (floor)
+'
+Const CAVE_L   As Single = 150.0
+Const CAVE_R   As Single = 1130.0
+Const CAVE_TOP As Single = 120.0
+Const CAVE_BOT As Single = 670.0
+Const GAP_L    As Single = 520.0    ' escape gap left edge
+Const GAP_R    As Single = 760.0    ' escape gap right edge  (240 px wide)
+
+' ── Ship state ──────────────────────────────────────────────────────────────
+Dim ship_x     As Single
+Dim ship_y     As Single
+Dim ship_vx    As Single
+Dim ship_vy    As Single
+Dim ship_angle As Single    ' radians; 0=right, -Pi/2=up
+Dim ship_alive As Boolean
+Dim fuel       As Single
+Dim score      As Integer
+
+' ── Mission pod (pendulum physics) ──────────────────────────────────────────
+Dim pod_x        As Single
+Dim pod_y        As Single
+Dim pod_attached As Boolean
+Dim tether_angle As Single  ' angle of tether from straight-down (radians)
+Dim tether_vel   As Single  ' angular velocity of tether
+
+' ── Fuel pod ────────────────────────────────────────────────────────────────
+Dim fpod_x     As Single
+Dim fpod_y     As Single
+Dim fpod_alive As Boolean
+
+' ── Player bullets ──────────────────────────────────────────────────────────
+Dim bul_x(MAX_BULLETS)     As Single
+Dim bul_y(MAX_BULLETS)     As Single
+Dim bul_vx(MAX_BULLETS)    As Single
+Dim bul_vy(MAX_BULLETS)    As Single
+Dim bul_alive(MAX_BULLETS) As Boolean
+
+' ── Turrets ─────────────────────────────────────────────────────────────────
+Dim tur_x(NUM_TURRETS)     As Single
+Dim tur_y(NUM_TURRETS)     As Single
+Dim tur_alive(NUM_TURRETS) As Boolean
+Dim tur_cd(NUM_TURRETS)    As Single    ' cooldown timer before next shot
+
+' ── Turret bullets (one active per turret) ──────────────────────────────────
+Dim tbul_x(NUM_TURRETS)     As Single
+Dim tbul_y(NUM_TURRETS)     As Single
+Dim tbul_vx(NUM_TURRETS)    As Single
+Dim tbul_vy(NUM_TURRETS)    As Single
+Dim tbul_alive(NUM_TURRETS) As Boolean
+
+' ── Game state ──────────────────────────────────────────────────────────────
+' 0 = playing   1 = dead (respawning)   2 = escaped (victory)
+Dim game_state As Integer
+Dim respawn_t  As Single    ' seconds until respawn after death
+
+' ============================================================================
+' INIT
+' ============================================================================
+Sub _Ready()
+    Call InitGame()
+    Print "=== THRUST — VG Proof of Concept ==="
+    Print "LEFT/RIGHT = rotate   UP = thrust   SPACE = fire   DOWN (hold) = beam"
+    Print "Goal: grab the yellow pod, escape through the gap at the top!"
+End Sub
+
+Sub InitGame()
+    ' Ship starts in space above the gap
+    ship_x = 640.0
+    ship_y = 55.0
+    ship_vx = 0.0
+    ship_vy = 0.0
+    ship_angle = -(Pi / 2.0)    ' facing up
+    ship_alive = True
+    fuel = FUEL_MAX
+    score = 0
+
+    ' Mission pod sits near the cave floor, centre
+    pod_x = 640.0
+    pod_y = 620.0
+    pod_attached = False
+    tether_angle = 0.0
+    tether_vel = 0.0
+
+    ' Fuel pod on the left side
+    fpod_x = 340.0
+    fpod_y = 612.0
+    fpod_alive = True
+
+    ' Two turrets on the floor
+    tur_x(0) = 290.0
+    tur_y(0) = CAVE_BOT
+    tur_alive(0) = True
+    tur_cd(0) = 1.5     ' first shot after 1.5s
+
+    tur_x(1) = 910.0
+    tur_y(1) = CAVE_BOT
+    tur_alive(1) = True
+    tur_cd(1) = 2.7
+
+    Dim i As Integer
+    For i = 0 To MAX_BULLETS - 1
+        bul_alive(i) = False
+    Next i
+    For i = 0 To NUM_TURRETS - 1
+        tbul_alive(i) = False
+    Next i
+
+    game_state = 0
+    respawn_t = 0.0
+End Sub
+
+' ============================================================================
+' UPDATE (called every frame by Godot)
+' ============================================================================
+Sub _Process(delta As Single)
+    ' ── Dead — count down to respawn ──────────────────────────────────────
+    If game_state = 1 Then
+        respawn_t = respawn_t - delta
+        If respawn_t <= 0.0 Then
+            Call InitGame()
+        End If
+        Return
+    End If
+
+    ' ── Escaped — wait for SPACE to restart ───────────────────────────────
+    If game_state = 2 Then
+        If Input.IsActionJustPressed("ui_accept") Then
+            Call InitGame()
+        End If
+        Return
+    End If
+
+    ' ── Rotate ────────────────────────────────────────────────────────────
+    If Input.IsActionPressed("ui_left") Then
+        ship_angle = ship_angle - ROTATE_SPD * delta
+    End If
+    If Input.IsActionPressed("ui_right") Then
+        ship_angle = ship_angle + ROTATE_SPD * delta
+    End If
+
+    ' ── Thrust ────────────────────────────────────────────────────────────
+    If Input.IsActionPressed("ui_up") And fuel > 0.0 Then
+        ship_vx = ship_vx + Cos(ship_angle) * THRUST_FORCE * delta
+        ship_vy = ship_vy + Sin(ship_angle) * THRUST_FORCE * delta
+        fuel = fuel - FUEL_BURN * delta
+        If fuel < 0.0 Then fuel = 0.0
+    End If
+
+    ' ── Fire ──────────────────────────────────────────────────────────────
+    If Input.IsActionJustPressed("ui_accept") Then
+        Call FireBullet()
+    End If
+
+    ' ── Gravity + integrate ship position ─────────────────────────────────
+    ship_vy = ship_vy + GRAVITY * delta
+    ship_x = ship_x + ship_vx * delta
+    ship_y = ship_y + ship_vy * delta
+
+    ' Soft boundary at very top of screen (space ceiling)
+    If ship_y < 2.0 Then
+        ship_y = 2.0
+        If ship_vy < 0.0 Then ship_vy = 0.0
+    End If
+    ' Clamp horizontal in open space
+    If ship_y < CAVE_TOP Then
+        If ship_x < 8.0 Then
+            ship_x = 8.0
+            ship_vx = 0.0
+        End If
+        If ship_x > CSng(SW) - 8.0 Then
+            ship_x = CSng(SW) - 8.0
+            ship_vx = 0.0
+        End If
+    End If
+
+    ' ── Tractor beam ──────────────────────────────────────────────────────
+    Dim beam_on As Boolean
+    beam_on = Input.IsActionPressed("ui_down")
+
+    If beam_on And Not pod_attached Then
+        Dim bx As Single
+        Dim by As Single
+        bx = pod_x - ship_x
+        by = pod_y - ship_y
+        If Sqr(bx * bx + by * by) < 80.0 Then
+            pod_attached = True
+            tether_angle = 0.0
+            tether_vel = 0.0
+        End If
+    End If
+    If Not beam_on Then
+        pod_attached = False
+    End If
+
+    If pod_attached Then
+        ' Pendulum ODE: d²θ/dt² = -(g/L)·sin(θ) with ship-lateral forcing
+        Dim t_acc As Single
+        t_acc = -(GRAVITY / TETHER_LEN) * Sin(tether_angle)
+        ' Ship horizontal velocity nudges the bob laterally
+        t_acc = t_acc - (ship_vx / TETHER_LEN) * Cos(tether_angle) * 0.12
+        tether_vel = tether_vel + t_acc * delta
+        tether_vel = tether_vel * (1.0 - 2.0 * delta)   ' light damping
+        tether_angle = tether_angle + tether_vel * delta
+        pod_x = ship_x + Sin(tether_angle) * TETHER_LEN
+        pod_y = ship_y + Cos(tether_angle) * TETHER_LEN
+
+        ' Collect fuel pod by dragging mission pod close to it
+        If fpod_alive Then
+            Dim fx As Single
+            Dim fy As Single
+            fx = pod_x - fpod_x
+            fy = pod_y - fpod_y
+            If Sqr(fx * fx + fy * fy) < 22.0 Then
+                fpod_alive = False
+                fuel = fuel + 400.0
+                If fuel > FUEL_MAX Then fuel = FUEL_MAX
+                score = score + 500
+                Print "Fuel collected!  +" & Str(500) & " pts"
+            End If
+        End If
+
+        ' Escape check: ship has left the cave through the gap with the pod
+        If ship_y < CAVE_TOP And ship_x > GAP_L And ship_x < GAP_R Then
+            game_state = 2
+            score = score + 5000
+            Print "POD DELIVERED!  Final score: " & Str(score)
+        End If
+    End If
+
+    ' ── Player bullets ────────────────────────────────────────────────────
+    Dim i As Integer
+    For i = 0 To MAX_BULLETS - 1
+        If bul_alive(i) Then
+            bul_x(i) = bul_x(i) + bul_vx(i) * delta
+            bul_y(i) = bul_y(i) + bul_vy(i) * delta
+            If bul_x(i) < CAVE_L Or bul_x(i) > CAVE_R Or bul_y(i) > CAVE_BOT Or bul_y(i) < 0.0 Then
+                bul_alive(i) = False
+            End If
+        End If
+    Next i
+
+    ' ── Turrets ───────────────────────────────────────────────────────────
+    For i = 0 To NUM_TURRETS - 1
+        If tur_alive(i) Then
+            tur_cd(i) = tur_cd(i) - delta
+            If tur_cd(i) <= 0.0 Then
+                tur_cd(i) = 3.0
+                Call FireTurretBullet(i)
+            End If
+        End If
+        If tbul_alive(i) Then
+            tbul_x(i) = tbul_x(i) + tbul_vx(i) * delta
+            tbul_y(i) = tbul_y(i) + tbul_vy(i) * delta
+            If tbul_x(i) < CAVE_L Or tbul_x(i) > CAVE_R Or tbul_y(i) < CAVE_TOP Or tbul_y(i) > CAVE_BOT Then
+                tbul_alive(i) = False
+            End If
+        End If
+    Next i
+
+    ' ── Collision ─────────────────────────────────────────────────────────
+    Call CheckCollisions()
+
+    ' Fuel exhausted → die
+    If fuel <= 0.0 And ship_alive Then
+        Call KillShip()
+    End If
+End Sub
+
+' ----------------------------------------------------------------------------
+Sub FireBullet()
+    Dim i As Integer
+    For i = 0 To MAX_BULLETS - 1
+        If Not bul_alive(i) Then
+            bul_alive(i) = True
+            ' Fire from ship nose with ship's own velocity added
+            bul_x(i) = ship_x + Cos(ship_angle) * 16.0
+            bul_y(i) = ship_y + Sin(ship_angle) * 16.0
+            bul_vx(i) = ship_vx + Cos(ship_angle) * BULLET_SPD
+            bul_vy(i) = ship_vy + Sin(ship_angle) * BULLET_SPD
+            Return
+        End If
+    Next i
+End Sub
+
+Sub FireTurretBullet(idx As Integer)
+    ' Aim at current ship position
+    Dim tdx As Single
+    Dim tdy As Single
+    Dim tlen As Single
+    tdx = ship_x - tur_x(idx)
+    tdy = ship_y - tur_y(idx)
+    tlen = Sqr(tdx * tdx + tdy * tdy)
+    If tlen < 1.0 Then Return
+    tbul_alive(idx) = True
+    tbul_x(idx) = tur_x(idx)
+    tbul_y(idx) = tur_y(idx) - 14.0
+    tbul_vx(idx) = (tdx / tlen) * TURRET_SPD
+    tbul_vy(idx) = (tdy / tlen) * TURRET_SPD
+End Sub
+
+Sub CheckCollisions()
+    ' ── Ship vs cave floor ──────────────────────────────────────────────
+    If ship_y > CAVE_BOT - 10.0 Then
+        Call KillShip()
+        Return
+    End If
+
+    ' ── Ship vs cave walls (only when inside the cave) ──────────────────
+    If ship_y > CAVE_TOP Then
+        If ship_x < CAVE_L + 10.0 Or ship_x > CAVE_R - 10.0 Then
+            Call KillShip()
+            Return
+        End If
+    End If
+
+    ' ── Ship vs cave ceiling (horizontal part, not the gap) ─────────────
+    If ship_y > CAVE_TOP - 12.0 And ship_y < CAVE_TOP + 12.0 Then
+        If Not (ship_x > GAP_L And ship_x < GAP_R) Then
+            Call KillShip()
+            Return
+        End If
+    End If
+
+    ' ── Pod vs walls/floor (while attached) ─────────────────────────────
+    If pod_attached Then
+        If pod_y > CAVE_BOT - 8.0 Then
+            Call KillShip()
+            Return
+        End If
+        If pod_x < CAVE_L + 8.0 Or pod_x > CAVE_R - 8.0 Then
+            Call KillShip()
+            Return
+        End If
+    End If
+
+    ' ── Player bullets vs turrets ────────────────────────────────────────
+    Dim i As Integer
+    Dim j As Integer
+    For i = 0 To MAX_BULLETS - 1
+        If bul_alive(i) Then
+            For j = 0 To NUM_TURRETS - 1
+                If tur_alive(j) Then
+                    Dim bdx As Single
+                    Dim bdy As Single
+                    bdx = bul_x(i) - tur_x(j)
+                    bdy = bul_y(i) - tur_y(j)
+                    If Sqr(bdx * bdx + bdy * bdy) < 18.0 Then
+                        tur_alive(j) = False
+                        bul_alive(i) = False
+                        score = score + 100
+                    End If
+                End If
+            Next j
+        End If
+    Next i
+
+    ' ── Turret bullets vs ship ───────────────────────────────────────────
+    For i = 0 To NUM_TURRETS - 1
+        If tbul_alive(i) And ship_alive Then
+            Dim sdx As Single
+            Dim sdy As Single
+            sdx = tbul_x(i) - ship_x
+            sdy = tbul_y(i) - ship_y
+            If Sqr(sdx * sdx + sdy * sdy) < 14.0 Then
+                Call KillShip()
+                Return
+            End If
+        End If
+    Next i
+End Sub
+
+Sub KillShip()
+    If Not ship_alive Then Return
+    ship_alive = False
+    pod_attached = False
+    game_state = 1
+    respawn_t = 2.5
+    Print "Ship destroyed!  Score: " & Str(score)
+End Sub
+
+' ============================================================================
+' DRAW (called every frame by Godot's rendering pipeline)
+' ============================================================================
+Sub _Draw()
+    ' Deep space background
+    DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.06, 1.0)
+
+    ' Stars (simple static pattern driven by index)
+    Call DrawStars()
+
+    ' Cave structure
+    Call DrawCave()
+
+    ' Fuel pod (green orb)
+    If fpod_alive Then
+        DrawCircle fpod_x, fpod_y, 9.0, Color(0.1, 0.55, 0.1, 1.0)
+        DrawCircle fpod_x, fpod_y, 5.0, Color(0.3, 1.0, 0.3, 1.0)
+    End If
+
+    ' Mission pod (yellow, when not attached)
+    If Not pod_attached Then
+        DrawCircle pod_x, pod_y, 11.0, Color(0.7, 0.5, 0.0, 1.0)
+        DrawCircle pod_x, pod_y, 6.0, Color(1.0, 0.9, 0.3, 1.0)
+    End If
+
+    ' Tether + pod (when attached)
+    If pod_attached Then
+        DrawLine ship_x, ship_y, pod_x, pod_y, Color(0.5, 0.5, 0.5, 0.9)
+        DrawCircle pod_x, pod_y, 11.0, Color(0.7, 0.5, 0.0, 1.0)
+        DrawCircle pod_x, pod_y, 6.0, Color(1.0, 0.9, 0.3, 1.0)
+    End If
+
+    ' Turrets
+    Dim i As Integer
+    For i = 0 To NUM_TURRETS - 1
+        If tur_alive(i) Then
+            DrawRect tur_x(i) - 11.0, tur_y(i) - 20.0, 22.0, 20.0, Color(0.75, 0.15, 0.15, 1.0)
+            ' Barrel
+            DrawLine tur_x(i), tur_y(i) - 20.0, tur_x(i), tur_y(i) - 30.0, Color(1.0, 0.4, 0.4, 1.0)
+        End If
+        ' Turret bullet (red dot)
+        If tbul_alive(i) Then
+            DrawCircle tbul_x(i), tbul_y(i), 5.0, Color(1.0, 0.2, 0.2, 1.0)
+        End If
+    Next i
+
+    ' Player bullets (yellow dots)
+    For i = 0 To MAX_BULLETS - 1
+        If bul_alive(i) Then
+            DrawCircle bul_x(i), bul_y(i), 3.0, Color(1.0, 1.0, 0.3, 1.0)
+        End If
+    Next i
+
+    ' Ship
+    If ship_alive Then
+        Call DrawShip()
+    End If
+
+    ' HUD overlay
+    Call DrawHUD()
+
+    ' Dead overlay
+    If game_state = 1 Then
+        DrawRect 0, 318, SW, 54, Color(0.0, 0.0, 0.0, 0.78)
+        DrawString "SHIP DESTROYED — Respawning...", 430, 334, Color.White, 22
+    End If
+
+    ' Victory overlay
+    If game_state = 2 Then
+        DrawRect 0, 298, SW, 86, Color(0.0, 0.12, 0.0, 0.88)
+        DrawString "POD DELIVERED!", 488, 308, Color(0.3, 1.0, 0.4, 1.0), 30
+        DrawString "SCORE: " & Str(score) & "        PRESS SPACE to play again", 340, 352, Color.White, 20
+    End If
+End Sub
+
+' ── Simple static starfield ──────────────────────────────────────────────────
+Sub DrawStars()
+    ' 40 pseudo-random stars, computed from index (no state, no arrays)
+    Dim i As Integer
+    Dim sx As Single
+    Dim sy As Single
+    Dim brightness As Single
+    For i = 0 To 39
+        ' Cheap LCG scatter: deterministic but visually random-looking
+        sx = CSng((i * 317 + 53) Mod (SW - 20)) + 10.0
+        sy = CSng((i * 193 + 71) Mod (SH - 20)) + 10.0
+        brightness = 0.25 + CSng(i Mod 4) * 0.12
+        DrawCircle sx, sy, 1.0, Color(brightness, brightness, brightness, 1.0)
+    Next i
+End Sub
+
+' ── Cave walls and escape gap ─────────────────────────────────────────────────
+Sub DrawCave()
+    Dim wall_col As Variant
+    Dim gap_col As Variant
+    wall_col = Color(0.3, 0.72, 0.3, 1.0)
+    gap_col  = Color(0.12, 0.35, 0.12, 1.0)
+
+    ' Left wall
+    DrawLine CAVE_L, CAVE_TOP, CAVE_L, CAVE_BOT, wall_col
+    ' Right wall
+    DrawLine CAVE_R, CAVE_TOP, CAVE_R, CAVE_BOT, wall_col
+    ' Floor
+    DrawLine CAVE_L, CAVE_BOT, CAVE_R, CAVE_BOT, wall_col
+    ' Ceiling — left side (up to gap)
+    DrawLine CAVE_L, CAVE_TOP, GAP_L, CAVE_TOP, wall_col
+    ' Ceiling — right side (after gap)
+    DrawLine GAP_R, CAVE_TOP, CAVE_R, CAVE_TOP, wall_col
+
+    ' Gap guide lines extending upward (dim, hint the escape corridor)
+    DrawLine GAP_L, 0.0, GAP_L, CAVE_TOP, gap_col
+    DrawLine GAP_R, 0.0, GAP_R, CAVE_TOP, gap_col
+
+    ' Small chevron at very top marking the gap (↓ entry, ↑ escape)
+    DrawLine GAP_L + 10.0, 18.0, (GAP_L + GAP_R) / 2.0, 38.0, gap_col
+    DrawLine GAP_R - 10.0, 18.0, (GAP_L + GAP_R) / 2.0, 38.0, gap_col
+End Sub
+
+' ── Ship (wireframe triangle + thrust flame + beam) ──────────────────────────
+Sub DrawShip()
+    ' Triangle vertices: nose forward, two wings swept back
+    Dim nx As Single
+    Dim ny As Single
+    Dim lx As Single
+    Dim ly As Single
+    Dim rx As Single
+    Dim ry As Single
+    nx = ship_x + Cos(ship_angle) * 14.0
+    ny = ship_y + Sin(ship_angle) * 14.0
+    lx = ship_x + Cos(ship_angle + Pi * 0.6) * 11.0
+    ly = ship_y + Sin(ship_angle + Pi * 0.6) * 11.0
+    rx = ship_x + Cos(ship_angle - Pi * 0.6) * 11.0
+    ry = ship_y + Sin(ship_angle - Pi * 0.6) * 11.0
+
+    ' Hull lines
+    DrawLine nx, ny, lx, ly, Color(0.2, 0.8, 1.0, 1.0)
+    DrawLine nx, ny, rx, ry, Color(0.2, 0.8, 1.0, 1.0)
+    DrawLine lx, ly, rx, ry, Color(0.1, 0.5, 0.7, 1.0)
+
+    ' Thrust flame (orange plume from rear)
+    If Input.IsActionPressed("ui_up") And fuel > 0.0 Then
+        Dim ta As Single
+        ta = ship_angle + Pi
+        DrawLine ship_x, ship_y, ship_x + Cos(ta) * 20.0, ship_y + Sin(ta) * 20.0, Color(1.0, 0.55, 0.1, 0.95)
+        DrawLine ship_x, ship_y, ship_x + Cos(ta + 0.22) * 12.0, ship_y + Sin(ta + 0.22) * 12.0, Color(1.0, 0.85, 0.2, 0.7)
+        DrawLine ship_x, ship_y, ship_x + Cos(ta - 0.22) * 12.0, ship_y + Sin(ta - 0.22) * 12.0, Color(1.0, 0.85, 0.2, 0.7)
+    End If
+
+    ' Tractor beam ray (cyan, shows range when searching)
+    If Input.IsActionPressed("ui_down") Then
+        If Not pod_attached Then
+            ' Show a "searching" beam toward pod position
+            DrawLine ship_x, ship_y, pod_x, pod_y, Color(0.3, 0.75, 1.0, 0.35)
+        End If
+    End If
+End Sub
+
+' ── HUD ──────────────────────────────────────────────────────────────────────
+Sub DrawHUD()
+    ' Fuel bar (outline + fill)
+    DrawRect 20, 14, 204, 16, Color(0.12, 0.12, 0.12, 1.0)
+    Dim fuel_pct As Single
+    Dim bar_w As Single
+    fuel_pct = fuel / FUEL_MAX
+    bar_w = fuel_pct * 200.0
+    If bar_w > 0.5 Then
+        If fuel_pct > 0.4 Then
+            DrawRect 22, 16, bar_w, 12, Color(0.2, 0.85, 0.2, 1.0)
+        ElseIf fuel_pct > 0.15 Then
+            DrawRect 22, 16, bar_w, 12, Color(0.9, 0.72, 0.1, 1.0)
+        Else
+            DrawRect 22, 16, bar_w, 12, Color(0.9, 0.2, 0.1, 1.0)
+        End If
+    End If
+    DrawString "FUEL", 230, 14, Color(0.6, 0.6, 0.6, 1.0), 16
+
+    DrawString "SCORE: " & Str(score), 22, 38, Color.White, 18
+
+    ' Controls reminder at bottom
+    DrawString "LEFT/RIGHT rotate   UP thrust   SPACE fire   DOWN beam — grab yellow pod, escape through the gap", 22, CSng(SH) - 22.0, Color(0.35, 0.35, 0.35, 1.0), 13
+End Sub
