@@ -22,8 +22,9 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 - **Language:** VB6-style BASIC (`VisualGasic` / `.vg` files), tokenizer/parser/AST/VM in C++
 - **Runtime:** Godot 4.6.1 plugin via GDExtension (`.gdextension`)
 - **Primary IDE:** Godot's native Script editor — VG extends it with autocomplete, Code Navigator, dot-completion
-- **VG custom IDE:** `addons/visual_gasic/visual_gasic_plugin.gd` — **MOTHBALLED until post-v6.0 stable**; only active when `vg/enable_experimental_plugins = true`
-- **Focus until v6.0:** VG Script language quality + Godot IDE integration. Do NOT expand the VG custom IDE.
+- **VG custom IDE shell:** standalone IDE window/layout, Form Designer, embedded code editor — **MOTHBALLED until post-v6.0 stable**; only active when `vg/enable_experimental_plugins = true`
+- **Godot IDE integration (active scope):** Toolbox panel, Properties window, Immediate window, Narcea AI Pair, Code Navigator, autocomplete, dot-completion — these are docked inside Godot's editor and are **in scope for all milestones**
+- **Focus until v6.0:** VG Script language quality + Godot IDE integration. Do NOT expand the VG standalone IDE shell.
 - **AI providers:** `addons/visual_gasic/vg_ai_providers.gd` — Ollama, OpenAI, Claude, Gemini
 - **Canonical Claude models (Anthropic direct API):** `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5` (verified 2026-06-29)
 - **GitHub Copilot model dropdown:** also exposes `claude-opus-4-6`, `claude-opus-4-7` — these are Copilot-specific variants not on the direct API

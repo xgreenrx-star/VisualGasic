@@ -860,15 +860,20 @@ Short, finishable list. **No new aspirational items.**
 ### 🛑 MOTHBALL — defer until post-positioning
 
 > **STRATEGIC DECISION — Jul 4 2026 (locked):**
-> VG's custom IDE (Form Designer, VG IDE layout, project explorer, embedded code editor) is **mothballed until after v6.0 stable ships (Jan 1 2027)**.
-> The focus is entirely on **VG Script language quality** and **integration with Godot's native IDE**.
-> The VG IDE will remain in the codebase but will only activate when `vg/enable_experimental_plugins = true`
-> is set in Project Settings. Users are not expected to use it before v6.0 stable.
-> All new IDE-facing work goes into Godot's native Script editor (autocomplete, Code Navigator, etc.).
+> VG's **standalone custom IDE shell** (the separate IDE window/layout, Form Designer, embedded code editor, project explorer) is **mothballed until after v6.0 stable ships (Jan 1 2027)**.
+> The VG IDE shell remains in the codebase but only activates when `vg/enable_experimental_plugins = true` — users are not expected to use it before v6.0 stable.
+>
+> **This does NOT affect Godot IDE integration work**, which is the primary focus:
+> Toolbox panel, Properties window, Immediate window, Narcea AI Pair, Code Navigator, autocomplete,
+> dot-completion, and any future docked panels or tools that extend Godot's native editor are all
+> **active work and in scope for all milestones through v6.0**.
+>
+> Rule: if the feature lives *inside* Godot's editor as a docked panel or tool → **build it**.
+> If it requires the VG standalone IDE shell/window to be open → **defer to post-v6.0**.
 
 | Feature | Reason |
 |---------|--------|
-| **VG's custom IDE / Form Designer** | **MOTHBALLED until post-v6.0 stable.** Hidden behind `vg/enable_experimental_plugins`. Focus is on Godot IDE integration. |
+| **VG's custom IDE / Form Designer** | **MOTHBALLED until post-v6.0 stable.** The standalone IDE *shell/window* is hidden behind `vg/enable_experimental_plugins`. Docked panels inside Godot's editor (Toolbox, Properties, Immediate, Narcea) are **NOT** mothballed. |
 | **Form Designer extraction to standalone plugin/repo** | Too complex, not a positioning feature. Keep in-place with Experimental Plugins gate. Defer to post-v6.0. |
 | **Full IDE refactor to plugin architecture** | Architecturally correct but months of risk. Post-VG Core MVP. |
 | **Working Nodes new features** | Maintenance-only. Do not expand. |
