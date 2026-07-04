@@ -242,9 +242,6 @@ var _package_browser = null
 ## AI Help Panel (v4.4.0) — local Ollama-powered code assistant
 var _ai_help_panel = null
 
-## "↩ Back to VG IDE" button injected into Godot's 3D editor toolbar
-var _back_to_vg_3d_btn: Button = null
-
 ## Tip of the Day dialog (v3.5)
 var _tip_of_day_dialog: Window = null
 var _tip_label: Label = null
@@ -516,17 +513,6 @@ func _enter_tree():
 	# Register custom .vg file icon in the editor theme
 	call_deferred("_register_vg_file_icon")
 	
-	# Inject "↩ Back to VG IDE" button into Godot's 3D editor toolbar
-	_back_to_vg_3d_btn = Button.new()
-	_back_to_vg_3d_btn.text = "\u21a9 Back to VG IDE"
-	_back_to_vg_3d_btn.tooltip_text = "Return to Visual Gasic IDE"
-	_back_to_vg_3d_btn.flat = true
-	_back_to_vg_3d_btn.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
-	_back_to_vg_3d_btn.add_theme_color_override("font_hover_color", Color(0.4, 0.7, 1.0))
-	_back_to_vg_3d_btn.pressed.connect(_on_back_to_vg_from_3d)
-	add_control_to_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_MENU, _back_to_vg_3d_btn)
-	print("VisualGasic: 'Back to VG IDE' button added to 3D editor toolbar")
-
 	# Create VB6 Project Explorer (right-upper dock in VB6 mode)
 	var proj_explorer_script = load("res://addons/visual_gasic/vb6_project_explorer.gd")
 	if proj_explorer_script:
@@ -1341,11 +1327,22 @@ func _make_visible(p_visible: bool) -> void:
 	# Hide Godot's own docks & bottom panel to maximize VB6 IDE experience
 	if p_visible:
 		_hide_godot_panels()
-		# --- Auto-detect formless projects ---
-		# If no form is currently loaded and the embedded editor has no file,
-		# scan the project for standalone .vg modules and open the first one
-		# so the user immediately has a code editor instead of a blank canvas.
-		call_deferred("_auto_open_formless_module")
+		# Re-check plugin enabled states so that toggling vg/plugins/*/enabled
+		# in Godot's Project Settings takes effect without a full restart.
+		if _vg_plugin_manager and _vg_plugin_manager.has_method("rescan_plugin_settings"):
+			_vg_plugin_manager.rescan_plugin_settings()
+		# If the 2D canvas "Plugins ▾" menu set a pending plugin, activate it
+		# directly instead of showing the default form/code view.
+		if _vg_plugin_manager and _vg_plugin_manager._pending_activate_plugin != "":
+			var pid: String = _vg_plugin_manager._pending_activate_plugin
+			_vg_plugin_manager._pending_activate_plugin = ""
+			call_deferred("_deferred_activate_plugin", pid)
+		else:
+			# --- Auto-detect formless projects ---
+			# If no form is currently loaded and the embedded editor has no file,
+			# scan the project for standalone .vg modules and open the first one
+			# so the user immediately has a code editor instead of a blank canvas.
+			call_deferred("_auto_open_formless_module")
 	else:
 		_show_godot_panels()
 		# Leaving Form Designer → save embedded code editor if dirty
@@ -1394,6 +1391,13 @@ func _make_visible(p_visible: bool) -> void:
 ## Switches from Form Designer back to the 2D editor, restoring all Godot panels.
 func _on_back_to_godot_pressed() -> void:
 	EditorInterface.set_main_screen_editor("2D")
+
+
+## Deferred helper: activates a plugin by ID after _make_visible finishes.
+## Used when the 2D canvas "Plugins ▾" menu requests a direct plugin switch.
+func _deferred_activate_plugin(plugin_id: String) -> void:
+	if _vg_plugin_manager:
+		_vg_plugin_manager.activate_plugin(plugin_id)
 
 
 ## File > Exit to VG Welcome — saves unsaved work, then spawns the
@@ -1599,11 +1603,6 @@ func _on_vg_plugin_activated(plugin_id: String) -> void:
 func _on_vg_plugins_deactivated() -> void:
 	_showing_plugin_view = false
 	_show_form_view()
-
-## Called when user clicks "↩ Back to VG IDE" in the 3D editor toolbar.
-## Returns to the Visual Gasic IDE main screen.
-func _on_back_to_vg_from_3d() -> void:
-	EditorInterface.set_main_screen_editor(_get_plugin_name())
 
 ## Called by the editor after restoring saved window layout.
 func _set_window_layout(config: ConfigFile):
@@ -1954,12 +1953,6 @@ func _exit_tree():
 		_code_navigator.queue_free()
 		_code_navigator = null
 	_nav_injected_parent = null
-	
-	# Cleanup "Back to VG IDE" button from 3D editor toolbar
-	if is_instance_valid(_back_to_vg_3d_btn):
-		remove_control_from_container(EditorPlugin.CONTAINER_SPATIAL_EDITOR_MENU, _back_to_vg_3d_btn)
-		_back_to_vg_3d_btn.queue_free()
-		_back_to_vg_3d_btn = null
 	
 	# Cleanup alignment toolbar
 	if is_instance_valid(alignment_toolbar):
@@ -2376,8 +2369,8 @@ func _handle_vg_drop_delayed(drag_data: Dictionary, _retry_count: int = 0) -> vo
 	# Map Godot prototype names to VB6 canonical prefixes so placed nodes
 	# get names like Text1, Command1, Check1, etc. by default.
 	const VB6_PREFIX_MAP: Dictionary = {
-		"LineEdit":          "Text",
-		"TextEdit":          "Text",
+		"LineEdit":          "TextBox",
+		"TextEdit":          "TextBox",
 		"Button":            "Command",
 		"Label":             "Label",
 		"CheckBox":          "Check",
@@ -8999,25 +8992,42 @@ func open_module_in_embedded_editor(vg_path: String) -> void:
 
 ## Feed the current form's control names and form name to the embedded code editor.
 func _feed_control_names_to_editor() -> void:
-	if not is_instance_valid(_embedded_code_editor) or not _form_designer:
+	if not is_instance_valid(_embedded_code_editor):
 		return
 	var names: Array[String] = []
-	var count = _form_designer.get_control_count()
-	for i in count:
-		var info = _form_designer.get_control_info(i)
-		var n = info.get("name", "")
-		if not n.is_empty():
-			names.append(n)
+	var form_name: String = "Form1"
+	var info_list: Array[Dictionary] = []
+
+	# Primary source: the C++ form designer (if loaded and has controls)
+	if _form_designer:
+		var count = _form_designer.get_control_count()
+		for i in count:
+			var info = _form_designer.get_control_info(i)
+			var n = info.get("name", "")
+			if not n.is_empty():
+				names.append(n)
+				info_list.append(info)
+		if _form_designer.has_method("get_form_name"):
+			form_name = _form_designer.get_form_name()
+
+	# Fallback: if the form designer has no controls, read them from the
+	# currently edited scene tree. This covers cases where the user opens
+	# Code View before the form designer has parsed the .tscn, or when
+	# editing a standalone .vg file that shares a name with a scene.
+	if names.is_empty():
+		var scene_root = EditorInterface.get_edited_scene_root()
+		if scene_root:
+			form_name = scene_root.name
+			for child in scene_root.get_children():
+				var n: String = child.name
+				if not n.is_empty():
+					names.append(n)
+					info_list.append({"name": n, "type": child.get_class()})
+
 	_embedded_code_editor.set_control_names(names)
-	# Pass the form name so Form1. works like Me. in IntelliSense
-	var form_name = _form_designer.get_form_name() if _form_designer.has_method("get_form_name") else "Form1"
 	if _embedded_code_editor.has_method("set_form_name"):
 		_embedded_code_editor.set_form_name(form_name)
-	# Also pass full control info for Index Map panel
 	if _embedded_code_editor.has_method("set_control_info_list"):
-		var info_list: Array[Dictionary] = []
-		for i in count:
-			info_list.append(_form_designer.get_control_info(i))
 		_embedded_code_editor.set_control_info_list(info_list)
 
 ## Wire the Output and System Console tabs to live data sources.
@@ -12720,7 +12730,13 @@ func _check_script_editor_for_vg():
 	_current_code_edit = code_edit
 	if not code_edit.gui_input.is_connected(_on_code_edit_gui_input):
 		code_edit.gui_input.connect(_on_code_edit_gui_input)
-	
+
+	# Enable VG code completion on the native Script editor CodeEdit.
+	# This provides form control names, VB6 keywords, and variables as
+	# suggestions when editing .vg files outside the VG IDE.
+	if script_path.ends_with(".vg"):
+		_setup_native_code_completion(code_edit)
+
 	# Refresh navigator for the new script.
 	# Schedule a second refresh 0.3s later in case the CodeEdit text buffer
 	# wasn't populated yet on the first tick (Godot fills it async on open).
@@ -12806,6 +12822,270 @@ func _is_valid_identifier(name: String) -> bool:
 		if not _is_identifier_char(c):
 			return false
 	return true
+
+
+## Enable VG code completion on a native Script editor CodeEdit for .vg files.
+## Adds form control names, VB6 keywords, and local variables as suggestions
+## alongside Godot's own completions from the C++ ScriptLanguageExtension.
+func _setup_native_code_completion(code_edit: CodeEdit) -> void:
+	code_edit.code_completion_enabled = true
+	# Merge letter prefixes with any existing ones so typing triggers completion.
+	# Godot's built-in prefixes (e.g. ".") are preserved; we add A-Z, a-z.
+	var existing: Array[String] = []
+	for p in code_edit.code_completion_prefixes:
+		existing.append(p)
+	for i in range(65, 91):  # A–Z
+		var c: String = char(i)
+		if c not in existing:
+			existing.append(c)
+	for i in range(97, 123):  # a–z
+		var c: String = char(i)
+		if c not in existing:
+			existing.append(c)
+	if "." not in existing:
+		existing.append(".")
+	code_edit.code_completion_prefixes = existing
+	if not code_edit.code_completion_requested.is_connected(_on_native_code_completion_requested):
+		code_edit.code_completion_requested.connect(_on_native_code_completion_requested.bind(code_edit))
+
+
+## Provides VG-aware completions in the native Script editor's CodeEdit.
+## Adds form controls, VB6 keywords, and local variables. Godot's own
+## completions (from the C++ language extension) are preserved — we only
+## append additional items.
+func _on_native_code_completion_requested(code_edit: CodeEdit) -> void:
+	var line_text: String = code_edit.get_line(code_edit.get_caret_line())
+	var col: int = code_edit.get_caret_column()
+
+	# Build a map of control names → Godot class for dot-completion
+	var control_map: Dictionary = {}  # { "TextBox1": "LineEdit", ... }
+	var scene_root = EditorInterface.get_edited_scene_root()
+	if scene_root:
+		for child in scene_root.get_children():
+			var n: String = child.name
+			if not n.is_empty() and n != "VGASIC":
+				control_map[n] = child.get_class()
+	if _form_designer:
+		var count = _form_designer.get_control_count()
+		for i in count:
+			var info = _form_designer.get_control_info(i)
+			var n = info.get("name", "")
+			if not n.is_empty() and not control_map.has(n):
+				control_map[n] = info.get("type", "Control")
+
+	# Detect dot-completion: "TextBox1." → show properties of TextBox1
+	var dot_pos: int = line_text.rfind(".", col - 1)
+	if dot_pos >= 0 and dot_pos == col - 1:
+		# Extract the object name before the dot
+		var obj_end: int = dot_pos
+		var obj_start: int = obj_end
+		while obj_start > 0 and _is_identifier_char(line_text[obj_start - 1]):
+			obj_start -= 1
+		var obj_name: String = line_text.substr(obj_start, obj_end - obj_start)
+
+		if control_map.has(obj_name):
+			var godot_class: String = control_map[obj_name]
+			_add_control_properties(code_edit, godot_class)
+			code_edit.update_code_completion_options(false)
+			return
+		elif obj_name == "Me" or obj_name == (scene_root.name if scene_root else ""):
+			# Me. or Form1. → show controls + form members
+			for ctrl_name in control_map.keys():
+				code_edit.add_code_completion_option(
+					CodeEdit.KIND_MEMBER, ctrl_name, ctrl_name,
+					Color(0.4, 0.9, 1.0), null, null, 100)
+			var VGIntelliSense = load("res://addons/visual_gasic/vg_intellisense.gd")
+			if VGIntelliSense:
+				for m in VGIntelliSense.get_form_members():
+					code_edit.add_code_completion_option(
+						CodeEdit.KIND_MEMBER, m["text"], m["text"],
+						Color(0.7, 0.85, 1.0), null, null, 50)
+			code_edit.update_code_completion_options(false)
+			return
+
+	# --- Regular (non-dot) completion ---
+	# Extract the word being typed
+	var start: int = col
+	while start > 0 and _is_identifier_char(line_text[start - 1]):
+		start -= 1
+	var word: String = line_text.substr(start, col - start).to_lower()
+
+	# Add matching form controls (high priority so they appear first)
+	for ctrl_name in control_map.keys():
+		if word.is_empty() or ctrl_name.to_lower().begins_with(word):
+			code_edit.add_code_completion_option(
+				CodeEdit.KIND_MEMBER, ctrl_name, ctrl_name,
+				Color(0.4, 0.9, 1.0), null, null, 100)
+
+	# Add matching VB6 keywords (lower priority than controls)
+	var keywords: Array[String] = [
+		"Dim", "As", "String", "Integer", "Long", "Boolean", "Double", "Single",
+		"Sub", "End Sub", "Function", "End Function", "If", "Then", "Else",
+		"ElseIf", "End If", "For", "To", "Step", "Next", "Do", "While", "Loop",
+		"Until", "Wend", "Select", "Case", "End Select", "With", "End With",
+		"Set", "New", "Nothing", "True", "False", "And", "Or", "Not", "Mod",
+		"Call", "Exit", "GoTo", "GoSub", "Return", "On", "Error", "Resume",
+		"ReDim", "Preserve", "Erase", "Let", "Private", "Public", "Static",
+		"ByVal", "ByRef", "Optional", "ParamArray", "Property", "Get",
+		"MsgBox", "InputBox", "Print", "Debug.Print", "Me", "Import",
+	]
+	for kw in keywords:
+		if word.is_empty() or kw.to_lower().begins_with(word):
+			code_edit.add_code_completion_option(
+				CodeEdit.KIND_PLAIN_TEXT, kw, kw,
+				Color(0.6, 0.7, 1.0), null, null, 50)
+
+	# Add local variables parsed from the current file
+	var text: String = code_edit.text
+	var var_pattern := RegEx.new()
+	var_pattern.compile("(?i)\\bDim\\s+(\\w+)")
+	for m in var_pattern.search_all(text):
+		var vname: String = m.get_string(1)
+		if word.is_empty() or vname.to_lower().begins_with(word):
+			code_edit.add_code_completion_option(
+				CodeEdit.KIND_VARIABLE, vname, vname,
+				Color(0.9, 0.85, 0.6), null, null, 80)
+
+	# Use force=false so Godot's own completions (from the C++
+	# ScriptLanguageExtension) are preserved alongside ours.
+	code_edit.update_code_completion_options(false)
+
+
+## Add VB6-style property/method completions for a Godot control class.
+## Uses ClassDB to enumerate properties and methods with VB6-friendly names.
+func _add_control_properties(code_edit: CodeEdit, godot_class: String) -> void:
+	# Common VB6 property aliases that apply to most controls
+	var common_props: Array[Dictionary] = [
+		{"text": "Text", "detail": "String — Control text content"},
+		{"text": "Caption", "detail": "String — Display text / caption"},
+		{"text": "Enabled", "detail": "Boolean — Whether control accepts input"},
+		{"text": "Visible", "detail": "Boolean — Whether control is shown"},
+		{"text": "Left", "detail": "Integer — X position"},
+		{"text": "Top", "detail": "Integer — Y position"},
+		{"text": "Width", "detail": "Integer — Control width"},
+		{"text": "Height", "detail": "Integer — Control height"},
+		{"text": "Name", "detail": "String — Control name"},
+		{"text": "TabStop", "detail": "Boolean — Included in Tab order"},
+		{"text": "TabIndex", "detail": "Integer — Tab order index"},
+		{"text": "ToolTipText", "detail": "String — Tooltip text"},
+		{"text": "BackColor", "detail": "Color — Background color"},
+		{"text": "ForeColor", "detail": "Color — Foreground/text color"},
+		{"text": "Font", "detail": "Font — Control font"},
+		{"text": "FontSize", "detail": "Integer — Font size in points"},
+	]
+
+	# Type-specific properties
+	var type_props: Dictionary = {
+		"LineEdit": [
+			{"text": "MaxLength", "detail": "Integer — Maximum character count"},
+			{"text": "PasswordMode", "detail": "Boolean — Mask input as bullets"},
+			{"text": "PlaceholderText", "detail": "String — Placeholder when empty"},
+			{"text": "Alignment", "detail": "Integer — Text alignment (0=Left,1=Center,2=Right)"},
+			{"text": "ReadOnly", "detail": "Boolean — Prevent editing"},
+			{"text": "SelStart", "detail": "Integer — Selection start position"},
+			{"text": "SelLength", "detail": "Integer — Selection length"},
+			{"text": "SelText", "detail": "String — Selected text"},
+		],
+		"Button": [
+			{"text": "Default", "detail": "Boolean — Responds to Enter key"},
+			{"text": "Cancel", "detail": "Boolean — Responds to Escape key"},
+		],
+		"CheckBox": [
+			{"text": "Value", "detail": "Integer — 0=Unchecked, 1=Checked"},
+			{"text": "Checked", "detail": "Boolean — Whether checked"},
+		],
+		"Label": [
+			{"text": "Alignment", "detail": "Integer — Text alignment"},
+			{"text": "AutoSize", "detail": "Boolean — Auto-resize to fit text"},
+			{"text": "WordWrap", "detail": "Boolean — Wrap text at boundaries"},
+		],
+		"OptionButton": [
+			{"text": "ListIndex", "detail": "Integer — Selected item index"},
+			{"text": "ListCount", "detail": "Integer — Number of items"},
+			{"text": "ItemData", "detail": "Variant — Data for selected item"},
+			{"text": "AddItem", "detail": "AddItem(text) — Add an option"},
+			{"text": "RemoveItem", "detail": "RemoveItem(index) — Remove an option"},
+			{"text": "Clear", "detail": "Clear() — Remove all items"},
+		],
+		"ItemList": [
+			{"text": "ListIndex", "detail": "Integer — Selected item index"},
+			{"text": "ListCount", "detail": "Integer — Number of items"},
+			{"text": "List", "detail": "String() — Array of items"},
+			{"text": "AddItem", "detail": "AddItem(text) — Add an item"},
+			{"text": "RemoveItem", "detail": "RemoveItem(index) — Remove an item"},
+			{"text": "Clear", "detail": "Clear() — Remove all items"},
+		],
+		"ProgressBar": [
+			{"text": "Value", "detail": "Integer — Current value"},
+			{"text": "Min", "detail": "Integer — Minimum value"},
+			{"text": "Max", "detail": "Integer — Maximum value"},
+		],
+		"Timer": [
+			{"text": "Interval", "detail": "Integer — Timer interval (ms)"},
+			{"text": "Enabled", "detail": "Boolean — Whether timer is running"},
+		],
+		"TextureRect": [
+			{"text": "Picture", "detail": "Texture — Image displayed"},
+			{"text": "Stretch", "detail": "Boolean — Stretch image to fit"},
+		],
+	}
+
+	# Add common properties
+	for prop in common_props:
+		code_edit.add_code_completion_option(
+			CodeEdit.KIND_MEMBER, prop["text"], prop["text"],
+			Color(0.7, 0.85, 1.0), null, null, 10)
+
+	# Add type-specific properties
+	if type_props.has(godot_class):
+		for prop in type_props[godot_class]:
+			code_edit.add_code_completion_option(
+				CodeEdit.KIND_MEMBER, prop["text"], prop["text"],
+				Color(0.85, 0.95, 0.6), null, null, 5)
+
+	# Add common methods
+	var methods: Array[Dictionary] = [
+		{"text": "SetFocus", "detail": "SetFocus() — Give this control focus"},
+		{"text": "Refresh", "detail": "Refresh() — Force repaint"},
+		{"text": "Move", "detail": "Move(left, top, [width], [height])"},
+	]
+	for meth in methods:
+		code_edit.add_code_completion_option(
+			CodeEdit.KIND_FUNCTION, meth["text"], meth["text"],
+			Color(0.9, 0.75, 0.5), null, null, 15)
+
+	# Add Godot native properties/methods from ClassDB (lower priority)
+	var already_added: Dictionary = {}
+	for prop in common_props:
+		already_added[prop["text"].to_lower()] = true
+	if type_props.has(godot_class):
+		for prop in type_props[godot_class]:
+			already_added[prop["text"].to_lower()] = true
+	for meth in methods:
+		already_added[meth["text"].to_lower()] = true
+
+	if ClassDB.class_exists(godot_class):
+		var props := ClassDB.class_get_property_list(godot_class)
+		for p in props:
+			var pname: String = p["name"]
+			if pname.is_empty() or pname.begins_with("_") or already_added.has(pname.to_lower()):
+				continue
+			# Skip internal/meta properties
+			if pname in ["script", "resource_path", "resource_name", "resource_local_to_scene"]:
+				continue
+			code_edit.add_code_completion_option(
+				CodeEdit.KIND_MEMBER, pname, pname,
+				Color(0.55, 0.65, 0.8), null, null, 100)
+
+		var mlist := ClassDB.class_get_method_list(godot_class)
+		for mi in mlist:
+			var mname: String = mi["name"]
+			if mname.is_empty() or mname.begins_with("_") or already_added.has(mname.to_lower()):
+				continue
+			code_edit.add_code_completion_option(
+				CodeEdit.KIND_FUNCTION, mname, mname,
+				Color(0.55, 0.6, 0.75), null, null, 200)
+
 
 ## Applies VisualGasic syntax highlighting to a CodeEdit.
 ## NOTE: This function is DISABLED because assigning a CodeHighlighter
@@ -13183,6 +13463,11 @@ func _setup_ui_forms_toolbar_button() -> void:
 	_wire_event_btn.flat = true
 	_wire_event_btn.pressed.connect(_on_wire_event_btn_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _wire_event_btn)
+
+	# Now that Wire Event is the last VG button, append a button for every
+	# enabled plugin so they appear to the right of the VG toolbar group.
+	if _vg_plugin_manager and _vg_plugin_manager.has_method("setup_canvas_toolbar_buttons"):
+		_vg_plugin_manager.setup_canvas_toolbar_buttons()
 
 	# Register context menu items into Godot's native 2D editor right-click popup
 	if not _ui_forms_ctx_plugin:
