@@ -634,7 +634,6 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 		# Re-apply color regions (comments + strings) — clear and rebuild
 		hl.clear_color_regions()
 		hl.add_color_region("'", "", theme.comment_color, true)
-		hl.add_color_region("REM ", "", theme.comment_color, true)
 		hl.add_color_region('"', '"', theme.string_color)
 
 	# ── Scrollbar styling ──

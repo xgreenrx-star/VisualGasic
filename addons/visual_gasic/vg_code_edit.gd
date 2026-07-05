@@ -245,9 +245,8 @@ func _setup_syntax_highlighter() -> void:
 	# String color (orange)
 	highlighter.add_color_region("\"", "\"", Color(0.9, 0.6, 0.4))
 	
-	# Comment color (green)
+	# Comment color (green) — REM keyword handled via keyword_colors below
 	highlighter.add_color_region("'", "", Color(0.5, 0.7, 0.5), true)
-	highlighter.add_color_region("REM ", "", Color(0.5, 0.7, 0.5), true)
 	
 	# Number color
 	highlighter.number_color = Color(0.7, 0.9, 0.7)

@@ -241,6 +241,8 @@ var _package_browser = null
 
 ## AI Help Panel (v4.4.0) — local Ollama-powered code assistant
 var _ai_help_panel = null
+var _narcea_window: PanelContainer = null
+var _narcea_toolbar_btn: Button = null
 
 ## Tip of the Day dialog (v3.5)
 var _tip_of_day_dialog: Window = null
@@ -303,6 +305,21 @@ func _enter_tree():
 		false,
 		TYPE_BOOL
 	)
+
+	# Register AI provider keys in EditorSettings so they appear under
+	# Editor > Editor Settings > Visual Gasic / AI and are shared globally
+	# across all Godot projects (never stored in project.godot).
+	var _es := get_editor_interface().get_editor_settings()
+	_register_editor_setting(_es, "visual_gasic/ai/openai_key", "", TYPE_STRING, PROPERTY_HINT_PASSWORD, "")
+	_register_editor_setting(_es, "visual_gasic/ai/claude_key", "", TYPE_STRING, PROPERTY_HINT_PASSWORD, "")
+	_register_editor_setting(_es, "visual_gasic/ai/gemini_key", "", TYPE_STRING, PROPERTY_HINT_PASSWORD, "")
+	_register_editor_setting(_es, "visual_gasic/ai/preferred_provider", "ollama", TYPE_STRING, PROPERTY_HINT_ENUM, "ollama,openai,claude,gemini")
+	_register_editor_setting(_es, "visual_gasic/ai/migrated_to_editor_settings", false, TYPE_BOOL)
+	# Narcea window geometry (persists across sessions via EditorSettings)
+	_register_editor_setting(_es, "visual_gasic/narcea/window_x", -1.0, TYPE_FLOAT)
+	_register_editor_setting(_es, "visual_gasic/narcea/window_y", -1.0, TYPE_FLOAT)
+	_register_editor_setting(_es, "visual_gasic/narcea/window_w", 520.0, TYPE_FLOAT)
+	_register_editor_setting(_es, "visual_gasic/narcea/window_h", 640.0, TYPE_FLOAT)
 
 	# Import Plugin
 	import_plugin = preload("res://addons/visual_gasic/frm_import_plugin.gd").new()
@@ -502,13 +519,13 @@ func _enter_tree():
 		_package_browser.visible = false
 		print("VisualGasic: Package Browser created (will embed in IDE)")
 	
-	# Create AI Help Panel (v4.4.0) — will be embedded in VB6 IDE bottom tabs
+	# Create AI Help Panel — appears in Godot bottom panel by default (Godot IDE mode).
+	# In VG IDE mode it is re-parented into the embedded code editor's bottom tabs.
 	var ai_help_script = load("res://addons/visual_gasic/vg_ai_help.gd")
 	if ai_help_script:
 		_ai_help_panel = ai_help_script.new()
-		add_child(_ai_help_panel)  # Park on plugin until IDE is ready
+		add_child(_ai_help_panel)
 		_ai_help_panel.visible = false
-		print("VisualGasic: AI Help panel created (will embed in IDE)")
 	
 	# Register custom .vg file icon in the editor theme
 	call_deferred("_register_vg_file_icon")
@@ -536,7 +553,8 @@ func _enter_tree():
 		add_tool_menu_item("Toggle Tweak Overlay", Callable(self, "_on_toggle_tweak_overlay"))
 		_layout_manager.layout_changed.connect(_on_vb6_mode_changed)
 		print("VisualGasic: Added 'Toggle VG IDE Layout' and 'Toggle Tweak Overlay' to Project > Tools menu")
-	
+	add_tool_menu_item("Narcea AI Pair (Ctrl+Shift+N)", Callable(self, "_on_toggle_narcea_panel"))
+
 	# NOTE: The "Form Designer" button in the main screen bar is created
 	# automatically by Godot because _has_main_screen() returns true.
 	# No manual button needed — Godot handles pressed-state, visibility,
@@ -1937,7 +1955,20 @@ func _exit_tree():
 		_package_browser.queue_free()
 		_package_browser = null
 
-	# Cleanup AI Help Panel (embedded in IDE bottom tabs)
+	# Cleanup Narcea toolbar button
+	if is_instance_valid(_narcea_toolbar_btn):
+		if _narcea_toolbar_btn.get_parent():
+			_narcea_toolbar_btn.get_parent().remove_child(_narcea_toolbar_btn)
+		else:
+			remove_control_from_container(EditorPlugin.CONTAINER_TOOLBAR, _narcea_toolbar_btn)
+		_narcea_toolbar_btn.queue_free()
+		_narcea_toolbar_btn = null
+	# Cleanup Narcea floating window
+	if is_instance_valid(_narcea_window):
+		_save_narcea_window_geometry()
+		_narcea_window.queue_free()
+		_narcea_window = null
+	# Cleanup AI Help Panel (IDE bottom tab or plugin child)
 	if is_instance_valid(_ai_help_panel):
 		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("remove_bottom_tab"):
 			_embedded_code_editor.remove_bottom_tab(_ai_help_panel)
@@ -2075,6 +2106,13 @@ func get_debugger_breakpoints() -> Dictionary:
 func _input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
+
+	# ── Ctrl+Shift+N  →  Narcea AI Pair (works in Godot IDE and VG IDE mode) ──
+	if event.keycode == KEY_N and event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
+		_on_toggle_narcea_panel()
+		get_viewport().set_input_as_handled()
+		return
+
 	# Only intercept when our Form Designer main screen is visible
 	if not is_instance_valid(_ide_layout) or not _ide_layout.visible:
 		return
@@ -9073,6 +9111,9 @@ func _embed_ide_bottom_panels() -> void:
 		print("VisualGasic: Package Browser embedded in IDE bottom tabs")
 
 	if is_instance_valid(_ai_help_panel):
+		# Hide the floating window if open — VG IDE claims the panel instead
+		if is_instance_valid(_narcea_window):
+			_narcea_window.visible = false
 		_embedded_code_editor.add_bottom_tab("AI Pair", _ai_help_panel)
 		print("VisualGasic: AI Help embedded in IDE bottom tabs")
 
@@ -10115,6 +10156,19 @@ func _register_project_setting(path: String, default, type: int, hint: int = PRO
 		"hint_string": hint_string,
 	})
 
+## Register an editor setting in EditorSettings with hint info and a default
+## value. No-op if already registered, preserving the user's saved value.
+func _register_editor_setting(es: EditorSettings, path: String, default, type: int, hint: int = PROPERTY_HINT_NONE, hint_string: String = "") -> void:
+	if not es.has_setting(path):
+		es.set_setting(path, default)
+	es.set_initial_value(path, default, false)
+	es.add_property_info({
+		"name": path,
+		"type": type,
+		"hint": hint,
+		"hint_string": hint_string,
+	})
+
 
 ## Scan the project for the first .vg file that has form content with a
 ## matching .tscn scene.  Returns the .tscn path, or "" if none found.
@@ -10256,6 +10310,77 @@ func _on_toggle_tweak_overlay() -> void:
 		debugger_plugin.toggle_tweak_overlay()
 	else:
 		push_warning("VisualGasic: Cannot toggle tweak overlay — debugger plugin unavailable or no active session.")
+
+## Save Narcea window size and position to EditorSettings.
+func _save_narcea_window_geometry() -> void:
+	if not is_instance_valid(_narcea_window):
+		return
+	var es := get_editor_interface().get_editor_settings()
+	es.set_setting("visual_gasic/narcea/window_x", _narcea_window.position.x)
+	es.set_setting("visual_gasic/narcea/window_y", _narcea_window.position.y)
+	es.set_setting("visual_gasic/narcea/window_w", _narcea_window.size.x)
+	es.set_setting("visual_gasic/narcea/window_h", _narcea_window.size.y)
+
+## Toggle Narcea AI Pair floating window (Godot IDE mode).
+## In VG IDE mode the panel is embedded in the code editor's bottom tabs instead.
+## Keyboard shortcut: Ctrl+Shift+N. Also accessible via toolbar button or Project > Tools.
+func _on_toggle_narcea_panel() -> void:
+	if not is_instance_valid(_ai_help_panel):
+		return
+	# VG IDE mode: focus embedded bottom tab
+	if is_instance_valid(_ide_layout) and _ide_layout.visible:
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_bottom_tab"):
+			_embedded_code_editor.focus_bottom_tab(_ai_help_panel)
+		return
+	# Godot IDE mode: toggle existing floating window
+	if is_instance_valid(_narcea_window):
+		if _narcea_window.visible:
+			_save_narcea_window_geometry()
+		_narcea_window.visible = not _narcea_window.visible
+		return
+	# First call — load saved geometry
+	var es := get_editor_interface().get_editor_settings()
+	var saved_w: float = es.get_setting("visual_gasic/narcea/window_w")
+	var saved_h: float = es.get_setting("visual_gasic/narcea/window_h")
+	var saved_x: float = es.get_setting("visual_gasic/narcea/window_x")
+	var saved_y: float = es.get_setting("visual_gasic/narcea/window_y")
+	_narcea_window = _create_floating_panel("Narcea AI Pair", Vector2(saved_w, saved_h))
+	var content_area = _narcea_window.get_meta("_content")
+	# Add a thin reset strip at the top of the content area
+	var reset_bar := HBoxContainer.new()
+	reset_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var reset_btn := Button.new()
+	reset_btn.text = "↺ Reset Size & Position"
+	reset_btn.flat = true
+	reset_btn.add_theme_font_size_override("font_size", 10)
+	reset_btn.pressed.connect(func():
+		var base_size := get_editor_interface().get_base_control().get_rect().size
+		_narcea_window.size = Vector2(520, 640)
+		_narcea_window.position = Vector2(base_size.x - 560, 60)
+		_save_narcea_window_geometry()
+	)
+	reset_bar.add_child(reset_btn)
+	content_area.add_child(reset_bar)
+	content_area.move_child(reset_bar, 0)
+	# Re-parent the AI panel into the floating window's content area
+	if _ai_help_panel.get_parent():
+		_ai_help_panel.get_parent().remove_child(_ai_help_panel)
+	_ai_help_panel.visible = true
+	_ai_help_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ai_help_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_area.add_child(_ai_help_panel)
+	# Save geometry on close (× button hides the window)
+	_narcea_window.visibility_changed.connect(func():
+		if not _narcea_window.visible:
+			_save_narcea_window_geometry()
+	)
+	get_editor_interface().get_base_control().add_child(_narcea_window)
+	# Restore saved position or default to centre-right
+	if saved_x >= 0.0 and saved_y >= 0.0:
+		_narcea_window.position = Vector2(saved_x, saved_y)
+	else:
+		var screen_size := get_editor_interface().get_base_control().get_rect().size
+		_narcea_window.position = Vector2(screen_size.x - 560, 60)
 
 ## Opens the Snippet Browser dialog (v2.4.1)
 func _on_open_snippet_browser():
@@ -13456,6 +13581,22 @@ func _setup_ui_forms_toolbar_button() -> void:
 	_vg_props_btn.pressed.connect(_on_vg_props_btn_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_props_btn)
 
+	# ── Narcea AI — injected into main screen tab row next to Visual Gasic IDE ──
+	_narcea_toolbar_btn = Button.new()
+	_narcea_toolbar_btn.text = "🤖 Narcea AI"
+	_narcea_toolbar_btn.tooltip_text = "Open Narcea AI Pair panel (Ctrl+Shift+N)"
+	_narcea_toolbar_btn.flat = true
+	_narcea_toolbar_btn.pressed.connect(_on_toggle_narcea_panel)
+	# Find the "Visual Gasic IDE" tab button and insert Narcea right after it
+	var vg_ide_btn := _find_button_in_editor_tree(get_editor_interface().get_base_control(), "Visual Gasic IDE")
+	if vg_ide_btn and is_instance_valid(vg_ide_btn.get_parent()):
+		var tab_parent := vg_ide_btn.get_parent()
+		tab_parent.add_child(_narcea_toolbar_btn)
+		tab_parent.move_child(_narcea_toolbar_btn, vg_ide_btn.get_index() + 1)
+	else:
+		# Fallback: add to the top toolbar if tree search failed
+		add_control_to_container(EditorPlugin.CONTAINER_TOOLBAR, _narcea_toolbar_btn)
+
 	# ── Wire Event ───────────────────────────────────────────────────────────
 	_wire_event_btn = Button.new()
 	_wire_event_btn.text = "⚡ Wire Event"
@@ -13767,9 +13908,8 @@ func _create_floating_panel(title: String, panel_size: Vector2) -> PanelContaine
 				resize_handle.set_meta("_resizing", false)
 		elif event is InputEventMouseMotion and resize_handle.get_meta("_resizing"):
 			var new_size = event.global_position - panel.position + Vector2(4, 4)
-			new_size.x = maxf(new_size.x, panel.custom_minimum_size.x)
-			new_size.y = maxf(new_size.y, panel.custom_minimum_size.y)
-			panel.custom_minimum_size = new_size
+			new_size.x = maxf(new_size.x, 200.0)
+			new_size.y = maxf(new_size.y, 150.0)
 			panel.size = new_size
 			resize_handle.accept_event()
 	)
@@ -13777,6 +13917,18 @@ func _create_floating_panel(title: String, panel_size: Vector2) -> PanelContaine
 
 	return panel
 
+
+## Recursively find the first Button with the given text in the editor UI tree.
+## Used to locate main screen tab buttons (2D, 3D, Visual Gasic IDE, etc.)
+## so we can inject the Narcea AI button directly next to them.
+func _find_button_in_editor_tree(node: Node, text: String) -> Button:
+	if node is Button and (node as Button).text == text:
+		return node as Button
+	for child in node.get_children():
+		var result := _find_button_in_editor_tree(child, text)
+		if result:
+			return result
+	return null
 
 # ─── Floating Toolbox Panel (same viewport — drag-and-drop works) ────────────
 

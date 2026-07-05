@@ -83,110 +83,101 @@ static func find_provider(provider_id: String) -> ProviderInfo:
 
 
 # ─── API Key Management ─────────────────────────────────────────────────────
-# Keys are stored centrally per-user (NOT per-project) so AI access carries
-# over to every VisualGasic project the user opens or creates.
-#   Linux:   $XDG_CONFIG_HOME/visual_gasic/ai_keys.cfg  (default ~/.config/visual_gasic)
-#   Windows: %APPDATA%/VisualGasic/ai_keys.cfg
-#   macOS:   ~/Library/Application Support/VisualGasic/ai_keys.cfg
-# A legacy per-project file (user://vg_ai_keys.cfg) is migrated on first read.
+# Keys are stored in Godot's EditorSettings under visual_gasic/ai/* so they
+# appear in Editor > Editor Settings > Visual Gasic / AI and are shared
+# across all projects without any custom config files.
+#
+# EditorSettings path map:
+#   visual_gasic/ai/openai_key         — OpenAI API key
+#   visual_gasic/ai/claude_key         — Anthropic Claude API key
+#   visual_gasic/ai/gemini_key         — Google Gemini API key
+#   visual_gasic/ai/preferred_provider — last-used provider id
+#
+# Registration: visual_gasic_plugin.gd _enter_tree() calls
+# _register_editor_setting() for all five paths with defaults and hints.
+#
+# One-time migration: on first key access after an upgrade, any values found
+# in the old per-user ai_keys.cfg (or user://vg_ai_keys.cfg) are copied into
+# EditorSettings. The old file is left in place (non-destructive).
 
 const _LEGACY_KEYS_PATH := "user://vg_ai_keys.cfg"
-const _KEYS_FILENAME := "ai_keys.cfg"
 
-static func _central_keys_path() -> String:
+## Return the EditorSettings singleton, or null when running outside the editor.
+static func _editor_settings() -> Object:
+	if not Engine.is_editor_hint():
+		return null
+	return EditorInterface.get_editor_settings()
+
+## Compute the OS-specific path used by the old central ConfigFile (migration only).
+static func _legacy_central_path() -> String:
 	var dir := ""
 	match OS.get_name():
 		"Windows", "UWP":
 			var appdata := OS.get_environment("APPDATA")
-			if appdata.is_empty():
-				return _LEGACY_KEYS_PATH
-			dir = appdata + "/VisualGasic"
+			if not appdata.is_empty():
+				dir = appdata + "/VisualGasic"
 		"macOS":
 			var home_mac := OS.get_environment("HOME")
-			if home_mac.is_empty():
-				return _LEGACY_KEYS_PATH
-			dir = home_mac + "/Library/Application Support/VisualGasic"
+			if not home_mac.is_empty():
+				dir = home_mac + "/Library/Application Support/VisualGasic"
 		_:
 			var xdg := OS.get_environment("XDG_CONFIG_HOME")
 			if xdg.is_empty():
 				var home := OS.get_environment("HOME")
-				if home.is_empty():
-					return _LEGACY_KEYS_PATH
-				xdg = home + "/.config"
-			dir = xdg + "/visual_gasic"
-	DirAccess.make_dir_recursive_absolute(dir)
-	return dir + "/" + _KEYS_FILENAME
+				if not home.is_empty():
+					xdg = home + "/.config"
+			if not xdg.is_empty():
+				dir = xdg + "/visual_gasic"
+	if dir.is_empty():
+		return _LEGACY_KEYS_PATH
+	return dir + "/ai_keys.cfg"
 
-## Migrate per-project legacy keys into the central store. Runs every load
-## (cheap) and *merges* — any non-empty value in the legacy file fills in
-## a missing or empty value in the central file. This handles the case
-## where a brand-new project's empty user://vg_ai_keys.cfg was the first
-## one ever loaded and seeded the central file with blanks, leaving the
-## user's real keys stranded in some other project's user data dir.
-static func _migrate_legacy_if_needed(central: String) -> void:
-	if central == _LEGACY_KEYS_PATH:
-		return  # central path resolution failed; nothing to migrate to
-	if not FileAccess.file_exists(_LEGACY_KEYS_PATH):
+## One-time migration from the old per-user ai_keys.cfg into EditorSettings.
+## Skipped after first run via the migrated_to_editor_settings sentinel.
+static func _migrate_legacy_to_editor_settings_if_needed(es: Object) -> void:
+	if es.get_setting("visual_gasic/ai/migrated_to_editor_settings"):
 		return
-	var legacy := ConfigFile.new()
-	if legacy.load(_LEGACY_KEYS_PATH) != OK:
-		return
-	var central_cfg := ConfigFile.new()
-	central_cfg.load(central)  # OK if missing
-	var changed := false
-	# Merge api_keys section: only fill in keys that are empty or absent
-	# centrally. Never overwrite a populated central value with a legacy one.
-	for provider_id in ["openai", "claude", "gemini"]:
-		var legacy_val: String = legacy.get_value("api_keys", provider_id, "")
-		if legacy_val.is_empty():
-			continue
-		var central_val: String = central_cfg.get_value("api_keys", provider_id, "")
-		if central_val.is_empty():
-			central_cfg.set_value("api_keys", provider_id, legacy_val)
-			changed = true
-	# Preferred provider: copy if central has none.
-	if not central_cfg.has_section_key("preferences", "provider"):
-		var pref: String = legacy.get_value("preferences", "provider", "")
+	var cfg := ConfigFile.new()
+	var loaded := cfg.load(_legacy_central_path()) == OK or cfg.load(_LEGACY_KEYS_PATH) == OK
+	if loaded:
+		for pid in ["openai", "claude", "gemini"]:
+			var val: String = cfg.get_value("api_keys", pid, "")
+			if not val.is_empty():
+				var current: String = es.get_setting("visual_gasic/ai/" + pid + "_key")
+				if current.is_empty():
+					es.set_setting("visual_gasic/ai/" + pid + "_key", val)
+		var pref: String = cfg.get_value("preferences", "provider", "")
 		if not pref.is_empty():
-			central_cfg.set_value("preferences", "provider", pref)
-			changed = true
-	if changed or not FileAccess.file_exists(central):
-		central_cfg.save(central)
+			var current_pref: String = es.get_setting("visual_gasic/ai/preferred_provider")
+			if current_pref == "ollama":
+				es.set_setting("visual_gasic/ai/preferred_provider", pref)
+	es.set_setting("visual_gasic/ai/migrated_to_editor_settings", true)
 
 static func load_api_key(provider_id: String) -> String:
-	var path := _central_keys_path()
-	_migrate_legacy_if_needed(path)
-	var cfg := ConfigFile.new()
-	if cfg.load(path) != OK:
-		# Fall back to legacy per-project location if central path unreadable.
-		if cfg.load(_LEGACY_KEYS_PATH) != OK:
-			return ""
-	return cfg.get_value("api_keys", provider_id, "")
+	var es := _editor_settings()
+	if es == null:
+		return ""
+	_migrate_legacy_to_editor_settings_if_needed(es)
+	return es.get_setting("visual_gasic/ai/" + provider_id + "_key")
 
 static func save_api_key(provider_id: String, key: String) -> void:
-	var path := _central_keys_path()
-	_migrate_legacy_if_needed(path)
-	var cfg := ConfigFile.new()
-	cfg.load(path)  # OK if file doesn't exist yet
-	cfg.set_value("api_keys", provider_id, key)
-	cfg.save(path)
+	var es := _editor_settings()
+	if es == null:
+		return
+	es.set_setting("visual_gasic/ai/" + provider_id + "_key", key)
 
 static func load_preferred_provider() -> String:
-	var path := _central_keys_path()
-	_migrate_legacy_if_needed(path)
-	var cfg := ConfigFile.new()
-	if cfg.load(path) != OK:
-		if cfg.load(_LEGACY_KEYS_PATH) != OK:
-			return "ollama"
-	return cfg.get_value("preferences", "provider", "ollama")
+	var es := _editor_settings()
+	if es == null:
+		return "ollama"
+	_migrate_legacy_to_editor_settings_if_needed(es)
+	return es.get_setting("visual_gasic/ai/preferred_provider")
 
 static func save_preferred_provider(provider_id: String) -> void:
-	var path := _central_keys_path()
-	_migrate_legacy_if_needed(path)
-	var cfg := ConfigFile.new()
-	cfg.load(path)
-	cfg.set_value("preferences", "provider", provider_id)
-	cfg.save(path)
+	var es := _editor_settings()
+	if es == null:
+		return
+	es.set_setting("visual_gasic/ai/preferred_provider", provider_id)
 
 
 # ─── Request Body Builders ──────────────────────────────────────────────────
