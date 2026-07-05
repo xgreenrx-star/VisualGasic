@@ -121,13 +121,13 @@ End Sub
 Sub InitGame()
     level = 1
     score = 0
-    Call ResetShip()
+    Call InitLevel()     ' sets gap_l/gap_r first
+    Call ResetShip()     ' uses gap centre for ship_x
     game_state = 0
-    Call InitLevel()
 End Sub
 
 Sub ResetShip()
-    ship_x = 640.0
+    ship_x = (gap_l + gap_r) / 2.0   ' centre of the escape gap
     ship_y = 55.0
     ship_vx = 0.0
     ship_vy = 0.0
@@ -151,9 +151,9 @@ End Sub
 Sub NextLevel()
     level = level + 1
     If level > MAX_LEVEL Then level = 1
-    Call ResetShip()
+    Call InitLevel()     ' sets gap_l/gap_r first
+    Call ResetShip()     ' uses gap centre for ship_x
     game_state = 0
-    Call InitLevel()
 End Sub
 
 Sub InitLevel()
@@ -291,22 +291,21 @@ Sub _Process(delta As Single)
         End If
     End If
 
-    ' ── Tractor beam ──────────────────────────────────────────────────────
-    beam_on = Input.IsActionPressed("vg_beam")
-
-    If beam_on And Not pod_attached Then
-        Dim bx As Single
-        Dim by As Single
-        bx = pod_x - ship_x
-        by = pod_y - ship_y
-        If Sqr(bx * bx + by * by) < 80.0 Then
-            pod_attached = True
-            tether_angle = 0.0
-            tether_vel = 0.0
+    ' ── Tractor beam (toggle: press / to attach or release) ────────────────
+    If Input.IsActionJustPressed("vg_beam") Then
+        If pod_attached Then
+            pod_attached = False
+        Else
+            Dim bx As Single
+            Dim by As Single
+            bx = pod_x - ship_x
+            by = pod_y - ship_y
+            If Sqr(bx * bx + by * by) < 80.0 Then
+                pod_attached = True
+                tether_angle = 0.0
+                tether_vel = 0.0
+            End If
         End If
-    End If
-    If Not beam_on Then
-        pod_attached = False
     End If
 
     If pod_attached Then
@@ -320,6 +319,14 @@ Sub _Process(delta As Single)
         tether_angle = tether_angle + tether_vel * delta
         pod_x = ship_x + Sin(tether_angle) * TETHER_LEN
         pod_y = ship_y + Cos(tether_angle) * TETHER_LEN
+
+        ' Tether reaction: pod weight pulls ship in direction of swing
+        Dim tension As Single
+        tension = 0.32 * (GRAVITY * Cos(tether_angle) + TETHER_LEN * tether_vel * tether_vel)
+        If tension > 0.0 Then
+            ship_vx = ship_vx + Sin(tether_angle) * tension * delta
+            ship_vy = ship_vy + Cos(tether_angle) * tension * delta
+        End If
 
         ' Collect fuel pod by dragging mission pod close to it
         If fpod_alive Then
@@ -721,10 +728,6 @@ Sub DrawShip()
         DrawLine ex, ey, ex + Cos(ta - 0.22) * 26.0, ey + Sin(ta - 0.22) * 26.0, Color(1.0, 0.85, 0.2, 0.7)
     End If
 
-    ' ─ tractor beam ray ───────────────────────────────────────────────
-    If beam_on And Not pod_attached Then
-        DrawLine ship_x, ship_y, pod_x, pod_y, Color(0.3, 0.75, 1.0, 0.35)
-    End If
 End Sub
 
 ' ── HUD ──────────────────────────────────────────────────────────────────────
@@ -761,7 +764,7 @@ Sub DrawHUD()
     score_str = "SCORE  " & Str(score)
     DrawString score_str, CSng(SW) - 200.0, 9, Color.White, 15
 
-    DrawString "ROTATE A/D   THRUST W   FIRE SPACE   BEAM SHIFT", 22, CSng(SH) - 20.0, Color(0.22, 0.22, 0.22, 1.0), 13
+    DrawString "ROTATE A/D   THRUST W   FIRE SPACE   BEAM /", 22, CSng(SH) - 20.0, Color(0.22, 0.22, 0.22, 1.0), 13
 End Sub
 
 ' ── Splash screen ────────────────────────────────────────────────────────────
