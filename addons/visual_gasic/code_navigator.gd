@@ -286,8 +286,11 @@ func refresh_objects():
 		var sp: String = s.resource_path if s else ""
 		if sp.ends_with(".vg"):
 			continue  # skip VGASIC helper
-		if VGIntelliSense.is_relevant_node_class(child.get_class()):
-			_cached_controls.append({"name": child.name, "class_name": child.get_class()})
+		var cls: String = child.get_class() if child.get_class() else ""
+		if cls.is_empty():
+			continue
+		if VGIntelliSense.is_relevant_node_class(cls):
+			_cached_controls.append({"name": child.name, "class_name": cls})
 
 	# Add Scene Scripts section — nodes with .gd scripts
 	var gd_nodes: Array = []

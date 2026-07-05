@@ -23,10 +23,10 @@ func complete(prompt: String, options: Dictionary = {}) -> String:
 
 	var result = await _send_json_request(endpoint, _build_headers(), body)
 	if result.has("error"):
-		return result
+		return ""
 	var choices = result.get("choices", [])
 	if choices.size() == 0:
-		return {"error": "no_choices"}
+		return ""
 	return String(choices[0].get("text", ""))
 
 func chat(messages: Array, options: Dictionary = {}) -> String:
@@ -46,10 +46,10 @@ func chat(messages: Array, options: Dictionary = {}) -> String:
 
 	var result = await _send_json_request(endpoint, _build_headers(), body)
 	if result.has("error"):
-		return result
+		return ""
 	var choices = result.get("choices", [])
 	if choices.size() == 0:
-		return {"error": "no_choices"}
+		return ""
 	var message = choices[0].get("message", {})
 	return String(message.get("content", ""))
 
@@ -64,10 +64,10 @@ func embed(text: String, options: Dictionary = {}) -> Array:
 
 	var result = await _send_json_request(endpoint, _build_headers(), body)
 	if result.has("error"):
-		return result
+		return []
 	var data = result.get("data", [])
 	if data.size() == 0:
-		return {"error": "no_embedding_data"}
+		return []
 	return data[0].get("embedding", [])
 
 func generate_image(prompt: String, options: Dictionary = {}) -> Dictionary:
@@ -89,7 +89,7 @@ func _build_headers() -> Array:
 		headers.append("Authorization: Bearer %s" % api_key)
 	return headers
 
-func _send_json_request(url: String, headers: Array, body: Dictionary) -> Dictionary:
+func _send_json_request(url: String, headers: Array, body: Dictionary) -> Variant:
 	var json_body = JSON.stringify(body)
 	var http = HTTPRequest.new()
 	var tree = Engine.get_main_loop()
@@ -117,7 +117,7 @@ func _send_json_request(url: String, headers: Array, body: Dictionary) -> Dictio
 		return {"error": "http_error", "status": result_code, "body": response_text}
 
 	var parse = JSON.parse_string(response_text)
-	if parse.error != OK:
-		return {"error": "json_parse", "details": parse.error_string}
+	if parse == null:
+		return {"error": "json_parse", "details": "invalid JSON response"}
 
-	return parse.result
+	return parse

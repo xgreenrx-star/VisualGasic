@@ -108,7 +108,7 @@ func _build_headers() -> Array:
 		headers.append("Authorization: Bearer %s" % api_key)
 	return headers
 
-func _send_json_request(url: String, headers: Array, body: Dictionary) -> Dictionary:
+func _send_json_request(url: String, headers: Array, body: Dictionary) -> Variant:
 	var json_body = JSON.stringify(body)
 	var http = HTTPRequest.new()
 	var tree = Engine.get_main_loop()
@@ -136,7 +136,7 @@ func _send_json_request(url: String, headers: Array, body: Dictionary) -> Dictio
 		return {"error": "http_error", "status": result_code, "body": response_text}
 
 	var parse = JSON.parse_string(response_text)
-	if parse.error != OK:
-		return {"error": "json_parse", "details": parse.error_string}
+	if parse == null:
+		return {"error": "json_parse", "details": "invalid JSON response"}
 
-	return parse.result
+	return parse

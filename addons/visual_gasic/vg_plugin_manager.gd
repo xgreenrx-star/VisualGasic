@@ -31,6 +31,18 @@ var _plugin_meta: Dictionary = {}
 ## Dictionary of toolbar buttons: { "plugin_id": Button }
 var _toolbar_buttons: Dictionary = {}
 
+## The "Plugins ▾" MenuButton on the 2D canvas toolbar. Single dropdown
+## replaces individual per-plugin buttons to save toolbar space.
+var _canvas_plugins_menu: MenuButton = null
+
+## Set to true once _setup_ui_forms_toolbar_button has run so we know
+## the Wire Event button exists and it is safe to append the Plugins menu.
+var _canvas_toolbar_ready: bool = false
+
+## When set, _make_visible() will activate this plugin directly instead of
+## showing the default form/code view. Cleared after use.
+var _pending_activate_plugin: String = ""
+
 ## Currently active plugin ID (empty string = none)
 var _active_plugin_id: String = ""
 
@@ -102,6 +114,10 @@ func setup(host_plugin, toolbar_row: HBoxContainer, canvas_right_split: Control)
 	var prompt = preload("res://addons/visual_gasic/vg_external_change_prompt.gd").get_instance()
 	if is_instance_valid(_toolbar_row):
 		prompt.attach_to(_toolbar_row)
+	# Listen for Project Settings changes so plugins enabled via the native
+	# Project Settings dialog are live-loaded without requiring a restart.
+	if not ProjectSettings.settings_changed.is_connected(_on_project_settings_changed):
+		ProjectSettings.settings_changed.connect(_on_project_settings_changed)
 
 
 ## Discover and load all plugins from the plugins/ directory.
@@ -135,6 +151,29 @@ func discover_plugins() -> void:
 		_register_builtin_form_designer()
 
 	print("VisualGasic: Plugin Manager loaded ", _plugins.size(), " plugin(s)")
+
+
+## Re-check per-plugin Project Settings and live-load any plugins that the
+## user enabled via Godot's native Project Settings dialog since the last
+## check. Called from _make_visible() so changes take effect when the user
+## switches back to the VG IDE main screen.
+func rescan_plugin_settings() -> void:
+	for plugin_id_v in _plugin_meta.keys():
+		var plugin_id: String = str(plugin_id_v)
+		var meta: Dictionary = _plugin_meta[plugin_id]
+		# Skip hard-blocked, experimental-gated, or already-loaded plugins
+		if not meta.get("enabled", true):
+			continue
+		if meta.get("experimental", false) and not _experimental_plugins_enabled():
+			continue
+		if _plugins.has(plugin_id):
+			continue
+		if meta.get("_builtin", false):
+			continue
+		var ps_key: String = PLUGIN_SETTING_PREFIX + plugin_id + "/enabled"
+		if bool(ProjectSettings.get_setting(ps_key, false)):
+			var cfg_path: String = PLUGINS_DIR + plugin_id + "/plugin.cfg"
+			_load_plugin(plugin_id, cfg_path)
 
 
 ## Project setting path for the built-in Form Designer toggle. Stored
@@ -320,6 +359,11 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 		# vg/enable_experimental_plugins project setting (default false).
 		"experimental": bool(cfg.get_value("plugin", "experimental", false)),
 		"autoloads": _read_autoloads_section(cfg, plugin_id),
+		# Directories to .gdignore when the plugin is disabled.
+		# Plugin authors list these in plugin.cfg as ignore_dirs=["subdir", ...].
+		# Prevents GDScript parse errors from autoload-dependent files when
+		# the plugin (and its autoloads) are not active.
+		"ignore_dirs": cfg.get_value("plugin", "ignore_dirs", []),
 		# Capability fields — optional [capabilities] section in plugin.cfg.
 		# Plugins use these to advertise what they can do (e.g. edit sprites)
 		# so VGPluginRegistry can route open-asset requests to the right one.
@@ -333,10 +377,16 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 	# the settings/command-palette UIs can list every known plugin.
 	VGPluginRegistry.get_instance().register_provider(plugin_id, meta, null)
 
+	# Always register the per-plugin Project Setting so every discovered
+	# plugin appears in Godot's Project Settings under vg/plugins/<id>/enabled,
+	# even if the author hard-blocked it. This makes all plugins discoverable.
+	_register_plugin_setting(plugin_id)
+
 	# Hard block: plugin.cfg enabled=false means the author has disabled this
 	# plugin (incomplete, deprecated, etc.) and it cannot be overridden by the user.
 	if not meta["enabled"]:
 		print("VisualGasic: Plugin '", meta["name"], "' is disabled, skipping")
+		_set_plugin_dirs_ignored(plugin_id, true)
 		return
 
 	# Gate experimental plugins behind the opt-in project setting. They stay
@@ -348,11 +398,12 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 
 	# Per-plugin Project Setting gate: plugins are opt-in (default disabled).
 	# Users enable individual plugins via Project Settings → vg/plugins/<id>/enabled.
-	_register_plugin_setting(plugin_id)
 	var ps_key := PLUGIN_SETTING_PREFIX + plugin_id + "/enabled"
 	if not bool(ProjectSettings.get_setting(ps_key, false)):
 		print("VisualGasic: Plugin '", meta["name"], "' not enabled (enable via Project Settings → ", ps_key, ")")
+		_set_plugin_dirs_ignored(plugin_id, true)
 		return
+	_set_plugin_dirs_ignored(plugin_id, false)
 
 	# Register autoloads BEFORE loading the plugin script — the plugin's
 	# scripts may reference autoload identifiers that GDScript resolves at
@@ -477,6 +528,10 @@ func _create_toolbar_button(plugin_id: String, plugin_instance) -> void:
 	_toolbar_buttons[plugin_id] = btn
 	_plugin_order.append(plugin_id)
 
+	# Rebuild the 2D canvas "Plugins ▾" dropdown to include the new plugin.
+	if _canvas_toolbar_ready:
+		_rebuild_canvas_plugins_menu()
+
 	# Check overflow — hide excess buttons and populate ⋯ menu
 	_update_overflow()
 
@@ -546,6 +601,73 @@ func _on_plugin_button_pressed(plugin_id: String) -> void:
 	if _active_plugin_id == plugin_id:
 		return  # Already active
 	activate_plugin(plugin_id)
+
+
+## Called by visual_gasic_plugin after the Wire Event button is created.
+## Creates the single "Plugins ▾" MenuButton on the 2D canvas toolbar.
+func setup_canvas_toolbar_buttons() -> void:
+	_canvas_toolbar_ready = true
+	_rebuild_canvas_plugins_menu()
+
+
+## (Re)build the "Plugins ▾" dropdown on the 2D canvas toolbar.
+## Called on initial setup and whenever a plugin is loaded/unloaded so the
+## menu always reflects the current set of active plugins.
+func _rebuild_canvas_plugins_menu() -> void:
+	if not (_host_plugin and _host_plugin.has_method("add_control_to_container")):
+		return
+
+	# Remove the old MenuButton if it exists.
+	if is_instance_valid(_canvas_plugins_menu):
+		_host_plugin.remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _canvas_plugins_menu)
+		_canvas_plugins_menu.queue_free()
+		_canvas_plugins_menu = null
+
+	# Only show the menu if there are loaded plugins.
+	if _plugins.is_empty():
+		return
+
+	_canvas_plugins_menu = MenuButton.new()
+	_canvas_plugins_menu.name = "VGPluginsCanvasMenu"
+	_canvas_plugins_menu.text = "Plugins ▾"
+	_canvas_plugins_menu.tooltip_text = "Open a VG plugin directly"
+	_canvas_plugins_menu.flat = true
+	_canvas_plugins_menu.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	_canvas_plugins_menu.add_theme_color_override("font_hover_color", Color(0.4, 0.85, 1.0))
+
+	var popup: PopupMenu = _canvas_plugins_menu.get_popup()
+	for plugin_id in _plugin_order:
+		if not _plugins.has(plugin_id):
+			continue
+		var inst = _plugins[plugin_id]
+		var label: String = inst.get_toolbar_icon() + " " + inst.get_plugin_name()
+		popup.add_item(label)
+		popup.set_item_metadata(popup.item_count - 1, plugin_id)
+	if not popup.id_pressed.is_connected(_on_canvas_plugins_menu_pressed):
+		popup.id_pressed.connect(_on_canvas_plugins_menu_pressed)
+
+	_host_plugin.add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _canvas_plugins_menu)
+
+
+## Called when the user picks a plugin from the 2D canvas "Plugins ▾" menu.
+## Sets the pending activation flag, then switches to the VG IDE main screen.
+## _make_visible() will see the flag and activate the plugin directly.
+func _on_canvas_plugins_menu_pressed(idx: int) -> void:
+	var popup: PopupMenu = _canvas_plugins_menu.get_popup()
+	var plugin_id: String = str(popup.get_item_metadata(idx))
+	if plugin_id.is_empty():
+		return
+	_pending_activate_plugin = plugin_id
+	if _host_plugin and _host_plugin.has_method("_get_plugin_name"):
+		EditorInterface.set_main_screen_editor(_host_plugin._get_plugin_name())
+
+
+## Called when ProjectSettings change (user toggled vg/plugins/*/enabled).
+## Live-loads newly enabled plugins and rebuilds the canvas dropdown.
+func _on_project_settings_changed() -> void:
+	rescan_plugin_settings()
+	if _canvas_toolbar_ready:
+		_rebuild_canvas_plugins_menu()
 
 
 ## Activate a specific plugin's view.
@@ -929,12 +1051,14 @@ func _on_plugin_toggle(enabled: bool, plugin_id: String) -> void:
 
 	# Live load/unload — no editor restart required.
 	if enabled:
+		_set_plugin_dirs_ignored(plugin_id, false)
 		# Load + activate the plugin so users see it immediately.
 		if not _plugins.has(plugin_id):
 			_load_plugin(plugin_id, cfg_path)
 		if _plugins.has(plugin_id):
 			activate_plugin(plugin_id)
 	else:
+		_set_plugin_dirs_ignored(plugin_id, true)
 		# If we just disabled the active plugin, switch back to the
 		# code editor so the user isn't left staring at a hidden view.
 		var was_active := (_active_plugin_id == plugin_id)
@@ -965,7 +1089,7 @@ func _unload_plugin(plugin_id: String) -> void:
 	_plugins[plugin_id].cleanup()
 	_plugins.erase(plugin_id)
 
-	# Remove the toolbar button.
+	# Remove the VG IDE toolbar button.
 	if _toolbar_buttons.has(plugin_id):
 		var btn = _toolbar_buttons[plugin_id]
 		if is_instance_valid(btn):
@@ -976,6 +1100,10 @@ func _unload_plugin(plugin_id: String) -> void:
 	_plugin_order.erase(plugin_id)
 	_update_overflow()
 
+	# Rebuild the 2D canvas "Plugins ▾" dropdown to remove the unloaded plugin.
+	if _canvas_toolbar_ready:
+		_rebuild_canvas_plugins_menu()
+
 	# Unregister any autoloads this plugin declared.  Newly removed
 	# autoloads only take effect after a VisualGasic restart.
 	var meta: Dictionary = _plugin_meta.get(plugin_id, {})
@@ -985,6 +1113,34 @@ func _unload_plugin(plugin_id: String) -> void:
 		if _unregister_plugin_autoloads(plugin_id, autoloads) or unhid:
 			ProjectSettings.save()
 			push_warning("VisualGasic: Plugin '%s' removed autoloads. Restart VisualGasic for the change to take full effect." % plugin_id)
+
+
+## Write or remove .gdignore files in subdirectories declared via ignore_dirs
+## in a plugin's plugin.cfg. When a plugin is disabled its autoloads are not
+## registered, so any scripts that reference those autoloads produce parse
+## errors on every project open. Placing a .gdignore in those dirs tells
+## Godot's resource scanner to skip them entirely, suppressing the noise.
+## The files are removed when the plugin is enabled so the scripts can load.
+##
+## Plugin authors opt in by adding to their plugin.cfg:
+##   ignore_dirs=["bosca"]   # relative to the plugin's own folder
+func _set_plugin_dirs_ignored(plugin_id: String, ignored: bool) -> void:
+	var meta: Dictionary = _plugin_meta.get(plugin_id, {})
+	var dirs: Array = meta.get("ignore_dirs", [])
+	for subdir in dirs:
+		var dir_res := PLUGINS_DIR + plugin_id + "/" + str(subdir)
+		var ignore_res := dir_res + "/.gdignore"
+		if not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(dir_res)):
+			continue
+		var abs_path := ProjectSettings.globalize_path(ignore_res)
+		if ignored:
+			if not FileAccess.file_exists(ignore_res):
+				var f := FileAccess.open(abs_path, FileAccess.WRITE)
+				if f:
+					f.close()
+		else:
+			if FileAccess.file_exists(ignore_res):
+				DirAccess.remove_absolute(abs_path)
 
 
 ## Open a file dialog to install a plugin folder.
@@ -1061,6 +1217,13 @@ func cleanup() -> void:
 	if is_instance_valid(_settings_popup):
 		_settings_popup.queue_free()
 		_settings_popup = null
+	if is_instance_valid(_canvas_plugins_menu):
+		if _host_plugin and _host_plugin.has_method("remove_control_from_container"):
+			_host_plugin.remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _canvas_plugins_menu)
+		_canvas_plugins_menu.queue_free()
+		_canvas_plugins_menu = null
+	if ProjectSettings.settings_changed.is_connected(_on_project_settings_changed):
+		ProjectSettings.settings_changed.disconnect(_on_project_settings_changed)
 	for plugin_id in _plugins:
 		_plugins[plugin_id].cleanup()
 	_plugins.clear()

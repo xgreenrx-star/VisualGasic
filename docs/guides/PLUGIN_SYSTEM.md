@@ -103,7 +103,37 @@ enabled=true
 | `name` | String | Yes | Display name shown in the toolbar button |
 | `description` | String | No | Tooltip / description text |
 | `script` | String | Yes | Filename of the main plugin GDScript (relative to the plugin folder) |
-| `enabled` | bool | No | Set to `false` to disable without deleting.  Defaults to `true`. |
+| `enabled` | bool | No | Set to `false` to permanently disable (e.g. incomplete/deprecated). Defaults to `true`. |
+| `experimental` | bool | No | If `true`, the plugin is hidden unless `vg/enable_experimental_plugins=true` in Project Settings. |
+| `ignore_dirs` | Array | No | Subdirectories (relative to the plugin folder) to `.gdignore` when the plugin is disabled. Use this for any directory whose scripts reference an autoload that the plugin registers — prevents GDScript parse errors on every project open when the plugin is off. |
+
+### Autoloads
+
+If your plugin needs a GDScript autoload (a global singleton), declare it in a `[autoloads]` section.  The VG plugin manager registers and unregisters these automatically.
+
+```ini
+[autoloads]
+
+MyGlobal="my_globals.gd"
+```
+
+> **Important:** Autoloads are only wired into GDScript's global scope at engine startup.  After enabling a plugin that adds a new autoload, VisualGasic must be restarted once before the autoload is accessible.  The manager warns the user about this automatically.
+
+If many scripts inside your plugin reference the autoload identifier at the top level, combine `[autoloads]` with `ignore_dirs` to suppress the parse errors that appear while the plugin is disabled:
+
+```ini
+[plugin]
+name=My Music Tool
+script=my_music_plugin.gd
+enabled=false
+ignore_dirs=["src"]
+
+[autoloads]
+
+MyController="src/globals/MyController.gd"
+```
+
+When the plugin is disabled the VG plugin manager writes an empty `.gdignore` into each listed directory, telling Godot's resource scanner to skip those files.  When the plugin is enabled the `.gdignore` files are removed so the scripts load normally.
 
 ---
 
@@ -268,6 +298,7 @@ name=My Tool
 description=A custom tool for VisualGasic
 script=my_tool_plugin.gd
 enabled=true
+# ignore_dirs=["vendor"]  # uncomment if vendor/ scripts reference an autoload
 ```
 
 ### Step 3: Create the Plugin Script

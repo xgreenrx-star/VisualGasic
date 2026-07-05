@@ -1,6 +1,6 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: May 2026
+**Last Updated**: July 2026
 **Current Version**: 5.2.0-Beta4 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set
 **Next Cut**: v5.2.0 stable
 
@@ -808,6 +808,7 @@ Short, finishable list. **No new aspirational items.**
 | **UI Forms — 2D viewport authoring (new approach)** | New lightweight form editor that works WITH Godot's 2D editor, not against it. **Toolbox as transient popup**: clicking `[+ Add Control]` opens a native floating `Window` with the Godot Control palette; click a control → window closes → ghost/outline follows mouse → single click places it on the form; double-click an already-placed control to auto-wire + create a VG event stub. **Signal architecture (two-layer)**: Layer 1 — controls connect their default Godot signals to `Form1.vg` exactly like VB6 (`Sub Button1_Click()`); Layer 2 — the form declares `Event` declarations for high-level outcomes (`Event FormSubmitted(data)`) that parent scenes connect to. Both layers visible in Godot's signal graph. **No extraction yet**: Form Designer stays in place behind the Experimental Plugins gate. Separate repo target: `xgreenrx-star/vg-plugin-ui-forms`. | High |
 | **Experimental Plugins setting** | Add `vg/enable_experimental_plugins` boolean in Godot Project Settings (VisualGasic category, default: `false`). When `false`, experimental plugins (UI Forms; others added later) are hidden from the toolbar and plugin manager. When `true` they appear at the user's own risk. Check this setting in `visual_gasic_plugin.gd` alongside the existing `vg/form_designer_enabled` check (~line 669). UI Forms is the first plugin behind this gate; Form Designer extraction deferred to v6.0+. | High |
 | **Installer polish** | `install.py/.sh/.ps1` improvements: (a) `--uninstall` that cleanly removes addon + `vg` CLI; (b) upgrade detection with overwrite warning; (c) Windows: auto-append `~\.local\bin` to user PATH via `setx`; (d) optional `--install-godot` that downloads + SHA-512-verifies the matching Godot binary; (e) optional `--activate-in <project>`; (f) optional desktop launcher. | Medium |
+| **VB6 Importer — refinement and complex-project testing** | The importer handles simple projects (forms, modules, FRX images) but fails on complex real-world VB6 games. Test corpus: [`vb6mmorpg/vb6_games`](https://github.com/vb6mmorpg/vb6_games) — multiple complete VB6 games with complex `.vbp` layouts, ActiveX controls, resource files, and interdependencies. Work items: (1) audit each game import and log failures; (2) fix parser/importer regressions; (3) add corpus test entries for each successfully imported project; (4) document unsupported VB6 constructs (COM, ADO, DCOM) with clear skip-with-warning behaviour. | Medium |
 | **Android / iOS validation** | Test and fix mobile platform builds. Stretch — not a 5.2 blocker. | Low |
 | **WebAssembly Export validation** | Ensure HTML5 export compatibility end-to-end. | Low |
 

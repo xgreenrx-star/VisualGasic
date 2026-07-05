@@ -2970,6 +2970,13 @@ static func _extract_frx_images(frx_path: String, root: Node, result: Dictionary
 					if length > 0 and offset + 4 + length <= data.size():
 						var img_data = data.slice(offset + 4, offset + 4 + length)
 						
+						# VB6 FRX images are wrapped in an 8-byte OLE StdPicture header:
+						#   bytes 0-3: 0x6c74 magic ("lt\0\0")
+						#   bytes 4-7: image data size
+						# Strip it so format detection sees the raw image bytes.
+						if img_data.size() >= 8 and img_data[0] == 0x6C and img_data[1] == 0x74 and img_data[2] == 0x00 and img_data[3] == 0x00:
+							img_data = img_data.slice(8)
+						
 						# Detect format and load
 						var img = Image.new()
 						var err = ERR_FILE_UNRECOGNIZED
@@ -2985,7 +2992,6 @@ static func _extract_frx_images(frx_path: String, root: Node, result: Dictionary
 							err = img.load_jpg_from_buffer(img_data)
 						# GIF (starts with "GIF")
 						elif img_data.size() >= 3 and img_data[0] == 0x47 and img_data[1] == 0x49 and img_data[2] == 0x46:
-							# Save GIF to disk and load as texture (Godot can't load GIF from buffer directly)
 							var gif_path = "res://resources/" + node.name + "_frx.gif"
 							_ensure_dir("res://resources")
 							var gif_file = FileAccess.open(gif_path, FileAccess.WRITE)
@@ -2996,7 +3002,6 @@ static func _extract_frx_images(frx_path: String, root: Node, result: Dictionary
 							continue
 						# ICO (starts with 00 00 01 00)
 						elif img_data.size() >= 4 and img_data[0] == 0x00 and img_data[1] == 0x00 and img_data[2] == 0x01 and img_data[3] == 0x00:
-							# Save ICO to disk (used for form icons)
 							var ico_path = "res://resources/" + node.name + "_icon.ico"
 							_ensure_dir("res://resources")
 							var ico_file = FileAccess.open(ico_path, FileAccess.WRITE)
@@ -3007,11 +3012,17 @@ static func _extract_frx_images(frx_path: String, root: Node, result: Dictionary
 							continue
 						
 						if err == OK:
-							var tex = ImageTexture.create_from_image(img)
-							if node is TextureRect:
-								node.texture = tex
+							var png_path = "res://resources/" + node.name + ".png"
+							_ensure_dir("res://resources")
+							var png_err = img.save_png(png_path)
+							if png_err == OK:
+								var tex = ImageTexture.create_from_image(img)
+								if node is TextureRect:
+									node.texture = tex
+								else:
+									node.set_meta("imported_texture", tex)
 							else:
-								node.set_meta("imported_texture", tex)
+								result.warnings.append("Could not save PNG for %s (err %d)" % [node.name, png_err])
 						else:
 							result.warnings.append("Could not decode image at offset %04X for %s" % [offset, node.name])
 

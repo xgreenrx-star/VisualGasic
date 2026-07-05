@@ -63,6 +63,27 @@ var form_preview_toolbar
 ## Recent projects manager and menu
 var _recent_projects_menu: PopupMenu
 var _recent_projects_manager
+var _vgasic_tools_menu: PopupMenu
+var _godot_project_popup: PopupMenu = null
+var _godot_project_hook_retries: int = 0
+
+const _VGTOOLS_ADD_FORM_ID := 100
+const _VGTOOLS_NEW_MODULE_ID := 101
+const _VGTOOLS_NEW_PROJECT_ID := 102
+const _VGTOOLS_IMPORT_VB6_FORM_ID := 110
+const _VGTOOLS_IMPORT_VB6_PROJECT_ID := 111
+const _VGTOOLS_MENU_EDITOR_ID := 120
+const _VGTOOLS_PROJ_PROPS_ID := 121
+const _VGTOOLS_OBJECT_BROWSER_ID := 122
+const _VGTOOLS_TAB_ORDER_ID := 123
+const _VGTOOLS_COMPONENTS_ID := 124
+const _VGTOOLS_HEX_EDITOR_ID := 125
+const _VGTOOLS_BROWSER_DASH_ID := 126
+const _VGTOOLS_TOGGLE_VG_LAYOUT_ID := 130
+const _VGTOOLS_TOGGLE_TWEAK_OVERLAY_ID := 131
+const _VGTOOLS_NARCEA_ID := 132
+const _VGTOOLS_SNIPPET_BROWSER_ID := 140
+const _VGTOOLS_THEME_PICKER_ID := 141
 
 ## Context menu for script editor rename refactoring
 var _script_context_menu: PopupMenu
@@ -447,7 +468,6 @@ func _enter_tree():
 		_snippet_browser = snippet_browser_script.new()
 		add_child(_snippet_browser)
 		_snippet_browser.snippet_insert_requested.connect(_on_snippet_insert)
-		add_tool_menu_item("VG: Snippet Browser", Callable(self, "_on_open_snippet_browser"))
 		print("VisualGasic: Snippet Browser created")
 	
 	# Create Theme Picker (v2.4.1)
@@ -456,7 +476,6 @@ func _enter_tree():
 		_theme_picker = theme_picker_script.new()
 		add_child(_theme_picker)
 		_theme_picker.vg_theme_changed.connect(_on_theme_changed)
-		add_tool_menu_item("VG: Theme Picker", Callable(self, "_on_open_theme_picker"))
 		print("VisualGasic: Theme Picker created")
 	
 	# Hex Editor is created in _embed_ide_bottom_panels() once the IDE is ready
@@ -549,11 +568,9 @@ func _enter_tree():
 		_layout_manager = layout_mgr_script.new()
 		_layout_manager.setup(self, toolbox, _project_explorer, _properties_inspector, [alignment_toolbar, _color_palette, form_preview_toolbar])
 		add_child(_layout_manager)
-		add_tool_menu_item("Toggle VG IDE Layout", Callable(self, "_on_toggle_vb6_layout"))
-		add_tool_menu_item("Toggle Tweak Overlay", Callable(self, "_on_toggle_tweak_overlay"))
 		_layout_manager.layout_changed.connect(_on_vb6_mode_changed)
 		print("VisualGasic: Added 'Toggle VG IDE Layout' and 'Toggle Tweak Overlay' to Project > Tools menu")
-	add_tool_menu_item("Narcea AI Pair (Ctrl+Shift+N)", Callable(self, "_on_toggle_narcea_panel"))
+	# Narcea shortcut registered via VGasic Tools submenu
 
 	# NOTE: The "Form Designer" button in the main screen bar is created
 	# automatically by Godot because _has_main_screen() returns true.
@@ -1110,19 +1127,8 @@ func _enter_tree():
 	_post_init()
 	_setup_script_editor_context_menu()
 	_setup_recent_projects_menu()
-
-	add_tool_menu_item("Add Form...", Callable(self, "_on_add_form"))
-	add_tool_menu_item("New Module...", Callable(self, "_on_new_module"))
-	add_tool_menu_item("New VG Project...", Callable(self, "_on_new_project"))
-	add_tool_menu_item("Import VB6 Form...", Callable(self, "_on_import_vb6_form"))
-	add_tool_menu_item("Import VB6 Project...", Callable(self, "_on_import_vb6_project"))
-	add_tool_menu_item("Visual Gasic Menu Editor", Callable(self, "_on_menu_editor"))
-	add_tool_menu_item("Visual Gasic Project Properties...", Callable(self, "_on_proj_props"))
-	add_tool_menu_item("Visual Gasic Object Browser", Callable(self, "_on_obj_browser"))
-	add_tool_menu_item("Visual Gasic Tab Order", Callable(self, "_on_tab_order"))
-	add_tool_menu_item("Visual Gasic Components...", Callable(self, "_on_components"))
-	add_tool_menu_item("Visual Gasic Hex Editor...", Callable(self, "_on_hex_editor_menu"))
-	add_tool_menu_item("VG: Browser Dashboard...", Callable(self, "_on_browser_dashboard"))
+	_setup_vgasic_tools_menu()
+	call_deferred("_inject_vgasic_into_project_menu")
 
 	# Tip of the Day — load preference and create dialog
 	_load_tip_config()
@@ -1898,22 +1904,7 @@ func _exit_tree():
 		_form_designer.queue_free()
 		_form_designer = null
 	
-	remove_tool_menu_item("Toggle VG IDE Layout")
-	remove_tool_menu_item("Toggle Tweak Overlay")
-	remove_tool_menu_item("Add Form...")
-	remove_tool_menu_item("New Module...")
-	remove_tool_menu_item("New VG Project...")
-	remove_tool_menu_item("Import VB6 Form...")
-	remove_tool_menu_item("Import VB6 Project...")
-	remove_tool_menu_item("Visual Gasic Menu Editor")
-	remove_tool_menu_item("Visual Gasic Project Properties...")
-	remove_tool_menu_item("Visual Gasic Object Browser")
-	remove_tool_menu_item("Visual Gasic Tab Order")
-	remove_tool_menu_item("Visual Gasic Components...")
-	remove_tool_menu_item("VG: Snippet Browser")
-	remove_tool_menu_item("VG: Theme Picker")
-	remove_tool_menu_item("Visual Gasic Hex Editor...")
-	remove_tool_menu_item("VG: Browser Dashboard...")
+	_remove_vgasic_from_project_menu()
 
 	if is_instance_valid(_hex_editor):
 		if is_instance_valid(_embedded_code_editor):
@@ -4905,6 +4896,16 @@ func _create_new_vg_project(proj_name: String, proj_dir: String) -> void:
 		_flash_status_message("Failed to copy addon files")
 		return
 
+	# ── Ensure binaries are present (belt-and-suspenders) ──
+	# _copy_dir_recursive handles this for most cases, but if the addon was
+	# opened via a symlink, explicitly copy the bin/ dir from the canonical
+	# source to guarantee the .so/.dll lands in the new project.
+	var bin_dst: String = dst_addon + "/bin"
+	if not DirAccess.dir_exists_absolute(bin_dst) or DirAccess.open(bin_dst) == null:
+		var bin_src: String = src_addon + "/bin"
+		if DirAccess.dir_exists_absolute(bin_src):
+			_copy_dir_recursive(bin_src, bin_dst)
+
 	# ── Create project.godot ──
 	var display_name = proj_name.replace("_", " ").replace("-", " ")
 	var project_godot = ""
@@ -5001,13 +5002,16 @@ func _resolve_canonical_addon_dir() -> String:
 		candidates.append(override)
 	var here: String = ProjectSettings.globalize_path("res://").rstrip("/")
 	if not here.is_empty():
-		# Source-tree layout: <repo>/welcome_shell + <repo>/addons/visual_gasic
-		var parent: String = here.get_base_dir()
-		if FileAccess.file_exists(parent + "/welcome_shell/project.godot"):
-			candidates.append(parent + "/addons/visual_gasic")
-		var grand: String = parent.get_base_dir()
-		if FileAccess.file_exists(grand + "/welcome_shell/project.godot"):
-			candidates.append(grand + "/addons/visual_gasic")
+		# Walk up to 6 levels to find the repo root (welcome_shell is a sibling)
+		var node: String = here
+		for _i in range(6):
+			var up: String = node.get_base_dir()
+			if up == node or up.is_empty():
+				break
+			node = up
+			if FileAccess.file_exists(node + "/welcome_shell/project.godot"):
+				candidates.append(node + "/addons/visual_gasic")
+				break
 	candidates.append("/opt/visual_gasic/addons/visual_gasic")
 	var home: String = OS.get_environment("HOME")
 	if not home.is_empty():
@@ -7481,6 +7485,8 @@ func _find_node_by_class_recursive(node: Node, cls: String, max_depth: int) -> C
 			return result
 	return null
 
+## Adds direct "Import VB6..." items to Godot's top Project menu.
+## Falls back silently if the editor chrome isn't ready yet.
 ## Finds the title bar HBox that contains run/stop buttons and renderer dropdown.
 ## This is typically the first HBoxContainer child of the root VBoxContainer.
 func _find_title_bar_hbox(base: Control) -> Control:
@@ -12768,6 +12774,134 @@ func _on_recent_project_selected(path: String) -> void:
 func _add_to_recent_projects(path: String) -> void:
 	if _recent_projects_manager:
 		_recent_projects_manager.add_project(path)
+
+## Creates a dedicated VGasic Tools submenu under Project > Tools.
+## This makes VG features stand out without changing Godot's built-in menu labels.
+func _setup_vgasic_tools_menu() -> void:
+	_vgasic_tools_menu = PopupMenu.new()
+	_vgasic_tools_menu.add_item("Add Form...", _VGTOOLS_ADD_FORM_ID)
+	_vgasic_tools_menu.add_item("New Module...", _VGTOOLS_NEW_MODULE_ID)
+	_vgasic_tools_menu.add_item("New VG Project...", _VGTOOLS_NEW_PROJECT_ID)
+	_vgasic_tools_menu.add_separator()
+	_vgasic_tools_menu.add_item("Import VB6 Form...", _VGTOOLS_IMPORT_VB6_FORM_ID)
+	_vgasic_tools_menu.add_item("Import VB6 Project...", _VGTOOLS_IMPORT_VB6_PROJECT_ID)
+	_vgasic_tools_menu.add_separator()
+	_vgasic_tools_menu.add_item("Visual Gasic Menu Editor", _VGTOOLS_MENU_EDITOR_ID)
+	_vgasic_tools_menu.add_item("Visual Gasic Project Properties...", _VGTOOLS_PROJ_PROPS_ID)
+	_vgasic_tools_menu.add_item("Visual Gasic Object Browser", _VGTOOLS_OBJECT_BROWSER_ID)
+	_vgasic_tools_menu.add_item("Visual Gasic Tab Order", _VGTOOLS_TAB_ORDER_ID)
+	_vgasic_tools_menu.add_item("Visual Gasic Components...", _VGTOOLS_COMPONENTS_ID)
+	_vgasic_tools_menu.add_item("Visual Gasic Hex Editor...", _VGTOOLS_HEX_EDITOR_ID)
+	_vgasic_tools_menu.add_item("VG: Browser Dashboard...", _VGTOOLS_BROWSER_DASH_ID)
+	_vgasic_tools_menu.add_separator()
+	_vgasic_tools_menu.add_item("Toggle VG IDE Layout", _VGTOOLS_TOGGLE_VG_LAYOUT_ID)
+	_vgasic_tools_menu.add_item("Toggle Tweak Overlay", _VGTOOLS_TOGGLE_TWEAK_OVERLAY_ID)
+	_vgasic_tools_menu.add_item("Narcea AI Pair (Ctrl+Shift+N)", _VGTOOLS_NARCEA_ID)
+	_vgasic_tools_menu.add_separator()
+	_vgasic_tools_menu.add_item("VG: Snippet Browser", _VGTOOLS_SNIPPET_BROWSER_ID)
+	_vgasic_tools_menu.add_item("VG: Theme Picker", _VGTOOLS_THEME_PICKER_ID)
+	_vgasic_tools_menu.id_pressed.connect(_on_vgasic_tools_menu_pressed)
+
+func _on_vgasic_tools_menu_pressed(id: int) -> void:
+	match id:
+		_VGTOOLS_ADD_FORM_ID:
+			_on_add_form()
+		_VGTOOLS_NEW_MODULE_ID:
+			_on_new_module()
+		_VGTOOLS_NEW_PROJECT_ID:
+			_on_new_project()
+		_VGTOOLS_IMPORT_VB6_FORM_ID:
+			_on_import_vb6_form()
+		_VGTOOLS_IMPORT_VB6_PROJECT_ID:
+			_on_import_vb6_project()
+		_VGTOOLS_MENU_EDITOR_ID:
+			_on_menu_editor()
+		_VGTOOLS_PROJ_PROPS_ID:
+			_on_proj_props()
+		_VGTOOLS_OBJECT_BROWSER_ID:
+			_on_obj_browser()
+		_VGTOOLS_TAB_ORDER_ID:
+			_on_tab_order()
+		_VGTOOLS_COMPONENTS_ID:
+			_on_components()
+		_VGTOOLS_HEX_EDITOR_ID:
+			_on_hex_editor_menu()
+		_VGTOOLS_BROWSER_DASH_ID:
+			_on_browser_dashboard()
+		_VGTOOLS_TOGGLE_VG_LAYOUT_ID:
+			_on_toggle_vb6_layout()
+		_VGTOOLS_TOGGLE_TWEAK_OVERLAY_ID:
+			_on_toggle_tweak_overlay()
+		_VGTOOLS_NARCEA_ID:
+			_on_toggle_narcea_panel()
+		_VGTOOLS_SNIPPET_BROWSER_ID:
+			_on_open_snippet_browser()
+		_VGTOOLS_THEME_PICKER_ID:
+			_on_open_theme_picker()
+
+## Injects VGasic Tools as a submenu directly in Godot's Project dropdown, below Tools.
+func _inject_vgasic_into_project_menu() -> void:
+	if _godot_project_hook_retries > 10:
+		# Fallback: add to Project > Tools so it shows up somewhere
+		add_tool_submenu_item("VGasic Tools", _vgasic_tools_menu)
+		return
+	var base := get_editor_interface().get_base_control()
+	if base == null:
+		_godot_project_hook_retries += 1
+		call_deferred("_inject_vgasic_into_project_menu")
+		return
+	var menu_bar := _find_node_by_class_recursive(base, "MenuBar", 6) as MenuBar
+	if not is_instance_valid(menu_bar):
+		_godot_project_hook_retries += 1
+		call_deferred("_inject_vgasic_into_project_menu")
+		return
+	# Use MenuBar API to get the Project popup directly
+	var project_popup: PopupMenu = null
+	for i in range(menu_bar.get_menu_count()):
+		if menu_bar.get_menu_title(i) == "Project":
+			project_popup = menu_bar.get_menu_popup(i)
+			break
+	if not is_instance_valid(project_popup):
+		_godot_project_hook_retries += 1
+		call_deferred("_inject_vgasic_into_project_menu")
+		return
+	# Guard against double injection
+	for i in range(project_popup.get_item_count()):
+		if project_popup.get_item_text(i) == "VGasic Tools":
+			_godot_project_popup = project_popup
+			return
+	_godot_project_popup = project_popup
+	# add_submenu_node_item requires the node to already be a child
+	project_popup.add_child(_vgasic_tools_menu)
+	project_popup.add_separator()
+	project_popup.add_submenu_node_item("VGasic Tools", _vgasic_tools_menu, 9900)
+	# Move it to just after the "Tools" entry — search by text, not by id
+	var tools_idx := -1
+	var vg_idx := -1
+	for i in range(project_popup.get_item_count()):
+		var txt := project_popup.get_item_text(i)
+		if txt == "Tools":
+			tools_idx = i
+		elif txt == "VGasic Tools":
+			vg_idx = i
+	if tools_idx >= 0 and vg_idx > tools_idx + 1:
+		project_popup.move_item(vg_idx, tools_idx + 1)
+
+func _remove_vgasic_from_project_menu() -> void:
+	if not is_instance_valid(_godot_project_popup):
+		_godot_project_popup = null
+		return
+	for i in range(_godot_project_popup.get_item_count() - 1, -1, -1):
+		if _godot_project_popup.get_item_text(i) == "VGasic Tools":
+			_godot_project_popup.remove_item(i)
+			# Remove the separator that sits just above it
+			if i - 1 >= 0 and _godot_project_popup.is_item_separator(i - 1):
+				_godot_project_popup.remove_item(i - 1)
+			break
+	if is_instance_valid(_vgasic_tools_menu) and _vgasic_tools_menu.get_parent() == _godot_project_popup:
+		_godot_project_popup.remove_child(_vgasic_tools_menu)
+	_godot_project_popup = null
+	_godot_project_hook_retries = 0
 
 # =============================================================================
 # SCRIPT EDITOR RENAME REFACTORING
