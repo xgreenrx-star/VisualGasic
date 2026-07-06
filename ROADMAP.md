@@ -8,6 +8,14 @@ This document outlines the planned improvements and features for Visual Gasic. I
 
 ---
 
+## Project Goal
+
+> Write your Godot game logic in plain English with AI, get back code that reads like a document, not a puzzle. VisualGasic brings the clarity of VB6 to Godot — AI writes it, you understand it.
+
+LLMs were trained on decades of VB/VBA/VBScript. That prior knowledge transfers directly to VisualGasic. The Godot indie developer using AI-assisted workflows gets code that is linearly auditable — explicit `End Sub`, `Dim x As String`, `If...Then...End If` — not a wall of braces that requires an IDE to follow. The language is the audit trail.
+
+---
+
 ## ✅ Recently Completed Features
 
 ### v2.4.0 — Classes & Objects, Functional Programming
