@@ -1,8 +1,8 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: July 2026
-**Current Version**: 5.2.0-Beta4 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set
-**Next Cut**: v5.2.0 stable
+**Last Updated**: July 6, 2026
+**Current Version**: 5.3.0-Beta1 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set
+**Next Cut**: v5.3.0 stable
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort. **Aspirational items live in v6.0 / v7.0 sections — do not pull them forward.**
 
@@ -1050,6 +1050,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **Godot Asset Library publish** | Package and submit VisualGasic to the official Asset Library. | High |
 | **Plugin Marketplace** | In-IDE package browsing and one-click install. Registry query (`query_registry()`) now implemented; publish HTTP upload also wired. Remaining: full browse/search UI in the Package Browser panel. | Medium |
 | **VGMusic startup errors (bosca/ visibility)** | When VGMusic is disabled, Godot 4.6 still compiles all `@tool` scripts in the `bosca/` subdirectory at startup before any `EditorPlugin` code runs. Because `Controller` is only registered as an autoload when the plugin is enabled, ~200 "Identifier not found: Controller" errors fire on every project open. Root cause confirmed: Godot does not respect `.gdignore` for compilation purposes; only dotdirs (`.dirname`) are fully skipped. The fix requires physically renaming `bosca/` → `.bosca.vgd` before Godot starts (e.g. from `vg-ide` launcher), but the welcome_shell path adds complexity. Approach explored and partially implemented — revert to `8acf7255` as stable baseline; implement as a dedicated sub-milestone before v6.0 stable. | High |
+| **Godot 4.5→4.6 API compatibility migration** | Multiple GDScript and C++ files use Godot 4.5 APIs deprecated in 4.6: `emit_signal()` (90 instances: 53 GDScript + 37 C++), `is_connected()` signature changes (71 instances), `gui_get_focus_owner()` (4 instances, still works but warnings). **Scope:** `addons/visual_gasic/`, `src/`, AGCK plugins. **Fix:** Migrate `emit_signal()` → signal emission syntax, update `is_connected()` signatures to 4.6 API. **Estimate:** 3–4 hours (search-and-replace for signal emission, validation of new method signatures). **Deferred to:** August 2026 (post-M5) when credit budget resets. **Audit generated:** Jul 6, 2026. | Medium |
 | **Tweak Overlay — auto `get_tweak_targets()` for VG scripts** | The Tweak Overlay currently shows only built-in Godot node properties (position, rotation, scale, etc.) for any node running a VG script. The fix: at VG script compile time, inspect the AST for all `Dim`-declared variables and auto-generate a `get_tweak_targets()` implementation on the VGASIC node (either injected GDScript or exposed via the C++ runtime). This would make every VG node automatically appear in the Tweak Overlay with all its script variables — zero user opt-in required. The existing `get_tweak_targets()` duck-typed protocol already supports this; it's a matter of wiring the VG compiler output to produce the schema. | Medium |
 | **Visual Debugger v2** | Graphical call-flow visualization, flame graphs. | Medium |
 | **Native Image Clipboard** | C++ GDExtension replacing the current `OS.execute` bridge with proper X11 / Wayland / Win32 / macOS APIs. Works fine today; this is a cleanup, not a feature. | Low |
