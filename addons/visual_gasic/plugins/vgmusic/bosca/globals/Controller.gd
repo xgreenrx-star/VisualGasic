@@ -397,9 +397,9 @@ func update_status_notes_dropped(dropped_amount: int) -> void:
 		return
 	
 	if dropped_amount == 1:
-		update_status("%d NOTE WAS REMOVED (CTRL + Z TO UNDO)" % [ dropped_amount ], Controller.StatusLevel.WARNING)
+		update_status("%d NOTE WAS REMOVED (CTRL + Z TO UNDO)" % [ dropped_amount ], StatusLevel.WARNING)
 	else:
-		update_status("%d NOTES WERE REMOVED (CTRL + Z TO UNDO)" % [ dropped_amount ], Controller.StatusLevel.WARNING)
+		update_status("%d NOTES WERE REMOVED (CTRL + Z TO UNDO)" % [ dropped_amount ], StatusLevel.WARNING)
 
 
 # Song editing.

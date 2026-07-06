@@ -12875,17 +12875,7 @@ func _inject_vgasic_into_project_menu() -> void:
 	project_popup.add_child(_vgasic_tools_menu)
 	project_popup.add_separator()
 	project_popup.add_submenu_node_item("VGasic Tools", _vgasic_tools_menu, 9900)
-	# Move it to just after the "Tools" entry — search by text, not by id
-	var tools_idx := -1
-	var vg_idx := -1
-	for i in range(project_popup.get_item_count()):
-		var txt := project_popup.get_item_text(i)
-		if txt == "Tools":
-			tools_idx = i
-		elif txt == "VGasic Tools":
-			vg_idx = i
-	if tools_idx >= 0 and vg_idx > tools_idx + 1:
-		project_popup.move_item(vg_idx, tools_idx + 1)
+	# PopupMenu.move_item() does not exist in Godot 4 — VGasic Tools appends at bottom (with separator above it)
 
 func _remove_vgasic_from_project_menu() -> void:
 	if not is_instance_valid(_godot_project_popup):
