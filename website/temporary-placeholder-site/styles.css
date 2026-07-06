@@ -178,6 +178,30 @@ p {
   border-color: rgba(255, 110, 156, 0.35);
 }
 
+.sponsor-section {
+  text-align: center;
+}
+
+.sponsor-inner {
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.sponsor-heading {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sponsor-body {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
 .notice-card,
 .card {
   background: linear-gradient(180deg, rgba(13, 30, 39, 0.9), rgba(10, 22, 30, 0.95));
