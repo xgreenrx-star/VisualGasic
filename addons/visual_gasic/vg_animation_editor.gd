@@ -4,8 +4,6 @@
 @tool
 extends AcceptDialog
 
-const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
-
 # VB6 theme palette
 const VB6_PANEL_BG       = Color(0.941, 0.929, 0.910)
 const VB6_TEXT           = Color(0.0, 0.0, 0.0)
