@@ -172,6 +172,12 @@ p {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.button.sponsor {
+  color: #ff6e9c;
+  background: rgba(255, 110, 156, 0.08);
+  border-color: rgba(255, 110, 156, 0.35);
+}
+
 .notice-card,
 .card {
   background: linear-gradient(180deg, rgba(13, 30, 39, 0.9), rgba(10, 22, 30, 0.95));
