@@ -73,7 +73,7 @@ VG is a public beta. The language, JIT compiler, and debugger work. The Form Des
 **Deferred (post-MVP):**
 Form Designer extraction to a standalone plugin, full IDE plugin architecture refactor, VG3D, Working Nodes expansion. The Form Designer stays in place behind an Experimental Plugins toggle until UI Forms reaches parity.
 
-> 🚀 **v5.3.0-Beta1 — Current public beta.** This README points to the Beta4 release artifacts directly so download links stay correct even if GitHub's "Latest" flag is stale. See [release notes](docs/release/RELEASE_NOTES_v5.3.0-Beta1.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
+> 🚀 **v5.3.0-Beta1 — Current public beta.** This README points to the Beta1 release artifacts directly so download links stay correct even if GitHub's "Latest" flag is stale. See [release notes](docs/release/RELEASE_NOTES_v5.3.0-Beta1.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
 >
 > 📚 **Docs from the main page:** every guide, reference, and tutorial is one click away from [`docs/DOCS.md`](docs/DOCS.md). Quick jumps: [Getting Started](docs/guides/GET_STARTED.md) · [Installation](docs/guides/INSTALLATION.md) · [Language Reference](docs/VisualGasic_Language_Reference.md) · [Built-in Functions](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) · [Custom Controls](docs/guides/CUSTOM_CONTROLS.md) · [Plugin SDK](addons/visual_gasic/PLUGIN_SDK.md).
 
@@ -85,7 +85,7 @@ Form Designer extraction to a standalone plugin, full IDE plugin architecture re
 | --- | --- | --- |
 | 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.3.0-Beta1-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta1/VisualGasic-Installer-v5.3.0-Beta1-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
 | 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.3.0-Beta1-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta1/VisualGasic-Installer-v5.3.0-Beta1-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
-| 🍏 **macOS (Intel & Apple Silicon)** | *not yet available in Beta4* — use the `vg` CLI for now | Cross-compiled `.dmg` planned; needs a tester. |
+| 🍏 **macOS (Intel & Apple Silicon)** | *not yet available in Beta1* — use the `vg` CLI for now | Cross-compiled `.dmg` planned; needs a tester. |
 | 📦 **Source zip / portable** | [VisualGasic_v5.3.0-Beta1_linux_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta1/VisualGasic_v5.3.0-Beta1_linux_x86_64.zip) · [windows_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta1/VisualGasic_v5.3.0-Beta1_windows_x86_64.zip) | For users who prefer to unzip and run. Bring your own Godot 4.6.1+. |
 | 🌐 **Offline bundle** (Godot included) | [linux-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta1/VisualGasic-Installer-Offline-v5.3.0-Beta1-linux-x86_64.zip) · [windows-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta1/VisualGasic-Installer-Offline-v5.3.0-Beta1-windows-x86_64.zip) | No internet needed during install — ships Godot 4.6.1 inside. |
 
@@ -327,7 +327,7 @@ cd VisualGasic
 
 Downloads Godot 4.6.1, installs the addon globally, drops a `~/.local/bin/visualgasic` launcher and a desktop entry. Run `visualgasic` (or click the menu entry) and you land directly in the VG IDE — no Godot project picker, no plugin toggling.
 
-**📦 From the GitHub Beta4 release (all platforms):**
+**📦 From the GitHub Beta1 release (all platforms):**
 
 Download the platform zip from [v5.3.0-Beta1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta1) (e.g. `VisualGasic_v5.3.0-Beta1_linux_x86_64.zip`), extract, and either point the `vg` CLI at it or copy `addons/visual_gasic/` into your project. Release notes: [v5.3.0-Beta1](docs/release/RELEASE_NOTES_v5.3.0-Beta1.md).
 

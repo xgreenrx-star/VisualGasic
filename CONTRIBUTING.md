@@ -194,27 +194,30 @@ TEST_CASE("Parser should handle basic expressions") {
 5. **Documentation**: List any documentation updates needed
 
 ### PR Template
+
+When submitting a pull request, use this template:
+
 ```markdown
-## Description
+**Description:**
 Brief description of changes
 
-## Type of Change
+**Type of Change:**
 - [ ] Bug fix (non-breaking change)
 - [ ] New feature (non-breaking change)
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work)
 - [ ] Documentation update
 
-## Testing
+**Testing:**
 - [ ] Tests pass locally
 - [ ] Added tests for new functionality
 - [ ] Manual testing performed
 
-## Documentation
+**Documentation:**
 - [ ] Documentation updated
 - [ ] Examples added/updated
 - [ ] API docs updated
 
-## Checklist
+**Checklist:**
 - [ ] Code follows project style guidelines
 - [ ] Self-review of code completed
 - [ ] Comments added for complex areas
