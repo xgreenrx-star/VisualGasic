@@ -816,7 +816,6 @@ Short, finishable list. **No new aspirational items.**
 | **UI Forms — 2D viewport authoring (new approach)** | New lightweight form editor that works WITH Godot's 2D editor, not against it. **Toolbox as transient popup**: clicking `[+ Add Control]` opens a native floating `Window` with the Godot Control palette; click a control → window closes → ghost/outline follows mouse → single click places it on the form; double-click an already-placed control to auto-wire + create a VG event stub. **Signal architecture (two-layer)**: Layer 1 — controls connect their default Godot signals to `Form1.vg` exactly like VB6 (`Sub Button1_Click()`); Layer 2 — the form declares `Event` declarations for high-level outcomes (`Event FormSubmitted(data)`) that parent scenes connect to. Both layers visible in Godot's signal graph. **No extraction yet**: Form Designer stays in place behind the Experimental Plugins gate. Separate repo target: `xgreenrx-star/vg-plugin-ui-forms`. | High |
 | **Experimental Plugins setting** | Add `vg/enable_experimental_plugins` boolean in Godot Project Settings (VisualGasic category, default: `false`). When `false`, experimental plugins (UI Forms; others added later) are hidden from the toolbar and plugin manager. When `true` they appear at the user's own risk. Check this setting in `visual_gasic_plugin.gd` alongside the existing `vg/form_designer_enabled` check (~line 669). UI Forms is the first plugin behind this gate; Form Designer extraction deferred to v6.0+. | High |
 | **Installer polish** | `install.py/.sh/.ps1` improvements: (a) `--uninstall` that cleanly removes addon + `vg` CLI; (b) upgrade detection with overwrite warning; (c) Windows: auto-append `~\.local\bin` to user PATH via `setx`; (d) optional `--install-godot` that downloads + SHA-512-verifies the matching Godot binary; (e) optional `--activate-in <project>`; (f) optional desktop launcher. | Medium |
-| **VB6 Importer — refinement and complex-project testing** | The importer handles simple projects (forms, modules, FRX images) but fails on complex real-world VB6 games. Test corpus: [`vb6mmorpg/vb6_games`](https://github.com/vb6mmorpg/vb6_games) — multiple complete VB6 games with complex `.vbp` layouts, ActiveX controls, resource files, and interdependencies. Work items: (1) audit each game import and log failures; (2) fix parser/importer regressions; (3) add corpus test entries for each successfully imported project; (4) document unsupported VB6 constructs (COM, ADO, DCOM) with clear skip-with-warning behaviour. | Medium |
 | **Android / iOS validation** | Test and fix mobile platform builds. Stretch — not a 5.2 blocker. | Low |
 | **WebAssembly Export validation** | Ensure HTML5 export compatibility end-to-end. | Low |
 
@@ -847,6 +846,30 @@ Short, finishable list. **No new aspirational items.**
 **Buffer**: October is the buffer month. If M4 slips, M5 and M6 compress, not the release date.
 
 **What stable means**: language core is reliable, bugs above are fixed, examples work, installer works. It does NOT mean every feature is complete — it means what ships is honest and solid.
+
+---
+
+## 🔄 Retired: VB6 Importer Plugin
+
+**Decision**: The VB6 Importer has been retired from the core VG distribution and will be maintained as a **separate, community-driven plugin**.
+
+**Reasoning**:
+- VG's focus is Godot indie game development with AI-assisted workflows, not legacy VB6 migration
+- Supporting VB6 project import is significant maintenance burden (COM, ActiveX, ADO, complex .vbp layouts)
+- Better served as an optional plugin for users who need it, not core product noise
+- Keeps VG's positioning clean: "auditable AI code for Godot," not "VB6 migration tool"
+
+**What happens to it**:
+- Source code archived on a dedicated GitHub repository: **`vgtools-vb6-importer`** (community-maintained)
+- Full source including form parsing, .vbp project handling, and import report generation
+- Available for any developer who wants to finish it or adapt it for their use case
+- VG main addon cleaned of importer code in v5.3.0 stable
+
+**If you want to continue**:
+- Fork `vgtools-vb6-importer`, extend the parser/importer, add tests
+- Package as a standalone Godot plugin
+- Publish to Godot Asset Library under your name
+- VG team happy to link to community plugins in docs
 
 ### ✅ ADVANCE — required for positioning
 
@@ -1073,7 +1096,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 |-----------|-------|-----|--------|
 | **M1** | 4 critical bugs (ByRef recursion, Join float format, Dict properties, chained calls) | Jul 31 | ✅ **DONE** (Jun 29) |
 | **M2** | 44 corpus examples pass (all domains: basics, control flow, strings, arrays, dicts, classes, I/O, math, state machines, Godot) | Aug 15 | ✅ **DONE** (Jun 30) |
-| **M3** | Code Navigator upgrade (#7): multi-file symbol search, definition/reference indexing, call hierarchy, VB6 import resolver | Aug 31 | ✅ **DONE** (Jul 1) |
+| **M3** | Code Navigator upgrade (#7): multi-file symbol search, definition/reference indexing, call hierarchy | Aug 31 | ✅ **DONE** (Jul 1) |
 | **M4** | UI Forms experimental (#8–#12): VB6 visual form designer, control picker popup, ghost placement, signal wiring, two-layer events | Sep 30 | ✅ **DONE** (Jul 1) |
 | **M5** | Narcea AI pair (#13): pair-programming mode, provider routing, system prompt templates | Oct 15 | — |
 | **M6** | Causal Chain text-mode (#14): new AST evaluator path, narrative code generation, explain-before-compute | Oct 31 | — |
