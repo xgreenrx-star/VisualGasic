@@ -43,6 +43,8 @@ LANG_INFO = {
                    "note": "Use a top-level if __name__ == '__main__': block. Output via print()."},
     "typescript": {"ext": ".ts",  "name": "TypeScript",  "checker": "check_typescript.sh",
                    "note": "Compile-checked under --strict. Output via console.log()."},
+    "csharp":     {"ext": ".cs",  "name": "C#",          "checker": "check_csharp.sh",
+                   "note": "Use top-level statements (no class/namespace boilerplate). Output via Console.WriteLine(). Target .NET 9."},
 }
 
 PROMPT_TEMPLATE = """Write a complete, self-contained {language} program that performs the following task:

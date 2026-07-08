@@ -196,51 +196,43 @@
               fewer ownership hazards, less build-system noise, and less chance that one tiny character hides a real bug.
             </p>
             <p style="font-size: 0.95em; margin-top: 0.75em; opacity: 0.9;">
-              <em>VB syntax is deeply embedded in LLM training data — AI generates valid Visual Gasic on the first draft more reliably than GDScript or Python.</em>
+              <em>Benchmarked with Claude Sonnet 4.6 on 25 tasks: Visual Gasic compiled on every first attempt &mdash; 25/25 (100%). C# failed 5 times (80%). GDScript failed once (96%). The explicit block markers that make VG readable are the same reason AI gets it right first try.</em>
             </p>
-            <div style="margin-top: 1.5em; padding: 1em; background-color: #f5f5f5; border-radius: 6px; font-size: 0.9em; font-family: 'Courier New', monospace; line-height: 1.4; overflow-x: auto;">
-              <strong style="display: block; margin-bottom: 0.5em;">Example: Apply inventory bonuses</strong>
-              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1em;">
-                <div>
-                  <strong style="color: #0066cc;">VG:</strong><br>
-                  <span style="color: #666;">Sub ApplyInventoryBonuses()</span><br>
-                  <span style="color: #666;">  Dim total_damage As Single = 0</span><br>
-                  <span style="color: #666;">  For Each item In inventory</span><br>
-                  <span style="color: #666;">    If item.is_equipped Then</span><br>
-                  <span style="color: #666;">      total_damage = total_damage +</span><br>
-                  <span style="color: #666;">        item.damage_bonus</span><br>
-                  <span style="color: #666;">    End If</span><br>
-                  <span style="color: #666;">  Next</span><br>
-                  <span style="color: #666;">  player.damage = player.base_damage +</span><br>
-                  <span style="color: #666;">    total_damage</span><br>
-                  <span style="color: #666;">End Sub</span>
+            <div style="margin-top: 1.5em; background-color: #f5f5f5; border-radius: 6px; overflow-x: auto;">
+              <strong style="display: block; padding: 0.75em 1em 0.4em; font-size: 0.875em;">Same logic. Three languages. Which would you rather audit?</strong>
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr;">
+                <div style="padding: 0 1em 1em;">
+                  <strong style="font-size: 0.8em; color: #0066cc; font-family: 'Courier New', monospace;">VG &mdash; 25/25</strong>
+<pre style="margin: 0.3em 0 0; font-family: 'Courier New', monospace; font-size: 0.8em; line-height: 1.5; color: #444; background: none; border: none; padding: 0;">Sub ApplyBonuses()
+  Dim dmg As Single = 0
+  For Each item In inventory
+    If item.is_equipped Then
+      dmg = dmg + item.damage_bonus
+    End If
+  Next
+  player.damage = base_damage + dmg
+End Sub</pre>
                 </div>
-                <div>
-                  <strong style="color: #ff9900;">GDScript:</strong><br>
-                  <span style="color: #666;">func apply_inventory_bonuses():</span><br>
-                  <span style="color: #666;">  var total_damage = 0.0</span><br>
-                  <span style="color: #666;">  for item in inventory:</span><br>
-                  <span style="color: #666;">    if item.is_equipped:</span><br>
-                  <span style="color: #666;">      total_damage +=</span><br>
-                  <span style="color: #666;">        item.damage_bonus</span><br>
-                  <span style="color: #666;">  player.damage = player.base_damage +</span><br>
-                  <span style="color: #666;">    total_damage</span>
+                <div style="padding: 0 1em 1em; border-left: 1px solid #ddd;">
+                  <strong style="font-size: 0.8em; color: #ff9900; font-family: 'Courier New', monospace;">GDScript &mdash; 24/25</strong>
+<pre style="margin: 0.3em 0 0; font-family: 'Courier New', monospace; font-size: 0.8em; line-height: 1.5; color: #444; background: none; border: none; padding: 0;">func apply_bonuses():
+  var dmg = 0.0
+  for item in inventory:
+    if item.is_equipped:
+      dmg += item.damage_bonus
+  player.damage = base_damage + dmg</pre>
                 </div>
-                <div>
-                  <strong style="color: #239ddf;">C#:</strong><br>
-                  <span style="color: #666;">public void ApplyInventoryBonuses()</span><br>
-                  <span style="color: #666;">{</span><br>
-                  <span style="color: #666;">  float totalDamage = 0f;</span><br>
-                  <span style="color: #666;">  foreach (var item in inventory)</span><br>
-                  <span style="color: #666;">  {</span><br>
-                  <span style="color: #666;">    if (item.isEquipped)</span><br>
-                  <span style="color: #666;">    {</span><br>
-                  <span style="color: #666;">      totalDamage += item.damageBonus;</span><br>
-                  <span style="color: #666;">    }</span><br>
-                  <span style="color: #666;">  }</span><br>
-                  <span style="color: #666;">  player.damage = player.baseDamage +</span><br>
-                  <span style="color: #666;">    totalDamage;</span><br>
-                  <span style="color: #666;">}</span>
+                <div style="padding: 0 1em 1em; border-left: 1px solid #ddd;">
+                  <strong style="font-size: 0.8em; color: #239ddf; font-family: 'Courier New', monospace;">C# &mdash; 20/25</strong>
+<pre style="margin: 0.3em 0 0; font-family: 'Courier New', monospace; font-size: 0.8em; line-height: 1.5; color: #444; background: none; border: none; padding: 0;">void ApplyBonuses() {
+  float dmg = 0f;
+  foreach (var item in inventory) {
+    if (item.isEquipped) {
+      dmg += item.damageBonus;
+    }
+  }
+  player.damage = baseDamage + dmg;
+}</pre>
                 </div>
               </div>
             </div>
@@ -255,9 +247,10 @@
           <article class="card argument-card accent-cyan">
             <h3>The AI benchmark result is the whole thesis in numbers</h3>
             <p>
-              In the published AI correctness benchmark, Claude Sonnet 4.5 hit 25/25 parse-success on Visual Gasic, and local qwen2.5-coder:7b
-              also hit 25/25 on Visual Gasic while dropping to 17/25 on GDScript and 21/25 on TypeScript. That is exactly the kind of first-draft
-              reliability this language is meant to optimize for. Coding for the masses only matters if the machine can write it and the human can still trust it.
+              In the published AI correctness benchmark, Claude Sonnet 4.6 hit 25/25 (100%) on Visual Gasic, 24/25 on GDScript, and 20/25 (80%) on C#.
+              An earlier run with Claude Sonnet 4.5 matched the same VG result, while local qwen2.5-coder:7b also hit 25/25 on Visual Gasic
+              while dropping to 17/25 on GDScript. The pattern is consistent across models: AI writes first-draft VG that parses,
+              every time. That is the whole thesis in numbers.
             </p>
             <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/bench/ai_correctness/REPORT.md">View AI Correctness Report</a>
           </article>
