@@ -25,17 +25,21 @@ even *read* what the AI tried to do.
 | VisualGasic | Godot headless `load()` | same | optional |
 | GDScript | Godot headless `--check-only` | same | optional |
 | Python | `ast.parse` | `py_compile` | optional |
+| C# | `dotnet build --no-restore` | same | optional |
 | TypeScript | `tsc --noEmit` | same | optional |
 
-All four are checked **identically** for fairness: same prompt phrasing
+All five are checked **identically** for fairness: same prompt phrasing
 (adapted only for language name), same model, same temperature, same retry
 policy.
 
 ## Quick start
 
 ```bash
-# 0. One-time setup — install local TypeScript checker (~5 MB)
+# 0. One-time setup
+# TypeScript checker (~5 MB):
 cd bench/ai_correctness/checkers && npm install typescript && cd -
+# C# checker — requires .NET SDK 8+; pre-warm the project once:
+bash bench/ai_correctness/checkers/check_csharp.sh /dev/null 2>/dev/null || true
 
 # 1. Pick a model (env vars). Set whichever you have credentials for:
 export OPENAI_API_KEY=sk-...

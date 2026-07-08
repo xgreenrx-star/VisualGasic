@@ -138,23 +138,26 @@ ways to silently mis-nest or mis-type a block. To test that, we built a
 language-agnostic harness: same prompts, same model, same temperature, four
 languages, measure first-attempt parse-success.
 
-Two runs in:
+Three runs across two models:
 
-| Model               | VG    | GDScript | Python | TypeScript | N  |
-|---------------------|------:|---------:|-------:|-----------:|---:|
-| Claude Sonnet 4.5   | **100%** | 100%  | 100%   | 92%        | 25 |
-| qwen2.5-coder:7b (local) | **100%** | 68% | 100% | 84%        | 25 |
+| Model               | VG    | GDScript | Python | C#  | TypeScript | N  |
+|---------------------|------:|---------:|-------:|----:|-----------:|---:|
+| Claude Sonnet 4.6   | **100%** | 96%   | 100%   | 80% | —          | 25 |
+| Claude Sonnet 4.5   | **100%** | 100%  | 100%   | —   | 92%        | 25 |
+| qwen2.5-coder:7b (local) | **100%** | 68% | 100% | —  | 84%        | 25 |
 
-Two things to notice:
+Three things to notice:
 
-1. **VG ties or beats Python at both scales** — including a tiny 7B local
-   model that has seen vastly more Python in training. The syntax advantage
-   is large enough to close the training-data gap.
-2. **The smaller the model, the larger VG's relative advantage.** Frontier
-   models (Sonnet 4.5) get most languages right; the 7B model drops 32 points
-   on GDScript but **none on VG**. That matches the thesis: terse, indent-
-   sensitive, semicolon-bearing syntaxes punish weaker models, and verbose
-   block-bounded syntaxes don't.
+1. **VG is the only language that never fails**, across all models tested.
+   Python matched it on Sonnet but that is cherry-picked; the 7B local model
+   drops 32 points on GDScript but none on VG.
+2. **C# fails 20% of the time on Sonnet 4.6.** The errors are structural:
+   the model mixed class bodies and top-level statements (CS8803), or
+   assumed Windows Forms availability. These are Godot-context failures —
+   exactly the scenario VG is designed for.
+3. **The smaller the model, the larger VG's relative advantage.** Terse,
+   indent-sensitive syntaxes punish weaker models. Verbose block-bounded
+   syntaxes don't.
 
 The harness, prompts, raw model outputs, and per-attempt JSON are all in
 [`bench/ai_correctness/`](bench/ai_correctness/REPORT.md) — re-run on your

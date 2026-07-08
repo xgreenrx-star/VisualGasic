@@ -252,6 +252,34 @@ End Sub</pre>
               while dropping to 17/25 on GDScript. The pattern is consistent across models: AI writes first-draft VG that parses,
               every time. That is the whole thesis in numbers.
             </p>
+            <div style="margin-top: 1.25em;" aria-label="AI parse-success rate by language">
+              <div style="font-size: 0.8em; opacity: 0.7; margin-bottom: 0.5em;">First-attempt parse success &mdash; Claude Sonnet 4.6 &mdash; 25 tasks</div>
+              <div style="display: flex; flex-direction: column; gap: 0.4em;">
+                <div style="display: flex; align-items: center; gap: 0.75em;">
+                  <span style="width: 5em; font-size: 0.85em; font-family: monospace; color: #0066cc;">VG</span>
+                  <div style="flex: 1; background: #e8e8e8; border-radius: 3px; height: 1.2em; position: relative;">
+                    <div style="width: 100%; background: #0066cc; border-radius: 3px; height: 100%;"></div>
+                  </div>
+                  <span style="width: 3.5em; text-align: right; font-size: 0.85em; font-weight: bold;">100%</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.75em;">
+                  <span style="width: 5em; font-size: 0.85em; font-family: monospace; color: #ff9900;">GDScript</span>
+                  <div style="flex: 1; background: #e8e8e8; border-radius: 3px; height: 1.2em; position: relative;">
+                    <div style="width: 96%; background: #ff9900; border-radius: 3px; height: 100%;"></div>
+                  </div>
+                  <span style="width: 3.5em; text-align: right; font-size: 0.85em;">96%</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.75em;">
+                  <span style="width: 5em; font-size: 0.85em; font-family: monospace; color: #239ddf;">C#</span>
+                  <div style="flex: 1; background: #e8e8e8; border-radius: 3px; height: 1.2em; position: relative;">
+                    <div style="width: 80%; background: #239ddf; border-radius: 3px; height: 100%;"></div>
+                  </div>
+                  <span style="width: 3.5em; text-align: right; font-size: 0.85em;">80%</span>
+                </div>
+              </div>
+            </div>
+            <p style="font-size: 0.8em; opacity: 0.6; margin-top: 0.5em;">C# failures: model mixed class/top-level syntax (CS8803) and assumed WinForms availability &mdash; both Godot-context errors.
+            </p>
             <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/bench/ai_correctness/REPORT.md">View AI Correctness Report</a>
           </article>
         </div>
