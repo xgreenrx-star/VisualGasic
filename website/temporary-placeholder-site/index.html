@@ -198,6 +198,52 @@
             <p style="font-size: 0.95em; margin-top: 0.75em; opacity: 0.9;">
               <em>VB syntax is deeply embedded in LLM training data — AI generates valid Visual Gasic on the first draft more reliably than GDScript or Python.</em>
             </p>
+            <div style="margin-top: 1.5em; padding: 1em; background-color: #f5f5f5; border-radius: 6px; font-size: 0.9em; font-family: 'Courier New', monospace; line-height: 1.4; overflow-x: auto;">
+              <strong style="display: block; margin-bottom: 0.5em;">Example: Apply inventory bonuses</strong>
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1em;">
+                <div>
+                  <strong style="color: #0066cc;">VG:</strong><br>
+                  <span style="color: #666;">Sub ApplyInventoryBonuses()</span><br>
+                  <span style="color: #666;">  Dim total_damage As Single = 0</span><br>
+                  <span style="color: #666;">  For Each item In inventory</span><br>
+                  <span style="color: #666;">    If item.is_equipped Then</span><br>
+                  <span style="color: #666;">      total_damage = total_damage +</span><br>
+                  <span style="color: #666;">        item.damage_bonus</span><br>
+                  <span style="color: #666;">    End If</span><br>
+                  <span style="color: #666;">  Next</span><br>
+                  <span style="color: #666;">  player.damage = player.base_damage +</span><br>
+                  <span style="color: #666;">    total_damage</span><br>
+                  <span style="color: #666;">End Sub</span>
+                </div>
+                <div>
+                  <strong style="color: #ff9900;">GDScript:</strong><br>
+                  <span style="color: #666;">func apply_inventory_bonuses():</span><br>
+                  <span style="color: #666;">  var total_damage = 0.0</span><br>
+                  <span style="color: #666;">  for item in inventory:</span><br>
+                  <span style="color: #666;">    if item.is_equipped:</span><br>
+                  <span style="color: #666;">      total_damage +=</span><br>
+                  <span style="color: #666;">        item.damage_bonus</span><br>
+                  <span style="color: #666;">  player.damage = player.base_damage +</span><br>
+                  <span style="color: #666;">    total_damage</span>
+                </div>
+                <div>
+                  <strong style="color: #239ddf;">C#:</strong><br>
+                  <span style="color: #666;">public void ApplyInventoryBonuses()</span><br>
+                  <span style="color: #666;">{</span><br>
+                  <span style="color: #666;">  float totalDamage = 0f;</span><br>
+                  <span style="color: #666;">  foreach (var item in inventory)</span><br>
+                  <span style="color: #666;">  {</span><br>
+                  <span style="color: #666;">    if (item.isEquipped)</span><br>
+                  <span style="color: #666;">    {</span><br>
+                  <span style="color: #666;">      totalDamage += item.damageBonus;</span><br>
+                  <span style="color: #666;">    }</span><br>
+                  <span style="color: #666;">  }</span><br>
+                  <span style="color: #666;">  player.damage = player.baseDamage +</span><br>
+                  <span style="color: #666;">    totalDamage;</span><br>
+                  <span style="color: #666;">}</span>
+                </div>
+              </div>
+            </div>
           </article>
           <article class="card argument-card">
             <h3>Keep the runtime fast, keep the application code legible</h3>
