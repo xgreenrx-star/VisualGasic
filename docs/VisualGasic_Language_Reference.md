@@ -20,7 +20,7 @@ This manual has two parts:
 - [System-Level Programming](#system-level-programming)
 - [Modern Language Features](#modern-language-features)
 - [Godot Integration](#godot-integration)
-- [Part II — Command Reference (A–Z)](#part-ii--command-reference-a-z)
+- [Part II — Command Reference (A–Z)](#command-reference)
 
 ## Part I — Language Tutorials
 
@@ -29,7 +29,7 @@ These chapters explain the language and major subsystems end-to-end.
 
 For a per-command alphabetical reference, see 
 
-[Part II — Command Reference](#part-ii--command-reference-a-z).
+[Part II — Command Reference](#command-reference).
 
 
 ## Getting Started
@@ -3139,6 +3139,8 @@ VisualGasic's multitasking capabilities compare favorably with industry leaders:
 ---
 
 <a id="part-ii"></a>
+<a id="command-reference"></a>
+
 ## Part II — Command Reference (A–Z)
 
 Every one of the 350 built-in keywords, statements, functions, and namespace verbs documented by the Command Help panel gets a dedicated page below. Pages follow the classic *Visual Basic 5 Super Bible* layout: **Purpose**, **Syntax**, **Parameters**, **Description**, **Example**, and **See Also**.
