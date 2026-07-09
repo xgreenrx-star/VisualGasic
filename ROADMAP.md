@@ -1112,7 +1112,217 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | Feature | Description | Priority |
 |---------|-------------|----------|
 | **VG3D — 3D Game Kit** | Full 3D game creation kit plugin. Voxel/grid-based level editor, built-in voxel model editor (MagicaVoxel-style), pre-built camera modes (FPS / TPS / top-down), CSG/primitive environments, actor system ported from AGCK, procedural 3D actor models, animation, build pipeline emitting Godot 3D scenes. | High |
-| **VGVR — VR Game Kit** | VR mode add-on for VG3D. OpenXR integration, hand/controller input mapping, VR camera rig, teleport / smooth locomotion presets. Requires VG3D as foundation. | Low |
+| **VGVR — VR Game Kit** | VR mode add-on for VG3D. OpenXR integration, hand/controller input mapping, VR camera rig, teleport / smooth locomotion presets. Requires VG3D as foundation. | Medium | Emerging VR market; works with existing VG3D actor/animation/input systems. |
+| **Python Integration (v6.0 continuation)** | Consolidate `PyImport`, `PyCallAsync`, async/await flow. Expand ecosystem: numpy, opencv, torch, pandas, scikit-learn. Error handling, type coercion, memory management. FFI documentation and best practices. Out-of-process worker stability hardening. | High | Unlocks AI/ML/data science workflows; enables procedural generation (numpy), image processing (opencv), physics sim (torch). |
+| **C++ Interop (v6.0 continuation)** | Two-way binding: VG classes callable from C++, C++ classes callable from VG. Callback injection (VG lambdas → C++ std::function). Native bridge packaging, multiplatform support (desktop + mobile). Documentation and example projects. | High | Custom Godot node authoring in VG; hooking into physics/rendering pipelines; performance-critical paths can stay native. |
+| **Java/Android Integration** | Java interop for Android plugins and ecosystems. Import tooling, runtime bridge, Android-first staging. | Medium | Mobile expansion; Android ecosystem access; pairs with VG Mobile Kit work. |
+| **Causal Chain Debugging (text-mode narrative)** | Structured debugging mode: trace execution flow as readable "causal chain" narrative—what happened, why, in what order. Pairs with Narcea AI pair (M5). AI-assisted test case generation, performance bottleneck identification. | Medium | Enables AI-assisted debugging; improves code comprehension; pairs with NES emulator and complex systems work. |
+| **Asset Streaming & Dynamic Loading** | Lazy-load resources (ROMs, sprite sheets, audio, voxel models). Per-asset memory budgets. Preload hints, streaming queues, asset lifecycle management. | Medium | Supports large game projects and mobile optimization; essential for NES emulator ROM loading, procedural asset gen from v7.0 3D kit. |
+
+---
+
+### v7.0 Showcase Projects (Proposed)
+
+| Project | Description | Demonstrates |
+|---------|-------------|--------------|
+| **Procedural 3D Voxel Generator** | VG + v7.0 VG3D kit. Uses numpy (shape manipulation), OpenGL compute shaders (performance), generates terrain/structures, exports to Godot scenes. | VG3D, Python integration, C++ perf paths |
+| **AI-Powered Game Level Designer** | VG + Narcea AI pair + causal chain debugging. Designer writes level constraints in VG, AI generates playable levels, causal chain shows reasoning, debugger helps refine. | Narcea integration, causal chain, AI workflows |
+| **Cross-Platform Mobile Game** | VG + Java/Android integration + asset streaming. Multi-touch input, dynamic loading, local persistence. iOS via Godot's Vulkan layer. | Java interop, asset streaming, mobile optimization |
+
+| Project | Description | Scope | ETA | Status |
+|---------|-------------|-------|-----|--------|
+| **NES Emulator in VG** | A fully functional NES emulator written in pure VisualGasic. Supports playable versions of classic games (Pac-Man, Donkey Kong, etc.). Demonstrates: 6502 CPU emulation, tile-based graphics rendering via Canvas2D, real-time audio synthesis via AudioStreamPlayer, bitwise operations (`<<`, `>>`, `And`, `Or`, `Xor`), performance of bytecode VM on I/O-bound workloads, seamless Godot integration. **Scope:** Tier 2 (playable games, not cycle-accurate). **Architecture:** 6502 instruction decoder (switch/case dispatch), 64KB RAM (array), NES PPU graphics pipeline (simplified tile rendering), APU audio synthesis (basic square/triangle waveforms). **Test games:** Start with ROM headers + 2-3 well-known cartridges. **Deliverable:** Standalone VG project in `demos/NES_Emulator/` with README, feature list, known compatibility. **Impact:** Shows VG is suitable for systems programming and real-time emulation; attracts retro gaming audience; excellent tutorial material for bit operations and performance optimization. | 4-8 weeks | Post-v6.0 | Planned |
+
+---
+
+## 🚀 Performance Optimizations — Post-M8 (Conditional on Profiling)
+
+These optimizations emerged from real VG projects (vector_storm, Jun 2026) and are candidates for v6.2+. **Tier A** items have measured proof; **Tier B** items are speculative but plausible. **Do not implement until profiling from NES emulator (or similar) confirms the bottleneck.**
+
+### Tier A: High Confidence (Proven via vector_storm)
+
+| Feature | Description | Evidence | Impact | Priority | ETA |
+|---------|-------------|----------|--------|----------|-----|
+| **Typed Array Specialization (PackedArray fast-path)** | Auto-convert `Dim x(N) As Byte/Int32/Float64` to Godot `PackedByteArray`/`PackedInt32Array`/`PackedFloat64Array` with dedicated bytecode fast-path opcodes (`OP_PACKED_BYTE_GET`, `OP_PACKED_INT32_GET`, etc.). Measured impact: **5-10x speedup** on array-heavy loops. **Mechanism:** Today, `Dim arr(N) As Byte` boxes every access through Variant → 70µs per iteration (from `vg_bytecode_perf.md`). Specialization emits raw `PackedByteArray` ops → ~7µs per iteration. **Who benefits:** image processing (pixel buffers), graphics (vertex/point arrays), animation (keyframe arrays), particle systems, physics grids, emulators (memory arrays). | vector_storm case study (Jun 2026): 240-cell loop hit 16ms/frame due to Variant boxing on `Dim arr(N) As Single`. Profiling proved root cause. Specialization would recover 80-90% of frame time. | Broadly applicable across all array-heavy projects; not emulator-specific. | High | v6.2–v6.3 |
+
+### Tier B: Medium Confidence (Speculative, needs data)
+
+| Feature | Description | Rationale | Use Cases | Blocker | Priority | ETA |
+|---------|-------------|-----------|-----------|---------|----------|-----|
+| **Bit Manipulation Builtins** | Low-latency intrinsic functions: `GetBit(val, bit)`, `SetBit(val, bit, state)`, `CountBits(val)` (popcount), `RotateLeft(val, n)`, `RotateRight(val, n)`. Avoids C++ library marshalling overhead (~1-10µs per call). For emulators, graphics, compression, and networking, bit ops can comprise 20-30% of frame time if not optimized. | Emulator work (NES, Game Boy) will use these heavily. Graphics masks, color channels, collision flags. Compression (DEFLATE, LZ77). Network protocols (TCP flags, packet headers). | Emulators, image processing, game logic (collision masks, tile attributes), compression, networking | Profiling data from NES emulator showing bit ops >5% of frame time; or similar project | Medium | Post-v6.2 |
+| **Switch Statement Jump Table Optimization** | Compile dense `Select Case` blocks with numeric constants (0–255) to O(1) jump tables instead of O(n) sequential comparisons. Typical for instruction decoders (6502, Z80, 68000), event dispatchers, game state machines. | Instruction dispatch is the hottest loop in emulators. Each CPU cycle runs one instruction. Dense `Select Case opcode` (0–255) would benefit from jump table. Estimated 2-3x speedup on dispatch. | Emulators (instruction decoders), state machines, event routing, message dispatch | Profiling data from NES emulator showing `Select Case` is >10% of frame time | Medium | Post-v6.2 |
+| **Rotate Operators (`<<<`, `>>>`)**  | Add bitwise rotate operators: `value <<< n` (rotate left), `value >>> n` (rotate right). Distinct from shifts (`<<`, `>>`): rotate preserves all bits by wrapping. Many 6502/Z80 instructions include rotate ops; currently simulated via shift+mask combos. | CPU emulation, encryption (rotations in AES/SALSA20), graphics (rotation matrices), compression (bit rotation in adaptive codes) | Emulators, cryptography, graphics, compression | Natural fit with existing `<<`/`>>` operators; low implementation cost | Low | v6.2+ |
+
+---
+
+## 🔧 v6.1: Performance Patch Cycle (Jan–Feb 2027)
+
+Following v6.0 stable release, v6.1 will focus on measured performance improvements derived from NES emulator profiling and real-world VG projects. These are **compiler/VM optimizations only**—no breaking language changes.
+
+**Rationale**: v6.0 ships with stable core language and Godot IDE integration. v6.1 consolidates performance wins discovered during NES emulator work, delivering faster code without complexity. This keeps v6.0 release schedule clean and v6.1 as a fast, high-confidence patch cycle.
+
+### v6.1 Optimization Candidates (Prioritized)
+
+| Feature | Scope | Evidence | Impact | Blocker | ETA |
+|---------|-------|----------|--------|---------|-----|
+| **String Specialization (PackedStringArray)** | `Dim strings(N) As String` → `PackedStringArray` backing with `OP_PACKED_STRING_GET/SET` fast-path opcodes. String concatenation via `String.join()` pattern instead of repeated `&` operators. | Common in asset loading (parsing CSV, JSON headers, sprite names, audio metadata). NES emulator profiling will reveal if string ops dominate asset I/O. | Estimated 5-15x speedup on string-heavy workloads (CSV/JSON parsing, log formatting, text rendering). | NES emulator profiling showing string ops >2% of frame time; or similar project with heavy string I/O | v6.1 Phase 1 |
+| **Dictionary Access Fast-Path** | Specialized `OP_GET_DICT_FAST` / `OP_SET_DICT_FAST` opcodes for String or Integer keys, with early-exit for cache hit. Similar to existing dict handling but with instruction-level optimization. | NES likely uses lookup tables: palette cache, sprite metadata, ROM offset index. If dict access is measurable bottleneck, specialization yields 2-5x speedup. | Estimated 2-5x speedup on dictionary-heavy code (lookup tables, state maps, asset registries). | NES emulator profiling showing dict access >2% of frame time; or benchmark dictionary-heavy code | v6.1 Phase 1 |
+| **Inline Builtins** | Convert high-frequency function calls to single-opcode patterns: `Len(arr)`, `UBound(arr)`, `LBound(arr)` → `OP_BUILTIN_LEN`, etc. String functions: `Mid(s, n, m)`, `Left(s, n)`, `Right(s, n)` → specialized opcodes for small constant ranges. `Abs()`, `Min()`, `Max()`, `Mod()` → typed fast-path for Int/Float. | Every loop that checks `Len()` or accesses array bounds does a function call stack push/pop. NES emulator will have tight inner loops checking `UBound()` for bounds validation. | Estimated 1-3x speedup on loop-heavy code; broadly applicable across all projects. QoL improvement: no measurable frame-time cost to ship. | Profiling data showing function-call overhead >1% on tight loops; or commit based on code review (low risk). | v6.1 Phase 2 |
+
+### v6.1 Decision Gates
+
+- **Phase 1 (Feb 1–14)**: String specialization + dictionary fast-path **only if** NES emulator profiling shows measurable bottleneck (>2% frame time each).
+- **Phase 2 (Feb 15–28)**: Inline builtins, shipped regardless of profiling (zero risk, pure QoL).
+- **Post-v6.1 blocker**: If NES profiling reveals no string/dict bottleneck, defer those items to v6.2 and focus engineering effort elsewhere.
+
+---
+
+> 💬 **Community input drives priorities.** Open a [GitHub Issue](https://github.com/xgreenrx-star/VisualGasic/issues) or discussion to vote on features.
+
+---
+
+## 📝 Language Feature Candidates — Future Cycles
+
+These are high-value language additions discovered through real-world projects (NES emulator, vector_storm, UI Forms). Prioritized by impact and implementation effort.
+
+### Immediate / High-ROI (v6.x Tier)
+
+| Feature | Description | Syntax Example | Effort | ETA | Rationale |
+|---------|-------------|-----------------|--------|-----|-----------|
+| **String Interpolation** | Native string interpolation syntax for cleaner readability and AI code generation. Current: `"Hello " & name & "!"`. | `$"Hello {name}!"` | 1 week | v6.0 (if time) / v6.2 | Universally loved, universally used. Dramatically improves log/UI text generation. AI-friendly (LLMs generate fewer concat errors). |
+| **Null-Coalescing Operator** | Provide default value when expression is null. Complements existing `?.` safe navigation. | `value = obj?.Property ?? default` | 2 weeks | v6.2 | Common defensive-programming pattern; reduces nested If blocks. Essential for Godot's nullable object model. |
+| **Tuple Deconstruction** | Unpack multi-value returns into individual variables. Pairs with `Await` for async ops. | `Dim (x, y, z) = GetCoordinates()` | 1.5 weeks | v6.2 | Cleaner than indexing for functions returning multiple values. Improves readability of AI-generated code. |
+| **Defer Statement** | Guarantee cleanup code runs at scope exit (alternative to Try/Catch/Finally). | `Defer f.Close()` | 2 weeks | v6.2 | Simpler than Try/Catch for file I/O, locks, emulator state save/restore. Especially valuable for systems programming (NES emulator). |
+
+### v7.0 Expansion (Core Language Maturity)
+
+| Feature | Description | Syntax Example | Effort | ETA | Rationale |
+|---------|-------------|-----------------|--------|-----|-----------|
+| **Module / Namespace System** | Organize functions into logical groups, prevent naming collisions in large projects. | `Module NES.CPU` / `Function NES.CPU.Execute()` | 3 weeks | v7.0 | Essential for NES emulator (CPU, PPU, APU modules). Supports team projects. Links to symbol table redesign. |
+| **Using Statement** | Automatic disposal of objects at scope exit (pairs with Godot's `free()` / `queue_free()`). | `Using f = File.Open(path) ... End Using` | 2 weeks | v7.0 | Cleaner than Defer for Godot objects. RAII-like behavior without language complexity. |
+| **Pipeline Operator** | Chain function calls for functional composition. | `arr \|> Filter(...) \|> Map(...) \|> Print()` | 1 week | v7.0 | Improves readability of complex data transformations. Attracts functional programming community. |
+
+### Nice-to-Have (Lower Priority)
+
+| Feature | Description | Syntax Example | Effort | ETA | Rationale |
+|---------|-------------|-----------------|--------|-----|-----------|
+| **Switch Expressions** | More concise match syntax (already have statement form). | `status = x Match { "on" => "active", _ => "unknown" }` | 2 weeks | v7.x | Pairs with pattern matching; reduces boilerplate for event dispatchers. |
+| **Record Types** | Immutable data classes with auto-generated equality and hashing. | `Record Point(x As Integer, y As Integer)` | 2 weeks | v7.x | Clean syntax for data-heavy domain models. Useful for game state snapshots, asset metadata. |
+| **Computed Indexers** | Allow classes to define custom `obj(index)` access like arrays. | `Default Property Item(x, y) As Tile` | 1.5 weeks | v7.x | Enables grid, tree, graph abstractions to behave like built-in arrays. |
+
+---
+
+## 🎮 Porting VG to Other Game Engines — Feasibility Analysis
+
+**Short Answer**: Yes, but with caveats. VG's core design is engine-agnostic; porting requires ~4-6 weeks per engine for bindings + integration.
+
+### Architecture Overview (Why Portability is Feasible)
+
+VG's stack is cleanly layered:
+
+```
+┌─────────────────────────────────────┐
+│  VG Language Frontend               │  Tokenizer, Parser, AST
+│  (engine-agnostic)                  │  — same for all engines
+├─────────────────────────────────────┤
+│  VG Compiler → Bytecode             │  Generates portable bytecode
+│  (engine-agnostic)                  │  — same VM for all engines
+├─────────────────────────────────────┤
+│  VG Bytecode VM (C++)               │  Stack machine, ~200 opcodes
+│  (engine-agnostic)                  │  — same for all engines
+├─────────────────────────────────────┤
+│  Engine Bindings (engine-specific)  │  Language stdlib, IDE integration
+│  (engine-specific adapter)          │  ← THIS PART CHANGES per engine
+├─────────────────────────────────────┤
+│  Target Engine (Godot / Unity / etc)│
+└─────────────────────────────────────┘
+```
+
+**What's reusable across engines**: Tokenizer, Parser, AST, Compiler, VM bytecode dispatch  
+**What needs per-engine work**: Language bindings (stdlib functions), editor integration, debugging hooks
+
+---
+
+### Tier 1: High-Confidence Ports (4-6 weeks each)
+
+#### **Unity (C#)**
+- **Status**: Most feasible. C# has near-identical semantics to VB6 (sister language at Microsoft)
+- **Work Required**:
+  - Write VG→C# binding layer (~2 weeks) mapping VG opcodes to C# function calls
+  - Godot stdlib → Unity API translation (~2 weeks): Canvas2D → Unity Sprite/Canvas, AudioStreamPlayer → AudioSource, etc.
+  - Unity editor toolbar + script inspector (~1 week)
+  - Testing on 3-4 sample games
+- **Risk**: Low. Both managed runtimes with similar GC behavior.
+- **Advantage**: Massive market (10M+ Unity devs); iOS/Android support native
+
+#### **Unreal Engine (C++)**
+- **Status**: Feasible but more complex. UE native code, no scripting VM by default
+- **Work Required**:
+  - Embed VG VM as Unreal plugin (~2 weeks)
+  - Write VG UObject binding layer (~2 weeks): property reflection, UFunctions, delegates
+  - Custom Blueprints node for VG script embed (~1 week)
+  - C++ interop (two-way calling between VG ↔ UE natives) — likely covered by v7.0 C++ interop work
+- **Risk**: Medium. UE's property system requires custom reflection layer
+- **Advantage**: AAA-grade engine; attracts larger studios
+
+---
+
+### Tier 2: Medium-Confidence Ports (6-8 weeks each)
+
+#### **Defold (Lua-based)**
+- **Status**: Feasible. Defold has clean runtime architecture
+- **Work Required**:
+  - Port VG VM to Lua FFI (~2 weeks)
+  - Defold collection/sprite API bindings (~2 weeks)
+  - Editor integration via Defold's extension API (~2 weeks)
+- **Risk**: Medium. Smaller ecosystem; less demand
+- **Advantage**: Mobile-optimized; free deployment
+
+#### **Game Maker Studio (GML)**
+- **Status**: Feasible. GML is also procedural like VB6
+- **Work Required**:
+  - GML bytecode transpiler OR VM embedding (~3 weeks)
+  - GML stdlib bindings (~2 weeks)
+  - IDE integration via GML extensions API (~1 week)
+- **Risk**: Low-Medium. GML is well-documented
+- **Advantage**: Strong 2D indie community
+
+---
+
+### Tier 3: Lower-Priority / Speculative (8+ weeks)
+
+| Engine | Feasibility | Notes |
+|--------|-------------|-------|
+| **Bevy (Rust)** | Speculative | Would need full Rust FFI layer; VG type system → Rust trait system mapping. Risk: High. Benefit: Niche (game dev + Rust enthusiasts). |
+| **O3DE (C++)** | Feasible but niche | Sister to Lumberyard; similar UE binding approach. Lower market demand than UE. |
+| **Stride (C#)** | Medium | C# sibling of Unity; similar binding work. Smaller ecosystem. |
+| **Pygame / Arcade (Python)** | Low priority | Python ecosystem has strong native VB/BASIC-like language (not needed). Educational audience only. |
+
+---
+
+### Business/Strategy Considerations
+
+**Timeline for multi-engine support:**
+
+| Phase | Timeline | Scope |
+|-------|----------|-------|
+| **v6.0–v7.0** | Jan–Jul 2027 | Godot only (current focus). Stabilize core VM, C++/Python interop, NES emulator. |
+| **v7.0–v8.0** | Jul–Jan 2028 | **Unity port begins**. Highest ROI: largest non-Godot engine community. |
+| **v8.0–v9.0** | Jan–Jul 2028 | **Unreal port**. Targets AAA/larger studios. C++ interop from v7.0 provides foundation. |
+| **v9.0+** | 2028+ | Defold / Game Maker / others on demand |
+
+**Why Unity first?**
+- C# familiarity reduces impedance mismatch
+- Largest game dev community after Unreal
+- ~1.5 weeks faster than Unreal port (no UObject reflection layer)
+- Proven success with VB6 → C# as sister languages
+
+**Positioning strategy:**
+- v6.0 launch: "The Godot BASIC."
+- v7.1 (post-v7.0): "The cross-platform BASIC." (Unity announcement)
+- Marketing angle: "Write your game logic once, run in Godot / Unity / Unreal."
+
+---
 
 > 💬 **Community input drives priorities.** Open a [GitHub Issue](https://github.com/xgreenrx-star/VisualGasic/issues) or discussion to vote on features.
 
