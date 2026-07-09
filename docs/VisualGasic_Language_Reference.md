@@ -13426,3 +13426,128 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ---
 
+## Legacy Coverage Appendix
+
+This appendix preserves the high-level intent of legacy non-IDE chapters that are no longer separate top-level sections in this file.
+
+### Keywords Reference (Consolidated)
+
+Legacy `Keywords Reference` content is now consolidated into:
+- [Language Basics](#language-basics)
+- [Control Flow](#control-flow)
+- [Procedures and Functions](#procedures-and-functions)
+- [Object-Oriented Features](#object-oriented-features)
+- [Part II — Command Reference (A–Z)](#command-reference)
+
+### Built-in Functions (Consolidated)
+
+Legacy `Built-in Functions` chapter content is represented by:
+- Function-focused tutorials in [Language Basics](#language-basics) and [System Integration](#system-integration)
+- Complete callable coverage in [Part II — Command Reference (A–Z)](#command-reference)
+
+### Versioned Enhancements Snapshot
+
+The legacy chapters `v3.3.0` through `v3.8.0` and `v4.x–v5.1 Godot Namespace Wrappers` are preserved here as a compact changelog-style snapshot:
+
+- v3.3.0: string interpolation, count/debug helpers, print formatting, literals, `On n GoTo/GoSub`, binary/random file I/O, regex, bitwise helpers, builder/utility additions.
+- v3.5.0-beta4: `WithEvents`/`RaiseEvent`, interface (`Implements`) verification, printer surface improvements, optional parameter behavior.
+- v3.6.0: compound assignment cleanup and numeric/type-system refinements.
+- v3.7.0: method overloading, constructor improvements, generic collection support.
+- v3.8.0: clarified bitwise semantics and enum/flags improvements.
+- v4.x–v5.1 wrappers: camera/audio/physics/navigation/ray/tile/sensor/permission/GPS/steps/theme/shader/material/skeleton/video/JS namespace surfaces, plus auto-wired event subs.
+
+For command-level specifics, use [Part II — Command Reference (A–Z)](#command-reference).
+
+---
+
+
+## Alphabetical Index
+
+This index lists command-reference entries grouped by first letter.
+
+**Part I Quick Links**
+- [Getting Started](#getting-started)
+- [Language Basics](#language-basics)
+- [Control Flow](#control-flow)
+- [Procedures and Functions](#procedures-and-functions)
+- [Object-Oriented Features](#object-oriented-features)
+- [VB6 Global Objects](#vb6-global-objects)
+- [COM-Style Objects](#com-style-objects)
+- [System Integration](#system-integration)
+- [System-Level Programming](#system-level-programming)
+- [Modern Language Features](#modern-language-features)
+- [Godot Integration](#godot-integration)
+- [Part II — Command Reference (A–Z)](#command-reference)
+
+### #
+_draw, _input, _physics_process, _process, _ready, << (Shift Left), >> (Shift Right)
+
+### A
+AABB, Abs, add_child, And, Animation.Current, Animation.IsPlaying, Animation.Length, Animation.Loop, Animation.Pause, Animation.Play, Animation.Resume, Animation.Seek, Animation.Speed, Animation.Stop, Array, Async, Await, AllocFillI64, AllocFillI64Sum, AscW
+
+### B
+Basis, BlitImage, Bone.Find, Bone.LookAt, Bone.Pos, Bone.Rot, Bone.Scale, Bone.SetPos, Bone.SetRot, Bone.SetScale, Boolean, ByRef, ByVal, BenchFileIOFast
+
+### C
+Call, Camera.Bounce, Camera.FlashColor, Camera.Follow, Camera.FOV, Camera.Limits, Camera.MakeCurrent, Camera.PanTo, Camera.Position, Camera.Rotation, Camera.Shake, Camera.Zoom, Case, Catch, Cell.Clear, Cell.ClearAll, Cell.Get, Cell.Set, Cell.Used, ChangeScene, CInt, Clamp, Class, Close, CLS, ColorFromHSV, ColorToHSV, connect, Const, Continue, Cos, CreateActor2D, CreateImage, CreateTexture, Crypto.Base64, Crypto.Base64Decode, Crypto.Base64Encode, Crypto.FromHex, Crypto.Hex, Crypto.HMAC, Crypto.MD5, Crypto.RandomBytes, Crypto.SHA1, Crypto.SHA256, CStr, CallByName, CByte, ChrW, ClampF, ClngLng
+
+### D
+Darken, Data, delta, Dim, Do, DoEvents, Double, DrawArc, DrawCircle, DrawLine, DrawPixel, DrawPolygon, DrawPolyline, DrawRect, DrawString, DrawTexture, DrawTextureRect, DataCount, DataLabels, DataPointer, DataRemain, DataSectionCount, DataSectionName, DataSectionRemain, DataToArray, DeleteSetting, DatePart, DateValue
+
+### E
+Else, ElseIf, emit_signal, End, End Class, End Function, End If, End Select, End Sub, End With, Enum, Event, Exit, Erl, ErrorDesc
+
+### F
+False, FillImage, FillImageRect, Finally, For, For Each, Format, Function, FormatNumber, FormatCurrency, FormatPercent, FileDateTime
+
+### G
+get_global_mouse_position, get_node, get_tree, GetImagePixel, GetTextureImage, Global, GoSub, GoTo, GPS.Accuracy, GPS.Alt, GPS.Lat, GPS.Lng, GPS.Speed, GetSetting, GetAllSettings
+
+### H
+hide
+
+### I
+If, IIf, ImageHeight, ImageToTexture, ImageWidth, Implements, Inherits, InputBox, instantiate, InStr, Int, Integer, Interface, is_action_just_pressed, is_action_just_released, is_action_pressed, is_on_floor, is_on_wall, IsActionPressed, IsKeyPressed, InputStr, IsKeyDown, IsMissing, IsMouseButtonDown, IsSQLiteAvailable, IsZeroApprox
+
+### J
+Join, Joypad.Axis, Joypad.Button, Joypad.Connected, Joypad.IsConnected, Joypad.Name, Joypad.Stick, JS.Call, JS.Eval, JS.Get
+
+### L
+Lambda, LBound, LCase, Left, Len, Lerp, Lighten, Line Input, LoadForm, LoadImage, LoadPicture, Long, look_at, Loop, LerpF, LSet
+
+### M
+Material.New, Material.SetShader, Me, Mid, Mod, move_and_slide, MsgBox, Music.Close, Music.Pause, Music.Resume, Music.GetBPM, Music.SetBPM, Music.SetVolume, Music.IsPlaying, Music.IsPaused, Music.NoteOn, Music.NoteOff
+
+### N
+Nav.Distance, Nav.NextPos, Nav.Path, Nav.Reached, Nav.SetTarget, New, NewCurve, NewNoise, NewRNG, Next, Not, Nothing
+
+### O
+On Error, Open, Option Explicit, Optional, Or
+
+### P
+Permission.All, Permission.Has, Permission.Request, Physics.Bounce, Physics.Force, Physics.Gravity, Physics.GravityV2, Physics.GravityV3, Physics.Impulse, Physics.Ray, Physics.Torque, Plane, PlaySound, Print, Private, Property, PSet, Public, Pull, Push, PeekData
+
+### Q
+Quaternion, QuaternionFromEuler, queue_free, queue_redraw, QueueRedraw
+
+### R
+RaiseEvent, Randomize, RandRange, Ray.Cast2D, Ray.Cast3D, Ray.Collider, Ray.Enable, Ray.ForceUpdate, Ray.Hit, Ray.Normal, Ray.Point, Ray.Target, Read, ReDim, remove_child, Replace, ResetDrawTransform, Restore, Return, RGB, Right, Rnd, Round, RSet
+
+### S
+SaveImage, Screen.DPI, Screen.FullScreen, Screen.Height, Screen.IsFullScreen, Screen.KeepOn, Screen.Orientation, Screen.Width, Select, Select Case, Sensor.Accel, Sensor.Gravity, Sensor.Gyro, Sensor.Magnet, Sensor.Magnetometer, Sensor.Tilt, Sensor.Units, Set, set_process, SetDrawTransform, SetImagePixel, Shader.Get, Shader.GetParam, Shader.Param, Shader.Set, show, Sin, Single, Skeleton.Count, Skeleton.Name, Skeleton.Reset, Slerp, Sound.IsPlaying, Sound.Pause, Sound.Pitch, Sound.Play, Sound.Position, Sound.Resume, Sound.Seek, Sound.Stop, Sound.Volume, Speaker.Bus, Speaker.Count, Speaker.Exists, Speaker.IsMuted, Speaker.Mute, Speaker.Name, Speaker.Solo, Speaker.Volume, SoundGen.Open, SoundGen.Close, SoundGen.Available, SoundGen.PushMono, SoundGen.PushStereo, Spin, Split, Sqr, Static, Steps.Reset, Steps.Today, Steps.Total, Str, String, Sub, SetDataPointer, SaveSetting, SoundGen.FillVoices, SoundGen.FillVoices4, SoundGen.PushMonoBuffer, SoundGen.PushStereoBuffer, SavePicture, StrComp, StrConv
+
+### T
+TextureHeight, TextureWidth, Theme.Color, Theme.Constant, Theme.Font, Theme.Get, Theme.Set, Theme.SetColor, Theme.SetConstant, Theme.SetFont, Theme.SetFontSize, Theme.SetStyle, Then, Throw, Transform2D, Transform3D, Trim, True, Try, Type, TimeValue, Tracker.Open, Tracker.Load, Tracker.Play, Tracker.Stop, Tracker.SetTempo, Tracker.Close, Tracker.Fill, Tracker.GetPosition, Tracker.GetDuration, TextHeight, TextWidth
+
+### U
+UBound, UCase, Until, UpdateTexture, Using
+
+### V
+Val, Variant, Vibrate, Video.IsPlaying, Video.Length, Video.Pause, Video.Play, Video.Position, Video.Resume, Video.Seek, Video.Stop, Video.Volume
+
+### W
+Wend, Whenever, While, With, WithEvents
+
+### X
+Xor
+
