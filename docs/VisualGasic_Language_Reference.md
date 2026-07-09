@@ -13433,28 +13433,18 @@ This appendix preserves the high-level intent of legacy non-IDE chapters that ar
 ### Keywords Reference (Consolidated)
 
 Legacy `Keywords Reference` content is now consolidated into:
-- [Language Basics](#language-basics)
-- [Control Flow](#control-flow)
-- [Procedures and Functions](#procedures-and-functions)
-- [Object-Oriented Features](#object-oriented-features)
-- [Part II — Command Reference (A–Z)](#command-reference)
+- [Language Basics](#language-basics) (core syntax, declarations, literals, operators)
+- [Control Flow](#control-flow) (branching, loops, structured flow keywords)
+- [Procedures and Functions](#procedures-and-functions) (Sub/Function signatures, params, returns)
+- [Object-Oriented Features](#object-oriented-features) (Class/Interface/Event member keywords)
+- [Part II — Command Reference (A–Z)](#command-reference) (keyword-level callable and statement coverage)
 
 ### Built-in Functions (Consolidated)
 
 Legacy `Built-in Functions` chapter content is represented by:
-- Function-focused tutorials in [Language Basics](#language-basics) and [System Integration](#system-integration)
-- Complete callable coverage in [Part II — Command Reference (A–Z)](#command-reference)
-
-### Versioned Enhancements Snapshot
-
-The legacy chapters `v3.3.0` through `v3.8.0` and `v4.x–v5.1 Godot Namespace Wrappers` are preserved here as a compact changelog-style snapshot:
-
-- v3.3.0: string interpolation, count/debug helpers, print formatting, literals, `On n GoTo/GoSub`, binary/random file I/O, regex, bitwise helpers, builder/utility additions.
-- v3.5.0-beta4: `WithEvents`/`RaiseEvent`, interface (`Implements`) verification, printer surface improvements, optional parameter behavior.
-- v3.6.0: compound assignment cleanup and numeric/type-system refinements.
-- v3.7.0: method overloading, constructor improvements, generic collection support.
-- v3.8.0: clarified bitwise semantics and enum/flags improvements.
-- v4.x–v5.1 wrappers: camera/audio/physics/navigation/ray/tile/sensor/permission/GPS/steps/theme/shader/material/skeleton/video/JS namespace surfaces, plus auto-wired event subs.
+- [Language Basics](#language-basics) (fundamental examples and usage patterns)
+- [System Integration](#system-integration) (platform, IO, crypto, tasking, package APIs)
+- [Part II — Command Reference (A–Z)](#command-reference) (complete built-in and callable index)
 
 For command-level specifics, use [Part II — Command Reference (A–Z)](#command-reference).
 
