@@ -1,0 +1,15 @@
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/bin/Debug/net9.0/check
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/bin/Debug/net9.0/check.deps.json
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/bin/Debug/net9.0/check.runtimeconfig.json
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/bin/Debug/net9.0/check.dll
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/bin/Debug/net9.0/check.pdb
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/obj/Debug/net9.0/check.GeneratedMSBuildEditorConfig.editorconfig
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/obj/Debug/net9.0/check.AssemblyInfoInputs.cache
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/obj/Debug/net9.0/check.AssemblyInfo.cs
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/obj/Debug/net9.0/check.csproj.CoreCompileInputs.cache
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/obj/Debug/net9.0/check.sourcelink.json
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/obj/Debug/net9.0/check.dll
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/obj/Debug/net9.0/refint/check.dll
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/obj/Debug/net9.0/check.pdb
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/obj/Debug/net9.0/check.genruntimeconfig.cache
+/home/Commodore/Documents/VisualGasic/bench/ai_correctness/checkers/_csharp_check_proj/obj/Debug/net9.0/ref/check.dll

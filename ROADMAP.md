@@ -1156,6 +1156,25 @@ These rules prevent "VG shell + hidden native emulator" and ensure emulator work
 
 ---
 
+### Platform Expansion: Windows Support for Audio/Tracker Subsystems
+
+**Task**: Bring Tracker (libopenmpt), Music (SiONDriver), and SoundGen (audio synthesis) builtins to Windows.
+
+**Current Status**: 
+- ✅ Linux/macOS: Full support via libopenmpt + native audio APIs
+- ❌ Windows: These subsystems NOT available (libopenmpt not in Windows build config)
+- 📖 **Documentation**: Phase 1 backfill of VisualGasic_Language_Reference.md marks these as `[Linux/macOS only]` (51 new entries added as of Jul 9, 2026)
+
+**Strategy** (Pre-v6.1, candidate for v6.2):
+1. **libopenmpt on Windows**: Add Windows pkg-config or VCPKG fallback in SConstruct; verify build + link against prebuilt binaries
+2. **Audio infrastructure parity**: Ensure SiONDriver + AudioStreamGenerator work on Windows (likely already compatible; just needs testing)
+3. **Regression testing**: Validate all Music/Tracker/SoundGen examples run identically on Win/Mac/Linux
+4. **Remove platform badge**: Once verified cross-platform, remove `[Linux/macOS only]` from docs
+
+**Blocker**: Windows CI pipeline for libopenmpt verification (currently missing)
+
+---
+
 ## 🚀 Performance Optimizations — Post-M8 (Conditional on Profiling)
 
 These optimizations emerged from real VG projects (vector_storm, Jun 2026) and are candidates for v6.2+. **Tier A** items have measured proof; **Tier B** items are speculative but plausible. **Do not implement until profiling from a GBA or PS1 emulator (or similar) confirms the bottleneck.**

@@ -1,0 +1,47 @@
+'' Test bitwise shift operators
+
+Sub Main()
+    '' Test left shift
+    Dim x As Integer = 5
+    Dim result As Integer
+    
+    result = x << 1  ' 5 << 1 = 10
+    Debug.Print "5 << 1 = " & result & " (expected 10)"
+    
+    result = x << 2  ' 5 << 2 = 20
+    Debug.Print "5 << 2 = " & result & " (expected 20)"
+    
+    result = x << 3  ' 5 << 3 = 40
+    Debug.Print "5 << 3 = " & result & " (expected 40)"
+    
+    '' Test right shift
+    Dim y As Integer = 40
+    
+    result = y >> 1  ' 40 >> 1 = 20
+    Debug.Print "40 >> 1 = " & result & " (expected 20)"
+    
+    result = y >> 2  ' 40 >> 2 = 10
+    Debug.Print "40 >> 2 = " & result & " (expected 10)"
+    
+    result = y >> 3  ' 40 >> 3 = 5
+    Debug.Print "40 >> 3 = " & result & " (expected 5)"
+    
+    '' Test bitwise AND, OR, XOR
+    Dim a As Integer = 12   ' 1100 in binary
+    Dim b As Integer = 10   ' 1010 in binary
+    
+    result = a And b  ' 1100 And 1010 = 1000 = 8
+    Debug.Print "12 And 10 = " & result & " (expected 8)"
+    
+    result = a Or b   ' 1100 Or 1010 = 1110 = 14
+    Debug.Print "12 Or 10 = " & result & " (expected 14)"
+    
+    result = a Xor b  ' 1100 Xor 1010 = 0110 = 6
+    Debug.Print "12 Xor 10 = " & result & " (expected 6)"
+    
+    '' Test Not
+    result = Not a    ' bitwise NOT of 12
+    Debug.Print "Not 12 = " & result
+    
+    Debug.Print "All bitwise tests completed!"
+End Sub

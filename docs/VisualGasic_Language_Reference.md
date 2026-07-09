@@ -13579,3 +13579,705 @@ Matches VB.NET and TwinBASIC syntax.
 
 ---
 
+### Documentation Backfill — Runtime Builtins (Phase 1)
+
+The entries below document runtime builtins that were implemented but not yet covered in this reference. Names are case-insensitive at runtime.
+
+## DataCount
+
+**Purpose** — Returns the number of values currently available in the active DATA tape.
+
+**Syntax**
+
+    DataCount()
+
+**Example**
+
+    If DataCount() = 0 Then Print "No data loaded"
+
+---
+
+## DataLabels
+
+**Purpose** — Returns available DATA labels for the current program/data tape.
+
+**Syntax**
+
+    DataLabels()
+
+---
+
+## DataPointer
+
+**Purpose** — Returns the current read pointer index for DATA/READ operations.
+
+**Syntax**
+
+    DataPointer()
+
+---
+
+## DataRemain
+
+**Purpose** — Returns how many DATA values remain unread.
+
+**Syntax**
+
+    DataRemain()
+
+---
+
+## DataSectionCount
+
+**Purpose** — Returns the number of DATA sections currently loaded.
+
+**Syntax**
+
+    DataSectionCount()
+
+---
+
+## DataSectionName
+
+**Purpose** — Returns the section name at a given DATA section index.
+
+**Syntax**
+
+    DataSectionName(index)
+
+---
+
+## DataSectionRemain
+
+**Purpose** — Returns unread value count in a specific DATA section.
+
+**Syntax**
+
+    DataSectionRemain(sectionName)
+
+---
+
+## DataToArray
+
+**Purpose** — Materializes remaining DATA values into an array.
+
+**Syntax**
+
+    DataToArray()
+
+---
+
+## SetDataPointer
+
+**Purpose** — Sets the active DATA read pointer.
+
+**Syntax**
+
+    SetDataPointer(index)
+
+---
+
+## GetSetting
+
+**Purpose** — Reads a persisted application/user setting value.
+
+**Syntax**
+
+    GetSetting(section, key[, defaultValue])
+
+---
+
+## GetAllSettings
+
+**Purpose** — Returns all settings in a section as key/value pairs.
+
+**Syntax**
+
+    GetAllSettings(section)
+
+---
+
+## SaveSetting
+
+**Purpose** — Persists a setting value.
+
+**Syntax**
+
+    SaveSetting(section, key, value)
+
+---
+
+## DeleteSetting
+
+**Purpose** — Deletes a saved setting key.
+
+**Syntax**
+
+    DeleteSetting(section, key)
+
+---
+
+## FormatNumber
+
+**Purpose** — Returns a localized number string with standard numeric formatting.
+
+**Syntax**
+
+    FormatNumber(value[, decimals])
+
+---
+
+## FormatCurrency
+
+**Purpose** — Returns a localized currency-formatted string.
+
+**Syntax**
+
+    FormatCurrency(value[, decimals])
+
+---
+
+## FormatPercent
+
+**Purpose** — Returns a localized percentage-formatted string.
+
+**Syntax**
+
+    FormatPercent(value[, decimals])
+
+---
+
+## DatePart
+
+**Purpose** — Extracts a part from a date/time value.
+
+**Syntax**
+
+    DatePart(partName, dateValue)
+
+**Example**
+
+    Print DatePart("yyyy", Now())
+
+---
+
+## DateValue
+
+**Purpose** — Converts a date string/expression to a date value.
+
+**Syntax**
+
+    DateValue(value)
+
+---
+
+## TimeValue
+
+**Purpose** — Converts a time string/expression to a time value.
+
+**Syntax**
+
+    TimeValue(value)
+
+---
+
+## FileDateTime
+
+**Purpose** — Returns last-modified timestamp metadata for a file.
+
+**Syntax**
+
+    FileDateTime(path)
+
+---
+
+## Tracker.Open
+
+**Purpose** — Opens/initializes tracker module playback context.
+
+**Syntax**
+
+    Tracker.Open(path)
+
+---
+
+## Tracker.Load
+
+**Purpose** — Loads tracker module data into the active tracker context.
+
+**Syntax**
+
+    Tracker.Load(path)
+
+---
+
+## Tracker.Play
+
+**Purpose** — Starts tracker playback.
+
+**Syntax**
+
+    Tracker.Play()
+
+---
+
+## Tracker.Stop
+
+**Purpose** — Stops tracker playback.
+
+**Syntax**
+
+    Tracker.Stop()
+
+---
+
+## Tracker.SetTempo
+
+**Purpose** — Sets tracker playback tempo.
+
+**Syntax**
+
+    Tracker.SetTempo(bpm)
+
+---
+
+## Tracker.Close
+
+**Purpose** — Closes and frees tracker playback context. **[Linux/macOS only]**
+
+**Syntax**
+
+    Tracker.Close(handle)
+
+---
+
+## Tracker.Fill
+
+**Purpose** — Fills audio buffer from tracker module (call per frame in _Process). **[Linux/macOS only]**
+
+**Syntax**
+
+    Tracker.Fill(handle)
+
+---
+
+## Tracker.GetPosition
+
+**Purpose** — Returns current playback position in seconds. **[Linux/macOS only]**
+
+**Syntax**
+
+    Tracker.GetPosition(handle)
+
+---
+
+## Tracker.GetDuration
+
+**Purpose** — Returns total tracker module duration in seconds. **[Linux/macOS only]**
+
+**Syntax**
+
+    Tracker.GetDuration(handle)
+
+---
+
+## Music.Close
+
+**Purpose** — Closes music playback driver. **[Linux/macOS only]**
+
+**Syntax**
+
+    Music.Close(driver)
+
+---
+
+## Music.Pause
+
+**Purpose** — Pauses music playback. **[Linux/macOS only]**
+
+**Syntax**
+
+    Music.Pause(driver)
+
+---
+
+## Music.Resume
+
+**Purpose** — Resumes paused music. **[Linux/macOS only]**
+
+**Syntax**
+
+    Music.Resume(driver)
+
+---
+
+## Music.GetBPM
+
+**Purpose** — Returns current playback BPM. **[Linux/macOS only]**
+
+**Syntax**
+
+    Music.GetBPM(driver)
+
+---
+
+## Music.SetBPM
+
+**Purpose** — Sets music playback tempo in BPM. **[Linux/macOS only]**
+
+**Syntax**
+
+    Music.SetBPM(driver, bpm)
+
+---
+
+## Music.SetVolume
+
+**Purpose** — Sets music playback volume (0.0–1.0). **[Linux/macOS only]**
+
+**Syntax**
+
+    Music.SetVolume(driver, volume)
+
+---
+
+## Music.IsPlaying
+
+**Purpose** — Returns whether music is currently playing. **[Linux/macOS only]**
+
+**Syntax**
+
+    Music.IsPlaying(driver)
+
+---
+
+## Music.IsPaused
+
+**Purpose** — Returns whether music is paused. **[Linux/macOS only]**
+
+**Syntax**
+
+    Music.IsPaused(driver)
+
+---
+
+## Music.NoteOn
+
+**Purpose** — Triggers a note in real-time synthesis. **[Linux/macOS only]**
+
+**Syntax**
+
+    Music.NoteOn(driver, channel, note, velocity)
+
+---
+
+## Music.NoteOff
+
+**Purpose** — Releases a note in real-time synthesis. **[Linux/macOS only]**
+
+**Syntax**
+
+    Music.NoteOff(driver, channel, note)
+
+---
+
+## SoundGen.FillVoices
+
+**Purpose** — Generates real-time procedural audio from voice parameters. **[Linux/macOS only]**
+
+**Syntax**
+
+    SoundGen.FillVoices(handle, channels, phase, freq, duty, sweep, mod_phase, mod_freq, noise, depth)
+
+---
+
+## SoundGen.FillVoices4
+
+**Purpose** — Generates 4-voice polyphonic audio synthesis. **[Linux/macOS only]**
+
+**Syntax**
+
+    SoundGen.FillVoices4(handle, channels, voices_array)
+
+---
+
+## SoundGen.PushMonoBuffer
+
+**Purpose** — Pushes mono audio buffer into sound generator ring buffer. **[Linux/macOS only]**
+
+**Syntax**
+
+    SoundGen.PushMonoBuffer(handle, samples)
+
+---
+
+## SoundGen.PushStereoBuffer
+
+**Purpose** — Pushes stereo audio buffer into sound generator ring buffer. **[Linux/macOS only]**
+
+**Syntax**
+
+    SoundGen.PushStereoBuffer(handle, samples_left, samples_right)
+
+---
+
+## AllocFillI64
+
+**Purpose** — Allocates and fills a 64-bit integer array.
+
+**Syntax**
+
+    AllocFillI64(size, value)
+
+---
+
+## AllocFillI64Sum
+
+**Purpose** — Allocates and fills a 64-bit integer array with cumulative sum.
+
+**Syntax**
+
+    AllocFillI64Sum(size, value)
+
+---
+
+## AscW
+
+**Purpose** — Returns Unicode code point of character.
+
+**Syntax**
+
+    AscW(char)
+
+---
+
+## BenchFileIOFast
+
+**Purpose** — Benchmark fast file I/O performance.
+
+**Syntax**
+
+    BenchFileIOFast(iterations)
+
+---
+
+## CallByName
+
+**Purpose** — Dynamically invokes object method by string name.
+
+**Syntax**
+
+    CallByName(object, methodName [, args...])
+
+---
+
+## CByte
+
+**Purpose** — Converts value to byte.
+
+**Syntax**
+
+    CByte(value)
+
+---
+
+## ChrW
+
+**Purpose** — Returns character from Unicode code point.
+
+**Syntax**
+
+    ChrW(codepoint)
+
+---
+
+## ClampF
+
+**Purpose** — Clamps float value between min and max.
+
+**Syntax**
+
+    ClampF(value, min, max)
+
+---
+
+## ClngLng
+
+**Purpose** — Converts value to long integer.
+
+**Syntax**
+
+    ClngLng(value)
+
+---
+
+## Erl
+
+**Purpose** — Returns line number where error occurred.
+
+**Syntax**
+
+    Erl()
+
+---
+
+## ErrorDesc
+
+**Purpose** — Returns description of last runtime error.
+
+**Syntax**
+
+    ErrorDesc()
+
+---
+
+## InputStr
+
+**Purpose** — Reads string input from console/input stream.
+
+**Syntax**
+
+    InputStr([prompt])
+
+---
+
+## IsKeyDown
+
+**Purpose** — Checks if keyboard key is currently pressed.
+
+**Syntax**
+
+    IsKeyDown(keycode)
+
+---
+
+## IsMissing
+
+**Purpose** — Checks if optional parameter was provided.
+
+**Syntax**
+
+    IsMissing(param)
+
+---
+
+## IsMouseButtonDown
+
+**Purpose** — Checks if mouse button is currently pressed.
+
+**Syntax**
+
+    IsMouseButtonDown(button)
+
+---
+
+## IsSQLiteAvailable
+
+**Purpose** — Checks if SQLite database support is available.
+
+**Syntax**
+
+    IsSQLiteAvailable()
+
+---
+
+## IsZeroApprox
+
+**Purpose** — Checks if value is approximately zero.
+
+**Syntax**
+
+    IsZeroApprox(value)
+
+---
+
+## LerpF
+
+**Purpose** — Linear interpolation between two float values.
+
+**Syntax**
+
+    LerpF(a, b, t)
+
+---
+
+## LSet
+
+**Purpose** — Left-aligns string within fixed-width field.
+
+**Syntax**
+
+    LSet(target, source)
+
+---
+
+## PeekData
+
+**Purpose** — Reads value from data section at offset.
+
+**Syntax**
+
+    PeekData(offset)
+
+---
+
+## RSet
+
+**Purpose** — Right-aligns string within fixed-width field.
+
+**Syntax**
+
+    RSet(target, source)
+
+---
+
+## SavePicture
+
+**Purpose** — Saves image/picture to file.
+
+**Syntax**
+
+    SavePicture(image, path)
+
+---
+
+## StrComp
+
+**Purpose** — Compares two strings lexicographically.
+
+**Syntax**
+
+    StrComp(str1, str2 [, compare_mode])
+
+---
+
+## StrConv
+
+**Purpose** — Converts string case or encoding.
+
+**Syntax**
+
+    StrConv(string, conversion_type)
+
+---
+
+## TextHeight
+
+**Purpose** — Calculates rendered text height in pixels.
+
+**Syntax**
+
+    TextHeight(text [, font] [, font_size])
+
+---
+
+## TextWidth
+
+**Purpose** — Calculates rendered text width in pixels.
+
+**Syntax**
+
+    TextWidth(text [, font] [, font_size])
+
+---
+
