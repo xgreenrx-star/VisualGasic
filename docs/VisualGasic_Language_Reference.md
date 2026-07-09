@@ -4290,7 +4290,7 @@ Adds a child node to this node. The child will appear in the scene tree under th
 
 ## And
 
-**Purpose** — Logical AND — returns True only if both expressions are True.
+**Purpose** — Logical AND; also performs bitwise AND on numeric operands.
 
 **Syntax**
 
@@ -4302,15 +4302,26 @@ Adds a child node to this node. The child will appear in the scene tree under th
 
 **Description**
 
-Logical AND — returns True only if both expressions are True.
+When both operands are boolean or non-numeric: performs logical AND — returns True only if both expressions are True.
 
-**Example**
+When both operands are numeric: performs bitwise AND — each bit position is True only if both operand bits are 1. This follows VB6 semantics.
+
+**Logical Example**
 
     If health > 0 And ammo > 0 Then
         Fire()
     End If
 
-**See Also** — [Or](#or), [Not](#not), [Xor](#xor)
+**Bitwise Example**
+
+    Dim flags As Integer = 12      ' Binary: 1100
+    Dim mask As Integer = 10       ' Binary: 1010
+    Dim result = flags And mask    ' Result: 8 (Binary: 1000)
+    
+    Dim isAdmin = userFlags And &H100   ' Extract bit 8
+    flags And= &HFF                ' Bitwise AND assignment
+
+**See Also** — [Or](#or), [Not](#not), [Xor](#xor), [<<](#shift-left), [>>](#shift-right)
 
 ---
 
@@ -9272,7 +9283,7 @@ Marks the end of a For or For Each loop. The counter variable name is optional.
 
 ## Not
 
-**Purpose** — Logical NOT — inverts a Boolean value.
+**Purpose** — Logical NOT; also performs bitwise NOT on numeric operands.
 
 **Syntax**
 
@@ -9284,9 +9295,11 @@ Marks the end of a For or For Each loop. The counter variable name is optional.
 
 **Description**
 
-Logical NOT — inverts a Boolean value.
+When the operand is boolean or non-numeric: performs logical NOT — inverts a Boolean value.
 
-**Example**
+When the operand is numeric: performs bitwise NOT (one's complement) — each bit is inverted (0→1, 1→0). This follows VB6 semantics.
+
+**Logical Example**
 
     If Not gameOver Then
         UpdateGame()
@@ -9294,7 +9307,14 @@ Logical NOT — inverts a Boolean value.
 
     Visible = Not Visible  ' Toggle
 
-**See Also** — [And](#and), [Or](#or), [Xor](#xor)
+**Bitwise Example**
+
+    Dim flags As Integer = 12       ' Binary: 1100
+    Dim result = Not flags          ' Result: -13 (one's complement)
+    
+    Dim isActive = Not (flags And &H01)  ' Check if bit 0 is clear
+
+**See Also** — [And](#and), [Or](#or), [Xor](#xor), [<<](#shift-left), [>>](#shift-right)
 
 ---
 
@@ -9448,7 +9468,7 @@ Declares a parameter that the caller may omit. A default value is provided.
 
 ## Or
 
-**Purpose** — Logical OR — returns True if either expression is True.
+**Purpose** — Logical OR; also performs bitwise OR on numeric operands.
 
 **Syntax**
 
@@ -9460,15 +9480,25 @@ Declares a parameter that the caller may omit. A default value is provided.
 
 **Description**
 
-Logical OR — returns True if either expression is True.
+When both operands are boolean or non-numeric: performs logical OR — returns True if either expression is True.
 
-**Example**
+When both operands are numeric: performs bitwise OR — each bit position is True if either operand bit is 1. This follows VB6 semantics.
+
+**Logical Example**
 
     If key = "escape" Or key = "q" Then
         QuitGame()
     End If
 
-**See Also** — [And](#and), [Not](#not), [Xor](#xor)
+**Bitwise Example**
+
+    Dim flags As Integer = 12       ' Binary: 1100
+    Dim mask As Integer = 2         ' Binary: 0010
+    Dim result = flags Or mask      ' Result: 14 (Binary: 1110)
+    
+    flags Or= &H100                 ' Set bit 8
+
+**See Also** — [And](#and), [Not](#not), [Xor](#xor), [<<](#shift-left), [>>](#shift-right)
 
 ---
 
@@ -13447,7 +13477,7 @@ Declares an object variable that can respond to the object's events through even
 
 ## Xor
 
-**Purpose** — Logical XOR — returns True if exactly one expression is True.
+**Purpose** — Logical XOR; also performs bitwise XOR on numeric operands.
 
 **Syntax**
 
@@ -13459,15 +13489,93 @@ Declares an object variable that can respond to the object's events through even
 
 **Description**
 
-Logical XOR — returns True if exactly one expression is True.
+When both operands are boolean or non-numeric: performs logical XOR — returns True if exactly one expression is True.
 
-**Example**
+When both operands are numeric: performs bitwise XOR — each bit position is True if the operand bits differ. This follows VB6 semantics.
+
+**Logical Example**
 
     If a Xor b Then
         Print "Exactly one is true"
     End If
 
-**See Also** — [And](#and), [Or](#or), [Not](#not)
+**Bitwise Example**
+
+    Dim flags As Integer = 12       ' Binary: 1100
+    Dim mask As Integer = 10        ' Binary: 1010
+    Dim result = flags Xor mask     ' Result: 6 (Binary: 0110)
+    
+    flags Xor= &H01                 ' Toggle bit 0
+
+**See Also** — [And](#and), [Or](#or), [Not](#not), [<<](#shift-left), [>>](#shift-right)
+
+---
+
+### Shift Operators
+
+## << (Shift Left)
+
+**Purpose** — Left bit-shift operator — multiplies an integer by a power of 2.
+
+**Syntax**
+
+    expression1 << expression2
+
+**Parameters**
+
+- `expression1` — The value to shift (must be numeric)
+- `expression2` — The number of positions to shift left (must be numeric)
+
+**Description**
+
+Shifts the bits of `expression1` left by `expression2` positions, filling with zeros on the right. Equivalent to multiplying by 2 raised to the power of `expression2`.
+
+Matches VB.NET and TwinBASIC syntax.
+
+**Example**
+
+    Dim a As Integer = 1 << 8      ' 256 (1 shifted left 8 bits)
+    Dim b As Integer = 5 << 3      ' 40  (5 * 2^3)
+    Dim flags = value << 4         ' Shift by variable amount
+    
+    ' Compound assignment
+    flags <<= 2                     ' flags = flags << 2
+
+**See Also** — [>>](#shift-right), [And](#and), [Or](#or), [Xor](#xor)
+
+---
+
+## >> (Shift Right)
+
+**Purpose** — Right bit-shift operator — divides an integer by a power of 2 (arithmetic shift).
+
+**Syntax**
+
+    expression1 >> expression2
+
+**Parameters**
+
+- `expression1` — The value to shift (must be numeric)
+- `expression2` — The number of positions to shift right (must be numeric)
+
+**Description**
+
+Shifts the bits of `expression1` right by `expression2` positions. For signed integers, performs arithmetic shift (sign bit is preserved). For unsigned integers, performs logical shift (fills with zeros).
+
+Equivalent to dividing by 2 raised to the power of `expression2` (with truncation).
+
+Matches VB.NET and TwinBASIC syntax.
+
+**Example**
+
+    Dim a As Integer = 256 >> 4    ' 16 (256 / 2^4)
+    Dim b As Integer = 40 >> 3     ' 5  (40 / 2^3)
+    Dim value = flags >> n         ' Shift by variable amount
+    
+    ' Compound assignment
+    flags >>= 2                     ' flags = flags >> 2
+
+**See Also** — [<<](#shift-left), [And](#and), [Or](#or), [Xor](#xor)
 
 ---
 
