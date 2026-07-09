@@ -1175,6 +1175,29 @@ These rules prevent "VG shell + hidden native emulator" and ensure emulator work
 
 ---
 
+### Tier 3: Platform Compatibility Audit (Backlog, Post-v6.0)
+
+**Goal**: Make platform behavior explicit and testable across all target exports: **Windows, macOS, Linux, Web, Android**.
+
+**Status**: Backlog (documentation-driven first, implementation only when audit evidence confirms gaps)
+
+**Scope**:
+1. Build and maintain a command/platform support matrix for user-facing APIs.
+2. Complete platform badges in the language reference (`supported`, `fallback`, `no-op`, `unsupported`).
+3. Verify behavior parity by target via smoke tests for subsystem commands (Process/Socket/FileWatcher/COM/JS/GPS/Permissions/Steps/Audio Tracker).
+4. Standardize policy wording in docs and runtime: distinguish clearly between `unsupported` vs `safe default` vs `platform fallback`.
+
+**Deliverables**:
+- Platform compatibility matrix (single source of truth)
+- Documentation parity report (all platform-sensitive commands annotated)
+- Targeted test checklist per platform (Windows/macOS/Linux/Web/Android)
+- Gap list with owner and severity (doc-only, runtime bug, or feature request)
+
+**Decision Gate**:
+- Promote findings to scheduled milestone work only when reproducible tests show user-facing impact on one or more target platforms.
+
+---
+
 ## 🚀 Performance Optimizations — Post-M8 (Conditional on Profiling)
 
 These optimizations emerged from real VG projects (vector_storm, Jun 2026) and are candidates for v6.2+. **Tier A** items have measured proof; **Tier B** items are speculative but plausible. **Do not implement until profiling from a GBA or PS1 emulator (or similar) confirms the bottleneck.**
