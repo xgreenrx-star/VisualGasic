@@ -29,7 +29,7 @@ These chapters explain the language and major subsystems end-to-end.
 
 For a per-command alphabetical reference, see 
 
-[Part II — Command Reference](#part-ii).
+[Part II — Command Reference](#part-ii--command-reference-a-z).
 
 
 ## Getting Started
@@ -12986,7 +12986,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Tracker.Close
 
-**Purpose** — Closes and frees tracker playback context. **[Linux/macOS only]**
+**Purpose** — Closes and frees tracker playback context. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -12996,7 +12996,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Tracker.Fill
 
-**Purpose** — Fills audio buffer from tracker module (call per frame in _Process). **[Linux/macOS only]**
+**Purpose** — Fills audio buffer from tracker module (call per frame in _Process). **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13006,7 +13006,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Tracker.GetPosition
 
-**Purpose** — Returns current playback position in seconds. **[Linux/macOS only]**
+**Purpose** — Returns current playback position in seconds. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13016,7 +13016,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Tracker.GetDuration
 
-**Purpose** — Returns total tracker module duration in seconds. **[Linux/macOS only]**
+**Purpose** — Returns total tracker module duration in seconds. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13026,7 +13026,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Music.Close
 
-**Purpose** — Closes music playback driver. **[Linux/macOS only]**
+**Purpose** — Closes music playback driver. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13036,7 +13036,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Music.Pause
 
-**Purpose** — Pauses music playback. **[Linux/macOS only]**
+**Purpose** — Pauses music playback. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13046,7 +13046,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Music.Resume
 
-**Purpose** — Resumes paused music. **[Linux/macOS only]**
+**Purpose** — Resumes paused music. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13056,7 +13056,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Music.GetBPM
 
-**Purpose** — Returns current playback BPM. **[Linux/macOS only]**
+**Purpose** — Returns current playback BPM. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13066,7 +13066,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Music.SetBPM
 
-**Purpose** — Sets music playback tempo in BPM. **[Linux/macOS only]**
+**Purpose** — Sets music playback tempo in BPM. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13076,7 +13076,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Music.SetVolume
 
-**Purpose** — Sets music playback volume (0.0–1.0). **[Linux/macOS only]**
+**Purpose** — Sets music playback volume (0.0–1.0). **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13086,7 +13086,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Music.IsPlaying
 
-**Purpose** — Returns whether music is currently playing. **[Linux/macOS only]**
+**Purpose** — Returns whether music is currently playing. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13096,7 +13096,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Music.IsPaused
 
-**Purpose** — Returns whether music is paused. **[Linux/macOS only]**
+**Purpose** — Returns whether music is paused. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13106,7 +13106,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Music.NoteOn
 
-**Purpose** — Triggers a note in real-time synthesis. **[Linux/macOS only]**
+**Purpose** — Triggers a note in real-time synthesis. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13116,7 +13116,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## Music.NoteOff
 
-**Purpose** — Releases a note in real-time synthesis. **[Linux/macOS only]**
+**Purpose** — Releases a note in real-time synthesis. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13126,7 +13126,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## SoundGen.FillVoices
 
-**Purpose** — Generates real-time procedural audio from voice parameters. **[Linux/macOS only]**
+**Purpose** — Generates real-time procedural audio from voice parameters. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13136,7 +13136,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## SoundGen.FillVoices4
 
-**Purpose** — Generates 4-voice polyphonic audio synthesis. **[Linux/macOS only]**
+**Purpose** — Generates 4-voice polyphonic audio synthesis. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13146,7 +13146,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## SoundGen.PushMonoBuffer
 
-**Purpose** — Pushes mono audio buffer into sound generator ring buffer. **[Linux/macOS only]**
+**Purpose** — Pushes mono audio buffer into sound generator ring buffer. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
@@ -13156,7 +13156,7 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## SoundGen.PushStereoBuffer
 
-**Purpose** — Pushes stereo audio buffer into sound generator ring buffer. **[Linux/macOS only]**
+**Purpose** — Pushes stereo audio buffer into sound generator ring buffer. **[Linux/macOS only; Windows planned]**
 
 **Syntax**
 
