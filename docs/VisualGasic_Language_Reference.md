@@ -3169,7 +3169,7 @@ Called when the CanvasItem needs to be redrawn. Use draw_* methods inside. Call 
 
 **Godot Mapping** — [`CanvasItem._draw()`](https://docs.godotengine.org/en/stable/classes/class_canvasitem.html#class-canvasitem-method-_draw)
 
-**See Also** — [_ready](#ready), [_process](#process), [_physics_process](#physicsprocess), [_input](#input)
+**See Also** — [_ready](#_ready), [_process](#_process), [_physics_process](#_physics_process), [_input](#_input)
 
 ---
 
@@ -3199,7 +3199,7 @@ Called when any input event occurs (keyboard, mouse, touch, gamepad). Consume wi
 
 **Godot Mapping** — [`Node._input()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_input)
 
-**See Also** — [_ready](#ready), [_process](#process), [_physics_process](#physicsprocess), [_draw](#draw)
+**See Also** — [_ready](#_ready), [_process](#_process), [_physics_process](#_physics_process), [_draw](#_draw)
 
 ---
 
@@ -3228,7 +3228,7 @@ Called every physics frame (default 60 fps). Use for physics-based movement and 
 
 **Godot Mapping** — [`Node._physics_process()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_physics_process)
 
-**See Also** — [move_and_slide](#moveandslide), [velocity](#velocity), [is_on_floor](#isonfloor), [is_on_wall](#isonwall), [delta](#delta), [_ready](#ready), [_process](#process), [_input](#input), [_draw](#draw)
+**See Also** — [move_and_slide](#move_and_slide), [velocity](#command-reference), [is_on_floor](#is_on_floor), [is_on_wall](#is_on_wall), [delta](#delta), [_ready](#_ready), [_process](#_process), [_input](#_input), [_draw](#_draw)
 
 ---
 
@@ -3256,7 +3256,7 @@ Called every frame. [b]delta[/b] is the elapsed time in seconds. Use for game lo
 
 **Godot Mapping** — [`Node._process()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_process)
 
-**See Also** — [_ready](#ready), [_physics_process](#physicsprocess), [_input](#input), [_draw](#draw)
+**See Also** — [_ready](#_ready), [_physics_process](#_physics_process), [_input](#_input), [_draw](#_draw)
 
 ---
 
@@ -3281,7 +3281,7 @@ Called when the node and all its children have entered the scene tree. Use for i
 
 **Godot Mapping** — [`Node._ready()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_ready)
 
-**See Also** — [_process](#process), [_physics_process](#physicsprocess), [_input](#input), [_draw](#draw)
+**See Also** — [_process](#_process), [_physics_process](#_physics_process), [_input](#_input), [_draw](#_draw)
 
 ---
 
@@ -3359,7 +3359,7 @@ Adds a child node to this node. The child will appear in the scene tree under th
 
 **Godot Mapping** — [`Node.add_child()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-add_child)
 
-**See Also** — [get_node](#getnode), [remove_child](#removechild), [queue_free](#queuefree), [get_tree](#gettree), [instantiate](#instantiate)
+**See Also** — [get_node](#get_node), [remove_child](#remove_child), [queue_free](#queue_free), [get_tree](#get_tree), [instantiate](#instantiate)
 
 ---
 
@@ -3396,7 +3396,7 @@ When both operands are numeric: performs bitwise AND — each bit position is Tr
     Dim isAdmin = userFlags And &H100   ' Extract bit 8
     flags And= &HFF                ' Bitwise AND assignment
 
-**See Also** — [Or](#or), [Not](#not), [Xor](#xor), [<<](#shift-left), [>>](#shift-right)
+**See Also** — [Or](#or), [Not](#not), [Xor](#xor), [<<](#command-reference), [>>](#command-reference)
 
 ---
 
@@ -4846,7 +4846,7 @@ Connects a signal to a callback method. Use Godot 4 Callable syntax.
 
 **Godot Mapping** — [`Object.connect()`](https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-connect)
 
-**See Also** — [emit_signal](#emitsignal)
+**See Also** — [emit_signal](#emit_signal)
 
 ---
 
@@ -5375,7 +5375,7 @@ The elapsed time since the previous frame (in seconds). Passed to [b]_Process[/b
 
 **Godot Mapping** — [`Node._process()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-_process)
 
-**See Also** — [move_and_slide](#moveandslide), [velocity](#velocity), [is_on_floor](#isonfloor), [is_on_wall](#isonwall), [_physics_process](#physicsprocess)
+**See Also** — [move_and_slide](#move_and_slide), [velocity](#command-reference), [is_on_floor](#is_on_floor), [is_on_wall](#is_on_wall), [_physics_process](#_physics_process)
 
 ---
 
@@ -6418,7 +6418,7 @@ Returns the node at the given path relative to this node. Also available via the
 
 **Godot Mapping** — [`Node.get_node()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get_node)
 
-**See Also** — [add_child](#addchild), [remove_child](#removechild), [queue_free](#queuefree), [get_tree](#gettree), [instantiate](#instantiate)
+**See Also** — [add_child](#add_child), [remove_child](#remove_child), [queue_free](#queue_free), [get_tree](#get_tree), [instantiate](#instantiate)
 
 ---
 
@@ -6441,7 +6441,7 @@ Returns the SceneTree this node belongs to. Used for scene management, groups, a
 
 **Godot Mapping** — [`Node.get_tree()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-get_tree)
 
-**See Also** — [get_node](#getnode), [add_child](#addchild), [remove_child](#removechild), [queue_free](#queuefree), [instantiate](#instantiate)
+**See Also** — [get_node](#get_node), [add_child](#add_child), [remove_child](#remove_child), [queue_free](#queue_free), [instantiate](#instantiate)
 
 ---
 
@@ -6743,7 +6743,7 @@ Makes this node invisible. Equivalent to setting [b]visible = False[/b].
 
 **Godot Mapping** — [`CanvasItem.hide()`](https://docs.godotengine.org/en/stable/classes/class_canvasitem.html#class-canvasitem-method-hide)
 
-**See Also** — [visible](#visible), [show](#show), [modulate](#modulate)
+**See Also** — [visible](#command-reference), [show](#show), [modulate](#command-reference)
 
 ---
 
@@ -7004,7 +7004,7 @@ Creates an instance of a PackedScene. Load the scene first with [b]preload[/b] o
 
 **Godot Mapping** — [`PackedScene.instantiate()`](https://docs.godotengine.org/en/stable/classes/class_packedscene.html#class-packedscene-method-instantiate)
 
-**See Also** — [get_node](#getnode), [add_child](#addchild), [remove_child](#removechild), [queue_free](#queuefree), [get_tree](#gettree)
+**See Also** — [get_node](#get_node), [add_child](#add_child), [remove_child](#remove_child), [queue_free](#queue_free), [get_tree](#get_tree)
 
 ---
 
@@ -7136,7 +7136,7 @@ Returns True only on the frame the action was first pressed.
 
 **Godot Mapping** — [`Input.is_action_just_pressed()`](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-method-is_action_just_pressed)
 
-**See Also** — [is_action_pressed](#isactionpressed), [is_action_just_released](#isactionjustreleased)
+**See Also** — [is_action_pressed](#isactionpressed), [is_action_just_released](#is_action_just_released)
 
 ---
 
@@ -7164,7 +7164,7 @@ Returns True only on the frame the action was released.
 
 **Godot Mapping** — [`Input.is_action_just_released()`](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-method-is_action_just_released)
 
-**See Also** — [is_action_pressed](#isactionpressed), [is_action_just_pressed](#isactionjustpressed)
+**See Also** — [is_action_pressed](#isactionpressed), [is_action_just_pressed](#is_action_just_pressed)
 
 ---
 
@@ -7192,7 +7192,7 @@ Returns True while the specified input action is held down. Defined in Project �
 
 **Godot Mapping** — [`Input.is_action_pressed()`](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-method-is_action_pressed)
 
-**See Also** — [is_action_just_pressed](#isactionjustpressed), [is_action_just_released](#isactionjustreleased)
+**See Also** — [is_action_just_pressed](#is_action_just_pressed), [is_action_just_released](#is_action_just_released)
 
 ---
 
@@ -7216,7 +7216,7 @@ Returns True if the CharacterBody was on the floor during the last [b]move_and_s
 
 **Godot Mapping** — [`CharacterBody2D.is_on_floor()`](https://docs.godotengine.org/en/stable/classes/class_characterbody2d.html#class-characterbody2d-method-is_on_floor)
 
-**See Also** — [move_and_slide](#moveandslide), [velocity](#velocity), [is_on_wall](#isonwall), [_physics_process](#physicsprocess), [delta](#delta)
+**See Also** — [move_and_slide](#move_and_slide), [velocity](#command-reference), [is_on_wall](#is_on_wall), [_physics_process](#_physics_process), [delta](#delta)
 
 ---
 
@@ -7240,7 +7240,7 @@ Returns True if the CharacterBody was touching a wall during the last [b]move_an
 
 **Godot Mapping** — [`CharacterBody2D.is_on_wall()`](https://docs.godotengine.org/en/stable/classes/class_characterbody2d.html#class-characterbody2d-method-is_on_wall)
 
-**See Also** — [move_and_slide](#moveandslide), [velocity](#velocity), [is_on_floor](#isonfloor), [_physics_process](#physicsprocess), [delta](#delta)
+**See Also** — [move_and_slide](#move_and_slide), [velocity](#command-reference), [is_on_floor](#is_on_floor), [_physics_process](#_physics_process), [delta](#delta)
 
 ---
 
@@ -7918,7 +7918,7 @@ Rotates the node so it points toward the target position.
 
 **Godot Mapping** — [`Node2D.look_at()`](https://docs.godotengine.org/en/stable/classes/class_node2d.html#class-node2d-method-look_at)
 
-**See Also** — [position](#position), [global_position](#globalposition), [rotation](#rotation), [rotation_degrees](#rotationdegrees), [scale](#scale)
+**See Also** — [position](#command-reference), [global_position](#command-reference), [rotation](#command-reference), [rotation_degrees](#command-reference), [scale](#command-reference)
 
 ---
 
@@ -8105,7 +8105,7 @@ Moves the body based on [b]velocity[/b], sliding along collisions. Call in [b]_P
 
 **Godot Mapping** — [`CharacterBody2D.move_and_slide()`](https://docs.godotengine.org/en/stable/classes/class_characterbody2d.html#class-characterbody2d-method-move_and_slide)
 
-**See Also** — [velocity](#velocity), [is_on_floor](#isonfloor), [is_on_wall](#isonwall), [_physics_process](#physicsprocess), [delta](#delta)
+**See Also** — [velocity](#command-reference), [is_on_floor](#is_on_floor), [is_on_wall](#is_on_wall), [_physics_process](#_physics_process), [delta](#delta)
 
 ---
 
@@ -8429,7 +8429,7 @@ When the operand is numeric: performs bitwise NOT (one's complement) — each bi
     
     Dim isActive = Not (flags And &H01)  ' Check if bit 0 is clear
 
-**See Also** — [And](#and), [Or](#or), [Xor](#xor), [<<](#shift-left), [>>](#shift-right)
+**See Also** — [And](#and), [Or](#or), [Xor](#xor), [<<](#command-reference), [>>](#command-reference)
 
 ---
 
@@ -8613,7 +8613,7 @@ When both operands are numeric: performs bitwise OR — each bit position is Tru
     
     flags Or= &H100                 ' Set bit 8
 
-**See Also** — [And](#and), [Not](#not), [Xor](#xor), [<<](#shift-left), [>>](#shift-right)
+**See Also** — [And](#and), [Not](#not), [Xor](#xor), [<<](#command-reference), [>>](#command-reference)
 
 ---
 
@@ -9223,7 +9223,7 @@ Queues this node for deletion at the end of the current frame. Safer than callin
 
 **Godot Mapping** — [`Node.queue_free()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-queue_free)
 
-**See Also** — [get_node](#getnode), [add_child](#addchild), [remove_child](#removechild), [get_tree](#gettree), [instantiate](#instantiate)
+**See Also** — [get_node](#get_node), [add_child](#add_child), [remove_child](#remove_child), [get_tree](#get_tree), [instantiate](#instantiate)
 
 ---
 
@@ -9672,7 +9672,7 @@ Removes a child node from this node without freeing it.
 
 **Godot Mapping** — [`Node.remove_child()`](https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-method-remove_child)
 
-**See Also** — [get_node](#getnode), [add_child](#addchild), [queue_free](#queuefree), [get_tree](#gettree), [instantiate](#instantiate)
+**See Also** — [get_node](#get_node), [add_child](#add_child), [queue_free](#queue_free), [get_tree](#get_tree), [instantiate](#instantiate)
 
 ---
 
@@ -10531,7 +10531,7 @@ Makes this node visible. Equivalent to setting [b]visible = True[/b].
 
 **Godot Mapping** — [`CanvasItem.show()`](https://docs.godotengine.org/en/stable/classes/class_canvasitem.html#class-canvasitem-method-show)
 
-**See Also** — [visible](#visible), [hide](#hide), [modulate](#modulate)
+**See Also** — [visible](#command-reference), [hide](#hide), [modulate](#command-reference)
 
 ---
 
@@ -12652,7 +12652,7 @@ When both operands are numeric: performs bitwise XOR — each bit position is Tr
     
     flags Xor= &H01                 ' Toggle bit 0
 
-**See Also** — [And](#and), [Or](#or), [Not](#not), [<<](#shift-left), [>>](#shift-right)
+**See Also** — [And](#and), [Or](#or), [Not](#not), [<<](#command-reference), [>>](#command-reference)
 
 ---
 
@@ -12686,7 +12686,7 @@ Matches VB.NET and TwinBASIC syntax.
     ' Compound assignment
     flags <<= 2                     ' flags = flags << 2
 
-**See Also** — [>>](#shift-right), [And](#and), [Or](#or), [Xor](#xor)
+**See Also** — [>>](#command-reference), [And](#and), [Or](#or), [Xor](#xor)
 
 ---
 
@@ -12720,7 +12720,7 @@ Matches VB.NET and TwinBASIC syntax.
     ' Compound assignment
     flags >>= 2                     ' flags = flags >> 2
 
-**See Also** — [<<](#shift-left), [And](#and), [Or](#or), [Xor](#xor)
+**See Also** — [<<](#command-reference), [And](#and), [Or](#or), [Xor](#xor)
 
 ---
 
