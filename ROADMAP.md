@@ -815,8 +815,8 @@ Three items deliberately did **not** block v5.1 stable:
 
 Short, finishable list. **No new aspirational items.**
 
-| Feature | Description | Priority |
-|---------|-------------|----------|
+| Feature | Description | Priority | Rationale |
+|---------|-------------|----------|-----------|
 | ~~**Browser Dashboard**~~ | ~~Browser-based project dashboard, settings panel, build monitor.~~ ✅ **Shipped** — 5-phase TCP-server HTTP dashboard + headless `vg-dashboard` launcher + tray icon mode. | ~~High~~ |
 | ~~**Working Nodes — Merge `On Input` chains**~~ | ~~Multiple `On Input` nodes each generating duplicate `Sub Form_KeyDown()`.~~ ✅ **Shipped** — `working_nodes_codegen.gd` `_emit_merged_input_sub` merges all `On Input` nodes into a single `Sub Form_KeyDown` with `If key = "..." Then` guards. | ~~Medium~~ |
 | ~~**Working Nodes — runtime gaps**~~ | ~~`WN_Wait` / `WN_Spawn` / `WN_Animate` stubs.~~ ✅ **Shipped** — `WN_Wait`/`WN_Spawn` now `Await GetTree().create_timer(sec).timeout`; `WN_Animate` falls back to scale-pulse tween when no AnimationPlayer is present. | ~~Medium~~ |
@@ -1077,8 +1077,8 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 
 **📌 IDE Focus**: All v6.0 work focuses on **Godot IDE integration only** (Toolbox, Properties, Code Navigator, Narcea AI Pair, autocomplete, dot-completion). The **VG standalone IDE shell** (separate editor window, form designer as primary surface) is **mothballed behind `vg/enable_experimental_plugins`** and will not ship as core until v7.0+ at earliest. Users should build games using Godot's native editor with VG script overlays.
 
-| Feature | Description | Priority |
-|---------|-------------|----------|
+| Feature | Description | Priority | Rationale |
+|---------|-------------|----------|-----------|
 | **`Let` keyword — block-scoped variables** | Add `Let x As Type` as a block-scoped variable declaration (C++/JS semantics: variable is re-initialized on each block entry and destroyed on exit). `Dim` retains VB6 sub-scope hoisting behavior. This keeps VB6 compatibility while giving C++/modern programmers an intuitive opt-in for loop-local variables. `Let` is already obsolete in VB6 (it was just an optional prefix for assignment: `Let x = 5`), so repurposing it is safe and zero-breaking. AI code generators trained on JavaScript will naturally reach for `let`-style semantics inside loops — this makes their output correct without restructuring. IDE IntelliSense should suggest `Let` when `Dim` is typed inside a block. Runtime: requires a scope stack in the bytecode VM (push/pop on block enter/exit). Implementation notes: (1) parser: if keyword is `LET` followed by an identifier and `AS`, treat as block-scoped `DimStatement` with a `is_block_scoped` flag; (2) compiler: don't hoist to sub-level slots — allocate a fresh slot on each block entry via a new `OP_PUSH_SCOPE`/`OP_POP_SCOPE` pair; (3) VM: small scope stack alongside `locals[]`. See also: conversation thread Jun 26, 2026. | High |
 | **Full Python library support** | Include full Python library support in v6.0 so VG projects can use Python ecosystems through a supported integration path. Start with a stable bridge/service architecture and document export/runtime limits clearly. Detailed implementation plan: [`/memories/repo/v6.0_blockers.md`](/memories/repo/v6.0_blockers.md), section "v6.0 plan — Full Python library support". | High |
 | **C++ library interoperability support** | Add a supported C++ interop path (native bridge/FFI + packaging docs) so VG projects can call external C++ libraries without custom engine forks. Ship desktop-first and clearly document mobile/web constraints. | High |
@@ -1117,16 +1117,16 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 
 ## �🚀 v7.0 Long-term — explicitly out of scope for 5.x / 6.x
 
-| Feature | Description | Priority |
-|---------|-------------|----------|
-| **VG3D — 3D Game Kit** | Full 3D game creation kit plugin. Voxel/grid-based level editor, built-in voxel model editor (MagicaVoxel-style), pre-built camera modes (FPS / TPS / top-down), CSG/primitive environments, actor system ported from AGCK, procedural 3D actor models, animation, build pipeline emitting Godot 3D scenes. | High |
+| Feature | Description | Priority | Rationale |
+|---------|-------------|----------|-----------|
+| **VG3D — 3D Game Kit** | Full 3D game creation kit plugin. Voxel/grid-based level editor, built-in voxel model editor (MagicaVoxel-style), pre-built camera modes (FPS / TPS / top-down), CSG/primitive environments, actor system ported from AGCK, procedural 3D actor models, animation, build pipeline emitting Godot 3D scenes. | High | Expands VG beyond 2D; complements existing canvas workflows; attracts 3D game developers. |
 | **VGVR — VR Game Kit** | VR mode add-on for VG3D. OpenXR integration, hand/controller input mapping, VR camera rig, teleport / smooth locomotion presets. Requires VG3D as foundation. | Medium | Emerging VR market; works with existing VG3D actor/animation/input systems. |
 | **Python Integration (v6.0 continuation)** | Consolidate `PyImport`, `PyCallAsync`, async/await flow. Expand ecosystem: numpy, opencv, torch, pandas, scikit-learn. Error handling, type coercion, memory management. FFI documentation and best practices. Out-of-process worker stability hardening. | High | Unlocks AI/ML/data science workflows; enables procedural generation (numpy), image processing (opencv), physics sim (torch). |
 | **C++ Interop (v6.0 continuation)** | Two-way binding: VG classes callable from C++, C++ classes callable from VG. Callback injection (VG lambdas → C++ std::function). Native bridge packaging, multiplatform support (desktop + mobile). Documentation and example projects. | High | Custom Godot node authoring in VG; hooking into physics/rendering pipelines; performance-critical paths can stay native. |
 | **Vextrex OS / narcean.com Website Launch** | **Genuinely great viral concept, deferred to post-v6.0 stable.** Complete narcean.com with fully interactive Vextrex OS — a GEOS-inspired vector desktop environment built entirely in VG, playable in browser. **Desktop Shell**: Icon grid, taskbar, draggable vector windows with minimize/close, app launcher. **Built-in Apps**: VexWrite (text editor), VexPaint (vector drawing tool with Bezier curves), Terminal (BASIC-style prompt), Vector Storm (embedded playable), DEMOscen Gallery (showcase runner), Downloads Manager (triggers real VG installer downloads), About VG (interactive tutorial). **Visual Aesthetic**: Monochrome phosphor green (CRT shader with scan lines, bloom/glow), pure vector rendering via VGVectorCanvas2D, fake 1987 boot sequence ("Vextrex OS v1.2 - Discovered Archive"). **Website Integration**: narcean.com gets "⚡ The Visual Gasic Initiative" prominent link → launches fullscreen Vextrex OS web player (Escape or "Shut Down" to exit). **Repo Strategy**: Separate `narcean/vextrex-os` repo for clean deployment, mirrored from VG development. **Narrative**: Present as "lost 1980s vector workstation" with retro manual PDF, easter eggs, hidden demos. **Estimate**: ~7-8 weeks (3wk core OS, 2wk apps, 1wk demo integration, website, 1wk polish). **Impact**: Demonstrates VG's web export, UI toolkit, vector rendering, and game engine capabilities in one self-documenting interactive experience. Shareable, viral-ready, establishes VG as serious platform. | Medium | Marketing differentiation; complements v6.0 stable release messaging; does not block core feature ship. |
 | **Java/Android Integration** | Java interop for Android plugins and ecosystems. Import tooling, runtime bridge, Android-first staging. | Medium | Mobile expansion; Android ecosystem access; pairs with VG Mobile Kit work. |
-| **Causal Chain Debugging (text-mode narrative)** | Structured debugging mode: trace execution flow as readable "causal chain" narrative—what happened, why, in what order. Pairs with Narcea AI pair (M5). AI-assisted test case generation, performance bottleneck identification. | Medium | Enables AI-assisted debugging; improves code comprehension; pairs with NES emulator and complex systems work. |
-| **Asset Streaming & Dynamic Loading** | Lazy-load resources (ROMs, sprite sheets, audio, voxel models). Per-asset memory budgets. Preload hints, streaming queues, asset lifecycle management. | Medium | Supports large game projects and mobile optimization; essential for NES emulator ROM loading, procedural asset gen from v7.0 3D kit. |
+| **Causal Chain Debugging (text-mode narrative)** | Structured debugging mode: trace execution flow as readable "causal chain" narrative—what happened, why, in what order. Pairs with Narcea AI pair (M5). AI-assisted test case generation, performance bottleneck identification. | Medium | Enables AI-assisted debugging; improves code comprehension; pairs with GBA/PS1 emulator and complex systems work. |
+| **Asset Streaming & Dynamic Loading** | Lazy-load resources (ROMs, sprite sheets, audio, voxel models). Per-asset memory budgets. Preload hints, streaming queues, asset lifecycle management. | Medium | Supports large game projects and mobile optimization; essential for emulator ROM loading and procedural asset generation from v7.0 3D kit. |
 
 ---
 
@@ -1140,13 +1140,25 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 
 | Project | Description | Scope | ETA | Status |
 |---------|-------------|-------|-----|--------|
-| **NES Emulator in VG** | A fully functional NES emulator written in pure VisualGasic. Supports playable versions of classic games (Pac-Man, Donkey Kong, etc.). Demonstrates: 6502 CPU emulation, tile-based graphics rendering via Canvas2D, real-time audio synthesis via AudioStreamPlayer, bitwise operations (`<<`, `>>`, `And`, `Or`, `Xor`), performance of bytecode VM on I/O-bound workloads, seamless Godot integration. **Scope:** Tier 2 (playable games, not cycle-accurate). **Architecture:** 6502 instruction decoder (switch/case dispatch), 64KB RAM (array), NES PPU graphics pipeline (simplified tile rendering), APU audio synthesis (basic square/triangle waveforms). **Test games:** Start with ROM headers + 2-3 well-known cartridges. **Deliverable:** Standalone VG project in `demos/NES_Emulator/` with README, feature list, known compatibility. **Impact:** Shows VG is suitable for systems programming and real-time emulation; attracts retro gaming audience; excellent tutorial material for bit operations and performance optimization. | 4-8 weeks | Post-v6.0 | Planned |
+| **GBA or PS1 Emulator in VG (Primary)** | Primary advanced emulator showcase after v6.0. Final target selected by feasibility checkpoint (documentation maturity, profiler data, and implementation risk). **Scope:** Tier 2 (playable subset, not cycle-accurate). **Architecture:** VG-first core with reusable C++ primitives only. **Deliverable:** Standalone VG project in `demos/GBA_Emulator/` or `demos/PS1_Emulator/` with compatibility matrix and profiling report. **Impact:** Harder-than-NES proof point with realistic delivery risk, and direct inputs for runtime optimization priorities. | 8-12 weeks | Post-v6.0 | Planned |
+| **PS1 Deep-Compatibility Expansion (Candidate)** | If primary target is GBA, expand to PS1 compatibility after the core architecture and profiling pipeline are proven. Focus on phased delivery: CPU core + memory map + minimal GPU path before compatibility expansion. **Scope:** Tier 3 (technical preview first, selective title support). **Impact:** High prestige systems-programming showcase for VG when prerequisites are proven. | 16+ weeks | Post-Primary Milestone | Candidate |
+
+### Emulator Engineering Rules (VG-first, reusable by design)
+
+These rules prevent "VG shell + hidden native emulator" and ensure emulator work improves core VG for all domains.
+
+1. **VG-first logic boundary**: CPU dispatch, memory map policy, DMA/interrupt scheduling, and emulator state machine live in VG.
+2. **C++ primitives only**: Native code may provide generic primitives (packed buffers, binary I/O, bit intrinsics, audio ring buffers, profiling hooks), not console-specific behavior.
+3. **Reuse gate for native additions**: every new C++ primitive must show at least one non-emulator use case (e.g., image processing, physics grids, networking, tooling) and a benchmark.
+4. **No black-box cores**: disallow native implementations that contain full console CPU/PPU/APU/GPU logic while VG acts only as UI glue.
+5. **Profiling-driven optimization**: optimize only after hotspot proof from emulator traces and microbenchmarks; track before/after deltas in docs.
+6. **Deliverable parity**: each emulator milestone must produce both (a) user-visible compatibility progress and (b) at least one reusable VG runtime/tooling improvement.
 
 ---
 
 ## 🚀 Performance Optimizations — Post-M8 (Conditional on Profiling)
 
-These optimizations emerged from real VG projects (vector_storm, Jun 2026) and are candidates for v6.2+. **Tier A** items have measured proof; **Tier B** items are speculative but plausible. **Do not implement until profiling from NES emulator (or similar) confirms the bottleneck.**
+These optimizations emerged from real VG projects (vector_storm, Jun 2026) and are candidates for v6.2+. **Tier A** items have measured proof; **Tier B** items are speculative but plausible. **Do not implement until profiling from a GBA or PS1 emulator (or similar) confirms the bottleneck.**
 
 ### Tier A: High Confidence (Proven via vector_storm)
 
@@ -1158,31 +1170,31 @@ These optimizations emerged from real VG projects (vector_storm, Jun 2026) and a
 
 | Feature | Description | Rationale | Use Cases | Blocker | Priority | ETA |
 |---------|-------------|-----------|-----------|---------|----------|-----|
-| **Bit Manipulation Builtins** | Low-latency intrinsic functions: `GetBit(val, bit)`, `SetBit(val, bit, state)`, `CountBits(val)` (popcount), `RotateLeft(val, n)`, `RotateRight(val, n)`. Avoids C++ library marshalling overhead (~1-10µs per call). For emulators, graphics, compression, and networking, bit ops can comprise 20-30% of frame time if not optimized. | Emulator work (NES, Game Boy) will use these heavily. Graphics masks, color channels, collision flags. Compression (DEFLATE, LZ77). Network protocols (TCP flags, packet headers). | Emulators, image processing, game logic (collision masks, tile attributes), compression, networking | Profiling data from NES emulator showing bit ops >5% of frame time; or similar project | Medium | Post-v6.2 |
-| **Switch Statement Jump Table Optimization** | Compile dense `Select Case` blocks with numeric constants (0–255) to O(1) jump tables instead of O(n) sequential comparisons. Typical for instruction decoders (6502, Z80, 68000), event dispatchers, game state machines. | Instruction dispatch is the hottest loop in emulators. Each CPU cycle runs one instruction. Dense `Select Case opcode` (0–255) would benefit from jump table. Estimated 2-3x speedup on dispatch. | Emulators (instruction decoders), state machines, event routing, message dispatch | Profiling data from NES emulator showing `Select Case` is >10% of frame time | Medium | Post-v6.2 |
+| **Bit Manipulation Builtins** | Low-latency intrinsic functions: `GetBit(val, bit)`, `SetBit(val, bit, state)`, `CountBits(val)` (popcount), `RotateLeft(val, n)`, `RotateRight(val, n)`. Avoids C++ library marshalling overhead (~1-10µs per call). For emulators, graphics, compression, and networking, bit ops can comprise 20-30% of frame time if not optimized. | Emulator work (GBA or PS1) will use these heavily. Graphics masks, color channels, collision flags. Compression (DEFLATE, LZ77). Network protocols (TCP flags, packet headers). | Emulators, image processing, game logic (collision masks, tile attributes), compression, networking | Profiling data from a GBA or PS1 emulator showing bit ops >5% of frame time; or similar project | Medium | Post-v6.2 |
+| **Switch Statement Jump Table Optimization** | Compile dense `Select Case` blocks with numeric constants (0–255) to O(1) jump tables instead of O(n) sequential comparisons. Typical for instruction decoders (6502, Z80, 68000), event dispatchers, game state machines. | Instruction dispatch is the hottest loop in emulators. Each CPU cycle runs one instruction. Dense `Select Case opcode` (0–255) would benefit from jump table. Estimated 2-3x speedup on dispatch. | Emulators (instruction decoders), state machines, event routing, message dispatch | Profiling data from a GBA or PS1 emulator showing `Select Case` is >10% of frame time | Medium | Post-v6.2 |
 | **Rotate Operators (`<<<`, `>>>`)**  | Add bitwise rotate operators: `value <<< n` (rotate left), `value >>> n` (rotate right). Distinct from shifts (`<<`, `>>`): rotate preserves all bits by wrapping. Many 6502/Z80 instructions include rotate ops; currently simulated via shift+mask combos. | CPU emulation, encryption (rotations in AES/SALSA20), graphics (rotation matrices), compression (bit rotation in adaptive codes) | Emulators, cryptography, graphics, compression | Natural fit with existing `<<`/`>>` operators; low implementation cost | Low | v6.2+ |
 
 ---
 
 ## 🔧 v6.1: Performance Patch Cycle (Jan–Feb 2027)
 
-Following v6.0 stable release, v6.1 will focus on measured performance improvements derived from NES emulator profiling and real-world VG projects. These are **compiler/VM optimizations only**—no breaking language changes.
+Following v6.0 stable release, v6.1 will focus on measured performance improvements derived from GBA or PS1 emulator profiling and real-world VG projects. These are **compiler/VM optimizations only**—no breaking language changes.
 
-**Rationale**: v6.0 ships with stable core language and Godot IDE integration. v6.1 consolidates performance wins discovered during NES emulator work, delivering faster code without complexity. This keeps v6.0 release schedule clean and v6.1 as a fast, high-confidence patch cycle.
+**Rationale**: v6.0 ships with stable core language and Godot IDE integration. v6.1 consolidates performance wins discovered during GBA or PS1 emulator work, delivering faster code without complexity. This keeps v6.0 release schedule clean and v6.1 as a fast, high-confidence patch cycle.
 
 ### v6.1 Optimization Candidates (Prioritized)
 
 | Feature | Scope | Evidence | Impact | Blocker | ETA |
 |---------|-------|----------|--------|---------|-----|
-| **String Specialization (PackedStringArray)** | `Dim strings(N) As String` → `PackedStringArray` backing with `OP_PACKED_STRING_GET/SET` fast-path opcodes. String concatenation via `String.join()` pattern instead of repeated `&` operators. | Common in asset loading (parsing CSV, JSON headers, sprite names, audio metadata). NES emulator profiling will reveal if string ops dominate asset I/O. | Estimated 5-15x speedup on string-heavy workloads (CSV/JSON parsing, log formatting, text rendering). | NES emulator profiling showing string ops >2% of frame time; or similar project with heavy string I/O | v6.1 Phase 1 |
-| **Dictionary Access Fast-Path** | Specialized `OP_GET_DICT_FAST` / `OP_SET_DICT_FAST` opcodes for String or Integer keys, with early-exit for cache hit. Similar to existing dict handling but with instruction-level optimization. | NES likely uses lookup tables: palette cache, sprite metadata, ROM offset index. If dict access is measurable bottleneck, specialization yields 2-5x speedup. | Estimated 2-5x speedup on dictionary-heavy code (lookup tables, state maps, asset registries). | NES emulator profiling showing dict access >2% of frame time; or benchmark dictionary-heavy code | v6.1 Phase 1 |
-| **Inline Builtins** | Convert high-frequency function calls to single-opcode patterns: `Len(arr)`, `UBound(arr)`, `LBound(arr)` → `OP_BUILTIN_LEN`, etc. String functions: `Mid(s, n, m)`, `Left(s, n)`, `Right(s, n)` → specialized opcodes for small constant ranges. `Abs()`, `Min()`, `Max()`, `Mod()` → typed fast-path for Int/Float. | Every loop that checks `Len()` or accesses array bounds does a function call stack push/pop. NES emulator will have tight inner loops checking `UBound()` for bounds validation. | Estimated 1-3x speedup on loop-heavy code; broadly applicable across all projects. QoL improvement: no measurable frame-time cost to ship. | Profiling data showing function-call overhead >1% on tight loops; or commit based on code review (low risk). | v6.1 Phase 2 |
+| **String Specialization (PackedStringArray)** | `Dim strings(N) As String` → `PackedStringArray` backing with `OP_PACKED_STRING_GET/SET` fast-path opcodes. String concatenation via `String.join()` pattern instead of repeated `&` operators. | Common in asset loading (parsing CSV, JSON headers, sprite names, audio metadata). GBA or PS1 emulator profiling will reveal if string ops dominate asset I/O. | Estimated 5-15x speedup on string-heavy workloads (CSV/JSON parsing, log formatting, text rendering). | GBA or PS1 emulator profiling showing string ops >2% of frame time; or similar project with heavy string I/O | v6.1 Phase 1 |
+| **Dictionary Access Fast-Path** | Specialized `OP_GET_DICT_FAST` / `OP_SET_DICT_FAST` opcodes for String or Integer keys, with early-exit for cache hit. Similar to existing dict handling but with instruction-level optimization. | GBA or PS1 likely uses lookup tables: palette cache, sprite metadata, ROM offset index. If dict access is measurable bottleneck, specialization yields 2-5x speedup. | Estimated 2-5x speedup on dictionary-heavy code (lookup tables, state maps, asset registries). | GBA or PS1 emulator profiling showing dict access >2% of frame time; or benchmark dictionary-heavy code | v6.1 Phase 1 |
+| **Inline Builtins** | Convert high-frequency function calls to single-opcode patterns: `Len(arr)`, `UBound(arr)`, `LBound(arr)` → `OP_BUILTIN_LEN`, etc. String functions: `Mid(s, n, m)`, `Left(s, n)`, `Right(s, n)` → specialized opcodes for small constant ranges. `Abs()`, `Min()`, `Max()`, `Mod()` → typed fast-path for Int/Float. | Every loop that checks `Len()` or accesses array bounds does a function call stack push/pop. GBA or PS1 emulator will have tight inner loops checking `UBound()` for bounds validation. | Estimated 1-3x speedup on loop-heavy code; broadly applicable across all projects. QoL improvement: no measurable frame-time cost to ship. | Profiling data showing function-call overhead >1% on tight loops; or commit based on code review (low risk). | v6.1 Phase 2 |
 
 ### v6.1 Decision Gates
 
-- **Phase 1 (Feb 1–14)**: String specialization + dictionary fast-path **only if** NES emulator profiling shows measurable bottleneck (>2% frame time each).
+- **Phase 1 (Feb 1–14)**: String specialization + dictionary fast-path **only if** GBA or PS1 emulator profiling shows measurable bottleneck (>2% frame time each).
 - **Phase 2 (Feb 15–28)**: Inline builtins, shipped regardless of profiling (zero risk, pure QoL).
-- **Post-v6.1 blocker**: If NES profiling reveals no string/dict bottleneck, defer those items to v6.2 and focus engineering effort elsewhere.
+- **Post-v6.1 blocker**: If GBA/PS1 profiling reveals no string/dict bottleneck, defer those items to v6.2 and focus engineering effort elsewhere.
 
 ---
 
@@ -1192,7 +1204,7 @@ Following v6.0 stable release, v6.1 will focus on measured performance improveme
 
 ## 📝 Language Feature Candidates — Future Cycles
 
-These are high-value language additions discovered through real-world projects (NES emulator, vector_storm, UI Forms). Prioritized by impact and implementation effort.
+These are high-value language additions discovered through real-world projects (GBA or PS1 emulator work, vector_storm, UI Forms). Prioritized by impact and implementation effort.
 
 ### Immediate / High-ROI (v6.x Tier)
 
@@ -1201,13 +1213,13 @@ These are high-value language additions discovered through real-world projects (
 | **String Interpolation** | Native string interpolation syntax for cleaner readability and AI code generation. Current: `"Hello " & name & "!"`. | `$"Hello {name}!"` | 1 week | v6.0 (if time) / v6.2 | Universally loved, universally used. Dramatically improves log/UI text generation. AI-friendly (LLMs generate fewer concat errors). |
 | **Null-Coalescing Operator** | Provide default value when expression is null. Complements existing `?.` safe navigation. | `value = obj?.Property ?? default` | 2 weeks | v6.2 | Common defensive-programming pattern; reduces nested If blocks. Essential for Godot's nullable object model. |
 | **Tuple Deconstruction** | Unpack multi-value returns into individual variables. Pairs with `Await` for async ops. | `Dim (x, y, z) = GetCoordinates()` | 1.5 weeks | v6.2 | Cleaner than indexing for functions returning multiple values. Improves readability of AI-generated code. |
-| **Defer Statement** | Guarantee cleanup code runs at scope exit (alternative to Try/Catch/Finally). | `Defer f.Close()` | 2 weeks | v6.2 | Simpler than Try/Catch for file I/O, locks, emulator state save/restore. Especially valuable for systems programming (NES emulator). |
+| **Defer Statement** | Guarantee cleanup code runs at scope exit (alternative to Try/Catch/Finally). | `Defer f.Close()` | 2 weeks | v6.2 | Simpler than Try/Catch for file I/O, locks, emulator state save/restore. Especially valuable for systems programming (GBA/PS1 emulators). |
 
 ### v7.0 Expansion (Core Language Maturity)
 
 | Feature | Description | Syntax Example | Effort | ETA | Rationale |
 |---------|-------------|-----------------|--------|-----|-----------|
-| **Module / Namespace System** | Organize functions into logical groups, prevent naming collisions in large projects. | `Module NES.CPU` / `Function NES.CPU.Execute()` | 3 weeks | v7.0 | Essential for NES emulator (CPU, PPU, APU modules). Supports team projects. Links to symbol table redesign. |
+| **Module / Namespace System** | Organize functions into logical groups, prevent naming collisions in large projects. | `Module Emulator.CPU` / `Function Emulator.CPU.Execute()` | 3 weeks | v7.0 | Essential for emulator projects (CPU, GPU, APU modules). Supports team projects. Links to symbol table redesign. |
 | **Using Statement** | Automatic disposal of objects at scope exit (pairs with Godot's `free()` / `queue_free()`). | `Using f = File.Open(path) ... End Using` | 2 weeks | v7.0 | Cleaner than Defer for Godot objects. RAII-like behavior without language complexity. |
 | **Pipeline Operator** | Chain function calls for functional composition. | `arr \|> Filter(...) \|> Map(...) \|> Print()` | 1 week | v7.0 | Improves readability of complex data transformations. Attracts functional programming community. |
 
