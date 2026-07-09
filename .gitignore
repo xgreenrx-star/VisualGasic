@@ -102,6 +102,9 @@ vendor/
 # Local scratch area — dev notes, media, one-off experiments
 /scratch/
 
+# Local mothballed documentation working copies (not tracked)
+/docs/mothballed_local/
+
 # Secrets / credentials — never commit these
 tools/client_secrets.json
 *client_secrets*.json
