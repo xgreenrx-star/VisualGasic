@@ -39,6 +39,8 @@ Whether you're creating desktop applications, mobile apps, web software, or inte
 - Built-in functions for game and application development
 - Type safety with optional explicit typing
 
+> **Platform note (runtime engine):** VisualGasic runs on Windows, macOS, Linux, Android, and Web targets. Native JIT tiers are platform-dependent and fall back to interpreter/bytecode execution where executable-memory JIT is not available.
+
 ### Visual Basic Heritage
 VisualGasic takes its inspiration from **Visual Basic 6.0** (VB6), one of the most successful programming languages in history. If you have experience with VB6, VBA (Visual Basic for Applications), or any BASIC dialect, you'll feel right at home with VisualGasic.
 
@@ -2831,18 +2833,24 @@ pkg.Shutdown
 
 ### Cross-Platform System Classes
 
-The following system classes (introduced in v2.9.0) now have full **Windows** and **macOS** backends in v3.0. The same VG code runs on all three platforms:
+The following system classes are OS-level integrations. Support differs by target platform:
 
-| Class | Linux/macOS | Windows |
-|-------|------------|--------|
-| `VGProcess` (`New Process`) | fork / exec / pipe | CreateProcess / CreatePipe |
-| `VGSocket` (`New WinSock`) | POSIX sockets | WinSock2 (WSAStartup) |
-| `VGFileWatcher` (`New FileSystemWatcher`) | inotify / kqueue | FindFirstChangeNotification |
-| `VGSysTray` (`New SysTray`) | stub | Shell_NotifyIcon + HWND_MESSAGE |
+| Class | Linux | macOS | Windows | Android | Web |
+|-------|-------|-------|---------|---------|-----|
+| `VGProcess` (`New Process`) | ✅ fork/exec/pipe | ✅ fork/exec/pipe | ✅ CreateProcess/CreatePipe | ❌ | ❌ |
+| `VGSocket` (`New WinSock`) | ✅ POSIX sockets | ✅ POSIX sockets | ✅ WinSock2 | ❌ | ❌ |
+| `VGFileWatcher` (`New FileSystemWatcher`) | ✅ inotify | ❌ (not implemented) | ✅ FindFirstChangeNotification | ❌ | ❌ |
+| `VGSysTray` (`New SysTray`) | ⚠️ stub | ⚠️ stub | ✅ Shell_NotifyIcon + HWND_MESSAGE | ❌ | ❌ |
+
+`❌` means not currently implemented in the runtime backend for that target.
 
 ### Real COM Interop (Windows)
 
 `CreateObject()` now falls through to the real COM subsystem on Windows when the requested ProgID isn't a built-in emulated object. This lets you automate Excel, Word, Outlook, or any installed COM server:
+
+**Platform support:**
+- ✅ Windows: real COM fallback via native COM automation
+- ⚠️ macOS/Linux/Android/Web: built-in emulated ProgIDs only (no native COM subsystem)
 
 ```vb
 ' Built-in objects — work on all platforms
@@ -2859,7 +2867,7 @@ xl.Cells(1, 1).Value = "Hello from VisualGasic!"
 
 
 ## System-Level Programming
-These classes close every gap identified in the system-programming audit, making VisualGasic a proper system-level language on Linux, Windows, macOS, and Android.
+These classes provide system-level APIs for Linux, Windows, macOS, and Android. On Web targets, OS-level operations are limited by browser sandbox constraints.
 
 > **See also:** [docs/SYSTEM_INTEGRATION.md](SYSTEM_INTEGRATION.md) for the full API reference with extended examples.
 
@@ -3096,7 +3104,11 @@ srv.CloseSocket
 ```
 
 ### VGAndroidBridge (Android Platform)
-JNI bridge for Android platform APIs. All methods return safe defaults on non-Android platforms (Linux, Windows, macOS).
+JNI bridge for Android platform APIs. All methods return safe defaults on non-Android platforms (Linux, Windows, macOS, Web).
+
+**Platform support:**
+- ✅ Android: full JNI-backed behavior
+- ⚠️ Windows/macOS/Linux/Web: safe no-op/default return behavior
 
 | Method | Returns | Description |
 |--------|---------|-------------|
@@ -7534,6 +7546,11 @@ Transfers execution to the specified label. Primarily used in error handling (On
 
 Returns horizontal accuracy in meters. -1 means unknown / no fix yet.
 
+**Platform support**
+
+- ✅ Android: uses `VGAndroidPlugin` GPS bridge
+- ⚠️ Windows/macOS/Linux/Web: returns `-1` (unknown)
+
 **Example**
 
     If GPS.Accuracy() > 0 And GPS.Accuracy() < 20 Then UpdateMap()
@@ -7553,6 +7570,11 @@ Returns horizontal accuracy in meters. -1 means unknown / no fix yet.
 **Description**
 
 Returns altitude in meters above sea level. Stub returns 0.
+
+**Platform support**
+
+- ✅ Android: uses `VGAndroidPlugin` GPS bridge
+- ⚠️ Windows/macOS/Linux/Web: returns `0`
 
 **Example**
 
@@ -7574,6 +7596,11 @@ Returns altitude in meters above sea level. Stub returns 0.
 
 Returns latitude in decimal degrees. Returns 0 until a platform plugin publishes real values.
 
+**Platform support**
+
+- ✅ Android: uses `VGAndroidPlugin` GPS bridge
+- ⚠️ Windows/macOS/Linux/Web: returns `0`
+
 **Example**
 
     Print "Lat: " & GPS.Lat()
@@ -7594,6 +7621,11 @@ Returns latitude in decimal degrees. Returns 0 until a platform plugin publishes
 
 Returns longitude in decimal degrees. Returns 0 until a platform plugin publishes real values.
 
+**Platform support**
+
+- ✅ Android: uses `VGAndroidPlugin` GPS bridge
+- ⚠️ Windows/macOS/Linux/Web: returns `0`
+
 **Example**
 
     Print "Lng: " & GPS.Lng()
@@ -7613,6 +7645,11 @@ Returns longitude in decimal degrees. Returns 0 until a platform plugin publishe
 **Description**
 
 Returns ground speed in m/s. Stub returns 0.
+
+**Platform support**
+
+- ✅ Android: uses `VGAndroidPlugin` GPS bridge
+- ⚠️ Windows/macOS/Linux/Web: returns `0`
 
 **Example**
 
@@ -8396,6 +8433,11 @@ Returns the analog stick position as a Vector2 (-1..1 per axis). `side` is 0 for
 
 Calls a JavaScript function in global scope. String args are quoted automatically.
 
+**Platform support**
+
+- ✅ Web (HTML5 export): executes via `JavaScriptBridge`
+- ⚠️ Windows/macOS/Linux/Android: returns empty `Variant`
+
 **Example**
 
     JS.Call "console.log", "VG says hi"
@@ -8421,6 +8463,11 @@ Calls a JavaScript function in global scope. String args are quoted automaticall
 
 Evaluates a JavaScript expression and returns the result. useGlobal=True runs in the global scope (window).
 
+**Platform support**
+
+- ✅ Web (HTML5 export): executes via `JavaScriptBridge`
+- ⚠️ Windows/macOS/Linux/Android: returns empty `Variant`
+
 **Example**
 
     Dim t = JS.Eval("document.title", True)
@@ -8445,6 +8492,11 @@ Evaluates a JavaScript expression and returns the result. useGlobal=True runs in
 **Description**
 
 Reads a JavaScript value by path (e.g. "window.location.href"). Shortcut for JS.Eval with useGlobal=True.
+
+**Platform support**
+
+- ✅ Web (HTML5 export): executes via `JavaScriptBridge`
+- ⚠️ Windows/macOS/Linux/Android: returns empty `Variant`
 
 **Example**
 
@@ -9517,6 +9569,11 @@ When both operands are numeric: performs bitwise OR — each bit position is Tru
 
 Returns an Array of all currently-granted permission strings.
 
+**Platform support**
+
+- ✅ Android/iOS: returns runtime-granted permission list
+- ⚠️ Windows/macOS/Linux/Web: typically empty or platform-default permissions
+
 **Example**
 
     For Each p In Permission.All()
@@ -9543,6 +9600,11 @@ Returns an Array of all currently-granted permission strings.
 
 Returns True if the permission is currently granted. On desktop always True.
 
+**Platform support**
+
+- ✅ Android/iOS: checks runtime permission state
+- ✅ Windows/macOS/Linux/Web: returns `True` (no mobile runtime permission gate)
+
 **Example**
 
     If Not Permission.Has("camera") Then Permission.Request "camera"
@@ -9566,6 +9628,11 @@ Returns True if the permission is currently granted. On desktop always True.
 **Description**
 
 Prompts the OS to ask the user for a permission. Resolves async — check Permission.Has next frame, or define Sub Permission_Granted(name).
+
+**Platform support**
+
+- ✅ Android/iOS: runtime prompt path (async)
+- ⚠️ Windows/macOS/Linux/Web: usually no-op or immediately resolved by platform policy
 
 **Example**
 
@@ -12259,6 +12326,11 @@ Declares a variable that retains its value between procedure calls. Unlike Dim, 
 
 Resets the step counter to zero. Plugin-dependent.
 
+**Platform support**
+
+- ✅ Android: uses `VGAndroidPlugin` pedometer bridge
+- ⚠️ Windows/macOS/Linux/Web: no-op
+
 **Example**
 
     Steps.Reset()
@@ -12279,6 +12351,11 @@ Resets the step counter to zero. Plugin-dependent.
 
 Returns step count for today (midnight rollover). Stub returns 0.
 
+**Platform support**
+
+- ✅ Android: uses `VGAndroidPlugin` pedometer bridge
+- ⚠️ Windows/macOS/Linux/Web: returns `0`
+
 **Example**
 
     goalProgress = Steps.Today() / 10000.0
@@ -12298,6 +12375,11 @@ Returns step count for today (midnight rollover). Stub returns 0.
 **Description**
 
 Returns total step count since boot (or since plugin install). Stub returns 0.
+
+**Platform support**
+
+- ✅ Android: uses `VGAndroidPlugin` pedometer bridge
+- ⚠️ Windows/macOS/Linux/Web: returns `0`
 
 **Example**
 
