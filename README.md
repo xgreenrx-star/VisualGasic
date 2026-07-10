@@ -77,6 +77,15 @@ Form Designer extraction to a standalone plugin, full IDE plugin architecture re
 >
 > 📚 **Docs from the main page:** every guide, reference, and tutorial is one click away from [`docs/DOCS.md`](docs/DOCS.md). Quick jumps: [Getting Started](docs/guides/GET_STARTED.md) · [Installation](docs/guides/INSTALLATION.md) · [Language Reference](docs/VisualGasic_Language_Reference.md) · [Built-in Functions](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) · [Custom Controls](docs/guides/CUSTOM_CONTROLS.md) · [Plugin SDK](addons/visual_gasic/PLUGIN_SDK.md).
 
+## Support VisualGasic
+
+VisualGasic is an actively developed independent open-source project. Funding directly increases the amount of time available for compiler work, IDE integration, documentation, examples, and release hardening.
+
+- [GitHub Sponsors](https://github.com/sponsors/xgreenrx-star)
+- [Patreon](https://patreon.com/visualgasic)
+
+If the project matters to you, support helps move v6.0 forward faster. Current funding is used to offset the real cost of sustained development time, AI tooling, testing, and release work. More support options can be added later as they go live.
+
 ## 📥 Download & install
 
 **Grab a one-shot installer for your OS — no build step, no separate Godot download.** All assets below target [v5.3.0-Beta1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta1).
