@@ -1561,7 +1561,7 @@ Load any shared library (`.so`, `.dll`, `.dylib`) and call its C functions — t
 |-----------------|-------------|
 | `Load(path)` | Load a shared library. Returns `True` on success |
 | `Unload()` | Unload the library |
-| `QuickCall(name, ...)` | Call with auto-detected argument types |
+| `QuickCall(name, ...)` | Convenience alias for simple calls; prefer `CallFunction(...)` when the return type matters |
 | `CallFunction(name, returnType, argTypes, args)` | Full-signature call |
 | `CallSimple(name, args)` | Array-based call |
 | `CreateCallback(callable, returnType, argTypes)` | Create a C callback |
@@ -1575,7 +1575,7 @@ lib.Load "libm.so.6"
 
 ' Quick call — auto-detects types
 Dim result As Variant
-result = lib.QuickCall("sqrt", 144.0)
+result = lib.CallFunction("sqrt", "double", Array("double"), Array(144.0))
 Print "sqrt(144) = " & CStr(result)       ' 12.0
 
 ' Full call with explicit types
@@ -1586,6 +1586,8 @@ lib.Unload
 ```
 
 **Supported FFI Types:** `void`, `int`, `uint`, `long`, `ulong`, `float`, `double`, `pointer`, `string`, `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`
+
+> **C++ example:** [demos/Utilities/FFI/demo_ffi_cpp_lib.vg](../demos/Utilities/FFI/demo_ffi_cpp_lib.vg) shows how to build and call a Vec2 C++ class via C ABI wrappers (create, get/set, math, normalize, string representation).
 
 ### NativeStruct
 Describe C struct memory layouts and allocate/read/write fields.
@@ -1923,6 +1925,46 @@ xl.Visible = True
 xl.Workbooks.Add
 xl.Cells(1, 1).Value = "Hello from VisualGasic!"
 ```
+
+
+### PyBridgeFacade (Python Integration)
+Call Python 3 modules and functions from VisualGasic using an out-of-process worker (Tier A). No compile-time flag required.
+
+**Prerequisite:** Python 3 must be installed and on PATH.
+
+**Aliases:** `New PyBridgeFacade`
+
+| Method/Property | Description |
+|-----------------|-------------|
+| `InitializeBridge()` | Launch worker, return success |
+| `IsAvailable()` | Static — check if Python 3 is on PATH |
+| `GetStatus()` | Current bridge status string |
+| `PyImport(module)` | Import a Python module |
+| `PyCall(handle, method, args)` | Call a function |
+| `PyCallAsync(module, method, args)` | Async call path (v6 currently runs synchronously) |
+| `PyProcessBuffer(handle, method, buffer)` | Bulk data processing |
+| `shutdown()` | Graceful worker termination |
+
+```vb
+Dim bridge As New PyBridgeFacade
+
+If Not bridge.InitializeBridge() Then
+    Print "Failed: " & bridge.GetStatus()
+    Exit Sub
+End If
+
+Dim mathMod As Variant
+mathMod = bridge.PyImport("math")
+
+Dim result As Variant
+result = bridge.PyCall(mathMod, "sqrt", Array(144.0))
+Print "sqrt(144) = " & CStr(result)       ' 12.0
+
+bridge.shutdown()
+```
+
+> **See also:** [demos/Utilities/PythonBridge/demo_python_bridge.vg](../demos/Utilities/PythonBridge/demo_python_bridge.vg) and [docs/SYSTEM_INTEGRATION.md](SYSTEM_INTEGRATION.md#17-python-bridge-pybridgefacade).
+
 
 ---
 

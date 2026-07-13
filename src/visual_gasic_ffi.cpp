@@ -248,6 +248,7 @@ void VGNativeLibrary::_bind_methods() {
     ClassDB::bind_method(D_METHOD("CallFunction", "name", "return_type", "arg_types", "args"),
                          &VGNativeLibrary::call_function);
     ClassDB::bind_method(D_METHOD("CallSimple", "name", "args"), &VGNativeLibrary::call_simple);
+    ClassDB::bind_method(D_METHOD("QuickCall", "name", "args"), &VGNativeLibrary::call_simple);
     ClassDB::bind_method(D_METHOD("CreateCallback", "return_type", "arg_types", "callable"),
                          &VGNativeLibrary::create_callback);
     ClassDB::bind_method(D_METHOD("HasFunction", "name"), &VGNativeLibrary::has_function);

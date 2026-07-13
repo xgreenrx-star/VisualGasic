@@ -59,6 +59,9 @@
 #include "visual_gasic_gpu.h"
 #include "visual_gasic_ecs.h"
 
+// v6.0 – Python integration bridge (PyImport / PyCallAsync)
+#include "python_bridge/visual_gasic_py_facade.h"
+
 // v3.2 – LSP integration (binding rework complete)
 #include "visual_gasic_lsp.h"
 
@@ -140,6 +143,15 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
 
         // v4.3 – database controls
         ClassDB::register_class<VGRecordset>();          // ADODB.Recordset-compatible cursor
+
+        // v6.0 – Python integration
+        ClassDB::register_class<PyBridgeFacade>();        // PyImport / PyCallAsync bridge
+
+        // Register project settings for Python integration
+        if (!ProjectSettings::get_singleton()->has_setting("vg/python/embedded_enabled")) {
+            ProjectSettings::get_singleton()->set_setting("vg/python/embedded_enabled", false);
+            ProjectSettings::get_singleton()->set_initial_value("vg/python/embedded_enabled", false);
+        }
 
         visual_gasic_language = memnew(VisualGasicLanguage);
         Engine::get_singleton()->register_script_language(visual_gasic_language);

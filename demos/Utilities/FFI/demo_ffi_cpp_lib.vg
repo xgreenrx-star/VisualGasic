@@ -1,0 +1,196 @@
+' demo_ffi_cpp_lib.vg
+' VisualGasic — C++ Library via FFI Demo
+'
+' Shows how to compile and call C++ code from VG using NativeLibrary.
+' The demo uses a simple Vec2 library with full C ABI wrappers.
+'
+' Prerequisites:
+'   1. Build the shared library:
+'      cd demos/Utilities/FFI/custom_c_lib/
+'      bash build_vec2.sh
+'      This creates vec2.so in the same directory.
+'
+'   2. Run this script from the project root, or copy vec2.so
+'      to a directory VG can find.
+'
+' Run with: godot --headless --script path/to/demo_ffi_cpp_lib.vg
+
+Sub Main()
+    Print "=== C++ Library via FFI Demo ==="
+    Print ""
+
+    ' ================================================================
+    ' 1. Load the shared library
+    ' ================================================================
+    Print "--- 1. Loading vec2.so ---"
+
+    Dim lib As Object
+    Set lib = New NativeLibrary
+
+    ' Try several locations where the .so might be
+    Dim paths As Array
+    paths = Array( _
+        "demos/Utilities/FFI/custom_c_lib/vec2.so", _
+        "../demos/Utilities/FFI/custom_c_lib/vec2.so", _
+        "../../demos/Utilities/FFI/custom_c_lib/vec2.so", _
+        "vec2.so" _
+    )
+
+    Dim loaded As Boolean
+    loaded = False
+    Dim i As Integer
+
+    For i = 0 To paths.size() - 1
+        Dim p As String
+        p = paths(i)
+        If FileExists(p) Then
+            loaded = lib.Load(p)
+            If loaded Then
+                Print "  Loaded: " & lib.Path
+                Exit For
+            End If
+        End If
+    Next i
+
+    If Not loaded Then
+        Print "  Error: Could not find vec2.so"
+        Print "  Run: cd demos/Utilities/FFI/custom_c_lib/ && bash build_vec2.sh"
+        Exit Sub
+    End If
+
+    ' ================================================================
+    ' 2. Create Vec2 instances (functions returning pointers)
+    ' ================================================================
+    Print ""
+    Print "--- 2. Creating Vec2 Objects ---"
+
+    ' CallSimple auto-detects types from Variant values
+    Dim va As Variant
+    va = lib.CallSimple("vec2_create", Array(3.0, 4.0))
+    Print "  Created Vec2 A (ptr=" & CStr(va) & ")"
+
+    Dim vb As Variant
+    vb = lib.CallSimple("vec2_create", Array(1.0, 2.0))
+    Print "  Created Vec2 B (ptr=" & CStr(vb) & ")"
+
+    ' ================================================================
+    ' 3. Read components via getter functions
+    ' ================================================================
+    Print ""
+    Print "--- 3. Reading Components ---"
+
+    ' For pointer args, use CallFunction with explicit type signatures
+    Dim ptrType As Array
+    ptrType = Array("pointer")
+
+    Dim ax As Variant
+    ax = lib.CallFunction("vec2_get_x", "double", ptrType, Array(va))
+    Dim ay As Variant
+    ay = lib.CallFunction("vec2_get_y", "double", ptrType, Array(va))
+    Print "  Vec2 A: (" & CStr(ax) & ", " & CStr(ay) & ")"
+
+    Dim bx As Variant
+    bx = lib.CallFunction("vec2_get_x", "double", ptrType, Array(vb))
+    Dim by As Variant
+    by = lib.CallFunction("vec2_get_y", "double", ptrType, Array(vb))
+    Print "  Vec2 B: (" & CStr(bx) & ", " & CStr(by) & ")"
+
+    ' ================================================================
+    ' 4. Vector math operations
+    ' ================================================================
+    Print ""
+    Print "--- 4. Vector Math ---"
+
+    ' Single pointer arg: vec2_length(ptr)
+    Dim lenA As Variant
+    lenA = lib.CallFunction("vec2_length", "double", ptrType, Array(va))
+    Print "  |A| = " & CStr(lenA) & "  (expected: 5.0)"
+
+    ' Two pointer args: vec2_dot(ptr, ptr)
+    Dim twoPtrs As Array
+    twoPtrs = Array("pointer", "pointer")
+    Dim dot As Variant
+    dot = lib.CallFunction("vec2_dot", "double", twoPtrs, Array(va, vb))
+    Print "  A · B = " & CStr(dot) & "  (expected: 11.0 = 3*1 + 4*2)"
+
+    ' Pointer + double: vec2_scale(ptr, double) — creates NEW Vec2
+    Dim ptrDouble As Array
+    ptrDouble = Array("pointer", "double")
+    Dim vScale As Variant
+    vScale = lib.CallFunction("vec2_scale", "pointer", ptrDouble, Array(va, 2.0))
+
+    If Not IsEmpty(vScale) And vScale <> 0 Then
+        Dim sx As Variant
+        sx = lib.CallFunction("vec2_get_x", "double", ptrType, Array(vScale))
+        Dim sy As Variant
+        sy = lib.CallFunction("vec2_get_y", "double", ptrType, Array(vScale))
+        Print "  2 * A = (" & CStr(sx) & ", " & CStr(sy) & ")  (expected: 6.0, 8.0)"
+        lib.CallFunction("vec2_destroy", "void", ptrType, Array(vScale))
+    End If
+
+    ' Two pointer args: vec2_add(ptr, ptr) — creates NEW Vec2
+    Dim vSum As Variant
+    vSum = lib.CallFunction("vec2_add", "pointer", twoPtrs, Array(va, vb))
+
+    If Not IsEmpty(vSum) And vSum <> 0 Then
+        Dim sumx As Variant
+        sumx = lib.CallFunction("vec2_get_x", "double", ptrType, Array(vSum))
+        Dim sumy As Variant
+        sumy = lib.CallFunction("vec2_get_y", "double", ptrType, Array(vSum))
+        Print "  A + B = (" & CStr(sumx) & ", " & CStr(sumy) & ")  (expected: 4.0, 6.0)"
+        lib.CallFunction("vec2_destroy", "void", ptrType, Array(vSum))
+    End If
+
+    ' ================================================================
+    ' 5. Normalize in-place
+    ' ================================================================
+    Print ""
+    Print "--- 5. Normalize (in-place) ---"
+
+    Dim normResult As Variant
+    normResult = lib.CallFunction("vec2_normalize", "int", ptrType, Array(va))
+
+    If Not IsEmpty(normResult) Then
+        If CInt(normResult) = 0 Then
+            Dim nx As Variant
+            nx = lib.CallFunction("vec2_get_x", "double", ptrType, Array(va))
+            Dim ny As Variant
+            ny = lib.CallFunction("vec2_get_y", "double", ptrType, Array(va))
+            Dim normalizedLen As Variant
+            normalizedLen = lib.CallFunction("vec2_length", "double", ptrType, Array(va))
+
+            Print "  Normalized A: (" & CStr(nx) & ", " & CStr(ny) & ")"
+            Print "  |normalized| = " & CStr(normalizedLen) & "  (expected: 1.0)"
+        Else
+            Print "  normalize returned error code " & CStr(normResult)
+        End If
+    End If
+
+    ' ================================================================
+    ' 6. String representation
+    ' ================================================================
+    Print ""
+    Print "--- 6. String Representation ---"
+
+    ' Use the static-buffer helper for demos so VG can read the string without
+    ' allocating a second native buffer that it cannot free automatically.
+    Dim strResult As Variant
+    strResult = lib.CallFunction("vec2_to_string_static", "string", ptrType, Array(vb))
+    Print "  B as string: " & CStr(strResult)
+
+    ' ================================================================
+    ' 7. Clean up and unload
+    ' ================================================================
+    Print ""
+    Print "--- 7. Cleanup ---"
+
+    ' Destroy the Vec2 instances
+    lib.CallFunction("vec2_destroy", "void", ptrType, Array(va))
+    lib.CallFunction("vec2_destroy", "void", ptrType, Array(vb))
+    Print "  Vec2 objects destroyed."
+
+    lib.Unload
+    Print "  Library unloaded."
+    Print ""
+    Print "=== C++ Library FFI Demo Complete ==="
+End Sub

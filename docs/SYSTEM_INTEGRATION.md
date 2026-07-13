@@ -26,6 +26,7 @@ raw memory, IPC, real threading, and an Android JNI bridge.
 14. [VGIPC (Inter-Process Communication)](#14-vgipc-inter-process-communication)
 15. [VGAndroidBridge (Android Platform)](#15-vgandroidbridge-android-platform)
 16. [Real Threading](#16-real-threading)
+17. [Python Bridge (PyBridgeFacade)](#17-python-bridge-pybridgefacade)
 
 ---
 
@@ -55,7 +56,7 @@ lib.Load "libm.so.6"               ' Linux
 
 ' Call sqrt(144)  →  12.0
 Dim result As Variant
-result = lib.QuickCall("sqrt", 144.0)
+result = lib.CallFunction("sqrt", "double", Array("double"), Array(144.0))
 Print "sqrt(144) = " & CStr(result)
 
 ' Full signature call:  double sqrt(double)
@@ -99,7 +100,7 @@ s.Destroy h
 |--------|-------------|
 | `Load(path)` | Load a shared library. Returns `True` on success |
 | `Unload()` | Unload the library |
-| `QuickCall(name, ...)` | Call with auto-detected argument types |
+| `QuickCall(name, ...)` | Convenience alias for simple calls; prefer `CallFunction(...)` when the return type matters |
 | `CallFunction(name, returnType, argTypes, args)` | Full-signature call |
 | `CallSimple(name, args)` | Array-based call |
 | `CreateCallback(callable, returnType, argTypes)` | Create a C callback pointing to a VG Callable |
@@ -636,12 +637,14 @@ xl.Cells(1, 1).Value = "Hello from VisualGasic!"
 | Demo | Location | What it shows |
 |------|----------|---------------|
 | **FFI** | `demos/Utilities/FFI/demo_ffi.vg` | Load libm, call sqrt/cos, C structs |
+| **FFI — C++ Lib** | `demos/Utilities/FFI/demo_ffi_cpp_lib.vg` | Build & call Vec2 C++ class via C ABI |
 | **Crypto** | `demos/Utilities/Crypto/demo_crypto.vg` | MD5, SHA, AES, Base64, UUID, HMAC |
 | **XML** | `demos/Utilities/XML/demo_xml.vg` | Parse, XPath, save/load |
 | **ZIP** | `demos/Utilities/ZIP/demo_zip.vg` | Create, read, extract archives |
 | **ODBC** | `demos/Data_and_Files/ODBC/demo_odbc.vg` | Database connect, query, transactions |
 | **Async Tasks** | `demos/Threading/demo_async_tasks.vg` | VGTask, VGTaskRunner, cancellation |
 | **Packages** | `demos/Utilities/PackageManager/demo_packages.vg` | Install, registries, dependencies |
+| **Python Bridge** | `demos/Utilities/PythonBridge/demo_python_bridge.vg` | Import Python stdlib, call functions |
 | **Smoke Test** | `demo/test_v3_features.vg` | Automated test of all system classes |
 
 Run the smoke test:
@@ -969,4 +972,113 @@ Task.Run BackgroundSave
     SerializeGameState()
     CompressAndWrite()
 End Task
+```
+
+---
+
+## 17. Python Bridge (PyBridgeFacade)
+
+Call Python 3 modules and functions directly from VisualGasic, using
+an out‑of‑process worker (Tier A). No compile‑time flag is needed.
+
+**Prerequisite:** Python 3 must be installed and on PATH.
+
+### Quick Start
+
+```vb
+Dim bridge As Object
+Set bridge = New PyBridgeFacade
+
+If Not bridge.InitializeBridge() Then
+    Print "Error: " & bridge.GetStatus()
+    Exit Sub
+End If
+
+' Import a Python stdlib module
+Dim mathMod As Variant
+mathMod = bridge.PyImport("math")
+
+' Call functions
+Dim result As Variant
+result = bridge.PyCall(mathMod, "sqrt", Array(144.0))
+Print "sqrt(144) = " & CStr(result)       ' 12.0
+
+result = bridge.PyCall(mathMod, "sin", Array(3.14159265 / 2))
+Print "sin(pi/2) = " & CStr(result)       ' 1.0
+
+bridge.shutdown()
+```
+
+### Serialisation with json
+
+```vb
+Dim jsonMod As Variant
+jsonMod = bridge.PyImport("json")
+
+Dim data As Array
+data = Array("hello", 42, True)
+
+Dim jsonStr As Variant
+jsonStr = bridge.PyCall(jsonMod, "dumps", Array(data))
+Print jsonStr                              ' ["hello", 42, true]
+
+Dim parsed As Variant
+parsed = bridge.PyCall(jsonMod, "loads", Array(jsonStr))
+```
+
+### Error Handling
+
+```vb
+Dim badMod As Variant
+badMod = bridge.PyImport("nonexistent_module_xyz")
+If IsEmpty(badMod) Then
+    Print "Import failed (expected)"
+End If
+
+Dim badResult As Variant
+badResult = bridge.PyCall(mathMod, "nonexistent_func", Array(42))
+If IsEmpty(badResult) Then
+    Print "Call failed (expected)"
+End If
+```
+
+### Bulk Data / PyProcessBuffer
+
+```vb
+Dim bufStr As String
+bufStr = "Hello from VisualGasic!"
+
+Dim buffer As Variant
+buffer = bufStr.to_utf8_buffer()
+Dim bufResult As Variant
+bufResult = bridge.PyProcessBuffer(jsonMod, "dumps", buffer)
+```
+
+### PyBridgeFacade Methods
+
+| Method | Description |
+|--------|-------------|
+| `InitializeBridge()` | Launch worker, verify connectivity |
+| `IsAvailable()` | Static — check if Python 3 is on PATH |
+| `GetStatus()` | Current bridge status string |
+| `PyImport(module)` | Import a Python module → opaque handle |
+| `PyCall(handle, method, args)` | Call function on imported module |
+| `PyCallAsync(module, method, args)` | Async call (runs synchronously in v6) |
+| `PyProcessBuffer(handle, method, buffer)` | Bulk data processing |
+| `shutdown()` | Graceful worker termination |
+
+### Architecture
+
+- **Tier A (v6 baseline):** Launches `python_worker.py` as a child process.
+  Protocol: length‑prefixed JSON frames over stdin/stdout.
+- **Tier B (planned Phase 6):** Embedded CPython — requires `python=1` build flag.
+
+### Demo
+
+```
+demos/Utilities/PythonBridge/demo_python_bridge.vg
+```
+
+```bash
+godot --headless --path demo -s test_suites/run_vg.gd -- demo_python_bridge.vg
 ```

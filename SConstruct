@@ -19,7 +19,7 @@ if ARGUMENTS.get("asan", "0") == "1":
 # - src is our local source
 
 env.Append(CPPPATH=["src"])
-sources = Glob("src/*.cpp")
+sources = Glob("src/*.cpp") + Glob("src/python_bridge/*.cpp")
 
 # Exclude files that should not be compiled
 exclude_files = [
@@ -92,6 +92,30 @@ if env["platform"] in ["linux", "macos"]:
     except Exception:
         env.Append(LIBS=["openmpt"])
         env.Append(CPPDEFINES=["VG_HAS_OPENMPT"])
+
+# --- Python integration (PyImport / PyCallAsync support — Phase 1) ---
+# Define VG_HAS_PYTHON when the user passes python=1 and Python dev headers are available.
+# Default builds are unchanged. Modeled on the libffi pattern above.
+if ARGUMENTS.get("python", "0") == "1":
+    if env["platform"] in ["linux", "macos"]:
+        try:
+            env.ParseConfig('python3-config --cflags --ldflags --embed')
+            env.Append(CPPDEFINES=["VG_HAS_PYTHON"])
+            print("Python integration: ENABLED (python3-config found)")
+        except Exception:
+            print("Warning: Python integration requested (python=1) but python3-config not found. "
+                  "Install python3-dev or python3-devel package.")
+    elif env["platform"] == "windows":
+        import os as _os
+        if _os.path.exists('thirdparty/python-embed/include/Python.h'):
+            env.Append(CPPPATH=['thirdparty/python-embed/include'])
+            env.Append(LIBPATH=['thirdparty/python-embed/libs'])
+            env.Append(LIBS=['python3'])
+            env.Append(CPPDEFINES=["VG_HAS_PYTHON"])
+            print("Python integration: ENABLED (Windows embedded Python found)")
+        else:
+            print("Warning: Python integration requested (python=1) but thirdparty/python-embed not found. "
+                  "Place an embedded Python dist in thirdparty/python-embed/.")
 
 # --- POSIX libraries required by v3.1 system-level classes ---
 # librt: shm_open/shm_unlink (VGIPC shared memory)
