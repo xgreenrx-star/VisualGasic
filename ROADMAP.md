@@ -1,6 +1,6 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: July 9, 2026  
+**Last Updated**: July 13, 2026  
 **Current Version**: 5.3.0-Beta1 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
 **Current Scope**: M0–M9 milestones (Jul 2026 – Jan 2027 stable release)  
 **Next Cut**: v5.3.0 stable
@@ -840,14 +840,16 @@ Short, finishable list. **No new aspirational items.**
 | Milestone | Target Date | Exit Criteria |
 |-----------|------------|---------------|
 | **M0 — Restart** | July 1 2026 | Codebase reviewed, bug list confirmed, all known regressions documented |
-| **M1 — Bug fixes** | July 31 2026 | All 4 critical bugs fixed and regression-tested: `Or` operator, error state corruption, phantom double-press, `.tscn` signal mismatch |
-| **M2 — 20 proven examples** | August 15 2026 | Every example in the repo compiles and runs correctly. Unproven files deleted. |
-| **M3 — Code Navigator upgrade** | August 31 2026 | Object dropdown surfaces all scripts on all scene nodes; GDScript `func` definitions in Event dropdown; clicking navigates to correct line |
-| **M4 — UI Forms experimental** | September 30 2026 | Control picker popup → ghost placement → single-click place → double-click wire → `Sub Button1_Click()` in `Form1.vg`. Save/reopen preserves everything. Gated behind `vg/enable_experimental_plugins`. |
+| **M1 — Bug fixes** | July 31 2026 | ✅ **DONE** (Jun 29) — All 8 critical bugs fixed and regression-tested: `Or` operator (`fbb5984b`), error state corruption, phantom double-press (`2700b580` — `HashSet _active_signal_subs`), `.tscn` signal mismatch (`552fd5f4` — preserve `[connection]`), ByRef recursion (`b130dd8e`), Join float format, Dict properties (`Count/Keys/Items` w/o parens), chained calls. |
+| **M2 — Corpus / examples proof** | August 15 2026 | ✅ **DONE** (Jun 30) — 44/44 corpus examples pass across basics, control flow, strings, arrays, dictionaries, classes, file I/O, math, state machines, and Godot integration. |
+| **M3 — Code Navigator upgrade** | August 31 2026 | ✅ **DONE** (Jul 1) — Object dropdown surfaces all scripts on all scene nodes; GDScript `func` definitions in Event dropdown; clicking navigates to correct line. |
+| **M4 — UI Forms experimental** | September 30 2026 | ✅ **DONE** (Jul 1) — Control picker popup → ghost placement → single-click place → double-click wire → `Sub Button1_Click()` in `Form1.vg`. Save/reopen preserves everything. Gated behind `vg/enable_experimental_plugins`. |
 | **M5 — Narcea AI pair** | October 15 2026 | "Describe a form in English → Narcea generates working VG code" demo runs end-to-end on Claude and local Ollama |
 | **M6 — Causal Chain Visualization (teaser)** | October 31 2026 | Static AST walk generates a readable call-chain report for any VG form. Even a text-mode output qualifies. Visual panel is v6.1+. |
 | **M7 — Python Library Integration (Tier A)** | November 15 2026 | `PyImport("numpy")` / `PyCallAsync` / `Await` works end-to-end on Linux + Windows desktop. Out-of-process worker via existing IPC/process/async stack. Native wheels (numpy, opencv) load without engine changes. Clean error on missing Python. |
+✅ **EARLY PROGRESS (Jul 11)** — `PyImport("math")` / `PyImport("json")` + `PyCall` working end-to-end via `demo_python_bridge.vg`. Synchronous call, serialisation (json.dumps/loads), error handling, buffer processing, and graceful shutdown all tested. Demo, README, and documentation in `docs/SYSTEM_INTEGRATION.md` §17 and `docs/VisualGasic_Language_Reference.md` complete. **Remaining**: numpy/opencv native wheels, `PyCallAsync`/`Await`, Windows validation. |
 | **M8 — Language parity + `Let` keyword** | November 22 2026 | (1) Corpus tests for `Try`/`Catch`/`Finally`, `Lambda`, `?.` null-conditional — confirms bytecode compiler handles them, no silent AST fallback. (2) `AndAlso`/`OrElse` CHANGELOG entry added. (3) `Let x As Type` block-scoped variable: fresh slot per block entry via `OP_PUSH_SCOPE`/`OP_POP_SCOPE`; `Dim` retains VB6 sub-scope hoisting. (4) C++ library interop: supported `Declare` / `DllImport` path on Linux + Windows desktop via existing `visual_gasic_ffi.cpp`; packaging docs; clean failure on unsupported platforms. (5) Optional named arguments at call sites (`Call Foo(x:=10, y:=20)`) — VB6-compatible `:=` syntax; positional calls remain valid; parser activates named path only when `:=` present; reduces AI parameter-order errors. |
+✅ **EARLY PROGRESS (Jul 11)** — C++ FFI interop proven via `demo_ffi_cpp_lib.vg` (Vec2 C++ class with C ABI wrappers: create/destroy, get/set, length, dot product, scale, add, normalize, string representation). All 7 sections pass on Linux. `QuickCall` alias added to `visual_gasic_ffi.cpp` for docs-compatible calling. Demo, README, and documentation in `docs/SYSTEM_INTEGRATION.md` §1 and `docs/VisualGasic_Language_Reference.md` complete. **Remaining**: `Declare`/`DllImport` syntax, Windows validation, packaging docs. |
 | **M9 — Release readiness** | November 28 2026 | (1) Godot Asset Library package prepared and submitted. (2) Installer smoke-tested on clean Linux + Windows VMs — first-run works without manual steps. (3) 50+ corpus examples pass. (4) README and CHANGELOG reflect v6.0 features accurately. |
 | **🎉 Stable v6.0 release** | January 1 2027 | All M1–M9 complete. Installer works first try. Asset Library submission accepted or in review. Public announcement. |
 
@@ -1080,8 +1082,10 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | Feature | Description | Priority | Rationale |
 |---------|-------------|----------|-----------|
 | **`Let` keyword — block-scoped variables** | Add `Let x As Type` as a block-scoped variable declaration (C++/JS semantics: variable is re-initialized on each block entry and destroyed on exit). `Dim` retains VB6 sub-scope hoisting behavior. This keeps VB6 compatibility while giving C++/modern programmers an intuitive opt-in for loop-local variables. `Let` is already obsolete in VB6 (it was just an optional prefix for assignment: `Let x = 5`), so repurposing it is safe and zero-breaking. AI code generators trained on JavaScript will naturally reach for `let`-style semantics inside loops — this makes their output correct without restructuring. IDE IntelliSense should suggest `Let` when `Dim` is typed inside a block. Runtime: requires a scope stack in the bytecode VM (push/pop on block enter/exit). Implementation notes: (1) parser: if keyword is `LET` followed by an identifier and `AS`, treat as block-scoped `DimStatement` with a `is_block_scoped` flag; (2) compiler: don't hoist to sub-level slots — allocate a fresh slot on each block entry via a new `OP_PUSH_SCOPE`/`OP_POP_SCOPE` pair; (3) VM: small scope stack alongside `locals[]`. See also: conversation thread Jun 26, 2026. | High |
-| **Full Python library support** | Include full Python library support in v6.0 so VG projects can use Python ecosystems through a supported integration path. Start with a stable bridge/service architecture and document export/runtime limits clearly. Detailed implementation plan: [`/memories/repo/v6.0_blockers.md`](/memories/repo/v6.0_blockers.md), section "v6.0 plan — Full Python library support". | High |
-| **C++ library interoperability support** | Add a supported C++ interop path (native bridge/FFI + packaging docs) so VG projects can call external C++ libraries without custom engine forks. Ship desktop-first and clearly document mobile/web constraints. | High |
+| **Full Python library support** | Include full Python library support in v6.0 so VG projects can use Python ecosystems through a supported integration path. Start with a stable bridge/service architecture and document export/runtime limits clearly. Detailed implementation plan: [`/memories/repo/v6.0_blockers.md`](/memories/repo/v6.0_blockers.md), section "v6.0 plan — Full Python library support". |
+🟡 **Early demo (Jul 11):** `PyImport("math"/"json")` + `PyCall` working. Sync call, json, error handling, buffer processing, shutdown — all tested and documented. **Remaining:** numpy/opencv native wheels, `PyCallAsync`/`Await`, Windows. | High |
+| **C++ library interoperability support** | Add a supported C++ interop path (native bridge/FFI + packaging docs) so VG projects can call external C++ libraries without custom engine forks. Ship desktop-first and clearly document mobile/web constraints. |
+🟡 **Early demo (Jul 11):** Vec2 C++ class called via C ABI wrappers — create/destroy, get/set, length, dot, scale, add, normalize, to_string. `QuickCall` alias added. All tested and documented. **Remaining:** `Declare`/`DllImport` syntax, Windows validation, packaging docs. | High |
 | **Browser embed stack** | Add a browser surface to VG for InfoView-style workflows and web-powered tools. The goal is a VG-owned browser/window experience that feels integrated into the app and supports the project's browser-driven workflows. | High |
 | **Java library support (v6.x, Android-first)** | Add Java interop for Android plugins and Java ecosystems, with import tooling and runtime bridge documentation. Stage this for v6.x after Python/C++ foundations are stable. | Medium |
 | **AGCK advanced behaviors / user templates** | Promote hard-coded actor magic numbers (`rotation_speed`, `snap_angle_deg`, `jump_force`, `jump_velocity`, etc.) into actor-data fields, surface them in an "Advanced" card in the Actor editor, add Save/Load Template buttons that round-trip user-authored game templates as JSON in `user://agck_templates/`. Long-term: extract behaviors into external `.vg` files with typed param schemas. Plan parked in [`/memories/repo/visualgasic_todo.md`](/memories/repo/visualgasic_todo.md). | High |
@@ -1098,18 +1102,18 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 
 ---
 
-## � Milestone Schedule — v5.1+
+## 🗓️ Milestone Schedule — v5.1+
 
 | Milestone | Focus | Due | Status |
 |-----------|-------|-----|--------|
-| **M1** | 4 critical bugs (ByRef recursion, Join float format, Dict properties, chained calls) | Jul 31 | ✅ **DONE** (Jun 29) |
+| **M1** | 8 critical bugs (Or operator `fbb5984b`, error state corruption, phantom double-press `2700b580`, .tscn signal mismatch `552fd5f4`, ByRef recursion `b130dd8e`, Join float format, Dict properties, chained calls) | Jul 31 | ✅ **DONE** (Jun 29) |
 | **M2** | 44 corpus examples pass (all domains: basics, control flow, strings, arrays, dicts, classes, I/O, math, state machines, Godot) | Aug 15 | ✅ **DONE** (Jun 30) |
 | **M3** | Code Navigator upgrade (#7): multi-file symbol search, definition/reference indexing, call hierarchy | Aug 31 | ✅ **DONE** (Jul 1) |
 | **M4** | UI Forms experimental (#8–#12): VB6 visual form designer, control picker popup, ghost placement, signal wiring, two-layer events | Sep 30 | ✅ **DONE** (Jul 1) |
 | **M5** | Narcea AI pair (#13): pair-programming mode, provider routing, system prompt templates | Oct 15 | — |
 | **M6** | Causal Chain text-mode (#14): new AST evaluator path, narrative code generation, explain-before-compute | Oct 31 | — |
-| **M7** | Python Library Integration: `PyImport` / `PyCallAsync` / `Await` via out-of-process worker. numpy, opencv, torch usable from VG scripts. | Nov 15 | — |
-| **M8** | Language parity (Try/Catch/Lambda/`?.` corpus tests), `Let` block-scoped vars, C++ library interop via `Declare`/`DllImport`, optional named arguments (`:=`) | Nov 22 | — |
+| **M7** | Python Library Integration: `PyImport` / `PyCallAsync` / `Await` via out-of-process worker. numpy, opencv, torch usable from VG scripts. | Nov 15 | 🟡 **Early demo done** (Jul 11): stdlib import/call, json, error handling |
+| **M8** | Language parity (Try/Catch/Lambda/`?.` corpus tests), `Let` block-scoped vars, C++ library interop via `Declare`/`DllImport`, optional named arguments (`:=`) | Nov 22 | 🟡 **Early demo done** (Jul 11): Vec2 C++ class via C ABI, `QuickCall` alias |
 | **M9** | Release readiness: Asset Library submission, installer smoke test (Linux + Windows), 50+ corpus, docs current | Nov 28 | — |
 | **v6.0** | Stable release | Jan 1 2027 | — |
 
