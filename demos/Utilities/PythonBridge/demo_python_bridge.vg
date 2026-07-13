@@ -98,10 +98,57 @@ Sub Main()
     End If
 
     ' ================================================================
-    ' 4. Error handling — bad module
+    ' 4. numpy: array creation and math
     ' ================================================================
     Print ""
-    Print "--- 4. Error Handling ---"
+    Print "--- 4. numpy: arrays and math ---"
+
+    Dim npMod As Variant
+    npMod = bridge.PyImport("numpy")
+
+    If IsEmpty(npMod) Then
+        Print "  SKIP: numpy not installed (try: pip install numpy)"
+    Else
+        ' array([1, 2, 3])
+        Dim arr1 As Variant
+        arr1 = bridge.PyCall(npMod, "array", Array(Array(1, 2, 3)))
+        Print "  numpy.array = " & CStr(arr1)
+
+        ' numpy.dot([1,2,3], [4,5,6])
+        Dim dotResult As Variant
+        dotResult = bridge.PyCall(npMod, "dot", Array(Array(1, 2, 3), Array(4, 5, 6)))
+        Print "  numpy.dot     = " & CStr(dotResult) & "  (expected: 32)"
+
+        ' numpy.sum() — takes float array, returns scalar
+        Dim sumResult As Variant
+        sumResult = bridge.PyCall(npMod, "sum", Array(Array(1.0, 2.0, 3.0, 4.0, 5.0)))
+        Print "  numpy.sum      = " & CStr(sumResult) & "  (expected: 15)"
+
+        ' numpy.linalg.norm([3,4])
+        Dim linAlgMod As Variant
+        linAlgMod = bridge.PyImport("numpy.linalg")
+        Dim normResult As Variant
+        If Not IsEmpty(linAlgMod) Then
+            normResult = bridge.PyCall(linAlgMod, "norm", Array(Array(3.0, 4.0)))
+            Print "  numpy.linalg.norm = " & CStr(normResult) & "  (expected: 5.0)"
+        End If
+
+        ' 2D array
+        Dim arr2d As Variant
+        arr2d = bridge.PyCall(npMod, "array", Array(Array(Array(1, 2), Array(3, 4))))
+        Print "  numpy 2D array = " & CStr(arr2d)
+
+        ' numpy.float32 scalar
+        Dim f32 As Variant
+        f32 = bridge.PyCall(npMod, "float32", Array(3.14159))
+        Print "  numpy.float32  = " & CStr(f32)
+    End If
+
+    ' ================================================================
+    ' 5. Error handling — bad module
+    ' ================================================================
+    Print ""
+    Print "--- 5. Error Handling ---"
 
     Dim badMod As Variant
     badMod = bridge.PyImport("nonexistent_module_xyz")
@@ -121,10 +168,10 @@ Sub Main()
     End If
 
     ' ================================================================
-    ' 5. PyProcessBuffer — bulk data lane (v6 baseline uses JSON)
+    ' 6. PyProcessBuffer — bulk data lane (v6 baseline uses JSON)
     ' ================================================================
     Print ""
-    Print "--- 5. PyProcessBuffer (bulk data) ---"
+    Print "--- 6. PyProcessBuffer (bulk data) ---"
 
     ' Build a PackedByteArray from a string
     Dim bufStr As String
@@ -142,10 +189,10 @@ Sub Main()
     End If
 
     ' ================================================================
-    ' 6. Clean shutdown
+    ' 7. Clean shutdown
     ' ================================================================
     Print ""
-    Print "--- 6. Shutdown ---"
+    Print "--- 7. Shutdown ---"
 
     bridge.shutdown()
     Print "  Bridge shut down cleanly."

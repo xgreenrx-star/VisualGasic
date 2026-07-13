@@ -45,3 +45,20 @@ If the worker fails to launch:
 ## Reference
 
 See `docs/python_bridge_v6_minimal_spec.md` for the full spec.
+
+## numpy Support
+
+The demo includes a numpy section that tests core operations through the JSON IPC:
+
+| Operation | Example | Status |
+|-----------|---------|--------|
+| `numpy.array([1,2,3])` | `bridge.PyCall(npMod, "array", Array(Array(1,2,3)))` | ✅ Works |
+| `numpy.dot(a, b)` | `bridge.PyCall(npMod, "dot", Array(a, b))` | ✅ Works |
+| `numpy.sum(a)` | `bridge.PyCall(npMod, "sum", Array(a))` | ✅ Works |
+| `numpy.linalg.norm(v)` | `bridge.PyCall(linAlgMod, "norm", Array(v))` | ✅ Works |
+| `numpy.float32(x)` | `bridge.PyCall(npMod, "float32", Array(x))` | ✅ Works |
+| 2D arrays | `numpy.array([[1,2],[3,4]])` → nested VG arrays | ✅ Works |
+
+**Limitation:** VG `Array()` stores all numbers as floats. Functions requiring integer arguments (e.g. `numpy.zeros(5)`, `numpy.eye(3)`, `numpy.linspace(0,1,5)`) receive `[5.0]` which numpy rejects with `TypeError: 'float' object cannot be interpreted as an integer`. **Fix planned in Phase 1** — a typed binary protocol that preserves int/float type information across the IPC wire, so numpy receives actual Python `int` arguments.
+
+**Performance:** Small arrays (< 100×100 elements) are fine over JSON. Large arrays incur serialization overhead. Phase 1 (typed binary protocol) will provide a fast binary transfer path alongside the type-fidelity fix.
