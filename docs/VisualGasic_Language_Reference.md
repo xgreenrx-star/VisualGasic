@@ -7154,6 +7154,103 @@ Declares an interface — a contract that implementing classes must fulfill.
 
 ---
 
+## Is
+
+**Purpose** — Type or null comparison operator. Tests if an object is of a given type or is Nothing.
+
+**Syntax**
+
+    result = [TypeOf] object Is TypeName
+    result = object Is Nothing
+
+**Parameters**
+
+- `object` — The object to test
+- `TypeName` — A Godot class name (e.g., `Sprite2D`, `Label`, etc.)
+- `Nothing` — A null reference keyword
+
+**Description**
+
+The `Is` operator tests whether an object is an instance of a given type (including inheritance chain) or is a null reference. When used with `TypeOf`, it provides explicit type checking. Returns `True` if the test passes, `False` otherwise.
+
+The operator supports:
+- **Type checking** — `TypeOf object Is ClassName` checks inheritance
+- **Null checking** — `object Is Nothing` tests for null references
+- **Reference equality** — Compares object identity without evaluation
+
+**Example**
+
+    ' Type checking with TypeOf
+    If TypeOf node Is Sprite2D Then
+        Print "It is a sprite"
+    End If
+
+    ' Type checking (implicit TypeOf)
+    If scene Is Node Then
+        Print "Scene is a Node"
+    End If
+
+    ' Null checking
+    If player Is Nothing Then
+        Print "Player not found"
+    End If
+
+    ' In Control Flow
+    If TypeOf event Is InputEventMouseMotion Then
+        HandleMouseMove(event)
+    End If
+
+**See Also** — [IsNot](#isnot), [TypeOf](#typeof), [Nothing](#nothing), [Implements](#implements), [Inherits](#inherits)
+
+---
+
+## IsNot
+
+**Purpose** — Negative type or null comparison operator. Tests if an object is NOT of a given type or is NOT Nothing.
+
+**Syntax**
+
+    result = [TypeOf] object IsNot TypeName
+    result = object IsNot Nothing
+
+**Parameters**
+
+- `object` — The object to test
+- `TypeName` — A Godot class name (e.g., `Sprite2D`, `Label`, etc.)
+- `Nothing` — A null reference keyword
+
+**Description**
+
+The `IsNot` operator is the logical negation of `Is`. It tests whether an object is not an instance of a given type (including inheritance chain) or is not a null reference. Returns `True` if the test passes, `False` otherwise.
+
+Equivalent to `Not (object Is TypeName)` or `Not (object Is Nothing)`.
+
+**Example**
+
+    ' Verify object is not null before using
+    If node IsNot Nothing Then
+        node.QueueFree()
+    End If
+
+    ' Type exclusion
+    If TypeOf actor IsNot CharacterBody2D Then
+        Print "Actor is not a CharacterBody"
+    End If
+
+    ' Defensive check
+    If player IsNot Nothing And player IsNot Nothing Then
+        player.TakeDamage(10)
+    End If
+
+    ' Skip processing if wrong type
+    If shape IsNot CollisionShape2D Then
+        Return
+    End If
+
+**See Also** — [Is](#is), [TypeOf](#typeof), [Nothing](#nothing), [Not](#not)
+
+---
+
 ## is_action_just_pressed
 
 **Purpose** — Returns True only on the frame the action was first pressed.
