@@ -3,8 +3,8 @@ extends RefCounted
 ## Phase 6c — Provider-native function-calling adapter.
 ##
 ## Converts VisualGasic's tool registry into the native function-calling
-## wire format for OpenAI, Claude, and Gemini, and normalises native
-## tool_calls / input_json_delta / functionCall responses back into the
+## wire format for OpenAI, Claude, Gemini, DeepSeek, and Qwen, and normalises
+## native tool_calls / input_json_delta / functionCall responses back into the
 ## fenced vg-tool text that the existing dispatch path processes unchanged.
 ##
 ## Usage in vg_ai_help.gd:
@@ -14,8 +14,9 @@ extends RefCounted
 ##                    to_fenced_text(calls) → append to _accumulated_response
 
 ## Providers with a native function-calling protocol.
-## Ollama uses the existing fenced-JSON system-prompt approach (no change).
-const PROVIDERS_WITH_NATIVE_FC := ["openai", "claude", "gemini"]
+## Ollama and Gemini use the existing fenced-JSON system-prompt approach (no change).
+## DeepSeek and Qwen are OpenAI-compatible, so they reuse the "openai" code path.
+const PROVIDERS_WITH_NATIVE_FC := ["openai", "claude", "gemini", "deepseek", "qwen", "codeium", "amazonq"]
 
 static func supports_native_fc(provider_id: String) -> bool:
 	return PROVIDERS_WITH_NATIVE_FC.has(provider_id)
@@ -270,7 +271,7 @@ static func _to_gemini_schema(defs: Array) -> Array:
 static func inject_tools_into_body(provider_id: String, body_dict: Dictionary) -> void:
 	var defs := _get_tool_defs()
 	match provider_id:
-		"openai":
+		"openai", "deepseek", "qwen", "codeium", "amazonq":
 			body_dict["tools"] = _to_openai_schema(defs)
 			body_dict["tool_choice"] = "auto"
 		"claude":
@@ -319,9 +320,12 @@ static func parse_stream_line_for_fc(provider_id: String, line: String) -> Varia
 	if json == null or typeof(json) != TYPE_DICTIONARY:
 		return null
 	match provider_id:
-		"openai":  return _parse_openai_fc(json)
-		"claude":  return _parse_claude_fc(json)
-		"gemini":  return _parse_gemini_fc(json)
+		"openai", "deepseek", "qwen", "codeium", "amazonq":
+			return _parse_openai_fc(json)
+		"claude":
+			return _parse_claude_fc(json)
+		"gemini":
+			return _parse_gemini_fc(json)
 	return null
 
 

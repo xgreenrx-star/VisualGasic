@@ -1,6 +1,7 @@
 @tool
 extends RefCounted
-## AI Provider abstraction layer — unified interface for Ollama, OpenAI, Claude, Gemini.
+## AI Provider abstraction layer — unified interface for Ollama, OpenAI, Claude, Gemini,
+## DeepSeek, Qwen (DashScope), Codeium (Windsurf), and Amazon Q Developer.
 ## Each provider converts VisualGasic's system prompt + conversation history into the
 ## appropriate API format and streams responses token-by-token.
 
@@ -73,6 +74,70 @@ static func get_providers() -> Array:
 	gemini.default_model = "gemini-2.5-flash"
 	providers.append(gemini)
 
+	# ── DeepSeek ──
+	# DeepSeek Chat API is OpenAI-compatible — reuses the "openai" code path
+	# in build_request / parse_stream_line / function-calling adapter.
+	# Models: deepseek-chat (V2 flagship), deepseek-coder (coding-optimised).
+	var deepseek := ProviderInfo.new()
+	deepseek.id = "deepseek"
+	deepseek.display_name = "🔴 DeepSeek"
+	deepseek.is_local = false
+	deepseek.api_host = "api.deepseek.com"
+	deepseek.api_port = 443
+	deepseek.api_path = "/v1/chat/completions"
+	deepseek.use_tls = true
+	deepseek.models = ["deepseek-chat", "deepseek-coder"]
+	deepseek.default_model = "deepseek-chat"
+	providers.append(deepseek)
+
+	# ── Qwen (Alibaba Cloud DashScope) ──
+	# Qwen models via DashScope API, using the OpenAI-compatible endpoint at
+	# /compatible-mode/v1/chat/completions. Also available locally via Ollama.
+	# Coding-optimised models are listed first (32B, 14B, 7B), then general.
+	var qwen := ProviderInfo.new()
+	qwen.id = "qwen"
+	qwen.display_name = "🟠 Qwen (DashScope)"
+	qwen.is_local = false
+	qwen.api_host = "dashscope.aliyuncs.com"
+	qwen.api_port = 443
+	qwen.api_path = "/compatible-mode/v1/chat/completions"
+	qwen.use_tls = true
+	qwen.models = ["qwen2.5-coder-32b-instruct", "qwen2.5-coder-14b-instruct", "qwen2.5-coder-7b-instruct", "qwen-max", "qwen-plus", "qwen-turbo"]
+	qwen.default_model = "qwen2.5-coder-32b-instruct"
+	providers.append(qwen)
+
+	# ── Codeium (Windsurf) ──
+	# Codeium chat completions API — OpenAI-compatible format.
+	# Free tier available; enterprise keys from codeium.com/profile.
+	var codeium := ProviderInfo.new()
+	codeium.id = "codeium"
+	codeium.display_name = "🌊 Codeium (Windsurf)"
+	codeium.is_local = false
+	codeium.api_host = "generativelanguage.codeium.com"
+	codeium.api_port = 443
+	codeium.api_path = "/v1/chat/completions"
+	codeium.use_tls = true
+	codeium.models = ["windsurf-claude-3.5-sonnet", "windsurf-gpt-4o", "windsurf-gemini-pro"]
+	codeium.default_model = "windsurf-claude-3.5-sonnet"
+	providers.append(codeium)
+
+	# ── Amazon Q Developer ──
+	# Amazon Q Developer via Bedrock Access Gateway (OpenAI-compatible proxy).
+	# Users configure their own gateway host/port in EditorSettings.
+	# Default: localhost:8080 for a local bedrock-access-gateway instance.
+	# Models: Amazon Bedrock models (Claude, Nova Lite, Nova Pro).
+	var amazonq := ProviderInfo.new()
+	amazonq.id = "amazonq"
+	amazonq.display_name = "🟧 Amazon Q Developer"
+	amazonq.is_local = false
+	amazonq.api_host = "localhost"
+	amazonq.api_port = 8080
+	amazonq.api_path = "/v1/chat/completions"
+	amazonq.use_tls = false
+	amazonq.models = ["anthropic.claude-3-5-sonnet-20241022-v2:0", "amazon.nova-pro-v1:0", "amazon.nova-lite-v1:0"]
+	amazonq.default_model = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+	providers.append(amazonq)
+
 	return providers
 
 static func find_provider(provider_id: String) -> ProviderInfo:
@@ -80,6 +145,27 @@ static func find_provider(provider_id: String) -> ProviderInfo:
 		if p.id == provider_id:
 			return p
 	return null
+
+## Return the effective ProviderInfo for a given provider ID, applying any
+## user-configured overrides from EditorSettings (e.g. Amazon Q host/port).
+static func get_effective_provider(provider_id: String) -> ProviderInfo:
+	var p := find_provider(provider_id)
+	if p == null:
+		return null
+	# Amazon Q uses configurable host/port from EditorSettings.
+	if provider_id == "amazonq":
+		var es := _editor_settings()
+		if es != null:
+			var host_val = es.get_setting("visual_gasic/ai/amazonq_host")
+			if host_val != null:
+				p.api_host = str(host_val)
+			var port_val = es.get_setting("visual_gasic/ai/amazonq_port")
+			if port_val != null:
+				p.api_port = int(port_val)
+			var tls_val = es.get_setting("visual_gasic/ai/amazonq_use_tls")
+			if tls_val != null:
+				p.use_tls = bool(tls_val)
+	return p
 
 
 # ─── API Key Management ─────────────────────────────────────────────────────
@@ -91,10 +177,17 @@ static func find_provider(provider_id: String) -> ProviderInfo:
 #   visual_gasic/ai/openai_key         — OpenAI API key
 #   visual_gasic/ai/claude_key         — Anthropic Claude API key
 #   visual_gasic/ai/gemini_key         — Google Gemini API key
+#   visual_gasic/ai/deepseek_key       — DeepSeek API key
+#   visual_gasic/ai/qwen_key           — Qwen (DashScope) API key
+#   visual_gasic/ai/codeium_key      — Codeium (Windsurf) API key
+#   visual_gasic/ai/amazonq_key      — Amazon Q Developer API key
+#   visual_gasic/ai/amazonq_host     — Amazon Q Bedrock Access Gateway host
+#   visual_gasic/ai/amazonq_port     — Amazon Q Bedrock Access Gateway port
+#   visual_gasic/ai/amazonq_use_tls  — Amazon Q TLS flag
 #   visual_gasic/ai/preferred_provider — last-used provider id
 #
 # Registration: visual_gasic_plugin.gd _enter_tree() calls
-# _register_editor_setting() for all five paths with defaults and hints.
+# _register_editor_setting() for all paths with defaults and hints.
 #
 # One-time migration: on first key access after an upgrade, any values found
 # in the old per-user ai_keys.cfg (or user://vg_ai_keys.cfg) are copied into
@@ -190,7 +283,7 @@ static func build_request(provider_id: String, model: String, system_prompt: Str
 	match provider_id:
 		"ollama":
 			return _build_ollama(model, system_prompt, conversation_history, user_prompt)
-		"openai":
+		"openai", "deepseek", "qwen", "codeium", "amazonq":
 			return _build_openai(model, system_prompt, conversation_history, user_prompt, api_key)
 		"claude":
 			return _build_claude(model, system_prompt, conversation_history, user_prompt, api_key)
@@ -313,7 +406,7 @@ static func parse_stream_line(provider_id: String, line: String) -> Dictionary:
 	match provider_id:
 		"ollama":
 			return _parse_ollama_line(line)
-		"openai":
+		"openai", "deepseek", "qwen", "codeium", "amazonq":
 			return _parse_openai_line(line)
 		"claude":
 			return _parse_claude_line(line)
@@ -349,8 +442,11 @@ static func _parse_openai_line(line: String) -> Dictionary:
 	if choices.is_empty():
 		return {"token": "", "done": false}
 	var delta: Dictionary = choices[0].get("delta", {})
-	var token: String = delta.get("content", "")
-	var finish: String = choices[0].get("finish_reason", "")
+	var token: String = ""
+	if delta.get("content") != null:
+		token = str(delta.get("content", ""))
+	var finish_raw = choices[0].get("finish_reason")
+	var finish: String = "" if finish_raw == null else str(finish_raw)
 	return {"token": token, "done": finish == "stop"}
 
 

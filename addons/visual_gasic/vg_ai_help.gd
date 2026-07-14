@@ -2535,7 +2535,7 @@ func _show_api_key_dialog() -> void:
 	vbox.add_child(HSeparator.new())
 
 	var hints := Label.new()
-	hints.text = "Get keys from:\n• OpenAI: platform.openai.com/api-keys\n• Claude: console.anthropic.com/settings/keys\n• Gemini: aistudio.google.com/apikey"
+	hints.text = "Get keys from:\n• OpenAI: platform.openai.com/api-keys\n• Claude: console.anthropic.com/settings/keys\n• Gemini: aistudio.google.com/apikey\n• DeepSeek: platform.deepseek.com/api-keys\n• Qwen: dashscope.console.aliyun.com/apiKey\n• Codeium: codeium.com/profile → API Keys\n• Amazon Q: Set up Bedrock Access Gateway locally"
 	hints.add_theme_font_size_override("font_size", 11)
 	hints.add_theme_color_override("font_color", Color(0.5, 0.6, 0.7))
 	hints.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
