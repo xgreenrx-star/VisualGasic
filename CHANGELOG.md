@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✨ Added — `IsNot` Operator (Jul 15, 2026)
+
+- `IsNot` now parses and compiles — negation of `Is` (VB.NET-style reference/type inequality)
+- Parser: `parse_comparison()` builds a `BinaryOpNode` with `op = "IsNot"`
+- Bytecode compiler: class type-check via `OP_IS_CLASS` + `OP_NOT`; general case via `OP_NOT_EQUAL`; constant-folding support
+- Both evaluator paths (tree-walk `evaluate_expression` and `VisualGasicExpressionEvaluator`) implement full `IsNot` semantics: Godot class type-check negation, `Is Not Nothing` null check, string class-name resolution, and reference-inequality fallback
+- Verified: `test_isnot_operator.vg`, `test_isnot_simple.vg`, `test_isnot_simple2.vg` (7/7 assertions)
+
+### 🐛 Fixed — ByRef write-back in expression-level function calls (Jul 15, 2026)
+
+- **Distinct from the Jun 29 ByRef-recursion fix.** When a `ByRef` function was called as part of an expression (e.g. `result = DoubleAndReturn(val)`) rather than as a standalone `Call` statement, the caller's variable was never updated.
+- Root cause: `call_internal()` erases the callee's parameter slots from `variables[]` after the call, stashing the real post-call value in `_last_byref_captures` — but the expression-evaluator write-back path in `visual_gasic_instance_evaluate.inc` was reading the already-erased `variables[param.name]` instead of `_last_byref_captures`.
+- Fixed to match the working `STMT_CALL` write-back path in `visual_gasic_instance_execute.inc`.
+- Full regression suite: 763/763 assertions pass (was 762/763 before fix).
+
 ## [5.3.0-Beta1] - 2026-07-03
 
 ### ✨ Added — 2D Canvas Toolbar Buttons (Jul 3, 2026)

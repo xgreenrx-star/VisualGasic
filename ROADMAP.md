@@ -1,6 +1,6 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: July 13, 2026  
+**Last Updated**: July 15, 2026  
 **Current Version**: 5.3.0-Beta1 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
 **Current Scope**: M0–M9 milestones (Jul 2026 – Jan 2027 stable release)  
 **Next Cut**: v5.3.0 stable
@@ -841,6 +841,7 @@ Short, finishable list. **No new aspirational items.**
 |-----------|------------|---------------|
 | **M0 — Restart** | July 1 2026 | Codebase reviewed, bug list confirmed, all known regressions documented |
 | **M1 — Bug fixes** | July 31 2026 | ✅ **DONE** (Jun 29) — All 8 critical bugs fixed and regression-tested: `Or` operator (`fbb5984b`), error state corruption, phantom double-press (`2700b580` — `HashSet _active_signal_subs`), `.tscn` signal mismatch (`552fd5f4` — preserve `[connection]`), ByRef recursion (`b130dd8e`), Join float format, Dict properties (`Count/Keys/Items` w/o parens), chained calls. |
+✅ **Post-M1 catch (Jul 15 2026)** — `IsNot` operator implemented across parser/bytecode compiler/both evaluator paths (negation of `Is`: class type-check, `Nothing` null check, reference inequality). A **second, distinct ByRef bug** was found and fixed during verification: expression-level function calls (`result = DoubleAndReturn(val)`) never wrote the modified value back to the caller — the evaluator's write-back path read the already-erased `variables[param.name]` instead of `_last_byref_captures` (the mechanism the `STMT_CALL` path already used correctly). This is **not** the same bug as the Jun 29 ByRef-recursion fix (`b130dd8e`) — that one was about default parameters colliding during recursive calls; this one affects **any** `ByRef` function called as part of an expression, regardless of recursion. Full regression suite: 763/763 assertions pass (was 762/763 before the fix). See `CHANGELOG.md` [Unreleased] for details.
 | **M2 — Corpus / examples proof** | August 15 2026 | ✅ **DONE** (Jun 30) — 44/44 corpus examples pass across basics, control flow, strings, arrays, dictionaries, classes, file I/O, math, state machines, and Godot integration. |
 | **M3 — Code Navigator upgrade** | August 31 2026 | ✅ **DONE** (Jul 1) — Object dropdown surfaces all scripts on all scene nodes; GDScript `func` definitions in Event dropdown; clicking navigates to correct line. |
 | **M4 — UI Forms experimental** | September 30 2026 | ✅ **DONE** (Jul 1) — Control picker popup → ghost placement → single-click place → double-click wire → `Sub Button1_Click()` in `Form1.vg`. Save/reopen preserves everything. Gated behind `vg/enable_experimental_plugins`. |
@@ -850,6 +851,7 @@ Short, finishable list. **No new aspirational items.**
 | **M6 — Causal Chain Visualization (teaser)** | October 31 2026 | Static AST walk generates a readable call-chain report for any VG form. Even a text-mode output qualifies. Visual panel is v6.1+. |
 | **M7 — Python Library Integration (Tier A)** | November 15 2026 | `PyImport("numpy")` / `PyCallAsync` / `Await` works end-to-end on Linux + Windows desktop. Out-of-process worker via existing IPC/process/async stack. Native wheels (numpy, opencv) load without engine changes. Clean error on missing Python. |
 ✅ **EARLY PROGRESS (Jul 11)** — `PyImport("math")` / `PyImport("json")` + `PyCall` working end-to-end via `demo_python_bridge.vg`. Synchronous call, serialisation (json.dumps/loads), error handling, buffer processing, and graceful shutdown all tested. Demo, README, and documentation in `docs/SYSTEM_INTEGRATION.md` §17 and `docs/VisualGasic_Language_Reference.md` complete. numpy Phase 0 (array, dot, sum, linalg.norm, scalars) added to demo and tested Jul 11. **Remaining**: numpy Phase 1 (binary protocol for large arrays), Phase 2 (opencv, torch, structured data), `PyCallAsync`/`Await`, Windows validation.
+✅ **Phase 2/3 shipped (Jul 14)** — Real `PyCallAsync` implemented via `PyAsyncTask` (new `RefCounted` in `visual_gasic_py_facade.h/cpp`): runs the Python call on a background `std::thread`, mirrors `VGTask`'s public surface (`IsComplete`/`IsFailed`/`Result`/`ErrorMessage`) so VG's `Await` keyword duck-types on it with zero runtime changes. Also added: binary data lane for `PyProcessBuffer`, Windows `CreateProcess` launch path (was Linux/macOS-only), auto-restart on worker crash, a structured error model, project settings for the Python bridge, `PyEnvInfo`/`PyLastError`/`PyCallMany` helpers, and a fuller test matrix. **Remaining for M7 close-out**: Windows end-to-end validation of the new async path, numpy Phase 1 (typed binary protocol), numpy Phase 2 (opencv/torch/pandas).
 
 #### numpy Support — Phased Plan (within M7 scope)
 
@@ -1127,7 +1129,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **M4** | UI Forms experimental (#8–#12): VB6 visual form designer, control picker popup, ghost placement, signal wiring, two-layer events | Sep 30 | ✅ **DONE** (Jul 1) |
 | **M5** | Narcea AI pair (#13): pair-programming mode, provider routing, system prompt templates | Oct 15 | 🟡 **Provider expansion planned (v5.4):** DeepSeek, Qwen, Codeium, Amazon Q Developer, OpenAI-compatible endpoints. See M5 details above. |
 | **M6** | Causal Chain text-mode (#14): new AST evaluator path, narrative code generation, explain-before-compute | Oct 31 | — |
-| **M7** | Python Library Integration: `PyImport` / `PyCallAsync` / `Await` via out-of-process worker. numpy, opencv, torch usable from VG scripts. | Nov 15 | 🟡 **Phase 0 done** (Jul 11): stdlib + numpy JSON-serializable ops. Phases 1–3 pending |
+| **M7** | Python Library Integration: `PyImport` / `PyCallAsync` / `Await` via out-of-process worker. numpy, opencv, torch usable from VG scripts. | Nov 15 | 🟡 **Phase 2/3 done** (Jul 14): real `PyCallAsync`/`Await` via `PyAsyncTask` background thread, Windows launch path, auto-restart, structured errors. numpy Phases 1–2 pending |
 | **M8** | Language parity (Try/Catch/Lambda/`?.` corpus tests), `Let` block-scoped vars, C++ library interop via `Declare`/`DllImport`, optional named arguments (`:=`) | Nov 22 | 🟡 **Early demo done** (Jul 11): Vec2 C++ class via C ABI, `QuickCall` alias |
 | **M9** | Release readiness: Asset Library submission, installer smoke test (Linux + Windows), 50+ corpus, docs current | Nov 28 | — |
 | **v6.0** | Stable release | Jan 1 2027 | — |
@@ -1412,3 +1414,181 @@ VG's stack is cleanly layered:
 
 *This roadmap is a living document. Priorities may shift based on community feedback and development resources.*
 *Reality-pass policy: the v5.x window is for finishing. New ambitious ideas go to v6.0 or v7.0 \u2014 not into the next minor.*
+
+---
+
+## 📈 v6.0 Messaging Rebranding — "Professional Positioning" (Phase 1: Jul–Dec 2026)
+
+**Strategic Goal**: Shift from "hobbyist/indie nostalgia" framing to **"enterprise-grade safety & auditability for AI-native development"** while keeping VB-inspired syntax that works exceptionally well in practice.
+
+### Core Insight
+
+Current messaging emphasizes auditing, VB6 familiarity, and indie game tooling. This is *honest* but narrow. The deeper win is: **VG's explicit type system, block-bounded syntax, and "what you see is what runs" guarantee eliminate an entire class of AI hallucination failures before they reach runtime.**
+
+For professionals shipping AI-generated code under regulatory oversight, this is worth more than nostalgia.
+
+### Messaging Shifts (v6.0 launch)
+
+| Current Frame | Rebranding (v6.0) | Rationale |
+|---|---|---|
+| *"The language you read when you don't trust the AI"* | *"The language that eliminates AI type-hallucination failures before compile."* | Shifts from human audit → automated guardrails. Compliance-first angle. |
+| "VB6-style BASIC" | "Explicit-Type Deterministic Language" (or "Deterministic Systems Language") | Removes legacy baggage; emphasizes modern properties (safety, predictability, auditability). VB6 syntax is a *property*, not the brand. |
+| "Auditable AI code for Godot" | **Multi-context framing**: (A) **Godot games**: "VG brings AI-readable syntax to game logic." (B) **Microservices/CLI**: "Type-safe AI code for data pipelines and tools." (C) **Enterprise apps**: "Compliance-first language for regulated AI systems." | Broadens appeal; prepares for post-Godot expansion (v7.0+). |
+| "50 years of VB heritage" | "Modern language, proven syntax" | Neutral framing; emphasizes proven-ness without baggage. |
+| Performance: "30–119× faster than GDScript" | Performance: "Native-tier speed (JIT Tier 3 compile-to-x86-64)" | Technical credibility; doesn't rely on comparison; speaks to absolute capability. |
+
+### Rebranding Rollout (v6.0 release cycle)
+
+**Phase 1a — Documentation & README (Aug–Sep 2026)**
+- [ ] Rewrite README.md headline to emphasize compliance/safety over nostalgia
+- [ ] Add "Why Explicit Types Matter for AI Safety" section to docs/manifesto.md
+- [ ] Update landing page on website to lead with compliance narrative
+- [ ] Add case study: "How VG Eliminates Common AI Hallucination Patterns" (doc with 3–5 examples: type confusion, API parameter order, boundary errors)
+- [ ] Add "Enterprise" FAQ section covering licensing, support, security model
+- [ ] Update all marketing copy in GitHub release notes
+
+**Phase 1b — Naming Adjustments (Sep–Oct 2026)**
+- [ ] Internal rename codebase references from "VB6 BASIC" → "Explicit-Type Deterministic" or settle on clearer name post-stakeholder feedback
+- [ ] File a **discussion** to crowdsource final name ("Explicit-Type Language"? "SafeBasic"? Input welcome)
+- [ ] Once settled, update all `*.md`, comments, and marketing (non-code-breaking)
+
+**Phase 1c — Logo / Visual Identity (Sep–Oct 2026)**
+- [ ] Current VG logo (purple shield) is fine, but marketing collateral should emphasize "professional" theme:
+  - Remove casual/indie styling if present
+  - Add "Enterprise-Grade" tagline below VG in press materials
+  - Security badge / certification placeholder for future compliance certifications (SOC 2, SLSA, etc.)
+
+**Phase 2 — Asset Library Submission (Nov 2026)**
+- [ ] Rewrite plugin description to lead with enterprise positioning
+- [ ] Include "Compliance & Safety" as primary category (alongside Game Development)
+- [ ] Add release notes emphasizing compliance features
+- [ ] Highlight that VG is **free & open-source** under GPL-3.0 (removes enterprise "black box" concerns)
+
+### Expected Outcomes
+
+- **CTO-level interest**: Language positioned as AI governance tool, not legacy nostalgia
+- **Hiring pool expansion**: Enterprise shops considering VG for non-game workflows (data tools, microservices, scripts)
+- **Broader market messaging**: "Works great for games AND business logic"
+- **Reposition "boring" as strength**: Explicit syntax + strict types = "boring by design" (trusted, predictable, auditable)
+
+### Risk Mitigations
+
+| Risk | Mitigation |
+|---|---|
+| Lose indie/hobbyist appeal | Keep game dev focus. Emphasize: "Games are apps too." VG is still the best Godot scripting language. Add "Hobbyist Friendly" marketing path alongside enterprise. |
+| Jargon alienates existing users | Transition messaging, not language. VB-inspired syntax unchanged. Existing users see no impact. |
+| "Deterministic" claim under-delivered | Document guarantees clearly: no metaclasses, no implicit dispatch, no hidden decorators. What's in the source is what runs. Deliver receipts via formal verification roadmap (v7+). |
+| Enterprise customers ask "Where's the support?"; "Is this production-ready?" | v6.0 stable must ship with: (1) clear support/SLA documentation, (2) security policy, (3) known limitations, (4) roadmap. Open discussion for potential commercial support partner (v6.1+). |
+
+---
+
+## 🚀 v7.0 Roadmap — "Enterprise Expansion" (Post-v6.0 stable, Q2–Q4 2027)
+
+**Strategic Goal**: Reduce institutional friction for enterprise adoption by providing supply-chain security, database integration, and ecosystem bridges.
+
+**High-Level Vision**: VG at v6.0 is linguistically complete and production-ready for Godot. v7.0 adds the plumbing that enterprises demand: provenance, standards compliance, and drop-in integration with existing corporate infrastructure.
+
+### v7.0 Feature Tiers
+
+#### **Tier 1 — Supply Chain Security (HIGH PRIORITY)**
+
+**Why it matters**: Enterprise teams will not adopt a language whose package ecosystem relies on unverified sources. VG Package Manager (shipped in v4.3) is functional but lacks provenance guarantees.
+
+| Feature | Scope | Estimate | Priority |
+|---------|-------|----------|----------|
+| **Code Signing for Packages** | 1. Add `gpg sign` layer to `vg pkg publish`. 2. CLI flag `--sign-key <path>` to publish. 3. Registry stores public key fingerprint per package. 4. `vg pkg install` verifies signature before extracting. 5. UI warning if signature missing. | 2–3 weeks | 🔴 HIGH |
+| **Built-in Vulnerability Scanning** | 1. Native `vg audit` command that scans all `.vg` files for known anti-patterns (unbounded loops, unhandled file I/O, unsafe FFI, etc.). 2. Registry publishes CVE-style database of known issues in packages. 3. `vg pkg install --check-vulnerabilities` blocks install if known CVE found. 4. IDE: linter integration shows vulnerability warnings inline. | 3–4 weeks | 🔴 HIGH |
+| **Supply Chain Attestation (SLSA)** | 1. Publish artifacts with SLSA L3 provenance (build env, commit hash, signer identity). 2. GitHub Actions CI: sign release artifacts with `sigstore`. 3. Registry stores attestation metadata. 4. Documentation: how to verify provenance client-side. | 4–5 weeks | 🟡 MEDIUM |
+| **Private Enterprise Registries** | 1. Support `vg pkg registry add <name> <url>` for Artifactory / GitHub Packages / Nexus. 2. Credentials management (env var, token file, prompt). 3. Package resolution: search private registries first, fallback to public. 4. UI: manage registries in a "Package Sources" settings panel. | 2–3 weeks | 🟡 MEDIUM |
+
+**Deliverable**: v7.0 launches with code signing + basic vulnerability database + private registry support. SLSA provenance is v7.1.
+
+---
+
+#### **Tier 2 — Enterprise Bridges (MEDIUM–HIGH PRIORITY)**
+
+**Why it matters**: A language locked to a single game engine has limited appeal. But VG's FFI capabilities (shipped in v6.0) create a foundation for drop-in integrations with existing corporate stacks.
+
+| Feature | Scope | Estimate | Priority |
+|---------|-------|----------|----------|
+| **ODBC Database Driver Wrapper** | 1. C++ wrapper: VG ↔ ODBC via `visual_gasic_odbc.cpp` (new module). 2. Native builtins: `ODBCConnection.Open()`, `Execute()`, `Fetch()`, `Close()`. 3. Result sets as VG `Collection(Of Dictionary)`. 4. Error handling: ODBC error codes → VG `Err` object. 5. Tested on: Linux (unixODBC), Windows (ODBC Data Source Admin). | 4–5 weeks | 🔴 HIGH |
+| **Java Interop (JNI Bridge)** | 1. C++ layer: `visual_gasic_jni.cpp` marshals VG Variants ↔ Java objects. 2. `JavaClass.New()` instantiation, method calls, property access. 3. VG callbacks as Java lambda expressions. 4. Tested on: Android (via existing JNI bindings in Godot), desktop JVM. 5. Example: call Android sensor APIs from VG. | 5–6 weeks | 🟡 MEDIUM |
+| **.NET Interop (P/Invoke Alternative)** | 1. C++ marshaling layer for .NET types (int, string, arrays, delegates). 2. VG bindings for managed .NET libraries via DLL imports + type reflection. 3. Alternative: CppCLI wrapper for cleaner interop. 4. Tested on: Windows desktop, future .NET cross-platform (MAUI). 5. Example: call Prism MVVM framework from VG app logic. | 6–8 weeks | 🟡 MEDIUM |
+
+**Deliverable**: v7.0 ships ODBC (database access). Java/JNI and .NET are v7.1.
+
+---
+
+#### **Tier 3 — Package Manager Enhancements (MEDIUM PRIORITY)**
+
+| Feature | Scope | Estimate | Priority |
+|---------|-------|----------|----------|
+| **Dependency Resolution & Lock Files** | 1. Upgrade `vg.json` to support version constraints (`^1.0`, `~1.2.3`, `>=2.0`). 2. Implement semver conflict resolution. 3. Generate `vg.lock` on install (pins exact versions for reproducibility). 4. `vg pkg update` respects constraints in `vg.json` but updates `vg.lock`. | 2–3 weeks | 🟡 MEDIUM |
+| **Workspaces & Multi-Module Projects** | 1. Extend `vg.json` to declare workspace members (e.g., "projects": ["core/", "tools/", "ui/"]). 2. `vg pkg` commands resolve paths within workspace. 3. Shared transitive dependencies resolved once. 4. Integrated with Code Navigator (cross-module symbol search). | 3–4 weeks | 🟡 MEDIUM |
+| **Package Metadata & Discoverability** | 1. Registry returns rich metadata: tags, keywords, author/org, license, source URL, documentation link. 2. Registry search: `vg pkg search --keyword "database"` → matches ODBC wrapper, etc. 3. Web-based registry UI: browse, star, filter by category. 4. Telemetry (opt-in): track downloads, popular packages. | 2–3 weeks | 🟡 MEDIUM |
+
+---
+
+#### **Tier 4 — Ecosystem & Standards (LOW–MEDIUM PRIORITY)**
+
+| Feature | Scope | Estimate | Priority |
+|---------|-------|----------|----------|
+| **SBOM (Software Bill of Materials) Export** | 1. `vg pkg sbom` generates SPDX-compliant BOM of all dependencies + versions + licenses. 2. Enterprise compliance: audit chains of dependencies, identify GPL/proprietary mixed licenses. | 1–2 weeks | 🟢 LOW |
+| **License Compliance Checker** | 1. `vg pkg license-check` scans all dependencies, flags incompatible license combinations (e.g., GPL + proprietary). 2. Report: compatible/incompatible/requires-approval. 3. Config file: allowlist approved licenses per project. | 1 week | 🟢 LOW |
+
+---
+
+### v7.0 Secondary Features (Language & Runtime)
+
+These ship v7.0 alongside enterprise bridges if time permits; otherwise v7.1.
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| **Headless Runtime Variant** | Optional lightweight VG runtime (no Godot windowing, no 3D). Single `.exe` / `.so` binary for CLI scripts, data processing, microservices. Ships as separate distribution. NOT a full "standalone language" — still compiled from VG source to bytecode, still targets Godot VM. Useful for: `vg run script.vg --headless`, server-side AI code generation, batch processing. | 🟡 MEDIUM |
+| **Module Visibility Modifiers** | `Public Module` vs. `Internal Module` declarations; scopes exported symbols. Prevents accidental public API surface. Simplifies refactoring. | 🟢 LOW |
+| **Async/Await Enhancements** | Fully specify cancellation tokens, timeout management, exception propagation across task boundaries. | 🟡 MEDIUM |
+
+---
+
+### v7.0 Timeline & Sequencing
+
+| Phase | Milestone | Target | Deliverable |
+|-------|-----------|--------|-------------|
+| **Phase 1** | Package signing & audit | Feb 2027 | Code signing + vulnerability DB operational |
+| **Phase 2** | ODBC bridge | Mar 2027 | VG ↔ SQL database end-to-end demo |
+| **Phase 3** | Registry enhancements | Apr 2027 | Private registries + private artifact support |
+| **Phase 4** | Java/JNI bridge | May 2027 | Android sensor access from VG demo |
+| **Phase 5** | .NET interop | Jun 2027 | Prism MVVM example or similar |
+| **Phase 6** | Polish & docs | Jul 2027 | Security guide, enterprise integration guide |
+| **v7.0 release** | | **Jul 31 2027** | All enterprise bridges + supply chain security |
+
+---
+
+### v7.0 Marketing Narrative
+
+**"VG is no longer just Godot's scripting language. It's a compliance-first systems language with enterprise ecosystem bridges."**
+
+- **Headline**: "Supply-chain secure, type-safe, and runs in your database."
+- **Tagline**: "AI-generated code that corporate security approves."
+- **Key differentiators**:
+  1. **Provenance**: Code-signed packages, vulnerability scanning, SBOM exports
+  2. **Integration**: ODBC, Java/JNI, .NET interop — drop into existing stacks
+  3. **Transparency**: GPL-3.0 open-source; no black boxes; full audit trail
+
+**Target audiences**:
+- CIOs evaluating "AI-native language for regulated workflows"
+- DevOps teams building internal tools in VG
+- Banks, insurance, healthcare firms adopting AI code generation
+
+---
+
+## 🔄 Comparison: v6.0 vs v7.0 Positioning
+
+| Dimension | v6.0 "Stability" | v7.0 "Enterprise" |
+|-----------|------------------|-------------------|
+| **Primary Use Case** | Game development + Godot integrations | Regulated industries + microservices + multi-engine adoption |
+| **Language** | Stable, feature-complete | Minor tweaks + interop depth |
+| **Ecosystem** | Functional package manager, Godot-centric | Supply-chain secured, corporate-registry ready, multi-language bridges |
+| **Marketing** | "AI-readable, auditable, type-safe" | "Compliance-first, provably auditable, enterprise-grade" |
+| **Roadmap After v7.0** | v6.1 (Causal Chain visual panel), v6.2+ (performance tweaks, language parity) | v8.0 (multi-engine: Unity port) |
+

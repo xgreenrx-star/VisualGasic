@@ -2967,6 +2967,16 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
             valid = true;
             res = vb_like_match(String(a), String(c));
         }
+        else if (b->op.nocasecmp_to("Is") == 0) {
+            // Is compares object references (reference equality)
+            valid = true;
+            Variant::evaluate(Variant::OP_EQUAL, a, c, res, valid);
+        }
+        else if (b->op.nocasecmp_to("IsNot") == 0) {
+            // IsNot compares object reference inequality
+            valid = true;
+            Variant::evaluate(Variant::OP_NOT_EQUAL, a, c, res, valid);
+        }
         if (valid) return res;
     }
     return Variant();
@@ -6341,14 +6351,16 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             }
 
             // Special handling: "Is" operator with Godot class name → type-check
-            // e.g. "ev Is InputEventKey" → OP_IS_CLASS
-            if (b->op.nocasecmp_to("Is") == 0 && b->right &&
+            // e.g. "ev Is InputEventKey" → OP_IS_CLASS ; "ev IsNot InputEventKey" → OP_IS_CLASS + OP_NOT
+            if ((b->op.nocasecmp_to("Is") == 0 || b->op.nocasecmp_to("IsNot") == 0) && b->right &&
                 b->right->type == ExpressionNode::VARIABLE) {
                 String class_name = ((VariableNode*)b->right)->name;
                 if (ClassDB::class_exists(class_name)) {
                     compile_expression(b->left);             // push object
                     emit_constant(class_name);               // push class name string
                     emit_byte(OP_IS_CLASS);                  // type-check
+                    if (b->op.nocasecmp_to("IsNot") == 0)
+                        emit_byte(OP_NOT);                   // negate for IsNot
                     break;
                 }
             }
@@ -6468,6 +6480,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 else if (b->op.nocasecmp_to("Or") == 0) emit_byte(OP_OR);
                 else if (b->op.nocasecmp_to("Xor") == 0) emit_byte(OP_XOR);
                 else if (b->op.nocasecmp_to("Is") == 0) emit_byte(OP_EQUAL); // Is compares object references
+                else if (b->op.nocasecmp_to("IsNot") == 0) emit_byte(OP_NOT_EQUAL); // IsNot negates object reference equality
                 else if (b->op.nocasecmp_to("Mod") == 0 || b->op == "%") emit_byte(OP_MOD);
                 else if (b->op.nocasecmp_to("Like") == 0) emit_byte(OP_LIKE);
                 else if (b->op == "\\") emit_byte(OP_INT_DIVIDE); // Integer division
@@ -6563,6 +6576,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             else if (b->op.nocasecmp_to("Or") == 0) emit_byte(OP_OR);
             else if (b->op.nocasecmp_to("Xor") == 0) emit_byte(OP_XOR);
             else if (b->op.nocasecmp_to("Is") == 0) emit_byte(OP_EQUAL); // Is compares object references
+            else if (b->op.nocasecmp_to("IsNot") == 0) emit_byte(OP_NOT_EQUAL); // IsNot negates object reference equality
             else if (b->op.nocasecmp_to("Mod") == 0 || b->op == "%") emit_byte(OP_MOD);
             else if (b->op.nocasecmp_to("Like") == 0) emit_byte(OP_LIKE);
             else if (b->op == "\\") emit_byte(OP_INT_DIVIDE); // Integer division

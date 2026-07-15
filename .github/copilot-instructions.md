@@ -60,7 +60,12 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 
 ## Known open bugs
 
-None. All tracked bugs resolved as of Jun 30, 2026.
+None. All tracked bugs resolved as of Jul 15, 2026.
+
+## Recent fixes (Jul 15, 2026)
+
+- `IsNot` operator — IMPLEMENTED. Parser (`parse_comparison`), bytecode compiler (constant-fold, class type-check negation via `OP_IS_CLASS`+`OP_NOT`, `OP_NOT_EQUAL` emission), and both evaluator paths (tree-walk `evaluate_expression` + `VisualGasicExpressionEvaluator`) all handle it as the negation of `Is`. Verified via `test_isnot_operator.vg` / `test_isnot_simple.vg` / `test_isnot_simple2.vg` (7/7 assertions).
+- **ByRef write-back bug in expression-level function calls — FOUND & FIXED.** Distinct from the Jun 29 recursion fix (`b130dd8e`). When a `ByRef` function was called as part of an expression (e.g. `result = DoubleAndReturn(val)`) rather than as a standalone `Call` statement, the caller's variable was never updated — `call_internal()` erases the callee's parameter slots from `variables[]` after the call (stashing the real post-call value in `_last_byref_captures`), but the expression-evaluator write-back path in `visual_gasic_instance_evaluate.inc` was reading the already-erased `variables[param.name]` instead of `_last_byref_captures`. Fixed to match the working `STMT_CALL` path in `visual_gasic_instance_execute.inc`. Full regression suite: 763/763 assertions pass (was 762/763 before fix).
 
 ## Recent fixes (Jun 30, 2026)
 

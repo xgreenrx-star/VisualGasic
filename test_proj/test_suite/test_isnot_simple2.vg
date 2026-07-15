@@ -1,0 +1,13 @@
+Option Explicit
+
+Sub _Ready()
+    Dim obj1 As Object
+    Dim obj2 As Object
+    
+    ' Try simple IsNot
+    If obj1 IsNot Nothing Then
+        Print "FAIL: isnot_nothing"
+    Else
+        Print "PASS: isnot_nothing"
+    End If
+End Sub

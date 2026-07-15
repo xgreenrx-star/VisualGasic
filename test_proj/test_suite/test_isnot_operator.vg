@@ -1,0 +1,53 @@
+Option Explicit
+
+Sub _Ready()
+    TestIsNotOperator
+End Sub
+
+Sub TestIsNotOperator()
+    Dim obj1 As Object
+    Dim obj2 As Object
+    Dim obj3 As Object
+    Set obj3 = obj1
+    
+    ' IsNot with two Nils - should be False (same reference)
+    If obj1 IsNot obj2 Then
+        Print "FAIL: isnot_two_nils"
+    Else
+        Print "PASS: isnot_two_nils"
+    End If
+    
+    ' IsNot with same reference
+    If obj1 IsNot obj3 Then
+        Print "FAIL: isnot_same_reference"
+    Else
+        Print "PASS: isnot_same_reference"
+    End If
+    
+    ' IsNot Nothing with Nil
+    If obj1 IsNot Nothing Then
+        Print "FAIL: isnot_nothing"
+    Else
+        Print "PASS: isnot_nothing"
+    End If
+    
+    ' Regular comparison still works
+    Dim x As Integer
+    Dim y As Integer
+    x = 5
+    y = 10
+    If x = y Then
+        Print "FAIL: regular_comparison"
+    Else
+        Print "PASS: regular_comparison"
+    End If
+    
+    ' Both Nil - IsNot should be False
+    Dim dict1 As Object
+    Dim dict2 As Object
+    If dict1 IsNot dict2 Then
+        Print "FAIL: isnot_both_nil"
+    Else
+        Print "PASS: isnot_both_nil"
+    End If
+End Sub

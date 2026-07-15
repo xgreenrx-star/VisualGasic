@@ -2357,6 +2357,14 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             // When a function with ByRef params is called as an expression
             // (e.g. result = DoubleAndReturn(val)), we need to write back
             // modified parameter values to the caller's variables.
+            //
+            // IMPORTANT: call_internal() already erased the callee's
+            // parameter slots from variables[] (see visual_gasic_instance_call.inc)
+            // unless the parameter name collided with a pre-existing caller
+            // variable — so `variables.has(param.name)` is unreliable here.
+            // The correct post-call value is stashed in _last_byref_captures
+            // (the same mechanism the STMT_CALL path in
+            // visual_gasic_instance_execute.inc uses). Read from there.
             if (script.is_valid() && script->ast_root) {
                 SubDefinition *called_func = nullptr;
                 for (int i = 0; i < script->ast_root->subs.size(); i++) {
@@ -2372,9 +2380,11 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                         const Parameter& param = called_func->parameters[i];
                         if (param.is_by_ref && call->arguments[i] && call->arguments[i]->type == ExpressionNode::VARIABLE) {
                             String caller_var_name = ((VariableNode*)call->arguments[i])->name;
-                            if (variables.has(param.name)) {
-                                Variant byref_val = variables[param.name];
-                                assign_variable(caller_var_name, byref_val);
+                            for (int j = 0; j < _last_byref_captures.size(); j++) {
+                                if (_last_byref_captures[j].first == param.name) {
+                                    assign_variable(caller_var_name, _last_byref_captures[j].second);
+                                    break;
+                                }
                             }
                         }
                     }
@@ -2487,6 +2497,51 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              bool valid;
              Variant res;
              Variant::evaluate(Variant::OP_EQUAL, l, r, res, valid);
+             return res;
+        }
+
+        // "IsNot" operator — negated reference equality
+        if (bin->op.nocasecmp_to("IsNot") == 0) {
+             Variant l = evaluate_expression(bin->left);
+
+             // Check if right side is a known Godot class name — skip variable evaluation
+             if (bin->right && bin->right->type == ExpressionNode::VARIABLE) {
+                 String class_name = ((VariableNode*)bin->right)->name;
+                 if (ClassDB::class_exists(class_name)) {
+                     if (l.get_type() == Variant::OBJECT) {
+                         Object* obj = Object::cast_to<Object>(l);
+                         if (obj) return !obj->is_class(class_name);
+                     }
+                     return true;
+                 }
+                 // "Nothing" keyword — null check
+                 if (class_name.nocasecmp_to("Nothing") == 0) {
+                     return l.get_type() != Variant::NIL;
+                 }
+             }
+
+             // Normal evaluation for non-class-name right side
+             Variant r = evaluate_expression(bin->right);
+
+             // Null check: obj IsNot Nothing
+             if (r.get_type() == Variant::NIL) {
+                 return l.get_type() != Variant::NIL;
+             }
+
+             // String class name (from variable that resolved to a string)
+             if (l.get_type() == Variant::OBJECT && r.get_type() == Variant::STRING) {
+                 String class_name = String(r);
+                 if (ClassDB::class_exists(class_name)) {
+                     Object* obj = Object::cast_to<Object>(l);
+                     if (obj) return !obj->is_class(class_name);
+                     return true;
+                 }
+             }
+
+             // Reference inequality fallback
+             bool valid;
+             Variant res;
+             Variant::evaluate(Variant::OP_NOT_EQUAL, l, r, res, valid);
              return res;
         }
 

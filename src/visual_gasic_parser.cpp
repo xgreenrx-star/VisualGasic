@@ -1536,6 +1536,23 @@ ExpressionNode* VisualGasicParser::parse_comparison() {
             }
         }
         
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("IsNot") == 0) {
+            advance();
+            ExpressionNode* right = parse_shift();
+            BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+            if (expr) {
+                ExpressionNode* ldup = expr->duplicate();
+                if (ldup) bin->left = register_node(ldup); else bin->left = expr;
+            } else bin->left = nullptr;
+            if (right) {
+                ExpressionNode* rdup = right->duplicate();
+                if (rdup) bin->right = register_node(rdup); else bin->right = right;
+            } else bin->right = nullptr;
+            bin->op = "IsNot";
+            expr = bin;
+            continue;
+        }
+
         if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Is") == 0) {
             advance();
             ExpressionNode* right = parse_shift();

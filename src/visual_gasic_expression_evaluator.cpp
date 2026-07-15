@@ -417,6 +417,13 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
             Variant::evaluate(Variant::OP_EQUAL, l, r, res, valid);
             return res;
         }
+        if (op.nocasecmp_to("IsNot") == 0) {
+            bool valid;
+            Variant res;
+            Variant::evaluate(Variant::OP_NOT_EQUAL, l, r, res, valid);
+            return res;
+        }
+
         Variant::Operator v_op = Variant::OP_ADD;
         if (op == "+") v_op = Variant::OP_ADD;
         else if (op == "-") v_op = Variant::OP_SUBTRACT;

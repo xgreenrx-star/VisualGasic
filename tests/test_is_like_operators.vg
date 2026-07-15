@@ -8,6 +8,9 @@ Sub Main()
     Print "=== Testing Like Operator ==="
     TestLikeOperator
     Print ""
+    Print "=== Testing IsNot Operator ==="
+    TestIsNotOperator
+    Print ""
     Print "All tests completed!"
 End Sub
 
@@ -205,3 +208,42 @@ Sub TestLikeOperator()
 End Sub
 
 Main
+
+Sub TestIsNotOperator()
+    Dim obj1 As Object
+    Dim obj2 As Object
+    
+    ' Two Nothing references
+    Set obj2 = obj1
+    
+    ' Both Nothing, so obj1 IsNot obj2 should be False
+    If Not (obj1 IsNot obj2) Then
+        Print "PASS: Nothing IsNot Nothing = False"
+    Else
+        Print "FAIL: Nothing IsNot Nothing should be False"
+    End If
+    
+    ' obj1 IsNot Nothing should be False since obj1 is Nothing
+    If obj1 IsNot Nothing Then
+        Print "FAIL: Nothing IsNot Nothing should be False"
+    Else
+        Print "PASS: Nothing IsNot Nothing = False"
+    End If
+    
+    ' References to the same non-Nothing object
+    Dim x As Integer
+    x = 42
+    ' Simple integer comparison via Value IsNot Value (object reference)
+    ' This tests the binary-op path with IsNot
+    If 5 IsNot 10 Then
+        Print "PASS: 5 IsNot 10 = True"
+    Else
+        Print "FAIL: 5 IsNot 10 should be True"
+    End If
+    
+    If 5 IsNot 5 Then
+        Print "FAIL: 5 IsNot 5 should be False"
+    Else
+        Print "PASS: 5 IsNot 5 = False"
+    End If
+End Sub

@@ -138,6 +138,32 @@ VG runtime API (called by codegen; also callable from hand-written .vg):
   WN_GetGroupNodes(gid)              ' returns Array of nodes in that group
 
 === Common VG gotchas ===
+  * `IsNot` now compiles and evaluates correctly (fixed Jul 15, 2026) —
+    parser, bytecode compiler, and both evaluator paths (tree-walk +
+    bytecode VM) all handle it as the negation of `Is` (class type-check,
+    `Nothing` null check, and reference (in)equality). `<> Nothing` and
+    `Not IsNothing(obj)` still work and remain valid alternatives, but
+    `IsNot` is now safe to use directly:
+      If collision IsNot Nothing Then ...   ' CORRECT — works now
+      If collision <> Nothing Then ...      ' also correct
+      If Not IsNothing(obj) Then ...        ' also correct
+  * `MoveAndSlide()` is the preferred movement method for CharacterBody2D.
+    `MoveAndCollide()` returns a KinematicCollision2D object — it works
+    but `<> Nothing` on the return value is unreliable.  Always use
+    `MoveAndSlide()` for player/enemy movement and rely on `IsOnFloor()`,
+    `IsOnWall()` etc. for collision detection.
+  * Patrol enemy CHARACTERBODY2D scripts MUST use `SetVelocity Me, vx, vy`
+    + `MoveAndSlide Me` + `Me.IsOnWall()` for wall reversal.  NEVER use
+    `MoveAndCollide()` with `<> Nothing`.  See
+    demos/2D_Games/Platformer_Godot/enemy/enemy.vg for the canonical
+    patrol pattern:
+      Sub _PhysicsProcess(delta As Single)
+          vx = Me.velocity.x
+          vy = Me.velocity.y + GRAVITY * delta
+          If Me.IsOnWall() Then vx = -vx
+          SetVelocity Me, vx, vy
+          MoveAndSlide Me
+      End Sub
   * Form .vg files are FLAT MODULES — no `Class`, no `Inherits`, no `Dim`
     for controls.  The file IS the module.  Controls live in the scene tree
     (Form Designer) and are referenced by name directly.  NEVER write:
@@ -1161,7 +1187,7 @@ VG-WNODES-SPEC — AUTHOR A WORKING-NODES GRAPH:
           "params":{"Scene":"res://bullet.tscn"},
           "position":[340,40]}
        ],
-       "connections":[{"from":"Event_Click_1","to":"Action_Spawn_1"}]
+       "connections":[{"from":"Event_Click_1","from_port":0,"to":"Action_Spawn_1","to_port":0}]
      },
      "summary":"Wires btnGo → spawn bullet"}
     ```
