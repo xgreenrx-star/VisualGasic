@@ -13,6 +13,7 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/json.hpp>
+#include "vg_json_typed.h"
 #include <godot_cpp/variant/char_string.hpp>
 
 #include <cstdio>
@@ -619,13 +620,16 @@ Dictionary PyBridgeFacade::send_request_binary(const String &p_kind, const Strin
         return err;
     }
 
-    Variant parsed = JSON::parse_string(response);
-    if (parsed.get_type() != Variant::DICTIONARY) {
-        Dictionary err = make_error("Invalid JSON response");
+    Variant parsed;
+    String parse_err;
+    if (!vg_json_parse_typed(response, parsed, parse_err) ||
+        parsed.get_type() != Variant::DICTIONARY) {
+        Dictionary err = make_error(parse_err.is_empty()
+            ? String("Invalid JSON response from worker")
+            : (String("Invalid JSON response from worker: ") + parse_err));
         last_error_details_ = err;
         return err;
     }
-
     Dictionary resp_dict = parsed;
 
     // Read optional trailing binary blob from response
@@ -827,12 +831,15 @@ Array PyBridgeFacade::py_call_many(const Array &p_calls) {
         return results;
     }
 
-    Variant parsed = JSON::parse_string(response);
-    if (parsed.get_type() != Variant::DICTIONARY) {
-        UtilityFunctions::printerr("[PyBridgeFacade] Invalid JSON from call_many");
+    Variant parsed;
+    String parse_err;
+    if (!vg_json_parse_typed(response, parsed, parse_err) ||
+        parsed.get_type() != Variant::DICTIONARY) {
+        UtilityFunctions::printerr("[PyBridgeFacade] call_many: " +
+                                   (parse_err.is_empty() ? "Invalid JSON response from worker" :
+                                    "Invalid JSON response from worker: " + parse_err));
         return results;
     }
-
     Dictionary resp_dict = parsed;
     if (resp_dict.has("status") && String(resp_dict["status"]) == "ok") {
         Array vals = resp_dict["value"];
