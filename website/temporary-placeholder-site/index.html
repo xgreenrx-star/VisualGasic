@@ -360,8 +360,12 @@ End Sub</pre>
         </div>
         <p style="margin-top: 1.5em;">
           We're selective, not comprehensive. Some Godot-requested features &mdash; multiple inheritance, macros, manual
-          garbage-collection control, AOT-to-native compilation, C-style ternaries &mdash; we reviewed and deliberately
-          skipped too, for the same readability and predictability reasons VG exists in the first place.
+          garbage-collection control, AOT-to-native compilation &mdash; we reviewed and deliberately skipped, for the
+          same readability and predictability reasons VG exists in the first place. C-style ternaries (<code>x ? y : z</code>)
+          are one we skipped on purpose too &mdash; but not without a replacement: VG's <code>IIf(cond, true, false)</code> is
+          short-circuit, evaluating only the matching branch, so it's actually safer than a C-style ternary <em>or</em>
+          classic VB6's <code>IIf</code> (which evaluates both sides and can crash on a bad branch even when the condition
+          skips it).
         </p>
         <div class="meta-links">
           <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/guides/VG_ADVANTAGES_OVER_GDSCRIPT.md">Full GDScript Comparison (19 Categories)</a>

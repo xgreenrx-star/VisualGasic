@@ -396,17 +396,22 @@ End If
 
 **Why Godot Rejects It**: Core team chose Python-style syntax for readability.
 
-**Why VisualGasic Rejects It**:
-- VG uses Python-style `If()` function for clarity.
-- VB6 tradition: explicit keywords, not cryptic symbols.
-- Game code is read more often than written; `If()` is more immediately clear.
+**Why VisualGasic Rejects the C-Style Syntax — But Ships Something Better**:
+- VG doesn't add `? :` symbols; it ships `IIf(condition, true_value, false_value)` instead.
+- Unlike C-style ternary (and unlike classic VB6's `IIf`, which is a plain function that evaluates **both** branches every time), VG's `IIf` is a dedicated AST node with **short-circuit evaluation** — it only evaluates the branch that matches the condition.
+- That means `IIf` is safe to use with expressions that would crash if evaluated unconditionally (division by zero, null dereference, array out-of-bounds) — something neither C-style ternary nor classic VB6 `IIf` can guarantee.
+- Net result: more readable than `? :`, and safer than both C-style ternary and traditional VB6 `IIf`.
 
 ```vb
-' VG way (crystal clear)
-result = If(health <= 0, "dead", "alive")
+' VG way (crystal clear AND safe)
+Dim x As Integer = 0
+result = IIf(x <> 0, 100 / x, 0)   ' Returns 0 -- the 100/x branch is never evaluated
 
-' C-style (requires parser knowledge)
-result = health <= 0 ? "dead" : "alive"
+' Classic VB6 IIf (both branches evaluate -- this would CRASH)
+' result = IIf(x <> 0, 100 / x, 0)  ' Division by zero error even though condition is False
+
+' C-style ternary (same crash risk as classic VB6 IIf in most languages)
+' result = x != 0 ? 100 / x : 0;
 ```
 
 ---
@@ -426,7 +431,7 @@ result = health <= 0 ? "dead" : "alive"
 | **Macros** | ❌ Skip | Violates transparency principle |
 | **GC Control** | ❌ Skip | Over-engineering; RefCounted works |
 | **AOT Compilation** | ❌ Skip | Wrong optimization focus; use C++ FFI |
-| **Ternary Operator** | ❌ Skip | Python-style If() is more readable |
+| **Ternary Operator** | 🔹 Skip syntax, ship better | No `? :` symbols; short-circuit `IIf()` is safer than C-style ternary or classic VB6 `IIf` |
 
 **The Pattern**: VG ships what Godot **rejected on principle** (Try/Catch, overloading). VG skips what Godot **rejected for good reason** (multiple inheritance, macros, metaprogramming). We're selective, not comprehensive.
 

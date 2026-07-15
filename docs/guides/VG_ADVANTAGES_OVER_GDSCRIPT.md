@@ -777,7 +777,7 @@ If you have existing VB6 projects, VisualGasic can import them. See the [Migrati
 
 Not every feature Godot rejected is a feature VG chose to add. Some requests — multiple inheritance, macros/metaprogramming, manual garbage collection control, AOT compilation to native code, and the C-style ternary operator — were reviewed and **deliberately declined** for readability, transparency, or performance reasons that align with VG's own design philosophy, not just Godot's.
 
-The short version: VG ships what Godot rejected **on principle** (Try/Catch, overloading, abstract classes) and skips what Godot rejected **for good reason** (multiple inheritance, macros). See the full breakdown, rationale, and code examples in [Competitive Advantages — What We Deliberately Did NOT Ship](../COMPETITIVE_ADVANTAGES.md#-what-vg-deliberately-did-not-ship-and-why).
+The short version: VG ships what Godot rejected **on principle** (Try/Catch, overloading, abstract classes) and skips what Godot rejected **for good reason** (multiple inheritance, macros). One exception is nuanced: VG skips C-style ternary syntax but ships `IIf(condition, true, false)` as a short-circuit AST node — safer than both C-style ternary and classic VB6's `IIf` (which evaluates both branches). See the full breakdown, rationale, and code examples in [Competitive Advantages — What We Deliberately Did NOT Ship](../COMPETITIVE_ADVANTAGES.md#-what-vg-deliberately-did-not-ship-and-why).
 
 ---
 
