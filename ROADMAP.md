@@ -1482,7 +1482,425 @@ For professionals shipping AI-generated code under regulatory oversight, this is
 
 ---
 
-## 🚀 v7.0 Roadmap — "Enterprise Expansion" (Post-v6.0 stable, Q2–Q4 2027)
+## 🔧 v6.1 Roadmap — "Language Parity & Developer Experience" (Post-v6.0 stable, Q1 2027)
+
+**Strategic Goal**: Close remaining gaps between VG and modern BASIC/twinBASIC/C# capabilities. Add compiler-enforced API safety and visual debugging enhancements. Deliver features Godot users have explicitly requested.
+
+**Context**: v6.0 ships with core language stability, Python bridge (Tier A), and C++ FFI. v6.1 polishes the language with compile-time enforcement of design patterns (abstract classes/methods), adds a visual causal chain debugger, and completes Try/Catch/Finally stress testing across all execution paths.
+
+### Flagship Feature: Abstract Classes & Methods — Compile-Time API Safety
+
+**Problem it solves**: Godot users requested "true abstract classes or interface systems to enforce rigid design patterns and compile-time API safety across codebases." VG currently has `Implements` but doesn't enforce that interface methods are actually defined (loose checking). v6.1 adds compile-time validation.
+
+**Implementation**:
+
+| Feature | Scope | Estimate |
+|---------|-------|----------|
+| **`MustOverride` keyword** | Mark interface/base methods as required in derived classes. Parser recognizes; compiler validates every `Implements X` class defines all `MustOverride` methods. | 1 week |
+| **`MustInherit` class modifier** | Prevents direct instantiation of base classes; only derived classes can be instantiated. Pairs with abstract method pattern. | 3–4 days |
+| **Compile-time validation** | (1) Track all `MustOverride` methods in an interface. (2) Check derived class methods at parse/compile time. (3) Report clear error: "Class X implements IEnemy but does not define MustOverride Sub TakeDamage(amount As Integer)". | 1 week |
+| **IntelliSense integration** | When auto-completing a derived class, suggest stubs for all `MustOverride` methods (like IDE "Implement Interface" helper). | 3–4 days |
+
+**Example**:
+```vb
+Interface IEnemy
+    MustOverride Sub TakeDamage(amount As Integer)
+    MustOverride Function GetHealth() As Integer
+End Interface
+
+MustInherit Class Enemy Implements IEnemy
+    ' Derived classes MUST implement these
+End Class
+
+Class Zombie Inherits Enemy
+    Sub TakeDamage(amount As Integer)
+        health = health - amount
+    End Sub
+    
+    Function GetHealth() As Integer
+        Return health
+    End Function
+End Class
+
+' Compile error (prevents shipping broken code):
+Class BrokenZombie Inherits Enemy
+    ' Missing TakeDamage and GetHealth → compile error
+End Class
+```
+
+**Impact**: Eliminates runtime dispatch failures; catches API mismatches before shipping. Competitive with C#'s abstract classes and GDScript's informal duck-typing.
+
+**Acceptance**:
+- 15+ test cases covering valid/invalid overrides, multi-level inheritance, interface composition
+- IntelliSense stubs generated correctly
+- Error messages point to exact line number of missing method
+- No silent fallbacks
+
+---
+
+### Secondary Feature: Causal Chain Visualization — Visual Interactive Panel
+
+**Problem it solves**: "Show auditor what happens when user clicks a button" in visual form (not just text). Extends M6 text-mode teaser to full interactive graph.
+
+**What ships in v6.0 (M6 teaser)**: Text-mode causal chain (AST walk output, 100 lines)
+
+**What ships in v6.1 (visual)**: 
+- Rendered as a Godot 2D node graph in a docked panel
+- Each Sub/Function/Event is a box; calls/signals are edges
+- Click a box → navigate to that line in code editor
+- Color-coded by type (event handler = red, helper = blue, signal = green)
+- Supports cross-file navigation (UI Forms importing from game scripts)
+
+**Implementation**:
+- Reuse `VGVectorCanvas2D` infrastructure from codebase
+- Extend `code_navigator.gd` with `_build_causal_graph()` method
+- Layout algorithm: simple top-down tree (no cycle detection needed — VG has no circular calls)
+- Interactive: hover highlights path, click navigates
+
+**Effort**: 2–3 weeks (depends on complexity; text mode already done in M6)
+
+**Acceptance**:
+- 500-line form renders full causal chain in <1s
+- Click navigation works and highlights visited boxes
+- Cross-file links (e.g., form → game script) trace correctly
+
+---
+
+### Tertiary Features: Language Parity Polish
+
+| Feature | Scope | From M8? | Estimate |
+|---------|-------|----------|----------|
+| **Try/Catch/Finally stress test** | Full regression suite: nested blocks, error state corruption, resource cleanup (`Finally` always runs), cross-module exception bubbling. | Yes (M8) | 3–4 days |
+| **Lambda edge cases** | Multi-line block lambdas with nested control flow (nested Lambdas, Return in inner lambda, etc.). Stress test both bytecode VM and tree-walk evaluator. | Yes (M8) | 2–3 days |
+| **Null-conditional operator `?.` completeness** | Chained `obj?.Method()?.Property?.Field` and mixed null checks. Edge case: `dict?.Keys?.Count`. | Yes (M8) | 3–4 days |
+| **Named argument calls** | `Call Foo(x:=10, y:=20)` fully tested across Sub/Function/Property overloads. Mixed positional/named. | Yes (M8) | 3–4 days |
+| **Set Collection** | Stdlib `Set(Of T)` wrapper class. Add `Add()`, `Remove()`, `Contains()`, `Count` property. Built on Dictionary keys (no value duplication). Full test suite for arity, iteration, hashing. | New | 1 week |
+| **Tuple Support** | Lightweight `Tuple(Of T1, T2, ...)` class with unpacking: `Dim x, y = coords.Unpack()`. Support tuples in return values and function parameters. | New | 1–2 weeks |
+
+---
+
+### v6.1 Priority Matrix
+
+| Feature | Impact | Effort | Status |
+|---------|--------|--------|--------|
+| **Abstract Classes/Methods** | 🔴 HIGH (GDScript never had this; competitive advantage) | 3 weeks | 🆕 New |
+| **Causal Chain Visual** | 🟠 MEDIUM (audit trail; mostly infrastructure) | 2–3 weeks | Extends M6 |
+| **Set & Tuple Collections** | 🟠 MEDIUM (quick wins; functional programming) | 2–3 weeks | 🆕 New |
+| **Try/Catch/Finally stress** | 🟠 MEDIUM (stability, not new feature) | 1 week | From M8 |
+| **Lambda / null-conditional / named args** | 🟡 LOW (edge cases; nice-to-have polish) | 2–3 weeks | From M8 |
+
+### v6.1 Exit Criteria
+
+✅ **Must Have**:
+1. Abstract methods compile-time validation working
+2. MustInherit prevents instantiation
+3. IntelliSense stubs for Implements classes
+4. All 15+ test cases pass
+5. Set(Of T) fully functional with Add/Remove/Contains
+6. Tuple(Of T1, T2, ...) unpacking works in all contexts
+
+🟡 **Should Have**:
+1. Causal Chain visual panel renders and navigates
+2. Try/Catch/Finally stress suite all green
+3. Named arguments fully tested
+4. Set operations (Union, Intersection, Difference) documented
+5. Tuple integration with method returns
+
+🟢 **Nice to Have**:
+1. Lambda edge cases documented and tested
+2. Null-conditional operator chain handling
+3. Set hashing optimization for large collections
+4. Tuple pattern matching (future v6.5 candidate)
+
+---
+
+## � v6.5 Roadmap — "Python Performance Optimization" (Post-v6.0 stable, Q1 2027)
+
+**Strategic Goal**: Eliminate cross-process IPC overhead for Python integration, enabling real-time data processing (image/audio/ML workloads) without architectural compromises.
+
+**Context**: v6.0 ships Python bridge Tier A (out-of-process worker via JSON-RPC). While correct and safe, it has fundamental latency floor (~5–20ms per call) that makes pixel-by-pixel image processing infeasible. v6.5 addresses this with phased performance improvements culminating in embedded CPython (Tier B), unlocking real-time workflows.
+
+### Performance Target
+
+| Scenario | v6.0 Tier A | v6.5 Target | Delta |
+|----------|-----------|-----------|-------|
+| Single `py_call()` | 5–20ms | <1ms | **50× faster** |
+| 100-call loop | ~2s | ~20ms | **100× faster** |
+| Image filter (1080p) | ❌ Infeasible | <50ms | ✅ Real-time |
+| Async queuing (10 concurrent) | Blocks caller | Returns immediately | ✅ Non-blocking |
+
+### Phase Breakdown
+
+#### ✅ **Phase 3: Async Queue (M5 blocker, ships Oct 2026)**
+**Status**: Prerequisite, lands before v6.0 stable  
+**Work**: VGTask-compatible async queue; `py_call_async()` returns immediately with task handle  
+**Impact**: 5–10% latency improvement (reduced lock contention); unblocks Narcea AI pair  
+**Acceptance**: 10 concurrent calls queue without blocking; Narcea integrates successfully
+
+#### 🔶 **Phase 4: Binary Protocol (v6.5, Week 1)**
+**Status**: Post-v6.0, optional optimization  
+**Work**: Replace JSON with MessagePack; 30–40% serialization overhead reduction  
+**Impact**: ~50% faster IPC (~5–15ms per call vs 5–20ms)  
+**Files**: `src/python_bridge/visual_gasic_py_facade.cpp`, `addons/visual_gasic/python_worker.py`  
+**Acceptance**: numpy.dot() <15ms; backward-compat verified; no Variant corruption
+
+#### 🔶 **Phase 5: Batch API (v6.5, Week 2)**
+**Status**: Post-v6.0, algorithmic win  
+**Work**: Single RPC for array of calls; eliminates round-trip amplification  
+**Impact**: **100× speedup for loops** (1000 calls: 2s → 20ms)  
+**API**: `PyCallBatch(module, method, args_array)` returns result_array  
+**Example**:
+```vb
+' Old: 100 calls × 20ms = 2 seconds
+For i = 0 To pixels.Count - 1
+    processed(i) = py_call(filter, "process_pixel", Array(pixels(i)))
+Next
+
+' New: 1 call × 20ms = 20ms
+processed = py_call_batch(filter, "process_pixels", Array(pixels))
+```
+**Files**: `src/python_bridge/visual_gasic_py_facade.cpp`, `python_worker.py`  
+**Acceptance**: 1000-pixel image filter <100ms; demo in `demo_python_bridge.vg`
+
+#### 🔴 **Phase 6: Tier B — Embedded CPython (v6.5, Weeks 3–4)**
+**Status**: Major milestone  
+**Work**: Link CPython directly into libvisualgasic; direct C++ ↔ Python via `PyC_CallFunction`  
+**Impact**: **50× baseline improvement** (~0.1ms per call)  
+**Trade-offs**:
+- ✅ **Pros**: Real-time processing; full numpy/scipy; no subprocess overhead
+- ❌ **Cons**: +20MB binary; Python GIL blocks Godot frame (requires thread strategy); Windows requires Python dev libs; WASM unsupported
+
+**Platform Support**:
+| Platform | Status | Notes |
+|----------|--------|-------|
+| Linux x86_64 | ✅ Supported | CPython dev headers via apt/yum |
+| Windows x86_64 | ✅ Supported | CPython dev from microsoft.com/python |
+| macOS (Intel) | ✅ Supported | CPython via Homebrew or official installer |
+| macOS (ARM64) | ✅ Supported | CPython universal binary |
+| Android | 🔲 Not planned | Python overhead excessive for mobile |
+| WASM | ❌ Not supported | CPython doesn't compile to WASM; recommend Phase 7 if needed |
+
+**GIL Strategy**:
+- Option A (Simple, conservative): Single-threaded interpreter; VG calls block until Python returns. **Safe but limited parallelism.**
+- Option B (Advanced, deferred to v7.0): Per-worker subinterpreter (PEP 554); each background thread gets its own Python context without GIL. **Requires Python 3.12+.**
+- **v6.5 ships with Option A**; Option B available as v7.0 stretch goal.
+
+**Build**:
+```bash
+# Linux
+scons platform=linux python=1 target=editor
+
+# Windows (requires vcvarsall.bat environment)
+scons platform=windows python=1 target=editor
+
+# macOS universal
+scons platform=macos python=1 target=editor arch=universal
+```
+
+**Project Setting**: `vg/python/backend` (dropdown: "auto" / "tier_a" / "tier_b")  
+**Behavior**:
+- "auto": Use Tier B if Python dev libs found, else fall back to Tier A
+- "tier_a": Force out-of-process (for debugging or embedded deployments)
+- "tier_b": Force embedded (fail at launch if Python unavailable)
+
+**Files to Create**:
+- `src/python_bridge/visual_gasic_py_embedded.h/cpp` — CPython bindings, GIL management
+- `scripts/build_python_wheels.py` — Optional: pre-build numpy/scipy wheels for embedded distribution
+
+**Acceptance**:
+- numpy.dot(1000×1000) <1ms
+- torch.tensor creation <0.1ms
+- No GIL deadlocks during frame render
+- Windows, Linux, macOS all ship working binaries
+
+#### 🟢 **Phase 7: Zero-Copy Buffers (v6.5, Optional, post-Phase 6)**
+**Status**: Advanced optimization  
+**Work**: Pass `PackedByteArray` / `PackedFloat64Array` directly to worker without JSON encoding  
+**Impact**: **Image/video pipelines <50ms** (was infeasible in v6.0)  
+**API**:
+```vb
+Dim image As PackedByteArray = LoadPNG("photo.png")
+py_process_buffer(cv2, "apply_filter", image)  ' modifies in-place
+SavePNG("output.png", image)
+```
+
+**Implementation**:
+- Shared memory buffer (mmap on Linux, CreateFileMapping on Windows)
+- Worker reads/writes directly to buffer
+- Zero serialization overhead
+
+**Files**: `src/python_bridge/visual_gasic_py_facade.cpp`, `python_worker.py`  
+**Acceptance**: 1080p image filter <50ms; test with OpenCV blur + edge detection
+
+#### 🔵 **Phase 8: Worker Pool (v6.5+, If Needed)**
+**Status**: Deferred; only implement if user demand warrants  
+**Work**: 4 worker threads (configurable); round-robin request queue; separate module state per worker  
+**Rationale**: Parallelizes `py_call_async()` calls; doesn't help single-call latency  
+**Trade-off**: Complicates import caching, state sync, memory overhead  
+**Decision Gate**: Implement only if Narcea or user feedback indicates async queue bottleneck
+
+### Implementation Priority
+
+| Phase | Timeline | Effort | Blocker? | Revenue Impact |
+|-------|----------|--------|----------|-----------------|
+| **3: Async Queue** | Oct 2026 (M5) | 1 week | ✅ YES | Medium (Narcea unblocked) |
+| 4: Binary Protocol | Jan 2027 (v6.5 W1) | 2 weeks | No | Low (30% incremental) |
+| 5: Batch API | Jan 2027 (v6.5 W2) | 1 week | No | **HIGH** (100× for data loops) |
+| **6: Tier B Embedded** | Jan 2027 (v6.5 W3–4) | 3 weeks | No | **HUGE** (unlocks ML/vision) |
+| 7: Zero-Copy | Jan 2027 (v6.5 W4+) | 2 weeks | No | **HUGE** (real-time processing) |
+| 8: Worker Pool | v6.5+ | 2 weeks | No | Medium (parallelism expert use) |
+
+### Success Metrics (v6.5 Exit Criteria)
+
+✅ **Must Have**:
+1. Phase 3 (Async) — Already shipped (M5)
+2. Phase 6 (Tier B) — Tier A and Tier B both available; auto-detection works
+3. numpy.dot(1000×1000) < 1ms (Tier B)
+4. Linux, Windows, macOS all pass smoke tests
+
+🟡 **Should Have**:
+1. Phase 4 (Binary Protocol) — Optional but improves Tier A by 30%
+2. Phase 5 (Batch API) — Enables efficient data-parallel loops
+3. Documentation: "Python for Real-Time Image Processing" tutorial
+
+🟢 **Nice to Have**:
+1. Phase 7 (Zero-Copy) — Enables OpenCV workflows
+2. Phase 8 (Worker Pool) — Parallelism for multi-module async
+3. Community benchmarks and case studies
+
+### Testing Strategy
+
+**Benchmark Suite** (`tests/python_performance_benchmarks.vg`):
+```vb
+' Tier A (async JSON-RPC)
+elapsed = Timer()
+For i = 1 To 100
+    result = py_call(math, "sqrt", Array(i))
+Next
+Assert elapsed < 2000  ' < 2s total
+
+' Tier B (embedded CPython)
+elapsed = Timer()
+For i = 1 To 100
+    result = py_call(math, "sqrt", Array(i))
+Next
+Assert elapsed < 100   ' < 100ms total
+
+' Batch API
+Dim args As New Collection(Of Array)
+For i = 1 To 1000
+    args.Add(Array(i))
+Next
+elapsed = Timer()
+results = py_call_batch(math, "sqrt", args)
+Assert elapsed < 50    ' < 50ms for 1000 calls
+```
+
+**Integration Tests**:
+- numpy: basic array ops, dot product, linalg
+- torch (optional): tensor creation, basic ops
+- pandas (optional): DataFrame round-trip
+- OpenCV (optional): image load/blur/save
+- Windows, Linux, macOS CI runners
+
+### Known Risks & Mitigations
+
+| Risk | Mitigation |
+|---|---|
+| CPython build complexity (Windows) | Provide pre-built wheels + CI validation; document fallback to Tier A if build fails |
+| GIL blocks Godot frame | v6.5 ships single-threaded (acceptable); v7.0 explores PEP 554 subinterpreters |
+| +20MB binary size | Optional Tier B (project setting); users can choose Tier A if size critical |
+| WASM incompatibility | Document limitation; recommend Phase 7 bridge + server if WASM needed |
+| numpy/scipy wheel size | Pre-compile manylinux wheels; optional separate download if space concern |
+
+### Post-v6.5 Future (Noted for Awareness)
+
+**v7.0 Possibilities**:
+- PEP 554 subinterpreters (true parallelism without GIL)
+- WASM bridge (ship Python worker to CDN, call via HTTP/WebSocket)
+- Rust interop layer (abi3 stable ABI)
+- GPU compute (numba JIT, torch CUDA)
+
+---
+
+### Language Extensions — Namespaces & Generics (Parallel Track, Optional v6.5.1)
+
+**Context**: While v6.5 focuses on Python performance, the type system can advance in parallel. Large VG codebases requested namespace organization and type-safe collections. Both are Godot-rejected features that VG can deliver.
+
+#### **Namespaces — Project Organization**
+
+**Problem it solves**: Large projects (asset plugins, game frameworks, enterprise tools) need to organize code without global class naming collisions.
+
+**Implementation**:
+```vb
+Namespace Game.AI.Pathfinding
+    Class Dijkstra
+        Function FindPath(start As Node, goal As Node) As Array(Of Node)
+            ' ...
+        End Function
+    End Class
+End Namespace
+
+' Usage:
+Using Game.AI.Pathfinding
+Dim solver As New Dijkstra()
+
+' Or fully qualified:
+Dim solver2 As New Game.AI.Pathfinding.Dijkstra()
+```
+
+**Effort**: 2–3 weeks
+- Parser: recognize `Namespace X.Y.Z ... End Namespace` blocks
+- Symbol table: qualify class names (e.g., `Game.AI.Pathfinding.Dijkstra`)
+- Import system: `Using` statement for alias resolution
+- Godot FFI: map VG namespaces to GDScript node paths
+
+**Acceptance**:
+- Multi-level namespaces parse correctly
+- Class resolution works with qualified and unqualified names
+- No global namespace pollution
+- IntelliSense auto-complete includes namespace paths
+
+---
+
+#### **Generics — Type-Safe Collections**
+
+**Problem it solves**: VG v3.7+ has strict typing; users need `Array(Of Enemy)` instead of `Array(Of Variant)` to avoid casting and catch type mismatches at compile time.
+
+**Implementation**:
+```vb
+Dim enemies As Array(Of Enemy)
+Dim bosses As Array(Of Boss)
+
+For Each e In enemies
+    e.TakeDamage(10)  ' Type-safe; no casting
+Next
+
+' Generic functions (future):
+Function Clamp(Of T As Comparable)(value As T, min As T, max As T) As T
+    If value < min Then Return min
+    If value > max Then Return max
+    Return value
+End Function
+```
+
+**Effort**: 2–3 weeks
+- Type system: `Array(Of T)`, `List(Of T)`, `Dictionary(Of K, V)` as generic containers
+- Parser: recognize `Of` syntax (already partial in Godot 4)
+- Compiler: emit type metadata; validate element assignment
+- Evaluator: enforce type checks at runtime (fallback to Variant if mismatch)
+
+**Acceptance**:
+- Generic arrays parse and type-check
+- Nested generics work: `Dictionary(Of String, Array(Of Enemy))`
+- Error messages: "Cannot assign Enemy to Array(Of Player)"
+- Stdlib updated: `Array(Of T)`, `List(Of T)`, `Dictionary(Of K, V)` shipped
+
+**Note**: Generic functions (e.g., `Function Clamp(Of T)`) are v6.5.2 stretch goal.
+
+---
+
+## 🚀 v7.0 Roadmap — "Enterprise Expansion" (Post-v6.5, Q2–Q4 2027)
 
 **Strategic Goal**: Reduce institutional friction for enterprise adoption by providing supply-chain security, database integration, and ecosystem bridges.
 
@@ -1508,6 +1926,27 @@ For professionals shipping AI-generated code under regulatory oversight, this is
 #### **Tier 2 — Enterprise Bridges (MEDIUM–HIGH PRIORITY)**
 
 **Why it matters**: A language locked to a single game engine has limited appeal. But VG's FFI capabilities (shipped in v6.0) create a foundation for drop-in integrations with existing corporate stacks.
+
+---
+
+#### **Tier 3 — Type System Enhancements (MEDIUM PRIORITY, v7.1+)**
+
+**Why it matters**: Modern languages use algebraic data types (Option, Result, Sum types) for compile-time error handling. VG's strict typing creates an opportunity to ship better error patterns than GDScript's informal returns.
+
+| Feature | Scope | Estimate | Rationale |
+|---------|-------|----------|----------|
+| **Option/Result Monadic Types** | Stdlib `Option(Of T)` and `Result(Of T, E)` classes. `Result.Ok(x)` and `Result.Err(msg)` constructors. Compiler linting: warn if Result is created but never checked. Runtime: no null-dereference on `.Value` without `.IsOk` guard. Examples: `SafeDivide()`, `ParseInt()`, safe file I/O. | 3–4 weeks | Modern error handling without Try/Catch boilerplate; eliminates nil-checking bugs. |
+| **Sum Types / Tagged Unions (Stretch)** | `Type Weapon = Sword Or Axe Or Spell`. Pattern matching: `Match weapon With Sword -> ..., Axe -> ..., End Match`. Full exhaustiveness checking. | 4–5 weeks | Eliminates error cases; makes state machines explicit. Rust-style safety. |
+| **Pattern Matching (Stretch)** | Extend `Case` statements to pattern match on types, tuples, sum variants. Example: `Case (x, y) Where x > 10 -> ...`. | 3–4 weeks | Cleaner control flow than nested Ifs. Pairs with Sum Types. |
+
+**Tier 3 Rationale**: These are long-term (v7.1, late 2027), shipped AFTER enterprise stability (Tier 1–2 solid). They unlock VG as a research/academic language and attract sophisticated game devs (roguelikes, simulations).
+
+**Acceptance**:
+- Option/Result: 20+ test cases covering Ok, Err, chaining (`.Map()`, `.FlatMap()`)
+- Sum Types: 10+ test cases for variant construction, pattern matching exhaustiveness
+- Pattern Matching: IDE support for pattern suggestions; linter warns on non-exhaustive matches
+
+---
 
 | Feature | Scope | Estimate | Priority |
 |---------|-------|----------|----------|

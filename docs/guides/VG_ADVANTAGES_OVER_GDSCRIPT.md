@@ -2,7 +2,7 @@
 
 *A comprehensive reference for Godot developers evaluating VisualGasic.*
 
-Version 5.2.0-Beta1 — May 2026
+Version 5.2.0-Beta1 — Updated July 2026
 
 ---
 
@@ -12,10 +12,13 @@ VisualGasic and GDScript are both scripting languages for Godot Engine. GDScript
 
 This document covers **19 major capability categories** where VisualGasic provides functionality that GDScript lacks entirely or supports only in a limited way. It is not a "GDScript is bad" document — GDScript is excellent for what it does. This is a factual inventory of what VG adds on top.
 
+**Related reading**: [Competitive Advantages — Godot-Rejected Features We Ship (and Skip)](../COMPETITIVE_ADVANTAGES.md) covers the strategic story behind *why* Godot's core team resists features like exception handling and abstract classes, and why VG can ship them safely without compromising its own design philosophy.
+
 ---
 
 ## Table of Contents
 
+0. [Strategic Positioning — Why Godot Rejected These Features](#0-strategic-positioning--why-godot-rejected-these-features)
 1. [Visual Form Designer (VB6-Style IDE)](#1-visual-form-designer)
 2. [Automatic Event Wiring](#2-automatic-event-wiring)
 3. [Performance & JIT Compilation](#3-performance--jit-compilation)
@@ -35,6 +38,26 @@ This document covers **19 major capability categories** where VisualGasic provid
 17. [String Interpolation & Null Safety](#17-string-interpolation--null-safety)
 18. [VB6 Compatibility & Migration](#18-vb6-compatibility--migration)
 19. [Summary Scorecard](#19-summary-scorecard)
+20. [What VG Deliberately Did NOT Ship](#20-what-vg-deliberately-did-not-ship)
+
+---
+
+## 0. Strategic Positioning — Why Godot Rejected These Features
+
+GDScript developers frequently request advanced language features on GitHub and Reddit. The Godot core team **consistently rejects or delays** these requests because GDScript's design philosophy prioritizes staying a lightweight, engine-integrated scripting glue — not a general-purpose language. Adding high-level architecture would grow the binary, slow parsing, and complicate the engine backend.
+
+VisualGasic is not bound by that constraint. Because VG is a separate GDExtension with its own bytecode VM, it can implement exactly the features Godot's team has publicly resisted — without touching Godot's core.
+
+| Feature | GDScript Status | VG Status |
+|---------|------------------|-----------|
+| **Try/Catch/Finally exception handling** | ❌ Rejected ("fail-safe, keep running" philosophy) | ✅ Shipped v5.0+ |
+| **Method overloading** | ❌ Rejected (ClassDB/Variant architecture) | ✅ Shipped v3.7.0 |
+| **Abstract classes / real interfaces** | ❌ Rejected (dynamic typing workarounds only) | ✅ Shipping v6.1 (`MustOverride`/`MustInherit`) |
+| **Namespaces** | ⏳ Blocked (global class name cache) | ✅ Shipping v6.5.1 |
+| **Generics for custom types** | ⏳ Blocked (`Array[int]` only, no custom `Array[T]`) | ✅ Shipping v6.5.1 |
+| **Set / Tuple collections** | ⏳ Missing (Dictionary-keys hack) | ✅ Shipping v6.1 |
+
+See [Competitive Advantages](../COMPETITIVE_ADVANTAGES.md) for direct links to the GitHub issues and community threads behind each rejection, plus a companion section explaining which Godot-requested features **VG also deliberately declined to ship** (multiple inheritance, macros, GC control, AOT compilation, C-style ternary) and why.
 
 ---
 
@@ -317,6 +340,7 @@ GDScript's `match` statement, `for i in range()` loops, and basic type hints cov
 | **On Error GoTo** | `On Error GoTo Handler` — structured recovery | ❌ |
 | **Resume / Resume Next** | Continue after error at same line or next line | ❌ |
 | **On n GoTo / GoSub** | `On index GoTo Label1, Label2, Label3` — computed branch | ❌ |
+| **Try / Catch / Finally** | `Try ... Catch ex As NetworkException ... Finally ... End Try` — structured exception handling with typed catch clauses | ❌ (Godot rejected this; see [Competitive Advantages](../COMPETITIVE_ADVANTAGES.md)) |
 
 ### Data & Memory
 
@@ -713,8 +737,11 @@ If you have existing VB6 projects, VisualGasic can import them. See the [Migrati
 | 17 | Time-Travel Debugging | ✅ | ❌ |
 | 18 | Custom Theme Editor (38 colors) | ✅ | ❌ |
 | 19 | VB6 Migration Tools | ✅ | N/A |
+| 20 | Try/Catch/Finally Exception Handling | ✅ | ❌ (rejected by Godot) |
+| 21 | Method Overloading (arity-based) | ✅ | ❌ (rejected by Godot) |
+| 22 | Abstract Classes (`MustOverride`/`MustInherit`) | 🔹 v6.1 | ❌ (rejected by Godot) |
 
-**19 major capability categories** where VisualGasic provides functionality that GDScript does not.
+**19 major capability categories** where VisualGasic provides functionality that GDScript does not — plus 3 additional Godot-rejected features tracked separately since they are a strategic, not just technical, differentiator (see [Strategic Positioning](#0-strategic-positioning--why-godot-rejected-these-features) above).
 
 ---
 
@@ -746,8 +773,17 @@ If you have existing VB6 projects, VisualGasic can import them. See the [Migrati
 
 ---
 
+## 20. What VG Deliberately Did NOT Ship
+
+Not every feature Godot rejected is a feature VG chose to add. Some requests — multiple inheritance, macros/metaprogramming, manual garbage collection control, AOT compilation to native code, and the C-style ternary operator — were reviewed and **deliberately declined** for readability, transparency, or performance reasons that align with VG's own design philosophy, not just Godot's.
+
+The short version: VG ships what Godot rejected **on principle** (Try/Catch, overloading, abstract classes) and skips what Godot rejected **for good reason** (multiple inheritance, macros). See the full breakdown, rationale, and code examples in [Competitive Advantages — What We Deliberately Did NOT Ship](../COMPETITIVE_ADVANTAGES.md#-what-vg-deliberately-did-not-ship-and-why).
+
+---
+
 ## Further Reading
 
+- [Competitive Advantages — Godot-Rejected Features We Ship (and Skip)](../COMPETITIVE_ADVANTAGES.md) — the strategic narrative, GitHub issue references, and "what we didn't ship" rationale
 - [GDScript ↔ VisualGasic Quick Reference](../GODOT_PROGRAMMING_MANUAL.md#gdscript-vs-vg) — side-by-side syntax mapping
 - [Modern Features Guide](MODERN_FEATURES_README.md) — deep dive into VG's modern extensions
 - [System Integration Reference](../SYSTEM_INTEGRATION.md) — FFI, ODBC, Crypto, XML, ZIP, IPC, Threading

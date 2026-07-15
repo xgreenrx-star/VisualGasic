@@ -25,6 +25,7 @@
           <a class="button primary" href="#downloads">Get Visual Gasic</a>
           <a class="button secondary" href="#manuals">Read The Manuals</a>
           <a class="button secondary" href="#videos">Watch The Demo</a>
+          <a class="button secondary" href="#gdscript">Coming From GDScript?</a>
           <a class="button sponsor" href="https://github.com/sponsors/xgreenrx-star" target="_blank" rel="noopener">&#9829; Sponsor</a>
         </div>
       </div>
@@ -34,6 +35,7 @@
             <li>✅ Core language, JIT compiler, and debugger are production-ready</li>
             <li>✅ 50+ working examples across 10+ categories</li>
             <li>✅ Full Godot 4.6 IDE integration with autocomplete and Code Navigator</li>
+            <li>✅ Ships Try/Catch, method overloading &mdash; features Godot's own team rejected for GDScript</li>
             <li>🔄 Form Designer modernizing (UI Forms experimental plugin in progress)</li>
             <li>📦 One-click installers, portable zips, and offline bundles available for Linux and Windows</li>
         </ul>
@@ -317,6 +319,53 @@ End Sub</pre>
             </p>
             <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/bench/ai_correctness/REPORT.md">View AI Correctness Report</a>
           </article>
+        </div>
+      </section>
+
+      <section id="gdscript" class="section">
+        <p class="section-kicker">For GDScript Developers</p>
+        <h2>Coming from GDScript? Here's what Godot's own team said no to.</h2>
+        <p>
+          GDScript developers ask for exception handling, method overloading, abstract classes, namespaces, and generics
+          on GitHub and Reddit every year. Godot's core team consistently rejects or delays these requests &mdash; not
+          because they're bad ideas, but because GDScript is designed to stay lightweight engine glue, not a
+          general-purpose language. Visual Gasic is a separate GDExtension with its own compiler and runtime, so it isn't
+          bound by that constraint. Below is what we ship that Godot's team has publicly turned down.
+        </p>
+        <div class="manual-grid">
+          <article class="card link-card accent-cyan">
+            <strong>Try / Catch / Finally &mdash; Shipped v5.0</strong>
+            <span>Godot's philosophy: functions return error codes, no exceptions. VG ships full structured exception handling with typed catch clauses and guaranteed cleanup blocks.</span>
+          </article>
+          <article class="card link-card accent-cyan">
+            <strong>Method Overloading &mdash; Shipped v3.7</strong>
+            <span>Godot's ClassDB/Variant architecture can't support it. VG dispatches by argument count automatically &mdash; <code>Spawn()</code>, <code>Spawn(pos)</code>, <code>Spawn(pos, type, count)</code> all coexist.</span>
+          </article>
+          <article class="card link-card accent-gold">
+            <strong>Abstract Classes &amp; Interfaces &mdash; Shipping v6.1</strong>
+            <span>Godot relies on <code>has_method()</code> duck-typing workarounds. VG adds <code>MustOverride</code> and <code>MustInherit</code> for real compile-time API enforcement.</span>
+          </article>
+          <article class="card link-card accent-gold">
+            <strong>Namespaces &mdash; Shipping v6.5</strong>
+            <span>Godot's global class name cache makes this a "highly volatile rewrite." VG adds real <code>Namespace ... End Namespace</code> blocks with qualified imports.</span>
+          </article>
+          <article class="card link-card accent-gold">
+            <strong>Generics for Custom Types &mdash; Shipping v6.5</strong>
+            <span>Godot 4 only added arrays of built-in types. VG supports <code>Array(Of Enemy)</code>, <code>Dictionary(Of K, V)</code> with real compile-time type checking.</span>
+          </article>
+          <article class="card link-card accent-gold">
+            <strong>Set &amp; Tuple Collections &mdash; Shipping v6.1</strong>
+            <span>No native Set in GDScript &mdash; devs hack it with Dictionary keys. VG ships <code>Set(Of T)</code> and <code>Tuple(Of T1, T2, ...)</code> with unpacking.</span>
+          </article>
+        </div>
+        <p style="margin-top: 1.5em;">
+          We're selective, not comprehensive. Some Godot-requested features &mdash; multiple inheritance, macros, manual
+          garbage-collection control, AOT-to-native compilation, C-style ternaries &mdash; we reviewed and deliberately
+          skipped too, for the same readability and predictability reasons VG exists in the first place.
+        </p>
+        <div class="meta-links">
+          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/guides/VG_ADVANTAGES_OVER_GDSCRIPT.md">Full GDScript Comparison (19 Categories)</a>
+          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/COMPETITIVE_ADVANTAGES.md">Why We Ship These (and Skip Others)</a>
         </div>
       </section>
 
