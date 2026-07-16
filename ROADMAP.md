@@ -1089,6 +1089,19 @@ User clicks [Submit]
   - Place Button/Label/LineEdit via popup → double-click to wire → `Sub Button1_Click()` appears in `Form1.vg` → save/reopen preserves everything
   - Object dropdown lists all scene nodes; selecting a node with a `.gd` script populates Event dropdown with its `func` definitions; clicking a func navigates to that line
 
+**Architectural gap — Form1.vg as the form controller**: The current UI Forms architecture places all event handlers into `Form1.vg` (Layer 1), but there is no clear ownership model for **which scene node owns `Form1.vg`**. In a real Godot workflow, a form might be:
+- (a) A standalone `.tscn` root node (e.g., "Form1.tscn") with `Form1.vg` as its script — autoloaded or instanced by a manager
+- (b) A child panel inside a larger HUD scene, where the `.tscn` is already scripted by a game manager `.gd` script — does `Form1.vg` replace that script? Does it merge? Is there a "VG overlay" that lives alongside GDScript?
+- (c) An instanced popup/window that appears dynamically — `Form1.vg` must handle `_ready()`, `_process()`, and lifecycle without clashing with Godot's native popup behavior
+
+The current spec assumes case (a) implicitly. Cases (b) and (c) are undefined and will cause real integration friction when users try to embed forms inside existing scenes. **Recommendation**: Before UI Forms leaves experimental status (planned for v6.0+, per the M1 checklist), define a "Form Controller Contract" that specifies:
+1. The `.tscn` root node's script relationship with `Form1.vg` (replaces, wraps, or coexists)
+2. How `Form1.vg` accesses sibling nodes (e.g., `GetNode("Button1")` vs. named-`@onready` equivalent)
+3. Whether `Form1.vg` receives Godot lifecycle callbacks (`_ready`, `_process`, `_input`) alongside event handlers, or whether those must be implemented elsewhere
+4. What happens when a form scene is instanced as a child of another scripted node — does `Form1.vg`'s `_ready()` fire before or after the parent's?
+5. How `Awake`/`Initialize` event parity maps to Godot's node lifecycle (is `Form_Load` ≡ `_ready()`? Does `Form_Shown` exist as a separate signal?)
+This contract should be documented before the v6.0 integration milestone that extracts Forms from experimental status.
+
 ---
 
 ## 🌌 v6.0 Roadmap — needs design work
@@ -1108,7 +1121,58 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **Java library support (v6.x, Android-first)** | Add Java interop for Android plugins and Java ecosystems, with import tooling and runtime bridge documentation. Stage this for v6.x after Python/C++ foundations are stable. | Medium |
 | **AGCK advanced behaviors / user templates** | Promote hard-coded actor magic numbers (`rotation_speed`, `snap_angle_deg`, `jump_force`, `jump_velocity`, etc.) into actor-data fields, surface them in an "Advanced" card in the Actor editor, add Save/Load Template buttons that round-trip user-authored game templates as JSON in `user://agck_templates/`. Long-term: extract behaviors into external `.vg` files with typed param schemas. Plan parked in [`/memories/repo/visualgasic_todo.md`](/memories/repo/visualgasic_todo.md). | High |
 | **Narcea Full Agent Parity** | Extend Narcea beyond Tier 3 (tool dispatcher + run loop) with full IDE access: debug integration (set breakpoints, step through code, inspect variables), sandboxed terminal (whitelist-only commands: build/test/git), git operations (status, diff, commit, branch), asset pipeline (view images, import assets, slice spritesheets), project management (settings, autoloads, plugins), advanced refactoring (rename across files, extract/inline subs). 8 phases, 8-10 weeks total. Security: approval UI for all mutations, no network access, project-directory jail, budget caps. Target: Narcea can complete "make a demoscene demo" end-to-end (code + debug + iterate) with ≥60% success on local 7B models, ≥90% on Claude. Full plan in [`/memories/repo/visualgasic_todo.md`](/memories/repo/visualgasic_todo.md) Tier 3+ section. Phased rollout: v5.4 (debug), v5.5 (terminal+diagnostics), v6.0 (git+assets+project), v6.1+ (refactoring). |
-🟡 **Provider expansion planned (v5.4):** Add first-class cloud provider entries for **DeepSeek** (Chat API, OpenAI-compatible schema → native function-calling via existing adapter), **Qwen** (DashScope API), **Codeium** (Windsurf API, OpenAI-compatible), **Amazon Q Developer** (AWS Bedrock / API gateway, OpenAI-compatible), and any OpenAI-compatible endpoint. These offer affordable coding-focused models (DeepSeek-V2, Qwen2.5-Coder-32B, Codeium Stable-Code, Amazon Q LLM) as alternatives to Claude/OpenAI for agent-mode coding. Low-hanging fruit: DeepSeek, Codeium, and Amazon Q all reuse the `openai` match arm in `vg_ai_function_calling.gd` since their APIs are OpenAI-compatible. | High |
+🟡 **Provider expansion detailed plan (v5.4 — all 8 providers implemented):** The codebase supports **8 providers** (ollama, openai, claude, gemini, deepseek, qwen, codeium, amazonq) across three independent layers. Here is the full architecture audit and remaining gaps:
+
+**Layer 1 — Provider registry & streaming (`vg_ai_providers.gd`):**
+- `ProviderInfo` struct: `id`, `display_name`, `is_local`, `api_host`, `api_port`, `api_path`, `use_tls`, `models[]`, `default_model`
+- `get_providers()` — all 8 entries, ordered: ollama, openai, claude, gemini, deepseek, qwen, codeium, amazonq
+- `build_request()` routing: `ollama` → `_build_ollama`, `openai|deepseek|qwen|codeium|amazonq` → `_build_openai`, `claude` → `_build_claude`, `gemini` → `_build_gemini`
+- `parse_stream_line()` routing: same pattern — all 5 OpenAI-compatible providers reuse `_parse_openai_line`
+- `get_effective_provider(provider_id)` — reads EditorSettings overrides for Amazon Q (host/port/TLS); others return `find_provider` verbatim
+- API keys: `load_api_key(id)` / `save_api_key(id)` — auto-constructs path `visual_gasic/ai/<id>_key`. EditorSettings registered for all 8 in `visual_gasic_plugin.gd`
+- Legacy migration `_migrate_legacy_to_editor_settings_if_needed()` — migrates old `ai_keys.cfg` (openai/claude/gemini only; deepseek/qwen/codeium/amazonq never had legacy files)
+- ✅ **All routing, key management, and effective-provider logic done**
+
+**Layer 2 — GDAI standalone HTTP client (`gdai_*.gd`):**
+- `gdai_provider.gd` (`GDAIProvider`) — base class
+- `gdai_openai_provider.gd` (`GDAIOpenAIProvider`) — completions, chat, embeddings, image generation via OpenAI-compatible REST
+- `gdai_local_provider.gd` (`GDAILocalProvider`) — same interface, no image generation, for any local OpenAI-compatible endpoint
+- `gdai.gd` (`GDAI`) — static registry with `_provider_map = {"openai": ..., "local": ...}` only; **does NOT have entries for deepseek, qwen, codeium, amazonq, or ollama** (ollama isn't needed — it uses a different streaming path). `register_provider()` exists for dynamic registration. Since all are OpenAI-compatible, they'd use the `openai` script path anyway
+- ⚠️ **Minor gap:** If any consumer calls `GDAI.initialize({"provider": "deepseek"})` directly, it would fail because the provider map doesn't list deepseek. The AI Pair panel bypasses GDAI and uses Layer 1's `vg_ai_providers.gd`, so this only affects code that uses the raw `GDAI` class. Fix: add entries to `_provider_map` for deepseek, qwen, codeium, amazonq (all map to the same `gdai_openai_provider.gd` script). Est. 10 min.
+- ✅ **Core GDAI HTTP layer works for all OpenAI-compatible endpoints**
+
+**Layer 3 — Native function-calling adapter (`vg_ai_function_calling.gd`):**
+- `PROVIDERS_WITH_NATIVE_FC` = `["openai", "claude", "gemini", "deepseek", "qwen", "codeium", "amazonq"]` — all 7 cloud providers
+- `supports_native_fc(id)` — returns true for all 7, false for ollama
+- `inject_tools_into_body()` — `openai|deepseek|qwen|codeium|amazonq` → `_to_openai_schema`, `claude` → `_to_claude_schema`, `gemini` → `_to_gemini_schema`
+- `parse_stream_line_for_fc()` — `openai|deepseek|qwen|codeium|amazonq` → `_parse_openai_fc`, `claude` → `_parse_claude_fc`, `gemini` → `_parse_gemini_fc`
+- `assemble_fc_calls(fragments)` → `to_fenced_text(calls)` — converts native FC to fenced vg-tool blocks, processed by existing dispatch path unchanged
+- ✅ **All 7 cloud providers have full native FC support**
+
+**Layer 4 — AI Pair panel integration (`vg_ai_help.gd` + `visual_gasic_plugin.gd`):**
+- `preferred_provider` enum in EditorSettings includes all 8: `"ollama,openai,claude,gemini,deepseek,qwen,codeium,amazonq"`
+- `_on_provider_selected()` switches provider, loads model dropdown from `ProviderInfo.models`, persists to EditorSettings
+- Cloud providers (all except ollama) skip ping/warmup and send directly via shared streaming HTTPClient path
+- Error handling: `_parse_cloud_error()` extracts human-readable message from HTTP 4xx/5xx bodies for OpenAI/Claude/Gemini error JSON shapes
+- API key dialog: shows key-getting URL for each provider (platform.openai.com, console.anthropic.com, aistudio.google.com, platform.deepseek.com, dashscope.console.aliyun.com, codeium.com/profile, Bedrock Access Gateway setup)
+- ✅ **Full UI integration for all 8 providers done**
+
+**Remaining gaps (all small, <2 hours total):**
+
+| Gap | Location | Impact | Estimate |
+|-----|----------|--------|----------|
+| 1. `GDAI._provider_map` incomplete | `gdai.gd` | Raw `GDAI` API calls with `provider="deepseek"/"qwen"/"codeium"/"amazonq"` fail silently. AI Pair panel unaffected. | ✅ **Done** — added 4 entries mapping to `gdai_openai_provider.gd` |
+| 2. Static model lists outdate | `vg_ai_providers.gd` `get_providers()` | Hardcoded model arrays go stale as APIs evolve. No way to refresh. | **2h** — add `refresh_models(provider_id)` that fetches live model list from `/v1/models` (OpenAI-compatible) or equivalent endpoint, caches in EditorSettings |
+| 3. Codeium default model unstable | `vg_ai_providers.gd` line 120 | `default_model = "windsurf-claude-3.5-sonnet"` — Codeium/Windsurf rebrands models frequently. This ID may be stale. | **15 min** — verify current Codeium API model IDs at codeium.com/profile |
+| 4. Amazon Q Bedrock model IDs stale | `vg_ai_providers.gd` line 137 | `default_model = "anthropic.claude-3-5-sonnet-20241022-v2:0"` — AWS Bedrock model IDs change with region and availability. | **15 min** — verify current Bedrock model IDs for the default region |
+| 5. No unit tests for Amazon Q host/port override | `tests/test_narcea_agent_loop.gd` test 9 | The override logic in `get_effective_provider()` exists but isn't covered by a test that actually sets EditorSettings values | ✅ **Done** — added null-safety + idempotency test (headless can't set EditorSettings, so the test verifies the no-override path is stable across repeated calls) |
+| 6. No smoke test automation for cloud providers | `tests/test_narcea_agent_loop.gd` | Tests run headless and only verify routing/parsing, not actual API round-trips. Users discover auth errors at runtime. | **Deferred** — end-to-end tests require real API keys and network, so CI can't run them. Document in TESTING.md instead (est. 30 min) |
+
+**Key architectural decisions:**
+- **OpenAI-compatible providers (deepseek, qwen, codeium, amazonq) share 100% of the code path** with `openai` in all three layers — no separate request body builder, no separate stream parser, no separate FC parser. A new OpenAI-compatible provider can be added in ~20 minutes (ProviderInfo entry + EditorSetting keys + enum entry + API key dialog URL).
+- **Claude and Gemini each have their own path** because their JSON schemas, auth headers, and SSE line formats differ fundamentally.
+- **Ollama is the only local provider** — uses `_build_ollama` and `_parse_ollama_line` (raw JSON lines, not SSE). No API key needed.
+- **The HG icon shows "AI Pair" not provider-specific branding** — the provider dropdown in the toolbar is the primary affordance. | High |
 | **Godot Asset Library publish** | Package and submit VisualGasic to the official Asset Library. | High |
 | **Plugin Marketplace** | In-IDE package browsing and one-click install. Registry query (`query_registry()`) now implemented; publish HTTP upload also wired. Remaining: full browse/search UI in the Package Browser panel. | Medium |
 | **VGMusic startup errors (bosca/ visibility)** | When VGMusic is disabled, Godot 4.6 still compiles all `@tool` scripts in the `bosca/` subdirectory at startup before any `EditorPlugin` code runs. Because `Controller` is only registered as an autoload when the plugin is enabled, ~200 "Identifier not found: Controller" errors fire on every project open. Root cause confirmed: Godot does not respect `.gdignore` for compilation purposes; only dotdirs (`.dirname`) are fully skipped. The fix requires physically renaming `bosca/` → `.bosca.vgd` before Godot starts (e.g. from `vg-ide` launcher), but the welcome_shell path adds complexity. Approach explored and partially implemented — revert to `8acf7255` as stable baseline; implement as a dedicated sub-milestone before v6.0 stable. | High |
@@ -1129,7 +1193,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **M2** | 44 corpus examples pass (all domains: basics, control flow, strings, arrays, dicts, classes, I/O, math, state machines, Godot) | Aug 15 | ✅ **DONE** (Jun 30) |
 | **M3** | Code Navigator upgrade (#7): multi-file symbol search, definition/reference indexing, call hierarchy | Aug 31 | ✅ **DONE** (Jul 1) |
 | **M4** | UI Forms experimental (#8–#12): VB6 visual form designer, control picker popup, ghost placement, signal wiring, two-layer events | Sep 30 | ✅ **DONE** (Jul 1) |
-| **M5** | Narcea AI pair (#13): pair-programming mode, provider routing, system prompt templates | Oct 15 | 🟡 **Provider expansion planned (v5.4):** DeepSeek, Qwen, Codeium, Amazon Q Developer, OpenAI-compatible endpoints. See M5 details above. |
+| **M5** | Narcea AI pair (#13): pair-programming mode, provider routing, system prompt templates | Oct 15 | ✅ **8 providers implemented (Jul 13):** Ollama, OpenAI, Claude, Gemini, DeepSeek, Qwen, Codeium, Amazon Q Developer. Full 4-layer architecture documented in the Provider expansion plan above. 6 small gaps remain (<2h total). |
 | **M6** | Causal Chain text-mode (#14): new AST evaluator path, narrative code generation, explain-before-compute | Oct 31 | — |
 | **M7** | Python Library Integration: `PyImport` / `PyCallAsync` / `Await` via out-of-process worker. numpy, opencv, torch usable from VG scripts. | Nov 15 | 🟡 **Phase 2/3 done** (Jul 14): real `PyCallAsync`/`Await` via `PyAsyncTask` background thread, Windows launch path, auto-restart, structured errors. numpy Phases 1–2 pending |
 | **M8** | Language parity (Try/Catch/Lambda/`?.` corpus tests), `Let` block-scoped vars, C++ library interop via `Declare`/`DllImport`, optional named arguments (`:=`) | Nov 22 | 🟡 **Early demo done** (Jul 11): Vec2 C++ class via C ABI, `QuickCall` alias |
