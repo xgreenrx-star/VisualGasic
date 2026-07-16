@@ -1,0 +1,26 @@
+' Bullet that moves forward and destroys itself after a time
+Extends Area2D
+
+Private speed As Single = 500
+Private lifetime As Single = 3.0
+Private timeAlive As Single = 0
+
+Sub _Ready()
+    ' Bullet is ready
+End Sub
+
+Sub _Process(delta As Single)
+    ' Move forward (to the right)
+    Me.Position = Me.Position + New Vector2(speed * delta, 0)
+    
+    ' Track lifetime
+    timeAlive = timeAlive + delta
+    If timeAlive >= lifetime Then
+        QueueFree()
+    End If
+End Sub
+
+Sub Bullet_BodyEntered(body As Node2D)
+    ' Hit something, destroy the bullet
+    QueueFree()
+End Sub

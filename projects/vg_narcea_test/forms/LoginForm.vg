@@ -1,0 +1,17 @@
+' LoginForm - VisualGasic Form
+
+Private Sub Form_Load()
+	' Initialization code here â runs once when the form is loaded.
+End Sub
+
+Private Sub Form_Activate()
+	' Runs each time the form becomes the active form.
+End Sub
+
+Private Sub Form_Resize()
+	' Runs when the user resizes the form.
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+	' Runs as the form is being closed. Set Cancel = 1 to abort.
+End Sub

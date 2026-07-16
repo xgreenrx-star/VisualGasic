@@ -18,7 +18,7 @@ Array helpers:
 - `UBound(arr)`, `LBound(arr)`
 
 Math helpers (some handled in `call_builtin_expr_evaluated` — they expect already-evaluated args):
-- `Sin`, `Cos`, `Tan`, `Log`, `Exp`, `Atn`, `Sqr`, `Abs`, `Sgn`, `Int`, `Rnd`, `Round`, `RandRange`, `Lerp`, `Clamp`, `CInt`, `CDbl`, `CBool`
+- `Sin`, `Cos`, `Tan`, `Log`, `Exp`, `Atn`, `Sqr`, `Abs`, `Sgn`, `Int`, `Rnd` (fast inline LCG — ~5× faster than Godot wrapper), `Round`, `RandRange` (uses fast LCG), `Lerp`, `Clamp`, `CInt`, `CDbl`, `CBool`
 
 File/dir helpers (delegate to `VisualGasicInstance` wrappers):
 - `LOF(fileHandle)`, `Loc(fileHandle)`, `EOF(fileHandle)`, `FreeFile([range])`, `FileLen(path)`, `Dir(...)`, `Randomize()`

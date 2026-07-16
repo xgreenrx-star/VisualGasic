@@ -1,0 +1,35 @@
+' Player character for platformer
+Extends CharacterBody2D
+
+Private speed As Single = 200
+Private jumpForce As Single = -400
+Private gravity As Single = 980
+
+Sub _Ready()
+    ' Player is ready
+End Sub
+
+Sub _PhysicsProcess(delta As Single)
+    ' Apply gravity
+    If Not IsOnFloor() Then
+        Me.Velocity = New Vector2(Me.Velocity.X, Me.Velocity.Y + gravity * delta)
+    End If
+    
+    ' Horizontal movement
+    Dim moveDir As Single = 0
+    If Input.IsActionPressed("ui_right") Then
+        moveDir = 1
+    ElseIf Input.IsActionPressed("ui_left") Then
+        moveDir = -1
+    End If
+    
+    Me.Velocity = New Vector2(moveDir * speed, Me.Velocity.Y)
+    
+    ' Jump
+    If Input.IsActionJustPressed("ui_accept") And IsOnFloor() Then
+        Me.Velocity = New Vector2(Me.Velocity.X, jumpForce)
+    End If
+    
+    ' Move the character
+    MoveAndSlide()
+End Sub

@@ -1,0 +1,49 @@
+VisualGasic Budget Justification Attachment
+
+Requested amount
+USD 25,000
+
+Budget purpose
+This budget funds concentrated development time and release-quality execution for VisualGasic milestone work, including language/runtime stabilization, Godot integration reliability, AI-assisted workflow hardening, documentation, examples, and release readiness.
+
+Cost model
+- Labor rate: USD 75/hour
+- Fixed release/tooling overhead for this funding period
+
+Budget breakdown
+
+1) Core implementation and stabilization labor
+- Scope: language/runtime fixes, integration work, AI workflow hardening, and release-critical implementation.
+- Effort: 250 hours
+- Rate: USD 75/hour
+- Subtotal: USD 18,750
+
+2) Documentation, examples, and validation labor
+- Scope: documentation updates, example validation/expansion, and quality verification tied to shipped changes.
+- Effort: 60 hours
+- Rate: USD 75/hour
+- Subtotal: USD 4,500
+
+3) Release engineering and tooling overhead (fixed)
+- Scope: release packaging/smoke checks, infra/tooling overhead, and practical release execution costs.
+- Subtotal: USD 1,750
+
+Total
+USD 25,000
+
+Why this budget is appropriate
+- It is sized to fund a focused, milestone-based execution block rather than open-ended development.
+- The majority of funds are direct implementation hours producing public code and documentation outputs.
+- The fixed overhead remains modest relative to labor and is directly tied to shipping quality and deployability.
+
+Funding context (past and present)
+- Project is primarily self-funded to date.
+- Public support channels exist (GitHub Sponsors, Patreon), but recurring support is not yet sufficient to cover sustained release-paced development.
+- This requested budget fills the execution gap needed for predictable milestone delivery.
+
+Delivery accountability
+- Work is tracked and delivered publicly in the repository and docs.
+- Milestone progress is verifiable through commits, issue tracking, docs updates, and release artifacts.
+
+Project repository
+https://github.com/xgreenrx-star/VisualGasic

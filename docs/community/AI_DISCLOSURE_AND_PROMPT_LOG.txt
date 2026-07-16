@@ -1,0 +1,55 @@
+AI Disclosure and Prompt Log for Proposal Drafting
+
+Project: VisualGasic
+Repository: https://github.com/xgreenrx-star/VisualGasic
+Date: 2026-07-10
+
+1) Proposed answer to form question
+
+Question: Did you use generative AI in writing this proposal?
+
+Answer:
+Yes. I used generative AI as a drafting and editing assistant for proposal language. All project facts, scope, budget decisions, and final wording were reviewed and approved by me.
+
+Optional extended answer:
+Yes. I used generative AI to help draft and refine portions of the proposal text. The technical content, budget assumptions, milestones, and final submission decisions are my own and were manually verified before submission.
+
+2) Scope of AI assistance
+
+AI was used for:
+- Drafting wording for narrative answers
+- Rewriting content for clarity and concision
+- Producing alternative versions for form fields with character limits
+- Preparing plain-text attachment drafts (tasks/milestones and budget justification)
+
+AI was not used to:
+- Invent project history, credentials, or funding status
+- Make independent budget commitments
+- Submit the form on my behalf
+
+3) Prompt log (proposal drafting)
+
+Below are the prompt intents used to draft proposal text:
+
+- "Can you explain the whole project and expected outcomes?" (Abstract draft)
+- "Have you been involved with projects or organisations relevant to this project before?" (Background/contributions draft)
+- "I was an engineer at IBM for 14 years." (Experience/context refinement)
+- "The char limit is 2500. So we can make it more wordy." (Length-adjusted draft)
+- "Explain what the requested budget will be used for; other funding sources; explicit rates and effort." (Budget narrative)
+- "Compare your project with existing/historical efforts." (Differentiation narrative)
+- "What significant technical challenges do you expect to solve?" (Technical risk/challenge narrative)
+- "Describe the ecosystem and engagement/deployment actors." (Ecosystem and adoption narrative)
+- "Any suggestions for attachments?" (Attachment strategy)
+- "Do it." (Generate plain-text attachment drafts)
+
+4) Human review statement
+
+I reviewed and edited all AI-generated text before use. Final submitted answers represent my own project intent, commitments, and responsibility.
+
+5) Files prepared during drafting (for reference)
+
+- docs/community/ATTACHMENT_TASKS_AND_MILESTONES.txt
+- docs/community/ATTACHMENT_BUDGET_JUSTIFICATION.txt
+- docs/community/GITHUB_COPILOT_SUPPORT_REQUEST.md
+- docs/community/FUNDING_PAGE_COPY.md
+- docs/community/FUNDING_ANNOUNCEMENT_POST.md

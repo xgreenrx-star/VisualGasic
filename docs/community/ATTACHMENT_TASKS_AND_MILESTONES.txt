@@ -1,0 +1,69 @@
+VisualGasic v6.0 Workplan Attachment
+
+Project summary
+VisualGasic is an open-source language and tooling project focused on readable, auditable AI-era code with practical Godot integration. This attachment provides a concise breakdown of the proposed funded work, milestones, and delivery criteria.
+
+Funding period objective
+Deliver a more stable, documented, and deployable VisualGasic release line toward v6.0, with measurable progress in language/runtime quality, AI-assisted workflow reliability, and release readiness.
+
+Main tasks and deliverables
+
+Task A: Language and runtime stabilization
+Scope:
+- Fix and harden parser/compiler/runtime edge cases affecting reliability.
+- Resolve release-critical regressions and improve error behavior.
+- Strengthen test confidence on high-risk language/runtime paths.
+Deliverables:
+- Merged fixes with tests for identified release-critical issues.
+- Reduced regression risk on core language/runtime workflows.
+Acceptance criteria:
+- Core test and smoke flows pass for targeted fixes.
+- Release-critical issues tracked as fixed with reproducible validation.
+
+Task B: Godot integration and AI workflow hardening
+Scope:
+- Improve in-editor reliability for core VG workflows in Godot.
+- Advance Narcea AI pair experience where it improves practical usability.
+- Tighten navigation/help/diagnostic quality for day-to-day development.
+Deliverables:
+- Implemented reliability improvements in active Godot-integrated workflows.
+- AI-assisted flow improvements that preserve readable/auditable outputs.
+Acceptance criteria:
+- Target workflows complete without blocking failures.
+- Developer-facing behavior is documented and reproducible.
+
+Task C: Documentation, examples, and release-readiness
+Scope:
+- Update key docs to match shipped behavior.
+- Expand/validate practical working examples.
+- Perform release hardening and smoke checks.
+Deliverables:
+- Updated docs and release notes for funded work.
+- Validated examples and release-prep checklist completion.
+Acceptance criteria:
+- Documentation aligns with implemented behavior.
+- Example validation and release smoke checks completed.
+
+Timeline (indicative)
+- Weeks 1-4: Task A focus, high-priority stabilization and tests.
+- Weeks 5-8: Task B focus, integration and AI workflow reliability.
+- Weeks 9-12: Task C focus, docs/examples/release hardening.
+- Buffer and integration: iterative across all phases for regressions and polish.
+
+Expected outcomes
+- More stable and trustworthy language/runtime behavior.
+- More reliable Godot-integrated developer experience.
+- Better documentation and examples for onboarding and adoption.
+- Stronger release readiness for v6.0 milestone progression.
+
+Risk and mitigation
+- Risk: scope expansion from non-critical feature requests.
+  Mitigation: prioritize release-critical work and keep milestone gate criteria strict.
+- Risk: regression from cross-cutting fixes.
+  Mitigation: add focused tests and smoke checks before release.
+- Risk: solo-maintainer bandwidth constraints.
+  Mitigation: explicit task boundaries and milestone-driven delivery.
+
+Public transparency
+All work is developed in public via the project repository and associated documentation:
+https://github.com/xgreenrx-star/VisualGasic

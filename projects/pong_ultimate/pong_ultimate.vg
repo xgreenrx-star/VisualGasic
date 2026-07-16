@@ -1,0 +1,514 @@
+' ============================================================================
+' PONG ULTIMATE - Definitive Arcade Edition
+' VisualGasic for Godot 4.6
+' ============================================================================
+' FEATURES:
+'   [x] 1P vs Smart Predictive AI + 2P vs Human (M to toggle)
+'   [x] 4 AI Diffs: Easy / Medium / Hard / Insane (D to cycle)
+'   [x] Predictive AI with wall-bounce + intentional miss
+'   [x] Serve countdown, rally counter, longest rally stat
+'   [x] Angle-based paddles: edge = sharp, center = straight
+'   [x] Speed ramp + cap, ball trail, hit particles, screen shake
+'   [x] Hit-stop, flash, full state machine
+'   [x] First to 7 wins
+'
+' CONTROLS:
+'   P1: W / S
+'   P2: Arrow Up / Down (2P only)
+'   Enter/Space: Play / Serve / Resume
+'   ESC: Menu / Pause toggle
+' ============================================================================
+Attribute VB_Name = "PongUltimate"
+Option Explicit
+
+' --- CONSTANTS --------------------------------------------------------------
+Const SCREEN_W As Integer = 800
+Const SCREEN_H As Integer = 600
+Const PADDLE_W As Integer = 14
+Const PADDLE_H As Integer = 90
+Const BALL_S As Integer = 14
+Const PADDLE_SPEED As Single = 520.0
+Const BALL_SPEED_BASE As Single = 320.0
+Const BALL_SPEED_INC As Single = 22.0
+Const BALL_SPEED_MAX As Single = 720.0
+Const WIN_SCORE As Integer = 7
+Const PADDLE_LEFT_X As Single = 36
+Const PADDLE_RIGHT_X As Single = 750
+Const MAX_TRAIL As Integer = 12
+Const MAX_PARTICLES As Integer = 64
+
+' --- STATE VARIABLES --------------------------------------------------------
+Dim ballX As Single
+Dim ballY As Single
+Dim ballVX As Single
+Dim ballVY As Single
+Dim ballSpeed As Single
+
+Dim paddle1Y As Single
+Dim paddle1Target As Single
+Dim paddle2Y As Single
+Dim paddle2Target As Single
+
+Dim score1 As Integer
+Dim score2 As Integer
+
+Dim gameState As String
+Dim serveTimer As Single
+Dim serveDir As Integer
+Dim winner As String
+
+Dim gameMode As Integer
+Dim difficulty As Integer
+Dim menuSelection As Integer
+Dim rallyCount As Integer
+Dim longestRally As Integer
+
+Dim aiSpeed As Single
+Dim aiTargetY As Single
+Dim aiError As Single
+Dim aiReaction As Single
+
+Dim shakeAmt As Single
+Dim shakeDecay As Single
+Dim hitFlash As Single
+Dim hitStop As Single
+
+Dim trailX(12) As Single
+Dim trailY(12) As Single
+
+Dim partX(64) As Single
+Dim partY(64) As Single
+Dim partVX(64) As Single
+Dim partVY(64) As Single
+Dim partLife(64) As Single
+Dim partMaxLife(64) As Single
+Dim partActive(64) As Boolean
+
+Dim bgPulse As Single
+
+' ============================================================================
+' INIT
+' ============================================================================
+Sub _Ready()
+	Print "=== PONG ULTIMATE ==="
+	Print "1P vs AI | 2P vs Human | Trail | Particles | Shake"
+	Randomize
+	shakeDecay = 12.0
+
+	gameMode = 1
+	difficulty = 1
+	menuSelection = 0
+	longestRally = 0
+	bgPulse = 0
+	shakeAmt = 0
+	hitFlash = 0
+	hitStop = 0
+
+	ResetPaddles
+	ResetBall 0
+	ClearTrail
+	ClearParticles
+	SeedAIError
+
+	gameState = "menu"
+	serveTimer = 0
+End Sub
+
+Sub ResetPaddles()
+	paddle1Y = (SCREEN_H - PADDLE_H) / 2
+	paddle2Y = (SCREEN_H - PADDLE_H) / 2
+	paddle1Target = paddle1Y
+	paddle2Target = paddle2Y
+End Sub
+
+Sub ResetBall(dir As Integer)
+	ballX = SCREEN_W / 2 - BALL_S / 2
+	ballY = SCREEN_H / 2 - BALL_S / 2
+	ballSpeed = BALL_SPEED_BASE
+	ClearTrail
+
+	Dim angle As Single = (Rnd() - 0.5) * 1.0
+	If dir = 0 Then
+		If Rnd() > 0.5 Then dir = 1 Else dir = -1
+	End If
+	serveDir = dir
+
+	ballVX = Cos(angle) * ballSpeed * dir
+	ballVY = Sin(angle) * ballSpeed
+	rallyCount = 0
+	SeedAIError
+End Sub
+
+Sub ClearTrail()
+	Dim i As Integer
+	For i = 0 To MAX_TRAIL - 1
+		trailX(i) = ballX + BALL_S / 2
+		trailY(i) = ballY + BALL_S / 2
+	Next i
+End Sub
+
+Sub ClearParticles()
+	Dim i As Integer
+	For i = 0 To MAX_PARTICLES - 1
+		partActive(i) = False
+		partLife(i) = 0
+	Next i
+End Sub
+
+Sub SeedAIError()
+	Select Case difficulty
+		Case 0: aiError = (Rnd() - 0.5) * 140.0
+		Case 1: aiError = (Rnd() - 0.5) * 80.0
+		Case 2: aiError = (Rnd() - 0.5) * 40.0
+		Case 3: aiError = (Rnd() - 0.5) * 18.0
+	End Select
+End Sub
+
+' ============================================================================
+' MAIN LOOP
+' ============================================================================
+Sub _Process(delta As Single)
+	bgPulse = bgPulse + delta
+
+	If shakeAmt > 0 Then
+		shakeAmt = shakeAmt - shakeDecay * delta * 60.0 * 0.5
+		If shakeAmt < 0 Then shakeAmt = 0
+	End If
+	If hitFlash > 0 Then hitFlash = hitFlash - delta * 6.0
+	If hitStop > 0 Then
+		hitStop = hitStop - delta
+		Return
+	End If
+
+	UpdateParticles delta
+	UpdateTrail delta
+
+	Select Case gameState
+		Case "menu": UpdateMenu delta
+		Case "serve": UpdateServe delta
+		Case "playing": UpdatePlaying delta
+		Case "paused": UpdatePaused
+		Case "gameover": UpdateGameOver
+	End Select
+End Sub
+
+Sub UpdateMenu(delta As Single)
+	If Input.IsActionJustPressed("ui_up") Or Input.IsActionJustPressed("player1_up") Then
+		menuSelection = (menuSelection - 1 + 4) Mod 4
+	End If
+	If Input.IsActionJustPressed("ui_down") Or Input.IsActionJustPressed("player1_down") Then
+		menuSelection = (menuSelection + 1) Mod 4
+	End If
+
+	If Input.IsActionJustPressed("ui_accept") Then
+		Select Case menuSelection
+			Case 0
+				score1 = 0: score2 = 0: winner = ""
+				ResetPaddles
+				If gameMode = 1 Then ResetBall -1 Else ResetBall 0
+				gameState = "serve": serveTimer = 1.2
+			Case 1
+				If gameMode = 1 Then gameMode = 2 Else gameMode = 1
+			Case 2
+				difficulty = (difficulty + 1) Mod 4: SeedAIError
+			Case 3: GetTree().quit
+		End Select
+	End If
+	If Input.IsActionJustPressed("ui_cancel") Then GetTree().quit
+End Sub
+
+Sub UpdateServe(delta As Single)
+	serveTimer = serveTimer - delta
+	ballY = ballY + Sin(bgPulse * 5.0) * 0.3
+	If serveTimer <= 0 Or Input.IsActionJustPressed("ui_accept") Then
+		gameState = "playing"
+	End If
+	If Input.IsActionJustPressed("ui_cancel") Then
+		gameState = "menu": serveTimer = 0
+	End If
+End Sub
+
+Sub UpdatePlaying(delta As Single)
+	If Input.IsActionJustPressed("ui_cancel") Then
+		gameState = "paused"
+		Return
+	End If
+
+	If Input.IsActionPressed("player1_up") Then paddle1Target = paddle1Target - PADDLE_SPEED * delta
+	If Input.IsActionPressed("player1_down") Then paddle1Target = paddle1Target + PADDLE_SPEED * delta
+	paddle1Y = Lerp(paddle1Y, paddle1Target, 0.35)
+	paddle1Target = Clamp(paddle1Target, 0, SCREEN_H - PADDLE_H)
+	paddle1Y = Clamp(paddle1Y, 0, SCREEN_H - PADDLE_H)
+
+	If gameMode = 2 Then
+		If Input.IsActionPressed("player2_up") Then paddle2Target = paddle2Target - PADDLE_SPEED * delta
+		If Input.IsActionPressed("player2_down") Then paddle2Target = paddle2Target + PADDLE_SPEED * delta
+		paddle2Y = Lerp(paddle2Y, paddle2Target, 0.35)
+	Else
+		UpdateAI delta
+	End If
+	paddle2Target = Clamp(paddle2Target, 0, SCREEN_H - PADDLE_H)
+	paddle2Y = Clamp(paddle2Y, 0, SCREEN_H - PADDLE_H)
+
+	ballX = ballX + ballVX * delta
+	ballY = ballY + ballVY * delta
+
+	If ballY <= 0 Then
+		ballY = 0: ballVY = Abs(ballVY)
+		SpawnParticles ballX + BALL_S / 2, 0, 10
+		If shakeAmt < 2 Then shakeAmt = 2
+	ElseIf ballY >= SCREEN_H - BALL_S Then
+		ballY = SCREEN_H - BALL_S: ballVY = -Abs(ballVY)
+		SpawnParticles ballX + BALL_S / 2, SCREEN_H, 10
+		If shakeAmt < 2 Then shakeAmt = 2
+	End If
+
+	CheckPaddleCollisions
+	CheckGoal
+End Sub
+
+Sub UpdateAI(delta As Single)
+	Select Case difficulty
+		Case 0: aiSpeed = 260.0
+		Case 1: aiSpeed = 380.0
+		Case 2: aiSpeed = 480.0
+		Case 3: aiSpeed = 600.0
+	End Select
+
+	If ballVX > 0 Then
+		Dim timeToReach As Single = (PADDLE_RIGHT_X - ballX) / ballVX
+		If timeToReach < 0 Then timeToReach = 0
+		Dim predY As Single = ballY + ballVY * timeToReach
+		While predY < 0 Or predY > SCREEN_H - BALL_S
+			If predY < 0 Then predY = -predY
+			If predY > SCREEN_H - BALL_S Then predY = 2 * (SCREEN_H - BALL_S) - predY
+		Wend
+		aiReaction = aiReaction - delta
+		If aiReaction <= 0 Then
+			SeedAIError
+			aiReaction = 0.55 - difficulty * 0.1
+			If aiReaction < 0.15 Then aiReaction = 0.15
+		End If
+		aiTargetY = predY + aiError - PADDLE_H / 2 + BALL_S / 2
+		If difficulty = 0 And Rnd() < 0.04 Then
+			aiTargetY = aiTargetY + (Rnd() - 0.5) * 80.0
+		End If
+	Else
+		aiTargetY = SCREEN_H / 2 - PADDLE_H / 2 + (Rnd() - 0.5) * 60.0
+	End If
+
+	Dim diff As Single = aiTargetY - paddle2Y
+	If Abs(diff) > 5 Then paddle2Y = paddle2Y + Sgn(diff) * aiSpeed * delta
+	paddle2Target = paddle2Y
+End Sub
+
+Sub UpdatePaused()
+	If Input.IsActionJustPressed("ui_accept") Then gameState = "playing"
+	If Input.IsActionJustPressed("ui_cancel") Then gameState = "menu"
+End Sub
+
+Sub UpdateGameOver()
+	If Input.IsActionJustPressed("ui_accept") Then
+		score1 = 0: score2 = 0: winner = ""
+		ResetPaddles: ResetBall 0
+		ClearTrail: ClearParticles
+		shakeAmt = 0: hitFlash = 0: hitStop = 0
+		gameState = "menu": serveTimer = 0
+	End If
+End Sub
+
+' ============================================================================
+' COLLISIONS
+' ============================================================================
+Sub CheckPaddleCollisions()
+	If ballX <= PADDLE_LEFT_X + PADDLE_W And ballX + BALL_S >= PADDLE_LEFT_X Then
+		If ballY + BALL_S >= paddle1Y And ballY <= paddle1Y + PADDLE_H Then
+			Dim hitPos As Single = (ballY + BALL_S / 2 - paddle1Y) / PADDLE_H
+			Dim angle As Single = (hitPos - 0.5) * 1.4
+			ballSpeed = Min(ballSpeed + BALL_SPEED_INC, BALL_SPEED_MAX)
+			ballVX = Cos(angle) * ballSpeed
+			ballVY = Sin(angle) * ballSpeed
+			ballX = PADDLE_LEFT_X + PADDLE_W + 1
+			rallyCount = rallyCount + 1
+			SpawnParticles ballX, ballY + BALL_S / 2, 15
+			shakeAmt = Max(shakeAmt, 4)
+			hitFlash = 1.0: hitStop = 0.03
+			If rallyCount > longestRally Then longestRally = rallyCount
+		End If
+	End If
+
+	If ballX + BALL_S >= PADDLE_RIGHT_X And ballX <= PADDLE_RIGHT_X + PADDLE_W Then
+		If ballY + BALL_S >= paddle2Y And ballY <= paddle2Y + PADDLE_H Then
+			Dim hitPos2 As Single = (ballY + BALL_S / 2 - paddle2Y) / PADDLE_H
+			Dim angle2 As Single = (hitPos2 - 0.5) * 1.4
+			ballSpeed = Min(ballSpeed + BALL_SPEED_INC, BALL_SPEED_MAX)
+			ballVX = -Cos(angle2) * ballSpeed
+			ballVY = Sin(angle2) * ballSpeed
+			ballX = PADDLE_RIGHT_X - BALL_S - 1
+			rallyCount = rallyCount + 1
+			SpawnParticles ballX + BALL_S, ballY + BALL_S / 2, 15
+			shakeAmt = Max(shakeAmt, 4)
+			hitFlash = 1.0: hitStop = 0.03
+			If rallyCount > longestRally Then longestRally = rallyCount
+		End If
+	End If
+End Sub
+
+Sub CheckGoal()
+	If ballX < -BALL_S Then
+		score2 = score2 + 1
+		If score2 >= WIN_SCORE Then
+			winner = "Player 2": gameState = "gameover"
+		Else
+			ResetBall 1: gameState = "serve": serveTimer = 1.2
+		End If
+		shakeAmt = Max(shakeAmt, 8): hitFlash = 2.0
+		Return
+	End If
+
+	If ballX > SCREEN_W Then
+		score1 = score1 + 1
+		If score1 >= WIN_SCORE Then
+			winner = "Player 1": gameState = "gameover"
+		Else
+			ResetBall -1: gameState = "serve": serveTimer = 1.2
+		End If
+		shakeAmt = Max(shakeAmt, 8): hitFlash = 2.0
+	End If
+End Sub
+
+' ============================================================================
+' PARTICLES & TRAIL
+' ============================================================================
+Sub SpawnParticles(x As Single, y As Single, count As Integer)
+	Dim i As Integer
+	For i = 0 To MAX_PARTICLES - 1
+		If Not partActive(i) Then
+			partX(i) = x: partY(i) = y
+			Dim angle As Single = Rnd() * 6.28318
+			Dim speed As Single = 50 + Rnd() * 150
+			partVX(i) = Cos(angle) * speed
+			partVY(i) = Sin(angle) * speed
+			partLife(i) = 0.3 + Rnd() * 0.5
+			partMaxLife(i) = partLife(i)
+			partActive(i) = True
+			count = count - 1
+			If count <= 0 Then Exit Sub
+		End If
+	Next i
+End Sub
+
+Sub UpdateParticles(delta As Single)
+	Dim i As Integer
+	For i = 0 To MAX_PARTICLES - 1
+		If partActive(i) Then
+			partLife(i) = partLife(i) - delta
+			If partLife(i) <= 0 Then
+				partActive(i) = False
+			Else
+				partX(i) = partX(i) + partVX(i) * delta
+				partY(i) = partY(i) + partVY(i) * delta
+				partVX(i) = partVX(i) * 0.95
+				partVY(i) = partVY(i) * 0.95
+			End If
+		End If
+	Next i
+End Sub
+
+Sub UpdateTrail(delta As Single)
+	Dim i As Integer
+	For i = MAX_TRAIL - 1 To 1 Step -1
+		trailX(i) = trailX(i - 1)
+		trailY(i) = trailY(i - 1)
+	Next i
+	trailX(0) = ballX + BALL_S / 2
+	trailY(0) = ballY + BALL_S / 2
+End Sub
+
+' ============================================================================
+' RENDERING
+' ============================================================================
+Sub _Draw()
+	Dim shakeX As Single = 0
+	Dim shakeY As Single = 0
+	If shakeAmt > 0.5 Then
+		shakeX = (Rnd() - 0.5) * shakeAmt * 2
+		shakeY = (Rnd() - 0.5) * shakeAmt * 2
+	End If
+
+	PushTransform()
+	Translate Vector2(shakeX, shakeY)
+
+	DrawRect 0, 0, SCREEN_W, SCREEN_H, Color.Black
+
+	Dim i As Integer
+	For i = 0 To SCREEN_H Step 30
+		DrawRect SCREEN_W / 2 - 2, i, 4, 15, Color(0.3, 0.3, 0.3)
+	Next i
+
+	Dim j As Integer
+	For j = MAX_TRAIL - 1 To 0 Step -1
+		Dim alpha As Single = (MAX_TRAIL - j) / MAX_TRAIL * 0.4
+		DrawRect trailX(j) - 3, trailY(j) - 3, 6, 6, Color(1, 1, 1, alpha)
+	Next j
+
+	DrawRect ballX, ballY, BALL_S, BALL_S, Color.White
+	DrawRect PADDLE_LEFT_X, paddle1Y, PADDLE_W, PADDLE_H, Color.White
+	DrawRect PADDLE_RIGHT_X, paddle2Y, PADDLE_W, PADDLE_H, Color.White
+
+	Dim k As Integer
+	For k = 0 To MAX_PARTICLES - 1
+		If partActive(k) Then
+			Dim pAlpha As Single = partLife(k) / partMaxLife(k)
+			DrawRect partX(k) - 2, partY(k) - 2, 4, 4, Color(1, 1, 1, pAlpha)
+		End If
+	Next k
+
+	If hitFlash > 0 Then
+		DrawRect 0, 0, SCREEN_W, SCREEN_H, Color(1, 1, 1, hitFlash * 0.3)
+	End If
+
+	DrawString Str(score1), SCREEN_W / 4 - 20, 20, Color.White
+	DrawString Str(score2), 3 * SCREEN_W / 4 - 20, 20, Color.White
+	DrawString "Rally: " & Str(rallyCount), SCREEN_W / 2 - 30, 60, Color.Gray
+	DrawString "Best: " & Str(longestRally), SCREEN_W / 2 - 30, 80, Color.Gray
+
+	Select Case gameState
+		Case "menu"
+			DrawString "PONG ULTIMATE", SCREEN_W / 2 - 100, 150, Color.White
+			Dim diffNames(3) As String
+			diffNames(0) = "Easy": diffNames(1) = "Medium"
+			diffNames(2) = "Hard": diffNames(3) = "Insane"
+			Dim items(3) As String
+			items(0) = "PLAY"
+			If gameMode = 1 Then items(1) = "Mode: 1P vs AI" Else items(1) = "Mode: 2P vs Human"
+			items(2) = "Difficulty: " & diffNames(difficulty)
+			items(3) = "QUIT"
+			Dim yOff As Integer
+			For yOff = 0 To 3
+				If yOff = menuSelection Then
+					DrawString "> " & items(yOff), SCREEN_W / 2 - 100, 250 + yOff * 40, Color.Yellow
+				Else
+					DrawString "  " & items(yOff), SCREEN_W / 2 - 100, 250 + yOff * 40, Color.Gray
+				End If
+			Next yOff
+			DrawString "Arrows to navigate, Enter to select", SCREEN_W / 2 - 130, 500, Color(0.4, 0.4, 0.4)
+			DrawString "ESC to quit", SCREEN_W / 2 - 60, 520, Color(0.4, 0.4, 0.4)
+
+		Case "serve"
+			DrawString Str(Ceil(serveTimer)), SCREEN_W / 2 - 8, SCREEN_H / 2 - 50, Color.Yellow
+			DrawString "Press Enter to serve", SCREEN_W / 2 - 80, SCREEN_H / 2 + 10, Color.Gray
+
+		Case "paused"
+			DrawString "PAUSED", SCREEN_W / 2 - 50, SCREEN_H / 2 - 20, Color.Yellow
+			DrawString "Enter to resume, ESC to menu", SCREEN_W / 2 - 120, SCREEN_H / 2 + 20, Color.Gray
+
+		Case "gameover"
+			DrawString winner & " WINS!", SCREEN_W / 2 - 90, SCREEN_H / 2 - 30, Color.Yellow
+			DrawString "Score: " & Str(score1) & " - " & Str(score2), SCREEN_W / 2 - 60, SCREEN_H / 2 + 10, Color.White
+			DrawString "Longest Rally: " & Str(longestRally), SCREEN_W / 2 - 80, SCREEN_H / 2 + 40, Color.Gray
+			DrawString "Press Enter to continue", SCREEN_W / 2 - 100, SCREEN_H / 2 + 80, Color.Gray
+	End Select
+
+	PopTransform()
+End Sub

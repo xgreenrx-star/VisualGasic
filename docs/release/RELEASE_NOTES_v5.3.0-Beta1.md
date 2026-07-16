@@ -120,6 +120,8 @@ VG IDE), you now get full VB6-aware autocomplete:
 | **StringLib jump table** | 13 string functions (`Len`, `Left`, `Right`, `Mid`, `UCase`, `LCase`, `Asc`, `Chr`, `Space`, `String$`, `Str`, `CStr`, `Val`) converted from raw `name == "Literal"` comparisons to `METHOD_IS` StringName-based dispatch for ~5–20× faster matching |
 |
 | **SoundGen documentation** | Added comprehensive API reference with worked examples for `SoundGen.Open/Close/Available/PushMono/PushStereo/PushMonoBuffer/PushStereoBuffer`, `FillVoices` (3-voice synthesizer), and `FillVoices4` (4/5-voice chiptune engine with 25% pulse lead, sine bass, square arp, noise hi-hat, and optional 808 kick) — includes full drum-and-bass pattern example |
+| **Fast LCG Rng** | `Rnd()` and `RandRange()` replaced Godot `UtilityFunctions::randf()` with a static Musl LCG (64-bit, `a=6364136223846793005`, `c=1442695040888963407`) — ~5× faster random number generation. Removed dead duplicate `Rnd`/`randomize` handlers. |
+| **Bulk array zero-fill** | `OP_NEW_ARRAY_I64` replaced per-element Variant assignment loop (10000 iterations for `Dim arr(9999)`) with a single `Array::fill((int64_t)0)` GDExtension call — ~100× faster for large integer arrays. |
 
 
 ## 🐛 Bug Fixes

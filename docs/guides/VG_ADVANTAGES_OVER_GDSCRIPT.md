@@ -37,8 +37,10 @@ This document covers **19 major capability categories** where VisualGasic provid
 16. [Reactive Programming (Whenever Blocks)](#16-reactive-programming)
 17. [String Interpolation & Null Safety](#17-string-interpolation--null-safety)
 18. [VB6 Compatibility & Migration](#18-vb6-compatibility--migration)
-19. [Summary Scorecard](#19-summary-scorecard)
-20. [What VG Deliberately Did NOT Ship](#20-what-vg-deliberately-did-not-ship)
+19. [Bit Manipulation Functions](#19-bit-manipulation-functions)
+20. [Real-Time Audio Synthesis (SoundGen)](#20-real-time-audio-synthesis-soundgen)
+21. [Summary Scorecard](#21-summary-scorecard)
+22. [What VG Deliberately Did NOT Ship](#22-what-vg-deliberately-did-not-ship)
 
 ---
 
@@ -714,7 +716,197 @@ If you have existing VB6 projects, VisualGasic can import them. See the [Migrati
 
 ---
 
-## 19. Summary Scorecard
+## 19. Bit Manipulation Functions
+
+**GDScript equivalent: Manual bit operations or external libraries.**
+
+VisualGasic provides 14 built-in functions for bit-level operations on integers with dedicated bytecode opcodes:
+
+| Function | Description | VG Example | GDScript Equivalent |
+|----------|-------------|-----------|-------------------|
+| **BitAnd(a, b)** | Bitwise AND | `result = BitAnd(0xF0, 0x0F)` → 0 | `a & b` |
+| **BitOr(a, b)** | Bitwise OR | `result = BitOr(0xF0, 0x0F)` → 0xFF | `a \| b` |
+| **BitXor(a, b)** | Bitwise XOR | `result = BitXor(0xF0, 0x0F)` → 0xFF | `a ^ b` |
+| **BitNot(a)** | Bitwise NOT | `result = BitNot(0x00FF)` → -256 | `~a` |
+| **BitSet(a, bit)** | Set bit to 1 | `result = BitSet(0, 3)` → 8 | `a \| (1 << bit)` |
+| **BitClr(a, bit)** | Clear bit to 0 | `result = BitClr(15, 2)` → 11 | `a & ~(1 << bit)` |
+| **BitTst(a, bit)** | Test bit (read-only) | `if BitTst(flags, 2) Then` | `(a >> bit) & 1` |
+| **BitGet(a, bit)** | Get bit value | `flag = BitGet(value, 4)` → 0 or 1 | `(a >> bit) & 1` |
+| **LeftShift(a, count)** | Shift left | `result = LeftShift(1, 3)` → 8 | `a << count` |
+| **RightShift(a, count)** | Shift right | `result = RightShift(8, 2)` → 2 | `a >> count` |
+| **RotateLeft(a, count)** | Circular left shift | `result = RotateLeft(0x0F, 4)` → 0xF0 | Manual loop |
+| **RotateRight(a, count)** | Circular right shift | `result = RotateRight(0xF0, 4)` → 0x0F | Manual loop |
+| **Swap(a, b)** | Swap variable values | `Swap flagA, flagB` | `temp = a; a = b; b = temp` |
+| **NumBits(a)** | Count set bits (popcount) | `count = NumBits(0xFF)` → 8 | Manual loop |
+
+### Use Cases
+
+Bit manipulation functions are essential for:
+- **Flags and bitmasks**: Store multiple boolean values in a single integer
+- **Game physics**: Collision layer/mask encoding, entity type flags
+- **Network protocols**: Packet field parsing, header decoding
+- **Graphics**: Color channel extraction, dithering patterns
+- **Cryptography**: Cipher implementations, hash functions
+
+### Example: Game Entity Flags
+
+```vb
+' VG — efficient entity state flags using bit operations
+Const ENT_VISIBLE = 0
+Const ENT_COLLIDABLE = 1
+Const ENT_PLAYER_OWNED = 2
+Const ENT_SELECTED = 3
+
+Dim flags As Integer = 0
+flags = BitSet(flags, ENT_VISIBLE)           ' Mark as visible
+flags = BitSet(flags, ENT_COLLIDABLE)        ' Mark as collidable
+
+If BitTst(flags, ENT_VISIBLE) Then
+    RenderEntity entity
+End If
+
+If BitTst(flags, ENT_PLAYER_OWNED) Then
+    HighlightOwned entity
+Else
+    flags = BitClr(flags, ENT_SELECTED)      ' Deselect if not owned
+End If
+
+' Quick 16-bit color encoding
+Dim r As Integer = 31, g As Integer = 32, b As Integer = 31
+Dim color16 As Integer
+color16 = LeftShift(r, 11)                   ' R: bits 11-15
+color16 = BitOr(color16, LeftShift(g, 5))   ' G: bits 5-10
+color16 = BitOr(color16, b)                  ' B: bits 0-4
+```
+
+```gdscript
+# GDScript — verbose manual bit operations
+const ENT_VISIBLE = 0
+const ENT_COLLIDABLE = 1
+const ENT_PLAYER_OWNED = 2
+const ENT_SELECTED = 3
+
+var flags: int = 0
+flags |= (1 << ENT_VISIBLE)
+flags |= (1 << ENT_COLLIDABLE)
+
+if (flags >> ENT_VISIBLE) & 1:
+    render_entity(entity)
+
+if (flags >> ENT_PLAYER_OWNED) & 1:
+    highlight_owned(entity)
+else:
+    flags &= ~(1 << ENT_SELECTED)
+
+# 16-bit color
+var r = 31
+var g = 32
+var b = 31
+var color16 = (r << 11) | (g << 5) | b
+```
+
+All 14 functions are optimized with dedicated bytecode opcodes and compile to single x86-64 CPU instructions on JIT-compiled hot paths. See [BUILTINS.md](../BUILTINS.md#bit-manipulation) for detailed reference and additional examples.
+
+---
+
+## 20. Real-Time Audio Synthesis (SoundGen)
+
+**GDScript equivalent: None. Must use pre-generated buffers with `AudioStreamPlayer`, or write GLSL compute shaders.**
+
+VisualGasic provides 10 built-in functions for real-time audio synthesis, enabling procedural sound generation without loading audio files:
+
+### Core API
+
+| Function | Description | Signature |
+|----------|-------------|----------|
+| **SoundGen.Open** | Create a new audio stream | `SoundGen.Open(sampleRate As Integer, channels As Integer) As Integer` |
+| **SoundGen.Close** | Close and destroy stream | `SoundGen.Close(streamId As Integer)` |
+| **SoundGen.Available** | Check available buffer space | `SoundGen.Available(streamId As Integer) As Integer` |
+| **SoundGen.PushMono** | Push mono sample | `SoundGen.PushMono(streamId As Integer, sample As Single)` |
+| **SoundGen.PushStereo** | Push stereo sample pair | `SoundGen.PushStereo(streamId As Integer, left As Single, right As Single)` |
+| **SoundGen.PushMonoBuffer** | Push mono array | `SoundGen.PushMonoBuffer(streamId As Integer, buffer As Single())` |
+| **SoundGen.PushStereoBuffer** | Push stereo array | `SoundGen.PushStereoBuffer(streamId As Integer, left As Single(), right As Single())` |
+| **SoundGen.FillVoices** | Multi-voice synthesis | `SoundGen.FillVoices(streamId As Integer, waveforms As Integer(), frequencies As Single(), amplitudes As Single())` |
+| **SoundGen.FillVoices4** | Optimized 4-voice synthesis | `SoundGen.FillVoices4(streamId As Integer, freq1 As Single, freq2 As Single, freq3 As Single, freq4 As Single, amp1 As Single, amp2 As Single, amp3 As Single, amp4 As Single, waveform1 As Integer, waveform2 As Integer, waveform3 As Integer, waveform4 As Integer)` |
+
+### Waveform Types
+
+| Constant | Waveform | Use Case |
+|----------|----------|----------|
+| `SOUND_SINE` (0) | Sine wave | Pure tones, bass |
+| `SOUND_SQUARE` (1) | Square wave | Synth, beeps, chip-tune |
+| `SOUND_SAWTOOTH` (2) | Sawtooth wave | Leads, rich harmonics |
+| `SOUND_TRIANGLE` (3) | Triangle wave | Softer synth, sub-bass |
+| `SOUND_NOISE` (4) | White noise | Drums, wind, static |
+| `SOUND_PULSE` (5) | Pulse wave | Variable duty cycle |
+
+### Example: Real-Time Synthesizer
+
+```vb
+' VG — procedural drum machine and synthesizer
+Dim stream As Integer = SoundGen.Open(44100, 2)
+
+' Sine wave bass line: 55 Hz (A1) for 1 second
+Dim i As Integer
+For i = 0 To 43999
+    Dim sample As Single = Sin(2 * PI * 55 * i / 44100)
+    SoundGen.PushMono stream, sample * 0.5
+Next
+
+' Multi-voice chord (C major: C4, E4, G4)
+Dim freqs() As Single = Array(261.63, 329.63, 392.0)
+Dim amps() As Single = Array(0.3, 0.3, 0.3)
+Dim waveforms() As Integer = Array(SOUND_SINE, SOUND_SINE, SOUND_SINE)
+SoundGen.FillVoices stream, waveforms, freqs, amps
+
+' Optimized 4-note chord with square waves (Fm7b5)
+SoundGen.FillVoices4 _
+    stream, _
+    174.61, 220.0, 293.66, 349.23, _     ' F3, A3, D4, F#4 frequencies
+    0.25, 0.25, 0.25, 0.25, _            ' Equal amplitude
+    SOUND_SQUARE, SOUND_SQUARE, SOUND_SQUARE, SOUND_SQUARE
+
+' Noise-based percussion (hi-hat)
+Dim noise() As Single
+ReDim noise(2205)   ' 50 ms at 44100 Hz
+Dim j As Integer
+For j = 0 To 2204
+    noise(j) = Rnd() * 2 - 1             ' Random -1 to 1
+    noise(j) = noise(j) * (1 - j / 2205) ' Envelope fade-out
+Next
+SoundGen.PushMonoBuffer stream, noise
+
+SoundGen.Close stream
+```
+
+```gdscript
+# GDScript — must pre-generate or use external libraries
+# No built-in real-time synthesis; requires either:
+# 1. Pre-generate WAV files and load with AudioStreamPlayer
+# 2. Use external Python/Godot script to synthesize offline
+# 3. Write GLSL compute shader (complex, GPU-only)
+
+# Example: Offline generation in Python called from GDScript
+var synth = preload("res://synth_generator.py")
+var audio = synth.generate_sine_wave(55, 1.0, 44100)
+$AudioStreamPlayer.stream = audio
+```
+
+### Performance & Use Cases
+
+**Real-world applications:**
+- **Interactive music**: Dynamic soundtrack generation based on game state
+- **Chiptune games**: Retro-style procedural sound effects and music
+- **Audio visualization**: Sync visuals to real-time synthesized frequencies
+- **Adaptive audio**: Adjust pitch/timbre based on physics or player actions
+- **Drum machines**: Sequencer-driven percussion synthesis
+- **Educational tools**: Audio signal processing demonstrations
+
+All functions run in real-time at 44100 Hz or higher sample rates with multi-voice support. The underlying audio engine uses lock-free ring buffers for thread-safe sample pushing. See [BUILTINS.md](../BUILTINS.md#real-time-audio-synthesis-soundgen) for full technical reference, worked examples, and platform-specific notes.
+
+---
+
+## 21. Summary Scorecard
 
 | # | Capability | VG | GDScript |
 |---|-----------|:---:|:--------:|
@@ -737,11 +929,13 @@ If you have existing VB6 projects, VisualGasic can import them. See the [Migrati
 | 17 | Time-Travel Debugging | ✅ | ❌ |
 | 18 | Custom Theme Editor (38 colors) | ✅ | ❌ |
 | 19 | VB6 Migration Tools | ✅ | N/A |
-| 20 | Try/Catch/Finally Exception Handling | ✅ | ❌ (rejected by Godot) |
-| 21 | Method Overloading (arity-based) | ✅ | ❌ (rejected by Godot) |
-| 22 | Abstract Classes (`MustOverride`/`MustInherit`) | 🔹 v6.1 | ❌ (rejected by Godot) |
+| 20 | Bit Manipulation Functions (14 opcodes) | ✅ | ❌ |
+| 21 | Real-Time Audio Synthesis (SoundGen) | ✅ | ❌ |
+| 22 | Try/Catch/Finally Exception Handling | ✅ | ❌ (rejected by Godot) |
+| 23 | Method Overloading (arity-based) | ✅ | ❌ (rejected by Godot) |
+| 24 | Abstract Classes (`MustOverride`/`MustInherit`) | 🔹 v6.1 | ❌ (rejected by Godot) |
 
-**19 major capability categories** where VisualGasic provides functionality that GDScript does not — plus 3 additional Godot-rejected features tracked separately since they are a strategic, not just technical, differentiator (see [Strategic Positioning](#0-strategic-positioning--why-godot-rejected-these-features) above).
+**21 major capability categories** where VisualGasic provides functionality that GDScript does not — plus 3 additional Godot-rejected features tracked separately since they are a strategic, not just technical, differentiator (see [Strategic Positioning](#0-strategic-positioning--why-godot-rejected-these-features) above).
 
 ---
 
@@ -773,7 +967,7 @@ If you have existing VB6 projects, VisualGasic can import them. See the [Migrati
 
 ---
 
-## 20. What VG Deliberately Did NOT Ship
+## 22. What VG Deliberately Did NOT Ship
 
 Not every feature Godot rejected is a feature VG chose to add. Some requests — multiple inheritance, macros/metaprogramming, manual garbage collection control, AOT compilation to native code, and the C-style ternary operator — were reviewed and **deliberately declined** for readability, transparency, or performance reasons that align with VG's own design philosophy, not just Godot's.
 

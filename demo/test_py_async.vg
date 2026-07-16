@@ -1,0 +1,84 @@
+Sub Main()
+    Print "=== Python Bridge Async / Batch / Error Tracking Demo ==="
+    Print ""
+    
+    Dim bridge As Object
+    Set bridge = New PyBridgeFacade
+    
+    If Not bridge.InitializeBridge() Then
+        Print "FAIL: " & bridge.GetStatus()
+        Exit Sub
+    End If
+    Print "Status: " & bridge.GetStatus()
+    
+    ' Import math
+    Dim mathMod As Variant
+    mathMod = bridge.PyImport("math")
+    
+    ' --- PyCallAsync ---
+    Print ""
+    Print "--- PyCallAsync ---"
+    Dim task As Variant
+    task = bridge.PyCallAsync(mathMod, "sqrt", Array(256.0))
+    Print "Task type: " & TypeName(task)
+    
+    ' Poll task
+    Dim waitCount As Integer
+    waitCount = 0
+    Do While task.IsRunning
+        waitCount = waitCount + 1
+        If waitCount > 100 Then Exit Do
+    Loop
+    
+    If task.IsComplete Then
+        Print "Async sqrt(256) = " & CStr(task.Result)
+    ElseIf task.IsFailed Then
+        Print "Async failed: " & task.Error
+    End If
+    
+    ' --- PyCallMany (batch) ---
+    Print ""
+    Print "--- PyCallMany (Batch Calls) ---"
+    Dim calls As Variant
+    calls = Array( _
+        Array(mathMod, "sqrt", Array(9.0)), _
+        Array(mathMod, "sqrt", Array(16.0)), _
+        Array(mathMod, "pow", Array(2.0, 8.0)) _
+    )
+    
+    Dim results As Variant
+    results = bridge.PyCallMany(calls)
+    Print "Batch results (" & CStr(results.size()) & "):"
+    Print "  [0] sqrt(9)  = " & CStr(results[0])
+    Print "  [1] sqrt(16) = " & CStr(results[1])
+    Print "  [2] pow(2,8) = " & CStr(results[2])
+    
+    ' --- PyLastError ---
+    Print ""
+    Print "--- PyLastError ---"
+    Dim err As Variant
+    err = bridge.PyLastError()
+    Print "Last error: " & CStr(err)
+    
+    ' Trigger a fresh error, then check
+    Dim badResult As Variant
+    badResult = bridge.PyCall(mathMod, "nonexistent", Array(42))
+    err = bridge.PyLastError()
+    Print "After bad call - error type: " & TypeName(err)
+    Print "Error msg: " & CStr(err)
+    
+    ' --- PyEnvInfo ---
+    Print ""
+    Print "--- PyEnvInfo ---"
+    Dim env As Variant
+    env = bridge.PyEnvInfo()
+    Print "Python version: " & CStr(env["version"])
+    Print "Worker PID: " & CStr(env["pid"])
+    Print "Uptime ms: " & CStr(env["uptime_ms"])
+    Print "Call count: " & CStr(env["call_count"])
+    Print "Modules loaded: " & CStr(env["modules_loaded"])
+    
+    bridge.shutdown()
+    Print ""
+    Print "=== Demo Complete ==="
+End Sub

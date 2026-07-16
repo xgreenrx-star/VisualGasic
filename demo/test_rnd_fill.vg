@@ -1,0 +1,62 @@
+' Microbenchmark: Rnd() and array fill speed tests
+' Tests our specific optimizations in isolation
+
+Sub RunRndBenchmark()
+    Dim start As Long, elapsed As Long
+    Dim i As Long
+    Dim s As Double
+    Dim count As Long = 50000
+    
+    Print "--- Rnd() Microbenchmark (50k iterations) ---"
+    start = Timer
+    For i = 0 To count - 1
+        s = s + Rnd()
+    Next
+    elapsed = (Timer - start) * 1000
+    Print "Rnd() sum=" & s & " took " & elapsed & "ms"
+    
+    ' Same but with RandRange for variety
+    Print "--- RandRange Microbenchmark ---"
+    start = Timer
+    s = 0
+    For i = 0 To count - 1
+        s = s + RandRange(0, 1000)
+    Next
+    elapsed = (Timer - start) * 1000
+    Print "RandRange sum=" & s & " took " & elapsed & "ms"
+End Sub
+
+Sub RunArrayFillBenchmark()
+    Dim start As Long, elapsed As Long
+    Dim i As Long, j As Long
+    Dim arr(0) As Long
+    Dim size As Long = 10000
+    Dim iter As Long = 100
+    Dim sum As Long
+    
+    Print "--- Array Fill Microbenchmark (100 x 10000 elements) ---"
+    start = Timer
+    For j = 0 To iter - 1
+        ReDim arr(size - 1)
+        For i = 0 To size - 1
+            arr(i) = 0
+        Next
+    Next
+    elapsed = (Timer - start) * 1000
+    Print "Loop-fill " & iter & "x" & size & " took " & elapsed & "ms"
+    
+    ' Compare with OP_NEW_ARRAY_I64 which now uses fill()
+    Print "--- OP_NEW_ARRAY_I64 Microbenchmark ---"
+    start = Timer
+    For j = 0 To iter - 1
+        ReDim arr(size - 1)
+        ' arr is already zero from ReDim
+        sum = sum + arr(size - 1)
+    Next
+    elapsed = (Timer - start) * 1000
+    Print "Redim-fill " & iter & "x" & size & " took " & elapsed & "ms (sum=" & sum & ")"
+End Sub
+
+Call RunRndBenchmark
+Call RunArrayFillBenchmark
+Print "Done!"

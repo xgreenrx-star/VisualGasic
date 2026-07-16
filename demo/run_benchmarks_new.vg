@@ -1,0 +1,77 @@
+' VisualGasic Benchmark Runner - measures performance after recent optimizations
+' Optimizations tested:
+' - 14 Bit builtins (BitAnd..NumBits)
+' - 12 Fast constants (True/False/Pi/vbCrLf..)
+' - 13 String lib → MethodIS (StringName dispatch)
+' - Fast LCG Rng (Rnd/RandRange)
+' - Bulk array zero-fill (Array::fill)
+
+' Import benchmark definitions
+Import "benchmarks/bench.vg"
+
+Sub Main()
+    Dim results As Dictionary
+    Set results = New Dictionary
+    
+    Print "╔══════════════════════════════════════════════════╗"
+    Print "║  VisualGasic Performance Benchmarks (Post-DeepSeek) ║"
+    Print "╚══════════════════════════════════════════════════╝"
+    Print ""
+    Print "Testing with new optimizations:"
+    Print "  • 14 Bit builtins (BitAnd, BitOr, BitXor, BitNot, etc.)"
+    Print "  • 12 Fast constants (True/False/Pi/vbCrLf bypass dict lookup)"
+    Print "  • 13 String lib → MethodIS (StringName dispatch)"
+    Print "  • Fast LCG Rng (Rnd/RandRange inline)"
+    Print "  • Bulk array zero-fill (Array::fill)"
+    Print ""
+    
+    ' Warmup run
+    Print "Warmup..."
+    Call BenchArithmetic(100, 100)
+    Print ""
+    
+    ' Run all benchmarks
+    Print "Running benchmarks..."
+    Print ""
+    
+    Call RunBenchmark("Arithmetic", AddressOf BenchArithmetic, 1000, 100)
+    Call RunBenchmark("ArraySum", AddressOf BenchArraySum, 100, 100)
+    Call RunBenchmark("StringConcat", AddressOf BenchStringConcat, 100, 400)
+    Call RunBenchmark("Branching", AddressOf BenchBranch, 100, 1000)
+    Call RunBenchmark("ArrayDict", AddressOf BenchArrayDict, 100, 256)
+    Call RunBenchmark("DictFastGet", AddressOf BenchDictFastGet, 100, 512)
+    Call RunBenchmark("DictFastSet", AddressOf BenchDictFastSet, 100, 512)
+    Call RunBenchmark("Interop", AddressOf BenchInterop, 100, 100)
+    Call RunBenchmark("Allocations", AddressOf BenchAllocations, 100, 256)
+    Call RunBenchmark("AllocationsFast", AddressOf BenchAllocationsFast, 100, 1024)
+    Call RunBenchmark("FileIO", AddressOf BenchFileIO, 10, 4096)
+    
+    Print ""
+    Print "╔══════════════════════════════════════════════════╗"
+    Print "║              Benchmark Complete                  ║"
+    Print "╚══════════════════════════════════════════════════╝"
+End Sub
+
+Sub RunBenchmark(ByVal name As String, ByVal func As Object, ByVal param1 As Long, ByVal param2 As Long)
+    Dim startTime As Long
+    Dim endTime As Long
+    Dim elapsed As Long
+    Dim result As Long
+    
+    startTime = GetTickCount64()
+    result = Application.CallByName(func, "", 0, Array(param1, param2))
+    endTime = GetTickCount64()
+    
+    elapsed = (endTime - startTime) * 1000  ' Convert to microseconds
+    
+    Print "=== " & name & " ==="
+    Print "Result: " & result
+    Print "Elapsed: " & elapsed & " µs"
+    Print ""
+End Sub
+
+' Get current timestamp in milliseconds
+Function GetTickCount64() As Long
+    ' Use OS.get_ticks_msec() equivalent in VG
+    GetTickCount64 = Timer() * 1000
+End Function

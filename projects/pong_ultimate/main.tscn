@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://pgijq53a7j8i"]
+
+[ext_resource type="Script" uid="uid://dukorosgdlfpt" path="res://pong_ultimate.vg" id="1_pong"]
+
+[node name="PongUltimate" type="Node2D" unique_id=1224719038]
+script = ExtResource("1_pong")
