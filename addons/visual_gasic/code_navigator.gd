@@ -7,6 +7,7 @@ extends HBoxContainer
 ## to (or creates) the corresponding Sub handler in the .vg script.
 
 const VGComboBox = preload("res://addons/visual_gasic/vg_combo_box.gd")
+const VGCausalChain = preload("res://addons/visual_gasic/vg_causal_chain.gd")
 
 var editor_plugin  # EditorPlugin (untyped to allow test mocking)
 var object_list  # VGComboBox — left dropdown (Object)
@@ -37,6 +38,7 @@ func set_cached_controls_from_scene(scene_root: Node) -> void:
 		if child is Control:
 			_cached_controls.append({"name": child.name, "class_name": child.get_class()})
 var refresh_button: Button
+var chain_button: Button
 var _separator: VSeparator
 var _debugger_plugin: EditorDebuggerPlugin = null
 var _current_break_file: String = ""
@@ -84,12 +86,22 @@ func _init():
 	refresh_button.pressed.connect(refresh_objects)
 	_set_refresh_icon()
 	add_child(refresh_button)
+	
+	# --- Causal Chain Button (compact icon button) ---
+	chain_button = Button.new()
+	chain_button.tooltip_text = "Show Causal Chain"
+	chain_button.custom_minimum_size = Vector2(28, 28)
+	chain_button.pressed.connect(_show_causal_chain)
+	_set_chain_icon()
+	add_child(chain_button)
 
 func _notification(what):
 	if what == NOTIFICATION_THEME_CHANGED:
 		_set_refresh_icon.call_deferred()
+		_set_chain_icon.call_deferred()
 	elif what == NOTIFICATION_READY:
 		_set_refresh_icon()
+		_set_chain_icon()
 
 func _set_refresh_icon():
 	if not refresh_button:
@@ -99,6 +111,15 @@ func _set_refresh_icon():
 		refresh_button.icon = icon
 	else:
 		refresh_button.icon = null
+
+func _set_chain_icon():
+	if not chain_button:
+		return
+	var icon = chain_button.get_theme_icon("DebugAdapters", "EditorIcons")
+	if icon:
+		chain_button.icon = icon
+	else:
+		chain_button.icon = null
 
 func setup(plugin: EditorPlugin):
 	editor_plugin = plugin
@@ -924,3 +945,97 @@ func _edit_and_goto(path: String, sub_name: String, obj_name: String, event_name
 
 				# Refresh the event list so the new handler shows bold
 				call_deferred("refresh_objects")
+
+## Show the causal-chain report in a popup dialog.
+## Triggered by the chain_button or from the main plugin.
+func _show_causal_chain() -> void:
+	if not editor_plugin:
+		return
+	
+	var vg_text := _get_current_vg_text()
+	if vg_text.is_empty():
+		# No .vg file open — try to derive from the current scene.
+		var root = editor_plugin.get_editor_interface().get_edited_scene_root()
+		if not is_instance_valid(root):
+			return
+		var scene_path := root.scene_file_path
+		if scene_path.is_empty():
+			return
+		var bas_path := scene_path.get_basename() + ".vg"
+		if not FileAccess.file_exists(bas_path):
+			return
+		vg_text = FileAccess.get_file_as_string(bas_path)
+		if vg_text.is_empty():
+			return
+	
+	var chain := VGCausalChain.new()
+	var report := chain.generate_chain_report(vg_text)
+	
+	# Open a dialog + text display
+	_show_chain_dialog(report)
+
+## Display the causal-chain report in a resizable dialog with a copy button.
+func _show_chain_dialog(report: String) -> void:
+	var window := AcceptDialog.new()
+	window.title = "Causal Chain — " + _get_current_vg_path().get_file()
+	window.dialog_autowrap = true
+	window.min_size = Vector2(700, 500)
+	window.exclusive = true
+	
+	var vbox := VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	window.add_child(vbox)
+	
+	var label := Label.new()
+	label.text = "Call chain for all event handlers in this form:"
+	vbox.add_child(label)
+	
+	var text_edit := TextEdit.new()
+	text_edit.text = report
+	text_edit.editable = false
+	text_edit.scroll_fit_content_height = false
+	text_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_edit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	text_edit.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	text_edit.deselect()
+	vbox.add_child(text_edit)
+	
+	# Button row: Copy to Clipboard + Close
+	var button_row := HBoxContainer.new()
+	button_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	
+	var chain_instance := VGCausalChain.new()  # fresh instance for clipboard access
+	var copy_btn := Button.new()
+	copy_btn.text = "Copy to Clipboard"
+	copy_btn.pressed.connect(func():
+		chain_instance.copy_to_clipboard(report)
+		copy_btn.text = "Copied!"
+		await window.get_tree().create_timer(1.5).timeout
+		copy_btn.text = "Copy to Clipboard"
+	)
+	button_row.add_child(copy_btn)
+	
+	vbox.add_child(button_row)
+	
+	# Add to the editor viewport so it shows modally
+	if editor_plugin:
+		var ed_int := editor_plugin.get_editor_interface()
+		var base := ed_int.get_base_control()
+		base.add_child(window)
+		window.popup_centered_clamped(Vector2i(750, 550))
+		window.visibility_changed.connect(func():
+			if not window.visible:
+				window.queue_free()
+		)
+	else:
+		window.popup_centered_clamped(Vector2i(750, 550))
+		window.queue_free()
+
+## Returns true if a .vg file is available for causal chain analysis.
+## Used by the main plugin to enable/disable the toolbar button.
+func has_vg_source() -> bool:
+	var path := _get_current_vg_path()
+	if path.is_empty():
+		return false
+	return FileAccess.file_exists(path)

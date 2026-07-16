@@ -110,6 +110,18 @@ VG IDE), you now get full VB6-aware autocomplete:
 
 ---
 
+
+## ⚡ Performance Optimizations
+
+| Optimization | Description |
+|---|---|
+| **Bit manipulation builtins** | 14 VB6-compatible bitwise operations (`BitAnd`, `BitOr`, `BitXor`, `BitNot`, `BitClr`, `BitSet`, `BitTst`, `BitGet`, `LeftShift`/`Shl`, `RightShift`/`Shr`, `RotateLeft`/`Rol`, `RotateRight`/`Ror`, `Swap`, `NumBits`) implemented as native C++ in `call_builtin_expr_evaluated()` — zero VG-loop overhead, no new opcodes, no compiler changes |
+| **Fast constant path** | 12 VB6 system constants (`True`, `False`, `Nothing`, `Null`, `vbCrLf`, `vbCr`, `vbLf`, `vbTab`, `vbNullString`, `Pi`, `Math_Tau`) now bypass dictionary/property/snake_case lookup in `VisualGasicExpressionEvaluator.evaluate()` |
+| **StringLib jump table** | 13 string functions (`Len`, `Left`, `Right`, `Mid`, `UCase`, `LCase`, `Asc`, `Chr`, `Space`, `String$`, `Str`, `CStr`, `Val`) converted from raw `name == "Literal"` comparisons to `METHOD_IS` StringName-based dispatch for ~5–20× faster matching |
+|
+| **SoundGen documentation** | Added comprehensive API reference with worked examples for `SoundGen.Open/Close/Available/PushMono/PushStereo/PushMonoBuffer/PushStereoBuffer`, `FillVoices` (3-voice synthesizer), and `FillVoices4` (4/5-voice chiptune engine with 25% pulse lead, sine bass, square arp, noise hi-hat, and optional 808 kick) — includes full drum-and-bass pattern example |
+
+
 ## 🐛 Bug Fixes
 
 | Fix | Details |

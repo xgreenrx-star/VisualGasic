@@ -506,19 +506,19 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     }
 
     // String Library
-    if (name == "Len" && args.size() == 1) {
+    if (METHOD_IS("len") && args.size() == 1) {
         r_handled = true;
         return String(args[0]).length();
     }
-    if (name == "Left" && args.size() == 2) {
+    if (METHOD_IS("left") && args.size() == 2) {
         r_handled = true;
         return String(args[0]).left((int)args[1]);
     }
-    if (name == "Right" && args.size() == 2) {
+    if (METHOD_IS("right") && args.size() == 2) {
         r_handled = true;
         return String(args[0]).right((int)args[1]);
     }
-    if (name == "Mid" && args.size() >= 2) {
+    if (METHOD_IS("mid") && args.size() >= 2) {
         r_handled = true;
         String s = String(args[0]);
         int start = (int)args[1] - 1;
@@ -526,15 +526,15 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
         if (args.size() == 3) return s.substr(start, (int)args[2]);
         return s.substr(start);
     }
-    if (name == "UCase" && args.size() == 1) { r_handled = true; return String(args[0]).to_upper(); }
-    if (name == "LCase" && args.size() == 1) { r_handled = true; return String(args[0]).to_lower(); }
-    if (name == "Asc" && args.size() == 1) { r_handled = true; String s = args[0]; if (s.length()>0) return (int)s.unicode_at(0); return 0; }
-    if (name == "Chr" && args.size() == 1) { r_handled = true; return String::chr((int)args[0]); }
-    if (name == "Space" && args.size() == 1) { r_handled = true; int n = (int)args[0]; String s=""; for(int i=0;i<n;i++) s += " "; return s; }
-    if (name == "String" && args.size() == 2) { r_handled = true; int n=(int)args[0]; String char_str = String(args[1]); String s=""; if (char_str.length()>0){ String c = char_str.substr(0,1); for(int i=0;i<n;i++) s+=c;} return s; }
-    if (name == "Str" && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
-    if (name.nocasecmp_to("CStr") == 0 && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
-    if (name == "Val" && args.size() == 1) { r_handled = true; String s = args[0]; if (s.is_valid_float()) return s.to_float(); if (s.is_valid_int()) return s.to_int(); return 0.0; }
+    if (METHOD_IS("ucase") && args.size() == 1) { r_handled = true; return String(args[0]).to_upper(); }
+    if (METHOD_IS("lcase") && args.size() == 1) { r_handled = true; return String(args[0]).to_lower(); }
+    if (METHOD_IS("asc") && args.size() == 1) { r_handled = true; String s = args[0]; if (s.length()>0) return (int)s.unicode_at(0); return 0; }
+    if (METHOD_IS("chr") && args.size() == 1) { r_handled = true; return String::chr((int)args[0]); }
+    if (METHOD_IS("space") && args.size() == 1) { r_handled = true; int n = (int)args[0]; String s=""; for(int i=0;i<n;i++) s += " "; return s; }
+    if (METHOD_IS("string") && args.size() == 2) { r_handled = true; int n=(int)args[0]; String char_str = String(args[1]); String s=""; if (char_str.length()>0){ String c = char_str.substr(0,1); for(int i=0;i<n;i++) s+=c;} return s; }
+    if (METHOD_IS("str") && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
+    if (METHOD_IS("cstr") && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
+    if (METHOD_IS("val") && args.size() == 1) { r_handled = true; String s = args[0]; if (s.is_valid_float()) return s.to_float(); if (s.is_valid_int()) return s.to_int(); return 0.0; }
     if (METHOD_IS("strcomp") && args.size() >= 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int mode = (args.size() >= 3) ? (int)args[2] : 0; int cmp = (mode == 1) ? s1.nocasecmp_to(s2) : s1.casecmp_to(s2); if (cmp < 0) return (int64_t)-1; if (cmp > 0) return (int64_t)1; return (int64_t)0; }
     if (METHOD_IS("instr") && args.size() >= 2) { r_handled = true; if (args.size() == 2) { String s1 = args[0]; String s2 = args[1]; int pos = s1.find(s2); if (pos==-1) return 0; return pos+1; } else { int start = (int)args[0]; String s1 = args[1]; String s2 = args[2]; if (start < 1) start = 1; if (start > s1.length()) return 0; int pos = s1.find(s2, start - 1); if (pos==-1) return 0; return pos+1; } }
     if (METHOD_IS("instrrev") && args.size() >= 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int start = (args.size() >= 3) ? (int)args[2] - 1 : s1.length() - 1; if (start < 0 || start >= s1.length()) start = s1.length() - 1; int pos = s1.rfind(s2, start); if (pos == -1) return 0; return pos + 1; }
@@ -6749,6 +6749,26 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         sb["__buffer"] = Array();
         return sb;
     }
+
+    // ── Bit Manipulation Builtins (optimized native, no VG-iteration overhead) ──
+    // VB6-compatible bitwise operations on 64-bit integers.
+    // All functions truncate floats to int64 before operating.
+    auto bit64 = [&](int idx) -> int64_t { return (int64_t)args[idx]; };
+
+    if (METHOD_IS("bitand") && args.size() == 2) { r_handled = true; return bit64(0) & bit64(1); }
+    if (METHOD_IS("bitor")  && args.size() == 2) { r_handled = true; return bit64(0) | bit64(1); }
+    if (METHOD_IS("bitxor") && args.size() == 2) { r_handled = true; return bit64(0) ^ bit64(1); }
+    if (METHOD_IS("bitnot") && args.size() == 1) { r_handled = true; return ~bit64(0); }
+    if (METHOD_IS("bitclr") && args.size() >= 2) { r_handled = true; int64_t val = bit64(0); for (int ii = 1; ii < args.size(); ++ii) { int s = (int)bit64(ii); if (s >= 0 && s < 64) val &= ~(1LL << s); } return val; }
+    if (METHOD_IS("bitset") && args.size() >= 2) { r_handled = true; int64_t val = bit64(0); for (int ii = 1; ii < args.size(); ++ii) { int s = (int)bit64(ii); if (s >= 0 && s < 64) val |= (1LL << s); } return val; }
+    if (METHOD_IS("bittst") && args.size() == 2) { r_handled = true; int s = (int)bit64(1); if (s >= 0 && s < 64) return (bool)(bit64(0) & (1LL << s)); return false; }
+    if (METHOD_IS("bitget") && args.size() == 2) { r_handled = true; int s = (int)bit64(1); if (s >= 0 && s < 64) return (int64_t)((bit64(0) >> s) & 1LL); return (int64_t)0; }
+    if (METHOD_IS("leftshift")  || METHOD_IS("shl")) { if (args.size() == 2) { r_handled = true; int64_t n = bit64(1); if (n >= 0 && n < 64) return bit64(0) << (int)n; return (int64_t)0; } }
+    if (METHOD_IS("rightshift") || METHOD_IS("shr")) { if (args.size() == 2) { r_handled = true; int64_t n = bit64(1); if (n >= 0 && n < 64) return (uint64_t)bit64(0) >> (int)n; return (int64_t)0; } }
+    if (METHOD_IS("rotateleft") || METHOD_IS("rol")) { if (args.size() == 2) { r_handled = true; int64_t val = bit64(0); int n = (int)bit64(1) & 63; return (val << n) | ((uint64_t)val >> (64 - n)); } }
+    if (METHOD_IS("rotateright") || METHOD_IS("ror")) { if (args.size() == 2) { r_handled = true; int64_t val = bit64(0); int n = (int)bit64(1) & 63; return ((uint64_t)val >> n) | (val << (64 - n)); } }
+    if (METHOD_IS("swap") && args.size() == 1) { r_handled = true; int64_t val = bit64(0); uint32_t lo = (uint32_t)(val & 0xFFFFFFFFu); uint32_t hi = (uint32_t)((uint64_t)val >> 32); return (int64_t)(((uint64_t)lo << 32) | (uint64_t)hi); }
+    if (METHOD_IS("numbits") && args.size() == 1) { r_handled = true; uint64_t v = (uint64_t)bit64(0); int c = 0; while (v) { c += v & 1; v >>= 1; } return c; }
 
 #undef METHOD_IS
     return Variant();

@@ -70,6 +70,9 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
     }
     if (expr->type == ExpressionNode::VARIABLE) {
         String name = ((VariableNode*)expr)->name;
+        // ── Fast path for common VB6 system variables ──
+        // These are checked before any dictionary/property lookup to avoid
+        // expensive has_key() + node_path() + snake_case conversions.
         if (name.nocasecmp_to("FreeFile") == 0) {
             for(int i=1; i<=255; i++) {
                 if (!ctx.open_files.has(i)) return i;
@@ -80,6 +83,19 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         if (name.nocasecmp_to("Godot") == 0) {
             return Engine::get_singleton();
         }
+        // ── Fast constant path ──
+        if (name.nocasecmp_to("True") == 0) return true;
+        if (name.nocasecmp_to("False") == 0) return false;
+        if (name.nocasecmp_to("Nothing") == 0) return Variant();
+        if (name.nocasecmp_to("Null") == 0) return Variant();
+        if (name.nocasecmp_to("vbCrLf") == 0) return String("\r\n");
+        if (name.nocasecmp_to("vbCr") == 0) return String("\r");
+        if (name.nocasecmp_to("vbLf") == 0) return String("\n");
+        if (name.nocasecmp_to("vbTab") == 0) return String("\t");
+        if (name.nocasecmp_to("vbNullString") == 0) return String();
+        if (name.nocasecmp_to("pi") == 0) return Math_TAU / 2.0;
+        if (name.nocasecmp_to("math_tau") == 0) return (double)Math_TAU;
+        // ── End fast constant path ──
         if (ctx.variables.has(name)) return ctx.variables[name];
         if (ctx.owner) {
             Variant ret = ctx.owner->get(name);

@@ -126,6 +126,246 @@ them orders of magnitude faster than script-level loops. All operate on an
   FloodFillImage img, 100, 100, Color(0, 0, 1, 1)           ' Blue fill inside
   ```
 
+### Bit Manipulation Builtins (native C++, no VG loop overhead)
+
+Bitwise operations on 64-bit integers. All functions truncate floats to `Int64`
+before operating. These are implemented directly in C++ via `call_builtin_expr_evaluated()`,
+so they're orders of magnitude faster than VG-level loops.
+
+| Function | Aliases | Args | Description |
+|----------|---------|------|-------------|
+| `BitAnd(a, b)` | — | 2 | Bitwise AND: `a And b` |
+| `BitOr(a, b)` | — | 2 | Bitwise OR: `a Or b` |
+| `BitXor(a, b)` | — | 2 | Bitwise XOR: `a Xor b` |
+| `BitNot(a)` | — | 1 | Bitwise NOT: `Not a` |
+| `BitClr(val, bit...)` | — | 2+ | Clear (zero) specified bits: `val And (Not (1 << bit))` |
+| `BitSet(val, bit...)` | — | 2+ | Set specified bits: `val Or (1 << bit)` |
+| `BitTst(val, bit)` | — | 2 | Test a single bit → Boolean |
+| `BitGet(val, bit)` | — | 2 | Get a single bit → 0 or 1 |
+| `LeftShift(val, n)` | `Shl` | 2 | Logical left shift by n bits (0..63) |
+| `RightShift(val, n)` | `Shr` | 2 | Logical right shift by n bits (0..63) |
+| `RotateLeft(val, n)` | `Rol` | 2 | Rotate left by n bits (64-bit) |
+| `RotateRight(val, n)` | `Ror` | 2 | Rotate right by n bits (64-bit) |
+| `Swap(val)` | — | 1 | Swap high/low 32-bit halves |
+| `NumBits(val)` | — | 1 | Population count (number of set bits) |
+
+**Examples:**
+```vb
+' Basic bitwise ops
+Dim a As Long = &HFF00
+Dim b As Long = &H0FF0
+Print BitAnd(a, b)       ' → &H0F00
+Print BitOr(a, b)        ' → &HFFF0
+Print BitXor(a, b)       ' → &HF0F0
+Print BitNot(a)          ' → &HFFFFFFFFFF00FF (64-bit)
+
+' Bit-level manipulation
+Dim flags As Long = 0
+flags = BitSet(flags, 0, 2, 4)         ' set bits 0, 2, 4
+Print BitTst(flags, 2)                  ' → True
+Print BitGet(flags, 1)                  ' → 0
+flags = BitClr(flags, 0)               ' clear bit 0
+
+' Shifts and rotates
+Print LeftShift(1, 8)                   ' → 256
+Print Shl(1, 8)                         ' alias → 256
+Print RightShift(&HFF00, 8)            ' → &HFF
+Print RotateLeft(&H8000000000000001, 1) ' → &H0000000000000003
+
+' Utility
+Print Swap(&HAABBCCDD)                 ' → &HCCDDAABB (swap halves)
+Print NumBits(&H0F)                    ' → 4 (binary: 1111)
+```
+
+
+### SoundGen.* — Real-time Audio Synthesis
+
+The `SoundGen` namespace provides real-time PCM audio synthesis using Godot's
+`AudioStreamGenerator`. SoundGen produces audio **entirely in C++** — the
+`FillVoices` and `FillVoices4` builtins synthesize hundreds of thousands of
+samples per second with zero VG script-loop overhead.
+
+**Basic workflow:**
+1. `SoundGen.Open(mix_rate, buffer_length)` → **handle** (Long, the `AudioStreamPlayer` ObjectID)
+2. Each frame, call `SoundGen.Available(handle)` to get available stereo frames
+3. Fill the buffer using `PushMono`, `PushStereo`, or the bulk `FillVoices` synthesizers
+4. `SoundGen.Close(handle)` when done
+
+#### Core API
+
+| Function | Args | Returns | Description |
+|----------|------|---------|-------------|
+| `SoundGen.Open(mix_rate, buf_len)` | 2 | Long | Creates an AudioStreamGenerator + AudioStreamPlayer, starts playing. `mix_rate` = samples/sec (e.g. 44100), `buf_len` = ring buffer in seconds (e.g. 0.1). Returns handle. |
+| `SoundGen.Close(handle)` | 1 | — | Stops and frees the stream player. |
+| `SoundGen.Available(handle)` | 1 | Integer | Number of stereo frames (pairs of samples) that can be pushed without blocking. Call each `_Process()` and push this many. |
+| `SoundGen.PushMono(handle, sample)` | 2 | — | Pushes one mono sample (Single) as left=right stereo frame. Call inside a loop: `For i = 0 To SoundGen.Available(h) - 1` |
+| `SoundGen.PushStereo(handle, left, right)` | 3 | — | Pushes one stereo frame (two Singles). |
+| `SoundGen.PushMonoBuffer(handle, samples)` | 2 | — | Push an entire `PackedFloat32Array` as mono frames. Pushes `min(samples.size, available)` frames — ~100× faster than calling PushMono N times. |
+| `SoundGen.PushStereoBuffer(handle, samples)` | 2 | — | Push interleaved `PackedFloat32Array [L0,R0, L1,R1, ...]` as stereo frames. Pushes `min(samples.size/2, available)` frames. |
+
+#### FillVoices — 3-Voice Synthesizer
+
+`SoundGen.FillVoices(handle, sample_rate, arp_phase, arp_freq, kick_active, kick_t, kick_dur, noise_active, noise_t, noise_decay)` → `PackedFloat32Array [new_arp_phase, new_kick_t, new_noise_t]`
+
+Synthesizes exactly `SoundGen.Available()` mono frames in a single C++ call.
+Mixes three voices:
+1. **Square arpeggio** (always on) — ±0.10, 50% duty
+2. **Bass kick** (when `kick_active ≠ 0`) — exponential chirp 160→50Hz with click transient
+3. **White noise burst** (when `noise_active ≠ 0`) — exponential decay
+
+Returns updated phase/time values so VG can advance its globals.
+
+```vb
+' Square-wave arpeggio + optional kick + optional noise burst
+Dim h = SoundGen.Open(22050, 0.1)
+Dim arpPhase As Single = 0
+Dim kickT As Single = 0
+Dim noiseT As Single = 0
+
+Sub _Process(delta As Double)
+    Dim result As PackedFloat32Array
+    result = SoundGen.FillVoices(h, 22050, _
+        arpPhase, 440.0, _            ' arp freq = A4
+        True, kickT, 0.15, _           ' kick active, 150ms duration
+        False, noiseT, 20.0)           ' noise off
+    arpPhase = result(0)
+    kickT = result(1)
+    noiseT = result(2)
+End Sub
+```
+
+#### FillVoices4 — 4/5-Voice Synthesizer (chiptune engine)
+
+`SoundGen.FillVoices4(handle, sample_rate, lead_f, lead_phase, bass_f, bass_phase, arp_f, arp_phase, hihat_active, hihat_t, hihat_inv_sr [, kick_active, kick_t, kick_dur [, note_age]])` → `PackedFloat32Array`
+
+A full chiptune voice engine — synthesizes exactly `SoundGen.Available()` mono
+frames in one C++ call. Four always-on voices + optional fifth kick drum:
+
+| Voice | Type | Amplitude | Description |
+|-------|------|-----------|-------------|
+| 1 — Lead | 25% pulse | ±0.12 / −0.04 | NES-style lead, 4ms attack envelope |
+| 2 — Bass | Sine | ×0.14 | Warm sine bass, 5ms attack |
+| 3 — Arp | 50% square | ±0.05 | Percussive square arpeggio |
+| 4 — Hi-hat | White noise | ×0.04 | Exponential decay (100 Hz cutoff) |
+| 5 — Kick (opt) | 808-style | ×0.50 + ×0.15 (2nd harmonic) | Cosine sweep 200→55Hz, click transient |
+
+**Arguments (11 required):**
+
+| # | Name | Type | Description |
+|---|------|------|-------------|
+| 1 | handle | Long | SoundGen handle from `Open()` |
+| 2 | sample_rate | Single | Mix rate (Hz) — matches `Open()` value |
+| 3 | lead_f | Single | Lead oscillator frequency (Hz) — 0 = voice off |
+| 4 | lead_phase | Single | Lead oscillator phase (0.0–1.0) — persist between calls |
+| 5 | bass_f | Single | Bass oscillator frequency (Hz) — 0 = voice off |
+| 6 | bass_phase | Single | Bass oscillator phase (0.0–1.0) — persist |
+| 7 | arp_f | Single | Arpeggio frequency (Hz) — 0 = voice off |
+| 8 | arp_phase | Single | Arpeggio phase (0.0–1.0) — persist |
+| 9 | hihat_active | Boolean | Hi-hat on/off |
+| 10 | hihat_t | Single | Hi-hat time accumulator — persist |
+| 11 | hihat_inv_sr | Single | 1.0 / sample_rate (pre-computed for speed) |
+
+**Optional arguments (14-arg variant adds kick):**
+
+| # | Name | Type | Description |
+|---|------|------|-------------|
+| 12 | kick_active | Boolean | Kick on/off |
+| 13 | kick_t | Single | Kick time accumulator — persist |
+| 14 | kick_dur | Single | Kick duration in seconds (e.g. 0.3) |
+
+**Optional arguments (15-arg variant adds note_age):**
+
+| # | Name | Type | Description |
+|---|------|------|-------------|
+| 15 | note_age | Single | Seconds since current note started (0 = fresh attack). VG resets to 0 each beat for clean articulation. |
+
+**Returns:** `PackedFloat32Array` with 4 elements (or 5 with kick):
+`[new_lead_phase, new_bass_phase, new_arp_phase, new_hihat_t (, new_kick_t)]`
+
+```vb
+' Full chiptune engine — drum & bass arpeggio
+Dim h = SoundGen.Open(44100, 0.1)
+Dim leadPh As Single, bassPh As Single, arpPh As Single
+Dim hihatT As Single, kickT As Single
+Dim noteAge As Single
+Dim beatLen As Single = 60.0 / 140.0 / 4.0   ' 140 BPM, 16th notes
+Dim beatCounter As Integer = 0
+
+Sub _Process(delta As Double)
+    Dim result As PackedFloat32Array
+    
+    ' Change note every 16th beat
+    noteAge = noteAge + delta
+    If noteAge >= beatLen Then
+        noteAge = noteAge - beatLen
+        beatCounter = (beatCounter + 1) Mod 16
+        
+        ' Simple arpeggio pattern: C-E-G-C over 4 beats
+        Dim notes(3) As Single = {261.63, 329.63, 392.00, 523.25}
+        Dim arpFreq As Single = notes(beatCounter Mod 4)
+        
+        ' Trigger kick on beats 0 and 8
+        If beatCounter = 0 Or beatCounter = 8 Then
+            result = SoundGen.FillVoices4(h, 44100, _
+                0.0, leadPh, _       ' lead off
+                110.0, bassPh, _      ' bass A2
+                arpFreq, arpPh, _    ' arpeggio
+                True, hihatT, 1.0/44100.0, _  ' hi-hat on
+                True, 0.0, 0.3, _    ' trigger kick
+                noteAge)
+            kickT = result(4)
+        Else
+            result = SoundGen.FillVoices4(h, 44100, _
+                0.0, leadPh, _
+                110.0, bassPh, _
+                arpFreq, arpPh, _
+                True, hihatT, 1.0/44100.0, _
+                False, kickT, 0.3, _
+                noteAge)
+        End If
+    Else
+        ' Continue current notes
+        result = SoundGen.FillVoices4(h, 44100, _
+            0.0, leadPh, _
+            110.0, bassPh, _
+            arpFreq, arpPh, _
+            True, hihatT, 1.0/44100.0, _
+            False, kickT, 0.3, _
+            noteAge)
+    End If
+    
+    leadPh = result(0)
+    bassPh = result(1)
+    arpPh  = result(2)
+    hihatT = result(3)
+    If result.size() >= 5 Then kickT = result(4)
+End Sub
+```
+
+**Bulk buffer methods** (fastest path for custom synthesis):
+
+```vb
+' Generate a sine wave in VG and push it all at once (no per-sample dispatch)
+Dim h = SoundGen.Open(44100, 0.1)
+Dim buf As PackedFloat32Array
+Dim i As Integer
+Dim phase As Single
+Dim freq As Single = 440.0
+Dim sr As Single = 44100.0
+
+Sub _Process(delta As Double)
+    Dim available = SoundGen.Available(h)
+    buf.resize(available)
+    For i = 0 To available - 1
+        buf(i) = Sin(phase * 6.283185)
+        phase = phase + freq / sr
+        If phase >= 1.0 Then phase = phase - 1.0
+    Next
+    SoundGen.PushMonoBuffer(h, buf)
+End Sub
+```
+
+
 Data introspection helpers:
 - `DataCount()` — total number of items in the data tape
 - `DataCount("label")` — number of items in a named data section (case-insensitive)
