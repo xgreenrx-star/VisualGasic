@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✨ Added — Provider expansion: DeepSeek, Qwen, Codeium, Amazon Q (Jul 13, 2026)
+
+- **4 new AI providers** joined the existing 4 (Ollama, OpenAI, Claude, Gemini) for a total of **8 providers**
+- All OpenAI-compatible providers (DeepSeek, Qwen, Codeium, Amazon Q) reuse existing _build_openai() and _parse_openai_line() code paths
+- Native function-calling adapter updated for all 7 cloud providers
+- GDAI._provider_map updated for raw GDAI API calls
+- EditorSettings keys and API key URLs registered for all 8 providers
+
+### ✨ Added — Model refresh button & refresh_models() API (Jul 16, 2026)
+
+- **Refresh Models button** added to the AI Pair toolbar
+- refresh_models(provider_id) static method with per-provider API endpoints:
+  - OpenAI-compatible: GET /v1/models
+  - Ollama: GET /api/tags
+  - Claude: GET /v1/models (Anthropic API)
+  - Gemini: GET /v1beta/models
+- Results cached in EditorSettings with load/save helpers
+- get_providers() auto-applies cached model overrides
+- 103/103 tests pass including test 10 (model cache/refresh)
+
+### 🔧 Fixed — TLSOptions.client() compatibility (Jul 16, 2026)
+
+- connect_to_host() now passes null certificate to TLSOptions.client(null)
+- Added explicit type annotations for result, providers, and raw variables
+
+### 🧪 Test coverage (Jul 16, 2026)
+
+- Test 10: Model cache / refresh tests added
+- Provider registry section expanded to test all 5 OpenAI-compatible providers
+- Total: 103 tests pass, 0 failed (was 58)
+
 ## [5.3.0-Beta2] - 2026-07-15
 
 ### 🔧 Fixed — Python Bridge Int/Float Decode (Critical)

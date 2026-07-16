@@ -138,6 +138,14 @@ static func get_providers() -> Array:
 	amazonq.default_model = "anthropic.claude-3-5-sonnet-20241022-v2:0"
 	providers.append(amazonq)
 
+	# Apply cached model overrides from EditorSettings (if any)
+	var es := _editor_settings()
+	if es != null:
+		for p in providers:
+			var cached := _load_cached_models(es, p.id)
+			if not cached.is_empty():
+				p.models = cached
+
 	return providers
 
 static func find_provider(provider_id: String) -> ProviderInfo:
@@ -273,7 +281,198 @@ static func save_preferred_provider(provider_id: String) -> void:
 	es.set_setting("visual_gasic/ai/preferred_provider", provider_id)
 
 
-# ─── Request Body Builders ──────────────────────────────────────────────────
+# ─── Model Cache Management ──────────────────────────────────────────────────
+# Cached model lists live in EditorSettings as JSON arrays so the user's
+# model selection survives restarts without re-fetching.
+#
+# EditorSettings path map:
+#   visual_gasic/ai/<id>_cached_models    — JSON array of model name strings
+#   visual_gasic/ai/<id>_models_timestamp — Unix timestamp of last refresh
+
+## Load cached model names for a provider from EditorSettings.
+## Returns an empty array if nothing is cached.
+static func _load_cached_models(es: Object, provider_id: String) -> Array:
+	var raw: Variant = es.get_setting('visual_gasic/ai/' + provider_id + '_cached_models')
+	if raw == null or typeof(raw) != TYPE_STRING or String(raw).is_empty():
+		return []
+	var parsed = JSON.parse_string(String(raw))
+	if typeof(parsed) != TYPE_ARRAY:
+		return []
+	return parsed
+
+## Save a model list to EditorSettings cache.
+static func _save_cached_models(es: Object, provider_id: String, models: Array) -> void:
+	es.set_setting('visual_gasic/ai/' + provider_id + '_cached_models', JSON.stringify(models))
+	es.set_setting('visual_gasic/ai/' + provider_id + '_models_timestamp', str(Time.get_unix_time_from_system()))
+
+## Fetch live models from a provider's API and cache the result.
+##
+## Provider         │ Endpoint                       │ Auth
+## ─────────────────┼────────────────────────────────┼─────────────────
+## ollama           │ GET /api/tags                  │ none (local)
+## openai           │ GET /v1/models                 │ Bearer <key>
+## claude           │ GET /v1/models                 │ x-api-key <key>
+## gemini           │ GET /v1beta/models             │ ?key=<key> query
+## deepseek         │ GET /v1/models                 │ Bearer <key>
+## qwen             │ GET /compatible-mode/v1/models │ Bearer <key>
+## codeium          │ GET /v1/models                 │ Bearer <key>
+## amazonq          │ GET /v1/models                 │ Bearer <key>
+##
+## Returns {ok: true, models: [...]} on success, or {ok: false, error: "..."}.
+static func refresh_models(provider_id: String) -> Dictionary:
+	var p := find_provider(provider_id)
+	if p == null:
+		return {'ok': false, 'error': 'Unknown provider: ' + provider_id}
+
+	var es := _editor_settings()
+	if es == null:
+		# Not in editor — can not make HTTP requests (no EditorInterface).
+		return {'ok': false, 'error': 'Not running in editor'}
+
+	# Determine endpoint, auth header, and response parser based on provider
+	var host := p.api_host
+	var port := p.api_port
+	var use_tls := p.use_tls
+	var path := '/v1/models'
+	var headers := PackedStringArray()
+	var api_key := load_api_key(provider_id)
+
+	match provider_id:
+		'ollama':
+			path = '/api/tags'
+			host = '127.0.0.1'
+			port = 11434
+			use_tls = false
+			# No auth needed
+		'gemini':
+			# Gemini uses a key query parameter on the models endpoint
+			if api_key.is_empty():
+				return {'ok': false, 'error': 'Gemini API key not configured'}
+			path = '/v1beta/models?key=' + api_key
+		'claude':
+			path = '/v1/models'
+			if api_key.is_empty():
+				return {'ok': false, 'error': 'Claude API key not configured'}
+			headers = PackedStringArray(['x-api-key: ' + api_key, 'anthropic-version: 2023-06-01'])
+		'amazonq':
+			# Amazon Q uses the effective host/port (may be overridden)
+			# and has no auth header for local gateway
+			pass
+		_:
+			# openai, deepseek, qwen, codeium — all OpenAI-compatible
+			if api_key.is_empty():
+				return {'ok': false, 'error': 'API key not configured for ' + provider_id}
+			headers = PackedStringArray(['Authorization: Bearer ' + api_key])
+
+	# Make HTTP request
+	var http := HTTPClient.new()
+	var tls_options = null
+	if use_tls:
+		tls_options = TLSOptions.client(null)
+	var err := http.connect_to_host(host, port, tls_options)
+	if err != OK:
+		return {'ok': false, 'error': 'Connection failed: ' + error_string(err)}
+
+	# Poll until connected or timeout
+	for _attempt in 50:
+		http.poll()
+		var status := http.get_status()
+		if status == HTTPClient.STATUS_CONNECTED:
+			break
+		if status == HTTPClient.STATUS_CANT_CONNECT or status == HTTPClient.STATUS_CONNECTION_ERROR:
+			http.close()
+			return {'ok': false, 'error': 'Could not connect to ' + host + ':' + str(port)}
+		OS.delay_msec(100)
+
+	if http.get_status() != HTTPClient.STATUS_CONNECTED:
+		http.close()
+		return {'ok': false, 'error': 'Timed out connecting to ' + host + ':' + str(port)}
+
+	var req_err := http.request(HTTPClient.METHOD_GET, path, headers)
+	if req_err != OK:
+		http.close()
+		return {'ok': false, 'error': 'Request failed: ' + error_string(req_err)}
+
+	# Poll for response
+	for _attempt in 100:
+		http.poll()
+		var status := http.get_status()
+		if status == HTTPClient.STATUS_BODY:
+			break
+		if status == HTTPClient.STATUS_DISCONNECTED or status == HTTPClient.STATUS_CONNECTION_ERROR:
+			http.close()
+			return {'ok': false, 'error': 'Connection lost during request'}
+		OS.delay_msec(100)
+
+	if http.get_status() != HTTPClient.STATUS_BODY:
+		http.close()
+		return {'ok': false, 'error': 'Timed out waiting for response'}
+
+	var code := http.get_response_code()
+	if code != 200:
+		http.close()
+		return {'ok': false, 'error': 'API returned HTTP ' + str(code)}
+
+	# Read response body
+	var body_bytes := PackedByteArray()
+	while http.get_status() == HTTPClient.STATUS_BODY:
+		var chunk := http.read_response_body_chunk()
+		if chunk.size() > 0:
+			body_bytes.append_array(chunk)
+		else:
+			OS.delay_msec(10)
+	http.close()
+
+	var body_str := body_bytes.get_string_from_utf8()
+	if body_str.is_empty():
+		return {'ok': false, 'error': 'Empty response'}
+
+	var json = JSON.parse_string(body_str)
+	if json == null:
+		return {'ok': false, 'error': 'Failed to parse JSON response'}
+
+	# Extract model names — each provider returns a different shape
+	var model_names: Array = []
+	match provider_id:
+		'ollama':
+			# { models: [{ name: "...", ... }] }
+			var models_arr: Array = json.get('models', [])
+			for m in models_arr:
+				var name = m.get('name', '')
+				if not String(name).is_empty():
+					model_names.append(name)
+		'gemini':
+			# { models: [{ name: "models/gemini-...", ... }] }
+			var models_arr: Array = json.get('models', [])
+			for m in models_arr:
+				var name = String(m.get('name', ''))
+				if name.begins_with('models/'):
+					name = name.substr(7)  # strip "models/" prefix
+				if not name.is_empty():
+					model_names.append(name)
+		'claude':
+			# { data: [{ id: "claude-sonnet-4-5", ... }] }
+			var data_arr: Array = json.get('data', [])
+			for m in data_arr:
+				var name = m.get('id', '')
+				if not String(name).is_empty():
+					model_names.append(name)
+		_:
+			# OpenAI-compatible: { data: [{ id: "gpt-4o", ... }] }
+			var data_arr: Array = json.get('data', [])
+			for m in data_arr:
+				var name = m.get('id', '')
+				if not String(name).is_empty():
+					model_names.append(name)
+
+	# Sort and cache
+	model_names.sort()
+	_save_cached_models(es, provider_id, model_names)
+
+	return {'ok': true, 'models': model_names}
+
+
+# ─── Request Body Builders ──────────────────────────────────────────────────# ─── Request Body Builders ──────────────────────────────────────────────────
 # Each cloud provider has a different JSON format.
 
 ## Build the JSON request body for the given provider.

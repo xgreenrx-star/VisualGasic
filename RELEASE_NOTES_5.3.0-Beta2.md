@@ -170,10 +170,16 @@ The Form Designer, Properties Inspector, and Immediate Window remain **mothballe
 
 ### Linux
 
+**Option 1: AppImage (Recommended)**
 ```bash
-wget https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta2/install.sh
-chmod +x install.sh
-./install.sh
+wget https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta2/VisualGasic-Installer-v5.3.0-Beta2-x86_64.AppImage
+chmod +x VisualGasic-Installer-v5.3.0-Beta2-x86_64.AppImage
+./VisualGasic-Installer-v5.3.0-Beta2-x86_64.AppImage
+```
+
+**Option 2: Bootstrap Script**
+```bash
+curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/scripts/bootstrap_install.sh | bash
 ```
 
 ### Windows

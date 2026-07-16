@@ -1,6 +1,6 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: July 15, 2026  
+**Last Updated**: July 16, 2026  
 **Current Version**: 5.3.0-Beta1 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
 **Current Scope**: M0–M9 milestones (Jul 2026 – Jan 2027 stable release)  
 **Next Cut**: v5.3.0 stable
@@ -1162,7 +1162,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | Gap | Location | Impact | Estimate |
 |-----|----------|--------|----------|
 | 1. `GDAI._provider_map` incomplete | `gdai.gd` | Raw `GDAI` API calls with `provider="deepseek"/"qwen"/"codeium"/"amazonq"` fail silently. AI Pair panel unaffected. | ✅ **Done** — added 4 entries mapping to `gdai_openai_provider.gd` |
-| 2. Static model lists outdate | `vg_ai_providers.gd` `get_providers()` | Hardcoded model arrays go stale as APIs evolve. No way to refresh. | **2h** — add `refresh_models(provider_id)` that fetches live model list from `/v1/models` (OpenAI-compatible) or equivalent endpoint, caches in EditorSettings |
+| 2. Static model lists outdate | `vg_ai_providers.gd` `get_providers()` | Hardcoded model arrays go stale as APIs evolve. No way to refresh. | ✅ **Done** — `refresh_models(provider_id)` implemented: fetches live model list from `/v1/models` (OpenAI-compatible) or equivalent endpoint (Ollama `/api/tags`, Gemini `/v1beta/models`, Claude `/v1/models`), caches in EditorSettings. Includes `_load_cached_models()`/`_save_cached_models()` and auto-applies cached overrides in `get_providers()`. 103/103 tests pass including test 10. |
 | 3. Codeium default model unstable | `vg_ai_providers.gd` line 120 | `default_model = "windsurf-claude-3.5-sonnet"` — Codeium/Windsurf rebrands models frequently. This ID may be stale. | **15 min** — verify current Codeium API model IDs at codeium.com/profile |
 | 4. Amazon Q Bedrock model IDs stale | `vg_ai_providers.gd` line 137 | `default_model = "anthropic.claude-3-5-sonnet-20241022-v2:0"` — AWS Bedrock model IDs change with region and availability. | **15 min** — verify current Bedrock model IDs for the default region |
 | 5. No unit tests for Amazon Q host/port override | `tests/test_narcea_agent_loop.gd` test 9 | The override logic in `get_effective_provider()` exists but isn't covered by a test that actually sets EditorSettings values | ✅ **Done** — added null-safety + idempotency test (headless can't set EditorSettings, so the test verifies the no-override path is stable across repeated calls) |

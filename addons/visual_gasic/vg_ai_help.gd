@@ -1083,6 +1083,14 @@ func _setup_ui() -> void:
 	_style_option_button(_model_dropdown)
 	toolbar.add_child(_model_dropdown)
 
+	# ── Refresh models button ──
+	var _refresh_models_btn := Button.new()
+	_refresh_models_btn.text = "🔄"
+	_refresh_models_btn.tooltip_text = "Refresh model list from provider API"
+	_refresh_models_btn.pressed.connect(_on_refresh_models)
+	_style_small_button(_refresh_models_btn)
+	toolbar.add_child(_refresh_models_btn)
+
 	# ── Models manager button ──
 	_models_btn = Button.new()
 	_models_btn.text = "📥"
@@ -2430,6 +2438,29 @@ func _activate_provider() -> void:
 			_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
 			_append_system("Connected to [color=cyan]%s[/color] — model: [color=cyan]%s[/color]\n" % [_provider_info.display_name, _current_model])
 			ai_panel_ready.emit()
+
+func _on_refresh_models() -> void:
+	"""Refresh the model list from the provider's live API."""
+	if not AIProviders or _provider_id.is_empty():
+		return
+	_append_system("[color=yellow]↻ Fetching available models...[/color]\n")
+	var result: Dictionary = AIProviders.refresh_models(_provider_id)
+	if result.get("ok", false):
+		var models: Array = result.get("models", [])
+		if models.is_empty():
+			_append_system("[color=yellow]No models returned. Using default list.\n[/color]")
+		else:
+			_append_system("[color=green]✓ Loaded " + str(models.size()) + " models[/color]\n")
+			# Refresh the provider info so the dropdown picks up cached models
+			var providers: Array = AIProviders.get_providers()
+			for p in providers:
+				if p.id == _provider_id:
+					_provider_info = p
+					_update_model_dropdown()
+					break
+	else:
+		var err: String = result.get("error", "Unknown error")
+		_append_system("[color=red]✗ Failed to refresh models: " + err + "[/color]\n")
 
 func _on_provider_selected(idx: int) -> void:
 	if not AIProviders:
