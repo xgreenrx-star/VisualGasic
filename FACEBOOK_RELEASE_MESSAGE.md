@@ -1,84 +1,86 @@
-# VisualGasic 5.3.0-beta — Facebook Release Message
+# VisualGasic 5.3.0-Beta2 — Facebook Release Message
 
-## Option 1: Short & Catchy (Engagement-Focused)
-
-🚀 **VisualGasic 5.3.0-beta is here!**
-
-We've squashed 4 critical bugs, validated 44+ examples, and fixed a *major* Python bridge bug that was silently breaking integer types. Your VG scripts now run faster, safer, and with full Python library support (math, json, numpy basics all work).
-
-**Download now:** [github.com/xgreenrx-star/VisualGasic/releases](https://github.com/xgreenrx-star/VisualGasic/releases)
-
-What's your favorite VG feature? Tell us in the comments! 👇
-
-#GameDev #Godot #VisualGasic #BASIC #OpenSource
+Copy-paste ready. Pick the option that fits your page's tone.
 
 ---
 
-## Option 2: Technical & In-Depth (Developer-Focused)
+## Option 1: Short & Catchy (Recommended for main announcement)
 
-🎯 **VisualGasic 5.3.0-beta — Stability Milestone Shipped**
+🚀 **VisualGasic 5.3.0-Beta2 is out!**
 
-**M1–M4 complete. 763/763 tests passing. Python bridge int/float bug fixed.**
+This release fixes a sneaky Python bridge bug that was silently turning every integer into a float (breaking numpy, range(), and more), adds the long-awaited `IsNot` operator, and fixes a ByRef parameter bug. Plus: two new AI providers (Codeium, Amazon Q), a Python/C++ FFI demo pack, and a tribute demo to the 1986 classic *Thrust*.
 
-### What's new:
-✅ `IsNot` operator (full bytecode support)  
-✅ ByRef parameter write-back in expressions  
-✅ 44/44 corpus examples validated  
-✅ **Python bridge int/float decode fix** — Workers now return Python integers with correct type, not silently converted to float. numpy workflows unblocked.  
-✅ Experimental UI Forms (opt-in via settings)  
+763/763 tests passing. Godot 4.6.1. Linux + Windows.
 
-### Known limitation (v6.1 candidate):
-🔴 Outgoing PyCall arguments: VG `Array(0, 5)` sends float → `range()` fails. Workaround: use `CInt(0)`. Full analysis in release notes.
+**Download:** https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta2
 
-**Download:** [GitHub Releases](https://github.com/xgreenrx-star/VisualGasic/releases)  
-**Roadmap:** 5.4-beta Oct 15 (Narcea AI pair), 6.0 stable Jan 1, 2027  
+Coming from GDScript? We wrote a full side-by-side comparison guide — link in the release notes. 👀
 
-Ready to beta test? We need your feedback on Python integration, performance, and edge cases. Join our community! 💬
-
-#Godot #GameDev #OpenSource #BASIC #VisualGasic
+#GameDev #Godot #VisualGasic #BASIC #OpenSource #IndieGames
 
 ---
 
-## Option 3: Community-First (Story-Telling)
+## Option 2: Technical Deep-Dive (For developer audiences)
 
-✨ **VisualGasic 5.3.0-beta is live — Here's what it took**
+🎯 **VisualGasic 5.3.0-Beta2 — Python Bridge Fix, IsNot, ByRef Write-Back**
 
-When we started this journey, we wanted to bring VB6-style BASIC back to indie game dev. Six months later, we've shipped:
+Highlights from this release:
 
-🐛 **4 critical bug fixes** — The most insidious? A Python bridge bug where integer types silently became floats. Fixed it. Took a deep dive into Godot's JSON parser, built a custom decoder, and validated end-to-end with numpy. You can now trust int types across the language boundary.
+✅ **Python bridge int/float bug fixed** — Godot's JSON parser was silently collapsing every number to float. Built a custom decoder that preserves Python's int/float distinction end-to-end. numpy, math, and json workflows are now type-safe.
 
-📚 **44 validated examples** — Every corpus file works. Try them in your project; they're production-ready.
+✅ **`IsNot` operator** — full VB.NET-style negated reference comparison, wired through parser → bytecode compiler → both evaluators.
 
-🛠 **Language stability** — Try/Catch, Lambda, short-circuit operators, ByRef parameters. All bytecode-compiled. No silent interpreter fallback.
+✅ **ByRef write-back fix** — expression-level calls like `result = DoubleAndReturn(val)` now correctly update `val` (previously only worked as a standalone `Call` statement).
 
-🤖 **Experimental AI pair** (Narcea) — Upcoming in Oct. Get early feedback now.
+✅ **New demos** — Python bridge round-trip, C++ FFI custom library (Vec2 math via C ABI), and a full *Thrust* (1986) tribute game showing procedural `_Draw` rendering and tether physics.
 
-**Download 5.3-beta:** [github.com/xgreenrx-star/VisualGasic](https://github.com/xgreenrx-star/VisualGasic)
+✅ **Two new AI providers** — Codeium (Windsurf) and Amazon Q Developer join Ollama/OpenAI/Claude/Gemini in the Narcea AI Pair panel.
 
-**Next:** 6.0 stable on Jan 1, 2027 — full language parity, C++ FFI, production export.
+🔴 **Known issue (documented, not blocking):** outgoing PyCall arguments still lose int type on VG literals — workaround with `CInt()`. Full writeup in the release notes.
 
-If you love retro languages, open-source game dev, or just want to write BASIC in Godot — this is for you. Try it. Feedback welcome! 🚀
+**Download:** https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta2
+**Roadmap:** 5.4-beta Oct 15 (Narcea AI pair), 6.0 stable Jan 1, 2027
 
-#GameDev #Godot #OpenSource #VisualGasic #IndieGames
+We need beta testers on the Python bridge specifically — if you're doing any numpy/data work in VG, please try it and report back. 💬
+
+#Godot #GameDev #OpenSource #BASIC #VisualGasic #PythonIntegration
 
 ---
 
-## Option 4: Minimal & Direct (Quick Share)
+## Option 3: Story-Driven (For building community narrative)
 
-🎉 **VisualGasic 5.3.0-beta — Download Now**
+✨ **VisualGasic 5.3.0-Beta2 is live**
 
-Language stability + Python bridge fix. 763/763 tests passing. 44 examples validated.
+This release started with a bug report that looked simple: "Python integers come back as floats." Turned out the culprit was buried in Godot's own JSON parser — it has no int branch at all, so *every* number from *any* JSON source gets flattened to float. That's been true since Godot's JSON class existed.
 
-Godot game dev just got a lot easier. BASIC is back.
+We wrote a small, self-contained JSON decoder from scratch that mirrors how Python's own `json.loads()` decides int vs. float, and wired it into the two places VG talks to Python workers. Six new tests confirm scalars, negatives, nested dicts, and mixed arrays all round-trip with the right type now.
 
-[Download](https://github.com/xgreenrx-star/VisualGasic/releases) | [Docs](https://github.com/xgreenrx-star/VisualGasic) | [Roadmap](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_SCHEDULE.md)
+While we were in there, we also closed out the `IsNot` operator (`If obj IsNot Nothing Then`) and fixed a ByRef parameter bug that only showed up when you called a function inside an expression instead of as a standalone statement — the kind of bug that hides for months because most code happens to avoid the exact pattern that triggers it.
+
+Also new: two more AI providers for the Narcea AI Pair, a C++ FFI demo showing VG calling a custom C++ math library, and — because we can't resist a good retro tribute — a playable *Thrust* clone (1986) built entirely in VG's procedural drawing API.
+
+**Try it:** https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta2
+
+If you write BASIC, love Godot, or just miss the VB6 era — this is for you. 🎮
+
+#GameDev #Godot #OpenSource #VisualGasic #IndieGames #RetroGaming
+
+---
+
+## Option 4: Minimal (Quick share / cross-post)
+
+🎉 **VisualGasic 5.3.0-Beta2 — download now**
+
+Python bridge int/float bug fixed · `IsNot` operator · ByRef fix · new AI providers · Python/FFI demos · Thrust tribute game.
+
+763/763 tests passing.
+
+[Download](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta2) · [Release Notes](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_5.3.0-Beta2.md) · [Roadmap](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_SCHEDULE.md)
 
 #Godot #GameDev #VisualGasic #OpenSource
 
 ---
 
-**Recommendation:** Use **Option 1** for maximum reach (friendly, action-oriented). Include the release link and ask for engagement. Repost in **2–3 days with Option 3** to tell the technical story and drive deeper interest. Follow up with **Option 2** in comments for developers asking "What's under the hood?"
+**Suggested hashtags (any option):** #GameDev #Godot #VisualGasic #BASIC #OpenSource #IndieGames #GodotEngine
 
-**Hashtags to include:** #GameDev #Godot #VisualGasic #BASIC #OpenSource #IndieGames #GodotEngine
-
-**Best Time to Post:** Tuesday–Thursday, 10am–2pm (peak engagement for dev communities)
+**Best posting window:** Tuesday–Thursday, 10am–2pm local time for dev-community engagement.

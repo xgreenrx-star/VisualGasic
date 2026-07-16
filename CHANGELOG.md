@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.0-Beta2] - 2026-07-15
+
+### 🔧 Fixed — Python Bridge Int/Float Decode (Critical)
+
+- Godot's `JSON::parse_string()` collapses every JSON number to `float` (no int branch exists in Godot's JSON tokenizer). This silently destroyed every Python `int` (numpy int arrays, `range()`, `random.randint`, dict counts) returned from `PyCall`.
+- Fixed via new self-contained recursive-descent decoder `src/python_bridge/vg_json_typed.h/.cpp` that mirrors Python's own `json.loads()` int/float semantics. Wired into both real decode call sites: `send_request_binary()` and `py_call_many()`.
+- Validates int64 bounds textually against `INT64_MAX`/`MIN`; falls back to float with a warning on overflow. Rejects JSON nesting deeper than 64 levels.
+- Verified via `demo/test_python_int_float.vg`: scalar int, negative int, float regression, nested dict/array with mixed types (6/6 assertions pass).
+- **Known limitation (documented, not fixed this release):** outgoing PyCall arguments still lose int type — VG bare numeric literals inside `Array(...)` arrive in Python as `float`. Root cause is VG's own literal tokenizer defaulting untyped numbers to `Double`. Tracked as a v6.1 Polish candidate. Workaround: `CInt(0)` to force integer typing.
+
 ### ✨ Added — `IsNot` Operator (Jul 15, 2026)
 
 - `IsNot` now parses and compiles — negation of `Is` (VB.NET-style reference/type inequality)

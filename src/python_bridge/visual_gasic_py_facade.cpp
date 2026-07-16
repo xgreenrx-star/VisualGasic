@@ -157,7 +157,7 @@ int PyBridgeFacade::platform_read_with_timeout(int fd, uint8_t *buf, size_t len,
         if (!PeekNamedPipe(h, NULL, 0, NULL, &avail, NULL)) return -1;
         if (avail == 0) return -2;
     }
-    DWORD to_read = (DWORD)min((size_t)avail, len);
+    DWORD to_read = (DWORD)std::min((size_t)avail, len);
     DWORD read_count = 0;
     if (!ReadFile(h, buf, to_read, &read_count, NULL)) return -1;
     if (read_count == 0) return -2;
