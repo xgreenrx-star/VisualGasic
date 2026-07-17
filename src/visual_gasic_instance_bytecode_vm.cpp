@@ -671,8 +671,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     auto sync_local_i64 = [&](int slot, int64_t value) {
         if (slot < 0 || slot >= locals.size()) return;
         typed_i64_locals.set(slot, value);
+        // Always keep locals[] in sync for debugger and Variant read_local
+        locals.write[slot] = Variant(value);
         if (slot < chunk->local_types.size() && chunk->local_types[slot] == 1) {
-            // Fast path: only need to sync to variables if needed
             if (needs_var_sync && !isolated_locals) {
                 String name = get_local_name(slot);
                 if (!name.is_empty() && !builtin_constants.has(name)) {
@@ -680,7 +681,6 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
             }
         } else {
-            // Fallback: go through Variant
             sync_local(slot, Variant(value));
         }
     };
