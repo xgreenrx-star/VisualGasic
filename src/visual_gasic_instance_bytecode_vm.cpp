@@ -475,6 +475,29 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         }
     }
 
+    // ── v4.8: Hybrid typed local storage ──────────────────────────────
+    // Parallel typed arrays let us bypass the Variant constructor/destructor
+    // overhead for variables with known compiler types (VT_INT=1, VT_FLOAT=2).
+    // read_local() / sync_local() maintain both views in sync.
+    // ────────────────────────────────────────────────────────────────────
+    PackedInt64Array typed_i64_locals;
+    PackedFloat64Array typed_f64_locals;
+    typed_i64_locals.resize(chunk->local_count);
+    typed_f64_locals.resize(chunk->local_count);
+    for (int i = 0; i < chunk->local_count; i++) {
+        typed_i64_locals.set(i, 0);
+        typed_f64_locals.set(i, 0.0);
+    }
+    // Seed typed locals from initial Variant locals using type info.
+    for (int i = 0; i < chunk->local_count && i < chunk->local_types.size(); i++) {
+        uint8_t lt = chunk->local_types[i];
+        if (lt == 1 && i < locals.size()) {
+            typed_i64_locals.set(i, (int64_t)locals[i]);
+        } else if (lt == 2 && i < locals.size()) {
+            typed_f64_locals.set(i, (double)locals[i]);
+        }
+    }
+
     // Expose the current bytecode frame's locals to the debugger.
     // Saved/restored so nested execute_bytecode() calls (e.g. Function calls)
     // don't clobber the outer frame's pointer on return.
@@ -500,6 +523,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             return;
         }
         locals.write[slot] = value;
+        // ── v4.8: Update typed shadow arrays ───────────────────
+        if (slot < chunk->local_types.size()) {
+            uint8_t lt = chunk->local_types[slot];
+            if (lt == 1) {
+                typed_i64_locals.set(slot, (int64_t)value);
+            } else if (lt == 2) {
+                typed_f64_locals.set(slot, (double)value);
+            }
+        }
         // Fast path: skip the expensive variables[] Dictionary sync
         // when no Whenever callbacks need it (v2.4.1 optimisation).
         // Also skip when running as isolated parallel worker (v4.1).
@@ -513,9 +545,6 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
     auto read_local = [&](int slot) -> Variant {
         if (slot >= 0 && slot < locals.size()) {
-            // Fast path: when no Whenever sections exist or when running
-            // as an isolated parallel worker, skip the expensive
-            // variables[] HashMap lookup entirely (v2.4.1 / v4.1).
             if (!needs_var_sync || isolated_locals) {
                 return locals[slot];
             }
@@ -526,11 +555,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (variables.has(name)) {
                     Variant current = variables[name];
                     locals.write[slot] = current;
+                    if (slot < chunk->local_types.size()) {
+                        uint8_t lt = chunk->local_types[slot];
+                        if (lt == 1) typed_i64_locals.set(slot, (int64_t)current);
+                        else if (lt == 2) typed_f64_locals.set(slot, (double)current);
+                    }
                     return current;
                 }
                 if (builtin_constants.has(name)) {
                     Variant current = builtin_constants[name];
                     locals.write[slot] = current;
+                    if (slot < chunk->local_types.size()) {
+                        uint8_t lt = chunk->local_types[slot];
+                        if (lt == 1) typed_i64_locals.set(slot, (int64_t)current);
+                        else if (lt == 2) typed_f64_locals.set(slot, (double)current);
+                    }
                     return current;
                 }
             }
@@ -602,6 +641,47 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 return ((String)value).to_float();
             default:
                 return (double)value;
+        }
+    };
+
+    // ── v4.8: Fast typed local readers/writers ─────────────────────
+    // Bypass Variant entirely for known-typed locals. These are used
+    // by the typed arithmetic opcodes (OP_INC_LOCAL_I64, etc.) to
+    // avoid the read_local()→to_int() Variant round-trip.
+    auto read_local_i64 = [&](int slot) -> int64_t {
+        if (slot >= 0 && slot < locals.size()) {
+            if ((!needs_var_sync || isolated_locals) && slot < chunk->local_types.size() && chunk->local_types[slot] == 1) {
+                return typed_i64_locals[slot];
+            }
+            // Fallback: use Variant path
+            return to_int(read_local(slot));
+        }
+        return 0;
+    };
+    auto read_local_f64 = [&](int slot) -> double {
+        if (slot >= 0 && slot < locals.size()) {
+            if ((!needs_var_sync || isolated_locals) && slot < chunk->local_types.size() && chunk->local_types[slot] == 2) {
+                return typed_f64_locals[slot];
+            }
+            return to_double(read_local(slot));
+        }
+        return 0.0;
+    };
+    // Direct typed write that also updates the shadow array
+    auto sync_local_i64 = [&](int slot, int64_t value) {
+        if (slot < 0 || slot >= locals.size()) return;
+        typed_i64_locals.set(slot, value);
+        if (slot < chunk->local_types.size() && chunk->local_types[slot] == 1) {
+            // Fast path: only need to sync to variables if needed
+            if (needs_var_sync && !isolated_locals) {
+                String name = get_local_name(slot);
+                if (!name.is_empty() && !builtin_constants.has(name)) {
+                    variables[name] = Variant(value);
+                }
+            }
+        } else {
+            // Fallback: go through Variant
+            sync_local(slot, Variant(value));
         }
     };
 
@@ -2006,9 +2086,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
-                int64_t b = to_int(pop_value());
-                int64_t a = to_int(pop_value());
-                push_value((int64_t)(a + b));
+                // Direct int64 extraction avoids to_int() type-switch overhead.
+                // The compiler only emits OP_ADD_I64 when both operands are INT.
+                if (vm.stack.size() >= 2) {
+                    const Variant &bv = vm.stack[vm.stack.size() - 1];
+                    const Variant &av = vm.stack[vm.stack.size() - 2];
+                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
+                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    vm.stack.pop_back();
+                    vm.stack.pop_back();
+                    push_value((int64_t)(a + b));
+                } else {
+                    success = false;
+                    goto cleanup;
+                }
                 break;
             }
             VG_CASE(vg_op_sub_i64, OP_SUB_I64): {
@@ -2016,9 +2107,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
-                int64_t b = to_int(pop_value());
-                int64_t a = to_int(pop_value());
-                push_value((int64_t)(a - b));
+                if (vm.stack.size() >= 2) {
+                    const Variant &bv = vm.stack[vm.stack.size() - 1];
+                    const Variant &av = vm.stack[vm.stack.size() - 2];
+                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
+                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    vm.stack.pop_back();
+                    vm.stack.pop_back();
+                    push_value((int64_t)(a - b));
+                } else {
+                    success = false;
+                    goto cleanup;
+                }
                 break;
             }
             VG_CASE(vg_op_mul_i64, OP_MUL_I64): {
@@ -2026,9 +2126,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
-                int64_t b = to_int(pop_value());
-                int64_t a = to_int(pop_value());
-                push_value((int64_t)(a * b));
+                if (vm.stack.size() >= 2) {
+                    const Variant &bv = vm.stack[vm.stack.size() - 1];
+                    const Variant &av = vm.stack[vm.stack.size() - 2];
+                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
+                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    vm.stack.pop_back();
+                    vm.stack.pop_back();
+                    push_value((int64_t)(a * b));
+                } else {
+                    success = false;
+                    goto cleanup;
+                }
                 break;
             }
             VG_CASE(vg_op_add_f64, OP_ADD_F64): {
@@ -2146,8 +2255,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int idx = read_const_index();
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 pop_value(); // discard literal operand on stack
-                int64_t a = to_int(pop_value());
-                int64_t c = to_int(read_constant(idx));
+                int64_t a;
+                {
+                    const Variant &av = vm.stack[vm.stack.size() - 1];
+                    a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    vm.stack.pop_back();
+                }
+                int64_t c;
+                {
+                    const Variant &cv = read_constant(idx);
+                    c = (cv.get_type() == Variant::INT) ? (int64_t)cv : (int64_t)((double)cv);
+                }
                 push_value((int64_t)(a + c));
                 break;
             }
@@ -2156,8 +2274,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int idx = read_const_index();
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 pop_value();
-                int64_t a = to_int(pop_value());
-                int64_t c = to_int(read_constant(idx));
+                int64_t a;
+                {
+                    const Variant &av = vm.stack[vm.stack.size() - 1];
+                    a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    vm.stack.pop_back();
+                }
+                int64_t c;
+                {
+                    const Variant &cv = read_constant(idx);
+                    c = (cv.get_type() == Variant::INT) ? (int64_t)cv : (int64_t)((double)cv);
+                }
                 push_value((int64_t)(a - c));
                 break;
             }
@@ -2166,8 +2293,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int idx = read_const_index();
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 pop_value();
-                int64_t a = to_int(pop_value());
-                int64_t c = to_int(read_constant(idx));
+                int64_t a;
+                {
+                    const Variant &av = vm.stack[vm.stack.size() - 1];
+                    a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    vm.stack.pop_back();
+                }
+                int64_t c;
+                {
+                    const Variant &cv = read_constant(idx);
+                    c = (cv.get_type() == Variant::INT) ? (int64_t)cv : (int64_t)((double)cv);
+                }
                 push_value((int64_t)(a * c));
                 break;
             }
@@ -2175,40 +2311,40 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
                 int64_t delta = to_int(pop_value());
-                int64_t base = to_int(read_local(slot));
+                int64_t base = read_local_i64(slot);
                 int64_t result = base + delta;
-                sync_local(slot, (int64_t)result);
+                sync_local_i64(slot, result);
                 break;
             }
             VG_CASE(vg_op_sub_local_i64_stack, OP_SUB_LOCAL_I64_STACK): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
                 int64_t delta = to_int(pop_value());
-                int64_t base = to_int(read_local(slot));
-                sync_local(slot, (int64_t)(base - delta));
+                int64_t base = read_local_i64(slot);
+                sync_local_i64(slot, base - delta);
                 break;
             }
             VG_CASE(vg_op_add_local_i64_const, OP_ADD_LOCAL_I64_CONST): {
                 if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
                 int idx = read_const_index();
-                int64_t base = to_int(read_local(slot));
-                sync_local(slot, (int64_t)(base + to_int(read_constant(idx))));
+                int64_t base = read_local_i64(slot);
+                sync_local_i64(slot, base + to_int(read_constant(idx)));
                 break;
             }
             VG_CASE(vg_op_sub_local_i64_const, OP_SUB_LOCAL_I64_CONST): {
                 if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
                 int idx = read_const_index();
-                int64_t base = to_int(read_local(slot));
-                sync_local(slot, (int64_t)(base - to_int(read_constant(idx))));
+                int64_t base = read_local_i64(slot);
+                sync_local_i64(slot, base - to_int(read_constant(idx)));
                 break;
             }
             VG_CASE(vg_op_inc_local_i64, OP_INC_LOCAL_I64): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
-                int64_t base = to_int(read_local(slot));
-                sync_local(slot, (int64_t)(base + 1));
+                int64_t base = read_local_i64(slot);
+                sync_local_i64(slot, base + 1);
                 break;
             }
             VG_CASE(vg_op_accum_i64_muladd_const, OP_ACCUM_I64_MULADD_CONST): {
@@ -2218,10 +2354,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t s_slot = code[vm.ip++];
                 uint8_t j_slot = code[vm.ip++];
                 int k_idx  = read_const_index();
-                int64_t s_val = to_int(read_local(s_slot));
-                int64_t j_val = to_int(read_local(j_slot));
+                int64_t s_val = read_local_i64(s_slot);
+                int64_t j_val = read_local_i64(j_slot);
                 int64_t k_val = to_int(read_constant(k_idx));
-                sync_local(s_slot, (int64_t)(s_val + j_val * k_val));
+                sync_local_i64(s_slot, s_val + j_val * k_val);
                 break;
             }
             VG_CASE(vg_op_arith_sum, OP_ARITH_SUM): {
@@ -2320,23 +2456,41 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             VG_CASE(vg_op_equal_i64, OP_EQUAL_I64): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
-                int64_t b = to_int(pop_value());
-                int64_t a = to_int(pop_value());
-                push_value(a == b);
+                if (vm.stack.size() >= 2) {
+                    const Variant &bv = vm.stack[vm.stack.size() - 1];
+                    const Variant &av = vm.stack[vm.stack.size() - 2];
+                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
+                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    vm.stack.pop_back();
+                    vm.stack.pop_back();
+                    push_value(a == b);
+                } else { success = false; goto cleanup; }
                 break;
             }
             VG_CASE(vg_op_not_equal_i64, OP_NOT_EQUAL_I64): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
-                int64_t b = to_int(pop_value());
-                int64_t a = to_int(pop_value());
-                push_value(a != b);
+                if (vm.stack.size() >= 2) {
+                    const Variant &bv = vm.stack[vm.stack.size() - 1];
+                    const Variant &av = vm.stack[vm.stack.size() - 2];
+                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
+                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    vm.stack.pop_back();
+                    vm.stack.pop_back();
+                    push_value(a != b);
+                } else { success = false; goto cleanup; }
                 break;
             }
             VG_CASE(vg_op_less_equal_i64, OP_LESS_EQUAL_I64): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
-                int64_t b = to_int(pop_value());
-                int64_t a = to_int(pop_value());
-                push_value(a <= b);
+                if (vm.stack.size() >= 2) {
+                    const Variant &bv = vm.stack[vm.stack.size() - 1];
+                    const Variant &av = vm.stack[vm.stack.size() - 2];
+                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
+                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    vm.stack.pop_back();
+                    vm.stack.pop_back();
+                    push_value(a <= b);
+                } else { success = false; goto cleanup; }
                 break;
             }
             VG_CASE(vg_op_not, OP_NOT): {
