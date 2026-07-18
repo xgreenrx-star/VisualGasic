@@ -1262,67 +1262,57 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 
 ---
 
-## 🎵 v6.5+ Long-term Plugin — VG Music Studio (Post-Stable)
+## 🎵 v6.5+ Audio DSP Capabilities — Professional Audio Tool Features (Post-Stable)
 
-**Status:** Research / Concept | **Timeline:** v6.5+ (Feb 2027+) | **Scope:** Production-grade digital audio workstation (DAW) / music creation plugin
+**Status:** Research / Capability Planning | **Timeline:** v6.5+ (Feb 2027+) | **Scope:** Low-level audio synthesis and effects library for users building professional audio tools (DAWs, synthesizers, trackers)
 
-### Vision
+### Rationale
 
-Build a **VG Music Studio** Godot plugin: a GarageBand/Ableton-inspired DAW that showcases VG's UI capabilities (Forms Designer) combined with C++ real-time audio DSP. This differentiates Godot's ecosystem and demonstrates VG's suitability for professional tools, not just games.
+Users interested in building FL Studio-like DAWs, synthesizers, or music production plugins should have battle-tested, low-latency audio DSP primitives available in VG. This opens the door for community-built professional audio tools without committing VG to shipping a specific DAW implementation. Developers can focus on UI (Forms Designer) + business logic (VG), while VG provides the audio math.
 
-### Architecture (Hybrid VG + C++)
+### Audio DSP Feature Set
 
-| Component | Language | Responsibility |
-|-----------|----------|-----------------|
-| **Synthesis Engine** | C++ (GDExtension) | Low-latency oscillators, ADSR envelopes, Butterworth filters, Freeverb reverb, delay effects, master limiter. Single-threaded audio thread. |
-| **UI + Sequencing Logic** | VG | Piano roll, mixer panel, pattern editor, arrangement view, MIDI mapping, undo/redo command system, session persistence. Built with Form Designer. |
-| **Glue Layer** | VG ↔ C++ | VG callbacks → C++ DSP parameters (frequency, amplitude, filter cutoff). C++ audio thread → VG UI thread for visualization (VU meters, spectrum analyzer). |
-| **MIDI I/O** | VG + Godot | Keyboard input mapping, USB MIDI controller support via Godot's Input system. |
-| **Audio I/O** | Godot | Godot's native AudioStreamPlayer + AudioStreamGenerator for playback. WAV export via Godot's AudioStream API. |
+| Capability | Current State | v6.5+ Goal | Use Cases |
+|------------|---------------|-----------|-----------|
+| **Oscillator Library** | SoundGen provides basic sine/square/sawtooth/triangle/noise | Extend: band-limited wavetables, PWM duty cycle, phase distortion, sub-oscillator stacking | Synthesizer cores, chiptune trackers |
+| **ADSR Envelopes** | ❌ Not in VG | Add VG API: `Envelope.Create(A, D, S, R)`, `Envelope.Process(env, trigger)` returns 0–1 amplitude. Multi-envelope support (pitch, filter, amplitude). | Synth dynamics, drum synthesis, expressive control |
+| **Low-Pass Filter (IIR)** | ❌ Not in VG | Add C++ GDExtension: Butterworth / Moog ladder filter. VG wrapper: `Filter.Create(cutoff, resonance)`, `Filter.Process(sample)`. State-variable design for stability. | Synth character, subtractive synthesis, audio cleanup |
+| **Effects: Reverb** | ❌ Not in VG | Add Freeverb algorithm (public domain). VG API: `Reverb.Create(room_size, damping)`, `Reverb.Process(L, R)`. | Spatial ambience, professional polish |
+| **Effects: Delay** | ❌ Not in VG | Add circular buffer delay line. VG API: `Delay.Create(max_ms)`, `Delay.PushSample(s)`, `Delay.GetSample(ms)`. Feedback control. | Chorus, echo, tempo-synced repeats |
+| **Effects: Compressor** | ❌ Not in VG | Add fast-attack compressor. VG API: `Compressor.Create(threshold, ratio, attack, release)`, `Compressor.Process(sample)` returns compressed sample. | Leveling, punch control, mastering chain |
+| **Wave Table Editor** | ❌ Not in VG | VG UI (Forms Designer) for drawing custom waveforms, FFT analysis, import/export. Generate optimized lookup tables. | Sound design, custom instrument creation |
+| **MIDI Controller Mapping** | ❌ Not in VG | VG wrapper for Godot's Input system: `MIDI.GetCC(channel, cc_num)`, `MIDI.GetNote(channel)`, `MIDI.GetVelocity()`. Mapping UI. | Real-time performance, hardware integration |
+| **Audio Recording (WAV capture)** | ⚠️ Partial (SoundGen output only) | Extend: record raw PCM to Ring Buffer, export as WAV on-demand. Metadata support (sample rate, bit depth). | Session capture, loop recording, undo buffer |
+| **Real-time Spectrum Analyzer** | ❌ Not in VG | Add FFT (radix-2 or radix-4). VG visualization wrapper for frequency bins. Optional: peak hold, smoothing. | Visual feedback, mastering reference |
+| **Polyphonic Voice Manager** | ❌ Not in VG (SoundGen is monolithic) | Add note-on/note-off scheduling, voice allocation (round-robin or LRU), per-voice state (pitch, ADSR, filter). VG API: `Synth.NoteOn(pitch, velocity)`, `Synth.NoteOff(pitch)`, `Synth.Process()`. | Multi-note instruments, drum machines, polyphonic synths |
 
-### Implementation Tiers
+### Implementation Notes
 
-| Tier | Features | Timeline | Deliverable | Scope |
-|------|----------|----------|-------------|-------|
-| **Tier 1: Chiptune Tracker** | 4-voice synthesizer (sine/square/sawtooth/noise), ADSR envelopes, 16-step sequencer UI, pattern chaining, MIDI keyboard input, WAV export | 4-6 weeks | Playable 8-bit music tracker, all VG + minimal C++ | Retro aesthetic, proof-of-concept |
-| **Tier 2: Multi-Track DAW** | 8-track mixer, piano roll editor with snap/quantize, Freeverb reverb, simple delay effect, clip-based arrangement view, drag-and-drop UI, undo/redo, JSON save/load | 8-12 weeks | Production-ready multi-track sequencer for game music, chiptune, ambient | Feature-complete for indie game composers |
-| **Tier 3: Advanced DAW** | 16+ synth modules, master EQ, compression, limiter, automation curves on all parameters, VST/AU plugin hosting (optional, ambitious) | 16+ weeks | Professional-grade DAW competitor | Out of scope for v6.5; research v7.0+ |
+- **All DSP in C++**: Audio thread safety, low-latency, no GDScript → C++ call overhead per sample.
+- **VG Wrappers**: Each DSP component exposed as simple VG API (open handle, push/pull data, close). Data flows: VG UI → C++ parameters, C++ audio output → VG visualization.
+- **Test Suite**: Regression tests for filter stability (extreme frequencies), envelope timing precision (ms-accurate), effect clarity.
+- **Platform-Specific**: Validate on Linux (ALSA), Windows (WinMM + WASAPI), macOS (CoreAudio) for latency and jitter.
 
-### Why Now? (Post-v6.0 Rationale)
+### Expected Outcomes
 
-1. **Unlocks M8 C++ Interop**: Demonstrates full two-way VG ↔ C++ binding (M8 milestone goal). Proves VG can author professional desktop tools, not just games.
-2. **Showcases Form Designer**: Piano roll, mixer, timeline UIs are ideal test cases for UI Forms architecture and performance.
-3. **Validates Audio Pipeline**: SoundGen API gets real-world stress test; identifies missing audio capabilities before v6.1/v7.0.
-4. **Godot Ecosystem Opportunity**: Godot lacks a native DAW. A high-quality VG-built music plugin positions it as serious alternative to Pro Tools/Ableton for game audio.
-5. **Attracts Composers**: Differentiates VG as "language for building tools," not just "language for games."
-6. **V6.1 Performance Wins**: Benefits from Packed Arrays (v6.1) optimization if Tier 2 UI rendering becomes bottleneck.
+Users can build:
+- **Synthesizers**: Polyphonic synths with ADSR, filters, effects
+- **DAWs / Multi-track Sequencers**: Mixer UI, plugin-like synth instances, FX chains
+- **Drum Machines**: Step sequencer, sound design, MIDI triggering
+- **Audio Visualizers**: Real-time spectrum, waveform rendering, VU meters
+- **Chiptune Trackers**: 4-8 voice sequencer with retro synth sound
 
-### Success Criteria
+### Roadmap Integration
 
-- **Tier 1**: Users can compose a full chiptune song (melody + drum track) in <1 hour; export WAV; play in game.
-- **Tier 2**: Professional indie game composers choose VG Music Studio over external DAWs for quick game music iteration.
-- **Tier 3**: (Future) Serves as VG proof-of-concept for general professional software (not games), attracting new language audience.
+- **v6.5 (Feb–Apr 2027)**: ADSR envelopes, low-pass filter, Freeverb reverb. First-pass testing. `demos/audio_dsp/` example library.
+- **v6.6+ (May 2027+)**: Delay, compressor, wave table editor, MIDI mapping, spectrum analyzer, polyphonic voice manager.
+- **v7.0+ (Q3 2027+)**: Advanced effects (chorus, distortion, granular), modulation matrix, preset system.
 
-### Known Gaps to Address Pre-Development
+### Non-Commitments
 
-1. **Audio latency**: Godot's audio callback latency (typically 15-30ms) acceptable for tracker/sequencer, but test with USB MIDI controllers to confirm no perceptible lag.
-2. **Real-time filter stability**: Butterworth IIR filters can be numerically unstable at extreme frequencies; choose implementation carefully (double-precision, frequency warping).
-3. **Undo/Redo scope**: Commands must serialize full synth state (oscillator waveforms, envelope params, filter settings). VG transaction system needed.
-4. **Form Designer scalability**: Piano roll with 1000+ notes visible on screen. Requires efficient grid rendering (vertex batching, or Godot Rect2D culling).
-5. **MIDI controller mapping**: Broad USB MIDI support; test on Linux (ALSA), Windows (WinMM), macOS (CoreAudio) before release.
-
-### Proposed Roadmap Integration
-
-- **v6.0 stable (Jan 2027)**: Language freeze. C++ Interop (M8) shipped.
-- **v6.1 (Jan–Feb 2027)**: Packed Arrays, String Arena optimizations. Early Tier 1 tracker prototype in `demos/VG_Music_Studio/` (as tech demo, not official plugin).
-- **v6.5 (Apr–Jun 2027)**: Tier 1 complete (chiptune tracker ready for Asset Library). C++ DSP library extracted as reusable GDExtension for other developers.
-- **v7.0+ (Q3 2027)**: Tier 2+ (multi-track DAW, advanced features). Possible VST hosting research.
-
-### Repository & Release Strategy
-
-- **Repo**: Separate `vg-music-studio` public repo (mirrored from main VisualGasic). Standalone Godot plugin, independent release cycle from core VG.
-- **Asset Library**: Submit Tier 1 as "VG Music Studio — Chiptune Tracker" v0.1 (Q2 2027). Regular updates drive Godot community engagement.
-- **Documentation**: Tutorial video (5-10 min), interactive demo project, and deep-dive blog post on "Writing Professional Audio Tools in VG."
+- VG will **not ship** an official FL Studio clone DAW plugin.
+- Community is free to build one (or many) using these primitives; VG will highlight excellent third-party tools in docs/showcase.
+- VG core focus: language quality + Godot IDE integration. Audio DSP library is a capability, not a product.
 
 ---
 
