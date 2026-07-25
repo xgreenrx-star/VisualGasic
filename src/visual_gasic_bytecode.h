@@ -224,6 +224,29 @@ enum OpCode {
     // Callable creation (v5.0.1)
     OP_ADDRESS_OF,     // [OP] - Pop method name string, push Callable(owner, name)
 
+    // MemoryBuffer (v5.0 — M5: Buffer Type)
+    // Fast direct-access byte buffer stored in a local variable slot.
+    // The buffer is a PackedByteArray held in the locals[] Variant slot.
+    // These opcodes access the raw data without Variant refcount/overhead.
+    OP_BUF_ALLOC,       // [OP] [SLOT_IDX]       — Allocate: pop size (int64), create PackedByteArray, store in locals[slot]
+    OP_BUF_FREE,        // [OP] [SLOT_IDX]       — Free: set locals[slot] to Variant()
+    OP_BUF_READ8,       // [OP] [SLOT_IDX]       — Read byte: pop offset (int64), push buf[offset] as int64
+    OP_BUF_WRITE8,      // [OP] [SLOT_IDX]       — Write byte: pop value (int64), pop offset (int64), buf[offset] = (uint8_t)value
+    OP_BUF_READ16,      // [OP] [SLOT_IDX]       — Read 16-bit LE word
+    OP_BUF_WRITE16,     // [OP] [SLOT_IDX]       — Write 16-bit LE word
+    OP_BUF_READ32,      // [OP] [SLOT_IDX]       — Read 32-bit LE dword
+    OP_BUF_WRITE32,     // [OP] [SLOT_IDX]       — Write 32-bit LE dword
+    OP_BUF_SIZE,        // [OP] [SLOT_IDX]       — Push buf.size()
+    OP_BUF_RESIZE,      // [OP] [SLOT_IDX]       — Pop new_size, buf.resize(new_size)
+
+    // Optimization Hints (v6.0 — M6: Hint Attributes)
+    // These are markers that the compiler uses internally; they do not
+    // execute anything at runtime. They tell the optimizer to recognize
+    // a loop pattern even if the structure doesn't match exactly.
+    OP_HINT_ACCUMULATOR,  // [OP] [SLOT_IDX]     — Mark locals[slot] as a loop accumulator (int64 sum pattern)
+    OP_HINT_LOOP_COUNTER,  // [OP] [SLOT_IDX]    — Mark locals[slot] as a loop counter (0→N-1 with Step 1)
+    OP_HINT_PURE_CALL,    // [OP] [FUNC_IDX]     — Mark function call as pure (no side effects, foldable)
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 

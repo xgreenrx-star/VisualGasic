@@ -544,6 +544,10 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
                 else if (t == "array") {
                     array_vars.insert(s->variable_name.to_lower());
                 }
+                // M5: MemoryBuffer type — fast byte buffer stored as PackedByteArray
+                else if (t == "memorybuffer" || t == "buffer") {
+                    buffer_vars.insert(s->variable_name.to_lower());
+                }
                 get_or_add_local(s->variable_name, vt);
                 if (vt != VT_UNKNOWN) {
                     typed_locals.insert(s->variable_name.to_lower());
@@ -1107,6 +1111,10 @@ bool VisualGasicCompiler::is_trusted_dictionary_var(const String &name) const {
 
 bool VisualGasicCompiler::is_sole_owner_dict_var(const String &name) const {
     return sole_owner_dict_vars.has(name.to_lower());
+}
+
+bool VisualGasicCompiler::is_buffer_var(const String &name) const {
+    return buffer_vars.has(name.to_lower());
 }
 
 // ── Sole-ownership escape analysis helpers ──────────────────────────
@@ -3101,6 +3109,30 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 // Handle simple initializers that we can compile
                 if (s->initializer->type == ExpressionNode::NEW) {
                     NewNode* n = (NewNode*)s->initializer;
+                    // M5: Dim buf As New MemoryBuffer(size) → OP_BUF_ALLOC
+                    if (n->class_name.nocasecmp_to("MemoryBuffer") == 0 || n->class_name.nocasecmp_to("Buffer") == 0) {
+                        if (n->args.size() >= 1) {
+                            compile_expression(n->args[0]);  // size on stack
+                        } else {
+                            emit_byte(OP_CONSTANT);
+                            emit_const_index(current_chunk->add_constant(Variant((int64_t)0)));
+                        }
+                        int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
+                        if (slot >= 0) {
+                            buffer_vars.insert(s->variable_name.to_lower());
+                            emit_bytes(OP_BUF_ALLOC, (uint8_t)slot);
+                        } else {
+                            // Fallback: use OP_NEW_OBJECT for global buffer
+                            int name_idx = current_chunk->add_constant(n->class_name);
+                            emit_byte(OP_NEW_OBJECT);
+                            emit_const_index(name_idx);
+                            emit_byte(1);
+                            int gidx = current_chunk->add_constant(s->variable_name);
+                            emit_byte(OP_SET_GLOBAL);
+                            emit_const_index(gidx);
+                        }
+                        break;
+                    }
                     if (n->class_name.nocasecmp_to("Dictionary") == 0 && n->args.size() == 0) {
                         // Dim d As New Dictionary → OP_NEW_DICT + store
                         emit_byte(OP_NEW_DICT);
@@ -3421,6 +3453,17 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                          compile_expression(aa->indices[0]);
                          compile_expression(s->value);
                          emit_bytes(OP_SET_VGDICT_LOCAL, (uint8_t)slot);
+                         break;
+                     }
+                 }
+                 // ── M5: MemoryBuffer path ──
+                 // buf(offset) = value → BUF_WRITE8 [slot] (no stack base push/pop)
+                 if (is_buffer_var(v->name)) {
+                     int bslot = get_or_add_local(v->name, VT_UNKNOWN);
+                     if (bslot >= 0) {
+                         compile_expression(aa->indices[0]);  // offset
+                         compile_expression(s->value);        // value
+                         emit_bytes(OP_BUF_WRITE8, (uint8_t)bslot);
                          break;
                      }
                  }
@@ -6724,6 +6767,17 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             if (aa->indices.size() != 1) {
                 compile_ok = false;
                 break;
+            }
+            // ── M5: MemoryBuffer READ fast path ──
+            // buf(offset) → OP_BUF_READ8 [slot] (no stack base push)
+            if (aa->base && aa->base->type == ExpressionNode::VARIABLE &&
+                is_buffer_var(((VariableNode*)aa->base)->name)) {
+                int bslot = get_or_add_local(((VariableNode*)aa->base)->name, VT_UNKNOWN);
+                if (bslot >= 0) {
+                    compile_expression(aa->indices[0]);  // push offset only
+                    emit_bytes(OP_BUF_READ8, (uint8_t)bslot);
+                    break;
+                }
             }
             // ── Sole-owner VGDict GET fast path ──
             if (aa->base && aa->base->type == ExpressionNode::VARIABLE &&

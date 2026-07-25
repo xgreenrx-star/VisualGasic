@@ -844,6 +844,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_ITER_ARRAY:
                     case OP_NEW_ARRAY: case OP_NEW_ARRAY_I64:
                     case OP_GOSUB: case OP_PRINT_FILE:
+                    // M5: MemoryBuffer opcodes (opcode + slot)
+                    case OP_BUF_ALLOC: case OP_BUF_FREE:
+                    case OP_BUF_READ8: case OP_BUF_WRITE8:
+                    case OP_BUF_READ16: case OP_BUF_WRITE16:
+                    case OP_BUF_READ32: case OP_BUF_WRITE32:
+                    case OP_BUF_SIZE: case OP_BUF_RESIZE:
+                    // M6: Optimization hints (opcode + slot/idx)
+                    case OP_HINT_ACCUMULATOR: case OP_HINT_LOOP_COUNTER:
+                    case OP_HINT_PURE_CALL:
                         scan_ip += 1; break;
                     // 1-operand opcodes: 2-byte const pool index
                     case OP_CONSTANT: case OP_CONSTANT_LONG:
@@ -1257,6 +1266,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         // Event system (v3.5.0)
         dispatch_table[OP_RAISE_EVENT]        = &&vg_op_raise_event;
         dispatch_table[OP_ADDRESS_OF]         = &&vg_op_address_of;
+        // M5: MemoryBuffer (v5.0)
+        dispatch_table[OP_BUF_ALLOC]      = &&vg_op_buf_alloc;
+        dispatch_table[OP_BUF_FREE]       = &&vg_op_buf_free;
+        dispatch_table[OP_BUF_READ8]      = &&vg_op_buf_read8;
+        dispatch_table[OP_BUF_WRITE8]     = &&vg_op_buf_write8;
+        dispatch_table[OP_BUF_READ16]     = &&vg_op_buf_read16;
+        dispatch_table[OP_BUF_WRITE16]    = &&vg_op_buf_write16;
+        dispatch_table[OP_BUF_READ32]     = &&vg_op_buf_read32;
+        dispatch_table[OP_BUF_WRITE32]    = &&vg_op_buf_write32;
+        dispatch_table[OP_BUF_SIZE]       = &&vg_op_buf_size;
+        dispatch_table[OP_BUF_RESIZE]     = &&vg_op_buf_resize;
+        // M6: Optimization Hints (v6.0)
+        dispatch_table[OP_HINT_ACCUMULATOR] = &&vg_op_hint_accum;
+        dispatch_table[OP_HINT_LOOP_COUNTER] = &&vg_op_hint_counter;
+        dispatch_table[OP_HINT_PURE_CALL]    = &&vg_op_hint_pure;
         dispatch_table_init = true;
     }
 
@@ -3266,6 +3290,22 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                     } else if (ok) {
                         arr[idx] = (double)value;
+                        updated = arr;
+                    }
+                } else if (base.get_type() == Variant::PACKED_BYTE_ARRAY && arg_count == 1) {
+                    PackedByteArray arr = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_SET_ARRAY_UNCHECKED) {
+                            ok = false;
+                        } else {
+                            raise_error("Array subscript out of range", 9);
+                            if (try_recover_error(base)) break;
+                            success = false;
+                            goto cleanup;
+                        }
+                    } else if (ok) {
+                        arr.set(idx, (uint8_t)to_int(value));
                         updated = arr;
                     }
                 } else {
@@ -6735,6 +6775,210 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     UtilityFunctions::printerr("VisualGasic: AddressOf requires an owner object");
                     push_value(Variant());
                 }
+                VG_BREAK;
+            }
+
+            // ── M5: MemoryBuffer opcodes ──────────────────────────────────
+            // Each accesses a PackedByteArray stored in a local slot,
+            // performing direct byte/word/dword reads/writes without
+            // the Variant overhead of OP_GET_ARRAY / OP_SET_ARRAY.
+            // ───────────────────────────────────────────────────────────────
+
+            // OP_BUF_ALLOC [SLOT]  — pop size, create PackedByteArray, store in locals[slot]
+            VG_CASE(vg_op_buf_alloc, OP_BUF_ALLOC): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t size = to_int(pop_value());
+                if (size < 0) size = 0;
+                if (slot >= locals.size()) {
+                    raise_error("OP_BUF_ALLOC: slot out of range");
+                    if (try_recover_error(Variant())) break;
+                    success = false; goto cleanup;
+                }
+                PackedByteArray buf;
+                buf.resize((int)size);
+                // Zero-fill
+                for (int i = 0; i < buf.size(); i++) buf.set(i, 0);
+                sync_local(slot, Variant(buf));
+                VG_BREAK;
+            }
+
+            // OP_BUF_FREE [SLOT]  — free buffer, set locals[slot] = nil
+            VG_CASE(vg_op_buf_free, OP_BUF_FREE): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (slot < locals.size()) {
+                    sync_local(slot, Variant());
+                }
+                VG_BREAK;
+            }
+
+            // OP_BUF_READ8 [SLOT]  — pop offset, push byte as int64
+            VG_CASE(vg_op_buf_read8, OP_BUF_READ8): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t offset = to_int(pop_value());
+                if (slot >= locals.size()) {
+                    push_value((int64_t)0);
+                    VG_BREAK;
+                }
+                Variant &var = locals.write[slot];
+                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) {
+                    push_value((int64_t)0);
+                    VG_BREAK;
+                }
+                PackedByteArray buf = var;
+                if (offset >= 0 && offset < buf.size()) {
+                    push_value((int64_t)(uint8_t)buf[offset]);
+                } else {
+                    push_value((int64_t)0);
+                }
+                VG_BREAK;
+            }
+
+            // OP_BUF_WRITE8 [SLOT]  — pop value, pop offset, buf[offset] = (uint8_t)value
+            VG_CASE(vg_op_buf_write8, OP_BUF_WRITE8): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                int64_t value = to_int(pop_value());
+                int64_t offset = to_int(pop_value());
+                if (slot >= locals.size()) { VG_BREAK; }
+                Variant &var = locals.write[slot];
+                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) { VG_BREAK; }
+                PackedByteArray buf = var;
+                if (offset >= 0 && offset < buf.size()) {
+                    buf.set((int)offset, (uint8_t)(value & 0xFF));
+                    sync_local(slot, Variant(buf));
+                }
+                VG_BREAK;
+            }
+
+            // OP_BUF_READ16 [SLOT]  — pop offset, push 16-bit LE word as int64
+            VG_CASE(vg_op_buf_read16, OP_BUF_READ16): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t offset = to_int(pop_value());
+                if (slot >= locals.size()) { push_value((int64_t)0); VG_BREAK; }
+                Variant &var = locals.write[slot];
+                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) { push_value((int64_t)0); VG_BREAK; }
+                PackedByteArray buf = var;
+                if (offset >= 0 && offset + 1 < buf.size()) {
+                    uint16_t word = (uint8_t)buf[offset] | ((uint16_t)(uint8_t)buf[offset + 1] << 8);
+                    push_value((int64_t)word);
+                } else {
+                    push_value((int64_t)0);
+                }
+                VG_BREAK;
+            }
+
+            // OP_BUF_WRITE16 [SLOT]  — pop value, pop offset, write 16-bit LE
+            VG_CASE(vg_op_buf_write16, OP_BUF_WRITE16): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                int64_t value = to_int(pop_value());
+                int64_t offset = to_int(pop_value());
+                if (slot >= locals.size()) { VG_BREAK; }
+                Variant &var = locals.write[slot];
+                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) { VG_BREAK; }
+                PackedByteArray buf = var;
+                if (offset >= 0 && offset + 1 < buf.size()) {
+                    buf.set((int)offset, (uint8_t)(value & 0xFF));
+                    buf.set((int)(offset + 1), (uint8_t)((value >> 8) & 0xFF));
+                    sync_local(slot, Variant(buf));
+                }
+                VG_BREAK;
+            }
+
+            // OP_BUF_READ32 [SLOT]  — pop offset, push 32-bit LE dword as int64
+            VG_CASE(vg_op_buf_read32, OP_BUF_READ32): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t offset = to_int(pop_value());
+                if (slot >= locals.size()) { push_value((int64_t)0); VG_BREAK; }
+                Variant &var = locals.write[slot];
+                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) { push_value((int64_t)0); VG_BREAK; }
+                PackedByteArray buf = var;
+                if (offset >= 0 && offset + 3 < buf.size()) {
+                    uint32_t dword = (uint8_t)buf[offset]
+                        | ((uint32_t)(uint8_t)buf[offset + 1] << 8)
+                        | ((uint32_t)(uint8_t)buf[offset + 2] << 16)
+                        | ((uint32_t)(uint8_t)buf[offset + 3] << 24);
+                    push_value((int64_t)dword);
+                } else {
+                    push_value((int64_t)0);
+                }
+                VG_BREAK;
+            }
+
+            // OP_BUF_WRITE32 [SLOT]  — pop value, pop offset, write 32-bit LE
+            VG_CASE(vg_op_buf_write32, OP_BUF_WRITE32): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                int64_t value = to_int(pop_value());
+                int64_t offset = to_int(pop_value());
+                if (slot >= locals.size()) { VG_BREAK; }
+                Variant &var = locals.write[slot];
+                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) { VG_BREAK; }
+                PackedByteArray buf = var;
+                if (offset >= 0 && offset + 3 < buf.size()) {
+                    buf.set((int)offset, (uint8_t)(value & 0xFF));
+                    buf.set((int)(offset + 1), (uint8_t)((value >> 8) & 0xFF));
+                    buf.set((int)(offset + 2), (uint8_t)((value >> 16) & 0xFF));
+                    buf.set((int)(offset + 3), (uint8_t)((value >> 24) & 0xFF));
+                    sync_local(slot, Variant(buf));
+                }
+                VG_BREAK;
+            }
+
+            // OP_BUF_SIZE [SLOT]  — push buf.size()
+            VG_CASE(vg_op_buf_size, OP_BUF_SIZE): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (slot >= locals.size()) { push_value((int64_t)0); VG_BREAK; }
+                Variant &var = locals.write[slot];
+                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) {
+                    push_value((int64_t)0);
+                } else {
+                    PackedByteArray buf = var;
+                    push_value((int64_t)buf.size());
+                }
+                VG_BREAK;
+            }
+
+            // OP_BUF_RESIZE [SLOT]  — pop new_size, buf.resize()
+            VG_CASE(vg_op_buf_resize, OP_BUF_RESIZE): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t new_size = to_int(pop_value());
+                if (slot >= locals.size()) { VG_BREAK; }
+                Variant &var = locals.write[slot];
+                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) { VG_BREAK; }
+                PackedByteArray buf = var;
+                buf.resize((int)new_size);
+                sync_local(slot, Variant(buf));
+                VG_BREAK;
+            }
+
+            // ── M6: Optimization Hint opcodes ────────────────────────────
+            // These are NOPs at runtime — they only serve as markers for the
+            // optimizer/fusion passes. The compiler emits them to tell the
+            // optimizer that a variable slot has specific properties.
+            // ──────────────────────────────────────────────────────────────
+            VG_CASE(vg_op_hint_accum, OP_HINT_ACCUMULATOR):
+            VG_CASE(vg_op_hint_counter, OP_HINT_LOOP_COUNTER):
+            VG_CASE(vg_op_hint_pure, OP_HINT_PURE_CALL): {
+                // Hint opcodes: just skip the implicit 1-byte operand (slot/idx)
+                // without executing anything. The optimizer will consume them
+                // during the optimize() pass (they are NOP'd out before runtime).
+                vm.ip++; // skip slot byte
                 VG_BREAK;
             }
 

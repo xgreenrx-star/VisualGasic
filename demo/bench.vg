@@ -238,3 +238,30 @@ Function BenchFileIO(ByVal iterations As Long, ByVal size As Long) As Long
 
     BenchFileIO = BenchFileIOFast(iterations, size)
 End Function
+
+' M5: MemoryBuffer benchmark
+Function BenchBuffer(ByVal iterations As Long, ByVal size As Long) As Long
+    If iterations <= 0 Or size <= 0 Then
+        BenchBuffer = 0
+        Exit Function
+    End If
+    
+    Dim buf As New MemoryBuffer(size)
+    Dim i As Long
+    Dim s As Long
+    Dim j As Long
+    
+    For i = 0 To iterations - 1 Step 1
+        ' Write pattern
+        For j = 0 To size - 1 Step 1
+            buf(j) = (j And &HFF)
+        Next j
+        ' Read and sum
+        s = 0
+        For j = 0 To size - 1 Step 1
+            s = s + buf(j)
+        Next j
+    Next i
+    
+    BenchBuffer = s
+End Function

@@ -36,6 +36,7 @@ private:
     HashSet<String> dictionary_vars;
     HashSet<String> trusted_dictionary_vars;
     HashSet<String> sole_owner_dict_vars;  // Dicts proven to have sole ownership → use VGFastStringDict
+    HashSet<String> buffer_vars;        // (M5) Variables declared As New MemoryBuffer → use Buffer opcodes
     HashMap<String, ValueType> array_types;
     HashMap<String, String> array_bound_vars;
     HashSet<String> typed_locals;
@@ -86,6 +87,7 @@ private:
     bool is_dictionary_var(const String &name) const;
     bool is_trusted_dictionary_var(const String &name) const;
     bool is_sole_owner_dict_var(const String &name) const;
+    bool is_buffer_var(const String &name) const;
     void _check_dict_escapes(Statement* stmt, HashSet<String> &escaped) const;
     void _check_expr_escapes(ExpressionNode* expr, HashSet<String> &escaped) const;
     String extract_bound_var(ExpressionNode* expr) const;

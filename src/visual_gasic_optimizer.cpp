@@ -61,6 +61,15 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_INC_LOCAL_I64:                                        // [OP] [LOCAL_SLOT]
         case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:      // [OP] [LOCAL_SLOT]
         case OP_BRANCH_SUM:                                            // [OP] [FLAG_SLOT]
+        // M5: MemoryBuffer opcodes — all 2-byte (opcode + slot)
+        case OP_BUF_ALLOC: case OP_BUF_FREE:
+        case OP_BUF_READ8: case OP_BUF_WRITE8:
+        case OP_BUF_READ16: case OP_BUF_WRITE16:
+        case OP_BUF_READ32: case OP_BUF_WRITE32:
+        case OP_BUF_SIZE: case OP_BUF_RESIZE:
+        // M6: Optimization hints — all 2-byte (opcode + slot/idx)
+        case OP_HINT_ACCUMULATOR: case OP_HINT_LOOP_COUNTER:
+        case OP_HINT_PURE_CALL:
         case OP_GET_ARRAY: case OP_SET_ARRAY:                         // [OP] [ARG_COUNT]
         case OP_GET_ARRAY_UNCHECKED: case OP_SET_ARRAY_UNCHECKED:
         case OP_GET_ARRAY_FAST: case OP_SET_ARRAY_FAST:
