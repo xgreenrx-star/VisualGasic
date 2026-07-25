@@ -178,6 +178,85 @@ Print NumBits(&H0F)                    ' → 4 (binary: 1111)
 ```
 
 
+### MemoryBuffer — Zero-Overhead Byte Access
+
+The `MemoryBuffer` type provides direct byte-level read/write access to a raw byte buffer stored as a `PackedByteArray`. When you declare `Dim buf As New MemoryBuffer(size)`, the compiler emits specialized opcodes (`OP_BUF_ALLOC`, `OP_BUF_READ8`, `OP_BUF_WRITE8`, etc.) that bypass the Variant dispatch overhead of generic array access.
+
+**Use cases:** Emulation, binary protocols, I/O buffers, image pixel manipulation, audio sample buffers.
+
+#### Core API
+
+| Syntax | Opcode | Description |
+|--------|--------|-------------|
+| `Dim buf As New MemoryBuffer(size)` | `OP_BUF_ALLOC` | Allocate a zero-filled byte buffer of `size` bytes |
+| `buf(offset) = value` | `OP_BUF_WRITE8` | Write one byte (value AND &HFF) at offset |
+| `x = buf(offset)` | `OP_BUF_READ8` | Read one byte as Integer (0–255) |
+
+#### Multi-Byte Access (via VGMemoryBuffer object methods)
+
+| Method | Description |
+|--------|-------------|
+| `buf.PeekInt16(offset)` | Read signed 16-bit LE word |
+| `buf.PeekUInt16(offset)` | Read unsigned 16-bit LE word |
+| `buf.PeekInt32(offset)` | Read signed 32-bit LE dword |
+| `buf.PeekInt64(offset)` | Read signed 64-bit LE qword |
+| `buf.PeekFloat(offset)` | Read 32-bit float |
+| `buf.PeekDouble(offset)` | Read 64-bit double |
+| `buf.PokeInt16(offset, value)` | Write 16-bit LE word |
+| `buf.PokeInt32(offset, value)` | Write 32-bit LE dword |
+| `buf.PokeInt64(offset, value)` | Write 64-bit LE qword |
+
+#### Bytecode Fast Path
+
+The compiler emits direct `OP_BUF_*` opcodes for local MemoryBuffer variables. These bypass the `OP_GET_ARRAY`/`OP_SET_ARRAY` path entirely — no Variant boxing, no type dispatch, no refcount overhead. The buffer is stored as a `PackedByteArray` in the local variable slot.
+
+```vb
+' Fast buffer read/write — compiles to OP_BUF_ALLOC + OP_BUF_WRITE8 + OP_BUF_READ8
+Dim buf As New MemoryBuffer(256)
+buf(0) = &H42
+buf(1) = &HFF
+Dim header As Integer = buf(0)   ' → 66 (0x42)
+```
+
+
+### Optimizer Hints — User-Extensible Performance Directives
+
+Optimizer Hints are **comment-based directives** that tell the VG bytecode optimizer to recognize specific loop patterns, even when the code structure doesn't match the optimizer's built-in pattern detection. They are **NOPs at runtime** — the compiler emits `OP_HINT_*` marker opcodes that the optimizer consumes during the optimization pass, then removes before execution.
+
+**When to use:** When you have a performance-critical loop that you've profiled and want to ensure the optimizer treats it as a known fast pattern.
+
+#### Available Hints
+
+| Hint | Opcode | Effect |
+|------|--------|--------|
+| `'@accumulator varname` | `OP_HINT_ACCUMULATOR` | Marks a variable as a loop accumulator (sum/product pattern). Tells the optimizer the variable is only modified by `+=` or `*=` operations inside the loop. Enables sum-reduction optimizations. |
+| `'@loop_counter varname` | `OP_HINT_LOOP_COUNTER` | Marks a variable as a simple loop counter (0→N with Step 1). Enables counter elision and strength reduction. |
+| `'@pure funcname` | `OP_HINT_PURE_CALL` | Marks a function call as pure (no side effects, deterministic). Enables the optimizer to hoist the call out of loops or fold constant arguments. |
+
+#### Example
+
+```vb
+' Without hints, the optimizer might not recognize this as a reduction
+Function SumArray(arr() As Long) As Long
+    Dim total As Long = 0
+    Dim i As Long
+    '@accumulator total
+    '@loop_counter i
+    For i = 0 To UBound(arr)
+        total = total + arr(i)
+    Next i
+    SumArray = total
+End Function
+```
+
+#### Important Notes
+
+- Hints are **advisory, not mandatory**. The optimizer may ignore them if the code doesn't match the expected pattern.
+- Hints do **not change program semantics**. A `'@pure` hint on an impure function is a programmer error (results in undefined optimization behavior, not a crash).
+- Hints are **forward-looking infrastructure**. As the optimizer grows smarter (v6.1+ Packed Arrays, v7.0 SIMD), hints will unlock more aggressive optimizations without requiring compiler pattern-matching changes.
+- Currently, hints are recognized by the compiler and emitted as opcodes. The optimizer pass consumes them as markers. Future versions will use them to drive loop fusion, vectorization, and accumulator specialization.
+
+
 ### SoundGen.* — Real-time Audio Synthesis
 
 The `SoundGen` namespace provides real-time PCM audio synthesis using Godot's

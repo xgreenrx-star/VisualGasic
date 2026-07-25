@@ -115,6 +115,26 @@ Standard flow control and declaration.
 
 See `docs/BUILTINS.md` for full API details and worked examples.
 
+### MemoryBuffer — Fast Byte Access
+| Syntax | Description |
+| :--- | :--- |
+| `Dim buf As New MemoryBuffer(size)` | Allocate zero-filled byte buffer (compiles to `OP_BUF_ALLOC`) |
+| `buf(offset) = value` | Write byte at offset (compiles to `OP_BUF_WRITE8`) |
+| `x = buf(offset)` | Read byte at offset as Integer 0–255 (compiles to `OP_BUF_READ8`) |
+| `buf.PeekInt16(offset)` | Read signed 16-bit LE word |
+| `buf.PeekInt32(offset)` | Read signed 32-bit LE dword |
+| `buf.PokeInt16(offset, value)` | Write 16-bit LE word |
+| `buf.PokeInt32(offset, value)` | Write 32-bit LE dword |
+
+### Optimizer Hints — Performance Directives
+| Hint | Description |
+| :--- | :--- |
+| `'@accumulator varname` | Mark variable as loop accumulator (sum pattern) |
+| `'@loop_counter varname` | Mark variable as simple loop counter (0→N, Step 1) |
+| `'@pure funcname` | Mark function as pure (no side effects, foldable) |
+
+Hints are **comment-based directives** placed before a loop. They tell the optimizer to recognize specific patterns for optimization, even when code structure doesn't match built-in detection. They are NOPs at runtime. See `docs/BUILTINS.md` for details.
+
 ### VB6 Global Objects
 | Object | Description |
 | :--- | :--- |
