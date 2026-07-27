@@ -14,6 +14,8 @@ Dim DisplayTex As Variant
 Dim bLoaded As Boolean
 Dim SoundHandle As Long
 Dim KeyState As Integer
+Dim LoadButton As Object
+Dim RomDialog As Object
 
 ' Optimizer hints for the run loop
 '@accumulator FrameCycles
@@ -36,11 +38,31 @@ Sub _Ready()
     Set DisplayImage = CreateImage(GBA_SCREEN_W, GBA_SCREEN_H, Color8(0, 0, 0, 255))
     Set DisplayTex = CreateTexture(DisplayImage)
 
-    ' Drag-and-drop ROM loading arrives via the Window's files_dropped signal,
-    ' NOT through _Input() — Godot 4 has no DropFiles InputEvent.
+    ' UI: "Load ROM..." button + file picker. Drag-and-drop is unreliable
+    ' inside the editor's embedded game view, so this is the primary way in.
+    Dim uiLayer As New CanvasLayer
+    AddChild(uiLayer)
+
+    Set LoadButton = New Button
+    LoadButton.Text = "Load ROM..."
+    LoadButton.Position = Vector2(8, 8)
+    LoadButton.Size = Vector2(120, 32)
+    uiLayer.AddChild(LoadButton)
+    Connect LoadButton, "pressed", "OnLoadRomPressed"
+
+    Set RomDialog = New FileDialog
+    RomDialog.Title = "Select GBA ROM"
+    RomDialog.FileMode = 0   ' FILE_MODE_OPEN_FILE
+    RomDialog.Access = 2     ' ACCESS_FILESYSTEM
+    RomDialog.AddFilter("*.gba, *.GBA", "GBA ROM Files")
+    RomDialog.Size = Vector2(600, 400)
+    uiLayer.AddChild(RomDialog)
+    Connect RomDialog, "file_selected", "OnRomFileSelected"
+
+    ' Drag-and-drop still works as a fallback where the OS/window supports it.
     Connect GetTree.GetRoot, "files_dropped", "OnFilesDropped"
 
-    Print "GBA Emulator initialized. Drag and drop a ROM file to load."
+    Print "GBA Emulator initialized. Click 'Load ROM...' or drag a ROM file to load."
 End Sub
 
 Sub _Process(delta As Double)
@@ -108,6 +130,17 @@ Sub OnFilesDropped(files As Variant)
                 LoadROMFromPath filePath
             End If
         End If
+    End If
+End Sub
+
+Sub OnLoadRomPressed()
+    RomDialog.PopupCentered(Vector2(600, 400))
+End Sub
+
+Sub OnRomFileSelected(filePath As String)
+    Print "Selected file: " & filePath
+    If InStr(1, filePath, ".gba", 0) > 0 Or InStr(1, filePath, ".GBA", 0) > 0 Then
+        LoadROMFromPath filePath
     End If
 End Sub
 
