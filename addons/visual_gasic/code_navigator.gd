@@ -958,10 +958,10 @@ func _show_causal_chain() -> void:
 		var root = editor_plugin.get_editor_interface().get_edited_scene_root()
 		if not is_instance_valid(root):
 			return
-		var scene_path := root.scene_file_path
+		var scene_path: String = root.scene_file_path
 		if scene_path.is_empty():
 			return
-		var bas_path := scene_path.get_basename() + ".vg"
+		var bas_path: String = scene_path.get_basename() + ".vg"
 		if not FileAccess.file_exists(bas_path):
 			return
 		vg_text = FileAccess.get_file_as_string(bas_path)
@@ -1020,8 +1020,8 @@ func _show_chain_dialog(report: String) -> void:
 	
 	# Add to the editor viewport so it shows modally
 	if editor_plugin:
-		var ed_int := editor_plugin.get_editor_interface()
-		var base := ed_int.get_base_control()
+		var ed_int: EditorInterface = editor_plugin.get_editor_interface()
+		var base: Control = ed_int.get_base_control()
 		base.add_child(window)
 		window.popup_centered_clamped(Vector2i(750, 550))
 		window.visibility_changed.connect(func():

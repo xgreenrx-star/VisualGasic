@@ -274,14 +274,14 @@ func _walk_body(proc: Dictionary, procs: Array, depth: int,
 	proc_visited: Array — ordering of procedures visited in this walk
 	"""
 	if depth > MAX_DEPTH:
-		return [" " * (depth * INDENT_WIDTH) + "└─ [MAX_DEPTH reached — truncating]"]
+		return [" ".repeat(depth * INDENT_WIDTH) + "└─ [MAX_DEPTH reached — truncating]"]
 	
 	var result: Array = []
-	var body := proc.get("body_text", "")
+	var body: String = proc.get("body_text", "")
 	if body.is_empty():
 		return result
 	
-	var body_lines := body.split("\n")
+	var body_lines: PackedStringArray = body.split("\n")
 	var in_block := false
 	var block_type := ""
 	var block_lines: Array = []
@@ -303,15 +303,15 @@ func _walk_body(proc: Dictionary, procs: Array, depth: int,
 				in_block = true
 				block_type = "If"
 				block_lines = []
-				result.append(" " * (depth * INDENT_WIDTH) + "├─ If " + cond + " Then")
+				result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ If " + cond + " Then")
 			else:  # ElseIf
 				var elseifmatch := _elseif_re.search(line)
 				if elseifmatch:
 					cond = elseifmatch.get_string(1)
-				result.append(" " * (depth * INDENT_WIDTH) + "├─ ElseIf " + cond + " Then")
+				result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ ElseIf " + cond + " Then")
 		
 		elif lower.strip_edges() == "else":
-			result.append(" " * (depth * INDENT_WIDTH) + "├─ Else")
+			result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ Else")
 		
 		elif lower.begins_with("end if") or lower.begins_with("end select") or lower.begins_with("wend") or lower.begins_with("next") or lower.begins_with("loop"):
 			# End of a block — nothing special needed for the chain
@@ -319,29 +319,29 @@ func _walk_body(proc: Dictionary, procs: Array, depth: int,
 		
 		elif lower.begins_with("select case "):
 			var select_target := line.substr(12).strip_edges()
-			result.append(" " * (depth * INDENT_WIDTH) + "├─ Select Case " + select_target)
+			result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ Select Case " + select_target)
 		
 		elif lower.begins_with("case ") and lower != "case else" and lower != "case else":
 			var case_val := line.substr(5).strip_edges()
-			result.append(" " * (depth * INDENT_WIDTH) + "├─ Case " + case_val)
+			result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ Case " + case_val)
 		
 		elif lower.begins_with("case else"):
-			result.append(" " * (depth * INDENT_WIDTH) + "├─ Case Else")
+			result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ Case Else")
 		
 		elif lower.begins_with("for ") or lower.begins_with("for each "):
 			var loop_var := ""
 			var formatch := _for_re.search(line)
 			if formatch:
 				loop_var = formatch.get_string(1)
-			result.append(" " * (depth * INDENT_WIDTH) + "├─ Loop over " + loop_var)
+			result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ Loop over " + loop_var)
 		
 		elif lower.begins_with("do ") or lower.begins_with("while ") or lower.begins_with("until "):
-			result.append(" " * (depth * INDENT_WIDTH) + "├─ Loop entry (" + line.strip_edges() + ")")
+			result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ Loop entry (" + line.strip_edges() + ")")
 		
 		elif lower.begins_with("exit ") or lower.begins_with("continue "):
 			var exitmatch := _exit_re.search(line)
 			if exitmatch:
-				result.append(" " * (depth * INDENT_WIDTH) + "├─ " + exitmatch.get_string(0).strip_edges())
+				result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ " + exitmatch.get_string(0).strip_edges())
 		
 		elif lower.begins_with("return "):
 			var retmatch := _return_re.search(line)
@@ -350,13 +350,13 @@ func _walk_body(proc: Dictionary, procs: Array, depth: int,
 				# Truncate long return values
 				if ret_val.length() > MAX_CHARS / 2:
 					ret_val = ret_val.left(MAX_CHARS / 2 - 3) + "..."
-				result.append(" " * (depth * INDENT_WIDTH) + "├─ Returns " + ret_val)
+				result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ Returns " + ret_val)
 		
 		# ── Call Statement ──
 		elif lower.begins_with("call "):
 			var call_target := line.substr(5).strip_edges()
 			var call_detail := _describe_call(call_target, procs, visited, proc_visited)
-			result.append(" " * (depth * INDENT_WIDTH) + "├─ " + call_detail)
+			result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ " + call_detail)
 		
 		# ── RaiseEvent ──
 		elif lower.begins_with("raiseevent "):
@@ -369,41 +369,41 @@ func _walk_body(proc: Dictionary, procs: Array, depth: int,
 				var detail := "RaiseEvent " + event_name
 				if not args.is_empty():
 					detail += "(" + _truncate(args) + ")"
-				result.append(" " * (depth * INDENT_WIDTH) + "├─ " + detail)
-				result.append(" " * (depth * INDENT_WIDTH) + "│   └─ [Parent scene connects here]")
+				result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ " + detail)
+				result.append(" ".repeat(depth * INDENT_WIDTH) + "│   └─ [Parent scene connects here]")
 		
 		# ── MsgBox ──
 		elif lower.begins_with("msgbox "):
 			var msgmatch := _msgbox_re.search(line)
 			if msgmatch:
 				var msg := msgmatch.get_string(1).strip_edges()
-				result.append(" " * (depth * INDENT_WIDTH) + "├─ MsgBox (" + _truncate(msg, 50) + ")")
+				result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ MsgBox (" + _truncate(msg, 50) + ")")
 		
 		# ── Print / Write / File I/O ──
 		elif lower.begins_with("print "):
 			var prmatch := _print_re.search(line)
 			if prmatch:
 				var output := prmatch.get_string(1).strip_edges()
-				result.append(" " * (depth * INDENT_WIDTH) + "├─ Print " + _truncate(output, 50))
+				result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ Print " + _truncate(output, 50))
 		
 		elif lower.begins_with("open "):
 			var openmatch := _file_open_re.search(line)
 			if openmatch:
 				var filepath := openmatch.get_string(1).strip_edges()
-				result.append(" " * (depth * INDENT_WIDTH) + "├─ File.Open(" + _truncate(filepath, 50) + ")")
+				result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ File.Open(" + _truncate(filepath, 50) + ")")
 		
 		elif lower.begins_with("write #") or lower.begins_with("print #"):
-			result.append(" " * (depth * INDENT_WIDTH) + "├─ File.Write(...)")
+			result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ File.Write(...)")
 		
 		elif lower.begins_with("close #"):
-			result.append(" " * (depth * INDENT_WIDTH) + "├─ File.Close()")
+			result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ File.Close()")
 		
 		# ── Set (object assignment) ──
 		elif lower.begins_with("set "):
 			var setmatch := _set_re.search(line)
 			if setmatch:
 				var target := setmatch.get_string(1)
-				result.append(" " * (depth * INDENT_WIDTH) + "├─ Assign " + target)
+				result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ Assign " + target)
 		
 		# ── Dot-call: obj.Method(args) or variable.Method(args) ──
 		#     Handles: Button1.Caption = "Hello", dict.Add(key, val), etc.
@@ -415,9 +415,9 @@ func _walk_body(proc: Dictionary, procs: Array, depth: int,
 				var after_method := raw_line.substr(dotmatch.get_end(2))
 				# Check if it's a property assignment (obj.Method = ...)
 				if after_method.strip_edges().begins_with("="):
-					result.append(" " * (depth * INDENT_WIDTH) + "├─ Set " + obj_name + "." + method)
+					result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ Set " + obj_name + "." + method)
 				else:
-					result.append(" " * (depth * INDENT_WIDTH) + "├─ " + obj_name + "." + method + "(...)")
+					result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ " + obj_name + "." + method + "(...)")
 		
 		# ── Direct Sub call without Call keyword (e.g. "ValidateForm()") ──
 		#     This handles standalone calls of the form "SomeSub()" on their own line.
@@ -441,7 +441,7 @@ func _walk_body(proc: Dictionary, procs: Array, depth: int,
 				if not is_keyword and _is_valid_identifier(maybe_name):
 					# This looks like a direct call to a Sub or Function
 					var call_detail := _describe_call(line.strip_edges(), procs, visited, proc_visited)
-					result.append(" " * (depth * INDENT_WIDTH) + "├─ " + call_detail)
+					result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ " + call_detail)
 					is_direct_call = true
 			
 			if not is_direct_call:
@@ -534,7 +534,7 @@ func _walk_called_proc(call_text: String, procs: Array, depth: int,
 	for bl in body_lines:
 		# Remove the original indent/prefix and add new depth indent
 		var line_content := _strip_tree_prefix(bl)
-		result.append(" " * (depth * INDENT_WIDTH) + "│   " + line_content)
+		result.append(" ".repeat(depth * INDENT_WIDTH) + "│   " + line_content)
 	
 	return result
 

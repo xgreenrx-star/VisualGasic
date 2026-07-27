@@ -26,6 +26,30 @@ var _bosca_wrapper: VBoxContainer = null  # holds toolbar + main scene
 var _export_toolbar: HBoxContainer = null # "Export to game project" bar
 var _ffmpeg_path: String = ""             # cached ffmpeg path, empty = not found
 
+# bosca/ carries an empty .gdignore (see commit ae10e36b — "don't import
+# third-party tree") so Godot's project-wide class scanner never registers
+# its `class_name` declarations (ExportMasterPopup, SongSaver, MMLExporter,
+# ...) as global identifiers usable from outside the folder. Load these
+# specific scripts by path instead, cached on first use.
+var _export_master_popup_script: GDScript = null
+var _song_saver_script: GDScript = null
+var _mml_exporter_script: GDScript = null
+
+func _ExportMasterPopup() -> GDScript:
+	if _export_master_popup_script == null:
+		_export_master_popup_script = load(_BOSCA_DIR + "/gui/widgets/popups/ExportMasterPopup.gd")
+	return _export_master_popup_script
+
+func _SongSaver() -> GDScript:
+	if _song_saver_script == null:
+		_song_saver_script = load(_BOSCA_DIR + "/io/SongSaver.gd")
+	return _song_saver_script
+
+func _MMLExporter() -> GDScript:
+	if _mml_exporter_script == null:
+		_mml_exporter_script = load(_BOSCA_DIR + "/io/MMLExporter.gd")
+	return _mml_exporter_script
+
 
 # ─── VG plugin metadata ──────────────────────────────────────────
 
@@ -427,8 +451,8 @@ func _on_wav_path_selected(wav_path: String) -> void:
 		return
 
 	# Build a full-song export config (loop start 0 → end of arrangement).
-	var export_config := ExportMasterPopup.ExportConfig.new()
-	export_config.type = ExportMasterPopup.ExportType.EXPORT_WAV
+	var export_config = _ExportMasterPopup().ExportConfig.new()
+	export_config.type = _ExportMasterPopup().ExportType.EXPORT_WAV
 	export_config.loop_start = 0
 	var arrangement = song.get("arrangement")
 	export_config.loop_end = arrangement.get("timeline_length") if arrangement else 1
@@ -484,8 +508,8 @@ func _on_ogg_path_selected(ogg_path: String) -> void:
 	var temp_wav: String = ogg_path.get_basename() + ".tmp_vg_export.wav"
 
 	# Build a minimal ExportConfig requesting WAV output.
-	var export_config := ExportMasterPopup.ExportConfig.new()
-	export_config.type = ExportMasterPopup.ExportType.EXPORT_WAV
+	var export_config = _ExportMasterPopup().ExportConfig.new()
+	export_config.type = _ExportMasterPopup().ExportType.EXPORT_WAV
 	export_config.loop_start = 0
 	var arrangement = song.get("arrangement")
 	export_config.loop_end = arrangement.get("timeline_length") if arrangement else 1
@@ -543,7 +567,7 @@ func _auto_save_ceol_alongside(exported_path: String) -> void:
 
 	# SongSaver is a @tool class in Bosca — call it directly (it's always loaded
 	# in the editor context since the plugin is active).
-	var success: bool = SongSaver.save(song, ceol_path)
+	var success: bool = _SongSaver().save(song, ceol_path)
 	if success:
 		print("BoscaCeoil: Auto-saved .ceol source to %s" % ceol_path)
 		ctrl.call("update_status", ".ceol source saved alongside audio", 1)
@@ -615,13 +639,13 @@ func _on_mml_path_selected(mml_path: String) -> void:
 	if not song:
 		return
 
-	var export_config := ExportMasterPopup.ExportConfig.new()
-	export_config.type = ExportMasterPopup.ExportType.EXPORT_MML
+	var export_config = _ExportMasterPopup().ExportConfig.new()
+	export_config.type = _ExportMasterPopup().ExportType.EXPORT_MML
 	export_config.loop_start = 0
 	var arrangement = song.get("arrangement")
 	export_config.loop_end = arrangement.get("timeline_length") if arrangement else 1
 
-	var success: bool = MMLExporter.save(song, mml_path, export_config)
+	var success: bool = _MMLExporter().save(song, mml_path, export_config)
 	if success:
 		print("BoscaCeoil: MML exported to %s" % mml_path)
 		ctrl.call("update_status", "SONG EXPORTED AS MML", 1)
