@@ -195,6 +195,42 @@ VG runtime API (called by codegen; also callable from hand-written .vg):
   * Don't edit canonical addons/ files inside game_projects/ symlinks —
     they all point at addons/visual_gasic/.  scripts/sync_addons.sh
     check verifies this in CI.
+  * NEVER name a Sub/Function the same as a reserved keyword (Sub, Function,
+    If, For, Do, While, etc.) — case-insensitive.  `Function SUB(a, b)` as
+    a method name collides with the `Sub` keyword and produces confusing
+    "Expected ')' after lambda parameters" parser errors, because the
+    parser mistakes `Function SUB(` for an anonymous lambda.  Pick a
+    different name (e.g. `SubOp`) for arithmetic-style helper methods
+    named after CPU/assembly mnemonics (SUB, ADD, MOV, AND, OR are all
+    risky — AND/OR/NOT are reserved operators too).
+  * Class fields CANNOT declare a fixed array size inline:
+      Public R(15) As Long   ' WRONG — silently becomes a scalar Variant;
+                              ' the (15) is discarded, R(i) then fails at
+                              ' runtime with "Expected Array for index access"
+    Instead declare the field untyped and ReDim it in Init/constructor:
+      Public R As Variant     ' correct field declaration
+      Sub Init()
+          ReDim R(15)         ' correct: creates the array at runtime
+      End Sub
+  * `Global Const X = Y` / `Global Dim x As Integer` (v4.4.0+) publish to a
+    process-wide registry readable by BARE NAME from ANY .vg file in the
+    project, with NO Import needed for the constant/variable itself.  BUT
+    classes still need an explicit `Import "file.vg"` in every file that
+    calls `New ClassName` on a class defined elsewhere — Import registers
+    classes AND re-publishes that file's own Global Const/Dim declarations.
+    A multi-file project (e.g. one class per file) needs Import at the top
+    of every consumer file for every class it instantiates.
+  * Avoid colon-chained statements combined with an inline `If`:
+      Dim mapW As Integer = 256: If screenSize >= 1 Then mapW = 512  ' RISKY
+    This combination can trigger "Unexpected token in expression" parser
+    errors.  Split into separate lines instead:
+      Dim mapW As Integer = 256
+      If screenSize >= 1 Then mapW = 512
+  * When generating a WHOLE FILE of VG code as one text block (e.g. from a
+    chat response), double-check the output does NOT have a stray leading
+    or trailing `"` character wrapping the entire file — a copy/paste or
+    JSON-escaping artifact that produces a silent "Unterminated string"
+    parse error at whichever line the file actually ends on.
 
 === Control naming conventions ===
 Always prefix control names with the type abbreviation so event handler names
