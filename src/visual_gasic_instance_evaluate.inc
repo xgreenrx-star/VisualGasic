@@ -178,8 +178,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
     if (expr->type == ExpressionNode::VARIABLE) {
         String name = ((VariableNode*)expr)->name;
         
-        // VB6 "Me" keyword - returns the owner object (self reference)
+        // VB6 "Me" keyword - returns the owner object (self reference), or
+        // the current class instance's object ID when executing inside a
+        // Class ... End Class method (New Foo / obj.Method() both represent
+        // instances as plain int object IDs, not Godot Objects).
         if (name.nocasecmp_to("Me") == 0) {
+            if (current_object_id != -1) return (int64_t)current_object_id;
             if (owner) return owner;
             raise_error("'Me' keyword used but no owner object available");
             return Variant();

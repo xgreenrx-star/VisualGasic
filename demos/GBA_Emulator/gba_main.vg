@@ -114,7 +114,7 @@ Sub _Process(delta As Double)
 End Sub
 
 Sub _Draw()
-    If DisplayTex <> 0 Then
+    If IsObject(DisplayTex) Then
         DrawTexture DisplayTex, Vector2(0, 0)
     End If
 End Sub

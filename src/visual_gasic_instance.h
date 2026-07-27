@@ -104,6 +104,13 @@ class VisualGasicInstance {
     Dictionary class_registry;       // class_name -> ClassDefinition* (as int64_t)
     Dictionary object_instances;     // object_id -> Dictionary of member values
     int next_object_id = 1;         // For unique object IDs
+    int current_object_id = -1;     // object_id of the class instance whose method
+                                     // is currently executing (-1 = top-level script
+                                     // context). Lets call_internal() resolve bare
+                                     // same-class sibling calls (e.g. Write16 calling
+                                     // Write8) instead of only ever searching the
+                                     // top-level module's Subs. Saved/restored around
+                                     // execute_class_method() for re-entrancy.
     Dictionary loaded_libraries;     // lib_name -> handle (as int64_t)
     Dictionary declared_functions;   // function_name -> DeclareStatement* (as int64_t)
 

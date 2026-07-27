@@ -47,6 +47,27 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     if (!func && imported_modules.size() > 0) {
         func = find_imported_sub(p_method, call_arg_count);
     }
+
+    // ── Same-class sibling method resolution ──
+    // Bare (unqualified) calls made from inside a Class ... End Class method
+    // to a SIBLING method of that same class (e.g. Write16 calling Write8
+    // without "Me." or a dot-qualified receiver) are NOT module-level Subs,
+    // so they'd never be found above — that list only ever holds the
+    // top-level script's own Subs/Functions. Route through the class's own
+    // method table instead when we're currently executing inside a class
+    // instance's method (current_object_id set by execute_class_method()).
+    if (!func && current_object_id != -1 && object_instances.has(current_object_id)) {
+        Dictionary obj_data = object_instances[current_object_id];
+        String class_name = obj_data.get("__class__", String());
+        ClassDefinition* cls = get_class_def(class_name);
+        if (cls) {
+            SubDefinition* sibling = find_method_in_hierarchy(cls, p_method, call_arg_count);
+            if (sibling) {
+                r_found = true;
+                return call_object_method(current_object_id, p_method, p_args);
+            }
+        }
+    }
     
     if (!func) return Variant();
     r_found = true;

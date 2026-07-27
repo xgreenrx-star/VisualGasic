@@ -370,6 +370,8 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
     // Execute method body
     SubDefinition* saved_sub = current_sub;
     current_sub = method;
+    int saved_object_id = current_object_id;
+    current_object_id = obj_id;
     
     // Push call stack frame for debugger
     String file_path = script.is_valid() ? script->get_path() : "";
@@ -398,6 +400,7 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
     VisualGasicLanguage::pop_stack_frame();
     
     current_sub = saved_sub;
+    current_object_id = saved_object_id;
     
     // Save modified members back to object (entire inheritance hierarchy)
     if (object_instances.has(obj_id)) {

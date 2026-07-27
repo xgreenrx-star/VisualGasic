@@ -1535,8 +1535,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 String name = name_var;
                 
                 // Handle special keywords first
-                // "Me" - returns owner (self reference)
+                // "Me" - returns owner (self reference), or the current class
+                // instance's object ID when executing inside a Class method
+                // (see visual_gasic_instance_evaluate.inc for the tree-walk
+                // equivalent — class methods currently only run via the tree-
+                // walk interpreter, but keep this in sync in case that changes).
                 if (name.nocasecmp_to("Me") == 0) {
+                    if (current_object_id != -1) {
+                        push_value(Variant((int64_t)current_object_id));
+                        break;
+                    }
                     push_value(owner ? Variant(owner) : Variant());
                     break;
                 }
