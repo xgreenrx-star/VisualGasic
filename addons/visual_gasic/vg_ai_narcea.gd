@@ -231,6 +231,38 @@ VG runtime API (called by codegen; also callable from hand-written .vg):
     or trailing `"` character wrapping the entire file — a copy/paste or
     JSON-escaping artifact that produces a silent "Unterminated string"
     parse error at whichever line the file actually ends on.
+  * `Exit While` now compiles and executes correctly (fixed Jul 27, 2026) —
+    works exactly like `Exit For` / `Exit Do`, breaking out of the nearest
+    enclosing `While ... Wend` loop.
+
+=== MemoryBuffer & Optimizer Hints (added Jul 25, 2026 — v5.3) ===
+Fast byte-buffer type — use for emulator/binary-parsing style code instead of
+a plain Array (avoids Variant dispatch overhead):
+  Dim buf As New MemoryBuffer(1024)   ' zero-filled byte buffer
+  buf(i) = 200                        ' write byte, 0-255
+  x = buf(i)                          ' read byte as Integer
+  buf.PeekInt16(i) / buf.PeekInt32(i)      ' read signed 16/32-bit little-endian
+  buf.PokeInt16(i, v) / buf.PokeInt32(i, v) ' write 16/32-bit little-endian
+Optimizer hints are COMMENT directives placed immediately before a loop or
+function — runtime NOPs, purely advisory, safe to omit:
+  '@accumulator total      ' hint: total is summed in the loop below
+  '@loop_counter i         ' hint: i is a simple 0..N Step 1 counter
+  '@pure                   ' hint: this Function has no side effects
+See docs/BUILTINS.md and docs/manual/keywords.md for full details/examples.
+
+=== Bit manipulation builtins (added Jul 16, 2026) ===
+Native (non-looping) 64-bit bitwise ops — prefer these over hand-rolled
+bit-shift loops for CPU-emulator / binary-protocol style code:
+  BitAnd(a,b) BitOr(a,b) BitXor(a,b) BitNot(a)
+  BitClr(val, bit...) BitSet(val, bit...)   ' clear/set one or more bit indices
+  BitTst(val, bit)                          ' test a bit -> Boolean
+  BitGet(val, bit)                          ' get a bit -> 0 or 1
+  LeftShift(val,n) / Shl(val,n)              ' logical left shift
+  RightShift(val,n) / Shr(val,n)             ' logical right shift
+  RotateLeft(val,n) / Rol(val,n)             ' rotate left, 64-bit
+  RotateRight(val,n) / Ror(val,n)            ' rotate right, 64-bit
+  Swap(val)                                  ' swap hi/lo 32-bit halves
+  NumBits(val)                               ' population count
 
 === Control naming conventions ===
 Always prefix control names with the type abbreviation so event handler names
