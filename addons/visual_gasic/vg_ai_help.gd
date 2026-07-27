@@ -37,7 +37,7 @@ Class Name/End Class | Me.Property | GetNode("name") | ' comments | & for string
 Godot integration: Events auto-wire by name (btn_Click, Timer1_Timer, Form_Load). \
 Virtual callbacks: _Ready, _Process(delta), _PhysicsProcess(delta), _Input(event). \
 VB6 aliases on nodes: Caption→text, Left→position.x, Width→size.x, Visible→visible. \
-ConnectSignal \"signal_name\", \"HandlerName\".
+Manual wiring: Connect sourceNode, "signal_name", "HandlerName" (there is no ConnectSignal).
 
 === WORKING NODES ===
 Working Nodes (.wnodes) is a trigger-graph plugin. \

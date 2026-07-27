@@ -13,7 +13,7 @@ Dim Emu As GBACPU
 
 Sub Main()
     Dim args As Variant = Command()
-    If ArrayLen(args) < 2 Then
+    If UBound(args) < 1 Then
         Print "Usage: vg run gba_test.vg <rom_file.gba>"
         Return
     End If

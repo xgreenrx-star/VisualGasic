@@ -36,6 +36,10 @@ Sub _Ready()
     Set DisplayImage = CreateImage(GBA_SCREEN_W, GBA_SCREEN_H, Color8(0, 0, 0, 255))
     Set DisplayTex = CreateTexture(DisplayImage)
 
+    ' Drag-and-drop ROM loading arrives via the Window's files_dropped signal,
+    ' NOT through _Input() — Godot 4 has no DropFiles InputEvent.
+    Connect GetTree.GetRoot, "files_dropped", "OnFilesDropped"
+
     Print "GBA Emulator initialized. Drag and drop a ROM file to load."
 End Sub
 
@@ -93,20 +97,15 @@ Sub _Draw()
     End If
 End Sub
 
-Sub _Input(event As Variant)
-    ' Handle ROM loading via drag-and-drop
-    ' Godot 4 sends DropFiles events with "files" array
-    If VarType(event) = 9 Then  ' Object
-        If HasMember(event, "files") Then
-            Dim files As Variant = PropertyGet(event, "files")
-            If IsArray(files) Then
-                If ArrayLen(files) > 0 Then
-                    Dim filePath As String = files(0)
-                    Print "Dropped file: " & filePath
-                    If InStr(1, filePath, ".gba", 0) > 0 Or InStr(1, filePath, ".GBA", 0) > 0 Then
-                        LoadROMFromPath filePath
-                    End If
-                End If
+Sub OnFilesDropped(files As Variant)
+    ' Godot's Window.files_dropped signal passes a PackedStringArray of paths
+    ' directly — there is no "files" member on an InputEvent to query.
+    If IsArray(files) Then
+        If UBound(files) >= 0 Then
+            Dim filePath As String = files(0)
+            Print "Dropped file: " & filePath
+            If InStr(1, filePath, ".gba", 0) > 0 Or InStr(1, filePath, ".GBA", 0) > 0 Then
+                LoadROMFromPath filePath
             End If
         End If
     End If

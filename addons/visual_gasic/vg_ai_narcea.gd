@@ -57,7 +57,12 @@ Random / input:
                               ' KEY_RIGHT KEY_SPACE KEY_ESCAPE etc.
 Event handlers auto-wire by name: Sub btnOK_Click(), Sub Timer1_Timer(),
 Sub Form_Load(), Sub Form_KeyDown(KeyCode As Integer, Shift As Integer).
-Manual wiring: ConnectSignal "signal_name", "HandlerName".
+Manual wiring: Connect sourceNode, "signal_name", "HandlerName"
+  (e.g. Connect GetTree.GetRoot, "files_dropped", "OnFilesDropped").
+  NOTE: there is no ConnectSignal, HasMember, PropertyGet, or ArrayLen
+  builtin — these are commonly hallucinated by LLMs. Use Connect(),
+  IsArray()/UBound() (VB6-style, UBound returns highest index not count),
+  and direct dot-property access instead.
 
 === AGCK — Arcade Game Creation Kit ===
 Full 2D game kit: Actor Editor, Level Editor, Sound Editor, Shader Editor,
