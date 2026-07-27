@@ -227,8 +227,23 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             continue;
         }
 
-        // Export prefix (v4.2.0) — Export Dim x As Integer / Export Public x As String
+        // Global prefix (v4.4.0) — Global Const X = Y / Global Dim x As Integer
+        // Unlike a plain module-level Const/Dim (only visible to other files
+        // via Import + qualified ModuleName.Symbol dot-access), a Global
+        // declaration is published to a process-wide shared registry that
+        // ANY VisualGasic script in the project can read by bare name,
+        // without needing an explicit Import.
         String val = String(t.value).to_lower();
+        bool pending_global = false;
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && val == "global") {
+            pending_global = true;
+            advance(); // Eat Global
+            while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+            t = peek();
+            val = String(t.value).to_lower();
+        }
+
+        // Export prefix (v4.2.0) — Export Dim x As Integer / Export Public x As String
         bool pending_export = false;
         if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && val == "export") {
             pending_export = true;
@@ -264,6 +279,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
                  v->visibility = (val == "public") ? VIS_PUBLIC : (val == "private" ? VIS_PRIVATE : VIS_DIM);
                  v->is_with_events = dim->is_with_events; // Propagate WithEvents (v3.5.0)
                  v->is_export = pending_export;            // Export to Inspector (v4.2.0)
+                 v->is_global = pending_global;             // Global registry (v4.4.0)
                  
                  for(int i=0; i<dim->array_sizes.size(); i++) {
                      ExpressionNode* expr = dim->array_sizes[i];
@@ -321,6 +337,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
         if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).to_lower() == "const") {
              ConstStatement* c = parse_const();
              if (c) {
+                 c->is_global = pending_global;             // Global registry (v4.4.0)
                  module->constants.push_back(c);
                  unregister_node(c);
                  // Keep the ConstStatement wrapper as it holds the value expression
@@ -4778,6 +4795,13 @@ ExitStatement* VisualGasicParser::parse_exit() {
             valid = true;
         } else if (type == "do") {
             s->exit_type = ExitStatement::EXIT_DO;
+            valid = true;
+        } else if (type == "while") {
+            // Exit While (v4.4.0) -- VB6's While/Wend never had Exit While
+            // (only VB.NET added it); VG adds it for convenience. Codegen
+            // treats it identically to Exit Do/Exit For: it targets the
+            // nearest enclosing loop of any kind via loop_exit_jumps.
+            s->exit_type = ExitStatement::EXIT_WHILE;
             valid = true;
         } else if (type == "oscillate") {
             s->exit_type = ExitStatement::EXIT_OSCILLATE;

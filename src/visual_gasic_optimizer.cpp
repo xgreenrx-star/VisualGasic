@@ -136,6 +136,15 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         // 8-byte instructions (opcode + 3 local + 1 const-pool [2] + 2 local)
         case OP_ALLOC_FILL_REPEAT_I64:                                // [OP] [SUM_SLOT] [ARR_SLOT] [TMP_SLOT] [LIT_LO] [LIT_HI] [ITER_SLOT] [SIZE_SLOT]
             return 8;
+        // Variable-length: OP_JUMP_TABLE = 8 header + count*2 table bytes
+        case OP_JUMP_TABLE: {
+            if (ip + 8 <= code.size()) {
+                int num_cases = (code[ip + 6]) | (code[ip + 7] << 8);
+                return 8 + num_cases * 2;
+            }
+            return 1;
+        }
+
 
         default:
             // Unknown opcode — assume 1 byte (safest)

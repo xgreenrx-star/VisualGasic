@@ -1,0 +1,321 @@
+' gba_main.vg — GBA Emulator Godot Scene Script
+' Attached to the main Node2D. Handles frame loop, display, and UI.
+
+Import "gba_constants.vg"
+Import "gba_memory.vg"
+Import "gba_cpu.vg"
+Import "gba_gpu.vg"
+
+Dim Emu As GBACPU
+Dim Mem As GBAMemory
+Dim Gpu As GBAGPU
+Dim DisplayImage As Variant
+Dim DisplayTex As Variant
+Dim bLoaded As Boolean
+Dim SoundHandle As Long
+Dim KeyState As Integer
+
+' Optimizer hints for the run loop
+'@accumulator FrameCycles
+'@loop_counter CycleCounter
+
+Sub _Ready()
+    Set Mem = New GBAMemory
+    Mem.Init()
+
+    Set Emu = New GBACPU
+    Emu.Init(Mem)
+
+    Set Gpu = New GBAGPU
+    Gpu.Init(Mem)
+
+    bLoaded = False
+    KeyState = &H03FF
+
+    ' Create display image
+    Set DisplayImage = CreateImage(GBA_SCREEN_W, GBA_SCREEN_H, Color8(0, 0, 0, 255))
+    Set DisplayTex = CreateTexture(DisplayImage)
+
+    Print "GBA Emulator initialized. Drag and drop a ROM file to load."
+End Sub
+
+Sub _Process(delta As Double)
+    If Not bLoaded Then
+        ' Show idle screen
+        QueueRedraw()
+        Return
+    End If
+
+    ' Read inputs
+    UpdateInputs()
+
+    ' Run CPU for one frame's worth of cycles
+    Dim cycles As Long = 0
+    Do While cycles < CYCLES_PER_FRAME
+        ' Check interrupts
+        CheckInterrupts()
+
+        ' Step CPU
+        If Emu.R(15) = 0 Then
+            Print "CPU crashed — PC=0"
+            bLoaded = False
+            Return
+        End If
+
+        Dim instCycles As Long = Emu.Step()
+        cycles = cycles + instCycles
+
+        ' Update timers
+        UpdateTimers instCycles
+
+        If cycles > CYCLES_PER_FRAME * 2 Then Exit Do
+    Loop
+
+    ' VBlank
+    VBlank()
+
+    ' Render frame
+    Gpu.RenderFrame()
+
+    ' Copy Gpu framebuffer to display
+    BlitImage DisplayImage, Gpu.Framebuf, Rect2(0, 0, GBA_SCREEN_W, GBA_SCREEN_H), Vector2(0, 0)
+    UpdateTexture DisplayTex, DisplayImage
+
+    ' Output audio
+    OutputAudio()
+
+    QueueRedraw()
+End Sub
+
+Sub _Draw()
+    If DisplayTex <> 0 Then
+        DrawTexture DisplayTex, Vector2(0, 0)
+    End If
+End Sub
+
+Sub _Input(event As Variant)
+    ' Handle ROM loading via drag-and-drop
+    ' Godot 4 sends DropFiles events with "files" array
+    If VarType(event) = 9 Then  ' Object
+        If HasMember(event, "files") Then
+            Dim files As Variant = PropertyGet(event, "files")
+            If IsArray(files) Then
+                If ArrayLen(files) > 0 Then
+                    Dim filePath As String = files(0)
+                    Print "Dropped file: " & filePath
+                    If InStr(1, filePath, ".gba", 0) > 0 Or InStr(1, filePath, ".GBA", 0) > 0 Then
+                        LoadROMFromPath filePath
+                    End If
+                End If
+            End If
+        End If
+    End If
+End Sub
+
+' ─── Input ─────────────────────────────────────────────────────
+
+Sub UpdateInputs()
+    Dim keys As Integer = &H03FF
+
+    If IsActionPressed("A_Button") Then keys = BitClr(keys, 0)
+    If IsActionPressed("B_Button") Then keys = BitClr(keys, 1)
+    If IsActionPressed("Select") Then keys = BitClr(keys, 2)
+    If IsActionPressed("Start") Then keys = BitClr(keys, 3)
+    If IsActionPressed("Right") Then keys = BitClr(keys, 4)
+    If IsActionPressed("Left") Then keys = BitClr(keys, 5)
+    If IsActionPressed("Up") Then keys = BitClr(keys, 6)
+    If IsActionPressed("Down") Then keys = BitClr(keys, 7)
+    If IsActionPressed("R_Button") Then keys = BitClr(keys, 8)
+    If IsActionPressed("L_Button") Then keys = BitClr(keys, 9)
+
+    KeyState = keys
+    Mem.Write16 ADDR_IO + IO_KEYINPUT, KeyState
+
+    ' Keypad interrupt check
+    Dim keycnt As Integer = Mem.Read16(ADDR_IO + IO_KEYCNT)
+    If keycnt <> 0 Then
+        If BitTst(keycnt, 14) Then  ' IRQ mode
+            Dim andMask As Boolean = BitTst(keycnt, 15)
+            Dim targetKeys As Integer = BitAnd(keycnt, &H03FF)
+            Dim match As Boolean
+            If andMask Then
+                match = (BitAnd(keys, targetKeys) = 0)
+            Else
+                match = (BitAnd(keys, targetKeys) <> targetKeys)
+            End If
+            If match Then
+                Dim ifReg As Integer = Mem.Read16(ADDR_IO + IO_IF)
+                Mem.Write16 ADDR_IO + IO_IF, BitOr(ifReg, IRQ_KEYPAD)
+            End If
+        End If
+    End If
+End Sub
+
+' ─── Interrupts ────────────────────────────────────────────────
+
+Sub CheckInterrupts()
+    Dim ime As Integer = Mem.Read16(ADDR_IO + IO_IME)
+    If ime = 0 Then Return
+    If Emu.IRQDisabled() Then Return
+
+    Dim ieReg As Integer = Mem.Read16(ADDR_IO + IO_IE)
+    Dim ifReg As Integer = Mem.Read16(ADDR_IO + IO_IF)
+    Dim pending As Integer = BitAnd(ieReg, ifReg)
+
+    If pending <> 0 Then
+        Emu.EnterException(MODE_IRQ, &H00000018)
+    End If
+End Sub
+
+' ─── VBlank ────────────────────────────────────────────────────
+
+Sub VBlank()
+    Dim ioBase As Long = ADDR_IO
+
+    ' Set VCOUNT to 160 (VBlank start)
+    Mem.Write16 ioBase + IO_VCOUNT, 160
+
+    ' Set VBlank flag in DISPSTAT
+    Dim dispStat As Integer = Mem.Read16(ioBase + IO_DISPSTAT)
+    Mem.Write16 ioBase + IO_DISPSTAT, BitOr(dispStat, DISPSTAT_VBLANK_FLAG)
+
+    ' Trigger VBlank IRQ
+    Dim ifReg As Integer = Mem.Read16(ioBase + IO_IF)
+    Mem.Write16 ioBase + IO_IF, BitOr(ifReg, IRQ_VBLANK)
+
+    ' DMA transfers on VBlank trigger
+    ProcessDMA()
+
+    ' Reset VCOUNT for next frame
+    Mem.Write16 ioBase + IO_VCOUNT, 0
+End Sub
+
+' ─── DMA ───────────────────────────────────────────────────────
+
+Sub ProcessDMA()
+    Dim ioBase As Long = ADDR_IO
+    Dim dmaNum As Integer
+
+    For dmaNum = 0 To 3
+        Dim dmaOffset As Integer = IO_DMA0CNT_H + dmaNum * 12
+        Dim cntH As Integer = Mem.Read16(ioBase + dmaOffset)
+
+        If BitTst(cntH, 15) Then ' DMA enabled
+            Dim startTiming As Integer = RightShift(BitAnd(cntH, &H3000), 12)
+            Dim triggerVBlank As Boolean = (startTiming = 1)
+
+            If triggerVBlank Then
+                ' Execute DMA
+                Dim src As Long = Mem.Read32(ioBase + IO_DMA0SAD + dmaNum * 12)
+                Dim dst As Long = Mem.Read32(ioBase + IO_DMA0DAD + dmaNum * 12)
+                Dim cntL As Integer = Mem.Read16(ioBase + IO_DMA0CNT_L + dmaNum * 12)
+                Dim wordCount As Integer = BitAnd(cntL, &H3FFF)
+                If wordCount = 0 Then wordCount = &H4000
+                Dim is32Bit As Boolean = BitTst(cntH, 10)
+                Dim srcFixed As Boolean = BitTst(cntH, 9)
+                Dim dstFixed As Boolean = BitTst(cntH, 6)
+
+                Dim i As Long
+                For i = 0 To wordCount - 1
+                    If is32Bit Then
+                        Mem.Write32 dst, Mem.Read32(src)
+                        If Not srcFixed Then src = src + 4
+                        If Not dstFixed Then dst = dst + 4
+                    Else
+                        Mem.Write16 dst, Mem.Read16(src)
+                        If Not srcFixed Then src = src + 2
+                        If Not dstFixed Then dst = dst + 2
+                    End If
+                Next
+
+                ' Set IRQ if requested
+                If BitTst(cntH, 14) Then
+                    Dim ifReg As Integer = Mem.Read16(ioBase + IO_IF)
+                    Dim irqFlag As Integer = LeftShift(1, 8 + dmaNum)
+                    Mem.Write16 ioBase + IO_IF, BitOr(ifReg, irqFlag)
+                End If
+
+                ' Disable DMA if not repeat
+                If Not BitTst(cntH, 9) Then  ' Repeat bit check — actually bit 9 is src control
+                    ' Actually bit 9 in CNT_H is repeat mode
+                    If Not BitTst(cntH, 9) Then
+                        Mem.Write16 ioBase + dmaOffset, BitClr(cntH, 15)
+                    End If
+                End If
+            End If
+        End If
+    Next
+End Sub
+
+' ─── Timer Updates ─────────────────────────────────────────────
+
+Sub UpdateTimers(cycles As Long)
+    Dim ioBase As Long = ADDR_IO
+
+    ' Timer 0
+    Dim tmcntL As Integer = Mem.Read16(ioBase + IO_TM0CNT_L)
+    Dim tmcntH As Integer = Mem.Read16(ioBase + IO_TM0CNT_H)
+    If BitTst(tmcntH, 7) Then
+        Dim prescale As Integer = BitAnd(tmcntH, 3)
+        Dim div As Long = 1
+        Select Case prescale
+            Case 0: div = 1
+            Case 1: div = 64
+            Case 2: div = 256
+            Case 3: div = 1024
+        End Select
+
+        Dim ticks As Long = cycles \ div
+        If ticks > 0 Then
+            Dim newVal As Long = tmcntL - ticks
+            If newVal < 0 Then
+                Dim reloadVal As Integer = Mem.Read16(ioBase + IO_TM0CNT_L)  ' Uses initial value
+                newVal = &H10000 + newVal
+                Dim ifReg As Integer = Mem.Read16(ioBase + IO_IF)
+                Mem.Write16 ioBase + IO_IF, BitOr(ifReg, IRQ_TIMER0)
+            End If
+            Mem.Write16 ioBase + IO_TM0CNT_L, CInt(BitAnd(newVal, &HFFFF))
+        End If
+    End If
+End Sub
+
+' ─── Audio ─────────────────────────────────────────────────────
+
+Sub InitAudio()
+    SoundHandle = SoundGen.Open(32768, 0.1)
+End Sub
+
+Sub OutputAudio()
+    If SoundHandle = 0 Then InitAudio()
+    If SoundHandle = 0 Then Return
+
+    Dim available As Integer = SoundGen.Available(SoundHandle)
+    If available > 0 Then
+        ' Generate silence for now
+        Dim silence As PackedFloat32Array
+        silence.resize(available * 2)
+        SoundGen.PushStereoBuffer(SoundHandle, silence)
+    End If
+End Sub
+
+' ─── Public API for loading ROMs ───────────────────────────────
+
+Function LoadROMFromPath(filePath As String) As Boolean
+    If Mem.LoadROM(filePath) Then
+        Emu.R(15) = &H08000000
+        Emu.CPSR = MODE_SYS Or (1 << CPSR_IRQ_DISABLE) Or (1 << CPSR_FIQ_DISABLE)
+        bLoaded = True
+        Print "Loaded ROM: " & filePath & " (" & CStr(Mem.RomSize) & " bytes)"
+        Return True
+    End If
+    Print "Failed to load: " & filePath
+    Return False
+End Function
+
+Sub Shutdown()
+    If SoundHandle <> 0 Then
+        SoundGen.Close SoundHandle
+        SoundHandle = 0
+    End If
+    bLoaded = False
+End Sub

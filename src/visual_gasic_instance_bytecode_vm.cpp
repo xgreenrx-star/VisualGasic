@@ -468,6 +468,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         initial = variables[name];
                     } else if (builtin_constants.has(name)) {
                         initial = builtin_constants[name];
+                    } else if (get_global_scope().has(name)) {
+                        initial = get_global_scope()[name];
                     }
                 }
             }
@@ -564,6 +566,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 if (builtin_constants.has(name)) {
                     Variant current = builtin_constants[name];
+                    locals.write[slot] = current;
+                    if (slot < chunk->local_types.size()) {
+                        uint8_t lt = chunk->local_types[slot];
+                        if (lt == 1) typed_i64_locals.set(slot, (int64_t)current);
+                        else if (lt == 2) typed_f64_locals.set(slot, (double)current);
+                    }
+                    return current;
+                }
+                if (get_global_scope().has(name)) {
+                    Variant current = get_global_scope()[name];
                     locals.write[slot] = current;
                     if (slot < chunk->local_types.size()) {
                         uint8_t lt = chunk->local_types[slot];
@@ -854,6 +866,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_HINT_ACCUMULATOR: case OP_HINT_LOOP_COUNTER:
                     case OP_HINT_PURE_CALL:
                         scan_ip += 1; break;
+                    // M6: Jump table (variable-length: 8 header + count*2 table bytes)
+                    case OP_JUMP_TABLE: {
+                        if (scan_ip + 8 <= code_size) {
+                            int num_cases = (int)code[scan_ip + 6] | ((int)code[scan_ip + 7] << 8);
+                            scan_ip += 8 + num_cases * 2;
+                        } else {
+                            scan_ip = code_size;  // Malformed bytecode, abort scan
+                        }
+                        break;
+                    }
                     // 1-operand opcodes: 2-byte const pool index
                     case OP_CONSTANT: case OP_CONSTANT_LONG:
                     case OP_GET_GLOBAL:
@@ -1281,6 +1303,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_HINT_ACCUMULATOR] = &&vg_op_hint_accum;
         dispatch_table[OP_HINT_LOOP_COUNTER] = &&vg_op_hint_counter;
         dispatch_table[OP_HINT_PURE_CALL]    = &&vg_op_hint_pure;
+        dispatch_table[OP_JUMP_TABLE]        = &&vg_op_jump_table;
         dispatch_table_init = true;
     }
 
@@ -1613,6 +1636,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Fallback to built-in constants (separated so debugger only shows user vars)
                 if (val.get_type() == Variant::NIL && builtin_constants.has(name)) {
                     val = builtin_constants[name];
+                }
+
+                // Fallback to project-wide "Global Const"/"Global Dim" registry (v4.4.0)
+                if (val.get_type() == Variant::NIL && get_global_scope().has(name)) {
+                    val = get_global_scope()[name];
                 }
                 
                 if (name.nocasecmp_to("wheneverTriggered") == 0) {
@@ -6972,6 +7000,44 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             // optimizer/fusion passes. The compiler emits them to tell the
             // optimizer that a variable slot has specific properties.
             // ──────────────────────────────────────────────────────────────
+            // ── M6: Select Case Jump Table ──────────────────────────
+            // Dense integer Select Case (e.g. opcode decoders) compile to
+            // O(1) dispatch instead of O(n) if-else chains.
+            VG_CASE(vg_op_jump_table, OP_JUMP_TABLE): {
+                int min_cix = (int)code[vm.ip] | ((int)code[vm.ip+1] << 8); vm.ip += 2;
+                int max_cix = (int)code[vm.ip] | ((int)code[vm.ip+1] << 8); vm.ip += 2;
+                int16_t def_off = (int16_t)(code[vm.ip] | (code[vm.ip+1] << 8)); vm.ip += 2;
+                int num_cases = (int)code[vm.ip] | ((int)code[vm.ip+1] << 8); vm.ip += 2;
+                // Table entries occupy [vm.ip, vm.ip + num_cases*2); all stored
+                // offsets (def_off and per-slot offsets) are relative to the end
+                // of the table (table_end), not to vm.ip itself (table_start) —
+                // see try_compile_jump_table() in visual_gasic_compiler.cpp.
+                int table_bytes = num_cases * 2;
+
+                Variant top = pop_value();
+                int64_t val = 0;
+                if (top.get_type() == Variant::INT) val = (int64_t)top;
+                else if (top.get_type() == Variant::FLOAT) val = (int64_t)(double)top;
+                else { vm.ip += table_bytes + def_off; VG_BREAK; }
+
+                int64_t min_val = (int64_t)chunk->constants[min_cix];
+                int64_t max_val = (int64_t)chunk->constants[max_cix];
+
+                if (val < min_val || val > max_val) {
+                    vm.ip += table_bytes + def_off;
+                } else {
+                    int64_t idx = val - min_val;
+                    if (idx >= 0 && idx < (int64_t)num_cases) {
+                        int16_t _off = (int16_t)(code[vm.ip + idx*2] | (code[vm.ip + idx*2 + 1] << 8));
+                        vm.ip += table_bytes + _off;
+                    } else {
+                        vm.ip += table_bytes + def_off;
+                    }
+                }
+                VG_BREAK;
+            }
+
+
             VG_CASE(vg_op_hint_accum, OP_HINT_ACCUMULATOR):
             VG_CASE(vg_op_hint_counter, OP_HINT_LOOP_COUNTER):
             VG_CASE(vg_op_hint_pure, OP_HINT_PURE_CALL): {

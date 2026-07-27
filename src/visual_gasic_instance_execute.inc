@@ -554,7 +554,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                          safety++;
                          continue; // Next iteration
                      }
-                     if (error_state.mode == ErrorState::EXIT_DO) {
+                     if (error_state.mode == ErrorState::EXIT_DO || error_state.mode == ErrorState::EXIT_WHILE) {
                          error_state.has_error = false;
                          error_state.mode = ErrorState::NONE;
                          break;
@@ -2666,6 +2666,8 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 error_state.mode = ErrorState::EXIT_FOR;
             } else if (s->exit_type == ExitStatement::EXIT_DO) {
                 error_state.mode = ErrorState::EXIT_DO;
+            } else if (s->exit_type == ExitStatement::EXIT_WHILE) {
+                error_state.mode = ErrorState::EXIT_WHILE;
             } else if (s->exit_type == ExitStatement::EXIT_OSCILLATE) {
                 error_state.mode = ErrorState::EXIT_OSCILLATE;
             }

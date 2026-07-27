@@ -247,6 +247,15 @@ enum OpCode {
     OP_HINT_LOOP_COUNTER,  // [OP] [SLOT_IDX]    — Mark locals[slot] as a loop counter (0→N-1 with Step 1)
     OP_HINT_PURE_CALL,    // [OP] [FUNC_IDX]     — Mark function call as pure (no side effects, foldable)
 
+    // Select Case Jump Table (v6.2 - Emulator Performance Optimization)
+    // Dense integer Select Case compiles to O(1) dispatch instead of O(n) if-else chain.
+    // Format: [OP] [MIN_CONST_LO] [MIN_CONST_HI] [MAX_CONST_LO] [MAX_CONST_HI]
+    //          [DEFAULT_OFFSET_LO] [DEFAULT_OFFSET_HI] [NUM_CASES_LO] [NUM_CASES_HI]
+    //          followed by NUM_CASES x int16_t offsets (packed little-endian).
+    // At runtime: val = pop_int(); if (val < min || val > max) ip += default_offset;
+    //              else ip += offsets[val - min];
+    OP_JUMP_TABLE,         // [OP] [MIN_C] [MAX_C] [DEF_OFF] [COUNT] [table...]
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 

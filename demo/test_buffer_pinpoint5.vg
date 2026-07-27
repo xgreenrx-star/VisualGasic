@@ -1,0 +1,6 @@
+Attribute VB_Name = "BufferPinpoint5"
+
+Function SimpleBuf() As Long
+    Dim buf As New MemoryBuffer(10)
+    SimpleBuf = 42
+End Function

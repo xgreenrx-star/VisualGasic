@@ -1342,6 +1342,70 @@ These rules prevent "VG shell + hidden native emulator" and ensure emulator work
 
 ---
 
+### External C++ Library Integration Strategy (v6.0+)
+
+**Objective**: Enable high-performance emulation and numeric computing by linking against pre-existing C++ libraries without breaking the VG-first architecture.
+
+**Architecture Principles**:
+
+1. **Thin native wrappers, not full reimplementations**  
+   - Link against libraries (libopenmpt, zstd, xsimd, mimalloc, etc.) via `SConstruct` flags
+   - Wrap library APIs in lightweight C++ adapters (50-200 lines per library, live in `src/visual_gasic_external_libs.cpp` or per-subsystem `.h/.cpp`)
+   - Expose to VG as builtins or opcodes with zero semantic changes
+
+2. **License compatibility (MIT/Apache/BSD preferred)**  
+   - GPL/copyleft libraries acceptable only for optional subsystems (clearly marked `[GPL]` in docs)
+   - Vendored libs become the plugin maintainer's responsibility for security patches
+
+3. **Platform build validation**  
+   - Every linked library must build on **at least Linux + Windows + macOS**
+   - CI matrix: test each integration on the three platforms before merge
+   - Fails on any platform → library addition is deferred or marked experimental
+
+4. **Binary footprint awareness**  
+   - Log `.so` size deltas (`stat libvisualgasic.linux.editor.so`) for each major library
+   - Document the tradeoff: e.g., "xsimd adds 0 bytes to binary; mimalloc adds 150KB"
+   - Large libs (>1MB delta) need strong ROI proof from emulator or real project
+
+5. **Profiling-driven adoption**  
+   - Link a candidate library only **after** profiling hotspots prove the bottleneck
+   - Example: "vector_storm profiling showed `Dim arr(N) As Single` boxes every access (70µs/iteration). SIMD library would reduce this to ~7µs. Adding xsimd to SConstruct."
+   - Track before/after benchmark deltas in `performance.conf` and CHANGELOG
+
+**Recommended Library Tiers** (candidate for v6.2+):
+
+| Tier | Libraries | Purpose | Effort | ROI |
+|------|-----------|---------|--------|-----|
+| **A — Audio/I/O** | libopenmpt (tracker), PortAudio (real-time audio), zstd (compression) | Music/emulation audio fidelity, buffer compression for large arrays | Low (~1 day each; mostly parsing/binding work) | High — emulators + game audio benefit immediately |
+| **B — SIMD/Numerics** | xsimd (vector ops abstraction), mimalloc (faster allocator), Eigen (linear algebra) | Physics grids, particle systems, 3D math, emulation inner loops | Medium (~3-5 days; requires opcode specialization) | High — 2-10x speedup on batch workloads |
+| **C — System/Crypto** | OpenSSL/MbedTLS (if not already available via Godot), libsodium (modern crypto) | Networking, asset encryption, secure RNG | Low (~1 day; usually already available) | Medium — security + game networking |
+| **D — Research/Optional** | TinyJIT (lightweight JIT), LLVM subset (advanced compilation) | Advanced optimization tier; deferred to v6.3+ | High (~2-4 weeks) | Speculative — wait for profiler data first |
+
+**Integration Checklist**:
+- [ ] Profiler output showing measurable bottleneck in target workload
+- [ ] Library selection decision document (why this library, not alternatives)
+- [ ] SConstruct patch: `-I`, `-L`, `-l` flags + pkg-config fallback
+- [ ] CI verification: builds clean on Linux/Windows/macOS
+- [ ] Wrapper code: `extern "C"` wrappers or safe C++ adapters
+- [ ] VG binding: opcodes or builtins exposed to VG-side code
+- [ ] Documentation: BUILTINS.md entries with examples + platform notes
+- [ ] Benchmark: before/after performance delta in `performance.conf`
+- [ ] Example: demo project in `demos/` showing library in action
+
+**Known Integrations Ready for v6.2**:
+
+| Library | Candidate Date | Status | Blocker |
+|---------|---|---|---|
+| **xsimd** (SIMD abstraction) | v6.2 (Dec 2026) | Planned | Profiling proof from emulator or vector_storm follow-up |
+| **mimalloc** (allocator) | v6.2–v6.3 | Planned | Binary size validation; ensure jemalloc not already linked by Godot |
+| **zstd** (compression) | v6.3 | Candidate | Use case proof (asset streaming, save game compression) |
+| **OpenSSL/MbedTLS** | v6.2 | Candidate | Check if Godot already exposes TLS via GDExtension |
+
+**Post-v6.0 Discussion**:
+After the stable release, measure real emulator hotspots (GBA/PS1 profiler data) and circle back to this checklist. The library roadmap is data-driven; speculative tier-D additions wait for proof.
+
+---
+
 ### Platform Expansion: Windows Support for Audio/Tracker Subsystems
 
 **Task**: Bring Tracker (libopenmpt), Music (SiONDriver), and SoundGen (audio synthesis) builtins to Windows.

@@ -702,6 +702,14 @@ void VisualGasicInstance::prune_fast_dict_cache_if_needed() {
     }
 }
 
+Dictionary &VisualGasicInstance::get_global_scope() {
+    // Godot's Dictionary is ref-counted internally; a single static instance
+    // here is transparently shared by every VisualGasicInstance in the
+    // process for the lifetime of the engine (v4.4.0 "Global Const"/"Global Dim").
+    static Dictionary global_scope;
+    return global_scope;
+}
+
 VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object *p_owner) {
     script = p_script;
     owner = p_owner;
@@ -1129,6 +1137,14 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                  if (v->is_with_events) {
                      with_events_vars[v->name] = true;
                  }
+
+                 // Publish "Global Dim" default to the process-wide shared
+                 // registry (v4.4.0) so other scripts can read it by bare
+                 // name without an Import. First script to declare it wins
+                 // the initial value; later assignments stay local per-script.
+                 if (v->is_global && !get_global_scope().has(v->name)) {
+                     get_global_scope()[v->name] = variables[v->name];
+                 }
                  
                  UtilityFunctions::print("Initialized Global Var: ", v->name);
             }
@@ -1139,6 +1155,11 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                 ConstStatement* c = vs->ast_root->constants[ci];
                 Variant val = evaluate_expression(c->value);
                 variables[c->name] = val;
+                // "Global Const" (v4.4.0) — publish to the shared, process-wide
+                // registry so any script in the project can read it by bare name.
+                if (c->is_global) {
+                    get_global_scope()[c->name] = val;
+                }
             }
             // Initialize enums early too (they are effectively constants)
             for(int ei=0; ei<vs->ast_root->enums.size(); ei++) {
@@ -1314,6 +1335,26 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                             if (mc->value && mc->value->type == ExpressionNode::LITERAL) {
                                 mod_dict[mc->name] = static_cast<LiteralNode*>(mc->value)->value;
                             }
+                            // "Global Const" declared in an imported file (v4.4.0) —
+                            // publish to the shared project-wide registry too, so
+                            // it's reachable by bare name from ANY script, not just
+                            // via qualified ModuleName.Symbol dot-access.
+                            if (mc->is_global && mc->value && !get_global_scope().has(mc->name)) {
+                                get_global_scope()[mc->name] = evaluate_expression(mc->value);
+                            }
+                        }
+                        // "Global Dim/Public/Private" declared in an imported file
+                        // (v4.4.0) — publish default value too.
+                        for (int vi2 = 0; vi2 < import_ast->variables.size(); vi2++) {
+                            VariableDefinition* mv2 = import_ast->variables[vi2];
+                            if (mv2->is_global && !get_global_scope().has(mv2->name)) {
+                                String t2 = mv2->type.to_lower();
+                                if (t2 == "integer" || t2 == "long") get_global_scope()[mv2->name] = (int)0;
+                                else if (t2 == "single" || t2 == "double") get_global_scope()[mv2->name] = (float)0.0;
+                                else if (t2 == "string") get_global_scope()[mv2->name] = "";
+                                else if (t2 == "boolean") get_global_scope()[mv2->name] = false;
+                                else get_global_scope()[mv2->name] = Variant();
+                            }
                         }
                         // Register sub/function names for IntelliSense hints
                         // (all module-level subs are public by default in VB6)
@@ -1326,6 +1367,14 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                         UtilityFunctions::print("[VG] Imported module: ", mod_name, " (", 
                             import_ast->subs.size(), " subs, ",
                             import_ast->variables.size(), " vars) from ", full_path);
+
+                        // Register the imported module's Class definitions (v4.4.0)
+                        // so `New ClassName` works for classes defined in a
+                        // separate imported .vg file, not just classes defined
+                        // in this script's own file.
+                        for (int cdi = 0; cdi < import_ast->class_defs.size(); cdi++) {
+                            register_class(import_ast->class_defs[cdi]);
+                        }
                     } else {
                         // Parse failed — clean up
                         delete import_parser;

@@ -185,6 +185,7 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Export");
     keywords.push_back("Import");
     keywords.push_back("ClassName");
+    keywords.push_back("Global");
     keywords.push_back("Eqv");
     keywords.push_back("Imp");
     keywords.push_back("Reset");
@@ -372,7 +373,8 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
             String num_str = p_source_code.substr(start, current - start);
             Token t;
             t.type = is_float ? TOKEN_LITERAL_FLOAT : TOKEN_LITERAL_INTEGER;
-            t.value = is_float ? num_str.to_float() : num_str.to_int();
+            if (is_float) t.value = num_str.to_float();
+            else t.value = num_str.to_int();
             t.line = line;
             t.column = column;
             tokens.push_back(t);

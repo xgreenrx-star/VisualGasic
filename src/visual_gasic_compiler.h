@@ -110,6 +110,10 @@ private:
     void compile_statement(Statement* stmt);
     void compile_expression(ExpressionNode* expr);
 
+    // M6: Try to compile a Select Case as a dense O(1) jump table.
+    // Returns true if successful (and emits bytecode), false if fallback needed.
+    bool try_compile_jump_table(SelectStatement* s);
+
     // Pass 2: namespace dispatch. If base_obj is the bare identifier
     // "Camera"/"Sound"/"Bus" (not shadowed by a local/param/array/dict),
     // returns the lowercase namespace name; otherwise returns "".

@@ -29,19 +29,19 @@ Const SW As Integer = 1280
 Const SH As Integer = 720
 
 ' ── Physics ─────────────────────────────────────────────────────────────────
-Const GRAVITY      As Single = 120.0    ' pixels / s²
-Const THRUST_FORCE As Single = 220.0    ' pixels / s² when thrusting
-Const ROTATE_SPD   As Single = 2.8      ' radians / s
-Const TETHER_LEN   As Single = 55.0     ' pixels — pod hangs this far below ship
-Const BULLET_SPD   As Single = 480.0    ' pixels / s
-Const TURRET_SPD   As Single = 200.0    ' pixels / s
-Const FUEL_MAX     As Single = 1000.0
-Const FUEL_BURN    As Single = 120.0    ' fuel units / s
+Const GRAVITY As Single = 120.0 ' pixels / s²
+Const THRUST_FORCE As Single = 220.0 ' pixels / s² when thrusting
+Const ROTATE_SPD As Single = 2.8 ' radians / s
+Const TETHER_LEN As Single = 55.0 ' pixels — pod hangs this far below ship
+Const BULLET_SPD As Single = 480.0 ' pixels / s
+Const TURRET_SPD As Single = 200.0 ' pixels / s
+Const FUEL_MAX As Single = 1000.0
+Const FUEL_BURN As Single = 120.0 ' fuel units / s
 
 ' ── Array sizes ─────────────────────────────────────────────────────────────
-Const MAX_BULLETS  As Integer = 8
-Const NUM_TURRETS  As Integer = 4   ' max; per-level count varies
-Const MAX_LEVEL    As Integer = 3
+Const MAX_BULLETS As Integer = 8
+Const NUM_TURRETS As Integer = 4 ' max; per-level count varies
+Const MAX_LEVEL As Integer = 3
 
 ' ── Cave geometry ────────────────────────────────────────────────────────────
 ' A rectangular cavern with a narrow escape gap at the top centre.
@@ -56,59 +56,59 @@ Const MAX_LEVEL    As Integer = 3
 '  |                [TUR0]        [TUR1]              |
 '  ────────────────────────────────────────────────── CAVE_BOT (floor)
 '
-Const CAVE_L   As Single = 150.0
-Const CAVE_R   As Single = 1130.0
+Const CAVE_L As Single = 150.0
+Const CAVE_R As Single = 1130.0
 Const CAVE_TOP As Single = 120.0
 Const CAVE_BOT As Single = 670.0
 ' gap_l and gap_r are set at runtime in InitLevel()
 
 ' ── Ship state ──────────────────────────────────────────────────────────────
-Dim ship_x     As Single
-Dim ship_y     As Single
-Dim ship_vx    As Single
-Dim ship_vy    As Single
-Dim ship_angle As Single    ' radians; 0=right, -Pi/2=up
+Dim ship_x As Single
+Dim ship_y As Single
+Dim ship_vx As Single
+Dim ship_vy As Single
+Dim ship_angle As Single ' radians; 0=right, -Pi/2=up
 Dim ship_alive As Boolean
-Dim fuel       As Single
-Dim score      As Integer
+Dim fuel As Single
+Dim score As Integer
 
 ' ── Mission pod (pendulum physics) ──────────────────────────────────────────
-Dim pod_x        As Single
-Dim pod_y        As Single
+Dim pod_x As Single
+Dim pod_y As Single
 Dim pod_attached As Boolean
-Dim tether_angle As Single  ' angle of tether from straight-down (radians)
-Dim tether_vel   As Single  ' angular velocity of tether
+Dim tether_angle As Single ' angle of tether from straight-down (radians)
+Dim tether_vel As Single ' angular velocity of tether
 
 ' ── Fuel pod ────────────────────────────────────────────────────────────────
-Dim fpod_x     As Single
-Dim fpod_y     As Single
+Dim fpod_x As Single
+Dim fpod_y As Single
 Dim fpod_alive As Boolean
 
 ' ── Player bullets ──────────────────────────────────────────────────────────
-Dim bul_x(MAX_BULLETS)     As Single
-Dim bul_y(MAX_BULLETS)     As Single
-Dim bul_vx(MAX_BULLETS)    As Single
-Dim bul_vy(MAX_BULLETS)    As Single
+Dim bul_x(MAX_BULLETS) As Single
+Dim bul_y(MAX_BULLETS) As Single
+Dim bul_vx(MAX_BULLETS) As Single
+Dim bul_vy(MAX_BULLETS) As Single
 Dim bul_alive(MAX_BULLETS) As Boolean
 
 ' ── Turrets ─────────────────────────────────────────────────────────────────
-Dim tur_x(NUM_TURRETS)     As Single
-Dim tur_y(NUM_TURRETS)     As Single
+Dim tur_x(NUM_TURRETS) As Single
+Dim tur_y(NUM_TURRETS) As Single
 Dim tur_alive(NUM_TURRETS) As Boolean
-Dim tur_cd(NUM_TURRETS)    As Single    ' cooldown timer before next shot
+Dim tur_cd(NUM_TURRETS) As Single ' cooldown timer before next shot
 
 ' ── Turret bullets (one active per turret) ──────────────────────────────────
-Dim tbul_x(NUM_TURRETS)     As Single
-Dim tbul_y(NUM_TURRETS)     As Single
-Dim tbul_vx(NUM_TURRETS)    As Single
-Dim tbul_vy(NUM_TURRETS)    As Single
+Dim tbul_x(NUM_TURRETS) As Single
+Dim tbul_y(NUM_TURRETS) As Single
+Dim tbul_vx(NUM_TURRETS) As Single
+Dim tbul_vy(NUM_TURRETS) As Single
 Dim tbul_alive(NUM_TURRETS) As Boolean
 
 ' ── Game state ──────────────────────────────────────────────────────────────
 ' -1 = splash   0 = playing   1 = dead (respawning)   2 = level complete
 Dim game_state As Integer
-Dim respawn_t  As Single
-Dim level      As Integer
+Dim respawn_t As Single
+Dim level As Integer
 
 ' ── Runtime cave gap (varies per level) ────────────────────────────────
 Dim gap_l As Single
@@ -116,13 +116,13 @@ Dim gap_r As Single
 
 ' ── Per-frame input cache (set in _Process, consumed in _Draw) ───────────────
 Dim thrust_on As Boolean
-Dim beam_on   As Boolean
+Dim beam_on As Boolean
 
 ' ============================================================================
 ' INIT
 ' ============================================================================
 Sub _Ready()
-	game_state = -1   ' start on splash screen
+	game_state = - 1 ' start on splash screen
 	Print "=== THRUST — VG Proof of Concept ==="
 	Print "SPACE to start"
 End Sub
@@ -130,17 +130,17 @@ End Sub
 Sub InitGame()
 	level = 1
 	score = 0
-	Call InitLevel()     ' sets gap_l/gap_r first
-	Call ResetShip()     ' uses gap centre for ship_x
+	Call InitLevel() ' sets gap_l/gap_r first
+	Call ResetShip() ' uses gap centre for ship_x
 	game_state = 0
 End Sub
 
 Sub ResetShip()
-	ship_x = (gap_l + gap_r) / 2.0   ' centre of the escape gap
+	ship_x = (gap_l + gap_r) / 2.0 ' centre of the escape gap
 	ship_y = 55.0
 	ship_vx = 0.0
 	ship_vy = 0.0
-	ship_angle = -1.5708    ' facing up (-Pi/2)
+	ship_angle = - 1.5708 ' facing up (-Pi/2)
 	ship_alive = True
 	fuel = FUEL_MAX
 	pod_attached = False
@@ -160,8 +160,8 @@ End Sub
 Sub NextLevel()
 	level = level + 1
 	If level > MAX_LEVEL Then level = 1
-	Call InitLevel()     ' sets gap_l/gap_r first
-	Call ResetShip()     ' uses gap centre for ship_x
+	Call InitLevel() ' sets gap_l/gap_r first
+	Call ResetShip() ' uses gap centre for ship_x
 	game_state = 0
 End Sub
 
@@ -180,18 +180,18 @@ Sub InitLevel()
 
 	' ── Pod positions ───────────────────────────────────────────────
 	If level = 1 Then
-		pod_x  = 640.0
-		pod_y  = 620.0
+		pod_x = 640.0
+		pod_y = 620.0
 		fpod_x = 340.0
 		fpod_y = 612.0
 	ElseIf level = 2 Then
-		pod_x  = 820.0
-		pod_y  = 612.0
+		pod_x = 820.0
+		pod_y = 612.0
 		fpod_x = 480.0
 		fpod_y = 612.0
 	Else
-		pod_x  = 360.0
-		pod_y  = 612.0
+		pod_x = 360.0
+		pod_y = 612.0
 		fpod_x = 880.0
 		fpod_y = 615.0
 	End If
@@ -209,13 +209,13 @@ Sub InitLevel()
 	tur_y(1) = CAVE_BOT
 	tur_alive(1) = True
 	tur_cd(1) = 2.7
-	If level >= 2 Then
+	If level > = 2 Then
 		tur_x(2) = 580.0
 		tur_y(2) = CAVE_BOT
 		tur_alive(2) = True
 		tur_cd(2) = 2.0
 	End If
-	If level >= 3 Then
+	If level > = 3 Then
 		tur_x(3) = 760.0
 		tur_y(3) = CAVE_BOT
 		tur_alive(3) = True
@@ -228,7 +228,7 @@ End Sub
 ' ============================================================================
 Sub _Process(delta As Single)
 	' ── Splash — wait for SPACE ───────────────────────────────────────────
-	If game_state = -1 Then
+	If game_state = - 1 Then
 		If Input.IsActionJustPressed("vg_fire") Then
 			Call InitGame()
 		End If
@@ -238,7 +238,7 @@ Sub _Process(delta As Single)
 	' ── Dead — count down to respawn ──────────────────────────────────────
 	If game_state = 1 Then
 		respawn_t = respawn_t - delta
-		If respawn_t <= 0.0 Then
+		If respawn_t < = 0.0 Then
 			Call InitGame()
 		End If
 		Return
@@ -247,7 +247,7 @@ Sub _Process(delta As Single)
 	' ── Level complete ──────────────────────────────────────────────────
 	If game_state = 2 Then
 		If Input.IsActionJustPressed("vg_fire") Then
-			If level >= MAX_LEVEL Then
+			If level > = MAX_LEVEL Then
 				Call InitGame()
 			Else
 				Call NextLevel()
@@ -320,11 +320,11 @@ Sub _Process(delta As Single)
 	If pod_attached Then
 		' Pendulum ODE: d²θ/dt² = -(g/L)·sin(θ) with ship-lateral forcing
 		Dim t_acc As Single
-		t_acc = -(GRAVITY / TETHER_LEN) * Sin(tether_angle)
+		t_acc = - (GRAVITY / TETHER_LEN) * Sin(tether_angle)
 		' Ship horizontal velocity nudges the bob laterally
 		t_acc = t_acc - (ship_vx / TETHER_LEN) * Cos(tether_angle) * 0.12
 		tether_vel = tether_vel + t_acc * delta
-		tether_vel = tether_vel * (1.0 - 2.0 * delta)   ' light damping
+		tether_vel = tether_vel * (1.0 - 2.0 * delta) ' light damping
 		tether_angle = tether_angle + tether_vel * delta
 		pod_x = ship_x + Sin(tether_angle) * TETHER_LEN
 		pod_y = ship_y + Cos(tether_angle) * TETHER_LEN
@@ -348,7 +348,7 @@ Sub _Process(delta As Single)
 				fuel = fuel + 400.0
 				If fuel > FUEL_MAX Then fuel = FUEL_MAX
 				score = score + 500
-				Print "Fuel collected!  +" & Str(500) & " pts"
+				Print "Fuel collected! +" & Str(500) & " pts"
 			End If
 		End If
 
@@ -356,7 +356,7 @@ Sub _Process(delta As Single)
 		If ship_y < CAVE_TOP And ship_x > gap_l And ship_x < gap_r Then
 			game_state = 2
 			score = score + 5000
-			Print "Level " & Str(level) & " complete!  Score: " & Str(score)
+			Print "Level " & Str(level) & " complete! Score: " & Str(score)
 		End If
 	End If
 
@@ -376,7 +376,7 @@ Sub _Process(delta As Single)
 	For i = 0 To NUM_TURRETS - 1
 		If tur_alive(i) Then
 			tur_cd(i) = tur_cd(i) - delta
-			If tur_cd(i) <= 0.0 Then
+			If tur_cd(i) < = 0.0 Then
 				tur_cd(i) = 3.0
 				Call FireTurretBullet(i)
 			End If
@@ -394,7 +394,7 @@ Sub _Process(delta As Single)
 	Call CheckCollisions()
 
 	' Fuel exhausted → die
-	If fuel <= 0.0 And ship_alive Then
+	If fuel < = 0.0 And ship_alive Then
 		Call KillShip()
 	End If
 End Sub
@@ -508,7 +508,7 @@ Sub KillShip()
 	pod_attached = False
 	game_state = 1
 	respawn_t = 2.5
-	Print "Ship destroyed!  Score: " & Str(score)
+	Print "Ship destroyed! Score: " & Str(score)
 End Sub
 
 ' ============================================================================
@@ -516,7 +516,7 @@ End Sub
 ' ============================================================================
 Sub _Draw()
 	' ── Splash screen ─────────────────────────────────────────────────────
-	If game_state = -1 Then
+	If game_state = - 1 Then
 		Call DrawSplash()
 		Return
 	End If
@@ -589,10 +589,10 @@ Sub _Draw()
 		DrawRect 0, 288, SW, 96, Color(0.0, 0.1, 0.0, 0.92)
 		If level < MAX_LEVEL Then
 			DrawString "LEVEL " & Str(level) & " COMPLETE!", 430, 298, Color(0.3, 1.0, 0.4, 1.0), 30
-			DrawString "SCORE: " & Str(score) & "        SPACE for next level", 350, 352, Color.White, 20
+			DrawString "SCORE: " & Str(score) & " SPACE for next level", 350, 352, Color.White, 20
 		Else
 			DrawString "ALL LEVELS CLEAR!", 450, 298, Color(0.3, 1.0, 0.4, 1.0), 30
-			DrawString "FINAL SCORE: " & Str(score) & "        SPACE to restart", 340, 352, Color.White, 20
+			DrawString "FINAL SCORE: " & Str(score) & " SPACE to restart", 340, 352, Color.White, 20
 		End If
 	End If
 End Sub
@@ -619,10 +619,10 @@ End Sub
 Sub DrawCave()
 	Dim rock_col As Variant
 	Dim edge_col As Variant
-	Dim gap_col  As Variant
-	rock_col = Color(0.15, 0.65, 0.15, 1.0)   ' green scanlines
-	edge_col = Color(0.35, 0.95, 0.35, 1.0)   ' bright cave-face highlight
-	gap_col  = Color(0.08, 0.30, 0.08, 1.0)   ' dim gap guide
+	Dim gap_col As Variant
+	rock_col = Color(0.15, 0.65, 0.15, 1.0) ' green scanlines
+	edge_col = Color(0.35, 0.95, 0.35, 1.0) ' bright cave-face highlight
+	gap_col = Color(0.08, 0.30, 0.08, 1.0) ' dim gap guide
 
 	Dim yi As Integer
 
@@ -655,8 +655,8 @@ Sub DrawCave()
 	DrawLine CAVE_L, CAVE_TOP, CAVE_L, CAVE_BOT, edge_col
 	DrawLine CAVE_R, CAVE_TOP, CAVE_R, CAVE_BOT, edge_col
 	DrawLine CAVE_L, CAVE_BOT, CAVE_R, CAVE_BOT, edge_col
-	DrawLine CAVE_L, CAVE_TOP, gap_l,  CAVE_TOP, edge_col
-	DrawLine gap_r,  CAVE_TOP, CAVE_R, CAVE_TOP, edge_col
+	DrawLine CAVE_L, CAVE_TOP, gap_l, CAVE_TOP, edge_col
+	DrawLine gap_r, CAVE_TOP, CAVE_R, CAVE_TOP, edge_col
 
 	' Gap corridor guides + entry chevron
 	DrawLine gap_l, 0.0, gap_l, CAVE_TOP, gap_col
@@ -692,14 +692,14 @@ Sub DrawShip()
 	Dim hull_col As Variant
 	Dim body_col As Variant
 	Dim trim_col As Variant
-	hull_col = Color(0.25, 0.9,  1.0,  1.0)
+	hull_col = Color(0.25, 0.9, 1.0, 1.0)
 	body_col = Color(0.10, 0.55, 0.75, 1.0)
 	trim_col = Color(0.08, 0.38, 0.56, 1.0)
-	DrawLine nx, ny, lx, ly, hull_col   ' nose → left tip
-	DrawLine nx, ny, rx, ry, hull_col   ' nose → right tip
-	DrawLine lx, ly, ex, ey, body_col   ' left tip → nozzle
-	DrawLine rx, ry, ex, ey, body_col   ' right tip → nozzle
-	DrawLine lx, ly, rx, ry, trim_col   ' trailing edge (spans wing tips)
+	DrawLine nx, ny, lx, ly, hull_col ' nose → left tip
+	DrawLine nx, ny, rx, ry, hull_col ' nose → right tip
+	DrawLine lx, ly, ex, ey, body_col ' left tip → nozzle
+	DrawLine rx, ry, ex, ey, body_col ' right tip → nozzle
+	DrawLine lx, ly, rx, ry, trim_col ' trailing edge (spans wing tips)
 
 	' ─ cockpit crossbar (1/3 back from nose) ─────────────────────────
 	Dim ckx As Single
@@ -708,13 +708,13 @@ Sub DrawShip()
 	Dim cl_y As Single
 	Dim cr_x As Single
 	Dim cr_y As Single
-	ckx  = ship_x + Cos(ship_angle) * 10.0
-	cky  = ship_y + Sin(ship_angle) * 10.0
+	ckx = ship_x + Cos(ship_angle) * 10.0
+	cky = ship_y + Sin(ship_angle) * 10.0
 	cl_x = ckx + Cos(ship_angle + 1.5708) * 9.0
 	cl_y = cky + Sin(ship_angle + 1.5708) * 9.0
 	cr_x = ckx + Cos(ship_angle - 1.5708) * 9.0
 	cr_y = cky + Sin(ship_angle - 1.5708) * 9.0
-	DrawLine cl_x, cl_y, cr_x, cr_y, Color(0.15, 0.6, 0.85, 0.9)   ' cockpit bar
+	DrawLine cl_x, cl_y, cr_x, cr_y, Color(0.15, 0.6, 0.85, 0.9) ' cockpit bar
 
 	' ─ engine bell rim at nozzle ────────────────────────────────────
 	Dim bl_x As Single
@@ -725,14 +725,14 @@ Sub DrawShip()
 	bl_y = ey + Sin(ship_angle + 3.14159 + 0.52) * 7.0
 	br_x = ex + Cos(ship_angle + 3.14159 - 0.52) * 7.0
 	br_y = ey + Sin(ship_angle + 3.14159 - 0.52) * 7.0
-	DrawLine bl_x, bl_y, br_x, br_y, Color(0.35, 0.6, 0.85, 0.85)  ' bell rim
-	DrawCircle ex, ey, 3.0, Color(0.5, 0.7, 1.0, 0.8)              ' nozzle dot
+	DrawLine bl_x, bl_y, br_x, br_y, Color(0.35, 0.6, 0.85, 0.85) ' bell rim
+	DrawCircle ex, ey, 3.0, Color(0.5, 0.7, 1.0, 0.8) ' nozzle dot
 
 	' ─ thrust flame from nozzle ───────────────────────────────────────
 	If thrust_on And fuel > 0.0 Then
 		Dim ta As Single
 		ta = ship_angle + 3.14159
-		DrawLine ex, ey, ex + Cos(ta) * 38.0,        ey + Sin(ta) * 38.0,        Color(1.0, 0.55, 0.1, 0.95)
+		DrawLine ex, ey, ex + Cos(ta) * 38.0, ey + Sin(ta) * 38.0, Color(1.0, 0.55, 0.1, 0.95)
 		DrawLine ex, ey, ex + Cos(ta + 0.22) * 26.0, ey + Sin(ta + 0.22) * 26.0, Color(1.0, 0.85, 0.2, 0.7)
 		DrawLine ex, ey, ex + Cos(ta - 0.22) * 26.0, ey + Sin(ta - 0.22) * 26.0, Color(1.0, 0.85, 0.2, 0.7)
 	End If
@@ -770,10 +770,10 @@ Sub DrawHUD()
 	DrawString "LVL " & Str(level), 320.0, 9, Color(0.75, 0.75, 0.35, 1.0), 15
 
 	Dim score_str As String
-	score_str = "SCORE  " & Str(score)
+	score_str = "SCORE " & Str(score)
 	DrawString score_str, CSng(SW) - 200.0, 9, Color.White, 15
 
-	DrawString "ROTATE A/D   THRUST W   FIRE SPACE   BEAM /", 22, CSng(SH) - 20.0, Color(0.22, 0.22, 0.22, 1.0), 13
+	DrawString "ROTATE A/D THRUST W FIRE SPACE BEAM /", 22, CSng(SH) - 20.0, Color(0.22, 0.22, 0.22, 1.0), 13
 End Sub
 
 ' ── Splash screen ────────────────────────────────────────────────────────────
@@ -784,12 +784,12 @@ Sub DrawSplash()
 	' ── Planet (right side) — scanline-textured circle ────────────────────
 	Dim pc_x As Single
 	Dim pc_y As Single
-	Dim pr   As Single
+	Dim pr As Single
 	pc_x = 870.0
 	pc_y = 320.0
-	pr   = 230.0
+	pr = 230.0
 	Dim pyi As Integer
-	For pyi = -230 To 230 Step 5
+	For pyi = - 230 To 230 Step 5
 		Dim py As Single
 		py = pc_y + CSng(pyi)
 		Dim half_w As Single
@@ -814,10 +814,10 @@ Sub DrawSplash()
 		DrawLine pe_x1, pe_y1, pe_x2, pe_y2, Color(0.75, 0.75, 0.75, 1.0)
 	Next pei
 	' Craters
-	DrawCircle pc_x - 60.0,  pc_y + 70.0,  44.0, Color(0.0,  0.0,  0.0,  1.0)
-	DrawCircle pc_x - 60.0,  pc_y + 70.0,  44.0, Color(0.35, 0.35, 0.35, 1.0)
-	DrawCircle pc_x + 80.0,  pc_y - 100.0, 24.0, Color(0.0,  0.0,  0.0,  1.0)
-	DrawCircle pc_x + 80.0,  pc_y - 100.0, 24.0, Color(0.30, 0.30, 0.30, 1.0)
+	DrawCircle pc_x - 60.0, pc_y + 70.0, 44.0, Color(0.0, 0.0, 0.0, 1.0)
+	DrawCircle pc_x - 60.0, pc_y + 70.0, 44.0, Color(0.35, 0.35, 0.35, 1.0)
+	DrawCircle pc_x + 80.0, pc_y - 100.0, 24.0, Color(0.0, 0.0, 0.0, 1.0)
+	DrawCircle pc_x + 80.0, pc_y - 100.0, 24.0, Color(0.30, 0.30, 0.30, 1.0)
 
 	' ── Decorative ship (left of planet, pointing right) ──────────────────
 	' sa = 0 → nose points right; sa + 3.14159 → nozzle points left
@@ -833,13 +833,13 @@ Sub DrawSplash()
 	Dim sry As Single
 	Dim sex As Single
 	Dim sey As Single
-	snx = scx + 56.0           ' Cos(0) = 1, Sin(0) = 0
+	snx = scx + 56.0 ' Cos(0) = 1, Sin(0) = 0
 	sny = scy
 	slx = scx + Cos(2.09) * 44.0
 	sly = scy + Sin(2.09) * 44.0
-	srx = scx + Cos(-2.09) * 44.0
-	sry = scy + Sin(-2.09) * 44.0
-	sex = scx - 28.0           ' Cos(Pi) = -1
+	srx = scx + Cos( - 2.09) * 44.0
+	sry = scy + Sin( - 2.09) * 44.0
+	sex = scx - 28.0 ' Cos(Pi) = -1
 	sey = scy
 	' Hull
 	DrawLine snx, sny, slx, sly, Color(0.85, 0.85, 0.85, 1.0)
@@ -847,12 +847,12 @@ Sub DrawSplash()
 	DrawLine slx, sly, sex, sey, Color(0.55, 0.55, 0.55, 1.0)
 	DrawLine srx, sry, sex, sey, Color(0.55, 0.55, 0.55, 1.0)
 	' Hull detail ribs
-	DrawLine scx - 8.0,  scy - 18.0, scx + 26.0, scy - 10.0, Color(0.4,  0.4,  0.4,  1.0)
-	DrawLine scx - 8.0,  scy + 18.0, scx + 26.0, scy + 10.0, Color(0.4,  0.4,  0.4,  1.0)
-	DrawLine scx - 8.0,  scy - 8.0,  scx + 16.0, scy - 4.0,  Color(0.35, 0.35, 0.35, 1.0)
-	DrawLine scx - 8.0,  scy + 8.0,  scx + 16.0, scy + 4.0,  Color(0.35, 0.35, 0.35, 1.0)
+	DrawLine scx - 8.0, scy - 18.0, scx + 26.0, scy - 10.0, Color(0.4, 0.4, 0.4, 1.0)
+	DrawLine scx - 8.0, scy + 18.0, scx + 26.0, scy + 10.0, Color(0.4, 0.4, 0.4, 1.0)
+	DrawLine scx - 8.0, scy - 8.0, scx + 16.0, scy - 4.0, Color(0.35, 0.35, 0.35, 1.0)
+	DrawLine scx - 8.0, scy + 8.0, scx + 16.0, scy + 4.0, Color(0.35, 0.35, 0.35, 1.0)
 	' Engine glow
-	DrawCircle sex, sey,       5.0, Color(1.0, 0.6,  0.15, 1.0)
+	DrawCircle sex, sey, 5.0, Color(1.0, 0.6, 0.15, 1.0)
 	DrawCircle sex - 12.0, scy + 8.0, 4.0, Color(1.0, 0.5, 0.1, 0.8)
 	DrawCircle sex - 12.0, scy - 8.0, 4.0, Color(1.0, 0.5, 0.1, 0.8)
 
@@ -862,7 +862,7 @@ Sub DrawSplash()
 	tpx = scx + 30.0
 	tpy = scy + 110.0
 	DrawLine scx, scy + 20.0, tpx, tpy, Color(0.55, 0.55, 0.55, 0.9)
-	DrawCircle tpx, tpy, 20.0, Color(0.45, 0.30, 0.0,  1.0)
+	DrawCircle tpx, tpy, 20.0, Color(0.45, 0.30, 0.0, 1.0)
 	DrawCircle tpx, tpy, 12.0, Color(0.75, 0.55, 0.05, 1.0)
 
 	' ── Background stars ──────────────────────────────────────────────────
@@ -878,11 +878,11 @@ Sub DrawSplash()
 	Next si
 
 	' ── Title ─────────────────────────────────────────────────────────────
-	DrawString "THRUST", 82, 62, Color(0.0,  0.0,  0.0,  1.0), 88
+	DrawString "THRUST", 82, 62, Color(0.0, 0.0, 0.0, 1.0), 88
 	DrawString "THRUST", 80, 60, Color(0.90, 0.12, 0.08, 1.0), 88
 	DrawString "A VisualGasic Tribute", 84, 158, Color(0.50, 0.50, 0.50, 1.0), 20
 
 	' ── Prompt & credit ───────────────────────────────────────────────────
-	DrawString "PRESS SPACE TO BEGIN",  430,            660,           Color(0.65, 0.65, 0.65, 1.0), 20
+	DrawString "PRESS SPACE TO BEGIN", 430, 660, Color(0.65, 0.65, 0.65, 1.0), 20
 	DrawString "Hal Labs", CSng(SW) - 120.0, CSng(SH) - 28.0, Color(0.22, 0.55, 0.90, 1.0), 18
 End Sub

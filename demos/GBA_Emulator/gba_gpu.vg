@@ -1,0 +1,224 @@
+' gba_gpu.vg — GBA GPU/PPU Renderer
+' Renders frame to an Image (240x160 RGBA8) for display
+' Supports Mode 0 (4 tilemap BGs) and Mode 3 (bitmap framebuffer)
+
+Class GBAGPU
+    Public Framebuf As Variant    ' Image — 240x160 RGBA8
+    Public Mem As Variant         ' GBAMemory reference
+
+    ' Cached register values
+    Public DISPCNT As Integer
+    Public BG0CNT As Integer, BG1CNT As Integer
+    Public BG2CNT As Integer, BG3CNT As Integer
+    Public BG0HOFS As Integer, BG0VOFS As Integer
+    Public BG1HOFS As Integer, BG1VOFS As Integer
+    Public BG2HOFS As Integer, BG2VOFS As Integer
+    Public BG3HOFS As Integer, BG3VOFS As Integer
+    Public VCount As Integer
+
+    Sub Init(memObj As Variant)
+        Set Mem = memObj
+        Set Framebuf = CreateImage(GBA_SCREEN_W, GBA_SCREEN_H, Color8(0, 0, 0, 255))
+    End Sub
+
+    ' ─── Palettes ──────────────────────────────────────────────
+    ' GBA palette: 16-bit BGR555 stored at &H05000000
+    ' Each color = 2 bytes: XBBBBBGG GGGRRRRR (bits 0-14)
+    ' We need to decode to 8-bit RGBA for our Image
+
+    Function ReadPaletteColor(offset As Integer) As Long
+        ' offset is byte offset into palette memory
+        ' Read 16-bit GBA color
+        Dim palAddr As Long = &H05000000 + offset
+        Dim color16 As Integer = Mem.Read16(palAddr)
+        ' Extract R,G,B (5 bits each)
+        Dim r5 As Integer = BitAnd(color16, &H001F)
+        Dim g5 As Integer = BitAnd(RightShift(color16, 5), &H001F)
+        Dim b5 As Integer = BitAnd(RightShift(color16, 10), &H001F)
+        ' Scale to 8 bits: multiply by 255/31 (= 8.2258) → use (val<<3)|(val>>2)
+        Dim r8 As Integer = LeftShift(r5, 3) Or RightShift(r5, 2)
+        Dim g8 As Integer = LeftShift(g5, 3) Or RightShift(g5, 2)
+        Dim b8 As Integer = LeftShift(b5, 3) Or RightShift(b5, 2)
+        Return Color8(CInt(r8), CInt(g8), CInt(b8), 255)
+    End Function
+
+    ' ─── Tile Data Reading ─────────────────────────────────────
+    ' 4bpp tile: 32 bytes per tile, VG maps each byte = 2 pixels
+    ' GBA format: each 4 bits is a palette index
+
+    Function ReadPaletteIndex4BPP(baseAddr As Long, tileNum As Integer, subX As Integer, subY As Integer, paletteBank As Integer) As Integer
+        ' Tile is 8x8 pixels
+        ' 4BPP = 32 bytes per tile
+        Dim tileOffset As Long = tileNum * 32
+        Dim rowOffset As Long = subY * 4  ' 4 bytes per row at 4BPP
+        Dim byteOffset As Long = tileOffset + rowOffset + (subX \ 2)
+        Dim byteVal As Integer = Mem.Read8(baseAddr + byteOffset)
+        If (subX Mod 2) = 0 Then
+            Return BitAnd(byteVal, &H0F) + paletteBank * 16
+        Else
+            Return RightShift(byteVal, 4) + paletteBank * 16
+        End If
+    End Function
+
+    Function ReadPaletteIndex8BPP(baseAddr As Long, tileNum As Integer, subX As Integer, subY As Integer) As Integer
+        ' Tile is 8x8 pixels, 8BPP = 64 bytes per tile
+        Dim tileOffset As Long = tileNum * 64
+        Dim rowOffset As Long = subY * 8
+        Dim byteOffset As Long = tileOffset + rowOffset + subX
+        Return Mem.Read8(baseAddr + byteOffset)
+    End Function
+
+    ' ─── Tilemap Background Render (Mode 0) ────────────────────
+
+    Sub RenderBGTileMap(bgNum As Integer)
+        ' Get BG control register
+        Dim bgcnt As Integer
+        Dim hofs As Integer, vofs As Integer
+        Select Case bgNum
+            Case 0: bgcnt = BG0CNT: hofs = BG0HOFS: vofs = BG0VOFS
+            Case 1: bgcnt = BG1CNT: hofs = BG1HOFS: vofs = BG1VOFS
+            Case 2: bgcnt = BG2CNT: hofs = BG2HOFS: vofs = BG2VOFS
+            Case 3: bgcnt = BG3CNT: hofs = BG3HOFS: vofs = BG3VOFS
+        End Select
+
+        If bgcnt = 0 Then Return  ' BG disabled
+
+        Dim priority As Integer = BitAnd(bgcnt, &H0003)
+        Dim tileBase As Long = &H06000000 + LeftShift(BitAnd(RightShift(bgcnt, 2), 3), 14) ' * &H4000
+        Dim mapBase As Long = &H06000000 + LeftShift(BitAnd(RightShift(bgcnt, 8), &H1F), 11) ' * &H0800
+        Dim is8BPP As Boolean = BitTst(bgcnt, 7)  ' 0=4bpp, 1=8bpp
+        Dim screenSize As Integer = RightShift(bgcnt, 14)  ' 0=256,1=512,2=256,3=512
+        Dim mapW As Integer = 256
+        If screenSize >= 1 Then mapW = 512
+        Dim mapH As Integer = 256
+        If screenSize >= 2 Then mapH = 512
+
+        Dim screenX As Integer, screenY As Integer
+        For screenY = 0 To 159
+            For screenX = 0 To 239
+                ' Map-relative coordinates (with scrolling)
+                Dim mapX As Integer = (screenX + hofs) Mod mapW
+                Dim mapY As Integer = (screenY + vofs) Mod mapH
+
+                ' Which tilemap entry?
+                Dim tileX As Integer = mapX \ 8
+                Dim tileY As Integer = mapY \ 8
+                Dim tilesPerRow As Integer = mapW \ 8
+                Dim entryOffset As Long = (tileY * tilesPerRow + tileX) * 2
+                Dim entry As Integer = Mem.Read16(mapBase + entryOffset)
+                Dim tileNum As Integer = BitAnd(entry, &H03FF)
+                Dim hFlip As Boolean = BitTst(entry, 10)
+                Dim vFlip As Boolean = BitTst(entry, 11)
+                Dim paletteBank As Integer = RightShift(BitAnd(entry, &HF000), 12)
+
+                ' Pixel within tile
+                Dim subX As Integer = mapX Mod 8
+                Dim subY As Integer = mapY Mod 8
+                If hFlip Then subX = 7 - subX
+                If vFlip Then subY = 7 - subY
+
+                Dim palIndex As Integer
+                If is8BPP Then
+                    palIndex = ReadPaletteIndex8BPP(tileBase, tileNum, subX, subY)
+                Else
+                    palIndex = ReadPaletteIndex4BPP(tileBase, tileNum, subX, subY, paletteBank)
+                End If
+
+                If palIndex <> 0 Then  ' Index 0 = transparent
+                    Dim color As Long = ReadPaletteColor(palIndex * 2)
+                    SetImagePixel Framebuf, screenX, screenY, color
+                End If
+            Next
+        Next
+    End Sub
+
+    ' ─── Mode 3 Bitmap Render ──────────────────────────────────
+
+    Sub RenderMode3()
+        ' Mode 3: 240x160, 16-bit BGR555 framebuffer at &H06000000
+        Dim x As Integer, y As Integer
+        For y = 0 To 159
+            For x = 0 To 239
+                Dim offset As Long = (y * 240 + x) * 2
+                Dim color16 As Integer = Mem.Read16(&H06000000 + offset)
+                Dim r5 As Integer = BitAnd(color16, &H001F)
+                Dim g5 As Integer = BitAnd(RightShift(color16, 5), &H001F)
+                Dim b5 As Integer = BitAnd(RightShift(color16, 10), &H001F)
+                Dim r8 As Integer = LeftShift(r5, 3) Or RightShift(r5, 2)
+                Dim g8 As Integer = LeftShift(g5, 3) Or RightShift(g5, 2)
+                Dim b8 As Integer = LeftShift(b5, 3) Or RightShift(b5, 2)
+                SetImagePixel Framebuf, x, y, Color8(CInt(r8), CInt(g8), CInt(b8), 255)
+            Next
+        Next
+    End Sub
+
+    ' ─── Mode 4 Bitmap (palette-based, double-buffered) ────────
+
+    Sub RenderMode4()
+        Dim pageBase As Long = &H06000000
+        If BitTst(DISPCNT, DISPCNT_FRAMESELECT) Then
+            pageBase = &H0600A000  ' Frame 1
+        End If
+        Dim x As Integer, y As Integer
+        For y = 0 To 159
+            For x = 0 To 239
+                Dim offset As Long = y * 240 + x
+                Dim palIndex As Integer = Mem.Read8(pageBase + offset)
+                If palIndex <> 0 Then
+                    Dim color As Long = ReadPaletteColor(palIndex * 2)
+                    SetImagePixel Framebuf, x, y, color
+                End If
+            Next
+        Next
+    End Sub
+
+    ' ─── Blank Screen ──────────────────────────────────────────
+
+    Sub ClearScreen()
+        FillImage Framebuf, Color8(0, 0, 0, 255)
+    End Sub
+
+    ' ─── Read IO Registers ─────────────────────────────────────
+
+    Sub ReadRegisters()
+        Dim ioBase As Long = ADDR_IO
+        DISPCNT = Mem.Read16(ioBase + IO_DISPCNT)
+        BG0CNT = Mem.Read16(ioBase + IO_BG0CNT)
+        BG1CNT = Mem.Read16(ioBase + IO_BG1CNT)
+        BG2CNT = Mem.Read16(ioBase + IO_BG2CNT)
+        BG3CNT = Mem.Read16(ioBase + IO_BG3CNT)
+        BG0HOFS = Mem.Read16(ioBase + IO_BG0HOFS)
+        BG0VOFS = Mem.Read16(ioBase + IO_BG0VOFS)
+        BG1HOFS = Mem.Read16(ioBase + IO_BG1HOFS)
+        BG1VOFS = Mem.Read16(ioBase + IO_BG1VOFS)
+        BG2HOFS = Mem.Read16(ioBase + IO_BG2HOFS)
+        BG2VOFS = Mem.Read16(ioBase + IO_BG2VOFS)
+        BG3HOFS = Mem.Read16(ioBase + IO_BG3HOFS)
+        BG3VOFS = Mem.Read16(ioBase + IO_BG3VOFS)
+        VCount = Mem.Read16(ioBase + IO_VCOUNT)
+    End Sub
+
+    ' ─── Main Render Frame ─────────────────────────────────────
+
+    Sub RenderFrame()
+        ReadRegisters()
+        ClearScreen()
+
+        Dim mode As Integer = BitAnd(DISPCNT, DISPCNT_MODE_MASK)
+
+        If mode = 0 Then ' Tilemap mode with up to 4 BGs
+            If BitTst(DISPCNT, DISPCNT_BG3_ENABLE) Then RenderBGTileMap 3
+            If BitTst(DISPCNT, DISPCNT_BG2_ENABLE) Then RenderBGTileMap 2
+            If BitTst(DISPCNT, DISPCNT_BG1_ENABLE) Then RenderBGTileMap 1
+            If BitTst(DISPCNT, DISPCNT_BG0_ENABLE) Then RenderBGTileMap 0
+        ElseIf mode = 1 Then ' Mode 1: BG0,BG1 text, BG2 affine
+            If BitTst(DISPCNT, DISPCNT_BG2_ENABLE) Then RenderBGTileMap 2
+            If BitTst(DISPCNT, DISPCNT_BG1_ENABLE) Then RenderBGTileMap 1
+            If BitTst(DISPCNT, DISPCNT_BG0_ENABLE) Then RenderBGTileMap 0
+        ElseIf mode = 3 Then ' Bitmap mode
+            RenderMode3()
+        ElseIf mode = 4 Then ' Palette bitmap mode
+            RenderMode4()
+        End If
+    End Sub
+End Class

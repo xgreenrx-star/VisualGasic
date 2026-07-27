@@ -51,7 +51,7 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 			break;
 		}			while (_evaluate_expression_impl(w->condition).booleanize()) {
 				for (Statement* s : w->body) _execute_statement_impl(s);
-				if (error_state.mode == ErrorState::EXIT_DO) {
+				if (error_state.mode == ErrorState::EXIT_DO || error_state.mode == ErrorState::EXIT_WHILE) {
 					error_state.mode = ErrorState::NONE;
 					break;
 				}
@@ -205,6 +205,9 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 					break;
 				case ExitStatement::EXIT_DO:
 					error_state.mode = ErrorState::EXIT_DO;
+					break;
+				case ExitStatement::EXIT_WHILE:
+					error_state.mode = ErrorState::EXIT_WHILE;
 					break;
 				case ExitStatement::EXIT_OSCILLATE:
 					error_state.mode = ErrorState::EXIT_OSCILLATE;

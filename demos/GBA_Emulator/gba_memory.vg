@@ -1,0 +1,166 @@
+' gba_memory.vg — GBA Memory Subsystem
+' Wraps MemoryBuffer for GBA memory map + address mirroring + I/O hooks
+
+Class GBAMemory
+    Public Buf As Variant      ' MemoryBuffer — 512KB flat byte array
+    Public ROM As Variant       ' MemoryBuffer — ROM cartridge data
+    Public RomSize As Long
+
+    ' Buffer layout offsets (into Buf MemoryBuffer):
+    ' EWRAM:  offset 0x00000 (256KB)
+    ' IWRAM:  offset 0x40000 (32KB)
+    ' IO:     offset 0x48000 (1KB)
+    ' PALETTE:offset 0x48400 (1KB)
+    ' VRAM:   offset 0x48800 (96KB)
+    ' OAM:    offset 0x60800 (1KB)
+
+    Sub Init()
+        Set Buf = New MemoryBuffer(&H80000)
+        RomSize = 0
+    End Sub
+
+    Function LoadROM(filePath As String) As Boolean
+        Dim fileSize As Long = FileLen(filePath)
+        If fileSize <= 0 Then
+            Return False
+        End If
+        RomSize = fileSize
+        Set ROM = New MemoryBuffer(RomSize)
+
+        Dim fh As Integer = FreeFile()
+        Open filePath For Binary As #fh
+        Dim offset As Long = 0
+        While offset < RomSize
+            Dim b As Byte
+            Get #fh, , b
+            ROM(offset) = CInt(b)
+            offset = offset + 1
+        Wend
+        Close #fh
+        Return True
+    End Function
+
+    ' === Physical Address Translation ===
+    ' Translate GBA bus address to flat Buf offset for read/write
+    Function TranslateAddr(addr As Long) As Long
+        ' EWRAM: &H02000000 - &H0203FFFF (256KB)
+        If addr >= &H02000000 And addr < &H02040000 Then
+            Return addr - &H02000000
+        End If
+        ' IWRAM: &H03000000 - &H03007FFF (32KB)
+        If addr >= &H03000000 And addr < &H03008000 Then
+            Return &H40000 + (addr - &H03000000)
+        End If
+        ' IO: &H04000000 - &H040003FF (1KB)
+        If addr >= &H04000000 And addr < &H04000400 Then
+            Return &H48000 + (addr - &H04000000)
+        End If
+        ' PALETTE: &H05000000 - &H050003FF (1KB)
+        If addr >= &H05000000 And addr < &H05000400 Then
+            Return &H48400 + (addr - &H05000000)
+        End If
+        ' VRAM: &H06000000 - &H06017FFF (96KB)
+        If addr >= &H06000000 And addr < &H06018000 Then
+            Return &H48800 + (addr - &H06000000)
+        End If
+        ' OAM: &H07000000 - &H070003FF (1KB)
+        If addr >= &H07000000 And addr < &H07000400 Then
+            Return &H60800 + (addr - &H07000000)
+        End If
+        Return -1  ' Not mapped to Buf
+    End Function
+
+    ' === Read Operations ===
+    Function Read8(addr As Long) As Integer
+        ' Mirror first 32KB of ROM at 0x00000000 (BIOS area, after cart is mapped)
+        ' This is essential for interrupt vectors and reset
+        If addr < &H00008000 And RomSize > 0 Then
+            Return ROM(addr)
+        End If
+        ' ROM
+        If addr >= &H08000000 And addr < &H08000000 + RomSize Then
+            Return ROM(addr - &H08000000)
+        End If
+        ' Mirror ROM at &H09000000, &H0A000000, &H0B000000, &H0C000000, &H0D000000
+        If addr >= &H09000000 And addr < &H0A000000 And RomSize > 0 Then
+            Return ROM(addr - &H09000000)
+        End If
+        If addr >= &H0A000000 And addr < &H0B000000 And RomSize > 0 Then
+            Return ROM(addr - &H0A000000)
+        End If
+        If addr >= &H0B000000 And addr < &H0C000000 And RomSize > 0 Then
+            Return ROM(addr - &H0B000000)
+        End If
+        If addr >= &H0C000000 And addr < &H0D000000 And RomSize > 0 Then
+            Return ROM(addr - &H0C000000)
+        End If
+        ' SRAM
+        If addr >= &H0E000000 And addr < &H0E010000 Then
+            Return 0  ' SRAM not implemented
+        End If
+        ' BIOS (first few bytes are known — we fake basic BIOS for now)
+        If addr < &H00004000 Then
+            Return 0  ' BIOS mirror — return 0 for now
+        End If
+
+        Dim offset As Long = TranslateAddr(addr)
+        If offset >= 0 Then
+            Return Buf(offset)
+        End If
+        Return 0
+    End Function
+
+    Function Read16(addr As Long) As Integer
+        addr = BitAnd(addr, &HFFFFFFFE)
+        Return Read8(addr) Or LeftShift(Read8(addr + 1), 8)
+    End Function
+
+    Function Read32(addr As Long) As Long
+        addr = BitAnd(addr, &HFFFFFFFC)
+        Dim b0 As Long = Read8(addr)
+        Dim b1 As Long = LeftShift(Read8(addr + 1), 8)
+        Dim b2 As Long = LeftShift(Read8(addr + 2), 16)
+        Dim b3 As Long = LeftShift(Read8(addr + 3), 24)
+        Return b0 Or b1 Or b2 Or b3
+    End Function
+
+    ' === Write Operations ===
+    Sub Write8(addr As Long, value As Integer)
+        Dim valMask As Integer = BitAnd(value, &HFF)
+
+        ' ROM area — IGNORE writes (but SRAM at &H0E may need saving)
+        If addr >= &H08000000 And addr < &H0E000000 Then
+            Return
+        End If
+        ' SRAM
+        If addr >= &H0E000000 And addr < &H0E010000 Then
+            Return  ' SRAM not written yet
+        End If
+
+        Dim offset As Long = TranslateAddr(addr)
+        If offset >= 0 Then
+            Buf(offset) = valMask
+        End If
+    End Sub
+
+    Sub Write16(addr As Long, value As Integer)
+        addr = BitAnd(addr, &HFFFFFFFE)
+        Write8 addr, BitAnd(value, &HFF)
+        Write8 addr + 1, BitAnd(RightShift(value, 8), &HFF)
+    End Sub
+
+    Sub Write32(addr As Long, value As Long)
+        addr = BitAnd(addr, &HFFFFFFFC)
+        Write8 addr, BitAnd(value, &HFF)
+        Write8 addr + 1, BitAnd(RightShift(value, 8), &HFF)
+        Write8 addr + 2, BitAnd(RightShift(value, 16), &HFF)
+        Write8 addr + 3, BitAnd(RightShift(value, 24), &HFF)
+    End Sub
+
+    ' === I/O Write Callback ===
+    ' Called on every IO-region write so other subsystems (GPU, APU, DMA)
+    ' can react to register updates.
+    Sub OnIOWrite(offset As Integer, is16Bit As Boolean)
+        ' Dispatched by main emulator
+    End Sub
+End Class

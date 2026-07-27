@@ -322,7 +322,7 @@ struct InputStatement : public Statement {
 };
 
 struct ExitStatement : public Statement {
-    enum ExitType { EXIT_SUB, EXIT_FUNCTION, EXIT_FOR, EXIT_DO, EXIT_OSCILLATE, EXIT_REPEAT, EXIT_CYCLE };
+    enum ExitType { EXIT_SUB, EXIT_FUNCTION, EXIT_FOR, EXIT_DO, EXIT_WHILE, EXIT_OSCILLATE, EXIT_REPEAT, EXIT_CYCLE };
     ExitType exit_type;
     ExitStatement() : Statement(STMT_EXIT) {}
 };
@@ -379,8 +379,9 @@ struct DimStatement : public Statement {
 struct ConstStatement : public Statement {
     String name;
     ExpressionNode* value; 
+    bool is_global; // True for "Global Const X = Y" (v4.4.0) — shared project-wide
     
-    ConstStatement() : Statement(STMT_CONST), value(nullptr) {}
+    ConstStatement() : Statement(STMT_CONST), value(nullptr), is_global(false) {}
     virtual ~ConstStatement() { if(value) delete value; }
 };
 
@@ -732,10 +733,11 @@ struct VariableDefinition : public ASTNode {
     ExpressionNode* default_value;  // Optional initialization value
     bool is_with_events;            // WithEvents variable (v3.5.0)
     bool is_export;                   // Export to Godot Inspector (v4.2.0)
+    bool is_global;                   // True for "Global Dim/Public/Private x" (v4.4.0) — shared project-wide
     // Arrays?
     Vector<int> array_sizes; // if array
     
-    VariableDefinition() : default_value(nullptr), visibility(VIS_PRIVATE), is_with_events(false), is_export(false) {}
+    VariableDefinition() : default_value(nullptr), visibility(VIS_PRIVATE), is_with_events(false), is_export(false), is_global(false) {}
     ~VariableDefinition() { if(default_value) delete default_value; }
 };
 

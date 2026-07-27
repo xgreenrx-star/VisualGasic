@@ -106,6 +106,16 @@ class VisualGasicInstance {
     int next_object_id = 1;         // For unique object IDs
     Dictionary loaded_libraries;     // lib_name -> handle (as int64_t)
     Dictionary declared_functions;   // function_name -> DeclareStatement* (as int64_t)
+
+    // Project-wide shared registry for "Global Const"/"Global Dim" (v4.4.0).
+    // A single Dictionary instance shared (by Godot's ref-counted Dictionary
+    // semantics) across every VisualGasicInstance in the process, so a value
+    // declared Global in one script is readable by bare name from any other
+    // script — no Import required. Values are published at module-init time;
+    // there is no write-through for mutable Global Dim (each script's own
+    // assignments stay local after that point) — this is by design, scoped
+    // to the actual need (shared, effectively-read-only project constants).
+    static Dictionary &get_global_scope();
     Dictionary with_events_vars;     // WithEvents variable names → true (v3.5.0)
     HashMap<StringName, FastKeyCacheEntry> fast_dict_key_cache;
     uint32_t fast_dict_key_cache_generation = 0;
@@ -183,7 +193,7 @@ class VisualGasicInstance {
     Vector<CoroutineState> coroutine_stack;
 
     struct ErrorState {
-        enum Mode { NONE, RESUME_NEXT, GOTO_LABEL, EXIT_SUB, EXIT_FOR, EXIT_DO, EXIT_OSCILLATE, CONTINUE_FOR, CONTINUE_DO, CONTINUE_WHILE, CONTINUE_OSCILLATE };
+        enum Mode { NONE, RESUME_NEXT, GOTO_LABEL, EXIT_SUB, EXIT_FOR, EXIT_DO, EXIT_WHILE, EXIT_OSCILLATE, CONTINUE_FOR, CONTINUE_DO, CONTINUE_WHILE, CONTINUE_OSCILLATE };
         Mode mode;
         String label;
         bool has_error;

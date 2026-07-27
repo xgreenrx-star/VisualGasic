@@ -1,0 +1,17 @@
+Attribute VB_Name = "BufferMin"
+
+Function WriteReadBuffer(ByVal size As Long) As Long
+    Dim buf As New MemoryBuffer(size)
+    Dim i As Long
+    
+    For i = 0 To size - 1 Step 1
+        buf(i) = i
+    Next i
+    
+    Dim s As Long
+    For i = 0 To size - 1 Step 1
+        s = s + buf(i)
+    Next i
+    
+    WriteReadBuffer = s
+End Function

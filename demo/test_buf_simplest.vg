@@ -1,0 +1,6 @@
+Attribute VB_Name = "BufSimplest"
+
+Function TestBuf() As Long
+    Dim buf As New MemoryBuffer(64)
+    TestBuf = 42
+End Function

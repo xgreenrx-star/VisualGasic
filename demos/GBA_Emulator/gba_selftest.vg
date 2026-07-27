@@ -1,0 +1,111 @@
+' gba_selftest.vg — Self-contained CPU validation
+Import "gba_constants.vg"
+Import "gba_memory.vg"
+Import "gba_cpu.vg"
+
+Module GBASelfTest
+    Dim Mem As GBAMemory
+    Dim Emu As GBACPU
+
+    Function Run() As Boolean
+        Print "=== GBA Emulator Self-Test ==="
+
+        Set Mem = New GBAMemory
+        Mem.Init()
+        Mem.RomSize = 256
+        Set Mem.ROM = New MemoryBuffer(256)
+
+        Set Emu = New GBACPU
+        Emu.Init(Mem)
+
+        Dim passed As Boolean = True
+
+        If Not Test_ARM_Branch() Then passed = False
+        If Not Test_BX_LR() Then passed = False
+        If Not Test_SWI() Then passed = False
+        If Not Test_Thumb_HiReg() Then passed = False
+
+        If passed Then
+            Print "ALL TESTS PASSED — Core is working!"
+        Else
+            Print "SOME TESTS FAILED"
+        End If
+        Return passed
+    End Function
+
+    Sub RomWrite32(offset As Long, value As Long)
+        Mem.ROM(offset) = BitAnd(value, &HFF)
+        Mem.ROM(offset + 1) = BitAnd(RightShift(value, 8), &HFF)
+        Mem.ROM(offset + 2) = BitAnd(RightShift(value, 16), &HFF)
+        Mem.ROM(offset + 3) = BitAnd(RightShift(value, 24), &HFF)
+    End Sub
+
+    Sub RomWrite16(offset As Long, value As Integer)
+        Mem.ROM(offset) = BitAnd(value, &HFF)
+        Mem.ROM(offset + 1) = BitAnd(RightShift(value, 8), &HFF)
+    End Sub
+
+    Function Test_ARM_Branch() As Boolean
+        Print "[1] ARM B/BL branch..."
+        RomWrite32 &H08000000, &HEA000003 ' B forward 3 words
+        RomWrite32 &H08000014, &HE3A0002A ' MOV R0,#42
+        Emu.R(15) = &H08000000
+        Emu.CPSR = MODE_SYS Or (1 << CPSR_IRQ_DISABLE) Or (1 << CPSR_FIQ_DISABLE)
+        Emu.R(0) = 0
+        Emu.Step()
+        If Emu.R(15) = &H08000014 Then
+            Emu.Step()
+            If Emu.R(0) = 42 Then
+                Print "  PASS: Branch to MOV R0,42"
+                Return True
+            End If
+        End If
+        Print "  FAIL: PC=" & Hex(Emu.R(15))
+        Return False
+    End Function
+
+    Function Test_BX_LR() As Boolean
+        Print "[2] BX LR (Thumb return)..."
+        RomWrite16 &H08000010, &H46F0 ' MOV PC,LR in Thumb
+        Emu.R(15) = &H08000010
+        Emu.R(14) = &H08000020 Or 1
+        Emu.CPSR = MODE_SYS Or (1 << CPSR_THUMB) Or (1 << CPSR_IRQ_DISABLE) Or (1 << CPSR_FIQ_DISABLE)
+        Emu.Step()
+        If Emu.R(15) = &H08000020 Then
+            Print "  PASS: BX LR returned to 0x08000020"
+            Return True
+        End If
+        Print "  FAIL: PC=" & Hex(Emu.R(15))
+        Return False
+    End Function
+
+    Function Test_SWI() As Boolean
+        Print "[3] ARM SWI..."
+        RomWrite32 &H08000000, &HEF000006
+        Emu.R(0) = 10: Emu.R(1) = 3
+        Emu.R(15) = &H08000000
+        Emu.CPSR = MODE_SYS Or (1 << CPSR_IRQ_DISABLE) Or (1 << CPSR_FIQ_DISABLE)
+        Emu.Step()
+        If Emu.R(0) = 3 Then
+            Print "  PASS: SWI 6 Div, R0=" & Emu.R(0)
+            Return True
+        End If
+        Print "  FAIL: R0=" & Emu.R(0)
+        Return False
+    End Function
+
+    Function Test_Thumb_HiReg() As Boolean
+        Print "[4] Thumb Hi-reg ADD R8,R0..."
+        RomWrite16 &H08000000, &H4480
+        Emu.R(0) = 5: Emu.R(8) = 10
+        Emu.R(15) = &H08000000
+        Emu.CPSR = MODE_SYS Or (1 << CPSR_THUMB) Or (1 << CPSR_IRQ_DISABLE) Or (1 << CPSR_FIQ_DISABLE)
+        Emu.Step()
+        If Emu.R(8) = 15 Then
+            Print "  PASS: R8=15"
+            Return True
+        End If
+        Print "  FAIL: R8=" & Emu.R(8)
+        Return False
+    End Function
+End Module

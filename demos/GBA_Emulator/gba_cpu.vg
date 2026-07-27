@@ -1,0 +1,1456 @@
+' gba_cpu.vg — ARM7TDMI CPU Core for GBA Emulator
+' Tier 2: Playable Subset — Full ARM + Thumb instruction decode
+'
+' Architecture note: The CPU class holds registers and CPSR.
+' The memory reference is injected via Init(mem).
+
+Class GBACPU
+    Public R As Variant             ' r0–r15 registers (r13=SP, r14=LR, r15=PC) — ReDim'd in Init
+    Public CPSR As Long             ' Current Program Status Register
+    Public Mem As Variant           ' GBAMemory instance
+
+    ' Banked registers for non-User/System modes
+    Public R13_Usr As Long, R14_Usr As Long
+    Public R13_Fiq As Long, R14_Fiq As Long
+    Public R8_Fiq As Long,  R9_Fiq As Long
+    Public R10_Fiq As Long, R11_Fiq As Long, R12_Fiq As Long
+    Public R13_Svc As Long, R14_Svc As Long
+    Public R13_Abt As Long, R14_Abt As Long
+    Public R13_Irq As Long, R14_Irq As Long
+    Public R13_Und As Long, R14_Und As Long
+    Public SPSR_Fiq As Long, SPSR_Svc As Long
+    Public SPSR_Abt As Long, SPSR_Irq As Long, SPSR_Und As Long
+
+    Public PipeFlush As Boolean
+    Public CurrentMode As Integer
+
+    ' === Initialization ===
+    Sub Init(memObj As Variant)
+        Set Mem = memObj
+        ReDim R(15)
+        Dim i As Integer
+        For i = 0 To 14
+            R(i) = 0
+        Next
+        R(15) = &H08000000  ' PC starts at ROM base
+        CPSR = MODE_SYS Or (1 << CPSR_IRQ_DISABLE) Or (1 << CPSR_FIQ_DISABLE)
+        CurrentMode = MODE_SYS
+        PipeFlush = False
+    End Sub
+
+    ' ─── Flag Helpers ──────────────────────────────────────────
+
+    Sub SetN(val As Boolean)
+        If val Then CPSR = BitSet(CPSR, 31) Else CPSR = BitClr(CPSR, 31)
+    End Sub
+    Sub SetZ(val As Boolean)
+        If val Then CPSR = BitSet(CPSR, 30) Else CPSR = BitClr(CPSR, 30)
+    End Sub
+    Sub SetC(val As Boolean)
+        If val Then CPSR = BitSet(CPSR, 29) Else CPSR = BitClr(CPSR, 29)
+    End Sub
+    Sub SetV(val As Boolean)
+        If val Then CPSR = BitSet(CPSR, 28) Else CPSR = BitClr(CPSR, 28)
+    End Sub
+
+    Function FlagN() As Boolean
+        Return BitTst(CPSR, 31)
+    End Function
+    Function FlagZ() As Boolean
+        Return BitTst(CPSR, 30)
+    End Function
+    Function FlagC() As Boolean
+        Return BitTst(CPSR, 29)
+    End Function
+    Function FlagV() As Boolean
+        Return BitTst(CPSR, 28)
+    End Function
+
+    Function InThumb() As Boolean
+        Return BitTst(CPSR, CPSR_THUMB)
+    End Function
+    Function IRQDisabled() As Boolean
+        Return BitTst(CPSR, CPSR_IRQ_DISABLE)
+    End Function
+
+    ' ─── Condition Code Evaluation ─────────────────────────────
+
+    Function EvaluateCondition(cond As Integer) As Boolean
+        Select Case cond
+            Case 0:   Return FlagZ()                          ' EQ
+            Case 1:   Return Not FlagZ()                      ' NE
+            Case 2:   Return FlagC()                          ' CS
+            Case 3:   Return Not FlagC()                      ' CC
+            Case 4:   Return FlagN()                          ' MI
+            Case 5:   Return Not FlagN()                      ' PL
+            Case 6:   Return FlagV()                          ' VS
+            Case 7:   Return Not FlagV()                      ' VC
+            Case 8:   Return FlagC() And Not FlagZ()          ' HI
+            Case 9:   Return (Not FlagC()) Or FlagZ()         ' LS
+            Case 10:  Return FlagN() = FlagV()                ' GE
+            Case 11:  Return FlagN() <> FlagV()               ' LT
+            Case 12:  Return (Not FlagZ()) And (FlagN() = FlagV()) ' GT
+            Case 13:  Return FlagZ() Or (FlagN() <> FlagV())  ' LE
+            Case 14:  Return True                              ' AL
+            Case 15:  Return False                             ' NV
+            Case Else: Return False
+        End Select
+    End Function
+
+    ' ─── Sign Extension ────────────────────────────────────────
+
+    Function SignExt24(val As Long) As Long
+        If BitTst(val, 23) Then Return val Or &HFF000000
+        Return val
+    End Function
+
+    Function SignExt8(val As Long) As Long
+        If BitTst(val, 7) Then Return val Or &HFFFFFF00
+        Return val
+    End Function
+
+    ' ─── Barrel Shifter ────────────────────────────────────────
+
+    Function LogicalShiftLeft(val As Long, amount As Integer, ByRef carry As Integer) As Long
+        If amount = 0 Then
+            carry = FlagC()
+            Return val
+        End If
+        carry = BitTst(val, 32 - amount)
+        Return LeftShift(val, amount)
+    End Function
+
+    Function LogicalShiftRight(val As Long, amount As Integer, ByRef carry As Integer) As Long
+        If amount = 0 Then
+            ' LSR #0 = LSR #32
+            carry = BitTst(val, 31)
+            Return 0
+        End If
+        carry = BitTst(val, amount - 1)
+        Return RightShift(val, amount)
+    End Function
+
+    Function ArithmeticShiftRight(val As Long, amount As Integer, ByRef carry As Integer) As Long
+        If amount = 0 Then
+            If BitTst(val, 31) Then
+                carry = 1
+                Return &HFFFFFFFF
+            End If
+            carry = 0
+            Return 0
+        End If
+        carry = BitTst(val, amount - 1)
+        Dim mask As Long = BitNot(RightShift(&HFFFFFFFF, amount))
+        If BitTst(val, 31) Then
+            Return RightShift(val, amount) Or mask
+        End If
+        Return RightShift(val, amount)
+    End Function
+
+    Function RotateRight(val As Long, amount As Integer, ByRef carry As Integer) As Long
+        If amount = 0 Then
+            ' ROR #0 = RRX (rotate right with extend)
+            carry = BitAnd(val, 1)
+            Dim oldC As Integer = 0
+            If FlagC() Then oldC = 1
+            Return RightShift(val, 1) Or LeftShift(oldC, 31)
+        End If
+        carry = BitTst(val, amount - 1)
+        Return RightShift(val, amount) Or LeftShift(val, 32 - amount)
+    End Function
+
+    Function ShiftOperand(shiftOp As Integer, rm As Long, shiftAmount As Integer, ByRef carryOut As Integer) As Long
+        Select Case shiftOp
+            Case 0: Return LogicalShiftLeft(rm, shiftAmount, carryOut)
+            Case 1: Return LogicalShiftRight(rm, shiftAmount, carryOut)
+            Case 2: Return ArithmeticShiftRight(rm, shiftAmount, carryOut)
+            Case 3: Return RotateRight(rm, shiftAmount, carryOut)
+            Case Else:
+                carryOut = FlagC()
+                Return rm
+        End Select
+    End Function
+
+    ' ─── Mode Switch ───────────────────────────────────────────
+
+    Sub SwitchMode(newMode As Integer)
+        ' Save current SP and LR to banked registers
+        Select Case CurrentMode
+            Case MODE_USR, MODE_SYS:
+                R13_Usr = R(13): R14_Usr = R(14)
+            Case MODE_FIQ:
+                R8_Fiq = R(8):  R9_Fiq = R(9):  R10_Fiq = R(10)
+                R11_Fiq = R(11): R12_Fiq = R(12): R13_Fiq = R(13): R14_Fiq = R(14)
+            Case MODE_IRQ:
+                R13_Irq = R(13): R14_Irq = R(14)
+            Case MODE_SVC:
+                R13_Svc = R(13): R14_Svc = R(14)
+            Case MODE_ABT:
+                R13_Abt = R(13): R14_Abt = R(14)
+            Case MODE_UND:
+                R13_Und = R(13): R14_Und = R(14)
+        End Select
+
+        CurrentMode = newMode
+
+        ' Restore from banked
+        Select Case newMode
+            Case MODE_USR, MODE_SYS:
+                R(13) = R13_Usr: R(14) = R14_Usr
+            Case MODE_FIQ:
+                R(8) = R8_Fiq:   R(9) = R9_Fiq:   R(10) = R10_Fiq
+                R(11) = R11_Fiq: R(12) = R12_Fiq: R(13) = R13_Fiq: R(14) = R14_Fiq
+            Case MODE_IRQ:
+                R(13) = R13_Irq: R(14) = R14_Irq
+            Case MODE_SVC:
+                R(13) = R13_Svc: R(14) = R14_Svc
+            Case MODE_ABT:
+                R(13) = R13_Abt: R(14) = R14_Abt
+            Case MODE_UND:
+                R(13) = R13_Und: R(14) = R14_Und
+        End Select
+    End Sub
+
+    ' ─── Exception Entry ───────────────────────────────────────
+
+    Sub EnterException(excMode As Integer, vectorAddr As Long)
+        ' Calculate preferred return address
+        Dim preferredReturn As Long
+        If InThumb() Then
+            preferredReturn = R(15)     ' Thumb: current PC
+        Else
+            preferredReturn = R(15) - 4 ' ARM: PC-4
+        End If
+
+        ' Save SPSR for the new mode
+        Select Case excMode
+            Case MODE_FIQ: SPSR_Fiq = CPSR
+            Case MODE_SVC: SPSR_Svc = CPSR
+            Case MODE_ABT: SPSR_Abt = CPSR
+            Case MODE_IRQ: SPSR_Irq = CPSR
+            Case MODE_UND: SPSR_Und = CPSR
+        End Select
+
+        SwitchMode excMode
+        R(14) = preferredReturn
+        CPSR = BitOr(CPSR, (1 << CPSR_IRQ_DISABLE))  ' Disable IRQ
+        If excMode = MODE_FIQ Then
+            CPSR = BitOr(CPSR, (1 << CPSR_FIQ_DISABLE)) ' Also disable FIQ
+        End If
+        CPSR = BitClr(CPSR, CPSR_THUMB)  ' Enter ARM state
+        R(15) = vectorAddr
+        PipeFlush = True
+    End Sub
+
+    ' ─── ALU operations ────────────────────────────────────────
+
+    Function ADDs(op1 As Long, op2 As Long, ByRef carry As Integer, _
+                  ByRef overflow As Integer) As Long
+        Dim result As Long = op1 + op2
+        carry = 0
+        If result >= &H100000000 Then carry = 1  ' unsigned overflow > 32 bits
+        ' Signed overflow: both operands same sign, result different sign
+        Dim op1Sign As Boolean = BitTst(op1, 31)
+        Dim op2Sign As Boolean = BitTst(op2, 31)
+        Dim resSign As Boolean = BitTst(result, 31)
+        If op1Sign = op2Sign And op1Sign <> resSign Then
+            overflow = 1
+        Else
+            overflow = 0
+        End If
+        Return BitAnd(result, &HFFFFFFFF)
+    End Function
+
+    Function ADC(op1 As Long, op2 As Long, ByRef carry As Integer, _
+                 ByRef overflow As Integer) As Long
+        Dim oldC As Long = 0
+        If FlagC() Then oldC = 1
+        Dim result As Long = op1 + op2 + oldC
+        carry = 0
+        If result >= &H100000000 Then carry = 1
+        Dim op1Sign As Boolean = BitTst(op1, 31)
+        Dim op2Sign As Boolean = BitTst(op2, 31)
+        Dim resSign As Boolean = BitTst(result, 31)
+        If op1Sign = op2Sign And op1Sign <> resSign Then
+            overflow = 1
+        Else
+            overflow = 0
+        End If
+        Return BitAnd(result, &HFFFFFFFF)
+    End Function
+
+    Function SubOp(op1 As Long, op2 As Long, ByRef carry As Integer, _
+                 ByRef overflow As Integer) As Long
+        Dim result As Long = op1 - op2
+        ' Carry is NOT borrow: C=1 if no borrow (op1 >= op2 unsigned)
+        If op1 >= op2 Then carry = 1 Else carry = 0
+        Dim op1Sign As Boolean = BitTst(op1, 31)
+        Dim op2Sign As Boolean = BitTst(op2, 31)
+        Dim resSign As Boolean = BitTst(result, 31)
+        If op1Sign <> op2Sign And op1Sign <> resSign Then
+            overflow = 1
+        Else
+            overflow = 0
+        End If
+        Return BitAnd(result, &HFFFFFFFF)
+    End Function
+
+    Function SBC(op1 As Long, op2 As Long, ByRef carry As Integer, _
+                 ByRef overflow As Integer) As Long
+        Dim oldC As Long = 0
+        If FlagC() Then oldC = 1
+        Dim result As Long = op1 - op2 - (1 - oldC)
+        If op1 >= (op2 + (1 - oldC)) Then carry = 1 Else carry = 0
+        Dim op1Sign As Boolean = BitTst(op1, 31)
+        Dim resSign As Boolean = BitTst(result, 31)
+        ' For SUB, overflow when operands have different signs and result
+        ' sign differs from op1 sign
+        Dim effOp2Sign As Boolean = BitTst(op2 + (1 - oldC), 31)
+        If op1Sign <> effOp2Sign And op1Sign <> resSign Then
+            overflow = 1
+        Else
+            overflow = 0
+        End If
+        Return BitAnd(result, &HFFFFFFFF)
+    End Function
+
+    ' Update NZ flags from result
+    Sub UpdateNZ(result As Long)
+        SetN BitTst(result, 31)
+        SetZ (BitAnd(result, &HFFFFFFFF) = 0)
+    End Sub
+
+    ' Full NZCV update
+    Sub UpdateNZCV(result As Long, carry As Integer, overflow As Integer)
+        UpdateNZ result
+        SetC (carry <> 0)
+        SetV (overflow <> 0)
+    End Sub
+
+    ' ─── Main Step: Execute One Instruction ────────────────────
+    ' Returns cycle count for this instruction
+
+    Function Step() As Long
+        If InThumb() Then
+            Return ExecuteThumb()
+        Else
+            Return ExecuteARM()
+        End If
+    End Function
+
+    ' ─── SWI Handler ───────────────────────────────────────────
+    ' Implements common GBA BIOS calls. Called from ARM/Thumb SWI decoders.
+    ' Returns cycle count consumed by the SWI.
+    ' NOTE: SWI runs in SVC mode; EnterException already switches to SVC.
+
+    Function HandleSWI(swiNum As Integer) As Long
+        ' Most SWIs preserve flags. We return the result in R(0) when applicable.
+        ' SVC mode has R13=SP_svc, R14=LR_svc, SPSR_svc = original CPSR.
+
+        Select Case swiNum
+            Case &H00: ' SoftReset — restart game
+                R(15) = &H08000000
+                PipeFlush = True
+                Return 1
+
+            Case &H01: ' RegisterRamReset
+                ' Clears RAM/IWRAM. We skip full reset for now.
+                Return 1
+
+            Case &H02: ' Halt
+                ' Wait for interrupt. We just return immediately.
+                Return 1
+
+            Case &H05: ' VBlankIntrWait
+                ' Set VCOUNT interrupt and wait. We just return.
+                Return 1
+
+            Case &H06: ' Div (signed)
+                If R(1) <> 0 Then
+                    R(0) = CLng(R(0) / R(1))
+                    R(1) = R(0) Mod R(1)
+                    R(3) = Abs(R(0))
+                End If
+                Return 1
+
+            Case &H07: ' DivArm (same as Div)
+                If R(1) <> 0 Then
+                    R(0) = CLng(R(0) / R(1))
+                    R(1) = R(0) Mod R(1)
+                    R(3) = Abs(R(0))
+                End If
+                Return 1
+
+            Case &H08: ' Sqrt
+                R(0) = CLng(Sqr(CDbl(R(0))))
+                Return 1
+
+            Case &H0B: ' CpuSet (memory copy/fill in 16-bit or 32-bit units)
+                ' Parameters:
+                '   R0 = source address (or fill value if fill)
+                '   R1 = destination address
+                '   R2 = control word (bits 0-20 = count, bit 24 = 32-bit, bit 26 = fill mode)
+                Dim src As Long = R(0)
+                Dim dst As Long = R(1)
+                Dim cntL As Long = BitAnd(R(2), &H001FFFFF)
+                Dim isFill As Boolean = BitTst(R(2), 24)
+                Dim is32Bit As Boolean = BitTst(R(2), 26)
+                If cntL = 0 Then cntL = &H00100000 ' 0 means max
+                Dim i As Long
+                If is32Bit Then
+                    For i = 0 To cntL - 1
+                        If isFill Then
+                            Mem.Write32 dst + i * 4, src ' src is fill value
+                        Else
+                            Mem.Write32 dst + i * 4, Mem.Read32(src + i * 4)
+                        End If
+                    Next
+                Else
+                    For i = 0 To cntL - 1
+                        If isFill Then
+                            Mem.Write16 dst + i * 2, BitAnd(src, &HFFFF)
+                        Else
+                            Mem.Write16 dst + i * 2, Mem.Read16(src + i * 2)
+                        End If
+                    Next
+                End If
+                Return 1 ' Fast enough on modern hardware
+
+            Case &H0C: ' CpuFastSet (same as CpuSet but word-aligned)
+                Dim fsrc As Long = R(0)
+                Dim fdst As Long = R(1)
+                Dim fcnt As Long = BitAnd(R(2), &H001FFFFF)
+                Dim ffill As Boolean = BitTst(R(2), 24)
+                If fcnt = 0 Then fcnt = &H00100000
+                Dim j As Long
+                For j = 0 To fcnt - 1
+                    If ffill Then
+                        Mem.Write32 fdst + j * 4, fsrc
+                    Else
+                        Mem.Write32 fdst + j * 4, Mem.Read32(fsrc + j * 4)
+                    End If
+                Next
+                Return 1
+
+            Case &H11: ' LZ77UnCompReadByCallbackWrite16bit
+                ' LZ77 decompression. Real BIOS uses callback; we do it directly.
+                Dim lzSrc As Long = R(0)
+                Dim lzDst As Long = R(1)
+                Return LZ77Decompress(lzSrc, lzDst)
+
+            Case &H12: ' LZ77UnCompWrite16bit
+                Dim lz12Src As Long = R(0)
+                Dim lz12Dst As Long = R(1)
+                Return LZ77Decompress(lz12Src, lz12Dst)
+
+            Case Else:
+                ' Unhandled SWI — just return
+                Return 1
+        End Select
+    End Function
+
+    ' ─── LZ77 Decompression ────────────────────────────────────
+    ' GBA LZ77 format: header byte + blocks of compressed data
+
+    Function LZ77Decompress(src As Long, dst As Long) As Long
+        Dim header As Integer = Mem.Read32(src)
+        Dim size As Long = BitAnd(header, &H00FFFFFF)
+        Dim destPtr As Long = dst
+        Dim srcPtr As Long = src + 4
+
+        Dim maxIterations As Long = size * 2
+        Dim iterCount As Long
+        Dim doneCopying As Boolean = False
+        While destPtr < dst + size And iterCount < maxIterations And Not doneCopying
+            iterCount = iterCount + 1
+            Dim flags As Integer = Mem.Read8(srcPtr)
+            srcPtr = srcPtr + 1
+            Dim k As Integer
+            For k = 7 To 0 Step -1
+                If doneCopying Then Exit For
+                If BitTst(flags, k) Then
+                    ' Compressed block
+                    Dim pair As Integer = Mem.Read16(srcPtr)
+                    srcPtr = srcPtr + 2
+                    Dim backOffset As Long = (RightShift(pair, 8) Or LeftShift(BitAnd(pair, &HF), 8)) + 1
+                    Dim count As Long = RightShift(BitAnd(pair, &HF0), 4) + 3
+                    Dim copyFrom As Long = destPtr - backOffset
+                    Dim c As Long
+                    For c = 0 To count - 1
+                        Mem.Write8 destPtr, Mem.Read8(copyFrom + c)
+                        destPtr = destPtr + 1
+                        If destPtr >= dst + size Then
+                            doneCopying = True
+                            Exit For
+                        End If
+                    Next
+                Else
+                    ' Raw byte
+                    Mem.Write8 destPtr, Mem.Read8(srcPtr)
+                    srcPtr = srcPtr + 1
+                    destPtr = destPtr + 1
+                End If
+                If destPtr >= dst + size Then
+                    doneCopying = True
+                    Exit For
+                End If
+            Next
+        Wend
+        Return 1
+    End Function
+
+    ' ───────────────────────────────────────────────────────────
+    ' THUMB INSTRUCTION SET DECODER
+    ' ───────────────────────────────────────────────────────────
+    Function ExecuteThumb() As Long
+        Dim pc As Long = BitAnd(R(15), &HFFFFFFFE)
+        Dim op As Integer = Mem.Read16(pc)
+
+        ' Pre-increment PC (pipeline: PC = fetched_address + 4)
+        R(15) = pc + 4
+
+        ' Decode by top 6 bits
+        Dim top6 As Integer = RightShift(op, 10)
+        Dim top5 As Integer = RightShift(op, 11)
+        Dim top4 As Integer = RightShift(op, 12)
+        Dim top3 As Integer = RightShift(op, 13)
+        Dim top2 As Integer = RightShift(op, 14)
+
+        ' ── Group 0: Shift / Add-Sub / Mov-Cmp-Add-Sub / ALU / Hi-Reg / Load-Store ──
+        If top3 = 0 Then
+            ' top2 determines subgroup
+            Select Case top2
+                Case 0: ' 00_xxx_xxxxxx — Move Shifted Register or Add/Subtract
+                    If top4 = 0 Then
+                        ' 00_0xx — MOVS Rd, Rm, LSL #imm5
+                        Dim imm5 As Integer = RightShift(BitAnd(op, &H07C0), 6)
+                        Dim Rm As Integer = RightShift(BitAnd(op, &H0038), 3)
+                        Dim Rd As Integer = BitAnd(op, &H0007)
+                        Dim src As Long = R(Rm)
+                        Dim carry As Integer
+                        Dim result As Long = LogicalShiftLeft(src, imm5, carry)
+                        UpdateNZ result
+                        SetC (carry <> 0)
+                        R(Rd) = result
+                        Return 1
+                    End If
+                    ' 00_1xx — LSL/SUB opcodes
+                    Dim opType As Integer = RightShift(op, 9)
+                    Dim imm3 As Integer = RightShift(BitAnd(op, &H01C0), 6)
+                    Dim Rn As Integer = RightShift(BitAnd(op, &H0038), 3)
+                    Dim Rs_Rd As Integer = BitAnd(op, &H0007)
+                    Select Case opType
+                        Case 0,1,2: ' ADD Rd, Rs, Rn  or  ADD Rd, Rs, #imm3
+                            Dim op2 As Long
+                            If opType = 0 Then ' from register
+                                op2 = R(Rn)
+                            Else ' from immediate
+                                op2 = imm3
+                            End If
+                            Dim c As Integer, v As Integer
+                            Dim res As Long = ADDs(R(Rs_Rd), op2, c, v)
+                            UpdateNZCV res, c, v
+                            R(Rs_Rd) = res
+                            Return 1
+                        Case 3: ' SUB Rd, Rs, Rn  or  SUB Rd, Rs, #imm3
+                            Dim op2 As Long
+                            If BitTst(op, 10) Then ' from register
+                                op2 = R(Rn)
+                            Else ' from immediate
+                                op2 = imm3
+                            End If
+                            Dim c As Integer, v As Integer
+                            Dim res As Long = SubOp(R(Rs_Rd), op2, c, v)
+                            UpdateNZCV res, c, v
+                            R(Rs_Rd) = res
+                            Return 1
+                    End Select
+
+                Case 1: ' 01_xxx — MOV/CMP/ADD/SUB Immediate
+                    Dim imm8 As Integer = BitAnd(op, &H00FF)
+                    Dim Rd As Integer = RightShift(BitAnd(op, &H0700), 8)
+                    Dim opType As Integer = RightShift(op, 11)
+                    Select Case opType
+                        Case 0: ' MOV Rd, #imm8
+                            R(Rd) = imm8
+                            SetN False
+                            SetZ (imm8 = 0)
+                            Return 1
+                        Case 1: ' CMP Rd, #imm8
+                            Dim c As Integer, v As Integer
+                            Dim res As Long = SubOp(R(Rd), imm8, c, v)
+                            UpdateNZCV res, c, v
+                            Return 1
+                        Case 2: ' ADD Rd, #imm8
+                            Dim c As Integer, v As Integer
+                            Dim res As Long = ADDs(R(Rd), imm8, c, v)
+                            UpdateNZCV res, c, v
+                            R(Rd) = res
+                            Return 1
+                        Case 3: ' SUB Rd, #imm8
+                            Dim c As Integer, v As Integer
+                            Dim res As Long = SubOp(R(Rd), imm8, c, v)
+                            UpdateNZCV res, c, v
+                            R(Rd) = res
+                            Return 1
+                    End Select
+
+                Case 2: ' 10_xxx — ALU Operations
+                    Dim Rd As Integer = BitAnd(op, &H0007)
+                    Dim Rs As Integer = RightShift(BitAnd(op, &H0038), 3)
+                    Dim opType As Integer = RightShift(BitAnd(op, &H03C0), 6)
+                    Select Case opType
+                        Case 0: ' AND Rd, Rs
+                            R(Rd) = BitAnd(R(Rd), R(Rs))
+                            UpdateNZ R(Rd)
+                            Return 1
+                        Case 1: ' EOR Rd, Rs
+                            R(Rd) = BitXor(R(Rd), R(Rs))
+                            UpdateNZ R(Rd)
+                            Return 1
+                        Case 2: ' LSL Rd, Rs
+                            Dim shiftBy As Long = BitAnd(R(Rs), &HFF)
+                            Dim c As Integer
+                            R(Rd) = LogicalShiftLeft(R(Rd), shiftBy, c)
+                            UpdateNZ R(Rd)
+                            SetC (c <> 0)
+                            Return 1
+                        Case 3: ' LSR Rd, Rs
+                            Dim shiftBy As Long = BitAnd(R(Rs), &HFF)
+                            Dim c As Integer
+                            R(Rd) = LogicalShiftRight(R(Rd), shiftBy, c)
+                            UpdateNZ R(Rd)
+                            SetC (c <> 0)
+                            Return 1
+                        Case 4: ' ASR Rd, Rs
+                            Dim shiftBy As Long = BitAnd(R(Rs), &HFF)
+                            Dim c As Integer
+                            R(Rd) = ArithmeticShiftRight(R(Rd), shiftBy, c)
+                            UpdateNZ R(Rd)
+                            SetC (c <> 0)
+                            Return 1
+                        Case 5: ' ADC Rd, Rs
+                            Dim c As Integer, v As Integer
+                            R(Rd) = ADC(R(Rd), R(Rs), c, v)
+                            UpdateNZCV R(Rd), c, v
+                            Return 1
+                        Case 6: ' SBC Rd, Rs
+                            Dim c As Integer, v As Integer
+                            R(Rd) = SBC(R(Rd), R(Rs), c, v)
+                            UpdateNZCV R(Rd), c, v
+                            Return 1
+                        Case 7: ' ROR Rd, Rs
+                            Dim shiftBy As Long = BitAnd(R(Rs), &HFF)
+                            Dim c As Integer
+                            R(Rd) = RotateRight(R(Rd), shiftBy, c)
+                            UpdateNZ R(Rd)
+                            SetC (c <> 0)
+                            Return 1
+                        Case 8: ' TST Rd, Rs
+                            Dim res As Long = BitAnd(R(Rd), R(Rs))
+                            UpdateNZ res
+                            Return 1
+                        Case 9: ' NEG Rd, Rs  (RSB Rd, Rs, #0)
+                            Dim c As Integer, v As Integer
+                            Dim res As Long = SubOp(0, R(Rs), c, v)
+                            UpdateNZCV res, c, v
+                            R(Rd) = res
+                            Return 1
+                        Case 10: ' CMP Rd, Rs
+                            Dim c As Integer, v As Integer
+                            Dim res As Long = SubOp(R(Rd), R(Rs), c, v)
+                            UpdateNZCV res, c, v
+                            Return 1
+                        Case 11: ' CMN Rd, Rs
+                            Dim c As Integer, v As Integer
+                            Dim res As Long = ADDs(R(Rd), R(Rs), c, v)
+                            UpdateNZCV res, c, v
+                            Return 1
+                        Case 12: ' ORR Rd, Rs
+                            R(Rd) = BitOr(R(Rd), R(Rs))
+                            UpdateNZ R(Rd)
+                            Return 1
+                        Case 13: ' MUL Rd, Rs
+                            R(Rd) = BitAnd(R(Rd) * R(Rs), &HFFFFFFFF)
+                            UpdateNZ R(Rd)
+                            SetC False
+                            Return 1  ' Can be multiple cycles on real HW
+                        Case 14: ' BIC Rd, Rs
+                            R(Rd) = BitAnd(R(Rd), BitNot(R(Rs)))
+                            UpdateNZ R(Rd)
+                            Return 1
+                        Case 15: ' MVN Rd, Rs
+                            R(Rd) = BitNot(R(Rs))
+                            UpdateNZ R(Rd)
+                            Return 1
+                    End Select
+
+                Case 3: ' 11_xxx — Hi Register Ops (redundant, real handler below)
+                    ' Hi-reg ops are decoded later in dedicated block
+                    Return 1
+            End Select
+        End If
+
+        ' ── Hi-Register Operations (0x44xx–0x47xx), top4=4, top3=2 ──
+        ' This covers ADD, CMP, MOV, BX, BLX using high registers (R8-R15)
+        If top4 = 4 And top3 = 2 Then
+            Dim opType As Integer = RightShift(BitAnd(op, &H0300), 8) ' bits[9:8]
+            Dim H1 As Integer = BitAnd(RightShift(op, 7), 1) ' bit[7] — MSB of destination
+            Dim H2 As Integer = BitAnd(RightShift(op, 6), 1) ' bit[6] — MSB of source
+            Dim Rd As Integer = BitAnd(op, &H0007)
+            If H1 Then Rd = Rd Or 8
+            Dim Rs As Integer = RightShift(BitAnd(op, &H0038), 3)
+            If H2 Then Rs = Rs Or 8
+
+            Select Case opType
+                Case 0: ' ADD Rd, Rs
+                    Dim res As Long = R(Rd) + R(Rs)
+                    If Rd = 15 Then
+                        ' ADD PC, Rs — like BX but stays in current state
+                        res = BitAnd(res, &HFFFFFFFE)
+                        R(15) = res: PipeFlush = True
+                    Else
+                        R(Rd) = res
+                    End If
+                    Return 1
+                Case 1: ' CMP Rd, Rs
+                    Dim cC As Integer, cV As Integer
+                    Dim cRes As Long = SubOp(R(Rd), R(Rs), cC, cV)
+                    UpdateNZCV cRes, cC, cV
+                    Return 1
+                Case 2: ' MOV Rd, Rs
+                    If Rd = 15 And Rs = 14 Then
+                        ' BX LR — branch to LR and switch to ARM if bit 0 clear
+                        Dim target As Long = R(14)
+                        If BitTst(target, 0) Then
+                            ' Thumb return — stay Thumb
+                            R(15) = BitAnd(target, &HFFFFFFFE)
+                        Else
+                            ' ARM return
+                            CPSR = BitClr(CPSR, CPSR_THUMB)
+                            R(15) = BitAnd(target, &HFFFFFFFC)
+                        End If
+                        PipeFlush = True
+                    ElseIf Rd = 15 Then
+                        ' BX Rs (MOV PC, Rs)
+                        Dim target As Long = R(Rs)
+                        If BitTst(target, 0) Then
+                            CPSR = BitSet(CPSR, CPSR_THUMB)
+                            target = BitAnd(target, &HFFFFFFFE)
+                        Else
+                            CPSR = BitClr(CPSR, CPSR_THUMB)
+                            target = BitAnd(target, &HFFFFFFFC)
+                        End If
+                        R(15) = target: PipeFlush = True
+                    Else
+                        R(Rd) = R(Rs)
+                    End If
+                    Return 1
+                Case 3: ' BX/BLX Rs
+                    Dim target As Long = R(Rs)
+                    If H1 = 1 Then ' BLX Rs
+                        R(14) = BitAnd(R(15) - 2, &HFFFFFFFE) Or 1
+                        CPSR = BitClr(CPSR, CPSR_THUMB)
+                        target = BitAnd(target, &HFFFFFFFC)
+                    Else ' BX Rs
+                        If BitTst(target, 0) Then
+                            CPSR = BitSet(CPSR, CPSR_THUMB)
+                            target = BitAnd(target, &HFFFFFFFE)
+                        Else
+                            CPSR = BitClr(CPSR, CPSR_THUMB)
+                            target = BitAnd(target, &HFFFFFFFC)
+                        End If
+                    End If
+                    R(15) = target: PipeFlush = True
+                    Return 2
+            End Select
+        End If
+
+        If top3 = 0 Then
+            Return 1  ' All top3=0 handled above
+        Else
+            ' ── Group 1: PC-relative Load / Load-Store reg-offset (01001) ──
+            If top5 = &H09 Then
+                ' 01001 — LDR Rd, [PC, #imm8*4]
+                Dim imm8 As Integer = BitAnd(op, &H00FF)
+                Dim Rd As Integer = RightShift(BitAnd(op, &H0700), 8)
+                Dim addr As Long = BitAnd(R(15), &HFFFFFFFC) + imm8 * 4
+                R(Rd) = Mem.Read32(addr)
+                Return 2 ' LDR from memory typically 2S+1N
+            End If
+
+            ' ── Group 2: Load-Store with Register Offset (0101xx) ──
+            If top4 = 5 Then
+                Dim opType As Integer = RightShift(op, 9)
+                Dim Ro As Integer = RightShift(BitAnd(op, &H01C0), 6)
+                Dim Rb As Integer = RightShift(BitAnd(op, &H0038), 3)
+                Dim Rd As Integer = BitAnd(op, &H0007)
+                Dim addr As Long = R(Rb) + R(Ro)
+                If opType < 4 Then
+                    ' STR Rd, [Rb, Ro]
+                    Mem.Write32 addr, R(Rd)
+                ElseIf opType = 4 Or opType = 6 Then
+                    ' LDR Rd, [Rb, Ro]
+                    R(Rd) = Mem.Read32(addr)
+                ElseIf opType = 5 Or opType = 7 Then
+                    ' LDRB Rd, [Rb, Ro]
+                    R(Rd) = Mem.Read8(addr)
+                ElseIf opType >= 8 Then
+                    ' LDRSB / LDRH / LDRSH — simplified
+                    Select Case opType
+                        Case 8,10: ' STRH
+                            Mem.Write16 addr, BitAnd(R(Rd), &HFFFF)
+                        Case 9,11: ' LDRH
+                            R(Rd) = Mem.Read16(addr)
+                        Case 12,14: ' LDSB
+                            R(Rd) = SignExt8(Mem.Read8(addr))
+                        Case 13,15: ' LDRSH
+                            Dim raw As Long = Mem.Read16(addr)
+                            If BitTst(raw, 15) Then raw = raw Or &HFFFF0000
+                            R(Rd) = raw
+                    End Select
+                End If
+                Return 2
+            End If
+
+            ' ── Group 3: Load-Store Immediate Byte/Halfword (100xx) ──
+            If top3 = 4 Then
+                Dim imm5 As Integer = RightShift(BitAnd(op, &H07C0), 6)
+                Dim Rb As Integer = RightShift(BitAnd(op, &H0038), 3)
+                Dim Rd As Integer = BitAnd(op, &H0007)
+                Dim opType As Integer = RightShift(op, 10)
+                Select Case opType
+                    Case 0: ' STR Rd, [Rb, #imm5*4]
+                        Mem.Write32 R(Rb) + imm5 * 4, R(Rd)
+                    Case 1: ' LDR Rd, [Rb, #imm5*4]
+                        R(Rd) = Mem.Read32(R(Rb) + imm5 * 4)
+                    Case 2: ' STRB Rd, [Rb, #imm5]
+                        Mem.Write8 R(Rb) + imm5, BitAnd(R(Rd), &HFF)
+                    Case 3: ' LDRB Rd, [Rb, #imm5]
+                        R(Rd) = Mem.Read8(R(Rb) + imm5)
+                End Select
+                Return 2
+            End If
+
+            ' ── Group 4: Load-Store Halfword Immediate (1001x) ──
+            If top4 = 8 And RightShift(op, 12) <> 9 Then
+                Dim Hflag As Integer = BitAnd(RightShift(op, 11), 1)
+                Dim Rb As Integer = RightShift(BitAnd(op, &H0038), 3)
+                Dim Rd As Integer = BitAnd(op, &H0007)
+                Dim imm5 As Integer = RightShift(BitAnd(op, &H07C0), 6)
+                If Hflag = 0 Then ' STRH
+                    Mem.Write16 R(Rb) + imm5 * 2, BitAnd(R(Rd), &HFFFF)
+                Else ' LDRH
+                    R(Rd) = Mem.Read16(R(Rb) + imm5 * 2)
+                End If
+                Return 2
+            End If
+
+            ' ── Group 5: SP-Relative Load-Store (1001x) ──
+            If top4 = 9 Then
+                Dim imm8 As Integer = BitAnd(op, &H00FF)
+                Dim Rd As Integer = RightShift(BitAnd(op, &H0700), 8)
+                Dim opType As Integer = RightShift(op, 11)
+                If opType = 0 Then ' STR Rd, [SP, #imm8*4]
+                    Mem.Write32 R(13) + imm8 * 4, R(Rd)
+                Else ' LDR Rd, [SP, #imm8*4]
+                    R(Rd) = Mem.Read32(R(13) + imm8 * 4)
+                End If
+                Return 2
+            End If
+
+            ' ── Group 6: Load Address (1010x) ──
+            If top4 = &HA Then
+                Dim imm8 As Integer = BitAnd(op, &H00FF)
+                Dim Rd As Integer = RightShift(BitAnd(op, &H0700), 8)
+                Dim SPflag As Integer = RightShift(op, 11)
+                If SPflag = 0 Then ' ADD Rd, PC, #imm8*4
+                    R(Rd) = BitAnd(R(15), &HFFFFFFFC) + imm8 * 4
+                Else ' ADD Rd, SP, #imm8*4
+                    R(Rd) = R(13) + imm8 * 4
+                End If
+                Return 1
+            End If
+
+            ' ── Group 7: ADD to SP (101100000) ──
+            If top4 = &HB And BitAnd(op, &H0700) = 0 Then
+                ' 101100000 — ADD SP, #imm7*4
+                Dim imm As Long
+                Dim raw7 As Integer = BitAnd(op, &H007F)
+                If BitTst(op, 7) Then
+                    imm = (raw7 Or &HFFFFFF80) * 4  ' sign-extend 7 bits
+                Else
+                    imm = raw7 * 4
+                End If
+                R(13) = R(13) + imm
+                Return 1
+            End If
+
+            ' ── Group 8: Push/Pop (1011x10x) ──
+            If top4 = &HB And BitAnd(RightShift(op, 9), &H03) = 2 Then
+                Dim Lflag As Integer = RightShift(op, 11)
+                Dim Rlist As Integer = BitAnd(op, &H00FF)
+                If Lflag = 0 Then ' PUSH
+                    Dim count As Integer = NumBits(Rlist)
+                    If BitTst(op, 8) Then  ' PUSH LR
+                        R(13) = R(13) - 4
+                        Mem.Write32 R(13), R(14)
+                    End If
+                    Dim r As Integer
+                    For r = 7 To 0 Step -1
+                        If BitTst(Rlist, r) Then
+                            R(13) = R(13) - 4
+                            Mem.Write32 R(13), R(r)
+                        End If
+                    Next
+                Else ' POP
+                    Dim r As Integer
+                    For r = 0 To 7
+                        If BitTst(Rlist, r) Then
+                            R(r) = Mem.Read32(R(13))
+                            R(13) = R(13) + 4
+                        End If
+                    Next
+                    If BitTst(op, 8) Then  ' POP PC
+                        R(15) = BitAnd(Mem.Read32(R(13)), &HFFFFFFFE)
+                        R(13) = R(13) + 4
+                        PipeFlush = True
+                    End If
+                End If
+                Return 2 + NumBits(Rlist) ' approximate
+            End If
+
+            ' ── Group 9: Multiple Load-Store (1100x) ──
+            If top4 = &HC Then
+                Dim LdmFlag As Boolean = BitTst(op, 11)
+                Dim Rb As Integer = RightShift(BitAnd(op, &H0700), 8)
+                Dim Rlist As Integer = BitAnd(op, &H00FF)
+                Dim addr As Long = R(Rb)
+                If LdmFlag = False Then ' STMIA
+                    Dim r As Integer
+                    For r = 0 To 7
+                        If BitTst(Rlist, r) Then
+                            Mem.Write32 addr, R(r)
+                            addr = addr + 4
+                        End If
+                    Next
+                Else ' LDMIA
+                    Dim r As Integer
+                    For r = 0 To 7
+                        If BitTst(Rlist, r) Then
+                            R(r) = Mem.Read32(addr)
+                            addr = addr + 4
+                        End If
+                    Next
+                End If
+                If BitTst(Rlist, Rb) = 0 Then ' Writeback if base not in list
+                    R(Rb) = addr
+                End If
+                Return 2 + NumBits(Rlist)
+            End If
+
+            ' ── Group 10: Conditional Branch / SWI (1101x / 11011111) ──
+            If top4 = &HD Then
+                Dim cond As Integer = RightShift(op, 8)
+                ' SWI: opcode = 11011111xxxxxxxx (bits[7:0] = SWI number)
+                If (cond And &HF) = &HF Then ' SWI
+                    ' Thumb SWI enters Supervisor mode
+                    EnterException(MODE_SVC, &H00000008)
+                    Dim swiNumber As Integer = BitAnd(op, &H00FF)
+                    Return HandleSWI(swiNumber)
+                End If
+                ' B<cond> — conditional branch
+                Dim signedOffset As Integer = BitAnd(op, &H00FF)
+                If EvaluateCondition(cond) Then
+                    If BitTst(signedOffset, 7) Then
+                        signedOffset = signedOffset Or &HFFFFFF00
+                    End If
+                    R(15) = R(15) + signedOffset * 2
+                    PipeFlush = True
+                    Return 3  ' Taken branch = 3 cycles
+                End If
+                Return 1  ' Not taken = 1 cycle
+            End If
+
+            ' ── Group 11: Unconditional Branch (11100) ──
+            If top3 = 6 Then
+                ' B — unconditional branch
+                Dim signedOffset As Integer = BitAnd(op, &H07FF)
+                If BitTst(signedOffset, 10) Then
+                    signedOffset = signedOffset Or &HFFFFF800
+                End If
+                R(15) = R(15) + signedOffset * 2
+                PipeFlush = True
+                Return 3
+            End If
+
+            ' ── Group 12: Long Branch with Link (1111x) ──
+            If top3 = 7 Then
+                Dim Hflag As Integer = RightShift(op, 11)
+                If Hflag = 0 Then ' BL setup — LR = PC + (offset<<12)
+                    Dim offset As Integer = BitAnd(op, &H07FF)
+                    If BitTst(offset, 10) Then
+                        offset = offset Or &HFFFFF800
+                    End If
+                    R(14) = R(15) + offset * &H1000  ' shift by 12
+                    Return 1
+                Else ' BL long — PC = LR + (offset<<1), LR = next | 1
+                    Dim offset As Integer = BitAnd(op, &H07FF)
+                    Dim temp As Long = R(15) - 2
+                    R(15) = R(14) + offset * 2
+                    R(14) = BitOr(temp, 1)  ' Thumb bit set for return
+                    PipeFlush = True
+                    Return 3
+                End If
+            End If
+        End If
+
+        ' Unknown Thumb opcode — treat as NOP
+        Return 1
+    End Function
+
+    ' ───────────────────────────────────────────────────────────
+    ' ARM INSTRUCTION SET DECODER
+    ' Classification by bits[27:26] + bit[25] + bit[7:4]
+    ' ───────────────────────────────────────────────────────────
+    Function ExecuteARM() As Long
+        Dim pc As Long = BitAnd(R(15), &HFFFFFFFC)
+        Dim op As Long = Mem.Read32(pc)
+
+        ' Pre-increment PC (pipeline: PC = fetched_address + 8)
+        R(15) = pc + 8
+
+        ' Extract common bit fields
+        Dim cond As Integer = RightShift(op, 28)
+        Dim classBits As Integer = RightShift(BitAnd(op, &H0C000000), 26) ' bits [27:26]
+        Dim bit25 As Boolean = BitTst(op, 25)
+        Dim bit7 As Boolean = BitTst(op, 7)
+        Dim bit4 As Boolean = BitTst(op, 4)
+        Dim opcode As Integer = RightShift(BitAnd(op, &H01E00000), 21)  ' bits [24:21]
+        Dim Sflag As Boolean = BitTst(op, 20)  ' Set condition codes
+        Dim Rn As Integer = RightShift(BitAnd(op, &H000F0000), 16)
+        Dim Rd As Integer = RightShift(BitAnd(op, &H0000F000), 12)
+
+        ' SWI (cond=0xF/NV) must bypass condition evaluation entirely
+        If cond = &HF Then
+            EnterException(MODE_SVC, &H00000008)
+            Dim swiNumLong As Long = BitAnd(op, &H00FFFFFF)
+            Return HandleSWI(swiNumLong And &HFF)
+        End If
+
+        ' Evaluate condition — bail early if not met
+        If EvaluateCondition(cond) = False Then
+            Return 1
+        End If
+
+        ' ── Class 00: Data Processing / MUL / SWP ──
+        If classBits = 0 Then
+            ' MUL/MLA detection: bits[7:4] = 1001 and bit[24]=0
+            If bit7 And (Not BitTst(op, 6)) And (Not BitTst(op, 5)) And bit4 And (Not BitTst(op, 24)) Then
+                Dim mulRm As Integer = BitAnd(op, &H0000000F)
+                Dim mulRs As Integer = RightShift(BitAnd(op, &H00000F00), 8)
+                Dim mulRn As Integer = RightShift(BitAnd(op, &H000F0000), 16)
+                Dim mulRd As Integer = RightShift(BitAnd(op, &H00F00000), 16) ' bits[19:16]
+                If BitTst(op, 21) Then ' MLA
+                    R(mulRd) = BitAnd(R(mulRm) * R(mulRs) + R(mulRn), &HFFFFFFFF)
+                Else ' MUL
+                    R(mulRd) = BitAnd(R(mulRm) * R(mulRs), &HFFFFFFFF)
+                End If
+                If Sflag Then UpdateNZ R(mulRd)
+                Return 2
+            End If
+
+            ' MULL (long multiply) / SWP — skip for now, return cycles
+            If bit7 And (Not BitTst(op, 6)) And (Not BitTst(op, 5)) And bit4 And BitTst(op, 24) Then
+                Return 2 ' MULL — placeholder
+            End If
+
+            ' MRS/MSR detection: bits[27:23]=00010 or 00110, bits[15:12]=1111
+            ' MRS: bits[27:23]=00010, S=0, Rd=PSR, bits[15:12]=Rd
+            ' MSR: bit[20]=1 (S=1), bits[15:12]=1111
+            Dim isMRS As Boolean = opcode = 0 And (Not Sflag) And (Rn = 15) And (Not bit25) And (Not bit4) _
+                And (BitAnd(op, &H00000FFF) = 0) And (BitAnd(RightShift(op, 16), &H0F) = 15)
+            Dim isMSRReg As Boolean = opcode = 0 And Sflag And (Rd = 15) And (Not bit25) And (Not bit4) _
+                And (BitAnd(op, &H00000FFF) >= 0) And (BitAnd(RightShift(op, 16), &H0F) <> 0) _
+                And (BitAnd(RightShift(op, 12), &H0F) = 15)
+            Dim isMSRImm As Boolean = (opcode = 0 And Sflag And bit25 And (BitAnd(RightShift(op, 12), &H0F) = 15)) _
+                Or (RightShift(op, 24) = 2 And Sflag And bit25 And (Rd = 15))
+            ' Refined check: MSR immediate bits[27:23]=00110, bits[15:12]=1111
+            Dim bits27_23 As Integer = RightShift(BitAnd(op, &H0F800000), 23)
+            If bits27_23 = 2 Then isMRS = True ' 00010 + specific fields
+            If (bits27_23 = 2 Or bits27_23 = 6) And Sflag And (Rd = 15) Then
+                ' MSR — write to CPSR/SPSR
+                Dim srcValue As Long
+                If bit25 Then
+                    ' Immediate form
+                    Dim imm8 As Integer = BitAnd(op, &H000000FF)
+                    Dim rotate As Integer = RightShift(BitAnd(op, &H00000F00), 8) * 2
+                    Dim shifterDummy As Integer
+                    srcValue = RotateRight(imm8, rotate, shifterDummy)
+                Else
+                    srcValue = R(BitAnd(op, &H0000000F))
+                End If
+                Dim psrField As Integer = RightShift(BitAnd(op, &H000F0000), 16)
+                If BitTst(psrField, 0) Then ' Control field (bits[7:0])
+                    CPSR = (CPSR And &HFFFFFF00) Or (BitAnd(srcValue, &HFF))
+                    ' Check mode change
+                    SwitchMode BitAnd(srcValue, &H1F)
+                End If
+                If BitTst(psrField, 1) Then ' Flags field (bits[31:28])
+                    CPSR = (CPSR And &H00FFFFFF) Or (BitAnd(srcValue, &HF0000000))
+                End If
+                If BitTst(psrField, 3) And (CurrentMode <> MODE_USR) And (CurrentMode <> MODE_SYS) Then
+                    ' Write to SPSR
+                    Select Case CurrentMode
+                        Case MODE_FIQ: SPSR_Fiq = srcValue
+                        Case MODE_SVC: SPSR_Svc = srcValue
+                        Case MODE_ABT: SPSR_Abt = srcValue
+                        Case MODE_IRQ: SPSR_Irq = srcValue
+                        Case MODE_UND: SPSR_Und = srcValue
+                    End Select
+                End If
+                Return 1
+            End If
+            If bits27_23 = 2 And (Not Sflag) And ((BitAnd(op, &H00100000) <> 0) Or (BitAnd(op, &H00400000) <> 0)) And (BitAnd(RightShift(op, 12), &H0F) = 15) Then
+                ' MRS — read CPSR/SPSR into Rd
+                ' bit[22] selects CPSR/SPSR
+                If BitTst(op, 22) Then
+                    Select Case CurrentMode
+                        Case MODE_USR: R(Rd) = CPSR
+                        Case MODE_SYS: R(Rd) = CPSR
+                        Case MODE_FIQ: R(Rd) = SPSR_Fiq
+                        Case MODE_SVC: R(Rd) = SPSR_Svc
+                        Case MODE_ABT: R(Rd) = SPSR_Abt
+                        Case MODE_IRQ: R(Rd) = SPSR_Irq
+                        Case MODE_UND: R(Rd) = SPSR_Und
+                        Case Else: R(Rd) = CPSR
+                    End Select
+                Else
+                    R(Rd) = CPSR
+                End If
+                Return 1
+            End If
+
+            ' Regular Data Processing
+            Dim Rm As Integer = BitAnd(op, &H0000000F)
+            Dim operand2 As Long
+            Dim shifterCarry As Integer
+
+            ' Four shifter operand cases determined by bit25 and bit4:
+            ' bit25=0 bit4=0: register shift by #shift_imm (immediate shift amount)
+            ' bit25=0 bit4=1: register shift by Rs (register shift amount)
+            ' bit25=1 bit4=0: register shift by #shift_imm (same as case 1)
+            ' bit25=1 bit4=1: rotated 8-bit immediate
+            If bit25 And bit4 Then
+                ' Rotated immediate: 8-bit value rotated right by 2*rotate_imm
+                Dim imm8 As Integer = BitAnd(op, &H000000FF)
+                Dim rotate As Integer = RightShift(BitAnd(op, &H00000F00), 8) * 2
+                operand2 = RotateRight(imm8, rotate, shifterCarry)
+            ElseIf (Not bit25) And bit4 Then
+                ' Register shift by Rs
+                Dim Rs As Integer = RightShift(BitAnd(op, &H00000F00), 8)
+                Dim shiftOp As Integer = RightShift(BitAnd(op, &H00000060), 5)
+                Dim shiftAmount As Long = BitAnd(R(Rs), &HFF)
+                operand2 = ShiftOperand(shiftOp, R(Rm), shiftAmount, shifterCarry)
+            Else
+                ' Immediate shift amount
+                Dim shiftImm As Integer = RightShift(BitAnd(op, &H00000F80), 7)
+                Dim shiftOp As Integer = RightShift(BitAnd(op, &H00000060), 5)
+                operand2 = ShiftOperand(shiftOp, R(Rm), shiftImm, shifterCarry)
+            End If
+
+            Return ExecuteDataProcARM(opcode, Sflag, Rn, Rd, operand2, shifterCarry)
+        End If
+
+        ' ── Class 01: Single Data Transfer (LDR/STR + Halfword/Signed variants) ──
+        If classBits = 1 Then
+            ' Extra Load/Store (LDRH, STRH, LDRSB, LDRSH): bits[7:4] = 1x01 or similar
+            ' Key indicator: bit7=1, bit6=0, bit4=1 and classBits=01
+            Dim isExtraLS As Boolean = bit7 And bit4 And (Not BitTst(op, 6))
+
+            If isExtraLS Then
+                ' Halfword / Signed byte / Signed halfword
+                Dim Pflag As Boolean = BitTst(op, 24)
+                Dim Uflag As Boolean = BitTst(op, 23)
+                Dim Wflag As Boolean = BitTst(op, 21)
+                Dim Lflag As Boolean = BitTst(op, 20)
+                Dim SHtype As Integer = RightShift(BitAnd(op, &H00000060), 5) ' bits[6:5]
+
+                Dim offsetH As Long
+                If BitTst(op, 22) Then
+                    ' Immediate offset: high nibble bits[11:8], low nibble bits[3:0]
+                    offsetH = RightShift(BitAnd(op, &H00000F00), 4) Or BitAnd(op, &H0000000F)
+                Else
+                    ' Register offset in Rm
+                    offsetH = R(BitAnd(op, &H0000000F))
+                End If
+
+                Dim baseAddr As Long = R(Rn)
+                Dim finalAddr As Long
+                If Uflag Then finalAddr = baseAddr + offsetH Else finalAddr = baseAddr - offsetH
+
+                If Pflag = False Then ' Post-indexed: use base, then writeback
+                    finalAddr = baseAddr
+                    If Uflag Then R(Rn) = baseAddr + offsetH Else R(Rn) = baseAddr - offsetH
+                ElseIf Wflag Then ' Pre-indexed with writeback
+                    R(Rn) = finalAddr
+                End If
+
+                Select Case SHtype
+                    Case 1: ' Unsigned halfword
+                        If Lflag Then R(Rd) = Mem.Read16(finalAddr) Else Mem.Write16 finalAddr, BitAnd(R(Rd), &HFFFF)
+                    Case 2: ' Signed byte
+                        If Lflag Then R(Rd) = SignExt8(Mem.Read8(finalAddr)) Else Mem.Write8 finalAddr, BitAnd(R(Rd), &HFF)
+                    Case 3: ' Signed halfword
+                        If Lflag Then
+                            Dim raw As Long = Mem.Read16(finalAddr)
+                            If BitTst(raw, 15) Then raw = raw Or &HFFFF0000
+                            R(Rd) = raw
+                        Else
+                            Mem.Write16 finalAddr, BitAnd(R(Rd), &HFFFF)
+                        End If
+                    Case Else: Return 1
+                End Select
+                Return 2
+            End If
+
+            ' Standard LDR/STR
+            Dim Iflag As Boolean = BitTst(op, 25)
+            Dim PflagS As Boolean = BitTst(op, 24)
+            Dim UflagS As Boolean = BitTst(op, 23)
+            Dim BflagS As Boolean = BitTst(op, 22)
+            Dim WflagS As Boolean = BitTst(op, 21)
+            Dim LflagS As Boolean = BitTst(op, 20)
+
+            Dim offset As Long
+            If Iflag = False Then
+                ' Register offset with shift
+                Dim offsetRm As Integer = BitAnd(op, &H0000000F)
+                Dim shiftImm As Integer = RightShift(BitAnd(op, &H00000F80), 7)
+                Dim shiftOp As Integer = RightShift(BitAnd(op, &H00000060), 5)
+                Dim dummyC As Integer
+                offset = ShiftOperand(shiftOp, R(offsetRm), shiftImm, dummyC)
+            Else
+                offset = BitAnd(op, &H00000FFF)
+            End If
+
+            Dim baseAddrS As Long = R(Rn)
+            Dim finalAddrS As Long
+            If UflagS Then finalAddrS = baseAddrS + offset Else finalAddrS = baseAddrS - offset
+
+            If PflagS = False Then
+                finalAddrS = baseAddrS ' Post-indexed: use base
+                If WflagS Then
+                    If UflagS Then R(Rn) = baseAddrS + offset Else R(Rn) = baseAddrS - offset
+                End If
+            ElseIf WflagS Then
+                R(Rn) = finalAddrS ' Pre-indexed writeback
+            End If
+
+            If LflagS Then ' LDR
+                If BflagS Then
+                    R(Rd) = Mem.Read8(finalAddrS)
+                Else
+                    ' LDR with unaligned rotate
+                    Dim aligned As Long = BitAnd(finalAddrS, &HFFFFFFFC)
+                    Dim rawWord As Long = Mem.Read32(aligned)
+                    Dim rotateBy As Integer = (finalAddrS And 3) * 8
+                    If rotateBy <> 0 Then
+                        Dim rrxC As Integer
+                        R(Rd) = RotateRight(rawWord, rotateBy, rrxC)
+                    Else
+                        R(Rd) = rawWord
+                    End If
+                End If
+            Else ' STR
+                If BflagS Then Mem.Write8 finalAddrS, BitAnd(R(Rd), &HFF) Else Mem.Write32 finalAddrS, R(Rd)
+            End If
+            Return 2
+        End If
+
+        ' ── Class 10: Block Data Transfer (LDM/STM) — bit25=0 ──
+        If classBits = 2 And bit25 = False Then
+            Dim PflagL As Boolean = BitTst(op, 24)
+            Dim UflagL As Boolean = BitTst(op, 23)
+            Dim SflagL As Boolean = BitTst(op, 22)
+            Dim WflagL As Boolean = BitTst(op, 21)
+            Dim LflagL As Boolean = BitTst(op, 20)
+            Dim regList As Integer = BitAnd(op, &H0000FFFF)
+            Dim numRegs As Integer = NumBits(regList)
+
+            Dim addr As Long = R(Rn)
+
+            If UflagL Then ' Increment (LDM/STM IA/IB variants)
+                If PflagL Then addr = addr + 4 ' IB: increment before
+                Dim r As Integer
+                For r = 0 To 15
+                    If BitTst(regList, r) Then
+                        If LflagL Then ' LDM
+                            If SflagL And r = 15 Then
+                                ' LDM with ^ — restore PC and CPSR from SPSR
+                                R(15) = Mem.Read32(addr)
+                                Select Case CurrentMode
+                                    Case MODE_FIQ: CPSR = SPSR_Fiq
+                                    Case MODE_SVC: CPSR = SPSR_Svc
+                                    Case MODE_ABT: CPSR = SPSR_Abt
+                                    Case MODE_IRQ: CPSR = SPSR_Irq
+                                    Case MODE_UND: CPSR = SPSR_Und
+                                End Select
+                                PipeFlush = True
+                            ElseIf LflagL And SflagL And CurrentMode = MODE_USR Then
+                                ' LDM from user-mode registers
+                                R(r) = Mem.Read32(addr)
+                            Else
+                                R(r) = Mem.Read32(addr)
+                            End If
+                        Else ' STM
+                            Mem.Write32 addr, R(r)
+                        End If
+                        addr = addr + 4
+                    End If
+                Next
+                If WflagL And Not BitTst(regList, Rn) Then R(Rn) = R(Rn) + numRegs * 4
+            Else ' Decrement (LDMDB/STMDB)
+                If Not PflagL Then addr = addr - numRegs * 4 ' DB: decrement before
+                Dim r2 As Integer
+                For r2 = 15 To 0 Step -1
+                    If BitTst(regList, r2) Then
+                        If LflagL Then
+                            R(r2) = Mem.Read32(addr)
+                        Else
+                            Mem.Write32 addr, R(r2)
+                        End If
+                        addr = addr + 4
+                    End If
+                Next
+                If WflagL And Not BitTst(regList, Rn) Then R(Rn) = R(Rn) - numRegs * 4
+            End If
+            Return 2 + numRegs
+        End If
+
+        ' ── Class 10 alt: Branch (B/BL) / SWI — bit25=1 ──
+        ' classBits=2 + bit25=1: B/BL (bit24=0 for B, bit24=1 for BL)
+        ' classBits=3 + bit25=1 + bit24=1: SWI
+        If (classBits = 2 And bit25) Or classBits = 3 Then
+            If classBits = 3 And BitTst(op, 24) Then ' SWI
+                ' SWI: condition is always true (NV/0xF), EnterException handles mode switch
+                EnterException(MODE_SVC, &H00000008)
+                Dim swiNum As Long = BitAnd(op, &H00FFFFFF)
+                Return HandleSWI(swiNum And &HFF)
+            Else ' B / BL
+                Dim LflagB As Boolean = BitTst(op, 24)
+                Dim signedOffset As Long = BitAnd(op, &H00FFFFFF)
+                If BitTst(signedOffset, 23) Then signedOffset = signedOffset Or &HFF000000
+                If LflagB Then R(14) = R(15) - 4 ' Link
+                R(15) = pc + 8 + signedOffset * 4
+                PipeFlush = True
+                Return 3
+            End If
+        End If
+
+        Return 1 ' Unknown
+    End Function
+
+    ' ─── ARM Data Processing Helper ─────────────────────────────
+
+    Function ExecuteDataProcARM(opcode As Integer, Sflag As Boolean, _
+                                Rn As Integer, Rd As Integer, _
+                                operand2 As Long, _
+                                shifterCarry As Integer) As Long
+        Dim result As Long
+        Dim writeToRd As Boolean = True
+
+        ' Comparison/tests: opcode 8..11 do NOT write to Rd
+        If opcode = 8 Or opcode = 9 Or opcode = 10 Or opcode = 11 Then
+            writeToRd = False
+            Rd = Rn ' CMP/TST use Rn, not Rd
+        End If
+
+        Select Case opcode
+            Case 0: ' AND
+                result = BitAnd(R(Rn), operand2)
+                If Sflag Then UpdateNZ result: SetC (shifterCarry <> 0)
+                If writeToRd Then R(Rd) = result
+            Case 1: ' EOR
+                result = BitXor(R(Rn), operand2)
+                If Sflag Then UpdateNZ result: SetC (shifterCarry <> 0)
+                If writeToRd Then R(Rd) = result
+            Case 2: ' SUB
+                Dim c2 As Integer, v2 As Integer
+                result = SubOp(R(Rn), operand2, c2, v2)
+                If Sflag Then UpdateNZCV result, c2, v2
+                If writeToRd Then R(Rd) = result
+            Case 3: ' RSB
+                Dim c3 As Integer, v3 As Integer
+                result = SubOp(operand2, R(Rn), c3, v3)
+                If Sflag Then UpdateNZCV result, c3, v3
+                If writeToRd Then R(Rd) = result
+            Case 4: ' ADD
+                Dim c4 As Integer, v4 As Integer
+                result = ADDs(R(Rn), operand2, c4, v4)
+                If Sflag Then UpdateNZCV result, c4, v4
+                If writeToRd Then R(Rd) = result
+            Case 5: ' ADC
+                Dim c5 As Integer, v5 As Integer
+                result = ADC(R(Rn), operand2, c5, v5)
+                If Sflag Then UpdateNZCV result, c5, v5
+                If writeToRd Then R(Rd) = result
+            Case 6: ' SBC
+                Dim c6 As Integer, v6 As Integer
+                result = SBC(R(Rn), operand2, c6, v6)
+                If Sflag Then UpdateNZCV result, c6, v6
+                If writeToRd Then R(Rd) = result
+            Case 7: ' RSC
+                Dim c7 As Integer, v7 As Integer
+                result = SBC(operand2, R(Rn), c7, v7)
+                If Sflag Then UpdateNZCV result, c7, v7
+                If writeToRd Then R(Rd) = result
+            Case 8: ' TST
+                result = BitAnd(R(Rn), operand2)
+                UpdateNZ result: SetC (shifterCarry <> 0)
+            Case 9: ' TEQ
+                result = BitXor(R(Rn), operand2)
+                UpdateNZ result: SetC (shifterCarry <> 0)
+            Case 10: ' CMP
+                Dim c10 As Integer, v10 As Integer
+                result = SubOp(R(Rn), operand2, c10, v10)
+                UpdateNZCV result, c10, v10
+            Case 11: ' CMN
+                Dim c11 As Integer, v11 As Integer
+                result = ADDs(R(Rn), operand2, c11, v11)
+                UpdateNZCV result, c11, v11
+            Case 12: ' ORR
+                result = BitOr(R(Rn), operand2)
+                If Sflag Then UpdateNZ result: SetC (shifterCarry <> 0)
+                If writeToRd Then R(Rd) = result
+            Case 13: ' MOV
+                result = operand2
+                If Sflag Then UpdateNZ result: SetC (shifterCarry <> 0)
+                If writeToRd Then R(Rd) = result
+            Case 14: ' BIC
+                result = BitAnd(R(Rn), BitNot(operand2))
+                If Sflag Then UpdateNZ result: SetC (shifterCarry <> 0)
+                If writeToRd Then R(Rd) = result
+            Case 15: ' MVN
+                result = BitNot(operand2)
+                If Sflag Then UpdateNZ result: SetC (shifterCarry <> 0)
+                If writeToRd Then R(Rd) = result
+        End Select
+
+        ' MOVS PC, LR → restore CPSR from SPSR (exception return)
+        If Rd = 15 And Sflag And writeToRd Then
+            Select Case CurrentMode
+                Case MODE_FIQ: CPSR = SPSR_Fiq
+                Case MODE_SVC: CPSR = SPSR_Svc
+                Case MODE_ABT: CPSR = SPSR_Abt
+                Case MODE_IRQ: CPSR = SPSR_Irq
+                Case MODE_UND: CPSR = SPSR_Und
+            End Select
+            PipeFlush = True
+        End If
+
+        If Rd = 15 And writeToRd Then PipeFlush = True
+
+        Return 1
+    End Function
+End Class

@@ -1,0 +1,79 @@
+' Verification test for M6 Select Case Jump Table optimization (OP_JUMP_TABLE).
+' Uses 8+ dense Integer literal cases to trigger try_compile_jump_table().
+Attribute VB_Name = "TestJumpTableVerify"
+
+Function DecodeOpcode(op As Integer) As String
+	Select Case op
+		Case 0
+			DecodeOpcode = "NOP"
+		Case 1
+			DecodeOpcode = "ADD"
+		Case 2
+			DecodeOpcode = "SUB"
+		Case 3
+			DecodeOpcode = "MUL"
+		Case 4
+			DecodeOpcode = "DIV"
+		Case 5
+			DecodeOpcode = "JMP"
+		Case 6
+			DecodeOpcode = "CALL"
+		Case 7
+			DecodeOpcode = "RET"
+		Case 8
+			DecodeOpcode = "LOAD"
+		Case 9
+			DecodeOpcode = "STORE"
+		Case Else
+			DecodeOpcode = "UNKNOWN"
+	End Select
+End Function
+
+Sub _Ready()
+	Dim expected(10) As String
+	expected(0) = "NOP"
+	expected(1) = "ADD"
+	expected(2) = "SUB"
+	expected(3) = "MUL"
+	expected(4) = "DIV"
+	expected(5) = "JMP"
+	expected(6) = "CALL"
+	expected(7) = "RET"
+	expected(8) = "LOAD"
+	expected(9) = "STORE"
+
+	Dim allPass As Boolean
+	allPass = True
+
+	Dim i As Integer
+	For i = 0 To 9
+		Dim got As String
+		got = DecodeOpcode(i)
+		If got = expected(i) Then
+			Print "PASS: jump_table_case_" & CStr(i)
+		Else
+			Print "FAIL: jump_table_case_" & CStr(i) & ": expected " & expected(i) & ", got " & got
+			allPass = False
+		End If
+	Next
+
+	' Out-of-range / default case
+	Dim gotDefault As String
+	gotDefault = DecodeOpcode(999)
+	If gotDefault = "UNKNOWN" Then
+		Print "PASS: jump_table_default"
+	Else
+		Print "FAIL: jump_table_default: expected UNKNOWN, got " & gotDefault
+		allPass = False
+	End If
+
+	' Negative value (below min) should also hit default
+	Dim gotNeg As String
+	gotNeg = DecodeOpcode(-5)
+	If gotNeg = "UNKNOWN" Then
+		Print "PASS: jump_table_negative_default"
+	Else
+		Print "FAIL: jump_table_negative_default: expected UNKNOWN, got " & gotNeg
+		allPass = False
+	End If
+End Sub

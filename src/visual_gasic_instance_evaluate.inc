@@ -305,6 +305,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         if (builtin_constants.has(name)) {
             return builtin_constants[name];
         }
+        // Fallback to project-wide "Global Const"/"Global Dim" registry (v4.4.0)
+        if (get_global_scope().has(name)) {
+            return get_global_scope()[name];
+        }
         
         // Debug
         // UtilityFunctions::print("Variable not found in map: ", name);
