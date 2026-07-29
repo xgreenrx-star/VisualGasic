@@ -1,0 +1,173 @@
+' c64_constants.vg -- Commodore 64 Hardware Constants
+' C64 Emulator written in pure VisualGasic
+
+' === General Timing ===
+Global Const C64_PAL_CLOCK As Long = 985248
+Global Const C64_NTSC_CLOCK As Long = 1022727
+Global Const CYCLES_PER_FRAME_PAL As Long = 19705
+Global Const CYCLES_PER_FRAME_NTSC As Long = 17045
+
+' === Display Dimensions ===
+Global Const SCREEN_W As Integer = 384
+Global Const SCREEN_H As Integer = 272
+Global Const VISIBLE_W As Integer = 320
+Global Const VISIBLE_H As Integer = 200
+Global Const BORDER_X As Integer = 32
+Global Const BORDER_Y As Integer = 36
+
+' === C64 Memory Map ===
+Global Const MEM_RAM_START As Long = &H0000
+Global Const MEM_ZP_START As Long = &H0000
+Global Const MEM_STACK_START As Long = &H0100
+Global Const MEM_SCREEN_START As Long = &H0400
+Global Const MEM_BASIC_RAM As Long = &H0800
+Global Const MEM_BASIC_ROM As Long = &HA000
+Global Const MEM_BASIC_ROM_END As Long = &HC000
+Global Const MEM_CHAR_ROM As Long = &HD000
+Global Const MEM_CHAR_ROM_END As Long = &HD400
+Global Const MEM_VIC_START As Long = &HD000
+Global Const MEM_SID_START As Long = &HD400
+Global Const MEM_COLOR_RAM As Long = &HD800
+Global Const MEM_CIA1_START As Long = &HDC00
+Global Const MEM_CIA2_START As Long = &HDD00
+Global Const MEM_IO_END As Long = &HE000
+Global Const MEM_KERNAL_ROM As Long = &HE000
+Global Const MEM_ROM_END As Long = &H10000
+
+' === VIC-II Register Offsets (from $D000) ===
+Global Const VIC_SP0X As Integer = 0
+Global Const VIC_SP0Y As Integer = 1
+Global Const VIC_SP1X As Integer = 2
+Global Const VIC_SP1Y As Integer = 3
+Global Const VIC_SP2X As Integer = 4
+Global Const VIC_SP2Y As Integer = 5
+Global Const VIC_SP3X As Integer = 6
+Global Const VIC_SP3Y As Integer = 7
+Global Const VIC_SP4X As Integer = 8
+Global Const VIC_SP4Y As Integer = 9
+Global Const VIC_SP5X As Integer = 10
+Global Const VIC_SP5Y As Integer = 11
+Global Const VIC_SP6X As Integer = 12
+Global Const VIC_SP6Y As Integer = 13
+Global Const VIC_SP7X As Integer = 14
+Global Const VIC_SP7Y As Integer = 15
+Global Const VIC_MSIGX As Integer = 16
+Global Const VIC_CTRL1 As Integer = 17
+Global Const VIC_RASTER As Integer = 18
+Global Const VIC_LPENX As Integer = 19
+Global Const VIC_LPENY As Integer = 20
+Global Const VIC_SPENA As Integer = 21
+Global Const VIC_CTRL2 As Integer = 22
+Global Const VIC_SPYEXP As Integer = 23
+Global Const VIC_MEMPTR As Integer = 24
+Global Const VIC_IRQFLAGS As Integer = 25
+Global Const VIC_IRQEN As Integer = 26
+Global Const VIC_SPPRI As Integer = 27
+Global Const VIC_SPMC As Integer = 28
+Global Const VIC_SPXEXP As Integer = 29
+Global Const VIC_SPCOL As Integer = 30
+Global Const VIC_SPBGCOL As Integer = 31
+Global Const VIC_BORDERCOL As Integer = 32
+Global Const VIC_BGCOL0 As Integer = 33
+Global Const VIC_BGCOL1 As Integer = 34
+Global Const VIC_BGCOL2 As Integer = 35
+Global Const VIC_BGCOL3 As Integer = 36
+Global Const VIC_SPMC0 As Integer = 37
+Global Const VIC_SPMC1 As Integer = 38
+Global Const VIC_SP0COL As Integer = 39
+Global Const VIC_SP1COL As Integer = 40
+Global Const VIC_SP2COL As Integer = 41
+Global Const VIC_SP3COL As Integer = 42
+Global Const VIC_SP4COL As Integer = 43
+Global Const VIC_SP5COL As Integer = 44
+Global Const VIC_SP6COL As Integer = 45
+Global Const VIC_SP7COL As Integer = 46
+
+' === CIA Register Offsets ===
+Global Const CIA_PRA As Integer = 0
+Global Const CIA_PRB As Integer = 1
+Global Const CIA_DDRA As Integer = 2
+Global Const CIA_DDRB As Integer = 3
+Global Const CIA_TALO As Integer = 4
+Global Const CIA_TAHI As Integer = 5
+Global Const CIA_TBLO As Integer = 6
+Global Const CIA_TBHI As Integer = 7
+Global Const CIA_TOD10 As Integer = 8
+Global Const CIA_TODSEC As Integer = 9
+Global Const CIA_TODMIN As Integer = 10
+Global Const CIA_TODHR As Integer = 11
+Global Const CIA_SDR As Integer = 12
+Global Const CIA_ICR As Integer = 13
+Global Const CIA_CRA As Integer = 14
+Global Const CIA_CRB As Integer = 15
+
+' === 6510 Status Flag Bit Positions ===
+Global Const FLAG_CARRY As Integer = 0
+Global Const FLAG_ZERO As Integer = 1
+Global Const FLAG_IRQ_DISABLE As Integer = 2
+Global Const FLAG_DECIMAL As Integer = 3
+Global Const FLAG_BREAK As Integer = 4
+Global Const FLAG_NOTUSED As Integer = 5
+Global Const FLAG_OVERFLOW As Integer = 6
+Global Const FLAG_NEG As Integer = 7
+
+' === C64 Color Palette (16 colors, 8-bit per channel) ===
+Function C64Color(idx As Integer) As Variant
+    Dim pal As Variant
+    ' Build palette array on first call
+    pal = CreateArray(16)
+    pal(0) = Color8(0, 0, 0, 255)
+    pal(1) = Color8(255, 255, 255, 255)
+    pal(2) = Color8(136, 0, 0, 255)
+    pal(3) = Color8(170, 255, 238, 255)
+    pal(4) = Color8(204, 68, 204, 255)
+    pal(5) = Color8(0, 204, 85, 255)
+    pal(6) = Color8(0, 0, 170, 255)
+    pal(7) = Color8(238, 238, 119, 255)
+    pal(8) = Color8(221, 136, 85, 255)
+    pal(9) = Color8(102, 68, 0, 255)
+    pal(10) = Color8(255, 119, 119, 255)
+    pal(11) = Color8(51, 51, 51, 255)
+    pal(12) = Color8(119, 119, 119, 255)
+    pal(13) = Color8(170, 255, 102, 255)
+    pal(14) = Color8(0, 136, 255, 255)
+    pal(15) = Color8(187, 187, 187, 255)
+    Return pal(idx)
+End Function
+
+' Keep last-built palette cached
+Dim g_c64PalCached As Boolean
+Dim g_c64Pal(15) As Variant
+
+Function GetC64Color(idx As Integer) As Variant
+    If Not g_c64PalCached Then
+        g_c64Pal(0) = Color8(0, 0, 0, 255)
+        g_c64Pal(1) = Color8(255, 255, 255, 255)
+        g_c64Pal(2) = Color8(136, 0, 0, 255)
+        g_c64Pal(3) = Color8(170, 255, 238, 255)
+        g_c64Pal(4) = Color8(204, 68, 204, 255)
+        g_c64Pal(5) = Color8(0, 204, 85, 255)
+        g_c64Pal(6) = Color8(0, 0, 170, 255)
+        g_c64Pal(7) = Color8(238, 238, 119, 255)
+        g_c64Pal(8) = Color8(221, 136, 85, 255)
+        g_c64Pal(9) = Color8(102, 68, 0, 255)
+        g_c64Pal(10) = Color8(255, 119, 119, 255)
+        g_c64Pal(11) = Color8(51, 51, 51, 255)
+        g_c64Pal(12) = Color8(119, 119, 119, 255)
+        g_c64Pal(13) = Color8(170, 255, 102, 255)
+        g_c64Pal(14) = Color8(0, 136, 255, 255)
+        g_c64Pal(15) = Color8(187, 187, 187, 255)
+        g_c64PalCached = True
+    End If
+    Return g_c64Pal(idx)
+End Function
+
+Function CreateArray(size As Integer) As Variant
+    Dim arr As Variant
+    arr = Array()
+    Dim i As Integer
+    For i = 0 To size - 1
+        Push arr, 0
+    Next
+    Return arr
+End Function

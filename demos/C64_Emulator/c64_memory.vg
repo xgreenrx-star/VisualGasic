@@ -1,0 +1,360 @@
+' c64_memory.vg -- C64 Memory Subsystem
+' RESTRUCTURED: Module-level functions for bytecode-compilation.
+' Handles 64KB address space with RAM/ROM bank switching
+
+Import "c64_constants.vg"
+
+
+' ================================================================
+' === MODULE-LEVEL STATE ===
+' ================================================================
+Public  gMem_Buf        As Variant       ' MemoryBuffer -- 64KB main RAM
+Public  gMem_ColorRAM   As Variant       ' MemoryBuffer -- 1KB Color RAM
+Public  gMem_BasicROM   As Variant       ' MemoryBuffer -- 8KB BASIC ROM
+Public  gMem_KernalROM  As Variant       ' MemoryBuffer -- 8KB KERNAL ROM
+Public  gMem_CharROM    As Variant       ' MemoryBuffer -- 4KB Character ROM
+
+' Banking control
+Public  gMem_Port00     As Integer
+Public  gMem_Port01     As Integer
+Public  gMem_LORAM      As Boolean
+Public  gMem_HIRAM      As Boolean
+Public  gMem_CHAREN     As Boolean
+Public  gMem_VICBank    As Long
+
+' Keyboard matrix
+Public  gMem_KeyCol(7)  As Integer
+
+
+' ================================================================
+' === INIT ===
+' ================================================================
+Sub Mem_Init()
+    Set gMem_Buf      = New MemoryBuffer(&H10000)
+    Set gMem_ColorRAM = New MemoryBuffer(&H0400)
+
+    Dim i As Long
+    For i = 0 To &HFFFF
+        gMem_Buf(i) = 0
+    Next
+    For i = 0 To &H3FF
+        gMem_ColorRAM(i) = 0
+    Next
+
+    gMem_Port00  = &H37
+    gMem_Port01  = &HFF
+    gMem_LORAM   = True
+    gMem_HIRAM   = True
+    gMem_CHAREN  = True
+    gMem_VICBank = 0
+
+    Dim k As Integer
+    For k = 0 To 7
+        gMem_KeyCol(k) = &HFF
+    Next
+End Sub
+
+
+' ================================================================
+' === ROM LOADING ===
+' ================================================================
+Function Mem_LoadROMs(basicPath As String, kernalPath As String, charPath As String) As Boolean
+    If Not FileExists(basicPath) Then
+        Print "BASIC ROM not found: " & basicPath
+        Return False
+    End If
+    If Not FileExists(kernalPath) Then
+        Print "KERNAL ROM not found: " & kernalPath
+        Return False
+    End If
+    If Not FileExists(charPath) Then
+        Print "CHAR ROM not found: " & charPath
+        Return False
+    End If
+
+    Set gMem_BasicROM = New MemoryBuffer(1)
+    If Not gMem_BasicROM.LoadFromFile(basicPath) Then
+        Print "Failed to load BASIC ROM"
+        Return False
+    End If
+    Print "Loaded BASIC ROM: " & CStr(gMem_BasicROM.Size) & " bytes"
+
+    Set gMem_KernalROM = New MemoryBuffer(1)
+    If Not gMem_KernalROM.LoadFromFile(kernalPath) Then
+        Print "Failed to load KERNAL ROM"
+        Return False
+    End If
+    Print "Loaded KERNAL ROM: " & CStr(gMem_KernalROM.Size) & " bytes"
+
+    Set gMem_CharROM = New MemoryBuffer(1)
+    If Not gMem_CharROM.LoadFromFile(charPath) Then
+        Print "Failed to load CHAR ROM"
+        Return False
+    End If
+    Print "Loaded CHAR ROM: " & CStr(gMem_CharROM.Size) & " bytes"
+
+    Return True
+End Function
+
+
+' ================================================================
+' === BANKING ===
+' ================================================================
+Sub Mem_UpdateBanking()
+    gMem_LORAM  = BitTst(gMem_Port00, 0)
+    gMem_HIRAM  = BitTst(gMem_Port00, 1)
+    gMem_CHAREN = BitTst(gMem_Port00, 2)
+End Sub
+
+Sub Mem_SetKeyCol(idx As Integer, val As Integer)
+    gMem_KeyCol(idx) = val
+End Sub
+
+
+' ================================================================
+' === READ / WRITE ===
+' ================================================================
+Function Mem_Read(addr As Integer) As Integer
+    addr = BitAnd(addr, &HFFFF)
+
+    ' $0000-$0001: data port / direction
+    If addr = &H0000 Then Return gMem_Port00
+    If addr = &H0001 Then Return gMem_Port01
+
+    ' $0002-$9FFF: RAM
+    If addr < &HA000 Then Return gMem_Buf(addr)
+
+    ' $A000-$BFFF: BASIC ROM or RAM
+    If addr >= &HA000 And addr < &HC000 Then
+        If gMem_LORAM Then
+            If gMem_BasicROM.Size > 0 Then Return gMem_BasicROM(addr - &HA000)
+        End If
+        Return gMem_Buf(addr)
+    End If
+
+    ' $C000-$CFFF: RAM
+    If addr < &HD000 Then Return gMem_Buf(addr)
+
+    ' $D000-$DFFF: I/O or Character ROM
+    If addr < &HE000 Then
+        If gMem_CHAREN Then
+            Dim ioOff As Integer = addr - &HD000
+            If ioOff < &H0400 Then
+                Return gMem_Buf(addr)
+            End If
+            If ioOff >= &H0400 And ioOff < &H0800 Then
+                Return gMem_Buf(addr)
+            End If
+            If ioOff >= &H0800 And ioOff < &H0C00 Then
+                Return gMem_ColorRAM(ioOff - &H0800) Or &HF0
+            End If
+            If ioOff >= &H0C00 And ioOff < &H0D00 Then
+                Return Mem_ReadCIA1(ioOff - &H0C00)
+            End If
+            If ioOff >= &H0D00 And ioOff < &H0E00 Then
+                Return Mem_ReadCIA2(ioOff - &H0D00)
+            End If
+            Return gMem_Buf(addr)
+        Else
+            If gMem_CharROM.Size > 0 Then
+                Dim cAddr As Integer = addr - &HD000
+                If cAddr < gMem_CharROM.Size Then Return gMem_CharROM(cAddr)
+            End If
+            Return 0
+        End If
+    End If
+
+    ' $E000-$FFFF: KERNAL ROM or RAM
+    If addr >= &HE000 Then
+        If gMem_HIRAM Then
+            If gMem_KernalROM.Size > 0 Then Return gMem_KernalROM(addr - &HE000)
+        End If
+        Return gMem_Buf(addr)
+    End If
+
+    Return gMem_Buf(addr)
+End Function
+
+Sub Mem_Write(addr As Integer, value As Integer)
+    addr = BitAnd(addr, &HFFFF)
+    value = BitAnd(value, &HFF)
+
+    If addr = &H0000 Then
+        gMem_Port00 = value
+        Mem_UpdateBanking()
+        gMem_Buf(addr) = value
+        Return
+    End If
+    If addr = &H0001 Then
+        gMem_Port01 = value
+        gMem_Buf(addr) = value
+        Return
+    End If
+
+    If addr < &HD000 Then
+        gMem_Buf(addr) = value
+        Return
+    End If
+
+    If addr < &HE000 Then
+        Dim ioOff As Integer = addr - &HD000
+        gMem_Buf(addr) = value
+        If ioOff >= &H0800 And ioOff < &H0C00 Then
+            gMem_ColorRAM(ioOff - &H0800) = BitAnd(value, &H0F)
+        End If
+        If ioOff >= &H0C00 And ioOff < &H0D00 Then
+            Mem_WriteCIA1 ioOff - &H0C00, value
+        End If
+        If ioOff >= &H0D00 And ioOff < &H0E00 Then
+            Mem_WriteCIA2 ioOff - &H0D00, value
+        End If
+        Return
+    End If
+
+    If addr >= &HE000 Then
+        gMem_Buf(addr) = value
+    End If
+End Sub
+
+
+' ================================================================
+' === CIA1 ===
+' ================================================================
+Function Mem_ReadCIA1(offset As Integer) As Integer
+    Select Case BitAnd(offset, &H0F)
+        Case CIA_PRA:
+            Return &HFF
+        Case CIA_PRB:
+            Dim colMask As Integer = BitAnd(gMem_Buf(&HDC00), &HFF)
+            Dim colIdx As Integer = 0
+            If colMask = &HFE Then colIdx = 0
+            If colMask = &HFD Then colIdx = 1
+            If colMask = &HFB Then colIdx = 2
+            If colMask = &HF7 Then colIdx = 3
+            If colMask = &HEF Then colIdx = 4
+            If colMask = &HDF Then colIdx = 5
+            If colMask = &HBF Then colIdx = 6
+            If colMask = &H7F Then colIdx = 7
+            If colMask = &HFF Then Return &HFF
+            Return gMem_KeyCol(colIdx)
+        Case CIA_DDRA:
+            Return gMem_Buf(&HDC02)
+        Case CIA_DDRB:
+            Return gMem_Buf(&HDC03)
+        Case Else
+            Return 0
+    End Select
+End Function
+
+Sub Mem_WriteCIA1(offset As Integer, value As Integer)
+    Select Case BitAnd(offset, &H0F)
+        Case CIA_PRA:
+            gMem_Buf(&HDC00) = value
+        Case CIA_DDRA:
+            gMem_Buf(&HDC02) = value
+        Case CIA_DDRB:
+            gMem_Buf(&HDC03) = value
+        Case Else
+    End Select
+End Sub
+
+
+' ================================================================
+' === CIA2 ===
+' ================================================================
+Function Mem_ReadCIA2(offset As Integer) As Integer
+    Select Case BitAnd(offset, &H0F)
+        Case CIA_PRA:
+            Return gMem_Buf(&HDD00)
+        Case CIA_PRB:
+            Return gMem_Buf(&HDD01)
+        Case Else
+            Return &HFF
+    End Select
+End Function
+
+Sub Mem_WriteCIA2(offset As Integer, value As Integer)
+    Select Case BitAnd(offset, &H0F)
+        Case CIA_PRA:
+            gMem_Buf(&HDD00) = value
+            Dim bankBits As Integer = BitAnd(BitNot(value), &H03)
+            gMem_VICBank = BitShiftLeft(bankBits, 14)
+        Case CIA_PRB:
+            gMem_Buf(&HDD01) = value
+        Case CIA_DDRA:
+            gMem_Buf(&HDD02) = value
+        Case CIA_DDRB:
+            gMem_Buf(&HDD03) = value
+        Case Else
+    End Select
+End Sub
+
+
+' ================================================================
+' === UTILITY ===
+' ================================================================
+Function Mem_Read16(addr As Integer) As Integer
+    Dim lo As Integer = Mem_Read(addr)
+    Dim hi As Integer = Mem_Read((addr + 1) And &HFFFF)
+    Return lo Or BitShiftLeft(hi, 8)
+End Function
+
+
+' ================================================================
+' === BACKWARD-COMPATIBLE CLASS WRAPPER ===
+' ================================================================
+Class C64Memory
+    Public Buf        As Variant
+    Public ColorRAM   As Variant
+    Public BasicROM   As Variant
+    Public KernalROM  As Variant
+    Public CharROM    As Variant
+    Public Port00     As Integer
+    Public Port01     As Integer
+    Public LORAM      As Boolean
+    Public HIRAM      As Boolean
+    Public CHAREN     As Boolean
+    Public VICBank    As Long
+    Public KeyCol(7)  As Integer
+
+    Sub Init()
+        Mem_Init()
+        SyncToClass()
+    End Sub
+
+    Function LoadROMs(bp As String, kp As String, cp As String) As Boolean
+        Dim ok As Boolean = Mem_LoadROMs(bp, kp, cp)
+        SyncToClass()
+        Return ok
+    End Function
+
+    Function Read(addr As Integer) As Integer
+        Return Mem_Read(addr)
+    End Function
+
+    Sub Write(addr As Integer, value As Integer)
+        Mem_Write addr, value
+    End Sub
+
+    Function Read16(addr As Integer) As Integer
+        Return Mem_Read16(addr)
+    End Function
+
+    Sub SyncToClass()
+        Set Buf       = gMem_Buf
+        Set ColorRAM  = gMem_ColorRAM
+        Set BasicROM  = gMem_BasicROM
+        Set KernalROM = gMem_KernalROM
+        Set CharROM   = gMem_CharROM
+        Port00        = gMem_Port00
+        Port01        = gMem_Port01
+        LORAM         = gMem_LORAM
+        HIRAM         = gMem_HIRAM
+        CHAREN        = gMem_CHAREN
+        VICBank       = gMem_VICBank
+        Dim k As Integer
+        For k = 0 To 7
+            KeyCol(k) = gMem_KeyCol(k)
+        Next
+    End Sub
+End Class

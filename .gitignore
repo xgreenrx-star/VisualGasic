@@ -4,6 +4,12 @@ demo/.godot/
 *.import
 *.uid
 
+# Copyrighted third-party ROM dumps (e.g. C64/GBA KERNAL/BIOS binaries) —
+# never commit these; contributors must supply their own legally-obtained dumps
+demos/**/roms/*.bin
+demos/**/roms/*.gba
+demos/**/roms/*.rom
+
 # SCons
 .sconsign.dblite
 

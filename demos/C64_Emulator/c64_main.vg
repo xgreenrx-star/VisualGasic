@@ -1,0 +1,298 @@
+' c64_main.vg -- Commodore 64 Emulator Main Scene
+' Ties together CPU, Memory, VIC-II, and I/O
+' Uses module-level globals for CPU state (bytecode-compiled path).
+
+Import "c64_constants.vg"
+Import "c64_memory.vg"
+Import "c64_cpu.vg"
+Import "c64_vic.vg"
+
+Dim DisplayTex As Variant
+Dim DisplayImage As Variant
+Dim bLoaded As Boolean
+Dim FrameCount As Long
+Dim SoundHandle As Long
+Dim CyclesThisFrame As Long
+
+Sub _Ready()
+    ' Init memory subsystem (module-level, bytecode-compiled)
+    Mem_Init()
+
+    ' Init CPU (no longer needs object reference — uses Mem_Read/Mem_Write)
+    C64_Init Empty
+
+    ' Init VIC (module-level, bytecode-compiled)
+    Vic_Init()
+
+    bLoaded = False
+    FrameCount = 0
+
+    ' Create display
+    Set DisplayImage = CreateImage(SCREEN_W, SCREEN_H, Color8(0, 0, 0, 255))
+    Set DisplayTex = CreateTexture(DisplayImage)
+
+    Print "========================================"
+    Print "  Commodore 64 Emulator for VisualGasic"
+    Print "========================================"
+    Print ""
+
+    ' Try auto-load ROMs
+    TryAutoLoad()
+End Sub
+
+Sub TryAutoLoad()
+    Dim basePath As String = "res://roms/"
+    Dim basicPath As String = basePath & "basic.901226-01.bin"
+    Dim kernalPath As String = basePath & "kernal.901227-03.bin"
+    Dim charPath As String = basePath & "characters.901225-01.bin"
+
+    If FileExists(basicPath) And FileExists(kernalPath) And FileExists(charPath) Then
+        Print "Auto-loading ROMs..."
+        If Mem_LoadROMs(basicPath, kernalPath, charPath) Then
+            InitializeC64()
+        End If
+    Else
+        Print "ROMs not found in roms/ folder."
+        Print "Place basic.901226-01.bin, kernal.901227-03.bin, and characters.901225-01.bin"
+        Print "in the demos/C64_Emulator/roms/ directory."
+    End If
+End Sub
+
+Sub InitializeC64()
+    ' Set up VIC-II default registers
+    Mem_Write &HD011, &H1B   ' Control 1: 25 rows, display on, YSCROLL=3
+    Mem_Write &HD016, &H08   ' Control 2: 40 columns, standard mode
+    Mem_Write &HD018, &H15   ' Memory: Screen at $0400, charset at $0800
+    Mem_Write &HD020, &H0E   ' Border: light blue
+    Mem_Write &HD021, &H06   ' Background: blue
+
+    ' CIA1: keyboard
+    Mem_Write &HDC00, &H7F
+    Mem_Write &HDC02, &HFF
+    Mem_Write &HDC03, &H00
+
+    ' CIA2: serial/VIC bank
+    Mem_Write &HDD00, &H03
+
+    ' Reset CPU via module-level function
+    C64_Reset()
+    bLoaded = True
+
+    Print "C64 Emulator ready!"
+    Print "PC=$" & Hex(C64_GetPC())
+    Print ""
+    Print "Controls:"
+    Print "  Arrow keys = Joystick"
+    Print "  Keys = C64 keyboard"
+    Print "  Space, Enter, Backspace mapped"
+
+    InitAudio()
+End Sub
+
+Sub InitAudio()
+    SoundHandle = SoundGen.Open(44100, 0.05)
+    If SoundHandle = 0 Then
+        Print "Warning: Could not open audio"
+    End If
+End Sub
+
+' === Keyboard to C64 Matrix ===
+Sub UpdateKeyboard()
+    ' Read PC keyboard and map to C64 matrix
+    ' This maps common PC keys to the C64 keyboard matrix
+
+    ' Build column states (active low)
+    Dim col0 As Integer = &HFF, col1 As Integer = &HFF
+    Dim col2 As Integer = &HFF, col3 As Integer = &HFF
+    Dim col4 As Integer = &HFF, col5 As Integer = &HFF
+    Dim col6 As Integer = &HFF, col7 As Integer = &HFF
+
+    ' Row 7 (column 0, PA bit 0) -- STOP, Q, C=, SPACE, 2, CTRL, ←, 1
+    ' Row 6 (col 1) -- /, ↑, =, Right Shift, HOME, ;, *, £
+    ' Row 5 (col 2) -- ,, @, :, ., -, L, P, +
+    ' Row 4 (col 3) -- N, O, K, M, 0, J, I, 9
+    ' Row 3 (col 4) -- V, U, H, B, 8, G, Y, 7
+    ' Row 2 (col 5) -- X, T, F, C, 6, D, R, 5
+    ' Row 1 (col 6) -- Left Shift, E, S, Z, 4, A, W, 3
+    ' Row 0 (col 7) -- ↓, F5, F3, F1, F7, →, RETURN, DEL
+
+    ' Simplified: just map essential keys for testing
+    If IsActionPressed("ui_accept") Then col7 = BitClr(col7, 1)  ' RETURN
+    If IsActionPressed("ui_cancel") Then col7 = col7
+    If IsActionPressed("ui_up") Then col7 = BitClr(col7, 0)
+    If IsActionPressed("ui_down") Then col7 = col7
+    If IsActionPressed("ui_left") Then col7 = col7
+    If IsActionPressed("ui_right") Then col7 = BitClr(col7, 2)
+
+    ' Space
+    If IsKeyPressed(KEY_SPACE) Then col7 = BitClr(col7, 4)
+
+    ' Letter keys - rough mapping
+    If IsKeyPressed(KEY_A) Then col6 = BitClr(col6, 2)
+    If IsKeyPressed(KEY_B) Then col4 = BitClr(col4, 3)
+    If IsKeyPressed(KEY_C) Then col5 = BitClr(col5, 3)
+    If IsKeyPressed(KEY_D) Then col5 = BitClr(col5, 5)
+    If IsKeyPressed(KEY_E) Then col6 = BitClr(col6, 1)
+    If IsKeyPressed(KEY_F) Then col5 = BitClr(col5, 2)
+    If IsKeyPressed(KEY_G) Then col4 = BitClr(col4, 5)
+    If IsKeyPressed(KEY_H) Then col4 = BitClr(col4, 2)
+    If IsKeyPressed(KEY_I) Then col4 = BitClr(col4, 6)
+    If IsKeyPressed(KEY_J) Then col4 = BitClr(col4, 5)
+    If IsKeyPressed(KEY_K) Then col5 = BitClr(col5, 2)
+    If IsKeyPressed(KEY_L) Then col5 = BitClr(col5, 6)
+    If IsKeyPressed(KEY_M) Then col4 = BitClr(col4, 3)
+    If IsKeyPressed(KEY_N) Then col4 = BitClr(col4, 0)
+    If IsKeyPressed(KEY_O) Then col4 = BitClr(col4, 1)
+    If IsKeyPressed(KEY_P) Then col5 = BitClr(col5, 6)
+    If IsKeyPressed(KEY_Q) Then col6 = BitClr(col6, 6)
+    If IsKeyPressed(KEY_R) Then col5 = BitClr(col5, 1)
+    If IsKeyPressed(KEY_S) Then col6 = BitClr(col6, 5)
+    If IsKeyPressed(KEY_T) Then col5 = BitClr(col5, 1)
+    If IsKeyPressed(KEY_U) Then col4 = BitClr(col4, 1)
+    If IsKeyPressed(KEY_V) Then col4 = BitClr(col4, 0)
+    If IsKeyPressed(KEY_W) Then col6 = BitClr(col6, 1)
+    If IsKeyPressed(KEY_X) Then col5 = BitClr(col5, 0)
+    If IsKeyPressed(KEY_Y) Then col4 = BitClr(col4, 6)
+    If IsKeyPressed(KEY_Z) Then col6 = BitClr(col6, 3)
+
+    ' Numbers
+    If IsKeyPressed(KEY_0) Then col4 = BitClr(col4, 4)
+    If IsKeyPressed(KEY_1) Then col7 = BitClr(col7, 7)
+    If IsKeyPressed(KEY_2) Then col7 = BitClr(col7, 3)
+    If IsKeyPressed(KEY_3) Then col6 = BitClr(col6, 7)
+    If IsKeyPressed(KEY_4) Then col6 = BitClr(col6, 3)
+    If IsKeyPressed(KEY_5) Then col5 = BitClr(col5, 6)
+    If IsKeyPressed(KEY_6) Then col5 = BitClr(col5, 3)
+    If IsKeyPressed(KEY_7) Then col4 = BitClr(col4, 7)
+    If IsKeyPressed(KEY_8) Then col4 = BitClr(col4, 3)
+    If IsKeyPressed(KEY_9) Then col4 = BitClr(col4, 7)
+
+    Mem_SetKeyCol 0, col0
+    Mem_SetKeyCol 1, col1
+    Mem_SetKeyCol 2, col2
+    Mem_SetKeyCol 3, col3
+    Mem_SetKeyCol 4, col4
+    Mem_SetKeyCol 5, col5
+    Mem_SetKeyCol 6, col6
+    Mem_SetKeyCol 7, col7
+End Sub
+
+' === Main Loop ===
+Sub _Process(delta As Double)
+    If Not bLoaded Then
+        QueueRedraw()
+        Return
+    End If
+
+    UpdateKeyboard()
+
+    ' Every cross-module Sub here (C64_Step, Mem_Read, Vic_Tick, ...) runs via
+    ' slow AST interpretation (see "Compiler: Entry point not found" — none of
+    ' these get bytecode-compiled since they live in imported modules). A full
+    ' PAL frame is ~19705 cycles, which can take a long time to interpret in an
+    ' editor/debug build. Running the whole frame synchronously in one
+    ' _Process call makes the app appear to freeze at startup. Instead, we
+    ' process a small chunk of cycles per call and accumulate progress toward
+    ' a full virtual frame across many real _Process calls.
+    Dim chunkCycles As Long = 200
+    Dim chunkRun As Long = 0
+    Dim safetyCounter As Long = 0
+
+    Do While chunkRun < chunkCycles
+        ' Check for crash (PC = 0 or too many cycles)
+        If C64_GetPC() = 0 Then
+            Print "CPU crash at PC=0! Cycles=" & CStr(CyclesThisFrame + chunkRun)
+            bLoaded = False
+            Return
+        End If
+
+        Dim instCycles As Integer = C64_Step()
+        chunkRun = chunkRun + instCycles
+
+        ' Tick VIC for each CPU cycle
+        Dim c As Integer
+        For c = 1 To instCycles
+            Vic_Tick()
+        Next
+
+        safetyCounter = safetyCounter + 1
+        If safetyCounter > chunkCycles * 3 Then
+            Exit Do
+        End If
+    Loop
+
+    CyclesThisFrame = CyclesThisFrame + chunkRun
+
+    If CyclesThisFrame >= CYCLES_PER_FRAME_PAL Then
+        CyclesThisFrame = CyclesThisFrame - CYCLES_PER_FRAME_PAL
+
+        ' Copy VIC framebuffer to display
+        BlitImage DisplayImage, Vic_GetFramebuf(), Rect2(0, 0, SCREEN_W, SCREEN_H), Vector2(0, 0)
+        UpdateTexture DisplayTex, DisplayImage
+
+        ' Audio
+        OutputAudio()
+
+        ' Update status every second
+        FrameCount = FrameCount + 1
+        If FrameCount Mod 60 = 0 Then
+            Print "C64 PC=$" & Hex(C64_GetPC()) & " A=$" & Hex(C64_GetA()) & " X=$" & Hex(C64_GetX()) & " Y=$" & Hex(C64_GetY()) & " SP=$" & Hex(C64_GetSP()) & " Flags=$" & Hex(C64_GetFlags())
+        End If
+    End If
+    QueueRedraw()
+End Sub
+
+Sub _Draw()
+    If IsObject(DisplayTex) Then
+        ' Scale to fit window
+        Dim winSize As Variant = Vector2(Screen.Width, Screen.Height)
+        Dim scaleX As Double = winSize.x / SCREEN_W
+        Dim scaleY As Double = winSize.y / SCREEN_H
+        Dim sc As Double
+        If scaleX < scaleY Then sc = scaleX Else sc = scaleY
+        DrawTextureRect DisplayTex, 0, 0, SCREEN_W * sc, SCREEN_H * sc
+    End If
+End Sub
+
+Sub OutputAudio()
+    If SoundHandle = 0 Then Return
+
+    Dim available As Integer = SoundGen.Available(SoundHandle)
+    If available > 0 Then
+        ' SID stub - generate silence
+        Dim silence As PackedFloat32Array
+        silence.resize(available * 2)
+        SoundGen.PushStereoBuffer(SoundHandle, silence)
+    End If
+End Sub
+
+Sub Shutdown()
+    If SoundHandle <> 0 Then
+        SoundGen.Close SoundHandle
+        SoundHandle = 0
+    End If
+    bLoaded = False
+End Sub
+
+' === File I/O helper ===
+Function FileExists(path As String) As Boolean
+    Dim sz As Long = FileLen(path)
+    Return (sz > 0)
+End Function
+
+Function IsKeyPressed(keyCode As Integer) As Boolean
+    Return Input.IsKeyPressed(keyCode)
+End Function
+
+Function IsActionPressed(actionName As String) As Boolean
+    Return Input.IsActionPressed(actionName)
+End Function
+
+' === Drag-and-drop support ===
+Sub OnFilesDropped(files As Variant)
+    If IsArray(files) Then
+        If UBound(files) >= 0 Then
+            Print "Files dropped: " & files(0)
+        End If
+    End If
+End Sub

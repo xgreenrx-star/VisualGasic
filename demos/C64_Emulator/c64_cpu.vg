@@ -1,0 +1,836 @@
+' c64_cpu.vg -- 6510 CPU Emulation (Complete)
+' RESTRUCTURED: Module-level functions for bytecode-compilation.
+' All documented opcodes implemented in structured VG
+
+Import "c64_constants.vg"
+
+' ================================================================
+' === MODULE-LEVEL STATE ===
+' ================================================================
+Public gC64_PC As Integer
+Public gC64_SP As Integer
+Public gC64_A As Integer
+Public gC64_X As Integer
+Public gC64_Y As Integer
+Public gC64_Flags As Integer
+Public gC64_Cycles As Long
+Public gC64_IRQPending As Boolean
+Public gC64_NMIPending As Boolean
+
+' Internal scratch vars (formerly Private fields)
+Public gC64_tmp As Integer
+Public gC64_tmp2 As Integer
+Public gC64_tmpC As Boolean
+Public gC64_op As Integer
+Public gC64_cyc As Integer
+Public gC64_addr As Integer
+Public gC64_val As Integer
+Public gC64_oldCyc As Integer
+
+Sub C64_Init(memory As Variant)
+    ' memory param kept for call-site compatibility; unused --
+    ' CPU now talks to memory via module-level Mem_Read/Mem_Write.
+    C64_Reset()
+End Sub
+
+Sub C64_Reset()
+    Dim lo As Integer = Mem_Read(&HFFFC)
+    Dim hi As Integer = Mem_Read(&HFFFD)
+    gC64_PC = lo Or BitShiftLeft(hi, 8)
+    gC64_SP = &HFD
+    gC64_Flags = &H24
+    C64_SetF FLAG_IRQ_DISABLE, True
+    gC64_A = 0
+    gC64_X = 0
+    gC64_Y = 0
+    gC64_Cycles = 0
+    gC64_IRQPending = False
+    gC64_NMIPending = False
+End Sub
+
+' === Flag Helpers ===
+Sub C64_SetF(b As Integer, state As Boolean)
+    If state Then
+        gC64_Flags = BitOr(gC64_Flags, BitShiftLeft(1, b))
+    Else
+        gC64_Flags = BitAnd(gC64_Flags, BitNot(BitShiftLeft(1, b)))
+    End If
+End Sub
+
+Function C64_GetF(b As Integer) As Boolean
+    Return BitTst(gC64_Flags, b)
+End Function
+
+Sub C64_SetNZ(v As Integer)
+    v = BitAnd(v, &HFF)
+    C64_SetF FLAG_NEG, BitTst(v, 7)
+    C64_SetF FLAG_ZERO, (v = 0)
+End Sub
+
+' === Memory Access ===
+Function C64_Fetch() As Integer
+    Dim v As Integer = Mem_Read(gC64_PC)
+    gC64_PC = (gC64_PC + 1) And &HFFFF
+    Return v
+End Function
+
+Sub C64_Push(v As Integer)
+    Mem_Write BitAnd(MEM_STACK_START + gC64_SP, &HFFFF), BitAnd(v, &HFF)
+    gC64_SP = (gC64_SP - 1) And &HFF
+End Sub
+
+Function C64_Pop() As Integer
+    gC64_SP = (gC64_SP + 1) And &HFF
+    Return Mem_Read(BitAnd(MEM_STACK_START + gC64_SP, &HFFFF))
+End Function
+
+' === Addressing Helpers ===
+Function C64_ReadZP() As Integer
+    Return Mem_Read(C64_Fetch())
+End Function
+
+Function C64_ReadZPX() As Integer
+    Return Mem_Read(BitAnd(C64_Fetch() + gC64_X, &HFF))
+End Function
+
+Function C64_ReadZPY() As Integer
+    Return Mem_Read(BitAnd(C64_Fetch() + gC64_Y, &HFF))
+End Function
+
+Function C64_ReadABS() As Integer
+    Dim lo As Integer = C64_Fetch()
+    Dim hi As Integer = C64_Fetch()
+    Return Mem_Read(lo Or BitShiftLeft(hi, 8))
+End Function
+
+Function C64_GetAbsAddr() As Integer
+    Dim lo As Integer = C64_Fetch()
+    Dim hi As Integer = C64_Fetch()
+    Return lo Or BitShiftLeft(hi, 8)
+End Function
+
+Function C64_ReadABSX(ByRef crossed As Boolean) As Integer
+    Dim lo As Integer = C64_Fetch()
+    Dim hi As Integer = C64_Fetch()
+    Dim base As Integer = lo Or BitShiftLeft(hi, 8)
+    Dim a As Integer = (base + gC64_X) And &HFFFF
+    crossed = (BitAnd(base, &HFF00) <> BitAnd(a, &HFF00))
+    Return Mem_Read(a)
+End Function
+
+Function C64_ReadABSY(ByRef crossed As Boolean) As Integer
+    Dim lo As Integer = C64_Fetch()
+    Dim hi As Integer = C64_Fetch()
+    Dim base As Integer = lo Or BitShiftLeft(hi, 8)
+    Dim a As Integer = (base + gC64_Y) And &HFFFF
+    crossed = (BitAnd(base, &HFF00) <> BitAnd(a, &HFF00))
+    Return Mem_Read(a)
+End Function
+
+Function C64_ReadINDX() As Integer
+    Dim zp As Integer = BitAnd(C64_Fetch() + gC64_X, &HFF)
+    Dim lo As Integer = Mem_Read(zp)
+    Dim hi As Integer = Mem_Read((zp + 1) And &HFF)
+    Return Mem_Read(lo Or BitShiftLeft(hi, 8))
+End Function
+
+Function C64_ReadINDY(ByRef crossed As Boolean) As Integer
+    Dim zp As Integer = C64_Fetch()
+    Dim lo As Integer = Mem_Read(zp)
+    Dim hi As Integer = Mem_Read((zp + 1) And &HFF)
+    Dim base As Integer = lo Or BitShiftLeft(hi, 8)
+    Dim a As Integer = (base + gC64_Y) And &HFFFF
+    crossed = (BitAnd(base, &HFF00) <> BitAnd(a, &HFF00))
+    Return Mem_Read(a)
+End Function
+
+Function C64_GetAbsXAddr(ByRef crossed As Boolean) As Integer
+    Dim lo As Integer = C64_Fetch()
+    Dim hi As Integer = C64_Fetch()
+    Dim base As Integer = lo Or BitShiftLeft(hi, 8)
+    Dim a As Integer = (base + gC64_X) And &HFFFF
+    crossed = (BitAnd(base, &HFF00) <> BitAnd(a, &HFF00))
+    Return a
+End Function
+
+Function C64_GetIndXAddr() As Integer
+    Dim zp As Integer = BitAnd(C64_Fetch() + gC64_X, &HFF)
+    Dim lo As Integer = Mem_Read(zp)
+    Dim hi As Integer = Mem_Read((zp + 1) And &HFF)
+    Return lo Or BitShiftLeft(hi, 8)
+End Function
+
+Function C64_GetIndYAddr(ByRef crossed As Boolean) As Integer
+    Dim zp As Integer = C64_Fetch()
+    Dim lo As Integer = Mem_Read(zp)
+    Dim hi As Integer = Mem_Read((zp + 1) And &HFF)
+    Dim base As Integer = lo Or BitShiftLeft(hi, 8)
+    Dim a As Integer = (base + gC64_Y) And &HFFFF
+    crossed = (BitAnd(base, &HFF00) <> BitAnd(a, &HFF00))
+    Return a
+End Function
+
+' === Arithmetic ===
+Sub C64_DoADC(v As Integer)
+    Dim c As Integer
+    If C64_GetF(FLAG_CARRY) Then c = 1 Else c = 0
+    Dim r As Integer = gC64_A + v + c
+    C64_SetF FLAG_CARRY, (r > 255)
+    C64_SetF FLAG_OVERFLOW, ((BitXor(gC64_A, r) And BitXor(v, r)) And &H80) <> 0
+    gC64_A = BitAnd(r, &HFF)
+    C64_SetNZ gC64_A
+End Sub
+
+Sub C64_DoSBC(v As Integer)
+    Dim c As Integer
+    If C64_GetF(FLAG_CARRY) Then c = 0 Else c = 1
+    Dim r As Integer = gC64_A - v - c
+    C64_SetF FLAG_CARRY, (r >= 0)
+    C64_SetF FLAG_OVERFLOW, ((BitXor(gC64_A, r) And BitXor(gC64_A, v)) And &H80) <> 0
+    gC64_A = BitAnd(r, &HFF)
+    C64_SetNZ gC64_A
+End Sub
+
+' === R/M/W Helpers ===
+Function C64_ASL_V(v As Integer) As Integer
+    C64_SetF FLAG_CARRY, BitTst(v, 7)
+    v = BitAnd(BitShiftLeft(v, 1), &HFF)
+    C64_SetNZ v
+    Return v
+End Function
+
+Function C64_LSR_V(v As Integer) As Integer
+    C64_SetF FLAG_CARRY, BitTst(v, 0)
+    v = BitShiftRight(v, 1)
+    C64_SetNZ v
+    Return v
+End Function
+
+Function C64_ROL_V(v As Integer) As Integer
+    gC64_oldCyc = 0
+    If C64_GetF(FLAG_CARRY) Then gC64_oldCyc = 1
+    Dim nc As Boolean = BitTst(v, 7)
+    v = BitAnd(BitShiftLeft(v, 1) Or gC64_oldCyc, &HFF)
+    C64_SetF FLAG_CARRY, nc
+    C64_SetNZ v
+    Return v
+End Function
+
+Function C64_ROR_V(v As Integer) As Integer
+    gC64_oldCyc = 0
+    If C64_GetF(FLAG_CARRY) Then gC64_oldCyc = &H80 Else gC64_oldCyc = 0
+    Dim nc As Boolean = BitTst(v, 0)
+    v = BitShiftRight(v, 1) Or gC64_oldCyc
+    C64_SetF FLAG_CARRY, nc
+    C64_SetNZ v
+    Return v
+End Function
+
+' === Branch ===
+Function C64_DoBranch() As Integer
+    Dim off As Integer = C64_Fetch()
+    If BitTst(off, 7) Then off = off - 256
+    Dim old As Integer = gC64_PC
+    gC64_PC = (gC64_PC + off) And &HFFFF
+    If BitAnd(old, &HFF00) <> BitAnd(gC64_PC, &HFF00) Then Return 4
+    Return 3
+End Function
+
+Sub C64_DoCMP(v As Integer)
+    Dim d As Integer = gC64_A - v
+    C64_SetF FLAG_CARRY, (d >= 0)
+    C64_SetNZ BitAnd(d, &HFF)
+End Sub
+
+Sub C64_DoCPX(v As Integer)
+    Dim d As Integer = gC64_X - v
+    C64_SetF FLAG_CARRY, (d >= 0)
+    C64_SetNZ BitAnd(d, &HFF)
+End Sub
+
+Sub C64_DoCPY(v As Integer)
+    Dim d As Integer = gC64_Y - v
+    C64_SetF FLAG_CARRY, (d >= 0)
+    C64_SetNZ BitAnd(d, &HFF)
+End Sub
+
+Sub C64_PullFlags()
+    Dim f As Integer = C64_Pop()
+    gC64_Flags = BitOr(BitAnd(f, &HCF), &H20)
+End Sub
+
+' ================================================================
+' === MAIN STEP FUNCTION ===
+' ================================================================
+Function C64_Step() As Integer
+    ' Handle NMI
+    If gC64_NMIPending Then
+        C64_Push BitAnd(BitShiftRight(gC64_PC, 8), &HFF)
+        C64_Push BitAnd(gC64_PC, &HFF)
+        C64_Push BitAnd(gC64_Flags, &HDF)
+        C64_SetF FLAG_IRQ_DISABLE, True
+        gC64_PC = Mem_Read(&HFFFA) Or BitShiftLeft(Mem_Read(&HFFFB), 8)
+        gC64_NMIPending = False
+        gC64_Cycles = gC64_Cycles + 7
+        Return 7
+    End If
+
+    ' Handle IRQ
+    Dim irqAllowed As Boolean = Not C64_GetF(FLAG_IRQ_DISABLE)
+    If gC64_IRQPending And irqAllowed Then
+        C64_Push BitAnd(BitShiftRight(gC64_PC, 8), &HFF)
+        C64_Push BitAnd(gC64_PC, &HFF)
+        C64_Push BitAnd(gC64_Flags, &HDF)
+        C64_SetF FLAG_IRQ_DISABLE, True
+        gC64_PC = Mem_Read(&HFFFE) Or BitShiftLeft(Mem_Read(&HFFFF), 8)
+        gC64_IRQPending = False
+        gC64_Cycles = gC64_Cycles + 7
+        Return 7
+    End If
+
+    gC64_op = C64_Fetch()
+
+    ' Dispatch all 151 documented opcodes
+    Select Case gC64_op
+        Case &H00: GoTo OP_BRK
+        Case &H01: GoTo OP_ORA_INDX
+        Case &H05: GoTo OP_ORA_ZP
+        Case &H06: GoTo OP_ASL_ZP
+        Case &H08: GoTo OP_PHP
+        Case &H09: GoTo OP_ORA_IMM
+        Case &H0A: GoTo OP_ASL_A
+        Case &H0D: GoTo OP_ORA_ABS
+        Case &H0E: GoTo OP_ASL_ABS
+
+        Case &H10: GoTo OP_BPL
+        Case &H11: GoTo OP_ORA_INDY
+        Case &H15: GoTo OP_ORA_ZPX
+        Case &H16: GoTo OP_ASL_ZPX
+        Case &H18: GoTo OP_CLC
+        Case &H19: GoTo OP_ORA_ABSY
+        Case &H1D: GoTo OP_ORA_ABSX
+        Case &H1E: GoTo OP_ASL_ABSX
+
+        Case &H20: GoTo OP_JSR
+        Case &H21: GoTo OP_AND_INDX
+        Case &H24: GoTo OP_BIT_ZP
+        Case &H25: GoTo OP_AND_ZP
+        Case &H26: GoTo OP_ROL_ZP
+        Case &H28: GoTo OP_PLP
+        Case &H29: GoTo OP_AND_IMM
+        Case &H2A: GoTo OP_ROL_A
+        Case &H2C: GoTo OP_BIT_ABS
+        Case &H2D: GoTo OP_AND_ABS
+        Case &H2E: GoTo OP_ROL_ABS
+
+        Case &H30: GoTo OP_BMI
+        Case &H31: GoTo OP_AND_INDY
+        Case &H35: GoTo OP_AND_ZPX
+        Case &H36: GoTo OP_ROL_ZPX
+        Case &H38: GoTo OP_SEC
+        Case &H39: GoTo OP_AND_ABSY
+        Case &H3D: GoTo OP_AND_ABSX
+        Case &H3E: GoTo OP_ROL_ABSX
+
+        Case &H40: GoTo OP_RTI
+        Case &H41: GoTo OP_EOR_INDX
+        Case &H45: GoTo OP_EOR_ZP
+        Case &H46: GoTo OP_LSR_ZP
+        Case &H48: GoTo OP_PHA
+        Case &H49: GoTo OP_EOR_IMM
+        Case &H4A: GoTo OP_LSR_A
+        Case &H4C: GoTo OP_JMP_ABS
+        Case &H4D: GoTo OP_EOR_ABS
+        Case &H4E: GoTo OP_LSR_ABS
+
+        Case &H50: GoTo OP_BVC
+        Case &H51: GoTo OP_EOR_INDY
+        Case &H55: GoTo OP_EOR_ZPX
+        Case &H56: GoTo OP_LSR_ZPX
+        Case &H58: GoTo OP_CLI
+        Case &H59: GoTo OP_EOR_ABSY
+        Case &H5D: GoTo OP_EOR_ABSX
+        Case &H5E: GoTo OP_LSR_ABSX
+
+        Case &H60: GoTo OP_RTS
+        Case &H61: GoTo OP_ADC_INDX
+        Case &H65: GoTo OP_ADC_ZP
+        Case &H66: GoTo OP_ROR_ZP
+        Case &H68: GoTo OP_PLA
+        Case &H69: GoTo OP_ADC_IMM
+        Case &H6A: GoTo OP_ROR_A
+        Case &H6C: GoTo OP_JMP_IND
+        Case &H6D: GoTo OP_ADC_ABS
+        Case &H6E: GoTo OP_ROR_ABS
+
+        Case &H70: GoTo OP_BVS
+        Case &H71: GoTo OP_ADC_INDY
+        Case &H75: GoTo OP_ADC_ZPX
+        Case &H76: GoTo OP_ROR_ZPX
+        Case &H78: GoTo OP_SEI
+        Case &H79: GoTo OP_ADC_ABSY
+        Case &H7D: GoTo OP_ADC_ABSX
+        Case &H7E: GoTo OP_ROR_ABSX
+
+        Case &H81: GoTo OP_STA_INDX
+        Case &H84: GoTo OP_STY_ZP
+        Case &H85: GoTo OP_STA_ZP
+        Case &H86: GoTo OP_STX_ZP
+        Case &H88: GoTo OP_DEY
+        Case &H8A: GoTo OP_TXA
+        Case &H8C: GoTo OP_STY_ABS
+        Case &H8D: GoTo OP_STA_ABS
+        Case &H8E: GoTo OP_STX_ABS
+
+        Case &H90: GoTo OP_BCC
+        Case &H91: GoTo OP_STA_INDY
+        Case &H94: GoTo OP_STY_ZPX
+        Case &H95: GoTo OP_STA_ZPX
+        Case &H96: GoTo OP_STX_ZPY
+        Case &H98: GoTo OP_TYA
+        Case &H99: GoTo OP_STA_ABSY
+        Case &H9A: GoTo OP_TXS
+        Case &H9D: GoTo OP_STA_ABSX
+
+        Case &HA0: GoTo OP_LDY_IMM
+        Case &HA1: GoTo OP_LDA_INDX
+        Case &HA2: GoTo OP_LDX_IMM
+        Case &HA4: GoTo OP_LDY_ZP
+        Case &HA5: GoTo OP_LDA_ZP
+        Case &HA6: GoTo OP_LDX_ZP
+        Case &HA8: GoTo OP_TAY
+        Case &HA9: GoTo OP_LDA_IMM
+        Case &HAA: GoTo OP_TAX
+        Case &HAC: GoTo OP_LDY_ABS
+        Case &HAD: GoTo OP_LDA_ABS
+        Case &HAE: GoTo OP_LDX_ABS
+
+        Case &HB0: GoTo OP_BCS
+        Case &HB1: GoTo OP_LDA_INDY
+        Case &HB4: GoTo OP_LDY_ZPX
+        Case &HB5: GoTo OP_LDA_ZPX
+        Case &HB6: GoTo OP_LDX_ZPY
+        Case &HB8: GoTo OP_CLV
+        Case &HB9: GoTo OP_LDA_ABSY
+        Case &HBA: GoTo OP_TSX
+        Case &HBC: GoTo OP_LDY_ABSX
+        Case &HBD: GoTo OP_LDA_ABSX
+        Case &HBE: GoTo OP_LDX_ABSY
+
+        Case &HC0: GoTo OP_CPY_IMM
+        Case &HC1: GoTo OP_CMP_INDX
+        Case &HC4: GoTo OP_CPY_ZP
+        Case &HC5: GoTo OP_CMP_ZP
+        Case &HC6: GoTo OP_DEC_ZP
+        Case &HC8: GoTo OP_INY
+        Case &HC9: GoTo OP_CMP_IMM
+        Case &HCA: GoTo OP_DEX
+        Case &HCC: GoTo OP_CPY_ABS
+        Case &HCD: GoTo OP_CMP_ABS
+        Case &HCE: GoTo OP_DEC_ABS
+
+        Case &HD0: GoTo OP_BNE
+        Case &HD1: GoTo OP_CMP_INDY
+        Case &HD5: GoTo OP_CMP_ZPX
+        Case &HD6: GoTo OP_DEC_ZPX
+        Case &HD8: GoTo OP_CLD
+        Case &HD9: GoTo OP_CMP_ABSY
+        Case &HDD: GoTo OP_CMP_ABSX
+        Case &HDE: GoTo OP_DEC_ABSX
+
+        Case &HE0: GoTo OP_CPX_IMM
+        Case &HE1: GoTo OP_SBC_INDX
+        Case &HE4: GoTo OP_CPX_ZP
+        Case &HE5: GoTo OP_SBC_ZP
+        Case &HE6: GoTo OP_INC_ZP
+        Case &HE8: GoTo OP_INX
+        Case &HE9: GoTo OP_SBC_IMM
+        Case &HEA: GoTo OP_NOP
+        Case &HEC: GoTo OP_CPX_ABS
+        Case &HED: GoTo OP_SBC_ABS
+        Case &HEE: GoTo OP_INC_ABS
+
+        Case &HF0: GoTo OP_BEQ
+        Case &HF1: GoTo OP_SBC_INDY
+        Case &HF5: GoTo OP_SBC_ZPX
+        Case &HF6: GoTo OP_INC_ZPX
+        Case &HF8: GoTo OP_SED
+        Case &HF9: GoTo OP_SBC_ABSY
+        Case &HFD: GoTo OP_SBC_ABSX
+        Case &HFE: GoTo OP_INC_ABSX
+
+        ' Undocumented NOPs
+        Case &H04, &H44, &H64: C64_Fetch(): GoTo OPX_RET3
+        Case &H14, &H34, &H54, &H74, &HD4, &HF4: C64_Fetch(): GoTo OPX_RET4
+        Case &H0C: C64_Fetch(): C64_Fetch(): GoTo OPX_RET4
+        Case &H1A, &H3A, &H5A, &H7A, &HDA, &HFA: GoTo OPX_RET2
+        Case &H80, &H82, &H89, &HC2, &HE2: C64_Fetch(): GoTo OPX_RET2
+        Case Else: GoTo OPX_RET2
+    End Select
+
+    ' === OPCODE IMPLEMENTATIONS ===
+    ' Each opcode sets gC64_cyc and jumps to OP_DONE
+
+OP_BRK:
+    gC64_PC = (gC64_PC + 1) And &HFFFF
+    C64_Push BitAnd(BitShiftRight(gC64_PC, 8), &HFF)
+    C64_Push BitAnd(gC64_PC, &HFF)
+    C64_Push BitOr(gC64_Flags, &H30)
+    C64_SetF FLAG_IRQ_DISABLE, True
+    gC64_PC = Mem_Read(&HFFFE) Or BitShiftLeft(Mem_Read(&HFFFF), 8)
+    gC64_cyc = 7
+    GoTo OP_DONE
+
+' --- ORA ---
+OP_ORA_INDX:   gC64_val = Mem_Read(C64_GetIndXAddr()): gC64_A = BitOr(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 6: GoTo OP_DONE
+OP_ORA_ZP:     gC64_val = C64_ReadZP(): gC64_A = BitOr(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 3: GoTo OP_DONE
+OP_ORA_IMM:    gC64_A = BitOr(gC64_A, C64_Fetch()): C64_SetNZ gC64_A: gC64_cyc = 2: GoTo OP_DONE
+OP_ORA_ABS:    gC64_val = C64_ReadABS(): gC64_A = BitOr(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 4: GoTo OP_DONE
+OP_ORA_ZPX:    gC64_val = C64_ReadZPX(): gC64_A = BitOr(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 4: GoTo OP_DONE
+OP_ORA_ABSY:   gC64_val = C64_ReadABSY(gC64_tmpC): gC64_A = BitOr(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+OP_ORA_INDY:   gC64_val = C64_ReadINDY(gC64_tmpC): gC64_A = BitOr(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 5: If gC64_tmpC Then gC64_cyc = 6
+    GoTo OP_DONE
+OP_ORA_ABSX:   gC64_val = C64_ReadABSX(gC64_tmpC): gC64_A = BitOr(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+
+' --- AND ---
+OP_AND_INDX:   gC64_val = Mem_Read(C64_GetIndXAddr()): gC64_A = BitAnd(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 6: GoTo OP_DONE
+OP_AND_ZP:     gC64_val = C64_ReadZP(): gC64_A = BitAnd(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 3: GoTo OP_DONE
+OP_AND_IMM:    gC64_A = BitAnd(gC64_A, C64_Fetch()): C64_SetNZ gC64_A: gC64_cyc = 2: GoTo OP_DONE
+OP_AND_ABS:    gC64_val = C64_ReadABS(): gC64_A = BitAnd(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 4: GoTo OP_DONE
+OP_AND_ZPX:    gC64_val = C64_ReadZPX(): gC64_A = BitAnd(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 4: GoTo OP_DONE
+OP_AND_ABSY:   gC64_val = C64_ReadABSY(gC64_tmpC): gC64_A = BitAnd(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+OP_AND_INDY:   gC64_val = C64_ReadINDY(gC64_tmpC): gC64_A = BitAnd(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 5: If gC64_tmpC Then gC64_cyc = 6
+    GoTo OP_DONE
+OP_AND_ABSX:   gC64_val = C64_ReadABSX(gC64_tmpC): gC64_A = BitAnd(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+
+' --- EOR ---
+OP_EOR_INDX:   gC64_val = Mem_Read(C64_GetIndXAddr()): gC64_A = BitXor(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 6: GoTo OP_DONE
+OP_EOR_ZP:     gC64_val = C64_ReadZP(): gC64_A = BitXor(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 3: GoTo OP_DONE
+OP_EOR_IMM:    gC64_A = BitXor(gC64_A, C64_Fetch()): C64_SetNZ gC64_A: gC64_cyc = 2: GoTo OP_DONE
+OP_EOR_ABS:    gC64_val = C64_ReadABS(): gC64_A = BitXor(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 4: GoTo OP_DONE
+OP_EOR_ZPX:    gC64_val = C64_ReadZPX(): gC64_A = BitXor(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 4: GoTo OP_DONE
+OP_EOR_ABSY:   gC64_val = C64_ReadABSY(gC64_tmpC): gC64_A = BitXor(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+OP_EOR_INDY:   gC64_val = C64_ReadINDY(gC64_tmpC): gC64_A = BitXor(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 5: If gC64_tmpC Then gC64_cyc = 6
+    GoTo OP_DONE
+OP_EOR_ABSX:   gC64_val = C64_ReadABSX(gC64_tmpC): gC64_A = BitXor(gC64_A, gC64_val): C64_SetNZ gC64_A: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+
+' --- ADC ---
+OP_ADC_INDX:   C64_DoADC Mem_Read(C64_GetIndXAddr()): gC64_cyc = 6: GoTo OP_DONE
+OP_ADC_ZP:     C64_DoADC C64_ReadZP(): gC64_cyc = 3: GoTo OP_DONE
+OP_ADC_IMM:    C64_DoADC C64_Fetch(): gC64_cyc = 2: GoTo OP_DONE
+OP_ADC_ABS:    C64_DoADC C64_ReadABS(): gC64_cyc = 4: GoTo OP_DONE
+OP_ADC_ZPX:    C64_DoADC C64_ReadZPX(): gC64_cyc = 4: GoTo OP_DONE
+OP_ADC_ABSY:   gC64_val = C64_ReadABSY(gC64_tmpC): C64_DoADC gC64_val: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+OP_ADC_INDY:   gC64_val = C64_ReadINDY(gC64_tmpC): C64_DoADC gC64_val: gC64_cyc = 5: If gC64_tmpC Then gC64_cyc = 6
+    GoTo OP_DONE
+OP_ADC_ABSX:   gC64_val = C64_ReadABSX(gC64_tmpC): C64_DoADC gC64_val: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+
+' --- SBC ---
+OP_SBC_INDX:   C64_DoSBC Mem_Read(C64_GetIndXAddr()): gC64_cyc = 6: GoTo OP_DONE
+OP_SBC_ZP:     C64_DoSBC C64_ReadZP(): gC64_cyc = 3: GoTo OP_DONE
+OP_SBC_IMM:    C64_DoSBC C64_Fetch(): gC64_cyc = 2: GoTo OP_DONE
+OP_SBC_ABS:    C64_DoSBC C64_ReadABS(): gC64_cyc = 4: GoTo OP_DONE
+OP_SBC_ZPX:    C64_DoSBC C64_ReadZPX(): gC64_cyc = 4: GoTo OP_DONE
+OP_SBC_ABSY:   gC64_val = C64_ReadABSY(gC64_tmpC): C64_DoSBC gC64_val: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+OP_SBC_INDY:   gC64_val = C64_ReadINDY(gC64_tmpC): C64_DoSBC gC64_val: gC64_cyc = 5: If gC64_tmpC Then gC64_cyc = 6
+    GoTo OP_DONE
+OP_SBC_ABSX:   gC64_val = C64_ReadABSX(gC64_tmpC): C64_DoSBC gC64_val: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+
+' --- CMP ---
+OP_CMP_INDX:   C64_DoCMP Mem_Read(C64_GetIndXAddr()): gC64_cyc = 6: GoTo OP_DONE
+OP_CMP_ZP:     C64_DoCMP C64_ReadZP(): gC64_cyc = 3: GoTo OP_DONE
+OP_CMP_IMM:    C64_DoCMP C64_Fetch(): gC64_cyc = 2: GoTo OP_DONE
+OP_CMP_ABS:    C64_DoCMP C64_ReadABS(): gC64_cyc = 4: GoTo OP_DONE
+OP_CMP_ZPX:    C64_DoCMP C64_ReadZPX(): gC64_cyc = 4: GoTo OP_DONE
+OP_CMP_ABSY:   gC64_val = C64_ReadABSY(gC64_tmpC): C64_DoCMP gC64_val: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+OP_CMP_INDY:   gC64_val = C64_ReadINDY(gC64_tmpC): C64_DoCMP gC64_val: gC64_cyc = 5: If gC64_tmpC Then gC64_cyc = 6
+    GoTo OP_DONE
+OP_CMP_ABSX:   gC64_val = C64_ReadABSX(gC64_tmpC): C64_DoCMP gC64_val: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+
+' --- CPX ---
+OP_CPX_IMM:    C64_DoCPX C64_Fetch(): gC64_cyc = 2: GoTo OP_DONE
+OP_CPX_ZP:     C64_DoCPX C64_ReadZP(): gC64_cyc = 3: GoTo OP_DONE
+OP_CPX_ABS:    C64_DoCPX C64_ReadABS(): gC64_cyc = 4: GoTo OP_DONE
+
+' --- CPY ---
+OP_CPY_IMM:    C64_DoCPY C64_Fetch(): gC64_cyc = 2: GoTo OP_DONE
+OP_CPY_ZP:     C64_DoCPY C64_ReadZP(): gC64_cyc = 3: GoTo OP_DONE
+OP_CPY_ABS:    C64_DoCPY C64_ReadABS(): gC64_cyc = 4: GoTo OP_DONE
+
+' --- LDA ---
+OP_LDA_INDX:   gC64_A = Mem_Read(C64_GetIndXAddr()): C64_SetNZ gC64_A: gC64_cyc = 6: GoTo OP_DONE
+OP_LDA_ZP:     gC64_A = C64_ReadZP(): C64_SetNZ gC64_A: gC64_cyc = 3: GoTo OP_DONE
+OP_LDA_IMM:    gC64_A = C64_Fetch(): C64_SetNZ gC64_A: gC64_cyc = 2: GoTo OP_DONE
+OP_LDA_ABS:    gC64_A = C64_ReadABS(): C64_SetNZ gC64_A: gC64_cyc = 4: GoTo OP_DONE
+OP_LDA_ZPX:    gC64_A = C64_ReadZPX(): C64_SetNZ gC64_A: gC64_cyc = 4: GoTo OP_DONE
+OP_LDA_ABSY:   gC64_val = C64_ReadABSY(gC64_tmpC): gC64_A = gC64_val: C64_SetNZ gC64_A: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+OP_LDA_INDY:   gC64_val = C64_ReadINDY(gC64_tmpC): gC64_A = gC64_val: C64_SetNZ gC64_A: gC64_cyc = 5: If gC64_tmpC Then gC64_cyc = 6
+    GoTo OP_DONE
+OP_LDA_ABSX:   gC64_val = C64_ReadABSX(gC64_tmpC): gC64_A = gC64_val: C64_SetNZ gC64_A: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+
+' --- LDX ---
+OP_LDX_IMM:    gC64_X = C64_Fetch(): C64_SetNZ gC64_X: gC64_cyc = 2: GoTo OP_DONE
+OP_LDX_ZP:     gC64_X = C64_ReadZP(): C64_SetNZ gC64_X: gC64_cyc = 3: GoTo OP_DONE
+OP_LDX_ZPY:    gC64_X = C64_ReadZPY(): C64_SetNZ gC64_X: gC64_cyc = 4: GoTo OP_DONE
+OP_LDX_ABS:    gC64_X = C64_ReadABS(): C64_SetNZ gC64_X: gC64_cyc = 4: GoTo OP_DONE
+OP_LDX_ABSY:   gC64_val = C64_ReadABSY(gC64_tmpC): gC64_X = gC64_val: C64_SetNZ gC64_X: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+
+' --- LDY ---
+OP_LDY_IMM:    gC64_Y = C64_Fetch(): C64_SetNZ gC64_Y: gC64_cyc = 2: GoTo OP_DONE
+OP_LDY_ZP:     gC64_Y = C64_ReadZP(): C64_SetNZ gC64_Y: gC64_cyc = 3: GoTo OP_DONE
+OP_LDY_ZPX:    gC64_Y = C64_ReadZPX(): C64_SetNZ gC64_Y: gC64_cyc = 4: GoTo OP_DONE
+OP_LDY_ABS:    gC64_Y = C64_ReadABS(): C64_SetNZ gC64_Y: gC64_cyc = 4: GoTo OP_DONE
+OP_LDY_ABSX:   gC64_val = C64_ReadABSX(gC64_tmpC): gC64_Y = gC64_val: C64_SetNZ gC64_Y: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
+    GoTo OP_DONE
+
+' --- STA ---
+OP_STA_INDX:   Mem_Write C64_GetIndXAddr(), gC64_A: gC64_cyc = 6: GoTo OP_DONE
+OP_STA_ZP:     Mem_Write C64_Fetch(), gC64_A: gC64_cyc = 3: GoTo OP_DONE
+OP_STA_ABS:    Mem_Write C64_GetAbsAddr(), gC64_A: gC64_cyc = 4: GoTo OP_DONE
+OP_STA_ZPX:    Mem_Write BitAnd(C64_Fetch() + gC64_X, &HFF), gC64_A: gC64_cyc = 4: GoTo OP_DONE
+OP_STA_INDY:   Mem_Write C64_GetIndYAddr(gC64_tmpC), gC64_A: gC64_cyc = 6: GoTo OP_DONE
+OP_STA_ABSY:   gC64_addr = BitAnd(C64_GetAbsAddr() + gC64_Y, &HFFFF): Mem_Write gC64_addr, gC64_A: gC64_cyc = 5: GoTo OP_DONE
+OP_STA_ABSX:   gC64_addr = BitAnd(C64_GetAbsAddr() + gC64_X, &HFFFF): Mem_Write gC64_addr, gC64_A: gC64_cyc = 5: GoTo OP_DONE
+
+' --- STX ---
+OP_STX_ZP:     Mem_Write C64_Fetch(), gC64_X: gC64_cyc = 3: GoTo OP_DONE
+OP_STX_ZPY:    Mem_Write BitAnd(C64_Fetch() + gC64_Y, &HFF), gC64_X: gC64_cyc = 4: GoTo OP_DONE
+OP_STX_ABS:    Mem_Write C64_GetAbsAddr(), gC64_X: gC64_cyc = 4: GoTo OP_DONE
+
+' --- STY ---
+OP_STY_ZP:     Mem_Write C64_Fetch(), gC64_Y: gC64_cyc = 3: GoTo OP_DONE
+OP_STY_ZPX:    Mem_Write BitAnd(C64_Fetch() + gC64_X, &HFF), gC64_Y: gC64_cyc = 4: GoTo OP_DONE
+OP_STY_ABS:    Mem_Write C64_GetAbsAddr(), gC64_Y: gC64_cyc = 4: GoTo OP_DONE
+
+' --- ASL ---
+OP_ASL_A:      gC64_A = C64_ASL_V(gC64_A): gC64_cyc = 2: GoTo OP_DONE
+OP_ASL_ZP:     gC64_addr = C64_Fetch(): gC64_val = C64_ASL_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 5: GoTo OP_DONE
+OP_ASL_ABS:    gC64_addr = C64_GetAbsAddr(): gC64_val = C64_ASL_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 6: GoTo OP_DONE
+OP_ASL_ZPX:    gC64_addr = BitAnd(C64_Fetch() + gC64_X, &HFF): gC64_val = C64_ASL_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 6: GoTo OP_DONE
+OP_ASL_ABSX:   gC64_addr = C64_GetAbsXAddr(gC64_tmpC): gC64_val = C64_ASL_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 7: GoTo OP_DONE
+
+' --- LSR ---
+OP_LSR_A:      gC64_A = C64_LSR_V(gC64_A): gC64_cyc = 2: GoTo OP_DONE
+OP_LSR_ZP:     gC64_addr = C64_Fetch(): gC64_val = C64_LSR_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 5: GoTo OP_DONE
+OP_LSR_ABS:    gC64_addr = C64_GetAbsAddr(): gC64_val = C64_LSR_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 6: GoTo OP_DONE
+OP_LSR_ZPX:    gC64_addr = BitAnd(C64_Fetch() + gC64_X, &HFF): gC64_val = C64_LSR_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 6: GoTo OP_DONE
+OP_LSR_ABSX:   gC64_addr = C64_GetAbsXAddr(gC64_tmpC): gC64_val = C64_LSR_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 7: GoTo OP_DONE
+
+' --- ROL ---
+OP_ROL_A:      gC64_A = C64_ROL_V(gC64_A): gC64_cyc = 2: GoTo OP_DONE
+OP_ROL_ZP:     gC64_addr = C64_Fetch(): gC64_val = C64_ROL_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 5: GoTo OP_DONE
+OP_ROL_ABS:    gC64_addr = C64_GetAbsAddr(): gC64_val = C64_ROL_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 6: GoTo OP_DONE
+OP_ROL_ZPX:    gC64_addr = BitAnd(C64_Fetch() + gC64_X, &HFF): gC64_val = C64_ROL_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 6: GoTo OP_DONE
+OP_ROL_ABSX:   gC64_addr = C64_GetAbsXAddr(gC64_tmpC): gC64_val = C64_ROL_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 7: GoTo OP_DONE
+
+' --- ROR ---
+OP_ROR_A:      gC64_A = C64_ROR_V(gC64_A): gC64_cyc = 2: GoTo OP_DONE
+OP_ROR_ZP:     gC64_addr = C64_Fetch(): gC64_val = C64_ROR_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 5: GoTo OP_DONE
+OP_ROR_ABS:    gC64_addr = C64_GetAbsAddr(): gC64_val = C64_ROR_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 6: GoTo OP_DONE
+OP_ROR_ZPX:    gC64_addr = BitAnd(C64_Fetch() + gC64_X, &HFF): gC64_val = C64_ROR_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 6: GoTo OP_DONE
+OP_ROR_ABSX:   gC64_addr = C64_GetAbsXAddr(gC64_tmpC): gC64_val = C64_ROR_V(Mem_Read(gC64_addr)): Mem_Write gC64_addr, gC64_val: gC64_cyc = 7: GoTo OP_DONE
+
+' --- INC ---
+OP_INC_ZP:     gC64_addr = C64_Fetch(): gC64_val = (Mem_Read(gC64_addr) + 1) And &HFF: Mem_Write gC64_addr, gC64_val: C64_SetNZ gC64_val: gC64_cyc = 5: GoTo OP_DONE
+OP_INC_ABS:    gC64_addr = C64_GetAbsAddr(): gC64_val = (Mem_Read(gC64_addr) + 1) And &HFF: Mem_Write gC64_addr, gC64_val: C64_SetNZ gC64_val: gC64_cyc = 6: GoTo OP_DONE
+OP_INC_ZPX:
+    gC64_addr = BitAnd(C64_Fetch() + gC64_X, &HFF)
+    gC64_val = BitAnd(Mem_Read(gC64_addr) + 1, &HFF)
+    Mem_Write gC64_addr, gC64_val: C64_SetNZ gC64_val: gC64_cyc = 6: GoTo OP_DONE
+OP_INC_ABSX:   gC64_addr = C64_GetAbsXAddr(gC64_tmpC): gC64_val = (Mem_Read(gC64_addr) + 1) And &HFF: Mem_Write gC64_addr, gC64_val: C64_SetNZ gC64_val: gC64_cyc = 7: GoTo OP_DONE
+
+' --- DEC ---
+OP_DEC_ZP:     gC64_addr = C64_Fetch(): gC64_val = (Mem_Read(gC64_addr) - 1) And &HFF: Mem_Write gC64_addr, gC64_val: C64_SetNZ gC64_val: gC64_cyc = 5: GoTo OP_DONE
+OP_DEC_ABS:    gC64_addr = C64_GetAbsAddr(): gC64_val = (Mem_Read(gC64_addr) - 1) And &HFF: Mem_Write gC64_addr, gC64_val: C64_SetNZ gC64_val: gC64_cyc = 6: GoTo OP_DONE
+OP_DEC_ZPX:
+    gC64_addr = BitAnd(C64_Fetch() + gC64_X, &HFF)
+    gC64_val = BitAnd(Mem_Read(gC64_addr) - 1, &HFF)
+    Mem_Write gC64_addr, gC64_val: C64_SetNZ gC64_val: gC64_cyc = 6: GoTo OP_DONE
+OP_DEC_ABSX:   gC64_addr = C64_GetAbsXAddr(gC64_tmpC): gC64_val = (Mem_Read(gC64_addr) - 1) And &HFF: Mem_Write gC64_addr, gC64_val: C64_SetNZ gC64_val: gC64_cyc = 7: GoTo OP_DONE
+
+' --- BIT ---
+OP_BIT_ZP:     gC64_val = C64_ReadZP(): C64_SetF FLAG_NEG, BitTst(gC64_val, 7): C64_SetF FLAG_OVERFLOW, BitTst(gC64_val, 6): C64_SetF FLAG_ZERO, (BitAnd(gC64_val, gC64_A) = 0): gC64_cyc = 3: GoTo OP_DONE
+OP_BIT_ABS:    gC64_val = C64_ReadABS(): C64_SetF FLAG_NEG, BitTst(gC64_val, 7): C64_SetF FLAG_OVERFLOW, BitTst(gC64_val, 6): C64_SetF FLAG_ZERO, (BitAnd(gC64_val, gC64_A) = 0): gC64_cyc = 4: GoTo OP_DONE
+
+' --- Branches ---
+OP_BPL:
+    If Not C64_GetF(FLAG_NEG) Then
+        gC64_cyc = C64_DoBranch()
+    Else
+        C64_Fetch()
+        gC64_cyc = 2
+    End If
+    GoTo OP_DONE
+OP_BMI:
+    If C64_GetF(FLAG_NEG) Then
+        gC64_cyc = C64_DoBranch()
+    Else
+        C64_Fetch()
+        gC64_cyc = 2
+    End If
+    GoTo OP_DONE
+OP_BVC:
+    If Not C64_GetF(FLAG_OVERFLOW) Then
+        gC64_cyc = C64_DoBranch()
+    Else
+        C64_Fetch()
+        gC64_cyc = 2
+    End If
+    GoTo OP_DONE
+OP_BVS:
+    If C64_GetF(FLAG_OVERFLOW) Then
+        gC64_cyc = C64_DoBranch()
+    Else
+        C64_Fetch()
+        gC64_cyc = 2
+    End If
+    GoTo OP_DONE
+OP_BCC:
+    If Not C64_GetF(FLAG_CARRY) Then
+        gC64_cyc = C64_DoBranch()
+    Else
+        C64_Fetch()
+        gC64_cyc = 2
+    End If
+    GoTo OP_DONE
+OP_BCS:
+    If C64_GetF(FLAG_CARRY) Then
+        gC64_cyc = C64_DoBranch()
+    Else
+        C64_Fetch()
+        gC64_cyc = 2
+    End If
+    GoTo OP_DONE
+OP_BNE:
+    If Not C64_GetF(FLAG_ZERO) Then
+        gC64_cyc = C64_DoBranch()
+    Else
+        C64_Fetch()
+        gC64_cyc = 2
+    End If
+    GoTo OP_DONE
+OP_BEQ:
+    If C64_GetF(FLAG_ZERO) Then
+        gC64_cyc = C64_DoBranch()
+    Else
+        C64_Fetch()
+        gC64_cyc = 2
+    End If
+    GoTo OP_DONE
+
+' --- Flag operations ---
+OP_CLC:        C64_SetF FLAG_CARRY, False: gC64_cyc = 2: GoTo OP_DONE
+OP_SEC:        C64_SetF FLAG_CARRY, True: gC64_cyc = 2: GoTo OP_DONE
+OP_CLI:        C64_SetF FLAG_IRQ_DISABLE, False: gC64_cyc = 2: GoTo OP_DONE
+OP_SEI:        C64_SetF FLAG_IRQ_DISABLE, True: gC64_cyc = 2: GoTo OP_DONE
+OP_CLV:        C64_SetF FLAG_OVERFLOW, False: gC64_cyc = 2: GoTo OP_DONE
+OP_CLD:        C64_SetF FLAG_DECIMAL, False: gC64_cyc = 2: GoTo OP_DONE
+OP_SED:        C64_SetF FLAG_DECIMAL, True: gC64_cyc = 2: GoTo OP_DONE
+
+' --- Transfers ---
+OP_TAX:        gC64_X = gC64_A: C64_SetNZ gC64_X: gC64_cyc = 2: GoTo OP_DONE
+OP_TAY:        gC64_Y = gC64_A: C64_SetNZ gC64_Y: gC64_cyc = 2: GoTo OP_DONE
+OP_TXA:        gC64_A = gC64_X: C64_SetNZ gC64_A: gC64_cyc = 2: GoTo OP_DONE
+OP_TYA:        gC64_A = gC64_Y: C64_SetNZ gC64_A: gC64_cyc = 2: GoTo OP_DONE
+OP_TSX:        gC64_X = gC64_SP: C64_SetNZ gC64_X: gC64_cyc = 2: GoTo OP_DONE
+OP_TXS:        gC64_SP = gC64_X: gC64_cyc = 2: GoTo OP_DONE
+
+' --- Stack ---
+OP_PHA:        C64_Push gC64_A: gC64_cyc = 3: GoTo OP_DONE
+OP_PHP:        C64_Push BitOr(gC64_Flags, &H30): gC64_cyc = 3: GoTo OP_DONE
+OP_PLA:        gC64_A = C64_Pop(): C64_SetNZ gC64_A: gC64_cyc = 4: GoTo OP_DONE
+OP_PLP:        C64_PullFlags(): gC64_cyc = 4: GoTo OP_DONE
+
+' --- Register ---
+OP_INX:        gC64_X = (gC64_X + 1) And &HFF: C64_SetNZ gC64_X: gC64_cyc = 2: GoTo OP_DONE
+OP_INY:        gC64_Y = (gC64_Y + 1) And &HFF: C64_SetNZ gC64_Y: gC64_cyc = 2: GoTo OP_DONE
+OP_DEX:        gC64_X = (gC64_X - 1) And &HFF: C64_SetNZ gC64_X: gC64_cyc = 2: GoTo OP_DONE
+OP_DEY:        gC64_Y = (gC64_Y - 1) And &HFF: C64_SetNZ gC64_Y: gC64_cyc = 2: GoTo OP_DONE
+
+' --- Jumps ---
+OP_JMP_ABS:    gC64_PC = C64_GetAbsAddr(): gC64_cyc = 3: GoTo OP_DONE
+OP_JMP_IND:    gC64_addr = C64_GetAbsAddr(): gC64_tmp = BitAnd(gC64_addr, &HFF00): gC64_PC = Mem_Read(gC64_addr) Or BitShiftLeft(Mem_Read(gC64_tmp Or ((gC64_addr + 1) And &HFF)), 8): gC64_cyc = 5
+    GoTo OP_DONE
+OP_JSR:
+    gC64_addr = C64_GetAbsAddr()
+    gC64_tmp = (gC64_PC - 1) And &HFFFF
+    C64_Push BitAnd(BitShiftRight(gC64_tmp, 8), &HFF)
+    C64_Push BitAnd(gC64_tmp, &HFF)
+    gC64_PC = gC64_addr
+    gC64_cyc = 6
+    GoTo OP_DONE
+
+OP_RTS:        gC64_tmp = C64_Pop(): gC64_tmp2 = C64_Pop(): gC64_PC = ((gC64_tmp Or BitShiftLeft(gC64_tmp2, 8)) + 1) And &HFFFF: gC64_cyc = 6: GoTo OP_DONE
+OP_RTI:        C64_PullFlags(): gC64_PC = C64_Pop() Or BitShiftLeft(C64_Pop(), 8): gC64_cyc = 6: GoTo OP_DONE
+
+' --- NOP ---
+OP_NOP:        gC64_cyc = 2: GoTo OP_DONE
+
+' --- Return helpers ---
+OPX_RET2:      gC64_cyc = 2: GoTo OP_DONE
+OPX_RET3:      gC64_cyc = 3: GoTo OP_DONE
+OPX_RET4:      gC64_cyc = 4: GoTo OP_DONE
+
+OP_DONE:
+    gC64_Cycles = gC64_Cycles + gC64_cyc
+    Return gC64_cyc
+End Function
+
+' === Debug ===
+Sub C64_SetReg(r As Integer, v As Integer)
+    Select Case r
+        Case 15: gC64_PC = v
+        Case 0: gC64_A = v
+        Case 1: gC64_X = v
+        Case 2: gC64_Y = v
+    End Select
+End Sub
+
+Function C64_GetPC() As Integer
+    Return gC64_PC
+End Function
+
+Function C64_GetA() As Integer
+    Return gC64_A
+End Function
+
+Function C64_GetX() As Integer
+    Return gC64_X
+End Function
+
+Function C64_GetY() As Integer
+    Return gC64_Y
+End Function
+
+Function C64_GetSP() As Integer
+    Return gC64_SP
+End Function
+
+Function C64_GetFlags() As Integer
+    Return gC64_Flags
+End Function
+
+Function C64_GetReg(r As Integer) As Integer
+    Select Case r
+        Case 15: Return gC64_PC
+        Case 0: Return gC64_A
+        Case 1: Return gC64_X
+        Case 2: Return gC64_Y
+    End Select
+    Return 0
+End Function
