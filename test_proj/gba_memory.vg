@@ -1,0 +1,230 @@
+' gba_memory.vg -- GBA Memory Subsystem
+' Wraps MemoryBuffer for GBA memory map + address mirroring + I/O hooks
+
+Class GBAMemory
+    Public Buf As Variant      ' MemoryBuffer -- 512KB flat byte array
+    Public ROM As Variant       ' MemoryBuffer -- ROM cartridge data
+    Public RomSize As Long
+
+    ' Buffer layout offsets (into Buf MemoryBuffer):
+    ' EWRAM:  offset 0x00000 (256KB)
+    ' IWRAM:  offset 0x40000 (32KB)
+    ' IO:     offset 0x48000 (1KB)
+    ' PALETTE:offset 0x48400 (1KB)
+    ' VRAM:   offset 0x48800 (96KB)
+    ' OAM:    offset 0x60800 (1KB)
+
+    Sub Init()
+        Set Buf = New MemoryBuffer(&H80000)
+        RomSize = 0
+    End Sub
+
+    Function LoadROM(filePath As String) As Boolean
+        On Error Resume Next
+        Dim fileSize As Long = FileLen(filePath)
+        If fileSize <= 0 Then
+            Print "ROM file not found or empty: " & filePath
+            Return False
+        End If
+
+        Set ROM = New MemoryBuffer(1)
+        If Not ROM.LoadFromFile(filePath) Then
+            Print "Failed to read ROM file: " & filePath
+            Return False
+        End If
+        RomSize = ROM.Size
+
+        Err.Clear
+        Return True
+    End Function
+
+    ' === Physical Address Translation ===
+    ' Translate GBA bus address to flat Buf offset for read/write
+    Function TranslateAddr(addr As Long) As Long
+        ' EWRAM: &H02000000 - &H0203FFFF (256KB)
+        If addr >= &H02000000 And addr < &H02040000 Then
+            Return addr - &H02000000
+        End If
+        ' IWRAM: &H03000000 - &H03007FFF (32KB)
+        If addr >= &H03000000 And addr < &H03008000 Then
+            Return &H40000 + (addr - &H03000000)
+        End If
+        ' IO: &H04000000 - &H040003FF (1KB)
+        If addr >= &H04000000 And addr < &H04000400 Then
+            Return &H48000 + (addr - &H04000000)
+        End If
+        ' PALETTE: &H05000000 - &H050003FF (1KB)
+        If addr >= &H05000000 And addr < &H05000400 Then
+            Return &H48400 + (addr - &H05000000)
+        End If
+        ' VRAM: &H06000000 - &H06017FFF (96KB)
+        If addr >= &H06000000 And addr < &H06018000 Then
+            Return &H48800 + (addr - &H06000000)
+        End If
+        ' OAM: &H07000000 - &H070003FF (1KB)
+        If addr >= &H07000000 And addr < &H07000400 Then
+            Return &H60800 + (addr - &H07000000)
+        End If
+        Return -1  ' Not mapped to Buf
+    End Function
+
+    ' === Read Operations ===
+    Function Read8(addr As Long) As Integer
+        ' Mirror first 32KB of ROM at 0x00000000 (BIOS area, after cart is mapped)
+        ' This is essential for interrupt vectors and reset
+        If addr < &H00008000 And RomSize > 0 Then
+            Return ROM(addr)
+        End If
+        ' ROM
+        If addr >= &H08000000 And addr < &H08000000 + RomSize Then
+            Return ROM(addr - &H08000000)
+        End If
+        ' Mirror ROM at &H09000000, &H0A000000, &H0B000000, &H0C000000, &H0D000000
+        If addr >= &H09000000 And addr < &H0A000000 And RomSize > 0 Then
+            Return ROM(addr - &H09000000)
+        End If
+        If addr >= &H0A000000 And addr < &H0B000000 And RomSize > 0 Then
+            Return ROM(addr - &H0A000000)
+        End If
+        If addr >= &H0B000000 And addr < &H0C000000 And RomSize > 0 Then
+            Return ROM(addr - &H0B000000)
+        End If
+        If addr >= &H0C000000 And addr < &H0D000000 And RomSize > 0 Then
+            Return ROM(addr - &H0C000000)
+        End If
+        ' SRAM
+        If addr >= &H0E000000 And addr < &H0E010000 Then
+            Return 0  ' SRAM not implemented
+        End If
+        ' BIOS stub: critical functions used by commercial ROMs
+        If addr < &H00004000 Then
+            Return BIOSRead(addr)
+        End If
+
+        Dim offset As Long = TranslateAddr(addr)
+        If offset >= 0 Then
+            Return Buf(offset)
+        End If
+        Return 0
+    End Function
+
+    Function Read16(addr As Long) As Integer
+        addr = BitAnd(addr, &HFFFFFFFE)
+        Return Read8(addr) Or LeftShift(Read8(addr + 1), 8)
+    End Function
+
+    Function Read32(addr As Long) As Long
+        addr = BitAnd(addr, &HFFFFFFFC)
+        Dim b0 As Long = Read8(addr)
+        Dim b1 As Long = LeftShift(Read8(addr + 1), 8)
+        Dim b2 As Long = LeftShift(Read8(addr + 2), 16)
+        Dim b3 As Long = LeftShift(Read8(addr + 3), 24)
+        Return b0 Or b1 Or b2 Or b3
+    End Function
+
+    ' === Write Operations ===
+    Sub Write8(addr As Long, value As Integer)
+        Dim valMask As Integer = BitAnd(value, &HFF)
+
+        ' ROM area -- IGNORE writes (but SRAM at &H0E may need saving)
+        If addr >= &H08000000 And addr < &H0E000000 Then
+            Return
+        End If
+        ' SRAM
+        If addr >= &H0E000000 And addr < &H0E010000 Then
+            Return  ' SRAM not written yet
+        End If
+
+        Dim offset As Long = TranslateAddr(addr)
+        If offset >= 0 Then
+            Buf(offset) = valMask
+        End If
+    End Sub
+
+    Sub Write16(addr As Long, value As Integer)
+        addr = BitAnd(addr, &HFFFFFFFE)
+        Write8 addr, BitAnd(value, &HFF)
+        Write8 addr + 1, BitAnd(RightShift(value, 8), &HFF)
+    End Sub
+
+    Sub Write32(addr As Long, value As Long)
+        addr = BitAnd(addr, &HFFFFFFFC)
+        Write8 addr, BitAnd(value, &HFF)
+        Write8 addr + 1, BitAnd(RightShift(value, 8), &HFF)
+        Write8 addr + 2, BitAnd(RightShift(value, 16), &HFF)
+        Write8 addr + 3, BitAnd(RightShift(value, 24), &HFF)
+    End Sub
+
+    ' === I/O Write Callback ===
+    ' Called on every IO-region write so other subsystems (GPU, APU, DMA)
+    ' can react to register updates.
+    Sub OnIOWrite(offset As Integer, is16Bit As Boolean)
+        ' Dispatched by main emulator
+    End Sub
+
+    ' --- BIOS Stub --------------------------------------------
+    ' Returns data for BIOS reads at addresses ROMs commonly call.
+    ' Without this, ROMs that call BIOS routines crash or hang.
+    Function BIOSRead(addr As Long) As Integer
+        ' Software Interrupt (SWI) handler vector at 0x00000008
+        ' Most games call SWI 0x06 (CpuSet), SWI 0x0B (CpuFastSet),
+        ' SWI 0x00 (SoftReset), etc. We stub key ones.
+        '
+        ' The BIOS ROM starts with ARM exception vectors:
+        ' 0x00: Reset   - B to BIOS init
+        ' 0x04: Undef   - B to handler
+        ' 0x08: SWI     - B to SWI handler
+        ' 0x0C: Prefetch - B to handler
+        ' 0x10: Data     - B to handler
+        ' 0x18: IRQ      - B to handler (regular interrupt)
+        ' 0x1C: FIQ      - B to handler (fast interrupt)
+        '
+        ' These are ARM branch instructions. We provide minimal
+        ' branches that jump to infinite loops (for now).
+        '
+        ' Real BIOS: 0x00000000 = 0xEA000004 (B 0x00000018)
+        ' We return the 4 bytes sequentially via repeated reads.
+        '
+        ' We track state via a static offset counter (simplistic).
+        ' Better approach: return hardcoded instruction bytes.
+        '
+        ' ARM instruction at 0x00: B 0x18 = 0xEA000004
+        ' Bytes: 0x04, 0x00, 0xA0, 0xEA (little-endian)
+        Select Case addr
+            Case &H00000000: Return &H04
+            Case &H00000001: Return &H00
+            Case &H00000002: Return &HA0
+            Case &H00000003: Return &HEA
+            ' 0x04: Undef handler = B . (infinite loop) = 0xEAFFFFFE
+            Case &H00000004: Return &HFE
+            Case &H00000005: Return &HFF
+            Case &H00000006: Return &HFF
+            Case &H00000007: Return &HEA
+            ' 0x08: SWI handler = B . (infinite loop) = 0xEAFFFFFE
+            Case &H00000008: Return &HFE
+            Case &H00000009: Return &HFF
+            Case &H0000000A: Return &HFF
+            Case &H0000000B: Return &HEA
+            ' 0x0C-0x1F: More B . handlers
+            Case &H0000000C: Return &HFE
+            Case &H0000000D: Return &HFF
+            Case &H0000000E: Return &HFF
+            Case &H0000000F: Return &HEA
+            Case &H00000010: Return &HFE
+            Case &H00000011: Return &HFF
+            Case &H00000012: Return &HFF
+            Case &H00000013: Return &HEA
+            ' 0x18: IRQ handler = B . (infinite loop) = 0xEAFFFFFE
+            Case &H00000018: Return &HFE
+            Case &H00000019: Return &HFF
+            Case &H0000001A: Return &HFF
+            Case &H0000001B: Return &HEA
+            ' 0x1C: FIQ handler = B .
+            Case &H0000001C: Return &HFE
+            Case &H0000001D: Return &HFF
+            Case &H0000001E: Return &HFF
+            Case &H0000001F: Return &HEA
+        End Select
+        Return 0
+    End Function
+End Class

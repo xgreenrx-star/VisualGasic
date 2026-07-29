@@ -1,0 +1,221 @@
+' gba_constants.vg -- GBA Hardware Constants and Memory Map
+' Game Boy Advance emulator written in pure VisualGasic
+' Tier 2: Playable Subset
+
+' === CPU Constants ===
+' ARM7TDMI at 16.78 MHz, ~280,000 cycles per frame at 60fps
+Global Const CYCLES_PER_FRAME As Long = 280896
+Global Const GBA_SCREEN_W As Integer = 240
+Global Const GBA_SCREEN_H As Integer = 160
+
+' CPSR Flag Bit Positions
+Global Const CPSR_FLAG_N As Integer = 31  ' Negative/Less Than
+Global Const CPSR_FLAG_Z As Integer = 30  ' Zero
+Global Const CPSR_FLAG_C As Integer = 29  ' Carry/Borrow/Extend
+Global Const CPSR_FLAG_V As Integer = 28  ' Overflow
+Global Const CPSR_IRQ_DISABLE As Integer = 7
+Global Const CPSR_FIQ_DISABLE As Integer = 6
+Global Const CPSR_THUMB As Integer = 5
+
+' CPU Operating Modes
+Global Const MODE_USER As Integer = &H10
+Global Const MODE_FIQ As Integer = &H11
+Global Const MODE_IRQ As Integer = &H12
+Global Const MODE_SVC As Integer = &H13
+Global Const MODE_ABT As Integer = &H17
+Global Const MODE_UND As Integer = &H1B
+Global Const MODE_SYS As Integer = &H1F
+
+' === Memory Address Map ===
+' External Work RAM (256KB)
+Global Const ADDR_EWRAM As Long = &H02000000
+' Internal Work RAM (32KB)
+Global Const ADDR_IWRAM As Long = &H03000000
+' I/O Registers
+Global Const ADDR_IO As Long = &H04000000
+' Palette RAM (1KB)
+Global Const ADDR_PALETTE As Long = &H05000000
+' Video RAM (96KB)
+Global Const ADDR_VRAM As Long = &H06000000
+' Object Attribute Memory (1KB)
+Global Const ADDR_OAM As Long = &H07000000
+' Game Pak ROM (Wait State 0, 32MB max)
+Global Const ADDR_ROM_WS0 As Long = &H08000000
+' Game Pak ROM (Wait State 1)
+Global Const ADDR_ROM_WS1 As Long = &H0A000000
+' Game Pak ROM (Wait State 2)
+Global Const ADDR_ROM_WS2 As Long = &H0C000000
+' SRAM (64KB)
+Global Const ADDR_SRAM As Long = &H0E000000
+
+' Memory sizes
+Global Const SIZE_EWRAM As Long = &H40000   ' 256KB
+Global Const SIZE_IWRAM As Long = &H8000    ' 32KB
+Global Const SIZE_IO As Long = &H400        ' 1KB
+Global Const SIZE_PALETTE As Long = &H400   ' 1KB
+Global Const SIZE_VRAM As Long = &H18000    ' 96KB
+Global Const SIZE_OAM As Long = &H400       ' 1KB
+
+' === I/O Register Offsets (relative to &H04000000) ===
+' Display
+Global Const IO_DISPCNT As Integer = &H00
+Global Const IO_DISPSTAT As Integer = &H04
+Global Const IO_VCOUNT As Integer = &H06
+Global Const IO_BG0CNT As Integer = &H08
+Global Const IO_BG1CNT As Integer = &H0A
+Global Const IO_BG2CNT As Integer = &H0C
+Global Const IO_BG3CNT As Integer = &H0E
+Global Const IO_BG0HOFS As Integer = &H10
+Global Const IO_BG0VOFS As Integer = &H12
+Global Const IO_BG1HOFS As Integer = &H14
+Global Const IO_BG1VOFS As Integer = &H16
+Global Const IO_BG2HOFS As Integer = &H18
+Global Const IO_BG2VOFS As Integer = &H1A
+Global Const IO_BG3HOFS As Integer = &H1C
+Global Const IO_BG3VOFS As Integer = &H1E
+' BG2 affine matrix
+Global Const IO_BG2PA As Integer = &H20
+Global Const IO_BG2PB As Integer = &H22
+Global Const IO_BG2PC As Integer = &H24
+Global Const IO_BG2PD As Integer = &H26
+Global Const IO_BG2X As Integer = &H28  ' 4 bytes
+Global Const IO_BG2Y As Integer = &H2C  ' 4 bytes
+' BG3 affine matrix
+Global Const IO_BG3PA As Integer = &H30
+Global Const IO_BG3PB As Integer = &H32
+Global Const IO_BG3PC As Integer = &H34
+Global Const IO_BG3PD As Integer = &H36
+Global Const IO_BG3X As Integer = &H38  ' 4 bytes
+Global Const IO_BG3Y As Integer = &H3C  ' 4 bytes
+' Windows
+Global Const IO_WIN0H As Integer = &H40
+Global Const IO_WIN1H As Integer = &H42
+Global Const IO_WIN0V As Integer = &H44
+Global Const IO_WIN1V As Integer = &H46
+Global Const IO_WININ As Integer = &H48
+Global Const IO_WINOUT As Integer = &H4A
+Global Const IO_MOSAIC As Integer = &H4C
+' Blending
+Global Const IO_BLDCNT As Integer = &H50
+Global Const IO_BLDALPHA As Integer = &H52
+Global Const IO_BLDY As Integer = &H54
+
+' Sound
+Global Const IO_SOUND1CNT_L As Integer = &H60
+Global Const IO_SOUND1CNT_H As Integer = &H62
+Global Const IO_SOUND1CNT_X As Integer = &H64
+Global Const IO_SOUND2CNT_L As Integer = &H68
+Global Const IO_SOUND2CNT_H As Integer = &H6C
+Global Const IO_SOUND3CNT_L As Integer = &H70
+Global Const IO_SOUND3CNT_H As Integer = &H72
+Global Const IO_SOUND3CNT_X As Integer = &H74
+Global Const IO_SOUND4CNT_L As Integer = &H78
+Global Const IO_SOUND4CNT_H As Integer = &H7C
+Global Const IO_SOUNDCNT_L As Integer = &H80
+Global Const IO_SOUNDCNT_H As Integer = &H82
+Global Const IO_SOUNDCNT_X As Integer = &H84
+Global Const IO_SOUNDBIAS As Integer = &H88
+Global Const IO_WAVE_RAM As Integer = &H90 ' 16 bytes
+Global Const IO_FIFO_A As Integer = &HA0
+Global Const IO_FIFO_B As Integer = &HA4
+
+' DMA
+Global Const IO_DMA0SAD As Integer = &HB0
+Global Const IO_DMA0DAD As Integer = &HB4
+Global Const IO_DMA0CNT_L As Integer = &HB8
+Global Const IO_DMA0CNT_H As Integer = &HBA
+Global Const IO_DMA1SAD As Integer = &HBC
+Global Const IO_DMA1DAD As Integer = &HC0
+Global Const IO_DMA1CNT_L As Integer = &HC4
+Global Const IO_DMA1CNT_H As Integer = &HC6
+Global Const IO_DMA2SAD As Integer = &HC8
+Global Const IO_DMA2DAD As Integer = &HCC
+Global Const IO_DMA2CNT_L As Integer = &HD0
+Global Const IO_DMA2CNT_H As Integer = &HD2
+Global Const IO_DMA3SAD As Integer = &HD4
+Global Const IO_DMA3DAD As Integer = &HD8
+Global Const IO_DMA3CNT_L As Integer = &HDC
+Global Const IO_DMA3CNT_H As Integer = &HDE
+
+' Timers
+Global Const IO_TM0CNT_L As Integer = &H100
+Global Const IO_TM0CNT_H As Integer = &H102
+Global Const IO_TM1CNT_L As Integer = &H104
+Global Const IO_TM1CNT_H As Integer = &H106
+Global Const IO_TM2CNT_L As Integer = &H108
+Global Const IO_TM2CNT_H As Integer = &H10A
+Global Const IO_TM3CNT_L As Integer = &H10C
+Global Const IO_TM3CNT_H As Integer = &H10E
+
+' Keypad
+Global Const IO_KEYINPUT As Integer = &H130
+Global Const IO_KEYCNT As Integer = &H132
+
+' Serial / SIO
+Global Const IO_SIODATA32 As Integer = &H120
+Global Const IO_SIOMULTI0 As Integer = &H120
+Global Const IO_SIOMULTI1 As Integer = &H122
+Global Const IO_SIOMULTI2 As Integer = &H124
+Global Const IO_SIOMULTI3 As Integer = &H126
+Global Const IO_SIOCNT As Integer = &H128
+Global Const IO_SIODATA8 As Integer = &H12A
+Global Const IO_RCNT As Integer = &H134
+
+' Interrupts
+Global Const IO_IE As Integer = &H200
+Global Const IO_IF As Integer = &H202
+Global Const IO_WAITCNT As Integer = &H204
+Global Const IO_IME As Integer = &H208
+
+' === Interrupt Masks ===
+Global Const IRQ_VBLANK As Integer = &H0001
+Global Const IRQ_HBLANK As Integer = &H0002
+Global Const IRQ_VCOUNT As Integer = &H0004
+Global Const IRQ_TIMER0 As Integer = &H0008
+Global Const IRQ_TIMER1 As Integer = &H0010
+Global Const IRQ_TIMER2 As Integer = &H0020
+Global Const IRQ_TIMER3 As Integer = &H0040
+Global Const IRQ_SERIAL As Integer = &H0080
+Global Const IRQ_DMA0 As Integer = &H0100
+Global Const IRQ_DMA1 As Integer = &H0200
+Global Const IRQ_DMA2 As Integer = &H0400
+Global Const IRQ_DMA3 As Integer = &H0800
+Global Const IRQ_KEYPAD As Integer = &H1000
+Global Const IRQ_GAMEPAK As Integer = &H2000
+
+' === Display Control (DISPCNT) Bit Flags ===
+Global Const DISPCNT_MODE_MASK As Integer = &H0007
+Global Const DISPCNT_FRAMESELECT As Integer = &H0010
+Global Const DISPCNT_HBLANK_OAM As Integer = &H0020
+Global Const DISPCNT_OBJ_1D As Integer = &H0040
+Global Const DISPCNT_FORCE_BLANK As Integer = &H0080
+Global Const DISPCNT_BG0_ENABLE As Integer = &H0100
+Global Const DISPCNT_BG1_ENABLE As Integer = &H0200
+Global Const DISPCNT_BG2_ENABLE As Integer = &H0400
+Global Const DISPCNT_BG3_ENABLE As Integer = &H0800
+Global Const DISPCNT_OBJ_ENABLE As Integer = &H1000
+Global Const DISPCNT_WIN0_ENABLE As Integer = &H2000
+Global Const DISPCNT_WIN1_ENABLE As Integer = &H4000
+Global Const DISPCNT_OBJWIN_ENABLE As Integer = &H8000
+
+' === Display Status (DISPSTAT) Bit Flags ===
+Global Const DISPSTAT_VBLANK_FLAG As Integer = &H0001
+Global Const DISPSTAT_HBLANK_FLAG As Integer = &H0002
+Global Const DISPSTAT_VCOUNT_FLAG As Integer = &H0004
+Global Const DISPSTAT_VBLANK_IRQ_EN As Integer = &H0008
+Global Const DISPSTAT_HBLANK_IRQ_EN As Integer = &H0010
+Global Const DISPSTAT_VCOUNT_IRQ_EN As Integer = &H0020
+Global Const DISPSTAT_VCOUNT_SET_MASK As Integer = &HFF00
+
+' === Key Input Bit Masks ===
+Global Const KEY_A As Integer = &H0001
+Global Const KEY_B As Integer = &H0002
+Global Const KEY_SELECT As Integer = &H0004
+Global Const KEY_START As Integer = &H0008
+Global Const KEY_RIGHT As Integer = &H0010
+Global Const KEY_LEFT As Integer = &H0020
+Global Const KEY_UP As Integer = &H0040
+Global Const KEY_DOWN As Integer = &H0080
+Global Const KEY_R As Integer = &H0100
+Global Const KEY_L As Integer = &H0200
+
