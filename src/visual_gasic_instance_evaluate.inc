@@ -150,7 +150,17 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
             if (!resolved.is_empty() && ClassDB::class_exists(resolved)) {
                 Variant inst = ClassDB::instantiate(resolved);
-                if (inst.get_type() == Variant::OBJECT) return inst;
+                if (inst.get_type() == Variant::OBJECT) {
+                    Object* obj = inst;
+                    // MemoryBuffer(size) -- constructor arg is the byte
+                    // capacity to allocate. ClassDB::instantiate() takes no
+                    // constructor args, so apply it explicitly here.
+                    if (resolved == "VGMemoryBuffer" && obj && n->args.size() > 0 && obj->has_method("Allocate")) {
+                        int64_t size = (int64_t)evaluate_expression(n->args[0]);
+                        obj->call("Allocate", size);
+                    }
+                    return inst;
+                }
             }
         }
 
@@ -1178,6 +1188,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                     Variant key = call_args[0];
                     if (d.has(key)) return d[key];
                     return Variant();
+                }
+            } else if (v.get_type() == Variant::OBJECT) {
+                // MemoryBuffer byte-indexing: buf(i) -> buf.PeekByte(i)
+                Object* obj = v;
+                if (obj && call_args.size() == 1 && obj->has_method("PeekByte")) {
+                    return obj->call("PeekByte", call_args[0]);
                 }
             }
         }

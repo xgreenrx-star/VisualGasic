@@ -1,4 +1,4 @@
-' gba_selftest.vg — Self-contained CPU validation
+' gba_selftest.vg -- Self-contained CPU validation
 Import "gba_constants.vg"
 Import "gba_memory.vg"
 Import "gba_cpu.vg"
@@ -26,7 +26,7 @@ Module GBASelfTest
         If Not Test_Thumb_HiReg() Then passed = False
 
         If passed Then
-            Print "ALL TESTS PASSED — Core is working!"
+            Print "ALL TESTS PASSED -- Core is working!"
         Else
             Print "SOME TESTS FAILED"
         End If

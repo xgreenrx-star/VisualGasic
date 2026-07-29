@@ -1,4 +1,4 @@
-' gba_test.vg — Standalone GBA Emulator Test Harness
+' gba_test.vg -- Standalone GBA Emulator Test Harness
 ' Runs the CPU core with a loaded ROM and prints debug info.
 ' Usage: vg run gba_test.vg <rom_file.gba>
 
@@ -39,7 +39,7 @@ Sub Main()
     Emu.Init(Mem)
 
     ' Set up ARM state boot from ROM
-    Emu.R(15) = &H08000000
+    Emu.SetReg(15, &H08000000)
     Emu.CPSR = MODE_SYS Or (1 << CPSR_IRQ_DISABLE) Or (1 << CPSR_FIQ_DISABLE)
 
     Print ""
@@ -51,8 +51,8 @@ Sub Main()
     Dim pcLog(200) As String
     Dim logIdx As Integer
 
-    Do While instCount < maxInstructions And Emu.R(15) <> 0
-        Dim pc As Long = Emu.R(15)
+    Do While instCount < maxInstructions And Emu.GetReg(15) <> 0
+        Dim pc As Long = Emu.GetReg(15)
         Dim isThumb As Boolean = BitTst(Emu.CPSR, CPSR_THUMB)
 
         ' Log PC for crash analysis
@@ -67,11 +67,11 @@ Sub Main()
 
         ' Check for infinite loop (same PC twice)
         If instCount >= 2 Then
-            If Emu.R(15) = pc Then
-                Dim r0 As Long = Emu.R(0)
-                Dim r1 As Long = Emu.R(1)
+            If Emu.GetReg(15) = pc Then
+                Dim r0 As Long = Emu.GetReg(0)
+                Dim r1 As Long = Emu.GetReg(1)
                 Print "WARNING: PC stuck at " & Hex(pc) & " after " & instCount & " instructions"
-                Print "  R0=" & Hex(r0) & " R1=" & Hex(r1) & " LR=" & Hex(Emu.R(14))
+                Print "  R0=" & Hex(r0) & " R1=" & Hex(r1) & " LR=" & Hex(Emu.GetReg(14))
                 Print "  CPSR=" & Hex(Emu.CPSR)
 
                 ' Check if waiting for interrupt (common pattern: loop until IF changes)
@@ -96,10 +96,10 @@ Sub Main()
     Print "=== EXECUTION REPORT ==="
     Print "Instructions executed: " & instCount
     Print "Total cycles: " & cycles
-    Print "Final PC: " & Hex(Emu.R(15))
+    Print "Final PC: " & Hex(Emu.GetReg(15))
     Print "CPSR: " & Hex(Emu.CPSR)
-    Print "R0=" & Hex(Emu.R(0)) & " R1=" & Hex(Emu.R(1))
-    Print "R13/SP=" & Hex(Emu.R(13)) & " R14/LR=" & Hex(Emu.R(14))
+    Print "R0=" & Hex(Emu.GetReg(0)) & " R1=" & Hex(Emu.GetReg(1))
+    Print "R13/SP=" & Hex(Emu.GetReg(13)) & " R14/LR=" & Hex(Emu.GetReg(14))
     Print ""
     Print "Last PC trace:"
     Dim j As Integer

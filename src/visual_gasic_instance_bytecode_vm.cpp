@@ -2560,23 +2560,41 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             VG_CASE(vg_op_and, OP_AND): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
-                bool b = to_bool(pop_value());
-                bool a = to_bool(pop_value());
-                push_value(a && b);
+                Variant b = pop_value();
+                Variant a = pop_value();
+                // VB6: bitwise when both operands are numeric, logical otherwise
+                if ((a.get_type() == Variant::INT || a.get_type() == Variant::FLOAT) &&
+                    (b.get_type() == Variant::INT || b.get_type() == Variant::FLOAT)) {
+                    push_value(Variant((int64_t)a & (int64_t)b));
+                } else {
+                    push_value(to_bool(a) && to_bool(b));
+                }
                 break;
             }
             VG_CASE(vg_op_or, OP_OR): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
-                bool b = to_bool(pop_value());
-                bool a = to_bool(pop_value());
-                push_value(a || b);
+                Variant b = pop_value();
+                Variant a = pop_value();
+                if ((a.get_type() == Variant::INT || a.get_type() == Variant::FLOAT) &&
+                    (b.get_type() == Variant::INT || b.get_type() == Variant::FLOAT)) {
+                    push_value(Variant((int64_t)a | (int64_t)b));
+                } else {
+                    push_value(to_bool(a) || to_bool(b));
+                }
                 break;
             }
             VG_CASE(vg_op_xor, OP_XOR): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
-                bool b = to_bool(pop_value());
-                bool a = to_bool(pop_value());
-                push_value((a && !b) || (!a && b));
+                Variant b = pop_value();
+                Variant a = pop_value();
+                if ((a.get_type() == Variant::INT || a.get_type() == Variant::FLOAT) &&
+                    (b.get_type() == Variant::INT || b.get_type() == Variant::FLOAT)) {
+                    push_value(Variant((int64_t)a ^ (int64_t)b));
+                } else {
+                    bool ab = to_bool(a);
+                    bool bb = to_bool(b);
+                    push_value((ab && !bb) || (!ab && bb));
+                }
                 break;
             }
             VG_CASE(vg_op_jump, OP_JUMP): {

@@ -1,4 +1,4 @@
-' gba_main.vg — GBA Emulator Godot Scene Script
+' gba_main.vg -- GBA Emulator Godot Scene Script
 ' Attached to the main Node2D. Handles frame loop, display, and UI.
 
 Import "gba_constants.vg"
@@ -16,6 +16,9 @@ Dim SoundHandle As Long
 Dim KeyState As Integer
 Dim LoadButton As Object
 Dim RomDialog As Object
+Dim FrameCount As Long
+Dim DebugPrinted As Boolean
+Dim bLoading As Boolean
 
 ' Optimizer hints for the run loop
 '@accumulator FrameCycles
@@ -67,9 +70,36 @@ End Sub
 
 Sub _Process(delta As Double)
     If Not bLoaded Then
-        ' Show idle screen
         QueueRedraw()
         Return
+    End If
+
+    ' --- Debug: trace first frames ---
+    FrameCount = FrameCount + 1
+    If FrameCount <= 3 Then
+        Print "=== Frame " & CStr(FrameCount) & " ==="
+        Dim pcVal As Long = Emu.GetReg(15)
+        Print "  PC: &H" & Hex(pcVal)
+        Dim dispcnt As Integer = Mem.Read16(ADDR_IO + IO_DISPCNT)
+        Print "  DISPCNT: &H" & Hex(dispcnt)
+        Dim mode As Integer = BitAnd(dispcnt, &H0007)
+        Print "  Video Mode: " & CStr(mode)
+        If mode = 0 Then
+            Print "  BG0CNT: &H" & Hex(Mem.Read16(ADDR_IO + IO_BG0CNT))
+            Print "  BG1CNT: &H" & Hex(Mem.Read16(ADDR_IO + IO_BG1CNT))
+            Print "  BG2CNT: &H" & Hex(Mem.Read16(ADDR_IO + IO_BG2CNT))
+            Print "  BG3CNT: &H" & Hex(Mem.Read16(ADDR_IO + IO_BG3CNT))
+        End If
+        If mode = 3 Then
+            Print "  Mode 3 (bitmap) - checking first pixel..."
+            Dim firstPixel As Integer = Mem.Read16(&H06000000)
+            Print "  VRAM[0]: &H" & Hex(firstPixel)
+        End If
+        If mode = 4 Then
+            Print "  Mode 4 (palette bitmap)"
+            Dim frameSel As Boolean = BitTst(dispcnt, 4)
+            Print "  Frame select: " & CStr(frameSel)
+        End If
     End If
 
     ' Read inputs
@@ -81,9 +111,16 @@ Sub _Process(delta As Double)
         ' Check interrupts
         CheckInterrupts()
 
+        ' --- Simulate VBlank at scanline 160 ---
+        If cycles >= CYCLES_PER_FRAME * 93 \ 100 Then
+            Dim dispStatCur As Integer = Mem.Read16(ADDR_IO + IO_DISPSTAT)
+            Mem.Write16 ADDR_IO + IO_DISPSTAT, BitOr(dispStatCur, DISPSTAT_VBLANK_FLAG)
+            Mem.Write16 ADDR_IO + IO_VCOUNT, 160
+        End If
+
         ' Step CPU
-        If Emu.R(15) = 0 Then
-            Print "CPU crashed — PC=0"
+        If Emu.GetReg(15) = 0 Then
+            Print "CPU crashed -- PC=0"
             bLoaded = False
             Return
         End If
@@ -121,7 +158,7 @@ End Sub
 
 Sub OnFilesDropped(files As Variant)
     ' Godot's Window.files_dropped signal passes a PackedStringArray of paths
-    ' directly — there is no "files" member on an InputEvent to query.
+    ' directly -- there is no "files" member on an InputEvent to query.
     If IsArray(files) Then
         If UBound(files) >= 0 Then
             Dim filePath As String = files(0)
@@ -139,12 +176,16 @@ End Sub
 
 Sub OnRomFileSelected(filePath As String)
     Print "Selected file: " & filePath
+    If bLoading Then
+        Print "Load already in progress, skipping duplicate call."
+        Return
+    End If
     If InStr(1, filePath, ".gba", 0) > 0 Or InStr(1, filePath, ".GBA", 0) > 0 Then
         LoadROMFromPath filePath
     End If
 End Sub
 
-' ─── Input ─────────────────────────────────────────────────────
+' --- Input -----------------------------------------------------
 
 Sub UpdateInputs()
     Dim keys As Integer = &H03FF
@@ -183,7 +224,7 @@ Sub UpdateInputs()
     End If
 End Sub
 
-' ─── Interrupts ────────────────────────────────────────────────
+' --- Interrupts ------------------------------------------------
 
 Sub CheckInterrupts()
     Dim ime As Integer = Mem.Read16(ADDR_IO + IO_IME)
@@ -199,7 +240,7 @@ Sub CheckInterrupts()
     End If
 End Sub
 
-' ─── VBlank ────────────────────────────────────────────────────
+' --- VBlank ----------------------------------------------------
 
 Sub VBlank()
     Dim ioBase As Long = ADDR_IO
@@ -218,11 +259,10 @@ Sub VBlank()
     ' DMA transfers on VBlank trigger
     ProcessDMA()
 
-    ' Reset VCOUNT for next frame
-    Mem.Write16 ioBase + IO_VCOUNT, 0
+    ' VCOUNT stays 160 during VBlank
 End Sub
 
-' ─── DMA ───────────────────────────────────────────────────────
+' --- DMA -------------------------------------------------------
 
 Sub ProcessDMA()
     Dim ioBase As Long = ADDR_IO
@@ -244,8 +284,9 @@ Sub ProcessDMA()
                 Dim wordCount As Integer = BitAnd(cntL, &H3FFF)
                 If wordCount = 0 Then wordCount = &H4000
                 Dim is32Bit As Boolean = BitTst(cntH, 10)
-                Dim srcFixed As Boolean = BitTst(cntH, 9)
+                Dim srcFixed As Boolean = BitTst(cntH, 7)
                 Dim dstFixed As Boolean = BitTst(cntH, 6)
+                Dim repeatMode As Boolean = BitTst(cntH, 9)
 
                 Dim i As Long
                 For i = 0 To wordCount - 1
@@ -267,19 +308,16 @@ Sub ProcessDMA()
                     Mem.Write16 ioBase + IO_IF, BitOr(ifReg, irqFlag)
                 End If
 
-                ' Disable DMA if not repeat
-                If Not BitTst(cntH, 9) Then  ' Repeat bit check — actually bit 9 is src control
-                    ' Actually bit 9 in CNT_H is repeat mode
-                    If Not BitTst(cntH, 9) Then
-                        Mem.Write16 ioBase + dmaOffset, BitClr(cntH, 15)
-                    End If
+                ' Disable DMA if not repeat mode
+                If Not repeatMode Then
+                    Mem.Write16 ioBase + dmaOffset, BitClr(cntH, 15)
                 End If
             End If
         End If
     Next
 End Sub
 
-' ─── Timer Updates ─────────────────────────────────────────────
+' --- Timer Updates ---------------------------------------------
 
 Sub UpdateTimers(cycles As Long)
     Dim ioBase As Long = ADDR_IO
@@ -311,7 +349,7 @@ Sub UpdateTimers(cycles As Long)
     End If
 End Sub
 
-' ─── Audio ─────────────────────────────────────────────────────
+' --- Audio -----------------------------------------------------
 
 Sub InitAudio()
     SoundHandle = SoundGen.Open(32768, 0.1)
@@ -330,17 +368,21 @@ Sub OutputAudio()
     End If
 End Sub
 
-' ─── Public API for loading ROMs ───────────────────────────────
+' --- Public API for loading ROMs -------------------------------
 
 Function LoadROMFromPath(filePath As String) As Boolean
-    If Mem.LoadROM(filePath) Then
-        Emu.R(15) = &H08000000
+    bLoading = True
+    Dim loadOk As Boolean = Mem.LoadROM(filePath)
+    If loadOk Then
+        Emu.SetReg(15, &H08000000)
         Emu.CPSR = MODE_SYS Or (1 << CPSR_IRQ_DISABLE) Or (1 << CPSR_FIQ_DISABLE)
         bLoaded = True
         Print "Loaded ROM: " & filePath & " (" & CStr(Mem.RomSize) & " bytes)"
+        bLoading = False
         Return True
     End If
     Print "Failed to load: " & filePath
+    bLoading = False
     Return False
 End Function
 

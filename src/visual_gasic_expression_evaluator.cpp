@@ -97,6 +97,20 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         if (name.nocasecmp_to("math_tau") == 0) return (double)Math_TAU;
         // ── End fast constant path ──
         if (ctx.variables.has(name)) return ctx.variables[name];
+        // Fallback to built-in VB6/Godot constants (matches the main
+        // tree-walk evaluator's behavior in visual_gasic_instance_evaluate.inc).
+        if (ctx.instance && ctx.instance->is_builtin_constant(name)) {
+            return ctx.instance->get_builtin_constants()[name];
+        }
+        // Fallback to project-wide "Global Const"/"Global Dim" registry
+        // (v4.4.0). Without this, a Global Const declared in an Imported
+        // module and referenced as a bare function-call argument (this
+        // evaluator is used for centralized/expression-level builtin calls
+        // like CStr(), Hex(), etc.) would silently resolve to Null instead
+        // of its real value.
+        if (VisualGasicInstance::get_global_scope().has(name)) {
+            return VisualGasicInstance::get_global_scope()[name];
+        }
         if (ctx.owner) {
             Variant ret = ctx.owner->get(name);
             if (ret.get_type() != Variant::NIL) return ret;

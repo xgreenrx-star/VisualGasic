@@ -18,6 +18,7 @@ using namespace godot;
 using namespace VisualGasic;
 
 class VisualGasicInstance {
+    friend class VisualGasicExpressionEvaluator;
     Ref<VisualGasicScript> script;
     Object *owner;
     ModuleNode* cached_ast_root = nullptr; // Cached for enum/struct lookups

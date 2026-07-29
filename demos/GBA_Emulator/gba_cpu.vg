@@ -1,11 +1,11 @@
-' gba_cpu.vg — ARM7TDMI CPU Core for GBA Emulator
-' Tier 2: Playable Subset — Full ARM + Thumb instruction decode
+' gba_cpu.vg -- ARM7TDMI CPU Core for GBA Emulator
+' Tier 2: Playable Subset -- Full ARM + Thumb instruction decode
 '
 ' Architecture note: The CPU class holds registers and CPSR.
 ' The memory reference is injected via Init(mem).
 
 Class GBACPU
-    Public R As Variant             ' r0–r15 registers (r13=SP, r14=LR, r15=PC) — ReDim'd in Init
+    Public R As Variant             ' r0-r15 registers (r13=SP, r14=LR, r15=PC) -- ReDim'd in Init
     Public CPSR As Long             ' Current Program Status Register
     Public Mem As Variant           ' GBAMemory instance
 
@@ -22,6 +22,8 @@ Class GBACPU
     Public SPSR_Abt As Long, SPSR_Irq As Long, SPSR_Und As Long
 
     Public PipeFlush As Boolean
+    Public TraceCount As Long
+    Public Quiet As Boolean
     Public CurrentMode As Integer
 
     ' === Initialization ===
@@ -38,7 +40,7 @@ Class GBACPU
         PipeFlush = False
     End Sub
 
-    ' ─── Flag Helpers ──────────────────────────────────────────
+    ' --- Flag Helpers ------------------------------------------
 
     Sub SetN(val As Boolean)
         If val Then CPSR = BitSet(CPSR, 31) Else CPSR = BitClr(CPSR, 31)
@@ -73,7 +75,7 @@ Class GBACPU
         Return BitTst(CPSR, CPSR_IRQ_DISABLE)
     End Function
 
-    ' ─── Condition Code Evaluation ─────────────────────────────
+    ' --- Condition Code Evaluation -----------------------------
 
     Function EvaluateCondition(cond As Integer) As Boolean
         Select Case cond
@@ -97,7 +99,7 @@ Class GBACPU
         End Select
     End Function
 
-    ' ─── Sign Extension ────────────────────────────────────────
+    ' --- Sign Extension ----------------------------------------
 
     Function SignExt24(val As Long) As Long
         If BitTst(val, 23) Then Return val Or &HFF000000
@@ -109,7 +111,7 @@ Class GBACPU
         Return val
     End Function
 
-    ' ─── Barrel Shifter ────────────────────────────────────────
+    ' --- Barrel Shifter ----------------------------------------
 
     Function LogicalShiftLeft(val As Long, amount As Integer, ByRef carry As Integer) As Long
         If amount = 0 Then
@@ -171,7 +173,7 @@ Class GBACPU
         End Select
     End Function
 
-    ' ─── Mode Switch ───────────────────────────────────────────
+    ' --- Mode Switch -------------------------------------------
 
     Sub SwitchMode(newMode As Integer)
         ' Save current SP and LR to banked registers
@@ -211,7 +213,7 @@ Class GBACPU
         End Select
     End Sub
 
-    ' ─── Exception Entry ───────────────────────────────────────
+    ' --- Exception Entry ---------------------------------------
 
     Sub EnterException(excMode As Integer, vectorAddr As Long)
         ' Calculate preferred return address
@@ -242,7 +244,7 @@ Class GBACPU
         PipeFlush = True
     End Sub
 
-    ' ─── ALU operations ────────────────────────────────────────
+    ' --- ALU operations ----------------------------------------
 
     Function ADDs(op1 As Long, op2 As Long, ByRef carry As Integer, _
                   ByRef overflow As Integer) As Long
@@ -327,18 +329,46 @@ Class GBACPU
         SetV (overflow <> 0)
     End Sub
 
-    ' ─── Main Step: Execute One Instruction ────────────────────
+    ' --- Main Step: Execute One Instruction --------------------
     ' Returns cycle count for this instruction
 
     Function Step() As Long
-        If InThumb() Then
-            Return ExecuteThumb()
-        Else
-            Return ExecuteARM()
+        TraceCount = TraceCount + 1
+        Dim cyc As Long
+        Dim wasThumb As Boolean = InThumb()
+        ' PipeFlush signals whether this instruction wrote a final absolute
+        ' value into R(15) (branch/BX/LDR-to-PC/LDM-to-PC/etc). ExecuteARM()/
+        ' ExecuteThumb() pre-set R(15) to the ARM7TDMI pipeline-visible value
+        ' (fetch_addr+8 for ARM, fetch_addr+4 for Thumb) so PC-relative operand
+        ' reads inside the instruction (e.g. LDR Rd,[PC,#imm]) see the correct
+        ' value. If the instruction did NOT explicitly redirect control flow
+        ' (PipeFlush still False), R(15) is left sitting on that pipeline
+        ' value -- which is one whole instruction too far ahead -- so it must
+        ' be corrected back down to the real next-instruction address here.
+        PipeFlush = False
+        If Not Quiet Then
+            Print "[Step " & CStr(TraceCount) & "] PC=0x" & Hex(R(15)) & " Thumb=" & CStr(InThumb()) & " CPSR=0x" & Hex(CPSR)
         End If
+        If wasThumb Then
+            cyc = ExecuteThumb()
+        Else
+            cyc = ExecuteARM()
+        End If
+        If Not PipeFlush Then
+            If wasThumb Then
+                R(15) = R(15) - 2
+            Else
+                R(15) = R(15) - 4
+            End If
+        End If
+        If Not Quiet Then
+            Print "  -> cycles=" & CStr(cyc) & " newPC=0x" & Hex(R(15))
+        End If
+        If TraceCount >= 20 Then Quiet = True
+        Return cyc
     End Function
 
-    ' ─── SWI Handler ───────────────────────────────────────────
+    ' --- SWI Handler -------------------------------------------
     ' Implements common GBA BIOS calls. Called from ARM/Thumb SWI decoders.
     ' Returns cycle count consumed by the SWI.
     ' NOTE: SWI runs in SVC mode; EnterException already switches to SVC.
@@ -348,7 +378,7 @@ Class GBACPU
         ' SVC mode has R13=SP_svc, R14=LR_svc, SPSR_svc = original CPSR.
 
         Select Case swiNum
-            Case &H00: ' SoftReset — restart game
+            Case &H00: ' SoftReset -- restart game
                 R(15) = &H08000000
                 PipeFlush = True
                 Return 1
@@ -444,12 +474,12 @@ Class GBACPU
                 Return LZ77Decompress(lz12Src, lz12Dst)
 
             Case Else:
-                ' Unhandled SWI — just return
+                ' Unhandled SWI -- just return
                 Return 1
         End Select
     End Function
 
-    ' ─── LZ77 Decompression ────────────────────────────────────
+    ' --- LZ77 Decompression ------------------------------------
     ' GBA LZ77 format: header byte + blocks of compressed data
 
     Function LZ77Decompress(src As Long, dst As Long) As Long
@@ -499,9 +529,9 @@ Class GBACPU
         Return 1
     End Function
 
-    ' ───────────────────────────────────────────────────────────
+    ' -----------------------------------------------------------
     ' THUMB INSTRUCTION SET DECODER
-    ' ───────────────────────────────────────────────────────────
+    ' -----------------------------------------------------------
     Function ExecuteThumb() As Long
         Dim pc As Long = BitAnd(R(15), &HFFFFFFFE)
         Dim op As Integer = Mem.Read16(pc)
@@ -516,13 +546,13 @@ Class GBACPU
         Dim top3 As Integer = RightShift(op, 13)
         Dim top2 As Integer = RightShift(op, 14)
 
-        ' ── Group 0: Shift / Add-Sub / Mov-Cmp-Add-Sub / ALU / Hi-Reg / Load-Store ──
+        ' -- Group 0: Shift / Add-Sub / Mov-Cmp-Add-Sub / ALU / Hi-Reg / Load-Store --
         If top3 = 0 Then
             ' top2 determines subgroup
             Select Case top2
-                Case 0: ' 00_xxx_xxxxxx — Move Shifted Register or Add/Subtract
+                Case 0: ' 00_xxx_xxxxxx -- Move Shifted Register or Add/Subtract
                     If top4 = 0 Then
-                        ' 00_0xx — MOVS Rd, Rm, LSL #imm5
+                        ' 00_0xx -- MOVS Rd, Rm, LSL #imm5
                         Dim imm5 As Integer = RightShift(BitAnd(op, &H07C0), 6)
                         Dim Rm As Integer = RightShift(BitAnd(op, &H0038), 3)
                         Dim Rd As Integer = BitAnd(op, &H0007)
@@ -534,7 +564,7 @@ Class GBACPU
                         R(Rd) = result
                         Return 1
                     End If
-                    ' 00_1xx — LSL/SUB opcodes
+                    ' 00_1xx -- LSL/SUB opcodes
                     Dim opType As Integer = RightShift(op, 9)
                     Dim imm3 As Integer = RightShift(BitAnd(op, &H01C0), 6)
                     Dim Rn As Integer = RightShift(BitAnd(op, &H0038), 3)
@@ -566,7 +596,7 @@ Class GBACPU
                             Return 1
                     End Select
 
-                Case 1: ' 01_xxx — MOV/CMP/ADD/SUB Immediate
+                Case 1: ' 01_xxx -- MOV/CMP/ADD/SUB Immediate
                     Dim imm8 As Integer = BitAnd(op, &H00FF)
                     Dim Rd As Integer = RightShift(BitAnd(op, &H0700), 8)
                     Dim opType As Integer = RightShift(op, 11)
@@ -595,7 +625,7 @@ Class GBACPU
                             Return 1
                     End Select
 
-                Case 2: ' 10_xxx — ALU Operations
+                Case 2: ' 10_xxx -- ALU Operations
                     Dim Rd As Integer = BitAnd(op, &H0007)
                     Dim Rs As Integer = RightShift(BitAnd(op, &H0038), 3)
                     Dim opType As Integer = RightShift(BitAnd(op, &H03C0), 6)
@@ -685,18 +715,18 @@ Class GBACPU
                             Return 1
                     End Select
 
-                Case 3: ' 11_xxx — Hi Register Ops (redundant, real handler below)
+                Case 3: ' 11_xxx -- Hi Register Ops (redundant, real handler below)
                     ' Hi-reg ops are decoded later in dedicated block
                     Return 1
             End Select
         End If
 
-        ' ── Hi-Register Operations (0x44xx–0x47xx), top4=4, top3=2 ──
+        ' -- Hi-Register Operations (0x44xx-0x47xx), top4=4, top3=2 --
         ' This covers ADD, CMP, MOV, BX, BLX using high registers (R8-R15)
         If top4 = 4 And top3 = 2 Then
             Dim opType As Integer = RightShift(BitAnd(op, &H0300), 8) ' bits[9:8]
-            Dim H1 As Integer = BitAnd(RightShift(op, 7), 1) ' bit[7] — MSB of destination
-            Dim H2 As Integer = BitAnd(RightShift(op, 6), 1) ' bit[6] — MSB of source
+            Dim H1 As Integer = BitAnd(RightShift(op, 7), 1) ' bit[7] -- MSB of destination
+            Dim H2 As Integer = BitAnd(RightShift(op, 6), 1) ' bit[6] -- MSB of source
             Dim Rd As Integer = BitAnd(op, &H0007)
             If H1 Then Rd = Rd Or 8
             Dim Rs As Integer = RightShift(BitAnd(op, &H0038), 3)
@@ -706,7 +736,7 @@ Class GBACPU
                 Case 0: ' ADD Rd, Rs
                     Dim res As Long = R(Rd) + R(Rs)
                     If Rd = 15 Then
-                        ' ADD PC, Rs — like BX but stays in current state
+                        ' ADD PC, Rs -- like BX but stays in current state
                         res = BitAnd(res, &HFFFFFFFE)
                         R(15) = res: PipeFlush = True
                     Else
@@ -720,10 +750,10 @@ Class GBACPU
                     Return 1
                 Case 2: ' MOV Rd, Rs
                     If Rd = 15 And Rs = 14 Then
-                        ' BX LR — branch to LR and switch to ARM if bit 0 clear
+                        ' BX LR -- branch to LR and switch to ARM if bit 0 clear
                         Dim target As Long = R(14)
                         If BitTst(target, 0) Then
-                            ' Thumb return — stay Thumb
+                            ' Thumb return -- stay Thumb
                             R(15) = BitAnd(target, &HFFFFFFFE)
                         Else
                             ' ARM return
@@ -769,9 +799,9 @@ Class GBACPU
         If top3 = 0 Then
             Return 1  ' All top3=0 handled above
         Else
-            ' ── Group 1: PC-relative Load / Load-Store reg-offset (01001) ──
+            ' -- Group 1: PC-relative Load / Load-Store reg-offset (01001) --
             If top5 = &H09 Then
-                ' 01001 — LDR Rd, [PC, #imm8*4]
+                ' 01001 -- LDR Rd, [PC, #imm8*4]
                 Dim imm8 As Integer = BitAnd(op, &H00FF)
                 Dim Rd As Integer = RightShift(BitAnd(op, &H0700), 8)
                 Dim addr As Long = BitAnd(R(15), &HFFFFFFFC) + imm8 * 4
@@ -779,7 +809,7 @@ Class GBACPU
                 Return 2 ' LDR from memory typically 2S+1N
             End If
 
-            ' ── Group 2: Load-Store with Register Offset (0101xx) ──
+            ' -- Group 2: Load-Store with Register Offset (0101xx) --
             If top4 = 5 Then
                 Dim opType As Integer = RightShift(op, 9)
                 Dim Ro As Integer = RightShift(BitAnd(op, &H01C0), 6)
@@ -796,7 +826,7 @@ Class GBACPU
                     ' LDRB Rd, [Rb, Ro]
                     R(Rd) = Mem.Read8(addr)
                 ElseIf opType >= 8 Then
-                    ' LDRSB / LDRH / LDRSH — simplified
+                    ' LDRSB / LDRH / LDRSH -- simplified
                     Select Case opType
                         Case 8,10: ' STRH
                             Mem.Write16 addr, BitAnd(R(Rd), &HFFFF)
@@ -813,7 +843,7 @@ Class GBACPU
                 Return 2
             End If
 
-            ' ── Group 3: Load-Store Immediate Byte/Halfword (100xx) ──
+            ' -- Group 3: Load-Store Immediate Byte/Halfword (100xx) --
             If top3 = 4 Then
                 Dim imm5 As Integer = RightShift(BitAnd(op, &H07C0), 6)
                 Dim Rb As Integer = RightShift(BitAnd(op, &H0038), 3)
@@ -832,7 +862,7 @@ Class GBACPU
                 Return 2
             End If
 
-            ' ── Group 4: Load-Store Halfword Immediate (1001x) ──
+            ' -- Group 4: Load-Store Halfword Immediate (1001x) --
             If top4 = 8 And RightShift(op, 12) <> 9 Then
                 Dim Hflag As Integer = BitAnd(RightShift(op, 11), 1)
                 Dim Rb As Integer = RightShift(BitAnd(op, &H0038), 3)
@@ -846,7 +876,7 @@ Class GBACPU
                 Return 2
             End If
 
-            ' ── Group 5: SP-Relative Load-Store (1001x) ──
+            ' -- Group 5: SP-Relative Load-Store (1001x) --
             If top4 = 9 Then
                 Dim imm8 As Integer = BitAnd(op, &H00FF)
                 Dim Rd As Integer = RightShift(BitAnd(op, &H0700), 8)
@@ -859,7 +889,7 @@ Class GBACPU
                 Return 2
             End If
 
-            ' ── Group 6: Load Address (1010x) ──
+            ' -- Group 6: Load Address (1010x) --
             If top4 = &HA Then
                 Dim imm8 As Integer = BitAnd(op, &H00FF)
                 Dim Rd As Integer = RightShift(BitAnd(op, &H0700), 8)
@@ -872,9 +902,9 @@ Class GBACPU
                 Return 1
             End If
 
-            ' ── Group 7: ADD to SP (101100000) ──
+            ' -- Group 7: ADD to SP (101100000) --
             If top4 = &HB And BitAnd(op, &H0700) = 0 Then
-                ' 101100000 — ADD SP, #imm7*4
+                ' 101100000 -- ADD SP, #imm7*4
                 Dim imm As Long
                 Dim raw7 As Integer = BitAnd(op, &H007F)
                 If BitTst(op, 7) Then
@@ -886,7 +916,7 @@ Class GBACPU
                 Return 1
             End If
 
-            ' ── Group 8: Push/Pop (1011x10x) ──
+            ' -- Group 8: Push/Pop (1011x10x) --
             If top4 = &HB And BitAnd(RightShift(op, 9), &H03) = 2 Then
                 Dim Lflag As Integer = RightShift(op, 11)
                 Dim Rlist As Integer = BitAnd(op, &H00FF)
@@ -920,7 +950,7 @@ Class GBACPU
                 Return 2 + NumBits(Rlist) ' approximate
             End If
 
-            ' ── Group 9: Multiple Load-Store (1100x) ──
+            ' -- Group 9: Multiple Load-Store (1100x) --
             If top4 = &HC Then
                 Dim LdmFlag As Boolean = BitTst(op, 11)
                 Dim Rb As Integer = RightShift(BitAnd(op, &H0700), 8)
@@ -949,7 +979,7 @@ Class GBACPU
                 Return 2 + NumBits(Rlist)
             End If
 
-            ' ── Group 10: Conditional Branch / SWI (1101x / 11011111) ──
+            ' -- Group 10: Conditional Branch / SWI (1101x / 11011111) --
             If top4 = &HD Then
                 Dim cond As Integer = RightShift(op, 8)
                 ' SWI: opcode = 11011111xxxxxxxx (bits[7:0] = SWI number)
@@ -959,7 +989,7 @@ Class GBACPU
                     Dim swiNumber As Integer = BitAnd(op, &H00FF)
                     Return HandleSWI(swiNumber)
                 End If
-                ' B<cond> — conditional branch
+                ' B<cond> -- conditional branch
                 Dim signedOffset As Integer = BitAnd(op, &H00FF)
                 If EvaluateCondition(cond) Then
                     If BitTst(signedOffset, 7) Then
@@ -972,9 +1002,9 @@ Class GBACPU
                 Return 1  ' Not taken = 1 cycle
             End If
 
-            ' ── Group 11: Unconditional Branch (11100) ──
+            ' -- Group 11: Unconditional Branch (11100) --
             If top3 = 6 Then
-                ' B — unconditional branch
+                ' B -- unconditional branch
                 Dim signedOffset As Integer = BitAnd(op, &H07FF)
                 If BitTst(signedOffset, 10) Then
                     signedOffset = signedOffset Or &HFFFFF800
@@ -984,17 +1014,17 @@ Class GBACPU
                 Return 3
             End If
 
-            ' ── Group 12: Long Branch with Link (1111x) ──
+            ' -- Group 12: Long Branch with Link (1111x) --
             If top3 = 7 Then
                 Dim Hflag As Integer = RightShift(op, 11)
-                If Hflag = 0 Then ' BL setup — LR = PC + (offset<<12)
+                If Hflag = 0 Then ' BL setup -- LR = PC + (offset<<12)
                     Dim offset As Integer = BitAnd(op, &H07FF)
                     If BitTst(offset, 10) Then
                         offset = offset Or &HFFFFF800
                     End If
                     R(14) = R(15) + offset * &H1000  ' shift by 12
                     Return 1
-                Else ' BL long — PC = LR + (offset<<1), LR = next | 1
+                Else ' BL long -- PC = LR + (offset<<1), LR = next | 1
                     Dim offset As Integer = BitAnd(op, &H07FF)
                     Dim temp As Long = R(15) - 2
                     R(15) = R(14) + offset * 2
@@ -1005,14 +1035,14 @@ Class GBACPU
             End If
         End If
 
-        ' Unknown Thumb opcode — treat as NOP
+        ' Unknown Thumb opcode -- treat as NOP
         Return 1
     End Function
 
-    ' ───────────────────────────────────────────────────────────
+    ' -----------------------------------------------------------
     ' ARM INSTRUCTION SET DECODER
     ' Classification by bits[27:26] + bit[25] + bit[7:4]
-    ' ───────────────────────────────────────────────────────────
+    ' -----------------------------------------------------------
     Function ExecuteARM() As Long
         Dim pc As Long = BitAnd(R(15), &HFFFFFFFC)
         Dim op As Long = Mem.Read32(pc)
@@ -1038,12 +1068,12 @@ Class GBACPU
             Return HandleSWI(swiNumLong And &HFF)
         End If
 
-        ' Evaluate condition — bail early if not met
+        ' Evaluate condition -- bail early if not met
         If EvaluateCondition(cond) = False Then
             Return 1
         End If
 
-        ' ── Class 00: Data Processing / MUL / SWP ──
+        ' -- Class 00: Data Processing / MUL / SWP --
         If classBits = 0 Then
             ' MUL/MLA detection: bits[7:4] = 1001 and bit[24]=0
             If bit7 And (Not BitTst(op, 6)) And (Not BitTst(op, 5)) And bit4 And (Not BitTst(op, 24)) Then
@@ -1060,9 +1090,9 @@ Class GBACPU
                 Return 2
             End If
 
-            ' MULL (long multiply) / SWP — skip for now, return cycles
+            ' MULL (long multiply) / SWP -- skip for now, return cycles
             If bit7 And (Not BitTst(op, 6)) And (Not BitTst(op, 5)) And bit4 And BitTst(op, 24) Then
-                Return 2 ' MULL — placeholder
+                Return 2 ' MULL -- placeholder
             End If
 
             ' MRS/MSR detection: bits[27:23]=00010 or 00110, bits[15:12]=1111
@@ -1079,7 +1109,7 @@ Class GBACPU
             Dim bits27_23 As Integer = RightShift(BitAnd(op, &H0F800000), 23)
             If bits27_23 = 2 Then isMRS = True ' 00010 + specific fields
             If (bits27_23 = 2 Or bits27_23 = 6) And Sflag And (Rd = 15) Then
-                ' MSR — write to CPSR/SPSR
+                ' MSR -- write to CPSR/SPSR
                 Dim srcValue As Long
                 If bit25 Then
                     ' Immediate form
@@ -1112,7 +1142,7 @@ Class GBACPU
                 Return 1
             End If
             If bits27_23 = 2 And (Not Sflag) And ((BitAnd(op, &H00100000) <> 0) Or (BitAnd(op, &H00400000) <> 0)) And (BitAnd(RightShift(op, 12), &H0F) = 15) Then
-                ' MRS — read CPSR/SPSR into Rd
+                ' MRS -- read CPSR/SPSR into Rd
                 ' bit[22] selects CPSR/SPSR
                 If BitTst(op, 22) Then
                     Select Case CurrentMode
@@ -1129,6 +1159,28 @@ Class GBACPU
                     R(Rd) = CPSR
                 End If
                 Return 1
+            End If
+
+            ' BX Rm -- Branch and Exchange (ARMv4T). Shares the same
+            ' bits[27:23]=00010 "TST/TEQ-with-S=0" reserved encoding space
+            ' as MRS/MSR above, so it must be checked here too -- otherwise
+            ' it silently falls through to the generic Data Processing
+            ' path below as a no-op TEQ (opcode=9, S=0 means the compare
+            ' never even updates flags), which breaks EVERY ARM<->Thumb
+            ' state switch via BX (a very common instruction in real code).
+            ' Full encoding: bits[27:4] = 0x012FFF1, bits[3:0] = Rm.
+            If BitAnd(RightShift(op, 4), &HFFFFFF) = &H12FFF1 Then
+                Dim bxRm As Integer = BitAnd(op, &H0000000F)
+                Dim bxTarget As Long = R(bxRm)
+                If BitTst(bxTarget, 0) Then
+                    CPSR = BitSet(CPSR, CPSR_THUMB)
+                    R(15) = BitAnd(bxTarget, &HFFFFFFFE)
+                Else
+                    CPSR = BitClr(CPSR, CPSR_THUMB)
+                    R(15) = BitAnd(bxTarget, &HFFFFFFFC)
+                End If
+                PipeFlush = True
+                Return 3
             End If
 
             ' Regular Data Processing
@@ -1162,7 +1214,7 @@ Class GBACPU
             Return ExecuteDataProcARM(opcode, Sflag, Rn, Rd, operand2, shifterCarry)
         End If
 
-        ' ── Class 01: Single Data Transfer (LDR/STR + Halfword/Signed variants) ──
+        ' -- Class 01: Single Data Transfer (LDR/STR + Halfword/Signed variants) --
         If classBits = 1 Then
             ' Extra Load/Store (LDRH, STRH, LDRSB, LDRSH): bits[7:4] = 1x01 or similar
             ' Key indicator: bit7=1, bit6=0, bit4=1 and classBits=01
@@ -1224,14 +1276,17 @@ Class GBACPU
 
             Dim offset As Long
             If Iflag = False Then
-                ' Register offset with shift
+                ' Immediate 12-bit offset (I=0 for Single Data Transfer --
+                ' NOTE: this polarity is the OPPOSITE of the I-bit in Data
+                ' Processing instructions, where I=1 means immediate).
+                offset = BitAnd(op, &H00000FFF)
+            Else
+                ' Register offset with shift (I=1)
                 Dim offsetRm As Integer = BitAnd(op, &H0000000F)
                 Dim shiftImm As Integer = RightShift(BitAnd(op, &H00000F80), 7)
                 Dim shiftOp As Integer = RightShift(BitAnd(op, &H00000060), 5)
                 Dim dummyC As Integer
                 offset = ShiftOperand(shiftOp, R(offsetRm), shiftImm, dummyC)
-            Else
-                offset = BitAnd(op, &H00000FFF)
             End If
 
             Dim baseAddrS As Long = R(Rn)
@@ -1265,10 +1320,11 @@ Class GBACPU
             Else ' STR
                 If BflagS Then Mem.Write8 finalAddrS, BitAnd(R(Rd), &HFF) Else Mem.Write32 finalAddrS, R(Rd)
             End If
+            If LflagS And Rd = 15 Then PipeFlush = True
             Return 2
         End If
 
-        ' ── Class 10: Block Data Transfer (LDM/STM) — bit25=0 ──
+        ' -- Class 10: Block Data Transfer (LDM/STM) -- bit25=0 --
         If classBits = 2 And bit25 = False Then
             Dim PflagL As Boolean = BitTst(op, 24)
             Dim UflagL As Boolean = BitTst(op, 23)
@@ -1287,7 +1343,7 @@ Class GBACPU
                     If BitTst(regList, r) Then
                         If LflagL Then ' LDM
                             If SflagL And r = 15 Then
-                                ' LDM with ^ — restore PC and CPSR from SPSR
+                                ' LDM with ^ -- restore PC and CPSR from SPSR
                                 R(15) = Mem.Read32(addr)
                                 Select Case CurrentMode
                                     Case MODE_FIQ: CPSR = SPSR_Fiq
@@ -1302,6 +1358,7 @@ Class GBACPU
                                 R(r) = Mem.Read32(addr)
                             Else
                                 R(r) = Mem.Read32(addr)
+                                If r = 15 Then PipeFlush = True
                             End If
                         Else ' STM
                             Mem.Write32 addr, R(r)
@@ -1317,6 +1374,7 @@ Class GBACPU
                     If BitTst(regList, r2) Then
                         If LflagL Then
                             R(r2) = Mem.Read32(addr)
+                            If r2 = 15 Then PipeFlush = True
                         Else
                             Mem.Write32 addr, R(r2)
                         End If
@@ -1328,7 +1386,7 @@ Class GBACPU
             Return 2 + numRegs
         End If
 
-        ' ── Class 10 alt: Branch (B/BL) / SWI — bit25=1 ──
+        ' -- Class 10 alt: Branch (B/BL) / SWI -- bit25=1 --
         ' classBits=2 + bit25=1: B/BL (bit24=0 for B, bit24=1 for BL)
         ' classBits=3 + bit25=1 + bit24=1: SWI
         If (classBits = 2 And bit25) Or classBits = 3 Then
@@ -1340,9 +1398,15 @@ Class GBACPU
             Else ' B / BL
                 Dim LflagB As Boolean = BitTst(op, 24)
                 Dim signedOffset As Long = BitAnd(op, &H00FFFFFF)
+                ' signedOffset is a 64-bit Long, so OR'ing in just the top
+                ' 8 bits (&HFF000000) only sign-extends to 32 bits -- bits
+                ' 32-63 stay 0, turning a negative branch offset into a huge
+                ' positive 64-bit number. Mask the final PC back to 32 bits
+                ' (the GBA's PC/address space) to match the AddOp/SubOp/etc.
+                ' convention used elsewhere in this file.
                 If BitTst(signedOffset, 23) Then signedOffset = signedOffset Or &HFF000000
                 If LflagB Then R(14) = R(15) - 4 ' Link
-                R(15) = pc + 8 + signedOffset * 4
+                R(15) = BitAnd(pc + 8 + signedOffset * 4, &HFFFFFFFF)
                 PipeFlush = True
                 Return 3
             End If
@@ -1351,7 +1415,7 @@ Class GBACPU
         Return 1 ' Unknown
     End Function
 
-    ' ─── ARM Data Processing Helper ─────────────────────────────
+    ' --- ARM Data Processing Helper -----------------------------
 
     Function ExecuteDataProcARM(opcode As Integer, Sflag As Boolean, _
                                 Rn As Integer, Rd As Integer, _
@@ -1437,7 +1501,7 @@ Class GBACPU
                 If writeToRd Then R(Rd) = result
         End Select
 
-        ' MOVS PC, LR → restore CPSR from SPSR (exception return)
+        ' MOVS PC, LR -> restore CPSR from SPSR (exception return)
         If Rd = 15 And Sflag And writeToRd Then
             Select Case CurrentMode
                 Case MODE_FIQ: CPSR = SPSR_Fiq
@@ -1453,4 +1517,12 @@ Class GBACPU
 
         Return 1
     End Function
+
+    ' --- External register access (for VG parser compatibility) ---
+    Function GetReg(idx As Integer) As Long
+        Return R(idx)
+    End Function
+    Sub SetReg(idx As Integer, val As Long)
+        R(idx) = val
+    End Sub
 End Class

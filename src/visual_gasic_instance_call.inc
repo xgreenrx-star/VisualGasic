@@ -2307,6 +2307,16 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
              }
          }
 
+         if (base.get_type() == Variant::OBJECT) {
+             // MemoryBuffer byte-indexing: buf(i) = value -> buf.PokeByte(i, value)
+             Object* obj = base;
+             if (obj && aa->indices.size() == 1 && obj->has_method("PokeByte")) {
+                 Variant idx = evaluate_expression(aa->indices[0]);
+                 obj->call("PokeByte", idx, val);
+                 return;
+             }
+         }
+
          if (base.get_type() != Variant::ARRAY) {
              raise_error("Expected Array for index access");
              return;

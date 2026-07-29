@@ -95,6 +95,12 @@ public:
     // --- Hex Dump ---
     String hex_dump(int64_t p_offset, int64_t p_length) const;
 
+    // --- File I/O ---
+    // Reads the entire file at p_path into this buffer, replacing any
+    // existing contents/allocation. Returns false if the file can't be
+    // opened. On success, get_size() reflects the file's byte length.
+    bool load_from_file(const String &p_path);
+
     // --- Pointer (for FFI interop) ---
     int64_t get_pointer() const { return (int64_t)(uintptr_t)data; }
 

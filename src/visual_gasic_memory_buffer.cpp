@@ -3,6 +3,7 @@
 // ============================================================================
 #include "visual_gasic_memory_buffer.h"
 
+#include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <cstdlib>
 #include <cstdio>
@@ -257,6 +258,25 @@ void VGMemoryBuffer::from_byte_array(const PackedByteArray &p_array) {
     std::memcpy(data, p_array.ptr(), (size_t)sz);
 }
 
+bool VGMemoryBuffer::load_from_file(const String &p_path) {
+    Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
+    if (!f.is_valid()) {
+        last_error = "Failed to open file: " + p_path;
+        return false;
+    }
+    int64_t len = (int64_t)f->get_length();
+    if (len <= 0) {
+        f->close();
+        last_error = "File is empty: " + p_path;
+        return false;
+    }
+    PackedByteArray bytes = f->get_buffer(len);
+    f->close();
+    if (!allocate(len)) return false;
+    std::memcpy(data, bytes.ptr(), (size_t)len);
+    return true;
+}
+
 // ─── Search ────────────────────────────────────────────────────────────────
 
 int64_t VGMemoryBuffer::find_byte(uint8_t p_value, int64_t p_start) const {
@@ -297,6 +317,7 @@ String VGMemoryBuffer::hex_dump(int64_t p_offset, int64_t p_length) const {
 void VGMemoryBuffer::_bind_methods() {
     // Allocation
     ClassDB::bind_method(D_METHOD("Allocate", "size"),    &VGMemoryBuffer::allocate);
+    ClassDB::bind_method(D_METHOD("LoadFromFile", "path"), &VGMemoryBuffer::load_from_file);
     ClassDB::bind_method(D_METHOD("Resize", "new_size"),  &VGMemoryBuffer::resize);
     ClassDB::bind_method(D_METHOD("Free"),                &VGMemoryBuffer::free_memory);
     ClassDB::bind_method(D_METHOD("get_is_allocated"),    &VGMemoryBuffer::is_allocated);

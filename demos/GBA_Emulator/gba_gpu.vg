@@ -1,9 +1,9 @@
-' gba_gpu.vg — GBA GPU/PPU Renderer
+' gba_gpu.vg -- GBA GPU/PPU Renderer
 ' Renders frame to an Image (240x160 RGBA8) for display
 ' Supports Mode 0 (4 tilemap BGs) and Mode 3 (bitmap framebuffer)
 
 Class GBAGPU
-    Public Framebuf As Variant    ' Image — 240x160 RGBA8
+    Public Framebuf As Variant    ' Image -- 240x160 RGBA8
     Public Mem As Variant         ' GBAMemory reference
 
     ' Cached register values
@@ -21,7 +21,7 @@ Class GBAGPU
         Set Framebuf = CreateImage(GBA_SCREEN_W, GBA_SCREEN_H, Color8(0, 0, 0, 255))
     End Sub
 
-    ' ─── Palettes ──────────────────────────────────────────────
+    ' --- Palettes ----------------------------------------------
     ' GBA palette: 16-bit BGR555 stored at &H05000000
     ' Each color = 2 bytes: XBBBBBGG GGGRRRRR (bits 0-14)
     ' We need to decode to 8-bit RGBA for our Image
@@ -35,14 +35,14 @@ Class GBAGPU
         Dim r5 As Integer = BitAnd(color16, &H001F)
         Dim g5 As Integer = BitAnd(RightShift(color16, 5), &H001F)
         Dim b5 As Integer = BitAnd(RightShift(color16, 10), &H001F)
-        ' Scale to 8 bits: multiply by 255/31 (= 8.2258) → use (val<<3)|(val>>2)
+        ' Scale to 8 bits: multiply by 255/31 (= 8.2258) -> use (val<<3)|(val>>2)
         Dim r8 As Integer = LeftShift(r5, 3) Or RightShift(r5, 2)
         Dim g8 As Integer = LeftShift(g5, 3) Or RightShift(g5, 2)
         Dim b8 As Integer = LeftShift(b5, 3) Or RightShift(b5, 2)
         Return Color8(CInt(r8), CInt(g8), CInt(b8), 255)
     End Function
 
-    ' ─── Tile Data Reading ─────────────────────────────────────
+    ' --- Tile Data Reading -------------------------------------
     ' 4bpp tile: 32 bytes per tile, VG maps each byte = 2 pixels
     ' GBA format: each 4 bits is a palette index
 
@@ -68,7 +68,7 @@ Class GBAGPU
         Return Mem.Read8(baseAddr + byteOffset)
     End Function
 
-    ' ─── Tilemap Background Render (Mode 0) ────────────────────
+    ' --- Tilemap Background Render (Mode 0) --------------------
 
     Sub RenderBGTileMap(bgNum As Integer)
         ' Get BG control register
@@ -132,7 +132,7 @@ Class GBAGPU
         Next
     End Sub
 
-    ' ─── Mode 3 Bitmap Render ──────────────────────────────────
+    ' --- Mode 3 Bitmap Render ----------------------------------
 
     Sub RenderMode3()
         ' Mode 3: 240x160, 16-bit BGR555 framebuffer at &H06000000
@@ -152,7 +152,7 @@ Class GBAGPU
         Next
     End Sub
 
-    ' ─── Mode 4 Bitmap (palette-based, double-buffered) ────────
+    ' --- Mode 4 Bitmap (palette-based, double-buffered) --------
 
     Sub RenderMode4()
         Dim pageBase As Long = &H06000000
@@ -172,13 +172,13 @@ Class GBAGPU
         Next
     End Sub
 
-    ' ─── Blank Screen ──────────────────────────────────────────
+    ' --- Blank Screen ------------------------------------------
 
     Sub ClearScreen()
         FillImage Framebuf, Color8(0, 0, 0, 255)
     End Sub
 
-    ' ─── Read IO Registers ─────────────────────────────────────
+    ' --- Read IO Registers -------------------------------------
 
     Sub ReadRegisters()
         Dim ioBase As Long = ADDR_IO
@@ -198,7 +198,7 @@ Class GBAGPU
         VCount = Mem.Read16(ioBase + IO_VCOUNT)
     End Sub
 
-    ' ─── Main Render Frame ─────────────────────────────────────
+    ' --- Main Render Frame -------------------------------------
 
     Sub RenderFrame()
         ReadRegisters()

@@ -1,0 +1,73 @@
+' Test: nested same-object method call field visibility
+' Regression test for a class-instance engine bug (fixed Jul 28 2026, found
+' while headless-testing the GBA emulator's ExecuteARM/Step against a real ROM).
+' execute_class_method() shares a single flat 'variables' dictionary for both
+' local variables and the object's Public fields. When a method calls a SIBLING
+' method on the SAME object instance (e.g. Step() calling ExecuteARM() on
+' itself), two separate bugs could make the outer method see a stale/incorrect
+' value for a Public field the inner call just wrote:
+'   1. Exit-side clobber: the outer call's own end-of-method restore of its
+'      pre-call 'variables' snapshot discarded the inner call's just-persisted
+'      field write.
+'   2. Entry-side clobber: the inner call's entry-side field load re-read from
+'      object_instances (stale, since the outer caller's own in-progress field
+'      writes hadn't been persisted there yet).
+' Both must be fixed together. See build_and_test.md "Class self-call engine
+' bug" section for full details.
+Attribute VB_Name = "TestNestedSameObjectCall"
+
+Class Flagger
+	Public Flag As Boolean
+	Public Counter As Integer
+
+	Sub Class_Initialize()
+		Flag = False
+		Counter = 0
+	End Sub
+
+	' Outer method: resets Flag, calls a sibling method on itself, then
+	' immediately reads Flag back. Mirrors GBACPU's Step()/ExecuteARM() shape.
+	Function Step() As Boolean
+		Flag = False
+		Execute()
+		Return Flag
+	End Function
+
+	' Inner method: sets Flag inside a nested If block before returning,
+	' mirroring a branch instruction setting PipeFlush = True.
+	Sub Execute()
+		If 1 = 1 Then
+			Flag = True
+		End If
+	End Sub
+
+	' Two sibling calls in a row, each incrementing a scalar field --
+	' regression-checks the original "SetBoth calling SetLow twice" repro
+	' from the class-self-call bug this builds on.
+	Sub BumpTwice()
+		Bump()
+		Bump()
+	End Sub
+
+	Sub Bump()
+		Counter = Counter + 1
+	End Sub
+End Class
+
+Sub _Ready()
+	Dim f = New Flagger
+
+	Dim result As Boolean = f.Step()
+	If result = True And f.Flag = True Then
+		Print "PASS: nested_same_object_field_write_visible"
+	Else
+		Print "FAIL: nested_same_object_field_write_visible: result=" & Str(result) & " Flag=" & Str(f.Flag)
+	End If
+
+	f.BumpTwice()
+	If f.Counter = 2 Then
+		Print "PASS: nested_same_object_scalar_accumulate"
+	Else
+		Print "FAIL: nested_same_object_scalar_accumulate: Counter=" & Str(f.Counter)
+	End If
+End Sub

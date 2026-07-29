@@ -1,4 +1,4 @@
-' gba_constants.vg — GBA Hardware Constants and Memory Map
+' gba_constants.vg -- GBA Hardware Constants and Memory Map
 ' Game Boy Advance emulator written in pure VisualGasic
 ' Tier 2: Playable Subset
 

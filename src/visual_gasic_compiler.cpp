@@ -2938,13 +2938,35 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
         else if (b->op == "<=") Variant::evaluate(Variant::OP_LESS_EQUAL, a, c, res, valid);
         else if (b->op == ">=") Variant::evaluate(Variant::OP_GREATER_EQUAL, a, c, res, valid);
         else if (b->op == "<>") Variant::evaluate(Variant::OP_NOT_EQUAL, a, c, res, valid);
-        else if (b->op.nocasecmp_to("And") == 0) { valid = true; res = vg_variant_truthy(a) && vg_variant_truthy(c); }
-        else if (b->op.nocasecmp_to("Or") == 0) { valid = true; res = vg_variant_truthy(a) || vg_variant_truthy(c); }
-        else if (b->op.nocasecmp_to("Xor") == 0) {
-            bool left = vg_variant_truthy(a);
-            bool right = vg_variant_truthy(c);
+        else if (b->op.nocasecmp_to("And") == 0) {
+            // VB6: bitwise when both operands are numeric, logical otherwise
             valid = true;
-            res = (left && !right) || (!left && right);
+            if ((a.get_type() == Variant::INT || a.get_type() == Variant::FLOAT) &&
+                (c.get_type() == Variant::INT || c.get_type() == Variant::FLOAT)) {
+                res = Variant((int64_t)a & (int64_t)c);
+            } else {
+                res = vg_variant_truthy(a) && vg_variant_truthy(c);
+            }
+        }
+        else if (b->op.nocasecmp_to("Or") == 0) {
+            valid = true;
+            if ((a.get_type() == Variant::INT || a.get_type() == Variant::FLOAT) &&
+                (c.get_type() == Variant::INT || c.get_type() == Variant::FLOAT)) {
+                res = Variant((int64_t)a | (int64_t)c);
+            } else {
+                res = vg_variant_truthy(a) || vg_variant_truthy(c);
+            }
+        }
+        else if (b->op.nocasecmp_to("Xor") == 0) {
+            valid = true;
+            if ((a.get_type() == Variant::INT || a.get_type() == Variant::FLOAT) &&
+                (c.get_type() == Variant::INT || c.get_type() == Variant::FLOAT)) {
+                res = Variant((int64_t)a ^ (int64_t)c);
+            } else {
+                bool left = vg_variant_truthy(a);
+                bool right = vg_variant_truthy(c);
+                res = (left && !right) || (!left && right);
+            }
         }
         else if (b->op.nocasecmp_to("Mod") == 0) {
             valid = true;

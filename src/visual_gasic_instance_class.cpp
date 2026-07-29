@@ -349,9 +349,26 @@ void VisualGasicInstance::register_class(ClassDefinition* cls) {
 void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefinition* method, int obj_id, const Array& args, Variant& r_ret) {
     // Save current object context
     Dictionary saved_vars = variables.duplicate();
-    
-    // Load object members into variable scope
-    if (object_instances.has(obj_id)) {
+
+    // Detect a NESTED call to another method on the SAME object instance
+    // (e.g. Step() calling ExecuteARM() on itself), computed here (before
+    // current_object_id is overwritten below) so it can also gate the
+    // object-member load immediately below.
+    bool nested_same_object = (current_object_id == obj_id);
+
+    // Load object members into variable scope. Skipped for a nested call
+    // on the SAME object: 'variables' is a flat dictionary shared for both
+    // local variables and the object's Public fields, and the caller's
+    // live 'variables' already reflects the most up-to-date field values
+    // (including writes the caller made that haven't been persisted to
+    // object_instances yet, since the caller hasn't returned). Reloading
+    // from object_instances here would clobber those not-yet-persisted
+    // writes with stale data -- e.g. Step() writes PipeFlush = False, then
+    // calls ExecuteARM() on itself; without this guard, ExecuteARM()'s
+    // entry would overwrite PipeFlush back to whatever stale value was
+    // last persisted (from a previous call), silently undoing Step()'s
+    // reset before ExecuteARM() even runs.
+    if (!nested_same_object && object_instances.has(obj_id)) {
         Dictionary obj_data = object_instances[obj_id];
         Array keys = obj_data.keys();
         for (int i = 0; i < keys.size(); i++) {
@@ -371,6 +388,8 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
     SubDefinition* saved_sub = current_sub;
     current_sub = method;
     int saved_object_id = current_object_id;
+    // (nested_same_object was already computed above, before current_object_id
+    // was overwritten, so it could also gate the entry-side field load.)
     current_object_id = obj_id;
     
     // Push call stack frame for debugger
@@ -384,7 +403,16 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
         
         // Check for early exit
         if (error_state.mode == ErrorState::EXIT_SUB) {
+            error_state.has_error = false;
             error_state.mode = ErrorState::NONE;
+            break;
+        }
+        // Stop executing further statements on a genuine unhandled error
+        // (mode == NONE means no On Error handler caught it) — mirrors
+        // call_internal()'s loop. Without this, a real runtime error partway
+        // through a class method would silently continue running the rest
+        // of the method's statements.
+        if (error_state.has_error && error_state.mode == ErrorState::NONE) {
             break;
         }
     }
@@ -428,6 +456,23 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
     
     // Restore variable scope
     variables = saved_vars;
+
+    // Re-sync the object's just-persisted field values into the restored
+    // scope if this was a nested same-object call (see comment above).
+    // Without this, the outer method's subsequent bare-identifier reads of
+    // a Public field the nested call just wrote (e.g. checking a flag set
+    // by a helper method right before it returns) would see the stale
+    // pre-call value instead.
+    if (nested_same_object && object_instances.has(obj_id)) {
+        Dictionary obj_data_after = object_instances[obj_id];
+        Array keys_after = obj_data_after.keys();
+        for (int i = 0; i < keys_after.size(); i++) {
+            String key = keys_after[i];
+            if (!key.begins_with("__")) {
+                variables[key] = obj_data_after[key];
+            }
+        }
+    }
 }
 
 // Property accessors
