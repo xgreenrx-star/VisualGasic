@@ -276,19 +276,29 @@ Function C64_Step() As Integer
     End If
 
     ' Handle IRQ
-    Dim irqAllowed As Boolean = Not C64_GetF(FLAG_IRQ_DISABLE)
-    If gC64_IRQPending And irqAllowed Then
-        C64_Push BitAnd(BitShiftRight(gC64_PC, 8), &HFF)
-        C64_Push BitAnd(gC64_PC, &HFF)
-        C64_Push BitAnd(gC64_Flags, &HDF)
-        C64_SetF FLAG_IRQ_DISABLE, True
-        gC64_PC = Mem_Read(&HFFFE) Or BitShiftLeft(Mem_Read(&HFFFF), 8)
-        gC64_IRQPending = False
-        gC64_Cycles = gC64_Cycles + 7
-        Return 7
+    ' PERF: nested If instead of "gC64_IRQPending And Not C64_GetF(...)" --
+    ' VG's And/Or are NOT short-circuiting, so the naive form called
+    ' C64_GetF() (a full function call) on every single instruction even
+    ' when no IRQ was pending. Nesting the check skips that call entirely
+    ' in the overwhelmingly common (no-IRQ-pending) case.
+    If gC64_IRQPending Then
+        If Not C64_GetF(FLAG_IRQ_DISABLE) Then
+            C64_Push BitAnd(BitShiftRight(gC64_PC, 8), &HFF)
+            C64_Push BitAnd(gC64_PC, &HFF)
+            C64_Push BitAnd(gC64_Flags, &HDF)
+            C64_SetF FLAG_IRQ_DISABLE, True
+            gC64_PC = Mem_Read(&HFFFE) Or BitShiftLeft(Mem_Read(&HFFFF), 8)
+            gC64_IRQPending = False
+            gC64_Cycles = gC64_Cycles + 7
+            Return 7
+        End If
     End If
 
-    gC64_op = C64_Fetch()
+    ' PERF: inlined C64_Fetch() for the opcode-byte read -- this executes
+    ' unconditionally on every single Step() call, so avoiding the extra
+    ' function-call layer here is a guaranteed per-instruction win.
+    gC64_op = Mem_Read(gC64_PC)
+    gC64_PC = (gC64_PC + 1) And &HFFFF
 
     ' Dispatch all 151 documented opcodes
     Select Case gC64_op
