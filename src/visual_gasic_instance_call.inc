@@ -43,9 +43,22 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     if (!func) func = first_match; // Backward compat: single-overload always matches
     
     // ── Cross-module function resolution (v4.3.0) ──
-    // If the function wasn't found in the current script, search imported modules
+    // If the function wasn't found in the current script, search imported modules.
+    // v4.4.0: also remember which module the function actually came from, so its
+    // bytecode can be compiled/cached against that module's own AST below instead
+    // of the calling script's (which would never find it).
+    ImportedModule* owning_module = nullptr;
     if (!func && imported_modules.size() > 0) {
-        func = find_imported_sub(p_method, call_arg_count);
+        String found_module_name;
+        func = find_imported_sub(p_method, call_arg_count, &found_module_name);
+        if (func) {
+            for (int m = 0; m < imported_modules.size(); m++) {
+                if (imported_modules[m].module_name.nocasecmp_to(found_module_name) == 0) {
+                    owning_module = &imported_modules.write[m];
+                    break;
+                }
+            }
+        }
     }
 
     // ── Same-class sibling method resolution ──
@@ -95,15 +108,21 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     // ForEach variable name into BytecodeChunk::local_names, so we can
     // just iterate that flat vector — O(locals) instead of O(AST nodes).
     // v3.7: Use mangled bytecode key for overloaded functions (name$arity)
+    // v4.4.0: mangle against the OWNING module's own subs list (main script
+    // or an imported module), not always the calling script's ast_root.
     String bytecode_key = func->name;
-    for (int _oi = 0; _oi < script->ast_root->subs.size(); _oi++) {
-        if (script->ast_root->subs[_oi] != func &&
-            script->ast_root->subs[_oi]->name.nocasecmp_to(func->name) == 0) {
-            bytecode_key = func->name + "$" + String::num_int64(func->parameters.size());
-            break;
+    {
+        const Vector<SubDefinition*>& owner_subs = owning_module ? owning_module->ast->subs : script->ast_root->subs;
+        for (int _oi = 0; _oi < owner_subs.size(); _oi++) {
+            if (owner_subs[_oi] != func &&
+                owner_subs[_oi]->name.nocasecmp_to(func->name) == 0) {
+                bytecode_key = func->name + "$" + String::num_int64(func->parameters.size());
+                break;
+            }
         }
     }
-    BytecodeChunk *chunk_for_locals = script.is_valid() ? script->get_bytecode_for(bytecode_key) : nullptr;
+    BytecodeChunk *chunk_for_locals = owning_module ? get_bytecode_for_import(*owning_module, bytecode_key)
+                                                     : (script.is_valid() ? script->get_bytecode_for(bytecode_key, &get_global_buffer_var_names()) : nullptr);
     if (chunk_for_locals) {
         for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
             const String &lname = chunk_for_locals->local_names[i];

@@ -99,7 +99,7 @@ void VisualGasicInstance::_resume_coroutine() {
     Ref<VisualGasicScript> scr = script;
     if (scr.is_null()) return;
     
-    BytecodeChunk* chunk = scr->get_bytecode_for(cs.function_name);
+    BytecodeChunk* chunk = scr->get_bytecode_for(cs.function_name, &get_global_buffer_var_names());
     SubDefinition* func_def = nullptr;
     
     // Look up the SubDefinition so execute_bytecode can set current_sub

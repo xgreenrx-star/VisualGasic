@@ -21,7 +21,20 @@ public:
     VisualGasicCompiler();
     ~VisualGasicCompiler();
 
-    bool compile(ModuleNode* module, const String& entry_point, BytecodeChunk* chunk);
+    // extra_buffer_vars: optional set of lowercased variable names (gathered by the
+    // caller across ALL modules of the running instance, e.g. via collect_buffer_var_names())
+    // that are known to hold MemoryBuffer objects. Needed because a module-level global can be
+    // assigned its MemoryBuffer identity in one module (e.g. a shared "memory" module's Init sub)
+    // while being indexed from Subs compiled out of a completely different imported module — a
+    // purely intra-module AST scan can never see across that boundary.
+    bool compile(ModuleNode* module, const String& entry_point, BytecodeChunk* chunk, const HashSet<String>* extra_buffer_vars = nullptr);
+
+    // Static utility: recursively scans a single module's Subs for "X = New MemoryBuffer(...)"
+    // / "Set X = New MemoryBuffer(...)" assignments, inserting lowercased names into `out`.
+    // Exposed so callers (e.g. VisualGasicInstance) can pre-compute a cross-module buffer-var
+    // name set to pass into compile() via extra_buffer_vars.
+    static void scan_module_for_buffer_vars(ModuleNode* module, HashSet<String>& out);
+    static void scan_stmt_for_buffer_vars(Statement* stmt, HashSet<String>& out);
 
 private:
     BytecodeChunk* current_chunk;

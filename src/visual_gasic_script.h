@@ -5,6 +5,7 @@
 #include <list>
 #include <godot_cpp/classes/script_extension.hpp>
 #include <godot_cpp/classes/script_language.hpp>
+#include <godot_cpp/templates/hash_set.hpp>
 #include "visual_gasic_tokenizer.h"
 #include "visual_gasic_parser.h" 
 #include "visual_gasic_bytecode.h"
@@ -80,7 +81,7 @@ public:
     // Tools
     void format_source_code();
     void clear_bytecode_cache();
-    BytecodeChunk *get_bytecode_for(const String &entry_point);
+    BytecodeChunk *get_bytecode_for(const String &entry_point, const HashSet<String>* extra_buffer_vars = nullptr);
     Dictionary debug_dump_bytecode(const String &entry_point);
 };
 

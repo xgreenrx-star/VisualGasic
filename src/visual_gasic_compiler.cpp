@@ -237,7 +237,7 @@ void VisualGasicCompiler::emit_loop(int loop_start) {
     emit_byte(offset & 0xFF);
 }
 
-bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point, BytecodeChunk* chunk) {
+bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point, BytecodeChunk* chunk, const HashSet<String>* extra_buffer_vars) {
     current_chunk = chunk;
     current_module = module;
     compile_ok = true;
@@ -361,6 +361,24 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         // so the compiler emits OP_GET_ARRAY instead of OP_CALL
         if (vtype == "array") {
             array_vars.insert(module->variables[i]->name.to_lower());
+        }
+    }
+
+    // v4.4.0: pre-scan every Sub in the module for "X = New MemoryBuffer(...)" /
+    // "Set X = New MemoryBuffer(...)" assignments so buffer_vars is populated even
+    // when a module-level `Public X As Variant` global gets its MemoryBuffer
+    // identity assigned in a DIFFERENT Sub (e.g. an Init routine) than the ones
+    // that later index into it — this can't be seen by looking only at the entry
+    // point Sub currently being compiled.
+    scan_module_for_buffer_vars(module, buffer_vars);
+    // Cross-module case: the Sub being compiled here may live in an imported
+    // module that never itself contains the "Set X = New MemoryBuffer(...)"
+    // assignment (that lives in a *different* imported module's Init routine).
+    // The caller (VisualGasicInstance) pre-computes the union across every
+    // module it knows about and hands it to us here.
+    if (extra_buffer_vars) {
+        for (const String &name : *extra_buffer_vars) {
+            buffer_vars.insert(name);
         }
     }
 
@@ -904,6 +922,72 @@ void VisualGasicCompiler::collect_assigned_vars_stmt(Statement* stmt, HashSet<St
         case STMT_REDIM: {
             ReDimStatement* rs = (ReDimStatement*)stmt;
             out.insert(rs->variable_name.to_lower());
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+void VisualGasicCompiler::scan_module_for_buffer_vars(ModuleNode* module, HashSet<String>& out) {
+    if (!module) return;
+    for (int i = 0; i < module->subs.size(); i++) {
+        SubDefinition* s = module->subs[i];
+        if (!s) continue;
+        for (int j = 0; j < s->statements.size(); j++) scan_stmt_for_buffer_vars(s->statements[j], out);
+    }
+}
+
+void VisualGasicCompiler::scan_stmt_for_buffer_vars(Statement* stmt, HashSet<String>& out) {
+    if (!stmt) return;
+    switch (stmt->type) {
+        case STMT_ASSIGNMENT: {
+            AssignmentStatement* s = (AssignmentStatement*)stmt;
+            if (s->target && s->target->type == ExpressionNode::VARIABLE && s->value && s->value->type == ExpressionNode::NEW) {
+                NewNode* n = (NewNode*)s->value;
+                if (n->class_name.nocasecmp_to("MemoryBuffer") == 0 || n->class_name.nocasecmp_to("Buffer") == 0) {
+                    out.insert(((VariableNode*)s->target)->name.to_lower());
+                }
+            }
+            break;
+        }
+        case STMT_IF: {
+            IfStatement* s = (IfStatement*)stmt;
+            for (int i = 0; i < s->then_branch.size(); i++) scan_stmt_for_buffer_vars(s->then_branch[i], out);
+            for (int i = 0; i < s->else_branch.size(); i++) scan_stmt_for_buffer_vars(s->else_branch[i], out);
+            break;
+        }
+        case STMT_FOR: {
+            ForStatement* f = (ForStatement*)stmt;
+            for (int i = 0; i < f->body.size(); i++) scan_stmt_for_buffer_vars(f->body[i], out);
+            break;
+        }
+        case STMT_FOR_EACH: {
+            ForEachStatement* f = (ForEachStatement*)stmt;
+            for (int i = 0; i < f->body.size(); i++) scan_stmt_for_buffer_vars(f->body[i], out);
+            break;
+        }
+        case STMT_WHILE: {
+            WhileStatement* s = (WhileStatement*)stmt;
+            for (int i = 0; i < s->body.size(); i++) scan_stmt_for_buffer_vars(s->body[i], out);
+            break;
+        }
+        case STMT_DO: {
+            DoStatement* s = (DoStatement*)stmt;
+            for (int i = 0; i < s->body.size(); i++) scan_stmt_for_buffer_vars(s->body[i], out);
+            break;
+        }
+        case STMT_WITH: {
+            WithStatement* s = (WithStatement*)stmt;
+            for (int i = 0; i < s->body.size(); i++) scan_stmt_for_buffer_vars(s->body[i], out);
+            break;
+        }
+        case STMT_SELECT: {
+            SelectStatement* s = (SelectStatement*)stmt;
+            for (int i = 0; i < s->cases.size(); i++) {
+                CaseBlock* cb = s->cases[i];
+                for (int j = 0; j < cb->body.size(); j++) scan_stmt_for_buffer_vars(cb->body[j], out);
+            }
             break;
         }
         default:
@@ -6852,7 +6936,13 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 bool is_dict = is_dictionary_var(var_name);
                 bool is_local = local_slots.has(var_name.to_lower());
                 bool is_param = param_vars.has(var_name.to_lower());
-                if (!is_array && !is_dict && !is_local && !is_param) {
+                // v4.4.0: a module-level MemoryBuffer var (Set X = New MemoryBuffer(...)
+                // in a different Sub than the one being compiled) never gets a local
+                // slot (it's forced non-local as a Public/Global), so `is_local` alone
+                // would misclassify `X(addr)` as a function call. Treat known buffer
+                // vars the same as arrays/dicts here.
+                bool is_buffer = is_buffer_var(var_name);
+                if (!is_array && !is_dict && !is_local && !is_param && !is_buffer) {
                     String vn_lower = var_name.to_lower();
 
                     // ── Phase 5: Godot Variant type constructors ──
@@ -7103,7 +7193,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              }
 
              String call_name = call->method_name.to_lower();
-             if (array_vars.has(call_name) || dictionary_vars.has(call_name) || local_slots.has(call_name) || param_vars.has(call_name)) {
+             if (array_vars.has(call_name) || dictionary_vars.has(call_name) || local_slots.has(call_name) || param_vars.has(call_name) || is_buffer_var(call->method_name)) {
                  if (call->arguments.size() != 1) {
                      compile_ok = false;
                      break;
@@ -7115,6 +7205,15 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                      if (slot >= 0 && slot < 16) {
                          compile_expression(call->arguments[0]);  // push key only
                          emit_bytes(OP_GET_VGDICT_LOCAL, (uint8_t)slot);
+                         break;
+                     }
+                 }
+                 // ── M5: MemoryBuffer READ fast path (call syntax) ──
+                 if (is_buffer_var(call->method_name)) {
+                     int bslot = get_or_add_local(call->method_name, VT_UNKNOWN);
+                     if (bslot >= 0) {
+                         compile_expression(call->arguments[0]);  // push offset only
+                         emit_bytes(OP_BUF_READ8, (uint8_t)bslot);
                          break;
                      }
                  }

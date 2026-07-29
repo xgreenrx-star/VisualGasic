@@ -805,7 +805,7 @@ void VisualGasicScript::clear_bytecode_cache() {
     has_bytecode = false;
 }
 
-BytecodeChunk *VisualGasicScript::get_bytecode_for(const String &entry_point) {
+BytecodeChunk *VisualGasicScript::get_bytecode_for(const String &entry_point, const HashSet<String>* extra_buffer_vars) {
     if (!ast_root || entry_point.is_empty()) {
         return nullptr;
     }
@@ -830,7 +830,7 @@ BytecodeChunk *VisualGasicScript::get_bytecode_for(const String &entry_point) {
     compiled_chunk.local_types.clear();
     compiled_chunk.local_count = 0;
 
-    if (!compiler.compile(ast_root, entry_point, &compiled_chunk)) {
+    if (!compiler.compile(ast_root, entry_point, &compiled_chunk, extra_buffer_vars)) {
         // Bytecode compilation failed - this is expected for some constructs
         // (e.g., method calls on objects). AST interpreter will handle it.
         // Cache the failure to avoid re-compiling on every call.

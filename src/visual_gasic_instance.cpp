@@ -1,5 +1,7 @@
 #include <godot_cpp/classes/file_dialog.hpp>
 #include <godot_cpp/classes/tween.hpp>
+#include "visual_gasic_compiler.h"
+#include "visual_gasic_optimizer.h"
 #include <cstdlib>
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -1697,6 +1699,7 @@ VisualGasicInstance::~VisualGasicInstance() {
     for (int i = 0; i < imported_modules.size(); i++) {
         if (imported_modules[i].parser) delete imported_modules[i].parser;
         if (imported_modules[i].tokenizer) delete imported_modules[i].tokenizer;
+        if (imported_modules[i].bytecode_cache) delete imported_modules[i].bytecode_cache;
     }
     imported_modules.clear();
 }
@@ -1765,6 +1768,83 @@ SubDefinition* VisualGasicInstance::find_sub_in_module(const String& module_name
         return first_match;
     }
     return nullptr;
+}
+
+// ── Multi-module: per-module bytecode cache (v4.4.0) ──
+// Mirrors VisualGasicScript::get_bytecode_for(), but compiles against an
+// imported module's own AST instead of the main script's ast_root, and
+// caches the result on that module's own bytecode_cache. This lets
+// cross-module Sub/Function calls (e.g. functions defined in an Import'd
+// .vg file) actually run as bytecode instead of always falling back to
+// the slower AST tree-walk interpreter, which previously happened
+// unconditionally because call_internal() only ever asked the calling
+// script's own VisualGasicScript for bytecode (which can never find a
+// Sub that lives in a different module's AST).
+// Cross-module MemoryBuffer var-name union — see header comment on
+// get_global_buffer_var_names() for why this is needed. Computed once and
+// cached, since the AST doesn't change after the instance finishes loading
+// its imports.
+const HashSet<String>& VisualGasicInstance::get_global_buffer_var_names() {
+    if (!_global_buffer_var_names_computed) {
+        if (script.is_valid() && script->ast_root) {
+            VisualGasicCompiler::scan_module_for_buffer_vars(script->ast_root, _global_buffer_var_names);
+        }
+        for (int i = 0; i < imported_modules.size(); i++) {
+            if (imported_modules[i].ast) {
+                VisualGasicCompiler::scan_module_for_buffer_vars(imported_modules[i].ast, _global_buffer_var_names);
+            }
+        }
+        _global_buffer_var_names_computed = true;
+    }
+    return _global_buffer_var_names;
+}
+
+BytecodeChunk* VisualGasicInstance::get_bytecode_for_import(ImportedModule& mod, const String& entry_point) {
+    if (!mod.ast || entry_point.is_empty()) {
+        return nullptr;
+    }
+    if (!mod.bytecode_cache) {
+        mod.bytecode_cache = new std::list<ModuleBytecodeEntry>();
+    }
+
+    String key = entry_point.to_lower();
+    for (ModuleBytecodeEntry &entry : *mod.bytecode_cache) {
+        if (entry.name_lower == key) {
+            if (entry.compile_failed) return nullptr;
+            return &entry.chunk;
+        }
+    }
+
+    VisualGasicCompiler compiler;
+    BytecodeChunk compiled_chunk;
+    compiled_chunk.code.clear();
+    compiled_chunk.constants.clear();
+    compiled_chunk.lines.clear();
+    compiled_chunk.local_names.clear();
+    compiled_chunk.local_types.clear();
+    compiled_chunk.local_count = 0;
+
+    if (!compiler.compile(mod.ast, entry_point, &compiled_chunk, &get_global_buffer_var_names())) {
+        // Bytecode compilation failed for this entry point (e.g. an unsupported
+        // construct) — cache the failure so we don't retry every call, and let
+        // the AST interpreter handle it as before.
+        ModuleBytecodeEntry fail_entry;
+        fail_entry.original_name = entry_point;
+        fail_entry.name_lower = key;
+        fail_entry.compile_failed = true;
+        mod.bytecode_cache->push_back(fail_entry);
+        return nullptr;
+    }
+
+    VisualGasicOptimizer::optimize(&compiled_chunk, false);
+
+    ModuleBytecodeEntry entry;
+    entry.original_name = entry_point;
+    entry.name_lower = key;
+    entry.chunk = compiled_chunk;
+    mod.bytecode_cache->push_back(entry);
+
+    return &mod.bytecode_cache->back().chunk;
 }
 
 Variant VisualGasicInstance::evaluate_expression_for_builtins(ExpressionNode* expr) {

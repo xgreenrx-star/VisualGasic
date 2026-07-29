@@ -12,6 +12,7 @@
 #include "visual_gasic_jit_tier3.h"
 #include "gasic_ai_controller.h"
 #include "visual_gasic_comm.h"
+#include "visual_gasic_memory_buffer.h"
 #include <cmath>  // ::sin, ::cos, ::sqrt, ::tan, ::atan2, ::floor, ::ceil, ::exp, ::log
 
 // POSIX unlink / Win32 DeleteFile for Kill symlink fallback
@@ -333,7 +334,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     auto* rc = static_cast<ResolverCtx*>(ctx);
                     String gname = String(name.c_str());
                     if (rc->self->script.is_valid()) {
-                        return rc->self->script->get_bytecode_for(gname);
+                        return rc->self->script->get_bytecode_for(gname, &rc->self->get_global_buffer_var_names());
                     }
                     return nullptr;
                 };
@@ -1491,6 +1492,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     if (!resolved.is_empty() && ClassDB::class_exists(resolved)) {
                         Variant inst = ClassDB::instantiate(resolved);
                         if (inst.get_type() == Variant::OBJECT) {
+                            // v4.4.0: New MemoryBuffer(size) via the generic OP_NEW_OBJECT
+                            // path (e.g. assigning to a module-level/global var) never used
+                            // to allocate the backing storage — only the local-slot fast
+                            // path (OP_BUF_ALLOC) did. Allocate here too so global
+                            // MemoryBuffer objects actually work.
+                            if (resolved == "VGMemoryBuffer" && arg_count > 0) {
+                                Object *obj = inst;
+                                VGMemoryBuffer *mb = Object::cast_to<VGMemoryBuffer>(obj);
+                                if (mb) mb->allocate((int64_t)to_int(args_arr[0]));
+                            }
                             push_value(inst);
                             break;
                         }
@@ -3190,6 +3201,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else if (base.get_type() == Variant::DICTIONARY && arg_count == 1) {
                     Dictionary dict = base;
                     result = dict.get(indices[0], Variant());
+                } else if (base.get_type() == Variant::OBJECT && arg_count == 1) {
+                    // v4.4.0: module-level/global MemoryBuffer vars stay as a real
+                    // VGMemoryBuffer Object (only local-slot buffer vars use the
+                    // PackedByteArray fast path) — support buf(offset) reads on it too.
+                    Object *obj = base;
+                    VGMemoryBuffer *mb = Object::cast_to<VGMemoryBuffer>(obj);
+                    if (mb) {
+                        result = Variant((int64_t)mb->peek_byte((int64_t)to_int(indices[0])));
+                    } else {
+                        raise_error("Unsupported array base type");
+                        if (try_recover_error(Variant())) break;
+                        success = false;
+                        goto cleanup;
+                    }
                 } else {
                     raise_error("Unsupported array base type");
                     if (try_recover_error(Variant())) break;
@@ -3361,6 +3386,24 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else if (ok) {
                         arr.set(idx, (uint8_t)to_int(value));
                         updated = arr;
+                    }
+                } else if (base.get_type() == Variant::OBJECT && arg_count == 1) {
+                    // v4.4.0: module-level/global MemoryBuffer vars (see OP_GET_ARRAY
+                    // comment above) — support buf(offset) = value writes on it too.
+                    Object *obj = base;
+                    VGMemoryBuffer *mb = Object::cast_to<VGMemoryBuffer>(obj);
+                    if (mb) {
+                        mb->poke_byte((int64_t)to_int(indices[0]), (int)to_int(value));
+                        // The Object is reference-counted; no need to push a modified
+                        // copy back onto the stack the way value-type arrays require —
+                        // but the caller always expects a value after this opcode, so
+                        // just push the (unchanged) base back.
+                        updated = base;
+                    } else {
+                        raise_error("Unsupported array assignment base");
+                        if (try_recover_error(base)) break;
+                        success = false;
+                        goto cleanup;
                     }
                 } else {
                     raise_error("Unsupported array assignment base");

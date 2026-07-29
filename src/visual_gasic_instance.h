@@ -13,6 +13,7 @@
 #include <godot_cpp/templates/hash_set.hpp>
 #include "vg_fast_dict.h"
 #include <mutex>
+#include <list>
 
 using namespace godot;
 using namespace VisualGasic;
@@ -37,14 +38,37 @@ class VisualGasicInstance {
     BytecodeChunk*   debug_bc_chunk  = nullptr;
 
     // Multi-module compilation (v4.3.0) — imported module ASTs for cross-file calls
+    // Per-module bytecode cache entry (v4.4.0) — mirrors VisualGasicScript::CompiledEntry
+    // so cross-module Sub/Function calls can be bytecode-compiled instead of always
+    // falling back to slow AST tree-walk interpretation.
+    struct ModuleBytecodeEntry {
+        String original_name;
+        String name_lower;
+        BytecodeChunk chunk;
+        bool compile_failed = false; // Cache compilation failures to avoid re-trying
+    };
     struct ImportedModule {
         String module_name;         // Base filename without extension
         String full_path;           // Resolved absolute path
         ModuleNode* ast = nullptr;  // Parsed AST (owned by parser, cleaned up below)
         VisualGasicParser* parser = nullptr; // Keep alive so AST nodes aren't freed
         VisualGasicTokenizer* tokenizer = nullptr;
+        // Heap-allocated (lazily, on first bytecode compile) rather than embedded by
+        // value: imported_modules is a godot::Vector<ImportedModule>, and Vector's
+        // CowData grows via raw realloc() (see cowdata.hpp _realloc) which moves bytes
+        // without invoking move/copy constructors. std::list's sentinel node is
+        // self-referential (points to itself when empty), so an embedded-by-value
+        // std::list would be silently corrupted the moment the Vector reallocates —
+        // a bare pointer is trivially relocatable and avoids this entirely. std::list
+        // (not godot::Vector) is still used *inside* for the same pointer-stability
+        // reason as VisualGasicScript::bytecode_cache: appending must not invalidate a
+        // chunk pointer already in use higher up the call stack.
+        std::list<ModuleBytecodeEntry>* bytecode_cache = nullptr;
     };
     Vector<ImportedModule> imported_modules;
+    // Cross-module MemoryBuffer var-name cache (see get_global_buffer_var_names() below)
+    HashSet<String> _global_buffer_var_names;
+    bool _global_buffer_var_names_computed = false;
     static thread_local Vector<String> import_stack; // Circular import detection
 
     Ref<DirAccess> current_dir; // For Dir() iteration
@@ -425,6 +449,18 @@ public:
     SubDefinition* find_imported_sub(const String& name, int arg_count = -1, String* r_module_name = nullptr);
     // Multi-module: find a Sub/Function in a specific imported module
     SubDefinition* find_sub_in_module(const String& module_name, const String& sub_name, int arg_count = -1);
+    // Multi-module: get (compiling + caching on first use) the bytecode chunk for
+    // entry_point within a specific imported module's own AST, analogous to
+    // VisualGasicScript::get_bytecode_for() but scoped to that module.
+    BytecodeChunk* get_bytecode_for_import(ImportedModule& mod, const String& entry_point);
+    // Cross-module MemoryBuffer support (v4.4.0): lazily computed, cached union of
+    // every "X = New MemoryBuffer(...)" variable name found across the main
+    // script's AST *and* every imported module's AST. A Sub compiled out of one
+    // module (e.g. a VIC-II renderer module) may index a MemoryBuffer global that
+    // is only ever assigned its identity in a *different* module's Init routine
+    // (e.g. a shared memory-map module) — no single module's own AST scan can see
+    // that assignment, so the compiler needs this cross-module set handed to it.
+    const HashSet<String>& get_global_buffer_var_names();
 
     static const GDExtensionScriptInstanceInfo3 *get_script_instance_info();
 };
