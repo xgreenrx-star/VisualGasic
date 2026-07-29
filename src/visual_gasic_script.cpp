@@ -587,6 +587,24 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
                 }
             }
         }
+        // Also scan labels inside class methods (Function/Sub bodies declared
+        // inside Class ... End Class) — these were previously skipped entirely,
+        // so any GoTo/GoSub/Label pair inside a class method always failed with
+        // "Label not found" at runtime.
+        for(int c=0; c<ast_root->class_defs.size(); c++) {
+            ClassDefinition* cls = ast_root->class_defs[c];
+            if (!cls) continue;
+            for(int i=0; i<cls->methods.size(); i++) {
+                SubDefinition* sub = cls->methods[i];
+                if (!sub) continue;
+                for(int j=0; j<sub->statements.size(); j++) {
+                    if (sub->statements[j]->type == STMT_LABEL) {
+                        LabelStatement* lbl = (LabelStatement*)sub->statements[j];
+                        sub->label_map[lbl->name] = j;
+                    }
+                }
+            }
+        }
     }
     
     return OK;

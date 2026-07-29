@@ -1,5 +1,19 @@
 void VisualGasicInstance::execute_statement(Statement* stmt) {
     if (!stmt) return;
+
+    // Keep the debugger's line tracker in sync during tree-walk execution.
+    // `debug_state.current_line` (read by raise_error() for error messages)
+    // was previously ONLY ever updated by the bytecode VM
+    // (visual_gasic_instance_bytecode_vm.cpp) — tree-walk execution (ALL
+    // Class methods, plus any module-level Sub that falls back to tree-walk)
+    // never touched it. This meant any runtime error raised while executing
+    // a Class method reported the STALE line/sub from the last bytecode
+    // instruction that ran before control transferred into the tree-walked
+    // call (e.g. the caller's `Emu.Step()` call-site line), instead of the
+    // actual failing line inside the method itself.
+    if (stmt->line > 0) {
+        debug_state.current_line = stmt->line;
+    }
     
     // Check for step debugging and breakpoints (for AST interpreter fallback when bytecode fails)
     if (stmt->line > 0 && script.is_valid()) {
@@ -324,6 +338,15 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                         else if (t == "string") variables[s->variable_name] = "";
                         else if (t == "boolean") variables[s->variable_name] = false;
                         else if (t == "dictionary") variables[s->variable_name] = Dictionary();
+                        else if (t == "packedbytearray") variables[s->variable_name] = PackedByteArray();
+                        else if (t == "packedint32array") variables[s->variable_name] = PackedInt32Array();
+                        else if (t == "packedint64array") variables[s->variable_name] = PackedInt64Array();
+                        else if (t == "packedfloat32array") variables[s->variable_name] = PackedFloat32Array();
+                        else if (t == "packedfloat64array") variables[s->variable_name] = PackedFloat64Array();
+                        else if (t == "packedstringarray") variables[s->variable_name] = PackedStringArray();
+                        else if (t == "packedvector2array") variables[s->variable_name] = PackedVector2Array();
+                        else if (t == "packedvector3array") variables[s->variable_name] = PackedVector3Array();
+                        else if (t == "packedcolorarray") variables[s->variable_name] = PackedColorArray();
                         else if (t == "collection") {
                             // Auto-instantiate Collection (with optional generic type param)
                             Variant col = ClassDB::instantiate("VGCollection");
@@ -387,9 +410,15 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         case STMT_IF: {
             IfStatement* s = (IfStatement*)stmt;
             if (evaluate_expression(s->condition).booleanize()) {
-                for(int i=0; i<s->then_branch.size(); i++) execute_statement(s->then_branch[i]);
+                for(int i=0; i<s->then_branch.size(); i++) {
+                    execute_statement(s->then_branch[i]);
+                    if (error_state.has_error || error_state.mode != ErrorState::NONE) break;
+                }
             } else {
-                for(int i=0; i<s->else_branch.size(); i++) execute_statement(s->else_branch[i]);
+                for(int i=0; i<s->else_branch.size(); i++) {
+                    execute_statement(s->else_branch[i]);
+                    if (error_state.has_error || error_state.mode != ErrorState::NONE) break;
+                }
             }
             break;
         }

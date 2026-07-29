@@ -1306,7 +1306,79 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                     
                     if (import_ast && import_parser->errors.size() == 0) {
                         String mod_name = full_path.get_file().get_basename();
-                        
+
+                        // Scan Labels — imported files are parsed independently
+                        // (never routed through VisualGasicScript::reload()), so
+                        // GoTo/GoSub/Label targets in module-level Subs AND in
+                        // Class methods defined in an imported .vg file must be
+                        // resolved here too, or every GoTo inside them fails at
+                        // runtime with "Label not found".
+                        for (int si2 = 0; si2 < import_ast->subs.size(); si2++) {
+                            SubDefinition* sub2 = import_ast->subs[si2];
+                            for (int j2 = 0; j2 < sub2->statements.size(); j2++) {
+                                if (sub2->statements[j2]->type == STMT_LABEL) {
+                                    LabelStatement* lbl2 = (LabelStatement*)sub2->statements[j2];
+                                    sub2->label_map[lbl2->name] = j2;
+                                }
+                            }
+                        }
+                        for (int cdi2 = 0; cdi2 < import_ast->class_defs.size(); cdi2++) {
+                            ClassDefinition* cls2 = import_ast->class_defs[cdi2];
+                            if (!cls2) continue;
+                            for (int mi2 = 0; mi2 < cls2->methods.size(); mi2++) {
+                                SubDefinition* sub2 = cls2->methods[mi2];
+                                if (!sub2) continue;
+                                for (int j2 = 0; j2 < sub2->statements.size(); j2++) {
+                                    if (sub2->statements[j2]->type == STMT_LABEL) {
+                                        LabelStatement* lbl2 = (LabelStatement*)sub2->statements[j2];
+                                        sub2->label_map[lbl2->name] = j2;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Initialize the imported module's own module-level
+                        // globals/consts/array-Dims into THIS instance's shared
+                        // `variables` map — mirroring the main script's own
+                        // global-init block above. Previously this was skipped
+                        // entirely for imported files: only a separate
+                        // `mod_dict`/`module_registry` snapshot (for qualified
+                        // ModuleName.Variable dot-access) was built below, using
+                        // bare scalar defaults and NEVER executing the actual
+                        // STMT_DIM statements — so any array-sized module-level
+                        // Dim in an imported file (e.g. `Dim g_c64Pal(15) As
+                        // Variant`) never got created in `variables` at all,
+                        // causing "Expected Array for index access" the first
+                        // time a Sub in that module tried to index into it.
+                        for (int vi3 = 0; vi3 < import_ast->variables.size(); vi3++) {
+                            VariableDefinition* v3 = import_ast->variables[vi3];
+                            if (v3->array_sizes.size() > 0) continue; // handled by STMT_DIM below
+                            if (variables.has(v3->name)) continue;
+                            String t3 = v3->type.to_lower();
+                            if (t3 == "integer" || t3 == "long") variables[v3->name] = (int)0;
+                            else if (t3 == "single" || t3 == "double") variables[v3->name] = (float)0.0;
+                            else if (t3 == "string") variables[v3->name] = "";
+                            else if (t3 == "boolean") variables[v3->name] = false;
+                            else variables[v3->name] = Variant();
+                        }
+                        for (int ci3 = 0; ci3 < import_ast->constants.size(); ci3++) {
+                            ConstStatement* c3 = import_ast->constants[ci3];
+                            if (c3->value && !variables.has(c3->name)) {
+                                variables[c3->name] = evaluate_expression(c3->value);
+                            }
+                        }
+                        {
+                            bool prev_whenever_suppress = whenever_init_suppress;
+                            whenever_init_suppress = true;
+                            for (int gi3 = 0; gi3 < import_ast->global_statements.size(); gi3++) {
+                                Statement* stmt3 = import_ast->global_statements[gi3];
+                                if (stmt3->type == STMT_DIM || stmt3->type == STMT_CONST || stmt3->type == STMT_WHENEVER_SECTION) {
+                                    execute_statement(stmt3);
+                                }
+                            }
+                            whenever_init_suppress = prev_whenever_suppress;
+                        }
+
                         // Store the full AST for cross-module function calls
                         ImportedModule im;
                         im.module_name = mod_name;

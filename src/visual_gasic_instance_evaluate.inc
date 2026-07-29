@@ -1053,6 +1053,77 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             if (base.get_type() == Variant::INT) {
                 int obj_id = (int)base;
                 if (object_instances.has(obj_id)) {
+                    // Disambiguate `obj.FieldName(args)` — VB6-style array/
+                    // buffer-indexed FIELD access on another object (e.g.
+                    // `Mem.ColorRAM(index)`) — from a genuine method call.
+                    // Mirrors the bare (self) `FieldName(args)` disambiguation
+                    // above (`variables.has(call->method_name)` + is_array/
+                    // is_packed/DICTIONARY/OBJECT-with-PeekByte checks), which
+                    // only covers the CURRENT object's own fields via
+                    // `variables`. A cross-object qualified access has no
+                    // equivalent in `variables`, so without this check it
+                    // always fell through straight to call_object_method(),
+                    // which then failed with "Method '<FieldName>' not found"
+                    // for any indexed field access on another object.
+                    Dictionary obj_data = object_instances[obj_id];
+                    String field_key;
+                    if (obj_data.has(call->method_name)) {
+                        field_key = call->method_name;
+                    } else {
+                        Array _ok = obj_data.keys();
+                        for (int _oi = 0; _oi < _ok.size(); _oi++) {
+                            String _okn = _ok[_oi];
+                            if (!_okn.begins_with("__") && _okn.nocasecmp_to(call->method_name) == 0) {
+                                field_key = _okn;
+                                break;
+                            }
+                        }
+                    }
+                    if (!field_key.is_empty()) {
+                        String class_name = obj_data.get("__class__", String());
+                        ClassDefinition* cls_for_check = get_class_def(class_name);
+                        SubDefinition* method_check = cls_for_check ? find_method_in_hierarchy(cls_for_check, call->method_name, call_args.size()) : nullptr;
+                        if (!method_check) {
+                            Variant fv = obj_data[field_key];
+                            bool f_is_array = (fv.get_type() == Variant::ARRAY);
+                            bool f_is_packed = (fv.get_type() >= Variant::PACKED_BYTE_ARRAY && fv.get_type() <= Variant::PACKED_COLOR_ARRAY);
+                            if (f_is_array && call_args.size() >= 1) {
+                                Variant current = fv;
+                                bool fail = false;
+                                for (int i = 0; i < call_args.size(); i++) {
+                                    if (current.get_type() != Variant::ARRAY) { fail = true; break; }
+                                    Array arr = current;
+                                    int idx = call_args[i];
+                                    if (idx >= 0 && idx < arr.size()) {
+                                        current = arr[idx];
+                                    } else {
+                                        raise_error("Array subscript out of range", 9);
+                                        return Variant();
+                                    }
+                                }
+                                if (!fail) return current;
+                            } else if (f_is_packed && call_args.size() == 1) {
+                                int idx = call_args[0];
+                                bool valid = false, oob = false;
+                                Variant res = fv.get_indexed(idx, valid, oob);
+                                if (oob) {
+                                    raise_error("Array subscript out of range", 9);
+                                    return Variant();
+                                }
+                                if (valid) return res;
+                            } else if (fv.get_type() == Variant::DICTIONARY && call_args.size() == 1) {
+                                Dictionary d = fv;
+                                Variant key = call_args[0];
+                                if (d.has(key)) return d[key];
+                                return Variant();
+                            } else if (fv.get_type() == Variant::OBJECT) {
+                                Object* fobj = fv;
+                                if (fobj && call_args.size() == 1 && fobj->has_method("PeekByte")) {
+                                    return fobj->call("PeekByte", call_args[0]);
+                                }
+                            }
+                        }
+                    }
                     return call_object_method(obj_id, call->method_name, call_args);
                 }
             }
@@ -2455,7 +2526,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
         // Check for null operands from parser errors
         if (!bin->left || !bin->right) {
-            raise_error("Incomplete binary operation: missing operand");
+            raise_error("Incomplete binary operation: missing operand for op '" + bin->op + "' (left=" + (bin->left ? "ok" : "NULL") + ", right=" + (bin->right ? "ok" : "NULL") + ")");
             return Variant();
         }
 

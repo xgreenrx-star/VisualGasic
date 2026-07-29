@@ -97,6 +97,39 @@ PropertyDefinition* VisualGasicInstance::find_property_in_hierarchy(ClassDefinit
     return nullptr;
 }
 
+// Build a (possibly multi-dimensional) fixed-size array with typed default values,
+// matching the ArrayBuilder used for local "Dim arr(N) As Type" statements
+// (see visual_gasic_instance_execute.inc, STMT_DIM) — kept in sync with that logic.
+static Array build_fixed_size_array(const Vector<int>& dims, int depth, const String& type_name, const Dictionary& prototypes) {
+    Array a;
+    int size = dims[depth];
+    a.resize(size);
+    if (depth < dims.size() - 1) {
+        for (int i = 0; i < size; i++) {
+            a[i] = build_fixed_size_array(dims, depth + 1, type_name, prototypes);
+        }
+    } else {
+        if (!type_name.is_empty() && prototypes.has(type_name)) {
+            for (int i = 0; i < size; i++) {
+                a[i] = ((Dictionary)prototypes[type_name]).duplicate(true);
+            }
+        } else if (!type_name.is_empty()) {
+            String tn = type_name.to_lower();
+            Variant def_val;
+            if (tn == "integer" || tn == "long" || tn == "longlong" || tn == "int") def_val = (int64_t)0;
+            else if (tn == "single" || tn == "double" || tn == "float") def_val = 0.0;
+            else if (tn == "string") def_val = String("");
+            else if (tn == "boolean" || tn == "bool") def_val = false;
+            if (def_val.get_type() != Variant::NIL) {
+                for (int i = 0; i < size; i++) {
+                    a[i] = def_val;
+                }
+            }
+        }
+    }
+    return a;
+}
+
 // Initialize members from entire hierarchy (base first, then derived overrides)
 void VisualGasicInstance::init_members_from_hierarchy(ClassDefinition* cls, Dictionary& obj_data) {
     Vector<ClassDefinition*> chain;
@@ -106,7 +139,17 @@ void VisualGasicInstance::init_members_from_hierarchy(ClassDefinition* cls, Dict
         ClassDefinition* cur = chain[c];
         for (int i = 0; i < cur->members.size(); i++) {
             VariableDefinition* member = cur->members[i];
-            if (member->default_value) {
+            if (member->array_sizes.size() > 0) {
+                // Fixed-size array member (e.g. "Public KeyCol(7) As Integer") — build a
+                // properly-sized Array instead of falling through to the scalar defaults
+                // below, otherwise indexed access on it fails with "Expected Array for
+                // index access" at runtime.
+                Vector<int> dims;
+                for (int d = 0; d < member->array_sizes.size(); d++) {
+                    dims.push_back(member->array_sizes[d] + 1); // 0..N inclusive
+                }
+                obj_data[member->name] = build_fixed_size_array(dims, 0, member->type, struct_prototypes);
+            } else if (member->default_value) {
                 obj_data[member->name] = evaluate_expression(member->default_value);
             } else {
                 if (member->type.nocasecmp_to("Integer") == 0 || member->type.nocasecmp_to("Long") == 0) {
@@ -398,7 +441,14 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
     int start_line = method->statements.size() > 0 ? method->statements[0]->line : 0;
     VisualGasicLanguage::push_stack_frame(file_path, full_method_name, start_line, this);
     
+    // Save/restore jump_target around this method's own execute loop — it's
+    // a shared VisualGasicInstance member, so a nested call (e.g. this method
+    // calling a sibling/cross-object method) must not clobber the caller's
+    // in-progress GoTo/GoSub state.
+    int prev_jump = jump_target;
+
     for (int i = 0; i < method->statements.size(); i++) {
+        jump_target = -1;
         execute_statement(method->statements[i]);
         
         // Check for early exit
@@ -415,7 +465,20 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
         if (error_state.has_error && error_state.mode == ErrorState::NONE) {
             break;
         }
+
+        // GoTo/GoSub support — WAS COMPLETELY MISSING for class methods.
+        // STMT_GOTO/STMT_GOSUB/STMT_ON_GOTO/etc. set jump_target (an index
+        // into this method's statement list) but nothing ever applied it
+        // here, so GoTo silently did nothing inside a Class method (fell
+        // through to the next statement in sequence instead of jumping).
+        // Mirrors the same pattern already used for module-level Subs in
+        // call_internal() (visual_gasic_instance_call.inc).
+        if (jump_target != -1) {
+            i = jump_target;
+        }
     }
+
+    jump_target = prev_jump;
     
     // Get return value for functions
     if (method->type == SubDefinition::TYPE_FUNCTION) {

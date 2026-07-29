@@ -69,7 +69,7 @@ void VisualGasicParser::error(const String& message) {
     error_count++;
     
     // Print the error for debugging
-    UtilityFunctions::print("Parser Error: ", message);
+    UtilityFunctions::print("Parser Error (line ", t.line, "): ", message);
     
     // If we've hit too many errors, the parser state is likely corrupted
     if (error_count >= MAX_ERRORS) {
@@ -740,6 +740,24 @@ Statement* VisualGasicParser::parse_statement() {
         return nullptr;
     }
 
+    // A leading colon is an empty statement (classic VB allows "a=1: :b=2" and
+    // a trailing colon before newline). Without this, the colon token falls
+    // through to parse_assignment_or_call()'s unconditional "String name =
+    // peek().value; advance();" head-parsing branch, which blindly treats the
+    // colon's literal value (":") as an identifier name and consumes it as a
+    // bogus zero-arg call/variable -- silently swallowing the colon AND
+    // desynchronizing the rest of the statement list, causing every
+    // subsequent colon-joined statement on the line to be dropped (each
+    // stray leftover token then gets silently skipped one-by-one by the
+    // caller's "unknown token" fallback with no error reported).
+    // Deliberately do NOT advance here (same convention as the NEWLINE/EOF
+    // check above) -- callers' own loops are responsible for consuming the
+    // colon (either via an explicit colon-loop, or their generic "skip one
+    // token on null" fallback).
+    if (check(VisualGasicTokenizer::TOKEN_COLON)) {
+        return nullptr;
+    }
+
     // Skip TOKEN_ERROR tokens that slipped past _reload() — prevents segfault
     if (peek().type == VisualGasicTokenizer::TOKEN_ERROR) {
         error("Unexpected character: " + String(peek().value));
@@ -955,7 +973,20 @@ Statement* VisualGasicParser::parse_statement() {
             advance();
             return set_line(static_cast<StopStatement*>(register_node(new StopStatement())));
         }
-        if (val == "data") return set_line(parse_data());
+        if (val == "data") {
+            // "data" is also a very common variable name (e.g. "data = BitAnd(data, 255)").
+            // Only treat it as the classic BASIC Data-statement keyword when it isn't
+            // immediately followed by an assignment/call/member-access token; otherwise
+            // fall through to the generic identifier-based assignment/call parsing below.
+            VisualGasicTokenizer::Token next = peek(1);
+            bool looks_like_identifier_use =
+                (next.type == VisualGasicTokenizer::TOKEN_OPERATOR && String(next.value) == "=") ||
+                next.type == VisualGasicTokenizer::TOKEN_PAREN_OPEN ||
+                (next.type == VisualGasicTokenizer::TOKEN_OPERATOR && String(next.value) == ".");
+            if (!looks_like_identifier_use) {
+                return set_line(parse_data());
+            }
+        }
         if (val == "datafile") return set_line(parse_data_file());
         if (val == "loaddata") return set_line(parse_load_data());
         if (val == "read") return set_line(parse_read());
@@ -3992,7 +4023,8 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
             unregister_node(head); delete head; 
     }
     
-    if (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF) && 
+    if (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF) &&
+        !check(VisualGasicTokenizer::TOKEN_COLON) &&
         !(check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ":")) {
         
         if (!call->arguments.is_empty()) {
@@ -4179,6 +4211,14 @@ ClassDefinition* VisualGasicParser::parse_class() {
                 v->name = dim->variable_name;
                 v->type = dim->type_name;
                 v->visibility = is_public_member ? VIS_PUBLIC : VIS_PRIVATE;
+                for (int i = 0; i < dim->array_sizes.size(); i++) {
+                    ExpressionNode* expr = dim->array_sizes[i];
+                    if (expr && expr->type == ExpressionNode::LITERAL) {
+                        v->array_sizes.push_back((int)((LiteralNode*)expr)->value);
+                    } else {
+                        v->array_sizes.push_back(0);
+                    }
+                }
                 cls->members.push_back(v);
                 unregister_node(v);
                 unregister_node(dim);
@@ -4191,6 +4231,28 @@ ClassDefinition* VisualGasicParser::parse_class() {
         if (t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) {
             String member_name = t.value;
             advance();
+
+            // Optional fixed-size array declaration: Public arr(N[, M...]) As Type
+            Vector<int> member_array_sizes;
+            if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                advance(); // Eat (
+                while (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE) && !is_at_end()) {
+                    ExpressionNode* size_expr = parse_expression();
+                    if (size_expr && size_expr->type == ExpressionNode::LITERAL) {
+                        member_array_sizes.push_back((int)((LiteralNode*)size_expr)->value);
+                    } else {
+                        member_array_sizes.push_back(0);
+                    }
+                    if (size_expr) { delete size_expr; }
+                    if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                        advance();
+                    } else {
+                        break;
+                    }
+                }
+                if (check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) advance(); // Eat )
+            }
+
             String member_type = "Variant";
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("as") == 0) {
                 advance(); // Eat As
@@ -4203,6 +4265,7 @@ ClassDefinition* VisualGasicParser::parse_class() {
             v->name = member_name;
             v->type = member_type;
             v->visibility = is_public_member ? VIS_PUBLIC : VIS_PRIVATE;
+            v->array_sizes = member_array_sizes;
             cls->members.push_back(v);
             unregister_node(v);
             continue;
@@ -4307,6 +4370,8 @@ PropertyDefinition* VisualGasicParser::parse_property() {
         if (stmt) {
             prop->body.push_back(stmt);
             unregister_node(stmt);
+        } else if (!is_at_end()) {
+            advance(); // Skip colon separator or unknown token to avoid infinite loop
         }
     }
 

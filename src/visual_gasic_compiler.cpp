@@ -3388,6 +3388,15 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         dictionary_vars.insert(lower);
                         trusted_dictionary_vars.insert(lower);
                     }
+                    else if (t == "packedbytearray") init_val = PackedByteArray();
+                    else if (t == "packedint32array") init_val = PackedInt32Array();
+                    else if (t == "packedint64array") init_val = PackedInt64Array();
+                    else if (t == "packedfloat32array") init_val = PackedFloat32Array();
+                    else if (t == "packedfloat64array") init_val = PackedFloat64Array();
+                    else if (t == "packedstringarray") init_val = PackedStringArray();
+                    else if (t == "packedvector2array") init_val = PackedVector2Array();
+                    else if (t == "packedvector3array") init_val = PackedVector3Array();
+                    else if (t == "packedcolorarray") init_val = PackedColorArray();
                     else {
                         // Check if it's a user-defined struct type
                         bool is_struct = false;
