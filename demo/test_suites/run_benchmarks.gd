@@ -20,6 +20,8 @@ const ALLOC_FAST_ITER := 160
 const ALLOC_FAST_SIZE := 4096
 const FILE_IO_ITER := 32
 const FILE_IO_SIZE := 2048
+const CALL_ITER := 50
+const CALL_INNER := 1000
 
 var _vg_script: Script = null
 
@@ -104,6 +106,18 @@ func bench_gd_branch(iterations: int, inner: int) -> Dictionary:
                 s += j
             else:
                 s -= j
+    var elapsed := Time.get_ticks_usec() - start
+    return {"elapsed_us": elapsed, "checksum": s}
+
+func gd_call_helper(x: int) -> int:
+    return x + 1
+
+func bench_gd_call(iterations: int, inner: int) -> Dictionary:
+    var s := 0
+    var start := Time.get_ticks_usec()
+    for _i in iterations:
+        for _j in inner:
+            s = gd_call_helper(s)
     var elapsed := Time.get_ticks_usec() - start
     return {"elapsed_us": elapsed, "checksum": s}
 
@@ -257,6 +271,9 @@ func bench_vg_string_concat(iterations: int, inner: int) -> Dictionary:
 func bench_vg_branch(iterations: int, inner: int) -> Dictionary:
     return run_visual_gasic("BenchBranch", [iterations, inner])
 
+func bench_vg_call(iterations: int, inner: int) -> Dictionary:
+    return run_visual_gasic("BenchCall", [iterations, inner])
+
 func bench_vg_array_dict(iterations: int, size: int) -> Dictionary:
     return run_visual_gasic("BenchArrayDict", [iterations, size])
 
@@ -350,6 +367,12 @@ func _init():
         Callable(self, "bench_gd_branch").bind(BRANCH_ITER, BRANCH_INNER),
         Callable(self, "bench_vg_branch").bind(BRANCH_ITER, BRANCH_INNER),
         Callable(self, "bench_cpp_branch").bind(BRANCH_ITER, BRANCH_INNER)
+    ))
+
+    results.append(run_workload(
+        "FunctionCall",
+        Callable(self, "bench_gd_call").bind(CALL_ITER, CALL_INNER),
+        Callable(self, "bench_vg_call").bind(CALL_ITER, CALL_INNER)
     ))
 
     results.append(run_workload(

@@ -239,6 +239,29 @@ Function BenchFileIO(ByVal iterations As Long, ByVal size As Long) As Long
     BenchFileIO = BenchFileIOFast(iterations, size)
 End Function
 
+' Pure Sub/Function CALL overhead benchmark -- calls a trivial helper Function
+' once per inner iteration, threading the accumulator through the call/return.
+' Exercises call_internal()'s per-call fixed cost (locals-frame setup, param
+' binding) in isolation from any other workload (arithmetic/arrays/dict/etc.
+' are already covered by the other Bench* functions above).
+Function BenchCallHelper(ByVal x As Long) As Long
+    BenchCallHelper = x + 1
+End Function
+
+Function BenchCall(ByVal iterations As Long, ByVal inner As Long) As Long
+    Dim i As Long
+    Dim j As Long
+    Dim s As Long
+
+    For i = 0 To iterations - 1 Step 1
+        For j = 0 To inner - 1 Step 1
+            s = BenchCallHelper(s)
+        Next j
+    Next i
+
+    BenchCall = s
+End Function
+
 ' M5: MemoryBuffer benchmark
 Function BenchBuffer(ByVal iterations As Long, ByVal size As Long) As Long
     If iterations <= 0 Or size <= 0 Then
