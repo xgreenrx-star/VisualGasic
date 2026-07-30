@@ -273,13 +273,26 @@ End Sub
 
 Sub _Draw()
     If IsObject(DisplayTex) Then
-        ' Scale to fit window
-        Dim winSize As Variant = Vector2(Screen.Width, Screen.Height)
+        ' Scale to fit window. Screen.Width/Height reflect the physical
+        ' monitor resolution (DisplayServer::screen_get_size), NOT the game
+        ' window's client size -- using them here made the scale factor far
+        ' too large, so the texture was drawn much bigger than the window
+        ' and only its top-left sliver (mostly interior, since the border is
+        ' a thin band near the source image's edges) was visible. That looked
+        ' like a border that didn't surround the interior and was "thick and
+        ' off-center." GetViewportRect().Size is the actual window/viewport
+        ' size and is the documented pattern for this (see
+        ' docs/tutorials/your_first_2d_game.md). Fixed Jul 30 2026.
+        Dim winSize As Variant = GetViewportRect().Size
         Dim scaleX As Double = winSize.x / SCREEN_W
         Dim scaleY As Double = winSize.y / SCREEN_H
         Dim sc As Double
         If scaleX < scaleY Then sc = scaleX Else sc = scaleY
-        DrawTextureRect DisplayTex, 0, 0, SCREEN_W * sc, SCREEN_H * sc
+        Dim drawW As Double = SCREEN_W * sc
+        Dim drawH As Double = SCREEN_H * sc
+        Dim offX As Double = (winSize.x - drawW) / 2
+        Dim offY As Double = (winSize.y - drawH) / 2
+        DrawTextureRect DisplayTex, offX, offY, drawW, drawH
     End If
 End Sub
 
