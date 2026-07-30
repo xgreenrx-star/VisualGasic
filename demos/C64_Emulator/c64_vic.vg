@@ -151,11 +151,37 @@ End Sub
 
 
 ' ================================================================
+' === NARROW-MODE (CSEL=0, 38-column) BORDER GAP ===
+' ================================================================
+' When CSEL is off, real VIC-II hardware widens the side borders by 8px
+' each (hiding the leftmost/rightmost text column) instead of leaving the
+' pixels blank. Our scanline renderers shift their content inward by xOff
+' but never painted the vacated strip, so it stayed at the framebuffer's
+' initial fill color (black) -- a black vertical band between the fixed
+' 32px border and the shifted content. Fixed Jul 30 2026.
+Sub Vic_PaintNarrowGap(screenY As Integer, xOff As Integer)
+    If xOff <= 0 Then Return
+    Dim rowY As Integer = screenY + gVic_BorderY
+    If rowY < 0 Or rowY >= SCREEN_H Then Return
+
+    Dim borderCol As Integer = BitAnd(Mem_GetBuf(&HD020), &H0F)
+    Dim borderColor As Variant = GetC64Color(borderCol)
+    Dim i As Integer
+    For i = 0 To xOff - 1
+        SetImagePixel gVic_Framebuf, gVic_BorderX + i, rowY, borderColor
+        SetImagePixel gVic_Framebuf, SCREEN_W - gVic_BorderX - 1 - i, rowY, borderColor
+    Next
+End Sub
+
+
+' ================================================================
 ' === STANDARD CHARACTER MODE ===
 ' ================================================================
 Sub Vic_RenderCharScanline(screenY As Integer, charRow As Integer, pixelRow As Integer, scrBase As Integer, charBase As Integer, numCols As Integer, xOff As Integer)
     Dim bgCol As Integer = BitAnd(Mem_GetBuf(&HD021), &H0F)
     Dim col As Integer, ch As Integer
+
+    Vic_PaintNarrowGap screenY, xOff
 
     For col = 0 To numCols - 1
         Dim scrAddr As Integer = scrBase + charRow * 40 + col
@@ -190,6 +216,8 @@ Sub Vic_RenderMCCharScanline(screenY As Integer, charRow As Integer, pixelRow As
     Dim mc1   As Integer = BitAnd(Mem_GetBuf(&HD022), &H0F)
     Dim mc2   As Integer = BitAnd(Mem_GetBuf(&HD023), &H0F)
     Dim bgCol As Integer = BitAnd(Mem_GetBuf(&HD021), &H0F)
+
+    Vic_PaintNarrowGap screenY, xOff
 
     Dim col As Integer
     For col = 0 To numCols - 1
@@ -235,6 +263,8 @@ End Sub
 ' === BITMAP MODE ===
 ' ================================================================
 Sub Vic_RenderBitmapScanline(screenY As Integer, charRow As Integer, pixelRow As Integer, scrBase As Integer, charBase As Integer, xOff As Integer)
+    Vic_PaintNarrowGap screenY, xOff
+
     Dim col As Integer
     For col = 0 To 39
         Dim bitmapRow  As Integer = charRow * 8 + pixelRow
