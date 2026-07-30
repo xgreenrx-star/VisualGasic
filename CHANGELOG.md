@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🐛 Fixed — `BlitImage` silent no-op when passed `Rect2`/`Vector2` instead of `Rect2i`/`Vector2i` (Jul 30, 2026)
+
+- `BlitImage`'s native implementation (`src/visual_gasic_instance.cpp`) only pattern-matches `Variant::RECT2I` for the `srcRect` argument. Passing a `Rect2`/`Vector2` (float variant) silently fell through to a default-constructed zero-size rect, so the copy was a no-op — zero pixels copied, no error, every call.
+- Found and fixed in two real-world demos that both had this exact mistake: `demos/C64_Emulator/c64_main.vg` and `demos/GBA_Emulator/gba_main.vg` — their VIC/GPU framebuffers were never actually reaching the display texture, causing a permanently black screen regardless of emulation speed.
+- Fixed both call sites to use `BlitImage`'s plain-integer 8-arg overload (`dest, src, sx, sy, sw, sh, dx, dy`), which sidesteps the `Rect2i`/`Vector2i` constructor entirely.
+- Clarified `docs/BUILTINS.md`'s `BlitImage` entry to call out this pitfall explicitly and recommend the 8-arg form.
+- Verified via a pixel-probe diagnostic (`GetImagePixel` on destination vs. source at matching coordinates, confirmed identical post-blit). Full regression suite: 777/777 assertions pass.
+- **Related, still-open bug found (not fixed):** an initial fix attempt using `Rect2i(...)`/`Vector2i(...)` constructor calls surfaced a separate landmine — the AST tree-walk evaluator has no dispatch for Godot type constructors (`Vector2i`, `Rect2i`, `Color`, etc.), unlike the bytecode compiler's `_godot_type_ctors` table (`OP_NEW_OBJECT`). Any Sub that has silently fallen back to AST interpretation (see the ByRef fallback landmine, `/memories/repo/v6.0_blockers.md` §0) will get `Sub or Function not defined` when calling these constructors. Tracked in `.github/copilot-instructions.md` "Known open bugs".
+
 ### ✨ Added — Provider expansion: DeepSeek, Qwen, Codeium, Amazon Q (Jul 13, 2026)
 
 - **4 new AI providers** joined the existing 4 (Ollama, OpenAI, Claude, Gemini) for a total of **8 providers**
