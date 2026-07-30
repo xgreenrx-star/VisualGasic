@@ -25,6 +25,9 @@ Public  gMem_VICBank    As Long
 ' Keyboard matrix
 Public  gMem_KeyCol(7)  As Integer
 
+' WRITE TRACING (DS step 1 — throttled diagnostic for $D000-$DFFF writes)
+Private gMem_DiagWriteCount As Long
+
 
 ' ================================================================
 ' === INIT ===
@@ -110,6 +113,15 @@ Sub Mem_SetKeyCol(idx As Integer, val As Integer)
     gMem_KeyCol(idx) = val
 End Sub
 
+' CROSS-MODULE ACCESS HELPERS (fixes VisualGasic cross-module global array bug)
+Function Mem_GetBuf(addr As Integer) As Integer
+    Return gMem_Buf(addr)
+End Function
+
+Sub Mem_SetBuf(addr As Integer, value As Integer)
+    gMem_Buf(addr) = value
+End Sub
+
 
 ' ================================================================
 ' === READ / WRITE ===
@@ -139,6 +151,7 @@ Function Mem_Read(addr As Integer) As Integer
     If addr < &HE000 Then
         If gMem_CHAREN Then
             Dim ioOff As Integer = addr - &HD000
+            
             If ioOff < &H0400 Then
                 Return gMem_Buf(addr)
             End If
@@ -199,6 +212,13 @@ Sub Mem_Write(addr As Integer, value As Integer)
     If addr < &HE000 Then
         Dim ioOff As Integer = addr - &HD000
         gMem_Buf(addr) = value
+
+        ' --- DS STEP 1: write tracing for $D020 (NO THROTTLE - all writes) ---
+        If addr = &HD020 Then
+            Print "[WRTRACE-D020] PC=$" & Hex(gC64_PC) & "  val=$" & Hex(value)
+        End If
+        ' -------------------------------------------------------------------------
+
         If ioOff >= &H0800 And ioOff < &H0C00 Then
             gMem_ColorRAM(ioOff - &H0800) = BitAnd(value, &H0F)
         End If
