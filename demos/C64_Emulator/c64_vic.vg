@@ -48,12 +48,12 @@ Sub Vic_Tick()
         End If
 
         ' Update VIC register $D012 (raster)
-        gMem_Buf(&HD012) = BitAnd(gVic_RasterLine, &HFF)
+        Mem_SetBuf &HD012, BitAnd(gVic_RasterLine, &HFF)
 
         ' Check raster IRQ
         If gVic_RasterLine = gVic_RasterIRQ Then
-            Dim flags As Integer = gMem_Buf(&HD019)
-            gMem_Buf(&HD019) = BitOr(flags, &H01)
+            Dim flags As Integer = Mem_GetBuf(&HD019)
+            Mem_SetBuf &HD019, BitOr(flags, &H01)
         End If
 
         ' Render scanline if in visible area
@@ -68,7 +68,7 @@ End Sub
 ' === RENDER FRAME ===
 ' ================================================================
 Sub Vic_RenderFrame()
-    Dim borderCol As Integer = BitAnd(gMem_Buf(&HD020), &H0F)
+    Dim borderCol As Integer = BitAnd(Mem_GetBuf(&HD020), &H0F)
     Dim x As Integer, y As Integer
     For y = 0 To SCREEN_H - 1
         For x = 0 To SCREEN_W - 1
@@ -85,9 +85,9 @@ Sub Vic_RenderScanline()
     Dim screenY As Integer = gVic_RasterLine - 16
     If screenY < 0 Or screenY >= VISIBLE_H Then Return
 
-    Dim ctrl1 As Integer = gMem_Buf(&HD011)
-    Dim ctrl2 As Integer = gMem_Buf(&HD016)
-    Dim memPtr As Integer = gMem_Buf(&HD018)
+    Dim ctrl1 As Integer = Mem_GetBuf(&HD011)
+    Dim ctrl2 As Integer = Mem_GetBuf(&HD016)
+    Dim memPtr As Integer = Mem_GetBuf(&HD018)
 
     Dim DEN   As Boolean = BitTst(ctrl1, 4)
     Dim BMM   As Boolean = BitTst(ctrl1, 5)
@@ -125,18 +125,18 @@ End Sub
 ' === STANDARD CHARACTER MODE ===
 ' ================================================================
 Sub Vic_RenderCharScanline(screenY As Integer, charRow As Integer, pixelRow As Integer, scrBase As Integer, charBase As Integer, numCols As Integer, xOff As Integer)
-    Dim bgCol As Integer = BitAnd(gMem_Buf(&HD021), &H0F)
+    Dim bgCol As Integer = BitAnd(Mem_GetBuf(&HD021), &H0F)
     Dim col As Integer, ch As Integer
 
     For col = 0 To numCols - 1
         Dim scrAddr As Integer = scrBase + charRow * 40 + col
-        ch = gMem_Buf(scrAddr)
+        ch = Mem_GetBuf(scrAddr)
         Dim chAddr As Integer = charBase + ch * 8 + pixelRow
-        Dim data As Integer = gMem_Buf(chAddr)
+        Dim data As Integer = Mem_GetBuf(chAddr)
 
         Dim index As Integer = charRow * 40 + col
         If index >= 0 And index < &H0400 Then
-            gVic_tmpCol = BitAnd(gMem_ColorRAM(index), &H0F)
+            gVic_tmpCol = BitAnd(Mem_GetColorRAM(index), &H0F)
         End If
 
         Dim px As Integer
@@ -156,23 +156,23 @@ End Sub
 ' === MULTI-COLOR CHARACTER MODE ===
 ' ================================================================
 Sub Vic_RenderMCCharScanline(screenY As Integer, charRow As Integer, pixelRow As Integer, scrBase As Integer, numCols As Integer, xOff As Integer)
-    Dim mc1   As Integer = BitAnd(gMem_Buf(&HD022), &H0F)
-    Dim mc2   As Integer = BitAnd(gMem_Buf(&HD023), &H0F)
-    Dim bgCol As Integer = BitAnd(gMem_Buf(&HD021), &H0F)
+    Dim mc1   As Integer = BitAnd(Mem_GetBuf(&HD022), &H0F)
+    Dim mc2   As Integer = BitAnd(Mem_GetBuf(&HD023), &H0F)
+    Dim bgCol As Integer = BitAnd(Mem_GetBuf(&HD021), &H0F)
 
     Dim col As Integer
     For col = 0 To numCols - 1
         Dim scrAddr As Integer = scrBase + charRow * 40 + col
-        Dim ch As Integer = gMem_Buf(scrAddr)
+        Dim ch As Integer = Mem_GetBuf(scrAddr)
 
         Dim chBase As Integer
         If BitTst(ch, 3) Then chBase = &H0000 Else chBase = &H0800
         Dim chAddr As Integer = chBase + (BitAnd(ch, &H07)) * 8 + pixelRow
-        Dim data As Integer = gMem_Buf(chAddr)
+        Dim data As Integer = Mem_GetBuf(chAddr)
 
         Dim index As Integer = charRow * 40 + col
         If index < &H0400 Then
-            gVic_tmpCol = BitAnd(gMem_ColorRAM(index), &H0F)
+            gVic_tmpCol = BitAnd(Mem_GetColorRAM(index), &H0F)
         End If
 
         Dim px As Integer
@@ -208,10 +208,10 @@ Sub Vic_RenderBitmapScanline(screenY As Integer, charRow As Integer, pixelRow As
     For col = 0 To 39
         Dim bitmapRow  As Integer = charRow * 8 + pixelRow
         Dim bitmapAddr As Integer = charBase + bitmapRow * 40 + col
-        Dim data       As Integer = gMem_Buf(bitmapAddr)
+        Dim data       As Integer = Mem_GetBuf(bitmapAddr)
 
         Dim scrAddr    As Integer = scrBase + charRow * 40 + col
-        Dim colorInfo  As Integer = gMem_Buf(scrAddr)
+        Dim colorInfo  As Integer = Mem_GetBuf(scrAddr)
         Dim fgCol      As Integer = BitShiftRight(colorInfo, 4) And &H0F
 
         Dim px As Integer

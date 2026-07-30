@@ -122,6 +122,14 @@ Sub Mem_SetBuf(addr As Integer, value As Integer)
     gMem_Buf(addr) = value
 End Sub
 
+Function Mem_GetColorRAM(idx As Integer) As Integer
+    Return gMem_ColorRAM(idx)
+End Function
+
+Sub Mem_SetColorRAM(idx As Integer, value As Integer)
+    gMem_ColorRAM(idx) = value
+End Sub
+
 
 ' ================================================================
 ' === READ / WRITE ===
