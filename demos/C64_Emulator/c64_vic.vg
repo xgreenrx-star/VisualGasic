@@ -67,12 +67,41 @@ End Sub
 ' ================================================================
 ' === RENDER FRAME ===
 ' ================================================================
+' Only paints the BORDER region (outside the visible screen matrix).
+' The interior is intentionally left untouched here -- Vic_RenderScanline
+' repaints every interior pixel (background + foreground) as the raster
+' advances through the visible lines. Wiping the whole canvas here caused
+' a race with c64_main.vg's cycle-counted display-update trigger: BlitImage
+' could snapshot the framebuffer right after this wipe but before any of
+' the new frame's scanlines had redrawn the interior, showing a solid
+' border-color screen (or white/black, depending on registers) instead of
+' real content. Fixed Jul 30 2026.
 Sub Vic_RenderFrame()
     Dim borderCol As Integer = BitAnd(Mem_GetBuf(&HD020), &H0F)
+    Dim borderColor As Variant = GetC64Color(borderCol)
     Dim x As Integer, y As Integer
-    For y = 0 To SCREEN_H - 1
+
+    ' Top border
+    For y = 0 To gVic_BorderY - 1
         For x = 0 To SCREEN_W - 1
-            SetImagePixel gVic_Framebuf, x, y, GetC64Color(borderCol)
+            SetImagePixel gVic_Framebuf, x, y, borderColor
+        Next
+    Next
+
+    ' Bottom border
+    For y = SCREEN_H - gVic_BorderY To SCREEN_H - 1
+        For x = 0 To SCREEN_W - 1
+            SetImagePixel gVic_Framebuf, x, y, borderColor
+        Next
+    Next
+
+    ' Left + right border (middle band only, top/bottom already covered above)
+    For y = gVic_BorderY To SCREEN_H - gVic_BorderY - 1
+        For x = 0 To gVic_BorderX - 1
+            SetImagePixel gVic_Framebuf, x, y, borderColor
+        Next
+        For x = SCREEN_W - gVic_BorderX To SCREEN_W - 1
+            SetImagePixel gVic_Framebuf, x, y, borderColor
         Next
     Next
 End Sub
@@ -145,6 +174,8 @@ Sub Vic_RenderCharScanline(screenY As Integer, charRow As Integer, pixelRow As I
             If sx >= 0 And sx < SCREEN_W And screenY + gVic_BorderY >= 0 And screenY + gVic_BorderY < SCREEN_H Then
                 If BitTst(data, 7 - px) Then
                     SetImagePixel gVic_Framebuf, sx, screenY + gVic_BorderY, GetC64Color(gVic_tmpCol)
+                Else
+                    SetImagePixel gVic_Framebuf, sx, screenY + gVic_BorderY, GetC64Color(bgCol)
                 End If
             End If
         Next
@@ -213,6 +244,7 @@ Sub Vic_RenderBitmapScanline(screenY As Integer, charRow As Integer, pixelRow As
         Dim scrAddr    As Integer = scrBase + charRow * 40 + col
         Dim colorInfo  As Integer = Mem_GetBuf(scrAddr)
         Dim fgCol      As Integer = BitShiftRight(colorInfo, 4) And &H0F
+        Dim bgCol      As Integer = BitAnd(colorInfo, &H0F)
 
         Dim px As Integer
         For px = 0 To 7
@@ -220,6 +252,8 @@ Sub Vic_RenderBitmapScanline(screenY As Integer, charRow As Integer, pixelRow As
             If sx >= 0 And sx < SCREEN_W And screenY + gVic_BorderY >= 0 And screenY + gVic_BorderY < SCREEN_H Then
                 If BitTst(data, 7 - px) Then
                     SetImagePixel gVic_Framebuf, sx, screenY + gVic_BorderY, GetC64Color(fgCol)
+                Else
+                    SetImagePixel gVic_Framebuf, sx, screenY + gVic_BorderY, GetC64Color(bgCol)
                 End If
             End If
         Next
@@ -228,4 +262,8 @@ End Sub
 
 Function Vic_GetFramebuf() As Variant
     Return gVic_Framebuf
+End Function
+
+Function Vic_GetRasterLine() As Integer
+    Return gVic_RasterLine
 End Function

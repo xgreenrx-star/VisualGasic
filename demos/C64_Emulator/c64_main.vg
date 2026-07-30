@@ -267,37 +267,6 @@ Sub _Process(delta As Double)
         If FrameCount Mod 60 = 0 Then
             Print "C64 PC=$" & Hex(C64_GetPC()) & " A=$" & Hex(C64_GetA()) & " X=$" & Hex(C64_GetX()) & " Y=$" & Hex(C64_GetY()) & " SP=$" & Hex(C64_GetSP()) & " Flags=$" & Hex(C64_GetFlags())
         End If
-
-        ' PERF DIAGNOSTIC (Jul 30 2026): one-time pixel probe to prove whether
-        ' BlitImage actually copied real VIC framebuffer content into
-        ' DisplayImage. Safe to remove once the render bug is confirmed fixed.
-        If FrameCount >= 1 And FrameCount <= 10 Then
-            Dim probeCol As Variant = GetImagePixel(DisplayImage, 10, 10)
-            Dim vicCol As Variant = GetImagePixel(Vic_GetFramebuf(), 10, 10)
-            Dim d020Val As Integer = Mem_GetBuf(&HD020)
-            Print "[VICDIAG] frame=" & CStr(FrameCount) & " DisplayImage(10,10)=" & CStr(probeCol) & " VicFramebuf(10,10)=" & CStr(vicCol) & " D020=$" & Hex(d020Val)
-        End If
-
-        ' POKE TEST (Jul 30 2026): simulates typing "POKE 53280,1" at a real
-        ' C64 BASIC prompt -- Mem_Write &HD020 IS exactly what BASIC's POKE
-        ' does to the border-color register (53280 decimal = $D020). Forcing
-        ' this directly (bypassing the CPU, which may still be deep in a slow
-        ' KERNAL boot loop) proves whether the render pipeline itself
-        ' (Vic_RenderFrame -> BlitImage -> UpdateTexture -> _Draw) correctly
-        ' reflects a register change on screen, independent of CPU progress.
-        ' Re-asserted EVERY frame (not just once) because a one-shot poke at
-        ' frame 3 was observed to get silently clobbered back to black before
-        ' the next frame rendered -- almost certainly the CPU's own KERNAL
-        ' boot code (a RAM-clear/test loop) is repeatedly rewriting this same
-        ' address. Re-asserting every frame proves whether the render path
-        ' itself works, independent of that fight over the register value.
-        ' Safe to remove once the render pipeline is confirmed working.
-        If FrameCount = 3 Then
-            Print "[POKETEST] Forcing Mem_Write &HD020, 1 every frame from here on (equivalent to repeatedly POKE 53280,1 -- border should turn WHITE)"
-        End If
-        If FrameCount >= 3 Then
-            Mem_Write &HD020, 1
-        End If
     End If
     QueueRedraw()
 End Sub
