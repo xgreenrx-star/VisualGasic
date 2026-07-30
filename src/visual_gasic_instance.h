@@ -66,6 +66,29 @@ class VisualGasicInstance {
         std::list<ModuleBytecodeEntry>* bytecode_cache = nullptr;
     };
     Vector<ImportedModule> imported_modules;
+
+    // ── call_internal() call-site resolution cache (v6.0 perf, Jul 2026) ──
+    // Resolving a bare Sub/Function call by name used to re-scan every
+    // module-level Sub (twice) plus re-run the bytecode-chunk lookup on
+    // EVERY call, even though the result is fully deterministic for a given
+    // (method name, arg count) pair for the lifetime of this instance's AST.
+    // Keyed by "<method_lower>#<arg_count>". owning_module_index (not a raw
+    // ImportedModule*) is stored because imported_modules is a godot::Vector
+    // whose backing storage can move on growth — see the ImportedModule
+    // comment above re: CowData raw realloc(). func (SubDefinition*) and
+    // chunk_for_locals (BytecodeChunk*) are safe to cache as raw pointers:
+    // AST nodes are heap-allocated individually (never moved by Vector
+    // growth) and bytecode chunks live in pointer-stable std::list-based
+    // caches (see VisualGasicScript::bytecode_cache / ImportedModule::bytecode_cache).
+    struct CallResolutionCacheEntry {
+        bool resolved = false;           // false = no module/import-level function with this name/arity
+        SubDefinition* func = nullptr;
+        int owning_module_index = -1;    // -1 = resolved from the main script, not an import
+        String bytecode_key;
+        BytecodeChunk* chunk_for_locals = nullptr;
+    };
+    HashMap<String, CallResolutionCacheEntry> _call_resolution_cache;
+
     // Cross-module MemoryBuffer var-name cache (see get_global_buffer_var_names() below)
     HashSet<String> _global_buffer_var_names;
     bool _global_buffer_var_names_computed = false;

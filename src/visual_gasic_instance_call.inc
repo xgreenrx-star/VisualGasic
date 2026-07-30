@@ -15,50 +15,102 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     }
 
     SubDefinition *func = nullptr;
-    SubDefinition *first_match = nullptr;
-    int call_arg_count = p_args.size();
-    for(int i=0; i<script->ast_root->subs.size(); i++) {
-        if (script->ast_root->subs[i]->name.nocasecmp_to(p_method) == 0) {
-            if (!first_match) first_match = script->ast_root->subs[i];
-            int param_count = script->ast_root->subs[i]->parameters.size();
-            // Exact param count match
-            if (param_count == call_arg_count) {
-                func = script->ast_root->subs[i];
-                break;
-            }
-            // Optional parameters: check if arg_count falls within [required, total] range
-            int required = 0;
-            for (int j = 0; j < param_count; j++) {
-                if (!script->ast_root->subs[i]->parameters[j].is_optional &&
-                    !script->ast_root->subs[i]->parameters[j].is_param_array)
-                    required++;
-            }
-            bool has_param_array = param_count > 0 && script->ast_root->subs[i]->parameters[param_count - 1].is_param_array;
-            if (has_param_array ? (call_arg_count >= required) : (call_arg_count >= required && call_arg_count <= param_count)) {
-                func = script->ast_root->subs[i];
-                break;
-            }
-        }
-    }
-    if (!func) func = first_match; // Backward compat: single-overload always matches
-    
-    // ── Cross-module function resolution (v4.3.0) ──
-    // If the function wasn't found in the current script, search imported modules.
-    // v4.4.0: also remember which module the function actually came from, so its
-    // bytecode can be compiled/cached against that module's own AST below instead
-    // of the calling script's (which would never find it).
     ImportedModule* owning_module = nullptr;
-    if (!func && imported_modules.size() > 0) {
-        String found_module_name;
-        func = find_imported_sub(p_method, call_arg_count, &found_module_name);
-        if (func) {
-            for (int m = 0; m < imported_modules.size(); m++) {
-                if (imported_modules[m].module_name.nocasecmp_to(found_module_name) == 0) {
-                    owning_module = &imported_modules.write[m];
+    String bytecode_key;
+    BytecodeChunk *chunk_for_locals = nullptr;
+    int call_arg_count = p_args.size();
+
+    // ── Call-site resolution cache (v6.0 perf, Jul 2026) ──
+    // Resolving the callee used to be a full linear rescan of every module-level
+    // Sub (twice — once for arity matching, once for overload-mangling) plus a
+    // bytecode-chunk lookup, ALL repeated on every single call regardless of how
+    // many times the exact same (name, arg count) pair had already been resolved.
+    // The result is 100% deterministic for a given (name, arg count) for the
+    // lifetime of this instance's AST, so cache it. This does NOT change the
+    // saved_locals/argument-binding work below (still done per-call) — only the
+    // "which function/bytecode-chunk is this?" resolution step.
+    String _res_key = p_method.to_lower() + "#" + String::num_int64(call_arg_count);
+    if (_call_resolution_cache.has(_res_key)) {
+        const CallResolutionCacheEntry &_cached = _call_resolution_cache[_res_key];
+        if (_cached.resolved) {
+            func = _cached.func;
+            owning_module = (_cached.owning_module_index >= 0) ? &imported_modules.write[_cached.owning_module_index] : nullptr;
+            bytecode_key = _cached.bytecode_key;
+            chunk_for_locals = _cached.chunk_for_locals;
+        }
+        // _cached.resolved == false means "no module/import-level function with
+        // this name/arity" — func stays nullptr, falls through to the same-class
+        // sibling method check below exactly as an uncached miss would.
+    } else {
+        SubDefinition *first_match = nullptr;
+        for(int i=0; i<script->ast_root->subs.size(); i++) {
+            if (script->ast_root->subs[i]->name.nocasecmp_to(p_method) == 0) {
+                if (!first_match) first_match = script->ast_root->subs[i];
+                int param_count = script->ast_root->subs[i]->parameters.size();
+                // Exact param count match
+                if (param_count == call_arg_count) {
+                    func = script->ast_root->subs[i];
+                    break;
+                }
+                // Optional parameters: check if arg_count falls within [required, total] range
+                int required = 0;
+                for (int j = 0; j < param_count; j++) {
+                    if (!script->ast_root->subs[i]->parameters[j].is_optional &&
+                        !script->ast_root->subs[i]->parameters[j].is_param_array)
+                        required++;
+                }
+                bool has_param_array = param_count > 0 && script->ast_root->subs[i]->parameters[param_count - 1].is_param_array;
+                if (has_param_array ? (call_arg_count >= required) : (call_arg_count >= required && call_arg_count <= param_count)) {
+                    func = script->ast_root->subs[i];
                     break;
                 }
             }
         }
+        if (!func) func = first_match; // Backward compat: single-overload always matches
+
+        // ── Cross-module function resolution (v4.3.0) ──
+        // If the function wasn't found in the current script, search imported modules.
+        // v4.4.0: also remember which module the function actually came from, so its
+        // bytecode can be compiled/cached against that module's own AST below instead
+        // of the calling script's (which would never find it).
+        int owning_module_index = -1;
+        if (!func && imported_modules.size() > 0) {
+            String found_module_name;
+            func = find_imported_sub(p_method, call_arg_count, &found_module_name);
+            if (func) {
+                for (int m = 0; m < imported_modules.size(); m++) {
+                    if (imported_modules[m].module_name.nocasecmp_to(found_module_name) == 0) {
+                        owning_module = &imported_modules.write[m];
+                        owning_module_index = m;
+                        break;
+                    }
+                }
+            }
+        }
+
+        CallResolutionCacheEntry _new_entry;
+        _new_entry.resolved = (func != nullptr);
+        if (func) {
+            _new_entry.func = func;
+            _new_entry.owning_module_index = owning_module_index;
+            // v3.7: Use mangled bytecode key for overloaded functions (name$arity)
+            // v4.4.0: mangle against the OWNING module's own subs list (main script
+            // or an imported module), not always the calling script's ast_root.
+            const Vector<SubDefinition*>& owner_subs = owning_module ? owning_module->ast->subs : script->ast_root->subs;
+            for (int _oi = 0; _oi < owner_subs.size(); _oi++) {
+                if (owner_subs[_oi] != func &&
+                    owner_subs[_oi]->name.nocasecmp_to(func->name) == 0) {
+                    bytecode_key = func->name + "$" + String::num_int64(func->parameters.size());
+                    break;
+                }
+            }
+            if (bytecode_key.is_empty()) bytecode_key = func->name;
+            _new_entry.bytecode_key = bytecode_key;
+            chunk_for_locals = owning_module ? get_bytecode_for_import(*owning_module, bytecode_key)
+                                              : (script.is_valid() ? script->get_bytecode_for(bytecode_key, &get_global_buffer_var_names()) : nullptr);
+            _new_entry.chunk_for_locals = chunk_for_locals;
+        }
+        _call_resolution_cache[_res_key] = _new_entry;
     }
 
     // ── Same-class sibling method resolution ──
@@ -107,22 +159,8 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     // the AST at runtime.  The compiler already collects every Dim/For/
     // ForEach variable name into BytecodeChunk::local_names, so we can
     // just iterate that flat vector — O(locals) instead of O(AST nodes).
-    // v3.7: Use mangled bytecode key for overloaded functions (name$arity)
-    // v4.4.0: mangle against the OWNING module's own subs list (main script
-    // or an imported module), not always the calling script's ast_root.
-    String bytecode_key = func->name;
-    {
-        const Vector<SubDefinition*>& owner_subs = owning_module ? owning_module->ast->subs : script->ast_root->subs;
-        for (int _oi = 0; _oi < owner_subs.size(); _oi++) {
-            if (owner_subs[_oi] != func &&
-                owner_subs[_oi]->name.nocasecmp_to(func->name) == 0) {
-                bytecode_key = func->name + "$" + String::num_int64(func->parameters.size());
-                break;
-            }
-        }
-    }
-    BytecodeChunk *chunk_for_locals = owning_module ? get_bytecode_for_import(*owning_module, bytecode_key)
-                                                     : (script.is_valid() ? script->get_bytecode_for(bytecode_key, &get_global_buffer_var_names()) : nullptr);
+    // (bytecode_key / chunk_for_locals were already resolved — from cache or
+    // freshly computed — in the call-site resolution block above.)
     if (chunk_for_locals) {
         for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
             const String &lname = chunk_for_locals->local_names[i];
