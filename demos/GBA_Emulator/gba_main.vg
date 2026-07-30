@@ -141,7 +141,7 @@ Sub _Process(delta As Double)
     Gpu.RenderFrame()
 
     ' Copy Gpu framebuffer to display
-    BlitImage DisplayImage, Gpu.Framebuf, Rect2(0, 0, GBA_SCREEN_W, GBA_SCREEN_H), Vector2(0, 0)
+    BlitImage DisplayImage, Gpu.Framebuf, 0, 0, GBA_SCREEN_W, GBA_SCREEN_H, 0, 0
     UpdateTexture DisplayTex, DisplayImage
 
     ' Output audio

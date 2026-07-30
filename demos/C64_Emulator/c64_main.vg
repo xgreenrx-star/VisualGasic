@@ -256,7 +256,7 @@ Sub _Process(delta As Double)
         CyclesThisFrame = CyclesThisFrame - CYCLES_PER_FRAME_PAL
 
         ' Copy VIC framebuffer to display
-        BlitImage DisplayImage, Vic_GetFramebuf(), Rect2(0, 0, SCREEN_W, SCREEN_H), Vector2(0, 0)
+        BlitImage DisplayImage, Vic_GetFramebuf(), 0, 0, SCREEN_W, SCREEN_H, 0, 0
         UpdateTexture DisplayTex, DisplayImage
 
         ' Audio
@@ -266,6 +266,15 @@ Sub _Process(delta As Double)
         FrameCount = FrameCount + 1
         If FrameCount Mod 60 = 0 Then
             Print "C64 PC=$" & Hex(C64_GetPC()) & " A=$" & Hex(C64_GetA()) & " X=$" & Hex(C64_GetX()) & " Y=$" & Hex(C64_GetY()) & " SP=$" & Hex(C64_GetSP()) & " Flags=$" & Hex(C64_GetFlags())
+        End If
+
+        ' PERF DIAGNOSTIC (Jul 30 2026): one-time pixel probe to prove whether
+        ' BlitImage actually copied real VIC framebuffer content into
+        ' DisplayImage. Safe to remove once the render bug is confirmed fixed.
+        If FrameCount = 1 Or FrameCount = 5 Then
+            Dim probeCol As Variant = GetImagePixel(DisplayImage, 10, 10)
+            Dim vicCol As Variant = GetImagePixel(Vic_GetFramebuf(), 10, 10)
+            Print "[VICDIAG] frame=" & CStr(FrameCount) & " DisplayImage(10,10)=" & CStr(probeCol) & " VicFramebuf(10,10)=" & CStr(vicCol) & " D020=$" & Hex(gMem_Buf(&HD020))
         End If
     End If
     QueueRedraw()
