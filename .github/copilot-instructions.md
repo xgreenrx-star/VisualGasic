@@ -60,7 +60,7 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 
 ## Known open bugs
 
-None. All tracked bugs resolved as of Jul 15, 2026.
+- **C64 Emulator VIC render bug (OPEN, found Jul 29 2026)** — `demos/C64_Emulator` screen stays solid black indefinitely even after multiple virtual PAL frames have demonstrably completed (confirmed via headless PERF counters + windowed screenshot test). Border/background registers (`$D020`/`$D021`) are set to blue before CPU reset, but no color ever renders. Separate from the (also confirmed, but expected/non-bug) slow KERNAL boot throughput (~275-500 steps/sec). No root cause found yet — not investigated past confirming it's real. Full details, repro steps, and next-step plan: `/memories/repo/c64_vic_render_bug.md`.
 
 ## Recent fixes (Jul 15, 2026)
 

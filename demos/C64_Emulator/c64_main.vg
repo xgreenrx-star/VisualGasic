@@ -14,6 +14,17 @@ Dim FrameCount As Long
 Dim SoundHandle As Long
 Dim CyclesThisFrame As Long
 
+' PERF DIAGNOSTIC (Jul 29 2026): running totals + wall-clock throughput print,
+' independent of the existing 60-virtual-frame status print (which requires
+' ~1.18M virtual C64 cycles before it fires even once -- too coarse to tell
+' "stuck" from "just slow" during a long boot). Safe to remove once boot-time
+' performance is understood/acceptable.
+Dim TotalStepsExecuted As Long
+Dim TotalCyclesExecuted As Long
+Dim LastProgressPrintTime As Double
+Dim LastProgressCycles As Long
+Dim LastProgressSteps As Long
+
 Sub _Ready()
     ' Init memory subsystem (module-level, bytecode-compiled)
     Mem_Init()
@@ -35,6 +46,8 @@ Sub _Ready()
     Print "  Commodore 64 Emulator for VisualGasic"
     Print "========================================"
     Print ""
+
+    LastProgressPrintTime = Timer()
 
     ' Try auto-load ROMs
     TryAutoLoad()
@@ -208,6 +221,8 @@ Sub _Process(delta As Double)
 
         Dim instCycles As Integer = C64_Step()
         chunkRun = chunkRun + instCycles
+        TotalStepsExecuted = TotalStepsExecuted + 1
+        TotalCyclesExecuted = TotalCyclesExecuted + instCycles
 
         ' Tick VIC for each CPU cycle
         Dim c As Integer
@@ -222,6 +237,20 @@ Sub _Process(delta As Double)
     Loop
 
     CyclesThisFrame = CyclesThisFrame + chunkRun
+
+    ' PERF DIAGNOSTIC: print real throughput every ~2 wall-clock seconds,
+    ' regardless of virtual-frame progress -- proves whether execution is
+    ' actually advancing (and how fast) instead of guessing from a black screen.
+    Dim nowT As Double = Timer()
+    Dim elapsed As Double = nowT - LastProgressPrintTime
+    If elapsed >= 2 And elapsed > 0 Then
+        Dim stepsDelta As Long = TotalStepsExecuted - LastProgressSteps
+        Dim cyclesDelta As Long = TotalCyclesExecuted - LastProgressCycles
+        Print "[PERF] t=+" & CStr(Int(nowT)) & "s  totalSteps=" & CStr(TotalStepsExecuted) & "  totalCycles=" & CStr(TotalCyclesExecuted) & "  PC=$" & Hex(C64_GetPC()) & "  rate=" & CStr(Int(stepsDelta / elapsed)) & " steps/sec (" & CStr(Int(cyclesDelta / elapsed)) & " cycles/sec)"
+        LastProgressPrintTime = nowT
+        LastProgressCycles = TotalCyclesExecuted
+        LastProgressSteps = TotalStepsExecuted
+    End If
 
     If CyclesThisFrame >= CYCLES_PER_FRAME_PAL Then
         CyclesThisFrame = CyclesThisFrame - CYCLES_PER_FRAME_PAL
