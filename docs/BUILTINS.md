@@ -70,7 +70,7 @@ Image & Texture builtins:
 - `GetImagePixel(image, x, y)` — read pixel from Image → Color
 - `FillImage(image, color)` — fill entire Image
 - `FillImageRect(image, rect, color)` — fill rectangular region
-- `BlitImage(dest, src, srcRect, destPos)` — copy pixel region between Images
+- `BlitImage(dest, src, srcRect As Rect2i, destPos As Vector2i)` or `BlitImage(dest, src, sx, sy, sw, sh, dx, dy)` — copy pixel region between Images. **`srcRect`/`destPos` must be `Rect2i`/`Vector2i` (integer), not `Rect2`/`Vector2` (float)** — passing the float variants silently no-ops (copies zero pixels, no error) because the native implementation only pattern-matches `Rect2i`. If unsure, prefer the 8-argument plain-integer form (`sx, sy, sw, sh, dx, dy`) — it has no type-constructor pitfall at all.
 - `UpdateTexture(texture, image)` — push Image data to ImageTexture
 - `ImageWidth(image)`, `ImageHeight(image)` — Image dimensions
 - `TextureWidth(texture)`, `TextureHeight(texture)` — Texture dimensions
