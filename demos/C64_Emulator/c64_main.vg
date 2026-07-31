@@ -7,6 +7,10 @@ Import "c64_memory.vg"
 Import "c64_cpu.vg"
 Import "c64_vic.vg"
 
+' === Boot Configuration ===
+' Change to True/False here to toggle. See C64.config for documentation.
+Dim SKIP_RAM_TEST As Boolean = True
+
 Dim DisplayTex As Variant
 Dim DisplayImage As Variant
 Dim bLoaded As Boolean
@@ -24,6 +28,10 @@ Dim TotalCyclesExecuted As Long
 Dim LastProgressPrintTime As Double
 Dim LastProgressCycles As Long
 Dim LastProgressSteps As Long
+
+' CIA1 Timer A emulation (simple countdown for ~60Hz system IRQ)
+Dim CIA1_TimerA As Long = 16421      ' PAL: $4025 cycles between IRQs
+Dim CIA1_TimerA_Latch As Long = 16421
 
 Sub _Ready()
     ' Init memory subsystem (module-level, bytecode-compiled)
@@ -89,10 +97,63 @@ Sub InitializeC64()
 
     ' Reset CPU via module-level function
     C64_Reset()
+    
+    ' Apply boot configuration: skip RAMTAS RAM test
+    ' The KERNAL boot at $FCE2 runs: LDX #$FF/TXS (reset SP) → IOINIT → RAMTAS
+    ' → RESTOR → CINT → BASIC. We can't skip just RAMTAS in the linear
+    ' sequence, so we write a tiny 6502 stub at $C000 that does everything
+    ' EXCEPT RAMTAS:
+    '   LDX #$FF : TXS  (reset stack pointer to $FF, same as real KERNAL reset --
+    '                    REQUIRED: C64_Reset() leaves SP=$FD, and without this,
+    '                    JSR return addresses land at $01FC/$01FD, which is
+    '                    exactly where INITMEM's zero-page copy loop writes
+    '                    during BASIC cold start, corrupting the stack and
+    '                    causing a bogus BRK/warm-start that skips the banner)
+    '   JSR $FDA3  (IOINIT — init CIA/VIC/SID/processor port)
+    '   JSR $FD15  (RESTOR — set default IRQ/NMI vectors)
+    '   JSR $FF5B  (CINT — init screen editor, clear screen)
+    '   CLI        (enable interrupts)
+    '   JMP ($A000)(indirect jump to BASIC cold start)
+    If SKIP_RAM_TEST Then
+        ' Pre-write memory state that RAMTAS would leave:
+        Mem_Write &HB2, &H3C       ' Tape buffer pointer low
+        Mem_Write &HB3, &H03       ' Tape buffer pointer high ($033C)
+        Mem_Write &H0281, &H00     ' MEMTOP low ($0800 — start of BASIC text)
+        Mem_Write &H0282, &H08     ' MEMTOP high
+        Mem_Write &H0283, &H00     ' MEMBOT low ($A000 — top of BASIC RAM)
+        Mem_Write &H0284, &HA0     ' MEMBOT high
+        Mem_Write &H0288, &H04     ' Screen memory page ($0400)
+        
+        ' Write boot stub at $C000
+        Mem_Write &HC000, &HA2     ' LDX #$FF
+        Mem_Write &HC001, &HFF
+        Mem_Write &HC002, &H9A     ' TXS (set SP=$FF like real KERNAL reset)
+        Mem_Write &HC003, &H20     ' JSR
+        Mem_Write &HC004, &HA3     '   $FDA3 (IOINIT)
+        Mem_Write &HC005, &HFD
+        Mem_Write &HC006, &H20     ' JSR
+        Mem_Write &HC007, &H15     '   $FD15 (RESTOR)
+        Mem_Write &HC008, &HFD
+        Mem_Write &HC009, &H20     ' JSR
+        Mem_Write &HC00A, &H5B     '   $FF5B (CINT)
+        Mem_Write &HC00B, &HFF
+        Mem_Write &HC00C, &H58     ' CLI
+        Mem_Write &HC00D, &H6C     ' JMP ($A000)
+        Mem_Write &HC00E, &H00
+        Mem_Write &HC00F, &HA0
+        
+        C64_SetPC &HC000
+        Print "[SETUP] Skipping RAMTAS — boot stub at $C000 (IOINIT+RESTOR+CINT+BASIC)"
+        Print "[SETUP] $A000=$" & Hex(Mem_GetBuf(&HA000)) & " $A001=$" & Hex(Mem_GetBuf(&HA001))
+        Print "[SETUP] JMP target = $" & Hex(Mem_GetBuf(&HA001) * 256 + Mem_GetBuf(&HA000))
+    End If
+    
     bLoaded = True
 
     Print "C64 Emulator ready!"
     Print "PC=$" & Hex(C64_GetPC())
+    Print ""
+    Print "  SKIP_RAM_TEST = " & SKIP_RAM_TEST
     Print ""
     Print "Controls:"
     Print "  Arrow keys = Joystick"
@@ -230,6 +291,16 @@ Sub _Process(delta As Double)
             Vic_Tick()
         Next
 
+        ' CIA1 Timer A countdown — fires ~60Hz system IRQ for keyboard scan
+        CIA1_TimerA = CIA1_TimerA - instCycles
+        If CIA1_TimerA <= 0 Then
+            CIA1_TimerA = CIA1_TimerA + CIA1_TimerA_Latch
+            ' Set CIA1 ICR flag ($DC0D bit 0) and trigger CPU IRQ
+            Dim icr As Integer = Mem_GetBuf(&HDC0D)
+            Mem_SetBuf &HDC0D, BitOr(icr, &H81)
+            C64_SetIRQ True
+        End If
+
         safetyCounter = safetyCounter + 1
         If safetyCounter > chunkCycles * 3 Then
             Exit Do
@@ -246,10 +317,15 @@ Sub _Process(delta As Double)
     If elapsed >= 2 And elapsed > 0 Then
         Dim stepsDelta As Long = TotalStepsExecuted - LastProgressSteps
         Dim cyclesDelta As Long = TotalCyclesExecuted - LastProgressCycles
-        Print "[PERF] t=+" & CStr(Int(nowT)) & "s  totalSteps=" & CStr(TotalStepsExecuted) & "  totalCycles=" & CStr(TotalCyclesExecuted) & "  PC=$" & Hex(C64_GetPC()) & "  rate=" & CStr(Int(stepsDelta / elapsed)) & " steps/sec (" & CStr(Int(cyclesDelta / elapsed)) & " cycles/sec)"
+        Dim d012val As Integer = Mem_GetBuf(&HD012)
+        Dim rasterHi As Integer = BitAnd(Mem_GetBuf(&HD011), &H80)
+        Dim v0428 As Integer = Mem_GetBuf(&H0428)
+        Dim v042C As Integer = Mem_GetBuf(&H042C)
+        Print "[PERF] cyc=" & CStr(TotalCyclesExecuted) & " PC=$" & Hex(C64_GetPC()) & " rate=" & CStr(Int(cyclesDelta / elapsed)) & " $0428=" & Hex(v0428) & " $042C=" & Hex(v042C)
         LastProgressPrintTime = nowT
         LastProgressCycles = TotalCyclesExecuted
         LastProgressSteps = TotalStepsExecuted
+
     End If
 
     If CyclesThisFrame >= CYCLES_PER_FRAME_PAL Then

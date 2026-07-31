@@ -8,12 +8,12 @@ Import "c64_constants.vg"
 ' ================================================================
 ' === MODULE-LEVEL STATE ===
 ' ================================================================
-Public  gVic_RasterLine    As Integer
-Public  gVic_RasterIRQ     As Integer
-Public  gVic_CycleInLine   As Integer
-Public  gVic_BorderX       As Integer
-Public  gVic_BorderY       As Integer
-Public  gVic_Framebuf      As Variant
+Public gVic_RasterLine As Integer
+Public gVic_RasterIRQ As Integer
+Public gVic_CycleInLine As Integer
+Public gVic_BorderX As Integer
+Public gVic_BorderY As Integer
+Public gVic_Framebuf As Variant
 
 ' Private scratch
 Private gVic_tmpCol As Integer
@@ -24,12 +24,25 @@ Private gVic_tmpCol As Integer
 ' ================================================================
 Sub Vic_Init()
     Set gVic_Framebuf = CreateImage(SCREEN_W, SCREEN_H, Color8(0, 0, 0, 255))
-    gVic_RasterLine  = 0
-    gVic_RasterIRQ   = 0
+    gVic_RasterLine = 0
+    gVic_RasterIRQ = 0
     gVic_CycleInLine = 0
-    gVic_BorderX     = BORDER_X
-    gVic_BorderY     = BORDER_Y
+    gVic_BorderX = BORDER_X
+    gVic_BorderY = BORDER_Y
 End Sub
+
+
+' ================================================================
+' === VIC MEMORY READ (character ROM hole at $1000-$1FFF in bank 0) ===
+' ================================================================
+Function Vic_ReadByte(addr As Integer) As Integer
+    ' On a real C64, the VIC-II sees character ROM at $1000-$1FFF
+    ' (bank 0, the default) instead of RAM. Without this, text is invisible.
+    If addr >= &H1000 And addr < &H2000 Then
+        Return Mem_ReadCharROM(addr - &H1000)
+    End If
+    Return Mem_GetBuf(addr)
+End Function
 
 
 ' ================================================================
@@ -47,12 +60,18 @@ Sub Vic_Tick()
             Vic_RenderFrame()
         End If
 
-        ' Update VIC register $D012 (raster)
+        ' Update VIC registers: $D012 (raster low) and $D011 bit 7 (raster bit 8)
         Mem_SetBuf &HD012, BitAnd(gVic_RasterLine, &HFF)
+        Dim d011 As Integer = Mem_GetBuf( &HD011)
+        If gVic_RasterLine >= 256 Then
+            Mem_SetBuf &HD011, BitOr(BitAnd(d011, &H7F), &H80)
+        Else
+            Mem_SetBuf &HD011, BitAnd(d011, &H7F)
+        End If
 
         ' Check raster IRQ
         If gVic_RasterLine = gVic_RasterIRQ Then
-            Dim flags As Integer = Mem_GetBuf(&HD019)
+            Dim flags As Integer = Mem_GetBuf( &HD019)
             Mem_SetBuf &HD019, BitOr(flags, &H01)
         End If
 
@@ -77,7 +96,7 @@ End Sub
 ' border-color screen (or white/black, depending on registers) instead of
 ' real content. Fixed Jul 30 2026.
 Sub Vic_RenderFrame()
-    Dim borderCol As Integer = BitAnd(Mem_GetBuf(&HD020), &H0F)
+    Dim borderCol As Integer = BitAnd(Mem_GetBuf( &HD020), &H0F)
     Dim borderColor As Variant = GetC64Color(borderCol)
     Dim x As Integer, y As Integer
 
@@ -114,25 +133,25 @@ Sub Vic_RenderScanline()
     Dim screenY As Integer = gVic_RasterLine - 16
     If screenY < 0 Or screenY >= VISIBLE_H Then Return
 
-    Dim ctrl1 As Integer = Mem_GetBuf(&HD011)
-    Dim ctrl2 As Integer = Mem_GetBuf(&HD016)
-    Dim memPtr As Integer = Mem_GetBuf(&HD018)
+    Dim ctrl1 As Integer = Mem_GetBuf( &HD011)
+    Dim ctrl2 As Integer = Mem_GetBuf( &HD016)
+    Dim memPtr As Integer = Mem_GetBuf( &HD018)
 
-    Dim DEN   As Boolean = BitTst(ctrl1, 4)
-    Dim BMM   As Boolean = BitTst(ctrl1, 5)
-    Dim ECM   As Boolean = BitTst(ctrl1, 6)
-    Dim RSEL  As Boolean = BitTst(ctrl1, 3)
-    Dim MCM   As Boolean = BitTst(ctrl2, 4)
-    Dim CSEL  As Boolean = BitTst(ctrl2, 3)
+    Dim DEN As Boolean = BitTst(ctrl1, 4)
+    Dim BMM As Boolean = BitTst(ctrl1, 5)
+    Dim ECM As Boolean = BitTst(ctrl1, 6)
+    Dim RSEL As Boolean = BitTst(ctrl1, 3)
+    Dim MCM As Boolean = BitTst(ctrl2, 4)
+    Dim CSEL As Boolean = BitTst(ctrl2, 3)
 
-    Dim yScroll  As Integer = BitAnd(ctrl1, &H07)
-    Dim charRow  As Integer = (screenY + yScroll) \ 8
+    Dim yScroll As Integer = BitAnd(ctrl1, &H07)
+    Dim charRow As Integer = (screenY + yScroll) \ 8
     Dim pixelRow As Integer = (screenY + yScroll) Mod 8
 
-    Dim vm10     As Integer = BitShiftRight(BitAnd(memPtr, &HF0), 4)
-    Dim scrBase  As Integer = BitShiftLeft(vm10, 10)
+    Dim vm10 As Integer = BitShiftRight(BitAnd(memPtr, &HF0), 4)
+    Dim scrBase As Integer = BitShiftLeft(vm10, 10)
 
-    Dim cbBits   As Integer = BitShiftRight(BitAnd(memPtr, &H0E), 1)
+    Dim cbBits As Integer = BitShiftRight(BitAnd(memPtr, &H0E), 1)
     Dim charBase As Integer = BitShiftLeft(cbBits, 11)
 
     Dim numCols As Integer
@@ -160,11 +179,11 @@ End Sub
 ' initial fill color (black) -- a black vertical band between the fixed
 ' 32px border and the shifted content. Fixed Jul 30 2026.
 Sub Vic_PaintNarrowGap(screenY As Integer, xOff As Integer)
-    If xOff <= 0 Then Return
+    If xOff < = 0 Then Return
     Dim rowY As Integer = screenY + gVic_BorderY
     If rowY < 0 Or rowY >= SCREEN_H Then Return
 
-    Dim borderCol As Integer = BitAnd(Mem_GetBuf(&HD020), &H0F)
+    Dim borderCol As Integer = BitAnd(Mem_GetBuf( &HD020), &H0F)
     Dim borderColor As Variant = GetC64Color(borderCol)
     Dim i As Integer
     For i = 0 To xOff - 1
@@ -178,7 +197,7 @@ End Sub
 ' === STANDARD CHARACTER MODE ===
 ' ================================================================
 Sub Vic_RenderCharScanline(screenY As Integer, charRow As Integer, pixelRow As Integer, scrBase As Integer, charBase As Integer, numCols As Integer, xOff As Integer)
-    Dim bgCol As Integer = BitAnd(Mem_GetBuf(&HD021), &H0F)
+    Dim bgCol As Integer = BitAnd(Mem_GetBuf( &HD021), &H0F)
     Dim col As Integer, ch As Integer
 
     Vic_PaintNarrowGap screenY, xOff
@@ -187,7 +206,7 @@ Sub Vic_RenderCharScanline(screenY As Integer, charRow As Integer, pixelRow As I
         Dim scrAddr As Integer = scrBase + charRow * 40 + col
         ch = Mem_GetBuf(scrAddr)
         Dim chAddr As Integer = charBase + ch * 8 + pixelRow
-        Dim data As Integer = Mem_GetBuf(chAddr)
+        Dim Data As Integer = Vic_ReadByte(chAddr)
 
         Dim index As Integer = charRow * 40 + col
         If index >= 0 And index < &H0400 Then
@@ -198,7 +217,7 @@ Sub Vic_RenderCharScanline(screenY As Integer, charRow As Integer, pixelRow As I
         For px = 0 To 7
             Dim sx As Integer = xOff + col * 8 + px + gVic_BorderX
             If sx >= 0 And sx < SCREEN_W And screenY + gVic_BorderY >= 0 And screenY + gVic_BorderY < SCREEN_H Then
-                If BitTst(data, 7 - px) Then
+                If BitTst(Data, 7 - px) Then
                     SetImagePixel gVic_Framebuf, sx, screenY + gVic_BorderY, GetC64Color(gVic_tmpCol)
                 Else
                     SetImagePixel gVic_Framebuf, sx, screenY + gVic_BorderY, GetC64Color(bgCol)
@@ -213,9 +232,9 @@ End Sub
 ' === MULTI-COLOR CHARACTER MODE ===
 ' ================================================================
 Sub Vic_RenderMCCharScanline(screenY As Integer, charRow As Integer, pixelRow As Integer, scrBase As Integer, numCols As Integer, xOff As Integer)
-    Dim mc1   As Integer = BitAnd(Mem_GetBuf(&HD022), &H0F)
-    Dim mc2   As Integer = BitAnd(Mem_GetBuf(&HD023), &H0F)
-    Dim bgCol As Integer = BitAnd(Mem_GetBuf(&HD021), &H0F)
+    Dim mc1 As Integer = BitAnd(Mem_GetBuf( &HD022), &H0F)
+    Dim mc2 As Integer = BitAnd(Mem_GetBuf( &HD023), &H0F)
+    Dim bgCol As Integer = BitAnd(Mem_GetBuf( &HD021), &H0F)
 
     Vic_PaintNarrowGap screenY, xOff
 
@@ -227,7 +246,7 @@ Sub Vic_RenderMCCharScanline(screenY As Integer, charRow As Integer, pixelRow As
         Dim chBase As Integer
         If BitTst(ch, 3) Then chBase = &H0000 Else chBase = &H0800
         Dim chAddr As Integer = chBase + (BitAnd(ch, &H07)) * 8 + pixelRow
-        Dim data As Integer = Mem_GetBuf(chAddr)
+        Dim Data As Integer = Mem_GetBuf(chAddr)
 
         Dim index As Integer = charRow * 40 + col
         If index < &H0400 Then
@@ -236,15 +255,15 @@ Sub Vic_RenderMCCharScanline(screenY As Integer, charRow As Integer, pixelRow As
 
         Dim px As Integer
         For px = 0 To 3
-            Dim pair As Integer = BitShiftRight(BitAnd(data, &HC0), 6)
-            data = BitAnd(BitShiftLeft(data, 2), &HFF)
+            Dim pair As Integer = BitShiftRight(BitAnd(Data, &HC0), 6)
+            Data = BitAnd(BitShiftLeft(Data, 2), &HFF)
 
             Dim pc As Integer
             Select Case pair
-                Case 0: pc = bgCol
-                Case 1: pc = mc1
-                Case 2: pc = mc2
-                Case 3: pc = gVic_tmpCol
+            Case 0: pc = bgCol
+            Case 1: pc = mc1
+            Case 2: pc = mc2
+            Case 3: pc = gVic_tmpCol
             End Select
 
             Dim dx As Integer
@@ -267,20 +286,20 @@ Sub Vic_RenderBitmapScanline(screenY As Integer, charRow As Integer, pixelRow As
 
     Dim col As Integer
     For col = 0 To 39
-        Dim bitmapRow  As Integer = charRow * 8 + pixelRow
+        Dim bitmapRow As Integer = charRow * 8 + pixelRow
         Dim bitmapAddr As Integer = charBase + bitmapRow * 40 + col
-        Dim data       As Integer = Mem_GetBuf(bitmapAddr)
+        Dim Data As Integer = Mem_GetBuf(bitmapAddr)
 
-        Dim scrAddr    As Integer = scrBase + charRow * 40 + col
-        Dim colorInfo  As Integer = Mem_GetBuf(scrAddr)
-        Dim fgCol      As Integer = BitShiftRight(colorInfo, 4) And &H0F
-        Dim bgCol      As Integer = BitAnd(colorInfo, &H0F)
+        Dim scrAddr As Integer = scrBase + charRow * 40 + col
+        Dim colorInfo As Integer = Mem_GetBuf(scrAddr)
+        Dim fgCol As Integer = BitShiftRight(colorInfo, 4) And &H0F
+        Dim bgCol As Integer = BitAnd(colorInfo, &H0F)
 
         Dim px As Integer
         For px = 0 To 7
             Dim sx As Integer = xOff + col * 8 + px + gVic_BorderX
             If sx >= 0 And sx < SCREEN_W And screenY + gVic_BorderY >= 0 And screenY + gVic_BorderY < SCREEN_H Then
-                If BitTst(data, 7 - px) Then
+                If BitTst(Data, 7 - px) Then
                     SetImagePixel gVic_Framebuf, sx, screenY + gVic_BorderY, GetC64Color(fgCol)
                 Else
                     SetImagePixel gVic_Framebuf, sx, screenY + gVic_BorderY, GetC64Color(bgCol)

@@ -811,6 +811,14 @@ Sub C64_SetReg(r As Integer, v As Integer)
     End Select
 End Sub
 
+Sub C64_SetPC(v As Integer)
+    gC64_PC = v
+End Sub
+
+Sub C64_SetIRQ(state As Boolean)
+    gC64_IRQPending = state
+End Sub
+
 Function C64_GetPC() As Integer
     Return gC64_PC
 End Function
