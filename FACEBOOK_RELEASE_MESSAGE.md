@@ -1,4 +1,4 @@
-# VisualGasic 5.3.0-Beta2 — Facebook Release Message
+# VisualGasic 5.3.0-Beta3 — Facebook Release Message
 
 Copy-paste ready. Pick the option that fits your page's tone.
 
@@ -6,81 +6,83 @@ Copy-paste ready. Pick the option that fits your page's tone.
 
 ## Option 1: Short & Catchy (Recommended for main announcement)
 
-🚀 **VisualGasic 5.3.0-Beta2 is out!**
+🚀 **VisualGasic 5.3.0-Beta3 is out!**
 
-This release fixes a sneaky Python bridge bug that was silently turning every integer into a float (breaking numpy, range(), and more), adds the long-awaited `IsNot` operator, and fixes a ByRef parameter bug. Plus: two new AI providers (Codeium, Amazon Q), a Python/C++ FFI demo pack, and a tribute demo to the 1986 classic *Thrust*.
+This release ships two brand-new hardware emulator demos — a full **Commodore 64** (6510 CPU, VIC-II, real KERNAL/BASIC ROMs) and a **Game Boy Advance** (ARM7TDMI) — built entirely in VisualGasic. Building them shook loose a whole chain of real interpreter bugs (a sneaky boot-time stack corruption bug that was silently eating the C64's startup banner!), plus cross-module bytecode compilation, a new buffer type, a `Global` keyword, and ~21-40% less call overhead.
 
-763/763 tests passing. Godot 4.6.1. Linux + Windows.
+777/777 tests passing. 54 corpus examples. Godot 4.6.1. Linux + Windows.
 
-**Download:** https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta2
+**Download:** https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta3
 
-Coming from GDScript? We wrote a full side-by-side comparison guide — link in the release notes. 👀
+Yes, it boots to a real "READY." prompt. 👀
 
-#GameDev #Godot #VisualGasic #BASIC #OpenSource #IndieGames
+#GameDev #Godot #VisualGasic #BASIC #OpenSource #IndieGames #RetroGaming
 
 ---
 
 ## Option 2: Technical Deep-Dive (For developer audiences)
 
-🎯 **VisualGasic 5.3.0-Beta2 — Python Bridge Fix, IsNot, ByRef Write-Back**
+🎯 **VisualGasic 5.3.0-Beta3 — C64/GBA Emulators, Cross-Module Bytecode, Buffer Type**
 
 Highlights from this release:
 
-✅ **Python bridge int/float bug fixed** — Godot's JSON parser was silently collapsing every number to float. Built a custom decoder that preserves Python's int/float distinction end-to-end. numpy, math, and json workflows are now type-safe.
+✅ **Commodore 64 Emulator demo** — full 6510 CPU (151 opcodes), VIC-II graphics chip, CIA I/O, running the real KERNAL + BASIC V2 ROMs. Boots to the actual `**** COMMODORE 64 BASIC V2 ****` banner.
 
-✅ **`IsNot` operator** — full VB.NET-style negated reference comparison, wired through parser → bytecode compiler → both evaluators.
+✅ **Game Boy Advance Emulator demo** — ARM7TDMI/Thumb core, with a fresh batch of decode and class-visibility bug fixes from real-ROM testing.
 
-✅ **ByRef write-back fix** — expression-level calls like `result = DoubleAndReturn(val)` now correctly update `val` (previously only worked as a standalone `Call` statement).
+✅ **Cross-module bytecode compilation** — Subs/Functions in `Import`'d files now compile to bytecode instead of falling back to the slower AST interpreter.
 
-✅ **New demos** — Python bridge round-trip, C++ FFI custom library (Vec2 math via C ABI), and a full *Thrust* (1986) tribute game showing procedural `_Draw` rendering and tether physics.
+✅ **Buffer Type + Optimizer Hints** — `Dim buf As New MemoryBuffer(N)` now uses 10 dedicated opcodes for direct `PackedByteArray` access.
 
-✅ **Two new AI providers** — Codeium (Windsurf) and Amazon Q Developer join Ollama/OpenAI/Claude/Gemini in the Narcea AI Pair panel.
+✅ **`Global` keyword, cross-file class `Import`, `Exit While`** — three language additions closing real gaps.
 
-🔴 **Known issue (documented, not blocking):** outgoing PyCall arguments still lose int type on VG literals — workaround with `CInt()`. Full writeup in the release notes.
+✅ **~21-40% less call/hot-path overhead** measured via new micro-benchmarks.
 
-**Download:** https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta2
+🐛 **The bug of the release:** the C64 emulator reached "READY." but never printed its boot banner. Root cause: the boot stub didn't replicate the real 6502 reset sequence (`LDX #$FF : TXS`), so a `JSR` return address landed exactly where the KERNAL's RAM-init routine writes — corrupting the stack and silently triggering a warm-start. Found via cycle-by-cycle PC tracing. Full writeup in the release notes.
+
+**Download:** https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta3
 **Roadmap:** 5.4-beta Oct 15 (Narcea AI pair), 6.0 stable Jan 1, 2027
 
-We need beta testers on the Python bridge specifically — if you're doing any numpy/data work in VG, please try it and report back. 💬
-
-#Godot #GameDev #OpenSource #BASIC #VisualGasic #PythonIntegration
+#Godot #GameDev #OpenSource #BASIC #VisualGasic #EmulationDev
 
 ---
 
 ## Option 3: Story-Driven (For building community narrative)
 
-✨ **VisualGasic 5.3.0-Beta2 is live**
+✨ **VisualGasic 5.3.0-Beta3 is live — and it boots a real Commodore 64**
 
-This release started with a bug report that looked simple: "Python integers come back as floats." Turned out the culprit was buried in Godot's own JSON parser — it has no int branch at all, so *every* number from *any* JSON source gets flattened to float. That's been true since Godot's JSON class existed.
+We wanted a stress test that would find bugs no synthetic unit test ever would, so we built a Commodore 64 emulator in VisualGasic — real 6510 CPU, real VIC-II graphics chip, and the *actual, unmodified* KERNAL and BASIC V2 ROMs from 1982.
 
-We wrote a small, self-contained JSON decoder from scratch that mirrors how Python's own `json.loads()` decides int vs. float, and wired it into the two places VG talks to Python workers. Six new tests confirm scalars, negatives, nested dicts, and mixed arrays all round-trip with the right type now.
+It found bugs immediately. A `BlitImage` call that silently did nothing because it got a `Rect2` instead of a `Rect2i`. A frame-render race that painted the whole screen border color forever. A border that was scaled to monitor resolution instead of the game window, cutting off 90% of the screen. And then the big one: the emulator would boot cleanly, reach the "READY." prompt... and never print the startup banner.
 
-While we were in there, we also closed out the `IsNot` operator (`If obj IsNot Nothing Then`) and fixed a ByRef parameter bug that only showed up when you called a function inside an expression instead of as a standalone statement — the kind of bug that hides for months because most code happens to avoid the exact pattern that triggers it.
+Turned out the boot code wasn't resetting the stack pointer the way real 6502 hardware does. One JSR call, one wrong stack address, and the KERNAL's own memory-test routine overwrote its own return address — a silent warm-start that skipped the banner every single time. We traced it cycle-by-cycle until we caught the exact corrupted jump.
 
-Also new: two more AI providers for the Narcea AI Pair, a C++ FFI demo showing VG calling a custom C++ math library, and — because we can't resist a good retro tribute — a playable *Thrust* clone (1986) built entirely in VG's procedural drawing API.
+Alongside the C64, we also fixed a pile of real bugs in our Game Boy Advance emulator demo, added cross-module bytecode compilation (so imported files run at full speed, not falling back to the slow interpreter path), a new buffer type for raw memory access, and a `Global` keyword.
 
-**Try it:** https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta2
+**Try it:** https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta3
 
-If you write BASIC, love Godot, or just miss the VB6 era — this is for you. 🎮
+If you write BASIC, love Godot, or think emulating a 1982 computer inside a game engine is a completely reasonable way to stress-test a language — this is for you. 🎮
 
-#GameDev #Godot #OpenSource #VisualGasic #IndieGames #RetroGaming
+#GameDev #Godot #OpenSource #VisualGasic #IndieGames #RetroGaming #Commodore64
 
 ---
 
 ## Option 4: Minimal (Quick share / cross-post)
 
-🎉 **VisualGasic 5.3.0-Beta2 — download now**
+🎉 **VisualGasic 5.3.0-Beta3 — download now**
 
-Python bridge int/float bug fixed · `IsNot` operator · ByRef fix · new AI providers · Python/FFI demos · Thrust tribute game.
+New C64 + GBA emulator demos (real ROMs!) · cross-module bytecode compilation · Buffer Type · `Global` keyword · Exit While · ~21-40% less call overhead.
 
-763/763 tests passing.
+777/777 tests passing · 54 corpus examples.
 
-[Download](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta2) · [Release Notes](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_5.3.0-Beta2.md) · [Roadmap](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_SCHEDULE.md)
+[Download](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta3) · [Release Notes](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_5.3.0-Beta3.md) · [Roadmap](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_SCHEDULE.md)
 
 #Godot #GameDev #VisualGasic #OpenSource
 
 ---
 
-**Suggested hashtags (any option):** #GameDev #Godot #VisualGasic #BASIC #OpenSource #IndieGames #GodotEngine
+**Suggested hashtags (any option):** #GameDev #Godot #VisualGasic #BASIC #OpenSource #IndieGames #GodotEngine #RetroGaming
 
 **Best posting window:** Tuesday–Thursday, 10am–2pm local time for dev-community engagement.
+
+**Suggested image:** `docs/screenshots/c64_emulator_running.png` (C64 emulator running in the Godot editor — real `**** COMMODORE 64 BASIC V2 ****` boot banner and `READY.` prompt visible).

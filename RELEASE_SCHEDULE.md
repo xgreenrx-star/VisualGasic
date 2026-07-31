@@ -9,7 +9,7 @@
 
 | Release | Status | ETA | Milestones | Key Features |
 |---|---|---|---|---|
-| **5.3-beta** | 🔴 PENDING | **Jul 15, 2026** | M1–M4 | Language stability, Python bridge int/float decode fix, Godot IDE integration (Code Navigator M3, UI Forms M4) |
+| **5.3-beta** | � SHIPPED (Beta3) | Jul 15 → **Jul 31, 2026** | M1–M4 (+ M5 progress) | Language stability, Python bridge int/float decode fix, Godot IDE integration (Code Navigator M3, UI Forms M4); Beta3 adds C64/GBA emulator demos, cross-module bytecode compilation, Buffer Type, `Global` keyword |
 | **5.4-beta** | — | Oct 15, 2026 | M5 | Narcea AI pair, async queue, structured error handling |
 | **6.0-rc1** | — | Dec 1, 2026 | M6–M8 | Language parity (Try/Catch/Lambda/AndAlso/OrElse), C++ FFI interop, `Let` keyword, Causal Chain (text mode) |
 | **6.0-rc2** | — | Dec 15, 2026 | M9 | Release readiness, Godot Asset Library submission, installer validation |
@@ -17,17 +17,25 @@
 
 ---
 
-## 5.3-beta (Due Now: Jul 15, 2026)
+## 5.3-beta (Shipped Beta1 Jul 3, Beta2 Jul 15, Beta3 Jul 31, 2026)
 
-**Status:** Ready to ship
+**Status:** Beta3 shipped
 
 **Milestones included:**
 - ✅ M1 — Bug fixes (4/4 critical bugs fixed)
-- ✅ M2 — Corpus validation (44/44 examples passing)
+- ✅ M2 — Corpus validation (54/54 examples passing, up from 44)
 - ✅ M3 — Code Navigator upgrade
 - ✅ M4 — UI Forms experimental plugin
+- 🔄 M5 — Narcea AI pair (in progress; DeepSeek provider + agent scaffolding landed in Beta3)
 
-**Python bridge improvements:**
+**Beta3 highlights (Jul 31, 2026):**
+- ✅ C64 Emulator + GBA Emulator demos (real KERNAL/BASIC ROMs, ARM7TDMI) — see [RELEASE_NOTES_5.3.0-Beta3.md](RELEASE_NOTES_5.3.0-Beta3.md)
+- ✅ Cross-module bytecode compilation for imported Subs + `MemoryBuffer` global support
+- ✅ Buffer Type + Optimizer Hints (#4, #5), `Global` keyword, cross-file class `Import`, `Exit While`
+- ✅ ~21–40% reduction in call/hot-path overhead
+- ✅ Regression suite: 777/777 assertions (up from 763/763)
+
+**Python bridge improvements (Beta2):**
 - ✅ Integer/float decode bug FIXED (Godot JSON parser → custom `vg_json_parse_typed()`)
 - 🔴 Known issue: Outgoing literal typing (VG Array(0,5) sends float → breaks numpy.range). Documented in ROADMAP.md, v6.1 candidate.
 
@@ -36,12 +44,12 @@
 - `demo/test_python_int_float.vg` validates decode path (Tests 1,4,5,6 pass)
 - No regressions from M1 critical fixes
 
-**Checklist before shipping:**
-- [ ] Run full regression test suite (763/763 assertions target)
+**Checklist before shipping Beta3:**
+- [x] Run full regression test suite (777/777 assertions)
 - [ ] Build both editor + template_debug binaries
 - [ ] Verify installer (`install.sh`/`install.ps1`) on clean VM
-- [ ] Generate CHANGELOG.md entry summarizing M1–M4
-- [ ] Tag release as `v5.3.0-beta`
+- [x] Generate CHANGELOG.md entry summarizing Beta3 changes
+- [ ] Tag release as `v5.3.0-Beta3`
 - [ ] Push to GitHub Releases with installer artifacts
 - [ ] Update README.md "Current Release" section
 

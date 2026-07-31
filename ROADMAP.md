@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: July 16, 2026  
-**Current Version**: 5.3.0-Beta1 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
+**Last Updated**: July 31, 2026  
+**Current Version**: 5.3.0-Beta3 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
 **Current Scope**: M0–M9 milestones (Jul 2026 – Jan 2027 stable release)  
 **Next Cut**: v5.3.0 stable
 
@@ -467,6 +467,8 @@ Each feature has implementation notes that describe:
 
 ## 📝 Version History
 
+- **v5.3.0-Beta3** (2026-07-31) - C64 Emulator + GBA Emulator demos (real ROMs), cross-module bytecode compilation for imported Subs, MemoryBuffer global support, Buffer Type + Optimizer Hints (#4/#5), `Global` keyword, cross-file class `Import`, `Exit While`, ~21-40% call/hot-path overhead reduction, DeepSeek AI provider, 777/777 assertions, 54 corpus examples
+- **v5.3.0-Beta2** (2026-07-15) - Python bridge int/float decode fix, `IsNot` operator, ByRef write-back fix, Codeium/Amazon Q AI providers, Python/C++ FFI demos, Narcea AI Pair floating window, Thrust tribute demo
 - **v5.2.0-Beta4** (2026-05-11) - Android plugin (GPS/Steps/Sensor), Pass-6 namespace verbs (Camera.PanTo/Bounce, Crypto.Hex/Base64, Physics.GravityV2/V3, Ray.Cast2D/Cast3D, Joypad.Stick, Sensor.Magnetometer, Theme/Shader/Speaker.Bus…), 358-entry Command Help DB, AI correctness 100% on Claude Sonnet 4.5 and qwen2.5-coder:7b, Browser Dashboard (5 phases + headless + tray)
 - **v5.1.0-rc.2** - Release candidate 2 for v5.1.0 stable line
 - **v5.1.0-rc.1** - Release candidate 1; Fix-with-AI diff repair, AI voice mode (PTT)

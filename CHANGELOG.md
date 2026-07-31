@@ -7,47 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### 🐛 Fixed — `BlitImage` silent no-op when passed `Rect2`/`Vector2` instead of `Rect2i`/`Vector2i` (Jul 30, 2026)
+## [5.3.0-Beta3] - 2026-07-31
+
+**Key numbers:** 777/777 regression assertions passing (98 files) · 54 corpus examples passing.
+
+### 🎮 Added — C64 Emulator Demo (Jul 27–31, 2026)
+
+- New `demos/C64_Emulator/` — a full software 6510 CPU emulator (all 151 documented opcodes), 64KB address space with ROM/RAM bank switching, VIC-II graphics chip (raster line counter, interrupt generation, border/interior rendering), and CIA1/CIA2 I/O controllers (timers, keyboard matrix, port I/O) — running the **real KERNAL and BASIC ROM firmware**.
+- Shipped with several from-scratch bugs found and fixed during bring-up (see below): VIC-II render race, 38-column border gap, viewport-scaling border offset, and a boot-stub stack-corruption bug that silently ate the startup banner.
+
+### 🐛 Fixed — C64/GBA `BlitImage` silent no-op when passed `Rect2`/`Vector2` instead of `Rect2i`/`Vector2i` (Jul 30, 2026)
 
 - `BlitImage`'s native implementation (`src/visual_gasic_instance.cpp`) only pattern-matches `Variant::RECT2I` for the `srcRect` argument. Passing a `Rect2`/`Vector2` (float variant) silently fell through to a default-constructed zero-size rect, so the copy was a no-op — zero pixels copied, no error, every call.
 - Found and fixed in two real-world demos that both had this exact mistake: `demos/C64_Emulator/c64_main.vg` and `demos/GBA_Emulator/gba_main.vg` — their VIC/GPU framebuffers were never actually reaching the display texture, causing a permanently black screen regardless of emulation speed.
 - Fixed both call sites to use `BlitImage`'s plain-integer 8-arg overload (`dest, src, sx, sy, sw, sh, dx, dy`), which sidesteps the `Rect2i`/`Vector2i` constructor entirely.
 - Clarified `docs/BUILTINS.md`'s `BlitImage` entry to call out this pitfall explicitly and recommend the 8-arg form.
-- Verified via a pixel-probe diagnostic (`GetImagePixel` on destination vs. source at matching coordinates, confirmed identical post-blit). Full regression suite: 777/777 assertions pass.
-- **Related, still-open bug found (not fixed):** an initial fix attempt using `Rect2i(...)`/`Vector2i(...)` constructor calls surfaced a separate landmine — the AST tree-walk evaluator has no dispatch for Godot type constructors (`Vector2i`, `Rect2i`, `Color`, etc.), unlike the bytecode compiler's `_godot_type_ctors` table (`OP_NEW_OBJECT`). Any Sub that has silently fallen back to AST interpretation (see the ByRef fallback landmine, `/memories/repo/v6.0_blockers.md` §0) will get `Sub or Function not defined` when calling these constructors. Tracked in `.github/copilot-instructions.md` "Known open bugs".
+- Verified via a pixel-probe diagnostic (`GetImagePixel` on destination vs. source at matching coordinates, confirmed identical post-blit).
+- **Related, still-open bug found (not fixed):** an initial fix attempt using `Rect2i(...)`/`Vector2i(...)` constructor calls surfaced a separate landmine — the AST tree-walk evaluator has no dispatch for Godot type constructors (`Vector2i`, `Rect2i`, `Color`, etc.), unlike the bytecode compiler's `_godot_type_ctors` table (`OP_NEW_OBJECT`). Any Sub that has silently fallen back to AST interpretation will get `Sub or Function not defined` when calling these constructors. Tracked in `.github/copilot-instructions.md` "Known open bugs".
 
-### ✨ Added — Provider expansion: DeepSeek, Qwen, Codeium, Amazon Q (Jul 13, 2026)
+### 🐛 Fixed — VIC-II render race, 38-column border gap, and viewport scaling (Jul 30, 2026)
 
-- **4 new AI providers** joined the existing 4 (Ollama, OpenAI, Claude, Gemini) for a total of **8 providers**
-- All OpenAI-compatible providers (DeepSeek, Qwen, Codeium, Amazon Q) reuse existing _build_openai() and _parse_openai_line() code paths
-- Native function-calling adapter updated for all 7 cloud providers
-- GDAI._provider_map updated for raw GDAI API calls
-- EditorSettings keys and API key URLs registered for all 8 providers
+- **Frame-wipe/BlitImage race:** `Vic_RenderFrame()` wiped the entire framebuffer (border + interior) with border color every raster wrap, and the cycle-counted display trigger snapshotted the framebuffer right after that wipe, before the new frame's scanlines redrew the interior — so the screen always showed a uniform border color. Fixed by making `Vic_RenderFrame()` only paint the border region.
+- **38-column (CSEL=0) mode black gap:** VIC-II narrows the visible text window by 8px/side when CSEL=0; scanline renderers shifted content via `xOff` but never painted the vacated strip, leaving it black. Fixed with a new `Vic_PaintNarrowGap()`.
+- **Border not surrounding interior ("thick and off-center"):** `_Draw()` used `Screen.Width`/`Screen.Height` (physical monitor resolution) instead of the actual game-window size to compute its fit-to-window scale factor, so the framebuffer texture was drawn far larger than the window. Fixed by using `GetViewportRect().Size` and centering the drawn texture.
 
-### ✨ Added — Model refresh button & refresh_models() API (Jul 16, 2026)
+### 🐛 Fixed — C64 Emulator BASIC banner never printed (boot-stub stack corruption) (Jul 31, 2026)
 
-- **Refresh Models button** added to the AI Pair toolbar
-- refresh_models(provider_id) static method with per-provider API endpoints:
-  - OpenAI-compatible: GET /v1/models
-  - Ollama: GET /api/tags
-  - Claude: GET /v1/models (Anthropic API)
-  - Gemini: GET /v1beta/models
-- Results cached in EditorSettings with load/save helpers
-- get_providers() auto-applies cached model overrides
-- 103/103 tests pass including test 10 (model cache/refresh)
+- The `demos/C64_Emulator` boot stub jumped straight to KERNAL init routines with `SP=$FD` (the value `C64_Reset()` sets by default), instead of the real hardware's `LDX #$FF : TXS` reset sequence. A `JSR` at boot pushed its return address to `$01FC/$01FD`; the KERNAL's `INITMEM` zero-page-copy routine then wrote through that exact address, corrupting the return address on the stack and causing a bogus warm-start that skipped the `**** COMMODORE 64 BASIC V2 ****` banner entirely (though the emulator still reached "READY.").
+- Root-caused via cycle-by-cycle PC tracing that caught the corrupted jump to `$0102`.
+- Fixed by prepending the real reset sequence (`LDX #$FF` / `TXS`) to the boot stub, so `SP=$FF` before any `JSR`, landing return addresses safely outside `INITMEM`'s write range.
+- Verified via a full clean run: screen RAM at `$0400` decodes to the correct banner text.
 
-### 🔧 Fixed — TLSOptions.client() compatibility (Jul 16, 2026)
+### ⚡ Added — Cross-Module Bytecode Compilation for Imported Subs + `MemoryBuffer` Globals (Jul 29, 2026)
 
-- connect_to_host() now passes null certificate to TLSOptions.client(null)
-- Added explicit type annotations for result, providers, and raw variables
+- New per-module bytecode caching (`ModuleBytecodeEntry` / `get_bytecode_for_import()`) so `Sub`/`Function`s defined in `Import`'d `.vg` files compile to bytecode instead of always falling back to the (much slower) AST tree-walk interpreter.
+- Compiler now does a whole-module pre-scan (`scan_module_for_buffer_vars`) to find `Set X = New MemoryBuffer(...)` assignments anywhere in a module, not just the Sub currently being compiled.
+- New `VisualGasicInstance::get_global_buffer_var_names()` computes the union of buffer-var names across the main script and every imported module, so a module-level `MemoryBuffer` global can be assigned in one module and correctly indexed from a Sub compiled out of a different one.
+- Also fixes a related cross-module global array access bug (wrapper-function indirection) that was breaking `gMem_Buf`-style shared framebuffers across modules.
+- Found and fixed while validating this work against `demos/C64_Emulator`.
 
-### 🧪 Test coverage (Jul 16, 2026)
+### 🚀 Performance — Call-Site Caching and Hot-Path Cleanup
 
-- Test 10: Model cache / refresh tests added
-- Provider registry section expanded to test all 5 OpenAI-compatible providers
-- Total: 103 tests pass, 0 failed (was 58)
+- `call_internal()` now caches call-site resolution, giving a measured ~21% real-world reduction in call overhead.
+- Removed 2 unconditional per-instruction calls from `C64_Step()`'s hot path for a measured ~40% throughput gain in that loop.
+- Added a `FunctionCall` micro-benchmark; confirms VG is currently ~458× slower than GDScript for pure call overhead — tracked as ongoing perf work, see `/memories/repo/vg_bytecode_perf.md`.
+
+### ✨ Added — Buffer Type and Optimizer Hints (#4, #5)
+
+- **Buffer Type:** `Dim buf As New MemoryBuffer(N)` now compiles to 10 new dedicated opcodes (`OP_BUF_ALLOC`/`FREE`/`READ8`/`WRITE8`/`READ16`/`WRITE16`/`READ32`/`WRITE32`/`SIZE`/`RESIZE`) giving direct `PackedByteArray` access without Variant-dispatch overhead, instead of falling back to generic array opcodes.
+- **Optimizer Hints:** 3 new runtime-NOP opcodes (`OP_HINT_ACCUMULATOR`, `OP_HINT_LOOP_COUNTER`, `OP_HINT_PURE_CALL`) as markers for future optimizer/fusion passes.
+- Documented in the Language Reference and Optimizer Hints guide; a buffer benchmark was added to `bench.vg`.
+
+### ✨ Added — `Global` Keyword, Cross-File Class `Import`, `Exit While`
+
+- **`Global`** keyword for `Const`/`Dim`: publishes to a process-wide shared registry, readable by bare name from any script without an explicit `Import`.
+- **`Import`** now registers imported files' `Class` definitions (`New ClassName` works for classes defined in a separate imported `.vg` file) and publishes imported files' `Global Const`/`Dim` into the shared registry.
+- **`Exit While`** support added across the tokenizer, parser, compiler codegen, and both tree-walk execution paths.
+
+### 🕹️ Added — GBA Emulator Demo Fixes
+
+- `demos/GBA_Emulator/` (added Jul 27) received a batch of correctness fixes found via real-ROM testing: Thumb opcode bit-field decoding bugs, ARM CPU core bugs, class-instance field-visibility bugs, same-class sibling method call resolution, `_Draw` Object comparison, and stray leading/trailing quote artifacts causing unterminated-string parser errors.
+- Fixed calls to `HasMember`/`PropertyGet`/`ArrayLen` — these are not real VG builtins and have been replaced with supported equivalents.
+- Added a **Load ROM...** button with a `FileDialog` picker.
+
+### 🤖 Added — Narcea AI Pair Progress (M5) and DeepSeek Provider
+
+- Continued M5 groundwork: new Narcea AI agent scaffolding.
+- DeepSeek AI provider added alongside the existing Ollama, OpenAI, Claude, Gemini, Codeium, and Amazon Q providers.
+
+### 🛠 Fixed — Miscellaneous
+
+- Fixed Godot 4.6 strict-typing parse errors in editor plugin GDScript.
+- Removed a stray `file.png` accidentally generated by a headless editor test run.
 
 ## [5.3.0-Beta2] - 2026-07-15
+
+**Key numbers:** 763/763 regression assertions passing · 44/44 corpus examples passing · 6/6 new Python bridge decode tests passing.
 
 ### 🔧 Fixed — Python Bridge Int/Float Decode (Critical)
 
@@ -71,6 +106,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Root cause: `call_internal()` erases the callee's parameter slots from `variables[]` after the call, stashing the real post-call value in `_last_byref_captures` — but the expression-evaluator write-back path in `visual_gasic_instance_evaluate.inc` was reading the already-erased `variables[param.name]` instead of `_last_byref_captures`.
 - Fixed to match the working `STMT_CALL` write-back path in `visual_gasic_instance_execute.inc`.
 - Full regression suite: 763/763 assertions pass (was 762/763 before fix).
+
+### 🤖 Added — Codeium (Windsurf) and Amazon Q Developer AI Providers (Jul 13, 2026)
+
+Two new AI backends for the Narcea AI Pair / AI Help panel, alongside the existing Ollama, OpenAI, Claude, and Gemini providers.
+
+### 🐍 Added — Python Bridge and C++ FFI Demos (Jul 13, 2026)
+
+- `demos/Utilities/PythonBridge/demo_python_bridge.vg` — `PyImport`, `PyCall`, JSON serialization round-trip
+- `demos/Utilities/FFI/demo_ffi_cpp_lib.vg` — calling a custom C++ shared library (Vec2 math class) via C ABI wrappers
+
+### 🎨 Added — Narcea AI Pair Floating Window (Jul 5, 2026, M5 early progress)
+
+Narcea AI Pair is now a floating window (same pattern as the VG Toolbox/Properties windows), with position/size persisted across sessions and AI API keys migrated to `EditorSettings`.
+
+### 🎮 Added — Thrust Tribute Demo
+
+A new VG tribute demo to the 1986 classic *Thrust*: splash screen, BBC Micro–style scanline rock texture, WASD controls, 3-level progression, tether physics.
+
+### 📚 Documentation Overhaul
+
+Reference-documentation cleanup: fixed internal anchor links, reformatted the alphabetical command index, added a legacy-coverage appendix, removed the mothballed VG IDE chapter, clarified planned Windows support, documented the Godot 4.5 → 4.6 API migration.
+
+### 🛠 Fixed — Miscellaneous
+
+- Removed a call to a nonexistent `PopupMenu.move_item`; fixed a `Controller.gd` self-reference cascade
+- Fixed VGasic Tools missing from the Project menu; fixed VB6 FRX image decode; fixed new-project binary copy; fixed GDAI provider return types
 
 ## [5.3.0-Beta1] - 2026-07-03
 
