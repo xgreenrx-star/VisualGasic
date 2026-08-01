@@ -14,6 +14,14 @@ if ARGUMENTS.get("asan", "0") == "1":
     env.Append(CCFLAGS=["-fsanitize=address", "-fno-omit-frame-pointer", "-g", "-O1"])
     env.Append(LINKFLAGS=["-fsanitize=address"])
 
+# Optional: retain symbols in the shared library for perf profiling (`nostrip=1`).
+# godot-cpp appends `-s` to LINKFLAGS when debug_symbols is off, which strips the
+# .so at link time even though our objects are compiled with -g. Removing `-s`
+# re-links (no recompile) into a symbol-ful library. Default builds are unchanged.
+if ARGUMENTS.get("nostrip", "0") == "1":
+    while "-s" in env["LINKFLAGS"]:
+        env["LINKFLAGS"].remove("-s")
+
 # For the reference:
 # - godot-cpp/test/src and godot-cpp/test/header are the includes
 # - src is our local source

@@ -376,21 +376,38 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     }
     
     // Save any static variables before restoring locals
-    // Check func body for Static Dim statements and persist their values
-    for (int si = 0; si < func->statements.size(); si++) {
-        if (func->statements[si] && func->statements[si]->type == STMT_DIM) {
-            DimStatement* ds = (DimStatement*)func->statements[si];
-            if (ds->is_static && variables.has(ds->variable_name)) {
-                String static_key = func->name + "." + ds->variable_name;
-                static_variables[static_key] = variables[ds->variable_name];
+    // Check func body for Static Dim statements and persist their values.
+    // Perf: skip the O(statements) scan entirely for Subs with no top-level
+    // Static locals (nearly all of them) via a one-time cached flag.
+    if (func->has_static_locals_cache < 0) {
+        int hs = 0;
+        for (int si = 0; si < func->statements.size(); si++) {
+            if (func->statements[si] && func->statements[si]->type == STMT_DIM &&
+                ((DimStatement*)func->statements[si])->is_static) { hs = 1; break; }
+        }
+        func->has_static_locals_cache = hs;
+    }
+    if (func->has_static_locals_cache == 1) {
+        for (int si = 0; si < func->statements.size(); si++) {
+            if (func->statements[si] && func->statements[si]->type == STMT_DIM) {
+                DimStatement* ds = (DimStatement*)func->statements[si];
+                if (ds->is_static && variables.has(ds->variable_name)) {
+                    String static_key = func->name + "." + ds->variable_name;
+                    static_variables[static_key] = variables[ds->variable_name];
+                }
             }
         }
     }
     
-    // Restore saved local variables for recursion support
-    Array saved_keys = saved_locals.keys();
-    for(int i=0; i<saved_keys.size(); i++) {
-        variables[saved_keys[i]] = saved_locals[saved_keys[i]];
+    // Restore saved local variables for recursion support.
+    // Perf: skip the keys() Array allocation + loop entirely when nothing was
+    // saved (the common case — no callee param/local name collided with an
+    // existing caller variable, e.g. non-recursive calls with fresh locals).
+    if (!saved_locals.is_empty()) {
+        Array saved_keys = saved_locals.keys();
+        for(int i=0; i<saved_keys.size(); i++) {
+            variables[saved_keys[i]] = saved_locals[saved_keys[i]];
+        }
     }
 
     // Erase callee-introduced variables that did NOT exist in the caller's

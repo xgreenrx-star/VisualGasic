@@ -1,0 +1,271 @@
+' Test: Call-frame stress harness (regression net for call_internal frame-bypass refactor)
+' Exercises the exact concerns a Dictionary->index-frame call rewrite can break:
+' deep/mutual recursion, local isolation across recursion, ByRef write-back
+' (standalone + expression-level + recursive), Static persistence, Optional
+' defaults, ParamArray, arity overloads, deep call chains, nested-in-expression
+' calls, and wide fan-out. Every assertion prints PASS:/FAIL: for run_test_suite.sh.
+Attribute VB_Name = "TestCallFrameStress"
+
+Sub _Ready()
+	' ── 1. Return-by-name recursion (VB6 FunctionName = x convention) ──
+	Dim f5 As Integer = FactByName(5)
+	If f5 = 120 Then
+		Print "PASS: recursion_return_by_name"
+	Else
+		Print "FAIL: recursion_return_by_name: expected 120, got " & Str(f5)
+	End If
+
+	' ── 2. Explicit Return recursion ──
+	Dim fib10 As Integer = FibReturn(10)
+	If fib10 = 55 Then
+		Print "PASS: recursion_explicit_return"
+	Else
+		Print "FAIL: recursion_explicit_return: expected 55, got " & Str(fib10)
+	End If
+
+	' ── 3. Mutual recursion ──
+	If IsEven(10) And IsOdd(7) And (Not IsEven(3)) Then
+		Print "PASS: mutual_recursion"
+	Else
+		Print "FAIL: mutual_recursion: IsEven(10)=" & Str(IsEven(10)) & " IsOdd(7)=" & Str(IsOdd(7)) & " IsEven(3)=" & Str(IsEven(3))
+	End If
+
+	' ── 4. Local isolation: a recursive call must NOT clobber caller's locals ──
+	Dim iso As Integer = SumToIsolated(20)
+	If iso = 210 Then
+		Print "PASS: recursion_local_isolation"
+	Else
+		Print "FAIL: recursion_local_isolation: expected 210, got " & Str(iso) & " (negative = local was clobbered)"
+	End If
+
+	' ── 5. Deeper recursion (frame setup/teardown depth) ──
+	Dim iso100 As Integer = SumToIsolated(100)
+	If iso100 = 5050 Then
+		Print "PASS: recursion_depth_100"
+	Else
+		Print "FAIL: recursion_depth_100: expected 5050, got " & Str(iso100)
+	End If
+
+	' ── 6. ByRef write-back, standalone Call ──
+	Dim r As Integer = 10
+	IncByRef r
+	If r = 11 Then
+		Print "PASS: byref_standalone"
+	Else
+		Print "FAIL: byref_standalone: expected 11, got " & Str(r)
+	End If
+
+	' ── 7. ByRef write-back from an expression-level function call (Jul 15 landmine) ──
+	Dim val As Integer = 5
+	Dim doubled As Integer = DoubleInPlace(val)
+	If doubled = 10 And val = 10 Then
+		Print "PASS: byref_expression_level"
+	Else
+		Print "FAIL: byref_expression_level: doubled=" & Str(doubled) & " val=" & Str(val)
+	End If
+
+	' ── 8. ByRef in recursion with an Optional default param (Jun 29 landmine) ──
+	Dim acc As Integer = 0
+	AccumByRef acc, 5
+	If acc = 5 Then
+		Print "PASS: byref_recursive_default_param"
+	Else
+		Print "FAIL: byref_recursive_default_param: expected 5, got " & Str(acc)
+	End If
+
+	' ── 9. ByRef in recursion with the Optional param supplied ──
+	acc = 0
+	AccumByRef acc, 5, 3
+	If acc = 15 Then
+		Print "PASS: byref_recursive_supplied_param"
+	Else
+		Print "FAIL: byref_recursive_supplied_param: expected 15, got " & Str(acc)
+	End If
+
+	' ── 10. Static persistence across repeated calls ──
+	Dim id1 As Integer = NextId()
+	Dim id2 As Integer = NextId()
+	Dim id3 As Integer = NextId()
+	If id1 = 1 And id2 = 2 And id3 = 3 Then
+		Print "PASS: static_persistence"
+	Else
+		Print "FAIL: static_persistence: got " & Str(id1) & "," & Str(id2) & "," & Str(id3)
+	End If
+
+	' ── 11. Optional param default vs supplied ──
+	If AddOpt(5) = 105 And AddOpt(5, 1) = 6 Then
+		Print "PASS: optional_param"
+	Else
+		Print "FAIL: optional_param: AddOpt(5)=" & Str(AddOpt(5)) & " AddOpt(5,1)=" & Str(AddOpt(5, 1))
+	End If
+
+	' ── 12. Arity overloads (name$arity resolution) ──
+	If Combine(7) = 7 And Combine(3, 4) = 304 Then
+		Print "PASS: arity_overload"
+	Else
+		Print "FAIL: arity_overload: Combine(7)=" & Str(Combine(7)) & " Combine(3,4)=" & Str(Combine(3, 4))
+	End If
+
+	' ── 13. Deep call chain returning values up ──
+	If ChainA(5) = 116 Then
+		Print "PASS: deep_call_chain"
+	Else
+		Print "FAIL: deep_call_chain: expected 116, got " & Str(ChainA(5))
+	End If
+
+	' ── 14. Nested function calls in a single expression ──
+	Dim nested As Integer = AddOne(AddOne(AddOne(0)))
+	If nested = 3 Then
+		Print "PASS: nested_in_expression"
+	Else
+		Print "FAIL: nested_in_expression: expected 3, got " & Str(nested)
+	End If
+
+	' ── 15. Wide fan-out: many calls in a tight loop ──
+	Dim total As Integer = 0
+	Dim i As Integer
+	For i = 1 To 1000
+		total = total + AddOne(i)
+	Next
+	If total = 501500 Then
+		Print "PASS: wide_fanout_loop"
+	Else
+		Print "FAIL: wide_fanout_loop: expected 501500, got " & Str(total)
+	End If
+
+	' ── 16. ParamArray variadic sum ──
+	Dim ps As Integer = SumAll(1, 2, 3, 4, 5)
+	If ps = 15 Then
+		Print "PASS: paramarray_sum"
+	Else
+		Print "FAIL: paramarray_sum: expected 15, got " & Str(ps)
+	End If
+
+	' ── 17. String ByRef through a recursive builder ──
+	Dim sb As String = ""
+	BuildString sb, 4
+	If sb = "AAAA" Then
+		Print "PASS: byref_string_recursive"
+	Else
+		Print "FAIL: byref_string_recursive: expected AAAA, got '" & sb & "'"
+	End If
+
+	' ── 18. Recursion result used as an argument to another call ──
+	Dim combo As Integer = AddOne(FactByName(4))
+	If combo = 25 Then
+		Print "PASS: recursion_result_as_argument"
+	Else
+		Print "FAIL: recursion_result_as_argument: expected 25, got " & Str(combo)
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub
+
+' ── Return-by-name recursion ──
+Function FactByName(n As Integer) As Integer
+	If n <= 1 Then
+		FactByName = 1
+	Else
+		FactByName = n * FactByName(n - 1)
+	End If
+End Function
+
+' ── Explicit Return recursion ──
+Function FibReturn(n As Integer) As Integer
+	If n < 2 Then Return n
+	Return FibReturn(n - 1) + FibReturn(n - 2)
+End Function
+
+' ── Mutual recursion ──
+Function IsEven(n As Integer) As Boolean
+	If n = 0 Then Return True
+	Return IsOdd(n - 1)
+End Function
+
+Function IsOdd(n As Integer) As Boolean
+	If n = 0 Then Return False
+	Return IsEven(n - 1)
+End Function
+
+' ── Local isolation: localGuard must survive the recursive call unchanged ──
+Function SumToIsolated(n As Integer) As Integer
+	Dim localGuard As Integer = n * 7
+	If n <= 0 Then Return 0
+	Dim sub_total As Integer = SumToIsolated(n - 1)
+	If localGuard <> n * 7 Then Return -999999
+	Return n + sub_total
+End Function
+
+' ── ByRef standalone ──
+Sub IncByRef(n As Integer)
+	n = n + 1
+End Sub
+
+' ── ByRef via expression-level function call ──
+Function DoubleInPlace(n As Integer) As Integer
+	n = n * 2
+	Return n
+End Function
+
+' ── ByRef in recursion with an Optional default param ──
+Sub AccumByRef(acc As Integer, n As Integer, Optional stepAmt As Integer = 1)
+	If n <= 0 Then Exit Sub
+	acc = acc + stepAmt
+	AccumByRef acc, n - 1, stepAmt
+End Sub
+
+' ── Static persistence ──
+Function NextId() As Integer
+	Static counter As Integer
+	counter = counter + 1
+	Return counter
+End Function
+
+' ── Optional param ──
+Function AddOpt(a As Integer, Optional b As Integer = 100) As Integer
+	Return a + b
+End Function
+
+' ── Arity overloads ──
+Function Combine(a As Integer) As Integer
+	Return a
+End Function
+
+Function Combine(a As Integer, b As Integer) As Integer
+	Return a * 100 + b
+End Function
+
+' ── Deep call chain ──
+Function ChainA(x As Integer) As Integer
+	Return ChainB(x) + 1
+End Function
+
+Function ChainB(x As Integer) As Integer
+	Return ChainC(x) + 10
+End Function
+
+Function ChainC(x As Integer) As Integer
+	Return x + 100
+End Function
+
+' ── Simple increment for nesting / fan-out ──
+Function AddOne(x As Integer) As Integer
+	Return x + 1
+End Function
+
+' ── ParamArray variadic ──
+Function SumAll(ParamArray nums()) As Integer
+	Dim s As Integer = 0
+	Dim k As Integer
+	For Each k In nums
+		s = s + k
+	Next
+	Return s
+End Function
+
+' ── String ByRef through recursion ──
+Sub BuildString(s As String, n As Integer)
+	If n <= 0 Then Exit Sub
+	s = s & "A"
+	BuildString s, n - 1
+End Sub

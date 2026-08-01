@@ -3185,20 +3185,23 @@ bool VisualGasicCompiler::try_compile_jump_table(SelectStatement* s) {
         for (int i = 0; i < s->cases.size(); i++) {
             CaseBlock* cb = s->cases[i];
             if (cb->is_else) continue;
-            if (cb->values.size() != 1) return false;
+            // Check that all values are simple literals (no ranges or comparison ops)
             for (int r = 0; r < cb->range_ends.size(); r++)
                 if (cb->range_ends[r] != nullptr) return false;
             bool _jt_has_comp_op = false;
             for (int _co = 0; _co < cb->comparison_ops.size(); _co++) if (!cb->comparison_ops[_co].is_empty()) { _jt_has_comp_op = true; break; }
             if (_jt_has_comp_op) return false;
-            ExpressionNode* e = cb->values[0];
-            if (!e || e->type != ExpressionNode::LITERAL) return false;
-            LiteralNode* lit = static_cast<LiteralNode*>(e);
-            if (lit->value.get_type() != Variant::INT) return false;
-            int64_t v = (int64_t)lit->value;
-            if (v < jt_min) jt_min = v;
-            if (v > jt_max) jt_max = v;
-            case_count++;
+            // Process all values in this case (supports multi-value cases)
+            for (int v = 0; v < cb->values.size(); v++) {
+                ExpressionNode* e = cb->values[v];
+                if (!e || e->type != ExpressionNode::LITERAL) return false;
+                LiteralNode* lit = static_cast<LiteralNode*>(e);
+                if (lit->value.get_type() != Variant::INT) return false;
+                int64_t val = (int64_t)lit->value;
+                if (val < jt_min) jt_min = val;
+                if (val > jt_max) jt_max = val;
+                case_count++;
+            }
         }
         if (case_count < 8) return false;
         int64_t range = jt_max - jt_min + 1;
@@ -3229,16 +3232,19 @@ bool VisualGasicCompiler::try_compile_jump_table(SelectStatement* s) {
     for (int ti = 0; ti < jt_count; ti++) emit_bytes(0, 0);
     int table_end = current_chunk->code.size();
 
-    // 3. Build value-to-case-index map
+    // 3. Build value-to-case-index map (handles multi-value cases)
     HashMap<int64_t, int> vmap;
     for (int ci = 0; ci < s->cases.size(); ci++) {
         CaseBlock* cb = s->cases[ci];
-        if (!cb->is_else && cb->values.size() == 1) {
-            ExpressionNode* e = cb->values[0];
-            if (e && e->type == ExpressionNode::LITERAL) {
-                LiteralNode* lit = static_cast<LiteralNode*>(e);
-                if (lit->value.get_type() == Variant::INT)
-                    vmap[(int64_t)lit->value] = ci;
+        if (!cb->is_else) {
+            // Map all values in this case to the same case index
+            for (int v = 0; v < cb->values.size(); v++) {
+                ExpressionNode* e = cb->values[v];
+                if (e && e->type == ExpressionNode::LITERAL) {
+                    LiteralNode* lit = static_cast<LiteralNode*>(e);
+                    if (lit->value.get_type() == Variant::INT)
+                        vmap[(int64_t)lit->value] = ci;
+                }
             }
         }
     }
@@ -3250,19 +3256,30 @@ bool VisualGasicCompiler::try_compile_jump_table(SelectStatement* s) {
     }
 
     // 5. Compile case bodies and record slot offsets (relative to table_end)
+    // Track which case indices have already been compiled to avoid duplication
+    HashMap<int, int> case_idx_to_offset;
     Vector<int> offsets;
     offsets.resize(jt_count);
     Vector<int> end_jumps;
+    
     for (int slot = 0; slot < jt_count; slot++) {
-        offsets.write[slot] = current_chunk->code.size() - table_end;
         if (vmap.has(jt_min + (int64_t)slot)) {
-            CaseBlock* cb = s->cases[vmap[jt_min + (int64_t)slot]];
-            for (int bj = 0; bj < cb->body.size(); bj++)
-                compile_statement(cb->body[bj]);
-            // Without this, execution would fall through into the next
-            // case's body (and eventually Case Else) instead of exiting
-            // the Select block.
-            end_jumps.push_back(emit_jump(OP_JUMP));
+            int case_idx = vmap[jt_min + (int64_t)slot];
+            
+            // If this case has already been compiled, reuse its offset
+            if (case_idx_to_offset.has(case_idx)) {
+                offsets.write[slot] = case_idx_to_offset[case_idx];
+            } else {
+                // First time seeing this case: compile it and record offset
+                offsets.write[slot] = current_chunk->code.size() - table_end;
+                case_idx_to_offset[case_idx] = offsets[slot];
+                
+                CaseBlock* cb = s->cases[case_idx];
+                for (int bj = 0; bj < cb->body.size(); bj++)
+                    compile_statement(cb->body[bj]);
+                // Emit a jump to skip to end of Select
+                end_jumps.push_back(emit_jump(OP_JUMP));
+            }
         }
     }
 
@@ -3293,6 +3310,68 @@ bool VisualGasicCompiler::try_compile_jump_table(SelectStatement* s) {
 
     compile_ok = true;
     return true;
+}
+// ===========================================================================
+
+// ByRef write-back emission (v6.2). After an OP_CALL to target_func, write the
+// callee's post-call value of each ByRef scalar parameter back into the caller's
+// matching variable argument. Each param emits OP_BYREF_LOAD <param_name_const>
+// <is_global> <dest> (pushes the captured post-call value, or the destination's
+// current value if no capture was recorded — see OP_BYREF_LOAD's format comment
+// in visual_gasic_bytecode.h) followed by the normal store opcode for that
+// variable (OP_SET_LOCAL / OP_SET_GLOBAL) using the SAME destination. The
+// push+store pair is net-zero on the stack, so this is safe to emit both in
+// statement context (after OP_POP) and expression context (immediately after
+// OP_CALL, leaving the return value beneath). Mirrors the AST interpreter's
+// ByRef write-back so Subs that make ByRef calls stay on the fast bytecode path
+// instead of falling back to the tree-walk interpreter.
+//
+// NOTE: target_func is resolved by a name+arity scan and can, in rare cases,
+// point at a Sub/Function that ISN'T actually what runs at runtime — e.g. a
+// builtin of the same name always wins over a user-defined Sub/Function with a
+// matching name (see call dispatch in visual_gasic_builtins.cpp). When that
+// happens, _last_byref_captures is never populated for these params, and
+// OP_BYREF_LOAD falls back to re-storing the destination's own current value
+// (a no-op) instead of corrupting it with Nil.
+void VisualGasicCompiler::emit_byref_writebacks(SubDefinition* target_func, const Vector<ExpressionNode*>& arguments) {
+    if (!target_func) return;
+    int param_count = target_func->parameters.size();
+    for (int j = 0; j < param_count && j < arguments.size(); j++) {
+        const Parameter& p = target_func->parameters[j];
+        // Only ByRef scalar params bound to a plain variable argument are written
+        // back. ParamArray params (which absorb multiple args) are skipped, and
+        // the STMT_CALL path bails on ParamArray before ever reaching here.
+        if (!p.is_by_ref || p.is_param_array) continue;
+        ExpressionNode* arg = arguments[j];
+        if (!arg || arg->type != ExpressionNode::VARIABLE) continue;
+        String argname = ((VariableNode*)arg)->name;
+        // A procedure-scoped Const inlines its literal value when read — there is
+        // no storage location to write back to, so skip it.
+        if (local_const_map.has(argname.to_lower())) continue;
+        // Push the callee's post-call value for this parameter name (or the
+        // destination's current value as a fallback — see OP_BYREF_LOAD).
+        int pidx = current_chunk->add_constant(p.name);
+        // Resolve the SAME local/global decision the read path used when the
+        // argument was pushed, so the value lands in the exact slot/global the
+        // argument was read from — and so OP_BYREF_LOAD can find the current
+        // value there if no write-back was actually captured.
+        int slot = get_or_add_local(argname, VT_UNKNOWN);
+        emit_byte(OP_BYREF_LOAD);
+        emit_const_index(pidx);
+        if (slot >= 0) {
+            emit_byte(0); // dest is a local slot
+            emit_byte((uint8_t)(slot & 0xFF));
+            emit_byte((uint8_t)((slot >> 8) & 0xFF));
+            emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+        } else {
+            int nidx = current_chunk->add_constant(argname);
+            emit_byte(1); // dest is a global name const index
+            emit_byte((uint8_t)(nidx & 0xFF));
+            emit_byte((uint8_t)((nidx >> 8) & 0xFF));
+            emit_byte(OP_SET_GLOBAL);
+            emit_const_index(nidx);
+        }
+    }
 }
 // ===========================================================================
 
@@ -3970,8 +4049,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             // Check if calling a function with ByRef parameters AND variable arguments
             // that could be written back (requires interpreter for write-back)
             // Also check for ParamArray which needs interpreter
+            SubDefinition* target_func = nullptr;
             if (current_module) {
-                SubDefinition* target_func = nullptr;
                 SubDefinition* first_match_func = nullptr;
                 for (int i = 0; i < current_module->subs.size(); i++) {
                     if (current_module->subs[i]->name.nocasecmp_to(s->method_name) == 0) {
@@ -3986,19 +4065,16 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 if (!target_func) target_func = first_match_func;
                 if (target_func) {
                         for (int j = 0; j < target_func->parameters.size(); j++) {
-                            // ParamArray requires interpreter
+                            // ParamArray still requires the interpreter (the fast
+                            // path can't marshal a variadic trailing array).
                             if (target_func->parameters[j].is_param_array) {
                                 compile_ok = false;
                                 break;
                             }
-                            if (target_func->parameters[j].is_by_ref && 
-                                j < s->arguments.size() &&
-                                s->arguments[j] &&
-                                s->arguments[j]->type == ExpressionNode::VARIABLE) {
-                                // Has ByRef parameter with variable argument - need interpreter for write-back
-                                compile_ok = false;
-                                break;
-                            }
+                            // NOTE: ByRef params with variable arguments no longer
+                            // force the interpreter — they are handled by emitting
+                            // OP_BYREF_LOAD write-back opcodes after the call (see
+                            // emit_byref_writebacks below).
                         }
                 }
             }
@@ -4012,6 +4088,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             emit_const_index(idx);
             emit_byte((uint8_t)s->arguments.size());
             emit_byte(OP_POP);
+            // ByRef write-back on a clean stack (statement context).
+            emit_byref_writebacks(target_func, s->arguments);
             break;
         }
         case STMT_FOR: {
@@ -7257,11 +7335,31 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              for(int i=0; i<call->arguments.size(); i++) {
                  compile_expression(call->arguments[i]);
              }
+             // Resolve the target Sub (same module) so ByRef params bound to a
+             // simple variable argument get written back after the call. In
+             // expression context the write-backs run immediately after OP_CALL
+             // and leave the return value on the stack (each OP_BYREF_LOAD + store
+             // pair is net-zero), so the enclosing expression is unaffected.
+             SubDefinition* expr_target_func = nullptr;
+             if (current_module) {
+                 SubDefinition* first_match_func = nullptr;
+                 for (int i = 0; i < current_module->subs.size(); i++) {
+                     if (current_module->subs[i]->name.nocasecmp_to(call->method_name) == 0) {
+                         if (!first_match_func) first_match_func = current_module->subs[i];
+                         if (current_module->subs[i]->parameters.size() == (int)call->arguments.size()) {
+                             expr_target_func = current_module->subs[i];
+                             break;
+                         }
+                     }
+                 }
+                 if (!expr_target_func) expr_target_func = first_match_func;
+             }
              // Call
              int idx = current_chunk->add_constant(call->method_name);
              emit_byte(OP_CALL);
              emit_const_index(idx);
              emit_byte((uint8_t)call->arguments.size()); // Arg count
+             emit_byref_writebacks(expr_target_func, call->arguments);
              break;
         }
         case ExpressionNode::EXPRESSION_IIF: {

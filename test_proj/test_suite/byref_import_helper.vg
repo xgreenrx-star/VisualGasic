@@ -1,0 +1,55 @@
+' Helper module (NOT a test_*.vg — the runner ignores it) imported by
+' test_byref_import.vg. Reproduces the exact C64 hot-path shape: a module-level
+' "hot" Sub (StepOnce) that makes SAME-MODULE ByRef calls — one statement-level
+' and one expression-level — mutating module-level globals, just like
+' c64_cpu.vg's C64_Step calling C64_SetNZ (statement) and C64_ReadABSY (expr).
+'
+' Before the ByRef-write-back bytecode fix, the statement-level ByRef+variable
+' call forced StepOnce onto the AST tree-walk interpreter (the 10-50x cliff).
+' With the fix it compiles to bytecode via get_bytecode_for_import(), and the
+' OP_BYREF_LOAD write-back opcodes propagate the callee's post-call values back
+' into the caller's globals.
+Attribute VB_Name = "ByRefImportHelper"
+
+Dim gAccum As Integer
+Dim gFlag As Boolean
+Dim gLast As Integer
+
+' Statement-level ByRef helper: writes its ByRef param (mirrors C64_DoADC-style
+' mutation of shared state through a ByRef).
+Sub AddDelta(ByRef v As Integer, ByVal delta As Integer)
+	v = v + delta
+End Sub
+
+' Expression-level ByRef helper: sets the ByRef "crossed" flag and returns a
+' value (mirrors C64_ReadABSY(ByRef crossed) returning a byte while flagging a
+' page cross).
+Function ReadAndFlag(ByRef crossed As Boolean, ByVal base As Integer) As Integer
+	crossed = True
+	ReadAndFlag = base + 1
+End Function
+
+' The hot Sub: one statement-level ByRef call and one expression-level ByRef
+' call, both targeting module-level globals — the exact shape of C64_Step.
+Sub StepOnce()
+	AddDelta gAccum, 3               ' statement-level ByRef write-back → gAccum
+	gLast = ReadAndFlag(gFlag, gAccum) ' expression-level ByRef write-back → gFlag
+End Sub
+
+Sub ResetState()
+	gAccum = 0
+	gFlag = False
+	gLast = 0
+End Sub
+
+Function GetAccum() As Integer
+	GetAccum = gAccum
+End Function
+
+Function GetFlag() As Boolean
+	GetFlag = gFlag
+End Function
+
+Function GetLast() As Integer
+	GetLast = gLast
+End Function

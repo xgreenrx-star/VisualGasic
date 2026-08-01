@@ -256,6 +256,25 @@ enum OpCode {
     //              else ip += offsets[val - min];
     OP_JUMP_TABLE,         // [OP] [MIN_C] [MAX_C] [DEF_OFF] [COUNT] [table...]
 
+    // ByRef write-back (v6.2 — hot-path compiler support for ByRef params)
+    // Pushes the post-call value of a ByRef parameter captured by the most
+    // recent call_internal() (from _last_byref_captures) onto the stack, so the
+    // compiler can store it back into the caller's variable via the normal
+    // OP_SET_LOCAL / OP_SET_GLOBAL store opcodes. This lets Subs that make
+    // statement- or expression-level ByRef calls compile to bytecode instead of
+    // falling back to the (10-50x slower) AST tree-walk interpreter.
+    // Format: [OP] [PARAM_NAME_CONST_LO] [PARAM_NAME_CONST_HI] [IS_GLOBAL] [DEST_LO] [DEST_HI]
+    // DEST is the local slot index (IS_GLOBAL==0) or a constant-pool index for
+    // the destination's global name (IS_GLOBAL==1) — the SAME destination the
+    // compiler emits an OP_SET_LOCAL/OP_SET_GLOBAL for immediately after this.
+    // If the param name IS found in _last_byref_captures, pushes the captured
+    // value. If NOT found — e.g. the call the compiler resolved for write-back
+    // purposes wasn't actually what ran at runtime, such as a builtin of the
+    // same name winning over a coincidentally-matching user Sub/Function —
+    // pushes the destination's CURRENT value instead, so the following store is
+    // a true no-op rather than corrupting the variable with Nil.
+    OP_BYREF_LOAD,
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 
@@ -266,6 +285,17 @@ struct BytecodeChunk {
     Vector<String> local_names;
     Vector<uint8_t> local_types;
     int local_count = 0;
+
+    // ── Per-call perf (v6.0): cached set of global names this chunk writes via
+    // OP_SET_GLOBAL. The AST-fallback rollback in execute_bytecode() needs a
+    // pre-call snapshot of exactly these globals, and the LIST is deterministic
+    // per chunk — so compute it ONCE (full-chunk walk) instead of re-scanning
+    // the entire bytecode on every single call. Populated lazily on the first
+    // full-chunk (non-parallel, p_ip_end<=0) execution, which is main-thread
+    // only in practice (parallel-for bodies run as p_ip_end>0 sub-ranges and
+    // skip the scan entirely). See execute_bytecode().
+    Vector<String> globals_written;
+    bool globals_scan_done = false;
 
     void write(uint8_t byte, int line) {
         code.push_back(byte);

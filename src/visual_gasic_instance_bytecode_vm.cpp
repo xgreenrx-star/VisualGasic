@@ -824,6 +824,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     //  2. Parallel bodies have no AST fallback, so rollback is unnecessary.
     Dictionary saved_globals;
     if (p_ip_end <= 0) {
+      if (!chunk->globals_scan_done) {
+        // One-time full-chunk walk: collect the deterministic set of global
+        // names written via OP_SET_GLOBAL into chunk->globals_written, so the
+        // per-call rollback snapshot below iterates that small list instead of
+        // re-walking the ENTIRE bytecode on every single call (a large per-call
+        // cost for big Subs like the C64 CPU-step function).
         int scan_ip = 0;
         while (scan_ip < code_size) {
             uint8_t scan_op = code[scan_ip++];
@@ -831,8 +837,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int idx = (code[scan_ip + 1] << 8) | code[scan_ip];
                 if (idx >= 0 && idx < chunk->constants.size()) {
                     String gname = chunk->constants[idx];
-                    if (!saved_globals.has(gname) && variables.has(gname)) {
-                        saved_globals[gname] = variables[gname];
+                    if (chunk->globals_written.find(gname) == -1) {
+                        chunk->globals_written.push_back(gname);
                     }
                 }
                 scan_ip += 2; // skip the 2-byte name index
@@ -886,6 +892,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST:
                     case OP_COERCE_TYPE:
                         scan_ip += 2; break;
+                    // OP_BYREF_LOAD: 2-byte const index + 1-byte flag + 2-byte dest = 5 bytes
+                    case OP_BYREF_LOAD:
+                        scan_ip += 5; break;
                     // 2-operand opcodes: two 1-byte non-const operands
                     case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE:
                     case OP_LOOP:
@@ -947,6 +956,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
             }
         }
+        chunk->globals_scan_done = true;
+      }
+      // Per-call: snapshot only the known written globals that currently exist
+      // in variables[] (behavior-identical to the old inline scan+snapshot, but
+      // O(globals written) instead of O(entire chunk)).
+      for (int gi = 0; gi < chunk->globals_written.size(); gi++) {
+          const String &gname = chunk->globals_written[gi];
+          if (variables.has(gname)) {
+              saved_globals[gname] = variables[gname];
+          }
+      }
     }
 
     auto read_constant = [&](int idx) -> Variant {
@@ -1305,6 +1325,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_HINT_LOOP_COUNTER] = &&vg_op_hint_counter;
         dispatch_table[OP_HINT_PURE_CALL]    = &&vg_op_hint_pure;
         dispatch_table[OP_JUMP_TABLE]        = &&vg_op_jump_table;
+        dispatch_table[OP_BYREF_LOAD]        = &&vg_op_byref_load;
         dispatch_table_init = true;
     }
 
@@ -1835,6 +1856,53 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 check_whenever_conditions(name, variables[name]);
                 check_expression_conditions();
                 
+                break;
+            }
+            VG_CASE(vg_op_byref_load, OP_BYREF_LOAD): {
+                // Push the post-call value of a ByRef parameter captured by the
+                // most recent call_internal() (stored in _last_byref_captures).
+                // The compiler follows this with an OP_SET_LOCAL / OP_SET_GLOBAL
+                // to write the value back into the caller's variable — giving
+                // ByRef write-back the same semantics as a normal assignment.
+                if (vm.ip + 4 >= code_size) {
+                    success = false;
+                    goto cleanup;
+                }
+                int idx = read_const_index();
+                Variant pname_var = read_constant(idx);
+                String pname = pname_var;
+                uint8_t is_global = code[vm.ip++];
+                int dest_lo = code[vm.ip++];
+                int dest_hi = code[vm.ip++];
+                int dest_idx = dest_lo | (dest_hi << 8);
+
+                Variant result;
+                bool found = false;
+                for (int ci = 0; ci < _last_byref_captures.size(); ci++) {
+                    if (_last_byref_captures[ci].first == pname) {
+                        result = _last_byref_captures[ci].second;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    // No write-back was actually captured for this parameter —
+                    // most commonly because the call the compiler resolved
+                    // target_func against for write-back purposes wasn't what
+                    // actually executed at runtime (e.g. a builtin of the same
+                    // name always wins over a same-named user Sub/Function).
+                    // Re-push the destination's CURRENT value so the following
+                    // OP_SET_LOCAL/OP_SET_GLOBAL is a true no-op instead of
+                    // overwriting the variable with Nil.
+                    if (is_global) {
+                        Variant dest_name_var = read_constant(dest_idx);
+                        String dest_name = dest_name_var;
+                        result = variables.has(dest_name) ? variables[dest_name] : Variant();
+                    } else {
+                        result = read_local(dest_idx);
+                    }
+                }
+                push_value(result);
                 break;
             }
             VG_CASE(vg_op_get_local, OP_GET_LOCAL): {

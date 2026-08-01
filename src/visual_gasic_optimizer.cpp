@@ -129,6 +129,10 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_ACCUM_I64_MULADD_CONST:                               // [OP] [S_SLOT] [J_SLOT] [K_LO] [K_HI]
             return 5;
 
+        // 6-byte instructions (opcode + 1 const-pool [2] + 1 flag byte + 1 dest [2])
+        case OP_BYREF_LOAD:                                           // [OP] [PNAME_LO] [PNAME_HI] [IS_GLOBAL] [DEST_LO] [DEST_HI]
+            return 6;
+
         // 6-byte instructions (opcode + 1 const-pool [2] + 3 bytes)
         case OP_TASK_RUN_BEGIN:                                       // [OP] [NAME_LO] [NAME_HI] [BG_FLAG] [BODY_LEN_HI] [BODY_LEN_LO]
             return 6;

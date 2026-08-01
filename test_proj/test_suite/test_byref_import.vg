@@ -1,0 +1,44 @@
+' Test: imported-module ByRef write-back on the bytecode hot path.
+'
+' Reproduces the exact C64 scenario the ByRef-write-back fix targets: a Sub
+' defined in an IMPORTED module (StepOnce, in byref_import_helper.vg) that makes
+' SAME-MODULE ByRef calls — one statement-level (AddDelta gAccum) and one
+' expression-level (ReadAndFlag(gFlag, ...)). Imported-module Subs compile to
+' bytecode via get_bytecode_for_import(); before the fix the statement-level
+' ByRef+variable call bailed the whole Sub to the AST interpreter. This asserts
+' the write-backs propagate correctly through the imported-module bytecode path.
+Import "byref_import_helper.vg"
+Attribute VB_Name = "TestByRefImport"
+
+Sub _Ready()
+	ResetState()
+
+	Dim i As Integer
+	For i = 1 To 1000
+		StepOnce()
+	Next
+
+	' Statement-level ByRef write-back: each StepOnce adds 3 → 1000 * 3 = 3000.
+	Dim acc As Integer = GetAccum()
+	If acc = 3000 Then
+		Print "PASS: byref_import_stmt_accum"
+	Else
+		Print "FAIL: byref_import_stmt_accum: expected 3000, got " & Str(acc) & " (0 = write-back dropped)"
+	End If
+
+	' Expression-level ByRef write-back set gFlag True.
+	If GetFlag() = True Then
+		Print "PASS: byref_import_expr_flag"
+	Else
+		Print "FAIL: byref_import_expr_flag: expected True (write-back dropped)"
+	End If
+
+	' Expression-level ByRef call also returned a value; on the final iteration
+	' gAccum was 3000, so gLast = 3000 + 1 = 3001.
+	Dim lst As Integer = GetLast()
+	If lst = 3001 Then
+		Print "PASS: byref_import_expr_return"
+	Else
+		Print "FAIL: byref_import_expr_return: expected 3001, got " & Str(lst)
+	End If
+End Sub

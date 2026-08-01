@@ -148,6 +148,7 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_ON_ERROR_RESUME_NEXT);
         OP_NAME_CASE(OP_ON_ERROR_GOTO);
         OP_NAME_CASE(OP_ON_ERROR_GOTO_0);
+        OP_NAME_CASE(OP_BYREF_LOAD);
 #undef OP_NAME_CASE
         default:
             return vformat("OP_UNKNOWN_%d", (int)op);
@@ -204,6 +205,9 @@ int opcode_operand_length(uint8_t op) {
         case OP_ITER_ARRAY:
         case OP_SET_DICT_LOCAL:
             return 2;
+        // 5-byte operand: const16 param-name + 1-byte is_global flag + 2-byte dest
+        case OP_BYREF_LOAD:
+            return 5;
         // 3-byte operand: const16 + 1 byte count/slot
         case OP_CALL:
         case OP_METHOD_CALL:

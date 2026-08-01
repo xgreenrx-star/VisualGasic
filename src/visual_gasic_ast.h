@@ -695,6 +695,12 @@ struct SubDefinition : public ASTNode {
     Vector<Statement*> statements;
     Dictionary label_map; // Name -> Index in statements
     
+    // Per-call perf (v6.0): tri-state cache for "does this Sub declare any
+    // top-level Static Dim locals?" (-1 unknown, 0 no, 1 yes). Computed once on
+    // first call so call_internal() can skip its O(statements) Static-persist
+    // scan for the overwhelming majority of Subs that have no Static locals.
+    int has_static_locals_cache = -1;
+    
     SubDefinition() : type(TYPE_SUB) {}
     
     ~SubDefinition() {

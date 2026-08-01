@@ -123,6 +123,15 @@ private:
     void compile_statement(Statement* stmt);
     void compile_expression(ExpressionNode* expr);
 
+    // ByRef write-back (v6.2): after an OP_CALL to target_func, emit
+    // OP_BYREF_LOAD + OP_SET_LOCAL/OP_SET_GLOBAL for every ByRef parameter that
+    // is bound to a simple variable argument, so the caller's variable receives
+    // the callee's post-call value. This lets Subs that make ByRef calls compile
+    // to bytecode instead of falling back to the AST interpreter. Net-zero stack
+    // effect per param (push captured value, then store pops it), so it is safe
+    // to emit in both statement and expression call contexts.
+    void emit_byref_writebacks(SubDefinition* target_func, const Vector<ExpressionNode*>& arguments);
+
     // M6: Try to compile a Select Case as a dense O(1) jump table.
     // Returns true if successful (and emits bytecode), false if fallback needed.
     bool try_compile_jump_table(SelectStatement* s);
