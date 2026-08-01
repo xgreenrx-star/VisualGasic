@@ -1988,6 +1988,31 @@ bool VisualGasicInstance::get_variable(const String &p_name, Variant &r_ret) {
 // Wrapper that forwards statement-level builtin calls to the centralized builtins module.
 void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Array &p_args, bool &r_found) {
     r_found = false;
+
+    // ── Hot-path fast dispatch ────────────────────────────────────────────
+    // SetImagePixel is called in extremely tight per-pixel loops (software
+    // renderers, emulator framebuffers, procedural textures, image filters) —
+    // often tens of thousands of times per frame. Resolve it here, ahead of
+    // the linear builtin cascades below, so it costs a single string compare
+    // instead of ~20. It operates purely on its Image argument and does not
+    // depend on `owner`/CanvasItem, so hoisting it out of the ci block is safe
+    // (behaviour is identical for the size>=4 case; a malformed call still
+    // falls through to "unhandled" exactly as before).
+    if (p_method.nocasecmp_to("SetImagePixel") == 0 && p_args.size() >= 4) {
+        if (p_args[0].get_type() == Variant::OBJECT) {
+            Ref<Image> img = p_args[0];
+            if (img.is_valid()) {
+                int x = (int)p_args[1], y = (int)p_args[2];
+                Color col = p_args[3];
+                if (x >= 0 && x < img->get_width() && y >= 0 && y < img->get_height()) {
+                    img->set_pixel(x, y, col);
+                }
+            }
+        }
+        r_found = true;
+        return;
+    }
+
     Variant dummy_ret;
     bool handled = false;
     if (VisualGasicBuiltins::call_builtin(this, p_method, p_args, dummy_ret, handled)) {
@@ -2253,21 +2278,8 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
                 r_found = true;
                 return;
             }
-            // SetImagePixel — SetImagePixel image, x, y, color
-            if (p_method.nocasecmp_to("SetImagePixel") == 0 && p_args.size() >= 4) {
-                if (p_args[0].get_type() == Variant::OBJECT) {
-                    Ref<Image> img = p_args[0];
-                    if (img.is_valid()) {
-                        int x = (int)p_args[1], y = (int)p_args[2];
-                        Color col = p_args[3];
-                        if (x >= 0 && x < img->get_width() && y >= 0 && y < img->get_height()) {
-                            img->set_pixel(x, y, col);
-                        }
-                    }
-                }
-                r_found = true;
-                return;
-            }
+            // SetImagePixel is handled by the hot-path fast dispatch at the top
+            // of this function (before call_builtin) — see the note there.
             // UpdateTexture — UpdateTexture texture, image
             // Updates an ImageTexture with modified Image data
             if (p_method.nocasecmp_to("UpdateTexture") == 0 && p_args.size() >= 2) {
