@@ -89,6 +89,13 @@ class VisualGasicInstance {
     };
     HashMap<String, CallResolutionCacheEntry> _call_resolution_cache;
 
+    // Part C (v6.0 perf): (name#argcount) pairs proven to resolve only at the
+    // deep call fallback — statement/drawing builtins (SetImagePixel, BlitImage,
+    // …) or owner-node methods.  Lets hot per-pixel/per-frame engine calls skip
+    // the builtin-expr cascade and the O(n) variables.keys() case-insensitive
+    // scan.  Populated only from module-level scope; see OP_CALL in the VM.
+    HashSet<String> _engine_call_cache;
+
     // Cross-module MemoryBuffer var-name cache (see get_global_buffer_var_names() below)
     HashSet<String> _global_buffer_var_names;
     bool _global_buffer_var_names_computed = false;

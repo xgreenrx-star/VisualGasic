@@ -2755,16 +2755,30 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // total C64-emulator runtime, per perf) from every hot user-Sub
                 // call.  The key format matches call_internal()'s own _res_key.
                 String _method_lower = method.to_lower();
+                String _pc_res_key = _method_lower + "#" + String::num_int64(arg_count);
                 bool _pb_known_user_sub = false;
+                bool _pc_engine_call = false;   // Part C: cached deep-fallback call (statement builtin / owner method)
                 {
-                    String _pb_res_key = _method_lower + "#" + String::num_int64(arg_count);
-                    if (_call_resolution_cache.has(_pb_res_key)) {
-                        const CallResolutionCacheEntry &_pb_cached = _call_resolution_cache[_pb_res_key];
+                    if (_call_resolution_cache.has(_pc_res_key)) {
+                        const CallResolutionCacheEntry &_pb_cached = _call_resolution_cache[_pc_res_key];
                         if (_pb_cached.resolved) _pb_known_user_sub = true;
+                    }
+                    // Part C: (name, arg count) pairs proven to resolve only at the
+                    // deep fallback — statement/drawing builtins (SetImagePixel,
+                    // BlitImage, …) or owner-node methods — skip the builtin-expr
+                    // cascade + the variables.keys() case-insensitive scan below.
+                    // Same determinism argument as Part B: call_builtin_expr_evaluated
+                    // and the special cascade are pure functions of (name, arg count),
+                    // so a proven deep-fallback resolution repeats.  Restricted to
+                    // module-level context (current_object_id == -1) so in-class
+                    // sibling-method resolution in call_internal() is never bypassed.
+                    if (!_pb_known_user_sub && current_object_id == -1 &&
+                        _engine_call_cache.has(_pc_res_key)) {
+                        _pc_engine_call = true;
                     }
                 }
 
-                if (!_pb_known_user_sub) {
+                if (!_pb_known_user_sub && !_pc_engine_call) {
                 call_ret = VisualGasicBuiltins::call_builtin_expr_evaluated(this, method, args, handled);
 
                 // ── Special-case engine-method cascade gate (perf) ──
@@ -3018,7 +3032,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
                 if (!handled) {
                     bool found = false;
-                    call_ret = call_internal(method, args, found);
+                    if (!_pc_engine_call) {
+                        call_ret = call_internal(method, args, found);
+                    }
                     if (!found) {
                         // Check if this is a variable used as array/dict index or lambda
                         // (matches AST interpreter's CallExpression → variable fallback).
@@ -3033,7 +3049,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                         // Case-insensitive fallback: VB identifiers are
                         // case-insensitive, but Dictionary keys are not.
-                        if (!have_var) {
+                        // Part C: skip this O(n) variables.keys() scan for names
+                        // already proven to be deep-fallback engine/statement calls.
+                        if (!have_var && !_pc_engine_call) {
                             Array keys = variables.keys();
                             for (int ki = 0; ki < keys.size(); ki++) {
                                 String k = keys[ki];
@@ -3115,15 +3133,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         if (!found) {
                             bool stmt_found = false;
                             dispatch_builtin_call(method, args, stmt_found);
+                            bool _pc_resolved_deep = stmt_found;
                             if (!stmt_found && owner) {
                                 // Fallback: try calling the method on the owner node
                                 // (matches AST interpreter's STMT_CALL fallback at end)
                                 if (owner->has_method(method)) {
                                     call_ret = owner->callv(method, args);
+                                    _pc_resolved_deep = true;
                                 } else {
                                     String snake = method.to_snake_case();
                                     if (owner->has_method(snake)) {
                                         call_ret = owner->callv(snake, args);
+                                        _pc_resolved_deep = true;
                                     } else {
                                         raise_error("Sub or Function not defined: " + method, 35);
                                         if (try_recover_error(Variant())) {
@@ -3142,6 +3163,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                     success = false;
                                     goto cleanup;
                                 }
+                            }
+                            // ── Part C: cache this (name, arg count) as a deep
+                            // engine/statement call so subsequent calls skip the
+                            // builtin-expr cascade + the variables.keys() scan.
+                            // Only when it actually resolved here (not the
+                            // undefined-name error path) and only at module-level
+                            // scope, so class sibling-method calls are unaffected.
+                            if (_pc_resolved_deep && !_pc_engine_call && current_object_id == -1) {
+                                _engine_call_cache.insert(_pc_res_key);
                             }
                         }
                     }
