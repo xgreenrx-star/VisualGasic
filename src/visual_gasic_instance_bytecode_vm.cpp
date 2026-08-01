@@ -109,6 +109,7 @@
 #include <godot_cpp/variant/basis.hpp>
 #include <godot_cpp/variant/vector4.hpp>
 #include <godot_cpp/core/object.hpp>
+#include <godot_cpp/templates/hash_set.hpp>
 #include <godot_cpp/godot.hpp>
 
 #include <cstdlib>
@@ -2739,6 +2740,36 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 bool handled = false;
                 Variant call_ret = VisualGasicBuiltins::call_builtin_expr_evaluated(this, method, args, handled);
 
+                // ── Special-case engine-method cascade gate (perf) ──
+                // The ~17 checks below (Array/GetNode/Vector2/Load/CreateTween/
+                // IsOnFloor/IsOnWall/MoveAndSlide/SetVelocity/GetCollisionCount/
+                // GetAxis/IsAction*/Connect/Sleep/Kill) each construct a String
+                // from a literal, do a case-insensitive compare, then destruct.
+                // A normal user-Sub call — the hot path in call-heavy code
+                // (emulators, interpreters, recursive algorithms) — matches NONE
+                // of them, yet paid all 17 String-construct+compare+destruct ops
+                // on EVERY call (16.35% of total C64-emulator runtime, per perf).
+                // Gate the whole cascade behind one lowercased-name HashSet
+                // lookup so user-Sub calls skip it entirely.  Semantically
+                // identical: the inner nocasecmp_to checks are only reachable
+                // when the name IS one of these special names, and only one can
+                // ever match a given name.  C++11 guarantees the function-local
+                // static is initialised exactly once, thread-safely (matters for
+                // Parallel-For worker threads that reach this OP_CALL).
+                static const HashSet<String> _vg_special_call_names = []() {
+                    HashSet<String> s;
+                    const char *names[] = {
+                        "array", "getnode", "vector2", "load", "createtween",
+                        "isonfloor", "isonwall", "moveandslide", "setvelocity",
+                        "getcollisioncount", "getaxis", "isactionpressed",
+                        "isactionjustpressed", "isactionjustreleased", "connect",
+                        "sleep", "kill"
+                    };
+                    for (const char *n : names) s.insert(String(n));
+                    return s;
+                }();
+                if (!handled && _vg_special_call_names.has(method.to_lower())) {
+
                 // VB6 Array() — build a Godot Array from the arguments
                 if (!handled && method.nocasecmp_to("Array") == 0) {
                     call_ret = args;   // args is already a Godot Array of the evaluated arguments
@@ -2953,6 +2984,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     call_ret = Variant();
                     handled = true;
                 }
+
+                }  // end special-case engine-method cascade gate
 
                 if (!handled) {
                     bool found = false;
