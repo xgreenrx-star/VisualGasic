@@ -48,38 +48,49 @@ End Function
 ' ================================================================
 ' === TICK (per CPU cycle) ===
 ' ================================================================
-Sub Vic_Tick()
-    gVic_CycleInLine = gVic_CycleInLine + 1
-    If gVic_CycleInLine >= 63 Then
-        gVic_CycleInLine = 0
-        gVic_RasterLine = gVic_RasterLine + 1
+' PERF (Aug 2026): batched to accept a cycle COUNT instead of being called
+' once per individual CPU cycle. VG's per-Sub-call overhead (locals-frame
+' setup, param binding) dominates cost for tight per-cycle loops -- calling
+' this once per instruction (with cycles = the instruction's cycle count,
+' typically 2-7) instead of once per cycle removes ~2-6 extra full Sub calls
+' PER INSTRUCTION, which is a large fraction of total call volume in the
+' emulator's hot path (see /memories/repo/vg_bytecode_perf.md). Per-cycle
+' timing semantics are preserved exactly via the internal loop below.
+Sub Vic_Tick(cycles As Integer)
+    Dim n As Integer
+    For n = 1 To cycles
+        gVic_CycleInLine = gVic_CycleInLine + 1
+        If gVic_CycleInLine >= 63 Then
+            gVic_CycleInLine = 0
+            gVic_RasterLine = gVic_RasterLine + 1
 
-        ' PAL: 312 lines per frame (0-311)
-        If gVic_RasterLine >= 312 Then
-            gVic_RasterLine = 0
-            Vic_RenderFrame()
-        End If
+            ' PAL: 312 lines per frame (0-311)
+            If gVic_RasterLine >= 312 Then
+                gVic_RasterLine = 0
+                Vic_RenderFrame()
+            End If
 
-        ' Update VIC registers: $D012 (raster low) and $D011 bit 7 (raster bit 8)
-        Mem_SetBuf &HD012, BitAnd(gVic_RasterLine, &HFF)
-        Dim d011 As Integer = Mem_GetBuf( &HD011)
-        If gVic_RasterLine >= 256 Then
-            Mem_SetBuf &HD011, BitOr(BitAnd(d011, &H7F), &H80)
-        Else
-            Mem_SetBuf &HD011, BitAnd(d011, &H7F)
-        End If
+            ' Update VIC registers: $D012 (raster low) and $D011 bit 7 (raster bit 8)
+            Mem_SetBuf &HD012, BitAnd(gVic_RasterLine, &HFF)
+            Dim d011 As Integer = Mem_GetBuf( &HD011)
+            If gVic_RasterLine >= 256 Then
+                Mem_SetBuf &HD011, BitOr(BitAnd(d011, &H7F), &H80)
+            Else
+                Mem_SetBuf &HD011, BitAnd(d011, &H7F)
+            End If
 
-        ' Check raster IRQ
-        If gVic_RasterLine = gVic_RasterIRQ Then
-            Dim flags As Integer = Mem_GetBuf( &HD019)
-            Mem_SetBuf &HD019, BitOr(flags, &H01)
-        End If
+            ' Check raster IRQ
+            If gVic_RasterLine = gVic_RasterIRQ Then
+                Dim flags As Integer = Mem_GetBuf( &HD019)
+                Mem_SetBuf &HD019, BitOr(flags, &H01)
+            End If
 
-        ' Render scanline if in visible area
-        If gVic_RasterLine >= 16 And gVic_RasterLine < 251 Then
-            Vic_RenderScanline()
+            ' Render scanline if in visible area
+            If gVic_RasterLine >= 16 And gVic_RasterLine < 251 Then
+                Vic_RenderScanline()
+            End If
         End If
-    End If
+    Next
 End Sub
 
 

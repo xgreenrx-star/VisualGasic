@@ -1828,6 +1828,13 @@ BytecodeChunk* VisualGasicInstance::get_bytecode_for_import(ImportedModule& mod,
         // Bytecode compilation failed for this entry point (e.g. an unsupported
         // construct) — cache the failure so we don't retry every call, and let
         // the AST interpreter handle it as before.
+        static int _vg_bc_log_fallbacks_cached = -1;
+        if (_vg_bc_log_fallbacks_cached < 0) {
+            _vg_bc_log_fallbacks_cached = OS::get_singleton()->has_environment("VG_BYTECODE_LOG_FALLBACKS") ? 1 : 0;
+        }
+        if (_vg_bc_log_fallbacks_cached == 1) {
+            UtilityFunctions::print("[VG-BC] FALLBACK to AST (import): ", entry_point);
+        }
         ModuleBytecodeEntry fail_entry;
         fail_entry.original_name = entry_point;
         fail_entry.name_lower = key;

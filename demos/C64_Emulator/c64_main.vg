@@ -285,11 +285,12 @@ Sub _Process(delta As Double)
         TotalStepsExecuted = TotalStepsExecuted + 1
         TotalCyclesExecuted = TotalCyclesExecuted + instCycles
 
-        ' Tick VIC for each CPU cycle
-        Dim c As Integer
-        For c = 1 To instCycles
-            Vic_Tick()
-        Next
+        ' Tick VIC for the instruction's cycle count in ONE call (was:
+        ' one Vic_Tick() call PER CYCLE, i.e. 2-7 full Sub calls per
+        ' instruction just for VIC ticking -- VG's per-call overhead
+        ' dominates cost, so batching this into a single call with the
+        ' cycle count is a large, safe win; see c64_vic.vg's Vic_Tick).
+        Vic_Tick(instCycles)
 
         ' CIA1 Timer A countdown — fires ~60Hz system IRQ for keyboard scan
         CIA1_TimerA = CIA1_TimerA - instCycles

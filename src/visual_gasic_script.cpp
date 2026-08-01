@@ -5,6 +5,7 @@
 #include "visual_gasic_optimizer.h"
 #include <godot_cpp/godot.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
+#include <godot_cpp/classes/os.hpp>
 
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -16,6 +17,14 @@
 using namespace godot;
 
 namespace {
+
+bool vg_bc_log_fallbacks() {
+    static int cached = -1;
+    if (cached < 0) {
+        cached = OS::get_singleton()->has_environment("VG_BYTECODE_LOG_FALLBACKS") ? 1 : 0;
+    }
+    return cached == 1;
+}
 
 String variant_preview(const Variant &value) {
     String preview = UtilityFunctions::var_to_str(value);
@@ -838,6 +847,9 @@ BytecodeChunk *VisualGasicScript::get_bytecode_for(const String &entry_point, co
         // Bytecode compilation failed - this is expected for some constructs
         // (e.g., method calls on objects). AST interpreter will handle it.
         // Cache the failure to avoid re-compiling on every call.
+        if (vg_bc_log_fallbacks()) {
+            UtilityFunctions::print("[VG-BC] FALLBACK to AST: ", entry_point);
+        }
         CompiledEntry fail_entry;
         fail_entry.original_name = entry_point;
         fail_entry.name_lower = key;
