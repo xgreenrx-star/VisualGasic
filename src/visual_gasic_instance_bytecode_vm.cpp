@@ -2738,7 +2738,34 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 
                 bool handled = false;
-                Variant call_ret = VisualGasicBuiltins::call_builtin_expr_evaluated(this, method, args, handled);
+                Variant call_ret;
+
+                // ── Part B: skip the builtin + special-case cascades for calls
+                // already resolved as user Subs (perf) ──
+                // call_internal() — and therefore a _call_resolution_cache entry
+                // for this (name, arg count) — is reached ONLY when BOTH cascades
+                // below returned handled=false.  Both cascades are pure functions
+                // of (method name, arg count): call_builtin_expr_evaluated() sets
+                // r_handled solely on name + args.size() (verified: never on arg
+                // type/value), and the special cascade matches on name alone.  So
+                // a cached "resolved user Sub" entry proves both cascades will miss
+                // again for this exact (name, arg count) — skip them and dispatch
+                // straight to call_internal().  This removes the 449-entry builtin
+                // strcmp cascade plus its per-call lowercase/utf8 setup (10.30% of
+                // total C64-emulator runtime, per perf) from every hot user-Sub
+                // call.  The key format matches call_internal()'s own _res_key.
+                String _method_lower = method.to_lower();
+                bool _pb_known_user_sub = false;
+                {
+                    String _pb_res_key = _method_lower + "#" + String::num_int64(arg_count);
+                    if (_call_resolution_cache.has(_pb_res_key)) {
+                        const CallResolutionCacheEntry &_pb_cached = _call_resolution_cache[_pb_res_key];
+                        if (_pb_cached.resolved) _pb_known_user_sub = true;
+                    }
+                }
+
+                if (!_pb_known_user_sub) {
+                call_ret = VisualGasicBuiltins::call_builtin_expr_evaluated(this, method, args, handled);
 
                 // ── Special-case engine-method cascade gate (perf) ──
                 // The ~17 checks below (Array/GetNode/Vector2/Load/CreateTween/
@@ -2768,7 +2795,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     for (const char *n : names) s.insert(String(n));
                     return s;
                 }();
-                if (!handled && _vg_special_call_names.has(method.to_lower())) {
+                if (!handled && _vg_special_call_names.has(_method_lower)) {
 
                 // VB6 Array() — build a Godot Array from the arguments
                 if (!handled && method.nocasecmp_to("Array") == 0) {
@@ -2986,6 +3013,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 
                 }  // end special-case engine-method cascade gate
+
+                }  // end Part B: skip builtin+special cascades for cached user Subs
 
                 if (!handled) {
                     bool found = false;
