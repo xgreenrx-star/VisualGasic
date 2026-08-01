@@ -1573,6 +1573,25 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // (see visual_gasic_instance_evaluate.inc for the tree-walk
                 // equivalent — class methods currently only run via the tree-
                 // walk interpreter, but keep this in sync in case that changes).
+                // ── Perf gate (Part E) ── the special-identifier cascade below
+                // (Me/Super/Input/Godot/App/Screen/Err/Printer) issued up to 8
+                // nocasecmp_to GDExtension ptrcalls on EVERY global read, which
+                // dominated hot loops that read module-level variables (10.76% of
+                // C64-emulator runtime, per perf). Every one of these identifiers
+                // is rare; the common case is an ordinary user/global variable.
+                // Probe one lowercased-name HashSet and enter the cascade only
+                // when the name really is special — same pattern/justification as
+                // the OP_CALL special-call gate (commit f2a6213b). The dynamic
+                // owner form-name self-reference (name == owner node's Name) can't
+                // live in a static set, so it moved to the not-a-variable fallback
+                // path below.
+                static const HashSet<String> _vg_global_special_names = []() {
+                    HashSet<String> s;
+                    const char *nm[] = { "me", "super", "input", "godot", "app", "screen", "err", "printer" };
+                    for (const char *n : nm) s.insert(String(n));
+                    return s;
+                }();
+                if (_vg_global_special_names.has(name.to_lower())) {
                 if (name.nocasecmp_to("Me") == 0) {
                     if (current_object_id != -1) {
                         push_value(Variant((int64_t)current_object_id));
@@ -1585,14 +1604,6 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (name.nocasecmp_to("Super") == 0) {
                     push_value(owner ? Variant(owner) : Variant());
                     break;
-                }
-                // Form name reference (e.g. "Form1") → same as Me (self reference)
-                if (owner) {
-                    Node *owner_node = Object::cast_to<Node>(owner);
-                    if (owner_node && name.nocasecmp_to(owner_node->get_name()) == 0) {
-                        push_value(Variant(owner));
-                        break;
-                    }
                 }
                 // "Input" singleton
                 if (name.nocasecmp_to("Input") == 0) {
@@ -1671,6 +1682,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                     break;
                 }
+                }  // end special-identifier gate (Part E)
                 
                 Variant val = variables.get(name, Variant());
                 
@@ -1684,7 +1696,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     val = get_global_scope()[name];
                 }
                 
-                if (name.nocasecmp_to("wheneverTriggered") == 0) {
+                // Owner form-name self-reference (e.g. "Form1" → the owning
+                // form/node itself). Moved here from before the variable lookup
+                // (Part E) so ordinary global reads no longer pay its
+                // nocasecmp_to + get_name() on every access; it runs only when
+                // the name isn't a plain variable.
+                if (val.get_type() == Variant::NIL && owner) {
+                    Node *owner_node = Object::cast_to<Node>(owner);
+                    if (owner_node && name.nocasecmp_to(owner_node->get_name()) == 0) {
+                        push_value(Variant(owner));
+                        break;
+                    }
                 }
                 
                 // If not found in variables, try Godot engine singletons
