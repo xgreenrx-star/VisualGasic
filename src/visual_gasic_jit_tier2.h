@@ -66,6 +66,8 @@ enum class IROp : uint8_t {
     AND_I64,         // dest = src1 & src2   (bitwise)
     OR_I64,          // dest = src1 | src2   (bitwise)
     XOR_I64,         // dest = src1 ^ src2   (bitwise)
+    MOD_I64_CONST,   // dest = src1 mod imm_i64  (signed; imm_i64 not in {0,-1})
+    IDIV_I64_CONST,  // dest = src1 / imm_i64   (signed, trunc toward 0; imm_i64 not in {0,-1})
     
     // Float arithmetic
     ADD_F64,         SUB_F64,   MUL_F64,   DIV_F64,
@@ -182,6 +184,8 @@ public:
     void xor_rr(Reg dst, Reg src);
     void neg_r(Reg r);
     void inc_r(Reg r);
+    void cqo();               // sign-extend RAX into RDX:RAX (for idiv)
+    void idiv_r(Reg r);       // signed divide RDX:RAX by r64 -> RAX=quot, RDX=rem
     void cmp_rr(Reg a, Reg b);
     void test_rr(Reg a, Reg b);
     

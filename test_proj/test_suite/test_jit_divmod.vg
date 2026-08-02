@@ -1,0 +1,161 @@
+' test_jit_divmod.vg — JIT Tier 2 native modulo / integer-divide
+'
+' Each leaf below is called 300 times in the _Ready hot loop, so with VG_JIT>=2
+' the Tier 2 engine (HOT_THRESHOLD=50) compiles them to native x86-64 and the
+' new IR ops execute as real machine instructions:
+'   MOD_I64_CONST   (idiv, remainder)   — divisor is a compile-time constant
+'   IDIV_I64_CONST  (idiv, quotient)    — divisor is a compile-time constant
+'
+' Only constant, non-zero, non-(-1) divisors are JIT-compiled, so idiv can
+' never trap (#DE). Signed % and / truncate toward zero in both C++ and x86
+' idiv, so the negative edge cases below must match the interpreter exactly.
+'
+' The accumulated sums are hardcoded ground truth. Under the default suite
+' (VG_JIT unset) the same assertions validate the interpreter and establish
+' that ground truth; under VG_JIT=2 they must reproduce it bit-for-bit.
+
+Function ModC(a As Integer) As Integer
+    ModC = a Mod 7
+End Function
+
+Function IDivC(a As Integer) As Integer
+    IDivC = a \ 7
+End Function
+
+Function Mask8(a As Integer) As Integer
+    Mask8 = a Mod 256
+End Function
+
+' Register-pressure stress: two idivs plus mul/add in one body forces the
+' allocator to keep live values in RCX/RDX across the divides, exercising the
+' push/pop save-restore around idiv.
+Function Combo(a As Integer) As Integer
+    Combo = (a Mod 100) + (a \ 10) * 3
+End Function
+
+Sub _Ready()
+    Dim passed As Integer
+    Dim failed As Integer
+    passed = 0
+    failed = 0
+
+    Dim i As Integer
+    Dim modSum As Integer
+    Dim idivSum As Integer
+    Dim maskSum As Integer
+    Dim comboSum As Integer
+    modSum = 0
+    idivSum = 0
+    maskSum = 0
+    comboSum = 0
+
+    ' Hot loop: 300 iterations => every leaf crosses HOT_THRESHOLD (50).
+    For i = 1 To 300
+        modSum   = modSum   + ModC(i)
+        idivSum  = idivSum  + IDivC(i)
+        maskSum  = maskSum  + Mask8(i)
+        comboSum = comboSum + Combo(i)
+    Next i
+
+    ' T1: modulo by constant (MOD_I64_CONST)
+    If modSum = 903 Then
+        Print "PASS: T1 ModC hot-loop sum = 903"
+        passed = passed + 1
+    Else
+        Print "FAIL: T1 ModC expected 903 got " & CStr(modSum)
+        failed = failed + 1
+    End If
+
+    ' T2: integer divide by constant (IDIV_I64_CONST)
+    If idivSum = 6321 Then
+        Print "PASS: T2 IDivC hot-loop sum = 6321"
+        passed = passed + 1
+    Else
+        Print "FAIL: T2 IDivC expected 6321 got " & CStr(idivSum)
+        failed = failed + 1
+    End If
+
+    ' T3: masking modulo (emulator-style a Mod 256)
+    If maskSum = 33630 Then
+        Print "PASS: T3 Mask8 hot-loop sum = 33630"
+        passed = passed + 1
+    Else
+        Print "FAIL: T3 Mask8 expected 33630 got " & CStr(maskSum)
+        failed = failed + 1
+    End If
+
+    ' T4: combined mod + idiv + mul + add (register pressure over idiv)
+    If comboSum = 27990 Then
+        Print "PASS: T4 Combo hot-loop sum = 27990"
+        passed = passed + 1
+    Else
+        Print "FAIL: T4 Combo expected 27990 got " & CStr(comboSum)
+        failed = failed + 1
+    End If
+
+    ' Edge cases — negative dividends, truncate toward zero (idiv semantics).
+    ' These call the now-hot (JIT-compiled) leaves, so they run native code.
+    If ModC(0 - 8) = (0 - 1) Then
+        Print "PASS: T6a -8 Mod 7 = -1"
+        passed = passed + 1
+    Else
+        Print "FAIL: T6a -8 Mod 7 expected -1 got " & CStr(ModC(0 - 8))
+        failed = failed + 1
+    End If
+
+    If IDivC(0 - 8) = (0 - 1) Then
+        Print "PASS: T6b -8 \ 7 = -1"
+        passed = passed + 1
+    Else
+        Print "FAIL: T6b -8 \ 7 expected -1 got " & CStr(IDivC(0 - 8))
+        failed = failed + 1
+    End If
+
+    If ModC(0 - 7) = 0 Then
+        Print "PASS: T6c -7 Mod 7 = 0"
+        passed = passed + 1
+    Else
+        Print "FAIL: T6c -7 Mod 7 expected 0 got " & CStr(ModC(0 - 7))
+        failed = failed + 1
+    End If
+
+    If IDivC(0 - 7) = (0 - 1) Then
+        Print "PASS: T6d -7 \ 7 = -1"
+        passed = passed + 1
+    Else
+        Print "FAIL: T6d -7 \ 7 expected -1 got " & CStr(IDivC(0 - 7))
+        failed = failed + 1
+    End If
+
+    If ModC(0 - 1) = (0 - 1) Then
+        Print "PASS: T6e -1 Mod 7 = -1"
+        passed = passed + 1
+    Else
+        Print "FAIL: T6e -1 Mod 7 expected -1 got " & CStr(ModC(0 - 1))
+        failed = failed + 1
+    End If
+
+    If IDivC(0 - 1) = 0 Then
+        Print "PASS: T6f -1 \ 7 = 0"
+        passed = passed + 1
+    Else
+        Print "FAIL: T6f -1 \ 7 expected 0 got " & CStr(IDivC(0 - 1))
+        failed = failed + 1
+    End If
+
+    ' Negative masking (VG Mod matches C++ truncation, so -1 Mod 256 = -1)
+    If Mask8(0 - 1) = (0 - 1) Then
+        Print "PASS: T7 -1 Mod 256 = -1"
+        passed = passed + 1
+    Else
+        Print "FAIL: T7 -1 Mod 256 expected -1 got " & CStr(Mask8(0 - 1))
+        failed = failed + 1
+    End If
+
+    ' Summary
+    Print ""
+    Print "JIT divmod tests: " & CStr(passed) & " passed, " & CStr(failed) & " failed"
+    If failed = 0 Then
+        Print "ALL TESTS PASSED"
+    End If
+End Sub

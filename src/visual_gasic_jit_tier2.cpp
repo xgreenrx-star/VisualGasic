@@ -174,6 +174,20 @@ void CodeBuf::neg_r(Reg r) {
     modrm(3, 3, lo3(r));
 }
 
+// cqo — sign-extend RAX into RDX:RAX (REX.W 99). Required before idiv.
+void CodeBuf::cqo() {
+    rex(true, false, false, false);
+    emit(0x99);
+}
+
+// idiv r64 — signed divide RDX:RAX by r64. Quotient -> RAX, remainder -> RDX.
+// REX.W + F7 /7
+void CodeBuf::idiv_r(Reg r) {
+    rex(true, false, false, needs_ext(r));
+    emit(0xF7);
+    modrm(3, 7, lo3(r));
+}
+
 // inc r64
 void CodeBuf::inc_r(Reg r) {
     rex(true, false, false, needs_ext(r));
@@ -1494,6 +1508,44 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 break;
             }
             
+            // OP_NOT is intentionally NOT compiled: VG's `Not` is logical and
+            // pushes a Boolean Variant (!to_bool(x)). Producing an int 0/1 in
+            // native code would be an observable divergence from the
+            // interpreter (e.g. `x = False` succeeds but `x = 0` does not), so
+            // it bails to the interpreter to keep results identical.
+            
+            // ── Integer modulo / integer divide by a CONSTANT divisor ────
+            // idiv clobbers RDX and can raise #DE (SIGFPE) on divide-by-zero
+            // or the INT64_MIN / -1 overflow. To stay trap-free (a hard
+            // requirement for eventually enabling the JIT by default) we only
+            // compile these when the divisor is a compile-time constant that
+            // is neither 0 nor -1. Variable or unsafe divisors bail to the
+            // interpreter, which raises a clean VG "Division by zero" error.
+            // C++ `%` / `/` on int64 truncate toward zero — identical to the
+            // interpreter (to_int(a) % b, ival_a / ival_b) and to x86 idiv.
+            case OP_MOD: case OP_INT_DIVIDE: {
+                if (vstack.size() < 2) return false;
+                int rhs = vstack.back(); vstack.pop_back();
+                int lhs = vstack.back(); vstack.pop_back();
+                if (get_vreg_type(lhs) != IRType::I64 || get_vreg_type(rhs) != IRType::I64) return false;
+                auto cit = vreg_const_i64.find(rhs);
+                if (cit == vreg_const_i64.end()) return false;
+                int64_t divisor = cit->second;
+                if (divisor == 0 || divisor == -1) return false;
+                IRInst inst;
+                inst.op = (op == OP_MOD) ? IROp::MOD_I64_CONST : IROp::IDIV_I64_CONST;
+                inst.type = IRType::I64;
+                inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, IRType::I64);
+                inst.src1 = lhs;
+                inst.imm_i64 = divisor;
+                inst.bc_offset = ip;
+                ir.push_back(inst);
+                vstack.push_back(inst.dest);
+                ip += 1;
+                break;
+            }
+            
             // ── Shift left / arithmetic shift right by a constant count ──
             // Only constant shift counts in [0,63] with an integer operand are
             // compiled inline (SHL/SAR r64, imm8). Variable counts (which need the
@@ -1892,6 +1944,31 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
                 else if (inst.op == IROp::OR_I64) cb.or_rr(work, rhs);
                 else cb.xor_rr(work, rhs);
                 store_result(cb, alloc, inst.dest, work);
+                break;
+            }
+            
+            case IROp::MOD_I64_CONST: case IROp::IDIV_I64_CONST: {
+                // Signed divide by a known-safe constant (never 0 or -1, so no
+                // #DE trap). idiv clobbers RAX (quotient) and RDX (remainder).
+                // RAX is the reserved scratch; RCX/RDX are allocatable, so we
+                // save and restore them around the divide. Spills are rbp-
+                // relative and locals rdi-relative, so the balanced push/pop
+                // of rsp does not disturb them, and no call occurs in between.
+                cb.push_r(Reg::RDX);
+                cb.push_r(Reg::RCX);
+                // lhs -> RAX. get_or_load reads the current register/spill; the
+                // pushes above did not change any register contents, so if lhs
+                // lives in RCX/RDX it is still captured into RAX before we
+                // overwrite those registers below.
+                Reg lhs = get_or_load(cb, alloc, inst.src1, Reg::RAX);
+                if (lhs != Reg::RAX) cb.mov_rr(Reg::RAX, lhs);
+                cb.mov_ri64(Reg::RCX, inst.imm_i64);   // divisor
+                cb.cqo();                              // sign-extend RAX -> RDX:RAX
+                cb.idiv_r(Reg::RCX);                   // RAX=quot, RDX=rem
+                if (inst.op == IROp::MOD_I64_CONST) cb.mov_rr(Reg::RAX, Reg::RDX);
+                cb.pop_r(Reg::RCX);
+                cb.pop_r(Reg::RDX);
+                store_result(cb, alloc, inst.dest, Reg::RAX);
                 break;
             }
             

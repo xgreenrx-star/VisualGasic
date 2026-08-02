@@ -9,17 +9,22 @@
 ' semantics (arithmetic right shift), so any native miscompile diverges from
 ' these values. Under the default suite (VG_JIT unset) the same assertions
 ' validate the interpreter path and establish that ground truth.
+'
+' NOTE: the AND/OR/XOR helpers are named User* (not BitAnd/BitOr/BitXor) on
+' purpose — VG ships builtins bitand/bitor/bitxor that would shadow same-named
+' user functions, so those calls would run the C++ builtin and never exercise
+' the JIT's AND_I64/OR_I64/XOR_I64 register-register codegen at all.
 
-Function BitAnd(a As Integer, b As Integer) As Integer
-    BitAnd = a And b
+Function UserAnd(a As Integer, b As Integer) As Integer
+    UserAnd = a And b
 End Function
 
-Function BitOr(a As Integer, b As Integer) As Integer
-    BitOr = a Or b
+Function UserOr(a As Integer, b As Integer) As Integer
+    UserOr = a Or b
 End Function
 
-Function BitXor(a As Integer, b As Integer) As Integer
-    BitXor = a Xor b
+Function UserXor(a As Integer, b As Integer) As Integer
+    UserXor = a Xor b
 End Function
 
 Function Shl3(a As Integer) As Integer
@@ -63,9 +68,9 @@ Sub _Ready()
     ' Hot loop: 300 iterations => every leaf crosses HOT_THRESHOLD (50) and
     ' spends the bulk of its calls executing as JIT-compiled native code.
     For i = 1 To 300
-        andSum = andSum + BitAnd(i, 60)
-        orSum  = orSum  + BitOr(i, 5)
-        xorSum = xorSum + BitXor(i, 170)
+        andSum = andSum + UserAnd(i, 60)
+        orSum  = orSum  + UserOr(i, 5)
+        xorSum = xorSum + UserXor(i, 170)
         shlSum = shlSum + Shl3(i)
         sarSum = sarSum + Sar2(i)
         negSum = negSum + Sar1(0 - i)
@@ -74,28 +79,28 @@ Sub _Ready()
 
     ' T1: bitwise AND (AND_I64)
     If andSum = 8604 Then
-        Print "PASS: T1 BitAnd hot-loop sum = 8604"
+        Print "PASS: T1 UserAnd hot-loop sum = 8604"
         passed = passed + 1
     Else
-        Print "FAIL: T1 BitAnd expected 8604 got " & CStr(andSum)
+        Print "FAIL: T1 UserAnd expected 8604 got " & CStr(andSum)
         failed = failed + 1
     End If
 
     ' T2: bitwise OR (OR_I64)
     If orSum = 45904 Then
-        Print "PASS: T2 BitOr hot-loop sum = 45904"
+        Print "PASS: T2 UserOr hot-loop sum = 45904"
         passed = passed + 1
     Else
-        Print "FAIL: T2 BitOr expected 45904 got " & CStr(orSum)
+        Print "FAIL: T2 UserOr expected 45904 got " & CStr(orSum)
         failed = failed + 1
     End If
 
     ' T3: bitwise XOR (XOR_I64)
     If xorSum = 51374 Then
-        Print "PASS: T3 BitXor hot-loop sum = 51374"
+        Print "PASS: T3 UserXor hot-loop sum = 51374"
         passed = passed + 1
     Else
-        Print "FAIL: T3 BitXor expected 51374 got " & CStr(xorSum)
+        Print "FAIL: T3 UserXor expected 51374 got " & CStr(xorSum)
         failed = failed + 1
     End If
 
@@ -136,27 +141,27 @@ Sub _Ready()
     End If
 
     ' Direct edge-case scalar checks (small known values)
-    If BitAnd(12, 10) = 8 Then
+    If UserAnd(12, 10) = 8 Then
         Print "PASS: T8a 12 And 10 = 8"
         passed = passed + 1
     Else
-        Print "FAIL: T8a 12 And 10 expected 8 got " & CStr(BitAnd(12, 10))
+        Print "FAIL: T8a 12 And 10 expected 8 got " & CStr(UserAnd(12, 10))
         failed = failed + 1
     End If
 
-    If BitOr(12, 10) = 14 Then
+    If UserOr(12, 10) = 14 Then
         Print "PASS: T8b 12 Or 10 = 14"
         passed = passed + 1
     Else
-        Print "FAIL: T8b 12 Or 10 expected 14 got " & CStr(BitOr(12, 10))
+        Print "FAIL: T8b 12 Or 10 expected 14 got " & CStr(UserOr(12, 10))
         failed = failed + 1
     End If
 
-    If BitXor(12, 10) = 6 Then
+    If UserXor(12, 10) = 6 Then
         Print "PASS: T8c 12 Xor 10 = 6"
         passed = passed + 1
     Else
-        Print "FAIL: T8c 12 Xor 10 expected 6 got " & CStr(BitXor(12, 10))
+        Print "FAIL: T8c 12 Xor 10 expected 6 got " & CStr(UserXor(12, 10))
         failed = failed + 1
     End If
 
