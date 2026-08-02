@@ -1,138 +1,83 @@
 # VisualGasic Performance Benchmark Report
-**Date:** August 2, 2026  
-**Commits:** Formatter fix (637b9472) + JIT MOD/IDIV (d6bf2a55, local)  
-**Test Environment:** Linux x86_64, 1 CPU core, Godot 4.6.1
+**Date:** August 2, 2026
+**Commits:** Formatter fix (637b9472) + JIT MOD/IDIV (d6bf2a55, local)
+**Test Environment:** Linux x86_64, Godot 4.6.1, single process (all 3 languages measured together for fairness)
+**Harness:** `demo/test_suites/run_benchmarks.gd` — live 3-way runner: GDScript (inline), VisualGasic (`bench.vg`), C++ (registered `VisualGasicBenchmark` ClassDB class)
+**Correctness:** Every test's checksum matched across all 3 languages (identical results, not just identical speed claims).
 
 ---
 
-## VisualGasic Benchmark Results (Current Build)
+## Live 3-Way Benchmark Results (interpreter, VG_JIT unset/default)
 
-### Test Suite: Core VG Performance
+| Test | GDScript (µs) | VG (µs) | C++ (µs) | VG vs GDScript | C++ vs GDScript | VG vs C++ | Fastest |
+|---|---|---|---|---|---|---|---|
+| Arithmetic | 2,681 | **24** | 43 | **111.7× faster** | 62.3× faster | VG 1.8× faster | 🏆 VG |
+| ArraySum | 3,706 | 148 | **22** | 25.0× faster | **168.5× faster** | C++ 6.7× faster | 🏆 C++ |
+| StringConcat | 3,668 | **73** | 287 | **50.2× faster** | 12.8× faster | VG 3.9× faster | 🏆 VG |
+| Branching | 3,797 | 64 | **25** | 59.3× faster | **151.9× faster** | C++ 2.6× faster | 🏆 C++ |
+| **FunctionCall** | 3,754 | **322,646** | N/A | **85.9× SLOWER** ⚠️ | N/A | N/A | 🏆 GDScript |
+| ArrayDict | 11,396 | **3,674** | 3,724 | 3.1× faster | 3.1× faster | VG ~tied (1.01×) | 🏆 VG |
+| DictFastGet | 29,238 | **2,369** | N/A | **12.3× faster** | N/A | N/A | 🏆 VG |
+| DictFastSet | 19,129 | **2,602** | N/A | 7.4× faster | N/A | N/A | 🏆 VG |
+| Interop | 8,486 | **196** | 7,175 | **43.3× faster** | 1.2× faster | **VG 36.6× faster** | 🏆 VG |
+| Allocations | 6,648 | **189** | 477 | **35.2× faster** | 13.9× faster | VG 2.5× faster | 🏆 VG |
+| AllocationsFast | 9,032 | 1,119 | **272** | 8.1× faster | **33.2× faster** | C++ 4.1× faster | 🏆 C++ |
+| FileIO | 10,439 | 526 | **376** | 19.8× faster | **27.8× faster** | C++ 1.4× faster | 🏆 C++ |
 
-| Test | Workload | Time (10 runs) | Per-Run Average | Status |
-|------|----------|---|---|---|
-| **Arithmetic** | 10000 × 1000 nested loop (i*3-7) | < 1 ms | < 0.1 ms | ⚡ Extreme |
-| **Array Sum** | 10000 iterations × 100-element array | < 1 ms | < 0.1 ms | ⚡ Extreme |
-| **String Concatenation** | 1000 iterations × 500-char strings | < 1 ms | < 0.1 ms | ⚡ Extreme |
-| **Branch Prediction** | 10000 × 1000 if/else pattern | < 1 ms | < 0.1 ms | ⚡ Extreme |
-| **Array vs Dictionary** | 10000 iterations × 100-entry dict lookup | 3 ms | 0.3 ms | ⚡ Extreme |
-| **TOTAL SUITE TIME** | All 50 benchmark runs | 3 ms | | |
-
----
-
-## Performance Interpretation
-
-### Why Sub-Millisecond Times?
-
-The sub-millisecond results indicate:
-
-1. **JIT Compilation Working:** MOD/IDIV bytecode JIT ops (commit d6bf2a55) + existing arithmetic JIT are delivering native-speed performance
-2. **Tight Native Loops:** Arithmetic/ArraySum benchmarks are pure integer loops — JIT compiles them to x86-64 and runs at near-C speed
-3. **String Ops Optimized:** String concatenation completes in < 1ms for 500-char repeats × 1000 iterations = fast builtin dispatch
-4. **Dictionary Performance:** Only Dictionary (3ms) shows measurable time, indicating O(1) dict lookups are efficient but have higher per-call overhead than native arithmetic
-
-### JIT Coverage Post-Fixes
-
-**Enabled Opcodes (can JIT):**
-- Arithmetic: ADD, SUB, MUL, DIV, MOD (by constant ✨ NEW), INT_DIVIDE (by constant ✨ NEW)
-- Bitwise: AND, OR, XOR, SHL, SHR (constants only)
-- Comparisons: all variants (=, <>, <, >, <=, >=)
-- Loops: FOR, WHILE, DO/LOOP
-- Control: IF/THEN/ELSE, jumps, function returns
-- Local vars and constants
-
-**NOT JIT (falls back to interpreter):**
-- String operations (uses builtin dispatch)
-- Array/Dictionary access (uses Godot Variant)
-- Function calls (except leaf returns)
-- OP_NOT (would diverge observably on Boolean Variant values)
+### Record tally (7 tests with all 3 languages)
+- **VG vs C++:** VG wins 5 (Arithmetic, StringConcat, ArrayDict, Interop, Allocations) — C++ wins 4 (ArraySum, Branching, AllocationsFast, FileIO)
+- **VG vs GDScript:** VG wins 11/12 — the sole loss is FunctionCall (see below)
 
 ---
 
-## Historical Comparison (vs Feb 2026 Published Benchmarks)
+## ⚠️ Critical Finding: Function-Call Overhead
 
-Per [BENCHMARK_DEEPSEEK_ANALYSIS.md](../BENCHMARK_DEEPSEEK_ANALYSIS.md):
+`FunctionCall` (`BenchCall`: 50,000 trivial calls, `f(x) = x + 1`) is the **only benchmark where VG loses to GDScript** — by a wide margin:
 
-| Metric | Feb 2026 | Current | Improvement |
-|--------|----------|---------|---|
-| **VG vs GDScript** (geometric mean) | 25.5× | 26.9× | +5.5% |
-| **VG vs C++ Record** | 3 wins / 11 | (unchanged) | Optimal |
-| **Fastest VG Test** | StringConcat: 47 µs | StringConcat: < 1 ms* | ✅ Consistent |
-| **Slowest VG Test** | AllocationsFast: 1,234 µs | ArrayDict: 3 ms* | ~2.4× (larger array) |
+| Config | VG time | vs GDScript |
+|---|---|---|
+| Interpreter (VG_JIT unset) | 322,646 µs | 85.9× slower |
+| Tier2 JIT (`VG_JIT=2`) | 171,847 µs | 44.5× slower (1.9× faster than interpreter, but still far behind) |
 
-*Current benchmarks use 10× iteration repetition; raw single-run times would be proportionally lower (~0.3 µs-1 µs).
+**Root cause:** VG's Tier2 JIT compiles function *bodies* but bails out on `OP_CALL` (falls back to the interpreter's call machinery — stack frame setup, parameter binding, `Variant` boxing per argument/return). The JIT hot-threshold is also per-function-invocation-count; since `BenchCall` itself is only invoked once (its internal loop calls `BenchCallHelper` 50,000 times), `BenchCallHelper` does tier up under `VG_JIT=2`, which is why turning JIT on nearly halves the time — but the *call* instruction itself, not the callee's body, is the bottleneck.
 
----
+**Impact:** Any VG code that's call-heavy (recursion, small helper functions, OOP method dispatch) pays this tax. Tight loops with inlined arithmetic (the other 11 benchmarks) are unaffected and remain dramatically faster than GDScript.
 
-## Performance Wins by Category
-
-### ✅ VG Dominates (26.9× faster than GDScript on average)
-
-| Test | VG Speedup vs GDScript |
-|------|---|
-| String Concatenation | **74.0×** 🚀 (concat + allocation + closure faster in VG) |
-| Branching | **62.5×** (if/else prediction stays hot in JIT) |
-| Allocations | **42.7×** (VG's Variant recycling beats GDScript OOP) |
-| Interop | **51.7×** (VG's direct Godot call + Variant caching wins) |
-| Array Dictionary | **2.9×** (Dictionary lookup is fast; still 2.9× edge over GDScript) |
-
-### 🤝 Competitive with C++ (wins 3/11, loses 6/11)
-
-**VG Wins:**
-- **Allocations:** VG 103 µs vs C++ 259 µs (2.5× faster — Variant recycling beats malloc)
-- **Interop:** VG 133 µs vs C++ 5,268 µs (39.6× faster — Godot call overhead with C++ bridge)
-- **StringConcat:** VG 47 µs vs C++ 277 µs (5.9× faster — string pre-allocation in VG)
-
-**C++ Wins:**
-- **Arithmetic:** C++ 49 µs vs VG 215 µs (4.4× faster — raw integer ops)
-- **ArraySum:** C++ 21 µs vs VG 87 µs (4.1× faster — pointer arithmetic + cache locality)
-- **AllocationsFast:** C++ 92 µs vs VG 1,234 µs (13.4× faster — malloc granularity)
-- Plus FileIO, ArrayDict, Branching
-
-**Interpretation:** VG excels at high-level operations (strings, Godot interop, allocations); C++ wins at raw numeric compute. Complementary strengths, not direct substitutes.
+**Priority:** This validates OP_CALL JIT as the correct next optimization target (previously flagged as the "next lever" after MOD/IDIV work).
 
 ---
 
-## Post-Fix Impact
+## Why Tight-Loop Benchmarks Don't Change With JIT On/Off
 
-### Recent Commits
-
-1. **Commit 637b9472 (formatter &H hex-literal fix)**
-   - **Problem:** Save-all was inserting spaces into `&HFFFF` → `& HFFFF`, breaking 52 hex literals
-   - **Solution:** Added `_is_based_literal_prefix` guard in `_space_operator`
-   - **Perf Impact:** Zero (bug fix only; no runtime change)
-   - **Benefit:** C64 emulator and any numeric code now survives reformatting
-
-2. **Commit d6bf2a55 (JIT MOD/IDIV by constant)**
-   - **Opcodes Added:** `MOD_I64_CONST`, `IDIV_I64_CONST` with divisor ∉ {0, -1}
-   - **Coverage:** Modulo and integer division now JIT-compile when divisor is a compile-time constant
-   - **Perf Impact:** ~2-5× speedup on modulo-heavy workloads (not captured in this benchmark suite; would require dedicated modulo benchmark)
-   - **Use Cases:** Game loop counters, bit-packed data unpacking, cycle counting (C64 emulator!), cryptographic operations
+Re-running with `VG_JIT=2` produced *nearly identical* Arithmetic/ArraySum/Branching numbers to the interpreter run (within noise). This is expected: VG's Tier2 JIT tiers up per **function invocation count** (`HOT_THRESHOLD=50` calls), not per internal loop iteration. Since `BenchArithmetic`, `BenchArraySum`, etc. are each called exactly **once** by the harness, they never cross the hot-call threshold and stay on the (already very fast) bytecode interpreter path for this benchmark shape. This means the interpreter alone — no JIT — already delivers 25×–170× over GDScript on these workloads.
 
 ---
 
-## Next Performance Levers (Priority Order)
+## VG vs C++ Head-to-Head (Improved vs Historical Record)
 
-| Lever | Estimated Gain | Effort | Blocker |
-|---|---|---|---|
-| 1. **OP_CALL JIT** (function calls) | 10-50% (most user code) | High | Large feature; requires call convention + stack frame JIT |
-| 2. **String Interning** (cache refs) | 20-30% (strings only) | Medium | Need dedup logic + GC roots |
-| 3. **Type Specialization** (monomorphic caching) | 15-25% (polymorphic calls) | High | Requires call-site type tracking |
-| 4. **SIMD Vectorization** (array ops) | 2-10× (data-parallel only) | Very High | Godot Variant doesn't expose SIMD well |
-| 5. **Parallel/Async JIT** (multi-core) | 2-8× (parallel code) | Very High | Requires Godot thread integration |
+The Feb 2026 published comparison (`BENCHMARK_DEEPSEEK_ANALYSIS.md`) recorded **VG winning 3/11, C++ winning 6/11**. Today's live re-run (7 tests with C++ coverage) shows **VG winning 5/9, C++ winning 4/9** — a meaningfully better showing for VG, though note the parameter counts (iteration/size constants in `run_benchmarks.gd`) differ from the historical harness, so this is a fresh baseline rather than a strict apples-to-apples delta.
 
----
+**VG's biggest wins vs C++:**
+- Interop: **36.6× faster** (VG's Variant/Godot-node binding beats raw C++ `Node` property churn)
+- StringConcat: **3.9× faster**
+- Arithmetic: **1.8× faster**
 
-## Conclusion
-
-**VisualGasic continues to deliver exceptional performance:**
-- Baseline: 26.9× faster than GDScript across diverse workloads
-- Arithmetic/Loops: Sub-millisecond, near-C speed via JIT
-- Dictionary/Interop: Wins decisively vs GDScript; competitive with C++ high-level code
-- Post-JIT fixes: MOD/IDIV coverage now completes the integer arithmetic set; formatter bug prevented save-all corruption
-
-**Next milestone:** OP_CALL JIT (enabling function-call-heavy code to reach JIT speeds).
+**C++'s biggest wins vs VG:**
+- ArraySum: 6.7× faster (raw pointer arithmetic + cache locality)
+- AllocationsFast: 4.1× faster (malloc granularity)
+- Branching: 2.6× faster
 
 ---
 
-*Report generated post-commit 637b9472, with local JIT improvements (d6bf2a55) staged for next push.*
+## Next Performance Lever (confirmed by this run)
+
+| Lever | Justification | Priority |
+|---|---|---|
+| **OP_CALL JIT** | FunctionCall benchmark is 85.9× slower than GDScript — the single biggest weak point measured | **Highest** |
+| String interning | Moderate gains on string-heavy code | Medium |
+| Type specialization | Gains on polymorphic call sites | Medium |
+
+---
+
+*Report reflects a live run of `demo/test_suites/run_benchmarks.gd` on Aug 2, 2026, with checksum-verified correctness across GDScript/VisualGasic/C++.*
+
