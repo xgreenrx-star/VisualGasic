@@ -21,10 +21,14 @@
 //   ran = cpu.RunCycles(20000)              ' execute ~20000 cycles
 //   Print cpu.GetPC(), cpu.PeekRAM(&H20)
 //
-//   ' Memory-mapped I/O (VIC / SID / CIA style device registers):
-//   cpu.SetIOHook &HD000, &HDFFF, Callable(Me, "io_read"), Callable(Me, "io_write")
+//   ' Memory-mapped I/O (VIC / SID / CIA style device registers). VG script has
+//   ' no syntax to construct a raw Callable, so pass the target object plus the
+//   ' method NAMES (same pattern as the VG builtin Connect(source, signal, method));
+//   ' the engine builds the Callables internally:
+//   cpu.SetIOHook &HD000, &HDFFF, Me, "io_read", "io_write"
 
 #include <godot_cpp/classes/ref_counted.hpp>
+#include <godot_cpp/classes/object.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
@@ -70,8 +74,14 @@ public:
 	void reset();
 	int step();                 // execute one instruction; returns cycles used
 	int run_cycles(int cycles); // run up to N cycles; returns cycles executed
-	void trigger_irq();
-	void trigger_nmi();
+	// IRQ is level-gated by the interrupt-disable flag (matches real 6502/fake6502
+	// semantics): returns 7 (cycles consumed) if the interrupt was serviced, or 0 if
+	// it was masked (I flag set) and silently ignored -- callers that need an
+	// edge/latch-until-serviced IRQ line (like a CIA timer) should keep re-calling
+	// this once per Step() while the line is asserted and only clear their pending
+	// flag when it returns non-zero. NMI always services immediately.
+	int trigger_irq();
+	int trigger_nmi();
 
 	// --- Registers (debugger / Immediate window / Toolbox) ---
 	int get_pc() const;      void set_pc(int v);
@@ -95,6 +105,9 @@ public:
 	void set_reset_vector(int addr);
 
 	// --- Memory-mapped I/O hooks ---
+	// VG-callable form: target object + method names (VG script cannot construct
+	// a raw Callable itself). Builds Callable(target, method) internally.
+	void set_io_hook_named(Object *target, const String &read_method, const String &write_method, int lo, int hi);
 	void set_io_hook(int lo, int hi, const Callable &read_cb, const Callable &write_cb);
 	void clear_io_hook();
 };

@@ -11,6 +11,19 @@ Import "c64_vic.vg"
 ' Change to True/False here to toggle. See C64.config for documentation.
 Dim SKIP_RAM_TEST As Boolean = True
 
+' === Turbo Mode (opt-in native CPU core) ===
+' Off by default -- the pure-VG 6510 core (c64_cpu.vg) stays the marketed
+' "C64 emulator written in 100% VG" showcase. Flip to True to swap ONLY the
+' opcode fetch/decode/execute loop for the native VGCpu6502 engine primitive
+' (src/cpu_cores/); all memory banking, VIC, and CIA logic stays the existing,
+' already-verified VG code (the native core's entire 64KB bus is routed back
+' through Mem_Read/Mem_Write via VGCpu6502.SetIOHook, so behavior is identical
+' to the pure-VG path -- this is a decode/dispatch speed lever only, not a
+' full-native-memory-bus rewrite; see /memories/repo/vgcpucore_6502_plan.md).
+Dim TURBO_MODE As Boolean = False
+Dim NativeCpu As Variant
+Dim gIRQLineNative As Boolean
+
 Dim DisplayTex As Variant
 Dim DisplayImage As Variant
 Dim bLoaded As Boolean
@@ -37,8 +50,24 @@ Sub _Ready()
     ' Init memory subsystem (module-level, bytecode-compiled)
     Mem_Init()
 
-    ' Init CPU (no longer needs object reference — uses Mem_Read/Mem_Write)
-    C64_Init Empty
+    ' Init CPU: pure-VG 6510 core (default) or native VGCpu6502 (Turbo Mode).
+    If TURBO_MODE Then
+        Set NativeCpu = New VGCpu6502
+        ' Route the ENTIRE 64KB bus through the existing, already-verified VG
+        ' memory subsystem (RAM/ROM banking, VIC/CIA/color-RAM decode) --
+        ' only the opcode fetch/decode/execute loop below is native.
+        ' NOTE: the Callable must target a Sub/Function defined directly in
+        ' THIS file (c64_main.vg) -- VisualGasicScript::_has_method() (which
+        ' Callable::is_valid() consults) only scans the OWNING script's own
+        ' AST subs, not cross-module imports. Mem_Read/Mem_Write live in the
+        ' imported c64_memory.vg module, so a Callable built straight from
+        ' their names is silently invalid (bus reads/writes then fall through
+        ' to VGCpu6502's internal, never-populated RAM). Route through the
+        ' local IOBus_Read/IOBus_Write forwarders below instead.
+        NativeCpu.SetIOHook Me, "IOBus_Read", "IOBus_Write", 0, &HFFFF
+    Else
+        C64_Init Empty
+    End If
 
     ' Init VIC (module-level, bytecode-compiled)
     Vic_Init()
@@ -95,8 +124,12 @@ Sub InitializeC64()
     ' CIA2: serial/VIC bank
     Mem_Write &HDD00, &H03
 
-    ' Reset CPU via module-level function
-    C64_Reset()
+    ' Reset CPU: native core (Turbo Mode) or module-level VG core
+    If TURBO_MODE Then
+        NativeCpu.Reset()
+    Else
+        C64_Reset()
+    End If
     
     ' Apply boot configuration: skip RAMTAS RAM test
     ' The KERNAL boot at $FCE2 runs: LDX #$FF/TXS (reset SP) → IOINIT → RAMTAS
@@ -142,7 +175,11 @@ Sub InitializeC64()
         Mem_Write &HC00E, &H00
         Mem_Write &HC00F, &HA0
         
-        C64_SetPC &HC000
+        If TURBO_MODE Then
+            NativeCpu.SetPC &HC000
+        Else
+            C64_SetPC &HC000
+        End If
         Print "[SETUP] Skipping RAMTAS — boot stub at $C000 (IOINIT+RESTOR+CINT+BASIC)"
         Print "[SETUP] $A000=$" & Hex(Mem_GetBuf(&HA000)) & " $A001=$" & Hex(Mem_GetBuf(&HA001))
         Print "[SETUP] JMP target = $" & Hex(Mem_GetBuf(&HA001) * 256 + Mem_GetBuf(&HA000))
@@ -151,9 +188,10 @@ Sub InitializeC64()
     bLoaded = True
 
     Print "C64 Emulator ready!"
-    Print "PC=$" & Hex(C64_GetPC())
+    Print "PC=$" & Hex(Emu_GetPC())
     Print ""
     Print "  SKIP_RAM_TEST = " & SKIP_RAM_TEST
+    Print "  TURBO_MODE (native VGCpu6502) = " & TURBO_MODE
     Print ""
     Print "Controls:"
     Print "  Arrow keys = Joystick"
@@ -274,13 +312,13 @@ Sub _Process(delta As Double)
 
     Do While chunkRun < chunkCycles
         ' Check for crash (PC = 0 or too many cycles)
-        If C64_GetPC() = 0 Then
+        If Emu_GetPC() = 0 Then
             Print "CPU crash at PC=0! Cycles=" & CStr(CyclesThisFrame + chunkRun)
             bLoaded = False
             Return
         End If
 
-        Dim instCycles As Integer = C64_Step()
+        Dim instCycles As Integer = Emu_Step()
         chunkRun = chunkRun + instCycles
         TotalStepsExecuted = TotalStepsExecuted + 1
         TotalCyclesExecuted = TotalCyclesExecuted + instCycles
@@ -299,7 +337,7 @@ Sub _Process(delta As Double)
             ' Set CIA1 ICR flag ($DC0D bit 0) and trigger CPU IRQ
             Dim icr As Integer = Mem_GetBuf(&HDC0D)
             Mem_SetBuf &HDC0D, BitOr(icr, &H81)
-            C64_SetIRQ True
+            Emu_SetIRQ True
         End If
 
         safetyCounter = safetyCounter + 1
@@ -322,7 +360,7 @@ Sub _Process(delta As Double)
         Dim rasterHi As Integer = BitAnd(Mem_GetBuf(&HD011), &H80)
         Dim v0428 As Integer = Mem_GetBuf(&H0428)
         Dim v042C As Integer = Mem_GetBuf(&H042C)
-        Print "[PERF] cyc=" & CStr(TotalCyclesExecuted) & " PC=$" & Hex(C64_GetPC()) & " rate=" & CStr(Int(cyclesDelta / elapsed)) & " $0428=" & Hex(v0428) & " $042C=" & Hex(v042C)
+        Print "[PERF] cyc=" & CStr(TotalCyclesExecuted) & " PC=$" & Hex(Emu_GetPC()) & " rate=" & CStr(Int(cyclesDelta / elapsed)) & " $0428=" & Hex(v0428) & " $042C=" & Hex(v042C)
         LastProgressPrintTime = nowT
         LastProgressCycles = TotalCyclesExecuted
         LastProgressSteps = TotalStepsExecuted
@@ -342,7 +380,7 @@ Sub _Process(delta As Double)
         ' Update status every second
         FrameCount = FrameCount + 1
         If FrameCount Mod 60 = 0 Then
-            Print "C64 PC=$" & Hex(C64_GetPC()) & " A=$" & Hex(C64_GetA()) & " X=$" & Hex(C64_GetX()) & " Y=$" & Hex(C64_GetY()) & " SP=$" & Hex(C64_GetSP()) & " Flags=$" & Hex(C64_GetFlags())
+            Print "C64 PC=$" & Hex(Emu_GetPC()) & " A=$" & Hex(Emu_GetA()) & " X=$" & Hex(Emu_GetX()) & " Y=$" & Hex(Emu_GetY()) & " SP=$" & Hex(Emu_GetSP()) & " Flags=$" & Hex(Emu_GetFlags())
         End If
     End If
     QueueRedraw()
@@ -392,6 +430,79 @@ Sub Shutdown()
     End If
     bLoaded = False
 End Sub
+
+' === Emu_* dispatch helpers (Turbo Mode indirection) ===
+' Route CPU stepping/register access to either the native VGCpu6502 core or
+' the pure-VG c64_cpu.vg core, depending on TURBO_MODE. Keeps _Process/_Ready/
+' InitializeC64 free of scattered If/Else branches.
+
+' Local forwarders for VGCpu6502.SetIOHook -- MUST live in this file (see the
+' comment at the SetIOHook call site in _Ready for why Mem_Read/Mem_Write
+' can't be used directly as Callable targets).
+Function IOBus_Read(addr As Integer) As Integer
+    Return Mem_Read(addr)
+End Function
+
+Sub IOBus_Write(addr As Integer, value As Integer)
+    Mem_Write addr, value
+End Sub
+
+Function Emu_Step() As Integer
+    If TURBO_MODE Then
+        ' Service a pending IRQ at the instruction boundary, same as
+        ' C64_Step()'s own check. TriggerIRQ() is level-gated internally by
+        ' the I flag and returns the 7-cycle service cost only if it actually
+        ' fired -- if masked, gIRQLineNative stays set and we retry next step
+        ' (matches the edge-latched-until-serviced semantics of gC64_IRQPending).
+        If gIRQLineNative Then
+            Dim irqCyc As Integer = NativeCpu.TriggerIRQ()
+            If irqCyc > 0 Then
+                gIRQLineNative = False
+                Return irqCyc
+            End If
+        End If
+        Return NativeCpu.Step()
+    End If
+    Return C64_Step()
+End Function
+
+Sub Emu_SetIRQ(state As Boolean)
+    If TURBO_MODE Then
+        gIRQLineNative = state
+    Else
+        C64_SetIRQ state
+    End If
+End Sub
+
+Function Emu_GetPC() As Integer
+    If TURBO_MODE Then Return NativeCpu.GetPC()
+    Return C64_GetPC()
+End Function
+
+Function Emu_GetA() As Integer
+    If TURBO_MODE Then Return NativeCpu.GetA()
+    Return C64_GetA()
+End Function
+
+Function Emu_GetX() As Integer
+    If TURBO_MODE Then Return NativeCpu.GetX()
+    Return C64_GetX()
+End Function
+
+Function Emu_GetY() As Integer
+    If TURBO_MODE Then Return NativeCpu.GetY()
+    Return C64_GetY()
+End Function
+
+Function Emu_GetSP() As Integer
+    If TURBO_MODE Then Return NativeCpu.GetSP()
+    Return C64_GetSP()
+End Function
+
+Function Emu_GetFlags() As Integer
+    If TURBO_MODE Then Return NativeCpu.GetStatus()
+    Return C64_GetFlags()
+End Function
 
 ' === File I/O helper ===
 Function FileExists(path As String) As Boolean

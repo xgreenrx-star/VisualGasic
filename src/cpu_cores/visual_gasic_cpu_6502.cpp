@@ -58,12 +58,15 @@ int VGCpu6502::run_cycles(int cycles) {
 	return (int)fake6502_exec(_cpu, (uint32_t)cycles);
 }
 
-void VGCpu6502::trigger_irq() {
+int VGCpu6502::trigger_irq() {
+	bool masked = (_cpu->status & FK_FLAG_INTERRUPT) != 0;
 	fake6502_irq(_cpu);
+	return masked ? 0 : 7;
 }
 
-void VGCpu6502::trigger_nmi() {
+int VGCpu6502::trigger_nmi() {
 	fake6502_nmi(_cpu);
+	return 7;
 }
 
 // --- Registers ---
@@ -142,6 +145,13 @@ void VGCpu6502::set_io_hook(int lo, int hi, const Callable &read_cb, const Calla
 	_io_hook_active = true;
 }
 
+// VG script cannot construct a raw Callable, so this is the entry point actually
+// exposed to VG (bound as "SetIOHook"): pass the target object + method name
+// strings, exactly like the VG builtin Connect(source, signal, method) does.
+void VGCpu6502::set_io_hook_named(Object *target, const String &read_method, const String &write_method, int lo, int hi) {
+	set_io_hook(lo, hi, Callable(target, read_method), Callable(target, write_method));
+}
+
 void VGCpu6502::clear_io_hook() {
 	_io_hook_active = false;
 	_io_lo = 0x10000;
@@ -186,7 +196,7 @@ void VGCpu6502::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("SetResetVector", "addr"), &VGCpu6502::set_reset_vector);
 
 	// Memory-mapped I/O hooks
-	ClassDB::bind_method(D_METHOD("SetIOHook", "lo", "hi", "read_callable", "write_callable"), &VGCpu6502::set_io_hook);
+	ClassDB::bind_method(D_METHOD("SetIOHook", "target", "read_method", "write_method", "lo", "hi"), &VGCpu6502::set_io_hook_named);
 	ClassDB::bind_method(D_METHOD("ClearIOHook"), &VGCpu6502::clear_io_hook);
 
 	// Inspector/debugger-visible register properties.
