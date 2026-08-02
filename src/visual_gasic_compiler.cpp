@@ -3208,7 +3208,13 @@ bool VisualGasicCompiler::try_compile_jump_table(SelectStatement* s) {
         if (range < 1 || range > 65535) return false;
         float density = (float)case_count / (float)range;
         if (density < 0.30f) return false;
-        jt_count = case_count;
+        // The table is INDEXED by (value - jt_min), so it must have one slot per
+        // value across the whole [jt_min, jt_max] range — NOT one slot per case.
+        // Using case_count here (when the cases are sparse) makes the table too
+        // short: the VM's bounds check (idx < num_cases) then wrongly routes any
+        // value where (value - jt_min) >= case_count to the default/Case Else.
+        // Missing slots are filled with default_off in step 7 below.
+        jt_count = (int)range;
     }
 
     // 2. Compile expression and emit jump table
