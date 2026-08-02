@@ -833,7 +833,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     //  1. The scan would run over the FULL chunk (not just the body range),
     //     and multi-byte opcodes like OP_PARALLEL_FOR_BEGIN can desync it.
     //  2. Parallel bodies have no AST fallback, so rollback is unnecessary.
-    Dictionary saved_globals;
+    // v6.0 perf: Vector<Pair> instead of a heap Dictionary — usually holds 0-1
+    // entries, and an empty Vector allocates nothing, so this removes a per-call
+    // Dictionary construction (+ a keys() Array on the rare rollback path).
+    Vector<Pair<String, Variant>> saved_globals;
     if (p_ip_end <= 0) {
       if (!chunk->globals_scan_done) {
         // One-time full-chunk walk: collect the deterministic set of global
@@ -976,7 +979,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
       for (int gi = 0; gi < chunk->globals_written.size(); gi++) {
           const String &gname = chunk->globals_written[gi];
           if (variables.has(gname)) {
-              saved_globals[gname] = variables[gname];
+              saved_globals.push_back({gname, variables[gname]});
           }
       }
     }
@@ -7431,9 +7434,8 @@ cleanup:
     // runs in bytecode, then again in AST → wave += 2).
     // Skip for parallel workers — they don't own global rollback.
     if (!success && !p_initial_locals && saved_globals.size() > 0) {
-        Array gkeys = saved_globals.keys();
-        for (int i = 0; i < gkeys.size(); i++) {
-            variables[gkeys[i]] = saved_globals[gkeys[i]];
+        for (int i = 0; i < saved_globals.size(); i++) {
+            variables[saved_globals[i].first] = saved_globals[i].second;
         }
     }
 

@@ -142,17 +142,27 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     int prev_jump = jump_target;
     ErrorState prev_error = error_state;
     
-    // Save local variables for recursion support
-    // Only save variables the function will define: params, return var, and Dim'd locals
-    Dictionary saved_locals;
+    // Save local variables for recursion support.
+    // Only save variables the function will define: params, return var, and Dim'd locals.
+    // v6.0 perf: use a small Vector<Pair> instead of a heap Dictionary.  The common
+    // case saves 0-2 entries, and an empty Vector allocates nothing, so this removes
+    // one heap Dictionary construction (+ per-name hash inserts + a keys() Array on
+    // restore) from every single call.  The Dictionary's exact-key .has() maps to a
+    // case-sensitive linear scan (saved_locals_has); N is tiny (params+locals).
+    Vector<Pair<String, Variant>> saved_locals;
+    auto saved_locals_has = [&saved_locals](const String &n) -> bool {
+        for (int _i = 0; _i < saved_locals.size(); _i++)
+            if (saved_locals[_i].first == n) return true;
+        return false;
+    };
     // Save parameters
     for(int i=0; i<func->parameters.size(); i++) {
-        String pname = func->parameters[i].name;
-        if (variables.has(pname)) saved_locals[pname] = variables[pname];
+        const String &pname = func->parameters[i].name;
+        if (variables.has(pname)) saved_locals.push_back({pname, variables[pname]});
     }
     // Save function return variable
     if (func->type == SubDefinition::TYPE_FUNCTION) {
-        if (variables.has(func->name)) saved_locals[func->name] = variables[func->name];
+        if (variables.has(func->name)) saved_locals.push_back({func->name, variables[func->name]});
     }
 
     // v2.5: Use pre-computed local_names from bytecode instead of walking
@@ -165,20 +175,20 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
             const String &lname = chunk_for_locals->local_names[i];
             if (!lname.is_empty() && variables.has(lname)) {
-                saved_locals[lname] = variables[lname];
+                saved_locals.push_back({lname, variables[lname]});
             }
         }
     } else {
         // Fallback: AST-only path (no bytecode compiled for this function).
         // Recursively scan for Dim'd variables in all nested blocks.
         struct DimScanner {
-            static void scan(const Vector<Statement*>& stmts, Dictionary& vars, const Dictionary& all_vars) {
+            static void scan(const Vector<Statement*>& stmts, Vector<Pair<String, Variant>>& vars, const Dictionary& all_vars) {
                 for(int i=0; i<stmts.size(); i++) {
                     if (!stmts[i]) continue;
                     if (stmts[i]->type == STMT_DIM) {
                         DimStatement* ds = (DimStatement*)stmts[i];
                         if (all_vars.has(ds->variable_name))
-                            vars[ds->variable_name] = all_vars[ds->variable_name];
+                            vars.push_back({ds->variable_name, all_vars[ds->variable_name]});
                     } else if (stmts[i]->type == STMT_IF) {
                         IfStatement* ifs = (IfStatement*)stmts[i];
                         scan(ifs->then_branch, vars, all_vars);
@@ -186,7 +196,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
                     } else if (stmts[i]->type == STMT_FOR) {
                         ForStatement* fs = (ForStatement*)stmts[i];
                         if (all_vars.has(fs->variable_name))
-                            vars[fs->variable_name] = all_vars[fs->variable_name];
+                            vars.push_back({fs->variable_name, all_vars[fs->variable_name]});
                         scan(fs->body, vars, all_vars);
                     } else if (stmts[i]->type == STMT_WHILE) {
                         scan(((WhileStatement*)stmts[i])->body, vars, all_vars);
@@ -195,12 +205,12 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
                     } else if (stmts[i]->type == STMT_FOR_EACH) {
                         ForEachStatement* fes = (ForEachStatement*)stmts[i];
                         if (all_vars.has(fes->variable_name))
-                            vars[fes->variable_name] = all_vars[fes->variable_name];
+                            vars.push_back({fes->variable_name, all_vars[fes->variable_name]});
                         scan(fes->body, vars, all_vars);
                     } else if (stmts[i]->type == STMT_OSCILLATE) {
                         OscillateStatement* oss = (OscillateStatement*)stmts[i];
                         if (all_vars.has(oss->variable_name))
-                            vars[oss->variable_name] = all_vars[oss->variable_name];
+                            vars.push_back({oss->variable_name, all_vars[oss->variable_name]});
                         scan(oss->body, vars, all_vars);
                     }
                 }
@@ -400,14 +410,11 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     }
     
     // Restore saved local variables for recursion support.
-    // Perf: skip the keys() Array allocation + loop entirely when nothing was
-    // saved (the common case — no callee param/local name collided with an
-    // existing caller variable, e.g. non-recursive calls with fresh locals).
-    if (!saved_locals.is_empty()) {
-        Array saved_keys = saved_locals.keys();
-        for(int i=0; i<saved_keys.size(); i++) {
-            variables[saved_keys[i]] = saved_locals[saved_keys[i]];
-        }
+    // Perf: the common case saved nothing (no callee param/local name collided
+    // with an existing caller variable, e.g. non-recursive calls with fresh
+    // locals), so this loop is a no-op over an empty (unallocated) Vector.
+    for (int i = 0; i < saved_locals.size(); i++) {
+        variables[saved_locals[i].first] = saved_locals[i].second;
     }
 
     // Erase callee-introduced variables that did NOT exist in the caller's
@@ -416,13 +423,13 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     // ARRAY_ACCESS handler sees it as an Array/Dictionary instead of
     // dispatching a function call on subsequent invocations.
     // -- Function return variable
-    if (func->type == SubDefinition::TYPE_FUNCTION && !saved_locals.has(func->name)) {
+    if (func->type == SubDefinition::TYPE_FUNCTION && !saved_locals_has(func->name)) {
         variables.erase(func->name);
     }
     // -- Parameters
     for (int i = 0; i < func->parameters.size(); i++) {
         const String &pname = func->parameters[i].name;
-        if (!saved_locals.has(pname)) {
+        if (!saved_locals_has(pname)) {
             variables.erase(pname);
         }
     }
@@ -430,7 +437,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     if (chunk_for_locals) {
         for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
             const String &lname = chunk_for_locals->local_names[i];
-            if (!lname.is_empty() && !saved_locals.has(lname)) {
+            if (!lname.is_empty() && !saved_locals_has(lname)) {
                 variables.erase(lname);
             }
         }
