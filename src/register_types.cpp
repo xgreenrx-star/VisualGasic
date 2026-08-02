@@ -62,6 +62,9 @@
 // v6.0 – Python integration bridge (PyImport / PyCallAsync)
 #include "python_bridge/visual_gasic_py_facade.h"
 
+// v6.1 – native emulator CPU cores (VGCpuCore family)
+#include "cpu_cores/visual_gasic_cpu_6502.h"
+
 // v3.2 – LSP integration (binding rework complete)
 #include "visual_gasic_lsp.h"
 
@@ -146,6 +149,9 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
 
         // v6.0 – Python integration
         ClassDB::register_class<PyBridgeFacade>();        // PyImport / PyCallAsync bridge
+
+        // v6.1 – native emulator CPU cores
+        ClassDB::register_class<VGCpu6502>();             // Reentrant 6502/6510 core for emulator projects
 
         // Register project settings for Python integration
         if (!ProjectSettings::get_singleton()->has_setting("vg/python/embedded_enabled")) {

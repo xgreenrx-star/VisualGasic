@@ -1,0 +1,73 @@
+' Validates the native VGCpu6502 engine primitive (src/cpu_cores/) end-to-end
+' from VisualGasic: opcode execution, backward branches + flags, decimal (BCD)
+' mode, JSR/RTS, LoadBytes, and reentrancy (two independent CPU instances).
+' See /memories/repo/vgcpucore_6502_plan.md.
+Attribute VB_Name = "TestCpu6502"
+
+Sub _Ready()
+    ' ---- Test 1: INX / CPX / BNE(backward) / STX loop counts to 10 ----
+    Dim cpu As New VGCpu6502
+    cpu.PokeRAM &H0600, &HA2   ' LDX #$00
+    cpu.PokeRAM &H0601, &H00
+    cpu.PokeRAM &H0602, &HE8   ' INX
+    cpu.PokeRAM &H0603, &HE0   ' CPX #$0A
+    cpu.PokeRAM &H0604, &H0A
+    cpu.PokeRAM &H0605, &HD0   ' BNE -5 -> $0602
+    cpu.PokeRAM &H0606, &HFB
+    cpu.PokeRAM &H0607, &H86   ' STX $20
+    cpu.PokeRAM &H0608, &H20
+    cpu.SetResetVector &H0600
+    cpu.Reset
+
+    If cpu.GetPC() = &H0600 Then
+        Print "PASS: VGCpu6502 reset vector -> PC"
+    Else
+        Print "FAIL: VGCpu6502 reset vector: " & cpu.GetPC()
+    End If
+
+    cpu.RunCycles 200
+    If cpu.PeekRAM(&H20) = 10 And cpu.GetX() = 10 Then
+        Print "PASS: VGCpu6502 loop counts to 10"
+    Else
+        Print "FAIL: VGCpu6502 loop: mem=" & cpu.PeekRAM(&H20) & " x=" & cpu.GetX()
+    End If
+
+    ' ---- Test 2: decimal-mode (BCD) ADC: 9 + 1 = $10 ----
+    Dim c2 As New VGCpu6502
+    c2.PokeRAM &H0700, &HF8   ' SED
+    c2.PokeRAM &H0701, &H18   ' CLC
+    c2.PokeRAM &H0702, &HA9   ' LDA #$09
+    c2.PokeRAM &H0703, &H09
+    c2.PokeRAM &H0704, &H69   ' ADC #$01
+    c2.PokeRAM &H0705, &H01
+    c2.PokeRAM &H0706, &H85   ' STA $30
+    c2.PokeRAM &H0707, &H30
+    c2.SetResetVector &H0700
+    c2.Reset
+    c2.RunCycles 100
+    If c2.PeekRAM(&H30) = &H10 Then
+        Print "PASS: VGCpu6502 BCD 9+1 = $10"
+    Else
+        Print "FAIL: VGCpu6502 BCD: " & c2.PeekRAM(&H30)
+    End If
+
+    ' ---- Test 3: reentrancy — the two CPUs above kept independent state/RAM ----
+    If cpu.PeekRAM(&H20) = 10 And c2.PeekRAM(&H20) = 0 Then
+        Print "PASS: VGCpu6502 instances are independent"
+    Else
+        Print "FAIL: VGCpu6502 reentrancy: a=" & cpu.PeekRAM(&H20) & " b=" & c2.PeekRAM(&H20)
+    End If
+
+    ' ---- Test 4: JSR / RTS round-trip via LoadBytes (exercises the byte-array path) ----
+    Dim c3 As New VGCpu6502
+    ' 0800 JSR $0808 / 0803 STA $40 / 0806 NOP NOP / 0808 LDA #$2A / 080A RTS
+    c3.LoadBytes &H0800, Array(&H20, &H08, &H08, &H85, &H40, &HEA, &HEA, &HEA, &HA9, &H2A, &H60)
+    c3.SetResetVector &H0800
+    c3.Reset
+    c3.RunCycles 100
+    If c3.PeekRAM(&H40) = &H2A Then
+        Print "PASS: VGCpu6502 JSR/RTS + LoadBytes"
+    Else
+        Print "FAIL: VGCpu6502 JSR/RTS + LoadBytes: " & c3.PeekRAM(&H40)
+    End If
+End Sub

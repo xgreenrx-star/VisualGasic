@@ -27,7 +27,7 @@ if ARGUMENTS.get("nostrip", "0") == "1":
 # - src is our local source
 
 env.Append(CPPPATH=["src"])
-sources = Glob("src/*.cpp") + Glob("src/python_bridge/*.cpp")
+sources = Glob("src/*.cpp") + Glob("src/python_bridge/*.cpp") + Glob("src/cpu_cores/*.cpp")
 
 # Exclude files that should not be compiled
 exclude_files = [
