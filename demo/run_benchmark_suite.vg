@@ -1,0 +1,52 @@
+' Benchmark runner for VisualGasic performance comparison
+
+' Load the benchmark module
+Include "benchmarks/bench.vg"
+
+Sub Main()
+    Print "=== VisualGasic Performance Benchmark Suite ==="
+    Print ""
+    
+    Dim start As Long
+    Dim elapsed As Long
+    
+    ' Arithmetic benchmark
+    Print "1. Arithmetic Performance (nested loop arithmetic)"
+    start = GetTickCount
+    Dim arith_result As Long = BenchArithmetic(10000, 1000)
+    elapsed = GetTickCount - start
+    Print "   Result: " & CStr(arith_result) & ", Time: " & CStr(elapsed) & " ms"
+    
+    ' Array sum benchmark
+    Print "2. Array Sum (array iteration and summation)"
+    start = GetTickCount
+    Dim arr_result As Long = BenchArraySum(10000, 100)
+    elapsed = GetTickCount - start
+    Print "   Result: " & CStr(arr_result) & ", Time: " & CStr(elapsed) & " ms"
+    
+    ' String concatenation benchmark
+    Print "3. String Concatenation (dynamic string building)"
+    start = GetTickCount
+    Dim str_result As Long = BenchStringConcat(1000, 500)
+    elapsed = GetTickCount - start
+    Print "   Result: " & CStr(str_result) & ", Time: " & CStr(elapsed) & " ms"
+    
+    ' Branch prediction benchmark
+    Print "4. Branch Prediction (conditional logic in tight loops)"
+    start = GetTickCount
+    Dim branch_result As Long = BenchBranch(10000, 1000)
+    elapsed = GetTickCount - start
+    Print "   Result: " & CStr(branch_result) & ", Time: " & CStr(elapsed) & " ms"
+    
+    ' Array vs Dictionary benchmark
+    Print "5. Array vs Dictionary (data structure access patterns)"
+    start = GetTickCount
+    Dim dict_result As Long = BenchArrayDict(10000, 100)
+    elapsed = GetTickCount - start
+    Print "   Result: " & CStr(dict_result) & ", Time: " & CStr(elapsed) & " ms"
+    
+    Print ""
+    Print "=== Benchmark Complete ==="
+End Sub
+
+Main

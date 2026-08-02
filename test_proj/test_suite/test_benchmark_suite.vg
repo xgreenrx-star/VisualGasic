@@ -1,0 +1,168 @@
+' VisualGasic Benchmark Suite Runner
+' MAX_FRAMES: 400
+
+' Arithmetic benchmark
+Function BenchArithmetic(ByVal iterations As Long, ByVal inner As Long) As Long
+    Dim i As Long, j As Long, s As Long
+    For i = 0 To iterations - 1 Step 1
+        For j = 0 To inner - 1 Step 1
+            s = s + (j * 3) - 7
+        Next j
+    Next i
+    BenchArithmetic = s
+End Function
+
+' Array sum benchmark
+Function BenchArraySum(ByVal iterations As Long, ByVal size As Long) As Long
+    Dim i As Long, k As Long, s As Long
+    Dim arr(0) As Long
+    ReDim arr(size - 1)
+    For i = 0 To size - 1 Step 1
+        arr(i) = i
+    Next i
+    For k = 0 To iterations - 1 Step 1
+        For i = 0 To size - 1 Step 1
+            s = s + arr(i)
+        Next i
+    Next k
+    BenchArraySum = s
+End Function
+
+' String concatenation benchmark
+Function BenchStringConcat(ByVal iterations As Long, ByVal inner As Long) As Long
+    Dim i As Long, j As Long
+    Dim s As String
+    For i = 0 To iterations - 1 Step 1
+        s = ""
+        For j = 0 To inner - 1 Step 1
+            s = s & "x"
+        Next j
+    Next i
+    BenchStringConcat = Len(s)
+End Function
+
+' Branch prediction benchmark
+Function BenchBranch(ByVal iterations As Long, ByVal inner As Long) As Long
+    Dim i As Long, j As Long, s As Long, flag As Long
+    For i = 0 To iterations - 1 Step 1
+        flag = 0
+        For j = 0 To inner - 1 Step 1
+            If flag = 0 Then
+                s = s + j
+                flag = 1
+            Else
+                s = s - j
+                flag = 0
+            End If
+        Next j
+    Next i
+    BenchBranch = s
+End Function
+
+' Array vs Dictionary benchmark
+Function BenchArrayDict(ByVal iterations As Long, ByVal size As Long) As Long
+    Dim arr(0) As Long, keys(0) As String, dict As Dictionary
+    Dim i As Long, iter As Long, sum As Long
+    If iterations <= 0 Or size <= 0 Then
+        BenchArrayDict = 0
+        Exit Function
+    End If
+    ReDim arr(size - 1)
+    ReDim keys(size - 1)
+    For i = 0 To size - 1 Step 1
+        arr(i) = i
+        keys(i) = CStr(i)
+    Next i
+    Set dict = New Dictionary
+    For i = 0 To size - 1 Step 1
+        dict(keys(i)) = size - i
+    Next i
+    For iter = 0 To iterations - 1 Step 1
+        For i = 0 To size - 1 Step 1
+            sum = sum + dict(keys(i))
+        Next i
+    Next iter
+    BenchArrayDict = sum
+End Function
+
+Sub RunBenchmark()
+    Print "[BENCHMARK START]"
+    Dim start_sec As Double
+    Dim elapsed_ms As Long
+    Dim total_time_ms As Long = 0
+    Dim i As Long
+    
+    Print ""
+    Print "=== VisualGasic Performance Benchmark (Post-JIT Fixes) ==="
+    Print "Date: Aug 2, 2026"
+    Print "Note: Each test runs 10 iterations for more measurable timing"
+    Print ""
+    
+    ' Test 1: Arithmetic (run 10 times)
+    Print "Test 1: Arithmetic (10000 x 1000 nested loop) x 10"
+    start_sec = Timer()
+    Dim result1 As Long
+    For i = 1 To 10 Step 1
+        result1 = BenchArithmetic(10000, 1000)
+    Next i
+    elapsed_ms = CLng((Timer() - start_sec) * 1000)
+    total_time_ms = total_time_ms + elapsed_ms
+    Print "  Result: " & CStr(result1) & ", Time: " & CStr(elapsed_ms) & " ms (avg: " & CStr(elapsed_ms / 10) & " ms/run)"
+    Print ""
+    
+    ' Test 2: Array Sum (run 10 times)
+    Print "Test 2: Array Sum (10000 iterations, 100-element array) x 10"
+    start_sec = Timer()
+    Dim result2 As Long
+    For i = 1 To 10 Step 1
+        result2 = BenchArraySum(10000, 100)
+    Next i
+    elapsed_ms = CLng((Timer() - start_sec) * 1000)
+    total_time_ms = total_time_ms + elapsed_ms
+    Print "  Result: " & CStr(result2) & ", Time: " & CStr(elapsed_ms) & " ms (avg: " & CStr(elapsed_ms / 10) & " ms/run)"
+    Print ""
+    
+    ' Test 3: String Concatenation (run 10 times)
+    Print "Test 3: String Concatenation (1000 iterations, 500-char strings) x 10"
+    start_sec = Timer()
+    Dim result3 As Long
+    For i = 1 To 10 Step 1
+        result3 = BenchStringConcat(1000, 500)
+    Next i
+    elapsed_ms = CLng((Timer() - start_sec) * 1000)
+    total_time_ms = total_time_ms + elapsed_ms
+    Print "  Result length: " & CStr(result3) & ", Time: " & CStr(elapsed_ms) & " ms (avg: " & CStr(elapsed_ms / 10) & " ms/run)"
+    Print ""
+    
+    ' Test 4: Branch Prediction (run 10 times)
+    Print "Test 4: Branch Prediction (10000 x 1000 if-else) x 10"
+    start_sec = Timer()
+    Dim result4 As Long
+    For i = 1 To 10 Step 1
+        result4 = BenchBranch(10000, 1000)
+    Next i
+    elapsed_ms = CLng((Timer() - start_sec) * 1000)
+    total_time_ms = total_time_ms + elapsed_ms
+    Print "  Result: " & CStr(result4) & ", Time: " & CStr(elapsed_ms) & " ms (avg: " & CStr(elapsed_ms / 10) & " ms/run)"
+    Print ""
+    
+    ' Test 5: Array vs Dictionary (run 10 times)
+    Print "Test 5: Array vs Dictionary (10000 iterations, 100 entries) x 10"
+    start_sec = Timer()
+    Dim result5 As Long
+    For i = 1 To 10 Step 1
+        result5 = BenchArrayDict(10000, 100)
+    Next i
+    elapsed_ms = CLng((Timer() - start_sec) * 1000)
+    total_time_ms = total_time_ms + elapsed_ms
+    Print "  Result: " & CStr(result5) & ", Time: " & CStr(elapsed_ms) & " ms (avg: " & CStr(elapsed_ms / 10) & " ms/run)"
+    Print ""
+    
+    Print "=== Summary ==="
+    Print "Total benchmark time: " & CStr(total_time_ms) & " ms"
+    Print "[BENCHMARK END]"
+End Sub
+
+Sub _Ready()
+    RunBenchmark()
+End Sub
