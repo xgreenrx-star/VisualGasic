@@ -1,6 +1,6 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: July 31, 2026  
+**Last Updated**: August 1, 2026  
 **Current Version**: 5.3.0-Beta3 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
 **Current Scope**: M0–M9 milestones (Jul 2026 – Jan 2027 stable release)  
 **Next Cut**: v5.3.0 stable
@@ -1221,7 +1221,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **M2** | 44 corpus examples pass (all domains: basics, control flow, strings, arrays, dicts, classes, I/O, math, state machines, Godot) | Aug 15 | ✅ **DONE** (Jun 30) |
 | **M3** | Code Navigator upgrade (#7): multi-file symbol search, definition/reference indexing, call hierarchy | Aug 31 | ✅ **DONE** (Jul 1) |
 | **M4** | UI Forms experimental (#8–#12): VB6 visual form designer, control picker popup, ghost placement, signal wiring, two-layer events | Sep 30 | ✅ **DONE** (Jul 1) |
-| **M5** | Narcea AI pair (#13): pair-programming mode, provider routing, system prompt templates. **NEW:** Buffer Type (zero-overhead byte access) + Optimizer Hints (@fast_loop, @accumulator directives). | Oct 15 | ✅ **8 providers implemented (Jul 13):** Ollama, OpenAI, Claude, Gemini, DeepSeek, Qwen, Codeium, Amazon Q Developer. Full 4-layer architecture documented in the Provider expansion plan above. 6 small gaps remain (<2h total). **Remaining:** Buffer Type (1-2 weeks), Optimizer Hints (1-2 weeks). |
+| **M5** | Narcea AI pair (#13): pair-programming mode, provider routing, system prompt templates. **NEW:** Buffer Type (zero-overhead byte access) + Optimizer Hints (@fast_loop, @accumulator directives). | Oct 15 | 🔄 **NEXT** — ✅ 8 providers + architecture (Jul 13); 🚀 **Performance foundation laid (Aug 1):** Parts D/E/F bytecode VM optimizations (+47% C64 throughput, general benefit to all VG code). Remaining: Buffer Type (1-2 weeks), Optimizer Hints (1-2 weeks). |
 | **M6** | Causal Chain text-mode (#14): new AST evaluator path, narrative code generation, explain-before-compute | Oct 31 | — |
 | **M7** | Python Library Integration: `PyImport` / `PyCallAsync` / `Await` via out-of-process worker. numpy, opencv, torch usable from VG scripts. | Nov 15 | 🟡 **Phase 2/3 done** (Jul 14): real `PyCallAsync`/`Await` via `PyAsyncTask` background thread, Windows launch path, auto-restart, structured errors. numpy Phases 1–2 pending |
 | **M8** | Language parity (Try/Catch/Lambda/`?.` corpus tests), `Let` block-scoped vars, C++ library interop via `Declare`/`DllImport`, optional named arguments (`:=`) | Nov 22 | 🟡 **Early demo done** (Jul 11): Vec2 C++ class via C ABI, `QuickCall` alias |
