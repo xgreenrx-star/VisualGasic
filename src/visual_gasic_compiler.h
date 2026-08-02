@@ -92,6 +92,7 @@ private:
     void collect_locals(Statement* stmt);
     void collect_used_vars_stmt(Statement* stmt);
     void collect_used_vars_expr(ExpressionNode* expr);
+    void collect_used_vars_assignment_target(ExpressionNode* target);
     void collect_vars_in_expr(ExpressionNode* expr, HashSet<String> &out) const;
     void collect_assigned_vars_stmt(Statement* stmt, HashSet<String> &out) const;
 

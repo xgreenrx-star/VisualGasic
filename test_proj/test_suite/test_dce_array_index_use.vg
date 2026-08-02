@@ -1,0 +1,39 @@
+' Regression test: a local variable used ONLY as an array/buffer index inside
+' another assignment's TARGET (e.g. `arr(idx) = 55`) must NOT be treated as
+' unused by the local dead-code-elimination pass. Root cause: collect_used_vars_stmt's
+' STMT_ASSIGNMENT case only scanned s->value, never s->target, so `idx = 20` was
+' silently DCE'd away as a dead store when `idx` was never read anywhere else,
+' leaving `idx` at its zero-initialized default when the array write executed.
+' Fixed via collect_used_vars_assignment_target() in src/visual_gasic_compiler.cpp.
+Attribute VB_Name = "TestDceArrayIndexUse"
+
+Public gBuf As Variant
+
+Sub _Ready()
+    Set gBuf = New MemoryBuffer(64)
+
+    ' Case 1: variable used only as a global-MemoryBuffer index in a write target.
+    Dim addr As Integer
+    addr = 20
+    gBuf(addr) = 55
+    Dim result As Integer
+    result = gBuf(20)
+    If result = 55 Then
+        Print "PASS: buffer index var not DCE'd"
+    Else
+        Print "FAIL: buffer index var DCE'd: got " & CStr(result)
+    End If
+
+    ' Case 2: same pattern with a regular Integer() array.
+    Dim arr(10) As Integer
+    Dim idx As Integer
+    idx = 3
+    arr(idx) = 77
+    If arr(3) = 77 Then
+        Print "PASS: plain array index var not DCE'd"
+    Else
+        Print "FAIL: plain array index var DCE'd: got " & CStr(arr(3))
+    End If
+
+    gBuf.Free
+End Sub

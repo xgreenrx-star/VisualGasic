@@ -687,6 +687,41 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
     }
 }
 
+// Scan an assignment TARGET expression for variable reads that must count
+// toward the local-DCE "used_vars" set. A bare `x = ...` target is a pure
+// write and must NOT mark `x` as used (that would defeat DCE entirely).
+// But `arr(idx) = ...` / `obj.Field = ...` targets genuinely READ `arr`/
+// `idx`/`obj` at runtime — collect_used_vars_stmt's STMT_ASSIGNMENT case
+// previously only scanned s->value, never s->target, so a local variable
+// used ONLY as an index/base in another assignment's target (e.g.
+// `gBuf(addr) = 55` where `addr` is never read anywhere else) was never
+// marked used, and the STMT_ASSIGNMENT DCE pass would then silently drop
+// `addr = 20` as a "dead store", leaving `addr` at its zero-initialized
+// default when the buffer write executed. See _dig1-4.vg repros.
+void VisualGasicCompiler::collect_used_vars_assignment_target(ExpressionNode* target) {
+    if (!target) return;
+    switch (target->type) {
+        case ExpressionNode::VARIABLE:
+            // Pure write target — not a use.
+            break;
+        case ExpressionNode::ARRAY_ACCESS: {
+            ArrayAccessNode* aa = (ArrayAccessNode*)target;
+            collect_used_vars_expr(aa->base);
+            for (int i = 0; i < aa->indices.size(); i++) collect_used_vars_expr(aa->indices[i]);
+            break;
+        }
+        case ExpressionNode::MEMBER_ACCESS: {
+            MemberAccessNode* ma = (MemberAccessNode*)target;
+            if (ma->base_object) collect_used_vars_expr(ma->base_object);
+            break;
+        }
+        default:
+            // Unknown/uncommon target shape — be conservative and scan fully.
+            collect_used_vars_expr(target);
+            break;
+    }
+}
+
 void VisualGasicCompiler::collect_used_vars_expr(ExpressionNode* expr) {
     if (!expr) return;
     switch (expr->type) {
@@ -1007,6 +1042,7 @@ void VisualGasicCompiler::collect_used_vars_stmt(Statement* stmt) {
         case STMT_ASSIGNMENT: {
             AssignmentStatement* s = (AssignmentStatement*)stmt;
             collect_used_vars_expr(s->value);
+            collect_used_vars_assignment_target(s->target);
             break;
         }
         case STMT_IF: {
