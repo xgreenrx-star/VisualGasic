@@ -64,6 +64,8 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_POP);
         OP_NAME_CASE(OP_GET_GLOBAL);
         OP_NAME_CASE(OP_SET_GLOBAL);
+        OP_NAME_CASE(OP_GET_GLOBAL_BUF8);
+        OP_NAME_CASE(OP_SET_GLOBAL_BUF8);
         OP_NAME_CASE(OP_GET_LOCAL);
         OP_NAME_CASE(OP_SET_LOCAL);
         OP_NAME_CASE(OP_ADD);
@@ -201,6 +203,8 @@ int opcode_operand_length(uint8_t op) {
         case OP_RESUME_WHENEVER:
         case OP_ON_ERROR_GOTO:
         case OP_COERCE_TYPE:
+        case OP_GET_GLOBAL_BUF8:
+        case OP_SET_GLOBAL_BUF8:
             return 2;
         // 2-byte operand: non-const pairs (jump offsets, local+count, etc.)
         case OP_JUMP:
@@ -274,6 +278,8 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
             break;
         case OP_GET_GLOBAL:
         case OP_SET_GLOBAL:
+        case OP_GET_GLOBAL_BUF8:
+        case OP_SET_GLOBAL_BUF8:
             if (operands.size() >= 2) {
                 return describe_constant(chunk, const16(0));
             }

@@ -3792,6 +3792,16 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                          emit_bytes(OP_BUF_WRITE8, (uint8_t)bslot);
                          break;
                      }
+                     // v6.2: Global MemoryBuffer fast path — buf(offset) = value
+                     // on a Public/global buffer var fuses the global lookup +
+                     // PokeByte into one opcode instead of OP_GET_GLOBAL(implicit
+                     // via base push) + OP_SET_ARRAY.
+                     compile_expression(aa->indices[0]);  // offset
+                     compile_expression(s->value);        // value
+                     int name_idx = current_chunk->add_constant(v->name);
+                     emit_byte(OP_SET_GLOBAL_BUF8);
+                     emit_const_index(name_idx);
+                     break;
                  }
                  compile_expression(aa->base);
                  compile_expression(aa->indices[0]);
@@ -7106,12 +7116,22 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             // buf(offset) → OP_BUF_READ8 [slot] (no stack base push)
             if (aa->base && aa->base->type == ExpressionNode::VARIABLE &&
                 is_buffer_var(((VariableNode*)aa->base)->name)) {
-                int bslot = get_or_add_local(((VariableNode*)aa->base)->name, VT_UNKNOWN);
+                const String &buf_name = ((VariableNode*)aa->base)->name;
+                int bslot = get_or_add_local(buf_name, VT_UNKNOWN);
                 if (bslot >= 0) {
                     compile_expression(aa->indices[0]);  // push offset only
                     emit_bytes(OP_BUF_READ8, (uint8_t)bslot);
                     break;
                 }
+                // v6.2: Global MemoryBuffer fast path — buf(offset) on a
+                // Public/global buffer var (stays a real VGMemoryBuffer
+                // Object) fuses the global lookup + PeekByte into one opcode
+                // instead of the generic OP_GET_GLOBAL + OP_GET_ARRAY pair.
+                compile_expression(aa->indices[0]);  // push offset only
+                int name_idx = current_chunk->add_constant(buf_name);
+                emit_byte(OP_GET_GLOBAL_BUF8);
+                emit_const_index(name_idx);
+                break;
             }
             // ── Sole-owner VGDict GET fast path ──
             if (aa->base && aa->base->type == ExpressionNode::VARIABLE &&

@@ -1,0 +1,73 @@
+' Test: v6.2 Global MemoryBuffer fast path (OP_GET_GLOBAL_BUF8/OP_SET_GLOBAL_BUF8)
+' Public/global "New MemoryBuffer(...)" variables stay a real VGMemoryBuffer Object
+' (only local-slot buffer vars use the PackedByteArray OP_BUF_READ8/WRITE8 path).
+' This exercises buf(offset) / buf(offset) = value syntax on GLOBAL buffer vars,
+' the exact pattern used by demos/C64_Emulator/c64_memory.vg's Mem_Read/Mem_Write.
+Attribute VB_Name = "TestGlobalMemBufFastPath"
+
+Public gBufA As Variant
+Public gBufB As Variant
+
+Sub _Ready()
+    Set gBufA = New MemoryBuffer(256)
+    Set gBufB = New MemoryBuffer(64)
+
+    ' --- Basic write then read round-trip via () indexing ---
+    gBufA(0) = 42
+    If gBufA(0) = 42 Then
+        Print "PASS: gbuf_roundtrip_offset0"
+    Else
+        Print "FAIL: gbuf_roundtrip_offset0: got " & CStr(gBufA(0))
+    End If
+
+    ' --- Multiple offsets stay independent ---
+    gBufA(10) = 100
+    gBufA(20) = 200
+    If gBufA(10) = 100 And gBufA(20) = 200 Then
+        Print "PASS: gbuf_multi_offset"
+    Else
+        Print "FAIL: gbuf_multi_offset"
+    End If
+
+    ' --- Byte wraps correctly (255 max, no sign issues) ---
+    gBufA(5) = 255
+    If gBufA(5) = 255 Then
+        Print "PASS: gbuf_byte_255"
+    Else
+        Print "FAIL: gbuf_byte_255: got " & CStr(gBufA(5))
+    End If
+
+    ' --- Two separate global buffers don't collide ---
+    gBufB(0) = 77
+    If gBufA(0) = 42 And gBufB(0) = 77 Then
+        Print "PASS: gbuf_two_globals_independent"
+    Else
+        Print "FAIL: gbuf_two_globals_independent"
+    End If
+
+    ' --- Overwrite existing offset ---
+    gBufA(0) = 99
+    If gBufA(0) = 99 Then
+        Print "PASS: gbuf_overwrite"
+    Else
+        Print "FAIL: gbuf_overwrite: got " & CStr(gBufA(0))
+    End If
+
+    ' --- Last valid offset in a 256-byte buffer ---
+    gBufA(255) = 88
+    If gBufA(255) = 88 Then
+        Print "PASS: gbuf_last_offset"
+    Else
+        Print "FAIL: gbuf_last_offset: got " & CStr(gBufA(255))
+    End If
+
+    ' --- Computed offset expression correctness is verified separately in
+    ' test_global_membuf_computed_offset.vg (kept in its own file/Sub because mixing
+    ' several literal-indexed writes across multiple buffer vars in ONE Sub, as this
+    ' file does above, triggers an unrelated pre-existing compiler bug — see
+    ' /memories/repo/build_and_test.md "variable-indexed array/buffer WRITE silently
+    ' no-ops..." — not caused by the new opcodes; reproduces with plain arrays too).
+
+    gBufA.Free
+    gBufB.Free
+End Sub

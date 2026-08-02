@@ -1,0 +1,32 @@
+' Test: v6.2 Global MemoryBuffer fast path — computed-offset expression correctness
+' Kept in its OWN Sub/file (single buffer, single write, no other array/buffer activity)
+' because mixing several literal-indexed writes across buffer vars in one Sub triggers an
+' unrelated pre-existing compiler bug (see /memories/repo/build_and_test.md
+' "variable-indexed array/buffer WRITE silently no-ops..."). This isolated repro proves
+' OP_SET_GLOBAL_BUF8/OP_GET_GLOBAL_BUF8 themselves handle a computed offset expression
+' (mirrors Mem_Read's addr - base pattern) correctly.
+Attribute VB_Name = "TestGlobalMemBufComputedOffset"
+
+Public gBuf As Variant
+
+Sub _Ready()
+    Set gBuf = New MemoryBuffer(64)
+
+    Dim addr As Integer
+    addr = 30
+    ' Workaround for a separate, pre-existing compiler bug (see
+    ' /memories/repo/build_and_test.md "SHARPER, independently-reproduced trigger"): a fresh
+    ' local used for the FIRST time directly as an array/buffer write index silently no-ops.
+    ' A harmless prior read "warms up" the local and avoids it.
+    Print "addr=" & CStr(addr)
+    gBuf(addr - 10) = 55
+    Dim result As Integer
+    result = gBuf(20)
+    If result = 55 Then
+        Print "PASS: gbuf_computed_offset"
+    Else
+        Print "FAIL: gbuf_computed_offset: got " & CStr(result)
+    End If
+
+    gBuf.Free
+End Sub

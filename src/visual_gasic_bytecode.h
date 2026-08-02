@@ -239,6 +239,16 @@ enum OpCode {
     OP_BUF_SIZE,        // [OP] [SLOT_IDX]       — Push buf.size()
     OP_BUF_RESIZE,      // [OP] [SLOT_IDX]       — Pop new_size, buf.resize(new_size)
 
+    // Global VGMemoryBuffer fast path (v6.2 — emulator perf: fuse OP_GET_GLOBAL +
+    // OP_GET_ARRAY / OP_SET_ARRAY into a single opcode for Public/global
+    // "Dim x As New MemoryBuffer(...)" variables, which stay a real VGMemoryBuffer
+    // Object (see OP_BUF_* above for the separate local-slot PackedByteArray path).
+    // Saves one opcode dispatch + one Variant push/pop + the array-type cascade
+    // per access, on the single hottest path in the C64/GBA emulators
+    // (Mem_Read/Mem_Write called on every emulated CPU cycle).
+    OP_GET_GLOBAL_BUF8, // [OP] [NAME_CONST_LO] [NAME_CONST_HI] — pop offset, push global-VGMemoryBuffer.PeekByte(offset)
+    OP_SET_GLOBAL_BUF8, // [OP] [NAME_CONST_LO] [NAME_CONST_HI] — pop value, pop offset, global-VGMemoryBuffer.PokeByte(offset, value)
+
     // Optimization Hints (v6.0 — M6: Hint Attributes)
     // These are markers that the compiler uses internally; they do not
     // execute anything at runtime. They tell the optimizer to recognize

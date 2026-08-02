@@ -93,6 +93,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_COERCE_TYPE:                                           // [OP] [TYPE_LO] [TYPE_HI]
         case OP_ADD_I64_CONST: case OP_SUB_I64_CONST:                 // [OP] [CONST_LO] [CONST_HI]
         case OP_MUL_I64_CONST:                                        // [OP] [CONST_LO] [CONST_HI]
+        case OP_GET_GLOBAL_BUF8: case OP_SET_GLOBAL_BUF8:             // [OP] [NAME_LO] [NAME_HI]
             return 3;
 
         // 3-byte instructions (opcode + 2 non-const operands: offsets, slots, counts)

@@ -892,6 +892,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_ON_ERROR_GOTO:
                     case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST:
                     case OP_COERCE_TYPE:
+                    case OP_GET_GLOBAL_BUF8: case OP_SET_GLOBAL_BUF8:
                         scan_ip += 2; break;
                     // OP_BYREF_LOAD: 2-byte const index + 1-byte flag + 2-byte dest = 5 bytes
                     case OP_BYREF_LOAD:
@@ -1326,6 +1327,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_BUF_WRITE32]    = &&vg_op_buf_write32;
         dispatch_table[OP_BUF_SIZE]       = &&vg_op_buf_size;
         dispatch_table[OP_BUF_RESIZE]     = &&vg_op_buf_resize;
+        // v6.2: Global VGMemoryBuffer fast path (fused OP_GET_GLOBAL + OP_GET_ARRAY)
+        dispatch_table[OP_GET_GLOBAL_BUF8] = &&vg_op_get_global_buf8;
+        dispatch_table[OP_SET_GLOBAL_BUF8] = &&vg_op_set_global_buf8;
         // M6: Optimization Hints (v6.0)
         dispatch_table[OP_HINT_ACCUMULATOR] = &&vg_op_hint_accum;
         dispatch_table[OP_HINT_LOOP_COUNTER] = &&vg_op_hint_counter;
@@ -7260,6 +7264,56 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 PackedByteArray buf = var;
                 buf.resize((int)new_size);
                 sync_local(slot, Variant(buf));
+                VG_BREAK;
+            }
+
+            // v6.2: Global VGMemoryBuffer fast path — fuses OP_GET_GLOBAL +
+            // the Object/VGMemoryBuffer branch of OP_GET_ARRAY into a single
+            // opcode for Public/global "New MemoryBuffer(...)" variables
+            // (module-level buffer vars stay a real VGMemoryBuffer Object;
+            // see OP_BUF_* above for the separate local-slot PackedByteArray
+            // path). Removes one opcode dispatch + one Variant stack
+            // round-trip + the array-type cascade per access on the hottest
+            // per-cycle path in the C64/GBA emulators (Mem_Read/Mem_Write).
+            //
+            // OP_GET_GLOBAL_BUF8 [NAME_CONST]  — pop offset, push PeekByte(offset)
+            VG_CASE(vg_op_get_global_buf8, OP_GET_GLOBAL_BUF8): {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int idx = read_const_index();
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t offset = to_int(pop_value());
+                String name = read_constant(idx);
+                Variant gvar = variables.get(name, Variant());
+                if (gvar.get_type() == Variant::OBJECT) {
+                    Object *obj = gvar;
+                    VGMemoryBuffer *mb = Object::cast_to<VGMemoryBuffer>(obj);
+                    if (mb) {
+                        push_value((int64_t)mb->peek_byte(offset));
+                        VG_BREAK;
+                    }
+                }
+                // Not allocated yet / wrong type — same graceful default as
+                // the generic OP_GET_ARRAY Object branch would give.
+                push_value((int64_t)0);
+                VG_BREAK;
+            }
+
+            // OP_SET_GLOBAL_BUF8 [NAME_CONST]  — pop value, pop offset, PokeByte(offset, value)
+            VG_CASE(vg_op_set_global_buf8, OP_SET_GLOBAL_BUF8): {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int idx = read_const_index();
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                int64_t value = to_int(pop_value());
+                int64_t offset = to_int(pop_value());
+                String name = read_constant(idx);
+                Variant gvar = variables.get(name, Variant());
+                if (gvar.get_type() == Variant::OBJECT) {
+                    Object *obj = gvar;
+                    VGMemoryBuffer *mb = Object::cast_to<VGMemoryBuffer>(obj);
+                    if (mb) {
+                        mb->poke_byte(offset, (int)(value & 0xFF));
+                    }
+                }
                 VG_BREAK;
             }
 
