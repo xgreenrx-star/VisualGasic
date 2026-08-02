@@ -20,7 +20,7 @@ Dim SKIP_RAM_TEST As Boolean = True
 ' through Mem_Read/Mem_Write via VGCpu6502.SetIOHook, so behavior is identical
 ' to the pure-VG path -- this is a decode/dispatch speed lever only, not a
 ' full-native-memory-bus rewrite; see /memories/repo/vgcpucore_6502_plan.md).
-Dim TURBO_MODE As Boolean = False
+Dim TURBO_MODE As Boolean = True
 Dim NativeCpu As Variant
 Dim gIRQLineNative As Boolean
 

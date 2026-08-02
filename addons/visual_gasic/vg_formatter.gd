@@ -388,6 +388,20 @@ static func _space_operator(line: String, op: String) -> String:
 				i += op.length()
 				continue
 			
+			# Don't treat '&' as the concatenation operator when it begins a VB
+			# numeric literal: &H (hex), &O (octal), &B (binary). Splitting these
+			# -- e.g. "&HFFFF" -> "& HFFFF" -- corrupts the literal and makes the
+			# file fail to parse, so copy the '&' verbatim and let the following
+			# base digits pass through untouched. A real concatenation ("a & b"
+			# or "a&b") is followed by whitespace or an operand whose first two
+			# chars are not a valid based-literal prefix+digit, so it is still
+			# spaced normally.
+			if op == "&" and i + 2 < line.length() \
+					and _is_based_literal_prefix(line[i + 1], line[i + 2]):
+				result += op
+				i += op.length()
+				continue
+			
 			# Don't add space before if already has space
 			if not result.is_empty() and not result.ends_with(" "):
 				result += " "
@@ -404,6 +418,19 @@ static func _space_operator(line: String, op: String) -> String:
 			i += 1
 	
 	return result
+
+## Returns true when 'prefix'+'digit' begin a VB based-numeric literal
+## (&H<hex>, &O<octal>, &B<binary>), meaning a leading '&' is part of the
+## literal rather than the string-concatenation operator.
+static func _is_based_literal_prefix(prefix: String, digit: String) -> bool:
+	match prefix:
+		"H", "h":
+			return digit in "0123456789ABCDEFabcdef"
+		"O", "o":
+			return digit in "01234567"
+		"B", "b":
+			return digit in "01"
+	return false
 
 ## Adds space after commas
 static func _space_commas(line: String) -> String:
