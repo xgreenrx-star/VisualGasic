@@ -62,6 +62,10 @@ enum class IROp : uint8_t {
     SUB_I64_CONST,   // dest = src1 - imm_i64
     MUL_I64_CONST,   // dest = src1 * imm_i64
     SHR_I64_CONST,   // dest = src1 >> imm_i64 (arithmetic shift right)
+    SHL_I64_CONST,   // dest = src1 << imm_i64 (logical shift left)
+    AND_I64,         // dest = src1 & src2   (bitwise)
+    OR_I64,          // dest = src1 | src2   (bitwise)
+    XOR_I64,         // dest = src1 ^ src2   (bitwise)
     
     // Float arithmetic
     ADD_F64,         SUB_F64,   MUL_F64,   DIV_F64,
@@ -173,6 +177,9 @@ public:
     void add_rr(Reg dst, Reg src);
     void sub_rr(Reg dst, Reg src);
     void imul_rr(Reg dst, Reg src);
+    void and_rr(Reg dst, Reg src);
+    void or_rr(Reg dst, Reg src);
+    void xor_rr(Reg dst, Reg src);
     void neg_r(Reg r);
     void inc_r(Reg r);
     void cmp_rr(Reg a, Reg b);

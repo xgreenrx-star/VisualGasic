@@ -366,6 +366,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         r_ret = Variant();
                     }
+                    // Restore the shared thread-local VM state (ip/stack)
+                    // that this frame clobbered before returning to the
+                    // caller — otherwise the caller's vm.ip stays at
+                    // p_ip_start (0) and its interpreter loop restarts.
+                    restore_vm();
                     return true;
                 }
             }
@@ -448,6 +453,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         r_ret = Variant();
                     }
                 }
+                // Restore the shared thread-local VM state (ip/stack) this
+                // frame clobbered before returning to the caller — otherwise
+                // the caller's vm.ip stays at p_ip_start (0) and its
+                // interpreter loop restarts, hanging the process.
+                restore_vm();
                 return true;
             }
         }

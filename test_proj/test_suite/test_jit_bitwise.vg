@@ -1,0 +1,193 @@
+' test_jit_bitwise.vg — JIT Tier 2 native bitwise/shift codegen correctness
+'
+' Each leaf function below is called 300 times inside the hot loop in _Ready,
+' so with VG_JIT>=2 the Tier 2 engine (HOT_THRESHOLD=50) compiles them to
+' native x86-64 and the bitwise/shift IR ops (AND_I64/OR_I64/XOR_I64/
+' SHL_I64_CONST/SHR_I64_CONST) execute as real machine instructions.
+'
+' The accumulated sums are hardcoded ground truth computed with signed 64-bit
+' semantics (arithmetic right shift), so any native miscompile diverges from
+' these values. Under the default suite (VG_JIT unset) the same assertions
+' validate the interpreter path and establish that ground truth.
+
+Function BitAnd(a As Integer, b As Integer) As Integer
+    BitAnd = a And b
+End Function
+
+Function BitOr(a As Integer, b As Integer) As Integer
+    BitOr = a Or b
+End Function
+
+Function BitXor(a As Integer, b As Integer) As Integer
+    BitXor = a Xor b
+End Function
+
+Function Shl3(a As Integer) As Integer
+    Shl3 = a << 3
+End Function
+
+Function Sar2(a As Integer) As Integer
+    Sar2 = a >> 2
+End Function
+
+Function Sar1(a As Integer) As Integer
+    Sar1 = a >> 1
+End Function
+
+Function MixedBits(i As Integer) As Integer
+    MixedBits = ((i And 255) Or (i << 1)) Xor (i >> 1)
+End Function
+
+Sub _Ready()
+    Dim passed As Integer
+    Dim failed As Integer
+    passed = 0
+    failed = 0
+
+    Dim i As Integer
+    Dim andSum As Integer
+    Dim orSum As Integer
+    Dim xorSum As Integer
+    Dim shlSum As Integer
+    Dim sarSum As Integer
+    Dim negSum As Integer
+    Dim mixSum As Integer
+    andSum = 0
+    orSum = 0
+    xorSum = 0
+    shlSum = 0
+    sarSum = 0
+    negSum = 0
+    mixSum = 0
+
+    ' Hot loop: 300 iterations => every leaf crosses HOT_THRESHOLD (50) and
+    ' spends the bulk of its calls executing as JIT-compiled native code.
+    For i = 1 To 300
+        andSum = andSum + BitAnd(i, 60)
+        orSum  = orSum  + BitOr(i, 5)
+        xorSum = xorSum + BitXor(i, 170)
+        shlSum = shlSum + Shl3(i)
+        sarSum = sarSum + Sar2(i)
+        negSum = negSum + Sar1(0 - i)
+        mixSum = mixSum + MixedBits(i)
+    Next i
+
+    ' T1: bitwise AND (AND_I64)
+    If andSum = 8604 Then
+        Print "PASS: T1 BitAnd hot-loop sum = 8604"
+        passed = passed + 1
+    Else
+        Print "FAIL: T1 BitAnd expected 8604 got " & CStr(andSum)
+        failed = failed + 1
+    End If
+
+    ' T2: bitwise OR (OR_I64)
+    If orSum = 45904 Then
+        Print "PASS: T2 BitOr hot-loop sum = 45904"
+        passed = passed + 1
+    Else
+        Print "FAIL: T2 BitOr expected 45904 got " & CStr(orSum)
+        failed = failed + 1
+    End If
+
+    ' T3: bitwise XOR (XOR_I64)
+    If xorSum = 51374 Then
+        Print "PASS: T3 BitXor hot-loop sum = 51374"
+        passed = passed + 1
+    Else
+        Print "FAIL: T3 BitXor expected 51374 got " & CStr(xorSum)
+        failed = failed + 1
+    End If
+
+    ' T4: shift left by const (SHL_I64_CONST)
+    If shlSum = 361200 Then
+        Print "PASS: T4 Shl3 hot-loop sum = 361200"
+        passed = passed + 1
+    Else
+        Print "FAIL: T4 Shl3 expected 361200 got " & CStr(shlSum)
+        failed = failed + 1
+    End If
+
+    ' T5: arithmetic shift right by const, positive (SHR_I64_CONST)
+    If sarSum = 11175 Then
+        Print "PASS: T5 Sar2 hot-loop sum = 11175"
+        passed = passed + 1
+    Else
+        Print "FAIL: T5 Sar2 expected 11175 got " & CStr(sarSum)
+        failed = failed + 1
+    End If
+
+    ' T6: arithmetic shift right on negatives (SAR, not logical SHR)
+    If negSum = -22650 Then
+        Print "PASS: T6 Sar1(negative) hot-loop sum = -22650"
+        passed = passed + 1
+    Else
+        Print "FAIL: T6 Sar1(negative) expected -22650 got " & CStr(negSum)
+        failed = failed + 1
+    End If
+
+    ' T7: combined bitwise+shift in one JIT'd body (all ops interacting)
+    If mixSum = 105038 Then
+        Print "PASS: T7 MixedBits hot-loop sum = 105038"
+        passed = passed + 1
+    Else
+        Print "FAIL: T7 MixedBits expected 105038 got " & CStr(mixSum)
+        failed = failed + 1
+    End If
+
+    ' Direct edge-case scalar checks (small known values)
+    If BitAnd(12, 10) = 8 Then
+        Print "PASS: T8a 12 And 10 = 8"
+        passed = passed + 1
+    Else
+        Print "FAIL: T8a 12 And 10 expected 8 got " & CStr(BitAnd(12, 10))
+        failed = failed + 1
+    End If
+
+    If BitOr(12, 10) = 14 Then
+        Print "PASS: T8b 12 Or 10 = 14"
+        passed = passed + 1
+    Else
+        Print "FAIL: T8b 12 Or 10 expected 14 got " & CStr(BitOr(12, 10))
+        failed = failed + 1
+    End If
+
+    If BitXor(12, 10) = 6 Then
+        Print "PASS: T8c 12 Xor 10 = 6"
+        passed = passed + 1
+    Else
+        Print "FAIL: T8c 12 Xor 10 expected 6 got " & CStr(BitXor(12, 10))
+        failed = failed + 1
+    End If
+
+    If Shl3(5) = 40 Then
+        Print "PASS: T8d 5 << 3 = 40"
+        passed = passed + 1
+    Else
+        Print "FAIL: T8d 5 << 3 expected 40 got " & CStr(Shl3(5))
+        failed = failed + 1
+    End If
+
+    If Sar2(0 - 40) = (0 - 10) Then
+        Print "PASS: T8e -40 >> 2 = -10 (arithmetic)"
+        passed = passed + 1
+    Else
+        Print "FAIL: T8e -40 >> 2 expected -10 got " & CStr(Sar2(0 - 40))
+        failed = failed + 1
+    End If
+
+    If Sar1(0 - 3) = (0 - 2) Then
+        Print "PASS: T8f -3 >> 1 = -2 (arithmetic)"
+        passed = passed + 1
+    Else
+        Print "FAIL: T8f -3 >> 1 expected -2 got " & CStr(Sar1(0 - 3))
+        failed = failed + 1
+    End If
+
+    ' Summary
+    Print ""
+    Print "JIT bitwise/shift tests: " & CStr(passed) & " passed, " & CStr(failed) & " failed"
+    If failed = 0 Then
+        Print "ALL TESTS PASSED"
+    End If
+End Sub

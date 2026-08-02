@@ -146,6 +146,27 @@ void CodeBuf::imul_rr(Reg dst, Reg src) {
     modrm(3, lo3(dst), lo3(src));
 }
 
+// and r64, r64
+void CodeBuf::and_rr(Reg dst, Reg src) {
+    rex(true, needs_ext(src), false, needs_ext(dst));
+    emit(0x21);
+    modrm(3, lo3(src), lo3(dst));
+}
+
+// or r64, r64
+void CodeBuf::or_rr(Reg dst, Reg src) {
+    rex(true, needs_ext(src), false, needs_ext(dst));
+    emit(0x09);
+    modrm(3, lo3(src), lo3(dst));
+}
+
+// xor r64, r64
+void CodeBuf::xor_rr(Reg dst, Reg src) {
+    rex(true, needs_ext(src), false, needs_ext(dst));
+    emit(0x31);
+    modrm(3, lo3(src), lo3(dst));
+}
+
 // neg r64
 void CodeBuf::neg_r(Reg r) {
     rex(true, false, false, needs_ext(r));
@@ -419,6 +440,9 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
     // Simulated value stack → maps to virtual registers
     std::vector<int> vstack;
     
+    // vreg → integer constant value (for constant-shift-count detection)
+    std::unordered_map<int, int64_t> vreg_const_i64;
+    
     // Track the type of each vreg so generic comparisons use correct type
     std::vector<IRType> vreg_type_map;
     auto set_vreg_type = [&](int vreg, IRType t) {
@@ -634,6 +658,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         inst.bc_offset = ip;
                         ir.push_back(inst);
                         vstack.push_back(inst.dest);
+                        vreg_const_i64[inst.dest] = inst.imm_i64;
                     } else if (v.get_type() == Variant::FLOAT) {
                         IRInst inst;
                         inst.op = IROp::CONST_F64;
@@ -1443,6 +1468,59 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 break;
             }
             
+            // ── Bitwise AND / OR / XOR (integer only) ──
+            // VG's OP_AND/OP_OR/OP_XOR are bitwise when both operands are numeric
+            // and logical otherwise. We only compile the pure-integer case; any
+            // non-I64 operand bails so the interpreter can apply the float-coerce
+            // or logical-truthiness semantics correctly.
+            case OP_AND: case OP_OR: case OP_XOR: {
+                if (vstack.size() < 2) return false;
+                int rhs = vstack.back(); vstack.pop_back();
+                int lhs = vstack.back(); vstack.pop_back();
+                if (get_vreg_type(lhs) != IRType::I64 || get_vreg_type(rhs) != IRType::I64) return false;
+                IRInst inst;
+                inst.type = IRType::I64;
+                inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, IRType::I64);
+                inst.src1 = lhs;
+                inst.src2 = rhs;
+                inst.bc_offset = ip;
+                inst.op = (op == OP_AND) ? IROp::AND_I64
+                        : (op == OP_OR)  ? IROp::OR_I64
+                                         : IROp::XOR_I64;
+                ir.push_back(inst);
+                vstack.push_back(inst.dest);
+                ip += 1;
+                break;
+            }
+            
+            // ── Shift left / arithmetic shift right by a constant count ──
+            // Only constant shift counts in [0,63] with an integer operand are
+            // compiled inline (SHL/SAR r64, imm8). Variable counts (which need the
+            // count in CL) bail to the interpreter and remain a later increment.
+            case OP_SHL: case OP_SHR: {
+                if (vstack.size() < 2) return false;
+                int rhs = vstack.back(); vstack.pop_back();
+                int lhs = vstack.back(); vstack.pop_back();
+                if (get_vreg_type(lhs) != IRType::I64 || get_vreg_type(rhs) != IRType::I64) return false;
+                auto cit = vreg_const_i64.find(rhs);
+                if (cit == vreg_const_i64.end()) return false;
+                int64_t cnt = cit->second;
+                if (cnt < 0 || cnt > 63) return false;
+                IRInst inst;
+                inst.type = IRType::I64;
+                inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, IRType::I64);
+                inst.src1 = lhs;
+                inst.imm_i64 = cnt;
+                inst.bc_offset = ip;
+                inst.op = (op == OP_SHL) ? IROp::SHL_I64_CONST : IROp::SHR_I64_CONST;
+                ir.push_back(inst);
+                vstack.push_back(inst.dest);
+                ip += 1;
+                break;
+            }
+            
             default:
                 // Unsupported opcode — cannot JIT this function
                 return false;
@@ -1783,6 +1861,36 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
                 cb.emit(0xC1);
                 cb.modrm(3, 7, (int)work & 7);
                 cb.emit((uint8_t)(inst.imm_i64 & 0x3F));
+                store_result(cb, alloc, inst.dest, work);
+                break;
+            }
+            
+            case IROp::SHL_I64_CONST: {
+                // Logical shift left by imm_i64 (SHL reg, imm8)
+                Reg dst = alloc.reg_for(inst.dest);
+                Reg work = (dst != Reg::SPILL && dst != Reg::NONE) ? dst : Reg::RAX;
+                Reg src = get_or_load(cb, alloc, inst.src1, work);
+                if (src != work) cb.mov_rr(work, src);
+                // REX.W + C1 /4 ib  → SHL r64, imm8
+                cb.rex(true, false, false, ((int)work >= 8));
+                cb.emit(0xC1);
+                cb.modrm(3, 4, (int)work & 7);
+                cb.emit((uint8_t)(inst.imm_i64 & 0x3F));
+                store_result(cb, alloc, inst.dest, work);
+                break;
+            }
+            
+            case IROp::AND_I64: case IROp::OR_I64: case IROp::XOR_I64: {
+                Reg dst = alloc.reg_for(inst.dest);
+                Reg work = (dst != Reg::SPILL && dst != Reg::NONE) ? dst : Reg::RAX;
+                Reg lhs = get_or_load(cb, alloc, inst.src1, work);
+                // Use RCX as scratch for RHS, but avoid clobbering lhs
+                Reg rhs_scratch = (lhs == Reg::RCX) ? Reg::RDX : Reg::RCX;
+                Reg rhs = get_or_load(cb, alloc, inst.src2, rhs_scratch);
+                if (lhs != work) cb.mov_rr(work, lhs);
+                if (inst.op == IROp::AND_I64) cb.and_rr(work, rhs);
+                else if (inst.op == IROp::OR_I64) cb.or_rr(work, rhs);
+                else cb.xor_rr(work, rhs);
                 store_result(cb, alloc, inst.dest, work);
                 break;
             }
