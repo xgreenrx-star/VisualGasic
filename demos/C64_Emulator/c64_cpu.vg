@@ -62,9 +62,19 @@ Function C64_GetF(b As Integer) As Boolean
 End Function
 
 Sub C64_SetNZ(v As Integer)
+    ' PERF: inlined C64_SetF (was 2 nested Sub calls per SetNZ). SetNZ runs on
+    ' nearly every emulated instruction, so removing these 2 calls is a hot win.
     v = BitAnd(v, &HFF)
-    C64_SetF FLAG_NEG, BitTst(v, 7)
-    C64_SetF FLAG_ZERO, (v = 0)
+    If BitTst(v, 7) Then
+        gC64_Flags = BitOr(gC64_Flags, BitShiftLeft(1, FLAG_NEG))
+    Else
+        gC64_Flags = BitAnd(gC64_Flags, BitNot(BitShiftLeft(1, FLAG_NEG)))
+    End If
+    If v = 0 Then
+        gC64_Flags = BitOr(gC64_Flags, BitShiftLeft(1, FLAG_ZERO))
+    Else
+        gC64_Flags = BitAnd(gC64_Flags, BitNot(BitShiftLeft(1, FLAG_ZERO)))
+    End If
 End Sub
 
 ' === Memory Access ===
@@ -85,33 +95,39 @@ Function C64_Pop() As Integer
 End Function
 
 ' === Addressing Helpers ===
+' PERF: C64_Fetch() is inlined throughout these helpers as
+' "Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF" -- one addressing
+' helper runs per instruction, each previously calling C64_Fetch 1-2 times.
 Function C64_ReadZP() As Integer
-    Return Mem_Read(C64_Fetch())
+    Dim a As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
+    Return Mem_Read(a)
 End Function
 
 Function C64_ReadZPX() As Integer
-    Return Mem_Read(BitAnd(C64_Fetch() + gC64_X, &HFF))
+    Dim a As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
+    Return Mem_Read(BitAnd(a + gC64_X, &HFF))
 End Function
 
 Function C64_ReadZPY() As Integer
-    Return Mem_Read(BitAnd(C64_Fetch() + gC64_Y, &HFF))
+    Dim a As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
+    Return Mem_Read(BitAnd(a + gC64_Y, &HFF))
 End Function
 
 Function C64_ReadABS() As Integer
-    Dim lo As Integer = C64_Fetch()
-    Dim hi As Integer = C64_Fetch()
+    Dim lo As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
+    Dim hi As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
     Return Mem_Read(lo Or BitShiftLeft(hi, 8))
 End Function
 
 Function C64_GetAbsAddr() As Integer
-    Dim lo As Integer = C64_Fetch()
-    Dim hi As Integer = C64_Fetch()
+    Dim lo As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
+    Dim hi As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
     Return lo Or BitShiftLeft(hi, 8)
 End Function
 
 Function C64_ReadABSX(ByRef crossed As Boolean) As Integer
-    Dim lo As Integer = C64_Fetch()
-    Dim hi As Integer = C64_Fetch()
+    Dim lo As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
+    Dim hi As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
     Dim base As Integer = lo Or BitShiftLeft(hi, 8)
     Dim a As Integer = (base + gC64_X) And &HFFFF
     crossed = (BitAnd(base, &HFF00) <> BitAnd(a, &HFF00))
@@ -119,8 +135,8 @@ Function C64_ReadABSX(ByRef crossed As Boolean) As Integer
 End Function
 
 Function C64_ReadABSY(ByRef crossed As Boolean) As Integer
-    Dim lo As Integer = C64_Fetch()
-    Dim hi As Integer = C64_Fetch()
+    Dim lo As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
+    Dim hi As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
     Dim base As Integer = lo Or BitShiftLeft(hi, 8)
     Dim a As Integer = (base + gC64_Y) And &HFFFF
     crossed = (BitAnd(base, &HFF00) <> BitAnd(a, &HFF00))
@@ -128,14 +144,15 @@ Function C64_ReadABSY(ByRef crossed As Boolean) As Integer
 End Function
 
 Function C64_ReadINDX() As Integer
-    Dim zp As Integer = BitAnd(C64_Fetch() + gC64_X, &HFF)
+    Dim f As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
+    Dim zp As Integer = BitAnd(f + gC64_X, &HFF)
     Dim lo As Integer = Mem_Read(zp)
     Dim hi As Integer = Mem_Read((zp + 1) And &HFF)
     Return Mem_Read(lo Or BitShiftLeft(hi, 8))
 End Function
 
 Function C64_ReadINDY(ByRef crossed As Boolean) As Integer
-    Dim zp As Integer = C64_Fetch()
+    Dim zp As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
     Dim lo As Integer = Mem_Read(zp)
     Dim hi As Integer = Mem_Read((zp + 1) And &HFF)
     Dim base As Integer = lo Or BitShiftLeft(hi, 8)
@@ -145,8 +162,8 @@ Function C64_ReadINDY(ByRef crossed As Boolean) As Integer
 End Function
 
 Function C64_GetAbsXAddr(ByRef crossed As Boolean) As Integer
-    Dim lo As Integer = C64_Fetch()
-    Dim hi As Integer = C64_Fetch()
+    Dim lo As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
+    Dim hi As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
     Dim base As Integer = lo Or BitShiftLeft(hi, 8)
     Dim a As Integer = (base + gC64_X) And &HFFFF
     crossed = (BitAnd(base, &HFF00) <> BitAnd(a, &HFF00))
@@ -154,14 +171,15 @@ Function C64_GetAbsXAddr(ByRef crossed As Boolean) As Integer
 End Function
 
 Function C64_GetIndXAddr() As Integer
-    Dim zp As Integer = BitAnd(C64_Fetch() + gC64_X, &HFF)
+    Dim f As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
+    Dim zp As Integer = BitAnd(f + gC64_X, &HFF)
     Dim lo As Integer = Mem_Read(zp)
     Dim hi As Integer = Mem_Read((zp + 1) And &HFF)
     Return lo Or BitShiftLeft(hi, 8)
 End Function
 
 Function C64_GetIndYAddr(ByRef crossed As Boolean) As Integer
-    Dim zp As Integer = C64_Fetch()
+    Dim zp As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
     Dim lo As Integer = Mem_Read(zp)
     Dim hi As Integer = Mem_Read((zp + 1) And &HFF)
     Dim base As Integer = lo Or BitShiftLeft(hi, 8)
@@ -173,7 +191,7 @@ End Function
 ' === Arithmetic ===
 Sub C64_DoADC(v As Integer)
     Dim c As Integer
-    If C64_GetF(FLAG_CARRY) Then c = 1 Else c = 0
+    If BitTst(gC64_Flags, FLAG_CARRY) Then c = 1 Else c = 0
     Dim r As Integer = gC64_A + v + c
     C64_SetF FLAG_CARRY, (r > 255)
     C64_SetF FLAG_OVERFLOW, ((BitXor(gC64_A, r) And BitXor(v, r)) And &H80) <> 0
@@ -183,7 +201,7 @@ End Sub
 
 Sub C64_DoSBC(v As Integer)
     Dim c As Integer
-    If C64_GetF(FLAG_CARRY) Then c = 0 Else c = 1
+    If BitTst(gC64_Flags, FLAG_CARRY) Then c = 0 Else c = 1
     Dim r As Integer = gC64_A - v - c
     C64_SetF FLAG_CARRY, (r >= 0)
     C64_SetF FLAG_OVERFLOW, ((BitXor(gC64_A, r) And BitXor(gC64_A, v)) And &H80) <> 0
@@ -208,7 +226,7 @@ End Function
 
 Function C64_ROL_V(v As Integer) As Integer
     gC64_oldCyc = 0
-    If C64_GetF(FLAG_CARRY) Then gC64_oldCyc = 1
+    If BitTst(gC64_Flags, FLAG_CARRY) Then gC64_oldCyc = 1
     Dim nc As Boolean = BitTst(v, 7)
     v = BitAnd(BitShiftLeft(v, 1) Or gC64_oldCyc, &HFF)
     C64_SetF FLAG_CARRY, nc
@@ -218,7 +236,7 @@ End Function
 
 Function C64_ROR_V(v As Integer) As Integer
     gC64_oldCyc = 0
-    If C64_GetF(FLAG_CARRY) Then gC64_oldCyc = &H80 Else gC64_oldCyc = 0
+    If BitTst(gC64_Flags, FLAG_CARRY) Then gC64_oldCyc = &H80 Else gC64_oldCyc = 0
     Dim nc As Boolean = BitTst(v, 0)
     v = BitShiftRight(v, 1) Or gC64_oldCyc
     C64_SetF FLAG_CARRY, nc
@@ -228,7 +246,7 @@ End Function
 
 ' === Branch ===
 Function C64_DoBranch() As Integer
-    Dim off As Integer = C64_Fetch()
+    Dim off As Integer = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
     If BitTst(off, 7) Then off = off - 256
     Dim old As Integer = gC64_PC
     gC64_PC = (gC64_PC + off) And &HFFFF
@@ -582,7 +600,7 @@ OP_CPY_ABS:    C64_DoCPY C64_ReadABS(): gC64_cyc = 4: GoTo OP_DONE
 ' --- LDA ---
 OP_LDA_INDX:   gC64_A = Mem_Read(C64_GetIndXAddr()): C64_SetNZ gC64_A: gC64_cyc = 6: GoTo OP_DONE
 OP_LDA_ZP:     gC64_A = C64_ReadZP(): C64_SetNZ gC64_A: gC64_cyc = 3: GoTo OP_DONE
-OP_LDA_IMM:    gC64_A = C64_Fetch(): C64_SetNZ gC64_A: gC64_cyc = 2: GoTo OP_DONE
+OP_LDA_IMM:    gC64_A = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF: C64_SetNZ gC64_A: gC64_cyc = 2: GoTo OP_DONE
 OP_LDA_ABS:    gC64_A = C64_ReadABS(): C64_SetNZ gC64_A: gC64_cyc = 4: GoTo OP_DONE
 OP_LDA_ZPX:    gC64_A = C64_ReadZPX(): C64_SetNZ gC64_A: gC64_cyc = 4: GoTo OP_DONE
 OP_LDA_ABSY:   gC64_val = C64_ReadABSY(gC64_tmpC): gC64_A = gC64_val: C64_SetNZ gC64_A: gC64_cyc = 4: If gC64_tmpC Then gC64_cyc = 5
@@ -593,7 +611,7 @@ OP_LDA_ABSX:   gC64_val = C64_ReadABSX(gC64_tmpC): gC64_A = gC64_val: C64_SetNZ 
     GoTo OP_DONE
 
 ' --- LDX ---
-OP_LDX_IMM:    gC64_X = C64_Fetch(): C64_SetNZ gC64_X: gC64_cyc = 2: GoTo OP_DONE
+OP_LDX_IMM:    gC64_X = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF: C64_SetNZ gC64_X: gC64_cyc = 2: GoTo OP_DONE
 OP_LDX_ZP:     gC64_X = C64_ReadZP(): C64_SetNZ gC64_X: gC64_cyc = 3: GoTo OP_DONE
 OP_LDX_ZPY:    gC64_X = C64_ReadZPY(): C64_SetNZ gC64_X: gC64_cyc = 4: GoTo OP_DONE
 OP_LDX_ABS:    gC64_X = C64_ReadABS(): C64_SetNZ gC64_X: gC64_cyc = 4: GoTo OP_DONE
@@ -601,7 +619,7 @@ OP_LDX_ABSY:   gC64_val = C64_ReadABSY(gC64_tmpC): gC64_X = gC64_val: C64_SetNZ 
     GoTo OP_DONE
 
 ' --- LDY ---
-OP_LDY_IMM:    gC64_Y = C64_Fetch(): C64_SetNZ gC64_Y: gC64_cyc = 2: GoTo OP_DONE
+OP_LDY_IMM:    gC64_Y = Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF: C64_SetNZ gC64_Y: gC64_cyc = 2: GoTo OP_DONE
 OP_LDY_ZP:     gC64_Y = C64_ReadZP(): C64_SetNZ gC64_Y: gC64_cyc = 3: GoTo OP_DONE
 OP_LDY_ZPX:    gC64_Y = C64_ReadZPX(): C64_SetNZ gC64_Y: gC64_cyc = 4: GoTo OP_DONE
 OP_LDY_ABS:    gC64_Y = C64_ReadABS(): C64_SetNZ gC64_Y: gC64_cyc = 4: GoTo OP_DONE
@@ -679,66 +697,67 @@ OP_BIT_ABS:    gC64_val = C64_ReadABS(): C64_SetF FLAG_NEG, BitTst(gC64_val, 7):
 
 ' --- Branches ---
 OP_BPL:
-    If Not C64_GetF(FLAG_NEG) Then
+OP_BPL:
+    If Not BitTst(gC64_Flags, FLAG_NEG) Then
         gC64_cyc = C64_DoBranch()
     Else
-        C64_Fetch()
+        Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
         gC64_cyc = 2
     End If
     GoTo OP_DONE
 OP_BMI:
-    If C64_GetF(FLAG_NEG) Then
+    If BitTst(gC64_Flags, FLAG_NEG) Then
         gC64_cyc = C64_DoBranch()
     Else
-        C64_Fetch()
+        Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
         gC64_cyc = 2
     End If
     GoTo OP_DONE
 OP_BVC:
-    If Not C64_GetF(FLAG_OVERFLOW) Then
+    If Not BitTst(gC64_Flags, FLAG_OVERFLOW) Then
         gC64_cyc = C64_DoBranch()
     Else
-        C64_Fetch()
+        Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
         gC64_cyc = 2
     End If
     GoTo OP_DONE
 OP_BVS:
-    If C64_GetF(FLAG_OVERFLOW) Then
+    If BitTst(gC64_Flags, FLAG_OVERFLOW) Then
         gC64_cyc = C64_DoBranch()
     Else
-        C64_Fetch()
+        Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
         gC64_cyc = 2
     End If
     GoTo OP_DONE
 OP_BCC:
-    If Not C64_GetF(FLAG_CARRY) Then
+    If Not BitTst(gC64_Flags, FLAG_CARRY) Then
         gC64_cyc = C64_DoBranch()
     Else
-        C64_Fetch()
+        Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
         gC64_cyc = 2
     End If
     GoTo OP_DONE
 OP_BCS:
-    If C64_GetF(FLAG_CARRY) Then
+    If BitTst(gC64_Flags, FLAG_CARRY) Then
         gC64_cyc = C64_DoBranch()
     Else
-        C64_Fetch()
+        Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
         gC64_cyc = 2
     End If
     GoTo OP_DONE
 OP_BNE:
-    If Not C64_GetF(FLAG_ZERO) Then
+    If Not BitTst(gC64_Flags, FLAG_ZERO) Then
         gC64_cyc = C64_DoBranch()
     Else
-        C64_Fetch()
+        Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
         gC64_cyc = 2
     End If
     GoTo OP_DONE
 OP_BEQ:
-    If C64_GetF(FLAG_ZERO) Then
+    If BitTst(gC64_Flags, FLAG_ZERO) Then
         gC64_cyc = C64_DoBranch()
     Else
-        C64_Fetch()
+        Mem_Read(gC64_PC): gC64_PC = (gC64_PC + 1) And &HFFFF
         gC64_cyc = 2
     End If
     GoTo OP_DONE
