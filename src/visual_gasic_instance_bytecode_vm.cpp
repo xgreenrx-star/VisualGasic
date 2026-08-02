@@ -1077,6 +1077,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         bool has_snake = false;
         StringName snake_name;
         Vector<ClassPreference> class_preferences;
+        // Part F: memoized special-global test (-1 unknown, 0 no, 1 yes).
+        // The name at a given constant slot is immutable, so OP_GET_GLOBAL
+        // runs to_lower + the HashSet probe once per distinct name instead of
+        // once per read (to_lower was ~12% of C64 runtime after Part E).
+        int8_t is_special_global = -1;
     };
 
     Vector<MemberNameCacheEntry> member_name_cache;
@@ -1591,7 +1596,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     for (const char *n : nm) s.insert(String(n));
                     return s;
                 }();
-                if (_vg_global_special_names.has(name.to_lower())) {
+                // Part F: memoize the special-name test per constant index so the
+                // to_lower ptrcall runs once per distinct global name, not per read.
+                bool _name_is_special;
+                if (idx >= 0 && idx < member_name_cache.size()) {
+                    int8_t &_sp = member_name_cache.write[idx].is_special_global;
+                    if (_sp < 0) {
+                        _sp = _vg_global_special_names.has(name.to_lower()) ? 1 : 0;
+                    }
+                    _name_is_special = (_sp == 1);
+                } else {
+                    _name_is_special = _vg_global_special_names.has(name.to_lower());
+                }
+                if (_name_is_special) {
                 if (name.nocasecmp_to("Me") == 0) {
                     if (current_object_id != -1) {
                         push_value(Variant((int64_t)current_object_id));
