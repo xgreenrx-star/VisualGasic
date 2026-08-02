@@ -1173,7 +1173,7 @@ func _get_completions(text: String) -> Array[String]:
 		"Chr", "Asc", "Sin", "Cos", "Tan", "Abs", "Int", "Round", "Sqrt",
 		"LTrim", "RTrim", "Str", "Val", "CStr", "CInt", "CLng", "CDbl",
 		"CBool", "CSng", "CByte", "CDate", "Hex", "Oct", "Space", "String",
-		"InStr", "InStrRev", "Replace", "Split", "Join", "StrComp",
+		"InStr", "InStrRev", "Replace", "Split", "Join", "StrComp", "StringFormat",
 		"Format", "FormatNumber", "FormatCurrency", "FormatPercent",
 		"IsNumeric", "IsDate", "IsEmpty", "IsNull", "IsNothing", "IsArray",
 		"TypeName", "VarType", "Array", "UBound", "LBound",

@@ -2783,6 +2783,7 @@ var _builtin_signatures: Dictionary = {
 	"lcase": "LCase(String)",
 	"replace": "Replace(Expression, Find, Replace, [Start], [Count])",
 	"split": "Split(Expression, [Delimiter], [Limit])",
+	"stringformat": "StringFormat(Format, Arg0, [Arg1, ...])",
 	"join": "Join(SourceArray, [Delimiter])",
 	"format": "Format(Expression, [Format])",
 	"iif": "IIf(Expression, TruePart, FalsePart)",

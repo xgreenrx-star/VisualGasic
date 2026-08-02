@@ -154,6 +154,7 @@ func _build_data():
 		_m("Replace",   "Function", "Replace(expression, find, replace) As String","Replaces occurrences of a substring."),
 		_m("Split",     "Function", "Split(expression, delimiter) As String()","Splits a string into an array."),
 		_m("Join",      "Function", "Join(array, delimiter) As String","Joins an array into a single string."),
+		_m("StringFormat", "Function", "StringFormat(format, arg0[, arg1, ...]) As String","Replaces {0}, {1}, ... placeholders in a format string with the given arguments."),
 		_m("Trim",      "Function", "Trim(string) As String",        "Removes leading and trailing spaces."),
 		_m("LTrim",     "Function", "LTrim(string) As String",       "Removes leading spaces."),
 		_m("RTrim",     "Function", "RTrim(string) As String",       "Removes trailing spaces."),

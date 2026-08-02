@@ -1,5 +1,6 @@
 #include "visual_gasic_builtins.h"
 #include <cstring>
+#include <algorithm>
 #include <godot_cpp/classes/json.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #ifdef VG_HAS_OPENMPT
@@ -4172,33 +4173,34 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         if (input.get_type() == Variant::ARRAY) {
             Array arr = input;
             Array sorted_arr = arr.duplicate();
-            
-            // Simple bubble sort for mixed types
+
+            // Native O(n log n) sort (std::stable_sort) — replaces the previous
+            // O(n^2) bubble sort. Comparator: any pair of numeric values (INT
+            // or FLOAT, matched or mixed) compares numerically; same-type
+            // strings compare via naturalnocasecmp_to; everything else falls
+            // back to string comparison. (Numeric types are compared as a
+            // group, not required to match exactly, so the comparator forms a
+            // consistent strict weak ordering — important for std::stable_sort,
+            // since e.g. int 0 vs float -5.0 must order the same way whether
+            // or not the two operands share the exact same Variant subtype.)
             int n = sorted_arr.size();
-            for (int i = 0; i < n - 1; i++) {
-                for (int j = 0; j < n - i - 1; j++) {
-                    Variant a = sorted_arr[j];
-                    Variant b = sorted_arr[j + 1];
-                    
-                    // Compare based on type
-                    bool should_swap = false;
-                    if (a.get_type() == b.get_type()) {
-                        if (a.get_type() == Variant::INT || a.get_type() == Variant::FLOAT) {
-                            should_swap = (double)a > (double)b;
-                        } else if (a.get_type() == Variant::STRING) {
-                            should_swap = String(a).naturalnocasecmp_to(String(b)) > 0;
-                        }
-                    } else {
-                        // Different types: convert to strings for comparison
-                        should_swap = String(a).naturalnocasecmp_to(String(b)) > 0;
-                    }
-                    
-                    if (should_swap) {
-                        sorted_arr[j] = b;
-                        sorted_arr[j + 1] = a;
-                    }
+            std::vector<Variant> vec;
+            vec.reserve(n);
+            for (int i = 0; i < n; i++) vec.push_back(sorted_arr[i]);
+
+            std::stable_sort(vec.begin(), vec.end(), [](const Variant &a, const Variant &b) -> bool {
+                bool a_num = (a.get_type() == Variant::INT || a.get_type() == Variant::FLOAT);
+                bool b_num = (b.get_type() == Variant::INT || b.get_type() == Variant::FLOAT);
+                if (a_num && b_num) {
+                    return (double)a < (double)b;
                 }
-            }
+                if (a.get_type() == b.get_type() && a.get_type() == Variant::STRING) {
+                    return String(a).naturalnocasecmp_to(String(b)) < 0;
+                }
+                return String(a).naturalnocasecmp_to(String(b)) < 0;
+            });
+
+            for (int i = 0; i < n; i++) sorted_arr[i] = vec[i];
             return sorted_arr;
         }
         return input;
@@ -5418,6 +5420,19 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             }
         }
         return range;
+    }
+
+    // StringFormat(fmt, arg0 [, arg1, ...]) — printf/placeholder-style string
+    // formatting. Uses Godot's native String::format() with "{0}", "{1}", ...
+    // placeholders (single native call, no manual loop).
+    if (METHOD_IS("stringformat") && args.size() >= 1) {
+        r_handled = true;
+        String fmt = String(args[0]);
+        Array fmt_args;
+        for (int i = 1; i < args.size(); i++) {
+            fmt_args.append(args[i]);
+        }
+        return fmt.format(fmt_args);
     }
 
     // Dictionary Functions

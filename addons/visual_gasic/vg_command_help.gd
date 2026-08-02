@@ -528,6 +528,11 @@ static func _build_db() -> void:
 		"Splits a string into an array of substrings based on a delimiter.",
 		"Dim parts() As String\nparts = Split(\"A,B,C\", \",\")\nPrint parts(0)  ' \"A\"\nPrint parts(1)  ' \"B\"", 11885)
 
+	_add("StringFormat",
+		"StringFormat(format, arg0[, arg1, ...])",
+		"Replaces {0}, {1}, ... placeholders in format with the given arguments.",
+		"Dim s As String = StringFormat(\"{0} is {1} years old\", \"Alice\", 30)\nPrint s  ' \"Alice is 30 years old\"")
+
 	_add("Join",
 		"Join(array, delimiter)",
 		"Joins an array of strings into a single string with a delimiter between each element.",

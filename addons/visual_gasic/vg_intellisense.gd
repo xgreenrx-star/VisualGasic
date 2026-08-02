@@ -917,6 +917,7 @@ const VB6_STRING_MEMBERS: Array[Dictionary] = [
 	{"text": "EndsWith", "kind": "method", "detail": "EndsWith(suffix As String) As Boolean — Check if ends with suffix"},
 	{"text": "Replace", "kind": "method", "detail": "Replace(find As String, replacement As String) As String — Replace occurrences"},
 	{"text": "Split", "kind": "method", "detail": "Split(delimiter As String) As String() — Split into array"},
+	{"text": "StringFormat", "kind": "method", "detail": "StringFormat(format As String, arg0, ...) As String — Replace {0},{1},... placeholders"},
 	{"text": "Substring", "kind": "method", "detail": "Substring(start As Integer, [length]) As String — Extract portion"},
 	{"text": "IndexOf", "kind": "method", "detail": "IndexOf(substr As String) As Integer — Find position of substring"},
 	{"text": "PadLeft", "kind": "method", "detail": "PadLeft(totalWidth As Integer, [padChar]) As String — Pad from left"},

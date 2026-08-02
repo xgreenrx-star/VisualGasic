@@ -1,0 +1,53 @@
+' Regression test: native O(n log n) Sort() (replaced old O(n^2) bubble sort)
+' and the new StringFormat() builtin. See /memories/repo/vg_tier_plan_audit.md.
+Attribute VB_Name = "TestSortNativeAndStringFormat"
+
+Sub _Ready()
+    ' StringFormat
+    Dim s As String
+    s = StringFormat("{0} is {1} years old", "Alice", 30)
+    If s = "Alice is 30 years old" Then
+        Print "PASS: StringFormat basic"
+    Else
+        Print "FAIL: StringFormat basic: " & s
+    End If
+
+    s = StringFormat("{0}{0}{1}", "ab", "c")
+    If s = "ababc" Then
+        Print "PASS: StringFormat repeated placeholder"
+    Else
+        Print "FAIL: StringFormat repeated placeholder: " & s
+    End If
+
+    ' Sort with a larger dataset including negative numbers (regression for a
+    ' mixed INT/FLOAT comparator bug found while replacing bubble sort: an
+    ' unparenthesized negative literal in an array constructor can come through
+    ' as a different numeric subtype than its siblings, so the sort comparator
+    ' must treat INT/FLOAT as one numeric group rather than requiring exact
+    ' type equality).
+    Dim arr As Variant
+    arr = Array(50, 3, 42, 1, 99, 17, 8, 23, 4, 0, -5, 100)
+    arr = Sort(arr)
+    Dim ok As Boolean
+    ok = True
+    Dim i As Integer
+    For i = 0 To UBound(arr) - 1
+        If arr(i) > arr(i + 1) Then
+            ok = False
+        End If
+    Next
+    If ok And arr(0) = -5 And arr(UBound(arr)) = 100 Then
+        Print "PASS: Sort() larger numeric dataset with negative value"
+    Else
+        Print "FAIL: Sort() larger numeric dataset with negative value"
+    End If
+
+    Dim strs As Variant
+    strs = Array("banana", "apple", "cherry", "date")
+    strs = Sort(strs)
+    If strs(0) = "apple" And strs(3) = "date" Then
+        Print "PASS: Sort() string dataset"
+    Else
+        Print "FAIL: Sort() string dataset"
+    End If
+End Sub

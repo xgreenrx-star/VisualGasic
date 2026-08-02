@@ -1615,6 +1615,19 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "[/codeblock]\n"
       "[b]See Also[/b]\nJoin, UBound, Replace, InStr\n\n[url=ref:split]📖 VG Language Reference[/url]" },
 
+    { "stringformat",
+      "[b]Syntax[/b]\nStringFormat(format, arg0 [, arg1, ...])\n\n"
+      "[b]Description[/b]\n"
+      "Returns a copy of [i]format[/i] with each [code]{0}[/code], [code]{1}[/code], ... "
+      "placeholder replaced by the corresponding argument (converted to a string). "
+      "A placeholder may be repeated more than once.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim s As String\n"
+      "s = StringFormat(\"{0} is {1} years old\", \"Alice\", 30)  ' \"Alice is 30 years old\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nFormat, Join, Replace\n\n[url=ref:stringformat]📖 VG Language Reference[/url]" },
+
     { "join",
       "[b]Syntax[/b]\nJoin(array [, delimiter])\n\n"
       "[b]Description[/b]\n"
