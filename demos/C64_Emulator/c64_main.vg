@@ -24,6 +24,21 @@ Dim TURBO_MODE As Boolean = False
 Dim NativeCpu As Variant
 Dim gIRQLineNative As Boolean
 
+' === Native Machine Mode (opt-in FULL native C64: CPU + bus + VIC + CIA) ===
+' The ultimate speed lever. Turbo Mode (above) runs a native 6502 decode loop
+' but still round-trips EVERY memory access back through the interpreted VG bus
+' (IOBus_Read/Write -> Mem_Read/Write) via a Callable -- 2-4 interpreter calls
+' per instruction, which dominates and erases the native decode win. Native
+' Machine mode instead hands the ENTIRE machine to VGC64Machine
+' (src/cpu_cores/visual_gasic_c64_machine.*): 6510 execution, RAM/ROM banking,
+' VIC-II raster rendering, and the CIA1 system-IRQ timer all run in C++ with
+' ZERO per-access Callable round-trips. VG only loads ROMs, pumps the keyboard
+' matrix, and blits the finished framebuffer once per frame. This is the
+' "something to show at real hardware speed" path; the pure-VG c64_cpu.vg core
+' remains the untouched "100% VG" showcase. Takes precedence over TURBO_MODE.
+Dim NATIVE_MACHINE As Boolean = True
+Dim Machine As Variant
+
 Dim DisplayTex As Variant
 Dim DisplayImage As Variant
 Dim bLoaded As Boolean
@@ -47,11 +62,17 @@ Dim CIA1_TimerA As Long = 16421      ' PAL: $4025 cycles between IRQs
 Dim CIA1_TimerA_Latch As Long = 16421
 
 Sub _Ready()
-    ' Init memory subsystem (module-level, bytecode-compiled)
+    ' Init memory subsystem (module-level, bytecode-compiled). Still used in
+    ' Native Machine mode purely for the keyboard-matrix scratch (gMem_KeyCol);
+    ' the native machine owns its own RAM/ROM/VIC/CIA state independently.
     Mem_Init()
 
-    ' Init CPU: pure-VG 6510 core (default) or native VGCpu6502 (Turbo Mode).
-    If TURBO_MODE Then
+    ' Init CPU: native machine (owns everything), native VGCpu6502 (Turbo Mode),
+    ' or pure-VG 6510 core (default).
+    If NATIVE_MACHINE Then
+        ' CPU + bus + VIC + CIA are all owned by the native VGC64Machine, which
+        ' is created once ROMs are located (see TryAutoLoad). Nothing to init here.
+    ElseIf TURBO_MODE Then
         Set NativeCpu = New VGCpu6502
         ' Route the ENTIRE 64KB bus through the existing, already-verified VG
         ' memory subsystem (RAM/ROM banking, VIC/CIA/color-RAM decode) --
@@ -69,8 +90,8 @@ Sub _Ready()
         C64_Init Empty
     End If
 
-    ' Init VIC (module-level, bytecode-compiled)
-    Vic_Init()
+    ' Init VIC (module-level) -- not needed when the native machine renders.
+    If Not NATIVE_MACHINE Then Vic_Init()
 
     bLoaded = False
     FrameCount = 0
@@ -98,7 +119,13 @@ Sub TryAutoLoad()
 
     If FileExists(basicPath) And FileExists(kernalPath) And FileExists(charPath) Then
         Print "Auto-loading ROMs..."
-        If Mem_LoadROMs(basicPath, kernalPath, charPath) Then
+        If NATIVE_MACHINE Then
+            Set Machine = New VGC64Machine
+            If Machine.LoadROMs(basicPath, kernalPath, charPath) Then
+                Print "Loaded ROMs into native VGC64Machine"
+                InitializeC64()
+            End If
+        ElseIf Mem_LoadROMs(basicPath, kernalPath, charPath) Then
             InitializeC64()
         End If
     Else
@@ -110,22 +137,24 @@ End Sub
 
 Sub InitializeC64()
     ' Set up VIC-II default registers
-    Mem_Write &HD011, &H1B   ' Control 1: 25 rows, display on, YSCROLL=3
-    Mem_Write &HD016, &H08   ' Control 2: 40 columns, standard mode
-    Mem_Write &HD018, &H15   ' Memory: Screen at $0400, charset at $0800
-    Mem_Write &HD020, &H0E   ' Border: light blue
-    Mem_Write &HD021, &H06   ' Background: blue
+    Bus_Write &HD011, &H1B   ' Control 1: 25 rows, display on, YSCROLL=3
+    Bus_Write &HD016, &H08   ' Control 2: 40 columns, standard mode
+    Bus_Write &HD018, &H15   ' Memory: Screen at $0400, charset at $0800
+    Bus_Write &HD020, &H0E   ' Border: light blue
+    Bus_Write &HD021, &H06   ' Background: blue
 
     ' CIA1: keyboard
-    Mem_Write &HDC00, &H7F
-    Mem_Write &HDC02, &HFF
-    Mem_Write &HDC03, &H00
+    Bus_Write &HDC00, &H7F
+    Bus_Write &HDC02, &HFF
+    Bus_Write &HDC03, &H00
 
     ' CIA2: serial/VIC bank
-    Mem_Write &HDD00, &H03
+    Bus_Write &HDD00, &H03
 
-    ' Reset CPU: native core (Turbo Mode) or module-level VG core
-    If TURBO_MODE Then
+    ' Reset CPU: native machine, native core (Turbo Mode), or module-level VG core
+    If NATIVE_MACHINE Then
+        Machine.Reset()
+    ElseIf TURBO_MODE Then
         NativeCpu.Reset()
     Else
         C64_Reset()
@@ -149,40 +178,42 @@ Sub InitializeC64()
     '   JMP ($A000)(indirect jump to BASIC cold start)
     If SKIP_RAM_TEST Then
         ' Pre-write memory state that RAMTAS would leave:
-        Mem_Write &HB2, &H3C       ' Tape buffer pointer low
-        Mem_Write &HB3, &H03       ' Tape buffer pointer high ($033C)
-        Mem_Write &H0281, &H00     ' MEMTOP low ($0800 — start of BASIC text)
-        Mem_Write &H0282, &H08     ' MEMTOP high
-        Mem_Write &H0283, &H00     ' MEMBOT low ($A000 — top of BASIC RAM)
-        Mem_Write &H0284, &HA0     ' MEMBOT high
-        Mem_Write &H0288, &H04     ' Screen memory page ($0400)
+        Bus_Write &HB2, &H3C       ' Tape buffer pointer low
+        Bus_Write &HB3, &H03       ' Tape buffer pointer high ($033C)
+        Bus_Write &H0281, &H00     ' MEMTOP low ($0800 — start of BASIC text)
+        Bus_Write &H0282, &H08     ' MEMTOP high
+        Bus_Write &H0283, &H00     ' MEMBOT low ($A000 — top of BASIC RAM)
+        Bus_Write &H0284, &HA0     ' MEMBOT high
+        Bus_Write &H0288, &H04     ' Screen memory page ($0400)
         
         ' Write boot stub at $C000
-        Mem_Write &HC000, &HA2     ' LDX #$FF
-        Mem_Write &HC001, &HFF
-        Mem_Write &HC002, &H9A     ' TXS (set SP=$FF like real KERNAL reset)
-        Mem_Write &HC003, &H20     ' JSR
-        Mem_Write &HC004, &HA3     '   $FDA3 (IOINIT)
-        Mem_Write &HC005, &HFD
-        Mem_Write &HC006, &H20     ' JSR
-        Mem_Write &HC007, &H15     '   $FD15 (RESTOR)
-        Mem_Write &HC008, &HFD
-        Mem_Write &HC009, &H20     ' JSR
-        Mem_Write &HC00A, &H5B     '   $FF5B (CINT)
-        Mem_Write &HC00B, &HFF
-        Mem_Write &HC00C, &H58     ' CLI
-        Mem_Write &HC00D, &H6C     ' JMP ($A000)
-        Mem_Write &HC00E, &H00
-        Mem_Write &HC00F, &HA0
+        Bus_Write &HC000, &HA2     ' LDX #$FF
+        Bus_Write &HC001, &HFF
+        Bus_Write &HC002, &H9A     ' TXS (set SP=$FF like real KERNAL reset)
+        Bus_Write &HC003, &H20     ' JSR
+        Bus_Write &HC004, &HA3     '   $FDA3 (IOINIT)
+        Bus_Write &HC005, &HFD
+        Bus_Write &HC006, &H20     ' JSR
+        Bus_Write &HC007, &H15     '   $FD15 (RESTOR)
+        Bus_Write &HC008, &HFD
+        Bus_Write &HC009, &H20     ' JSR
+        Bus_Write &HC00A, &H5B     '   $FF5B (CINT)
+        Bus_Write &HC00B, &HFF
+        Bus_Write &HC00C, &H58     ' CLI
+        Bus_Write &HC00D, &H6C     ' JMP ($A000)
+        Bus_Write &HC00E, &H00
+        Bus_Write &HC00F, &HA0
         
-        If TURBO_MODE Then
+        If NATIVE_MACHINE Then
+            Machine.SetPC &HC000
+        ElseIf TURBO_MODE Then
             NativeCpu.SetPC &HC000
         Else
             C64_SetPC &HC000
         End If
         Print "[SETUP] Skipping RAMTAS — boot stub at $C000 (IOINIT+RESTOR+CINT+BASIC)"
-        Print "[SETUP] $A000=$" & Hex(Mem_GetBuf(&HA000)) & " $A001=$" & Hex(Mem_GetBuf(&HA001))
-        Print "[SETUP] JMP target = $" & Hex(Mem_GetBuf(&HA001) * 256 + Mem_GetBuf(&HA000))
+        Print "[SETUP] $A000=$" & Hex(Bus_ReadByte(&HA000)) & " $A001=$" & Hex(Bus_ReadByte(&HA001))
+        Print "[SETUP] JMP target = $" & Hex(Bus_ReadByte(&HA001) * 256 + Bus_ReadByte(&HA000))
     End If
     
     bLoaded = True
@@ -192,6 +223,7 @@ Sub InitializeC64()
     Print ""
     Print "  SKIP_RAM_TEST = " & SKIP_RAM_TEST
     Print "  TURBO_MODE (native VGCpu6502) = " & TURBO_MODE
+    Print "  NATIVE_MACHINE (full native VGC64Machine) = " & NATIVE_MACHINE
     Print ""
     Print "Controls:"
     Print "  Arrow keys = Joystick"
@@ -297,6 +329,44 @@ Sub _Process(delta As Double)
     End If
 
     UpdateKeyboard()
+
+    ' === Native Machine fast path ===
+    If NATIVE_MACHINE Then
+        ' Push the freshly-scanned keyboard matrix into the native machine
+        ' (UpdateKeyboard writes the 8 column bytes into the VG key matrix).
+        Dim kc As Integer
+        For kc = 0 To 7
+            Machine.SetKeyCol kc, Mem_GetKeyCol(kc)
+        Next
+
+        ' Run one COMPLETE PAL frame entirely in C++ -- 6510 execution, RAM/ROM
+        ' banking, VIC-II raster rendering, and the CIA1 system-IRQ timer all
+        ' happen inside VGC64Machine.RunFrame with ZERO per-access Callable
+        ' round-trips. This is the whole point of Native Machine mode.
+        Machine.RunFrame()
+
+        ' Blit the finished framebuffer straight to the display texture. The
+        ' machine renders into its own RGBA8 384x272 Image, identical in layout
+        ' to the VG VIC framebuffer, so DisplayTex (same dimensions) refreshes
+        ' in one shot with no intermediate VG-side pixel work.
+        UpdateTexture DisplayTex, Machine.GetFramebuffer()
+
+        OutputAudio()
+
+        FrameCount = FrameCount + 1
+        Dim nowN As Double = Timer()
+        Dim elN As Double = nowN - LastProgressPrintTime
+        If elN >= 2 And elN > 0 Then
+            Dim icNow As Long = Machine.GetInstructionCount()
+            Dim instDelta As Long = icNow - LastProgressSteps
+            Print "[NATIVE] frame=" & CStr(FrameCount) & " PC=$" & Hex(Machine.GetPC()) & " instr/s=" & CStr(Int(instDelta / elN)) & " $0428=" & Hex(Machine.PeekRAM(&H0428)) & " $042C=" & Hex(Machine.PeekRAM(&H042C))
+            LastProgressPrintTime = nowN
+            LastProgressSteps = icNow
+        End If
+
+        QueueRedraw()
+        Return
+    End If
 
     ' Every cross-module Sub here (C64_Step, Mem_Read, Vic_Tick, ...) runs via
     ' slow AST interpretation (see "Compiler: Entry point not found" — none of
@@ -447,6 +517,25 @@ Sub IOBus_Write(addr As Integer, value As Integer)
     Mem_Write addr, value
 End Sub
 
+' Bus_Write / Bus_ReadByte -- setup-time bus access that targets whichever
+' machine owns memory: the native VGC64Machine (its own C++ RAM/ROM/IO) or the
+' VG c64_memory.vg subsystem (Turbo and pure-VG paths share it). Used by
+' InitializeC64 so the VIC-register defaults and the $C000 boot stub land in the
+' right place regardless of mode. Bus_ReadByte reads THROUGH banking, so at boot
+' (KERNAL/BASIC/IO mapped in) $A000 returns the BASIC cold-start vector, not RAM.
+Sub Bus_Write(addr As Integer, value As Integer)
+    If NATIVE_MACHINE Then
+        Machine.WriteByte addr, value
+    Else
+        Mem_Write addr, value
+    End If
+End Sub
+
+Function Bus_ReadByte(addr As Integer) As Integer
+    If NATIVE_MACHINE Then Return Machine.ReadByte(addr)
+    Return Mem_Read(addr)
+End Function
+
 Function Emu_Step() As Integer
     If TURBO_MODE Then
         ' Service a pending IRQ at the instruction boundary, same as
@@ -475,31 +564,37 @@ Sub Emu_SetIRQ(state As Boolean)
 End Sub
 
 Function Emu_GetPC() As Integer
+    If NATIVE_MACHINE Then Return Machine.GetPC()
     If TURBO_MODE Then Return NativeCpu.GetPC()
     Return C64_GetPC()
 End Function
 
 Function Emu_GetA() As Integer
+    If NATIVE_MACHINE Then Return Machine.GetA()
     If TURBO_MODE Then Return NativeCpu.GetA()
     Return C64_GetA()
 End Function
 
 Function Emu_GetX() As Integer
+    If NATIVE_MACHINE Then Return Machine.GetX()
     If TURBO_MODE Then Return NativeCpu.GetX()
     Return C64_GetX()
 End Function
 
 Function Emu_GetY() As Integer
+    If NATIVE_MACHINE Then Return Machine.GetY()
     If TURBO_MODE Then Return NativeCpu.GetY()
     Return C64_GetY()
 End Function
 
 Function Emu_GetSP() As Integer
+    If NATIVE_MACHINE Then Return Machine.GetSP()
     If TURBO_MODE Then Return NativeCpu.GetSP()
     Return C64_GetSP()
 End Function
 
 Function Emu_GetFlags() As Integer
+    If NATIVE_MACHINE Then Return Machine.GetStatus()
     If TURBO_MODE Then Return NativeCpu.GetStatus()
     Return C64_GetFlags()
 End Function

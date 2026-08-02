@@ -64,6 +64,7 @@
 
 // v6.1 – native emulator CPU cores (VGCpuCore family)
 #include "cpu_cores/visual_gasic_cpu_6502.h"
+#include "cpu_cores/visual_gasic_c64_machine.h"
 
 // v3.2 – LSP integration (binding rework complete)
 #include "visual_gasic_lsp.h"
@@ -152,6 +153,7 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
 
         // v6.1 – native emulator CPU cores
         ClassDB::register_class<VGCpu6502>();             // Reentrant 6502/6510 core for emulator projects
+        ClassDB::register_class<VGC64Machine>();          // Fully-native C64 (CPU+bus+VIC+CIA) for full-speed emulation
 
         // Register project settings for Python integration
         if (!ProjectSettings::get_singleton()->has_setting("vg/python/embedded_enabled")) {

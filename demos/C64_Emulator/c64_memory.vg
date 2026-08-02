@@ -110,6 +110,10 @@ Sub Mem_SetKeyCol(idx As Integer, val As Integer)
     gMem_KeyCol(idx) = val
 End Sub
 
+Function Mem_GetKeyCol(idx As Integer) As Integer
+    Return gMem_KeyCol(idx)
+End Function
+
 ' CROSS-MODULE ACCESS HELPERS (fixes VisualGasic cross-module global array bug)
 Function Mem_GetBuf(addr As Integer) As Integer
     Return gMem_Buf(addr)
