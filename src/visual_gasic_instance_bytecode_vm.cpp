@@ -2169,6 +2169,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 uint8_t slot = code[vm.ip++];
+                // Part AD: single-copy fast path.  For a slot that read_local()
+                // would resolve purely from locals[] (no Whenever var-sync, or an
+                // isolated worker, or a fast-call param/return slot) AND holds a
+                // non-NIL value, push it straight onto the stack.  This copies the
+                // value once (into the stack) instead of twice — read_local()
+                // returns by value (copy A) and the trailing push_value(val)
+                // copies again (copy B).  NIL values fall through to the full
+                // control-name / form-lookup resolution below, unchanged.
+                if (slot < locals.size() && (!needs_var_sync || isolated_locals || is_fast_slot(slot))) {
+                    const Variant &lv = locals[slot];
+                    if (lv.get_type() != Variant::NIL) {
+                        push_value(lv);
+                        break;
+                    }
+                }
                 Variant val = read_local(slot);
                 
                 // If local is NIL, check if it's actually a control name (VB6 style)
