@@ -1130,6 +1130,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         // runs to_lower + the HashSet probe once per distinct name instead of
         // once per read (to_lower was ~12% of C64 runtime after Part E).
         int8_t is_special_global = -1;
+        // Part H: per-call-site OP_CALL resolution memo (this execute_bytecode run).
+        // call_disp: -1 unknown, 0 = known user Sub, 1 = cached engine/owner call.
+        // call_argc validates the memo against this site's arg count (overloads).
+        int8_t call_disp = -1;
+        int32_t call_argc = -1;
     };
 
     Vector<MemberNameCacheEntry> member_name_cache;
@@ -2844,27 +2849,63 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // strcmp cascade plus its per-call lowercase/utf8 setup (10.30% of
                 // total C64-emulator runtime, per perf) from every hot user-Sub
                 // call.  The key format matches call_internal()'s own _res_key.
-                String _method_lower = method.to_lower();
-                String _pc_res_key = _method_lower + "#" + String::num_int64(arg_count);
+                // ── Per-call-site resolution memo (Part H, this session) ──
+                // to_lower() + the "name#argcount" concat + the two HashMap
+                // string-key probes below ran on EVERY call and were ~25% of total
+                // runtime (perf: String::to_lower 12.7%, operator+/String ctor
+                // ~13%).  The call target at a given bytecode site (constant index
+                // name_idx + arg_count) is IMMUTABLE, so memoize the decision in the
+                // per-constant member_name_cache (Part F vehicle — local to this
+                // execute_bytecode run, so it persists across a hot loop's repeated
+                // calls to the same helper).  On a memo hit we do ZERO string work.
+                String _method_lower;   // lazily computed (cache miss / cascade only)
+                String _pc_res_key;     // lazily computed
                 bool _pb_known_user_sub = false;
                 bool _pc_engine_call = false;   // Part C: cached deep-fallback call (statement builtin / owner method)
                 {
-                    if (_call_resolution_cache.has(_pc_res_key)) {
-                        const CallResolutionCacheEntry &_pb_cached = _call_resolution_cache[_pc_res_key];
-                        if (_pb_cached.resolved) _pb_known_user_sub = true;
+                    const bool _cc_ok = (name_idx >= 0 && name_idx < member_name_cache.size());
+                    MemberNameCacheEntry *_cc = _cc_ok ? &member_name_cache.write[name_idx] : nullptr;
+                    if (_cc && _cc->call_disp >= 0 && _cc->call_argc == (int)arg_count) {
+                        // Memoized decision for this immutable site: no to_lower,
+                        // no concat, no hashmap probe.
+                        if (_cc->call_disp == 0) {
+                            _pb_known_user_sub = true;
+                        } else if (_cc->call_disp == 1 && current_object_id == -1) {
+                            _pc_engine_call = true;
+                        }
+                    } else {
+                        _method_lower = method.to_lower();
+                        _pc_res_key = _method_lower + "#" + String::num_int64(arg_count);
+                        if (_call_resolution_cache.has(_pc_res_key)) {
+                            const CallResolutionCacheEntry &_pb_cached = _call_resolution_cache[_pc_res_key];
+                            if (_pb_cached.resolved) _pb_known_user_sub = true;
+                        }
+                        // Part C: (name, arg count) pairs proven to resolve only at
+                        // the deep fallback — statement/drawing builtins
+                        // (SetImagePixel, BlitImage, …) or owner-node methods — skip
+                        // the builtin-expr cascade + the variables.keys() scan below.
+                        // Same determinism argument as Part B: both cascades are pure
+                        // functions of (name, arg count), so a proven resolution
+                        // repeats.  Restricted to module-level scope so in-class
+                        // sibling-method resolution in call_internal() is unaffected.
+                        if (!_pb_known_user_sub && current_object_id == -1 &&
+                            _engine_call_cache.has(_pc_res_key)) {
+                            _pc_engine_call = true;
+                        }
+                        // Record the immutable decision for subsequent calls here.
+                        // Left at -1 when neither cache resolved yet (they populate
+                        // after the first real dispatch) so the next call re-probes.
+                        if (_cc) {
+                            if (_pb_known_user_sub) { _cc->call_disp = 0; _cc->call_argc = (int)arg_count; }
+                            else if (_pc_engine_call) { _cc->call_disp = 1; _cc->call_argc = (int)arg_count; }
+                        }
                     }
-                    // Part C: (name, arg count) pairs proven to resolve only at the
-                    // deep fallback — statement/drawing builtins (SetImagePixel,
-                    // BlitImage, …) or owner-node methods — skip the builtin-expr
-                    // cascade + the variables.keys() case-insensitive scan below.
-                    // Same determinism argument as Part B: call_builtin_expr_evaluated
-                    // and the special cascade are pure functions of (name, arg count),
-                    // so a proven deep-fallback resolution repeats.  Restricted to
-                    // module-level context (current_object_id == -1) so in-class
-                    // sibling-method resolution in call_internal() is never bypassed.
-                    if (!_pb_known_user_sub && current_object_id == -1 &&
-                        _engine_call_cache.has(_pc_res_key)) {
-                        _pc_engine_call = true;
+                    // The cascade path (both flags false) still needs the lowered
+                    // name for the special-name gate + the key for the engine-cache
+                    // insert; compute them if the memo hit skipped that above.
+                    if (!_pb_known_user_sub && !_pc_engine_call && _pc_res_key.is_empty()) {
+                        _method_lower = method.to_lower();
+                        _pc_res_key = _method_lower + "#" + String::num_int64(arg_count);
                     }
                 }
 
