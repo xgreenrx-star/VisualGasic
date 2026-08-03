@@ -913,6 +913,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // For parallel workers p_ip_end constrains execution to the body range.
     const int effective_code_end = (p_ip_end > 0 && p_ip_end <= code_size) ? p_ip_end : code_size;
     bool success = true;
+
+    // Part W: lazily cache the Tier3 thread-local reference on first OP_CALL.
+    // vgjit3::thread_jit3() returns a reference to a cross-TU `static thread_local`
+    // (general-dynamic TLS model) -> every call is an out-of-line __tls_get_addr,
+    // and OP_CALL invoked it on EVERY call (~3.8% of call-heavy instructions on a
+    // 1M-iteration call loop).  The thread-local address is stable for the whole
+    // execute_bytecode run (bytecode executes synchronously on one thread; parallel
+    // workers each run their own invocation on their own thread), so resolve it
+    // once on the first OP_CALL and reuse the pointer.  Left null for leaf chunks
+    // (no OP_CALL) so they never pay the TLS lookup at all.
+    vgjit3::Tier3* _t3_cached = nullptr;
     Variant result_snapshot;
     Variant explicit_return;
     bool has_explicit_return = false;
@@ -2923,7 +2934,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     ? ensure_member_cache_entry(name_idx).primary_string
                     : _vg_empty_method_name;
                 {
-                    vgjit3::Tier3& t3 = vgjit3::thread_jit3();
+                    if (!_t3_cached) _t3_cached = &vgjit3::thread_jit3();
+                    vgjit3::Tier3& t3 = *_t3_cached;
                     if (t3.enabled() && func && !method.is_empty()) {
                         std::string caller_name(func->name.utf8().get_data());
                         std::string callee_name(method.utf8().get_data());
