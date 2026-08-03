@@ -899,8 +899,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         return true;
     };
 
-    const Vector<uint8_t> &code = chunk->code;
-    const int code_size = code.size();
+    // Part V: bind the bytecode as a raw pointer instead of a Vector<uint8_t>&.
+    // The bytecode is immutable for the entire execute_bytecode run, so ptr() is
+    // stable.  Every opcode fetch (VG_BREAK's `op = code[vm.ip++]`, once per
+    // executed instruction) and every operand byte read previously went through
+    // Vector<uint8_t>::operator[] → CowData<uint8_t>::get (a _ptr load + index
+    // indirection) — ~1.4% of call-heavy instructions.  A raw pointer makes all
+    // 95 `code[...]` reads a single direct load.  Guarded by code_size: an empty
+    // chunk (ptr()==nullptr) is never indexed (the dispatch loop and
+    // read_const_index both bound-check against code_size first).
+    const uint8_t *code = chunk->code.ptr();
+    const int code_size = chunk->code.size();
     // For parallel workers p_ip_end constrains execution to the body range.
     const int effective_code_end = (p_ip_end > 0 && p_ip_end <= code_size) ? p_ip_end : code_size;
     bool success = true;
