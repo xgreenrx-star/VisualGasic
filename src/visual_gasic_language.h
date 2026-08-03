@@ -14,15 +14,21 @@ using namespace godot;
 // Forward declaration
 class VisualGasicInstance;
 
-// Call stack frame for debugging (uses std::string to avoid Godot String static init issues)
+// Call stack frame for debugging.
+// file/function use Godot String (ref-counted): copying a frame is a cheap
+// atomic refcount bump with no heap allocation, unlike std::string which forced
+// a utf8() heap copy on every push_stack_frame (2 pushes per VG call = 4 heap
+// allocs).  The backing std::vector is heap-allocated and intentionally never
+// destructed (see get_debug_stack), so there is no static-destruction-order
+// hazard from holding Godot Strings in these frames.
 struct VGDebugStackFrame {
-    std::string file;
-    std::string function;
+    String file;
+    String function;
     int line;
     VisualGasicInstance* instance;
     
     VGDebugStackFrame() : line(0), instance(nullptr) {}
-    VGDebugStackFrame(const std::string& f, const std::string& fn, int l, VisualGasicInstance* i)
+    VGDebugStackFrame(const String& f, const String& fn, int l, VisualGasicInstance* i)
         : file(f), function(fn), line(l), instance(i) {}
 };
 

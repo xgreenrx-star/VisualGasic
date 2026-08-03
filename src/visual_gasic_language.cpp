@@ -3684,7 +3684,7 @@ String VisualGasicLanguage::_debug_get_stack_level_function(int32_t p_level) con
     auto& stack = get_debug_stack();
     if (p_level >= 0 && p_level < (int32_t)stack.size()) {
         int idx = stack.size() - 1 - p_level;
-        return String(stack[idx].function.c_str());
+        return stack[idx].function;
     }
     return "";
 }
@@ -3732,8 +3732,8 @@ TypedArray<Dictionary> VisualGasicLanguage::_debug_get_current_stack_info() {
     // Iterate from top (most recent) to bottom
     for (int i = stack.size() - 1; i >= 0; i--) {
         Dictionary frame;
-        frame["file"] = String(stack[i].file.c_str());
-        frame["func"] = String(stack[i].function.c_str());
+        frame["file"] = stack[i].file;
+        frame["func"] = stack[i].function;
         // For the top frame, use the stored breakpoint line if available (more accurate during debug breaks)
         if (i == (int)stack.size() - 1 && current_break_line > 0) {
             frame["line"] = current_break_line;
@@ -3843,7 +3843,7 @@ String VisualGasicLanguage::_debug_get_stack_level_source(int32_t p_level) const
             return String(current_break_file.c_str());
         }
         int idx = stack.size() - 1 - p_level;
-        return String(stack[idx].file.c_str());
+        return stack[idx].file;
     }
     return "";
 }
@@ -3902,8 +3902,8 @@ bool VisualGasicLanguage::_supports_documentation() const {
 
 void VisualGasicLanguage::push_stack_frame(const String& file, const String& function, int line, VisualGasicInstance* instance) {
     VGDebugStackFrame frame;
-    frame.file = file.utf8().get_data();
-    frame.function = function.utf8().get_data();
+    frame.file = file;
+    frame.function = function;
     frame.line = line;
     frame.instance = instance;
     get_debug_stack().push_back(frame);
@@ -4035,7 +4035,7 @@ int VisualGasicLanguage::get_step_mode_int() {
 String VisualGasicLanguage::get_current_debug_file() {
     auto& stack = get_debug_stack();
     if (!stack.empty()) {
-        return String(stack.back().file.c_str());
+        return stack.back().file;
     }
     return String();
 }
@@ -4055,8 +4055,8 @@ Array VisualGasicLanguage::get_call_stack_array() {
     // Return stack from top (most recent) to bottom (oldest)
     for (int i = static_cast<int>(stack.size()) - 1; i >= 0; i--) {
         Dictionary frame;
-        frame["function"] = String(stack[i].function.c_str());
-        frame["file"] = String(stack[i].file.c_str());
+        frame["function"] = stack[i].function;
+        frame["file"] = stack[i].file;
         frame["line"] = stack[i].line;
         result.push_back(frame);
     }
