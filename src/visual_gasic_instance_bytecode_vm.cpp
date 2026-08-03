@@ -531,7 +531,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             // after this loop, so skip the (thrice-)Dictionary probe for them.
             if (!is_fast_slot(i) && i < chunk->local_names.size()) {
                 const String &name = chunk->local_names[i];
-                if (!name.is_empty()) {
+                // Part R: compiler-generated temporaries (__cse_*, __inv_to_*,
+                // __const_step_*) are ALWAYS written before they are read (they
+                // exist only to hold an intermediate the very next opcode
+                // consumes) and, being "__"-prefixed, can never collide with a
+                // user/global/builtin identifier — VB6 names start with a letter,
+                // so "__" is the reserved compiler-internal prefix (cf. the
+                // scope-dump skip in call_internal).  All three seed probes below
+                // are therefore guaranteed misses AND the seeded value is dead:
+                // skip them exactly like the fast-slot skip above.  This removed
+                // the last per-call Dictionary::has on hot leaf calls (a leaf like
+                // `f(x) = x + 1` compiles one __cse_ temp → 3 probes every call).
+                const bool is_compiler_temp = (name.length() >= 2 && name[0] == '_' && name[1] == '_');
+                if (!name.is_empty() && !is_compiler_temp) {
                     if (variables.has(name)) {
                         initial = variables[name];
                     } else if (builtin_constants.has(name)) {
