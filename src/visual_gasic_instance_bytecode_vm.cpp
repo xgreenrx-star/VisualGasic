@@ -578,21 +578,26 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // overhead for variables with known compiler types (VT_INT=1, VT_FLOAT=2).
     // read_local() / sync_local() maintain both views in sync.
     // ────────────────────────────────────────────────────────────────────
-    PackedInt64Array typed_i64_locals;
-    PackedFloat64Array typed_f64_locals;
-    typed_i64_locals.resize(chunk->local_count);
-    typed_f64_locals.resize(chunk->local_count);
-    for (int i = 0; i < chunk->local_count; i++) {
-        typed_i64_locals.set(i, 0);
-        typed_f64_locals.set(i, 0.0);
-    }
+    // v6.0 (Part S): raw C++ shadow arrays (were PackedInt64Array/
+    // PackedFloat64Array).  These are PURELY INTERNAL to execute_bytecode — the
+    // debugger observes the Variant `locals` view, never these — so a plain
+    // std::vector (value-initialised to zero, direct pointer-indexed access)
+    // replaces the GDExtension ptrcall that every typed local read/write used to
+    // pay: PackedInt64Array::set/operator[] crossed the extension boundary once
+    // per hot i64/f64 opcode (OP_INC_LOCAL_I64, OP_LESS_EQUAL_I64, ...).
+    // Sized to locals.size() (not chunk->local_count) so that every access
+    // site's existing `slot < locals.size()` guard also proves the raw
+    // std::vector index is in bounds — std::vector::operator[] is unchecked,
+    // whereas the old PackedInt64Array::set silently ignored OOB.
+    std::vector<int64_t> typed_i64_locals((size_t)locals.size(), 0);
+    std::vector<double>  typed_f64_locals((size_t)locals.size(), 0.0);
     // Seed typed locals from initial Variant locals using type info.
     for (int i = 0; i < chunk->local_count && i < chunk->local_types.size(); i++) {
         uint8_t lt = chunk->local_types[i];
         if (lt == 1 && i < locals.size()) {
-            typed_i64_locals.set(i, (int64_t)locals[i]);
+            typed_i64_locals[i] = (int64_t)locals[i];
         } else if (lt == 2 && i < locals.size()) {
-            typed_f64_locals.set(i, (double)locals[i]);
+            typed_f64_locals[i] = (double)locals[i];
         }
     }
 
@@ -625,9 +630,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         if (slot < chunk->local_types.size()) {
             uint8_t lt = chunk->local_types[slot];
             if (lt == 1) {
-                typed_i64_locals.set(slot, (int64_t)value);
+                typed_i64_locals[slot] = (int64_t)value;
             } else if (lt == 2) {
-                typed_f64_locals.set(slot, (double)value);
+                typed_f64_locals[slot] = (double)value;
             }
         }
         // Fast path: skip the expensive variables[] Dictionary sync
@@ -657,8 +662,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     locals.write[slot] = current;
                     if (slot < chunk->local_types.size()) {
                         uint8_t lt = chunk->local_types[slot];
-                        if (lt == 1) typed_i64_locals.set(slot, (int64_t)current);
-                        else if (lt == 2) typed_f64_locals.set(slot, (double)current);
+                        if (lt == 1) typed_i64_locals[slot] = (int64_t)current;
+                        else if (lt == 2) typed_f64_locals[slot] = (double)current;
                     }
                     return current;
                 }
@@ -667,8 +672,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     locals.write[slot] = current;
                     if (slot < chunk->local_types.size()) {
                         uint8_t lt = chunk->local_types[slot];
-                        if (lt == 1) typed_i64_locals.set(slot, (int64_t)current);
-                        else if (lt == 2) typed_f64_locals.set(slot, (double)current);
+                        if (lt == 1) typed_i64_locals[slot] = (int64_t)current;
+                        else if (lt == 2) typed_f64_locals[slot] = (double)current;
                     }
                     return current;
                 }
@@ -677,8 +682,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     locals.write[slot] = current;
                     if (slot < chunk->local_types.size()) {
                         uint8_t lt = chunk->local_types[slot];
-                        if (lt == 1) typed_i64_locals.set(slot, (int64_t)current);
-                        else if (lt == 2) typed_f64_locals.set(slot, (double)current);
+                        if (lt == 1) typed_i64_locals[slot] = (int64_t)current;
+                        else if (lt == 2) typed_f64_locals[slot] = (double)current;
                     }
                     return current;
                 }
@@ -780,7 +785,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // Direct typed write that also updates the shadow array
     auto sync_local_i64 = [&](int slot, int64_t value) {
         if (slot < 0 || slot >= locals.size()) return;
-        typed_i64_locals.set(slot, value);
+        typed_i64_locals[slot] = value;
         // Always keep locals[] in sync for debugger and Variant read_local
         locals.write[slot] = Variant(value);
         if (slot < chunk->local_types.size() && chunk->local_types[slot] == 1) {
