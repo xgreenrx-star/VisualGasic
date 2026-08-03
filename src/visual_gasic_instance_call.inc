@@ -425,7 +425,14 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     current_sub = func;
     error_state.mode = ErrorState::NONE;
     error_state.has_error = false;
-    error_state.label = "";
+    // NOTE: error_state.label is deliberately NOT reset here.  It is read ONLY
+    // under `if (error_state.mode == ErrorState::GOTO_LABEL)` (below), and the
+    // only two sites that set mode = GOTO_LABEL set label in the same breath
+    // (the On-Error-Goto handlers in the bytecode VM and the AST executor).
+    // Since mode is cleared to NONE just above, any later read of label is
+    // always preceded by a fresh assignment — a stale value can never be
+    // observed.  Dropping `error_state.label = ""` removes a godot String
+    // construct-from-C-literal ptrcall on EVERY call (~1.6% of call-heavy work).
 
     // Push call stack frame for debugger.
     // Part M: reuse the pointer-guarded script-path cache (added in Part J for
@@ -568,13 +575,22 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     // exists anywhere up the call stack, the top-level event dispatcher
     // will report the error and halt execution.
     bool had_unhandled_error = error_state.has_error && error_state.mode == ErrorState::NONE;
-    ErrorState propagated_error = error_state;
-    error_state = prev_error;
+    // Perf: the full `ErrorState propagated_error = error_state;` copy used to run
+    // on EVERY call (two godot String copy ptrcalls for label+message), but its
+    // fields are read ONLY on the rare unhandled-error path below.  Capture just
+    // the propagated scalars/message inside that branch instead — the common
+    // (no-error) path now does a single `error_state = prev_error` restore.
     if (had_unhandled_error) {
+        const String prop_message = error_state.message;
+        const int prop_code = error_state.code;
+        const int prop_error_line = error_state.error_line;
+        error_state = prev_error;
         error_state.has_error = true;
-        error_state.message = propagated_error.message;
-        error_state.code = propagated_error.code;
-        error_state.error_line = propagated_error.error_line;
+        error_state.message = prop_message;
+        error_state.code = prop_code;
+        error_state.error_line = prop_error_line;
+    } else {
+        error_state = prev_error;
     }
     
     // Save any static variables before restoring locals
