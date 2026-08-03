@@ -268,12 +268,24 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         // guard) → pure coercion into a flat vector, no variables[] writes.
         // The trailing slot (Functions only) carries the typed return init.
         fast_arg_values.resize(max_params + (func->type == SubDefinition::TYPE_FUNCTION ? 1 : 0));
+        // Precomputed coercion codes (compiler) replace the per-call
+        // type_hint.to_lower() + string compares.  Guarded by a size check so a
+        // chunk somehow lacking them falls back to the original string path.
+        const bool _have_pc = (chunk_for_locals->fast_param_coerce.size() == max_params);
         for (int i = 0; i < max_params; i++) {
             Parameter& param = func->parameters.write[i];
             Variant val;
             if (i < p_args.size()) {
                 val = p_args[i];
-                if (!param.type_hint.is_empty()) {
+                if (_have_pc) {
+                    switch (chunk_for_locals->fast_param_coerce[i]) {
+                        case 1: val = (int64_t)val; break;
+                        case 2: val = (double)val;  break;
+                        case 3: val = (String)val;  break;
+                        case 4: val = (bool)val;    break;
+                        default: break;   // 0 = no coercion
+                    }
+                } else if (!param.type_hint.is_empty()) {
                     String t = param.type_hint.to_lower();
                     if (t == "integer" || t == "long") val = (int64_t)val;
                     else if (t == "single" || t == "double") val = (double)val;
@@ -290,7 +302,16 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         }
         if (func->type == SubDefinition::TYPE_FUNCTION) {
             Variant init_val = Variant();
-            if (!func->return_type.is_empty()) {
+            const int8_t _rc = chunk_for_locals->fast_return_coerce;
+            if (_rc >= 0) {
+                switch (_rc) {
+                    case 1: init_val = (int64_t)0; break;
+                    case 2: init_val = 0.0;        break;
+                    case 3: init_val = String();   break;
+                    case 4: init_val = false;      break;
+                    default: break;   // 0 = none
+                }
+            } else if (!func->return_type.is_empty()) {
                 String t = func->return_type.to_lower();
                 if (t == "integer" || t == "long") init_val = (int64_t)0;
                 else if (t == "single" || t == "double") init_val = 0.0;

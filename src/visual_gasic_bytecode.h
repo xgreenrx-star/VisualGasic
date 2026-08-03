@@ -309,6 +309,17 @@ struct BytecodeChunk {
     int  param_count = 0;   // number of leading local slots that are parameters
     int  return_slot = -1;  // local slot holding the Function return value (-1 = Sub / none)
 
+    // ── Per-call perf (v6.0): precomputed scalar-coercion codes for the
+    // fast-call binder.  call_internal previously ran param.type_hint.to_lower()
+    // + string compares for EVERY parameter (and return_type.to_lower() once) on
+    // EVERY call to coerce args to the declared type — the residual ~4% to_lower
+    // after fast_params engaged.  The type hints are immutable, so the compiler
+    // maps them to a small enum once, MIRRORING the binder's coercion EXACTLY:
+    // 0=none, 1=int64, 2=double, 3=string, 4=bool.  Only populated when
+    // fast_params is true; fast_return_coerce stays -1 for Subs / unpopulated.
+    Vector<int8_t> fast_param_coerce;   // one entry per parameter slot
+    int8_t fast_return_coerce = -1;     // Function return init (-1 = none/unset)
+
     // ── Per-call perf (v6.0): cached set of global names this chunk writes via
     // OP_SET_GLOBAL. The AST-fallback rollback in execute_bytecode() needs a
     // pre-call snapshot of exactly these globals, and the LIST is deterministic

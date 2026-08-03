@@ -402,12 +402,30 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     if (fast_params_ok) {
         current_chunk->fast_params = true;
         current_chunk->param_count = sub->parameters.size();
+        // Precompute per-slot coercion codes so the call binder skips the
+        // per-call type_hint.to_lower() + string compares.  MUST mirror
+        // call_internal's fast-arg coercion EXACTLY (0=none,1=int64,2=double,
+        // 3=string,4=bool) — note longlong/byte/currency/date/short/char map to
+        // 0 (no coercion), matching the binder's original untouched behavior.
+        auto _vg_coerce_code = [](const String &th) -> int8_t {
+            String t = th.to_lower();
+            if (t == "integer" || t == "long") return 1;
+            if (t == "single"  || t == "double") return 2;
+            if (t == "string") return 3;
+            if (t == "boolean") return 4;
+            return 0;
+        };
+        current_chunk->fast_param_coerce.resize(sub->parameters.size());
+        for (int i = 0; i < sub->parameters.size(); i++) {
+            current_chunk->fast_param_coerce.write[i] = _vg_coerce_code(sub->parameters[i].type_hint);
+        }
         if (sub->type == SubDefinition::TYPE_FUNCTION) {
             ValueType rvt = VT_UNKNOWN;
             String rt = sub->return_type.to_lower();
             if (rt == "integer" || rt == "long" || rt == "longlong") rvt = VT_INT;
             else if (rt == "single" || rt == "double") rvt = VT_FLOAT;
             current_chunk->return_slot = get_or_add_local(sub->name, rvt);
+            current_chunk->fast_return_coerce = _vg_coerce_code(sub->return_type);
         } else {
             current_chunk->return_slot = -1;
         }
