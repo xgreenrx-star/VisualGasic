@@ -2835,7 +2835,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 for (int i = arg_count - 1; i >= 0; i--) {
                     args[i] = pop_value();
                 }
-                String method = read_constant(name_idx);
+                // Part K: reference the method name straight from the per-constant
+                // member cache instead of rebuilding it (Variant copy + String ctor,
+                // 2 refcount ops) on every call.  primary_string is initialised once
+                // per distinct constant and the name at this site is immutable.
+                static const String _vg_empty_method_name;
+                const String &method = (name_idx >= 0 && name_idx < chunk->constants.size())
+                    ? ensure_member_cache_entry(name_idx).primary_string
+                    : _vg_empty_method_name;
                 {
                     vgjit3::Tier3& t3 = vgjit3::thread_jit3();
                     if (t3.enabled() && func && !method.is_empty()) {
