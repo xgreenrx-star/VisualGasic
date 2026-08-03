@@ -6169,6 +6169,41 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
                 int line_number = (line_hi << 8) | line_lo;
 
+                // Update the current line for runtime error messages.  This is a
+                // cheap int store and is the ONLY OP_DEBUG_LINE work needed when no
+                // debugger is attached (error reporting reads current_line/current_file).
+                debug_state.current_line = line_number;
+
+                // Part O2/Q: pointer-guarded script-path cache.  script->get_path()
+                // (a fresh String heap alloc) runs at most once per script instead of
+                // once per statement, and debug_state.current_file is refreshed for
+                // error messages only when the owning script actually changes — no
+                // per-statement String assignment on the hot path.
+                if (script.is_valid() && _debug_script_path_owner != script.ptr()) {
+                    _debug_script_path = script->get_path();
+                    _debug_script_path_owner = script.ptr();
+                    debug_state.current_file = _debug_script_path;
+                }
+
+                // ── Part Q: one is_active() gate for ALL debugger machinery ──
+                // Set-Next-Statement, step mode, breakpoints, watchpoints, pause
+                // handling, per-statement stack-frame line tracking and the
+                // current_file String assignment are only observable while a
+                // debugger is attached.  Gating them behind a single is_active()
+                // probe means a normal shipped/headless run pays just the int store
+                // above per statement — no String assignments, no update_stack_frame_line
+                // / get_step_mode / is_next_statement_requested cross-TU calls — while
+                // in-editor debugging keeps full fidelity below.  Mirrors Part O
+                // (which gated the per-call debug-stack push/pop the same way).
+                EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
+                if (!engine_debugger || !engine_debugger->is_active()) {
+                    break;
+                }
+
+                // Debugger attached — resolve the cached path for the checks below.
+                String script_path = _debug_script_path;
+                debug_state.current_file = script_path;
+
                 // ── Set Next Statement (early check) ──
                 // If a set_next_statement message arrived between
                 // instructions (after the previous vg_debug_wait
@@ -6194,31 +6229,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         VisualGasicLanguage::clear_next_statement();
                     }
                 }
-                
-                // Update debug state
-                debug_state.current_line = line_number;
-                // Part O2: reuse the memoized, pointer-guarded script-path cache
-                // (Part J/M/O) instead of calling script->get_path() — a fresh String
-                // heap alloc — on EVERY executed statement. This was the last per-call
-                // get_path (~3.3% of call-heavy instructions) after the frame-push
-                // caches. Worker threads early-out above, so this shared-cache write is
-                // main-thread-only. Semantics unchanged: script_path stays empty when
-                // the script is invalid.
-                String script_path;
-                if (script.is_valid()) {
-                    if (_debug_script_path_owner != script.ptr()) {
-                        _debug_script_path = script->get_path();
-                        _debug_script_path_owner = script.ptr();
-                    }
-                    script_path = _debug_script_path;
-                    debug_state.current_file = script_path;
-                }
-                
+
                 // Update the current stack frame line for Godot debugger
                 VisualGasicLanguage::update_stack_frame_line(line_number);
-                
+
                 // Check for step debugging using both our custom step mode AND Godot's built-in stepping
-                EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
                 bool should_break = false;
                 
                 // Check our custom step mode (set by IW buttons via visualgasic:debug_* messages)
