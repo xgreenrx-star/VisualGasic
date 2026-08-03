@@ -379,16 +379,26 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     // Part M: reuse the pointer-guarded script-path cache (added in Part J for
     // execute_bytecode) instead of calling script->get_path() on EVERY call —
     // get_path was ~5.4% of call-heavy runtime (a fresh String alloc per call).
-    String file_path;
-    if (script.is_valid()) {
-        if (_debug_script_path_owner != script.ptr()) {
-            _debug_script_path = script->get_path();
-            _debug_script_path_owner = script.ptr();
+    // Part O: the debug frame is only ever read through is_active()-gated debugger
+    // paths (see execute_bytecode), so skip the push (and matching pop) entirely
+    // when no debugger is attached — that removes two String ref-copies + a
+    // std::vector push_back per call on the hot path. pop_stack_frame guards an
+    // empty stack, and runtime errors report via debug_state.current_line, so
+    // gating is safe. push/pop share the SAME cached flag to stay balanced.
+    EngineDebugger *_call_debugger = EngineDebugger::get_singleton();
+    const bool debug_frames_active = _call_debugger && _call_debugger->is_active();
+    if (debug_frames_active) {
+        String file_path;
+        if (script.is_valid()) {
+            if (_debug_script_path_owner != script.ptr()) {
+                _debug_script_path = script->get_path();
+                _debug_script_path_owner = script.ptr();
+            }
+            file_path = _debug_script_path;
         }
-        file_path = _debug_script_path;
+        int start_line = func->statements.size() > 0 ? func->statements[0]->line : 0;
+        VisualGasicLanguage::push_stack_frame(file_path, func->name, start_line, this);
     }
-    int start_line = func->statements.size() > 0 ? func->statements[0]->line : 0;
-    VisualGasicLanguage::push_stack_frame(file_path, func->name, start_line, this);
 
     bool used_bytecode = false;
     Variant bytecode_ret;
@@ -473,8 +483,11 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         ret = bytecode_ret;
     }
     
-    // Pop call stack frame for debugger
-    VisualGasicLanguage::pop_stack_frame();
+    // Pop call stack frame for debugger (Part O: only if we pushed one — i.e. a
+    // debugger was attached at call entry; the flag is cached so push/pop match).
+    if (debug_frames_active) {
+        VisualGasicLanguage::pop_stack_frame();
+    }
     
     // Capture ByRef parameter values BEFORE restoring locals.
     // The local-restore step below overwrites variables[param.name]

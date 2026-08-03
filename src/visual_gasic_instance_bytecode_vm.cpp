@@ -255,19 +255,35 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // Push debug stack frame for Godot debugger integration
     // (skip for parallel workers AND sub-range bodies — these are internal
     // recursive calls that don't need their own stack frames)
+    //
+    // Part O: the debug stack frame is ONLY ever read back through the Godot
+    // debugger interface (_debug_get_stack_level_* → get_debug_stack(), and the
+    // error/break paths' _send_call_stack_to_debugger), and EVERY one of those
+    // readers is already gated on EngineDebugger::is_active(). When no debugger
+    // is attached (exported/shipped games, headless runs) the frame is never
+    // read, so pushing one — two Godot String ref-copies + a std::vector
+    // push_back + a memoized get_path() — is pure per-call overhead. Gate the
+    // push (and the matching pop in the cleanup path) on is_active(); runtime
+    // error messages use debug_state.current_line, not the frame stack, so
+    // tracebacks are unaffected. push and pop read the SAME cached flag so they
+    // stay balanced across an attach/detach mid-run (pop_stack_frame also guards
+    // against an empty stack, so a stray pop is harmless regardless).
     // Part J: script->get_path() is memoized (constant per script) — it was
     // ~6.3% of call-heavy runtime when called fresh on every execute_bytecode.
-    String debug_file;
-    if (!is_parallel_worker && !is_sub_range && script.is_valid()) {
-        if (_debug_script_path_owner != script.ptr()) {
-            _debug_script_path = script->get_path();
-            _debug_script_path_owner = script.ptr();
+    EngineDebugger *_entry_debugger = EngineDebugger::get_singleton();
+    const bool debug_frames_active = !is_parallel_worker && !is_sub_range
+                                     && _entry_debugger && _entry_debugger->is_active();
+    if (debug_frames_active) {
+        String debug_file;
+        if (script.is_valid()) {
+            if (_debug_script_path_owner != script.ptr()) {
+                _debug_script_path = script->get_path();
+                _debug_script_path_owner = script.ptr();
+            }
+            debug_file = _debug_script_path;
+        } else {
+            debug_file = String("<unknown>");
         }
-        debug_file = _debug_script_path;
-    } else {
-        debug_file = String("<unknown>");
-    }
-    if (!is_parallel_worker && !is_sub_range) {
         String debug_func = func ? func->name : String("<main>");
         VisualGasicLanguage::push_stack_frame(debug_file, debug_func, 0, this);
     }
@@ -1930,10 +1946,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (VisualGasicLanguage::check_watchpoint(name, value)) {
                     // Watchpoint hit - variable value changed
                     int wp_line = debug_state.current_line > 0 ? debug_state.current_line : 0;
-                    VisualGasicLanguage::set_current_break_location(debug_file, wp_line);
+                    // Part O: debug_file is no longer computed unconditionally per
+                    // call (the debug-frame push is gated on is_active); a watchpoint
+                    // only fires when one is registered, so resolve the path here from
+                    // the same memoized cache (falling back to a fresh get_path()).
+                    String wp_file;
+                    if (_debug_script_path_owner == script.ptr()) {
+                        wp_file = _debug_script_path;
+                    } else if (script.is_valid()) {
+                        wp_file = script->get_path();
+                    }
+                    VisualGasicLanguage::set_current_break_location(wp_file, wp_line);
                     EngineDebugger* debugger = EngineDebugger::get_singleton();
                     debugger->send_message("visualgasic:watchpoint_hit", 
-                        Array::make(name, variables.get(name, Variant()), value, debug_file, wp_line));
+                        Array::make(name, variables.get(name, Variant()), value, wp_file, wp_line));
                     VisualGasicLanguage::vg_debug_wait();
                 }
                 
@@ -7579,8 +7605,9 @@ cleanup:
     debug_bc_locals = prev_debug_bc_locals;
     debug_bc_chunk  = prev_debug_bc_chunk;
     
-    // Pop debug stack frame (must match push above; skipped for parallel workers and sub-range bodies)
-    if (!is_parallel_worker && !is_sub_range) {
+    // Pop debug stack frame (must match push above; skipped for parallel workers,
+    // sub-range bodies, AND when no debugger was attached at entry — Part O).
+    if (debug_frames_active) {
         VisualGasicLanguage::pop_stack_frame();
     }
     
