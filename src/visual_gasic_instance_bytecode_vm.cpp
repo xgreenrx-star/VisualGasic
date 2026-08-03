@@ -236,7 +236,8 @@ void VisualGasicInstance::_task_run_bc_worker(void* user_data) {
 
 bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* func, Variant &r_ret,
                                            int p_ip_start, int p_ip_end,
-                                           const Vector<Variant>* p_initial_locals) {
+                                           const Vector<Variant>* p_initial_locals,
+                                           const Vector<Variant>* p_fast_args) {
     if (!chunk) {
         r_ret = Variant();
         return false;
@@ -311,7 +312,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
     // ── JIT Tier 2/3: attempt native execution for hot functions ──────────
 #ifdef __linux__
-    if (p_ip_start == 0 && p_ip_end <= 0 && func && !p_initial_locals) {
+    // Fast-call chunks (fast_params) seed params directly into local slots and
+    // never place them in variables[]; the JIT marshaler reads params FROM
+    // variables[], so it would read stale/empty values.  Skip JIT for them —
+    // the interpreter fast-call path is what wins the benchmark anyway.
+    if (p_ip_start == 0 && p_ip_end <= 0 && func && !p_initial_locals && !chunk->fast_params) {
         std::string jit_name;
         if (func->name.length() > 0) {
             jit_name = std::string(func->name.utf8().get_data());
@@ -489,6 +494,33 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         }
     }
 
+    // ── Fast-call convention (v6.0) ────────────────────────────────────
+    // When the compiler flagged this chunk fast_params, the caller
+    // (call_internal) did NOT bind the parameters or return variable into the
+    // variables[] Dictionary.  Instead the coerced argument values arrive via
+    // p_fast_args and are dropped straight into the leading local slots here,
+    // and the return value is read back out of return_slot on exit (below).
+    // Slots [0, param_count) are parameters; return_slot (if >= 0) holds the
+    // Function result and is initialised from the last p_fast_args element (the
+    // typed zero the caller computed from the return type).
+    const bool fast_call = (chunk->fast_params && p_fast_args != nullptr);
+    const int  fast_param_count = fast_call ? chunk->param_count : 0;
+    const int  fast_return_slot = fast_call ? chunk->return_slot : -1;
+    auto is_fast_slot = [&](int slot) -> bool {
+        return fast_call && (slot < fast_param_count || slot == fast_return_slot);
+    };
+    if (fast_call) {
+        for (int i = 0; i < fast_param_count && i < p_fast_args->size() && i < locals.size(); i++) {
+            locals.write[i] = (*p_fast_args)[i];
+        }
+        if (fast_return_slot >= 0 && fast_return_slot < locals.size()) {
+            // The caller appends the typed return-init value after the params.
+            if (p_fast_args->size() > fast_param_count) {
+                locals.write[fast_return_slot] = (*p_fast_args)[fast_param_count];
+            }
+        }
+    }
+
     // ── v4.8: Hybrid typed local storage ──────────────────────────────
     // Parallel typed arrays let us bypass the Variant constructor/destructor
     // overhead for variables with known compiler types (VT_INT=1, VT_FLOAT=2).
@@ -549,7 +581,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         // Fast path: skip the expensive variables[] Dictionary sync
         // when no Whenever callbacks need it (v2.4.1 optimisation).
         // Also skip when running as isolated parallel worker (v4.1).
-        if (needs_var_sync && !isolated_locals) {
+        // Fast-call param/return slots are ALWAYS pure-local (never mirrored
+        // into variables[]) so that even an active Whenever can't leak them.
+        if (needs_var_sync && !isolated_locals && !is_fast_slot(slot)) {
             String name = get_local_name(slot);
             if (!name.is_empty() && !builtin_constants.has(name)) {
                 variables[name] = value;
@@ -559,7 +593,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
     auto read_local = [&](int slot) -> Variant {
         if (slot >= 0 && slot < locals.size()) {
-            if (!needs_var_sync || isolated_locals) {
+            if (!needs_var_sync || isolated_locals || is_fast_slot(slot)) {
                 return locals[slot];
             }
             // Slow path: read from variables dictionary to pick up
@@ -7421,6 +7455,7 @@ cleanup:
     // OP_GET_GLOBAL / OP_SET_GLOBAL protected by Lock/Unlock.
     if (success && !needs_var_sync && !p_initial_locals) {
         for (int i = 0; i < locals.size() && i < chunk->local_names.size(); i++) {
+            if (is_fast_slot(i)) continue; // fast-call params/return never enter variables[]
             const String &name = chunk->local_names[i];
             if (!name.is_empty() && !builtin_constants.has(name)) {
                 variables[name] = locals[i];
@@ -7446,7 +7481,9 @@ cleanup:
             // call_internal's return-value lookup sees it. Otherwise
             // the default-initialized value (0/"") wins over the
             // actual Return value.
-            if (func && func->type == SubDefinition::TYPE_FUNCTION) {
+            // Fast-call Functions read their result straight from the return
+            // slot, so skip the variables[] write (it would leak func->name).
+            if (func && func->type == SubDefinition::TYPE_FUNCTION && !fast_call) {
                 variables[func->name] = explicit_return;
             }
         } else if (vm.stack.size() > stack_base) {
@@ -7474,6 +7511,10 @@ cleanup:
     if (func && func->type == SubDefinition::TYPE_FUNCTION) {
         if (has_explicit_return) {
             r_ret = result_snapshot;
+        } else if (fast_call && fast_return_slot >= 0 && fast_return_slot < locals.size()) {
+            // Fast-call: the implicit `FuncName = expr` result lives in the
+            // dedicated return slot, never in variables[].
+            r_ret = locals[fast_return_slot];
         } else if (variables.has(func->name)) {
             r_ret = variables[func->name];
         } else {

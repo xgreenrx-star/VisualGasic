@@ -292,7 +292,43 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
 
 
     current_sub = sub;
-    non_local_names.insert(sub->name.to_lower());
+
+    // ── Fast-call convention detection (v6.0) ──────────────────────────
+    // A Sub/Function qualifies for the fast-param path when EVERY parameter is
+    // a scalar value type passed ByVal (no ByRef, no ParamArray, no Optional)
+    // and — for Functions — the return type is also scalar.  Such params/return
+    // get dedicated LOCAL SLOTS seeded directly from the call args, bypassing the
+    // per-call variables[] Dictionary insert/lookup/erase that dominates call
+    // overhead.  Scalar-only guarantees value semantics, so there is no dict/
+    // array aliasing or sole-owner escape-analysis interaction to worry about.
+    auto _vg_is_scalar_type = [](const String &th) -> bool {
+        String t = th.to_lower();
+        return t == "integer" || t == "long" || t == "longlong" ||
+               t == "single"  || t == "double"   || t == "boolean" ||
+               t == "byte"    || t == "string"   || t == "currency" ||
+               t == "date"    || t == "short"    || t == "char";
+    };
+    bool fast_params_ok = true;
+    for (int i = 0; i < sub->parameters.size(); i++) {
+        const Parameter &p = sub->parameters[i];
+        if (p.is_by_ref || p.is_param_array || p.is_optional ||
+            p.type_hint.is_empty() || !_vg_is_scalar_type(p.type_hint)) {
+            fast_params_ok = false;
+            break;
+        }
+    }
+    if (fast_params_ok && sub->type == SubDefinition::TYPE_FUNCTION) {
+        // Untyped (Variant) return excluded to keep the return slot value-typed.
+        if (sub->return_type.is_empty() || !_vg_is_scalar_type(sub->return_type)) {
+            fast_params_ok = false;
+        }
+    }
+
+    // For a fast-params Function the return variable (named after the Sub) must
+    // be eligible for a local slot, so do NOT force it non-local.
+    if (!(fast_params_ok && sub->type == SubDefinition::TYPE_FUNCTION)) {
+        non_local_names.insert(sub->name.to_lower());
+    }
     used_vars.insert(sub->name.to_lower());
 
     // Keywords and singletons must always go through OP_GET_GLOBAL
@@ -336,11 +372,44 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     }
 
     for (int i = 0; i < sub->parameters.size(); i++) {
-        non_local_names.insert(sub->parameters[i].name.to_lower());
-        param_vars.insert(sub->parameters[i].name.to_lower());
-        // Register ParamArray parameters as array variables for proper subscript handling
-        if (sub->parameters[i].is_param_array) {
-            array_vars.insert(sub->parameters[i].name.to_lower());
+        const String pkey = sub->parameters[i].name.to_lower();
+        if (fast_params_ok) {
+            // Fast-call: give each scalar ByVal param its own local slot
+            // (assigned in order → slots 0..P-1) seeded from the call args at
+            // runtime.  Keep it in param_vars for subscript/namespace-shadow
+            // logic, but NOT in non_local_names (that would force OP_GET_GLOBAL).
+            param_vars.insert(pkey);
+            ValueType pvt = VT_UNKNOWN;
+            String t = sub->parameters[i].type_hint.to_lower();
+            if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
+            else if (t == "single" || t == "double") pvt = VT_FLOAT;
+            get_or_add_local(sub->parameters[i].name, pvt);
+        } else {
+            non_local_names.insert(pkey);
+            param_vars.insert(pkey);
+            // Register ParamArray parameters as array variables for proper subscript handling
+            if (sub->parameters[i].is_param_array) {
+                array_vars.insert(pkey);
+            }
+        }
+    }
+
+    // Fast-call: allocate the return-value slot (Functions only) immediately
+    // after the params, then publish the fast-call metadata on the chunk so the
+    // VM seeds params from args and reads the return value straight from its
+    // slot — no variables[] round-trip.  param_count/return_slot are captured
+    // here, before any body-level Dim locals grab higher slots.
+    if (fast_params_ok) {
+        current_chunk->fast_params = true;
+        current_chunk->param_count = sub->parameters.size();
+        if (sub->type == SubDefinition::TYPE_FUNCTION) {
+            ValueType rvt = VT_UNKNOWN;
+            String rt = sub->return_type.to_lower();
+            if (rt == "integer" || rt == "long" || rt == "longlong") rvt = VT_INT;
+            else if (rt == "single" || rt == "double") rvt = VT_FLOAT;
+            current_chunk->return_slot = get_or_add_local(sub->name, rvt);
+        } else {
+            current_chunk->return_slot = -1;
         }
     }
 
@@ -402,6 +471,10 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
             emit_byte(OP_SET_GLOBAL);
             emit_const_index(name_idx);
         }
+        // This early-return path skips the normal local_count assignment below,
+        // so publish it here — required now that fast-params gives the return
+        // value (and params) real local slots that the VM must allocate/seed.
+        current_chunk->local_count = local_slots.size();
         emit_return();
         return compile_ok;
     }

@@ -219,54 +219,101 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         DimScanner::scan(func->statements, saved_locals, variables);
     }
     
+    // Fast-call convention (v6.0): when the compiled chunk flagged fast_params,
+    // the parameters and return variable get dedicated local slots (seeded by
+    // execute_bytecode from p_fast_args) instead of being written into the
+    // variables[] Dictionary — eliminating the per-call insert/lookup/erase that
+    // dominates call overhead.  Build the coerced argument values once and reuse
+    // them for both the bytecode seed and the (rare) AST fallback binding.
+    const bool use_fast_params = (chunk_for_locals && chunk_for_locals->fast_params);
+    Vector<Variant> fast_arg_values;
+
     // Arguments
     int max_params = func->parameters.size();
-    // Use larger size if params exist, or args exist.
-    // Actually we iterate params to define them.
-    for(int i=0; i<max_params; i++) {
-        Parameter& param = func->parameters.write[i];
-        
-        if (param.is_param_array) {
-            // ParamArray collects all remaining arguments into an array
-            Array rest;
-            for(int k=i; k<p_args.size(); k++) {
-                rest.push_back(p_args[k]);
-            }
-            variables[param.name] = rest;
-            break; // ParamArray is always the last argument
-        }
-        
-        if (i < p_args.size()) {
-            Variant val = p_args[i];
-             // Enforce Parameter Type
-            if (!param.type_hint.is_empty()) {
-                String t = param.type_hint.to_lower();
-                if (t == "integer" || t == "long") val = (int64_t)val;
-                else if (t == "single" || t == "double") val = (double)val;
-                else if (t == "string") val = (String)val;
-                else if (t == "boolean") val = (bool)val;
-            }
-            variables[param.name] = val;
-        } else {
-            if (param.is_optional) {
-                variables[param.name] = param.default_value;
+    if (use_fast_params) {
+        // Scalar ByVal params only (guaranteed by the compiler's fast_params
+        // guard) → pure coercion into a flat vector, no variables[] writes.
+        // The trailing slot (Functions only) carries the typed return init.
+        fast_arg_values.resize(max_params + (func->type == SubDefinition::TYPE_FUNCTION ? 1 : 0));
+        for (int i = 0; i < max_params; i++) {
+            Parameter& param = func->parameters.write[i];
+            Variant val;
+            if (i < p_args.size()) {
+                val = p_args[i];
+                if (!param.type_hint.is_empty()) {
+                    String t = param.type_hint.to_lower();
+                    if (t == "integer" || t == "long") val = (int64_t)val;
+                    else if (t == "single" || t == "double") val = (double)val;
+                    else if (t == "string") val = (String)val;
+                    else if (t == "boolean") val = (bool)val;
+                }
+            } else if (param.is_optional) {
+                val = param.default_value;
             } else {
-                 UtilityFunctions::print("Runtime Error: Argument '", param.name, "' missing for ", func->name);
-                 variables[param.name] = Variant(); // Default to Nil
+                UtilityFunctions::print("Runtime Error: Argument '", param.name, "' missing for ", func->name);
+                val = Variant();
+            }
+            fast_arg_values.write[i] = val;
+        }
+        if (func->type == SubDefinition::TYPE_FUNCTION) {
+            Variant init_val = Variant();
+            if (!func->return_type.is_empty()) {
+                String t = func->return_type.to_lower();
+                if (t == "integer" || t == "long") init_val = (int64_t)0;
+                else if (t == "single" || t == "double") init_val = 0.0;
+                else if (t == "string") init_val = "";
+                else if (t == "boolean") init_val = false;
+            }
+            fast_arg_values.write[max_params] = init_val;
+        }
+    } else {
+        // Use larger size if params exist, or args exist.
+        // Actually we iterate params to define them.
+        for(int i=0; i<max_params; i++) {
+            Parameter& param = func->parameters.write[i];
+
+            if (param.is_param_array) {
+                // ParamArray collects all remaining arguments into an array
+                Array rest;
+                for(int k=i; k<p_args.size(); k++) {
+                    rest.push_back(p_args[k]);
+                }
+                variables[param.name] = rest;
+                break; // ParamArray is always the last argument
+            }
+
+            if (i < p_args.size()) {
+                Variant val = p_args[i];
+                 // Enforce Parameter Type
+                if (!param.type_hint.is_empty()) {
+                    String t = param.type_hint.to_lower();
+                    if (t == "integer" || t == "long") val = (int64_t)val;
+                    else if (t == "single" || t == "double") val = (double)val;
+                    else if (t == "string") val = (String)val;
+                    else if (t == "boolean") val = (bool)val;
+                }
+                variables[param.name] = val;
+            } else {
+                if (param.is_optional) {
+                    variables[param.name] = param.default_value;
+                } else {
+                     UtilityFunctions::print("Runtime Error: Argument '", param.name, "' missing for ", func->name);
+                     variables[param.name] = Variant(); // Default to Nil
+                }
             }
         }
-    }
-    // Init Return
-    if (func->type == SubDefinition::TYPE_FUNCTION) {
-        Variant init_val = Variant();
-        if (!func->return_type.is_empty()) {
-             String t = func->return_type.to_lower();
-             if (t == "integer" || t == "long") init_val = (int64_t)0;
-             else if (t == "single" || t == "double") init_val = 0.0;
-             else if (t == "string") init_val = "";
-             else if (t == "boolean") init_val = false;
+        // Init Return
+        if (func->type == SubDefinition::TYPE_FUNCTION) {
+            Variant init_val = Variant();
+            if (!func->return_type.is_empty()) {
+                 String t = func->return_type.to_lower();
+                 if (t == "integer" || t == "long") init_val = (int64_t)0;
+                 else if (t == "single" || t == "double") init_val = 0.0;
+                 else if (t == "string") init_val = "";
+                 else if (t == "boolean") init_val = false;
+            }
+            variables[func->name] = init_val;
         }
-        variables[func->name] = init_val;
     }
 
     current_sub = func;
@@ -287,7 +334,8 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         // execute_bytecode() now only flushes locals→variables on
         // success, so on failure the dictionary stays clean and the
         // AST fallback can re-execute without a rollback copy.
-        used_bytecode = execute_bytecode(chunk_for_locals, func, bytecode_ret);
+        used_bytecode = execute_bytecode(chunk_for_locals, func, bytecode_ret, 0, -1, nullptr,
+                                         use_fast_params ? &fast_arg_values : nullptr);
         if (!used_bytecode) {
             if (error_state.has_error) {
                 // Bytecode VM hit a runtime error (e.g. "Sub or Function not
@@ -303,6 +351,20 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     }
 
     if (!used_bytecode) {
+        // Fast-call params were seeded straight into local slots for the
+        // bytecode VM and never written to variables[]; the AST interpreter
+        // reads params/return from variables[], so bind them now (rare
+        // fallback path — only reached when the bytecode VM bailed without a
+        // hard error).
+        if (use_fast_params) {
+            for (int i = 0; i < func->parameters.size() && i < fast_arg_values.size(); i++) {
+                variables[func->parameters[i].name] = fast_arg_values[i];
+            }
+            if (func->type == SubDefinition::TYPE_FUNCTION &&
+                fast_arg_values.size() > func->parameters.size()) {
+                variables[func->name] = fast_arg_values[func->parameters.size()];
+            }
+        }
         // Execute Loop
         for (int i = 0; i < func->statements.size(); i++) {
             jump_target = -1;

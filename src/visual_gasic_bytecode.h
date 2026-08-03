@@ -296,6 +296,19 @@ struct BytecodeChunk {
     Vector<uint8_t> local_types;
     int local_count = 0;
 
+    // ── Fast-call convention (v6.0): when a Sub/Function has ONLY scalar-typed
+    // ByVal parameters (no ByRef, no ParamArray, no dict/array/object params),
+    // its parameters and return variable are given dedicated LOCAL SLOTS instead
+    // of being stored in the string-keyed variables[] Dictionary. The compiler
+    // assigns param slots 0..param_count-1 and (for Functions) the return value
+    // slot return_slot, seeded directly from the call arguments — eliminating the
+    // ~7 per-call Dictionary insert/lookup/erase operations that dominate call
+    // overhead. Scalar-only keeps value semantics (no aliasing / sole-owner
+    // escape-analysis interaction). fast_params=false => legacy globals path.
+    bool fast_params = false;
+    int  param_count = 0;   // number of leading local slots that are parameters
+    int  return_slot = -1;  // local slot holding the Function return value (-1 = Sub / none)
+
     // ── Per-call perf (v6.0): cached set of global names this chunk writes via
     // OP_SET_GLOBAL. The AST-fallback rollback in execute_bytecode() needs a
     // pre-call snapshot of exactly these globals, and the LIST is deterministic

@@ -1,0 +1,213 @@
+' Test: Fast-call convention (v6.0 params/return -> local slots)
+' Exercises the scalar-ByVal fast-param path: recursion (per-call local
+' isolation), nested fast calls, param/global shadowing, mixed scalar types,
+' string/boolean params, Subs (no return), and returns used in expressions.
+Attribute VB_Name = "TestFastParams"
+
+' Module-level global that shares a name with a param below (shadowing test).
+Dim gShadow As Long
+Dim gCounter As Long
+
+Sub _Ready()
+	' --- Simple scalar ByVal Function (the benchmark shape) ---
+	Dim a As Long = AddOne(41)
+	If a = 42 Then
+		Print "PASS: fast_add_one"
+	Else
+		Print "FAIL: fast_add_one: expected 42, got " & Str(a)
+	End If
+
+	' --- Recursion: factorial (per-call local isolation) ---
+	Dim f As Long = Factorial(6)
+	If f = 720 Then
+		Print "PASS: fast_recursion_factorial"
+	Else
+		Print "FAIL: fast_recursion_factorial: expected 720, got " & Str(f)
+	End If
+
+	' --- Recursion: two typed params (Fibonacci) ---
+	Dim fibResult As Long = Fib(15)
+	If fibResult = 610 Then
+		Print "PASS: fast_recursion_fib"
+	Else
+		Print "FAIL: fast_recursion_fib: expected 610, got " & Str(fibResult)
+	End If
+
+	' --- Nested fast calls: f(args) that itself calls g(args) ---
+	Dim n As Long = OuterCalc(10, 3)
+	If n = 23 Then
+		Print "PASS: fast_nested_calls"
+	Else
+		Print "FAIL: fast_nested_calls: expected 23, got " & Str(n)
+	End If
+
+	' --- Mutual recursion (even/odd) ---
+	If IsEven(10) And Not IsEven(7) Then
+		Print "PASS: fast_mutual_recursion"
+	Else
+		Print "FAIL: fast_mutual_recursion"
+	End If
+
+	' --- Return value used directly inside a larger expression ---
+	Dim expr As Long = AddOne(4) * AddOne(9)
+	If expr = 50 Then
+		Print "PASS: fast_return_in_expr"
+	Else
+		Print "FAIL: fast_return_in_expr: expected 50, got " & Str(expr)
+	End If
+
+	' --- Multiple mixed scalar params ---
+	Dim mix As Double = MixedTypes(3, 2.5, "x", True)
+	If mix = 7.5 Then
+		Print "PASS: fast_mixed_scalar_params"
+	Else
+		Print "FAIL: fast_mixed_scalar_params: expected 7.5, got " & Str(mix)
+	End If
+
+	' --- String param + String return ---
+	Dim g As String = Greet("World")
+	If g = "Hi World!" Then
+		Print "PASS: fast_string_param_return"
+	Else
+		Print "FAIL: fast_string_param_return: got " & g
+	End If
+
+	' --- Boolean param + Boolean return ---
+	If Negate(False) And Not Negate(True) Then
+		Print "PASS: fast_boolean_param_return"
+	Else
+		Print "FAIL: fast_boolean_param_return"
+	End If
+
+	' --- Param shadowing a module global of the same name ---
+	gShadow = 100
+	Dim sh As Long = UsesShadow(7)
+	If sh = 14 And gShadow = 100 Then
+		Print "PASS: fast_param_shadows_global"
+	Else
+		Print "FAIL: fast_param_shadows_global: got sh=" & Str(sh) & " gShadow=" & Str(gShadow)
+	End If
+
+	' --- Fast Function that also mutates a real module global ---
+	gCounter = 0
+	Dim acc As Long = BumpAndReturn(5)
+	If acc = 5 And gCounter = 5 Then
+		Print "PASS: fast_fn_mutates_global"
+	Else
+		Print "FAIL: fast_fn_mutates_global: got acc=" & Str(acc) & " gCounter=" & Str(gCounter)
+	End If
+
+	' --- Scalar ByVal Sub (no return value) ---
+	gCounter = 0
+	AddToCounter 9
+	If gCounter = 9 Then
+		Print "PASS: fast_sub_no_return"
+	Else
+		Print "FAIL: fast_sub_no_return: expected 9, got " & Str(gCounter)
+	End If
+
+	' --- Deep recursion stress (sum 1..350; ~500+ overflows the C++ stack
+	'     on BOTH the fast and legacy paths — a pre-existing interpreter limit) ---
+	Dim deep As Long = SumTo(350)
+	If deep = 61425 Then
+		Print "PASS: fast_deep_recursion"
+	Else
+		Print "FAIL: fast_deep_recursion: expected 61425, got " & Str(deep)
+	End If
+
+	' --- ByVal copy semantics: mutating a param must NOT affect caller ---
+	Dim original As Long = 5
+	Dim doubled As Long = DoubleLocally(original)
+	If doubled = 10 And original = 5 Then
+		Print "PASS: fast_byval_copy_semantics"
+	Else
+		Print "FAIL: fast_byval_copy_semantics: doubled=" & Str(doubled) & " original=" & Str(original)
+	End If
+End Sub
+
+Function AddOne(ByVal x As Long) As Long
+	AddOne = x + 1
+End Function
+
+Function Factorial(ByVal n As Long) As Long
+	If n <= 1 Then
+		Factorial = 1
+	Else
+		Factorial = n * Factorial(n - 1)
+	End If
+End Function
+
+Function Fib(ByVal n As Long) As Long
+	If n < 2 Then
+		Fib = n
+	Else
+		Fib = Fib(n - 1) + Fib(n - 2)
+	End If
+End Function
+
+Function OuterCalc(ByVal a As Long, ByVal b As Long) As Long
+	OuterCalc = InnerCalc(a, b) + a
+End Function
+
+Function InnerCalc(ByVal a As Long, ByVal b As Long) As Long
+	InnerCalc = a + b
+End Function
+
+Function IsEven(ByVal n As Long) As Boolean
+	If n = 0 Then
+		IsEven = True
+	Else
+		IsEven = IsOdd(n - 1)
+	End If
+End Function
+
+Function IsOdd(ByVal n As Long) As Boolean
+	If n = 0 Then
+		IsOdd = False
+	Else
+		IsOdd = IsEven(n - 1)
+	End If
+End Function
+
+Function MixedTypes(ByVal i As Long, ByVal d As Double, ByVal s As String, ByVal b As Boolean) As Double
+	If b Then
+		MixedTypes = i + d + Len(s) + 1
+	Else
+		MixedTypes = 0
+	End If
+End Function
+
+Function Greet(ByVal who As String) As String
+	Greet = "Hi " & who & "!"
+End Function
+
+Function Negate(ByVal b As Boolean) As Boolean
+	Negate = Not b
+End Function
+
+Function UsesShadow(ByVal gShadow As Long) As Long
+	' The param gShadow shadows the module global gShadow.
+	UsesShadow = gShadow * 2
+End Function
+
+Function BumpAndReturn(ByVal n As Long) As Long
+	gCounter = gCounter + n
+	BumpAndReturn = gCounter
+End Function
+
+Sub AddToCounter(ByVal amount As Long)
+	gCounter = gCounter + amount
+End Sub
+
+Function SumTo(ByVal n As Long) As Long
+	If n <= 0 Then
+		SumTo = 0
+	Else
+		SumTo = n + SumTo(n - 1)
+	End If
+End Function
+
+Function DoubleLocally(ByVal x As Long) As Long
+	x = x * 2
+	DoubleLocally = x
+End Function
