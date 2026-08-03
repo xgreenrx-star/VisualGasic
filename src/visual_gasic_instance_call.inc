@@ -330,19 +330,32 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
         // chunk somehow lacking them falls back to the original string path.
         const bool _have_pc = (chunk_for_locals->fast_param_coerce.size() == max_params);
         for (int i = 0; i < max_params; i++) {
+            // Part AG (v6.0 perf): precomputed-coercion fast path — write the
+            // coerced arg STRAIGHT into fast_arg_values[i] instead of routing it
+            // through an intermediate `val` Variant.  The old shape
+            // (`val = p_args[i]; val = (T)val; fast_arg_values[i] = val;`) cost
+            // two extra Variant copy-assigns per arg (copy in + copy out); the
+            // direct `fast_arg_values[i] = (T)p_args[i];` is one extract + one
+            // typed assign.  Also skips the per-iteration `func->parameters.write[i]`
+            // (a CoW write-proxy access the fast path never reads).  Rare paths
+            // (no precomputed codes, optional default, missing arg) keep the
+            // original val-based path below unchanged.
+            if (_have_pc && i < p_arg_count) {
+                const Variant& src = p_args[i];
+                switch (chunk_for_locals->fast_param_coerce[i]) {
+                    case 1: fast_arg_values[i] = (int64_t)src; break;
+                    case 2: fast_arg_values[i] = (double)src;  break;
+                    case 3: fast_arg_values[i] = (String)src;  break;
+                    case 4: fast_arg_values[i] = (bool)src;    break;
+                    default: fast_arg_values[i] = src;         break;   // 0 = no coercion
+                }
+                continue;
+            }
             Parameter& param = func->parameters.write[i];
             Variant val;
             if (i < p_arg_count) {
                 val = p_args[i];
-                if (_have_pc) {
-                    switch (chunk_for_locals->fast_param_coerce[i]) {
-                        case 1: val = (int64_t)val; break;
-                        case 2: val = (double)val;  break;
-                        case 3: val = (String)val;  break;
-                        case 4: val = (bool)val;    break;
-                        default: break;   // 0 = no coercion
-                    }
-                } else if (!param.type_hint.is_empty()) {
+                if (!param.type_hint.is_empty()) {
                     String t = param.type_hint.to_lower();
                     if (t == "integer" || t == "long") val = (int64_t)val;
                     else if (t == "single" || t == "double") val = (double)val;
