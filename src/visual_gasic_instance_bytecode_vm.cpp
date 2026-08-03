@@ -597,10 +597,38 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // per hot i64/f64 opcode (OP_INC_LOCAL_I64, OP_LESS_EQUAL_I64, ...).
     // Sized to locals.size() (not chunk->local_count) so that every access
     // site's existing `slot < locals.size()` guard also proves the raw
-    // std::vector index is in bounds — std::vector::operator[] is unchecked,
-    // whereas the old PackedInt64Array::set silently ignored OOB.
-    std::vector<int64_t> typed_i64_locals((size_t)locals.size(), 0);
-    std::vector<double>  typed_f64_locals((size_t)locals.size(), 0.0);
+    // index is in bounds — pointer operator[] is unchecked, whereas the old
+    // PackedInt64Array::set silently ignored OOB.
+    // v6.0 (Part AA): stack SBO for the typed shadow arrays.  Part S made these
+    // plain std::vector (killing the Packed*Array ptrcall) but each remained a
+    // per-call heap alloc — TWO allocations on EVERY execute_bytecode entry,
+    // sized to the (usually tiny) local count, and the f64 array is pure dead
+    // weight for an all-integer function.  Keep both in C++-stack inline buffers
+    // for the common small-frame case (zero heap); spill to std::vector only
+    // when a frame has more locals than the inline capacity (bigger functions
+    // whose per-call work amortises the alloc).  All [slot] sites below (and the
+    // by-ref lambda captures) are pointer-indexed identically either way.
+    constexpr int TYPED_LOCALS_INLINE = 8;
+    const size_t _typed_n = (size_t)locals.size();
+    int64_t _typed_i64_inline[TYPED_LOCALS_INLINE];
+    double  _typed_f64_inline[TYPED_LOCALS_INLINE];
+    std::vector<int64_t> _typed_i64_heap;
+    std::vector<double>  _typed_f64_heap;
+    int64_t* typed_i64_locals;
+    double*  typed_f64_locals;
+    if (_typed_n <= (size_t)TYPED_LOCALS_INLINE) {
+        for (size_t _ti = 0; _ti < _typed_n; _ti++) {
+            _typed_i64_inline[_ti] = 0;
+            _typed_f64_inline[_ti] = 0.0;
+        }
+        typed_i64_locals = _typed_i64_inline;
+        typed_f64_locals = _typed_f64_inline;
+    } else {
+        _typed_i64_heap.assign(_typed_n, 0);
+        _typed_f64_heap.assign(_typed_n, 0.0);
+        typed_i64_locals = _typed_i64_heap.data();
+        typed_f64_locals = _typed_f64_heap.data();
+    }
     // Seed typed locals from initial Variant locals using type info.
     for (int i = 0; i < chunk->local_count && i < chunk->local_types.size(); i++) {
         uint8_t lt = chunk->local_types[i];
