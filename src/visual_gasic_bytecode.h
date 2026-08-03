@@ -6,6 +6,7 @@
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/templates/vector.hpp>
 #include <vector>
+#include <deque>
 
 using namespace godot;
 
@@ -352,7 +353,23 @@ struct BytecodeChunk {
 struct VMState {
     int ip; // Instruction Pointer
     std::vector<Variant> stack;
-    
+
+    // v6.0 (Part AB): per-thread pool of reusable local-variable frames.
+    // execute_bytecode used to heap-allocate a fresh godot Vector<Variant> for
+    // its `locals` on EVERY call (CowData<Variant> resize + Memory::alloc_static
+    // + _unref/~CowData teardown — the last per-call heap alloc on the hot path).
+    // Instead each nesting level reuses one Vector kept here: locals_depth marks
+    // the current frame (bumped on entry, dropped on return via an RAII guard),
+    // and locals_pool[depth] is resized/overwritten in place — after warmup no
+    // allocation occurs.  A std::deque is used (not std::vector) because it gives
+    // STABLE element addresses: growing it for a deeper nested frame never
+    // invalidates references to shallower frames, so `debug_bc_locals = &locals`
+    // stays valid across nested calls.  Living in VMState (already threaded via
+    // Part X's p_vm) means the hot path pays no extra thread_local __tls_get_addr
+    // to reach it, and each OS thread's tl_vm owns an isolated pool.
+    std::deque<Vector<Variant>> locals_pool;
+    int locals_depth = 0;
+
     // Call Frame info usually needed here for recursion
     // For now we can assume flat execution or use C++ recursion for calls
 };

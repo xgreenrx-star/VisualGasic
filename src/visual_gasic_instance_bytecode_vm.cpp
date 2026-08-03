@@ -511,7 +511,26 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 #endif
     // ── End JIT Tier 2 ────────────────────────────────────────────────
 
-    Vector<Variant> locals;
+    // ── Part AB: borrow this frame's locals from the VMState pool ──────
+    // Instead of heap-allocating a fresh Vector<Variant> every call (the last
+    // per-call CowData<Variant> alloc on the hot path), reuse a per-nesting-
+    // level Vector held in the (already-resolved, Part X) VMState.  The depth is
+    // bumped here and dropped by an RAII guard on EVERY exit path — normal
+    // returns, error returns, restore_vm() paths — so the counter always
+    // unwinds even on recursion or early bail.  The std::deque never invalidates
+    // references to shallower frames when a deeper call grows it, so `locals`
+    // (and debug_bc_locals = &locals) stays valid across nested OP_CALLs.  The
+    // seeding step below unconditionally overwrites every slot [0,local_count),
+    // so a reused buffer's stale contents are always replaced before any read.
+    const int _locals_frame = vm.locals_depth++;
+    while ((int)vm.locals_pool.size() <= _locals_frame) {
+        vm.locals_pool.emplace_back();
+    }
+    struct LocalsFrameGuard {
+        VMState &v;
+        ~LocalsFrameGuard() { v.locals_depth--; }
+    } _locals_guard{vm};
+    Vector<Variant> &locals = vm.locals_pool[_locals_frame];
     // ── Fast-call convention (v6.0) ────────────────────────────────────
     // When the compiler flagged this chunk fast_params, the caller
     // (call_internal) did NOT bind the parameters or return variable into the
