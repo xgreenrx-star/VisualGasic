@@ -282,10 +282,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     }
 
     const bool stack_profile_enabled = !is_parallel_worker && vg_stack_profile_enabled();
-    const bool stack_trace_enabled = !is_parallel_worker && []() {
+    // Cache the VG_STACK_TRACE env probe once (function-local static, thread-safe
+    // per C++11) instead of calling getenv() — a linear environ scan — on EVERY
+    // execute_bytecode invocation (~1.6% of call-heavy instructions, per perf).
+    static const bool _vg_stack_trace_env = []() {
         const char *trace_env = std::getenv("VG_STACK_TRACE");
         return trace_env && trace_env[0] != '\0' && trace_env[0] != '0';
     }();
+    const bool stack_trace_enabled = !is_parallel_worker && _vg_stack_trace_env;
     StackProfileSample stack_profile_sample;
     String stack_profile_label = "<bytecode>";
     if (stack_profile_enabled) {
@@ -482,6 +486,24 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // ── End JIT Tier 2 ────────────────────────────────────────────────
 
     Vector<Variant> locals;
+    // ── Fast-call convention (v6.0) ────────────────────────────────────
+    // When the compiler flagged this chunk fast_params, the caller
+    // (call_internal) did NOT bind the parameters or return variable into the
+    // variables[] Dictionary.  Instead the coerced argument values arrive via
+    // p_fast_args and are dropped straight into the leading local slots below,
+    // and the return value is read back out of return_slot on exit.
+    // Slots [0, param_count) are parameters; return_slot (if >= 0) holds the
+    // Function result.  These slots are ALWAYS overwritten by the seeding step
+    // just below, so the per-slot variables[]/builtin_constants/global_scope
+    // probe in the init loop is pure waste for them — skip it (that probe was
+    // ~9% of call-heavy instructions: up to 3 Dictionary::has per slot per call,
+    // e.g. 6 dict probes on every leaf-function call, all immediately clobbered).
+    const bool fast_call = (chunk->fast_params && p_fast_args != nullptr);
+    const int  fast_param_count = fast_call ? chunk->param_count : 0;
+    const int  fast_return_slot = fast_call ? chunk->return_slot : -1;
+    auto is_fast_slot = [&](int slot) -> bool {
+        return fast_call && (slot < fast_param_count || slot == fast_return_slot);
+    };
     if (p_initial_locals) {
         // Parallel worker — use pre-initialized locals (with loop var set).
         locals = *p_initial_locals;
@@ -489,7 +511,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         locals.resize(chunk->local_count);
         for (int i = 0; i < chunk->local_count; i++) {
             Variant initial;
-            if (i < chunk->local_names.size()) {
+            // Fast-call param/return slots are seeded from p_fast_args right
+            // after this loop, so skip the (thrice-)Dictionary probe for them.
+            if (!is_fast_slot(i) && i < chunk->local_names.size()) {
                 const String &name = chunk->local_names[i];
                 if (!name.is_empty()) {
                     if (variables.has(name)) {
@@ -505,21 +529,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         }
     }
 
-    // ── Fast-call convention (v6.0) ────────────────────────────────────
-    // When the compiler flagged this chunk fast_params, the caller
-    // (call_internal) did NOT bind the parameters or return variable into the
-    // variables[] Dictionary.  Instead the coerced argument values arrive via
-    // p_fast_args and are dropped straight into the leading local slots here,
-    // and the return value is read back out of return_slot on exit (below).
-    // Slots [0, param_count) are parameters; return_slot (if >= 0) holds the
-    // Function result and is initialised from the last p_fast_args element (the
-    // typed zero the caller computed from the return type).
-    const bool fast_call = (chunk->fast_params && p_fast_args != nullptr);
-    const int  fast_param_count = fast_call ? chunk->param_count : 0;
-    const int  fast_return_slot = fast_call ? chunk->return_slot : -1;
-    auto is_fast_slot = [&](int slot) -> bool {
-        return fast_call && (slot < fast_param_count || slot == fast_return_slot);
-    };
+    // ── Fast-call seeding ──────────────────────────────────────────────
+    // Drop the coerced argument values straight into the leading local slots,
+    // and initialise return_slot (if >= 0) from the last p_fast_args element
+    // (the typed zero the caller computed from the return type).
     if (fast_call) {
         for (int i = 0; i < fast_param_count && i < p_fast_args->size() && i < locals.size(); i++) {
             locals.write[i] = (*p_fast_args)[i];

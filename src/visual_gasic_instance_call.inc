@@ -375,8 +375,18 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     error_state.has_error = false;
     error_state.label = "";
 
-    // Push call stack frame for debugger
-    String file_path = script.is_valid() ? script->get_path() : "";
+    // Push call stack frame for debugger.
+    // Part M: reuse the pointer-guarded script-path cache (added in Part J for
+    // execute_bytecode) instead of calling script->get_path() on EVERY call —
+    // get_path was ~5.4% of call-heavy runtime (a fresh String alloc per call).
+    String file_path;
+    if (script.is_valid()) {
+        if (_debug_script_path_owner != script.ptr()) {
+            _debug_script_path = script->get_path();
+            _debug_script_path_owner = script.ptr();
+        }
+        file_path = _debug_script_path;
+    }
     int start_line = func->statements.size() > 0 ? func->statements[0]->line : 0;
     VisualGasicLanguage::push_stack_frame(file_path, func->name, start_line, this);
 
