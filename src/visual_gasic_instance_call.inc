@@ -33,7 +33,6 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
 
     SubDefinition *func = nullptr;
     ImportedModule* owning_module = nullptr;
-    String bytecode_key;
     BytecodeChunk *chunk_for_locals = nullptr;
     int call_arg_count = p_arg_count;
 
@@ -58,7 +57,6 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
         func = p_pre_resolved->func;
         owning_module = (p_pre_resolved->owning_module_index >= 0)
                         ? &imported_modules.write[p_pre_resolved->owning_module_index] : nullptr;
-        bytecode_key = p_pre_resolved->bytecode_key;
         chunk_for_locals = p_pre_resolved->chunk_for_locals;
     } else {
     String _res_key = p_method.to_lower() + "#" + String::num_int64(call_arg_count);
@@ -67,7 +65,6 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
         if (_cached.resolved) {
             func = _cached.func;
             owning_module = (_cached.owning_module_index >= 0) ? &imported_modules.write[_cached.owning_module_index] : nullptr;
-            bytecode_key = _cached.bytecode_key;
             chunk_for_locals = _cached.chunk_for_locals;
         }
         // _cached.resolved == false means "no module/import-level function with
@@ -128,6 +125,14 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
             // v3.7: Use mangled bytecode key for overloaded functions (name$arity)
             // v4.4.0: mangle against the OWNING module's own subs list (main script
             // or an imported module), not always the calling script's ast_root.
+            // Part AE (v6.0 perf): bytecode_key lives ONLY here — it is read solely
+            // to compute chunk_for_locals below and to populate the cache entry.
+            // The pre-resolved and cache-hit fast paths thread chunk_for_locals
+            // directly and never read it back, so keeping the String at function
+            // scope cost a construct + String::operator= + destruct on EVERY hot
+            // call for a value those paths discard.  Sunk here, the hot paths pay
+            // nothing; only the once-per-call-site cache-miss branch builds it.
+            String bytecode_key;
             const Vector<SubDefinition*>& owner_subs = owning_module ? owning_module->ast->subs : script->ast_root->subs;
             for (int _oi = 0; _oi < owner_subs.size(); _oi++) {
                 if (owner_subs[_oi] != func &&
