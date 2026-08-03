@@ -237,7 +237,7 @@ void VisualGasicInstance::_task_run_bc_worker(void* user_data) {
 bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* func, Variant &r_ret,
                                            int p_ip_start, int p_ip_end,
                                            const Vector<Variant>* p_initial_locals,
-                                           const Vector<Variant>* p_fast_args) {
+                                           const Variant* p_fast_args, int p_fast_count) {
     if (!chunk) {
         r_ret = Variant();
         return false;
@@ -562,13 +562,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // and initialise return_slot (if >= 0) from the last p_fast_args element
     // (the typed zero the caller computed from the return type).
     if (fast_call) {
-        for (int i = 0; i < fast_param_count && i < p_fast_args->size() && i < locals.size(); i++) {
-            locals.write[i] = (*p_fast_args)[i];
+        for (int i = 0; i < fast_param_count && i < p_fast_count && i < locals.size(); i++) {
+            locals.write[i] = p_fast_args[i];
         }
         if (fast_return_slot >= 0 && fast_return_slot < locals.size()) {
             // The caller appends the typed return-init value after the params.
-            if (p_fast_args->size() > fast_param_count) {
-                locals.write[fast_return_slot] = (*p_fast_args)[fast_param_count];
+            if (p_fast_count > fast_param_count) {
+                locals.write[fast_return_slot] = p_fast_args[fast_param_count];
             }
         }
     }

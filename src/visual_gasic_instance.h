@@ -418,7 +418,7 @@ public:
     bool execute_bytecode(BytecodeChunk* chunk, SubDefinition* func, Variant &r_ret,
                           int p_ip_start = 0, int p_ip_end = -1,
                           const Vector<Variant>* p_initial_locals = nullptr,
-                          const Vector<Variant>* p_fast_args = nullptr);
+                          const Variant* p_fast_args = nullptr, int p_fast_count = 0);
 
     bool set(const StringName &p_name, const Variant &p_value);
     bool get(const StringName &p_name, Variant &r_ret);

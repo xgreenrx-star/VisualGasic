@@ -276,15 +276,30 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     // dominates call overhead.  Build the coerced argument values once and reuse
     // them for both the bytecode seed and the (rare) AST fallback binding.
     // (use_fast_params was computed above, before the save loop.)
-    Vector<Variant> fast_arg_values;
+    // Part T: fast-call argument buffer.  The coerced ByVal arg values (plus the
+    // typed return-init) are copied into the callee's leading local slots by
+    // execute_bytecode's fast-call seeding BEFORE any nested call runs, so a
+    // per-frame buffer suffices.  A small stack array covers the common case
+    // (<= FAST_ARGS_INLINE args) and avoids the per-call heap allocation of a
+    // godot Vector<Variant> (CowData::resize + Memory::alloc_static were each
+    // ~3% of call-heavy runtime); many-arg calls fall back to the heap Vector.
+    constexpr int FAST_ARGS_INLINE = 6;
+    Variant _fast_args_inline[FAST_ARGS_INLINE];
+    Vector<Variant> _fast_args_heap;   // fallback storage for > FAST_ARGS_INLINE
+    Variant* fast_arg_values = _fast_args_inline;
+    int fast_arg_count = 0;
 
     // Arguments
     int max_params = func->parameters.size();
     if (use_fast_params) {
         // Scalar ByVal params only (guaranteed by the compiler's fast_params
-        // guard) → pure coercion into a flat vector, no variables[] writes.
+        // guard) → pure coercion into a flat buffer, no variables[] writes.
         // The trailing slot (Functions only) carries the typed return init.
-        fast_arg_values.resize(max_params + (func->type == SubDefinition::TYPE_FUNCTION ? 1 : 0));
+        fast_arg_count = max_params + (func->type == SubDefinition::TYPE_FUNCTION ? 1 : 0);
+        if (fast_arg_count > FAST_ARGS_INLINE) {
+            _fast_args_heap.resize(fast_arg_count);
+            fast_arg_values = _fast_args_heap.ptrw();
+        }
         // Precomputed coercion codes (compiler) replace the per-call
         // type_hint.to_lower() + string compares.  Guarded by a size check so a
         // chunk somehow lacking them falls back to the original string path.
@@ -315,7 +330,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
                 UtilityFunctions::print("Runtime Error: Argument '", param.name, "' missing for ", func->name);
                 val = Variant();
             }
-            fast_arg_values.write[i] = val;
+            fast_arg_values[i] = val;
         }
         if (func->type == SubDefinition::TYPE_FUNCTION) {
             Variant init_val = Variant();
@@ -335,7 +350,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
                 else if (t == "string") init_val = "";
                 else if (t == "boolean") init_val = false;
             }
-            fast_arg_values.write[max_params] = init_val;
+            fast_arg_values[max_params] = init_val;
         }
     } else {
         // Use larger size if params exist, or args exist.
@@ -426,7 +441,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         // success, so on failure the dictionary stays clean and the
         // AST fallback can re-execute without a rollback copy.
         used_bytecode = execute_bytecode(chunk_for_locals, func, bytecode_ret, 0, -1, nullptr,
-                                         use_fast_params ? &fast_arg_values : nullptr);
+                                         use_fast_params ? fast_arg_values : nullptr, fast_arg_count);
         if (!used_bytecode) {
             if (error_state.has_error) {
                 // Bytecode VM hit a runtime error (e.g. "Sub or Function not
@@ -448,11 +463,11 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         // fallback path — only reached when the bytecode VM bailed without a
         // hard error).
         if (use_fast_params) {
-            for (int i = 0; i < func->parameters.size() && i < fast_arg_values.size(); i++) {
+            for (int i = 0; i < func->parameters.size() && i < fast_arg_count; i++) {
                 variables[func->parameters[i].name] = fast_arg_values[i];
             }
             if (func->type == SubDefinition::TYPE_FUNCTION &&
-                fast_arg_values.size() > func->parameters.size()) {
+                fast_arg_count > func->parameters.size()) {
                 variables[func->name] = fast_arg_values[func->parameters.size()];
             }
         }
