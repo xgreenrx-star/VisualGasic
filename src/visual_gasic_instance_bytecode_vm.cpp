@@ -255,7 +255,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // Push debug stack frame for Godot debugger integration
     // (skip for parallel workers AND sub-range bodies — these are internal
     // recursive calls that don't need their own stack frames)
-    String debug_file = (!is_parallel_worker && !is_sub_range && script.is_valid()) ? script->get_path() : String("<unknown>");
+    // Part J: script->get_path() is memoized (constant per script) — it was
+    // ~6.3% of call-heavy runtime when called fresh on every execute_bytecode.
+    String debug_file;
+    if (!is_parallel_worker && !is_sub_range && script.is_valid()) {
+        if (_debug_script_path_owner != script.ptr()) {
+            _debug_script_path = script->get_path();
+            _debug_script_path_owner = script.ptr();
+        }
+        debug_file = _debug_script_path;
+    } else {
+        debug_file = String("<unknown>");
+    }
     if (!is_parallel_worker && !is_sub_range) {
         String debug_func = func ? func->name : String("<main>");
         VisualGasicLanguage::push_stack_frame(debug_file, debug_func, 0, this);

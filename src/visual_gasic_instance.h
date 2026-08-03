@@ -96,6 +96,14 @@ class VisualGasicInstance {
     // scan.  Populated only from module-level scope; see OP_CALL in the VM.
     HashSet<String> _engine_call_cache;
 
+    // Part J (v6.0 perf): cache script->get_path() for the per-call debug stack
+    // frame.  Resource::get_path() ran once per execute_bytecode (i.e. every
+    // function call) and was ~6.3% of call-heavy runtime; the path is constant
+    // for the instance's script, so memoize it, guarded by the script pointer so
+    // a script reassignment refreshes it.
+    String _debug_script_path;
+    const void* _debug_script_path_owner = nullptr;
+
     // Cross-module MemoryBuffer var-name cache (see get_global_buffer_var_names() below)
     HashSet<String> _global_buffer_var_names;
     bool _global_buffer_var_names_computed = false;
