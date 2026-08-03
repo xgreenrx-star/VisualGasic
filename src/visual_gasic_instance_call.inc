@@ -466,7 +466,6 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
 
     bool used_bytecode = false;
     Variant bytecode_ret;
-    ErrorState bytecode_error_backup = error_state;
     if (chunk_for_locals) {
         // v2.5: No more variables.duplicate(true) deep copy!
         // execute_bytecode() now only flushes locals→variables on
@@ -484,7 +483,20 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                 // error will propagate to the caller at cleanup below.
                 used_bytecode = true;
             } else {
-                error_state = bytecode_error_backup;
+                // Part AF (v6.0 perf): reconstruct the pre-execution error_state
+                // snapshot from prev_error (saved at fn entry) instead of a per-call
+                // SECOND full ErrorState copy (the old `bytecode_error_backup`).
+                // Between that entry snapshot and this point the ONLY error_state
+                // mutations are the mode=NONE + has_error=false reset above (label/
+                // message/code/error_line are untouched), so restoring prev_error and
+                // re-applying those two scalars is BYTE-IDENTICAL to the old backup.
+                // The two String member copies now fall ONLY on this cold AST-fallback
+                // branch, never the hot bytecode-success path every fast_params call
+                // takes.  (ErrorState::ErrorState 1.61% + ErrorState::operator= 1.31%
+                // surfaced as the top cluster once Part AE removed the String cost.)
+                error_state = prev_error;
+                error_state.mode = ErrorState::NONE;
+                error_state.has_error = false;
             }
         }
     }
