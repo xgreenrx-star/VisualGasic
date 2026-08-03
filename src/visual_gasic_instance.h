@@ -297,7 +297,7 @@ class VisualGasicInstance {
     SubDefinition* current_sub;
     int jump_target;
     
-    Variant call_internal(const String& p_method, const Array& p_args, bool &r_found, const CallResolutionCacheEntry* p_pre_resolved = nullptr);
+    Variant call_internal(const String& p_method, const Array& p_args, bool &r_found, const CallResolutionCacheEntry* p_pre_resolved = nullptr, VMState* p_vm = nullptr);
 
     // Small helper declarations used by statement execution implementation.
     // `dispatch_builtin_call` dispatches built-in method calls (returns via found flag).
@@ -418,7 +418,8 @@ public:
     bool execute_bytecode(BytecodeChunk* chunk, SubDefinition* func, Variant &r_ret,
                           int p_ip_start = 0, int p_ip_end = -1,
                           const Vector<Variant>* p_initial_locals = nullptr,
-                          const Variant* p_fast_args = nullptr, int p_fast_count = 0);
+                          const Variant* p_fast_args = nullptr, int p_fast_count = 0,
+                          VMState* p_vm = nullptr);
 
     bool set(const StringName &p_name, const Variant &p_value);
     bool get(const StringName &p_name, Variant &r_ret);

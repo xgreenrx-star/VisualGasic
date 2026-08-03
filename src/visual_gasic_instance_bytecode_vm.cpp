@@ -237,7 +237,8 @@ void VisualGasicInstance::_task_run_bc_worker(void* user_data) {
 bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* func, Variant &r_ret,
                                            int p_ip_start, int p_ip_end,
                                            const Vector<Variant>* p_initial_locals,
-                                           const Variant* p_fast_args, int p_fast_count) {
+                                           const Variant* p_fast_args, int p_fast_count,
+                                           VMState* p_vm) {
     if (!chunk) {
         r_ret = Variant();
         return false;
@@ -328,8 +329,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // pool threads execute bytecode concurrently without conflicting.
     // Recursive calls (OP_CALL → call_internal → execute_bytecode) nest
     // correctly via the stack_base / previous_ip save-restore pattern.
+    // Part X: inherit the caller's already-resolved VMState pointer when threaded
+    // through the OP_CALL -> call_internal -> execute_bytecode path.  tl_vm is a
+    // `static thread_local` (global-dynamic TLS model in this dlopen'd .so), so
+    // binding it costs an out-of-line __tls_get_addr on EVERY execute_bytecode
+    // call (~2.5% of call-heavy instructions; a 1M-iteration leaf pays it 1M
+    // times).  A nested call is on the SAME thread as its caller, so &tl_vm there
+    // is identical to the caller's &vm — passing the pointer down skips the
+    // redundant lookup.  Top-level entries (workers, the tree-walk interpreter,
+    // signal dispatch) pass p_vm=nullptr and resolve tl_vm exactly once.
     static thread_local VMState tl_vm;
-    auto& vm = tl_vm;  // shadow instance member for thread-safety
+    VMState& vm = p_vm ? *p_vm : tl_vm;  // shadow instance member for thread-safety
 
     const size_t stack_base = vm.stack.size();
     int previous_ip = vm.ip;
@@ -3282,7 +3292,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!handled) {
                     bool found = false;
                     if (!_pc_engine_call) {
-                        call_ret = call_internal(method, args, found, _pc_pre_resolved);
+                        call_ret = call_internal(method, args, found, _pc_pre_resolved, &vm);
                     }
                     if (!found) {
                         // Check if this is a variable used as array/dict index or lambda
@@ -5812,7 +5822,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 if (_ce_node) {
                                     String _ce_sub = String(_ce_node->get_name()) + "_Change";
                                     bool _ce_found = false;
-                                    call_internal(_ce_sub, Array(), _ce_found);
+                                    call_internal(_ce_sub, Array(), _ce_found, nullptr, &vm);
                                 }
                             }
                             push_value(base);

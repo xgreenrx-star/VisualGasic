@@ -1,4 +1,4 @@
-Variant VisualGasicInstance::call_internal(const String& p_method, const Array& p_args, bool &r_found, const CallResolutionCacheEntry* p_pre_resolved) {
+Variant VisualGasicInstance::call_internal(const String& p_method, const Array& p_args, bool &r_found, const CallResolutionCacheEntry* p_pre_resolved, VMState* p_vm) {
     r_found = false;
     if (!script.is_valid() || !script->ast_root) return Variant();
 
@@ -441,7 +441,8 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         // success, so on failure the dictionary stays clean and the
         // AST fallback can re-execute without a rollback copy.
         used_bytecode = execute_bytecode(chunk_for_locals, func, bytecode_ret, 0, -1, nullptr,
-                                         use_fast_params ? fast_arg_values : nullptr, fast_arg_count);
+                                         use_fast_params ? fast_arg_values : nullptr, fast_arg_count,
+                                         p_vm);
         if (!used_bytecode) {
             if (error_state.has_error) {
                 // Bytecode VM hit a runtime error (e.g. "Sub or Function not
