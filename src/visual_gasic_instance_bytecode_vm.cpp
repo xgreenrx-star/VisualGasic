@@ -7652,7 +7652,21 @@ cleanup:
         for (int i = 0; i < locals.size() && i < chunk->local_names.size(); i++) {
             if (is_fast_slot(i)) continue; // fast-call params/return never enter variables[]
             const String &name = chunk->local_names[i];
-            if (!name.is_empty() && !builtin_constants.has(name)) {
+            if (name.is_empty()) continue;
+            // Part Y: compiler-generated temporaries (__cse_*, __inv_to_*,
+            // __const_step_*) are pure intraprocedural scratch — written before
+            // read, dead the moment their consuming opcode runs, and "__"-
+            // prefixed so they can never be a user/global name the caller or
+            // AST fallback reads back (VB6 identifiers start with a letter).
+            // Flushing them into variables[] is doubly wasteful: a guaranteed-
+            // miss builtin_constants.has() probe (the dominant residual per-call
+            // Dictionary::has on leaf functions — a leaf `f(x)=x+1` compiles
+            // exactly one __cse_ temp, so this fired on every single call) PLUS
+            // a variables[] insert that only pollutes the dict with a dead
+            // value.  This is the exact mirror of the Part R entry-seed skip —
+            // never flush a compiler temp.
+            if (name.length() >= 2 && name[0] == '_' && name[1] == '_') continue;
+            if (!builtin_constants.has(name)) {
                 variables[name] = locals[i];
             }
         }
