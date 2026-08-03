@@ -6197,9 +6197,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 
                 // Update debug state
                 debug_state.current_line = line_number;
+                // Part O2: reuse the memoized, pointer-guarded script-path cache
+                // (Part J/M/O) instead of calling script->get_path() — a fresh String
+                // heap alloc — on EVERY executed statement. This was the last per-call
+                // get_path (~3.3% of call-heavy instructions) after the frame-push
+                // caches. Worker threads early-out above, so this shared-cache write is
+                // main-thread-only. Semantics unchanged: script_path stays empty when
+                // the script is invalid.
                 String script_path;
                 if (script.is_valid()) {
-                    script_path = script->get_path();
+                    if (_debug_script_path_owner != script.ptr()) {
+                        _debug_script_path = script->get_path();
+                        _debug_script_path_owner = script.ptr();
+                    }
+                    script_path = _debug_script_path;
                     debug_state.current_file = script_path;
                 }
                 
