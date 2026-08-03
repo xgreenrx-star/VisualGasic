@@ -1135,6 +1135,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         // call_argc validates the memo against this site's arg count (overloads).
         int8_t call_disp = -1;
         int32_t call_argc = -1;
+        // Part I: cached full resolution for a known user Sub (call_disp==0), copied
+        // from _call_resolution_cache so call_internal() can skip its own to_lower +
+        // "name#argc" concat + hashmap probe + linear rescan on every hot-path call.
+        CallResolutionCacheEntry call_res;
     };
 
     Vector<MemberNameCacheEntry> member_name_cache;
@@ -2862,6 +2866,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 String _pc_res_key;     // lazily computed
                 bool _pb_known_user_sub = false;
                 bool _pc_engine_call = false;   // Part C: cached deep-fallback call (statement builtin / owner method)
+                const CallResolutionCacheEntry* _pc_pre_resolved = nullptr;   // Part I: threaded into call_internal on a hit
                 {
                     const bool _cc_ok = (name_idx >= 0 && name_idx < member_name_cache.size());
                     MemberNameCacheEntry *_cc = _cc_ok ? &member_name_cache.write[name_idx] : nullptr;
@@ -2870,6 +2875,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // no concat, no hashmap probe.
                         if (_cc->call_disp == 0) {
                             _pb_known_user_sub = true;
+                            _pc_pre_resolved = &_cc->call_res;   // Part I: skip call_internal's re-resolution
                         } else if (_cc->call_disp == 1 && current_object_id == -1) {
                             _pc_engine_call = true;
                         }
@@ -2878,7 +2884,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         _pc_res_key = _method_lower + "#" + String::num_int64(arg_count);
                         if (_call_resolution_cache.has(_pc_res_key)) {
                             const CallResolutionCacheEntry &_pb_cached = _call_resolution_cache[_pc_res_key];
-                            if (_pb_cached.resolved) _pb_known_user_sub = true;
+                            if (_pb_cached.resolved) {
+                                _pb_known_user_sub = true;
+                                if (_cc) _cc->call_res = _pb_cached;   // Part I: cache full resolution for threading
+                            }
                         }
                         // Part C: (name, arg count) pairs proven to resolve only at
                         // the deep fallback — statement/drawing builtins
@@ -2896,7 +2905,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // Left at -1 when neither cache resolved yet (they populate
                         // after the first real dispatch) so the next call re-probes.
                         if (_cc) {
-                            if (_pb_known_user_sub) { _cc->call_disp = 0; _cc->call_argc = (int)arg_count; }
+                            if (_pb_known_user_sub) { _cc->call_disp = 0; _cc->call_argc = (int)arg_count; _pc_pre_resolved = &_cc->call_res; }
                             else if (_pc_engine_call) { _cc->call_disp = 1; _cc->call_argc = (int)arg_count; }
                         }
                     }
@@ -3164,7 +3173,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!handled) {
                     bool found = false;
                     if (!_pc_engine_call) {
-                        call_ret = call_internal(method, args, found);
+                        call_ret = call_internal(method, args, found, _pc_pre_resolved);
                     }
                     if (!found) {
                         // Check if this is a variable used as array/dict index or lambda

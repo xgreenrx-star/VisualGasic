@@ -1,4 +1,4 @@
-Variant VisualGasicInstance::call_internal(const String& p_method, const Array& p_args, bool &r_found) {
+Variant VisualGasicInstance::call_internal(const String& p_method, const Array& p_args, bool &r_found, const CallResolutionCacheEntry* p_pre_resolved) {
     r_found = false;
     if (!script.is_valid() || !script->ast_root) return Variant();
 
@@ -29,6 +29,21 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     // lifetime of this instance's AST, so cache it. This does NOT change the
     // saved_locals/argument-binding work below (still done per-call) — only the
     // "which function/bytecode-chunk is this?" resolution step.
+    // ── VM-threaded pre-resolution fast path (Part I, v6.0 perf) ──
+    // The bytecode OP_CALL handler memoizes the resolution for each immutable
+    // call site and threads it here, letting a hot loop's repeated calls skip
+    // the p_method.to_lower() + "name#argc" concat + the _call_resolution_cache
+    // string-key probe below entirely (String::to_lower was ~12.7% of call-heavy
+    // runtime, per perf, once fast_params engaged).  Mirrors the cache-hit branch
+    // exactly; only ever set for module-level resolutions (never class siblings),
+    // preserving the module-takes-precedence order below.
+    if (p_pre_resolved && p_pre_resolved->resolved) {
+        func = p_pre_resolved->func;
+        owning_module = (p_pre_resolved->owning_module_index >= 0)
+                        ? &imported_modules.write[p_pre_resolved->owning_module_index] : nullptr;
+        bytecode_key = p_pre_resolved->bytecode_key;
+        chunk_for_locals = p_pre_resolved->chunk_for_locals;
+    } else {
     String _res_key = p_method.to_lower() + "#" + String::num_int64(call_arg_count);
     if (_call_resolution_cache.has(_res_key)) {
         const CallResolutionCacheEntry &_cached = _call_resolution_cache[_res_key];
@@ -112,6 +127,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         }
         _call_resolution_cache[_res_key] = _new_entry;
     }
+    }  // end pre-resolution else (Part I)
 
     // ── Same-class sibling method resolution ──
     // Bare (unqualified) calls made from inside a Class ... End Class method

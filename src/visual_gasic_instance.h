@@ -289,7 +289,7 @@ class VisualGasicInstance {
     SubDefinition* current_sub;
     int jump_target;
     
-    Variant call_internal(const String& p_method, const Array& p_args, bool &r_found);
+    Variant call_internal(const String& p_method, const Array& p_args, bool &r_found, const CallResolutionCacheEntry* p_pre_resolved = nullptr);
 
     // Small helper declarations used by statement execution implementation.
     // `dispatch_builtin_call` dispatches built-in method calls (returns via found flag).
