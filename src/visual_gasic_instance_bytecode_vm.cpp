@@ -1198,10 +1198,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         CallResolutionCacheEntry call_res;
     };
 
+    // Lazily sized on first member-cache opcode (OP_CALL / OP_GET_MEMBER /
+    // OP_SET_MEMBER / OP_GET_GLOBAL).  A leaf chunk that uses none of those
+    // (e.g. a pure-arithmetic helper like `f(x) = x + 1`) never touches it, so
+    // it never allocates — removing a per-call Vector<MemberNameCacheEntry>
+    // alloc plus N heavy-entry (String+StringName+Vector+CallResolutionCacheEntry)
+    // construct/destruct (~2% of call-heavy runtime) on every such leaf call.
     Vector<MemberNameCacheEntry> member_name_cache;
-    member_name_cache.resize(chunk->constants.size());
 
     auto ensure_member_cache_entry = [&](int idx) -> MemberNameCacheEntry& {
+        // Lazy first-touch allocation (see declaration above): a chunk reaches
+        // here only if it actually executes a member-cache opcode.
+        if (member_name_cache.size() != chunk->constants.size()) {
+            member_name_cache.resize(chunk->constants.size());
+        }
         MemberNameCacheEntry &entry = member_name_cache.write[idx];
         if (!entry.initialized) {
             Variant member_variant = read_constant(idx);
@@ -1716,7 +1726,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Part F: memoize the special-name test per constant index so the
                 // to_lower ptrcall runs once per distinct global name, not per read.
                 bool _name_is_special;
-                if (idx >= 0 && idx < member_name_cache.size()) {
+                if (idx >= 0 && idx < chunk->constants.size()) {
+                    // Lazy first-touch allocation of the memo cache (see decl).
+                    if (member_name_cache.size() != chunk->constants.size()) {
+                        member_name_cache.resize(chunk->constants.size());
+                    }
                     int8_t &_sp = member_name_cache.write[idx].is_special_global;
                     if (_sp < 0) {
                         _sp = _vg_global_special_names.has(name.to_lower()) ? 1 : 0;
@@ -4135,7 +4149,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int idx = read_const_index();
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 int member_idx = idx;
-                if (member_idx >= member_name_cache.size()) {
+                if (member_idx < 0 || member_idx >= chunk->constants.size()) {
                     raise_error("Invalid member constant index");
                     if (try_recover_error(Variant())) break;
                     success = false;
@@ -4979,7 +4993,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int idx = read_const_index();
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 int member_idx = idx;
-                if (member_idx >= member_name_cache.size()) {
+                if (member_idx < 0 || member_idx >= chunk->constants.size()) {
                     raise_error("Invalid member constant index");
                     if (try_recover_error(Variant(), false)) break;
                     success = false;
