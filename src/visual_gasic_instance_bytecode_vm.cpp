@@ -2930,10 +2930,26 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int name_idx = read_const_index();
                 uint8_t arg_count = code[vm.ip++];
                 if (!ensure_stack(arg_count)) { success = false; goto cleanup; }
-                Array args;
-                args.resize(arg_count);
+                // Part Z: pop the arguments into a C++-stack SBO buffer instead of a
+                // godot Array.  For a resolved user-Sub call — the hot path in call-
+                // heavy code — the args go straight to call_internal's Variant* fast
+                // overload and the godot Array is NEVER built, eliminating its per-
+                // call heap lifecycle (Array() ArrayPrivate alloc + CowData<Variant>
+                // resize + Memory::alloc_static + _copy_on_write + ~CowData were ~6%
+                // of call-heavy runtime).  The two COLD dispatch paths (builtin/
+                // special cascade, and the variable/lambda/engine fallback) each
+                // materialize a real Array from this buffer locally, on demand.  A
+                // small inline array covers the common arity; >8 args spill to heap.
+                constexpr int OPCALL_INLINE_ARGS = 8;
+                Variant _opcall_args_inline[OPCALL_INLINE_ARGS];
+                Vector<Variant> _opcall_args_heap;
+                Variant* args_ptr = _opcall_args_inline;
+                if (arg_count > OPCALL_INLINE_ARGS) {
+                    _opcall_args_heap.resize(arg_count);
+                    args_ptr = _opcall_args_heap.ptrw();
+                }
                 for (int i = arg_count - 1; i >= 0; i--) {
-                    args[i] = pop_value();
+                    args_ptr[i] = pop_value();
                 }
                 // Part K: reference the method name straight from the per-constant
                 // member cache instead of rebuilding it (Variant copy + String ctor,
@@ -3038,6 +3054,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 
                 if (!_pb_known_user_sub && !_pc_engine_call) {
+                // Cold path: materialize a real godot Array from the SBO buffer for
+                // the builtin-expr + special-case cascade below (they take Array).
+                Array args;
+                args.resize(arg_count);
+                for (int _ai = 0; _ai < arg_count; _ai++) args[_ai] = args_ptr[_ai];
                 call_ret = VisualGasicBuiltins::call_builtin_expr_evaluated(this, method, args, handled);
 
                 // ── Special-case engine-method cascade gate (perf) ──
@@ -3292,9 +3313,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!handled) {
                     bool found = false;
                     if (!_pc_engine_call) {
-                        call_ret = call_internal(method, args, found, _pc_pre_resolved, &vm);
+                        call_ret = call_internal(method, args_ptr, arg_count, found, _pc_pre_resolved, &vm);
                     }
                     if (!found) {
+                        // Cold path: materialize a real godot Array from the SBO
+                        // buffer for the variable-index / lambda / dispatch_builtin /
+                        // owner->callv fallbacks below (they all take an Array).
+                        Array args;
+                        args.resize(arg_count);
+                        for (int _ai = 0; _ai < arg_count; _ai++) args[_ai] = args_ptr[_ai];
                         // Check if this is a variable used as array/dict index or lambda
                         // (matches AST interpreter's CallExpression → variable fallback).
                         // Must search BOTH the variables[] dict AND the local slot

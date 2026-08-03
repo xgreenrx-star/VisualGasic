@@ -298,6 +298,11 @@ class VisualGasicInstance {
     int jump_target;
     
     Variant call_internal(const String& p_method, const Array& p_args, bool &r_found, const CallResolutionCacheEntry* p_pre_resolved = nullptr, VMState* p_vm = nullptr);
+    // Part Z: Variant* fast overload — the hot bytecode OP_CALL path pops args
+    // into a C++-stack SBO and calls this directly, skipping the per-call godot
+    // Array heap lifecycle.  The Array overload above is a thin forwarding
+    // wrapper (copies into a buffer) kept for the cold event/AST-fallback callers.
+    Variant call_internal(const String& p_method, const Variant* p_args, int p_arg_count, bool &r_found, const CallResolutionCacheEntry* p_pre_resolved = nullptr, VMState* p_vm = nullptr);
 
     // Small helper declarations used by statement execution implementation.
     // `dispatch_builtin_call` dispatches built-in method calls (returns via found flag).

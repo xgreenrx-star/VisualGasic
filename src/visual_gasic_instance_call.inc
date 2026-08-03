@@ -1,4 +1,21 @@
+// Thin Array-based wrapper (kept for the ~15 cold callers: GUI event dispatch,
+// evaluate.inc, execute.inc, statement.cpp, the _Change handler).  It copies the
+// godot Array into a flat Variant buffer and forwards to the Variant* core.
+// These sites are all cold (GUI events / AST fallback), never the tight call
+// loops, so the copy is immaterial — the hot bytecode OP_CALL path calls the
+// Variant* core directly with a C++-stack SBO and never builds an Array at all.
 Variant VisualGasicInstance::call_internal(const String& p_method, const Array& p_args, bool &r_found, const CallResolutionCacheEntry* p_pre_resolved, VMState* p_vm) {
+    const int _n = p_args.size();
+    constexpr int _WRAP_INLINE = 8;
+    Variant _wrap_inline[_WRAP_INLINE];
+    Vector<Variant> _wrap_heap;
+    Variant* _wp = _wrap_inline;
+    if (_n > _WRAP_INLINE) { _wrap_heap.resize(_n); _wp = _wrap_heap.ptrw(); }
+    for (int _i = 0; _i < _n; _i++) _wp[_i] = p_args[_i];
+    return call_internal(p_method, _wp, _n, r_found, p_pre_resolved, p_vm);
+}
+
+Variant VisualGasicInstance::call_internal(const String& p_method, const Variant* p_args, int p_arg_count, bool &r_found, const CallResolutionCacheEntry* p_pre_resolved, VMState* p_vm) {
     r_found = false;
     if (!script.is_valid() || !script->ast_root) return Variant();
 
@@ -18,7 +35,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     ImportedModule* owning_module = nullptr;
     String bytecode_key;
     BytecodeChunk *chunk_for_locals = nullptr;
-    int call_arg_count = p_args.size();
+    int call_arg_count = p_arg_count;
 
     // ── Call-site resolution cache (v6.0 perf, Jul 2026) ──
     // Resolving the callee used to be a full linear rescan of every module-level
@@ -145,7 +162,10 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
             SubDefinition* sibling = find_method_in_hierarchy(cls, p_method, call_arg_count);
             if (sibling) {
                 r_found = true;
-                return call_object_method(current_object_id, p_method, p_args);
+                Array _oa;
+                _oa.resize(p_arg_count);
+                for (int _i = 0; _i < p_arg_count; _i++) _oa[_i] = p_args[_i];
+                return call_object_method(current_object_id, p_method, _oa);
             }
         }
     }
@@ -307,7 +327,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         for (int i = 0; i < max_params; i++) {
             Parameter& param = func->parameters.write[i];
             Variant val;
-            if (i < p_args.size()) {
+            if (i < p_arg_count) {
                 val = p_args[i];
                 if (_have_pc) {
                     switch (chunk_for_locals->fast_param_coerce[i]) {
@@ -361,14 +381,14 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
             if (param.is_param_array) {
                 // ParamArray collects all remaining arguments into an array
                 Array rest;
-                for(int k=i; k<p_args.size(); k++) {
+                for(int k=i; k<p_arg_count; k++) {
                     rest.push_back(p_args[k]);
                 }
                 variables[param.name] = rest;
                 break; // ParamArray is always the last argument
             }
 
-            if (i < p_args.size()) {
+            if (i < p_arg_count) {
                 Variant val = p_args[i];
                  // Enforce Parameter Type
                 if (!param.type_hint.is_empty()) {
