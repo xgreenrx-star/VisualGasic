@@ -155,14 +155,27 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
             if (saved_locals[_i].first == n) return true;
         return false;
     };
+    // Fast-call convention (v6.0): when the compiled chunk flagged fast_params,
+    // the parameters and Function return variable live in dedicated local slots
+    // and are NEVER written into the variables[] Dictionary (execute_bytecode's
+    // is_fast_slot() skips them even under an active Whenever).  The bytecode
+    // VM's per-call `locals` vector already gives them recursion isolation, so
+    // there is nothing to save, restore, or erase here — skipping this dict
+    // traffic is the bulk of the fast-call win.  Their slots are the leading
+    // param_count entries plus return_slot in local_names[], so those indices
+    // are skipped in the local_names loops below (save and erase, kept in
+    // balance so a same-named module global a param shadows stays untouched).
+    const bool use_fast_params = (chunk_for_locals && chunk_for_locals->fast_params);
     // Save parameters
-    for(int i=0; i<func->parameters.size(); i++) {
-        const String &pname = func->parameters[i].name;
-        if (variables.has(pname)) saved_locals.push_back({pname, variables[pname]});
-    }
-    // Save function return variable
-    if (func->type == SubDefinition::TYPE_FUNCTION) {
-        if (variables.has(func->name)) saved_locals.push_back({func->name, variables[func->name]});
+    if (!use_fast_params) {
+        for(int i=0; i<func->parameters.size(); i++) {
+            const String &pname = func->parameters[i].name;
+            if (variables.has(pname)) saved_locals.push_back({pname, variables[pname]});
+        }
+        // Save function return variable
+        if (func->type == SubDefinition::TYPE_FUNCTION) {
+            if (variables.has(func->name)) saved_locals.push_back({func->name, variables[func->name]});
+        }
     }
 
     // v2.5: Use pre-computed local_names from bytecode instead of walking
@@ -173,6 +186,10 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     // freshly computed — in the call-site resolution block above.)
     if (chunk_for_locals) {
         for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
+            // Fast-call slots (params + return) never touch variables[].
+            if (use_fast_params && (i < chunk_for_locals->param_count || i == chunk_for_locals->return_slot)) {
+                continue;
+            }
             const String &lname = chunk_for_locals->local_names[i];
             if (!lname.is_empty() && variables.has(lname)) {
                 saved_locals.push_back({lname, variables[lname]});
@@ -225,7 +242,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     // variables[] Dictionary — eliminating the per-call insert/lookup/erase that
     // dominates call overhead.  Build the coerced argument values once and reuse
     // them for both the bytecode seed and the (rare) AST fallback binding.
-    const bool use_fast_params = (chunk_for_locals && chunk_for_locals->fast_params);
+    // (use_fast_params was computed above, before the save loop.)
     Vector<Variant> fast_arg_values;
 
     // Arguments
@@ -485,19 +502,27 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     // ARRAY_ACCESS handler sees it as an Array/Dictionary instead of
     // dispatching a function call on subsequent invocations.
     // -- Function return variable
-    if (func->type == SubDefinition::TYPE_FUNCTION && !saved_locals_has(func->name)) {
+    if (func->type == SubDefinition::TYPE_FUNCTION && !use_fast_params && !saved_locals_has(func->name)) {
         variables.erase(func->name);
     }
     // -- Parameters
-    for (int i = 0; i < func->parameters.size(); i++) {
-        const String &pname = func->parameters[i].name;
-        if (!saved_locals_has(pname)) {
-            variables.erase(pname);
+    if (!use_fast_params) {
+        for (int i = 0; i < func->parameters.size(); i++) {
+            const String &pname = func->parameters[i].name;
+            if (!saved_locals_has(pname)) {
+                variables.erase(pname);
+            }
         }
     }
     // -- Dim'd locals
     if (chunk_for_locals) {
         for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
+            // Fast-call slots (params + return) are never written to variables[],
+            // so there is nothing to erase; skip them (kept in balance with the
+            // save loop so a shadowed same-named module global is left intact).
+            if (use_fast_params && (i < chunk_for_locals->param_count || i == chunk_for_locals->return_slot)) {
+                continue;
+            }
             const String &lname = chunk_for_locals->local_names[i];
             if (!lname.is_empty() && !saved_locals_has(lname)) {
                 variables.erase(lname);

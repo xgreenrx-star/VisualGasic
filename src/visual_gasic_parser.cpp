@@ -581,21 +581,34 @@ SubDefinition* VisualGasicParser::parse_sub() {
         }
     }
     
-    // Skip to newline — but warn when a Sub (not Function) declares a return type.
-    // VB6 rule: only Function can have a return type after the parameter list.
-    if (!is_function) {
-        // Look for "As" keyword immediately after the closing paren — that means
-        // the programmer wrote `Sub Foo() As Boolean` which is invalid VB6/VG.
-        if (!is_at_end() && peek().type == VisualGasicTokenizer::TOKEN_KEYWORD
-            && String(peek().value).nocasecmp_to("As") == 0) {
+    // Capture the Function return type: `Function Foo(...) As <Type>`.
+    // (VB6 rule: only Function may declare a return type; warn if a Sub does.)
+    // Historically this was skipped entirely — sub->return_type was always left
+    // empty, which disabled typed return-value init and the fast-call return
+    // slot.  Capture it here so both work.
+    String parsed_return_type;
+    if (!is_at_end() && peek().type == VisualGasicTokenizer::TOKEN_KEYWORD
+        && String(peek().value).nocasecmp_to("As") == 0) {
+        if (!is_function) {
             UtilityFunctions::push_warning(
                 "[VG] Warning: Sub '" + name + "' has a return type declaration — "
                 "did you mean Function? Return type will be ignored.",
                 __FUNCTION__, __FILE__, __LINE__);
         }
+        advance(); // Eat 'As'
+        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+            parsed_return_type = peek().value;
+            advance();
+            // Optional trailing () for array return types (e.g. `As Integer()`);
+            // accept and ignore the array detail — the base type is what matters.
+            if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                advance();
+                if (check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) advance();
+            }
+        }
     }
+    // Skip any remaining tokens to the end of the declaration line.
     while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
-          // Store return type if we want
           current_pos++;
     }
 
@@ -603,6 +616,8 @@ SubDefinition* VisualGasicParser::parse_sub() {
     sub->name = name;
     sub->type = is_function ? SubDefinition::TYPE_FUNCTION : SubDefinition::TYPE_SUB;
     sub->parameters = parameters;
+    // Only Functions carry a return type (a Sub's stray `As` was warned + ignored).
+    if (is_function) sub->return_type = parsed_return_type;
 
     // Body
     while (!is_at_end() && error_count < MAX_ERRORS) {

@@ -416,7 +416,15 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     // Mark module-level variables as non-local so they use OP_SET_GLOBAL
     // This ensures global Variant variables can change types correctly
     for (int i = 0; i < module->variables.size(); i++) {
-        non_local_names.insert(module->variables[i]->name.to_lower());
+        String gkey = module->variables[i]->name.to_lower();
+        // A fast-call param/return already claimed a local slot for this name;
+        // per VB6 scoping the local must shadow the module global, so do NOT
+        // force it non-local (that would make the body read/write the global
+        // via OP_GET_GLOBAL/OP_SET_GLOBAL instead of its own slot).
+        if (fast_params_ok && local_slots.has(gkey)) {
+            continue;
+        }
+        non_local_names.insert(gkey);
         // Register global arrays / dictionaries so the compiler can
         // distinguish  foo(i)  as an array access vs. a function call.
         if (module->variables[i]->array_sizes.size() > 0) {
@@ -7139,6 +7147,17 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 bool is_dict = is_dictionary_var(var_name);
                 bool is_local = local_slots.has(var_name.to_lower());
                 bool is_param = param_vars.has(var_name.to_lower());
+                // A fast-call Function's return variable occupies a local slot
+                // named after the function itself.  `FuncName(args)` appearing
+                // inside FuncName is therefore a RECURSIVE SELF-CALL, not an
+                // attempt to index the (scalar) return variable — clear the
+                // local/param flags so it routes to the OP_CALL path below
+                // instead of OP_GET_ARRAY (which would index a scalar → null).
+                if (current_sub && current_chunk && current_chunk->return_slot >= 0 &&
+                    var_name.nocasecmp_to(current_sub->name) == 0) {
+                    is_local = false;
+                    is_param = false;
+                }
                 // v4.4.0: a module-level MemoryBuffer var (Set X = New MemoryBuffer(...)
                 // in a different Sub than the one being compiled) never gets a local
                 // slot (it's forced non-local as a Public/Global), so `is_local` alone
@@ -7406,7 +7425,16 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              }
 
              String call_name = call->method_name.to_lower();
-             if (array_vars.has(call_name) || dictionary_vars.has(call_name) || local_slots.has(call_name) || param_vars.has(call_name) || is_buffer_var(call->method_name)) {
+             // A fast-call Function's return variable occupies a local slot named
+             // after the function itself.  `FuncName(args)` inside FuncName is a
+             // RECURSIVE SELF-CALL, not an attempt to index the (scalar) return
+             // variable — detect it so the local_slots/param_vars membership test
+             // below doesn't misroute it to OP_GET_ARRAY (→ null).
+             bool _is_self_return_call = (current_sub && current_chunk &&
+                 current_chunk->return_slot >= 0 &&
+                 call->method_name.nocasecmp_to(current_sub->name) == 0);
+             if (!_is_self_return_call &&
+                 (array_vars.has(call_name) || dictionary_vars.has(call_name) || local_slots.has(call_name) || param_vars.has(call_name) || is_buffer_var(call->method_name))) {
                  if (call->arguments.size() != 1) {
                      compile_ok = false;
                      break;
