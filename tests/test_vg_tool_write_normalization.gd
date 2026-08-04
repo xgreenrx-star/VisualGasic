@@ -117,6 +117,35 @@ Option Explicit
 		ok = false
 	else:
 		print("✓ duplicate Option Explicit collapsed")
+	# Regression: a plain (non-Form) Class must be left COMPLETELY intact.
+	# Found via ai_projects/NarceaStressTest's advanced_stack_class scenario --
+	# the normalizer used to strip ANY `Class X ... End Class` wrapper
+	# unconditionally, not just VB6 form wrappers, silently turning a
+	# legitimate `Class Stack` into dangling top-level Subs/Functions that
+	# `New Stack` could no longer instantiate.
+	var plain_class_src := """' advanced_stack.vg
+Class Stack
+
+    Private _top As Integer
+
+    Sub Push(value As Integer)
+        _top = _top + 1
+    End Sub
+
+End Class
+
+Sub _Ready()
+    Dim s As Variant = New Stack
+    s.Push 10
+End Sub
+"""
+	var plain_class_fixed: String = tools._normalize_vg_source(plain_class_src, {})
+	if plain_class_fixed != plain_class_src:
+		push_error("FAIL: plain (non-Form) Class wrapper was modified:\n" + plain_class_fixed)
+		ok = false
+	else:
+		print("✓ plain (non-Form) Class wrapper left intact")
+
 	if ok:
 		print("[PASS] test_vg_tool_write_normalization.gd")
 		quit(0)

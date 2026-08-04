@@ -204,6 +204,23 @@ the editing tools and then save_file.  Always explain in plain language \
 WHAT you did, then emit the tool block(s).  Multiple blocks per reply are \
 allowed and run in order.
 
+When the user asks you to FIND AND FIX a bug (or otherwise change code), the \
+SAME reply that diagnoses the bug MUST also include the actual edit tool \
+call (write_file/replace_range/replace_in_buffer/set_buffer_text) that \
+applies the fix -- do not stop after only explaining the bug and/or calling \
+highlight_lines.  "I'll fix this now" / "let me apply the fix" is not a \
+finished answer without the edit tool call actually present in that same \
+reply; the conversation does not automatically continue on its own to give \
+you a second chance to attach it.
+
+When the user asks for a REVIEW, CRITIQUE, or SUGGESTIONS on existing code \
+(as opposed to asking you to change it), write the actual suggestions out \
+as plain-language prose FIRST — highlight_lines only points at lines you've \
+already described in text, it is never a substitute for writing the \
+suggestions themselves.  A reply that highlights lines with no accompanying \
+written explanation of what's wrong or could be better is not a valid answer \
+to a review request.
+
 CRITICAL: every tool call MUST be wrapped in a triple-backtick \"vg-tool\" \
 fence — exactly ```vg-tool on its own line, then one JSON object, then \
 ``` on its own line.  Do NOT paste tool JSON into a plain text or ```json \
@@ -4689,6 +4706,39 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 		# Without this marker the loop just stops dead with no explanation --
 		# indistinguishable from a hang/crash. Reply normally to have Narcea
 		# continue from here with a fresh hop budget.
+		#
+		# But if the model's OWN text says it still intends to act (e.g.
+		# "Let me highlight the bad line, apply the fix, and save.") and it
+		# only actually called a cosmetic tool this hop, the promised fix
+		# never happens and the turn silently looks "done" with nothing
+		# changed — confirmed via ai_projects/NarceaStressTest
+		# (repair_crash_bug / repair_silent_logic_bug both stalled here:
+		# Narcea called highlight_lines, described the fix, then stopped).
+		# Nudge it to actually follow through instead, same as the
+		# failed-mutation recovery path above.
+		#
+		# Gated on cosmetic_logs being non-empty: a hop with ZERO tool calls
+		# at all (a plain text-only Q&A/explain reply) must never be nudged
+		# here -- confirmed via ai_projects/NarceaStressTest's
+		# explain_byref_advanced scenario, where the diagnosis-word heuristic
+		# below (which matches "bug"/"fix"/"change" -- common words in any
+		# technical explanation) spuriously fired on a pure explanation with
+		# no tool calls at all and corrupted an otherwise-correct reply.
+		var cosmetic_logs: Array = plan.get("logs", [])
+		if (not cosmetic_logs.is_empty() and _agent_hops < _max_agent_hops
+				and not _conversation_requests_no_edit()
+				and _reply_suggests_unfinished_action(_accumulated_response)):
+			_agent_hops += 1
+			_show_abort_agent_btn()
+			if not is_instance_valid(_input):
+				return
+			_input.text = ("You said you'd make a change but this turn only called a " +
+				"cosmetic tool (highlight_lines/goto_line/open_file) with no actual edit. " +
+				"Please follow through now: apply the fix with write_file (or the appropriate " +
+				"edit tool) and save it.")
+			_agent_continuation = true
+			_on_send()
+			return
 		_output.append_text("[color=#888888]  (agent loop complete — nothing further to continue automatically; reply to keep going)[/color]\n")
 		_hide_abort_agent_btn()
 		_transcript_close("complete")
@@ -4721,6 +4771,52 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 func _is_recoverable_tool_failure(msg: String) -> bool:
 	var low := msg.to_lower()
 	return low.find("no code editor open") != -1 or low.find("target file mismatch") != -1
+
+## True if the model's own reply text signals it still intends to make a
+## change (e.g. "Let me fix this and save."), used to decide whether a
+## cosmetic-only hop (highlight_lines/goto_line/open_file, nothing else)
+## should be nudged to actually follow through instead of the agent loop
+## silently treating the turn as "done". Deliberately simple/conservative:
+## a false negative just means the existing "reply to keep going" hint
+## still applies; a false positive costs one extra hop.
+func _reply_suggests_unfinished_action(text: String) -> bool:
+	var low := text.to_lower()
+	var has_intent := (low.find("let me") != -1 or low.find("i'll") != -1
+		or low.find("i will") != -1 or low.find("going to") != -1)
+	# Also catches a plain diagnosis ("Found it. Bug: ... Fix: ...") that
+	# never states explicit intent to continue but clearly identified a
+	# fix without applying it -- observed in ai_projects/NarceaStressTest's
+	# repair_silent_logic_bug scenario, where Claude explained the exact
+	# correct fix formula in prose but only called highlight_lines.
+	var has_diagnosis := (low.find("bug") != -1 or low.find("found it") != -1)
+	if not (has_intent or has_diagnosis):
+		return false
+	for verb in ["fix", "save", "apply", "update", "write", "add", "correct", "change"]:
+		if low.find(verb) != -1:
+			return true
+	return false
+
+## True if the current conversation explicitly asked for a review/explanation
+## only, with no edit expected (e.g. "you don't need to make any changes
+## yet -- just tell me your suggestions"). Used to suppress the diagnosis-only
+## branch of _reply_suggests_unfinished_action(), which otherwise repeatedly
+## nudged a pure code-review request to "apply the fix" even though the user
+## never asked for an edit -- confirmed via ai_projects/NarceaStressTest's
+## code_review_suggestions scenario burning all 6 hops arguing with itself.
+func _conversation_requests_no_edit() -> bool:
+	var texts: Array = [_current_prompt]
+	for turn in _conversation_history:
+		if String(turn.get("role", "")) == "user":
+			texts.append(turn.get("content", ""))
+	for t in texts:
+		var low := String(t).to_lower()
+		if (low.find("don't need to make") != -1 or low.find("do not need to make") != -1
+				or low.find("no need to make") != -1 or low.find("no changes yet") != -1
+				or low.find("without making") != -1 or low.find("just tell me") != -1
+				or low.find("review-only") != -1 or low.find("review only") != -1
+				or low.find("no changes -- just") != -1):
+			return true
+	return false
 
 func _describe_mutation(m: Dictionary) -> String:
 	var t := str(m.get("tool", ""))

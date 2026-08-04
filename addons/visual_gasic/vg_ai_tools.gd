@@ -1037,25 +1037,42 @@ func _find_nested_procedure_line(src: String) -> int:
 func _normalize_vg_source(src: String, alias_map: Dictionary) -> String:
 	if src.is_empty():
 		return src
-	# 2. Strip Class wrapper.  We match a `Class XXX` line optionally
-	#    followed by `Inherits Form/UserForm`, and the matching `End
-	#    Class` at the tail, preserving everything in between.
+	# 2. Strip Class wrapper -- but ONLY for actual VB6 form wrappers, i.e.
+	#    a `Class XXX` line IMMEDIATELY followed (module-level, no nesting
+	#    in VG) by `Inherits Form`/`Inherits UserForm`, and the matching
+	#    `End Class` at the tail. A plain `Class Foo ... End Class` with no
+	#    Form inheritance is normal, legitimate VG class syntax (e.g. a
+	#    Stack/Inventory/etc. helper class written from a prompt) and must
+	#    be left completely intact -- unconditionally stripping ANY class
+	#    wrapper here previously broke every non-Form class Narcea wrote
+	#    via write_file (confirmed via ai_projects/NarceaStressTest's
+	#    advanced_stack_class scenario: a valid `Class Stack ... End Class`
+	#    got silently stripped down to dangling top-level Subs/Functions,
+	#    so `New Stack` had no class to instantiate and every method call
+	#    on it failed with "Method call on Null object").
 	var lines: PackedStringArray = src.split("\n")
 	var out_lines: Array[String] = []
-	var skip_inherits := false
-	for ln in lines:
-		var s := ln.strip_edges()
-		var sl := s.to_lower()
+	var i := 0
+	while i < lines.size():
+		var ln := lines[i]
+		var sl := ln.strip_edges().to_lower()
 		if sl.begins_with("class ") and not sl.begins_with("classmodule"):
-			skip_inherits = true
-			continue
-		if skip_inherits and sl.begins_with("inherits "):
-			skip_inherits = false
-			continue
-		skip_inherits = false
-		if sl == "end class":
-			continue
+			var j := i + 1
+			while j < lines.size() and lines[j].strip_edges().is_empty():
+				j += 1
+			var next_sl := (lines[j].strip_edges().to_lower() if j < lines.size() else "")
+			if next_sl.begins_with("inherits form") or next_sl.begins_with("inherits userform"):
+				# Confirmed VB6 form wrapper: drop `Class X`, `Inherits
+				# Form`, everything up to (and including) the matching
+				# `End Class`, keeping the body in between.
+				i = j + 1
+				while i < lines.size() and lines[i].strip_edges().to_lower() != "end class":
+					out_lines.append(lines[i])
+					i += 1
+				i += 1  # skip the `End Class` line itself
+				continue
 		out_lines.append(ln)
+		i += 1
 	# 2b. Collapse duplicate `Option Explicit` lines and duplicate
 	#     `' Visual Gasic Form Script` headers — keep only the first
 	#     occurrence of each.  AI insert_text sequences love to glue
