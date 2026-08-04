@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[node name="MyCtl" type="Control" unique_id=1860740541]
+layout_mode = 3
+anchors_preset = 0
+
+[node name="MyCtl" type="Control" parent="." unique_id=1316161842]
+custom_minimum_size = Vector2(13.333333, 6.6666665)
+anchors_preset = 0
+offset_right = 13.333333
+offset_bottom = 6.6666665
+metadata/vb6_class = "VB.UserControl"

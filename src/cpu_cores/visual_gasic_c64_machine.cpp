@@ -42,6 +42,8 @@ VGC64Machine::VGC64Machine() {
 	memset(_basic_rom, 0, sizeof(_basic_rom));
 	memset(_kernal_rom, 0, sizeof(_kernal_rom));
 	memset(_char_rom, 0, sizeof(_char_rom));
+	memset(_cart_lo_rom, 0, sizeof(_cart_lo_rom));
+	memset(_cart_hi_rom, 0, sizeof(_cart_hi_rom));
 	for (int i = 0; i < 8; i++) _key_col[i] = 0xFF;
 
 	_cpu->read_cb = &VGC64Machine::_bus_read;
@@ -95,6 +97,136 @@ bool VGC64Machine::load_roms(const String &basic_path, const String &kernal_path
 }
 
 // ---------------------------------------------------------------------------
+// Cartridge (.crt) loading -- "Normal cartridge" hardware type 0 only.
+// ---------------------------------------------------------------------------
+void VGC64Machine::unload_cartridge() {
+	_has_cart_lo = false;
+	_has_cart_hi = false;
+	_cart_exrom = true;
+	_cart_game = true;
+	memset(_cart_lo_rom, 0, sizeof(_cart_lo_rom));
+	memset(_cart_hi_rom, 0, sizeof(_cart_hi_rom));
+}
+
+bool VGC64Machine::load_cartridge(const String &path) {
+	unload_cartridge();
+
+	if (!FileAccess::file_exists(path)) {
+		UtilityFunctions::print("[VGC64Machine] Cartridge not found: ", path);
+		return false;
+	}
+	Ref<FileAccess> f = FileAccess::open(path, FileAccess::READ);
+	if (f.is_null()) {
+		UtilityFunctions::print("[VGC64Machine] Could not open cartridge: ", path);
+		return false;
+	}
+	PackedByteArray data = f->get_buffer(f->get_length());
+	const uint8_t *buf = data.ptr();
+	int64_t len = data.size();
+
+	// Standard .crt header: 16-byte "C64 CARTRIDGE" signature (space-padded
+	// to 16 bytes), big-endian header length at 0x10, hardware type at 0x16,
+	// EXROM line at 0x18, GAME line at 0x19 (0 = active/asserted, 1 =
+	// inactive/high).
+	if (len < 0x40 || memcmp(buf, "C64 CARTRIDGE", 13) != 0) {
+		// Not a wrapped .crt -- try it as a raw, headerless ROM dump (a
+		// common convention for hand-extracted/homebrew cartridge images):
+		// a plain 8K or 16K binary meant to be loaded straight at $8000,
+		// same as a CHIP packet with load_addr=$8000 in a real .crt. Only
+		// accepted if the real KERNAL's "CBM80" autostart signature is
+		// present at the expected offset once mapped in at $8000 -- this is
+		// both a sanity check (garbage/wrong-address dumps get rejected
+		// instead of silently mis-loading) and a way to rule out other
+		// non-$8000 layouts (e.g. Ultimax-mode $E000 carts, which are NOT
+		// supported -- Ultimax replaces the KERNAL entirely and needs a
+		// completely different memory map, not implemented here).
+		bool cbm80_at_8000 = (len >= 9) && buf[4] == 0xC3 && buf[5] == 0xC2 && buf[6] == 0xCD && buf[7] == 0x38 && buf[8] == 0x30;
+		if (cbm80_at_8000 && (len == 8192 || len == 16384)) {
+			memcpy(_cart_lo_rom, buf, 8192);
+			_has_cart_lo = true;
+			if (len == 16384) {
+				memcpy(_cart_hi_rom, buf + 8192, 8192);
+				_has_cart_hi = true;
+				_cart_exrom = false; // asserted (16K cart)
+				_cart_game = false;  // asserted (16K cart)
+			} else {
+				_cart_exrom = false; // asserted (8K cart)
+				_cart_game = true;   // inactive (8K cart)
+			}
+			UtilityFunctions::print("[VGC64Machine] Loaded raw headerless ROM dump as a Normal ",
+				(len == 16384 ? "16K" : "8K"), " cartridge at $8000: ", path);
+			return true;
+		}
+		UtilityFunctions::print("[VGC64Machine] Not a valid .crt file, and not recognized as a raw 8K/16K "
+			"$8000 cartridge dump (no CBM80 signature found -- may be an Ultimax-mode/$E000 or other "
+			"unsupported layout): ", path);
+		return false;
+	}
+
+	uint32_t header_len = ((uint32_t)buf[0x10] << 24) | ((uint32_t)buf[0x11] << 16) | ((uint32_t)buf[0x12] << 8) | buf[0x13];
+	if (header_len < 0x20 || (int64_t)header_len > len) header_len = 0x40; // sane fallback for malformed headers
+
+	uint16_t hw_type = ((uint16_t)buf[0x16] << 8) | buf[0x17];
+	uint8_t exrom_byte = buf[0x18];
+	uint8_t game_byte = buf[0x19];
+
+	if (hw_type != 0) {
+		UtilityFunctions::print("[VGC64Machine] Cartridge hardware type ", (int)hw_type,
+			" is not supported yet (only Normal/type-0 8K & 16K cartridges -- no bank-switching mappers). Rejected: ", path);
+		return false;
+	}
+
+	_cart_exrom = (exrom_byte != 0);
+	_cart_game = (game_byte != 0);
+
+	int64_t pos = header_len;
+	int chips_loaded = 0;
+	while (pos + 16 <= len) {
+		if (memcmp(buf + pos, "CHIP", 4) != 0) break;
+		uint32_t pkt_len = ((uint32_t)buf[pos + 4] << 24) | ((uint32_t)buf[pos + 5] << 16) | ((uint32_t)buf[pos + 6] << 8) | buf[pos + 7];
+		uint16_t load_addr = ((uint16_t)buf[pos + 12] << 8) | buf[pos + 13];
+		uint16_t img_size = ((uint16_t)buf[pos + 14] << 8) | buf[pos + 15];
+		const uint8_t *rom_data = buf + pos + 16;
+		int64_t data_avail = len - (pos + 16);
+
+		if (img_size > 0 && img_size <= data_avail) {
+			if (load_addr == 0x8000 && img_size > 8192 && img_size <= 16384) {
+				// Single 16K CHIP spanning both ROML and ROMH.
+				memcpy(_cart_lo_rom, rom_data, 8192);
+				memcpy(_cart_hi_rom, rom_data + 8192, img_size - 8192);
+				_has_cart_lo = true;
+				_has_cart_hi = true;
+				chips_loaded++;
+			} else if (load_addr == 0x8000 && img_size <= 8192) {
+				memcpy(_cart_lo_rom, rom_data, img_size);
+				_has_cart_lo = true;
+				chips_loaded++;
+			} else if (load_addr == 0xA000 && img_size <= 8192) {
+				memcpy(_cart_hi_rom, rom_data, img_size);
+				_has_cart_hi = true;
+				chips_loaded++;
+			} else {
+				UtilityFunctions::print("[VGC64Machine] Skipping unsupported CHIP at load addr $",
+					String::num_int64(load_addr, 16), " size ", (int)img_size);
+			}
+		}
+
+		if (pkt_len < 16) break; // malformed packet -- avoid an infinite loop
+		pos += pkt_len;
+	}
+
+	if (chips_loaded == 0) {
+		UtilityFunctions::print("[VGC64Machine] No usable CHIP packets found in: ", path);
+		unload_cartridge();
+		return false;
+	}
+
+	UtilityFunctions::print("[VGC64Machine] Cartridge loaded (", chips_loaded, " chip(s), EXROM=",
+		(_cart_exrom ? 1 : 0), " GAME=", (_cart_game ? 1 : 0), "): ", path);
+	return true;
+}
+
+// ---------------------------------------------------------------------------
 // Reset
 // ---------------------------------------------------------------------------
 void VGC64Machine::reset() {
@@ -121,15 +253,21 @@ void VGC64Machine::update_banking() {
 }
 
 // ---------------------------------------------------------------------------
-// Memory bus (C64 PLA banking, no-cartridge / GAME=EXROM=1 case)
+// Memory bus (C64 PLA banking, incl. cartridge ROML/ROMH passthrough)
 // ---------------------------------------------------------------------------
 uint8_t VGC64Machine::bus_read(uint16_t addr) {
 	if (addr == 0x0000) return _port00;
 	if (addr == 0x0001) return _port01;
 
-	if (addr < 0xA000) return _ram[addr];
+	if (addr < 0x8000) return _ram[addr];
 
-	if (addr < 0xC000) { // $A000-$BFFF: BASIC ROM iff LORAM & HIRAM
+	if (addr < 0xA000) { // $8000-$9FFF: cartridge ROML iff EXROM asserted
+		if (!_cart_exrom && _has_cart_lo) return _cart_lo_rom[addr - 0x8000];
+		return _ram[addr];
+	}
+
+	if (addr < 0xC000) { // $A000-$BFFF: cartridge ROMH (16K cart), else BASIC ROM iff LORAM & HIRAM
+		if (!_cart_exrom && !_cart_game && _has_cart_hi) return _cart_hi_rom[addr - 0xA000];
 		if (_loram && _hiram && _has_basic) return _basic_rom[addr - 0xA000];
 		return _ram[addr];
 	}
@@ -171,6 +309,9 @@ void VGC64Machine::bus_write(uint16_t addr, uint8_t val) {
 		return;
 	}
 
+	if (addr < 0xA000 && addr >= 0x8000 && !_cart_exrom && _has_cart_lo) return; // cartridge ROML -- writes are no-ops
+	if (addr >= 0xA000 && addr < 0xC000 && !_cart_exrom && !_cart_game && _has_cart_hi) return; // cartridge ROMH -- writes are no-ops
+
 	if (addr < 0xD000) { _ram[addr] = val; return; }
 
 	if (addr < 0xE000) { // $D000-$DFFF
@@ -198,18 +339,26 @@ uint8_t VGC64Machine::read_cia1(int off) {
 	switch (off & 0x0F) {
 		case 0x00: // PRA
 			return 0xFF;
-		case 0x01: { // PRB — keyboard rows for selected column
+		case 0x01: { // PRB — keyboard rows for selected column(s)
 			uint8_t colMask = _ram[0xDC00] & 0xFF;
 			if (colMask == 0xFF) return 0xFF;
-			int idx = -1;
-			switch (colMask) {
-				case 0xFE: idx = 0; break; case 0xFD: idx = 1; break;
-				case 0xFB: idx = 2; break; case 0xF7: idx = 3; break;
-				case 0xEF: idx = 4; break; case 0xDF: idx = 5; break;
-				case 0xBF: idx = 6; break; case 0x7F: idx = 7; break;
-				default: return 0xFF;
+			// Real hardware wire-ANDs the row lines of every column whose
+			// select bit is driven low (0). The KERNAL's IRQ keyboard-scan
+			// routine relies on this: it first writes $00 (select ALL
+			// columns at once) and reads PRB as a cheap "is ANY key down?"
+			// pre-check before doing the full per-column scan. Special-
+			// casing only the 8 single-bit-clear masks and returning 0xFF
+			// for anything else (including $00) made that pre-check always
+			// report "no key down", so the per-column scan that decodes
+			// which key was pressed never ran — keystrokes were silently
+			// swallowed even though _key_col[] held the correct bits.
+			uint8_t result = 0xFF;
+			for (int idx = 0; idx < 8; idx++) {
+				if (((colMask >> idx) & 1) == 0) {
+					result &= _key_col[idx];
+				}
 			}
-			return _key_col[idx];
+			return result;
 		}
 		case 0x02: return _ram[0xDC02];
 		case 0x03: return _ram[0xDC03];
@@ -339,8 +488,23 @@ void VGC64Machine::render_scanline(int screenY) {
 	bool CSEL = (ctrl2 & 0x08) != 0;
 
 	int yScroll = ctrl1 & 0x07;
-	int charRow = (screenY + yScroll) / 8;
-	int pixelRow = (screenY + yScroll) % 8;
+	// Real VIC-II hardware calibrates its row/badline counters so the
+	// power-on-default YSCROLL=3 produces a perfectly aligned 25-row display
+	// (charRow 0 pixelRow 0 at the first visible line, charRow 24 pixelRow 7
+	// at the last) -- YSCROLL=3 is the "zero offset" reference point, not an
+	// extra forward shift. The old `(screenY + yScroll) / 8` formula didn't
+	// account for this: at the default YSCROLL=3 it skipped the first 3
+	// pixel rows of char row 0 (cut-off top row) and computed an
+	// out-of-range charRow 25 near the bottom, reading screen/color RAM 40
+	// bytes past the real 1000-byte matrix -- exactly the "garbage row from
+	// memory just after the screen" symptom. Re-centered on YSCROLL=3 below;
+	// the `+5` keeps the intermediate value non-negative so plain C++
+	// integer division/modulo (which truncate toward zero, not floor) give
+	// correct results for the full 0-7 YSCROLL range.
+	int rel = screenY + yScroll + 5; // == screenY + yScroll - 3 + 8
+	int charRow = rel / 8 - 1;
+	int pixelRow = rel % 8;
+	if (charRow < 0 || charRow > 24) return; // outside the 25-row matrix -- leave border/background showing instead of reading past screen RAM
 
 	int vm10 = (memPtr & 0xF0) >> 4;
 	int scrBase = vm10 << 10;
@@ -499,6 +663,9 @@ Ref<Image> VGC64Machine::get_framebuffer() {
 // ---------------------------------------------------------------------------
 void VGC64Machine::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("LoadROMs", "basic_path", "kernal_path", "char_path"), &VGC64Machine::load_roms);
+	ClassDB::bind_method(D_METHOD("LoadCartridge", "path"), &VGC64Machine::load_cartridge);
+	ClassDB::bind_method(D_METHOD("UnloadCartridge"), &VGC64Machine::unload_cartridge);
+	ClassDB::bind_method(D_METHOD("HasCartridge"), &VGC64Machine::has_cartridge);
 	ClassDB::bind_method(D_METHOD("Reset"), &VGC64Machine::reset);
 	ClassDB::bind_method(D_METHOD("RunFrame"), &VGC64Machine::run_frame);
 	ClassDB::bind_method(D_METHOD("RunCycles", "cycles"), &VGC64Machine::run_cycles);

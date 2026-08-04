@@ -6927,12 +6927,15 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 ValueType rt = infer_type(b->right);
                 if (b->op == "+") {
                     if (lt == VT_INT && rt == VT_INT) {
+                        // NOTE: only the RIGHT operand may use the _CONST fast path.
+                        // OP_ADD_I64_CONST's VM handler assumes the literal was pushed
+                        // LAST (i.e. on the right) and unconditionally discards the top
+                        // of stack as "the literal" before adding the embedded constant
+                        // to what's left underneath. A left-hand literal (e.g. CONST + VAR)
+                        // must NOT take this path -- it silently computed CONST+CONST
+                        // instead of CONST+VAR. See /memories/repo/build_and_test.md.
                         if (b->right->type == ExpressionNode::LITERAL && ((LiteralNode*)b->right)->value.get_type() == Variant::INT) {
                             int idx = current_chunk->add_constant(((LiteralNode*)b->right)->value);
-                            emit_byte(OP_ADD_I64_CONST);
-                            emit_const_index(idx);
-                        } else if (b->left->type == ExpressionNode::LITERAL && ((LiteralNode*)b->left)->value.get_type() == Variant::INT) {
-                            int idx = current_chunk->add_constant(((LiteralNode*)b->left)->value);
                             emit_byte(OP_ADD_I64_CONST);
                             emit_const_index(idx);
                         } else {
@@ -6957,12 +6960,11 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 }
                 else if (b->op == "*") {
                     if (lt == VT_INT && rt == VT_INT) {
+                        // Same left-literal landmine as "+" above -- only the RIGHT
+                        // operand may use the _CONST fast path (OP_MUL_I64_CONST's VM
+                        // handler assumes the literal was pushed last).
                         if (b->right->type == ExpressionNode::LITERAL && ((LiteralNode*)b->right)->value.get_type() == Variant::INT) {
                             int idx = current_chunk->add_constant(((LiteralNode*)b->right)->value);
-                            emit_byte(OP_MUL_I64_CONST);
-                            emit_const_index(idx);
-                        } else if (b->left->type == ExpressionNode::LITERAL && ((LiteralNode*)b->left)->value.get_type() == Variant::INT) {
-                            int idx = current_chunk->add_constant(((LiteralNode*)b->left)->value);
                             emit_byte(OP_MUL_I64_CONST);
                             emit_const_index(idx);
                         } else {
@@ -7023,12 +7025,11 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             ValueType rt = infer_type(b->right);
             if (b->op == "+") {
                 if (lt == VT_INT && rt == VT_INT) {
+                    // See the CSE-path comment above -- only the RIGHT operand may
+                    // use the _CONST fast path; a left-hand literal (CONST + VAR)
+                    // must fall through to the generic two-operand opcode.
                     if (b->right->type == ExpressionNode::LITERAL && ((LiteralNode*)b->right)->value.get_type() == Variant::INT) {
                         int idx = current_chunk->add_constant(((LiteralNode*)b->right)->value);
-                        emit_byte(OP_ADD_I64_CONST);
-                        emit_const_index(idx);
-                    } else if (b->left->type == ExpressionNode::LITERAL && ((LiteralNode*)b->left)->value.get_type() == Variant::INT) {
-                        int idx = current_chunk->add_constant(((LiteralNode*)b->left)->value);
                         emit_byte(OP_ADD_I64_CONST);
                         emit_const_index(idx);
                     } else {
@@ -7053,12 +7054,9 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             }
             else if (b->op == "*") {
                 if (lt == VT_INT && rt == VT_INT) {
+                    // See the CSE-path comment above -- same left-literal landmine.
                     if (b->right->type == ExpressionNode::LITERAL && ((LiteralNode*)b->right)->value.get_type() == Variant::INT) {
                         int idx = current_chunk->add_constant(((LiteralNode*)b->right)->value);
-                        emit_byte(OP_MUL_I64_CONST);
-                        emit_const_index(idx);
-                    } else if (b->left->type == ExpressionNode::LITERAL && ((LiteralNode*)b->left)->value.get_type() == Variant::INT) {
-                        int idx = current_chunk->add_constant(((LiteralNode*)b->left)->value);
                         emit_byte(OP_MUL_I64_CONST);
                         emit_const_index(idx);
                     } else {

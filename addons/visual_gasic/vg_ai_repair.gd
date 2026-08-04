@@ -37,6 +37,14 @@ that compiles to bytecode.  Common syntax: Dim x As Integer | Sub Name()/End Sub
 Function F() As T/End Function | If/ElseIf/Else/End If | For i = 1 To 10/Next | \
 Do While/Loop | Class Name/End Class | Me.Property | & for string concat | ' comments.
 
+VG has NO nested Sub/Function declarations. If the error is \
+"Sub or Function not defined: X" but a `Sub X(...)`/`Function X(...)` clearly \
+exists somewhere in the file, check whether it's mistakenly nested INSIDE \
+another Sub's body (e.g. pasted in the middle of a different Sub instead of \
+appended after its End Sub) — this compiles with no error but is never \
+callable. The fix is to move it out to top-level scope as a sibling \
+declaration, not to write a new stub function.
+
 Your job: given a runtime error and the surrounding code, return a MINIMAL patch \
 that fixes the bug.  Do not refactor.  Do not add features.  Preserve indentation."""
 

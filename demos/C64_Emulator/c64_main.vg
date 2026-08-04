@@ -39,6 +39,19 @@ Dim gIRQLineNative As Boolean
 Dim NATIVE_MACHINE As Boolean = True
 Dim Machine As Variant
 
+' === Cartridge (.crt) support ===
+' Native Machine mode only (VGC64Machine.LoadCartridge). Drop a "Normal
+' cartridge" (.crt hardware type 0 -- 8K or 16K, no bank-switching mappers
+' like EasyFlash/Action Replay yet) at CART_PATH and it will auto-load at
+' boot, same convention as the roms/ folder. When a cartridge is present,
+' the fast SKIP_RAM_TEST boot stub is bypassed -- it jumps straight to
+' BASIC's cold-start vector and would never run the real KERNAL reset code
+' that detects the "CBM80" cartridge signature and autostarts it. Boot
+' takes a few seconds longer (authentic RAMTAS) whenever a cartridge is
+' loaded. See MANUAL.md.
+Dim CART_PATH As String = "res://carts/cartridge.crt"
+Dim gCartridgeLoaded As Boolean = False
+
 Dim DisplayTex As Variant
 Dim DisplayImage As Variant
 Dim bLoaded As Boolean
@@ -58,447 +71,1028 @@ Dim LastProgressCycles As Long
 Dim LastProgressSteps As Long
 
 ' CIA1 Timer A emulation (simple countdown for ~60Hz system IRQ)
-Dim CIA1_TimerA As Long = 16421      ' PAL: $4025 cycles between IRQs
+Dim CIA1_TimerA As Long = 16421 ' PAL: $4025 cycles between IRQs
 Dim CIA1_TimerA_Latch As Long = 16421
 
+' === Clipboard Paste Support ===
+' Numbered BASIC listings are loaded directly into program memory
+' (LoadBasicProgramFromText, below) rather than typed character-by-
+' character -- instant and byte-perfect. Plain text/single commands fall
+' back to typing via the KERNAL's real type-ahead queue ($0277+, count at
+' $C6 -- the classic "POKE 198,N" trick), one line per burst.
+'
+' NOTE on the "$0801/$0802 gets zeroed" red herring: earlier debugging in
+' this session found BASIC program memory's first 2 bytes getting reset
+' every frame and suspected a native-machine bug. That was a TEST-HARNESS
+' ARTIFACT, not a real bug: the KERNAL's boot sequence keeps re-running
+' its "NEW"-equivalent memory-clear for roughly the first couple hundred
+' frames after ROMs load (this is normal boot settling, well before real
+' user interaction is possible), so any test that pokes memory only a few
+' frames after bLoaded catches this transient window and sees the poke
+' get wiped. Waiting for the emulator to be genuinely idle (which any
+' real paste always will be -- the user has to see the booted screen and
+' press Ctrl+V, which takes far longer than a few frames) avoids it
+' entirely; no C++ fix was needed. See /memories/repo/c64_paste_and_loader.md.
+Dim PasteBuffer As String = ""
+Dim PasteIndex As Integer = 0
+Dim PasteDelay As Integer = 0
+
+' === BASIC program direct-load (virtual tape/disk) support ===
+' Pasting a full line-numbered BASIC listing bypasses the slow/fragile
+' character-by-character keyboard-buffer typing entirely: the listing is
+' tokenized (real C64 BASIC V2 keyword table) and written straight into
+' RAM at $0801 with correct line-link pointers, exactly like a real
+' LOAD"...",8 would leave memory, then BASIC's VARTAB/ARYTAB/STREND
+' pointers are fixed up. See /memories/repo/c64_paste_and_loader.md.
+Dim gBasicKwName(80) As String
+Dim gBasicKwToken(80) As Integer
+Dim gBasicKwCount As Integer
+
 Sub _Ready()
-    ' Init memory subsystem (module-level, bytecode-compiled). Still used in
-    ' Native Machine mode purely for the keyboard-matrix scratch (gMem_KeyCol);
-    ' the native machine owns its own RAM/ROM/VIC/CIA state independently.
-    Mem_Init()
+		InitBasicTokenTable()
 
-    ' Init CPU: native machine (owns everything), native VGCpu6502 (Turbo Mode),
-    ' or pure-VG 6510 core (default).
-    If NATIVE_MACHINE Then
-        ' CPU + bus + VIC + CIA are all owned by the native VGC64Machine, which
-        ' is created once ROMs are located (see TryAutoLoad). Nothing to init here.
-    ElseIf TURBO_MODE Then
-        Set NativeCpu = New VGCpu6502
-        ' Route the ENTIRE 64KB bus through the existing, already-verified VG
-        ' memory subsystem (RAM/ROM banking, VIC/CIA/color-RAM decode) --
-        ' only the opcode fetch/decode/execute loop below is native.
-        ' NOTE: the Callable must target a Sub/Function defined directly in
-        ' THIS file (c64_main.vg) -- VisualGasicScript::_has_method() (which
-        ' Callable::is_valid() consults) only scans the OWNING script's own
-        ' AST subs, not cross-module imports. Mem_Read/Mem_Write live in the
-        ' imported c64_memory.vg module, so a Callable built straight from
-        ' their names is silently invalid (bus reads/writes then fall through
-        ' to VGCpu6502's internal, never-populated RAM). Route through the
-        ' local IOBus_Read/IOBus_Write forwarders below instead.
-        NativeCpu.SetIOHook Me, "IOBus_Read", "IOBus_Write", 0, &HFFFF
-    Else
-        C64_Init Empty
-    End If
+	' Native Machine mode purely for the keyboard-matrix scratch (gMem_KeyCol);
+	' the native machine owns its own RAM/ROM/VIC/CIA state independently.
+	Mem_Init()
 
-    ' Init VIC (module-level) -- not needed when the native machine renders.
-    If Not NATIVE_MACHINE Then Vic_Init()
+	' Init CPU: native machine (owns everything), native VGCpu6502 (Turbo Mode),
+	' or pure-VG 6510 core (default).
+	If NATIVE_MACHINE Then
+		' CPU + bus + VIC + CIA are all owned by the native VGC64Machine, which
+		' is created once ROMs are located (see TryAutoLoad). Nothing to init here.
+	ElseIf TURBO_MODE Then
+		Set NativeCpu = New VGCpu6502
+		' Route the ENTIRE 64KB bus through the existing, already-verified VG
+		' memory subsystem (RAM/ROM banking, VIC/CIA/color-RAM decode) --
+		' only the opcode fetch/decode/execute loop below is native.
+		' NOTE: the Callable must target a Sub/Function defined directly in
+		' THIS file (c64_main.vg) -- VisualGasicScript::_has_method() (which
+		' Callable::is_valid() consults) only scans the OWNING script's own
+		' AST subs, not cross-module imports. Mem_Read/Mem_Write live in the
+		' imported c64_memory.vg module, so a Callable built straight from
+		' their names is silently invalid (bus reads/writes then fall through
+		' to VGCpu6502's internal, never-populated RAM). Route through the
+		' local IOBus_Read/IOBus_Write forwarders below instead.
+		NativeCpu.SetIOHook Me, "IOBus_Read", "IOBus_Write", 0, &HFFFF
+	Else
+		C64_Init Empty
+	End If
 
-    bLoaded = False
-    FrameCount = 0
+	' Init VIC (module-level) -- not needed when the native machine renders.
+	If Not NATIVE_MACHINE Then Vic_Init()
 
-    ' Create display
-    Set DisplayImage = CreateImage(SCREEN_W, SCREEN_H, Color8(0, 0, 0, 255))
-    Set DisplayTex = CreateTexture(DisplayImage)
+	bLoaded = False
+	FrameCount = 0
 
-    Print "========================================"
-    Print "  Commodore 64 Emulator for VisualGasic"
-    Print "========================================"
-    Print ""
+	' Create display
+	Set DisplayImage = CreateImage(SCREEN_W, SCREEN_H, Color8(0, 0, 0, 255))
+	Set DisplayTex = CreateTexture(DisplayImage)
 
-    LastProgressPrintTime = Timer()
+	Print "========================================"
+	Print " Commodore 64 Emulator for VisualGasic"
+	Print "========================================"
+	Print ""
 
-    ' Try auto-load ROMs
-    TryAutoLoad()
-End Sub
+	LastProgressPrintTime = Timer()
 
-Sub TryAutoLoad()
-    Dim basePath As String = "res://roms/"
-    Dim basicPath As String = basePath & "basic.901226-01.bin"
-    Dim kernalPath As String = basePath & "kernal.901227-03.bin"
-    Dim charPath As String = basePath & "characters.901225-01.bin"
+	' Wire up OS-level drag-and-drop (drop a .crt/ROM file onto the window
+	' at any time -- see OnFilesDropped).
+	Connect GetWindow(), "files_dropped", "OnFilesDropped"
 
-    If FileExists(basicPath) And FileExists(kernalPath) And FileExists(charPath) Then
-        Print "Auto-loading ROMs..."
-        If NATIVE_MACHINE Then
-            Set Machine = New VGC64Machine
-            If Machine.LoadROMs(basicPath, kernalPath, charPath) Then
-                Print "Loaded ROMs into native VGC64Machine"
-                InitializeC64()
-            End If
-        ElseIf Mem_LoadROMs(basicPath, kernalPath, charPath) Then
-            InitializeC64()
-        End If
-    Else
-        Print "ROMs not found in roms/ folder."
-        Print "Place basic.901226-01.bin, kernal.901227-03.bin, and characters.901225-01.bin"
-        Print "in the demos/C64_Emulator/roms/ directory."
-    End If
-End Sub
+	' Try auto-load ROMs
+	TryAutoLoad()
+	End Sub
 
-Sub InitializeC64()
-    ' Set up VIC-II default registers
-    Bus_Write &HD011, &H1B   ' Control 1: 25 rows, display on, YSCROLL=3
-    Bus_Write &HD016, &H08   ' Control 2: 40 columns, standard mode
-    Bus_Write &HD018, &H15   ' Memory: Screen at $0400, charset at $0800
-    Bus_Write &HD020, &H0E   ' Border: light blue
-    Bus_Write &HD021, &H06   ' Background: blue
+	Sub TryAutoLoad()
+		Dim basePath As String = "res://roms/"
+		Dim basicPath As String = basePath & "basic.901226-01.bin"
+		Dim kernalPath As String = basePath & "kernal.901227-03.bin"
+		Dim charPath As String = basePath & "characters.901225-01.bin"
 
-    ' CIA1: keyboard
-    Bus_Write &HDC00, &H7F
-    Bus_Write &HDC02, &HFF
-    Bus_Write &HDC03, &H00
+		If FileExists(basicPath) And FileExists(kernalPath) And FileExists(charPath) Then
+			Print "Auto-loading ROMs..."
+			If NATIVE_MACHINE Then
+				Set Machine = New VGC64Machine
+				If Machine.LoadROMs(basicPath, kernalPath, charPath) Then
+					Print "Loaded ROMs into native VGC64Machine"
+					TryAutoLoadCartridge()
+					InitializeC64()
+				End If
+			ElseIf Mem_LoadROMs(basicPath, kernalPath, charPath) Then
+				InitializeC64()
+			End If
+		Else
+			Print "ROMs not found in roms/ folder."
+			Print "Place basic.901226-01.bin, kernal.901227-03.bin, and characters.901225-01.bin"
+			Print "in the demos/C64_Emulator/roms/ directory."
+		End If
+	End Sub
 
-    ' CIA2: serial/VIC bank
-    Bus_Write &HDD00, &H03
+	Sub TryAutoLoadCartridge()
+		If FileExists(CART_PATH) Then
+			Print "Auto-loading cartridge: " & CART_PATH
+			If Machine.LoadCartridge(CART_PATH) Then
+				gCartridgeLoaded = True
+				Print "Cartridge loaded -- will autostart via the real KERNAL's CBM80 detection."
+			Else
+				Print "Cartridge failed to load (see engine log above for the reason) -- booting without it."
+			End If
+		End If
+	End Sub
 
-    ' Reset CPU: native machine, native core (Turbo Mode), or module-level VG core
-    If NATIVE_MACHINE Then
-        Machine.Reset()
-    ElseIf TURBO_MODE Then
-        NativeCpu.Reset()
-    Else
-        C64_Reset()
-    End If
-    
-    ' Apply boot configuration: skip RAMTAS RAM test
-    ' The KERNAL boot at $FCE2 runs: LDX #$FF/TXS (reset SP) → IOINIT → RAMTAS
-    ' → RESTOR → CINT → BASIC. We can't skip just RAMTAS in the linear
-    ' sequence, so we write a tiny 6502 stub at $C000 that does everything
-    ' EXCEPT RAMTAS:
-    '   LDX #$FF : TXS  (reset stack pointer to $FF, same as real KERNAL reset --
-    '                    REQUIRED: C64_Reset() leaves SP=$FD, and without this,
-    '                    JSR return addresses land at $01FC/$01FD, which is
-    '                    exactly where INITMEM's zero-page copy loop writes
-    '                    during BASIC cold start, corrupting the stack and
-    '                    causing a bogus BRK/warm-start that skips the banner)
-    '   JSR $FDA3  (IOINIT — init CIA/VIC/SID/processor port)
-    '   JSR $FD15  (RESTOR — set default IRQ/NMI vectors)
-    '   JSR $FF5B  (CINT — init screen editor, clear screen)
-    '   CLI        (enable interrupts)
-    '   JMP ($A000)(indirect jump to BASIC cold start)
-    If SKIP_RAM_TEST Then
-        ' Pre-write memory state that RAMTAS would leave:
-        Bus_Write &HB2, &H3C       ' Tape buffer pointer low
-        Bus_Write &HB3, &H03       ' Tape buffer pointer high ($033C)
-        Bus_Write &H0281, &H00     ' MEMTOP low ($0800 — start of BASIC text)
-        Bus_Write &H0282, &H08     ' MEMTOP high
-        Bus_Write &H0283, &H00     ' MEMBOT low ($A000 — top of BASIC RAM)
-        Bus_Write &H0284, &HA0     ' MEMBOT high
-        Bus_Write &H0288, &H04     ' Screen memory page ($0400)
-        
-        ' Write boot stub at $C000
-        Bus_Write &HC000, &HA2     ' LDX #$FF
-        Bus_Write &HC001, &HFF
-        Bus_Write &HC002, &H9A     ' TXS (set SP=$FF like real KERNAL reset)
-        Bus_Write &HC003, &H20     ' JSR
-        Bus_Write &HC004, &HA3     '   $FDA3 (IOINIT)
-        Bus_Write &HC005, &HFD
-        Bus_Write &HC006, &H20     ' JSR
-        Bus_Write &HC007, &H15     '   $FD15 (RESTOR)
-        Bus_Write &HC008, &HFD
-        Bus_Write &HC009, &H20     ' JSR
-        Bus_Write &HC00A, &H5B     '   $FF5B (CINT)
-        Bus_Write &HC00B, &HFF
-        Bus_Write &HC00C, &H58     ' CLI
-        Bus_Write &HC00D, &H6C     ' JMP ($A000)
-        Bus_Write &HC00E, &H00
-        Bus_Write &HC00F, &HA0
-        
-        If NATIVE_MACHINE Then
-            Machine.SetPC &HC000
-        ElseIf TURBO_MODE Then
-            NativeCpu.SetPC &HC000
-        Else
-            C64_SetPC &HC000
-        End If
-        Print "[SETUP] Skipping RAMTAS — boot stub at $C000 (IOINIT+RESTOR+CINT+BASIC)"
-        Print "[SETUP] $A000=$" & Hex(Bus_ReadByte(&HA000)) & " $A001=$" & Hex(Bus_ReadByte(&HA001))
-        Print "[SETUP] JMP target = $" & Hex(Bus_ReadByte(&HA001) * 256 + Bus_ReadByte(&HA000))
-    End If
-    
-    bLoaded = True
+	Sub InitializeC64()
+		' Set up VIC-II default registers
+		Bus_Write &HD011, &H1B ' Control 1: 25 rows, display on, YSCROLL=3
+		Bus_Write &HD016, &H08 ' Control 2: 40 columns, standard mode
+		Bus_Write &HD018, &H15 ' Memory: Screen at $0400, charset at $0800
+		Bus_Write &HD020, &H0E ' Border: light blue
+		Bus_Write &HD021, &H06 ' Background: blue
 
-    Print "C64 Emulator ready!"
-    Print "PC=$" & Hex(Emu_GetPC())
-    Print ""
-    Print "  SKIP_RAM_TEST = " & SKIP_RAM_TEST
-    Print "  TURBO_MODE (native VGCpu6502) = " & TURBO_MODE
-    Print "  NATIVE_MACHINE (full native VGC64Machine) = " & NATIVE_MACHINE
-    Print ""
-    Print "Controls:"
-    Print "  Arrow keys = Joystick"
-    Print "  Keys = C64 keyboard"
-    Print "  Space, Enter, Backspace mapped"
+		' CIA1: keyboard
+		Bus_Write &HDC00, &H7F
+		Bus_Write &HDC02, &HFF
+		Bus_Write &HDC03, &H00
 
-    InitAudio()
-End Sub
+		' CIA2: serial/VIC bank
+		Bus_Write &HDD00, &H03
 
-Sub InitAudio()
-    SoundHandle = SoundGen.Open(44100, 0.05)
-    If SoundHandle = 0 Then
-        Print "Warning: Could not open audio"
-    End If
-End Sub
+		' Reset CPU: native machine, native core (Turbo Mode), or module-level VG core
+		If NATIVE_MACHINE Then
+			Machine.Reset()
+		ElseIf TURBO_MODE Then
+			NativeCpu.Reset()
+		Else
+			C64_Reset()
+		End If
 
-' === Keyboard to C64 Matrix ===
-Sub UpdateKeyboard()
-    ' Read PC keyboard and map to C64 matrix
-    ' This maps common PC keys to the C64 keyboard matrix
+		' Apply boot configuration: skip RAMTAS RAM test
+		' The KERNAL boot at $FCE2 runs: LDX #$FF/TXS (reset SP) → IOINIT → RAMTAS
+		' → RESTOR → CINT → BASIC. We can't skip just RAMTAS in the linear
+		' sequence, so we write a tiny 6502 stub at $C000 that does everything
+		' EXCEPT RAMTAS:
+		'   LDX #$FF : TXS  (reset stack pointer to $FF, same as real KERNAL reset --
+		'                    REQUIRED: C64_Reset() leaves SP=$FD, and without this,
+		'                    JSR return addresses land at $01FC/$01FD, which is
+		'                    exactly where INITMEM's zero-page copy loop writes
+		'                    during BASIC cold start, corrupting the stack and
+		'                    causing a bogus BRK/warm-start that skips the banner)
+		'   JSR $FDA3  (IOINIT — init CIA/VIC/SID/processor port)
+		'   JSR $FD15  (RESTOR — set default IRQ/NMI vectors)
+		'   JSR $FF5B  (CINT — init screen editor, clear screen)
+		'   CLI        (enable interrupts)
+		'   JMP ($A000)(indirect jump to BASIC cold start)
+		If SKIP_RAM_TEST And Not gCartridgeLoaded Then
+			' Pre-write memory state that RAMTAS would leave:
+			Bus_Write &HB2, &H3C ' Tape buffer pointer low
+			Bus_Write &HB3, &H03 ' Tape buffer pointer high ($033C)
+			Bus_Write &H0281, &H00 ' MEMTOP low ($0800 — start of BASIC text)
+			Bus_Write &H0282, &H08 ' MEMTOP high
+			Bus_Write &H0283, &H00 ' MEMBOT low ($A000 — top of BASIC RAM)
+			Bus_Write &H0284, &HA0 ' MEMBOT high
+			Bus_Write &H0288, &H04 ' Screen memory page ($0400)
 
-    ' Build column states (active low)
-    Dim col0 As Integer = &HFF, col1 As Integer = &HFF
-    Dim col2 As Integer = &HFF, col3 As Integer = &HFF
-    Dim col4 As Integer = &HFF, col5 As Integer = &HFF
-    Dim col6 As Integer = &HFF, col7 As Integer = &HFF
+			' Write boot stub at $C000
+			Bus_Write &HC000, &HA2 ' LDX #$FF
+			Bus_Write &HC001, &HFF
+			Bus_Write &HC002, &H9A ' TXS (set SP=$FF like real KERNAL reset)
+			Bus_Write &HC003, &H20 ' JSR
+			Bus_Write &HC004, &HA3 '   $FDA3 (IOINIT)
+			Bus_Write &HC005, &HFD
+			Bus_Write &HC006, &H20 ' JSR
+			Bus_Write &HC007, &H15 '   $FD15 (RESTOR)
+			Bus_Write &HC008, &HFD
+			Bus_Write &HC009, &H20 ' JSR
+			Bus_Write &HC00A, &H5B '   $FF5B (CINT)
+			Bus_Write &HC00B, &HFF
+			Bus_Write &HC00C, &H58 ' CLI
+			Bus_Write &HC00D, &H6C ' JMP ($A000)
+			Bus_Write &HC00E, &H00
+			Bus_Write &HC00F, &HA0
 
-    ' Row 7 (column 0, PA bit 0) -- STOP, Q, C=, SPACE, 2, CTRL, ←, 1
-    ' Row 6 (col 1) -- /, ↑, =, Right Shift, HOME, ;, *, £
-    ' Row 5 (col 2) -- ,, @, :, ., -, L, P, +
-    ' Row 4 (col 3) -- N, O, K, M, 0, J, I, 9
-    ' Row 3 (col 4) -- V, U, H, B, 8, G, Y, 7
-    ' Row 2 (col 5) -- X, T, F, C, 6, D, R, 5
-    ' Row 1 (col 6) -- Left Shift, E, S, Z, 4, A, W, 3
-    ' Row 0 (col 7) -- ↓, F5, F3, F1, F7, →, RETURN, DEL
+			If NATIVE_MACHINE Then
+				Machine.SetPC &HC000
+			ElseIf TURBO_MODE Then
+				NativeCpu.SetPC &HC000
+			Else
+				C64_SetPC &HC000
+			End If
+			Print "[SETUP] Skipping RAMTAS — boot stub at $C000 (IOINIT+RESTOR+CINT+BASIC)"
+			Print "[SETUP] $A000=$" & Hex(Bus_ReadByte(&HA000)) & " $A001=$" & Hex(Bus_ReadByte(&HA001))
+			Print "[SETUP] JMP target = $" & Hex(Bus_ReadByte(&HA001) * 256 + Bus_ReadByte(&HA000))
+		ElseIf gCartridgeLoaded Then
+			Print "[SETUP] Cartridge present -- using the authentic KERNAL reset (RAMTAS not skipped)"
+			Print "[SETUP] so the real ROM's CBM80 signature check can autostart it."
+		End If
 
-    ' Simplified: just map essential keys for testing
-    If IsActionPressed("ui_accept") Then col7 = BitClr(col7, 1)  ' RETURN
-    If IsActionPressed("ui_cancel") Then col7 = col7
-    If IsActionPressed("ui_up") Then col7 = BitClr(col7, 0)
-    If IsActionPressed("ui_down") Then col7 = col7
-    If IsActionPressed("ui_left") Then col7 = col7
-    If IsActionPressed("ui_right") Then col7 = BitClr(col7, 2)
+		bLoaded = True
 
-    ' Space
-    If IsKeyPressed(KEY_SPACE) Then col7 = BitClr(col7, 4)
+		Print "C64 Emulator ready!"
+		Print "PC=$" & Hex(Emu_GetPC())
+		Print ""
+		Print " SKIP_RAM_TEST = " & SKIP_RAM_TEST
+		Print " TURBO_MODE (native VGCpu6502) = " & TURBO_MODE
+		Print " NATIVE_MACHINE (full native VGC64Machine) = " & NATIVE_MACHINE
+		Print ""
+		Print "Controls:"
+		Print " Arrow keys = Joystick"
+		Print " Keys = C64 keyboard"
+		Print " Space, Enter, Backspace mapped"
 
-    ' Letter keys - rough mapping
-    If IsKeyPressed(KEY_A) Then col6 = BitClr(col6, 2)
-    If IsKeyPressed(KEY_B) Then col4 = BitClr(col4, 3)
-    If IsKeyPressed(KEY_C) Then col5 = BitClr(col5, 3)
-    If IsKeyPressed(KEY_D) Then col5 = BitClr(col5, 5)
-    If IsKeyPressed(KEY_E) Then col6 = BitClr(col6, 1)
-    If IsKeyPressed(KEY_F) Then col5 = BitClr(col5, 2)
-    If IsKeyPressed(KEY_G) Then col4 = BitClr(col4, 5)
-    If IsKeyPressed(KEY_H) Then col4 = BitClr(col4, 2)
-    If IsKeyPressed(KEY_I) Then col4 = BitClr(col4, 6)
-    If IsKeyPressed(KEY_J) Then col4 = BitClr(col4, 5)
-    If IsKeyPressed(KEY_K) Then col5 = BitClr(col5, 2)
-    If IsKeyPressed(KEY_L) Then col5 = BitClr(col5, 6)
-    If IsKeyPressed(KEY_M) Then col4 = BitClr(col4, 3)
-    If IsKeyPressed(KEY_N) Then col4 = BitClr(col4, 0)
-    If IsKeyPressed(KEY_O) Then col4 = BitClr(col4, 1)
-    If IsKeyPressed(KEY_P) Then col5 = BitClr(col5, 6)
-    If IsKeyPressed(KEY_Q) Then col6 = BitClr(col6, 6)
-    If IsKeyPressed(KEY_R) Then col5 = BitClr(col5, 1)
-    If IsKeyPressed(KEY_S) Then col6 = BitClr(col6, 5)
-    If IsKeyPressed(KEY_T) Then col5 = BitClr(col5, 1)
-    If IsKeyPressed(KEY_U) Then col4 = BitClr(col4, 1)
-    If IsKeyPressed(KEY_V) Then col4 = BitClr(col4, 0)
-    If IsKeyPressed(KEY_W) Then col6 = BitClr(col6, 1)
-    If IsKeyPressed(KEY_X) Then col5 = BitClr(col5, 0)
-    If IsKeyPressed(KEY_Y) Then col4 = BitClr(col4, 6)
-    If IsKeyPressed(KEY_Z) Then col6 = BitClr(col6, 3)
+		InitAudio()
+	End Sub
 
-    ' Numbers
-    If IsKeyPressed(KEY_0) Then col4 = BitClr(col4, 4)
-    If IsKeyPressed(KEY_1) Then col7 = BitClr(col7, 7)
-    If IsKeyPressed(KEY_2) Then col7 = BitClr(col7, 3)
-    If IsKeyPressed(KEY_3) Then col6 = BitClr(col6, 7)
-    If IsKeyPressed(KEY_4) Then col6 = BitClr(col6, 3)
-    If IsKeyPressed(KEY_5) Then col5 = BitClr(col5, 6)
-    If IsKeyPressed(KEY_6) Then col5 = BitClr(col5, 3)
-    If IsKeyPressed(KEY_7) Then col4 = BitClr(col4, 7)
-    If IsKeyPressed(KEY_8) Then col4 = BitClr(col4, 3)
-    If IsKeyPressed(KEY_9) Then col4 = BitClr(col4, 7)
+	Sub InitAudio()
+		SoundHandle = SoundGen.Open(44100, 0.05)
+		If SoundHandle = 0 Then
+			Print "Warning: Could not open audio"
+		End If
+	End Sub
 
-    Mem_SetKeyCol 0, col0
-    Mem_SetKeyCol 1, col1
-    Mem_SetKeyCol 2, col2
-    Mem_SetKeyCol 3, col3
-    Mem_SetKeyCol 4, col4
-    Mem_SetKeyCol 5, col5
-    Mem_SetKeyCol 6, col6
-    Mem_SetKeyCol 7, col7
-End Sub
+	' === Keyboard to C64 Matrix ===
+	Sub UpdateKeyboard()
+		' Read PC keyboard and map to C64 matrix
+		' This maps common PC keys to the C64 keyboard matrix
 
-' === Main Loop ===
-Sub _Process(delta As Double)
-    If Not bLoaded Then
-        QueueRedraw()
-        Return
-    End If
+		' Build column states (active low)
+		Dim col0 As Integer = &HFF, col1 As Integer = &HFF
+		Dim col2 As Integer = &HFF, col3 As Integer = &HFF
+		Dim col4 As Integer = &HFF, col5 As Integer = &HFF
+		Dim col6 As Integer = &HFF, col7 As Integer = &HFF
 
-    UpdateKeyboard()
+		' Row 7 (column 0, PA bit 0) -- STOP, Q, C=, SPACE, 2, CTRL, ←, 1
+		' Row 6 (col 1) -- /, ↑, =, Right Shift, HOME, ;, *, £
+		' Row 5 (col 2) -- ,, @, :, ., -, L, P, +
+		' Row 4 (col 3) -- N, O, K, M, 0, J, I, 9
+		' Row 3 (col 4) -- V, U, H, B, 8, G, Y, 7
+		' Row 2 (col 5) -- X, T, F, C, 6, D, R, 5
+		' Row 1 (col 6) -- Left Shift, E, S, Z, 4, A, W, 3
+		' Row 0 (col 7) -- ↓, F5, F3, F1, F7, →, RETURN, DEL
 
-    ' === Native Machine fast path ===
-    If NATIVE_MACHINE Then
-        ' Push the freshly-scanned keyboard matrix into the native machine
-        ' (UpdateKeyboard writes the 8 column bytes into the VG key matrix).
-        Dim kc As Integer
-        For kc = 0 To 7
-            Machine.SetKeyCol kc, Mem_GetKeyCol(kc)
-        Next
+		' Simplified: just map essential keys for testing
+		' === Modern keyboard to C64 cursor/control keys ===
+		' C64 cursor keys are in col7 (row 0): ↓(bit0), →(bit2), RETURN(bit1), DEL(bit0 col1)
+		' Modern arrow keys should map to C64 cursor movement:
+		'   Modern UP    → C64 Shift+↓ (cursor up)
+		'   Modern DOWN  → C64 ↓ (cursor down)
+		'   Modern LEFT  → C64 Shift+→ (cursor left)
+		'   Modern RIGHT → C64 → (cursor right)
+		' For now, simplified direct mapping:
+		If IsKeyPressed(KEY_DOWN) Then col7 = BitClr(col7, 0) ' C64 cursor down (↓)
+		If IsKeyPressed(KEY_RIGHT) Then col7 = BitClr(col7, 2) ' C64 cursor right (→)
+		If IsKeyPressed(KEY_UP) Then
+			col7 = BitClr(col7, 0) ' ↓ key
+			col6 = BitClr(col6, 7) ' + Shift = cursor up
+		End If
+		If IsKeyPressed(KEY_LEFT) Then
+			col7 = BitClr(col7, 2) ' → key
+			col6 = BitClr(col6, 7) ' + Shift = cursor left
+		End If
 
-        ' Run one COMPLETE PAL frame entirely in C++ -- 6510 execution, RAM/ROM
-        ' banking, VIC-II raster rendering, and the CIA1 system-IRQ timer all
-        ' happen inside VGC64Machine.RunFrame with ZERO per-access Callable
-        ' round-trips. This is the whole point of Native Machine mode.
-        Machine.RunFrame()
+		' RETURN and Backspace
+		If IsKeyPressed(KEY_ENTER) Then col7 = BitClr(col7, 1) ' RETURN
+		If IsKeyPressed(KEY_BACKSPACE) Then col7 = BitClr(col7, 0) ' DEL (col7 bit0 when col1 scanned)
+		If IsKeyPressed(KEY_DELETE) Then col1 = BitClr(col1, 0) ' INST/DEL
+		If IsKeyPressed(KEY_HOME) Then col1 = BitClr(col1, 3) ' HOME (col1 bit3)
 
-        ' Blit the finished framebuffer straight to the display texture. The
-        ' machine renders into its own RGBA8 384x272 Image, identical in layout
-        ' to the VG VIC framebuffer, so DisplayTex (same dimensions) refreshes
-        ' in one shot with no intermediate VG-side pixel work.
-        UpdateTexture DisplayTex, Machine.GetFramebuffer()
+		' Space — CRITICAL FIX: Space is in col0 bit4, NOT col7!
+		' Per the matrix comment above: Row 7 (col0) = STOP, Q, C=, SPACE, 2, CTRL, ←, 1
+		If IsKeyPressed(KEY_SPACE) Then col0 = BitClr(col0, 4)
 
-        OutputAudio()
+		' Letter keys, mapped against the real C64 keyboard matrix (verified
+		' against the column tables in the comment block above -- the
+		' previous version of this mapping had widespread wrong-bit and
+		' wrong-COLUMN errors (e.g. Q wired into col6 instead of col0,
+		' colliding with E; I/O/N/M/V wired into col4 instead of col3;
+		' G/H swapped; many duplicate collisions), so most typed letters
+		' either produced the wrong character or silently collided with an
+		' unrelated key. This full rewrite fixes every letter/digit. Fixed
+		' Aug 3 2026 -- see /memories/repo/c64_keyboard_matrix_bug.md.
+		If IsKeyPressed(KEY_A) Then col6 = BitClr(col6, 2)
+		If IsKeyPressed(KEY_B) Then col4 = BitClr(col4, 4)
+		If IsKeyPressed(KEY_C) Then col5 = BitClr(col5, 4)
+		If IsKeyPressed(KEY_D) Then col5 = BitClr(col5, 2)
+		If IsKeyPressed(KEY_E) Then col6 = BitClr(col6, 6)
+		If IsKeyPressed(KEY_F) Then col5 = BitClr(col5, 5)
+		If IsKeyPressed(KEY_G) Then col4 = BitClr(col4, 2)
+		If IsKeyPressed(KEY_H) Then col4 = BitClr(col4, 5)
+		If IsKeyPressed(KEY_I) Then col3 = BitClr(col3, 1)
+		If IsKeyPressed(KEY_J) Then col3 = BitClr(col3, 2)
+		If IsKeyPressed(KEY_K) Then col3 = BitClr(col3, 5)
+		If IsKeyPressed(KEY_L) Then col2 = BitClr(col2, 2)
+		If IsKeyPressed(KEY_M) Then col3 = BitClr(col3, 4)
+		If IsKeyPressed(KEY_N) Then col3 = BitClr(col3, 7)
+		If IsKeyPressed(KEY_O) Then col3 = BitClr(col3, 6)
+		If IsKeyPressed(KEY_P) Then col2 = BitClr(col2, 1)
+		If IsKeyPressed(KEY_Q) Then col0 = BitClr(col0, 6)
+		If IsKeyPressed(KEY_R) Then col5 = BitClr(col5, 1)
 
-        FrameCount = FrameCount + 1
-        Dim nowN As Double = Timer()
-        Dim elN As Double = nowN - LastProgressPrintTime
-        If elN >= 2 And elN > 0 Then
-            Dim icNow As Long = Machine.GetInstructionCount()
-            Dim instDelta As Long = icNow - LastProgressSteps
-            Print "[NATIVE] frame=" & CStr(FrameCount) & " PC=$" & Hex(Machine.GetPC()) & " instr/s=" & CStr(Int(instDelta / elN)) & " $0428=" & Hex(Machine.PeekRAM(&H0428)) & " $042C=" & Hex(Machine.PeekRAM(&H042C))
-            LastProgressPrintTime = nowN
-            LastProgressSteps = icNow
-        End If
+		' === Punctuation and symbols ===
+		' C64 matrix reference from comments above:
+		' col2: ,, @, :, ., -, L, P, +
+		' col1: /, ↑, =, Right Shift, HOME, ;, *, £
+		' col0: STOP, Q, C=, SPACE, 2, CTRL, ←, 1
 
-        QueueRedraw()
-        Return
-    End If
+		If IsKeyPressed(KEY_COMMA) Then col2 = BitClr(col2, 7) ' , (col2 bit7)
+		If IsKeyPressed(KEY_PERIOD) Then col2 = BitClr(col2, 4) ' . (col2 bit4)
+		If IsKeyPressed(KEY_SEMICOLON) Then col1 = BitClr(col1, 2) ' ; (col1 bit2)
+		If IsKeyPressed(KEY_COLON) Then col2 = BitClr(col2, 5) ' : (col2 bit5)
+		If IsKeyPressed(KEY_SLASH) Then col1 = BitClr(col1, 7) ' / (col1 bit7)
+		If IsKeyPressed(KEY_MINUS) Then col2 = BitClr(col2, 3) ' - (col2 bit3)
+		If IsKeyPressed(KEY_EQUAL) Then col1 = BitClr(col1, 5) ' = (col1 bit5)
 
-    ' Every cross-module Sub here (C64_Step, Mem_Read, Vic_Tick, ...) runs via
-    ' slow AST interpretation (see "Compiler: Entry point not found" — none of
-    ' these get bytecode-compiled since they live in imported modules). A full
-    ' PAL frame is ~19705 cycles, which can take a long time to interpret in an
-    ' editor/debug build. Running the whole frame synchronously in one
-    ' _Process call makes the app appear to freeze at startup. Instead, we
-    ' process a small chunk of cycles per call and accumulate progress toward
-    ' a full virtual frame across many real _Process calls.
-    Dim chunkCycles As Long = 200
-    Dim chunkRun As Long = 0
-    Dim safetyCounter As Long = 0
+		' Plus and asterisk require Shift on C64
+		If IsKeyPressed(KEY_PLUS) Then col2 = BitClr(col2, 0) ' + (col2 bit0)
+		If IsKeyPressed(KEY_ASTERISK) Then col1 = BitClr(col1, 1) ' * (col1 bit1)
 
-    Do While chunkRun < chunkCycles
-        ' Check for crash (PC = 0 or too many cycles)
-        If Emu_GetPC() = 0 Then
-            Print "CPU crash at PC=0! Cycles=" & CStr(CyclesThisFrame + chunkRun)
-            bLoaded = False
-            Return
-        End If
+		' @ symbol (Shift+2 on C64, but map PC @ key directly)
+		If IsKeyPressed(KEY_AT) Then col2 = BitClr(col2, 6) ' @ (col2 bit6)
 
-        Dim instCycles As Integer = Emu_Step()
-        chunkRun = chunkRun + instCycles
-        TotalStepsExecuted = TotalStepsExecuted + 1
-        TotalCyclesExecuted = TotalCyclesExecuted + instCycles
+		' Quote marks - C64 uses Shift+2 for ", map PC quote keys
+		If IsKeyPressed(KEY_APOSTROPHE) Then
+			col0 = BitClr(col0, 3) ' 2 key
+			col6 = BitClr(col6, 7) ' + Shift = "
+		End If
+		If IsKeyPressed(KEY_QUOTEDBL) Then
+			col0 = BitClr(col0, 3) ' 2 key
+			col6 = BitClr(col6, 7) ' + Shift = "
+		End If
 
-        ' Tick VIC for the instruction's cycle count in ONE call (was:
-        ' one Vic_Tick() call PER CYCLE, i.e. 2-7 full Sub calls per
-        ' instruction just for VIC ticking -- VG's per-call overhead
-        ' dominates cost, so batching this into a single call with the
-        ' cycle count is a large, safe win; see c64_vic.vg's Vic_Tick).
-        Vic_Tick(instCycles)
+		' Brackets - map to C64 equivalents
+		' C64 uses Shift+: for [ and Shift+; for ]
+		If IsKeyPressed(KEY_BRACKETLEFT) Then
+			col2 = BitClr(col2, 5) ' : key
+			col6 = BitClr(col6, 7) ' + Shift = [
+		End If
+		If IsKeyPressed(KEY_BRACKETRIGHT) Then
+			col1 = BitClr(col1, 2) ' ; key
+			col6 = BitClr(col6, 7) ' + Shift = ]
+		End If
 
-        ' CIA1 Timer A countdown — fires ~60Hz system IRQ for keyboard scan
-        CIA1_TimerA = CIA1_TimerA - instCycles
-        If CIA1_TimerA <= 0 Then
-            CIA1_TimerA = CIA1_TimerA + CIA1_TimerA_Latch
-            ' Set CIA1 ICR flag ($DC0D bit 0) and trigger CPU IRQ
-            Dim icr As Integer = Mem_GetBuf(&HDC0D)
-            Mem_SetBuf &HDC0D, BitOr(icr, &H81)
-            Emu_SetIRQ True
-        End If
+		' Parentheses - Shift+8 and Shift+9 on C64
+		If IsKeyPressed(KEY_PARENLEFT) Then
+			col4 = BitClr(col4, 3) ' 8 key
+			col6 = BitClr(col6, 7) ' + Shift = (
+		End If
+		If IsKeyPressed(KEY_PARENRIGHT) Then
+			col3 = BitClr(col3, 0) ' 9 key
+			col6 = BitClr(col6, 7) ' + Shift = )
+		End If
 
-        safetyCounter = safetyCounter + 1
-        If safetyCounter > chunkCycles * 3 Then
-            Exit Do
-        End If
-    Loop
+		' Underscore and other shifted number symbols
+		If IsKeyPressed(KEY_UNDERSCORE) Then
+			col1 = BitClr(col1, 7) ' / key (Shift+/ on some layouts)
+		End If
+		If IsKeyPressed(KEY_S) Then col6 = BitClr(col6, 5)
+		If IsKeyPressed(KEY_T) Then col5 = BitClr(col5, 6)
+		If IsKeyPressed(KEY_U) Then col4 = BitClr(col4, 6)
+		If IsKeyPressed(KEY_V) Then col4 = BitClr(col4, 7)
+		If IsKeyPressed(KEY_W) Then col6 = BitClr(col6, 1)
+		If IsKeyPressed(KEY_X) Then col5 = BitClr(col5, 7)
+		If IsKeyPressed(KEY_Y) Then col4 = BitClr(col4, 1)
+		If IsKeyPressed(KEY_Z) Then col6 = BitClr(col6, 4)
 
-    CyclesThisFrame = CyclesThisFrame + chunkRun
+		' Shift -- required for typed symbols like the quote in
+		' 10 PRINT "HELLO" (Shift+2). Was entirely unmapped before, so
+		' shifted characters could never be typed regardless of the
+		' letter-matrix fixes above.
+		If IsKeyPressed(KEY_SHIFT) Then col6 = BitClr(col6, 7)
 
-    ' PERF DIAGNOSTIC: print real throughput every ~2 wall-clock seconds,
-    ' regardless of virtual-frame progress -- proves whether execution is
-    ' actually advancing (and how fast) instead of guessing from a black screen.
-    Dim nowT As Double = Timer()
-    Dim elapsed As Double = nowT - LastProgressPrintTime
-    If elapsed >= 2 And elapsed > 0 Then
-        Dim stepsDelta As Long = TotalStepsExecuted - LastProgressSteps
-        Dim cyclesDelta As Long = TotalCyclesExecuted - LastProgressCycles
-        Dim d012val As Integer = Mem_GetBuf(&HD012)
-        Dim rasterHi As Integer = BitAnd(Mem_GetBuf(&HD011), &H80)
-        Dim v0428 As Integer = Mem_GetBuf(&H0428)
-        Dim v042C As Integer = Mem_GetBuf(&H042C)
-        Print "[PERF] cyc=" & CStr(TotalCyclesExecuted) & " PC=$" & Hex(Emu_GetPC()) & " rate=" & CStr(Int(cyclesDelta / elapsed)) & " $0428=" & Hex(v0428) & " $042C=" & Hex(v042C)
-        LastProgressPrintTime = nowT
-        LastProgressCycles = TotalCyclesExecuted
-        LastProgressSteps = TotalStepsExecuted
+		' Numbers
+		If IsKeyPressed(KEY_0) Then col3 = BitClr(col3, 3)
+		If IsKeyPressed(KEY_1) Then col0 = BitClr(col0, 0)
+		If IsKeyPressed(KEY_2) Then col0 = BitClr(col0, 3)
+		If IsKeyPressed(KEY_3) Then col6 = BitClr(col6, 0)
+		If IsKeyPressed(KEY_4) Then col6 = BitClr(col6, 3)
+		If IsKeyPressed(KEY_5) Then col5 = BitClr(col5, 0)
+		If IsKeyPressed(KEY_6) Then col5 = BitClr(col5, 3)
+		If IsKeyPressed(KEY_7) Then col4 = BitClr(col4, 0)
+		If IsKeyPressed(KEY_8) Then col4 = BitClr(col4, 3)
+		If IsKeyPressed(KEY_9) Then col3 = BitClr(col3, 0)
 
-    End If
+		Mem_SetKeyCol 0, col0
+		Mem_SetKeyCol 1, col1
+		Mem_SetKeyCol 2, col2
+		Mem_SetKeyCol 3, col3
+		Mem_SetKeyCol 4, col4
+		Mem_SetKeyCol 5, col5
+		Mem_SetKeyCol 6, col6
+		Mem_SetKeyCol 7, col7
+	End Sub
 
-    If CyclesThisFrame >= CYCLES_PER_FRAME_PAL Then
-        CyclesThisFrame = CyclesThisFrame - CYCLES_PER_FRAME_PAL
+	' === Clipboard Paste Support ===
+	' NOTE: these 4 handlers were originally pasted NESTED inside
+	' UpdateKeyboard() above (splitting its keyboard-matrix scan in half),
+	' which VG does not support -- Godot's real _Input(event) callback could
+	' never find a top-level "_Input" Sub, so the game threw a runtime
+	' "Sub or Function not defined: _Input" the moment any input event fired.
+	' Moved to top-level scope where they belong (found/fixed Aug 2026).
+	Sub _Input(Event As Variant)
+		If Not bLoaded Then Return
 
-        ' Copy VIC framebuffer to display
-        BlitImage DisplayImage, Vic_GetFramebuf(), 0, 0, SCREEN_W, SCREEN_H, 0, 0
-        UpdateTexture DisplayTex, DisplayImage
+		' Check for Ctrl+V paste
+		If Event.IsClass("InputEventKey") Then
+			If Event.pressed And Not Event.echo Then
+				If Event.keycode = KEY_V And (Event.ctrl_pressed Or Event.command_pressed) Then
+					Dim clip As String = DisplayServer.ClipboardGet()
+					If LooksLikeCartridgePath(clip) Then
+						' Pasted a file path (e.g. copied in a desktop file manager --
+						' see the NOTE on OnFilesDropped above for why this, not real
+						' OS drag-and-drop, is the working path in this environment)
+						' pointing at a .crt/cartridge-shaped file: load it as a
+						' cartridge and reset, instead of typing the path into BASIC.
+						LoadCartridgeAndReset Trim(clip)
+					ElseIf LooksLikeBasicListing(clip) Then
+						' Full line-numbered program: load it directly into
+						' memory (instant, reliable) instead of typing it
+						' character-by-character through the KERNAL keyboard
+						' buffer -- see LoadBasicProgramFromText above.
+						LoadBasicProgramFromText clip
+					Else
+						' Plain text/single command: fall back to the
+						' character-by-character keyboard-buffer typing path.
+						PasteBuffer = clip
+						PasteIndex = 0
+						PasteDelay = 0
+						Print "[PASTE] Pasting " & Len(PasteBuffer) & " characters from clipboard"
+					End If
+					GetViewport().SetInputAsHandled()
+				End If
+			End If
+		End If
+	End Sub
 
-        ' Audio
-        OutputAudio()
+	' A pasted cartridge FILE PATH is recognized as: a single line (no
+	' newlines -- a real BASIC listing or plain text fragment will practically
+	' never look like this), trimmed, ending in ".crt" or ".bin"
+	' (case-insensitive), that actually exists on disk. Handles a "file://"
+	' URI prefix too, in case the clipboard source provides one.
+	Function LooksLikeCartridgePath(text As String) As Boolean
+		Dim trimmed As String = Trim(text)
+		If Len(trimmed) = 0 Then Return False
+		If InStr(trimmed, Chr(10)) > 0 Or InStr(trimmed, Chr(13)) > 0 Then Return False
 
-        ' Update status every second
-        FrameCount = FrameCount + 1
-        If FrameCount Mod 60 = 0 Then
-            Print "C64 PC=$" & Hex(Emu_GetPC()) & " A=$" & Hex(Emu_GetA()) & " X=$" & Hex(Emu_GetX()) & " Y=$" & Hex(Emu_GetY()) & " SP=$" & Hex(Emu_GetSP()) & " Flags=$" & Hex(Emu_GetFlags())
-        End If
-    End If
-    QueueRedraw()
+		If Left(trimmed, 7) = "file://" Then trimmed = Mid(trimmed, 8)
+
+		Dim lower As String = LCase(trimmed)
+		Dim isCartExt As Boolean = (Right(lower, 4) = ".crt") Or (Right(lower, 4) = ".bin")
+		If Not isCartExt Then Return False
+
+		Return FileExists(trimmed)
+	End Function
+
+	' A pasted BASIC listing is recognized by its FIRST non-blank line
+	' starting with a digit (a line number) -- e.g. "10 PRINT ...".
+	Function LooksLikeBasicListing(text As String) As Boolean
+		Dim normalized As String = Replace(text, Chr(13), "")
+		Dim rawLines() As String = Split(normalized, Chr(10))
+		Dim n As Integer = UBound(rawLines) + 1
+		Dim i As Integer
+		For i = 0 To n - 1
+			Dim trimmed As String = Trim(rawLines(i))
+			If Len(trimmed) > 0 Then
+				Dim c As Integer = Asc(Left(trimmed, 1))
+				Return c > = 48 And c < = 57
+			End If
+		Next
+		Return False
+	End Function
+
+	Sub ProcessPaste()
+		' Feed the paste buffer into the C64's real type-ahead keyboard
+		' queue ($0277-$0280, count at $C6) -- the classic "POKE 198,N"
+		' trick. One whole LINE is written per burst (once the queue has
+		' fully drained from the previous burst), capped at the real
+		' hardware capacity of 10 bytes per burst (writing past that
+		' clobbers adjacent KERNAL variables like MEMSIZ at $0281+). This
+		' mirrors exactly how a real "type it in" utility behaves and lets
+		' the KERNAL's own keyboard scan/line editor (INSLIN) consume and
+		' echo the characters naturally. See /memories/repo/c64_paste_and_loader.md.
+		If Len(PasteBuffer) = 0 Then Return
+
+		If PasteIndex > = Len(PasteBuffer) Then
+			Print "[PASTE] Complete - " & CStr(PasteIndex) & " characters injected"
+			PasteBuffer = ""
+			PasteIndex = 0
+			PasteDelay = 0
+			Return
+		End If
+
+		' Wait for the KERNAL to fully drain the previous burst before
+		' sending the next one.
+		If Bus_ReadByte(&HC6) > 0 Then Return
+
+		' Find the end of the next line: scan forward from the current
+		' position until a LF/CR (or the end of the buffer). burstEnd is the
+		' 1-indexed position of the LAST character to include in this burst
+		' (the newline itself, if one was found), capped at 10 characters.
+		Dim n As Integer = Len(PasteBuffer)
+		Dim scanPos As Integer = PasteIndex + 1
+		While scanPos < = n And Asc(Mid(PasteBuffer, scanPos, 1)) < > 10 And Asc(Mid(PasteBuffer, scanPos, 1)) < > 13
+			scanPos = scanPos + 1
+		Wend
+		Dim burstEnd As Integer = n
+		If scanPos < = n Then burstEnd = scanPos ' include the newline char itself
+		If burstEnd - PasteIndex > 10 Then burstEnd = PasteIndex + 10
+
+		Dim bufLen As Integer = 0
+		While PasteIndex < burstEnd
+			Dim ch As String = Mid(PasteBuffer, PasteIndex + 1, 1)
+			PasteIndex = PasteIndex + 1
+
+			Dim petscii As Integer = AscToPetscii(ch)
+			If petscii > = 0 Then
+				' NOTE: must be "bufLen + &H0277" (VAR + CONST), NOT
+				' "&H0277 + bufLen" (CONST + VAR) -- the VG compiler has a
+				' known bug where CONST + VAR mis-evaluates as CONST + CONST
+				' (right operand's temp gets clobbered by the left literal),
+				' see /memories/repo/build_and_test.md.
+				Bus_Write bufLen + &H0277, petscii
+				bufLen = bufLen + 1
+			End If
+		Wend
+		If bufLen > 0 Then Bus_Write &HC6, bufLen
+	End Sub
+
+	Function AscToPetscii(ch As String) As Integer
+		' Convert ASCII/Unicode character to PETSCII code
+		' PETSCII is the C64's character encoding
+		If Len(ch) = 0 Then Return - 1
+
+		Dim code As Integer = Asc(ch)
+
+		' Uppercase letters: A-Z (PETSCII 65-90)
+		If code > = 65 And code < = 90 Then Return code
+
+		' Lowercase letters: a-z
+		' In PETSCII uppercase/graphics mode (default), lowercase letters are at 65-90
+		' In PETSCII lowercase mode, they're at 97-122
+		' For paste compatibility, convert to uppercase (most C64 BASIC is uppercase)
+		If code > = 97 And code < = 122 Then Return code - 32 ' a-z -> A-Z
+
+		' Numbers: 0-9 (PETSCII 48-57, same as ASCII)
+		If code > = 48 And code < = 57 Then Return code
+
+		' Common punctuation (PETSCII matches ASCII for these)
+		If code = 32 Then Return 32 ' Space
+		If code = 33 Then Return 33 ' !
+		If code = 34 Then Return 34 ' "
+		If code = 35 Then Return 35 ' #
+		If code = 36 Then Return 36 ' $
+		If code = 37 Then Return 37 ' %
+		If code = 38 Then Return 38 ' &
+		If code = 39 Then Return 39 ' '
+		If code = 40 Then Return 40 ' (
+		If code = 41 Then Return 41 ' )
+		If code = 42 Then Return 42 ' *
+		If code = 43 Then Return 43 ' +
+		If code = 44 Then Return 44 ' ,
+		If code = 45 Then Return 45 ' -
+		If code = 46 Then Return 46 ' .
+		If code = 47 Then Return 47 ' /
+		If code = 58 Then Return 58 ' :
+		If code = 59 Then Return 59 ' ;
+		If code = 60 Then Return 60 ' <
+		If code = 61 Then Return 61 ' =
+		If code = 62 Then Return 62 ' >
+		If code = 63 Then Return 63 ' ?
+		If code = 64 Then Return 64 ' @
+		If code = 91 Then Return 91 ' [
+		If code = 93 Then Return 93 ' ]
+		If code = 94 Then Return 94 ' ^
+		If code = 95 Then Return 95 ' _
+
+		' Special control characters
+		If code = 13 Or code = 10 Then Return 13 ' Enter/Return (CR)
+		If code = 9 Then Return 32 ' Tab -> Space (C64 has no tab)
+
+		' Unsupported characters - skip silently
+		Return - 1
+	End Function
+
+	' === BASIC V2 tokenizer + direct program loader ===
+	' Real C64 BASIC tokenizes the 68 alphabetic reserved words (PRINT, GOTO,
+	' AND, TO, ...) AND the 8 single-character arithmetic/relational operators
+	' (+ - * / ^ > = <) into single high-bit token bytes 0x80-0xCB -- see
+	' https://www.c64-wiki.com/wiki/BASIC_token ("Commodore BASIC V2 has 68
+	' keywords and 8 operators, which are assigned token codes..."). All other
+	' punctuation (:,;,",.) is always stored as raw ASCII/PETSCII and never
+	' tokenized. "GO" and "FN" are deliberately omitted (rare, word-boundary-
+	' ambiguous with GOTO/FNx(), not needed for typical pasted listings).
+	'
+	' BUG FIXED Aug 2026: this table previously omitted the 8 operator tokens
+	' entirely (a prior comment here incorrectly claimed operators are "never
+	' tokenized" on real hardware). Any statement containing +,-,*,/,^,>,=,<
+	' outside a REM/string (e.g. "10 X=1", "10 FOR X=1 TO 5") was written with
+	' the literal ASCII byte instead of the real ROM's expected token byte, so
+	' the ROM's parser -- which hard-codes an expected TOKEN value (e.g. $B2
+	' for '=') at each parse step -- saw a byte it didn't recognize and raised
+	' ?SYNTAX ERROR. This looked exactly like a "FOR loop is broken" bug
+	' because FOR/assignment statements almost always contain '=', while
+	' PRINT-only literal-text programs (which never do) appeared to work
+	' fine. See /memories/repo/c64_native_for_loop_bug.md.
+	Sub AddKw(name As String, tok As Integer)
+		gBasicKwName(gBasicKwCount) = name
+		gBasicKwToken(gBasicKwCount) = tok
+		gBasicKwCount = gBasicKwCount + 1
+	End Sub
+
+	' Returns the BASIC token byte for a single-character operator, or -1 if
+	' ch is not one of the 8 tokenized operators (+ - * / ^ > = <).
+	Function OperatorToken(ch As String) As Integer
+		If ch = "+" Then Return &HAA
+		If ch = "-" Then Return &HAB
+		If ch = "*" Then Return &HAC
+		If ch = "/" Then Return &HAD
+		If ch = "^" Then Return &HAE
+		If ch = ">" Then Return &HB1
+		If ch = "=" Then Return &HB2
+		If ch = "<" Then Return &HB3
+		Return -1
+	End Function
+
+	Sub InitBasicTokenTable()
+		gBasicKwCount = 0
+		' Longest keywords first so the longest match always wins.
+		AddKw "RESTORE", &H8C
+		AddKw "RETURN", &H8E : AddKw "VERIFY", &H95 : AddKw "RIGHT$", &HC9
+		AddKw "INPUT#", &H84 : AddKw "PRINT#", &H98
+		AddKw "GOSUB", &H8D : AddKw "CLOSE", &HA0 : AddKw "INPUT", &H85
+		AddKw "PRINT", &H99 : AddKw "LEFT$", &HC8
+		AddKw "GOTO", &H89 : AddKw "READ", &H87 : AddKw "DATA", &H83
+		AddKw "THEN", &HA7 : AddKw "STEP", &HA9 : AddKw "STOP", &H90
+		AddKw "CONT", &H9A : AddKw "LIST", &H9B : AddKw "OPEN", &H9F
+		AddKw "SAVE", &H94 : AddKw "LOAD", &H93 : AddKw "WAIT", &H92
+		AddKw "TAB(", &HA3 : AddKw "SPC(", &HA6 : AddKw "CHR$", &HC7
+		AddKw "STR$", &HC4 : AddKw "MID$", &HCA
+		AddKw "ATN", &HC1 : AddKw "CLR", &H9C : AddKw "CMD", &H9D
+		AddKw "SYS", &H9E : AddKw "GET", &HA1 : AddKw "NEW", &HA2
+		AddKw "NOT", &HA8 : AddKw "AND", &HAF : AddKw "POS", &HB9
+		AddKw "SQR", &HBA : AddKw "RND", &HBB : AddKw "LOG", &HBC
+		AddKw "EXP", &HBD : AddKw "COS", &HBE : AddKw "SIN", &HBF
+		AddKw "TAN", &HC0 : AddKw "SGN", &HB4 : AddKw "INT", &HB5
+		AddKw "ABS", &HB6 : AddKw "USR", &HB7 : AddKw "FRE", &HB8
+		AddKw "LEN", &HC3 : AddKw "VAL", &HC5 : AddKw "ASC", &HC6
+		AddKw "DEF", &H96 : AddKw "DIM", &H86 : AddKw "LET", &H88
+		AddKw "REM", &H8F : AddKw "RUN", &H8A : AddKw "END", &H80
+		AddKw "FOR", &H81 : AddKw "NEXT", &H82 : AddKw "POKE", &H97
+		AddKw "PEEK", &HC2
+		AddKw "IF", &H8B : AddKw "ON", &H91 : AddKw "TO", &HA4 : AddKw "OR", &HB0
+	End Sub
+
+	Function IsAlnumChar(ch As String) As Boolean
+		If Len(ch) = 0 Then Return False
+		Dim c As Integer = Asc(UCase(ch))
+		If c > = 65 And c < = 90 Then Return True
+		If c > = 48 And c < = 57 Then Return True
+		Return False
+	End Function
+
+	' Returns the matched keyword's length (0 if no match) and sets tokOut
+	' (ByRef) to its token byte. Requires non-alphanumeric boundaries on both
+	' sides so keywords never get matched inside ordinary variable names.
+	Function MatchBasicKeyword(s As String, pos As Integer, ByRef tokOut As Integer) As Integer
+		Dim n As Integer = Len(s)
+		Dim i As Integer
+		For i = 0 To gBasicKwCount - 1
+			Dim kw As String = gBasicKwName(i)
+			Dim klen As Integer = Len(kw)
+			If pos + klen - 1 <= n Then
+				If UCase(Mid(s, pos, klen)) = kw Then
+					Dim okBefore As Boolean = True
+					Dim okAfter As Boolean = True
+					If pos > 1 Then
+						If IsAlnumChar(Mid(s, pos - 1, 1)) Then okBefore = False
+					End If
+					Dim nextPos As Integer = pos + klen
+					If nextPos <= n Then
+						If IsAlnumChar(Mid(s, nextPos, 1)) Then okAfter = False
+					End If
+					If okBefore And okAfter Then
+						tokOut = gBasicKwToken(i)
+						Return klen
+					End If
+				End If
+			End If
+		Next
+		tokOut = -1
+		Return 0
+	End Function
+
+	Sub WriteRawChar(ch As String, addr As Integer)
+		Dim p As Integer = AscToPetscii(ch)
+		If p < 0 Then p = 32 ' unsupported char -> space, never corrupt the stream
+		Bus_Write addr, p
+	End Sub
+
+	' Tokenizes one BASIC statement (line text AFTER the line number) and
+	' writes the resulting bytes via Bus_Write starting at startAddr. Returns
+	' the number of bytes written (NOT including the line's 0x00 terminator).
+	Function TokenizeLine(stmt As String, startAddr As Integer) As Integer
+		Dim n As Integer = Len(stmt)
+		Dim pos As Integer = 1
+		Dim addr As Integer = startAddr
+		Dim count As Integer = 0
+		Dim inQuotes As Boolean = False
+		Dim inRem As Boolean = False
+
+		While pos <= n
+			Dim ch As String = Mid(stmt, pos, 1)
+
+			If inRem Then
+				WriteRawChar ch, addr
+				addr = addr + 1 : count = count + 1 : pos = pos + 1
+			ElseIf inQuotes Then
+				If ch = Chr(34) Then inQuotes = False
+				WriteRawChar ch, addr
+				addr = addr + 1 : count = count + 1 : pos = pos + 1
+			ElseIf ch = Chr(34) Then
+				inQuotes = True
+				WriteRawChar ch, addr
+				addr = addr + 1 : count = count + 1 : pos = pos + 1
+			Else
+				Dim tokVal As Integer
+				Dim tokLen As Integer = MatchBasicKeyword(stmt, pos, tokVal)
+				If tokLen > 0 Then
+					Bus_Write addr, tokVal
+					addr = addr + 1 : count = count + 1
+					If tokVal = &H8F Then inRem = True ' REM: rest of line is raw
+					pos = pos + tokLen
+				Else
+					Dim opTok As Integer = OperatorToken(ch)
+					If opTok > = 0 Then
+						Bus_Write addr, opTok
+						addr = addr + 1 : count = count + 1 : pos = pos + 1
+					Else
+						WriteRawChar ch, addr
+						addr = addr + 1 : count = count + 1 : pos = pos + 1
+					End If
+				End If
+			End If
+		Wend
+
+		Return count
+	End Function
+
+	' Loads a full line-numbered BASIC listing directly into RAM at $0801,
+	' exactly as a real LOAD"...",8 would leave memory: tokenized statement
+	' bytes, correct next-line link pointers, and BASIC's VARTAB/ARYTAB/STREND
+	' pointers fixed up afterward. Bypasses the keyboard-buffer typing path
+	' entirely -- instant and immune to KERNAL keyboard-scan timing quirks.
+	Sub LoadBasicProgramFromText(sourceText As String)
+		Dim normalized As String = Replace(sourceText, Chr(13), "")
+		Dim rawLines() As String = Split(normalized, Chr(10))
+		Dim numLines As Integer = UBound(rawLines) + 1
+
+		Dim addr As Integer = &H0801
+		Dim loadedCount As Integer = 0
+		Dim i As Integer
+
+		For i = 0 To numLines - 1
+			Dim trimmed As String = Trim(rawLines(i))
+			If Len(trimmed) > 0 Then
+				Dim tn As Integer = Len(trimmed)
+				Dim p As Integer = 1
+				Dim numStr As String = ""
+				While p <= tn And Asc(Mid(trimmed, p, 1)) > = 48 And Asc(Mid(trimmed, p, 1)) < = 57
+					numStr = numStr & Mid(trimmed, p, 1)
+					p = p + 1
+				Wend
+
+				If Len(numStr) = 0 Then
+					Print "[LOAD] Skipping line without a line number: " & trimmed
+				Else
+					Dim lineNum As Integer = Val(numStr)
+					While p <= tn And Mid(trimmed, p, 1) = " "
+						p = p + 1
+					Wend
+					Dim stmt As String = Mid(trimmed, p, tn - p + 1)
+
+					Dim headerAddr As Integer = addr
+					Dim bodyAddr As Integer = addr + 4
+					Bus_Write headerAddr + 2, lineNum And &HFF
+					Bus_Write headerAddr + 3, (lineNum \ 256) And &HFF
+
+					Dim bytesWritten As Integer = TokenizeLine(stmt, bodyAddr)
+					Dim endAddr As Integer = bodyAddr + bytesWritten
+					Bus_Write endAddr, 0 ' end-of-line terminator
+
+					Dim nextLineAddr As Integer = endAddr + 1
+					Bus_Write headerAddr, nextLineAddr And &HFF
+					Bus_Write headerAddr + 1, (nextLineAddr \ 256) And &HFF
+
+					addr = nextLineAddr
+					loadedCount = loadedCount + 1
+				End If
+			End If
+		Next
+
+		' End-of-program marker: a null "next line" link pointer.
+		Bus_Write addr, 0
+		Bus_Write addr + 1, 0
+		Dim progEnd As Integer = addr + 2
+
+		' Fix up BASIC's program pointers so LIST/RUN see the freshly loaded
+		' program, matching what a real LOAD leaves behind.
+		Bus_Write &H2B, &H01 : Bus_Write &H2C, &H08              ' TXTTAB = $0801
+		Bus_Write &H2D, progEnd And &HFF : Bus_Write &H2E, (progEnd \ 256) And &HFF ' VARTAB
+		Bus_Write &H2F, progEnd And &HFF : Bus_Write &H30, (progEnd \ 256) And &HFF ' ARYTAB
+		Bus_Write &H31, progEnd And &HFF : Bus_Write &H32, (progEnd \ 256) And &HFF ' STREND
+
+		Print "[LOAD] " & CStr(loadedCount) & " lines loaded directly into memory ($0801-$" & Hex(progEnd - 1) & "). Type RUN to execute."
+	End Sub
+
+	' NOTE (Aug 2026): Sub _Process(delta As Double)'s declaration and its opening
+	' guard/NATIVE_MACHINE setup were accidentally deleted by an earlier botched
+	' edit that inserted a duplicate nested copy of ProcessPaste/AscToPetscii in
+	' their place (see git history). Restored below, with a new ProcessPaste()
+	' call added so pasted text actually gets fed into the KERNAL keyboard buffer
+	' each frame.
+	Sub _Process(delta As Double)
+		If Not bLoaded Then
+			QueueRedraw()
+			Return
+		End If
+
+		UpdateKeyboard()
+
+		ProcessPaste()
+
+		' === Native Machine fast path ===
+		If NATIVE_MACHINE Then
+			' Push the freshly-scanned keyboard matrix into the native machine
+			' (UpdateKeyboard writes the 8 column bytes into the VG key matrix).
+			' NOTE: UpdateKeyboard()'s col0..col7 numbering is MIRRORED relative
+			' to the real CIA1 Port A (PA) line numbers the native machine's
+			' read_cia1() indexes by (file "col N" == real hardware "PA(7-N)",
+			' verified against the c64-wiki.com keyboard matrix) -- so the index
+			' must be reversed (7 - kc) at this single hand-off point, or every
+			' keypress lands in the wrong native column (e.g. H types as K).
+			' See /memories/repo/c64_keyboard_matrix_bug.md "Bug #3b".
+			Dim kc As Integer
+			For kc = 0 To 7
+				Machine.SetKeyCol 7 - kc, Mem_GetKeyCol(kc)
+			Next
+
+			' Run one COMPLETE PAL frame entirely in C++ -- 6510 execution, RAM/ROM
+			' banking, VIC-II raster rendering, and the CIA1 system-IRQ timer all
+			' happen inside VGC64Machine.RunFrame with ZERO per-access Callable
+			' round-trips. This is the whole point of Native Machine mode.
+			Machine.RunFrame()
+
+			' Blit the finished framebuffer straight to the display texture. The
+			' machine renders into its own RGBA8 384x272 Image, identical in layout
+			' to the VG VIC framebuffer, so DisplayTex (same dimensions) refreshes
+			' in one shot with no intermediate VG-side pixel work.
+			UpdateTexture DisplayTex, Machine.GetFramebuffer()
+
+			OutputAudio()
+
+			FrameCount = FrameCount + 1
+		Dim nowN As Double = Timer()
+		Dim elN As Double = nowN - LastProgressPrintTime
+		If elN > = 2 And elN > 0 Then
+			Dim icNow As Long = Machine.GetInstructionCount()
+			Dim instDelta As Long = icNow - LastProgressSteps
+			Print "[NATIVE] frame=" & CStr(FrameCount) & " PC=$" & Hex(Machine.GetPC()) & " instr/s=" & CStr(Int(instDelta / elN)) & " $0428=" & Hex(Machine.PeekRAM(&H0428)) & " $042C=" & Hex(Machine.PeekRAM(&H042C))
+			LastProgressPrintTime = nowN
+			LastProgressSteps = icNow
+		End If
+
+		QueueRedraw()
+		Return
+	End If
+
+	' Every cross-module Sub here (C64_Step, Mem_Read, Vic_Tick, ...) runs via
+	' slow AST interpretation (see "Compiler: Entry point not found" — none of
+	' these get bytecode-compiled since they live in imported modules). A full
+	' PAL frame is ~19705 cycles, which can take a long time to interpret in an
+	' editor/debug build. Running the whole frame synchronously in one
+	' _Process call makes the app appear to freeze at startup. Instead, we
+	' process a small chunk of cycles per call and accumulate progress toward
+	' a full virtual frame across many real _Process calls.
+	Dim chunkCycles As Long = 200
+	Dim chunkRun As Long = 0
+	Dim safetyCounter As Long = 0
+
+	Do While chunkRun < chunkCycles
+		' Check for crash (PC = 0 or too many cycles)
+		If Emu_GetPC() = 0 Then
+			Print "CPU crash at PC=0! Cycles=" & CStr(CyclesThisFrame + chunkRun)
+			bLoaded = False
+			Return
+		End If
+
+		Dim instCycles As Integer = Emu_Step()
+		chunkRun = chunkRun + instCycles
+		TotalStepsExecuted = TotalStepsExecuted + 1
+		TotalCyclesExecuted = TotalCyclesExecuted + instCycles
+
+		' Tick VIC for the instruction's cycle count in ONE call (was:
+		' one Vic_Tick() call PER CYCLE, i.e. 2-7 full Sub calls per
+		' instruction just for VIC ticking -- VG's per-call overhead
+		' dominates cost, so batching this into a single call with the
+		' cycle count is a large, safe win; see c64_vic.vg's Vic_Tick).
+		Vic_Tick(instCycles)
+
+		' CIA1 Timer A countdown — fires ~60Hz system IRQ for keyboard scan
+		CIA1_TimerA = CIA1_TimerA - instCycles
+		If CIA1_TimerA < = 0 Then
+			CIA1_TimerA = CIA1_TimerA + CIA1_TimerA_Latch
+			' Set CIA1 ICR flag ($DC0D bit 0) and trigger CPU IRQ
+			Dim icr As Integer = Mem_GetBuf(&HDC0D)
+			Mem_SetBuf &HDC0D, BitOr(icr, &H81)
+			Emu_SetIRQ True
+		End If
+
+		safetyCounter = safetyCounter + 1
+		If safetyCounter > chunkCycles * 3 Then
+			Exit Do
+		End If
+	Loop
+
+	CyclesThisFrame = CyclesThisFrame + chunkRun
+
+	' PERF DIAGNOSTIC: print real throughput every ~2 wall-clock seconds,
+	' regardless of virtual-frame progress -- proves whether execution is
+	' actually advancing (and how fast) instead of guessing from a black screen.
+	Dim nowT As Double = Timer()
+	Dim elapsed As Double = nowT - LastProgressPrintTime
+	If elapsed > = 2 And elapsed > 0 Then
+		Dim stepsDelta As Long = TotalStepsExecuted - LastProgressSteps
+		Dim cyclesDelta As Long = TotalCyclesExecuted - LastProgressCycles
+		Dim d012val As Integer = Mem_GetBuf(&HD012)
+		Dim rasterHi As Integer = BitAnd(Mem_GetBuf(&HD011), &H80)
+		Dim v0428 As Integer = Mem_GetBuf(&H0428)
+		Dim v042C As Integer = Mem_GetBuf(&H042C)
+		Print "[PERF] cyc=" & CStr(TotalCyclesExecuted) & " PC=$" & Hex(Emu_GetPC()) & " rate=" & CStr(Int(cyclesDelta / elapsed)) & " $0428=" & Hex(v0428) & " $042C=" & Hex(v042C)
+		LastProgressPrintTime = nowT
+		LastProgressCycles = TotalCyclesExecuted
+		LastProgressSteps = TotalStepsExecuted
+
+	End If
+
+	If CyclesThisFrame > = CYCLES_PER_FRAME_PAL Then
+		CyclesThisFrame = CyclesThisFrame - CYCLES_PER_FRAME_PAL
+
+		' Copy VIC framebuffer to display
+		BlitImage DisplayImage, Vic_GetFramebuf(), 0, 0, SCREEN_W, SCREEN_H, 0, 0
+		UpdateTexture DisplayTex, DisplayImage
+
+		' Audio
+		OutputAudio()
+
+		' Update status every second
+		FrameCount = FrameCount + 1
+		If FrameCount Mod 60 = 0 Then
+			Print "C64 PC=$" & Hex(Emu_GetPC()) & " A=$" & Hex(Emu_GetA()) & " X=$" & Hex(Emu_GetX()) & " Y=$" & Hex(Emu_GetY()) & " SP=$" & Hex(Emu_GetSP()) & " Flags=$" & Hex(Emu_GetFlags())
+		End If
+	End If
+	QueueRedraw()
 End Sub
 
 Sub _Draw()
-    If IsObject(DisplayTex) Then
-        ' Scale to fit window. Screen.Width/Height reflect the physical
-        ' monitor resolution (DisplayServer::screen_get_size), NOT the game
-        ' window's client size -- using them here made the scale factor far
-        ' too large, so the texture was drawn much bigger than the window
-        ' and only its top-left sliver (mostly interior, since the border is
-        ' a thin band near the source image's edges) was visible. That looked
-        ' like a border that didn't surround the interior and was "thick and
-        ' off-center." GetViewportRect().Size is the actual window/viewport
-        ' size and is the documented pattern for this (see
-        ' docs/tutorials/your_first_2d_game.md). Fixed Jul 30 2026.
-        Dim winSize As Variant = GetViewportRect().Size
-        Dim scaleX As Double = winSize.x / SCREEN_W
-        Dim scaleY As Double = winSize.y / SCREEN_H
-        Dim sc As Double
-        If scaleX < scaleY Then sc = scaleX Else sc = scaleY
-        Dim drawW As Double = SCREEN_W * sc
-        Dim drawH As Double = SCREEN_H * sc
-        Dim offX As Double = (winSize.x - drawW) / 2
-        Dim offY As Double = (winSize.y - drawH) / 2
-        DrawTextureRect DisplayTex, offX, offY, drawW, drawH
-    End If
+	If IsObject(DisplayTex) Then
+		' Scale to fit window. Screen.Width/Height reflect the physical
+		' monitor resolution (DisplayServer::screen_get_size), NOT the game
+		' window's client size -- using them here made the scale factor far
+		' too large, so the texture was drawn much bigger than the window
+		' and only its top-left sliver (mostly interior, since the border is
+		' a thin band near the source image's edges) was visible. That looked
+		' like a border that didn't surround the interior and was "thick and
+		' off-center." GetViewportRect().Size is the actual window/viewport
+		' size and is the documented pattern for this (see
+		' docs/tutorials/your_first_2d_game.md). Fixed Jul 30 2026.
+		Dim winSize As Variant = GetViewportRect().Size
+		Dim scaleX As Double = winSize.x / SCREEN_W
+		Dim scaleY As Double = winSize.y / SCREEN_H
+		Dim sc As Double
+		If scaleX < scaleY Then sc = scaleX Else sc = scaleY
+		Dim drawW As Double = SCREEN_W * sc
+		Dim drawH As Double = SCREEN_H * sc
+		Dim offX As Double = (winSize.x - drawW) / 2
+		Dim offY As Double = (winSize.y - drawH) / 2
+		DrawTextureRect DisplayTex, offX, offY, drawW, drawH
+	End If
 End Sub
 
 Sub OutputAudio()
-    If SoundHandle = 0 Then Return
+	If SoundHandle = 0 Then Return
 
-    Dim available As Integer = SoundGen.Available(SoundHandle)
-    If available > 0 Then
-        ' SID stub - generate silence
-        Dim silence As PackedFloat32Array
-        silence.resize(available * 2)
-        SoundGen.PushStereoBuffer(SoundHandle, silence)
-    End If
+	Dim available As Integer = SoundGen.Available(SoundHandle)
+	If available > 0 Then
+		' SID stub - generate silence
+		Dim silence As PackedFloat32Array
+		silence.resize(available * 2)
+		SoundGen.PushStereoBuffer(SoundHandle, silence)
+	End If
 End Sub
 
 Sub Shutdown()
-    If SoundHandle <> 0 Then
-        SoundGen.Close SoundHandle
-        SoundHandle = 0
-    End If
-    bLoaded = False
+	If SoundHandle < > 0 Then
+		SoundGen.Close SoundHandle
+		SoundHandle = 0
+	End If
+	bLoaded = False
 End Sub
 
 ' === Emu_* dispatch helpers (Turbo Mode indirection) ===
@@ -510,11 +1104,11 @@ End Sub
 ' comment at the SetIOHook call site in _Ready for why Mem_Read/Mem_Write
 ' can't be used directly as Callable targets).
 Function IOBus_Read(addr As Integer) As Integer
-    Return Mem_Read(addr)
+	Return Mem_Read(addr)
 End Function
 
-Sub IOBus_Write(addr As Integer, value As Integer)
-    Mem_Write addr, value
+Sub IOBus_Write(addr As Integer, Value As Integer)
+	Mem_Write addr, Value
 End Sub
 
 ' Bus_Write / Bus_ReadByte -- setup-time bus access that targets whichever
@@ -523,101 +1117,141 @@ End Sub
 ' InitializeC64 so the VIC-register defaults and the $C000 boot stub land in the
 ' right place regardless of mode. Bus_ReadByte reads THROUGH banking, so at boot
 ' (KERNAL/BASIC/IO mapped in) $A000 returns the BASIC cold-start vector, not RAM.
-Sub Bus_Write(addr As Integer, value As Integer)
-    If NATIVE_MACHINE Then
-        Machine.WriteByte addr, value
-    Else
-        Mem_Write addr, value
-    End If
+Sub Bus_Write(addr As Integer, Value As Integer)
+	If NATIVE_MACHINE Then
+		Machine.WriteByte addr, Value
+	Else
+		Mem_Write addr, Value
+	End If
 End Sub
 
 Function Bus_ReadByte(addr As Integer) As Integer
-    If NATIVE_MACHINE Then Return Machine.ReadByte(addr)
-    Return Mem_Read(addr)
+	If NATIVE_MACHINE Then Return Machine.ReadByte(addr)
+	Return Mem_Read(addr)
 End Function
 
 Function Emu_Step() As Integer
-    If TURBO_MODE Then
-        ' Service a pending IRQ at the instruction boundary, same as
-        ' C64_Step()'s own check. TriggerIRQ() is level-gated internally by
-        ' the I flag and returns the 7-cycle service cost only if it actually
-        ' fired -- if masked, gIRQLineNative stays set and we retry next step
-        ' (matches the edge-latched-until-serviced semantics of gC64_IRQPending).
-        If gIRQLineNative Then
-            Dim irqCyc As Integer = NativeCpu.TriggerIRQ()
-            If irqCyc > 0 Then
-                gIRQLineNative = False
-                Return irqCyc
-            End If
-        End If
-        Return NativeCpu.Step()
-    End If
-    Return C64_Step()
+	If TURBO_MODE Then
+		' Service a pending IRQ at the instruction boundary, same as
+		' C64_Step()'s own check. TriggerIRQ() is level-gated internally by
+		' the I flag and returns the 7-cycle service cost only if it actually
+		' fired -- if masked, gIRQLineNative stays set and we retry next step
+		' (matches the edge-latched-until-serviced semantics of gC64_IRQPending).
+		If gIRQLineNative Then
+			Dim irqCyc As Integer = NativeCpu.TriggerIRQ()
+			If irqCyc > 0 Then
+				gIRQLineNative = False
+				Return irqCyc
+			End If
+		End If
+		Return NativeCpu.Step()
+	End If
+	Return C64_Step()
 End Function
 
 Sub Emu_SetIRQ(state As Boolean)
-    If TURBO_MODE Then
-        gIRQLineNative = state
-    Else
-        C64_SetIRQ state
-    End If
+	If TURBO_MODE Then
+		gIRQLineNative = state
+	Else
+		C64_SetIRQ state
+	End If
 End Sub
 
 Function Emu_GetPC() As Integer
-    If NATIVE_MACHINE Then Return Machine.GetPC()
-    If TURBO_MODE Then Return NativeCpu.GetPC()
-    Return C64_GetPC()
+	If NATIVE_MACHINE Then Return Machine.GetPC()
+	If TURBO_MODE Then Return NativeCpu.GetPC()
+	Return C64_GetPC()
 End Function
 
 Function Emu_GetA() As Integer
-    If NATIVE_MACHINE Then Return Machine.GetA()
-    If TURBO_MODE Then Return NativeCpu.GetA()
-    Return C64_GetA()
+	If NATIVE_MACHINE Then Return Machine.GetA()
+	If TURBO_MODE Then Return NativeCpu.GetA()
+	Return C64_GetA()
 End Function
 
 Function Emu_GetX() As Integer
-    If NATIVE_MACHINE Then Return Machine.GetX()
-    If TURBO_MODE Then Return NativeCpu.GetX()
-    Return C64_GetX()
+	If NATIVE_MACHINE Then Return Machine.GetX()
+	If TURBO_MODE Then Return NativeCpu.GetX()
+	Return C64_GetX()
 End Function
 
 Function Emu_GetY() As Integer
-    If NATIVE_MACHINE Then Return Machine.GetY()
-    If TURBO_MODE Then Return NativeCpu.GetY()
-    Return C64_GetY()
+	If NATIVE_MACHINE Then Return Machine.GetY()
+	If TURBO_MODE Then Return NativeCpu.GetY()
+	Return C64_GetY()
 End Function
 
 Function Emu_GetSP() As Integer
-    If NATIVE_MACHINE Then Return Machine.GetSP()
-    If TURBO_MODE Then Return NativeCpu.GetSP()
-    Return C64_GetSP()
+	If NATIVE_MACHINE Then Return Machine.GetSP()
+	If TURBO_MODE Then Return NativeCpu.GetSP()
+	Return C64_GetSP()
 End Function
 
 Function Emu_GetFlags() As Integer
-    If NATIVE_MACHINE Then Return Machine.GetStatus()
-    If TURBO_MODE Then Return NativeCpu.GetStatus()
-    Return C64_GetFlags()
+	If NATIVE_MACHINE Then Return Machine.GetStatus()
+	If TURBO_MODE Then Return NativeCpu.GetStatus()
+	Return C64_GetFlags()
 End Function
 
 ' === File I/O helper ===
 Function FileExists(path As String) As Boolean
-    Dim sz As Long = FileLen(path)
-    Return (sz > 0)
+	Dim sz As Long = FileLen(path)
+	Return (sz > 0)
 End Function
 
 Function IsKeyPressed(keyCode As Integer) As Boolean
-    Return Input.IsKeyPressed(keyCode)
+	Return Input.IsKeyPressed(keyCode)
 End Function
 
 Function IsActionPressed(actionName As String) As Boolean
-    Return Input.IsActionPressed(actionName)
+	Return Input.IsActionPressed(actionName)
 End Function
 
 ' === Drag-and-drop support ===
+' Drop a .crt (or a raw headerless 8K/16K $8000 ROM dump, see
+' VGC64Machine::load_cartridge) onto the emulator window at any time,
+' including after boot -- it hot-swaps the cartridge and performs a full
+' soft-reset (same code path as boot) so the real KERNAL's CBM80 autostart
+' detection runs immediately, exactly as if you had power-cycled a real C64
+' with the cartridge already plugged in. Only works in Native Machine mode.
+'
+' NOTE (Aug 2026): on at least this dev environment/window manager, Godot's
+' real OS "files_dropped" signal (wired up in _Ready via
+' `Connect GetWindow(), "files_dropped", "OnFilesDropped"`) never actually
+' fires when dragging a file from the desktop file manager onto the window
+' -- confirmed by testing. What DOES work is the file manager's Ctrl+C/Ctrl+V
+' "copy path"-style clipboard behavior, which lands as a plain text file path
+' in DisplayServer.ClipboardGet() -- see LooksLikeCartridgePath/_Input below,
+' which is the actually-working substitute for real drag-and-drop right now.
+' This handler is kept in case files_dropped starts working in some other
+' environment/export target.
 Sub OnFilesDropped(files As Variant)
-    If IsArray(files) Then
-        If UBound(files) >= 0 Then
-            Print "Files dropped: " & files(0)
-        End If
-    End If
+	If Not IsArray(files) Then Return
+	If UBound(files) < 0 Then Return
+	LoadCartridgeAndReset(files(0))
+End Sub
+
+' Shared by OnFilesDropped and the clipboard-paste path detector
+' (LooksLikeCartridgePath/_Input): hot-swaps in a cartridge from an
+' arbitrary file path and performs a full soft-reset so it autostarts.
+Sub LoadCartridgeAndReset(path As String)
+	If Not NATIVE_MACHINE Then
+		Print "Cartridge loading requires Native Machine mode."
+		Return
+	End If
+	If Not bLoaded Then
+		Print "Ignoring cartridge -- still booting."
+		Return
+	End If
+
+	Print "Loading cartridge: " & path
+	Machine.UnloadCartridge()
+	If Machine.LoadCartridge(path) Then
+		gCartridgeLoaded = True
+		Print "Cartridge loaded -- resetting to autostart it..."
+		InitializeC64()
+	Else
+		gCartridgeLoaded = False
+		Print "Cartridge failed to load (see engine log above for the reason)."
+	End If
 End Sub

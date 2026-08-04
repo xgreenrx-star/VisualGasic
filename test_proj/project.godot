@@ -12,6 +12,10 @@ config_version=5
 
 config/features=PackedStringArray("4.6")
 
+[audio]
+
+driver/enable_input=true
+
 [physics]
 
 3d/physics_engine="Jolt Physics"
@@ -23,7 +27,3 @@ rendering_device/driver.windows="d3d12"
 [vg]
 
 plugin_registry/defaults/asset_editor.test=""
-
-[audio]
-
-driver/enable_input=true

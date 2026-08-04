@@ -133,15 +133,32 @@ Available tools:
   clear_highlights {}
   goto_line        {"line":42,"column":0}
   open_file        {"path":"res://forms/Form1.vg"}
-  insert_text      {"line":10,"text":"Dim x As Integer\\n"}        ; insert BEFORE line 10
-  replace_range    {"start_line":10,"end_line":15,"text":"...new code..."}
-  replace_in_buffer{"find":"old","replace":"new","all":true}
-  set_buffer_text  {"text":"...whole new file..."}
+  insert_text      {"line":10,"text":"Dim x As Integer\\n","path":"res://forms/Form1.vg"}   ; insert BEFORE line 10
+  replace_range    {"start_line":10,"end_line":15,"text":"...new code...","path":"res://forms/Form1.vg"}
+  replace_in_buffer{"find":"old","replace":"new","all":true,"path":"res://forms/Form1.vg"}
+  set_buffer_text  {"text":"...whole new file...","path":"res://forms/Form1.vg"}
   save_file        {}
   write_file       {"path":"res://forms/NewForm.vg","contents":"..."}
-  read_file        {"path":"res://forms/Form1.vg","max_lines":200}
+  read_file        {"path":"res://forms/Form1.vg","start_line":1,"max_lines":200}
+                                        ; start_line is 1-based (default 1); use it to page
+                                        ; through a file larger than max_lines instead of
+                                        ; re-reading from the top every time.
   list_dir         {"path":"res://","recursive":false,"max_entries":200}
   find_in_files    {"pattern":"Sub Form_Load","path":"res://","regex":false,"max_hits":50}
+                                        ; "pattern" is a PLAIN SUBSTRING match unless you set
+                                        ; "regex":true -- "A|B" alternation, character classes,
+                                        ; etc. only work with regex:true. Without it, "|" is
+                                        ; matched literally and will find nothing.
+
+insert_text/replace_range/replace_in_buffer/set_buffer_text ALWAYS act on \
+whatever file is CURRENTLY OPEN in the editor tab -- they cannot target a \
+different file. Their "path" field above is optional but STRONGLY \
+recommended: if given and it doesn't match the open tab, the call fails \
+with a clear error instead of silently doing nothing or editing the wrong \
+file. If you're not certain the file you want to change is the one \
+currently open (e.g. you just read it with read_file, or you're working \
+across multiple files in one conversation), use write_file instead -- it \
+takes an explicit path and always edits the right file.
 
 === WORKING NODES TOOLS ===
   get_wn_project   {}                   ; returns current graph JSON
@@ -318,6 +335,13 @@ var _model_dropdown: OptionButton
 var _status_label: Label
 var _clear_btn: Button
 var _stop_btn: Button
+
+# Image attach (clipboard paste) — attached image is sent with the NEXT
+# outgoing message only, then cleared. See _on_attach_image_pressed().
+var _attach_image_btn: Button
+var _image_attached_row: HBoxContainer
+var _image_attached_label: Label
+var _pending_image_b64: String = ""
 var _abort_agent_btn: Button = null   # Phase 6b — shown during multi-hop agent runs
 var _models_btn: Button
 var _model_picker: AcceptDialog
@@ -329,14 +353,19 @@ var _audit_btn: Button
 # Per-turn streaming tool dispatch watermark + multi-turn agent hop counter.
 var _stream_tool_watermark: int = 0
 var _agent_hops: int = 0
+# Result strings from the most recent _apply_mutations() call, so
+# _maybe_continue_agent_turn() can tell a genuine edit apart from a
+# recoverable tool failure (e.g. no/wrong file open) and retry instead
+# of stopping the loop with nothing actually changed.
+var _last_mutation_results: Array[String] = []
 var _agent_continuation: bool = false
 # Phase 6b: configurable hop cap (user://vg_ai_approvals.cfg [ai] max_agent_hops)
-var _max_agent_hops: int = 6
+var _max_agent_hops: int = 50
 
 # Phase 6b: wall-time + token budget guards.
 # Loaded from user://vg_ai_approvals.cfg [ai] section; hardcoded defaults below.
-const _AGENT_MAX_TOKENS_DEFAULT := 30000
-const _AGENT_MAX_SECONDS_DEFAULT := 120.0
+const _AGENT_MAX_TOKENS_DEFAULT := 120000
+const _AGENT_MAX_SECONDS_DEFAULT := 600.0
 var _max_agent_tokens: int = _AGENT_MAX_TOKENS_DEFAULT
 var _max_agent_seconds: float = _AGENT_MAX_SECONDS_DEFAULT
 var _agent_start_time: float = 0.0   # Time.get_ticks_msec()/1000 at first hop
@@ -895,9 +924,16 @@ func _finish_generation() -> void:
 	if not _current_prompt.is_empty() and not _accumulated_response.is_empty():
 		_conversation_history.append({"role": "user", "content": _current_prompt})
 		_conversation_history.append({"role": "assistant", "content": _accumulated_response})
-		# Trim to last N exchanges (N user + N assistant = 2N entries)
-		while _conversation_history.size() > MAX_HISTORY_EXCHANGES * 2:
-			_conversation_history.pop_front()
+		# Trim to last N exchanges (N user + N assistant = 2N entries) --
+		# but only between fresh top-level turns, never mid multi-hop agent
+		# loop (_agent_hops > 0). Each hop of a long agent turn appends its
+		# own pair here; trimming unconditionally could evict earlier hops
+		# of the SAME in-progress task (e.g. a tool-failure correction the
+		# model needs to see) before the loop even finishes. The deferred
+		# trim still fires at the start of the next fresh turn.
+		if _agent_hops == 0:
+			while _conversation_history.size() > MAX_HISTORY_EXCHANGES * 2:
+				_conversation_history.pop_front()
 		# A successful exchange proves the model is loaded and responsive \u2014
 		# skip the health-check round-trip on subsequent queries.
 		_model_warm = true
@@ -932,7 +968,19 @@ func _finish_generation() -> void:
 	_stream_line_displayed = 0
 	_stream_tool_watermark = 0
 
-	_current_prompt = ""
+	# NOTE: _dispatch_tool_calls() above can, via the agent loop
+	# (_maybe_continue_agent_turn -> _on_send -> _send_query ->
+	# _send_cloud_query), synchronously kick off the NEXT hop's request
+	# before returning here -- that nested call already set _current_prompt
+	# / _accumulated_response / _is_generating for the new in-flight hop.
+	# Resetting _current_prompt unconditionally would clobber that state
+	# before the new hop's response even arrives, which permanently broke
+	# conversation-history logging for every continuation hop (every
+	# multi-hop agent turn only ever recorded its FIRST hop; hops 2+ never
+	# got appended because _current_prompt read back empty in
+	# _finish_generation() -- confirmed via VG_DEBUG_AGENT_HOPS tracing).
+	if not _is_generating:
+		_current_prompt = ""
 
 	if is_instance_valid(_send_btn):
 		_send_btn.visible = true
@@ -1406,6 +1454,29 @@ func _setup_ui() -> void:
 	_append_system("Providers: [color=cyan]Ollama[/color] (local), [color=green]OpenAI[/color], [color=#bb77ff]Claude[/color], [color=#4488ff]Gemini[/color]. Click ⚙️ to set API keys.\n")
 
 	# --- Input row ---
+	# Image attach indicator — hidden until an image is pasted from the clipboard.
+	_image_attached_row = HBoxContainer.new()
+	_image_attached_row.visible = false
+	_image_attached_row.add_theme_constant_override("separation", 4)
+	main_vbox.add_child(_image_attached_row)
+
+	var _image_icon := Label.new()
+	_image_icon.text = "📎"
+	_image_attached_row.add_child(_image_icon)
+
+	_image_attached_label = Label.new()
+	_image_attached_label.text = "image attached"
+	_image_attached_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_image_attached_label.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
+	_image_attached_row.add_child(_image_attached_label)
+
+	var _remove_image_btn := Button.new()
+	_remove_image_btn.text = "✕"
+	_remove_image_btn.tooltip_text = "Remove attached image"
+	_remove_image_btn.pressed.connect(_on_remove_attached_image)
+	_style_small_button(_remove_image_btn)
+	_image_attached_row.add_child(_remove_image_btn)
+
 	var input_row := HBoxContainer.new()
 	input_row.add_theme_constant_override("separation", 4)
 	main_vbox.add_child(input_row)
@@ -1452,6 +1523,14 @@ func _setup_ui() -> void:
 	_stop_btn.visible = false
 	_style_stop_button(_stop_btn)
 	btn_col.add_child(_stop_btn)
+
+	_attach_image_btn = Button.new()
+	_attach_image_btn.text = "📷 Image"
+	_attach_image_btn.custom_minimum_size = Vector2(70, 0)
+	_attach_image_btn.tooltip_text = "Attach an image from the clipboard (vision-capable providers only)"
+	_attach_image_btn.pressed.connect(_on_attach_image_pressed)
+	_style_small_button(_attach_image_btn)
+	btn_col.add_child(_attach_image_btn)
 
 	# Phase 6b: Abort agent button — visible while a multi-hop loop is running.
 	_abort_agent_btn = Button.new()
@@ -1665,10 +1744,31 @@ func _on_input_key(event: InputEvent) -> void:
 		if event.keycode == KEY_ENTER and not event.shift_pressed:
 			_input.get_viewport().set_input_as_handled()
 			_on_send()
+		elif event.keycode == KEY_V and (event.ctrl_pressed or event.meta_pressed):
+			_maybe_paste_clipboard_image()
 		elif event.keycode == KEY_UP and _input.get_caret_line() == 0:
 			_navigate_history(-1)
 		elif event.keycode == KEY_DOWN and _input.get_caret_line() == _input.get_line_count() - 1:
 			_navigate_history(1)
+
+## Ctrl+V / Cmd+V in the chat input: try to grab an image from the system
+## clipboard first (same OS-level capture the 📷 button uses). If there's no
+## image on the clipboard, fall through to CodeEdit's default text-paste
+## behaviour untouched.
+## NOTE: this deliberately does NOT gate on DisplayServer.clipboard_has() —
+## many screenshot tools (GNOME Screenshot, Flameshot, etc.) populate a
+## text/plain representation (e.g. a file:// URI) alongside the image/png
+## one, which made clipboard_has() return true and skip image capture
+## entirely, so Ctrl+V silently did nothing when the clipboard held an
+## image. Attempting the image grab unconditionally and falling back on
+## failure is more reliable, at the cost of one extra subprocess spawn
+## (xclip/wl-paste/osascript/powershell) on every paste in this box.
+func _maybe_paste_clipboard_image() -> void:
+	var img := _paste_image_from_system_clipboard()
+	if img == null:
+		return
+	_input.get_viewport().set_input_as_handled()
+	_attach_captured_image(img)
 
 func _navigate_history(direction: int) -> void:
 	if _history.is_empty():
@@ -1677,6 +1777,99 @@ func _navigate_history(direction: int) -> void:
 	_input.text = _history[_history_idx]
 	_input.set_caret_line(_input.get_line_count() - 1)
 	_input.set_caret_column(_input.get_line(_input.get_caret_line()).length())
+
+# ---------------------------------------------------------------------------
+# Image attach (clipboard paste)
+# ---------------------------------------------------------------------------
+func _on_attach_image_pressed() -> void:
+	var img := _paste_image_from_system_clipboard()
+	if img == null:
+		_append_system("[color=yellow](no image found on the clipboard — copy a screenshot or image first)[/color]\n")
+		return
+	_attach_captured_image(img)
+
+## Downscales, encodes, and stages a captured clipboard Image as the pending
+## attachment for the next outgoing message. Shared by the 📷 button and the
+## Ctrl+V shortcut.
+func _attach_captured_image(img: Image) -> void:
+	# Downscale large screenshots before encoding. Full-resolution desktop
+	# screenshots (e.g. 1920x1080+) can produce multi-MB base64 payloads,
+	# which makes the request body huge — slow to build (the cloud send
+	# path round-trips the whole body through JSON.parse_string/stringify
+	# to inject tool schemas) and slow to upload, which looked like Send
+	# doing "nothing" while it was actually just stuck for a long time.
+	# Vision-capable APIs downscale internally anyway, so there's no
+	# quality reason to send full resolution.
+	const MAX_IMAGE_EDGE := 1280
+	var w := img.get_width()
+	var h := img.get_height()
+	if maxi(w, h) > MAX_IMAGE_EDGE:
+		var scale: float = float(MAX_IMAGE_EDGE) / float(maxi(w, h))
+		img.resize(maxi(1, roundi(w * scale)), maxi(1, roundi(h * scale)), Image.INTERPOLATE_LANCZOS)
+	var png_bytes := img.save_png_to_buffer()
+	if png_bytes.is_empty():
+		_append_system("[color=yellow](failed to encode clipboard image)[/color]\n")
+		return
+	_pending_image_b64 = Marshalls.raw_to_base64(png_bytes)
+	_image_attached_label.text = "image attached (%dx%d) — will be sent with your next message" % [img.get_width(), img.get_height()]
+	_image_attached_row.visible = true
+	if _provider_info and _provider_info.is_local:
+		_append_system("[color=yellow](note: local Ollama models rarely support image input — switch to Claude, OpenAI, or Gemini for reliable results)[/color]\n")
+
+func _on_remove_attached_image() -> void:
+	_clear_pending_image()
+
+## Consumes (clears + hides) the pending image after it's been folded into
+## an outgoing request body, so it isn't accidentally resent next turn.
+func _clear_pending_image() -> void:
+	_pending_image_b64 = ""
+	_image_attached_row.visible = false
+
+## Cross-platform clipboard image capture (duplicated from
+## vg_sprite_editor.gd's _paste_image_from_system_clipboard() — kept as a
+## separate copy here rather than a shared utility to avoid coupling two
+## independent editor addons together).
+func _paste_image_from_system_clipboard() -> Image:
+	var tmp_path := OS.get_cache_dir().path_join("vg_ai_clipboard_paste.png")
+	var os_name := OS.get_name()
+	var ok := false
+	if os_name == "Linux" or os_name == "FreeBSD":
+		var output := []
+		if OS.execute("which", ["xclip"], output) == 0:
+			var exit_code := OS.execute("bash", ["-c", "xclip -selection clipboard -t image/png -o > " + tmp_path + " 2>/dev/null"])
+			if exit_code == 0:
+				ok = true
+		elif OS.execute("which", ["wl-paste"], output) == 0:
+			var exit_code := OS.execute("bash", ["-c", "wl-paste --type image/png > " + tmp_path + " 2>/dev/null"])
+			if exit_code == 0:
+				ok = true
+	elif os_name == "macOS":
+		var exit_code := OS.execute("osascript", [
+			"-e", "try",
+			"-e", 'set img to the clipboard as «class PNGf»',
+			"-e", 'set f to open for access POSIX file "' + tmp_path + '" with write permission',
+			"-e", "set eof of f to 0",
+			"-e", "write img to f",
+			"-e", "close access f",
+			"-e", "end try"])
+		if exit_code == 0 and FileAccess.file_exists(tmp_path):
+			ok = true
+	elif os_name == "Windows":
+		var ps_cmd := "Add-Type -AssemblyName System.Drawing; Add-Type -AssemblyName System.Windows.Forms; "
+		ps_cmd += "$i = [System.Windows.Forms.Clipboard]::GetImage(); "
+		ps_cmd += "if ($i) { $i.Save('" + tmp_path.replace("/", "\\") + "', [System.Drawing.Imaging.ImageFormat]::Png); $i.Dispose() }"
+		var exit_code := OS.execute("powershell.exe", ["-NoProfile", "-Command", ps_cmd])
+		if exit_code == 0:
+			ok = true
+	if not ok:
+		return null
+	if not FileAccess.file_exists(tmp_path):
+		return null
+	var img := Image.new()
+	var err := img.load(tmp_path)
+	if err != OK or img.is_empty():
+		return null
+	return img
 
 # ---------------------------------------------------------------------------
 # Sending queries
@@ -1797,6 +1990,9 @@ func _send_query_internal(prompt: String) -> void:
 			"num_ctx": 8192,     # Enough context for the full system prompt + history
 		}
 	}
+	if not _pending_image_b64.is_empty():
+		body["images"] = [_pending_image_b64]
+		_clear_pending_image()
 	_stream_json_body = JSON.stringify(body)
 
 	# Reset state
@@ -1843,6 +2039,20 @@ func _on_stop() -> void:
 # ---------------------------------------------------------------------------
 func _append_user(text: String) -> void:
 	_output.append_text("\n[color=#6688cc][b]You:[/b][/color]\n")
+	if text.begins_with("Tool results from your previous request:"):
+		# Agent-loop internal continuation message (fed back to the model
+		# after a hop, see the callers that build "Tool results from your
+		# previous request:..." strings). The full tool payload (file
+		# contents, grep hits, directory listings) was already rendered
+		# once under "\u2192 Tool actions:" earlier in this same hop --
+		# re-echoing the entire raw text/JSON blob a second time as a
+		# fake "You:" bubble is pure duplication and was the dominant
+		# source of chat-log noise during multi-hop investigations. Show
+		# a short marker instead; the full text is still sent to the
+		# model unchanged (only the visible rendering is condensed).
+		var result_count: int = text.split("\n- ").size() - 1
+		_output.append_text("[color=#888888](continuing agent loop with %d tool result(s) shown above)[/color]\n" % maxi(result_count, 1))
+		return
 	_output.append_text("[color=#cccccc]%s[/color]\n" % _escape_bbcode(text))
 
 func _append_ai(text: String) -> void:
@@ -2407,6 +2617,19 @@ func set_selected_code(code: String) -> void:
 
 ## Ask a question programmatically (used by "Ask AI" button in exception assistant)
 func ask(prompt: String) -> void:
+	# Mirror _on_send()'s non-continuation branch: a fresh externally-driven
+	# turn must start with a clean agent-hop/budget counter, same as a
+	# user-initiated send. Without this, hop counts leak across separate
+	# ask() calls (e.g. successive scripted/automation turns), eventually
+	# hitting the hop cap immediately on turns that never actually looped.
+	if not _agent_continuation:
+		_agent_hops = 0
+		_agent_total_tokens = 0
+		_agent_start_time = Time.get_ticks_msec() / 1000.0
+		_agent_triggered_run = false
+		_agent_run_output_lines.clear()
+		_agent_abort_requested = false
+		_build_form_ran_this_turn = false
 	_send_query(prompt)
 
 ## Retry Ollama connection
@@ -2615,7 +2838,9 @@ func _send_cloud_query(prompt: String) -> void:
 
 	var req_data: Dictionary = AIProviders.build_request(
 		_provider_id, _current_model, _get_active_system_prompt(),
-		_conversation_history, prompt, api_key)
+		_conversation_history, prompt, api_key, _pending_image_b64)
+	if not _pending_image_b64.is_empty():
+		_clear_pending_image()
 
 	# Phase 6c: inject native FC tool schemas for cloud providers that support it.
 	# Parse → augment → re-serialise so we don't duplicate the JSON builders in providers.gd.
@@ -3078,6 +3303,17 @@ func _refresh_build_form_btn() -> void:
 		if not _code_spec_after_build.is_empty():
 			call_deferred("_auto_apply_code_spec_no_dialog", _code_spec_after_build)
 	if _last_send_was_desc_mode or _narcea_auto:
+		# Remember whether the user explicitly asked for a spec (via the
+		# Form.../Code.../Project... buttons) BEFORE resetting the flag --
+		# the "spec missing" nag below should ONLY fire for that explicit
+		# flow.  _narcea_auto is true for EVERY Narcea reply (persona ==
+		# "narcea" is the default), including plain Q&A chat that never
+		# intended to produce a form/code/project spec at all -- without
+		# this guard, ordinary conversational replies (e.g. debugging
+		# questions) always fell through to the same "didn't contain the
+		# expected spec block" warning, spamming irrelevant noise into
+		# every single reply.
+		var _was_explicit_desc_mode := _last_send_was_desc_mode
 		_last_send_was_desc_mode = false
 		var _spec_missing := false
 		var _hint := ""
@@ -3109,7 +3345,7 @@ func _refresh_build_form_btn() -> void:
 				else:
 					_spec_missing = true
 					_hint = "🔨 Build form button — she needs to include a fenced ```vg-form-spec``` JSON block with a \"controls\" array, or a ```vg-code-spec``` block to modify existing code."
-		if _spec_missing:
+		if _spec_missing and _was_explicit_desc_mode:
 			_append_system("[color=#ff8888]Narcea's reply didn't contain the expected spec block, so the %s stays disabled. Click the button again to retry, or scroll the reply to check if she described the layout in prose instead.[/color]\n" % _hint)
 
 
@@ -4348,7 +4584,7 @@ func _dispatch_tool_calls(reply_text: String) -> void:
 
 	if not muts.is_empty():
 		if _approval_mode == "bypass":
-			_apply_mutations(muts)
+			_last_mutation_results = _apply_mutations(muts)
 		else:
 			_ask_apply_mutations(muts)
 			return  # Action bar will be rendered after the dialog resolves.
@@ -4368,6 +4604,8 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 	var muts: Array = plan.get("mutating", [])
 	var blocked: Array = plan.get("blocked", [])
 	if not blocked.is_empty():
+		_output.append_text("[color=#888888]  (%d tool call(s) blocked — stopping)[/color]\n" % blocked.size())
+		_hide_abort_agent_btn()
 		_transcript_close("blocked")
 		return
 	# Phase 6f: persona / agent-mode gating.
@@ -4393,6 +4631,7 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 				_:
 					hint = "(agent loop disabled — enable in the 🤖 Agent mode dropdown)"
 			_output.append_text("[color=#888888]  %s[/color]\n" % hint)
+		_hide_abort_agent_btn()
 		_transcript_close(reason)
 		return
 	# Phase 6b: if the model emitted a play.run_main call, defer the next
@@ -4409,19 +4648,58 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 			_agent_triggered_run = true
 			_agent_run_output_lines.clear()
 			_show_abort_agent_btn()
-		else:
+			return
+		# If every mutation this hop failed with a recoverable error (e.g. a
+		# buffer tool couldn't find/match its target file), feed the failure
+		# back instead of silently stopping with nothing actually changed —
+		# give the model a chance to notice and retry with write_file.
+		var all_recoverable := not _last_mutation_results.is_empty()
+		for r in _last_mutation_results:
+			if not _is_recoverable_tool_failure(r):
+				all_recoverable = false
+				break
+		if not all_recoverable:
+			_hide_abort_agent_btn()
 			_transcript_close("mutation_stop")
+			return
+		if _agent_hops >= _max_agent_hops:
+			_output.append_text("[color=#888888]  (agent hop limit reached — stopping)[/color]\n")
+			_hide_abort_agent_btn()
+			_transcript_close("hop_limit")
+			return
+		if _check_agent_budget_exceeded():
+			_hide_abort_agent_btn()
+			_transcript_close("budget_exceeded")
+			return
+		_agent_hops += 1
+		_show_abort_agent_btn()
+		if not is_instance_valid(_input):
+			return
+		_input.text = ("Your last edit tool call failed:\n%s\n\n" +
+			"The target file is probably not the one currently open in the editor. " +
+			"Use write_file with an explicit path instead, then continue.") % "\n".join(_last_mutation_results)
+		_agent_continuation = true
+		_on_send()
 		# Whether run or not, stop here — _continue_agent_after_run handles it.
 		return
 	var reads: Array = _ai_tools.get_read_results()
 	if reads.is_empty():
+		# The hop's only tool calls were cosmetic/navigational (goto_line,
+		# highlight_lines, open_file) with nothing informative to feed back.
+		# Without this marker the loop just stops dead with no explanation --
+		# indistinguishable from a hang/crash. Reply normally to have Narcea
+		# continue from here with a fresh hop budget.
+		_output.append_text("[color=#888888]  (agent loop complete — nothing further to continue automatically; reply to keep going)[/color]\n")
+		_hide_abort_agent_btn()
 		_transcript_close("complete")
 		return
 	if _agent_hops >= _max_agent_hops:
 		_output.append_text("[color=#888888]  (agent hop limit reached — stopping)[/color]\n")
+		_hide_abort_agent_btn()
 		_transcript_close("hop_limit")
 		return
 	if _check_agent_budget_exceeded():
+		_hide_abort_agent_btn()
 		_transcript_close("budget_exceeded")
 		return
 	_agent_hops += 1
@@ -4434,6 +4712,15 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 	_input.text = "Tool results from your previous request:\n%s\n\nContinue with the next step or finish if the task is complete." % "\n".join(summary)
 	_agent_continuation = true
 	_on_send()
+
+## True when a mutation-tool result string represents a recoverable failure
+## (the target file wasn't open, or didn't match a supplied "path" safety
+## check) rather than a real, applied edit -- see _check_active_path() in
+## vg_ai_tools.gd. Used by _maybe_continue_agent_turn() to decide whether
+## to retry instead of stopping the agent loop for user review.
+func _is_recoverable_tool_failure(msg: String) -> bool:
+	var low := msg.to_lower()
+	return low.find("no code editor open") != -1 or low.find("target file mismatch") != -1
 
 func _describe_mutation(m: Dictionary) -> String:
 	var t := str(m.get("tool", ""))
@@ -4552,10 +4839,12 @@ func _ask_apply_mutations(muts: Array) -> void:
 	host.add_child(dlg)
 	dlg.popup_centered()
 
-func _apply_mutations(muts: Array) -> void:
+func _apply_mutations(muts: Array) -> Array[String]:
 	var written_tscn_paths: Array[String] = []
+	var results: Array[String] = []
 	for m in muts:
 		var line: String = _ai_tools.execute_mutation_with_undo(m)
+		results.append(line)
 		_output.append_text("[color=#aaaaaa]  %s[/color]\n" % _escape_bbcode(line))
 		# Track .tscn files written so we can auto-open them in Form Designer.
 		if str(m.get("tool", "")) == "write_file":
@@ -4575,6 +4864,7 @@ func _apply_mutations(muts: Array) -> void:
 			for tp in written_tscn_paths:
 				if FileAccess.file_exists(tp) and plugin.has_method("open_form_in_designer"):
 					call_deferred("_deferred_open_form", plugin, tp)
+	return results
 
 func _deferred_open_form(plugin, tscn_path: String) -> void:
 	if is_instance_valid(plugin) and plugin.has_method("open_form_in_designer"):

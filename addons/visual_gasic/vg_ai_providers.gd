@@ -472,27 +472,27 @@ static func refresh_models(provider_id: String) -> Dictionary:
 	return {'ok': true, 'models': model_names}
 
 
-# ─── Request Body Builders ──────────────────────────────────────────────────# ─── Request Body Builders ──────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────────
 # Each cloud provider has a different JSON format.
 
 ## Build the JSON request body for the given provider.
 ## Returns the body string and the required HTTP headers.
 static func build_request(provider_id: String, model: String, system_prompt: String,
-		conversation_history: Array, user_prompt: String, api_key: String) -> Dictionary:
+		conversation_history: Array, user_prompt: String, api_key: String, image_b64: String = "") -> Dictionary:
 	match provider_id:
 		"ollama":
-			return _build_ollama(model, system_prompt, conversation_history, user_prompt)
+			return _build_ollama(model, system_prompt, conversation_history, user_prompt, image_b64)
 		"openai", "deepseek", "qwen", "codeium", "amazonq":
-			return _build_openai(model, system_prompt, conversation_history, user_prompt, api_key)
+			return _build_openai(model, system_prompt, conversation_history, user_prompt, api_key, image_b64)
 		"claude":
-			return _build_claude(model, system_prompt, conversation_history, user_prompt, api_key)
+			return _build_claude(model, system_prompt, conversation_history, user_prompt, api_key, image_b64)
 		"gemini":
-			return _build_gemini(model, system_prompt, conversation_history, user_prompt, api_key)
+			return _build_gemini(model, system_prompt, conversation_history, user_prompt, api_key, image_b64)
 	return {"body": "", "headers": [], "path": ""}
 
 
 static func _build_ollama(model: String, system_prompt: String,
-		conversation_history: Array, user_prompt: String) -> Dictionary:
+		conversation_history: Array, user_prompt: String, image_b64: String = "") -> Dictionary:
 	# Build context-aware prompt
 	var full_prompt := ""
 	if conversation_history.size() > 0:
@@ -512,6 +512,8 @@ static func _build_ollama(model: String, system_prompt: String,
 		"stream": true,
 		"options": {"temperature": 0.3, "num_predict": 2048},
 	}
+	if not image_b64.is_empty():
+		body["images"] = [image_b64]
 	return {
 		"body": JSON.stringify(body),
 		"headers": ["Content-Type: application/json", "Accept: */*"],
@@ -520,11 +522,17 @@ static func _build_ollama(model: String, system_prompt: String,
 
 
 static func _build_openai(model: String, system_prompt: String,
-		conversation_history: Array, user_prompt: String, api_key: String) -> Dictionary:
+		conversation_history: Array, user_prompt: String, api_key: String, image_b64: String = "") -> Dictionary:
 	var messages: Array = [{"role": "system", "content": system_prompt}]
 	for entry in conversation_history:
 		messages.append({"role": entry["role"], "content": entry["content"]})
-	messages.append({"role": "user", "content": user_prompt})
+	if not image_b64.is_empty():
+		messages.append({"role": "user", "content": [
+			{"type": "text", "text": user_prompt},
+			{"type": "image_url", "image_url": {"url": "data:image/png;base64," + image_b64}},
+		]})
+	else:
+		messages.append({"role": "user", "content": user_prompt})
 
 	var body := {
 		"model": model,
@@ -545,11 +553,17 @@ static func _build_openai(model: String, system_prompt: String,
 
 
 static func _build_claude(model: String, system_prompt: String,
-		conversation_history: Array, user_prompt: String, api_key: String) -> Dictionary:
+		conversation_history: Array, user_prompt: String, api_key: String, image_b64: String = "") -> Dictionary:
 	var messages: Array = []
 	for entry in conversation_history:
 		messages.append({"role": entry["role"], "content": entry["content"]})
-	messages.append({"role": "user", "content": user_prompt})
+	if not image_b64.is_empty():
+		messages.append({"role": "user", "content": [
+			{"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": image_b64}},
+			{"type": "text", "text": user_prompt},
+		]})
+	else:
+		messages.append({"role": "user", "content": user_prompt})
 
 	var body := {
 		"model": model,
@@ -572,13 +586,19 @@ static func _build_claude(model: String, system_prompt: String,
 
 
 static func _build_gemini(model: String, system_prompt: String,
-		conversation_history: Array, user_prompt: String, api_key: String) -> Dictionary:
+		conversation_history: Array, user_prompt: String, api_key: String, image_b64: String = "") -> Dictionary:
 	var contents: Array = []
 	# Gemini uses "parts" format
 	for entry in conversation_history:
 		var role: String = "user" if entry["role"] == "user" else "model"
 		contents.append({"role": role, "parts": [{"text": entry["content"]}]})
-	contents.append({"role": "user", "parts": [{"text": user_prompt}]})
+	if not image_b64.is_empty():
+		contents.append({"role": "user", "parts": [
+			{"text": user_prompt},
+			{"inlineData": {"mimeType": "image/png", "data": image_b64}},
+		]})
+	else:
+		contents.append({"role": "user", "parts": [{"text": user_prompt}]})
 
 	var body := {
 		"contents": contents,

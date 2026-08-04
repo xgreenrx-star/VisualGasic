@@ -27,14 +27,30 @@ extends RefCounted
 ##   highlight_lines  {lines:[int], color?:str, duration_sec?:float}
 ##   clear_highlights {}
 ##   goto_line        {line:int, column?:int}
-##   open_file        {path:str}
-##   insert_text      {line:int, text:str}            # insert BEFORE 1-based line
-##   replace_range    {start_line:int, end_line:int, text:str}  # inclusive
-##   replace_in_buffer{find:str, replace:str, all?:bool}
-##   set_buffer_text  {text:str}                      # full-buffer replace
+##   open_file        {path:str}   -- .vg files ONLY; opens in the embedded
+##                                    VG editor tab for the USER to see. For
+##                                    investigating any other file type
+##                                    (.gd, .tscn, etc.) use read_file
+##                                    instead, which doesn't touch the UI.
+##   insert_text      {line:int, text:str, path?:str}  # insert BEFORE 1-based line
+##   replace_range    {start_line:int, end_line:int, text:str, path?:str}  # inclusive
+##   replace_in_buffer{find:str, replace:str, all?:bool, path?:str}
+##   set_buffer_text  {text:str, path?:str}            # full-buffer replace
 ##   save_file        {}
+##
+## insert_text/replace_range/replace_in_buffer/set_buffer_text always act on
+## whichever file is CURRENTLY OPEN in the embedded editor tab -- they have
+## no independent file targeting. The optional `path` field is a SAFETY
+## CHECK ONLY: if given and it doesn't match the active tab, the call fails
+## with a clear error instead of silently editing nothing (no tab open) or
+## the WRONG file (a different tab happens to be open). When editing a file
+## that may not be the active tab, prefer write_file (path + full contents)
+## instead -- it always targets the right file regardless of what's open.
 ##   write_file       {path:str, contents:str}        # routed through SafeWrite
-##   read_file        {path:str, max_lines?:int}      # echoes contents to chat
+##   read_file        {path:str, start_line?:int, max_lines?:int}  # echoes a
+##                                                    # window of contents to
+##                                                    # chat; start_line is
+##                                                    # 1-based (default 1)
 ##   list_dir         {path:str, recursive?:bool, max_entries?:int}
 ##   find_in_files    {pattern:str, path?:str, regex?:bool, max_hits?:int}
 ##   vb6_canonicalize {path?:str, dry_run?:bool}      # rewrite Godot type
@@ -735,6 +751,16 @@ func _do_open_file(d: Dictionary) -> String:
 	var path := str(d.get("path", "")).strip_edges()
 	if path.is_empty():
 		return "[open_file] missing 'path'"
+	# The embedded editor is a VisualGasic-only view -- its live syntax/error
+	# checker always parses whatever buffer it holds AS VG source. Loading a
+	# non-.vg file (e.g. a GDScript addon file) into it swaps out the user's
+	# current tab AND corrupts the display with bogus VG parse errors (e.g.
+	# GDScript's `@tool` annotation trips "Unexpected character: @"). Only
+	# .vg files are safe to open here; anything else should be inspected
+	# with read_file instead, which never touches the editor UI.
+	if path.get_extension().to_lower() != "vg":
+		return ("[open_file] refused: only .vg files can be opened in the VG code editor " +
+			"— use read_file to inspect %s instead") % path
 	var ece = _get_embedded_editor()
 	if ece == null or not ece.has_method("load_file"):
 		return "[open_file] embedded code editor not available"
@@ -752,6 +778,9 @@ func _do_insert_text(d: Dictionary) -> String:
 	var ce := _get_code_edit()
 	if ce == null:
 		return "[insert_text] no code editor open"
+	var mismatch := _check_active_path(d)
+	if not mismatch.is_empty():
+		return "[insert_text] " + mismatch
 	var line := int(d.get("line", 0)) - 1
 	var txt := str(d.get("text", ""))
 	if line < 0:
@@ -766,7 +795,13 @@ func _do_insert_text(d: Dictionary) -> String:
 	var head := "\n".join(lines.slice(0, insert_at))
 	var tail := "\n".join(lines.slice(insert_at))
 	var sep := "\n" if not head.is_empty() else ""
-	ce.text = head + sep + txt + tail
+	var new_text := head + sep + txt + tail
+	var nested_line := _check_nested_if_vg(new_text)
+	if nested_line > 0:
+		return ("[insert_text] REFUSED: would create a nested Sub/Function declaration at line %d -- " +
+			"VG has no nested procedures. Insert the new Sub/Function as a top-level sibling " +
+			"AFTER the enclosing Sub's End Sub, not inside its body.") % nested_line
+	ce.text = new_text
 	_mark_dirty()
 	var inserted_count := txt.count("\n")
 	return "[insert_text] inserted %d line(s) before line %d" % [inserted_count, line + 1]
@@ -776,6 +811,9 @@ func _do_replace_range(d: Dictionary) -> String:
 	var ce := _get_code_edit()
 	if ce == null:
 		return "[replace_range] no code editor open"
+	var mismatch := _check_active_path(d)
+	if not mismatch.is_empty():
+		return "[replace_range] " + mismatch
 	var sl := int(d.get("start_line", 0)) - 1
 	var el := int(d.get("end_line", 0)) - 1
 	if sl < 0 or el < sl:
@@ -793,7 +831,13 @@ func _do_replace_range(d: Dictionary) -> String:
 		middle += "\n"
 	var head_sep := "\n" if not head.is_empty() else ""
 	var tail_sep := "" if middle.ends_with("\n") or tail.is_empty() else "\n"
-	ce.text = head + head_sep + middle + tail_sep + tail
+	var new_text := head + head_sep + middle + tail_sep + tail
+	var nested_line := _check_nested_if_vg(new_text)
+	if nested_line > 0:
+		return ("[replace_range] REFUSED: would create a nested Sub/Function declaration at line %d -- " +
+			"VG has no nested procedures. Keep the replacement as a top-level sibling " +
+			"AFTER the enclosing Sub's End Sub, not inside its body.") % nested_line
+	ce.text = new_text
 	_mark_dirty()
 	return "[replace_range] replaced lines %d-%d" % [sl + 1, el + 1]
 
@@ -802,6 +846,9 @@ func _do_replace_in_buffer(d: Dictionary) -> String:
 	var ce := _get_code_edit()
 	if ce == null:
 		return "[replace_in_buffer] no code editor open"
+	var mismatch := _check_active_path(d)
+	if not mismatch.is_empty():
+		return "[replace_in_buffer] " + mismatch
 	var find_s := str(d.get("find", ""))
 	if find_s.is_empty():
 		return "[replace_in_buffer] empty 'find'"
@@ -812,13 +859,25 @@ func _do_replace_in_buffer(d: Dictionary) -> String:
 		var i := src.find(find_s)
 		if i < 0:
 			return "[replace_in_buffer] no match"
-		ce.text = src.substr(0, i) + rep_s + src.substr(i + find_s.length())
+		var new_text_one := src.substr(0, i) + rep_s + src.substr(i + find_s.length())
+		var nested_line_one := _check_nested_if_vg(new_text_one)
+		if nested_line_one > 0:
+			return ("[replace_in_buffer] REFUSED: would create a nested Sub/Function declaration at line %d -- " +
+				"VG has no nested procedures. Keep the replacement as a top-level sibling " +
+				"AFTER the enclosing Sub's End Sub, not inside its body.") % nested_line_one
+		ce.text = new_text_one
 		_mark_dirty()
 		return "[replace_in_buffer] replaced 1 occurrence"
 	var count := src.count(find_s)
 	if count == 0:
 		return "[replace_in_buffer] no match"
-	ce.text = src.replace(find_s, rep_s)
+	var new_text_all := src.replace(find_s, rep_s)
+	var nested_line_all := _check_nested_if_vg(new_text_all)
+	if nested_line_all > 0:
+		return ("[replace_in_buffer] REFUSED: would create a nested Sub/Function declaration at line %d -- " +
+			"VG has no nested procedures. Keep the replacement as a top-level sibling " +
+			"AFTER the enclosing Sub's End Sub, not inside its body.") % nested_line_all
+	ce.text = new_text_all
 	_mark_dirty()
 	return "[replace_in_buffer] replaced %d occurrence(s)" % count
 
@@ -827,9 +886,18 @@ func _do_set_buffer_text(d: Dictionary) -> String:
 	var ce := _get_code_edit()
 	if ce == null:
 		return "[set_buffer_text] no code editor open"
+	var mismatch := _check_active_path(d)
+	if not mismatch.is_empty():
+		return "[set_buffer_text] " + mismatch
 	if not d.has("text"):
 		return "[set_buffer_text] missing 'text'"
-	ce.text = str(d.get("text"))
+	var new_text := str(d.get("text"))
+	var nested_line := _check_nested_if_vg(new_text)
+	if nested_line > 0:
+		return ("[set_buffer_text] REFUSED: nested Sub/Function declaration at line %d -- " +
+			"VG has no nested procedures. Move the new Sub/Function to top-level " +
+			"scope, as a sibling AFTER the enclosing Sub's End Sub, then try again.") % nested_line
+	ce.text = new_text
 	_mark_dirty()
 	return "[set_buffer_text] wrote %d bytes to buffer" % ce.text.length()
 
@@ -851,6 +919,17 @@ func _do_save_file() -> String:
 			var src: String = ce.text
 			var alias_map: Dictionary = _build_vb6_alias_map_from_designer()
 			var normalized: String = _normalize_vg_source(src, alias_map)
+			# Refuse to save a file with a nested Sub/Function — VG has no
+			# nested procedures; it would compile with zero error but the
+			# nested one is never callable and fails LATER at runtime (this
+			# has bitten c64_main.vg's paste routine twice already). Leave
+			# the buffer untouched (dirty, unsaved) so the caller can see
+			# this error and fix it before retrying.
+			var nested_line := _find_nested_procedure_line(normalized)
+			if nested_line > 0:
+				return ("[save_file] REFUSED: nested Sub/Function declaration at line %d in %s — " +
+					"VG has no nested procedures. Move the new Sub/Function to top-level " +
+					"scope, as a sibling AFTER the enclosing Sub's End Sub, then save again.") % [nested_line, path]
 			if normalized != src:
 				ce.text = normalized
 	ece.save_file()
@@ -882,6 +961,14 @@ func _do_write_file(d: Dictionary) -> String:
 	if path.ends_with(".vg"):
 		contents = _normalize_vg_for_form(contents, path)
 	# -----------------------------------------------------------------
+	# Refuse to write a .vg file containing a Sub/Function nested inside
+	# another Sub/Function's body — see _find_nested_procedure_line().
+	if path.ends_with(".vg"):
+		var nested_line := _find_nested_procedure_line(contents)
+		if nested_line > 0:
+			return ("[write_file] REFUSED: nested Sub/Function declaration at line %d in %s — " +
+				"VG has no nested procedures. Move the new Sub/Function to top-level " +
+				"scope, as a sibling AFTER the enclosing Sub's End Sub, then write again.") % [nested_line, path]
 	var safe = _get_safe()
 	if safe == null:
 		return "[write_file] safe-write not available"
@@ -905,6 +992,45 @@ func _normalize_vg_for_form(src: String, vg_path: String) -> String:
 	# 1. Build VB6-alias → actual-name map from the live form designer.
 	var alias_map: Dictionary = _build_vb6_alias_map_from_designer()
 	return _normalize_vg_source(src, alias_map)
+
+
+## Guard for the buffer-editing tools (insert_text/replace_range/
+## replace_in_buffer/set_buffer_text), which act on whatever's open in the
+## embedded editor rather than an explicit path -- only run the nested-
+## procedure scan when that buffer is a .vg file, and only for the
+## RESULTING full text (never the raw find/replace/insert snippet alone,
+## since nesting is a whole-file depth property, not something a snippet
+## can be judged on in isolation). Returns the 1-based offending line, or
+## -1/0 when the buffer isn't .vg or the text is clean.
+func _check_nested_if_vg(new_full_text: String) -> int:
+	if not _active_editor_path().to_lower().ends_with(".vg"):
+		return -1
+	return _find_nested_procedure_line(new_full_text)
+
+
+## Scan VG source for a Sub/Function declared INSIDE another Sub/Function's
+## body — VG has no nested procedures (see KNOWLEDGE block in
+## vg_ai_narcea.gd). Returns the 1-based line number of the FIRST nested
+## declaration found, or -1 if the source is clean. Depth-tracking rather
+## than indentation-based so it can't be fooled by inconsistent whitespace —
+## exactly mirrors how the VG parser itself has no concept of nesting.
+func _find_nested_procedure_line(src: String) -> int:
+	var depth := 0
+	var lines: PackedStringArray = src.split("\n")
+	var open_re := RegEx.new()
+	open_re.compile("(?i)^\\s*(Public\\s+|Private\\s+|Static\\s+)?(Sub|Function)\\s+\\w")
+	var close_re := RegEx.new()
+	close_re.compile("(?i)^\\s*End\\s+(Sub|Function)\\b")
+	for i in lines.size():
+		var ln := lines[i]
+		if close_re.search(ln) != null:
+			depth = maxi(0, depth - 1)
+			continue
+		if open_re.search(ln) != null:
+			if depth > 0:
+				return i + 1
+			depth += 1
+	return -1
 
 
 ## Pure-source normalizer — no plugin/designer access, fully testable.
@@ -1047,11 +1173,21 @@ func _do_read_file(d: Dictionary) -> String:
 	var s: String = safe.read(path)
 	var max_lines: int = int(d.get("max_lines", READ_DEFAULT_LINES))
 	var lines: PackedStringArray = s.split("\n")
-	var trimmed: bool = lines.size() > max_lines
+	var total_lines: int = lines.size()
+	# 1-based, like every other line-number arg in this file. Clamp into
+	# range rather than erroring, so an over-shoot start_line (e.g. asking
+	# for line 900 of an 800-line file) degrades to "nothing left" instead
+	# of a hard failure.
+	var start_line: int = int(d.get("start_line", 1))
+	var start_idx: int = clampi(start_line - 1, 0, total_lines)
+	var end_idx: int = mini(start_idx + max_lines, total_lines)
+	var trimmed: bool = end_idx < total_lines or start_idx > 0
+	s = "\n".join(lines.slice(start_idx, end_idx))
+	var range_note := ""
 	if trimmed:
-		s = "\n".join(lines.slice(0, max_lines))
+		range_note = " (showing lines %d-%d)" % [start_idx + 1, end_idx]
 	var note := "[read_file] %s — %d lines%s\n%s" % [
-		path, lines.size(), (" (showing first %d)" % max_lines) if trimmed else "", s
+		path, total_lines, range_note, s
 	]
 	return note
 
@@ -1063,8 +1199,13 @@ func _do_list_dir(d: Dictionary) -> String:
 	var safe = _get_safe()
 	if safe != null:
 		var ok: Array = safe.is_safe(path if not path.ends_with("/") else path)
-		# is_safe expects file-ish paths; try a synthetic file under the dir
-		var probe: String = path.rstrip("/") + "/_probe"
+		# is_safe expects file-ish paths; try a synthetic file under the dir.
+		# NOTE: don't rstrip("/") first — for root paths like "res://" or
+		# "user://" that strips BOTH slashes (collapsing to "res:"), which
+		# then fails the "res://" prefix check in _resolve() and makes
+		# is_safe() refuse every listing of the project root. Just ensure
+		# exactly one trailing slash instead.
+		var probe: String = (path if path.ends_with("/") else path + "/") + "_probe"
 		ok = safe.is_safe(probe)
 		if not ok[0]:
 			return "[list_dir] refused: %s" % str(ok[1])
@@ -1214,11 +1355,21 @@ func _walk_dir(base: String, recursive: bool, out: Array, cap: int) -> void:
 		return
 	d.list_dir_begin()
 	var name := d.get_next()
+	# NOTE: don't rstrip("/") before joining — for root paths like "res://"
+	# or "user://" that strips BOTH trailing slashes (collapsing to
+	# "res:"), producing malformed joined paths like "res:/demos" (single
+	# slash). DirAccess.open() then fails to resolve those, silently
+	# killing recursion one level below any root, and the malformed
+	# "res:/..." prefix also fails the "res://" checks in
+	# vg_ai_safe_write.gd's _resolve()/is_safe(), so even top-level
+	# entries get rejected downstream. Ensure exactly one trailing slash
+	# before appending instead.
+	var base_slash := base if base.ends_with("/") else base + "/"
 	while name != "":
 		if name == "." or name == "..":
 			name = d.get_next()
 			continue
-		var sub := base.rstrip("/") + "/" + name
+		var sub := base_slash + name
 		var is_dir := d.current_is_dir()
 		out.append("%s%s" % [sub, "/" if is_dir else ""])
 		if out.size() >= cap:
@@ -1762,6 +1913,35 @@ func _get_code_edit() -> CodeEdit:
 	if "_code_edit" in ece:
 		return ece.get("_code_edit")
 	return null
+
+
+## Path of the file currently open in the embedded editor, or "" if none.
+func _active_editor_path() -> String:
+	var ece := _get_embedded_editor()
+	if ece == null or not ece.has_method("get_file_path"):
+		return ""
+	return str(ece.get_file_path())
+
+
+## Buffer-editing tools (insert_text/replace_range/replace_in_buffer/
+## set_buffer_text) don't address a file directly -- they always act on
+## whatever's open in the embedded editor. If the call includes an
+## optional "path" safety-check field and it doesn't match what's
+## actually open, return a clear, actionable error string instead of
+## silently editing nothing or the wrong file. Returns "" when there's
+## no mismatch (either no "path" was given, or it matches).
+func _check_active_path(d: Dictionary) -> String:
+	var target := str(d.get("path", "")).strip_edges()
+	if target.is_empty():
+		return ""
+	var active := _active_editor_path()
+	if active.is_empty():
+		return ""
+	if active.strip_edges().to_lower() == target.to_lower():
+		return ""
+	return ("target file mismatch: the currently open editor is '%s', not '%s' -- " +
+		"use write_file(path=\"%s\", contents=...) instead, it always targets " +
+		"the right file regardless of what's open") % [active, target, target]
 
 
 func _mark_dirty() -> void:

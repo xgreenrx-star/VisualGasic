@@ -239,6 +239,83 @@ VG runtime API (called by codegen; also callable from hand-written .vg):
   * `Exit While` now compiles and executes correctly (fixed Jul 27, 2026) —
     works exactly like `Exit For` / `Exit Do`, breaking out of the nearest
     enclosing `While ... Wend` loop.
+  * NEVER write a `Sub`/`Function` definition INSIDE another `Sub`/
+    `Function`'s body.  VG has no nested procedures — every `Sub`/
+    `Function` (including callbacks like `_Input`/`_Process`/`_Ready` and
+    any new event handler you add) MUST be a separate, top-level
+    declaration, a sibling of the Sub you were asked to extend, never
+    pasted into the middle of its statements.  This is especially easy to
+    get wrong when ADDING a new feature to an existing file: inserting the
+    new code near "the relevant" existing Sub is NOT the same as inserting
+    it INSIDE that Sub.  The parser does NOT reject nested Subs at compile
+    time — the file loads and runs fine — but the nested Sub is never
+    registered as callable, so it fails LATER with a runtime error like
+    `Sub or Function not defined: _Input` the first time Godot (or other
+    code) actually tries to invoke it.  WRONG:
+      Sub UpdateKeyboard()
+          ...existing keyboard-scan code...
+          Sub _Input(Event As Variant)   ' WRONG — nested, unreachable
+              ...
+          End Sub
+          ...more keyboard-scan code...
+      End Sub
+    CORRECT — new Sub is a top-level sibling, inserted AFTER the existing
+    Sub's `End Sub`, with nothing removed or interrupted in between:
+      Sub UpdateKeyboard()
+          ...existing keyboard-scan code, completely unmodified...
+      End Sub
+
+      Sub _Input(Event As Variant)       ' CORRECT — top-level, sibling
+          ...
+      End Sub
+    Likewise, any `Dim` state that must persist across multiple calls/
+    frames (e.g. a paste buffer drained a few characters per frame) MUST
+    be declared at MODULE level (top of the file, alongside other global
+    `Dim`s) — never as a local inside the Sub that runs every frame, or it
+    silently resets every call with no error at all.  Before finishing any
+    edit that adds a new Sub/Function to an existing file, re-read the
+    surrounding indentation and confirm the new declaration lines up at
+    the SAME indent level as its neighboring top-level Subs.
+  * `And` / `Or` are NOT short-circuiting — VG always evaluates BOTH sides,
+    exactly like VB6.  `Do While a > 0 And arr(a - 1) <= 0.0` will throw
+    "Array subscript out of range" the moment `a` reaches 0, because
+    `arr(a - 1)` still gets evaluated even though the left side is already
+    False.  NEVER rely on short-circuit to guard an unsafe right-hand side.
+    WRONG:
+      Do While a > 0 And arr(a - 1) <= 0.0   ' crashes when a = 0
+    CORRECT — nest the guard instead:
+      Do While trimming
+          If a <= 0 Then
+              trimming = False
+          ElseIf arr(a - 1) > 0.0 Then
+              trimming = False
+          Else
+              a = a - 1
+          End If
+      Loop
+    Separately: `And`/`Or`/`Xor` ARE real bitwise operators when BOTH
+    operands are numeric (Integer/Long/Single/Double) — e.g.
+    `flags = flags Or (1 << 3)` correctly sets a bit.  They fall back to
+    logical (Boolean) behavior only when an operand isn't numeric.  Either
+    way, both sides are always evaluated — there is no short-circuit form.
+  * Single-line `If cond Then A: B: C` (and `Else D: E: F`) — EVERY
+    colon-chained statement after `Then` (or after a single-line `Else`)
+    belongs to THAT branch only, same as real VB6.  This is an easy trap
+    when one of the colon-chained statements was meant to run
+    unconditionally after the If, especially `GoTo`/`Return`/state-machine
+    "continue" statements in dispatch-table style code:
+      WRONG — GoTo only runs when the Else branch is taken:
+        If cond Then x = A() Else x = B(): GoTo NextOp
+      If `cond` is True, `GoTo NextOp` NEVER executes and control falls
+      through into whatever code comes next — a silent wrong-branch bug,
+      not a parse error.  CORRECT — use a full multi-line If, or put the
+      unconditional statement on its own line after the single-line If:
+        If cond Then
+            x = A()
+        Else
+            x = B()
+        End If
+        GoTo NextOp
 
 === MemoryBuffer & Optimizer Hints (added Jul 25, 2026 — v5.3) ===
 Fast byte-buffer type — use for emulator/binary-parsing style code instead of
@@ -650,6 +727,16 @@ PATHS:
   * MoveAndSlide, Physics.Impulse, and Physics.Force belong in
     Sub _PhysicsProcess(delta) — NOT in Sub _Process(delta).  The physics
     engine runs at a fixed step and will jitter if driven from _Process.
+  * Plain Function/Sub CALLS have real overhead (confirmed benchmark: a
+    tight loop of 50,000 trivial calls is ~45-85x slower than the
+    equivalent GDScript).  Every other operation (arithmetic, string
+    concat, arrays/dicts) beats or ties GDScript — calls are the one
+    weak spot.  For CPU-emulator / tick-loop / per-pixel style code that
+    runs thousands of times per frame, prefer inlining small helpers
+    directly in the loop body (or using MemoryBuffer/Bit* builtins)
+    over calling a tiny Function per element/opcode/pixel.  Normal UI
+    and gameplay code (event handlers, a few calls per frame) is NOT
+    affected — only reserve this optimization for genuinely hot loops.
 
 === VG runtime namespaces (2D / 3D game scripts) ===
 These work inside .vg scripts attached to Node2D / Node3D scenes.
@@ -1119,6 +1206,17 @@ COMMON MISTAKES TO AVOID:
   * Do NOT use MoveAndSlide inside _Process — use _PhysicsProcess.
   * Do NOT write ctrl.position.x = N — silent fail; use ctrl.Left = N.
   * Do NOT emit_signal — use RaiseEvent (VG) for custom events.
+  * Do NOT define a Sub/Function INSIDE another Sub/Function's body — VG
+    has no nested procedures.  It compiles with zero error but the nested
+    one is never callable, so it fails LATER with a runtime "Sub or
+    Function not defined" the first time something tries to invoke it.
+    Every new Sub/Function (including a new _Input/_Process/event handler
+    you're adding to an existing file) must be a top-level sibling,
+    inserted after the neighboring Sub's End Sub — never spliced into the
+    middle of one.
+  * Do NOT rely on `And`/`Or` short-circuiting a guard condition (e.g.
+    `a > 0 And arr(a-1) > 0`) — VG always evaluates both sides; use nested
+    If/ElseIf instead when the right side is only safe when the left is true.
   * Do NOT use VB6 type-name aliases as control names (TextBox1, Command1,
     ComboBox1, etc.) — the Form Designer generates Godot-style names
     (LineEdit1, Button1, OptionButton1, etc.).  The ONLY correct names are
@@ -1131,6 +1229,15 @@ COMMON MISTAKES TO AVOID:
       ' <FormName> - <brief description>
       Option Explicit
     followed by the Sub/Function bodies.
+  * Do NOT use `open_file` to inspect a .gd/.tscn/addon file during
+    investigation — `open_file` visibly swaps the user's embedded editor
+    tab AND that editor always parses its buffer as VisualGasic, so any
+    non-.vg content (e.g. a GDScript file starting with `@tool`) throws a
+    bogus "Unexpected character: @" and clobbers whatever the user had
+    open.  Use `read_file` for any file you're reading for your own
+    context — it echoes contents to the chat without touching the editor
+    UI.  Only use `open_file` on an actual .vg file when you want the
+    USER to see it opened.
 
 FORM CREATION — use the spec flow, NOT vg-tool write_file:
   When asked to create a form with behaviour, ALWAYS use:
@@ -1336,9 +1443,21 @@ func _active_context_block(plugin: Object) -> String:
 	var lines: Array[String] = []
 	lines.append("=== ACTIVE CONTEXT (right now) ===")
 
-	var panel := _detect_active_panel(plugin)
-	if not panel.is_empty():
-		lines.append("Active panel: %s" % panel)
+	# A live Play session is the single strongest signal for "why doesn't
+	# X work in the running game/emulator" questions -- check it BEFORE the
+	# panel-visibility fallback below, which can misreport "Form Designer"
+	# for script-only projects (no forms at all, e.g. the C64/GBA emulator
+	# demos) where the Form Designer dock happens to still be visible even
+	# though nobody is using it.
+	var session := _get_run_session(plugin)
+	if session != null and is_instance_valid(session) and session.is_running():
+		lines.append("Active panel: Game is RUNNING right now (Run session active -- " +
+			"the user is almost certainly asking about behaviour in the running " +
+			"scene, not the Form Designer or Code Editor).")
+	else:
+		var panel := _detect_active_panel(plugin)
+		if not panel.is_empty():
+			lines.append("Active panel: %s" % panel)
 
 	var open := _detect_open_file(plugin)
 	if not open.is_empty():
@@ -1370,9 +1489,12 @@ func _active_context_block(plugin: Object) -> String:
 	return "\n".join(lines)
 
 
-func _detect_run_output(plugin: Object) -> String:
+## Shared lookup for the AI panel's embedded run-session
+## (vg_ai_run_session.gd instance), used both to fetch recent output and to
+## detect whether a scene is currently playing.  Returns null if unavailable.
+func _get_run_session(plugin: Object) -> Object:
 	if plugin == null or not is_instance_valid(plugin):
-		return ""
+		return null
 	# The AI panel parents the run session on itself.  Reach it via the
 	# panel reference that visual_gasic_plugin keeps for the AI dock.
 	var panel = null
@@ -1381,14 +1503,19 @@ func _detect_run_output(plugin: Object) -> String:
 	elif "_ai_panel" in plugin:
 		panel = plugin._ai_panel
 	if panel == null or not is_instance_valid(panel):
-		return ""
+		return null
 	if not ("_run_session" in panel) or panel._run_session == null:
-		return ""
+		return null
 	if not is_instance_valid(panel._run_session):
+		return null
+	return panel._run_session
+
+
+func _detect_run_output(plugin: Object) -> String:
+	var session := _get_run_session(plugin)
+	if session == null or not session.has_method("get_recent_output"):
 		return ""
-	if not panel._run_session.has_method("get_recent_output"):
-		return ""
-	return panel._run_session.get_recent_output(20)
+	return session.get_recent_output(20)
 
 
 ## Read up to ~120 lines / 4 KB of the currently-open .vg file and embed
@@ -1444,15 +1571,22 @@ func _detect_active_panel(plugin: Object) -> String:
 			var v = plugin.get(prop)
 			if typeof(v) == TYPE_STRING and not v.is_empty():
 				return v
-	# Fall back to "are the big panels visible?"
-	if "_form_designer" in plugin and plugin.get("_form_designer") != null \
-			and is_instance_valid(plugin.get("_form_designer")) \
-			and plugin.get("_form_designer").visible:
-		return "Form Designer"
+	# Fall back to "are the big panels visible?"  Code Editor is checked
+	# FIRST: docked panels frequently report visible == true even when
+	# they're an idle background tab, and script-only projects (no forms
+	# at all -- e.g. the C64/GBA emulator demos) leave the Form Designer
+	# dock sitting empty-but-visible, which previously caused Narcea to
+	# misreport "Form Designer" for users who were actually looking at
+	# real code (or a running scene, now caught earlier by the Play
+	# session check in _active_context_block).
 	if "_embedded_code_editor" in plugin and plugin.get("_embedded_code_editor") != null \
 			and is_instance_valid(plugin.get("_embedded_code_editor")) \
 			and plugin.get("_embedded_code_editor").visible:
 		return "Code Editor"
+	if "_form_designer" in plugin and plugin.get("_form_designer") != null \
+			and is_instance_valid(plugin.get("_form_designer")) \
+			and plugin.get("_form_designer").visible:
+		return "Form Designer"
 	return ""
 
 

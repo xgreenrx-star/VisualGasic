@@ -73,6 +73,19 @@ private:
 	bool _has_kernal = false;
 	bool _has_char = false;
 
+	// Cartridge ROM (.crt, "Normal cartridge" hardware type 0 only -- no
+	// bank-switching mappers yet). ROML = $8000-$9FFF (8K/16K carts), ROMH =
+	// $A000-$BFFF (16K carts only). _cart_exrom/_cart_game mirror the real
+	// EXROM/GAME cartridge-port lines: true = line high/inactive (no cart
+	// effect, the power-on default), false = line asserted low by the
+	// cartridge.
+	uint8_t _cart_lo_rom[8192];
+	uint8_t _cart_hi_rom[8192];
+	bool _has_cart_lo = false;
+	bool _has_cart_hi = false;
+	bool _cart_exrom = true;
+	bool _cart_game = true;
+
 	// Processor port ($00 DDR / $01 data) + decoded PLA banking lines.
 	uint8_t _port00 = 0x2F;
 	uint8_t _port01 = 0x37;
@@ -131,6 +144,13 @@ public:
 	~VGC64Machine();
 
 	bool load_roms(const String &basic_path, const String &kernal_path, const String &char_path);
+	// Loads a .crt cartridge image (Normal/type-0 8K or 16K only -- prints and
+	// rejects anything else, including bank-switched mappers like EasyFlash or
+	// Action Replay, which are not implemented yet). Persists across reset()
+	// (matches real hardware: a cartridge stays inserted through a RESET).
+	bool load_cartridge(const String &path);
+	void unload_cartridge();
+	bool has_cartridge() const { return _has_cart_lo || _has_cart_hi; }
 	void reset();
 	uint32_t run_frame();      // execute one PAL frame; returns cycles run
 	uint32_t run_cycles(int cycles);

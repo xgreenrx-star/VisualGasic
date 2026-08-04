@@ -1,0 +1,54 @@
+Attribute VB_Name = "TestNarceaKnowledgeGotchas"
+' Verifies the language-semantic claims just added to Narcea's knowledge
+' base (addons/visual_gasic/vg_ai_narcea.gd) actually match runtime
+' behavior:
+'   1. The nested-If workaround for "And is not short-circuiting" produces
+'      the correct result without an out-of-range crash.
+'   2. Single-line If/Else colon-chains bind ALL trailing statements to
+'      that branch only (GoTo in the Else branch does not run when Then
+'      is taken).
+'   3. `Or` is a real bitwise operator for numeric operands.
+' Expected output: PASS:narcea_knowledge_gotchas
+Sub _Ready()
+    Dim pass_count As Integer = 0
+    Dim total As Integer = 0
+
+    ' --- Test 1: nested-If short-circuit-safe guard (see vg_short_circuit.md) ---
+    total = total + 1
+    Dim arr(2) As Single
+    arr(0) = 5.0 : arr(1) = 10.0 : arr(2) = -1.0
+    Dim a As Integer = 3
+    Dim trimming As Boolean = True
+    Do While trimming
+        If a <= 0 Then
+            trimming = False
+        ElseIf arr(a - 1) > 0.0 Then
+            trimming = False
+        Else
+            a = a - 1
+        End If
+    Loop
+    ' arr(2)=-1 (trim), arr(1)=10 (stop) -> a should land on 2
+    If a = 2 Then pass_count = pass_count + 1
+
+    ' --- Test 2: single-line If/Else colon-chain branch binding ---
+    total = total + 1
+    Dim result As Integer = 0
+    Dim cond As Boolean = True
+    If cond Then result = 1 Else result = 2: GoTo SkipLabel
+    result = 99  ' must run: GoTo is only in the Else branch, cond was True
+    SkipLabel:
+    If result = 99 Then pass_count = pass_count + 1
+
+    ' --- Test 3: Or is bitwise for numeric operands ---
+    total = total + 1
+    Dim flags As Integer = 0
+    flags = flags Or (1 << 3)
+    If flags = 8 Then pass_count = pass_count + 1
+
+    If pass_count = total Then
+        Print "PASS:narcea_knowledge_gotchas"
+    Else
+        Print "FAIL:narcea_knowledge_gotchas " & pass_count & "/" & total
+    End If
+End Sub

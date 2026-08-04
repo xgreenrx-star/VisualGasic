@@ -1864,6 +1864,15 @@ func _exit_tree():
 		_ui_forms_ctx_plugin = null
 	_ui_forms_adapter = null
 
+	# Auto-save the embedded code editor's buffer before cleanup — otherwise
+	# any unsaved .vg edits are silently lost when _ide_layout.queue_free()
+	# frees the code editor a few lines down (found during a full
+	# dropdown-menu/lifecycle audit, Aug 2026 — same class of bug as the
+	# original "Save All" report).
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+		_embedded_code_editor.save_file()
+		print("[VisualGasic] _exit_tree → embedded code editor auto-saved")
+
 	# Auto-save the form before cleanup so Godot doesn't lose our work
 	if is_instance_valid(_form_designer):
 		var fp = _form_designer.get_form_path()
@@ -6005,11 +6014,9 @@ func _on_vb6_format_menu(id: int) -> void:
 			_form_designer.make_same_width()
 			_form_designer.make_same_height()
 		30: # Bring to Front
-			if _form_designer.has_method("bring_to_front"):
-				_form_designer.bring_to_front()
+			_format_bring_to_front()
 		31: # Send to Back
-			if _form_designer.has_method("send_to_back"):
-				_form_designer.send_to_back()
+			_format_send_to_back()
 		40: # Lock Controls toggle
 			_flash_status_message("Use right-click → Lock Position on individual controls")
 		50: # Space Equally Horizontal
@@ -6055,16 +6062,27 @@ func _on_vb6_run_menu(id: int) -> void:
 	match id:
 		0: # Preview Form
 			_log_output("▶ Preview Form...", Color(0.0, 0.3, 0.5))
-			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_on_preview"):
-				form_preview_toolbar._on_preview()
+			# NOTE: the real method is _preview_current_form(with_debug) —
+			# form_preview_toolbar.gd has no _on_preview()/_on_preview_debug()/
+			# _on_build_pressed(), so the old has_method() guards below always
+			# failed silently and these three menu items did nothing at all
+			# (found while auditing all dropdown menus for issues, Aug 2026).
+			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_preview_current_form"):
+				form_preview_toolbar._preview_current_form(false)
 		1: # Preview + Debug
 			_log_output("▶ Preview + Debug...", Color(0.0, 0.3, 0.5))
-			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_on_preview_debug"):
-				form_preview_toolbar._on_preview_debug()
+			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_preview_current_form"):
+				form_preview_toolbar._preview_current_form(true)
 		10: # Build
 			_do_save_form()
-			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_on_build_pressed"):
-				form_preview_toolbar._on_build_pressed()
+			# Flush the embedded code editor to disk first (Build validates the
+			# .vg files that are actually on disk, so unsaved code edits were
+			# previously silently ignored — same class of bug as Save All).
+			if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("flush_for_run"):
+				_embedded_code_editor.flush_for_run()
+			_log_output("▶ Building project...", Color(0.0, 0.3, 0.5))
+			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_build_project"):
+				form_preview_toolbar._build_project()
 		11:
 			# Save form to disk before running so the game sees latest changes
 			_do_save_form()
@@ -6093,6 +6111,11 @@ func _on_vb6_tools_menu(id: int) -> void:
 
 func _on_vb6_window_menu(id: int) -> void:
 	match id:
+		0, 1: # Tile Horizontally / Tile Vertically — not implemented yet.
+			# Previously silent no-ops with zero user feedback (found during a
+			# full dropdown-menu audit, Aug 2026); flash a message instead of
+			# leaving the user wondering whether the click registered at all.
+			_flash_status_message("Window tiling is not implemented yet")
 		10: _on_toggle_vb6_layout()
 
 func _on_vb6_addins_menu(id: int) -> void:
@@ -6109,13 +6132,13 @@ func _on_vb6_addins_menu(id: int) -> void:
 				_flash_status_message("Plugin Manager not initialized.")
 
 func _on_vb6_help_menu(id: int) -> void:
+	# NOTE: this used to be a duplicated match block (the whole thing ran
+	# twice per click), which double-opened the docs URL and would have
+	# double-popped any dialog with side effects — found during a full
+	# dropdown-menu audit, Aug 2026.
 	match id:
 		0: OS.shell_open("https://github.com/nickshouse/VisualGasic")
-		1: pass # About dialog
-		2: _show_tip_of_day()
-	match id:
-		0: OS.shell_open("https://github.com/nickshouse/VisualGasic")
-		1: pass # About dialog
+		1: _show_about_dialog()
 		2: _show_tip_of_day()
 
 # =============================================================================
@@ -7113,6 +7136,43 @@ func _format_size_to_grid() -> void:
 		ctrl.size.y = max(grid_size, round(ctrl.size.y / grid_size) * grid_size)
 	_flash_status_message("Sized to grid")
 
+## Move all selected controls to the end of their parent's child list so
+## they render (and receive mouse input) above their siblings. Godot Controls
+## have no native VisualGasicFormDesigner-side "bring_to_front"/"send_to_back"
+## binding (confirmed via src/visual_gasic_form_designer.cpp) -- the previous
+## has_method() guards always failed silently, so these menu items did
+## nothing at all. Implemented purely in GDScript via the same
+## get_selected_controls() API the other Format actions already use.
+func _format_bring_to_front() -> void:
+	if not _form_designer or not _form_designer.has_method("get_selected_controls"):
+		return
+	var selected = _form_designer.get_selected_controls()
+	if selected.is_empty():
+		_flash_status_message("Select a control first")
+		return
+	for ctrl in selected:
+		var parent = ctrl.get_parent()
+		if parent:
+			parent.move_child(ctrl, parent.get_child_count() - 1)
+	_flash_status_message("Brought to front")
+
+## Move all selected controls to the start of their parent's child list so
+## they render (and receive mouse input) below their siblings. See
+## _format_bring_to_front() above for why this couldn't rely on a native
+## VisualGasicFormDesigner method.
+func _format_send_to_back() -> void:
+	if not _form_designer or not _form_designer.has_method("get_selected_controls"):
+		return
+	var selected = _form_designer.get_selected_controls()
+	if selected.is_empty():
+		_flash_status_message("Select a control first")
+		return
+	for ctrl in selected:
+		var parent = ctrl.get_parent()
+		if parent:
+			parent.move_child(ctrl, 0)
+	_flash_status_message("Sent to back")
+
 ## Center selected controls horizontally within the form.
 func _format_center_in_form_h() -> void:
 	if not _form_designer or not _form_designer.has_method("get_selected_controls"):
@@ -7327,10 +7387,63 @@ func _create_tip_of_day_dialog() -> void:
 	add_child(dialog)
 
 ## Shows the Tip of the Day dialog, advancing to the current tip index.
+## Reused Window instance for Help > About Visual Gasic...
+var _about_dialog: AcceptDialog = null
+
+## Help > About Visual Gasic... — was a dead "pass # About dialog" stub with
+## no implementation anywhere (found during a full dropdown-menu audit, Aug
+## 2026). Reads the version straight from this addon's own plugin.cfg so it
+## can't drift out of sync with a hardcoded string.
+func _show_about_dialog() -> void:
+	if not is_instance_valid(_about_dialog):
+		_about_dialog = AcceptDialog.new()
+		_about_dialog.title = "About Visual Gasic"
+		_about_dialog.min_size = Vector2i(420, 200)
+		_about_dialog.ok_button_text = "OK"
+
+		var vbox = VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", 6)
+
+		var title_label = Label.new()
+		title_label.text = "VisualGasic"
+		title_label.add_theme_font_size_override("font_size", 20)
+		vbox.add_child(title_label)
+
+		var version := "unknown"
+		var cfg := ConfigFile.new()
+		if cfg.load("res://addons/visual_gasic/plugin.cfg") == OK:
+			version = str(cfg.get_value("plugin", "version", "unknown"))
+		var version_label = Label.new()
+		version_label.text = "Version %s" % version
+		vbox.add_child(version_label)
+
+		vbox.add_child(HSeparator.new())
+
+		var desc_label = Label.new()
+		desc_label.text = "VB6-style programming language and IDE for Godot 4.\nWrite game logic in plain-English BASIC (.vg files)."
+		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(desc_label)
+
+		var link_button = LinkButton.new()
+		link_button.text = "github.com/nickshouse/VisualGasic"
+		link_button.uri = "https://github.com/nickshouse/VisualGasic"
+		link_button.pressed.connect(func(): OS.shell_open(link_button.uri))
+		vbox.add_child(link_button)
+
+		_about_dialog.add_child(vbox)
+		get_editor_interface().get_base_control().add_child(_about_dialog)
+
+	_about_dialog.popup_centered()
+
 func _show_tip_of_day() -> void:
 	print("[VG-TIP] _show_tip_of_day called, _show_tips_on_startup=", _show_tips_on_startup)
-	if not _show_tips_on_startup:
-		return
+	# NOTE: this used to bail out early whenever _show_tips_on_startup was
+	# false — but this function is ONLY ever called from the manual Help >
+	# Tip of the Day... menu action (no separate auto-startup call site
+	# exists), so unchecking "show tips on startup" once permanently killed
+	# this menu item forever with zero feedback. That preference should only
+	# gate an automatic startup popup, never a deliberate manual click.
+	# Found during a full dropdown-menu audit, Aug 2026.
 	if not is_instance_valid(_tip_of_day_dialog):
 		_create_tip_of_day_dialog()
 	var tips := _get_tips()
@@ -7987,15 +8100,32 @@ func _on_fd_context_menu_pressed(id: int) -> void:
 			if _form_designer:
 				_form_designer.paste()
 		60: # Bring to Front
-			if _form_designer and _form_designer.has_method("bring_to_front"):
-				_form_designer.bring_to_front()
-			else:
-				_flash_status_message("Bring to Front: move control forward")
+			# NOTE: VisualGasicFormDesigner never bound bring_to_front/
+			# send_to_back natively (confirmed via src/visual_gasic_form_designer.cpp),
+			# so this and case 61 below always fell through to the
+			# "else" status message and never actually moved anything.
+			# Found during a full dropdown-menu audit, Aug 2026.
+			if _form_designer:
+				var info = _form_designer.get_control_info(index)
+				var ctrl_name: String = info.get("name", "")
+				var root = get_editor_interface().get_edited_scene_root()
+				var node = root.find_child(ctrl_name, true, false) if root else null
+				if node and node.get_parent():
+					node.get_parent().move_child(node, node.get_parent().get_child_count() - 1)
+					_flash_status_message(ctrl_name + " brought to front")
+				else:
+					_flash_status_message("Bring to Front: control not found")
 		61: # Send to Back
-			if _form_designer and _form_designer.has_method("send_to_back"):
-				_form_designer.send_to_back()
-			else:
-				_flash_status_message("Send to Back: move control backward")
+			if _form_designer:
+				var info = _form_designer.get_control_info(index)
+				var ctrl_name: String = info.get("name", "")
+				var root = get_editor_interface().get_edited_scene_root()
+				var node = root.find_child(ctrl_name, true, false) if root else null
+				if node and node.get_parent():
+					node.get_parent().move_child(node, 0)
+					_flash_status_message(ctrl_name + " sent to back")
+				else:
+					_flash_status_message("Send to Back: control not found")
 		70: # Lock Position toggle
 			if _form_designer:
 				var info = _form_designer.get_control_info(index)
@@ -11103,7 +11233,11 @@ func _on_obj_browser():
 ## Opens the Tab Order Editor.
 ## Set the focus order for controls in a form (like VB6 TabIndex).
 func _on_tab_order():
-	var root = get_editor_interface().get_selected_paths() # Wait, get_edited_scene_root()
+	# NOTE: this used to also call get_editor_interface().get_selected_paths()
+	# into an unused `root` variable — get_selected_paths() doesn't exist on
+	# EditorInterface (it's a FileSystemDock method), so this threw a script
+	# error every time Tab Order was opened. Found during a full dropdown-menu
+	# audit, Aug 2026.
 	var sel = get_editor_interface().get_selection().get_selected_nodes()
 	
 	var target = null
