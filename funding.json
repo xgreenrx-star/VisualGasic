@@ -1,37 +1,21 @@
 {
-  "guid": "visualgasic"
   "$schema": "https://fundingjson.org/schema/v1.1.0.json",
   "version": "v1.1.0",
   "entity": {
     "type": "individual",
-    "role": "owner",
     "name": "xgreenrx-star",
     "email": "VisualGasic@gmail.com",
-    "description": "Independent, self-educated compiler engineer and software creator.",
     "webpageUrl": {
-      "url": "https://github.com/xgreenrx-star"
+      "url": "https://github.com"
     }
   },
   "projects": [
     {
+      "guid": "visualgasic",
       "name": "VisualGasic",
-      "description": "An open-source programming language family and development environment running inside Godot 4, optimized for auditing AI-generated code.",
       "license": "GPL-3.0-only",
-      "webpageUrl": {
-        "url": "https://github.com/xgreenrx-star/VisualGasic"
-      },
-      "repositoryUrl": {
-        "url": "https://github.com/xgreenrx-star/VisualGasic"
-      },
       "funding": {
         "currency": "USD",
-        "needs": [
-          {
-            "amount": 25000,
-            "purpose": "Security hardening, automated JIT compiler fuzzing pipelines, and implementing cryptographic package signing for vg pkg.",
-            "duration": "yearly"
-          }
-        ],
         "channels": [
           {
             "type": "github_sponsors",
