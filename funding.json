@@ -1,5 +1,5 @@
 {
-  "$schema": "https://fundingjson.org/schema/v1.1.0.json",
+  "$schema": "https://fundingjson.org",
   "version": "v1.1.0",
   "entity": {
     "type": "individual",
@@ -15,6 +15,9 @@
       "name": "VisualGasic",
       "license": "GPL-3.0-only",
       "webpageUrl": {
+        "url": "https://github.com/VisualGasic"
+      },
+      "repositoryUrl": {
         "url": "https://github.com/VisualGasic"
       },
       "funding": {
