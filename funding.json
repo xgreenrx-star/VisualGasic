@@ -23,7 +23,7 @@
         "url": "https://github.com/VisualGasic/VisualGasic"
       },
       "licenses": [
-        "spdx:GPL-3.0-only"
+        "spdx:GPL-3.0"
       ],
       "tags": [
         "compiler",
