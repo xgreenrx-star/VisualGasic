@@ -8,39 +8,54 @@
     "email": "VisualGasic@gmail.com",
     "description": "Independent, self-educated open-source software creator and compiler engineer specializing in secure language infrastructure.",
     "webpageUrl": {
-      "url": "https://github.com"
+      "url": "https://visualgasic.github.io/VisualGasic"
     }
   },
   "projects": [
     {
       "guid": "visualgasic",
       "name": "VisualGasic",
-      "license": "GPL-3.0-only",
-      "webpageUrl": "https://github.com/VisualGasic",
-      "repositoryUrl": "https://github.com/VisualGasic",
-      "funding": {
+      "description": "An open-source programming language family and development environment running inside Godot 4, optimized for auditing AI-generated code.",
+      "webpageUrl": {
+        "url": "https://visualgasic.github.io/VisualGasic"
+      },
+      "repositoryUrl": {
+        "url": "https://github.com/VisualGasic/VisualGasic"
+      },
+      "licenses": [
+        "spdx:GPL-3.0-only"
+      ],
+      "tags": [
+        "compiler",
+        "programming-language",
+        "godot",
+        "game-development",
+        "ai"
+      ]
+    }
+  ],
+  "funding": {
+    "channels": [
+      {
+        "guid": "github-sponsors",
+        "type": "payment-provider",
+        "address": "https://github.com/sponsors/VisualGasic",
+        "description": "Fund via GitHub Sponsors"
+      }
+    ],
+    "plans": [
+      {
+        "guid": "security-hardening",
+        "status": "active",
+        "name": "Security Hardening and Core JIT Compiler Fuzzing",
+        "description": "Security hardening, automated JIT compiler fuzzing pipelines, and implementing cryptographic package signing for vg pkg.",
+        "amount": 25000,
         "currency": "USD",
+        "frequency": "yearly",
         "channels": [
-          {
-            "guid": "github-sponsors",
-            "type": "payment-provider",
-            "address": "https://github.com",
-            "description": "Fund via GitHub Sponsors"
-          }
-        ],
-        "plans": [
-          {
-            "guid": "security-hardening",
-            "status": "active",
-            "name": "Security Hardening and Core JIT Compiler Fuzzing",
-            "amount": 25000,
-            "frequency": "yearly",
-            "channels": [
-              "github-sponsors"
-            ]
-          }
+          "github-sponsors"
         ]
       }
-    }
-  ]
+    ]
+  }
 }
