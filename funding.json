@@ -14,12 +14,8 @@
       "guid": "visualgasic",
       "name": "VisualGasic",
       "license": "GPL-3.0-only",
-      "webpageUrl": {
-        "url": "https://github.com/VisualGasic"
-      },
-      "repositoryUrl": {
-        "url": "https://github.com/VisualGasic"
-      },
+      "webpageUrl": "https://github.com/VisualGasic",
+      "repositoryUrl": "https://github.com/VisualGasic",
       "funding": {
         "currency": "USD",
         "channels": [
