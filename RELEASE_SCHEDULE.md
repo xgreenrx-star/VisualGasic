@@ -1,6 +1,6 @@
 # VisualGasic Release Schedule
 
-**Last Updated:** July 15, 2026  
+**Last Updated:** August 7, 2026  
 **Target:** Stable v6.0 on January 1, 2027
 
 ---
@@ -9,7 +9,7 @@
 
 | Release | Status | ETA | Milestones | Key Features |
 |---|---|---|---|---|
-| **5.3-beta** | � SHIPPED (Beta3) | Jul 15 → **Jul 31, 2026** | M1–M4 (+ M5 progress) | Language stability, Python bridge int/float decode fix, Godot IDE integration (Code Navigator M3, UI Forms M4); Beta3 adds C64/GBA emulator demos, cross-module bytecode compilation, Buffer Type, `Global` keyword |
+| **5.3-beta** | 🟢 SHIPPED (Beta4) | Jul 15 → **Aug 7, 2026** | M1–M4 (+ M5 progress) | Language stability, Python bridge int/float decode fix, Godot IDE integration (Code Navigator M3, UI Forms M4); Beta3 adds C64/GBA emulator demos, cross-module bytecode compilation, Buffer Type, `Global` keyword; Beta4 adds native 6502 CPU core, −81.8% call overhead, 3 miscompilation bugs fixed |
 | **5.4-beta** | — | Oct 15, 2026 | M5 | Narcea AI pair, async queue, structured error handling |
 | **6.0-rc1** | — | Dec 1, 2026 | M6–M8 | Language parity (Try/Catch/Lambda/AndAlso/OrElse), C++ FFI interop, `Let` keyword, Causal Chain (text mode) |
 | **6.0-rc2** | — | Dec 15, 2026 | M9 | Release readiness, Godot Asset Library submission, installer validation |
@@ -17,16 +17,23 @@
 
 ---
 
-## 5.3-beta (Shipped Beta1 Jul 3, Beta2 Jul 15, Beta3 Jul 31, 2026)
+## 5.3-beta (Shipped Beta1 Jul 3, Beta2 Jul 15, Beta3 Jul 31, Beta4 Aug 7, 2026)
 
-**Status:** Beta3 shipped
+**Status:** Beta4 shipped
 
 **Milestones included:**
 - ✅ M1 — Bug fixes (4/4 critical bugs fixed)
 - ✅ M2 — Corpus validation (54/54 examples passing, up from 44)
 - ✅ M3 — Code Navigator upgrade
 - ✅ M4 — UI Forms experimental plugin
-- 🔄 M5 — Narcea AI pair (in progress; DeepSeek provider + agent scaffolding landed in Beta3)
+- 🔄 M5 — Narcea AI pair (in progress; DeepSeek provider + agent scaffolding landed in Beta3, agent-loop bug fixes landed in Beta4)
+
+**Beta4 highlights (Aug 7, 2026):**
+- ✅ Call-performance campaign: −81.8% instruction overhead per call (45,785 → 8,323 instr/call), 5.50× faster — see [RELEASE_NOTES_5.3.0-Beta4.md](RELEASE_NOTES_5.3.0-Beta4.md)
+- ✅ Native VGCpu6502 engine primitive — C64 Emulator Turbo Mode boots to `READY.` at ~2.9× real hardware speed
+- ✅ 3 silent-miscompilation bugs fixed: `OP_JUMP_TABLE` sizing, `CONST + VAR`/`CONST * VAR` arithmetic codegen, `ByRef` write-back vs. shadowed builtin
+- ✅ Native JIT hang bug fixed (missing `restore_vm()` on JIT return)
+- ✅ Regression suite: 856/856 assertions (up from 777/777)
 
 **Beta3 highlights (Jul 31, 2026):**
 - ✅ C64 Emulator + GBA Emulator demos (real KERNAL/BASIC ROMs, ARM7TDMI) — see [RELEASE_NOTES_5.3.0-Beta3.md](RELEASE_NOTES_5.3.0-Beta3.md)
@@ -44,13 +51,13 @@
 - `demo/test_python_int_float.vg` validates decode path (Tests 1,4,5,6 pass)
 - No regressions from M1 critical fixes
 
-**Checklist before shipping Beta3:**
-- [x] Run full regression test suite (777/777 assertions)
-- [ ] Build both editor + template_debug binaries
+**Checklist before shipping Beta4:**
+- [x] Run full regression test suite (856/856 assertions)
+- [x] Build both editor + template_debug binaries (+ template_release, Linux + Windows)
 - [ ] Verify installer (`install.sh`/`install.ps1`) on clean VM
-- [x] Generate CHANGELOG.md entry summarizing Beta3 changes
-- [ ] Tag release as `v5.3.0-Beta3`
-- [ ] Push to GitHub Releases with installer artifacts
+- [x] Generate CHANGELOG.md entry summarizing Beta4 changes
+- [ ] Tag release as `v5.3.0-Beta4`
+- [ ] Push to GitHub Releases with installer artifacts (mark as Latest, not pre-release)
 - [ ] Update README.md "Current Release" section
 
 ---
@@ -169,7 +176,7 @@ Download `install.sh` / `install.ps1` and follow CONTRIBUTING.md § "Developer S
 
 ## Reminder System
 
-**Next Release Alert:** 5.3-beta (DUE NOW, Jul 15)  
-**Next Major Checkpoint:** 5.4-beta (Oct 15, 2026 — 3 months)
+**Next Release Alert:** 5.4-beta (Oct 15, 2026)  
+**Next Major Checkpoint:** 5.4-beta (Oct 15, 2026 — ~2 months)
 
 See `/memories/repo/release_schedule.md` for in-code reminders and past release notes.

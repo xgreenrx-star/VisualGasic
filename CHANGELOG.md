@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.0-Beta4] - 2026-08-07
+
+**Key numbers:** 856/856 regression assertions passing (110 files, up from 777/98) · 54 corpus examples passing · function-call overhead cut 81.8% (45,785 → 8,323 instructions/call) · new native 6502 CPU core.
+
+### 🚀 Performance — Call-Overhead Campaign: −81.8%, 5.50× Faster Calls (Aug 1–3, 2026)
+
+- ~29-commit measured campaign (Parts H–AG) cut real per-call interpreter overhead from a legacy baseline of 45,785 instructions/call to **8,323 instructions/call**, validated at every step with `perf stat -e instructions:u` two-point isolation and the full regression suite (default + `VG_JIT=2`).
+- Engaged the previously dead `fast_params` scalar-ByVal/return fast path — a latent parser bug (return type never captured) had silently made it a no-op since it shipped.
+- Per-call-site `OP_CALL` resolution memoization, threaded callee resolution through `execute_bytecode`, precomputed fast-call arg-coercion codes, a reusable per-thread locals-frame pool that eliminates the last per-call heap allocation, raw bytecode pointer access, and a single-copy `OP_GET_LOCAL` fast path.
+- Gap to GDScript's own call overhead narrowed from 34× to 6.22×. Full ledger: `/memories/repo/vg_bytecode_perf.md`.
+
+### 🎮 Added — Native VGCpu6502 Engine Primitive, C64 Turbo Mode (Aug 2, 2026)
+
+- New fully-native, reentrant C++ 6502/6510 CPU core (`VGC64Machine`) wired into `demos/C64_Emulator/` as an opt-in **Turbo Mode**.
+- With Turbo Mode enabled the emulator boots the real, unmodified KERNAL/BASIC ROMs to `**** COMMODORE 64 BASIC V2 ****` / `READY.` at ~2.9× real PAL hardware speed. The default VG-interpreted CPU core remains unchanged.
+
+### 🐛 Fixed — `OP_JUMP_TABLE` Sized by Case Count Instead of Value Range (Aug 1, 2026)
+
+- `try_compile_jump_table()`'s O(1) dispatch table was sized by the number of distinct `Case` values (~170 for the C64 opcode dispatch) but the VM indexes it by the full value range (~255), so every opcode with a value ≥170 (`BNE`, `BEQ`, `INX`, `CMP`, `SBC`, and ~80 more) silently fell through to `Case Else` — a 2-cycle no-op. This is why the C64 emulator's KERNAL could never execute branches/compares and never booted. Fixed by sizing the table by `range` instead of `case_count`.
+
+### 🐛 Fixed — `CONST + VAR` / `CONST * VAR` Silently Computed `CONST + CONST` (Aug 4, 2026)
+
+- A binary `+`/`*` whose LEFT operand is a literal and RIGHT operand is a variable/expression (e.g. `1024 + (srow * 40)`, `64 + c`) evaluated as if both sides were the same constant, because the `_CONST`-suffixed fast-path opcodes assume the literal is always the LAST value pushed onto the stack. Removed the incorrect left-literal fallback in all 4 codegen sites (CSE and generic paths, `+` and `*`); `CONST + VAR`/`CONST * VAR` are now safe in either operand order.
+
+### 🐛 Fixed — `ByRef` Write-Back Corrupted Caller Variable When a Builtin Shadows a User Sub (Aug 1, 2026)
+
+- If a project defines its own function with the same name+arity as a VG builtin (e.g. `FileExists`), the compiler's write-back resolution assumed the user function ran — but builtins always win at runtime dispatch, so the write-back opcode pushed `Nil`, silently nulling the caller's argument. Redesigned `OP_BYREF_LOAD`'s bytecode format (3→6 bytes, encodes the destination) so a missing capture re-reads the destination's own current value instead of writing `Nil` — a true no-op that self-corrects for any future compile-time-vs-runtime callee mismatch.
+
+### 🛠 Fixed — Native JIT No Longer Hangs (Aug 2, 2026)
+
+- The opt-in native x86-64 JIT (`VG_JIT=2`/`VG_JIT=3`, off by default) previously hung the process on any non-trivial function call. Root cause: two JIT early-return paths skipped `restore_vm()`, leaving the shared VM instruction pointer at 0 after a JIT'd callee returned. Fixed with one `restore_vm()` call added to each JIT return path.
+- Added Tier2 IR coverage for bitwise/shift ops (`AND`/`OR`/`XOR`/`SHL`/`SHR`) and trap-safe `MOD`/`INT_DIVIDE`-by-constant-divisor codegen.
+
+### ⚡ Performance — C64-Specific VM Caching (Aug 1, 2026)
+
+- Gated the `OP_CALL` 17-entry special-case cascade and engine-call dispatch behind `HashSet` lookups, and memoized the `OP_GET_GLOBAL` special-identifier test per bytecode constant. Measured **+47% cumulative** C64 emulator throughput via interleaved, core-pinned A/B testing — general wins for any call-heavy or global-variable-heavy VG program.
+
+### 🤖 Fixed — Narcea AI Pair Agent-Loop Bugs (Aug 4, 2026)
+
+- Fixed a `write_file` class-wrapper over-stripping bug and an agent-loop stall/nudge bug, found via a new headless evaluation harness (`ai_projects/NarceaTrainingGround/`) driving the real production AI panel against DeepSeek. Also fixed a re-entrancy bug in the agent's response-continuation logic that was silently dropping mid-task context on every multi-hop turn.
+
+### 🎮 Added — C64 Emulator Cartridge Loading via Clipboard-Paste (Aug 4, 2026)
+
+- `demos/C64_Emulator/` now supports loading a `.crt`/`.bin` cartridge at runtime by pasting its file path — real OS drag-and-drop was found unreliable in this dev environment, so paste is now the documented primary loading method alongside auto-load and drag-and-drop.
+
+### 🛠 Fixed — Miscellaneous
+
+- Fixed a local variable used ONLY as an array/buffer index inside another statement's assignment target being silently dead-store-eliminated, corrupting indexed writes with a stale/zero offset.
+- Fixed a C64 emulator save-all corruption bug and a `&H` hex-literal formatter bug.
+- Added `OP_GET_GLOBAL_BUF8`/`OP_SET_GLOBAL_BUF8` fast-path opcodes for indexed access to global/Public `MemoryBuffer` variables.
+- Replaced an O(n²) `Sort` with a native implementation and added `StringFormat` (Tier Master Plan audit).
+- Added a permanent `FunctionCall`/`BenchCall` micro-benchmark to the canonical suite, plus a new benchmark report with live 3-way GDScript/VG/C++ comparisons.
+- New GitHub Sponsors funding configuration and a refreshed 1280×720 project icon for Godot Asset Library submission.
+
 ## [5.3.0-Beta3] - 2026-07-31
 
 **Key numbers:** 777/777 regression assertions passing (98 files) · 54 corpus examples passing.
