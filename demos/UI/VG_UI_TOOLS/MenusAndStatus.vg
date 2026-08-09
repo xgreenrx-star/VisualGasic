@@ -1,0 +1,104 @@
+' MenusAndStatus — VisualGasic UI Toolkit Demo
+' Controls demonstrated: MenuBar (MenuButton+PopupMenu), StatusBar, ContextMenu, Keyboard Shortcuts
+'
+' PopupMenu items are added in Form_Load with .add_item("Label", id) and its
+' "id_pressed" signal is Connect''ed to one shared handler that Selects on the
+' id. Keyboard shortcuts are read in _Input() by checking ev.keycode and
+' ev.ctrl_pressed -- this is the general pattern for any global hotkey.
+Option Explicit
+
+Dim ctxMenu As Object
+
+Private Sub Form_Load()
+    mnuFile.get_popup().add_item("New", 0)
+    mnuFile.get_popup().add_item("Open", 1)
+    mnuFile.get_popup().add_item("Save", 2)
+    mnuFile.get_popup().add_item("Exit", 3)
+    Connect mnuFile.get_popup(), "id_pressed", "OnFileMenuPressed"
+
+    mnuEdit.get_popup().add_item("Cut", 0)
+    mnuEdit.get_popup().add_item("Copy", 1)
+    mnuEdit.get_popup().add_item("Paste", 2)
+    Connect mnuEdit.get_popup(), "id_pressed", "OnEditMenuPressed"
+
+    mnuHelp.get_popup().add_item("About", 0)
+    Connect mnuHelp.get_popup(), "id_pressed", "OnHelpMenuPressed"
+
+    Set ctxMenu = New PopupMenu
+    ctxMenu.add_item("Cut", 0)
+    ctxMenu.add_item("Copy", 1)
+    ctxMenu.add_item("Paste", 2)
+    ctxMenu.add_separator()
+    ctxMenu.add_item("Delete", 3)
+    Me.AddChild(ctxMenu)
+    Connect ctxMenu, "id_pressed", "OnContextMenuPressed"
+
+    lblStatus.Text = "Ready"
+End Sub
+
+Sub OnFileMenuPressed(id)
+    Select Case id
+        Case 0
+            lblStatus.Text = "File > New"
+        Case 1
+            lblStatus.Text = "File > Open"
+        Case 2
+            lblStatus.Text = "File > Save"
+        Case 3
+            lblStatus.Text = "File > Exit (not really quitting in this demo)"
+    End Select
+End Sub
+
+Sub OnEditMenuPressed(id)
+    Select Case id
+        Case 0
+            lblStatus.Text = "Edit > Cut"
+        Case 1
+            lblStatus.Text = "Edit > Copy"
+        Case 2
+            lblStatus.Text = "Edit > Paste"
+    End Select
+End Sub
+
+Sub OnHelpMenuPressed(id)
+    lblStatus.Text = "Help > About — VisualGasic UI Toolkit Demo"
+End Sub
+
+Private Sub pnlContextArea_GuiInput(ev)
+    If TypeOf ev Is InputEventMouseButton Then
+        If ev.pressed And ev.button_index = MOUSE_BUTTON_RIGHT Then
+            ctxMenu.position = Me.position + Vector2i(ev.global_position)
+            ctxMenu.popup()
+            lblStatus.Text = "Context menu opened."
+        End If
+    End If
+End Sub
+
+Sub OnContextMenuPressed(id)
+    Select Case id
+        Case 0
+            lblStatus.Text = "Context menu: Cut"
+        Case 1
+            lblStatus.Text = "Context menu: Copy"
+        Case 2
+            lblStatus.Text = "Context menu: Paste"
+        Case 3
+            lblStatus.Text = "Context menu: Delete"
+    End Select
+End Sub
+
+Sub _Input(ev)
+    If TypeOf ev Is InputEventKey Then
+        If ev.pressed And ev.ctrl_pressed Then
+            If ev.keycode = 79 Then ' O
+                lblStatus.Text = "Shortcut: Ctrl+O (Open)"
+            ElseIf ev.keycode = 83 Then ' S
+                lblStatus.Text = "Shortcut: Ctrl+S (Save)"
+            ElseIf ev.keycode = 81 Then ' Q
+                lblStatus.Text = "Shortcut: Ctrl+Q (Quit — not really quitting in this demo)"
+            End If
+        ElseIf ev.pressed And ev.keycode = 4194332 Then ' F1
+            lblStatus.Text = "Shortcut: F1 (Help)"
+        End If
+    End If
+End Sub

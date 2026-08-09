@@ -1,0 +1,179 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Theme" path="res://VB6Theme.tres" id="1"]
+[ext_resource type="Script" path="res://DisplayControls.vg" id="2"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3"]
+
+[sub_resource type="StyleBoxFlat" id="header_bg"]
+bg_color = Color(0.0, 0.0, 0.5, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="section_bg"]
+bg_color = Color(0.831, 0.816, 0.784, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.51, 0.51, 0.51, 1.0)
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="feedback_bg"]
+bg_color = Color(1.0, 1.0, 0.878, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.4, 0.0, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+
+[node name="DisplayControls" type="Window"]
+title = "Display Controls"
+initial_position = 1
+size = Vector2i(640, 560)
+theme = ExtResource("1")
+script = ExtResource("2")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 640.0
+offset_bottom = 560.0
+mouse_filter = 2
+script = ExtResource("3")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+offset_right = 640.0
+offset_bottom = 560.0
+follow_focus = true
+
+[node name="VBox" type="VBoxContainer" parent="ScrollContainer"]
+offset_right = 640.0
+
+[node name="lblHeader" type="Label" parent="ScrollContainer/VBox"]
+text = "Display Controls"
+theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)
+theme_override_styles/normal = SubResource("header_bg")
+theme_override_font_sizes/font_size = 16
+
+[node name="secColorRect" type="Label" parent="ScrollContainer/VBox"]
+text = "── ColorRect — click a swatch to select it ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hboxColors" type="HBoxContainer" parent="ScrollContainer/VBox"]
+
+[node name="crRed" type="ColorRect" parent="ScrollContainer/VBox/hboxColors"]
+color = Color(1,0,0,1)
+custom_minimum_size = Vector2(80, 40)
+
+[node name="crGreen" type="ColorRect" parent="ScrollContainer/VBox/hboxColors"]
+color = Color(0,1,0,1)
+custom_minimum_size = Vector2(80, 40)
+
+[node name="crBlue" type="ColorRect" parent="ScrollContainer/VBox/hboxColors"]
+color = Color(0,0,1,1)
+custom_minimum_size = Vector2(80, 40)
+
+[node name="secTextureButton" type="Label" parent="ScrollContainer/VBox"]
+text = "── Buttons that change the picture box below ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hboxPicButtons" type="HBoxContainer" parent="ScrollContainer/VBox"]
+
+[node name="tbtnRed" type="Button" parent="ScrollContainer/VBox/hboxPicButtons"]
+text = "Red"
+custom_minimum_size = Vector2(80, 40)
+
+[node name="tbtnGreen" type="Button" parent="ScrollContainer/VBox/hboxPicButtons"]
+text = "Green"
+custom_minimum_size = Vector2(80, 40)
+
+[node name="tbtnBlue" type="Button" parent="ScrollContainer/VBox/hboxPicButtons"]
+text = "Blue"
+custom_minimum_size = Vector2(80, 40)
+
+[node name="lblTextureRect" type="Label" parent="ScrollContainer/VBox"]
+text = "PictureBox (TextureRect) — recolored by the buttons above:"
+theme_override_font_sizes/font_size = 11
+
+[node name="imgPlaceholder" type="ColorRect" parent="ScrollContainer/VBox"]
+color = Color(0.8,0.8,0.8,1)
+custom_minimum_size = Vector2(200, 80)
+
+[node name="secRichText" type="Label" parent="ScrollContainer/VBox"]
+text = "── RichTextLabel — BBCode-formatted, updates live ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="rtfDemo" type="RichTextLabel" parent="ScrollContainer/VBox"]
+text = "[b]Bold[/b], [i]Italic[/i], [color=red]Red Text[/color]"
+custom_minimum_size = Vector2(0, 50)
+bbcode_enabled = true
+fit_content = true
+
+[node name="hbox_txtRichInput" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_txtRichInput" type="Label" parent="ScrollContainer/VBox/hbox_txtRichInput"]
+text = "Type here:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="txtRichInput" type="LineEdit" parent="ScrollContainer/VBox/hbox_txtRichInput"]
+placeholder_text = "Type to update the RichTextLabel above..."
+size_flags_horizontal = 3
+
+[node name="secPieChart" type="Label" parent="ScrollContainer/VBox"]
+text = "── Pie Chart — custom-drawn, drag the sliders to resize the wedges ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hbox_sldSliceA" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_sldSliceA" type="Label" parent="ScrollContainer/VBox/hbox_sldSliceA"]
+text = "Red slice:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="sldSliceA" type="HSlider" parent="ScrollContainer/VBox/hbox_sldSliceA"]
+value = 30.0
+size_flags_horizontal = 3
+
+[node name="hbox_sldSliceB" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_sldSliceB" type="Label" parent="ScrollContainer/VBox/hbox_sldSliceB"]
+text = "Green slice:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="sldSliceB" type="HSlider" parent="ScrollContainer/VBox/hbox_sldSliceB"]
+value = 30.0
+size_flags_horizontal = 3
+
+[node name="hbox_sldSliceC" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_sldSliceC" type="Label" parent="ScrollContainer/VBox/hbox_sldSliceC"]
+text = "Blue slice:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="sldSliceC" type="HSlider" parent="ScrollContainer/VBox/hbox_sldSliceC"]
+value = 40.0
+size_flags_horizontal = 3
+
+[node name="pnlPieChart" type="Panel" parent="ScrollContainer/VBox"]
+custom_minimum_size = Vector2(180, 180)
+
+[node name="plgSliceA" type="Polygon2D" parent="ScrollContainer/VBox/pnlPieChart"]
+color = Color(0.85, 0.2, 0.2, 1)
+[node name="plgSliceB" type="Polygon2D" parent="ScrollContainer/VBox/pnlPieChart"]
+color = Color(0.2, 0.75, 0.2, 1)
+[node name="plgSliceC" type="Polygon2D" parent="ScrollContainer/VBox/pnlPieChart"]
+color = Color(0.2, 0.35, 0.9, 1)
+
+[node name="lblFeedback" type="Label" parent="ScrollContainer/VBox"]
+text = "Try the controls above."
+autowrap_mode = 3
+theme_override_styles/normal = SubResource("feedback_bg")
+theme_override_font_sizes/font_size = 12
+

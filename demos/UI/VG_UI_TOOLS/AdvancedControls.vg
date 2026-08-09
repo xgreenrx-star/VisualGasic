@@ -1,0 +1,82 @@
+' AdvancedControls — VisualGasic UI Toolkit Demo
+' Controls demonstrated: SpinBox, LinkButton, CheckBox list, FileDialog
+'
+' FileDialogs are real Godot nodes created with `New FileDialog` and added
+' with `Me.AddChild(...)` -- they aren''t auto-wired like the controls above,
+' so we `Connect` their "file_selected" signal to a handler Sub manually.
+' This is the pattern to reach for whenever you need a control the Form
+' Designer palette doesn''t offer directly.
+Option Explicit
+
+Dim openDlg As Object
+Dim saveDlg As Object
+
+Private Sub Form_Load()
+    UpdateTotal
+    lblFeedback.Text = "Adjust the spinboxes, or try the file dialogs below."
+
+    Set openDlg = New FileDialog
+    openDlg.Title = "Open File"
+    openDlg.FileMode = 0   ' FILE_MODE_OPEN_FILE
+    openDlg.Access = 2     ' ACCESS_FILESYSTEM
+    openDlg.Size = Vector2(600, 400)
+    Me.AddChild(openDlg)
+    Connect openDlg, "file_selected", "OnOpenFileSelected"
+
+    Set saveDlg = New FileDialog
+    saveDlg.Title = "Save File"
+    saveDlg.FileMode = 2   ' FILE_MODE_SAVE_FILE
+    saveDlg.Access = 2     ' ACCESS_FILESYSTEM
+    saveDlg.Size = Vector2(600, 400)
+    Me.AddChild(saveDlg)
+    Connect saveDlg, "file_selected", "OnSaveFileSelected"
+End Sub
+
+Sub UpdateTotal()
+    lblSpinTotal.text = "Total (Qty × $1.50): $" & Format(spnQuantity.value * 1.5, "0.00")
+End Sub
+
+Private Sub spnAge_Change(newValue)
+    lblFeedback.Text = "Age set to " & CInt(newValue)
+End Sub
+
+Private Sub spnQuantity_Change(newValue)
+    UpdateTotal
+    lblFeedback.Text = "Quantity set to " & CInt(newValue)
+End Sub
+
+Private Sub chkOption1_Click(pressed)
+    RefreshSaveButton
+End Sub
+
+Private Sub chkOption2_Click(pressed)
+    RefreshSaveButton
+End Sub
+
+Private Sub chkOption3_Click(pressed)
+    RefreshSaveButton
+End Sub
+
+Sub RefreshSaveButton()
+    btnSavePrefs.disabled = Not (chkOption1.button_pressed Or chkOption2.button_pressed Or chkOption3.button_pressed)
+End Sub
+
+Private Sub btnSavePrefs_Click()
+    lblFeedback.Text = "Preferences saved!"
+End Sub
+
+Private Sub btnOpenFile_Click()
+    openDlg.PopupCentered(Vector2(600, 400))
+End Sub
+
+Private Sub btnSaveFile_Click()
+    saveDlg.PopupCentered(Vector2(600, 400))
+End Sub
+
+Sub OnOpenFileSelected(path)
+    lblFeedback.Text = "You chose to open: " & path
+End Sub
+
+Sub OnSaveFileSelected(path)
+    lblFeedback.Text = "You chose to save as: " & path
+End Sub

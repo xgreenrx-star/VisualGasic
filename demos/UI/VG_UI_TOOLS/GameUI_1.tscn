@@ -1,0 +1,166 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Theme" path="res://VB6Theme.tres" id="1"]
+[ext_resource type="Script" path="res://GameUI_1.vg" id="2"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3"]
+
+[sub_resource type="StyleBoxFlat" id="header_bg"]
+bg_color = Color(0.0, 0.0, 0.5, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="section_bg"]
+bg_color = Color(0.831, 0.816, 0.784, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.51, 0.51, 0.51, 1.0)
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="feedback_bg"]
+bg_color = Color(1.0, 1.0, 0.878, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.4, 0.0, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+
+[node name="GameUI_1" type="Window"]
+title = "Game UI — HUD & Bars"
+initial_position = 1
+size = Vector2i(640, 620)
+theme = ExtResource("1")
+script = ExtResource("2")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 640.0
+offset_bottom = 620.0
+mouse_filter = 2
+script = ExtResource("3")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+offset_right = 640.0
+offset_bottom = 620.0
+follow_focus = true
+
+[node name="VBox" type="VBoxContainer" parent="ScrollContainer"]
+offset_right = 640.0
+
+[node name="lblHeader" type="Label" parent="ScrollContainer/VBox"]
+text = "Game UI — HUD & Bars"
+theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)
+theme_override_styles/normal = SubResource("header_bg")
+theme_override_font_sizes/font_size = 16
+
+[node name="secHUD" type="Label" parent="ScrollContainer/VBox"]
+text = "── HUDCounter / StatBars — click to change ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="lblScore" type="Label" parent="ScrollContainer/VBox"]
+text = "Score: 0"
+theme_override_font_sizes/font_size = 18
+
+[node name="btnAddScore" type="Button" parent="ScrollContainer/VBox"]
+text = "+100 Score"
+
+[node name="hbox_barHP" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_barHP" type="Label" parent="ScrollContainer/VBox/hbox_barHP"]
+text = "HP:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="barHP" type="ProgressBar" parent="ScrollContainer/VBox/hbox_barHP"]
+value = 85.0
+size_flags_horizontal = 3
+
+[node name="hbox_barMP" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_barMP" type="Label" parent="ScrollContainer/VBox/hbox_barMP"]
+text = "MP:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="barMP" type="ProgressBar" parent="ScrollContainer/VBox/hbox_barMP"]
+value = 55.0
+size_flags_horizontal = 3
+
+[node name="hbox_barStamina" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_barStamina" type="Label" parent="ScrollContainer/VBox/hbox_barStamina"]
+text = "Stamina:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="barStamina" type="ProgressBar" parent="ScrollContainer/VBox/hbox_barStamina"]
+value = 30.0
+size_flags_horizontal = 3
+
+[node name="hboxHudButtons" type="HBoxContainer" parent="ScrollContainer/VBox"]
+
+[node name="btnDamage" type="Button" parent="ScrollContainer/VBox/hboxHudButtons"]
+text = "Take Damage (-15 HP)"
+
+[node name="btnHeal" type="Button" parent="ScrollContainer/VBox/hboxHudButtons"]
+text = "Heal (+15 HP)"
+
+[node name="btnUseMana" type="Button" parent="ScrollContainer/VBox/hboxHudButtons"]
+text = "Cast Spell (-20 MP)"
+
+[node name="secXPBar" type="Label" parent="ScrollContainer/VBox"]
+text = "── XPBar — gain XP and level up ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="lblLevel" type="Label" parent="ScrollContainer/VBox"]
+text = "Level: 1"
+theme_override_font_sizes/font_size = 13
+
+[node name="hbox_barXP" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_barXP" type="Label" parent="ScrollContainer/VBox/hbox_barXP"]
+text = "XP:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="barXP" type="ProgressBar" parent="ScrollContainer/VBox/hbox_barXP"]
+value = 0.0
+size_flags_horizontal = 3
+
+[node name="btnGainXP" type="Button" parent="ScrollContainer/VBox"]
+text = "+25 XP"
+
+[node name="secAmmoCounter" type="Label" parent="ScrollContainer/VBox"]
+text = "── AmmoCounter ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="lblAmmo" type="Label" parent="ScrollContainer/VBox"]
+text = "Ammo: 30 / 120"
+theme_override_font_sizes/font_size = 18
+
+[node name="btnFire" type="Button" parent="ScrollContainer/VBox"]
+text = "Fire!"
+
+[node name="secCooldownButton" type="Label" parent="ScrollContainer/VBox"]
+text = "── CooldownButton — ability with real cooldown Timer ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="btnAbility1" type="Button" parent="ScrollContainer/VBox"]
+text = "Fireball (5s cooldown)"
+
+[node name="tmrCooldown" type="Timer" parent="ScrollContainer/VBox"]
+wait_time = 5.0
+one_shot = true
+
+[node name="lblFeedback" type="Label" parent="ScrollContainer/VBox"]
+text = "Try the controls above."
+autowrap_mode = 3
+theme_override_styles/normal = SubResource("feedback_bg")
+theme_override_font_sizes/font_size = 12
+

@@ -1,0 +1,141 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Theme" path="res://VB6Theme.tres" id="1"]
+[ext_resource type="Script" path="res://AdvancedControls.vg" id="2"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3"]
+
+[sub_resource type="StyleBoxFlat" id="header_bg"]
+bg_color = Color(0.0, 0.0, 0.5, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="section_bg"]
+bg_color = Color(0.831, 0.816, 0.784, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.51, 0.51, 0.51, 1.0)
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="feedback_bg"]
+bg_color = Color(1.0, 1.0, 0.878, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.4, 0.0, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+
+[node name="AdvancedControls" type="Window"]
+title = "Advanced Controls"
+initial_position = 1
+size = Vector2i(640, 560)
+theme = ExtResource("1")
+script = ExtResource("2")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 640.0
+offset_bottom = 560.0
+mouse_filter = 2
+script = ExtResource("3")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+offset_right = 640.0
+offset_bottom = 560.0
+follow_focus = true
+
+[node name="VBox" type="VBoxContainer" parent="ScrollContainer"]
+offset_right = 640.0
+
+[node name="lblHeader" type="Label" parent="ScrollContainer/VBox"]
+text = "Advanced Controls"
+theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)
+theme_override_styles/normal = SubResource("header_bg")
+theme_override_font_sizes/font_size = 16
+
+[node name="secSpinBox" type="Label" parent="ScrollContainer/VBox"]
+text = "── SpinBox / UpDown ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hbox_spnAge" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_spnAge" type="Label" parent="ScrollContainer/VBox/hbox_spnAge"]
+text = "Age:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="spnAge" type="SpinBox" parent="ScrollContainer/VBox/hbox_spnAge"]
+value = 25
+min_value = 0
+max_value = 120
+
+[node name="hbox_spnQuantity" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_spnQuantity" type="Label" parent="ScrollContainer/VBox/hbox_spnQuantity"]
+text = "Qty:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="spnQuantity" type="SpinBox" parent="ScrollContainer/VBox/hbox_spnQuantity"]
+value = 10
+min_value = 1
+max_value = 1000
+
+[node name="lblSpinTotal" type="Label" parent="ScrollContainer/VBox"]
+text = "Total (Qty × $1.50): $15.00"
+theme_override_font_sizes/font_size = 11
+
+[node name="secLinkButton" type="Label" parent="ScrollContainer/VBox"]
+text = "── LinkButton — opens your browser ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="lnkWebsite" type="LinkButton" parent="ScrollContainer/VBox"]
+text = "Visit VisualGasic on GitHub"
+uri = "https://github.com/VisualGasic"
+
+[node name="secCheckList" type="Label" parent="ScrollContainer/VBox"]
+text = "── CheckBox List — enables Save when any are checked ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="chkOption1" type="CheckBox" parent="ScrollContainer/VBox"]
+text = "Option A — Email notifications"
+button_pressed = true
+
+[node name="chkOption2" type="CheckBox" parent="ScrollContainer/VBox"]
+text = "Option B — SMS alerts"
+
+[node name="chkOption3" type="CheckBox" parent="ScrollContainer/VBox"]
+text = "Option C — Push notifications"
+button_pressed = true
+
+[node name="btnSavePrefs" type="Button" parent="ScrollContainer/VBox"]
+text = "Save Preferences"
+
+[node name="secFileDialog" type="Label" parent="ScrollContainer/VBox"]
+text = "── FileDialog (real Godot file picker) ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="btnOpenFile" type="Button" parent="ScrollContainer/VBox"]
+text = "Open File..."
+tooltip_text = "Opens the standard file open dialog."
+
+[node name="btnSaveFile" type="Button" parent="ScrollContainer/VBox"]
+text = "Save File..."
+tooltip_text = "Opens the standard file save dialog."
+
+[node name="lblFeedback" type="Label" parent="ScrollContainer/VBox"]
+text = "Try the controls above."
+autowrap_mode = 3
+theme_override_styles/normal = SubResource("feedback_bg")
+theme_override_font_sizes/font_size = 12
+

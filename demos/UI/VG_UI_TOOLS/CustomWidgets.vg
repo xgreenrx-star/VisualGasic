@@ -1,0 +1,87 @@
+' CustomWidgets — VisualGasic UI Toolkit Demo
+' Controls demonstrated: ToggleSwitch, Breadcrumbs, Spinner, Expander, MaskedEdit
+'
+' None of these are real Godot classes -- they''re ordinary controls (CheckBox,
+' Button, Timer, LineEdit) *composed* to behave like the fancier widgets VB6
+' users expect. This is the standard way to build a custom control in VG:
+' pick a close-enough base control and drive its look/behaviour from code.
+Option Explicit
+
+Dim expanded As Boolean
+Dim spinnerValue As Integer
+
+Private Sub Form_Load()
+    expanded = False
+    lblExpandedContent.visible = False
+    spinnerValue = 0
+    lblFeedback.Text = "Toggle dark mode, click a breadcrumb, or start the spinner."
+End Sub
+
+Private Sub tglDarkMode_Click(pressed)
+    If pressed Then
+        Me._FormBackground.modulate = Color(0.25, 0.25, 0.3, 1.0)
+        lblFeedback.Text = "Dark mode ON."
+    Else
+        Me._FormBackground.modulate = Color(1.0, 1.0, 1.0, 1.0)
+        lblFeedback.Text = "Dark mode OFF."
+    End If
+End Sub
+
+Private Sub crumbHome_Click()
+    lblBreadcrumbPath.text = "Current path: Home"
+    lblFeedback.Text = "Navigated to Home."
+End Sub
+
+Private Sub crumbProducts_Click()
+    lblBreadcrumbPath.text = "Current path: Home > Products"
+    lblFeedback.Text = "Navigated to Products."
+End Sub
+
+Private Sub crumbDetail_Click()
+    lblBreadcrumbPath.text = "Current path: Home > Products > Detail"
+    lblFeedback.Text = "Navigated to Detail."
+End Sub
+
+Private Sub btnSpinnerStart_Click()
+    tmrSpinner.start()
+    lblFeedback.Text = "Spinner started."
+End Sub
+
+Private Sub btnSpinnerStop_Click()
+    tmrSpinner.stop()
+    spinner.value = 0
+    lblFeedback.Text = "Spinner stopped."
+End Sub
+
+Private Sub tmrSpinner_Timer()
+    spinnerValue = (spinnerValue + 5) Mod 100
+    spinner.value = spinnerValue
+End Sub
+
+Private Sub btnExpand_Click()
+    expanded = Not expanded
+    lblExpandedContent.visible = expanded
+    If expanded Then
+        btnExpand.text = "▼ Hide Details"
+    Else
+        btnExpand.text = "▶ Show Details"
+    End If
+End Sub
+
+Private Sub txtPhone_Change(newText)
+    Dim digitsOnly As String
+    Dim i As Integer
+    digitsOnly = ""
+    For i = 1 To Len(newText)
+        Dim ch As String
+        ch = Mid(newText, i, 1)
+        If ch >= "0" And ch <= "9" Then
+            digitsOnly = digitsOnly & ch
+        End If
+    Next i
+    If Len(digitsOnly) = 10 Then
+        lblFeedback.Text = "Valid phone number: (" & Mid(digitsOnly, 1, 3) & ") " & Mid(digitsOnly, 4, 3) & "-" & Mid(digitsOnly, 7, 4)
+    Else
+        lblFeedback.Text = "Phone: " & Len(digitsOnly) & "/10 digits entered."
+    End If
+End Sub

@@ -1,0 +1,116 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Theme" path="res://VB6Theme.tres" id="1"]
+[ext_resource type="Script" path="res://MenusAndStatus.vg" id="2"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3"]
+
+[sub_resource type="StyleBoxFlat" id="header_bg"]
+bg_color = Color(0.0, 0.0, 0.5, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="section_bg"]
+bg_color = Color(0.831, 0.816, 0.784, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.51, 0.51, 0.51, 1.0)
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="feedback_bg"]
+bg_color = Color(1.0, 1.0, 0.878, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.4, 0.0, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+
+[node name="MenusAndStatus" type="Window"]
+title = "Menus & Status"
+initial_position = 1
+size = Vector2i(640, 440)
+theme = ExtResource("1")
+script = ExtResource("2")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 640.0
+offset_bottom = 440.0
+mouse_filter = 2
+script = ExtResource("3")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+offset_right = 640.0
+offset_bottom = 440.0
+follow_focus = true
+
+[node name="VBox" type="VBoxContainer" parent="ScrollContainer"]
+offset_right = 640.0
+
+[node name="lblHeader" type="Label" parent="ScrollContainer/VBox"]
+text = "Menus & Status"
+theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)
+theme_override_styles/normal = SubResource("header_bg")
+theme_override_font_sizes/font_size = 16
+
+[node name="secMenuBar" type="Label" parent="ScrollContainer/VBox"]
+text = "── MenuBar — real MenuButton + PopupMenu ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hboxMenuBar" type="HBoxContainer" parent="ScrollContainer/VBox"]
+
+[node name="mnuFile" type="MenuButton" parent="ScrollContainer/VBox/hboxMenuBar"]
+text = "File"
+flat = false
+
+[node name="mnuEdit" type="MenuButton" parent="ScrollContainer/VBox/hboxMenuBar"]
+text = "Edit"
+flat = false
+
+[node name="mnuHelp" type="MenuButton" parent="ScrollContainer/VBox/hboxMenuBar"]
+text = "Help"
+flat = false
+
+[node name="secContextMenu" type="Label" parent="ScrollContainer/VBox"]
+text = "── Right-Click Context Menu ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="lblContextMenu" type="Label" parent="ScrollContainer/VBox"]
+text = "Right-click inside the box below:"
+theme_override_font_sizes/font_size = 11
+
+[node name="pnlContextArea" type="Panel" parent="ScrollContainer/VBox"]
+custom_minimum_size = Vector2(300, 70)
+
+[node name="secShortcuts" type="Label" parent="ScrollContainer/VBox"]
+text = "── Keyboard Shortcuts (try them now) ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="lblShortcuts" type="Label" parent="ScrollContainer/VBox"]
+text = "Ctrl+O = Open   Ctrl+S = Save   F1 = Help   Ctrl+Q = Quit"
+theme_override_font_sizes/font_size = 10
+
+[node name="secStatusBar" type="Label" parent="ScrollContainer/VBox"]
+text = "── StatusBar ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="lblStatus" type="Label" parent="ScrollContainer/VBox"]
+text = "Ready"
+autowrap_mode = 3
+theme_override_styles/normal = SubResource("feedback_bg")
+theme_override_font_sizes/font_size = 12
+

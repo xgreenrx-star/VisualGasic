@@ -1,0 +1,150 @@
+' DisplayControls — VisualGasic UI Toolkit Demo
+' Controls demonstrated: ColorRect, PictureBox (TextureRect), RichTextLabel, Polygon2D-based Pie Chart
+Option Explicit
+
+' VG has no built-in PI constant -- it must be declared, per the VG language
+' reference for Sin/Cos.
+Const PI As Double = 3.14159265358979
+
+' Current wedge sizes for the pie chart below (arbitrary units — only the
+' *ratio* between them matters, they do not need to add up to 100).
+Dim sliceA As Double
+Dim sliceB As Double
+Dim sliceC As Double
+
+Private Sub Form_Load()
+    lblFeedback.Text = "Click a swatch, a picture button, or type below."
+
+    ' Read the sliders'' initial values so the pie chart matches what the
+    ' user sees on the sliders the moment the form opens.
+    sliceA = sldSliceA.value
+    sliceB = sldSliceB.value
+    sliceC = sldSliceC.value
+    UpdatePieChart()
+End Sub
+
+Private Sub crRed_GuiInput(ev)
+    If TypeOf ev Is InputEventMouseButton And ev.pressed Then
+        lblFeedback.Text = "Red swatch selected."
+    End If
+End Sub
+
+Private Sub crGreen_GuiInput(ev)
+    If TypeOf ev Is InputEventMouseButton And ev.pressed Then
+        lblFeedback.Text = "Green swatch selected."
+    End If
+End Sub
+
+Private Sub crBlue_GuiInput(ev)
+    If TypeOf ev Is InputEventMouseButton And ev.pressed Then
+        lblFeedback.Text = "Blue swatch selected."
+    End If
+End Sub
+
+Private Sub tbtnRed_Click()
+    imgPlaceholder.color = Color(1.0, 0.3, 0.3, 1.0)
+    lblFeedback.Text = "Picture box recolored to red."
+End Sub
+
+Private Sub tbtnGreen_Click()
+    imgPlaceholder.color = Color(0.3, 1.0, 0.3, 1.0)
+    lblFeedback.Text = "Picture box recolored to green."
+End Sub
+
+Private Sub tbtnBlue_Click()
+    imgPlaceholder.color = Color(0.3, 0.3, 1.0, 1.0)
+    lblFeedback.Text = "Picture box recolored to blue."
+End Sub
+
+Private Sub txtRichInput_Change(newText)
+    If Len(newText) > 0 Then
+        rtfDemo.text = "[b]" & newText & "[/b] — typed live!"
+    Else
+        rtfDemo.text = "[b]Bold[/b], [i]Italic[/i], [color=red]Red Text[/color]"
+    End If
+End Sub
+
+' ── Pie chart wiring ──────────────────────────────────────────────────
+' Each slider just updates one wedge''s size and re-computes all three
+' Polygon2D shapes below — no custom drawing code needed, just ordinary
+' property assignment (the same pattern as recoloring imgPlaceholder above).
+
+Private Sub sldSliceA_Change(newValue)
+    sliceA = newValue
+    UpdatePieFeedback()
+    UpdatePieChart()
+End Sub
+
+Private Sub sldSliceB_Change(newValue)
+    sliceB = newValue
+    UpdatePieFeedback()
+    UpdatePieChart()
+End Sub
+
+Private Sub sldSliceC_Change(newValue)
+    sliceC = newValue
+    UpdatePieFeedback()
+    UpdatePieChart()
+End Sub
+
+Private Sub UpdatePieFeedback()
+    Dim total As Double
+    total = sliceA + sliceB + sliceC
+    If total <= 0 Then total = 1
+    lblFeedback.Text = "Pie chart — Red " & CInt(sliceA / total * 100) & "%, Green " & CInt(sliceB / total * 100) & "%, Blue " & CInt(sliceC / total * 100) & "%"
+End Sub
+
+' Recomputes all three wedges and assigns each Polygon2D''s `polygon` point
+' list directly — this is what makes the pie chart redraw whenever a slider
+' moves. Coordinates are local to pnlPieChart (which is 180x180), so the
+' chart stays correctly positioned no matter where the panel scrolls to.
+Private Sub UpdatePieChart()
+    Dim total As Double
+    total = sliceA + sliceB + sliceC
+    If total <= 0 Then total = 1
+
+    Dim cx As Double
+    Dim cy As Double
+    cx = 90
+    cy = 90
+    Dim radius As Double
+    radius = 82
+
+    ' Start at 12 o''clock, like a real pie chart, then sweep clockwise.
+    Dim angle As Double
+    angle = -PI / 2
+
+    plgSliceA.polygon = PieSlicePoints(cx, cy, radius, angle, (sliceA / total) * (2 * PI))
+    angle = angle + (sliceA / total) * (2 * PI)
+    plgSliceB.polygon = PieSlicePoints(cx, cy, radius, angle, (sliceB / total) * (2 * PI))
+    angle = angle + (sliceB / total) * (2 * PI)
+    plgSliceC.polygon = PieSlicePoints(cx, cy, radius, angle, (sliceC / total) * (2 * PI))
+End Sub
+
+' Builds one filled wedge as a triangle fan: centre point + points sampled
+' along the arc from startAngle to startAngle+sweep (both in radians).
+Private Function PieSlicePoints(cx As Double, cy As Double, radius As Double, startAngle As Double, sweep As Double) As Variant
+    Dim points() As Vector2
+
+    If sweep <= 0.0 Then
+        ReDim points(-1)
+        PieSlicePoints = points
+        Exit Function
+    End If
+
+    Dim segments As Integer
+    segments = CInt(sweep / (2 * PI) * 48)
+    If segments < 1 Then segments = 1
+
+    ReDim points(segments + 1)
+    points(0) = Vector2(cx, cy)
+
+    Dim i As Integer
+    For i = 0 To segments
+        Dim a As Double
+        a = startAngle + sweep * i / segments
+        points(i + 1) = Vector2(cx + Cos(a) * radius, cy + Sin(a) * radius)
+    Next
+
+    PieSlicePoints = points
+End Function

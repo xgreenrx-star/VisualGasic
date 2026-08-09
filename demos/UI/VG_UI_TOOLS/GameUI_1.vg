@@ -1,0 +1,105 @@
+' GameUI_1 — Game UI: HUD & Bars — VisualGasic UI Toolkit Demo
+' Controls demonstrated: ProgressBar-as-HP/MP/Stamina/XP bars, a cooldown Timer
+'
+' Every "bar" here is a plain ProgressBar -- the game-HUD look comes entirely
+' from styling + driving .value from code on damage/heal/XP-gain, not from a
+' special game-UI class. tmrCooldown disables the ability button on use and
+' re-enables it in its own _Timer handler once the wait_time elapses.
+Option Explicit
+
+Dim score As Integer
+Dim hp As Integer
+Dim mp As Integer
+Dim level As Integer
+Dim xp As Integer
+Dim ammo As Integer
+Const MAX_AMMO As Integer = 30
+
+Private Sub Form_Load()
+    score = 0
+    hp = 85
+    mp = 55
+    level = 1
+    xp = 0
+    ammo = MAX_AMMO
+    RefreshHud
+    lblFeedback.Text = "Deal damage, heal, cast spells, or fire your weapon."
+End Sub
+
+Sub RefreshHud()
+    lblScore.text = "Score: " & score
+    barHP.value = hp
+    barMP.value = mp
+    lblLevel.text = "Level: " & level
+    barXP.value = xp
+    lblAmmo.text = "Ammo: " & ammo & " / " & (MAX_AMMO * 4)
+End Sub
+
+Private Sub btnAddScore_Click()
+    score = score + 100
+    RefreshHud
+    lblFeedback.Text = "+100 score!"
+End Sub
+
+Private Sub btnDamage_Click()
+    hp = hp - 15
+    If hp < 0 Then hp = 0
+    RefreshHud
+    lblFeedback.Text = "Ouch! Took 15 damage."
+End Sub
+
+Private Sub btnHeal_Click()
+    hp = hp + 15
+    If hp > 100 Then hp = 100
+    RefreshHud
+    lblFeedback.Text = "Healed 15 HP."
+End Sub
+
+Private Sub btnUseMana_Click()
+    If mp >= 20 Then
+        mp = mp - 20
+        RefreshHud
+        lblFeedback.Text = "Spell cast! -20 MP."
+    Else
+        lblFeedback.Text = "Not enough MP!"
+    End If
+End Sub
+
+Private Sub btnGainXP_Click()
+    xp = xp + 25
+    If xp >= 100 Then
+        xp = xp - 100
+        level = level + 1
+        lblFeedback.Text = "Level up! Now level " & level & "."
+    Else
+        lblFeedback.Text = "+25 XP."
+    End If
+    RefreshHud
+End Sub
+
+Private Sub btnFire_Click()
+    If ammo > 0 Then
+        ammo = ammo - 1
+        RefreshHud
+        lblFeedback.Text = "Bang! " & ammo & " shots left in this clip."
+    Else
+        lblFeedback.Text = "Click! Out of ammo — reload needed."
+        ammo = MAX_AMMO
+        RefreshHud
+    End If
+End Sub
+
+Private Sub btnAbility1_Click()
+    If tmrCooldown.is_stopped() Then
+        btnAbility1.disabled = True
+        btnAbility1.text = "Fireball (cooling down...)"
+        tmrCooldown.start()
+        lblFeedback.Text = "Fireball cast! 5 second cooldown started."
+    End If
+End Sub
+
+Private Sub tmrCooldown_Timer()
+    btnAbility1.disabled = False
+    btnAbility1.text = "Fireball (5s cooldown)"
+    lblFeedback.Text = "Fireball ready again!"
+End Sub

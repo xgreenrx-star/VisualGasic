@@ -23,8 +23,13 @@ EVENT_MAP):
 """
 import os
 
-OUT = "VG_UI_TOOLS"
-THEME_PATH = "res://VG_UI_TOOLS/VB6Theme.tres"
+# Generated as a standalone Godot project under demos/, matching the same
+# convention as demos/UI/Calculator, demos/UI/TodoApp, etc. (own project.godot
+# + a relative symlink to the shared addon, see scripts/sync_addons.sh). This
+# folder is NOT under examples/, which is entirely gitignored (see .gitignore
+# "/examples/") -- demos/ is tracked normally so these forms ship with the repo.
+OUT = "demos/UI/VG_UI_TOOLS"
+THEME_PATH = "res://VB6Theme.tres"
 
 # =========================================================================
 # project.godot
@@ -35,12 +40,20 @@ config_version=5
 [application]
 config/name="VG_UI_Tools"
 config/description="VisualGasic UI Toolkit — interactive demo forms for every control in the VisualGasic IDE."
-run/main_scene="res://VG_UI_TOOLS/BasicControls.tscn"
+run/main_scene="res://BasicControls.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
+
+[autoload]
+
+VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
 
 [display]
 window/size/viewport_width=1280
 window/size/viewport_height=720
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
 
 [rendering]
 renderer/rendering_method="forward_plus"
@@ -92,7 +105,7 @@ def make_form_head(form_name, title, size=(640, 520), extra_ext_resources=None, 
         '[gd_scene load_steps=14 format=3]',
         '',
         f'[ext_resource type="Theme" path="{THEME_PATH}" id="1"]',
-        f'[ext_resource type="Script" path="res://VG_UI_TOOLS/{form_name}.vg" id="2"]',
+        f'[ext_resource type="Script" path="res://{form_name}.vg" id="2"]',
         f'[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3"]',
     ]
     if extra_ext_resources:
@@ -403,6 +416,20 @@ BASIC_BODY = [
 
 BASIC_VG = '''\' BasicControls — VisualGasic UI Toolkit Demo
 \' Controls demonstrated: Button, Label, LineEdit, TextEdit, CheckBox, RadioButton, OptionButton, ProgressBar, HSlider, VScrollBar
+\'
+\' HOW THIS FORM IS WIRED (read this once -- every other form in this project
+\' follows the exact same convention):
+\'   Each control below is connected to VisualGasic code purely by NAME, no
+\'   `Connect` call needed. VisualGasic looks for a Sub named
+\'   "<ControlName>_<EventName>" on this form and calls it automatically
+\'   whenever the matching Godot signal fires, e.g.:
+\'     Button          -> btnNormal_Click()
+\'     CheckBox         -> chkFeature_Click(pressed)
+\'     LineEdit         -> txtName_Change(newText)
+\'     HSlider/ProgressBar/SpinBox -> sldVolume_Change(newValue)
+\'   Rename a node in the Form Designer and its Sub must be renamed to match,
+\'   or the handler silently stops firing (no compile error, since VG can''t
+\'   know your intent at compile time).
 Option Explicit
 
 Dim clickCount As Integer
@@ -518,6 +545,11 @@ LIST_BODY = [
 
 LIST_VG = '''\' ListControls — VisualGasic UI Toolkit Demo
 \' Controls demonstrated: ItemList (ListBox), Tree, ComboBox, DriveListBox
+\'
+\' ItemList items are added/removed with .add_item()/.remove_item() -- plain
+\' Godot Node methods, called the same way you''d call any VG Sub. Tree nodes
+\' are built once in Form_Load with .create_item()/.set_text() and read back
+\' in the Click handler via .get_selected().
 Option Explicit
 
 Private Sub Form_Load()
@@ -625,6 +657,9 @@ CONTAINER_BODY = [
 
 CONTAINER_VG = '''\' ContainerControls — VisualGasic UI Toolkit Demo
 \' Controls demonstrated: TabContainer, Panel/GroupBox, Toolbar
+\'
+\' tabMain_Click(tabIndex) fires whenever the active TabContainer page
+\' changes -- use tabIndex (0-based) to know which page the user picked.
 Option Explicit
 
 Dim pnlToggled As Boolean
@@ -685,15 +720,45 @@ DISPLAY_BODY = [
     section_label("secRichText", "── RichTextLabel — BBCode-formatted, updates live ──"),
     rich_text_label("rtfDemo", "[b]Bold[/b], [i]Italic[/i], [color=red]Red Text[/color]", height=50),
     hbox_pair("txtRichInput", "Type here:", line_edit("txtRichInput", "Type to update the RichTextLabel above...")),
+    section_label("secPieChart", "── Pie Chart — custom-drawn, drag the sliders to resize the wedges ──"),
+    hbox_pair("sldSliceA", "Red slice:", h_slider("sldSliceA", 30)),
+    hbox_pair("sldSliceB", "Green slice:", h_slider("sldSliceB", 30)),
+    hbox_pair("sldSliceC", "Blue slice:", h_slider("sldSliceC", 40)),
+    panel("pnlPieChart", size=(180, 180)),
+    [
+        '[node name="plgSliceA" type="Polygon2D" parent="ScrollContainer/VBox/pnlPieChart"]',
+        'color = Color(0.85, 0.2, 0.2, 1)',
+        '[node name="plgSliceB" type="Polygon2D" parent="ScrollContainer/VBox/pnlPieChart"]',
+        'color = Color(0.2, 0.75, 0.2, 1)',
+        '[node name="plgSliceC" type="Polygon2D" parent="ScrollContainer/VBox/pnlPieChart"]',
+        'color = Color(0.2, 0.35, 0.9, 1)',
+    ],
     feedback_label(),
 ]
 
 DISPLAY_VG = '''\' DisplayControls — VisualGasic UI Toolkit Demo
-\' Controls demonstrated: ColorRect, PictureBox (TextureRect), RichTextLabel
+\' Controls demonstrated: ColorRect, PictureBox (TextureRect), RichTextLabel, Polygon2D-based Pie Chart
 Option Explicit
+
+\' VG has no built-in PI constant -- it must be declared, per the VG language
+\' reference for Sin/Cos.
+Const PI As Double = 3.14159265358979
+
+\' Current wedge sizes for the pie chart below (arbitrary units — only the
+\' *ratio* between them matters, they do not need to add up to 100).
+Dim sliceA As Double
+Dim sliceB As Double
+Dim sliceC As Double
 
 Private Sub Form_Load()
     lblFeedback.Text = "Click a swatch, a picture button, or type below."
+
+    \' Read the sliders'' initial values so the pie chart matches what the
+    \' user sees on the sliders the moment the form opens.
+    sliceA = sldSliceA.value
+    sliceB = sldSliceB.value
+    sliceC = sldSliceC.value
+    UpdatePieChart()
 End Sub
 
 Private Sub crRed_GuiInput(ev)
@@ -736,6 +801,91 @@ Private Sub txtRichInput_Change(newText)
         rtfDemo.text = "[b]Bold[/b], [i]Italic[/i], [color=red]Red Text[/color]"
     End If
 End Sub
+
+\' ── Pie chart wiring ──────────────────────────────────────────────────
+\' Each slider just updates one wedge''s size and re-computes all three
+\' Polygon2D shapes below — no custom drawing code needed, just ordinary
+\' property assignment (the same pattern as recoloring imgPlaceholder above).
+
+Private Sub sldSliceA_Change(newValue)
+    sliceA = newValue
+    UpdatePieFeedback()
+    UpdatePieChart()
+End Sub
+
+Private Sub sldSliceB_Change(newValue)
+    sliceB = newValue
+    UpdatePieFeedback()
+    UpdatePieChart()
+End Sub
+
+Private Sub sldSliceC_Change(newValue)
+    sliceC = newValue
+    UpdatePieFeedback()
+    UpdatePieChart()
+End Sub
+
+Private Sub UpdatePieFeedback()
+    Dim total As Double
+    total = sliceA + sliceB + sliceC
+    If total <= 0 Then total = 1
+    lblFeedback.Text = "Pie chart — Red " & CInt(sliceA / total * 100) & "%, Green " & CInt(sliceB / total * 100) & "%, Blue " & CInt(sliceC / total * 100) & "%"
+End Sub
+
+\' Recomputes all three wedges and assigns each Polygon2D''s `polygon` point
+\' list directly — this is what makes the pie chart redraw whenever a slider
+\' moves. Coordinates are local to pnlPieChart (which is 180x180), so the
+\' chart stays correctly positioned no matter where the panel scrolls to.
+Private Sub UpdatePieChart()
+    Dim total As Double
+    total = sliceA + sliceB + sliceC
+    If total <= 0 Then total = 1
+
+    Dim cx As Double
+    Dim cy As Double
+    cx = 90
+    cy = 90
+    Dim radius As Double
+    radius = 82
+
+    \' Start at 12 o''clock, like a real pie chart, then sweep clockwise.
+    Dim angle As Double
+    angle = -PI / 2
+
+    plgSliceA.polygon = PieSlicePoints(cx, cy, radius, angle, (sliceA / total) * (2 * PI))
+    angle = angle + (sliceA / total) * (2 * PI)
+    plgSliceB.polygon = PieSlicePoints(cx, cy, radius, angle, (sliceB / total) * (2 * PI))
+    angle = angle + (sliceB / total) * (2 * PI)
+    plgSliceC.polygon = PieSlicePoints(cx, cy, radius, angle, (sliceC / total) * (2 * PI))
+End Sub
+
+\' Builds one filled wedge as a triangle fan: centre point + points sampled
+\' along the arc from startAngle to startAngle+sweep (both in radians).
+Private Function PieSlicePoints(cx As Double, cy As Double, radius As Double, startAngle As Double, sweep As Double) As Variant
+    Dim points() As Vector2
+
+    If sweep <= 0.0 Then
+        ReDim points(-1)
+        PieSlicePoints = points
+        Exit Function
+    End If
+
+    Dim segments As Integer
+    segments = CInt(sweep / (2 * PI) * 48)
+    If segments < 1 Then segments = 1
+
+    ReDim points(segments + 1)
+    points(0) = Vector2(cx, cy)
+
+    Dim i As Integer
+    For i = 0 To segments
+        Dim a As Double
+        a = startAngle + sweep * i / segments
+        points(i + 1) = Vector2(cx + Cos(a) * radius, cy + Sin(a) * radius)
+    Next
+
+    PieSlicePoints = points
+End Function
 '''
 
 # =========================================================================
@@ -761,6 +911,12 @@ ADVANCED_BODY = [
 
 ADVANCED_VG = '''\' AdvancedControls — VisualGasic UI Toolkit Demo
 \' Controls demonstrated: SpinBox, LinkButton, CheckBox list, FileDialog
+\'
+\' FileDialogs are real Godot nodes created with `New FileDialog` and added
+\' with `Me.AddChild(...)` -- they aren''t auto-wired like the controls above,
+\' so we `Connect` their "file_selected" signal to a handler Sub manually.
+\' This is the pattern to reach for whenever you need a control the Form
+\' Designer palette doesn''t offer directly.
 Option Explicit
 
 Dim openDlg As Object
@@ -864,6 +1020,11 @@ TIMER_BODY = [
 
 TIMER_VG = '''\' TimerAndAnimation — VisualGasic UI Toolkit Demo
 \' Controls demonstrated: Timer, Animation (TweenProperty), Calendar/DatePicker
+\'
+\' A real Timer node (tmrClock) drives the clock: its "timeout" signal is
+\' auto-wired to tmrClock_Timer(), same naming convention as every other
+\' control. The animation buttons use TweenProperty, a one-line VG statement
+\' that wraps Godot''s Tween API for animating any property over time.
 Option Explicit
 
 Dim seconds As Integer
@@ -974,6 +1135,11 @@ CUSTOM_BODY = [
 
 CUSTOM_VG = '''\' CustomWidgets — VisualGasic UI Toolkit Demo
 \' Controls demonstrated: ToggleSwitch, Breadcrumbs, Spinner, Expander, MaskedEdit
+\'
+\' None of these are real Godot classes -- they''re ordinary controls (CheckBox,
+\' Button, Timer, LineEdit) *composed* to behave like the fancier widgets VB6
+\' users expect. This is the standard way to build a custom control in VG:
+\' pick a close-enough base control and drive its look/behaviour from code.
 Option Explicit
 
 Dim expanded As Boolean
@@ -1076,6 +1242,11 @@ MENUS_BODY = [
 
 MENUS_VG = '''\' MenusAndStatus — VisualGasic UI Toolkit Demo
 \' Controls demonstrated: MenuBar (MenuButton+PopupMenu), StatusBar, ContextMenu, Keyboard Shortcuts
+\'
+\' PopupMenu items are added in Form_Load with .add_item("Label", id) and its
+\' "id_pressed" signal is Connect''ed to one shared handler that Selects on the
+\' id. Keyboard shortcuts are read in _Input() by checking ev.keycode and
+\' ev.ctrl_pressed -- this is the general pattern for any global hotkey.
 Option Explicit
 
 Dim ctxMenu As Object
@@ -1203,6 +1374,12 @@ GAME1_BODY = [
 ]
 
 GAME1_VG = '''\' GameUI_1 — Game UI: HUD & Bars — VisualGasic UI Toolkit Demo
+\' Controls demonstrated: ProgressBar-as-HP/MP/Stamina/XP bars, a cooldown Timer
+\'
+\' Every "bar" here is a plain ProgressBar -- the game-HUD look comes entirely
+\' from styling + driving .value from code on damage/heal/XP-gain, not from a
+\' special game-UI class. tmrCooldown disables the ability button on use and
+\' re-enables it in its own _Timer handler once the wait_time elapses.
 Option Explicit
 
 Dim score As Integer
@@ -1322,6 +1499,12 @@ GAME2_BODY = [
 ]
 
 GAME2_VG = '''\' GameUI_2 — Game UI: Inventory & Map — VisualGasic UI Toolkit Demo
+\' Controls demonstrated: ItemList inventory, unlockable SkillTree, quest Tree,
+\' slider-driven compass
+\'
+\' The quest tracker uses ControlName_DblClick(index) -- the same ItemList as
+\' ListControls.tscn, but wired to a different event name to show both are
+\' available on the same control.
 Option Explicit
 
 Dim skillPoints As Integer
@@ -1424,6 +1607,15 @@ GAME3_BODY = [
 ]
 
 GAME3_VG = '''\' GameUI_3 — Game UI: Dialogs & Chat — VisualGasic UI Toolkit Demo
+\' Controls demonstrated: advancing dialogue, real ConfirmationDialog, a Timer-
+\' driven toast notification, a chat box, floating damage numbers
+\'
+\' confirmDlg is a real Godot ConfirmationDialog, `New`''d and `AddChild`''d
+\' like the FileDialogs in AdvancedControls.tscn -- its "confirmed" signal is
+\' Connect''ed to a handler Sub. tmrToast is a plain Timer added straight in
+\' the Form Designer (one_shot=True) rather than created in code, since its
+\' lifetime never changes -- prefer that whenever you don''t need to create
+\' the node dynamically.
 Option Explicit
 
 Dim dialogLines As Variant
@@ -1516,6 +1708,24 @@ def main():
     with open(os.path.join(OUT, "project.godot"), "w") as f:
         f.write(PROJECT_CFG.strip() + "\n")
 
+    # Static VB6 theme resource, kept as a canonical sibling asset since it
+    # isn't generated text -- copy it in on every run (idempotent).
+    theme_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vg_ui_tools_theme.tres")
+    if os.path.exists(theme_src):
+        with open(theme_src, "r") as f:
+            theme_content = f.read()
+        with open(os.path.join(OUT, "VB6Theme.tres"), "w") as f:
+            f.write(theme_content)
+
+    # Symlink the shared addon in, same convention as demos/UI/Calculator,
+    # demos/UI/TodoApp, etc. (see scripts/sync_addons.sh). Relative depth:
+    # demos/UI/VG_UI_TOOLS/addons/visual_gasic -> ../../../../addons/visual_gasic
+    addons_dir = os.path.join(OUT, "addons")
+    os.makedirs(addons_dir, exist_ok=True)
+    addon_link = os.path.join(addons_dir, "visual_gasic")
+    if not os.path.islink(addon_link) and not os.path.exists(addon_link):
+        os.symlink("../../../../addons/visual_gasic", addon_link)
+
     for form_name, title, size, body, vg_code, extra_sub in FORMS:
         tscn_path = os.path.join(OUT, f"{form_name}.tscn")
         vg_path = os.path.join(OUT, f"{form_name}.vg")
@@ -1537,10 +1747,13 @@ sliders, type in text boxes, and watch the rest of the form react.
 
 ## How to Use
 
-1. Copy the `VG_UI_TOOLS/` folder into a Godot 4.3+ project that has the VisualGasic addon installed.
-2. Open Godot → Import → select `project.godot` inside `VG_UI_TOOLS/`.
-3. Open any `.tscn` file in the VisualGasic Form Designer.
-4. Click **▶ Run** to test the form standalone.
+This is a self-contained Godot project, just like the other folders under `demos/`
+(e.g. `demos/UI/Calculator`). Its `addons/visual_gasic` is a symlink to the repo's
+shared addon, so it always runs the same VisualGasic build as everything else.
+
+1. Open Godot 4.6+ → Import → select `project.godot` inside `demos/UI/VG_UI_TOOLS/`.
+2. Open any `.tscn` file in the VisualGasic Form Designer.
+3. Click **▶ Run** to test the form standalone.
 
 ## Forms
 
@@ -1549,7 +1762,7 @@ sliders, type in text boxes, and watch the rest of the form react.
 | `BasicControls.tscn` | Buttons, live text-input feedback, password strength, word count, radio-button group, ComboBox, sliders that drive a ProgressBar |
 | `ListControls.tscn` | Add/remove ItemList items, a populated Tree, ComboBox selection, and a real OS-aware DriveListBox |
 | `ContainerControls.tscn` | A real multi-page TabContainer, a clickable Panel, and toolbar buttons |
-| `DisplayControls.tscn` | Clickable ColorRect swatches, buttons that recolor a PictureBox, and a RichTextLabel that updates as you type |
+| `DisplayControls.tscn` | Clickable ColorRect swatches, buttons that recolor a PictureBox, a RichTextLabel that updates as you type, and a real pie chart (3 Polygon2D wedges) driven live by 3 sliders |
 | `AdvancedControls.tscn` | SpinBoxes driving a live total, a CheckBox list that enables a Save button, and real native FileDialogs |
 | `TimerAndAnimation.tscn` | A real `Timer` node running a live clock, `TweenProperty`-driven fade/slide/spin animations, and a clickable calendar day picker |
 | `CustomWidgets.tscn` | Dark-mode toggle, clickable breadcrumbs, a Timer-driven spinner, an expandable section, and a live-validated phone number mask |

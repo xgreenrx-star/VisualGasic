@@ -1,0 +1,186 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Theme" path="res://VB6Theme.tres" id="1"]
+[ext_resource type="Script" path="res://BasicControls.vg" id="2"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3"]
+
+[sub_resource type="StyleBoxFlat" id="header_bg"]
+bg_color = Color(0.0, 0.0, 0.5, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="section_bg"]
+bg_color = Color(0.831, 0.816, 0.784, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.51, 0.51, 0.51, 1.0)
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="feedback_bg"]
+bg_color = Color(1.0, 1.0, 0.878, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.4, 0.0, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+[sub_resource type="ButtonGroup" id="genderGroup"]
+
+[node name="BasicControls" type="Window"]
+title = "Basic Controls"
+initial_position = 1
+size = Vector2i(640, 560)
+theme = ExtResource("1")
+script = ExtResource("2")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 640.0
+offset_bottom = 560.0
+mouse_filter = 2
+script = ExtResource("3")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+offset_right = 640.0
+offset_bottom = 560.0
+follow_focus = true
+
+[node name="VBox" type="VBoxContainer" parent="ScrollContainer"]
+offset_right = 640.0
+
+[node name="lblHeader" type="Label" parent="ScrollContainer/VBox"]
+text = "Basic Controls"
+theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)
+theme_override_styles/normal = SubResource("header_bg")
+theme_override_font_sizes/font_size = 16
+
+[node name="secButtons" type="Label" parent="ScrollContainer/VBox"]
+text = "── Buttons ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="btnNormal" type="Button" parent="ScrollContainer/VBox"]
+text = "Normal Button"
+tooltip_text = "A standard push button."
+
+[node name="btnDisabled" type="Button" parent="ScrollContainer/VBox"]
+text = "Disabled Button"
+disabled = true
+tooltip_text = "This button is disabled."
+
+[node name="btnFlat" type="Button" parent="ScrollContainer/VBox"]
+text = "Flat Button"
+tooltip_text = "A flat/toolbar-style button."
+flat = true
+
+[node name="secInputs" type="Label" parent="ScrollContainer/VBox"]
+text = "── Text Inputs ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hbox_txtName" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_txtName" type="Label" parent="ScrollContainer/VBox/hbox_txtName"]
+text = "Name:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="txtName" type="LineEdit" parent="ScrollContainer/VBox/hbox_txtName"]
+placeholder_text = "Enter your name..."
+size_flags_horizontal = 3
+
+[node name="hbox_txtPassword" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_txtPassword" type="Label" parent="ScrollContainer/VBox/hbox_txtPassword"]
+text = "Password:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="txtPassword" type="LineEdit" parent="ScrollContainer/VBox/hbox_txtPassword"]
+placeholder_text = "Enter password..."
+secret = true
+size_flags_horizontal = 3
+
+[node name="lblBio" type="Label" parent="ScrollContainer/VBox"]
+text = "Bio (multiline — live word count):"
+
+[node name="txtBio" type="TextEdit" parent="ScrollContainer/VBox"]
+custom_minimum_size = Vector2(0, 70)
+wrap_mode = 2
+placeholder_text = "Write a short bio..."
+
+[node name="secSelection" type="Label" parent="ScrollContainer/VBox"]
+text = "── Selection Controls ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="chkFeature" type="CheckBox" parent="ScrollContainer/VBox"]
+text = "Enable Feature"
+button_pressed = true
+
+[node name="hbox_optGender" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_optGender" type="Label" parent="ScrollContainer/VBox/hbox_optGender"]
+text = "Gender:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="optMale" type="CheckBox" parent="ScrollContainer/VBox/hbox_optGender"]
+text = "Male"
+button_group = SubResource("genderGroup")
+[node name="optFemale" type="CheckBox" parent="ScrollContainer/VBox/hbox_optGender"]
+text = "Female"
+button_group = SubResource("genderGroup")
+[node name="optOther" type="CheckBox" parent="ScrollContainer/VBox/hbox_optGender"]
+text = "Other"
+button_group = SubResource("genderGroup")
+
+[node name="hbox_cboCountry" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_cboCountry" type="Label" parent="ScrollContainer/VBox/hbox_cboCountry"]
+text = "Country:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="cboCountry" type="OptionButton" parent="ScrollContainer/VBox/hbox_cboCountry"]
+size_flags_horizontal = 3
+
+[node name="secProgress" type="Label" parent="ScrollContainer/VBox"]
+text = "── Progress & Sliders ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hbox_barProgress" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_barProgress" type="Label" parent="ScrollContainer/VBox/hbox_barProgress"]
+text = "Volume level:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="barProgress" type="ProgressBar" parent="ScrollContainer/VBox/hbox_barProgress"]
+value = 75.0
+size_flags_horizontal = 3
+
+[node name="hbox_sldVolume" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_sldVolume" type="Label" parent="ScrollContainer/VBox/hbox_sldVolume"]
+text = "Volume:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="sldVolume" type="HSlider" parent="ScrollContainer/VBox/hbox_sldVolume"]
+value = 75.0
+size_flags_horizontal = 3
+
+[node name="hbox_sbVertical" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_sbVertical" type="Label" parent="ScrollContainer/VBox/hbox_sbVertical"]
+text = "Scroll Y:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="sbVertical" type="VScrollBar" parent="ScrollContainer/VBox/hbox_sbVertical"]
+custom_minimum_size = Vector2(16, 100)
+
+[node name="lblFeedback" type="Label" parent="ScrollContainer/VBox"]
+text = "Try the controls above."
+autowrap_mode = 3
+theme_override_styles/normal = SubResource("feedback_bg")
+theme_override_font_sizes/font_size = 12
+

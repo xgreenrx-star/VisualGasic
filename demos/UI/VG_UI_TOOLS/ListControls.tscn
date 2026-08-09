@@ -1,0 +1,134 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Theme" path="res://VB6Theme.tres" id="1"]
+[ext_resource type="Script" path="res://ListControls.vg" id="2"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3"]
+
+[sub_resource type="StyleBoxFlat" id="header_bg"]
+bg_color = Color(0.0, 0.0, 0.5, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="section_bg"]
+bg_color = Color(0.831, 0.816, 0.784, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.51, 0.51, 0.51, 1.0)
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="feedback_bg"]
+bg_color = Color(1.0, 1.0, 0.878, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.4, 0.0, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+
+[node name="ListControls" type="Window"]
+title = "List Controls"
+initial_position = 1
+size = Vector2i(640, 620)
+theme = ExtResource("1")
+script = ExtResource("2")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 640.0
+offset_bottom = 620.0
+mouse_filter = 2
+script = ExtResource("3")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+offset_right = 640.0
+offset_bottom = 620.0
+follow_focus = true
+
+[node name="VBox" type="VBoxContainer" parent="ScrollContainer"]
+offset_right = 640.0
+
+[node name="lblHeader" type="Label" parent="ScrollContainer/VBox"]
+text = "List Controls"
+theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)
+theme_override_styles/normal = SubResource("header_bg")
+theme_override_font_sizes/font_size = 16
+
+[node name="secListBox" type="Label" parent="ScrollContainer/VBox"]
+text = "── ItemList (ListBox) — add/remove items ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="lblItemList" type="Label" parent="ScrollContainer/VBox"]
+text = "Type a name and click Add, or select an item and click Remove:"
+theme_override_font_sizes/font_size = 11
+
+[node name="hbox_txtNewItem" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_txtNewItem" type="Label" parent="ScrollContainer/VBox/hbox_txtNewItem"]
+text = "New item:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="txtNewItem" type="LineEdit" parent="ScrollContainer/VBox/hbox_txtNewItem"]
+placeholder_text = "e.g. Alice"
+size_flags_horizontal = 3
+
+[node name="hboxListButtons" type="HBoxContainer" parent="ScrollContainer/VBox"]
+
+[node name="btnAddItem" type="Button" parent="ScrollContainer/VBox/hboxListButtons"]
+text = "Add"
+
+[node name="btnRemoveItem" type="Button" parent="ScrollContainer/VBox/hboxListButtons"]
+text = "Remove Selected"
+
+[node name="lstItems" type="ItemList" parent="ScrollContainer/VBox"]
+custom_minimum_size = Vector2(0, 120)
+select_mode = 1
+
+[node name="secTree" type="Label" parent="ScrollContainer/VBox"]
+text = "── Tree View — click a node ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="treeMain" type="Tree" parent="ScrollContainer/VBox"]
+custom_minimum_size = Vector2(0, 140)
+
+[node name="secCombo" type="Label" parent="ScrollContainer/VBox"]
+text = "── ComboBox / Dropdowns ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hbox_cboFruit" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_cboFruit" type="Label" parent="ScrollContainer/VBox/hbox_cboFruit"]
+text = "Favorite fruit:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="cboFruit" type="OptionButton" parent="ScrollContainer/VBox/hbox_cboFruit"]
+size_flags_horizontal = 3
+
+[node name="secDriveList" type="Label" parent="ScrollContainer/VBox"]
+text = "── DriveListBox ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="lblDriveList" type="Label" parent="ScrollContainer/VBox"]
+text = "DriveListBox — real drives/roots detected for this OS:"
+theme_override_font_sizes/font_size = 11
+
+[node name="cboDrives" type="OptionButton" parent="ScrollContainer/VBox"]
+size_flags_horizontal = 3
+
+[node name="lblFeedback" type="Label" parent="ScrollContainer/VBox"]
+text = "Try the controls above."
+autowrap_mode = 3
+theme_override_styles/normal = SubResource("feedback_bg")
+theme_override_font_sizes/font_size = 12
+

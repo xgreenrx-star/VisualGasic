@@ -1,0 +1,93 @@
+' ListControls — VisualGasic UI Toolkit Demo
+' Controls demonstrated: ItemList (ListBox), Tree, ComboBox, DriveListBox
+'
+' ItemList items are added/removed with .add_item()/.remove_item() -- plain
+' Godot Node methods, called the same way you''d call any VG Sub. Tree nodes
+' are built once in Form_Load with .create_item()/.set_text() and read back
+' in the Click handler via .get_selected().
+Option Explicit
+
+Private Sub Form_Load()
+    lstItems.add_item("Alice")
+    lstItems.add_item("Bob")
+    lstItems.add_item("Carlos")
+
+    Dim root
+    Set root = treeMain.create_item()
+    root.set_text(0, "Documents")
+    Dim child1
+    Set child1 = treeMain.create_item(root)
+    child1.set_text(0, "Report.docx")
+    Dim child2
+    Set child2 = treeMain.create_item(root)
+    child2.set_text(0, "Budget.xlsx")
+    Dim pics
+    Set pics = treeMain.create_item(root)
+    pics.set_text(0, "Pictures")
+    Dim pic1
+    Set pic1 = treeMain.create_item(pics)
+    pic1.set_text(0, "Vacation.png")
+
+    cboFruit.add_item("Apple")
+    cboFruit.add_item("Banana")
+    cboFruit.add_item("Cherry")
+    cboFruit.add_item("Dragonfruit")
+
+    If OS.get_name() = "Windows" Then
+        cboDrives.add_item("C:\")
+        cboDrives.add_item("D:\")
+    Else
+        cboDrives.add_item("/")
+        cboDrives.add_item("/home")
+        cboDrives.add_item("/tmp")
+    End If
+
+    lblFeedback.Text = "Add items, click the tree, or pick a fruit/drive."
+End Sub
+
+Private Sub btnAddItem_Click()
+    If Len(Trim(txtNewItem.text)) > 0 Then
+        lstItems.add_item(Trim(txtNewItem.text))
+        lblFeedback.Text = "Added '" & Trim(txtNewItem.text) & "' to the list."
+        txtNewItem.text = ""
+    Else
+        lblFeedback.Text = "Type a name first, then click Add."
+    End If
+End Sub
+
+Private Sub btnRemoveItem_Click()
+    Dim selected
+    selected = lstItems.get_selected_items()
+    Dim i As Integer
+    Dim removedCount As Integer
+    removedCount = 0
+    For i = UBound(selected) To 0 Step -1
+        lstItems.remove_item(selected(i))
+        removedCount = removedCount + 1
+    Next i
+    If removedCount > 0 Then
+        lblFeedback.Text = "Removed " & removedCount & " item(s)."
+    Else
+        lblFeedback.Text = "Select one or more items first, then click Remove."
+    End If
+End Sub
+
+Private Sub lstItems_Click(index)
+    lblFeedback.Text = "Selected: " & lstItems.get_item_text(index)
+End Sub
+
+Private Sub treeMain_Click()
+    Dim item
+    Set item = treeMain.get_selected()
+    If Not item Is Nothing Then
+        lblFeedback.Text = "Tree node selected: " & item.get_text(0)
+    End If
+End Sub
+
+Private Sub cboFruit_Click(index)
+    lblFeedback.Text = "Favorite fruit: " & cboFruit.get_item_text(index)
+End Sub
+
+Private Sub cboDrives_Click(index)
+    lblFeedback.Text = "Drive selected: " & cboDrives.get_item_text(index)
+End Sub

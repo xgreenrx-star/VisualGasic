@@ -1,0 +1,121 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Theme" path="res://VB6Theme.tres" id="1"]
+[ext_resource type="Script" path="res://GameUI_2.vg" id="2"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3"]
+
+[sub_resource type="StyleBoxFlat" id="header_bg"]
+bg_color = Color(0.0, 0.0, 0.5, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="section_bg"]
+bg_color = Color(0.831, 0.816, 0.784, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.51, 0.51, 0.51, 1.0)
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="feedback_bg"]
+bg_color = Color(1.0, 1.0, 0.878, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.4, 0.0, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+
+[node name="GameUI_2" type="Window"]
+title = "Game UI — Inventory & Map"
+initial_position = 1
+size = Vector2i(640, 560)
+theme = ExtResource("1")
+script = ExtResource("2")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 640.0
+offset_bottom = 560.0
+mouse_filter = 2
+script = ExtResource("3")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+offset_right = 640.0
+offset_bottom = 560.0
+follow_focus = true
+
+[node name="VBox" type="VBoxContainer" parent="ScrollContainer"]
+offset_right = 640.0
+
+[node name="lblHeader" type="Label" parent="ScrollContainer/VBox"]
+text = "Game UI — Inventory & Map"
+theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)
+theme_override_styles/normal = SubResource("header_bg")
+theme_override_font_sizes/font_size = 16
+
+[node name="secInventoryGrid" type="Label" parent="ScrollContainer/VBox"]
+text = "── InventoryGrid — click a slot ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="invGrid" type="ItemList" parent="ScrollContainer/VBox"]
+custom_minimum_size = Vector2(0, 100)
+
+[node name="lblItemSlot" type="Label" parent="ScrollContainer/VBox"]
+text = "Selected item: (none)"
+theme_override_font_sizes/font_size = 11
+
+[node name="secSkillTree" type="Label" parent="ScrollContainer/VBox"]
+text = "── SkillTree — click to unlock ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="skillTree" type="Tree" parent="ScrollContainer/VBox"]
+custom_minimum_size = Vector2(0, 140)
+
+[node name="lblSkillPoints" type="Label" parent="ScrollContainer/VBox"]
+text = "Skill points remaining: 3"
+theme_override_font_sizes/font_size = 11
+
+[node name="secQuestTracker" type="Label" parent="ScrollContainer/VBox"]
+text = "── QuestTracker — double-click to complete ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="questList" type="ItemList" parent="ScrollContainer/VBox"]
+custom_minimum_size = Vector2(0, 100)
+
+[node name="secCompass" type="Label" parent="ScrollContainer/VBox"]
+text = "── Compass — drag the slider to turn ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hbox_sldCompass" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_sldCompass" type="Label" parent="ScrollContainer/VBox/hbox_sldCompass"]
+text = "Heading:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="sldCompass" type="HSlider" parent="ScrollContainer/VBox/hbox_sldCompass"]
+value = 0.0
+size_flags_horizontal = 3
+
+[node name="lblCompassDir" type="Label" parent="ScrollContainer/VBox"]
+text = "N"
+theme_override_font_sizes/font_size = 16
+
+[node name="lblFeedback" type="Label" parent="ScrollContainer/VBox"]
+text = "Try the controls above."
+autowrap_mode = 3
+theme_override_styles/normal = SubResource("feedback_bg")
+theme_override_font_sizes/font_size = 12
+

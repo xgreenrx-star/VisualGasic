@@ -1,0 +1,80 @@
+' GameUI_2 — Game UI: Inventory & Map — VisualGasic UI Toolkit Demo
+' Controls demonstrated: ItemList inventory, unlockable SkillTree, quest Tree,
+' slider-driven compass
+'
+' The quest tracker uses ControlName_DblClick(index) -- the same ItemList as
+' ListControls.tscn, but wired to a different event name to show both are
+' available on the same control.
+Option Explicit
+
+Dim skillPoints As Integer
+
+Private Sub Form_Load()
+    invGrid.add_item("Sword")
+    invGrid.add_item("Shield")
+    invGrid.add_item("Health Potion x3")
+    invGrid.add_item("Iron Key")
+
+    skillPoints = 3
+
+    Dim root
+    Set root = skillTree.create_item()
+    root.set_text(0, "Skills (click a skill, then Quest below)")
+    Dim s1
+    Set s1 = skillTree.create_item(root)
+    s1.set_text(0, "Fireball [locked]")
+    Dim s2
+    Set s2 = skillTree.create_item(root)
+    s2.set_text(0, "Heal [locked]")
+    Dim s3
+    Set s3 = skillTree.create_item(root)
+    s3.set_text(0, "Dash [locked]")
+
+    questList.add_item("Defeat the goblin camp")
+    questList.add_item("Collect 5 herbs")
+    questList.add_item("Deliver the letter")
+
+    lblFeedback.Text = "Click inventory slots, unlock skills, or complete quests."
+End Sub
+
+Private Sub invGrid_Click(index)
+    lblItemSlot.text = "Selected item: " & invGrid.get_item_text(index)
+    lblFeedback.Text = "Inventory slot " & index & " selected."
+End Sub
+
+Private Sub skillTree_Click()
+    Dim item
+    Set item = skillTree.get_selected()
+    If item Is Nothing Then Exit Sub
+    If item.get_text(0) = "Skills (click a skill, then Quest below)" Then Exit Sub
+    Dim skillName As String
+    skillName = item.get_text(0)
+    If InStr(skillName, "[locked]") > 0 And skillPoints > 0 Then
+        skillPoints = skillPoints - 1
+        item.set_text(0, Replace(skillName, " [locked]", " [UNLOCKED]"))
+        lblSkillPoints.text = "Skill points remaining: " & skillPoints
+        lblFeedback.Text = "Unlocked a skill! " & skillPoints & " point(s) left."
+    ElseIf InStr(skillName, "[locked]") > 0 Then
+        lblFeedback.Text = "No skill points left!"
+    Else
+        lblFeedback.Text = skillName & " is already unlocked."
+    End If
+End Sub
+
+Private Sub questList_DblClick(index)
+    Dim questText As String
+    questText = questList.get_item_text(index)
+    If InStr(questText, "[DONE]") = 0 Then
+        questList.set_item_text(index, questText & " [DONE]")
+        lblFeedback.Text = "Quest completed: " & questText
+    End If
+End Sub
+
+Private Sub sldCompass_Change(newValue)
+    Dim dirs
+    dirs = Array("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+    Dim idx As Integer
+    idx = Int(((newValue Mod 360) + 360) Mod 360 / 45)
+    lblCompassDir.text = dirs(idx)
+    lblFeedback.Text = "Heading: " & CInt(newValue) & "°"
+End Sub

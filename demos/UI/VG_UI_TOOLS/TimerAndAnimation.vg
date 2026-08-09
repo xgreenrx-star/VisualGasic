@@ -1,0 +1,87 @@
+' TimerAndAnimation — VisualGasic UI Toolkit Demo
+' Controls demonstrated: Timer, Animation (TweenProperty), Calendar/DatePicker
+'
+' A real Timer node (tmrClock) drives the clock: its "timeout" signal is
+' auto-wired to tmrClock_Timer(), same naming convention as every other
+' control. The animation buttons use TweenProperty, a one-line VG statement
+' that wraps Godot''s Tween API for animating any property over time.
+Option Explicit
+
+Dim seconds As Integer
+Dim currentMonth As Integer
+Dim currentYear As Integer
+
+Private Sub Form_Load()
+    seconds = 0
+    lblClock.text = "00:00:00"
+
+    Dim dt
+    Set dt = Time.get_datetime_dict_from_system()
+    currentMonth = dt["month"]
+    currentYear = dt["year"]
+
+    Dim daysInMonth As Integer
+    daysInMonth = 30
+    Select Case currentMonth
+        Case 1, 3, 5, 7, 8, 10, 12
+            daysInMonth = 31
+        Case 4, 6, 9, 11
+            daysInMonth = 30
+        Case 2
+            daysInMonth = 28
+            If (currentYear Mod 4 = 0 And currentYear Mod 100 <> 0) Or (currentYear Mod 400 = 0) Then
+                daysInMonth = 29
+            End If
+    End Select
+
+    Dim d As Integer
+    For d = 1 To daysInMonth
+        lstCalendarDays.add_item(CStr(d))
+    Next d
+
+    lblFeedback.Text = "Start the timer, try an animation, or pick a date."
+End Sub
+
+Private Sub btnStartTimer_Click()
+    tmrClock.start()
+    lblFeedback.Text = "Timer started."
+End Sub
+
+Private Sub btnStopTimer_Click()
+    tmrClock.stop()
+    lblFeedback.Text = "Timer stopped."
+End Sub
+
+Private Sub tmrClock_Timer()
+    seconds = seconds + 1
+    Dim h As Integer
+    Dim m As Integer
+    Dim s As Integer
+    h = seconds \ 3600
+    m = (seconds Mod 3600) \ 60
+    s = seconds Mod 60
+    lblClock.text = Format(h, "00") & ":" & Format(m, "00") & ":" & Format(s, "00")
+End Sub
+
+Private Sub btnFadeAnim_Click()
+    animDemoRect.modulate = Color(1, 1, 1, 1)
+    TweenProperty animDemoRect, "modulate:a", 0.15, 0.4
+    lblFeedback.Text = "Fade animation triggered."
+End Sub
+
+Private Sub btnSlideAnim_Click()
+    animDemoRect.position = Vector2(0, animDemoRect.position.y)
+    TweenProperty animDemoRect, "position:x", 220.0, 0.5
+    lblFeedback.Text = "Slide animation triggered."
+End Sub
+
+Private Sub btnSpinAnim_Click()
+    animDemoRect.rotation = 0.0
+    TweenProperty animDemoRect, "rotation", 6.2832, 0.6
+    lblFeedback.Text = "Spin animation triggered."
+End Sub
+
+Private Sub lstCalendarDays_Click(index)
+    lblSelectedDate.text = "Selected date: " & currentYear & "-" & Format(currentMonth, "00") & "-" & Format(index + 1, "00")
+    lblFeedback.Text = "Date picked from calendar."
+End Sub

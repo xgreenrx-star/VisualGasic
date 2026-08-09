@@ -1,0 +1,76 @@
+' GameUI_3 — Game UI: Dialogs & Chat — VisualGasic UI Toolkit Demo
+' Controls demonstrated: advancing dialogue, real ConfirmationDialog, a Timer-
+' driven toast notification, a chat box, floating damage numbers
+'
+' confirmDlg is a real Godot ConfirmationDialog, `New`''d and `AddChild`''d
+' like the FileDialogs in AdvancedControls.tscn -- its "confirmed" signal is
+' Connect''ed to a handler Sub. tmrToast is a plain Timer added straight in
+' the Form Designer (one_shot=True) rather than created in code, since its
+' lifetime never changes -- prefer that whenever you don''t need to create
+' the node dynamically.
+Option Explicit
+
+Dim dialogLines As Variant
+Dim dialogIndex As Integer
+Dim confirmDlg As Object
+
+Private Sub Form_Load()
+    dialogLines = Array( _
+        "[b]Guard:[/b] Halt! Who goes there?", _
+        "[b]You:[/b] Just a traveler passing through.", _
+        "[b]Guard:[/b] Very well. Move along.")
+    dialogIndex = 0
+
+    Set confirmDlg = New ConfirmationDialog
+    confirmDlg.dialog_text = "Are you sure you want to delete your save file? This cannot be undone."
+    Me.AddChild(confirmDlg)
+    Connect confirmDlg, "confirmed", "OnDeleteConfirmed"
+
+    lblFeedback.Text = "Advance the dialog, try the confirm dialog, or send a chat message."
+End Sub
+
+Private Sub btnNextLine_Click()
+    dialogIndex = (dialogIndex + 1) Mod (UBound(dialogLines) + 1)
+    dlgNpc.text = dialogLines(dialogIndex)
+End Sub
+
+Private Sub btnConfirm_Click()
+    confirmDlg.popup_centered()
+End Sub
+
+Sub OnDeleteConfirmed()
+    lblFeedback.Text = "Save file deleted (simulated)."
+End Sub
+
+Private Sub chkMusic_Click(pressed)
+    lblFeedback.Text = "Music: " & IIf(pressed, "On", "Off")
+End Sub
+
+Private Sub chkSfx_Click(pressed)
+    lblFeedback.Text = "Sound Effects: " & IIf(pressed, "On", "Off")
+End Sub
+
+Private Sub btnNotify_Click()
+    lblToast.text = "✔ Achievement Unlocked: Toolkit Explorer!"
+    tmrToast.start()
+End Sub
+
+Private Sub tmrToast_Timer()
+    lblToast.text = ""
+End Sub
+
+Private Sub btnSendChat_Click()
+    If Len(Trim(txtChatInput.text)) > 0 Then
+        chatBox.text = chatBox.text & Chr(10) & "[You]: " & Trim(txtChatInput.text)
+        txtChatInput.text = ""
+    End If
+End Sub
+
+Private Sub btnDealDamage_Click()
+    Dim dmg As Integer
+    dmg = Int(Rnd * 40) + 10
+    lblDamage.text = "-" & dmg & " HP"
+    lblDamage.modulate = Color(1, 1, 1, 1)
+    TweenProperty lblDamage, "modulate:a", 0.0, 1.0
+    lblFeedback.Text = "Attack hit for " & dmg & " damage!"
+End Sub

@@ -1,0 +1,135 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Theme" path="res://VB6Theme.tres" id="1"]
+[ext_resource type="Script" path="res://TimerAndAnimation.vg" id="2"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3"]
+
+[sub_resource type="StyleBoxFlat" id="header_bg"]
+bg_color = Color(0.0, 0.0, 0.5, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="section_bg"]
+bg_color = Color(0.831, 0.816, 0.784, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.51, 0.51, 0.51, 1.0)
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="feedback_bg"]
+bg_color = Color(1.0, 1.0, 0.878, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.4, 0.0, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+
+[node name="TimerAndAnimation" type="Window"]
+title = "Timer & Animation"
+initial_position = 1
+size = Vector2i(640, 640)
+theme = ExtResource("1")
+script = ExtResource("2")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 640.0
+offset_bottom = 640.0
+mouse_filter = 2
+script = ExtResource("3")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+offset_right = 640.0
+offset_bottom = 640.0
+follow_focus = true
+
+[node name="VBox" type="VBoxContainer" parent="ScrollContainer"]
+offset_right = 640.0
+
+[node name="lblHeader" type="Label" parent="ScrollContainer/VBox"]
+text = "Timer & Animation"
+theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)
+theme_override_styles/normal = SubResource("header_bg")
+theme_override_font_sizes/font_size = 16
+
+[node name="secTimer" type="Label" parent="ScrollContainer/VBox"]
+text = "── Timer — real Timer node, fires every second ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="lblTimer" type="Label" parent="ScrollContainer/VBox"]
+text = "Click Start to begin the clock (live Timer.Timer event):"
+theme_override_font_sizes/font_size = 11
+
+[node name="lblClock" type="Label" parent="ScrollContainer/VBox"]
+text = "00:00:00"
+theme_override_font_sizes/font_size = 20
+
+[node name="hboxTimerButtons" type="HBoxContainer" parent="ScrollContainer/VBox"]
+
+[node name="btnStartTimer" type="Button" parent="ScrollContainer/VBox/hboxTimerButtons"]
+text = "Start Timer"
+
+[node name="btnStopTimer" type="Button" parent="ScrollContainer/VBox/hboxTimerButtons"]
+text = "Stop Timer"
+
+[node name="tmrClock" type="Timer" parent="ScrollContainer/VBox"]
+wait_time = 1.0
+
+[node name="secAnimation" type="Label" parent="ScrollContainer/VBox"]
+text = "── Animation — TweenProperty fades/moves the box ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="lblAnimation" type="Label" parent="ScrollContainer/VBox"]
+text = "Click a button to animate the box below:"
+theme_override_font_sizes/font_size = 11
+
+[node name="hboxAnimButtons" type="HBoxContainer" parent="ScrollContainer/VBox"]
+
+[node name="btnFadeAnim" type="Button" parent="ScrollContainer/VBox/hboxAnimButtons"]
+text = "Fade"
+
+[node name="btnSlideAnim" type="Button" parent="ScrollContainer/VBox/hboxAnimButtons"]
+text = "Slide"
+
+[node name="btnSpinAnim" type="Button" parent="ScrollContainer/VBox/hboxAnimButtons"]
+text = "Spin"
+
+[node name="animDemoRect" type="ColorRect" parent="ScrollContainer/VBox"]
+color = Color(0.2,0.4,0.9,1)
+custom_minimum_size = Vector2(60, 60)
+
+[node name="secDatePicker" type="Label" parent="ScrollContainer/VBox"]
+text = "── DatePicker / Calendar — click a day ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="lblDatePicker" type="Label" parent="ScrollContainer/VBox"]
+text = "Days of the current month — click one to select it:"
+theme_override_font_sizes/font_size = 11
+
+[node name="lstCalendarDays" type="ItemList" parent="ScrollContainer/VBox"]
+custom_minimum_size = Vector2(0, 110)
+
+[node name="lblSelectedDate" type="Label" parent="ScrollContainer/VBox"]
+text = "Selected date: (none)"
+theme_override_font_sizes/font_size = 11
+
+[node name="lblFeedback" type="Label" parent="ScrollContainer/VBox"]
+text = "Try the controls above."
+autowrap_mode = 3
+theme_override_styles/normal = SubResource("feedback_bg")
+theme_override_font_sizes/font_size = 12
+

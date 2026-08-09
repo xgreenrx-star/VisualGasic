@@ -1,0 +1,148 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Theme" path="res://VB6Theme.tres" id="1"]
+[ext_resource type="Script" path="res://CustomWidgets.vg" id="2"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3"]
+
+[sub_resource type="StyleBoxFlat" id="header_bg"]
+bg_color = Color(0.0, 0.0, 0.5, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="section_bg"]
+bg_color = Color(0.831, 0.816, 0.784, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.51, 0.51, 0.51, 1.0)
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="feedback_bg"]
+bg_color = Color(1.0, 1.0, 0.878, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.4, 0.0, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+
+[node name="CustomWidgets" type="Window"]
+title = "Custom Widgets"
+initial_position = 1
+size = Vector2i(640, 560)
+theme = ExtResource("1")
+script = ExtResource("2")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 640.0
+offset_bottom = 560.0
+mouse_filter = 2
+script = ExtResource("3")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+offset_right = 640.0
+offset_bottom = 560.0
+follow_focus = true
+
+[node name="VBox" type="VBoxContainer" parent="ScrollContainer"]
+offset_right = 640.0
+
+[node name="lblHeader" type="Label" parent="ScrollContainer/VBox"]
+text = "Custom Widgets"
+theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)
+theme_override_styles/normal = SubResource("header_bg")
+theme_override_font_sizes/font_size = 16
+
+[node name="secToggleSwitch" type="Label" parent="ScrollContainer/VBox"]
+text = "── ToggleSwitch — dark mode ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="tglDarkMode" type="CheckBox" parent="ScrollContainer/VBox"]
+text = "Dark Mode"
+
+[node name="secBreadcrumbs" type="Label" parent="ScrollContainer/VBox"]
+text = "── Breadcrumbs — click to navigate ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hboxCrumbs" type="HBoxContainer" parent="ScrollContainer/VBox"]
+
+[node name="crumbHome" type="Button" parent="ScrollContainer/VBox/hboxCrumbs"]
+text = "Home"
+flat = true
+
+[node name="crumbProducts" type="Button" parent="ScrollContainer/VBox/hboxCrumbs"]
+text = "Products"
+flat = true
+
+[node name="crumbDetail" type="Button" parent="ScrollContainer/VBox/hboxCrumbs"]
+text = "Detail"
+flat = true
+
+[node name="lblBreadcrumbPath" type="Label" parent="ScrollContainer/VBox"]
+text = "Current path: Home"
+theme_override_font_sizes/font_size = 11
+
+[node name="secSpinner" type="Label" parent="ScrollContainer/VBox"]
+text = "── Spinner — indeterminate progress (Start/Stop) ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hboxSpinnerButtons" type="HBoxContainer" parent="ScrollContainer/VBox"]
+
+[node name="btnSpinnerStart" type="Button" parent="ScrollContainer/VBox/hboxSpinnerButtons"]
+text = "Start Spinner"
+
+[node name="btnSpinnerStop" type="Button" parent="ScrollContainer/VBox/hboxSpinnerButtons"]
+text = "Stop Spinner"
+
+[node name="spinner" type="ProgressBar" parent="ScrollContainer/VBox"]
+value = 0.0
+size_flags_horizontal = 3
+
+[node name="tmrSpinner" type="Timer" parent="ScrollContainer/VBox"]
+wait_time = 0.05
+
+[node name="secExpander" type="Label" parent="ScrollContainer/VBox"]
+text = "── Expander — collapsible section ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="btnExpand" type="Button" parent="ScrollContainer/VBox"]
+text = "▶ Show Details"
+
+[node name="lblExpandedContent" type="Label" parent="ScrollContainer/VBox"]
+text = "Hidden content revealed when expanded — this is where extra options would go."
+theme_override_font_sizes/font_size = 10
+
+[node name="secMaskedEdit" type="Label" parent="ScrollContainer/VBox"]
+text = "── MaskedEdit — live format validation ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hbox_txtPhone" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_txtPhone" type="Label" parent="ScrollContainer/VBox/hbox_txtPhone"]
+text = "Phone:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="txtPhone" type="LineEdit" parent="ScrollContainer/VBox/hbox_txtPhone"]
+placeholder_text = "(###) ###-####"
+size_flags_horizontal = 3
+
+[node name="lblFeedback" type="Label" parent="ScrollContainer/VBox"]
+text = "Try the controls above."
+autowrap_mode = 3
+theme_override_styles/normal = SubResource("feedback_bg")
+theme_override_font_sizes/font_size = 12
+

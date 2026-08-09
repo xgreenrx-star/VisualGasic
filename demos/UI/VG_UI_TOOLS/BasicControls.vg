@@ -1,0 +1,106 @@
+' BasicControls — VisualGasic UI Toolkit Demo
+' Controls demonstrated: Button, Label, LineEdit, TextEdit, CheckBox, RadioButton, OptionButton, ProgressBar, HSlider, VScrollBar
+'
+' HOW THIS FORM IS WIRED (read this once -- every other form in this project
+' follows the exact same convention):
+'   Each control below is connected to VisualGasic code purely by NAME, no
+'   `Connect` call needed. VisualGasic looks for a Sub named
+'   "<ControlName>_<EventName>" on this form and calls it automatically
+'   whenever the matching Godot signal fires, e.g.:
+'     Button          -> btnNormal_Click()
+'     CheckBox         -> chkFeature_Click(pressed)
+'     LineEdit         -> txtName_Change(newText)
+'     HSlider/ProgressBar/SpinBox -> sldVolume_Change(newValue)
+'   Rename a node in the Form Designer and its Sub must be renamed to match,
+'   or the handler silently stops firing (no compile error, since VG can''t
+'   know your intent at compile time).
+Option Explicit
+
+Dim clickCount As Integer
+
+Private Sub Form_Load()
+    clickCount = 0
+    cboCountry.add_item("United States")
+    cboCountry.add_item("United Kingdom")
+    cboCountry.add_item("Canada")
+    cboCountry.add_item("Australia")
+    lblFeedback.Text = "Try the controls above — this label reacts to every one of them."
+End Sub
+
+Private Sub btnNormal_Click()
+    clickCount = clickCount + 1
+    lblFeedback.Text = "Normal Button clicked " & clickCount & " time(s)."
+End Sub
+
+Private Sub btnFlat_Click()
+    lblFeedback.Text = "Flat Button clicked — no border, like a VB6 flat-style button."
+End Sub
+
+Private Sub txtName_Change(newText)
+    If Len(newText) > 0 Then
+        lblFeedback.Text = "Hello, " & newText & "!"
+    Else
+        lblFeedback.Text = "Try the controls above — this label reacts to every one of them."
+    End If
+End Sub
+
+Private Sub txtPassword_Change(newText)
+    Dim strength As String
+    If Len(newText) = 0 Then
+        strength = "(empty)"
+    ElseIf Len(newText) < 6 Then
+        strength = "Weak"
+    ElseIf Len(newText) < 10 Then
+        strength = "Medium"
+    Else
+        strength = "Strong"
+    End If
+    lblFeedback.Text = "Password strength: " & strength & " (" & Len(newText) & " characters)"
+End Sub
+
+Private Sub txtBio_Change()
+    Dim wordCount As Integer
+    Dim bioText As String
+    bioText = Trim(txtBio.text)
+    If Len(bioText) = 0 Then
+        wordCount = 0
+    Else
+        Dim parts As Variant
+        parts = Split(bioText, " ")
+        wordCount = UBound(parts) + 1
+    End If
+    lblFeedback.Text = "Bio word count: " & wordCount
+End Sub
+
+Private Sub chkFeature_Click(pressed)
+    If pressed Then
+        lblFeedback.Text = "Feature enabled."
+    Else
+        lblFeedback.Text = "Feature disabled."
+    End If
+End Sub
+
+Private Sub optMale_Click()
+    lblFeedback.Text = "Gender selected: Male"
+End Sub
+
+Private Sub optFemale_Click()
+    lblFeedback.Text = "Gender selected: Female"
+End Sub
+
+Private Sub optOther_Click()
+    lblFeedback.Text = "Gender selected: Other"
+End Sub
+
+Private Sub cboCountry_Click(index)
+    lblFeedback.Text = "Country selected: " & cboCountry.get_item_text(index)
+End Sub
+
+Private Sub sldVolume_Change(newValue)
+    barProgress.value = newValue
+    lblFeedback.Text = "Volume: " & CInt(newValue) & "%"
+End Sub
+
+Private Sub sbVertical_Change(newValue)
+    lblFeedback.Text = "Vertical scroll position: " & CInt(newValue)
+End Sub

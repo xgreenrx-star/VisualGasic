@@ -1,0 +1,119 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Theme" path="res://VB6Theme.tres" id="1"]
+[ext_resource type="Script" path="res://ContainerControls.vg" id="2"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3"]
+
+[sub_resource type="StyleBoxFlat" id="header_bg"]
+bg_color = Color(0.0, 0.0, 0.5, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="section_bg"]
+bg_color = Color(0.831, 0.816, 0.784, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.51, 0.51, 0.51, 1.0)
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="feedback_bg"]
+bg_color = Color(1.0, 1.0, 0.878, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.4, 0.0, 1.0)
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+
+[node name="ContainerControls" type="Window"]
+title = "Container Controls"
+initial_position = 1
+size = Vector2i(640, 480)
+theme = ExtResource("1")
+script = ExtResource("2")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 640.0
+offset_bottom = 480.0
+mouse_filter = 2
+script = ExtResource("3")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+offset_right = 640.0
+offset_bottom = 480.0
+follow_focus = true
+
+[node name="VBox" type="VBoxContainer" parent="ScrollContainer"]
+offset_right = 640.0
+
+[node name="lblHeader" type="Label" parent="ScrollContainer/VBox"]
+text = "Container Controls"
+theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)
+theme_override_styles/normal = SubResource("header_bg")
+theme_override_font_sizes/font_size = 16
+
+[node name="secTabContainer" type="Label" parent="ScrollContainer/VBox"]
+text = "── TabContainer — click the tabs ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="tabMain" type="TabContainer" parent="ScrollContainer/VBox"]
+custom_minimum_size = Vector2(0, 110)
+[node name="Tab0_General" type="Label" parent="ScrollContainer/VBox/tabMain"]
+text = "This is the 'General' tab. Click the tabs above to switch pages."
+autowrap_mode = 3
+[node name="Tab1_Advanced" type="Label" parent="ScrollContainer/VBox/tabMain"]
+text = "This is the 'Advanced' tab. Click the tabs above to switch pages."
+autowrap_mode = 3
+[node name="Tab2_About" type="Label" parent="ScrollContainer/VBox/tabMain"]
+text = "This is the 'About' tab. Click the tabs above to switch pages."
+autowrap_mode = 3
+
+[node name="secPanel" type="Label" parent="ScrollContainer/VBox"]
+text = "── Panel / GroupBox — clickable group ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="lblPanel" type="Label" parent="ScrollContainer/VBox"]
+text = "Click inside the panel below to toggle its color:"
+theme_override_font_sizes/font_size = 11
+
+[node name="pnlGroup" type="Panel" parent="ScrollContainer/VBox"]
+custom_minimum_size = Vector2(250, 60)
+
+[node name="secToolbar" type="Label" parent="ScrollContainer/VBox"]
+text = "── Toolbar — buttons change the status label ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hboxToolbar" type="HBoxContainer" parent="ScrollContainer/VBox"]
+
+[node name="tbNew" type="Button" parent="ScrollContainer/VBox/hboxToolbar"]
+text = "New"
+flat = true
+
+[node name="tbOpen" type="Button" parent="ScrollContainer/VBox/hboxToolbar"]
+text = "Open"
+flat = true
+
+[node name="tbSave" type="Button" parent="ScrollContainer/VBox/hboxToolbar"]
+text = "Save"
+flat = true
+
+[node name="lblFeedback" type="Label" parent="ScrollContainer/VBox"]
+text = "Try the controls above."
+autowrap_mode = 3
+theme_override_styles/normal = SubResource("feedback_bg")
+theme_override_font_sizes/font_size = 12
+

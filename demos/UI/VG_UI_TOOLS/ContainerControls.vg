@@ -1,0 +1,44 @@
+' ContainerControls — VisualGasic UI Toolkit Demo
+' Controls demonstrated: TabContainer, Panel/GroupBox, Toolbar
+'
+' tabMain_Click(tabIndex) fires whenever the active TabContainer page
+' changes -- use tabIndex (0-based) to know which page the user picked.
+Option Explicit
+
+Dim pnlToggled As Boolean
+
+Private Sub Form_Load()
+    pnlToggled = False
+    lblFeedback.Text = "Switch tabs, click the panel, or use the toolbar."
+End Sub
+
+Private Sub tabMain_Click()
+    lblFeedback.Text = "Tab changed to index " & tabMain.current_tab & " ('" & tabMain.get_tab_title(tabMain.current_tab) & "')."
+End Sub
+
+Private Sub pnlGroup_GuiInput(ev)
+    If TypeOf ev Is InputEventMouseButton Then
+        If ev.pressed And ev.button_index = MOUSE_BUTTON_LEFT Then
+            pnlToggled = Not pnlToggled
+            If pnlToggled Then
+                TweenProperty pnlGroup, "modulate", Color(0.6, 0.8, 1.0, 1.0), 0.25
+                lblFeedback.Text = "Panel clicked — highlighted blue."
+            Else
+                TweenProperty pnlGroup, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.25
+                lblFeedback.Text = "Panel clicked — back to normal."
+            End If
+        End If
+    End If
+End Sub
+
+Private Sub tbNew_Click()
+    lblFeedback.Text = "Toolbar: New clicked."
+End Sub
+
+Private Sub tbOpen_Click()
+    lblFeedback.Text = "Toolbar: Open clicked."
+End Sub
+
+Private Sub tbSave_Click()
+    lblFeedback.Text = "Toolbar: Save clicked."
+End Sub
