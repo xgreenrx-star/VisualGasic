@@ -26,8 +26,8 @@ shared addon, so it always runs the same VisualGasic build as everything else.
 | `TimerAndAnimation.tscn` | A real `Timer` node running a live clock, `TweenProperty`-driven fade/slide/spin animations, and a clickable calendar day picker |
 | `CustomWidgets.tscn` | Dark-mode toggle, clickable breadcrumbs, a Timer-driven spinner, an expandable section, and a live-validated phone number mask |
 | `MenusAndStatus.tscn` | A real `MenuButton` + `PopupMenu` menu bar, a right-click context menu, and working keyboard shortcuts (Ctrl+O/S/Q, F1) |
-| `GameUI_1.tscn` | HP/MP/Stamina bars you can damage/heal, an XP bar that levels you up, an ammo counter, and a real cooldown Timer on an ability button |
-| `GameUI_2.tscn` | A clickable inventory list, a SkillTree you unlock with points, a double-click-to-complete quest tracker, and a slider-driven compass |
+| `GameUI_1.tscn` | Real `StatBar`/`RetroLifeBar`/`SegmentedProgressBar`/`XPBar`/`AmmoCounter`/`PixelProgressBar`/`CircularProgress` widgets from the Game UI toolbox — every one of them is live-adjustable with its own HSlider as well as the gameplay buttons, and a real cooldown Timer drives an ability button |
+| `GameUI_2.tscn` | A clickable inventory list, a SkillTree you unlock with points, a double-click-to-complete quest tracker, and a real `Compass` widget turned by a slider |
 | `GameUI_3.tscn` | Advancing NPC dialogue, a real `ConfirmationDialog`, a toast notification, a working chat box, and floating damage numbers |
 
 ## Theme

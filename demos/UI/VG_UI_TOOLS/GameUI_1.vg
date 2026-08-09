@@ -1,38 +1,58 @@
 ' GameUI_1 — Game UI: HUD & Bars — VisualGasic UI Toolkit Demo
-' Controls demonstrated: ProgressBar-as-HP/MP/Stamina/XP bars, a cooldown Timer
+' Controls demonstrated: StatBar, RetroLifeBar, SegmentedProgressBar, XPBar,
+' AmmoCounter, PixelProgressBar, CircularProgress -- every specialized "Game
+' UI" toolbox widget that renders as a bar/ring, each one live-adjustable by
+' its own HSlider as well as by the gameplay buttons below it.
 '
-' Every "bar" here is a plain ProgressBar -- the game-HUD look comes entirely
-' from styling + driving .value from code on damage/heal/XP-gain, not from a
-' special game-UI class. tmrCooldown disables the ability button on use and
-' re-enables it in its own _Timer handler once the wait_time elapses.
+' These are real scenes from addons/visual_gasic/prototypes/game_ui/*.tscn,
+' instanced as child nodes (see the "instance=ExtResource(...)" lines this
+' script''s .tscn file), NOT plain ProgressBars re-skinned. Each one draws
+' itself with its own GDScript _draw()/queue_redraw(), so VisualGasic code
+' never touches drawing at all -- it only ever sets an exported property
+' (statHP.Value, lifeMP.value, xpBar.CurrentXP, circLoading.value, ...), the
+' same ordinary node-property-assignment technique used everywhere else in
+' this project. This sidesteps the fact that a Window-rooted VG Form can''t
+' itself call QueueRedraw()/_Draw() (Window isn''t a CanvasItem) -- the widget
+' scene owns its own drawing, VG just feeds it numbers.
+'
+' Sliders and buttons both drive the SAME variables independently (moving a
+' slider doesn''t fight with clicking a button) -- try both on any bar.
+' tmrCooldown is a real Timer node: it disables the ability button on use
+' and its own _Timer handler re-enables it once wait_time elapses.
 Option Explicit
 
 Dim score As Integer
 Dim hp As Integer
 Dim mp As Integer
-Dim level As Integer
+Dim stamina As Integer
 Dim xp As Integer
 Dim ammo As Integer
+Dim shield As Integer
+Dim loadingPct As Integer
 Const MAX_AMMO As Integer = 30
 
 Private Sub Form_Load()
     score = 0
     hp = 85
     mp = 55
-    level = 1
+    stamina = 30
     xp = 0
     ammo = MAX_AMMO
+    shield = 60
+    loadingPct = 40
     RefreshHud
-    lblFeedback.Text = "Deal damage, heal, cast spells, or fire your weapon."
+    lblFeedback.Text = "Drag any slider, or use the buttons — every bar updates live."
 End Sub
 
 Sub RefreshHud()
     lblScore.text = "Score: " & score
-    barHP.value = hp
-    barMP.value = mp
-    lblLevel.text = "Level: " & level
-    barXP.value = xp
-    lblAmmo.text = "Ammo: " & ammo & " / " & (MAX_AMMO * 4)
+    statHP.Value = hp
+    lifeMP.value = mp
+    segStamina.value = stamina
+    xpBar.CurrentXP = xp
+    ammoCounter.CurrentAmmo = ammo
+    pixShield.value = shield
+    circLoading.value = loadingPct
 End Sub
 
 Private Sub btnAddScore_Click()
@@ -41,9 +61,11 @@ Private Sub btnAddScore_Click()
     lblFeedback.Text = "+100 score!"
 End Sub
 
+' --- StatBar (HP): driven by the Damage/Heal buttons or sldHP directly ---
 Private Sub btnDamage_Click()
     hp = hp - 15
     If hp < 0 Then hp = 0
+    sldHP.value = hp
     RefreshHud
     lblFeedback.Text = "Ouch! Took 15 damage."
 End Sub
@@ -51,13 +73,22 @@ End Sub
 Private Sub btnHeal_Click()
     hp = hp + 15
     If hp > 100 Then hp = 100
+    sldHP.value = hp
     RefreshHud
     lblFeedback.Text = "Healed 15 HP."
 End Sub
 
+Private Sub sldHP_Change(newValue)
+    hp = CInt(newValue)
+    RefreshHud
+    lblFeedback.Text = "HP set to " & hp & " via slider."
+End Sub
+
+' --- RetroLifeBar (MP) ---
 Private Sub btnUseMana_Click()
     If mp >= 20 Then
         mp = mp - 20
+        sldMP.value = mp
         RefreshHud
         lblFeedback.Text = "Spell cast! -20 MP."
     Else
@@ -65,30 +96,70 @@ Private Sub btnUseMana_Click()
     End If
 End Sub
 
-Private Sub btnGainXP_Click()
-    xp = xp + 25
-    If xp >= 100 Then
-        xp = xp - 100
-        level = level + 1
-        lblFeedback.Text = "Level up! Now level " & level & "."
-    Else
-        lblFeedback.Text = "+25 XP."
-    End If
+Private Sub sldMP_Change(newValue)
+    mp = CInt(newValue)
     RefreshHud
+    lblFeedback.Text = "MP set to " & mp & " via slider."
 End Sub
 
+' --- SegmentedProgressBar (Stamina) ---
+Private Sub sldStamina_Change(newValue)
+    stamina = CInt(newValue)
+    RefreshHud
+    lblFeedback.Text = "Stamina set to " & stamina & " via slider."
+End Sub
+
+' --- XPBar: CurrentXP auto-carries overflow into Level when it hits MaxXP ---
+Private Sub btnGainXP_Click()
+    xp = xp + 25
+    If xp > 100 Then xp = 100
+    sldXP.value = xp
+    RefreshHud
+    lblFeedback.Text = "+25 XP (XPBar levels itself up automatically at 100)."
+End Sub
+
+Private Sub sldXP_Change(newValue)
+    xp = CInt(newValue)
+    RefreshHud
+    lblFeedback.Text = "XP set to " & xp & " via slider."
+End Sub
+
+' --- AmmoCounter ---
 Private Sub btnFire_Click()
     If ammo > 0 Then
         ammo = ammo - 1
+        sldAmmo.value = ammo
         RefreshHud
         lblFeedback.Text = "Bang! " & ammo & " shots left in this clip."
     Else
         lblFeedback.Text = "Click! Out of ammo — reload needed."
         ammo = MAX_AMMO
+        sldAmmo.value = ammo
         RefreshHud
     End If
 End Sub
 
+Private Sub sldAmmo_Change(newValue)
+    ammo = CInt(newValue)
+    RefreshHud
+    lblFeedback.Text = "Ammo set to " & ammo & " via slider."
+End Sub
+
+' --- PixelProgressBar (Shield) ---
+Private Sub sldShield_Change(newValue)
+    shield = CInt(newValue)
+    RefreshHud
+    lblFeedback.Text = "Shield set to " & shield & " via slider."
+End Sub
+
+' --- CircularProgress (capture/loading ring) ---
+Private Sub sldLoading_Change(newValue)
+    loadingPct = CInt(newValue)
+    RefreshHud
+    lblFeedback.Text = "Loading ring set to " & loadingPct & "% via slider."
+End Sub
+
+' --- Timer-driven ability cooldown ---
 Private Sub btnAbility1_Click()
     If tmrCooldown.is_stopped() Then
         btnAbility1.disabled = True

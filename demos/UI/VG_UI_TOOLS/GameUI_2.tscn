@@ -3,6 +3,7 @@
 [ext_resource type="Theme" path="res://VB6Theme.tres" id="1"]
 [ext_resource type="Script" path="res://GameUI_2.vg" id="2"]
 [ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/Compass.tscn" id="CompassScene"]
 
 [sub_resource type="StyleBoxFlat" id="header_bg"]
 bg_color = Color(0.0, 0.0, 0.5, 1.0)
@@ -39,19 +40,19 @@ content_margin_bottom = 6.0
 [node name="GameUI_2" type="Window"]
 title = "Game UI — Inventory & Map"
 initial_position = 1
-size = Vector2i(640, 560)
+size = Vector2i(640, 600)
 theme = ExtResource("1")
 script = ExtResource("2")
 
 [node name="_FormBackground" type="Panel" parent="."]
 offset_right = 640.0
-offset_bottom = 560.0
+offset_bottom = 600.0
 mouse_filter = 2
 script = ExtResource("3")
 
 [node name="ScrollContainer" type="ScrollContainer" parent="."]
 offset_right = 640.0
-offset_bottom = 560.0
+offset_bottom = 600.0
 follow_focus = true
 
 [node name="VBox" type="VBoxContainer" parent="ScrollContainer"]
@@ -96,9 +97,12 @@ theme_override_font_sizes/font_size = 13
 custom_minimum_size = Vector2(0, 100)
 
 [node name="secCompass" type="Label" parent="ScrollContainer/VBox"]
-text = "── Compass — drag the slider to turn ──"
+text = "── Compass — drag the slider to turn the real widget ──"
 theme_override_styles/normal = SubResource("section_bg")
 theme_override_font_sizes/font_size = 13
+
+[node name="compassStrip" parent="ScrollContainer/VBox" instance=ExtResource("CompassScene")]
+Bearing = 0.0
 
 [node name="hbox_sldCompass" type="HBoxContainer" parent="ScrollContainer/VBox"]
 [node name="lbl_sldCompass" type="Label" parent="ScrollContainer/VBox/hbox_sldCompass"]
@@ -108,10 +112,6 @@ vertical_alignment = 1
 [node name="sldCompass" type="HSlider" parent="ScrollContainer/VBox/hbox_sldCompass"]
 value = 0.0
 size_flags_horizontal = 3
-
-[node name="lblCompassDir" type="Label" parent="ScrollContainer/VBox"]
-text = "N"
-theme_override_font_sizes/font_size = 16
 
 [node name="lblFeedback" type="Label" parent="ScrollContainer/VBox"]
 text = "Try the controls above."

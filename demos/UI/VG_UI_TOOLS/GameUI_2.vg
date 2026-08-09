@@ -1,10 +1,13 @@
 ' GameUI_2 — Game UI: Inventory & Map — VisualGasic UI Toolkit Demo
 ' Controls demonstrated: ItemList inventory, unlockable SkillTree, quest Tree,
-' slider-driven compass
+' a real Compass widget turned by a slider
 '
 ' The quest tracker uses ControlName_DblClick(index) -- the same ItemList as
 ' ListControls.tscn, but wired to a different event name to show both are
-' available on the same control.
+' available on the same control. compassStrip is a real instanced Compass
+' scene (addons/visual_gasic/prototypes/game_ui/Compass.tscn) -- sldCompass
+' just sets its `.Bearing` (0-360) exported property, same technique as
+' every other property assignment in this project.
 Option Explicit
 
 Dim skillPoints As Integer
@@ -71,10 +74,10 @@ Private Sub questList_DblClick(index)
 End Sub
 
 Private Sub sldCompass_Change(newValue)
+    compassStrip.Bearing = newValue
     Dim dirs
     dirs = Array("N", "NE", "E", "SE", "S", "SW", "W", "NW")
     Dim idx As Integer
     idx = Int(((newValue Mod 360) + 360) Mod 360 / 45)
-    lblCompassDir.text = dirs(idx)
-    lblFeedback.Text = "Heading: " & CInt(newValue) & "°"
+    lblFeedback.Text = "Heading: " & CInt(newValue) & "° (" & dirs(idx) & ")"
 End Sub

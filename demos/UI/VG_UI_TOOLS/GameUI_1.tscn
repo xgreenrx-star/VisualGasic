@@ -3,6 +3,13 @@
 [ext_resource type="Theme" path="res://VB6Theme.tres" id="1"]
 [ext_resource type="Script" path="res://GameUI_1.vg" id="2"]
 [ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/StatBar.tscn" id="StatBarScene"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/RetroLifeBar.tscn" id="RetroLifeBarScene"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/SegmentedProgressBar.tscn" id="SegmentedProgressBarScene"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/XPBar.tscn" id="XPBarScene"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/AmmoCounter.tscn" id="AmmoCounterScene"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/PixelProgressBar.tscn" id="PixelProgressBarScene"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/CircularProgress.tscn" id="CircularProgressScene"]
 
 [sub_resource type="StyleBoxFlat" id="header_bg"]
 bg_color = Color(0.0, 0.0, 0.5, 1.0)
@@ -39,19 +46,19 @@ content_margin_bottom = 6.0
 [node name="GameUI_1" type="Window"]
 title = "Game UI — HUD & Bars"
 initial_position = 1
-size = Vector2i(640, 620)
+size = Vector2i(640, 700)
 theme = ExtResource("1")
 script = ExtResource("2")
 
 [node name="_FormBackground" type="Panel" parent="."]
 offset_right = 640.0
-offset_bottom = 620.0
+offset_bottom = 700.0
 mouse_filter = 2
 script = ExtResource("3")
 
 [node name="ScrollContainer" type="ScrollContainer" parent="."]
 offset_right = 640.0
-offset_bottom = 620.0
+offset_bottom = 700.0
 follow_focus = true
 
 [node name="VBox" type="VBoxContainer" parent="ScrollContainer"]
@@ -64,7 +71,7 @@ theme_override_styles/normal = SubResource("header_bg")
 theme_override_font_sizes/font_size = 16
 
 [node name="secHUD" type="Label" parent="ScrollContainer/VBox"]
-text = "── HUDCounter / StatBars — click to change ──"
+text = "── HUDCounter — click to change ──"
 theme_override_styles/normal = SubResource("section_bg")
 theme_override_font_sizes/font_size = 13
 
@@ -75,31 +82,28 @@ theme_override_font_sizes/font_size = 18
 [node name="btnAddScore" type="Button" parent="ScrollContainer/VBox"]
 text = "+100 Score"
 
-[node name="hbox_barHP" type="HBoxContainer" parent="ScrollContainer/VBox"]
-[node name="lbl_barHP" type="Label" parent="ScrollContainer/VBox/hbox_barHP"]
+[node name="secStatBar" type="Label" parent="ScrollContainer/VBox"]
+text = "── StatBar — HP. Drag the slider OR click the buttons ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hbox_statHP" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_statHP" type="Label" parent="ScrollContainer/VBox/hbox_statHP"]
 text = "HP:"
 custom_minimum_size = Vector2(100, 0)
 vertical_alignment = 1
-[node name="barHP" type="ProgressBar" parent="ScrollContainer/VBox/hbox_barHP"]
+[node name="statHP" parent="ScrollContainer/VBox/hbox_statHP" instance=ExtResource("StatBarScene")]
+custom_minimum_size = Vector2(280, 24)
+Value = 85.0
+MaxValue = 100.0
+
+[node name="hbox_sldHP" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_sldHP" type="Label" parent="ScrollContainer/VBox/hbox_sldHP"]
+text = "HP Slider:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="sldHP" type="HSlider" parent="ScrollContainer/VBox/hbox_sldHP"]
 value = 85.0
-size_flags_horizontal = 3
-
-[node name="hbox_barMP" type="HBoxContainer" parent="ScrollContainer/VBox"]
-[node name="lbl_barMP" type="Label" parent="ScrollContainer/VBox/hbox_barMP"]
-text = "MP:"
-custom_minimum_size = Vector2(100, 0)
-vertical_alignment = 1
-[node name="barMP" type="ProgressBar" parent="ScrollContainer/VBox/hbox_barMP"]
-value = 55.0
-size_flags_horizontal = 3
-
-[node name="hbox_barStamina" type="HBoxContainer" parent="ScrollContainer/VBox"]
-[node name="lbl_barStamina" type="Label" parent="ScrollContainer/VBox/hbox_barStamina"]
-text = "Stamina:"
-custom_minimum_size = Vector2(100, 0)
-vertical_alignment = 1
-[node name="barStamina" type="ProgressBar" parent="ScrollContainer/VBox/hbox_barStamina"]
-value = 30.0
 size_flags_horizontal = 3
 
 [node name="hboxHudButtons" type="HBoxContainer" parent="ScrollContainer/VBox"]
@@ -110,24 +114,75 @@ text = "Take Damage (-15 HP)"
 [node name="btnHeal" type="Button" parent="ScrollContainer/VBox/hboxHudButtons"]
 text = "Heal (+15 HP)"
 
-[node name="btnUseMana" type="Button" parent="ScrollContainer/VBox/hboxHudButtons"]
-text = "Cast Spell (-20 MP)"
-
-[node name="secXPBar" type="Label" parent="ScrollContainer/VBox"]
-text = "── XPBar — gain XP and level up ──"
+[node name="secRetroLifeBar" type="Label" parent="ScrollContainer/VBox"]
+text = "── RetroLifeBar — MP. Hue-shifts green→yellow→red as it drops ──"
 theme_override_styles/normal = SubResource("section_bg")
 theme_override_font_sizes/font_size = 13
 
-[node name="lblLevel" type="Label" parent="ScrollContainer/VBox"]
-text = "Level: 1"
-theme_override_font_sizes/font_size = 13
-
-[node name="hbox_barXP" type="HBoxContainer" parent="ScrollContainer/VBox"]
-[node name="lbl_barXP" type="Label" parent="ScrollContainer/VBox/hbox_barXP"]
-text = "XP:"
+[node name="hbox_lifeMP" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_lifeMP" type="Label" parent="ScrollContainer/VBox/hbox_lifeMP"]
+text = "MP:"
 custom_minimum_size = Vector2(100, 0)
 vertical_alignment = 1
-[node name="barXP" type="ProgressBar" parent="ScrollContainer/VBox/hbox_barXP"]
+[node name="lifeMP" parent="ScrollContainer/VBox/hbox_lifeMP" instance=ExtResource("RetroLifeBarScene")]
+custom_minimum_size = Vector2(220, 20)
+value = 55.0
+max_value = 100.0
+
+[node name="hbox_sldMP" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_sldMP" type="Label" parent="ScrollContainer/VBox/hbox_sldMP"]
+text = "MP Slider:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="sldMP" type="HSlider" parent="ScrollContainer/VBox/hbox_sldMP"]
+value = 55.0
+size_flags_horizontal = 3
+
+[node name="btnUseMana" type="Button" parent="ScrollContainer/VBox"]
+text = "Cast Spell (-20 MP)"
+
+[node name="secSegmentedProgressBar" type="Label" parent="ScrollContainer/VBox"]
+text = "── SegmentedProgressBar — Stamina, chunky segments ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hbox_segStamina" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_segStamina" type="Label" parent="ScrollContainer/VBox/hbox_segStamina"]
+text = "Stamina:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="segStamina" parent="ScrollContainer/VBox/hbox_segStamina" instance=ExtResource("SegmentedProgressBarScene")]
+custom_minimum_size = Vector2(220, 16)
+value = 30.0
+max_value = 100.0
+segments = 5
+
+[node name="hbox_sldStamina" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_sldStamina" type="Label" parent="ScrollContainer/VBox/hbox_sldStamina"]
+text = "Stamina Slider:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="sldStamina" type="HSlider" parent="ScrollContainer/VBox/hbox_sldStamina"]
+value = 30.0
+size_flags_horizontal = 3
+
+[node name="secXPBar" type="Label" parent="ScrollContainer/VBox"]
+text = "── XPBar — gain XP; auto-levels-up and carries over overflow ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="xpBar" parent="ScrollContainer/VBox" instance=ExtResource("XPBarScene")]
+custom_minimum_size = Vector2(300, 24)
+CurrentXP = 0
+MaxXP = 100
+Level = 1
+
+[node name="hbox_sldXP" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_sldXP" type="Label" parent="ScrollContainer/VBox/hbox_sldXP"]
+text = "XP Slider:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="sldXP" type="HSlider" parent="ScrollContainer/VBox/hbox_sldXP"]
 value = 0.0
 size_flags_horizontal = 3
 
@@ -135,19 +190,73 @@ size_flags_horizontal = 3
 text = "+25 XP"
 
 [node name="secAmmoCounter" type="Label" parent="ScrollContainer/VBox"]
-text = "── AmmoCounter ──"
+text = "── AmmoCounter — clip / reserve ──"
 theme_override_styles/normal = SubResource("section_bg")
 theme_override_font_sizes/font_size = 13
 
-[node name="lblAmmo" type="Label" parent="ScrollContainer/VBox"]
-text = "Ammo: 30 / 120"
-theme_override_font_sizes/font_size = 18
+[node name="ammoCounter" parent="ScrollContainer/VBox" instance=ExtResource("AmmoCounterScene")]
+CurrentAmmo = 30
+MaxClip = 30
+ReserveAmmo = 90
+
+[node name="hbox_sldAmmo" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_sldAmmo" type="Label" parent="ScrollContainer/VBox/hbox_sldAmmo"]
+text = "Ammo Slider:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="sldAmmo" type="HSlider" parent="ScrollContainer/VBox/hbox_sldAmmo"]
+value = 30.0
+size_flags_horizontal = 3
 
 [node name="btnFire" type="Button" parent="ScrollContainer/VBox"]
 text = "Fire!"
 
+[node name="secPixelProgressBar" type="Label" parent="ScrollContainer/VBox"]
+text = "── PixelProgressBar — Shield, retro 8-bit cells ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="hbox_pixShield" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_pixShield" type="Label" parent="ScrollContainer/VBox/hbox_pixShield"]
+text = "Shield:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="pixShield" parent="ScrollContainer/VBox/hbox_pixShield" instance=ExtResource("PixelProgressBarScene")]
+custom_minimum_size = Vector2(220, 18)
+value = 60.0
+max_value = 100.0
+cell_count = 20
+
+[node name="hbox_sldShield" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_sldShield" type="Label" parent="ScrollContainer/VBox/hbox_sldShield"]
+text = "Shield Slider:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="sldShield" type="HSlider" parent="ScrollContainer/VBox/hbox_sldShield"]
+value = 60.0
+size_flags_horizontal = 3
+
+[node name="secCircularProgress" type="Label" parent="ScrollContainer/VBox"]
+text = "── CircularProgress — capture/loading ring meter ──"
+theme_override_styles/normal = SubResource("section_bg")
+theme_override_font_sizes/font_size = 13
+
+[node name="circLoading" parent="ScrollContainer/VBox" instance=ExtResource("CircularProgressScene")]
+custom_minimum_size = Vector2(72, 72)
+value = 40.0
+max_value = 100.0
+
+[node name="hbox_sldLoading" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_sldLoading" type="Label" parent="ScrollContainer/VBox/hbox_sldLoading"]
+text = "Loading Slider:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="sldLoading" type="HSlider" parent="ScrollContainer/VBox/hbox_sldLoading"]
+value = 40.0
+size_flags_horizontal = 3
+
 [node name="secCooldownButton" type="Label" parent="ScrollContainer/VBox"]
-text = "── CooldownButton — ability with real cooldown Timer ──"
+text = "── Timer — ability with a real cooldown ──"
 theme_override_styles/normal = SubResource("section_bg")
 theme_override_font_sizes/font_size = 13
 

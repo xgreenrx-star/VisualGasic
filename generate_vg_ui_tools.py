@@ -275,6 +275,29 @@ def panel(name, size=(200, 80), parent="ScrollContainer/VBox"):
     return [f'[node name="{name}" type="Panel" parent="{parent}"]', f'custom_minimum_size = Vector2({size[0]}, {size[1]})']
 
 
+def widget_scene(gd_widget, ext_id):
+    """An [ext_resource] line pulling in one of the specialized Game UI
+    toolbox widgets from addons/visual_gasic/prototypes/game_ui/ (StatBar,
+    XPBar, RetroLifeBar, CircularProgress, SegmentedProgressBar,
+    PixelProgressBar, AmmoCounter, Compass, etc). Pair with widget_instance()."""
+    return f'[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/{gd_widget}.tscn" id="{ext_id}"]'
+
+
+def widget_instance(name, ext_id, parent="ScrollContainer/VBox", size=None, props=None):
+    """Instance a specialized Game UI toolbox widget as a real child scene
+    (not a plain Control) -- its exported VB6-style properties (Value/
+    MaxValue, CurrentXP/MaxXP, Bearing, etc.) are set as ordinary node
+    property overrides, exactly the same mechanism VisualGasic code uses
+    to set them live at runtime (e.g. `statHP.Value = 42`)."""
+    lines = [f'[node name="{name}" parent="{parent}" instance=ExtResource("{ext_id}")]']
+    if size:
+        lines.append(f'custom_minimum_size = Vector2({size[0]}, {size[1]})')
+    if props:
+        for k, v in props.items():
+            lines.append(f'{k} = {v}')
+    return lines
+
+
 def color_rect(name, color="1,0,0,1", size=(80, 40), parent="ScrollContainer/VBox"):
     return [
         f'[node name="{name}" type="ColorRect" parent="{parent}"]',
@@ -1349,65 +1372,123 @@ End Sub
 # =========================================================================
 # Form 9: GameUI_1 (HUD, Bars, Progress)
 # =========================================================================
+GAME1_EXT_RESOURCES = [
+    widget_scene("StatBar", "StatBarScene"),
+    widget_scene("RetroLifeBar", "RetroLifeBarScene"),
+    widget_scene("SegmentedProgressBar", "SegmentedProgressBarScene"),
+    widget_scene("XPBar", "XPBarScene"),
+    widget_scene("AmmoCounter", "AmmoCounterScene"),
+    widget_scene("PixelProgressBar", "PixelProgressBarScene"),
+    widget_scene("CircularProgress", "CircularProgressScene"),
+]
+
 GAME1_BODY = [
-    section_label("secHUD", "── HUDCounter / StatBars — click to change ──"),
+    section_label("secHUD", "── HUDCounter — click to change ──"),
     label("lblScore", "Score: 0", font_size=18),
     button("btnAddScore", "+100 Score"),
-    hbox_pair("barHP", "HP:", progress_bar("barHP", 85)),
-    hbox_pair("barMP", "MP:", progress_bar("barMP", 55)),
-    hbox_pair("barStamina", "Stamina:", progress_bar("barStamina", 30)),
+
+    section_label("secStatBar", "── StatBar — HP. Drag the slider OR click the buttons ──"),
+    hbox_pair("statHP", "HP:", widget_instance("statHP", "StatBarScene", size=(280, 24),
+        props={"Value": "85.0", "MaxValue": "100.0"})),
+    hbox_pair("sldHP", "HP Slider:", h_slider("sldHP", 85)),
     ['[node name="hboxHudButtons" type="HBoxContainer" parent="ScrollContainer/VBox"]'],
     button("btnDamage", "Take Damage (-15 HP)", parent="ScrollContainer/VBox/hboxHudButtons"),
     button("btnHeal", "Heal (+15 HP)", parent="ScrollContainer/VBox/hboxHudButtons"),
-    button("btnUseMana", "Cast Spell (-20 MP)", parent="ScrollContainer/VBox/hboxHudButtons"),
-    section_label("secXPBar", "── XPBar — gain XP and level up ──"),
-    label("lblLevel", "Level: 1", font_size=13),
-    hbox_pair("barXP", "XP:", progress_bar("barXP", 0)),
+
+    section_label("secRetroLifeBar", "── RetroLifeBar — MP. Hue-shifts green→yellow→red as it drops ──"),
+    hbox_pair("lifeMP", "MP:", widget_instance("lifeMP", "RetroLifeBarScene", size=(220, 20),
+        props={"value": "55.0", "max_value": "100.0"})),
+    hbox_pair("sldMP", "MP Slider:", h_slider("sldMP", 55)),
+    button("btnUseMana", "Cast Spell (-20 MP)"),
+
+    section_label("secSegmentedProgressBar", "── SegmentedProgressBar — Stamina, chunky segments ──"),
+    hbox_pair("segStamina", "Stamina:", widget_instance("segStamina", "SegmentedProgressBarScene", size=(220, 16),
+        props={"value": "30.0", "max_value": "100.0", "segments": "5"})),
+    hbox_pair("sldStamina", "Stamina Slider:", h_slider("sldStamina", 30)),
+
+    section_label("secXPBar", "── XPBar — gain XP; auto-levels-up and carries over overflow ──"),
+    widget_instance("xpBar", "XPBarScene", size=(300, 24),
+        props={"CurrentXP": "0", "MaxXP": "100", "Level": "1"}),
+    hbox_pair("sldXP", "XP Slider:", h_slider("sldXP", 0)),
     button("btnGainXP", "+25 XP"),
-    section_label("secAmmoCounter", "── AmmoCounter ──"),
-    label("lblAmmo", "Ammo: 30 / 120", font_size=18),
+
+    section_label("secAmmoCounter", "── AmmoCounter — clip / reserve ──"),
+    widget_instance("ammoCounter", "AmmoCounterScene",
+        props={"CurrentAmmo": "30", "MaxClip": "30", "ReserveAmmo": "90"}),
+    hbox_pair("sldAmmo", "Ammo Slider:", h_slider("sldAmmo", 30)),
     button("btnFire", "Fire!"),
-    section_label("secCooldownButton", "── CooldownButton — ability with real cooldown Timer ──"),
+
+    section_label("secPixelProgressBar", "── PixelProgressBar — Shield, retro 8-bit cells ──"),
+    hbox_pair("pixShield", "Shield:", widget_instance("pixShield", "PixelProgressBarScene", size=(220, 18),
+        props={"value": "60.0", "max_value": "100.0", "cell_count": "20"})),
+    hbox_pair("sldShield", "Shield Slider:", h_slider("sldShield", 60)),
+
+    section_label("secCircularProgress", "── CircularProgress — capture/loading ring meter ──"),
+    widget_instance("circLoading", "CircularProgressScene", size=(72, 72),
+        props={"value": "40.0", "max_value": "100.0"}),
+    hbox_pair("sldLoading", "Loading Slider:", h_slider("sldLoading", 40)),
+
+    section_label("secCooldownButton", "── Timer — ability with a real cooldown ──"),
     button("btnAbility1", "Fireball (5s cooldown)"),
     timer_node("tmrCooldown", wait_time=5.0, one_shot=True, autostart=False),
     feedback_label(),
 ]
 
 GAME1_VG = '''\' GameUI_1 — Game UI: HUD & Bars — VisualGasic UI Toolkit Demo
-\' Controls demonstrated: ProgressBar-as-HP/MP/Stamina/XP bars, a cooldown Timer
+\' Controls demonstrated: StatBar, RetroLifeBar, SegmentedProgressBar, XPBar,
+\' AmmoCounter, PixelProgressBar, CircularProgress -- every specialized "Game
+\' UI" toolbox widget that renders as a bar/ring, each one live-adjustable by
+\' its own HSlider as well as by the gameplay buttons below it.
 \'
-\' Every "bar" here is a plain ProgressBar -- the game-HUD look comes entirely
-\' from styling + driving .value from code on damage/heal/XP-gain, not from a
-\' special game-UI class. tmrCooldown disables the ability button on use and
-\' re-enables it in its own _Timer handler once the wait_time elapses.
+\' These are real scenes from addons/visual_gasic/prototypes/game_ui/*.tscn,
+\' instanced as child nodes (see the "instance=ExtResource(...)" lines this
+\' script''s .tscn file), NOT plain ProgressBars re-skinned. Each one draws
+\' itself with its own GDScript _draw()/queue_redraw(), so VisualGasic code
+\' never touches drawing at all -- it only ever sets an exported property
+\' (statHP.Value, lifeMP.value, xpBar.CurrentXP, circLoading.value, ...), the
+\' same ordinary node-property-assignment technique used everywhere else in
+\' this project. This sidesteps the fact that a Window-rooted VG Form can''t
+\' itself call QueueRedraw()/_Draw() (Window isn''t a CanvasItem) -- the widget
+\' scene owns its own drawing, VG just feeds it numbers.
+\'
+\' Sliders and buttons both drive the SAME variables independently (moving a
+\' slider doesn''t fight with clicking a button) -- try both on any bar.
+\' tmrCooldown is a real Timer node: it disables the ability button on use
+\' and its own _Timer handler re-enables it once wait_time elapses.
 Option Explicit
 
 Dim score As Integer
 Dim hp As Integer
 Dim mp As Integer
-Dim level As Integer
+Dim stamina As Integer
 Dim xp As Integer
 Dim ammo As Integer
+Dim shield As Integer
+Dim loadingPct As Integer
 Const MAX_AMMO As Integer = 30
 
 Private Sub Form_Load()
     score = 0
     hp = 85
     mp = 55
-    level = 1
+    stamina = 30
     xp = 0
     ammo = MAX_AMMO
+    shield = 60
+    loadingPct = 40
     RefreshHud
-    lblFeedback.Text = "Deal damage, heal, cast spells, or fire your weapon."
+    lblFeedback.Text = "Drag any slider, or use the buttons — every bar updates live."
 End Sub
 
 Sub RefreshHud()
     lblScore.text = "Score: " & score
-    barHP.value = hp
-    barMP.value = mp
-    lblLevel.text = "Level: " & level
-    barXP.value = xp
-    lblAmmo.text = "Ammo: " & ammo & " / " & (MAX_AMMO * 4)
+    statHP.Value = hp
+    lifeMP.value = mp
+    segStamina.value = stamina
+    xpBar.CurrentXP = xp
+    ammoCounter.CurrentAmmo = ammo
+    pixShield.value = shield
+    circLoading.value = loadingPct
 End Sub
 
 Private Sub btnAddScore_Click()
@@ -1416,9 +1497,11 @@ Private Sub btnAddScore_Click()
     lblFeedback.Text = "+100 score!"
 End Sub
 
+\' --- StatBar (HP): driven by the Damage/Heal buttons or sldHP directly ---
 Private Sub btnDamage_Click()
     hp = hp - 15
     If hp < 0 Then hp = 0
+    sldHP.value = hp
     RefreshHud
     lblFeedback.Text = "Ouch! Took 15 damage."
 End Sub
@@ -1426,13 +1509,22 @@ End Sub
 Private Sub btnHeal_Click()
     hp = hp + 15
     If hp > 100 Then hp = 100
+    sldHP.value = hp
     RefreshHud
     lblFeedback.Text = "Healed 15 HP."
 End Sub
 
+Private Sub sldHP_Change(newValue)
+    hp = CInt(newValue)
+    RefreshHud
+    lblFeedback.Text = "HP set to " & hp & " via slider."
+End Sub
+
+\' --- RetroLifeBar (MP) ---
 Private Sub btnUseMana_Click()
     If mp >= 20 Then
         mp = mp - 20
+        sldMP.value = mp
         RefreshHud
         lblFeedback.Text = "Spell cast! -20 MP."
     Else
@@ -1440,30 +1532,70 @@ Private Sub btnUseMana_Click()
     End If
 End Sub
 
-Private Sub btnGainXP_Click()
-    xp = xp + 25
-    If xp >= 100 Then
-        xp = xp - 100
-        level = level + 1
-        lblFeedback.Text = "Level up! Now level " & level & "."
-    Else
-        lblFeedback.Text = "+25 XP."
-    End If
+Private Sub sldMP_Change(newValue)
+    mp = CInt(newValue)
     RefreshHud
+    lblFeedback.Text = "MP set to " & mp & " via slider."
 End Sub
 
+\' --- SegmentedProgressBar (Stamina) ---
+Private Sub sldStamina_Change(newValue)
+    stamina = CInt(newValue)
+    RefreshHud
+    lblFeedback.Text = "Stamina set to " & stamina & " via slider."
+End Sub
+
+\' --- XPBar: CurrentXP auto-carries overflow into Level when it hits MaxXP ---
+Private Sub btnGainXP_Click()
+    xp = xp + 25
+    If xp > 100 Then xp = 100
+    sldXP.value = xp
+    RefreshHud
+    lblFeedback.Text = "+25 XP (XPBar levels itself up automatically at 100)."
+End Sub
+
+Private Sub sldXP_Change(newValue)
+    xp = CInt(newValue)
+    RefreshHud
+    lblFeedback.Text = "XP set to " & xp & " via slider."
+End Sub
+
+\' --- AmmoCounter ---
 Private Sub btnFire_Click()
     If ammo > 0 Then
         ammo = ammo - 1
+        sldAmmo.value = ammo
         RefreshHud
         lblFeedback.Text = "Bang! " & ammo & " shots left in this clip."
     Else
         lblFeedback.Text = "Click! Out of ammo — reload needed."
         ammo = MAX_AMMO
+        sldAmmo.value = ammo
         RefreshHud
     End If
 End Sub
 
+Private Sub sldAmmo_Change(newValue)
+    ammo = CInt(newValue)
+    RefreshHud
+    lblFeedback.Text = "Ammo set to " & ammo & " via slider."
+End Sub
+
+\' --- PixelProgressBar (Shield) ---
+Private Sub sldShield_Change(newValue)
+    shield = CInt(newValue)
+    RefreshHud
+    lblFeedback.Text = "Shield set to " & shield & " via slider."
+End Sub
+
+\' --- CircularProgress (capture/loading ring) ---
+Private Sub sldLoading_Change(newValue)
+    loadingPct = CInt(newValue)
+    RefreshHud
+    lblFeedback.Text = "Loading ring set to " & loadingPct & "% via slider."
+End Sub
+
+\' --- Timer-driven ability cooldown ---
 Private Sub btnAbility1_Click()
     If tmrCooldown.is_stopped() Then
         btnAbility1.disabled = True
@@ -1483,6 +1615,10 @@ End Sub
 # =========================================================================
 # Form 10: GameUI_2 (Inventory, SkillTree, Quest, Map)
 # =========================================================================
+GAME2_EXT_RESOURCES = [
+    widget_scene("Compass", "CompassScene"),
+]
+
 GAME2_BODY = [
     section_label("secInventoryGrid", "── InventoryGrid — click a slot ──"),
     item_list("invGrid", height=100),
@@ -1492,19 +1628,22 @@ GAME2_BODY = [
     label("lblSkillPoints", "Skill points remaining: 3", font_size=11),
     section_label("secQuestTracker", "── QuestTracker — double-click to complete ──"),
     item_list("questList", height=100),
-    section_label("secCompass", "── Compass — drag the slider to turn ──"),
-    hbox_pair("sldCompass", "Heading:", h_slider("sldCompass", 0)),
-    label("lblCompassDir", "N", font_size=16),
+    section_label("secCompass", "── Compass — drag the slider to turn the real widget ──"),
+    widget_instance("compassStrip", "CompassScene", props={"Bearing": "0.0"}),
+    hbox_pair("sldCompass", "Heading:", h_slider("sldCompass", 0, expand=True)),
     feedback_label(),
 ]
 
 GAME2_VG = '''\' GameUI_2 — Game UI: Inventory & Map — VisualGasic UI Toolkit Demo
 \' Controls demonstrated: ItemList inventory, unlockable SkillTree, quest Tree,
-\' slider-driven compass
+\' a real Compass widget turned by a slider
 \'
 \' The quest tracker uses ControlName_DblClick(index) -- the same ItemList as
 \' ListControls.tscn, but wired to a different event name to show both are
-\' available on the same control.
+\' available on the same control. compassStrip is a real instanced Compass
+\' scene (addons/visual_gasic/prototypes/game_ui/Compass.tscn) -- sldCompass
+\' just sets its `.Bearing` (0-360) exported property, same technique as
+\' every other property assignment in this project.
 Option Explicit
 
 Dim skillPoints As Integer
@@ -1571,12 +1710,12 @@ Private Sub questList_DblClick(index)
 End Sub
 
 Private Sub sldCompass_Change(newValue)
+    compassStrip.Bearing = newValue
     Dim dirs
     dirs = Array("N", "NE", "E", "SE", "S", "SW", "W", "NW")
     Dim idx As Integer
     idx = Int(((newValue Mod 360) + 360) Mod 360 / 45)
-    lblCompassDir.text = dirs(idx)
-    lblFeedback.Text = "Heading: " & CInt(newValue) & "°"
+    lblFeedback.Text = "Heading: " & CInt(newValue) & "° (" & dirs(idx) & ")"
 End Sub
 '''
 
@@ -1688,17 +1827,17 @@ End Sub
 # Assemble all forms
 # =========================================================================
 FORMS = [
-    ("BasicControls", "Basic Controls", (640, 560), BASIC_BODY, BASIC_VG, GENDER_GROUP),
-    ("ListControls", "List Controls", (640, 620), LIST_BODY, LIST_VG, ""),
-    ("ContainerControls", "Container Controls", (640, 480), CONTAINER_BODY, CONTAINER_VG, ""),
-    ("DisplayControls", "Display Controls", (640, 560), DISPLAY_BODY, DISPLAY_VG, ""),
-    ("AdvancedControls", "Advanced Controls", (640, 560), ADVANCED_BODY, ADVANCED_VG, ""),
-    ("TimerAndAnimation", "Timer & Animation", (640, 640), TIMER_BODY, TIMER_VG, ""),
-    ("CustomWidgets", "Custom Widgets", (640, 560), CUSTOM_BODY, CUSTOM_VG, ""),
-    ("MenusAndStatus", "Menus & Status", (640, 440), MENUS_BODY, MENUS_VG, ""),
-    ("GameUI_1", "Game UI — HUD & Bars", (640, 620), GAME1_BODY, GAME1_VG, ""),
-    ("GameUI_2", "Game UI — Inventory & Map", (640, 560), GAME2_BODY, GAME2_VG, ""),
-    ("GameUI_3", "Game UI — Dialogs & Chat", (640, 640), GAME3_BODY, GAME3_VG, ""),
+    ("BasicControls", "Basic Controls", (640, 560), BASIC_BODY, BASIC_VG, GENDER_GROUP, None),
+    ("ListControls", "List Controls", (640, 620), LIST_BODY, LIST_VG, "", None),
+    ("ContainerControls", "Container Controls", (640, 480), CONTAINER_BODY, CONTAINER_VG, "", None),
+    ("DisplayControls", "Display Controls", (640, 560), DISPLAY_BODY, DISPLAY_VG, "", None),
+    ("AdvancedControls", "Advanced Controls", (640, 560), ADVANCED_BODY, ADVANCED_VG, "", None),
+    ("TimerAndAnimation", "Timer & Animation", (640, 640), TIMER_BODY, TIMER_VG, "", None),
+    ("CustomWidgets", "Custom Widgets", (640, 560), CUSTOM_BODY, CUSTOM_VG, "", None),
+    ("MenusAndStatus", "Menus & Status", (640, 440), MENUS_BODY, MENUS_VG, "", None),
+    ("GameUI_1", "Game UI — HUD & Bars", (640, 700), GAME1_BODY, GAME1_VG, "", GAME1_EXT_RESOURCES),
+    ("GameUI_2", "Game UI — Inventory & Map", (640, 600), GAME2_BODY, GAME2_VG, "", GAME2_EXT_RESOURCES),
+    ("GameUI_3", "Game UI — Dialogs & Chat", (640, 640), GAME3_BODY, GAME3_VG, "", None),
 ]
 
 
@@ -1726,11 +1865,11 @@ def main():
     if not os.path.islink(addon_link) and not os.path.exists(addon_link):
         os.symlink("../../../../addons/visual_gasic", addon_link)
 
-    for form_name, title, size, body, vg_code, extra_sub in FORMS:
+    for form_name, title, size, body, vg_code, extra_sub, extra_ext in FORMS:
         tscn_path = os.path.join(OUT, f"{form_name}.tscn")
         vg_path = os.path.join(OUT, f"{form_name}.vg")
 
-        tscn_content = build_full_tscn(form_name, title, size, body, None, extra_sub)
+        tscn_content = build_full_tscn(form_name, title, size, body, extra_ext, extra_sub)
         with open(tscn_path, "w") as f:
             f.write(tscn_content)
 
@@ -1767,8 +1906,8 @@ shared addon, so it always runs the same VisualGasic build as everything else.
 | `TimerAndAnimation.tscn` | A real `Timer` node running a live clock, `TweenProperty`-driven fade/slide/spin animations, and a clickable calendar day picker |
 | `CustomWidgets.tscn` | Dark-mode toggle, clickable breadcrumbs, a Timer-driven spinner, an expandable section, and a live-validated phone number mask |
 | `MenusAndStatus.tscn` | A real `MenuButton` + `PopupMenu` menu bar, a right-click context menu, and working keyboard shortcuts (Ctrl+O/S/Q, F1) |
-| `GameUI_1.tscn` | HP/MP/Stamina bars you can damage/heal, an XP bar that levels you up, an ammo counter, and a real cooldown Timer on an ability button |
-| `GameUI_2.tscn` | A clickable inventory list, a SkillTree you unlock with points, a double-click-to-complete quest tracker, and a slider-driven compass |
+| `GameUI_1.tscn` | Real `StatBar`/`RetroLifeBar`/`SegmentedProgressBar`/`XPBar`/`AmmoCounter`/`PixelProgressBar`/`CircularProgress` widgets from the Game UI toolbox — every one of them is live-adjustable with its own HSlider as well as the gameplay buttons, and a real cooldown Timer drives an ability button |
+| `GameUI_2.tscn` | A clickable inventory list, a SkillTree you unlock with points, a double-click-to-complete quest tracker, and a real `Compass` widget turned by a slider |
 | `GameUI_3.tscn` | Advancing NPC dialogue, a real `ConfirmationDialog`, a toast notification, a working chat box, and floating damage numbers |
 
 ## Theme
