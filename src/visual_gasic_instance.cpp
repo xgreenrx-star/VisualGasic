@@ -165,7 +165,15 @@ Array get_all_instances() {
                 Node* node = Object::cast_to<Node>(owner);
                 if (node) {
                     info["node_name"] = node->get_name();
-                    info["node_path"] = node->get_path();
+                    // get_path() throws a Godot engine error if the node has
+                    // already been removed from the scene tree (e.g. mid
+                    // Form_Unload teardown, polled by immediate_window.gd's
+                    // scene poll timer before this instance is unregistered).
+                    if (node->is_inside_tree()) {
+                        info["node_path"] = node->get_path();
+                    } else {
+                        info["node_path"] = NodePath();
+                    }
                 }
             }
             Ref<Script> scr = inst->get_script();
