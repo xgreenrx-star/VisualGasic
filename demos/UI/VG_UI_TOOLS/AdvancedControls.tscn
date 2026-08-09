@@ -121,7 +121,7 @@ button_pressed = true
 text = "Save Preferences"
 
 [node name="secFileDialog" type="Label" parent="ScrollContainer/VBox"]
-text = "── FileDialog (real Godot file picker) ──"
+text = "── FileDialog (real Godot file picker — browse your real filesystem) ──"
 theme_override_styles/normal = SubResource("section_bg")
 theme_override_font_sizes/font_size = 13
 
@@ -132,6 +132,16 @@ tooltip_text = "Opens the standard file open dialog."
 [node name="btnSaveFile" type="Button" parent="ScrollContainer/VBox"]
 text = "Save File..."
 tooltip_text = "Opens the standard file save dialog."
+
+[node name="hbox_txtFileInfo" type="HBoxContainer" parent="ScrollContainer/VBox"]
+[node name="lbl_txtFileInfo" type="Label" parent="ScrollContainer/VBox/hbox_txtFileInfo"]
+text = "Selected file:"
+custom_minimum_size = Vector2(100, 0)
+vertical_alignment = 1
+[node name="txtFileInfo" type="LineEdit" parent="ScrollContainer/VBox/hbox_txtFileInfo"]
+placeholder_text = "Select a file above..."
+editable = false
+size_flags_horizontal = 3
 
 [node name="lblFeedback" type="Label" parent="ScrollContainer/VBox"]
 text = "Try the controls above."

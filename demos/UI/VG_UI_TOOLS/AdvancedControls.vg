@@ -6,6 +6,11 @@
 ' so we `Connect` their "file_selected" signal to a handler Sub manually.
 ' This is the pattern to reach for whenever you need a control the Form
 ' Designer palette doesn''t offer directly.
+'
+' OnOpenFileSelected reads the chosen file straight off disk with FileAccess
+' (a real Godot file, on your real filesystem -- Access = 2/ACCESS_FILESYSTEM
+' above is what allows browsing outside res://) and reports its exact size,
+' proving the dialog returns a real, readable path rather than a placeholder.
 Option Explicit
 
 Dim openDlg As Object
@@ -74,7 +79,18 @@ Private Sub btnSaveFile_Click()
 End Sub
 
 Sub OnOpenFileSelected(path)
-    lblFeedback.Text = "You chose to open: " & path
+    Dim f As Object
+    Set f = FileAccess.open(path, FileAccess.READ)
+    If f Is Nothing Then
+        txtFileInfo.text = path & " (could not open — " & FileAccess.get_open_error() & ")"
+        lblFeedback.Text = "You chose to open: " & path & ", but it could not be read."
+        Exit Sub
+    End If
+    Dim fileLen As Integer
+    fileLen = f.get_length()
+    f.close()
+    txtFileInfo.text = path & "  —  " & fileLen & " bytes"
+    lblFeedback.Text = "Opened " & path & ": " & fileLen & " bytes."
 End Sub
 
 Sub OnSaveFileSelected(path)

@@ -199,7 +199,7 @@ def label(name, text, parent="ScrollContainer/VBox", font_size=12, bold=False):
     return lines
 
 
-def line_edit(name, placeholder="", secret=False, text="", parent="ScrollContainer/VBox", expand=True):
+def line_edit(name, placeholder="", secret=False, text="", parent="ScrollContainer/VBox", expand=True, editable=True):
     lines = [f'[node name="{name}" type="LineEdit" parent="{parent}"]']
     if placeholder:
         lines.append(f'placeholder_text = "{placeholder}"')
@@ -207,6 +207,8 @@ def line_edit(name, placeholder="", secret=False, text="", parent="ScrollContain
         lines.append('secret = true')
     if text:
         lines.append(f'text = "{text}"')
+    if not editable:
+        lines.append('editable = false')
     if expand:
         lines.append('size_flags_horizontal = 3')
     return lines
@@ -926,9 +928,10 @@ ADVANCED_BODY = [
     checkbox("chkOption2", "Option B — SMS alerts"),
     checkbox("chkOption3", "Option C — Push notifications", checked=True),
     button("btnSavePrefs", "Save Preferences"),
-    section_label("secFileDialog", "── FileDialog (real Godot file picker) ──"),
+    section_label("secFileDialog", "── FileDialog (real Godot file picker — browse your real filesystem) ──"),
     button("btnOpenFile", "Open File...", tooltip="Opens the standard file open dialog."),
     button("btnSaveFile", "Save File...", tooltip="Opens the standard file save dialog."),
+    hbox_pair("txtFileInfo", "Selected file:", line_edit("txtFileInfo", "Select a file above...", editable=False)),
     feedback_label(),
 ]
 
@@ -940,6 +943,11 @@ ADVANCED_VG = '''\' AdvancedControls — VisualGasic UI Toolkit Demo
 \' so we `Connect` their "file_selected" signal to a handler Sub manually.
 \' This is the pattern to reach for whenever you need a control the Form
 \' Designer palette doesn''t offer directly.
+\'
+\' OnOpenFileSelected reads the chosen file straight off disk with FileAccess
+\' (a real Godot file, on your real filesystem -- Access = 2/ACCESS_FILESYSTEM
+\' above is what allows browsing outside res://) and reports its exact size,
+\' proving the dialog returns a real, readable path rather than a placeholder.
 Option Explicit
 
 Dim openDlg As Object
@@ -1008,7 +1016,18 @@ Private Sub btnSaveFile_Click()
 End Sub
 
 Sub OnOpenFileSelected(path)
-    lblFeedback.Text = "You chose to open: " & path
+    Dim f As Object
+    Set f = FileAccess.open(path, FileAccess.READ)
+    If f Is Nothing Then
+        txtFileInfo.text = path & " (could not open — " & FileAccess.get_open_error() & ")"
+        lblFeedback.Text = "You chose to open: " & path & ", but it could not be read."
+        Exit Sub
+    End If
+    Dim fileLen As Integer
+    fileLen = f.get_length()
+    f.close()
+    txtFileInfo.text = path & "  —  " & fileLen & " bytes"
+    lblFeedback.Text = "Opened " & path & ": " & fileLen & " bytes."
 End Sub
 
 Sub OnSaveFileSelected(path)
