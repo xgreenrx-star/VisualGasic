@@ -149,6 +149,12 @@ cp addons/visual_gasic/visual_gasic.gdextension "$STAGING/addons/visual_gasic/"
 # Copy plugins (Working Nodes, AGCK, VG3D, Web Publish, etc.)
 [[ -d addons/visual_gasic/plugins ]] && cp -r addons/visual_gasic/plugins "$STAGING/addons/visual_gasic/"
 
+# Strip the disabled/incomplete gdsfx precursor -- it has no plugin.cfg (never
+# loads as a plugin), depends on GDScript files that were never committed, and
+# only exists for reference. Shipping it in the Asset Library submission adds
+# confusion for reviewers with no functional benefit; vgsfx/ fully supersedes it.
+rm -rf "$STAGING/addons/visual_gasic/plugins/_disabled.gdsfx"
+
 # Copy installers and CLI
 cp install.sh install.ps1 install.py vg "$STAGING/"
 chmod +x "$STAGING/vg" "$STAGING/install.sh"

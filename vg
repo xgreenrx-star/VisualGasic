@@ -138,7 +138,7 @@ cmd_new() {
 
     # Copy addon from global install
     info "Copying VisualGasic addon..."
-    cp -r "$VG_ADDON_DIR" "$project_name/addons/visual_gasic"
+    cp -rL "$VG_ADDON_DIR" "$project_name/addons/visual_gasic"
 
     # ── Create project.godot ────────────────────────────────────────────────
     # Human-friendly display name (replace _ and - with spaces, title case)
@@ -278,7 +278,7 @@ cmd_install() {
         warn "Existing addons/visual_gasic/ will be replaced."
         rm -rf addons/visual_gasic
     fi
-    cp -r "$VG_ADDON_DIR" addons/visual_gasic
+    cp -rL "$VG_ADDON_DIR" addons/visual_gasic
 
     # Check if plugin is enabled in project.godot
     if grep -q 'res://addons/visual_gasic/plugin.cfg' project.godot 2>/dev/null; then
@@ -354,7 +354,7 @@ cmd_update() {
 
     # Copy addon (excluding .uid files and dev-only files)
     info "Copying addon files..."
-    cp -r "$source_dir/addons/visual_gasic" "$VG_ADDON_DIR"
+    cp -rL "$source_dir/addons/visual_gasic" "$VG_ADDON_DIR"
 
     # Remove .uid files (they get regenerated per-project)
     find "$VG_ADDON_DIR" -name "*.uid" -delete 2>/dev/null || true

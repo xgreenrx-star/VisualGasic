@@ -114,7 +114,7 @@ mkdir -p "$VG_GLOBAL_DIR/addons"
 [[ -d "$VG_ADDON_DIR" ]] && rm -rf "$VG_ADDON_DIR"
 
 # Copy addon
-cp -r "$SOURCE_DIR/addons/visual_gasic" "$VG_ADDON_DIR"
+cp -rL "$SOURCE_DIR/addons/visual_gasic" "$VG_ADDON_DIR"
 
 # Remove .uid files (regenerated per-project)
 find "$VG_ADDON_DIR" -name "*.uid" -delete 2>/dev/null || true

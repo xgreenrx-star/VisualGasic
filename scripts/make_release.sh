@@ -70,6 +70,11 @@ echo -e "\n${YELLOW}[4/6] Copying files...${NC}"
 # Copy addon directory
 cp -r addons "${DEST}/"
 
+# Strip the disabled/incomplete gdsfx precursor -- it has no plugin.cfg (never
+# loads as a plugin) and only exists for reference. See
+# addons/visual_gasic/plugins/_disabled.gdsfx/README.disabled.md
+rm -rf "${DEST}/addons/visual_gasic/plugins/_disabled.gdsfx" 2>/dev/null || true
+
 # Copy documentation (full docs/ tree, excluding archive and dev-only files)
 cp -r docs "${DEST}/"
 rm -rf "${DEST}/docs/archive" 2>/dev/null || true

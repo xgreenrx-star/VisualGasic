@@ -39,3 +39,15 @@ cp bin/libgdsion.linux.template_release.x86_64.so \
 A helper script is provided at
 `addons/visual_gasic/plugins/vgmusic/build_gdsion.sh` — see
 [`build_gdsion.sh`](build_gdsion.sh).
+
+## Current platform support
+
+Only Linux x86_64 binaries are built and committed to [`bin/`](bin/) right
+now. `libgdsion.gdextension` only lists Linux entries to match — it does
+**not** reference macOS/Windows/Web/Android binaries that aren't shipped.
+Godot simply skips loading this GDExtension on platforms with no matching
+entry (no error, the VGMusic tab just won't have GDSiON playback). Add
+platform entries back to `libgdsion.gdextension` only once you've built and
+committed the corresponding binary using the steps above (cross-compiled or
+built natively on that platform).
+

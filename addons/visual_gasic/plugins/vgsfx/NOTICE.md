@@ -63,3 +63,11 @@ Teensy Audio Library by Brad Roy (https://github.com/prosper00).
 * Stephen Lavelle (increpare) — Bfxr / Bfxr2
 * Adventure Kid + Brad Roy — AKWF wavetables
 * Obiwannabe — Footstep generator (Phase 3 only)
+
+## VisualGasic's own code in this folder
+
+Everything else in `plugins/vgsfx/` not covered above (`plugin.cfg`,
+`vg_vgsfx_plugin.gd`, `vgsfx_dock.gd`, `vgsfx_pd*.gd`, etc.) is original
+VisualGasic glue code, licensed under the GNU General Public License v3.0 —
+see the root of the addon: [`../../LICENSE`](../../LICENSE).
+

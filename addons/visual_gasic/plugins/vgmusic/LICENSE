@@ -1,0 +1,14 @@
+This file covers `plugins/vgmusic/`'s own glue code only
+(`plugin.cfg`, `vg_vgmusic_plugin.gd`, `runtime/`, `build_gdsion.sh`) — an
+original component of VisualGasic (https://github.com/xgreenrx-star/VisualGasic),
+authored by the VisualGasic project.
+
+Licensed under the GNU General Public License v3.0 — see the full license
+text at the root of the addon: ../../LICENSE
+
+This plugin also vendors two separate MIT-licensed third-party projects,
+each with its own LICENSE file in its own subfolder — see `README.md` for
+full attribution:
+
+- `bosca/` — Bosca Ceoil Blue by Yuri Sizov & contributors (MIT) — see `bosca/LICENSE`
+- `bin/` — GDSiON by Yuri Sizov & contributors (MIT) — see `bin/LICENSE`
