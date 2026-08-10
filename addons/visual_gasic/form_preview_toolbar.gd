@@ -138,9 +138,19 @@ func _run_main_scene() -> void:
 		return
 	var editor = _editor_plugin.get_editor_interface()
 	editor.save_all_scenes()
-	# Always defer to the unified _run_project() so the form-designer-open-
-	# form fallback is used.  Without this, hitting Play in a project with
-	# no main_scene set silently does nothing.
+	# This action is an explicit override — "run the project's main scene no
+	# matter what form/scene is currently open". Call play_main_scene()
+	# directly instead of delegating to _run_project() (which now correctly
+	# prioritizes whatever form/scene the user has open for the "Run Current
+	# Scene" action). Only fall back to _run_project()'s smart-detection
+	# logic when no main_scene is configured, so Play still does something
+	# useful in a project with no main scene set.
+	var main_scene = ProjectSettings.get_setting("application/run/main_scene", "")
+	if main_scene is String and not main_scene.is_empty():
+		_save_breakpoints_for_preview()
+		print("VisualGasic: Running project main scene: ", main_scene)
+		editor.play_main_scene()
+		return
 	_run_project()
 
 
@@ -310,15 +320,12 @@ func _run_project() -> void:
 	# Save breakpoints so the game process can check them at startup
 	_save_breakpoints_for_preview()
 
-	# 1. Check for project main scene (explicit setting always wins)
-	var main_scene = ProjectSettings.get_setting("application/run/main_scene", "")
-	if main_scene is String and not main_scene.is_empty():
-		print("VisualGasic: Running project main scene: ", main_scene)
-		editor.play_main_scene()
-		return
-
-	# 1b. Prefer the form currently open in the Form Designer (VB6 style:
-	# pressing Run from inside a form always launches that form).
+	# 1. Prefer the form currently open in the Form Designer (VB6 style:
+	# pressing Run from inside a form always launches that form). This must
+	# come BEFORE the project main_scene check below — otherwise, in any
+	# project that has a main_scene configured (which is virtually every
+	# real project), Run would always launch that one scene no matter which
+	# form the user has open, which is exactly backwards from VB6 behavior.
 	var designer = _editor_plugin.get("_form_designer") if "_form_designer" in _editor_plugin else null
 	if designer and is_instance_valid(designer):
 		var fd_path := ""
@@ -338,7 +345,14 @@ func _run_project() -> void:
 		editor.play_custom_scene(scene_root.scene_file_path)
 		return
 
-	# 3. Try to find a startup form
+	# 3. Fall back to the project's main scene setting
+	var main_scene = ProjectSettings.get_setting("application/run/main_scene", "")
+	if main_scene is String and not main_scene.is_empty():
+		print("VisualGasic: Running project main scene: ", main_scene)
+		editor.play_main_scene()
+		return
+
+	# 4. Try to find a startup form
 	var startup = _find_startup_form()
 	if not startup.is_empty():
 		print("VisualGasic: Running startup form: ", startup)

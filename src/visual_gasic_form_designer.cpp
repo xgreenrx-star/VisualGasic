@@ -6455,8 +6455,15 @@ bool VisualGasicFormDesigner::open_form(const String &p_tscn_path) {
     // Auto-inject VB6 Classic Theme if the .tscn was saved before the theme
     // feature existed.  Only writes once; subsequent opens find the marker and skip.
     // Guard: only inject on Window or CanvasLayer roots — not on Node2D game scenes.
+    // Also recognize the external-Theme-resource convention used by forms
+    // generated via generate_vg_ui_tools.py (an ExtResource pointing at
+    // VB6Theme.tres) so those forms aren't destructively re-serialized with
+    // this class's own internal "vb6_theme" sub-resource on every single
+    // open — that previously forced a disk rewrite (and Godot's "reload from
+    // disk?" prompt) on every project launch for every such form.
     bool is_form_scene = text.find("type=\"Window\"") >= 0 || text.find("type=\"CanvasLayer\"") >= 0;
-    if (is_form_scene && text.find("vb6_theme") < 0) {
+    bool already_themed = text.find("vb6_theme") >= 0 || text.find("VB6Theme.tres") >= 0;
+    if (is_form_scene && !already_themed) {
         save_form_as(p_tscn_path);
         UtilityFunctions::print("FormDesigner: Auto-injected VB6 Classic Theme into ", p_tscn_path);
     }

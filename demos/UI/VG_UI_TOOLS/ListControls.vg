@@ -7,6 +7,10 @@
 ' in the Click handler via .get_selected().
 Option Explicit
 
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
+
 Private Sub Form_Load()
     lstItems.add_item("Alice")
     lstItems.add_item("Bob")

@@ -5,6 +5,10 @@
 ' changes -- use tabIndex (0-based) to know which page the user picked.
 Option Explicit
 
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
+
 Dim pnlToggled As Boolean
 
 Private Sub Form_Load()

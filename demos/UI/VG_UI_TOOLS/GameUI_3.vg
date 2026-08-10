@@ -10,6 +10,10 @@
 ' the node dynamically.
 Option Explicit
 
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
+
 Dim dialogLines As Variant
 Dim dialogIndex As Integer
 Dim confirmDlg As Object

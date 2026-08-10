@@ -7,6 +7,10 @@
 ' pick a close-enough base control and drive its look/behaviour from code.
 Option Explicit
 
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
+
 Dim expanded As Boolean
 Dim spinnerValue As Integer
 

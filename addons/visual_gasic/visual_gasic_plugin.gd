@@ -1759,10 +1759,15 @@ func _ensure_vgasic_child_in_tscn(tscn_path: String, vg_path: String) -> void:
 			last_ext_resource_idx = i
 			if vg_path in line:
 				has_vg_ext_resource = true
-				# Extract existing resource ID
-				var id_pos = line.find('id="')
+				# Extract existing resource ID. Must search for ' id="' (with a
+				# leading space) — a plain 'id="' search matches inside the
+				# 'uid="uid://...."' attribute that Godot 4 writes BEFORE the
+				# real id (since "uid=" contains "id=" as a substring), which
+				# previously captured the uid string itself as the id and
+				# produced a broken 'script = ExtResource("uid://...")' line.
+				var id_pos = line.find(' id="')
 				if id_pos >= 0:
-					var after_id = line.substr(id_pos + 4)
+					var after_id = line.substr(id_pos + 5)
 					existing_res_id = after_id.substr(0, after_id.find('"'))
 		if line.begins_with("[gd_scene"):
 			load_steps_line_idx = i
@@ -5799,23 +5804,14 @@ func _force_godot_scene_reload(tscn_path: String) -> void:
 		ResourceLoader.load(tscn_path, "PackedScene", ResourceLoader.CACHE_MODE_REPLACE)
 	EditorInterface.reload_scene_from_path(tscn_path)
 	print("[VG-SYNC]   reload_scene_from_path returned")
-	var _sr2 = EditorInterface.get_edited_scene_root()
-	if _sr2:
-		print("[VG-SYNC]   scene now has ", _sr2.get_child_count(), " children  path='", _sr2.scene_file_path, "'")
-		for _ci in _sr2.get_child_count():
-			print("[VG-SYNC]     child[", _ci, "] = ", _sr2.get_child(_ci).name, " (", _sr2.get_child(_ci).get_class(), ")")
-	# Apply VB6 Classic Theme to the freshly-reloaded scene root.
-	# The reload destroys the old tree and recreates from disk, so any
-	# previously-applied theme is lost.  Force-apply unconditionally.
-	_force_apply_vb6_theme_to_scene_root()
-
-	# Refresh the Code Navigator now that the scene root is guaranteed valid.
-	# (The navigator refresh on screen-change fires before open_scene_from_path
-	# resolves, so get_edited_scene_root() is null at that point.  This call
-	# runs after the reload completes and the root is available.)
-	var _nav_fgsr = _get_navigator()
-	if _nav_fgsr:
-		_nav_fgsr.refresh_objects()
+	
+	# CRITICAL: defer theme application and navigator refresh to next frame.
+	# reload_scene_from_path() destroys the old tree and recreates it, and the
+	# scene root can be in a "zombie" state (valid reference but mid-reconstruction).
+	# Accessing it immediately causes BadWindow errors on X11 when trying to
+	# manipulate UI elements/windows that are still being destroyed.
+	# See: /memories/repo/godot-editor-scene-root.md § "The root becomes a zombie"
+	call_deferred("_deferred_post_scene_reload_tasks", tscn_path)
 
 ## Patches Godot's in-memory scene tree to match the C++ FormDesigner state.
 ## This is CRITICAL because Godot's own scene saver writes the in-memory tree
@@ -5824,6 +5820,37 @@ func _force_godot_scene_reload(tscn_path: String) -> void:
 ## overwrites our correct .tscn with old values.
 ##
 ## By directly setting Window.size, _FormBackground offsets, and each child
+## Deferred task runner: applies VB6 theme and refreshes navigator after scene reload.
+## Called via call_deferred to allow the scene tree to fully reconstruct after
+## reload_scene_from_path() completes. This prevents BadWindow X11 errors that
+## occur when accessing the reloaded scene immediately.
+func _deferred_post_scene_reload_tasks(tscn_path: String) -> void:
+	# Verify the scene root is ready (not still mid-reconstruction)
+	var _sr = EditorInterface.get_edited_scene_root()
+	if not _sr:
+		print("[VG-SYNC]   Scene root not found after reload")
+		return
+	
+	# Debug log the scene structure
+	print("[VG-SYNC]   scene now has ", _sr.get_child_count(), " children  path='", _sr.scene_file_path, "'")
+	for _ci in _sr.get_child_count():
+		print("[VG-SYNC]     child[", _ci, "] = ", _sr.get_child(_ci).name, " (", _sr.get_child(_ci).get_class(), ")")
+	
+	# SAFE: Apply VB6 Classic Theme to the freshly-reloaded scene root.
+	# The reload destroys the old tree and recreates from disk, so any
+	# previously-applied theme is lost.  Force-apply unconditionally.
+	_force_apply_vb6_theme_to_scene_root()
+
+	# SAFE: Refresh the Code Navigator now that the scene root is guaranteed valid.
+	# (The navigator refresh on screen-change fires before open_scene_from_path
+	# resolves, so get_edited_scene_root() is null at that point.  This call
+	# runs after the reload completes and the root is available.)
+	var _nav = _get_navigator()
+	if _nav:
+		_nav.refresh_objects()
+	
+	print("[VG-SYNC]   Post-reload tasks completed")
+
 ## control's offsets, we guarantee the in-memory tree always matches C++.
 func _sync_form_state_to_scene_tree() -> void:
 	if not is_instance_valid(_form_designer):

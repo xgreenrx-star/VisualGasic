@@ -2694,6 +2694,28 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
     if (owner) {
         Node *n = Object::cast_to<Node>(owner);
         if (n) {
+            // TweenProperty <object>, "<property_path>", <final_value>, <duration>
+            // NOTE: this statement is also handled inline in the AST tree-walk
+            // executor (visual_gasic_instance_execute.inc) and the expression
+            // evaluator (visual_gasic_instance_evaluate.inc). Bytecode-compiled
+            // Subs route bare statement calls through dispatch_builtin_call()
+            // instead, so it must be handled here too or bytecode-compiled Subs
+            // fail with "Sub or Function not defined: TweenProperty".
+            if (p_method.nocasecmp_to("TweenProperty") == 0 && p_args.size() == 4) {
+                if (p_args[0].get_type() == Variant::OBJECT) {
+                    Object *obj = p_args[0];
+                    String prop = p_args[1];
+                    Variant final_val = p_args[2];
+                    double duration = p_args[3];
+                    if (obj) {
+                        Ref<Tween> t = n->create_tween();
+                        t->tween_property(obj, NodePath(prop), final_val, duration);
+                    }
+                }
+                r_found = true;
+                return;
+            }
+
             if (p_method.nocasecmp_to("PlaySound") == 0 && p_args.size() >= 1) {
                 String path = p_args[0];
                 Ref<AudioStream> stream = ResourceLoader::get_singleton()->load(path);

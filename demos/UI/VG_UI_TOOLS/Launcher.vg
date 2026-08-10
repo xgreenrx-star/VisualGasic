@@ -1,0 +1,56 @@
+' Launcher — VisualGasic UI Toolkit Showcase
+' The project''s main scene. Each button below opens one of the other 11
+' forms via GetTree().change_scene_to_file() -- the same technique used to
+' move between screens in demos/UI/Calculator (see Form7.vg). Every other
+' form in this project has a matching ◀ Menu button (see make_form_head''s
+' show_menu_button in generate_vg_ui_tools.py) that calls
+' change_scene_to_file("res://Launcher.tscn") to come back here.
+Option Explicit
+
+Private Sub Form_Load()
+    lblFeedback.Text = "Pick any demo above to get started."
+End Sub
+
+Private Sub btnOpenBasicControls_Click()
+    GetTree().change_scene_to_file("res://BasicControls.tscn")
+End Sub
+
+Private Sub btnOpenListControls_Click()
+    GetTree().change_scene_to_file("res://ListControls.tscn")
+End Sub
+
+Private Sub btnOpenContainerControls_Click()
+    GetTree().change_scene_to_file("res://ContainerControls.tscn")
+End Sub
+
+Private Sub btnOpenDisplayControls_Click()
+    GetTree().change_scene_to_file("res://DisplayControls.tscn")
+End Sub
+
+Private Sub btnOpenAdvancedControls_Click()
+    GetTree().change_scene_to_file("res://AdvancedControls.tscn")
+End Sub
+
+Private Sub btnOpenTimerAndAnimation_Click()
+    GetTree().change_scene_to_file("res://TimerAndAnimation.tscn")
+End Sub
+
+Private Sub btnOpenCustomWidgets_Click()
+    GetTree().change_scene_to_file("res://CustomWidgets.tscn")
+End Sub
+
+Private Sub btnOpenMenusAndStatus_Click()
+    GetTree().change_scene_to_file("res://MenusAndStatus.tscn")
+End Sub
+
+Private Sub btnOpenGameUI_1_Click()
+    GetTree().change_scene_to_file("res://GameUI_1.tscn")
+End Sub
+
+Private Sub btnOpenGameUI_2_Click()
+    GetTree().change_scene_to_file("res://GameUI_2.tscn")
+End Sub
+
+Private Sub btnOpenGameUI_3_Click()
+    GetTree().change_scene_to_file("res://GameUI_3.tscn")
+End Sub

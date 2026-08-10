@@ -2,6 +2,10 @@
 ' Controls demonstrated: ColorRect, PictureBox (TextureRect), RichTextLabel, Polygon2D-based Pie Chart
 Option Explicit
 
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
+
 ' VG has no built-in PI constant -- it must be declared, per the VG language
 ' reference for Sin/Cos.
 Const PI As Double = 3.14159265358979

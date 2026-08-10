@@ -40,7 +40,7 @@ config_version=5
 [application]
 config/name="VG_UI_Tools"
 config/description="VisualGasic UI Toolkit — interactive demo forms for every control in the VisualGasic IDE."
-run/main_scene="res://BasicControls.tscn"
+run/main_scene="res://Launcher.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
 
 [autoload]
@@ -99,7 +99,7 @@ content_margin_bottom = 6.0
 # TSCN generators for each form
 # =========================================================================
 
-def make_form_head(form_name, title, size=(640, 520), extra_ext_resources=None, extra_subresources=""):
+def make_form_head(form_name, title, size=(640, 520), extra_ext_resources=None, extra_subresources="", show_menu_button=True):
     w, h = size
     lines = [
         '[gd_scene load_steps=14 format=3]',
@@ -136,12 +136,30 @@ def make_form_head(form_name, title, size=(640, 520), extra_ext_resources=None, 
         '[node name="VBox" type="VBoxContainer" parent="ScrollContainer"]',
         f'offset_right = {float(w)}',
         '',
-        '[node name="lblHeader" type="Label" parent="ScrollContainer/VBox"]',
-        f'text = "{title}"',
-        'theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)',
-        'theme_override_styles/normal = SubResource("header_bg")',
-        'theme_override_font_sizes/font_size = 16',
     ]
+    if show_menu_button:
+        lines += [
+            '[node name="hdrRow" type="HBoxContainer" parent="ScrollContainer/VBox"]',
+            '',
+            '[node name="lblHeader" type="Label" parent="ScrollContainer/VBox/hdrRow"]',
+            f'text = "{title}"',
+            'theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)',
+            'theme_override_styles/normal = SubResource("header_bg")',
+            'theme_override_font_sizes/font_size = 16',
+            'size_flags_horizontal = 3',
+            '',
+            '[node name="btnMenu" type="Button" parent="ScrollContainer/VBox/hdrRow"]',
+            'text = "\u25c0 Menu"',
+            'tooltip_text = "Back to the VG_UI_TOOLS showcase menu"',
+        ]
+    else:
+        lines += [
+            '[node name="lblHeader" type="Label" parent="ScrollContainer/VBox"]',
+            f'text = "{title}"',
+            'theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)',
+            'theme_override_styles/normal = SubResource("header_bg")',
+            'theme_override_font_sizes/font_size = 16',
+        ]
     return lines
 
 
@@ -399,8 +417,8 @@ def menu_button(name, text, parent="ScrollContainer/VBox/hboxMenuBar"):
     return [f'[node name="{name}" type="MenuButton" parent="{parent}"]', f'text = "{text}"', 'flat = false']
 
 
-def build_full_tscn(form_name, title, size, body_blocks, extra_ext_resources=None, extra_subresources=""):
-    head = make_form_head(form_name, title, size, extra_ext_resources, extra_subresources)
+def build_full_tscn(form_name, title, size, body_blocks, extra_ext_resources=None, extra_subresources="", show_menu_button=True):
+    head = make_form_head(form_name, title, size, extra_ext_resources, extra_subresources, show_menu_button)
     all_lines = head[:]
     all_lines.append('')
     for block in body_blocks:
@@ -456,6 +474,10 @@ BASIC_VG = '''\' BasicControls — VisualGasic UI Toolkit Demo
 \'   or the handler silently stops firing (no compile error, since VG can''t
 \'   know your intent at compile time).
 Option Explicit
+
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
 
 Dim clickCount As Integer
 
@@ -577,6 +599,10 @@ LIST_VG = '''\' ListControls — VisualGasic UI Toolkit Demo
 \' in the Click handler via .get_selected().
 Option Explicit
 
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
+
 Private Sub Form_Load()
     lstItems.add_item("Alice")
     lstItems.add_item("Bob")
@@ -687,6 +713,10 @@ CONTAINER_VG = '''\' ContainerControls — VisualGasic UI Toolkit Demo
 \' changes -- use tabIndex (0-based) to know which page the user picked.
 Option Explicit
 
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
+
 Dim pnlToggled As Boolean
 
 Private Sub Form_Load()
@@ -764,6 +794,10 @@ DISPLAY_BODY = [
 DISPLAY_VG = '''\' DisplayControls — VisualGasic UI Toolkit Demo
 \' Controls demonstrated: ColorRect, PictureBox (TextureRect), RichTextLabel, Polygon2D-based Pie Chart
 Option Explicit
+
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
 
 \' VG has no built-in PI constant -- it must be declared, per the VG language
 \' reference for Sin/Cos.
@@ -922,7 +956,7 @@ ADVANCED_BODY = [
     hbox_pair("spnQuantity", "Qty:", spin_box("spnQuantity", 10, 1, 1000)),
     label("lblSpinTotal", "Total (Qty × $1.50): $15.00", font_size=11),
     section_label("secLinkButton", "── LinkButton — opens your browser ──"),
-    link_button("lnkWebsite", "Visit VisualGasic on GitHub", uri="https://github.com/VisualGasic"),
+    link_button("lnkWebsite", "Visit the VisualGasic Website", uri="https://xgreenrx-star.github.io/VisualGasic/"),
     section_label("secCheckList", "── CheckBox List — enables Save when any are checked ──"),
     checkbox("chkOption1", "Option A — Email notifications", checked=True),
     checkbox("chkOption2", "Option B — SMS alerts"),
@@ -949,6 +983,10 @@ ADVANCED_VG = '''\' AdvancedControls — VisualGasic UI Toolkit Demo
 \' above is what allows browsing outside res://) and reports its exact size,
 \' proving the dialog returns a real, readable path rather than a placeholder.
 Option Explicit
+
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
 
 Dim openDlg As Object
 Dim saveDlg As Object
@@ -1069,6 +1107,10 @@ TIMER_VG = '''\' TimerAndAnimation — VisualGasic UI Toolkit Demo
 \' that wraps Godot''s Tween API for animating any property over time.
 Option Explicit
 
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
+
 Dim seconds As Integer
 Dim currentMonth As Integer
 Dim currentYear As Integer
@@ -1184,6 +1226,10 @@ CUSTOM_VG = '''\' CustomWidgets — VisualGasic UI Toolkit Demo
 \' pick a close-enough base control and drive its look/behaviour from code.
 Option Explicit
 
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
+
 Dim expanded As Boolean
 Dim spinnerValue As Integer
 
@@ -1290,6 +1336,10 @@ MENUS_VG = '''\' MenusAndStatus — VisualGasic UI Toolkit Demo
 \' id. Keyboard shortcuts are read in _Input() by checking ev.keycode and
 \' ev.ctrl_pressed -- this is the general pattern for any global hotkey.
 Option Explicit
+
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
 
 Dim ctxMenu As Object
 
@@ -1475,6 +1525,10 @@ GAME1_VG = '''\' GameUI_1 — Game UI: HUD & Bars — VisualGasic UI Toolkit Dem
 \' tmrCooldown is a real Timer node: it disables the ability button on use
 \' and its own _Timer handler re-enables it once wait_time elapses.
 Option Explicit
+
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
 
 Dim score As Integer
 Dim hp As Integer
@@ -1665,6 +1719,10 @@ GAME2_VG = '''\' GameUI_2 — Game UI: Inventory & Map — VisualGasic UI Toolki
 \' every other property assignment in this project.
 Option Explicit
 
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
+
 Dim skillPoints As Integer
 
 Private Sub Form_Load()
@@ -1776,6 +1834,10 @@ GAME3_VG = '''\' GameUI_3 — Game UI: Dialogs & Chat — VisualGasic UI Toolkit
 \' the node dynamically.
 Option Explicit
 
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
+
 Dim dialogLines As Variant
 Dim dialogIndex As Integer
 Dim confirmDlg As Object
@@ -1843,20 +1905,102 @@ End Sub
 '''
 
 # =========================================================================
+# Form 0: Launcher (showcase menu — links to every other form)
+# =========================================================================
+LAUNCHER_BODY = [
+    label("lblIntro",
+          "Click a demo below to open it. Every form has a \u25c0 Menu\n"
+          "button in its header that brings you back here.",
+          font_size=13),
+    section_label("secForms", "── Demo Forms ──"),
+    button("btnOpenBasicControls", "Basic Controls", tooltip="Buttons, text input, radio buttons, ComboBox, sliders"),
+    button("btnOpenListControls", "List Controls", tooltip="ItemList, Tree, ComboBox, DriveListBox"),
+    button("btnOpenContainerControls", "Container Controls", tooltip="TabContainer, clickable Panel, toolbar"),
+    button("btnOpenDisplayControls", "Display Controls", tooltip="ColorRect, PictureBox, RichTextLabel, live pie chart"),
+    button("btnOpenAdvancedControls", "Advanced Controls", tooltip="SpinBoxes, CheckBox list, real FileDialogs"),
+    button("btnOpenTimerAndAnimation", "Timer & Animation", tooltip="Live clock, TweenProperty animations, calendar picker"),
+    button("btnOpenCustomWidgets", "Custom Widgets", tooltip="Dark-mode toggle, breadcrumbs, spinner, masked input"),
+    button("btnOpenMenusAndStatus", "Menus & Status", tooltip="MenuButton+PopupMenu, context menu, keyboard shortcuts"),
+    button("btnOpenGameUI_1", "Game UI — HUD & Bars", tooltip="StatBar, RetroLifeBar, SegmentedProgressBar, XPBar, AmmoCounter, PixelProgressBar, CircularProgress"),
+    button("btnOpenGameUI_2", "Game UI — Inventory & Map", tooltip="Inventory ItemList, SkillTree, quest tracker, Compass"),
+    button("btnOpenGameUI_3", "Game UI — Dialogs & Chat", tooltip="NPC dialogue, ConfirmationDialog, toast, chat box"),
+    feedback_label(text="Pick any demo above to get started."),
+]
+
+LAUNCHER_VG = '''\' Launcher — VisualGasic UI Toolkit Showcase
+\' The project''s main scene. Each button below opens one of the other 11
+\' forms via GetTree().change_scene_to_file() -- the same technique used to
+\' move between screens in demos/UI/Calculator (see Form7.vg). Every other
+\' form in this project has a matching ◀ Menu button (see make_form_head''s
+\' show_menu_button in generate_vg_ui_tools.py) that calls
+\' change_scene_to_file("res://Launcher.tscn") to come back here.
+Option Explicit
+
+Private Sub Form_Load()
+    lblFeedback.Text = "Pick any demo above to get started."
+End Sub
+
+Private Sub btnOpenBasicControls_Click()
+    GetTree().change_scene_to_file("res://BasicControls.tscn")
+End Sub
+
+Private Sub btnOpenListControls_Click()
+    GetTree().change_scene_to_file("res://ListControls.tscn")
+End Sub
+
+Private Sub btnOpenContainerControls_Click()
+    GetTree().change_scene_to_file("res://ContainerControls.tscn")
+End Sub
+
+Private Sub btnOpenDisplayControls_Click()
+    GetTree().change_scene_to_file("res://DisplayControls.tscn")
+End Sub
+
+Private Sub btnOpenAdvancedControls_Click()
+    GetTree().change_scene_to_file("res://AdvancedControls.tscn")
+End Sub
+
+Private Sub btnOpenTimerAndAnimation_Click()
+    GetTree().change_scene_to_file("res://TimerAndAnimation.tscn")
+End Sub
+
+Private Sub btnOpenCustomWidgets_Click()
+    GetTree().change_scene_to_file("res://CustomWidgets.tscn")
+End Sub
+
+Private Sub btnOpenMenusAndStatus_Click()
+    GetTree().change_scene_to_file("res://MenusAndStatus.tscn")
+End Sub
+
+Private Sub btnOpenGameUI_1_Click()
+    GetTree().change_scene_to_file("res://GameUI_1.tscn")
+End Sub
+
+Private Sub btnOpenGameUI_2_Click()
+    GetTree().change_scene_to_file("res://GameUI_2.tscn")
+End Sub
+
+Private Sub btnOpenGameUI_3_Click()
+    GetTree().change_scene_to_file("res://GameUI_3.tscn")
+End Sub
+'''
+
+# =========================================================================
 # Assemble all forms
 # =========================================================================
 FORMS = [
-    ("BasicControls", "Basic Controls", (640, 560), BASIC_BODY, BASIC_VG, GENDER_GROUP, None),
-    ("ListControls", "List Controls", (640, 620), LIST_BODY, LIST_VG, "", None),
-    ("ContainerControls", "Container Controls", (640, 480), CONTAINER_BODY, CONTAINER_VG, "", None),
-    ("DisplayControls", "Display Controls", (640, 560), DISPLAY_BODY, DISPLAY_VG, "", None),
-    ("AdvancedControls", "Advanced Controls", (640, 560), ADVANCED_BODY, ADVANCED_VG, "", None),
-    ("TimerAndAnimation", "Timer & Animation", (640, 640), TIMER_BODY, TIMER_VG, "", None),
-    ("CustomWidgets", "Custom Widgets", (640, 560), CUSTOM_BODY, CUSTOM_VG, "", None),
-    ("MenusAndStatus", "Menus & Status", (640, 440), MENUS_BODY, MENUS_VG, "", None),
-    ("GameUI_1", "Game UI — HUD & Bars", (640, 700), GAME1_BODY, GAME1_VG, "", GAME1_EXT_RESOURCES),
-    ("GameUI_2", "Game UI — Inventory & Map", (640, 600), GAME2_BODY, GAME2_VG, "", GAME2_EXT_RESOURCES),
-    ("GameUI_3", "Game UI — Dialogs & Chat", (640, 640), GAME3_BODY, GAME3_VG, "", None),
+    ("Launcher", "VisualGasic UI Toolkit — Showcase", (640, 620), LAUNCHER_BODY, LAUNCHER_VG, "", None, False),
+    ("BasicControls", "Basic Controls", (640, 560), BASIC_BODY, BASIC_VG, GENDER_GROUP, None, True),
+    ("ListControls", "List Controls", (640, 620), LIST_BODY, LIST_VG, "", None, True),
+    ("ContainerControls", "Container Controls", (640, 480), CONTAINER_BODY, CONTAINER_VG, "", None, True),
+    ("DisplayControls", "Display Controls", (640, 560), DISPLAY_BODY, DISPLAY_VG, "", None, True),
+    ("AdvancedControls", "Advanced Controls", (640, 560), ADVANCED_BODY, ADVANCED_VG, "", None, True),
+    ("TimerAndAnimation", "Timer & Animation", (640, 640), TIMER_BODY, TIMER_VG, "", None, True),
+    ("CustomWidgets", "Custom Widgets", (640, 560), CUSTOM_BODY, CUSTOM_VG, "", None, True),
+    ("MenusAndStatus", "Menus & Status", (640, 440), MENUS_BODY, MENUS_VG, "", None, True),
+    ("GameUI_1", "Game UI — HUD & Bars", (640, 700), GAME1_BODY, GAME1_VG, "", GAME1_EXT_RESOURCES, True),
+    ("GameUI_2", "Game UI — Inventory & Map", (640, 600), GAME2_BODY, GAME2_VG, "", GAME2_EXT_RESOURCES, True),
+    ("GameUI_3", "Game UI — Dialogs & Chat", (640, 640), GAME3_BODY, GAME3_VG, "", None, True),
 ]
 
 
@@ -1884,11 +2028,11 @@ def main():
     if not os.path.islink(addon_link) and not os.path.exists(addon_link):
         os.symlink("../../../../addons/visual_gasic", addon_link)
 
-    for form_name, title, size, body, vg_code, extra_sub, extra_ext in FORMS:
+    for form_name, title, size, body, vg_code, extra_sub, extra_ext, show_menu in FORMS:
         tscn_path = os.path.join(OUT, f"{form_name}.tscn")
         vg_path = os.path.join(OUT, f"{form_name}.vg")
 
-        tscn_content = build_full_tscn(form_name, title, size, body, extra_ext, extra_sub)
+        tscn_content = build_full_tscn(form_name, title, size, body, extra_ext, extra_sub, show_menu)
         with open(tscn_path, "w") as f:
             f.write(tscn_content)
 
@@ -1910,13 +2054,17 @@ This is a self-contained Godot project, just like the other folders under `demos
 shared addon, so it always runs the same VisualGasic build as everything else.
 
 1. Open Godot 4.6+ → Import → select `project.godot` inside `demos/UI/VG_UI_TOOLS/`.
-2. Open any `.tscn` file in the VisualGasic Form Designer.
-3. Click **▶ Run** to test the form standalone.
+2. Press **F5** (or click ▶ Run) — the project's main scene is `Launcher.tscn`, a
+   menu that links to every demo form below. Click any button to open that demo;
+   click the **◀ Menu** button in any form's header to come back to the launcher.
+3. You can also open any individual `.tscn` file in the VisualGasic Form Designer
+   and click **▶ Run** to test that form standalone.
 
 ## Forms
 
 | File | What it demonstrates |
 |------|-----------------------|
+| `Launcher.tscn` | The project's main scene — a menu linking to every demo form below |
 | `BasicControls.tscn` | Buttons, live text-input feedback, password strength, word count, radio-button group, ComboBox, sliders that drive a ProgressBar |
 | `ListControls.tscn` | Add/remove ItemList items, a populated Tree, ComboBox selection, and a real OS-aware DriveListBox |
 | `ContainerControls.tscn` | A real multi-page TabContainer, a clickable Panel, and toolbar buttons |
@@ -1936,6 +2084,7 @@ All forms use `VB6Theme.tres` — the VisualGasic Classic VB6 theme with white b
 ## Notes
 
 - Every form has a yellow feedback label at the bottom that reports what you just did — this is the fastest way to see that a control is wired up correctly.
+- Every form (except the Launcher) has a **◀ Menu** button in its header that calls `GetTree().change_scene_to_file("res://Launcher.tscn")` to return to the showcase menu.
 - Event handlers follow the standard VisualGasic auto-wire convention: `ControlName_Click`, `ControlName_Change`, `ControlName_Timer`, etc. (see `demo/test_suites/test_events.vg` for the full reference).
 - This project is generated by `generate_vg_ui_tools.py` at the repo root — re-run it after editing that script to regenerate every form.
 """

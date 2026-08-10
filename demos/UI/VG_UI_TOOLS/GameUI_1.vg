@@ -21,6 +21,10 @@
 ' and its own _Timer handler re-enables it once wait_time elapses.
 Option Explicit
 
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
+
 Dim score As Integer
 Dim hp As Integer
 Dim mp As Integer

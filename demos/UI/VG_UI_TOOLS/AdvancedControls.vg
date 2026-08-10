@@ -13,6 +13,10 @@
 ' proving the dialog returns a real, readable path rather than a placeholder.
 Option Explicit
 
+Private Sub btnMenu_Click()
+    GetTree().change_scene_to_file("res://Launcher.tscn")
+End Sub
+
 Dim openDlg As Object
 Dim saveDlg As Object
 

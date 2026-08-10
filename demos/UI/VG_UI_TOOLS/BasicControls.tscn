@@ -42,7 +42,6 @@ title = "Basic Controls"
 initial_position = 1
 size = Vector2i(640, 560)
 theme = ExtResource("1")
-script = ExtResource("2")
 
 [node name="_FormBackground" type="Panel" parent="."]
 offset_right = 640.0
@@ -58,11 +57,18 @@ follow_focus = true
 [node name="VBox" type="VBoxContainer" parent="ScrollContainer"]
 offset_right = 640.0
 
-[node name="lblHeader" type="Label" parent="ScrollContainer/VBox"]
+[node name="hdrRow" type="HBoxContainer" parent="ScrollContainer/VBox"]
+
+[node name="lblHeader" type="Label" parent="ScrollContainer/VBox/hdrRow"]
 text = "Basic Controls"
 theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1.0)
 theme_override_styles/normal = SubResource("header_bg")
 theme_override_font_sizes/font_size = 16
+size_flags_horizontal = 3
+
+[node name="btnMenu" type="Button" parent="ScrollContainer/VBox/hdrRow"]
+text = "◀ Menu"
+tooltip_text = "Back to the VG_UI_TOOLS showcase menu"
 
 [node name="secButtons" type="Label" parent="ScrollContainer/VBox"]
 text = "── Buttons ──"
@@ -184,3 +190,5 @@ autowrap_mode = 3
 theme_override_styles/normal = SubResource("feedback_bg")
 theme_override_font_sizes/font_size = 12
 
+[node name="VGASIC" type="Node" parent="."]
+script = ExtResource("2")
