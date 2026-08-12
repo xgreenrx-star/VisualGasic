@@ -980,7 +980,7 @@ Short, finishable list. **No new aspirational items.**
 
 **STRATEGIC DECISION — August 12, 2026 (User):**
 
-The VG IDE is being **refactored from a full-featured shell down to a specialized Text Editor only**. The 2D/3D viewport editors are being **removed entirely** since Godot's native 2D/3D editors already exist and are superior. This reduces scope while preserving VG's unique value-add (more functional text editor than Godot's native editor).
+The VG IDE is being **refactored to keep the text editor (more functional than Godot's native editor), properties, and everything else other than the 2D/3D viewport editors**. The custom 2D/3D viewport editors are being **removed entirely** since Godot's native 2D/3D editors already exist and are sufficient. This reduces scope while preserving VG's unique value-add (more functional text editor than Godot's native editor).
 
 #### v6.1–v6.2 Roadmap: Floating Panels
 
@@ -994,7 +994,7 @@ The VG IDE is being **refactored from a full-featured shell down to a specialize
 | Feature | Scope | Rationale |
 |---------|-------|----------|
 | **VG Text Editor as Standalone Window** | Keep the VG text editor (more functional than Godot's native editor), move to floating `Window`. Syntax highlighting, VB6 intellisense, breakpoint gutters, call-stack debug view. Syncs with Godot file system and open script state. | VG text editor's feature set justifies a separate tool. |
-| **Remove VG IDE 2D/3D Viewport Editors** | **DELETE** the custom 2D and 3D canvas implementations from the IDE shell. Users use Godot's native 2D/3D editors for layout/preview. VG focus is on CODE readability, not visual editing. | Godot's 2D/3D editors are battle-tested and superior. No need to reinvent. Removes ~40% of IDE scope. |
+| **Remove VG IDE 2D/3D Viewport Editors** | **DELETE** the custom 2D and 3D canvas implementations from the IDE shell. Users use Godot's native 2D/3D editors for layout/preview. VG focus is on CODE readability, not visual editing. | Godot's native 2D/3D editors are sufficient; no need to reinvent. Removes ~40% of IDE scope. |
 | **VG IDE Lifecycle** | v6.1+ (post-stable): Extract as a separate application OR as a Godot `Window` in the same plugin process (TBD). Both approaches viable; window-in-process is simpler (~M-size), separate app is more powerful (~L-size). | Mothballed until post-v6.0 stable. When revisited, user will decide window vs. app approach. |
 
 **Prerequisite for VG text editor work**: Define "more functional than Godot's native editor" concretely — what features does it have that Godot's CodeEdit lacks? Document the feature matrix and prioritize which are worth shipping in the refactored version.
