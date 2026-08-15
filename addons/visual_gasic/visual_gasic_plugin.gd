@@ -13152,7 +13152,17 @@ func _check_script_editor_for_vg():
 	# This provides form control names, VB6 keywords, and variables as
 	# suggestions when editing .vg files outside the VG IDE.
 	if script_path.ends_with(".vg"):
-		_setup_native_code_completion(code_edit)
+		# Only hook Godot's native Script editor CodeEdit — not VGCodeEdit.
+		var is_vg_embedded := false
+		if code_edit.get_script():
+			is_vg_embedded = str(code_edit.get_script().resource_path).ends_with("vg_code_edit.gd")
+		if not is_vg_embedded:
+			_setup_native_code_completion(code_edit)
+			var VGNativeEditorIndent = load("res://addons/visual_gasic/vg_native_editor_indent.gd")
+			if VGNativeEditorIndent:
+				VGNativeEditorIndent.attach(code_edit)
+			# Disconnect any stale completion handler from prior plugin loads.
+			_disconnect_native_code_completion(code_edit)
 
 	# Refresh navigator for the new script.
 	# Schedule a second refresh 0.3s later in case the CodeEdit text buffer
@@ -13242,28 +13252,22 @@ func _is_valid_identifier(name: String) -> bool:
 
 
 ## Enable VG code completion on a native Script editor CodeEdit for .vg files.
-## Adds form control names, VB6 keywords, and local variables as suggestions
-## alongside Godot's own completions from the C++ ScriptLanguageExtension.
-func _setup_native_code_completion(code_edit: CodeEdit) -> void:
-	code_edit.code_completion_enabled = true
-	# Merge letter prefixes with any existing ones so typing triggers completion.
-	# Godot's built-in prefixes (e.g. ".") are preserved; we add A-Z, a-z.
-	var existing: Array[String] = []
-	for p in code_edit.code_completion_prefixes:
-		existing.append(p)
-	for i in range(65, 91):  # A–Z
-		var c: String = char(i)
-		if c not in existing:
-			existing.append(c)
-	for i in range(97, 123):  # a–z
-		var c: String = char(i)
-		if c not in existing:
-			existing.append(c)
-	if "." not in existing:
-		existing.append(".")
-	code_edit.code_completion_prefixes = existing
-	if not code_edit.code_completion_requested.is_connected(_on_native_code_completion_requested):
-		code_edit.code_completion_requested.connect(_on_native_code_completion_requested.bind(code_edit))
+## DISABLED: GDScript completion augmentation crashes Godot (signal 11) when
+## combined with VisualGasic ScriptLanguageExtension's own _complete_code path.
+## Native .vg completions come from the C++ extension; use VGCodeEdit in the
+## embedded IDE for the full VB6-style completion experience.
+func _setup_native_code_completion(_code_edit: CodeEdit) -> void:
+	pass
+
+
+## Remove legacy code_completion_requested hooks that crash with the C++ extension.
+func _disconnect_native_code_completion(code_edit: CodeEdit) -> void:
+	if not is_instance_valid(code_edit):
+		return
+	for conn in code_edit.code_completion_requested.get_connections():
+		var callable: Callable = conn["callable"]
+		if callable.get_method() == "_on_native_code_completion_requested":
+			code_edit.code_completion_requested.disconnect(callable)
 
 
 ## Provides VG-aware completions in the native Script editor's CodeEdit.
@@ -13271,18 +13275,33 @@ func _setup_native_code_completion(code_edit: CodeEdit) -> void:
 ## completions (from the C++ language extension) are preserved — we only
 ## append additional items.
 func _on_native_code_completion_requested(code_edit: CodeEdit) -> void:
+	if not is_instance_valid(code_edit):
+		return
+	if not code_edit.is_inside_tree():
+		return
+	if code_edit.get_script() and str(code_edit.get_script().resource_path).ends_with("vg_code_edit.gd"):
+		return
+
+	var caret_line := code_edit.get_caret_line()
+	if caret_line < 0 or caret_line >= code_edit.get_line_count():
+		return
+
 	var line_text: String = code_edit.get_line(code_edit.get_caret_line())
 	var col: int = code_edit.get_caret_column()
+	if col < 0:
+		return
 
 	# Build a map of control names → Godot class for dot-completion
 	var control_map: Dictionary = {}  # { "TextBox1": "LineEdit", ... }
 	var scene_root = EditorInterface.get_edited_scene_root()
-	if scene_root:
+	if is_instance_valid(scene_root):
 		for child in scene_root.get_children():
+			if not is_instance_valid(child):
+				continue
 			var n: String = child.name
 			if not n.is_empty() and n != "VGASIC":
 				control_map[n] = child.get_class()
-	if _form_designer:
+	if is_instance_valid(_form_designer):
 		var count = _form_designer.get_control_count()
 		for i in count:
 			var info = _form_designer.get_control_info(i)

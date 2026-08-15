@@ -2318,93 +2318,9 @@ func _auto_capitalize_line(line_idx: int) -> void:
 	if line_idx < 0 or line_idx >= get_line_count():
 		return
 	var line_text: String = get_line(line_idx)
-	if line_text.strip_edges().is_empty():
-		return
-	
-	# ── Comment syntax translation (pre-pass) ──
-	# Translate // and # comment prefixes to VB6's ' prefix
-	var orig_line: String = line_text
-	var stripped_cmnt := line_text.strip_edges(true, false)
-	if stripped_cmnt.begins_with("//"):
-		var ws := line_text.substr(0, line_text.length() - stripped_cmnt.length())
-		line_text = ws + "'" + stripped_cmnt.substr(2)
-	elif stripped_cmnt.begins_with("# ") or stripped_cmnt == "#":
-		var ws := line_text.substr(0, line_text.length() - stripped_cmnt.length())
-		line_text = ws + "'" + stripped_cmnt.substr(1)
-	
-	# Skip comment lines (don't touch content after ')
-	var stripped = line_text.strip_edges()
-	if stripped.begins_with("'") or stripped.to_upper().begins_with("REM "):
-		if line_text != orig_line:
-			set_line(line_idx, line_text)
-		return
-	
-	# Walk through the line replacing keywords with correct casing
-	var new_line: String = ""
-	var i: int = 0
-	var in_string: bool = false
-	var in_comment: bool = false
-	var line_len: int = line_text.length()
-	
-	while i < line_len:
-		var ch: String = line_text[i]
-		
-		# Toggle string mode
-		if ch == "\"" and not in_comment:
-			in_string = not in_string
-			new_line += ch
-			i += 1
-			continue
-		
-		# Enter comment mode
-		if ch == "'" and not in_string:
-			# Append rest of line as-is
-			new_line += line_text.substr(i)
-			break
-		
-		# Inside a string literal — pass through unchanged
-		if in_string:
-			new_line += ch
-			i += 1
-			continue
-		
-		# Collect a word (identifier)
-		if _is_ident_char(ch):
-			var word_start: int = i
-			while i < line_len and _is_ident_char(line_text[i]):
-				i += 1
-			var word: String = line_text.substr(word_start, i - word_start)
-			var lower_word: String = word.to_lower()
-			
-			# Check cross-language translations first (var→Dim, func→Function, etc.)
-			if CROSS_LANG_TRANSLATIONS.has(lower_word):
-				new_line += CROSS_LANG_TRANSLATIONS[lower_word]
-			# Check VB6 keyword casing
-			elif VB6_KEYWORD_CASING.has(lower_word):
-				new_line += VB6_KEYWORD_CASING[lower_word]
-			else:
-				# Also check builtin functions for proper casing
-				var matched_builtin: bool = false
-				for func_info in VGIntelliSense.BUILTIN_FUNCTIONS:
-					if func_info["name"].to_lower() == lower_word:
-						new_line += func_info["name"]
-						matched_builtin = true
-						break
-				if not matched_builtin:
-					new_line += word  # Keep original casing
-		else:
-			new_line += ch
-			i += 1
-	
-	# Post-process: "Else If " → "ElseIf " (common cross-language pattern)
-	new_line = new_line.replace("Else If ", "ElseIf ")
-	if new_line.ends_with("Else If"):
-		new_line = new_line.substr(0, new_line.length() - 7) + "ElseIf"
-	
-	# Only update the line if it actually changed (compare against original)
-	if new_line != orig_line:
-		# Save caret position — we're editing a line the caret is NOT on
-		set_line(line_idx, new_line)
+	var corrected := VGKeywordAutocorrect.autocorrect_line(line_text)
+	if corrected != line_text:
+		set_line(line_idx, corrected)
 
 func _is_ident_char(ch: String) -> bool:
 	var code: int = ch.unicode_at(0)
