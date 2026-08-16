@@ -1,6 +1,6 @@
 # VisualGasic Release Schedule
 
-**Last Updated:** August 7, 2026  
+**Last Updated:** August 16, 2026  
 **Target:** Stable v6.0 on January 1, 2027
 
 ---
@@ -9,7 +9,7 @@
 
 | Release | Status | ETA | Milestones | Key Features |
 |---|---|---|---|---|
-| **5.3-beta** | 🟢 SHIPPED (Beta4) | Jul 15 → **Aug 7, 2026** | M1–M4 (+ M5 progress) | Language stability, Python bridge int/float decode fix, Godot IDE integration (Code Navigator M3, UI Forms M4); Beta3 adds C64/GBA emulator demos, cross-module bytecode compilation, Buffer Type, `Global` keyword; Beta4 adds native 6502 CPU core, −81.8% call overhead, 3 miscompilation bugs fixed |
+| **5.3-beta** | 🟢 SHIPPED (Beta5) | Jul 15 → **Aug 16, 2026** | M1–M4 (+ M5 progress) | Language stability, Python bridge int/float decode fix, Godot IDE integration (Code Navigator M3, UI Forms M4); Beta3 adds C64/GBA emulator demos, cross-module bytecode compilation, Buffer Type, `Global` keyword; Beta4 adds native 6502 CPU core, −81.8% call overhead, 3 miscompilation bugs fixed; Beta5 fixes native Script editor crash, VB6 Enter/block closing, keyword auto-correct |
 | **5.4-beta** | — | Oct 15, 2026 | M5 | Narcea AI pair, async queue, structured error handling |
 | **6.0-rc1** | — | Dec 1, 2026 | M6–M8 | Language parity (Try/Catch/Lambda/AndAlso/OrElse), C++ FFI interop, `Let` keyword, Causal Chain (text mode) |
 | **6.0-rc2** | — | Dec 15, 2026 | M9 | Release readiness, Godot Asset Library submission, installer validation |
@@ -17,16 +17,22 @@
 
 ---
 
-## 5.3-beta (Shipped Beta1 Jul 3, Beta2 Jul 15, Beta3 Jul 31, Beta4 Aug 7, 2026)
+## 5.3-beta (Shipped Beta1 Jul 3, Beta2 Jul 15, Beta3 Jul 31, Beta4 Aug 7, Beta5 Aug 16, 2026)
 
-**Status:** Beta4 shipped
+**Status:** Beta5 shipped
 
 **Milestones included:**
 - ✅ M1 — Bug fixes (4/4 critical bugs fixed)
 - ✅ M2 — Corpus validation (54/54 examples passing, up from 44)
 - ✅ M3 — Code Navigator upgrade
 - ✅ M4 — UI Forms experimental plugin
-- 🔄 M5 — Narcea AI pair (in progress; DeepSeek provider + agent scaffolding landed in Beta3, agent-loop bug fixes landed in Beta4)
+- 🔄 M5 — Narcea AI pair (in progress; DeepSeek provider + agent scaffolding landed in Beta3, agent-loop bug fixes landed in Beta4; Buffer Type + Optimizer Hints + speed improvements targeted for 5.4-beta)
+
+**Beta5 highlights (Aug 16, 2026):**
+- ✅ Native Godot Script editor crash fixed (segfault on Enter in `.vg` tabs) — see [RELEASE_NOTES_5.3.0-Beta5.md](RELEASE_NOTES_5.3.0-Beta5.md)
+- ✅ VB6 Enter / block closing on native Script tabs (`Next`, `End If`, etc.)
+- ✅ Shared keyword auto-correct (`for` → `For`) on native + embedded editors
+- ✅ All platform zips, AppImage, Windows installer, and offline bundles rebuilt for Beta5
 
 **Beta4 highlights (Aug 7, 2026):**
 - ✅ Call-performance campaign: −81.8% instruction overhead per call (45,785 → 8,323 instr/call), 5.50× faster — see [RELEASE_NOTES_5.3.0-Beta4.md](RELEASE_NOTES_5.3.0-Beta4.md)

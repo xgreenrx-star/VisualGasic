@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.0-Beta5] - 2026-08-16
+
+**Key numbers:** 856/856 regression assertions passing · 54 corpus examples passing · native Script editor crash fixed · VB6 keyword auto-correct on native + embedded editors.
+
+### 🛠 Fixed — Native Godot Script Editor Crash on `.vg` Tabs (Aug 15, 2026)
+
+- Disabled the GDScript code-completion overlay on Godot's native Script editor tabs — it segfaulted (signal 11) when combined with the C++ `ScriptLanguageExtension` completion path (`_on_native_code_completion_requested`).
+- Native Enter-key handling now inserts correct indentation and auto-closes `For`/`If`/`While`/`Sub`/`Function` blocks with `Next`/`End If`/`Wend`/`End Sub`/`End Function` stubs via new `vg_native_editor_indent.gd`.
+- Shared VB6 keyword capitalization (`for` → `For`, `dim` → `Dim`, etc.) on line leave for both the embedded `VGCodeEdit` and native Script tabs via new `vg_keyword_autocorrect.gd`.
+
+### 🔜 Upcoming (M5 — October 2026)
+
+- **Buffer Type** — zero-overhead byte-level access (`Dim mem As Buffer`) for emulation and I/O workloads.
+- **Optimizer Hints** — `@fast_loop`, `@accumulator`, `@simd_candidate` directives for user-tunable hot paths.
+- **Speed improvements** — unboxed typed operand stack redesign (3–4× call overhead reduction target) and additional VM fast paths.
+- **Narcea AI Pair** — continued agent-loop reliability fixes, provider routing polish, and end-to-end "describe → working VG code" demo hardening.
+
 ## [5.3.0-Beta4] - 2026-08-07
 
 **Key numbers:** 856/856 regression assertions passing (110 files, up from 777/98) · 54 corpus examples passing · function-call overhead cut 81.8% (45,785 → 8,323 instructions/call) · new native 6502 CPU core.
