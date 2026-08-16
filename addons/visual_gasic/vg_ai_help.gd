@@ -975,6 +975,7 @@ func _finish_generation() -> void:
 			_output.append_text("[color=#888888]  (native function calls converted)[/color]\n")
 		_fc_fragments.clear()
 	if not _accumulated_response.is_empty():
+		_transcript_log_assistant_response(_accumulated_response)
 		_dispatch_tool_calls(_accumulated_response)
 	# Flush any partial line that was buffered for vg-tool fence detection.
 	if not _stream_vgtool_suppress and not _stream_line_buf.is_empty():
@@ -1905,6 +1906,7 @@ func _on_send() -> void:
 		# Phase 6e: open transcript on first continuation, write hop entry.
 		_transcript_open()
 		_transcript_append({"type": "hop_start", "hop": _agent_hops, "prompt_len": prompt.length()})
+		_transcript_append({"type": "user_prompt", "hop": _agent_hops, "prompt": prompt})
 	else:
 		_agent_hops = 0
 		_agent_total_tokens = 0
@@ -1915,6 +1917,8 @@ func _on_send() -> void:
 		_build_form_ran_this_turn = false
 		_hide_abort_agent_btn()
 		_transcript_close("user_new_turn")  # Phase 6e: close any open transcript.
+		_transcript_open()
+		_transcript_append({"type": "user_prompt", "hop": _agent_hops, "prompt": prompt})
 	_send_query(prompt)
 
 func _send_query(prompt: String) -> void:
@@ -4371,6 +4375,43 @@ func _transcript_append(data: Dictionary) -> void:
 	_agent_transcript_file.store_line(JSON.stringify(data))
 
 
+## Log the completed assistant reply for Tier-B harness replay.
+func _transcript_log_assistant_response(response_text: String) -> void:
+	if response_text.is_empty():
+		return
+	_transcript_open()
+	var entry := {
+		"type": "assistant_response",
+		"hop": _agent_hops,
+		"response_len": response_text.length(),
+		"response": response_text,
+	}
+	if _project_spec != null:
+		var ps: Dictionary = _project_spec.extract_spec(response_text)
+		entry["has_project_spec"] = not ps.is_empty()
+	if _form_spec != null:
+		var fs: Dictionary = _form_spec.extract_spec(response_text)
+		entry["has_form_spec"] = not fs.is_empty()
+	if _code_spec != null:
+		var cs: Dictionary = _code_spec.extract_spec(response_text)
+		entry["has_code_spec"] = not cs.is_empty()
+	_transcript_append(entry)
+
+
+func _transcript_log_tool_plan(plan: Dictionary) -> void:
+	if plan.is_empty():
+		return
+	_transcript_open()
+	_transcript_append({
+		"type": "tool_plan",
+		"hop": _agent_hops,
+		"read_count": (plan.get("read_results", []) as Array).size(),
+		"mutating_count": (plan.get("mutating", []) as Array).size(),
+		"blocked_count": (plan.get("blocked", []) as Array).size(),
+		"log_count": (plan.get("logs", []) as Array).size(),
+	})
+
+
 func _transcript_close(reason: String) -> void:
 	if _agent_transcript_file == null:
 		return
@@ -4576,6 +4617,7 @@ func _dispatch_tool_calls(reply_text: String) -> void:
 	_ai_tools.set_whitelist(wl)
 
 	var plan: Dictionary = _ai_tools.plan_response(reply_text)
+	_transcript_log_tool_plan(plan)
 	var ro_logs: Array = plan.get("logs", [])
 	var muts: Array = plan.get("mutating", [])
 	var blocked: Array = plan.get("blocked", [])

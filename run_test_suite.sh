@@ -136,13 +136,18 @@ if [[ -x "tests/run_gd_tests.sh" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Phase 3: Narcea Golden Path — Tier A (deterministic spec pipeline)
+# Phase 3: Narcea Golden Path — Tier A + B (fixture + recorded replay)
 # ---------------------------------------------------------------------------
 NARCEA_GOLDEN_FAIL=0
 if [[ -x "scripts/run_narcea_golden.sh" ]]; then
     echo ""
     echo -e "${BOLD}── Narcea Golden Path (Tier A) ──${NC}"
     if ! bash scripts/run_narcea_golden.sh --tier A; then
+        NARCEA_GOLDEN_FAIL=1
+    fi
+    echo ""
+    echo -e "${BOLD}── Narcea Golden Path (Tier B) ──${NC}"
+    if ! bash scripts/run_narcea_golden.sh --tier B; then
         NARCEA_GOLDEN_FAIL=1
     fi
 fi

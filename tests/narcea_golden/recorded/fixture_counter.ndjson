@@ -1,0 +1,5 @@
+{"type":"session_start","provider":"fixture","model":"tier-b-fixture","max_hops":50,"ts_ms":0}
+{"type":"user_prompt","hop":0,"prompt":"Build a simple counter form: a label named lblCount showing \"Count: 0\" and a button named btnIncrement captioned \"Add One\". Each click increments the count and updates the label text.","ts_ms":1}
+{"type":"assistant_response","hop":0,"response_len":0,"has_project_spec":true,"has_form_spec":false,"has_code_spec":false,"ts_ms":2}
+{"type":"tool_plan","hop":0,"read_count":0,"mutating_count":0,"blocked_count":0,"log_count":0,"ts_ms":3}
+{"type":"session_end","reason":"complete","total_hops":0,"total_tokens":0,"ts_ms":4}
