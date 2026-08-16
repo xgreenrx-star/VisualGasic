@@ -135,8 +135,20 @@ if [[ -x "tests/run_gd_tests.sh" ]]; then
     fi
 fi
 
+# ---------------------------------------------------------------------------
+# Phase 3: Narcea Golden Path — Tier A (deterministic spec pipeline)
+# ---------------------------------------------------------------------------
+NARCEA_GOLDEN_FAIL=0
+if [[ -x "scripts/run_narcea_golden.sh" ]]; then
+    echo ""
+    echo -e "${BOLD}── Narcea Golden Path (Tier A) ──${NC}"
+    if ! bash scripts/run_narcea_golden.sh --tier A; then
+        NARCEA_GOLDEN_FAIL=1
+    fi
+fi
+
 # Exit code
-if [ "$TOTAL_FAIL" -gt 0 ] || [ "$TOTAL_ERROR" -gt 0 ] || [ "$GD_FAIL" -ne 0 ]; then
+if [ "$TOTAL_FAIL" -gt 0 ] || [ "$TOTAL_ERROR" -gt 0 ] || [ "$GD_FAIL" -ne 0 ] || [ "$NARCEA_GOLDEN_FAIL" -ne 0 ]; then
     exit 1
 else
     echo -e "${GREEN}All tests passed! ✓${NC}"

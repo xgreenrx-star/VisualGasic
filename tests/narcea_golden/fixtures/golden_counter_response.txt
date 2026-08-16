@@ -1,0 +1,45 @@
+I'll scaffold a counter form with a label and increment button under ai_projects.
+
+```vg-project-spec
+{
+  "project_name": "CounterDemo",
+  "subdir": "ai_projects",
+  "main_scene": "Form1.tscn",
+  "godot_version": "4.6",
+  "forms": [
+    {
+      "form_name": "Form1",
+      "form_size": [320, 200],
+      "auto_events": true,
+      "controls": [
+        {
+          "type": "Label",
+          "name": "lblCount",
+          "text": "Count: 0",
+          "left": 20,
+          "top": 20,
+          "width": 280,
+          "height": 32
+        },
+        {
+          "type": "CommandButton",
+          "name": "btnIncrement",
+          "caption": "Add One",
+          "left": 20,
+          "top": 70,
+          "width": 140,
+          "height": 36
+        }
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "Form1.vg",
+      "source": "' CounterDemo — golden Tier A fixture\nOption Explicit\n\nDim count As Long = 0\n\nSub Form_Load()\n    count = 0\n    lblCount.Caption = \"Count: 0\"\nEnd Sub\n\nSub btnIncrement_Click()\n    count = count + 1\n    lblCount.Caption = \"Count: \" & count\nEnd Sub\n"
+    }
+  ]
+}
+```
+
+Double-click btnIncrement in the Form Designer to wire the click handler if needed.

@@ -1,0 +1,37 @@
+{
+  "scenario_id": "golden_counter_form",
+  "description": "Tier A deterministic check — counter form spec + handler compile cleanly.",
+  "required_project_name": "CounterDemo",
+  "required_controls": [
+    {
+      "name": "lblCount",
+      "types": ["Label"]
+    },
+    {
+      "name": "btnIncrement",
+      "types": ["Button", "CommandButton"]
+    }
+  ],
+  "required_handler_subs": [
+    "btnIncrement_Click"
+  ],
+  "required_vg_substrings": [
+    "lblCount",
+    "count",
+    "btnIncrement_Click"
+  ],
+  "required_vg_patterns": [
+    {
+      "id": "increments_counter",
+      "regex": "(count\\s*=\\s*count\\s*\\+|count\\s*\\+=\\s*1|count\\s*=\\s*count\\s*\\+\\s*1)",
+      "description": "handler increments a counter variable"
+    },
+    {
+      "id": "updates_label",
+      "regex": "(lblCount\\.(Caption|Text)|Print.*lblCount|&\\s*count)",
+      "description": "handler updates the label or prints count"
+    }
+  ],
+  "max_layout_warnings": 3,
+  "forbid_lint_severity": "ERROR"
+}

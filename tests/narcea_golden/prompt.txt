@@ -1,0 +1,1 @@
+Build a simple counter form: a label named lblCount showing "Count: 0" and a button named btnIncrement captioned "Add One". Each click increments the count and updates the label text.
