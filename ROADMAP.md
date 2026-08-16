@@ -742,7 +742,7 @@ These features shipped between March 10–21, 2026:
 
 - [x] **macOS / ARM64 CI build** — Added `build-macos` job to `release.yml`. Builds x86_64 + arm64, `lipo` into universal framework. Triggered on tag push alongside Linux and Windows.
 - [x] **macOS Universal Binary** — `scripts/build_macos_universal.sh` + `.github/workflows/macos-universal.yml` CI workflow
-- [ ] **Asset Library acceptance** — Submitted, awaiting Godot team review.
+- [x] **Asset Library acceptance** — ✅ **ACCEPTED (Aug 13, 2026)** — Visual Gasic is now available on Godot's official Asset Library at https://store.godotengine.org/asset/visual-gasic/visual-gasic/
 
 ### ✅ High Priority — Flagship Features (ALL COMPLETE)
 
@@ -894,8 +894,8 @@ Short, finishable list. **No new aspirational items.**
 
 
 ✅ **EARLY PROGRESS (Jul 11)** — C++ FFI interop proven via `demo_ffi_cpp_lib.vg` (Vec2 C++ class with C ABI wrappers: create/destroy, get/set, length, dot product, scale, add, normalize, string representation). All 7 sections pass on Linux. `QuickCall` alias added to `visual_gasic_ffi.cpp` for docs-compatible calling. Demo, README, and documentation in `docs/SYSTEM_INTEGRATION.md` §1 and `docs/VisualGasic_Language_Reference.md` complete. **Remaining**: `Declare`/`DllImport` syntax, Windows validation, packaging docs. |
-| **M9 — Release readiness** | November 28 2026 | (1) Godot Asset Library package prepared and submitted. (2) Installer smoke-tested on clean Linux + Windows VMs — first-run works without manual steps. (3) 50+ corpus examples pass. (4) README and CHANGELOG reflect v6.0 features accurately. |
-| **🎉 Stable v6.0 release** | January 1 2027 | All M1–M9 complete. Installer works first try. Asset Library submission accepted or in review. Public announcement. |
+| **M9 — Release readiness** | November 28 2026 | (1) ✅ **Godot Asset Library acceptance: COMPLETE (Aug 13, 2026)** — Now live at https://store.godotengine.org/asset/visual-gasic/visual-gasic/. (2) Installer smoke-tested on clean Linux + Windows VMs — first-run works without manual steps. (3) 50+ corpus examples pass. (4) README and CHANGELOG reflect v6.0 features accurately. |
+| **🎉 Stable v6.0 release** | January 1 2027 | All M1–M9 complete. Installer works first try. ✅ Asset Library submission accepted and live. Public announcement. |
 
 **Buffer**: October is the buffer month. If M4 slips, M5 and M6 compress, not the release date.
 
