@@ -70,8 +70,8 @@ static func get_providers() -> Array:
 	gemini.api_port = 443
 	gemini.api_path = "/v1beta/models/{model}:streamGenerateContent"
 	gemini.use_tls = true
-	gemini.models = ["gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
-	gemini.default_model = "gemini-2.0-flash"
+	gemini.models = ["gemini-3.6-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
+	gemini.default_model = "gemini-3.6-flash"
 	providers.append(gemini)
 
 	# ── DeepSeek ──
@@ -954,7 +954,8 @@ static func build_request_nostream(provider_id: String, model: String, system_pr
 		req["body"] = JSON.stringify(parsed)
 	if provider_id == "gemini":
 		var path: String = str(req.get("path", ""))
-		req["path"] = path.replace(":streamGenerateContent?alt=sse", ":generateContent?")
+		path = path.replace(":streamGenerateContent?alt=sse&", ":generateContent?")
+		req["path"] = path
 	return req
 
 

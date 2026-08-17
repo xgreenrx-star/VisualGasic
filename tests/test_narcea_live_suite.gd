@@ -22,6 +22,7 @@ var _scenarios: Array = []
 var _http: HTTPRequest
 var _pending: Dictionary = {}
 var _system_prompt := ""
+var _retry_counts: Dictionary = {}
 
 
 func _initialize() -> void:
@@ -51,7 +52,7 @@ func _initialize() -> void:
 	_http = HTTPRequest.new()
 	root.add_child(_http)
 	_http.request_completed.connect(_on_http_completed)
-	_run_next_scenario()
+	call_deferred("_run_next_scenario")
 
 
 func _run_next_scenario() -> void:
@@ -104,11 +105,32 @@ func _start_live_request(sid: String, sc: Dictionary) -> void:
 	var req: Dictionary = _providers.build_request_nostream(provider_id, model, _system_prompt, user_prompt, api_key)
 	var url: String = _providers.request_url(pinfo, req)
 	var headers: PackedStringArray = PackedStringArray(req.get("headers", []))
-	_pending = {"sid": sid, "scenario": sc, "provider": provider_id}
+	_pending = {"sid": sid, "scenario": sc, "provider": provider_id, "req": {
+		"url": url, "headers": headers, "body": str(req.get("body", "")),
+	}}
 	_http.timeout = int(OS.get_environment("NARCEA_LIVE_TIMEOUT").strip_edges()) if not OS.get_environment("NARCEA_LIVE_TIMEOUT").strip_edges().is_empty() else 180
+	if not _http.is_inside_tree():
+		call_deferred("_start_live_request", sid, sc)
+		return
 	var err := _http.request(url, headers, HTTPClient.METHOD_POST, str(req.get("body", "")))
 	if err != OK:
 		_fail("[%s] http" % sid, error_string(err))
+		_scenario_idx += 1
+		call_deferred("_run_next_scenario")
+
+
+func _retry_live_request(sid: String, sc: Dictionary, provider_id: String, req_snapshot: Dictionary) -> void:
+	if not _http.is_inside_tree():
+		call_deferred("_retry_live_request", sid, sc, provider_id, req_snapshot)
+		return
+	_pending = {"sid": sid, "scenario": sc, "provider": provider_id, "req": req_snapshot}
+	var err := _http.request(
+		str(req_snapshot.get("url", "")),
+		PackedStringArray(req_snapshot.get("headers", [])),
+		HTTPClient.METHOD_POST,
+		str(req_snapshot.get("body", "")))
+	if err != OK:
+		_fail("[%s] http retry" % sid, error_string(err))
 		_scenario_idx += 1
 		call_deferred("_run_next_scenario")
 
@@ -117,8 +139,14 @@ func _on_http_completed(result: int, code: int, _headers: PackedStringArray, bod
 	var sid := str(_pending.get("sid", ""))
 	var sc: Dictionary = _pending.get("scenario", {})
 	var provider_id := str(_pending.get("provider", ""))
+	var req_snapshot: Dictionary = _pending.get("req", {})
 	_pending = {}
 	if result != HTTPRequest.RESULT_SUCCESS or code < 200 or code >= 300:
+		if code in [429, 502, 503] and int(_retry_counts.get(sid, 0)) < 2:
+			_retry_counts[sid] = int(_retry_counts.get(sid, 0)) + 1
+			print("  [retry] %s HTTP %d — attempt %d" % [sid, code, _retry_counts[sid]])
+			call_deferred("_retry_live_request", sid, sc, provider_id, req_snapshot)
+			return
 		_fail("[%s] http response" % sid, "result=%d code=%d" % [result, code])
 		_scenario_idx += 1
 		call_deferred("_run_next_scenario")
@@ -202,6 +230,8 @@ func _apply_project_path(sid: String, response: String, rubric: Dictionary) -> v
 	var want := str(rubric.get("required_project_name", ""))
 	if not want.is_empty():
 		_expect("[%s] project_name" % sid, str(spec.get("project_name", "")) == want, str(spec.get("project_name", "")))
+	elif not str(spec.get("project_name", "")).is_empty():
+		_ok("[%s] project_name present" % sid)
 	var root: String = ps.project_root(spec)
 	_cleanup(root)
 	var result: Dictionary = ps.apply(spec, {
@@ -211,11 +241,18 @@ func _apply_project_path(sid: String, response: String, rubric: Dictionary) -> v
 		"designer": null,
 	})
 	_expect("[%s] apply ok" % sid, result.get("ok", false), str(result.get("summary", "")))
-	var vg_path: String = root + "Form1.vg"
-	var vg_src: String = sw.read(vg_path) if FileAccess.file_exists(vg_path) else ""
-	if vg_src.is_empty() and FileAccess.file_exists("res://Form1.vg"):
-		vg_src = FileAccess.get_file_as_string("res://Form1.vg")
-	_expect("[%s] Form1.vg written" % sid, not vg_src.is_empty())
+	var vg_path := ""
+	var vg_src := ""
+	for w in result.get("written", []):
+		var wp := str(w)
+		if wp.ends_with(".vg"):
+			vg_path = wp
+			vg_src = sw.read(vg_path) if FileAccess.file_exists(vg_path) else FileAccess.get_file_as_string(vg_path)
+			break
+	if vg_path.is_empty():
+		vg_path = root + "Form1.vg"
+		vg_src = sw.read(vg_path) if FileAccess.file_exists(vg_path) else ""
+	_expect("[%s] .vg written" % sid, not vg_src.is_empty(), str(result.get("written", [])))
 	if not vg_src.is_empty():
 		NarceaRubric.score_vg(vg_src, rubric, sid, Callable(self, "_rubric_report"))
 	_cleanup(root)
