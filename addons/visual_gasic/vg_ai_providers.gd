@@ -605,7 +605,7 @@ static func _build_gemini(model: String, system_prompt: String,
 		"systemInstruction": {"parts": [{"text": system_prompt}]},
 		"generationConfig": {
 			"temperature": 0.3,
-			"maxOutputTokens": 2048,
+			"maxOutputTokens": 8192,
 		},
 	}
 	var path := "/v1beta/models/" + model + ":streamGenerateContent?alt=sse&key=" + api_key
@@ -705,10 +705,12 @@ static func _parse_gemini_line(line: String) -> Dictionary:
 	var candidates: Array = json.get("candidates", [])
 	if candidates.is_empty():
 		return {"token": "", "done": false}
-	var content: Dictionary = candidates[0].get("content", {})
+	var cand: Dictionary = candidates[0]
+	var finish: String = str(cand.get("finishReason", ""))
+	var done := finish in ["STOP", "MAX_TOKENS", "SAFETY", "RECITATION", "OTHER"]
+	var token := ""
+	var content: Dictionary = cand.get("content", {})
 	var parts: Array = content.get("parts", [])
-	if parts.is_empty():
-		return {"token": "", "done": false}
-	var token: String = parts[0].get("text", "")
-	var finish: String = candidates[0].get("finishReason", "")
-	return {"token": token, "done": finish == "STOP"}
+	if not parts.is_empty():
+		token = str(parts[0].get("text", ""))
+	return {"token": token, "done": done}

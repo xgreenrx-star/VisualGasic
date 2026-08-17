@@ -9207,16 +9207,18 @@ func _feed_control_names_to_editor() -> void:
 	var info_list: Array[Dictionary] = []
 
 	# Primary source: the C++ form designer (if loaded and has controls)
-	if _form_designer:
+	if is_instance_valid(_form_designer):
 		var count = _form_designer.get_control_count()
 		for i in count:
 			var info = _form_designer.get_control_info(i)
-			var n = info.get("name", "")
+			if typeof(info) != TYPE_DICTIONARY:
+				continue
+			var n := str(info.get("name", ""))
 			if not n.is_empty():
 				names.append(n)
 				info_list.append(info)
 		if _form_designer.has_method("get_form_name"):
-			form_name = _form_designer.get_form_name()
+			form_name = str(_form_designer.get_form_name())
 
 	# Fallback: if the form designer has no controls, read them from the
 	# currently edited scene tree. This covers cases where the user opens
@@ -9224,14 +9226,20 @@ func _feed_control_names_to_editor() -> void:
 	# editing a standalone .vg file that shares a name with a scene.
 	if names.is_empty():
 		var scene_root = EditorInterface.get_edited_scene_root()
-		if scene_root:
+		if is_instance_valid(scene_root):
 			form_name = scene_root.name
 			for child in scene_root.get_children():
+				if not is_instance_valid(child):
+					continue
 				var n: String = child.name
-				if not n.is_empty():
-					names.append(n)
-					info_list.append({"name": n, "type": child.get_class()})
+				# Skip internal chrome (_FormBackground, etc.)
+				if n.is_empty() or n.begins_with("_"):
+					continue
+				names.append(n)
+				info_list.append({"name": n, "type": child.get_class()})
 
+	if not is_instance_valid(_embedded_code_editor):
+		return
 	_embedded_code_editor.set_control_names(names)
 	if _embedded_code_editor.has_method("set_form_name"):
 		_embedded_code_editor.set_form_name(form_name)
@@ -9584,6 +9592,13 @@ func _open_working_nodes_for_path(wnodes_path: String) -> void:
 ## Switch the center panel from code editor or 3D editor back to form canvas.
 func _show_form_view() -> void:
 	if not _showing_code_view and not _showing_3d_view and not _showing_2d_view and not _showing_sprite_view and not _showing_plugin_view:
+		return
+	if not is_instance_valid(_ide_layout):
+		_showing_code_view = false
+		_showing_3d_view = false
+		_showing_2d_view = false
+		_showing_sprite_view = false
+		_showing_plugin_view = false
 		return
 
 	# Save any unsaved code first

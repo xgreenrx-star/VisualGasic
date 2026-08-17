@@ -58,6 +58,28 @@ func _initialize() -> void:
 	var pspec = ps.extract_spec(preply)
 	print("project spec keys: ", pspec.keys())
 	print("project root: ", ps.project_root(pspec))
+	var proot: String = ps.project_root(pspec)
+	sw.set_root(proot)
+	assert(ps.rebase_path("helpers.vg", proot, sw) == proot + "helpers.vg")
+	assert(ps.rebase_path("res://MainForm.vg", proot, sw) == proot + "MainForm.vg")
+	var skip_spec := {
+		"forms": [{"form_name": "CounterForm", "controls": []}],
+		"files": [{"path": "res://CounterForm.tscn", "source": "[ext_resource path=\"res://CounterForm.vg\" id=\"1\"]"}],
+	}
+	assert(ps._skip_scaffold_file(proot + "CounterForm.tscn", skip_spec, PackedStringArray(["counterform"])))
+	assert(not ps._skip_scaffold_file(proot + "CounterForm.tscn", skip_spec))
+	assert(not ps._skip_scaffold_file(proot + "helpers.vg", skip_spec))
+	var gemini_path := ProjectSettings.globalize_path("res://").path_join("tests/narcea_golden/fixtures/gemini_tipcalc_response.txt")
+	var gemini_fixture := FileAccess.get_file_as_string(gemini_path) if FileAccess.file_exists(gemini_path) else ""
+	if not gemini_fixture.is_empty():
+		var gspec: Dictionary = ps.extract_spec(gemini_fixture)
+		assert(not gspec.is_empty())
+		assert(str(gspec.get("project_name", "")) == "TipCalc")
+		assert(not str((gspec.get("files", []) as Array)[0].get("source", "")).is_empty())
+	var rebased: String = ps._rebase_tscn_script_paths(
+		"[ext_resource type=\"Script\" path=\"res://MainForm.vg\" id=\"1\"]",
+		proot)
+	assert(rebased.find("res://ai_projects/PongSmoke/MainForm.vg") != -1)
 	var presult = ps.apply(pspec, {"safe_writer": sw, "code_spec": cs, "form_spec": null, "designer": null})
 	print("project apply: ", presult.summary)
 	print("written: ", presult.written)

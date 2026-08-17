@@ -21,11 +21,12 @@ while [[ $# -gt 0 ]]; do
 			shift 2
 			;;
 		-h|--help)
-			echo "Usage: $0 [--tier A|B|C]"
+			echo "Usage: $0 [--tier A|B|C|ALL]"
 			echo ""
-			echo "  A  Canonical fixture (default)"
-			echo "  B  Replay tests/narcea_golden/recorded/*_response.txt"
-			echo "  C  Live API eval (not implemented)"
+			echo "  A    Canonical fixture (default)"
+			echo "  B    Replay tests/narcea_golden/recorded/*_response.txt"
+			echo "  C    Live Gemini eval (NARCEA_LIVE=1; NARCEA_LIVE_SKIP_API=1 skips HTTP)"
+			echo "  ALL  Run A, then B, then C (skip-api unless NARCEA_LIVE=1)"
 			exit 0
 			;;
 		*)
@@ -44,31 +45,67 @@ if [[ ! -d "$HOST_PROJECT" ]]; then
 	exit 2
 fi
 
-echo "=== Narcea Golden Path Runner (Tier $TIER) ==="
-echo "Host: $HOST_PROJECT"
-echo ""
+_run_one_tier() {
+	local tier="$1"
+	local prev_tier="$TIER"
+	TIER="$tier"
+	echo "=== Narcea Golden Path Runner (Tier $tier) ==="
+	echo "Host: $HOST_PROJECT"
+	echo ""
 
-case "$TIER" in
-	C|c)
-		echo "Tier C (live API eval) is not implemented yet."
-		echo "Set NARCEA_LIVE=1 and see tests/narcea_golden/README.md — Phase 3."
-		exit 2
-		;;
-	A|a|B|b)
-		export NARCEA_GOLDEN_TIER="${TIER^^}"
-		output="$(timeout "$TIMEOUT" "$GODOT" --headless --path "$HOST_PROJECT" -s "$TEST_SCRIPT" 2>&1 || true)"
-		echo "$output"
-		if echo "$output" | grep -q "RESULTS: .* passed, 0 failed"; then
+	case "$tier" in
+		C|c)
+			if [[ "${NARCEA_LIVE:-}" != "1" ]]; then
+				export NARCEA_LIVE=1
+				export NARCEA_LIVE_SKIP_API=1
+				echo "(NARCEA_LIVE not set — using NARCEA_LIVE_SKIP_API=1 for Tier C)"
+			fi
+			export NARCEA_LIVE=1
+			LIVE_SCRIPT="$ROOT/tests/test_narcea_live_gemini.gd"
+			if [[ ! -f "$LIVE_SCRIPT" ]]; then
+				echo "ERROR: $LIVE_SCRIPT not found" >&2
+				return 2
+			fi
+			TIMEOUT="${NARCEA_LIVE_TIMEOUT:-180}"
+			output="$(timeout "$TIMEOUT" "$GODOT" --headless --path "$HOST_PROJECT" -s "$LIVE_SCRIPT" 2>&1 || true)"
+			echo "$output"
+			if echo "$output" | grep -q "RESULTS: .* passed, 0 failed"; then
+				echo ""
+				echo "✅ Narcea Golden Tier C PASSED"
+				return 0
+			fi
 			echo ""
-			echo "✅ Narcea Golden Tier $TIER PASSED"
-			exit 0
-		fi
+			echo "❌ Narcea Golden Tier C FAILED"
+			return 1
+			;;
+		A|a|B|b)
+			export NARCEA_GOLDEN_TIER="${tier^^}"
+			output="$(timeout "$TIMEOUT" "$GODOT" --headless --path "$HOST_PROJECT" -s "$TEST_SCRIPT" 2>&1 || true)"
+			echo "$output"
+			if echo "$output" | grep -q "RESULTS: .* passed, 0 failed"; then
+				echo ""
+				echo "✅ Narcea Golden Tier $tier PASSED"
+				return 0
+			fi
+			echo ""
+			echo "❌ Narcea Golden Tier $tier FAILED"
+			return 1
+			;;
+		*)
+			echo "Unknown tier: $tier (use A, B, C, or ALL)" >&2
+			return 2
+			;;
+	esac
+}
+
+if [[ "$TIER" == "ALL" || "$TIER" == "all" ]]; then
+	FAIL=0
+	for t in A B C; do
+		_run_one_tier "$t" || FAIL=1
 		echo ""
-		echo "❌ Narcea Golden Tier $TIER FAILED"
-		exit 1
-		;;
-	*)
-		echo "Unknown tier: $TIER (use A, B, or C)" >&2
-		exit 2
-		;;
-esac
+	done
+	exit "$FAIL"
+fi
+
+_run_one_tier "$TIER"
+exit $?

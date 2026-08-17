@@ -1,0 +1,11 @@
+Here is the project spec:
+
+```vg-project-spec
+{
+  "project_name": "GreetingDemo",
+  "main_scene": "Form1.tscn",
+  "forms": [
+    {
+      "form_name": "Form1",
+      "width": 320,
+      "height"

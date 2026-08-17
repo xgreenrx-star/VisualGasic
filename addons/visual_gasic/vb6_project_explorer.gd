@@ -231,6 +231,11 @@ func setup(plugin: EditorPlugin):
 	var pname = ProjectSettings.get_setting("application/config/name", "")
 	if pname != "":
 		_project_name = pname
+	# Rebuild when Godot finishes scanning new ai_projects/ files.
+	if plugin:
+		var efs: EditorFileSystem = plugin.get_editor_interface().get_resource_filesystem()
+		if efs and not efs.filesystem_changed.is_connected(refresh):
+			efs.filesystem_changed.connect(refresh)
 	# Initial population
 	call_deferred("refresh")
 

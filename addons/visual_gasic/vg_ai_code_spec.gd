@@ -118,7 +118,7 @@ func apply(spec: Dictionary, safe_writer: Object, strict: bool = false) -> Dicti
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var path := str(entry.get("path", ""))
-		var src := str(entry.get("source", ""))
+		var src := str(entry.get("source", entry.get("contents", entry.get("content", ""))))
 		if path.is_empty():
 			result["skipped"].append({"path": "<empty>", "reason": "missing path"})
 			continue
@@ -130,6 +130,9 @@ func apply(spec: Dictionary, safe_writer: Object, strict: bool = false) -> Dicti
 				if strict and _has_errors(issues):
 					result["skipped"].append({"path": path, "reason": "lint errors (strict)"})
 					continue
+		if path.ends_with(".tscn") and src.strip_edges().is_empty():
+			result["skipped"].append({"path": path, "reason": "empty .tscn source"})
+			continue
 		var write_res: Array = safe_writer.write(path, src)
 		if write_res[0]:
 			result["written"].append(path)

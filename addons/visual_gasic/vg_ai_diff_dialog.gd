@@ -37,6 +37,9 @@ func _init() -> void:
 	title = "Apply spec — review changes"
 	get_ok_button().text = "✅ Apply"
 	get_cancel_button().text = "❌ Cancel"
+	wrap_controls = false
+	unresizable = true
+	min_size = Vector2i(720, 480)
 	# Force readable text colors regardless of editor theme — the
 	# Apply button's background is a light/white-ish accent, so the
 	# default white font label is invisible until hovered. Lock both
@@ -47,15 +50,14 @@ func _init() -> void:
 	_ok.add_theme_color_override("font_pressed_color", Color(0.05, 0.05, 0.05))
 	_ok.add_theme_color_override("font_focus_color", Color(0.05, 0.05, 0.05))
 	_ok.add_theme_color_override("font_disabled_color", Color(0.4, 0.4, 0.4))
-	min_size = Vector2(720, 480)
 	_build_ui()
 
 
 func _build_ui() -> void:
 	_split = HSplitContainer.new()
-	_split.split_offset = 220
-	_split.anchor_right = 1.0
-	_split.anchor_bottom = 1.0
+	_split.custom_minimum_size = Vector2i(680, 400)
+	_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(_split)
 
 	_list = ItemList.new()

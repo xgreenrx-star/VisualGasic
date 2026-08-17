@@ -520,11 +520,11 @@ var _make_this_btn: Button = null
 var _form_from_desc_btn: Button = null
 var _code_from_desc_btn: Button = null
 var _project_from_desc_btn: Button = null
-var _form_from_desc_dialog: AcceptDialog = null
-var _form_from_desc_input: TextEdit = null
 var _form_from_desc_mode: String = "form"  # "form" | "code" | "project"
 var _last_send_was_desc_mode: bool = false  # set by Form…/Code…/Project… dialogs; cleared after refresh
 var _build_form_ran_this_turn: bool = false  # set when build_form tool executes; prevents double-build
+var _suppress_agent_loop: bool = false  # true while auto-scaffolding a project spec this turn
+var _scaffold_in_progress: bool = false
 # Tier-3 chat-only project-creation buttons.  Disabled until a parseable
 # vg-code-spec / vg-project-spec block is in the latest reply.  Run is
 # enabled whenever something has been built or the user opens an existing
@@ -650,6 +650,7 @@ func _ready() -> void:
 	_setup_poll_timer()
 	_setup_http()
 	_activate_provider()
+	call_deferred("_restore_last_run_from_disk")
 
 func _enter_tree() -> void:
 	if _ping_http:
@@ -976,6 +977,10 @@ func _finish_generation() -> void:
 		_fc_fragments.clear()
 	if not _accumulated_response.is_empty():
 		_transcript_log_assistant_response(_accumulated_response)
+		# Schedule auto-scaffold BEFORE tool dispatch — otherwise the agent
+		# loop can synchronously start hop 2 while FormDesigner I/O runs on
+		# the main thread, freezing the whole editor (menus included).
+		_refresh_build_form_btn()
 		_dispatch_tool_calls(_accumulated_response)
 	# Flush any partial line that was buffered for vg-tool fence detection.
 	if not _stream_vgtool_suppress and not _stream_line_buf.is_empty():
@@ -1000,15 +1005,16 @@ func _finish_generation() -> void:
 	if not _is_generating:
 		_current_prompt = ""
 
-	if is_instance_valid(_send_btn):
-		_send_btn.visible = true
-	if is_instance_valid(_stop_btn):
-		_stop_btn.visible = false
-	if is_instance_valid(_status_label):
-		var pname: String = _provider_info.display_name if _provider_info else "Ollama"
-		_status_label.text = ("✅ %s ready" % pname) if _ollama_available else ("❌ %s not found" % pname)
-		_status_label.add_theme_color_override("font_color",
-			Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
+	if not _is_generating:
+		if is_instance_valid(_send_btn):
+			_send_btn.visible = true
+		if is_instance_valid(_stop_btn):
+			_stop_btn.visible = false
+		if is_instance_valid(_status_label):
+			var pname: String = _provider_info.display_name if _provider_info else "Ollama"
+			_status_label.text = ("✅ %s ready" % pname) if _ollama_available else ("❌ %s not found" % pname)
+			_status_label.add_theme_color_override("font_color",
+				Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
 
 	# Voice mode (Tier 2.5c): flush any remaining buffered tokens to the TTS
 	# sentence queue now that the stream is complete.  The first sentences
@@ -1021,9 +1027,6 @@ func _finish_generation() -> void:
 			elif not _accumulated_response.strip_edges().is_empty():
 				# Fallback for voice controllers that don't support streaming.
 				_voice_ctrl.speak(_speech_text(_accumulated_response))
-
-	# Build-Form button: enable iff the reply contains a parseable form spec.
-	_refresh_build_form_btn()
 
 	# Narcea-seeded project flow: when the welcome shell created this
 	# project for Narcea to fill, auto-apply the first project-spec
@@ -1293,7 +1296,7 @@ func _setup_ui() -> void:
 	# prompt that requires a vg-form-spec reply.
 	_form_from_desc_btn = Button.new()
 	_form_from_desc_btn.text = "📐 Form…"
-	_form_from_desc_btn.tooltip_text = "Describe a form in plain English — Narcea will design the layout and the 🔨 Build form button will enable when it's ready"
+	_form_from_desc_btn.tooltip_text = "Describe a form in plain English — Narcea replies with a vg-form-spec, then Apply form appears"
 	_form_from_desc_btn.pressed.connect(_on_form_from_desc_pressed)
 	_style_small_button(_form_from_desc_btn)
 	toolbar2.add_child(_form_from_desc_btn)
@@ -1316,40 +1319,38 @@ func _setup_ui() -> void:
 
 	toolbar2.add_child(_make_separator())
 
-	# 🔨 Build-Form button — disabled until a reply contains a form spec.
+	# 🔨 Build-Form — kept for programmatic use; not shown (Apply form covers it).
 	_build_form_btn = Button.new()
 	_build_form_btn.text = "🔨 Build form"
-	_build_form_btn.tooltip_text = "Materialise the form spec from the latest reply in the Form Designer"
-	_build_form_btn.disabled = true
+	_build_form_btn.visible = false
 	_build_form_btn.pressed.connect(_on_build_form)
-	_style_small_button(_build_form_btn)
-	toolbar2.add_child(_build_form_btn)
 
-	# 🤖 Make-this button — lean v1 agent mode.  Chains: build form ->
-	# save .tscn -> generate Sub stubs into .vg -> open code.  Disabled
-	# until a parseable form spec exists in the latest reply.
+	# Apply form — build layout, save .tscn, write event stubs, open code.
 	_make_this_btn = Button.new()
-	_make_this_btn.text = "🤖 Make this"
+	_make_this_btn.text = "Apply form"
 	_make_this_btn.tooltip_text = "Build the form, save it, and write event-handler stubs in one go"
 	_make_this_btn.disabled = true
+	_make_this_btn.visible = false
 	_make_this_btn.pressed.connect(_on_make_this)
 	_style_small_button(_make_this_btn)
 	toolbar2.add_child(_make_this_btn)
 
-	# 📝 Make-code button — multi-file vg-code-spec applier with diff preview.
+	# Make code — multi-file vg-code-spec applier with diff preview.
 	_make_code_btn = Button.new()
-	_make_code_btn.text = "\ud83d\udcdd Make code"
+	_make_code_btn.text = "Make code"
 	_make_code_btn.tooltip_text = "Preview and apply the latest vg-code-spec block (multi-file write)"
 	_make_code_btn.disabled = true
+	_make_code_btn.visible = false
 	_make_code_btn.pressed.connect(_on_make_code)
 	_style_small_button(_make_code_btn)
 	toolbar2.add_child(_make_code_btn)
 
-	# \ud83c\udd95 Make-project — scaffold a runnable sub-project from a vg-project-spec block.
+	# Make project — scaffold under res://ai_projects/<name>/.
 	_make_project_btn = Button.new()
-	_make_project_btn.text = "\ud83c\udd95 Make project"
+	_make_project_btn.text = "Make project"
 	_make_project_btn.tooltip_text = "Preview and scaffold the latest vg-project-spec block under res://ai_projects/"
 	_make_project_btn.disabled = true
+	_make_project_btn.visible = false
 	_make_project_btn.pressed.connect(_on_make_project)
 	_style_small_button(_make_project_btn)
 	toolbar2.add_child(_make_project_btn)
@@ -1373,20 +1374,22 @@ func _setup_ui() -> void:
 	_style_small_button(_run_stop_btn)
 	toolbar2.add_child(_run_stop_btn)
 
-	# 🧪 Make test — write + run a vg-test-spec.
+	# Make test / Make WN — niche; only shown when Narcea emitted the matching spec.
 	_make_test_btn = Button.new()
-	_make_test_btn.text = "\ud83e\uddea Make test"
+	_make_test_btn.text = "Make test"
 	_make_test_btn.tooltip_text = "Ask Narcea for a vg-test-spec block to enable this."
 	_make_test_btn.disabled = true
+	_make_test_btn.visible = false
 	_make_test_btn.pressed.connect(_on_make_test)
 	_style_small_button(_make_test_btn)
 	toolbar2.add_child(_make_test_btn)
 
-	# 🧩 Make .wnodes — write a Working Nodes graph from a vg-wnodes-spec.
+	# Make .wnodes — write a Working Nodes graph from a vg-wnodes-spec.
 	_make_wnodes_btn = Button.new()
-	_make_wnodes_btn.text = "\ud83e\udde9 Make WN"
+	_make_wnodes_btn.text = "Make WN"
 	_make_wnodes_btn.tooltip_text = "Ask Narcea for a vg-wnodes-spec block to enable this."
 	_make_wnodes_btn.disabled = true
+	_make_wnodes_btn.visible = false
 	_make_wnodes_btn.pressed.connect(_on_make_wnodes)
 	_style_small_button(_make_wnodes_btn)
 	toolbar2.add_child(_make_wnodes_btn)
@@ -1520,6 +1523,7 @@ func _setup_ui() -> void:
 	input_focus.border_color = Color(0.4, 0.65, 1.0, 1.0)
 	_input.add_theme_stylebox_override("focus", input_focus)
 	_input.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
+	_input.tree_entered.connect(func(): _style_context_menu(_input))
 	input_row.add_child(_input)
 
 	var btn_col := VBoxContainer.new()
@@ -2493,13 +2497,17 @@ func _show_model_picker() -> void:
 	_model_picker.size = sz
 	call_deferred("_force_model_picker_size", _model_picker, sz)
 
-func _force_model_picker_size(dlg: Window, sz: Vector2i) -> void:
+func _force_window_size(dlg: Window, sz: Vector2i) -> void:
 	if not is_instance_valid(dlg):
 		return
 	dlg.size = sz
-	var base := EditorInterface.get_base_control()
+	var base := EditorInterface.get_base_control() if Engine.is_editor_hint() else null
 	var host_size := Vector2i(base.size) if base != null else Vector2i(get_viewport().get_visible_rect().size)
 	dlg.position = (host_size - sz) / 2
+
+
+func _force_model_picker_size(dlg: Window, sz: Vector2i) -> void:
+	_force_window_size(dlg, sz)
 
 # Force readable colors on an OptionButton's PopupMenu. The default editor
 # theme renders dropdown items as nearly-black-on-black inside the dark VG
@@ -2528,6 +2536,31 @@ func _style_dropdown_popup_dark(option_btn: OptionButton) -> void:
 func _on_dropdown_popup_about_to_show(popup: PopupMenu) -> void:
 	if is_instance_valid(popup):
 		_apply_dark_popup_styling(popup)
+
+
+## TextEdit / CodeEdit / LineEdit right-click menus inherit the editor theme
+## (white-on-white) unless re-styled on every open — same fix as dropdowns.
+func _style_context_menu(control: Control) -> void:
+	if not is_instance_valid(control) or not control.has_method("get_menu"):
+		return
+	var popup: PopupMenu = control.call("get_menu")
+	if popup == null:
+		return
+	_apply_dark_popup_styling(popup)
+	if popup.has_meta("_vg_ctx_menu_styled"):
+		return
+	popup.set_meta("_vg_ctx_menu_styled", true)
+	popup.about_to_popup.connect(func() -> void:
+		_apply_dark_popup_styling(popup)
+		# Editor theme re-applies between about_to_popup and first paint.
+		call_deferred("_apply_dark_popup_styling", popup)
+	)
+	control.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton:
+			var mb := ev as InputEventMouseButton
+			if mb.pressed and mb.button_index == MOUSE_BUTTON_RIGHT:
+				call_deferred("_apply_dark_popup_styling", popup)
+	)
 
 func _apply_dark_popup_styling(popup: PopupMenu) -> void:
 	# Build the shared StyleBoxFlat / Theme objects once; reuse on every open.
@@ -2738,37 +2771,48 @@ func _update_model_dropdown() -> void:
 # ---------------------------------------------------------------------------
 # API Key Settings Dialog
 # ---------------------------------------------------------------------------
+const _API_KEY_DIALOG_SIZE := Vector2i(520, 640)
+
 func _show_api_key_dialog() -> void:
 	if not AIProviders:
 		return
 	if is_instance_valid(_api_key_dialog):
-		_api_key_dialog.popup_centered(Vector2i(520, 360))
-		return
+		_api_key_dialog.queue_free()
+		_api_key_dialog = null
+
 	_api_key_dialog = AcceptDialog.new()
 	var dlg := _api_key_dialog
 	dlg.title = "⚙️  AI Provider API Keys"
-	# Force a fixed compact size. `wrap_controls = false` stops Window
-	# from auto-growing to fit children, and `popup_centered(size)`'s
-	# argument is a *minimum* (not a target) so we also pin `size` and
-	# `max_size` directly.
 	dlg.wrap_controls = false
-	dlg.size = Vector2i(520, 360)
-	dlg.min_size = Vector2i(520, 360)
-	dlg.max_size = Vector2i(520, 360)
+	dlg.unresizable = true
+	dlg.size = _API_KEY_DIALOG_SIZE
+	dlg.min_size = _API_KEY_DIALOG_SIZE
+	dlg.max_size = _API_KEY_DIALOG_SIZE
 	dlg.exclusive = true
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 10)
-	dlg.add_child(vbox)
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 8)
+	dlg.add_child(outer)
 
 	var desc := Label.new()
 	desc.text = "Enter API keys for cloud AI providers.\nKeys are stored locally in user://vg_ai_keys.cfg"
 	desc.add_theme_font_size_override("font_size", 12)
 	desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(desc)
+	outer.add_child(desc)
 
-	vbox.add_child(HSeparator.new())
+	outer.add_child(HSeparator.new())
+
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2i(0, 420)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer.add_child(scroll)
+
+	var vbox := VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_theme_constant_override("separation", 10)
+	scroll.add_child(vbox)
 
 	var key_edits := {}  # provider_id -> LineEdit
 	for p in AIProviders.get_providers():
@@ -2790,17 +2834,11 @@ func _show_api_key_dialog() -> void:
 		edit.secret = true
 		edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		edit.add_theme_font_size_override("font_size", 12)
-		# When a key is already saved the field is pre-populated. Without
-		# auto-select-all, pasting a fresh key drops it AT THE CURSOR
-		# (usually end-of-text), producing a concatenated old+new string
-		# that then gets saved as a single broken key. Select-all on focus
-		# guarantees a paste/type replaces the existing value cleanly.
 		if not edit.text.is_empty():
 			edit.focus_entered.connect(edit.select_all)
 		hbox.add_child(edit)
 		key_edits[p.id] = edit
 
-		# Show/hide toggle
 		var eye := Button.new()
 		eye.text = "👁"
 		eye.tooltip_text = "Show/hide key"
@@ -2823,22 +2861,17 @@ func _show_api_key_dialog() -> void:
 		_activate_provider()
 		_api_key_dialog = null
 		dlg.queue_free()
-	)
+	, CONNECT_ONE_SHOT)
 	dlg.close_requested.connect(func():
 		_api_key_dialog = null
 		dlg.queue_free()
-	)
+	, CONNECT_ONE_SHOT)
 
-	# Use EditorInterface if available to host the dialog
 	if Engine.is_editor_hint():
-		var base := EditorInterface.get_base_control()
-		if base:
-			base.add_child(dlg)
-		else:
-			add_child(dlg)
+		EditorInterface.popup_dialog_centered(dlg, _API_KEY_DIALOG_SIZE)
 	else:
 		add_child(dlg)
-	dlg.popup_centered(Vector2i(520, 360))
+		dlg.popup_centered(_API_KEY_DIALOG_SIZE)
 
 # ---------------------------------------------------------------------------
 # Cloud provider streaming
@@ -3239,66 +3272,68 @@ func _ensure_agent_helpers() -> void:
 ## Toggle the 🔨 Build-form button based on whether the latest reply
 ## actually contains a usable spec.  Cheap to call after every reply.
 func _refresh_build_form_btn() -> void:
-	if not is_instance_valid(_build_form_btn):
-		return
 	_ensure_form_spec_helper()
-	if _form_spec == null:
-		_build_form_btn.disabled = true
-		_build_form_btn.tooltip_text = "Form-spec helper failed to load."
-		if is_instance_valid(_make_this_btn):
-			_make_this_btn.disabled = true
-		return
-	var spec: Dictionary = _form_spec.extract_spec(_accumulated_response)
-	if spec.is_empty():
-		_build_form_btn.disabled = true
-		_build_form_btn.tooltip_text = "Ask Narcea to design a form — she'll include a vg-form-spec block I can build."
-		if is_instance_valid(_make_this_btn):
-			_make_this_btn.disabled = true
-			_make_this_btn.tooltip_text = _build_form_btn.tooltip_text
-	else:
-		_build_form_btn.disabled = false
-		_build_form_btn.tooltip_text = "Build: %s" % _form_spec.describe(spec)
-		if is_instance_valid(_make_this_btn):
-			_make_this_btn.disabled = false
-			_make_this_btn.tooltip_text = "Build, save, and stub: %s" % _form_spec.describe(spec)
-	# Code-spec / project-spec gating runs in lock-step — separate fences
-	# so the model can mix and match (e.g. a project-spec on its own).
 	_ensure_agent_helpers()
+	if _form_spec != null:
+		var spec: Dictionary = _form_spec.extract_spec(_accumulated_response)
+		if is_instance_valid(_build_form_btn):
+			_build_form_btn.disabled = spec.is_empty()
+		if is_instance_valid(_make_this_btn):
+			if spec.is_empty():
+				_make_this_btn.visible = false
+				_make_this_btn.disabled = true
+				_make_this_btn.tooltip_text = "Ask Narcea to design a form — she'll include a vg-form-spec block."
+			else:
+				_make_this_btn.visible = true
+				_make_this_btn.disabled = false
+				_make_this_btn.tooltip_text = "Apply: %s" % _form_spec.describe(spec)
+	elif is_instance_valid(_make_this_btn):
+		_make_this_btn.visible = false
+		_make_this_btn.disabled = true
 	if is_instance_valid(_make_code_btn):
 		var code_spec_d: Dictionary = {} if _code_spec == null else _code_spec.extract_spec(_accumulated_response)
 		var patch_spec_d: Dictionary = {} if _patch_spec == null else _patch_spec.extract_spec(_accumulated_response)
 		if not code_spec_d.is_empty():
+			_make_code_btn.visible = true
 			_make_code_btn.disabled = false
 			_make_code_btn.tooltip_text = "Preview and apply: %s" % _code_spec.describe(code_spec_d)
 		elif not patch_spec_d.is_empty():
+			_make_code_btn.visible = true
 			_make_code_btn.disabled = false
 			_make_code_btn.tooltip_text = "Preview and apply patch: %s" % _patch_spec.describe(patch_spec_d)
 		else:
+			_make_code_btn.visible = false
 			_make_code_btn.disabled = true
 			_make_code_btn.tooltip_text = "Ask Narcea for a vg-code-spec or vg-patch-spec block to enable file writes."
 	if is_instance_valid(_make_project_btn):
 		var proj_spec_d: Dictionary = {} if _project_spec == null else _project_spec.extract_spec(_accumulated_response)
 		if proj_spec_d.is_empty():
+			_make_project_btn.visible = false
 			_make_project_btn.disabled = true
 			_make_project_btn.tooltip_text = "Ask Narcea for a vg-project-spec block to scaffold a runnable project."
 		else:
+			_make_project_btn.visible = true
 			_make_project_btn.disabled = false
 			_make_project_btn.tooltip_text = "Preview and scaffold: %s" % _project_spec.describe(proj_spec_d)
 	# Test-spec gating + lesson-spec auto-render.
 	if is_instance_valid(_make_test_btn):
 		var test_spec_d: Dictionary = {} if _test_spec == null else _test_spec.extract_spec(_accumulated_response)
 		if test_spec_d.is_empty():
+			_make_test_btn.visible = false
 			_make_test_btn.disabled = true
 			_make_test_btn.tooltip_text = "Ask Narcea for a vg-test-spec block to enable this."
 		else:
+			_make_test_btn.visible = true
 			_make_test_btn.disabled = false
 			_make_test_btn.tooltip_text = "Write and run: %s" % _test_spec.describe(test_spec_d)
 	if is_instance_valid(_make_wnodes_btn):
 		var wn_spec_d: Dictionary = {} if _wnodes_spec == null else _wnodes_spec.extract_spec(_accumulated_response)
 		if wn_spec_d.is_empty():
+			_make_wnodes_btn.visible = false
 			_make_wnodes_btn.disabled = true
 			_make_wnodes_btn.tooltip_text = "Ask Narcea for a vg-wnodes-spec block to enable this."
 		else:
+			_make_wnodes_btn.visible = true
 			_make_wnodes_btn.disabled = false
 			_make_wnodes_btn.tooltip_text = "Write: %s" % _wnodes_spec.describe(wn_spec_d)
 	# Lesson specs render immediately (display-only) so the user doesn't
@@ -3338,7 +3373,14 @@ func _refresh_build_form_btn() -> void:
 		_last_send_was_desc_mode = false
 		var _spec_missing := false
 		var _hint := ""
-		match _form_from_desc_mode:
+		# Only honour the Form/Code/Project desc mode on the send that came
+		# from that dialog. Leaving _form_from_desc_mode stuck on "project"
+		# caused every later Narcea chat reply to auto-open the diff dialog
+		# (often invisible) and lock the whole editor.
+		var _desc_mode := _form_from_desc_mode if _was_explicit_desc_mode else "auto"
+		if _was_explicit_desc_mode:
+			_form_from_desc_mode = "form"
+		match _desc_mode:
 			"code":
 				if is_instance_valid(_make_code_btn) and not _make_code_btn.disabled:
 					call_deferred("_on_make_code")
@@ -3346,28 +3388,33 @@ func _refresh_build_form_btn() -> void:
 					_spec_missing = true
 					_hint = "📝 Make code button — she needs to include a fenced ```vg-code-spec``` JSON block."
 			"project":
-				if is_instance_valid(_make_project_btn) and not _make_project_btn.disabled:
-					call_deferred("_on_make_project")
+				if is_instance_valid(_make_project_btn) and _make_project_btn.visible and not _make_project_btn.disabled:
+					# Golden path: Project… already got user intent — scaffold
+					# immediately; do not pop a second modal diff dialog.
+					_suppress_agent_loop = true
+					call_deferred("_on_make_project", true)
 				else:
 					_spec_missing = true
-					_hint = "🆕 Make project button — she needs to include a fenced ```vg-project-spec``` JSON block."
+					_hint = "Make project — Narcea needs a fenced ```vg-project-spec``` JSON block."
 			_:
-				if is_instance_valid(_build_form_btn) and not _build_form_btn.disabled:
+				if is_instance_valid(_make_this_btn) and _make_this_btn.visible and not _make_this_btn.disabled:
 					call_deferred("_on_make_this")
-				# FALLBACK: free-text Narcea replies have no explicit
-				# desc mode.  If the reply contains only a code-spec
-				# (e.g. "change the textbox background to black"), apply
-				# it silently instead of nagging the user about a
-				# missing form-spec.
-				elif is_instance_valid(_make_code_btn) and not _make_code_btn.disabled:
+				elif is_instance_valid(_make_code_btn) and _make_code_btn.visible and not _make_code_btn.disabled:
 					call_deferred("_on_make_code")
-				elif is_instance_valid(_make_project_btn) and not _make_project_btn.disabled:
-					call_deferred("_on_make_project")
-				else:
+				# Do not auto-open Make project from casual chat — leaves the
+				# toolbar button enabled for a deliberate click instead.
+				elif _was_explicit_desc_mode:
 					_spec_missing = true
-					_hint = "🔨 Build form button — she needs to include a fenced ```vg-form-spec``` JSON block with a \"controls\" array, or a ```vg-code-spec``` block to modify existing code."
+					_hint = "Apply form — Narcea needs a fenced ```vg-form-spec``` block with a \"controls\" array, or a ```vg-code-spec``` / ```vg-project-spec``` block."
 		if _spec_missing and _was_explicit_desc_mode:
-			_append_system("[color=#ff8888]Narcea's reply didn't contain the expected spec block, so the %s stays disabled. Click the button again to retry, or scroll the reply to check if she described the layout in prose instead.[/color]\n" % _hint)
+			if _desc_mode == "project" and _accumulated_response.find("```vg-project-spec") >= 0:
+				_append_system("[color=#ffaa66]Gemini's reply was truncated mid-spec (incomplete JSON). The prompt box has a retry message — click Send to ask it to finish the ```vg-project-spec``` block.[/color]\n")
+				if is_instance_valid(_input) and _input.text.strip_edges().is_empty():
+					_input.text = ("Your ```vg-project-spec``` JSON was cut off before it finished. "
+						+ "Continue from where you stopped and emit the COMPLETE fenced block: "
+						+ "forms[] with all controls, files[] with Form1.vg source, then close ```.")
+			else:
+				_append_system("[color=#ff8888]Narcea's reply didn't contain the expected spec block, so the %s stays disabled. Click the button again to retry, or scroll the reply to check if she described the layout in prose instead.[/color]\n" % _hint)
 
 
 ## Lean-v1 Narcea spec-builder entry points.  Three sibling actions —
@@ -3387,66 +3434,28 @@ func _on_project_from_desc_pressed() -> void:
 
 
 func _open_from_desc_dialog(mode: String) -> void:
-	_form_from_desc_mode = mode
-	if _form_from_desc_dialog == null:
-		_form_from_desc_dialog = AcceptDialog.new()
-		_form_from_desc_dialog.ok_button_text = "Design with Narcea"
-		_form_from_desc_dialog.add_cancel_button("Cancel")
-		_form_from_desc_dialog.min_size = Vector2(480, 280)
-		var vb := VBoxContainer.new()
-		vb.add_theme_constant_override("separation", 6)
-		var lbl := Label.new()
-		lbl.name = "DescLabel"
-		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		vb.add_child(lbl)
-		_form_from_desc_input = TextEdit.new()
-		_form_from_desc_input.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		_form_from_desc_input.custom_minimum_size = Vector2(0, 180)
-		_form_from_desc_input.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
-		vb.add_child(_form_from_desc_input)
-		_form_from_desc_dialog.add_child(vb)
-		_form_from_desc_dialog.confirmed.connect(_on_form_from_desc_confirmed)
-		add_child(_form_from_desc_dialog)
-	# Mode-specific title, label, placeholder.
-	var title := ""
-	var lbl_text := ""
-	var placeholder := ""
-	match mode:
-		"code":
-			title = "Generate code from description"
-			lbl_text = "Describe the code change or new files (one or more .vg / .gd / .txt).\nNarcea will reply with a vg-code-spec — then click 📝 Make code."
-			placeholder = "Example: add a helper Sub ClampToScreen(ctrl) in helpers.vg that keeps a control within the form's client area. Wire it from Form_Resize."
-		"project":
-			title = "Scaffold project from description"
-			lbl_text = "Describe a runnable mini-project (forms + code + assets).\nNarcea will reply with a vg-project-spec — then click 🆕 Make project."
-			placeholder = "Example: a Pong clone — one playfield form ~640x480, two paddles, ball, score label, Timer at 16ms, simple AI for the right paddle."
-		_:
-			title = "Build form from description"
-			lbl_text = "Describe the form in plain English (controls, sizes, behaviour).\nNarcea will reply with a vg-form-spec — then click 🔨 Build form."
-			placeholder = "Example: a Login form ~280x160 with two labelled fields (User, Password), an OK button and a Cancel button. auto_events on."
-	_form_from_desc_dialog.title = title
-	var lbl_node := _form_from_desc_dialog.get_node_or_null("VBoxContainer/DescLabel")
-	if lbl_node == null:
-		# Dialog's first child is the auto-generated VBoxContainer wrapper —
-		# our added VBox is the second.  Find the Label by recursive search.
-		for child in _form_from_desc_dialog.get_children():
-			if child is VBoxContainer:
-				var maybe := child.get_node_or_null("DescLabel")
-				if maybe != null:
-					lbl_node = maybe
-					break
-	if lbl_node and lbl_node is Label:
-		(lbl_node as Label).text = lbl_text
-	_form_from_desc_input.placeholder_text = placeholder
-	_form_from_desc_input.text = ""
-	_form_from_desc_dialog.popup_centered()
-	_form_from_desc_input.grab_focus()
-
-
-func _on_form_from_desc_confirmed() -> void:
-	if _form_from_desc_input == null:
+	const DIALOG_SIZE := Vector2i(520, 280)
+	var script := load("res://addons/visual_gasic/vg_ai_from_desc_dialog.gd")
+	if script == null:
+		_append_system("[color=#ff8888]Description dialog unavailable.[/color]\n")
 		return
-	var desc: String = _form_from_desc_input.text.strip_edges()
+	var dlg: ConfirmationDialog = script.new()
+	dlg.configure(mode)
+	dlg.confirmed.connect(func() -> void:
+		_submit_form_from_desc(dlg.get_description(), dlg.get_desc_mode())
+		dlg.queue_free()
+	, CONNECT_ONE_SHOT)
+	dlg.canceled.connect(dlg.queue_free, CONNECT_ONE_SHOT)
+	if Engine.is_editor_hint():
+		EditorInterface.popup_dialog_centered(dlg, DIALOG_SIZE)
+	else:
+		add_child(dlg)
+		dlg.popup_centered(DIALOG_SIZE)
+	dlg.grab_description_focus()
+
+
+func _submit_form_from_desc(desc: String, mode: String) -> void:
+	_form_from_desc_mode = mode
 	if desc.is_empty():
 		_append_system("[color=#ff8888]No description entered.[/color]\n")
 		return
@@ -3464,7 +3473,7 @@ func _on_form_from_desc_confirmed() -> void:
 		_append_system("[color=#bb88ff]Persona:[/color] switched to Narcea.\n")
 	# Mode-specific hardened prompt.
 	var prompt := ""
-	match _form_from_desc_mode:
+	match mode:
 		"code":
 			prompt = "Write or modify code per this description.\n\n"
 			prompt += "Description: " + desc + "\n\n"
@@ -3524,7 +3533,7 @@ func _on_form_from_desc_confirmed() -> void:
 			prompt += "String concatenation is & (not +). Never use GDScript syntax."
 	# If the Form Designer already has controls, inject their geometry so
 	# Narcea places new controls below the existing ones, not on top.
-	if _form_from_desc_mode == "" or _form_from_desc_mode == "form":
+	if mode == "" or mode == "form":
 		var _existing_ctrl_info := ""
 		if Engine.is_editor_hint():
 			var _base := EditorInterface.get_base_control()
@@ -3989,8 +3998,8 @@ func _maybe_auto_apply_narcea_seed() -> void:
 		# the flag set so the next reply can still trigger us.
 		return
 	_append_system("[color=#88dd88]🌿 Auto-applying Narcea's project spec…[/color]\n")
-	# Reuse the manual flow — same diff dialog, same safe-writer chokepoint.
-	call_deferred("_on_make_project")
+	_suppress_agent_loop = true
+	call_deferred("_on_make_project", true)
 	# One-shot: clear so subsequent replies are user-initiated.
 	ProjectSettings.set_setting("vg/narcea_seeded", false)
 	ProjectSettings.save()
@@ -3999,7 +4008,8 @@ func _maybe_auto_apply_narcea_seed() -> void:
 ## Scaffold a vg-project-spec block under res://ai_projects/<name>/.
 ## Forms are built via the shared FormDesigner (sandboxing is a v2 task);
 ## loose files go through the safe-writer rebound to the project subdir.
-func _on_make_project() -> void:
+## skip_diff=true: apply immediately (Project… golden path); false: preview first.
+func _on_make_project(skip_diff: bool = false) -> void:
 	_ensure_agent_helpers()
 	_ensure_form_spec_helper()
 	if _project_spec == null or _safe_writer == null:
@@ -4007,22 +4017,34 @@ func _on_make_project() -> void:
 		return
 	var spec: Dictionary = _project_spec.extract_spec(_accumulated_response)
 	if spec.is_empty():
+		_suppress_agent_loop = false
 		_append_system("[color=#ff8888]No vg-project-spec block in the latest reply.[/color]\n")
 		return
+	if skip_diff:
+		_append_system("[color=#88bbff]Scaffolding project under ai_projects/…[/color]\n")
+		if is_instance_valid(_status_label):
+			_status_label.text = "Scaffolding project…"
+		call_deferred("_execute_project_scaffold", spec)
+		return
 	# Build a plan of just the *file* writes so the user can preview them.
-	# Forms are listed as advisory entries (we don't have their final
-	# .tscn contents yet — they'll be saved by the FormDesigner).
 	var root: String = _project_spec.project_root(spec)
 	_safe_writer.set_root(root)
+	var plan: Array = _build_project_plan(spec, root)
+	_show_diff_dialog(plan, func() -> void:
+		_execute_project_scaffold(spec)
+	)
+
+
+func _build_project_plan(spec: Dictionary, root: String) -> Array:
 	var plan: Array = []
 	if _code_spec != null:
 		var sub_files: Array = []
 		for entry in spec.get("files", []):
 			if typeof(entry) != TYPE_DICTIONARY:
 				continue
-			var p := str(entry.get("path", ""))
-			if not (p.begins_with("res://") or p.begins_with("/")):
-				p = root + p
+			var p: String = _project_spec.rebase_path(str(entry.get("path", "")), root, _safe_writer)
+			if _project_spec._skip_scaffold_file(p, spec):
+				continue
 			var copy: Dictionary = entry.duplicate()
 			copy["path"] = p
 			sub_files.append(copy)
@@ -4040,57 +4062,97 @@ func _on_make_project() -> void:
 			"safe": true,
 			"safe_reason": "",
 		})
-	# Manifest + README are always written.
 	plan.append({
 		"path": root + "project.json", "action": "create", "old": "",
 		"new": "(manifest)", "lint": [], "safe": true, "safe_reason": "",
 	})
-	_show_diff_dialog(plan, func() -> void:
-		var designer: Object = null
-		var plugin: Object = null
-		if Engine.is_editor_hint():
-			var base := EditorInterface.get_base_control()
-			if base and base.has_meta("visual_gasic_plugin_instance"):
-				plugin = base.get_meta("visual_gasic_plugin_instance")
-				if plugin and is_instance_valid(plugin) and "_form_designer" in plugin:
-					designer = plugin._form_designer
-		var helpers := {
-			"safe_writer": _safe_writer,
-			"code_spec":   _code_spec,
-			"form_spec":   _form_spec,
-			"designer":    designer,
-		}
-		var result: Dictionary = _project_spec.apply(spec, helpers)
-		# Restore writer root for subsequent code-spec calls.
-		_safe_writer.set_root("res://")
-		_print_project_result(result)
-		_last_project_root = result.get("root", "")
-		var ms := str(result.get("main_scene", ""))
-		if not ms.is_empty():
-			_last_run_scene = ms
-			if is_instance_valid(_run_btn):
-				_run_btn.disabled = false
-				_run_btn.tooltip_text = "Run %s" % ms
-	)
+	return plan
+
+
+func _execute_project_scaffold(spec: Dictionary) -> void:
+	if _scaffold_in_progress:
+		return
+	_scaffold_in_progress = true
+	var root: String = _project_spec.project_root(spec)
+	_safe_writer.set_root(root)
+	var designer: Object = null
+	if Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base and base.has_meta("visual_gasic_plugin_instance"):
+			var plugin = base.get_meta("visual_gasic_plugin_instance")
+			if plugin and is_instance_valid(plugin) and "_form_designer" in plugin:
+				designer = plugin._form_designer
+	var helpers := {
+		"safe_writer": _safe_writer,
+		"code_spec":   _code_spec,
+		"form_spec":   _form_spec,
+		"designer":    designer,
+	}
+	var result: Dictionary = _project_spec.apply(spec, helpers)
+	_safe_writer.set_root("res://")
+	_print_project_result(result)
+	_last_project_root = result.get("root", "")
+	var ms := str(result.get("main_scene", ""))
+	if not ms.is_empty():
+		_last_run_scene = ms
+		if is_instance_valid(_run_btn):
+			_run_btn.disabled = false
+			_run_btn.tooltip_text = "Run %s" % ms.get_file()
+	_scaffold_done()
+
+
+func _scaffold_done() -> void:
+	_scaffold_in_progress = false
+	_suppress_agent_loop = false
+	if is_instance_valid(_status_label) and not _is_generating:
+		var pname: String = _provider_info.display_name if _provider_info else "Ollama"
+		_status_label.text = ("✅ %s ready" % pname) if _ollama_available else ("❌ %s not found" % pname)
+	_refresh_project_explorer()
 
 
 ## Show a diff-preview dialog for `plan` and call `on_confirm` if the
-## user clicks Apply.  Builds the dialog lazily and reuses the same node.
-var _diff_dlg = null
+## user clicks Apply.  Spawns a fresh dialog on the editor root each time.
+const _DIFF_DIALOG_SIZE := Vector2i(760, 540)
+var _diff_dialog_open := false
 func _show_diff_dialog(plan: Array, on_confirm: Callable) -> void:
-	if _diff_dlg == null or not is_instance_valid(_diff_dlg):
-		var script := load("res://addons/visual_gasic/vg_ai_diff_dialog.gd")
-		if script == null:
-			_append_system("[color=#ff8888]Diff dialog unavailable.[/color]\n")
-			return
-		_diff_dlg = script.new()
-		add_child(_diff_dlg)
-	# Disconnect any previous confirm handler so we don't fire stale ones.
-	for c in _diff_dlg.confirmed.get_connections():
-		_diff_dlg.confirmed.disconnect(c.callable)
-	_diff_dlg.confirmed.connect(on_confirm, CONNECT_ONE_SHOT)
-	_diff_dlg.set_plan(plan)
-	_diff_dlg.popup_centered(Vector2i(760, 540))
+	if _diff_dialog_open:
+		_append_system("[color=#ffaa66]Diff dialog already open — close it first or cancel, then retry.[/color]\n")
+		return
+	var script := load("res://addons/visual_gasic/vg_ai_diff_dialog.gd")
+	if script == null:
+		_append_system("[color=#ff8888]Diff dialog unavailable.[/color]\n")
+		return
+	var dlg: ConfirmationDialog = script.new()
+	dlg.unresizable = true
+	dlg.size = _DIFF_DIALOG_SIZE
+	dlg.min_size = _DIFF_DIALOG_SIZE
+	dlg.exclusive = false
+	dlg.set_plan(plan)
+	var _finish := func() -> void:
+		_diff_dialog_open = false
+		if is_instance_valid(dlg):
+			dlg.hide()
+			dlg.queue_free()
+	dlg.confirmed.connect(func() -> void:
+		on_confirm.call()
+		_finish.call()
+	, CONNECT_ONE_SHOT)
+	dlg.canceled.connect(_finish, CONNECT_ONE_SHOT)
+	dlg.close_requested.connect(_finish, CONNECT_ONE_SHOT)
+	_diff_dialog_open = true
+	_append_system("[color=#88bbff]Review the Apply dialog — click \u2705 Apply to write files and enable \u25b6 Run.[/color]\n")
+	call_deferred("_popup_diff_dialog", dlg)
+
+
+func _popup_diff_dialog(dlg: ConfirmationDialog) -> void:
+	if not is_instance_valid(dlg):
+		_diff_dialog_open = false
+		return
+	if Engine.is_editor_hint():
+		EditorInterface.popup_dialog_centered(dlg, _DIFF_DIALOG_SIZE)
+	else:
+		add_child(dlg)
+		dlg.popup_centered(_DIFF_DIALOG_SIZE)
 
 
 func _print_apply_result(label: String, result: Dictionary) -> void:
@@ -4154,6 +4216,77 @@ func _print_project_result(result: Dictionary) -> void:
 	for entry in result.get("skipped", []):
 		_append_system("  [color=#ff8888]\u2716 %s — %s[/color]\n" % [
 			str(entry.get("path", "")), str(entry.get("reason", ""))])
+	_refresh_after_project_scaffold(result.get("written", []))
+
+
+func _refresh_after_project_scaffold(written: Array) -> void:
+	if not Engine.is_editor_hint():
+		return
+	var fs := EditorInterface.get_resource_filesystem()
+	if fs:
+		for item in written:
+			var path := str(item)
+			if path.begins_with("res://") and FileAccess.file_exists(path):
+				fs.call_deferred("update_file", path)
+		if not fs.filesystem_changed.is_connected(_on_scaffold_filesystem_changed):
+			fs.filesystem_changed.connect(_on_scaffold_filesystem_changed, CONNECT_ONE_SHOT)
+		fs.call_deferred("scan")
+	else:
+		_refresh_project_explorer()
+
+
+func _on_scaffold_filesystem_changed() -> void:
+	_refresh_project_explorer()
+
+
+func _refresh_project_explorer() -> void:
+	if not Engine.is_editor_hint():
+		return
+	var base := EditorInterface.get_base_control()
+	if base == null or not base.has_meta("visual_gasic_plugin_instance"):
+		return
+	var plugin = base.get_meta("visual_gasic_plugin_instance")
+	if plugin == null or not is_instance_valid(plugin):
+		return
+	if "_project_explorer" in plugin:
+		var explorer = plugin._project_explorer
+		if explorer != null and is_instance_valid(explorer) and explorer.has_method("refresh"):
+			explorer.call_deferred("refresh")
+
+
+## Re-enable ▶ Run after reload when ai_projects/<name>/project.json exists.
+func _restore_last_run_from_disk() -> void:
+	var dir := DirAccess.open("res://ai_projects")
+	if dir == null:
+		return
+	var best_mtime := 0
+	var best_scene := ""
+	var best_root := ""
+	dir.list_dir_begin()
+	var sub := dir.get_next()
+	while sub != "":
+		if dir.current_is_dir() and not sub.begins_with("."):
+			var root := "res://ai_projects/%s/" % sub
+			var manifest_path := root + "project.json"
+			if FileAccess.file_exists(manifest_path):
+				var parsed = JSON.parse_string(FileAccess.get_file_as_string(manifest_path))
+				if typeof(parsed) == TYPE_DICTIONARY:
+					var ms := str(parsed.get("main_scene", ""))
+					if not ms.is_empty():
+						var mtime := FileAccess.get_modified_time(manifest_path)
+						if mtime >= best_mtime:
+							best_mtime = mtime
+							best_scene = ms
+							best_root = root
+		sub = dir.get_next()
+	dir.list_dir_end()
+	if best_scene.is_empty():
+		return
+	_last_run_scene = best_scene
+	_last_project_root = best_root
+	if is_instance_valid(_run_btn):
+		_run_btn.disabled = false
+		_run_btn.tooltip_text = "Run %s" % best_scene.get_file()
 
 
 ## Launch the last AI-built scene (or main_scene from the last project)
@@ -4173,7 +4306,7 @@ func _ensure_run_session() -> bool:
 
 func _on_run() -> void:
 	if _last_run_scene.is_empty():
-		_append_system("[color=#ff8888]Nothing to run \u2014 use \ud83e\udd16 Make this or \ud83c\udd95 Make project first.[/color]\n")
+		_append_system("[color=#ff8888]Nothing to run — use Apply form or Make project first.[/color]\n")
 		return
 	if not _ensure_run_session():
 		_append_system("[color=#ff8888]Run-session helper unavailable.[/color]\n")
@@ -4658,6 +4791,11 @@ func _dispatch_tool_calls(reply_text: String) -> void:
 	_maybe_continue_agent_turn(plan)
 
 func _maybe_continue_agent_turn(plan: Dictionary) -> void:
+	if _suppress_agent_loop:
+		_output.append_text("[color=#888888]  (project scaffold scheduled — agent loop paused for this turn)[/color]\n")
+		_hide_abort_agent_btn()
+		_transcript_close("scaffold_pause")
+		return
 	if _ai_tools == null:
 		return
 	var muts: Array = plan.get("mutating", [])
@@ -4969,13 +5107,12 @@ func _ask_apply_mutations(muts: Array) -> void:
 		_render_action_bar()
 		dlg.queue_free()
 	)
-	var host: Node = self
+	const MUT_DLG_SIZE := Vector2i(720, 480)
 	if Engine.is_editor_hint():
-		var base := EditorInterface.get_base_control()
-		if base:
-			host = base
-	host.add_child(dlg)
-	dlg.popup_centered()
+		EditorInterface.popup_dialog_centered(dlg, MUT_DLG_SIZE)
+	else:
+		add_child(dlg)
+		dlg.popup_centered(MUT_DLG_SIZE)
 
 func _apply_mutations(muts: Array) -> Array[String]:
 	var written_tscn_paths: Array[String] = []

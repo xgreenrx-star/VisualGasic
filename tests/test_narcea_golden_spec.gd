@@ -97,6 +97,27 @@ func _run_tier_a() -> void:
 	if response.is_empty():
 		return
 	_run_response_pipeline(response, "tier_a_fixture")
+	print("")
+	print("--- Tier A: Gemini schema-drift fixture ---")
+	var gemini_response := _read_text(_fixtures_dir.path_join("gemini_tipcalc_response.txt"))
+	if gemini_response.is_empty():
+		_fail("load gemini_tipcalc fixture", "missing")
+		return
+	_run_gemini_pipeline(gemini_response, "tier_a_gemini")
+	print("")
+	print("--- Tier A: truncated Gemini response (GreetingDemo) ---")
+	var truncated := _read_text(_fixtures_dir.path_join("gemini_greeting_truncated_response.txt"))
+	if truncated.is_empty():
+		_fail("load gemini_greeting_truncated fixture", "missing")
+	else:
+		_run_truncated_pipeline(truncated, "tier_a_truncated")
+	print("")
+	print("--- Tier A: full GreetingDemo fixture ---")
+	var greeting := _read_text(_fixtures_dir.path_join("gemini_greeting_response.txt"))
+	if greeting.is_empty():
+		_fail("load gemini_greeting fixture", "missing")
+	else:
+		_run_greeting_pipeline(greeting, "tier_a_greeting")
 
 
 func _run_tier_b() -> void:
@@ -214,6 +235,110 @@ func _run_response_pipeline(response: String, label: String) -> void:
 			stubs.is_empty() or not stubs.contains("btnIncrement_Click"))
 
 	_cleanup_project_sandbox(spec, ps)
+
+
+func _run_gemini_pipeline(response: String, label: String) -> void:
+	var ProjectSpec = load("res://addons/visual_gasic/vg_ai_project_spec.gd")
+	var FormSpec = load("res://addons/visual_gasic/vg_ai_form_spec.gd")
+	var CodeSpec = load("res://addons/visual_gasic/vg_ai_code_spec.gd")
+	var SafeWrite = load("res://addons/visual_gasic/vg_ai_safe_write.gd")
+	if ProjectSpec == null or FormSpec == null or CodeSpec == null or SafeWrite == null:
+		_fail("[%s] load appliers" % label, "vg_ai_* module missing")
+		return
+
+	var ps = ProjectSpec.new()
+	var fs = FormSpec.new()
+	var cs = CodeSpec.new()
+	var sw = SafeWrite.new()
+
+	var spec: Dictionary = ps.extract_spec(response)
+	_expect("[%s] extract vg-project-spec" % label, not spec.is_empty())
+	if spec.is_empty():
+		return
+	_expect("[%s] project_name TipCalc" % label, str(spec.get("project_name", "")) == "TipCalc")
+
+	var files: Array = spec.get("files", [])
+	_expect("[%s] files[] non-empty" % label, not files.is_empty())
+	if not files.is_empty() and typeof(files[0]) == TYPE_DICTIONARY:
+		_expect("[%s] source from contents alias" % label,
+			not str(files[0].get("source", "")).is_empty())
+
+	var forms: Array = spec.get("forms", [])
+	if not forms.is_empty() and typeof(forms[0]) == TYPE_DICTIONARY:
+		var ctrls: Array = forms[0].get("controls", [])
+		if not ctrls.is_empty() and typeof(ctrls[0]) == TYPE_DICTIONARY:
+			_expect("[%s] PascalCase Left -> left" % label, ctrls[0].has("left"))
+
+	_cleanup_project_sandbox(spec, ps)
+	var result: Dictionary = ps.apply(spec, {
+		"safe_writer": sw,
+		"code_spec": cs,
+		"form_spec": fs,
+		"designer": null,
+	})
+	_expect("[%s] project-spec apply ok" % label, result.get("ok", false),
+		str(result.get("summary", "")))
+	_expect("[%s] Form1.vg written" % label, _array_has_suffix(result.get("written", []), "Form1.vg"),
+		str(result.get("written", [])))
+	_cleanup_project_sandbox(spec, ps)
+
+
+func _run_truncated_pipeline(response: String, label: String) -> void:
+	var ProjectSpec = load("res://addons/visual_gasic/vg_ai_project_spec.gd")
+	var Providers = load("res://addons/visual_gasic/vg_ai_providers.gd")
+	if ProjectSpec == null or Providers == null:
+		_fail("[%s] load modules" % label, "missing")
+		return
+	var ps = ProjectSpec.new()
+	var spec: Dictionary = ps.extract_spec(response)
+	_expect("[%s] extract truncated vg-project-spec" % label, not spec.is_empty())
+	_expect("[%s] project_name GreetingDemo" % label, str(spec.get("project_name", "")) == "GreetingDemo")
+	var forms: Array = spec.get("forms", [])
+	_expect("[%s] forms[] salvaged" % label, forms.size() >= 1)
+	if not forms.is_empty() and typeof(forms[0]) == TYPE_DICTIONARY:
+		_expect("[%s] form_name Form1" % label, str(forms[0].get("form_name", "")) == "Form1")
+	var max_tok_line := 'data: {"candidates":[{"finishReason":"MAX_TOKENS","content":{}}]}'
+	var parsed: Dictionary = Providers.parse_stream_line("gemini", max_tok_line)
+	_expect("[%s] Gemini MAX_TOKENS ends stream" % label, parsed.get("done", false))
+
+
+func _run_greeting_pipeline(response: String, label: String) -> void:
+	var ProjectSpec = load("res://addons/visual_gasic/vg_ai_project_spec.gd")
+	var FormSpec = load("res://addons/visual_gasic/vg_ai_form_spec.gd")
+	var CodeSpec = load("res://addons/visual_gasic/vg_ai_code_spec.gd")
+	var SafeWrite = load("res://addons/visual_gasic/vg_ai_safe_write.gd")
+	if ProjectSpec == null or FormSpec == null or CodeSpec == null or SafeWrite == null:
+		_fail("[%s] load modules" % label, "missing")
+		return
+	var ps = ProjectSpec.new()
+	var fs = FormSpec.new()
+	var cs = CodeSpec.new()
+	var sw = SafeWrite.new()
+	var spec: Dictionary = ps.extract_spec(response)
+	_expect("[%s] extract vg-project-spec" % label, not spec.is_empty())
+	_expect("[%s] project_name GreetingDemo" % label, str(spec.get("project_name", "")) == "GreetingDemo")
+	var forms: Array = spec.get("forms", [])
+	_expect("[%s] three controls" % label, _control_count(forms) >= 3)
+	_cleanup_project_sandbox(spec, ps)
+	var result: Dictionary = ps.apply(spec, {
+		"safe_writer": sw,
+		"code_spec": cs,
+		"form_spec": fs,
+		"designer": null,
+	})
+	_expect("[%s] apply ok" % label, result.get("ok", false), str(result.get("summary", "")))
+	_expect("[%s] Form1.vg written" % label, _array_has_suffix(result.get("written", []), "Form1.vg"))
+	var vg: String = sw.read(ps.project_root(spec) + "Form1.vg")
+	_expect("[%s] btnGreet_Click in vg" % label, vg.find("btnGreet_Click") != -1)
+	_cleanup_project_sandbox(spec, ps)
+
+
+func _control_count(forms: Array) -> int:
+	var n := 0
+	for f in forms:
+		if typeof(f) == TYPE_DICTIONARY:
+			n += (f.get("controls", []) as Array).size()
+	return n
 
 
 func _validate_ndjson(path: String, label: String) -> void:

@@ -1,0 +1,26 @@
+Scaffold GreetingDemo:
+
+```vg-project-spec
+{
+  "project_name": "GreetingDemo",
+  "main_scene": "Form1.tscn",
+  "forms": [
+    {
+      "form_name": "Form1",
+      "form_size": [320, 180],
+      "auto_events": true,
+      "controls": [
+        {"type": "Label", "name": "lblHello", "text": "Hello!", "left": 8, "top": 8, "width": 120, "height": 20},
+        {"type": "LineEdit", "name": "txtName", "left": 8, "top": 36, "width": 200, "height": 24},
+        {"type": "Button", "name": "btnGreet", "text": "Greet", "left": 8, "top": 72, "width": 80, "height": 28}
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "Form1.vg",
+      "source": "' Form1 - Greeting Demo\nOption Explicit\n\nSub Form_Load()\n    lblHello.Caption = \"Hello!\"\nEnd Sub\n\nSub btnGreet_Click()\n    lblHello.Caption = \"Hello, \" & txtName.Text\nEnd Sub\n"
+    }
+  ]
+}
+```
