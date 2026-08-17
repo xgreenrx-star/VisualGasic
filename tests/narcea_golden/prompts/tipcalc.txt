@@ -1,0 +1,1 @@
+Build a tip calculator form: bill amount textbox, tip percent, calculate button, and labels showing tip and total. Reply with a complete vg-project-spec including Form1.vg handler code.

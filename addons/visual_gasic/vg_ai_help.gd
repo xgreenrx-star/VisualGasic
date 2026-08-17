@@ -540,6 +540,8 @@ var _run_stop_btn: Button = null
 # Toolbar additions (Phase 7): per-feature buttons added in batch.
 var _make_test_btn: Button = null
 var _make_wnodes_btn: Button = null
+var _toolbar3_advanced: HBoxContainer = null
+var _advanced_toggle_btn: Button = null
 var _undo_btn: Button = null
 var _pin_btn: Button = null
 var _summarize_errors_btn: Button = null
@@ -1247,10 +1249,26 @@ func _setup_ui() -> void:
 	for dd in [_provider_dropdown, _model_dropdown, _approvals_dropdown, _persona_dropdown, _agent_mode_dropdown]:
 		_style_dropdown_popup_dark(dd)
 
-	# Row 2: voice controls + spec/build/run action buttons
+	# Row 2: essential actions (always visible)
 	var toolbar2 := HBoxContainer.new()
 	toolbar2.add_theme_constant_override("separation", 4)
 	toolbar_vbox.add_child(toolbar2)
+
+	_advanced_toggle_btn = Button.new()
+	_advanced_toggle_btn.text = "Advanced ▾"
+	_advanced_toggle_btn.toggle_mode = true
+	_advanced_toggle_btn.tooltip_text = "Show voice controls and manual Form/Code/Project actions"
+	_advanced_toggle_btn.toggled.connect(_on_advanced_toolbar_toggled)
+	_style_toolbar_light_button(_advanced_toggle_btn)
+	toolbar2.add_child(_advanced_toggle_btn)
+
+	toolbar2.add_child(_make_separator())
+
+	# Row 3: advanced controls (voice + manual spec actions) — hidden until toggled
+	_toolbar3_advanced = HBoxContainer.new()
+	_toolbar3_advanced.add_theme_constant_override("separation", 4)
+	_toolbar3_advanced.visible = false
+	toolbar_vbox.add_child(_toolbar3_advanced)
 
 	# 🎙 Voice mode — push-to-talk button + auto-speak toggle (Tier 2.5)
 	_mic_btn = Button.new()
@@ -1259,7 +1277,7 @@ func _setup_ui() -> void:
 	_mic_btn.toggle_mode = true
 	_mic_btn.toggled.connect(_on_mic_toggled)
 	_style_small_button(_mic_btn)
-	toolbar2.add_child(_mic_btn)
+	_toolbar3_advanced.add_child(_mic_btn)
 
 	_voice_speak_toggle = Button.new()
 	_voice_speak_toggle.toggle_mode = true
@@ -1268,7 +1286,7 @@ func _setup_ui() -> void:
 	_voice_speak_toggle.button_pressed = true
 	_voice_speak_toggle.toggled.connect(_on_auto_speak_toggled)
 	_style_toolbar_light_button(_voice_speak_toggle)
-	toolbar2.add_child(_voice_speak_toggle)
+	_toolbar3_advanced.add_child(_voice_speak_toggle)
 
 	_voice_vad_toggle = Button.new()
 	_voice_vad_toggle.toggle_mode = true
@@ -1277,7 +1295,7 @@ func _setup_ui() -> void:
 	_voice_vad_toggle.button_pressed = true
 	_voice_vad_toggle.toggled.connect(_on_vad_toggled)
 	_style_toolbar_light_button(_voice_vad_toggle)
-	toolbar2.add_child(_voice_vad_toggle)
+	_toolbar3_advanced.add_child(_voice_vad_toggle)
 
 	# ⚡ Realtime mode toggle (Tier 2.5d — OpenAI Realtime / Gemini Live)
 	_realtime_btn = Button.new()
@@ -1287,7 +1305,7 @@ func _setup_ui() -> void:
 	_realtime_btn.button_pressed = false
 	_realtime_btn.toggled.connect(_on_realtime_toggled)
 	_style_toolbar_light_button(_realtime_btn)
-	toolbar2.add_child(_realtime_btn)
+	_toolbar3_advanced.add_child(_realtime_btn)
 
 	# ⏹ Stop-Speaking button — hidden until Narcea actually starts talking.
 	_stop_speak_btn = Button.new()
@@ -1296,9 +1314,9 @@ func _setup_ui() -> void:
 	_stop_speak_btn.visible = false
 	_stop_speak_btn.pressed.connect(_on_stop_speak)
 	_style_small_button(_stop_speak_btn)
-	toolbar2.add_child(_stop_speak_btn)
+	_toolbar3_advanced.add_child(_stop_speak_btn)
 
-	toolbar2.add_child(_make_separator())
+	_toolbar3_advanced.add_child(_make_separator())
 
 	# 📐 Form-from-description — lean-v1 Narcea form-builder.  Always
 	# enabled; opens a prose-description dialog and auto-sends a hardened
@@ -1309,7 +1327,7 @@ func _setup_ui() -> void:
 	_form_from_desc_btn.pressed.connect(_on_form_from_desc_pressed)
 	_form_from_desc_btn.visible = false
 	_style_small_button(_form_from_desc_btn)
-	toolbar2.add_child(_form_from_desc_btn)
+	_toolbar3_advanced.add_child(_form_from_desc_btn)
 
 	# 📝 Code-from-description — same flow but requires a vg-code-spec block.
 	_code_from_desc_btn = Button.new()
@@ -1318,7 +1336,7 @@ func _setup_ui() -> void:
 	_code_from_desc_btn.pressed.connect(_on_code_from_desc_pressed)
 	_code_from_desc_btn.visible = false
 	_style_small_button(_code_from_desc_btn)
-	toolbar2.add_child(_code_from_desc_btn)
+	_toolbar3_advanced.add_child(_code_from_desc_btn)
 
 	# 🆕 Project-from-description — requires a vg-project-spec block.
 	_project_from_desc_btn = Button.new()
@@ -1327,9 +1345,9 @@ func _setup_ui() -> void:
 	_project_from_desc_btn.pressed.connect(_on_project_from_desc_pressed)
 	_project_from_desc_btn.visible = false
 	_style_small_button(_project_from_desc_btn)
-	toolbar2.add_child(_project_from_desc_btn)
+	_toolbar3_advanced.add_child(_project_from_desc_btn)
 
-	toolbar2.add_child(_make_separator())
+	_toolbar3_advanced.add_child(_make_separator())
 
 	# 🔨 Build-Form — kept for programmatic use; not shown (Apply form covers it).
 	_build_form_btn = Button.new()
@@ -1345,7 +1363,7 @@ func _setup_ui() -> void:
 	_make_this_btn.visible = false
 	_make_this_btn.pressed.connect(_on_make_this)
 	_style_small_button(_make_this_btn)
-	toolbar2.add_child(_make_this_btn)
+	_toolbar3_advanced.add_child(_make_this_btn)
 
 	# Make code — programmatic / auto-apply only; not shown in toolbar.
 	_make_code_btn = Button.new()
@@ -1355,7 +1373,7 @@ func _setup_ui() -> void:
 	_make_code_btn.visible = false
 	_make_code_btn.pressed.connect(_on_make_code)
 	_style_small_button(_make_code_btn)
-	toolbar2.add_child(_make_code_btn)
+	_toolbar3_advanced.add_child(_make_code_btn)
 
 	# Make project — programmatic / auto-apply only; not shown in toolbar.
 	_make_project_btn = Button.new()
@@ -1365,11 +1383,9 @@ func _setup_ui() -> void:
 	_make_project_btn.visible = false
 	_make_project_btn.pressed.connect(_on_make_project)
 	_style_small_button(_make_project_btn)
-	toolbar2.add_child(_make_project_btn)
+	_toolbar3_advanced.add_child(_make_project_btn)
 
-	toolbar2.add_child(_make_separator())
-
-	# \u25b6 Run — launch the last-built (or main) scene, pipe stdout into chat.
+	# ▶ Run — launch the last-built (or main) scene, pipe stdout into chat.
 	_run_btn = Button.new()
 	_run_btn.text = "\u25b6 Run"
 	_run_btn.tooltip_text = "Run the last AI-built scene and stream its output into this panel"
@@ -1394,7 +1410,7 @@ func _setup_ui() -> void:
 	_make_test_btn.visible = false
 	_make_test_btn.pressed.connect(_on_make_test)
 	_style_small_button(_make_test_btn)
-	toolbar2.add_child(_make_test_btn)
+	_toolbar3_advanced.add_child(_make_test_btn)
 
 	# Make .wnodes — write a Working Nodes graph from a vg-wnodes-spec.
 	_make_wnodes_btn = Button.new()
@@ -1404,7 +1420,7 @@ func _setup_ui() -> void:
 	_make_wnodes_btn.visible = false
 	_make_wnodes_btn.pressed.connect(_on_make_wnodes)
 	_style_small_button(_make_wnodes_btn)
-	toolbar2.add_child(_make_wnodes_btn)
+	_toolbar3_advanced.add_child(_make_wnodes_btn)
 
 	# ↩ Undo last AI edit — restores files captured before the last apply.
 	_undo_btn = Button.new()
@@ -2097,7 +2113,8 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 			prompt += "Standard sizes: Label height=20, LineEdit height=24 width≥140, Button height≥28 width≥80.\n"
 			prompt += "Margins ≥16 px from edges. Row gap ≥8 px. NEVER place controls at (0,0) without margins.\n"
 			prompt += "IMPORTANT: use GODOT type names only — LineEdit (not TextBox), Button (not CommandButton).\n"
-			prompt += "If the description includes ANY behaviour (button click, counter, validation, etc.), you MUST ALSO emit a ```vg-code-spec``` block immediately after the form spec. "
+			prompt += "If the description includes ANY behaviour (button click, counter, validation, etc.), you MUST ALSO emit a ```vg-code-spec``` block immediately after the form spec in the SAME reply. "
+			prompt += "Do NOT leave event handlers as TODO stubs — write complete Sub bodies now. "
 			prompt += "In vg-code-spec use path \"res://<form_name>.vg\" matching form_name. "
 			prompt += "Include Option Explicit, Sub Form_Load(), and FULL Sub implementations for every event — NOT empty stubs. "
 			prompt += "String concatenation is & (not +). Never use GDScript syntax."
@@ -2220,6 +2237,15 @@ func _parse_counter_label(text: String) -> Dictionary:
 				"after": m.get_string(3),
 				"start": int(m.get_string(2)),
 			}
+	var re_lead := RegEx.new()
+	if re_lead.compile("^(\\d+)(\\s+.*)$") == OK:
+		var m2 := re_lead.search(text.strip_edges())
+		if m2:
+			return {
+				"before": "",
+				"after": m2.get_string(2),
+				"start": int(m2.get_string(1)),
+			}
 	return {"before": text, "after": "", "start": 0}
 
 
@@ -2267,6 +2293,121 @@ func _try_synthesize_click_counter(form_name: String, form_spec: Dictionary, vg_
 	return true
 
 
+func _try_synthesize_form_handlers(form_name: String, form_spec: Dictionary, vg_path: String, user_prompt: String) -> bool:
+	if _try_synthesize_click_counter(form_name, form_spec, vg_path, user_prompt):
+		return true
+	if _try_synthesize_checkbox_toggle(form_name, form_spec, vg_path, user_prompt):
+		return true
+	if _try_synthesize_inc_dec(form_name, form_spec, vg_path, user_prompt):
+		return true
+	if _try_synthesize_textbox_validation(form_name, form_spec, vg_path, user_prompt):
+		return true
+	return false
+
+
+func _try_synthesize_checkbox_toggle(form_name: String, form_spec: Dictionary, vg_path: String, user_prompt: String) -> bool:
+	var chk_name := ""
+	var lbl_name := ""
+	for entry in form_spec.get("controls", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var ctype: String = str(entry.get("type", ""))
+		var cname := str(entry.get("name", "")).strip_edges()
+		if ctype == "CheckBox" and chk_name.is_empty():
+			chk_name = cname
+		if ctype == "Label" and lbl_name.is_empty():
+			lbl_name = cname
+	if chk_name.is_empty():
+		return false
+	var low := user_prompt.to_lower()
+	if low.find("check") < 0 and low.find("toggle") < 0:
+		return false
+	var lbl_line := ""
+	if not lbl_name.is_empty():
+		lbl_line = "\t%s.Caption = IIf(%s.Value, \"Checked\", \"Unchecked\")\n" % [lbl_name, chk_name]
+	var src := ("' %s — checkbox toggle\nOption Explicit\n\nSub Form_Load()\n\t%s.Value = 0\n%sEnd Sub\n\nSub %s_Click()\n\t%s.Value = IIf(%s.Value, 0, 1)\n%sEnd Sub\n" % [
+		form_name, chk_name, lbl_line, chk_name, chk_name, chk_name, lbl_line])
+	return _write_vg_file(vg_path, src)
+
+
+func _try_synthesize_inc_dec(form_name: String, form_spec: Dictionary, vg_path: String, user_prompt: String) -> bool:
+	var btns: Array[String] = []
+	var lbl_name := ""
+	var lbl_initial := "Value: 0"
+	for entry in form_spec.get("controls", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var ctype: String = str(entry.get("type", ""))
+		var cname := str(entry.get("name", "")).strip_edges()
+		if ctype in ["Button", "CommandButton"]:
+			btns.append(cname)
+		if ctype == "Label":
+			lbl_name = cname
+			lbl_initial = str(entry.get("text", entry.get("caption", lbl_initial)))
+	if btns.size() < 2 or lbl_name.is_empty():
+		return false
+	var low := user_prompt.to_lower()
+	if low.find("increment") < 0 and low.find("decrement") < 0 and low.find("+") < 0 and low.find("minus") < 0:
+		return false
+	var parsed := _parse_counter_label(lbl_initial)
+	var cap_expr: String
+	if parsed.after.is_empty():
+		cap_expr = "\"%s\" & valueCount" % parsed.before
+	else:
+		cap_expr = "\"%s\" & valueCount & \"%s\"" % [parsed.before, parsed.after]
+	var inc := btns[0]
+	var dec := btns[1]
+	var src := ("' %s — increment/decrement\nOption Explicit\n\nDim valueCount As Long\n\nSub Form_Load()\n\tvalueCount = %d\n\t%s.Caption = %s\nEnd Sub\n\nSub %s_Click()\n\tvalueCount = valueCount + 1\n\t%s.Caption = %s\nEnd Sub\n\nSub %s_Click()\n\tvalueCount = valueCount - 1\n\t%s.Caption = %s\nEnd Sub\n" % [
+		form_name, parsed.start, lbl_name, cap_expr, inc, lbl_name, cap_expr, dec, lbl_name, cap_expr])
+	return _write_vg_file(vg_path, src)
+
+
+func _try_synthesize_textbox_validation(form_name: String, form_spec: Dictionary, vg_path: String, user_prompt: String) -> bool:
+	var txt_name := ""
+	var btn_name := ""
+	var lbl_name := ""
+	for entry in form_spec.get("controls", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var ctype: String = str(entry.get("type", ""))
+		var cname := str(entry.get("name", "")).strip_edges()
+		if ctype in ["LineEdit", "TextEdit", "TextBox"] and txt_name.is_empty():
+			txt_name = cname
+		if ctype in ["Button", "CommandButton"] and btn_name.is_empty():
+			btn_name = cname
+		if ctype == "Label" and lbl_name.is_empty():
+			lbl_name = cname
+	if txt_name.is_empty() or btn_name.is_empty() or lbl_name.is_empty():
+		return false
+	var low := user_prompt.to_lower()
+	if low.find("valid") < 0 and low.find("empty") < 0 and low.find("required") < 0:
+		return false
+	var src := ("' %s — textbox validation\nOption Explicit\n\nSub %s_Click()\n\tIf Trim(%s.Text) = \"\" Then\n\t\t%s.Caption = \"Please enter a value.\"\n\tElse\n\t\t%s.Caption = \"OK: \" & %s.Text\n\tEnd If\nEnd Sub\n" % [
+		form_name, btn_name, txt_name, lbl_name, lbl_name, txt_name])
+	return _write_vg_file(vg_path, src)
+
+
+func _write_vg_file(vg_path: String, src: String) -> bool:
+	var wf := FileAccess.open(vg_path, FileAccess.WRITE)
+	if wf == null:
+		return false
+	wf.store_string(src)
+	wf.close()
+	return true
+
+
+func _on_advanced_toolbar_toggled(on: bool) -> void:
+	if is_instance_valid(_toolbar3_advanced):
+		_toolbar3_advanced.visible = on
+	if is_instance_valid(_advanced_toggle_btn):
+		_advanced_toggle_btn.text = "Advanced ▴" if on else "Advanced ▾"
+	_refresh_build_form_btn()
+
+
+func _advanced_actions_visible() -> bool:
+	return is_instance_valid(_toolbar3_advanced) and _toolbar3_advanced.visible
+
+
 ## After layout/code write, ensure button handlers are implemented.
 ## Returns a summary suffix (empty when handlers are already complete).
 func _finalize_form_handlers(form_name: String, form_spec: Dictionary, vg_path: String) -> String:
@@ -2275,7 +2416,7 @@ func _finalize_form_handlers(form_name: String, form_spec: Dictionary, vg_path: 
 	var src := FileAccess.get_file_as_string(vg_path) if FileAccess.file_exists(vg_path) else ""
 	if not _vg_source_has_empty_handlers(src, form_spec):
 		return ""
-	if _try_synthesize_click_counter(form_name, form_spec, vg_path, _last_user_prompt):
+	if _try_synthesize_form_handlers(form_name, form_spec, vg_path, _last_user_prompt):
 		src = FileAccess.get_file_as_string(vg_path)
 		if not _vg_source_has_empty_handlers(src, form_spec):
 			_reload_embedded_vg(vg_path)
@@ -3771,16 +3912,21 @@ func _refresh_build_form_btn() -> void:
 		if is_instance_valid(_build_form_btn):
 			_build_form_btn.disabled = spec.is_empty()
 		if is_instance_valid(_make_this_btn):
+			var show_adv := _advanced_actions_visible()
 			if spec.is_empty():
 				_make_this_btn.visible = false
 				_make_this_btn.disabled = true
 				_make_this_btn.tooltip_text = "Ask Narcea to design a form — she'll include a vg-form-spec block."
 			else:
-				# Chat-first auto-apply calls _on_make_this(); keep hidden so the
-				# panel layout (toolbar + chat + input) stays intact.
-				_make_this_btn.visible = false
+				_make_this_btn.visible = show_adv
 				_make_this_btn.disabled = false
 				_make_this_btn.tooltip_text = "Apply: %s" % _form_spec.describe(spec)
+		if is_instance_valid(_form_from_desc_btn):
+			_form_from_desc_btn.visible = _advanced_actions_visible()
+		if is_instance_valid(_code_from_desc_btn):
+			_code_from_desc_btn.visible = _advanced_actions_visible()
+		if is_instance_valid(_project_from_desc_btn):
+			_project_from_desc_btn.visible = _advanced_actions_visible()
 	elif is_instance_valid(_make_this_btn):
 		_make_this_btn.visible = false
 		_make_this_btn.disabled = true
@@ -3788,11 +3934,11 @@ func _refresh_build_form_btn() -> void:
 		var code_spec_d: Dictionary = {} if _code_spec == null else _code_spec.extract_spec(_accumulated_response)
 		var patch_spec_d: Dictionary = {} if _patch_spec == null else _patch_spec.extract_spec(_accumulated_response)
 		if not code_spec_d.is_empty():
-			_make_code_btn.visible = false
+			_make_code_btn.visible = _advanced_actions_visible()
 			_make_code_btn.disabled = false
 			_make_code_btn.tooltip_text = "Preview and apply: %s" % _code_spec.describe(code_spec_d)
 		elif not patch_spec_d.is_empty():
-			_make_code_btn.visible = false
+			_make_code_btn.visible = _advanced_actions_visible()
 			_make_code_btn.disabled = false
 			_make_code_btn.tooltip_text = "Preview and apply patch: %s" % _patch_spec.describe(patch_spec_d)
 		else:
@@ -3806,7 +3952,7 @@ func _refresh_build_form_btn() -> void:
 			_make_project_btn.disabled = true
 			_make_project_btn.tooltip_text = "Ask Narcea for a vg-project-spec block to scaffold a runnable project."
 		else:
-			_make_project_btn.visible = false
+			_make_project_btn.visible = _advanced_actions_visible()
 			_make_project_btn.disabled = false
 			_make_project_btn.tooltip_text = "Preview and scaffold: %s" % _project_spec.describe(proj_spec_d)
 	# Test-spec gating + lesson-spec auto-render.
@@ -4270,6 +4416,10 @@ func _on_make_this() -> void:
 	elif not handler_note.is_empty():
 		summary += handler_note
 	_append_system("[color=#aaffaa]%s[/color]\n" % summary)
+	if handler_note.contains("synthesized") or handler_note.contains("generating"):
+		_append_system("[color=#88bbff]✓ Auto-built from chat — edit Form1.vg or ask Narcea for changes, then click ▶ Run.[/color]\n")
+	elif code_written and handler_note.is_empty():
+		_append_system("[color=#88bbff]✓ Form saved with handler code — click ▶ Run to test.[/color]\n")
 	# Make-this output is runnable; offer the Run button.
 	_last_run_scene = tscn_path
 	if is_instance_valid(_run_btn):
@@ -4371,24 +4521,10 @@ func _auto_apply_code_spec_no_dialog(spec: Dictionary) -> void:
 	_print_apply_result("Code (auto)", result)
 	if Engine.is_editor_hint():
 		EditorInterface.get_resource_filesystem().scan()
-	# Reload the first .vg file in the embedded editor so the placeholder
-	# stub the user is looking at gets replaced by the real code.
-	var plugin: Object = null
-	if Engine.is_editor_hint():
-		var base := EditorInterface.get_base_control()
-		if base and base.has_meta("visual_gasic_plugin_instance"):
-			plugin = base.get_meta("visual_gasic_plugin_instance")
-	if plugin == null or not is_instance_valid(plugin):
-		return
-	if not ("_embedded_code_editor" in plugin):
-		return
-	var ece = plugin._embedded_code_editor
-	if ece == null or not is_instance_valid(ece) or not ece.has_method("load_file"):
-		return
+	_reload_first_vg_in_editor(spec)
 	for _fe in spec.get("files", []):
 		var _fp: String = str(_fe.get("path", "")).strip_edges()
-		if _fp.ends_with(".vg") and FileAccess.file_exists(_fp):
-			ece.load_file(_fp)
+		if _fp.ends_with(".vg"):
 			var tscn := _fp.get_basename() + ".tscn"
 			if FileAccess.file_exists(tscn):
 				_last_run_scene = tscn
@@ -4515,9 +4651,20 @@ func _execute_project_scaffold(spec: Dictionary) -> void:
 	var ms := str(result.get("main_scene", ""))
 	if not ms.is_empty():
 		_last_run_scene = ms
+		_promote_form_to_main_scene(ms)
 		if is_instance_valid(_run_btn):
 			_run_btn.disabled = false
 			_run_btn.tooltip_text = "Run %s" % ms.get_file()
+	else:
+		for w in result.get("written", []):
+			var wp := str(w)
+			if wp.ends_with(".tscn"):
+				_promote_form_to_main_scene(wp)
+				_last_run_scene = wp
+				if is_instance_valid(_run_btn):
+					_run_btn.disabled = false
+					_run_btn.tooltip_text = "Run %s" % wp.get_file()
+				break
 	_scaffold_done()
 
 

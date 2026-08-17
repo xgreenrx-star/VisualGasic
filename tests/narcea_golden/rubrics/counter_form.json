@@ -1,0 +1,14 @@
+{
+  "scenario_id": "counter_form",
+  "apply_mode": "form",
+  "required_controls": [
+    {"name": "lblCount", "types": ["Label"], "name_pattern": "lbl|label|count"},
+    {"name": "btnClick", "types": ["Button", "CommandButton"], "name_pattern": "btn|button|click"}
+  ],
+  "required_handler_subs": ["_any_button_Click"],
+  "required_vg_patterns": [
+    {"id": "increments", "regex": "(clickCount|count)\\s*=\\s*(clickCount|count)\\s*\\+|\\+\\s*1"},
+    {"id": "updates_label", "regex": "(Caption|Text)\\s*="}
+  ],
+  "forbid_todo_stubs": true
+}

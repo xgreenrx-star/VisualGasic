@@ -1,0 +1,16 @@
+{
+  "scenario_id": "counter_project",
+  "apply_mode": "project",
+  "required_project_name": "CounterDemo",
+  "required_controls": [
+    {"name": "lblCount", "types": ["Label"]},
+    {"name": "btnIncrement", "types": ["Button", "CommandButton"]}
+  ],
+  "required_handler_subs": ["btnIncrement_Click"],
+  "required_vg_substrings": ["lblCount", "btnIncrement_Click"],
+  "required_vg_patterns": [
+    {"id": "increments", "regex": "count\\s*=\\s*count\\s*\\+|count\\s*\\+=\\s*1"},
+    {"id": "updates_label", "regex": "lblCount\\.(Caption|Text)"}
+  ],
+  "forbid_lint_severity": "ERROR"
+}

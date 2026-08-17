@@ -52,6 +52,9 @@ func _initialize() -> void:
 	if FileAccess.file_exists(tmp):
 		DirAccess.remove_absolute(tmp)
 
+	if not panel._try_synthesize_form_handlers("Form1", synth_spec, tmp, prompt):
+		failures.append("form handler dispatcher should succeed")
+
 	var wrapped := panel._build_click_counter_vg("Form1", "btnClickMe", "lblCount", "Clicked 0 times")
 	if not wrapped.contains("\"Clicked \" & clickCount & \" times\""):
 		failures.append("should wrap embedded number in label text")

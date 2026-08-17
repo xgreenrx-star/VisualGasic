@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "counter_form",
+      "prompt_file": "prompt.txt",
+      "mode": "form",
+      "rubric": "rubrics/counter_form.json",
+      "fixture_response": "fixtures/golden_counter_response.txt",
+      "description": "Label + button click counter (canonical Narcea smoke prompt)"
+    },
+    {
+      "id": "counter_project",
+      "prompt_file": "prompt.txt",
+      "mode": "project",
+      "rubric": "rubrics/counter_project.json",
+      "fixture_response": "fixtures/golden_counter_response.txt",
+      "description": "Same counter as a vg-project-spec scaffold under ai_projects/"
+    },
+    {
+      "id": "tipcalc_gemini",
+      "prompt_file": "prompts/tipcalc.txt",
+      "mode": "project",
+      "rubric": "rubrics/tipcalc.json",
+      "fixture_response": "fixtures/gemini_tipcalc_response.txt",
+      "description": "Gemini schema-drift tip calculator fixture"
+    }
+  ]
+}

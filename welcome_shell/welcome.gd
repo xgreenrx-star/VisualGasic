@@ -727,7 +727,11 @@ func _create_narcea_seed_project(proj_name: String, description: String,
 	# Seed the canonical addon so VG loads on first open.
 	var addon_src := _resolve_canonical_addon_dir()
 	if not addon_src.is_empty():
-		_copy_dir_recursive(addon_src, dir + "/addons/visual_gasic")
+		var Installer := load("res://addons/visual_gasic/vg_addon_install.gd")
+		if Installer != null:
+			Installer.install(addon_src, dir + "/addons/visual_gasic", Callable(self, "_copy_dir_recursive"))
+		else:
+			_copy_dir_recursive(addon_src, dir + "/addons/visual_gasic")
 
 	# Narcea seed file the IDE plugin will pick up on first open.
 	var seed := FileAccess.open(dir + "/narcea_seed.txt", FileAccess.WRITE)

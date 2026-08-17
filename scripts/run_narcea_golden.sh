@@ -62,14 +62,25 @@ _run_one_tier() {
 			fi
 			export NARCEA_LIVE=1
 			LIVE_SCRIPT="$ROOT/tests/test_narcea_live_gemini.gd"
+			SUITE_SCRIPT="$ROOT/tests/test_narcea_live_suite.gd"
 			if [[ ! -f "$LIVE_SCRIPT" ]]; then
 				echo "ERROR: $LIVE_SCRIPT not found" >&2
 				return 2
 			fi
 			TIMEOUT="${NARCEA_LIVE_TIMEOUT:-180}"
+			fail=0
 			output="$(timeout "$TIMEOUT" "$GODOT" --headless --path "$HOST_PROJECT" -s "$LIVE_SCRIPT" 2>&1 || true)"
 			echo "$output"
-			if echo "$output" | grep -q "RESULTS: .* passed, 0 failed"; then
+			echo "$output" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
+			if [[ -f "$SUITE_SCRIPT" ]]; then
+				echo ""
+				echo "--- Tier C2: multi-scenario suite ---"
+				export NARCEA_LIVE_SKIP_API=1
+				out2="$(timeout "$TIMEOUT" "$GODOT" --headless --path "$HOST_PROJECT" -s "$SUITE_SCRIPT" 2>&1 || true)"
+				echo "$out2"
+				echo "$out2" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
+			fi
+			if [[ "$fail" -eq 0 ]]; then
 				echo ""
 				echo "✅ Narcea Golden Tier C PASSED"
 				return 0
@@ -80,9 +91,18 @@ _run_one_tier() {
 			;;
 		A|a|B|b)
 			export NARCEA_GOLDEN_TIER="${tier^^}"
+			fail=0
 			output="$(timeout "$TIMEOUT" "$GODOT" --headless --path "$HOST_PROJECT" -s "$TEST_SCRIPT" 2>&1 || true)"
 			echo "$output"
-			if echo "$output" | grep -q "RESULTS: .* passed, 0 failed"; then
+			echo "$output" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
+			if [[ "${tier^^}" == "A" && -f "$ROOT/tests/test_narcea_form_smoke.gd" ]]; then
+				echo ""
+				echo "--- Tier A2: chat-first form smoke ---"
+				out_smoke="$(timeout 60 "$GODOT" --headless --path "$HOST_PROJECT" -s "$ROOT/tests/test_narcea_form_smoke.gd" 2>&1 || true)"
+				echo "$out_smoke"
+				echo "$out_smoke" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
+			fi
+			if [[ "$fail" -eq 0 ]]; then
 				echo ""
 				echo "✅ Narcea Golden Tier $tier PASSED"
 				return 0

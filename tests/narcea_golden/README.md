@@ -8,9 +8,37 @@ Deterministic and (future) live tests for the M5 exit criterion:
 
 | Tier | Command | Network | What it proves |
 |------|---------|---------|----------------|
-| **A** | `bash scripts/run_narcea_golden.sh --tier A` | No | Spec extract → rubric → safe_write → lint (golden fixture) |
+| **A** | `bash scripts/run_narcea_golden.sh --tier A` | No | Spec extract → rubric → safe_write → lint + **chat-first form smoke** |
 | **B** | `bash scripts/run_narcea_golden.sh --tier B` | No | Replay `recorded/*_response.txt` (+ optional paired `.ndjson`) |
-| **C** | `--tier C` *(planned)* | Yes | Live Claude / Ollama against golden prompt |
+| **C** | `bash scripts/run_narcea_golden.sh --tier C` | Optional | Live Gemini + **multi-scenario suite** (`scenarios.json`) |
+
+## Multi-scenario live suite (all providers)
+
+[`scenarios.json`](scenarios.json) lists prompts + rubrics. Run offline (fixture replay) or live:
+
+```bash
+# CI-safe — replays fixture responses, no HTTP
+NARCEA_LIVE=1 NARCEA_LIVE_SKIP_API=1 bash scripts/run_narcea_live_suite.sh
+
+# Live Gemini
+NARCEA_LIVE=1 NARCEA_PROVIDER=gemini NARCEA_GEMINI_KEY=... bash scripts/run_narcea_live_suite.sh
+
+# Live Ollama (local)
+NARCEA_LIVE=1 NARCEA_PROVIDER=ollama NARCEA_MODEL=qwen2.5-coder:7b bash scripts/run_narcea_live_suite.sh
+
+# Live OpenAI / Claude
+NARCEA_LIVE=1 NARCEA_PROVIDER=openai NARCEA_OPENAI_KEY=... NARCEA_MODEL=gpt-4o bash scripts/run_narcea_live_suite.sh
+NARCEA_LIVE=1 NARCEA_PROVIDER=claude NARCEA_CLAUDE_KEY=... bash scripts/run_narcea_live_suite.sh
+
+# Single scenario
+NARCEA_SCENARIO=counter_form ...
+```
+
+Chat-first form synthesis smoke (no network):
+
+```bash
+bash scripts/run_narcea_form_smoke.sh
+```
 
 ## Tier A — golden counter form
 

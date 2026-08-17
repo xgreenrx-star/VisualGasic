@@ -1,0 +1,8 @@
+{
+  "scenario_id": "tipcalc_gemini",
+  "apply_mode": "project",
+  "required_project_name": "TipCalc",
+  "required_controls": [],
+  "required_vg_substrings": ["Form1", "txtBill"],
+  "forbid_lint_severity": "ERROR"
+}

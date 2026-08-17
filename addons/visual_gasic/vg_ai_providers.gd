@@ -939,3 +939,59 @@ static func _parse_gemini_line(line: String) -> Dictionary:
 	if not parts.is_empty():
 		token = str(parts[0].get("text", ""))
 	return {"token": token, "done": done}
+
+
+## Non-streaming request for automated live tests (Ollama / OpenAI-shaped / Claude / Gemini).
+static func build_request_nostream(provider_id: String, model: String, system_prompt: String,
+		user_prompt: String, api_key: String) -> Dictionary:
+	var req: Dictionary = build_request(provider_id, model, system_prompt, [], user_prompt, api_key)
+	var body_text: String = str(req.get("body", ""))
+	var parsed = JSON.parse_string(body_text)
+	if typeof(parsed) == TYPE_DICTIONARY:
+		match provider_id:
+			"ollama", "openai", "deepseek", "qwen", "codeium", "amazonq", "claude":
+				parsed["stream"] = false
+		req["body"] = JSON.stringify(parsed)
+	if provider_id == "gemini":
+		var path: String = str(req.get("path", ""))
+		req["path"] = path.replace(":streamGenerateContent?alt=sse", ":generateContent?")
+	return req
+
+
+## Extract assistant text from a complete (non-SSE) HTTP response body.
+static func extract_response_text(provider_id: String, raw_body: String) -> String:
+	var parsed = JSON.parse_string(raw_body)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return raw_body.strip_edges()
+	match provider_id:
+		"ollama":
+			return str(parsed.get("response", ""))
+		"openai", "deepseek", "qwen", "codeium", "amazonq":
+			var choices: Array = parsed.get("choices", [])
+			if choices.is_empty():
+				return ""
+			return str(choices[0].get("message", {}).get("content", ""))
+		"claude":
+			var content: Array = parsed.get("content", [])
+			var out := ""
+			for block in content:
+				if typeof(block) == TYPE_DICTIONARY and str(block.get("type", "")) == "text":
+					out += str(block.get("text", ""))
+			return out
+		"gemini":
+			var candidates: Array = parsed.get("candidates", [])
+			if candidates.is_empty():
+				return ""
+			var parts: Array = candidates[0].get("content", {}).get("parts", [])
+			var text := ""
+			for p in parts:
+				if typeof(p) == TYPE_DICTIONARY:
+					text += str(p.get("text", ""))
+			return text
+	return raw_body.strip_edges()
+
+
+## Resolve API URL for a provider request dict.
+static func request_url(provider_info: ProviderInfo, req: Dictionary) -> String:
+	var scheme := "https" if provider_info.use_tls else "http"
+	return scheme + "://" + provider_info.api_host + str(req.get("path", ""))

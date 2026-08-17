@@ -4916,9 +4916,13 @@ func _create_new_vg_project(proj_name: String, proj_dir: String) -> void:
 	if src_norm == dst_norm:
 		print("[VisualGasic] New project: addon source equals destination — skipping copy")
 	else:
-		err = _copy_dir_recursive(src_addon, dst_addon)
+		var Installer := load("res://addons/visual_gasic/vg_addon_install.gd")
+		if Installer != null:
+			err = Installer.install(src_norm, dst_norm, Callable(self, "_copy_dir_recursive"))
+		else:
+			err = _copy_dir_recursive(src_addon, dst_addon)
 		if err != OK:
-			push_error("[VisualGasic] Failed to copy addon: " + str(err))
+			push_error("[VisualGasic] Failed to install addon: " + str(err))
 			_flash_status_message("Failed to copy addon files")
 			return
 
