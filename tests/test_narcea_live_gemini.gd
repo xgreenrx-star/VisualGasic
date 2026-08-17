@@ -3,10 +3,10 @@ extends SceneTree
 ##
 ## Env:
 ##   NARCEA_GEMINI_KEY     — API key (else reads ~/.config/godot/editor_settings-4.6.tres)
-##   NARCEA_GEMINI_MODEL   — default gemini-2.5-flash (NarceaTest7 uses gemini-3.6-flash)
+##   NARCEA_GEMINI_MODEL   — default gemini-2.0-flash (override if your key tier differs)
 ##   NARCEA_LIVE=1         — required gate
 
-const DEFAULT_MODEL := "gemini-2.5-flash"
+const DEFAULT_MODEL := "gemini-2.0-flash"
 const TIMEOUT_SEC := 120.0
 
 var _failed := 0

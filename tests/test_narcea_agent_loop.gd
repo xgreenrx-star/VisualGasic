@@ -505,4 +505,32 @@ func _test_refresh_models() -> void:
 	_expect("refresh_models is a static method",
 		Providers.has_method("refresh_models"))
 
+	# ── 10e. Gemini chat-model filter drops embed-only and legacy entries ──
+	_expect("is_gemini_chat_model rejects embedding models",
+		not Providers.is_gemini_chat_model("gemini-embedding-001", ["embedContent"]))
+	_expect("is_gemini_chat_model accepts streamGenerateContent models",
+		Providers.is_gemini_chat_model("gemini-2.0-flash", ["streamGenerateContent"]))
+	_expect("is_gemini_legacy_or_experimental rejects gemini-1.5-pro",
+		Providers.is_gemini_legacy_or_experimental("gemini-1.5-pro"))
+	_expect("is_gemini_legacy_or_experimental rejects -exp builds",
+		Providers.is_gemini_legacy_or_experimental("gemini-2.0-flash-exp"))
+	_expect("filter_provider_model_list prunes cached legacy ids",
+		Providers.filter_provider_model_list("gemini", ["gemini-2.0-flash", "gemini-1.5-pro"]) == ["gemini-2.0-flash"])
+
+	# ── 10f. pick_default_model prefers live flash models ──
+	var live := ["gemini-2.0-flash", "gemini-2.5-pro"]
+	_expect("pick_default_model chooses gemini-2.0-flash when 2.5-flash absent",
+		Providers.pick_default_model("gemini", live) == "gemini-2.0-flash")
+
+	# ── 10g. diff_removed_models reports stale cache entries ──
+	var removed: Array = Providers.diff_removed_models(
+		["gemini-2.5-flash", "gemini-2.0-flash"],
+		["gemini-2.0-flash", "gemini-2.5-pro"])
+	_expect("diff_removed_models finds retired models",
+		removed.size() == 1 and removed[0] == "gemini-2.5-flash")
+
+	# ── 10h. pick_default_model must not recurse through get_providers ──
+	_expect("pick_default_model(openai) returns first model without recursion",
+		Providers.pick_default_model("openai", ["gpt-4o", "gpt-4o-mini"]) == "gpt-4o")
+
 	print("")

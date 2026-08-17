@@ -70,8 +70,8 @@ static func get_providers() -> Array:
 	gemini.api_port = 443
 	gemini.api_path = "/v1beta/models/{model}:streamGenerateContent"
 	gemini.use_tls = true
-	gemini.models = ["gemini-2.5-flash", "gemini-2.5-pro"]
-	gemini.default_model = "gemini-2.5-flash"
+	gemini.models = ["gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
+	gemini.default_model = "gemini-2.0-flash"
 	providers.append(gemini)
 
 	# ── DeepSeek ──
@@ -144,9 +144,24 @@ static func get_providers() -> Array:
 		for p in providers:
 			var cached := _load_cached_models(es, p.id)
 			if not cached.is_empty():
-				p.models = cached
+				p.models = filter_provider_model_list(p.id, cached)
+				if p.models.find(p.default_model) < 0:
+					p.default_model = pick_default_model(p.id, p.models)
 
 	return providers
+
+## Drop stale cached model ids from EditorSettings (safe to call once at startup).
+static func prune_cached_model_lists() -> void:
+	var es := _editor_settings()
+	if es == null:
+		return
+	for pid in ["gemini", "openai", "claude", "deepseek", "qwen", "codeium", "amazonq", "ollama"]:
+		var cached := _load_cached_models(es, pid)
+		if cached.is_empty():
+			continue
+		var filtered := filter_provider_model_list(pid, cached)
+		if filtered.size() != cached.size():
+			_save_cached_models(es, pid, filtered)
 
 static func find_provider(provider_id: String) -> ProviderInfo:
 	for p in get_providers():
@@ -305,6 +320,198 @@ static func _save_cached_models(es: Object, provider_id: String, models: Array) 
 	es.set_setting('visual_gasic/ai/' + provider_id + '_cached_models', JSON.stringify(models))
 	es.set_setting('visual_gasic/ai/' + provider_id + '_models_timestamp', str(Time.get_unix_time_from_system()))
 
+## Strip the "models/" prefix Gemini returns in list responses.
+static func _normalize_gemini_model_name(raw_name: String) -> String:
+	var name := raw_name.strip_edges()
+	if name.begins_with("models/"):
+		name = name.substr(7)
+	return name
+
+## True when a Gemini catalog entry can chat (ignores legacy/experimental pruning).
+static func _gemini_catalog_chat_model(model_name: String, supported_methods: Array) -> bool:
+	var name := _normalize_gemini_model_name(model_name)
+	if name.is_empty():
+		return false
+	if not supported_methods.is_empty():
+		var can_chat := false
+		for method in supported_methods:
+			var ms := str(method)
+			if ms == "generateContent" or ms == "streamGenerateContent":
+				can_chat = true
+				break
+		if not can_chat:
+			return false
+	var lower := name.to_lower()
+	if not lower.begins_with("gemini-"):
+		return false
+	if lower.contains("embed") or lower.contains("imagen") or lower.contains("aqa"):
+		return false
+	return true
+
+## True when a Gemini model entry supports chat generation (not embed/image-only).
+static func is_gemini_chat_model(model_name: String, supported_methods: Array = []) -> bool:
+	if not _gemini_catalog_chat_model(model_name, supported_methods):
+		return false
+	return not is_gemini_legacy_or_experimental(model_name)
+
+## Drop retired Gemini 1.x, unversioned legacy names, and -exp/-preview builds.
+static func is_gemini_legacy_or_experimental(model_name: String) -> bool:
+	var lower := _normalize_gemini_model_name(model_name).to_lower()
+	if lower.is_empty():
+		return true
+	if lower.contains("-exp") or lower.contains("-preview") or lower.contains("-experimental"):
+		return true
+	if lower.begins_with("gemini-1."):
+		return true
+	if lower in ["gemini-pro", "gemini-pro-vision", "gemini-ultra", "gemini-1.0-pro"]:
+		return true
+	# Only list Gemini 2.x / 3.x chat models in the picker.
+	if not (lower.begins_with("gemini-2.") or lower.begins_with("gemini-3.")):
+		return true
+	return false
+
+## Apply provider-specific cleanup to a cached or live model list.
+static func filter_provider_model_list(provider_id: String, models: Array) -> Array:
+	if provider_id != "gemini":
+		return models.duplicate()
+	var out: Array = []
+	for m in models:
+		var name := str(m)
+		if is_gemini_chat_model(name, ["streamGenerateContent"]):
+			out.append(name)
+	return out
+
+## Clear cached model list for one provider (forces built-in defaults until next refresh).
+static func clear_cached_models(provider_id: String) -> void:
+	var es := _editor_settings()
+	if es == null:
+		return
+	es.set_setting('visual_gasic/ai/' + provider_id + '_cached_models', "")
+	es.set_setting('visual_gasic/ai/' + provider_id + '_models_timestamp', "")
+
+## Synchronous HTTP helper used by refresh / model probes.
+static func _http_request_sync(host: String, port: int, use_tls: bool, method: int, path: String,
+		headers: PackedStringArray, body: String = "",
+		connect_polls: int = 40, body_polls: int = 40) -> Dictionary:
+	var http := HTTPClient.new()
+	var tls_options = TLSOptions.client(null) if use_tls else null
+	var err := http.connect_to_host(host, port, tls_options)
+	if err != OK:
+		return {'ok': false, 'error': 'Connection failed: ' + error_string(err)}
+	for _i in connect_polls:
+		http.poll()
+		var status := http.get_status()
+		if status == HTTPClient.STATUS_CONNECTED:
+			break
+		if status == HTTPClient.STATUS_CANT_CONNECT or status == HTTPClient.STATUS_CONNECTION_ERROR:
+			http.close()
+			return {'ok': false, 'error': 'Could not connect to ' + host + ':' + str(port)}
+		OS.delay_msec(100)
+	if http.get_status() != HTTPClient.STATUS_CONNECTED:
+		http.close()
+		return {'ok': false, 'error': 'Timed out connecting to ' + host + ':' + str(port)}
+	var req_err := http.request(method, path, headers, body)
+	if req_err != OK:
+		http.close()
+		return {'ok': false, 'error': 'Request failed: ' + error_string(req_err)}
+	for _i in body_polls:
+		http.poll()
+		var status := http.get_status()
+		if status == HTTPClient.STATUS_BODY or status == HTTPClient.STATUS_DISCONNECTED:
+			break
+		OS.delay_msec(100)
+	var code := http.get_response_code()
+	var body_bytes := PackedByteArray()
+	while http.get_status() == HTTPClient.STATUS_BODY:
+		var chunk := http.read_response_body_chunk()
+		if chunk.size() > 0:
+			body_bytes.append_array(chunk)
+		else:
+			OS.delay_msec(10)
+	http.close()
+	return {'ok': true, 'code': code, 'body': body_bytes.get_string_from_utf8()}
+
+## Probe whether Gemini will accept generateContent for this model id.
+static func probe_gemini_model(model: String, api_key: String) -> bool:
+	if api_key.is_empty() or model.is_empty():
+		return false
+	var path := "/v1beta/models/" + model + ":generateContent?key=" + api_key
+	var payload := JSON.stringify({
+		"contents": [{"parts": [{"text": "ping"}]}],
+		"generationConfig": {"maxOutputTokens": 1},
+	})
+	var headers := PackedStringArray(["Content-Type: application/json"])
+	var resp: Dictionary = _http_request_sync(
+		"generativelanguage.googleapis.com", 443, true,
+		HTTPClient.METHOD_POST, path, headers, payload, 30, 30)
+	if not resp.get("ok", false):
+		return false
+	var code: int = int(resp.get("code", 0))
+	return code >= 200 and code < 300
+
+## Keep only Gemini models that respond to a minimal generateContent call.
+static func validate_gemini_models(candidates: Array, api_key: String) -> Dictionary:
+	var valid: Array = []
+	var rejected: Array = []
+	var sorted: Array = candidates.duplicate()
+	sorted.sort_custom(func(a, b) -> bool:
+		var pa := _gemini_validation_priority(str(a))
+		var pb := _gemini_validation_priority(str(b))
+		if pa == pb:
+			return str(a) < str(b)
+		return pa < pb)
+	for model in sorted:
+		var name := str(model)
+		if probe_gemini_model(name, api_key):
+			valid.append(name)
+		else:
+			rejected.append(name)
+	valid.sort()
+	rejected.sort()
+	return {'valid': valid, 'rejected': rejected}
+
+static func _gemini_validation_priority(model_name: String) -> int:
+	var lower := model_name.to_lower()
+	if lower.ends_with("-flash"):
+		return 0
+	if lower.contains("flash-lite"):
+		return 1
+	if lower.contains("-pro"):
+		return 2
+	return 3
+
+## Pick the best default model from a live list (prefers fast chat models).
+static func pick_default_model(provider_id: String, models: Array) -> String:
+	if models.is_empty():
+		return ""
+	if provider_id == "gemini":
+		var prefs := [
+			"gemini-2.0-flash",
+			"gemini-2.5-flash-lite",
+			"gemini-2.0-flash-lite",
+			"gemini-2.5-pro",
+			"gemini-2.0-pro",
+			"gemini-3.6-flash",
+			"gemini-3.5-flash-lite",
+		]
+		for pref in prefs:
+			if models.has(pref):
+				return pref
+		for m in models:
+			var ms := str(m).to_lower()
+			if ms.contains("flash") and not ms.contains("preview"):
+				return str(m)
+		return str(models[0])
+	return str(models[0])
+
+## Models present in old_list but absent from new_list (after a refresh).
+static func diff_removed_models(old_list: Array, new_list: Array) -> Array:
+	var removed: Array = []
+	for m in old_list:
+		if not new_list.has(m):
+			removed.append(m)
+	return removed
+
 ## Fetch live models from a provider's API and cache the result.
 ##
 ## Provider         │ Endpoint                       │ Auth
@@ -431,8 +638,11 @@ static func refresh_models(provider_id: String) -> Dictionary:
 	if json == null:
 		return {'ok': false, 'error': 'Failed to parse JSON response'}
 
+	var old_models := _load_cached_models(es, provider_id)
+
 	# Extract model names — each provider returns a different shape
 	var model_names: Array = []
+	var rejected: Array = []
 	match provider_id:
 		'ollama':
 			# { models: [{ name: "...", ... }] }
@@ -442,13 +652,16 @@ static func refresh_models(provider_id: String) -> Dictionary:
 				if not String(name).is_empty():
 					model_names.append(name)
 		'gemini':
-			# { models: [{ name: "models/gemini-...", ... }] }
+			# { models: [{ name: "models/gemini-...", supportedGenerationMethods: [...] }] }
 			var models_arr: Array = json.get('models', [])
 			for m in models_arr:
-				var name = String(m.get('name', ''))
-				if name.begins_with('models/'):
-					name = name.substr(7)  # strip "models/" prefix
-				if not name.is_empty():
+				var name := _normalize_gemini_model_name(String(m.get('name', '')))
+				var methods: Array = m.get('supportedGenerationMethods', [])
+				if not _gemini_catalog_chat_model(name, methods):
+					continue
+				if is_gemini_legacy_or_experimental(name):
+					rejected.append(name)
+				else:
 					model_names.append(name)
 		'claude':
 			# { data: [{ id: "claude-sonnet-4-5", ... }] }
@@ -465,11 +678,23 @@ static func refresh_models(provider_id: String) -> Dictionary:
 				if not String(name).is_empty():
 					model_names.append(name)
 
-	# Sort and cache
+	if model_names.is_empty():
+		return {'ok': false, 'error': 'No usable models returned (check API key / provider status)'}
+
+	if provider_id == "gemini":
+		var validation: Dictionary = validate_gemini_models(model_names, api_key)
+		rejected.append_array(validation.get("rejected", []))
+		model_names = validation.get("valid", [])
+		if model_names.is_empty():
+			return {'ok': false, 'error': 'No Gemini models passed availability probe (API key tier may block all models)'}
+
+	# Sort, replace cache entirely (drops models no longer returned by the API).
 	model_names.sort()
+	rejected.sort()
+	var removed := diff_removed_models(old_models, model_names)
 	_save_cached_models(es, provider_id, model_names)
 
-	return {'ok': true, 'models': model_names}
+	return {'ok': true, 'models': model_names, 'removed': removed, 'rejected': rejected}
 
 
 # ────────────────────────────────────────────────────────────────────────────

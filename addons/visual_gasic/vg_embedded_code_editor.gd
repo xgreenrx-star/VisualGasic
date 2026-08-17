@@ -467,6 +467,7 @@ func add_bottom_tab(title: String, panel: Control) -> void:
 	if panel.get_parent():
 		panel.get_parent().remove_child(panel)
 	panel.name = title
+	panel.visible = true
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_bottom_tabs.add_child(panel)

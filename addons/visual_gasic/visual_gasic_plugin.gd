@@ -4911,11 +4911,16 @@ func _create_new_vg_project(proj_name: String, proj_dir: String) -> void:
 		print("[VisualGasic] New project: copying canonical addon from ", src_addon)
 	var dst_addon: String = proj_dir + "/addons/visual_gasic"
 
-	err = _copy_dir_recursive(src_addon, dst_addon)
-	if err != OK:
-		push_error("[VisualGasic] Failed to copy addon: " + str(err))
-		_flash_status_message("Failed to copy addon files")
-		return
+	var src_norm := src_addon.rstrip("/")
+	var dst_norm := dst_addon.rstrip("/")
+	if src_norm == dst_norm:
+		print("[VisualGasic] New project: addon source equals destination — skipping copy")
+	else:
+		err = _copy_dir_recursive(src_addon, dst_addon)
+		if err != OK:
+			push_error("[VisualGasic] Failed to copy addon: " + str(err))
+			_flash_status_message("Failed to copy addon files")
+			return
 
 	# ── Ensure binaries are present (belt-and-suspenders) ──
 	# _copy_dir_recursive handles this for most cases, but if the addon was

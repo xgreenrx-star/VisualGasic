@@ -1766,10 +1766,10 @@ func _do_build_form(d: Dictionary) -> String:
 			fd.save_form_as(tscn_path)
 			_save_ok = FileAccess.file_exists(tscn_path)
 		if _save_ok:
-			# Make this form the project's main scene so the Play button
-			# actually runs something (otherwise pressing Play opens the
-			# "Choose main scene" dialog and the user sees nothing happen).
-			if ProjectSettings.get_setting("application/run/main_scene", "") == "":
+			# Make this form the project's main scene when still on the generic
+			# Module1 starter or unset — chat-first builds should run on Play.
+			var cur_ms := str(ProjectSettings.get_setting("application/run/main_scene", ""))
+			if cur_ms.is_empty() or cur_ms.ends_with("Module1.tscn") or cur_ms.ends_with("Module1.vg"):
 				ProjectSettings.set_setting("application/run/main_scene", tscn_path)
 				ProjectSettings.save()
 			if host.has_method("open_form_in_designer"):
