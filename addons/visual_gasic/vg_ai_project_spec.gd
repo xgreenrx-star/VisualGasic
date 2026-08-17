@@ -555,12 +555,18 @@ func _rebase_tscn_script_paths(source: String, root: String) -> String:
 	if rx.compile("path=\"(res://[^\"]+\\.vg)\"") != OK:
 		return source
 	var out := source
-	var m := rx.search(out)
-	while m:
+	var offset := 0
+	while true:
+		var m := rx.search(out, offset)
+		if m == null:
+			break
 		var old_p := m.get_string(1)
 		var new_p := rebase_path(old_p, root, null)
-		out = out.substr(0, m.get_start(1)) + new_p + out.substr(m.get_end(1))
-		m = rx.search(out)
+		if new_p != old_p:
+			out = out.substr(0, m.get_start(1)) + new_p + out.substr(m.get_end(1))
+			offset = m.get_start(1) + new_p.length()
+		else:
+			offset = m.get_end(0)
 	return out
 
 

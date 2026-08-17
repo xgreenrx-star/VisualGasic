@@ -1,0 +1,11 @@
+Build a simple playable 2D Pong mini-game under ai_projects.
+
+Requirements:
+- Two vertical paddles (left and right), a ball, and a score for each player
+- Keyboard: W/S moves the left paddle; Up/Down arrows move the right paddle
+- Main scene is a Node2D with a .vg script attached (not a Form Designer form)
+- The .vg script must implement _Ready, _Process(delta), and _Draw using DrawRect and DrawString
+- Ball bounces off top/bottom walls and paddles; scoring when the ball exits left/right
+- Set main_scene so ▶ Run works immediately
+
+Reply with one fenced ```vg-project-spec``` JSON block only. Include project_name, subdir "ai_projects", main_scene, and files[] with the complete .vg game source (not TODO stubs). Keep ≤ 6 files total.

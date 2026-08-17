@@ -1,0 +1,12 @@
+{
+  "scenario_id": "pong_2d",
+  "apply_mode": "project",
+  "required_vg_substrings": ["_Process"],
+  "required_vg_patterns": [
+    {"id": "game_loop", "regex": "(?i)(_Ready|_Process)"},
+    {"id": "render", "regex": "(?i)(_Draw|DrawRect|DrawString)"},
+    {"id": "input", "regex": "(?i)(Input\\.|paddle|PADDLE)"},
+    {"id": "ball_or_score", "regex": "(?i)(ball|score)"}
+  ],
+  "forbid_todo_stubs": true
+}

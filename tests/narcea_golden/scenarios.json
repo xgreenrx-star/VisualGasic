@@ -24,6 +24,14 @@
       "rubric": "rubrics/tipcalc.json",
       "fixture_response": "fixtures/gemini_tipcalc_response.txt",
       "description": "Gemini schema-drift tip calculator fixture"
+    },
+    {
+      "id": "pong_2d",
+      "prompt_file": "prompts/pong_2d.txt",
+      "mode": "project",
+      "rubric": "rubrics/pong_2d.json",
+      "fixture_response": "",
+      "description": "Live-only: simple 2D Pong game with Node2D + .vg _Process/_Draw"
     }
   ]
 }

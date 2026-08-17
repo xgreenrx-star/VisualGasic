@@ -17,7 +17,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GODOT="$ROOT/Godot_v4.6.1-stable_linux.x86_64"
 HOST="$ROOT/projects/vg_narcea_test"
 SCRIPT="$ROOT/tests/test_narcea_live_suite.gd"
-TIMEOUT="${NARCEA_LIVE_TIMEOUT:-180}"
+# HTTP timeout (NARCEA_LIVE_TIMEOUT) + headroom for scaffold/apply/rubric scoring.
+HTTP_TIMEOUT="${NARCEA_LIVE_TIMEOUT:-180}"
+TIMEOUT="${NARCEA_SUITE_TIMEOUT:-$((HTTP_TIMEOUT + 120))}"
 
 export NARCEA_LIVE="${NARCEA_LIVE:-1}"
 

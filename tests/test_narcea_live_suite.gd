@@ -65,6 +65,11 @@ func _run_next_scenario() -> void:
 	print("--- Scenario: %s ---" % sid)
 	if OS.get_environment("NARCEA_LIVE_SKIP_API") == "1":
 		var fix_path := _golden.path_join(str(sc.get("fixture_response", "")))
+		if fix_path.get_file().is_empty() or not FileAccess.file_exists(fix_path):
+			_fail("[%s] fixture" % sid, "no fixture_response for offline replay")
+			_scenario_idx += 1
+			call_deferred("_run_next_scenario")
+			return
 		var response := FileAccess.get_file_as_string(fix_path)
 		_expect("[%s] fixture loaded" % sid, not response.is_empty(), fix_path)
 		_apply_and_score(sid, sc, response)
@@ -215,6 +220,7 @@ func _apply_form_path(sid: String, response: String, rubric: Dictionary) -> void
 
 
 func _apply_project_path(sid: String, response: String, rubric: Dictionary) -> void:
+	var t0 := Time.get_ticks_msec()
 	var ProjectSpec = load("res://addons/visual_gasic/vg_ai_project_spec.gd")
 	var FormSpec = load("res://addons/visual_gasic/vg_ai_form_spec.gd")
 	var CodeSpec = load("res://addons/visual_gasic/vg_ai_code_spec.gd")
@@ -240,6 +246,7 @@ func _apply_project_path(sid: String, response: String, rubric: Dictionary) -> v
 		"form_spec": fs,
 		"designer": null,
 	})
+	print("  (apply took %d ms)" % (Time.get_ticks_msec() - t0))
 	_expect("[%s] apply ok" % sid, result.get("ok", false), str(result.get("summary", "")))
 	var vg_path := ""
 	var vg_src := ""
