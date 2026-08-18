@@ -35,6 +35,7 @@ Quick reference for all builtin functions and features (122+).
   - [VGTimer](#vgtimer)
 - [File I/O Statements (4 opcodes)](#file-io-statements-4-opcodes)
 - [GoSub/Return](#gosubreturn)
+- [Program Control Statements](#program-control-statements)
 - [Existing VB6 Functions Still Available](#existing-vb6-functions-still-available)
   - [String Functions](#string-functions)
   - [Array Functions](#array-functions)
@@ -85,6 +86,16 @@ PadLeft(string, length)          ' Pad left with spaces: PadLeft("5", 3) → "  
 PadLeft(string, length, char)    ' Pad with custom char: PadLeft("5", 3, "0") → "005"
 PadRight(string, length)         ' Pad right with spaces
 PadRight(string, length, char)   ' Pad right with custom char
+```
+
+**VB6 string literals — embedded quotes:**
+
+In VB6 style, write a literal `"` inside a string by doubling it (`""`):
+
+```vb
+Dim msg As String = "He said ""hello"""
+Print msg                         ' He said "hello"
+Print "Line with ""quotes"" inside"
 ```
 
 **Examples:**
@@ -524,6 +535,43 @@ Return                            ' Pop and return to caller
 
 ---
 
+## Program Control Statements
+
+Application flow, event pumping, and structured errors:
+
+```vb
+End                               ' Standalone: quit the app (SceneTree.quit())
+End Sub                           ' Close a Sub (also End If, End Function, …)
+DoEvents                          ' Process pending UI/input events
+Throw "error message"             ' Raise catchable error (use with Try/Catch)
+Throw exceptionObject             ' Re-throw or throw an object
+```
+
+**Examples:**
+
+```vb
+Sub btnExit_Click()
+    End                           ' Close the application — use on Exit buttons
+End Sub
+
+Sub LongLoop()
+    For i = 1 To 10000
+        ' ...
+        If i Mod 100 = 0 Then DoEvents
+    Next i
+End Sub
+
+Sub Validate(amount As Single)
+    If amount < 0 Then
+        Throw "Amount cannot be negative"
+    End If
+End Sub
+```
+
+> **See also:** [ChangeScene](GODOT_FUNCTIONS_REFERENCE.md#changescenepath-as-string-as-integer), [LoadForm](GODOT_FUNCTIONS_REFERENCE.md) in the Godot functions reference; full syntax in the [Language Reference](../VisualGasic_Language_Reference.md#end).
+
+---
+
 ## Existing VB6 Functions Still Available
 
 These were already implemented and still work:
@@ -543,10 +591,10 @@ These were already implemented and still work:
 ### Math Functions
 - `Sin()`, `Cos()`, `Tan()`, `Atn()`, `Log()`, `Exp()`
 - `Sqr()`, `Abs()`, `Sgn()`, `Int()`, `Rnd()`
-- `Round()`, `RandRange()`, `Lerp()`, `Clamp()`
+- `Round()`, `RandRange()`, `Lerp()`, `Clamp()`, `Deg2Rad()`, `Rad2Deg()`
 
 ### Type Conversion
-- `CInt()`, `CDbl()`, `CBool()`
+- `CInt()`, `CLng()`, `CDbl()`, `CSng()`, `CBool()` — explicit conversions; invalid strings (e.g. `CInt("not a number")`) raise a catchable type mismatch error
 
 ### File Functions
 - `LOF()`, `Loc()`, `EOF()`, `FreeFile()`, `FileLen()`, `Dir()`

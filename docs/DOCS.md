@@ -10,7 +10,8 @@ This page links to every documentation file in the project, organized by topic. 
 
 | I want to... | Go to |
 |---|---|
-| Install VisualGasic | [Installation Guide](guides/INSTALLATION.md) |
+| Install VisualGasic | [Installation Guide](guides/INSTALLATION.md) (Asset Library, one-click installer, manual) |
+| Get running in 15 minutes | [Quick Start](getting_started/QUICK_START.md) |
 | Learn the basics | [Getting Started](#-getting-started) |
 | Port a VB6 project | [Importing VB6 Projects](guides/IMPORTING_VB6.md) |
 | Look up a function | [Built-in Functions Reference](reference/BUILTIN_FUNCTIONS_REFERENCE.md) |
@@ -31,13 +32,14 @@ New to VisualGasic? Start here and work down the list.
 
 | # | Document | Description |
 |---|----------|-------------|
+| 0 | [Quick Start](getting_started/QUICK_START.md) | **Fast path** — forms, 2D games, and Narcea AI in one guide |
 | 1 | [Introduction](getting_started/introduction.md) | What VisualGasic is, why BASIC on Godot, and what makes it unique |
 | 2 | [Installation](getting_started/installation.md) | Setting up the GDExtension plugin in a Godot 4.6.1+ project |
 | 3 | [Nodes and Scenes](getting_started/nodes_and_scenes.md) | Core Godot concepts explained for beginners — the building blocks of every game |
 | 4 | [Scripting](getting_started/scripting.md) | Creating and attaching `.vg` scripts to nodes — your first code |
 | 5 | [Signals](getting_started/signals.md) | Using Godot signals with VB6-style event handlers (`btnOK_Click`, `Timer1_Timer`) |
 | 6 | [Get Started Guide](guides/GET_STARTED.md) | Beginner-to-pro path — from Hello World through publishing your first game |
-| 7 | [Installation Guide](guides/INSTALLATION.md) | Detailed install instructions (CLI installer, manual copy, Godot Asset Library) |
+| 7 | [Installation Guide](guides/INSTALLATION.md) | Detailed install instructions (Asset Library, CLI installer, manual copy, offline bundles) |
 
 ---
 
@@ -245,14 +247,16 @@ Internal docs for contributors and maintainers.
 | Document | Description |
 |----------|-------------|
 | [README](../README.md) | Project overview, feature list, screenshots, and quick start |
-| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.2.0-Beta4) |
+| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.3.0-Beta6) |
 | [Roadmap](../ROADMAP.md) | Development roadmap and feature timeline |
 | [Security Policy](../SECURITY.md) | Security policy and vulnerability reporting |
 | [License](../LICENSE) | GPL-3.0
 
 | Version | File | Highlights |
 |---------|------|------------|
-| **v5.2.0-Beta4** | [RELEASE_NOTES_v5.2.0-Beta4.md](../RELEASE_NOTES_v5.2.0-Beta4.md) | Current public beta release with latest installers and release packaging updates. |
+| **v5.3.0-Beta6** | [RELEASE_NOTES_5.3.0-Beta6.md](../RELEASE_NOTES_5.3.0-Beta6.md) | **Current public beta** — `End` command fix, VB6 `""` escapes, conversion builtins, reference quality gates, Asset Library smoke script. |
+| **v5.3.0-Beta5** | [RELEASE_NOTES_5.3.0-Beta5.md](../RELEASE_NOTES_5.3.0-Beta5.md) | Native Script editor crash fix, VB6 Enter/block closing, keyword auto-correct. |
+| **v5.2.0-Beta4** | [RELEASE_NOTES_v5.2.0-Beta4.md](../RELEASE_NOTES_v5.2.0-Beta4.md) | Call-overhead campaign, native 6502 core, silent miscompilation fixes. |
 | **v5.2.0-Beta1** | [RELEASE_NOTES_v5.2.0-Beta1.md](../RELEASE_NOTES_v5.2.0-Beta1.md) | **Android plugin** (GPS, step counter, permissions auto-wire), **Pass-6 namespace gap-fillers** (Camera/Crypto/Physics/Ray/Joypad/Sensor/Theme/Shader/Speaker), **358-entry Command Help DB** with see-also navigation, **AI correctness 100%** on Claude 4.5 + qwen2.5-coder:7b, Linux + Windows installers (macOS deferred). |
 | v5.1.0-rc.2 | [RELEASE_NOTES_v5.1.0-rc.2.md](../RELEASE_NOTES_v5.1.0-rc.2.md) | **Welcome shell loading overhaul** (always-on-top fullscreen cover + circular spinner), **15 new Form Designer toolbox controls** (10 Standard + 5 Game UI: pixel/segmented/retro progress bars, badge, toggle switch, breadcrumbs, splits, …) |
 | v5.1.0-rc.1 | [RELEASE_NOTES_v5.1.0-rc.1.md](../RELEASE_NOTES_v5.1.0-rc.1.md) | VGAssetBus/Broker/Registry, Default Editors UI, Command Palette MRU, External Watcher, Cross-asset rename rewriter, AGCK 8 templates, plugin capability lint |
