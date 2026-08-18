@@ -1,0 +1,4 @@
+[gd_scene format=3]
+
+[node name="NinePatchRect" type="NinePatchRect"]
+custom_minimum_size = Vector2(64, 64)

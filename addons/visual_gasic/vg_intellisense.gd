@@ -647,6 +647,47 @@ static func get_control_events(godot_type: String) -> Array:
 	return ["Click", "GotFocus", "LostFocus", "KeyDown", "KeyPress", "KeyUp",
 		"MouseDown", "MouseUp", "MouseMove", "MouseEnter", "MouseExit"]
 
+## Walks a node's class hierarchy to find the best VB6_CONTROL_EVENTS match.
+## Godot native toolbox nodes (CPUParticles2D, Area2D, …) resolve to their
+## catalog entry instead of falling through to the generic Control fallback.
+static func resolve_godot_class_for_events(node: Node) -> String:
+	if not is_instance_valid(node):
+		return "Control"
+	var cls := node.get_class()
+	while not cls.is_empty():
+		if VB6_CONTROL_EVENTS.has(cls):
+			return cls
+		var parent := ClassDB.get_parent_class(cls)
+		if parent.is_empty() or parent == cls:
+			break
+		cls = parent
+	return node.get_class()
+
+## True when the class (or an ancestor) has an explicit catalog entry.
+static func has_catalog_events_for_node(node: Node) -> bool:
+	if not is_instance_valid(node):
+		return false
+	var cls := node.get_class()
+	while not cls.is_empty():
+		if VB6_CONTROL_EVENTS.has(cls):
+			return true
+		var parent := ClassDB.get_parent_class(cls)
+		if parent.is_empty() or parent == cls:
+			break
+		cls = parent
+	return false
+
+## Default event for double-click wiring — always the first catalog entry so
+## the generated Sub name matches the procedure dropdown.
+static func get_default_event_for_node(node: Node) -> String:
+	if not is_instance_valid(node):
+		return "Ready"
+	var godot_class := resolve_godot_class_for_events(node)
+	var events := get_control_events(godot_class)
+	if events.size() > 0:
+		return str(events[0])
+	return "Ready"
+
 ## Returns true if a node of this Godot class should appear in the Object dropdown.
 ## Excludes pure layout containers, separators, and sub-viewport wrappers.
 static func is_relevant_node_class(godot_class: String) -> bool:

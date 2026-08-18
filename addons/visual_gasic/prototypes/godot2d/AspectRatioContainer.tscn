@@ -1,0 +1,4 @@
+[gd_scene format=3]
+
+[node name="AspectRatioContainer" type="AspectRatioContainer"]
+custom_minimum_size = Vector2(120, 80)

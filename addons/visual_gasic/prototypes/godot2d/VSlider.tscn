@@ -1,0 +1,4 @@
+[gd_scene format=3]
+
+[node name="VSlider" type="VSlider"]
+custom_minimum_size = Vector2(20, 80)

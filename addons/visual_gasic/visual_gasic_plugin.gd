@@ -41,6 +41,13 @@ extends EditorPlugin
 
 ## Preloaded VB6-style toolbox icon generator
 const _VB6Icons = preload("res://addons/visual_gasic/vb6_toolbox_icons.gd")
+const _VGGodotToolbox = preload("res://addons/visual_gasic/vg_godot_toolbox.gd")
+
+## Toolbox tab indices (must match VisualGasicToolbox TabContainer order)
+const TOOLBOX_TAB_VG_FORMS := 0
+const TOOLBOX_TAB_GODOT_2D := 1
+const TOOLBOX_TAB_GODOT_3D := 2
+const TOOLBOX_TAB_GAME_UI := 3
 
 ## The main toolbox container in the left dock
 var toolbox
@@ -2317,23 +2324,7 @@ func _process(_delta: float) -> void:
 		
 		# Capture mouse position NOW before the delay (so position is accurate)
 		if drag_data is Dictionary and drag_data.get("type") == "vg_control":
-			var editor_viewport = get_editor_interface().get_editor_viewport_2d()
-			var scene_root = get_editor_interface().get_edited_scene_root()
-			if editor_viewport and scene_root:
-				var mouse_pos = editor_viewport.get_mouse_position()
-				var canvas_xform = editor_viewport.get_canvas_transform()
-				var world_pos = canvas_xform.affine_inverse() * mouse_pos
-				
-				# Adjust for form's position on canvas (for Window nodes)
-				var form_offset = Vector2.ZERO
-				if scene_root is Window:
-					form_offset = Vector2(scene_root.position)
-				elif scene_root is Control:
-					form_offset = scene_root.position
-				
-				var local_pos = world_pos - form_offset
-				drag_data["drop_position"] = local_pos.snapped(Vector2(8, 8))
-			
+			_capture_vg_drop_position(drag_data)
 			# Use call_deferred to give Godot time to fully process the drag end
 			call_deferred("_handle_vg_drop_delayed", drag_data)
 	
@@ -2341,6 +2332,56 @@ func _process(_delta: float) -> void:
 	# (form_editor_helper handled it), just reset the flag
 	if _vg_drag_active and not is_dragging and not has_vg_drag:
 		_vg_drag_active = false
+
+## True when a toolbox drag targets a native Godot 3D node (Node3D hierarchy).
+func _is_godot_3d_tool_drop(drag_data: Dictionary) -> bool:
+	var cat: String = drag_data.get("category", "")
+	if cat == "Godot 3D" or cat == "3D":
+		return true
+	var cls: String = drag_data.get("class_name", drag_data.get("control_class", ""))
+	if cls.is_empty():
+		return false
+	if not ClassDB.class_exists(cls):
+		return false
+	return ClassDB.is_parent_class(cls, "Node3D")
+
+## Raycast from the 3D editor viewport onto the Y=0 ground plane for placement.
+func _compute_3d_drop_position() -> Vector3:
+	var vp = get_editor_interface().get_editor_viewport_3d(0)
+	if not vp:
+		return Vector3.ZERO
+	var cam = vp.get_camera_3d()
+	if not cam:
+		return Vector3.ZERO
+	var mouse_pos = vp.get_mouse_position()
+	var from = cam.project_ray_origin(mouse_pos)
+	var dir = cam.project_ray_normal(mouse_pos)
+	if absf(dir.y) < 0.0001:
+		return Vector3(snappedf(from.x, 1.0), 0.0, snappedf(from.z, 1.0))
+	var t = -from.y / dir.y
+	if t < 0.0:
+		t = 8.0
+	var hit = from + dir * t
+	return Vector3(snappedf(hit.x, 1.0), snappedf(hit.y, 1.0), snappedf(hit.z, 1.0))
+
+## Fill drop_position / drop_position_3d on drag_data from the active editor viewport.
+func _capture_vg_drop_position(drag_data: Dictionary) -> void:
+	if _is_godot_3d_tool_drop(drag_data):
+		drag_data["drop_position_3d"] = _compute_3d_drop_position()
+		return
+	var editor_viewport = get_editor_interface().get_editor_viewport_2d()
+	var scene_root = get_editor_interface().get_edited_scene_root()
+	if not editor_viewport or not scene_root:
+		return
+	var mouse_pos = editor_viewport.get_mouse_position()
+	var canvas_xform = editor_viewport.get_canvas_transform()
+	var world_pos = canvas_xform.affine_inverse() * mouse_pos
+	var form_offset := Vector2.ZERO
+	if scene_root is Window:
+		form_offset = Vector2(scene_root.position)
+	elif scene_root is Control:
+		form_offset = scene_root.position
+	drag_data["drop_position"] = (world_pos - form_offset).snapped(Vector2(8, 8))
 
 ## Handles vg_control drop after a short delay for editor stability.
 ## Modifies the .tscn file on disk and reloads — the ONLY approach that
@@ -2376,11 +2417,13 @@ func _handle_vg_drop_delayed(drag_data: Dictionary, _retry_count: int = 0) -> vo
 	# the root reference can pass is_instance_valid() but NOT be in the tree yet.
 	# add_child silently fails on a node not in the tree. We must wait until the
 	# root is fully re-attached before attempting placement.
+	var is_3d_drop := _is_godot_3d_tool_drop(drag_data)
+	var required_screen := "3D" if is_3d_drop else "2D"
 	var root_in_tree: bool = root.is_inside_tree() if is_instance_valid(root) else false
-	if _current_main_screen != "2D" or not root_in_tree:
+	if _current_main_screen != required_screen or not root_in_tree:
 		if _retry_count < 10:
-			if _current_main_screen != "2D":
-				EditorInterface.set_main_screen_editor("2D")
+			if _current_main_screen != required_screen:
+				EditorInterface.set_main_screen_editor(required_screen)
 			_vg_drop_in_progress = false  # Allow retry
 			get_tree().create_timer(0.2).timeout.connect(
 				func(): _handle_vg_drop_delayed(drag_data, _retry_count + 1)
@@ -2393,7 +2436,10 @@ func _handle_vg_drop_delayed(drag_data: Dictionary, _retry_count: int = 0) -> vo
 
 	# Use the pre-captured drop position
 	var drop_pos: Vector2 = drag_data.get("drop_position", Vector2.ZERO)
-	if drop_pos == Vector2.ZERO:
+	var drop_pos_3d: Vector3 = drag_data.get("drop_position_3d", Vector3.ZERO)
+	if is_3d_drop and drop_pos_3d == Vector3.ZERO:
+		drop_pos_3d = _compute_3d_drop_position()
+	elif not is_3d_drop and drop_pos == Vector2.ZERO:
 		var editor_viewport = get_editor_interface().get_editor_viewport_2d()
 		if editor_viewport:
 			var canvas_xform = editor_viewport.get_canvas_transform()
@@ -2441,10 +2487,35 @@ func _handle_vg_drop_delayed(drag_data: Dictionary, _retry_count: int = 0) -> vo
 		"PanelContainer":    "Frame",
 		"ColorRect":         "Shape",
 		"Sprite2D":          "Sprite",
-		"AnimatedSprite2D":  "Sprite",
+		"AnimatedSprite2D":  "AnimSprite",
 		"Area2D":            "Area",
+		"StaticBody2D":      "StaticBody",
+		"CharacterBody2D":   "Player",
+		"RigidBody2D":       "RigidBody",
 		"Camera2D":          "Camera",
+		"Line2D":            "Line",
+		"Polygon2D":         "Polygon",
+		"Marker2D":          "Marker",
+		"CanvasLayer":       "Layer",
+		"TileMapLayer":      "TileMap",
+		"Parallax2D":        "Parallax",
+		"AudioStreamPlayer2D": "Sound2D",
 		"AudioStreamPlayer": "Sound",
+		"Node2D":            "Node2D",
+		"Box":               "Box",
+		"Sphere":            "Sphere",
+		"Capsule":           "Capsule",
+		"Cylinder":          "Cylinder",
+		"Camera":            "Camera3D",
+		"Light":             "Light3D",
+		"DirectionalLight3D": "DirLight",
+		"SpotLight3D":       "SpotLight",
+		"Text3D":            "Label3D",
+		"Sound3D":           "Sound3D",
+		"Sprite3D":          "Sprite3D",
+		"Area3D":            "Area",
+		"StaticBody3D":      "StaticBody",
+		"CharacterBody3D":   "Player",
 	}
 	var vb6_prefix: String = VB6_PREFIX_MAP.get(control_name, control_name)
 	var sibling_count := 0
@@ -2456,10 +2527,29 @@ func _handle_vg_drop_delayed(drag_data: Dictionary, _retry_count: int = 0) -> vo
 	var node_name = vb6_prefix + str(sibling_count + 1)
 	new_node.name = node_name
 
+	# Reject mismatched scene roots (2D nodes on UI forms, 3D nodes on 2D/UI roots).
+	if new_node is Node3D and (root is Node2D or root is Control or root is Window):
+		printerr("VisualGasic: Godot 3D nodes require a 3D scene root (Node3D).")
+		new_node.queue_free()
+		_vg_drop_in_progress = false
+		return
+	if new_node is Node2D and (root is Control or root is Window):
+		printerr("VisualGasic: Godot 2D nodes require a 2D scene root (Node2D).")
+		new_node.queue_free()
+		_vg_drop_in_progress = false
+		return
+
 	# Set position and text before the node enters the scene tree
 	if new_node is Control:
 		new_node.offset_left = drop_pos.x
 		new_node.offset_top = drop_pos.y
+	elif new_node is Node2D:
+		new_node.position = drop_pos
+	elif new_node is Node3D:
+		if drop_pos_3d != Vector3.ZERO:
+			new_node.position = drop_pos_3d
+		else:
+			new_node.position = Vector3(drop_pos.x, 0.0, drop_pos.y)
 	if control_name in ["Button", "Label", "CheckBox", "OptionButton"]:
 		if new_node.has_method("set_text"):
 			new_node.set_text(node_name)
@@ -2507,7 +2597,7 @@ func _handle_vg_drop_delayed(drag_data: Dictionary, _retry_count: int = 0) -> vo
 	# Select the newly placed node
 	call_deferred("_select_dropped_node", new_node)
 
-	print("VisualGasic: Placed ", node_name, " at ", drop_pos)
+	print("VisualGasic: Placed ", node_name, " at ", drop_pos_3d if is_3d_drop else drop_pos)
 	_vg_drop_in_progress = false
 
 ## Selects a node by name after scene reload
@@ -4055,6 +4145,137 @@ func _apply_designer_theme() -> void:
 ## Restyles the C++ Toolbox buttons to TwinBasic-style list layout.
 ## Single-column list: [icon] [label text] on white background.
 ## Icons show their true SVG colors (no Godot editor green tint).
+func _toolbox_grid_is_godot_native(grid: GridContainer) -> bool:
+	var n: Node = grid
+	while n:
+		if n.name == "Godot 2D" or n.name == "Godot 3D":
+			return true
+		n = n.get_parent()
+	return false
+
+func _foreach_toolbox_grid(root: Node, fn: Callable) -> void:
+	if root is GridContainer:
+		fn.call(root)
+		return
+	if root is ScrollContainer:
+		for child in root.get_children():
+			_foreach_toolbox_grid(child, fn)
+		return
+	if root is TabContainer:
+		for i in range(root.get_tab_count()):
+			_foreach_toolbox_grid(root.get_tab_control(i), fn)
+		return
+	for child in root.get_children():
+		_foreach_toolbox_grid(child, fn)
+
+func _style_toolbox_tab_panels(node: Node, panel_bg: Color) -> void:
+	if node is TabContainer:
+		var tab_panel_sb := StyleBoxFlat.new()
+		tab_panel_sb.bg_color = panel_bg
+		tab_panel_sb.content_margin_left = 2
+		tab_panel_sb.content_margin_right = 2
+		tab_panel_sb.content_margin_top = 2
+		tab_panel_sb.content_margin_bottom = 2
+		node.add_theme_stylebox_override("panel", tab_panel_sb)
+	for child in node.get_children():
+		_style_toolbox_tab_panels(child, panel_bg)
+
+func _apply_toolbox_button_icon(btn: Button, tool_name: String, vb6_icons: Dictionary, icon_key_map: Dictionary) -> void:
+	var icon_key: String = icon_key_map.get(tool_name, tool_name)
+	if vb6_icons.has(icon_key):
+		btn.icon = vb6_icons[icon_key]
+		return
+	if btn.has_method("get_create_class"):
+		var cls: String = btn.get_create_class()
+		if not cls.is_empty():
+			var base = get_editor_interface().get_base_control()
+			if base:
+				var ed_icon: Texture2D = base.get_theme_icon(cls, "EditorIcons")
+				if ed_icon:
+					btn.icon = ed_icon
+					return
+	if vb6_icons.has("_CustomControl"):
+		btn.icon = vb6_icons["_CustomControl"]
+
+func _style_single_toolbox_button(
+	btn: Button,
+	display_names: Dictionary,
+	tool_tips: Dictionary,
+	vb6_icons: Dictionary,
+	icon_key_map: Dictionary,
+	comp_descriptions: Dictionary
+) -> void:
+	var tool_name: String = btn.name
+	btn.text = display_names.get(tool_name, tool_name)
+	if comp_descriptions.has(tool_name):
+		btn.tooltip_text = comp_descriptions[tool_name]
+	elif tool_tips.has(tool_name):
+		btn.tooltip_text = tool_tips[tool_name]
+	elif btn.has_method("get_create_class") and not btn.get_create_class().is_empty():
+		btn.tooltip_text = "%s (%s)" % [tool_name, btn.get_create_class()]
+	else:
+		btn.tooltip_text = tool_name
+	btn.custom_minimum_size = Vector2(0, 26)
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	btn.expand_icon = false
+	var white := Color(1, 1, 1, 1)
+	var btn_bg: Color = _theme.get("toolbox_btn_normal", Color("#F0EDE8"))
+	var hover_bg: Color = _theme.get("toolbox_btn_hover", Color(0.91, 0.95, 1.0))
+	var pressed_bg: Color = _theme.get("toolbox_btn_pressed", Color(0.26, 0.59, 0.98))
+	btn.add_theme_color_override("icon_normal_color", white)
+	btn.add_theme_color_override("icon_hover_color", white)
+	btn.add_theme_color_override("icon_pressed_color", white)
+	btn.add_theme_color_override("icon_focus_color", white)
+	btn.add_theme_color_override("icon_disabled_color", white)
+	btn.add_theme_color_override("font_color", _theme.get("toolbox_text", Color.BLACK))
+	btn.add_theme_color_override("font_hover_color", _theme.get("toolbox_text", Color.BLACK))
+	btn.add_theme_color_override("font_pressed_color", _theme.get("toolbox_text_pressed", Color.WHITE))
+	btn.add_theme_color_override("font_focus_color", _theme.get("toolbox_text", Color.BLACK))
+	var normal_sb := StyleBoxFlat.new()
+	normal_sb.bg_color = btn_bg
+	normal_sb.content_margin_left = 6
+	normal_sb.content_margin_right = 4
+	normal_sb.content_margin_top = 2
+	normal_sb.content_margin_bottom = 2
+	btn.add_theme_stylebox_override("normal", normal_sb)
+	var hover_sb := StyleBoxFlat.new()
+	hover_sb.bg_color = hover_bg
+	hover_sb.set_border_width_all(1)
+	hover_sb.border_color = _theme.get("toolbox_btn_hover_border", Color(0.55, 0.73, 0.95))
+	hover_sb.content_margin_left = 5
+	hover_sb.content_margin_right = 3
+	hover_sb.content_margin_top = 1
+	hover_sb.content_margin_bottom = 1
+	btn.add_theme_stylebox_override("hover", hover_sb)
+	var pressed_sb := StyleBoxFlat.new()
+	pressed_sb.bg_color = pressed_bg
+	pressed_sb.content_margin_left = 6
+	pressed_sb.content_margin_right = 4
+	pressed_sb.content_margin_top = 2
+	pressed_sb.content_margin_bottom = 2
+	btn.add_theme_stylebox_override("pressed", pressed_sb)
+	_apply_toolbox_button_icon(btn, tool_name, vb6_icons, icon_key_map)
+	if btn.has_method("set_icon_name"):
+		btn.set_icon_name("")
+
+func _style_toolbox_grid_buttons(
+	grid: GridContainer,
+	display_names: Dictionary,
+	tool_tips: Dictionary,
+	vb6_icons: Dictionary,
+	icon_key_map: Dictionary,
+	comp_descriptions: Dictionary
+) -> void:
+	grid.set_columns(1 if _toolbox_grid_is_godot_native(grid) else 2)
+	grid.add_theme_constant_override("h_separation", 2)
+	grid.add_theme_constant_override("v_separation", 1)
+	for btn_idx in range(grid.get_child_count()):
+		var btn = grid.get_child(btn_idx)
+		if btn is Button:
+			_style_single_toolbox_button(btn, display_names, tool_tips, vb6_icons, icon_key_map, comp_descriptions)
+
 func _restyle_toolbox_buttons() -> void:
 	var cpp_toolbox = _get_toolbox_instance()
 	if not cpp_toolbox:
@@ -4101,6 +4322,7 @@ func _restyle_toolbox_buttons() -> void:
 	tab_panel_sb.content_margin_top = 2
 	tab_panel_sb.content_margin_bottom = 2
 	tabs.add_theme_stylebox_override("panel", tab_panel_sb)
+	_style_toolbox_tab_panels(tabs, _theme.get("panel_background", Color("#F0EDE8")))
 
 	# Generate VB6-style icons at 20×20 (matching the 20×20 viewBox exactly)
 	var vb6_icons: Dictionary = _VB6Icons.create_all(20)
@@ -4228,102 +4450,10 @@ func _restyle_toolbox_buttons() -> void:
 			if not desc.is_empty():
 				_comp_descriptions[comp["name"]] = desc
 
-	var white := Color(1, 1, 1, 1)
-	var btn_bg: Color = _theme.get("toolbox_btn_normal", Color("#F0EDE8"))
-	var hover_bg: Color = _theme.get("toolbox_btn_hover", Color(0.91, 0.95, 1.0))
-	var pressed_bg: Color = _theme.get("toolbox_btn_pressed", Color(0.26, 0.59, 0.98))
-
-	# Style each tab's grid as a 2-column icon+text list (scrollable via parent)
-	for tab_idx in range(tabs.get_tab_count()):
-		var grid = tabs.get_child(tab_idx)
-		if grid is GridContainer:
-			grid.set_columns(2)  # 2 columns to fit more tools
-			grid.add_theme_constant_override("h_separation", 2)
-			grid.add_theme_constant_override("v_separation", 1)
-
-			for btn_idx in range(grid.get_child_count()):
-				var btn = grid.get_child(btn_idx)
-				if btn is Button:
-					var tool_name: String = btn.name
-
-					# Show icon + text label (like TwinBasic toolbox)
-					btn.text = display_names.get(tool_name, tool_name)
-					# Tooltip priority: user description > built-in tips > auto-generated
-					if _comp_descriptions.has(tool_name):
-						btn.tooltip_text = _comp_descriptions[tool_name]
-					elif tool_tips.has(tool_name):
-						btn.tooltip_text = tool_tips[tool_name]
-					elif btn.has_method("get_create_class") and not btn.get_create_class().is_empty():
-						btn.tooltip_text = "Custom control (%s)" % btn.get_create_class()
-					else:
-						btn.tooltip_text = tool_name
-					btn.custom_minimum_size = Vector2(0, 26)
-					btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-					btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-					btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-					btn.expand_icon = false
-
-					# ── Apply ALL theme overrides FIRST ──
-					# Each add_theme_*_override triggers NOTIFICATION_THEME_CHANGED
-					# in the C++ button, so we must finish these before setting
-					# the SVG icon (which we want to be the final icon value).
-
-					# Override icon colors to prevent green editor tint
-					btn.add_theme_color_override("icon_normal_color", white)
-					btn.add_theme_color_override("icon_hover_color", white)
-					btn.add_theme_color_override("icon_pressed_color", white)
-					btn.add_theme_color_override("icon_focus_color", white)
-					btn.add_theme_color_override("icon_disabled_color", white)
-
-					# Black text labels on white background
-					btn.add_theme_color_override("font_color", _theme.get("toolbox_text", Color.BLACK))
-					btn.add_theme_color_override("font_hover_color", _theme.get("toolbox_text", Color.BLACK))
-					btn.add_theme_color_override("font_pressed_color", _theme.get("toolbox_text_pressed", Color.WHITE))
-					btn.add_theme_color_override("font_focus_color", _theme.get("toolbox_text", Color.BLACK))
-
-					# ── Normal: off-white, no border ──
-					var normal_sb := StyleBoxFlat.new()
-					normal_sb.bg_color = btn_bg
-					normal_sb.content_margin_left = 6
-					normal_sb.content_margin_right = 4
-					normal_sb.content_margin_top = 2
-					normal_sb.content_margin_bottom = 2
-					btn.add_theme_stylebox_override("normal", normal_sb)
-
-					# ── Hover: light blue tint ──
-					var hover_sb := StyleBoxFlat.new()
-					hover_sb.bg_color = hover_bg
-					hover_sb.border_width_top = 1
-					hover_sb.border_width_left = 1
-					hover_sb.border_width_bottom = 1
-					hover_sb.border_width_right = 1
-					hover_sb.border_color = _theme.get("toolbox_btn_hover_border", Color(0.55, 0.73, 0.95))
-					hover_sb.content_margin_left = 5
-					hover_sb.content_margin_right = 3
-					hover_sb.content_margin_top = 1
-					hover_sb.content_margin_bottom = 1
-					btn.add_theme_stylebox_override("hover", hover_sb)
-
-					# ── Pressed / selected tool: blue highlight ──
-					var pressed_sb := StyleBoxFlat.new()
-					pressed_sb.bg_color = pressed_bg
-					pressed_sb.content_margin_left = 6
-					pressed_sb.content_margin_right = 4
-					pressed_sb.content_margin_top = 2
-					pressed_sb.content_margin_bottom = 2
-					btn.add_theme_stylebox_override("pressed", pressed_sb)
-
-					# ── LAST: Apply custom SVG icon AFTER all theme overrides ──
-					# This ensures no NOTIFICATION_THEME_CHANGED can overwrite
-					# the icon after we set it.
-					var icon_key: String = icon_key_map.get(tool_name, tool_name)
-					if vb6_icons.has(icon_key):
-						btn.icon = vb6_icons[icon_key]
-					elif vb6_icons.has("_CustomControl"):
-						btn.icon = vb6_icons["_CustomControl"]
-					# Clear C++ icon_name so any future theme propagation skips
-					if btn.has_method("set_icon_name"):
-						btn.set_icon_name("")
+	# Style every grid (VG Forms, nested Godot 2D/3D sub-tabs, Game UI).
+	_foreach_toolbox_grid(tabs, func(grid: GridContainer):
+		_style_toolbox_grid_buttons(grid, display_names, tool_tips, vb6_icons, icon_key_map, _comp_descriptions)
+	)
 
 	print("VisualGasic: Toolbox restyled to TwinBasic list layout (%d icons)" % vb6_icons.size())
 
@@ -8009,8 +8139,7 @@ func _on_fd_form_modified() -> void:
 	_form_dirty = true
 	_update_dirty_indicator()
 
-## Called when the form designer's game_ui_mode changes.
-## Switches the toolbox tab to "Game UI" (index 2) or back to "2D Tools" (index 0).
+## Switches the toolbox tab to "Game UI" or back to "VG Forms".
 ## @param enabled: Whether Game UI mode is now active
 func _on_game_ui_mode_changed(enabled: bool) -> void:
 	var real_toolbox = _get_toolbox_instance()
@@ -8018,9 +8147,9 @@ func _on_game_ui_mode_changed(enabled: bool) -> void:
 		for c in real_toolbox.get_children():
 			if c is TabContainer:
 				if enabled:
-					c.current_tab = 2  # Game UI
+					c.current_tab = TOOLBOX_TAB_GAME_UI
 				else:
-					c.current_tab = 0  # 2D Tools
+					c.current_tab = TOOLBOX_TAB_VG_FORMS
 				break
 
 ## Update the title/status with a * dirty indicator when unsaved changes exist.
@@ -8438,23 +8567,9 @@ func _on_3d_node_double_clicked(node: Node3D) -> void:
 	if node_name.is_empty():
 		return
 
-	# ── Determine default event and parameters based on 3D node type ──
-	# Event names use PascalCase to match VB6_CONTROL_EVENTS in VGIntelliSense.
-	# Parameters come from _get_event_params() in the embedded code editor.
-	var event_suffix := "Ready"
-	var event_params := ""
-
-	if node is RigidBody3D:
-		event_suffix = "BodyEntered"
-		event_params = "Body As Node"
-	elif node is CharacterBody3D:
-		event_suffix = "Process"
-		event_params = "Delta As Single"
-	elif node is Area3D:
-		event_suffix = "BodyEntered"
-		event_params = "Body As Node"
-	else:
-		event_suffix = "Ready"
+	var _ece_script := preload("res://addons/visual_gasic/vg_embedded_code_editor.gd")
+	var event_suffix := VGIntelliSense.get_default_event_for_node(node)
+	var event_params := _ece_script._get_event_params(event_suffix)
 
 	# ── Check whether the 3D scene has been saved ──
 	# Each 3D scene needs its own .tscn (and therefore its own .vg).
@@ -8571,28 +8686,9 @@ func _on_2d_node_double_clicked(node: Node) -> void:
 	if node_name.is_empty():
 		return
 
-	# ── Determine default event and parameters based on 2D node type ──
-	var event_suffix := "Ready"
-	var event_params := ""
-
-	if node is BaseButton:
-		event_suffix = "Pressed"
-	elif node is LineEdit or node is TextEdit:
-		event_suffix = "TextChanged"
-		event_params = "NewText As String"
-	elif node is RigidBody2D:
-		event_suffix = "BodyEntered"
-		event_params = "Body As Node"
-	elif node is CharacterBody2D:
-		event_suffix = "Process"
-		event_params = "Delta As Single"
-	elif node is Area2D:
-		event_suffix = "BodyEntered"
-		event_params = "Body As Node"
-	elif node is AnimatedSprite2D:
-		event_suffix = "AnimationFinished"
-	else:
-		event_suffix = "Ready"
+	var _ece_script := preload("res://addons/visual_gasic/vg_embedded_code_editor.gd")
+	var event_suffix := VGIntelliSense.get_default_event_for_node(node)
+	var event_params := _ece_script._get_event_params(event_suffix)
 
 	# ── Check whether the 2D scene has been saved ──
 	var scene_path := ""
@@ -10650,8 +10746,14 @@ func _on_toolbox_tool_selected(ctrl_class: String, scene_path: String) -> void:
 		return
 	if ctrl_class.is_empty():
 		_form_designer.clear_active_tool()
-	else:
+	elif _VGGodotToolbox.is_godot_native_scene_path(scene_path):
+		_form_designer.clear_active_tool()
+	elif _VGGodotToolbox.is_form_toolbox_class(ctrl_class):
 		_form_designer.set_active_tool(ctrl_class, scene_path)
+	else:
+		_form_designer.clear_active_tool()
+		print("VisualGasic: Toolbox → native Godot node '", ctrl_class, "' (use 2D/3D scene editor to place)")
+		return
 	print("VisualGasic: Toolbox → FormDesigner active tool = '", ctrl_class, "'")
 
 ## Button pressed-state is now handled by Godot's built-in main screen system.
@@ -11596,18 +11698,22 @@ func _register_extended_tools():
 	register_tool("ColorBtn", "ColorPickerButton", "ColorPickerButton", "res://custom_widgets/ColorBtn.tscn")
 	register_tool("Video", "VideoStreamPlayer", "VideoStreamPlayer", "res://custom_widgets/Video.tscn")
 	register_tool("Viewport", "SubViewportContainer", "SubViewportContainer", "res://custom_widgets/Viewport.tscn")
-	
-	# 3D Tools
-	var cat3d = "3D"
-	register_tool("Box", "MeshInstance3D", "BoxMesh", "res://custom_widgets/3d/Box.tscn", cat3d)
-	register_tool("Sphere", "MeshInstance3D", "SphereMesh", "res://custom_widgets/3d/Sphere.tscn", cat3d)
-	register_tool("Capsule", "MeshInstance3D", "CapsuleMesh", "res://custom_widgets/3d/Capsule.tscn", cat3d)
-	register_tool("Cylinder", "MeshInstance3D", "CylinderMesh", "res://custom_widgets/3d/Cylinder.tscn", cat3d)
-	register_tool("Light", "OmniLight3D", "OmniLight3D", "res://custom_widgets/3d/Light.tscn", cat3d)
-	register_tool("Camera", "Camera3D", "Camera3D", "res://custom_widgets/3d/Camera.tscn", cat3d)
-	register_tool("Text3D", "Label3D", "Label3D", "res://custom_widgets/3d/Text3D.tscn", cat3d)
-	register_tool("Sprite3D", "Sprite3D", "Sprite3D", "res://custom_widgets/3d/Sprite3D.tscn", cat3d)
-	register_tool("Sound3D", "AudioStreamPlayer3D", "AudioStreamPlayer3D", "res://custom_widgets/3d/Sound3D.tscn", cat3d)
+	# Godot 3D native tools → _register_godot_native_tools()
+
+## Register native Godot CanvasItem (2D) and Node3D toolbox entries.
+func _register_godot_native_tools_on(tb) -> void:
+	if not tb or not tb.has_method("add_tool"):
+		return
+	_VGGodotToolbox.register_all(func(name, godot_class, icon, scene_path, category, group):
+		tb.add_tool(name, godot_class, icon, scene_path, category, group)
+	)
+	if tb.has_method("mark_defaults"):
+		tb.mark_defaults()
+
+func _register_godot_native_tools() -> void:
+	var tb = _get_toolbox_instance()
+	if tb:
+		_register_godot_native_tools_on(tb)
 
 ## Loads enabled components from the config file and adds them to the toolbox.
 func _load_custom_components():
@@ -12000,50 +12106,37 @@ func _try_wire_event_on_double_click() -> bool:
 ## @param node: The control node to generate a handler for
 func _generate_event_handler(node):
 	print("VisualGasic: Event Gen Request for " + node.name)
-	var sub_suffix = ""
-	var sub_params = ""  # VB6-style parameter list for the Sub signature
-	
-	# --- Check for Game UI prototype controls with custom signals ---
-	# If the control's script declares signals, use the primary one as the
-	# default event (first parameterised signal, or first signal overall).
-	var ctrl_script = node.get_script()
-	if ctrl_script and not (node is BaseButton or node is LineEdit or node is TextEdit or node is ScrollBar or node is Slider):
-		var sig_list = ctrl_script.get_script_signal_list()
-		if sig_list.size() > 0:
-			# Prefer the first signal that has parameters (more useful as a handler)
-			var best_sig = null
-			for sig in sig_list:
-				if sig.has("args") and sig["args"].size() > 0:
-					best_sig = sig
-					break
-			# Fallback to first signal if none have parameters
-			if best_sig == null:
-				best_sig = sig_list[0]
-			
-			sub_suffix = best_sig["name"]
-			# Build VB6-style parameter list
-			if best_sig.has("args") and best_sig["args"].size() > 0:
-				var parts: PackedStringArray = []
-				for arg in best_sig["args"]:
-					var vb_type = _godot_type_to_vb6(arg.get("type", 0))
-					parts.append(arg["name"] + " As " + vb_type)
-				sub_params = ", ".join(parts)
-	
-	# --- Standard Godot controls (VB6-ish style) ---
+	var sub_suffix := ""
+	var sub_params := ""  # VB6-style parameter list for the Sub signature
+	var _ece_script := preload("res://addons/visual_gasic/vg_embedded_code_editor.gd")
+
+	# Godot native toolbox nodes (CPUParticles2D, Area2D, Camera2D, …) use the
+	# same event catalog as the procedure dropdown — never fall back to Click.
+	if not VGIntelliSense.has_catalog_events_for_node(node):
+		# Game UI prototype controls with custom signals (no catalog entry).
+		var ctrl_script = node.get_script()
+		if ctrl_script and not (node is BaseButton or node is LineEdit or node is TextEdit or node is ScrollBar or node is Slider):
+			var sig_list = ctrl_script.get_script_signal_list()
+			if sig_list.size() > 0:
+				var best_sig = null
+				for sig in sig_list:
+					if sig.has("args") and sig["args"].size() > 0:
+						best_sig = sig
+						break
+				if best_sig == null:
+					best_sig = sig_list[0]
+				sub_suffix = best_sig["name"]
+				if best_sig.has("args") and best_sig["args"].size() > 0:
+					var parts: PackedStringArray = []
+					for arg in best_sig["args"]:
+						var vb_type = _godot_type_to_vb6(arg.get("type", 0))
+						parts.append(arg["name"] + " As " + vb_type)
+					sub_params = ", ".join(parts)
+
 	if sub_suffix.is_empty():
-		if node is BaseButton: 
-			sub_suffix = "Click"
-		elif node is LineEdit:
-			sub_suffix = "Change"
-		elif node is TextEdit:
-			sub_suffix = "Change"
-		elif node is ScrollBar:
-			sub_suffix = "Change"
-		elif node is Slider:
-			sub_suffix = "Change"
-		else:
-			sub_suffix = "Click"
-		
+		sub_suffix = VGIntelliSense.get_default_event_for_node(node)
+		sub_params = _ece_script._get_event_params(sub_suffix)
+
 	var root = get_editor_interface().get_edited_scene_root()
 	if not root: 
 		printerr("VisualGasic: No active scene root. Save the scene first.")
@@ -12061,25 +12154,35 @@ func _generate_event_handler(node):
 		root.scene_file_path = scene_path
 		print("VisualGasic: Set scene path to ", scene_path, " for code generation")
 	
-	# Assume .vg file is adjacent to scene
-	var bas_path = scene_path.get_basename() + ".vg"
-	# absolute path for OS shell
-	var abs_path = ProjectSettings.globalize_path(bas_path)
-	
-	print("VisualGasic: Targeting Script " + abs_path)
-	
+	var vg_path := _get_vg_path_from_tscn(scene_path)
+	if vg_path.is_empty():
+		vg_path = scene_path.get_basename() + ".vg"
+
+	print("VisualGasic: Targeting Script " + vg_path)
+
 	# Create file if missing
-	if not FileAccess.file_exists(bas_path):
-		var f = FileAccess.open(bas_path, FileAccess.WRITE)
-		# VB6 Form Header Style
+	if not FileAccess.file_exists(vg_path):
+		var f = FileAccess.open(vg_path, FileAccess.WRITE)
 		f.store_string("' Visual Gasic Form Script\nOption Explicit\n\n")
 		f.close()
 		print("VisualGasic: Created new script file.")
-		# Trigger filesystem to recognize the file
 		get_editor_interface().get_resource_filesystem().scan()
 
-	# Open and Inject via Editor Buffer (to avoid disk reload conflicts)
-	_open_and_inject(bas_path, node.name, sub_suffix, sub_params)
+	var sub_name := node.name + "_" + sub_suffix
+	var tscn_method := _get_tscn_connection_method(scene_path, node.name)
+	if not tscn_method.is_empty():
+		sub_name = tscn_method
+
+	if is_instance_valid(_embedded_code_editor):
+		_open_in_embedded_editor(vg_path, sub_name, sub_params)
+		_feed_control_names_to_editor()
+		var resolved_event := sub_suffix
+		if sub_name.begins_with(node.name + "_"):
+			resolved_event = sub_name.substr(node.name.length() + 1)
+		if _embedded_code_editor.has_method("select_object_and_event"):
+			_embedded_code_editor.select_object_and_event.call_deferred(node.name, resolved_event)
+	else:
+		_open_and_inject(vg_path, node.name, sub_suffix, sub_params)
 
 ## Converts Godot Variant.Type id to a VB6-style type name for Sub parameters.
 func _godot_type_to_vb6(type_id: int) -> String:
@@ -12230,11 +12333,13 @@ func _on_main_screen_changed(screen_name: String):
 		if tabs:
 			# Check if the current form is Game UI mode
 			if _form_designer and _form_designer.has_method("get_game_ui_mode") and _form_designer.get_game_ui_mode():
-				tabs.current_tab = 2 # Game UI
+				tabs.current_tab = TOOLBOX_TAB_GAME_UI
 			elif screen_name == "3D":
-				tabs.current_tab = 1 # 3D Index
+				tabs.current_tab = TOOLBOX_TAB_GODOT_3D
 			elif screen_name == "2D":
-				tabs.current_tab = 0 # 2D Index
+				tabs.current_tab = TOOLBOX_TAB_GODOT_2D
+			elif screen_name == "VisualGasic" or screen_name == "VB6":
+				tabs.current_tab = TOOLBOX_TAB_VG_FORMS
 	
 	# Update Code Navigator on Screen Change (e.g. entering Script view)
 	var nav = _get_navigator()
@@ -12273,6 +12378,7 @@ func setup_toolbox():
 		# progress styles. Done after the C++ defaults so they slot in
 		# cleanly without a recompile.
 		_register_extra_tools()
+		_register_godot_native_tools()
 		# Wrap each tab's GridContainer in a ScrollContainer so the tool
 		# list can scroll vertically when the panel is shorter than its
 		# content.  Deferred so the nodes are in the scene tree first.
@@ -12347,10 +12453,10 @@ func _setup_toolbox_context_menu():
 ## @param icon_name: Icon to display (usually same as create_class)
 ## @param scene_path: Optional .tscn scene to instantiate instead
 ## @param category: Toolbox tab category ("2D" or "3D")
-func register_tool(name: String, create_class: String, icon_name: String = "", scene_path: String = "", category: String = "2D"):
+func register_tool(name: String, create_class: String, icon_name: String = "", scene_path: String = "", category: String = "2D", subcategory: String = ""):
 	var real_toolbox = _get_toolbox_instance()
 	if real_toolbox:
-		real_toolbox.add_tool(name, create_class, icon_name, scene_path, category)
+		real_toolbox.add_tool(name, create_class, icon_name, scene_path, category, subcategory)
 
 ## Gets the C++ VisualGasicToolbox instance from the toolbox container.
 ## @returns: The toolbox instance or null if not found
@@ -12363,13 +12469,12 @@ func _get_toolbox_instance():
 
 ## Wraps each tab's GridContainer inside the VisualGasicToolbox in a
 ## ScrollContainer so the tool list scrolls vertically when the panel is
-## shorter than its content.  Also ensures the grid fills horizontally
-## when the panel is expanded.  Called deferred from setup_toolbox().
+## shorter than its content.  Godot 2D/3D tabs use nested sub-tabs; each
+## sub-tab grid gets its own scroll area.
 func _wrap_toolbox_grids_in_scroll() -> void:
 	var tb = _get_toolbox_instance()
 	if tb == null:
 		return
-	# Find the TabContainer — direct child of VisualGasicToolbox.
 	var tab_container: TabContainer = null
 	for c in tb.get_children():
 		if c is TabContainer:
@@ -12377,39 +12482,39 @@ func _wrap_toolbox_grids_in_scroll() -> void:
 			break
 	if tab_container == null:
 		return
-	# Collect all GridContainer tab children in their current order.
-	var grids: Array = []
 	for c in tab_container.get_children():
 		if c is GridContainer:
-			grids.append(c)
-	# Wrap each grid in a ScrollContainer, preserving tab order and title.
-	for grid in grids:
-		var idx: int = grid.get_index()
-		var tab_title: String = tab_container.get_tab_title(idx)
-		var scroll := ScrollContainer.new()
-		scroll.name = grid.name
-		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-		# Grid fills the scroll width but uses its natural height so the
-		# scroll container has content taller than itself to scroll.
-		tab_container.remove_child(grid)
-		# TabContainer marks non-active tab children invisible.  Restore
-		# visibility before reparenting so the grid renders inside the
-		# ScrollContainer when that tab is later selected.
-		grid.show()
-		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		grid.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		scroll.add_child(grid)
-		tab_container.add_child(scroll)
-		tab_container.move_child(scroll, idx)
-		# Restore the tab title in case Godot's name-sanitiser changed it.
-		tab_container.set_tab_title(idx, tab_title)
-		# Style the scrollbar grabber — the editor theme's default is near-
-		# transparent so the track shows but the thumb is invisible.
-		# Must happen AFTER add_child so get_v_scroll_bar() is valid.
-		_style_toolbox_scroll(scroll)
+			_wrap_single_toolbox_grid(tab_container, c)
+		elif c is TabContainer:
+			_wrap_nested_toolbox_subtabs(c as TabContainer)
+	_restyle_toolbox_buttons()
+
+func _wrap_single_toolbox_grid(tab_container: TabContainer, grid: GridContainer) -> void:
+	if grid.get_parent() is ScrollContainer:
+		return
+	var idx: int = grid.get_index()
+	var tab_title: String = tab_container.get_tab_title(idx)
+	var scroll := ScrollContainer.new()
+	scroll.name = grid.name
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	tab_container.remove_child(grid)
+	grid.show()
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	scroll.add_child(grid)
+	tab_container.add_child(scroll)
+	tab_container.move_child(scroll, idx)
+	tab_container.set_tab_title(idx, tab_title)
+	_style_toolbox_scroll(scroll)
+
+func _wrap_nested_toolbox_subtabs(sub_tabs: TabContainer) -> void:
+	for i in sub_tabs.get_tab_count():
+		var grid = sub_tabs.get_tab_control(i)
+		if grid is GridContainer:
+			_wrap_single_toolbox_grid(sub_tabs, grid)
 
 ## Applies visible scrollbar styling to a toolbox ScrollContainer.
 ## The editor theme's default grabber StyleBox is near-transparent —
@@ -12709,7 +12814,7 @@ func _on_canvas_viewport_gui_input(event: InputEvent) -> void:
 	var sel = get_editor_interface().get_selection().get_selected_nodes()
 	var current_node: Node = sel[0] if sel.size() == 1 else null
 	
-	if current_node and current_node is Control:
+	if current_node and (current_node is Control or current_node is Node2D or current_node is Node3D):
 		var root = get_editor_interface().get_edited_scene_root()
 		if current_node != root:
 			if current_node == _last_canvas_click_node and (now - _last_canvas_click_time) < _DOUBLE_CLICK_MS:
@@ -12768,11 +12873,11 @@ func _on_scene_tree_item_activated() -> void:
 	if sel.size() != 1:
 		return
 	var node = sel[0]
-	# Only intercept for VG-placed controls (children of scene root that are Controls)
+	# Wire VG / Godot native nodes (Controls, Node2D, Node3D) — not sub-scene instances.
 	var root = get_editor_interface().get_edited_scene_root()
 	if not root or node == root:
 		return
-	if not (node is Control):
+	if not (node is Control or node is Node2D or node is Node3D):
 		return
 	# Don't intercept if it's a sub-scene instance (user might legitimately want to open it)
 	if not node.scene_file_path.is_empty() and not node.scene_file_path.contains("visual_gasic/prototypes"):
@@ -14284,6 +14389,7 @@ func _ui_forms_show_toolbox_window() -> void:
 		# Register extras (same as IDE)
 		if real_tb.has_method("add_tool"):
 			_register_extra_tools_on(real_tb)
+			_register_godot_native_tools_on(real_tb)
 		# Wire tool_selected → FormDesigner (VG IDE) or direct placement (Godot 2D)
 		if real_tb.has_signal("tool_selected"):
 			real_tb.tool_selected.connect(_on_floating_toolbox_selected)
@@ -14323,25 +14429,30 @@ func _floating_toolbox_place_deferred(ctrl_class: String, scene_path: String) ->
 	if not root:
 		push_warning("[VG Toolbox] No edited scene root")
 		return
-	var viewport = get_editor_interface().get_editor_viewport_2d()
-	if not viewport:
-		push_warning("[VG Toolbox] No 2D viewport")
-		return
-	var vp_center = viewport.size / 2.0
-	var canvas_xform = viewport.get_canvas_transform()
-	var world_pos = canvas_xform.affine_inverse() * Vector2(vp_center)
-	var form_offset := Vector2.ZERO
-	if root is Window:
-		form_offset = Vector2(root.position)
-	elif root is Control:
-		form_offset = root.position
-	var local_pos = (world_pos - form_offset).snapped(Vector2(8, 8))
 	var drag_data := {
 		"type": "vg_control",
 		"scene_path": scene_path,
 		"control_class": ctrl_class,
-		"drop_position": local_pos,
+		"class_name": ctrl_class,
 	}
+	if _is_godot_3d_tool_drop(drag_data):
+		drag_data["category"] = "Godot 3D"
+		EditorInterface.set_main_screen_editor("3D")
+		drag_data["drop_position_3d"] = _compute_3d_drop_position()
+	else:
+		var viewport = get_editor_interface().get_editor_viewport_2d()
+		if not viewport:
+			push_warning("[VG Toolbox] No 2D viewport")
+			return
+		var vp_center = viewport.size / 2.0
+		var canvas_xform = viewport.get_canvas_transform()
+		var world_pos = canvas_xform.affine_inverse() * Vector2(vp_center)
+		var form_offset := Vector2.ZERO
+		if root is Window:
+			form_offset = Vector2(root.position)
+		elif root is Control:
+			form_offset = root.position
+		drag_data["drop_position"] = (world_pos - form_offset).snapped(Vector2(8, 8))
 	_handle_vg_drop_delayed(drag_data)
 
 
@@ -14410,6 +14521,7 @@ func _restyle_toolbox_instance(cpp_toolbox) -> void:
 	tab_panel_sb.content_margin_top = 2
 	tab_panel_sb.content_margin_bottom = 2
 	tabs.add_theme_stylebox_override("panel", tab_panel_sb)
+	_style_toolbox_tab_panels(tabs, panel_bg)
 
 	# ── 4. Load icons and display names ──
 	var _VB6Icons = load("res://addons/visual_gasic/vb6_toolbox_icons.gd")
@@ -14439,95 +14551,20 @@ func _restyle_toolbox_instance(cpp_toolbox) -> void:
 		"Breadcrumbs": "Breadcrumbs",
 	}
 	var icon_key_map := {"DriveListBox": "DriveList"}
+	var tool_tips := {}
+	var comp_descriptions := {}
 
-	# ── 5. Style buttons (same as _restyle_toolbox_buttons) ──
-	var white := Color(1, 1, 1, 1)
-	var btn_bg: Color = _theme.get("toolbox_btn_normal", Color("#F0EDE8"))
-	var hover_bg: Color = _theme.get("toolbox_btn_hover", Color(0.91, 0.95, 1.0))
-	var pressed_bg: Color = _theme.get("toolbox_btn_pressed", Color(0.26, 0.59, 0.98))
+	# ── 5. Style all grids (including nested Godot 2D/3D sub-tabs) ──
+	_foreach_toolbox_grid(tabs, func(grid: GridContainer):
+		_style_toolbox_grid_buttons(grid, display_names, tool_tips, vb6_icons, icon_key_map, comp_descriptions)
+	)
 
-	for tab_idx in range(tabs.get_tab_count()):
-		var grid = tabs.get_child(tab_idx)
-		if grid is GridContainer:
-			grid.set_columns(2)
-			grid.add_theme_constant_override("h_separation", 2)
-			grid.add_theme_constant_override("v_separation", 1)
-			for btn_idx in range(grid.get_child_count()):
-				var btn = grid.get_child(btn_idx)
-				if btn is Button:
-					var tool_name: String = btn.name
-					btn.text = display_names.get(tool_name, tool_name)
-					btn.custom_minimum_size = Vector2(0, 26)
-					btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-					btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-					btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-					btn.expand_icon = false
-					# Icon colors
-					btn.add_theme_color_override("icon_normal_color", white)
-					btn.add_theme_color_override("icon_hover_color", white)
-					btn.add_theme_color_override("icon_pressed_color", white)
-					btn.add_theme_color_override("icon_focus_color", white)
-					btn.add_theme_color_override("icon_disabled_color", white)
-					# Text colors
-					btn.add_theme_color_override("font_color", _theme.get("toolbox_text", Color.BLACK))
-					btn.add_theme_color_override("font_hover_color", _theme.get("toolbox_text", Color.BLACK))
-					btn.add_theme_color_override("font_pressed_color", _theme.get("toolbox_text_pressed", Color.WHITE))
-					btn.add_theme_color_override("font_focus_color", _theme.get("toolbox_text", Color.BLACK))
-					# Normal: off-white
-					var normal_sb := StyleBoxFlat.new()
-					normal_sb.bg_color = btn_bg
-					normal_sb.content_margin_left = 6
-					normal_sb.content_margin_right = 4
-					normal_sb.content_margin_top = 2
-					normal_sb.content_margin_bottom = 2
-					btn.add_theme_stylebox_override("normal", normal_sb)
-					# Hover: light blue tint
-					var hover_sb := StyleBoxFlat.new()
-					hover_sb.bg_color = hover_bg
-					hover_sb.border_width_top = 1; hover_sb.border_width_left = 1
-					hover_sb.border_width_bottom = 1; hover_sb.border_width_right = 1
-					hover_sb.border_color = _theme.get("toolbox_btn_hover_border", Color(0.55, 0.73, 0.95))
-					hover_sb.content_margin_left = 5; hover_sb.content_margin_right = 3
-					hover_sb.content_margin_top = 1; hover_sb.content_margin_bottom = 1
-					btn.add_theme_stylebox_override("hover", hover_sb)
-					# Pressed: blue highlight
-					var pressed_sb := StyleBoxFlat.new()
-					pressed_sb.bg_color = pressed_bg
-					pressed_sb.content_margin_left = 6; pressed_sb.content_margin_right = 4
-					pressed_sb.content_margin_top = 2; pressed_sb.content_margin_bottom = 2
-					btn.add_theme_stylebox_override("pressed", pressed_sb)
-					# SVG icon (LAST — after all theme overrides)
-					var icon_key: String = icon_key_map.get(tool_name, tool_name)
-					if vb6_icons.has(icon_key):
-						btn.icon = vb6_icons[icon_key]
-					elif vb6_icons.has("_CustomControl"):
-						btn.icon = vb6_icons["_CustomControl"]
-					if btn.has_method("set_icon_name"):
-						btn.set_icon_name("")
-
-	# ── 6. Wrap grids in ScrollContainers (preserving tab titles) ──
-	var grids: Array = []
+	# ── 6. Wrap grids in ScrollContainers ──
 	for c in tabs.get_children():
 		if c is GridContainer:
-			grids.append(c)
-	for grid in grids:
-		var idx: int = grid.get_index()
-		var tab_title: String = tabs.get_tab_title(idx)
-		var scroll := ScrollContainer.new()
-		scroll.name = grid.name
-		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-		tabs.remove_child(grid)
-		grid.show()
-		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		grid.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		scroll.add_child(grid)
-		tabs.add_child(scroll)
-		tabs.move_child(scroll, idx)
-		# Restore tab title
-		tabs.set_tab_title(idx, tab_title)
+			_wrap_single_toolbox_grid(tabs, c)
+		elif c is TabContainer:
+			_wrap_nested_toolbox_subtabs(c as TabContainer)
 
 
 # ─── Floating VG Properties Panel ─────────────────────────────────────────────

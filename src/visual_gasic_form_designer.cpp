@@ -3577,6 +3577,18 @@ void VisualGasicFormDesigner::_drop_data(const Vector2 &p_point, const Variant &
     // ── Original vg_control handling ──
     String type = data.get("class_name", "Control");
     String scene_path = data.get("scene_path", "");
+    String category = data.get("category", "");
+
+    // Native Godot 2D/3D nodes belong on scene editors, not VB6 Window forms.
+    if (category == "Godot 2D" || category == "Godot 3D" || category == "3D") {
+        UtilityFunctions::print("FormDesigner: Place Godot native nodes from the Godot 2D or 3D editor, not the form canvas.");
+        if (Engine::get_singleton()->has_meta("_vg_active_drag")) {
+            Engine::get_singleton()->remove_meta("_vg_active_drag");
+        }
+        show_preview = false;
+        queue_redraw();
+        return;
+    }
 
     Vector2 sz = _default_size_for_type(type);
     // Convert screen coords to form-local coords

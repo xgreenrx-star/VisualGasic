@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://vg_godot2d_line2d"]
+
+[node name="Line2D" type="Line2D"]
+width = 4.0
+default_color = Color(1, 1, 1, 1)
+points = PackedVector2Array(0, 0, 64, 0)

@@ -43,6 +43,10 @@ String VisualGasicToolButton::get_scene_path() const {
     return scene_path;
 }
 
+void VisualGasicToolButton::set_tool_category(const String &p_category) {
+    tool_category = p_category;
+}
+
 void VisualGasicToolButton::_notification(int p_what) {
     // Only set the editor-theme icon once, when the button first enters the
     // tree.  The GDScript restyler (_restyle_toolbox_buttons) replaces every
@@ -119,6 +123,9 @@ Variant VisualGasicToolButton::_get_drag_data(const Vector2 &at_position) {
         : scene_path;
     data["scene_path"] = path;
     data["class_name"] = create_class_name;
+    if (!tool_category.is_empty()) {
+        data["category"] = tool_category;
+    }
     
     UtilityFunctions::print("VisualGasic Drag: ", path);
     
@@ -132,7 +139,7 @@ Variant VisualGasicToolButton::_get_drag_data(const Vector2 &at_position) {
 // TOOLBOX
 
 void VisualGasicToolbox::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("add_tool", "name", "godot_class", "icon_name", "scene_path", "category"), &VisualGasicToolbox::add_tool, DEFVAL(""), DEFVAL("2D"));
+    ClassDB::bind_method(D_METHOD("add_tool", "name", "godot_class", "icon_name", "scene_path", "category", "subcategory"), &VisualGasicToolbox::add_tool, DEFVAL(""), DEFVAL("2D"), DEFVAL(""));
     ClassDB::bind_method(D_METHOD("remove_tool", "name"), &VisualGasicToolbox::remove_tool);
     ClassDB::bind_method(D_METHOD("clear_custom_tools"), &VisualGasicToolbox::clear_custom_tools);
     ClassDB::bind_method(D_METHOD("mark_defaults"), &VisualGasicToolbox::mark_defaults);
@@ -160,19 +167,38 @@ VisualGasicToolbox::VisualGasicToolbox() {
 
     // 2D Grid
     grid_2d = memnew(GridContainer);
-    grid_2d->set_name("2D Tools");
+    grid_2d->set_name("VG Forms");
     grid_2d->set_columns(2);
     grid_2d->set_h_size_flags(Control::SIZE_EXPAND_FILL);
     grid_2d->set_v_size_flags(Control::SIZE_EXPAND_FILL);
     tabs->add_child(grid_2d);
 
-    // 3D Grid
-    grid_3d = memnew(GridContainer);
-    grid_3d->set_name("3D Tools");
-    grid_3d->set_columns(2);
-    grid_3d->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-    grid_3d->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-    tabs->add_child(grid_3d);
+    // Native Godot 2D — nested sub-tabs (Node2D, Controls, Containers, …)
+    tabs_godot_2d = memnew(TabContainer);
+    tabs_godot_2d->set_name("Godot 2D");
+    tabs_godot_2d->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+    tabs_godot_2d->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+    godot_2d_subgrids.push_back(_make_subgrid(tabs_godot_2d, "Node2D"));
+    godot_2d_subgrids.push_back(_make_subgrid(tabs_godot_2d, "Controls"));
+    godot_2d_subgrids.push_back(_make_subgrid(tabs_godot_2d, "Containers"));
+    godot_2d_subgrids.push_back(_make_subgrid(tabs_godot_2d, "Layers"));
+    godot_2d_subgrids.push_back(_make_subgrid(tabs_godot_2d, "Physics"));
+    godot_2d_subgrids.push_back(_make_subgrid(tabs_godot_2d, "Audio"));
+    godot_2d_subgrids.push_back(_make_subgrid(tabs_godot_2d, "Nodes"));
+    tabs->add_child(tabs_godot_2d);
+
+    // Native Godot 3D — nested sub-tabs
+    tabs_godot_3d = memnew(TabContainer);
+    tabs_godot_3d->set_name("Godot 3D");
+    tabs_godot_3d->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+    tabs_godot_3d->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+    godot_3d_subgrids.push_back(_make_subgrid(tabs_godot_3d, "Meshes"));
+    godot_3d_subgrids.push_back(_make_subgrid(tabs_godot_3d, "Lights"));
+    godot_3d_subgrids.push_back(_make_subgrid(tabs_godot_3d, "Camera"));
+    godot_3d_subgrids.push_back(_make_subgrid(tabs_godot_3d, "Physics"));
+    godot_3d_subgrids.push_back(_make_subgrid(tabs_godot_3d, "Audio"));
+    godot_3d_subgrids.push_back(_make_subgrid(tabs_godot_3d, "Other"));
+    tabs->add_child(tabs_godot_3d);
 
     // Game UI Grid
     grid_game_ui = memnew(GridContainer);
@@ -282,12 +308,43 @@ VisualGasicToolbox::~VisualGasicToolbox() {
 void VisualGasicToolbox::_notification(int p_what) {
 }
 
-void VisualGasicToolbox::add_tool(const String &p_name, const String &p_godot_class, const String &p_icon_name, const String &p_scene_path, const String &p_category) {
+GridContainer *VisualGasicToolbox::_make_subgrid(TabContainer *p_tabs, const String &p_name) {
+    GridContainer *grid = memnew(GridContainer);
+    grid->set_name(p_name);
+    grid->set_columns(2);
+    grid->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+    grid->set_v_size_flags(Control::SIZE_SHRINK_BEGIN);
+    p_tabs->add_child(grid);
+    return grid;
+}
+
+GridContainer *VisualGasicToolbox::_get_godot_2d_subgrid(const String &p_subcategory) const {
+    for (int i = 0; i < tabs_godot_2d->get_tab_count(); i++) {
+        Node *child = tabs_godot_2d->get_tab_control(i);
+        if (child && child->get_name() == p_subcategory) {
+            return Object::cast_to<GridContainer>(child);
+        }
+    }
+    return godot_2d_subgrids.size() > 0 ? godot_2d_subgrids[0] : nullptr;
+}
+
+GridContainer *VisualGasicToolbox::_get_godot_3d_subgrid(const String &p_subcategory) const {
+    for (int i = 0; i < tabs_godot_3d->get_tab_count(); i++) {
+        Node *child = tabs_godot_3d->get_tab_control(i);
+        if (child && child->get_name() == p_subcategory) {
+            return Object::cast_to<GridContainer>(child);
+        }
+    }
+    return godot_3d_subgrids.size() > 0 ? godot_3d_subgrids[0] : nullptr;
+}
+
+void VisualGasicToolbox::add_tool(const String &p_name, const String &p_godot_class, const String &p_icon_name, const String &p_scene_path, const String &p_category, const String &p_subcategory) {
     VisualGasicToolButton *btn = memnew(VisualGasicToolButton);
     btn->set_tooltip_text(p_name); // Show name on hover only
     btn->set_name(p_name); // Set node name for lookup
     btn->set_create_class(p_godot_class);
     btn->set_icon_name(p_icon_name);
+    btn->set_tool_category(p_category);
     if (!p_scene_path.is_empty()) {
         btn->set_scene_path(p_scene_path);
     }
@@ -305,8 +362,16 @@ void VisualGasicToolbox::add_tool(const String &p_name, const String &p_godot_cl
     btn->set_h_size_flags(Control::SIZE_EXPAND_FILL);
     btn->set_focus_mode(FOCUS_NONE); // Prevent stealing focus from Editor, which can mess up drag coordinates
     
-    if (p_category == "3D") {
-        grid_3d->add_child(btn);
+    if (p_category == "Godot 3D" || p_category == "3D") {
+        GridContainer *target = _get_godot_3d_subgrid(p_subcategory);
+        if (target) {
+            target->add_child(btn);
+        }
+    } else if (p_category == "Godot 2D") {
+        GridContainer *target = _get_godot_2d_subgrid(p_subcategory);
+        if (target) {
+            target->add_child(btn);
+        }
     } else if (p_category == "Game UI") {
         grid_game_ui->add_child(btn);
     } else {
@@ -314,8 +379,22 @@ void VisualGasicToolbox::add_tool(const String &p_name, const String &p_godot_cl
     }
 }
 
+void VisualGasicToolbox::_remove_from_grids(Vector<GridContainer *> p_grids, const String &p_name) {
+    for (int g = 0; g < p_grids.size(); g++) {
+        GridContainer *grid = p_grids[g];
+        if (!grid) continue;
+        for (int i = 0; i < grid->get_child_count(); i++) {
+            Node *child = grid->get_child(i);
+            if (child->get_name() == p_name) {
+                grid->remove_child(child);
+                child->queue_free();
+                return;
+            }
+        }
+    }
+}
+
 void VisualGasicToolbox::remove_tool(const String &p_name) {
-    // Search in 2D grid
     for (int i = 0; i < grid_2d->get_child_count(); i++) {
         Node *child = grid_2d->get_child(i);
         if (child->get_name() == p_name) {
@@ -324,16 +403,8 @@ void VisualGasicToolbox::remove_tool(const String &p_name) {
             return;
         }
     }
-    // Search in 3D grid
-    for (int i = 0; i < grid_3d->get_child_count(); i++) {
-        Node *child = grid_3d->get_child(i);
-        if (child->get_name() == p_name) {
-            grid_3d->remove_child(child);
-            child->queue_free();
-            return;
-        }
-    }
-    // Search in Game UI grid
+    _remove_from_grids(godot_2d_subgrids, p_name);
+    _remove_from_grids(godot_3d_subgrids, p_name);
     for (int i = 0; i < grid_game_ui->get_child_count(); i++) {
         Node *child = grid_game_ui->get_child(i);
         if (child->get_name() == p_name) {
@@ -344,21 +415,27 @@ void VisualGasicToolbox::remove_tool(const String &p_name) {
     }
 }
 
+void VisualGasicToolbox::_clear_custom_from_grids(Vector<GridContainer *> p_grids, Vector<int> &p_default_counts) {
+    for (int g = 0; g < p_grids.size(); g++) {
+        GridContainer *grid = p_grids[g];
+        if (!grid) continue;
+        int keep = g < p_default_counts.size() ? p_default_counts[g] : 0;
+        while (grid->get_child_count() > keep) {
+            Node *child = grid->get_child(grid->get_child_count() - 1);
+            grid->remove_child(child);
+            child->queue_free();
+        }
+    }
+}
+
 void VisualGasicToolbox::clear_custom_tools() {
-    // Remove tools added after mark_defaults() was called
-    // 2D grid
     while (grid_2d->get_child_count() > default_tool_count_2d) {
         Node *child = grid_2d->get_child(grid_2d->get_child_count() - 1);
         grid_2d->remove_child(child);
         child->queue_free();
     }
-    // 3D grid
-    while (grid_3d->get_child_count() > default_tool_count_3d) {
-        Node *child = grid_3d->get_child(grid_3d->get_child_count() - 1);
-        grid_3d->remove_child(child);
-        child->queue_free();
-    }
-    // Game UI grid
+    _clear_custom_from_grids(godot_2d_subgrids, default_tool_count_godot_2d_sub);
+    _clear_custom_from_grids(godot_3d_subgrids, default_tool_count_godot_3d_sub);
     while (grid_game_ui->get_child_count() > default_tool_count_game_ui) {
         Node *child = grid_game_ui->get_child(grid_game_ui->get_child_count() - 1);
         grid_game_ui->remove_child(child);
@@ -368,7 +445,14 @@ void VisualGasicToolbox::clear_custom_tools() {
 
 void VisualGasicToolbox::mark_defaults() {
     default_tool_count_2d = grid_2d->get_child_count();
-    default_tool_count_3d = grid_3d->get_child_count();
+    default_tool_count_godot_2d_sub.clear();
+    for (int i = 0; i < godot_2d_subgrids.size(); i++) {
+        default_tool_count_godot_2d_sub.push_back(godot_2d_subgrids[i] ? godot_2d_subgrids[i]->get_child_count() : 0);
+    }
+    default_tool_count_godot_3d_sub.clear();
+    for (int i = 0; i < godot_3d_subgrids.size(); i++) {
+        default_tool_count_godot_3d_sub.push_back(godot_3d_subgrids[i] ? godot_3d_subgrids[i]->get_child_count() : 0);
+    }
     default_tool_count_game_ui = grid_game_ui->get_child_count();
 }
 
@@ -403,19 +487,29 @@ void VisualGasicToolbox::_on_tool_button_pressed(VisualGasicToolButton *p_btn) {
     UtilityFunctions::print("Toolbox: Active tool = ", cls, " (", scene, ")");
 }
 
-void VisualGasicToolbox::_update_button_states() {
-    // Depress all buttons except the active one
-    auto _depress = [&](GridContainer *grid) {
-        for (int i = 0; i < grid->get_child_count(); i++) {
-            VisualGasicToolButton *btn = Object::cast_to<VisualGasicToolButton>(grid->get_child(i));
-            if (btn) {
-                btn->set_pressed(btn == active_tool_button);
-            }
+void VisualGasicToolbox::_depress_grid(GridContainer *p_grid) {
+    if (!p_grid) return;
+    for (int i = 0; i < p_grid->get_child_count(); i++) {
+        VisualGasicToolButton *btn = Object::cast_to<VisualGasicToolButton>(p_grid->get_child(i));
+        if (btn) {
+            btn->set_pressed(btn == active_tool_button);
         }
-    };
-    _depress(grid_2d);
-    _depress(grid_3d);
-    _depress(grid_game_ui);
+    }
+}
+
+void VisualGasicToolbox::_depress_all_tool_grids() {
+    _depress_grid(grid_2d);
+    for (int i = 0; i < godot_2d_subgrids.size(); i++) {
+        _depress_grid(godot_2d_subgrids[i]);
+    }
+    for (int i = 0; i < godot_3d_subgrids.size(); i++) {
+        _depress_grid(godot_3d_subgrids[i]);
+    }
+    _depress_grid(grid_game_ui);
+}
+
+void VisualGasicToolbox::_update_button_states() {
+    _depress_all_tool_grids();
 }
 
 String VisualGasicToolbox::get_active_tool_class() const {

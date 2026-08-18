@@ -1,0 +1,4 @@
+[gd_scene format=3]
+
+[node name="VideoStreamPlayer" type="VideoStreamPlayer"]
+custom_minimum_size = Vector2(160, 90)
