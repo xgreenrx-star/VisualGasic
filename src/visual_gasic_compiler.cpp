@@ -3278,31 +3278,50 @@ VisualGasicCompiler::ValueType VisualGasicCompiler::infer_type(ExpressionNode* e
 // When a namespace match is found, the caller should compile the args and
 // emit OP_CALL to "<ns>_<lower_method>" instead of OP_METHOD_CALL.
 String VisualGasicCompiler::detect_namespace_call(ExpressionNode* base_obj) const {
-    if (!base_obj || base_obj->type != ExpressionNode::VARIABLE) return String();
-    String name = ((VariableNode*)base_obj)->name;
-    String lo = name.to_lower();
-    if (lo == "bus") lo = "speaker"; // alias
-    if (lo != "camera" && lo != "sound" && lo != "speaker" &&
-        // Pass 3 namespaces
-        lo != "animation" && lo != "physics" && lo != "ray" &&
-        lo != "cell" && lo != "nav" &&
-        // Pass 4 namespaces (app platform / phone sensors)
-        lo != "screen" && lo != "joypad" && lo != "touch" &&
-        lo != "sensor" && lo != "permission" && lo != "gps" &&
-        lo != "steps" &&
-        // Pass 5 namespaces (crypto/theme/js/shader/material/skeleton/bone/video)
-        lo != "crypto" && lo != "theme" && lo != "js" &&
-        lo != "shader" && lo != "material" && lo != "skeleton" &&
-        lo != "bone" && lo != "video" &&
-        // Audio synthesis namespaces
-        lo != "soundgen" && lo != "music" && lo != "tracker") return String();
-    // Not shadowed by a known variable.
-    String orig_lo = name.to_lower();
-    if (local_slots.has(orig_lo) || param_vars.has(orig_lo) ||
-        array_vars.has(orig_lo) || dictionary_vars.has(orig_lo)) {
+    if (!base_obj) return String();
+
+    auto resolve_namespace_root = [&](const String &p_name) -> String {
+        String lo = p_name.to_lower();
+        if (lo == "bus") lo = "speaker"; // alias
+        if (lo != "camera" && lo != "sound" && lo != "speaker" &&
+            // Pass 3 namespaces
+            lo != "animation" && lo != "physics" && lo != "ray" &&
+            lo != "cell" && lo != "nav" &&
+            // Pass 4 namespaces (app platform / phone sensors)
+            lo != "screen" && lo != "joypad" && lo != "touch" &&
+            lo != "sensor" && lo != "permission" && lo != "gps" &&
+            lo != "steps" &&
+            // Pass 5 namespaces (crypto/theme/js/shader/material/skeleton/bone/video)
+            lo != "crypto" && lo != "theme" && lo != "js" &&
+            lo != "shader" && lo != "material" && lo != "skeleton" &&
+            lo != "bone" && lo != "video" &&
+            // Audio synthesis namespaces
+            lo != "soundgen" && lo != "music" && lo != "tracker") {
+            return String();
+        }
+        // Not shadowed by a known variable.
+        String orig_lo = p_name.to_lower();
+        if (local_slots.has(orig_lo) || param_vars.has(orig_lo) ||
+            array_vars.has(orig_lo) || dictionary_vars.has(orig_lo)) {
+            return String();
+        }
+        return lo;
+    };
+
+    // Speaker.Bus.* — documented alias; treat as Speaker namespace.
+    if (base_obj->type == ExpressionNode::MEMBER_ACCESS) {
+        MemberAccessNode *ma = (MemberAccessNode *)base_obj;
+        if (ma->base_object && ma->base_object->type == ExpressionNode::VARIABLE) {
+            String base_name = ((VariableNode *)ma->base_object)->name;
+            if (base_name.to_lower() == "speaker" && ma->member_name.to_lower() == "bus") {
+                return resolve_namespace_root(base_name);
+            }
+        }
         return String();
     }
-    return lo;
+
+    if (base_obj->type != ExpressionNode::VARIABLE) return String();
+    return resolve_namespace_root(((VariableNode *)base_obj)->name);
 }
 
 
@@ -6762,6 +6781,13 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
         }
         case STMT_CLEAR_DATA: {
             emit_byte(OP_CLEAR_DATA);
+            break;
+        }
+        case STMT_DO_EVENTS: {
+            int idx = current_chunk->add_constant(String("DoEvents"));
+            emit_byte(OP_CALL);
+            emit_const_index(idx);
+            emit_byte((uint8_t)0);
             break;
         }
         default:

@@ -61,6 +61,13 @@ jobs:
           chmod +x ./tests/run_builtin_tests.py
           ./tests/run_builtin_tests.py
 
+      - name: Programmer's Reference gate (audit + parse harness)
+        env:
+          DISPLAY: ""
+        run: |
+          chmod +x ./scripts/run_command_reference_gate.sh
+          ./scripts/run_command_reference_gate.sh
+
       - name: Capture bytecode dump
         env:
           DISPLAY: ""

@@ -1251,7 +1251,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **M5** | Narcea AI pair (#13): pair-programming mode, provider routing, system prompt templates. **NEW:** Buffer Type (zero-overhead byte access) + Optimizer Hints (@fast_loop, @accumulator directives). | Oct 15 | 🔄 **NEXT** — ✅ 8 providers + architecture (Jul 13); 🚀 **Performance foundation laid (Aug 1):** Parts D/E/F bytecode VM optimizations (+47% C64 throughput, general benefit to all VG code). Remaining: Buffer Type (1-2 weeks), Optimizer Hints (1-2 weeks). |
 | **M6** | Causal Chain text-mode (#14): new AST evaluator path, narrative code generation, explain-before-compute | Oct 31 | — |
 | **M7** | Python Library Integration: `PyImport` / `PyCallAsync` / `Await` via out-of-process worker. numpy, opencv, torch usable from VG scripts. | Nov 15 | 🟡 **Phase 2/3 done** (Jul 14): real `PyCallAsync`/`Await` via `PyAsyncTask` background thread, Windows launch path, auto-restart, structured errors. numpy Phases 1–2 pending |
-| **M8** | Language parity (Try/Catch/Lambda/`?.` corpus tests), `Let` block-scoped vars, C++ library interop via `Declare`/`DllImport`, optional named arguments (`:=`) | Nov 22 | 🟡 **Early demo done** (Jul 11): Vec2 C++ class via C ABI, `QuickCall` alias |
+| **M8** | Language parity (Try/Catch/Lambda/`?.` corpus tests), `Let` block-scoped vars, C++ library interop via `Declare`/`DllImport`, optional named arguments (`:=`). **Post-v6.0 (v6.1):** `Interface...End Interface`, `Using...End Using`, Programmer's Reference runtime harness — see [v6.1 Programmer's Reference gaps](#programmers-reference--remaining-language-gaps-v61). | Nov 22 | 🟡 **Early demo done** (Jul 11): Vec2 C++ class via C ABI, `QuickCall` alias |
 | **M9** | Release readiness: Asset Library submission, installer smoke test (Linux + Windows), 50+ corpus, docs current | Nov 28 | — |
 | **v6.0** | Stable release | Jan 1 2027 | — |
 | **Bugfix** | C64 Emulator: native `FOR`/assignment statements raised `?SYNTAX ERROR` on run — **FIXED Sep 2026**. Root cause was NOT a 6502 CPU-core or ROM emulation gap (CPU/ROM traced instruction-by-instruction and confirmed correct/unmodified); it was VG's own `c64_main.vg` BASIC tokenizer omitting the 8 single-character operator tokens (`+ - * / ^ > = <` → `$AA`-`$B3`) that real C64 BASIC V2 tokenizes alongside its 68 keyword tokens (confirmed via c64-wiki.com). Any statement with `=` (virtually all `FOR`/assignment statements) got a literal ASCII byte instead of the ROM-expected token, so the real ROM correctly rejected it. Fixed by adding `OperatorToken()` tokenization to `TokenizeLine()` in `c64_main.vg`, respecting string-literal/REM boundaries. Verified: `FOR X=1 TO 5 / PRINT X / NEXT X` now prints 1-5; 855/855 regression suite unaffected. Full findings: `/memories/repo/c64_native_for_loop_bug.md`. | Sep 2026 | ✅ **DONE** (Sep 2026) |
@@ -1267,6 +1267,19 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **Packed Arrays (Fast-Path Opcodes)** | Fast-path opcodes for common array patterns: `OP_ARRAY_ADD_I64_INPLACE [slot] [index_slot]`, `OP_ARRAY_MUL_I64_INPLACE`, etc. Direct memory access without Variant dispatch for numeric array operations. Expected 1.5-2× speedup on particle systems, mesh manipulation, audio DSP. | High | 2-3 weeks |
 | **String Arena** | Thread-local string accumulator for chained `&` operations. Expected 1.5-2× speedup on StringConcat-heavy code. | Medium | 1-2 weeks |
 | **Literal Type Annotations** | Optional `0i` for int literal, `0.0d` for double literal syntax to fix Python bridge encode-path type loss. Allows `PyCall(builtins, "range", Array(0i, 5i))` to work correctly. | Medium | 1 week |
+
+### Programmer's Reference — remaining language gaps (v6.1)
+
+Tracked by `scripts/audit_command_implementation.py` against `addons/visual_gasic/vg_command_help.gd`. **`Implements InterfaceName` already works**; these are the two documented keywords still missing full support:
+
+| Feature | Description | Priority | Timeline |
+|---------|-------------|----------|----------|
+| **`Interface...End Interface`** | Parse and compile interface declaration blocks (`Interface IFoo` / `Sub`/`Function` signatures / `End Interface`). Today only `Class ... Implements IFoo` is wired; declaring a new interface type from VG source fails. Needs parser + AST + (minimal) type-check pass so AI/docs examples compile. | Medium | 1–2 weeks |
+| **`Using...End Using`** | RAII-style resource scope: `Using conn = OpenDatabase(...)` … `End Using` auto-disposes/closes on exit (normal, `Return`, and error paths). Needs parser, scope stack in compiler/VM, and disposal hook per resource type (start with `File`/`Database` patterns from docs). | Medium | 1–2 weeks |
+| **`Whenever` block form** | Docs show `Whenever health Below 20 … End Whenever`; parser only accepts `Whenever Section Name …` at module level. Align parser with documented reactive block syntax or update reference to match `Whenever Section`. | Medium | 3–5 days |
+| **Programmer's Reference runtime harness** | ✅ **Shipped (Aug 2026):** `tests/test_command_reference_harness.gd` + `scripts/run_command_reference_harness.sh` — parse all `_add()` examples; critical runtime checks for `End`, `DoEvents`, `Throw`, `LoadForm`, `ChangeScene`. CI: run before releases. | Done | — |
+
+*Deferred past v6.0 stable (Jan 2027): not release blockers — games/forms ship without them; `Implements` covers the common interface-consumption case.*
 
 ---
 

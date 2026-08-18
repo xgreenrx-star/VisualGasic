@@ -1035,7 +1035,7 @@ Statement* VisualGasicParser::parse_statement() {
         if (val == "with") return set_line(parse_with());
         if (val == "return") return set_line(parse_return());
         if (val == "continue") return set_line(parse_continue());
-        if (val == "raise") {
+        if (val == "raise" || val == "throw") {
             return set_line(parse_raise());
         }
         if (val == "whenever") {

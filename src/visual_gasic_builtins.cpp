@@ -16,6 +16,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
+#include <godot_cpp/classes/packed_scene.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/math.hpp>
@@ -475,6 +476,61 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
     if (method.nocasecmp_to("PrintForm") == 0) {
         r_found = true;
         _handle_print_form(instance, p_args);
+        return true;
+    }
+
+    // VB6 bare End — terminate the running application.
+    // Parser emits a zero-arg CallStatement named "End" for standalone End.
+    if (method.nocasecmp_to("End") == 0) {
+        r_found = true;
+        Node *node = Object::cast_to<Node>(instance->get_owner());
+        if (node) {
+            SceneTree *tree = node->get_tree();
+            if (tree) {
+                tree->quit();
+            }
+        }
+        return true;
+    }
+
+    if (method.nocasecmp_to("DoEvents") == 0) {
+        r_found = true;
+        DisplayServer::get_singleton()->process_events();
+        return true;
+    }
+
+    if (method.nocasecmp_to("ChangeScene") == 0 && p_args.size() == 1) {
+        r_found = true;
+        Node *node = Object::cast_to<Node>(instance->get_owner());
+        if (node && node->is_inside_tree()) {
+            SceneTree *tree = node->get_tree();
+            if (tree) {
+                tree->change_scene_to_file(String(p_args[0]));
+            }
+        }
+        return true;
+    }
+
+    if (method.nocasecmp_to("LoadForm") == 0 && p_args.size() == 1) {
+        r_found = true;
+        String path = p_args[0];
+        if (!path.begins_with("res://")) {
+            path = "res://" + path;
+        }
+        Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(path);
+        if (scene.is_valid()) {
+            Node *new_form = scene->instantiate();
+            Node *node = Object::cast_to<Node>(instance->get_owner());
+            if (node && node->is_inside_tree()) {
+                SceneTree *tree = node->get_tree();
+                if (tree) {
+                    Node *root = tree->get_root();
+                    if (root) {
+                        root->add_child(new_form);
+                    }
+                }
+            }
+        }
         return true;
     }
 
@@ -3335,7 +3391,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         //   Value 0.0..1.0; sets PhysicsMaterial restitution on a runtime-
         //   reachable default material (best-effort; persistent set via
         //   ProjectSettings would require a reload).
-        if (METHOD_IS("physics_gravity") && args.size() >= 1) {
+        if ((METHOD_IS("physics_gravity") || METHOD_IS("physics_gravityv2") || METHOD_IS("physics_gravityv3")) && args.size() >= 1) {
             r_handled = true;
             ProjectSettings *ps = ProjectSettings::get_singleton();
             if (!ps) return Variant();
@@ -3716,7 +3772,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     }
 
     // Input functions
-    if (METHOD_IS("iskeydown") && args.size() == 1) {
+    if ((METHOD_IS("iskeydown") || METHOD_IS("iskeypressed")) && args.size() == 1) {
         r_handled = true;
         Key key = Key::KEY_NONE;
         if (args[0].get_type() == Variant::INT || args[0].get_type() == Variant::FLOAT) {
@@ -3726,6 +3782,18 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             key = (Key)OS::get_singleton()->find_keycode_from_string(k);
         }
         return Input::get_singleton()->is_key_pressed(key);
+    }
+    if (METHOD_IS("loadpicture") && args.size() == 1) {
+        r_handled = true;
+        String path = args[0];
+        if (!path.begins_with("res://") && !path.begins_with("user://")) {
+            path = "res://" + path;
+        }
+        return ResourceLoader::get_singleton()->load(path);
+    }
+    if (METHOD_IS("createactor2d") && args.size() >= 3 && instance) {
+        r_handled = true;
+        return instance->builtin_create_actor2d(args);
     }
     if (METHOD_IS("getkey") && args.size() == 1) {
         r_handled = true;

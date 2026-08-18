@@ -107,6 +107,7 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Event");
     keywords.push_back("RaiseEvent");
     keywords.push_back("Raise");
+    keywords.push_back("Throw");
     keywords.push_back("New");
     keywords.push_back("Dictionary");
     keywords.push_back("each");

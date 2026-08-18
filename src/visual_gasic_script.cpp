@@ -390,6 +390,7 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
 
 void VisualGasicScript::_bind_methods() {
     ClassDB::bind_method(D_METHOD("debug_dump_bytecode", "entry_point"), &VisualGasicScript::debug_dump_bytecode);
+    ClassDB::bind_method(D_METHOD("has_reload_errors"), &VisualGasicScript::has_reload_errors);
 }
 
 VisualGasicScript::~VisualGasicScript() {

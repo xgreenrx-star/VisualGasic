@@ -1993,6 +1993,39 @@ bool VisualGasicInstance::get_variable(const String &p_name, Variant &r_ret) {
     return false;
 }
 
+Variant VisualGasicInstance::builtin_create_actor2d(const Array &p_args) {
+    String img_path = p_args[0];
+    double x = p_args[1];
+    double y = p_args[2];
+
+    CharacterBody2D *body = memnew(CharacterBody2D);
+    body->set_position(Vector2(x, y));
+
+    Sprite2D *sprite = memnew(Sprite2D);
+    Ref<Texture2D> tex = ResourceLoader::get_singleton()->load(img_path);
+    CollisionShape2D *shape = memnew(CollisionShape2D);
+    Ref<CircleShape2D> circle;
+    circle.instantiate();
+    if (tex.is_valid()) {
+        sprite->set_texture(tex);
+        circle->set_radius(tex->get_width() / 2.0f);
+    } else {
+        circle->set_radius(20.0f);
+    }
+    shape->set_shape(circle);
+    body->add_child(shape);
+    body->add_child(sprite);
+
+    if (owner) {
+        Node *n = Object::cast_to<Node>(owner);
+        if (n) {
+            n->add_child(body);
+            dynamic_nodes.push_back(body->get_instance_id());
+        }
+    }
+    return body;
+}
+
 // Wrapper that forwards statement-level builtin calls to the centralized builtins module.
 void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Array &p_args, bool &r_found) {
     r_found = false;
@@ -2817,6 +2850,45 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
                 return;
             }
         }
+    }
+
+    if (p_method.nocasecmp_to("ChangeScene") == 0 && p_args.size() == 1) {
+        r_found = true;
+        if (owner) {
+            Node *n = Object::cast_to<Node>(owner);
+            if (n && n->is_inside_tree()) {
+                SceneTree *tree = n->get_tree();
+                if (tree) {
+                    tree->change_scene_to_file(String(p_args[0]));
+                }
+            }
+        }
+        return;
+    }
+
+    if (p_method.nocasecmp_to("LoadForm") == 0 && p_args.size() == 1) {
+        r_found = true;
+        String path = p_args[0];
+        if (!path.begins_with("res://")) {
+            path = "res://" + path;
+        }
+        Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(path);
+        if (scene.is_valid()) {
+            Node *new_form = scene->instantiate();
+            if (owner) {
+                Node *owner_node = Object::cast_to<Node>(owner);
+                if (owner_node && owner_node->is_inside_tree()) {
+                    SceneTree *tree = owner_node->get_tree();
+                    if (tree) {
+                        Node *root = tree->get_root();
+                        if (root) {
+                            root->add_child(new_form);
+                        }
+                    }
+                }
+            }
+        }
+        return;
     }
 
     r_found = false;
