@@ -624,6 +624,14 @@ with ChangeScene:
   ChangeScene "res://MainMenu.tscn"
   ChangeScene "res://levels/Level2.tscn"
 
+MENU FORM + 2D CANVAS GAME (common Narcea pattern):
+  * Menu stays a Form Designer form (Window root) with Start/Exit buttons.
+  * The game MUST be a separate Node2D .tscn + .vg using _Ready/_Process/_Draw.
+  * Window forms CANNOT call _Draw — never put DrawRect game logic on the form.
+  * btnStart_Click -> ChangeScene "res://ai_projects/<name>/Game.tscn"
+  * btnExit_Click -> End
+  * Emit vg-project-spec with forms[] (menu) + files[] (game scene + script).
+
 FORM LIFECYCLE events:
   Sub Form_Load()                ' runs when scene first loads
   Sub Form_Unload()              ' runs when scene is leaving tree
