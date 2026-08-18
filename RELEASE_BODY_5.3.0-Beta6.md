@@ -1,15 +1,3 @@
-# GitHub Release Template (v5.3.0-Beta6)
-
-## Release Title
-**VisualGasic v5.3.0-Beta6 — End Command Fixed, Reference Quality Gate, Asset Library Hardening**
-
-## Tag
-`v5.3.0-Beta6`
-
-## Release Body
-
----
-
 🎉 **VisualGasic 5.3.0-Beta6** fixes the standalone **`End`** command (Exit buttons work again), adds VB6 **`""` string escape** support, hardens conversion builtins, and ships a **Programmer's Reference runtime gate** in CI.
 
 **856/856 regression · 332/332 reference examples parse · End/DoEvents/Throw runtime-verified**
@@ -32,7 +20,7 @@ CI parse gate, Asset Library smoke script, nightly full example run (non-blockin
 
 Full details: [RELEASE_NOTES_5.3.0-Beta6.md](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_5.3.0-Beta6.md)
 
-📚 **Documentation:** [Docs Hub](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/DOCS.md) · [Getting Started](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/guides/GET_STARTED.md) · [Installation](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/guides/INSTALLATION.md) · [Language Reference](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/VisualGasic_Language_Reference.md)
+📚 **Documentation:** [Docs Hub](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/DOCS.md) · [Getting Started](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/guides/GET_STARTED.md) · [Installation](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/guides/INSTALLATION.md) · [Language Reference](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/VisualGasic_Language_Reference.md) · [Built-in Functions](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md)
 
 ---
 
@@ -42,7 +30,7 @@ Full details: [RELEASE_NOTES_5.3.0-Beta6.md](https://github.com/xgreenrx-star/Vi
 |---|---|
 | **Linux** | `VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage` (recommended) or `VisualGasic_v5.3.0-Beta6_linux_x86_64.zip` |
 | **Windows** | `VisualGasic-Installer-v5.3.0-Beta6-x86_64.exe` (recommended) or `VisualGasic_v5.3.0-Beta6_windows_x86_64.zip` |
-| **Offline** | `VisualGasic-Installer-Offline-v5.3.0-Beta6-linux-x86_64.zip` · `VisualGasic-Installer-Offline-v5.3.0-Beta6-windows-x86_64.zip` |
+| **Offline** | `VisualGasic-Installer-Offline-v5.3.0-Beta6-linux-x86_64.zip` · `VisualGasic-Installer-Offline-v5.3.0-Beta6-windows-x86_64.zip` (Godot 4.6.1 bundled) |
 | **Asset Library** | `VisualGasic_AssetLibrary_v5.3.0-Beta6.zip` |
 
 Manual install: extract zip into `addons/`, enable plugin, restart Godot.
@@ -53,10 +41,3 @@ Manual install: extract zip into `addons/`, enable plugin, restart Godot.
 ./scripts/run_command_reference_gate.sh
 ./scripts/run_asset_library_smoke.sh
 ```
-
----
-
-## Release Settings
-
-- Leave **pre-release** UNCHECKED (becomes Latest)
-- Target branch: `main`

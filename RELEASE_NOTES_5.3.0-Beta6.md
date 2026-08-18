@@ -60,6 +60,33 @@ Full changelog: [CHANGELOG.md](CHANGELOG.md#530-beta6---2026-08-18)
 
 ## Installation
 
-See [docs/getting_started/installation.md](docs/getting_started/installation.md) · [Documentation Hub](docs/DOCS.md) · [Getting Started](docs/guides/GET_STARTED.md) · [Language Reference](docs/VisualGasic_Language_Reference.md)
+### Linux
+
+**Option 1: AppImage (Recommended)**
+```bash
+wget https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta6/VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage
+chmod +x VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage
+./VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage
+```
+
+**Option 2: Bootstrap Script**
+```bash
+curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/scripts/bootstrap_install.sh | bash
+```
+
+### Windows
+
+```powershell
+Invoke-WebRequest -Uri "https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta6/VisualGasic-Installer-v5.3.0-Beta6-x86_64.exe" -OutFile installer.exe
+.\installer.exe
+```
+
+### Manual (any platform)
+
+1. Extract `VisualGasic_v5.3.0-Beta6_<platform>_x86_64.zip` into your project's `addons/` folder  
+2. **Project → Project Settings → Plugins → VisualGasic** → Enable  
+3. Restart Godot  
+
+Full setup: [docs/getting_started/installation.md](docs/getting_started/installation.md) · [Documentation Hub](docs/DOCS.md) · [Getting Started](docs/guides/GET_STARTED.md) · [Language Reference](docs/VisualGasic_Language_Reference.md)
 
 Download: [v5.3.0-Beta6 release page](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta6)
