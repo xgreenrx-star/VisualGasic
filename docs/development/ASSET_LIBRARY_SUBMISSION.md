@@ -1,127 +1,102 @@
-# Submit to Godot Asset Library
+# Godot Asset Library — VisualGasic
 
-To submit VisualGasic to the Godot Asset Library, follow these steps:
-
-## 1. Prepare the Submission
-
-✅ **Already completed:**
-- Plugin metadata in `addons/visual_gasic/plugin.cfg`
-- Asset library metadata in `.assetlib.json`
-- Installation documentation in `INSTALLATION.md`
-- Clean repository structure
-- MIT-compatible GPL v3 license
-
-## 2. Create a GitHub Release
-
-```bash
-cd /home/Commodore/Documents/VisualGasic
-git tag -a v1.0.0 -m "Initial public release - v1.0.0"
-git push origin v1.0.0
-```
-
-Then on GitHub:
-1. Go to https://github.com/xgreenrx-star/VisualGasic/releases
-2. Click "Draft a new release"
-3. Select tag: v1.0.0
-4. Title: "VisualGasic v1.0.0"
-5. Description: Copy from README.md or write release notes
-6. Attach compiled binaries (optional but recommended):
-   - `visualgasic-linux-v1.0.0.zip`
-   - `visualgasic-windows-v1.0.0.zip`
-   - `visualgasic-macos-v1.0.0.zip`
-7. Click "Publish release"
-
-## 3. Submit to Asset Library
-
-1. Visit: https://godotengine.org/asset-library/submit
-2. Log in with GitHub account
-3. Fill out the submission form:
-
-**Asset Information:**
-- **Title**: VisualGasic
-- **Description**: Modern programming language for Godot 4 with advanced features including multitasking, pattern matching, GPU computing, and comprehensive development tools.
-- **Category**: Scripts
-- **Godot Version**: 4.5
-- **License**: GPL v3.0
-- **Repository URL**: https://github.com/xgreenrx-star/VisualGasic
-- **Issues URL**: https://github.com/xgreenrx-star/VisualGasic/issues
-- **Download URL**: Use the GitHub release zip URL
-- **Version**: 1.0.0
-- **Icon URL**: https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/addons/visual_gasic/icon.svg
-- **Download Method**: GitHub Release
-
-**Screenshots/Previews:**
-Upload screenshots showing:
-1. Code editor with .vg file
-2. Example project running
-3. IDE features (autocomplete, etc.)
-4. REPL/debugging interface
-
-4. Submit for review
-5. Wait for moderator approval (usually 1-3 days)
-
-## 4. After Approval
-
-Users can install VisualGasic directly from Godot:
-1. Open Godot
-2. Click AssetLib tab
-3. Search "VisualGasic"
-4. Click Download → Install
-
-## Installation Methods Summary
-
-✅ **Option 1: One-Click Install (Live Now)**
-```bash
-curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.sh | bash
-```
-
-✅ **Option 2: Asset Library (Pending Submission)**
-- Search in Godot's AssetLib
-- One-click install
-
-✅ **Option 3: Manual**
-- Download from GitHub Releases
-- Copy to project addons folder
-
-✅ **Option 4: Build from Source**
-- Clone and build with SCons
-- Full development setup
-
-## Files Created for Auto-Install
-
-1. ✅ `install.sh` - Linux/macOS installer
-2. ✅ `install.ps1` - Windows PowerShell installer  
-3. ✅ `install.py` - Cross-platform Python installer
-4. ✅ `INSTALLATION.md` - Complete installation guide
-5. ✅ `.assetlib.json` - Asset Library metadata
-6. ✅ Updated `plugin.cfg` - Plugin metadata
-7. ✅ Updated `README.md` - Installation instructions
-
-## Testing the Installers
-
-### Linux/macOS:
-```bash
-./install.sh
-```
-
-### Windows:
-```powershell
-.\install.ps1
-```
-
-### Python (all platforms):
-```bash
-python3 install.py
-```
-
-## Next Steps
-
-1. ✅ Commit and push the new files
-2. 🔲 Create GitHub release v1.0.0
-3. 🔲 Submit to Godot Asset Library
-4. 🔲 Announce on Godot forums/Discord
-5. 🔲 Add badges to README (AssetLib downloads, etc.)
+Status of the VisualGasic listing on the [Godot Asset Library](https://godotengine.org/asset-library/asset).
 
 ---
 
-**Installation is ready!** Users can now install VisualGasic with a single command. 🚀
+## Current status (v5.3.0-Beta6)
+
+| Field | Value |
+|-------|--------|
+| **Version submitted** | 5.3.0-Beta6 |
+| **Godot version** | 4.6+ |
+| **License** | GPL v3.0 |
+| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.3.0-Beta6.zip` |
+| **Listing state** | **Submitted — awaiting moderator approval** |
+
+Changelog copy for the Asset Library version field: [`ASSET_LIBRARY_CHANGELOG_5.3.0-Beta6.md`](../ASSET_LIBRARY_CHANGELOG_5.3.0-Beta6.md) (BBCode variant available in release notes workflow).
+
+User-facing install steps: [Installation Guide — Method 0](../guides/INSTALLATION.md#-method-0-godot-asset-library-recommended-if-you-already-have-godot)
+
+---
+
+## Submission checklist (completed)
+
+- [x] Plugin metadata in `addons/visual_gasic/plugin.cfg` (version **5.3.0-Beta6**)
+- [x] Asset library metadata in `.assetlib.json`
+- [x] Installation documentation — [`docs/guides/INSTALLATION.md`](../guides/INSTALLATION.md)
+- [x] GitHub release **v5.3.0-Beta6** with Asset Library zip attached
+- [x] GPL v3.0 license
+- [x] Asset Library submission uploaded (August 2026)
+- [ ] Moderator approval
+- [ ] Post-approval: verify search/install from Godot AssetLib tab
+- [ ] Post-approval: update README badge if AssetLib download stats are available
+
+---
+
+## Asset information (reference)
+
+Use these values when submitting updates:
+
+| Field | Recommended value |
+|-------|-------------------|
+| **Title** | VisualGasic |
+| **Category** | Scripts |
+| **Godot Version** | 4.6 |
+| **Repository URL** | https://github.com/xgreenrx-star/VisualGasic |
+| **Issues URL** | https://github.com/xgreenrx-star/VisualGasic/issues |
+| **Download URL** | `https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta6/VisualGasic_AssetLibrary_v5.3.0-Beta6.zip` |
+| **Version** | 5.3.0-Beta6 |
+| **Icon URL** | https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/addons/visual_gasic/icon.svg |
+| **Download Method** | GitHub Release |
+
+**Description (short):** VB6-style programming language and full IDE for Godot 4.6 — Form Designer, JIT bytecode, debugger, Narcea AI pair, and 122+ built-in functions. GDExtension binaries for Linux, Windows, and macOS included.
+
+**Screenshots to include:**
+1. Code editor with `.vg` file and Command Help
+2. Form Designer / Narcea menu form
+3. IDE debugger or Immediate Window
+4. Running demo (Pong or calculator)
+
+---
+
+## After approval — user install flow
+
+1. Open Godot 4.6.1+
+2. **AssetLib** tab → search **VisualGasic**
+3. **Download** → **Install** (installs to `addons/visual_gasic/`)
+4. **Project → Project Settings → Plugins** → enable **VisualGasic**
+5. Restart Godot
+6. Switch to the **Visual Gasic IDE** tab or attach a `.vg` script to a node
+
+Verify with the repo smoke script (optional):
+
+```bash
+./scripts/run_asset_library_smoke.sh
+```
+
+---
+
+## Submitting a future version update
+
+1. Bump `VERSION`, `addons/visual_gasic/plugin.cfg`, and `.assetlib.json`
+2. Build and attach `VisualGasic_AssetLibrary_v<version>.zip` to a GitHub release
+3. Write changelog — copy from `ASSET_LIBRARY_CHANGELOG_<version>.md`
+4. Visit https://godotengine.org/asset-library/asset — edit listing → new version
+5. Wait for moderator approval (typically 1–3 days)
+6. Update this document and [`INSTALLATION.md`](../guides/INSTALLATION.md) download links
+
+---
+
+## Other install methods
+
+| Method | Doc |
+|--------|-----|
+| One-click installer (AppImage / exe) | [INSTALLATION.md — Method 1](../guides/INSTALLATION.md) |
+| `vg` CLI / curl install | [INSTALLATION.md — Method 2](../guides/INSTALLATION.md) |
+| Manual GitHub release ZIP | [INSTALLATION.md — Method 4](../guides/INSTALLATION.md) |
+| Build from source | [INSTALLATION.md — Method 5](../guides/INSTALLATION.md) |
+
+---
+
+*Maintainer notes: do not use absolute paths like `/home/...` in user-facing submission docs.*

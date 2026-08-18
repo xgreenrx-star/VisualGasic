@@ -201,6 +201,7 @@ This is the VG pitch: **AI writes it, you understand it.** Unlike black-box AI t
 
 - Explore the [Narcea AI Pair Guide](../manual/narcea_guide.md) (coming in v5.4)
 - Try more prompts: "Make a calculator", "Build a todo list", "Create a high score leaderboard"
+- Read [Menu Form + Node2D Game](../guides/MENU_FORM_AND_2D_GAME.md) when Narcea builds a Start/Exit menu that opens a canvas game
 - Read [the Immediate Window guide](../IMMEDIATE_WINDOW.md) to test code snippets in real-time
 
 ---

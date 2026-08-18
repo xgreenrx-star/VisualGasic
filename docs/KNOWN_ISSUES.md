@@ -1,9 +1,39 @@
 # VisualGasic — Known Issues & Engine Limitations
 
-*Last updated: v5.2.0-Beta4 (May 2026)*
+*Last updated: v5.3.0-Beta6 (August 2026)*
 
-This document lists **confirmed** engine bugs and limitations discovered during
-the automated test suite (91 VG files, 700 assertions — all passing; 289 GDScript — all passing).
+This document lists **confirmed** engine bugs and limitations. Test baseline: **856/856** VG regression assertions passing; **332/332** Programmer's Reference examples parse-clean; **47/47** corpus examples with expected output.
+
+See also [ROADMAP.md](../ROADMAP.md) for active development priorities.
+
+---
+
+## ~~Fixed in v5.3.0-Beta6~~ (Language & Reference)
+
+| Item | Detail |
+|------|--------|
+| **`End` command** | Standalone `End` now calls `SceneTree.quit()`. Previously raised `Sub or Function not defined: End` on Exit buttons. |
+| **`DoEvents`, `Throw`, `LoadForm`, `ChangeScene`** | Statement/expression dispatch wired for common IDE and Narcea-generated code paths. |
+| **VB6 `""` string escapes** | `"He said ""hello"""` tokenizes and runs correctly. |
+| **Conversion builtins** | `CInt`, `CLng`, `CDbl`, `CSng`, `CBool` with string parsing; invalid input raises catchable type mismatch. |
+| **`Deg2Rad` / `Rad2Deg`** | Math aliases available for 3D and reference examples. |
+| **Godot 4.6 `OptionButton` popup** | `about_to_popup` compatibility via `VGGodotCompat.connect_popup_preshow()`. |
+
+---
+
+## Beta — Active Issues (v5.3.0)
+
+These are tracked on the roadmap and may affect demos or daily use:
+
+| Issue | Detail | Workaround |
+|-------|--------|------------|
+| **`Boolean Or` runtime regression** | `Or` on Boolean operands may not behave as expected in some paths. | Prefer explicit `If a Or b Then` patterns; test critical logic. |
+| **Unhandled errors corrupt state** | Some unhandled runtime errors can leave the app in a bad state instead of failing cleanly. | Use `Try/Catch` or `On Error` around risky blocks during development. |
+| **Double-click ignores existing `.tscn` signal connections** | Form Designer double-click may not respect pre-wired Godot signals. | Wire handlers via VG naming convention (`btnOK_Click`) in `.vg` instead. |
+| **Phantom button double-press on blocking async** | Blocking async calls may duplicate button press events. | Avoid long blocking work in click handlers; use `Await` patterns. |
+| **Form Designer bugs** | Classic Form Designer has known UI issues; **UI Forms** replacement is experimental. | Enable UI Forms via `vg/enable_experimental_plugins` or build forms manually. |
+
+Report new issues: [GitHub Issues](https://github.com/xgreenrx-star/VisualGasic/issues)
 
 ---
 
@@ -60,11 +90,13 @@ the automated test suite (91 VG files, 700 assertions — all passing; 289 GDScr
 
 | Severity | Total | Fixed | Open |
 |----------|:-----:|:-----:|:----:|
+| Beta6 language fixes | 6 | 6 | 0 |
+| Beta active (IDE/workflow) | 5 | 0 | 5 |
 | Critical (stubs) | 2 | 2 | 0 |
 | High (language) | 5 | 4 | 1 partial |
-| Medium (runtime) | 6 | 1 | 5 |
+| Medium (runtime) | 6 | 0 | 6 |
 | Low (gaps) | 5 | 4 | 1 |
-| **Total** | **18** | **11** | **7** |
+| **Total tracked** | **29** | **16** | **13** |
 
 ---
 
@@ -86,5 +118,4 @@ the automated test suite (91 VG files, 700 assertions — all passing; 289 GDScr
   **Fixed in v3.2** by adding an `Array()` handler that returns the evaluated
   argument list as a Godot Array.
 
-- All workarounds above are exercised by the automated test suite
-  (`test_proj/test_suite/`) — 700/700 VG assertions pass, 289/289 GDScript pass.
+- Regression suite: `test_proj/test_suite/` and CI gates — **856/856** VG assertions pass as of v5.3.0-Beta6.

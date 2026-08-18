@@ -21,6 +21,7 @@ This page links to every documentation file in the project, organized by topic. 
 | Use the IDE tools | [IDE Tools Guide](manual/ide_tools.md) |
 | Debug my code | [Debugging Guide](manual/debugging.md) |
 | Build a game | [Game Development Tutorial](tutorials/GAME_DEVELOPMENT.md) |
+| Menu form + 2D canvas game | [Menu Form + Node2D Game](guides/MENU_FORM_AND_2D_GAME.md) |
 | Build an app | [App Development Tutorial](tutorials/APP_DEVELOPMENT.md) |
 | See what's new | [Changelog](../CHANGELOG.md) |
 
@@ -70,6 +71,7 @@ The Visual Basic 6-style integrated development environment.
 | [IDE Keyboard Shortcuts](manual/IDE_SHORTCUTS.md) | Every keyboard shortcut — canvas, menus, properties, code editor, debugging |
 | [Controls Reference](reference/CONTROLS_REFERENCE.md) | **All 40+ Toolbox controls** with properties, events, and design-time configuration |
 | [WinForms Form Guide](WINFORMS_FORM_GUIDE.md) | Creating and managing WinForms-style form windows |
+| [Menu Form + Node2D Game](guides/MENU_FORM_AND_2D_GAME.md) | Hybrid menu (Start/Exit) + canvas game scene — common Narcea pattern |
 | [Custom Controls Guide](guides/CUSTOM_CONTROLS.md) | Building your own `.tscn` controls with a wizard and dragging them onto forms |
 
 ---
