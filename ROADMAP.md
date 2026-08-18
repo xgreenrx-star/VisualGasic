@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: August 12, 2026  
-**Current Version**: 5.3.0-Beta3 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
+**Current Version**: 5.3.0-Beta6 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
 **Current Scope**: M0–M9 milestones (Jul 2026 – Jan 2027 stable release)  
 **Next Cut**: v5.3.0 stable
 
@@ -1276,7 +1276,7 @@ Tracked by `scripts/audit_command_implementation.py` against `addons/visual_gasi
 |---------|-------------|----------|----------|
 | **`Interface...End Interface`** | Parse and compile interface declaration blocks (`Interface IFoo` / `Sub`/`Function` signatures / `End Interface`). Today only `Class ... Implements IFoo` is wired; declaring a new interface type from VG source fails. Needs parser + AST + (minimal) type-check pass so AI/docs examples compile. | Medium | 1–2 weeks |
 | **`Using...End Using`** | RAII-style resource scope: `Using conn = OpenDatabase(...)` … `End Using` auto-disposes/closes on exit (normal, `Return`, and error paths). Needs parser, scope stack in compiler/VM, and disposal hook per resource type (start with `File`/`Database` patterns from docs). | Medium | 1–2 weeks |
-| **`Whenever` block form** | Docs show `Whenever health Below 20 … End Whenever`; parser only accepts `Whenever Section Name …` at module level. Align parser with documented reactive block syntax or update reference to match `Whenever Section`. | Medium | 3–5 days |
+| **`Whenever` block form** | ✅ **Docs aligned (Aug 2026):** reference now documents `Whenever Section … callbackProc`; inline `End Whenever` blocks remain a future parser feature if demand warrants. | Done | — |
 | **Programmer's Reference runtime harness** | ✅ **Shipped (Aug 2026):** `tests/test_command_reference_harness.gd` + `scripts/run_command_reference_harness.sh` — parse all `_add()` examples; critical runtime checks for `End`, `DoEvents`, `Throw`, `LoadForm`, `ChangeScene`. CI: run before releases. | Done | — |
 
 *Deferred past v6.0 stable (Jan 2027): not release blockers — games/forms ship without them; `Implements` covers the common interface-consumption case.*

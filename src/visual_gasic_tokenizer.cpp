@@ -479,36 +479,46 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
 
         if (c == '"') {
             current++; // Skip opening quote
-            int start = current;
-            while (current < length && p_source_code[current] != '"' && p_source_code[current] != '\n') {
+            int token_start_col = column;
+            column++;
+            String str_val;
+            bool terminated = false;
+            while (current < length) {
+                char32_t ch = p_source_code[current];
+                if (ch == '\n') {
+                    break;
+                }
+                if (ch == '"') {
+                    if (current + 1 < length && p_source_code[current + 1] == '"') {
+                        str_val += '"';
+                        current += 2;
+                        column += 2;
+                        continue;
+                    }
+                    current++;
+                    column++;
+                    terminated = true;
+                    break;
+                }
+                str_val += ch;
                 current++;
+                column++;
             }
-            
-            if (current >= length || p_source_code[current] == '\n') {
-                 // Error: Unterminated string
-                 Token t;
-                 t.type = TOKEN_ERROR;
-                 t.value = "Unterminated string";
-                 t.line = line;
-                 t.column = column;
-                 tokens.push_back(t);
-                 continue;
+            if (!terminated) {
+                Token t;
+                t.type = TOKEN_ERROR;
+                t.value = "Unterminated string";
+                t.line = line;
+                t.column = token_start_col;
+                tokens.push_back(t);
+                continue;
             }
-
-            String str_val = p_source_code.substr(start, current - start);
-            current++; // Skip closing quote
-            
             Token t;
-            // Use specific token type for interpolated strings
             t.type = is_interpolated ? TOKEN_STRING_INTERP : TOKEN_LITERAL_STRING;
             t.value = str_val;
-            
             t.line = line;
-            t.column = column;
+            t.column = token_start_col;
             tokens.push_back(t);
-            
-            // Advance column by full token length (including quotes and optional $)
-            column += (current - start + 1 + (is_interpolated ? 1 : 0));
             continue;
         }
 

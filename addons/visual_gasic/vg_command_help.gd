@@ -536,7 +536,7 @@ static func _build_db() -> void:
 	_add("Join",
 		"Join(array, delimiter)",
 		"Joins an array of strings into a single string with a delimiter between each element.",
-		"Dim arr() As String = {\"Red\", \"Green\", \"Blue\"}\nPrint Join(arr, \", \")  ' \"Red, Green, Blue\"", 8093)
+		"Dim arr As Variant\narr = [\"Red\", \"Green\", \"Blue\"]\nPrint Join(arr, \", \")  ' \"Red, Green, Blue\"", 8093)
 
 	_add("Format",
 		"Format(expression, formatString)",
@@ -1091,7 +1091,7 @@ static func _build_db() -> void:
 	_add("Nav.NextPos",
 		"Nav.NextPos(agent) As Vector",
 		"Returns the next step along the path. Call inside _PhysicsProcess to drive movement toward this point.",
-		"Sub _PhysicsProcess(delta)\n    Dim step = Nav.NextPos(enemyNav)\n    velocity = (step - Position).Normalized() * 200\n    MoveAndSlide Me\nEnd Sub", 8938)
+		"Sub _PhysicsProcess(delta)\n    Dim nextStep As Vector2\n    nextStep = Nav.NextPos(enemyNav)\n    velocity = nextStep - Position\n    MoveAndSlide Me\nEnd Sub", 8938)
 
 	_add("Nav.Distance",
 		"Nav.Distance(agent) As Double",
@@ -1618,9 +1618,9 @@ static func _build_db() -> void:
 		"Dim double As Function = Lambda(x) x * 2\nPrint double(5)  ' 10\n\nDim greet As Function = Lambda(name)\n    Print \"Hello, \" & name\nEnd Lambda\ngreet(\"World\")", 8348)
 
 	_add("Whenever",
-		"Whenever condition [Changes|Becomes|Exceeds|Below value]\n    statements\nEnd Whenever",
-		"Reactive programming — automatically triggers code when a monitored condition changes.",
-		"Whenever health Below 20\n    lblWarning.Visible = True\n    lblWarning.Caption = \"Low Health!\"\nEnd Whenever\n\nWhenever score Changes\n    lblScore.Caption = \"Score: \" & score\nEnd Whenever", 13084)
+		"Whenever Section sectionName variableName Changes|Becomes|Exceeds|Below [value] callbackProc[, ...]",
+		"Reactive programming — registers a callback Sub when a monitored variable changes. Use Whenever Section at module level (not End Whenever blocks).",
+		"Whenever Section WatchHealth health Below 20 OnHealthLow\n\nSub OnHealthLow()\n    lblWarning.Visible = True\n    lblWarning.Caption = \"Low Health!\"\nEnd Sub\n\nWhenever Section ScoreTrack score Changes OnScoreChanged\n\nSub OnScoreChanged()\n    lblScore.Caption = \"Score: \" & score\nEnd Sub", 13084)
 
 	_add("Using",
 		"Using resource = expression\n    statements\nEnd Using",

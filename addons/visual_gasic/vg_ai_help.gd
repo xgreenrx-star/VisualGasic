@@ -1677,7 +1677,7 @@ func _style_option_button(opt: OptionButton) -> void:
 	# Editor theme resets the closed control to grey when the popup opens.
 	if not opt.has_meta("_vg_light_option_styled"):
 		opt.set_meta("_vg_light_option_styled", true)
-		opt.about_to_popup.connect(func() -> void:
+		VGGodotCompat.connect_popup_preshow(opt, func() -> void:
 			if is_instance_valid(opt):
 				_reapply_light_option_button(opt)
 		)
@@ -2032,6 +2032,9 @@ func _detect_build_intent(prompt: String) -> String:
 	var low := prompt.to_lower().strip_edges()
 	if low.is_empty():
 		return ""
+	const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
+	if ProjectSynth.prompt_is_hybrid_form_game(prompt):
+		return "project"
 	var project_triggers := [
 		"mini-project", "mini project", "runnable project", "scaffold a project",
 		"new project", "whole project", "full project", "vg-project-spec",
@@ -2097,6 +2100,9 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 			prompt += "Reply with: (a) one short sentence of context, then (b) a fenced ```vg-project-spec``` JSON block per the schema you already know. "
 			prompt += "Set \"main_scene\" so the ▶ Run button knows what to launch. Pick \"auto_events\": true on any forms so the project runs on first try. "
 			prompt += "Keep the project ≤ 6 files. Do not include any other fenced code blocks."
+			const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
+			if ProjectSynth.prompt_is_hybrid_form_game(desc):
+				prompt += ProjectSynth.hybrid_project_prompt_extra()
 		_:
 			prompt = "Design a runnable Form Designer form from this description.\n\n"
 			prompt += "Description: " + desc + "\n\n"
@@ -2294,6 +2300,8 @@ func _try_synthesize_click_counter(form_name: String, form_spec: Dictionary, vg_
 
 
 func _try_synthesize_form_handlers(form_name: String, form_spec: Dictionary, vg_path: String, user_prompt: String) -> bool:
+	if _try_synthesize_menu_launch(form_name, form_spec, vg_path, user_prompt):
+		return true
 	if _try_synthesize_click_counter(form_name, form_spec, vg_path, user_prompt):
 		return true
 	if _try_synthesize_checkbox_toggle(form_name, form_spec, vg_path, user_prompt):
@@ -2303,6 +2311,20 @@ func _try_synthesize_form_handlers(form_name: String, form_spec: Dictionary, vg_
 	if _try_synthesize_textbox_validation(form_name, form_spec, vg_path, user_prompt):
 		return true
 	return false
+
+
+func _try_synthesize_menu_launch(form_name: String, form_spec: Dictionary, vg_path: String, user_prompt: String) -> bool:
+	const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
+	if not ProjectSynth.menu_form_needs_synthesis(form_spec, FileAccess.get_file_as_string(vg_path) if FileAccess.file_exists(vg_path) else "", user_prompt):
+		return false
+	var low := user_prompt.to_lower()
+	var game_scene := "res://TicTacToe.tscn"
+	if low.find("tic tac") >= 0 or low.find("tictactoe") >= 0:
+		game_scene = "res://TicTacToe.tscn"
+	elif low.find("pong") >= 0:
+		game_scene = "res://Pong.tscn"
+	var src := ProjectSynth.synthesize_menu_form(form_name, form_spec, game_scene, user_prompt)
+	return _write_vg_file(vg_path, src)
 
 
 func _try_synthesize_checkbox_toggle(form_name: String, form_spec: Dictionary, vg_path: String, user_prompt: String) -> bool:
@@ -4645,6 +4667,11 @@ func _execute_project_scaffold(spec: Dictionary) -> void:
 		"designer":    designer,
 	}
 	var result: Dictionary = _project_spec.apply(spec, helpers)
+	const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
+	var fin: Dictionary = ProjectSynth.finalize_project(spec, root, _last_user_prompt)
+	var fin_notes: Array = fin.get("notes", [])
+	if not fin_notes.is_empty():
+		_append_system("[color=#aaffaa]Project finalize: %s[/color]\n" % ", ".join(fin_notes))
 	_safe_writer.set_root("res://")
 	_print_project_result(result)
 	_last_project_root = result.get("root", "")

@@ -68,6 +68,14 @@ jobs:
           chmod +x ./scripts/run_command_reference_gate.sh
           ./scripts/run_command_reference_gate.sh
 
+      - name: Asset Library install smoke
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.5.1-stable_linux.x86_64
+        run: |
+          chmod +x ./scripts/run_asset_library_smoke.sh
+          ./scripts/run_asset_library_smoke.sh
+
       - name: Capture bytecode dump
         env:
           DISPLAY: ""

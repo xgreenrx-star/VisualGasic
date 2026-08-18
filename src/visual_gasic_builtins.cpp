@@ -377,11 +377,67 @@ static String variant_to_cstr(const Variant &src) {
             return String::num(value);
         }
         default:
-    
-                // Fast path for case-insensitive builtin dispatch.
-                // The normalized method name is cached to avoid repeated normalization.
             return String(src);
     }
+}
+
+Variant builtin_cint(const Variant &v, VisualGasicInstance *instance) {
+    if (v.get_type() == Variant::STRING) {
+        String s = v;
+        if (!s.is_valid_int() && !s.is_valid_float()) {
+            if (instance) instance->raise_runtime_error("Type mismatch: CInt");
+            return Variant();
+        }
+        return (int)s.to_int();
+    }
+    return (int)v;
+}
+
+Variant builtin_clng(const Variant &v, VisualGasicInstance *instance) {
+    if (v.get_type() == Variant::STRING) {
+        String s = v;
+        if (!s.is_valid_int() && !s.is_valid_float()) {
+            if (instance) instance->raise_runtime_error("Type mismatch: CLng");
+            return Variant();
+        }
+        return (int64_t)s.to_int();
+    }
+    return (int64_t)v;
+}
+
+Variant builtin_cdbl(const Variant &v, VisualGasicInstance *instance) {
+    if (v.get_type() == Variant::STRING) {
+        String s = v;
+        if (!s.is_valid_float() && !s.is_valid_int()) {
+            if (instance) instance->raise_runtime_error("Type mismatch: CDbl");
+            return Variant();
+        }
+        return s.to_float();
+    }
+    return (double)v;
+}
+
+Variant builtin_csng(const Variant &v, VisualGasicInstance *instance) {
+    if (v.get_type() == Variant::STRING) {
+        String s = v;
+        if (!s.is_valid_float() && !s.is_valid_int()) {
+            if (instance) instance->raise_runtime_error("Type mismatch: CSng");
+            return Variant();
+        }
+        return (float)s.to_float();
+    }
+    return (float)(double)v;
+}
+
+Variant builtin_cbool(const Variant &v) {
+    if (v.get_type() == Variant::STRING) {
+        String s = String(v).strip_edges();
+        if (s.is_empty()) return false;
+        if (s.is_valid_int()) return s.to_int() != 0;
+        if (s.is_valid_float()) return s.to_float() != 0.0;
+        return s.nocasecmp_to("false") != 0 && s.nocasecmp_to("no") != 0 && s != "0";
+    }
+    return (bool)v;
 }
 
 Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String &p_method, const Array &p_args, bool &r_handled);
@@ -598,6 +654,14 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     if (name == "String" && args.size() == 2) { r_handled = true; int n=(int)args[0]; String char_str = String(args[1]); String s=""; if (char_str.length()>0){ String c = char_str.substr(0,1); for(int i=0;i<n;i++) s+=c;} return s; }
     if (name == "Str" && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
     if (name.nocasecmp_to("CStr") == 0 && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
+    if (name.nocasecmp_to("CInt") == 0 && args.size() == 1) { r_handled = true; return builtin_cint(args[0], instance); }
+    if (name.nocasecmp_to("CLng") == 0 && args.size() == 1) { r_handled = true; return builtin_clng(args[0], instance); }
+    if (name.nocasecmp_to("CLngLng") == 0 && args.size() == 1) { r_handled = true; return builtin_clng(args[0], instance); }
+    if (name.nocasecmp_to("CDbl") == 0 && args.size() == 1) { r_handled = true; return builtin_cdbl(args[0], instance); }
+    if (name.nocasecmp_to("CSng") == 0 && args.size() == 1) { r_handled = true; return builtin_csng(args[0], instance); }
+    if (name.nocasecmp_to("CBool") == 0 && args.size() == 1) { r_handled = true; return builtin_cbool(args[0]); }
+    if (METHOD_IS("deg2rad") && args.size() == 1) { r_handled = true; return Math::deg_to_rad((float)(double)args[0]); }
+    if (METHOD_IS("rad2deg") && args.size() == 1) { r_handled = true; return Math::rad_to_deg((float)(double)args[0]); }
     if (name == "Val" && args.size() == 1) { r_handled = true; String s = args[0]; if (s.is_valid_float()) return s.to_float(); if (s.is_valid_int()) return s.to_int(); return 0.0; }
     if (METHOD_IS("strcomp") && args.size() >= 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int mode = (args.size() >= 3) ? (int)args[2] : 0; int cmp = (mode == 1) ? s1.nocasecmp_to(s2) : s1.casecmp_to(s2); if (cmp < 0) return (int64_t)-1; if (cmp > 0) return (int64_t)1; return (int64_t)0; }
     if (METHOD_IS("instr") && args.size() >= 2) { r_handled = true; if (args.size() == 2) { String s1 = args[0]; String s2 = args[1]; int pos = s1.find(s2); if (pos==-1) return 0; return pos+1; } else { int start = (int)args[0]; String s1 = args[1]; String s2 = args[2]; if (start < 1) start = 1; if (start > s1.length()) return 0; int pos = s1.find(s2, start - 1); if (pos==-1) return 0; return pos+1; } }

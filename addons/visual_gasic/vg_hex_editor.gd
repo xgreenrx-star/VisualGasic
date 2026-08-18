@@ -352,7 +352,7 @@ func _make_toolbar() -> HBoxContainer:
 	_open_menu_btn.tooltip_text = "Open file (Ctrl+O) — click arrow for recent files"
 	_open_menu_btn.flat         = true
 	_open_menu_btn.get_popup().id_pressed.connect(_on_open_menu_id)
-	_open_menu_btn.about_to_popup.connect(_populate_open_menu)
+	VGGodotCompat.connect_popup_preshow(_open_menu_btn, _populate_open_menu)
 	bar.add_child(_open_menu_btn)
 
 	var save_btn := Button.new()
@@ -461,7 +461,7 @@ func _make_toolbar() -> HBoxContainer:
 	_bookmark_menu.tooltip_text = "Bookmarks (Ctrl+B to add, F2/Shift+F2 to cycle)"
 	_bookmark_menu.flat         = true
 	_bookmark_menu.get_popup().id_pressed.connect(_on_bookmark_menu_id)
-	_bookmark_menu.about_to_popup.connect(_populate_bookmark_menu)
+	VGGodotCompat.connect_popup_preshow(_bookmark_menu, _populate_bookmark_menu)
 	bar.add_child(_bookmark_menu)
 
 	bar.add_child(VSeparator.new())

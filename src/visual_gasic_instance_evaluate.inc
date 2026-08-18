@@ -673,12 +673,15 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  if (type_name == "boolean" || type_name == "bool") return (bool)val;
                  return val; 
              }
-             if (func_name == "CInt" && call_args.size() == 1) return (int)call_args[0];
-             if (func_name == "CLng" && call_args.size() == 1) return (int64_t)call_args[0];
-             if (func_name == "CLngLng" && call_args.size() == 1) return (int64_t)call_args[0];
-             if (func_name == "CDbl" && call_args.size() == 1) return (double)call_args[0];
-             if (func_name == "CStr" && call_args.size() == 1) return String(call_args[0]);
-             if (func_name == "CBool" && call_args.size() == 1) return (bool)call_args[0];
+            if (func_name == "CInt" && call_args.size() == 1) return VisualGasicBuiltins::builtin_cint(call_args[0], this);
+            if (func_name == "CLng" && call_args.size() == 1) return VisualGasicBuiltins::builtin_clng(call_args[0], this);
+            if (func_name == "CLngLng" && call_args.size() == 1) return VisualGasicBuiltins::builtin_clng(call_args[0], this);
+            if (func_name == "CDbl" && call_args.size() == 1) return VisualGasicBuiltins::builtin_cdbl(call_args[0], this);
+            if (func_name == "CSng" && call_args.size() == 1) return VisualGasicBuiltins::builtin_csng(call_args[0], this);
+            if (func_name == "CBool" && call_args.size() == 1) return VisualGasicBuiltins::builtin_cbool(call_args[0]);
+            if (func_name.nocasecmp_to("Deg2Rad") == 0 && call_args.size() == 1) return Math::deg_to_rad((float)(double)call_args[0]);
+            if (func_name.nocasecmp_to("Rad2Deg") == 0 && call_args.size() == 1) return Math::rad_to_deg((float)(double)call_args[0]);
+            if (func_name == "CStr" && call_args.size() == 1) return String(call_args[0]);
 
              if (func_name.nocasecmp_to("Array") == 0) {
                  return call_args; 

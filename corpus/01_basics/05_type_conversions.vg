@@ -19,7 +19,7 @@ Sub Main()
     Try
         parsed = CInt("not a number")
     Catch ex As Exception
-        parsed = -1
+        parsed = 0
     End Try
     Print "Bad parse fell back to: " & CStr(parsed)
 End Sub

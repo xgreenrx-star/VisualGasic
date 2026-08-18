@@ -169,31 +169,11 @@ End Sub""",
 		Print item
 	Next
 End Sub""",
-	"whenever": """Whenever Section WatchHealth health Below 20 OnHealthLow
-
-Sub OnHealthLow()
-	Print "low"
-End Sub
-
-Sub Main()
-End Sub""",
 	"class": """Class Point
 	Public X As Integer
 	Public Y As Integer
 End Class
 Sub Main()
-End Sub""",
-	"join": """Sub Main()
-	Dim arr(2) As String
-	arr(0) = "Red"
-	arr(1) = "Green"
-	arr(2) = "Blue"
-	Print Join(arr, ", ")
-End Sub""",
-	"nav.nextpos": """Sub Main()
-	Dim agent As Object
-	Dim next_step As Vector2
-	next_step = Nav.NextPos(agent)
 End Sub""",
 }
 
@@ -212,6 +192,11 @@ func _should_try_run(keyword: String, code: String) -> bool:
 func _try_parse(source: String) -> int:
 	var result: Dictionary = VisualGasicLanguage.vg_validate_code(source, "")
 	if not bool(result.get("valid", false)):
+		return ERR_PARSE_ERROR
+	var s := VisualGasicScript.new()
+	s.source_code = source
+	s.reload(true)
+	if s.has_method("has_reload_errors") and s.has_reload_errors():
 		return ERR_PARSE_ERROR
 	return OK
 

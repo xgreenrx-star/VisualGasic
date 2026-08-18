@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.0-Beta6] - 2026-08-18
+
+**Key numbers:** 856/856 regression assertions · 47/47 corpus examples with expected output · 332/332 Programmer's Reference examples parse-clean · **End** command fixed for Asset Library users.
+
+### 🛠 Fixed — Critical Language & Reference Gaps
+
+- **`End` command** — standalone `End` now terminates the app (`SceneTree.quit()`); fixes `Sub or Function not defined: End` on Exit buttons and Narcea-generated forms.
+- **`DoEvents`, `Throw`, `LoadForm`, `ChangeScene`** — additional critical builtins wired for statement/expression dispatch.
+- **VB6 `""` string escapes** — `"He said ""hello"""` and Print lines with embedded quotes now tokenize and run correctly.
+- **Conversion functions** — explicit `CInt`/`CLng`/`CDbl`/`CSng`/`CBool` builtins with string parsing; invalid `CInt("not a number")` raises a catchable type mismatch error.
+- **`Deg2Rad` / `Rad2Deg`** — math aliases for 3D/bone examples in the Programmer's Reference.
+- **Godot 4.6 `OptionButton` popup hooks** — `VGGodotCompat.connect_popup_preshow()` removes `about_to_popup` SCRIPT ERRORs on fresh installs.
+
+### ✅ Added — Quality Gates & Docs
+
+- **Programmer's Reference runtime harness** — `scripts/run_command_reference_gate.sh` + CI gate (parse all `_add()` examples; runtime checks for End/DoEvents/Throw).
+- **Asset Library install smoke** — `scripts/run_asset_library_smoke.sh` (temp project + corpus + gate).
+- **Nightly CI** — non-blocking `VG_CMDREF_RUN_EXAMPLES=1` full example run with log artifact.
+- **Reference docs aligned** — `Whenever Section`, `Join` bracket arrays, `Nav.NextPos` examples match parser.
+- **`VisualGasicScript.has_reload_errors()`** exposed to GDScript.
+
 ## [5.3.0-Beta5] - 2026-08-16
 
 **Key numbers:** 856/856 regression assertions passing · 54 corpus examples passing · native Script editor crash fixed · VB6 keyword auto-correct on native + embedded editors.

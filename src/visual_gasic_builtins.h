@@ -33,6 +33,12 @@ namespace VisualGasicBuiltins {
     // Blocks until the user closes the dialog.  Returns entered text, or
     // empty string on cancel, or p_default if no dialog tool is available.
     String native_input_box(const String &p_prompt, const String &p_title, const String &p_default);
+
+    Variant builtin_cint(const Variant &v, VisualGasicInstance *instance);
+    Variant builtin_clng(const Variant &v, VisualGasicInstance *instance);
+    Variant builtin_cdbl(const Variant &v, VisualGasicInstance *instance);
+    Variant builtin_csng(const Variant &v, VisualGasicInstance *instance);
+    Variant builtin_cbool(const Variant &v);
 }
 
 #endif // VISUAL_GASIC_BUILTINS_H

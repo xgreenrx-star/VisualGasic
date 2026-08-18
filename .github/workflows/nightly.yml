@@ -1,0 +1,58 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  command-ref-full-run:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download Godot 4.5.1
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+          unzip -q Godot_v4.5.1-stable_linux.x86_64.zip
+          chmod +x Godot_v4.5.1-stable_linux.x86_64
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y scons build-essential python3 libopenmpt-dev pkg-config
+
+      - name: Build
+        run: scons platform=linux target=editor -j2
+
+      - name: Prepare GDExtension for testing
+        run: |
+          rm -f demo/addons/visual_gasic/bin
+          mkdir -p demo/addons/visual_gasic/bin
+          cp demo/bin/libvisualgasic.linux.editor.x86_64.so demo/addons/visual_gasic/bin/
+
+      - name: Programmer's Reference — parse gate
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.5.1-stable_linux.x86_64
+        run: ./scripts/run_command_reference_gate.sh
+
+      - name: Programmer's Reference — execute safe examples
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.5.1-stable_linux.x86_64
+          VG_CMDREF_RUN_EXAMPLES: "1"
+        run: |
+          ./scripts/run_command_reference_harness.sh 2>&1 | tee command_ref_full_run.log
+          exit 0
+
+      - name: Upload full-run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: command-ref-full-run
+          path: command_ref_full_run.log
