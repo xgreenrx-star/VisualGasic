@@ -42,6 +42,7 @@ extends EditorPlugin
 ## Preloaded VB6-style toolbox icon generator
 const _VB6Icons = preload("res://addons/visual_gasic/vb6_toolbox_icons.gd")
 const _VGGodotToolbox = preload("res://addons/visual_gasic/vg_godot_toolbox.gd")
+const _ECE_SCRIPT = preload("res://addons/visual_gasic/vg_embedded_code_editor.gd")
 
 ## Toolbox tab indices (must match VisualGasicToolbox TabContainer order)
 const TOOLBOX_TAB_VG_FORMS := 0
@@ -8567,9 +8568,8 @@ func _on_3d_node_double_clicked(node: Node3D) -> void:
 	if node_name.is_empty():
 		return
 
-	var _ece_script := preload("res://addons/visual_gasic/vg_embedded_code_editor.gd")
 	var event_suffix := VGIntelliSense.get_default_event_for_node(node)
-	var event_params := _ece_script._get_event_params(event_suffix)
+	var event_params := _ECE_SCRIPT._get_event_params(event_suffix)
 
 	# ── Check whether the 3D scene has been saved ──
 	# Each 3D scene needs its own .tscn (and therefore its own .vg).
@@ -8686,9 +8686,8 @@ func _on_2d_node_double_clicked(node: Node) -> void:
 	if node_name.is_empty():
 		return
 
-	var _ece_script := preload("res://addons/visual_gasic/vg_embedded_code_editor.gd")
 	var event_suffix := VGIntelliSense.get_default_event_for_node(node)
-	var event_params := _ece_script._get_event_params(event_suffix)
+	var event_params := _ECE_SCRIPT._get_event_params(event_suffix)
 
 	# ── Check whether the 2D scene has been saved ──
 	var scene_path := ""
@@ -12108,7 +12107,6 @@ func _generate_event_handler(node):
 	print("VisualGasic: Event Gen Request for " + node.name)
 	var sub_suffix := ""
 	var sub_params := ""  # VB6-style parameter list for the Sub signature
-	var _ece_script := preload("res://addons/visual_gasic/vg_embedded_code_editor.gd")
 
 	# Godot native toolbox nodes (CPUParticles2D, Area2D, Camera2D, …) use the
 	# same event catalog as the procedure dropdown — never fall back to Click.
@@ -12135,7 +12133,7 @@ func _generate_event_handler(node):
 
 	if sub_suffix.is_empty():
 		sub_suffix = VGIntelliSense.get_default_event_for_node(node)
-		sub_params = _ece_script._get_event_params(sub_suffix)
+		sub_params = _ECE_SCRIPT._get_event_params(sub_suffix)
 
 	var root = get_editor_interface().get_edited_scene_root()
 	if not root: 
@@ -12168,7 +12166,7 @@ func _generate_event_handler(node):
 		print("VisualGasic: Created new script file.")
 		get_editor_interface().get_resource_filesystem().scan()
 
-	var sub_name := node.name + "_" + sub_suffix
+	var sub_name: String = str(node.name) + "_" + sub_suffix
 	var tscn_method := _get_tscn_connection_method(scene_path, node.name)
 	if not tscn_method.is_empty():
 		sub_name = tscn_method
