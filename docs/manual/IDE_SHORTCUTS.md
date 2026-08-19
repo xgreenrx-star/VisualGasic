@@ -282,9 +282,13 @@ Press **Ctrl+G** to open a small popup showing the valid line range (1–*N*). T
 
 ---
 
-## 3D Scene Editor
+## 3D Scene Editing
 
-Press **F1** inside the 3D Scene Editor to see the shortcuts overlay at any time.
+By default, the IDE **3D** button opens **Godot's native 3D editor**. The shortcuts
+below apply only to the optional **Simple VG 3D Scene Editor**
+(`vg/scene_editors/simple_2d_3d` in Project Settings → Vg → Scene Editors).
+
+Press **F1** inside the Simple 3D Scene Editor to see the shortcuts overlay at any time.
 
 ### Camera Controls (Mouse)
 
@@ -348,15 +352,27 @@ Press **F1** inside the 3D Scene Editor to see the shortcuts overlay at any time
 
 ---
 
-## 2D Scene Editor
+## 2D Scene Editing
 
-The embedded 2D Scene Editor lets you build 2D game scenes visually — placing
-sprites, physics bodies, cameras, lights, tilemaps, and more. Access it via
-the **🎮 2D Scene Editor** button in the VG toolbar.
+By default, the IDE **2D** and **3D** toolbar buttons switch to **Godot's native**
+2D/3D editors (recommended for real projects). Godot's viewports support tile
+painting, particles, physics debugging, and full scene/run integration.
 
-### 2D Toolbar — VG Buttons
+### Optional: Simple VG Scene Editors
 
-Three VG-specific buttons appear in the 2D editor toolbar when the plugin is active:
+To use Visual Gasic's simplified embedded 2D/3D viewports instead (experimental):
+
+1. Open **Project → Project Settings → Vg → Scene Editors**
+2. Enable **Simple 2d 3d** (`vg/scene_editors/simple_2d_3d`)
+
+When enabled, the **2D** / **3D** buttons open VG's embedded scene editors inside
+the IDE. These are useful for quick layout sketches but do not replace Godot's
+editors for production work (no tile paint, separate scene copy from Run, etc.).
+
+### Godot Native 2D — VG Toolbar Buttons
+
+When using Godot's 2D editor (default), three VG-specific buttons appear in the
+2D editor toolbar when the plugin is active:
 
 | Button | Action |
 |--------|--------|
@@ -365,6 +381,11 @@ Three VG-specific buttons appear in the 2D editor toolbar when the plugin is act
 | **⚡ Wire Event** | Creates the primary VB6 event stub (e.g. `Command1_Click`) for the selected control in the associated `.vg` script and opens it in the code editor |
 
 These same actions are available from the **right-click context menu** on the 2D canvas (under the Godot default items).
+
+### Simple VG 2D Editor (optional — `vg/scene_editors/simple_2d_3d`)
+
+The shortcuts below apply only when **Simple 2d 3d** is enabled in
+Project Settings → Vg → Scene Editors. With the default (Godot native) mode, use Godot's standard 2D shortcuts.
 
 ### Camera Controls
 

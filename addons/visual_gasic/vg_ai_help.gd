@@ -18,6 +18,7 @@ const REQUEST_TIMEOUT := 300.0  # Cold model load can take 60-120s
 const FIRST_TOKEN_TIMEOUT := 180.0  # Abort if no tokens arrive within this window (CPU inference can be slow)
 const WARMUP_TIMEOUT := 180.0
 const STREAM_POLL_INTERVAL := 0.016  # ~60 fps polling for streaming chunks
+const CURSOR_HANDOFF_SUGGEST_MIN_CHARS := 400
 
 # Provider system
 var AIProviders = null  # Loaded dynamically
@@ -345,6 +346,10 @@ var _persona_dropdown: OptionButton = null
 # ---------------------------------------------------------------------------
 var _ping_http: HTTPRequest
 var _warmup_http: HTTPRequest
+var _cursor_handoff_btn: Button = null
+var _validate_btn: Button = null
+var _validate_running := false
+var _cursor_session = null  # Tier 2 Cursor SDK subprocess (vg_ai_cursor_session.gd)
 var _output: RichTextLabel
 var _input: CodeEdit
 var _send_btn: Button
@@ -362,7 +367,7 @@ var _pending_image_b64: String = ""
 var _abort_agent_btn: Button = null   # Phase 6b — shown during multi-hop agent runs
 var _models_btn: Button
 var _model_picker: AcceptDialog
-var _api_key_dialog: AcceptDialog = null
+var _api_key_dialog: ConfirmationDialog = null
 var _approvals_dropdown: OptionButton
 var _agent_mode_dropdown: OptionButton
 var _audit_btn: Button
@@ -656,7 +661,7 @@ func _ready() -> void:
 	_setup_ui()
 	_setup_poll_timer()
 	_setup_http()
-	_activate_provider()
+	call_deferred("_activate_provider")
 	call_deferred("_restore_last_run_from_disk")
 
 func _enter_tree() -> void:
@@ -672,6 +677,8 @@ func _reinit_after_reparent() -> void:
 	if _stream_http != null:
 		_stream_http.close()
 		_stream_http = null
+	if _cursor_session != null and _cursor_session.has_method("is_running") and _cursor_session.is_running():
+		_cursor_session.stop()
 	_is_generating = false
 	_ollama_available = false
 	_model_warm = false
@@ -1014,6 +1021,9 @@ func _finish_generation() -> void:
 		_current_prompt = ""
 
 	if not _is_generating:
+		_maybe_suggest_cursor_handoff()
+
+	if not _is_generating:
 		if is_instance_valid(_send_btn):
 			_send_btn.visible = true
 		if is_instance_valid(_stop_btn):
@@ -1053,6 +1063,8 @@ func _stop_generation() -> void:
 	if _stream_http != null:
 		_stream_http.close()
 		_stream_http = null
+	if _cursor_session != null and _cursor_session.has_method("is_running") and _cursor_session.is_running():
+		_cursor_session.stop()
 
 	_is_generating = false
 	_stream_http_phase = 0
@@ -1145,10 +1157,9 @@ func _setup_ui() -> void:
 
 	# ── API Key button ──
 	_api_key_btn = Button.new()
-	_api_key_btn.text = "⚙️"
 	_api_key_btn.tooltip_text = "Configure API keys for cloud providers"
 	_api_key_btn.pressed.connect(_show_api_key_dialog)
-	_style_small_button(_api_key_btn)
+	_style_toolbar_icon_button(_api_key_btn, "⚙")
 	toolbar.add_child(_api_key_btn)
 
 	toolbar.add_child(_make_separator())
@@ -1264,7 +1275,27 @@ func _setup_ui() -> void:
 
 	toolbar2.add_child(_make_separator())
 
-	# Row 3: advanced controls (voice + manual spec actions) — hidden until toggled
+	_cursor_handoff_btn = Button.new()
+	_cursor_handoff_btn.text = "↗ Cursor"
+	_cursor_handoff_btn.tooltip_text = (
+		"Continue in Cursor (Composer) — writes .vg/cursor_handoff.md, "
+		+ "copies a Composer prompt to the clipboard, and opens this project in Cursor when the CLI is installed."
+	)
+	_cursor_handoff_btn.pressed.connect(_on_continue_in_cursor)
+	_style_toolbar_light_button(_cursor_handoff_btn)
+	toolbar2.add_child(_cursor_handoff_btn)
+
+	_validate_btn = Button.new()
+	_validate_btn.text = "✓ Validate"
+	_validate_btn.tooltip_text = (
+		"Headless parse check — boots Godot --editor --quit on this project "
+		+ "and reports Parse Error / SCRIPT ERROR lines."
+	)
+	_validate_btn.pressed.connect(_on_validate_project)
+	_style_toolbar_light_button(_validate_btn)
+	toolbar2.add_child(_validate_btn)
+
+	toolbar2.add_child(_make_separator())
 	_toolbar3_advanced = HBoxContainer.new()
 	_toolbar3_advanced.add_theme_constant_override("separation", 4)
 	_toolbar3_advanced.visible = false
@@ -2568,13 +2599,16 @@ func _send_query(display_prompt: String) -> void:
 	# for "undo that", "also do X", "why did you change Y", "now ...".
 	var augmented := _maybe_prepend_diff(api_prompt)
 
-	# Cloud providers — skip warmup and health check, send directly
+	# Cloud / Cursor providers — skip Ollama warmup
 	if _provider_info and not _provider_info.is_local:
 		_history.append(display_prompt)
 		_history_idx = _history.size()
 		_input.text = ""
 		_append_user(display_prompt)
-		_send_cloud_query(augmented)
+		if AIProviders and AIProviders.is_cursor_provider(_provider_id):
+			_send_cursor_query(augmented)
+		else:
+			_send_cloud_query(augmented)
 		return
 
 	# Send directly — the request itself surfaces any connectivity issue.
@@ -3328,6 +3362,9 @@ func retry_connection() -> void:
 func _activate_provider() -> void:
 	if _provider_info == null:
 		return
+	if AIProviders and AIProviders.is_cursor_provider(_provider_id):
+		_activate_cursor_provider()
+		return
 	if _provider_info.is_local:
 		_ping_ollama()
 	else:
@@ -3345,6 +3382,48 @@ func _activate_provider() -> void:
 			_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
 			_append_system("Connected to [color=cyan]%s[/color] — model: [color=cyan]%s[/color]\n" % [_provider_info.display_name, _current_model])
 			ai_panel_ready.emit()
+
+func _activate_cursor_provider() -> void:
+	var CursorSession = load("res://addons/visual_gasic/vg_ai_cursor_session.gd")
+	var key: String = AIProviders.load_api_key("cursor") if AIProviders else ""
+	if key.is_empty():
+		_ollama_available = false
+		_status_label.text = "🔑 Cursor API key needed"
+		_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+		_append_system(
+			"[color=yellow]Cursor (Composer) needs an API key. Click ⚙️ → paste from cursor.com/dashboard/integrations[/color]\n"
+		)
+		return
+	if CursorSession == null:
+		_ollama_available = false
+		_status_label.text = "❌ Cursor module missing"
+		return
+	var python: String = CursorSession.resolve_python()
+	if python.is_empty():
+		_ollama_available = false
+		_status_label.text = "❌ python3 not found"
+		_append_system("[color=yellow]Install Python 3 to use Cursor (Composer) in AI Pair.[/color]\n")
+		return
+	if not CursorSession.cursor_sdk_available(python):
+		_ollama_available = false
+		_status_label.text = "❌ cursor-sdk missing"
+		_append_system("[color=yellow]Run: [color=gray]pip install cursor-sdk[/color] then restart Godot.[/color]\n")
+		return
+	_ollama_available = true
+	_model_warm = true
+	var mcp_note := ""
+	var McpCfg = load("res://addons/visual_gasic/vg_cursor_mcp_config.gd")
+	if McpCfg != null:
+		var mcp: Dictionary = McpCfg.ensure_project_mcp_config()
+		if bool(mcp.get("ok", false)) and (bool(mcp.get("created", false)) or bool(mcp.get("updated", false))):
+			mcp_note = "\n" + str(mcp.get("message", ""))
+	_status_label.text = "✅ %s ready" % _provider_info.display_name
+	_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+	_append_system(
+		"Connected to [color=cyan]%s[/color] — model: [color=cyan]%s[/color] (SDK subprocess, slim Narcea prompt)%s\n"
+		% [_provider_info.display_name, _current_model, mcp_note]
+	)
+	ai_panel_ready.emit()
 
 func _on_refresh_models() -> void:
 	"""Refresh the model list from the provider's live API."""
@@ -3397,6 +3476,7 @@ func _on_provider_selected(idx: int) -> void:
 	_model_warm = false
 	_ollama_available = false
 	_conversation_history.clear()
+	_narcea_ctx_cache = ""
 	AIProviders.save_preferred_provider(_provider_id)
 	_update_model_dropdown()
 	_append_system("\nSwitched to [color=cyan]%s[/color]\n" % _provider_info.display_name)
@@ -3422,98 +3502,56 @@ func _update_model_dropdown() -> void:
 		var didx: int = models.find(pick)
 		_model_dropdown.selected = maxi(didx, 0)
 		_current_model = pick
+		_apply_model_tooltips(models)
+
+
+func _apply_model_tooltips(models: Array) -> void:
+	if not is_instance_valid(_model_dropdown) or _provider_id != "cursor":
+		return
+	for i in range(models.size()):
+		var mid := str(models[i])
+		if mid == "composer-2.5":
+			_model_dropdown.set_item_tooltip(
+				i,
+				"Standard Composer 2.5 tier (lower cost). SDK: pass fast=false explicitly."
+			)
+		elif mid == "composer-2.5-fast":
+			_model_dropdown.set_item_tooltip(
+				i,
+				"Fast Composer 2.5 tier (same intelligence, higher token cost)."
+			)
 
 # ---------------------------------------------------------------------------
 # API Key Settings Dialog
 # ---------------------------------------------------------------------------
-const _API_KEY_DIALOG_SIZE := Vector2i(520, 640)
+const _API_KEY_DIALOG_SIZE := Vector2i(520, 660)
 
 func _show_api_key_dialog() -> void:
 	if not AIProviders:
+		_append_system("[color=#ff8888]AI providers module not loaded — restart the editor.[/color]\n")
 		return
 	if is_instance_valid(_api_key_dialog):
 		_api_key_dialog.queue_free()
 		_api_key_dialog = null
 
-	_api_key_dialog = AcceptDialog.new()
-	var dlg := _api_key_dialog
-	dlg.title = "⚙️  AI Provider API Keys"
-	dlg.wrap_controls = false
-	dlg.unresizable = true
-	dlg.size = _API_KEY_DIALOG_SIZE
-	dlg.min_size = _API_KEY_DIALOG_SIZE
-	dlg.max_size = _API_KEY_DIALOG_SIZE
-	dlg.exclusive = true
+	var script := load("res://addons/visual_gasic/vg_ai_api_keys_dialog.gd")
+	if script == null:
+		_append_system("[color=#ff8888]API keys dialog unavailable.[/color]\n")
+		return
 
-	var outer := VBoxContainer.new()
-	outer.add_theme_constant_override("separation", 8)
-	dlg.add_child(outer)
-
-	var desc := Label.new()
-	desc.text = "Enter API keys for cloud AI providers.\nKeys are stored locally in user://vg_ai_keys.cfg"
-	desc.add_theme_font_size_override("font_size", 12)
-	desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	outer.add_child(desc)
-
-	outer.add_child(HSeparator.new())
-
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2i(0, 420)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	outer.add_child(scroll)
-
-	var vbox := VBoxContainer.new()
-	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_theme_constant_override("separation", 10)
-	scroll.add_child(vbox)
-
-	var key_edits := {}  # provider_id -> LineEdit
-	for p in AIProviders.get_providers():
-		if p.is_local:
-			continue  # Skip Ollama
-		var hbox := HBoxContainer.new()
-		hbox.add_theme_constant_override("separation", 8)
-		vbox.add_child(hbox)
-
-		var lbl := Label.new()
-		lbl.text = p.display_name + ":"
-		lbl.custom_minimum_size.x = 120
-		lbl.add_theme_font_size_override("font_size", 12)
-		hbox.add_child(lbl)
-
-		var edit := LineEdit.new()
-		edit.text = AIProviders.load_api_key(p.id)
-		edit.placeholder_text = "sk-... / api-key-..."
-		edit.secret = true
-		edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		edit.add_theme_font_size_override("font_size", 12)
-		if not edit.text.is_empty():
-			edit.focus_entered.connect(edit.select_all)
-		hbox.add_child(edit)
-		key_edits[p.id] = edit
-
-		var eye := Button.new()
-		eye.text = "👁"
-		eye.tooltip_text = "Show/hide key"
-		eye.pressed.connect(func(): edit.secret = not edit.secret)
-		hbox.add_child(eye)
-
-	vbox.add_child(HSeparator.new())
-
-	var hints := Label.new()
-	hints.text = "Get keys from:\n• OpenAI: platform.openai.com/api-keys\n• Claude: console.anthropic.com/settings/keys\n• Gemini: aistudio.google.com/apikey\n• DeepSeek: platform.deepseek.com/api-keys\n• Qwen: dashscope.console.aliyun.com/apiKey\n• Codeium: codeium.com/profile → API Keys\n• Amazon Q: Set up Bedrock Access Gateway locally"
-	hints.add_theme_font_size_override("font_size", 11)
-	hints.add_theme_color_override("font_color", Color(0.5, 0.6, 0.7))
-	hints.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(hints)
+	_api_key_dialog = script.new()
+	var dlg: ConfirmationDialog = _api_key_dialog
+	dlg.setup(AIProviders)
 
 	dlg.confirmed.connect(func():
-		for pid in key_edits:
-			AIProviders.save_api_key(pid, key_edits[pid].text.strip_edges())
+		for pid in dlg.get_key_edits():
+			AIProviders.save_api_key(pid, dlg.get_key_edits()[pid].text.strip_edges())
 		_append_system("[color=green]API keys saved.[/color]\n")
 		_activate_provider()
+		_api_key_dialog = null
+		dlg.queue_free()
+	, CONNECT_ONE_SHOT)
+	dlg.canceled.connect(func():
 		_api_key_dialog = null
 		dlg.queue_free()
 	, CONNECT_ONE_SHOT)
@@ -3527,6 +3565,110 @@ func _show_api_key_dialog() -> void:
 	else:
 		add_child(dlg)
 		dlg.popup_centered(_API_KEY_DIALOG_SIZE)
+
+# ---------------------------------------------------------------------------
+# Cursor (Composer SDK) streaming
+# ---------------------------------------------------------------------------
+
+func _ensure_cursor_session() -> void:
+	if _cursor_session != null and is_instance_valid(_cursor_session):
+		return
+	var script := load("res://addons/visual_gasic/vg_ai_cursor_session.gd")
+	if script == null:
+		return
+	_cursor_session = script.new()
+	_cursor_session.name = "VGAiCursorSession"
+	add_child(_cursor_session)
+	if not _cursor_session.stream_token.is_connected(_on_cursor_stream_token):
+		_cursor_session.stream_token.connect(_on_cursor_stream_token)
+	if not _cursor_session.stream_error.is_connected(_on_cursor_stream_error):
+		_cursor_session.stream_error.connect(_on_cursor_stream_error)
+	if not _cursor_session.stream_finished.is_connected(_on_cursor_stream_finished):
+		_cursor_session.stream_finished.connect(_on_cursor_stream_finished)
+
+
+func _send_cursor_query(prompt: String) -> void:
+	if _is_generating:
+		return
+	if not AIProviders:
+		return
+	var api_key: String = AIProviders.load_api_key("cursor")
+	if api_key.is_empty():
+		_append_system("[color=yellow]No Cursor API key configured. Click ⚙️ to set one.[/color]\n")
+		return
+	if not _pending_image_b64.is_empty():
+		_append_system("[color=yellow]Cursor (Composer) does not support image attachments yet — sending text only.[/color]\n")
+		_clear_pending_image()
+
+	_ensure_cursor_session()
+	if _cursor_session == null:
+		_append_system("[color=red]Cursor session module failed to load.[/color]\n")
+		return
+
+	_current_prompt = prompt
+	_stream_done = false
+	_stream_error = ""
+	_stream_buf = ""
+	_stream_started = false
+	_stream_token_count = 0
+	_stream_start_time = Time.get_ticks_msec()
+	_stream_first_token_time = 0.0
+	_accumulated_response = ""
+	_stream_tool_watermark = 0
+	_stream_vgtool_suppress = false
+	_stream_line_buf = ""
+	_stream_line_displayed = 0
+	_fc_fragments.clear()
+
+	var use_fast := _current_model.ends_with("-fast")
+	var model_id := _current_model
+	if use_fast:
+		model_id = model_id.trim_suffix("-fast")
+
+	var request := {
+		"api_key": api_key,
+		"model": model_id,
+		"use_fast": use_fast,
+		"cwd": ProjectSettings.globalize_path("res://"),
+		"system_prompt": _get_active_system_prompt(),
+		"conversation_history": _conversation_history,
+		"user_prompt": prompt,
+	}
+	if not _cursor_session.start(request):
+		return
+
+	_is_generating = true
+	_send_btn.visible = false
+	_stop_btn.visible = true
+	_status_label.text = "💭 Cursor Composer..."
+	_status_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+
+
+func _on_cursor_stream_token(text: String) -> void:
+	_display_token(text)
+
+
+func _on_cursor_stream_error(message: String) -> void:
+	if message.is_empty():
+		return
+	if _is_generating:
+		if _stream_started:
+			_output.append_text("[/color]\n")
+		_append_system("[color=red]%s[/color]\n" % _escape_bbcode(message))
+		_finish_generation()
+	else:
+		_append_system("[color=red]%s[/color]\n" % _escape_bbcode(message))
+
+
+func _on_cursor_stream_finished(status: String) -> void:
+	if not _is_generating:
+		return
+	if status == "error" and _accumulated_response.strip_edges().is_empty() and _stream_error.is_empty():
+		_append_system("[color=red]Cursor agent run failed.[/color]\n")
+	if _stream_started:
+		_output.append_text("[/color]\n")
+	_finish_generation()
+
 
 # ---------------------------------------------------------------------------
 # Cloud provider streaming
@@ -5158,11 +5300,10 @@ func _transcript_close(reason: String) -> void:
 func _get_active_system_prompt() -> String:
 	var pdata = _personas.get(_persona_id, _personas.get("default", {}))
 	var prefix: String = pdata.get("prefix", "") if typeof(pdata) == TYPE_DICTIONARY else ""
-	# Narcea gets an extra context block (active panel, open file,
-	# VG-domain knowledge, tutorial index).  Other personas are pure style.
+	var slim_cursor: bool = AIProviders != null and AIProviders.is_cursor_provider(_provider_id)
 	var narcea_ctx := ""
 	if _persona_id == "narcea":
-		narcea_ctx = _narcea_context_block()
+		narcea_ctx = _narcea_context_block(slim_cursor)
 	if prefix.is_empty() and narcea_ctx.is_empty():
 		return _base_system_prompt
 	return prefix + narcea_ctx + _base_system_prompt
@@ -5174,6 +5315,7 @@ var _narcea_provider = null
 var _narcea_ctx_cache := ""
 var _narcea_ctx_cache_ts: int = 0
 var _narcea_ctx_cache_hint := ""
+var _narcea_ctx_cache_slim := false
 
 # Lazy-loaded AI tool dispatcher (vg_ai_tools.gd).  Lets the model drive
 # the editor via ```vg-tool``` blocks — highlight, goto, insert, replace,
@@ -5336,6 +5478,15 @@ func _ai_tool_run_handler(tool_name: String, _args: Dictionary) -> String:
 			return "[%s] unhandled run-loop tool" % tool_name
 
 func _dispatch_tool_calls(reply_text: String) -> void:
+	if not _cursor_vg_tools_allowed():
+		if reply_text.find("```vg-tool") >= 0:
+			_append_system(
+				"[color=#ffcc66]vg-tool actions skipped — Cursor provider is active. "
+				+ "Enable Project Settings → vg/ai/cursor_allow_vg_tools or switch provider.[/color]\n"
+			)
+		_hide_abort_agent_btn()
+		_transcript_close("cursor_vg_tools_blocked")
+		return
 	if not _ensure_ai_tools():
 		return
 	_load_approval_mode()
@@ -5794,7 +5945,102 @@ func _on_ai_meta_clicked(meta: Variant) -> void:
 		_:
 			pass
 
-func _narcea_context_block() -> String:
+func _cursor_vg_tools_allowed() -> bool:
+	if AIProviders == null or not AIProviders.is_cursor_provider(_provider_id):
+		return true
+	return bool(ProjectSettings.get_setting("vg/ai/cursor_allow_vg_tools", false))
+
+
+func _maybe_suggest_cursor_handoff() -> void:
+	if AIProviders == null or not AIProviders.is_cursor_provider(_provider_id):
+		return
+	if _agent_hops > 0:
+		return
+	if _accumulated_response.length() < CURSOR_HANDOFF_SUGGEST_MIN_CHARS:
+		return
+	_append_system(
+		"[color=#66aaff]Tip: For multi-file work in the full Cursor IDE, click "
+		+ "[b]↗ Cursor[/b] to refresh the handoff with this reply.[/color]\n"
+	)
+	_highlight_cursor_handoff_btn()
+
+
+func _highlight_cursor_handoff_btn() -> void:
+	if not is_instance_valid(_cursor_handoff_btn):
+		return
+	var orig := _cursor_handoff_btn.modulate
+	_cursor_handoff_btn.modulate = Color(1.25, 1.25, 0.65)
+	var t := get_tree().create_timer(1.5)
+	t.timeout.connect(func():
+		if is_instance_valid(_cursor_handoff_btn):
+			_cursor_handoff_btn.modulate = orig
+	, CONNECT_ONE_SHOT)
+
+
+func _on_validate_project() -> void:
+	if _validate_running:
+		return
+	var Validate = load("res://addons/visual_gasic/vg_ai_validate.gd")
+	if Validate == null:
+		_append_system("[color=#ff8888](Could not load validate module)[/color]\n")
+		return
+	_validate_running = true
+	if is_instance_valid(_validate_btn):
+		_validate_btn.disabled = true
+	_append_system("[color=#888888]Running headless parse check on this project…[/color]\n")
+	var proj := ProjectSettings.globalize_path("res://")
+	WorkerThreadPool.add_task(func():
+		var result: Dictionary = Validate.run_smoke_sync(proj)
+		call_deferred("_on_validate_finished", result)
+	)
+
+
+func _on_validate_finished(result: Dictionary) -> void:
+	_validate_running = false
+	if is_instance_valid(_validate_btn):
+		_validate_btn.disabled = false
+	if bool(result.get("ok", false)):
+		_append_system("[color=green]✅ Parse check passed — no Parse Error / SCRIPT ERROR lines.[/color]\n")
+		return
+	_append_system("[color=red]❌ Parse check failed (%s):[/color]\n" % str(result.get("summary", "")))
+	for line in result.get("errors", []):
+		_append_system("[color=red]  %s[/color]\n" % _escape_bbcode(str(line)))
+
+
+func _get_visual_gasic_plugin() -> Object:
+	if not Engine.is_editor_hint():
+		return null
+	var base := EditorInterface.get_base_control()
+	if base and base.has_meta("visual_gasic_plugin_instance"):
+		return base.get_meta("visual_gasic_plugin_instance")
+	return null
+
+
+func _on_continue_in_cursor() -> void:
+	var Handoff = load("res://addons/visual_gasic/vg_cursor_handoff.gd")
+	if Handoff == null:
+		_append_system("[color=#ff8888](Could not load Cursor handoff module)[/color]\n")
+		return
+	var draft := _input.text.strip_edges() if is_instance_valid(_input) else ""
+	var result: Dictionary = Handoff.perform_handoff({
+		"plugin": _get_visual_gasic_plugin(),
+		"persona_id": _persona_id,
+		"draft_prompt": draft,
+		"conversation_history": _conversation_history,
+	})
+	if not bool(result.get("ok", false)):
+		_append_system("[color=#ff8888]%s[/color]\n" % _escape_bbcode(str(result.get("message", "Handoff failed"))))
+		return
+	var launched := bool(result.get("cursor_launched", false))
+	var color := "#66cc88" if launched else "#ffcc66"
+	_append_system("[color=%s][b]Cursor handoff[/b][/color]\n" % color)
+	for line in str(result.get("message", "")).split("\n"):
+		if line.strip_edges().is_empty():
+			continue
+		_append_system("[color=%s]  %s[/color]\n" % [color, _escape_bbcode(line)])
+
+
+func _narcea_context_block(slim: bool = false) -> String:
 	const CACHE_TTL_MS := 30000  # 30 seconds
 	# Use the current input as a relevance hint for the tutorial index.
 	# When the hint changes the cache must be invalidated so a fresh
@@ -5804,7 +6050,8 @@ func _narcea_context_block() -> String:
 		query_hint = _input.text
 	if not _narcea_ctx_cache.is_empty() \
 			and Time.get_ticks_msec() - _narcea_ctx_cache_ts < CACHE_TTL_MS \
-			and query_hint == _narcea_ctx_cache_hint:
+			and query_hint == _narcea_ctx_cache_hint \
+			and _narcea_ctx_cache_slim == slim:
 		return _narcea_ctx_cache
 	if _narcea_provider == null:
 		var script := load("res://addons/visual_gasic/vg_ai_narcea.gd")
@@ -5818,12 +6065,17 @@ func _narcea_context_block() -> String:
 		var base := EditorInterface.get_base_control()
 		if base and base.has_meta("visual_gasic_plugin_instance"):
 			plugin = base.get_meta("visual_gasic_plugin_instance")
-	var block: String = _narcea_provider.build_context_block(plugin)
+	var block: String = ""
+	if slim and _narcea_provider.has_method("build_slim_context_block"):
+		block = _narcea_provider.build_slim_context_block(plugin)
+	elif _narcea_provider.has_method("build_context_block"):
+		block = _narcea_provider.build_context_block(plugin)
 	# Sandwich the block in clear delimiters so the model can find it.
 	var result := "\n--- BEGIN NARCEA CONTEXT ---\n" + block + "\n--- END NARCEA CONTEXT ---\n\n"
 	_narcea_ctx_cache = result
 	_narcea_ctx_cache_ts = Time.get_ticks_msec()
 	_narcea_ctx_cache_hint = query_hint
+	_narcea_ctx_cache_slim = slim
 	return result
 
 func _apply_persona_voice() -> void:

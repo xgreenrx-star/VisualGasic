@@ -83,10 +83,11 @@ const PLUGINS_DIR = "res://addons/visual_gasic/plugins/"
 ## load unless the user explicitly turns them on.
 const EXPERIMENTAL_PLUGINS_SETTING := "vg/enable_experimental_plugins"
 
-## Project setting prefix for per-plugin enabled toggles.
-## Each plugin gets a "vg/plugins/<id>/enabled" bool (default false).
-## Plugins must be explicitly enabled by the user in Project Settings.
+## Project setting prefix for per-plugin opt-in toggles.
+## Each plugin gets a "vg/plugins/<id>" bool (default false).
+## Plugins must be explicitly enabled by the user in Project Settings → Vg → Plugins.
 const PLUGIN_SETTING_PREFIX := "vg/plugins/"
+const LEGACY_PLUGIN_ENABLED_SUFFIX := "/enabled"
 
 
 # ─── Initialization ─────────────────────────────────────────
@@ -170,8 +171,7 @@ func rescan_plugin_settings() -> void:
 			continue
 		if meta.get("_builtin", false):
 			continue
-		var ps_key: String = PLUGIN_SETTING_PREFIX + plugin_id + "/enabled"
-		if bool(ProjectSettings.get_setting(ps_key, false)):
+		if _get_plugin_project_enabled(plugin_id):
 			var cfg_path: String = PLUGINS_DIR + plugin_id + "/plugin.cfg"
 			_load_plugin(plugin_id, cfg_path)
 
@@ -227,11 +227,37 @@ func _experimental_plugins_enabled() -> bool:
 	return bool(ProjectSettings.get_setting(EXPERIMENTAL_PLUGINS_SETTING, false))
 
 
-## Register a per-plugin enabled toggle in Project Settings so it surfaces
-## under vg/plugins/<plugin_id>/enabled.  Default is false (opt-in).
-## Non-destructive — never clobbers an existing user choice.
+## Project Settings key for a sub-plugin toggle (no trailing "/enabled" —
+## Godot otherwise shows a confusing nested "Enabled" row above the On checkbox).
+func _plugin_project_setting_key(plugin_id: String) -> String:
+	return PLUGIN_SETTING_PREFIX + plugin_id
+
+func _legacy_plugin_project_setting_key(plugin_id: String) -> String:
+	return PLUGIN_SETTING_PREFIX + plugin_id + LEGACY_PLUGIN_ENABLED_SUFFIX
+
+## Read opt-in flag from vg/plugins/<id>, falling back to legacy vg/plugins/<id>/enabled.
+func _get_plugin_project_enabled(plugin_id: String) -> bool:
+	var key := _plugin_project_setting_key(plugin_id)
+	var legacy := _legacy_plugin_project_setting_key(plugin_id)
+	if ProjectSettings.has_setting(key):
+		return bool(ProjectSettings.get_setting(key, false))
+	if ProjectSettings.has_setting(legacy):
+		return bool(ProjectSettings.get_setting(legacy, false))
+	return false
+
+func _migrate_legacy_plugin_setting(plugin_id: String) -> void:
+	var key := _plugin_project_setting_key(plugin_id)
+	var legacy := _legacy_plugin_project_setting_key(plugin_id)
+	if ProjectSettings.has_setting(legacy) and not ProjectSettings.has_setting(key):
+		ProjectSettings.set_setting(key, ProjectSettings.get_setting(legacy))
+	if ProjectSettings.has_setting(legacy):
+		ProjectSettings.set_setting(legacy, null)
+
+## Register a per-plugin opt-in toggle in Project Settings (Vg → Plugins → <id>).
+## Default is false (opt-in). Non-destructive — never clobbers an existing choice.
 func _register_plugin_setting(plugin_id: String) -> void:
-	var path := PLUGIN_SETTING_PREFIX + plugin_id + "/enabled"
+	_migrate_legacy_plugin_setting(plugin_id)
+	var path := _plugin_project_setting_key(plugin_id)
 	if not ProjectSettings.has_setting(path):
 		ProjectSettings.set_setting(path, false)
 	ProjectSettings.set_initial_value(path, false)
@@ -378,7 +404,7 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 	VGPluginRegistry.get_instance().register_provider(plugin_id, meta, null)
 
 	# Always register the per-plugin Project Setting so every discovered
-	# plugin appears in Godot's Project Settings under vg/plugins/<id>/enabled,
+	# plugin appears in Godot's Project Settings under vg/plugins/<id>,
 	# even if the author hard-blocked it. This makes all plugins discoverable.
 	_register_plugin_setting(plugin_id)
 
@@ -397,9 +423,9 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 		return
 
 	# Per-plugin Project Setting gate: plugins are opt-in (default disabled).
-	# Users enable individual plugins via Project Settings → vg/plugins/<id>/enabled.
-	var ps_key := PLUGIN_SETTING_PREFIX + plugin_id + "/enabled"
-	if not bool(ProjectSettings.get_setting(ps_key, false)):
+	# Users enable individual plugins via Project Settings → Vg → Plugins → <id>.
+	var ps_key := _plugin_project_setting_key(plugin_id)
+	if not _get_plugin_project_enabled(plugin_id):
 		print("VisualGasic: Plugin '", meta["name"], "' not enabled (enable via Project Settings → ", ps_key, ")")
 		_set_plugin_dirs_ignored(plugin_id, true)
 		return
@@ -662,7 +688,7 @@ func _on_canvas_plugins_menu_pressed(idx: int) -> void:
 		EditorInterface.set_main_screen_editor(_host_plugin._get_plugin_name())
 
 
-## Called when ProjectSettings change (user toggled vg/plugins/*/enabled).
+## Called when ProjectSettings change (user toggled vg/plugins/* booleans).
 ## Live-loads newly enabled plugins and rebuilds the canvas dropdown.
 func _on_project_settings_changed() -> void:
 	rescan_plugin_settings()

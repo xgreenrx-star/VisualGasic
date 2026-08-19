@@ -1149,6 +1149,27 @@ var _pinned_files: PackedStringArray = PackedStringArray()
 # Soft cap on the assembled context block in characters.  Sections are
 # dropped from lowest priority upward until we fit (see _trim_to_budget).
 const CONTEXT_CHAR_BUDGET := 32000
+const SLIM_CONTEXT_CHAR_BUDGET := 8000
+
+const SLIM_KNOWLEDGE := """
+=== VG essentials (Cursor / Composer) ===
+- `.vg` = VB6-style Visual Gasic (Sub/Function, Dim, If…Then) — NOT GDScript for game logic.
+- GDScript in `addons/visual_gasic/*.gd` extends Godot 4.6; run headless smoke after addon edits.
+- VB6 property aliases on controls: Caption, Left, Top, Width, Height, Visible.
+  Never `ctrl.position.x` or `ctrl.text` — those writes silently fail on VG controls.
+- Events by name: Sub btnOK_Click(), Sub Form_Load(), Sub tmr_Timer() (Interval in ms).
+- Start new `.vg` modules with Option Explicit on line 1 (after optional header comment).
+- Follow `.cursor/rules/visual-gasic-godot.mdc`. Search corpus/, demos/, tutorials/ for examples.
+- VG MCP tools (read_file, write_file, find_in_files) when Godot + plugin are running.
+"""
+
+const SLIM_POLICY := """
+=== Cursor + Narcea (slim) ===
+You have full repo access and project rules — do not repeat the full VG catalog here.
+Prefer editing files directly; use `.vg` syntax in `.vg` paths and GDScript only in `.gd` paths.
+For forms: use vg-form-spec + vg-code-spec flow when working inside Narcea AI Pair vg-tool blocks.
+Keep answers concise; cite paths (res://…) when pointing at examples.
+"""
 
 
 # --- Public API ------------------------------------------------------------
@@ -1439,6 +1460,24 @@ VG CONTROL PROPERTY CATALOG (runtime, set from code):
        or inside an event handler for dynamic changes.  RGB() is the only
        supported color literal — never #RRGGBB hex strings.
 """)
+	return "\n".join(blocks)
+
+
+## Slim context for Cursor (Composer) — active file + essentials only; skips tutorial index.
+func build_slim_context_block(plugin: Object = null) -> String:
+	var tagged: Array = []
+	var notes := _user_notes_block()
+	if not notes.is_empty():
+		tagged.append({"name": "user_notes", "prio": 95, "text": notes})
+	var pinned := _pinned_files_block()
+	if not pinned.is_empty():
+		tagged.append({"name": "pinned", "prio": 90, "text": pinned})
+	var active := _active_context_block(plugin)
+	if not active.is_empty():
+		tagged.append({"name": "active", "prio": 80, "text": active})
+	tagged.append({"name": "knowledge", "prio": 70, "text": SLIM_KNOWLEDGE})
+	var blocks: Array[String] = _trim_to_budget(tagged, SLIM_CONTEXT_CHAR_BUDGET)
+	blocks.append(SLIM_POLICY)
 	return "\n".join(blocks)
 
 

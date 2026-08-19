@@ -50,6 +50,12 @@ const TOOLBOX_TAB_GODOT_2D := 1
 const TOOLBOX_TAB_GODOT_3D := 2
 const TOOLBOX_TAB_GAME_UI := 3
 
+## Project Settings → Vg → Scene Editors → Simple 2d 3d.
+## When true, IDE 2D/3D buttons open VG's simplified embedded editors.
+## Default false — use Godot's native 2D/3D viewports.
+const SETTING_USE_SIMPLE_SCENE_EDITORS := "vg/scene_editors/simple_2d_3d"
+const LEGACY_SETTING_USE_SIMPLE_SCENE_EDITORS := "vg/use_simple_scene_editors"
+
 ## The main toolbox container in the left dock
 var toolbox
 
@@ -198,14 +204,17 @@ var _embedded_code_editor = null
 var _showing_code_view: bool = false
 ## Whether the IDE is currently showing the 3D view (vs form/code view)
 var _showing_3d_view: bool = false
-## Embedded 3D Scene Editor (replaces canvas in-place)
+## Embedded 3D Scene Editor (hidden unless vg/scene_editors/simple_2d_3d is enabled)
 var _vg_3d_editor = null
 ## Pending 3D double-click info: stashed when scene needs saving first
 var _pending_3d_dblclick: Dictionary = {}  # {node_name, event_suffix, event_params}
 ## Whether the IDE is currently showing the 2D scene view (vs form/code/3D view)
 var _showing_2d_view: bool = false
-## Embedded 2D Scene Editor (replaces canvas in-place)
+## Embedded 2D Scene Editor (hidden unless vg/scene_editors/simple_2d_3d is enabled)
 var _vg_2d_editor = null
+## Toolbar 2D / 3D view buttons — tooltips updated when scene-editor setting changes
+var _view_2d_btn: Button = null
+var _view_3d_btn: Button = null
 ## Pending 2D double-click info: stashed when scene needs saving first
 var _pending_2d_dblclick: Dictionary = {}  # {node_name, event_suffix, event_params}
 ## Whether the IDE is currently showing the Sprite Editor view
@@ -237,6 +246,7 @@ var _ui_forms_armed_type: String = ""
 ## Three 2D toolbar buttons for VG control placement and wiring.
 var _vg_ctrl_btn: Button = null    ## "Add VG Control" — open floating Toolbox
 var _vg_props_btn: Button = null   ## "VG Properties"  — open floating Properties
+var _vg_panels_btn: Button = null  ## "VG Panels" — Immediate, Output, AI Pair, …
 var _wire_event_btn: Button = null ## "Wire Event"     — create VB6 event stub
 ## Prototype .tscn path while armed VG placement is active; "" when idle.
 var _vg_ctrl_armed_path: String = ""
@@ -270,7 +280,7 @@ var _package_browser = null
 
 ## AI Help Panel (v4.4.0) — local Ollama-powered code assistant
 var _ai_help_panel = null
-var _narcea_window: PanelContainer = null
+var _vg_bottom_float: PanelContainer = null
 var _narcea_toolbar_btn: Button = null
 
 ## Tip of the Day dialog (v3.5)
@@ -335,6 +345,18 @@ func _enter_tree():
 		TYPE_BOOL
 	)
 
+	_register_project_setting(
+		"vg/ai/cursor_allow_vg_tools",
+		false,
+		TYPE_BOOL
+	)
+
+	_ensure_scene_editor_project_settings()
+	_register_python_project_settings()
+
+	if not ProjectSettings.settings_changed.is_connected(_on_vg_project_settings_changed):
+		ProjectSettings.settings_changed.connect(_on_vg_project_settings_changed)
+
 	# Register AI provider keys in EditorSettings so they appear under
 	# Editor > Editor Settings > Visual Gasic / AI and are shared globally
 	# across all Godot projects (never stored in project.godot).
@@ -349,7 +371,8 @@ func _enter_tree():
 	_register_editor_setting(_es, "visual_gasic/ai/amazonq_host", "localhost", TYPE_STRING, PROPERTY_HINT_NONE, "")
 	_register_editor_setting(_es, "visual_gasic/ai/amazonq_port", 8080, TYPE_INT, PROPERTY_HINT_RANGE, "1,65535")
 	_register_editor_setting(_es, "visual_gasic/ai/amazonq_use_tls", false, TYPE_BOOL, PROPERTY_HINT_NONE, "")
-	_register_editor_setting(_es, "visual_gasic/ai/preferred_provider", "ollama", TYPE_STRING, PROPERTY_HINT_ENUM, "ollama,openai,claude,gemini,deepseek,qwen,codeium,amazonq")
+	_register_editor_setting(_es, "visual_gasic/ai/cursor_key", "", TYPE_STRING, PROPERTY_HINT_PASSWORD, "")
+	_register_editor_setting(_es, "visual_gasic/ai/preferred_provider", "ollama", TYPE_STRING, PROPERTY_HINT_ENUM, "ollama,openai,claude,gemini,deepseek,qwen,codeium,amazonq,cursor")
 	_register_editor_setting(_es, "visual_gasic/ai/migrated_to_editor_settings", false, TYPE_BOOL)
 	# Narcea window geometry (persists across sessions via EditorSettings)
 	_register_editor_setting(_es, "visual_gasic/narcea/window_x", -1.0, TYPE_FLOAT)
@@ -555,11 +578,7 @@ func _enter_tree():
 	
 	# Create AI Help Panel — appears in Godot bottom panel by default (Godot IDE mode).
 	# In VG IDE mode it is re-parented into the embedded code editor's bottom tabs.
-	var ai_help_script = load("res://addons/visual_gasic/vg_ai_help.gd")
-	if ai_help_script:
-		_ai_help_panel = ai_help_script.new()
-		add_child(_ai_help_panel)
-		_ai_help_panel.visible = false
+	_ensure_ai_help_panel()
 	
 	# Register custom .vg file icon in the editor theme
 	call_deferred("_register_vg_file_icon")
@@ -758,14 +777,14 @@ func _enter_tree():
 		show_idx_btn.toggled.connect(_on_show_indexes_toggled)
 		toolbar_row.add_child(show_idx_btn)
 
-		# ── 3D View button — switches to embedded 3D Scene Editor ──
+		# ── 3D View button — Godot native 3D by default; optional VG simple editor ──
 		var view_3d_sep = VSeparator.new()
 		toolbar_row.add_child(view_3d_sep)
 
 		var view_3d_btn = Button.new()
+		_view_3d_btn = view_3d_btn
 		view_3d_btn.name = "View3DBtn"
 		view_3d_btn.text = "3D"
-		view_3d_btn.tooltip_text = "3D Scene Editor — edit 3D scenes inside the VG IDE"
 		view_3d_btn.flat = false
 		view_3d_btn.add_theme_font_size_override("font_size", 11)
 		view_3d_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
@@ -787,11 +806,11 @@ func _enter_tree():
 		view_3d_btn.pressed.connect(_on_3d_view_pressed)
 		toolbar_row.add_child(view_3d_btn)
 
-		# ── 2D Scene Editor button — switches to embedded 2D Scene Editor ──
+		# ── 2D Scene button — Godot native 2D by default; optional VG simple editor ──
 		var view_2d_btn = Button.new()
+		_view_2d_btn = view_2d_btn
 		view_2d_btn.name = "View2DBtn"
 		view_2d_btn.text = "2D"
-		view_2d_btn.tooltip_text = "2D Scene Editor — edit 2D game scenes inside the VG IDE"
 		view_2d_btn.flat = false
 		view_2d_btn.add_theme_font_size_override("font_size", 11)
 		view_2d_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
@@ -812,6 +831,8 @@ func _enter_tree():
 		view_2d_btn.add_theme_stylebox_override("pressed", view_2d_pressed)
 		view_2d_btn.pressed.connect(_on_2d_view_pressed)
 		toolbar_row.add_child(view_2d_btn)
+		_view_2d_btn = view_2d_btn
+		_refresh_scene_view_button_tooltips()
 
 		# ── Sprite Editor button — switches to embedded Piskel-style pixel art editor ──
 		var view_sprite_btn = Button.new()
@@ -1366,7 +1387,7 @@ func _make_visible(p_visible: bool) -> void:
 	# Hide Godot's own docks & bottom panel to maximize VB6 IDE experience
 	if p_visible:
 		_hide_godot_panels()
-		# Re-check plugin enabled states so that toggling vg/plugins/*/enabled
+		# Re-check plugin enabled states so that toggling vg/plugins/* booleans
 		# in Godot's Project Settings takes effect without a full restart.
 		if _vg_plugin_manager and _vg_plugin_manager.has_method("rescan_plugin_settings"):
 			_vg_plugin_manager.rescan_plugin_settings()
@@ -1417,6 +1438,7 @@ func _make_visible(p_visible: bool) -> void:
 	# disk and wipe the in-memory controls.
 	if p_visible and _form_designer and not _switching_to_code_editor:
 		_sync_scene_to_form_designer()
+	call_deferred("_sync_bottom_panel_mount")
 	# Show Tip of the Day on first visit to Form Designer this session
 	if p_visible and not _tip_shown_this_session:
 		_tip_shown_this_session = true
@@ -1518,13 +1540,11 @@ func _do_exit_to_welcome() -> void:
 	# Hand off to the new instance, then quit ours.
 	get_tree().quit()
 
-## Called when user clicks the "🎲 3D View" button in the VG toolbar.
-## Switches to the embedded 3D Scene Editor within the VG IDE.
+## Called when user clicks the "3D" button in the VG toolbar.
 func _on_3d_view_pressed() -> void:
 	_show_3d_view()
 
-## Called when user clicks the "🎮 2D Scene Editor" button in the VG toolbar.
-## Switches to the embedded 2D Scene Editor within the VG IDE.
+## Called when user clicks the "2D" button in the VG toolbar.
 ##
 ## Special case: when an AGCK (or similar) plugin is active, the 2D viewport
 ## is fed by the AGCK build pipeline. So we delegate to the plugin's
@@ -1859,6 +1879,10 @@ func _exit_tree():
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_props_btn)
 		_vg_props_btn.queue_free()
 		_vg_props_btn = null
+	if is_instance_valid(_vg_panels_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_panels_btn)
+		_vg_panels_btn.queue_free()
+		_vg_panels_btn = null
 	if is_instance_valid(_wire_event_btn):
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _wire_event_btn)
 		_wire_event_btn.queue_free()
@@ -1983,11 +2007,11 @@ func _exit_tree():
 			remove_control_from_container(EditorPlugin.CONTAINER_TOOLBAR, _narcea_toolbar_btn)
 		_narcea_toolbar_btn.queue_free()
 		_narcea_toolbar_btn = null
-	# Cleanup Narcea floating window
-	if is_instance_valid(_narcea_window):
-		_save_narcea_window_geometry()
-		_narcea_window.queue_free()
-		_narcea_window = null
+	# Cleanup floating bottom panels window
+	if is_instance_valid(_vg_bottom_float):
+		_save_vg_bottom_float_geometry()
+		_vg_bottom_float.queue_free()
+		_vg_bottom_float = null
 	# Cleanup AI Help Panel (IDE bottom tab or plugin child)
 	if is_instance_valid(_ai_help_panel):
 		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("remove_bottom_tab"):
@@ -9392,12 +9416,7 @@ func _embed_ide_bottom_panels() -> void:
 		_embedded_code_editor.add_bottom_tab("Packages", _package_browser)
 		print("VisualGasic: Package Browser embedded in IDE bottom tabs")
 
-	if is_instance_valid(_ai_help_panel):
-		# Hide the floating window if open — VG IDE claims the panel instead
-		if is_instance_valid(_narcea_window):
-			_narcea_window.visible = false
-		_embedded_code_editor.add_bottom_tab("AI Pair", _ai_help_panel)
-		print("VisualGasic: AI Help embedded in IDE bottom tabs")
+	_ensure_ai_pair_bottom_tab()
 
 	# Create and embed the Hex Editor here so it is guaranteed to run after
 	# the IDE layout and bottom tab container are fully built.
@@ -9431,6 +9450,47 @@ func _embed_ide_bottom_panels() -> void:
 		print("VisualGasic: Hex Editor tab added — tab count now: " + str(_embedded_code_editor.get_node("BottomPanel/BottomTabs").get_tab_count()) if _embedded_code_editor.has_node("BottomPanel/BottomTabs") else "VisualGasic: Hex Editor tab added")
 	else:
 		push_error("VisualGasic: Hex Editor still invalid after creation attempt")
+	call_deferred("_sync_bottom_panel_mount")
+
+
+func _ensure_ai_help_panel() -> void:
+	if is_instance_valid(_ai_help_panel):
+		return
+	var ai_help_script = load("res://addons/visual_gasic/vg_ai_help.gd")
+	if ai_help_script == null:
+		push_error("VisualGasic: failed to load vg_ai_help.gd — AI Pair disabled")
+		return
+	_ai_help_panel = ai_help_script.new()
+	if not is_instance_valid(_ai_help_panel):
+		push_error("VisualGasic: vg_ai_help.gd failed to instantiate — AI Pair disabled")
+		_ai_help_panel = null
+		return
+	add_child(_ai_help_panel)
+	_ai_help_panel.visible = false
+	print("VisualGasic: AI Help panel created")
+
+
+func _ai_pair_is_embedded() -> bool:
+	if not is_instance_valid(_ai_help_panel) or not is_instance_valid(_embedded_code_editor):
+		return false
+	if not ("_bottom_tabs" in _embedded_code_editor):
+		return false
+	var tabs: Variant = _embedded_code_editor.get("_bottom_tabs")
+	if tabs == null or not is_instance_valid(tabs):
+		return false
+	return _ai_help_panel.get_parent() == tabs
+
+
+func _ensure_ai_pair_bottom_tab() -> void:
+	_ensure_ai_help_panel()
+	if not is_instance_valid(_ai_help_panel) or not is_instance_valid(_embedded_code_editor):
+		return
+	if not _embedded_code_editor.has_method("add_bottom_tab"):
+		return
+	if _ai_pair_is_embedded():
+		return
+	_embedded_code_editor.add_bottom_tab("AI Pair", _ai_help_panel)
+	print("VisualGasic: AI Help embedded in IDE bottom tabs")
 
 ## Debug.Print output from running game → Output tab
 func _on_debug_print_to_output(text: String) -> void:
@@ -9632,6 +9692,7 @@ func _show_code_view() -> void:
 		_vg_sprite_editor.visible = false
 	if is_instance_valid(_embedded_code_editor):
 		_embedded_code_editor.visible = true
+		call_deferred("_sync_bottom_panel_mount")
 		# Deferred focus so layout settles
 		var ce = _embedded_code_editor.get_code_edit()
 		if ce:
@@ -9770,10 +9831,112 @@ func _show_form_view() -> void:
 
 	_set_form_designer_widgets_visible(true)
 
+	call_deferred("_sync_bottom_panel_mount")
+
 	print("VisualGasic: Switched to Form View")
 
-## Switch the center panel to the embedded 3D Scene Editor.
+## True when IDE 2D/3D buttons should open VG's embedded simple editors.
+func _use_simple_scene_editors() -> bool:
+	if ProjectSettings.has_setting(SETTING_USE_SIMPLE_SCENE_EDITORS):
+		return bool(ProjectSettings.get_setting(SETTING_USE_SIMPLE_SCENE_EDITORS, false))
+	if ProjectSettings.has_setting(LEGACY_SETTING_USE_SIMPLE_SCENE_EDITORS):
+		return bool(ProjectSettings.get_setting(LEGACY_SETTING_USE_SIMPLE_SCENE_EDITORS, false))
+	return false
+
+func _on_vg_project_settings_changed() -> void:
+	_refresh_scene_view_button_tooltips()
+
+func _refresh_scene_view_button_tooltips() -> void:
+	if not is_instance_valid(_view_2d_btn) or not is_instance_valid(_view_3d_btn):
+		return
+	if _use_simple_scene_editors():
+		_view_2d_btn.tooltip_text = (
+			"Simple 2D Scene Editor (VG) — experimental embedded viewport. "
+			+ "Disable in Project Settings → Vg → Scene Editors → Simple 2d 3d."
+		)
+		_view_3d_btn.tooltip_text = (
+			"Simple 3D Scene Editor (VG) — experimental embedded viewport. "
+			+ "Disable in Project Settings → Vg → Scene Editors → Simple 2d 3d."
+		)
+	else:
+		_view_2d_btn.tooltip_text = "Godot 2D Editor — edit scenes with Godot's native 2D viewport"
+		_view_3d_btn.tooltip_text = "Godot 3D Editor — edit scenes with Godot's native 3D viewport"
+
+## Route 2D toolbar button to Godot native or VG simple editor (project setting).
+func _show_2d_view() -> void:
+	if _use_simple_scene_editors():
+		_show_vg_2d_view()
+	else:
+		_show_godot_2d_view()
+
+## Route 3D toolbar button to Godot native or VG simple editor (project setting).
 func _show_3d_view() -> void:
+	if _use_simple_scene_editors():
+		_show_vg_3d_view()
+	else:
+		_show_godot_3d_view()
+
+func _reset_vg_canvas_view_flags() -> void:
+	if _showing_plugin_view and _vg_plugin_manager:
+		_vg_plugin_manager.deactivate_all()
+	_showing_code_view = false
+	_showing_2d_view = false
+	_showing_3d_view = false
+	_showing_sprite_view = false
+	_showing_plugin_view = false
+
+func _hide_vg_embedded_scene_editors() -> void:
+	if is_instance_valid(_vg_2d_editor):
+		_vg_2d_editor.visible = false
+	if is_instance_valid(_vg_3d_editor):
+		_vg_3d_editor.visible = false
+
+func _resolve_scene_path_for_godot_editor() -> String:
+	var edited = EditorInterface.get_edited_scene_root()
+	if edited and not edited.scene_file_path.is_empty():
+		return edited.scene_file_path
+	if is_instance_valid(_vg_2d_editor) and _vg_2d_editor.has_method("get_scene_path"):
+		var p2d: String = _vg_2d_editor.get_scene_path()
+		if not p2d.is_empty():
+			return p2d
+	if is_instance_valid(_vg_3d_editor) and _vg_3d_editor.has_method("get_scene_path"):
+		var p3d: String = _vg_3d_editor.get_scene_path()
+		if not p3d.is_empty():
+			return p3d
+	return _find_first_scene_in_project()
+
+## Switch to Godot's native 2D editor (default for IDE 2D button).
+func _show_godot_2d_view() -> void:
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+		_embedded_code_editor.save_file()
+	_reset_vg_canvas_view_flags()
+	_hide_vg_embedded_scene_editors()
+	_show_godot_panels()
+	var scene_path := _resolve_scene_path_for_godot_editor()
+	if not scene_path.is_empty():
+		EditorInterface.open_scene_from_path(scene_path)
+	EditorInterface.set_main_screen_editor("2D")
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  Godot 2D Editor"
+	print("VisualGasic: Switched to Godot 2D Editor")
+
+## Switch to Godot's native 3D editor (default for IDE 3D button).
+func _show_godot_3d_view() -> void:
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+		_embedded_code_editor.save_file()
+	_reset_vg_canvas_view_flags()
+	_hide_vg_embedded_scene_editors()
+	_show_godot_panels()
+	var scene_path := _resolve_scene_path_for_godot_editor()
+	if not scene_path.is_empty():
+		EditorInterface.open_scene_from_path(scene_path)
+	EditorInterface.set_main_screen_editor("3D")
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  Godot 3D Editor"
+	print("VisualGasic: Switched to Godot 3D Editor")
+
+## Switch the center panel to the embedded 3D Scene Editor (simple mode only).
+func _show_vg_3d_view() -> void:
 	# If already in 3D view, still try auto-load in case the scene
 	# failed to load on the first attempt, then return.
 	if _showing_3d_view:
@@ -9857,9 +10020,9 @@ func _auto_load_3d_scene() -> void:
 	else:
 		print("[VG-AUTOLOAD-3D]   Skipped: editor invalid or scene already loaded")
 
-## Switch the center panel to the embedded 2D Scene Editor.
-func _show_2d_view() -> void:
-	print("[VG-SHOW2D] _show_2d_view called. _showing_2d_view=", _showing_2d_view)
+## Switch the center panel to the embedded 2D Scene Editor (simple mode only).
+func _show_vg_2d_view() -> void:
+	print("[VG-SHOW2D] _show_vg_2d_view called. _showing_2d_view=", _showing_2d_view)
 	# If already in 2D view, still try auto-load in case the scene
 	# failed to load on the first attempt, then return.
 	if _showing_2d_view:
@@ -10445,6 +10608,31 @@ func _register_project_setting(path: String, default, type: int, hint: int = PRO
 		"hint_string": hint_string,
 	})
 
+## Register IDE scene-editor mode (Godot native vs VG simple SubViewport editors).
+func _ensure_scene_editor_project_settings() -> void:
+	if ProjectSettings.has_setting(LEGACY_SETTING_USE_SIMPLE_SCENE_EDITORS) \
+			and not ProjectSettings.has_setting(SETTING_USE_SIMPLE_SCENE_EDITORS):
+		ProjectSettings.set_setting(
+			SETTING_USE_SIMPLE_SCENE_EDITORS,
+			ProjectSettings.get_setting(LEGACY_SETTING_USE_SIMPLE_SCENE_EDITORS)
+		)
+	if ProjectSettings.has_setting(LEGACY_SETTING_USE_SIMPLE_SCENE_EDITORS):
+		ProjectSettings.set_setting(LEGACY_SETTING_USE_SIMPLE_SCENE_EDITORS, null)
+	_register_project_setting(SETTING_USE_SIMPLE_SCENE_EDITORS, false, TYPE_BOOL)
+
+## Document Python bridge Tier B toggle (registered in C++; add_property_info here for editor UI).
+func _register_python_project_settings() -> void:
+	const KEY := "vg/python/embedded_enabled"
+	if not ProjectSettings.has_setting(KEY):
+		ProjectSettings.set_setting(KEY, false)
+	ProjectSettings.set_initial_value(KEY, false)
+	ProjectSettings.add_property_info({
+		"name": KEY,
+		"type": TYPE_BOOL,
+		"hint": PROPERTY_HINT_NONE,
+		"hint_string": "",
+	})
+
 ## Register an editor setting in EditorSettings with hint info and a default
 ## value. No-op if already registered, preserving the user's saved value.
 func _register_editor_setting(es: EditorSettings, path: String, default, type: int, hint: int = PROPERTY_HINT_NONE, hint_string: String = "") -> void:
@@ -10600,76 +10788,169 @@ func _on_toggle_tweak_overlay() -> void:
 	else:
 		push_warning("VisualGasic: Cannot toggle tweak overlay — debugger plugin unavailable or no active session.")
 
-## Save Narcea window size and position to EditorSettings.
-func _save_narcea_window_geometry() -> void:
-	if not is_instance_valid(_narcea_window):
+## Save floating bottom-panels window size and position to EditorSettings.
+func _save_vg_bottom_float_geometry() -> void:
+	if not is_instance_valid(_vg_bottom_float):
 		return
 	var es := get_editor_interface().get_editor_settings()
-	es.set_setting("visual_gasic/narcea/window_x", _narcea_window.position.x)
-	es.set_setting("visual_gasic/narcea/window_y", _narcea_window.position.y)
-	es.set_setting("visual_gasic/narcea/window_w", _narcea_window.size.x)
-	es.set_setting("visual_gasic/narcea/window_h", _narcea_window.size.y)
+	es.set_setting("visual_gasic/narcea/window_x", _vg_bottom_float.position.x)
+	es.set_setting("visual_gasic/narcea/window_y", _vg_bottom_float.position.y)
+	es.set_setting("visual_gasic/narcea/window_w", _vg_bottom_float.size.x)
+	es.set_setting("visual_gasic/narcea/window_h", _vg_bottom_float.size.y)
 
-## Toggle Narcea AI Pair floating window (Godot IDE mode).
-## In VG IDE mode the panel is embedded in the code editor's bottom tabs instead.
-## Keyboard shortcut: Ctrl+Shift+N. Also accessible via toolbar button or Project > Tools.
-func _on_toggle_narcea_panel() -> void:
-	if not is_instance_valid(_ai_help_panel):
+
+## True when bottom tabs belong in the code-editor split (VG IDE Code view).
+func _bottom_panel_should_embed() -> bool:
+	return is_instance_valid(_ide_layout) and _ide_layout.visible and _showing_code_view
+
+
+## Reparent bottom tabs between the code-editor split and the Godot IDE float.
+func _sync_bottom_panel_mount() -> void:
+	if not is_instance_valid(_embedded_code_editor):
 		return
-	# VG IDE mode: focus embedded bottom tab
-	if is_instance_valid(_ide_layout) and _ide_layout.visible:
-		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_bottom_tab"):
-			_embedded_code_editor.focus_bottom_tab(_ai_help_panel)
+	if not _embedded_code_editor.has_method("get_bottom_panel"):
 		return
-	# Godot IDE mode: toggle existing floating window
-	if is_instance_valid(_narcea_window):
-		if _narcea_window.visible:
-			_save_narcea_window_geometry()
-		_narcea_window.visible = not _narcea_window.visible
+	_ensure_ai_pair_bottom_tab()
+	if _bottom_panel_should_embed():
+		_mount_bottom_panel_embedded()
+	else:
+		_mount_bottom_panel_floating()
+
+
+func _mount_bottom_panel_embedded() -> void:
+	if is_instance_valid(_vg_bottom_float):
+		_vg_bottom_float.visible = false
+	if _embedded_code_editor.has_method("attach_bottom_panel_to_split"):
+		_embedded_code_editor.attach_bottom_panel_to_split()
+	var bp: Variant = _embedded_code_editor.get_bottom_panel()
+	if bp is Control:
+		(bp as Control).visible = true
+
+
+func _mount_bottom_panel_floating() -> void:
+	_ensure_vg_bottom_float_window()
+	if not is_instance_valid(_vg_bottom_float):
 		return
-	# First call — load saved geometry
+	var content_area: Control = _vg_bottom_float.get_meta("_content")
+	if content_area and _embedded_code_editor.has_method("attach_bottom_panel_to"):
+		_embedded_code_editor.attach_bottom_panel_to(content_area)
+	var bp: Variant = _embedded_code_editor.get_bottom_panel()
+	if bp is Control:
+		(bp as Control).visible = true
+
+
+func _ensure_vg_bottom_float_window() -> void:
+	if is_instance_valid(_vg_bottom_float):
+		return
 	var es := get_editor_interface().get_editor_settings()
-	var saved_w: float = es.get_setting("visual_gasic/narcea/window_w")
-	var saved_h: float = es.get_setting("visual_gasic/narcea/window_h")
-	var saved_x: float = es.get_setting("visual_gasic/narcea/window_x")
-	var saved_y: float = es.get_setting("visual_gasic/narcea/window_y")
-	_narcea_window = _create_floating_panel("Narcea AI Pair", Vector2(saved_w, saved_h))
-	var content_area = _narcea_window.get_meta("_content")
-	# Add a thin reset strip at the top of the content area
-	var reset_bar := HBoxContainer.new()
-	reset_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var reset_btn := Button.new()
-	reset_btn.text = "↺ Reset Size & Position"
-	reset_btn.flat = true
-	reset_btn.add_theme_font_size_override("font_size", 10)
-	reset_btn.pressed.connect(func():
-		var base_size := get_editor_interface().get_base_control().get_rect().size
-		_narcea_window.size = Vector2(520, 640)
-		_narcea_window.position = Vector2(base_size.x - 560, 60)
-		_save_narcea_window_geometry()
+	var saved_w: float = 720.0
+	var saved_h: float = 360.0
+	var saved_x: float = -1.0
+	var saved_y: float = -1.0
+	if es.has_setting("visual_gasic/narcea/window_w"):
+		saved_w = float(es.get_setting("visual_gasic/narcea/window_w"))
+	if es.has_setting("visual_gasic/narcea/window_h"):
+		saved_h = float(es.get_setting("visual_gasic/narcea/window_h"))
+	if es.has_setting("visual_gasic/narcea/window_x"):
+		saved_x = float(es.get_setting("visual_gasic/narcea/window_x"))
+	if es.has_setting("visual_gasic/narcea/window_y"):
+		saved_y = float(es.get_setting("visual_gasic/narcea/window_y"))
+	if saved_w < 200.0:
+		saved_w = 720.0
+	if saved_h < 150.0:
+		saved_h = 360.0
+	_vg_bottom_float = _create_floating_panel("Visual Gasic Panels", Vector2(saved_w, saved_h))
+	var content_area: Control = _vg_bottom_float.get_meta("_content")
+	if content_area:
+		content_area.custom_minimum_size = Vector2(400, 180)
+	_vg_bottom_float.visibility_changed.connect(func():
+		if is_instance_valid(_vg_bottom_float) and not _vg_bottom_float.visible:
+			_save_vg_bottom_float_geometry()
 	)
-	reset_bar.add_child(reset_btn)
-	content_area.add_child(reset_bar)
-	content_area.move_child(reset_bar, 0)
-	# Re-parent the AI panel into the floating window's content area
-	if _ai_help_panel.get_parent():
-		_ai_help_panel.get_parent().remove_child(_ai_help_panel)
-	_ai_help_panel.visible = true
-	_ai_help_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_ai_help_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content_area.add_child(_ai_help_panel)
-	# Save geometry on close (× button hides the window)
-	_narcea_window.visibility_changed.connect(func():
-		if not _narcea_window.visible:
-			_save_narcea_window_geometry()
-	)
-	get_editor_interface().get_base_control().add_child(_narcea_window)
-	# Restore saved position or default to centre-right
+	get_editor_interface().get_base_control().add_child(_vg_bottom_float)
+	_vg_bottom_float.visible = false
 	if saved_x >= 0.0 and saved_y >= 0.0:
-		_narcea_window.position = Vector2(saved_x, saved_y)
+		_vg_bottom_float.position = Vector2(saved_x, saved_y)
 	else:
 		var screen_size := get_editor_interface().get_base_control().get_rect().size
-		_narcea_window.position = Vector2(screen_size.x - 560, 60)
+		_vg_bottom_float.position = Vector2(80, maxf(60.0, screen_size.y - saved_h - 80.0))
+	_clamp_vg_bottom_float_to_editor()
+
+
+func _clamp_vg_bottom_float_to_editor() -> void:
+	if not is_instance_valid(_vg_bottom_float):
+		return
+	var base := get_editor_interface().get_base_control()
+	if base == null:
+		return
+	var rect := base.get_rect()
+	var pos := _vg_bottom_float.position
+	pos.x = clampf(pos.x, 0.0, maxf(0.0, rect.size.x - 80.0))
+	pos.y = clampf(pos.y, 0.0, maxf(0.0, rect.size.y - 40.0))
+	_vg_bottom_float.position = pos
+
+
+func _show_vg_bottom_float_window(focus_ai_pair: bool = false) -> void:
+	_sync_bottom_panel_mount()
+	_ensure_vg_bottom_float_window()
+	if not is_instance_valid(_vg_bottom_float):
+		return
+	_clamp_vg_bottom_float_to_editor()
+	_vg_bottom_float.visible = true
+	_vg_bottom_float.move_to_front()
+	if focus_ai_pair:
+		call_deferred("_focus_ai_pair_in_bottom_panel")
+
+
+func _toggle_vg_bottom_float_window(focus_ai_pair: bool = false) -> void:
+	_ensure_vg_bottom_float_window()
+	if not is_instance_valid(_vg_bottom_float):
+		return
+	_sync_bottom_panel_mount()
+	if _vg_bottom_float.visible:
+		_save_vg_bottom_float_geometry()
+		_vg_bottom_float.visible = false
+	else:
+		_show_vg_bottom_float_window(focus_ai_pair)
+
+
+func _focus_ai_pair_in_bottom_panel() -> void:
+	if not is_instance_valid(_embedded_code_editor) or not is_instance_valid(_ai_help_panel):
+		return
+	if _embedded_code_editor.has_method("focus_bottom_tab"):
+		_embedded_code_editor.focus_bottom_tab(_ai_help_panel)
+	if is_instance_valid(_ai_help_panel):
+		_ai_help_panel.visible = true
+		_focus_ai_help_panel_deferred(_ai_help_panel)
+
+
+## Toggle Narcea AI Pair — VG IDE tab embeds in Code view; Godot 2D/3D/Script floats.
+## Keyboard shortcut: Ctrl+Shift+N.
+func _on_toggle_narcea_panel() -> void:
+	_ensure_ai_help_panel()
+	if not is_instance_valid(_ai_help_panel):
+		push_warning("VisualGasic: AI Pair panel unavailable — check Errors for vg_ai_help.gd issues")
+		return
+	# VG IDE main screen: open Code view + embedded AI Pair tab (never float here).
+	if is_instance_valid(_ide_layout) and _ide_layout.visible:
+		_open_ai_pair_in_vg_ide()
+		return
+	# Godot native screens: floating bottom tabs (Immediate, Output, AI Pair, …).
+	_toggle_vg_bottom_float_window(true)
+
+
+func _open_ai_pair_in_vg_ide() -> void:
+	if not is_instance_valid(_ide_layout) or not _ide_layout.visible:
+		return
+	if not _showing_code_view:
+		_show_code_view()
+	_sync_bottom_panel_mount()
+	if is_instance_valid(_embedded_code_editor):
+		if "_bottom_panel" in _embedded_code_editor:
+			var bp: Variant = _embedded_code_editor.get("_bottom_panel")
+			if bp is Control:
+				(bp as Control).visible = true
+	_focus_ai_pair_in_bottom_panel()
 
 ## Opens the Snippet Browser dialog (v2.4.1)
 func _on_open_snippet_browser():
@@ -12351,6 +12632,8 @@ func _on_main_screen_changed(screen_name: String):
 	if _project_explorer and is_instance_valid(_project_explorer) and _project_explorer.visible:
 		_project_explorer.refresh()
 
+	call_deferred("_sync_bottom_panel_mount")
+
 	# Throttle live previews when Form Designer is not the active screen
 	if _live_preview_mgr:
 		var is_form_screen := (screen_name == "VisualGasic" or screen_name == "VB6")
@@ -14019,6 +14302,14 @@ func _setup_ui_forms_toolbar_button() -> void:
 	_vg_props_btn.pressed.connect(_on_vg_props_btn_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_props_btn)
 
+	# ── VG Panels (Immediate, Output, AI Pair, …) ─────────────────────────────
+	_vg_panels_btn = Button.new()
+	_vg_panels_btn.text = "📊 VG Panels"
+	_vg_panels_btn.tooltip_text = "Open Visual Gasic bottom panels (Immediate, Output, AI Pair, …)"
+	_vg_panels_btn.flat = true
+	_vg_panels_btn.pressed.connect(_on_vg_panels_btn_pressed)
+	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_panels_btn)
+
 	# ── Narcea AI — injected into main screen tab row next to Visual Gasic IDE ──
 	_narcea_toolbar_btn = Button.new()
 	_narcea_toolbar_btn.text = "🤖 Narcea AI"
@@ -14118,6 +14409,17 @@ func _vg_ctrl_disarm() -> void:
 
 func _on_vg_props_btn_pressed() -> void:
 	_ui_forms_show_props_window()
+
+
+func _on_vg_panels_btn_pressed() -> void:
+	if is_instance_valid(_ide_layout) and _ide_layout.visible and _showing_code_view:
+		# Already in VG IDE Code view — bottom tabs are embedded; just show them.
+		if is_instance_valid(_embedded_code_editor):
+			var bp: Variant = _embedded_code_editor.get_bottom_panel() if _embedded_code_editor.has_method("get_bottom_panel") else null
+			if bp is Control:
+				(bp as Control).visible = true
+		return
+	_show_vg_bottom_float_window(false)
 
 
 # ─── Wire Event ──────────────────────────────────────────────────────────────

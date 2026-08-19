@@ -7,19 +7,51 @@ VisualGasic extends the Godot Editor with several tools designed to make Visual 
 ## Plugin Activation (v5.3.0+)
 
 As of v5.3.0, VG sub-plugins (AGCK, Working Nodes, UI Forms, VGMusic, etc.) are
-**disabled by default** and must be opted-in via **Project → Project Settings**:
+**disabled by default** and must be opted-in via **Project → Project Settings → Vg → Plugins**.
+Each plugin appears as a single **On** checkbox (no nested "Enabled" row).
 
 ```
-vg/plugins/agck/enabled = true
-vg/plugins/working_nodes/enabled = true
-vg/plugins/ui_forms/enabled = true
-vg/plugins/vector_graphics/enabled = true
-vg/plugins/gdai/enabled = true
+vg/plugins/agck = true
+vg/plugins/working_nodes = true
+vg/plugins/ui_forms = true
+vg/plugins/vector_graphics = true
+vg/plugins/gdai = true
 ```
+
+Legacy paths (`vg/plugins/<id>/enabled`) are still read if present.
 
 Set any of these to `true` in your project's settings to load the corresponding
 plugin. The VG IDE itself no longer auto-opens on project load — switch to it
 via the **Visual Gasic IDE** button in the top toolbar.
+
+---
+
+## 2D / 3D Scene Editors
+
+The IDE toolbar **2D** and **3D** buttons open **Godot's native** scene editors
+by default (recommended).
+
+To use Visual Gasic's experimental embedded 2D/3D viewports instead:
+
+**Project → Project Settings → Vg → Scene Editors → Simple 2d 3d** (`vg/scene_editors/simple_2d_3d`)
+
+This is separate from sub-plugins such as **Vg 3d** under **Vg → Plugins** — those
+load optional VG IDE modules, not the main 2D/3D viewport routing.
+
+---
+
+## Narcea AI Pair + Cursor
+
+| Goal | What to use |
+|------|-------------|
+| In-Godot help, VG-aware prompts (default) | **Narcea** + Ollama / Gemini / DeepSeek |
+| Composer inside the AI Pair panel | Provider **⬡ Cursor (Composer)** — needs API key + `pip install cursor-sdk` |
+| Full Cursor IDE (diffs, native agent tools) | **↗ Cursor** handoff — opens project in Cursor + MCP auto-config |
+
+**MCP:** With Godot running, `.cursor/mcp.json` exposes **visual-gasic** at `http://127.0.0.1:8766/mcp`.
+Enable it in Cursor → Settings → Tools & MCP.
+
+See [Cursor + Narcea roadmap](../development/CURSOR_NARCEA_ROADMAP.md) for the full plan.
 
 ---
 

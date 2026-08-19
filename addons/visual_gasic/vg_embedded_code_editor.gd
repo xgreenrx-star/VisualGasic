@@ -346,6 +346,11 @@ func _build_bottom_panel() -> void:
 	_bottom_tabs.add_theme_font_size_override("font_size", 11)
 	_bottom_tabs.add_theme_color_override("font_selected_color", Color(0.0, 0.0, 0.4))
 	_bottom_tabs.add_theme_color_override("font_unselected_color", Color(0.3, 0.3, 0.3))
+	# Allow many bottom tabs (AI Pair, Hex Editor, …) without losing the last ones off-screen.
+	if "clip_tabs" in _bottom_tabs:
+		_bottom_tabs.clip_tabs = false
+	if "scroll_to_selected" in _bottom_tabs:
+		_bottom_tabs.scroll_to_selected = true
 
 	# Tab 0: Immediate — placeholder, populated via set_immediate_window()
 	var imm_placeholder := Control.new()
@@ -479,10 +484,61 @@ func remove_bottom_tab(panel: Control) -> void:
 	if panel.get_parent() == _bottom_tabs:
 		_bottom_tabs.remove_child(panel)
 
+## Returns the outer bottom panel (Immediate, Output, AI Pair, … tabs).
+func get_bottom_panel() -> Control:
+	return _bottom_panel
+
+## Detach the bottom panel from the code-editor split or a float host.
+func detach_bottom_panel() -> void:
+	if not _bottom_panel:
+		return
+	if _bottom_panel.get_parent():
+		_bottom_panel.get_parent().remove_child(_bottom_panel)
+
+## Re-attach the bottom panel below the code editor (VG IDE Code view).
+func attach_bottom_panel_to_split() -> void:
+	if not _bottom_panel or not _main_split:
+		return
+	if _bottom_panel.get_parent() == _main_split:
+		return
+	detach_bottom_panel()
+	_bottom_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bottom_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_bottom_panel.custom_minimum_size = Vector2(0, 80)
+	_main_split.add_child(_bottom_panel)
+	if _main_split.get_child_count() >= 2:
+		_main_split.move_child(_bottom_panel, 1)
+
+## Re-attach the bottom panel into a floating host (Godot 2D/3D/Script IDE).
+func attach_bottom_panel_to(host: Control) -> void:
+	if not _bottom_panel or not host:
+		return
+	if _bottom_panel.get_parent() == host:
+		return
+	detach_bottom_panel()
+	_bottom_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_bottom_panel.offset_left = 0
+	_bottom_panel.offset_top = 0
+	_bottom_panel.offset_right = 0
+	_bottom_panel.offset_bottom = 0
+	_bottom_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bottom_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_bottom_panel.custom_minimum_size = Vector2(200, 120)
+	host.add_child(_bottom_panel)
+
 ## Switch to a specific bottom tab by panel reference.
 func focus_bottom_tab(panel: Control) -> void:
 	if not _bottom_tabs or not panel:
 		return
+	if panel.get_parent() == _bottom_tabs:
+		var idx := panel.get_index()
+		if idx >= 0:
+			_bottom_tabs.current_tab = idx
+			return
+	for i in range(_bottom_tabs.get_tab_count()):
+		if _bottom_tabs.get_tab_title(i) == "AI Pair" and panel.name == "AI Pair":
+			_bottom_tabs.current_tab = i
+			return
 	var idx := panel.get_index()
 	if idx >= 0:
 		_bottom_tabs.current_tab = idx

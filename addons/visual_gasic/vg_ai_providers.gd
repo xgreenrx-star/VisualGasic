@@ -138,6 +138,20 @@ static func get_providers() -> Array:
 	amazonq.default_model = "anthropic.claude-3-5-sonnet-20241022-v2:0"
 	providers.append(amazonq)
 
+	# ── Cursor (Composer via SDK) ──
+	# Optional Tier 2 — spawns cursor-sdk subprocess; requires CURSOR_API_KEY + pip install cursor-sdk.
+	var cursor := ProviderInfo.new()
+	cursor.id = "cursor"
+	cursor.display_name = "⬡ Cursor (Composer)"
+	cursor.is_local = false
+	cursor.api_host = ""
+	cursor.api_port = 0
+	cursor.api_path = ""
+	cursor.use_tls = false
+	cursor.models = ["composer-2.5", "composer-2.5-fast"]
+	cursor.default_model = "composer-2.5"
+	providers.append(cursor)
+
 	# Apply cached model overrides from EditorSettings (if any)
 	var es := _editor_settings()
 	if es != null:
@@ -155,13 +169,17 @@ static func prune_cached_model_lists() -> void:
 	var es := _editor_settings()
 	if es == null:
 		return
-	for pid in ["gemini", "openai", "claude", "deepseek", "qwen", "codeium", "amazonq", "ollama"]:
+	for pid in ["gemini", "openai", "claude", "deepseek", "qwen", "codeium", "amazonq", "cursor", "ollama"]:
 		var cached := _load_cached_models(es, pid)
 		if cached.is_empty():
 			continue
 		var filtered := filter_provider_model_list(pid, cached)
 		if filtered.size() != cached.size():
 			_save_cached_models(es, pid, filtered)
+
+static func is_cursor_provider(provider_id: String) -> bool:
+	return provider_id == "cursor"
+
 
 static func find_provider(provider_id: String) -> ProviderInfo:
 	for p in get_providers():
@@ -207,6 +225,7 @@ static func get_effective_provider(provider_id: String) -> ProviderInfo:
 #   visual_gasic/ai/amazonq_host     — Amazon Q Bedrock Access Gateway host
 #   visual_gasic/ai/amazonq_port     — Amazon Q Bedrock Access Gateway port
 #   visual_gasic/ai/amazonq_use_tls  — Amazon Q TLS flag
+#   visual_gasic/ai/cursor_key       — Cursor API key (Composer via SDK)
 #   visual_gasic/ai/preferred_provider — last-used provider id
 #
 # Registration: visual_gasic_plugin.gd _enter_tree() calls
@@ -530,6 +549,8 @@ static func refresh_models(provider_id: String) -> Dictionary:
 	var p := find_provider(provider_id)
 	if p == null:
 		return {'ok': false, 'error': 'Unknown provider: ' + provider_id}
+	if provider_id == "cursor":
+		return {'ok': true, 'models': p.models.duplicate(), 'removed': [], 'rejected': []}
 
 	var es := _editor_settings()
 	if es == null:

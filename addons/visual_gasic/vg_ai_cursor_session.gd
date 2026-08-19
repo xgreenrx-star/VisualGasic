@@ -1,0 +1,193 @@
+@tool
+extends Node
+class_name VGAiCursorSession
+## Streams a Cursor SDK agent run via `vg_cursor_agent.py` subprocess.
+##
+## Emits NDJSON events from stdout as stream_token / stream_error / stream_finished.
+
+signal stream_token(text: String)
+signal stream_error(message: String)
+signal stream_finished(status: String)
+
+const POLL_INTERVAL := 0.05
+const PYTHON_CANDIDATES := ["python3", "python"]
+
+var _pid: int = -1
+var _stdio: FileAccess = null
+var _stderr: FileAccess = null
+var _stdout_buf := ""
+var _stderr_buf := ""
+var _timer: Timer = null
+var _running := false
+var _request_path := ""
+var _finished_emitted := false
+
+
+func _ready() -> void:
+	_timer = Timer.new()
+	_timer.wait_time = POLL_INTERVAL
+	_timer.one_shot = false
+	_timer.timeout.connect(_poll)
+	add_child(_timer)
+
+
+static func agent_script_path() -> String:
+	return ProjectSettings.globalize_path("res://addons/visual_gasic/scripts/vg_cursor_agent.py")
+
+
+static func resolve_python() -> String:
+	var output: Array = []
+	for candidate in PYTHON_CANDIDATES:
+		var exit := OS.execute("bash", ["-lc", "command -v %s 2>/dev/null || true" % candidate], output, true, false)
+		if exit == 0 and output.size() > 0:
+			var path := str(output[0]).strip_edges()
+			if not path.is_empty() and FileAccess.file_exists(path):
+				return path
+	return ""
+
+
+static func cursor_sdk_available(python: String = "") -> bool:
+	var py := python if not python.is_empty() else resolve_python()
+	if py.is_empty():
+		return false
+	var output: Array = []
+	var exit := OS.execute(py, ["-c", "import cursor_sdk"], output, true, false)
+	return exit == 0
+
+
+func start(request: Dictionary) -> bool:
+	if _running:
+		stream_error.emit("Cursor agent already running.")
+		return false
+	_finished_emitted = false
+	var script := agent_script_path()
+	if not FileAccess.file_exists(script):
+		stream_error.emit("Missing Cursor bridge script: %s" % script)
+		return false
+	var python := resolve_python()
+	if python.is_empty():
+		stream_error.emit("python3 not found. Install Python 3 to use Cursor (Composer).")
+		return false
+	if not cursor_sdk_available(python):
+		stream_error.emit("cursor-sdk not installed. Run: pip install cursor-sdk")
+		return false
+
+	_request_path = OS.get_cache_dir().path_join(
+		"vg_cursor_req_%d.json" % Time.get_ticks_msec()
+	)
+	var f := FileAccess.open(_request_path, FileAccess.WRITE)
+	if f == null:
+		stream_error.emit("Could not write Cursor request file.")
+		return false
+	f.store_string(JSON.stringify(request))
+	f.close()
+
+	var info: Dictionary = OS.execute_with_pipe(
+		python,
+		PackedStringArray([script, _request_path])
+	)
+	if info.is_empty():
+		_cleanup_request_file()
+		stream_error.emit("Failed to spawn Cursor agent subprocess.")
+		return false
+
+	_pid = int(info.get("pid", -1))
+	_stdio = info.get("stdio")
+	_stderr = info.get("stderr")
+	if _pid <= 0:
+		_cleanup_request_file()
+		stream_error.emit("Cursor agent failed to start (pid=%d)." % _pid)
+		return false
+
+	_running = true
+	_stdout_buf = ""
+	_stderr_buf = ""
+	_timer.start()
+	return true
+
+
+func stop() -> void:
+	if _pid > 0:
+		OS.kill(_pid)
+	_finalise("cancelled")
+
+
+func is_running() -> bool:
+	return _running and _pid > 0 and OS.is_process_running(_pid)
+
+
+func _poll() -> void:
+	if not _running:
+		_timer.stop()
+		return
+	if _stdio:
+		var chunk := _stdio.get_as_text()
+		if not chunk.is_empty():
+			_stdout_buf += chunk
+			_drain_stdout()
+	if _stderr:
+		_stderr_buf += _stderr.get_as_text()
+	if _pid > 0 and not OS.is_process_running(_pid):
+		_drain_stdout(true)
+		if _running:
+			var exit_code := 0
+			if OS.has_method("get_process_exit_code"):
+				exit_code = int(OS.get_process_exit_code(_pid))
+			if exit_code != 0 and not _stderr_buf.strip_edges().is_empty():
+				stream_error.emit(_stderr_buf.strip_edges().left(500))
+			_finalise("finished" if exit_code == 0 else "error")
+
+
+func _drain_stdout(flush_tail: bool = false) -> void:
+	while true:
+		var nl := _stdout_buf.find("\n")
+		if nl == -1:
+			if flush_tail and not _stdout_buf.strip_edges().is_empty():
+				_handle_line(_stdout_buf.strip_edges())
+				_stdout_buf = ""
+			break
+		var line := _stdout_buf.substr(0, nl).strip_edges()
+		_stdout_buf = _stdout_buf.substr(nl + 1)
+		if not line.is_empty():
+			_handle_line(line)
+
+
+func _handle_line(line: String) -> void:
+	var parsed = JSON.parse_string(line)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	match str(parsed.get("type", "")):
+		"token":
+			var text := str(parsed.get("text", ""))
+			if not text.is_empty():
+				stream_token.emit(text)
+		"error":
+			stream_error.emit(str(parsed.get("message", "Cursor agent error")))
+			_finalise("error")
+		"done":
+			_finalise(str(parsed.get("status", "finished")))
+
+
+func _finalise(status: String) -> void:
+	if not _running:
+		return
+	_running = false
+	_finished_emitted = true
+	_timer.stop()
+	if _stdio:
+		_stdio.close()
+	if _stderr:
+		_stderr.close()
+	_stdio = null
+	_stderr = null
+	_pid = -1
+	_cleanup_request_file()
+	stream_finished.emit(status)
+
+
+func _cleanup_request_file() -> void:
+	if _request_path.is_empty():
+		return
+	if FileAccess.file_exists(_request_path):
+		DirAccess.remove_absolute(_request_path)
+	_request_path = ""
