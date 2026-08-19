@@ -6,6 +6,21 @@ extends RefCounted
 const EMPTY_MARKERS := ["' todo:", "todo: implement", "todo: add", "' todo"]
 
 
+static func prompt_is_pure_2d_game(prompt: String) -> bool:
+	var low := prompt.to_lower()
+	for t in [
+		"2d game", "game will be 2d", "will be 2d", " clone", " remake",
+		"joust", "pong", "breakout", "asteroids", "platformer", "shooter",
+		"arcade game", "side scroller", "top-down", "flappy", "space invaders",
+		"basic shapes", "drawrect", "canvas game", "node2d",
+	]:
+		if low.find(t) >= 0:
+			return true
+	if low.find("game") >= 0 and (low.find("2d") >= 0 or low.find("shape") >= 0):
+		return true
+	return false
+
+
 static func prompt_is_hybrid_form_game(prompt: String) -> bool:
 	var low := prompt.to_lower()
 	var has_form := false
@@ -20,7 +35,7 @@ static func prompt_is_hybrid_form_game(prompt: String) -> bool:
 		"2d game", "tic tac toe", "tictactoe", "show a game", "play a game",
 		"node2d", "_draw", "_process", "computer player", "arrow keys",
 		"canvas game", "drawrect", "game scene", "mini-game", "minigame",
-		"pong", "paddle", "score",
+		"pong", "paddle", "score", "joust", " clone",
 	]:
 		if low.find(t) >= 0:
 			has_game = true
@@ -28,6 +43,17 @@ static func prompt_is_hybrid_form_game(prompt: String) -> bool:
 	if has_form and has_game:
 		return true
 	return has_game and low.find("start") >= 0 and low.find("button") >= 0
+
+
+static func pure_2d_game_prompt_extra() -> String:
+	return (
+		" PURE 2D CANVAS GAME RULES: This is a Node2D game (not a Window form). "
+		+ "Emit vg-project-spec with files[] containing a Node2D .tscn plus matching .vg. "
+		+ "The .vg MUST use Sub _Ready(), Sub _Process(delta), and Sub _Draw() with "
+		+ "DrawRect / DrawCircle / DrawLine for graphics when no image assets exist. "
+		+ "Set main_scene to the game .tscn. Do NOT put game logic on a Window form. "
+		+ "Keep ≤ 6 files under res://ai_projects/<name>/."
+	)
 
 
 static func hybrid_project_prompt_extra() -> String:

@@ -2064,16 +2064,21 @@ func _detect_build_intent(prompt: String) -> String:
 	if low.is_empty():
 		return ""
 	const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
-	if ProjectSynth.prompt_is_hybrid_form_game(prompt):
+	if ProjectSynth.prompt_is_hybrid_form_game(prompt) or ProjectSynth.prompt_is_pure_2d_game(prompt):
 		return "project"
 	var project_triggers := [
 		"mini-project", "mini project", "runnable project", "scaffold a project",
 		"new project", "whole project", "full project", "vg-project-spec",
 		"make a game", "build a game", "create a game",
+		" clone", " remake", "game will be", "will be 2d",
 	]
 	for t in project_triggers:
 		if low.find(t) >= 0:
 			return "project"
+	if low.find("make ") >= 0 or low.find("build ") >= 0 or low.find("create ") >= 0:
+		for n in ["game", " clone", "2d", "arcade", "shooter", "platformer", "joust", "pong"]:
+			if low.find(n) >= 0:
+				return "project"
 	var code_triggers := [
 		"vg-code-spec", "write the code", "implement the handler",
 		"add the code", "code spec", "event handler for", "only the code",
@@ -2134,6 +2139,8 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 			const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
 			if ProjectSynth.prompt_is_hybrid_form_game(desc):
 				prompt += ProjectSynth.hybrid_project_prompt_extra()
+			elif ProjectSynth.prompt_is_pure_2d_game(desc):
+				prompt += ProjectSynth.pure_2d_game_prompt_extra()
 		_:
 			prompt = "Design a runnable Form Designer form from this description.\n\n"
 			prompt += "Description: " + desc + "\n\n"
@@ -4222,20 +4229,28 @@ func _refresh_build_form_btn() -> void:
 					call_deferred("_on_make_this")
 				elif is_instance_valid(_make_code_btn) and not _make_code_btn.disabled:
 					call_deferred("_on_make_code")
-				elif _chat_build_auto or _was_explicit_desc_mode:
+				elif _chat_build_auto or _was_explicit_desc_mode or _last_build_intent == "project":
 					_spec_missing = true
 					_hint = "build request"
 		if (_chat_build_auto or _narcea_auto) and not _spec_missing:
 			_last_build_intent = ""
-		if _spec_missing and (_was_explicit_desc_mode or _chat_build_auto):
+		if _spec_missing and (_was_explicit_desc_mode or _chat_build_auto or _last_build_intent == "project"):
 			if _desc_mode == "project" and _accumulated_response.find("```vg-project-spec") >= 0:
 				_append_system("[color=#ffaa66]Gemini's reply was truncated mid-spec (incomplete JSON). A retry message is in the prompt box — click Send to ask it to finish the ```vg-project-spec``` block.[/color]\n")
 				if is_instance_valid(_input) and _input.text.strip_edges().is_empty():
 					_input.text = ("Your ```vg-project-spec``` JSON was cut off before it finished. "
 						+ "Continue from where you stopped and emit the COMPLETE fenced block: "
 						+ "forms[] with all controls, files[] with Form1.vg source, then close ```.")
+			elif _last_build_intent == "project" and _response_has_raw_vg_without_spec(_accumulated_response):
+				_append_system("[color=#ff8888]Narcea pasted raw .vg code in chat instead of a ```vg-project-spec``` block — nothing was written to disk. A retry prompt is in the box below; click Send.[/color]\n")
+				if is_instance_valid(_input) and _input.text.strip_edges().is_empty():
+					_input.text = ("Re-emit the game as ONE complete ```vg-project-spec``` JSON block "
+						+ "(Node2D .tscn + .vg in files[], main_scene set). Use DrawRect/DrawCircle "
+						+ "for basic shapes — do not paste raw .vg in chat.")
 			else:
-				_append_system("[color=#ff8888]I couldn't find a spec block in that reply, so nothing was built. Try sending your request again — I'll ask Narcea for the proper ```vg-form-spec``` and ```vg-code-spec``` blocks automatically.[/color]\n")
+				_append_system("[color=#ff8888]I couldn't find a spec block in that reply, so nothing was built. Try sending your request again — I'll ask Narcea for the proper ```vg-project-spec``` block automatically.[/color]\n")
+				if is_instance_valid(_input) and _input.text.strip_edges().is_empty() and _last_build_intent == "project":
+					_input.text = _project_spec_retry_prompt()
 
 
 ## Lean-v1 Narcea spec-builder entry points.  Three sibling actions —
@@ -5559,6 +5574,14 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 			_loop_allowed = (_persona_id == "narcea")
 		"always_ask", "off":
 			_loop_allowed = false
+	# Chat-first project builds auto-switch to Narcea and need the agent loop
+	# even when the user started on Gemini/default persona (e.g. list_dir then stop).
+	if _last_build_intent.is_empty() and not _last_user_prompt.is_empty():
+		_last_build_intent = _detect_build_intent(_last_user_prompt)
+	if _last_build_intent == "project":
+		_ensure_narcea_for_build(false)
+		if _agent_mode == "narcea_only":
+			_loop_allowed = true
 	if not _loop_allowed:
 		var reason := "agent_gated_off" if _agent_mode == "off" else "agent_gated_persona"
 		if _agent_mode == "always_ask":
@@ -5650,6 +5673,8 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 		# technical explanation) spuriously fired on a pure explanation with
 		# no tool calls at all and corrupted an otherwise-correct reply.
 		var cosmetic_logs: Array = plan.get("logs", [])
+		if _maybe_nudge_project_build_continuation(plan):
+			return
 		if (not cosmetic_logs.is_empty() and _agent_hops < _max_agent_hops
 				and not _conversation_requests_no_edit()
 				and _reply_suggests_unfinished_action(_accumulated_response)):
@@ -5696,6 +5721,57 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 func _is_recoverable_tool_failure(msg: String) -> bool:
 	var low := msg.to_lower()
 	return low.find("no code editor open") != -1 or low.find("target file mismatch") != -1
+
+
+func _response_has_raw_vg_without_spec(text: String) -> bool:
+	if text.find("```vg-project-spec") >= 0:
+		return false
+	return text.find("Sub ") >= 0 and text.find("End Sub") >= 0
+
+
+func _project_spec_retry_prompt() -> String:
+	return ("Emit ONE complete ```vg-project-spec``` JSON for: " + _last_user_prompt.strip_edges()
+		+ "\n\nInclude files[] with a Node2D .tscn + matching .vg (_Ready/_Process/_Draw, basic shapes). "
+		+ "Set main_scene. Do not paste raw .vg outside the spec fence.")
+
+
+func _maybe_nudge_project_build_continuation(plan: Dictionary) -> bool:
+	var intent := _last_build_intent
+	if intent.is_empty():
+		intent = _detect_build_intent(_last_user_prompt)
+	if intent != "project":
+		return false
+	if _project_spec != null and not _project_spec.extract_spec(_accumulated_response).is_empty():
+		return false
+	if _agent_hops >= _max_agent_hops or _check_agent_budget_exceeded():
+		return false
+	if not (plan.get("mutating", []) as Array).is_empty():
+		return false
+	var empty_text := _accumulated_response.strip_edges().is_empty()
+	var has_partial_spec := _accumulated_response.find("```vg-project-spec") >= 0
+	var has_raw_vg := _response_has_raw_vg_without_spec(_accumulated_response)
+	var has_reads: bool = not _ai_tools.get_read_results().is_empty()
+	if not (empty_text or has_partial_spec or has_raw_vg or has_reads):
+		return false
+	_agent_hops += 1
+	_show_abort_agent_btn()
+	_ensure_narcea_for_build(false)
+	if not is_instance_valid(_input):
+		return true
+	if has_partial_spec:
+		_input.text = ("Continue the ```vg-project-spec``` JSON from where you stopped. "
+			+ "Emit the COMPLETE fenced block with files[], main_scene, then close ```.")
+	elif has_raw_vg:
+		_input.text = _project_spec_retry_prompt()
+	elif has_reads and empty_text:
+		_input.text = ("Project folder is nearly empty. Based on the list_dir results and the user request, "
+			+ "emit a complete ```vg-project-spec``` now (Node2D game, basic shapes, main_scene set).")
+	else:
+		_input.text = _project_spec_retry_prompt()
+	_agent_continuation = true
+	_on_send()
+	return true
+
 
 ## True if the model's own reply text signals it still intends to make a
 ## change (e.g. "Let me fix this and save."), used to decide whether a
