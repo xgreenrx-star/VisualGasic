@@ -1,6 +1,6 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: August 12, 2026  
+**Last Updated**: August 19, 2026  
 **Current Version**: 5.3.0-Beta6 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
 **Current Scope**: M0–M9 milestones (Jul 2026 – Jan 2027 stable release)  
 **Next Cut**: v5.3.0 stable
@@ -976,18 +976,32 @@ Short, finishable list. **No new aspirational items.**
 
 ---
 
-### Post-v6.0 UI/IDE Strategy — Floating Panels & VG Text Editor Refactor
+### Post-v6.0 UI/IDE Strategy — Floating Panels, Dual-Monitor & VG IDE Refactor
 
-**STRATEGIC DECISION — August 12, 2026 (User):**
+**STRATEGIC DECISION — August 12, 2026 (User), updated August 19, 2026:**
 
 The VG IDE is being **refactored to keep the text editor (more functional than Godot's native editor), properties, and everything else other than the 2D/3D viewport editors**. The custom 2D/3D viewport editors are being **removed entirely** since Godot's native 2D/3D editors already exist and are sufficient. This reduces scope while preserving VG's unique value-add (more functional text editor than Godot's native editor).
 
-#### v6.1–v6.2 Roadmap: Floating Panels
+**Dual-monitor goal (August 19, 2026):** Godot's native 2D/3D/Script editors stay on the primary monitor; VG panels (Immediate, Output, AI Pair, Toolbox, Properties) and optionally the full VG IDE shell can live on a second monitor **at the same time** — without forcing a main-screen tab switch.
 
-| Feature | Timeline | Notes |
-|---------|----------|-------|
-| **Floating Toolbox / Properties / Explorer Panels** | Post-M5 (v6.1) | Convert docked panels from Godot's dock system to standalone `Window` instances. Users can drag between monitors, resize independently, persist geometry across sessions via EditorSettings. **Critical UX requirement:** Windows must gracefully adapt when monitors are added/removed (e.g., laptop to docking station). If a window's last position is off-screen, auto-reposition to primary monitor; do NOT spawn invisible. ~M-size effort (1–2 days). See `/memories/session/floating_panels_and_separate_ide.md` for implementation guidance. |
-| **Monitor Hotplug Adaptation** | Same | Before restoring window geometry, call `DisplayServer.screen_get_list()` and verify target screen exists. Provide "Reset to Primary Screen" button in preferences as escape hatch. |
+#### Shipped partial (pre-v6.0 stable — Godot IDE integration)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **In-viewport floating panels** | ✅ Shipped (v5.3.x) | Toolbox, Properties, and **Visual Gasic Panels** (Immediate, Output, System Console, Errors, Profiler, Controls, Packages, AI Pair, Hex Editor) use `_create_floating_panel()` — draggable `PanelContainer` overlays **inside** Godot's single editor window. Same-viewport design preserves C++ Toolbox drag-and-drop to the 2D canvas. **Limitation:** panels cannot be moved to a second monitor as OS windows. |
+| **Godot IDE vs VG IDE routing** | ✅ Shipped (v5.3.x) | On Godot 2D/3D/Script: bottom tabs float (📊 VG Panels / 🤖 Narcea AI). On VG IDE Code view: bottom tabs embed under the code editor. VG IDE tab + Narcea opens Code view + embedded AI Pair. |
+
+#### v6.1–v6.2 Roadmap: True OS Windows & Multi-Monitor *(after v6.0 stable — Jan 2027)*
+
+| Feature | Timeline | Effort | Notes |
+|---------|----------|--------|-------|
+| **Phase A — Panels on monitor 2** | v6.1 | ~1 week | Replace in-viewport overlays with real Godot `Window` nodes (`popup_window`, `exclusive = false`) for **VG Panels** (AI Pair + bottom tabs), **Properties**, and optionally **Project Explorer**. Persist geometry + target screen via `EditorSettings` + `DisplayServer.screen_get_usable_rect()`. Patterns already exist (`ui_forms_control_picker.gd`, `vg_snippet_browser.gd`). |
+| **Phase A — Monitor hotplug adaptation** | v6.1 | (included) | Before restoring window geometry, verify screen still exists (`DisplayServer.screen_get_list()`). Clamp off-screen positions to primary monitor; provide **Reset to Primary Screen** in preferences. |
+| **Phase A — Toolbox on monitor 2** | v6.1–v6.2 | ~3–7 days | **Harder:** C++ Toolbox drag-and-drop requires same viewport as 2D canvas. Options: (1) keep Toolbox in-viewport on primary monitor only, click-to-place when floated (partially shipped); (2) cross-window drag bridge via global `_vg_active_drag` meta + screen coord mapping (~L-size, fragile). |
+| **Phase B — VG IDE pop-out window** | v6.2 | ~2–4 weeks | Pop `_ide_layout` into a top-level `Window` so **Visual Gasic IDE** (form designer + code editor) can run on monitor 2 while Godot 2D/3D/Script stays on monitor 1 in the same process. Requires: reparent lifecycle, `_make_visible` across windows, scene/form sync, focus routing, bottom-panel embed vs float rules. Alternative: second Godot process + MCP/file sync (more powerful, ~L-size). |
+| **Phase C — Dual-monitor polish** | v6.2 | ~1 week | Per-monitor geometry restore, **Dock back** / **Pop out** commands, toolbar discoverability, dual-monitor smoke tests. |
+
+**Deferred until after v6.0 stable:** All Phase A/B/C work above. Do not pull forward — v6.0 scope remains Godot IDE integration + language/runtime parity only.
 
 #### v7.0+ Roadmap: VG IDE Refactor
 
@@ -995,7 +1009,7 @@ The VG IDE is being **refactored to keep the text editor (more functional than G
 |---------|-------|----------|
 | **VG Text Editor as Standalone Window** | Keep the VG text editor (more functional than Godot's native editor), move to floating `Window`. Syntax highlighting, VB6 intellisense, breakpoint gutters, call-stack debug view. Syncs with Godot file system and open script state. | VG text editor's feature set justifies a separate tool. |
 | **Remove VG IDE 2D/3D Viewport Editors** | **DELETE** the custom 2D and 3D canvas implementations from the IDE shell. Users use Godot's native 2D/3D editors for layout/preview. VG focus is on CODE readability, not visual editing. | Godot's native 2D/3D editors are sufficient; no need to reinvent. Removes ~40% of IDE scope. |
-| **VG IDE Lifecycle** | v6.1+ (post-stable): Extract as a separate application OR as a Godot `Window` in the same plugin process (TBD). Both approaches viable; window-in-process is simpler (~M-size), separate app is more powerful (~L-size). | Mothballed until post-v6.0 stable. When revisited, user will decide window vs. app approach. |
+| **VG IDE Lifecycle** | v7.0+ (post-stable): Extract as a separate application OR as a Godot `Window` in the same plugin process (TBD). Phase B pop-out (v6.2) is the incremental step; full separate app is optional long-term. | Mothballed until post-v6.0 stable. When revisited, user will decide window vs. app approach. |
 
 **Prerequisite for VG text editor work**: Define "more functional than Godot's native editor" concretely — what features does it have that Godot's CodeEdit lacks? Document the feature matrix and prioritize which are worth shipping in the refactored version.
 
