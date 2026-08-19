@@ -355,6 +355,12 @@ var _input: CodeEdit
 var _send_btn: Button
 var _model_dropdown: OptionButton
 var _status_label: Label
+var _chat_frame: PanelContainer
+var _chat_frame_style: StyleBoxFlat
+var _work_anim_timer: Timer
+var _work_anim_t := 0.0
+var _work_active := false
+var _work_phase := ""
 var _clear_btn: Button
 var _stop_btn: Button
 
@@ -461,8 +467,10 @@ var _stream_done := false              # True when Ollama sends done
 var _stream_error := ""                # Non-empty on error
 var _stream_started := false           # True once we've printed the "AI:" header
 var _stream_token_count := 0           # Tokens received so far
-var _stream_vgtool_suppress := false   # True while inside a ```vg-tool block (suppressed from display)
-var _stream_line_buf := ""             # Partial-line buffer for vg-tool fence detection
+var _stream_fence_suppress := false  # True while inside a suppressed ``` fence
+var _stream_fence_tag := ""          # Tag of the active suppressed fence (e.g. vg-project-spec)
+var _stream_raw_vg_warned := false   # One-shot hint when raw .vg is hidden during build mode
+var _stream_line_buf := ""             # Partial-line buffer for fence detection
 var _stream_line_displayed := 0        # How many bytes of _stream_line_buf have already been shown
 var _stream_start_time := 0.0          # Time.get_ticks_msec() when query sent
 var _stream_first_token_time := 0.0    # Time of first token (0 = not yet)
@@ -660,6 +668,7 @@ func _ready() -> void:
 		_provider_info = AIProviders.find_provider("ollama") if AIProviders else null
 	_setup_ui()
 	_setup_poll_timer()
+	_setup_work_chrome()
 	_setup_http()
 	call_deferred("_activate_provider")
 	call_deferred("_restore_last_run_from_disk")
@@ -703,6 +712,216 @@ func _setup_poll_timer() -> void:
 	add_child(_poll_timer)
 	_poll_timer.timeout.connect(_on_poll_timer)
 
+
+func _setup_work_chrome() -> void:
+	_work_anim_timer = Timer.new()
+	_work_anim_timer.name = "WorkAnimTimer"
+	_work_anim_timer.wait_time = 0.04
+	_work_anim_timer.one_shot = false
+	add_child(_work_anim_timer)
+	_work_anim_timer.timeout.connect(_on_work_anim_tick)
+
+
+func _on_work_anim_tick() -> void:
+	if not _work_active or _chat_frame_style == null or not is_instance_valid(_chat_frame):
+		return
+	_work_anim_t += 0.08
+	# Strong sine pulse — wide color + glow swing so the border is obvious.
+	var pulse := (sin(_work_anim_t * 3.2) + 1.0) * 0.5
+	var base := Color(0.12, 0.72, 0.38, 1.0)
+	var hi := Color(0.45, 1.0, 0.55, 1.0)
+	_chat_frame_style.border_color = base.lerp(hi, pulse)
+	var glow_alpha := 0.35 + pulse * 0.45
+	_chat_frame_style.shadow_color = Color(0.25, 0.95, 0.45, glow_alpha)
+	_chat_frame_style.shadow_size = int(6 + pulse * 10)
+	_chat_frame.add_theme_stylebox_override("panel", _chat_frame_style)
+
+
+func _apply_work_chrome_idle() -> void:
+	if _chat_frame_style == null or not is_instance_valid(_chat_frame):
+		return
+	_chat_frame_style.set_border_width_all(2)
+	_chat_frame_style.border_color = Color(0.16, 0.20, 0.26, 1.0)
+	_chat_frame_style.shadow_size = 0
+	_chat_frame_style.shadow_color = Color(0, 0, 0, 0)
+	_chat_frame.add_theme_stylebox_override("panel", _chat_frame_style)
+
+
+func _apply_work_chrome_active() -> void:
+	if _chat_frame_style == null or not is_instance_valid(_chat_frame):
+		return
+	_work_anim_t = 0.0
+	_chat_frame_style.set_border_width_all(4)
+	_chat_frame_style.shadow_offset = Vector2(0, 0)
+	_on_work_anim_tick()
+
+
+func _persona_display_label() -> String:
+	var pdata = _personas.get(_persona_id, _personas.get("default", {}))
+	if typeof(pdata) == TYPE_DICTIONARY:
+		return str(pdata.get("display", "AI"))
+	return "AI"
+
+
+func _set_work_phase(phase: String) -> void:
+	_work_phase = phase
+	if not is_instance_valid(_status_label):
+		return
+	var who := _persona_display_label()
+	var msg := ""
+	match phase:
+		"connect":
+			msg = "● %s — connecting…" % who
+		"thinking":
+			msg = "● %s — thinking…" % who
+		"streaming":
+			msg = "● %s — writing…" % who
+		"tools":
+			msg = "● %s — running tools…" % who
+		"spec":
+			msg = "● %s — building spec…" % who
+		"scaffold":
+			msg = "● %s — scaffolding files…" % who
+		"agent":
+			msg = "● %s — agent hop %d…" % [who, _agent_hops]
+		_:
+			msg = "● %s — working…" % who
+	_status_label.text = msg
+	_status_label.add_theme_color_override("font_color", Color(0.45, 0.92, 0.62))
+
+
+func _set_work_active(active: bool, phase: String = "") -> void:
+	_work_active = active
+	if active:
+		if phase != "":
+			_set_work_phase(phase)
+		_apply_work_chrome_active()
+		if is_instance_valid(_work_anim_timer):
+			_work_anim_timer.start()
+	elif is_instance_valid(_work_anim_timer):
+		_work_anim_timer.stop()
+		_apply_work_chrome_idle()
+
+
+func _restore_ready_status() -> void:
+	if not is_instance_valid(_status_label):
+		return
+	var pname: String = _provider_info.display_name if _provider_info else "Ollama"
+	_status_label.text = ("✅ %s ready" % pname) if _ollama_available else ("❌ %s not found" % pname)
+	_status_label.add_theme_color_override("font_color",
+		Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
+
+
+func _reset_stream_display_state() -> void:
+	_stream_fence_suppress = false
+	_stream_fence_tag = ""
+	_stream_line_buf = ""
+	_stream_line_displayed = 0
+	_stream_raw_vg_warned = false
+
+
+func _parse_fence_tag(line: String) -> String:
+	var s := line.strip_edges()
+	if not s.begins_with("```"):
+		return ""
+	return s.substr(3).strip_edges().to_lower()
+
+
+func _fence_should_suppress(tag: String) -> bool:
+	if tag == "vg-tool":
+		return true
+	if tag.begins_with("vg-") and tag.ends_with("-spec"):
+		return true
+	if not _last_build_intent.is_empty() and tag in ["vb", "bas", "vg", "json", ""]:
+		return true
+	return false
+
+
+func _fence_open_message(tag: String) -> String:
+	match tag:
+		"vg-tool":
+			return "⚙ (tool running…)"
+		"vg-project-spec":
+			return "📦 Preparing project spec…"
+		"vg-form-spec":
+			return "📋 Preparing form spec…"
+		"vg-code-spec":
+			return "📝 Preparing code spec…"
+		"vg-patch-spec":
+			return "🔧 Preparing patch spec…"
+		"vg-test-spec", "vg-wnodes-spec", "vg-lesson-spec":
+			return "📦 Preparing spec…"
+		_:
+			if not _last_build_intent.is_empty():
+				return "📦 (code hidden — use a vg-*-spec fence)"
+			return ""
+
+
+func _fence_close_message(tag: String) -> String:
+	match tag:
+		"vg-tool":
+			return "⚙ (tool done)"
+		"vg-project-spec":
+			return "✓ Project spec received"
+		"vg-form-spec":
+			return "✓ Form spec received"
+		"vg-code-spec":
+			return "✓ Code spec received"
+		"vg-patch-spec":
+			return "✓ Patch spec received"
+		"vg-test-spec", "vg-wnodes-spec", "vg-lesson-spec":
+			return "✓ Spec received"
+		_:
+			if not _last_build_intent.is_empty():
+				return "✓ (code block hidden)"
+			return ""
+
+
+func _line_looks_like_raw_vg(line: String) -> bool:
+	var s := line.strip_edges()
+	if s.is_empty() or s.begins_with("'"):
+		return false
+	for prefix in [
+		"Sub ", "End Sub", "Function ", "End Function", "Dim ", "Option Explicit",
+		"Connect ", "If ", "End If", "For ", "Next", "DrawRect", "DrawCircle", "DrawLine",
+	]:
+		if s.begins_with(prefix):
+			return true
+	return false
+
+
+func _prompt_requests_web_access(prompt: String) -> bool:
+	var low := prompt.to_lower()
+	for t in [
+		"search online", "search the web", "look up online", "browse the web",
+		"google it", "google for", "fetch url", "fetch the url", "wget ", "curl ",
+		"wikipedia", "search the internet", "look on the internet",
+	]:
+		if low.find(t) >= 0:
+			return true
+	if low.find("online") >= 0 and (low.find("search") >= 0 or low.find("look") >= 0):
+		return true
+	return false
+
+
+func _web_capability_block_reply() -> String:
+	return (
+		"I can't browse the web or search the internet yet "
+		+ "(v6.1 will add read-only fetch_url for known HTTPS links).\n\n"
+		+ "I can still:\n"
+		+ "  • Build a game or form from your description\n"
+		+ "  • Read and edit files in this project\n"
+		+ "  • Explain VG syntax and runtime errors\n\n"
+		+ "Paste a summary here, or describe what you want built."
+	)
+
+
+func _append_persona_reply(text: String) -> void:
+	var label := _persona_display_label()
+	_output.append_text("\n[color=#44bb88][b]%s:[/b][/color]\n[color=#dddddd]%s[/color]\n" % [
+		label, _escape_bbcode(text)])
+
+
 ## Main-thread timer callback — polls HTTPClient and processes tokens directly.
 var _dbg_last_heartbeat_ms := 0
 
@@ -723,10 +942,8 @@ func _on_poll_timer() -> void:
 		var _hb_now := Time.get_ticks_msec()
 		if _hb_now - _dbg_last_heartbeat_ms > 5000 and not _stream_started:
 			_dbg_last_heartbeat_ms = _hb_now
-			var elapsed_s := (_hb_now - _stream_start_time) / 1000.0
-			var stage := "connecting" if _stream_http_phase == 1 else ("sending request" if _stream_http_phase == 2 else "waiting for tokens")
-			if is_instance_valid(_status_label):
-				_status_label.text = "💭 %s... %ds" % [stage, int(elapsed_s)]
+			var stage := "connect" if _stream_http_phase == 1 else ("thinking" if _stream_http_phase == 2 else "thinking")
+			_set_work_phase(stage)
 
 		if _stream_http_phase == 1:  # Connecting
 			if status == HTTPClient.STATUS_CONNECTED:
@@ -885,45 +1102,61 @@ func _on_poll_timer() -> void:
 func _display_token(token: String) -> void:
 	if not _stream_started:
 		_stream_started = true
-		var _pdata = _personas.get(_persona_id, _personas.get("default", {}))
-		var _label: String = _pdata.get("display", "AI") if typeof(_pdata) == TYPE_DICTIONARY else "AI"
+		var _label: String = _persona_display_label()
 		_output.append_text("\n[color=#44bb88][b]%s:[/b][/color]\n[color=#dddddd]" % _label)
 		_stream_first_token_time = Time.get_ticks_msec()
-		_stream_vgtool_suppress = false
-		_stream_line_buf = ""
-		_stream_line_displayed = 0
+		_reset_stream_display_state()
+		_set_work_phase("streaming")
 	_stream_token_count += 1
 	_agent_total_tokens += 1   # Phase 6b: accumulate across agent hops
 	_accumulated_response += token
-	# --- vg-tool block suppression ---
-	# Buffer tokens by line so we can detect ```vg-tool fences and suppress
-	# their raw JSON content from the chat panel.  A compact indicator is shown
-	# instead so the user knows a tool ran without seeing the raw payload.
+	# --- fenced block suppression ---
+	# Buffer tokens by line so we can detect ``` fences and suppress bulky
+	# spec/tool payloads from the chat panel.  Compact indicators instead.
 	_stream_line_buf += token
 	while "\n" in _stream_line_buf:
 		var nl := _stream_line_buf.find("\n")
 		var line := _stream_line_buf.substr(0, nl)
 		_stream_line_buf = _stream_line_buf.substr(nl + 1)
 		var stripped := line.strip_edges()
-		if stripped == "```vg-tool":
-			_stream_vgtool_suppress = true
+		if stripped.begins_with("```") and not _stream_fence_suppress:
+			var tag := _parse_fence_tag(stripped)
+			if _fence_should_suppress(tag):
+				_stream_fence_suppress = true
+				_stream_fence_tag = tag
+				_stream_line_displayed = 0
+				var open_msg := _fence_open_message(tag)
+				if not open_msg.is_empty():
+					_output.append_text("[color=#888888]%s[/color]\n" % open_msg)
+					if tag.ends_with("-spec"):
+						_set_work_phase("spec")
+			else:
+				var to_show := line.substr(_stream_line_displayed) + "\n"
+				_output.append_text(_escape_bbcode(to_show))
+				_stream_line_displayed = 0
+		elif stripped == "```" and _stream_fence_suppress:
+			var close_msg := _fence_close_message(_stream_fence_tag)
+			_stream_fence_suppress = false
+			_stream_fence_tag = ""
 			_stream_line_displayed = 0
-		elif stripped == "```" and _stream_vgtool_suppress:
-			_stream_vgtool_suppress = false
-			_stream_line_displayed = 0
-			_output.append_text("[color=#888888]⚙ (tool running…)[/color]\n")
-		elif not _stream_vgtool_suppress:
-			# Display only the portion of this line not yet shown (handles
-			# partial-line pre-display of non-fence content).
-			var to_show := line.substr(_stream_line_displayed) + "\n"
-			_output.append_text(_escape_bbcode(to_show))
-			_stream_line_displayed = 0
+			if not close_msg.is_empty():
+				_output.append_text("[color=#888888]%s[/color]\n" % close_msg)
+		elif not _stream_fence_suppress:
+			if not _last_build_intent.is_empty() and _line_looks_like_raw_vg(stripped):
+				if not _stream_raw_vg_warned:
+					_stream_raw_vg_warned = true
+					_output.append_text("[color=#888888]📦 (raw .vg hidden — use ```vg-project-spec```)[/color]\n")
+					_set_work_phase("spec")
+			else:
+				var to_show := line.substr(_stream_line_displayed) + "\n"
+				_output.append_text(_escape_bbcode(to_show))
+				_stream_line_displayed = 0
 		else:
 			_stream_line_displayed = 0
 	# Flush partial (not-yet-newline) content immediately when we're sure
-	# it can't be a vg-tool fence opener (lines starting with `` ` `` are
+	# it can't be a fence opener (lines starting with `` ` `` are
 	# held until the full line is known).
-	if not _stream_vgtool_suppress and not _stream_line_buf.strip_edges().begins_with("`"):
+	if not _stream_fence_suppress and not _stream_line_buf.strip_edges().begins_with("`"):
 		var undisplayed := _stream_line_buf.substr(_stream_line_displayed)
 		if not undisplayed.is_empty():
 			_output.append_text(_escape_bbcode(undisplayed))
@@ -998,7 +1231,7 @@ func _finish_generation() -> void:
 		_refresh_build_form_btn()
 		_dispatch_tool_calls(_accumulated_response)
 	# Flush any partial line that was buffered for vg-tool fence detection.
-	if not _stream_vgtool_suppress and not _stream_line_buf.is_empty():
+	if not _stream_fence_suppress and not _stream_line_buf.is_empty():
 		var undisplayed := _stream_line_buf.substr(_stream_line_displayed)
 		if not undisplayed.is_empty():
 			_output.append_text(_escape_bbcode(undisplayed))
@@ -1028,11 +1261,8 @@ func _finish_generation() -> void:
 			_send_btn.visible = true
 		if is_instance_valid(_stop_btn):
 			_stop_btn.visible = false
-		if is_instance_valid(_status_label):
-			var pname: String = _provider_info.display_name if _provider_info else "Ollama"
-			_status_label.text = ("✅ %s ready" % pname) if _ollama_available else ("❌ %s not found" % pname)
-			_status_label.add_theme_color_override("font_color",
-				Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
+		_set_work_active(false)
+		_restore_ready_status()
 
 	# Voice mode (Tier 2.5c): flush any remaining buffered tokens to the TTS
 	# sentence queue now that the stream is complete.  The first sentences
@@ -1080,9 +1310,7 @@ func _stop_generation() -> void:
 	_agent_hops = 0
 	_agent_total_tokens = 0
 	_stream_tool_watermark = 0
-	_stream_vgtool_suppress = false
-	_stream_line_buf = ""
-	_stream_line_displayed = 0
+	_reset_stream_display_state()
 	_fc_fragments.clear()
 	_agent_abort_requested = false
 	_hide_abort_agent_btn()
@@ -1090,11 +1318,8 @@ func _stop_generation() -> void:
 		_send_btn.visible = true
 	if is_instance_valid(_stop_btn):
 		_stop_btn.visible = false
-	if is_instance_valid(_status_label):
-		var pname: String = _provider_info.display_name if _provider_info else "Ollama"
-		_status_label.text = ("✅ %s ready" % pname) if _ollama_available else ("❌ %s not found" % pname)
-		_status_label.add_theme_color_override("font_color",
-			Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
+	_set_work_active(false)
+	_restore_ready_status()
 
 func _setup_http() -> void:
 	_ping_http = HTTPRequest.new()
@@ -1514,7 +1739,19 @@ func _setup_ui() -> void:
 	_retry_patch_btn.visible = false
 	actions.add_child(_retry_patch_btn)
 
-	# --- Output area ---
+	# --- Output area (animated border while Narcea is working) ---
+	_chat_frame = PanelContainer.new()
+	_chat_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_chat_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_chat_frame_style = StyleBoxFlat.new()
+	_chat_frame_style.bg_color = Color(0.08, 0.08, 0.1, 1.0)
+	_chat_frame_style.set_content_margin_all(8)
+	_chat_frame_style.set_corner_radius_all(4)
+	_chat_frame_style.set_border_width_all(2)
+	_chat_frame_style.border_color = Color(0.16, 0.20, 0.26)
+	_chat_frame.add_theme_stylebox_override("panel", _chat_frame_style)
+	main_vbox.add_child(_chat_frame)
+
 	_output = RichTextLabel.new()
 	_output.bbcode_enabled = true
 	_output.scroll_following = true
@@ -1522,13 +1759,9 @@ func _setup_ui() -> void:
 	_output.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_output.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_output.add_theme_font_size_override("normal_font_size", 13)
-
-	var out_style := StyleBoxFlat.new()
-	out_style.bg_color = Color(0.08, 0.08, 0.1, 1.0)
-	out_style.set_content_margin_all(8)
-	out_style.set_corner_radius_all(4)
-	_output.add_theme_stylebox_override("normal", out_style)
-	main_vbox.add_child(_output)
+	_output.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_output.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_chat_frame.add_child(_output)
 
 	_append_system("AI Pair is ready. Type a question below or use the quick actions.\n")
 	_append_system("Providers: [color=cyan]Ollama[/color] (local), [color=green]OpenAI[/color], [color=#bb77ff]Claude[/color], [color=#4488ff]Gemini[/color]. Click ⚙️ to set API keys.\n")
@@ -2164,6 +2397,12 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 			prompt += "String concatenation is & (not +). Never use GDScript syntax."
 	if mode == "" or mode == "form":
 		prompt += _existing_form_designer_context()
+	if _prompt_requests_web_access(desc):
+		prompt += (
+			" NOTE: Web search/browsing is NOT available in v6.0. Do not pretend to look things up online. "
+			+ "If the user asked for online research, say briefly that you cannot browse yet, then build from "
+			+ "their description. Never paste raw .vg source in chat — only the fenced vg-*-spec block."
+		)
 	return prompt
 
 
@@ -2550,6 +2789,20 @@ func _on_send() -> void:
 	var display_prompt := _input.text.strip_edges()
 	if display_prompt.is_empty():
 		return
+	# Honest capability reply — pure web/search requests (no build intent).
+	if not _agent_continuation and not _last_send_was_desc_mode:
+		if _prompt_requests_web_access(display_prompt) and _detect_build_intent(display_prompt).is_empty():
+			_input.text = ""
+			_history.append(display_prompt)
+			_history_idx = _history.size()
+			_append_user(display_prompt)
+			var reply := _web_capability_block_reply()
+			_append_persona_reply(reply)
+			_conversation_history.append({"role": "user", "content": display_prompt})
+			_conversation_history.append({"role": "assistant", "content": reply})
+			while _conversation_history.size() > MAX_HISTORY_EXCHANGES * 2:
+				_conversation_history.pop_front()
+			return
 	# Reset multi-turn agent hop counter on user-initiated sends.  The
 	# agent loop sets _agent_continuation=true before re-entering so we
 	# preserve the count for that follow-up turn only.
@@ -2557,6 +2810,7 @@ func _on_send() -> void:
 		_agent_continuation = false
 		# Phase 6d: visual hop marker so users can follow the agent loop.
 		_output.append_text("\n[color=#4477cc][b]── Agent hop %d ──[/b][/color]\n" % _agent_hops)
+		_set_work_active(true, "agent")
 		# Phase 6e: open transcript on first continuation, write hop entry.
 		_transcript_open()
 		_transcript_append({"type": "hop_start", "hop": _agent_hops, "prompt_len": display_prompt.length()})
@@ -2693,9 +2947,7 @@ func _send_query_internal(prompt: String) -> void:
 	_stream_first_token_time = 0.0
 	_accumulated_response = ""
 	_stream_tool_watermark = 0
-	_stream_vgtool_suppress = false
-	_stream_line_buf = ""
-	_stream_line_displayed = 0
+	_reset_stream_display_state()
 
 	# Create HTTPClient and start non-blocking connect
 	# The poll timer will drive the state machine (connect → request → read body)
@@ -2713,8 +2965,7 @@ func _send_query_internal(prompt: String) -> void:
 	_dbg_last_heartbeat_ms = 0
 	_send_btn.visible = false
 	_stop_btn.visible = true
-	_status_label.text = "💭 Thinking..."
-	_status_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	_set_work_active(true, "thinking")
 	_poll_timer.start()
 
 func _on_stop() -> void:
@@ -2760,37 +3011,46 @@ func _escape_bbcode(text: String) -> String:
 	return text.replace("[", "[lb]")
 
 func _format_code_blocks(text: String) -> String:
-	# Convert ```vb ... ``` or ```bas ... ``` blocks to colored BBCode.
-	# ```vg-tool blocks are collapsed to a compact indicator — the raw JSON
-	# is never shown to the user.
+	# Convert ```vb ... ``` blocks to colored BBCode.
+	# Spec/tool fences are collapsed to compact indicators — raw JSON/code
+	# is never shown to the user during build flows.
 	var result := ""
 	var lines := text.split("\n")
 	var in_code := false
-	var in_vgtool := false
+	var in_suppressed := false
+	var fence_tag := ""
 
 	for line in lines:
 		var stripped := line.strip_edges()
 		if stripped.begins_with("```") and not in_code:
 			in_code = true
-			if stripped == "```vg-tool":
-				in_vgtool = true
-				# Don't emit an opening divider for tool blocks
+			fence_tag = _parse_fence_tag(stripped)
+			if _fence_should_suppress(fence_tag):
+				in_suppressed = true
+				var open_msg := _fence_open_message(fence_tag)
+				if not open_msg.is_empty():
+					result += "[color=#888888]%s[/color]\n" % open_msg
 			else:
 				result += "[color=#1a1a2e]━━━━━━━━━━━━━━━━━━━━━━━━━[/color]\n"
 			continue
 		elif stripped.begins_with("```") and in_code:
 			in_code = false
-			if in_vgtool:
-				in_vgtool = false
-				result += "[color=#888888]⚙ (tool executed)[/color]\n"
+			if in_suppressed:
+				var close_msg := _fence_close_message(fence_tag)
+				in_suppressed = false
+				fence_tag = ""
+				if not close_msg.is_empty():
+					result += "[color=#888888]%s[/color]\n" % close_msg
 			else:
 				result += "[color=#1a1a2e]━━━━━━━━━━━━━━━━━━━━━━━━━[/color]\n"
 			continue
 
-		if in_vgtool:
-			continue  # suppress vg-tool JSON from display
-		elif in_code:
+		if in_suppressed:
+			continue
+		if in_code:
 			result += "[color=#e0c080]%s[/color]\n" % _escape_bbcode(line)
+		elif not _last_build_intent.is_empty() and _line_looks_like_raw_vg(stripped):
+			continue
 		else:
 			# Escape BBCode-significant chars first so user text like arr[0] is safe.
 			# The markdown patterns (**, backtick) contain no BBCode-special chars,
@@ -3622,9 +3882,7 @@ func _send_cursor_query(prompt: String) -> void:
 	_stream_first_token_time = 0.0
 	_accumulated_response = ""
 	_stream_tool_watermark = 0
-	_stream_vgtool_suppress = false
-	_stream_line_buf = ""
-	_stream_line_displayed = 0
+	_reset_stream_display_state()
 	_fc_fragments.clear()
 
 	var use_fast := _current_model.ends_with("-fast")
@@ -3647,8 +3905,7 @@ func _send_cursor_query(prompt: String) -> void:
 	_is_generating = true
 	_send_btn.visible = false
 	_stop_btn.visible = true
-	_status_label.text = "💭 Cursor Composer..."
-	_status_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	_set_work_active(true, "thinking")
 
 
 func _on_cursor_stream_token(text: String) -> void:
@@ -3726,9 +3983,7 @@ func _send_cloud_query(prompt: String) -> void:
 	_stream_first_token_time = 0.0
 	_accumulated_response = ""
 	_stream_tool_watermark = 0
-	_stream_vgtool_suppress = false
-	_stream_line_buf = ""
-	_stream_line_displayed = 0
+	_reset_stream_display_state()
 	_fc_fragments.clear()  # Phase 6c: reset FC fragment accumulator.
 
 	# Create HTTPClient and connect with TLS for cloud providers
@@ -3756,8 +4011,7 @@ func _send_cloud_query(prompt: String) -> void:
 	_is_generating = true
 	_send_btn.visible = false
 	_stop_btn.visible = true
-	_status_label.text = "💭 Thinking... (%s)" % _provider_info.display_name
-	_status_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	_set_work_active(true, "connect")
 	_poll_timer.start()
 
 var _cloud_request_headers: Array = []
@@ -4808,6 +5062,7 @@ func _execute_project_scaffold(spec: Dictionary) -> void:
 	if _scaffold_in_progress:
 		return
 	_scaffold_in_progress = true
+	_set_work_phase("scaffold")
 	var root: String = _project_spec.project_root(spec)
 	_safe_writer.set_root(root)
 	var designer: Object = null
@@ -4855,9 +5110,8 @@ func _execute_project_scaffold(spec: Dictionary) -> void:
 func _scaffold_done() -> void:
 	_scaffold_in_progress = false
 	_suppress_agent_loop = false
-	if is_instance_valid(_status_label) and not _is_generating:
-		var pname: String = _provider_info.display_name if _provider_info else "Ollama"
-		_status_label.text = ("✅ %s ready" % pname) if _ollama_available else ("❌ %s not found" % pname)
+	_set_work_active(false)
+	_restore_ready_status()
 	_refresh_project_explorer()
 
 
@@ -5511,6 +5765,7 @@ func _dispatch_tool_calls(reply_text: String) -> void:
 
 	var plan: Dictionary = _ai_tools.plan_response(reply_text)
 	_transcript_log_tool_plan(plan)
+	_set_work_phase("tools")
 	var ro_logs: Array = plan.get("logs", [])
 	var muts: Array = plan.get("mutating", [])
 	var blocked: Array = plan.get("blocked", [])

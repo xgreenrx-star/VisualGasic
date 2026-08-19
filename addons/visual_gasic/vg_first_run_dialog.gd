@@ -1,11 +1,12 @@
 @tool
 extends AcceptDialog
 class_name VGFirstRunDialog
-## First-run welcome / project-type picker + optional plugin chooser.
+## Optional project-type picker + plugin chooser wizard.
 ##
-## Two-step wizard shown the very first time VisualGasic opens a project
-## that contains no `.vg`, `.frm`, or `.vgform` files AND has no
-## `vg/default_mode` set.
+## Not shown automatically on new projects (v6+). Open from:
+##   Project → Project Setup Wizard…
+## Or set Project Settings → vg/auto_show_project_wizard = true to restore
+## the old first-open popup behaviour.
 ##
 ## Step 1 — project type:
 ##   📝 Empty Code Project   — code editor first; Form Designer disabled

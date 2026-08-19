@@ -47,6 +47,26 @@ func _initialize() -> void:
 	_expect("game has _Process", game_vg.to_lower().find("sub _process") >= 0)
 	_expect("game scene exists", FileAccess.file_exists(fin.get("game_scene", "")))
 	_cleanup(root)
+
+	# Pure 2D tic-tac-toe: main_scene IS the game (no menu form).
+	var pure_spec := {
+		"project_name": "ttt_pure",
+		"subdir": "ai_projects",
+		"main_scene": "res://ai_projects/ttt_pure/Main.tscn",
+		"forms": [],
+		"files": [{
+			"path": "res://ai_projects/ttt_pure/Main.tscn",
+			"source": "[gd_scene load_steps=2 format=3]\n\n[ext_resource type=\"Script\" path=\"res://ai_projects/ttt_pure/Main.vg\" id=\"1_script\"]\n\n[node name=\"Main\" type=\"Node2D\"]\nscript = ExtResource(\"1_script\")\n",
+		}],
+	}
+	root = ps.project_root(pure_spec)
+	_cleanup(root)
+	fin = ProjectSynth.finalize_project(pure_spec, root, "make a 2d tic tac toe game")
+	game_vg = FileAccess.get_file_as_string(fin.get("game_vg", ""))
+	_expect("pure main writes Main.vg", fin.get("game_vg", "").ends_with("Main.vg"))
+	_expect("pure main game vg exists", FileAccess.file_exists(fin.get("game_vg", "")))
+	_expect("pure main game has _Draw", game_vg.to_lower().find("sub _draw") >= 0)
+	_cleanup(root)
 	_finish()
 
 

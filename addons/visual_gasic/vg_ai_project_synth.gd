@@ -94,19 +94,61 @@ static func find_game_scene_path(spec: Dictionary, root: String) -> String:
 		var base := rebased.get_file().get_basename().to_lower()
 		if not menu_name.is_empty() and base == menu_name:
 			continue
-		if not main_file.is_empty() and base == main_file:
-			continue
 		var src := str(entry.get("source", entry.get("contents", "")))
+		if not main_file.is_empty() and base == main_file:
+			# Pure 2D games use main_scene as the game Node2D itself — don't skip.
+			if src.find("type=\"Node2D\"") >= 0:
+				return rebased
+			continue
 		if src.find("type=\"Node2D\"") >= 0:
 			return rebased
 		if src.find("type=\"Window\"") < 0:
 			return rebased
+	var main_scene := str(spec.get("main_scene", "")).strip_edges()
+	if not main_scene.is_empty():
+		return ps.rebase_path(main_scene, root, null)
 	return root + "TicTacToe.tscn"
+
+
+static func _vg_path_from_tscn_text(tscn_text: String, root: String) -> String:
+	if tscn_text.is_empty():
+		return ""
+	var rx := RegEx.new()
+	if rx.compile("path=\"(res://[^\"]+\\.vg)\"") != OK:
+		return ""
+	var m := rx.search(tscn_text)
+	if m == null:
+		return ""
+	var raw := m.get_string(1)
+	if raw.is_empty():
+		return ""
+	if raw.begins_with(root):
+		return raw
+	var ProjectSpec = load("res://addons/visual_gasic/vg_ai_project_spec.gd")
+	return ProjectSpec.new().rebase_path(raw, root, null)
+
+
+static func _tscn_source_for_scene(spec: Dictionary, root: String, game_scene: String) -> String:
+	if FileAccess.file_exists(game_scene):
+		return FileAccess.get_file_as_string(game_scene)
+	var scene_file := game_scene.get_file()
+	for entry in spec.get("files", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var raw_path := str(entry.get("path", ""))
+		if raw_path.get_file().to_lower() != scene_file.to_lower():
+			continue
+		return str(entry.get("source", entry.get("contents", "")))
+	return ""
 
 
 static func find_game_vg_path(spec: Dictionary, root: String, game_scene: String) -> String:
 	var ProjectSpec = load("res://addons/visual_gasic/vg_ai_project_spec.gd")
 	var ps = ProjectSpec.new()
+	# Trust the .tscn ext_resource — models often emit scene-only specs.
+	var from_tscn := _vg_path_from_tscn_text(_tscn_source_for_scene(spec, root, game_scene), root)
+	if not from_tscn.is_empty():
+		return from_tscn
 	var scene_base := game_scene.get_file().get_basename()
 	for entry in spec.get("files", []):
 		if typeof(entry) != TYPE_DICTIONARY:
@@ -151,9 +193,21 @@ static func menu_form_needs_synthesis(form_spec: Dictionary, vg_src: String, use
 	return false
 
 
-static func game_needs_tictactoe_synthesis(vg_src: String, user_prompt: String) -> bool:
+static func prompt_or_spec_is_tictactoe(user_prompt: String, spec: Dictionary) -> bool:
 	var low := user_prompt.to_lower()
-	if low.find("tic tac") < 0 and low.find("tictactoe") < 0:
+	if low.find("tic tac") >= 0 or low.find("tictactoe") >= 0:
+		return true
+	var pname := str(spec.get("project_name", "")).to_lower()
+	if pname.find("tictac") >= 0 or pname.find("tic_tac") >= 0:
+		return true
+	var main := str(spec.get("main_scene", "")).to_lower()
+	if main.find("tictac") >= 0:
+		return true
+	return false
+
+
+static func game_needs_tictactoe_synthesis(vg_src: String, user_prompt: String, spec: Dictionary = {}) -> bool:
+	if not prompt_or_spec_is_tictactoe(user_prompt, spec):
 		return false
 	if vg_src.is_empty():
 		return true
@@ -401,7 +455,7 @@ static func finalize_project(spec: Dictionary, root: String, user_prompt: String
 
 	if game_needs_tictactoe_synthesis(
 			FileAccess.get_file_as_string(game_vg) if FileAccess.file_exists(game_vg) else "",
-			user_prompt):
+			user_prompt, spec):
 		if _write_file(game_vg, synthesize_tictactoe_vg()):
 			notes.append("TicTacToe game synthesized")
 		var tscn_path := game_scene

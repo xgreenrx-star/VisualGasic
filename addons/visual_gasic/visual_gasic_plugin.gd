@@ -345,6 +345,14 @@ func _enter_tree():
 		TYPE_BOOL
 	)
 
+	# When true, empty new projects show the project-type wizard on first open.
+	# Default false — open via Project → Project Setup Wizard… instead.
+	_register_project_setting(
+		"vg/auto_show_project_wizard",
+		false,
+		TYPE_BOOL
+	)
+
 	_register_project_setting(
 		"vg/ai/cursor_allow_vg_tools",
 		false,
@@ -4615,6 +4623,8 @@ func _create_vb6_menu_bar() -> MenuBar:
 	project_menu.add_item("Add Form...", 0)
 	project_menu.add_item("Add Module...", 1)
 	project_menu.add_separator()
+	project_menu.add_item("Project Setup Wizard...", 20)
+	project_menu.add_separator()
 	project_menu.add_item("Project Properties...", 10)
 	project_menu.add_item("Components...", 11)
 	project_menu.id_pressed.connect(_on_vb6_project_menu)
@@ -6168,6 +6178,7 @@ func _on_vb6_project_menu(id: int) -> void:
 	match id:
 		0: _on_add_form()
 		1: _on_new_module()
+		20: _show_first_run_dialog()
 		10: _on_proj_props()
 		11: _on_components()
 
@@ -10439,22 +10450,23 @@ func _auto_open_formless_module() -> void:
 	if is_instance_valid(_form_designer) and not _form_designer.get_form_path().is_empty():
 		return  # A form is already loaded — nothing to do
 
-	# ── First-run welcome / project-type picker ───────────────────────────
-	# If this is a brand-new VG project (no .vg / .frm / .vgform anywhere)
-	# AND the user has never been asked, show the welcome dialog so they can
-	# pick "Empty Code Project" / "Form Application" / "AGCK Game". Their
-	# choice writes vg/default_mode + vg/form_designer_enabled and flips the
-	# vg/first_run_completed flag so this never reappears.
+	# ── First-run welcome / project-type picker (optional) ───────────────
+	# Empty new projects default to code-first without a modal. The wizard
+	# remains available via Project → Project Setup Wizard… and can auto-show
+	# when vg/auto_show_project_wizard is true (Project Settings).
 	var first_run_completed := false
 	if ProjectSettings.has_setting("vg/first_run_completed"):
 		first_run_completed = bool(ProjectSettings.get_setting("vg/first_run_completed", false))
 	if not first_run_completed and _project_is_empty_for_first_run():
-		# Code editor is the default visible state for new projects — the
-		# Form Designer is opt-in. Without this the user would see the
-		# blank Form1 canvas behind the welcome picker.
 		_show_code_view()
-		_show_first_run_dialog()
-		return  # Dialog will re-invoke us after the choice is applied.
+		var auto_wizard := false
+		if ProjectSettings.has_setting("vg/auto_show_project_wizard"):
+			auto_wizard = bool(ProjectSettings.get_setting("vg/auto_show_project_wizard", false))
+		if auto_wizard:
+			_show_first_run_dialog()
+			return  # Dialog re-invokes us after the choice is applied.
+		_finish_first_run_fallback()
+		return
 
 	# ── Default-mode decision ─────────────────────────────────────────────
 	# "code" → open a .vg module first (form detection only runs as fallback)
@@ -10542,9 +10554,9 @@ func _project_is_empty_for_first_run() -> bool:
 	return true
 
 
-## Show the welcome / project-type picker. The user's choice is applied to
-## ProjectSettings and we re-invoke `_auto_open_formless_module` so the
-## chosen-mode startup path runs.
+## Show the optional project-type wizard (Project → Project Setup Wizard…).
+## The user's choice is applied to ProjectSettings and we re-invoke
+## `_auto_open_formless_module` when launched from the first-run path.
 func _show_first_run_dialog() -> void:
 	var dlg_script := load("res://addons/visual_gasic/vg_first_run_dialog.gd")
 	if dlg_script == null:
