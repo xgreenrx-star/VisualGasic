@@ -39,6 +39,36 @@ static func install(src: String, dst: String, copy_recursive: Callable) -> int:
 	return copy_err
 
 
+## Write empty .gdignore files for every plugin ignore_dirs entry so Godot
+## skips autoload-dependent trees on first filesystem scan (before editor
+## plugins load). Safe to call after every addon install/copy.
+static func ensure_plugin_ignore_markers(addon_dir: String) -> void:
+	var plugins_root := addon_dir.rstrip("/") + "/plugins"
+	if not DirAccess.dir_exists_absolute(plugins_root):
+		return
+	var root := DirAccess.open(plugins_root)
+	if root == null:
+		return
+	root.list_dir_begin()
+	var plugin_id := root.get_next()
+	while plugin_id != "":
+		if root.current_is_dir() and not plugin_id.begins_with("."):
+			var cfg_path := plugins_root + "/" + plugin_id + "/plugin.cfg"
+			if FileAccess.file_exists(cfg_path):
+				var cfg := ConfigFile.new()
+				if cfg.load(cfg_path) == OK:
+					var ignore_dirs: Array = cfg.get_value("plugin", "ignore_dirs", [])
+					for subdir_v in ignore_dirs:
+						var marker := plugins_root + "/" + plugin_id + "/" + str(subdir_v) + "/.gdignore"
+						if FileAccess.file_exists(marker):
+							continue
+						var f := FileAccess.open(marker, FileAccess.WRITE)
+						if f:
+							f.close()
+		plugin_id = root.get_next()
+	root.list_dir_end()
+
+
 static func _install_symlink(src: String, dst: String) -> int:
 	if OS.get_name() == "Windows":
 		return ERR_UNAVAILABLE

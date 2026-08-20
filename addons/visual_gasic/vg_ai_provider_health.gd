@@ -45,7 +45,7 @@ static func check_cursor() -> Dictionary:
 
 	var McpCfg = load("res://addons/visual_gasic/vg_cursor_mcp_config.gd")
 	if McpCfg != null:
-		var mcp_path := McpCfg.config_abs_path()
+		var mcp_path: String = McpCfg.config_abs_path()
 		if FileAccess.file_exists(mcp_path):
 			lines.append("✅ MCP config — .cursor/mcp.json")
 		else:

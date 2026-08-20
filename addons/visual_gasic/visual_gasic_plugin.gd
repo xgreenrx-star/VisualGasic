@@ -5078,12 +5078,12 @@ func _create_new_vg_project(proj_name: String, proj_dir: String) -> void:
 
 	var src_norm := src_addon.rstrip("/")
 	var dst_norm := dst_addon.rstrip("/")
+	var AddonInstaller := load("res://addons/visual_gasic/vg_addon_install.gd")
 	if src_norm == dst_norm:
 		print("[VisualGasic] New project: addon source equals destination — skipping copy")
 	else:
-		var Installer := load("res://addons/visual_gasic/vg_addon_install.gd")
-		if Installer != null:
-			err = Installer.install(src_norm, dst_norm, Callable(self, "_copy_dir_recursive"))
+		if AddonInstaller != null:
+			err = AddonInstaller.install(src_norm, dst_norm, Callable(self, "_copy_dir_recursive"))
 		else:
 			err = _copy_dir_recursive(src_addon, dst_addon)
 		if err != OK:
@@ -5100,6 +5100,12 @@ func _create_new_vg_project(proj_name: String, proj_dir: String) -> void:
 		var bin_src: String = src_addon + "/bin"
 		if DirAccess.dir_exists_absolute(bin_src):
 			_copy_dir_recursive(bin_src, bin_dst)
+
+	# Suppress third-party parse noise on the very first Godot open — Godot
+	# scans *.gd before editor plugins load, so ignore_dirs markers must
+	# exist on disk before project.godot is written.
+	if AddonInstaller != null:
+		AddonInstaller.ensure_plugin_ignore_markers(dst_norm)
 
 	# ── Create project.godot ──
 	var display_name = proj_name.replace("_", " ").replace("-", " ")

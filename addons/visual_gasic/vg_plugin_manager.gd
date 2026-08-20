@@ -420,6 +420,7 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 	# or given a toolbar button unless experimental plugins are enabled.
 	if meta["experimental"] and not _experimental_plugins_enabled():
 		print("VisualGasic: Plugin '", meta["name"], "' is experimental and disabled (set ", EXPERIMENTAL_PLUGINS_SETTING, "=true to enable)")
+		_set_plugin_dirs_ignored(plugin_id, true)
 		return
 
 	# Per-plugin Project Setting gate: plugins are opt-in (default disabled).
@@ -429,22 +430,24 @@ func _load_plugin(plugin_id: String, cfg_path: String) -> void:
 		print("VisualGasic: Plugin '", meta["name"], "' not enabled (enable via Project Settings → ", ps_key, ")")
 		_set_plugin_dirs_ignored(plugin_id, true)
 		return
-	_set_plugin_dirs_ignored(plugin_id, false)
 
-	# Register autoloads BEFORE loading the plugin script — the plugin's
-	# scripts may reference autoload identifiers that GDScript resolves at
-	# parse time. If any new autoloads were added, the user must restart
-	# VisualGasic for them to take effect (Godot autoloads are only
-	# wired into the global scope at engine startup).
-	if not meta["autoloads"].is_empty():
-		var paths_unhidden := _unhide_autoload_paths(plugin_id, meta["autoloads"])
-		var newly_added := _register_plugin_autoloads(plugin_id, meta["autoloads"])
-		if newly_added or paths_unhidden:
+	# Register autoloads before exposing script dirs — bosca/ references
+	# Controller at parse time. If autoloads were just added, keep .gdignore
+	# until the user restarts Godot (autoloads bind only at engine boot).
+	var autoloads: Dictionary = meta["autoloads"]
+	if not autoloads.is_empty():
+		var newly_added := _register_plugin_autoloads(plugin_id, autoloads)
+		if newly_added:
 			ProjectSettings.save()
 			push_warning("VisualGasic: Plugin '%s' added autoloads. Restart VisualGasic to activate them." % meta["name"])
-			# Don't try to load the plugin script this session — it will
-			# fail to parse because the autoload identifiers aren't bound.
+			_set_plugin_dirs_ignored(plugin_id, true)
 			return
+
+	# Keep ignore_dirs markers in place even when enabled — VGMusic bosca/
+	# loads scripts by path and must stay hidden from Godot's class scanner.
+	_set_plugin_dirs_ignored(plugin_id, true)
+
+	# (Autoload registration handled above.)
 
 	if meta["script"].is_empty():
 		push_warning("VisualGasic: Plugin '", meta["name"], "' has no script defined")
@@ -1075,9 +1078,18 @@ func _on_plugin_toggle(enabled: bool, plugin_id: String) -> void:
 	if _plugin_meta.has(plugin_id):
 		_plugin_meta[plugin_id]["enabled"] = enabled
 
-	# Live load/unload — no editor restart required.
+	# Live load/unload — no editor restart required (except autoload plugins).
 	if enabled:
-		_set_plugin_dirs_ignored(plugin_id, false)
+		meta = _plugin_meta.get(plugin_id, meta)
+		var autoloads: Dictionary = meta.get("autoloads", {})
+		if not autoloads.is_empty():
+			var newly_added := _register_plugin_autoloads(plugin_id, autoloads)
+			if newly_added:
+				ProjectSettings.save()
+				push_warning("VisualGasic: Plugin '%s' added autoloads. Restart VisualGasic to activate them." % plugin_id)
+			_set_plugin_dirs_ignored(plugin_id, true)
+		else:
+			_set_plugin_dirs_ignored(plugin_id, true)
 		# Load + activate the plugin so users see it immediately.
 		if not _plugins.has(plugin_id):
 			_load_plugin(plugin_id, cfg_path)
@@ -1135,22 +1147,21 @@ func _unload_plugin(plugin_id: String) -> void:
 	var meta: Dictionary = _plugin_meta.get(plugin_id, {})
 	var autoloads: Dictionary = meta.get("autoloads", {})
 	if not autoloads.is_empty():
-		var unhid := _hide_autoload_paths(plugin_id, autoloads)
-		if _unregister_plugin_autoloads(plugin_id, autoloads) or unhid:
+		_set_plugin_dirs_ignored(plugin_id, true)
+		if _unregister_plugin_autoloads(plugin_id, autoloads):
 			ProjectSettings.save()
 			push_warning("VisualGasic: Plugin '%s' removed autoloads. Restart VisualGasic for the change to take full effect." % plugin_id)
 
 
-## Write or remove .gdignore files in subdirectories declared via ignore_dirs
-## in a plugin's plugin.cfg. When a plugin is disabled its autoloads are not
-## registered, so any scripts that reference those autoloads produce parse
-## errors on every project open. Placing a .gdignore in those dirs tells
-## Godot's resource scanner to skip them entirely, suppressing the noise.
-## The files are removed when the plugin is enabled so the scripts can load.
+## Ensure .gdignore files exist in subdirectories declared via ignore_dirs
+## in a plugin's plugin.cfg. Godot scans every *.gd on startup *before*
+## editor plugins load, so autoload-dependent trees (e.g. vgmusic/bosca/)
+## must stay ignored on disk. Markers are never removed — enabled plugins
+## load those scripts by explicit path (see vg_vgmusic_plugin.gd).
 ##
 ## Plugin authors opt in by adding to their plugin.cfg:
 ##   ignore_dirs=["bosca"]   # relative to the plugin's own folder
-func _set_plugin_dirs_ignored(plugin_id: String, ignored: bool) -> void:
+func _set_plugin_dirs_ignored(plugin_id: String, _ignored: bool) -> void:
 	var meta: Dictionary = _plugin_meta.get(plugin_id, {})
 	var dirs: Array = meta.get("ignore_dirs", [])
 	for subdir in dirs:
@@ -1158,15 +1169,12 @@ func _set_plugin_dirs_ignored(plugin_id: String, ignored: bool) -> void:
 		var ignore_res := dir_res + "/.gdignore"
 		if not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(dir_res)):
 			continue
+		if FileAccess.file_exists(ignore_res):
+			continue
 		var abs_path := ProjectSettings.globalize_path(ignore_res)
-		if ignored:
-			if not FileAccess.file_exists(ignore_res):
-				var f := FileAccess.open(abs_path, FileAccess.WRITE)
-				if f:
-					f.close()
-		else:
-			if FileAccess.file_exists(ignore_res):
-				DirAccess.remove_absolute(abs_path)
+		var f := FileAccess.open(abs_path, FileAccess.WRITE)
+		if f:
+			f.close()
 
 
 ## Open a file dialog to install a plugin folder.
@@ -1326,65 +1334,6 @@ func _unregister_plugin_autoloads(plugin_id: String, autoloads: Dictionary) -> b
 
 # ─── Plugin folder visibility (.gdignore management) ───────────
 #
-# When a plugin is disabled (or installed but never enabled), the GDScript
-# parser will still index any *.gd files in its directory and produce
-# noisy "identifier not declared" errors on scripts that reference the
-# plugin's not-yet-registered autoloads.  To suppress this, we keep a
-# `.gdignore` file in each subfolder containing autoload-dependent
-# scripts.  Enabling the plugin removes the marker; disabling restores
-# it.  An empty .gdignore is sufficient — Godot skips the entire
-# directory tree below it.
-
-## For each autoload's containing directory, remove a .gdignore file if
-## present so Godot can scan the scripts.  Returns true if any file was
-## removed (caller saves project settings + warns about restart).
-func _unhide_autoload_paths(plugin_id: String, autoloads: Dictionary) -> bool:
-	var removed_any := false
-	var dirs := _autoload_root_dirs(plugin_id, autoloads)
-	for dir_path_v in dirs:
-		var dir_path: String = dir_path_v
-		var marker: String = dir_path + "/.gdignore"
-		if FileAccess.file_exists(marker):
-			var abs_path := ProjectSettings.globalize_path(marker)
-			var err := DirAccess.remove_absolute(abs_path)
-			if err == OK:
-				removed_any = true
-			else:
-				push_warning("VisualGasic: Failed to remove %s (err %d)" % [marker, err])
-	return removed_any
-
-
-## Recreate .gdignore markers in autoload directories so the plugin's
-## sources don't produce parse errors after disable.  Returns true if a
-## new marker was written.
-func _hide_autoload_paths(plugin_id: String, autoloads: Dictionary) -> bool:
-	var wrote_any := false
-	var dirs := _autoload_root_dirs(plugin_id, autoloads)
-	for dir_path_v in dirs:
-		var dir_path: String = dir_path_v
-		var marker: String = dir_path + "/.gdignore"
-		if FileAccess.file_exists(marker):
-			continue
-		var f := FileAccess.open(marker, FileAccess.WRITE)
-		if f:
-			f.close()
-			wrote_any = true
-		else:
-			push_warning("VisualGasic: Failed to create %s" % marker)
-	return wrote_any
-
-
-## Compute the set of top-level directories that contain autoload-dependent
-## scripts.  We mark the topmost ancestor directory inside the plugin folder
-## (e.g. for "bosca/globals/Controller.gd" -> "res://addons/.../vgmusic/bosca").
-func _autoload_root_dirs(plugin_id: String, autoloads: Dictionary) -> Array:
-	var plugin_root := PLUGINS_DIR + plugin_id + "/"
-	var roots: Dictionary = {}
-	for name in autoloads:
-		var rel: String = autoloads[name]
-		var first_slash := rel.find("/")
-		if first_slash <= 0:
-			continue
-		var top := rel.substr(0, first_slash)
-		roots[plugin_root + top] = true
-	return roots.keys()
+# ignore_dirs in plugin.cfg (see _set_plugin_dirs_ignored) keeps shipped
+# third-party trees off Godot's startup class scanner. Autoload scripts
+# inside those trees still load at runtime via explicit res:// paths.

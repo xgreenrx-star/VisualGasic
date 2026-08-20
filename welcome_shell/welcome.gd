@@ -496,9 +496,20 @@ func _create_blank_project(proj_name: String, parent_dir: String) -> String:
 		_status.text = "Failed to make directory: %s (err %d)" % [dir, mk]
 		return ""
 
-	# project.godot with the VG plugin pre-enabled. We seed the addon
-	# directory below; without the [editor_plugins] section Godot would
-	# open the project but never load VG.
+	# Seed the canonical addon before project.godot so ignore markers and
+	# binaries exist before Godot's first filesystem scan.
+	var addon_src := _resolve_canonical_addon_dir()
+	if addon_src.is_empty():
+		_status.text = "Created %s but couldn't find VG addon source — open from a source-tree checkout or set $VG_ADDON_SOURCE." % dir
+		return dir
+	var addon_dst := dir + "/addons/visual_gasic"
+	var copy_err := _copy_dir_recursive(addon_src, addon_dst)
+	if copy_err != OK:
+		_status.text = "Created %s but addon copy failed (err %d)." % [dir, copy_err]
+		return dir
+	_ensure_plugin_ignore_markers(addon_dst)
+
+	# project.godot with the VG plugin pre-enabled.
 	var pg := ""
 	pg += "config_version=5\n\n"
 	pg += "[application]\n\n"
@@ -515,15 +526,6 @@ func _create_blank_project(proj_name: String, parent_dir: String) -> String:
 	f.store_string(pg)
 	f.close()
 
-	# Seed the canonical addon so the project is VG-ready on first open.
-	var addon_src := _resolve_canonical_addon_dir()
-	if addon_src.is_empty():
-		_status.text = "Created %s but couldn't find VG addon source — open from a source-tree checkout or set $VG_ADDON_SOURCE." % dir
-		return dir
-	var copy_err := _copy_dir_recursive(addon_src, dir + "/addons/visual_gasic")
-	if copy_err != OK:
-		_status.text = "Created %s but addon copy failed (err %d)." % [dir, copy_err]
-		return dir
 	_status.text = "Created %s — opening…" % dir
 	return dir
 
@@ -695,6 +697,18 @@ func _create_narcea_seed_project(proj_name: String, description: String,
 		_status.text = "Failed to make directory: %s (err %d)" % [dir, mk]
 		return ""
 
+	# Seed the canonical addon before project.godot so ignore markers exist
+	# before Godot's first filesystem scan.
+	var addon_src := _resolve_canonical_addon_dir()
+	var addon_dst := dir + "/addons/visual_gasic"
+	if not addon_src.is_empty():
+		var Installer := load("res://addons/visual_gasic/vg_addon_install.gd")
+		if Installer != null:
+			Installer.install(addon_src, addon_dst, Callable(self, "_copy_dir_recursive"))
+		else:
+			_copy_dir_recursive(addon_src, addon_dst)
+		_ensure_plugin_ignore_markers(addon_dst)
+
 	# project.godot with the VG plugin pre-enabled.
 	var pg := ""
 	pg += "config_version=5\n\n"
@@ -723,15 +737,6 @@ func _create_narcea_seed_project(proj_name: String, description: String,
 		return ""
 	f.store_string(pg)
 	f.close()
-
-	# Seed the canonical addon so VG loads on first open.
-	var addon_src := _resolve_canonical_addon_dir()
-	if not addon_src.is_empty():
-		var Installer := load("res://addons/visual_gasic/vg_addon_install.gd")
-		if Installer != null:
-			Installer.install(addon_src, dir + "/addons/visual_gasic", Callable(self, "_copy_dir_recursive"))
-		else:
-			_copy_dir_recursive(addon_src, dir + "/addons/visual_gasic")
 
 	# Narcea seed file the IDE plugin will pick up on first open.
 	var seed := FileAccess.open(dir + "/narcea_seed.txt", FileAccess.WRITE)
@@ -783,6 +788,9 @@ func _copy_dir_recursive(src: String, dst: String) -> int:
 	var dir := DirAccess.open(src)
 	if dir == null:
 		return ERR_CANT_OPEN
+	# Include hidden entries (.gdignore, etc.) — without this, new projects
+	# miss bosca/.gdignore and Godot parse-errors on first open.
+	dir.include_hidden = true
 	dir.list_dir_begin()
 	var entry := dir.get_next()
 	while entry != "":
@@ -811,6 +819,17 @@ func _copy_dir_recursive(src: String, dst: String) -> int:
 		entry = dir.get_next()
 	dir.list_dir_end()
 	return OK
+
+
+func _ensure_plugin_ignore_markers(addon_dir: String) -> void:
+	var helper_path := addon_dir.rstrip("/") + "/vg_addon_install.gd"
+	if not FileAccess.file_exists(helper_path):
+		helper_path = _resolve_canonical_addon_dir() + "/vg_addon_install.gd"
+	if helper_path.is_empty() or not FileAccess.file_exists(helper_path):
+		return
+	var Helper := load(helper_path)
+	if Helper != null:
+		Helper.ensure_plugin_ignore_markers(addon_dir.rstrip("/"))
 
 
 func _vg_config_dir() -> String:

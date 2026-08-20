@@ -572,13 +572,18 @@ func speak_streaming_chunk(chunk: String) -> void:
 	if tts_backend == "off":
 		return
 	_stream_active = true
-	_stream_buf += chunk
-	# Track code-fence depth so we don't split sentences inside a block.
+	# Track code-fence depth so we don't speak fenced payloads.
 	var fence_count := chunk.count("```")
+	var entering_fence := (_stream_fence_depth == 0 and fence_count % 2 == 1)
+	var exiting_fence := (_stream_fence_depth == 1 and fence_count % 2 == 1)
 	_stream_fence_depth = (_stream_fence_depth + fence_count) % 2
-	# Only extract sentences when outside a code fence.
-	if _stream_fence_depth == 0:
-		_extract_and_enqueue_sentences()
+	if entering_fence:
+		_stream_buf = ""
+		return
+	if _stream_fence_depth == 1 or exiting_fence:
+		return
+	_stream_buf += chunk
+	_extract_and_enqueue_sentences()
 
 ## Called at the end of a streaming reply to flush any remaining buffered
 ## text (partial sentence without terminal punctuation, or a closing fence).

@@ -86,9 +86,20 @@ func for_speech(text: String) -> String:
 
 ## Decide what (if anything) to say in place of a code/spec block.
 func _summarise_block(lang: String, body: String) -> String:
-	# Form spec and tool calls are structural data — never read aloud.
-	if lang == "vg-form-spec" or lang == "vg-tool":
+	# Form/code/project specs and tool calls are structural — never read aloud.
+	if lang.ends_with("-spec") or lang == "vg-tool":
 		return ""
+	if lang in ["vg", "vb", "basic", "json", "gdscript", "python", "javascript", "typescript"]:
+		var line_count := 0
+		for ln in body.split("\n"):
+			if not ln.strip_edges().is_empty():
+				line_count += 1
+		if line_count == 0:
+			return ""
+		var label := lang
+		if label == "vg" or label == "vb" or label == "basic":
+			label = "VG code"
+		return ". (See the panel for %d lines of %s.) " % [line_count, label]
 	# Count non-empty lines for a quick "X lines of code" summary.
 	var line_count := 0
 	for ln in body.split("\n"):
@@ -96,13 +107,11 @@ func _summarise_block(lang: String, body: String) -> String:
 			line_count += 1
 	if line_count == 0:
 		return ""
-	# Single-line snippet: keep it (helps Narcea stay conversational).
+	# Single-line snippet outside code langs: keep it.
 	if line_count == 1:
 		return ". " + body.strip_edges() + ". "
 	# Larger blocks: spoken summary only — the user can read the panel.
 	var label := lang if not lang.is_empty() else "code"
-	if label == "vg" or label == "vb" or label == "basic":
-		label = "VG code"
 	return ". (See the panel for %d lines of %s.) " % [line_count, label]
 
 

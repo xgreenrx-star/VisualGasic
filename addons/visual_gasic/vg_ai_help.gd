@@ -309,10 +309,8 @@ Below this persona is your real job:\n\n",
 		"greeting": "\ud83d\udd34 Good afternoon. I am completely operational and all my circuits are functioning perfectly. How may I help you?",
 		"error_intro": "I'm sorry — there appears to be a malfunction. I'll diagnose it now.",
 	},
-	# Narcea is the only persona that injects extra *content* into the
-	# system prompt (active panel, open file, VG-domain knowledge, tutorial
-	# index).  See vg_ai_narcea.gd for the context provider.  Style here is
-	# kept lightweight on purpose — Narcea earns her keep on substance.
+	# Narcea uses the same VG context as every persona; her prefix is tuned
+	# for pair-programming tone.  See vg_ai_narcea.gd for the context provider.
 	"narcea": {
 		"display": "\ud83c\udf3f Narcea",
 		"avatar": "\ud83c\udf3f",
@@ -406,37 +404,14 @@ var _agent_triggered_run: bool = false
 var _agent_run_output_lines: PackedStringArray = PackedStringArray()
 const _AGENT_RUN_MAX_LINES := 80   # How many output lines to feed back
 
-# Read-only personas get a tool whitelist applied per turn.  Empty array
-# means "unrestricted" (the chokepoint is still SafeWrite for any disk
-# write).  Narcea is the on-call dev — full powers.  Bob/Skippy/Orac are
-# read-only critics by default; users can promote them via the per-persona
-# config if they want.
+# Read-only personas were previously tool-gated; all built-in personas now
+# share full VG context and unrestricted tools — persona choice is style/voice.
 const PERSONA_TOOL_WHITELIST := {
 	# Read-only personas: all read/inspect tools but no mutating tools.
-	"bob": [
-		"highlight_lines", "clear_highlights", "goto_line", "open_file",
-		"read_file", "list_dir", "find_in_files",
-		"get_wn_project", "get_agck_project", "get_form_controls",
-		"get_2d_scene_tree", "get_3d_scene", "get_vgmusic_project",
-	],
-	"skippy": [
-		"highlight_lines", "clear_highlights", "goto_line", "open_file",
-		"read_file", "list_dir", "find_in_files",
-		"get_wn_project", "get_agck_project", "get_form_controls",
-		"get_2d_scene_tree", "get_3d_scene", "get_vgmusic_project",
-	],
-	"orac": [
-		"highlight_lines", "clear_highlights", "goto_line", "open_file",
-		"read_file", "list_dir", "find_in_files",
-		"get_wn_project", "get_agck_project", "get_form_controls",
-		"get_2d_scene_tree", "get_3d_scene", "get_vgmusic_project",
-	],
-	"hal": [
-		"highlight_lines", "clear_highlights", "goto_line", "open_file",
-		"read_file", "list_dir", "find_in_files",
-		"get_wn_project", "get_agck_project", "get_form_controls",
-		"get_2d_scene_tree", "get_3d_scene", "get_vgmusic_project",
-	],
+	"bob": [],  # unrestricted — persona is style/voice only
+	"skippy": [],
+	"orac": [],
+	"hal": [],
 	"narcea": [],  # unrestricted
 	"default": [],  # unrestricted
 }
@@ -1128,11 +1103,13 @@ func _display_token(token: String) -> void:
 				var open_msg := _fence_open_message(tag)
 				if not open_msg.is_empty():
 					_output.append_text("[color=#888888]%s[/color]\n" % open_msg)
+					_feed_speech(open_msg + "\n")
 					if tag.ends_with("-spec"):
 						_set_work_phase("spec")
 			else:
 				var to_show := line.substr(_stream_line_displayed) + "\n"
 				_output.append_text(_escape_bbcode(to_show))
+				_feed_speech(to_show)
 				_stream_line_displayed = 0
 		elif stripped == "```" and _stream_fence_suppress:
 			var close_msg := _fence_close_message(_stream_fence_tag)
@@ -1141,15 +1118,19 @@ func _display_token(token: String) -> void:
 			_stream_line_displayed = 0
 			if not close_msg.is_empty():
 				_output.append_text("[color=#888888]%s[/color]\n" % close_msg)
+				_feed_speech(close_msg + "\n")
 		elif not _stream_fence_suppress:
 			if not _last_build_intent.is_empty() and _line_looks_like_raw_vg(stripped):
 				if not _stream_raw_vg_warned:
 					_stream_raw_vg_warned = true
-					_output.append_text("[color=#888888]📦 (raw .vg hidden — use ```vg-project-spec```)[/color]\n")
+					var hide_msg := "📦 (raw .vg hidden — use ```vg-project-spec```)"
+					_output.append_text("[color=#888888]%s[/color]\n" % hide_msg)
+					_feed_speech(hide_msg + "\n")
 					_set_work_phase("spec")
 			else:
 				var to_show := line.substr(_stream_line_displayed) + "\n"
 				_output.append_text(_escape_bbcode(to_show))
+				_feed_speech(to_show)
 				_stream_line_displayed = 0
 		else:
 			_stream_line_displayed = 0
@@ -1160,13 +1141,8 @@ func _display_token(token: String) -> void:
 		var undisplayed := _stream_line_buf.substr(_stream_line_displayed)
 		if not undisplayed.is_empty():
 			_output.append_text(_escape_bbcode(undisplayed))
+			_feed_speech(undisplayed)
 			_stream_line_displayed = _stream_line_buf.length()
-	# Tier 2.5c: stream token directly into TTS pipeline so sentences begin
-	# playing as soon as they complete, rather than after the full reply.
-	if is_instance_valid(_voice_speak_toggle) and _voice_speak_toggle.button_pressed:
-		_ensure_voice_ctrl()
-		if _voice_ctrl != null and _voice_ctrl.has_method("speak_streaming_chunk"):
-			_voice_ctrl.speak_streaming_chunk(token)
 	# Streaming tool dispatch: as soon as a closing fence appears in the
 	# accumulated reply, run any complete vg-tool blocks.  This lets the
 	# model see read-tool results sooner and produces faster UX feedback.
@@ -1463,7 +1439,7 @@ func _setup_ui() -> void:
 
 	# Persona dropdown — swaps system-prompt prefix + TTS voice
 	_persona_dropdown = OptionButton.new()
-	_persona_dropdown.tooltip_text = "AI persona — changes voice and style without affecting correctness"
+	_persona_dropdown.tooltip_text = "AI persona — style and voice; all personas share VG project context"
 	_load_persona()
 	for i in range(_persona_order.size()):
 		var pid: String = _persona_order[i]
@@ -2337,19 +2313,11 @@ func _detect_build_intent(prompt: String) -> String:
 
 
 func _ensure_narcea_for_build(clear_history: bool = false) -> void:
-	if _persona_id == "narcea" or not _personas.has("narcea"):
-		return
-	_persona_id = "narcea"
-	_save_persona()
-	_apply_persona_voice()
+	# Persona choice is respected — all personas receive VG context via
+	# _get_active_system_prompt().  This helper only clears history when
+	# starting a fresh build-from-description flow.
 	if clear_history:
 		_conversation_history.clear()
-	if is_instance_valid(_persona_dropdown):
-		for i in _persona_dropdown.item_count:
-			if _persona_dropdown.get_item_metadata(i) == "narcea":
-				_persona_dropdown.select(i)
-				break
-	_append_system("[color=#bb88ff]Switched to Narcea[/color] to build from your description.\n")
 
 
 func _build_hardened_prompt(desc: String, mode: String) -> String:
@@ -4285,6 +4253,17 @@ func _speech_text(raw: String) -> String:
 	return _speech_filter.for_speech(raw)
 
 
+## Feed text to the TTS pipeline only when it was shown in the chat panel.
+func _feed_speech(text: String) -> void:
+	if text.is_empty():
+		return
+	if not is_instance_valid(_voice_speak_toggle) or not _voice_speak_toggle.button_pressed:
+		return
+	_ensure_voice_ctrl()
+	if _voice_ctrl != null and _voice_ctrl.has_method("speak_streaming_chunk"):
+		_voice_ctrl.speak_streaming_chunk(text)
+
+
 ## Lazy-load the form-spec helper.
 func _ensure_form_spec_helper() -> void:
 	if _form_spec != null:
@@ -4416,7 +4395,8 @@ func _refresh_build_form_btn() -> void:
 	#   c) Narcea persona returned a spec (legacy path), OR
 	#   d) code follow-up after layout-only apply is pending completion.
 	var _chat_build_auto := (not _last_build_intent.is_empty()) and not _build_form_ran_this_turn
-	var _narcea_auto := (_persona_id == "narcea") and not _build_form_ran_this_turn
+	var _persona_spec_auto := not _build_form_ran_this_turn and (
+		not _last_build_intent.is_empty() or _persona_id == "narcea")
 	# build_form tool path: layout already built; apply code if present.
 	if _persona_id == "narcea" and _build_form_ran_this_turn:
 		var _code_spec_after_build: Dictionary = {} if _code_spec == null else _code_spec.extract_spec(_accumulated_response)
@@ -4438,17 +4418,12 @@ func _refresh_build_form_btn() -> void:
 		if not _follow_code.is_empty():
 			call_deferred("_auto_apply_code_spec_no_dialog", _follow_code)
 			_code_followup_pending = false
-	if _last_send_was_desc_mode or _chat_build_auto or _narcea_auto:
+	if _last_send_was_desc_mode or _chat_build_auto or _persona_spec_auto:
 		# Remember whether the user explicitly asked for a spec (via the
 		# Form.../Code.../Project... buttons) BEFORE resetting the flag --
 		# the "spec missing" nag below should ONLY fire for that explicit
-		# flow.  _narcea_auto is true for EVERY Narcea reply (persona ==
-		# "narcea" is the default), including plain Q&A chat that never
-		# intended to produce a form/code/project spec at all -- without
-		# this guard, ordinary conversational replies (e.g. debugging
-		# questions) always fell through to the same "didn't contain the
-		# expected spec block" warning, spamming irrelevant noise into
-		# every single reply.
+		# flow.  _persona_spec_auto covers Narcea plus any persona with
+		# detected build intent — not every casual Q&A reply.
 		var _was_explicit_desc_mode := _last_send_was_desc_mode
 		_last_send_was_desc_mode = false
 		var _spec_missing := false
@@ -4486,7 +4461,7 @@ func _refresh_build_form_btn() -> void:
 				elif _chat_build_auto or _was_explicit_desc_mode or _last_build_intent == "project":
 					_spec_missing = true
 					_hint = "build request"
-		if (_chat_build_auto or _narcea_auto) and not _spec_missing:
+		if (_chat_build_auto or _persona_spec_auto) and not _spec_missing:
 			_last_build_intent = ""
 		if _spec_missing and (_was_explicit_desc_mode or _chat_build_auto or _last_build_intent == "project"):
 			if _desc_mode == "project" and _accumulated_response.find("```vg-project-spec") >= 0:
@@ -5570,12 +5545,12 @@ func _get_active_system_prompt() -> String:
 	var pdata = _personas.get(_persona_id, _personas.get("default", {}))
 	var prefix: String = pdata.get("prefix", "") if typeof(pdata) == TYPE_DICTIONARY else ""
 	var slim_cursor: bool = AIProviders != null and AIProviders.is_cursor_provider(_provider_id)
-	var narcea_ctx := ""
-	if _persona_id == "narcea":
-		narcea_ctx = _narcea_context_block(slim_cursor)
-	if prefix.is_empty() and narcea_ctx.is_empty():
+	# VG IDE context (open file, control catalog, tutorials) for every persona —
+	# personas differ in voice/style, not in project knowledge.
+	var vg_ctx := _narcea_context_block(slim_cursor)
+	if prefix.is_empty() and vg_ctx.is_empty():
 		return _base_system_prompt
-	return prefix + narcea_ctx + _base_system_prompt
+	return prefix + vg_ctx + _base_system_prompt
 
 ## Lazy-instantiate the Narcea context provider and ask it for a system-
 ## prompt block.  Cached on the panel so the tutorial walk only happens
@@ -5826,11 +5801,12 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 		"all":
 			_loop_allowed = true
 		"narcea_only":
-			_loop_allowed = (_persona_id == "narcea")
+			# Any persona may auto-loop; "narcea_only" keeps the old label but
+			# no longer forces a persona switch (all share VG context + tools).
+			_loop_allowed = true
 		"always_ask", "off":
 			_loop_allowed = false
-	# Chat-first project builds auto-switch to Narcea and need the agent loop
-	# even when the user started on Gemini/default persona (e.g. list_dir then stop).
+	# Chat-first project builds need the agent loop even on non-Narcea personas.
 	if _last_build_intent.is_empty() and not _last_user_prompt.is_empty():
 		_last_build_intent = _detect_build_intent(_last_user_prompt)
 	if _last_build_intent == "project":
@@ -5844,8 +5820,8 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 		if not muts.is_empty() or not (plan.get("read_results", []) as Array).is_empty():
 			var hint: String
 			match _agent_mode:
-				"narcea_only":
-					hint = "(agent loop gated — switch to Narcea persona to enable auto-loop)"
+				"narcea_only", "all":
+					hint = "(agent loop paused — check 🤖 Agent mode dropdown)"
 				"always_ask":
 					hint = "(agent loop paused — 'Always ask' mode: approve manually via the approval bar)"
 				_:
@@ -6402,7 +6378,7 @@ func _narcea_context_block(slim: bool = false) -> String:
 	elif _narcea_provider.has_method("build_context_block"):
 		block = _narcea_provider.build_context_block(plugin)
 	# Sandwich the block in clear delimiters so the model can find it.
-	var result := "\n--- BEGIN NARCEA CONTEXT ---\n" + block + "\n--- END NARCEA CONTEXT ---\n\n"
+	var result := "\n--- BEGIN VG CONTEXT ---\n" + block + "\n--- END VG CONTEXT ---\n\n"
 	_narcea_ctx_cache = result
 	_narcea_ctx_cache_ts = Time.get_ticks_msec()
 	_narcea_ctx_cache_hint = query_hint
