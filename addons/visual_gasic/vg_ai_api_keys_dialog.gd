@@ -15,6 +15,7 @@ const DIALOG_MAX := Vector2i(900, 920)
 
 var _key_edits: Dictionary = {}  # provider_id -> LineEdit
 var _health_box: VBoxContainer = null
+var _install_sdk_btn: Button = null
 var _custom_cancel_btn: Button = null
 var _custom_save_btn: Button = null
 var _scroll: ScrollContainer = null
@@ -181,6 +182,16 @@ func _build_ui(providers_script: Variant) -> void:
 	pending.add_theme_color_override("font_color", MUTED_COLOR)
 	_health_box.add_child(pending)
 
+	_install_sdk_btn = Button.new()
+	_install_sdk_btn.name = "InstallSdkBtn"
+	_install_sdk_btn.text = "Install cursor-sdk (venv)"
+	_install_sdk_btn.tooltip_text = (
+		"Creates user://vg_cursor_venv and pip installs cursor-sdk.\n"
+		+ "Required on Linux where system pip is blocked (PEP 668)."
+	)
+	_install_sdk_btn.pressed.connect(_on_install_cursor_sdk)
+	_health_box.add_child(_install_sdk_btn)
+
 	vbox.add_child(HSeparator.new())
 
 	var hints := Label.new()
@@ -259,6 +270,51 @@ func _apply_health_lines(lines: PackedStringArray) -> void:
 		row.add_theme_color_override("font_color", TEXT_COLOR)
 		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_health_box.add_child(row)
+	# Keep install button last in the health section.
+	if is_instance_valid(_install_sdk_btn):
+		_health_box.move_child(_install_sdk_btn, _health_box.get_child_count() - 1)
+		var sdk_ok := false
+		for line in lines:
+			if str(line).begins_with("✅ cursor-sdk"):
+				sdk_ok = true
+				break
+		_install_sdk_btn.visible = not sdk_ok
+		_install_sdk_btn.disabled = false
+		_install_sdk_btn.text = "Install cursor-sdk (venv)"
+
+
+func _on_install_cursor_sdk() -> void:
+	if not is_instance_valid(_install_sdk_btn):
+		return
+	_install_sdk_btn.disabled = true
+	_install_sdk_btn.text = "Installing cursor-sdk…"
+	WorkerThreadPool.add_task(func():
+		var CursorSession = load("res://addons/visual_gasic/vg_ai_cursor_session.gd")
+		var result: Dictionary = {"ok": false, "error": "module missing"}
+		if CursorSession != null:
+			result = CursorSession.bootstrap_cursor_sdk()
+		call_deferred("_on_install_cursor_sdk_done", result)
+	)
+
+
+func _on_install_cursor_sdk_done(result: Dictionary) -> void:
+	if not is_instance_valid(_install_sdk_btn):
+		return
+	if bool(result.get("ok", false)):
+		_install_sdk_btn.text = "Installed ✓"
+		_install_sdk_btn.visible = false
+	else:
+		_install_sdk_btn.disabled = false
+		_install_sdk_btn.text = "Install cursor-sdk (venv)"
+		var err_lbl := Label.new()
+		err_lbl.text = "Install failed: %s" % str(result.get("error", "unknown"))
+		err_lbl.add_theme_font_size_override("font_size", 11)
+		err_lbl.add_theme_color_override("font_color", Color(0.6, 0.0, 0.0))
+		err_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_health_box.add_child(err_lbl)
+		if is_instance_valid(_install_sdk_btn):
+			_health_box.move_child(_install_sdk_btn, _health_box.get_child_count() - 1)
+	_refresh_cursor_health_async()
 
 
 func _build_theme() -> Theme:

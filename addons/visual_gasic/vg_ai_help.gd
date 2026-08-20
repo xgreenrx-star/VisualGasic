@@ -4001,7 +4001,7 @@ func _activate_cursor_provider() -> void:
 	if not CursorSession.cursor_sdk_available(python):
 		_ollama_available = false
 		_status_label.text = "❌ cursor-sdk missing"
-		_append_system("[color=yellow]Run: [color=gray]pip install cursor-sdk[/color] then restart Godot.[/color]\n")
+		_append_system("[color=yellow]%s[/color]\n" % CursorSession.cursor_sdk_install_hint())
 		return
 	_ollama_available = true
 	_model_warm = true

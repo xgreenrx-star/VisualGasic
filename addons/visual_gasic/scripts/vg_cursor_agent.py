@@ -6,7 +6,9 @@ Reads a JSON request file, streams NDJSON events to stdout:
   {"type":"done","status":"finished"|"error"|...}
   {"type":"error","message":"..."}
 
-Install: pip install cursor-sdk
+Install: use AI Pair → ⚙️ → Install cursor-sdk (venv), or:
+  python3 -m venv ~/.local/share/godot/app_userdata/<Project>/vg_cursor_venv
+  <venv>/bin/pip install cursor-sdk
 API key: Cursor Dashboard → Integrations (CURSOR_API_KEY)
 """
 

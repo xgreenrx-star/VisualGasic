@@ -35,7 +35,16 @@ static func agent_script_path() -> String:
 	return ProjectSettings.globalize_path("res://addons/visual_gasic/scripts/vg_cursor_agent.py")
 
 
-static func resolve_python() -> String:
+static func venv_dir() -> String:
+	return OS.get_user_data_dir().path_join("vg_cursor_venv")
+
+
+static func venv_python_path() -> String:
+	var py := venv_dir().path_join("bin/python3")
+	return py if FileAccess.file_exists(py) else ""
+
+
+static func _resolve_system_python() -> String:
 	var output: Array = []
 	for candidate in PYTHON_CANDIDATES:
 		var exit := OS.execute("bash", ["-lc", "command -v %s 2>/dev/null || true" % candidate], output, true, false)
@@ -44,6 +53,75 @@ static func resolve_python() -> String:
 			if not path.is_empty() and FileAccess.file_exists(path):
 				return path
 	return ""
+
+
+static func resolve_python() -> String:
+	# Prefer project-local venv when cursor-sdk is installed there.
+	var venv_py := venv_python_path()
+	if not venv_py.is_empty() and cursor_sdk_available(venv_py):
+		return venv_py
+	var system_py := _resolve_system_python()
+	if not system_py.is_empty() and cursor_sdk_available(system_py):
+		return system_py
+	if not venv_py.is_empty():
+		return venv_py
+	return system_py
+
+
+static func cursor_sdk_install_hint() -> String:
+	var vdir := venv_dir()
+	return (
+		"Linux blocks system pip (PEP 668). In AI Pair → ⚙️ click "
+		+ "\"Install cursor-sdk\" or run:\n  python3 -m venv \"%s\"\n  \"%s/bin/pip\" install cursor-sdk"
+		% [vdir, vdir]
+	)
+
+
+## Create user://vg_cursor_venv and pip install cursor-sdk. Returns {ok, error, python}.
+static func bootstrap_cursor_sdk() -> Dictionary:
+	var result := {"ok": false, "error": "", "python": ""}
+	var system_py := _resolve_system_python()
+	if system_py.is_empty():
+		result["error"] = "python3 not found on PATH"
+		return result
+
+	var vdir := venv_dir()
+	var vpy := venv_python_path()
+	if vpy.is_empty():
+		var out: Array = []
+		var code: int = OS.execute(system_py, ["-m", "venv", vdir], out, true, false)
+		if code != 0:
+			result["error"] = "venv failed: %s" % "\n".join(out).strip_edges()
+			return result
+		vpy = venv_python_path()
+		if vpy.is_empty():
+			result["error"] = "venv created but bin/python3 missing"
+			return result
+
+	if cursor_sdk_available(vpy):
+		result["ok"] = true
+		result["python"] = vpy
+		return result
+
+	var pip := vdir.path_join("bin/pip3")
+	if not FileAccess.file_exists(pip):
+		pip = vdir.path_join("bin/pip")
+	if not FileAccess.file_exists(pip):
+		result["error"] = "venv pip missing at %s" % pip
+		return result
+
+	var pip_out: Array = []
+	var pip_code: int = OS.execute(pip, ["install", "cursor-sdk"], pip_out, true, false)
+	if pip_code != 0:
+		result["error"] = "pip install cursor-sdk failed: %s" % "\n".join(pip_out).strip_edges().substr(0, 400)
+		return result
+	if not cursor_sdk_available(vpy):
+		result["error"] = "pip finished but import cursor_sdk still fails"
+		return result
+
+	result["ok"] = true
+	result["python"] = vpy
+	return result
 
 
 static func cursor_sdk_available(python: String = "") -> bool:
@@ -69,7 +147,7 @@ func start(request: Dictionary) -> bool:
 		stream_error.emit("python3 not found. Install Python 3 to use Cursor (Composer).")
 		return false
 	if not cursor_sdk_available(python):
-		stream_error.emit("cursor-sdk not installed. Run: pip install cursor-sdk")
+		stream_error.emit(cursor_sdk_install_hint())
 		return false
 
 	_request_path = OS.get_cache_dir().path_join(
