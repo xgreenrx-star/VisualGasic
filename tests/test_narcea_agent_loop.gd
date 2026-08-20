@@ -380,6 +380,14 @@ func _test_run_session() -> void:
 	# is_running returns false
 	_expect("is_running() false when idle", not session.is_running())
 
+	# ai_projects scaffold root must not be used as --path (no project.godot).
+	var host_root := ProjectSettings.globalize_path("res://").rstrip("/")
+	var resolved: String = session._resolve_godot_project_root("res://ai_projects/Pong/")
+	_expect("ai_projects subdir resolves to host project", resolved == host_root)
+
+	var scene: String = session._normalize_scene_path("Game.tscn", "res://ai_projects/Pong/")
+	_expect("relative scene rebased under scaffold", scene == "res://ai_projects/Pong/Game.tscn")
+
 	print("")
 
 

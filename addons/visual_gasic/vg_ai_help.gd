@@ -5731,6 +5731,9 @@ func _on_run() -> void:
 	_run_error_lines.clear()
 	if is_instance_valid(_summarize_errors_btn):
 		_summarize_errors_btn.visible = false
+	# Flush editor saves so the subprocess sees the latest .vg / .tscn.
+	if Engine.is_editor_hint():
+		EditorInterface.save_all_scenes()
 	var root_path := _last_project_root if not _last_project_root.is_empty() else "res://"
 	if _run_session.start(_last_run_scene, root_path):
 		if is_instance_valid(_run_btn):

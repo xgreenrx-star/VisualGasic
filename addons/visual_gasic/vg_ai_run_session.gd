@@ -48,32 +48,32 @@ func _ready() -> void:
 
 
 ## Start a Godot subprocess running the given scene.
-##   scene_path:    "res://path/to/Scene.tscn"
-##   project_root:  res:// or absolute path of the project to use.
-##                  Empty = current res://.
+##   scene_path:    "res://path/to/Scene.tscn" (absolute res://) or relative
+##                  to scaffold_root when rebasing ai_projects files.
+##   scaffold_root: res:// subfolder written by Make project (e.g.
+##                  res://ai_projects/Pong/). Used only to rebase relative
+##                  scene paths — --path always targets the host project root
+##                  that contains project.godot.
 ##
 ## Returns true if the process spawned, false otherwise (with an
 ## explanatory line emitted via output_line(stderr, ...)).
-func start(scene_path: String, project_root: String = "") -> bool:
+func start(scene_path: String, scaffold_root: String = "") -> bool:
 	if _running:
 		_emit_stderr("Run session already active.")
 		return false
-	if scene_path.strip_edges().is_empty():
+	var scene_res := _normalize_scene_path(scene_path, scaffold_root)
+	if scene_res.is_empty():
 		_emit_stderr("No scene specified.")
 		return false
 	var godot_bin := OS.get_executable_path()
 	if godot_bin.is_empty():
 		godot_bin = "godot"
-	# Resolve project root.  When running a scene that lives inside the
-	# current project, just use res://; for sandbox-scaffolded projects
-	# the caller passes the explicit root path.
-	var path_arg := project_root if not project_root.is_empty() else "res://"
-	var path_abs := ProjectSettings.globalize_path(path_arg)
-	# Convert res:// scene paths to project-relative when --path is set,
-	# Godot accepts the res:// form regardless so we leave it alone.
+	# Subprocess godot must --path to the host project (project.godot), not
+	# ai_projects/<name>/ which is only a scaffold folder inside it.
+	var path_abs := _resolve_godot_project_root(scaffold_root)
 	var args := PackedStringArray([
 		"--path", path_abs,
-		scene_path,
+		scene_res,
 	])
 	var info: Dictionary = OS.execute_with_pipe(godot_bin, args)
 	if info.is_empty():
@@ -87,9 +87,35 @@ func start(scene_path: String, project_root: String = "") -> bool:
 		return false
 	_running = true
 	_log.clear()
-	_emit_stdout("$ %s --path %s %s" % [godot_bin, path_abs, scene_path])
+	_emit_stdout("$ %s --path %s %s" % [godot_bin, path_abs, scene_res])
 	_timer.start()
 	return true
+
+
+## Host Godot project directory (contains project.godot). ai_projects/
+## subfolders are scaffold roots, not standalone projects.
+static func _resolve_godot_project_root(scaffold_root: String = "") -> String:
+	var host := ProjectSettings.globalize_path("res://").rstrip("/")
+	if scaffold_root.strip_edges().is_empty() or scaffold_root == "res://":
+		return host
+	var candidate := ProjectSettings.globalize_path(scaffold_root).rstrip("/")
+	if FileAccess.file_exists(candidate.path_join("project.godot")):
+		return candidate
+	return host
+
+
+static func _normalize_scene_path(scene_path: String, scaffold_root: String = "") -> String:
+	var p := scene_path.strip_edges()
+	if p.is_empty():
+		return ""
+	if p.begins_with("res://"):
+		return p
+	var root := scaffold_root.strip_edges()
+	if root.is_empty():
+		root = "res://"
+	if not root.ends_with("/"):
+		root += "/"
+	return root + p.lstrip("/")
 
 
 ## Send SIGTERM to the running scene (if any).  Idempotent.
