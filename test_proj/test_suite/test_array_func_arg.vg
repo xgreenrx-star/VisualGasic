@@ -1,0 +1,39 @@
+Option Explicit
+
+Dim vals(3) As Single
+Dim idx As Integer
+
+Function DoubleVal(x As Single) As Single
+	DoubleVal = x * 2
+End Function
+
+Function Sum2(a As Single, b As Single, c As Single) As Single
+	Sum2 = a + b + c
+End Function
+
+Sub _Ready()
+	vals(0) = 10
+	vals(1) = 20
+	vals(2) = 30
+	idx = 1
+
+	Dim r As Single
+	r = DoubleVal(vals(idx))
+	If r = 40 Then
+		Print "PASS: assign from array slot arg"
+	Else
+		Print "FAIL: assign from array slot arg got " & CStr(r)
+	End If
+
+	If DoubleVal(vals(idx)) = 40 Then
+		Print "PASS: array slot inline in If"
+	Else
+		Print "FAIL: array slot inline in If"
+	End If
+
+	If Sum2(vals(0), vals(idx), vals(2)) = 60 Then
+		Print "PASS: multiple array slots in call"
+	Else
+		Print "FAIL: multiple array slots in call"
+	End If
+End Sub

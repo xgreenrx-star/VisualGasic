@@ -1,0 +1,17 @@
+Option Explicit
+
+Dim arr(3) As Single
+
+Sub Bump(ByRef v As Single)
+	v = v + 100
+End Sub
+
+Sub _Ready()
+	arr(1) = 5
+	Bump arr(1)
+	If arr(1) = 105 Then
+		Print "PASS: ByRef array slot write-back"
+	Else
+		Print "FAIL: ByRef array slot got " & CStr(arr(1))
+	End If
+End Sub

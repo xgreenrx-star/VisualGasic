@@ -1,0 +1,29 @@
+---
+description: VG is a real language — fix bugs, never silently work around them
+alwaysApply: true
+---
+
+# Visual Gasic: no bug workarounds
+
+Visual Gasic is a **real programming language**. Runtime, compiler, and VM bugs are not acceptable to paper over.
+
+## Required behavior
+
+1. **Do not apply workarounds** in `.vg` game code, Narcea prompts, or docs when the root cause is a VG engine bug (compiler, VM, parser, ByRef, array semantics, etc.).
+2. **Fix the bug** in `src/` (or the relevant engine path) and add or extend a regression test in `test_proj/test_suite/` when practical.
+3. If a fix is deferred or rejected by the user:
+   - **Tell the user explicitly** what the bug is, how to reproduce it, and what behavior is wrong.
+   - **Document it** (e.g. known issue in `.github/copilot-instructions.md` or a tracked note the user chooses) — never leave a silent workaround as if it were normal VG semantics.
+4. **Do not teach Narcea or AI prompts** to avoid broken VG behavior unless the bug is documented as unfixed and temporary.
+
+## Examples
+
+| Situation | Wrong | Right |
+|-----------|-------|-------|
+| `arr(i)` ByRef write-back fails | Copy to scalar before every call | Fix `emit_byref_writebacks` / capture; test `test_byref_array_slot.vg` |
+| Read-only `Func(arr(i))` works | Still add scalar-copy “for safety” | Use `arr(i)` directly; no workaround |
+| Collision helper misnamed in docs | Document “use square hitbox instead” | Fix collision guidance; fix game logic |
+
+## Tests
+
+After C++ / VM changes: rebuild extension and run affected `test_proj/test_suite/test_*.vg` tests (or `run_test_suite.sh` with a filter).

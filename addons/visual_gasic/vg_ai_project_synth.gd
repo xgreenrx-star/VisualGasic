@@ -54,6 +54,7 @@ static func pure_2d_game_prompt_extra() -> String:
 		+ "DrawRect / DrawCircle / DrawLine for graphics when no image assets exist. "
 		+ "Set main_scene to the game .tscn. Do NOT put game logic on a Window form. "
 		+ "Keep ≤ 6 files under res://ai_projects/<name>/."
+		+ Narcea.collision_2d_prompt_extra()
 		+ Narcea.audit_comments_prompt_extra()
 	)
 

@@ -2476,11 +2476,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                     int arg_count = call->arguments.size();
                     for (int i = 0; i < max_params && i < arg_count; i++) {
                         const Parameter& param = called_func->parameters[i];
-                        if (param.is_by_ref && call->arguments[i] && call->arguments[i]->type == ExpressionNode::VARIABLE) {
-                            String caller_var_name = ((VariableNode*)call->arguments[i])->name;
+                        if (param.is_by_ref && call->arguments[i]) {
                             for (int j = 0; j < _last_byref_captures.size(); j++) {
                                 if (_last_byref_captures[j].first == param.name) {
-                                    assign_variable(caller_var_name, _last_byref_captures[j].second);
+                                    assign_to_target(call->arguments[i], _last_byref_captures[j].second);
                                     break;
                                 }
                             }

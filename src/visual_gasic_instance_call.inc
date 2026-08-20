@@ -590,9 +590,23 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     Vector<Pair<String, Variant>> byref_captures;
     if (func) {
         for (int i = 0; i < func->parameters.size(); i++) {
-            if (func->parameters[i].is_by_ref && variables.has(func->parameters[i].name)) {
-                byref_captures.push_back({func->parameters[i].name, variables[func->parameters[i].name]});
+            if (!func->parameters[i].is_by_ref) continue;
+            Variant captured;
+            // Fast-call params live in bytecode local slots, not variables[].
+            if (use_fast_params && chunk_for_locals && debug_bc_locals &&
+                    i < chunk_for_locals->param_count && i < debug_bc_locals->size()) {
+                captured = (*debug_bc_locals)[i];
+            } else if (variables.has(func->parameters[i].name)) {
+                captured = variables[func->parameters[i].name];
+            } else if (chunk_for_locals && debug_bc_locals) {
+                for (int s = 0; s < chunk_for_locals->local_names.size() && s < debug_bc_locals->size(); s++) {
+                    if (chunk_for_locals->local_names[s].nocasecmp_to(func->parameters[i].name) == 0) {
+                        captured = (*debug_bc_locals)[s];
+                        break;
+                    }
+                }
             }
+            byref_captures.push_back({func->parameters[i].name, captured});
         }
     }
 
@@ -693,11 +707,13 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
         }
     }
 
-    // Store captured ByRef parameter values for the AST executor's
-    // STMT_CALL ByRef write-back.  Do NOT re-apply to variables[] here —
-    // that corrupts the caller's restored locals during recursion when
-    // the param name collides with a caller variable (e.g. Fib(n-1)).
-    _last_byref_captures = byref_captures;
+    // Store captured ByRef parameter values for the caller's write-back
+    // (AST STMT_CALL and bytecode OP_BYREF_LOAD).  Bytecode subs already
+    // stashed captures from callee locals in execute_bytecode() before
+    // debug_bc_locals was restored; overwriting here would clobber them.
+    if (!used_bytecode) {
+        _last_byref_captures = byref_captures;
+    }
     
     return ret;
 }

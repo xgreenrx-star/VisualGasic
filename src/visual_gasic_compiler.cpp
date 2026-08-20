@@ -3498,21 +3498,21 @@ void VisualGasicCompiler::emit_byref_writebacks(SubDefinition* target_func, cons
     int param_count = target_func->parameters.size();
     for (int j = 0; j < param_count && j < arguments.size(); j++) {
         const Parameter& p = target_func->parameters[j];
-        // Only ByRef scalar params bound to a plain variable argument are written
-        // back. ParamArray params (which absorb multiple args) are skipped, and
+        // Only ByRef scalar params bound to a plain variable or array slot are
+        // written back. ParamArray params (which absorb multiple args) are skipped,
         // the STMT_CALL path bails on ParamArray before ever reaching here.
         if (!p.is_by_ref || p.is_param_array) continue;
         ExpressionNode* arg = arguments[j];
-        if (!arg || arg->type != ExpressionNode::VARIABLE) continue;
+        if (!arg) continue;
+        int pidx = current_chunk->add_constant(p.name);
+        if (arg->type == ExpressionNode::VARIABLE) {
         String argname = ((VariableNode*)arg)->name;
         // A procedure-scoped Const inlines its literal value when read — there is
         // no storage location to write back to, so skip it.
         if (local_const_map.has(argname.to_lower())) continue;
         // Push the callee's post-call value for this parameter name (or the
         // destination's current value as a fallback — see OP_BYREF_LOAD).
-        int pidx = current_chunk->add_constant(p.name);
         // Resolve the SAME local/global decision the read path used when the
-        // argument was pushed, so the value lands in the exact slot/global the
         // argument was read from — and so OP_BYREF_LOAD can find the current
         // value there if no write-back was actually captured.
         int slot = get_or_add_local(argname, VT_UNKNOWN);
@@ -3530,6 +3530,81 @@ void VisualGasicCompiler::emit_byref_writebacks(SubDefinition* target_func, cons
             emit_byte((uint8_t)((nidx >> 8) & 0xFF));
             emit_byte(OP_SET_GLOBAL);
             emit_const_index(nidx);
+        }
+        } else if (arg->type == ExpressionNode::ARRAY_ACCESS) {
+            ArrayAccessNode* aa = (ArrayAccessNode*)arg;
+            if (aa->indices.size() != 1 || !aa->base || aa->base->type != ExpressionNode::VARIABLE) continue;
+            VariableNode* base_var = (VariableNode*)aa->base;
+            String argname = base_var->name;
+            if (local_const_map.has(argname.to_lower())) continue;
+            int slot = get_or_add_local(argname, VT_UNKNOWN);
+            emit_byte(OP_BYREF_LOAD);
+            emit_const_index(pidx);
+            if (slot >= 0) {
+                emit_byte(0);
+                emit_byte((uint8_t)(slot & 0xFF));
+                emit_byte((uint8_t)((slot >> 8) & 0xFF));
+            } else {
+                int nidx = current_chunk->add_constant(argname);
+                emit_byte(1);
+                emit_byte((uint8_t)(nidx & 0xFF));
+                emit_byte((uint8_t)((nidx >> 8) & 0xFF));
+            }
+            // Stack: [byref_value] — rearrange to [array, index, value] for OP_SET_ARRAY
+            int temp_slot = get_or_add_local("__byref_wb_" + String::num_int64(temp_local_id++), VT_UNKNOWN);
+            emit_bytes(OP_SET_LOCAL, (uint8_t)temp_slot);
+            compile_expression(aa->base);
+            compile_expression(aa->indices[0]);
+            emit_bytes(OP_GET_LOCAL, (uint8_t)temp_slot);
+            emit_byte(OP_SET_ARRAY);
+            emit_byte(1);
+            if (slot >= 0) {
+                emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+            } else {
+                int nidx = current_chunk->add_constant(argname);
+                emit_byte(OP_SET_GLOBAL);
+                emit_const_index(nidx);
+            }
+        } else if (arg->type == ExpressionNode::EXPRESSION_CALL) {
+            // parse_expression() represents arr(i) as CallExpression("arr", [i]).
+            CallExpression* call = (CallExpression*)arg;
+            if (call->base_object || call->arguments.size() != 1) continue;
+            String argname = call->method_name;
+            String key = argname.to_lower();
+            if (local_const_map.has(key)) continue;
+            if (!array_vars.has(key) && !dictionary_vars.has(key) &&
+                    !local_slots.has(key) && !param_vars.has(key) && !is_buffer_var(argname)) {
+                continue;
+            }
+            int slot = get_or_add_local(argname, VT_UNKNOWN);
+            emit_byte(OP_BYREF_LOAD);
+            emit_const_index(pidx);
+            if (slot >= 0) {
+                emit_byte(0);
+                emit_byte((uint8_t)(slot & 0xFF));
+                emit_byte((uint8_t)((slot >> 8) & 0xFF));
+            } else {
+                int nidx = current_chunk->add_constant(argname);
+                emit_byte(1);
+                emit_byte((uint8_t)(nidx & 0xFF));
+                emit_byte((uint8_t)((nidx >> 8) & 0xFF));
+            }
+            int temp_slot = get_or_add_local("__byref_wb_" + String::num_int64(temp_local_id++), VT_UNKNOWN);
+            emit_bytes(OP_SET_LOCAL, (uint8_t)temp_slot);
+            VariableNode base_var;
+            base_var.name = argname;
+            compile_expression(&base_var);
+            compile_expression(call->arguments[0]);
+            emit_bytes(OP_GET_LOCAL, (uint8_t)temp_slot);
+            emit_byte(OP_SET_ARRAY);
+            emit_byte(1);
+            if (slot >= 0) {
+                emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+            } else {
+                int nidx = current_chunk->add_constant(argname);
+                emit_byte(OP_SET_GLOBAL);
+                emit_const_index(nidx);
+            }
         }
     }
 }

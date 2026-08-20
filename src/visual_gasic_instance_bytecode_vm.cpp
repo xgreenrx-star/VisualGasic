@@ -7792,6 +7792,38 @@ cleanup:
     finalize_stack_profile();
     finalize_profile();
 
+    // Capture ByRef param post-call values while callee locals are still live.
+    // call_internal() used to read debug_bc_locals after we restore the outer
+    // frame below, which pointed at the CALLER's slots — stale/wrong captures
+    // for fast-param bytecode subs (e.g. Bump arr(1) never wrote back).
+    if (func && success) {
+        Vector<Pair<String, Variant>> bc_byref_captures;
+        for (int pi = 0; pi < func->parameters.size(); pi++) {
+            if (!func->parameters[pi].is_by_ref) {
+                continue;
+            }
+            const String &pname = func->parameters[pi].name;
+            Variant captured;
+            if (chunk && pi < chunk->param_count && pi < locals.size()) {
+                captured = locals[pi];
+            } else if (chunk) {
+                for (int s = 0; s < chunk->local_names.size() && s < locals.size(); s++) {
+                    if (chunk->local_names[s].nocasecmp_to(pname) == 0) {
+                        captured = locals[s];
+                        break;
+                    }
+                }
+            }
+            if (captured.get_type() == Variant::NIL && variables.has(pname)) {
+                captured = variables[pname];
+            }
+            bc_byref_captures.push_back({pname, captured});
+        }
+        if (!bc_byref_captures.is_empty()) {
+            _last_byref_captures = bc_byref_captures;
+        }
+    }
+
     // Restore the outer frame's debug pointers (for nested calls).
     debug_bc_locals = prev_debug_bc_locals;
     debug_bc_chunk  = prev_debug_bc_chunk;

@@ -8,5 +8,6 @@ Requirements:
 - Start with 4–6 drifting asteroids; when hit, split into smaller pieces (at least one split level)
 - Show score with DrawString in a corner
 - Set main_scene so the AI Pair ▶ Run button works immediately
+- Collisions: circle-vs-circle with toroidal wrap (sum of radii); no |dx|/|dy| square hitboxes
 
 Reply with one fenced ```vg-project-spec``` JSON block only. Include project_name, subdir "ai_projects", main_scene, and files[] with the complete .vg game source (not TODO stubs). Keep ≤ 6 files total.

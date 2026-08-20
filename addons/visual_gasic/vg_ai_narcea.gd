@@ -1174,6 +1174,26 @@ const AUDIT_COMMENTS_POLICY := (
 static func audit_comments_prompt_extra() -> String:
 	return AUDIT_COMMENTS_POLICY
 
+
+## Prompt fragment: reliable 2D canvas collision for _Draw / Node2D games.
+const COLLISION_2D_POLICY := (
+	" 2D CANVAS COLLISION (Node2D + _Draw arcade games): "
+	+ "Use circle-vs-circle overlap: wrap-aware dist² <= (r1 + r2 + slack)². "
+	+ "NEVER test |dx| < R And |dy| < R — that is an axis-aligned square, not a circle, "
+	+ "and feels broken (only hits near the center on diagonals). "
+	+ "In VG, Sqr(x) is square ROOT (distance), not x squared — use dx*dx+dy*dy for dist². "
+	+ "Screen-wrap: shortest toroidal delta (if |dx| > screenW/2 then dx = screenW - |dx|). "
+	+ "Match hit radii to DrawCircle radii + 4–8px pad; triangle ships ~16–18. "
+	+ "Copy parallel-array slots into scalar locals before passing to Subs that MODIFY ByRef params "
+	+ "(arr(i) write-back is supported; plain reads like CirclesHit(arr(i), ...) work either way). "
+	+ "In CheckCollisions, do not Exit Sub on respawn invuln before bullet-vs-world tests. "
+	+ "Reference: demos/2D_Games/Space_Shooter/space_shooter.vg (Collides Lambda)."
+)
+
+
+static func collision_2d_prompt_extra() -> String:
+	return COLLISION_2D_POLICY
+
 const SLIM_KNOWLEDGE := """
 === VG essentials (Cursor / Composer) ===
 - `.vg` = VB6-style Visual Gasic (Sub/Function, Dim, If…Then) — NOT GDScript for game logic.
@@ -1288,6 +1308,10 @@ COMMON MISTAKES TO AVOID:
     you're adding to an existing file) must be a top-level sibling,
     inserted after the neighboring Sub's End Sub — never spliced into the
     middle of one.
+  * 2D _Draw game collision: use circle-vs-circle (sum of radii + toroidal
+    wrap).  NEVER |dx|<R And |dy|<R (square hitbox).  ByRef write-back to
+    arr(i) is supported; reading arr(i) as a call argument always worked.
+    See demos/2D_Games/Space_Shooter/.
   * Do NOT rely on `And`/`Or` short-circuiting a guard condition (e.g.
     `a > 0 And arr(a-1) > 0`) — VG always evaluates both sides; use nested
     If/ElseIf instead when the right side is only safe when the left is true.
