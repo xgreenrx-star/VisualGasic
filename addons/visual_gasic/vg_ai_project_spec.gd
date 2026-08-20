@@ -189,6 +189,43 @@ func describe(spec: Dictionary) -> String:
 	return "Project '%s' (%d form(s), %d file(s))" % [name, nf, nc]
 
 
+## Pre-scaffold validation. Returns {ok, errors[], warnings[]}.
+func validate_spec(spec: Dictionary, ctx: Dictionary = {}) -> Dictionary:
+	var errors: PackedStringArray = []
+	var warnings: PackedStringArray = []
+	if spec.is_empty():
+		errors.append("empty spec")
+		return {"ok": false, "errors": errors, "warnings": warnings}
+	var pname := str(spec.get("project_name", "")).strip_edges()
+	if pname.is_empty():
+		errors.append("missing project_name")
+	var files: Array = spec.get("files", [])
+	var forms: Array = spec.get("forms", [])
+	if files.is_empty() and forms.is_empty():
+		errors.append("files[] and forms[] both empty")
+	var has_vg := false
+	var min_vg_len := int(ctx.get("min_vg_source_len", 40))
+	for entry in files:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var path := str(entry.get("path", "")).strip_edges()
+		var src := str(entry.get("source", entry.get("contents", entry.get("content", "")))).strip_edges()
+		if path.ends_with(".vg"):
+			has_vg = true
+			if src.length() < min_vg_len:
+				errors.append("short or missing source for %s" % path.get_file())
+	if not has_vg and forms.is_empty():
+		warnings.append("no .vg file in files[]")
+	var main_scene := str(spec.get("main_scene", "")).strip_edges()
+	if main_scene.is_empty() and has_vg:
+		warnings.append("main_scene not set")
+	var existing_root := str(ctx.get("existing_root", "")).strip_edges()
+	if not existing_root.is_empty():
+		var want := existing_root.trim_suffix("/").get_file()
+		if not pname.is_empty() and pname != want:
+			warnings.append("project_name '%s' differs from active '%s'" % [pname, want])
+	return {"ok": errors.is_empty(), "errors": errors, "warnings": warnings}
+
 ## Compute the absolute res:// root for this project.  Pure function — no
 ## side effects.  Useful for the diff dialog.
 ##

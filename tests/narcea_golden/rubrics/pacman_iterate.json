@@ -3,6 +3,7 @@
   "apply_mode": "project",
   "required_project_name": "pacman_iterate_test",
   "require_vg_changed": true,
+  "require_vg_parse": true,
   "required_vg_substrings": ["_Process", "_Draw"],
   "required_vg_patterns": [
     {"id": "game_loop", "regex": "(?i)(_Ready|_Process)"},

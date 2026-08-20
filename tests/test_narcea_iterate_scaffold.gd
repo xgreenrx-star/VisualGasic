@@ -24,6 +24,8 @@ func _initialize() -> void:
 	_test_iterate_auto_scaffold_persona_parity()
 	_test_maybe_nudge_on_truncated_spec()
 	_test_pacman_fixtures_apply()
+	_test_spec_validator()
+	_test_vg_parse_gate()
 
 	_finish()
 
@@ -136,6 +138,39 @@ func _test_pacman_fixtures_apply() -> void:
 	_expect("turn2 Game.vg changed", vg2 != vg1)
 	_expect("turn2 has maze/wall", vg2.to_lower().find("wall") >= 0 or vg2.find("DrawRect") >= 0)
 	_expect("turn2 has power/fright", vg2.to_lower().find("power") >= 0 or vg2.to_lower().find("fright") >= 0)
+	_cleanup(root)
+
+
+func _test_spec_validator() -> void:
+	print("")
+	print("--- Spec validator ---")
+	var ProjectSpec = load("res://addons/visual_gasic/vg_ai_project_spec.gd")
+	var ps = ProjectSpec.new()
+	var invalid := FileAccess.get_file_as_string(_golden.path_join("fixtures/invalid_project_spec_response.txt"))
+	var spec: Dictionary = ps.extract_spec(invalid)
+	var val: Dictionary = ps.validate_spec(spec, {})
+	_expect("invalid spec extracts", not spec.is_empty())
+	_expect("invalid spec fails validation", not val.get("ok", true))
+	_expect("invalid spec reports empty files", str(val.get("errors", [])).find("empty") >= 0)
+
+
+func _test_vg_parse_gate() -> void:
+	print("")
+	print("--- VG parse gate ---")
+	const VgParse := preload("res://addons/visual_gasic/narcea_vg_parse.gd")
+	var turn1 := FileAccess.get_file_as_string(_golden.path_join("fixtures/pacman_create_response.txt"))
+	var ProjectSpec = load("res://addons/visual_gasic/vg_ai_project_spec.gd")
+	var ps = ProjectSpec.new()
+	var spec: Dictionary = ps.extract_spec(turn1)
+	var root: String = ps.project_root(spec)
+	_cleanup(root)
+	var FormSpec = load("res://addons/visual_gasic/vg_ai_form_spec.gd")
+	var CodeSpec = load("res://addons/visual_gasic/vg_ai_code_spec.gd")
+	var SafeWrite = load("res://addons/visual_gasic/vg_ai_safe_write.gd")
+	ps.apply(spec, {"safe_writer": SafeWrite.new(), "code_spec": CodeSpec.new(), "form_spec": FormSpec.new(), "designer": null})
+	var vg_path := VgParse.primary_vg_in_written([], root)
+	var chk: Dictionary = VgParse.check_parse(vg_path)
+	_expect("pacman turn1 vg parses", chk.get("ok", false), str(chk.get("error", "")))
 	_cleanup(root)
 
 

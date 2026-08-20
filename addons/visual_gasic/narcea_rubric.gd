@@ -99,3 +99,28 @@ static func score_iteration(vg_before: String, vg_after: String, rubric: Diction
 		return false
 	report.call(true, "[%s] iteration .vg changed" % label)
 	return true
+
+
+static func score_vg_parse(vg_path: String, rubric: Dictionary, label: String, report: Callable) -> bool:
+	if not bool(rubric.get("require_vg_parse", false)):
+		return true
+	const VgParse := preload("res://addons/visual_gasic/narcea_vg_parse.gd")
+	var chk: Dictionary = VgParse.check_parse(vg_path)
+	if not chk.get("ok", false):
+		report.call(false, "[%s] vg parse: %s" % [label, str(chk.get("error", "?"))])
+		return false
+	report.call(true, "[%s] vg parse ok" % label)
+	return true
+
+
+static func score_run_smoke(tree: SceneTree, scene_path: String, rubric: Dictionary, label: String, report: Callable) -> bool:
+	if not bool(rubric.get("require_run_smoke", false)) and OS.get_environment("NARCEA_RUN_SMOKE") != "1":
+		return true
+	const VgParse := preload("res://addons/visual_gasic/narcea_vg_parse.gd")
+	var hold := int(OS.get_environment("NARCEA_RUN_SMOKE_MS").strip_edges()) if not OS.get_environment("NARCEA_RUN_SMOKE_MS").strip_edges().is_empty() else 1500
+	var chk: Dictionary = VgParse.smoke_run_scene(tree, scene_path, hold)
+	if not chk.get("ok", false):
+		report.call(false, "[%s] run smoke: %s" % [label, str(chk.get("error", "?"))])
+		return false
+	report.call(true, "[%s] run smoke ok" % label)
+	return true

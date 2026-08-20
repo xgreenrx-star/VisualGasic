@@ -11,6 +11,7 @@ extends SceneTree
 ##   NARCEA_LIVE_TIMEOUT          seconds (default 180)
 
 const NarceaRubric := preload("res://addons/visual_gasic/narcea_rubric.gd")
+const NarceaVgParse := preload("res://addons/visual_gasic/narcea_vg_parse.gd")
 const AIHelp := preload("res://addons/visual_gasic/vg_ai_help.gd")
 
 var _failed := 0
@@ -23,6 +24,9 @@ var _http: HTTPRequest
 var _pending: Dictionary = {}
 var _system_prompt := ""
 var _retry_counts: Dictionary = {}
+var _failure_records: Array = []
+var _last_response := ""
+var _last_sid := ""
 
 
 func _initialize() -> void:
@@ -70,6 +74,11 @@ func _run_next_scenario() -> void:
 	if OS.get_environment("NARCEA_LIVE_SKIP_API") == "1":
 		var fix_path := _golden.path_join(str(sc.get("fixture_response", "")))
 		if fix_path.get_file().is_empty() or not FileAccess.file_exists(fix_path):
+			if str(sc.get("fixture_response", "")).is_empty():
+				print("  [skip] live-only scenario (no fixture)")
+				_scenario_idx += 1
+				call_deferred("_run_next_scenario")
+				return
 			_fail("[%s] fixture" % sid, "no fixture_response for offline replay")
 			_scenario_idx += 1
 			call_deferred("_run_next_scenario")
@@ -149,6 +158,8 @@ func _run_multi_turn_scenario(sid: String, sc: Dictionary, turns: Array) -> void
 			break
 		if response.is_empty():
 			break
+		_last_sid = turn_label
+		_last_response = response
 		if mode == "project":
 			var vg_after := _apply_project_turn(turn_label, sc, response, rubric, i == turns.size() - 1)
 			if i == 0:
@@ -202,6 +213,7 @@ func _apply_project_turn(label: String, _sc: Dictionary, response: String, rubri
 	_expect("[%s] .vg written" % label, not vg_src.is_empty(), str(result.get("written", [])))
 	if not vg_src.is_empty() and final_turn:
 		NarceaRubric.score_vg(vg_src, rubric, label, Callable(self, "_rubric_report"))
+	_score_project_post_apply(label, rubric, result, root)
 	return vg_src
 
 
@@ -246,6 +258,8 @@ func _on_http_completed(result: int, code: int, _headers: PackedStringArray, bod
 
 
 func _apply_and_score(sid: String, sc: Dictionary, response: String) -> void:
+	_last_sid = sid
+	_last_response = response
 	var rubric: Dictionary = NarceaRubric.load_json(_golden.path_join(str(sc.get("rubric", ""))))
 	var mode := str(sc.get("mode", "project"))
 	if mode == "form":
@@ -343,7 +357,23 @@ func _apply_project_path(sid: String, response: String, rubric: Dictionary) -> v
 	_expect("[%s] .vg written" % sid, not vg_src.is_empty(), str(result.get("written", [])))
 	if not vg_src.is_empty():
 		NarceaRubric.score_vg(vg_src, rubric, sid, Callable(self, "_rubric_report"))
+	_score_project_post_apply(sid, rubric, result, root)
 	_cleanup(root)
+
+
+func _score_project_post_apply(label: String, rubric: Dictionary, result: Dictionary, root: String) -> void:
+	if not result.get("ok", false):
+		return
+	var vg_path := NarceaVgParse.primary_vg_in_written(result.get("written", []), root)
+	if FileAccess.file_exists(vg_path):
+		NarceaRubric.score_vg_parse(vg_path, rubric, label, Callable(self, "_rubric_report"))
+	var ms := str(result.get("main_scene", "")).strip_edges()
+	if ms.is_empty():
+		ms = root + "Game.tscn"
+	elif not ms.begins_with("res://"):
+		ms = root + ms
+	if FileAccess.file_exists(ms):
+		NarceaRubric.score_run_smoke(self, ms, rubric, label, Callable(self, "_rubric_report"))
 
 
 func _build_system_prompt() -> String:
@@ -424,6 +454,8 @@ func _ok(msg: String) -> void:
 func _fail(label: String, reason: String) -> void:
 	_failed += 1
 	print("  [FAIL] %s: %s" % [label, reason])
+	if not _last_response.is_empty() and not _last_sid.is_empty():
+		_failure_records.append({"sid": _last_sid, "label": label, "reason": reason, "response": _last_response})
 
 
 func _expect(label: String, cond: bool, reason: String = "") -> void:
@@ -434,6 +466,55 @@ func _expect(label: String, cond: bool, reason: String = "") -> void:
 
 
 func _finish() -> void:
+	_record_failures_to_tier_b()
+	_append_metrics_row()
 	print("")
 	print("RESULTS: %d passed, %d failed" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
+
+
+func _record_failures_to_tier_b() -> void:
+	if _failure_records.is_empty():
+		return
+	var out_dir := _golden.path_join("recorded")
+	DirAccess.make_dir_recursive_absolute(out_dir)
+	var ts := Time.get_datetime_string_from_system().replace(":", "-").replace("T", "_")
+	for i in _failure_records.size():
+		var rec: Dictionary = _failure_records[i]
+		var sid := str(rec.get("sid", "scenario"))
+		var path := out_dir.path_join("failure_%s_%s_%d_response.txt" % [sid, ts, i])
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		if f:
+			f.store_string(str(rec.get("response", "")))
+			f.close()
+			print("  [recorded] failure fixture -> %s" % path)
+
+
+func _append_metrics_row() -> void:
+	var metrics_dir := _golden.path_join("metrics")
+	DirAccess.make_dir_recursive_absolute(metrics_dir)
+	var provider := OS.get_environment("NARCEA_PROVIDER").strip_edges()
+	if provider.is_empty():
+		provider = "gemini"
+	var model := OS.get_environment("NARCEA_MODEL").strip_edges()
+	var skip_api := OS.get_environment("NARCEA_LIVE_SKIP_API") == "1"
+	var csv_path := metrics_dir.path_join("narcea_suite_runs.csv")
+	var header_needed := not FileAccess.file_exists(csv_path)
+	var row := "%s,%s,%s,%s,%d,%d,%d,%s\n" % [
+		Time.get_datetime_string_from_system(),
+		provider,
+		model if not model.is_empty() else "-",
+		"offline" if skip_api else "live",
+		_scenarios.size(),
+		_passed,
+		_failed,
+		OS.get_environment("NARCEA_SCENARIO").strip_edges() if not OS.get_environment("NARCEA_SCENARIO").strip_edges().is_empty() else "all",
+	]
+	var f := FileAccess.open(csv_path, FileAccess.READ_WRITE if FileAccess.file_exists(csv_path) else FileAccess.WRITE)
+	if f:
+		if header_needed:
+			f.store_string("timestamp,provider,model,mode,scenarios,passed,failed,scenario_filter\n")
+		else:
+			f.seek_end()
+		f.store_string(row)
+		f.close()

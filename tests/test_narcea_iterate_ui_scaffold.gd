@@ -97,6 +97,19 @@ func _begin_truncated() -> void:
 	_panel._refresh_build_form_btn()
 
 
+func _begin_invalid_spec() -> void:
+	print("")
+	print("--- UI invalid spec: validator blocks scaffold ---")
+	_cleanup(PROJECT_ROOT)
+	var invalid := FileAccess.get_file_as_string(_golden.path_join("fixtures/invalid_project_spec_response.txt"))
+	_panel.set("_persona_id", "skippy")
+	_panel.set("_last_build_intent", "project")
+	_panel.set("_accumulated_response", invalid)
+	_panel.set("_scaffold_in_progress", false)
+	_panel.set("_ollama_available", false)
+	_panel._on_make_project(true)
+
+
 func _process(_delta: float) -> bool:
 	if _phase == 0:
 		return false
@@ -115,6 +128,7 @@ func _process(_delta: float) -> bool:
 				_log_text = _panel.get("_output").get_parsed_text()
 				_expect("turn1 Game.vg written via UI path", _vg_before.length() > 80)
 				_expect("turn1 chat mentions scaffolding", _log_text.to_lower().find("scaffold") >= 0)
+				_expect("turn1 telemetry line", _log_text.find("📊 Scaffold") >= 0 or _log_text.to_lower().find("scaffold (new)") >= 0)
 				_tick = 0
 				_saw_scaffold = false
 				_phase = 2
@@ -134,6 +148,13 @@ func _process(_delta: float) -> bool:
 		3:
 			if _tick >= 4 and not bool(_panel.get("_scaffold_in_progress")):
 				_expect("truncated did not write Game.vg", not FileAccess.file_exists(PROJECT_ROOT + "Game.vg"))
+				_tick = 0
+				_phase = 4
+				_deadline_ms = Time.get_ticks_msec() + 8000
+				call_deferred("_begin_invalid_spec")
+		4:
+			if _tick >= 3 and not bool(_panel.get("_scaffold_in_progress")):
+				_expect("invalid spec did not write Game.vg", not FileAccess.file_exists(PROJECT_ROOT + "Game.vg"))
 				_finish()
 				return true
 	return false

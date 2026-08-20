@@ -1,0 +1,10 @@
+Here is an incomplete project spec (empty files[]):
+
+```vg-project-spec
+{
+  "project_name": "invalid_empty",
+  "subdir": "ai_projects",
+  "main_scene": "Game.tscn",
+  "files": []
+}
+```

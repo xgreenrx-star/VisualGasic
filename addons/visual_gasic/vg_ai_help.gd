@@ -560,6 +560,8 @@ var _code_followup_pending: bool = false  # auto follow-up when layout saved wit
 var _build_form_ran_this_turn: bool = false  # set when build_form tool executes; prevents double-build
 var _suppress_agent_loop: bool = false  # true while auto-scaffolding a project spec this turn
 var _scaffold_in_progress: bool = false
+var _project_spec_validation_retries: int = 0
+var _scaffold_vg_hash_before: int = 0
 # Tier-3 chat-only project-creation buttons.  Disabled until a parseable
 # vg-code-spec / vg-project-spec block is in the latest reply.  Run is
 # enabled whenever something has been built or the user opens an existing
@@ -2951,6 +2953,7 @@ func _on_send() -> void:
 		_agent_abort_requested = false
 		_build_form_ran_this_turn = false
 		_code_followup_pending = false
+		_project_spec_validation_retries = 0
 		_hide_abort_agent_btn()
 		_transcript_close("user_new_turn")  # Phase 6e: close any open transcript.
 		_transcript_open()
@@ -5139,6 +5142,54 @@ func _maybe_auto_apply_narcea_seed() -> void:
 
 
 ## Scaffold a vg-project-spec block under res://ai_projects/<name>/.
+func _primary_vg_path_for_root(root: String) -> String:
+	var base := root if root.ends_with("/") else root + "/"
+	for fname in ["Game.vg", "Form1.vg"]:
+		var p: String = base + str(fname)
+		if FileAccess.file_exists(p):
+			return p
+	return base + "Game.vg"
+
+
+func _emit_scaffold_telemetry(_spec: Dictionary, root: String, iterate_mode: bool, spec_bytes: int, result: Dictionary) -> void:
+	var written: Array = result.get("written", [])
+	var mode_label := "iterate" if iterate_mode else "new"
+	var vg_path := _primary_vg_path_for_root(root)
+	var changed := "n/a"
+	if FileAccess.file_exists(vg_path):
+		var h := FileAccess.get_file_as_string(vg_path).hash()
+		changed = "yes" if (_scaffold_vg_hash_before != 0 and h != _scaffold_vg_hash_before) else ("yes" if _scaffold_vg_hash_before == 0 else "no")
+	_append_system(
+		"[color=#88bbff]📊 Scaffold (%s): ~%d spec bytes, %d file(s), primary .vg changed: %s[/color]\n"
+		% [mode_label, spec_bytes, written.size(), changed])
+
+
+func _try_retry_invalid_project_spec(validation: Dictionary) -> bool:
+	if _project_spec_validation_retries >= 1:
+		return false
+	if _agent_hops >= _max_agent_hops or _check_agent_budget_exceeded():
+		return false
+	if not _ollama_available:
+		return false
+	_project_spec_validation_retries += 1
+	var errs := ", ".join(validation.get("errors", []))
+	_append_system("[color=#ffaa66]Spec incomplete — auto-retry %d/1…[/color]\n" % _project_spec_validation_retries)
+	if is_instance_valid(_input):
+		var root_hint := _active_ai_project_root()
+		var extra := ""
+		if not root_hint.is_empty():
+			extra = " Keep project_name/subdir under %s." % root_hint
+		_input.text = (
+			"Your ```vg-project-spec``` failed validation (%s). "
+			+ "Emit ONE complete fenced block: project_name, main_scene, files[] with FULL .vg source.%s"
+			% [errs, extra])
+	_agent_continuation = true
+	_agent_hops += 1
+	_show_abort_agent_btn()
+	call_deferred("_on_send")
+	return true
+
+
 ## Forms are built via the shared FormDesigner (sandboxing is a v2 task);
 ## loose files go through the safe-writer rebound to the project subdir.
 ## skip_diff=true: apply immediately (Project… golden path); false: preview first.
@@ -5153,6 +5204,19 @@ func _on_make_project(skip_diff: bool = false) -> void:
 		_suppress_agent_loop = false
 		_append_system("[color=#ff8888]No vg-project-spec block in the latest reply.[/color]\n")
 		return
+	var validation: Dictionary = _project_spec.validate_spec(spec, {"existing_root": _active_ai_project_root()})
+	if not validation.get("ok", false):
+		for w in validation.get("warnings", []):
+			_append_system("[color=#ffaa66]Spec warning: %s[/color]\n" % str(w))
+		if _try_retry_invalid_project_spec(validation):
+			_suppress_agent_loop = false
+			return
+		_suppress_agent_loop = false
+		var err_text := ", ".join(validation.get("errors", []))
+		_append_system("[color=#ff8888]Project spec invalid — nothing scaffolded: %s[/color]\n" % err_text)
+		return
+	for w in validation.get("warnings", []):
+		_append_system("[color=#ddbb88]Spec note: %s[/color]\n" % str(w))
 	if skip_diff:
 		_append_system("[color=#88bbff]Scaffolding project under ai_projects/…[/color]\n")
 		if is_instance_valid(_status_label):
@@ -5205,9 +5269,22 @@ func _build_project_plan(spec: Dictionary, root: String) -> Array:
 func _execute_project_scaffold(spec: Dictionary) -> void:
 	if _scaffold_in_progress:
 		return
+	var validation: Dictionary = _project_spec.validate_spec(spec, {"existing_root": _active_ai_project_root()})
+	if not validation.get("ok", false):
+		if _try_retry_invalid_project_spec(validation):
+			return
+		_append_system("[color=#ff8888]Project spec invalid — scaffold aborted.[/color]\n")
+		return
 	_scaffold_in_progress = true
 	_set_work_phase("scaffold")
 	var root: String = _project_spec.project_root(spec)
+	var iterate_mode := not _active_ai_project_root().is_empty()
+	var vg_before_path := _primary_vg_path_for_root(root)
+	if FileAccess.file_exists(vg_before_path):
+		_scaffold_vg_hash_before = FileAccess.get_file_as_string(vg_before_path).hash()
+	else:
+		_scaffold_vg_hash_before = 0
+	var spec_bytes := JSON.stringify(spec).length()
 	_safe_writer.set_root(root)
 	var designer: Object = null
 	if Engine.is_editor_hint():
@@ -5230,6 +5307,7 @@ func _execute_project_scaffold(spec: Dictionary) -> void:
 		_append_system("[color=#aaffaa]Project finalize: %s[/color]\n" % ", ".join(fin_notes))
 	_safe_writer.set_root("res://")
 	_print_project_result(result)
+	_emit_scaffold_telemetry(spec, root, iterate_mode, spec_bytes, result)
 	_last_project_root = result.get("root", "")
 	var ms := str(result.get("main_scene", ""))
 	if not ms.is_empty():
