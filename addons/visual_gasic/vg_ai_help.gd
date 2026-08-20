@@ -4118,7 +4118,7 @@ func _apply_model_tooltips(models: Array) -> void:
 # ---------------------------------------------------------------------------
 # API Key Settings Dialog
 # ---------------------------------------------------------------------------
-const _API_KEY_DIALOG_SIZE := Vector2i(520, 660)
+const _API_KEY_DIALOG_SIZE := Vector2i(540, 720)
 
 func _show_api_key_dialog() -> void:
 	if not AIProviders:

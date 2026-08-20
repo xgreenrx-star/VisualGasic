@@ -9,21 +9,24 @@ const MUTED_COLOR := Color(0.25, 0.25, 0.30)
 const ACCENT_COLOR := Color(0.0, 0.0, 0.5)
 const LIST_BG := Color(1.0, 1.0, 1.0)
 
-const DIALOG_SIZE := Vector2i(520, 660)
+const DIALOG_SIZE := Vector2i(540, 720)
+const DIALOG_MIN := Vector2i(520, 560)
+const DIALOG_MAX := Vector2i(900, 920)
 
 var _key_edits: Dictionary = {}  # provider_id -> LineEdit
 var _health_box: VBoxContainer = null
 var _custom_cancel_btn: Button = null
 var _custom_save_btn: Button = null
+var _scroll: ScrollContainer = null
 
 
 func _init() -> void:
 	title = "⚙  AI Provider API Keys"
 	ok_button_text = "Save"
-	wrap_controls = false
-	unresizable = true
-	min_size = DIALOG_SIZE
-	max_size = DIALOG_SIZE
+	wrap_controls = true
+	unresizable = false
+	min_size = DIALOG_MIN
+	max_size = DIALOG_MAX
 	size = DIALOG_SIZE
 	exclusive = true
 	theme = _build_theme()
@@ -31,9 +34,11 @@ func _init() -> void:
 
 func setup(providers_script: Variant) -> void:
 	for c in get_children():
-		if c is VBoxContainer:
-			c.queue_free()
+		c.queue_free()
 	_key_edits.clear()
+	_scroll = null
+	_custom_cancel_btn = null
+	_custom_save_btn = null
 	_build_ui(providers_script)
 	call_deferred("_install_custom_footer_buttons")
 
@@ -63,8 +68,12 @@ func _install_custom_footer_buttons() -> void:
 
 	var outer: VBoxContainer = null
 	for c in get_children():
-		if c is VBoxContainer:
-			outer = c
+		if c is MarginContainer:
+			for ch in c.get_children():
+				if ch is VBoxContainer:
+					outer = ch
+					break
+		if outer:
 			break
 	if outer == null:
 		return
@@ -74,6 +83,7 @@ func _install_custom_footer_buttons() -> void:
 	btn_row.alignment = BoxContainer.ALIGNMENT_END
 	btn_row.add_theme_constant_override("separation", 10)
 	btn_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn_row.size_flags_vertical = Control.SIZE_SHRINK_END
 	btn_row.custom_minimum_size.y = 36
 	outer.add_child(btn_row)
 
@@ -110,9 +120,21 @@ func _style_footer_button(btn: Button) -> void:
 
 
 func _build_ui(providers_script: Variant) -> void:
+	# Fill dialog client area so the scroll region gets a bounded height and
+	# footer buttons stay visible (unbounded VBox children were clipping the bottom).
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	add_child(margin)
+
 	var outer := VBoxContainer.new()
+	outer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	outer.add_theme_constant_override("separation", 8)
-	add_child(outer)
+	margin.add_child(outer)
 
 	var desc := Label.new()
 	desc.text = "Enter API keys for cloud AI providers.\nKeys are stored locally in user://vg_ai_keys.cfg"
@@ -123,16 +145,18 @@ func _build_ui(providers_script: Variant) -> void:
 
 	outer.add_child(HSeparator.new())
 
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2i(0, 360)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	outer.add_child(scroll)
+	_scroll = ScrollContainer.new()
+	_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll.custom_minimum_size = Vector2i(0, 280)
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	outer.add_child(_scroll)
 
 	var vbox := VBoxContainer.new()
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_theme_constant_override("separation", 10)
-	scroll.add_child(vbox)
+	_scroll.add_child(vbox)
 
 	if providers_script != null and providers_script.has_method("get_providers"):
 		for p in providers_script.get_providers():
