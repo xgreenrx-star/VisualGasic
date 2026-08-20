@@ -32,7 +32,11 @@ NARCEA_LIVE=1 NARCEA_PROVIDER=claude NARCEA_CLAUDE_KEY=... bash scripts/run_narc
 
 # Single scenario
 NARCEA_SCENARIO=counter_form ...
+NARCEA_SCENARIO=asteroids_2d ...    # video demo turn 1 (live)
+NARCEA_SCENARIO=asteroids_iterate ... # video demo both turns (live, no fixtures yet)
 ```
+
+**Video demo script:** [`DEMO_ASTEROIDS.md`](DEMO_ASTEROIDS.md) — copy-paste prompts, shot list, test commands.
 
 Chat-first form synthesis smoke (no network):
 

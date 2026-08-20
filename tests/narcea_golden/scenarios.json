@@ -48,6 +48,30 @@
           "fixture_response": "fixtures/pacman_maze_response.txt"
         }
       ]
+    },
+    {
+      "id": "asteroids_2d",
+      "prompt_file": "prompts/asteroids_create.txt",
+      "mode": "project",
+      "rubric": "rubrics/asteroids_2d.json",
+      "fixture_response": "",
+      "description": "Live-only: 2D Asteroids with Node2D + .vg _Process/_Draw (video demo turn 1)"
+    },
+    {
+      "id": "asteroids_iterate",
+      "mode": "project",
+      "rubric": "rubrics/asteroids_iterate.json",
+      "description": "Two-turn Asteroids video demo: create, then UFO + hyperspace (live; see DEMO_ASTEROIDS.md)",
+      "turns": [
+        {
+          "prompt_file": "prompts/asteroids_create.txt",
+          "fixture_response": ""
+        },
+        {
+          "prompt_file": "prompts/asteroids_iterate.txt",
+          "fixture_response": ""
+        }
+      ]
     }
   ]
 }

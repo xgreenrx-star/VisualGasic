@@ -1,0 +1,7 @@
+Good start. Update the existing Asteroids project in place:
+
+- Add a UFO that crosses the screen occasionally and shoots at the player
+- Add hyperspace on Shift with a 3-second cooldown (brief blink / reposition, not invincible forever)
+- Keep the same project_name and paths so files overwrite in place
+
+Reply with one fenced ```vg-project-spec``` JSON block only with the FULL updated .vg source.

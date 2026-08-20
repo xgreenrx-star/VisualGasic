@@ -1,0 +1,16 @@
+{
+  "scenario_id": "asteroids_iterate",
+  "apply_mode": "project",
+  "required_project_name": "asteroids_demo",
+  "require_vg_changed": true,
+  "require_vg_parse": true,
+  "required_vg_substrings": ["_Process", "_Draw"],
+  "required_vg_patterns": [
+    {"id": "game_loop", "regex": "(?i)(_Ready|_Process)"},
+    {"id": "render", "regex": "(?i)(_Draw|DrawRect|DrawCircle)"},
+    {"id": "turn1_asteroids", "regex": "(?i)(asteroid|DrawCircle|bullet|shoot)"},
+    {"id": "turn2_ufo", "regex": "(?i)(ufo|enemy|shoot.*player|player.*shoot)"},
+    {"id": "turn2_hyperspace", "regex": "(?i)(hyperspace|shift|KEY_SHIFT|cooldown)"}
+  ],
+  "forbid_todo_stubs": true
+}

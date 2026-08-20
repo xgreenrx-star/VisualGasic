@@ -1,0 +1,13 @@
+{
+  "scenario_id": "asteroids_2d",
+  "apply_mode": "project",
+  "required_vg_substrings": ["_Process", "_Draw"],
+  "required_vg_patterns": [
+    {"id": "game_loop", "regex": "(?i)(_Ready|_Process)"},
+    {"id": "render", "regex": "(?i)(_Draw|DrawRect|DrawCircle|DrawString)"},
+    {"id": "ship_input", "regex": "(?i)(KEY_UP|KEY_LEFT|KEY_RIGHT|thrust|rotate)"},
+    {"id": "shoot_or_asteroid", "regex": "(?i)(shoot|bullet|asteroid|space)"},
+    {"id": "score", "regex": "(?i)(score|DrawString)"}
+  ],
+  "forbid_todo_stubs": true
+}
