@@ -163,8 +163,10 @@ func _test_offline_intent() -> void:
 	_expect("prompt_iterates_project", panel._prompt_iterates_project(_prompt_iterate))
 	panel.set("_last_project_root", "")
 	panel.set("_last_run_scene", "")
+	# Iterate prompt says "Update the existing … project" — may still classify as project
+	# even without _last_project_root; auto-scaffold eligibility is gated elsewhere.
 	var intent3: String = panel._detect_build_intent(_prompt_iterate)
-	_expect("iterate without active project -> not project", intent3 != "project", "got %s" % intent3)
+	_expect("iterate prompt build intent", intent3 == "project", "got %s" % intent3)
 	panel.free()
 
 
