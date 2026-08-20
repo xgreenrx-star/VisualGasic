@@ -18,6 +18,18 @@ static func _is_windows() -> bool:
 	return OS.get_name() in ["Windows", "UWP"]
 
 
+static func _is_macos() -> bool:
+	return OS.get_name() == "macOS"
+
+
+static func _macos_python_candidates() -> PackedStringArray:
+	return PackedStringArray([
+		"/opt/homebrew/bin/python3",  # Apple Silicon Homebrew
+		"/usr/local/bin/python3",     # Intel Homebrew / older installs
+		"/Library/Frameworks/Python.framework/Versions/Current/bin/python3",
+	])
+
+
 static func venv_dir() -> String:
 	return OS.get_user_data_dir().path_join("vg_cursor_venv")
 
@@ -57,7 +69,18 @@ static func _resolve_system_python() -> String:
 				if not path.is_empty() and FileAccess.file_exists(path):
 					return path
 		return ""
+	if _is_macos():
+		for candidate in _macos_python_candidates():
+			if not FileAccess.file_exists(candidate):
+				continue
+			output.clear()
+			var code: int = OS.execute(candidate, ["-c", "import sys; print(sys.executable)"], output, true, false)
+			if code == 0 and output.size() > 0:
+				var path := str(output[0]).strip_edges()
+				if not path.is_empty() and FileAccess.file_exists(path):
+					return path
 	for candidate in PYTHON_CANDIDATES:
+		output.clear()
 		var exit := OS.execute("bash", ["-lc", "command -v %s 2>/dev/null || true" % candidate], output, true, false)
 		if exit == 0 and output.size() > 0:
 			var path := str(output[0]).strip_edges()
@@ -109,6 +132,13 @@ static func cursor_sdk_install_hint() -> String:
 			+ "\"Install cursor-sdk (venv)\", or in cmd:\n  py -3 -m venv \"%s\"\n  \"%s\\Scripts\\pip.exe\" install cursor-sdk"
 			% [vdir, vdir]
 		)
+	if _is_macos():
+		return (
+			"Install cursor-sdk: AI Pair → ⚙️ → \"Install cursor-sdk (venv)\", or in Terminal:\n"
+			+ "  python3 -m venv \"%s\"\n  \"%s/bin/pip\" install cursor-sdk\n"
+			+ "(Need Python 3.10+?  brew install python@3.12  or python.org installer)"
+			% [vdir, vdir]
+		)
 	return (
 		"Install cursor-sdk: AI Pair → ⚙️ → \"Install cursor-sdk (venv)\", or run:\n"
 		+ "  python3 -m venv \"%s\"\n  \"%s/bin/pip\" install cursor-sdk\n"
@@ -122,7 +152,15 @@ static func bootstrap_cursor_sdk() -> Dictionary:
 	var result := {"ok": false, "error": "", "python": ""}
 	var system_py := _resolve_system_python()
 	if system_py.is_empty():
-		result["error"] = "Python 3 not found — install from python.org (Windows: check \"Add to PATH\")."
+		if _is_macos():
+			result["error"] = (
+				"Python 3.10+ not found. Install: brew install python@3.12 "
+				+ "or download from python.org, then retry Install cursor-sdk."
+			)
+		elif _is_windows():
+			result["error"] = "Python 3 not found — install from python.org (check \"Add to PATH\")."
+		else:
+			result["error"] = "Python 3 not found on PATH — install python3 / python3-venv."
 		return result
 
 	var vdir := venv_dir()
@@ -182,7 +220,14 @@ func start(request: Dictionary) -> bool:
 		return false
 	var python := resolve_python()
 	if python.is_empty():
-		stream_error.emit("Python 3 not found. Install from python.org (Windows: enable \"Add python.exe to PATH\").")
+		var msg := "Python 3.10+ not found."
+		if _is_macos():
+			msg += " Install: brew install python@3.12 or python.org installer."
+		elif _is_windows():
+			msg += " Install from python.org (enable Add to PATH)."
+		else:
+			msg += " Install python3 and python3-venv."
+		stream_error.emit(msg)
 		return false
 	if not cursor_sdk_available(python):
 		stream_error.emit(cursor_sdk_install_hint())
