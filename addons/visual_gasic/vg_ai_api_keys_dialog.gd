@@ -186,8 +186,8 @@ func _build_ui(providers_script: Variant) -> void:
 	_install_sdk_btn.name = "InstallSdkBtn"
 	_install_sdk_btn.text = "Install cursor-sdk (venv)"
 	_install_sdk_btn.tooltip_text = (
-		"Creates user://vg_cursor_venv and pip installs cursor-sdk.\n"
-		+ "Required on Linux where system pip is blocked (PEP 668)."
+		"Creates a project-local Python venv and pip installs cursor-sdk.\n"
+		+ "Works on Windows, Linux, and macOS. On Windows uses Scripts\\python.exe."
 	)
 	_install_sdk_btn.pressed.connect(_on_install_cursor_sdk)
 	_health_box.add_child(_install_sdk_btn)

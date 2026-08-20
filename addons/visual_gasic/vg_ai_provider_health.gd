@@ -31,7 +31,7 @@ static func check_cursor() -> Dictionary:
 		if CursorSession.cursor_sdk_available(python):
 			lines.append("✅ cursor-sdk — importable")
 		else:
-			lines.append("❌ cursor-sdk — click Install in ⚙️ (system pip blocked on Linux)")
+			lines.append("❌ cursor-sdk — click Install cursor-sdk (venv) in ⚙️")
 			ok = false
 
 	var Handoff = load("res://addons/visual_gasic/vg_cursor_handoff.gd")

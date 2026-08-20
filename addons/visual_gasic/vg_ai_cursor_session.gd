@@ -11,6 +11,59 @@ signal stream_finished(status: String)
 
 const POLL_INTERVAL := 0.05
 const PYTHON_CANDIDATES := ["python3", "python"]
+const WINDOWS_PYTHON_CANDIDATES := ["py", "python3", "python"]
+
+
+static func _is_windows() -> bool:
+	return OS.get_name() in ["Windows", "UWP"]
+
+
+static func venv_dir() -> String:
+	return OS.get_user_data_dir().path_join("vg_cursor_venv")
+
+
+static func venv_python_path() -> String:
+	var vdir := venv_dir()
+	if _is_windows():
+		var win_py := vdir.path_join("Scripts/python.exe")
+		return win_py if FileAccess.file_exists(win_py) else ""
+	for rel in ["bin/python3", "bin/python"]:
+		var py := vdir.path_join(rel)
+		if FileAccess.file_exists(py):
+			return py
+	return ""
+
+
+static func venv_pip_path() -> String:
+	var vdir := venv_dir()
+	if _is_windows():
+		var win_pip := vdir.path_join("Scripts/pip.exe")
+		return win_pip if FileAccess.file_exists(win_pip) else ""
+	for rel in ["bin/pip3", "bin/pip"]:
+		var pip := vdir.path_join(rel)
+		if FileAccess.file_exists(pip):
+			return pip
+	return ""
+
+
+static func _resolve_system_python() -> String:
+	var output: Array = []
+	if _is_windows():
+		for candidate in WINDOWS_PYTHON_CANDIDATES:
+			var args := PackedStringArray(["-3", "-c", "import sys; print(sys.executable)"]) if candidate == "py" else PackedStringArray(["-c", "import sys; print(sys.executable)"])
+			var code: int = OS.execute(candidate, args, output, true, false)
+			if code == 0 and output.size() > 0:
+				var path := str(output[0]).strip_edges()
+				if not path.is_empty() and FileAccess.file_exists(path):
+					return path
+		return ""
+	for candidate in PYTHON_CANDIDATES:
+		var exit := OS.execute("bash", ["-lc", "command -v %s 2>/dev/null || true" % candidate], output, true, false)
+		if exit == 0 and output.size() > 0:
+			var path := str(output[0]).strip_edges()
+			if not path.is_empty() and FileAccess.file_exists(path):
+				return path
+	return ""
 
 var _pid: int = -1
 var _stdio: FileAccess = null
@@ -35,26 +88,6 @@ static func agent_script_path() -> String:
 	return ProjectSettings.globalize_path("res://addons/visual_gasic/scripts/vg_cursor_agent.py")
 
 
-static func venv_dir() -> String:
-	return OS.get_user_data_dir().path_join("vg_cursor_venv")
-
-
-static func venv_python_path() -> String:
-	var py := venv_dir().path_join("bin/python3")
-	return py if FileAccess.file_exists(py) else ""
-
-
-static func _resolve_system_python() -> String:
-	var output: Array = []
-	for candidate in PYTHON_CANDIDATES:
-		var exit := OS.execute("bash", ["-lc", "command -v %s 2>/dev/null || true" % candidate], output, true, false)
-		if exit == 0 and output.size() > 0:
-			var path := str(output[0]).strip_edges()
-			if not path.is_empty() and FileAccess.file_exists(path):
-				return path
-	return ""
-
-
 static func resolve_python() -> String:
 	# Prefer project-local venv when cursor-sdk is installed there.
 	var venv_py := venv_python_path()
@@ -70,9 +103,16 @@ static func resolve_python() -> String:
 
 static func cursor_sdk_install_hint() -> String:
 	var vdir := venv_dir()
+	if _is_windows():
+		return (
+			"Install cursor-sdk for Cursor (Composer): AI Pair → ⚙️ → "
+			+ "\"Install cursor-sdk (venv)\", or in cmd:\n  py -3 -m venv \"%s\"\n  \"%s\\Scripts\\pip.exe\" install cursor-sdk"
+			% [vdir, vdir]
+		)
 	return (
-		"Linux blocks system pip (PEP 668). In AI Pair → ⚙️ click "
-		+ "\"Install cursor-sdk\" or run:\n  python3 -m venv \"%s\"\n  \"%s/bin/pip\" install cursor-sdk"
+		"Install cursor-sdk: AI Pair → ⚙️ → \"Install cursor-sdk (venv)\", or run:\n"
+		+ "  python3 -m venv \"%s\"\n  \"%s/bin/pip\" install cursor-sdk\n"
+		+ "(Linux often blocks system pip — use the venv path above.)"
 		% [vdir, vdir]
 	)
 
@@ -82,7 +122,7 @@ static func bootstrap_cursor_sdk() -> Dictionary:
 	var result := {"ok": false, "error": "", "python": ""}
 	var system_py := _resolve_system_python()
 	if system_py.is_empty():
-		result["error"] = "python3 not found on PATH"
+		result["error"] = "Python 3 not found — install from python.org (Windows: check \"Add to PATH\")."
 		return result
 
 	var vdir := venv_dir()
@@ -95,7 +135,7 @@ static func bootstrap_cursor_sdk() -> Dictionary:
 			return result
 		vpy = venv_python_path()
 		if vpy.is_empty():
-			result["error"] = "venv created but bin/python3 missing"
+			result["error"] = "venv created but python executable missing"
 			return result
 
 	if cursor_sdk_available(vpy):
@@ -103,11 +143,9 @@ static func bootstrap_cursor_sdk() -> Dictionary:
 		result["python"] = vpy
 		return result
 
-	var pip := vdir.path_join("bin/pip3")
-	if not FileAccess.file_exists(pip):
-		pip = vdir.path_join("bin/pip")
-	if not FileAccess.file_exists(pip):
-		result["error"] = "venv pip missing at %s" % pip
+	var pip := venv_pip_path()
+	if pip.is_empty():
+		result["error"] = "venv pip missing under %s" % vdir
 		return result
 
 	var pip_out: Array = []
@@ -144,7 +182,7 @@ func start(request: Dictionary) -> bool:
 		return false
 	var python := resolve_python()
 	if python.is_empty():
-		stream_error.emit("python3 not found. Install Python 3 to use Cursor (Composer).")
+		stream_error.emit("Python 3 not found. Install from python.org (Windows: enable \"Add python.exe to PATH\").")
 		return false
 	if not cursor_sdk_available(python):
 		stream_error.emit(cursor_sdk_install_hint())
