@@ -10,12 +10,10 @@ static func run_smoke_sync(project_path_abs: String) -> Dictionary:
 	if godot.is_empty():
 		return {"ok": false, "errors": PackedStringArray(["Godot executable path unknown"]), "summary": ""}
 
-	var shell := "cd %s && timeout 30 %s --headless --quit --editor 2>&1" % [
-		_shell_quote(project_path_abs),
-		_shell_quote(godot),
-	]
+	# Cross-platform: invoke Godot directly (no bash/timeout — those break on Windows).
 	var output: Array = []
-	OS.execute("bash", ["-lc", shell], output, true, false)
+	var args := PackedStringArray(["--headless", "--quit", "--editor", "--path", project_path_abs])
+	OS.execute(godot, args, output, true, false)
 	var text := "\n".join(output)
 	var errors: PackedStringArray = PackedStringArray()
 	for line in text.split("\n"):
@@ -30,7 +28,3 @@ static func run_smoke_sync(project_path_abs: String) -> Dictionary:
 
 	var summary := "ok" if errors.is_empty() else "%d error(s)" % errors.size()
 	return {"ok": errors.is_empty(), "errors": errors, "summary": summary}
-
-
-static func _shell_quote(s: String) -> String:
-	return "'" + s.replace("'", "'\\''") + "'"

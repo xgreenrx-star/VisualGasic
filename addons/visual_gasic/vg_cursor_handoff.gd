@@ -289,6 +289,8 @@ static func _write_handoff_file(ctx: Dictionary) -> Dictionary:
 
 
 static func resolve_cursor_cli() -> String:
+	if OS.get_name() in ["Windows", "UWP"]:
+		return _resolve_cursor_cli_windows()
 	var output: Array = []
 	var exit := OS.execute("bash", ["-lc", "command -v cursor 2>/dev/null || true"], output, true, false)
 	if exit == 0 and output.size() > 0:
@@ -305,6 +307,28 @@ static func resolve_cursor_cli() -> String:
 	for path in fallbacks:
 		if FileAccess.file_exists(path):
 			return path
+	return ""
+
+
+static func _resolve_cursor_cli_windows() -> String:
+	var output: Array = []
+	var code: int = OS.execute("cmd.exe", ["/c", "where cursor"], output, true, false)
+	if code == 0:
+		for line in output:
+			var p := str(line).strip_edges()
+			if not p.is_empty() and FileAccess.file_exists(p):
+				return p
+	var localappdata := OS.get_environment("LOCALAPPDATA")
+	if not localappdata.is_empty():
+		for rel in [
+			"Programs/cursor/resources/app/bin/cursor.cmd",
+			"Programs/Cursor/resources/app/bin/cursor.cmd",
+			"Programs/cursor/Cursor.exe",
+			"Programs/Cursor/Cursor.exe",
+		]:
+			var p := localappdata.path_join(rel)
+			if FileAccess.file_exists(p):
+				return p
 	return ""
 
 

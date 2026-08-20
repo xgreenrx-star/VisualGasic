@@ -580,8 +580,14 @@ func _tool_run_benchmark() -> Dictionary:
 	var script_path := ProjectSettings.globalize_path("res://bench/ai_correctness/scripts/aggregate.py")
 	if not FileAccess.file_exists(script_path):
 		return {"error": "Benchmark script not found: " + script_path}
+	var python := "python3"
+	var CursorSession = load("res://addons/visual_gasic/vg_ai_cursor_session.gd")
+	if CursorSession != null:
+		var resolved: String = CursorSession._resolve_system_python()
+		if not resolved.is_empty():
+			python = resolved
 	var output: Array = []
-	var exit := OS.execute("python3", [script_path], output, true)
+	var exit := OS.execute(python, [script_path], output, true)
 	var text: String = ""
 	for line in output:
 		text += str(line)

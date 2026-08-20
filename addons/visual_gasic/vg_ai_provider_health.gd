@@ -22,10 +22,10 @@ static func check_cursor() -> Dictionary:
 	if CursorSession != null:
 		python = CursorSession.resolve_python()
 	if python.is_empty():
-		lines.append("❌ python3 — not found on PATH")
+		lines.append("❌ Python 3 — not found")
 		ok = false
 	else:
-		lines.append("✅ python3 — %s" % python)
+		lines.append("✅ Python 3 — %s" % python)
 
 	if CursorSession != null and not python.is_empty():
 		if CursorSession.cursor_sdk_available(python):

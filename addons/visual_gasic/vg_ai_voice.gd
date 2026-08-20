@@ -324,16 +324,23 @@ func _autodetect_piper(had_cfg: bool) -> void:
 	if not had_cfg and local_ready and not has_openai_key and tts_backend == "openai":
 		tts_backend = "piper"
 
+func _windows_profile_dir() -> String:
+	var profile := OS.get_environment("USERPROFILE")
+	if not profile.is_empty():
+		return profile
+	return OS.get_environment("HOME")
+
+
 func _find_piper_binary() -> String:
 	if _binary_exists("piper"):
 		return "piper"
-	var home := OS.get_environment("HOME")
+	var home := _windows_profile_dir() if OS.has_feature("windows") else OS.get_environment("HOME")
 	var candidates: Array[String] = []
 	if OS.has_feature("windows"):
 		candidates.append_array([
 			"C:/Program Files/piper/piper.exe",
 			"C:/piper/piper.exe",
-			home + "/AppData/Local/piper/piper.exe",
+			home.path_join("AppData/Local/piper/piper.exe"),
 		])
 	else:
 		candidates.append_array([
@@ -349,13 +356,13 @@ func _find_piper_binary() -> String:
 	return ""
 
 func _find_piper_voice() -> String:
-	var home := OS.get_environment("HOME")
+	var home := _windows_profile_dir() if OS.has_feature("windows") else OS.get_environment("HOME")
 	var dirs: Array[String] = []
 	if OS.has_feature("windows"):
 		dirs.append_array([
 			"C:/Program Files/piper/voices",
 			"C:/piper/voices",
-			home + "/AppData/Local/piper/voices",
+			home.path_join("AppData/Local/piper/voices"),
 		])
 	else:
 		dirs.append_array([

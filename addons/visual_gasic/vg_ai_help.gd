@@ -2340,7 +2340,13 @@ func _set_offline() -> void:
 	_status_label.text = "❌ Ollama not found"
 	_status_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 	_append_system("[color=yellow]Ollama is not running.[/color] Install it with:\n")
-	_append_system("[color=gray]  curl -fsSL https://ollama.com/install.sh | sh[/color]\n")
+	match OS.get_name():
+		"Windows", "UWP":
+			_append_system("[color=gray]  https://ollama.com/download/windows[/color]\n")
+		"macOS":
+			_append_system("[color=gray]  https://ollama.com/download/mac[/color]\n")
+		_:
+			_append_system("[color=gray]  curl -fsSL https://ollama.com/install.sh | sh[/color]\n")
 	_append_system("[color=gray]  ollama pull %s[/color]\n" % DEFAULT_MODEL)
 	_append_system("[color=gray]  ollama serve[/color]\n\n")
 
@@ -3995,7 +4001,7 @@ func _activate_cursor_provider() -> void:
 	var python: String = CursorSession.resolve_python()
 	if python.is_empty():
 		_ollama_available = false
-		_status_label.text = "❌ python3 not found"
+		_status_label.text = "❌ Python 3 not found"
 		_append_system("[color=yellow]Install Python 3 to use Cursor (Composer) in AI Pair.[/color]\n")
 		return
 	if not CursorSession.cursor_sdk_available(python):
