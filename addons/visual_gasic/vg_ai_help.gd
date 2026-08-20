@@ -2359,10 +2359,62 @@ func _paste_image_from_system_clipboard() -> Image:
 # ---------------------------------------------------------------------------
 
 ## Detect when the user is asking Narcea to scaffold UI or a project.
+func _active_ai_project_root() -> String:
+	if not _last_project_root.is_empty():
+		return _last_project_root
+	if not _last_run_scene.is_empty() and _last_run_scene.find("ai_projects/") >= 0:
+		var base := _last_run_scene.get_base_dir()
+		if base.ends_with("/"):
+			return base
+		return base + "/"
+	return ""
+
+
+func _has_active_ai_project() -> bool:
+	return not _active_ai_project_root().is_empty()
+
+
+func _prompt_iterates_project(prompt: String) -> bool:
+	var low := prompt.to_lower().strip_edges()
+	if low.is_empty():
+		return false
+	var iterate_triggers := [
+		"add ", "also ", "update ", "change ", "fix ", "improve ", "make the ",
+		"lets ", "let's ", "need ", "should ", "good job", "nice job",
+		"power-up", "power up", "powerup", "maze", "ghost", "enemy", "level",
+		"score", "speed", "faster", "slower", "collision", "wall", "tile",
+		"map", "corner", "reappear", "dissapear", "disappear", "chase",
+	]
+	for t in iterate_triggers:
+		if low.find(t) >= 0:
+			return true
+	return false
+
+
+## True when reply opened ```vg-project-spec but extract_spec could not recover JSON.
+func _response_has_truncated_project_spec(response: String) -> bool:
+	if response.find("```vg-project-spec") < 0:
+		return false
+	_ensure_agent_helpers()
+	if _project_spec == null:
+		return false
+	return _project_spec.extract_spec(response).is_empty()
+
+
+## Follow-up iteration on ai_projects/ should auto-scaffold when a valid spec is present.
+func _iterate_auto_scaffold_eligible(proj_spec_d: Dictionary) -> bool:
+	return (not _build_form_ran_this_turn
+		and _has_active_ai_project()
+		and not proj_spec_d.is_empty())
+
+
 func _detect_build_intent(prompt: String) -> String:
 	var low := prompt.to_lower().strip_edges()
 	if low.is_empty():
 		return ""
+	# Follow-up edits to an existing ai_projects/ scaffold (e.g. "add a maze").
+	if _has_active_ai_project() and _prompt_iterates_project(prompt):
+		return "project"
 	const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
 	if ProjectSynth.prompt_is_hybrid_form_game(prompt) or ProjectSynth.prompt_is_pure_2d_game(prompt):
 		return "project"
@@ -2370,6 +2422,7 @@ func _detect_build_intent(prompt: String) -> String:
 		"mini-project", "mini project", "runnable project", "scaffold a project",
 		"new project", "whole project", "full project", "vg-project-spec",
 		"make a game", "build a game", "create a game",
+		"make a maze", "add a maze", "pacman", "packman",
 		" clone", " remake", "game will be", "will be 2d",
 	]
 	for t in project_triggers:
@@ -2423,16 +2476,31 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 			prompt += "  ' FormName.vg — VisualGasic module\n  Option Explicit\n\n  Sub Form_Load()\n  End Sub\n\n  Sub btnOK_Click()\n  End Sub\n"
 			prompt += "Use res:// paths only. String concat is &, not +. Do not include any other fenced code blocks."
 		"project":
-			prompt = "Scaffold a small runnable project per this description.\n\n"
-			prompt += "Description: " + desc + "\n\n"
-			prompt += "Reply with: (a) one short sentence of context, then (b) a fenced ```vg-project-spec``` JSON block per the schema you already know. "
-			prompt += "Set \"main_scene\" so the ▶ Run button knows what to launch. Pick \"auto_events\": true on any forms so the project runs on first try. "
-			prompt += "Keep the project ≤ 6 files. Do not include any other fenced code blocks."
-			const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
-			if ProjectSynth.prompt_is_hybrid_form_game(desc):
-				prompt += ProjectSynth.hybrid_project_prompt_extra()
-			elif ProjectSynth.prompt_is_pure_2d_game(desc):
-				prompt += ProjectSynth.pure_2d_game_prompt_extra()
+			var existing_root := _active_ai_project_root()
+			if not existing_root.is_empty():
+				var pname := existing_root.trim_suffix("/").get_file()
+				prompt = "Update the EXISTING AI-scaffolded project per this description.\n\n"
+				prompt += "Existing project root: %s\n" % existing_root
+				prompt += "Keep the same project_name/subdir so files overwrite in place.\n\n"
+				prompt += "Description: " + desc + "\n\n"
+				prompt += "Reply with: (a) one short sentence of context, then (b) a fenced ```vg-project-spec``` JSON block. "
+				prompt += "Include files[] with the FULL updated .vg source (not a diff) and main_scene. "
+				prompt += "Use project_name \"%s\" and the same paths under %s. " % [pname, existing_root]
+				prompt += "Do not include any other fenced code blocks."
+				const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
+				if ProjectSynth.prompt_is_pure_2d_game(desc):
+					prompt += ProjectSynth.pure_2d_game_prompt_extra()
+			else:
+				prompt = "Scaffold a small runnable project per this description.\n\n"
+				prompt += "Description: " + desc + "\n\n"
+				prompt += "Reply with: (a) one short sentence of context, then (b) a fenced ```vg-project-spec``` JSON block per the schema you already know. "
+				prompt += "Set \"main_scene\" so the ▶ Run button knows what to launch. Pick \"auto_events\": true on any forms so the project runs on first try. "
+				prompt += "Keep the project ≤ 6 files. Do not include any other fenced code blocks."
+				const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
+				if ProjectSynth.prompt_is_hybrid_form_game(desc):
+					prompt += ProjectSynth.hybrid_project_prompt_extra()
+				elif ProjectSynth.prompt_is_pure_2d_game(desc):
+					prompt += ProjectSynth.pure_2d_game_prompt_extra()
 		_:
 			prompt = "Design a runnable Form Designer form from this description.\n\n"
 			prompt += "Description: " + desc + "\n\n"
@@ -4486,11 +4554,14 @@ func _refresh_build_form_btn() -> void:
 	# Auto-apply spec when:
 	#   a) user came via Form…/Code…/Project… button (_last_send_was_desc_mode), OR
 	#   b) chat-first build intent was detected on send, OR
-	#   c) Narcea persona returned a spec (legacy path), OR
-	#   d) code follow-up after layout-only apply is pending completion.
+	#   c) persona/build path returned a spec, OR
+	#   d) follow-up iteration on an existing ai_projects/ scaffold, OR
+	#   e) code follow-up after layout-only apply is pending completion.
+	var proj_spec_d: Dictionary = {} if _project_spec == null else _project_spec.extract_spec(_accumulated_response)
 	var _chat_build_auto := (not _last_build_intent.is_empty()) and not _build_form_ran_this_turn
+	var _project_iterate_auto := _iterate_auto_scaffold_eligible(proj_spec_d)
 	var _persona_spec_auto := not _build_form_ran_this_turn and (
-		not _last_build_intent.is_empty() or _persona_id == "narcea")
+		not _last_build_intent.is_empty() or _persona_id == "narcea" or _project_iterate_auto)
 	# build_form tool path: layout already built; apply code if present.
 	if _persona_id == "narcea" and _build_form_ran_this_turn:
 		var _code_spec_after_build: Dictionary = {} if _code_spec == null else _code_spec.extract_spec(_accumulated_response)
@@ -4512,7 +4583,7 @@ func _refresh_build_form_btn() -> void:
 		if not _follow_code.is_empty():
 			call_deferred("_auto_apply_code_spec_no_dialog", _follow_code)
 			_code_followup_pending = false
-	if _last_send_was_desc_mode or _chat_build_auto or _persona_spec_auto:
+	if _last_send_was_desc_mode or _chat_build_auto or _persona_spec_auto or _project_iterate_auto:
 		# Remember whether the user explicitly asked for a spec (via the
 		# Form.../Code.../Project... buttons) BEFORE resetting the flag --
 		# the "spec missing" nag below should ONLY fire for that explicit
@@ -4529,7 +4600,7 @@ func _refresh_build_form_btn() -> void:
 		var _desc_mode := _form_from_desc_mode if _was_explicit_desc_mode else "auto"
 		if _was_explicit_desc_mode:
 			_form_from_desc_mode = "form"
-		var _proj_spec_d: Dictionary = {} if _project_spec == null else _project_spec.extract_spec(_accumulated_response)
+		var _proj_spec_d: Dictionary = proj_spec_d
 		match _desc_mode:
 			"code":
 				if is_instance_valid(_make_code_btn) and not _make_code_btn.disabled:
@@ -4545,7 +4616,7 @@ func _refresh_build_form_btn() -> void:
 					_spec_missing = true
 					_hint = "Narcea needs a fenced ```vg-project-spec``` JSON block."
 			_:
-				if not _proj_spec_d.is_empty() and (_last_build_intent == "project" or _was_explicit_desc_mode):
+				if not _proj_spec_d.is_empty() and (_last_build_intent == "project" or _was_explicit_desc_mode or _project_iterate_auto):
 					_suppress_agent_loop = true
 					call_deferred("_on_make_project", true)
 				elif is_instance_valid(_make_this_btn) and not _make_this_btn.disabled:
@@ -4555,15 +4626,19 @@ func _refresh_build_form_btn() -> void:
 				elif _chat_build_auto or _was_explicit_desc_mode or _last_build_intent == "project":
 					_spec_missing = true
 					_hint = "build request"
-		if (_chat_build_auto or _persona_spec_auto) and not _spec_missing:
+		if (_chat_build_auto or _persona_spec_auto or _project_iterate_auto) and not _spec_missing:
 			_last_build_intent = ""
-		if _spec_missing and (_was_explicit_desc_mode or _chat_build_auto or _last_build_intent == "project"):
-			if _desc_mode == "project" and _accumulated_response.find("```vg-project-spec") >= 0:
+		if _spec_missing and (_was_explicit_desc_mode or _chat_build_auto or _last_build_intent == "project" or _project_iterate_auto):
+			if _desc_mode == "project" and _response_has_truncated_project_spec(_accumulated_response):
 				_append_system("[color=#ffaa66]Gemini's reply was truncated mid-spec (incomplete JSON). A retry message is in the prompt box — click Send to ask it to finish the ```vg-project-spec``` block.[/color]\n")
 				if is_instance_valid(_input) and _input.text.strip_edges().is_empty():
+					var root_hint := _active_ai_project_root()
+					var extra := ""
+					if not root_hint.is_empty():
+						extra = (" Keep project_name/subdir so files overwrite under %s." % root_hint)
 					_input.text = ("Your ```vg-project-spec``` JSON was cut off before it finished. "
 						+ "Continue from where you stopped and emit the COMPLETE fenced block: "
-						+ "forms[] with all controls, files[] with Form1.vg source, then close ```.")
+						+ "files[] with the full updated .vg source, main_scene, then close ```." + extra)
 			elif _last_build_intent == "project" and _response_has_raw_vg_without_spec(_accumulated_response):
 				_append_system("[color=#ff8888]Narcea pasted raw .vg code in chat instead of a ```vg-project-spec``` block — nothing was written to disk. A retry prompt is in the box below; click Send.[/color]\n")
 				if is_instance_valid(_input) and _input.text.strip_edges().is_empty():
@@ -6064,8 +6139,9 @@ func _maybe_nudge_project_build_continuation(plan: Dictionary) -> bool:
 	var intent := _last_build_intent
 	if intent.is_empty():
 		intent = _detect_build_intent(_last_user_prompt)
-	if intent != "project":
+	if intent != "project" and not (_has_active_ai_project() and _prompt_iterates_project(_last_user_prompt)):
 		return false
+	_ensure_agent_helpers()
 	if _project_spec != null and not _project_spec.extract_spec(_accumulated_response).is_empty():
 		return false
 	if _agent_hops >= _max_agent_hops or _check_agent_budget_exceeded():
@@ -6075,7 +6151,9 @@ func _maybe_nudge_project_build_continuation(plan: Dictionary) -> bool:
 	var empty_text := _accumulated_response.strip_edges().is_empty()
 	var has_partial_spec := _accumulated_response.find("```vg-project-spec") >= 0
 	var has_raw_vg := _response_has_raw_vg_without_spec(_accumulated_response)
-	var has_reads: bool = not _ai_tools.get_read_results().is_empty()
+	var has_reads := false
+	if _ensure_ai_tools():
+		has_reads = not _ai_tools.get_read_results().is_empty()
 	if not (empty_text or has_partial_spec or has_raw_vg or has_reads):
 		return false
 	_agent_hops += 1

@@ -1,0 +1,20 @@
+Here is a simple 2D Pacman scaffold with player movement and slow ghosts.
+
+```vg-project-spec
+{
+  "project_name": "pacman_iterate_test",
+  "subdir": "ai_projects",
+  "main_scene": "Game.tscn",
+  "godot_version": "4.6",
+  "files": [
+    {
+      "path": "Game.tscn",
+      "source": "[gd_scene load_steps=2 format=3]\n\n[ext_resource type=\"Script\" path=\"res://ai_projects/pacman_iterate_test/Game.vg\" id=\"1\"]\n\n[node name=\"Game\" type=\"Node2D\"]\nscript = ExtResource(\"1\")\n"
+    },
+    {
+      "path": "Game.vg",
+      "source": "' pacman_iterate_test — turn 1 baseline\nOption Explicit\n\nDim px As Single = 160\nDim py As Single = 160\nDim ghostX As Single = 320\nDim ghostY As Single = 160\n\nSub _Ready()\nEnd Sub\n\nSub _Process(delta As Single)\n    If Input.IsKeyPressed(KEY_LEFT) Then px = px - 120 * delta\n    If Input.IsKeyPressed(KEY_RIGHT) Then px = px + 120 * delta\n    If Input.IsKeyPressed(KEY_UP) Then py = py - 120 * delta\n    If Input.IsKeyPressed(KEY_DOWN) Then py = py + 120 * delta\n    ghostX = ghostX + (px - ghostX) * 0.3 * delta\n    ghostY = ghostY + (py - ghostY) * 0.3 * delta\nEnd Sub\n\nSub _Draw()\n    DrawRect(Rect2(0, 0, 640, 360), Color(0.05, 0.05, 0.12))\n    DrawCircle(Vector2(px, py), 12, Color(1, 1, 0))\n    DrawCircle(Vector2(ghostX, ghostY), 12, Color(1, 0.2, 0.2))\nEnd Sub\n"
+    }
+  ]
+}
+```

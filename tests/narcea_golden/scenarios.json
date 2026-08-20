@@ -32,6 +32,22 @@
       "rubric": "rubrics/pong_2d.json",
       "fixture_response": "",
       "description": "Live-only: simple 2D Pong game with Node2D + .vg _Process/_Draw"
+    },
+    {
+      "id": "pacman_iterate",
+      "mode": "project",
+      "rubric": "rubrics/pacman_iterate.json",
+      "description": "Two-turn Pacman: create baseline, then maze + power-ups (offline fixtures)",
+      "turns": [
+        {
+          "prompt_file": "prompts/pacman_create.txt",
+          "fixture_response": "fixtures/pacman_create_response.txt"
+        },
+        {
+          "prompt_file": "prompts/pacman_maze.txt",
+          "fixture_response": "fixtures/pacman_maze_response.txt"
+        }
+      ]
     }
   ]
 }

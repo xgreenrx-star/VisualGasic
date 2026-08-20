@@ -63,12 +63,20 @@ _run_one_tier() {
 			export NARCEA_LIVE=1
 			LIVE_SCRIPT="$ROOT/tests/test_narcea_live_gemini.gd"
 			SUITE_SCRIPT="$ROOT/tests/test_narcea_live_suite.gd"
+			ITERATE_SCRIPT="$ROOT/tests/test_narcea_iterate_scaffold.gd"
+			PACMAN_SCRIPT="$ROOT/tests/test_narcea_live_pacman_iterate.gd"
 			if [[ ! -f "$LIVE_SCRIPT" ]]; then
 				echo "ERROR: $LIVE_SCRIPT not found" >&2
 				return 2
 			fi
 			TIMEOUT="${NARCEA_LIVE_TIMEOUT:-180}"
 			fail=0
+			if [[ -f "$ITERATE_SCRIPT" ]]; then
+				echo "--- Tier C0: iterate scaffold (offline) ---"
+				out0="$(timeout 90 "$GODOT" --headless --path "$HOST_PROJECT" -s "$ITERATE_SCRIPT" 2>&1 || true)"
+				echo "$out0"
+				echo "$out0" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
+			fi
 			output="$(timeout "$TIMEOUT" "$GODOT" --headless --path "$HOST_PROJECT" -s "$LIVE_SCRIPT" 2>&1 || true)"
 			echo "$output"
 			echo "$output" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
@@ -79,6 +87,15 @@ _run_one_tier() {
 				out2="$(timeout "$TIMEOUT" "$GODOT" --headless --path "$HOST_PROJECT" -s "$SUITE_SCRIPT" 2>&1 || true)"
 				echo "$out2"
 				echo "$out2" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
+			fi
+			if [[ -f "$PACMAN_SCRIPT" && "${NARCEA_LIVE_SKIP_API:-1}" != "1" && -n "${NARCEA_GEMINI_KEY:-}" ]]; then
+				echo ""
+				echo "--- Tier C3: live Gemini pacman iterate ---"
+				export NARCEA_LIVE=1
+				unset NARCEA_LIVE_SKIP_API
+				out3="$(timeout "$((TIMEOUT * 2))" "$GODOT" --headless --path "$HOST_PROJECT" -s "$PACMAN_SCRIPT" 2>&1 || true)"
+				echo "$out3"
+				echo "$out3" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
 			fi
 			if [[ "$fail" -eq 0 ]]; then
 				echo ""
@@ -101,6 +118,13 @@ _run_one_tier() {
 				out_smoke="$(timeout 60 "$GODOT" --headless --path "$HOST_PROJECT" -s "$ROOT/tests/test_narcea_form_smoke.gd" 2>&1 || true)"
 				echo "$out_smoke"
 				echo "$out_smoke" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
+			fi
+			if [[ "${tier^^}" == "A" && -f "$ROOT/tests/test_narcea_iterate_scaffold.gd" ]]; then
+				echo ""
+				echo "--- Tier A3: iterate scaffold (offline) ---"
+				out_iter="$(timeout 90 "$GODOT" --headless --path "$HOST_PROJECT" -s "$ROOT/tests/test_narcea_iterate_scaffold.gd" 2>&1 || true)"
+				echo "$out_iter"
+				echo "$out_iter" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
 			fi
 			if [[ "$fail" -eq 0 ]]; then
 				echo ""

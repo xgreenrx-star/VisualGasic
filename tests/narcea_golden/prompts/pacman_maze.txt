@@ -1,0 +1,1 @@
+Good job but lets make the maze too. Add special power-ups in the corners that makes the bad guys run from the player and if the player catches one while the power up is active the ghost will disappear, wait a while then reappear as a normal bad guy. The power-ups should only last a short period of time maybe 20 seconds.

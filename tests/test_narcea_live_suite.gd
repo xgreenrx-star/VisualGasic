@@ -63,6 +63,10 @@ func _run_next_scenario() -> void:
 	var sid := str(sc.get("id", "?"))
 	print("")
 	print("--- Scenario: %s ---" % sid)
+	var turns: Array = sc.get("turns", [])
+	if not turns.is_empty():
+		_run_multi_turn_scenario(sid, sc, turns)
+		return
 	if OS.get_environment("NARCEA_LIVE_SKIP_API") == "1":
 		var fix_path := _golden.path_join(str(sc.get("fixture_response", "")))
 		if fix_path.get_file().is_empty() or not FileAccess.file_exists(fix_path):
@@ -122,6 +126,83 @@ func _start_live_request(sid: String, sc: Dictionary) -> void:
 		_fail("[%s] http" % sid, error_string(err))
 		_scenario_idx += 1
 		call_deferred("_run_next_scenario")
+
+
+func _run_multi_turn_scenario(sid: String, sc: Dictionary, turns: Array) -> void:
+	var rubric: Dictionary = NarceaRubric.load_json(_golden.path_join(str(sc.get("rubric", ""))))
+	var mode := str(sc.get("mode", "project"))
+	var vg_before := ""
+	for i in turns.size():
+		var turn: Dictionary = turns[i] if typeof(turns[i]) == TYPE_DICTIONARY else {}
+		var turn_label := "%s turn%d" % [sid, i + 1]
+		print("  [%s]" % turn_label)
+		var response := ""
+		if OS.get_environment("NARCEA_LIVE_SKIP_API") == "1":
+			var fix_path := _golden.path_join(str(turn.get("fixture_response", "")))
+			if fix_path.get_file().is_empty() or not FileAccess.file_exists(fix_path):
+				_fail("[%s] fixture" % turn_label, "missing %s" % fix_path)
+				break
+			response = FileAccess.get_file_as_string(fix_path)
+			_expect("[%s] fixture loaded" % turn_label, not response.is_empty(), fix_path)
+		else:
+			_fail("[%s] live multi-turn" % turn_label, "set NARCEA_LIVE_SKIP_API=1 or add live HTTP support")
+			break
+		if response.is_empty():
+			break
+		if mode == "project":
+			var vg_after := _apply_project_turn(turn_label, sc, response, rubric, i == turns.size() - 1)
+			if i == 0:
+				vg_before = vg_after
+			elif i == turns.size() - 1:
+				NarceaRubric.score_iteration(vg_before, vg_after, rubric, sid, Callable(self, "_rubric_report"))
+		else:
+			_apply_form_path(turn_label, response, rubric)
+	_scenario_idx += 1
+	call_deferred("_run_next_scenario")
+
+
+func _apply_project_turn(label: String, _sc: Dictionary, response: String, rubric: Dictionary, final_turn: bool) -> String:
+	var t0 := Time.get_ticks_msec()
+	var ProjectSpec = load("res://addons/visual_gasic/vg_ai_project_spec.gd")
+	var FormSpec = load("res://addons/visual_gasic/vg_ai_form_spec.gd")
+	var CodeSpec = load("res://addons/visual_gasic/vg_ai_code_spec.gd")
+	var SafeWrite = load("res://addons/visual_gasic/vg_ai_safe_write.gd")
+	var ps = ProjectSpec.new()
+	var fs = FormSpec.new()
+	var cs = CodeSpec.new()
+	var sw = SafeWrite.new()
+	var spec: Dictionary = ps.extract_spec(response)
+	_expect("[%s] extract vg-project-spec" % label, not spec.is_empty())
+	if spec.is_empty():
+		return ""
+	var want := str(rubric.get("required_project_name", ""))
+	if not want.is_empty():
+		_expect("[%s] project_name" % label, str(spec.get("project_name", "")) == want, str(spec.get("project_name", "")))
+	var root: String = ps.project_root(spec)
+	if not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(root)):
+		_cleanup(root)
+	var result: Dictionary = ps.apply(spec, {
+		"safe_writer": sw,
+		"code_spec": cs,
+		"form_spec": fs,
+		"designer": null,
+	})
+	print("  (apply took %d ms)" % (Time.get_ticks_msec() - t0))
+	_expect("[%s] apply ok" % label, result.get("ok", false), str(result.get("summary", "")))
+	var vg_src := ""
+	for w in result.get("written", []):
+		var wp := str(w)
+		if wp.ends_with(".vg"):
+			vg_src = sw.read(wp) if FileAccess.file_exists(wp) else FileAccess.get_file_as_string(wp)
+			break
+	if vg_src.is_empty():
+		var fallback := root + "Game.vg"
+		if FileAccess.file_exists(fallback):
+			vg_src = FileAccess.get_file_as_string(fallback)
+	_expect("[%s] .vg written" % label, not vg_src.is_empty(), str(result.get("written", [])))
+	if not vg_src.is_empty() and final_turn:
+		NarceaRubric.score_vg(vg_src, rubric, label, Callable(self, "_rubric_report"))
+	return vg_src
 
 
 func _retry_live_request(sid: String, sc: Dictionary, provider_id: String, req_snapshot: Dictionary) -> void:

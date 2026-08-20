@@ -1,0 +1,1 @@
+make a 2d packman game. The arrow keys will be used to move the player through the pacman maze while the ghosts chase at a slow speed.

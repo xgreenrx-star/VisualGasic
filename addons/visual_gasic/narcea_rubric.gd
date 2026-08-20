@@ -86,3 +86,16 @@ static func _has_any_button_handler(vg_src: String) -> bool:
 	if rx.compile("(?i)Sub\\s+\\w+_Click\\s*\\(") != OK:
 		return false
 	return rx.search(vg_src) != null
+
+
+static func score_iteration(vg_before: String, vg_after: String, rubric: Dictionary, label: String, report: Callable) -> bool:
+	if not bool(rubric.get("require_vg_changed", false)):
+		return true
+	if vg_before.is_empty() or vg_after.is_empty():
+		report.call(false, "[%s] iteration missing before/after .vg" % label)
+		return false
+	if vg_before == vg_after:
+		report.call(false, "[%s] Game.vg unchanged after iteration turn" % label)
+		return false
+	report.call(true, "[%s] iteration .vg changed" % label)
+	return true

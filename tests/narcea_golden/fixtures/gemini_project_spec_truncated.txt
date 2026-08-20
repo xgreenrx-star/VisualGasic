@@ -1,0 +1,10 @@
+Updating the pacman project — spec was cut off mid-stream:
+
+```vg-project-spec
+{
+  "subdir": "ai_projects",
+  "main_scene": "Game.tscn",
+  "files": [
+    {
+      "path": "Game.vg",
+      "source": "' truncated — no project_name, unclosed string and braces

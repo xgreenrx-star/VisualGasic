@@ -1,0 +1,14 @@
+{
+  "scenario_id": "pacman_iterate",
+  "apply_mode": "project",
+  "required_project_name": "pacman_iterate_test",
+  "require_vg_changed": true,
+  "required_vg_substrings": ["_Process", "_Draw"],
+  "required_vg_patterns": [
+    {"id": "game_loop", "regex": "(?i)(_Ready|_Process)"},
+    {"id": "render", "regex": "(?i)(_Draw|DrawRect|DrawCircle)"},
+    {"id": "turn2_maze", "regex": "(?i)(maze|wall|DrawRect)"},
+    {"id": "turn2_power", "regex": "(?i)(power|fright|frightened)"}
+  ],
+  "forbid_todo_stubs": true
+}
