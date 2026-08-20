@@ -77,6 +77,14 @@ _run_one_tier() {
 				echo "$out0"
 				echo "$out0" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
 			fi
+			UI_ITERATE_SCRIPT="$ROOT/tests/test_narcea_iterate_ui_scaffold.gd"
+			if [[ -f "$UI_ITERATE_SCRIPT" ]]; then
+				echo ""
+				echo "--- Tier C0b: iterate UI scaffold (offline) ---"
+				out0b="$(timeout 90 "$GODOT" --headless --path "$HOST_PROJECT" -s "$UI_ITERATE_SCRIPT" 2>&1 || true)"
+				echo "$out0b"
+				echo "$out0b" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
+			fi
 			output="$(timeout "$TIMEOUT" "$GODOT" --headless --path "$HOST_PROJECT" -s "$LIVE_SCRIPT" 2>&1 || true)"
 			echo "$output"
 			echo "$output" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
@@ -125,6 +133,13 @@ _run_one_tier() {
 				out_iter="$(timeout 90 "$GODOT" --headless --path "$HOST_PROJECT" -s "$ROOT/tests/test_narcea_iterate_scaffold.gd" 2>&1 || true)"
 				echo "$out_iter"
 				echo "$out_iter" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
+			fi
+			if [[ "${tier^^}" == "A" && -f "$ROOT/tests/test_narcea_iterate_ui_scaffold.gd" ]]; then
+				echo ""
+				echo "--- Tier A4: iterate UI scaffold (offline) ---"
+				out_ui="$(timeout 90 "$GODOT" --headless --path "$HOST_PROJECT" -s "$ROOT/tests/test_narcea_iterate_ui_scaffold.gd" 2>&1 || true)"
+				echo "$out_ui"
+				echo "$out_ui" | grep -q "RESULTS: .* passed, 0 failed" || fail=1
 			fi
 			if [[ "$fail" -eq 0 ]]; then
 				echo ""
