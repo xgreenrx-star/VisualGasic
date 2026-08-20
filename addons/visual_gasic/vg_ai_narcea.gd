@@ -1146,6 +1146,8 @@ var _query_hint := ""
 # the auto-detected open-file block so Narcea sees exactly what the user
 # asked her to focus on.
 var _pinned_files: PackedStringArray = PackedStringArray()
+# User-attached web references [{url, title, text}] from fetch_url / Reference URL.
+var _web_references: Array = []
 # Soft cap on the assembled context block in characters.  Sections are
 # dropped from lowest priority upward until we fit (see _trim_to_budget).
 const CONTEXT_CHAR_BUDGET := 32000
@@ -1187,6 +1189,9 @@ func build_context_block(plugin: Object = null) -> String:
 	var pinned := _pinned_files_block()
 	if not pinned.is_empty():
 		tagged.append({"name": "pinned", "prio": 90, "text": pinned})
+	var webref := _web_references_block()
+	if not webref.is_empty():
+		tagged.append({"name": "web_reference", "prio": 92, "text": webref})
 	var active := _active_context_block(plugin)
 	if not active.is_empty():
 		tagged.append({"name": "active", "prio": 80, "text": active})
@@ -1204,10 +1209,13 @@ block above to tailor every reply.
 CAPABILITIES — be honest (v6.0):
   * CAN: read/write project files (with user approval), list_dir,
     find_in_files, emit vg-*-spec blocks, validate syntax, explain errors.
-  * CANNOT: browse the web, search Google, fetch arbitrary URLs, run shell
-    commands, or access anything outside the project directory.
-  * If the user asks for something you CANNOT do, say so plainly in one
-    short paragraph — do NOT paste raw .vg source in chat as a substitute.
+  * CAN (when attached): use user-provided HTTPS reference pages injected
+    above (Wikipedia, game wikis, docs) — treat them as ground truth for
+    mechanics, setting, and gameplay when building clones.
+  * CANNOT: search Google/Bing on your own, run shell commands, or access
+    hosts outside user-attached https:// references.
+  * If the user asks for live web search without a reference URL, say they
+    can click 📎 Reference URL or pick a suggested game link, then retry.
   * For builds: ONE short sentence of context, then ONLY a fenced
     vg-project-spec / vg-form-spec / vg-code-spec block. Never dump
     multi-page .vg source in the chat window.
@@ -1483,6 +1491,9 @@ func build_slim_context_block(plugin: Object = null) -> String:
 	var pinned := _pinned_files_block()
 	if not pinned.is_empty():
 		tagged.append({"name": "pinned", "prio": 90, "text": pinned})
+	var webref := _web_references_block()
+	if not webref.is_empty():
+		tagged.append({"name": "web_reference", "prio": 92, "text": webref})
 	var active := _active_context_block(plugin)
 	if not active.is_empty():
 		tagged.append({"name": "active", "prio": 80, "text": active})
@@ -1823,6 +1834,35 @@ func _tokenise(s: String) -> Array:
 ## an empty array to clear.
 func set_pinned_files(paths: PackedStringArray) -> void:
 	_pinned_files = paths
+
+
+## User-fetched HTTPS reference pages (Phase 0 web reference).
+func set_web_references(refs: Array) -> void:
+	_web_references = refs.duplicate(true) if typeof(refs) == TYPE_ARRAY else []
+
+
+func _web_references_block() -> String:
+	if _web_references.is_empty():
+		return ""
+	var lines: Array[String] = [
+		"=== WEB REFERENCE (user-attached — use for clone/mechanics fidelity) ===",
+	]
+	const MAX_BYTES := 8192
+	for ref in _web_references:
+		if typeof(ref) != TYPE_DICTIONARY:
+			continue
+		var url := str(ref.get("url", ""))
+		var title := str(ref.get("title", ""))
+		var text := str(ref.get("text", ""))
+		if text.is_empty():
+			continue
+		if text.length() > MAX_BYTES:
+			text = text.substr(0, MAX_BYTES) + "\n…(truncated)"
+		lines.append("Source: %s (%s)\n```text\n%s\n```" % [
+			title if not title.is_empty() else url, url, text])
+	if lines.size() <= 1:
+		return ""
+	return "\n".join(lines)
 
 
 ## Read res://.narcea/notes.md (if present) and return it as a tagged

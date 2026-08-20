@@ -600,6 +600,12 @@ var _undo_stack: Array = []
 const _UNDO_DEPTH := 20
 # Pinned files pushed to Narcea on every prompt build.
 var _pinned_files: PackedStringArray = PackedStringArray()
+# User-fetched HTTPS reference pages [{url, title, text}] (Phase 0).
+var _web_references: Array = []
+var _ref_attached_row: HBoxContainer = null
+var _ref_attached_label: Label = null
+var _ref_btn: Button = null
+var _game_chips_row: HBoxContainer = null
 # Last patch result — drives the "🔁 Retry patch" button + diff-aware
 # follow-ups (#11).  Empty until the first apply.
 var _last_apply_result: Dictionary = {}
@@ -926,14 +932,140 @@ func _prompt_requests_web_access(prompt: String) -> bool:
 
 func _web_capability_block_reply() -> String:
 	return (
-		"I can't browse the web or search the internet yet "
-		+ "(v6.1 will add read-only fetch_url for known HTTPS links).\n\n"
-		+ "I can still:\n"
-		+ "  • Build a game or form from your description\n"
-		+ "  • Read and edit files in this project\n"
-		+ "  • Explain VG syntax and runtime errors\n\n"
-		+ "Paste a summary here, or describe what you want built."
+		"I can't search the open web on my own yet.\n\n"
+		+ "For game clones and mechanics, attach a reference:\n"
+		+ "  • Click 🌐 Ref and paste an https:// URL (Wikipedia, wikis, docs)\n"
+		+ "  • Or pick a suggested classic game chip above the input\n"
+		+ "  • Or paste an https:// link in your message\n\n"
+		+ "I can still build from your description, read/edit project files, "
+		+ "and explain VG syntax."
 	)
+
+
+func _has_web_references() -> bool:
+	return not _web_references.is_empty()
+
+
+func _refresh_ref_attached_ui() -> void:
+	if not is_instance_valid(_ref_attached_row) or not is_instance_valid(_ref_attached_label):
+		return
+	if _web_references.is_empty():
+		_ref_attached_row.visible = false
+		return
+	var ref: Dictionary = _web_references[_web_references.size() - 1]
+	var title := str(ref.get("title", ""))
+	var url := str(ref.get("url", ""))
+	var label := title if not title.is_empty() else url
+	if _web_references.size() > 1:
+		label += " (+%d more)" % (_web_references.size() - 1)
+	_ref_attached_label.text = "reference attached: %s" % label
+	_ref_attached_row.visible = true
+
+
+func _clear_web_references() -> void:
+	_web_references.clear()
+	_refresh_ref_attached_ui()
+	_narcea_ctx_cache = ""
+
+
+func _fetch_and_attach_reference(raw_url: String) -> bool:
+	const WebFetch = preload("res://addons/visual_gasic/vg_ai_web_fetch.gd")
+	for existing in _web_references:
+		if typeof(existing) == TYPE_DICTIONARY and str(existing.get("url", "")) == raw_url.strip_edges():
+			_append_system("[color=#cccccc]Reference already attached: %s[/color]\n" % raw_url)
+			return true
+	_append_system("[color=#88ccff]Fetching reference…[/color]\n")
+	var result: Dictionary = WebFetch.fetch_url(raw_url)
+	if not result.get("ok", false):
+		_append_system("[color=yellow]Reference fetch failed: %s[/color]\n" % str(result.get("error", "unknown")))
+		return false
+	var url := str(result.get("url", raw_url))
+	var title := str(result.get("title", url))
+	var text := str(result.get("text", ""))
+	WebFetch.write_cache(url, title, text)
+	_web_references.append({"url": url, "title": title, "text": text})
+	_refresh_ref_attached_ui()
+	_narcea_ctx_cache = ""
+	_append_system("[color=#88ccff]🌐 Attached reference: %s[/color]\n" % title)
+	return true
+
+
+func _maybe_auto_fetch_urls_from_prompt(prompt: String) -> void:
+	const WebFetch = preload("res://addons/visual_gasic/vg_ai_web_fetch.gd")
+	for url in WebFetch.extract_https_urls(prompt):
+		var known := false
+		for ref in _web_references:
+			if typeof(ref) == TYPE_DICTIONARY and str(ref.get("url", "")) == url:
+				known = true
+				break
+		if not known:
+			_fetch_and_attach_reference(url)
+
+
+func _update_game_reference_chips() -> void:
+	if not is_instance_valid(_game_chips_row) or not is_instance_valid(_input):
+		return
+	for child in _game_chips_row.get_children():
+		child.queue_free()
+	const GameRefs = preload("res://addons/visual_gasic/vg_ai_game_references.gd")
+	var prompt := _input.text.strip_edges()
+	if prompt.length() < 3:
+		_game_chips_row.visible = false
+		return
+	var hits: Array = GameRefs.match_prompt(prompt, 3)
+	if hits.is_empty():
+		_game_chips_row.visible = false
+		return
+	for entry in hits:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var btn := Button.new()
+		btn.text = "Use %s as reference" % str(entry.get("label", "game"))
+		btn.tooltip_text = str(entry.get("url", ""))
+		var url := str(entry.get("url", ""))
+		btn.pressed.connect(func() -> void:
+			if not url.is_empty():
+				_fetch_and_attach_reference(url))
+		_style_small_button(btn)
+		_game_chips_row.add_child(btn)
+	_game_chips_row.visible = true
+
+
+func _on_reference_url() -> void:
+	var dlg := AcceptDialog.new()
+	dlg.title = "Attach reference URL"
+	dlg.min_size = Vector2(480, 120)
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vbox.add_theme_constant_override("separation", 8)
+	var hint := Label.new()
+	hint.text = "Paste an https:// link (Wikipedia, game wiki, docs). Content is fetched read-only."
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(hint)
+	var url_edit := LineEdit.new()
+	url_edit.placeholder_text = "https://en.wikipedia.org/wiki/Pac-Man"
+	url_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(url_edit)
+	dlg.add_child(vbox)
+	dlg.confirmed.connect(func() -> void:
+		var u := url_edit.text.strip_edges()
+		if not u.is_empty():
+			_fetch_and_attach_reference(u)
+		dlg.queue_free())
+	dlg.canceled.connect(func() -> void: dlg.queue_free())
+	var host: Node = self
+	if Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base:
+			host = base
+	host.add_child(dlg)
+	dlg.popup_centered()
+	url_edit.call_deferred("grab_focus")
+
+
+func _on_remove_attached_reference() -> void:
+	_clear_web_references()
+	_append_system("[color=#cccccc]Reference removed.[/color]\n")
 
 
 func _append_persona_reply(text: String) -> void:
@@ -1764,6 +1896,14 @@ func _setup_ui() -> void:
 	_style_small_button(_pin_btn)
 	toolbar2.add_child(_pin_btn)
 
+	# 🌐 Reference URL — fetch HTTPS page for clone/mechanics context (Phase 0).
+	_ref_btn = Button.new()
+	_ref_btn.text = "\ud83c\udf10 Ref"
+	_ref_btn.tooltip_text = "Attach an HTTPS reference page (Wikipedia, wikis, docs) for Narcea."
+	_ref_btn.pressed.connect(_on_reference_url)
+	_style_small_button(_ref_btn)
+	toolbar2.add_child(_ref_btn)
+
 	# --- Quick action buttons ---
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 4)
@@ -1859,6 +1999,35 @@ func _setup_ui() -> void:
 	_style_small_button(_remove_image_btn)
 	_image_attached_row.add_child(_remove_image_btn)
 
+	# Web reference attach indicator — hidden until a reference is fetched.
+	_ref_attached_row = HBoxContainer.new()
+	_ref_attached_row.visible = false
+	_ref_attached_row.add_theme_constant_override("separation", 4)
+	main_vbox.add_child(_ref_attached_row)
+
+	var _ref_icon := Label.new()
+	_ref_icon.text = "🌐"
+	_ref_attached_row.add_child(_ref_icon)
+
+	_ref_attached_label = Label.new()
+	_ref_attached_label.text = "reference attached"
+	_ref_attached_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ref_attached_label.add_theme_color_override("font_color", Color(0.7, 0.95, 0.85))
+	_ref_attached_row.add_child(_ref_attached_label)
+
+	var _remove_ref_btn := Button.new()
+	_remove_ref_btn.text = "✕"
+	_remove_ref_btn.tooltip_text = "Remove attached reference"
+	_remove_ref_btn.pressed.connect(_on_remove_attached_reference)
+	_style_small_button(_remove_ref_btn)
+	_ref_attached_row.add_child(_remove_ref_btn)
+
+	# Curated game clone suggestion chips (Phase 2).
+	_game_chips_row = HBoxContainer.new()
+	_game_chips_row.visible = false
+	_game_chips_row.add_theme_constant_override("separation", 4)
+	main_vbox.add_child(_game_chips_row)
+
 	var input_row := HBoxContainer.new()
 	input_row.add_theme_constant_override("separation", 4)
 	main_vbox.add_child(input_row)
@@ -1885,6 +2054,7 @@ func _setup_ui() -> void:
 	_input.add_theme_stylebox_override("focus", input_focus)
 	_input.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
 	_input.tree_entered.connect(func(): _style_context_menu(_input))
+	_input.text_changed.connect(_update_game_reference_chips)
 	input_row.add_child(_input)
 
 	var btn_col := VBoxContainer.new()
@@ -2526,11 +2696,17 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 			prompt += "String concatenation is & (not +). Never use GDScript syntax."
 	if mode == "" or mode == "form":
 		prompt += _existing_form_designer_context()
-	if _prompt_requests_web_access(desc):
+	if _prompt_requests_web_access(desc) and _web_references.is_empty():
 		prompt += (
-			" NOTE: Web search/browsing is NOT available in v6.0. Do not pretend to look things up online. "
-			+ "If the user asked for online research, say briefly that you cannot browse yet, then build from "
-			+ "their description. Never paste raw .vg source in chat — only the fenced vg-*-spec block."
+			" NOTE: Web search/browsing is NOT available unless the user attaches an https:// reference. "
+			+ "Do not pretend to look things up online. If they asked for online research without a "
+			+ "reference, say briefly they can click 🌐 Ref or pick a suggested game chip, then build "
+			+ "from their description. Never paste raw .vg source in chat — only the fenced vg-*-spec block."
+		)
+	elif not _web_references.is_empty():
+		prompt += (
+			" NOTE: User-attached web reference page(s) are in context above — treat them as ground truth "
+			+ "for mechanics, setting, and gameplay when building clones."
 		)
 	return prompt
 
@@ -2918,9 +3094,15 @@ func _on_send() -> void:
 	var display_prompt := _input.text.strip_edges()
 	if display_prompt.is_empty():
 		return
+	_maybe_auto_fetch_urls_from_prompt(display_prompt)
+	const WebFetch = preload("res://addons/visual_gasic/vg_ai_web_fetch.gd")
+	var prompt_has_url := not WebFetch.extract_https_urls(display_prompt).is_empty()
 	# Honest capability reply — pure web/search requests (no build intent).
 	if not _agent_continuation and not _last_send_was_desc_mode:
-		if _prompt_requests_web_access(display_prompt) and _detect_build_intent(display_prompt).is_empty():
+		if (_prompt_requests_web_access(display_prompt)
+				and _detect_build_intent(display_prompt).is_empty()
+				and not _has_web_references()
+				and not prompt_has_url):
 			_input.text = ""
 			_history.append(display_prompt)
 			_history_idx = _history.size()
@@ -2981,9 +3163,12 @@ func _send_query(display_prompt: String) -> void:
 	if _is_generating:
 		_append_system("[color=yellow]Already generating — click Stop first.[/color]\n")
 		return
-	# Push pinned files to Narcea before context build (#8).
-	if _narcea_provider != null and _narcea_provider.has_method("set_pinned_files"):
-		_narcea_provider.set_pinned_files(_pinned_files)
+	# Push pinned files + web references to Narcea before context build (#8).
+	if _narcea_provider != null:
+		if _narcea_provider.has_method("set_pinned_files"):
+			_narcea_provider.set_pinned_files(_pinned_files)
+		if _narcea_provider.has_method("set_web_references"):
+			_narcea_provider.set_web_references(_web_references)
 		_narcea_ctx_cache = ""
 	# Diff-aware follow-ups (#11): if the user is referring to the prior
 	# edit, silently prepend a short diff summary so Narcea has context

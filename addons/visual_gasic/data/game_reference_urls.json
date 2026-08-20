@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "games": [
+    {
+      "id": "pacman",
+      "label": "Pac-Man",
+      "keywords": ["pac-man", "pacman", "packman"],
+      "url": "https://en.wikipedia.org/wiki/Pac-Man"
+    },
+    {
+      "id": "joust",
+      "label": "Joust",
+      "keywords": ["joust"],
+      "url": "https://en.wikipedia.org/wiki/Joust_(video_game)"
+    },
+    {
+      "id": "thrust",
+      "label": "Thrust",
+      "keywords": ["thrust"],
+      "url": "https://en.wikipedia.org/wiki/Thrust_(video_game)"
+    },
+    {
+      "id": "pong",
+      "label": "Pong",
+      "keywords": ["pong"],
+      "url": "https://en.wikipedia.org/wiki/Pong"
+    },
+    {
+      "id": "asteroids",
+      "label": "Asteroids",
+      "keywords": ["asteroids", "asteroid"],
+      "url": "https://en.wikipedia.org/wiki/Asteroids_(video_game)"
+    },
+    {
+      "id": "space_invaders",
+      "label": "Space Invaders",
+      "keywords": ["space invaders", "spaceinvaders"],
+      "url": "https://en.wikipedia.org/wiki/Space_Invaders"
+    },
+    {
+      "id": "breakout",
+      "label": "Breakout",
+      "keywords": ["breakout", "arkanoid"],
+      "url": "https://en.wikipedia.org/wiki/Breakout_(video_game)"
+    },
+    {
+      "id": "frogger",
+      "label": "Frogger",
+      "keywords": ["frogger"],
+      "url": "https://en.wikipedia.org/wiki/Frogger"
+    },
+    {
+      "id": "defender",
+      "label": "Defender",
+      "keywords": ["defender"],
+      "url": "https://en.wikipedia.org/wiki/Defender_(1981_video_game)"
+    },
+    {
+      "id": "tempest",
+      "label": "Tempest",
+      "keywords": ["tempest"],
+      "url": "https://en.wikipedia.org/wiki/Tempest_(video_game)"
+    }
+  ]
+}

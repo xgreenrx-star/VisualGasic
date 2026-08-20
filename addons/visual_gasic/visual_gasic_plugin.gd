@@ -359,6 +359,12 @@ func _enter_tree():
 		TYPE_BOOL
 	)
 
+	_register_project_setting(
+		"vg/ai/allow_web_fetch",
+		true,
+		TYPE_BOOL
+	)
+
 	_ensure_scene_editor_project_settings()
 	_register_python_project_settings()
 
