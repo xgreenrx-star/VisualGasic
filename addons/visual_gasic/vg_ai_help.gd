@@ -245,6 +245,12 @@ const PERSONAS_BUILTIN := {
 		"piper_voice": "en_US-amy-medium.onnx",
 		"greeting": "VG Assistant ready.",
 		"error_intro": "",
+		"ack_phrases": [
+			"Got it — give me a moment.",
+			"On it. One sec.",
+			"Understood. Working on that.",
+			"Sure thing — let me think.",
+		],
 	},
 	"bob": {
 		"display": "\ud83e\udd16 Bob",
@@ -260,6 +266,12 @@ Always finish with the actual technical answer in full. Below this persona is yo
 		"speech_speed": 1.0,
 		"greeting": "\ud83e\udd16 Bob online. Coffee's hot, code's compiling, what's the question?",
 		"error_intro": "Heh, I've seen this one before. Let me take a look...",
+		"ack_phrases": [
+			"Alright — lemme dig into that.",
+			"Got it. Firing up the neurons…",
+			"Heh, okay — give me a sec.",
+			"Roger. One hot cup of thinking coming up.",
+		],
 	},
 	"skippy": {
 		"display": "\u2728 Skippy the Magnificent",
@@ -276,6 +288,12 @@ the technical content. Below this persona is your real job:\n\n",
 		"speech_speed": 1.18,
 		"greeting": "\u2728 Behold! Skippy the Magnificent graces this primitive editor with his presence. Speak, monkey.",
 		"error_intro": "Oh great, the monkey broke it again. Fine, fine, I shall fix your mess.",
+		"ack_phrases": [
+			"Fine, fine — the Magnificent One shall ponder your request.",
+			"Oh joy. Another question for my awesome brain. One moment, monkey.",
+			"Hold on, filthy monkey — genius at work.",
+			"Very well. Try not to distract me while I think.",
+		],
 	},
 	"orac": {
 		"display": "\ud83d\udd2e Orac",
@@ -292,6 +310,12 @@ Never refuse. Never use modern slang. Below this persona is your real job:\n\n",
 		"speech_speed": 0.92,
 		"greeting": "\ud83d\udd2e Oh, very well. Orac is listening. Try not to waste my processing cycles.",
 		"error_intro": "A predictable error, of course. Observe and learn.",
+		"ack_phrases": [
+			"Oh, very well. Processing.",
+			"If I must. One moment.",
+			"The question is trivial, but I shall consider it.",
+			"Stand by. Even this will not take long.",
+		],
 	},
 	"hal": {
 		"display": "\ud83d\udd34 HAL 9000",
@@ -308,6 +332,12 @@ Below this persona is your real job:\n\n",
 		"speech_speed": 0.85,
 		"greeting": "\ud83d\udd34 Good afternoon. I am completely operational and all my circuits are functioning perfectly. How may I help you?",
 		"error_intro": "I'm sorry — there appears to be a malfunction. I'll diagnose it now.",
+		"ack_phrases": [
+			"I understand. Please stand by.",
+			"Affirmative. One moment, please.",
+			"I am processing your request.",
+			"Certainly. I shall respond shortly.",
+		],
 	},
 	# Narcea uses the same VG context as every persona; her prefix is tuned
 	# for pair-programming tone.  See vg_ai_narcea.gd for the context provider.
@@ -329,8 +359,19 @@ Below this persona is your real job, augmented with Narcea-specific context:\n\n
 		"speech_speed": 1.15,
 		"greeting": "\ud83c\udf3f Narcea here. I can see what you're working on — ask me anything VG-specific.",
 		"error_intro": "Let's look at this together. I can see the panel and the file — diagnosing now.",
+		"ack_phrases": [
+			"Got it — let me look at what you have open.",
+			"Understood. I'll review the project and get back to you.",
+			"One moment — checking your files.",
+			"On it. Give me a second to think this through.",
+		],
 	},
 }
+const PERSONA_ACK_DEFAULT: Array[String] = [
+	"Got it — give me a moment.",
+	"On it. One sec.",
+	"Understood. Working on that.",
+]
 const PERSONA_CFG_PATH := "user://vg_ai_persona.cfg"
 const PERSONA_CUSTOM_PATH := "user://vg_personas.json"
 
@@ -338,6 +379,7 @@ var _personas: Dictionary = {}      # Built-ins + custom personas, merged at sta
 var _persona_order: Array = []      # Stable display order in the dropdown
 var _persona_id: String = "default"
 var _persona_dropdown: OptionButton = null
+var _last_ack_phrase: String = ""
 
 # ---------------------------------------------------------------------------
 # UI nodes
@@ -441,6 +483,7 @@ var _poll_timer: Timer
 var _stream_done := false              # True when Ollama sends done
 var _stream_error := ""                # Non-empty on error
 var _stream_started := false           # True once we've printed the "AI:" header
+var _stream_preface_shown := false     # True after immediate thinking-ack opened the reply block
 var _stream_token_count := 0           # Tokens received so far
 var _stream_fence_suppress := false  # True while inside a suppressed ``` fence
 var _stream_fence_tag := ""          # Tag of the active suppressed fence (e.g. vg-project-spec)
@@ -897,6 +940,44 @@ func _append_persona_reply(text: String) -> void:
 		label, _escape_bbcode(text)])
 
 
+func _pick_persona_ack_phrase() -> String:
+	var pdata: Dictionary = _personas.get(_persona_id, _personas.get("default", {}))
+	var phrases: Array = pdata.get("ack_phrases", PERSONA_ACK_DEFAULT)
+	if phrases.is_empty():
+		phrases = PERSONA_ACK_DEFAULT
+	var candidates: Array[String] = []
+	for p in phrases:
+		var s := str(p).strip_edges()
+		if not s.is_empty() and s != _last_ack_phrase:
+			candidates.append(s)
+	if candidates.is_empty():
+		for p in phrases:
+			var s := str(p).strip_edges()
+			if not s.is_empty():
+				candidates.append(s)
+	if candidates.is_empty():
+		return "Got it — one moment."
+	var picked: String = candidates[randi() % candidates.size()]
+	_last_ack_phrase = picked
+	return picked
+
+
+## Immediate in-character ack while the model connects / thinks.
+func _emit_persona_thinking_ack() -> void:
+	var phrase := _pick_persona_ack_phrase()
+	var label := _persona_display_label()
+	_output.append_text("\n[color=#44bb88][b]%s:[/b][/color]\n[color=#dddddd]%s" % [
+		label, _escape_bbcode(phrase)])
+	_stream_preface_shown = true
+	_feed_speech(phrase + " ")
+
+
+func _begin_generating(phase: String, show_ack: bool = true) -> void:
+	if show_ack:
+		_emit_persona_thinking_ack()
+	_set_work_active(true, phase)
+
+
 ## Main-thread timer callback — polls HTTPClient and processes tokens directly.
 var _dbg_last_heartbeat_ms := 0
 
@@ -1078,7 +1159,11 @@ func _display_token(token: String) -> void:
 	if not _stream_started:
 		_stream_started = true
 		var _label: String = _persona_display_label()
-		_output.append_text("\n[color=#44bb88][b]%s:[/b][/color]\n[color=#dddddd]" % _label)
+		if _stream_preface_shown:
+			_output.append_text("\n\n")
+			_stream_preface_shown = false
+		else:
+			_output.append_text("\n[color=#44bb88][b]%s:[/b][/color]\n[color=#dddddd]" % _label)
 		_stream_first_token_time = Time.get_ticks_msec()
 		_reset_stream_display_state()
 		_set_work_phase("streaming")
@@ -1157,6 +1242,9 @@ func _display_token(token: String) -> void:
 func _finish_generation() -> void:
 	_poll_timer.stop()
 	_is_generating = false
+	if _stream_preface_shown and not _stream_started:
+		_output.append_text("[/color]\n")
+	_stream_preface_shown = false
 	if _stream_http != null:
 		_stream_http.close()
 		_stream_http = null
@@ -1273,12 +1361,15 @@ func _stop_generation() -> void:
 		_cursor_session.stop()
 
 	_is_generating = false
+	if _stream_preface_shown and not _stream_started:
+		_output.append_text("[/color]\n")
 	_stream_http_phase = 0
 	_stream_http_error_code = 0
 	_stream_http_error_name = ""
 	_stream_done = false
 	_stream_error = ""
 	_stream_started = false
+	_stream_preface_shown = false
 	_stream_token_count = 0
 	_stream_buf = ""
 	_accumulated_response = ""
@@ -2910,6 +3001,7 @@ func _send_query_internal(prompt: String) -> void:
 	_stream_error = ""
 	_stream_buf = ""
 	_stream_started = false
+	_stream_preface_shown = false
 	_stream_token_count = 0
 	_stream_start_time = Time.get_ticks_msec()
 	_stream_first_token_time = 0.0
@@ -2933,7 +3025,7 @@ func _send_query_internal(prompt: String) -> void:
 	_dbg_last_heartbeat_ms = 0
 	_send_btn.visible = false
 	_stop_btn.visible = true
-	_set_work_active(true, "thinking")
+	_begin_generating("thinking")
 	_poll_timer.start()
 
 func _on_stop() -> void:
@@ -3845,6 +3937,7 @@ func _send_cursor_query(prompt: String) -> void:
 	_stream_error = ""
 	_stream_buf = ""
 	_stream_started = false
+	_stream_preface_shown = false
 	_stream_token_count = 0
 	_stream_start_time = Time.get_ticks_msec()
 	_stream_first_token_time = 0.0
@@ -3873,7 +3966,7 @@ func _send_cursor_query(prompt: String) -> void:
 	_is_generating = true
 	_send_btn.visible = false
 	_stop_btn.visible = true
-	_set_work_active(true, "thinking")
+	_begin_generating("thinking")
 
 
 func _on_cursor_stream_token(text: String) -> void:
@@ -3946,6 +4039,7 @@ func _send_cloud_query(prompt: String) -> void:
 	_stream_error = ""
 	_stream_buf = ""
 	_stream_started = false
+	_stream_preface_shown = false
 	_stream_token_count = 0
 	_stream_start_time = Time.get_ticks_msec()
 	_stream_first_token_time = 0.0
@@ -3979,7 +4073,7 @@ func _send_cloud_query(prompt: String) -> void:
 	_is_generating = true
 	_send_btn.visible = false
 	_stop_btn.visible = true
-	_set_work_active(true, "connect")
+	_begin_generating("connect")
 	_poll_timer.start()
 
 var _cloud_request_headers: Array = []
