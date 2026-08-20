@@ -6716,13 +6716,7 @@ func _show_export_result_dialog(success: bool, path: String, preset: String, log
 	if success:
 		header.text = "Built: " + path
 		if preset == "Web":
-			header.text += (
-				"\n\nWeb builds cannot be opened directly in a browser.\n"
-				+ "Serve the output folder with a local HTTP server first:\n"
-				+ "  cd " + path.get_base_dir() + "\n"
-				+ "  python3 -m http.server 8080\n"
-				+ "Then open  http://localhost:8080  in your browser."
-			)
+			header.text += "\n\n" + VGPlatformHints.http_server_preview_hint(path.get_base_dir(), 8080)
 	else:
 		header.text = "Failed to build: " + path \
 			+ "\n\nCommon causes:\n" \

@@ -166,7 +166,7 @@ func save_ceol_song(save_as: bool = false) -> void:
 	# On web we don't show a file dialog, since it can only access a virtual
 	# file system.
 	if OS.has_feature("web"):
-		_save_ceol_song_confirmed("/tmp/" + file_name)
+		_save_ceol_song_confirmed(OS.get_temp_dir().path_join(file_name))
 		return
 	
 	var save_dialog := Controller.get_file_dialog()
@@ -354,7 +354,7 @@ func _export_wav_song(export_config: ExportMasterPopup.ExportConfig) -> void:
 	# On web we don't show a file dialog, since it can only access a virtual
 	# file system.
 	if OS.has_feature("web"):
-		_export_wav_song_confirmed("/tmp/" + file_name, export_config)
+		_export_wav_song_confirmed(OS.get_temp_dir().path_join(file_name), export_config)
 		return
 	
 	var export_dialog := Controller.get_file_dialog()
@@ -411,7 +411,7 @@ func _export_mid_song(export_config: ExportMasterPopup.ExportConfig) -> void:
 	# On web we don't show a file dialog, since it can only access a virtual
 	# file system.
 	if OS.has_feature("web"):
-		_export_mid_song_confirmed("/tmp/" + file_name, export_config)
+		_export_mid_song_confirmed(OS.get_temp_dir().path_join(file_name), export_config)
 		return
 	
 	var export_dialog := Controller.get_file_dialog()
@@ -446,7 +446,7 @@ func _export_mml_song(export_config: ExportMasterPopup.ExportConfig) -> void:
 	# On web we don't show a file dialog, since it can only access a virtual
 	# file system.
 	if OS.has_feature("web"):
-		_export_mml_song_confirmed("/tmp/" + file_name, export_config)
+		_export_mml_song_confirmed(OS.get_temp_dir().path_join(file_name), export_config)
 		return
 	
 	var export_dialog := Controller.get_file_dialog()
@@ -481,7 +481,7 @@ func _export_xm_song(export_config: ExportMasterPopup.ExportConfig) -> void:
 	# On web we don't show a file dialog, since it can only access a virtual
 	# file system.
 	if OS.has_feature("web"):
-		_export_xm_song_confirmed("/tmp/" + file_name, export_config)
+		_export_xm_song_confirmed(OS.get_temp_dir().path_join(file_name), export_config)
 		return
 	
 	var export_dialog := Controller.get_file_dialog()

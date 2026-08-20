@@ -612,7 +612,7 @@ func _on_game_publish() -> void:
 	if result.get("ok", false):
 		_log("[color=#8f8]🌐 Game published! Files are in " + output_dir + "[/color]")
 		_log("  Deploy: upload the entire folder to any web server")
-		_log("  Preview: cd build/web/ && python3 -m http.server 8000")
+		_log(VGPlatformHints.http_server_preview_log_line("build/web", 8000))
 		_status_label.text = "  ✅ Game published to " + output_dir
 	else:
 		_log("[color=#ff5555]✗ Publish failed[/color]")

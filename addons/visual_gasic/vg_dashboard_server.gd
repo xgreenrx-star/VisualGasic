@@ -53,9 +53,9 @@ const BUILD_LOG_MAX_BYTES := 4 * 1024 * 1024  # 4 MiB cap on the on-disk log.
 # new target is the only supported way to enable it — accepting raw shell
 # strings from the client would be an obvious RCE.
 const BUILD_COMMANDS := {
-	"tests":     {"label": "Run test suite",     "argv": ["bash", "run_test_suite.sh"]},
-	"gd_tests":  {"label": "GDScript tests only", "argv": ["bash", "run_test_suite.sh", "--gd-only"]},
-	"scons":     {"label": "Build C++ extension", "argv": ["scons", "platform=linux", "target=editor", "-j2"]},
+	"tests":     {"label": "Run test suite"},
+	"gd_tests":  {"label": "GDScript tests only"},
+	"scons":     {"label": "Build C++ extension"},
 }
 
 var _server: TCPServer
@@ -432,31 +432,38 @@ func _save_settings() -> void:
 
 
 # ── Build runner (non-blocking, whitelisted) ──────────────────────────────
+func _repo_root_abs() -> String:
+	var cur := ProjectSettings.globalize_path("res://").rstrip("/\\")
+	for _i in range(5):
+		if FileAccess.file_exists(cur.path_join("run_test_suite.sh")) \
+				or FileAccess.file_exists(cur.path_join("run_test_suite.ps1")):
+			return cur
+		var parent := cur.get_base_dir()
+		if parent == cur:
+			break
+		cur = parent
+	return ProjectSettings.globalize_path("res://").rstrip("/\\")
+
+
 func _start_build(target: String) -> Dictionary:
-	# Wrap the target argv inside bash -c so a single shell pipeline can
-	# redirect both streams to BUILD_LOG_PATH.  This decouples reading the
-	# log from the child's pipe buffering — we read the file on every poll
-	# tick and OS never has to wait on us.
-	var argv: Array = BUILD_COMMANDS[target]["argv"]
+	if not BUILD_COMMANDS.has(target):
+		return {"ok": false, "error": "unknown_target"}
 	var log_abs := ProjectSettings.globalize_path(BUILD_LOG_PATH)
 
-	# Reset the log file before each run so log_offset=0 always starts at
-	# the new build's first byte.
 	var fw := FileAccess.open(BUILD_LOG_PATH, FileAccess.WRITE)
 	if fw == null:
 		return {"ok": false, "error": "cannot_open_log", "path": log_abs}
 	fw.close()
 
-	# Build a properly quoted shell command from the argv whitelist entry.
-	var quoted_parts: Array[String] = []
-	for piece in argv:
-		quoted_parts.append(_shell_quote(String(piece)))
-	var cmd_str := " ".join(quoted_parts)
-	var shell_line := "set -o pipefail; { %s; } > %s 2>&1" % [cmd_str, _shell_quote(log_abs)]
+	var repo := _repo_root_abs()
+	var pid := -1
+	if OS.get_name() in ["Windows", "UWP"]:
+		pid = _start_build_windows(target, repo, log_abs)
+	else:
+		pid = _start_build_unix(target, repo, log_abs)
 
-	var pid := OS.create_process("bash", ["-c", shell_line])
 	if pid <= 0:
-		return {"ok": false, "error": "spawn_failed"}
+		return {"ok": false, "error": "spawn_failed", "repo": repo}
 
 	_build_state["running"] = true
 	_build_state["target"] = target
@@ -467,6 +474,50 @@ func _start_build(target: String) -> Dictionary:
 	_build_state["log_bytes"] = 0
 	_build_state["pid"] = pid
 	return {"ok": true, "pid": pid}
+
+
+func _start_build_windows(target: String, repo: String, log_abs: String) -> int:
+	var ps1 := repo.path_join("run_test_suite.ps1")
+	var cmd := ""
+	match target:
+		"tests":
+			if not FileAccess.file_exists(ps1):
+				return -1
+			cmd = 'cd /d "%s" && powershell.exe -NoProfile -ExecutionPolicy Bypass -File "run_test_suite.ps1" > "%s" 2>&1' % [repo, log_abs]
+		"gd_tests":
+			if not FileAccess.file_exists(ps1):
+				return -1
+			cmd = 'cd /d "%s" && powershell.exe -NoProfile -ExecutionPolicy Bypass -File "run_test_suite.ps1" -GdOnly > "%s" 2>&1' % [repo, log_abs]
+		"scons":
+			cmd = 'cd /d "%s" && scons platform=windows target=editor -j2 > "%s" 2>&1' % [repo, log_abs]
+		_:
+			return -1
+	return OS.create_process("cmd.exe", ["/c", cmd])
+
+
+func _start_build_unix(target: String, repo: String, log_abs: String) -> int:
+	var argv: Array = _unix_build_argv(target)
+	if argv.is_empty():
+		return -1
+	var quoted_parts: Array[String] = []
+	for piece in argv:
+		quoted_parts.append(_shell_quote(String(piece)))
+	var cmd_str := " ".join(quoted_parts)
+	var shell_line := "cd %s && set -o pipefail; { %s; } > %s 2>&1" % [
+		_shell_quote(repo), cmd_str, _shell_quote(log_abs),
+	]
+	return OS.create_process("bash", ["-c", shell_line])
+
+
+func _unix_build_argv(target: String) -> Array:
+	match target:
+		"tests":
+			return ["bash", "run_test_suite.sh"]
+		"gd_tests":
+			return ["bash", "tests/run_gd_tests.sh"]
+		"scons":
+			return ["scons", "platform=linux", "target=editor", "-j2"]
+	return []
 
 
 func _cancel_build() -> Dictionary:

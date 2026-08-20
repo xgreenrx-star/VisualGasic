@@ -99,7 +99,7 @@ func _file_loaded(event: JavaScriptObject, filename: String) -> void:
 	# we can then use our standard flow to read and load it into the app.
 	
 	# We don't care about conflicts, it's all temporary anyway.
-	var path := "/tmp/" + filename
+	var path := OS.get_temp_dir().path_join(filename)
 	
 	# The result is a JS ArrayBuffer, which cannot be used directly. We construct a
 	# Uint8Array, which is effectively a byte array. Then we create a proper byte array
