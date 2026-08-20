@@ -46,6 +46,7 @@ static func prompt_is_hybrid_form_game(prompt: String) -> bool:
 
 
 static func pure_2d_game_prompt_extra() -> String:
+	const Narcea = preload("res://addons/visual_gasic/vg_ai_narcea.gd")
 	return (
 		" PURE 2D CANVAS GAME RULES: This is a Node2D game (not a Window form). "
 		+ "Emit vg-project-spec with files[] containing a Node2D .tscn plus matching .vg. "
@@ -53,10 +54,12 @@ static func pure_2d_game_prompt_extra() -> String:
 		+ "DrawRect / DrawCircle / DrawLine for graphics when no image assets exist. "
 		+ "Set main_scene to the game .tscn. Do NOT put game logic on a Window form. "
 		+ "Keep ≤ 6 files under res://ai_projects/<name>/."
+		+ Narcea.audit_comments_prompt_extra()
 	)
 
 
 static func hybrid_project_prompt_extra() -> String:
+	const Narcea = preload("res://addons/visual_gasic/vg_ai_narcea.gd")
 	return (
 		" HYBRID MENU + 2D GAME RULES: If the description has a menu form (Start/Exit) "
 		+ "that opens a separate canvas game, emit vg-project-spec (not form-only). "
@@ -66,6 +69,7 @@ static func hybrid_project_prompt_extra() -> String:
 		+ "Window forms CANNOT call _Draw — never put game drawing on the form script. "
 		+ "Menu handlers: Start -> ChangeScene \"res://ai_projects/<project>/Game.tscn\"; "
 		+ "Exit -> End. Keep ≤ 6 files."
+		+ Narcea.audit_comments_prompt_extra()
 	)
 
 

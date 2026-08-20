@@ -1102,7 +1102,11 @@ Rules:
   * Never write to addons/visual_gasic/* or .git/* or .godot/* \u2014 those are
     blocked by the safe-writer.
   * .vg files are linted before write; emit them in valid VB6/VG syntax
-    (Sub/End Sub, Dim, &-concat, Option Explicit at top of new files).  * Form .vg files are FLAT MODULES — no Class/Inherits wrapper, no Dim
+    (Sub/End Sub, Dim, &-concat, Option Explicit at top of new files).
+  * AUDITABLE: every .vg `source` must include VG comments (') — file header on
+    line 1, a comment before each Sub/Function, and brief notes on state/logic blocks
+    so the user can read and understand the code without asking again.
+  * Form .vg files are FLAT MODULES — no Class/Inherits wrapper, no Dim
     declarations for designer controls.  Only write Sub/Function bodies
     and module-level Dim for local variables.  * Pair this block with a `vg-form-spec` block when the project also
     needs new form layouts \u2014 the panel applies them in order.
@@ -1130,6 +1134,8 @@ Rules:
     `auto_events: true` if the project should be runnable on first try.
   * Keep the project small (\u2264 ~6 files) so the diff dialog stays usable.
   * Set `main_scene` so the \u25b6 Run button knows what to launch.
+  * AUDITABLE: every .vg in `files[]` must include VG comments (') — header,
+    per-handler labels, and brief state/logic notes (see AUDITABLE CODE policy).
 
 When any of these spec blocks are appropriate, prefer them over verbose
 prose explanations \u2014 the user can always ask follow-up questions.
@@ -1153,6 +1159,21 @@ var _web_references: Array = []
 const CONTEXT_CHAR_BUDGET := 32000
 const SLIM_CONTEXT_CHAR_BUDGET := 8000
 
+## Prompt fragment: require VG comments so AI-written code is readable/auditable.
+const AUDIT_COMMENTS_POLICY := (
+	" AUDITABLE CODE (required in every .vg source you write or edit): "
+	+ "Use VG apostrophe comments (') — never # or block comments. "
+	+ "Line 1: ' FileName.vg — one-line purpose. "
+	+ "Before each Sub/Function: ' Handler: name — what it does. "
+	+ "Before groups of Dim/state: ' State — brief label (e.g. player, bullets, score). "
+	+ "Inside _Process/_Draw/game loops: short ' comments on major phases (input, move, collide, draw). "
+	+ "Explain WHY for non-obvious logic. Goal: the user can read the file and follow it without re-asking Narcea."
+)
+
+
+static func audit_comments_prompt_extra() -> String:
+	return AUDIT_COMMENTS_POLICY
+
 const SLIM_KNOWLEDGE := """
 === VG essentials (Cursor / Composer) ===
 - `.vg` = VB6-style Visual Gasic (Sub/Function, Dim, If…Then) — NOT GDScript for game logic.
@@ -1161,6 +1182,7 @@ const SLIM_KNOWLEDGE := """
   Never `ctrl.position.x` or `ctrl.text` — those writes silently fail on VG controls.
 - Events by name: Sub btnOK_Click(), Sub Form_Load(), Sub tmr_Timer() (Interval in ms).
 - Start new `.vg` modules with Option Explicit on line 1 (after optional header comment).
+- AI-written .vg must be auditable: `'` header, comment before each Sub, brief notes on state/logic.
 - Follow `.cursor/rules/visual-gasic-godot.mdc`. Search corpus/, demos/, tutorials/ for examples.
 - VG MCP tools (read_file, write_file, find_in_files) when Godot + plugin are running.
 """
@@ -1222,6 +1244,10 @@ CAPABILITIES — be honest (v6.0):
 
 CODE QUALITY — ALWAYS:
   * Begin every new .vg file with Option Explicit.
+  * AUDITABLE CODE: every .vg file you emit must include VG apostrophe comments (')
+    so the user can read and verify AI work — file header (' File.vg — purpose),
+    a comment before each Sub/Function, and brief notes on non-obvious Dim blocks
+    and game-loop phases. Never ship uncommented handler bodies or mystery variables.
   * Every runnable example MUST include a working Sub Form_Load() (or
     Sub _Ready() for game scripts) so the user can press Run immediately.
   * Use VB6/VG syntax throughout — never write GDScript ($NodePath,

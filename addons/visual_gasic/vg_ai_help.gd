@@ -35,6 +35,8 @@ Key syntax: Dim x As Integer | Sub Name()/End Sub | Function F() As T/End Functi
 If/ElseIf/Else/End If | For i = 1 To 10/Next | Do While/Loop | Select Case/End Select | \
 Class Name/End Class | Me.Property | GetNode("name") | ' comments | & for string concat.
 
+When writing or editing .vg code, always include VG comments (') — file header, before each Sub, and on non-obvious logic — so the user can read and audit AI output.
+
 Godot integration: Events auto-wire by name (btn_Click, Timer1_Timer, Form_Load). \
 Virtual callbacks: _Ready, _Process(delta), _PhysicsProcess(delta), _Input(event). \
 VB6 aliases on nodes: Caption→text, Left→position.x, Width→size.x, Visible→visible. \
@@ -2636,6 +2638,11 @@ func _ensure_narcea_for_build(clear_history: bool = false) -> void:
 		_conversation_history.clear()
 
 
+func _audit_comments_prompt_extra() -> String:
+	const Narcea = preload("res://addons/visual_gasic/vg_ai_narcea.gd")
+	return Narcea.audit_comments_prompt_extra()
+
+
 func _build_hardened_prompt(desc: String, mode: String) -> String:
 	var prompt := ""
 	match mode:
@@ -2647,6 +2654,7 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 			prompt += "Use this exact shape for any .vg file:\n"
 			prompt += "  ' FormName.vg — VisualGasic module\n  Option Explicit\n\n  Sub Form_Load()\n  End Sub\n\n  Sub btnOK_Click()\n  End Sub\n"
 			prompt += "Use res:// paths only. String concat is &, not +. Do not include any other fenced code blocks."
+			prompt += _audit_comments_prompt_extra()
 		"project":
 			var existing_root := _active_ai_project_root()
 			if not existing_root.is_empty():
@@ -2673,6 +2681,8 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 					prompt += ProjectSynth.hybrid_project_prompt_extra()
 				elif ProjectSynth.prompt_is_pure_2d_game(desc):
 					prompt += ProjectSynth.pure_2d_game_prompt_extra()
+			if not prompt.contains("AUDITABLE CODE"):
+				prompt += _audit_comments_prompt_extra()
 		_:
 			prompt = "Design a runnable Form Designer form from this description.\n\n"
 			prompt += "Description: " + desc + "\n\n"
@@ -2694,6 +2704,7 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 			prompt += "In vg-code-spec use path \"res://<form_name>.vg\" matching form_name. "
 			prompt += "Include Option Explicit, Sub Form_Load(), and FULL Sub implementations for every event — NOT empty stubs. "
 			prompt += "String concatenation is & (not +). Never use GDScript syntax."
+			prompt += _audit_comments_prompt_extra()
 	if mode == "" or mode == "form":
 		prompt += _existing_form_designer_context()
 	if _prompt_requests_web_access(desc) and _web_references.is_empty():
