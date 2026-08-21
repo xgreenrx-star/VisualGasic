@@ -6,7 +6,7 @@
 
 > **VisualGasic is not a VB6 clone.** It is a modern, forward-looking language that draws inspiration from VB6's approachable syntax and ease of learning, while introducing advanced features that go well beyond what VB6 ever offered. If you know VB6, you'll feel at home in minutes. If you're new to programming, you'll find VG one of the easiest languages to learn.
 
-> **Form Designer status (v5.3.0-Beta6):** The classic **Form Designer** (VB6-style WYSIWYG canvas) ships today and is the primary way to build menu forms and dialogs. It has known bugs and is being replaced by **UI Forms** — experimental WYSIWYG editing in Godot's 2D viewport, enabled via **Project Settings → `vg/enable_experimental_plugins`**. Until UI Forms reaches parity, use the Form Designer for forms and attach Node2D game scenes separately; see [Menu Form + Node2D Game](../guides/MENU_FORM_AND_2D_GAME.md).
+> **Form Designer status (v5.3.0-Beta7):** The classic **Form Designer** (VB6-style WYSIWYG canvas) ships today and is the primary way to build menu forms and dialogs. It has known bugs and is being replaced by **UI Forms** — experimental WYSIWYG editing in Godot's 2D viewport, enabled via **Project Settings → `vg/enable_experimental_plugins`**. Until UI Forms reaches parity, use the Form Designer for forms and attach Node2D game scenes separately; see [Menu Form + Node2D Game](../guides/MENU_FORM_AND_2D_GAME.md).
 
 ---
 

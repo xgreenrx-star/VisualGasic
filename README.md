@@ -1,7 +1,7 @@
 # VisualGasic — The language you read when you don't trust the AI.
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-5.3.0--Beta5-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-5.3.0--Beta7-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta7)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.6.1+-purple.svg)](https://godotengine.org)
 
@@ -254,7 +254,7 @@ own model with `python bench/ai_correctness/scripts/run_bench.py`.
 
 ![Narcea menu form with End and ChangeScene](docs/screenshots/beta6_narcea_menu_form_end_command.png)
 
-*Narcea-generated hybrid project: Exit button calls `End`, Start loads a game scene via `ChangeScene` — both verified in the Beta6 reference gate.*
+*Narcea-generated hybrid project: Exit button calls `End`, Start loads a game scene via `ChangeScene` — both verified in the Beta7 reference gate.*
 
 ![AI Provider API Keys](docs/screenshots/beta6_narcea_ai_provider_keys.png)
 
