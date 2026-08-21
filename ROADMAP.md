@@ -1028,6 +1028,25 @@ Narcea today can call cloud LLM APIs but has **no agent tool to read the public 
 
 ---
 
+### Visual AI audit — three tracks (ties M5/M6 + Tier-3 together)
+
+VG's pitch is *"AI writes it, you audit it without reading every line."* Three complementary visuals cover **plan**, **actions**, and **code**:
+
+| Track | Question it answers | Reuses | Status |
+|-------|---------------------|--------|--------|
+| **Agent run graph** | What did Narcea *do/plan* each hop? (`read_file`, `write_file`, blocked tools) | Working Nodes canvas (`.wnodes` JSON) | **Shipped** — auto-written to `res://.narcea/agent_runs/<ts>.wnodes` at session end; **🧩** toolbar opens it |
+| **`vg-wnodes-spec` / Make WN** | Can Narcea express logic as a flowchart *before* coding? | Same WN editor + codegen | **Shipped** — Narcea emits fenced spec; **Make WN** writes `.wnodes` |
+| **Causal Chain** | What does the *resulting `.vg`* actually do on click? | Code Navigator AST walk; v6.1 adds `VGVectorCanvas2D` graph | **Text shipped** (M6); **visual panel v6.1** |
+
+**Typical workflow:**
+1. Multi-hop Narcea run → review **🧩 agent graph** (tool trail) or NDJSON transcript.
+2. Optional: ask for **`vg-wnodes-spec`** to sketch game logic as nodes before Apply.
+3. After Apply → **Show Causal Chain** on the `.vg` to verify event→Sub→Call flow.
+
+Implementation: `vg_ai_agent_graph.gd` (hop log → WN project), `vg_ai_wnodes_spec.gd`, `vg_causal_chain.gd` + Code Navigator button. Phase 6d chat collapsible plan header remains a polish item; the graph is the visual substitute.
+
+---
+
 ### Causal Chain Visualization — Design Spec
 
 **The problem it solves**: When AI generates a VG form, the auditor currently must read every line of code to verify what happens when a button is clicked. For a 200-line form this takes minutes. For a 2000-line form it is impractical. No existing tool answers the question *"does this code do what I asked, and is there anything hiding in it I didn’t ask for?"*

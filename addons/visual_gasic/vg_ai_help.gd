@@ -503,6 +503,12 @@ var _fc_fragments: Array = []
 # Phase 6e: NDJSON agent run transcript.
 # One file per agent session, written to user://vg_agent_runs/<timestamp>.ndjson.
 var _agent_transcript_file: FileAccess = null
+# Phase 6d visual audit: hop log → auto .wnodes agent run graph.
+var _agent_graph = null           # vg_ai_agent_graph.gd instance
+var _agent_graph_hops: Array = []   # [{hop, prompt, tools}]
+var _agent_graph_session_ts := ""
+var _last_agent_graph_path := ""
+var _agent_graph_btn: Button = null
 
 # Preset quick-action buttons
 var _explain_error_btn: Button
@@ -1656,6 +1662,14 @@ func _setup_ui() -> void:
 	_audit_btn.pressed.connect(_show_audit_log)
 	_style_small_button(_audit_btn)
 	toolbar.add_child(_audit_btn)
+
+	_agent_graph_btn = Button.new()
+	_agent_graph_btn.text = "🧩"
+	_agent_graph_btn.tooltip_text = "Open last agent run graph in Working Nodes (after a multi-hop session)"
+	_agent_graph_btn.disabled = true
+	_agent_graph_btn.pressed.connect(_on_open_agent_graph)
+	_style_small_button(_agent_graph_btn)
+	toolbar.add_child(_agent_graph_btn)
 
 	_clear_btn = Button.new()
 	_clear_btn.text = "🗑 Clear"
@@ -3141,6 +3155,7 @@ func _on_send() -> void:
 		_set_work_active(true, "agent")
 		# Phase 6e: open transcript on first continuation, write hop entry.
 		_transcript_open()
+		_agent_graph_record_hop_prompt(_agent_hops, display_prompt)
 		_transcript_append({"type": "hop_start", "hop": _agent_hops, "prompt_len": display_prompt.length()})
 		_transcript_append({"type": "user_prompt", "hop": _agent_hops, "prompt": display_prompt})
 	else:
@@ -3153,9 +3168,11 @@ func _on_send() -> void:
 		_build_form_ran_this_turn = false
 		_code_followup_pending = false
 		_project_spec_validation_retries = 0
+		_agent_graph_reset_session()
 		_hide_abort_agent_btn()
 		_transcript_close("user_new_turn")  # Phase 6e: close any open transcript.
 		_transcript_open()
+		_agent_graph_record_hop_prompt(_agent_hops, display_prompt)
 		_transcript_append({"type": "user_prompt", "hop": _agent_hops, "prompt": display_prompt})
 		# Chat-first: detect form/project/code intent and route to Narcea.
 		if not _last_send_was_desc_mode:
@@ -3173,8 +3190,14 @@ func _send_query(display_prompt: String) -> void:
 		if _provider_info and _provider_info.is_local:
 			_append_system("[color=yellow]Ollama is not running. Start it first.[/color]\n")
 			_ping_ollama()
+		elif AIProviders and AIProviders.is_cursor_provider(_provider_id):
+			_append_system(
+				"[color=yellow]%s is not ready. Open ⚙️: paste your Cursor API key, then click Install cursor-sdk (venv).[/color]\n"
+				% (_provider_info.display_name if _provider_info else "Cursor (Composer)")
+			)
 		else:
 			_append_system("[color=yellow]%s is not ready. Check your API key (⚙️).[/color]\n" % (_provider_info.display_name if _provider_info else "Provider"))
+		if not (AIProviders and AIProviders.is_cursor_provider(_provider_id)):
 			_activate_provider()
 		return
 	if _is_generating:
@@ -3677,11 +3700,7 @@ func _on_make_wnodes() -> void:
 	if not written.is_empty():
 		var first := str(written[0])
 		_append_system("[color=#88ddff]Open in Working Nodes:[/color] %s\n" % first)
-		# Surface via the plugin's existing open-graph hook if available.
-		var root := get_tree().get_root() if is_inside_tree() else null
-		if root and root.has_method("emit_signal"):
-			# Best-effort: a global signal name the WN plugin can listen for.
-			Engine.set_meta("vg_open_wnodes_request", first)
+		_open_wnodes_path(first)
 
 
 ## When the most recent patch had anchor-not-found failures, give the
@@ -3713,6 +3732,9 @@ func _on_model_selected(idx: int) -> void:
 
 func _on_clear() -> void:
 	_transcript_close("cleared")
+	_agent_graph_reset_session()
+	_last_agent_graph_path = ""
+	_refresh_agent_graph_btn()
 	_output.clear()
 	_conversation_history.clear()
 	_append_system("Conversation cleared.\n")
@@ -4667,6 +4689,10 @@ func _ensure_agent_helpers() -> void:
 		var ws := load("res://addons/visual_gasic/vg_ai_wnodes_spec.gd")
 		if ws != null:
 			_wnodes_spec = ws.new()
+	if _agent_graph == null:
+		var ag := load("res://addons/visual_gasic/vg_ai_agent_graph.gd")
+		if ag != null:
+			_agent_graph = ag.new()
 	if _lesson_spec == null:
 		var ls := load("res://addons/visual_gasic/vg_ai_lesson_spec.gd")
 		if ls != null:
@@ -5911,6 +5937,100 @@ func _on_abort_agent() -> void:
 		_transcript_close("aborted")
 
 # ---------------------------------------------------------------------------
+# Phase 6d: agent run graph (.wnodes audit trail)
+# ---------------------------------------------------------------------------
+
+func _agent_graph_reset_session() -> void:
+	_agent_graph_hops.clear()
+	if _agent_graph_session_ts.is_empty():
+		_agent_graph_session_ts = Time.get_datetime_string_from_system().replace(":", "-").replace(" ", "T")
+
+
+func _agent_graph_record_hop_prompt(hop: int, prompt: String) -> void:
+	for entry in _agent_graph_hops:
+		if typeof(entry) == TYPE_DICTIONARY and int(entry.get("hop", -1)) == hop:
+			entry["prompt"] = prompt
+			return
+	_agent_graph_hops.append({"hop": hop, "prompt": prompt, "tools": []})
+
+
+func _agent_graph_record_tools(hop: int, tools: Array) -> void:
+	for entry in _agent_graph_hops:
+		if typeof(entry) == TYPE_DICTIONARY and int(entry.get("hop", -1)) == hop:
+			entry["tools"] = tools
+			return
+	_agent_graph_hops.append({"hop": hop, "prompt": "", "tools": tools})
+
+
+func _finalize_agent_graph(reason: String) -> void:
+	if _agent_graph_hops.is_empty():
+		return
+	var has_tools := false
+	for entry in _agent_graph_hops:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		if not (entry.get("tools", []) as Array).is_empty():
+			has_tools = true
+			break
+	if not has_tools and _agent_graph_hops.size() <= 1:
+		return
+	_ensure_agent_helpers()
+	if _agent_graph == null or _safe_writer == null:
+		return
+	var ts := _agent_graph_session_ts
+	if ts.is_empty():
+		ts = Time.get_datetime_string_from_system().replace(":", "-").replace(" ", "T")
+	var path := _agent_graph.default_path(ts)
+	_safe_writer.set_root("res://")
+	var proj: Dictionary = _agent_graph.build_project(_agent_graph_hops, {"reason": reason})
+	var write_res: Array = _safe_writer.write(path, JSON.stringify(proj, "\t"))
+	if not write_res[0]:
+		return
+	_last_agent_graph_path = path
+	_refresh_agent_graph_btn()
+	_append_system(
+		"[color=#88ddff]Agent run graph:[/color] %s — click [b]🧩[/b] to open in Working Nodes.\n" % path
+	)
+
+
+func _refresh_agent_graph_btn() -> void:
+	if not is_instance_valid(_agent_graph_btn):
+		return
+	var ok := not _last_agent_graph_path.is_empty() and FileAccess.file_exists(_last_agent_graph_path)
+	_agent_graph_btn.disabled = not ok
+	if ok:
+		_agent_graph_btn.tooltip_text = "Open agent run graph: %s" % _last_agent_graph_path.get_file()
+	else:
+		_agent_graph_btn.tooltip_text = "Open last agent run graph in Working Nodes (after a multi-hop session)"
+
+
+func _on_open_agent_graph() -> void:
+	if _last_agent_graph_path.is_empty():
+		_append_system("[color=yellow]No agent run graph yet — finish a multi-hop Narcea session first.[/color]\n")
+		return
+	_open_wnodes_path(_last_agent_graph_path)
+
+
+func _open_wnodes_path(wnodes_path: String) -> void:
+	if wnodes_path.is_empty() or not FileAccess.file_exists(wnodes_path):
+		_append_system("[color=#ff8888]Working Nodes file not found: %s[/color]\n" % wnodes_path)
+		return
+	if Engine.is_editor_hint():
+		var base := EditorInterface.get_base_control()
+		if base and base.has_meta("visual_gasic_plugin_instance"):
+			var plugin = base.get_meta("visual_gasic_plugin_instance")
+			if plugin and is_instance_valid(plugin) and plugin.has_method("_open_working_nodes_for_path"):
+				plugin._open_working_nodes_for_path(wnodes_path)
+				return
+	if ClassDB.class_exists("VGPluginRegistry"):
+		var registry = VGPluginRegistry.get_instance()
+		if registry and registry.has_method("open_asset"):
+			registry.open_asset(wnodes_path)
+			return
+	push_warning("VGPluginRegistry unavailable; cannot open " + wnodes_path)
+
+
+# ---------------------------------------------------------------------------
 # Phase 6e: NDJSON agent run transcript
 # ---------------------------------------------------------------------------
 # Writes one file per agent session under user://vg_agent_runs/<timestamp>.ndjson.
@@ -5922,6 +6042,7 @@ func _transcript_open() -> void:
 		return  # Already open.
 	DirAccess.make_dir_recursive_absolute("user://vg_agent_runs")
 	var ts := Time.get_datetime_string_from_system().replace(":", "-").replace(" ", "T")
+	_agent_graph_session_ts = ts
 	var path := "user://vg_agent_runs/%s.ndjson" % ts
 	_agent_transcript_file = FileAccess.open(path, FileAccess.WRITE)
 	if _agent_transcript_file:
@@ -5967,17 +6088,25 @@ func _transcript_log_tool_plan(plan: Dictionary) -> void:
 	if plan.is_empty():
 		return
 	_transcript_open()
-	_transcript_append({
+	_ensure_agent_helpers()
+	var tools: Array = []
+	if _agent_graph != null:
+		tools = _agent_graph.tools_from_plan(plan)
+		_agent_graph_record_tools(_agent_hops, tools)
+	var entry := {
 		"type": "tool_plan",
 		"hop": _agent_hops,
-		"read_count": (plan.get("read_results", []) as Array).size(),
+		"read_count": (plan.get("read_only", []) as Array).size(),
 		"mutating_count": (plan.get("mutating", []) as Array).size(),
 		"blocked_count": (plan.get("blocked", []) as Array).size(),
 		"log_count": (plan.get("logs", []) as Array).size(),
-	})
+		"tools": tools,
+	}
+	_transcript_append(entry)
 
 
 func _transcript_close(reason: String) -> void:
+	_finalize_agent_graph(reason)
 	if _agent_transcript_file == null:
 		return
 	_transcript_append({

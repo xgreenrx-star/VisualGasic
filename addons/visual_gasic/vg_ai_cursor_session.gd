@@ -130,21 +130,18 @@ static func cursor_sdk_install_hint() -> String:
 		return (
 			"Install cursor-sdk for Cursor (Composer): AI Pair → ⚙️ → "
 			+ "\"Install cursor-sdk (venv)\", or in cmd:\n  py -3 -m venv \"%s\"\n  \"%s\\Scripts\\pip.exe\" install cursor-sdk"
-			% [vdir, vdir]
-		)
+		) % [vdir, vdir]
 	if _is_macos():
 		return (
 			"Install cursor-sdk: AI Pair → ⚙️ → \"Install cursor-sdk (venv)\", or in Terminal:\n"
 			+ "  python3 -m venv \"%s\"\n  \"%s/bin/pip\" install cursor-sdk\n"
 			+ "(Need Python 3.10+?  brew install python@3.12  or python.org installer)"
-			% [vdir, vdir]
-		)
+		) % [vdir, vdir]
 	return (
 		"Install cursor-sdk: AI Pair → ⚙️ → \"Install cursor-sdk (venv)\", or run:\n"
 		+ "  python3 -m venv \"%s\"\n  \"%s/bin/pip\" install cursor-sdk\n"
 		+ "(Linux often blocks system pip — use the venv path above.)"
-		% [vdir, vdir]
-	)
+	) % [vdir, vdir]
 
 
 ## Create user://vg_cursor_venv and pip install cursor-sdk. Returns {ok, error, python}.

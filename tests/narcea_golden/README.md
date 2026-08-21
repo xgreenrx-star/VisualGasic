@@ -104,7 +104,7 @@ This copies the latest NDJSON from Godot user data (`user://vg_agent_runs/`) and
 | `session_start` | Provider, model, max hops |
 | `user_prompt` | Full user text per hop |
 | `assistant_response` | Full reply + `has_project_spec` flags |
-| `tool_plan` | Read/mutating/blocked tool counts |
+| `tool_plan` | Read/mutating/blocked tool counts + `tools[]` detail (for agent graph replay) |
 | `session_end` | Reason, hop/token totals |
 
 ## Files
