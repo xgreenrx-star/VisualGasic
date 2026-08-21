@@ -1035,6 +1035,7 @@ VG's pitch is *"AI writes it, you audit it without reading every line."* Three c
 | Track | Question it answers | Reuses | Status |
 |-------|---------------------|--------|--------|
 | **Agent run graph** | What did Narcea *do/plan* each hop? (`read_file`, `write_file`, blocked tools) | Working Nodes canvas (`.wnodes` JSON) | **Shipped** — auto-written to `res://.narcea/agent_runs/<ts>.wnodes` at session end; **🧩** toolbar opens it |
+| **Reference offer on Send** | Should Narcea use Wikipedia / Godot docs for this clone? | `reference_catalog.json` + countdown panel | **Shipped** — auto-accept after `vg/ai/reference_offer_seconds` (default 5) |
 | **`vg-wnodes-spec` / Make WN** | Can Narcea express logic as a flowchart *before* coding? | Same WN editor + codegen | **Shipped** — Narcea emits fenced spec; **Make WN** writes `.wnodes` |
 | **Causal Chain** | What does the *resulting `.vg`* actually do on click? | Code Navigator AST walk; v6.1 adds `VGVectorCanvas2D` graph | **Text shipped** (M6); **visual panel v6.1** |
 

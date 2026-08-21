@@ -72,6 +72,14 @@
           "fixture_response": ""
         }
       ]
+    },
+    {
+      "id": "platformer_2d",
+      "prompt_file": "prompts/platformer_2d.txt",
+      "mode": "project",
+      "rubric": "rubrics/platformer_2d.json",
+      "fixture_response": "",
+      "description": "Live-only: canvas 2D platformer with fixed playfield, AABB platforms, _Draw player"
     }
   ]
 }

@@ -471,6 +471,11 @@ var _popup_sep_style: StyleBoxFlat = null
 var _popup_theme: Theme = null
 
 var _ollama_available := false
+var _cursor_sdk_bootstrapping := false
+var _activate_provider_scheduled := false
+var _last_provider_chat_key := ""
+var _last_provider_activate_ms := 0
+var _last_provider_activate_id := ""
 var _is_generating := false
 var _model_warm := false
 var _current_model := DEFAULT_MODEL
@@ -614,6 +619,8 @@ var _ref_attached_row: HBoxContainer = null
 var _ref_attached_label: Label = null
 var _ref_btn: Button = null
 var _game_chips_row: HBoxContainer = null
+var _reference_offer_panel = null  # vg_ai_reference_offer.gd
+var _pending_send_prompt := ""
 # Last patch result — drives the "🔁 Retry patch" button + diff-aware
 # follow-ups (#11).  Empty until the first apply.
 var _last_apply_result: Dictionary = {}
@@ -723,15 +730,19 @@ func _reinit_after_reparent() -> void:
 	if _cursor_session != null and _cursor_session.has_method("is_running") and _cursor_session.is_running():
 		_cursor_session.stop()
 	_is_generating = false
-	_ollama_available = false
 	_model_warm = false
 	_stream_http_phase = 0
 	# Re-activate using the active provider (Ollama, Claude, OpenAI, …)
 	# rather than blindly pinging Ollama — otherwise cloud users see
 	# "Ollama not found" until they manually reopen the API key dialog.
 	if _provider_info != null and not _provider_info.is_local:
+		var now_ms := Time.get_ticks_msec()
+		if _last_provider_activate_id == _provider_id and now_ms - _last_provider_activate_ms < 800:
+			return
+		_ollama_available = false
 		_activate_provider()
 	else:
+		_ollama_available = false
 		_ping_ollama()
 
 func _exit_tree() -> void:
@@ -942,8 +953,8 @@ func _web_capability_block_reply() -> String:
 	return (
 		"I can't search the open web on my own yet.\n\n"
 		+ "For game clones and mechanics, attach a reference:\n"
+		+ "  • On Send, accept the suggested reference (or wait for auto-use)\n"
 		+ "  • Click 🌐 Ref and paste an https:// URL (Wikipedia, wikis, docs)\n"
-		+ "  • Or pick a suggested classic game chip above the input\n"
 		+ "  • Or paste an https:// link in your message\n\n"
 		+ "I can still build from your description, read/edit project files, "
 		+ "and explain VG syntax."
@@ -1015,28 +1026,88 @@ func _update_game_reference_chips() -> void:
 		return
 	for child in _game_chips_row.get_children():
 		child.queue_free()
-	const GameRefs = preload("res://addons/visual_gasic/vg_ai_game_references.gd")
+	const Catalog = preload("res://addons/visual_gasic/vg_ai_reference_catalog.gd")
 	var prompt := _input.text.strip_edges()
 	if prompt.length() < 3:
 		_game_chips_row.visible = false
 		return
-	var hits: Array = GameRefs.match_prompt(prompt, 3)
+	var hits: Array = Catalog.match_prompt(prompt, 1)
 	if hits.is_empty():
 		_game_chips_row.visible = false
 		return
-	for entry in hits:
-		if typeof(entry) != TYPE_DICTIONARY:
-			continue
-		var btn := Button.new()
-		btn.text = "Use %s as reference" % str(entry.get("label", "game"))
-		btn.tooltip_text = str(entry.get("url", ""))
-		var url := str(entry.get("url", ""))
-		btn.pressed.connect(func() -> void:
-			if not url.is_empty():
-				_fetch_and_attach_reference(url))
-		_style_small_button(btn)
-		_game_chips_row.add_child(btn)
+	var entry: Dictionary = hits[0]
+	var hint := Label.new()
+	hint.text = "On Send: reference offer — %s" % str(entry.get("label", "reference"))
+	hint.tooltip_text = str(entry.get("url", ""))
+	hint.add_theme_color_override("font_color", Color(0.55, 0.72, 0.85))
+	_game_chips_row.add_child(hint)
 	_game_chips_row.visible = true
+
+
+func _reference_offer_enabled() -> bool:
+	return bool(ProjectSettings.get_setting("vg/ai/reference_offer_enabled", true))
+
+
+func _reference_offer_seconds() -> int:
+	return int(ProjectSettings.get_setting("vg/ai/reference_offer_seconds", 5))
+
+
+func _should_offer_reference(prompt: String, prompt_has_url: bool) -> bool:
+	if not _reference_offer_enabled():
+		return false
+	if _agent_continuation:
+		return false
+	if _has_web_references() or prompt_has_url:
+		return false
+	const Catalog = preload("res://addons/visual_gasic/vg_ai_reference_catalog.gd")
+	var match_text := prompt
+	if _last_send_was_desc_mode and not _last_user_prompt.is_empty():
+		match_text = _last_user_prompt
+	var offer: Dictionary = Catalog.best_offer(match_text)
+	if offer.is_empty():
+		return false
+	var intent := _detect_build_intent(prompt)
+	if intent.is_empty():
+		var primary: Dictionary = offer.get("primary", {})
+		if str(primary.get("kind", "")) != "classic_game":
+			return false
+	return true
+
+
+func _show_reference_offer(prompt: String) -> void:
+	if not is_instance_valid(_reference_offer_panel):
+		_finish_send(prompt)
+		return
+	const Catalog = preload("res://addons/visual_gasic/vg_ai_reference_catalog.gd")
+	var match_text := prompt
+	if _last_send_was_desc_mode and not _last_user_prompt.is_empty():
+		match_text = _last_user_prompt
+	var offer: Dictionary = Catalog.best_offer(match_text)
+	if offer.is_empty():
+		_finish_send(prompt)
+		return
+	_reference_offer_panel.show_offer(
+		offer.get("primary", {}),
+		offer.get("alternates", []),
+		_reference_offer_seconds())
+
+
+func _on_reference_offer_accepted(url: String) -> void:
+	var prompt := _pending_send_prompt
+	_pending_send_prompt = ""
+	if prompt.is_empty():
+		return
+	if not url.is_empty():
+		_fetch_and_attach_reference(url)
+	_finish_send(prompt)
+
+
+func _on_reference_offer_skipped() -> void:
+	var prompt := _pending_send_prompt
+	_pending_send_prompt = ""
+	if prompt.is_empty():
+		return
+	_finish_send(prompt)
 
 
 func _on_reference_url() -> void:
@@ -2038,7 +2109,15 @@ func _setup_ui() -> void:
 	_style_small_button(_remove_ref_btn)
 	_ref_attached_row.add_child(_remove_ref_btn)
 
-	# Curated game clone suggestion chips (Phase 2).
+	# Reference offer panel (countdown auto-accept on Send).
+	const OfferScript = preload("res://addons/visual_gasic/vg_ai_reference_offer.gd")
+	_reference_offer_panel = OfferScript.new()
+	_reference_offer_panel.visible = false
+	_reference_offer_panel.accepted.connect(_on_reference_offer_accepted)
+	_reference_offer_panel.skipped.connect(_on_reference_offer_skipped)
+	main_vbox.add_child(_reference_offer_panel)
+
+	# Hint when catalog matches while typing (offer appears on Send).
 	_game_chips_row = HBoxContainer.new()
 	_game_chips_row.visible = false
 	_game_chips_row.add_theme_constant_override("separation", 4)
@@ -2689,7 +2768,7 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 				prompt += "Do not include any other fenced code blocks."
 				const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
 				if ProjectSynth.prompt_is_pure_2d_game(desc):
-					prompt += ProjectSynth.pure_2d_game_prompt_extra()
+					prompt += ProjectSynth.pure_2d_game_prompt_extra(desc)
 			else:
 				prompt = "Scaffold a small runnable project per this description.\n\n"
 				prompt += "Description: " + desc + "\n\n"
@@ -2700,7 +2779,7 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 				if ProjectSynth.prompt_is_hybrid_form_game(desc):
 					prompt += ProjectSynth.hybrid_project_prompt_extra()
 				elif ProjectSynth.prompt_is_pure_2d_game(desc):
-					prompt += ProjectSynth.pure_2d_game_prompt_extra()
+					prompt += ProjectSynth.pure_2d_game_prompt_extra(desc)
 			if not prompt.contains("AUDITABLE CODE"):
 				prompt += _audit_comments_prompt_extra()
 		_:
@@ -2731,7 +2810,7 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 		prompt += (
 			" NOTE: Web search/browsing is NOT available unless the user attaches an https:// reference. "
 			+ "Do not pretend to look things up online. If they asked for online research without a "
-			+ "reference, say briefly they can click 🌐 Ref or pick a suggested game chip, then build "
+			+ "reference, say briefly they can click 🌐 Ref or accept the reference offer on Send, then build "
 			+ "from their description. Never paste raw .vg source in chat — only the fenced vg-*-spec block."
 		)
 	elif not _web_references.is_empty():
@@ -2739,6 +2818,12 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 			" NOTE: User-attached web reference page(s) are in context above — treat them as ground truth "
 			+ "for mechanics, setting, and gameplay when building clones."
 		)
+		const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
+		if ProjectSynth.prompt_is_canvas_platformer(desc) and ProjectSynth.prompt_is_pure_2d_game(desc):
+			prompt += (
+				" CANVAS PLATFORMER + WEB REF: Godot CharacterBody2D / physics-node tutorials do NOT apply "
+				+ "directly — emit Node2D + _Draw with manual vx/vy/gravity and AABB platform rects instead."
+			)
 	return prompt
 
 
@@ -3125,6 +3210,8 @@ func _on_send() -> void:
 	var display_prompt := _input.text.strip_edges()
 	if display_prompt.is_empty():
 		return
+	if is_instance_valid(_reference_offer_panel) and _reference_offer_panel.is_active():
+		return
 	_maybe_auto_fetch_urls_from_prompt(display_prompt)
 	const WebFetch = preload("res://addons/visual_gasic/vg_ai_web_fetch.gd")
 	var prompt_has_url := not WebFetch.extract_https_urls(display_prompt).is_empty()
@@ -3145,7 +3232,15 @@ func _on_send() -> void:
 			while _conversation_history.size() > MAX_HISTORY_EXCHANGES * 2:
 				_conversation_history.pop_front()
 			return
-	# Reset multi-turn agent hop counter on user-initiated sends.  The
+	if _should_offer_reference(display_prompt, prompt_has_url):
+		_pending_send_prompt = display_prompt
+		_input.text = ""
+		_show_reference_offer(display_prompt)
+		return
+	_finish_send(display_prompt)
+
+
+func _finish_send(display_prompt: String) -> void:
 	# agent loop sets _agent_continuation=true before re-entering so we
 	# preserve the count for that follow-up turn only.
 	if _agent_continuation:
@@ -3183,9 +3278,28 @@ func _on_send() -> void:
 				_api_prompt_override = _build_hardened_prompt(display_prompt, _last_build_intent)
 	_send_query(display_prompt)
 
+func _sync_cursor_ready_from_health() -> bool:
+	if not AIProviders or not AIProviders.is_cursor_provider(_provider_id):
+		return _ollama_available
+	var key: String = AIProviders.load_api_key("cursor")
+	if key.is_empty():
+		return false
+	var CursorSession = load("res://addons/visual_gasic/vg_ai_cursor_session.gd")
+	if CursorSession == null:
+		return false
+	var python: String = CursorSession.resolve_python()
+	if python.is_empty() or not CursorSession.cursor_sdk_available(python):
+		return false
+	_ollama_available = true
+	_model_warm = true
+	return true
+
+
 func _send_query(display_prompt: String) -> void:
 	var api_prompt := _api_prompt_override if not _api_prompt_override.is_empty() else display_prompt
 	_api_prompt_override = ""
+	if AIProviders and AIProviders.is_cursor_provider(_provider_id):
+		_sync_cursor_ready_from_health()
 	if not _ollama_available:
 		if _provider_info and _provider_info.is_local:
 			_append_system("[color=yellow]Ollama is not running. Start it first.[/color]\n")
@@ -3197,8 +3311,7 @@ func _send_query(display_prompt: String) -> void:
 			)
 		else:
 			_append_system("[color=yellow]%s is not ready. Check your API key (⚙️).[/color]\n" % (_provider_info.display_name if _provider_info else "Provider"))
-		if not (AIProviders and AIProviders.is_cursor_provider(_provider_id)):
-			_activate_provider()
+		_activate_provider(true)
 		return
 	if _is_generating:
 		_append_system("[color=yellow]Already generating — click Stop first.[/color]\n")
@@ -3358,6 +3471,17 @@ func _append_ai(text: String) -> void:
 
 func _append_system(text: String) -> void:
 	_output.append_text("[color=gray]%s[/color]" % text)
+
+
+func _append_provider_status_once(chat_key: String, text: String) -> void:
+	if chat_key.is_empty() or chat_key == _last_provider_chat_key:
+		return
+	_last_provider_chat_key = chat_key
+	_append_system(text)
+
+
+func _clear_provider_status_dedupe() -> void:
+	_last_provider_chat_key = ""
 
 func _escape_bbcode(text: String) -> String:
 	# Single native C++ replace — far faster than a GDScript character loop.
@@ -3974,16 +4098,30 @@ func ask(prompt: String) -> void:
 
 ## Retry Ollama connection
 func retry_connection() -> void:
-	_activate_provider()
+	_clear_provider_status_dedupe()
+	_activate_provider(true)
 
 # ---------------------------------------------------------------------------
 # Provider management
 # ---------------------------------------------------------------------------
 
 ## Activate the currently selected provider — ping Ollama or verify API key.
-func _activate_provider() -> void:
+func _activate_provider(force: bool = false) -> void:
+	if not force and _activate_provider_scheduled:
+		return
+	if not force:
+		_activate_provider_scheduled = true
+		call_deferred("_run_activate_provider")
+		return
+	_run_activate_provider()
+
+
+func _run_activate_provider() -> void:
+	_activate_provider_scheduled = false
 	if _provider_info == null:
 		return
+	_last_provider_activate_ms = Time.get_ticks_msec()
+	_last_provider_activate_id = _provider_id
 	if AIProviders and AIProviders.is_cursor_provider(_provider_id):
 		_activate_cursor_provider()
 		return
@@ -3996,23 +4134,32 @@ func _activate_provider() -> void:
 			_ollama_available = false
 			_status_label.text = "🔑 API key needed"
 			_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
-			_append_system("[color=yellow]%s requires an API key. Click ⚙️ to configure.[/color]\n" % _provider_info.display_name)
+			_append_provider_status_once(
+				"%s:missing_key" % _provider_id,
+				"[color=yellow]%s requires an API key. Click ⚙️ to configure.[/color]\n" % _provider_info.display_name
+			)
 		else:
 			_ollama_available = true
 			_model_warm = true  # Cloud providers don't need warmup
 			_status_label.text = "✅ %s ready" % _provider_info.display_name
 			_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
-			_append_system("Connected to [color=cyan]%s[/color] — model: [color=cyan]%s[/color]\n" % [_provider_info.display_name, _current_model])
+			_append_provider_status_once(
+				"%s:ready:%s" % [_provider_id, _current_model],
+				"Connected to [color=cyan]%s[/color] — model: [color=cyan]%s[/color]\n" % [_provider_info.display_name, _current_model]
+			)
 			ai_panel_ready.emit()
 
 func _activate_cursor_provider() -> void:
+	_last_provider_activate_ms = Time.get_ticks_msec()
+	_last_provider_activate_id = _provider_id
 	var CursorSession = load("res://addons/visual_gasic/vg_ai_cursor_session.gd")
 	var key: String = AIProviders.load_api_key("cursor") if AIProviders else ""
 	if key.is_empty():
 		_ollama_available = false
 		_status_label.text = "🔑 Cursor API key needed"
 		_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
-		_append_system(
+		_append_provider_status_once(
+			"cursor:missing_key",
 			"[color=yellow]Cursor (Composer) needs an API key. Click ⚙️ → paste from cursor.com/dashboard/integrations[/color]\n"
 		)
 		return
@@ -4024,12 +4171,30 @@ func _activate_cursor_provider() -> void:
 	if python.is_empty():
 		_ollama_available = false
 		_status_label.text = "❌ Python 3 not found"
-		_append_system("[color=yellow]Install Python 3 to use Cursor (Composer) in AI Pair.[/color]\n")
+		_append_provider_status_once(
+			"cursor:missing_python",
+			"[color=yellow]Install Python 3 to use Cursor (Composer) in AI Pair.[/color]\n"
+		)
 		return
 	if not CursorSession.cursor_sdk_available(python):
+		if _cursor_sdk_bootstrapping:
+			return
+		_cursor_sdk_bootstrapping = true
 		_ollama_available = false
-		_status_label.text = "❌ cursor-sdk missing"
-		_append_system("[color=yellow]%s[/color]\n" % CursorSession.cursor_sdk_install_hint())
+		_status_label.text = "⏳ Installing cursor-sdk…"
+		_status_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+		_append_provider_status_once(
+			"cursor:installing_sdk",
+			"[color=yellow]cursor-sdk not found — installing once to shared venv "
+			+ "(~/.config/visual_gasic/vg_cursor_venv on Linux)…[/color]\n"
+		)
+		var panel_ref := weakref(self)
+		WorkerThreadPool.add_task(func():
+			var result: Dictionary = CursorSession.bootstrap_cursor_sdk()
+			var panel: Object = panel_ref.get_ref()
+			if panel != null:
+				panel.call_deferred("_on_cursor_sdk_bootstrap_done", result)
+		)
 		return
 	_ollama_available = true
 	_model_warm = true
@@ -4041,11 +4206,30 @@ func _activate_cursor_provider() -> void:
 			mcp_note = "\n" + str(mcp.get("message", ""))
 	_status_label.text = "✅ %s ready" % _provider_info.display_name
 	_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
-	_append_system(
+	_append_provider_status_once(
+		"cursor:ready:%s" % _current_model,
 		"Connected to [color=cyan]%s[/color] — model: [color=cyan]%s[/color] (SDK subprocess, slim Narcea prompt)%s\n"
 		% [_provider_info.display_name, _current_model, mcp_note]
 	)
 	ai_panel_ready.emit()
+
+func _on_cursor_sdk_bootstrap_done(result: Dictionary) -> void:
+	if not is_instance_valid(self):
+		return
+	_cursor_sdk_bootstrapping = false
+	if bool(result.get("ok", false)):
+		_clear_provider_status_dedupe()
+		_append_system("[color=green]✓ cursor-sdk installed — connecting…[/color]\n")
+		_activate_cursor_provider()
+	else:
+		_ollama_available = false
+		_status_label.text = "❌ cursor-sdk install failed"
+		_status_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.5))
+		_append_provider_status_once(
+			"cursor:install_failed",
+			"[color=yellow]Auto-install failed: %s\nOpen ⚙️ → Install cursor-sdk (venv).[/color]\n"
+			% str(result.get("error", "unknown"))
+		)
 
 func _on_refresh_models() -> void:
 	"""Refresh the model list from the provider's live API."""
@@ -4099,6 +4283,7 @@ func _on_provider_selected(idx: int) -> void:
 	_ollama_available = false
 	_conversation_history.clear()
 	_narcea_ctx_cache = ""
+	_clear_provider_status_dedupe()
 	AIProviders.save_preferred_provider(_provider_id)
 	_update_model_dropdown()
 	_append_system("\nSwitched to [color=cyan]%s[/color]\n" % _provider_info.display_name)
@@ -4169,7 +4354,8 @@ func _show_api_key_dialog() -> void:
 		for pid in dlg.get_key_edits():
 			AIProviders.save_api_key(pid, dlg.get_key_edits()[pid].text.strip_edges())
 		_append_system("[color=green]API keys saved.[/color]\n")
-		_activate_provider()
+		_clear_provider_status_dedupe()
+		_activate_provider(true)
 		_api_key_dialog = null
 		dlg.queue_free()
 	, CONNECT_ONE_SHOT)
@@ -5980,7 +6166,7 @@ func _finalize_agent_graph(reason: String) -> void:
 	var ts := _agent_graph_session_ts
 	if ts.is_empty():
 		ts = Time.get_datetime_string_from_system().replace(":", "-").replace(" ", "T")
-	var path := _agent_graph.default_path(ts)
+	var path: String = str(_agent_graph.default_path(ts))
 	_safe_writer.set_root("res://")
 	var proj: Dictionary = _agent_graph.build_project(_agent_graph_hops, {"reason": reason})
 	var write_res: Array = _safe_writer.write(path, JSON.stringify(proj, "\t"))

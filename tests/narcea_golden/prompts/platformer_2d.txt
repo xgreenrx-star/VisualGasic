@@ -1,0 +1,13 @@
+Build a playable 2D platformer under ai_projects.
+
+Requirements:
+- Node2D main scene with a .vg script attached (not a Form Designer form)
+- The .vg script must implement _Ready, _Process(delta), and _Draw using DrawRect and DrawCircle
+- WASD and arrow keys for horizontal movement; Space for jump
+- Main character drawn with basic shapes and a blue hat
+- Full-width floor plus at least two ledges; player spawns standing on the floor
+- Use fixed playfield size constants (do not rely on Screen.Width/Height at _Ready)
+- AABB platform collision (rect vs rect), not circle-vs-circle
+- Set main_scene so the AI Pair ▶ Run button works immediately
+
+Reply with one fenced ```vg-project-spec``` JSON block only. Include project_name, subdir "ai_projects", main_scene, and files[] with the complete .vg game source (not TODO stubs). Keep ≤ 6 files total.

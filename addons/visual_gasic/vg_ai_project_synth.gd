@@ -45,9 +45,20 @@ static func prompt_is_hybrid_form_game(prompt: String) -> bool:
 	return has_game and low.find("start") >= 0 and low.find("button") >= 0
 
 
-static func pure_2d_game_prompt_extra() -> String:
+static func prompt_is_canvas_platformer(prompt: String) -> bool:
+	var low := prompt.to_lower()
+	for t in [
+		"platformer", "platform game", "side scroller", "side-scroller",
+		"side scrolling", "jump game", "metroidvania", "double jump",
+	]:
+		if low.find(t) >= 0:
+			return true
+	return false
+
+
+static func pure_2d_game_prompt_extra(prompt: String = "") -> String:
 	const Narcea = preload("res://addons/visual_gasic/vg_ai_narcea.gd")
-	return (
+	var extra := (
 		" PURE 2D CANVAS GAME RULES: This is a Node2D game (not a Window form). "
 		+ "Emit vg-project-spec with files[] containing a Node2D .tscn plus matching .vg. "
 		+ "The .vg MUST use Sub _Ready(), Sub _Process(delta), and Sub _Draw() with "
@@ -57,6 +68,9 @@ static func pure_2d_game_prompt_extra() -> String:
 		+ Narcea.collision_2d_prompt_extra()
 		+ Narcea.audit_comments_prompt_extra()
 	)
+	if prompt_is_canvas_platformer(prompt):
+		extra += Narcea.platformer_canvas_prompt_extra()
+	return extra
 
 
 static func hybrid_project_prompt_extra() -> String:

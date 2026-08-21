@@ -30,12 +30,44 @@ static func _macos_python_candidates() -> PackedStringArray:
 	])
 
 
+static func _global_config_dir() -> String:
+	var dir := ""
+	match OS.get_name():
+		"Windows", "UWP":
+			var appdata := OS.get_environment("APPDATA")
+			if not appdata.is_empty():
+				dir = appdata + "/VisualGasic"
+		"macOS":
+			var home_mac := OS.get_environment("HOME")
+			if not home_mac.is_empty():
+				dir = home_mac + "/Library/Application Support/VisualGasic"
+		_:
+			var xdg := OS.get_environment("XDG_CONFIG_HOME")
+			if xdg.is_empty():
+				var home := OS.get_environment("HOME")
+				if not home.is_empty():
+					xdg = home + "/.config"
+			if not xdg.is_empty():
+				dir = xdg + "/visual_gasic"
+	return dir
+
+
+## Shared across all Godot projects (API keys use EditorSettings; SDK venv must too).
 static func venv_dir() -> String:
+	var global := _global_config_dir()
+	if not global.is_empty():
+		return global.path_join("vg_cursor_venv")
 	return OS.get_user_data_dir().path_join("vg_cursor_venv")
 
 
-static func venv_python_path() -> String:
-	var vdir := venv_dir()
+## Pre-global path: Godot user:// is per project name under app_userdata/.
+static func legacy_project_venv_dir() -> String:
+	return OS.get_user_data_dir().path_join("vg_cursor_venv")
+
+
+static func _venv_python_in_dir(vdir: String) -> String:
+	if vdir.is_empty():
+		return ""
 	if _is_windows():
 		var win_py := vdir.path_join("Scripts/python.exe")
 		return win_py if FileAccess.file_exists(win_py) else ""
@@ -46,8 +78,9 @@ static func venv_python_path() -> String:
 	return ""
 
 
-static func venv_pip_path() -> String:
-	var vdir := venv_dir()
+static func _venv_pip_in_dir(vdir: String) -> String:
+	if vdir.is_empty():
+		return ""
 	if _is_windows():
 		var win_pip := vdir.path_join("Scripts/pip.exe")
 		return win_pip if FileAccess.file_exists(win_pip) else ""
@@ -56,6 +89,20 @@ static func venv_pip_path() -> String:
 		if FileAccess.file_exists(pip):
 			return pip
 	return ""
+
+
+static func venv_python_path() -> String:
+	var py := _venv_python_in_dir(venv_dir())
+	if not py.is_empty():
+		return py
+	return _venv_python_in_dir(legacy_project_venv_dir())
+
+
+static func venv_pip_path() -> String:
+	var pip := _venv_pip_in_dir(venv_dir())
+	if not pip.is_empty():
+		return pip
+	return _venv_pip_in_dir(legacy_project_venv_dir())
 
 
 static func _resolve_system_python() -> String:
@@ -112,15 +159,16 @@ static func agent_script_path() -> String:
 
 
 static func resolve_python() -> String:
-	# Prefer project-local venv when cursor-sdk is installed there.
-	var venv_py := venv_python_path()
-	if not venv_py.is_empty() and cursor_sdk_available(venv_py):
-		return venv_py
+	for vdir in [venv_dir(), legacy_project_venv_dir()]:
+		var venv_py := _venv_python_in_dir(vdir)
+		if not venv_py.is_empty() and cursor_sdk_available(venv_py):
+			return venv_py
 	var system_py := _resolve_system_python()
 	if not system_py.is_empty() and cursor_sdk_available(system_py):
 		return system_py
-	if not venv_py.is_empty():
-		return venv_py
+	var fallback := venv_python_path()
+	if not fallback.is_empty():
+		return fallback
 	return system_py
 
 
@@ -138,7 +186,8 @@ static func cursor_sdk_install_hint() -> String:
 			+ "(Need Python 3.10+?  brew install python@3.12  or python.org installer)"
 		) % [vdir, vdir]
 	return (
-		"Install cursor-sdk: AI Pair → ⚙️ → \"Install cursor-sdk (venv)\", or run:\n"
+		"Install cursor-sdk once (shared for all VG projects): AI Pair → ⚙️ → "
+		+ "\"Install cursor-sdk (venv)\", or run:\n"
 		+ "  python3 -m venv \"%s\"\n  \"%s/bin/pip\" install cursor-sdk\n"
 		+ "(Linux often blocks system pip — use the venv path above.)"
 	) % [vdir, vdir]

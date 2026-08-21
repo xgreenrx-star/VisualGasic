@@ -5,7 +5,7 @@ Use this script for **test runs** and the **recorded demo**. Prompts are word-fo
 ## Why Asteroids (not Pac-Man)
 
 - More motion on screen (rotate, thrust, shoot, split rocks)
-- Shows **web reference chips** (`Use Asteroids as reference`)
+- Shows **reference offer on Send** (Wikipedia auto-countdown for Asteroids)
 - Clean **iterate** beat (UFO + hyperspace) without maze/pathfinding fragility
 
 ## Pre-flight
@@ -23,8 +23,8 @@ Use this script for **test runs** and the **recorded demo**. Prompts are word-fo
    cat tests/narcea_golden/prompts/asteroids_create.txt
    ```
 
-2. When the chip appears, click **Use Asteroids as reference** (Wikipedia fetch).
-3. **Send** → wait for `vg-project-spec` → **Apply**.
+2. On **Send**, accept the **Asteroids reference offer** (or wait ~5s for auto-use).
+3. Wait for `vg-project-spec` → **Apply**.
 4. Click **▶ Run** — ship should thrust, shoot, and asteroids should move/split.
 
 **Pass criteria:** game window opens (not a blank editor), no immediate SCRIPT ERROR in AI Pair output.

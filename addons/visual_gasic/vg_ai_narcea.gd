@@ -1194,6 +1194,34 @@ const COLLISION_2D_POLICY := (
 static func collision_2d_prompt_extra() -> String:
 	return COLLISION_2D_POLICY
 
+
+## Prompt fragment: first-shot canvas platformer on Node2D + _Draw (not CharacterBody2D scenes).
+const PLATFORMER_CANVAS_POLICY := (
+	" CANVAS 2D PLATFORMER (Node2D + _Draw — NOT CharacterBody2D / physics nodes): "
+	+ "Use manual vx/vy/gravity in Sub _Process(delta); draw with Sub _Draw() + DrawRect/DrawCircle. "
+	+ "NEVER read Screen.Width or Screen.Height at _Ready — on Node2D canvas games they are often 0, "
+	+ "which places the floor off-screen and the player falls forever. "
+	+ "Use fixed playfield constants instead: Const GAME_W = 800, Const GAME_H = 600 "
+	+ "(same pattern as projects/vg_narcea_test/ai_projects/asteroids_demo/Game.vg). "
+	+ "FIRST SCAFFOLD MUST include a full-width floor rect plus at least two ledges, "
+	+ "and spawn the player standing ON the floor: py = floorTopY - playerHeight (not mid-air). "
+	+ "Platform collision is AABB rect-vs-rect (overlap on X while feet cross platform top while falling), "
+	+ "NOT circle-vs-circle (that policy is for Asteroids/shooters only). "
+	+ "Input: WASD and arrow keys for horizontal move; Space (and/or W/Up) for jump — poll each _Process frame. "
+	+ "Call QueueRedraw at end of _Process when px/py/vy change. "
+	+ "In _Draw: fill sky background first, draw brown platform rects, then player body + hat — "
+	+ "never draw only a solid color with no player/platform rects. "
+	+ "Copy parallel-array slots (platX(i), platY(i)) into scalar locals before overlap tests. "
+	+ "If a Godot CharacterBody2D doc was attached, translate ideas to manual canvas physics — "
+	+ "do not emit CharacterBody2D nodes for basic-shape platformers. "
+	+ "Reference: demos/2D_Games/Platformer/platformer.vg (gravity/jump/AABB); "
+	+ "asteroids_demo/Game.vg (fixed W/H canvas loop)."
+)
+
+
+static func platformer_canvas_prompt_extra() -> String:
+	return PLATFORMER_CANVAS_POLICY
+
 const SLIM_KNOWLEDGE := """
 === VG essentials (Cursor / Composer) ===
 - `.vg` = VB6-style Visual Gasic (Sub/Function, Dim, If…Then) — NOT GDScript for game logic.

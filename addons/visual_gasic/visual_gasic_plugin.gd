@@ -365,6 +365,18 @@ func _enter_tree():
 		TYPE_BOOL
 	)
 
+	_register_project_setting(
+		"vg/ai/reference_offer_enabled",
+		true,
+		TYPE_BOOL
+	)
+
+	_register_project_setting(
+		"vg/ai/reference_offer_seconds",
+		5,
+		TYPE_INT
+	)
+
 	_ensure_scene_editor_project_settings()
 	_register_python_project_settings()
 

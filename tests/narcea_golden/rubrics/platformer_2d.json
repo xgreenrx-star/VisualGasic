@@ -1,0 +1,18 @@
+{
+  "scenario_id": "platformer_2d",
+  "apply_mode": "project",
+  "required_vg_substrings": ["_Process", "_Draw"],
+  "required_vg_patterns": [
+    {"id": "game_loop", "regex": "(?i)(_Ready|_Process)"},
+    {"id": "render", "regex": "(?i)(_Draw|DrawRect|DrawCircle)"},
+    {"id": "jump", "regex": "(?i)(jump|space|KEY_SPACE|ui_accept)"},
+    {"id": "gravity", "regex": "(?i)(gravity|vy|vel.*y)"},
+    {"id": "platforms", "regex": "(?i)(plat|floor|ground|ledge|platform)"},
+    {"id": "fixed_playfield", "regex": "(?i)(Const\\s+\\w*\\s*(W|Width|GAME_W|SCREEN_W)|800|640|600)"},
+    {"id": "move_input", "regex": "(?i)(wasd|KEY_LEFT|KEY_RIGHT|KEY_A|KEY_D|Input\\.)"}
+  ],
+  "forbid_vg_patterns": [
+    {"id": "no_screen_size_at_ready", "regex": "(?i)Screen\\.(Width|Height)\\s*[=<>]"}
+  ],
+  "forbid_todo_stubs": true
+}

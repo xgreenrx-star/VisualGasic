@@ -1,12 +1,10 @@
 extends SceneTree
-## Headless Narcea web reference tests (Phase 0 + Phase 2, no live HTTP).
-##
-## Run:
-##   Godot --headless --path projects/vg_narcea_test \
-##     -s /abs/path/tests/test_narcea_web_reference.gd
+## Headless Narcea web reference tests (Phase 0 + Phase 2 + reference offer catalog).
 
 const WebFetch := preload("res://addons/visual_gasic/vg_ai_web_fetch.gd")
 const GameRefs := preload("res://addons/visual_gasic/vg_ai_game_references.gd")
+const Catalog := preload("res://addons/visual_gasic/vg_ai_reference_catalog.gd")
+const ProjectSynth := preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
 const Narcea := preload("res://addons/visual_gasic/vg_ai_narcea.gd")
 const AIHelp := preload("res://addons/visual_gasic/vg_ai_help.gd")
 
@@ -21,9 +19,78 @@ func _initialize() -> void:
 	_test_extract_urls()
 	_test_ssrf_blocks()
 	_test_game_reference_match()
+	_test_catalog_godot_genres()
+	_test_catalog_best_offer()
 	_test_narcea_web_references_block()
 	_test_web_block_relaxation()
+	_test_should_offer_reference()
+	_test_platformer_canvas_prompt()
+	_test_platformer_catalog_priority()
 	_finish()
+
+
+func _test_catalog_godot_genres() -> void:
+	print("")
+	print("--- reference catalog v2 ---")
+	var entries: Array = Catalog.load_entries()
+	_expect("catalog has entries", entries.size() >= 15, str(entries.size()))
+	var plat: Array = Catalog.match_prompt("build a 2d platformer with double jump", 2)
+	_expect("matches platformer", plat.size() >= 1)
+	if plat.size() >= 1:
+		_expect("platformer is godot docs", str(plat[0].get("source", "")) == "godot_docs")
+	var fps: Array = Catalog.match_prompt("make a 3d fps game", 1)
+	_expect("matches 3d fps", fps.size() == 1)
+	_expect("fps url is godot", str(fps[0].get("url", "")).find("godotengine.org") >= 0)
+
+
+func _test_catalog_best_offer() -> void:
+	print("")
+	print("--- best_offer priority ---")
+	var frog: Dictionary = Catalog.best_offer("Make a Frogger clone")
+	_expect("frogger primary", str(frog.get("primary", {}).get("id", "")) == "frogger")
+	var mixed: Dictionary = Catalog.best_offer("2d platformer asteroids hybrid")
+	_expect("mixed has primary", not mixed.get("primary", {}).is_empty())
+
+
+func _test_platformer_canvas_prompt() -> void:
+	print("")
+	print("--- platformer canvas prompt extra ---")
+	var user_prompt := (
+		"Let's make a 2d platformer. Use the wasd and arrow keys for movement "
+		+ "and the spacebar for jump. The main character should have a blue hat."
+	)
+	_expect("detects canvas platformer", ProjectSynth.prompt_is_canvas_platformer(user_prompt))
+	var extra := ProjectSynth.pure_2d_game_prompt_extra(user_prompt)
+	_expect("warns Screen.Width", extra.find("Screen.Width") >= 0 or extra.find("Screen.Height") >= 0)
+	_expect("requires fixed playfield", extra.find("800") >= 0 and extra.find("600") >= 0)
+	_expect("requires AABB", extra.to_lower().find("aabb") >= 0)
+	_expect("requires floor spawn", extra.to_lower().find("floor") >= 0)
+
+
+func _test_platformer_catalog_priority() -> void:
+	print("")
+	print("--- platformer catalog priority ---")
+	var user_prompt := (
+		"Let's make a 2d platformer with wasd and a blue hat using basic shapes"
+	)
+	var offer: Dictionary = Catalog.best_offer(user_prompt)
+	var primary: Dictionary = offer.get("primary", {})
+	_expect("canvas platformer wins", str(primary.get("id", "")) == "vg_canvas_platformer")
+	var plat: Array = Catalog.match_prompt("build a 2d platformer with double jump", 2)
+	if plat.size() >= 1:
+		_expect("platformer url is tutorial", str(plat[0].get("url", "")).find("first_2d_game") >= 0)
+
+
+func _test_should_offer_reference() -> void:
+	print("")
+	print("--- should_offer_reference ---")
+	var panel: Node = AIHelp.new()
+	panel.set("_web_references", [])
+	panel.set("_agent_continuation", false)
+	panel.set("_last_send_was_desc_mode", false)
+	_expect("offers for build+game", panel._should_offer_reference("Make a Frogger clone", false))
+	_expect("skips plain chat", not panel._should_offer_reference("explain ByRef", false))
+	panel.free()
 
 
 func _test_html_to_text() -> void:
@@ -58,7 +125,6 @@ func _test_extract_urls() -> void:
 func _test_ssrf_blocks() -> void:
 	print("")
 	print("--- SSRF host blocklist ---")
-	# Use internal helper via fetch_url error paths (no network needed for blocked hosts).
 	var r_local: Dictionary = WebFetch.fetch_url("https://127.0.0.1/secret")
 	_expect("blocks localhost", not r_local.get("ok", true))
 	var r_priv: Dictionary = WebFetch.fetch_url("https://192.168.1.1/admin")
