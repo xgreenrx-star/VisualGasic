@@ -1,10 +1,19 @@
 # VisualGasic — Known Issues & Engine Limitations
 
-*Last updated: v5.3.0-Beta6 (August 2026)*
+*Last updated: v5.3.0-Beta7 (August 2026)*
 
-This document lists **confirmed** engine bugs and limitations. Test baseline: **856/856** VG regression assertions passing; **332/332** Programmer's Reference examples parse-clean; **47/47** corpus examples with expected output.
+This document lists **confirmed** engine bugs and limitations. Test baseline: **871/871** VG regression assertions passing (117 files); **332/332** Programmer's Reference examples parse-clean; **47/47** corpus examples with expected output.
 
 See also [ROADMAP.md](../ROADMAP.md) for active development priorities.
+
+---
+
+## ~~Fixed in v5.3.0-Beta7~~ (Bracket Indexing & ByRef)
+
+| Item | Detail |
+|------|--------|
+| **`arr[i]` bracket subscript** | Postfix `[index]` now parses; previously `players[0]` silently returned the whole array, breaking 3D mob chase (`GlobalPosition` on Array → Nothing). |
+| **ByRef array slot write-back** | Bytecode path persists writes to `arr(i)` passed ByRef. |
 
 ---
 
@@ -90,6 +99,7 @@ Report new issues: [GitHub Issues](https://github.com/xgreenrx-star/VisualGasic/
 
 | Severity | Total | Fixed | Open |
 |----------|:-----:|:-----:|:----:|
+| Beta7 language fixes | 2 | 2 | 0 |
 | Beta6 language fixes | 6 | 6 | 0 |
 | Beta active (IDE/workflow) | 5 | 0 | 5 |
 | Critical (stubs) | 2 | 2 | 0 |
@@ -118,4 +128,4 @@ Report new issues: [GitHub Issues](https://github.com/xgreenrx-star/VisualGasic/
   **Fixed in v3.2** by adding an `Array()` handler that returns the evaluated
   argument list as a Godot Array.
 
-- Regression suite: `test_proj/test_suite/` and CI gates — **856/856** VG assertions pass as of v5.3.0-Beta6.
+- Regression suite: `test_proj/test_suite/` and CI gates — **871/871** VG assertions pass as of v5.3.0-Beta7.

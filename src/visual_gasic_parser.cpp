@@ -2244,53 +2244,89 @@ ExpressionNode* VisualGasicParser::parse_factor() {
             left = node;
         }
 
-        // Check for member access .Field and optional chaining ?.Field
-        while ((check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") ||
-               (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "?.")) {
-            bool is_optional = (peek().value == "?.");
-            advance(); // Eat . or ?.
-            
-            // Allow Identifier OR Keyword (e.g. Input, New)
-            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                if (is_optional) {
-                    // Create OptionalAccessExpression for ?. chains
-                    OptionalAccessExpression* opt = static_cast<OptionalAccessExpression*>(register_node(new OptionalAccessExpression()));
-                    opt->object_expression = left;
-                    opt->member_name = peek().value;
-                    advance();
-                    left = opt;
-                } else {
-                    MemberAccessNode* member = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
-                    member->base_object = left;
-                    member->member_name = peek().value;
-                    advance();
-                    left = member;
+        // Postfix .member, (args), and [index] chains
+        while (true) {
+            if ((check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") ||
+                (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "?.")) {
+                bool is_optional = (peek().value == "?.");
+                advance(); // Eat . or ?.
 
-                    // Check for Method Call syntax .Method(Args)
-                    if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
-                        advance(); // Eat (
-                        CallExpression* call = static_cast<CallExpression*>(register_node(new CallExpression()));
-                        call->base_object = member->base_object;
-                        call->method_name = member->member_name;
-                        member->base_object = nullptr; unregister_node(member); delete member;
-                        
-                        if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
-                             while(true) {
-                                 ExpressionNode* expr = parse_expression();
-                                 if (expr) { call->arguments.push_back(expr); unregister_node(expr); }
-                                 
-                                 if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
-                                 break;
-                             }
+                if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                    if (is_optional) {
+                        OptionalAccessExpression* opt = static_cast<OptionalAccessExpression*>(register_node(new OptionalAccessExpression()));
+                        opt->object_expression = left;
+                        opt->member_name = peek().value;
+                        advance();
+                        left = opt;
+                    } else {
+                        MemberAccessNode* member = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
+                        member->base_object = left;
+                        member->member_name = peek().value;
+                        advance();
+                        left = member;
+
+                        if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                            advance(); // Eat (
+                            CallExpression* call = static_cast<CallExpression*>(register_node(new CallExpression()));
+                            call->base_object = member->base_object;
+                            call->method_name = member->member_name;
+                            member->base_object = nullptr; unregister_node(member); delete member;
+
+                            if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                                while(true) {
+                                    ExpressionNode* expr = parse_expression();
+                                    if (expr) { call->arguments.push_back(expr); unregister_node(expr); }
+                                    if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
+                                    break;
+                                }
+                            }
+                            if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                                UtilityFunctions::print("Parser Error: Expected ) after method call");
+                            }
+                            left = call;
                         }
-                        if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
-                             UtilityFunctions::print("Parser Error: Expected ) after method call");
-                        }
-                        left = call;
+                    }
+                } else {
+                    error(is_optional ? "Expected member name after ?." : "Expected member name after .");
+                    break;
+                }
+            } else if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "[") {
+                advance(); // Eat [
+                ArrayAccessNode* aa = static_cast<ArrayAccessNode*>(register_node(new ArrayAccessNode()));
+                aa->base = left;
+                if (!check(VisualGasicTokenizer::TOKEN_OPERATOR) || peek().value != "]") {
+                    ExpressionNode* idx = parse_expression();
+                    if (idx) { aa->indices.push_back(idx); unregister_node(idx); }
+                }
+                if (!(check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "]")) {
+                    error("Expected ] after array subscript");
+                    break;
+                }
+                advance(); // Eat ]
+                left = aa;
+            } else if (left && left->type == ExpressionNode::VARIABLE &&
+                       check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                // arr(i) call syntax on a bare variable (VB6 array access)
+                VariableNode* var = (VariableNode*)left;
+                advance(); // Eat (
+                CallExpression* call = static_cast<CallExpression*>(register_node(new CallExpression()));
+                call->method_name = var->name;
+                left = nullptr; unregister_node(var); delete var;
+
+                if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                    while (true) {
+                        ExpressionNode* expr = parse_expression();
+                        if (expr) { call->arguments.push_back(expr); unregister_node(expr); }
+                        if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
+                        break;
                     }
                 }
+                if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                    UtilityFunctions::print("Parser Error: Expected ) after array access");
+                }
+                left = call;
             } else {
-                error(is_optional ? "Expected member name after ?." : "Expected member name after .");
+                break;
             }
         }
 
@@ -3873,6 +3909,28 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
              }
              if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
                   UtilityFunctions::print("Parser Error: Expected )");
+             }
+             head = aa;
+        }
+        else if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "[") {
+             advance(); // Eat [
+             ArrayAccessNode* aa = static_cast<ArrayAccessNode*>(register_node(new ArrayAccessNode()));
+             aa->base = head;
+
+             if (!check(VisualGasicTokenizer::TOKEN_OPERATOR) || peek().value != "]") {
+                 while(true) {
+                     {
+                         ExpressionNode* _tmp = parse_expression();
+                         if (_tmp) { aa->indices.push_back(_tmp); unregister_node(_tmp); }
+                     }
+                     if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
+                     break;
+                 }
+             }
+             if (!(check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "]")) {
+                  UtilityFunctions::print("Parser Error: Expected ]");
+             } else {
+                  advance(); // Eat ]
              }
              head = aa;
         } else {

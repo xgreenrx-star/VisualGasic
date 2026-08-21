@@ -1222,6 +1222,28 @@ const PLATFORMER_CANVAS_POLICY := (
 static func platformer_canvas_prompt_extra() -> String:
 	return PLATFORMER_CANVAS_POLICY
 
+
+## Prompt fragment: 3D CharacterBody3D games (Squash-the-Creeps style).
+const PURE_3D_GAME_POLICY := (
+	" PURE 3D GAME RULES (Node3D / CharacterBody3D — NOT GDScript in .vg): "
+	+ "Emit vg-project-spec with Main.tscn + .vg under res://ai_projects/<name>/. "
+	+ "Player and mobs on CharacterBody3D; movement in Sub _PhysicsProcess(delta), not _Process. "
+	+ "NEVER use GDScript preload() — it is not a VG builtin. Cache scenes with "
+	+ "Load(\"res://ai_projects/<name>/Mob.tscn\") in _Ready (see demos/3D_Games/Squash_The_Creeps/main.vg). "
+	+ "ChangeScene must use full res:// paths (e.g. res://ai_projects/<name>/Main.tscn), not bare Main.tscn. "
+	+ "FIRST SCAFFOLD MUST include: StaticBody3D floor with mesh + collision, DirectionalLight3D, "
+	+ "Camera3D, player CharacterBody3D on the floor, mob PackedScene with groups=[\"mob\"], "
+	+ "and a spawn loop (timer or interval in _PhysicsProcess). "
+	+ "Use IsOnFloor / MoveAndSlide on the body; stomp via slide collision normals (up = squash). "
+	+ "NEVER assign dir = posA - posB on Vector3/Object positions — subtraction returns Nothing in VG. "
+	+ "Compute chase direction with scalars: dx = target.x - Me.x, dz = target.z - Me.z, then normalize. "
+	+ "Reference: demos/3D_Games/Squash_The_Creeps/ (player.vg, main.vg, mob.vg)."
+)
+
+
+static func pure_3d_game_prompt_extra() -> String:
+	return PURE_3D_GAME_POLICY
+
 const SLIM_KNOWLEDGE := """
 === VG essentials (Cursor / Composer) ===
 - `.vg` = VB6-style Visual Gasic (Sub/Function, Dim, If…Then) — NOT GDScript for game logic.

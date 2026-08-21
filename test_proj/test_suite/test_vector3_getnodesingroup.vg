@@ -1,0 +1,37 @@
+' Regression: bracket subscript arr[i] and Vector3 subtract on node positions
+Option Explicit
+
+Sub _Ready()
+	Dim player As Object
+	Set player = ClassDB.Instantiate("CharacterBody3D")
+	player.AddToGroup("player")
+	player.Set "global_position", Vector3(10.0, 5.0, 3.0)
+	Me.AddChild player
+
+	Dim mob As Object
+	Set mob = ClassDB.Instantiate("CharacterBody3D")
+	mob.Set "global_position", Vector3(1.0, 2.0, 1.0)
+	Me.AddChild mob
+
+	Dim players As Variant
+	players = GetTree().GetNodesInGroup("player")
+	Dim target As Variant
+	target = players[0]
+	If TypeName(target) = "Array" Then
+		Print "FAIL: players[0] returned whole array"
+		Return
+	End If
+	Print "PASS: bracket subscript returns element"
+
+	Dim dir As Variant
+	dir = target.GlobalPosition - mob.GlobalPosition
+	If dir Is Nothing Then
+		Print "FAIL: GlobalPosition subtract returned Nothing"
+		Return
+	End If
+	dir.y = 0.0
+	If Abs(dir.x - 9.0) > 0.01 Or Abs(dir.y) > 0.001 Or Abs(dir.z - 2.0) > 0.01 Then
+		Print "FAIL: subtract components wrong"
+		Return
+	End If
+	Print "PASS: node3d bracket index and vector subtract"

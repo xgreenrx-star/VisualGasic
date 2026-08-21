@@ -1,0 +1,36 @@
+' Regression: Node3D GlobalPosition / global_position subtract (Mob chase pattern)
+Option Explicit
+
+Sub _Ready()
+	Dim a As Object
+	Dim b As Object
+	Set a = ClassDB.Instantiate("CharacterBody3D")
+	a.Name = "BodyA"
+	a.Set "global_position", Vector3(10.0, 5.0, 3.0)
+	Me.AddChild a
+
+	Set b = ClassDB.Instantiate("CharacterBody3D")
+	b.Name = "BodyB"
+	b.Set "global_position", Vector3(1.0, 2.0, 1.0)
+	Me.AddChild b
+
+	Dim dir As Variant
+	dir = a.GlobalPosition - b.GlobalPosition
+	If dir Is Nothing Then
+		Print "FAIL: GlobalPosition subtract returned Nothing"
+		Return
+	End If
+	dir.y = 0.0
+	If Abs(dir.x - 9.0) > 0.01 Or Abs(dir.y) > 0.001 Or Abs(dir.z - 2.0) > 0.01 Then
+		Print "FAIL: GlobalPosition subtract components"
+		Return
+	End If
+
+	Dim dir2 As Variant
+	dir2 = a.global_position - b.global_position
+	If dir2 Is Nothing Then
+		Print "FAIL: global_position subtract returned Nothing"
+		Return
+	End If
+	dir2.y = 0.0
+	Print "PASS: node3d global position subtract"

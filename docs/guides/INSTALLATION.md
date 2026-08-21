@@ -1,6 +1,6 @@
 # VisualGasic Installation Guide
 
-**Version**: 5.3.0-Beta6 (August 18, 2026)
+**Version**: 5.3.0-Beta7 (August 18, 2026)
 **Requires**: Godot 4.6.1+ (handled automatically by the one-click installer)
 
 Choose your preferred installation method:
@@ -12,17 +12,17 @@ Choose your preferred installation method:
 
 ## 📥 Quick downloads
 
-All assets live on the [v5.3.0-Beta6 release page](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta6). Direct links:
+All assets live on the [v5.3.0-Beta7 release page](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta7). Direct links:
 
 | Platform | Best option | Download |
 | --- | --- | --- |
-| 🐧 **Linux x86_64** | One-click installer (AppImage) | [`VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta6/VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage) (~102 MB) |
-| 🪟 **Windows x64** | One-click installer (`.exe`) | [`VisualGasic-Installer-v5.3.0-Beta6-x86_64.exe`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta6/VisualGasic-Installer-v5.3.0-Beta6-x86_64.exe) (~70 MB) |
-| 🐧 Linux | Offline bundle (Godot included) | [`VisualGasic-Installer-Offline-v5.3.0-Beta6-linux-x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta6/VisualGasic-Installer-Offline-v5.3.0-Beta6-linux-x86_64.zip) (~169 MB) |
-| 🪟 Windows | Offline bundle (Godot included) | [`VisualGasic-Installer-Offline-v5.3.0-Beta6-windows-x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta6/VisualGasic-Installer-Offline-v5.3.0-Beta6-windows-x86_64.zip) (~146 MB) |
-| 🐧 Linux | Portable zip (bring your own Godot) | [`VisualGasic_v5.3.0-Beta6_linux_x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta6/VisualGasic_v5.3.0-Beta6_linux_x86_64.zip) (~1 GB) |
-| 🪟 Windows | Portable zip (bring your own Godot) | [`VisualGasic_v5.3.0-Beta6_windows_x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta6/VisualGasic_v5.3.0-Beta6_windows_x86_64.zip) (~320 MB) |
-| 📦 Asset Library | Godot editor install | [`VisualGasic_AssetLibrary_v5.3.0-Beta6.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta6/VisualGasic_AssetLibrary_v5.3.0-Beta6.zip) — or use Method 0 below |
+| 🐧 **Linux x86_64** | One-click installer (AppImage) | [`VisualGasic-Installer-v5.3.0-Beta7-x86_64.AppImage`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic-Installer-v5.3.0-Beta7-x86_64.AppImage) (~102 MB) |
+| 🪟 **Windows x64** | One-click installer (`.exe`) | [`VisualGasic-Installer-v5.3.0-Beta7-x86_64.exe`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic-Installer-v5.3.0-Beta7-x86_64.exe) (~70 MB) |
+| 🐧 Linux | Offline bundle (Godot included) | [`VisualGasic-Installer-Offline-v5.3.0-Beta7-linux-x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic-Installer-Offline-v5.3.0-Beta7-linux-x86_64.zip) (~169 MB) |
+| 🪟 Windows | Offline bundle (Godot included) | [`VisualGasic-Installer-Offline-v5.3.0-Beta7-windows-x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic-Installer-Offline-v5.3.0-Beta7-windows-x86_64.zip) (~146 MB) |
+| 🐧 Linux | Portable zip (bring your own Godot) | [`VisualGasic_v5.3.0-Beta7_linux_x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic_v5.3.0-Beta7_linux_x86_64.zip) (~1 GB) |
+| 🪟 Windows | Portable zip (bring your own Godot) | [`VisualGasic_v5.3.0-Beta7_windows_x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic_v5.3.0-Beta7_windows_x86_64.zip) (~320 MB) |
+| 📦 Asset Library | Godot editor install | [`VisualGasic_AssetLibrary_v5.3.0-Beta7.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic_AssetLibrary_v5.3.0-Beta7.zip) — or use Method 0 below |
 | 🍎 **macOS** | *not yet available* | Use the `vg` CLI (Method 2) or build from source (Method 5) for now. macOS `.dmg` is the last platform still in progress; we're looking for a tester. |
 
 > 💡 **Not sure which to pick?** Use the one-click installer for your OS if you're starting fresh. Use **Method 0 (Asset Library)** if you already have Godot open. The offline bundle is for air-gapped installs. The portable zip is for people who already have Godot 4.6.1+ and want to drop the addon into an existing project.
@@ -65,7 +65,7 @@ A single download that installs Godot, installs VisualGasic, creates a starter p
 
 ### Linux
 
-1. Download `VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage` from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta6).
+1. Download `VisualGasic-Installer-v5.3.0-Beta7-x86_64.AppImage` from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta7).
 2. Right-click → **Properties → Permissions → Allow executing as a program** (or `chmod +x` it).
 3. Double-click it. A graphical wizard opens where you can pick your Godot version, name your project, and (optionally) enter AI keys — then click **Install**.
 
@@ -73,7 +73,7 @@ A single download that installs Godot, installs VisualGasic, creates a starter p
 
 ### Windows
 
-1. Download `VisualGasic-Installer-v5.3.0-Beta6-x86_64.exe` from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta6).
+1. Download `VisualGasic-Installer-v5.3.0-Beta7-x86_64.exe` from the [latest release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta7).
 2. Double-click. The wizard walks you through: install location → Godot version → starter project name & folder → (optional) AI keys → click **Install**. Done.
 
 ### The graphical wizard
@@ -106,13 +106,13 @@ The wizard's Godot dropdown is the easy path. If you're scripting or on a headle
 
 ```bash
 # Linux: see what's available
-./VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage --no-gui --list-godot-versions
+./VisualGasic-Installer-v5.3.0-Beta7-x86_64.AppImage --no-gui --list-godot-versions
 
 # Pick interactively (text prompt)
-./VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage --no-gui --pick-godot
+./VisualGasic-Installer-v5.3.0-Beta7-x86_64.AppImage --no-gui --pick-godot
 
 # Install a specific version
-./VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage --no-gui --godot-version 4.6.2-stable
+./VisualGasic-Installer-v5.3.0-Beta7-x86_64.AppImage --no-gui --godot-version 4.6.2-stable
 ```
 
 Only **Godot 4.6.1-stable and newer** is supported (the default is `4.6.1-stable`). Pre-release builds can be shown with `--include-prereleases`.
@@ -122,7 +122,7 @@ Only **Godot 4.6.1-stable and newer** is supported (the default is `4.6.1-stable
 VisualGasic's built-in AI Coding Assistant supports OpenAI, Claude, Gemini, and Ollama. The graphical wizard has a dedicated **AI Coding Assistant** page where you can paste the keys you want (or leave it blank). For scripted installs, use the equivalent flags:
 
 ```bash
-./VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage --no-gui \
+./VisualGasic-Installer-v5.3.0-Beta7-x86_64.AppImage --no-gui \
     --with-ai-keys \
     --openai-key "sk-..." \
     --claude-key "sk-ant-..." \
@@ -154,21 +154,21 @@ Don't want to share keys (or pay for them)? The wizard has a **Free local AI —
 Scripted equivalent:
 ```bash
 # Auto-pick model from hardware:
-./VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage --no-gui --with-ollama
+./VisualGasic-Installer-v5.3.0-Beta7-x86_64.AppImage --no-gui --with-ollama
 
 # Pick a specific model:
-./VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage --no-gui --with-ollama \
+./VisualGasic-Installer-v5.3.0-Beta7-x86_64.AppImage --no-gui --with-ollama \
     --ollama-model qwen2.5-coder:7b
 
 # Inspect the catalog + see what would be recommended for this machine:
-./VisualGasic-Installer-v5.3.0-Beta6-x86_64.AppImage --no-gui --list-ollama-models
+./VisualGasic-Installer-v5.3.0-Beta7-x86_64.AppImage --no-gui --list-ollama-models
 ```
 
 Once installed, VisualGasic's AI Help panel can talk to the local Ollama instance with no API key.
 
 ### Offline install (no internet)
 
-Download the appropriate offline bundle instead (`VisualGasic-Installer-Offline-v5.3.0-Beta6-linux-x86_64.zip` or `-windows-x86_64.zip`) — it includes a pre-downloaded Godot. Unzip and follow the `README.txt` inside.
+Download the appropriate offline bundle instead (`VisualGasic-Installer-Offline-v5.3.0-Beta7-linux-x86_64.zip` or `-windows-x86_64.zip`) — it includes a pre-downloaded Godot. Unzip and follow the `README.txt` inside.
 
 ---
 
@@ -288,10 +288,10 @@ Within an existing project, use the VG IDE's File menu:
 
 ### Download
 
-1. Go to [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta6)
+1. Go to [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta7)
 2. Download the platform zip for your OS:
-   - Linux: `VisualGasic_v5.3.0-Beta6_linux_x86_64.zip`
-   - Windows: `VisualGasic_v5.3.0-Beta6_windows_x86_64.zip`
+   - Linux: `VisualGasic_v5.3.0-Beta7_linux_x86_64.zip`
+   - Windows: `VisualGasic_v5.3.0-Beta7_windows_x86_64.zip`
 
 ### Install into a New Project
 
@@ -304,7 +304,7 @@ echo 'config_version=5
 config/name="MyGame"' > project.godot
 
 # Extract the addon
-unzip VisualGasic_v5.3.0-Beta6_linux_x86_64.zip
+unzip VisualGasic_v5.3.0-Beta7_linux_x86_64.zip
 cp -r addons/ .
 
 # Open in Godot
@@ -317,7 +317,7 @@ Then enable the plugin: **Project → Project Settings → Plugins → VisualGas
 
 ```bash
 cd /path/to/your/godot/project
-unzip VisualGasic_v5.3.0-Beta6_linux_x86_64.zip -d /tmp/vg_temp
+unzip VisualGasic_v5.3.0-Beta7_linux_x86_64.zip -d /tmp/vg_temp
 cp -r /tmp/vg_temp/addons/visual_gasic addons/
 rm -rf /tmp/vg_temp
 ```
@@ -375,12 +375,12 @@ For building distributable release packages:
 ```bash
 # Build Linux + Windows (from Linux with MinGW), creates release zips
 ./scripts/build_release.sh                # reads VERSION
-./scripts/build_release.sh 5.3.0-Beta6     # explicit version
+./scripts/build_release.sh 5.3.0-Beta7     # explicit version
 
 # One-click installer artifacts (run after build_release.sh)
-./scripts/build_appimage.sh         5.3.0-Beta6   # Linux AppImage
-./scripts/build_windows_installer.sh 5.3.0-Beta6  # Windows .exe (needs makensis)
-./scripts/build_offline_bundle.sh   5.3.0-Beta6   # Offline bundles (Godot included)
+./scripts/build_appimage.sh         5.3.0-Beta7   # Linux AppImage
+./scripts/build_windows_installer.sh 5.3.0-Beta7  # Windows .exe (needs makensis)
+./scripts/build_offline_bundle.sh   5.3.0-Beta7   # Offline bundles (Godot included)
 
 # Or on macOS (builds all three including universal binary)
 ./scripts/build_release.sh
@@ -439,7 +439,7 @@ After installation, verify VisualGasic is working:
 
 1. **Check the plugin is enabled**: Project → Project Settings → Plugins → VisualGasic should show ✓
 2. **Switch to the Visual Gasic IDE** main screen — you should see the Form Designer with Toolbox, Canvas, and Properties Panel
-3. **Confirm the toolbox controls are present** — the Toolbox panel should show **Spinner**, **BusyDots**, **ToggleSwitch**, **ColorPicker**, and other Standard 2D controls. Switch to the **Game UI** tab for **PixelProgressBar**, **Badge**, and related controls. (See [`RELEASE_NOTES_5.3.0-Beta6.md`](../../RELEASE_NOTES_5.3.0-Beta6.md).)
+3. **Confirm the toolbox controls are present** — the Toolbox panel should show **Spinner**, **BusyDots**, **ToggleSwitch**, **ColorPicker**, and other Standard 2D controls. Switch to the **Game UI** tab for **PixelProgressBar**, **Badge**, and related controls. (See [`RELEASE_NOTES_5.3.0-Beta7.md`](../../RELEASE_NOTES_5.3.0-Beta7.md).)
 4. **Create a test file** — create `hello.vg`:
    ```vb
    Sub Main()

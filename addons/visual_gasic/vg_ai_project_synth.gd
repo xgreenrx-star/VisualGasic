@@ -56,6 +56,20 @@ static func prompt_is_canvas_platformer(prompt: String) -> bool:
 	return false
 
 
+static func prompt_is_pure_3d_game(prompt: String) -> bool:
+	var low := prompt.to_lower()
+	for t in [
+		"3d game", "3d platformer", "first person", "third person", "fps",
+		"squash the creeps", "squash-the-creeps", "characterbody3d", "node3d",
+		"3d shooter", "walk on floor", "mob spawn", "3d clone",
+	]:
+		if low.find(t) >= 0:
+			return true
+	if low.find("game") >= 0 and low.find("3d") >= 0:
+		return true
+	return false
+
+
 static func pure_2d_game_prompt_extra(prompt: String = "") -> String:
 	const Narcea = preload("res://addons/visual_gasic/vg_ai_narcea.gd")
 	var extra := (
@@ -71,6 +85,16 @@ static func pure_2d_game_prompt_extra(prompt: String = "") -> String:
 	if prompt_is_canvas_platformer(prompt):
 		extra += Narcea.platformer_canvas_prompt_extra()
 	return extra
+
+
+static func pure_3d_game_prompt_extra() -> String:
+	const Narcea = preload("res://addons/visual_gasic/vg_ai_narcea.gd")
+	return (
+		" PURE 3D GAME RULES: Node3D/CharacterBody3D .tscn + .vg under ai_projects. "
+		+ "Set main_scene to the game .tscn. Keep ≤ 8 files."
+		+ Narcea.pure_3d_game_prompt_extra()
+		+ Narcea.audit_comments_prompt_extra()
+	)
 
 
 static func hybrid_project_prompt_extra() -> String:

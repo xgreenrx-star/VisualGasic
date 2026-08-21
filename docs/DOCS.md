@@ -249,14 +249,14 @@ Internal docs for contributors and maintainers.
 | Document | Description |
 |----------|-------------|
 | [README](../README.md) | Project overview, feature list, screenshots, and quick start |
-| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.3.0-Beta6) |
+| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.3.0-Beta7) |
 | [Roadmap](../ROADMAP.md) | Development roadmap and feature timeline |
 | [Security Policy](../SECURITY.md) | Security policy and vulnerability reporting |
 | [License](../LICENSE) | GPL-3.0
 
 | Version | File | Highlights |
 |---------|------|------------|
-| **v5.3.0-Beta6** | [RELEASE_NOTES_5.3.0-Beta6.md](../RELEASE_NOTES_5.3.0-Beta6.md) | **Current public beta** — `End` command fix, VB6 `""` escapes, conversion builtins, reference quality gates, Asset Library smoke script. |
+| **v5.3.0-Beta7** | [RELEASE_NOTES_5.3.0-Beta7.md](../RELEASE_NOTES_5.3.0-Beta7.md) | **Current public beta** — bracket array indexing fix, CI `.vg` regression gate, ByRef array slots, Narcea scaffold hardening. |
 | **v5.3.0-Beta5** | [RELEASE_NOTES_5.3.0-Beta5.md](../RELEASE_NOTES_5.3.0-Beta5.md) | Native Script editor crash fix, VB6 Enter/block closing, keyword auto-correct. |
 | **v5.2.0-Beta4** | [RELEASE_NOTES_v5.2.0-Beta4.md](../RELEASE_NOTES_v5.2.0-Beta4.md) | Call-overhead campaign, native 6502 core, silent miscompilation fixes. |
 | **v5.2.0-Beta1** | [RELEASE_NOTES_v5.2.0-Beta1.md](../RELEASE_NOTES_v5.2.0-Beta1.md) | **Android plugin** (GPS, step counter, permissions auto-wire), **Pass-6 namespace gap-fillers** (Camera/Crypto/Physics/Ray/Joypad/Sensor/Theme/Shader/Speaker), **358-entry Command Help DB** with see-also navigation, **AI correctness 100%** on Claude 4.5 + qwen2.5-coder:7b, Linux + Windows installers (macOS deferred). |

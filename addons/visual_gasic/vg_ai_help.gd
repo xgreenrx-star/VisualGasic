@@ -2689,7 +2689,7 @@ func _detect_build_intent(prompt: String) -> String:
 	if _has_active_ai_project() and _prompt_iterates_project(prompt):
 		return "project"
 	const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
-	if ProjectSynth.prompt_is_hybrid_form_game(prompt) or ProjectSynth.prompt_is_pure_2d_game(prompt):
+	if ProjectSynth.prompt_is_hybrid_form_game(prompt) or ProjectSynth.prompt_is_pure_2d_game(prompt) or ProjectSynth.prompt_is_pure_3d_game(prompt):
 		return "project"
 	var project_triggers := [
 		"mini-project", "mini project", "runnable project", "scaffold a project",
@@ -2702,7 +2702,7 @@ func _detect_build_intent(prompt: String) -> String:
 		if low.find(t) >= 0:
 			return "project"
 	if low.find("make ") >= 0 or low.find("build ") >= 0 or low.find("create ") >= 0:
-		for n in ["game", " clone", "2d", "arcade", "shooter", "platformer", "joust", "pong"]:
+		for n in ["game", " clone", "2d", "3d", "arcade", "shooter", "platformer", "joust", "pong", "squash"]:
 			if low.find(n) >= 0:
 				return "project"
 	var code_triggers := [
@@ -2769,6 +2769,8 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 				const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
 				if ProjectSynth.prompt_is_pure_2d_game(desc):
 					prompt += ProjectSynth.pure_2d_game_prompt_extra(desc)
+				elif ProjectSynth.prompt_is_pure_3d_game(desc):
+					prompt += ProjectSynth.pure_3d_game_prompt_extra()
 			else:
 				prompt = "Scaffold a small runnable project per this description.\n\n"
 				prompt += "Description: " + desc + "\n\n"
@@ -2780,6 +2782,8 @@ func _build_hardened_prompt(desc: String, mode: String) -> String:
 					prompt += ProjectSynth.hybrid_project_prompt_extra()
 				elif ProjectSynth.prompt_is_pure_2d_game(desc):
 					prompt += ProjectSynth.pure_2d_game_prompt_extra(desc)
+				elif ProjectSynth.prompt_is_pure_3d_game(desc):
+					prompt += ProjectSynth.pure_3d_game_prompt_extra()
 			if not prompt.contains("AUDITABLE CODE"):
 				prompt += _audit_comments_prompt_extra()
 		_:

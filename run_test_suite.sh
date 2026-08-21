@@ -6,15 +6,53 @@
 # Each .vg file must print "PASS: <name>" or "FAIL: <name>: <reason>" lines.
 # Usage: ./run_test_suite.sh [filter]
 #   filter: optional glob pattern to match test filenames (e.g. "test_array*")
+#   --vg-only: skip GDScript + Narcea golden phases (set automatically when
+#              VG_TEST_SUITE_VG_ONLY=1, as in CI)
+# Env:
+#   GODOT — path to Godot binary (auto-detected if unset)
+#   VG_TEST_SUITE_VG_ONLY=1 — same as --vg-only
 # ============================================================================
 
 set -euo pipefail
 
-GODOT="./Godot_v4.6.1-stable_linux.x86_64"
 TEST_DIR="test_proj/test_suite"
 RUNNER="run_suite.gd"
 TIMEOUT_SECS=20
-FILTER="${1:-test_*.vg}"
+FILTER="test_*.vg"
+VG_ONLY=0
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --vg-only)
+            VG_ONLY=1
+            shift
+            ;;
+        *)
+            FILTER="$1"
+            shift
+            ;;
+    esac
+done
+
+if [[ "${VG_TEST_SUITE_VG_ONLY:-0}" == "1" ]]; then
+    VG_ONLY=1
+fi
+
+# Godot binary: GODOT env, then 4.6, then 4.5, then any Godot_v* in repo root
+GODOT="${GODOT:-}"
+if [[ -z "$GODOT" || ! -x "$GODOT" ]]; then
+    for candidate in \
+        "./Godot_v4.6.1-stable_linux.x86_64" \
+        "./Godot_v4.6-stable_linux.x86_64" \
+        "./Godot_v4.5.1-stable_linux.x86_64" \
+        ./Godot_v4.6*_linux.x86_64 \
+        ./Godot_v4.5*_linux.x86_64; do
+        if [[ -x "$candidate" ]]; then
+            GODOT="$candidate"
+            break
+        fi
+    done
+fi
 
 # Colors
 RED='\033[0;31m'
@@ -127,7 +165,7 @@ echo -e "${BOLD}═════════════════════�
 # Phase 2: GDScript test suites (tests/test_*.gd) — covers VB6 importer, etc.
 # ---------------------------------------------------------------------------
 GD_FAIL=0
-if [[ -x "tests/run_gd_tests.sh" ]]; then
+if [[ "$VG_ONLY" -eq 0 && -x "tests/run_gd_tests.sh" ]]; then
     echo ""
     echo -e "${BOLD}── GDScript suites (tests/) ──${NC}"
     if ! bash tests/run_gd_tests.sh; then
@@ -139,7 +177,7 @@ fi
 # Phase 3: Narcea Golden Path — Tier A + B (fixture + recorded replay)
 # ---------------------------------------------------------------------------
 NARCEA_GOLDEN_FAIL=0
-if [[ -x "scripts/run_narcea_golden.sh" ]]; then
+if [[ "$VG_ONLY" -eq 0 && -x "scripts/run_narcea_golden.sh" ]]; then
     echo ""
     echo -e "${BOLD}── Narcea Golden Path (Tier A) ──${NC}"
     if ! bash scripts/run_narcea_golden.sh --tier A; then

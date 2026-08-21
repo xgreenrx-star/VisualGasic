@@ -1,0 +1,22 @@
+' Regression: bracket subscript arr[i] must not assign whole array
+Option Explicit
+
+Sub _Ready()
+	Dim player As Object
+	Set player = ClassDB.Instantiate("CharacterBody3D")
+	player.AddToGroup("player")
+	Me.AddChild player
+
+	Dim players As Variant
+	players = GetTree().GetNodesInGroup("player")
+	Dim target As Variant
+	target = players[0]
+	If TypeName(target) = "Array" Then
+		Print "FAIL: bracket index ignored — got whole array"
+		Return
+	End If
+	If TypeOf target Is CharacterBody3D Then
+		Print "PASS: bracket subscript returns element"
+	Else
+		Print "FAIL: bracket index type=" & TypeName(target)
+	End If

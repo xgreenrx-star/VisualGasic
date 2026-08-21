@@ -219,7 +219,7 @@
 
 ### Release Notes
 - [CHANGELOG.md](../CHANGELOG.md) - Full change log
-- [RELEASE_NOTES_5.3.0-Beta6.md](../RELEASE_NOTES_5.3.0-Beta6.md) - **v5.3.0-Beta6 (latest)** — `End` fix, VB6 escapes, conversion builtins, reference gates, Asset Library smoke
+- [RELEASE_NOTES_5.3.0-Beta7.md](../RELEASE_NOTES_5.3.0-Beta7.md) - **v5.3.0-Beta7 (latest)** — bracket indexing fix, CI `.vg` regression gate, ByRef array slots, Narcea scaffold hardening
 - [RELEASE_NOTES_v5.2.0-Beta4.md](../RELEASE_NOTES_v5.2.0-Beta4.md) - v5.2.0-Beta4 — call-overhead campaign, 6502 core, miscompilation fixes
 - [RELEASE_NOTES_v5.2.0-Beta1.md](../RELEASE_NOTES_v5.2.0-Beta1.md) - v5.2.0-Beta1 — Android plugin, Pass-6 verbs, 358-entry Command Help, 100% AI correctness
 - [RELEASE_NOTES_v5.1.0-rc.2.md](../RELEASE_NOTES_v5.1.0-rc.2.md) - v5.1.0-rc.2

@@ -161,6 +161,7 @@ Sub RunBenchmark()
     Print "=== Summary ==="
     Print "Total benchmark time: " & CStr(total_time_ms) & " ms"
     Print "[BENCHMARK END]"
+    Print "PASS: benchmark_suite_complete"
 End Sub
 
 Sub _Ready()

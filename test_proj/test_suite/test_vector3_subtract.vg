@@ -1,0 +1,35 @@
+' Regression: Vector3 subtraction and Variant member assign
+Option Explicit
+
+Sub _Ready()
+	Dim a As Variant
+	Dim b As Variant
+	Dim c As Variant
+	a = Vector3(10.0, 5.0, 3.0)
+	b = Vector3(1.0, 2.0, 1.0)
+	c = a - b
+	If c Is Nothing Then
+		Print "FAIL: c is Nothing after Vector3 subtract"
+		Return
+	End If
+	If Abs(c.x - 9.0) > 0.001 Or Abs(c.y - 3.0) > 0.001 Or Abs(c.z - 2.0) > 0.001 Then
+		Print "FAIL: c components wrong"
+		Return
+	End If
+	c.y = 0.0
+	If Abs(c.y) > 0.001 Then
+		Print "FAIL: c.y assign"
+		Return
+	End If
+	Print "PASS: vector3 subtract and member assign"
+
+	' Operand Nothing must not silently assign then fail on .y
+	Dim bad As Variant
+	Dim ok As Variant
+	ok = Vector3(1.0, 2.0, 3.0)
+	bad = ok - Nothing
+	If bad Is Nothing Then
+		Print "PASS: subtract with Nothing yields Nothing"
+	Else
+		Print "FAIL: subtract with Nothing should yield Nothing"
+	End If

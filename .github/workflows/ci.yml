@@ -46,6 +46,18 @@ jobs:
           mkdir -p demo/addons/visual_gasic/bin
           cp demo/bin/libvisualgasic.linux.editor.x86_64.so demo/addons/visual_gasic/bin/
           ls -la demo/addons/visual_gasic/bin/
+          # test_proj/addons/visual_gasic → ../../addons/visual_gasic (symlink); ensure editor .so is fresh
+          ls -la addons/visual_gasic/bin/libvisualgasic.linux.editor.x86_64.so
+
+      - name: Run VisualGasic test suite (.vg)
+        timeout-minutes: 15
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.5.1-stable_linux.x86_64
+          VG_TEST_SUITE_VG_ONLY: "1"
+        run: |
+          chmod +x ./run_test_suite.sh
+          ./run_test_suite.sh --vg-only
 
       - name: Run smoke tests
         env:

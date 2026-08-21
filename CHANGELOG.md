@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.0-Beta7] - 2026-08-21
+
+**Key numbers:** 871/871 regression assertions · 117 test files · 332/332 Programmer's Reference examples parse-clean · **bracket indexing** fixed for 3D AI scaffolds.
+
+### 🛠 Fixed — Bracket Array Indexing & ByRef
+
+- **`arr[i]` subscript** — postfix bracket indexing now parses in expressions and assignment lvalues. Previously `players[0]` silently returned the whole array (e.g. after `GetNodesInGroup`), breaking `.GlobalPosition` and Vector3 subtract in mob chase code.
+- **ByRef array slot write-back** — bytecode path persists writes to `arr(i)` parameters passed ByRef.
+
+### ✅ Added — CI Regression Gate & Tests
+
+- **CI `.vg` test suite** — `run_test_suite.sh --vg-only` runs on every PR after editor build.
+- **New regression tests** — bracket index, syntax parity (bracket vs paren, Pascal vs snake position), Vector3 subtract/global position, `GetNodesInGroup` mob pattern.
+- **`run_test_suite.sh`** — `--vg-only` flag and `GODOT` auto-detect for CI/local runs.
+
+### ✅ Added — Narcea & IDE (since Beta6)
+
+- Reference offer on Send; user-assisted web references for game clones (Phase 0+2).
+- Canvas platformer / 3D scaffold prompts; Cursor SDK cross-platform venv bootstrap.
+- Visual AI audit agent run graphs via Working Nodes; Windows AI Pair path fixes.
+
 ## [5.3.0-Beta6] - 2026-08-18
 
 **Key numbers:** 856/856 regression assertions · 47/47 corpus examples with expected output · 332/332 Programmer's Reference examples parse-clean · **End** command fixed for Asset Library users.

@@ -1,0 +1,65 @@
+' Syntax parity: VB6 arr(i) vs GDScript arr[i], property aliases, vector math
+Option Explicit
+
+Sub _Ready()
+	Dim body As Object
+	Set body = ClassDB.Instantiate("CharacterBody3D")
+	body.Set "global_position", Vector3(4.0, 2.0, 1.0)
+	body.AddToGroup("parity_probe")
+	Me.AddChild body
+
+	Dim list As Variant
+	list = GetTree().GetNodesInGroup("parity_probe")
+
+	' --- Bracket vs paren indexing (must yield same element type) ---
+	Dim viaBracket As Variant
+	Dim viaParen As Variant
+	viaBracket = list[0]
+	viaParen = list(0)
+	If TypeName(viaBracket) = "Array" Then
+		Print "FAIL: syntax_parity bracket index ignored"
+		Return
+	End If
+	If TypeName(viaParen) = "Array" Then
+		Print "FAIL: syntax_parity paren index ignored"
+		Return
+	End If
+	If TypeName(viaBracket) <> TypeName(viaParen) Then
+		Print "FAIL: syntax_parity bracket vs paren type mismatch"
+		Return
+	End If
+	Print "PASS: syntax_parity array index bracket_paren"
+
+	' --- GlobalPosition vs global_position (Pascal vs snake) ---
+	Dim gp As Variant
+	Dim gs As Variant
+	gp = body.GlobalPosition
+	gs = body.global_position
+	If gp Is Nothing Or gs Is Nothing Then
+		Print "FAIL: syntax_parity position alias Nothing"
+		Return
+	End If
+	If Abs(gp.x - gs.x) > 0.001 Or Abs(gp.y - gs.y) > 0.001 Or Abs(gp.z - gs.z) > 0.001 Then
+		Print "FAIL: syntax_parity position alias values differ"
+		Return
+	End If
+	Print "PASS: syntax_parity GlobalPosition alias"
+
+	' --- Vector3 subtract + member assign (Mob chase shape) ---
+	Dim other As Object
+	Set other = ClassDB.Instantiate("CharacterBody3D")
+	other.Set "global_position", Vector3(1.0, 9.0, 1.0)
+	Me.AddChild other
+
+	Dim dir As Variant
+	dir = body.GlobalPosition - other.GlobalPosition
+	If dir Is Nothing Then
+		Print "FAIL: syntax_parity vector subtract Nothing"
+		Return
+	End If
+	dir.y = 0.0
+	If Abs(dir.x - 3.0) > 0.01 Or Abs(dir.y) > 0.001 Or Abs(dir.z) > 0.01 Then
+		Print "FAIL: syntax_parity vector subtract components"
+		Return
+	End If
+	Print "PASS: syntax_parity vector3 subtract member"

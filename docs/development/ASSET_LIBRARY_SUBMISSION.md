@@ -4,17 +4,17 @@ Status of the VisualGasic listing on the [Godot Asset Library](https://godotengi
 
 ---
 
-## Current status (v5.3.0-Beta6)
+## Current status (v5.3.0-Beta7)
 
 | Field | Value |
 |-------|--------|
-| **Version submitted** | 5.3.0-Beta6 |
+| **Version submitted** | 5.3.0-Beta7 |
 | **Godot version** | 4.6+ |
 | **License** | GPL v3.0 |
-| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.3.0-Beta6.zip` |
+| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.3.0-Beta7.zip` |
 | **Listing state** | **Submitted — awaiting moderator approval** |
 
-Changelog copy for the Asset Library version field: [`ASSET_LIBRARY_CHANGELOG_5.3.0-Beta6.md`](../ASSET_LIBRARY_CHANGELOG_5.3.0-Beta6.md) (BBCode variant available in release notes workflow).
+Changelog copy for the Asset Library version field: [`ASSET_LIBRARY_CHANGELOG_5.3.0-Beta7.md`](../ASSET_LIBRARY_CHANGELOG_5.3.0-Beta7.md) (BBCode variant available in release notes workflow).
 
 User-facing install steps: [Installation Guide — Method 0](../guides/INSTALLATION.md#-method-0-godot-asset-library-recommended-if-you-already-have-godot)
 
@@ -22,10 +22,10 @@ User-facing install steps: [Installation Guide — Method 0](../guides/INSTALLAT
 
 ## Submission checklist (completed)
 
-- [x] Plugin metadata in `addons/visual_gasic/plugin.cfg` (version **5.3.0-Beta6**)
+- [x] Plugin metadata in `addons/visual_gasic/plugin.cfg` (version **5.3.0-Beta7**)
 - [x] Asset library metadata in `.assetlib.json`
 - [x] Installation documentation — [`docs/guides/INSTALLATION.md`](../guides/INSTALLATION.md)
-- [x] GitHub release **v5.3.0-Beta6** with Asset Library zip attached
+- [x] GitHub release **v5.3.0-Beta7** with Asset Library zip attached
 - [x] GPL v3.0 license
 - [x] Asset Library submission uploaded (August 2026)
 - [ ] Moderator approval
@@ -45,8 +45,8 @@ Use these values when submitting updates:
 | **Godot Version** | 4.6 |
 | **Repository URL** | https://github.com/xgreenrx-star/VisualGasic |
 | **Issues URL** | https://github.com/xgreenrx-star/VisualGasic/issues |
-| **Download URL** | `https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta6/VisualGasic_AssetLibrary_v5.3.0-Beta6.zip` |
-| **Version** | 5.3.0-Beta6 |
+| **Download URL** | `https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic_AssetLibrary_v5.3.0-Beta7.zip` |
+| **Version** | 5.3.0-Beta7 |
 | **Icon URL** | https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/addons/visual_gasic/icon.svg |
 | **Download Method** | GitHub Release |
 
