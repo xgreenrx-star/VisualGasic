@@ -73,7 +73,7 @@ VG is a public beta. The language, JIT compiler, and debugger work. The Form Des
 **Deferred (post-MVP):**
 Form Designer extraction to a standalone plugin, full IDE plugin architecture refactor, VG3D, Working Nodes expansion. The Form Designer stays in place behind an Experimental Plugins toggle until UI Forms reaches parity.
 
-> 🚀 **v5.3.0-Beta7 — Current public beta.** This README points to the Beta7 release artifacts directly so download links stay correct even if GitHub's "Latest" flag is stale. See [release notes](RELEASE_NOTES_5.3.0-Beta7.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
+> 🚀 **v5.3.0-Beta7 — Current public beta.** Download links below point at the [latest GitHub release](https://github.com/xgreenrx-star/VisualGasic/releases/latest). See [release notes](RELEASE_NOTES_5.3.0-Beta7.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
 >
 > 📚 **Docs from the main page:** every guide, reference, and tutorial is one click away from [`docs/DOCS.md`](docs/DOCS.md). Quick jumps: [Getting Started](docs/guides/GET_STARTED.md) · [Installation](docs/guides/INSTALLATION.md) · [Language Reference](docs/VisualGasic_Language_Reference.md) · [Built-in Functions](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) · [Custom Controls](docs/guides/CUSTOM_CONTROLS.md) · [Plugin SDK](addons/visual_gasic/PLUGIN_SDK.md).
 
