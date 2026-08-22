@@ -2,7 +2,7 @@ extends SceneTree
 ## Narcea Golden Path — Tier A (fixture) and Tier B (recorded replay).
 ##
 ## Tier A: tests/narcea_golden/fixtures/golden_counter_response.txt
-## Tier B: tests/narcea_golden/recorded/*_response.txt (+ optional .ndjson)
+## Tier B: tests/narcea_golden/recorded/manifest.json (not failure_* captures)
 ##
 ## Env: NARCEA_GOLDEN_TIER=A|B (set by scripts/run_narcea_golden.sh)
 
@@ -122,25 +122,60 @@ func _run_tier_a() -> void:
 
 func _run_tier_b() -> void:
 	print("")
-	print("--- Tier B: recorded response replay ---")
-	var files: PackedStringArray = _list_recorded_responses()
-	if files.is_empty():
-		_fail("discover recorded responses", "no *_response.txt in %s" % _recorded_dir)
+	print("--- Tier B: recorded response replay (manifest) ---")
+	var scenarios: Array = _load_tier_b_manifest()
+	if scenarios.is_empty():
+		_fail("load tier B manifest", "no scenarios in recorded/manifest.json")
 		return
-	_ok("found %d recorded response file(s)" % files.size())
-	for path in files:
-		var label := path.get_file().trim_suffix("_response.txt")
+	_ok("manifest lists %d scenario(s)" % scenarios.size())
+	for entry in scenarios:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var label := str(entry.get("id", "")).strip_edges()
+		if label.is_empty():
+			_fail("manifest scenario", "missing id")
+			continue
+		var response_name := str(entry.get("response", "%s_response.txt" % label)).strip_edges()
+		var path := _recorded_dir.path_join(response_name)
 		print("")
 		print(">> Scenario: %s" % label)
+		if not FileAccess.file_exists(path):
+			_fail("[%s] response file" % label, "missing %s" % path)
+			continue
 		var response := _read_text(path)
 		if response.is_empty():
+			_fail("[%s] read response" % label, "empty file")
 			continue
 		_run_response_pipeline(response, label)
-		var ndjson_path := path.trim_suffix("_response.txt") + ".ndjson"
-		if FileAccess.file_exists(ndjson_path):
-			_validate_ndjson(ndjson_path, label)
+		var ndjson_name := str(entry.get("ndjson", "")).strip_edges()
+		var ndjson_path := ""
+		if not ndjson_name.is_empty():
+			ndjson_path = _recorded_dir.path_join(ndjson_name)
+		elif FileAccess.file_exists(path.trim_suffix("_response.txt") + ".ndjson"):
+			ndjson_path = path.trim_suffix("_response.txt") + ".ndjson"
+		if not ndjson_path.is_empty() and FileAccess.file_exists(ndjson_path):
+			var allowed: Array = entry.get("allowed_end_reasons", [])
+			_validate_ndjson(ndjson_path, label, allowed)
+		elif bool(entry.get("require_ndjson", false)):
+			_fail("[%s] paired ndjson" % label, "required by manifest")
 		else:
 			_ok("[%s] no paired .ndjson (response-only replay)" % label)
+
+
+func _load_tier_b_manifest() -> Array:
+	var manifest_path := _recorded_dir.path_join("manifest.json")
+	if not FileAccess.file_exists(manifest_path):
+		return []
+	var text := _read_text(manifest_path)
+	if text.is_empty():
+		return []
+	var parsed = JSON.parse_string(text)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return []
+	var scenarios: Array = parsed.get("scenarios", [])
+	if not scenarios.is_empty():
+		return scenarios
+	return []
 
 
 func _list_recorded_responses() -> PackedStringArray:
@@ -341,7 +376,7 @@ func _control_count(forms: Array) -> int:
 	return n
 
 
-func _validate_ndjson(path: String, label: String) -> void:
+func _validate_ndjson(path: String, label: String, allowed_reasons: Array = []) -> void:
 	var text := _read_text(path)
 	if text.is_empty():
 		return
@@ -373,7 +408,10 @@ func _validate_ndjson(path: String, label: String) -> void:
 	_expect("[%s] ndjson has session_start" % label, has_start)
 	_expect("[%s] ndjson has session_end" % label, has_end)
 	if has_end:
-		var allowed: Array = ["complete", "mutation_stop", "user_new_turn", "hop_limit", "blocked"]
+		var allowed: Array = allowed_reasons if not allowed_reasons.is_empty() else [
+			"complete", "mutation_stop", "user_new_turn", "hop_limit", "blocked",
+			"run_failed", "aborted", "budget_exceeded", "scaffold_pause",
+		]
 		_expect("[%s] ndjson session_end reason valid" % label,
 			end_reason.is_empty() or allowed.has(end_reason),
 			"reason='%s'" % end_reason)

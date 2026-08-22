@@ -24,7 +24,7 @@ while [[ $# -gt 0 ]]; do
 			echo "Usage: $0 [--tier A|B|C|ALL]"
 			echo ""
 			echo "  A    Canonical fixture (default)"
-			echo "  B    Replay tests/narcea_golden/recorded/*_response.txt"
+			echo "  B    Replay recorded/manifest.json scenarios (Tier B gate)"
 			echo "  C    Live Gemini eval (NARCEA_LIVE=1; NARCEA_LIVE_SKIP_API=1 skips HTTP)"
 			echo "  ALL  Run A, then B, then C (skip-api unless NARCEA_LIVE=1)"
 			exit 0

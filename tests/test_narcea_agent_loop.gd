@@ -52,6 +52,9 @@ func _init() -> void:
 	# ── 10. Model cache / refresh_models ──
 	_test_refresh_models()
 
+	# ── 11. Phase 6b play.run_main launch detection ──
+	_test_play_run_main_launch_detection()
+
 	# ── Summary ──
 	print("")
 	print("=== Results: %d passed, %d failed ===" % [_passed, _failed])
@@ -542,3 +545,33 @@ func _test_refresh_models() -> void:
 		Providers.pick_default_model("openai", ["gpt-4o", "gpt-4o-mini"]) == "gpt-4o")
 
 	print("")
+
+
+# ─── Test 11: Phase 6b play.run_main launch detection ─────
+
+func _test_play_run_main_launch_detection() -> void:
+	print("╔══ 11. play.run_main Launch Detection ══╗")
+	var muts := [{"tool": "write_file"}, {"tool": "play.run_main"}]
+	var ok_results := ["[write_file] ok", "[play.run_main] launched res://Game.tscn"]
+	var fail_results := ["[write_file] ok", "[play.run_main] nothing to run — build a form or project first"]
+	var ok_launch := _describe_play_run_main_launch(muts, ok_results)
+	var fail_launch := _describe_play_run_main_launch(muts, fail_results)
+	_expect("launched when tool returns launched", ok_launch.get("launched", false) == true)
+	_expect("not launched when tool returns nothing to run", fail_launch.get("launched", true) == false)
+	_expect("failure message preserved", str(fail_launch.get("message", "")).find("nothing to run") != -1)
+	var empty := _describe_play_run_main_launch([{"tool": "save_file"}], ["saved"])
+	_expect("no play.run_main in plan → not launched", empty.get("launched", true) == false)
+	print("")
+
+
+func _describe_play_run_main_launch(muts: Array, results: Array) -> Dictionary:
+	# Mirror vg_ai_help.gd::_describe_play_run_main_launch for headless regression.
+	var out := {"launched": false, "message": ""}
+	for i in muts.size():
+		if str(muts[i].get("tool", "")) != "play.run_main":
+			continue
+		var msg := str(results[i]) if i < results.size() else ""
+		out["message"] = msg if not msg.is_empty() else "[play.run_main] no result recorded"
+		out["launched"] = msg.find("[play.run_main] launched") != -1
+		return out
+	return out

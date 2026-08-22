@@ -9,7 +9,7 @@ Deterministic and (future) live tests for the M5 exit criterion:
 | Tier | Command | Network | What it proves |
 |------|---------|---------|----------------|
 | **A** | `bash scripts/run_narcea_golden.sh --tier A` | No | Spec extract → rubric → safe_write → lint + **chat-first form smoke** |
-| **B** | `bash scripts/run_narcea_golden.sh --tier B` | No | Replay `recorded/*_response.txt` (+ optional paired `.ndjson`) |
+| **B** | `bash scripts/run_narcea_golden.sh --tier B` | No | Replay manifest scenarios in `recorded/manifest.json` (+ optional paired `.ndjson`) |
 | **C** | `bash scripts/run_narcea_golden.sh --tier C` | Optional | Live Gemini + **multi-scenario suite** (`scenarios.json`) |
 
 ## Multi-scenario live suite (all providers)

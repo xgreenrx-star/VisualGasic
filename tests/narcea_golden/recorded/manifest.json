@@ -9,5 +9,5 @@
       "allowed_end_reasons": ["complete", "mutation_stop", "user_new_turn"]
     }
   ],
-  "notes": "Add live captures as recorded/<provider>_counter_response.txt and optional paired .ndjson. Tier B runs every * _response.txt not listed here plus manifest entries."
+  "notes": "Tier B runs only scenarios listed here. Local failure_* captures are gitignored regression artifacts — add passing live captures with a manifest entry."
 }

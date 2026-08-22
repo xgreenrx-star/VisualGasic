@@ -428,14 +428,15 @@ var _agent_hops: int = 0
 # recoverable tool failure (e.g. no/wrong file open) and retry instead
 # of stopping the loop with nothing actually changed.
 var _last_mutation_results: Array[String] = []
+var _pending_agent_plan: Dictionary = {}
 var _agent_continuation: bool = false
 # Phase 6b: configurable hop cap (user://vg_ai_approvals.cfg [ai] max_agent_hops)
-var _max_agent_hops: int = 50
+var _max_agent_hops: int = 6
 
 # Phase 6b: wall-time + token budget guards.
 # Loaded from user://vg_ai_approvals.cfg [ai] section; hardcoded defaults below.
-const _AGENT_MAX_TOKENS_DEFAULT := 120000
-const _AGENT_MAX_SECONDS_DEFAULT := 600.0
+const _AGENT_MAX_TOKENS_DEFAULT := 30000
+const _AGENT_MAX_SECONDS_DEFAULT := 120.0
 var _max_agent_tokens: int = _AGENT_MAX_TOKENS_DEFAULT
 var _max_agent_seconds: float = _AGENT_MAX_SECONDS_DEFAULT
 var _agent_start_time: float = 0.0   # Time.get_ticks_msec()/1000 at first hop
@@ -6539,8 +6540,9 @@ func _dispatch_tool_calls(reply_text: String) -> void:
 		if _approval_mode == "bypass":
 			_last_mutation_results = _apply_mutations(muts)
 		else:
+			_pending_agent_plan = plan.duplicate(true)
 			_ask_apply_mutations(muts)
-			return  # Action bar will be rendered after the dialog resolves.
+			return  # Dialog continues the agent loop after user confirms.
 
 	# Render action bar if anything ran (or there's an undo stack).
 	if not ro_logs.is_empty() or not muts.is_empty() or (_ai_tools and _ai_tools.has_undo()):
@@ -6611,6 +6613,31 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 				has_run_main = true
 				break
 		if has_run_main:
+			var launch := _describe_play_run_main_launch(muts, _last_mutation_results)
+			if not launch.get("launched", false):
+				var err_msg := str(launch.get("message", "play.run_main did not launch"))
+				if _agent_hops >= _max_agent_hops:
+					_output.append_text("[color=#888888]  (agent hop limit reached — stopping)[/color]\n")
+					_hide_abort_agent_btn()
+					_transcript_close("hop_limit")
+					return
+				if _check_agent_budget_exceeded():
+					_hide_abort_agent_btn()
+					_transcript_close("budget_exceeded")
+					return
+				_agent_hops += 1
+				_show_abort_agent_btn()
+				if not is_instance_valid(_input):
+					return
+				_input.text = (
+					"play.run_main failed:\n%s\n\nFix the issue (build the project/scene if needed), "
+					+ "then call play.run_main again or continue with the next step."
+				) % err_msg
+				_agent_continuation = true
+				_transcript_append({"type": "run_result", "hop": _agent_hops,
+					"exit_code": -1, "output_lines": 0, "launch_failed": true})
+				_on_send()
+				return
 			# Arm the ingest path; _on_run_finished will trigger next hop.
 			_agent_triggered_run = true
 			_agent_run_output_lines.clear()
@@ -6723,6 +6750,19 @@ func _maybe_continue_agent_turn(plan: Dictionary) -> void:
 func _is_recoverable_tool_failure(msg: String) -> bool:
 	var low := msg.to_lower()
 	return low.find("no code editor open") != -1 or low.find("target file mismatch") != -1
+
+
+## Match play.run_main mutation entries to execute_mutation result strings.
+func _describe_play_run_main_launch(muts: Array, results: Array) -> Dictionary:
+	var out := {"launched": false, "message": ""}
+	for i in muts.size():
+		if str(muts[i].get("tool", "")) != "play.run_main":
+			continue
+		var msg := str(results[i]) if i < results.size() else ""
+		out["message"] = msg if not msg.is_empty() else "[play.run_main] no result recorded"
+		out["launched"] = msg.find("[play.run_main] launched") != -1
+		return out
+	return out
 
 
 func _response_has_raw_vg_without_spec(text: String) -> bool:
@@ -6920,16 +6960,25 @@ func _ask_apply_mutations(muts: Array) -> void:
 				selected.append(muts[i])
 		if selected.is_empty():
 			_output.append_text("[color=#aa6666]  (no edits selected — skipped %d)[/color]\n" % muts.size())
+			_last_mutation_results = []
 		else:
-			_apply_mutations(selected)
+			_last_mutation_results = _apply_mutations(selected)
 			var skipped := muts.size() - selected.size()
 			if skipped > 0:
 				_output.append_text("[color=#aa6666]  (skipped %d unchecked edit(s))[/color]\n" % skipped)
 		_render_action_bar()
+		var plan := _pending_agent_plan
+		_pending_agent_plan = {}
+		if not plan.is_empty():
+			_maybe_continue_agent_turn(plan)
 		dlg.queue_free()
 	)
 	dlg.canceled.connect(func() -> void:
 		_output.append_text("[color=#aa6666]  (skipped %d AI edit(s))[/color]\n" % muts.size())
+		_last_mutation_results = []
+		_pending_agent_plan = {}
+		_hide_abort_agent_btn()
+		_transcript_close("user_skipped_mutations")
 		_render_action_bar()
 		dlg.queue_free()
 	)
