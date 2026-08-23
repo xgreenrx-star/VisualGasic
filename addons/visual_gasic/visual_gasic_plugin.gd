@@ -9747,12 +9747,12 @@ const _TOOLBOX_DEFAULT_W := 180
 func _set_code_context_rail_in_toolbox(toolbox_panel: Control, show_rail: bool) -> void:
 	if not toolbox_panel or not is_instance_valid(_embedded_code_editor):
 		return
-	var rail := _embedded_code_editor.get_context_rail()
+	var rail: Control = _embedded_code_editor.get_context_rail()
 	if not rail:
 		return
 	if show_rail:
-		var enabled := _embedded_code_editor.is_context_rail_enabled()
-		var rail_w := _embedded_code_editor.get_context_rail_width()
+		var enabled: bool = _embedded_code_editor.is_context_rail_enabled()
+		var rail_w: int = _embedded_code_editor.get_context_rail_width()
 		if rail.get_parent() != toolbox_panel:
 			if rail.get_parent():
 				rail.get_parent().remove_child(rail)

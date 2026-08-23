@@ -243,9 +243,11 @@ func _build_ui() -> void:
 		_code_edit.file_path_action.connect(_on_file_path_action)
 	VGTheme.hook_text_edit(_code_edit)
 
-	# ── Context rail (audit sidecar) — plugin mounts into ToolboxPanel during Code view ──
+	# ── Context rail (audit sidecar) — plugin reparents into ToolboxPanel during Code view ──
 	_context_rail = VGContextRail.new()
 	_context_rail.name = "ContextRail"
+	_context_rail.visible = false
+	add_child(_context_rail)  # _ready must run before deferred caret updates
 	if _code_edit:
 		_context_rail.bind_code_edit(_code_edit)
 	_context_rail.goto_line_requested.connect(_on_context_rail_goto_line)

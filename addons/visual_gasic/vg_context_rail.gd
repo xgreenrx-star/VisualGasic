@@ -162,6 +162,8 @@ func update_from_caret() -> void:
 
 
 func _render_idle() -> void:
+	if _where_label == null:
+		return
 	_where_label.text = "Open a .vg file and place the caret in code."
 	_procedure_label.text = ""
 	_keyword_label.text = "[i]Keyword help appears when the caret is on a VG keyword or builtin.[/i]"
@@ -174,6 +176,8 @@ func _render_idle() -> void:
 
 
 func _render(ctx: Dictionary, source: String, caret: int) -> void:
+	if _where_label == null:
+		return
 	var line_h := caret + 1
 	_where_label.text = "Line %d · %s\n%s" % [
 		line_h,
