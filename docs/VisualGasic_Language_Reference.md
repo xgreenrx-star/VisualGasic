@@ -4906,6 +4906,108 @@ Converts an expression to a `Single`. Less precise than `Double` but useful when
 
 ---
 
+## Fix
+
+**Purpose** — Truncates a number toward zero to its integer portion.
+
+**Syntax**
+
+    Fix(number)
+
+**Parameters**
+
+- `number` — Numeric expression.
+
+**Description**
+
+Returns the integer part of a number, truncating toward zero. Unlike `Int`, which rounds toward negative infinity, `Fix(-2.9)` returns `-2` (not `-3`).
+
+**Example**
+
+    Print Fix(3.7)   ' 3
+    Print Fix(-2.9)  ' -2
+    Print Int(-2.9)  ' -3
+
+**See Also** — [Int](#int), [CInt](#cint), [Round](#round)
+
+---
+
+## Hex
+
+**Purpose** — Returns the uppercase hexadecimal string for a number (no `&H` prefix).
+
+**Syntax**
+
+    Hex(number)
+
+**Parameters**
+
+- `number` — Integer expression.
+
+**Description**
+
+Converts an integer to a hex string using uppercase `A`–`F` digits. Useful alongside VB6 `&H…` literals in the Convert sidecar.
+
+**Example**
+
+    Print Hex(255)   ' FF
+    Print Hex(16)    ' 10
+
+**See Also** — [Oct](#oct), [Val](#val), [CInt](#cint)
+
+---
+
+## IsNumeric
+
+**Purpose** — Tests whether an expression can be evaluated as a number.
+
+**Syntax**
+
+    IsNumeric(expression)
+
+**Parameters**
+
+- `expression` — Value to test.
+
+**Description**
+
+Returns `True` when the expression is numeric or a string that parses as a number. Use before `Val`, `CInt`, or `CDbl` on user input.
+
+**Example**
+
+    If IsNumeric(userInput) Then
+        score = Val(userInput)
+    End If
+
+**See Also** — [Val](#val), [CInt](#cint), [CDbl](#cdbl), [CStr](#cstr)
+
+---
+
+## Oct
+
+**Purpose** — Returns the octal string for a number.
+
+**Syntax**
+
+    Oct(number)
+
+**Parameters**
+
+- `number` — Integer expression.
+
+**Description**
+
+Converts an integer to base-8 text without an `&O` prefix.
+
+**Example**
+
+    Print Oct(8)     ' 10
+    Print Oct(64)    ' 100
+
+**See Also** — [Hex](#hex), [Val](#val)
+
+---
+
 ## Clamp
 
 **Purpose** — Constrains a value to the range [min, max].

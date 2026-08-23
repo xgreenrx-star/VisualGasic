@@ -26,6 +26,9 @@ Data 0, 1, 1, 0
 Data 0, 1, 2, 1
 Data 0, 0, 1, 0
 Data 0, 0, 0, 0
+
+NoteData:
+Data \"C4\", 261.63
 """
 
 
@@ -70,13 +73,14 @@ func _test_outline() -> void:
 	print("-- outline entries --")
 	var ctx := Analyzer.analyze(FIXTURE, 0)
 	var outline: Array = ctx.get("outline", [])
-	_check("outline not empty", outline.size() >= 3)
+	_check("outline has landmarks", outline.size() >= 2)
 	var labels: Array = []
 	for e in outline:
 		labels.append(e.get("label", ""))
-	_check("outline has Sub", labels.any(func(l): return str(l).begins_with("Sub ")))
-	_check("outline has Function", labels.any(func(l): return str(l).begins_with("Function ")))
-	_check("outline has sprite", labels.any(func(l): return str(l) == "PlayerSprite"))
+	_check("outline has PlayerSprite", labels.has("PlayerSprite"))
+	_check("outline has NoteData", labels.has("NoteData"))
+	_check("outline skips Sub entries", not labels.any(func(l): return str(l).begins_with("Sub ")))
+	_check("outline skips Function entries", not labels.any(func(l): return str(l).begins_with("Function ")))
 
 
 func _test_summary() -> void:

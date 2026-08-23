@@ -253,6 +253,8 @@ func _build_ui() -> void:
 	_context_rail.goto_line_requested.connect(_on_context_rail_goto_line)
 	if _context_rail.has_signal("file_action_requested"):
 		_context_rail.file_action_requested.connect(_on_file_path_action)
+	if _context_rail.has_signal("summary_insert_requested"):
+		_context_rail.summary_insert_requested.connect(_on_context_rail_summary_insert)
 
 	# ── Bottom panel: Immediate Window ──
 	_build_bottom_panel()
@@ -2170,6 +2172,17 @@ func _on_context_rail_goto_line(line: int) -> void:
 	_code_edit.set_caret_column(0)
 	if _code_edit.has_method("center_viewport_to_caret"):
 		_code_edit.center_viewport_to_caret()
+	_update_context_rail()
+
+
+func _on_context_rail_summary_insert(proc_line: int, text: String) -> void:
+	if not _code_edit or proc_line < 0:
+		return
+	_code_edit.insert_line_at(proc_line, text)
+	_code_edit.set_caret_line(proc_line)
+	_code_edit.set_caret_column(text.length())
+	if is_instance_valid(_context_rail) and _context_rail.has_method("notify_source_changed"):
+		_context_rail.notify_source_changed()
 	_update_context_rail()
 
 

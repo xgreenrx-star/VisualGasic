@@ -10,6 +10,7 @@ static var _func_re: RegEx
 static var _end_sub_re: RegEx
 static var _event_re: RegEx
 static var _summary_re: RegEx
+static var _type_re: RegEx
 
 
 static func _ensure_regex() -> void:
@@ -28,6 +29,9 @@ static func _ensure_regex() -> void:
 	if _summary_re == null:
 		_summary_re = RegEx.new()
 		_summary_re.compile("(?i)^\\s*'\\s*@VG-Summary\\s*(.*)$")
+	if _type_re == null:
+		_type_re = RegEx.new()
+		_type_re.compile("(?i)^\\s*(?:Public|Private|Friend|)\\s*Type\\s+(\\w+)")
 
 
 static func analyze(source: String, caret_line: int) -> Dictionary:
@@ -73,20 +77,49 @@ static func analyze(source: String, caret_line: int) -> Dictionary:
 
 
 static func _build_outline(lines: PackedStringArray) -> Array:
+	## Landmarks not in the procedure dropdown: Data blocks, Types, etc. (no Sub/Function).
+	_ensure_regex()
 	var outline: Array = []
+	var seen: Dictionary = {}
 	for i in lines.size():
 		var line := lines[i]
-		var sm := _sub_re.search(line)
-		var fm := _func_re.search(line) if sm == null else null
-		if sm != null:
-			outline.append({"kind": "sub", "label": "Sub " + sm.get_string(1), "line": i})
-		elif fm != null:
-			outline.append({"kind": "function", "label": "Function " + fm.get_string(1), "line": i})
-		else:
-			var lm := Resolver._label_rx().search(line)
-			if lm != null and Resolver.is_sprite_label(lm.get_string(1)):
-				outline.append({"kind": "sprite", "label": lm.get_string(1), "line": i})
+		if _sub_re.search(line) != null or _func_re.search(line) != null:
+			continue
+		var tm := _type_re.search(line)
+		if tm != null:
+			var tlabel := "Type " + tm.get_string(1)
+			if not seen.has(tlabel):
+				seen[tlabel] = true
+				outline.append({"kind": "type", "label": tlabel, "line": i})
+			continue
+		var lm := Resolver._label_rx().search(line)
+		if lm == null:
+			continue
+		var name: String = lm.get_string(1)
+		if seen.has(name):
+			continue
+		if not _label_followed_by_data(lines, i):
+			continue
+		seen[name] = true
+		var kind := "sprite" if Resolver.is_sprite_label(name) else "data"
+		outline.append({"kind": kind, "label": name, "line": i})
 	return outline
+
+
+static func _label_followed_by_data(lines: PackedStringArray, label_line: int) -> bool:
+	var data_rx := Resolver._data_rx()
+	for j in range(label_line + 1, mini(label_line + 8, lines.size())):
+		var s := lines[j].strip_edges()
+		if s.is_empty() or s.begins_with("'"):
+			continue
+		if data_rx.search(lines[j]) != null:
+			return true
+		# Stop at the next label or procedure boundary.
+		if Resolver._label_rx().search(lines[j]) != null:
+			return false
+		if _sub_re.search(lines[j]) != null or _func_re.search(lines[j]) != null:
+			return false
+	return false
 
 
 static func _procedure_at_line(lines: PackedStringArray, caret_line: int) -> Dictionary:

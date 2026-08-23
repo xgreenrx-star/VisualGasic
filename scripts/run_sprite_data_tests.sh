@@ -32,6 +32,17 @@ if ! echo "$out2" | grep -q "RESULTS:.*0 failed"; then
 fi
 
 echo ""
+echo "── context_caret_context headless tests (host: $HOST) ──"
+out4="$(timeout 60 "$GODOT" --headless --path "$HOST" -s "$ROOT/tests/test_context_caret_context.gd" 2>&1)" || ec4=$?
+echo "$out4"
+if ! echo "$out4" | grep -q "RESULTS:.*0 failed"; then
+	if [[ "${ec4:-0}" -ne 0 ]]; then
+		exit 1
+	fi
+	exit 1
+fi
+
+echo ""
 echo "── literal_resolver headless tests (host: $HOST) ──"
 out3="$(timeout 60 "$GODOT" --headless --path "$HOST" -s "$ROOT/tests/test_literal_resolver.gd" 2>&1)" || ec3=$?
 echo "$out3"

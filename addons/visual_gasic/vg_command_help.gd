@@ -96,6 +96,10 @@ static func format_context_rail_keyword_bbcode(keyword: String) -> String:
 		desc = desc.substr(0, 417) + "…"
 	desc = linkify_cross_references(desc)
 	parts.append(desc)
+	var code := str(entry.get("code", "")).strip_edges()
+	if not code.is_empty():
+		parts.append("\n[b]Example[/b]")
+		parts.append(_format_example_bbcode(code))
 	var see_also: Array = get_see_also(keyword)
 	if not see_also.is_empty():
 		var links: PackedStringArray = PackedStringArray()
@@ -108,6 +112,11 @@ static func format_context_rail_keyword_bbcode(keyword: String) -> String:
 			"[url=ref:" + str(rl) + "][color=#0000CC][i]📖 Programmer's Reference[/i][/color][/url]"
 		)
 	return "\n".join(parts)
+
+
+static func _format_example_bbcode(code: String) -> String:
+	var safe := code.replace("[", "&#91;").replace("]", "&#93;")
+	return "[bgcolor=#F2F1EC][code][color=#1a1a1a]" + safe + "[/color][/code][/bgcolor]"
 
 static func get_all_keywords() -> PackedStringArray:
 	_ensure_init()
@@ -687,22 +696,22 @@ static func _build_db() -> void:
 	_add("IsNumeric",
 		"IsNumeric(expression)",
 		"Returns True if the expression can be evaluated as a number (use before Val/CInt).",
-		"If IsNumeric(userInput) Then\n    score = Val(userInput)\nEnd If")
+		"If IsNumeric(userInput) Then\n    score = Val(userInput)\nEnd If", 4960)
 
 	_add("Fix",
 		"Fix(number)",
 		"Returns the integer portion of a number, truncating toward zero (unlike Int, which rounds down).",
-		"Print Fix(3.7)   ' 3\nPrint Fix(-2.9)  ' -2\nPrint Int(-2.9)  ' -3")
+		"Print Fix(3.7)   ' 3\nPrint Fix(-2.9)  ' -2\nPrint Int(-2.9)  ' -3", 4909)
 
 	_add("Hex",
 		"Hex(number)",
 		"Returns a string with the hexadecimal representation of a number (uppercase, no prefix).",
-		"Print Hex(255)   ' FF\nPrint Hex(16)    ' 10")
+		"Print Hex(255)   ' FF\nPrint Hex(16)    ' 10", 4935)
 
 	_add("Oct",
 		"Oct(number)",
 		"Returns a string with the octal representation of a number.",
-		"Print Oct(8)     ' 10\nPrint Oct(64)    ' 100")
+		"Print Oct(8)     ' 10\nPrint Oct(64)    ' 100", 4986)
 
 	# =========================================================================
 	# MATH FUNCTIONS
