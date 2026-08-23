@@ -1,0 +1,82 @@
+---
+description: Visual Gasic + Godot 4.6 conventions for Cursor agents working in this repo
+alwaysApply: true
+---
+
+# Visual Gasic + Godot
+
+This repo is **Visual Gasic (VG)**: a VB6-style language (`.vg`) with a C++ tokenizer/parser/VM (GDExtension) and a Godot 4.6.1 editor plugin (`addons/visual_gasic/`).
+
+## Active product scope (until v6.0 stable)
+
+- **In scope:** Godot IDE integration — Toolbox, Properties, Code Navigator, Narcea AI Pair, autocomplete, Godot-native 2D/3D editors (default).
+- **Mothballed:** Standalone VG IDE shell / experimental Form Designer unless `vg/enable_experimental_plugins` is on.
+
+## Languages & style
+
+| Area | Convention |
+|------|------------|
+| GDScript | `snake_case` functions/vars, `PascalCase` classes, `@tool` on editor scripts |
+| VG (`.vg`) | VB6-style: `Sub`/`Function`, `Dim x As String`, `If … Then … End If`, `Connect node, "signal", "Handler"` |
+| C++ (`src/`) | Match existing style; tabs; actionable errors with line numbers; no drive-by refactors |
+
+## GDScript pitfalls (Godot 4.6)
+
+- `StringName + String` fails — use `str(name) + suffix`.
+- `ProjectSettings.clear_setting()` is **not** in GDScript — use `ProjectSettings.set_setting(key, null)`.
+- After editing `addons/visual_gasic/*.gd`, **always** run headless smoke before finishing:
+  ```bash
+  scripts/ci_smoke.sh projects/vg_narcea_test
+  ```
+  One parse error in `visual_gasic_plugin.gd` disables the entire addon.
+
+## VG property aliases (never use raw Godot names in user-facing VG code)
+
+Writes like `ctrl.position.x = N` **silently fail**. Use VB6 names:
+
+- `Caption` → `.text`
+- `Left` / `Top` / `Width` / `Height` → position/size setters
+- `Visible`, `Enabled` on controls and timers
+- Timer: `Interval` (ms), `Enabled = True/False`, handler `Sub tmr_Timer()`
+
+Event handlers wire by name: `Sub btnOK_Click()`, `Sub Form_Load()`.
+
+**Do not hallucinate:** `ConnectSignal`, `HasMember`, `PropertyGet`, `ArrayLen` — use `Connect`, `UBound`, direct property access.
+
+## Key paths
+
+| What | Where |
+|------|--------|
+| Main editor plugin | `addons/visual_gasic/visual_gasic_plugin.gd` |
+| AI Pair / Narcea panel | `addons/visual_gasic/vg_ai_help.gd` |
+| Narcea system prompt / VG knowledge | `addons/visual_gasic/vg_ai_narcea.gd` |
+| AI providers (Ollama, Claude, Gemini, …) | `addons/visual_gasic/vg_ai_providers.gd` |
+| MCP server (Cursor can call VG tools) | `addons/visual_gasic/vg_mcp_server.gd` — `127.0.0.1:8766` |
+| Plugin settings | Project Settings → **Vg → Plugins** (`vg/plugins/<id>`) |
+| Scene editor mode | **Vg → Scene Editors → Simple 2d 3d** (`vg/scene_editors/simple_2d_3d`) |
+
+## Pairing Cursor with VG (today)
+
+1. Open this repo in **Cursor**; rules in `.cursor/rules/` apply automatically.
+2. Run the project in **Godot** with Visual Gasic enabled — MCP starts on port **8766**.
+3. In **AI Pair**, click **↗ Cursor** (Tier 1 handoff) to write `.vg/cursor_handoff.md`, copy a Composer prompt, and open the project in Cursor.
+4. Use **Narcea** inside Godot for in-IDE context; use **Cursor Composer** for multi-file refactors.
+
+## When editing AI / Narcea
+
+- Providers are OpenAI-compatible HTTP streams except Ollama (local) and **Cursor** (optional SDK subprocess — `pip install cursor-sdk`, API key in ⚙️).
+- **Cursor (Composer)** — Tier 2 embedded provider; use **↗ Cursor** for Tier 1 handoff to full Cursor IDE.
+- Narcea persona id: `"narcea"` — injects VG control catalog, AGCK, Working Nodes, and tutorial index into the system prompt.
+
+## Docs to consult
+
+- `.github/copilot-instructions.md` — milestone context, known bugs, model guidance
+- `docs/manual/ide_tools.md` — plugin activation, 2D/3D routing
+- `docs/manual/IDE_SHORTCUTS.md` — editor shortcuts
+- `addons/visual_gasic/PLUGIN_SDK.md` — sub-plugin API
+
+## Change discipline
+
+- Minimize diff scope; match surrounding code.
+- Do not commit unless the user asks.
+- Do not expand docs unless requested.

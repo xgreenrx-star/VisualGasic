@@ -1048,6 +1048,105 @@ Implementation: `vg_ai_agent_graph.gd` (hop log → WN project), `vg_ai_wnodes_s
 
 ---
 
+### Narcea — editor validation queue (post–Beta7, manual / live)
+
+Headless work shipped in **v5.3.0-Beta7+** (`95f44490`): Tier B manifest gate (only `recorded/manifest.json` scenarios), `play.run_main` launch-failure recovery, approval-dialog agent continuation, launch-detection regression test. **Still requires Godot editor or live API** — schedule when time allows:
+
+| Step | What to verify | How |
+|------|----------------|-----|
+| **1. Mutation → run → ingest E2E** | Edit → `play.run_main` → output in chat → Narcea auto-continues (fix or summary) without manual Send | AI Pair: Agent mode **All**, Approvals **Bypass** (first pass); prompt a `.vg` edit + run |
+| **2. Tier C live scenarios** | Asteroids create/iterate, platformer scaffolds pass rubrics with real LLM | `NARCEA_LIVE=1 NARCEA_PROVIDER=… bash scripts/run_narcea_live_suite.sh` or `NARCEA_SCENARIO=asteroids_iterate` |
+| **3. Approval UI loop** | After **Apply selected** in the mutation dialog, agent loop continues (not silent stop) | Approvals **Ask** → multi-edit response → approve → confirm next hop |
+| **4. Record passing replay (optional)** | Expand Tier B beyond `fixture_counter` | `bash scripts/copy_narcea_transcript.sh "VG Narcea Test" <id>` → add manifest entry → `bash scripts/run_narcea_golden.sh --tier B` |
+
+**Exit criterion for M5 demo:** one game path (asteroids *or* platformer *or* counter→game) runs end-to-end in the editor without hand-holding, with NDJSON/transcript archived for Tier B.
+
+---
+
+### Narcea — game art on disk (M5+ / v6.x)
+
+**User story:** Narcea scaffolds a playable game quickly; the user then **replaces placeholder art** in a normal editor (Sprite Editor, external paint tool, VGAIArt) instead of rewriting `_Draw()` math. Art must live **on disk** (PNG or an editable structured format), not only as runtime `DrawRect` / `DrawCircle` calls.
+
+**Today (Beta7):**
+- Default 2D scaffolds use **Node2D + `_Draw()`** procedural shapes (`vg_ai_project_synth.gd` → `pure_2d_game_prompt_extra`).
+- Narcea **does not** emit PNG binaries (`write_file` / SafeWrite are UTF-8 text only).
+- **VGAIArt**, **Sprite Editor**, **Kenney browser**, and **AGCK Build** can produce `.png`, but none are agent-callable from chat.
+- Classic **`Data` / `Read` / `Restore`** exists (piano notes, pong power-up tables) — **not used for pixel art** in current Narcea output.
+
+#### Track A — PNG pipeline (ship first)
+
+| Step | Deliverable |
+|------|-------------|
+| **A1. Agent tool: `generate_sprite`** | Narcea calls VGAIArt backend (HF / A1111) or a **deterministic procedural placeholder** (AGCK tile-library style); writes `res://ai_projects/<name>/sprites/<id>.png` via binary-safe write path. |
+| **A2. Scaffold policy** | When user asks for sprites / art: emit `Sprite2D` + `LoadPicture("res://…png")` or `DrawTexture` — **never** reference paths that were not written. Fallback: generate placeholder PNG before referencing. |
+| **A3. Project-spec assets** | Extend `vg-project-spec` with optional `assets[]`: `{path, kind:"png", source:"base64"|"procedural"|"prompt"}`. |
+| **A4. Post-scaffold UX** | Double-click sprite path in code → **Sprite Editor**; right-click → **Regenerate in VGAIArt** (prefill prompt from Narcea chat). |
+
+**Exit criterion:** “Make a space shooter with ship and bullet sprites” → runnable game with **real PNG files on disk**, editable in Sprite Editor, no broken `ext_resource` refs.
+
+#### Track B — Embedded sprite data + **inline** contextual editor (user proposal)
+
+**Idea:** Pixel art lives in **labeled `Data` blocks** seeded by Narcea or the user. When the caret is **inside** a sprite section, a **small live preview/editor** appears in an existing idle panel slot (same pattern as **Command Help** in the Toolbox / `CodeHelpPanel` — not a separate Sprite Editor tab). Paint a pixel → **`Data` lines update immediately** in the open `.vg` buffer (debounced per stroke). Right-click remains optional (“Open in full Sprite Editor” for large sheets).
+
+**Why this fits VG:** VB6-era tables in source are auditable, diff-friendly, and don’t require a separate asset pipeline for tiny 8×8–32×32 tiles. Fast jam workflow: AI scaffolds `PlayerSprite:` → user clicks into the block → paints in the side panel → runs game.
+
+**Why inline (not modal):** Matches `_on_caret_moved()` → `_update_command_help()` — already wired on every caret move in `vg_embedded_code_editor.gd`. Zero context switch; also useful for **UI icon grids** (16×16 toolbar glyphs) if labeled `Icon_*Sprite:` blocks.
+
+**Problem — raw `Data` has no schema today:**
+- `Data 1, 2, 0, 1, …` is indistinguishable from a power-up color table or piano frequencies **unless the block is named and structured**.
+- Row width, palette, transparency, and frame count are not encoded in the AST by default.
+- LLMs often break comma/grid alignment on multi-line `Data`.
+
+**VG already has the right primitive — labeled Data sections:**
+- `PlayerSprite:` (label) followed by `Data …` lines works like `PowerUpDefinitions:` / `NoteData:` in existing demos.
+- At init, `scan_data_sections` flattens all `Data` values and maps each label → start index (`label_to_data_index`).
+- The **next label** ends the section (`get_section_end` / `DataCount("label")` / `DataToArray("label")` / `PeekData("label", offset)` — see `docs/BUILTINS.md`).
+- `Restore PlayerSprite` jumps the read pointer to that block (classic BASIC).
+
+**Suggested v1 convention (labels + header row):**
+```vg
+PlayerSprite:
+Data 8, 8, 0, 0          ' w, h, transparentIdx, paletteId (0=NES)
+Data 0,0,1,1,0,0,0,0
+Data 0,1,2,2,1,0,0,0
+' … next label ends this section …
+NoteData:
+Data "C4", 261.63, …     ' unrelated — not a sprite block
+```
+
+**Inline editor UX (v1):**
+| Piece | Behavior |
+|-------|----------|
+| **Trigger** | `caret_changed` → if caret line ∈ labeled `*Sprite` section with valid header → show panel; else hide (or revert to Command Help). |
+| **Placement** | Toolbox `CodeHelpPanel` area: tab or auto-switch **“Sprite”** vs **“Command Help”**; optional bottom-tab fallback for wide layouts. |
+| **Widget** | Minimal grid + 8–16 color palette strip extracted from `vg_sprite_editor.gd` (pen, eraser, fill — no layers/animation in v1). |
+| **Live write-back** | Grid mutation → rewrite header + grid `Data` lines via `set_line()` on known line range; **debounce** (~150 ms) per stroke; `_sprite_sync_guard` to avoid caret feedback loops. |
+| **Limits** | Inline editor capped at **32×32** (configurable); larger blocks → read-only preview + “Open in Sprite Editor”. |
+| **Undo** | One undo step per debounced stroke (merge into code editor undo stack). |
+| **Runtime** | `LoadSpriteData("PlayerSprite")` wraps `PeekData` + palette → `ImageTexture`; optional `DrawSpriteData`. |
+
+**Phasing:**
+1. **Spec doc** — `docs/manual/sprite_data_format.md` (header row, palettes, label rules).
+2. **Section resolver** — given `(file, caret_line)` → `{label, header_line, data_line_start..end}` (regex v0, AST v1 via existing label/`Data` nodes). ✅ **`vg_sprite_data_resolver.gd`**
+3. **Inline panel** — `vg_sprite_data_panel.gd`; VG IDE **Help | Sprite** tabs; floating **VG Help** window + Godot Script editor `caret_changed`. ✅ **v1 shipped**
+4. **Live sync** — grid ↔ `Data` line rewriter + undo. ✅ **debounced write-back** (undo stack integration TBD)
+5. **Narcea prompt** — emit `*Sprite:` + header + grid for 8×8–16×16; PNG track (A) for larger art.
+6. **Optional:** Export section → `.png`; re-import into `Data` lines.
+
+**Do not:** silently treat arbitrary `Data` as pixel art (piano `Data "C4", 261.63` would false-positive). Require **label naming** (`*Sprite`), a validated header row, or future `SpriteData` syntax.
+
+#### Track C — Hybrid default for Narcea scaffolds
+
+| Game size | Default art |
+|-----------|-------------|
+| Jam / prototype | labeled `*Sprite` `Data` blocks or procedural `_Draw()` (zero deps) |
+| User says “sprites” / “my own art” | PNG placeholders + Sprite2D (Track A) |
+| AGCK platformer | AGCK Build → `.png` sheets (existing path) |
+
+**Cross-links:** Sprite Editor (`vg_sprite_editor.gd`), VGAIArt plugin, AGCK tile library procedural gen, `LoadPicture` / `DrawTexture` builtins.
+
+---
+
 ### Causal Chain Visualization — Design Spec
 
 **The problem it solves**: When AI generates a VG form, the auditor currently must read every line of code to verify what happens when a button is clicked. For a 200-line form this takes minutes. For a 2000-line form it is impractical. No existing tool answers the question *"does this code do what I asked, and is there anything hiding in it I didn’t ask for?"*

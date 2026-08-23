@@ -1,0 +1,41 @@
+---
+description: Validate Godot GDScript changes with headless editor before finishing
+globs: addons/**/*.gd
+alwaysApply: false
+---
+
+# Godot GDScript — validate before done
+
+Visual Gasic's editor addon (`addons/visual_gasic/`) must parse and load in Godot 4.6. A single parse error disables the whole addon.
+
+## Required before finishing addon edits
+
+Run a headless editor boot against a real project (not just reading the file):
+
+```bash
+GODOT="${GODOT:-./Godot_v4.6.1-stable_linux.x86_64}"
+timeout 30 "$GODOT" --headless --path projects/vg_narcea_test --editor --quit 2>&1 \
+  | rg -i 'Parse Error|SCRIPT ERROR|Failed to load script.*visual_gasic' \
+  || echo "ok"
+```
+
+Or use the repo smoke script:
+
+```bash
+scripts/ci_smoke.sh projects/vg_narcea_test
+```
+
+Exit must be clean — no `Parse Error`, no `SCRIPT ERROR`, no `Failed to load script` for `visual_gasic_plugin.gd`.
+
+## Common pitfalls (this repo)
+
+- **API exists in C++ but not GDScript** — e.g. `ProjectSettings.clear_setting()` is not callable from GDScript 4.6; use `ProjectSettings.set_setting(key, null)` (see `vg_input_map_editor.gd`, `vg_plugin_manager.gd`).
+- **Strict typing** — `StringName + String` fails; use `str(name) + suffix`.
+- **Assumed singleton methods** — verify against existing `.gd` usage or Godot docs; don't trust extension_api.json alone.
+- **Large plugin file** — errors may be hundreds of lines from `_enter_tree`; grep stderr for the exact line.
+
+## When changing ProjectSettings keys
+
+- Prefer patterns already used in this codebase.
+- Migrate legacy keys; don't call unbound APIs to erase them.
+- After edits, confirm the addon loads — settings registration runs at plugin `_enter_tree`.

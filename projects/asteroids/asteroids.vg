@@ -25,6 +25,8 @@ Dim Level As Integer
 
 ' Arrays
 Dim Asteroids(30) As Object
+Dim AsteroidX(30) As Single
+Dim AsteroidY(30) As Single
 Dim AsteroidVelX(30) As Single
 Dim AsteroidVelY(30) As Single
 Dim AsteroidSize(30) As Integer
@@ -40,6 +42,21 @@ Dim ShootCooldown As Single
 Const PI As Single = 3.14159265
 Const ScreenWidth As Single = 800
 Const ScreenHeight As Single = 600
+Const ShipRadius As Single = 15
+
+Function AsteroidRadius(size As Integer) As Single
+    AsteroidRadius = size * 15
+End Function
+
+Function CirclesHit(x1 As Single, y1 As Single, r1 As Single, x2 As Single, y2 As Single, r2 As Single) As Boolean
+    Dim dx As Single
+    dx = x2 - x1
+    Dim dy As Single
+    dy = y2 - y1
+    Dim reach As Single
+    reach = r1 + r2
+    CirclesHit = (dx * dx + dy * dy) < (reach * reach)
+End Function
 
 Sub _Ready()
     ' Initialize ship
@@ -74,6 +91,9 @@ Sub _Ready()
     For i = 0 To 29
         Asteroids(i) = GetNode("Asteroids").get_child(i)
         Asteroids(i).visible = False
+        AsteroidX(i) = 0
+        AsteroidY(i) = 0
+        AsteroidSize(i) = 0
     Next i
     
     ' Initialize bullets
@@ -164,12 +184,10 @@ Sub _Process(delta As Single)
     Dim i As Integer
     For i = 0 To 29
         If Asteroids(i).visible Then
-            Dim aPos As Object
-            aPos = Asteroids(i).position
             Dim ax As Single
             Dim ay As Single
-            ax = aPos.x + AsteroidVelX(i) * delta
-            ay = aPos.y + AsteroidVelY(i) * delta
+            ax = AsteroidX(i) + AsteroidVelX(i) * delta
+            ay = AsteroidY(i) + AsteroidVelY(i) * delta
             
             ' Wrap asteroids
             If ax < -50 Then ax = ax + ScreenWidth + 100
@@ -177,15 +195,13 @@ Sub _Process(delta As Single)
             If ay < -50 Then ay = ay + ScreenHeight + 100
             If ay > ScreenHeight + 50 Then ay = ay - ScreenHeight - 100
             
+            AsteroidX(i) = ax
+            AsteroidY(i) = ay
             Asteroids(i).position = Vector2(ax, ay)
             
-            ' Check collision with ship
+            ' Check collision with ship (sum of radii, not center-to-center vs single radius)
             If ShipInvulnerable <= 0 Then
-                Dim dist As Single
-                dist = Sqr((ax - ShipX) * (ax - ShipX) + (ay - ShipY) * (ay - ShipY))
-                Dim hitDist As Single
-                hitDist = AsteroidSize(i) * 15 + 15
-                If dist < hitDist Then
+                If CirclesHit(ShipX, ShipY, ShipRadius, ax, ay, AsteroidRadius(AsteroidSize(i))) Then
                     Call HitShip()
                 End If
             End If
@@ -218,11 +234,7 @@ Sub _Process(delta As Single)
                 Dim j As Integer
                 For j = 0 To 29
                     If Asteroids(j).visible Then
-                        Dim aPos2 As Object
-                        aPos2 = Asteroids(j).position
-                        Dim dist2 As Single
-                        dist2 = Sqr((bx - aPos2.x) * (bx - aPos2.x) + (by - aPos2.y) * (by - aPos2.y))
-                        If dist2 < AsteroidSize(j) * 15 Then
+                        If CirclesHit(bx, by, 4, AsteroidX(j), AsteroidY(j), AsteroidRadius(AsteroidSize(j))) Then
                             Call HitAsteroid(j, bx, by)
                             Bullets(i).visible = False
                             Exit For
@@ -278,6 +290,8 @@ Sub SpawnLevel()
                 ' Too close, try again
                 i = i - 1
             Else
+                AsteroidX(i) = ax
+                AsteroidY(i) = ay
                 Asteroids(i).position = Vector2(ax, ay)
                 AsteroidSize(i) = 3
                 AsteroidVelX(i) = (Rnd() - 0.5) * 100
@@ -313,6 +327,7 @@ Sub HitAsteroid(index As Integer, hitX As Single, hitY As Single)
     Score = Score + (4 - size) * 20
     
     Asteroids(index).visible = False
+    AsteroidSize(index) = 0
     
     ' Split into smaller asteroids
     If size > 1 Then
@@ -324,6 +339,8 @@ Sub HitAsteroid(index As Integer, hitX As Single, hitY As Single)
             If splitCount >= 2 Then Exit For
             If Not Asteroids(i).visible Then
                 Asteroids(i).visible = True
+                AsteroidX(i) = hitX
+                AsteroidY(i) = hitY
                 Asteroids(i).position = Vector2(hitX, hitY)
                 AsteroidSize(i) = size - 1
                 
