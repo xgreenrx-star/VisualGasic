@@ -19,8 +19,13 @@ var _popup_shown: Dictionary = {}   # "path|side" -> true until refresh/dismiss
 func note_modified(path: String, side: int) -> void:
 	if path.is_empty() or not path.ends_with(".vg"):
 		return
+	var prev: int = int(_authority.get(path, -1))
 	_authority[path] = side
-	_clear_popup_flags(path)
+	# Only re-arm the stale-side popup when editing authority switches editors —
+	# not on every keystroke in the same buffer.
+	if prev != side:
+		var stale_side := SIDE_EMBEDDED if side == SIDE_NATIVE else SIDE_NATIVE
+		_popup_shown.erase(_popup_key(path, stale_side))
 
 
 func clear_path(path: String) -> void:
@@ -48,6 +53,7 @@ func evaluate(path: String, embedded_text: String, native_text: String, native_o
 	if path.is_empty() or not native_open:
 		return out
 	if embedded_text == native_text:
+		_clear_popup_flags(path)
 		return out
 	if not _authority.has(path):
 		return out

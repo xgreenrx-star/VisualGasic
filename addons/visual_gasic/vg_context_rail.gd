@@ -115,6 +115,16 @@ func _reference_label() -> RichTextLabel:
 	rtl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rtl.add_theme_font_size_override("normal_font_size", 11)
 	rtl.add_theme_color_override("default_color", TEXT_DARK)
+	rtl.add_theme_color_override("font_selected_color", TEXT_DARK)
+	rtl.add_theme_color_override("selection_color", Color(0.35, 0.55, 0.85, 0.35))
+	var rtl_sb := StyleBoxFlat.new()
+	rtl_sb.bg_color = CREAM_BG
+	rtl_sb.content_margin_left = 4
+	rtl_sb.content_margin_right = 4
+	rtl_sb.content_margin_top = 2
+	rtl_sb.content_margin_bottom = 2
+	rtl.add_theme_stylebox_override("normal", rtl_sb)
+	rtl.add_theme_stylebox_override("focus", rtl_sb)
 	rtl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rtl.meta_clicked.connect(_on_keyword_meta_clicked)
 	return rtl

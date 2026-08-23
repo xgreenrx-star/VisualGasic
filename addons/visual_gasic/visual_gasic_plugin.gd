@@ -14748,7 +14748,7 @@ func _poll_dual_editor_stale() -> void:
 			_show_dual_editor_stale_dialog(emb_path, _DualEditorBridge.SIDE_EMBEDDED, str(verdict.get("authority_label", "")))
 	if bool(verdict.get("native_stale", false)):
 		_show_native_stale_strip(str(verdict.get("authority_label", "")))
-		if _dual_editor_bridge.should_popup(emb_path, _DualEditorBridge.SIDE_NATIVE, true):
+		if not _showing_code_view and _dual_editor_bridge.should_popup(emb_path, _DualEditorBridge.SIDE_NATIVE, true):
 			_show_dual_editor_stale_dialog(emb_path, _DualEditorBridge.SIDE_NATIVE, str(verdict.get("authority_label", "")))
 	else:
 		_hide_native_stale_strip()

@@ -1587,6 +1587,7 @@ func flush_for_run() -> void:
 		# Deliberately do NOT clear _dirty — the user has not formally saved.
 		if Engine.is_editor_hint():
 			EditorInterface.get_resource_filesystem().update_file(_vg_path)
+		preload("res://addons/visual_gasic/vg_asset_bus.gd").get_instance().emit_saved(_vg_path, "vg_code_editor")
 		print("VG Code Editor: Flushed buffer to disk for Run (still unsaved): ", _vg_path)
 
 ## Returns true if the buffer has unsaved changes.
