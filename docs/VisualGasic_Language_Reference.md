@@ -232,7 +232,10 @@ x = Round(3.567, 2)         ' Returns 3.57
 ' Conversion functions
 s = CStr(42)                ' Convert to string
 x = CInt("42")              ' Convert to integer
+x = CLng("123456")          ' Convert to long integer
 x = CDbl("3.14")            ' Convert to double
+x = CSng("3.14")            ' Convert to single
+b = CBool("Yes")            ' Convert to boolean
 x = Val("123abc")           ' Returns 123
 
 ' Date/Time functions
@@ -4745,6 +4748,86 @@ Changes the current game scene to the specified .tscn file.
 
 ---
 
+## CBool
+
+**Purpose** — Converts an expression to a Boolean value.
+
+**Syntax**
+
+    CBool(expression)
+
+**Parameters**
+
+- `expression` — Number, string, or other value to convert.
+
+**Description**
+
+Converts an expression to `True` or `False`. Zero (`0`), empty strings, and the string `"false"` (case-insensitive) convert to `False`. Non-zero numbers and non-empty strings convert to `True`.
+
+**Example**
+
+    Print CBool(0)       ' False
+    Print CBool(1)       ' True
+    Print CBool(-1)      ' True
+    Print CBool("")      ' False
+    Print CBool("Yes")   ' True
+
+**See Also** — [CInt](#cint), [CStr](#cstr), [Val](#val)
+
+---
+
+## CDate
+
+**Purpose** — Converts an expression to a date/time serial value (Unix timestamp).
+
+**Syntax**
+
+    CDate(expression)
+
+**Parameters**
+
+- `expression` — Date string (for example `"2026-08-23"`), numeric timestamp, or other coercible value.
+
+**Description**
+
+Converts a date or time expression to a numeric serial value. VG stores the result as a **Unix timestamp** (seconds since 1970-01-01 UTC). ISO-style date strings such as `"YYYY-MM-DD"` are parsed when possible; invalid strings fall back to the current system time. Numeric inputs are treated as existing timestamps.
+
+**Example**
+
+    Dim when As Double
+    when = CDate("2026-08-23")
+    Print when
+
+**See Also** — [CInt](#cint), [CDbl](#cdbl), [DateValue](#datevalue), [DatePart](#datepart)
+
+---
+
+## CDbl
+
+**Purpose** — Converts an expression to a Double-precision floating-point number.
+
+**Syntax**
+
+    CDbl(expression)
+
+**Parameters**
+
+- `expression` — Number, numeric string, or Boolean to convert.
+
+**Description**
+
+Converts an expression to a `Double`. String input must be a valid integer or decimal; invalid strings raise a catchable type mismatch error. Boolean `True` becomes `1.0`, `False` becomes `0.0`.
+
+**Example**
+
+    Dim d As Double = CDbl("3.14")  ' 3.14
+    Dim x As Double = CDbl(42)       ' 42.0
+    Dim t As Double = CDbl(True)     ' 1.0
+
+**See Also** — [CSng](#csng), [CInt](#cint), [CLng](#clng), [CStr](#cstr), [Val](#val)
+
+---
+
 ## CInt
 
 **Purpose** — Converts an expression to an Integer, rounding if necessary.
@@ -4766,7 +4849,60 @@ Converts an expression to an Integer, rounding if necessary.
     Dim n As Integer = CInt(3.7)   ' 4
     Dim m As Integer = CInt("42")  ' 42
 
-**See Also** — [CStr](#cstr), [Val](#val), [Str](#str), [Int](#int)
+**See Also** — [CLng](#clng), [CDbl](#cdbl), [CSng](#csng), [CStr](#cstr), [CBool](#cbool), [Val](#val), [Str](#str), [Int](#int), [Fix](#fix), [Round](#round)
+
+---
+
+## CLng
+
+**Purpose** — Converts an expression to a Long integer.
+
+**Syntax**
+
+    CLng(expression)
+
+**Parameters**
+
+- `expression` — Number or numeric string to convert.
+
+**Description**
+
+Converts an expression to a Long integer (`Long` / 64-bit). Like `CInt`, fractional values are rounded. String input must parse as a number; invalid strings raise a catchable type mismatch error. `CLngLng` is an alias with the same behavior.
+
+**Example**
+
+    Dim n As Long = CLng(3.7)          ' 4
+    Dim big As Long = CLng("123456")   ' 123456
+    Dim m As Long = CLng(99.5)         ' 100
+
+**See Also** — [CInt](#cint), [CDbl](#cdbl), [CSng](#csng), [CStr](#cstr), [Int](#int), [Fix](#fix)
+
+---
+
+## CSng
+
+**Purpose** — Converts an expression to a Single-precision floating-point number.
+
+**Syntax**
+
+    CSng(expression)
+
+**Parameters**
+
+- `expression` — Number, numeric string, or Boolean to convert.
+
+**Description**
+
+Converts an expression to a `Single`. Less precise than `Double` but useful when memory or performance matters. String input must be a valid number; invalid strings raise a catchable type mismatch error.
+
+**Example**
+
+    Dim s As Single = CSng("3.14")   ' 3.14
+    Dim t As Single = CSng(42)        ' 42.0
+    Dim d As Double = 3.14159265358979
+    Dim r As Single = CSng(d)         ' reduced precision
+
+**See Also** — [CDbl](#cdbl), [CInt](#cint), [CLng](#clng), [CStr](#cstr), [Val](#val)
 
 ---
 
@@ -5413,7 +5549,7 @@ Explicitly converts any expression to a String.
     Dim s As String = CStr(42)    ' "42"
     Dim t As String = CStr(True)  ' "True"
 
-**See Also** — [CInt](#cint), [Val](#val), [Str](#str), [Int](#int)
+**See Also** — [CInt](#cint), [CLng](#clng), [CDbl](#cdbl), [CSng](#csng), [CBool](#cbool), [Val](#val), [Str](#str), [Int](#int)
 
 ---
 
@@ -13577,11 +13713,27 @@ Call once in `_Ready` or `LoadSprites` and reuse the cached array in draw code �
 
 ## CByte
 
-**Purpose** — Converts value to byte.
+**Purpose** — Converts an expression to a byte value (0–255).
 
 **Syntax**
 
-    CByte(value)
+    CByte(expression)
+
+**Parameters**
+
+- `expression` — Number or numeric string to convert.
+
+**Description**
+
+Converts an expression to an 8-bit unsigned byte. Values below 0 clamp to 0; values above 255 clamp to 255.
+
+**Example**
+
+    Dim b As Integer = CByte(128)   ' 128
+    Dim hi As Integer = CByte(300)  ' 255
+    Dim lo As Integer = CByte(-1)   ' 0
+
+**See Also** — [CInt](#cint), [CLng](#clng), [CDbl](#cdbl), [CSng](#csng)
 
 ---
 

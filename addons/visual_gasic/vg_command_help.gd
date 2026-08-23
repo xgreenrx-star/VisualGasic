@@ -647,12 +647,62 @@ static func _build_db() -> void:
 	_add("CStr",
 		"CStr(expression)",
 		"Explicitly converts any expression to a String.",
-		"Dim s As String = CStr(42)    ' \"42\"\nDim t As String = CStr(True)  ' \"True\"", 6088)
+		"Dim s As String = CStr(42)    ' \"42\"\nDim t As String = CStr(True)  ' \"True\"", 5531)
 
 	_add("CInt",
 		"CInt(expression)",
 		"Converts an expression to an Integer, rounding if necessary.",
-		"Dim n As Integer = CInt(3.7)   ' 4\nDim m As Integer = CInt(\"42\")  ' 42", 5441)
+		"Dim n As Integer = CInt(3.7)   ' 4\nDim m As Integer = CInt(\"42\")  ' 42", 4831)
+
+	_add("CLng",
+		"CLng(expression)",
+		"Converts an expression to a Long integer. Similar to CInt but for a wider numeric range.",
+		"Dim n As Long = CLng(3.7)         ' 4\nDim big As Long = CLng(\"123456\")  ' 123456", 4856)
+
+	_add("CDbl",
+		"CDbl(expression)",
+		"Converts an expression to a Double-precision floating-point number.",
+		"Dim d As Double = CDbl(\"3.14\")  ' 3.14\nDim x As Double = CDbl(42)       ' 42.0", 4805)
+
+	_add("CSng",
+		"CSng(expression)",
+		"Converts an expression to a Single-precision floating-point number (less precise than Double).",
+		"Dim s As Single = CSng(\"3.14\")  ' 3.14\nDim t As Single = CSng(42)       ' 42.0", 4882)
+
+	_add("CBool",
+		"CBool(expression)",
+		"Converts an expression to Boolean. Zero and empty string are False; other values are True.",
+		"Print CBool(0)       ' False\nPrint CBool(1)       ' True\nPrint CBool(\"Yes\")  ' True", 4751)
+
+	_add("CByte",
+		"CByte(expression)",
+		"Converts an expression to a byte (0–255). Values outside the range are clamped.",
+		"Dim b As Integer = CByte(300)  ' 255\nDim c As Integer = CByte(-1)   ' 0", 13714)
+
+	_add("CDate",
+		"CDate(expression)",
+		"Converts a date string or numeric timestamp to a Unix timestamp serial value.",
+		"Dim when As Double = CDate(\"2026-08-23\")", 4779)
+
+	_add("IsNumeric",
+		"IsNumeric(expression)",
+		"Returns True if the expression can be evaluated as a number (use before Val/CInt).",
+		"If IsNumeric(userInput) Then\n    score = Val(userInput)\nEnd If")
+
+	_add("Fix",
+		"Fix(number)",
+		"Returns the integer portion of a number, truncating toward zero (unlike Int, which rounds down).",
+		"Print Fix(3.7)   ' 3\nPrint Fix(-2.9)  ' -2\nPrint Int(-2.9)  ' -3")
+
+	_add("Hex",
+		"Hex(number)",
+		"Returns a string with the hexadecimal representation of a number (uppercase, no prefix).",
+		"Print Hex(255)   ' FF\nPrint Hex(16)    ' 10")
+
+	_add("Oct",
+		"Oct(number)",
+		"Returns a string with the octal representation of a number.",
+		"Print Oct(8)     ' 10\nPrint Oct(64)    ' 100")
 
 	# =========================================================================
 	# MATH FUNCTIONS
@@ -2304,7 +2354,7 @@ static func _build_see_also() -> void:
 		# String functions
 		["Left", "Right", "Mid", "Trim", "LCase", "UCase", "Len", "InStr", "Replace", "Split", "Join", "Format"],
 		# Type conversion
-		["CInt", "CStr", "Val", "Str", "Int"],
+		["CInt", "CLng", "CDbl", "CSng", "CStr", "CBool", "CByte", "CDate", "Val", "Str", "Int", "Fix", "IsNumeric", "Hex", "Oct"],
 		# Math
 		["Abs", "Int", "Sqr", "Rnd", "Randomize", "RandRange", "Round", "Clamp", "Lerp", "Mod"],
 		# Trig
