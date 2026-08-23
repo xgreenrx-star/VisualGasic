@@ -70,6 +70,9 @@ static func hook_line_edit(le: LineEdit) -> void:
 static func hook_text_edit(te: TextEdit) -> void:
 	if not te:
 		return
+	# VGCodeEdit supplies its own right-click menu (file paths, comment blocks, …).
+	if te.has_method("wrap_comment_block"):
+		return
 	te.context_menu_enabled = true
 	if not te.has_meta("_vg_ctx_hooked"):
 		te.set_meta("_vg_ctx_hooked", true)

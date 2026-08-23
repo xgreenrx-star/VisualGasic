@@ -43,6 +43,11 @@ extends EditorPlugin
 const _VB6Icons = preload("res://addons/visual_gasic/vb6_toolbox_icons.gd")
 const _VGGodotToolbox = preload("res://addons/visual_gasic/vg_godot_toolbox.gd")
 const _ECE_SCRIPT = preload("res://addons/visual_gasic/vg_embedded_code_editor.gd")
+const _AssistFactory = preload("res://addons/visual_gasic/vg_assist_panel_factory.gd")
+const _EditorAssist = preload("res://addons/visual_gasic/vg_editor_assist.gd")
+const _SpriteHighlight = preload("res://addons/visual_gasic/vg_sprite_data_highlight.gd")
+const _SpriteResolver = preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
+const NATIVE_SPRITE_MENU_ID := 98501
 
 ## Toolbox tab indices (must match VisualGasicToolbox TabContainer order)
 const TOOLBOX_TAB_VG_FORMS := 0
@@ -256,6 +261,17 @@ var _vg_ctrl_armed_path: String = ""
 var _ui_forms_toolbox_window: PanelContainer = null
 ## Floating VG Properties panel (opened from 2D canvas right-click menu).
 var _ui_forms_props_window: PanelContainer = null
+## Floating VG Help + Sprite assist (Godot Script editor / native IDE users).
+var _vg_help_window: PanelContainer = null
+var _vg_help_btn: Button = null
+var _float_assist: Dictionary = {}
+var _native_assist_connected: CodeEdit = null
+var _native_sprite_lines: Array = []
+const _DualEditorBridge := preload("res://addons/visual_gasic/vg_dual_editor_bridge.gd")
+var _dual_editor_bridge = _DualEditorBridge.new()
+var _native_stale_strip: PanelContainer = null
+var _native_stale_injected_parent: Control = null
+var _native_stale_applying: bool = false
 ## Canvas right-click context menu (EditorContextMenuPlugin).
 var _ui_forms_ctx_plugin: RefCounted = null
 
@@ -994,6 +1010,20 @@ func _enter_tree():
 			if _embedded_code_editor.has_signal("edit_in_working_nodes_requested"):
 				_embedded_code_editor.edit_in_working_nodes_requested.connect(
 					_open_working_nodes_for_path)
+			if _embedded_code_editor.has_signal("file_path_open_hex_requested"):
+				_embedded_code_editor.file_path_open_hex_requested.connect(_on_hex_editor_open)
+			if _embedded_code_editor.has_signal("file_path_open_sprite_requested"):
+				_embedded_code_editor.file_path_open_sprite_requested.connect(open_sprite_editor)
+			if _embedded_code_editor.has_signal("file_path_reveal_browser_requested"):
+				_embedded_code_editor.file_path_reveal_browser_requested.connect(_on_reveal_in_file_browser)
+			if _embedded_code_editor.has_signal("file_path_open_external_requested"):
+				_embedded_code_editor.file_path_open_external_requested.connect(_on_open_path_external)
+			if _embedded_code_editor.has_signal("dual_editor_refresh_requested"):
+				_embedded_code_editor.dual_editor_refresh_requested.connect(_refresh_embedded_from_native_editor)
+			if _embedded_code_editor.has_signal("stale_banner_dismissed"):
+				_embedded_code_editor.stale_banner_dismissed.connect(_on_embedded_stale_banner_dismissed)
+			if _embedded_code_editor.has_signal("buffer_edited"):
+				_embedded_code_editor.buffer_edited.connect(_on_embedded_buffer_edited)
 			center_stack.add_child(_embedded_code_editor)
 			# Register with VGPluginRegistry so .vg / .gd opens can be routed
 			# through registry.open_asset() generically (file-browser dbl-click,
@@ -1666,9 +1696,7 @@ func _on_vg_plugin_activated(plugin_id: String) -> void:
 		elif is_instance_valid(toolbox):
 			toolbox.visible = false
 		if is_instance_valid(_embedded_code_editor):
-			var help_panel = _embedded_code_editor.get_help_panel()
-			if help_panel:
-				help_panel.visible = false
+			_set_code_context_rail_in_toolbox(toolbox_panel, false)
 		toolbox_panel.visible = false
 
 	# Hide right panel (Project Explorer + Properties) — plugin has its own
@@ -1922,6 +1950,14 @@ func _exit_tree():
 	if is_instance_valid(_ui_forms_props_window):
 		_ui_forms_props_window.queue_free()
 		_ui_forms_props_window = null
+	if is_instance_valid(_vg_help_window):
+		_vg_help_window.queue_free()
+		_vg_help_window = null
+	if is_instance_valid(_vg_help_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_help_btn)
+		remove_control_from_container(EditorPlugin.CONTAINER_TOOLBAR, _vg_help_btn)
+		_vg_help_btn.queue_free()
+		_vg_help_btn = null
 	if _ui_forms_ctx_plugin:
 		remove_context_menu_plugin(_ui_forms_ctx_plugin)
 		_ui_forms_ctx_plugin = null
@@ -4584,10 +4620,11 @@ func _create_vb6_menu_bar() -> MenuBar:
 	edit_menu.add_item("Replace...", 31)
 	edit_menu.set_item_shortcut(edit_menu.get_item_index(31), _make_shortcut(KEY_H, true))
 	edit_menu.add_separator()
-	edit_menu.add_item("Comment Block", 32)
+	edit_menu.add_item("Comment Lines", 32)
 	edit_menu.set_item_shortcut(edit_menu.get_item_index(32), _make_shortcut(KEY_APOSTROPHE, true))
-	edit_menu.add_item("Uncomment Block", 33)
+	edit_menu.add_item("Uncomment Lines", 33)
 	edit_menu.set_item_shortcut(edit_menu.get_item_index(33), _make_shortcut(KEY_APOSTROPHE, true, true))
+	edit_menu.add_item("Wrap in Comment Block", 34)
 	edit_menu.add_separator()
 	edit_menu.add_item("Indent", 40)
 	edit_menu.set_item_shortcut(edit_menu.get_item_index(40), _make_shortcut(KEY_BRACKETRIGHT, true))
@@ -6136,10 +6173,13 @@ func _on_vb6_edit_menu(id: int) -> void:
 				_show_find_replace_bar(false)
 			31: # Replace
 				_show_find_replace_bar(true)
-			32: # Comment Block
+			32: # Comment Lines
 				_comment_selected_lines(ce)
-			33: # Uncomment Block
+			33: # Uncomment Lines
 				_uncomment_selected_lines(ce)
+			34: # Wrap in Comment Block
+				if ce.has_method("wrap_comment_block"):
+					ce.wrap_comment_block()
 			40: # Indent
 				_indent_selected_lines(ce)
 			41: # Outdent
@@ -9642,6 +9682,22 @@ func _on_hex_editor_open(path: String) -> void:
 	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_bottom_tab"):
 		_embedded_code_editor.focus_bottom_tab(_hex_editor)
 
+
+func _on_reveal_in_file_browser(path: String) -> void:
+	if path.is_empty():
+		return
+	_show_code_view()
+	if is_instance_valid(_vg_file_browser):
+		_vg_file_browser.visible = true
+		if _vg_file_browser.has_method("reveal_path"):
+			_vg_file_browser.reveal_path(path)
+
+
+func _on_open_path_external(path: String) -> void:
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return
+	OS.shell_open(ProjectSettings.globalize_path(path))
+
 ## Opens the Hex Editor with a file-picker dialog.  Called from the Tools menu.
 func _on_hex_editor_menu() -> void:
 	if not _ensure_hex_editor():
@@ -9685,6 +9741,33 @@ func _on_browser_dashboard() -> void:
 		var url := String(_vg_dashboard_server.get_url())
 		OS.shell_open(url)
 
+const _TOOLBOX_DEFAULT_W := 180
+
+## Mount or hide the Context rail in the left ToolboxPanel (Code view sidecar).
+func _set_code_context_rail_in_toolbox(toolbox_panel: Control, show_rail: bool) -> void:
+	if not toolbox_panel or not is_instance_valid(_embedded_code_editor):
+		return
+	var rail := _embedded_code_editor.get_context_rail()
+	if not rail:
+		return
+	if show_rail:
+		var enabled := _embedded_code_editor.is_context_rail_enabled()
+		var rail_w := _embedded_code_editor.get_context_rail_width()
+		if rail.get_parent() != toolbox_panel:
+			if rail.get_parent():
+				rail.get_parent().remove_child(rail)
+			toolbox_panel.add_child(rail)
+		rail.visible = enabled
+		rail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		rail.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		if toolbox_panel is PanelContainer:
+			toolbox_panel.custom_minimum_size.x = rail_w if enabled else _TOOLBOX_DEFAULT_W
+	else:
+		if rail:
+			rail.visible = false
+		if toolbox_panel is PanelContainer:
+			toolbox_panel.custom_minimum_size.x = _TOOLBOX_DEFAULT_W
+
 ## Switch the center panel from form canvas to code editor.
 func _show_code_view() -> void:
 	if _showing_code_view:
@@ -9693,6 +9776,10 @@ func _show_code_view() -> void:
 		var rp = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
 		if rp:
 			rp.visible = true
+		var tb = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
+		if tb:
+			_set_code_context_rail_in_toolbox(tb, true)
+		call_deferred("_poll_dual_editor_stale")
 		return
 	_showing_code_view = true
 	_showing_3d_view = false
@@ -9722,12 +9809,13 @@ func _show_code_view() -> void:
 	if is_instance_valid(_embedded_code_editor):
 		_embedded_code_editor.visible = true
 		call_deferred("_sync_bottom_panel_mount")
+		call_deferred("_poll_dual_editor_stale")
 		# Deferred focus so layout settles
 		var ce = _embedded_code_editor.get_code_edit()
 		if ce:
 			ce.grab_focus.call_deferred()
 
-	# Swap left panel: hide Toolbox (wrapper + header), show Command Help + Index Map
+	# Swap left panel: hide Toolbox (wrapper + header), show Context rail
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
 	if toolbox_panel:
 		toolbox_panel.visible = true  # Ensure panel is visible (3D view hides it)
@@ -9737,15 +9825,7 @@ func _show_code_view() -> void:
 			wrapper.visible = false
 		elif is_instance_valid(toolbox):
 			toolbox.visible = false
-		# Add the Command Help panel from the code editor
-		if is_instance_valid(_embedded_code_editor):
-			var help_panel = _embedded_code_editor.get_help_panel()
-			if help_panel and help_panel.get_parent() != toolbox_panel:
-				if help_panel.get_parent():
-					help_panel.get_parent().remove_child(help_panel)
-				toolbox_panel.add_child(help_panel)
-			if help_panel:
-				help_panel.visible = true
+		_set_code_context_rail_in_toolbox(toolbox_panel, true)
 
 	# Restore the right panel (Project Explorer + Properties). The plugin
 	# view hides it to give plugins the full width, and the old code-view
@@ -9827,15 +9907,11 @@ func _show_form_view() -> void:
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
 
-	# Swap left panel: hide Command Help, show Toolbox (wrapper + header)
+	# Swap left panel: hide Context rail, show Toolbox (wrapper + header)
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
 	if toolbox_panel:
 		toolbox_panel.visible = true  # Ensure panel is visible (3D view hides it)
-		# Hide the help panel
-		if is_instance_valid(_embedded_code_editor):
-			var help_panel = _embedded_code_editor.get_help_panel()
-			if help_panel:
-				help_panel.visible = false
+		_set_code_context_rail_in_toolbox(toolbox_panel, false)
 		# Show the ToolboxWrapper (contains VB6 header + toolbox content)
 		var wrapper = toolbox_panel.get_node_or_null("ToolboxWrapper")
 		if wrapper:
@@ -10007,7 +10083,7 @@ func _show_vg_3d_view() -> void:
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
 
-	# Swap left panel: hide Toolbox and Command Help — the 3D editor has its own toolbox
+	# Swap left panel: hide Toolbox and Context rail — the 3D editor has its own toolbox
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
 	if toolbox_panel:
 		var wrapper = toolbox_panel.get_node_or_null("ToolboxWrapper")
@@ -10016,9 +10092,7 @@ func _show_vg_3d_view() -> void:
 		elif is_instance_valid(toolbox):
 			toolbox.visible = false
 		if is_instance_valid(_embedded_code_editor):
-			var help_panel = _embedded_code_editor.get_help_panel()
-			if help_panel:
-				help_panel.visible = false
+			_set_code_context_rail_in_toolbox(toolbox_panel, false)
 		# Hide the entire left panel since the 3D editor has its own left panel
 		toolbox_panel.visible = false
 
@@ -10096,7 +10170,7 @@ func _show_vg_2d_view() -> void:
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
 
-	# Swap left panel: hide Toolbox and Command Help — the 2D editor has its own toolbox
+	# Swap left panel: hide Toolbox and Context rail — the 2D editor has its own toolbox
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
 	if toolbox_panel:
 		var wrapper = toolbox_panel.get_node_or_null("ToolboxWrapper")
@@ -10105,9 +10179,7 @@ func _show_vg_2d_view() -> void:
 		elif is_instance_valid(toolbox):
 			toolbox.visible = false
 		if is_instance_valid(_embedded_code_editor):
-			var help_panel = _embedded_code_editor.get_help_panel()
-			if help_panel:
-				help_panel.visible = false
+			_set_code_context_rail_in_toolbox(toolbox_panel, false)
 		# Hide the entire left panel since the 2D editor has its own left panel
 		toolbox_panel.visible = false
 
@@ -10201,9 +10273,7 @@ func _show_sprite_view() -> void:
 		elif is_instance_valid(toolbox):
 			toolbox.visible = false
 		if is_instance_valid(_embedded_code_editor):
-			var help_panel = _embedded_code_editor.get_help_panel()
-			if help_panel:
-				help_panel.visible = false
+			_set_code_context_rail_in_toolbox(toolbox_panel, false)
 		toolbox_panel.visible = false
 
 	# Keep the right panel (Project Explorer + Properties) visible in Sprite view.
@@ -13543,6 +13613,9 @@ func _check_script_editor_for_vg():
 	
 	var script_path = current_script.resource_path
 	if not script_path.ends_with(".vg") and not script_path.ends_with(".gd"):
+		if _native_assist_connected and is_instance_valid(_native_assist_connected):
+			_SpriteHighlight.clear_native_lines(_native_assist_connected, _native_sprite_lines)
+		_native_sprite_lines.clear()
 		_current_code_edit = null
 		# Not a navigable script — hide navigator
 		if _code_navigator:
@@ -13574,6 +13647,7 @@ func _check_script_editor_for_vg():
 		_code_navigator.visible = true
 	
 	if code_edit == _current_code_edit:
+		_update_native_editor_assist(code_edit)
 		return
 	
 	# New CodeEdit — clear any VG IDE override so the native editor path wins.
@@ -13585,6 +13659,7 @@ func _check_script_editor_for_vg():
 	
 	# New CodeEdit — hook into it
 	_current_code_edit = code_edit
+	_hook_native_assist_caret(code_edit)
 	if not code_edit.gui_input.is_connected(_on_code_edit_gui_input):
 		code_edit.gui_input.connect(_on_code_edit_gui_input)
 
@@ -13611,7 +13686,8 @@ func _check_script_editor_for_vg():
 		_code_navigator.refresh_objects()
 		get_tree().create_timer(0.3).timeout.connect(_code_navigator.refresh_objects)
 
-	# NOTE: Do NOT apply a custom CodeHighlighter to .vg files!
+	_update_native_editor_assist(code_edit)
+	call_deferred("_poll_dual_editor_stale")
 	# Godot's script editor uses the ScriptLanguageExtension's built-in
 	# highlighting methods (_get_comment_delimiters, _get_string_delimiters).
 	# Assigning a CodeHighlighter conflicts with this and causes crash.
@@ -14340,6 +14416,15 @@ func _setup_ui_forms_toolbar_button() -> void:
 	_vg_panels_btn.pressed.connect(_on_vg_panels_btn_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_panels_btn)
 
+	# ── VG Help (Command Help + Sprite Data — floating, like Properties) ────
+	_vg_help_btn = Button.new()
+	_vg_help_btn.text = "❓ VG Help"
+	_vg_help_btn.tooltip_text = "Open VG Help window (keyword docs + sprite Data editor)"
+	_vg_help_btn.flat = true
+	_vg_help_btn.pressed.connect(_on_vg_help_btn_pressed)
+	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_help_btn)
+	add_control_to_container(EditorPlugin.CONTAINER_TOOLBAR, _vg_help_btn)
+
 	# ── Narcea AI — injected into main screen tab row next to Visual Gasic IDE ──
 	_narcea_toolbar_btn = Button.new()
 	_narcea_toolbar_btn.text = "🤖 Narcea AI"
@@ -14439,6 +14524,354 @@ func _vg_ctrl_disarm() -> void:
 
 func _on_vg_props_btn_pressed() -> void:
 	_ui_forms_show_props_window()
+
+
+func _on_vg_help_btn_pressed() -> void:
+	_ensure_float_assist()
+	if is_instance_valid(_vg_help_window):
+		_vg_help_window.visible = true
+		if _current_code_edit and is_instance_valid(_current_code_edit):
+			_update_native_editor_assist(_current_code_edit)
+
+
+func _ensure_float_assist() -> void:
+	if not _float_assist.is_empty() and is_instance_valid(_vg_help_window):
+		return
+	if not is_instance_valid(_vg_help_window):
+		_vg_help_window = _create_floating_panel("VG Help", Vector2(320, 520))
+		_vg_help_window.visible = false
+		var content: VBoxContainer = _vg_help_window.get_meta("_content")
+		_float_assist = _AssistFactory.create_panel()
+		content.add_child(_float_assist["root"])
+		get_editor_interface().get_base_control().add_child(_vg_help_window)
+		_vg_help_window.position = Vector2(640, 60)
+	elif _float_assist.is_empty():
+		var content: VBoxContainer = _vg_help_window.get_meta("_content")
+		_float_assist = _AssistFactory.create_panel()
+		content.add_child(_float_assist["root"])
+
+
+func _ensure_vg_help_window() -> void:
+	_ensure_float_assist()
+
+
+func _hook_native_assist_caret(code_edit: CodeEdit) -> void:
+	if _native_assist_connected == code_edit:
+		return
+	if _native_assist_connected and is_instance_valid(_native_assist_connected):
+		if _native_assist_connected.caret_changed.is_connected(_on_native_script_caret_moved):
+			_native_assist_connected.caret_changed.disconnect(_on_native_script_caret_moved)
+		if _native_assist_connected.text_changed.is_connected(_on_native_code_edit_text_changed):
+			_native_assist_connected.text_changed.disconnect(_on_native_code_edit_text_changed)
+		_SpriteHighlight.clear_native_lines(_native_assist_connected, _native_sprite_lines)
+		_native_sprite_lines.clear()
+	_native_assist_connected = code_edit
+	if not code_edit.caret_changed.is_connected(_on_native_script_caret_moved):
+		code_edit.caret_changed.connect(_on_native_script_caret_moved)
+	if not code_edit.text_changed.is_connected(_on_native_code_edit_text_changed):
+		code_edit.text_changed.connect(_on_native_code_edit_text_changed)
+	_ensure_float_assist()
+	var sp: VBoxContainer = _float_assist.get("sprite_panel")
+	if sp and sp.has_method("bind_code_edit"):
+		sp.bind_code_edit(code_edit)
+	_hook_native_sprite_context_menu(code_edit)
+
+
+func _hook_native_sprite_context_menu(code_edit: CodeEdit) -> void:
+	if code_edit.has_meta("_vg_sprite_ctx_hooked"):
+		return
+	code_edit.set_meta("_vg_sprite_ctx_hooked", true)
+	var attach := func() -> void:
+		var menu := code_edit.get_menu()
+		if menu == null:
+			return
+		const VGThemeUtil = preload("res://addons/visual_gasic/vg_theme_utils.gd")
+		VGThemeUtil.style_popup(menu)
+		if menu.has_meta("_vg_sprite_popup_hooked"):
+			return
+		menu.set_meta("_vg_sprite_popup_hooked", true)
+		menu.about_to_popup.connect(_on_native_code_menu_about_to_popup.bind(code_edit))
+		if not menu.id_pressed.is_connected(_on_native_code_menu_id_pressed):
+			menu.id_pressed.connect(_on_native_code_menu_id_pressed)
+	if code_edit.is_inside_tree():
+		attach.call()
+	else:
+		code_edit.tree_entered.connect(attach, CONNECT_ONE_SHOT)
+
+
+func _on_native_code_menu_about_to_popup(code_edit: CodeEdit) -> void:
+	var menu := code_edit.get_menu()
+	if menu == null:
+		return
+	for i in range(menu.item_count - 1, -1, -1):
+		if menu.get_item_id(i) == NATIVE_SPRITE_MENU_ID:
+			if i > 0 and menu.is_item_separator(i - 1):
+				menu.remove_item(i - 1)
+				i -= 1
+			menu.remove_item(i)
+			break
+	var script_path := ""
+	var se := get_editor_interface().get_script_editor()
+	if se and se.get_current_script():
+		script_path = se.get_current_script().resource_path
+	if not script_path.ends_with(".vg"):
+		return
+	var sec := _SpriteResolver.resolve_at_line(code_edit.text, code_edit.get_caret_line())
+	if sec.is_empty():
+		return
+	menu.add_separator()
+	menu.add_item("Edit Sprite Data as Image…", NATIVE_SPRITE_MENU_ID)
+
+
+func _on_native_code_menu_id_pressed(id: int) -> void:
+	if id != NATIVE_SPRITE_MENU_ID:
+		return
+	_open_native_sprite_data_editor()
+
+
+func _open_native_sprite_data_editor() -> void:
+	_on_vg_help_btn_pressed()
+	var tabs: TabContainer = _float_assist.get("tabs")
+	if tabs:
+		tabs.current_tab = 1
+
+
+func _on_native_script_caret_moved() -> void:
+	if _current_code_edit and is_instance_valid(_current_code_edit):
+		_update_native_editor_assist(_current_code_edit)
+
+
+func _update_native_editor_assist(code_edit: CodeEdit) -> void:
+	if code_edit == null:
+		return
+	_ensure_float_assist()
+	if _float_assist.is_empty():
+		return
+	var script_path := ""
+	var se := get_editor_interface().get_script_editor()
+	if se and se.get_current_script():
+		script_path = se.get_current_script().resource_path
+	var is_vg := script_path.ends_with(".vg")
+	var help_label: RichTextLabel = _float_assist.get("help_label")
+	var help_scroll: ScrollContainer = _float_assist.get("help_scroll")
+	var sprite_panel: Control = _float_assist.get("sprite_panel")
+	var tabs: TabContainer = _float_assist.get("tabs")
+	var state: Dictionary = _float_assist.get("state", {})
+	if is_vg:
+		_EditorAssist.caret_assist_update(code_edit, help_label, sprite_panel, state, help_scroll)
+	else:
+		_EditorAssist.caret_assist_update(code_edit, help_label, null, state, help_scroll)
+		if sprite_panel and sprite_panel.has_method("clear_section"):
+			sprite_panel.clear_section()
+	_float_assist["state"] = state
+	if is_vg and tabs and state.get("in_sprite_block", false):
+		tabs.current_tab = 1
+	_apply_native_sprite_highlights(code_edit, script_path)
+
+
+func _apply_native_sprite_highlights(code_edit: CodeEdit, script_path: String) -> void:
+	if code_edit == null:
+		return
+	_SpriteHighlight.clear_native_lines(code_edit, _native_sprite_lines)
+	_native_sprite_lines.clear()
+	if not script_path.ends_with(".vg"):
+		return
+	_native_sprite_lines = _SpriteHighlight.paint_native_lines(
+		code_edit, code_edit.text, code_edit.get_caret_line())
+
+
+func _on_native_code_edit_text_changed() -> void:
+	if _current_code_edit and is_instance_valid(_current_code_edit):
+		var path := ""
+		var se := get_editor_interface().get_script_editor()
+		if se and se.get_current_script():
+			path = se.get_current_script().resource_path
+		if not _native_stale_applying and path.ends_with(".vg"):
+			_dual_editor_bridge.note_modified(path, _DualEditorBridge.SIDE_NATIVE)
+		_apply_native_sprite_highlights(_current_code_edit, path)
+	_poll_dual_editor_stale.call_deferred()
+
+
+func _on_embedded_buffer_edited(path: String) -> void:
+	if path.ends_with(".vg"):
+		_dual_editor_bridge.note_modified(path, _DualEditorBridge.SIDE_EMBEDDED)
+	_poll_dual_editor_stale.call_deferred()
+
+
+func _on_embedded_stale_banner_dismissed(path: String) -> void:
+	_dual_editor_bridge.dismiss_popup(path, _DualEditorBridge.SIDE_EMBEDDED)
+
+
+func _native_vg_editor_state() -> Dictionary:
+	var out := {"path": "", "text": "", "open": false}
+	var se := get_editor_interface().get_script_editor()
+	if se == null:
+		return out
+	var scr = se.get_current_script()
+	if scr == null:
+		return out
+	var path: String = scr.resource_path
+	if not path.ends_with(".vg"):
+		return out
+	out["path"] = path
+	out["open"] = true
+	if _current_code_edit and is_instance_valid(_current_code_edit):
+		out["text"] = _current_code_edit.text
+	return out
+
+
+func _poll_dual_editor_stale() -> void:
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	var emb_path: String = _embedded_code_editor.get_file_path() if _embedded_code_editor.has_method("get_file_path") else ""
+	var emb_text: String = _embedded_code_editor.get_buffer_text() if _embedded_code_editor.has_method("get_buffer_text") else ""
+	var native := _native_vg_editor_state()
+	if emb_path.is_empty() or not bool(native.get("open", false)):
+		if _embedded_code_editor.has_method("set_dual_editor_stale"):
+			_embedded_code_editor.set_dual_editor_stale(false)
+		_hide_native_stale_strip()
+		return
+	if str(native.get("path", "")) != emb_path:
+		if _embedded_code_editor.has_method("set_dual_editor_stale"):
+			_embedded_code_editor.set_dual_editor_stale(false)
+		_hide_native_stale_strip()
+		return
+	var verdict: Dictionary = _dual_editor_bridge.evaluate(
+		emb_path, emb_text, str(native.get("text", "")), true)
+	if _embedded_code_editor.has_method("set_dual_editor_stale"):
+		_embedded_code_editor.set_dual_editor_stale(
+			bool(verdict.get("embedded_stale", false)),
+			str(verdict.get("authority_label", ""))
+		)
+	if bool(verdict.get("embedded_stale", false)) and _showing_code_view:
+		if _dual_editor_bridge.should_popup(emb_path, _DualEditorBridge.SIDE_EMBEDDED, true):
+			_show_dual_editor_stale_dialog(emb_path, _DualEditorBridge.SIDE_EMBEDDED, str(verdict.get("authority_label", "")))
+	if bool(verdict.get("native_stale", false)):
+		_show_native_stale_strip(str(verdict.get("authority_label", "")))
+		if _dual_editor_bridge.should_popup(emb_path, _DualEditorBridge.SIDE_NATIVE, true):
+			_show_dual_editor_stale_dialog(emb_path, _DualEditorBridge.SIDE_NATIVE, str(verdict.get("authority_label", "")))
+	else:
+		_hide_native_stale_strip()
+
+
+func _show_dual_editor_stale_dialog(path: String, side: int, authority_label: String) -> void:
+	var where := authority_label if not authority_label.is_empty() else "the other editor"
+	var dlg := AcceptDialog.new()
+	dlg.title = "Code editor out of date"
+	dlg.dialog_text = (
+		"%s\n\nThis view is out of date — %s has newer changes.\n\nRefresh now?"
+		% [path.get_file(), where]
+	)
+	dlg.ok_button_text = "Refresh"
+	dlg.add_cancel_button("Not now")
+	dlg.exclusive = false
+	get_editor_interface().get_base_control().add_child(dlg)
+	dlg.confirmed.connect(func() -> void:
+		if side == _DualEditorBridge.SIDE_EMBEDDED:
+			_refresh_embedded_from_native_editor()
+		else:
+			_refresh_native_from_embedded_editor()
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func() -> void:
+		_dual_editor_bridge.dismiss_popup(path, side)
+		dlg.queue_free()
+	)
+	dlg.popup_centered(Vector2i(460, 150))
+
+
+func _refresh_embedded_from_native_editor() -> void:
+	if not is_instance_valid(_embedded_code_editor) or _current_code_edit == null:
+		return
+	var native := _native_vg_editor_state()
+	var path: String = _embedded_code_editor.get_file_path()
+	if path.is_empty() or str(native.get("path", "")) != path:
+		return
+	if _embedded_code_editor.has_method("apply_peer_buffer"):
+		_embedded_code_editor.apply_peer_buffer(str(native.get("text", "")))
+	_poll_dual_editor_stale()
+
+
+func _refresh_native_from_embedded_editor() -> void:
+	if not is_instance_valid(_embedded_code_editor) or _current_code_edit == null:
+		return
+	var path: String = _embedded_code_editor.get_file_path()
+	var native := _native_vg_editor_state()
+	if path.is_empty() or str(native.get("path", "")) != path:
+		return
+	_native_stale_applying = true
+	_current_code_edit.text = _embedded_code_editor.get_buffer_text()
+	_native_stale_applying = false
+	_hide_native_stale_strip()
+	_poll_dual_editor_stale()
+
+
+func _ensure_native_stale_strip(code_edit: CodeEdit) -> void:
+	if _native_stale_strip == null:
+		_native_stale_strip = PanelContainer.new()
+		_native_stale_strip.name = "NativeStaleStrip"
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.95, 0.82, 0.45, 0.95)
+		sb.border_color = Color(0.72, 0.52, 0.12)
+		sb.set_border_width_all(1)
+		sb.content_margin_left = 8
+		sb.content_margin_right = 8
+		sb.content_margin_top = 4
+		sb.content_margin_bottom = 4
+		_native_stale_strip.add_theme_stylebox_override("panel", sb)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		var icon := Label.new()
+		icon.text = "⚠"
+		row.add_child(icon)
+		var lbl := Label.new()
+		lbl.name = "StaleLabel"
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		lbl.add_theme_font_size_override("font_size", 11)
+		row.add_child(lbl)
+		var refresh_btn := Button.new()
+		refresh_btn.text = "Refresh"
+		refresh_btn.pressed.connect(_refresh_native_from_embedded_editor)
+		row.add_child(refresh_btn)
+		var dismiss_btn := Button.new()
+		dismiss_btn.text = "Dismiss"
+		dismiss_btn.pressed.connect(_on_native_stale_banner_dismissed)
+		row.add_child(dismiss_btn)
+		_native_stale_strip.add_child(row)
+	var parent := code_edit.get_parent()
+	if parent == null:
+		return
+	if _native_stale_injected_parent != parent:
+		if _native_stale_strip.get_parent():
+			_native_stale_strip.get_parent().remove_child(_native_stale_strip)
+		parent.add_child(_native_stale_strip)
+		parent.move_child(_native_stale_strip, 0)
+		_native_stale_injected_parent = parent
+
+
+func _show_native_stale_strip(authority_label: String) -> void:
+	if _current_code_edit == null:
+		return
+	_ensure_native_stale_strip(_current_code_edit)
+	var where := authority_label if not authority_label.is_empty() else "VG Code view"
+	var lbl := _native_stale_strip.find_child("StaleLabel", true, false) as Label
+	if lbl:
+		lbl.text = "Out of date — %s has newer changes. Refresh to match." % where
+	_native_stale_strip.visible = true
+
+
+func _hide_native_stale_strip() -> void:
+	if is_instance_valid(_native_stale_strip):
+		_native_stale_strip.visible = false
+
+
+func _on_native_stale_banner_dismissed() -> void:
+	_hide_native_stale_strip()
+	var native := _native_vg_editor_state()
+	var path: String = str(native.get("path", ""))
+	if not path.is_empty():
+		_dual_editor_bridge.dismiss_popup(path, _DualEditorBridge.SIDE_NATIVE)
 
 
 func _on_vg_panels_btn_pressed() -> void:

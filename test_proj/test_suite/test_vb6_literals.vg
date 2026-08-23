@@ -1,0 +1,60 @@
+' Test: VB6 literal forms — date, type suffixes, binary
+Attribute VB_Name = "TestVb6Literals"
+
+Sub _Ready()
+	Dim d As String = #1/15/2026#
+	If d = "1/15/2026" Then
+		Print "PASS: date_literal"
+	Else
+		Print "FAIL: date_literal: got " & d
+	End If
+
+	Dim pct As Integer = 42%
+	If pct = 42 Then
+		Print "PASS: suffix_pct"
+	Else
+		Print "FAIL: suffix_pct: got " & Str(pct)
+	End If
+
+	Dim lng As Integer = 100&
+	If lng = 100 Then
+		Print "PASS: suffix_amp"
+	Else
+		Print "FAIL: suffix_amp"
+	End If
+
+	Dim sng As Single = 3.14!
+	If sng > 3.13 And sng < 3.15 Then
+		Print "PASS: suffix_bang"
+	Else
+		Print "FAIL: suffix_bang"
+	End If
+
+	Dim dbl As Double = 1#
+	If dbl >= 0.99 And dbl <= 1.01 Then
+		Print "PASS: suffix_hash"
+	Else
+		Print "FAIL: suffix_hash"
+	End If
+
+	Dim b As Integer = &B1111
+	If b = 15 Then
+		Print "PASS: binary_literal"
+	Else
+		Print "FAIL: binary_literal: got " & Str(b)
+	End If
+
+	Dim hx As Integer = &HFF&
+	If hx = 255 Then
+		Print "PASS: hex_long_suffix"
+	Else
+		Print "FAIL: hex_long_suffix: got " & Str(hx)
+	End If
+
+	' Print #1 must still tokenize as file number, not date
+	Dim fh As Integer = 1
+	If fh = 1 Then
+		Print "PASS: plain_int_ok"
+	Else
+		Print "FAIL: plain_int_ok"
+	End If

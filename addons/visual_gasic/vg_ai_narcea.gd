@@ -842,6 +842,14 @@ Classes go in their own .vg file with a Class header (NOT a flat module).
   Dim tiles As Variant = DataToArray(\"LevelMap\")  ' flat 1D array
   ' Reshape manually for 2D grids (see tutorials/tilemap_tutorial.vg).
 
+  ' Labeled *Sprite blocks (inline pixel art — editable in Context Rail):
+  PlayerSprite:
+  Data 8, 8, 0, 0          ' w, h, transparentIdx, paletteId (0=NES)
+  Data 0,0,1,1,0,0,0,0     ' exactly h rows, each with w pixel indices
+  ' Next label (PlatformData:, etc.) ends the section. Max 32×32 inline.
+  ' PERF: call DataToArray(\"PlayerSprite\") ONCE in _Ready/LoadSprites —
+  ' NEVER inside _Draw or a per-frame Draw* helper (see canvas sprite perf policy).
+
   ' Dynamic arrays:
   Dim scores(9) As Integer           ' fixed 0-based, indices 0..9
   ReDim scores(19)                   ' resize (loses data)
@@ -1208,7 +1216,10 @@ const PLATFORMER_CANVAS_POLICY := (
 	+ "Platform collision is AABB rect-vs-rect (overlap on X while feet cross platform top while falling), "
 	+ "NOT circle-vs-circle (that policy is for Asteroids/shooters only). "
 	+ "Input: WASD and arrow keys for horizontal move; Space (and/or W/Up) for jump — poll each _Process frame. "
-	+ "Call QueueRedraw at end of _Process when px/py/vy change. "
+	+ "Call QueueRedraw ONLY when visual state changed (px/py/vy/camX/score/enemy positions) — "
+	+ "do NOT call QueueRedraw unconditionally every _Process frame. "
+	+ "Cache every *Sprite DataToArray tape once in _Ready; draw helpers take the cached Variant, "
+	+ "not a section name string (see canvas_sprite_perf_prompt_extra). "
 	+ "In _Draw: fill sky background first, draw brown platform rects, then player body + hat — "
 	+ "never draw only a solid color with no player/platform rects. "
 	+ "Copy parallel-array slots (platX(i), platY(i)) into scalar locals before overlap tests. "
@@ -1221,6 +1232,34 @@ const PLATFORMER_CANVAS_POLICY := (
 
 static func platformer_canvas_prompt_extra() -> String:
 	return PLATFORMER_CANVAS_POLICY
+
+
+## Prompt fragment: _Draw canvas games that blit labeled *Sprite DATA blocks.
+const CANVAS_SPRITE_PERF_POLICY := (
+	" CANVAS SPRITE PERF (*Sprite: Data blocks + _Draw games): "
+	+ "DataToArray is for LOAD TIME only — call once per section in _Ready or LoadSprites, "
+	+ "store in module-level Dim … As Variant vars (cloudRaw, playerRaw, etc.). "
+	+ "Draw helpers MUST accept the cached raw array — NEVER call DataToArray inside _Draw, "
+	+ "_Process, or a helper invoked every frame (e.g. DrawDataSprite must NOT take Section As String "
+	+ "and re-fetch each call). With 18 parallax clouds that pattern alone costs thousands of "
+	+ "redundant lookups per second. "
+	+ "Canonical pattern: Sub LoadSprites() → cloudRaw = DataToArray(\"CloudSprite\"); "
+	+ "Sub DrawCachedSprite(raw As Variant, dx, dy, scale) → read sw/sh/trans from raw(0..2), "
+	+ "loop pixels from raw(4) onward with DrawRect; Sub DrawParallaxClouds() → "
+	+ "DrawCachedSprite cloudRaw, sx, y, 3 for each cloud. "
+	+ "QueueRedraw only when something visible changed — track old px/py/camX or a needRedraw flag; "
+	+ "unconditional QueueRedraw every _Process forces full _Draw (all platforms, all clouds, "
+	+ "all sprites) at 60fps even when standing still. "
+	+ "Per-pixel DrawRect is acceptable for hero-sized sprites (8×12) but multiplies with "
+	+ "instance count × sprite area — keep cloud/decoration sprites modest (12×6–12×12), "
+	+ "cache tapes, and batch draws. When fixing sluggish AI games, prefer LoadSprites + "
+	+ "DrawCachedSprite + conditional QueueRedraw over shrinking art alone. "
+	+ "User edits to *Sprite Data in the IDE apply on Play (flush_for_run) — no Save All required."
+)
+
+
+static func canvas_sprite_perf_prompt_extra() -> String:
+	return CANVAS_SPRITE_PERF_POLICY
 
 
 ## Prompt fragment: 3D CharacterBody3D games (Squash-the-Creeps style).
@@ -1253,6 +1292,8 @@ const SLIM_KNOWLEDGE := """
 - Events by name: Sub btnOK_Click(), Sub Form_Load(), Sub tmr_Timer() (Interval in ms).
 - Start new `.vg` modules with Option Explicit on line 1 (after optional header comment).
 - AI-written .vg must be auditable: `'` header, comment before each Sub, brief notes on state/logic.
+- Canvas _Draw games with *Sprite: Data blocks — cache DataToArray in _Ready; draw from cached
+  Variant arrays; QueueRedraw only when visuals change (not every _Process frame).
 - Follow `.cursor/rules/visual-gasic-godot.mdc`. Search corpus/, demos/, tutorials/ for examples.
 - VG MCP tools (read_file, write_file, find_in_files) when Godot + plugin are running.
 """
@@ -1327,6 +1368,7 @@ CODE QUALITY — ALWAYS:
     never Godot names (text, position.x, size.y).
   * For event handlers always follow the naming convention:
     Sub controlName_Event() — never manually Connect unless necessary.
+  * Canvas _Draw games: cache DataToArray(\"*Sprite\") tapes at load; conditional QueueRedraw.
 
 ANSWERS:
   * Prefer a short working code example over a prose description.
@@ -1362,6 +1404,9 @@ COMMON MISTAKES TO AVOID:
     wrap).  NEVER |dx|<R And |dy|<R (square hitbox).  ByRef write-back to
     arr(i) is supported; reading arr(i) as a call argument always worked.
     See demos/2D_Games/Space_Shooter/.
+  * 2D _Draw + *Sprite games: NEVER call DataToArray inside _Draw or per-frame
+    Draw* helpers — cache each section once in _Ready (LoadSprites). NEVER
+    QueueRedraw every _Process unconditionally. See canvas sprite perf policy.
   * Do NOT rely on `And`/`Or` short-circuiting a guard condition (e.g.
     `a > 0 And arr(a-1) > 0`) — VG always evaluates both sides; use nested
     If/ElseIf instead when the right side is only safe when the left is true.

@@ -326,6 +326,32 @@ func refresh() -> void:
 	var filter: String = _filter_edit.text.to_lower() if is_instance_valid(_filter_edit) else ""
 	_populate_dir(_tree, root, "res://", filter)
 
+
+## Select and scroll to a project file (res://…) in the tree.
+func reveal_path(path: String) -> void:
+	if path.is_empty() or not path.begins_with("res://") or path.ends_with("/"):
+		return
+	refresh()
+	var root := _tree.get_root()
+	if root == null:
+		return
+	var item := _find_tree_item_for_path(root, path)
+	if item:
+		item.select(0)
+		_tree.scroll_to_item(item)
+
+
+func _find_tree_item_for_path(item: TreeItem, path: String) -> TreeItem:
+	if str(item.get_metadata(0)) == path:
+		return item
+	var child := item.get_first_child()
+	while child:
+		var found := _find_tree_item_for_path(child, path)
+		if found:
+			return found
+		child = child.get_next()
+	return null
+
 func _populate_dir(tree: Tree, parent: TreeItem, dir_path: String, filter: String) -> void:
 	var dir := DirAccess.open(dir_path)
 	if not dir:

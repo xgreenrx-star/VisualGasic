@@ -1,0 +1,38 @@
+' Test: &B binary integer literals (VG extension)
+Attribute VB_Name = "TestBinaryLiteral"
+
+Sub _Ready()
+	Dim ten As Integer = &B1010
+	If ten = 10 Then
+		Print "PASS: binary_ten"
+	Else
+		Print "FAIL: binary_ten: expected 10, got " & Str(ten)
+	End If
+
+	Dim zero As Integer = &B0
+	If zero = 0 Then
+		Print "PASS: binary_zero"
+	Else
+		Print "FAIL: binary_zero: got " & Str(zero)
+	End If
+
+	Dim ff As Integer = &B11111111
+	If ff = 255 Then
+		Print "PASS: binary_255"
+	Else
+		Print "FAIL: binary_255: expected 255, got " & Str(ff)
+	End If
+
+	Dim expr As Integer = &B1010 + &B1
+	If expr = 11 Then
+		Print "PASS: binary_expr"
+	Else
+		Print "FAIL: binary_expr: expected 11, got " & Str(expr)
+	End If
+
+	' Ensure &H still works beside &B
+	If &H10 = 16 And &B10000 = 16 Then
+		Print "PASS: binary_hex_coexist"
+	Else
+		Print "FAIL: binary_hex_coexist"
+	End If

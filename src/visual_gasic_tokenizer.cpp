@@ -286,6 +286,29 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
             continue;
         }
 
+        // Date/time literals: #1/15/2026# or #4:45:23 PM# (VB6)
+        if (c == '#') {
+            int start = current;
+            int scan = current + 1;
+            while (scan < length && p_source_code[scan] != '#') {
+                scan++;
+            }
+            if (scan < length && p_source_code[scan] == '#') {
+                String body = p_source_code.substr(current + 1, scan - current - 1);
+                if (body.contains("/") || body.contains(":")) {
+                    current = scan + 1;
+                    Token t;
+                    t.type = TOKEN_LITERAL_STRING;
+                    t.value = body.strip_edges();
+                    t.line = line;
+                    t.column = column;
+                    tokens.push_back(t);
+                    column += (current - start);
+                    continue;
+                }
+            }
+        }
+
         // Hex literals: &H prefix (VB6 style) or 0x prefix (C style)
         if (c == '&' && current + 1 < length &&
             (p_source_code[current + 1] == 'H' || p_source_code[current + 1] == 'h')) {
@@ -337,6 +360,29 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
             continue;
         }
 
+        // Binary literals: &B prefix (VG extension — not classic VB6)
+        if (c == '&' && current + 1 < length &&
+            (p_source_code[current + 1] == 'B' || p_source_code[current + 1] == 'b')) {
+            int start = current;
+            current += 2; // skip &B
+            int64_t bin_val = 0;
+            bool has_digits = false;
+            while (current < length &&
+                   (p_source_code[current] == '0' || p_source_code[current] == '1')) {
+                bin_val = (bin_val << 1) | (p_source_code[current] - '0');
+                has_digits = true;
+                current++;
+            }
+            Token t;
+            t.type = TOKEN_LITERAL_INTEGER;
+            t.value = has_digits ? Variant(bin_val) : Variant((int64_t)0);
+            t.line = line;
+            t.column = column;
+            tokens.push_back(t);
+            column += (current - start);
+            continue;
+        }
+
         // Numbers (decimal and 0x hex)
         if (is_digit(c)) {
             int start = current;
@@ -372,6 +418,19 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
                 current++;
             }
             String num_str = p_source_code.substr(start, current - start);
+            // VB6 type suffixes: % Integer, & Long, ! Single, # Double, @ Currency
+            if (current < length) {
+                char32_t suf = p_source_code[current];
+                if (suf == '%' || suf == '&') {
+                    current++;
+                } else if (suf == '!' || suf == '@') {
+                    current++;
+                    is_float = true;
+                } else if (suf == '#') {
+                    current++;
+                    is_float = true;
+                }
+            }
             Token t;
             t.type = is_float ? TOKEN_LITERAL_FLOAT : TOKEN_LITERAL_INTEGER;
             if (is_float) t.value = num_str.to_float();

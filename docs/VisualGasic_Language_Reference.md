@@ -2394,6 +2394,84 @@ Dim enemy = scene.Instantiate()
 AddChild(enemy)
 ```
 
+### Inline Sprite Data (*Sprite blocks)
+
+Small pixel-art sprites can live **inline in `.vg` source** as labeled `Data` sections. The IDE **Context Rail** shows a live pixel grid when the caret is inside a valid block (label name must end with `Sprite`, e.g. `PlayerSprite:`, `CloudSprite:`).
+
+**Block layout**
+
+1. **Label line** — `NameSprite:` (identifier + colon; optional trailing comment).
+2. **Header row** — first `Data` line after the label with **exactly four integers**:
+
+        Data w, h, transparentIdx, paletteId
+
+   | Field | Meaning |
+   |-------|---------|
+   | `w` | Width in pixels (1–32 for inline editor) |
+   | `h` | Height in pixels (1–32 for inline editor) |
+   | `transparentIdx` | Palette index treated as transparent when drawing (usually `0`) |
+   | `paletteId` | Which built-in 16-color palette to use when painting in the IDE (see table below) |
+
+3. **Pixel rows** — exactly **`h` more `Data` lines**, each with **`w` comma-separated palette indices** (0–15), one row per scanline, top to bottom.
+
+The **next label** (e.g. `PlatformData:`) ends the sprite section.
+
+**Example (8×8, NES palette, index 0 transparent)**
+
+```vb
+PlayerSprite:
+Data 8, 8, 0, 0
+Data 0, 0, 1, 1, 0, 0, 0, 0
+Data 0, 1, 2, 2, 1, 0, 0, 0
+Data 0, 1, 2, 2, 1, 0, 0, 0
+Data 0, 1, 2, 2, 1, 0, 0, 0
+Data 0, 0, 1, 1, 0, 0, 0, 0
+Data 0, 0, 0, 0, 0, 0, 0, 0
+Data 0, 0, 0, 0, 0, 0, 0, 0
+Data 0, 0, 0, 0, 0, 0, 0, 0
+```
+
+**Built-in palettes (`paletteId`)**
+
+| ID | Name | Notes |
+|----|------|-------|
+| 0 | **NES** | Default; classic 16-color NES-like set |
+| 1 | **GameBoy** | Green handheld + extra accent slots |
+| 2 | **C64** | Commodore 64 |
+| 3 | **CGA** | IBM CGA 16-color |
+
+Each palette has **16 indices (0–15)**. Index `0` is often used as transparent in `transparentIdx`, but any index 0–15 may be chosen.
+
+**NES palette (paletteId = 0)** — index → color:
+
+| Idx | Color | Idx | Color |
+|-----|-------|-----|-------|
+| 0 | `#7C7C7C` gray | 8 | `#503000` brown |
+| 1 | `#0000FC` blue | 9 | `#007800` green |
+| 2 | `#0000BC` dark blue | 10 | `#006800` dark green |
+| 3 | `#4428BC` purple | 11 | `#005800` forest |
+| 4 | `#940084` magenta | 12 | `#004058` teal |
+| 5 | `#A80020` red | 13 | `#000000` black |
+| 6 | `#A81000` dark red | 14 | `#BCBCBC` light gray |
+| 7 | `#881400` orange | 15 | `#0078F8` sky blue |
+
+Palettes **GameBoy**, **C64**, and **CGA** use the same index range (0–15); see [Sprite Data](#sprite-data) in Part II for full hex tables.
+
+**Reading at runtime**
+
+```vb
+Dim raw As Variant
+raw = DataToArray("PlayerSprite")
+' raw(0)=w, raw(1)=h, raw(2)=transparentIdx, raw(3)=paletteId
+' raw(4) .. raw(4 + w*h - 1) = pixel indices, row-major (left→right, top→bottom)
+
+' Load once in _Ready — do NOT call DataToArray inside _Draw every frame.
+```
+
+For custom RGB (not palette indices), use a separate labeled block such as `PaletteData:` with RGB triplets and map indices yourself — see platformer demos that call `PalColor(index)`.
+
+**See also:** [Sprite Data](#sprite-data), [Data](#data), [DataToArray](#datatoarray)
+
 ### Godot Singleton Access
 
 VisualGasic provides **universal access to all 37 Godot engine singletons** directly by name. Any registered Godot singleton can be used without imports or special setup:
@@ -5389,7 +5467,113 @@ Stores inline data values that can be read sequentially with Read. Supports stri
     Dim itemName As String, atk As Integer, cost As Integer
     Read itemName, atk, cost
 
-**See Also** — [Open](#open), [Close](#close), [Line Input](#line-input), [Read](#read), [Restore](#restore)
+**See Also** — [Open](#open), [Close](#close), [Line Input](#line-input), [Read](#read), [Restore](#restore), [Sprite Data](#sprite-data), [DataToArray](#datatoarray)
+
+---
+
+## Sprite Data
+
+**Purpose** — Inline pixel-art sprites stored as labeled `*Sprite:` `Data` blocks in `.vg` source (editable in the IDE Context Rail).
+
+**Syntax**
+
+    LabelSprite:
+    Data w, h, transparentIdx, paletteId
+    Data …                    ' row 0: w palette indices
+    Data …                    ' row 1
+    ' … exactly h pixel rows …
+
+**Header row (first `Data` line)**
+
+The four integers on the first `Data` line after the label define the grid:
+
+| Value | Range | Meaning |
+|-------|-------|---------|
+| `w` | 1–32 | Sprite width in pixels |
+| `h` | 1–32 | Sprite height in pixels |
+| `transparentIdx` | 0–15 | Palette index skipped when blitting (checkerboard in editor) |
+| `paletteId` | 0–3 | Built-in palette for IDE paint preview (see below) |
+
+**Pixel rows**
+
+- Provide exactly **`h` lines** after the header.
+- Each line: `Data` followed by **`w` integers** (palette indices 0–15), comma-separated.
+- Order: row 0 = top scanline, left to right; then row 1, … row h−1.
+- The next `LabelName:` line ends the section (same rules as any labeled `Data` block).
+
+**Label naming**
+
+- Label must end with **`Sprite`** (case-insensitive): `PlayerSprite:`, `CloudSprite:`, `Icon_MenuSprite:`.
+- Blocks without the `Sprite` suffix are ordinary data tables, not sprite grids.
+
+**Built-in palettes (`paletteId`)**
+
+| ID | Name | Description |
+|----|------|-------------|
+| 0 | NES | Default 16-color NES-like palette |
+| 1 | GameBoy | 4-shade green base + extended accents |
+| 2 | C64 | Commodore 64 colors |
+| 3 | CGA | IBM CGA 16-color |
+
+**NES (paletteId = 0)**
+
+| 0 `#7C7C7C` | 1 `#0000FC` | 2 `#0000BC` | 3 `#4428BC` |
+| 4 `#940084` | 5 `#A80020` | 6 `#A81000` | 7 `#881400` |
+| 8 `#503000` | 9 `#007800` | 10 `#006800` | 11 `#005800` |
+| 12 `#004058` | 13 `#000000` | 14 `#BCBCBC` | 15 `#0078F8` |
+
+**GameBoy (paletteId = 1)**
+
+| 0 `#0F380F` | 1 `#306230` | 2 `#8BAC0F` | 3 `#9BBC0F` |
+| 4 `#000000` | 5 `#545454` | 6 `#A9A9A9` | 7 `#FFFFFF` |
+| 8 `#7C7C7C` | 9 `#0000FC` | 10 `#0000BC` | 11 `#4428BC` |
+| 12 `#940084` | 13 `#A80020` | 14 `#A81000` | 15 `#881400` |
+
+**C64 (paletteId = 2)**
+
+| 0 `#000000` | 1 `#FFFFFF` | 2 `#880000` | 3 `#AAFFEE` |
+| 4 `#CC44CC` | 5 `#00CC55` | 6 `#0000AA` | 7 `#EEEE77` |
+| 8 `#DD8855` | 9 `#664400` | 10 `#FF7777` | 11 `#333333` |
+| 12 `#777777` | 13 `#AAFF66` | 14 `#0088FF` | 15 `#BBBBBB` |
+
+**CGA (paletteId = 3)**
+
+| 0 `#000000` | 1 `#0000AA` | 2 `#00AA00` | 3 `#00AAAA` |
+| 4 `#AA0000` | 5 `#AA00AA` | 6 `#AA5500` | 7 `#AAAAAA` |
+| 8 `#555555` | 9 `#5555FF` | 10 `#55FF55` | 11 `#55FFFF` |
+| 12 `#FF5555` | 13 `#FF55FF` | 14 `#FFFF55` | 15 `#FFFFFF` |
+
+**`DataToArray` layout for a sprite section**
+
+    Dim raw As Variant = DataToArray("PlayerSprite")
+    ' raw(0) = w
+    ' raw(1) = h
+    ' raw(2) = transparentIdx
+    ' raw(3) = paletteId
+    ' raw(4) .. raw(4 + w*h - 1) = pixel indices (row-major)
+
+When drawing, skip indices equal to `transparentIdx`. Call `DataToArray` **once** at load time; cache the `Variant` for `_Draw` helpers.
+
+**Example — minimal 4×4**
+
+    CloudSprite:
+    Data 4, 4, 0, 0
+    Data 0, 15, 15, 0
+    Data 15, 15, 15, 15
+    Data 15, 15, 15, 15
+    Data 0, 15, 15, 0
+
+    Sub LoadSprites()
+        cloudRaw = DataToArray("CloudSprite")
+    End Sub
+
+**IDE**
+
+- Caret inside the block → **Context Rail → Sprite data** shows palette swatches and a paint grid.
+- Right-click in the code editor → **Edit Sprite Data as Image…** (native Script editor).
+- Max **32×32** for inline editing; larger art → PNG + `LoadPicture` / AGCK Sprite Editor.
+
+**See Also** — [Data](#data), [DataToArray](#datatoarray), [PeekData](#peekdata), [DrawRect](#drawrect), [QueueRedraw](#queueredraw)
 
 ---
 
@@ -12943,11 +13127,47 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## DataToArray
 
-**Purpose** — Materializes remaining DATA values into an array.
+**Purpose** — Materializes DATA values into a 1-based Variant array. With a section label, returns all values in that labeled block (including sprite header + pixel indices for `*Sprite:` sections).
 
 **Syntax**
 
     DataToArray()
+    DataToArray("sectionLabel")
+    DataToArray(count)
+
+**Parameters**
+
+- *(no args)* — entire active DATA tape as a flat array.
+- `"sectionLabel"` — all values in the named section (case-insensitive label before the colon).
+- `count` — read `count` values from the current DATA read pointer.
+
+**Description**
+
+For labeled sections, the compiler records label boundaries; `DataToArray("PlayerSprite")` returns every numeric literal in that section in order. For [Sprite Data](#sprite-data) blocks, element layout is:
+
+- `(0)` = width `w`
+- `(1)` = height `h`
+- `(2)` = transparent palette index
+- `(3)` = palette id (0=NES, 1=GameBoy, 2=C64, 3=CGA)
+- `(4)` … `(4 + w×h − 1)` = pixel indices, row-major
+
+Call once in `_Ready` or `LoadSprites` and reuse the cached array in draw code — do not call inside `_Draw` per sprite instance.
+
+**Example**
+
+    PlayerSprite:
+    Data 4, 4, 0, 0
+    Data 0, 1, 1, 0
+    Data 1, 2, 2, 1
+    Data 1, 2, 2, 1
+    Data 0, 1, 1, 0
+
+    Dim raw As Variant
+    raw = DataToArray("PlayerSprite")
+    Print raw(0)   ' 4 (width)
+    Print raw(4)   ' first pixel index (top-left)
+
+**See Also** — [Data](#data), [Sprite Data](#sprite-data), [DataCount](#datacount), [PeekData](#peekdata), [Restore](#restore)
 
 ---
 
@@ -13497,11 +13717,19 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## PeekData
 
-**Purpose** — Reads value from data section at offset.
+**Purpose** — Reads a DATA value by absolute index or by labeled section + offset, without advancing the READ pointer.
 
 **Syntax**
 
-    PeekData(offset)
+    PeekData(index)
+    PeekData("sectionLabel", offset)
+
+**Description**
+
+- `PeekData(5)` — absolute 0-based index into the full DATA tape.
+- `PeekData("PlayerSprite", 4)` — first pixel index in that sprite section (after the four header values).
+
+**See Also** — [Data](#data), [Sprite Data](#sprite-data), [DataToArray](#datatoarray)
 
 ---
 
@@ -13542,6 +13770,10 @@ The entries below document runtime builtins that were implemented but not yet co
 **Syntax**
 
     StrConv(string, conversion_type)
+
+**Conversion types:** `vbUpperCase` (1), `vbLowerCase` (2), `vbProperCase` (3). `vbUnicode` (64) and `vbFromUnicode` (128) are accepted for VB6 source compatibility but are **no-ops** in Visual Gasic — strings and UI controls (`Caption`, `Text`, etc.) are already Unicode via Godot.
+
+**VB6 note:** Classic VB6 native `TextBox`/`Label` controls downgrade text to ANSI when displaying, so CJK and emoji often show as `???` unless you use MSForms or Win32 Unicode APIs. **That limitation does not apply here.** Use UTF-8 `.vg` sources and a font that includes the glyphs you need.
 
 ---
 
@@ -13999,6 +14231,7 @@ This index lists command-reference entries grouped by first letter.
 - [SoundGen.PushStereo](#soundgenpushstereo)
 - [Spin](#spin)
 - [Split](#split)
+- [Sprite Data](#sprite-data)
 - [Sqr](#sqr)
 - [Static](#static)
 - [Steps.Reset](#stepsreset)

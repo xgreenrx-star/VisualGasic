@@ -93,6 +93,20 @@ Standard flow control and declaration.
 | `vbNewLine` | Platform newline |
 | `vbNullChar` | `Chr(0)` — null character |
 
+### Unicode text (VB6 difference)
+
+Visual Gasic controls (`TextBox`, `Label`, `ListBox`, etc.) are **Godot controls**, not legacy VB6 ANSI controls. Strings are UTF-8/Unicode end-to-end; `Caption = "日本語"` and emoji in labels work without MSForms or `CreateWindowExW` workarounds.
+
+| Topic | VB6 | Visual Gasic |
+| :--- | :--- | :--- |
+| Control text | Native controls often ANSI → `???` for non-Latin | Godot `LineEdit` / `Label` — full Unicode |
+| `StrConv(..., vbUnicode)` | Converts ANSI → Unicode | **No-op** (already Unicode) |
+| `StrConv(..., vbFromUnicode)` | Converts Unicode → ANSI | **No-op** |
+| Source files | System code page | Save `.vg` as **UTF-8** |
+| Missing glyphs | N/A (ANSI limitation) | Pick a font with the scripts you need (Noto, system UI font) |
+
+For multi-line strings, prefer **`"line1" & vbCrLf & "line2"`** instead of embedding raw control characters in quoted literals.
+
 ### Math Constants (reserved, no Dim required)
 | Constant | Value |
 | :--- | :--- |

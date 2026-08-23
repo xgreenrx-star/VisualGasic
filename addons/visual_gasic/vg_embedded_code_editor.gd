@@ -26,6 +26,13 @@ const FindReferencesPanel = preload("res://addons/visual_gasic/find_references_p
 signal view_object_requested          ## user clicked "View Object" or pressed F7
 signal code_saved(path: String)       ## code was flushed to disk
 signal edit_in_working_nodes_requested(wnodes_path: String)  ## user clicked "Edit in WN"
+signal file_path_open_hex_requested(path: String)
+signal file_path_open_sprite_requested(path: String)
+signal file_path_reveal_browser_requested(path: String)
+signal file_path_open_external_requested(path: String)
+signal dual_editor_refresh_requested()  ## user asked to reload from the other editor
+signal stale_banner_dismissed(path: String)
+signal buffer_edited(path: String)  ## user edited text (not peer refresh / load)
 
 # =============================================================================
 # STATE
@@ -39,6 +46,11 @@ var _dirty: bool = false
 
 ## Label showing the currently open file name in the nav bar
 var _file_label: Label = null
+
+## Out-of-date strip when Godot Script tab has newer text for the same .vg
+var _stale_strip: PanelContainer = null
+var _stale_label: Label = null
+var _applying_peer_buffer: bool = false
 
 ## Button shown when a sibling .wnodes file exists for the open .vg
 var _edit_in_wn_btn: Button = null
@@ -65,11 +77,13 @@ var _index_map_toggle: Button = null
 var _index_map_visible: bool = false
 var _current_index_control: Dictionary = {}  # { name, type, properties }
 
-## Left panel content: Command Help + Index Map (shown in Toolbox area during Code view)
-var _left_panel_content: VBoxContainer = null  # reparented into ToolboxPanel by plugin
 var _help_scroll: ScrollContainer = null
 var _help_label: RichTextLabel = null
 var _last_help_keyword: String = ""        # avoid redundant redraws
+var _context_rail: PanelContainer = null  # reparented into ToolboxPanel by plugin
+
+const VGContextRail := preload("res://addons/visual_gasic/vg_context_rail.gd")
+const OpenPathResolver := preload("res://addons/visual_gasic/vg_open_path_resolver.gd")
 
 ## Main split: code editor (top) / bottom panel (bottom) — resizable like VB6
 var _main_split: VSplitContainer = null
@@ -202,6 +216,8 @@ func _build_ui() -> void:
 	nav_panel.add_child(nav_hbox)
 	add_child(nav_panel)
 
+	_build_stale_strip()
+
 	# ── Code editor ──
 	var code_edit_script = load("res://addons/visual_gasic/vg_code_edit.gd")
 	if code_edit_script:
@@ -221,17 +237,25 @@ func _build_ui() -> void:
 		_code_edit.find_references_requested.connect(_show_find_references)
 	if _code_edit.has_signal("find_callers_requested"):
 		_code_edit.find_callers_requested.connect(_show_call_hierarchy)
+	if _code_edit.has_signal("edit_sprite_data_requested"):
+		_code_edit.edit_sprite_data_requested.connect(_on_edit_sprite_data_requested)
+	if _code_edit.has_signal("file_path_action"):
+		_code_edit.file_path_action.connect(_on_file_path_action)
 	VGTheme.hook_text_edit(_code_edit)
 
-	# ── Left-panel content: Command Help + Index Map (reparented by plugin) ──
-	_build_left_panel_content()
+	# ── Context rail (audit sidecar) — plugin mounts into ToolboxPanel during Code view ──
+	_context_rail = VGContextRail.new()
+	_context_rail.name = "ContextRail"
+	if _code_edit:
+		_context_rail.bind_code_edit(_code_edit)
+	_context_rail.goto_line_requested.connect(_on_context_rail_goto_line)
+	if _context_rail.has_signal("file_action_requested"):
+		_context_rail.file_action_requested.connect(_on_file_path_action)
 
 	# ── Bottom panel: Immediate Window ──
 	_build_bottom_panel()
 
 	# ── Main split: code editor (top) + bottom panel (bottom) ──
-	# VSplitContainer guarantees the bottom panel gets proper space and
-	# the user can drag the splitter to resize — just like VB6.
 	_main_split = VSplitContainer.new()
 	_main_split.name = "MainSplit"
 	_main_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -243,42 +267,105 @@ func _build_ui() -> void:
 	_main_split.add_child(_bottom_panel)
 	add_child(_main_split)
 
+	_apply_context_rail_settings()
+	call_deferred("_update_context_rail")
+
 	# Apply theme AFTER add_child so VGCodeEdit._ready() has already run.
-	# _ready() creates a CodeHighlighter with dark-background colors;
-	# the theme must override those afterwards.
-	_apply_vb6_theme()
-
-	# Scrollbar children may not be ready until the node enters the tree,
-	# so apply scrollbar styling on a deferred call.
+	call_deferred("_apply_vb6_theme")
 	call_deferred("_apply_scrollbar_theme")
+	call_deferred("_start_log_tailing")
 
-	# Start Godot log file tailing for System Console (cross-platform)
-	_start_log_tailing()
 
-func _build_left_panel_content() -> void:
-	## Build Command Help + Index Map as a standalone VBoxContainer.
-	## The plugin reparents this into the ToolboxPanel when Code view is active.
-	_left_panel_content = VBoxContainer.new()
-	_left_panel_content.name = "CodeHelpPanel"
-	_left_panel_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_left_panel_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+func _build_stale_strip() -> void:
+	_stale_strip = PanelContainer.new()
+	_stale_strip.name = "StaleEditorStrip"
+	_stale_strip.visible = false
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.95, 0.82, 0.45, 0.95)
+	sb.border_color = Color(0.72, 0.52, 0.12)
+	sb.set_border_width_all(1)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	_stale_strip.add_theme_stylebox_override("panel", sb)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var icon := Label.new()
+	icon.text = "⚠"
+	icon.add_theme_font_size_override("font_size", 13)
+	row.add_child(icon)
+	_stale_label = Label.new()
+	_stale_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_stale_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_stale_label.add_theme_font_size_override("font_size", 11)
+	_stale_label.add_theme_color_override("font_color", Color(0.25, 0.18, 0.05))
+	row.add_child(_stale_label)
+	var refresh_btn := Button.new()
+	refresh_btn.text = "Refresh"
+	refresh_btn.tooltip_text = "Replace this editor's text with the version from the other tab"
+	refresh_btn.pressed.connect(func() -> void:
+		dual_editor_refresh_requested.emit()
+	)
+	row.add_child(refresh_btn)
+	var dismiss_btn := Button.new()
+	dismiss_btn.text = "Dismiss"
+	dismiss_btn.pressed.connect(_dismiss_stale_strip)
+	row.add_child(dismiss_btn)
+	_stale_strip.add_child(row)
+	add_child(_stale_strip)
 
-	# Title label
-	var title := Label.new()
-	title.text = "  Command Help"
-	title.add_theme_font_size_override("font_size", 12)
-	title.add_theme_color_override("font_color", Color(0.0, 0.0, 0.4))
-	_left_panel_content.add_child(title)
 
-	# Help text
-	_build_help_panel()
-	_left_panel_content.add_child(_help_scroll)
+func set_dual_editor_stale(stale: bool, authority_label: String = "") -> void:
+	if not is_instance_valid(_stale_strip):
+		return
+	if not stale:
+		_stale_strip.visible = false
+		return
+	var where := authority_label if not authority_label.is_empty() else "the other editor"
+	_stale_label.text = (
+		"This copy is out of date — %s has newer unsaved changes. Refresh to match it."
+		% where
+	)
+	_stale_strip.visible = true
 
-	# Index Map (below help text)
-	_build_index_map_panel()
-	_left_panel_content.add_child(_index_map_panel)
 
-	# Don't add to self — the plugin will place it in the ToolboxPanel
+func _dismiss_stale_strip() -> void:
+	if is_instance_valid(_stale_strip):
+		_stale_strip.visible = false
+	if not _vg_path.is_empty():
+		stale_banner_dismissed.emit(_vg_path)
+
+
+func apply_peer_buffer(text: String) -> void:
+	if not _code_edit:
+		return
+	_applying_peer_buffer = true
+	_code_edit.text = text
+	_applying_peer_buffer = false
+	_dirty = _buffer_differs_from_disk()
+	_rebuild_proc_list()
+	validate_code.call_deferred()
+	_update_context_rail.call_deferred()
+	set_dual_editor_stale(false)
+	if is_instance_valid(_stale_strip):
+		_stale_strip.visible = false
+
+
+func get_buffer_text() -> String:
+	return _code_edit.text if _code_edit else ""
+
+
+func _buffer_differs_from_disk() -> bool:
+	if _vg_path.is_empty() or not _code_edit:
+		return false
+	if not FileAccess.file_exists(_vg_path):
+		return not _code_edit.text.is_empty()
+	return _code_edit.text != FileAccess.get_file_as_string(_vg_path)
+
+
+func is_applying_peer_buffer() -> bool:
+	return _applying_peer_buffer
 
 
 func _build_bottom_panel() -> void:
@@ -543,10 +630,31 @@ func focus_bottom_tab(panel: Control) -> void:
 	if idx >= 0:
 		_bottom_tabs.current_tab = idx
 
-## Returns the Command Help + Index Map panel for the plugin to place
-## in the left panel (ToolboxPanel) during Code view.
-func get_help_panel() -> Control:
-	return _left_panel_content
+func get_context_rail() -> Control:
+	return _context_rail
+
+
+func get_context_rail_width() -> int:
+	return clampi(int(ProjectSettings.get_setting("vg/editor/context_rail_width", 260)), 160, 480)
+
+
+func is_context_rail_enabled() -> bool:
+	return bool(ProjectSettings.get_setting("vg/editor/context_rail_enabled", true))
+
+
+func _apply_context_rail_settings() -> void:
+	var enabled := is_context_rail_enabled()
+	var rail_w := get_context_rail_width()
+	if is_instance_valid(_context_rail):
+		_context_rail.visible = enabled
+		_context_rail.custom_minimum_size.x = 160
+		_context_rail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_context_rail.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# ToolboxPanel width is updated by the plugin when the rail is mounted.
+	if is_instance_valid(_context_rail) and _context_rail.get_parent():
+		var host := _context_rail.get_parent()
+		if host is PanelContainer and enabled:
+			host.custom_minimum_size.x = rail_w
 
 ## Switch to the Immediate tab.
 func focus_immediate() -> void:
@@ -929,35 +1037,9 @@ func _on_help_meta_clicked(meta: Variant) -> void:
 				_code_edit.center_viewport_to_caret()
 				_code_edit.grab_focus()
 	elif s.begins_with("ref:"):
-		# Open the Programmer's Reference .md file at the given line
 		var line_str := s.substr(4)
-		var ref_path := "res://addons/visual_gasic/../../docs/VisualGasic_Language_Reference.md"
-		var abs_path := ProjectSettings.globalize_path(ref_path)
-		# Try to find it relative to the addon
-		for candidate in [
-			"res://docs/VisualGasic_Language_Reference.md",
-			"res://addons/visual_gasic/../../docs/VisualGasic_Language_Reference.md"
-		]:
-			if FileAccess.file_exists(candidate):
-				abs_path = ProjectSettings.globalize_path(candidate)
-				break
-		# Try the repo-level docs/ folder directly
-		var plugin_script := (self as Node).get_script() as Script
-		if plugin_script:
-			var plugin_dir: String = plugin_script.resource_path.get_base_dir()
-			var repo_doc := plugin_dir.path_join("../../docs/VisualGasic_Language_Reference.md")
-			if FileAccess.file_exists(repo_doc):
-				abs_path = ProjectSettings.globalize_path(repo_doc)
-		# Open in OS editor at line if possible, else just open the file
-		if abs_path and FileAccess.file_exists(abs_path):
-			OS.shell_open(abs_path)
-		else:
-			# Fallback: search for it in typical locations
-			var fallback := OS.get_executable_path().get_base_dir().path_join("docs/VisualGasic_Language_Reference.md")
-			if FileAccess.file_exists(fallback):
-				OS.shell_open(fallback)
-			else:
-				push_warning("[VG] Could not find Language Reference at: " + abs_path)
+		if line_str.is_valid_int():
+			VGCommandHelp.open_programmer_reference(line_str.to_int())
 	elif s.begins_with("web:"):
 		# Open URL in the default browser
 		var url := s.substr(4)
@@ -1011,7 +1093,6 @@ func _build_index_map_panel() -> void:
 	vbox.add_child(_index_map_canvas)
 
 	_index_map_panel.add_child(vbox)
-	# Note: _index_map_panel is added to _left_panel_content by _build_left_panel_content()
 
 func _toggle_index_map() -> void:
 	_index_map_visible = not _index_map_visible
@@ -1404,6 +1485,7 @@ func load_file(path: String) -> void:
 			return
 		_code_edit.text = content
 		_dirty = false
+		set_dual_editor_stale(false)
 		_rebuild_proc_list()
 		_rebuild_object_combo()
 		# Load bookmarks for this file
@@ -1411,6 +1493,7 @@ func load_file(path: String) -> void:
 			_code_edit.load_bookmarks(path)
 		# Validate code and display any errors
 		call_deferred("validate_code")
+		call_deferred("_update_context_rail")
 		# Update status
 		print("VG Code Editor: Loaded ", path)
 	else:
@@ -1490,8 +1573,11 @@ func _on_edit_in_wn_pressed() -> void:
 func flush_for_run() -> void:
 	if _vg_path.is_empty():
 		return
-	if not _dirty:
-		return  # nothing new in the buffer
+	var disk_text := ""
+	if FileAccess.file_exists(_vg_path):
+		disk_text = FileAccess.get_file_as_string(_vg_path)
+	if _code_edit.text == disk_text:
+		return  # buffer already matches disk
 	var f := FileAccess.open(_vg_path, FileAccess.WRITE)
 	if f:
 		f.store_string(_code_edit.text)
@@ -2051,14 +2137,162 @@ func _on_object_selected(index: int) -> void:
 # =============================================================================
 
 func _on_code_changed() -> void:
-	_dirty = true
+	if not _applying_peer_buffer:
+		_dirty = true
+		if not _vg_path.is_empty():
+			buffer_edited.emit(_vg_path)
+	if is_instance_valid(_context_rail) and _context_rail.has_method("notify_source_changed"):
+		_context_rail.notify_source_changed()
 	# Rebuild procedure list (debounced via call_deferred to avoid per-keystroke cost)
 	_rebuild_proc_list.call_deferred()
+	_update_context_rail.call_deferred()
 
 func _on_caret_moved() -> void:
 	_update_proc_selection()
 	_check_param_info()
-	_update_command_help()
+	_update_context_rail()
+
+func _update_context_rail() -> void:
+	if not is_instance_valid(_context_rail) or not _code_edit:
+		return
+	if _context_rail.has_method("update_from_caret"):
+		_context_rail.update_from_caret()
+
+
+func _on_context_rail_goto_line(line: int) -> void:
+	if not _code_edit:
+		return
+	var zero := maxi(0, line - 1)
+	_code_edit.set_caret_line(zero)
+	_code_edit.set_caret_column(0)
+	if _code_edit.has_method("center_viewport_to_caret"):
+		_code_edit.center_viewport_to_caret()
+	_update_context_rail()
+
+
+func _on_edit_sprite_data_requested() -> void:
+	_update_context_rail()
+	if is_instance_valid(_context_rail):
+		_context_rail.grab_focus()
+
+
+func _on_file_path_action(action: int, ref: Dictionary) -> void:
+	if ref.is_empty():
+		return
+	var path: String = str(ref.get("res_path", ""))
+	match action:
+		OpenPathResolver.FileMenuAction.SELECT_FILE:
+			_pick_replacement_file(ref)
+		OpenPathResolver.FileMenuAction.PREVIEW:
+			_preview_file_in_rail(ref, str(ref.get("kind", "text")))
+		OpenPathResolver.FileMenuAction.PLAY_AUDIO:
+			_preview_file_in_rail(ref, "audio")
+		OpenPathResolver.FileMenuAction.OPEN_HEX:
+			file_path_open_hex_requested.emit(path)
+		OpenPathResolver.FileMenuAction.OPEN_SPRITE:
+			file_path_open_sprite_requested.emit(path)
+		OpenPathResolver.FileMenuAction.REVEAL_BROWSER:
+			file_path_reveal_browser_requested.emit(path)
+		OpenPathResolver.FileMenuAction.SHOW_IN_FOLDER:
+			if FileAccess.file_exists(path):
+				OS.shell_open(OpenPathResolver.globalize(path).get_base_dir())
+		OpenPathResolver.FileMenuAction.COPY_PATH:
+			DisplayServer.clipboard_set(path)
+		OpenPathResolver.FileMenuAction.OPEN_EXTERNAL:
+			if FileAccess.file_exists(path):
+				file_path_open_external_requested.emit(path)
+		OpenPathResolver.FileMenuAction.FIND_USAGES:
+			var needle := '"' + str(ref.get("path", "")) + '"'
+			_show_find_references(needle)
+		OpenPathResolver.FileMenuAction.CREATE_IF_MISSING:
+			_create_missing_file(path)
+	_update_context_rail()
+
+
+func _preview_file_in_rail(ref: Dictionary, kind: String) -> void:
+	if not is_instance_valid(_context_rail):
+		return
+	if _context_rail.has_method("show_file_preview"):
+		var mode := "info"
+		if kind == "audio":
+			mode = "audio"
+		elif kind == "image":
+			mode = "image"
+		elif kind == "text":
+			mode = "text"
+		_context_rail.show_file_preview(ref, mode)
+		if kind == "audio" and _context_rail.has_method("preview_file_kind"):
+			_context_rail.preview_file_kind("audio")
+
+
+func _pick_replacement_file(ref: Dictionary) -> void:
+	var fd := FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	fd.access = FileDialog.ACCESS_RESOURCES
+	fd.title = "Select file for Open path"
+	var cur := str(ref.get("res_path", "res://"))
+	if cur.begins_with("user://"):
+		fd.access = FileDialog.ACCESS_USERDATA
+	elif cur.begins_with("res://"):
+		fd.access = FileDialog.ACCESS_RESOURCES
+	var kind := str(ref.get("kind", ""))
+	match kind:
+		"audio":
+			fd.filters = PackedStringArray(["*.wav, *.ogg, *.mp3 ; Audio"])
+		"image":
+			fd.filters = PackedStringArray(["*.png, *.jpg, *.jpeg, *.webp, *.bmp ; Images"])
+		_:
+			fd.filters = PackedStringArray(["*.* ; All Files"])
+	if FileAccess.file_exists(cur):
+		fd.current_path = OpenPathResolver.globalize(cur)
+	elif cur.begins_with("res://"):
+		fd.current_dir = ProjectSettings.globalize_path("res://")
+	fd.file_selected.connect(func(selected: String) -> void:
+		_apply_selected_file_to_ref(ref, selected)
+		fd.queue_free()
+	)
+	fd.canceled.connect(fd.queue_free)
+	EditorInterface.get_base_control().add_child(fd)
+	fd.popup_centered_ratio(0.55)
+
+
+func _apply_selected_file_to_ref(ref: Dictionary, selected_abs: String) -> void:
+	if not _code_edit:
+		return
+	var new_path := _abs_to_project_path(selected_abs)
+	var line: int = int(ref.get("line", 0))
+	var start: int = int(ref.get("literal_start", 0))
+	var end: int = int(ref.get("literal_end", 0))
+	var quote: String = str(ref.get("quote", "\""))
+	var line_text := _code_edit.get_line(line)
+	var new_lit := quote + new_path + quote
+	_code_edit.set_line(line, line_text.substr(0, start) + new_lit + line_text.substr(end + 1))
+	_on_code_changed()
+
+
+func _abs_to_project_path(abs_path: String) -> String:
+	var res_base := ProjectSettings.globalize_path("res://")
+	var user_base := ProjectSettings.globalize_path("user://")
+	if abs_path.begins_with(res_base):
+		return "res://" + abs_path.substr(res_base.length())
+	if abs_path.begins_with(user_base):
+		return "user://" + abs_path.substr(user_base.length())
+	return abs_path
+
+
+func _create_missing_file(res_path: String) -> void:
+	if res_path.is_empty() or FileAccess.file_exists(res_path):
+		return
+	var dir_path := res_path.get_base_dir()
+	if res_path.begins_with("res://"):
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir_path))
+	elif res_path.begins_with("user://"):
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir_path))
+	var f := FileAccess.open(res_path, FileAccess.WRITE)
+	if f:
+		f.store_string("")
+		f.close()
+		EditorInterface.get_resource_filesystem().update_file(res_path)
 
 # =============================================================================
 # COMMAND HELP PANEL
@@ -2208,7 +2442,7 @@ func _update_command_help() -> void:
 
 	# ── Description ──
 	_help_label.append_text("[b][color=#00006B]Description[/color][/b]\n")
-	_help_label.append_text("[color=#222222]" + entry.get("desc", "") + "[/color]\n\n")
+	_help_label.append_text("[color=#222222]" + VGCommandHelp.linkify_cross_references(str(entry.get("desc", ""))) + "[/color]\n\n")
 
 	# ── User-defined symbol badge + Go to Definition link ──
 	var symbol_kind: String = entry.get("symbol_kind", "")
@@ -2307,6 +2541,7 @@ func _update_command_help() -> void:
 		_help_label.append_text("[url=web:" + url + "][color=#0000CC][i]🌐 Godot Docs: " + godot_class
 			+ (("." + godot_method + "()") if not godot_method.is_empty() else "")
 			+ "[/i][/color][/url]\n")
+
 
 ## Builds a help entry for a form control/widget (#2).
 func _build_control_help_entry(ctrl: Dictionary) -> Dictionary:

@@ -26,6 +26,8 @@ signal bookmark_toggled(line: int, enabled: bool)              ## Emitted when u
 signal go_to_definition_requested(symbol: String, line: int)   ## Emitted for Ctrl+Click Go To Definition
 signal find_references_requested(symbol: String)               ## Emitted for Find All References (Ctrl+Shift+F)
 signal find_callers_requested(symbol: String)                  ## Emitted for Call Hierarchy (Ctrl+Shift+H)
+signal edit_sprite_data_requested()                            ## Emitted from context menu in a *Sprite Data block
+signal file_path_action(action: int, ref: Dictionary)          ## Open-path context menu (see vg_open_path_resolver.gd)
 
 # =============================================================================
 # VARIABLES
@@ -46,6 +48,17 @@ var _last_word: String = ""
 var _prev_caret_line: int = -1  # Track line changes for auto-capitalize
 var _highlight_word: String = ""  # Word under cursor — all occurrences are highlighted
 var _highlight_scope: Vector2i = Vector2i(-1, -1)  # Scope range for scope-aware highlighting
+var _sprite_block_ranges: Array = []  # labeled *Sprite Data blocks for background tint
+var _sprite_active_label: String = ""
+var _file_path_ranges: Array = []     # Actionable path literals (right-click menu)
+var _string_literal_ranges: Array = [] # Ordinary "..." strings (warm tint only)
+var _file_path_hover: Dictionary = {}
+
+const _SpriteResolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
+const _SpriteHighlight := preload("res://addons/visual_gasic/vg_sprite_data_highlight.gd")
+const _OpenPathResolver := preload("res://addons/visual_gasic/vg_open_path_resolver.gd")
+const _OpenPathHighlight := preload("res://addons/visual_gasic/vg_open_path_highlight.gd")
+const _VGTheme := preload("res://addons/visual_gasic/vg_theme_utils.gd")
 var _snippet_regex: RegEx = null  # Lazy-init for snippet placeholder expansion
 var _prev_line_count: int = 0    # Track line count for auto-indent on real Enter
 
@@ -208,6 +221,10 @@ const CBM_AMBIGUOUS: Dictionary = {
 # =============================================================================
 
 var _context_menu: PopupMenu
+var _file_menu: PopupMenu
+var _file_path_popup: PopupMenu  # Standalone popup for right-click on path literals
+var _active_file_ref: Dictionary = {}
+var _file_menu_item_idx: int = -1
 
 func _ready() -> void:
 	_setup_syntax_highlighter()
@@ -219,6 +236,9 @@ func _ready() -> void:
 	_connect_signals()
 	_setup_features_overlay()
 	_prev_line_count = get_line_count()
+	# Godot's built-in CodeEdit menu hides our custom items (Wrap in Comment Block, File…).
+	context_menu_enabled = false
+	call_deferred("_refresh_sprite_data_highlights")
 
 func _setup_syntax_highlighter() -> void:
 	var highlighter = CodeHighlighter.new()
@@ -245,8 +265,8 @@ func _setup_syntax_highlighter() -> void:
 	# String color (orange)
 	highlighter.add_color_region("\"", "\"", Color(0.9, 0.6, 0.4))
 	
-	# Comment color (green) — REM keyword handled via keyword_colors below
-	highlighter.add_color_region("'", "", Color(0.5, 0.7, 0.5), true)
+	# Comment color — muted green, distinct from strings and keywords
+	highlighter.add_color_region("'", "", Color(0.28, 0.52, 0.36), true)
 	
 	# Number color
 	highlighter.number_color = Color(0.7, 0.9, 0.7)
@@ -370,6 +390,7 @@ enum ContextMenuItem {
 	SELECT_ALL,
 	FIX_INDENTATION,
 	COMMENT_TOGGLE,
+	COMMENT_BLOCK,
 	GOTO_LINE,
 	GOTO_DEFINITION,
 	FIND_REFERENCES,
@@ -392,6 +413,7 @@ enum ContextMenuItem {
 	SURROUND_WITH_BLOCK,
 	SURROUND_SELECT_CASE,
 	TOGGLE_MINIMAP,
+	EDIT_SPRITE_DATA,
 }
 
 func _setup_context_menu() -> void:
@@ -405,6 +427,7 @@ func _setup_context_menu() -> void:
 	_context_menu.add_separator()
 	_context_menu.add_item("Fix Indentation       Ctrl+Shift+I", ContextMenuItem.FIX_INDENTATION)
 	_context_menu.add_item("Comment/Uncomment     Ctrl+'", ContextMenuItem.COMMENT_TOGGLE)
+	_context_menu.add_item("Wrap in Comment Block", ContextMenuItem.COMMENT_BLOCK)
 	_context_menu.add_separator()
 	_context_menu.add_item("Go To Line...           Ctrl+G", ContextMenuItem.GOTO_LINE)
 	_context_menu.add_item("Go To Definition     Ctrl+Click", ContextMenuItem.GOTO_DEFINITION)
@@ -422,6 +445,18 @@ func _setup_context_menu() -> void:
 	_context_menu.add_item("Unfold All", ContextMenuItem.UNFOLD_ALL)
 	_context_menu.add_separator()
 	_context_menu.add_item("Sort Lines", ContextMenuItem.SORT_LINES)
+	_context_menu.add_separator()
+	_context_menu.add_item("Edit Sprite Data as Image…", ContextMenuItem.EDIT_SPRITE_DATA)
+	_file_menu = PopupMenu.new()
+	_file_menu.name = "FilePathMenu"
+	_file_menu.id_pressed.connect(_on_file_menu_item)
+	_context_menu.add_child(_file_menu)
+	_context_menu.add_submenu_item("File…", "FilePathMenu")
+	_file_menu_item_idx = _context_menu.item_count - 1
+	_file_path_popup = PopupMenu.new()
+	_file_path_popup.name = "FilePathPopup"
+	_file_path_popup.id_pressed.connect(_on_file_menu_item)
+	add_child(_file_path_popup)
 	_context_menu.add_separator()
 	# ── Surround With submenu ──
 	var surround_menu := PopupMenu.new()
@@ -441,6 +476,9 @@ func _setup_context_menu() -> void:
 	_context_menu.add_check_item("Minimap", ContextMenuItem.TOGGLE_MINIMAP)
 	_context_menu.id_pressed.connect(_on_context_menu_item)
 	add_child(_context_menu)
+	_VGTheme.style_popup(_context_menu)
+	_VGTheme.style_popup(_file_menu)
+	_VGTheme.style_popup(_file_path_popup)
 
 func _on_context_menu_item(id: int) -> void:
 	match id:
@@ -456,6 +494,8 @@ func _on_context_menu_item(id: int) -> void:
 			fix_indentation()
 		ContextMenuItem.COMMENT_TOGGLE:
 			toggle_comment_selection()
+		ContextMenuItem.COMMENT_BLOCK:
+			wrap_comment_block()
 		ContextMenuItem.GOTO_LINE:
 			_show_goto_line_dialog()
 		ContextMenuItem.TOGGLE_BREAKPOINT:
@@ -504,9 +544,115 @@ func _on_context_menu_item(id: int) -> void:
 			_surround_with("Select Case ${1:expression}", "End Select")
 		ContextMenuItem.TOGGLE_MINIMAP:
 			_toggle_minimap()
+		ContextMenuItem.EDIT_SPRITE_DATA:
+			edit_sprite_data_requested.emit()
+
+
+func get_file_ref_at_caret() -> Dictionary:
+	return _OpenPathResolver.resolve_at_caret(text, get_caret_line(), get_caret_column())
+
+
+func get_file_ref_at_pos(local_pos: Vector2) -> Dictionary:
+	var lc := get_line_column_at_pos(Vector2i(int(local_pos.x), int(local_pos.y)), true)
+	if lc.x < 0:
+		return {}
+	return _OpenPathResolver.resolve_at_caret(text, lc.x, lc.y)
+
+
+func _popup_menu_at_mouse(menu: PopupMenu) -> void:
+	if menu == null:
+		return
+	menu.reset_size()
+	menu.position = Vector2i(DisplayServer.mouse_get_position())
+	menu.popup()
+
+
+func _deferred_show_context_menu(at_position: Vector2, file_ref: Dictionary) -> void:
+	if not file_ref.is_empty():
+		_active_file_ref = file_ref.duplicate(true)
+		_populate_file_menu(_file_path_popup, file_ref)
+		_popup_menu_at_mouse(_file_path_popup)
+	else:
+		_show_context_menu(at_position)
+
+
+func _on_file_menu_item(id: int) -> void:
+	if _active_file_ref.is_empty():
+		return
+	file_path_action.emit(id, _active_file_ref.duplicate(true))
+
+
+func _rebuild_file_submenu(ref: Dictionary) -> void:
+	_populate_file_menu(_file_menu, ref)
+
+
+func _populate_file_menu(menu: PopupMenu, ref: Dictionary) -> void:
+	menu.clear()
+	if ref.is_empty():
+		return
+	var kind: String = str(ref.get("kind", "unknown"))
+	var exists: bool = bool(ref.get("exists", false))
+	var mode: String = str(ref.get("mode", ""))
+	menu.add_item("Select file…", _OpenPathResolver.FileMenuAction.SELECT_FILE)
+	menu.add_separator()
+	if kind == "audio":
+		menu.add_item("Play audio", _OpenPathResolver.FileMenuAction.PLAY_AUDIO)
+	elif kind == "image":
+		menu.add_item("Preview image", _OpenPathResolver.FileMenuAction.PREVIEW)
+	elif kind == "text":
+		menu.add_item("Preview as text", _OpenPathResolver.FileMenuAction.PREVIEW)
+	elif kind == "vector":
+		menu.add_item("Open in Vector Editor (WIP)", _OpenPathResolver.FileMenuAction.OPEN_VECTOR)
+		menu.set_item_disabled(menu.get_item_index(_OpenPathResolver.FileMenuAction.OPEN_VECTOR), true)
+	if kind == "binary" or mode == "binary" or kind == "unknown":
+		menu.add_item("Open in Hex Editor", _OpenPathResolver.FileMenuAction.OPEN_HEX)
+	if kind == "image":
+		menu.add_item("Open in Sprite Editor", _OpenPathResolver.FileMenuAction.OPEN_SPRITE)
+	if not exists and mode in ["output", "append"]:
+		menu.add_item("Create file if missing", _OpenPathResolver.FileMenuAction.CREATE_IF_MISSING)
+	menu.add_separator()
+	menu.add_item("Reveal in File Browser", _OpenPathResolver.FileMenuAction.REVEAL_BROWSER)
+	menu.add_item("Show in folder", _OpenPathResolver.FileMenuAction.SHOW_IN_FOLDER)
+	menu.add_item("Copy path", _OpenPathResolver.FileMenuAction.COPY_PATH)
+	menu.add_item("Open externally", _OpenPathResolver.FileMenuAction.OPEN_EXTERNAL)
+	menu.add_separator()
+	menu.add_item("Find other uses of this path", _OpenPathResolver.FileMenuAction.FIND_USAGES)
+	for i in menu.item_count:
+		var item_id := menu.get_item_id(i)
+		if item_id == _OpenPathResolver.FileMenuAction.OPEN_HEX \
+				or item_id == _OpenPathResolver.FileMenuAction.OPEN_SPRITE \
+				or item_id == _OpenPathResolver.FileMenuAction.PREVIEW \
+				or item_id == _OpenPathResolver.FileMenuAction.PLAY_AUDIO \
+				or item_id == _OpenPathResolver.FileMenuAction.OPEN_EXTERNAL:
+			menu.set_item_disabled(i, not exists and item_id != _OpenPathResolver.FileMenuAction.PREVIEW)
+
+
+func _sync_file_submenu_in_context_menu(ref: Dictionary) -> void:
+	_active_file_ref = {} if ref.is_empty() else ref.duplicate(true)
+	if _file_menu_item_idx < 0:
+		return
+	if ref.is_empty():
+		_context_menu.set_item_disabled(_file_menu_item_idx, true)
+		_context_menu.set_item_text(_file_menu_item_idx, "File…")
+		_file_menu.clear()
+		return
+	_context_menu.set_item_disabled(_file_menu_item_idx, false)
+	_context_menu.set_item_text(_file_menu_item_idx, 'File "' + _short_file_label(ref) + '"')
+	_rebuild_file_submenu(ref)
+
+
+func _short_file_label(ref: Dictionary) -> String:
+	var short := str(ref.get("path", "?"))
+	if short.length() > 28:
+		short = short.substr(0, 25) + "…"
+	return short
 
 func _show_context_menu(at_position: Vector2) -> void:
-	# Enable/disable items based on context
+	# Do not move the caret — that scrolls the viewport and fights the menu.
+	var file_ref := get_file_ref_at_pos(at_position)
+	if file_ref.is_empty():
+		file_ref = get_file_ref_at_caret()
+	_sync_file_submenu_in_context_menu(file_ref)
 	var sel_active := has_selection()
 	_context_menu.set_item_disabled(_context_menu.get_item_index(ContextMenuItem.CUT), not sel_active)
 	_context_menu.set_item_disabled(_context_menu.get_item_index(ContextMenuItem.COPY), not sel_active)
@@ -525,8 +671,11 @@ func _show_context_menu(at_position: Vector2) -> void:
 	if sort_idx >= 0:
 		var multi_line_sel := sel_active and get_selection_from_line() != get_selection_to_line()
 		_context_menu.set_item_disabled(sort_idx, not multi_line_sel)
-	_context_menu.position = Vector2i(global_position + at_position)
-	_context_menu.popup()
+	var sprite_idx := _context_menu.get_item_index(ContextMenuItem.EDIT_SPRITE_DATA)
+	if sprite_idx >= 0:
+		var in_sprite := not _SpriteResolver.resolve_at_line(text, get_caret_line()).is_empty()
+		_context_menu.set_item_disabled(sprite_idx, not in_sprite)
+	_popup_menu_at_mouse(_context_menu)
 
 # =============================================================================
 # FIX INDENTATION — VB6-aware whole-document re-indenter
@@ -692,6 +841,37 @@ func toggle_comment_selection() -> void:
 	
 	end_complex_operation()
 
+
+const COMMENT_BLOCK_WIDTH := 52
+
+
+## Wrap the selection (or current line) in a VB6-style star comment block.
+func wrap_comment_block() -> void:
+	var from_line := get_caret_line()
+	var to_line := from_line
+	if has_selection():
+		from_line = get_selection_from_line()
+		to_line = get_selection_to_line()
+	var bar := "'" + "*".repeat(COMMENT_BLOCK_WIDTH)
+	var body_lines: PackedStringArray = PackedStringArray()
+	body_lines.append(bar)
+	for i in range(from_line, to_line + 1):
+		var raw := get_line(i).strip_edges()
+		if raw.begins_with("'"):
+			raw = raw.substr(1).strip_edges()
+		var inner := "* " + raw
+		if inner.length() > COMMENT_BLOCK_WIDTH - 1:
+			inner = "* " + raw.substr(0, maxi(0, COMMENT_BLOCK_WIDTH - 4))
+		var pad := COMMENT_BLOCK_WIDTH - inner.length() - 1
+		if pad < 0:
+			pad = 0
+		body_lines.append("'" + inner + " ".repeat(pad) + "*")
+	body_lines.append(bar)
+	begin_complex_operation()
+	select(from_line, 0, to_line, get_line(to_line).length())
+	insert_text_at_caret("\n".join(body_lines))
+	end_complex_operation()
+
 func _setup_sticky_scroll() -> void:
 	# Create a small panel overlay at the top of the editor that shows
 	# the enclosing Sub/Function declaration (VS Code-style sticky scroll).
@@ -748,6 +928,9 @@ func _on_features_overlay_draw() -> void:
 	var first_visible: int = get_first_visible_line()
 	var last_visible: int = first_visible + get_visible_line_count() + 1
 	last_visible = mini(last_visible, get_line_count())
+	_draw_sprite_data_block_highlights(first_visible, last_visible)
+	_draw_string_literal_highlights(first_visible, last_visible)
+	_draw_file_path_links(first_visible, last_visible)
 	_draw_procedure_separators(first_visible, last_visible)
 	_draw_occurrence_highlights(first_visible, last_visible)
 	_draw_rainbow_brackets(first_visible, last_visible)
@@ -1552,6 +1735,7 @@ func _on_text_changed() -> void:
 	
 	_parse_variables()
 	_parse_semantic_tokens()
+	_refresh_sprite_data_highlights()
 	code_changed.emit(get_text())
 	# Explicitly request code completion — the built-in prefix auto-trigger
 	# is unreliable in @tool / embedded editor contexts.  Deferred so the
@@ -2080,12 +2264,22 @@ func _gui_input(event: InputEvent) -> void:
 					accept_event()
 					return
 	
+	# ── File-path hyperlink cursor ──
+	if event is InputEventMouseMotion:
+		var mm := event as InputEventMouseMotion
+		if mm.button_mask & MOUSE_BUTTON_MASK_RIGHT:
+			accept_event()
+			return
+		_update_file_path_link_cursor(mm.position)
+	
 	# ── Right-click context menu ──
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
-			_show_context_menu(mb.position)
+		if mb.button_index == MOUSE_BUTTON_RIGHT:
 			accept_event()
+			if mb.pressed:
+				var file_ref := get_file_ref_at_pos(mb.position)
+				call_deferred("_deferred_show_context_menu", mb.position, file_ref)
 			return
 	
 	if event is InputEventKey and event.pressed:
@@ -2311,6 +2505,8 @@ func _on_caret_changed() -> void:
 	if _highlight_word != old_hw:
 		queue_redraw()
 	
+	_refresh_sprite_data_highlights()
+	
 	# ── Sticky scroll: show enclosing procedure at top ──
 	_update_sticky_scroll(current_line)
 
@@ -2386,6 +2582,138 @@ func get_symbol_under_caret() -> String:
 ## Draw semi-transparent highlight rectangles behind every visible occurrence
 ## of _highlight_word.  Scope-aware: local variables only highlight within
 ## the enclosing Sub/Function; module-level variables highlight everywhere.
+func _refresh_sprite_data_highlights() -> void:
+	_sprite_block_ranges = _SpriteResolver.enumerate_blocks(get_text())
+	var sec := _SpriteResolver.resolve_at_line(get_text(), get_caret_line())
+	_sprite_active_label = str(sec.get("label", "")) if not sec.is_empty() else ""
+	_file_path_ranges = _OpenPathResolver.enumerate_path_literals(text)
+	_string_literal_ranges = []
+	for ref in _OpenPathHighlight.enumerate_quoted_strings(text):
+		if not _OpenPathHighlight.is_actionable_literal(ref, _file_path_ranges):
+			_string_literal_ranges.append(ref)
+	if _features_overlay:
+		_features_overlay.queue_redraw()
+
+
+func _draw_string_literal_highlights(first_visible: int, last_visible: int) -> void:
+	if _string_literal_ranges.is_empty() or _features_overlay == null:
+		return
+	var row_height := get_line_height()
+	var tint := _OpenPathHighlight.string_literal_colors(self)
+	for ref in _string_literal_ranges:
+		var line_idx: int = int(ref.get("line", -1))
+		if line_idx < first_visible or line_idx > last_visible:
+			continue
+		var start: int = int(ref.get("literal_start", 0))
+		var end: int = int(ref.get("literal_end", 0))
+		_draw_word_rect(line_idx, start, end, row_height, tint, tint)
+
+
+func _draw_file_path_links(first_visible: int, last_visible: int) -> void:
+	if _file_path_ranges.is_empty() or _features_overlay == null:
+		return
+	var row_height := get_line_height()
+	for ref in _file_path_ranges:
+		var line_idx: int = int(ref.get("line", -1))
+		if line_idx < first_visible or line_idx > last_visible:
+			continue
+		var start: int = int(ref.get("literal_start", 0))
+		var end: int = int(ref.get("literal_end", 0))
+		var active := _caret_on_path_literal(ref)
+		var hover := _ref_matches_hover(ref)
+		var colors := _OpenPathHighlight.actionable_link_colors(self, active, hover)
+		_draw_word_rect(line_idx, start, end, row_height, colors["bg"], colors["bg"])
+		_draw_path_link_accent(line_idx, start, row_height, colors["accent"])
+		_draw_path_underline(line_idx, start, end, row_height, colors["underline"])
+
+
+func _draw_path_link_accent(line_idx: int, col_start: int, row_height: float, color: Color) -> void:
+	var line_len := get_line(line_idx).length()
+	var pos := get_pos_at_line_column(line_idx, mini(col_start + 1, line_len))
+	if pos.y < 0:
+		return
+	var x := float(pos.x) - 1.0
+	var y0 := float(pos.y) - row_height + 2.0
+	var y1 := float(pos.y) - 1.0
+	_features_overlay.draw_rect(Rect2(x, y0, 2.5, y1 - y0), color)
+
+
+func _draw_path_underline(line_idx: int, col_start: int, col_end: int, row_height: float, color: Color) -> void:
+	var line_len := get_line(line_idx).length()
+	var pos_start := get_pos_at_line_column(line_idx, mini(col_start + 1, line_len))
+	var pos_end := get_pos_at_line_column(line_idx, mini(col_end + 1, line_len))
+	if pos_start.y < 0:
+		return
+	var y := float(pos_start.y) - 1.0
+	var x0 := float(pos_start.x)
+	var x1 := float(pos_end.x)
+	_features_overlay.draw_line(Vector2(x0, y), Vector2(x1, y), color, 1.5)
+
+
+func _caret_on_path_literal(ref: Dictionary) -> bool:
+	var line_idx: int = int(ref.get("line", -1))
+	if get_caret_line() != line_idx:
+		return false
+	var cc := get_caret_column()
+	return cc >= int(ref.get("literal_start", 0)) and cc <= int(ref.get("literal_end", 0))
+
+
+func _ref_matches_hover(ref: Dictionary) -> bool:
+	return not _file_path_hover.is_empty() \
+		and int(_file_path_hover.get("line", -2)) == int(ref.get("line", -1)) \
+		and int(_file_path_hover.get("literal_start", -1)) == int(ref.get("literal_start", -1))
+
+
+func _update_file_path_link_cursor(at: Vector2) -> void:
+	if _arrow_dragging:
+		return
+	var lc := get_line_column_at_pos(Vector2i(int(at.x), int(at.y)), true)
+	var hover: Dictionary = {}
+	if lc.x >= 0:
+		for ref in _file_path_ranges:
+			if lc.x == int(ref.get("line", -1)):
+				var c0: int = int(ref.get("literal_start", 0))
+				var c1: int = int(ref.get("literal_end", 0))
+				if lc.y >= c0 and lc.y <= c1:
+					hover = ref
+					break
+	var changed := (hover.is_empty() != _file_path_hover.is_empty()) \
+		or (not hover.is_empty() and (
+			int(hover.get("line", -1)) != int(_file_path_hover.get("line", -1))
+			or int(hover.get("literal_start", -1)) != int(_file_path_hover.get("literal_start", -1))
+		))
+	_file_path_hover = hover
+	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if not hover.is_empty() else Control.CURSOR_IBEAM
+	if not hover.is_empty():
+		tooltip_text = "Right-click for file actions"
+	elif tooltip_text == "Right-click for file actions":
+		tooltip_text = ""
+	if changed and _features_overlay:
+		_features_overlay.queue_redraw()
+
+
+func _draw_sprite_data_block_highlights(first_visible: int, last_visible: int) -> void:
+	if _sprite_block_ranges.is_empty() or _features_overlay == null:
+		return
+	var row_height := get_line_height()
+	var from_x := get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
+	var to_x := size.x
+	var colors := _SpriteHighlight.overlay_colors(self)
+	for block in _sprite_block_ranges:
+		var start: int = block.get("label_line", -1)
+		var end: int = block.get("end_line", -1)
+		if start < 0 or end < start:
+			continue
+		var is_active: bool = block.get("label", "") == _sprite_active_label
+		var col: Color = colors["active"] if is_active else colors["block"]
+		for line_idx in range(maxi(start, first_visible), mini(end + 1, last_visible)):
+			var pos := get_pos_at_line_column(line_idx, 0)
+			if pos.y < 0:
+				continue
+			var y := float(pos.y) - row_height
+			_features_overlay.draw_rect(Rect2(from_x, y, to_x - from_x, row_height), col)
+
+
 func _draw_procedure_separators(first_visible: int, last_visible: int) -> void:
 	if _proc_separator_regex == null:
 		_ready_separators()

@@ -2787,6 +2787,38 @@ func _parse_assignment_value(value_str: String) -> Variant:
 		if upper.begins_with("&H"):
 			hex_str = "0x" + v.substr(2)
 		return hex_str.hex_to_int()
+
+	# Octal integer (e.g. &O12)
+	if upper.begins_with("&O"):
+		var oct_str := v.substr(2)
+		if oct_str.is_empty():
+			return 0
+		var oct_val := 0
+		for i in oct_str.length():
+			var ch := oct_str[i]
+			if ch < "0" or ch > "7":
+				break
+			oct_val = (oct_val << 3) | (ch.unicode_at(0) - "0".unicode_at(0))
+		return oct_val
+
+	# Binary integer (e.g. &B1010)
+	if upper.begins_with("&B"):
+		var bin_str := v.substr(2)
+		if bin_str.is_empty():
+			return 0
+		var bin_val := 0
+		for i in bin_str.length():
+			var ch := bin_str[i]
+			if ch != "0" and ch != "1":
+				break
+			bin_val = (bin_val << 1) | (ch.unicode_at(0) - "0".unicode_at(0))
+		return bin_val
+
+	# VB6 date literal #1/15/2026#
+	if v.begins_with("#") and v.ends_with("#") and v.length() > 2:
+		var inner := v.substr(1, v.length() - 2)
+		if inner.contains("/") or inner.contains(":"):
+			return inner
 	
 	# Float
 	if v.is_valid_float():

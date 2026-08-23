@@ -1,0 +1,11 @@
+' Regression fixture for labeled sprite Data blocks (resolver tests run from GDScript harness).
+
+PlayerSprite:
+Data 4, 4, 0, 0
+Data 0, 1, 1, 0
+Data 0, 1, 2, 1
+Data 0, 0, 1, 0
+Data 0, 0, 0, 0
+
+NoteData:
+Data "C4", 261.63

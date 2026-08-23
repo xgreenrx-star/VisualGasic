@@ -131,6 +131,14 @@ func setup(plugin: EditorPlugin) -> void:
 	_editor_plugin = plugin
 
 
+func _flush_embedded_code_for_run() -> void:
+	if _editor_plugin == null or not _editor_plugin.has_method("get"):
+		return
+	var ece = _editor_plugin.get("_embedded_code_editor")
+	if ece and is_instance_valid(ece) and ece.has_method("flush_for_run"):
+		ece.flush_for_run()
+
+
 # ── Run Main Scene — respects application/run/main_scene ───────────────────
 func _run_main_scene() -> void:
 	if not _editor_plugin:
@@ -138,6 +146,7 @@ func _run_main_scene() -> void:
 		return
 	var editor = _editor_plugin.get_editor_interface()
 	editor.save_all_scenes()
+	_flush_embedded_code_for_run()
 	# This action is an explicit override — "run the project's main scene no
 	# matter what form/scene is currently open". Call play_main_scene()
 	# directly instead of delegating to _run_project() (which now correctly
@@ -163,6 +172,7 @@ func _preview_current_form(with_debug: bool) -> void:
 
 	# Save all scenes / scripts so the latest code is on disk
 	editor.save_all_scenes()
+	_flush_embedded_code_for_run()
 
 	# Always save breakpoints so the game process can check them at startup
 	_save_breakpoints_for_preview()
@@ -308,14 +318,7 @@ func _run_project() -> void:
 
 	# Save all open scenes first
 	editor.save_all_scenes()
-
-	# Flush the embedded code editor's buffer to disk so the running game
-	# uses the latest edits, but keep the editor's dirty flag intact so
-	# Ctrl+S / File→Save remains the only formal "save" action.
-	if _editor_plugin and _editor_plugin.has_method("get"):
-		var ece = _editor_plugin.get("_embedded_code_editor")
-		if ece and is_instance_valid(ece) and ece.has_method("flush_for_run"):
-			ece.flush_for_run()
+	_flush_embedded_code_for_run()
 
 	# Save breakpoints so the game process can check them at startup
 	_save_breakpoints_for_preview()

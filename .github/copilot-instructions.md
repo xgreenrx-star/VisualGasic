@@ -48,6 +48,7 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 
 - GDScript: `snake_case` for functions and variables, `PascalCase` for classes
 - VG language: VB6-style — `Sub`, `Function`, `End Sub`, `Dim x As String`, `If ... Then ... End If`
+- **Unicode text:** VG controls are Godot controls (Unicode-native). The VB6 pitfall where standard TextBox/Label show `???` for non-ANSI text does **not** apply. `StrConv(..., vbUnicode/vbFromUnicode)` are no-ops. Save `.vg` as UTF-8; use `vbCrLf`/`vbTab` for control chars in source; choose fonts with needed glyphs for CJK/emoji.
 - C++: follow existing style in `src/` — no trailing whitespace, tabs not spaces
 - C++ memory: strict manual management within GDExtension bounds; verify zero leaks on node destruction
 - C++ errors: no generic panics — use clean, actionable error messages with exact line numbers

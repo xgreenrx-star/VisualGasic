@@ -80,6 +80,7 @@ static func pure_2d_game_prompt_extra(prompt: String = "") -> String:
 		+ "Set main_scene to the game .tscn. Do NOT put game logic on a Window form. "
 		+ "Keep ≤ 6 files under res://ai_projects/<name>/."
 		+ Narcea.collision_2d_prompt_extra()
+		+ Narcea.canvas_sprite_perf_prompt_extra()
 		+ Narcea.audit_comments_prompt_extra()
 	)
 	if prompt_is_canvas_platformer(prompt):
@@ -108,6 +109,7 @@ static func hybrid_project_prompt_extra() -> String:
 		+ "Window forms CANNOT call _Draw — never put game drawing on the form script. "
 		+ "Menu handlers: Start -> ChangeScene \"res://ai_projects/<project>/Game.tscn\"; "
 		+ "Exit -> End. Keep ≤ 6 files."
+		+ Narcea.canvas_sprite_perf_prompt_extra()
 		+ Narcea.audit_comments_prompt_extra()
 	)
 

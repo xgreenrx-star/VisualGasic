@@ -28,6 +28,87 @@ static func lookup(keyword: String) -> Dictionary:
 	# Try partial match: "End If" → look up "end if", "End Sub" → "end sub"
 	return {}
 
+
+static func resolve_programmer_reference_path() -> String:
+	for candidate in [
+		"res://docs/VisualGasic_Language_Reference.md",
+		"res://addons/visual_gasic/../../docs/VisualGasic_Language_Reference.md",
+	]:
+		if FileAccess.file_exists(candidate):
+			return ProjectSettings.globalize_path(candidate)
+	var script_path := "res://addons/visual_gasic/vg_command_help.gd"
+	if ResourceLoader.exists(script_path):
+		var repo_doc := script_path.get_base_dir().path_join("../../docs/VisualGasic_Language_Reference.md")
+		if FileAccess.file_exists(repo_doc):
+			return ProjectSettings.globalize_path(repo_doc)
+	var fallback := OS.get_executable_path().get_base_dir().path_join("docs/VisualGasic_Language_Reference.md")
+	if FileAccess.file_exists(fallback):
+		return fallback
+	return ""
+
+
+static func open_programmer_reference(_ref_line: int = 0) -> void:
+	var abs_path := resolve_programmer_reference_path()
+	if abs_path.is_empty():
+		push_warning("[VG] Could not find Language Reference")
+		return
+	OS.shell_open(abs_path)
+
+
+static func ref_link_bbcode(keyword_or_phrase: String, display: String = "") -> String:
+	var entry := lookup(keyword_or_phrase)
+	if entry.is_empty():
+		return display if not display.is_empty() else keyword_or_phrase
+	var rl: int = int(entry.get("ref_line", 0))
+	if rl <= 0:
+		return display if not display.is_empty() else keyword_or_phrase
+	var label := display if not display.is_empty() else str(entry.get("keyword", keyword_or_phrase))
+	return "[url=ref:" + str(rl) + "][color=#0000CC]" + label + "[/color][/url]"
+
+
+static func linkify_cross_references(text: String) -> String:
+	var re := RegEx.new()
+	if re.compile("(?i)\\bsee ([A-Za-z][A-Za-z0-9 ]*?)(?=\\.)") != OK:
+		return text
+	var result := text
+	var matches := re.search_all(text)
+	for i in range(matches.size() - 1, -1, -1):
+		var m: RegExMatch = matches[i]
+		var phrase := m.get_string(1).strip_edges()
+		var full := m.get_string(0)
+		var linked := ref_link_bbcode(phrase, full)
+		if linked != full:
+			result = result.substr(0, m.get_start()) + linked + result.substr(m.get_end())
+	return result
+
+
+static func format_context_rail_keyword_bbcode(keyword: String) -> String:
+	var entry := lookup(keyword)
+	if entry.is_empty():
+		return "[i]No Programmer's Reference entry for \"" + keyword + ".\"[/i]"
+	var parts: PackedStringArray = PackedStringArray()
+	parts.append("[b]" + str(entry.get("keyword", keyword)) + "[/b]\n")
+	var syntax := str(entry.get("syntax", ""))
+	if not syntax.is_empty():
+		parts.append("[color=#333333]" + syntax.replace(" [", "\n[") + "[/color]\n")
+	var desc := str(entry.get("desc", ""))
+	if desc.length() > 420:
+		desc = desc.substr(0, 417) + "…"
+	desc = linkify_cross_references(desc)
+	parts.append(desc)
+	var see_also: Array = get_see_also(keyword)
+	if not see_also.is_empty():
+		var links: PackedStringArray = PackedStringArray()
+		for kw in see_also:
+			links.append(ref_link_bbcode(str(kw)))
+		parts.append("\n[b]See Also[/b] " + ", ".join(links))
+	var rl: int = int(entry.get("ref_line", 0))
+	if rl > 0:
+		parts.append(
+			"[url=ref:" + str(rl) + "][color=#0000CC][i]📖 Programmer's Reference[/i][/color][/url]"
+		)
+	return "\n".join(parts)
+
 static func get_all_keywords() -> PackedStringArray:
 	_ensure_init()
 	var keys := PackedStringArray()
@@ -462,8 +543,18 @@ static func _build_db() -> void:
 	# =========================================================================
 	_add("Data",
 		"Data value1, value2, value3, ...\nData \"string\", 42, 3.14",
-		"Stores inline data values that can be read sequentially with Read. Supports strings, numbers, and empty slots (consecutive commas).",
-		"Data \"Sword\", 10, 50\nData \"Shield\", 5, 30\nData \"Potion\", 0, 15\n\nDim itemName As String, atk As Integer, cost As Integer\nRead itemName, atk, cost", 6141)
+		"Stores inline data values that can be read sequentially with Read. Labeled sections (LabelName:) group rows; *Sprite: blocks use a 4-value header row (w, h, transparentIdx, paletteId) plus h pixel rows — see Sprite Data.",
+		"Data \"Sword\", 10, 50\nData \"Shield\", 5, 30\nData \"Potion\", 0, 15\n\nDim itemName As String, atk As Integer, cost As Integer\nRead itemName, atk, cost", 5448)
+
+	_add("Sprite Data",
+		"LabelSprite:\nData w, h, transparentIdx, paletteId\nData …  ' h rows × w palette indices (0–15)",
+		"Inline pixel-art format for labeled *Sprite: Data blocks. Header: width, height, transparent palette index, palette id (0=NES, 1=GameBoy, 2=C64, 3=CGA). Then exactly h Data rows with w indices each. Editable in Context Rail. Max 32×32 inline.",
+		"PlayerSprite:\nData 8, 8, 0, 0\nData 0, 0, 1, 1, 0, 0, 0, 0\nData 0, 1, 2, 2, 1, 0, 0, 0\n\nDim raw As Variant\nraw = DataToArray(\"PlayerSprite\")\n' raw(0)=w raw(1)=h raw(2)=trans raw(3)=palette\n' raw(4)+ = pixels row-major", 5474)
+
+	_add("DataToArray",
+		"DataToArray()\nDataToArray(\"sectionLabel\")\nDataToArray(count)",
+		"Returns DATA values as a Variant array. DataToArray(\"PlayerSprite\") includes header (w,h,transparent,paletteId) then pixel indices — cache at load time, not in _Draw.",
+		"Dim raw As Variant\nraw = DataToArray(\"CloudSprite\")\nDim w As Integer : w = CInt(raw(0))\nDim h As Integer : h = CInt(raw(1))\nDim idx As Integer : idx = 4\n' pixels at raw(4) .. raw(4 + w*h - 1)", 13128)
 
 	_add("Read",
 		"Read variable1 [, variable2, ...]\nRead variable As Type",
@@ -2233,7 +2324,7 @@ static func _build_see_also() -> void:
 		# Image I/O
 		["LoadImage", "LoadPicture", "SaveImage", "RGB"],
 		# File I/O
-		["Open", "Close", "Line Input", "Data", "Read", "Restore"],
+		["Open", "Close", "Line Input", "Data", "Read", "Restore", "DataToArray", "Sprite Data"],
 		# OOP
 		["Class", "End Class", "New", "Set", "Me", "Implements", "Inherits", "Interface", "Property"],
 		# Events

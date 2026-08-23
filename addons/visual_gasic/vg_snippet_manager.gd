@@ -207,8 +207,8 @@ static func _init_builtin_snippets() -> void:
 		"Debug output")
 	
 	_add_builtin("Comment Block", "cmt", "Utility",
-		"' ============================================================================\n' ${1:Description}\n' ============================================================================",
-		"Section comment block")
+		"'****************************************************\n'* ${1:Description}                                   *\n'****************************************************",
+		"Star-border comment block")
 	
 	_add_builtin("TODO Comment", "todo", "Utility",
 		"' TODO: ${1:description}",
