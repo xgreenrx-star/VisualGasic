@@ -36,24 +36,38 @@ static func resolve_at_line(source: String, caret_line: int) -> Dictionary:
 	var lines := source.split("\n")
 	if caret_line >= lines.size():
 		return {}
+
+	var df_caret := _datafile_rx().search(lines[caret_line])
+	if df_caret != null:
+		var ll := _find_enclosing_label_line(lines, caret_line)
+		var ln := ""
+		if ll >= 0:
+			var lm := _label_rx().search(lines[ll])
+			if lm:
+				ln = lm.get_string(1)
+		return _build_ref(ln, ll, df_caret.get_string(1), lines, caret_line)
+
+	var lm_on_line := _label_rx().search(lines[caret_line])
+	if lm_on_line != null:
+		var dl := _find_first_datafile_after_label(lines, caret_line)
+		if dl >= 0:
+			var df := _datafile_rx().search(lines[dl])
+			if df:
+				return _build_ref(lm_on_line.get_string(1), caret_line, df.get_string(1), lines, dl)
+
 	var label_line := _find_enclosing_label_line(lines, caret_line)
 	if label_line < 0:
-		# Caret directly on DataFile without label still resolves
-		var df := _datafile_rx().search(lines[caret_line])
-		if df != null:
-			return _build_ref("", caret_line, df.get_string(1), lines)
 		return {}
-	var label_m := _label_rx().search(lines[label_line])
-	if label_m == null:
+	var lm := _label_rx().search(lines[label_line])
+	if lm == null:
 		return {}
-	var label_name: String = label_m.get_string(1)
-	var data_line := _find_datafile_line(lines, label_line)
+	var data_line := _find_datafile_near_caret(lines, label_line, caret_line)
 	if data_line < 0:
 		return {}
 	var df2 := _datafile_rx().search(lines[data_line])
 	if df2 == null:
 		return {}
-	return _build_ref(label_name, label_line, df2.get_string(1), lines, data_line)
+	return _build_ref(lm.get_string(1), label_line, df2.get_string(1), lines, data_line)
 
 
 static func _build_ref(label_name: String, label_line: int, path: String, lines: PackedStringArray, data_line: int = -1) -> Dictionary:
@@ -86,7 +100,7 @@ static func _find_enclosing_label_line(lines: PackedStringArray, caret_line: int
 	return -1
 
 
-static func _find_datafile_line(lines: PackedStringArray, label_line: int) -> int:
+static func _find_first_datafile_after_label(lines: PackedStringArray, label_line: int) -> int:
 	for j in range(label_line + 1, mini(label_line + 12, lines.size())):
 		var s := lines[j].strip_edges()
 		if s.is_empty() or s.begins_with("'"):
@@ -100,18 +114,38 @@ static func _find_datafile_line(lines: PackedStringArray, label_line: int) -> in
 	return -1
 
 
+## Nearest DataFile under label at or before caret; if caret is past all, return last.
+static func _find_datafile_near_caret(lines: PackedStringArray, label_line: int, caret_line: int) -> int:
+	var best := -1
+	for j in range(label_line + 1, lines.size()):
+		var s := lines[j].strip_edges()
+		if s.is_empty() or s.begins_with("'"):
+			continue
+		if _label_rx().search(lines[j]) != null:
+			break
+		if _data_rx().search(lines[j]) != null:
+			break
+		if _datafile_rx().search(lines[j]) != null:
+			best = j
+			if j >= caret_line:
+				return j
+	return best
+
+
 static func enumerate_datafile_blocks(source: String) -> Array:
 	var out: Array = []
 	if source.is_empty():
 		return out
 	var lines := source.split("\n")
 	var pending_label := ""
+	var pending_label_line := -1
 	for i in lines.size():
 		var lm := _label_rx().search(lines[i])
 		if lm != null:
 			pending_label = lm.get_string(1)
+			pending_label_line = i
 			continue
 		var df := _datafile_rx().search(lines[i])
 		if df != null:
-			out.append(_build_ref(pending_label, i if pending_label.is_empty() else maxi(0, i - 1), df.get_string(1), lines, i))
+			out.append(_build_ref(pending_label, pending_label_line, df.get_string(1), lines, i))
 	return out

@@ -25,6 +25,7 @@ const DatafileExternal := preload("res://addons/visual_gasic/vg_datafile_externa
 const TiledImport := preload("res://addons/visual_gasic/vg_tiled_import.gd")
 const VgdWriter := preload("res://addons/visual_gasic/vg_vgd_writer.gd")
 const GridIO := preload("res://addons/visual_gasic/vg_datafile_grid_io.gd")
+const NewLevelDialogScript := preload("res://addons/visual_gasic/vg_datafile_new_level_dialog.gd")
 
 const CREAM_BG := Color(0.96, 0.95, 0.92)
 const TEXT_DARK := Color(0.1, 0.1, 0.1)
@@ -236,13 +237,14 @@ func _update_from_caret_impl(caret: int) -> void:
 	var source := _code_edit.text
 	_last_source = source
 	var ctx := Analyzer.analyze(source, caret)
-	var key := "%s|%s|%dx%d|%s|%s" % [
+	var key := "%s|%s|%dx%d|%s|%s|%s" % [
 		caret,
 		ctx.get("region_title", ""),
 		int(ctx.get("sprite", {}).get("w", 0)),
 		int(ctx.get("sprite", {}).get("h", 0)),
 		_file_key_at_caret(source, caret),
 		_literal_key_at_caret(source, caret),
+		_datafile_key_at_caret(source, caret),
 	]
 	if key != _last_ctx_key:
 		_last_ctx_key = key
@@ -522,6 +524,13 @@ func _file_key_at_caret(source: String, caret: int) -> String:
 	return ref.get("res_path", "")
 
 
+func _datafile_key_at_caret(source: String, caret: int) -> String:
+	var ref := DataFileResolver.resolve_at_line(source, caret)
+	if ref.is_empty():
+		return ""
+	return "%s@%d" % [str(ref.get("path", "")), int(ref.get("data_line", -1))]
+
+
 func _update_file_at_caret(source: String, caret: int) -> void:
 	if not is_instance_valid(_file_panel):
 		return
@@ -618,6 +627,30 @@ func _on_datafile_action(action: String, ref: Dictionary) -> void:
 			grid_editor_open_requested.emit(ref.duplicate(true))
 		"choose_file":
 			_pick_datafile_path(ref)
+		"new_level":
+			_show_new_level_dialog()
+
+
+func _show_new_level_dialog() -> void:
+	if _code_edit == null:
+		return
+	var dlg: AcceptDialog = NewLevelDialogScript.new()
+	var host := get_tree().root if get_tree() else self
+	host.add_child(dlg)
+	dlg.completed.connect(_on_new_level_completed)
+	dlg.open_for(_code_edit)
+
+
+func _on_new_level_completed(ref: Dictionary, open_grid_editor: bool) -> void:
+	if ref.is_empty():
+		return
+	notify_source_changed()
+	var line := int(ref.get("label_line", 0))
+	_code_edit.set_caret_line(line)
+	_code_edit.set_caret_column(0)
+	update_from_caret()
+	if open_grid_editor:
+		grid_editor_open_requested.emit(ref)
 
 
 func _pick_datafile_path(ref: Dictionary) -> void:

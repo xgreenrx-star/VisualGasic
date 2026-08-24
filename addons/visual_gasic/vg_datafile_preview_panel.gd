@@ -22,6 +22,7 @@ var _grid_frame: PanelContainer
 var _grid: TextureRect
 var _text_view: TextEdit
 var _action_row: HBoxContainer
+var _new_level_btn: Button
 var _save_btn: Button
 var _current_ref: Dictionary = {}
 
@@ -32,7 +33,7 @@ func _ready() -> void:
 	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info.add_theme_font_size_override("font_size", 10)
 	_info.add_theme_color_override("font_color", TEXT_DARK)
-	_info.text = "Place the caret on DataFile \"path\" under a label."
+	_info.text = "Place the caret on DataFile \"path\", or click New level…"
 	add_child(_info)
 	_hint = Label.new()
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -74,6 +75,11 @@ func _ready() -> void:
 	_save_btn.tooltip_text = "Write edits back to the file on disk"
 	_save_btn.pressed.connect(_on_save_csv_pressed)
 	add_child(_save_btn)
+	_new_level_btn = Button.new()
+	_new_level_btn.text = "New level…"
+	_new_level_btn.tooltip_text = "Create a labeled DataFile, empty grid file, and source block"
+	_new_level_btn.pressed.connect(func() -> void: action_requested.emit("new_level", {}))
+	add_child(_new_level_btn)
 	_action_row = HBoxContainer.new()
 	_action_row.visible = false
 	_action_row.add_theme_constant_override("separation", 4)
@@ -82,7 +88,7 @@ func _ready() -> void:
 
 func clear_preview() -> void:
 	_current_ref = {}
-	_info.text = "Place the caret on DataFile \"path\" under a label."
+	_info.text = "Place the caret on DataFile \"path\", or click New level…"
 	_hint.visible = false
 	_save_btn.visible = false
 	_grid_frame.visible = false

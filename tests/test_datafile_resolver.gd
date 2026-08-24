@@ -35,6 +35,18 @@ func _test_resolve_datafile() -> void:
 	_check("data line 1", int(ref.get("data_line", -1)) == 1)
 	_check("sprite block no datafile", Resolver.resolve_at_line(FIXTURE, 5).is_empty())
 
+	const MULTI := """WorldTiles:
+DataFile "res://data/world.vgd"
+DataFile "res://data/world2.vgd"
+"""
+	print("-- resolver: multiple DataFile under one label --")
+	var r1 := Resolver.resolve_at_line(MULTI, 1)
+	_check("line1 world.vgd", str(r1.get("path", "")).ends_with("world.vgd"))
+	_check("line1 data_line 1", int(r1.get("data_line", -1)) == 1)
+	var r2 := Resolver.resolve_at_line(MULTI, 2)
+	_check("line2 world2.vgd", str(r2.get("path", "")).ends_with("world2.vgd"))
+	_check("line2 data_line 2", int(r2.get("data_line", -1)) == 2)
+
 
 func _test_sniff_csv() -> void:
 	print("-- sniff: csv heuristic --")

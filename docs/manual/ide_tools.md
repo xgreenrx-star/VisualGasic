@@ -59,6 +59,11 @@ See [Cursor + Narcea roadmap](../development/CURSOR_NARCEA_ROADMAP.md) for the f
 
 When the caret is on a **`DataFile "path"`** line (or its label), the embedded code editor’s **Context Rail** opens the **Data file** section.
 
+| Action | Purpose |
+|--------|---------|
+| **New level…** | Wizard: label name, file path, grid size → inserts `Label:` + `DataFile` in source and creates empty CSV/`.vgd` |
+| **Edit Grid…** | Open the native Grid Editor (paint / fill / save) |
+
 | Action | What it does |
 |--------|----------------|
 | Preview | CSV snippet, `.vgd` width×height, PNG thumbnail, or hex for raw bytes |

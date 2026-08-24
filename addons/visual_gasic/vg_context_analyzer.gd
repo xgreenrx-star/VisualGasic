@@ -89,10 +89,10 @@ static func analyze(source: String, caret_line: int) -> Dictionary:
 
 
 static func _build_outline(lines: PackedStringArray) -> Array:
-	## Landmarks not in the procedure dropdown: Data blocks, Types, etc. (no Sub/Function).
+	## Landmarks: procedures skipped; each DataFile line gets its own outline entry.
 	_ensure_regex()
 	var outline: Array = []
-	var seen: Dictionary = {}
+	var seen_labels: Dictionary = {}
 	for i in lines.size():
 		var line := lines[i]
 		if _sub_re.search(line) != null or _func_re.search(line) != null:
@@ -100,23 +100,32 @@ static func _build_outline(lines: PackedStringArray) -> Array:
 		var tm := _type_re.search(line)
 		if tm != null:
 			var tlabel := "Type " + tm.get_string(1)
-			if not seen.has(tlabel):
-				seen[tlabel] = true
+			if not seen_labels.has(tlabel):
+				seen_labels[tlabel] = true
 				outline.append({"kind": "type", "label": tlabel, "line": i})
 			continue
-		var lm := Resolver._label_rx().search(line)
-		if lm == null:
+		var df := DataFileResolver._datafile_rx().search(line)
+		if df != null:
+			var ll := DataFileResolver._find_enclosing_label_line(lines, i)
+			var lbl := ""
+			if ll >= 0:
+				var lm := DataFileResolver._label_rx().search(lines[ll])
+				if lm:
+					lbl = lm.get_string(1)
+			var file_name := df.get_string(1).get_file()
+			var entry_label := (lbl + " → " + file_name) if not lbl.is_empty() else ("DataFile " + file_name)
+			outline.append({"kind": "datafile", "label": entry_label, "line": i})
 			continue
-		var name: String = lm.get_string(1)
-		if seen.has(name):
+		var lm2 := Resolver._label_rx().search(line)
+		if lm2 == null:
 			continue
-		if not _label_followed_by_data(lines, i) and not _label_followed_by_datafile(lines, i):
+		var name: String = lm2.get_string(1)
+		if seen_labels.has(name):
 			continue
-		seen[name] = true
-		var kind := "sprite" if Resolver.is_sprite_label(name) else "data"
-		if _label_followed_by_datafile(lines, i):
-			kind = "datafile"
-		outline.append({"kind": kind, "label": name, "line": i})
+		if not _label_followed_by_data(lines, i):
+			continue
+		seen_labels[name] = true
+		outline.append({"kind": "sprite", "label": name, "line": i})
 	return outline
 
 
