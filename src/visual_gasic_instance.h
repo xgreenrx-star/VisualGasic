@@ -130,14 +130,19 @@ class VisualGasicInstance {
     // DATA / READ Support
     Vector<ExpressionNode*> data_segments; 
     Vector<ExpressionNode*> runtime_data_nodes; // Nodes created at execution time (LoadData)
+    Vector<Variant> data_flat_cache; // E1: materialized literals (parallel to data_segments)
+    Vector<uint8_t> data_flat_valid;
     int data_pointer;
-    Dictionary label_to_data_index; 
+    Dictionary label_to_data_index;
+    Dictionary label_to_data_buffer; // label (lower) -> Ref VGMemoryBuffer
+    Dictionary label_to_buffer_meta; // label -> Dictionary metadata
     
     // Dynamic Nodes Tracking (for CLS)
     Vector<uint64_t> dynamic_nodes;
 
     void scan_data_sections(ModuleNode* root);
-    void collect_data_from_block(const Vector<Statement*>& block);
+    void collect_data_from_block(const Vector<Statement*>& block, String &pending_label);
+    void build_data_flat_cache();
 
     // Data introspection helpers
     int get_section_end(int section_start) const;
@@ -361,7 +366,15 @@ public:
     int get_data_section_end(int section_start) const { return get_section_end(section_start); }
     int get_data_section_start() const { return get_current_section_start(); }
     const Dictionary &get_label_to_data_index() const { return label_to_data_index; }
+    const Dictionary &get_label_to_data_buffer() const { return label_to_data_buffer; }
+    const Dictionary &get_label_to_buffer_meta() const { return label_to_buffer_meta; }
     ExpressionNode* get_data_segment_at(int index) const { return (index >= 0 && index < data_segments.size()) ? data_segments[index] : nullptr; }
+    Variant get_data_value_at(int index);
+    Ref<VGMemoryBuffer> get_data_buffer(const String &label_lower) const;
+    int get_labeled_item_count(const String &label_lower) const;
+    Variant peek_labeled_data(const String &label_lower, int offset) const;
+    Array labeled_data_to_array(const String &label_lower) const;
+    bool get_buffer_section_meta(const String &label_lower, Dictionary &r_meta) const;
     String get_data_section_name() const {
         int ptr = data_pointer;
         String found;

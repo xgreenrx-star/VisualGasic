@@ -1,127 +1,161 @@
 # VisualGasic Release Schedule
 
-**Last Updated:** August 16, 2026  
-**Target:** Stable v6.0 on January 1, 2027
+**Last Updated:** August 23, 2026  
+**Target:** Stable **v6.0.0** on January 1, 2027  
+**Version policy:** [docs/VERSIONING.md](docs/VERSIONING.md)
 
 ---
 
 ## Release Timeline
 
-| Release | Status | ETA | Milestones | Key Features |
-|---|---|---|---|---|
-| **5.3-beta** | 🟢 SHIPPED (Beta5) | Jul 15 → **Aug 16, 2026** | M1–M4 (+ M5 progress) | Language stability, Python bridge int/float decode fix, Godot IDE integration (Code Navigator M3, UI Forms M4); Beta3 adds C64/GBA emulator demos, cross-module bytecode compilation, Buffer Type, `Global` keyword; Beta4 adds native 6502 CPU core, −81.8% call overhead, 3 miscompilation bugs fixed; Beta5 fixes native Script editor crash, VB6 Enter/block closing, keyword auto-correct |
-| **5.4-beta** | — | Oct 15, 2026 | M5 | Narcea AI pair, async queue, structured error handling |
-| **6.0-rc1** | — | Dec 1, 2026 | M6–M8 | Language parity (Try/Catch/Lambda/AndAlso/OrElse), C++ FFI interop, `Let` keyword, Causal Chain (text mode) |
-| **6.0-rc2** | — | Dec 15, 2026 | M9 | Release readiness, Godot Asset Library submission, installer validation |
-| **🎉 6.0 stable** | — | Jan 1, 2027 | All M1–M9 | Production release, public announcement |
+| Version | Status | ETA | Milestone | Key features |
+|---------|--------|-----|-----------|--------------|
+| **5.3.0-Beta7** | 🟢 SHIPPED | Aug 21, 2026 | M1–M4 (+ M5 progress) | Bracket indexing, CI `.vg` gate, Narcea reference offers — [notes](RELEASE_NOTES_5.3.0-Beta7.md) |
+| **5.4.0-beta1** | 🔄 NEXT (`main`) | Sep 2026 | pre-M5 | Context rail, literal convert, outline, reference sidecar, sprite Data editor, **Track D** (`.vgd` / `DataFile` sidecar + Tiled import) |
+| **5.4.0-beta2** | — | Oct 15, 2026 | M5 | Narcea AI pair, Buffer type, optimizer hints |
+| **5.5.0-beta1** | — | Nov 2026 | M6–M7 | Causal chain (text), Python bridge hardening |
+| **6.0.0-rc1** | — | Dec 1, 2026 | M6–M8 | Try/Catch, `Let`, C++ FFI, language parity |
+| **6.0.0-rc2** | — | Dec 15, 2026 | M9 | Installer smoke, docs, corpus 50+ |
+| **6.0.0** | — | Jan 1, 2027 | M1–M9 | 🎉 Production stable |
+
+**Buffer month:** October. If M5 slips, compress M6/M7 scope — not the Jan 1 stable target unless explicitly re-planned.
 
 ---
 
-## 5.3-beta (Shipped Beta1 Jul 3, Beta2 Jul 15, Beta3 Jul 31, Beta4 Aug 7, Beta5 Aug 16, 2026)
+## Version ↔ milestone map
 
-**Status:** Beta5 shipped
+Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full policy: [docs/VERSIONING.md](docs/VERSIONING.md).
+
+---
+
+## 5.3 line — shipped (Jul–Aug 2026)
+
+**Latest public beta:** `v5.3.0-Beta7` (Aug 21, 2026)
 
 **Milestones included:**
-- ✅ M1 — Bug fixes (4/4 critical bugs fixed)
-- ✅ M2 — Corpus validation (54/54 examples passing, up from 44)
+- ✅ M1 — Critical bug fixes
+- ✅ M2 — Corpus validation (54+ examples)
 - ✅ M3 — Code Navigator upgrade
 - ✅ M4 — UI Forms experimental plugin
-- 🔄 M5 — Narcea AI pair (in progress; DeepSeek provider + agent scaffolding landed in Beta3, agent-loop bug fixes landed in Beta4; Buffer Type + Optimizer Hints + speed improvements targeted for 5.4-beta)
+- 🔄 M5 — Narcea AI pair (partial; continues in 5.4)
 
-**Beta5 highlights (Aug 16, 2026):**
-- ✅ Native Godot Script editor crash fixed (segfault on Enter in `.vg` tabs) — see [RELEASE_NOTES_5.3.0-Beta5.md](RELEASE_NOTES_5.3.0-Beta5.md)
-- ✅ VB6 Enter / block closing on native Script tabs (`Next`, `End If`, etc.)
-- ✅ Shared keyword auto-correct (`for` → `For`) on native + embedded editors
-- ✅ All platform zips, AppImage, Windows installer, and offline bundles rebuilt for Beta5
+### Beta7 highlights (Aug 21, 2026)
 
-**Beta4 highlights (Aug 7, 2026):**
-- ✅ Call-performance campaign: −81.8% instruction overhead per call (45,785 → 8,323 instr/call), 5.50× faster — see [RELEASE_NOTES_5.3.0-Beta4.md](RELEASE_NOTES_5.3.0-Beta4.md)
-- ✅ Native VGCpu6502 engine primitive — C64 Emulator Turbo Mode boots to `READY.` at ~2.9× real hardware speed
-- ✅ 3 silent-miscompilation bugs fixed: `OP_JUMP_TABLE` sizing, `CONST + VAR`/`CONST * VAR` arithmetic codegen, `ByRef` write-back vs. shadowed builtin
-- ✅ Native JIT hang bug fixed (missing `restore_vm()` on JIT return)
-- ✅ Regression suite: 856/856 assertions (up from 777/777)
+- ✅ Bracket array indexing `arr[i]` — [RELEASE_NOTES_5.3.0-Beta7.md](RELEASE_NOTES_5.3.0-Beta7.md)
+- ✅ ByRef array slot write-back
+- ✅ CI `.vg` regression suite on every PR (`run_test_suite.sh --vg-only`)
+- ✅ Narcea reference offers, web-assisted scaffolds, Cursor SDK fixes
+- ✅ 871/871 regression assertions
 
-**Beta3 highlights (Jul 31, 2026):**
-- ✅ C64 Emulator + GBA Emulator demos (real KERNAL/BASIC ROMs, ARM7TDMI) — see [RELEASE_NOTES_5.3.0-Beta3.md](RELEASE_NOTES_5.3.0-Beta3.md)
-- ✅ Cross-module bytecode compilation for imported Subs + `MemoryBuffer` global support
-- ✅ Buffer Type + Optimizer Hints (#4, #5), `Global` keyword, cross-file class `Import`, `Exit While`
-- ✅ ~21–40% reduction in call/hot-path overhead
-- ✅ Regression suite: 777/777 assertions (up from 763/763)
+### Beta6 highlights (Aug 18, 2026)
 
-**Python bridge improvements (Beta2):**
-- ✅ Integer/float decode bug FIXED (Godot JSON parser → custom `vg_json_parse_typed()`)
-- 🔴 Known issue: Outgoing literal typing (VG Array(0,5) sends float → breaks numpy.range). Documented in ROADMAP.md, v6.1 candidate.
+- ✅ `End`, `DoEvents`, `Throw`, `LoadForm`, `ChangeScene`
+- ✅ VB6 `""` string escapes; conversion builtins
+- ✅ Programmer's Reference runtime gate in CI
+- ✅ 856/856 regression assertions
 
-**Testing:**
-- Run `run_test_suite.sh` before shipping
-- `demo/test_python_int_float.vg` validates decode path (Tests 1,4,5,6 pass)
-- No regressions from M1 critical fixes
+### Earlier 5.3 betas
 
-**Checklist before shipping Beta4:**
-- [x] Run full regression test suite (856/856 assertions)
-- [x] Build both editor + template_debug binaries (+ template_release, Linux + Windows)
-- [ ] Verify installer (`install.sh`/`install.ps1`) on clean VM
-- [x] Generate CHANGELOG.md entry summarizing Beta4 changes
-- [ ] Tag release as `v5.3.0-Beta4`
-- [ ] Push to GitHub Releases with installer artifacts (mark as Latest, not pre-release)
-- [ ] Update README.md "Current Release" section
+| Tag | Date | Highlights |
+|-----|------|------------|
+| Beta5 | Aug 16 | Native Script editor crash fix, VB6 Enter/block closing, keyword auto-correct |
+| Beta4 | Aug 7 | −81.8% call overhead, native 6502 core, 3 miscompilation fixes |
+| Beta3 | Jul 31 | C64/GBA emulator demos, cross-module bytecode, Buffer type groundwork |
+| Beta2 | Jul 15 | Python int/float decode fix, `IsNot`, ByRef write-back |
+| Beta1 | Jul 3 | Narcea floating window, Thrust demo |
+
+**Known issue (carried forward):** VG numeric literals sent to Python via `Array(0, 5)` arrive as float — [ROADMAP.md](ROADMAP.md), v6.1 candidate.
 
 ---
 
-## 5.4-beta (Estimated: Oct 15, 2026)
+## 5.4.0-beta1 — next cut (Sep 2026)
 
-**Milestones:**
-- M5 — Narcea AI pair
+**Milestone:** pre-M5 (IDE audit bench; M5 lands in beta2)
+
+**Scope on `main` (post-Beta7):**
+- Context rail sidecar (outline, reference, wire/symbol at caret)
+- Literal convert panel (hex/oct/binary, copy/replace)
+- Inline sprite Data editor
+- **Track D** — `DataFile` binary `.vgd` sections, flat data cache, Context Rail data-file sidecar, Tiled JSON → `.vgd` import, one-click Tiled install/detect ([plan](docs/design/external_data_files.md))
+- `@VG-Summary`, causal chain teaser
+- C* conversion docs; dual-editor stale-prompt fixes
+- Marketing screenshots in `docs/screenshots/` (2026-08-23)
+
+**Release criteria:**
+- [ ] `scripts/ci_smoke.sh` passes on `projects/vg_narcea_test`
+- [ ] `./run_test_suite.sh` green (871+ assertions)
+- [ ] `CHANGELOG.md` + `RELEASE_NOTES_v5.4.0-beta1.md`
+- [ ] Tag `v5.4.0-beta1`; GitHub Pre-release
+- [ ] Update `docs/guides/GET_STARTED.md` current version
+
+---
+
+## 5.4.0-beta2 — M5 (Oct 15, 2026)
+
+**Milestone:** M5 — Narcea AI pair
 
 **Expected features:**
-- Real-time AI code suggestions in IDE
-- Async queue + structured error handling
-- Prompt engineering improvements
+- End-to-end “describe form → working VG code” on Claude + Ollama
+- Buffer type (`Dim mem As Buffer`) + BufRead/BufWrite opcodes
+- Optimizer hints (`@fast_loop`, `@accumulator`, `@simd_candidate`)
+- Provider polish (DeepSeek, Qwen, Codeium, Amazon Q)
 
 **Release criteria:**
 - 50+ corpus examples pass
-- No regressions from 5.3
-- Narcea integration tests green
+- No regressions from 5.4.0-beta1
+- Narcea integration / agent-loop tests green
 
 ---
 
-## 6.0-rc1 (Estimated: Dec 1, 2026)
+## 5.5.0-beta1 — M6–M7 (Nov 2026)
 
 **Milestones:**
-- M6 — Causal Chain text-mode teaser
-- M7 — Python Library Integration (numpy, opencv basic support)
-- M8 — Language parity (Try/Catch/Lambda, AndAlso/OrElse short-circuit, `Let` keyword, C++ FFI)
+- M6 — Causal Chain text-mode report
+- M7 — Python library integration close-out (numpy Phase 1, Windows async validation)
+- Track D follow-ups — image `.vgd` sections, CSV bulk export, Narcea data-file prompts
 
 **Expected features:**
-- Full Python bridge type-fidelity (int/float fixed both directions)
-- Try/Catch/Finally working end-to-end
-- AndAlso/OrElse short-circuit behavior
-- Named arguments at call sites
-- C++ library interop documentation
+- Static AST call-chain report for forms
+- `PyImport` / `PyCallAsync` / `Await` hardened on Linux + Windows
+- numpy/opencv basic demos updated
+- Track D follow-ups — image `.vgd` sections, CSV bulk export from sidecar
+
+---
+
+## 6.0.0-rc1 (Dec 1, 2026)
+
+**Milestones:** M6–M8
+
+**Expected features:**
+- Try/Catch/Finally, Lambda, `?.`, AndAlso/OrElse corpus tests
+- `Let` block-scoped variables
+- C++ FFI (`Declare` / `DllImport`) documentation and packaging
+- Python encode-path literal typing mitigations where feasible
 
 **Testing:**
 - 60+ corpus examples
-- Python bridge fuzzing (stdlib + numpy modules)
-- C++ FFI cross-platform validation (Linux, Windows, macOS)
+- Python bridge fuzzing (stdlib + numpy)
+- C++ FFI validation (Linux, Windows, macOS)
 
 ---
 
-## 6.0-rc2 (Estimated: Dec 15, 2026)
+## 6.0.0-rc2 (Dec 15, 2026)
 
-**Milestones:**
-- M9 — Release readiness
+**Milestone:** M9 — Release readiness
 
 **Final push:**
-- Godot Asset Library submission prepared
-- Installer smoke test on clean Linux + Windows VMs
-- All documentation finalized (Language Reference, API docs, tutorials)
-- README and CHANGELOG reflect v6.0 accurately
+- ✅ Godot Asset Library — live ([store listing](https://store.godotengine.org/asset/visual-gasic/visual-gasic/))
+- [ ] Installer smoke test on clean Linux + Windows VMs
+- [ ] Language Reference and tutorials reflect v6.0 accurately
+- [ ] README and CHANGELOG finalized for stable
 
 ---
 
-## 6.0 Stable (Target: Jan 1, 2027)
+## 6.0.0 stable (Jan 1, 2027)
 
-🎉 **All M1–M9 complete. Production release.**
+🎉 **All M1–M9 complete.** Tag `v6.0.0` (no pre-release suffix). Public announcement.
+
+**What stable means:** language core reliable, examples and installer work first try, docs honest. Not every v7.0 aspirational item ships in 6.0.
 
 ---
 
@@ -130,59 +164,60 @@
 ### Building and Testing
 
 ```bash
-# Full test suite (should pass 763/763 assertions)
+# Full regression suite
 ./run_test_suite.sh
+
+# CI-style VG-only gate
+./run_test_suite.sh --vg-only
+
+# Editor smoke (after GDScript plugin changes)
+scripts/ci_smoke.sh projects/vg_narcea_test
 
 # Build editor binary
 scons target=editor -j$(nproc)
 
 # Build template_debug binary
 scons -j$(nproc)
-
-# Verify binaries
-file demo/bin/libvisualgasic.linux.editor.x86_64.so
-file demo/bin/libvisualgasic.linux.template_debug.x86_64.so
 ```
 
 ### Release Notes Template
 
 ```markdown
-## vX.Y.Z-beta / vX.Y.Z
+## vX.Y.Z-betaN / vX.Y.Z
 
 **Release Date:** YYYY-MM-DD
+**Milestone:** M# — short name
 
 ### Features
-- [M#] Feature description
+- Feature description
 
 ### Bug Fixes
-- [Critical] Bug title + commit hash
+- Bug title + commit hash
 
 ### Known Issues
 - Title + workaround link
 
 ### Installation
-Download `install.sh` / `install.ps1` and follow CONTRIBUTING.md § "Developer Setup".
+See docs/guides/GET_STARTED.md and GitHub Releases assets.
 
 ### Compatibility
-- Godot 4.6.1 (tested)
+- Godot 4.6.1+
 - Linux x86_64, Windows x86_64 (desktop)
-- Python 3.10+ (for Python bridge)
+- Python 3.10+ (Python bridge)
 ```
 
 ### GitHub Release Checklist
 
-- [ ] Create tag: `git tag -a v5.3.0-beta -m "..."`
-- [ ] Push tag: `git push origin v5.3.0-beta`
-- [ ] Upload installer binaries to GitHub Releases
-- [ ] Write release notes from CHANGELOG.md
-- [ ] Mark as "Pre-release" if beta/rc
-- [ ] Announce on Discord / forums
+- [ ] Tag: `git tag -a v5.4.0-beta1 -m "…"`
+- [ ] Push: `git push origin v5.4.0-beta1`
+- [ ] Upload installer + Asset Library zip
+- [ ] Release notes from CHANGELOG; title includes milestone name (not tag)
+- [ ] Mark **Pre-release** for beta/rc; **Latest** only for 6.0.0 stable
+- [ ] Update GET_STARTED.md and README release section
 
 ---
 
-## Reminder System
+## Reminder
 
-**Next Release Alert:** 5.4-beta (Oct 15, 2026)  
-**Next Major Checkpoint:** 5.4-beta (Oct 15, 2026 — ~2 months)
-
-See `/memories/repo/release_schedule.md` for in-code reminders and past release notes.
+**Next release:** `v5.4.0-beta1` (Sep 2026) — Context rail / IDE sidecar  
+**Next milestone gate:** M5 → `v5.4.0-beta2` (Oct 15, 2026)

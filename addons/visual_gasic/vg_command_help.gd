@@ -575,6 +575,21 @@ static func _build_db() -> void:
 		"Resets the Data read pointer to the beginning, or to a named data section.",
 		"Data \"First\", 1\ndata_section2:\nData \"Second\", 2\n\nRead a, b\nRestore data_section2\nRead c, d  ' Reads \"Second\", 2", 10468)
 
+	_add("DataFile",
+		"DataFile \"path\"",
+		"Include data from an external file at parse time. Text/CSV files merge onto the Data tape (same as inline Data). Binary .vgd files load into a labeled MemoryBuffer — use DataBuffer, DataCount, and PeekData with the label.",
+		"WorldTiles:\nDataFile \"levels/world.vgd\"\n\nSpawnTable:\nDataFile \"data/spawns.csv\"\n\n' Runtime access to binary section:\nDim buf As Object\nbuf = DataBuffer(\"WorldTiles\")", 10470)
+
+	_add("DataBuffer",
+		"DataBuffer(\"labelName\")",
+		"Returns the MemoryBuffer for a labeled DataFile section that was loaded from a binary .vgd file.",
+		"WorldTiles:\nDataFile \"levels/world.vgd\"\n\nDim tiles As Object\ntiles = DataBuffer(\"WorldTiles\")\nPrint tiles.Size", 10472)
+
+	_add("LoadData",
+		"LoadData pathExpression",
+		"Append data from a text file onto the Data tape at runtime (dynamic path).",
+		"Dim f As String\nf = \"user://wave.txt\"\nLoadData f\nRead value", 10474)
+
 	# =========================================================================
 	# STRING FUNCTIONS
 	# =========================================================================

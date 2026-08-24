@@ -1,4 +1,6 @@
 #include "visual_gasic_parser.h"
+#include "visual_gasic_vgd_loader.h"
+#include "visual_gasic_memory_buffer.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <stdio.h>
@@ -4816,20 +4818,43 @@ DataStatement* VisualGasicParser::parse_data_file() {
         return nullptr;
     }
     
-    if (path.begins_with("res://")) {
-         // Good
-    }
-    
     Ref<FileAccess> file = FileAccess::open(path, FileAccess::READ);
     if (file.is_null()) {
         error("Could not open DataFile: " + path);
         return nullptr;
     }
     
-    String content = file->get_as_text();
+    int64_t flen = file->get_length();
+    if (flen < 0) {
+        error("Could not read DataFile length: " + path);
+        return nullptr;
+    }
+    PackedByteArray raw = file->get_buffer(flen);
     file->close();
     
     DataStatement* stmt = static_cast<DataStatement*>(register_node(new DataStatement()));
+    stmt->source_path = path;
+    
+    if (VisualGasicVgd::is_vgd_magic(raw)) {
+        Ref<VGMemoryBuffer> mbuf;
+        VgdHeader hdr;
+        String vgd_err;
+        if (!VisualGasicVgd::parse_bytes(raw, mbuf, hdr, vgd_err)) {
+            error("DataFile VGD parse failed: " + vgd_err);
+            unregister_node(stmt);
+            delete stmt;
+            return nullptr;
+        }
+        stmt->memory_buffer = mbuf;
+        stmt->vgd_kind = hdr.kind;
+        stmt->vgd_width = (int)hdr.width;
+        stmt->vgd_height = (int)hdr.height;
+        stmt->vgd_elem_size = (int)hdr.elem_size;
+        stmt->vgd_palette_id = (int)hdr.palette_id;
+        return stmt;
+    }
+    
+    String content = raw.get_string_from_utf8();
     stmt->values = parse_data_values_from_text(content);
     return stmt;
 }

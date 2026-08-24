@@ -1,0 +1,28 @@
+WorldTiles:
+DataFile "res://test_data/sample_map.vgd"
+
+Sub _Ready()
+    Dim n As Integer
+    n = DataCount("WorldTiles")
+    If n <> 16 Then
+        Print "FAIL: datafile_vgd: DataCount expected 16 got " & n
+        Exit Sub
+    End If
+    Print "PASS: datafile_vgd count"
+
+    Dim v As Integer
+    v = PeekData("WorldTiles", 0)
+    If v <> 0 Then
+        Print "FAIL: datafile_vgd: PeekData(0) expected 0 got " & v
+        Exit Sub
+    End If
+    Print "PASS: datafile_vgd peek"
+
+    Dim buf As Object
+    buf = DataBuffer("WorldTiles")
+    If buf Is Nothing Then
+        Print "FAIL: datafile_vgd: DataBuffer returned Nothing"
+        Exit Sub
+    End If
+    Print "PASS: datafile_vgd buffer"
+End Sub

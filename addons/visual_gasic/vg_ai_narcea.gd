@@ -850,6 +850,27 @@ Classes go in their own .vg file with a Class header (NOT a flat module).
   ' PERF: call DataToArray(\"PlayerSprite\") ONCE in _Ready/LoadSprites —
   ' NEVER inside _Draw or a per-frame Draw* helper (see canvas sprite perf policy).
 
+  ' External data files (large tilemaps, spawn tables) — module level under a label:
+  WorldTiles:
+  DataFile \"levels/world.vgd\"       ' binary .vgd grid (preferred for large maps)
+  SpawnTable:
+  DataFile \"data/spawns.csv\"        ' text/CSV merges onto the DATA tape like inline Data
+
+  ' Runtime access to labeled DataFile sections:
+  Dim n As Integer = DataCount(\"WorldTiles\")     ' for .vgd grids: width × height
+  Dim tile As Integer = PeekData(\"WorldTiles\", 0) ' 0-based flat index into that section
+  Dim buf As Object = DataBuffer(\"WorldTiles\")   ' MemoryBuffer when source was binary .vgd
+  ' Use buf.PeekUInt16(i) etc. for bulk reads; PeekData(label, i) for single cells.
+
+  LoadData \"user://wave.txt\"         ' RUNTIME: append text file values to DATA tape
+  ' (distinct from Sub LoadData() — that is a user handler name, not this builtin)
+
+  When to use what:
+  - Small tables / inline pixel art (≤32×32): labeled Data or *Sprite: (Context Rail editor).
+  - Large tilemaps (64×64+): DataFile + .vgd — do NOT paste thousands of Data rows inline.
+  - Narcea: write level grids as CSV (e.g. data/world.csv) + DataFile line; user edits in IDE Grid Editor (Context Rail → Edit Grid…).
+  - Optional: Convert → .vgd in sidecar for binary runtime. Tiled JSON import exists but is optional external tooling.
+
   ' Dynamic arrays:
   Dim scores(9) As Integer           ' fixed 0-based, indices 0..9
   ReDim scores(19)                   ' resize (loses data)
@@ -1294,6 +1315,8 @@ const SLIM_KNOWLEDGE := """
 - AI-written .vg must be auditable: `'` header, comment before each Sub, brief notes on state/logic.
 - Canvas _Draw games with *Sprite: Data blocks — cache DataToArray in _Ready; draw from cached
   Variant arrays; QueueRedraw only when visuals change (not every _Process frame).
+- Large level/tile data: labeled DataFile \"path\" (.vgd binary or CSV); use DataCount,
+  PeekData, DataBuffer — not megabytes of inline Data rows. User edits CSV/vgd in VG Grid Editor (Edit Grid… in Context Rail).
 - Follow `.cursor/rules/visual-gasic-godot.mdc`. Search corpus/, demos/, tutorials/ for examples.
 - VG MCP tools (read_file, write_file, find_in_files) when Godot + plugin are running.
 """

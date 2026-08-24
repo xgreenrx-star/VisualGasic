@@ -27,6 +27,8 @@ signal view_object_requested          ## user clicked "View Object" or pressed F
 signal code_saved(path: String)       ## code was flushed to disk
 signal edit_in_working_nodes_requested(wnodes_path: String)  ## user clicked "Edit in WN"
 signal file_path_open_hex_requested(path: String)
+signal file_path_open_hex_grid_requested(path: String, grid_width: int, elem_size: int)
+signal file_path_open_grid_editor_requested(ref: Dictionary)
 signal file_path_open_sprite_requested(path: String)
 signal file_path_reveal_browser_requested(path: String)
 signal file_path_open_external_requested(path: String)
@@ -255,6 +257,10 @@ func _build_ui() -> void:
 		_context_rail.file_action_requested.connect(_on_file_path_action)
 	if _context_rail.has_signal("summary_insert_requested"):
 		_context_rail.summary_insert_requested.connect(_on_context_rail_summary_insert)
+	if _context_rail.has_signal("hex_editor_open_requested"):
+		_context_rail.hex_editor_open_requested.connect(_on_context_rail_hex_open)
+	if _context_rail.has_signal("grid_editor_open_requested"):
+		_context_rail.grid_editor_open_requested.connect(_on_context_rail_grid_open)
 
 	# ── Bottom panel: Immediate Window ──
 	_build_bottom_panel()
@@ -2190,6 +2196,21 @@ func _on_edit_sprite_data_requested() -> void:
 	_update_context_rail()
 	if is_instance_valid(_context_rail):
 		_context_rail.grab_focus()
+
+
+func _on_context_rail_hex_open(path: String, grid_width: int, elem_size: int) -> void:
+	if path.is_empty():
+		return
+	if grid_width > 0 and elem_size > 0:
+		file_path_open_hex_grid_requested.emit(path, grid_width, elem_size)
+	else:
+		file_path_open_hex_requested.emit(path)
+
+
+func _on_context_rail_grid_open(ref: Dictionary) -> void:
+	if ref.is_empty():
+		return
+	file_path_open_grid_editor_requested.emit(ref)
 
 
 func _on_file_path_action(action: int, ref: Dictionary) -> void:

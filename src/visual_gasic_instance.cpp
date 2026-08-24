@@ -1557,14 +1557,21 @@ void VisualGasicInstance::scan_data_sections(ModuleNode* root) {
 
     data_segments.clear();
     label_to_data_index.clear();
+    label_to_data_buffer.clear();
+    label_to_buffer_meta.clear();
+    data_flat_cache.clear();
+    data_flat_valid.clear();
 
+    String pending_label;
     // Scan Global Statements first (module-level Data/Labels appear before Subs in source)
-    collect_data_from_block(root->global_statements);
+    collect_data_from_block(root->global_statements, pending_label);
 
     // Then scan Subs in declaration order
     for(int i=0; i<root->subs.size(); i++) {
-        collect_data_from_block(root->subs[i]->statements);
+        collect_data_from_block(root->subs[i]->statements, pending_label);
     }
+
+    build_data_flat_cache();
 }
 
 int VisualGasicInstance::get_section_end(int section_start) const {
@@ -1601,7 +1608,128 @@ void VisualGasicInstance::clear_data_tape() {
     runtime_data_nodes.clear();
     data_segments.clear();
     label_to_data_index.clear();
+    label_to_data_buffer.clear();
+    label_to_buffer_meta.clear();
+    data_flat_cache.clear();
+    data_flat_valid.clear();
     data_pointer = 0;
+}
+
+void VisualGasicInstance::build_data_flat_cache() {
+    int n = data_segments.size();
+    data_flat_cache.resize(n);
+    data_flat_valid.resize(n);
+    for (int i = 0; i < n; i++) {
+        data_flat_valid.write[i] = 0;
+        ExpressionNode *e = data_segments[i];
+        if (e && e->type == ExpressionNode::LITERAL) {
+            data_flat_cache.write[i] = static_cast<LiteralNode *>(e)->value;
+            data_flat_valid.write[i] = 1;
+        }
+    }
+}
+
+Variant VisualGasicInstance::get_data_value_at(int index) {
+    if (index >= 0 && index < data_flat_valid.size() && data_flat_valid[index]) {
+        return data_flat_cache[index];
+    }
+    if (index >= 0 && index < data_segments.size() && data_segments[index]) {
+        return evaluate_expression(data_segments[index]);
+    }
+    return Variant();
+}
+
+bool VisualGasicInstance::get_buffer_section_meta(const String &label_lower, Dictionary &r_meta) const {
+    if (!label_to_buffer_meta.has(label_lower)) {
+        return false;
+    }
+    r_meta = label_to_buffer_meta[label_lower];
+    return true;
+}
+
+Ref<VGMemoryBuffer> VisualGasicInstance::get_data_buffer(const String &label_lower) const {
+    if (!label_to_data_buffer.has(label_lower)) {
+        return Ref<VGMemoryBuffer>();
+    }
+    return label_to_data_buffer[label_lower];
+}
+
+int VisualGasicInstance::get_labeled_item_count(const String &label_lower) const {
+    Ref<VGMemoryBuffer> buf = get_data_buffer(label_lower);
+    if (buf.is_valid()) {
+        Dictionary meta;
+        if (!get_buffer_section_meta(label_lower, meta)) {
+            return 0;
+        }
+        int elem = (int)meta.get("elem_size", 1);
+        if (elem <= 0) {
+            return 0;
+        }
+        return (int)(buf->get_size() / elem);
+    }
+    if (!label_to_data_index.has(label_lower)) {
+        return -1;
+    }
+    int start = (int)label_to_data_index[label_lower];
+    return get_section_end(start) - start;
+}
+
+Variant VisualGasicInstance::peek_labeled_data(const String &label_lower, int offset) const {
+    Ref<VGMemoryBuffer> buf = get_data_buffer(label_lower);
+    if (buf.is_valid()) {
+        Dictionary meta;
+        if (!get_buffer_section_meta(label_lower, meta)) {
+            return Variant();
+        }
+        int elem = (int)meta.get("elem_size", 1);
+        if (elem <= 0 || offset < 0) {
+            return Variant();
+        }
+        int64_t byte_off = (int64_t)offset * (int64_t)elem;
+        if (byte_off + elem > buf->get_size()) {
+            return Variant();
+        }
+        if (elem == 1) {
+            return buf->peek_byte(byte_off);
+        }
+        if (elem == 2) {
+            return buf->peek_uint16((int)byte_off);
+        }
+        if (elem == 4) {
+            return buf->peek_int32((int)byte_off);
+        }
+        return Variant();
+    }
+    if (!label_to_data_index.has(label_lower)) {
+        return Variant();
+    }
+    int abs_index = (int)label_to_data_index[label_lower] + offset;
+    if (abs_index < 0 || abs_index >= data_segments.size()) {
+        return Variant();
+    }
+    return const_cast<VisualGasicInstance *>(this)->get_data_value_at(abs_index);
+}
+
+Array VisualGasicInstance::labeled_data_to_array(const String &label_lower) const {
+    Array result;
+    Ref<VGMemoryBuffer> buf = get_data_buffer(label_lower);
+    if (buf.is_valid()) {
+        int count = get_labeled_item_count(label_lower);
+        for (int i = 0; i < count; i++) {
+            result.push_back(peek_labeled_data(label_lower, i));
+        }
+        return result;
+    }
+    if (!label_to_data_index.has(label_lower)) {
+        return result;
+    }
+    int start = (int)label_to_data_index[label_lower];
+    int end = get_section_end(start);
+    VisualGasicInstance *mut = const_cast<VisualGasicInstance *>(this);
+    for (int i = start; i < end; i++) {
+        result.push_back(mut->get_data_value_at(i));
+    }
+    return result;
 }
 
 Variant VisualGasicInstance::coerce_to_type(const Variant &val, const String &type_name) {
@@ -1658,38 +1786,56 @@ Variant VisualGasicInstance::coerce_struct_member(const String &struct_type, con
     return val; // Member not in definition (shouldn't happen)
 }
 
-void VisualGasicInstance::collect_data_from_block(const Vector<Statement*>& block) {
+void VisualGasicInstance::collect_data_from_block(const Vector<Statement*>& block, String &pending_label) {
     for(int i=0; i<block.size(); i++) {
         Statement* s = block[i];
         if (s->type == STMT_DATA) {
             DataStatement* data = (DataStatement*)s;
-            for(int k=0; k<data->values.size(); k++) {
-                data_segments.push_back(data->values[k]);
+            if (data->memory_buffer.is_valid()) {
+                if (!pending_label.is_empty()) {
+                    String key = pending_label.to_lower();
+                    label_to_data_index[key] = data_segments.size();
+                    label_to_data_buffer[key] = data->memory_buffer;
+                    Dictionary meta;
+                    meta["width"] = data->vgd_width;
+                    meta["height"] = data->vgd_height;
+                    meta["elem_size"] = data->vgd_elem_size;
+                    meta["kind"] = data->vgd_kind;
+                    meta["palette_id"] = data->vgd_palette_id;
+                    meta["path"] = data->source_path;
+                    meta["byte_size"] = (int)data->memory_buffer->get_size();
+                    label_to_buffer_meta[key] = meta;
+                }
+            } else {
+                for(int k=0; k<data->values.size(); k++) {
+                    data_segments.push_back(data->values[k]);
+                }
             }
         }
         if (s->type == STMT_LABEL) {
             LabelStatement* label = (LabelStatement*)s;
+            pending_label = label->name;
             label_to_data_index[label->name.to_lower()] = data_segments.size();
         }
         
         // Recursive blocks (If, Do, Loop, For, Select, With)
         if (s->type == STMT_IF) {
             IfStatement* ifs = (IfStatement*)s;
-            collect_data_from_block(ifs->then_branch);
-            collect_data_from_block(ifs->else_branch);
+            collect_data_from_block(ifs->then_branch, pending_label);
+            collect_data_from_block(ifs->else_branch, pending_label);
         }
-        if (s->type == STMT_FOR) collect_data_from_block(((ForStatement*)s)->body);
-        if (s->type == STMT_WHILE) collect_data_from_block(((WhileStatement*)s)->body);
-        if (s->type == STMT_DO) collect_data_from_block(((DoStatement*)s)->body);
-        if (s->type == STMT_OSCILLATE) collect_data_from_block(((OscillateStatement*)s)->body);
-        if (s->type == STMT_REPEAT) collect_data_from_block(((RepeatStatement*)s)->body);
-        if (s->type == STMT_CYCLE) collect_data_from_block(((CycleStatement*)s)->body);
-        if (s->type == STMT_EVERY) collect_data_from_block(((EveryStatement*)s)->body);
-        if (s->type == STMT_WITH) collect_data_from_block(((WithStatement*)s)->body);
+        if (s->type == STMT_FOR) collect_data_from_block(((ForStatement*)s)->body, pending_label);
+        if (s->type == STMT_WHILE) collect_data_from_block(((WhileStatement*)s)->body, pending_label);
+        if (s->type == STMT_DO) collect_data_from_block(((DoStatement*)s)->body, pending_label);
+        if (s->type == STMT_OSCILLATE) collect_data_from_block(((OscillateStatement*)s)->body, pending_label);
+        if (s->type == STMT_REPEAT) collect_data_from_block(((RepeatStatement*)s)->body, pending_label);
+        if (s->type == STMT_CYCLE) collect_data_from_block(((CycleStatement*)s)->body, pending_label);
+        if (s->type == STMT_EVERY) collect_data_from_block(((EveryStatement*)s)->body, pending_label);
+        if (s->type == STMT_WITH) collect_data_from_block(((WithStatement*)s)->body, pending_label);
         if (s->type == STMT_SELECT) {
             SelectStatement* sel = (SelectStatement*)s;
             for(int c=0; c<sel->cases.size(); c++) {
-                collect_data_from_block(sel->cases[c]->body);
+                collect_data_from_block(sel->cases[c]->body, pending_label);
             }
         }
     }

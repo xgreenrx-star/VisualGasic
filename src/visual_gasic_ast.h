@@ -7,6 +7,8 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <stdio.h>
 
+#include "visual_gasic_memory_buffer.h"
+
 using namespace godot;
 namespace VisualGasic {
 // Forward declarations
@@ -391,6 +393,13 @@ struct DoEventsStatement : public Statement {
 
 struct DataStatement : public Statement {
     Vector<ExpressionNode*> values;
+    String source_path; // Set when loaded via DataFile (text or binary)
+    Ref<VGMemoryBuffer> memory_buffer; // Binary .vgd — not expanded onto data tape
+    int vgd_kind = 0;
+    int vgd_width = 0;
+    int vgd_height = 0;
+    int vgd_elem_size = 1;
+    int vgd_palette_id = 255;
     DataStatement() : Statement(STMT_DATA) {}
     ~DataStatement() {
         for(int i=0; i<values.size(); i++) if(values[i]) delete values[i];

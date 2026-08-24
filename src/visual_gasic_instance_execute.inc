@@ -377,7 +377,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                      raise_error("Out of Data");
                      break;
                  }
-                 Variant val = evaluate_expression(data_segments[data_pointer]);
+                 Variant val = get_data_value_at(data_pointer);
                  data_pointer++;
                  // Typed Read coercion (Read x As Integer)
                  if (i < s->type_names.size() && !s->type_names[i].is_empty()) {
@@ -2518,6 +2518,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 data_segments.push_back(new_data[i]);
                 runtime_data_nodes.push_back(new_data[i]);
             }
+            build_data_flat_cache();
             
             break;
         }

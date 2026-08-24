@@ -6229,7 +6229,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 } else {
-                    Variant val = evaluate_expression(data_segments[data_pointer]);
+                    Variant val = get_data_value_at(data_pointer);
                     data_pointer++;
                     push_value(val);
                 }
@@ -6260,6 +6260,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         data_segments.push_back(new_data[i]);
                         runtime_data_nodes.push_back(new_data[i]);
                     }
+                    build_data_flat_cache();
                 }
                 break;
             }
@@ -6272,6 +6273,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     data_segments.push_back(new_data[i]);
                     runtime_data_nodes.push_back(new_data[i]);
                 }
+                build_data_flat_cache();
                 break;
             }
             VG_CASE(vg_op_clear_data, OP_CLEAR_DATA): {

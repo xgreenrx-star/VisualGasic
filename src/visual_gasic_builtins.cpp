@@ -721,11 +721,9 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
         if (args.size() >= 1) {
             // DataCount("label") — items in a specific labeled section
             String key = String(args[0]).to_lower();
-            const Dictionary &ldi = instance->get_label_to_data_index();
-            if (ldi.has(key)) {
-                int start = (int)ldi[key];
-                int end = instance->get_data_section_end(start);
-                return end - start;
+            int labeled = instance->get_labeled_item_count(key);
+            if (labeled >= 0) {
+                return labeled;
             }
             return 0; // label not found
         }
@@ -759,32 +757,39 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     }
     if (METHOD_IS("peekdata")) {
         r_handled = true;
-        int abs_index = 0;
         if (args.size() == 1) {
-            // PeekData(index) — absolute 0-based index into the data tape
-            abs_index = (int)args[0];
-        } else if (args.size() == 2) {
-            // PeekData("label", offset) — offset relative to a labeled section
+            int abs_index = (int)args[0];
+            if (abs_index < 0 || abs_index >= instance->get_data_count()) {
+                instance->raise_runtime_error("PeekData: index " + itos(abs_index) + " out of range (0.." + itos(instance->get_data_count() - 1) + ")");
+                return Variant();
+            }
+            return instance->get_data_value_at(abs_index);
+        }
+        if (args.size() == 2) {
             String key = String(args[0]).to_lower();
-            const Dictionary &ldi = instance->get_label_to_data_index();
-            if (!ldi.has(key)) {
+            int offset = (int)args[1];
+            if (instance->get_labeled_item_count(key) < 0) {
                 instance->raise_runtime_error("PeekData: label '" + String(args[0]) + "' not found");
                 return Variant();
             }
-            abs_index = (int)ldi[key] + (int)args[1];
-        } else {
-            instance->raise_runtime_error("PeekData: expected 1 or 2 arguments");
-            return Variant();
+            return instance->peek_labeled_data(key, offset);
         }
-        if (abs_index < 0 || abs_index >= instance->get_data_count()) {
-            instance->raise_runtime_error("PeekData: index " + itos(abs_index) + " out of range (0.." + itos(instance->get_data_count() - 1) + ")");
-            return Variant();
-        }
-        ExpressionNode* expr = instance->get_data_segment_at(abs_index);
-        if (expr) {
-            return instance->evaluate_expression_for_builtins(expr);
-        }
+        instance->raise_runtime_error("PeekData: expected 1 or 2 arguments");
         return Variant();
+    }
+    if (METHOD_IS("databuffer")) {
+        r_handled = true;
+        if (args.size() < 1) {
+            instance->raise_runtime_error("DataBuffer: expected label name");
+            return Variant();
+        }
+        String key = String(args[0]).to_lower();
+        Ref<VGMemoryBuffer> buf = instance->get_data_buffer(key);
+        if (!buf.is_valid()) {
+            instance->raise_runtime_error("DataBuffer: label '" + String(args[0]) + "' has no binary buffer (use DataFile with .vgd)");
+            return Variant();
+        }
+        return buf;
     }
     if (METHOD_IS("setdatapointer")) {
         r_handled = true;
@@ -806,27 +811,20 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
         int start = 0;
         int end = instance->get_data_count();
         if (args.size() >= 1 && args[0].get_type() == Variant::STRING) {
-            // DataToArray("label") — return items in that section
             String key = String(args[0]).to_lower();
-            const Dictionary &ldi = instance->get_label_to_data_index();
-            if (!ldi.has(key)) {
+            if (instance->get_labeled_item_count(key) < 0) {
                 instance->raise_runtime_error("DataToArray: label '" + String(args[0]) + "' not found");
                 return Array();
             }
-            start = (int)ldi[key];
-            end = instance->get_data_section_end(start);
+            return instance->labeled_data_to_array(key);
         } else if (args.size() >= 1) {
-            // DataToArray(n) — read n items from current pointer
             start = instance->get_data_pointer();
             end = start + (int)args[0];
             if (end > instance->get_data_count()) end = instance->get_data_count();
         }
         Array result;
         for (int i = start; i < end; i++) {
-            ExpressionNode* expr = instance->get_data_segment_at(i);
-            if (expr) {
-                result.push_back(instance->evaluate_expression_for_builtins(expr));
-            }
+            result.push_back(instance->get_data_value_at(i));
         }
         return result;
     }
@@ -5706,11 +5704,9 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         r_handled = true;
         if (args.size() >= 1) {
             String key = String(args[0]).to_lower();
-            const Dictionary &ldi = instance->get_label_to_data_index();
-            if (ldi.has(key)) {
-                int start = (int)ldi[key];
-                int end = instance->get_data_section_end(start);
-                return end - start;
+            int labeled = instance->get_labeled_item_count(key);
+            if (labeled >= 0) {
+                return labeled;
             }
             return 0;
         }
@@ -5740,30 +5736,39 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     }
     if (METHOD_IS("peekdata")) {
         r_handled = true;
-        int abs_index = 0;
         if (args.size() == 1) {
-            abs_index = (int)args[0];
-        } else if (args.size() == 2) {
+            int abs_index = (int)args[0];
+            if (abs_index < 0 || abs_index >= instance->get_data_count()) {
+                instance->raise_runtime_error("PeekData: index " + itos(abs_index) + " out of range (0.." + itos(instance->get_data_count() - 1) + ")");
+                return Variant();
+            }
+            return instance->get_data_value_at(abs_index);
+        }
+        if (args.size() == 2) {
             String key = String(args[0]).to_lower();
-            const Dictionary &ldi = instance->get_label_to_data_index();
-            if (!ldi.has(key)) {
+            int offset = (int)args[1];
+            if (instance->get_labeled_item_count(key) < 0) {
                 instance->raise_runtime_error("PeekData: label '" + String(args[0]) + "' not found");
                 return Variant();
             }
-            abs_index = (int)ldi[key] + (int)args[1];
-        } else {
-            instance->raise_runtime_error("PeekData: expected 1 or 2 arguments");
-            return Variant();
+            return instance->peek_labeled_data(key, offset);
         }
-        if (abs_index < 0 || abs_index >= instance->get_data_count()) {
-            instance->raise_runtime_error("PeekData: index " + itos(abs_index) + " out of range (0.." + itos(instance->get_data_count() - 1) + ")");
-            return Variant();
-        }
-        ExpressionNode* expr = instance->get_data_segment_at(abs_index);
-        if (expr) {
-            return instance->evaluate_expression_for_builtins(expr);
-        }
+        instance->raise_runtime_error("PeekData: expected 1 or 2 arguments");
         return Variant();
+    }
+    if (METHOD_IS("databuffer")) {
+        r_handled = true;
+        if (args.size() < 1) {
+            instance->raise_runtime_error("DataBuffer: expected label name");
+            return Variant();
+        }
+        String key = String(args[0]).to_lower();
+        Ref<VGMemoryBuffer> buf = instance->get_data_buffer(key);
+        if (!buf.is_valid()) {
+            instance->raise_runtime_error("DataBuffer: label '" + String(args[0]) + "' has no binary buffer (use DataFile with .vgd)");
+            return Variant();
+        }
+        return buf;
     }
     if (METHOD_IS("setdatapointer")) {
         r_handled = true;
@@ -5786,13 +5791,11 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         int end = instance->get_data_count();
         if (args.size() >= 1 && args[0].get_type() == Variant::STRING) {
             String key = String(args[0]).to_lower();
-            const Dictionary &ldi = instance->get_label_to_data_index();
-            if (!ldi.has(key)) {
+            if (instance->get_labeled_item_count(key) < 0) {
                 instance->raise_runtime_error("DataToArray: label '" + String(args[0]) + "' not found");
                 return Array();
             }
-            start = (int)ldi[key];
-            end = instance->get_data_section_end(start);
+            return instance->labeled_data_to_array(key);
         } else if (args.size() >= 1) {
             start = instance->get_data_pointer();
             end = start + (int)args[0];
@@ -5800,10 +5803,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         }
         Array result;
         for (int i = start; i < end; i++) {
-            ExpressionNode* expr = instance->get_data_segment_at(i);
-            if (expr) {
-                result.push_back(instance->evaluate_expression_for_builtins(expr));
-            }
+            result.push_back(instance->get_data_value_at(i));
         }
         return result;
     }

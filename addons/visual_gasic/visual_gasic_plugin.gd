@@ -47,6 +47,7 @@ const _AssistFactory = preload("res://addons/visual_gasic/vg_assist_panel_factor
 const _EditorAssist = preload("res://addons/visual_gasic/vg_editor_assist.gd")
 const _SpriteHighlight = preload("res://addons/visual_gasic/vg_sprite_data_highlight.gd")
 const _SpriteResolver = preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
+const _DatafileExternal = preload("res://addons/visual_gasic/vg_datafile_external.gd")
 const NATIVE_SPRITE_MENU_ID := 98501
 
 ## Toolbox tab indices (must match VisualGasicToolbox TabContainer order)
@@ -224,8 +225,10 @@ var _view_3d_btn: Button = null
 var _pending_2d_dblclick: Dictionary = {}  # {node_name, event_suffix, event_params}
 ## Whether the IDE is currently showing the Sprite Editor view
 var _showing_sprite_view: bool = false
+var _showing_grid_view: bool = false
 ## Embedded Sprite Editor (Piskel-style pixel art editor)
 var _vg_sprite_editor = null
+var _vg_grid_editor = null
 
 ## Whether the IDE is currently showing a plugin view (e.g. AGCK)
 var _showing_plugin_view: bool = false
@@ -391,6 +394,23 @@ func _enter_tree():
 		"vg/ai/reference_offer_seconds",
 		5,
 		TYPE_INT
+	)
+
+	_register_project_setting(
+		"vg/datafile/external_editor",
+		"",
+		TYPE_STRING,
+		PROPERTY_HINT_GLOBAL_FILE,
+		"*"
+	)
+
+	# Legacy key — migrated reads in vg_datafile_external.gd
+	_register_project_setting(
+		"vg/datafile/tiled_executable",
+		"",
+		TYPE_STRING,
+		PROPERTY_HINT_GLOBAL_FILE,
+		"*"
 	)
 
 	_ensure_scene_editor_project_settings()
@@ -1012,8 +1032,12 @@ func _enter_tree():
 					_open_working_nodes_for_path)
 			if _embedded_code_editor.has_signal("file_path_open_hex_requested"):
 				_embedded_code_editor.file_path_open_hex_requested.connect(_on_hex_editor_open)
+			if _embedded_code_editor.has_signal("file_path_open_hex_grid_requested"):
+				_embedded_code_editor.file_path_open_hex_grid_requested.connect(_on_hex_editor_open_grid)
 			if _embedded_code_editor.has_signal("file_path_open_sprite_requested"):
 				_embedded_code_editor.file_path_open_sprite_requested.connect(open_sprite_editor)
+			if _embedded_code_editor.has_signal("file_path_open_grid_editor_requested"):
+				_embedded_code_editor.file_path_open_grid_editor_requested.connect(open_grid_editor)
 			if _embedded_code_editor.has_signal("file_path_reveal_browser_requested"):
 				_embedded_code_editor.file_path_reveal_browser_requested.connect(_on_reveal_in_file_browser)
 			if _embedded_code_editor.has_signal("file_path_open_external_requested"):
@@ -1138,6 +1162,28 @@ func _enter_tree():
 				_vg_sprite_editor
 			)
 			print("VisualGasic: Sprite Editor created")
+
+		var vggrid_script = load("res://addons/visual_gasic/vg_datafile_grid_editor.gd")
+		if vggrid_script:
+			_vg_grid_editor = vggrid_script.new()
+			_vg_grid_editor.visible = false
+			_vg_grid_editor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_vg_grid_editor.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			_vg_grid_editor.back_to_code_requested.connect(_on_grid_editor_back_to_code)
+			_vg_grid_editor.grid_saved.connect(_on_grid_editor_saved)
+			center_stack.add_child(_vg_grid_editor)
+			VGPluginRegistry.get_instance().register_provider(
+				"grid_editor",
+				{
+					"name": "VG Grid Editor",
+					"provides": ["asset_editor.grid", "asset_editor.datafile"],
+					"handles_extensions": ["csv", "vgd"],
+					"priority": 10,
+					"enabled": true,
+				},
+				_vg_grid_editor
+			)
+			print("VisualGasic: Grid Editor created")
 
 		# Listen for any code-path that opens an asset (e.g. AGCK's "Open
 		# in VG Sprite Editor" bridge) and switch the IDE to the matching
@@ -1466,7 +1512,7 @@ func _make_visible(p_visible: bool) -> void:
 			_embedded_code_editor.save_file()
 		# If we were showing code/3D/2D view, switch back to form view state
 		# (so next time Form Designer opens it shows the form canvas)
-		if _showing_code_view or _showing_3d_view or _showing_2d_view or _showing_sprite_view or _showing_plugin_view:
+		if _showing_code_view or _showing_3d_view or _showing_2d_view or _showing_sprite_view or _showing_grid_view or _showing_plugin_view:
 			# If a plugin was active, clear its active state so the toolbar
 			# button won't early-return on the next click (the plugin manager
 			# still thinks it's active even though we've hidden its view).
@@ -1664,6 +1710,7 @@ func _on_vg_plugin_activated(plugin_id: String) -> void:
 	_showing_3d_view = false
 	_showing_2d_view = false
 	_showing_sprite_view = false
+	_showing_grid_view = false
 	_showing_plugin_view = true
 
 	# Hide all built-in editors
@@ -1686,6 +1733,8 @@ func _on_vg_plugin_activated(plugin_id: String) -> void:
 		_vg_2d_editor.visible = false
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
+	if is_instance_valid(_vg_grid_editor):
+		_vg_grid_editor.visible = false
 
 	# Hide left toolbox panel — plugin has its own UI
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
@@ -9683,6 +9732,17 @@ func _on_hex_editor_open(path: String) -> void:
 		_embedded_code_editor.focus_bottom_tab(_hex_editor)
 
 
+func _on_hex_editor_open_grid(path: String, grid_width: int, elem_size: int) -> void:
+	if not _ensure_hex_editor():
+		return
+	if _hex_editor.has_method("open_file_with_grid") and grid_width > 0 and elem_size > 0:
+		_hex_editor.open_file_with_grid(path, grid_width, elem_size)
+	else:
+		_hex_editor.open_file(path)
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_bottom_tab"):
+		_embedded_code_editor.focus_bottom_tab(_hex_editor)
+
+
 func _on_reveal_in_file_browser(path: String) -> void:
 	if path.is_empty():
 		return
@@ -9696,7 +9756,7 @@ func _on_reveal_in_file_browser(path: String) -> void:
 func _on_open_path_external(path: String) -> void:
 	if path.is_empty() or not FileAccess.file_exists(path):
 		return
-	OS.shell_open(ProjectSettings.globalize_path(path))
+	_DatafileExternal.open_file(ProjectSettings.globalize_path(path))
 
 ## Opens the Hex Editor with a file-picker dialog.  Called from the Tools menu.
 func _on_hex_editor_menu() -> void:
@@ -9785,6 +9845,7 @@ func _show_code_view() -> void:
 	_showing_3d_view = false
 	_showing_2d_view = false
 	_showing_sprite_view = false
+	_showing_grid_view = false
 	_showing_plugin_view = false
 
 	# Deactivate any active plugin
@@ -9806,6 +9867,8 @@ func _show_code_view() -> void:
 		_vg_2d_editor.visible = false
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
+	if is_instance_valid(_vg_grid_editor):
+		_vg_grid_editor.visible = false
 	if is_instance_valid(_embedded_code_editor):
 		_embedded_code_editor.visible = true
 		call_deferred("_sync_bottom_panel_mount")
@@ -9865,13 +9928,14 @@ func _open_working_nodes_for_path(wnodes_path: String) -> void:
 
 ## Switch the center panel from code editor or 3D editor back to form canvas.
 func _show_form_view() -> void:
-	if not _showing_code_view and not _showing_3d_view and not _showing_2d_view and not _showing_sprite_view and not _showing_plugin_view:
+	if not _showing_code_view and not _showing_3d_view and not _showing_2d_view and not _showing_sprite_view and not _showing_grid_view and not _showing_plugin_view:
 		return
 	if not is_instance_valid(_ide_layout):
 		_showing_code_view = false
 		_showing_3d_view = false
 		_showing_2d_view = false
 		_showing_sprite_view = false
+		_showing_grid_view = false
 		_showing_plugin_view = false
 		return
 
@@ -9883,6 +9947,7 @@ func _show_form_view() -> void:
 	_showing_3d_view = false
 	_showing_2d_view = false
 	_showing_sprite_view = false
+	_showing_grid_view = false
 	_showing_plugin_view = false
 
 	# Deactivate any active plugin
@@ -9906,6 +9971,8 @@ func _show_form_view() -> void:
 		_vg_2d_editor.visible = false
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
+	if is_instance_valid(_vg_grid_editor):
+		_vg_grid_editor.visible = false
 
 	# Swap left panel: hide Context rail, show Toolbox (wrapper + header)
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
@@ -9988,6 +10055,7 @@ func _reset_vg_canvas_view_flags() -> void:
 	_showing_2d_view = false
 	_showing_3d_view = false
 	_showing_sprite_view = false
+	_showing_grid_view = false
 	_showing_plugin_view = false
 
 func _hide_vg_embedded_scene_editors() -> void:
@@ -10060,6 +10128,7 @@ func _show_vg_3d_view() -> void:
 	_showing_3d_view = true
 	_showing_2d_view = false
 	_showing_sprite_view = false
+	_showing_grid_view = false
 	_showing_plugin_view = false
 
 	# Deactivate any active plugin
@@ -10082,6 +10151,8 @@ func _show_vg_3d_view() -> void:
 		_vg_2d_editor.visible = false
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
+	if is_instance_valid(_vg_grid_editor):
+		_vg_grid_editor.visible = false
 
 	# Swap left panel: hide Toolbox and Context rail — the 3D editor has its own toolbox
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
@@ -10145,6 +10216,7 @@ func _show_vg_2d_view() -> void:
 	_showing_2d_view = true
 	_showing_3d_view = false
 	_showing_sprite_view = false
+	_showing_grid_view = false
 	_showing_plugin_view = false
 
 	# Deactivate any active plugin
@@ -10169,6 +10241,8 @@ func _show_vg_2d_view() -> void:
 		_vg_2d_editor.visible = true
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
+	if is_instance_valid(_vg_grid_editor):
+		_vg_grid_editor.visible = false
 
 	# Swap left panel: hide Toolbox and Context rail — the 2D editor has its own toolbox
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
@@ -10239,6 +10313,7 @@ func _show_sprite_view() -> void:
 		_showing_code_view = false
 
 	_showing_sprite_view = true
+	_showing_grid_view = false
 	_showing_3d_view = false
 	_showing_2d_view = false
 	_showing_plugin_view = false
@@ -10263,6 +10338,8 @@ func _show_sprite_view() -> void:
 		_vg_2d_editor.visible = false
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = true
+	if is_instance_valid(_vg_grid_editor):
+		_vg_grid_editor.visible = false
 
 	# Hide the left toolbox panel — sprite editor has its own left panel
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
@@ -10288,9 +10365,67 @@ func _show_sprite_view() -> void:
 	print("VisualGasic: Switched to Sprite Editor View")
 	_set_form_designer_widgets_visible(false)
 
+
+## Switch the center panel to the DataFile Grid Editor.
+func _show_grid_view() -> void:
+	if _showing_grid_view:
+		return
+
+	if _showing_code_view:
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+			_embedded_code_editor.save_file()
+		_showing_code_view = false
+
+	_showing_grid_view = true
+	_showing_sprite_view = false
+	_showing_3d_view = false
+	_showing_2d_view = false
+	_showing_plugin_view = false
+
+	if _vg_plugin_manager:
+		_vg_plugin_manager.deactivate_all()
+
+	var center_stack_ge = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack")
+	if center_stack_ge:
+		center_stack_ge.visible = true
+	var canvas_scroll_ge = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
+	if canvas_scroll_ge:
+		canvas_scroll_ge.visible = false
+	if is_instance_valid(_embedded_code_editor):
+		_embedded_code_editor.visible = false
+	if is_instance_valid(_vg_3d_editor):
+		_vg_3d_editor.visible = false
+	if is_instance_valid(_vg_2d_editor):
+		_vg_2d_editor.visible = false
+	if is_instance_valid(_vg_sprite_editor):
+		_vg_sprite_editor.visible = false
+	if is_instance_valid(_vg_grid_editor):
+		_vg_grid_editor.visible = true
+
+	var toolbox_panel_ge = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
+	if toolbox_panel_ge:
+		var wrapper_ge = toolbox_panel_ge.get_node_or_null("ToolboxWrapper")
+		if wrapper_ge:
+			wrapper_ge.visible = false
+		elif is_instance_valid(toolbox):
+			toolbox.visible = false
+		if is_instance_valid(_embedded_code_editor):
+			_set_code_context_rail_in_toolbox(toolbox_panel_ge, false)
+		toolbox_panel_ge.visible = false
+
+	var right_panel_ge = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+	if right_panel_ge:
+		right_panel_ge.visible = true
+
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  Grid Editor"
+
+	print("VisualGasic: Switched to Grid Editor View")
+	_set_form_designer_widgets_visible(false)
+
 ## Toggle between code view and form view (VB6 F7 behavior).
 func _toggle_code_form_view() -> void:
-	if _showing_code_view or _showing_3d_view or _showing_2d_view or _showing_sprite_view or _showing_plugin_view:
+	if _showing_code_view or _showing_3d_view or _showing_2d_view or _showing_sprite_view or _showing_grid_view or _showing_plugin_view:
 		_show_form_view()
 	else:
 		# If no file loaded yet, try to derive from current form
@@ -12287,6 +12422,31 @@ func open_sprite_editor(path: String = "") -> void:
 	_show_sprite_view()
 	if not path.is_empty() and is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.open_file(path)
+
+
+func open_grid_editor(ref: Dictionary) -> void:
+	_show_grid_view()
+	if is_instance_valid(_vg_grid_editor):
+		_vg_grid_editor.open_ref(ref)
+
+
+func _on_grid_editor_back_to_code() -> void:
+	_show_code_view()
+	_refresh_datafile_sidecar()
+
+
+func _on_grid_editor_saved(_path: String) -> void:
+	if is_instance_valid(_vg_file_browser):
+		_vg_file_browser.refresh()
+	_refresh_datafile_sidecar()
+
+
+func _refresh_datafile_sidecar() -> void:
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	var rail = _embedded_code_editor.get_context_rail()
+	if rail and rail.has_method("update_from_caret"):
+		rail.update_from_caret()
 
 ## Intercepts canvas GUI input for:
 ## 1. Custom vg_control drag-drop handling (avoids MenuBar issues)

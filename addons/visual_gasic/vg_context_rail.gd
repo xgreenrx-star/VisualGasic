@@ -5,6 +5,8 @@ extends PanelContainer
 signal goto_line_requested(line: int)
 signal file_action_requested(action: int, ref: Dictionary)
 signal summary_insert_requested(line: int, text: String)
+signal hex_editor_open_requested(path: String, grid_width: int, elem_size: int)
+signal grid_editor_open_requested(ref: Dictionary)
 
 const Analyzer := preload("res://addons/visual_gasic/vg_context_analyzer.gd")
 const CaretContext := preload("res://addons/visual_gasic/vg_context_caret_context.gd")
@@ -16,6 +18,13 @@ const FilePreviewScript := preload("res://addons/visual_gasic/vg_file_preview_pa
 const LiteralPanelScript := preload("res://addons/visual_gasic/vg_literal_convert_panel.gd")
 const LiteralResolver := preload("res://addons/visual_gasic/vg_literal_resolver.gd")
 const OpenPathResolver := preload("res://addons/visual_gasic/vg_open_path_resolver.gd")
+const DataFilePanelScript := preload("res://addons/visual_gasic/vg_datafile_preview_panel.gd")
+const DataFileResolver := preload("res://addons/visual_gasic/vg_datafile_resolver.gd")
+const Sniff := preload("res://addons/visual_gasic/vg_datafile_sniff.gd")
+const DatafileExternal := preload("res://addons/visual_gasic/vg_datafile_external.gd")
+const TiledImport := preload("res://addons/visual_gasic/vg_tiled_import.gd")
+const VgdWriter := preload("res://addons/visual_gasic/vg_vgd_writer.gd")
+const GridIO := preload("res://addons/visual_gasic/vg_datafile_grid_io.gd")
 
 const CREAM_BG := Color(0.96, 0.95, 0.92)
 const TEXT_DARK := Color(0.1, 0.1, 0.1)
@@ -34,6 +43,7 @@ var _summary_btn: Button
 var _wire_label: Label
 var _symbol_label: Label
 var _sprite_panel: VBoxContainer
+var _datafile_panel: VBoxContainer
 var _file_panel: VBoxContainer
 var _literal_panel: VBoxContainer
 var _keyword_label: RichTextLabel
@@ -102,6 +112,10 @@ func _ready() -> void:
 	_symbol_label = _body_label()
 	_sprite_panel = SpritePanelScript.new()
 	_sprite_panel.name = "SpriteEditor"
+	_datafile_panel = DataFilePanelScript.new()
+	_datafile_panel.name = "DataFilePreview"
+	if _datafile_panel.has_signal("action_requested"):
+		_datafile_panel.action_requested.connect(_on_datafile_action)
 	_file_panel = FilePreviewScript.new()
 	_file_panel.name = "FilePreview"
 	if _file_panel.has_signal("file_action_requested"):
@@ -131,6 +145,7 @@ func _ready() -> void:
 	_add_section("wire", "Wire", _wire_label)
 	_add_section("symbol", "Symbol", _symbol_label)
 	_add_section("sprite", "Sprite data", _sprite_panel)
+	_add_section("datafile", "Data file", _datafile_panel)
 	_add_section("file", "File", _file_panel)
 	_add_section("convert", "Convert", _literal_panel)
 	_add_section("reference", "Reference", _keyword_label)
@@ -259,6 +274,9 @@ func _render_idle() -> void:
 	_set_section_active("chain", false)
 	_sprite_panel.visible = false
 	_set_section_active("sprite", false)
+	if is_instance_valid(_datafile_panel) and _datafile_panel.has_method("clear_preview"):
+		_datafile_panel.clear_preview()
+	_set_section_active("datafile", false)
 	if is_instance_valid(_file_panel) and _file_panel.has_method("clear_preview"):
 		_file_panel.clear_preview()
 	_set_section_active("file", false)
@@ -403,6 +421,8 @@ func _update_outline(ctx: Dictionary, caret: int) -> void:
 		var kind: String = str(e.get("kind", ""))
 		if kind == "data" and not label.is_empty():
 			btn.text = label + "  (Data)"
+		elif kind == "datafile":
+			btn.text = label + "  (DataFile)"
 		elif kind == "type":
 			btn.text = label
 		else:
@@ -422,6 +442,7 @@ func _update_heavy_panels(source: String, caret: int) -> void:
 		if _sprite_panel.has_method("update_for_caret"):
 			_sprite_panel.update_for_caret(source, caret)
 	_update_file_at_caret(source, caret)
+	_update_datafile_at_caret(source, caret)
 	_update_literal_at_caret(source, caret)
 
 
@@ -557,6 +578,154 @@ func _on_literal_replace_requested(lit: Dictionary, new_text: String) -> void:
 	_code_edit.set_caret_column(start + new_text.length())
 	notify_source_changed()
 	update_from_caret()
+
+
+func _update_datafile_at_caret(source: String, caret: int) -> void:
+	if not is_instance_valid(_datafile_panel):
+		return
+	if _datafile_panel.has_method("update_for_caret"):
+		_datafile_panel.update_for_caret(source, caret)
+	var ref := DataFileResolver.resolve_at_line(source, caret)
+	_set_section_active("datafile", not ref.is_empty())
+
+
+func _on_datafile_action(action: String, ref: Dictionary) -> void:
+	match action:
+		"open_external":
+			var p2: String = str(ref.get("abs_path", ""))
+			if p2.is_empty():
+				return
+			var result := DatafileExternal.open_file(p2)
+			if _datafile_panel.has_method("show_notice"):
+				_datafile_panel.show_notice(str(result.get("message", "")))
+		"import_tiled":
+			_import_tiled_ref(ref)
+		"convert_csv":
+			_convert_csv_ref(ref)
+		"create_placeholder":
+			_create_placeholder_vgd(ref)
+		"open_hex":
+			var res_path: String = str(ref.get("res_path", ""))
+			if res_path.is_empty():
+				return
+			var sniff: Dictionary = ref.get("sniff", {})
+			var gw := int(sniff.get("width", 0))
+			var es := int(sniff.get("elem_size", 1))
+			if es <= 0:
+				es = 1
+			hex_editor_open_requested.emit(res_path, gw, es)
+		"edit_grid":
+			grid_editor_open_requested.emit(ref.duplicate(true))
+		"choose_file":
+			_pick_datafile_path(ref)
+
+
+func _pick_datafile_path(ref: Dictionary) -> void:
+	var fd := FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	fd.access = FileDialog.ACCESS_RESOURCES
+	fd.title = "Choose data file"
+	fd.filters = PackedStringArray(["*.csv ; CSV grid", "*.vgd ; VG binary grid", "*.* ; All Files"])
+	var cur := str(ref.get("res_path", "res://"))
+	if FileAccess.file_exists(cur):
+		fd.current_path = ProjectSettings.globalize_path(cur)
+	else:
+		fd.current_dir = ProjectSettings.globalize_path("res://")
+	fd.file_selected.connect(func(selected: String) -> void:
+		_apply_datafile_path(ref, selected)
+		fd.queue_free()
+	)
+	fd.canceled.connect(fd.queue_free)
+	var host := get_tree().root if get_tree() else self
+	host.add_child(fd)
+	fd.popup_centered_ratio(0.55)
+
+
+func _apply_datafile_path(ref: Dictionary, selected_abs: String) -> void:
+	if _code_edit == null:
+		return
+	var new_res := selected_abs
+	if selected_abs.begins_with("/"):
+		var proj := ProjectSettings.globalize_path("res://")
+		if selected_abs.begins_with(proj):
+			new_res = "res://" + selected_abs.substr(proj.length())
+	var data_line := int(ref.get("data_line", -1))
+	if data_line < 0:
+		data_line = int(ref.get("label_line", 0))
+	_code_edit.set_line(data_line, 'DataFile "' + new_res + '"')
+	notify_source_changed()
+	update_from_caret()
+
+
+func _import_tiled_ref(ref: Dictionary) -> void:
+	var abs: String = str(ref.get("abs_path", ""))
+	var res: String = str(ref.get("res_path", ""))
+	if abs.is_empty():
+		return
+	var vgd_res := res.get_basename() + ".vgd"
+	var vgd_abs := ProjectSettings.globalize_path(vgd_res)
+	var result := TiledImport.import_tiled_json(abs, vgd_abs)
+	if not bool(result.get("ok", false)):
+		push_warning("Tiled import failed: " + str(result.get("error", "")))
+		return
+	if _code_edit != null and int(ref.get("data_line", -1)) >= 0:
+		var line := int(ref.get("data_line", 0))
+		_code_edit.set_line(line, 'DataFile "' + vgd_res + '"')
+		notify_source_changed()
+		update_from_caret()
+
+
+func _convert_csv_ref(ref: Dictionary) -> void:
+	var abs: String = str(ref.get("abs_path", ""))
+	var res: String = str(ref.get("res_path", ""))
+	if abs.is_empty():
+		return
+	var txt := GridIO.read_text_file(abs)
+	if txt.is_empty():
+		push_warning("Convert CSV: not a text CSV file")
+		return
+	var rows := txt.strip_edges().split("\n")
+	if rows.is_empty():
+		return
+	var grid_w := 0
+	var values: Array = []
+	for row in rows:
+		var parts := row.split(",")
+		grid_w = maxi(grid_w, parts.size())
+		for p in parts:
+			var s := str(p).strip_edges()
+			values.append(int(s) if s.is_valid_int() else 0)
+	var grid_h := rows.size()
+	var bytes := PackedByteArray()
+	bytes.resize(grid_w * grid_h)
+	for i in values.size():
+		if i >= bytes.size():
+			break
+		bytes[i] = int(values[i]) & 0xFF
+	var vgd_res := res.get_basename() + ".vgd"
+	var vgd_abs := ProjectSettings.globalize_path(vgd_res)
+	if VgdWriter.write_grid_u8(vgd_abs, grid_w, grid_h, bytes):
+		if _code_edit != null and int(ref.get("data_line", -1)) >= 0:
+			_code_edit.set_line(int(ref.get("data_line", 0)), 'DataFile "' + vgd_res + '"')
+			notify_source_changed()
+			update_from_caret()
+
+
+func _create_placeholder_vgd(ref: Dictionary) -> void:
+	var res: String = str(ref.get("res_path", "res://data/placeholder.vgd"))
+	if res.is_empty():
+		res = "res://data/placeholder.vgd"
+	var vgd_abs := ProjectSettings.globalize_path(res)
+	var bytes := PackedByteArray()
+	bytes.resize(64)
+	if VgdWriter.write_grid_u8(vgd_abs, 8, 8, bytes):
+		if _code_edit != null and int(ref.get("data_line", -1)) >= 0:
+			_code_edit.set_line(int(ref.get("data_line", 0)), 'DataFile "' + res + '"')
+		elif _code_edit != null:
+			var line := _code_edit.get_caret_line()
+			_code_edit.set_line(line, 'DataFile "' + res + '"')
+		notify_source_changed()
+		update_from_caret()
 
 
 func _on_keyword_meta_clicked(meta: Variant) -> void:

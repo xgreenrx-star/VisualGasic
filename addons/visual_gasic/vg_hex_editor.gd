@@ -817,13 +817,62 @@ func _on_canvas_resized() -> void:
 # =============================================================================
 
 func _on_col_width_selected(idx: int) -> void:
-	_bytes_per_row = _col_btn.get_item_id(idx)
-	_cursor        = clamp(_cursor, 0, max(0, _file_data.size() - 1))
-	_scroll_row    = _cursor / _bytes_per_row if _bytes_per_row > 0 else 0
+	set_bytes_per_row(_col_btn.get_item_id(idx))
+
+
+## Set bytes per row (8/16/32 preset or custom grid width from DataFile sidecar).
+func set_bytes_per_row(n: int) -> void:
+	n = clampi(n, 1, 256)
+	_bytes_per_row = n
+	var sel := -1
+	for i in _col_btn.item_count:
+		if _col_btn.get_item_id(i) == n:
+			sel = i
+			break
+	if sel >= 0:
+		_col_btn.select(sel)
+	else:
+		var grid_idx := -1
+		for i in _col_btn.item_count:
+			if _col_btn.get_item_text(i).begins_with("Grid "):
+				grid_idx = i
+				break
+		if grid_idx < 0:
+			_col_btn.add_item("Grid %d" % n, n)
+			grid_idx = _col_btn.item_count - 1
+		else:
+			_col_btn.set_item_text(grid_idx, "Grid %d" % n)
+			_col_btn.set_item_id(grid_idx, n)
+		_col_btn.select(grid_idx)
+	_cursor = clamp(_cursor, 0, max(0, _file_data.size() - 1))
+	_scroll_row = _cursor / _bytes_per_row if _bytes_per_row > 0 else 0
 	_recalc_metrics()
 	_update_scrollbar()
 	_canvas.queue_redraw()
 	_sync_text_panel()
+
+
+const VGD_HEADER_BYTES := 32
+
+
+## Open a file; when grid_width/elem_size are set, align hex rows to map rows (VGD payload).
+func open_file_with_grid(path: String, grid_width: int = 0, elem_size: int = 1, payload_offset: int = VGD_HEADER_BYTES) -> void:
+	open_file(path)
+	if grid_width <= 0 or elem_size <= 0:
+		return
+	var bpr := grid_width * elem_size
+	set_bytes_per_row(bpr)
+	if payload_offset > 0 and payload_offset < _file_data.size():
+		_cursor = payload_offset
+		_scroll_row = payload_offset / _bytes_per_row if _bytes_per_row > 0 else 0
+		if is_instance_valid(_vscroll):
+			_vscroll.value = _scroll_row
+	_update_status()
+	_canvas.queue_redraw()
+	_sync_text_panel()
+	var grid_note := " · grid %d cols/row (payload @ 0x%X)" % [grid_width, payload_offset]
+	if _path_label.text.find("grid ") == -1:
+		_path_label.text = _path_label.text + grid_note
 
 # =============================================================================
 # PUBLIC API
@@ -1908,7 +1957,7 @@ func _data_interp(off: int) -> String:
 			buf4 = tmp
 		var f32a : PackedFloat32Array = buf4.to_float32_array()
 		var f32  : float = f32a[0] if f32a.size() > 0 else 0.0
-		result += "   int32%s: %d   uint32%s: %d   float32%s: %g" % [mode, i32, mode, u32, mode, f32]
+		result += "   int32%s: %d   uint32%s: %d   float32%s: %f" % [mode, i32, mode, u32, mode, f32]
 
 	# ── float64 ───────────────────────────────────────────────────────────────
 	if off + 7 < sz:
@@ -1919,7 +1968,7 @@ func _data_interp(off: int) -> String:
 			buf8 = tmp8
 		var f64a : PackedFloat64Array = buf8.to_float64_array()
 		var f64  : float = f64a[0] if f64a.size() > 0 else 0.0
-		result += "   float64%s: %g" % [mode, f64]
+		result += "   float64%s: %f" % [mode, f64]
 
 	return result
 

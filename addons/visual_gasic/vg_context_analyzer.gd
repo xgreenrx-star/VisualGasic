@@ -3,6 +3,7 @@ extends RefCounted
 ## Static analysis for the VG Context Rail — region, procedure, sprite, keyword, chain teaser.
 
 const Resolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
+const DataFileResolver := preload("res://addons/visual_gasic/vg_datafile_resolver.gd")
 const EditorAssist := preload("res://addons/visual_gasic/vg_editor_assist.gd")
 
 static var _sub_re: RegEx
@@ -45,6 +46,7 @@ static func analyze(source: String, caret_line: int) -> Dictionary:
 		"region_detail": "",
 		"procedure": {},
 		"sprite": {},
+		"datafile": {},
 		"is_event_handler": false,
 		"event_label": "",
 		"chain_roots": [],
@@ -73,6 +75,16 @@ static func analyze(source: String, caret_line: int) -> Dictionary:
 		out["region_title"] = "%s  (%d×%d)" % [sprite.get("label", "Sprite"), sprite.get("w", 0), sprite.get("h", 0)]
 		out["region_detail"] = "Indexed pixel Data — edit below"
 
+	var datafile := DataFileResolver.resolve_at_line(source, caret_line)
+	if not datafile.is_empty():
+		out["datafile"] = datafile
+		if out["region_kind"] in ["module", "procedure"]:
+			out["region_kind"] = "datafile"
+			var sniff: Dictionary = datafile.get("sniff", {})
+			var lbl: String = str(datafile.get("label", ""))
+			out["region_title"] = ("DataFile " + lbl) if not lbl.is_empty() else "DataFile"
+			out["region_detail"] = str(sniff.get("kind_name", "file")) + " · " + str(datafile.get("path", ""))
+
 	return out
 
 
@@ -98,12 +110,28 @@ static func _build_outline(lines: PackedStringArray) -> Array:
 		var name: String = lm.get_string(1)
 		if seen.has(name):
 			continue
-		if not _label_followed_by_data(lines, i):
+		if not _label_followed_by_data(lines, i) and not _label_followed_by_datafile(lines, i):
 			continue
 		seen[name] = true
 		var kind := "sprite" if Resolver.is_sprite_label(name) else "data"
+		if _label_followed_by_datafile(lines, i):
+			kind = "datafile"
 		outline.append({"kind": kind, "label": name, "line": i})
 	return outline
+
+
+static func _label_followed_by_datafile(lines: PackedStringArray, label_line: int) -> bool:
+	for j in range(label_line + 1, mini(label_line + 8, lines.size())):
+		var s := lines[j].strip_edges()
+		if s.is_empty() or s.begins_with("'"):
+			continue
+		if DataFileResolver._datafile_rx().search(lines[j]) != null:
+			return true
+		if Resolver._data_rx().search(lines[j]) != null:
+			return false
+		if Resolver._label_rx().search(lines[j]) != null:
+			return false
+	return false
 
 
 static func _label_followed_by_data(lines: PackedStringArray, label_line: int) -> bool:

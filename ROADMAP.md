@@ -1,9 +1,9 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: August 19, 2026  
+**Last Updated**: August 23, 2026  
 **Current Version**: 5.3.0-Beta7 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
 **Current Scope**: M0–M9 milestones (Jul 2026 – Jan 2027 stable release)  
-**Next Cut**: v5.3.0 stable
+**Next Cut**: v5.4.0-beta1 — see [`RELEASE_SCHEDULE.md`](RELEASE_SCHEDULE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md)
 
 **Roadmap Scope**:
 - ✅ **M0–M9 milestones** (Jul 2026 – Jan 1 2027): Current active development
@@ -1144,6 +1144,35 @@ Data "C4", 261.63, …     ' unrelated — not a sprite block
 | AGCK platformer | AGCK Build → `.png` sheets (existing path) |
 
 **Cross-links:** Sprite Editor (`vg_sprite_editor.gd`), VGAIArt plugin, AGCK tile library procedural gen, `LoadPicture` / `DrawTexture` builtins.
+
+#### Track D — External data files (`.vgd`) + sidecar preview (**shipped 5.4.0-beta1**)
+
+**Idea:** Large level maps, tile grids, and tables live **on disk** (not inline `Data` rows). `.vg` source references them with labeled `DataFile "path"` blocks. Binary `.vgd` loads into **`MemoryBuffer`** at parse time; CSV/text merges onto the classic DATA tape. Context rail shows preview + **Open in Tiled** / import actions — no custom level editor in v1.
+
+**Why this fits VG:** Inline sprites (Track B) cap at 32×32 for audit/edit in source. Levels and 64×64+ grids need external authoring (Tiled, CSV) but the **reference in code** stays auditable like VB6 `Data` labels.
+
+| Tier | Storage | Editor |
+|------|---------|--------|
+| ≤32×32 sprites | Inline `*Sprite:` `Data` | Context rail grid (shipped) |
+| Large grids / levels | `.vgd` or `.csv` on disk | **Tiled**, spreadsheet → import |
+| Display art | `.png` | Sprite Editor / Track A |
+
+**Format:** `.vgd` native binary — see [`docs/manual/vg_data_format.md`](docs/manual/vg_data_format.md). CSV inlined at parse or pre-imported to `.vgd`. PNG stays on `LoadPicture` path (not `.vgd`).
+
+**Shipped (5.4.0-beta1):**
+
+| Phase | Deliverables |
+|-------|--------------|
+| **D0** | `vg_datafile_resolver.gd`, sidecar preview, outline landmarks |
+| **E1** | Flat literal cache for numeric `Data` / CSV sections |
+| **D1/E2** | `.vgd` sniff → `MemoryBuffer`; `DataBuffer`, labeled `PeekData` / `DataCount` |
+| **D2** | CSV/Tiled JSON → `.vgd`, Tiled detect/install, grid metadata preview |
+
+**Follow-ups (5.5+):** image `.vgd` payloads, CSV export, extended Narcea examples.
+
+Full reference: [`docs/design/external_data_files.md`](docs/design/external_data_files.md)
+
+**Do not:** inline-edit 256×256 maps in sidecar; overload `LoadData` (data tape); build a VG level editor before Tiled pipeline works.
 
 ---
 

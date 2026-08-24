@@ -55,6 +55,34 @@ See [Cursor + Narcea roadmap](../development/CURSOR_NARCEA_ROADMAP.md) for the f
 
 ---
 
+## Context Rail — Data files (v5.4+)
+
+When the caret is on a **`DataFile "path"`** line (or its label), the embedded code editor’s **Context Rail** opens the **Data file** section.
+
+| Action | What it does |
+|--------|----------------|
+| Preview | CSV snippet, `.vgd` width×height, PNG thumbnail, or hex for raw bytes |
+| **Convert → .vgd** | Pack a CSV grid into binary `.vgd` and update the `DataFile` path |
+| **Import → .vgd** | Tiled JSON export → `.vgd` (`grid_u16`) |
+| **Detect Tiled** / **Install Tiled…** | Find or install [Tiled Map Editor](https://www.mapeditor.org/) (not bundled with VG) |
+| **Open in Tiled** | Launch Tiled on the source map when installed |
+| Reveal / Copy path | File manager + clipboard |
+
+**Project setting:** **Vg → Datafile → Tiled Executable** (`vg/datafile/tiled_executable`).
+
+**VG source pattern:**
+
+```vg
+WorldTiles:
+DataFile "levels/world.vgd"
+```
+
+Runtime: `DataCount("WorldTiles")`, `PeekData("WorldTiles", offset)`, `DataBuffer("WorldTiles")`. See [Language Reference — DataFile](../VisualGasic_Language_Reference.md#datafile) and [`.vgd` format](vg_data_format.md).
+
+Inline **Sprite data** (≤32×32, label ending in `Sprite`) uses a separate **Sprite data** rail section with a paint grid — not the Data file panel.
+
+---
+
 ## 2D Canvas Toolbar
 
 Three VG-specific buttons are added to the Godot 2D editor toolbar:

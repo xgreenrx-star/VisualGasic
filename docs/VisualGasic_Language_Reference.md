@@ -5705,7 +5705,65 @@ Stores inline data values that can be read sequentially with Read. Supports stri
     Dim itemName As String, atk As Integer, cost As Integer
     Read itemName, atk, cost
 
-**See Also** — [Open](#open), [Close](#close), [Line Input](#line-input), [Read](#read), [Restore](#restore), [Sprite Data](#sprite-data), [DataToArray](#datatoarray)
+**See Also** — [Open](#open), [Close](#close), [Line Input](#line-input), [Read](#read), [Restore](#restore), [Sprite Data](#sprite-data), [DataFile](#datafile), [DataToArray](#datatoarray)
+
+---
+
+## DataFile
+
+**Purpose** — Include data from an external file at **parse time** (module level), under a label.
+
+**Syntax**
+
+    LabelName:
+    DataFile "path/to/file"
+
+**Description**
+
+- **Text / CSV** — file contents are parsed like inline `Data` values and merged onto the same DATA tape as `Data` statements under that label.
+- **Binary `.vgd`** — file is loaded into a labeled `MemoryBuffer` section. Use `DataBuffer("LabelName")`, `DataCount("LabelName")`, and `PeekData("LabelName", offset)` at runtime. See [`.vgd` format](manual/vg_data_format.md).
+
+Paths are Godot `res://` or `user://` strings (same as `LoadData`).
+
+**Example**
+
+    WorldTiles:
+    DataFile "levels/world.vgd"
+
+    SpawnTable:
+    DataFile "data/spawns.csv"
+
+    Dim n As Integer
+    n = DataCount("WorldTiles")
+    Dim tile As Integer
+    tile = PeekData("WorldTiles", 0)
+
+**See Also** — [Data](#data), [DataBuffer](#databuffer), [LoadData](#loaddata), [PeekData](#peekdata), [Sprite Data](#sprite-data)
+
+---
+
+## DataBuffer
+
+**Purpose** — Returns the `MemoryBuffer` for a labeled `DataFile` section loaded from a binary `.vgd` file.
+
+**Syntax**
+
+    DataBuffer("sectionLabel")
+
+**Description**
+
+Only available when the label’s `DataFile` pointed at a valid `.vgd` grid or blob section. Use `PeekByte`, `PeekUInt16`, etc. on the returned buffer for bulk reads.
+
+**Example**
+
+    WorldTiles:
+    DataFile "levels/world.vgd"
+
+    Dim tiles As Object
+    tiles = DataBuffer("WorldTiles")
+    Print tiles.Size
+
+**See Also** — [DataFile](#datafile), [MemoryBuffer](#memorybuffer), [PeekData](#peekdata)
 
 ---
 
@@ -8345,6 +8403,33 @@ Reads an entire line of text from a file (up to the newline character).
     Close #1
 
 **See Also** — [Open](#open), [Close](#close), [Data](#data), [Read](#read), [Restore](#restore)
+
+---
+
+## LoadData
+
+**Purpose** — Appends values from a text file onto the DATA tape at **runtime** (dynamic path).
+
+**Syntax**
+
+    LoadData pathExpression
+
+**Description**
+
+- Opens the file when `LoadData` executes (not at parse time).
+- File body is parsed as comma-separated values, same rules as inline `Data`.
+- Subsequent `Read` statements consume the appended values after any prior tape content.
+- Contrast with **`DataFile`**, which is **parse-time only** and lives under a module-level label.
+
+**Example**
+
+    Dim difficulty As String
+    difficulty = "hard"
+    LoadData "res://data/enemies_" & difficulty & ".csv"
+    Dim count As Integer
+    Read count
+
+**See Also** — [Data](#data), [DataFile](#datafile), [Read](#read), [Restore](#restore)
 
 ---
 
@@ -13291,15 +13376,22 @@ The entries below document runtime builtins that were implemented but not yet co
 
 ## DataCount
 
-**Purpose** — Returns the number of values currently available in the active DATA tape.
+**Purpose** — Returns the number of values in the DATA tape, or in one labeled section.
 
 **Syntax**
 
     DataCount()
+    DataCount("sectionLabel")
+
+**Description**
+
+- `DataCount()` — total items on the active DATA tape (inline `Data`, text `DataFile`, and `LoadData` append).
+- `DataCount("WorldTiles")` — item count for that label (for `.vgd` grids, width × height).
 
 **Example**
 
     If DataCount() = 0 Then Print "No data loaded"
+    If DataCount("PlayerSprite") < 5 Then Print "Sprite header incomplete"
 
 ---
 
@@ -13982,8 +14074,9 @@ Converts an expression to an 8-bit unsigned byte. Values below 0 clamp to 0; val
 
 - `PeekData(5)` — absolute 0-based index into the full DATA tape.
 - `PeekData("PlayerSprite", 4)` — first pixel index in that sprite section (after the four header values).
+- `PeekData("WorldTiles", 0)` — first cell of a `.vgd` grid loaded via `DataFile`.
 
-**See Also** — [Data](#data), [Sprite Data](#sprite-data), [DataToArray](#datatoarray)
+**See Also** — [Data](#data), [DataFile](#datafile), [DataBuffer](#databuffer), [Sprite Data](#sprite-data), [DataToArray](#datatoarray)
 
 ---
 
