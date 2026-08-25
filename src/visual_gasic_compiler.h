@@ -116,6 +116,7 @@ private:
     bool is_nested_array_dict_sum(ForStatement* outer, String &sum_var, String &arr_var, String &dict_var, String &iter_var) const;
     bool is_nested_array_sum(ForStatement* outer, String &sum_var, String &arr_var, String &iter_var) const;
     bool is_nested_arith_loop(ForStatement* outer, String &sum_var, int64_t &k, int64_t &c) const;
+    bool is_nested_inc_loop(ForStatement *outer, String &r_var, int64_t &r_delta) const;
     bool is_simple_arith_loop(ForStatement* f, String &sum_var, int64_t &k, int64_t &c) const;
     bool is_nested_branch_loop(ForStatement* outer, String &sum_var, String &flag_var) const;
     bool is_nested_string_concat(ForStatement* outer, String &target_name, String &literal_value, ForStatement* &inner_out) const;
@@ -136,6 +137,9 @@ private:
     bool try_get_module_grid_constants(int64_t &r_cols, int64_t &r_cell) const;
     bool try_parse_grid_axis_sub(const String &p_name, bool p_want_x, int64_t &r_cols, int64_t &r_cell) const;
     bool try_emit_grid_axis_inline(const String &p_func_name, const Vector<ExpressionNode*> &args, bool p_want_x);
+    bool is_scalar_fast_param_sub(SubDefinition *sub) const;
+    bool try_parse_trivial_i64_call_delta(SubDefinition *sub, int64_t &r_delta) const;
+    bool try_emit_inline_trivial_user_call(CallExpression *call, SubDefinition *target);
     bool try_compile_grid_draw_fusion(const Vector<Statement*> &stmts, int &io_i, const String &p_loop_var);
     bool try_const_i64_from_expr(ExpressionNode *p_expr, int64_t &r_out) const;
     bool is_grid_axis_assign(Statement *p_stmt, const String &p_axis_name, const String &p_loop_var,

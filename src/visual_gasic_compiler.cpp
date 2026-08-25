@@ -3642,6 +3642,110 @@ bool VisualGasicCompiler::try_emit_grid_axis_inline(const String &p_func_name, c
     return true;
 }
 
+static bool _vg_is_scalar_type_hint(const String &th) {
+    String t = th.to_lower();
+    return t == "integer" || t == "long" || t == "longlong" ||
+           t == "single"  || t == "double"   || t == "boolean" ||
+           t == "byte"    || t == "string"   || t == "currency" ||
+           t == "date"    || t == "short"    || t == "char";
+}
+
+bool VisualGasicCompiler::is_scalar_fast_param_sub(SubDefinition *sub) const {
+    if (!sub || sub->type != SubDefinition::TYPE_FUNCTION) {
+        return false;
+    }
+    for (int i = 0; i < sub->parameters.size(); i++) {
+        const Parameter &p = sub->parameters[i];
+        if (p.is_by_ref || p.is_param_array || p.is_optional ||
+                p.type_hint.is_empty() || !_vg_is_scalar_type_hint(p.type_hint)) {
+            return false;
+        }
+    }
+    if (sub->return_type.is_empty() || !_vg_is_scalar_type_hint(sub->return_type)) {
+        return false;
+    }
+    String rt = sub->return_type.to_lower();
+    return rt == "integer" || rt == "long" || rt == "longlong";
+}
+
+bool VisualGasicCompiler::try_parse_trivial_i64_call_delta(SubDefinition *sub, int64_t &r_delta) const {
+    if (!is_scalar_fast_param_sub(sub) || sub->parameters.size() != 1) {
+        return false;
+    }
+    if (sub->statements.size() != 1 || sub->statements[0]->type != STMT_ASSIGNMENT) {
+        return false;
+    }
+    AssignmentStatement *as = (AssignmentStatement *)sub->statements[0];
+    if (!as->target || as->target->type != ExpressionNode::VARIABLE || !as->value) {
+        return false;
+    }
+    if (((VariableNode *)as->target)->name.nocasecmp_to(sub->name) != 0) {
+        return false;
+    }
+    if (as->value->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    BinaryOpNode *bin = (BinaryOpNode *)as->value;
+    const String param_name = sub->parameters[0].name.to_lower();
+    int64_t delta = 0;
+    if (bin->op == "+") {
+        if (bin->left && bin->left->type == ExpressionNode::VARIABLE &&
+                ((VariableNode *)bin->left)->name.to_lower() == param_name) {
+            if (!try_const_i64_from_expr(bin->right, delta)) {
+                return false;
+            }
+        } else if (bin->right && bin->right->type == ExpressionNode::VARIABLE &&
+                ((VariableNode *)bin->right)->name.to_lower() == param_name) {
+            if (!try_const_i64_from_expr(bin->left, delta)) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    } else if (bin->op == "-") {
+        if (!bin->left || bin->left->type != ExpressionNode::VARIABLE ||
+                ((VariableNode *)bin->left)->name.to_lower() != param_name) {
+            return false;
+        }
+        if (!try_const_i64_from_expr(bin->right, delta)) {
+            return false;
+        }
+        delta = -delta;
+    } else {
+        return false;
+    }
+    r_delta = delta;
+    return true;
+}
+
+bool VisualGasicCompiler::try_emit_inline_trivial_user_call(CallExpression *call, SubDefinition *target) {
+    if (!call || !target || call->base_object) {
+        return false;
+    }
+    int64_t delta = 0;
+    if (!try_parse_trivial_i64_call_delta(target, delta)) {
+        return false;
+    }
+    if ((int)call->arguments.size() != target->parameters.size()) {
+        return false;
+    }
+    for (int i = 0; i < call->arguments.size(); i++) {
+        compile_expression(call->arguments[i]);
+    }
+    if (delta >= 0) {
+        int idx = current_chunk->add_constant(Variant((int64_t)delta));
+        emit_constant(Variant((int64_t)delta));
+        emit_byte(OP_ADD_I64_CONST);
+        emit_const_index(idx);
+    } else {
+        int idx = current_chunk->add_constant(Variant((int64_t)(-delta)));
+        emit_constant(Variant((int64_t)(-delta)));
+        emit_byte(OP_SUB_I64_CONST);
+        emit_const_index(idx);
+    }
+    return true;
+}
+
 bool VisualGasicCompiler::try_emit_draw_circle_f64(const Vector<ExpressionNode*> &args) {
     if (args.size() != 4) {
         return false;
@@ -3793,6 +3897,65 @@ static bool _vg_for_count_minus_one_to(ForStatement *p_for, ExpressionNode *&r_c
         if (rl->value.get_type() == Variant::INT && (int64_t)rl->value == 1) {
             r_count_expr = b->left;
             return r_count_expr != nullptr;
+        }
+    }
+    return false;
+}
+
+bool VisualGasicCompiler::is_nested_inc_loop(ForStatement *outer, String &r_var, int64_t &r_delta) const {
+    if (!outer || outer->body.size() != 1) {
+        return false;
+    }
+    Statement *outer_body = outer->body[0];
+    if (!outer_body || outer_body->type != STMT_FOR) {
+        return false;
+    }
+    if (!_vg_for_from_zero(outer) || !_vg_for_step_one(outer)) {
+        return false;
+    }
+    ForStatement *inner = (ForStatement *)outer_body;
+    if (!_vg_for_from_zero(inner) || !_vg_for_step_one(inner)) {
+        return false;
+    }
+    if (inner->body.size() != 1 || inner->body[0]->type != STMT_ASSIGNMENT) {
+        return false;
+    }
+    AssignmentStatement *as = (AssignmentStatement *)inner->body[0];
+    if (!as->target || as->target->type != ExpressionNode::VARIABLE || !as->value) {
+        return false;
+    }
+    r_var = ((VariableNode *)as->target)->name;
+    if (as->value->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression *call = (CallExpression *)as->value;
+        if (call->base_object || call->arguments.size() != 1) {
+            return false;
+        }
+        if (call->arguments[0]->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        if (((VariableNode *)call->arguments[0])->name.nocasecmp_to(r_var) != 0) {
+            return false;
+        }
+        SubDefinition *helper = find_sub_by_name(call->method_name);
+        if (!helper || !try_parse_trivial_i64_call_delta(helper, r_delta)) {
+            return false;
+        }
+        return r_delta != 0;
+    }
+    if (as->value->type == ExpressionNode::BINARY_OP) {
+        BinaryOpNode *b = (BinaryOpNode *)as->value;
+        if (b->op == "+" && b->left && b->left->type == ExpressionNode::VARIABLE &&
+                ((VariableNode *)b->left)->name.nocasecmp_to(r_var) == 0) {
+            return try_const_i64_from_expr(b->right, r_delta) && r_delta != 0;
+        }
+        if (b->op == "-" && b->left && b->left->type == ExpressionNode::VARIABLE &&
+                ((VariableNode *)b->left)->name.nocasecmp_to(r_var) == 0) {
+            int64_t sub = 0;
+            if (!try_const_i64_from_expr(b->right, sub)) {
+                return false;
+            }
+            r_delta = -sub;
+            return r_delta != 0;
         }
     }
     return false;
@@ -5471,6 +5634,39 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             // Assume variable for now
             if (s->target->type == ExpressionNode::VARIABLE) {
                 VariableNode* tv = (VariableNode*)s->target;
+                // s = TrivialHelper(s) — fuse to in-place local update (no OP_CALL).
+                if (s->value && s->value->type == ExpressionNode::EXPRESSION_CALL) {
+                    CallExpression *call = (CallExpression *)s->value;
+                    if (!call->base_object && call->arguments.size() == 1 &&
+                            call->arguments[0]->type == ExpressionNode::VARIABLE &&
+                            ((VariableNode *)call->arguments[0])->name.nocasecmp_to(tv->name) == 0) {
+                        SubDefinition *helper = find_sub_by_name(call->method_name);
+                        int64_t delta = 0;
+                        if (helper && try_parse_trivial_i64_call_delta(helper, delta)) {
+                            int slot = get_or_add_local(tv->name, VT_INT);
+                            if (slot >= 0 && get_local_type(tv->name) == VT_INT) {
+                                if (delta == 1) {
+                                    emit_bytes(OP_INC_LOCAL_I64, (uint8_t)slot);
+                                    break;
+                                }
+                                if (delta == -1) {
+                                    int idx = current_chunk->add_constant(Variant((int64_t)1));
+                                    emit_byte(OP_SUB_LOCAL_I64_CONST);
+                                    emit_byte((uint8_t)slot);
+                                    emit_const_index(idx);
+                                    break;
+                                }
+                                if (delta != 0) {
+                                    int idx = current_chunk->add_constant(Variant((int64_t)(delta >= 0 ? delta : -delta)));
+                                    emit_byte(delta >= 0 ? OP_ADD_LOCAL_I64_CONST : OP_SUB_LOCAL_I64_CONST);
+                                    emit_byte((uint8_t)slot);
+                                    emit_const_index(idx);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
                 // ── Sole-owner fast path: Set dict = New Dictionary ──
                 if (is_sole_owner_dict_var(tv->name) && s->value &&
                     s->value->type == ExpressionNode::NEW) {
@@ -6106,6 +6302,32 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
             String branch_sum_var;
             String branch_flag_var;
+            String nested_inc_var;
+            int64_t nested_inc_delta = 0;
+            if (kEnableLoopFusions && is_nested_inc_loop(f, nested_inc_var, nested_inc_delta)) {
+                ForStatement *inner = (ForStatement *)f->body[0];
+                ExpressionNode *outer_count = nullptr;
+                ExpressionNode *inner_count = nullptr;
+                if (inner && _vg_for_count_minus_one_to(f, outer_count) &&
+                        _vg_for_count_minus_one_to(inner, inner_count)) {
+                    int slot = get_or_add_local(nested_inc_var, VT_INT);
+                    if (slot >= 0 && get_local_type(nested_inc_var) == VT_INT) {
+                        compile_expression(outer_count);
+                        compile_expression(inner_count);
+                        emit_byte(OP_MUL_I64);
+                        if (nested_inc_delta != 1) {
+                            emit_constant(Variant((int64_t)nested_inc_delta));
+                            emit_byte(OP_MUL_I64);
+                        }
+                        VariableNode inc_node;
+                        inc_node.name = nested_inc_var;
+                        compile_expression(&inc_node);
+                        emit_byte(OP_ADD_I64);
+                        emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                        break;
+                    }
+                }
+            }
             if (kEnableLoopFusions && is_nested_branch_loop(f, branch_sum_var, branch_flag_var)) {
                 ForStatement* inner = (ForStatement*)f->body[1];
                 if (inner && inner->to_val && f->to_val &&
@@ -9247,10 +9469,6 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                  break;
              }
 
-             // Push args
-             for(int i=0; i<call->arguments.size(); i++) {
-                 compile_expression(call->arguments[i]);
-             }
              // Resolve the target Sub (same module) so ByRef params bound to a
              // simple variable argument get written back after the call. In
              // expression context the write-backs run immediately after OP_CALL
@@ -9269,6 +9487,16 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                      }
                  }
                  if (!expr_target_func) expr_target_func = first_match_func;
+             }
+             // Inline trivial fast-call helpers (e.g. x+1) at the call site —
+             // eliminates OP_CALL/call_internal overhead in hot loops.
+             if (expr_target_func && try_emit_inline_trivial_user_call(call, expr_target_func)) {
+                 emit_byref_writebacks(expr_target_func, call->arguments);
+                 break;
+             }
+             // Push args
+             for(int i=0; i<call->arguments.size(); i++) {
+                 compile_expression(call->arguments[i]);
              }
              // Call
              int idx = current_chunk->add_constant(call->method_name);

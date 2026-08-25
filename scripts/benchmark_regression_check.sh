@@ -25,7 +25,7 @@ import re, sys
 label, path, max_ratio = sys.argv[1], sys.argv[2], float(sys.argv[3])
 text = open(path, encoding="utf-8", errors="replace").read()
 blocks = re.split(r"\n=== ", text)
-skip_speed = {"FunctionCall"}
+skip_speed = {}
 skip_checksum_prefix = ("MovingFilledRects",)
 errors = []
 for block in blocks:

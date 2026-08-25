@@ -1,0 +1,53 @@
+' Regression: trivial helper call inlining + nested inc loop fusion.
+' BenchCallHelper-style helpers must not require OP_CALL per iteration.
+
+Function IncHelper(ByVal x As Long) As Long
+    IncHelper = x + 1
+End Function
+
+Function TestNestedInc(ByVal outer As Long, ByVal inner As Long) As Long
+    Dim i As Long
+    Dim j As Long
+    Dim s As Long
+
+    s = 0
+    For i = 0 To outer - 1 Step 1
+        For j = 0 To inner - 1 Step 1
+            s = IncHelper(s)
+        Next j
+    Next i
+
+    TestNestedInc = s
+End Function
+
+Function TestExprInline(ByVal n As Long) As Long
+    Dim i As Long
+    Dim s As Long
+
+    s = 0
+    For i = 0 To n - 1 Step 1
+        s = IncHelper(s)
+    Next i
+
+    TestExprInline = s
+End Function
+
+Sub _Ready()
+    Dim a As Long
+    Dim b As Long
+
+    a = TestNestedInc(10, 5)
+    b = TestExprInline(7)
+
+    If a <> 50 Then
+        Print "FAIL: nested_inc_fusion: expected 50 got " & Str(a)
+        Exit Sub
+    End If
+    If b <> 7 Then
+        Print "FAIL: expr_inline: expected 7 got " & Str(b)
+        Exit Sub
+    End If
+
+    Print "PASS: nested_inc_fusion"
+    Print "PASS: expr_inline"
+End Sub

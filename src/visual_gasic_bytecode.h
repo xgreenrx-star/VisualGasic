@@ -10,6 +10,10 @@
 
 using namespace godot;
 
+namespace VisualGasic {
+struct SubDefinition;
+}
+
 enum OpCode {
     OP_CONSTANT,      // [OP] [CONST_LO] [CONST_HI] - Load constant (16-bit LE index)
     OP_CONSTANT_LONG, // [OP] [CONST_LO] [CONST_HI] - Alias of OP_CONSTANT (kept for compat)
@@ -374,6 +378,16 @@ struct BytecodeChunk {
     }
 };
 
+struct VMInlineCallFrame {
+    BytecodeChunk *chunk = nullptr;
+    VisualGasic::SubDefinition *func = nullptr;
+    int return_ip = 0;
+    int locals_frame = 0;
+    bool fast_call = false;
+    int fast_param_count = 0;
+    int fast_return_slot = -1;
+};
+
 struct VMState {
     int ip; // Instruction Pointer
     std::vector<Variant> stack;
@@ -393,6 +407,10 @@ struct VMState {
     // to reach it, and each OS thread's tl_vm owns an isolated pool.
     std::deque<Vector<Variant>> locals_pool;
     int locals_depth = 0;
+
+    // In-VM fast calls: module-level fast_params Subs switch frames inside one
+    // execute_bytecode() run instead of recursing through call_internal().
+    std::vector<VMInlineCallFrame> inline_call_stack;
 
     // Call Frame info usually needed here for recursion
     // For now we can assume flat execution or use C++ recursion for calls
