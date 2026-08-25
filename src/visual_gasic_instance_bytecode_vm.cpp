@@ -1549,6 +1549,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_DRAW_TEXTURE_RECT_GRID_IDX] = &&vg_op_draw_texture_rect_grid_idx;
         dispatch_table[OP_DRAW_CIRCLE_F64]            = &&vg_op_draw_circle_f64;
         dispatch_table[OP_DRAW_TEXTURE_RECT_F64]      = &&vg_op_draw_texture_rect_f64;
+        dispatch_table[OP_DRAW_RECT_GRID_LOOP]         = &&vg_op_draw_rect_grid_loop;
+        dispatch_table[OP_DRAW_LINE_GRID_LOOP]         = &&vg_op_draw_line_grid_loop;
+        dispatch_table[OP_DRAW_CIRCLE_GRID_LOOP]       = &&vg_op_draw_circle_grid_loop;
+        dispatch_table[OP_DRAW_TEXTURE_RECT_GRID_LOOP] = &&vg_op_draw_texture_rect_grid_loop;
+        dispatch_table[OP_DRAW_POLYLINE_GRID_LOOP]     = &&vg_op_draw_polyline_grid_loop;
+        dispatch_table[OP_DRAW_RECT_OFFSET_LOOP]       = &&vg_op_draw_rect_offset_loop;
+        dispatch_table[OP_VECTOR_UNIFORM_RECT_GRID_LOOP] = &&vg_op_vector_uniform_rect_grid_loop;
         dispatch_table_init = true;
     }
 
@@ -3291,6 +3298,265 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 bool _draw_found = false;
                 dispatch_draw_texture_rect_f64(tex, (double)vx, (double)vy, w_conv.f, h_conv.f, tile != 0, _draw_found);
                 push_value(Variant());
+                break;
+            }
+            VG_CASE(vg_op_draw_rect_grid_loop, OP_DRAW_RECT_GRID_LOOP): {
+                if (vm.ip + 23 >= code_size) { success = false; goto cleanup; }
+                uint8_t cs_slot = code[vm.ip++];
+                auto read_i32 = [&]() -> int32_t {
+                    int32_t v = (int32_t)((uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24));
+                    vm.ip += 4;
+                    return v;
+                };
+                auto read_f32_local = [&]() -> float {
+                    union { float f; uint32_t u; } conv;
+                    conv.u = (uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24);
+                    vm.ip += 4;
+                    return conv.f;
+                };
+                int32_t cols = read_i32();
+                int32_t cell = read_i32();
+                float w = read_f32_local();
+                float h = read_f32_local();
+                int color_idx = read_const_index();
+                if (color_idx < 0 || color_idx >= chunk->constants.size()) { success = false; goto cleanup; }
+                uint8_t filled = code[vm.ip++];
+                int32_t cs_add = read_i32();
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t count = to_int(pop_value());
+                int64_t cs = to_int(read_local(cs_slot));
+                cs = run_draw_rect_grid_loop(count, cs, cols, cell, w, h,
+                        (Color)chunk->constants[color_idx], filled != 0, cs_add);
+                sync_local(cs_slot, Variant(cs));
+                break;
+            }
+            VG_CASE(vg_op_draw_line_grid_loop, OP_DRAW_LINE_GRID_LOOP): {
+                if (vm.ip + 26 >= code_size) { success = false; goto cleanup; }
+                uint8_t cs_slot = code[vm.ip++];
+                auto read_i32 = [&]() -> int32_t {
+                    int32_t v = (int32_t)((uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24));
+                    vm.ip += 4;
+                    return v;
+                };
+                auto read_f32_local = [&]() -> float {
+                    union { float f; uint32_t u; } conv;
+                    conv.u = (uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24);
+                    vm.ip += 4;
+                    return conv.f;
+                };
+                int32_t cols = read_i32();
+                int32_t cell = read_i32();
+                float x2_off = read_f32_local();
+                float y2_off = read_f32_local();
+                float width = read_f32_local();
+                int color_idx = read_const_index();
+                if (color_idx < 0 || color_idx >= chunk->constants.size()) { success = false; goto cleanup; }
+                int32_t cs_add = read_i32();
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t count = to_int(pop_value());
+                int64_t cs = to_int(read_local(cs_slot));
+                cs = run_draw_line_grid_loop(count, cs, cols, cell, x2_off, y2_off, width,
+                        (Color)chunk->constants[color_idx], cs_add);
+                sync_local(cs_slot, Variant(cs));
+                break;
+            }
+            VG_CASE(vg_op_draw_circle_grid_loop, OP_DRAW_CIRCLE_GRID_LOOP): {
+                if (vm.ip + 27 >= code_size) { success = false; goto cleanup; }
+                uint8_t cs_slot = code[vm.ip++];
+                auto read_i32 = [&]() -> int32_t {
+                    int32_t v = (int32_t)((uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24));
+                    vm.ip += 4;
+                    return v;
+                };
+                auto read_f32_local = [&]() -> float {
+                    union { float f; uint32_t u; } conv;
+                    conv.u = (uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24);
+                    vm.ip += 4;
+                    return conv.f;
+                };
+                int32_t cols = read_i32();
+                int32_t cell = read_i32();
+                float ox = read_f32_local();
+                float oy = read_f32_local();
+                uint8_t half_slot = code[vm.ip++];
+                float radius = read_f32_local();
+                int color_idx = read_const_index();
+                if (color_idx < 0 || color_idx >= chunk->constants.size()) { success = false; goto cleanup; }
+                int32_t cs_add = read_i32();
+                if (half_slot != 0xFF) {
+                    ox = (float)to_double(read_local(half_slot));
+                    oy = ox;
+                }
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t count = to_int(pop_value());
+                int64_t cs = to_int(read_local(cs_slot));
+                cs = run_draw_circle_grid_loop(count, cs, cols, cell, ox, oy, radius,
+                        (Color)chunk->constants[color_idx], cs_add);
+                sync_local(cs_slot, Variant(cs));
+                break;
+            }
+            VG_CASE(vg_op_draw_texture_rect_grid_loop, OP_DRAW_TEXTURE_RECT_GRID_LOOP): {
+                if (vm.ip + 23 >= code_size) { success = false; goto cleanup; }
+                uint8_t cs_slot = code[vm.ip++];
+                int tex_idx = read_const_index();
+                if (tex_idx < 0 || tex_idx >= chunk->constants.size()) { success = false; goto cleanup; }
+                auto read_i32 = [&]() -> int32_t {
+                    int32_t v = (int32_t)((uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24));
+                    vm.ip += 4;
+                    return v;
+                };
+                auto read_f32_local = [&]() -> float {
+                    union { float f; uint32_t u; } conv;
+                    conv.u = (uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24);
+                    vm.ip += 4;
+                    return conv.f;
+                };
+                int32_t cols = read_i32();
+                int32_t cell = read_i32();
+                float w = read_f32_local();
+                float h = read_f32_local();
+                uint8_t tile = code[vm.ip++];
+                int32_t cs_add = read_i32();
+                String tex_name = chunk->constants[tex_idx];
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t count = to_int(pop_value());
+                int64_t cs = to_int(read_local(cs_slot));
+                cs = run_draw_texture_rect_grid_loop(count, cs, tex_name, cols, cell, w, h, tile != 0, cs_add);
+                sync_local(cs_slot, Variant(cs));
+                break;
+            }
+            VG_CASE(vg_op_draw_polyline_grid_loop, OP_DRAW_POLYLINE_GRID_LOOP): {
+                if (vm.ip + 18 >= code_size) { success = false; goto cleanup; }
+                uint8_t cs_slot = code[vm.ip++];
+                auto read_i32 = [&]() -> int32_t {
+                    int32_t v = (int32_t)((uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24));
+                    vm.ip += 4;
+                    return v;
+                };
+                auto read_f32_local = [&]() -> float {
+                    union { float f; uint32_t u; } conv;
+                    conv.u = (uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24);
+                    vm.ip += 4;
+                    return conv.f;
+                };
+                int32_t cols = read_i32();
+                int32_t cell = read_i32();
+                float width = read_f32_local();
+                int color_idx = read_const_index();
+                if (color_idx < 0 || color_idx >= chunk->constants.size()) { success = false; goto cleanup; }
+                int32_t cs_add = read_i32();
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t count = to_int(pop_value());
+                int64_t cs = to_int(read_local(cs_slot));
+                cs = run_draw_polyline_grid_loop(count, cs, cols, cell, width,
+                        (Color)chunk->constants[color_idx], cs_add);
+                sync_local(cs_slot, Variant(cs));
+                break;
+            }
+            VG_CASE(vg_op_draw_rect_offset_loop, OP_DRAW_RECT_OFFSET_LOOP): {
+                if (vm.ip + 30 >= code_size) { success = false; goto cleanup; }
+                uint8_t cs_slot = code[vm.ip++];
+                int arr_idx = read_const_index();
+                if (arr_idx < 0 || arr_idx >= chunk->constants.size()) { success = false; goto cleanup; }
+                auto read_i32 = [&]() -> int32_t {
+                    int32_t v = (int32_t)((uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24));
+                    vm.ip += 4;
+                    return v;
+                };
+                auto read_f32_local = [&]() -> float {
+                    union { float f; uint32_t u; } conv;
+                    conv.u = (uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24);
+                    vm.ip += 4;
+                    return conv.f;
+                };
+                int32_t y_mul = read_i32();
+                int32_t y_mod = read_i32();
+                int32_t cell = read_i32();
+                float w = read_f32_local();
+                float h = read_f32_local();
+                int color_idx = read_const_index();
+                if (color_idx < 0 || color_idx >= chunk->constants.size()) { success = false; goto cleanup; }
+                uint8_t filled = code[vm.ip++];
+                int32_t cs_add = read_i32();
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t count = to_int(pop_value());
+                int64_t cs = to_int(read_local(cs_slot));
+                String arr_name = chunk->constants[arr_idx];
+                cs = run_draw_rect_offset_loop(count, cs, arr_name, y_mul, y_mod, cell, w, h,
+                        (Color)chunk->constants[color_idx], filled != 0, cs_add);
+                sync_local(cs_slot, Variant(cs));
+                break;
+            }
+            VG_CASE(vg_op_vector_uniform_rect_grid_loop, OP_VECTOR_UNIFORM_RECT_GRID_LOOP): {
+                if (vm.ip + 23 >= code_size) { success = false; goto cleanup; }
+                uint8_t cs_slot = code[vm.ip++];
+                auto read_i32 = [&]() -> int32_t {
+                    int32_t v = (int32_t)((uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24));
+                    vm.ip += 4;
+                    return v;
+                };
+                auto read_f32_local = [&]() -> float {
+                    union { float f; uint32_t u; } conv;
+                    conv.u = (uint32_t)code[vm.ip]
+                            | ((uint32_t)code[vm.ip + 1] << 8)
+                            | ((uint32_t)code[vm.ip + 2] << 16)
+                            | ((uint32_t)code[vm.ip + 3] << 24);
+                    vm.ip += 4;
+                    return conv.f;
+                };
+                int32_t cols = read_i32();
+                int32_t cell = read_i32();
+                float w = read_f32_local();
+                float h = read_f32_local();
+                int color_idx = read_const_index();
+                if (color_idx < 0 || color_idx >= chunk->constants.size()) { success = false; goto cleanup; }
+                uint8_t filled = code[vm.ip++];
+                int32_t cs_add = read_i32();
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t count = to_int(pop_value());
+                int64_t cs = to_int(read_local(cs_slot));
+                cs = run_vector_uniform_rect_grid_loop(count, cs, cols, cell, w, h,
+                        (Color)chunk->constants[color_idx], filled != 0, cs_add);
+                sync_local(cs_slot, Variant(cs));
                 break;
             }
             VG_CASE(vg_op_call, OP_CALL): {

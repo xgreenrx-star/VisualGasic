@@ -150,6 +150,40 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
             return 1;
         }
 
+        // CanvasItem draw builtins — operand sizes must match the VM + disassembler.
+        case OP_DRAW_RECT:
+        case OP_DRAW_LINE:
+            return 2; // [OP] [ARG_COUNT]
+        case OP_DRAW_RECT_F64:
+            return 12;
+        case OP_DRAW_LINE_F64:
+            return 7;
+        case OP_DRAW_RECT_GRID_IDX:
+            return 20;
+        case OP_DRAW_LINE_GRID_IDX:
+            return 23;
+        case OP_DRAW_CIRCLE_GRID_IDX:
+            return 23;
+        case OP_DRAW_TEXTURE_RECT_GRID_IDX:
+            return 20;
+        case OP_DRAW_CIRCLE_F64:
+            return 7;
+        case OP_DRAW_TEXTURE_RECT_F64:
+            return 12;
+        case OP_DRAW_RECT_GRID_LOOP:
+            return 25;
+        case OP_DRAW_LINE_GRID_LOOP:
+            return 28;
+        case OP_DRAW_CIRCLE_GRID_LOOP:
+            return 29;
+        case OP_DRAW_TEXTURE_RECT_GRID_LOOP:
+            return 25;
+        case OP_DRAW_POLYLINE_GRID_LOOP:
+            return 19;
+        case OP_DRAW_RECT_OFFSET_LOOP:
+            return 30;
+        case OP_VECTOR_UNIFORM_RECT_GRID_LOOP:
+            return 24;
 
         default:
             // Unknown opcode — assume 1 byte (safest)

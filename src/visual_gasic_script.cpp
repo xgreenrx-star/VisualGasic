@@ -170,6 +170,13 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_DRAW_TEXTURE_RECT_GRID_IDX);
         OP_NAME_CASE(OP_DRAW_CIRCLE_F64);
         OP_NAME_CASE(OP_DRAW_TEXTURE_RECT_F64);
+        OP_NAME_CASE(OP_DRAW_RECT_GRID_LOOP);
+        OP_NAME_CASE(OP_DRAW_LINE_GRID_LOOP);
+        OP_NAME_CASE(OP_DRAW_CIRCLE_GRID_LOOP);
+        OP_NAME_CASE(OP_DRAW_TEXTURE_RECT_GRID_LOOP);
+        OP_NAME_CASE(OP_DRAW_POLYLINE_GRID_LOOP);
+        OP_NAME_CASE(OP_DRAW_RECT_OFFSET_LOOP);
+        OP_NAME_CASE(OP_VECTOR_UNIFORM_RECT_GRID_LOOP);
 #undef OP_NAME_CASE
         default:
             return vformat("OP_UNKNOWN_%d", (int)op);
@@ -216,6 +223,20 @@ int opcode_operand_length(uint8_t op) {
             return 6;
         case OP_DRAW_TEXTURE_RECT_F64:
             return 11;
+        case OP_DRAW_RECT_GRID_LOOP:
+            return 24;
+        case OP_DRAW_LINE_GRID_LOOP:
+            return 27;
+        case OP_DRAW_CIRCLE_GRID_LOOP:
+            return 28;
+        case OP_DRAW_TEXTURE_RECT_GRID_LOOP:
+            return 24;
+        case OP_DRAW_POLYLINE_GRID_LOOP:
+            return 19;
+        case OP_DRAW_RECT_OFFSET_LOOP:
+            return 30;
+        case OP_VECTOR_UNIFORM_RECT_GRID_LOOP:
+            return 24;
         // 2-byte operand: single 16-bit constant pool index
         case OP_CONSTANT:
         case OP_CONSTANT_LONG:

@@ -173,23 +173,23 @@ VisualGasic is compiled to bytecode like GDScript, but with significantly more o
 
 ### Benchmark Results
 
-All 11 benchmarks faster than GDScript. VG wins 6/9 head-to-head vs native C++:
+**Compute:** Visual Gasic beats GDScript on **all 11 core microbenchmarks** (Aug 2026: **5×–218×**). See [performance.md](../manual/performance.md) and [BENCHMARK_PUBLISHED_RESULTS.md](../../BENCHMARK_PUBLISHED_RESULTS.md).
 
-| Benchmark | GDScript | VisualGasic | Speedup | vs C++ |
+**Canvas draw:** Visual Gasic beats GDScript on **all 9 `_draw` workloads** (Aug 2026 grid-loop fusion: **1.3×–10×**). Previously draw dispatch was a weak spot; fused native loops now dominate or match GD on every tested primitive mix.
+
+| Benchmark | GDScript | Visual Gasic | Speedup | vs C++ |
 |-----------|----------|-------------|---------|--------|
-| Arithmetic | 5,333 µs | 331 µs | **16×** | 0.2× |
-| ArraySum | 4,644 µs | 130 µs | **36×** | 0.3× |
-| StringConcat | 5,007 µs | 60 µs | **83×** 🚀 | **8× faster** 🔥 |
-| Branching | 6,988 µs | 59 µs | **118×** 🚀 | **tied** 🔥 |
-| ArrayDict | 11,441 µs | 3,834 µs | **3×** | **1.1× faster** |
-| DictFastGet | 29,177 µs | 2,210 µs | **13×** | — |
-| DictFastSet | 19,266 µs | 2,519 µs | **7.6×** | — |
-| Interop | 8,096 µs | 120 µs | **67×** 🚀 | **57× faster** 🔥 |
-| Allocations | 6,871 µs | 128 µs | **54×** 🚀 | **3.7× faster** 🔥 |
-| AllocationsFast | 10,309 µs | 1,817 µs | **5.7×** | 0.2× |
-| FileIO | 982 µs | 456 µs | **2.2×** | 0.8× |
+| Arithmetic | 14,616 µs | 67 µs | **218×** | C++ faster (tight loop) |
+| ArraySum | 10,352 µs | 344 µs | **30×** | C++ faster |
+| StringConcat | 11,432 µs | 220 µs | **52×** 🚀 | **6× faster** 🔥 |
+| Branching | 18,209 µs | 237 µs | **77×** 🚀 | C++ faster |
+| FilledRects (draw) | 1,699 µs | 220 µs | **7.7×** 🚀 | C++ faster |
+| VectorCanvas (draw) | 3,902 µs | 395 µs | **9.9×** 🚀 | **1.2× faster** 🔥 |
+| Mixed draw | 9,489 µs | 4,641 µs | **2.0×** | **1.1× faster** 🔥 |
 
-**Bottom line:** VG runs 2×–118× faster than GDScript across every workload tested. Branching ties native C++ at 59 µs. String concatenation is 83× faster than GDScript and 8× faster than C++.
+**Bottom line:** VG runs **5×–218×** faster than GDScript on compute microbenchmarks and **1.3×–10×** on canvas draw workloads. Pure function-call micro-overhead is still ~8× slower than GDScript (tracked separately). C++ wins tight numeric loops and raw draw dispatch; VG wins high-level ops, fused `_Draw` grids, and many mixed workloads.
+
+*Legacy table (Feb 2026 pre-draw-fusion):*
 
 ---
 

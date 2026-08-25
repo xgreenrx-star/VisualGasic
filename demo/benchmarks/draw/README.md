@@ -68,16 +68,23 @@ Use **`VectorCanvasUniformRects`** in this suite to compare batch vector-canvas 
 
 ## Sample results (Linux, Godot 4.6.1 headless, Aug 2026)
 
-All static workloads: checksums match across GDScript / VG / C++. **VG is much slower on draw dispatch** than compute benchmarks suggest.
+Grid-loop fusion compiles hot `_Draw` for-loops to native C++ opcodes. **VG beats GDScript on all 9 workloads.** Checksums match on static tests.
 
 | Workload | GDScript (µs) | Visual Gasic (µs) | C++ (µs) | VG vs GD |
 |---|---:|---:|---:|---:|
-| FilledRects ×2500 | ~1600 | ~120000 | ~150 | ~75× slower |
-| Lines ×2000 | ~500 | ~50000 | ~160 | ~100× slower |
-| Mixed ×2500 | ~3200 | ~160000 | ~1200 | ~50× slower |
-| MovingFilledRects ×500 | ~135 avg/frame | ~9000 avg/frame | ~20 avg/frame | ~67× slower |
+| FilledRects ×2500 | 1,699 | **220** | 129 | **7.7×** |
+| OutlineRects ×2500 | 2,626 | **1,433** | 596 | **1.8×** |
+| Lines ×2000 | 2,041 | **571** | 249 | **3.6×** |
+| Circles ×1500 | 7,346 | **5,833** | 3,981 | **1.3×** |
+| Sprites ×2000 | 1,485 | **403** | 132 | **3.7×** |
+| Polylines ×800 | 2,539 | **1,284** | 1,085 | **2.0×** |
+| Mixed ×2500 | 9,489 | **4,641** | 5,059 | **2.0×** |
+| VectorCanvasUniformRects ×2500 | 3,902 | **395** | 494 | **9.9×** |
+| MovingFilledRects ×500 | 238 avg/frame | **82 avg/frame** | 45 avg/frame | **2.9×** |
 
-C++ wins every draw test (native `CanvasItem::draw_*`). GDScript beats VG on all draw workloads tested. Use this suite to track improvements as draw builtins and `_Draw` dispatch are optimized.
+Full tables and reproduction steps: [BENCHMARK_PUBLISHED_RESULTS.md](../../BENCHMARK_PUBLISHED_RESULTS.md). Raw output: `bench_output.txt` in this directory.
+
+**Regression guard:** `scripts/benchmark_regression_check.sh` from repo root (after `scons`).
 
 
 - Scripts must be attached to **Node2D** (or other `CanvasItem`) so draw builtins target the correct canvas.

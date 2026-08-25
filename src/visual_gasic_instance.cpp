@@ -2361,6 +2361,205 @@ void VisualGasicInstance::end_draw_batch_flush() {
     _draw_batch_tex_rects.clear();
 }
 
+int64_t VisualGasicInstance::run_draw_rect_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
+        float p_w, float p_h, const Color &p_color, bool p_filled, int32_t p_checksum_add) {
+    CanvasItem *ci = get_draw_canvas_item();
+    if (!ci || p_count <= 0) {
+        return p_cs;
+    }
+    if (p_cols <= 0) {
+        p_cols = 1;
+    }
+    int64_t cs = p_cs;
+    for (int64_t i = 0; i < p_count; i++) {
+        int64_t col = i % p_cols;
+        int64_t row = i / p_cols;
+        float x = (float)(col * p_cell);
+        float y = (float)(row * p_cell);
+        ci->draw_rect(Rect2(x, y, p_w, p_h), p_color, p_filled);
+        cs += (int64_t)x + (int64_t)y + p_checksum_add;
+    }
+    return cs;
+}
+
+int64_t VisualGasicInstance::run_draw_line_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
+        float p_x2_off, float p_y2_off, float p_width, const Color &p_color, int32_t p_checksum_add) {
+    CanvasItem *ci = get_draw_canvas_item();
+    if (!ci || p_count <= 0) {
+        return p_cs;
+    }
+    if (p_cols <= 0) {
+        p_cols = 1;
+    }
+    int64_t cs = p_cs;
+    for (int64_t i = 0; i < p_count; i++) {
+        int64_t col = i % p_cols;
+        int64_t row = i / p_cols;
+        float x = (float)(col * p_cell);
+        float y = (float)(row * p_cell);
+        ci->draw_line(Vector2(x, y), Vector2(x + p_x2_off, y + p_y2_off), p_color, p_width);
+        cs += (int64_t)x + (int64_t)y + p_checksum_add;
+    }
+    return cs;
+}
+
+int64_t VisualGasicInstance::run_draw_circle_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
+        float p_ox, float p_oy, float p_radius, const Color &p_color, int32_t p_checksum_add) {
+    CanvasItem *ci = get_draw_canvas_item();
+    if (!ci || p_count <= 0) {
+        return p_cs;
+    }
+    if (p_cols <= 0) {
+        p_cols = 1;
+    }
+    int64_t cs = p_cs;
+    for (int64_t i = 0; i < p_count; i++) {
+        int64_t col = i % p_cols;
+        int64_t row = i / p_cols;
+        float x = (float)(col * p_cell);
+        float y = (float)(row * p_cell);
+        ci->draw_circle(Vector2(x + p_ox, y + p_oy), p_radius, p_color);
+        cs += (int64_t)x + (int64_t)y + p_checksum_add;
+    }
+    return cs;
+}
+
+int64_t VisualGasicInstance::run_draw_texture_rect_grid_loop(int64_t p_count, int64_t p_cs, const String &p_texture_name,
+        int32_t p_cols, int32_t p_cell, float p_w, float p_h, bool p_tile, int32_t p_checksum_add) {
+    CanvasItem *ci = get_draw_canvas_item();
+    Variant tex_var;
+    if (!get_variable(p_texture_name, tex_var)) {
+        Array keys = variables.keys();
+        for (int i = 0; i < keys.size(); i++) {
+            if (String(keys[i]).nocasecmp_to(p_texture_name) == 0) {
+                tex_var = variables[keys[i]];
+                break;
+            }
+        }
+    }
+    Ref<Texture2D> tex = tex_var;
+    if (!ci || !tex.is_valid() || p_count <= 0) {
+        return p_cs;
+    }
+    if (p_cols <= 0) {
+        p_cols = 1;
+    }
+    if (p_cell <= 0) {
+        p_cell = 1;
+    }
+    int64_t cs = p_cs;
+    for (int64_t i = 0; i < p_count; i++) {
+        int64_t col = i % p_cols;
+        int64_t row = i / p_cols;
+        float x = (float)(col * p_cell);
+        float y = (float)(row * p_cell);
+        ci->draw_texture_rect(tex, Rect2(x, y, p_w, p_h), p_tile);
+        cs += (int64_t)x + (int64_t)y + p_checksum_add;
+    }
+    return cs;
+}
+
+int64_t VisualGasicInstance::run_draw_polyline_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
+        float p_width, const Color &p_color, int32_t p_checksum_add) {
+    CanvasItem *ci = get_draw_canvas_item();
+    if (!ci || p_count <= 0) {
+        return p_cs;
+    }
+    if (p_cols <= 0) {
+        p_cols = 1;
+    }
+    if (p_cell <= 0) {
+        p_cell = 1;
+    }
+    static const float k_dx[5] = { 0.0f, 1.0f, 1.0f, 0.0f, 0.0f };
+    static const float k_dy[5] = { 0.0f, 0.0f, 1.0f, 1.0f, 0.0f };
+    const float cell_f = (float)p_cell;
+    int64_t cs = p_cs;
+    for (int64_t i = 0; i < p_count; i++) {
+        int64_t col = i % p_cols;
+        int64_t row = i / p_cols;
+        float x = (float)(col * p_cell);
+        float y = (float)(row * p_cell);
+        PackedVector2Array pts;
+        pts.resize(5);
+        for (int pi = 0; pi < 5; pi++) {
+            pts[pi] = Vector2(x + k_dx[pi] * cell_f, y + k_dy[pi] * cell_f);
+        }
+        ci->draw_polyline(pts, p_color, p_width);
+        cs += (int64_t)x + (int64_t)y + p_checksum_add;
+    }
+    return cs;
+}
+
+int64_t VisualGasicInstance::run_draw_rect_offset_loop(int64_t p_count, int64_t p_cs, const String &p_offset_name,
+        int32_t p_y_mul, int32_t p_y_mod, int32_t p_cell, float p_w, float p_h,
+        const Color &p_color, bool p_filled, int32_t p_checksum_add) {
+    CanvasItem *ci = get_draw_canvas_item();
+    if (!ci || p_count <= 0) {
+        return p_cs;
+    }
+    Variant offsets_var;
+    if (!get_variable(p_offset_name, offsets_var)) {
+        Array keys = variables.keys();
+        for (int ki = 0; ki < keys.size(); ki++) {
+            if (String(keys[ki]).nocasecmp_to(p_offset_name) == 0) {
+                offsets_var = variables[keys[ki]];
+                break;
+            }
+        }
+    }
+    if (offsets_var.get_type() != Variant::ARRAY) {
+        return p_cs;
+    }
+    Array offsets = offsets_var;
+    if (p_cell <= 0) {
+        p_cell = 1;
+    }
+    int64_t cs = p_cs;
+    for (int64_t i = 0; i < p_count; i++) {
+        if (i >= offsets.size()) {
+            break;
+        }
+        // Match GDScript/C++ moving benchmark: offsets live in float32 precision.
+        float x = (float)(double)offsets[i];
+        int64_t y_index = (i * (int64_t)p_y_mul) % (int64_t)p_y_mod;
+        float y = (float)(y_index * p_cell);
+        ci->draw_rect(Rect2(x, y, p_w, p_h), p_color, p_filled);
+        cs += (int64_t)x + (int64_t)y + p_checksum_add;
+    }
+    return cs;
+}
+
+int64_t VisualGasicInstance::run_vector_uniform_rect_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
+        float p_w, float p_h, const Color &p_color, bool p_filled, int32_t p_checksum_add) {
+    CanvasItem *ci = get_draw_canvas_item();
+    VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci);
+    if (!vc || p_count <= 0) {
+        return p_cs;
+    }
+    if (p_cols <= 0) {
+        p_cols = 1;
+    }
+    if (p_cell <= 0) {
+        p_cell = 1;
+    }
+    PackedVector2Array rects;
+    rects.resize((int)p_count * 2);
+    int64_t cs = p_cs;
+    for (int64_t i = 0; i < p_count; i++) {
+        int64_t col = i % p_cols;
+        int64_t row = i / p_cols;
+        float x = (float)(col * p_cell);
+        float y = (float)(row * p_cell);
+        rects[(int)i * 2] = Vector2(x, y);
+        rects[(int)i * 2 + 1] = Vector2(p_w, p_h);
+        cs += (int64_t)x + (int64_t)y + p_checksum_add;
+    }
+    vc->DrawRectsUniform(rects, p_color, p_filled);
+    vc->ExecuteQueuedCommands();
+    return cs;
+}
+
 bool VisualGasicInstance::dispatch_draw_kind(int p_kind, const Variant *p_args, int p_arg_count, bool &r_found) {
     r_found = false;
     CanvasItem *ci = get_draw_canvas_item();

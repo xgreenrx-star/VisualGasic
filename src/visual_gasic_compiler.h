@@ -73,6 +73,7 @@ private:
     // Forward GoTo jumps that need patching: label_name → list of jump offsets
     HashMap<String, Vector<int>> goto_forward_jumps;
     int temp_local_id = 0;
+    int pending_vector_draw_skip = 0;
     int _draw_invariant_color_slot = -1;
     SubDefinition* current_sub = nullptr;
     ModuleNode* current_module = nullptr;
@@ -132,12 +133,20 @@ private:
     bool try_emit_draw_texture_rect_f64(const Vector<ExpressionNode*> &args);
     bool try_emit_draw_call(CallStatement *s, SubDefinition *target_func, bool discard_result);
     SubDefinition *find_sub_by_name(const String &p_name) const;
+    bool try_get_module_grid_constants(int64_t &r_cols, int64_t &r_cell) const;
     bool try_parse_grid_axis_sub(const String &p_name, bool p_want_x, int64_t &r_cols, int64_t &r_cell) const;
     bool try_emit_grid_axis_inline(const String &p_func_name, const Vector<ExpressionNode*> &args, bool p_want_x);
     bool try_compile_grid_draw_fusion(const Vector<Statement*> &stmts, int &io_i, const String &p_loop_var);
     bool try_const_i64_from_expr(ExpressionNode *p_expr, int64_t &r_out) const;
     bool is_grid_axis_assign(Statement *p_stmt, const String &p_axis_name, const String &p_loop_var,
             String &r_x_var, String &r_y_var, bool p_want_x) const;
+    bool try_compile_grid_draw_for_fusion(ForStatement *p_for);
+    bool try_compile_grid_polyline_for_fusion(ForStatement *p_for);
+    bool try_compile_offset_rect_for_fusion(ForStatement *p_for);
+    bool try_compile_vector_uniform_rect_for_fusion(ForStatement *p_for, const Vector<Statement*> &p_stmts, int p_index, int &r_skip_after);
+    bool parse_checksum_tail(ExpressionNode *p_expr, int64_t &r_add) const;
+    bool parse_grid_checksum_stmt(Statement *p_stmt, String &r_cs_var, const String &p_x_var,
+            const String &p_y_var, int64_t &r_add) const;
     ValueType infer_type(ExpressionNode* expr) const;
 
     void compile_statement(Statement* stmt);

@@ -405,26 +405,26 @@ End Sub</pre>
         <p class="section-kicker">Speed Tests</p>
         <h2>Readable does not have to mean slow</h2>
         <p>
-          Visual Gasic is built to be inspectable, but it is not a toy interpreter. The published benchmark suite shows it beating GDScript in all 11 tests
-          and winning 6 of 9 measured matchups against C++ in the current results set. The charts below are here so the performance
-          claim is visible immediately instead of buried in a PDF or release thread.
+          Visual Gasic is built to be inspectable, but it is not a toy interpreter. The published suites show it beating GDScript on
+          <strong>11 core compute microbenchmarks</strong> and <strong>9 canvas draw workloads</strong> (Aug 2026). C++ still wins some
+          tight numeric loops; VG wins high-level ops, fused <code>_Draw</code> grids, and mixed draw batches.
         </p>
         <div class="stats-row">
           <div class="card stat-card">
             <strong>11 / 11</strong>
-            <span>Benchmarks faster than GDScript</span>
+            <span>Compute benchmarks faster than GDScript</span>
           </div>
           <div class="card stat-card">
-            <strong>6 / 9</strong>
-            <span>Published wins vs C++</span>
+            <strong>9 / 9</strong>
+            <span>Draw benchmarks faster than GDScript</span>
           </div>
           <div class="card stat-card">
-            <strong>118.4x</strong>
-            <span>Faster than GDScript on branching</span>
+            <strong>218×</strong>
+            <span>Faster than GDScript on arithmetic</span>
           </div>
           <div class="card stat-card">
-            <strong>83.5x</strong>
-            <span>Faster than GDScript on string concat</span>
+            <strong>10×</strong>
+            <span>Faster on vector canvas batch draw</span>
           </div>
         </div>
         <div class="chart-grid">
@@ -442,9 +442,11 @@ End Sub</pre>
           </figure>
         </div>
         <div class="meta-links">
+          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/BENCHMARK_PUBLISHED_RESULTS.md">Published Results (Aug 2026)</a>
           <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/manual/performance.md">Performance Guide</a>
-          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/demo/bench.vg">Benchmark Source</a>
-          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/demo/bench_output.txt">Benchmark Output</a>
+          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/demo/bench.vg">Compute Benchmark Source</a>
+          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/demo/benchmarks/draw/README.md">Draw Benchmark Suite</a>
+          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/demo/benchmarks/bench_output.txt">Latest Compute Output</a>
         </div>
       </section>
 

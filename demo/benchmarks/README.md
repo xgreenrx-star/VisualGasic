@@ -21,9 +21,17 @@ This directory contains `.vg` scripts designed to measure and profile VisualGasi
 
 ## Running Benchmarks
 
-1. Open a benchmark file in the Godot editor with VisualGasic script editor active
-2. Run via Script Debugger or use the VG CLI tool
-3. Timing results output to Output panel or console
+From repo root (after `scons platform=linux target=editor`):
+
+```bash
+scripts/run_compute_benchmarks.sh
+scripts/run_draw_benchmarks.sh
+scripts/benchmark_regression_check.sh   # CI-style: fail if VG loses to GD
+```
+
+Or open a `.vg` benchmark in Godot and run via the script debugger.
+
+**Published tables:** [BENCHMARK_PUBLISHED_RESULTS.md](../../BENCHMARK_PUBLISHED_RESULTS.md)
 
 ## Typical Workflow
 

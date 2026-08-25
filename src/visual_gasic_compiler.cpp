@@ -6,6 +6,7 @@
 
 namespace {
 constexpr bool kEnableLoopFusions = true;
+constexpr bool kTraceDrawFusion = false;
 constexpr bool kTraceArraySumMatcher = false;
 
 bool vg_variant_truthy(const Variant &value) {
@@ -269,6 +270,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     local_types.clear();
     local_const_map.clear();
     typed_locals.clear();
+    pending_vector_draw_skip = 0;
     non_local_names.clear();
     used_vars.clear();
     expr_cache.clear();
@@ -582,6 +584,17 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     
     for (int i = 0; i < sub->statements.size(); i++) {
         Statement *stmt = sub->statements[i];
+        if (stmt && stmt->type == STMT_FOR && kEnableLoopFusions) {
+            int skip_after = 0;
+            if (kEnableLoopFusions && try_compile_vector_uniform_rect_for_fusion((ForStatement *)stmt, sub->statements, i, skip_after)) {
+                pending_vector_draw_skip = skip_after;
+                i += skip_after;
+                if (!compile_ok) {
+                    break;
+                }
+                continue;
+            }
+        }
         if (stmt && stmt->type == STMT_REDIM && i + 1 < sub->statements.size()) {
             ReDimStatement *rd = (ReDimStatement *)stmt;
             Statement *next_stmt = sub->statements[i + 1];
@@ -3181,6 +3194,27 @@ bool VisualGasicCompiler::is_constant_expr(ExpressionNode* expr) const {
             return true;
         }
     }
+    if (expr->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression *call = (CallExpression *)expr;
+        if (call->base_object) {
+            return false;
+        }
+        String name = call->method_name.to_lower();
+        if (name == "cdbl" || name == "clng" || name == "cint" || name == "csng") {
+            return call->arguments.size() == 1 && is_constant_expr(call->arguments[0]);
+        }
+        if (name == "color") {
+            if (call->arguments.size() < 3) {
+                return false;
+            }
+            for (int i = 0; i < call->arguments.size(); i++) {
+                if (!is_constant_expr(call->arguments[i])) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
     return false;
 }
 
@@ -3216,6 +3250,31 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
                 double g = (double)eval_constant_expr(aa->indices[1]);
                 double b = (double)eval_constant_expr(aa->indices[2]);
                 double a = aa->indices.size() > 3 ? (double)eval_constant_expr(aa->indices[3]) : 1.0;
+                return Variant(Color(r, g, b, a));
+            }
+        }
+    }
+    if (expr->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression *call = (CallExpression *)expr;
+        if (!call->base_object) {
+            String name = call->method_name.to_lower();
+            if (name == "cdbl" && call->arguments.size() == 1) {
+                return Variant((double)eval_constant_expr(call->arguments[0]));
+            }
+            if (name == "clng" && call->arguments.size() == 1) {
+                return Variant((int64_t)eval_constant_expr(call->arguments[0]));
+            }
+            if (name == "cint" && call->arguments.size() == 1) {
+                return Variant((int)eval_constant_expr(call->arguments[0]));
+            }
+            if (name == "csng" && call->arguments.size() == 1) {
+                return Variant((float)(double)eval_constant_expr(call->arguments[0]));
+            }
+            if (name == "color" && call->arguments.size() >= 3) {
+                double r = (double)eval_constant_expr(call->arguments[0]);
+                double g = (double)eval_constant_expr(call->arguments[1]);
+                double b = (double)eval_constant_expr(call->arguments[2]);
+                double a = call->arguments.size() > 3 ? (double)eval_constant_expr(call->arguments[3]) : 1.0;
                 return Variant(Color(r, g, b, a));
             }
         }
@@ -3449,6 +3508,29 @@ SubDefinition *VisualGasicCompiler::find_sub_by_name(const String &p_name) const
     return nullptr;
 }
 
+bool VisualGasicCompiler::try_get_module_grid_constants(int64_t &r_cols, int64_t &r_cell) const {
+    if (!local_const_map.has("grid_cols") || !local_const_map.has("cell")) {
+        return false;
+    }
+    Variant cols_v = local_const_map["grid_cols"];
+    Variant cell_v = local_const_map["cell"];
+    if (cols_v.get_type() == Variant::INT) {
+        r_cols = (int64_t)cols_v;
+    } else if (cols_v.get_type() == Variant::FLOAT) {
+        r_cols = (int64_t)(double)cols_v;
+    } else {
+        return false;
+    }
+    if (cell_v.get_type() == Variant::INT) {
+        r_cell = (int64_t)cell_v;
+    } else if (cell_v.get_type() == Variant::FLOAT) {
+        r_cell = (int64_t)(double)cell_v;
+    } else {
+        return false;
+    }
+    return r_cols > 0 && r_cell > 0;
+}
+
 static ExpressionNode *_vg_unwrap_cdbl(ExpressionNode *p_expr) {
     if (!p_expr || p_expr->type != ExpressionNode::EXPRESSION_CALL) {
         return p_expr;
@@ -3487,6 +3569,11 @@ bool VisualGasicCompiler::try_const_i64_from_expr(ExpressionNode *p_expr, int64_
 }
 
 bool VisualGasicCompiler::try_parse_grid_axis_sub(const String &p_name, bool p_want_x, int64_t &r_cols, int64_t &r_cell) const {
+    if (p_name.nocasecmp_to("GridX") == 0 || p_name.nocasecmp_to("GridY") == 0) {
+        if (try_get_module_grid_constants(r_cols, r_cell)) {
+            return true;
+        }
+    }
     SubDefinition *sub = find_sub_by_name(p_name);
     if (!sub || sub->type != SubDefinition::TYPE_FUNCTION || sub->parameters.size() != 1) {
         return false;
@@ -3617,15 +3704,29 @@ bool VisualGasicCompiler::is_grid_axis_assign(Statement *p_stmt, const String &p
         return false;
     }
     String target = ((VariableNode *)as->target)->name;
-    if (as->value->type != ExpressionNode::EXPRESSION_CALL) {
+    ExpressionNode *arg = nullptr;
+    String func_name;
+    if (as->value->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression *call = (CallExpression *)as->value;
+        if (call->base_object || call->method_name.nocasecmp_to(p_axis_name) != 0 || call->arguments.size() != 1) {
+            return false;
+        }
+        func_name = call->method_name;
+        arg = call->arguments[0];
+    } else if (as->value->type == ExpressionNode::ARRAY_ACCESS) {
+        ArrayAccessNode *aa = (ArrayAccessNode *)as->value;
+        if (!aa->base || aa->base->type != ExpressionNode::VARIABLE || aa->indices.size() != 1) {
+            return false;
+        }
+        func_name = ((VariableNode *)aa->base)->name;
+        if (func_name.nocasecmp_to(p_axis_name) != 0) {
+            return false;
+        }
+        arg = aa->indices[0];
+    } else {
         return false;
     }
-    CallExpression *call = (CallExpression *)as->value;
-    if (call->base_object || call->method_name.nocasecmp_to(p_axis_name) != 0 || call->arguments.size() != 1) {
-        return false;
-    }
-    ExpressionNode *arg = call->arguments[0];
-    if (arg->type != ExpressionNode::VARIABLE) {
+    if (!arg || arg->type != ExpressionNode::VARIABLE) {
         return false;
     }
     if (((VariableNode *)arg)->name.to_lower() != p_loop_var.to_lower()) {
@@ -3633,7 +3734,7 @@ bool VisualGasicCompiler::is_grid_axis_assign(Statement *p_stmt, const String &p
     }
     int64_t cols = 0;
     int64_t cell = 0;
-    if (!try_parse_grid_axis_sub(p_axis_name, p_want_x, cols, cell)) {
+    if (!try_parse_grid_axis_sub(func_name, p_want_x, cols, cell)) {
         return false;
     }
     if (p_want_x) {
@@ -3641,6 +3742,729 @@ bool VisualGasicCompiler::is_grid_axis_assign(Statement *p_stmt, const String &p
     } else {
         r_y_var = target;
     }
+    return true;
+}
+
+static bool _vg_for_from_zero(ForStatement *p_for) {
+    if (!p_for || !p_for->from_val || p_for->from_val->type != ExpressionNode::LITERAL) {
+        return false;
+    }
+    LiteralNode *lit = (LiteralNode *)p_for->from_val;
+    if (lit->value.get_type() == Variant::INT) {
+        return (int64_t)lit->value == 0;
+    }
+    if (lit->value.get_type() == Variant::FLOAT) {
+        return (double)lit->value == 0.0;
+    }
+    return false;
+}
+
+static bool _vg_for_step_one(ForStatement *p_for) {
+    if (!p_for->step_val) {
+        return true;
+    }
+    if (p_for->step_val->type != ExpressionNode::LITERAL) {
+        return false;
+    }
+    LiteralNode *lit = (LiteralNode *)p_for->step_val;
+    if (lit->value.get_type() == Variant::INT) {
+        return (int64_t)lit->value == 1;
+    }
+    if (lit->value.get_type() == Variant::FLOAT) {
+        return (double)lit->value == 1.0;
+    }
+    return false;
+}
+
+static bool _vg_for_count_minus_one_to(ForStatement *p_for, ExpressionNode *&r_count_expr) {
+    if (!p_for || !p_for->to_val) {
+        return false;
+    }
+    if (p_for->to_val->type == ExpressionNode::BINARY_OP) {
+        BinaryOpNode *b = (BinaryOpNode *)p_for->to_val;
+        if (b->op != "-") {
+            return false;
+        }
+        int64_t one = 0;
+        if (!b->right || b->right->type != ExpressionNode::LITERAL) {
+            return false;
+        }
+        LiteralNode *rl = (LiteralNode *)b->right;
+        if (rl->value.get_type() == Variant::INT && (int64_t)rl->value == 1) {
+            r_count_expr = b->left;
+            return r_count_expr != nullptr;
+        }
+    }
+    return false;
+}
+
+static bool _vg_is_clng_var(ExpressionNode *p_expr, const String &p_var) {
+    if (!p_expr || p_expr->type != ExpressionNode::EXPRESSION_CALL) {
+        if (p_expr && p_expr->type == ExpressionNode::ARRAY_ACCESS) {
+            ArrayAccessNode *aa = (ArrayAccessNode *)p_expr;
+            if (!aa->base || aa->base->type != ExpressionNode::VARIABLE || aa->indices.size() != 1) {
+                return false;
+            }
+            if (((VariableNode *)aa->base)->name.nocasecmp_to("CLng") != 0) {
+                return false;
+            }
+            p_expr = aa->indices[0];
+        } else {
+            return false;
+        }
+    } else {
+        CallExpression *call = (CallExpression *)p_expr;
+        if (call->base_object || call->method_name.nocasecmp_to("CLng") != 0 || call->arguments.size() != 1) {
+            return false;
+        }
+        p_expr = call->arguments[0];
+    }
+    return p_expr && p_expr->type == ExpressionNode::VARIABLE &&
+            ((VariableNode *)p_expr)->name.to_lower() == p_var.to_lower();
+}
+
+bool VisualGasicCompiler::parse_checksum_tail(ExpressionNode *p_expr, int64_t &r_add) const {
+    if (try_const_i64_from_expr(p_expr, r_add)) {
+        return true;
+    }
+    ExpressionNode *inner = p_expr;
+    if (p_expr->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression *call = (CallExpression *)p_expr;
+        if (!call->base_object && call->method_name.nocasecmp_to("CLng") == 0 && call->arguments.size() == 1) {
+            inner = call->arguments[0];
+        }
+    } else if (p_expr->type == ExpressionNode::ARRAY_ACCESS) {
+        ArrayAccessNode *aa = (ArrayAccessNode *)p_expr;
+        if (aa->base && aa->base->type == ExpressionNode::VARIABLE &&
+                ((VariableNode *)aa->base)->name.nocasecmp_to("CLng") == 0 && aa->indices.size() == 1) {
+            inner = aa->indices[0];
+        }
+    }
+    return try_const_i64_from_expr(inner, r_add);
+}
+
+bool VisualGasicCompiler::parse_grid_checksum_stmt(Statement *p_stmt, String &r_cs_var, const String &p_x_var,
+        const String &p_y_var, int64_t &r_add) const {
+    if (!p_stmt || p_stmt->type != STMT_ASSIGNMENT) {
+        return false;
+    }
+    AssignmentStatement *as = (AssignmentStatement *)p_stmt;
+    if (!as->target || as->target->type != ExpressionNode::VARIABLE || !as->value) {
+        return false;
+    }
+    r_cs_var = ((VariableNode *)as->target)->name;
+
+    Vector<ExpressionNode *> terms;
+    ExpressionNode *cur = as->value;
+    while (cur && cur->type == ExpressionNode::BINARY_OP) {
+        BinaryOpNode *b = (BinaryOpNode *)cur;
+        if (b->op != "+") {
+            break;
+        }
+        terms.push_back(b->right);
+        cur = b->left;
+    }
+    terms.push_back(cur);
+    if (terms.size() != 4) {
+        return false;
+    }
+    if (!terms[3] || terms[3]->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    if (((VariableNode *)terms[3])->name.to_lower() != r_cs_var.to_lower()) {
+        return false;
+    }
+    if (!_vg_is_clng_var(terms[2], p_x_var)) {
+        return false;
+    }
+    if (!_vg_is_clng_var(terms[1], p_y_var)) {
+        return false;
+    }
+    return parse_checksum_tail(terms[0], r_add);
+}
+
+bool VisualGasicCompiler::try_compile_grid_draw_for_fusion(ForStatement *p_for) {
+    if (!p_for || !_vg_for_from_zero(p_for) || !_vg_for_step_one(p_for)) {
+        return false;
+    }
+    ExpressionNode *count_expr = nullptr;
+    if (!_vg_for_count_minus_one_to(p_for, count_expr)) {
+        return false;
+    }
+    if (p_for->body.size() != 3 && p_for->body.size() != 4) {
+        return false;
+    }
+
+    String x_var;
+    String y_var;
+    if (!is_grid_axis_assign(p_for->body[0], "GridX", p_for->variable_name, x_var, y_var, true)) {
+        return false;
+    }
+    if (!is_grid_axis_assign(p_for->body[1], "GridY", p_for->variable_name, x_var, y_var, false)) {
+        return false;
+    }
+    if (!p_for->body[2] || p_for->body[2]->type != STMT_CALL) {
+        return false;
+    }
+    CallStatement *draw = (CallStatement *)p_for->body[2];
+    if (draw->base_object) {
+        return false;
+    }
+
+    String cs_var;
+    int64_t cs_add = 0;
+    if (p_for->body.size() == 4) {
+        if (p_for->body[3]->type != STMT_ASSIGNMENT) {
+            return false;
+        }
+        if (!parse_grid_checksum_stmt(p_for->body[3], cs_var, x_var, y_var, cs_add)) {
+            return false;
+        }
+    } else {
+        return false;
+    }
+
+    int64_t cols = 0;
+    int64_t cell = 0;
+    if (!try_parse_grid_axis_sub("GridX", true, cols, cell)) {
+        return false;
+    }
+
+    int cs_slot = get_or_add_local(cs_var, VT_INT);
+    if (cs_slot < 0) {
+        return false;
+    }
+
+    compile_expression(count_expr);
+
+    if (draw->method_name.nocasecmp_to("DrawRect") == 0) {
+        if (draw->arguments.size() != 6) {
+            return false;
+        }
+        if (draw->arguments[0]->type != ExpressionNode::VARIABLE ||
+                draw->arguments[1]->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        if (((VariableNode *)draw->arguments[0])->name.to_lower() != x_var.to_lower() ||
+                ((VariableNode *)draw->arguments[1])->name.to_lower() != y_var.to_lower()) {
+            return false;
+        }
+        double w = 0.0;
+        double h = 0.0;
+        Color col;
+        bool filled = true;
+        if (!try_constant_f64(draw->arguments[2], w) ||
+                !try_constant_f64(draw->arguments[3], h) ||
+                !try_constant_color(draw->arguments[4], col) ||
+                !try_constant_bool(draw->arguments[5], filled)) {
+            return false;
+        }
+        int cidx = current_chunk->add_constant(col);
+        emit_byte(OP_DRAW_RECT_GRID_LOOP);
+        emit_byte((uint8_t)cs_slot);
+        emit_i32((int32_t)cols);
+        emit_i32((int32_t)cell);
+        emit_f32((float)w);
+        emit_f32((float)h);
+        emit_const_index(cidx);
+        emit_byte(filled ? 1 : 0);
+        emit_i32((int32_t)cs_add);
+    } else if (draw->method_name.nocasecmp_to("DrawLine") == 0) {
+        if (draw->arguments.size() != 6) {
+            return false;
+        }
+        if (draw->arguments[0]->type != ExpressionNode::VARIABLE ||
+                draw->arguments[1]->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        if (((VariableNode *)draw->arguments[0])->name.to_lower() != x_var.to_lower() ||
+                ((VariableNode *)draw->arguments[1])->name.to_lower() != y_var.to_lower()) {
+            return false;
+        }
+        if (draw->arguments[2]->type != ExpressionNode::BINARY_OP ||
+                draw->arguments[3]->type != ExpressionNode::BINARY_OP) {
+            return false;
+        }
+        BinaryOpNode *x2 = (BinaryOpNode *)draw->arguments[2];
+        BinaryOpNode *y2 = (BinaryOpNode *)draw->arguments[3];
+        if (x2->op != "+" || y2->op != "+") {
+            return false;
+        }
+        if (!x2->left || x2->left->type != ExpressionNode::VARIABLE ||
+                ((VariableNode *)x2->left)->name.to_lower() != x_var.to_lower()) {
+            return false;
+        }
+        if (!y2->left || y2->left->type != ExpressionNode::VARIABLE ||
+                ((VariableNode *)y2->left)->name.to_lower() != y_var.to_lower()) {
+            return false;
+        }
+        double x2_delta = 0.0;
+        double y2_delta = 0.0;
+        Color col;
+        double width = 0.0;
+        if (!try_constant_f64(x2->right, x2_delta) ||
+                !try_constant_f64(y2->right, y2_delta) ||
+                !try_constant_color(draw->arguments[4], col) ||
+                !try_constant_f64(draw->arguments[5], width)) {
+            return false;
+        }
+        int cidx = current_chunk->add_constant(col);
+        emit_byte(OP_DRAW_LINE_GRID_LOOP);
+        emit_byte((uint8_t)cs_slot);
+        emit_i32((int32_t)cols);
+        emit_i32((int32_t)cell);
+        emit_f32((float)x2_delta);
+        emit_f32((float)y2_delta);
+        emit_f32((float)width);
+        emit_const_index(cidx);
+        emit_i32((int32_t)cs_add);
+    } else if (draw->method_name.nocasecmp_to("DrawCircle") == 0) {
+        if (draw->arguments.size() != 4) {
+            return false;
+        }
+        if (draw->arguments[0]->type != ExpressionNode::BINARY_OP ||
+                draw->arguments[1]->type != ExpressionNode::BINARY_OP) {
+            return false;
+        }
+        BinaryOpNode *cx = (BinaryOpNode *)draw->arguments[0];
+        BinaryOpNode *cy = (BinaryOpNode *)draw->arguments[1];
+        if (cx->op != "+" || cy->op != "+") {
+            return false;
+        }
+        if (!cx->left || cx->left->type != ExpressionNode::VARIABLE ||
+                ((VariableNode *)cx->left)->name.to_lower() != x_var.to_lower()) {
+            return false;
+        }
+        if (!cy->left || cy->left->type != ExpressionNode::VARIABLE ||
+                ((VariableNode *)cy->left)->name.to_lower() != y_var.to_lower()) {
+            return false;
+        }
+        double ox = 0.0;
+        double oy = 0.0;
+        int8_t half_slot = -1;
+        if (cx->right->type == ExpressionNode::VARIABLE && cy->right->type == ExpressionNode::VARIABLE) {
+            String half_name = ((VariableNode *)cx->right)->name;
+            if (half_name.to_lower() != ((VariableNode *)cy->right)->name.to_lower()) {
+                return false;
+            }
+            half_slot = (int8_t)get_or_add_local(half_name, VT_UNKNOWN);
+            if (half_slot < 0) {
+                return false;
+            }
+        } else if (!try_constant_f64(cx->right, ox) || !try_constant_f64(cy->right, oy)) {
+            return false;
+        }
+        double radius = 0.0;
+        Color col;
+        if (!try_constant_f64(draw->arguments[2], radius) ||
+                !try_constant_color(draw->arguments[3], col)) {
+            return false;
+        }
+        int cidx = current_chunk->add_constant(col);
+        emit_byte(OP_DRAW_CIRCLE_GRID_LOOP);
+        emit_byte((uint8_t)cs_slot);
+        emit_i32((int32_t)cols);
+        emit_i32((int32_t)cell);
+        if (half_slot >= 0) {
+            emit_f32(0.0f);
+            emit_f32(0.0f);
+            emit_byte((uint8_t)half_slot);
+        } else {
+            emit_f32((float)ox);
+            emit_f32((float)oy);
+            emit_byte(0xFF);
+        }
+        emit_f32((float)radius);
+        emit_const_index(cidx);
+        emit_i32((int32_t)cs_add);
+    } else if (draw->method_name.nocasecmp_to("DrawTextureRect") == 0) {
+        if (draw->arguments.size() < 5) {
+            return false;
+        }
+        if (draw->arguments[1]->type != ExpressionNode::VARIABLE ||
+                draw->arguments[2]->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        if (((VariableNode *)draw->arguments[1])->name.to_lower() != x_var.to_lower() ||
+                ((VariableNode *)draw->arguments[2])->name.to_lower() != y_var.to_lower()) {
+            return false;
+        }
+        if (draw->arguments[0]->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        double w = 0.0;
+        double h = 0.0;
+        bool tile = false;
+        if (!try_constant_f64(draw->arguments[3], w) ||
+                !try_constant_f64(draw->arguments[4], h)) {
+            return false;
+        }
+        if (draw->arguments.size() > 5 && !try_constant_bool(draw->arguments[5], tile)) {
+            return false;
+        }
+        String tex_name = ((VariableNode *)draw->arguments[0])->name;
+        int tex_idx = current_chunk->add_constant(tex_name);
+        emit_byte(OP_DRAW_TEXTURE_RECT_GRID_LOOP);
+        emit_byte((uint8_t)cs_slot);
+        emit_const_index(tex_idx);
+        emit_i32((int32_t)cols);
+        emit_i32((int32_t)cell);
+        emit_f32((float)w);
+        emit_f32((float)h);
+        emit_byte(tile ? 1 : 0);
+        emit_i32((int32_t)cs_add);
+    } else {
+        return false;
+    }
+
+    return true;
+}
+
+bool VisualGasicCompiler::try_compile_grid_polyline_for_fusion(ForStatement *p_for) {
+    auto trace_fail = [&](const char *p_reason) -> bool {
+        if (kTraceDrawFusion) {
+            UtilityFunctions::print("[DrawFusion:Polyline] ", p_reason,
+                    " body=", p_for ? p_for->body.size() : -1);
+        }
+        return false;
+    };
+    if (!p_for || !_vg_for_from_zero(p_for) || !_vg_for_step_one(p_for)) {
+        return trace_fail("for header");
+    }
+    ExpressionNode *count_expr = nullptr;
+    if (!_vg_for_count_minus_one_to(p_for, count_expr)) {
+        return trace_fail("count expr");
+    }
+    if (p_for->body.size() < 4) {
+        return trace_fail("body size");
+    }
+    String x_var;
+    String y_var;
+    if (!is_grid_axis_assign(p_for->body[0], "GridX", p_for->variable_name, x_var, y_var, true)) {
+        return trace_fail("grid x");
+    }
+    if (!is_grid_axis_assign(p_for->body[1], "GridY", p_for->variable_name, x_var, y_var, false)) {
+        return trace_fail("grid y");
+    }
+    Statement *draw_stmt = nullptr;
+    for (int bi = 2; bi < p_for->body.size() - 1; bi++) {
+        Statement *st = p_for->body[bi];
+        if (st && st->type == STMT_CALL) {
+            CallStatement *c = (CallStatement *)st;
+            if (!c->base_object && c->method_name.nocasecmp_to("DrawPolyline") == 0) {
+                draw_stmt = st;
+                break;
+            }
+        }
+    }
+    Statement *cs_stmt = p_for->body[p_for->body.size() - 1];
+    if (!draw_stmt || cs_stmt->type != STMT_ASSIGNMENT) {
+        return trace_fail("draw/cs stmt");
+    }
+    CallStatement *draw = (CallStatement *)draw_stmt;
+    if (draw->arguments.size() != 3) {
+        return trace_fail("draw argc");
+    }
+    String cs_var;
+    int64_t cs_add = 0;
+    if (!parse_grid_checksum_stmt(cs_stmt, cs_var, x_var, y_var, cs_add)) {
+        return trace_fail("checksum");
+    }
+    double width = 0.0;
+    Color col;
+    if (!try_constant_f64(draw->arguments[2], width) || !try_constant_color(draw->arguments[1], col)) {
+        return trace_fail("width/color");
+    }
+    int64_t cols = 0;
+    int64_t cell = 0;
+    if (!try_parse_grid_axis_sub("GridX", true, cols, cell)) {
+        return false;
+    }
+    int cs_slot = get_or_add_local(cs_var, VT_INT);
+    if (cs_slot < 0) {
+        return false;
+    }
+    compile_expression(count_expr);
+    int cidx = current_chunk->add_constant(col);
+    emit_byte(OP_DRAW_POLYLINE_GRID_LOOP);
+    emit_byte((uint8_t)cs_slot);
+    emit_i32((int32_t)cols);
+    emit_i32((int32_t)cell);
+    emit_f32((float)width);
+    emit_const_index(cidx);
+    emit_i32((int32_t)cs_add);
+    return true;
+}
+
+bool VisualGasicCompiler::try_compile_offset_rect_for_fusion(ForStatement *p_for) {
+    auto trace_fail = [&](const char *p_reason) -> bool {
+        if (kTraceDrawFusion) {
+            UtilityFunctions::print("[DrawFusion:Offset] ", p_reason);
+        }
+        return false;
+    };
+    auto parse_moving_y = [&](ExpressionNode *p_expr, const String &p_loop_var, int64_t &r_y_mul, int64_t &r_y_mod, int64_t &r_cell) -> bool {
+        if (!p_expr) {
+            return false;
+        }
+        ExpressionNode *mul_expr = _vg_unwrap_cdbl(p_expr);
+        if (!mul_expr || mul_expr->type != ExpressionNode::BINARY_OP) {
+            return false;
+        }
+        BinaryOpNode *mul = (BinaryOpNode *)mul_expr;
+        if (mul->op != "*") {
+            return false;
+        }
+        int64_t cell = 0;
+        if (!try_const_i64_from_expr(_vg_unwrap_cdbl(mul->right), cell)) {
+            return false;
+        }
+        ExpressionNode *mod_expr = _vg_unwrap_cdbl(mul->left);
+        if (!mod_expr || mod_expr->type != ExpressionNode::BINARY_OP) {
+            return false;
+        }
+        BinaryOpNode *mod = (BinaryOpNode *)mod_expr;
+        if (mod->op != "Mod") {
+            return false;
+        }
+        if (!mod->left || mod->left->type != ExpressionNode::BINARY_OP) {
+            return false;
+        }
+        BinaryOpNode *imul = (BinaryOpNode *)mod->left;
+        if (imul->op != "*") {
+            return false;
+        }
+        if (!imul->left || imul->left->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        if (((VariableNode *)imul->left)->name.to_lower() != p_loop_var.to_lower()) {
+            return false;
+        }
+        int64_t y_mul = 0;
+        int64_t y_mod = 0;
+        if (!try_const_i64_from_expr(imul->right, y_mul) || !try_const_i64_from_expr(mod->right, y_mod)) {
+            return false;
+        }
+        r_y_mul = y_mul;
+        r_y_mod = y_mod;
+        r_cell = cell;
+        return y_mod > 0 && cell > 0;
+    };
+
+    if (!p_for || !_vg_for_from_zero(p_for) || !_vg_for_step_one(p_for)) {
+        return false;
+    }
+    ExpressionNode *count_expr = nullptr;
+    if (!_vg_for_count_minus_one_to(p_for, count_expr)) {
+        return false;
+    }
+    if (p_for->body.size() != 4) {
+        return false;
+    }
+    if (p_for->body[0]->type != STMT_ASSIGNMENT || p_for->body[1]->type != STMT_ASSIGNMENT ||
+            p_for->body[2]->type != STMT_CALL || p_for->body[3]->type != STMT_ASSIGNMENT) {
+        return false;
+    }
+    AssignmentStatement *x_as = (AssignmentStatement *)p_for->body[0];
+    AssignmentStatement *y_as = (AssignmentStatement *)p_for->body[1];
+    CallStatement *draw = (CallStatement *)p_for->body[2];
+    if (!x_as->target || x_as->target->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    String x_var = ((VariableNode *)x_as->target)->name;
+    String offset_name;
+    if (x_as->value && x_as->value->type == ExpressionNode::ARRAY_ACCESS) {
+        ArrayAccessNode *arr = (ArrayAccessNode *)x_as->value;
+        if (!arr->base || arr->base->type != ExpressionNode::VARIABLE || arr->indices.size() != 1) {
+            return trace_fail("offset array access");
+        }
+        offset_name = ((VariableNode *)arr->base)->name;
+        if (arr->indices[0]->type != ExpressionNode::VARIABLE) {
+            return trace_fail("offset index");
+        }
+        if (((VariableNode *)arr->indices[0])->name.to_lower() != p_for->variable_name.to_lower()) {
+            return trace_fail("offset loop var");
+        }
+    } else if (x_as->value && x_as->value->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression *call = (CallExpression *)x_as->value;
+        if (call->base_object || call->arguments.size() != 1 ||
+                call->arguments[0]->type != ExpressionNode::VARIABLE) {
+            return trace_fail("offset call shape");
+        }
+        offset_name = call->method_name;
+        if (((VariableNode *)call->arguments[0])->name.to_lower() != p_for->variable_name.to_lower()) {
+            return trace_fail("offset call loop var");
+        }
+    } else {
+        return trace_fail("offset rhs");
+    }
+    int64_t y_mul = 0;
+    int64_t y_mod = 0;
+    int64_t cell = 0;
+    if (!parse_moving_y(y_as->value, p_for->variable_name, y_mul, y_mod, cell)) {
+        return false;
+    }
+    String y_var;
+    if (!y_as->target || y_as->target->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    y_var = ((VariableNode *)y_as->target)->name;
+    if (draw->base_object || draw->method_name.nocasecmp_to("DrawRect") != 0 || draw->arguments.size() != 6) {
+        return false;
+    }
+    if (draw->arguments[0]->type != ExpressionNode::VARIABLE ||
+            draw->arguments[1]->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    if (((VariableNode *)draw->arguments[0])->name.to_lower() != x_var.to_lower() ||
+            ((VariableNode *)draw->arguments[1])->name.to_lower() != y_var.to_lower()) {
+        return false;
+    }
+    double w = 0.0;
+    double h = 0.0;
+    Color col;
+    bool filled = true;
+    if (!try_constant_f64(draw->arguments[2], w) || !try_constant_f64(draw->arguments[3], h) ||
+            !try_constant_color(draw->arguments[4], col) || !try_constant_bool(draw->arguments[5], filled)) {
+        return false;
+    }
+    String cs_var;
+    int64_t cs_add = 0;
+    if (!parse_grid_checksum_stmt(p_for->body[3], cs_var, x_var, y_var, cs_add)) {
+        return false;
+    }
+    int cs_slot = get_or_add_local(cs_var, VT_INT);
+    if (cs_slot < 0) {
+        return false;
+    }
+    int arr_idx = current_chunk->add_constant(offset_name);
+    compile_expression(count_expr);
+    int cidx = current_chunk->add_constant(col);
+    emit_byte(OP_DRAW_RECT_OFFSET_LOOP);
+    emit_byte((uint8_t)cs_slot);
+    emit_const_index(arr_idx);
+    emit_i32((int32_t)y_mul);
+    emit_i32((int32_t)y_mod);
+    emit_i32((int32_t)cell);
+    emit_f32((float)w);
+    emit_f32((float)h);
+    emit_const_index(cidx);
+    emit_byte(filled ? 1 : 0);
+    emit_i32((int32_t)cs_add);
+    return true;
+}
+
+bool VisualGasicCompiler::try_compile_vector_uniform_rect_for_fusion(ForStatement *p_for, const Vector<Statement*> &p_stmts, int p_index, int &r_skip_after) {
+    r_skip_after = 0;
+    if (!p_for || !_vg_for_from_zero(p_for) || !_vg_for_step_one(p_for)) {
+        return false;
+    }
+    ExpressionNode *count_expr = nullptr;
+    if (!_vg_for_count_minus_one_to(p_for, count_expr)) {
+        return false;
+    }
+    if (p_for->body.size() != 5) {
+        return false;
+    }
+    String x_var;
+    String y_var;
+    if (!is_grid_axis_assign(p_for->body[0], "GridX", p_for->variable_name, x_var, y_var, true)) {
+        return false;
+    }
+    if (!is_grid_axis_assign(p_for->body[1], "GridY", p_for->variable_name, x_var, y_var, false)) {
+        return false;
+    }
+    if (p_for->body[4]->type != STMT_ASSIGNMENT) {
+        return false;
+    }
+    String cs_var;
+    int64_t cs_add = 0;
+    if (!parse_grid_checksum_stmt(p_for->body[4], cs_var, x_var, y_var, cs_add)) {
+        return false;
+    }
+    if (p_index < 0 || p_index + 2 >= p_stmts.size()) {
+        return false;
+    }
+    Statement *du = p_stmts[p_index + 1];
+    Statement *eq = p_stmts[p_index + 2];
+    if (!du || du->type != STMT_CALL || !eq || eq->type != STMT_CALL) {
+        return false;
+    }
+    CallStatement *draw_u = (CallStatement *)du;
+    CallStatement *exec_q = (CallStatement *)eq;
+    if (draw_u->method_name.nocasecmp_to("DrawRectsUniform") != 0 || draw_u->arguments.size() != 3) {
+        return false;
+    }
+    if (exec_q->method_name.nocasecmp_to("ExecuteQueuedCommands") != 0 || exec_q->arguments.size() != 0) {
+        return false;
+    }
+    Color col;
+    bool filled = true;
+    double w = 0.0;
+    double h = 0.0;
+    if (!try_constant_color(draw_u->arguments[1], col) || !try_constant_bool(draw_u->arguments[2], filled)) {
+        return false;
+    }
+    AssignmentStatement *sz_as = (AssignmentStatement *)p_for->body[3];
+    if (p_for->body[3]->type != STMT_ASSIGNMENT || !sz_as->value) {
+        return false;
+    }
+    ExpressionNode *sz_val = sz_as->value;
+    auto parse_vector2_size = [&](ExpressionNode *p_vec, double &r_w, double &r_h) -> bool {
+        if (!p_vec) {
+            return false;
+        }
+        ExpressionNode *a0 = nullptr;
+        ExpressionNode *a1 = nullptr;
+        if (p_vec->type == ExpressionNode::EXPRESSION_CALL) {
+            CallExpression *vec = (CallExpression *)p_vec;
+            if (vec->method_name.nocasecmp_to("Vector2") != 0 || vec->arguments.size() != 2) {
+                return false;
+            }
+            a0 = vec->arguments[0];
+            a1 = vec->arguments[1];
+        } else if (p_vec->type == ExpressionNode::ARRAY_ACCESS) {
+            ArrayAccessNode *aa = (ArrayAccessNode *)p_vec;
+            if (!aa->base || aa->base->type != ExpressionNode::VARIABLE ||
+                    ((VariableNode *)aa->base)->name.nocasecmp_to("Vector2") != 0 ||
+                    aa->indices.size() != 2) {
+                return false;
+            }
+            a0 = aa->indices[0];
+            a1 = aa->indices[1];
+        } else {
+            return false;
+        }
+        if (!try_constant_f64(a0, r_w) || !try_constant_f64(a1, r_h) || !Math::is_equal_approx(r_w, r_h)) {
+            return false;
+        }
+        return true;
+    };
+    if (!parse_vector2_size(sz_val, w, h)) {
+        return false;
+    }
+    h = w;
+    int64_t cols = 0;
+    int64_t cell = 0;
+    if (!try_parse_grid_axis_sub("GridX", true, cols, cell)) {
+        return false;
+    }
+    int cs_slot = get_or_add_local(cs_var, VT_INT);
+    if (cs_slot < 0) {
+        return false;
+    }
+    compile_expression(count_expr);
+    int cidx = current_chunk->add_constant(col);
+    emit_byte(OP_VECTOR_UNIFORM_RECT_GRID_LOOP);
+    emit_byte((uint8_t)cs_slot);
+    emit_i32((int32_t)cols);
+    emit_i32((int32_t)cell);
+    emit_f32((float)w);
+    emit_f32((float)h);
+    emit_const_index(cidx);
+    emit_byte(filled ? 1 : 0);
+    emit_i32((int32_t)cs_add);
+    r_skip_after = 2;
     return true;
 }
 
@@ -4924,6 +5748,13 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
         }
         case STMT_CALL: {
             CallStatement* s = (CallStatement*)stmt;
+            if (pending_vector_draw_skip > 0) {
+                String m = s->method_name.to_lower();
+                if (!s->base_object && (m == "drawrectsuniform" || m == "executequeuedcommands")) {
+                    pending_vector_draw_skip--;
+                    break;
+                }
+            }
             if (s->base_object) {
                 // ClassName.new() — emit OP_NEW_OBJECT instead of method call
                 if (s->base_object->type == ExpressionNode::VARIABLE &&
@@ -5614,6 +6445,18 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
 
             // Closed-form arithmetic loop optimization disabled (correctness over speed).
+
+            if (kEnableLoopFusions && try_compile_offset_rect_for_fusion(f)) {
+                break;
+            }
+
+            if (kEnableLoopFusions && try_compile_grid_polyline_for_fusion(f)) {
+                break;
+            }
+
+            if (kEnableLoopFusions && try_compile_grid_draw_for_fusion(f)) {
+                break;
+            }
 
             String loop_bound = extract_bound_var(f->to_val);
             loop_vars.push_back(f->variable_name);
@@ -8376,6 +9219,31 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              if (call_name == "allocfilli64" && call->arguments.size() == 1) {
                  compile_expression(call->arguments[0]);
                  emit_byte(OP_ALLOC_FILL_I64);
+                 break;
+             }
+
+             if (call_name == "color" && call->arguments.size() >= 3) {
+                 bool all_const = true;
+                 for (int i = 0; i < call->arguments.size(); i++) {
+                     if (!is_constant_expr(call->arguments[i])) {
+                         all_const = false;
+                         break;
+                     }
+                 }
+                 if (all_const) {
+                     emit_constant(eval_constant_expr(call));
+                     break;
+                 }
+             }
+             if ((call_name == "cdbl" || call_name == "clng" || call_name == "cint" || call_name == "csng") &&
+                     call->arguments.size() == 1 && is_constant_expr(call->arguments[0])) {
+                 emit_constant(eval_constant_expr(call));
+                 break;
+             }
+             if (call->method_name.nocasecmp_to("GridX") == 0 && try_emit_grid_axis_inline(call->method_name, call->arguments, true)) {
+                 break;
+             }
+             if (call->method_name.nocasecmp_to("GridY") == 0 && try_emit_grid_axis_inline(call->method_name, call->arguments, false)) {
                  break;
              }
 

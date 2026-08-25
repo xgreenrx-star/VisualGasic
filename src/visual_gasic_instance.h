@@ -324,6 +324,21 @@ class VisualGasicInstance {
     bool dispatch_draw_texture_rect_f64(const Variant &p_texture, double p_x, double p_y, float p_w, float p_h, bool p_tile, bool &r_found);
     void begin_draw_batch();
     void end_draw_batch_flush();
+    int64_t run_draw_rect_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
+            float p_w, float p_h, const Color &p_color, bool p_filled, int32_t p_checksum_add);
+    int64_t run_draw_line_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
+            float p_x2_off, float p_y2_off, float p_width, const Color &p_color, int32_t p_checksum_add);
+    int64_t run_draw_circle_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
+            float p_ox, float p_oy, float p_radius, const Color &p_color, int32_t p_checksum_add);
+    int64_t run_draw_texture_rect_grid_loop(int64_t p_count, int64_t p_cs, const String &p_texture_name,
+            int32_t p_cols, int32_t p_cell, float p_w, float p_h, bool p_tile, int32_t p_checksum_add);
+    int64_t run_draw_polyline_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
+            float p_width, const Color &p_color, int32_t p_checksum_add);
+    int64_t run_draw_rect_offset_loop(int64_t p_count, int64_t p_cs, const String &p_offset_name,
+            int32_t p_y_mul, int32_t p_y_mod, int32_t p_cell, float p_w, float p_h,
+            const Color &p_color, bool p_filled, int32_t p_checksum_add);
+    int64_t run_vector_uniform_rect_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
+            float p_w, float p_h, const Color &p_color, bool p_filled, int32_t p_checksum_add);
     CanvasItem *get_draw_canvas_item();
     Object *_draw_ci_owner_cache = nullptr;
     CanvasItem *_draw_ci_cache = nullptr;

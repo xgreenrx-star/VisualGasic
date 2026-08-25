@@ -8,14 +8,32 @@ This page summarizes the built‑in benchmark suite results for Visual Gasic ver
 
 - Engine: Godot 4.6.1 (headless)
 - Script: demo/bench.vg
-- Runner: demo/run_benchmarks.gd
-- Build: Visual Gasic GDExtension (template_debug)
-- Date: 2026-07-16
-- Status: Post-DeepSeek optimizations (v5.3.0+)
+- Runner: demo/test_suites/run_benchmarks.gd (or `scripts/run_compute_benchmarks.sh`)
+- Build: Visual Gasic GDExtension (`target=editor`)
+- Date: **2026-08-25** (compute + draw refresh)
+- Canonical published table: **[BENCHMARK_PUBLISHED_RESULTS.md](../../BENCHMARK_PUBLISHED_RESULTS.md)**
 
 ## Latest Results (elapsed time in microseconds, lower is faster)
 
-**All 11 benchmarks faster than GDScript. VG wins 5/9 vs C++ (post-DeepSeek). Average improvement: 21% faster than Feb 2026 results.** All checksums verified.
+**11 core compute benchmarks faster than GDScript.** Draw suite: **9/9 workloads faster than GDScript** (Aug 2026 grid-loop fusion). Checksums verified on static workloads.
+
+| Test | Visual Gasic | C++ | GDScript | VG vs GDScript |
+|---|---:|---:|---:|---|
+| Arithmetic | 67 | 144 | 14,616 | **218× faster** |
+| ArraySum | 344 | 87 | 10,352 | **30× faster** |
+| StringConcat | 220 | 1,354 | 11,432 | **52× faster** |
+| Branching | 237 | 135 | 18,209 | **77× faster** |
+| ArrayDict | 2,902 | 5,047 | 14,853 | **5.1× faster** |
+| DictFastGet | 2,015 | — | 41,239 | **20× faster** |
+| DictFastSet | 2,744 | — | 21,822 | **8.0× faster** |
+| Interop | 231 | 10,517 | 11,619 | **50× faster** |
+| Allocations | 255 | 590 | 8,633 | **34× faster** |
+| AllocationsFast | 1,000 | 182 | 12,298 | **12× faster** |
+| FileIO | 650 | 444 | 10,668 | **16× faster** |
+
+**FunctionCall** (optional 12th test): VG ~84 ms vs GD ~10 ms — call overhead remains a known gap; excluded from the 11/11 headline.
+
+### Previous baseline (Jul 2026, post-DeepSeek)
 
 | Test | Visual Gasic | C++ | GDScript | VG vs GDScript | Change vs Feb 2026 |
 |---|---:|---:|---:|---|---:|
@@ -243,4 +261,30 @@ The post-DeepSeek optimizations deliver **21% average improvement** across the b
 - **Stable:** Branching (±2%, intentional — already optimal at ~60 µs)
 - **Minor variance:** Interop (+11% — measurement noise, still 51.7× faster than GDScript)
 
-All benchmarks use checksum verification to ensure correct results across all three runtimes. See [BENCHMARK_DEEPSEEK_ANALYSIS.md](../../BENCHMARK_DEEPSEEK_ANALYSIS.md) for detailed optimization impact analysis.
+All benchmarks use checksum verification to ensure correct results across all three runtimes. See [BENCHMARK_DEEPSEEK_ANALYSIS.md](../../BENCHMARK_DEEPSEEK_ANALYSIS.md) for Jul 2026 optimization analysis.
+
+## Canvas draw benchmarks (Aug 2026)
+
+**Scripts:** `demo/benchmarks/draw/bench_draw.vg`, `bench_draw_moving.vg`, `bench_draw_vector.vg`  
+**Runner:** `scripts/run_draw_benchmarks.sh`  
+**Metric:** microseconds inside `_draw` per frame (lower is faster)
+
+Compiler **grid-loop fusion** emits native opcodes (`OP_DRAW_RECT_GRID_LOOP`, `OP_DRAW_POLYLINE_GRID_LOOP`, `OP_DRAW_RECT_OFFSET_LOOP`, `OP_VECTOR_UNIFORM_RECT_GRID_LOOP`) so hot `_Draw` paths bypass per-primitive VM dispatch.
+
+| Workload | GDScript | Visual Gasic | C++ | VG vs GDScript |
+|---|---:|---:|---:|---|
+| FilledRects ×2500 | 1,699 | **220** | 129 | **7.7× faster** |
+| OutlineRects ×2500 | 2,626 | **1,433** | 596 | **1.8× faster** |
+| Lines ×2000 | 2,041 | **571** | 249 | **3.6× faster** |
+| Circles ×1500 | 7,346 | **5,833** | 3,981 | **1.3× faster** |
+| Sprites ×2000 | 1,485 | **403** | 132 | **3.7× faster** |
+| Polylines ×800 | 2,539 | **1,284** | 1,085 | **2.0× faster** |
+| Mixed ×2500 | 9,489 | **4,641** | 5,059 | **2.0× faster** |
+| VectorCanvasUniformRects ×2500 | 3,902 | **395** | 494 | **9.9× faster** |
+| MovingFilledRects ×500 (avg/frame) | 238 | **82** | 45 | **2.9× faster** |
+
+Static workloads: checksums match across GDScript, VG, and C++. Re-run after any `src/visual_gasic_optimizer.cpp` or draw opcode change — incorrect `instruction_size()` for draw opcodes silently breaks fusion (peephole misalignment).
+
+**Regression check:** `scripts/benchmark_regression_check.sh` (compute + draw; fails if VG slower than GD × 1.05).
+
+See also [demo/benchmarks/draw/README.md](../../demo/benchmarks/draw/README.md) and [BENCHMARK_PUBLISHED_RESULTS.md](../../BENCHMARK_PUBLISHED_RESULTS.md).

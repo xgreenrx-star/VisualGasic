@@ -1,0 +1,150 @@
+Running draw benchmarks (demo project)...
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+[VG] Parsing: res://benchmarks/draw/bench_draw.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/draw/bench_draw_moving.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/draw/bench_draw_vector.vg
+[VG] Parse completed, errors: 0
+Draw benchmark warmup...
+Initialized Global Var: _workload
+Initialized Global Var: _count
+Initialized Global Var: _elapsed_us
+Initialized Global Var: _checksum
+Initialized Global Var: _ready
+Initialized Global Var: _spriteTexture
+
+=== Visual Gasic Draw Benchmarks ===
+Metric: microseconds inside _draw (lower is faster)
+MovingObjects: average _draw us over 120 frames (500 objects)
+
+Initialized Global Var: _workload
+Initialized Global Var: _count
+Initialized Global Var: _elapsed_us
+Initialized Global Var: _checksum
+Initialized Global Var: _ready
+Initialized Global Var: _spriteTexture
+Initialized Global Var: _workload
+Initialized Global Var: _count
+Initialized Global Var: _elapsed_us
+Initialized Global Var: _checksum
+Initialized Global Var: _ready
+Initialized Global Var: _spriteTexture
+Initialized Global Var: _workload
+Initialized Global Var: _count
+Initialized Global Var: _elapsed_us
+Initialized Global Var: _checksum
+Initialized Global Var: _ready
+Initialized Global Var: _spriteTexture
+Initialized Global Var: _workload
+Initialized Global Var: _count
+Initialized Global Var: _elapsed_us
+Initialized Global Var: _checksum
+Initialized Global Var: _ready
+Initialized Global Var: _spriteTexture
+Initialized Global Var: _workload
+Initialized Global Var: _count
+Initialized Global Var: _elapsed_us
+Initialized Global Var: _checksum
+Initialized Global Var: _ready
+Initialized Global Var: _spriteTexture
+Initialized Global Var: _workload
+Initialized Global Var: _count
+Initialized Global Var: _elapsed_us
+Initialized Global Var: _checksum
+Initialized Global Var: _ready
+Initialized Global Var: _spriteTexture
+Initialized Global Var: _workload
+Initialized Global Var: _count
+Initialized Global Var: _elapsed_us
+Initialized Global Var: _checksum
+Initialized Global Var: _ready
+Initialized Global Var: _spriteTexture
+Initialized Global Var: _count
+Initialized Global Var: _elapsed_us
+Initialized Global Var: _checksum
+Initialized Global Var: _ready
+Initialized Global Var: _objectCount
+Initialized Global Var: _frameTarget
+Initialized Global Var: _warmup
+Initialized Global Var: _frame
+Initialized Global Var: _drawTotalUs
+Initialized Global Var: _drawSamples
+Initialized Global Var: _finished
+Initialized Global Var: _lastChecksum
+VisualGasic: Enabling Process for 
+
+=== FilledRects (n=2500) ===
+GDScript: { "elapsed_us": 1699, "checksum": 1000000 }
+VisualGasic: { "elapsed_us": 220, "checksum": 1000000 }
+C++: { "elapsed_us": 129, "checksum": 1000000 }
+VisualGasic vs GDScript: 0.12948793407887x
+C++ vs GDScript: 0.0759270158917x
+Fastest: C++ (129 us)
+
+=== OutlineRects (n=2500) ===
+GDScript: { "elapsed_us": 2626, "checksum": 1000000 }
+VisualGasic: { "elapsed_us": 1433, "checksum": 1000000 }
+C++: { "elapsed_us": 596, "checksum": 1000000 }
+VisualGasic vs GDScript: 0.54569687738005x
+C++ vs GDScript: 0.22696115765423x
+Fastest: C++ (596 us)
+
+=== Lines (n=2000) ===
+GDScript: { "elapsed_us": 2041, "checksum": 720000 }
+VisualGasic: { "elapsed_us": 571, "checksum": 720000 }
+C++: { "elapsed_us": 249, "checksum": 720000 }
+VisualGasic vs GDScript: 0.2797648211661x
+C++ vs GDScript: 0.12199902008819x
+Fastest: C++ (249 us)
+
+=== Circles (n=1500) ===
+GDScript: { "elapsed_us": 7346, "checksum": 472500 }
+VisualGasic: { "elapsed_us": 5833, "checksum": 472500 }
+C++: { "elapsed_us": 3981, "checksum": 472500 }
+VisualGasic vs GDScript: 0.79403757146747x
+C++ vs GDScript: 0.54192757963518x
+Fastest: C++ (3981 us)
+
+=== Sprites (n=2000) ===
+GDScript: { "elapsed_us": 1485, "checksum": 720000 }
+VisualGasic: { "elapsed_us": 403, "checksum": 720000 }
+C++: { "elapsed_us": 132, "checksum": 720000 }
+VisualGasic vs GDScript: 0.27138047138047x
+C++ vs GDScript: 0.08888888888889x
+Fastest: C++ (132 us)
+
+=== Polylines (n=800) ===
+GDScript: { "elapsed_us": 2539, "checksum": 211200 }
+VisualGasic: { "elapsed_us": 1284, "checksum": 211200 }
+C++: { "elapsed_us": 1085, "checksum": 211200 }
+VisualGasic vs GDScript: 0.50571090980701x
+C++ vs GDScript: 0.4273335959039x
+Fastest: C++ (1085 us)
+
+=== Mixed (n=2500) ===
+GDScript: { "elapsed_us": 9489, "checksum": 2743750 }
+VisualGasic: { "elapsed_us": 4641, "checksum": 2743750 }
+C++: { "elapsed_us": 5059, "checksum": 2743750 }
+VisualGasic vs GDScript: 0.48909263357572x
+C++ vs GDScript: 0.53314364000422x
+Fastest: VisualGasic (4641 us)
+
+=== VectorCanvasUniformRects (n=2500) ===
+GDScript: { "elapsed_us": 3902, "checksum": 1000000 }
+VisualGasic: { "elapsed_us": 395, "checksum": 1000000 }
+C++: { "elapsed_us": 494, "checksum": 1000000 }
+VisualGasic vs GDScript: 0.10123013839057x
+C++ vs GDScript: 0.12660174269605x
+Fastest: VisualGasic (395 us)
+
+=== MovingFilledRects (n=500) ===
+GDScript: { "elapsed_us": 238, "checksum": 257832, "frames": 120 }
+VisualGasic: { "elapsed_us": 82, "checksum": 257112, "frames": 121 }
+C++: { "elapsed_us": 45, "checksum": 257832, "frames": 120 }
+VisualGasic vs GDScript: 0.34453781512605x
+C++ vs GDScript: 0.1890756302521x
+Fastest: C++ (45 us)
+Draw benchmarks finished.
