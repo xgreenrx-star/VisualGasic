@@ -1,6 +1,6 @@
 # VisualGasic: Getting Started
 
-**Current version**: v5.3.0-Beta7 · **Godot**: 4.6.1+
+**Current version**: v5.4.0-beta1 · **Godot**: 4.6.1+
 
 Welcome to **VisualGasic** — a VB6-syntax language that runs as a C++ GDExtension inside Godot 4.6. This guide takes you from installation to your first working program.
 
@@ -18,13 +18,13 @@ cd VisualGasic && ./scripts/bootstrap_install.sh
 
 **Or install from Godot's Asset Library** (Method 0 in the [Installation Guide](INSTALLATION.md)) — search **VisualGasic** in the AssetLib tab, install, enable the plugin, restart Godot.
 
-**Or grab a pre-built installer from the [latest GitHub Release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta7):**
+**Or grab a pre-built installer from the [latest GitHub Release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1):**
 
 | Platform | Installer |
 |----------|-----------|
-| 🐧 Linux x86_64 | `VisualGasic-Installer-v5.3.0-Beta7-x86_64.AppImage` |
-| 🪟 Windows x64 | `VisualGasic-Installer-v5.3.0-Beta7-x86_64.exe` |
-| 📦 Portable zip | `VisualGasic_v5.3.0-Beta7_linux_x86_64.zip` |
+| 🐧 Linux x86_64 | `VisualGasic-Installer-v5.4.0-beta1-x86_64.AppImage` |
+| 🪟 Windows x64 | `VisualGasic-Installer-v5.4.0-beta1-x86_64.exe` |
+| 📦 Portable zip | `VisualGasic_v5.4.0-beta1_linux_x86_64.zip` |
 
 See the [Installation Guide](INSTALLATION.md) for full details including manual plugin copy and uninstall instructions.
 
@@ -113,7 +113,7 @@ The **AGCK (Arcade Game Construction Kit)** lets you build a complete playable g
 | IDE keyboard shortcuts | [IDE Shortcuts](../manual/IDE_SHORTCUTS.md) |
 | Debugging guide | [Debugging](../manual/debugging.md) |
 | Performance benchmarks | [Performance](../manual/performance.md) |
-| What's new | [Changelog](../../CHANGELOG.md) · [v5.3.0-Beta7 Release Notes](../../RELEASE_NOTES_5.3.0-Beta7.md) |
+| What's new | [Changelog](../../CHANGELOG.md) · [v5.4.0-beta1 Release Notes](../../RELEASE_NOTES_v5.4.0-beta1.md) |
 
 ---
 

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.4.0-beta1] - 2026-08-30
+
+**Key numbers:** 871+ regression assertions · **12/12 compute** + **9/9 draw** faster than GDScript · CI benchmark regression gate · canonical tables in [BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md).
+
+### 🚀 Performance — Full Benchmark Suite Wins (Aug 2026)
+
+- **Draw grid-loop fusion** — `_Draw` hot paths compile to native opcodes (`OP_DRAW_RECT_GRID_LOOP`, `OP_DRAW_POLYLINE_GRID_LOOP`, `OP_DRAW_RECT_OFFSET_LOOP`, `OP_VECTOR_UNIFORM_RECT_GRID_LOOP`). VG beats GDScript on **9/9** canvas draw workloads.
+- **FunctionCall inlining** — trivial `fast_params` helpers (`x + 1`) inline at call sites; nested `For`/`Helper(s)` loops fuse to closed-form multiply-add. FunctionCall went from ~8× slower than GDScript to **~60× faster** — **12/12 compute** wins.
+- **Draw batch recorder + F64 draw opcodes** — color folding, vector canvas integration, optimizer operand-size fixes synced with disassembler.
+- **CI benchmark gate** — `scripts/benchmark_regression_check.sh` runs after extension build; fails if VG loses to GDScript (5% slack). FunctionCall included.
+
+### ✅ Added — Tests & Docs
+
+- **`test_function_call_inline.vg`** — regression for trivial call inlining and nested-loop fusion.
+- **`BENCHMARK_PUBLISHED_RESULTS.md`** — canonical marketing/docs benchmark reference.
+- README + performance guide updated to **12/12 + 9/9** published numbers.
+
+### ✅ Added — IDE (since Beta7, carried in this cut)
+
+- Context rail sidecar, literal convert panel, sprite Data editor, New Level wizard.
+- Track D groundwork — `DataFile` / `.vgd` sidecar, Tiled import hooks.
+
 ## [5.3.0-Beta7] - 2026-08-21
 
 **Key numbers:** 871/871 regression assertions · 117 test files · 332/332 Programmer's Reference examples parse-clean · **bracket indexing** fixed for 3D AI scaffolds.

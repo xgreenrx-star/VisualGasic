@@ -15,23 +15,22 @@ This page summarizes the built‑in benchmark suite results for Visual Gasic ver
 
 ## Latest Results (elapsed time in microseconds, lower is faster)
 
-**11 core compute benchmarks faster than GDScript.** Draw suite: **9/9 workloads faster than GDScript** (Aug 2026 grid-loop fusion). Checksums verified on static workloads.
+**12 compute benchmarks faster than GDScript.** Draw suite: **9/9 workloads faster than GDScript** (Aug 2026 grid-loop fusion + FunctionCall inlining). Checksums verified on static workloads.
 
 | Test | Visual Gasic | C++ | GDScript | VG vs GDScript |
 |---|---:|---:|---:|---|
-| Arithmetic | 67 | 144 | 14,616 | **218× faster** |
-| ArraySum | 344 | 87 | 10,352 | **30× faster** |
-| StringConcat | 220 | 1,354 | 11,432 | **52× faster** |
-| Branching | 237 | 135 | 18,209 | **77× faster** |
-| ArrayDict | 2,902 | 5,047 | 14,853 | **5.1× faster** |
-| DictFastGet | 2,015 | — | 41,239 | **20× faster** |
-| DictFastSet | 2,744 | — | 21,822 | **8.0× faster** |
-| Interop | 231 | 10,517 | 11,619 | **50× faster** |
-| Allocations | 255 | 590 | 8,633 | **34× faster** |
-| AllocationsFast | 1,000 | 182 | 12,298 | **12× faster** |
-| FileIO | 650 | 444 | 10,668 | **16× faster** |
-
-**FunctionCall** (optional 12th test): VG ~84 ms vs GD ~10 ms — call overhead remains a known gap; excluded from the 11/11 headline.
+| Arithmetic | 27 | 62 | 3,756 | **139× faster** |
+| ArraySum | 265 | 56 | 5,244 | **20× faster** |
+| StringConcat | 140 | 717 | 7,257 | **52× faster** |
+| Branching | 152 | 85 | 10,354 | **68× faster** |
+| FunctionCall | 140 | — | 8,448 | **60× faster** |
+| ArrayDict | 4,391 | 5,602 | 16,216 | **3.7× faster** |
+| DictFastGet | 3,545 | — | 41,845 | **12× faster** |
+| DictFastSet | 3,170 | — | 27,891 | **8.8× faster** |
+| Interop | 267 | 9,940 | 11,260 | **42× faster** |
+| Allocations | 212 | 655 | 9,069 | **43× faster** |
+| AllocationsFast | 1,749 | 498 | 13,716 | **7.8× faster** |
+| FileIO | 710 | 552 | 1,267 | **1.8× faster** |
 
 ### Previous baseline (Jul 2026, post-DeepSeek)
 
@@ -246,13 +245,11 @@ xychart-beta
 
 ## Notes
 
-Performance varies by workload. **Visual Gasic is faster than GDScript on all 11 benchmarks** and wins **5/11 vs C++**:
+Performance varies by workload. **Visual Gasic is faster than GDScript on all 12 compute benchmarks and all 9 draw workloads** (Aug 2026 published suite):
 
-- **VG beats C++ on:** StringConcat (5.9×), Interop (39.6×), Allocations (2.5×), ArrayDict (1.1×), plus DictFastGet/DictFastSet (C++ unavailable) = **5 wins**
-- **C++ beats VG on:** Arithmetic (4.4×), ArraySum (4.1×), Branching (2.6×), AllocationsFast (13.4×), FileIO (1.3×) = **5 wins**
-- **VG beats GDScript on:** All 11 benchmarks = **11/11 wins** (average 26.9× faster)
-
-**Interpretation:** VG excels at high-level operations where the JIT compiler and efficient bytecode dispatch matter (string concat 74×, interop 51.7×, allocations 42.7×). C++ dominates tight numeric loops where CPU cache locality and SIMD prefetch matter most. This shows a **complementary performance profile** — VG trades micro-optimization for macro-level productivity and GDScript compatibility.
+- **VG beats GDScript on:** All 12 compute + 9 draw = **12/12 + 9/9 wins**
+- **FunctionCall:** fixed via compiler inlining and nested-loop fusion (~60× vs GDScript; was ~8× slower)
+- **C++ vs VG:** complementary — C++ wins tight numeric loops; VG wins high-level ops, fused `_Draw` grids, and mixed draw batches
 
 The post-DeepSeek optimizations deliver **21% average improvement** across the benchmark suite:
 
@@ -273,15 +270,15 @@ Compiler **grid-loop fusion** emits native opcodes (`OP_DRAW_RECT_GRID_LOOP`, `O
 
 | Workload | GDScript | Visual Gasic | C++ | VG vs GDScript |
 |---|---:|---:|---:|---|
-| FilledRects ×2500 | 1,699 | **220** | 129 | **7.7× faster** |
-| OutlineRects ×2500 | 2,626 | **1,433** | 596 | **1.8× faster** |
-| Lines ×2000 | 2,041 | **571** | 249 | **3.6× faster** |
-| Circles ×1500 | 7,346 | **5,833** | 3,981 | **1.3× faster** |
-| Sprites ×2000 | 1,485 | **403** | 132 | **3.7× faster** |
-| Polylines ×800 | 2,539 | **1,284** | 1,085 | **2.0× faster** |
-| Mixed ×2500 | 9,489 | **4,641** | 5,059 | **2.0× faster** |
-| VectorCanvasUniformRects ×2500 | 3,902 | **395** | 494 | **9.9× faster** |
-| MovingFilledRects ×500 (avg/frame) | 238 | **82** | 45 | **2.9× faster** |
+| FilledRects ×2500 | 1,078 | **160** | 110 | **6.7× faster** |
+| OutlineRects ×2500 | 1,467 | **554** | 371 | **2.6× faster** |
+| Lines ×2000 | 1,142 | **276** | 105 | **4.1× faster** |
+| Circles ×1500 | 3,226 | **2,552** | 2,288 | **1.3× faster** |
+| Sprites ×2000 | 862 | **321** | 81 | **2.7× faster** |
+| Polylines ×800 | 1,582 | **881** | 682 | **1.8× faster** |
+| Mixed ×2500 | 4,966 | **2,632** | 2,343 | **1.9× faster** |
+| VectorCanvasUniformRects ×2500 | 1,038 | **191** | 189 | **5.4× faster** |
+| MovingFilledRects ×500 (avg/frame) | 144 | **25** | 25 | **5.8× faster** |
 
 Static workloads: checksums match across GDScript, VG, and C++. Re-run after any `src/visual_gasic_optimizer.cpp` or draw opcode change — incorrect `instruction_size()` for draw opcodes silently breaks fusion (peephole misalignment).
 

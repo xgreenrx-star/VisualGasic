@@ -1,7 +1,7 @@
 # VisualGasic — The language you read when you don't trust the AI.
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-5.3.0--Beta7-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta7)
+[![Version](https://img.shields.io/badge/version-5.4.0--beta1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.6.1+-purple.svg)](https://godotengine.org)
 
@@ -17,7 +17,7 @@ In 2026, working programmers spend more time **reviewing AI-generated code** tha
 
 It also turns out that LLMs *write* this kind of language with fewer bugs than they write Python or C++. Verbose, redundant syntax is easier for the model to get right at every closing token. So the AI era delivers a double win: **humans audit BASIC faster, and AI writes BASIC more correctly.** Those compound.
 
-The historical reason BASIC lost the popularity contest was tooling, not language — and we have solved tooling. VG's bytecode VM and compiler fusion run **5×–218× faster than GDScript** on compute microbenchmarks and **1.3×–10× faster on canvas draw workloads** (Aug 2026 — see [Performance](#-performance) below). The "BASIC can't compete" excuse is no longer available.
+The historical reason BASIC lost the popularity contest was tooling, not language — and we have solved tooling. VG's bytecode VM and compiler fusion run **1.8×–139× faster than GDScript** on compute microbenchmarks and **1.3×–6.7× faster on canvas draw workloads** (Aug 2026 — see [Performance](#-performance) below). The "BASIC can't compete" excuse is no longer available.
 
 ### The next decade — and why BASIC wins it
 
@@ -42,7 +42,7 @@ Modern mainstream languages have explicitly rejected every one of those properti
 
 BASIC the syntax family is the right answer; **VisualGasic is a serious 2026 implementation of it.** The defects of historical BASIC dialects were tooling defects, not language defects, and they have been fixed:
 
-- **Performance.** Bytecode VM + 9-pass optimizer + grid-loop fusion for hot `_Draw` paths. Beats GDScript on **11/11 compute** and **9/9 draw** published tests — tables below. Regression gate: `scripts/benchmark_regression_check.sh`.
+- **Performance.** Bytecode VM + 9-pass optimizer + grid-loop fusion for hot `_Draw` paths. Beats GDScript on **12/12 compute** and **9/9 draw** published tests — tables below. Regression gate: `scripts/benchmark_regression_check.sh`.
 - **Type safety.** `Dim ... As ...` is enforced, not decorative. Generics, optionals, unions, and a strict mode are first-class. The auditor sees a type and knows the runtime will hold the line.
 - **A real IDE.** VB6-style Form Designer + Code Editor + Debugger + Profiler + Object Browser + Immediate Window, plus an AI Pair panel that runs locally against Ollama or against frontier models with your own key.
 - **A real ecosystem.** A package manager (`vg pkg`), a plugin SDK with capability-based routing, a multi-module import system, ECS, GPU, FFI, and a 14-demo gallery in the box.
@@ -73,7 +73,7 @@ VG is a public beta. The language, JIT compiler, and debugger work. The Form Des
 **Deferred (post-MVP):**
 Form Designer extraction to a standalone plugin, full IDE plugin architecture refactor, VG3D, Working Nodes expansion. The Form Designer stays in place behind an Experimental Plugins toggle until UI Forms reaches parity.
 
-> 🚀 **v5.3.0-Beta7 — Current public beta.** Download links below point at the [latest GitHub release](https://github.com/xgreenrx-star/VisualGasic/releases/latest). See [release notes](RELEASE_NOTES_5.3.0-Beta7.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
+> 🚀 **v5.4.0-beta1 — Current public beta** (on the road to **VG6** stable). Download links below point at the [latest GitHub release](https://github.com/xgreenrx-star/VisualGasic/releases/latest). See [release notes](RELEASE_NOTES_v5.4.0-beta1.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
 >
 > 📚 **Docs from the main page:** every guide, reference, and tutorial is one click away from [`docs/DOCS.md`](docs/DOCS.md). Quick jumps: [Getting Started](docs/guides/GET_STARTED.md) · [Installation](docs/guides/INSTALLATION.md) · [Language Reference](docs/VisualGasic_Language_Reference.md) · [Built-in Functions](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) · [Custom Controls](docs/guides/CUSTOM_CONTROLS.md) · [Plugin SDK](addons/visual_gasic/PLUGIN_SDK.md).
 
@@ -88,15 +88,15 @@ If the project matters to you, support helps move v6.0 forward faster. Current f
 
 ## 📥 Download & install
 
-**Grab a one-shot installer for your OS — no build step, no separate Godot download.** All links below target [v5.3.0-Beta7](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta7) (latest).
+**Grab a one-shot installer for your OS — no build step, no separate Godot download.** All links below target [v5.4.0-beta1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1) (latest).
 
 | Platform | Installer | Notes |
 | --- | --- | --- |
-| 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.3.0-Beta7-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic-Installer-v5.3.0-Beta7-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
-| 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.3.0-Beta7-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic-Installer-v5.3.0-Beta7-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
+| 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.4.0-beta1-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-v5.4.0-beta1-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
+| 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.4.0-beta1-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-v5.4.0-beta1-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
 | 🍏 **macOS (Intel & Apple Silicon)** | *not yet available* — use the `vg` CLI for now | Cross-compiled `.dmg` planned; needs a tester. |
-| 📦 **Source zip / portable** | [VisualGasic_v5.3.0-Beta7_linux_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic_v5.3.0-Beta7_linux_x86_64.zip) · [windows_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic_v5.3.0-Beta7_windows_x86_64.zip) | For users who prefer to unzip and run. Bring your own Godot 4.6.1+. |
-| 🌐 **Offline bundle** (Godot included) | [linux-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic-Installer-Offline-v5.3.0-Beta7-linux-x86_64.zip) · [windows-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic-Installer-Offline-v5.3.0-Beta7-windows-x86_64.zip) | No internet needed during install — ships Godot 4.6.1 inside. |
+| 📦 **Source zip / portable** | [VisualGasic_v5.4.0-beta1_linux_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_v5.4.0-beta1_linux_x86_64.zip) · [windows_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_v5.4.0-beta1_windows_x86_64.zip) | For users who prefer to unzip and run. Bring your own Godot 4.6.1+. |
+| 🌐 **Offline bundle** (Godot included) | [linux-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-Offline-v5.4.0-beta1-linux-x86_64.zip) · [windows-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-Offline-v5.4.0-beta1-windows-x86_64.zip) | No internet needed during install — ships Godot 4.6.1 inside. |
 
 **Linux one-shot bootstrap (alternative to AppImage):**
 
@@ -112,7 +112,7 @@ cd VisualGasic && ./scripts/bootstrap_install.sh
 - **🧠 An AI-readable language.** VB6/VB.NET-style syntax — verbose, explicit, no hidden control flow. Designed so a human can verify an AI-generated Sub in seconds, not minutes. Same syntax that pairs well with the AI when *it* is doing the writing.
 - **🤖 An AI Pair panel built into the IDE.** Push-to-talk voice mode, 5 personas (default + Bob / Skippy / Orac / HAL — drop a `vg_personas.json` to add your own), multi-provider (OpenAI / Claude / Gemini / **Ollama** local — free, no API key), and an Explain-Last-Error button that diagnoses runtime failures in your own VG code.
 - **🎮 A real game maker.** 8 AGCK templates, 14 playable demos in the box, full 3D pipeline, sprite/animation/audio editors, one-click Make EXE. Or describe a game in plain English and let AGCK generate a runnable VG project from a template.
-- **🚀 Native-class speed.** Bytecode VM with loop fusion and native draw opcodes. **11/11 compute** and **9/9 canvas `_draw` benchmarks faster than GDScript** (Aug 2026). Full tables: [BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md). We still track FunctionCall overhead separately (~8× slower than GD — honest numbers).
+- **🚀 Native-class speed.** Bytecode VM with loop fusion and native draw opcodes. **12/12 compute** and **9/9 canvas `_draw` benchmarks faster than GDScript** (Aug 2026). Full tables: [BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md).
 - **🧰 The IDE you actually want.** Code Editor + Immediate Window + Object Browser + Debugger + Profiler, all docked, all themed. Plus a plugin SDK with a process-wide signal bus and capability-based editor routing. Form Designer exists but has known bugs — the **UI Forms** replacement (2D viewport-based WYSIWYG) is in active development.
 - **📥 One-shot installers for Linux & Windows.** AppImage on Linux, signed-style `.exe` on Windows — both bundle Godot 4.6.1 and land you directly in the VG IDE. macOS `.dmg` is the last platform still in progress and needs a tester. See the [Download & install](#-download--install) section above.
 - **🚪 VG Welcome launcher.** `./vg-ide` (Linux/macOS) and `.\vg-ide.ps1` (Windows) skip Godot's Project Manager and open a VG-branded picker with thumbnails, tag filtering, and an "Ask Narcea to Make a Project" entry that scaffolds a project from a chat prompt. `--last` / `-Last` jumps straight into the most-recent project. From inside the IDE, **File → Exit to VG Welcome** rounds back to the picker.
@@ -126,27 +126,24 @@ Visual Gasic is built to be **readable and fast**. Published numbers are reprodu
 
 Canonical tables and methodology: **[BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md)** · [Performance guide](docs/manual/performance.md) · [Draw suite](demo/benchmarks/draw/README.md)
 
-> **Coming this weekend:** grid-loop draw fusion, published benchmark docs, and CI regression gate ship in the next release.
-
-#### Compute microbenchmarks (11 core — all faster than GDScript)
+#### Compute microbenchmarks (12 tests — all faster than GDScript)
 
 From [`demo/bench.vg`](demo/bench.vg) via `scripts/run_compute_benchmarks.sh` · [`demo/benchmarks/bench_output.txt`](demo/benchmarks/bench_output.txt)
 
 | Test | GDScript (µs) | Visual Gasic (µs) | C++ (µs) | VG vs GDScript |
 |------|-------------:|------------------:|---------:|---------------:|
-| Arithmetic | 14,616 | **67** | 144 | **218× faster** |
-| ArraySum | 10,352 | **344** | 87 | **30× faster** |
-| StringConcat | 11,432 | **220** | 1,354 | **52× faster** |
-| Branching | 18,209 | **237** | 135 | **77× faster** |
-| ArrayDict | 14,853 | **2,902** | 5,047 | **5.1× faster** |
-| DictFastGet | 41,239 | **2,015** | — | **20× faster** |
-| DictFastSet | 21,822 | **2,744** | — | **8.0× faster** |
-| Interop | 11,619 | **231** | 10,517 | **50× faster** |
-| Allocations | 8,633 | **255** | 590 | **34× faster** |
-| AllocationsFast | 12,298 | **1,000** | 182 | **12× faster** |
-| FileIO | 10,668 | **650** | 444 | **16× faster** |
-
-*FunctionCall* (optional 12th test): VG call/return overhead ~8× slower than GDScript — tracked separately, not in the 11/11 headline.
+| Arithmetic | 3,756 | **27** | 62 | **139× faster** |
+| ArraySum | 5,244 | **265** | 56 | **20× faster** |
+| StringConcat | 7,257 | **140** | 717 | **52× faster** |
+| Branching | 10,354 | **152** | 85 | **68× faster** |
+| FunctionCall | 8,448 | **140** | — | **60× faster** |
+| ArrayDict | 16,216 | **4,391** | 5,602 | **3.7× faster** |
+| DictFastGet | 41,845 | **3,545** | — | **12× faster** |
+| DictFastSet | 27,891 | **3,170** | — | **8.8× faster** |
+| Interop | 11,260 | **267** | 9,940 | **42× faster** |
+| Allocations | 9,069 | **212** | 655 | **43× faster** |
+| AllocationsFast | 13,716 | **1,749** | 498 | **7.8× faster** |
+| FileIO | 1,267 | **710** | 552 | **1.8× faster** |
 
 #### Canvas draw benchmarks (9 workloads — all faster than GDScript)
 
@@ -154,15 +151,15 @@ From [`demo/benchmarks/draw/`](demo/benchmarks/draw/) via `scripts/run_draw_benc
 
 | Workload | GDScript (µs) | Visual Gasic (µs) | C++ (µs) | VG vs GDScript |
 |----------|-------------:|------------------:|---------:|---------------:|
-| FilledRects ×2500 | 1,699 | **220** | 129 | **7.7× faster** |
-| OutlineRects ×2500 | 2,626 | **1,433** | 596 | **1.8× faster** |
-| Lines ×2000 | 2,041 | **571** | 249 | **3.6× faster** |
-| Circles ×1500 | 7,346 | **5,833** | 3,981 | **1.3× faster** |
-| Sprites ×2000 | 1,485 | **403** | 132 | **3.7× faster** |
-| Polylines ×800 | 2,539 | **1,284** | 1,085 | **2.0× faster** |
-| Mixed ×2500 | 9,489 | **4,641** | 5,059 | **2.0× faster** |
-| VectorCanvasUniformRects ×2500 | 3,902 | **395** | 494 | **9.9× faster** |
-| MovingFilledRects ×500 (avg/frame) | 238 | **82** | 45 | **2.9× faster** |
+| FilledRects ×2500 | 1,078 | **160** | 110 | **6.7× faster** |
+| OutlineRects ×2500 | 1,467 | **554** | 371 | **2.6× faster** |
+| Lines ×2000 | 1,142 | **276** | 105 | **4.1× faster** |
+| Circles ×1500 | 3,226 | **2,552** | 2,288 | **1.3× faster** |
+| Sprites ×2000 | 862 | **321** | 81 | **2.7× faster** |
+| Polylines ×800 | 1,582 | **881** | 682 | **1.8× faster** |
+| Mixed ×2500 | 4,966 | **2,632** | 2,343 | **1.9× faster** |
+| VectorCanvasUniformRects ×2500 | 1,038 | **191** | 189 | **5.4× faster** |
+| MovingFilledRects ×500 (avg/frame) | 144 | **25** | 25 | **5.8× faster** |
 
 **TL;DR:** VG beats GDScript on every published compute and draw test. C++ still wins some tight numeric loops and raw draw dispatch; VG wins high-level ops, fused grid `_Draw`, and mixed draw batches. CI runs `scripts/benchmark_regression_check.sh` on every push to catch regressions before they ship.
 
@@ -365,7 +362,7 @@ VisualGasic/
 
 ### **Installation**
 
-> 🚧 **Installer status (v5.3.0-Beta7):** Linux AppImage and Windows `.exe` one-shot installers are shipped — see the [Download & install](#-download--install) section at the top of this README. macOS `.dmg` is still in progress; on macOS use the `vg` CLI or unzip the release for now.
+> 🚧 **Installer status (v5.4.0-beta1):** Linux AppImage and Windows `.exe` one-shot installers are shipped — see the [Download & install](#-download--install) section at the top of this README. macOS `.dmg` is still in progress; on macOS use the `vg` CLI or unzip the release for now.
 
 **🐧 Linux — one-shot bootstrap (recommended):**
 
@@ -379,7 +376,7 @@ Downloads Godot 4.6.1, installs the addon globally, drops a `~/.local/bin/visual
 
 **📦 From the GitHub release (all platforms):**
 
-Download the AppImage/exe installer from [v5.3.0-Beta7](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta7), or a platform zip from the same release (e.g. `VisualGasic_v5.3.0-Beta7_linux_x86_64.zip`), extract, and either point the `vg` CLI at it or copy `addons/visual_gasic/` into your project. Release notes: [v5.3.0-Beta7](RELEASE_NOTES_5.3.0-Beta7.md).
+Download the AppImage/exe installer from [v5.4.0-beta1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1), or a platform zip from the same release (e.g. `VisualGasic_v5.4.0-beta1_linux_x86_64.zip`), extract, and either point the `vg` CLI at it or copy `addons/visual_gasic/` into your project. Release notes: [v5.4.0-beta1](RELEASE_NOTES_v5.4.0-beta1.md).
 
 **From Godot Asset Library:**
 1. Open your Godot project
@@ -596,9 +593,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: `v5.3.0-Beta7` (Current Public Beta)
+**Current Version**: `v5.4.0-beta1` (Current Public Beta)
 
-> See [CHANGELOG.md](CHANGELOG.md) and the [v5.3.0-Beta7 release notes](RELEASE_NOTES_5.3.0-Beta7.md) for the latest changes.
+> See [CHANGELOG.md](CHANGELOG.md) and the [v5.4.0-beta1 release notes](RELEASE_NOTES_v5.4.0-beta1.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
@@ -615,7 +612,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 - ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
 - ✅ **Game Demos** - 100% (14 demos: Pong, Snake, Space Shooter, Galactic Defender, Calculator, Piano, and more)
 - ✅ **Documentation** - 100% (Comprehensive guides and references)
-- ✅ **Performance** - 11/11 compute + 9/9 draw benchmarks faster than GDScript (Aug 2026) — CI regression gate
+- ✅ **Performance** - 12/12 compute + 9/9 draw benchmarks faster than GDScript (Aug 2026) — CI regression gate
 - ✅ **Database Controls** - 100% (VGRecordset, Data/DBGrid/DBCombo, 13 tests pass)
 - ✅ **Package Manager** - 100% (vg pkg CLI, vg.json, GitHub registry, GUI browser, 11 tests pass)
 - ✅ **JIT Compilation** - 100% (5-tier stack: Tier 0→0.5→1→2→3, call graph compilation, 10 tests pass)
@@ -631,7 +628,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 ### 🚧 Coming Soon
 
 See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
-- **Stable Release (v5.2.0)** - Community testing of `v5.3.0-Beta7` ongoing
+- **Stable Release (v5.2.0)** - Community testing of `v5.4.0-beta1` ongoing
 - **macOS `.dmg` graphical installer** — Linux AppImage and Windows `.exe` are shipped; macOS still WIP
 - **Asset Library** - Publish to Godot Asset Library
 - **WebAssembly Validation** - Verify HTML5 export compatibility

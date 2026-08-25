@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: August 23, 2026  
-**Current Version**: 5.3.0-Beta7 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
+**Current Version**: 5.4.0-beta1 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
 **Current Scope**: M0–M9 milestones (Jul 2026 – Jan 2027 stable release)  
 **Next Cut**: v5.4.0-beta1 — see [`RELEASE_SCHEDULE.md`](RELEASE_SCHEDULE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md)
 

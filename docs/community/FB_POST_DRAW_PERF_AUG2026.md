@@ -8,7 +8,7 @@ Facebook does not render markdown tables. Copy the **PLAIN TEXT** block below di
 
 Visual Gasic isn't just readable — it's fast.
 
-We beat GDScript on every published compute and draw benchmark — including FunctionCall, which used to be our slow spot. Shipping in the next release THIS WEEKEND.
+We beat GDScript on every published compute and draw benchmark — including FunctionCall. Shipping as **v5.4.0-beta1** this weekend (road to **VG6** stable in 2027).
 
 Same VB6-style language. Same Godot 4.6. Code you can audit — without paying a GDScript tax.
 

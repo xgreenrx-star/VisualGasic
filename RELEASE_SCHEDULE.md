@@ -1,6 +1,6 @@
 # VisualGasic Release Schedule
 
-**Last Updated:** August 23, 2026  
+**Last Updated:** August 25, 2026  
 **Target:** Stable **v6.0.0** on January 1, 2027  
 **Version policy:** [docs/VERSIONING.md](docs/VERSIONING.md)
 
@@ -11,7 +11,7 @@
 | Version | Status | ETA | Milestone | Key features |
 |---------|--------|-----|-----------|--------------|
 | **5.3.0-Beta7** | 🟢 SHIPPED | Aug 21, 2026 | M1–M4 (+ M5 progress) | Bracket indexing, CI `.vg` gate, Narcea reference offers — [notes](RELEASE_NOTES_5.3.0-Beta7.md) |
-| **5.4.0-beta1** | 🔄 NEXT (`main`) | Sep 2026 | pre-M5 | Context rail, literal convert, outline, reference sidecar, sprite Data editor, **Track D** (`.vgd` / `DataFile` sidecar + Tiled import) |
+| **5.4.0-beta1** | 🔄 SHIPPING | Aug 30, 2026 | pre-M5 | **12/12 compute + 9/9 draw**, draw fusion, FunctionCall inlining, CI benchmark gate — [notes](RELEASE_NOTES_v5.4.0-beta1.md) |
 | **5.4.0-beta2** | — | Oct 15, 2026 | M5 | Narcea AI pair, Buffer type, optimizer hints |
 | **5.5.0-beta1** | — | Nov 2026 | M6–M7 | Causal chain (text), Python bridge hardening |
 | **6.0.0-rc1** | — | Dec 1, 2026 | M6–M8 | Try/Catch, `Let`, C++ FFI, language parity |
@@ -30,7 +30,7 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 
 ## 5.3 line — shipped (Jul–Aug 2026)
 
-**Latest public beta:** `v5.3.0-Beta7` (Aug 21, 2026)
+**Latest public beta:** `v5.4.0-beta1` (Aug 30, 2026) — on the **5.x** train toward stable **`v6.0.0` (VG6)**, target Jan 1, 2027.
 
 **Milestones included:**
 - ✅ M1 — Critical bug fixes
@@ -68,25 +68,23 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 
 ---
 
-## 5.4.0-beta1 — next cut (Sep 2026)
+## 5.4.0-beta1 — shipping (Aug 30, 2026)
 
-**Milestone:** pre-M5 (IDE audit bench; M5 lands in beta2)
+**Milestone:** pre-M5 (performance + IDE sidecar)
 
-**Scope on `main` (post-Beta7):**
-- Context rail sidecar (outline, reference, wire/symbol at caret)
-- Literal convert panel (hex/oct/binary, copy/replace)
-- Inline sprite Data editor
-- **Track D** — `DataFile` binary `.vgd` sections, flat data cache, Context Rail data-file sidecar, Tiled JSON → `.vgd` import, one-click Tiled install/detect ([plan](docs/design/external_data_files.md))
-- `@VG-Summary`, causal chain teaser
-- C* conversion docs; dual-editor stale-prompt fixes
-- Marketing screenshots in `docs/screenshots/` (2026-08-23)
+**Scope shipped:**
+- **12/12 compute + 9/9 draw** — full published benchmark suite faster than GDScript
+- Draw grid-loop fusion, F64 draw opcodes, batch recorder
+- FunctionCall compiler inlining + nested-loop fusion
+- CI benchmark regression gate (`scripts/benchmark_regression_check.sh`)
+- Context rail sidecar, literal convert, sprite Data editor, Track D groundwork (`.vgd` / Tiled)
 
 **Release criteria:**
 - [ ] `scripts/ci_smoke.sh` passes on `projects/vg_narcea_test`
 - [ ] `./run_test_suite.sh` green (871+ assertions)
-- [ ] `CHANGELOG.md` + `RELEASE_NOTES_v5.4.0-beta1.md`
+- [x] `CHANGELOG.md` + `RELEASE_NOTES_v5.4.0-beta1.md`
 - [ ] Tag `v5.4.0-beta1`; GitHub Pre-release
-- [ ] Update `docs/guides/GET_STARTED.md` current version
+- [x] Update `docs/guides/GET_STARTED.md` current version
 
 ---
 
@@ -219,5 +217,5 @@ See docs/guides/GET_STARTED.md and GitHub Releases assets.
 
 ## Reminder
 
-**Next release:** `v5.4.0-beta1` (Sep 2026) — Context rail / IDE sidecar  
+**Next release:** `v5.4.0-beta1` (Aug 30, 2026) — full benchmark wins · road to **VG6** (`v6.0.0` stable, Jan 2027)  
 **Next milestone gate:** M5 → `v5.4.0-beta2` (Oct 15, 2026)
