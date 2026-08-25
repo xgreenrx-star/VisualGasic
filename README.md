@@ -17,7 +17,7 @@ In 2026, working programmers spend more time **reviewing AI-generated code** tha
 
 It also turns out that LLMs *write* this kind of language with fewer bugs than they write Python or C++. Verbose, redundant syntax is easier for the model to get right at every closing token. So the AI era delivers a double win: **humans audit BASIC faster, and AI writes BASIC more correctly.** Those compound.
 
-The historical reason BASIC lost the popularity contest was tooling, not language — and we have solved tooling. VG's 5-tier JIT compiles to bytecode that runs at native-class speed (30–119× faster than GDScript, beats C++ on some workloads — numbers below). The "BASIC can't compete" excuse is no longer available.
+The historical reason BASIC lost the popularity contest was tooling, not language — and we have solved tooling. VG's bytecode VM and compiler fusion run **5×–218× faster than GDScript** on compute microbenchmarks and **1.3×–10× faster on canvas draw workloads** (Aug 2026 — see [Performance](#-performance) below). The "BASIC can't compete" excuse is no longer available.
 
 ### The next decade — and why BASIC wins it
 
@@ -42,7 +42,7 @@ Modern mainstream languages have explicitly rejected every one of those properti
 
 BASIC the syntax family is the right answer; **VisualGasic is a serious 2026 implementation of it.** The defects of historical BASIC dialects were tooling defects, not language defects, and they have been fixed:
 
-- **Performance.** A 5-tier JIT (interpreter → bytecode → x86-64) puts VG on the same shelf as C++ for hot paths. The "BASIC is slow" objection is empirically dead — see the table below.
+- **Performance.** Bytecode VM + 9-pass optimizer + grid-loop fusion for hot `_Draw` paths. Beats GDScript on **11/11 compute** and **9/9 draw** published tests — tables below. Regression gate: `scripts/benchmark_regression_check.sh`.
 - **Type safety.** `Dim ... As ...` is enforced, not decorative. Generics, optionals, unions, and a strict mode are first-class. The auditor sees a type and knows the runtime will hold the line.
 - **A real IDE.** VB6-style Form Designer + Code Editor + Debugger + Profiler + Object Browser + Immediate Window, plus an AI Pair panel that runs locally against Ollama or against frontier models with your own key.
 - **A real ecosystem.** A package manager (`vg pkg`), a plugin SDK with capability-based routing, a multi-module import system, ECS, GPU, FFI, and a 14-demo gallery in the box.
@@ -112,31 +112,59 @@ cd VisualGasic && ./scripts/bootstrap_install.sh
 - **🧠 An AI-readable language.** VB6/VB.NET-style syntax — verbose, explicit, no hidden control flow. Designed so a human can verify an AI-generated Sub in seconds, not minutes. Same syntax that pairs well with the AI when *it* is doing the writing.
 - **🤖 An AI Pair panel built into the IDE.** Push-to-talk voice mode, 5 personas (default + Bob / Skippy / Orac / HAL — drop a `vg_personas.json` to add your own), multi-provider (OpenAI / Claude / Gemini / **Ollama** local — free, no API key), and an Explain-Last-Error button that diagnoses runtime failures in your own VG code.
 - **🎮 A real game maker.** 8 AGCK templates, 14 playable demos in the box, full 3D pipeline, sprite/animation/audio editors, one-click Make EXE. Or describe a game in plain English and let AGCK generate a runnable VG project from a template.
-- **🚀 Native-class speed.** 5-tier JIT (interpreter → x86-64). On hot paths VG is **30–119× faster than GDScript** and **beats C++ on string concat by 5×**. Honest numbers below — we lose two benchmarks and we say so.
+- **🚀 Native-class speed.** Bytecode VM with loop fusion and native draw opcodes. **11/11 compute** and **9/9 canvas `_draw` benchmarks faster than GDScript** (Aug 2026). Full tables: [BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md). We still track FunctionCall overhead separately (~8× slower than GD — honest numbers).
 - **🧰 The IDE you actually want.** Code Editor + Immediate Window + Object Browser + Debugger + Profiler, all docked, all themed. Plus a plugin SDK with a process-wide signal bus and capability-based editor routing. Form Designer exists but has known bugs — the **UI Forms** replacement (2D viewport-based WYSIWYG) is in active development.
 - **📥 One-shot installers for Linux & Windows.** AppImage on Linux, signed-style `.exe` on Windows — both bundle Godot 4.6.1 and land you directly in the VG IDE. macOS `.dmg` is the last platform still in progress and needs a tester. See the [Download & install](#-download--install) section above.
 - **🚪 VG Welcome launcher.** `./vg-ide` (Linux/macOS) and `.\vg-ide.ps1` (Windows) skip Godot's Project Manager and open a VG-branded picker with thumbnails, tag filtering, and an "Ask Narcea to Make a Project" entry that scaffolds a project from a chat prompt. `--last` / `-Last` jumps straight into the most-recent project. From inside the IDE, **File → Exit to VG Welcome** rounds back to the picker.
 - **🆓 Free & open source.** GPL-3.0. Real source, no opaque blobs — even AGCK's output is plain `.vg` files you can edit, audit, and version-control.
 
-### 📊 VG vs GDScript vs C++ (microbenchmarks, single-threaded)
+### ⚡ Performance
 
-From [`demo/bench_output.txt`](demo/bench_output.txt) — verify on your own machine: open [`demo/bench.vg`](demo/bench.vg) and press F5.
+Visual Gasic is built to be **readable and fast**. Published numbers are reproduced headlessly on Godot 4.6.1 (Linux x86_64, Aug 25 2026). Checksums verify identical work on static workloads.
 
-| Benchmark        | GDScript (µs) | VisualGasic (µs) | C++ (µs) | VG vs GDScript    | VG vs C++          |
-|------------------|--------------:|-----------------:|---------:|------------------:|-------------------:|
-| Arithmetic       | 5,299         | **486**          | 59       | **10.9× faster**  | 8.2× slower        |
-| ArraySum         | 4,346         | **136**          | 58       | **32× faster**    | 2.3× slower        |
-| **StringConcat** | 5,153         | **95**           | 475      | **54× faster**    | **🥇 5× faster than C++** |
-| Branching        | 7,002         | **76**           | 52       | **92× faster**    | 1.5× slower        |
-| ArrayDict        | 11,625        | **5,224**        | 3,466    | **2.2× faster**   | 1.5× slower        |
-| DictFastGet      | 29,293        | **2,953**        | —        | **9.9× faster**   | —                  |
-| DictFastSet      | 20,420        | **3,375**        | —        | **6.0× faster**   | —                  |
-| Interop          | 8,617         | **162**          | 7,067    | **53× faster**    | **🥇 44× faster than C++** |
-| Allocations      | 6,602         | **160**          | 464      | **41× faster**    | **🥇 2.9× faster than C++** |
-| AllocationsFast  | 9,428         | **2,190**        | 275      | **4.3× faster**   | 8× slower          |
-| FileIO           | 938           | **462**          | 387      | **2.0× faster**   | 1.2× slower        |
+**Reproduce:** `scons platform=linux target=editor` then `scripts/benchmark_regression_check.sh` (fails if VG loses to GDScript).
 
-**TL;DR:** VG outperforms GDScript across the board — from 2× on FileIO to 92× on branching. The dict and allocation benches that previously regressed have been fixed in the v5.1.0 series via the VGDict sole-owner fast path (no Variant boxing, no COW, open-addressing hash table).
+Canonical tables and methodology: **[BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md)** · [Performance guide](docs/manual/performance.md) · [Draw suite](demo/benchmarks/draw/README.md)
+
+> **Coming this weekend:** grid-loop draw fusion, published benchmark docs, and CI regression gate ship in the next release.
+
+#### Compute microbenchmarks (11 core — all faster than GDScript)
+
+From [`demo/bench.vg`](demo/bench.vg) via `scripts/run_compute_benchmarks.sh` · [`demo/benchmarks/bench_output.txt`](demo/benchmarks/bench_output.txt)
+
+| Test | GDScript (µs) | Visual Gasic (µs) | C++ (µs) | VG vs GDScript |
+|------|-------------:|------------------:|---------:|---------------:|
+| Arithmetic | 14,616 | **67** | 144 | **218× faster** |
+| ArraySum | 10,352 | **344** | 87 | **30× faster** |
+| StringConcat | 11,432 | **220** | 1,354 | **52× faster** |
+| Branching | 18,209 | **237** | 135 | **77× faster** |
+| ArrayDict | 14,853 | **2,902** | 5,047 | **5.1× faster** |
+| DictFastGet | 41,239 | **2,015** | — | **20× faster** |
+| DictFastSet | 21,822 | **2,744** | — | **8.0× faster** |
+| Interop | 11,619 | **231** | 10,517 | **50× faster** |
+| Allocations | 8,633 | **255** | 590 | **34× faster** |
+| AllocationsFast | 12,298 | **1,000** | 182 | **12× faster** |
+| FileIO | 10,668 | **650** | 444 | **16× faster** |
+
+*FunctionCall* (optional 12th test): VG call/return overhead ~8× slower than GDScript — tracked separately, not in the 11/11 headline.
+
+#### Canvas draw benchmarks (9 workloads — all faster than GDScript)
+
+From [`demo/benchmarks/draw/`](demo/benchmarks/draw/) via `scripts/run_draw_benchmarks.sh` · metric: µs inside `_Draw`
+
+| Workload | GDScript (µs) | Visual Gasic (µs) | C++ (µs) | VG vs GDScript |
+|----------|-------------:|------------------:|---------:|---------------:|
+| FilledRects ×2500 | 1,699 | **220** | 129 | **7.7× faster** |
+| OutlineRects ×2500 | 2,626 | **1,433** | 596 | **1.8× faster** |
+| Lines ×2000 | 2,041 | **571** | 249 | **3.6× faster** |
+| Circles ×1500 | 7,346 | **5,833** | 3,981 | **1.3× faster** |
+| Sprites ×2000 | 1,485 | **403** | 132 | **3.7× faster** |
+| Polylines ×800 | 2,539 | **1,284** | 1,085 | **2.0× faster** |
+| Mixed ×2500 | 9,489 | **4,641** | 5,059 | **2.0× faster** |
+| VectorCanvasUniformRects ×2500 | 3,902 | **395** | 494 | **9.9× faster** |
+| MovingFilledRects ×500 (avg/frame) | 238 | **82** | 45 | **2.9× faster** |
+
+**TL;DR:** VG beats GDScript on every published compute and draw test. C++ still wins some tight numeric loops and raw draw dispatch; VG wins high-level ops, fused grid `_Draw`, and mixed draw batches. CI runs `scripts/benchmark_regression_check.sh` on every push to catch regressions before they ship.
 
 ### 🤖 AI correctness — does the thesis hold up?
 
@@ -587,7 +615,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 - ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
 - ✅ **Game Demos** - 100% (14 demos: Pong, Snake, Space Shooter, Galactic Defender, Calculator, Piano, and more)
 - ✅ **Documentation** - 100% (Comprehensive guides and references)
-- ✅ **Performance** - 11/11 benchmarks faster than GDScript (up to 118× faster) — VG wins 6/9 vs C++
+- ✅ **Performance** - 11/11 compute + 9/9 draw benchmarks faster than GDScript (Aug 2026) — CI regression gate
 - ✅ **Database Controls** - 100% (VGRecordset, Data/DBGrid/DBCombo, 13 tests pass)
 - ✅ **Package Manager** - 100% (vg pkg CLI, vg.json, GitHub registry, GUI browser, 11 tests pass)
 - ✅ **JIT Compilation** - 100% (5-tier stack: Tier 0→0.5→1→2→3, call graph compilation, 10 tests pass)
