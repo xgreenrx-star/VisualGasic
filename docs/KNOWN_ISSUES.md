@@ -1,10 +1,21 @@
 # VisualGasic — Known Issues & Engine Limitations
 
-*Last updated: v5.3.0-Beta7 (August 2026)*
+*Last updated: v5.4.0-beta1 (August 2026)*
 
-This document lists **confirmed** engine bugs and limitations. Test baseline: **871/871** VG regression assertions passing (117 files); **332/332** Programmer's Reference examples parse-clean; **47/47** corpus examples with expected output.
+This document lists **confirmed** engine bugs and limitations. Test baseline: **891/891** VG regression assertions passing (122 runnable `.vg` files); **332/332** Programmer's Reference examples parse-clean; **47/47** corpus examples with expected output.
 
 See also [ROADMAP.md](../ROADMAP.md) for active development priorities.
+
+---
+
+## ~~Fixed in v5.4.0-beta1~~
+
+| Item | Detail |
+|------|--------|
+| **FunctionCall benchmark gap** | Compiler inlining + nested-loop fusion — 12/12 compute vs GDScript. |
+| **`CInt` truncated floats** | `CInt(3.7)` returned 3; now rounds to 4 (VB6 semantics). |
+| **CI `.vg` test suite GDExtension load** | `scripts/prepare_ci_gdextension.sh` materializes bin dirs; CI uses Godot 4.6.1. |
+| **`Boolean Or` runtime regression** | Fixed in Beta7 parser; regression test `test_boolean_or_regression.vg`. |
 
 ---
 
@@ -30,17 +41,17 @@ See also [ROADMAP.md](../ROADMAP.md) for active development priorities.
 
 ---
 
-## Beta — Active Issues (v5.3.0)
+## Beta — Active Issues (v5.4.0-beta1)
 
 These are tracked on the roadmap and may affect demos or daily use:
 
 | Issue | Detail | Workaround |
 |-------|--------|------------|
-| **`Boolean Or` runtime regression** | `Or` on Boolean operands may not behave as expected in some paths. | Prefer explicit `If a Or b Then` patterns; test critical logic. |
 | **Unhandled errors corrupt state** | Some unhandled runtime errors can leave the app in a bad state instead of failing cleanly. | Use `Try/Catch` or `On Error` around risky blocks during development. |
 | **Double-click ignores existing `.tscn` signal connections** | Form Designer double-click may not respect pre-wired Godot signals. | Wire handlers via VG naming convention (`btnOK_Click`) in `.vg` instead. |
 | **Phantom button double-press on blocking async** | Blocking async calls may duplicate button press events. | Avoid long blocking work in click handlers; use `Await` patterns. |
 | **Form Designer bugs** | Classic Form Designer has known UI issues; **UI Forms** replacement is experimental. | Enable UI Forms via `vg/enable_experimental_plugins` or build forms manually. |
+| **MovingFilledRects checksum drift** | Draw benchmark moving workload frame count differs slightly from GDScript. | Static draw workloads use full checksum verification. |
 
 Report new issues: [GitHub Issues](https://github.com/xgreenrx-star/VisualGasic/issues)
 
@@ -74,7 +85,7 @@ Report new issues: [GitHub Issues](https://github.com/xgreenrx-star/VisualGasic/
 
 | # | Bug | Detail | Workaround |
 |---|-----|--------|------------|
-| 6 | **Dictionary `.Count` property** | In bytecode VM, `OP_MEMBER_ACCESS` on Dictionary performs a key lookup for `"Count"` instead of returning `.size()`. AST interpreter and method-call path work correctly. | Call `.Count()` with parentheses (method-call path works). |
+| 6 | **Dictionary `.Count` property** | ✅ **Fixed** in bytecode VM `OP_GET_MEMBER` — returns `.size()` for Dictionary.Count. | Use `.Count` or `.Count()`. |
 | 7 | **Dictionary `Keys()` indexing** | `keys = d.Keys()` then `keys(i)` returns `[]` instead of the key string. The returned Godot Array is not bridged for VG `()` indexing. | Iterate with `For Each k In d.Keys()`. |
 | 8 | **`ToByteArray()`** | `VGMemoryBuffer.ToByteArray()` returns a `PackedByteArray` that VG cannot consume as a VG array. Architectural limitation. | Use `PeekByte`/`PokeByte` for byte-level access. |
 | 10 | **Task scope cloning** | `Task.RunAsync` deep-clones variables. Mutations in the worker are lost when the parent restores its scope. By design — VG uses isolated thread scopes. | Read results via `task.Result`; avoid shared variables. |
@@ -128,4 +139,4 @@ Report new issues: [GitHub Issues](https://github.com/xgreenrx-star/VisualGasic/
   **Fixed in v3.2** by adding an `Array()` handler that returns the evaluated
   argument list as a Godot Array.
 
-- Regression suite: `test_proj/test_suite/` and CI gates — **871/871** VG assertions pass as of v5.3.0-Beta7.
+- Regression suite: `test_proj/test_suite/` and CI gates — **891/891** VG assertions pass as of v5.4.0-beta1 (122 runnable files + 1 data fixture via GDScript harness).

@@ -3240,7 +3240,7 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
                 return Variant((int64_t)eval_constant_expr(aa->indices[0]));
             }
             if (name == "cint" && aa->indices.size() == 1) {
-                return Variant((int)eval_constant_expr(aa->indices[0]));
+                return Variant((int)Math::round((double)eval_constant_expr(aa->indices[0])));
             }
             if (name == "csng" && aa->indices.size() == 1) {
                 return Variant((float)(double)eval_constant_expr(aa->indices[0]));
@@ -3265,7 +3265,7 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
                 return Variant((int64_t)eval_constant_expr(call->arguments[0]));
             }
             if (name == "cint" && call->arguments.size() == 1) {
-                return Variant((int)eval_constant_expr(call->arguments[0]));
+                return Variant((int)Math::round((double)eval_constant_expr(call->arguments[0])));
             }
             if (name == "csng" && call->arguments.size() == 1) {
                 return Variant((float)(double)eval_constant_expr(call->arguments[0]));

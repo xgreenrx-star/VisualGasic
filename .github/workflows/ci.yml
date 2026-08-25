@@ -15,11 +15,11 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Download Godot 4.5.1
+      - name: Download Godot 4.6.1
         run: |
-          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
-          unzip -q Godot_v4.5.1-stable_linux.x86_64.zip
-          chmod +x Godot_v4.5.1-stable_linux.x86_64
+          wget -q https://github.com/godotengine/godot/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q Godot_v4.6.1-stable_linux.x86_64.zip
+          chmod +x Godot_v4.6.1-stable_linux.x86_64
 
       - name: Install dependencies
         run: |
@@ -41,19 +41,15 @@ jobs:
 
       - name: Prepare GDExtension for testing
         run: |
-          # Replace symlink with actual bin directory for Godot compatibility
-          rm -f demo/addons/visual_gasic/bin
-          mkdir -p demo/addons/visual_gasic/bin
-          cp demo/bin/libvisualgasic.linux.editor.x86_64.so demo/addons/visual_gasic/bin/
-          ls -la demo/addons/visual_gasic/bin/
-          # test_proj/addons/visual_gasic → ../../addons/visual_gasic (symlink); ensure editor .so is fresh
-          ls -la addons/visual_gasic/bin/libvisualgasic.linux.editor.x86_64.so
+          chmod +x ./scripts/prepare_ci_gdextension.sh
+          ./scripts/prepare_ci_gdextension.sh
 
       - name: Run VisualGasic test suite (.vg)
         timeout-minutes: 15
         env:
           DISPLAY: ""
-          GODOT: ${{ github.workspace }}/Godot_v4.5.1-stable_linux.x86_64
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
           VG_TEST_SUITE_VG_ONLY: "1"
         run: |
           chmod +x ./run_test_suite.sh
@@ -83,7 +79,7 @@ jobs:
       - name: Asset Library install smoke
         env:
           DISPLAY: ""
-          GODOT: ${{ github.workspace }}/Godot_v4.5.1-stable_linux.x86_64
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
         run: |
           chmod +x ./scripts/run_asset_library_smoke.sh
           ./scripts/run_asset_library_smoke.sh
@@ -92,7 +88,7 @@ jobs:
         timeout-minutes: 10
         env:
           DISPLAY: ""
-          GODOT: ${{ github.workspace }}/Godot_v4.5.1-stable_linux.x86_64
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
           MAX_RATIO: "1.15"
         run: |
           chmod +x ./scripts/benchmark_regression_check.sh \
@@ -104,7 +100,7 @@ jobs:
         env:
           DISPLAY: ""
         run: |
-          ./Godot_v4.5.1-stable_linux.x86_64 --headless --path demo \
+          ./Godot_v4.6.1-stable_linux.x86_64 --headless --path demo \
             --script dump_bytecode.gd \
             --entries=BenchArithmetic,BenchArraySum,BenchStringConcat,BenchBranch \
             --json --out=${{ github.workspace }}/bytecode_dump.json

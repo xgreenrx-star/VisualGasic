@@ -388,7 +388,18 @@ Variant builtin_cint(const Variant &v, VisualGasicInstance *instance) {
             if (instance) instance->raise_runtime_error("Type mismatch: CInt");
             return Variant();
         }
-        return (int)s.to_int();
+        if (s.is_valid_int()) {
+            return (int)s.to_int();
+        }
+        return (int)Math::round(s.to_float());
+    }
+    switch (v.get_type()) {
+        case Variant::INT:
+        case Variant::FLOAT:
+        case Variant::BOOL:
+            return (int)Math::round((double)v);
+        default:
+            break;
     }
     return (int)v;
 }

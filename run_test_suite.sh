@@ -20,6 +20,10 @@ RUNNER="run_suite.gd"
 TIMEOUT_SECS=20
 FILTER="test_*.vg"
 VG_ONLY=0
+# Data-only .vg fixtures (no Sub _Ready); tested via GDScript harnesses instead.
+SKIP_FILES=(
+    test_sprite_data_resolver.vg
+)
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -53,6 +57,11 @@ if [[ -z "$GODOT" || ! -x "$GODOT" ]]; then
         fi
     done
 fi
+
+# Writable Godot user data (avoids headless crashes when $HOME/user:// is not writable).
+GODOT_USER_DATA_DIR="${VG_GODOT_USER_DATA_DIR:-${TMPDIR:-/tmp}/vg-godot-user-$$}"
+mkdir -p "$GODOT_USER_DATA_DIR"
+GODOT_BASE_ARGS=(--headless --path test_proj --user-data-dir "$GODOT_USER_DATA_DIR" -s "$RUNNER")
 
 # Colors
 RED='\033[0;31m'
@@ -95,27 +104,51 @@ if [ ${#TEST_FILES[@]} -eq 0 ]; then
 fi
 
 echo -e "${CYAN}Found ${#TEST_FILES[@]} test file(s)${NC}"
+echo -e "${CYAN}Godot: $GODOT${NC}"
+echo ""
+
+# Preflight: verify GDExtension loads and VG prints PASS/FAIL.
+echo "res://test_suite/test_arr_simple.vg" > test_proj/current_test.txt
+smoke_out=$(timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" 2>&1) || true
+if ! echo "$smoke_out" | grep -q "^PASS:"; then
+    echo -e "${RED}FATAL: GDExtension smoke test failed (no PASS: from test_arr_simple.vg)${NC}"
+    echo -e "${YELLOW}Hint: run scripts/prepare_ci_gdextension.sh after scons build${NC}"
+    echo "$smoke_out" | tail -40
+    exit 1
+fi
+echo -e "${GREEN}GDExtension smoke OK${NC}"
 echo ""
 
 # Run each test
 for vg_file in "${TEST_FILES[@]}"; do
     fname=$(basename "$vg_file")
+    skip=0
+    for s in "${SKIP_FILES[@]}"; do
+        if [[ "$fname" == "$s" ]]; then
+            skip=1
+            break
+        fi
+    done
+    if [[ "$skip" -eq 1 ]]; then
+        echo -e "  ${CYAN}SKIP${NC} $fname  ${CYAN}(fixture — GDScript harness)${NC}"
+        continue
+    fi
     TOTAL_FILES=$((TOTAL_FILES + 1))
     
     # Write current test path for the runner
     echo "res://test_suite/$fname" > test_proj/current_test.txt
     
     # Run headlessly, capture output
-    output=$(timeout "$TIMEOUT_SECS" "$GODOT" --headless --path test_proj -s "$RUNNER" 2>&1) || true
+    output=$(timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" 2>&1) || true
     
     # Count PASS and FAIL lines
     pass_count=$(echo "$output" | grep -c "^PASS:" || true)
     fail_count=$(echo "$output" | grep -c "^FAIL:" || true)
-    error_count=$(echo "$output" | grep -ci "ERROR\|CRASH\|Segfault" | head -1 || true)
     
     # Detect if test produced no PASS/FAIL at all (broken test)
     if [ "$pass_count" -eq 0 ] && [ "$fail_count" -eq 0 ]; then
         echo -e "  ${YELLOW}???${NC}  $fname  ${YELLOW}(no assertions)${NC}"
+        echo "$output" | tail -8 | sed 's/^/       /'
         ERROR_FILES+=("$fname (no assertions)")
         TOTAL_ERROR=$((TOTAL_ERROR + 1))
     elif [ "$fail_count" -gt 0 ]; then

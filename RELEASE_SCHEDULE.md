@@ -81,9 +81,9 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 
 **Release criteria:**
 - [ ] `scripts/ci_smoke.sh` passes on `projects/vg_narcea_test`
-- [ ] `./run_test_suite.sh` green (871+ assertions)
+- [ ] `./run_test_suite.sh` green (891 assertions)
 - [x] `CHANGELOG.md` + `RELEASE_NOTES_v5.4.0-beta1.md`
-- [ ] Tag `v5.4.0-beta1`; GitHub Pre-release
+- [x] Tag `v5.4.0-beta1`; GitHub Pre-release
 - [x] Update `docs/guides/GET_STARTED.md` current version
 
 ---

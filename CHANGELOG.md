@@ -9,7 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.4.0-beta1] - 2026-08-30
 
-**Key numbers:** 871+ regression assertions · **12/12 compute** + **9/9 draw** faster than GDScript · CI benchmark regression gate · canonical tables in [BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md).
+**Key numbers:** 891/891 regression assertions · **12/12 compute** + **9/9 draw** faster than GDScript · CI benchmark regression gate · canonical tables in [BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md).
+
+### 🛠 Fixed — CInt Rounding
+
+- **`CInt(3.7)`** — now returns 4 (VB6-style `Math::round`), not truncated 3.
+
+### 🛠 Fixed — CI Test Suite
+
+- **`scripts/prepare_ci_gdextension.sh`** — materializes real `bin/` dirs for Godot extension loading on fresh clones.
+- **CI Godot 4.6.1** — matches project and benchmark docs.
+- **`run_test_suite.sh`** — GDExtension smoke preflight, writable `--user-data-dir`, skip data-only fixtures.
 
 ### 🚀 Performance — Full Benchmark Suite Wins (Aug 2026)
 
