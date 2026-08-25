@@ -88,6 +88,18 @@ jobs:
           chmod +x ./scripts/run_asset_library_smoke.sh
           ./scripts/run_asset_library_smoke.sh
 
+      - name: Benchmark regression (VG must beat GDScript)
+        timeout-minutes: 10
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.5.1-stable_linux.x86_64
+          MAX_RATIO: "1.15"
+        run: |
+          chmod +x ./scripts/benchmark_regression_check.sh \
+            ./scripts/run_compute_benchmarks.sh \
+            ./scripts/run_draw_benchmarks.sh
+          ./scripts/benchmark_regression_check.sh
+
       - name: Capture bytecode dump
         env:
           DISPLAY: ""
