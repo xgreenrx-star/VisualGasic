@@ -1,3 +1,4 @@
+Running compute benchmarks (demo project)...
 Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
 
 [VisualGasic] C++ debug message capture registered (visualgasic + debug)
@@ -7,93 +8,94 @@ Warmup...
 Running benchmarks...
 
 === Arithmetic ===
-GDScript: { "elapsed_us": 14616, "checksum": 298300000 }
-VisualGasic: { "elapsed_us": 67, "checksum": 298300000 }
-C++: { "elapsed_us": 144, "checksum": 298300000 }
-VisualGasic vs GDScript: 0.00458401751505x
-C++ vs GDScript: 0.00985221674877x
+GDScript: { "elapsed_us": 3756, "checksum": 298300000 }
+VisualGasic: { "elapsed_us": 27, "checksum": 298300000 }
+C++: { "elapsed_us": 62, "checksum": 298300000 }
+VisualGasic vs GDScript: 0.00718849840256x
+C++ vs GDScript: 0.01650692225772x
 Fastest: VisualGasic
 
 === ArraySum ===
-GDScript: { "elapsed_us": 10352, "checksum": 99900000 }
-VisualGasic: { "elapsed_us": 344, "checksum": 99900000 }
-C++: { "elapsed_us": 87, "checksum": 99900000 }
-VisualGasic vs GDScript: 0.03323029366306x
-C++ vs GDScript: 0.00840417310665x
+GDScript: { "elapsed_us": 5244, "checksum": 99900000 }
+VisualGasic: { "elapsed_us": 265, "checksum": 99900000 }
+C++: { "elapsed_us": 56, "checksum": 99900000 }
+VisualGasic vs GDScript: 0.05053394355454x
+C++ vs GDScript: 0.01067887109077x
 Fastest: C++
 
 === StringConcat ===
-GDScript: { "elapsed_us": 11432, "checksum": 400 }
-VisualGasic: { "elapsed_us": 220, "checksum": 400 }
-C++: { "elapsed_us": 1354, "checksum": 400 }
-VisualGasic vs GDScript: 0.01924422673198x
-C++ vs GDScript: 0.11843946815955x
+GDScript: { "elapsed_us": 7257, "checksum": 400 }
+VisualGasic: { "elapsed_us": 140, "checksum": 400 }
+C++: { "elapsed_us": 717, "checksum": 400 }
+VisualGasic vs GDScript: 0.01929171834091x
+C++ vs GDScript: 0.0988011575031x
 Fastest: VisualGasic
 
 === Branching ===
-GDScript: { "elapsed_us": 18209, "checksum": -100000 }
-VisualGasic: { "elapsed_us": 237, "checksum": -100000 }
-C++: { "elapsed_us": 135, "checksum": -100000 }
-VisualGasic vs GDScript: 0.01301554176506x
-C++ vs GDScript: 0.00741391619529x
+GDScript: { "elapsed_us": 10354, "checksum": -100000 }
+VisualGasic: { "elapsed_us": 152, "checksum": -100000 }
+C++: { "elapsed_us": 85, "checksum": -100000 }
+VisualGasic vs GDScript: 0.01468031678578x
+C++ vs GDScript: 0.00820938767626x
 Fastest: C++
 
 === FunctionCall ===
-GDScript: { "elapsed_us": 9646, "checksum": 50000 }
-VisualGasic: { "elapsed_us": 83751, "checksum": 50000 }
-VisualGasic vs GDScript: 8.68245905038358x
-Fastest: GDScript
+GDScript: { "elapsed_us": 8448, "checksum": 50000 }
+VisualGasic: { "elapsed_us": 140, "checksum": 50000 }
+VisualGasic vs GDScript: 0.01657196969697x
+Fastest: VisualGasic
 
 === ArrayDict ===
-GDScript: { "elapsed_us": 14853, "checksum": 49152000 }
-VisualGasic: { "elapsed_us": 2902, "checksum": 49152000 }
-C++: { "elapsed_us": 5047, "checksum": 49152000 }
-VisualGasic vs GDScript: 0.19538140443008x
-C++ vs GDScript: 0.33979667407258x
+GDScript: { "elapsed_us": 16216, "checksum": 49152000 }
+VisualGasic: { "elapsed_us": 4391, "checksum": 49152000 }
+C++: { "elapsed_us": 5602, "checksum": 49152000 }
+VisualGasic vs GDScript: 0.27078194375925x
+C++ vs GDScript: 0.34546127281697x
 Fastest: VisualGasic
 
 === DictFastGet ===
-GDScript: { "elapsed_us": 41239, "checksum": 52326400 }
-VisualGasic: { "elapsed_us": 2015, "checksum": 52326400 }
-VisualGasic vs GDScript: 0.04886151458571x
+GDScript: { "elapsed_us": 41845, "checksum": 52326400 }
+VisualGasic: { "elapsed_us": 3545, "checksum": 52326400 }
+VisualGasic vs GDScript: 0.08471740948739x
 Fastest: VisualGasic
 
 === DictFastSet ===
-GDScript: { "elapsed_us": 21822, "checksum": 93184000 }
-VisualGasic: { "elapsed_us": 2744, "checksum": 93184000 }
-VisualGasic vs GDScript: 0.12574466135093x
+GDScript: { "elapsed_us": 27891, "checksum": 93184000 }
+VisualGasic: { "elapsed_us": 3170, "checksum": 93184000 }
+VisualGasic vs GDScript: 0.11365673514754x
 Fastest: VisualGasic
 
 === Interop ===
-GDScript: { "elapsed_us": 11619, "checksum": 166200 }
-VisualGasic: { "elapsed_us": 231, "checksum": 166200 }
-C++: { "elapsed_us": 10517, "checksum": 166200 }
-VisualGasic vs GDScript: 0.01988122902143x
-C++ vs GDScript: 0.90515534899733x
+GDScript: { "elapsed_us": 11260, "checksum": 166200 }
+VisualGasic: { "elapsed_us": 267, "checksum": 166200 }
+C++: { "elapsed_us": 9940, "checksum": 166200 }
+VisualGasic vs GDScript: 0.02371225577265x
+C++ vs GDScript: 0.88277087033748x
 Fastest: VisualGasic
 
 === Allocations ===
-GDScript: { "elapsed_us": 8633, "checksum": 13440000 }
-VisualGasic: { "elapsed_us": 255, "checksum": 13440000 }
-C++: { "elapsed_us": 590, "checksum": 13440000 }
-VisualGasic vs GDScript: 0.02953781999305x
-C++ vs GDScript: 0.06834240704274x
+GDScript: { "elapsed_us": 9069, "checksum": 13440000 }
+VisualGasic: { "elapsed_us": 212, "checksum": 13440000 }
+C++: { "elapsed_us": 655, "checksum": 13440000 }
+VisualGasic vs GDScript: 0.0233763369721x
+C++ vs GDScript: 0.07222405998456x
 Fastest: VisualGasic
 
 === AllocationsFast ===
-GDScript: { "elapsed_us": 12298, "checksum": 655360 }
-VisualGasic: { "elapsed_us": 1000, "checksum": 655360 }
-C++: { "elapsed_us": 182, "checksum": 655360 }
-VisualGasic vs GDScript: 0.08131403480241x
-C++ vs GDScript: 0.01479915433404x
+GDScript: { "elapsed_us": 13716, "checksum": 655360 }
+VisualGasic: { "elapsed_us": 1749, "checksum": 655360 }
+C++: { "elapsed_us": 498, "checksum": 655360 }
+VisualGasic vs GDScript: 0.12751531058618x
+C++ vs GDScript: 0.03630796150481x
 Fastest: C++
 
 === FileIO ===
-GDScript: { "elapsed_us": 10668, "checksum": 2048 }
-VisualGasic: { "elapsed_us": 650, "checksum": 2048 }
-C++: { "elapsed_us": 444, "checksum": 2048 }
-VisualGasic vs GDScript: 0.06092988376453x
-C++ vs GDScript: 0.04161979752531x
+GDScript: { "elapsed_us": 1267, "checksum": 2048 }
+VisualGasic: { "elapsed_us": 710, "checksum": 2048 }
+C++: { "elapsed_us": 552, "checksum": 2048 }
+VisualGasic vs GDScript: 0.56037884767167x
+C++ vs GDScript: 0.43567482241515x
 Fastest: C++
 WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
      at: cleanup (core/object/object.cpp:2641)
+Compute benchmarks finished.
