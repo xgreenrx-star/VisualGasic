@@ -267,6 +267,7 @@ var _ui_forms_props_window: PanelContainer = null
 ## Floating VG Help + Sprite assist (Godot Script editor / native IDE users).
 var _vg_help_window: PanelContainer = null
 var _vg_help_btn: Button = null
+var _vg_help_toolbar_btn: Button = null
 var _float_assist: Dictionary = {}
 var _native_assist_connected: CodeEdit = null
 var _native_sprite_lines: Array = []
@@ -1171,6 +1172,8 @@ func _enter_tree():
 			_vg_grid_editor.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			_vg_grid_editor.back_to_code_requested.connect(_on_grid_editor_back_to_code)
 			_vg_grid_editor.grid_saved.connect(_on_grid_editor_saved)
+			_vg_grid_editor.goto_source_line.connect(_on_grid_editor_goto_source)
+			_vg_grid_editor.source_fixes_applied.connect(_on_grid_source_fixes_applied)
 			center_stack.add_child(_vg_grid_editor)
 			VGPluginRegistry.get_instance().register_provider(
 				"grid_editor",
@@ -2004,9 +2007,12 @@ func _exit_tree():
 		_vg_help_window = null
 	if is_instance_valid(_vg_help_btn):
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_help_btn)
-		remove_control_from_container(EditorPlugin.CONTAINER_TOOLBAR, _vg_help_btn)
 		_vg_help_btn.queue_free()
 		_vg_help_btn = null
+	if is_instance_valid(_vg_help_toolbar_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_TOOLBAR, _vg_help_toolbar_btn)
+		_vg_help_toolbar_btn.queue_free()
+		_vg_help_toolbar_btn = null
 	if _ui_forms_ctx_plugin:
 		remove_context_menu_plugin(_ui_forms_ctx_plugin)
 		_ui_forms_ctx_plugin = null
@@ -9467,17 +9473,18 @@ func _feed_control_names_to_editor() -> void:
 			form_name = str(_form_designer.get_form_name())
 
 	# Fallback: if the form designer has no controls, read them from the
-	# currently edited scene tree. This covers cases where the user opens
-	# Code View before the form designer has parsed the .tscn, or when
-	# editing a standalone .vg file that shares a name with a scene.
-	if names.is_empty():
+	# currently edited scene tree. Skip while asset editors are active —
+	# walking the scene during grid/hex/sprite editing can crash Godot.
+	if names.is_empty() and not _asset_editor_view_active():
 		var scene_root = EditorInterface.get_edited_scene_root()
 		if is_instance_valid(scene_root):
 			form_name = scene_root.name
-			for child in scene_root.get_children():
+			var child_count := scene_root.get_child_count()
+			for i in child_count:
+				var child = scene_root.get_child(i)
 				if not is_instance_valid(child):
 					continue
-				var n: String = child.name
+				var n: String = str(child.name)
 				# Skip internal chrome (_FormBackground, etc.)
 				if n.is_empty() or n.begins_with("_"):
 					continue
@@ -9491,6 +9498,14 @@ func _feed_control_names_to_editor() -> void:
 		_embedded_code_editor.set_form_name(form_name)
 	if _embedded_code_editor.has_method("set_control_info_list"):
 		_embedded_code_editor.set_control_info_list(info_list)
+
+
+func _asset_editor_view_active() -> bool:
+	if is_instance_valid(_vg_grid_editor) and _vg_grid_editor.visible:
+		return true
+	if is_instance_valid(_vg_sprite_editor) and _vg_sprite_editor.visible:
+		return true
+	return false
 
 ## Wire the Output and System Console tabs to live data sources.
 ## Called deferred so the code editor's UI is fully built.
@@ -12441,6 +12456,44 @@ func _on_grid_editor_saved(_path: String) -> void:
 	_refresh_datafile_sidecar()
 
 
+func _on_grid_editor_goto_source(file: String, line: int) -> void:
+	if file.is_empty() or not is_instance_valid(_embedded_code_editor):
+		return
+	var res_path := file.replace("\\", "/")
+	if res_path.begins_with("/"):
+		var proj := ProjectSettings.globalize_path("res://")
+		if res_path.begins_with(proj):
+			res_path = "res://" + res_path.substr(proj.length())
+	_show_code_view()
+	var cur: String = _embedded_code_editor.get_file_path().replace("\\", "/")
+	if cur != res_path:
+		_embedded_code_editor.load_file(res_path)
+	var code_edit = _embedded_code_editor.get_code_edit()
+	if code_edit and line >= 0:
+		code_edit.set_caret_line(line)
+		code_edit.set_caret_column(0)
+		if code_edit.has_method("center_viewport_to_caret"):
+			code_edit.center_viewport_to_caret()
+
+
+func _on_grid_source_fixes_applied(files: PackedStringArray) -> void:
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	call_deferred("_reload_vg_files_after_grid_fixes", files)
+
+
+func _reload_vg_files_after_grid_fixes(files: PackedStringArray) -> void:
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	var cur: String = _embedded_code_editor.get_file_path().replace("\\", "/")
+	for raw in files:
+		var p := str(raw).replace("\\", "/")
+		if cur == p or cur.ends_with("/" + p.get_file()):
+			_embedded_code_editor.load_file(cur)
+			_refresh_datafile_sidecar()
+			break
+
+
 func _refresh_datafile_sidecar() -> void:
 	if not is_instance_valid(_embedded_code_editor):
 		return
@@ -14583,7 +14636,12 @@ func _setup_ui_forms_toolbar_button() -> void:
 	_vg_help_btn.flat = true
 	_vg_help_btn.pressed.connect(_on_vg_help_btn_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_help_btn)
-	add_control_to_container(EditorPlugin.CONTAINER_TOOLBAR, _vg_help_btn)
+	_vg_help_toolbar_btn = Button.new()
+	_vg_help_toolbar_btn.text = _vg_help_btn.text
+	_vg_help_toolbar_btn.tooltip_text = _vg_help_btn.tooltip_text
+	_vg_help_toolbar_btn.flat = true
+	_vg_help_toolbar_btn.pressed.connect(_on_vg_help_btn_pressed)
+	add_control_to_container(EditorPlugin.CONTAINER_TOOLBAR, _vg_help_toolbar_btn)
 
 	# ── Narcea AI — injected into main screen tab row next to Visual Gasic IDE ──
 	_narcea_toolbar_btn = Button.new()

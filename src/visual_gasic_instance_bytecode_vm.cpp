@@ -1273,6 +1273,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         // from _call_resolution_cache so call_internal() can skip its own to_lower +
         // "name#argc" concat + hashmap probe + linear rescan on every hot-path call.
         CallResolutionCacheEntry call_res;
+        // Draw builtin kind (classify_draw_kind); 0 = not a draw call. Set once per constant.
+        int8_t draw_kind = 0;
     };
 
     // Lazily sized on first member-cache opcode (OP_CALL / OP_GET_MEMBER /
@@ -1294,6 +1296,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             Variant member_variant = read_constant(idx);
             entry.primary_string = String(member_variant);
             entry.primary_name = entry.primary_string;
+            entry.draw_kind = classify_draw_kind(entry.primary_string);
             entry.initialized = true;
         }
         return entry;
@@ -3021,6 +3024,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 const String &method = (name_idx >= 0 && name_idx < chunk->constants.size())
                     ? ensure_member_cache_entry(name_idx).primary_string
                     : _vg_empty_method_name;
+                // ── Draw builtin fast path (perf) ──
+                if (name_idx >= 0 && name_idx < chunk->constants.size()) {
+                    MemberNameCacheEntry &_mc = ensure_member_cache_entry(name_idx);
+                    if (_mc.draw_kind != 0) {
+                        bool _draw_found = false;
+                        if (dispatch_draw_kind(_mc.draw_kind, args_ptr, arg_count, _draw_found) && _draw_found) {
+                            push_value(Variant());
+                            break;
+                        }
+                    }
+                }
                 {
                     if (!_t3_cached) _t3_cached = &vgjit3::thread_jit3();
                     vgjit3::Tier3& t3 = *_t3_cached;

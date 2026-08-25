@@ -2172,6 +2172,324 @@ Variant VisualGasicInstance::builtin_create_actor2d(const Array &p_args) {
     return body;
 }
 
+CanvasItem *VisualGasicInstance::get_draw_canvas_item() {
+    if (_draw_ci_owner_cache != owner) {
+        _draw_ci_owner_cache = owner;
+        _draw_ci_cache = owner ? Object::cast_to<CanvasItem>(owner) : nullptr;
+    }
+    return _draw_ci_cache;
+}
+
+int VisualGasicInstance::classify_draw_kind(const String &p_method) const {
+    if (p_method.nocasecmp_to("DrawRect") == 0) return 1;
+    if (p_method.nocasecmp_to("DrawLine") == 0) return 2;
+    if (p_method.nocasecmp_to("DrawCircle") == 0) return 3;
+    if (p_method.nocasecmp_to("DrawPolyline") == 0) return 4;
+    if (p_method.nocasecmp_to("DrawTextureRect") == 0) return 5;
+    if (p_method.nocasecmp_to("DrawTexture") == 0) return 6;
+    if (p_method.nocasecmp_to("QueueRedraw") == 0) return 7;
+    if (p_method.nocasecmp_to("DrawString") == 0) return 8;
+    if (p_method.nocasecmp_to("DrawText") == 0) return 9;
+    if (p_method.nocasecmp_to("DrawArc") == 0) return 10;
+    if (p_method.nocasecmp_to("DrawPolygon") == 0) return 11;
+    if (p_method.nocasecmp_to("DrawPixel") == 0 || p_method.nocasecmp_to("PSet") == 0) return 12;
+    if (p_method.nocasecmp_to("SetDrawTransform") == 0) return 13;
+    if (p_method.nocasecmp_to("ResetDrawTransform") == 0) return 14;
+    if (p_method.nocasecmp_to("CLS") == 0 || p_method.nocasecmp_to("ClearScreen") == 0) return 15;
+    return 0;
+}
+
+bool VisualGasicInstance::dispatch_draw_kind(int p_kind, const Variant *p_args, int p_arg_count, bool &r_found) {
+    r_found = false;
+    CanvasItem *ci = get_draw_canvas_item();
+    if (!ci) {
+        return false;
+    }
+    switch (p_kind) {
+        case 1: { // DrawRect
+            if (p_arg_count >= 1 && p_args[0].get_type() == Variant::RECT2) {
+                Color col = (p_arg_count > 1) ? Color(p_args[1]) : Color(1, 1, 1, 1);
+                bool filled = (p_arg_count > 2) ? (bool)p_args[2] : true;
+                ci->draw_rect((Rect2)p_args[0], col, filled);
+                r_found = true;
+            } else if (p_arg_count >= 4) {
+                Color col = (p_arg_count > 4) ? Color(p_args[4]) : Color(1, 1, 1, 1);
+                bool filled = (p_arg_count > 5) ? (bool)p_args[5] : true;
+                ci->draw_rect(Rect2((float)p_args[0], (float)p_args[1], (float)p_args[2], (float)p_args[3]), col, filled);
+                r_found = true;
+            }
+        } break;
+        case 2: { // DrawLine
+            if (p_arg_count >= 4 && p_args[0].get_type() != Variant::VECTOR2) {
+                Color col = (p_arg_count > 4) ? Color(p_args[4]) : Color(1, 1, 1, 1);
+                float width = (p_arg_count > 5) ? (float)p_args[5] : 1.0f;
+                ci->draw_line(Vector2((float)p_args[0], (float)p_args[1]), Vector2((float)p_args[2], (float)p_args[3]), col, width);
+                r_found = true;
+            } else if (p_arg_count >= 2 && p_args[0].get_type() == Variant::VECTOR2) {
+                Color col = (p_arg_count > 2) ? Color(p_args[2]) : Color(1, 1, 1, 1);
+                float width = (p_arg_count > 3) ? (float)p_args[3] : 1.0f;
+                ci->draw_line((Vector2)p_args[0], (Vector2)p_args[1], col, width);
+                r_found = true;
+            }
+        } break;
+        case 3: { // DrawCircle
+            if (p_arg_count >= 3 && p_args[0].get_type() != Variant::VECTOR2) {
+                Color col = (p_arg_count > 3) ? Color(p_args[3]) : Color(1, 1, 1, 1);
+                ci->draw_circle(Vector2((float)p_args[0], (float)p_args[1]), (float)p_args[2], col);
+                r_found = true;
+            } else if (p_arg_count >= 2 && p_args[0].get_type() == Variant::VECTOR2) {
+                Color col = (p_arg_count > 2) ? Color(p_args[2]) : Color(1, 1, 1, 1);
+                ci->draw_circle((Vector2)p_args[0], (float)p_args[1], col);
+                r_found = true;
+            }
+        } break;
+        case 7:
+            ci->queue_redraw();
+            r_found = true;
+            break;
+        default:
+            return false;
+    }
+    return true;
+}
+
+// CanvasItem draw builtins — shared by dispatch_builtin_call() and bytecode OP_CALL.
+bool VisualGasicInstance::try_dispatch_draw_call(const String &p_method, const Variant *p_args, int p_arg_count, bool &r_found) {
+    r_found = false;
+    CanvasItem *ci = get_draw_canvas_item();
+    if (!ci) {
+        return false;
+    }
+
+    // DrawString — VG style: DrawString text, x, y, color[, fontSize]
+    if (p_method.nocasecmp_to("DrawString") == 0 && p_arg_count >= 4) {
+        Ref<Font> font = ThemeDB::get_singleton()->get_fallback_font();
+        int font_size = 16;
+        if (p_args[0].get_type() == Variant::OBJECT && p_arg_count >= 4) {
+            Vector2 pos = p_args[1];
+            String text = p_args[2];
+            Color col = Color(1, 1, 1, 1);
+            if (p_arg_count > 3) col = p_args[3];
+            if (p_arg_count > 4) font_size = (int)p_args[4];
+            ci->draw_string(font, pos, text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col);
+        } else {
+            String text = p_args[0];
+            float x = p_args[1];
+            float y = p_args[2];
+            Color col = p_args[3];
+            if (p_arg_count > 4) font_size = (int)p_args[4];
+            ci->draw_string(font, Vector2(x, y + font_size), text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col);
+        }
+        r_found = true;
+        return true;
+    }
+    if (p_method.nocasecmp_to("DrawText") == 0 && p_arg_count >= 2) {
+        Vector2 pos = p_args[0];
+        String text = p_args[1];
+        Color col = Color(1, 1, 1, 1);
+        if (p_arg_count > 2) col = p_args[2];
+        Ref<Font> font = ThemeDB::get_singleton()->get_fallback_font();
+        ci->draw_string(font, pos, text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, 16, col);
+        r_found = true;
+        return true;
+    }
+    if (p_method.nocasecmp_to("DrawLine") == 0 && p_arg_count >= 2) {
+        Color col = Color(1, 1, 1, 1);
+        float width = 1.0;
+        if (p_args[0].get_type() == Variant::VECTOR2) {
+            Vector2 from = p_args[0];
+            Vector2 to = p_args[1];
+            if (p_arg_count > 2) col = p_args[2];
+            if (p_arg_count > 3) width = p_args[3];
+            ci->draw_line(from, to, col, width);
+        } else if (p_arg_count >= 4) {
+            float x1 = p_args[0], y1 = p_args[1], x2 = p_args[2], y2 = p_args[3];
+            if (p_arg_count > 4) col = p_args[4];
+            if (p_arg_count > 5) width = p_args[5];
+            ci->draw_line(Vector2(x1, y1), Vector2(x2, y2), col, width);
+        }
+        r_found = true;
+        return true;
+    }
+    if (p_method.nocasecmp_to("DrawRect") == 0 && p_arg_count >= 1) {
+        Color col = Color(1, 1, 1, 1);
+        bool filled = true;
+        if (p_args[0].get_type() == Variant::RECT2) {
+            Rect2 rect = p_args[0];
+            if (p_arg_count > 1) col = p_args[1];
+            if (p_arg_count > 2) filled = (bool)p_args[2];
+            ci->draw_rect(rect, col, filled);
+        } else if (p_arg_count >= 4) {
+            float x = p_args[0], y = p_args[1], w = p_args[2], h = p_args[3];
+            if (p_arg_count > 4) col = p_args[4];
+            if (p_arg_count > 5) filled = (bool)p_args[5];
+            ci->draw_rect(Rect2(x, y, w, h), col, filled);
+        }
+        r_found = true;
+        return true;
+    }
+    if (p_method.nocasecmp_to("DrawCircle") == 0 && p_arg_count >= 2) {
+        Color col = Color(1, 1, 1, 1);
+        if (p_args[0].get_type() == Variant::VECTOR2) {
+            Vector2 pos = p_args[0];
+            float radius = p_args[1];
+            if (p_arg_count > 2) col = p_args[2];
+            ci->draw_circle(pos, radius, col);
+        } else if (p_arg_count >= 3) {
+            float x = p_args[0], y = p_args[1], radius = p_args[2];
+            if (p_arg_count > 3) col = p_args[3];
+            ci->draw_circle(Vector2(x, y), radius, col);
+        }
+        r_found = true;
+        return true;
+    }
+    if ((p_method.nocasecmp_to("DrawPixel") == 0 || p_method.nocasecmp_to("PSet") == 0) && p_arg_count >= 3) {
+        float x = p_args[0], y = p_args[1];
+        Color col = p_args[2];
+        ci->draw_rect(Rect2(x, y, 1, 1), col, true);
+        r_found = true;
+        return true;
+    }
+    if (p_method.nocasecmp_to("DrawTexture") == 0 && p_arg_count >= 2) {
+        Ref<Texture2D> tex;
+        if (p_args[0].get_type() == Variant::OBJECT) {
+            tex = p_args[0];
+        }
+        if (tex.is_valid()) {
+            Color modulate = Color(1, 1, 1, 1);
+            if (p_args[1].get_type() == Variant::VECTOR2) {
+                Vector2 pos = p_args[1];
+                if (p_arg_count > 2) modulate = p_args[2];
+                ci->draw_texture(tex, pos, modulate);
+            } else if (p_arg_count >= 3) {
+                float x = p_args[1], y = p_args[2];
+                if (p_arg_count > 3) modulate = p_args[3];
+                ci->draw_texture(tex, Vector2(x, y), modulate);
+            }
+        }
+        r_found = true;
+        return true;
+    }
+    if (p_method.nocasecmp_to("DrawTextureRect") == 0 && p_arg_count >= 2) {
+        Ref<Texture2D> tex;
+        if (p_args[0].get_type() == Variant::OBJECT) {
+            tex = p_args[0];
+        }
+        if (tex.is_valid()) {
+            bool tile = false;
+            Color modulate = Color(1, 1, 1, 1);
+            if (p_args[1].get_type() == Variant::RECT2) {
+                Rect2 rect = p_args[1];
+                if (p_arg_count > 2) tile = (bool)p_args[2];
+                if (p_arg_count > 3) modulate = p_args[3];
+                ci->draw_texture_rect(tex, rect, tile, modulate);
+            } else if (p_arg_count >= 5) {
+                float x = p_args[1], y = p_args[2], w = p_args[3], h = p_args[4];
+                if (p_arg_count > 5) tile = (bool)p_args[5];
+                if (p_arg_count > 6) modulate = p_args[6];
+                ci->draw_texture_rect(tex, Rect2(x, y, w, h), tile, modulate);
+            }
+        }
+        r_found = true;
+        return true;
+    }
+    if (p_method.nocasecmp_to("DrawArc") == 0 && p_arg_count >= 4) {
+        Color col = Color(1, 1, 1, 1);
+        float width = 1.0;
+        int point_count = 32;
+        if (p_args[0].get_type() == Variant::VECTOR2) {
+            Vector2 center = p_args[0];
+            float radius = p_args[1];
+            float start = p_args[2];
+            float end = p_args[3];
+            if (p_arg_count > 4) point_count = (int)p_args[4];
+            if (p_arg_count > 5) col = p_args[5];
+            if (p_arg_count > 6) width = p_args[6];
+            ci->draw_arc(center, radius, start, end, point_count, col, width);
+        } else if (p_arg_count >= 5) {
+            float x = p_args[0], y = p_args[1], radius = p_args[2];
+            float start = p_args[3], end = p_args[4];
+            if (p_arg_count > 5) point_count = (int)p_args[5];
+            if (p_arg_count > 6) col = p_args[6];
+            if (p_arg_count > 7) width = p_args[7];
+            ci->draw_arc(Vector2(x, y), radius, start, end, point_count, col, width);
+        }
+        r_found = true;
+        return true;
+    }
+    if (p_method.nocasecmp_to("DrawPolygon") == 0 && p_arg_count >= 2) {
+        PackedVector2Array pts;
+        if (p_args[0].get_type() == Variant::PACKED_VECTOR2_ARRAY) {
+            pts = p_args[0];
+        } else if (p_args[0].get_type() == Variant::ARRAY) {
+            Array arr = p_args[0];
+            for (int i = 0; i < arr.size(); i++) {
+                pts.push_back(arr[i]);
+            }
+        }
+        if (pts.size() >= 3) {
+            Color col = p_args[1];
+            PackedColorArray colors;
+            colors.push_back(col);
+            ci->draw_polygon(pts, colors);
+        }
+        r_found = true;
+        return true;
+    }
+    if (p_method.nocasecmp_to("DrawPolyline") == 0 && p_arg_count >= 2) {
+        PackedVector2Array pts;
+        if (p_args[0].get_type() == Variant::PACKED_VECTOR2_ARRAY) {
+            pts = p_args[0];
+        } else if (p_args[0].get_type() == Variant::ARRAY) {
+            Array arr = p_args[0];
+            for (int i = 0; i < arr.size(); i++) {
+                pts.push_back(arr[i]);
+            }
+        }
+        if (pts.size() >= 2) {
+            Color col = p_args[1];
+            float width = 1.0;
+            if (p_arg_count > 2) width = p_args[2];
+            ci->draw_polyline(pts, col, width);
+        }
+        r_found = true;
+        return true;
+    }
+    if (p_method.nocasecmp_to("SetDrawTransform") == 0 && p_arg_count >= 2) {
+        float x = p_args[0], y = p_args[1];
+        float rot = 0.0;
+        Vector2 sc = Vector2(1, 1);
+        if (p_arg_count > 2) rot = p_args[2];
+        if (p_arg_count > 4) {
+            sc.x = p_args[3];
+            sc.y = p_args[4];
+        }
+        Transform2D xform;
+        xform.set_rotation_and_scale(rot, sc);
+        xform.set_origin(Vector2(x, y));
+        ci->draw_set_transform_matrix(xform);
+        r_found = true;
+        return true;
+    }
+    if (p_method.nocasecmp_to("ResetDrawTransform") == 0) {
+        ci->draw_set_transform_matrix(Transform2D());
+        r_found = true;
+        return true;
+    }
+    if (p_method.nocasecmp_to("QueueRedraw") == 0) {
+        ci->queue_redraw();
+        r_found = true;
+        return true;
+    }
+    if (p_method.nocasecmp_to("CLS") == 0 || p_method.nocasecmp_to("ClearScreen") == 0) {
+        ci->queue_redraw();
+        r_found = true;
+        return true;
+    }
+
+    return false;
+}
+
 // Wrapper that forwards statement-level builtin calls to the centralized builtins module.
 void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Array &p_args, bool &r_found) {
     r_found = false;
@@ -2200,6 +2518,24 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
         return;
     }
 
+    {
+        const int n = p_args.size();
+        constexpr int DRAW_INLINE = 8;
+        Variant draw_inline[DRAW_INLINE];
+        Variant *draw_ptr = draw_inline;
+        Vector<Variant> draw_heap;
+        if (n > DRAW_INLINE) {
+            draw_heap.resize(n);
+            draw_ptr = draw_heap.ptrw();
+        }
+        for (int i = 0; i < n; i++) {
+            draw_ptr[i] = p_args[i];
+        }
+        if (try_dispatch_draw_call(p_method, draw_ptr, n, r_found) && r_found) {
+            return;
+        }
+    }
+
     Variant dummy_ret;
     bool handled = false;
     if (VisualGasicBuiltins::call_builtin(this, p_method, p_args, dummy_ret, handled)) {
@@ -2207,264 +2543,10 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
         return;
     }
     
-    // Drawing commands — require owner to be a CanvasItem
+    // Image / texture helpers — require owner to be a CanvasItem for historical layout only.
     if (owner) {
         CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
         if (ci) {
-            // DrawString — VG style: DrawString text, x, y, color[, fontSize]
-            //              Godot style: DrawString font, Vector2(x, y), text, color[, fontSize]
-            if (p_method.nocasecmp_to("DrawString") == 0 && p_args.size() >= 4) {
-                Ref<Font> font = ThemeDB::get_singleton()->get_fallback_font();
-                int font_size = 16;
-                // Godot style: first arg is Font (Object), second is Vector2
-                if (p_args[0].get_type() == Variant::OBJECT && p_args.size() >= 4) {
-                    Vector2 pos = p_args[1];
-                    String text = p_args[2];
-                    Color col = Color(1,1,1,1);
-                    if (p_args.size() > 3) col = p_args[3];
-                    if (p_args.size() > 4) font_size = (int)p_args[4];
-                    ci->draw_string(font, pos, text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col);
-                } else {
-                    // VG style: DrawString text, x, y, color
-                    String text = p_args[0];
-                    float x = p_args[1];
-                    float y = p_args[2];
-                    Color col = p_args[3];
-                    if (p_args.size() > 4) font_size = (int)p_args[4];
-                    ci->draw_string(font, Vector2(x, y + font_size), text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col);
-                }
-                r_found = true;
-                return;
-            }
-            // DrawText — DrawText Vector2(x, y), text[, color]
-            if (p_method.nocasecmp_to("DrawText") == 0 && p_args.size() >= 2) {
-                Vector2 pos = p_args[0];
-                String text = p_args[1];
-                Color col = Color(1,1,1,1);
-                if (p_args.size() > 2) col = p_args[2];
-                Ref<Font> font = ThemeDB::get_singleton()->get_fallback_font();
-                ci->draw_string(font, pos, text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, 16, col);
-                r_found = true;
-                return;
-            }
-            // DrawLine — VG style: DrawLine x1, y1, x2, y2[, color][, width]
-            //            Godot style: DrawLine Vector2(x1,y1), Vector2(x2,y2)[, color][, width]
-            if (p_method.nocasecmp_to("DrawLine") == 0 && p_args.size() >= 2) {
-                Color col = Color(1,1,1,1);
-                float width = 1.0;
-                if (p_args[0].get_type() == Variant::VECTOR2 && p_args.size() >= 2) {
-                    // Godot style: Vector2, Vector2[, Color][, width]
-                    Vector2 from = p_args[0];
-                    Vector2 to = p_args[1];
-                    if (p_args.size() > 2) col = p_args[2];
-                    if (p_args.size() > 3) width = p_args[3];
-                    ci->draw_line(from, to, col, width);
-                } else if (p_args.size() >= 4) {
-                    // VG style: x1, y1, x2, y2[, Color][, width]
-                    float x1 = p_args[0], y1 = p_args[1], x2 = p_args[2], y2 = p_args[3];
-                    if (p_args.size() > 4) col = p_args[4];
-                    if (p_args.size() > 5) width = p_args[5];
-                    ci->draw_line(Vector2(x1, y1), Vector2(x2, y2), col, width);
-                }
-                r_found = true;
-                return;
-            }
-            // DrawRect — VG style: DrawRect x, y, w, h[, color][, filled]
-            //            Godot style: DrawRect Rect2(x,y,w,h)[, color][, filled]
-            if (p_method.nocasecmp_to("DrawRect") == 0 && p_args.size() >= 1) {
-                Color col = Color(1,1,1,1);
-                bool filled = true;
-                if (p_args[0].get_type() == Variant::RECT2) {
-                    // Godot style: Rect2[, Color][, filled]
-                    Rect2 rect = p_args[0];
-                    if (p_args.size() > 1) col = p_args[1];
-                    if (p_args.size() > 2) filled = (bool)p_args[2];
-                    ci->draw_rect(rect, col, filled);
-                } else if (p_args.size() >= 4) {
-                    // VG style: x, y, w, h[, Color][, filled]
-                    float x = p_args[0], y = p_args[1], w = p_args[2], h = p_args[3];
-                    if (p_args.size() > 4) col = p_args[4];
-                    if (p_args.size() > 5) filled = (bool)p_args[5];
-                    ci->draw_rect(Rect2(x, y, w, h), col, filled);
-                }
-                r_found = true;
-                return;
-            }
-            // DrawCircle — VG style: DrawCircle x, y, radius[, color]
-            //              Godot style: DrawCircle Vector2(x,y), radius[, color]
-            if (p_method.nocasecmp_to("DrawCircle") == 0 && p_args.size() >= 2) {
-                Color col = Color(1,1,1,1);
-                if (p_args[0].get_type() == Variant::VECTOR2 && p_args.size() >= 2) {
-                    // Godot style: Vector2, radius[, Color]
-                    Vector2 pos = p_args[0];
-                    float radius = p_args[1];
-                    if (p_args.size() > 2) col = p_args[2];
-                    ci->draw_circle(pos, radius, col);
-                } else if (p_args.size() >= 3) {
-                    // VG style: x, y, radius[, Color]
-                    float x = p_args[0], y = p_args[1], radius = p_args[2];
-                    if (p_args.size() > 3) col = p_args[3];
-                    ci->draw_circle(Vector2(x, y), radius, col);
-                }
-                r_found = true;
-                return;
-            }
-            // DrawPixel / PSet — PSet x, y, color
-            if ((p_method.nocasecmp_to("DrawPixel") == 0 || p_method.nocasecmp_to("PSet") == 0) && p_args.size() >= 3) {
-                float x = p_args[0], y = p_args[1];
-                Color col = p_args[2];
-                ci->draw_rect(Rect2(x, y, 1, 1), col, true);
-                r_found = true;
-                return;
-            }
-            // DrawTexture — VG style: DrawTexture texture, x, y[, color]
-            //               Godot style: DrawTexture texture, Vector2[, color]
-            if (p_method.nocasecmp_to("DrawTexture") == 0 && p_args.size() >= 2) {
-                Ref<Texture2D> tex;
-                if (p_args[0].get_type() == Variant::OBJECT) {
-                    tex = p_args[0];
-                }
-                if (tex.is_valid()) {
-                    Color modulate = Color(1,1,1,1);
-                    if (p_args[1].get_type() == Variant::VECTOR2) {
-                        // Godot style: texture, Vector2[, color]
-                        Vector2 pos = p_args[1];
-                        if (p_args.size() > 2) modulate = p_args[2];
-                        ci->draw_texture(tex, pos, modulate);
-                    } else if (p_args.size() >= 3) {
-                        // VG style: texture, x, y[, color]
-                        float x = p_args[1], y = p_args[2];
-                        if (p_args.size() > 3) modulate = p_args[3];
-                        ci->draw_texture(tex, Vector2(x, y), modulate);
-                    }
-                }
-                r_found = true;
-                return;
-            }
-            // DrawTextureRect — DrawTextureRect texture, Rect2[, tile][, color]
-            //                   DrawTextureRect texture, x, y, w, h[, tile][, color]
-            if (p_method.nocasecmp_to("DrawTextureRect") == 0 && p_args.size() >= 2) {
-                Ref<Texture2D> tex;
-                if (p_args[0].get_type() == Variant::OBJECT) {
-                    tex = p_args[0];
-                }
-                if (tex.is_valid()) {
-                    bool tile = false;
-                    Color modulate = Color(1,1,1,1);
-                    if (p_args[1].get_type() == Variant::RECT2) {
-                        // Godot style: texture, Rect2[, tile][, color]
-                        Rect2 rect = p_args[1];
-                        if (p_args.size() > 2) tile = (bool)p_args[2];
-                        if (p_args.size() > 3) modulate = p_args[3];
-                        ci->draw_texture_rect(tex, rect, tile, modulate);
-                    } else if (p_args.size() >= 5) {
-                        // VG style: texture, x, y, w, h[, tile][, color]
-                        float x = p_args[1], y = p_args[2], w = p_args[3], h = p_args[4];
-                        if (p_args.size() > 5) tile = (bool)p_args[5];
-                        if (p_args.size() > 6) modulate = p_args[6];
-                        ci->draw_texture_rect(tex, Rect2(x, y, w, h), tile, modulate);
-                    }
-                }
-                r_found = true;
-                return;
-            }
-            // DrawArc — DrawArc x, y, radius, startAngle, endAngle[, pointCount][, color][, width]
-            //           DrawArc Vector2, radius, startAngle, endAngle[, pointCount][, color][, width]
-            if (p_method.nocasecmp_to("DrawArc") == 0 && p_args.size() >= 4) {
-                Color col = Color(1,1,1,1);
-                float width = 1.0;
-                int point_count = 32;
-                if (p_args[0].get_type() == Variant::VECTOR2 && p_args.size() >= 4) {
-                    // Godot style: center, radius, startAngle, endAngle[, pointCount][, color][, width]
-                    Vector2 center = p_args[0];
-                    float radius = p_args[1];
-                    float start = p_args[2];
-                    float end = p_args[3];
-                    if (p_args.size() > 4) point_count = (int)p_args[4];
-                    if (p_args.size() > 5) col = p_args[5];
-                    if (p_args.size() > 6) width = p_args[6];
-                    ci->draw_arc(center, radius, start, end, point_count, col, width);
-                } else if (p_args.size() >= 5) {
-                    // VG style: x, y, radius, startAngle, endAngle[, pointCount][, color][, width]
-                    float x = p_args[0], y = p_args[1], radius = p_args[2];
-                    float start = p_args[3], end = p_args[4];
-                    if (p_args.size() > 5) point_count = (int)p_args[5];
-                    if (p_args.size() > 6) col = p_args[6];
-                    if (p_args.size() > 7) width = p_args[7];
-                    ci->draw_arc(Vector2(x, y), radius, start, end, point_count, col, width);
-                }
-                r_found = true;
-                return;
-            }
-            // DrawPolygon — DrawPolygon points, color
-            //               (points is a PackedVector2Array or Array of Vector2)
-            if (p_method.nocasecmp_to("DrawPolygon") == 0 && p_args.size() >= 2) {
-                PackedVector2Array pts;
-                if (p_args[0].get_type() == Variant::PACKED_VECTOR2_ARRAY) {
-                    pts = p_args[0];
-                } else if (p_args[0].get_type() == Variant::ARRAY) {
-                    Array arr = p_args[0];
-                    for (int i = 0; i < arr.size(); i++) pts.push_back(arr[i]);
-                }
-                if (pts.size() >= 3) {
-                    Color col = p_args[1];
-                    PackedColorArray colors;
-                    colors.push_back(col);
-                    ci->draw_polygon(pts, colors);
-                }
-                r_found = true;
-                return;
-            }
-            // DrawPolyline — DrawPolyline points, color[, width]
-            if (p_method.nocasecmp_to("DrawPolyline") == 0 && p_args.size() >= 2) {
-                PackedVector2Array pts;
-                if (p_args[0].get_type() == Variant::PACKED_VECTOR2_ARRAY) {
-                    pts = p_args[0];
-                } else if (p_args[0].get_type() == Variant::ARRAY) {
-                    Array arr = p_args[0];
-                    for (int i = 0; i < arr.size(); i++) pts.push_back(arr[i]);
-                }
-                if (pts.size() >= 2) {
-                    Color col = p_args[1];
-                    float width = 1.0;
-                    if (p_args.size() > 2) width = p_args[2];
-                    ci->draw_polyline(pts, col, width);
-                }
-                r_found = true;
-                return;
-            }
-            // SetDrawTransform — SetDrawTransform x, y[, rotation][, scaleX, scaleY]
-            if (p_method.nocasecmp_to("SetDrawTransform") == 0 && p_args.size() >= 2) {
-                float x = p_args[0], y = p_args[1];
-                float rot = 0.0;
-                Vector2 sc = Vector2(1, 1);
-                if (p_args.size() > 2) rot = p_args[2];
-                if (p_args.size() > 4) { sc.x = p_args[3]; sc.y = p_args[4]; }
-                Transform2D xform;
-                xform.set_rotation_and_scale(rot, sc);
-                xform.set_origin(Vector2(x, y));
-                ci->draw_set_transform_matrix(xform);
-                r_found = true;
-                return;
-            }
-            // ResetDrawTransform — reset to identity
-            if (p_method.nocasecmp_to("ResetDrawTransform") == 0) {
-                ci->draw_set_transform_matrix(Transform2D());
-                r_found = true;
-                return;
-            }
-            // QueueRedraw — force a redraw next frame
-            if (p_method.nocasecmp_to("QueueRedraw") == 0) {
-                ci->queue_redraw();
-                r_found = true;
-                return;
-            }
-            // CLS / ClearScreen — clear the canvas and queue redraw
-            if (p_method.nocasecmp_to("CLS") == 0 || p_method.nocasecmp_to("ClearScreen") == 0) {
-                ci->queue_redraw();
-                r_found = true;
-                return;
-            }
             // SetImagePixel is handled by the hot-path fast dispatch at the top
             // of this function (before call_builtin) — see the note there.
             // UpdateTexture — UpdateTexture texture, image

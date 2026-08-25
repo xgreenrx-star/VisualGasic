@@ -1779,6 +1779,13 @@ void VisualGasicInstance::notification(int32_t p_what) {
     }
     // Handle Drawing
     else if (p_what == CanvasItem::NOTIFICATION_DRAW) {
+         // Match _Process/_Ready: skip game draw handlers in the editor.
+         // Without this, _Draw can run during scene edit / script reload while
+         // _Ready is suppressed, so init like playerRaw = DataToArray(...) never
+         // ran and Variant param subs fail on raw(0) ("Unsupported array base type").
+         if (Engine::get_singleton()->is_editor_hint()) {
+             return;
+         }
          if (script.is_valid()) {
              bool found;
              Array args;

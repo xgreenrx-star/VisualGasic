@@ -1,0 +1,97 @@
+' Moving-object redraw benchmark — average _Draw time while positions update each frame.
+
+Dim _objectCount As Long
+Dim _frameTarget As Long
+Dim _warmup As Long
+Dim _offsets(0) As Double
+Dim _frame As Long
+Dim _drawTotalUs As Long
+Dim _drawSamples As Long
+Dim _finished As Boolean
+Dim _lastChecksum As Long
+
+Const CELL As Long = 8
+
+Sub ConfigureMoving(ByVal objectCount As Long, ByVal frameCount As Long, ByVal warmupFrames As Long)
+    _objectCount = objectCount
+    _frameTarget = frameCount
+    _warmup = warmupFrames
+    ReDim _offsets(objectCount - 1)
+    Dim i As Long
+    For i = 0 To objectCount - 1 Step 1
+        _offsets(i) = CDbl(i * 3)
+    Next i
+    _frame = 0
+    _drawTotalUs = 0
+    _drawSamples = 0
+    _finished = False
+    _lastChecksum = 0
+End Sub
+
+Function IsMovingFinished() As Boolean
+    IsMovingFinished = _finished
+End Function
+
+Function GetMovingResult() As Dictionary
+    Dim d As Dictionary
+    Dim avgUs As Long
+    Set d = New Dictionary
+    If _drawSamples > 0 Then
+        avgUs = _drawTotalUs \ _drawSamples
+    Else
+        avgUs = 0
+    End If
+    d("elapsed_us") = avgUs
+    d("checksum") = _lastChecksum
+    d("frames") = _drawSamples
+    Set GetMovingResult = d
+End Function
+
+Sub _Process()
+    If _finished Then
+        Exit Sub
+    End If
+
+    If _frame >= _frameTarget + _warmup Then
+        _finished = True
+        Exit Sub
+    End If
+
+    Dim i As Long
+    For i = 0 To _objectCount - 1 Step 1
+        _offsets(i) = _offsets(i) + 1.7 + CDbl(i Mod 5) * 0.3
+        If _offsets(i) > 800.0 Then
+            _offsets(i) = 0.0
+        End If
+    Next i
+
+    _frame = _frame + 1
+    QueueRedraw
+End Sub
+
+Sub _Draw()
+    If _frame <= _warmup Then
+        Exit Sub
+    End If
+    If _frame > _frameTarget + _warmup Then
+        Exit Sub
+    End If
+
+    Dim t0 As Long
+    Dim i As Long
+    Dim cs As Long
+    Dim x As Double
+    Dim y As Double
+
+    t0 = Time.get_ticks_usec()
+    For i = 0 To _objectCount - 1 Step 1
+        x = _offsets(i)
+        y = CDbl((i * 7) Mod 40) * CDbl(CELL)
+        DrawRect x, y, CDbl(CELL), CDbl(CELL), Color(0.2, 0.4, 0.9, 1.0), True
+        cs = cs + CLng(x) + CLng(y) + CELL
+    Next i
+
+    _drawTotalUs = _drawTotalUs + (Time.get_ticks_usec() - t0)
+    _drawSamples = _drawSamples + 1
+    _lastChecksum = cs
+End Sub

@@ -16,6 +16,7 @@ This directory contains `.vg` scripts designed to measure and profile VisualGasi
 | `loop_shapes.vg` | Nested loop pattern analysis (rectangular, triangular, irregular nesting) |
 | `parallel.vg` | Multi-threaded workload benchmark (requires Thread support) |
 | `jit_*.vg` | JIT-specific optimizations: `jit_simple.vg`, `jit_intonly.vg`, `jit_loop.vg`, `jit_simple2.vg` |
+| `draw/` | **CanvasItem draw benchmarks** — VG vs GDScript vs C++ (`run_draw_benchmarks.gd`, live scene) |
 | `bench_output.txt` | Sample results from previous benchmark run (reference) |
 
 ## Running Benchmarks

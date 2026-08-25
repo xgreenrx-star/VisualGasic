@@ -241,44 +241,45 @@ func _ready() -> void:
 	call_deferred("_refresh_sprite_data_highlights")
 
 func _setup_syntax_highlighter() -> void:
-	var highlighter = CodeHighlighter.new()
+	var highlighter := VGCodeHighlighter.new()
+	var hl: CodeHighlighter = highlighter.base
 	
 	# Keywords (blue)
 	for keyword in VGIntelliSense.VB6_KEYWORDS:
-		highlighter.add_keyword_color(keyword, Color(0.4, 0.6, 1.0))
+		hl.add_keyword_color(keyword, Color(0.4, 0.6, 1.0))
 	
 	# Types (cyan)
 	for type_name in VGIntelliSense.VB6_TYPES:
-		highlighter.add_keyword_color(type_name, Color(0.4, 0.8, 0.8))
+		hl.add_keyword_color(type_name, Color(0.4, 0.8, 0.8))
 	
 	for type_name in VGIntelliSense.GODOT_TYPES:
-		highlighter.add_keyword_color(type_name, Color(0.4, 0.8, 0.8))
+		hl.add_keyword_color(type_name, Color(0.4, 0.8, 0.8))
 	
 	# Built-in functions (yellow)
 	for func_info in VGIntelliSense.BUILTIN_FUNCTIONS:
-		highlighter.add_keyword_color(func_info["name"], Color(0.9, 0.8, 0.4))
+		hl.add_keyword_color(func_info["name"], Color(0.9, 0.8, 0.4))
 	
 	# Built-in constants (magenta-pink — distinct from variables, keywords, and functions)
 	for const_info in VGIntelliSense.VB6_CONSTANTS:
-		highlighter.add_keyword_color(const_info["name"], Color(0.85, 0.55, 0.85))
+		hl.add_keyword_color(const_info["name"], Color(0.85, 0.55, 0.85))
 	
 	# String color (orange)
-	highlighter.add_color_region("\"", "\"", Color(0.9, 0.6, 0.4))
+	hl.add_color_region("\"", "\"", Color(0.9, 0.6, 0.4))
 	
 	# Comment color — muted green, distinct from strings and keywords
-	highlighter.add_color_region("'", "", Color(0.28, 0.52, 0.36), true)
+	hl.add_color_region("'", "", Color(0.28, 0.52, 0.36), true)
 	
 	# Number color
-	highlighter.number_color = Color(0.7, 0.9, 0.7)
+	hl.number_color = Color(0.7, 0.9, 0.7)
 	
 	# Symbol color
-	highlighter.symbol_color = Color(0.8, 0.8, 0.8)
+	hl.symbol_color = Color(0.8, 0.8, 0.8)
 	
 	# Function color
-	highlighter.function_color = Color(0.9, 0.8, 0.4)
+	hl.function_color = Color(0.9, 0.8, 0.4)
 	
 	# Member color
-	highlighter.member_variable_color = Color(0.8, 0.7, 0.9)
+	hl.member_variable_color = Color(0.8, 0.7, 0.9)
 	
 	syntax_highlighter = highlighter
 

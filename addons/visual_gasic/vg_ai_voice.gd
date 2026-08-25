@@ -95,7 +95,7 @@ var vad_enabled: bool = true              # auto-stop on silence
 var stt_backend: String = "openai"        # "openai" | "whisper" | "off"
 var tts_backend: String = "openai"        # "openai" | "piper" | "system" | "off"
 var tts_voice: String = OPENAI_TTS_DEFAULT_VOICE
-var auto_speak_replies: bool = true
+var auto_speak_replies: bool = false
 # Default to "whisper-cli" (the actual binary name shipped by
 # whisper.cpp's modern build).  Older installs used a wrapper called
 # "whisper" — autodetect handles both.  Override via voice settings.

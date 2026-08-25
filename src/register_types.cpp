@@ -17,6 +17,7 @@
 #include "gasic_form.h"
 #include "visual_gasic_comm.h"
 #include "visual_gasic_benchmark.h"
+#include "visual_gasic_draw_benchmark.h"
 #include "visual_gasic_test_runner.h"
 #include "visual_gasic_immediate.h"
 #include "visual_gasic_debugger.h"
@@ -93,6 +94,7 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ClassDB::register_class<GasicForm>();
         ClassDB::register_class<MSComm>();
         ClassDB::register_class<VisualGasicBenchmark>();
+        ClassDB::register_class<VisualGasicDrawBenchmark>();
         ClassDB::register_class<VisualGasicTestRunner>();
         ClassDB::register_class<VisualGasicImmediate>();
         ClassDB::register_class<VisualGasicDebugger>();

@@ -9,6 +9,7 @@
 #include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/engine_debugger.hpp>
+#include <godot_cpp/classes/canvas_item.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/templates/hash_set.hpp>
 #include "vg_fast_dict.h"
@@ -312,6 +313,14 @@ class VisualGasicInstance {
     // Small helper declarations used by statement execution implementation.
     // `dispatch_builtin_call` dispatches built-in method calls (returns via found flag).
     void dispatch_builtin_call(const String &p_method, const Array &p_args, bool &r_found);
+    // Hot-path CanvasItem draw builtins (DrawRect, DrawLine, …) — callable with a
+    // flat Variant* buffer so bytecode OP_CALL skips Array materialization + cascades.
+    bool try_dispatch_draw_call(const String &p_method, const Variant *p_args, int p_arg_count, bool &r_found);
+    int classify_draw_kind(const String &p_method) const;
+    bool dispatch_draw_kind(int p_kind, const Variant *p_args, int p_arg_count, bool &r_found);
+    CanvasItem *get_draw_canvas_item();
+    Object *_draw_ci_owner_cache = nullptr;
+    CanvasItem *_draw_ci_cache = nullptr;
 
     // Retrieve a variable by name into r_ret. Returns true if found.
     bool get_variable(const String &p_name, Variant &r_ret);

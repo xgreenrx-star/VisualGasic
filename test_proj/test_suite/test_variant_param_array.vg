@@ -1,0 +1,29 @@
+' Regression: ByVal Variant param must support array subscript (raw(i))
+Attribute VB_Name = "TestVariantParamArray"
+
+Sub _Ready()
+	Dim tape As Variant
+	tape = DataToArray("SpriteTape")
+	DrawTape tape
+End Sub
+
+Sub DrawTape(raw As Variant)
+	Dim w As Integer
+	Dim h As Integer
+	w = CInt(raw(0))
+	h = CInt(raw(1))
+	If w = 2 And h = 2 Then
+		Print "PASS: variant_param_array_dims"
+	Else
+		Print "FAIL: variant_param_array_dims: got " & CStr(w) & "x" & CStr(h)
+	End If
+	If CInt(raw(4)) = 7 Then
+		Print "PASS: variant_param_array_pixel"
+	Else
+		Print "FAIL: variant_param_array_pixel: got " & CStr(raw(4))
+	End If
+End Sub
+
+SpriteTape:
+Data 2, 2, 0, 0
+Data 7, 8, 9, 0

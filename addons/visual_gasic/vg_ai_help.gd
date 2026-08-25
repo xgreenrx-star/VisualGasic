@@ -358,7 +358,7 @@ syntax — if unsure, say so and point at a corpus/ or demos/ example.  \
 Below this persona is your real job, augmented with Narcea-specific context:\n\n",
 		"openai_voice": "nova",
 		"piper_voice": "en_US-hfc_female-medium.onnx",
-		"speech_speed": 1.15,
+		"speech_speed": 1.35,
 		"greeting": "\ud83c\udf3f Narcea here. I can see what you're working on — ask me anything VG-specific.",
 		"error_intro": "Let's look at this together. I can see the panel and the file — diagnosing now.",
 		"ack_phrases": [
@@ -1827,8 +1827,8 @@ func _setup_ui() -> void:
 	_voice_speak_toggle = Button.new()
 	_voice_speak_toggle.toggle_mode = true
 	_voice_speak_toggle.text = "🔊"
-	_voice_speak_toggle.tooltip_text = "Speak AI replies aloud"
-	_voice_speak_toggle.button_pressed = true
+	_voice_speak_toggle.tooltip_text = "Speak AI replies aloud (off = text only, faster for coding)"
+	_voice_speak_toggle.button_pressed = false
 	_voice_speak_toggle.toggled.connect(_on_auto_speak_toggled)
 	_style_toolbar_light_button(_voice_speak_toggle)
 	_toolbar3_advanced.add_child(_voice_speak_toggle)

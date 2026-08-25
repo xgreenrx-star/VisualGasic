@@ -621,8 +621,8 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 	# VGCodeEdit sets up a CodeHighlighter with dark-background colors by
 	# default.  We must override those whenever a theme is applied so that
 	# keywords, comments, strings, etc. are legible on the actual background.
-	if code_edit.syntax_highlighter and code_edit.syntax_highlighter is CodeHighlighter:
-		var hl: CodeHighlighter = code_edit.syntax_highlighter
+	var hl: CodeHighlighter = VGCodeHighlighter.resolve_base(code_edit.syntax_highlighter)
+	if hl:
 		# Bulk-recolor every registered keyword to the theme keyword color
 		var kw_dict: Dictionary = hl.keyword_colors
 		for kw_key in kw_dict.keys():

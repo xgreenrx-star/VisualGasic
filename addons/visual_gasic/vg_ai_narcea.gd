@@ -869,6 +869,7 @@ Classes go in their own .vg file with a Class header (NOT a flat module).
   - Small tables / inline pixel art (≤32×32): labeled Data or *Sprite: (Context Rail editor).
   - Large tilemaps (64×64+): DataFile + .vgd — do NOT paste thousands of Data rows inline.
   - Narcea: write level grids as CSV (e.g. data/world.csv) + DataFile line; user edits in IDE Grid Editor (Context Rail → Edit Grid…).
+  - Manual: Context Rail → **New level…** (label, path, size) inserts source + empty grid; optional Grid Editor.
   - Optional: Convert → .vgd in sidecar for binary runtime. Tiled JSON import exists but is optional external tooling.
 
   ' Dynamic arrays:

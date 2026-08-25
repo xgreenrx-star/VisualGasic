@@ -385,11 +385,18 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
             else if (t == "single" || t == "double") pvt = VT_FLOAT;
             get_or_add_local(sub->parameters[i].name, pvt);
         } else {
-            non_local_names.insert(pkey);
             param_vars.insert(pkey);
-            // Register ParamArray parameters as array variables for proper subscript handling
             if (sub->parameters[i].is_param_array) {
                 array_vars.insert(pkey);
+                non_local_names.insert(pkey);
+            } else if (sub->parameters[i].is_by_ref) {
+                non_local_names.insert(pkey);
+            } else {
+                // ByVal non-scalar params (Variant arrays/objects): use a local
+                // slot seeded from variables[] at call entry.  Marking these
+                // non-local forced OP_GET_GLOBAL, which can miss the bound arg
+                // and fall through to scene-node/singleton lookups (OBJECT).
+                get_or_add_local(sub->parameters[i].name, VT_UNKNOWN);
             }
         }
     }

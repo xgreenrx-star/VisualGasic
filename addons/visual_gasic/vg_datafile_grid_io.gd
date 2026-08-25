@@ -86,6 +86,32 @@ static func csv_text_from_cells(width: int, height: int, cells: PackedByteArray)
 	return "\n".join(lines) + "\n"
 
 
+## Copy existing cells into a larger/smaller grid; pad with fill or crop bottom-right.
+static func resize_cells(
+	cells: PackedByteArray,
+	old_w: int,
+	old_h: int,
+	new_w: int,
+	new_h: int,
+	fill: int = 0
+) -> PackedByteArray:
+	new_w = maxi(1, new_w)
+	new_h = maxi(1, new_h)
+	old_w = maxi(1, old_w)
+	old_h = maxi(1, old_h)
+	var out := PackedByteArray()
+	out.resize(new_w * new_h)
+	for i in out.size():
+		out[i] = fill & 0xFF
+	for y in mini(old_h, new_h):
+		for x in mini(old_w, new_w):
+			var src := y * old_w + x
+			var dst := y * new_w + x
+			if src < cells.size() and dst < out.size():
+				out[dst] = cells[src]
+	return out
+
+
 static func load_vgd(abs_path: String) -> Dictionary:
 	var out := {"ok": false, "error": "", "width": 0, "height": 0, "cells": PackedByteArray(), "format": "vgd", "elem_size": 1}
 	var raw := FileAccess.get_file_as_bytes(abs_path)

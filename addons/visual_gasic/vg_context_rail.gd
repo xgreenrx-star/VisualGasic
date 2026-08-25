@@ -97,7 +97,13 @@ func _ready() -> void:
 	_where_label = _body_label()
 	_outline_box = VBoxContainer.new()
 	_outline_box.name = "OutlineBox"
-	_outline_box.add_theme_constant_override("separation", 0)
+	_outline_box.add_theme_constant_override("separation", 3)
+	var _outline_wrap := MarginContainer.new()
+	_outline_wrap.name = "OutlineWrap"
+	_outline_wrap.add_theme_constant_override("margin_top", 2)
+	_outline_wrap.add_theme_constant_override("margin_bottom", 8)
+	_outline_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_outline_wrap.add_child(_outline_box)
 
 	_procedure_box = VBoxContainer.new()
 	_procedure_label = _body_label()
@@ -141,7 +147,7 @@ func _ready() -> void:
 	_chain_box.add_child(_chain_open_btn)
 
 	_add_section("where", "Where", _where_label)
-	_add_section("outline", "Outline", _outline_box)
+	_add_section("outline", "Outline", _outline_wrap)
 	_add_section("procedure", "Procedure", _procedure_box)
 	_add_section("wire", "Wire", _wire_label)
 	_add_section("symbol", "Symbol", _symbol_label)
@@ -430,11 +436,16 @@ func _update_outline(ctx: Dictionary, caret: int) -> void:
 		else:
 			btn.text = label
 		btn.add_theme_font_size_override("font_size", 10)
+		btn.clip_contents = false
 		_style_link_button(btn, line_no == active_label_line)
 		btn.pressed.connect(func() -> void:
 			goto_line_requested.emit(line_no + 1)
 		)
-		_outline_box.add_child(btn)
+		var row := MarginContainer.new()
+		row.add_theme_constant_override("margin_bottom", 1)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(btn)
+		_outline_box.add_child(row)
 
 
 func _update_heavy_panels(source: String, caret: int) -> void:
@@ -802,3 +813,15 @@ func _style_link_button(btn: LinkButton, emphasis: bool = false) -> void:
 	btn.add_theme_color_override("font_hover_color", hover)
 	btn.add_theme_color_override("font_focus_color", hover)
 	btn.add_theme_color_override("font_pressed_color", Color(0.0, 0.0, 0.35))
+	# LinkButton draws an underline at the baseline; without extra bottom
+	# margin the descenders/underline clip in tight VBox rows (Outline rail).
+	var pad := StyleBoxEmpty.new()
+	pad.content_margin_top = 2
+	pad.content_margin_bottom = 5
+	for state in ["normal", "hover", "focus", "pressed", "disabled"]:
+		btn.add_theme_stylebox_override(state, pad)
+	var fs: int = btn.get_theme_font_size("font_size")
+	if fs <= 0:
+		fs = 10
+	btn.custom_minimum_size.y = fs + 8
+	btn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN

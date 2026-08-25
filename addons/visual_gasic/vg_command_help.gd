@@ -553,42 +553,87 @@ static func _build_db() -> void:
 	_add("Data",
 		"Data value1, value2, value3, ...\nData \"string\", 42, 3.14",
 		"Stores inline data values that can be read sequentially with Read. Labeled sections (LabelName:) group rows; *Sprite: blocks use a 4-value header row (w, h, transparentIdx, paletteId) plus h pixel rows — see Sprite Data.",
-		"Data \"Sword\", 10, 50\nData \"Shield\", 5, 30\nData \"Potion\", 0, 15\n\nDim itemName As String, atk As Integer, cost As Integer\nRead itemName, atk, cost", 5448)
+		"Data \"Sword\", 10, 50\nData \"Shield\", 5, 30\nData \"Potion\", 0, 15\n\nDim itemName As String, atk As Integer, cost As Integer\nRead itemName, atk, cost", 5686)
 
 	_add("Sprite Data",
 		"LabelSprite:\nData w, h, transparentIdx, paletteId\nData …  ' h rows × w palette indices (0–15)",
 		"Inline pixel-art format for labeled *Sprite: Data blocks. Header: width, height, transparent palette index, palette id (0=NES, 1=GameBoy, 2=C64, 3=CGA). Then exactly h Data rows with w indices each. Editable in Context Rail. Max 32×32 inline.",
-		"PlayerSprite:\nData 8, 8, 0, 0\nData 0, 0, 1, 1, 0, 0, 0, 0\nData 0, 1, 2, 2, 1, 0, 0, 0\n\nDim raw As Variant\nraw = DataToArray(\"PlayerSprite\")\n' raw(0)=w raw(1)=h raw(2)=trans raw(3)=palette\n' raw(4)+ = pixels row-major", 5474)
+		"PlayerSprite:\nData 8, 8, 0, 0\nData 0, 0, 1, 1, 0, 0, 0, 0\nData 0, 1, 2, 2, 1, 0, 0, 0\n\nDim raw As Variant\nraw = DataToArray(\"PlayerSprite\")\n' raw(0)=w raw(1)=h raw(2)=trans raw(3)=palette\n' raw(4)+ = pixels row-major", 5770)
 
 	_add("DataToArray",
 		"DataToArray()\nDataToArray(\"sectionLabel\")\nDataToArray(count)",
 		"Returns DATA values as a Variant array. DataToArray(\"PlayerSprite\") includes header (w,h,transparent,paletteId) then pixel indices — cache at load time, not in _Draw.",
-		"Dim raw As Variant\nraw = DataToArray(\"CloudSprite\")\nDim w As Integer : w = CInt(raw(0))\nDim h As Integer : h = CInt(raw(1))\nDim idx As Integer : idx = 4\n' pixels at raw(4) .. raw(4 + w*h - 1)", 13128)
+		"Dim raw As Variant\nraw = DataToArray(\"CloudSprite\")\nDim w As Integer : w = CInt(raw(0))\nDim h As Integer : h = CInt(raw(1))\nDim idx As Integer : idx = 4\n' pixels at raw(4) .. raw(4 + w*h - 1)", 13458)
 
 	_add("Read",
 		"Read variable1 [, variable2, ...]\nRead variable As Type",
 		"Reads the next value(s) from the Data tape into variables. Supports typed Read for automatic conversion.",
-		"Data 100, 200, 300\n\nDim x As Integer, y As Integer, z As Integer\nRead x, y, z\nPrint x  ' 100\n\n' Typed read\nRead score As Integer", 10336)
+		"Data 100, 200, 300\n\nDim x As Integer, y As Integer, z As Integer\nRead x, y, z\nPrint x  ' 100\n\n' Typed read\nRead score As Integer", 10243)
 
 	_add("Restore",
 		"Restore [labelName]",
 		"Resets the Data read pointer to the beginning, or to a named data section.",
-		"Data \"First\", 1\ndata_section2:\nData \"Second\", 2\n\nRead a, b\nRestore data_section2\nRead c, d  ' Reads \"Second\", 2", 10468)
+		"Data \"First\", 1\ndata_section2:\nData \"Second\", 2\n\nRead a, b\nRestore data_section2\nRead c, d  ' Reads \"Second\", 2", 10375)
 
 	_add("DataFile",
 		"DataFile \"path\"",
 		"Include data from an external file at parse time. Text/CSV files merge onto the Data tape (same as inline Data). Binary .vgd files load into a labeled MemoryBuffer — use DataBuffer, DataCount, and PeekData with the label.",
-		"WorldTiles:\nDataFile \"levels/world.vgd\"\n\nSpawnTable:\nDataFile \"data/spawns.csv\"\n\n' Runtime access to binary section:\nDim buf As Object\nbuf = DataBuffer(\"WorldTiles\")", 10470)
+		"WorldTiles:\nDataFile \"levels/world.vgd\"\n\nSpawnTable:\nDataFile \"data/spawns.csv\"\n\nDim n As Integer\nn = DataCount(\"WorldTiles\")\nDim tile As Integer\ntile = PeekData(\"WorldTiles\", 0)", 5712)
 
 	_add("DataBuffer",
 		"DataBuffer(\"labelName\")",
 		"Returns the MemoryBuffer for a labeled DataFile section that was loaded from a binary .vgd file.",
-		"WorldTiles:\nDataFile \"levels/world.vgd\"\n\nDim tiles As Object\ntiles = DataBuffer(\"WorldTiles\")\nPrint tiles.Size", 10472)
+		"WorldTiles:\nDataFile \"levels/world.vgd\"\n\nDim tiles As Object\ntiles = DataBuffer(\"WorldTiles\")\nPrint tiles.Size", 5745)
+
+	_add("DataCount",
+		"DataCount()\nDataCount(\"sectionLabel\")",
+		"Returns the number of DATA items on the full tape, or in one labeled section. For .vgd tile grids, DataCount(\"Label\") equals width × height.",
+		"WorldTiles:\nDataFile \"levels/world.vgd\"\n\nDim cells As Integer\ncells = DataCount(\"WorldTiles\")\nPrint cells  ' e.g. 12×10 grid → 120", 13377)
+
+	_add("PeekData",
+		"PeekData(index)\nPeekData(\"sectionLabel\", offset)",
+		"Reads a DATA value by absolute tape index or labeled section + offset without advancing the READ pointer. Use flat index row * width + col for .vgd grids.",
+		"Const MAP_W As Integer = 12\n\nWorldTiles:\nDataFile \"levels/world.vgd\"\n\nDim idx As Integer\nidx = 2 * MAP_W + 5\nDim tile As Integer\ntile = PeekData(\"WorldTiles\", idx)", 14064)
+
+	_add("SetDataPointer",
+		"SetDataPointer(index)",
+		"Sets the active DATA read pointer to a 0-based absolute index (clamped to valid range). Pair with Read or PeekData for random-access patterns.",
+		"Data 10, 20, 30, 40\n\nSetDataPointer(2)\nRead v\nPrint v  ' 30", 13504)
+
+	_add("DataLabels",
+		"DataLabels()",
+		"Returns the list of DATA section labels currently loaded (inline Data, DataFile, LoadData).",
+		"Dim names As Variant\nnames = DataLabels()\nPrint names(0)", 13398)
+
+	_add("DataPointer",
+		"DataPointer()",
+		"Returns the current DATA read pointer index (0-based).",
+		"Data 1, 2, 3\nRead x\nPrint DataPointer()  ' 1", 13408)
+
+	_add("DataRemain",
+		"DataRemain()",
+		"Returns how many DATA values remain unread from the current pointer to the end of the tape.",
+		"Data 1, 2, 3, 4\nRead x\nPrint DataRemain()  ' 3", 13418)
+
+	_add("DataSectionCount",
+		"DataSectionCount()",
+		"Returns the number of labeled DATA sections currently loaded (inline Data, DataFile, LoadData).",
+		"PlayerSprite:\nData 8, 8, 0, 0\nData 0, 1, 2\n\nWorldTiles:\nDataFile \"levels/world.vgd\"\n\nPrint DataSectionCount()  ' 2", 13428)
+
+	_add("DataSectionName",
+		"DataSectionName(index)",
+		"Returns the label name of a DATA section by 0-based index. See DataSectionCount and DataLabels.",
+		"Dim i As Integer\nFor i = 0 To DataSectionCount() - 1\n    Print DataSectionName(i)\nNext i", 13438)
+
+	_add("DataSectionRemain",
+		"DataSectionRemain(sectionName)",
+		"Returns how many unread values remain in a specific labeled DATA section.",
+		"ShopItems:\nData \"Sword\", 10\nData \"Shield\", 5\n\nRead item, price\nPrint DataSectionRemain(\"ShopItems\")  ' 2", 13448)
 
 	_add("LoadData",
 		"LoadData pathExpression",
 		"Append data from a text file onto the Data tape at runtime (dynamic path).",
-		"Dim f As String\nf = \"user://wave.txt\"\nLoadData f\nRead value", 10474)
+		"Dim f As String\nf = \"user://wave.txt\"\nLoadData f\nRead value", 8409)
 
 	# =========================================================================
 	# STRING FUNCTIONS
@@ -2398,7 +2443,9 @@ static func _build_see_also() -> void:
 		# Image I/O
 		["LoadImage", "LoadPicture", "SaveImage", "RGB"],
 		# File I/O
-		["Open", "Close", "Line Input", "Data", "Read", "Restore", "DataToArray", "Sprite Data"],
+		["Open", "Close", "Line Input", "Data", "Read", "Restore", "DataToArray", "Sprite Data",
+			"DataFile", "DataBuffer", "LoadData", "DataCount", "PeekData", "SetDataPointer",
+			"DataLabels", "DataPointer", "DataRemain", "DataSectionCount", "DataSectionName", "DataSectionRemain"],
 		# OOP
 		["Class", "End Class", "New", "Set", "Me", "Implements", "Inherits", "Interface", "Property"],
 		# Events

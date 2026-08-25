@@ -1143,15 +1143,16 @@ func _apply_vb6_theme() -> void:
 	_code_edit.add_theme_color_override("code_folding_color", Color(0.4, 0.4, 0.4, 0.85))
 
 	# Override syntax highlighter colors for VB6 look
-	if _code_edit.syntax_highlighter and _code_edit.syntax_highlighter is CodeHighlighter:
-		var hl: CodeHighlighter = _code_edit.syntax_highlighter
-		# Re-color keywords to dark blue
-		for keyword in _get_vb6_keywords():
-			hl.add_keyword_color(keyword, KEYWORD_COLOR)
-		hl.number_color = NUMBER_COLOR
-		hl.symbol_color = Color(0.3, 0.3, 0.3)
-		hl.function_color = TEXT_COLOR
-		hl.member_variable_color = TEXT_COLOR
+	if _code_edit.syntax_highlighter:
+		var hl: CodeHighlighter = VGCodeHighlighter.resolve_base(_code_edit.syntax_highlighter)
+		if hl:
+			# Re-color keywords to dark blue
+			for keyword in _get_vb6_keywords():
+				hl.add_keyword_color(keyword, KEYWORD_COLOR)
+			hl.number_color = NUMBER_COLOR
+			hl.symbol_color = Color(0.3, 0.3, 0.3)
+			hl.function_color = TEXT_COLOR
+			hl.member_variable_color = TEXT_COLOR
 
 func _get_vb6_keywords() -> Array:
 	# Minimal set — VGCodeEdit already has these, this is fallback
