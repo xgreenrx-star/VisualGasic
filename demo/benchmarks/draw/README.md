@@ -13,6 +13,7 @@ Live, reusable **CanvasItem `_draw`** benchmarks comparing **Visual Gasic**, **G
 | `Sprites` | `draw_texture_rect` with an 8×8 texture |
 | `Polylines` | Closed 4-segment polylines |
 | `Mixed` | Combined rects + lines + circles + sprites |
+| `VectorCanvasUniformRects` | Build rect buffer then one `DrawRectsUniform` on `VGVectorCanvas2D` |
 | `MovingFilledRects` | **500** objects with moving positions; reports **average `_draw` µs** over **120** frames (after warmup) |
 
 Shared layout constants live in `draw_bench_config.gd` and are mirrored in `bench_draw.vg` and `VisualGasicDrawBenchmark` (C++).
@@ -50,9 +51,20 @@ Open `demo/benchmarks/draw/draw_bench_live.tscn` and run the scene (F6). Results
 | `draw_bench_moving_gd.gd` | GDScript moving-object runner |
 | `bench_draw.vg` | VG Node2D draw runner |
 | `bench_draw_moving.vg` | VG moving-object runner |
+| `bench_draw_vector.vg` | VG `VGVectorCanvas2D` batch-rect runner |
+| `draw_bench_vector_gd.gd` | GDScript vector-canvas runner |
 | `run_draw_benchmarks.gd` | Headless 3-way orchestrator |
 | `draw_bench_live.tscn` | Interactive benchmark scene |
 | `src/visual_gasic_draw_benchmark.*` | C++ Node2D runner (registered ClassDB) |
+| `src/visual_gasic_vector_draw_benchmark.*` | C++ `VGVectorCanvas2D` batch runner |
+
+## Node2D draw vs VGVectorCanvas2D
+
+**`DrawRect` / `DrawLine` on a plain `Node2D`** are CanvasItem builtins: the compiler emits `OP_CALL` (or dedicated `OP_DRAW_RECT` / `OP_DRAW_LINE` opcodes) and the VM calls Godot `CanvasItem::draw_*` on the script owner. One VM dispatch per primitive.
+
+**`VGVectorCanvas2D`** is a separate native node (`src/visual_gasic_vector_canvas.cpp`) used by the vector-graphics plugin. Its `DrawRectsUniform` / `DrawLines` APIs append to a **command buffer**; `ExecuteQueuedCommands()` (or the native `_draw` when no VG `_Draw` handler is attached) replays that buffer in one pass. VG scripts with `_Draw` must call `ExecuteQueuedCommands()` after queuing — the VG draw hook replaces Godot's native `_draw` notification.
+
+Use **`VectorCanvasUniformRects`** in this suite to compare batch vector-canvas rendering against per-call `FilledRects` on `Node2D`.
 
 ## Sample results (Linux, Godot 4.6.1 headless, Aug 2026)
 

@@ -286,6 +286,10 @@ enum OpCode {
     // a true no-op rather than corrupting the variable with Nil.
     OP_BYREF_LOAD,
 
+    // CanvasItem draw builtins — dedicated opcodes bypass OP_CALL dispatch (perf)
+    OP_DRAW_RECT,      // [OP] [ARG_COUNT] - Pop args, draw_rect on owner CanvasItem
+    OP_DRAW_LINE,      // [OP] [ARG_COUNT] - Pop args, draw_line on owner CanvasItem
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 

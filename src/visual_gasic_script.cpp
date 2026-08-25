@@ -160,6 +160,8 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_ON_ERROR_GOTO);
         OP_NAME_CASE(OP_ON_ERROR_GOTO_0);
         OP_NAME_CASE(OP_BYREF_LOAD);
+        OP_NAME_CASE(OP_DRAW_RECT);
+        OP_NAME_CASE(OP_DRAW_LINE);
 #undef OP_NAME_CASE
         default:
             return vformat("OP_UNKNOWN_%d", (int)op);
@@ -187,6 +189,8 @@ int opcode_operand_length(uint8_t op) {
         case OP_SET_DICT_FAST:
         case OP_GET_DICT_TRUSTED:
         case OP_SET_DICT_TRUSTED:
+        case OP_DRAW_RECT:
+        case OP_DRAW_LINE:
             return 1;
         // 2-byte operand: single 16-bit constant pool index
         case OP_CONSTANT:
@@ -340,6 +344,12 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
                 return vformat("%s, argc=%d",
                     describe_constant(chunk, const16(0)),
                     int(operands[2]));
+            }
+            break;
+        case OP_DRAW_RECT:
+        case OP_DRAW_LINE:
+            if (operands.size() >= 1) {
+                return vformat("argc=%d", int(operands[0]));
             }
             break;
         case OP_CALL_BUILTIN:

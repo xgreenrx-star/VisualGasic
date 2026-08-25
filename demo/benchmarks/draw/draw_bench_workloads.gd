@@ -13,7 +13,7 @@ static func filled_rects(canvas: CanvasItem, count: int) -> int:
 	var cs := 0
 	var cell := float(DrawBenchConfig.CELL)
 	var color := DrawBenchConfig.FILL_COLOR
-	for i in count:
+	for i in range(count):
 		var p := grid_xy(i)
 		canvas.draw_rect(Rect2(p.x, p.y, cell, cell), color, true)
 		cs += int(p.x) + int(p.y) + DrawBenchConfig.CELL
@@ -24,7 +24,7 @@ static func outline_rects(canvas: CanvasItem, count: int) -> int:
 	var cs := 0
 	var cell := float(DrawBenchConfig.CELL)
 	var color := DrawBenchConfig.OUTLINE_COLOR
-	for i in count:
+	for i in range(count):
 		var p := grid_xy(i)
 		canvas.draw_rect(Rect2(p.x, p.y, cell, cell), color, false)
 		cs += int(p.x) + int(p.y) + DrawBenchConfig.CELL
@@ -36,7 +36,7 @@ static func lines(canvas: CanvasItem, count: int) -> int:
 	var cell := float(DrawBenchConfig.CELL)
 	var color := DrawBenchConfig.LINE_COLOR
 	var width := DrawBenchConfig.LINE_WIDTH
-	for i in count:
+	for i in range(count):
 		var p := grid_xy(i)
 		canvas.draw_line(p, p + Vector2(cell, cell * 0.5), color, width)
 		cs += int(p.x) + int(p.y) + DrawBenchConfig.CELL
@@ -48,7 +48,7 @@ static func circles(canvas: CanvasItem, count: int) -> int:
 	var cell := float(DrawBenchConfig.CELL)
 	var color := DrawBenchConfig.CIRCLE_COLOR
 	var radius := DrawBenchConfig.CIRCLE_RADIUS
-	for i in count:
+	for i in range(count):
 		var p := grid_xy(i)
 		canvas.draw_circle(p + Vector2(cell * 0.5, cell * 0.5), radius, color)
 		cs += int(p.x) + int(p.y) + int(radius)
@@ -59,7 +59,7 @@ static func sprites(canvas: CanvasItem, texture: Texture2D, count: int) -> int:
 	var cs := 0
 	var cell := float(DrawBenchConfig.CELL)
 	var size := float(DrawBenchConfig.SPRITE_SIZE)
-	for i in count:
+	for i in range(count):
 		var p := grid_xy(i)
 		canvas.draw_texture_rect(texture, Rect2(p.x, p.y, size, size), false)
 		cs += int(p.x) + int(p.y) + DrawBenchConfig.SPRITE_SIZE
@@ -71,7 +71,7 @@ static func polylines(canvas: CanvasItem, count: int) -> int:
 	var cell := float(DrawBenchConfig.CELL)
 	var color := DrawBenchConfig.LINE_COLOR
 	var width := DrawBenchConfig.LINE_WIDTH
-	for i in count:
+	for i in range(count):
 		var p := grid_xy(i)
 		var pts := PackedVector2Array([
 			p,
@@ -91,6 +91,21 @@ static func mixed(canvas: CanvasItem, texture: Texture2D, count: int) -> int:
 	cs += lines(canvas, count)
 	cs += circles(canvas, count / 2)
 	cs += sprites(canvas, texture, count / 2)
+	return cs
+
+
+static func vector_canvas_uniform_rects(canvas: VGVectorCanvas2D, count: int) -> int:
+	var cs := 0
+	var cell := float(DrawBenchConfig.CELL)
+	var color := DrawBenchConfig.FILL_COLOR
+	var rects := PackedVector2Array()
+	rects.resize(count * 2)
+	for i in range(count):
+		var p := grid_xy(i)
+		rects[i * 2] = p
+		rects[i * 2 + 1] = Vector2(cell, cell)
+		cs += int(p.x) + int(p.y) + DrawBenchConfig.CELL
+	canvas.DrawRectsUniform(rects, color, true)
 	return cs
 
 

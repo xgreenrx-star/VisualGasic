@@ -1,0 +1,71 @@
+' VisualGasic vector-canvas draw benchmark — attach to VGVectorCanvas2D.
+
+Dim _count As Long
+Dim _elapsed_us As Long
+Dim _checksum As Long
+Dim _ready As Boolean
+
+Const GRID_COLS As Long = 50
+Const CELL As Long = 8
+
+Sub ConfigureBench(ByVal count As Long)
+    _count = count
+    _ready = False
+    _elapsed_us = 0
+    _checksum = 0
+End Sub
+
+Function IsBenchReady() As Boolean
+    IsBenchReady = _ready
+End Function
+
+Function GetBenchResult() As Dictionary
+    Dim d As Dictionary
+    Set d = New Dictionary
+    d("elapsed_us") = _elapsed_us
+    d("checksum") = _checksum
+    Set GetBenchResult = d
+End Function
+
+Private Function GridX(ByVal index As Long) As Double
+    GridX = CDbl(index Mod GRID_COLS) * CDbl(CELL)
+End Function
+
+Private Function GridY(ByVal index As Long) As Double
+    GridY = CDbl(index \ GRID_COLS) * CDbl(CELL)
+End Function
+
+Sub _Draw()
+    If _count <= 0 Then
+        Exit Sub
+    End If
+    If _ready Then
+        Exit Sub
+    End If
+
+    Dim t0 As Long
+    t0 = Time.get_ticks_usec()
+
+    Dim rects As Variant
+    ReDim rects(_count * 2 - 1)
+    Dim i As Long
+    Dim x As Double
+    Dim y As Double
+    Dim cs As Long
+
+    For i = 0 To _count - 1 Step 1
+        x = GridX(i)
+        y = GridY(i)
+        rects(i * 2) = Vector2(x, y)
+        rects(i * 2 + 1) = Vector2(CDbl(CELL), CDbl(CELL))
+        cs = cs + CLng(x) + CLng(y) + CELL
+    Next i
+
+    DrawRectsUniform rects, Color(0.2, 0.4, 0.9, 1.0), True
+    ExecuteQueuedCommands
+
+    _checksum = cs
+    _elapsed_us = Time.get_ticks_usec() - t0
+    _ready = True
+    _count = 0
+End Sub

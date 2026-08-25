@@ -27,4 +27,5 @@ static func workload_counts() -> Dictionary:
 		"Sprites": 2000,
 		"Polylines": 800,
 		"Mixed": 2500,
+		"VectorCanvasUniformRects": 2500,
 	}

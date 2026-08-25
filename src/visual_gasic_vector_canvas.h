@@ -203,6 +203,7 @@ public:
 	void Scale(const Vector2 &scale);
 	void Clear();
 	void Render();
+	void ExecuteQueuedCommands();
 
 	// ---- Groups & source tagging (used by Tweak Overlay) ----
 	void BeginGroup(const String &name);

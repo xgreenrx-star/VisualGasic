@@ -4331,6 +4331,22 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 }
             }
             if (!compile_ok) break;
+
+            // Dedicated draw opcodes — skip OP_CALL/name lookup for hot _Draw loops.
+            if (!s->base_object && !target_func) {
+                int draw_op = 0;
+                if (s->method_name.nocasecmp_to("DrawRect") == 0) draw_op = OP_DRAW_RECT;
+                else if (s->method_name.nocasecmp_to("DrawLine") == 0) draw_op = OP_DRAW_LINE;
+                if (draw_op != 0) {
+                    for (int i = 0; i < s->arguments.size(); i++) {
+                        compile_expression(s->arguments[i]);
+                    }
+                    emit_byte((uint8_t)draw_op);
+                    emit_byte((uint8_t)s->arguments.size());
+                    emit_byte(OP_POP);
+                    break;
+                }
+            }
             
             for (int i = 0; i < s->arguments.size(); i++) {
                 compile_expression(s->arguments[i]);
@@ -7340,6 +7356,32 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                                     compile_expression(aa->indices[i]);
                                 }
                                 emit_byte((uint8_t)_trig_ops[_ti].op);
+                                goto _func_call_emitted;
+                            }
+                        }
+                    }
+
+                    // ── Dedicated draw opcodes (DrawRect/DrawLine) ──
+                    {
+                        int draw_op = 0;
+                        if (vn_lower == "drawrect") draw_op = OP_DRAW_RECT;
+                        else if (vn_lower == "drawline") draw_op = OP_DRAW_LINE;
+                        if (draw_op != 0) {
+                            bool is_user_sub = false;
+                            if (current_module) {
+                                for (int si = 0; si < current_module->subs.size(); si++) {
+                                    if (current_module->subs[si]->name.nocasecmp_to(var_name) == 0) {
+                                        is_user_sub = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!is_user_sub) {
+                                for (int i = 0; i < aa->indices.size(); i++) {
+                                    compile_expression(aa->indices[i]);
+                                }
+                                emit_byte((uint8_t)draw_op);
+                                emit_byte((uint8_t)aa->indices.size());
                                 goto _func_call_emitted;
                             }
                         }

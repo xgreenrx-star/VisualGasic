@@ -2990,6 +2990,50 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 vm.ip -= offset;
                 break;
             }
+            VG_CASE(vg_op_draw_rect, OP_DRAW_RECT): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t arg_count = code[vm.ip++];
+                if (!ensure_stack(arg_count)) { success = false; goto cleanup; }
+                constexpr int OPCALL_INLINE_ARGS = 8;
+                Variant _draw_args_inline[OPCALL_INLINE_ARGS];
+                Vector<Variant> _draw_args_heap;
+                Variant *args_ptr = _draw_args_inline;
+                if (arg_count > OPCALL_INLINE_ARGS) {
+                    _draw_args_heap.resize(arg_count);
+                    args_ptr = _draw_args_heap.ptrw();
+                }
+                for (int i = arg_count - 1; i >= 0; i--) {
+                    args_ptr[i] = pop_value();
+                }
+                {
+                    bool _draw_found = false;
+                    dispatch_draw_kind(1, args_ptr, arg_count, _draw_found);
+                }
+                push_value(Variant());
+                break;
+            }
+            VG_CASE(vg_op_draw_line, OP_DRAW_LINE): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t arg_count = code[vm.ip++];
+                if (!ensure_stack(arg_count)) { success = false; goto cleanup; }
+                constexpr int OPCALL_INLINE_ARGS = 8;
+                Variant _draw_args_inline[OPCALL_INLINE_ARGS];
+                Vector<Variant> _draw_args_heap;
+                Variant *args_ptr = _draw_args_inline;
+                if (arg_count > OPCALL_INLINE_ARGS) {
+                    _draw_args_heap.resize(arg_count);
+                    args_ptr = _draw_args_heap.ptrw();
+                }
+                for (int i = arg_count - 1; i >= 0; i--) {
+                    args_ptr[i] = pop_value();
+                }
+                {
+                    bool _draw_found = false;
+                    dispatch_draw_kind(2, args_ptr, arg_count, _draw_found);
+                }
+                push_value(Variant());
+                break;
+            }
             VG_CASE(vg_op_call, OP_CALL): {
                 if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
                 int name_idx = read_const_index();

@@ -18,6 +18,7 @@
 #include "visual_gasic_comm.h"
 #include "visual_gasic_benchmark.h"
 #include "visual_gasic_draw_benchmark.h"
+#include "visual_gasic_vector_draw_benchmark.h"
 #include "visual_gasic_test_runner.h"
 #include "visual_gasic_immediate.h"
 #include "visual_gasic_debugger.h"
@@ -99,6 +100,7 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ClassDB::register_class<VisualGasicImmediate>();
         ClassDB::register_class<VisualGasicDebugger>();
         ClassDB::register_class<VGVectorCanvas2D>();
+        ClassDB::register_class<VisualGasicVectorDrawBenchmark>();
 
         // System-level classes (v2.9.0)
         ClassDB::register_class<VGProcess>();

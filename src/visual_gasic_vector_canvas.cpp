@@ -152,6 +152,7 @@ void VGVectorCanvas2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("Scale", "scale"), &VGVectorCanvas2D::Scale);
 	ClassDB::bind_method(D_METHOD("Clear"), &VGVectorCanvas2D::Clear);
 	ClassDB::bind_method(D_METHOD("Render"), &VGVectorCanvas2D::Render);
+	ClassDB::bind_method(D_METHOD("ExecuteQueuedCommands"), &VGVectorCanvas2D::ExecuteQueuedCommands);
 
 	// Groups & source tagging
 	ClassDB::bind_method(D_METHOD("BeginGroup", "name"), &VGVectorCanvas2D::BeginGroup);
@@ -1322,6 +1323,10 @@ void VGVectorCanvas2D::Render() {
 		_pending_redraw = true;
 		queue_redraw();
 	}
+}
+
+void VGVectorCanvas2D::ExecuteQueuedCommands() {
+	_draw();
 }
 
 void VGVectorCanvas2D::BeginGroup(const String &name) {

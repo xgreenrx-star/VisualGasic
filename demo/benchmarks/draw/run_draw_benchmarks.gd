@@ -4,7 +4,9 @@ const DrawBenchConfig = preload("res://benchmarks/draw/draw_bench_config.gd")
 const VG_DRAW_SCRIPT := preload("res://benchmarks/draw/bench_draw.vg")
 const VG_MOVING_SCRIPT := preload("res://benchmarks/draw/bench_draw_moving.vg")
 const GD_CANVAS := preload("res://benchmarks/draw/draw_bench_canvas_gd.gd")
+const GD_VECTOR := preload("res://benchmarks/draw/draw_bench_vector_gd.gd")
 const GD_MOVING := preload("res://benchmarks/draw/draw_bench_moving_gd.gd")
+const VG_VECTOR_SCRIPT := preload("res://benchmarks/draw/bench_draw_vector.vg")
 
 const WAIT_FRAMES := 60
 const MOVING_WAIT_FRAMES := 360
@@ -73,6 +75,18 @@ func run_moving_workload(name: String, object_count: int, frame_count: int, warm
 
 
 func _run_gd_draw(workload: String, count: int) -> Dictionary:
+	if workload == "VectorCanvasUniformRects":
+		var node: VGVectorCanvas2D = GD_VECTOR.new()
+		root.add_child(node)
+		node.configure(count)
+		node.queue_redraw()
+		if not await _wait_until(Callable(node, "is_ready")):
+			node.queue_free()
+			return {}
+		var result: Dictionary = node.get_result()
+		node.queue_free()
+		return result
+
 	var node: Node2D = GD_CANVAS.new()
 	root.add_child(node)
 	node.configure(workload, count)
@@ -86,6 +100,22 @@ func _run_gd_draw(workload: String, count: int) -> Dictionary:
 
 
 func _run_vg_draw(workload: String, count: int) -> Dictionary:
+	if workload == "VectorCanvasUniformRects":
+		var node = ClassDB.instantiate("VGVectorCanvas2D")
+		if node == null:
+			push_error("Failed to instantiate VGVectorCanvas2D")
+			return {}
+		node.set_script(VG_VECTOR_SCRIPT)
+		root.add_child(node)
+		node.call("ConfigureBench", count)
+		node.queue_redraw()
+		if not await _wait_vg_draw(node):
+			node.queue_free()
+			return {}
+		var result: Dictionary = node.call("GetBenchResult")
+		node.queue_free()
+		return result
+
 	var node := Node2D.new()
 	node.set_script(VG_DRAW_SCRIPT)
 	root.add_child(node)
@@ -100,6 +130,21 @@ func _run_vg_draw(workload: String, count: int) -> Dictionary:
 
 
 func _run_cpp_draw(workload: String, count: int) -> Dictionary:
+	if workload == "VectorCanvasUniformRects":
+		var node = ClassDB.instantiate("VisualGasicVectorDrawBenchmark")
+		if node == null:
+			push_error("Failed to instantiate VisualGasicVectorDrawBenchmark")
+			return {}
+		root.add_child(node)
+		node.configure(count)
+		node.queue_redraw()
+		if not await _wait_until(Callable(node, "is_ready")):
+			node.queue_free()
+			return {}
+		var result: Dictionary = node.get_result()
+		node.queue_free()
+		return result
+
 	var node = ClassDB.instantiate("VisualGasicDrawBenchmark")
 	if node == null:
 		push_error("Failed to instantiate VisualGasicDrawBenchmark")
