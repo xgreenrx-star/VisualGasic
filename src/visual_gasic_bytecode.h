@@ -289,6 +289,10 @@ enum OpCode {
     // CanvasItem draw builtins — dedicated opcodes bypass OP_CALL dispatch (perf)
     OP_DRAW_RECT,      // [OP] [ARG_COUNT] - Pop args, draw_rect on owner CanvasItem
     OP_DRAW_LINE,      // [OP] [ARG_COUNT] - Pop args, draw_line on owner CanvasItem
+    // Typed fast paths: stack = x,y (f64); operands = w f32 LE, h f32 LE, color const16, filled u8
+    OP_DRAW_RECT_F64,  // DrawRect x, y, const_w, const_h, const_color, const_filled
+    // Typed fast path: stack = x1,y1,x2,y2 (f64); operands = width f32 LE, color const16
+    OP_DRAW_LINE_F64,  // DrawLine x1, y1, x2, y2, const_color, const_width
 
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };

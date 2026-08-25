@@ -29,6 +29,7 @@
 #include <godot_cpp/variant/variant_internal.hpp>
 
 #include "visual_gasic_instance.h"
+#include "visual_gasic_vector_canvas.h"
 #include "visual_gasic_language.h"
 #include "visual_gasic_parser.h"
 #include "visual_gasic_builtins.h"
@@ -2199,6 +2200,41 @@ int VisualGasicInstance::classify_draw_kind(const String &p_method) const {
     return 0;
 }
 
+bool VisualGasicInstance::dispatch_draw_rect_f64(double p_x, double p_y, float p_w, float p_h, const Color &p_color, bool p_filled, bool &r_found) {
+    r_found = false;
+    CanvasItem *ci = get_draw_canvas_item();
+    if (!ci) {
+        return false;
+    }
+    Rect2 rect((real_t)p_x, (real_t)p_y, (real_t)p_w, (real_t)p_h);
+    if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+        vc->DrawRect(rect, 1.0f, p_color, p_filled, Color(0, 0, 0, 0));
+        r_found = true;
+        return true;
+    }
+    ci->draw_rect(rect, p_color, p_filled);
+    r_found = true;
+    return true;
+}
+
+bool VisualGasicInstance::dispatch_draw_line_f64(double p_x1, double p_y1, double p_x2, double p_y2, float p_width, const Color &p_color, bool &r_found) {
+    r_found = false;
+    CanvasItem *ci = get_draw_canvas_item();
+    if (!ci) {
+        return false;
+    }
+    Vector2 from((real_t)p_x1, (real_t)p_y1);
+    Vector2 to((real_t)p_x2, (real_t)p_y2);
+    if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+        vc->DrawLine(from, to, p_width, p_color);
+        r_found = true;
+        return true;
+    }
+    ci->draw_line(from, to, p_color, p_width);
+    r_found = true;
+    return true;
+}
+
 bool VisualGasicInstance::dispatch_draw_kind(int p_kind, const Variant *p_args, int p_arg_count, bool &r_found) {
     r_found = false;
     CanvasItem *ci = get_draw_canvas_item();
@@ -2210,12 +2246,21 @@ bool VisualGasicInstance::dispatch_draw_kind(int p_kind, const Variant *p_args, 
             if (p_arg_count >= 1 && p_args[0].get_type() == Variant::RECT2) {
                 Color col = (p_arg_count > 1) ? Color(p_args[1]) : Color(1, 1, 1, 1);
                 bool filled = (p_arg_count > 2) ? (bool)p_args[2] : true;
-                ci->draw_rect((Rect2)p_args[0], col, filled);
+                if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+                    vc->DrawRect((Rect2)p_args[0], 1.0f, col, filled, Color(0, 0, 0, 0));
+                } else {
+                    ci->draw_rect((Rect2)p_args[0], col, filled);
+                }
                 r_found = true;
             } else if (p_arg_count >= 4) {
                 Color col = (p_arg_count > 4) ? Color(p_args[4]) : Color(1, 1, 1, 1);
                 bool filled = (p_arg_count > 5) ? (bool)p_args[5] : true;
-                ci->draw_rect(Rect2((float)p_args[0], (float)p_args[1], (float)p_args[2], (float)p_args[3]), col, filled);
+                Rect2 rect((float)p_args[0], (float)p_args[1], (float)p_args[2], (float)p_args[3]);
+                if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+                    vc->DrawRect(rect, 1.0f, col, filled, Color(0, 0, 0, 0));
+                } else {
+                    ci->draw_rect(rect, col, filled);
+                }
                 r_found = true;
             }
         } break;
@@ -2223,12 +2268,22 @@ bool VisualGasicInstance::dispatch_draw_kind(int p_kind, const Variant *p_args, 
             if (p_arg_count >= 4 && p_args[0].get_type() != Variant::VECTOR2) {
                 Color col = (p_arg_count > 4) ? Color(p_args[4]) : Color(1, 1, 1, 1);
                 float width = (p_arg_count > 5) ? (float)p_args[5] : 1.0f;
-                ci->draw_line(Vector2((float)p_args[0], (float)p_args[1]), Vector2((float)p_args[2], (float)p_args[3]), col, width);
+                Vector2 from((float)p_args[0], (float)p_args[1]);
+                Vector2 to((float)p_args[2], (float)p_args[3]);
+                if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+                    vc->DrawLine(from, to, width, col);
+                } else {
+                    ci->draw_line(from, to, col, width);
+                }
                 r_found = true;
             } else if (p_arg_count >= 2 && p_args[0].get_type() == Variant::VECTOR2) {
                 Color col = (p_arg_count > 2) ? Color(p_args[2]) : Color(1, 1, 1, 1);
                 float width = (p_arg_count > 3) ? (float)p_args[3] : 1.0f;
-                ci->draw_line((Vector2)p_args[0], (Vector2)p_args[1], col, width);
+                if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+                    vc->DrawLine((Vector2)p_args[0], (Vector2)p_args[1], width, col);
+                } else {
+                    ci->draw_line((Vector2)p_args[0], (Vector2)p_args[1], col, width);
+                }
                 r_found = true;
             }
         } break;

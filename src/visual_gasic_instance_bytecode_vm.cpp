@@ -1539,6 +1539,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_HINT_PURE_CALL]    = &&vg_op_hint_pure;
         dispatch_table[OP_JUMP_TABLE]        = &&vg_op_jump_table;
         dispatch_table[OP_BYREF_LOAD]        = &&vg_op_byref_load;
+        dispatch_table[OP_DRAW_RECT]         = &&vg_op_draw_rect;
+        dispatch_table[OP_DRAW_LINE]         = &&vg_op_draw_line;
+        dispatch_table[OP_DRAW_RECT_F64]     = &&vg_op_draw_rect_f64;
+        dispatch_table[OP_DRAW_LINE_F64]     = &&vg_op_draw_line_f64;
         dispatch_table_init = true;
     }
 
@@ -3031,6 +3035,52 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     bool _draw_found = false;
                     dispatch_draw_kind(2, args_ptr, arg_count, _draw_found);
                 }
+                push_value(Variant());
+                break;
+            }
+            VG_CASE(vg_op_draw_rect_f64, OP_DRAW_RECT_F64): {
+                if (vm.ip + 10 >= code_size) { success = false; goto cleanup; }
+                union { float f; uint32_t u; } w_conv, h_conv;
+                w_conv.u = (uint32_t)code[vm.ip]
+                        | ((uint32_t)code[vm.ip + 1] << 8)
+                        | ((uint32_t)code[vm.ip + 2] << 16)
+                        | ((uint32_t)code[vm.ip + 3] << 24);
+                vm.ip += 4;
+                h_conv.u = (uint32_t)code[vm.ip]
+                        | ((uint32_t)code[vm.ip + 1] << 8)
+                        | ((uint32_t)code[vm.ip + 2] << 16)
+                        | ((uint32_t)code[vm.ip + 3] << 24);
+                vm.ip += 4;
+                int color_idx = read_const_index();
+                if (color_idx < 0 || color_idx >= chunk->constants.size()) { success = false; goto cleanup; }
+                uint8_t filled = code[vm.ip++];
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                Variant vy = pop_value();
+                Variant vx = pop_value();
+                bool _draw_found = false;
+                dispatch_draw_rect_f64((double)vx, (double)vy, w_conv.f, h_conv.f,
+                        (Color)chunk->constants[color_idx], filled != 0, _draw_found);
+                push_value(Variant());
+                break;
+            }
+            VG_CASE(vg_op_draw_line_f64, OP_DRAW_LINE_F64): {
+                if (vm.ip + 5 >= code_size) { success = false; goto cleanup; }
+                union { float f; uint32_t u; } width_conv;
+                width_conv.u = (uint32_t)code[vm.ip]
+                        | ((uint32_t)code[vm.ip + 1] << 8)
+                        | ((uint32_t)code[vm.ip + 2] << 16)
+                        | ((uint32_t)code[vm.ip + 3] << 24);
+                vm.ip += 4;
+                int color_idx = read_const_index();
+                if (color_idx < 0 || color_idx >= chunk->constants.size()) { success = false; goto cleanup; }
+                if (!ensure_stack(4)) { success = false; goto cleanup; }
+                Variant vy2 = pop_value();
+                Variant vx2 = pop_value();
+                Variant vy1 = pop_value();
+                Variant vx1 = pop_value();
+                bool _draw_found = false;
+                dispatch_draw_line_f64((double)vx1, (double)vy1, (double)vx2, (double)vy2,
+                        width_conv.f, (Color)chunk->constants[color_idx], _draw_found);
                 push_value(Variant());
                 break;
             }

@@ -73,10 +73,12 @@ private:
     // Forward GoTo jumps that need patching: label_name → list of jump offsets
     HashMap<String, Vector<int>> goto_forward_jumps;
     int temp_local_id = 0;
+    int _draw_invariant_color_slot = -1;
     SubDefinition* current_sub = nullptr;
     ModuleNode* current_module = nullptr;
 
     void emit_byte(uint8_t byte);
+    void emit_f32(float p_value);
     void emit_bytes(uint8_t byte1, uint8_t byte2);
     void emit_const_index(int idx);  // 2-byte LE constant pool index
     void emit_constant(const Variant& value);
@@ -119,6 +121,13 @@ private:
     bool is_nested_dict_keys_set_sum(ForStatement* outer, String &sum_var, String &dict_var, String &keys_var, String &iter_var) const;
     bool is_constant_expr(ExpressionNode* expr) const;
     Variant eval_constant_expr(ExpressionNode* expr) const;
+    bool try_constant_f64(ExpressionNode* expr, double &r_out) const;
+    bool try_constant_bool(ExpressionNode* expr, bool &r_out) const;
+    bool try_constant_color(ExpressionNode* expr, Color &r_out) const;
+    bool try_find_invariant_draw_color(const Vector<Statement*> &body, Variant &r_color) const;
+    bool try_emit_draw_rect_f64(const Vector<ExpressionNode*> &args);
+    bool try_emit_draw_line_f64(const Vector<ExpressionNode*> &args);
+    bool try_emit_draw_call(CallStatement *s, SubDefinition *target_func, bool discard_result);
     ValueType infer_type(ExpressionNode* expr) const;
 
     void compile_statement(Statement* stmt);

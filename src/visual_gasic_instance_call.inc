@@ -1794,6 +1794,9 @@ void VisualGasicInstance::notification(int32_t p_what) {
              } else if (script->_has_method("OnDraw")) {
                  call_internal("OnDraw", args, found);
              }
+             if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>(owner)) {
+                 vc->ExecuteQueuedCommands();
+             }
          }
     }
 }

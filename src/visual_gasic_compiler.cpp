@@ -183,6 +183,15 @@ void VisualGasicCompiler::emit_byte(uint8_t byte) {
     current_chunk->write(byte, current_line);
 }
 
+void VisualGasicCompiler::emit_f32(float p_value) {
+    union { float f; uint32_t u; } conv;
+    conv.f = p_value;
+    emit_byte((uint8_t)(conv.u & 0xff));
+    emit_byte((uint8_t)((conv.u >> 8) & 0xff));
+    emit_byte((uint8_t)((conv.u >> 16) & 0xff));
+    emit_byte((uint8_t)((conv.u >> 24) & 0xff));
+}
+
 void VisualGasicCompiler::emit_bytes(uint8_t byte1, uint8_t byte2) {
     emit_byte(byte1);
     emit_byte(byte2);
@@ -292,6 +301,15 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
 
 
     current_sub = sub;
+
+    if (module) {
+        for (int ci = 0; ci < module->constants.size(); ci++) {
+            ConstStatement *cs = module->constants[ci];
+            if (cs && cs->value && is_constant_expr(cs->value)) {
+                local_const_map[cs->name.to_lower()] = eval_constant_expr(cs->value);
+            }
+        }
+    }
 
     // ── Fast-call convention detection (v6.0) ──────────────────────────
     // A Sub/Function qualifies for the fast-param path when EVERY parameter is
@@ -3123,6 +3141,9 @@ bool VisualGasicCompiler::is_nested_dict_keys_set_sum(ForStatement* outer, Strin
 bool VisualGasicCompiler::is_constant_expr(ExpressionNode* expr) const {
     if (!expr) return false;
     if (expr->type == ExpressionNode::LITERAL) return true;
+    if (expr->type == ExpressionNode::VARIABLE) {
+        return local_const_map.has(((VariableNode*)expr)->name.to_lower());
+    }
     if (expr->type == ExpressionNode::UNARY_OP) {
         UnaryOpNode* u = (UnaryOpNode*)expr;
         return is_constant_expr(u->operand);
@@ -3131,6 +3152,27 @@ bool VisualGasicCompiler::is_constant_expr(ExpressionNode* expr) const {
         BinaryOpNode* b = (BinaryOpNode*)expr;
         return is_constant_expr(b->left) && is_constant_expr(b->right);
     }
+    if (expr->type == ExpressionNode::ARRAY_ACCESS) {
+        ArrayAccessNode* aa = (ArrayAccessNode*)expr;
+        if (!aa->base || aa->base->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        String name = ((VariableNode*)aa->base)->name.to_lower();
+        if (name == "cdbl" || name == "clng" || name == "cint" || name == "csng") {
+            return aa->indices.size() == 1 && is_constant_expr(aa->indices[0]);
+        }
+        if (name == "color") {
+            if (aa->indices.size() < 3) {
+                return false;
+            }
+            for (int i = 0; i < aa->indices.size(); i++) {
+                if (!is_constant_expr(aa->indices[i])) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
     return false;
 }
 
@@ -3138,6 +3180,37 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
     if (!expr) return Variant();
     if (expr->type == ExpressionNode::LITERAL) {
         return ((LiteralNode*)expr)->value;
+    }
+    if (expr->type == ExpressionNode::VARIABLE) {
+        String lower = ((VariableNode*)expr)->name.to_lower();
+        if (local_const_map.has(lower)) {
+            return local_const_map[lower];
+        }
+    }
+    if (expr->type == ExpressionNode::ARRAY_ACCESS) {
+        ArrayAccessNode* aa = (ArrayAccessNode*)expr;
+        if (aa->base && aa->base->type == ExpressionNode::VARIABLE) {
+            String name = ((VariableNode*)aa->base)->name.to_lower();
+            if (name == "cdbl" && aa->indices.size() == 1) {
+                return Variant((double)eval_constant_expr(aa->indices[0]));
+            }
+            if (name == "clng" && aa->indices.size() == 1) {
+                return Variant((int64_t)eval_constant_expr(aa->indices[0]));
+            }
+            if (name == "cint" && aa->indices.size() == 1) {
+                return Variant((int)eval_constant_expr(aa->indices[0]));
+            }
+            if (name == "csng" && aa->indices.size() == 1) {
+                return Variant((float)(double)eval_constant_expr(aa->indices[0]));
+            }
+            if (name == "color" && aa->indices.size() >= 3) {
+                double r = (double)eval_constant_expr(aa->indices[0]);
+                double g = (double)eval_constant_expr(aa->indices[1]);
+                double b = (double)eval_constant_expr(aa->indices[2]);
+                double a = aa->indices.size() > 3 ? (double)eval_constant_expr(aa->indices[3]) : 1.0;
+                return Variant(Color(r, g, b, a));
+            }
+        }
     }
     if (expr->type == ExpressionNode::UNARY_OP) {
         UnaryOpNode* u = (UnaryOpNode*)expr;
@@ -3236,6 +3309,173 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
         if (valid) return res;
     }
     return Variant();
+}
+
+bool VisualGasicCompiler::try_constant_f64(ExpressionNode* expr, double &r_out) const {
+    if (!is_constant_expr(expr)) {
+        return false;
+    }
+    Variant v = eval_constant_expr(expr);
+    r_out = (double)v;
+    return true;
+}
+
+bool VisualGasicCompiler::try_constant_bool(ExpressionNode* expr, bool &r_out) const {
+    if (!is_constant_expr(expr)) {
+        return false;
+    }
+    r_out = vg_variant_truthy(eval_constant_expr(expr));
+    return true;
+}
+
+bool VisualGasicCompiler::try_constant_color(ExpressionNode* expr, Color &r_out) const {
+    if (!is_constant_expr(expr)) {
+        return false;
+    }
+    Variant v = eval_constant_expr(expr);
+    if (v.get_type() != Variant::COLOR) {
+        return false;
+    }
+    r_out = v;
+    return true;
+}
+
+bool VisualGasicCompiler::try_find_invariant_draw_color(const Vector<Statement*> &body, Variant &r_color) const {
+    bool found = false;
+    Variant candidate;
+    for (int i = 0; i < body.size(); i++) {
+        Statement *stmt = body[i];
+        if (!stmt || stmt->type != STMT_CALL) {
+            continue;
+        }
+        CallStatement *cs = (CallStatement *)stmt;
+        if (cs->base_object) {
+            continue;
+        }
+        if (cs->method_name.nocasecmp_to("DrawRect") != 0 &&
+                cs->method_name.nocasecmp_to("DrawLine") != 0) {
+            continue;
+        }
+        if (cs->arguments.size() < 5) {
+            continue;
+        }
+        if (!is_constant_expr(cs->arguments[4])) {
+            continue;
+        }
+        Variant c = eval_constant_expr(cs->arguments[4]);
+        if (!found) {
+            candidate = c;
+            found = true;
+        } else if (candidate != c) {
+            return false;
+        }
+    }
+    if (found) {
+        r_color = candidate;
+    }
+    return found;
+}
+
+bool VisualGasicCompiler::try_emit_draw_rect_f64(const Vector<ExpressionNode*> &args) {
+    if (args.size() != 6) {
+        return false;
+    }
+    double w = 0.0;
+    double h = 0.0;
+    Color col;
+    bool filled = true;
+    if (!try_constant_f64(args[2], w)) {
+        return false;
+    }
+    if (!try_constant_f64(args[3], h)) {
+        return false;
+    }
+    if (!try_constant_color(args[4], col)) {
+        return false;
+    }
+    if (!try_constant_bool(args[5], filled)) {
+        return false;
+    }
+    compile_expression(args[0]);
+    compile_expression(args[1]);
+    int cidx = current_chunk->add_constant(col);
+    emit_byte(OP_DRAW_RECT_F64);
+    emit_f32((float)w);
+    emit_f32((float)h);
+    emit_const_index(cidx);
+    emit_byte(filled ? 1 : 0);
+    return true;
+}
+
+bool VisualGasicCompiler::try_emit_draw_line_f64(const Vector<ExpressionNode*> &args) {
+    if (args.size() != 6) {
+        return false;
+    }
+    Color col;
+    double width = 0.0;
+    if (!try_constant_color(args[4], col)) {
+        return false;
+    }
+    if (!try_constant_f64(args[5], width)) {
+        return false;
+    }
+    for (int i = 0; i < 4; i++) {
+        compile_expression(args[i]);
+    }
+    int cidx = current_chunk->add_constant(col);
+    emit_byte(OP_DRAW_LINE_F64);
+    emit_f32((float)width);
+    emit_const_index(cidx);
+    return true;
+}
+
+bool VisualGasicCompiler::try_emit_draw_call(CallStatement *s, SubDefinition *target_func, bool discard_result) {
+    if (!s || s->base_object || target_func) {
+        return false;
+    }
+    if (s->method_name.nocasecmp_to("DrawRect") == 0) {
+        if (try_emit_draw_rect_f64(s->arguments)) {
+            if (discard_result) {
+                emit_byte(OP_POP);
+            }
+            return true;
+        }
+        for (int i = 0; i < s->arguments.size(); i++) {
+            if (i == 4 && _draw_invariant_color_slot >= 0) {
+                emit_bytes(OP_GET_LOCAL, (uint8_t)_draw_invariant_color_slot);
+            } else {
+                compile_expression(s->arguments[i]);
+            }
+        }
+        emit_byte(OP_DRAW_RECT);
+        emit_byte((uint8_t)s->arguments.size());
+        if (discard_result) {
+            emit_byte(OP_POP);
+        }
+        return true;
+    }
+    if (s->method_name.nocasecmp_to("DrawLine") == 0) {
+        if (try_emit_draw_line_f64(s->arguments)) {
+            if (discard_result) {
+                emit_byte(OP_POP);
+            }
+            return true;
+        }
+        for (int i = 0; i < s->arguments.size(); i++) {
+            if (i == 4 && _draw_invariant_color_slot >= 0) {
+                emit_bytes(OP_GET_LOCAL, (uint8_t)_draw_invariant_color_slot);
+            } else {
+                compile_expression(s->arguments[i]);
+            }
+        }
+        emit_byte(OP_DRAW_LINE);
+        emit_byte((uint8_t)s->arguments.size());
+        if (discard_result) {
+            emit_byte(OP_POP);
+        }
+        return true;
+    }
+    return false;
 }
 
 VisualGasicCompiler::ValueType VisualGasicCompiler::infer_type(ExpressionNode* expr) const {
@@ -4332,20 +4572,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
             if (!compile_ok) break;
 
-            // Dedicated draw opcodes — skip OP_CALL/name lookup for hot _Draw loops.
-            if (!s->base_object && !target_func) {
-                int draw_op = 0;
-                if (s->method_name.nocasecmp_to("DrawRect") == 0) draw_op = OP_DRAW_RECT;
-                else if (s->method_name.nocasecmp_to("DrawLine") == 0) draw_op = OP_DRAW_LINE;
-                if (draw_op != 0) {
-                    for (int i = 0; i < s->arguments.size(); i++) {
-                        compile_expression(s->arguments[i]);
-                    }
-                    emit_byte((uint8_t)draw_op);
-                    emit_byte((uint8_t)s->arguments.size());
-                    emit_byte(OP_POP);
-                    break;
-                }
+            if (try_emit_draw_call(s, target_func, true)) {
+                emit_byref_writebacks(target_func, s->arguments);
+                break;
             }
             
             for (int i = 0; i < s->arguments.size(); i++) {
@@ -5048,6 +5277,17 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
 
             int loop_start = current_chunk->code.size();
 
+            _draw_invariant_color_slot = -1;
+            {
+                Variant invariant_draw_color;
+                if (try_find_invariant_draw_color(f->body, invariant_draw_color)) {
+                    _draw_invariant_color_slot = get_or_add_local(
+                            String("__vg_draw_color_") + String::num_int64(temp_local_id++), VT_UNKNOWN);
+                    emit_constant(invariant_draw_color);
+                    emit_bytes(OP_SET_LOCAL, (uint8_t)_draw_invariant_color_slot);
+                }
+            }
+
             if (var_slot >= 0) {
                 emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
             }
@@ -5243,6 +5483,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
             loop_vars.remove_at(loop_vars.size() - 1);
             loop_bound_vars.remove_at(loop_bound_vars.size() - 1);
+            _draw_invariant_color_slot = -1;
             break;
         }
         case STMT_WHILE: {
@@ -7320,6 +7561,19 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     };
                     for (int _gi = 0; _godot_type_ctors[_gi]; ++_gi) {
                         if (vn_lower == _godot_type_ctors[_gi]) {
+                            if (vn_lower == "color" && aa->indices.size() >= 3) {
+                                bool all_const = true;
+                                for (int i = 0; i < aa->indices.size(); i++) {
+                                    if (!is_constant_expr(aa->indices[i])) {
+                                        all_const = false;
+                                        break;
+                                    }
+                                }
+                                if (all_const) {
+                                    emit_constant(eval_constant_expr(aa));
+                                    goto _func_call_emitted;
+                                }
+                            }
                             for (int i = 0; i < aa->indices.size(); i++) {
                                 compile_expression(aa->indices[i]);
                             }
@@ -7377,8 +7631,18 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                                 }
                             }
                             if (!is_user_sub) {
+                                if (draw_op == OP_DRAW_RECT && try_emit_draw_rect_f64(aa->indices)) {
+                                    goto _func_call_emitted;
+                                }
+                                if (draw_op == OP_DRAW_LINE && try_emit_draw_line_f64(aa->indices)) {
+                                    goto _func_call_emitted;
+                                }
                                 for (int i = 0; i < aa->indices.size(); i++) {
-                                    compile_expression(aa->indices[i]);
+                                    if (i == 4 && _draw_invariant_color_slot >= 0) {
+                                        emit_bytes(OP_GET_LOCAL, (uint8_t)_draw_invariant_color_slot);
+                                    } else {
+                                        compile_expression(aa->indices[i]);
+                                    }
                                 }
                                 emit_byte((uint8_t)draw_op);
                                 emit_byte((uint8_t)aa->indices.size());

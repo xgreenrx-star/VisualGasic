@@ -162,6 +162,8 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_BYREF_LOAD);
         OP_NAME_CASE(OP_DRAW_RECT);
         OP_NAME_CASE(OP_DRAW_LINE);
+        OP_NAME_CASE(OP_DRAW_RECT_F64);
+        OP_NAME_CASE(OP_DRAW_LINE_F64);
 #undef OP_NAME_CASE
         default:
             return vformat("OP_UNKNOWN_%d", (int)op);
@@ -192,6 +194,10 @@ int opcode_operand_length(uint8_t op) {
         case OP_DRAW_RECT:
         case OP_DRAW_LINE:
             return 1;
+        case OP_DRAW_RECT_F64:
+            return 11;
+        case OP_DRAW_LINE_F64:
+            return 6;
         // 2-byte operand: single 16-bit constant pool index
         case OP_CONSTANT:
         case OP_CONSTANT_LONG:
@@ -350,6 +356,21 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
         case OP_DRAW_LINE:
             if (operands.size() >= 1) {
                 return vformat("argc=%d", int(operands[0]));
+            }
+            break;
+        case OP_DRAW_RECT_F64:
+            if (operands.size() >= 11) {
+                int cidx = (int(operands[8]) << 8) | int(operands[7]);
+                return vformat("w=%g, h=%g, %s, filled=%d",
+                        *(float *)&operands[0], *(float *)&operands[4],
+                        describe_constant(chunk, cidx), int(operands[10]));
+            }
+            break;
+        case OP_DRAW_LINE_F64:
+            if (operands.size() >= 6) {
+                int cidx = (int(operands[5]) << 8) | int(operands[4]);
+                return vformat("width=%g, %s",
+                        *(float *)&operands[0], describe_constant(chunk, cidx));
             }
             break;
         case OP_CALL_BUILTIN:

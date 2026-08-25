@@ -318,6 +318,8 @@ class VisualGasicInstance {
     bool try_dispatch_draw_call(const String &p_method, const Variant *p_args, int p_arg_count, bool &r_found);
     int classify_draw_kind(const String &p_method) const;
     bool dispatch_draw_kind(int p_kind, const Variant *p_args, int p_arg_count, bool &r_found);
+    bool dispatch_draw_rect_f64(double p_x, double p_y, float p_w, float p_h, const Color &p_color, bool p_filled, bool &r_found);
+    bool dispatch_draw_line_f64(double p_x1, double p_y1, double p_x2, double p_y2, float p_width, const Color &p_color, bool &r_found);
     CanvasItem *get_draw_canvas_item();
     Object *_draw_ci_owner_cache = nullptr;
     CanvasItem *_draw_ci_cache = nullptr;
