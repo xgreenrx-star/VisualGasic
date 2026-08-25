@@ -164,6 +164,12 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_DRAW_LINE);
         OP_NAME_CASE(OP_DRAW_RECT_F64);
         OP_NAME_CASE(OP_DRAW_LINE_F64);
+        OP_NAME_CASE(OP_DRAW_RECT_GRID_IDX);
+        OP_NAME_CASE(OP_DRAW_LINE_GRID_IDX);
+        OP_NAME_CASE(OP_DRAW_CIRCLE_GRID_IDX);
+        OP_NAME_CASE(OP_DRAW_TEXTURE_RECT_GRID_IDX);
+        OP_NAME_CASE(OP_DRAW_CIRCLE_F64);
+        OP_NAME_CASE(OP_DRAW_TEXTURE_RECT_F64);
 #undef OP_NAME_CASE
         default:
             return vformat("OP_UNKNOWN_%d", (int)op);
@@ -198,6 +204,18 @@ int opcode_operand_length(uint8_t op) {
             return 11;
         case OP_DRAW_LINE_F64:
             return 6;
+        case OP_DRAW_RECT_GRID_IDX:
+            return 19;
+        case OP_DRAW_LINE_GRID_IDX:
+            return 22;
+        case OP_DRAW_CIRCLE_GRID_IDX:
+            return 22;
+        case OP_DRAW_TEXTURE_RECT_GRID_IDX:
+            return 19;
+        case OP_DRAW_CIRCLE_F64:
+            return 6;
+        case OP_DRAW_TEXTURE_RECT_F64:
+            return 11;
         // 2-byte operand: single 16-bit constant pool index
         case OP_CONSTANT:
         case OP_CONSTANT_LONG:

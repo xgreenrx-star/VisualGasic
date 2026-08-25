@@ -320,9 +320,37 @@ class VisualGasicInstance {
     bool dispatch_draw_kind(int p_kind, const Variant *p_args, int p_arg_count, bool &r_found);
     bool dispatch_draw_rect_f64(double p_x, double p_y, float p_w, float p_h, const Color &p_color, bool p_filled, bool &r_found);
     bool dispatch_draw_line_f64(double p_x1, double p_y1, double p_x2, double p_y2, float p_width, const Color &p_color, bool &r_found);
+    bool dispatch_draw_circle_f64(double p_x, double p_y, float p_radius, const Color &p_color, bool &r_found);
+    bool dispatch_draw_texture_rect_f64(const Variant &p_texture, double p_x, double p_y, float p_w, float p_h, bool p_tile, bool &r_found);
+    void begin_draw_batch();
+    void end_draw_batch_flush();
     CanvasItem *get_draw_canvas_item();
     Object *_draw_ci_owner_cache = nullptr;
     CanvasItem *_draw_ci_cache = nullptr;
+    int _draw_batch_depth = 0;
+    struct VGDrawBatchRect {
+        float x = 0, y = 0, w = 0, h = 0;
+        Color color;
+        bool filled = true;
+    };
+    struct VGDrawBatchLine {
+        float x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+        Color color;
+        float width = 1.0f;
+    };
+    struct VGDrawBatchCircle {
+        float x = 0, y = 0, radius = 0;
+        Color color;
+    };
+    struct VGDrawBatchTexRect {
+        Ref<Texture2D> texture;
+        float x = 0, y = 0, w = 0, h = 0;
+        bool tile = false;
+    };
+    Vector<VGDrawBatchRect> _draw_batch_rects;
+    Vector<VGDrawBatchLine> _draw_batch_lines;
+    Vector<VGDrawBatchCircle> _draw_batch_circles;
+    Vector<VGDrawBatchTexRect> _draw_batch_tex_rects;
 
     // Retrieve a variable by name into r_ret. Returns true if found.
     bool get_variable(const String &p_name, Variant &r_ret);

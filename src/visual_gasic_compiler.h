@@ -79,6 +79,7 @@ private:
 
     void emit_byte(uint8_t byte);
     void emit_f32(float p_value);
+    void emit_i32(int32_t p_value);
     void emit_bytes(uint8_t byte1, uint8_t byte2);
     void emit_const_index(int idx);  // 2-byte LE constant pool index
     void emit_constant(const Variant& value);
@@ -127,7 +128,16 @@ private:
     bool try_find_invariant_draw_color(const Vector<Statement*> &body, Variant &r_color) const;
     bool try_emit_draw_rect_f64(const Vector<ExpressionNode*> &args);
     bool try_emit_draw_line_f64(const Vector<ExpressionNode*> &args);
+    bool try_emit_draw_circle_f64(const Vector<ExpressionNode*> &args);
+    bool try_emit_draw_texture_rect_f64(const Vector<ExpressionNode*> &args);
     bool try_emit_draw_call(CallStatement *s, SubDefinition *target_func, bool discard_result);
+    SubDefinition *find_sub_by_name(const String &p_name) const;
+    bool try_parse_grid_axis_sub(const String &p_name, bool p_want_x, int64_t &r_cols, int64_t &r_cell) const;
+    bool try_emit_grid_axis_inline(const String &p_func_name, const Vector<ExpressionNode*> &args, bool p_want_x);
+    bool try_compile_grid_draw_fusion(const Vector<Statement*> &stmts, int &io_i, const String &p_loop_var);
+    bool try_const_i64_from_expr(ExpressionNode *p_expr, int64_t &r_out) const;
+    bool is_grid_axis_assign(Statement *p_stmt, const String &p_axis_name, const String &p_loop_var,
+            String &r_x_var, String &r_y_var, bool p_want_x) const;
     ValueType infer_type(ExpressionNode* expr) const;
 
     void compile_statement(Statement* stmt);

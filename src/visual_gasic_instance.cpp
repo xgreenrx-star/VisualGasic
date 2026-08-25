@@ -2206,12 +2206,25 @@ bool VisualGasicInstance::dispatch_draw_rect_f64(double p_x, double p_y, float p
     if (!ci) {
         return false;
     }
-    Rect2 rect((real_t)p_x, (real_t)p_y, (real_t)p_w, (real_t)p_h);
     if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+        Rect2 rect((real_t)p_x, (real_t)p_y, (real_t)p_w, (real_t)p_h);
         vc->DrawRect(rect, 1.0f, p_color, p_filled, Color(0, 0, 0, 0));
         r_found = true;
         return true;
     }
+    if (_draw_batch_depth > 0) {
+        VGDrawBatchRect entry;
+        entry.x = (float)p_x;
+        entry.y = (float)p_y;
+        entry.w = p_w;
+        entry.h = p_h;
+        entry.color = p_color;
+        entry.filled = p_filled;
+        _draw_batch_rects.push_back(entry);
+        r_found = true;
+        return true;
+    }
+    Rect2 rect((real_t)p_x, (real_t)p_y, (real_t)p_w, (real_t)p_h);
     ci->draw_rect(rect, p_color, p_filled);
     r_found = true;
     return true;
@@ -2230,9 +2243,122 @@ bool VisualGasicInstance::dispatch_draw_line_f64(double p_x1, double p_y1, doubl
         r_found = true;
         return true;
     }
+    if (_draw_batch_depth > 0) {
+        VGDrawBatchLine entry;
+        entry.x1 = (float)p_x1;
+        entry.y1 = (float)p_y1;
+        entry.x2 = (float)p_x2;
+        entry.y2 = (float)p_y2;
+        entry.width = p_width;
+        entry.color = p_color;
+        _draw_batch_lines.push_back(entry);
+        r_found = true;
+        return true;
+    }
     ci->draw_line(from, to, p_color, p_width);
     r_found = true;
     return true;
+}
+
+bool VisualGasicInstance::dispatch_draw_circle_f64(double p_x, double p_y, float p_radius, const Color &p_color, bool &r_found) {
+    r_found = false;
+    CanvasItem *ci = get_draw_canvas_item();
+    if (!ci) {
+        return false;
+    }
+    if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+        vc->DrawCircle(Vector2((real_t)p_x, (real_t)p_y), p_radius, p_color);
+        r_found = true;
+        return true;
+    }
+    if (_draw_batch_depth > 0) {
+        VGDrawBatchCircle entry;
+        entry.x = (float)p_x;
+        entry.y = (float)p_y;
+        entry.radius = p_radius;
+        entry.color = p_color;
+        _draw_batch_circles.push_back(entry);
+        r_found = true;
+        return true;
+    }
+    ci->draw_circle(Vector2((real_t)p_x, (real_t)p_y), p_radius, p_color);
+    r_found = true;
+    return true;
+}
+
+bool VisualGasicInstance::dispatch_draw_texture_rect_f64(const Variant &p_texture, double p_x, double p_y, float p_w, float p_h, bool p_tile, bool &r_found) {
+    r_found = false;
+    CanvasItem *ci = get_draw_canvas_item();
+    if (!ci) {
+        return false;
+    }
+    Ref<Texture2D> tex = p_texture;
+    if (!tex.is_valid()) {
+        return false;
+    }
+    Rect2 rect((real_t)p_x, (real_t)p_y, (real_t)p_w, (real_t)p_h);
+    if (_draw_batch_depth > 0) {
+        VGDrawBatchTexRect entry;
+        entry.texture = tex;
+        entry.x = (float)p_x;
+        entry.y = (float)p_y;
+        entry.w = p_w;
+        entry.h = p_h;
+        entry.tile = p_tile;
+        _draw_batch_tex_rects.push_back(entry);
+        r_found = true;
+        return true;
+    }
+    ci->draw_texture_rect(tex, rect, p_tile);
+    r_found = true;
+    return true;
+}
+
+void VisualGasicInstance::begin_draw_batch() {
+    _draw_batch_depth++;
+}
+
+void VisualGasicInstance::end_draw_batch_flush() {
+    if (_draw_batch_depth <= 0) {
+        return;
+    }
+    _draw_batch_depth--;
+    if (_draw_batch_depth > 0) {
+        return;
+    }
+
+    CanvasItem *ci = get_draw_canvas_item();
+    if (!ci || Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+        _draw_batch_rects.clear();
+        _draw_batch_lines.clear();
+        _draw_batch_circles.clear();
+        _draw_batch_tex_rects.clear();
+        return;
+    }
+
+    for (int i = 0; i < _draw_batch_rects.size(); i++) {
+        const VGDrawBatchRect &r = _draw_batch_rects[i];
+        ci->draw_rect(Rect2(r.x, r.y, r.w, r.h), r.color, r.filled);
+    }
+    for (int i = 0; i < _draw_batch_lines.size(); i++) {
+        const VGDrawBatchLine &l = _draw_batch_lines[i];
+        ci->draw_line(Vector2(l.x1, l.y1), Vector2(l.x2, l.y2), l.color, l.width);
+    }
+    for (int i = 0; i < _draw_batch_circles.size(); i++) {
+        const VGDrawBatchCircle &c = _draw_batch_circles[i];
+        ci->draw_circle(Vector2(c.x, c.y), c.radius, c.color);
+    }
+    for (int i = 0; i < _draw_batch_tex_rects.size(); i++) {
+        const VGDrawBatchTexRect &t = _draw_batch_tex_rects[i];
+        if (t.texture.is_valid()) {
+            ci->draw_texture_rect(t.texture, Rect2(t.x, t.y, t.w, t.h), t.tile);
+        }
+    }
+
+    _draw_batch_rects.clear();
+    _draw_batch_lines.clear();
+    _draw_batch_circles.clear();
+    _draw_batch_tex_rects.clear();
 }
 
 bool VisualGasicInstance::dispatch_draw_kind(int p_kind, const Variant *p_args, int p_arg_count, bool &r_found) {

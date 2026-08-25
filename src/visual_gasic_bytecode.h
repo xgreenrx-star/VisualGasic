@@ -293,6 +293,14 @@ enum OpCode {
     OP_DRAW_RECT_F64,  // DrawRect x, y, const_w, const_h, const_color, const_filled
     // Typed fast path: stack = x1,y1,x2,y2 (f64); operands = width f32 LE, color const16
     OP_DRAW_LINE_F64,  // DrawLine x1, y1, x2, y2, const_color, const_width
+    // Grid-index fast paths: stack = i64 index; push x,y (f64) after draw for checksum locals
+    OP_DRAW_RECT_GRID_IDX,         // cols i32, cell i32, w f32, h f32, color const16, filled u8
+    OP_DRAW_LINE_GRID_IDX,         // cols i32, cell i32, x2_off f32, y2_off f32, width f32, color const16
+    OP_DRAW_CIRCLE_GRID_IDX,       // cols i32, cell i32, ox f32, oy f32, radius f32, color const16
+    OP_DRAW_TEXTURE_RECT_GRID_IDX, // tex global const16, cols i32, cell i32, w f32, h f32, tile u8
+    // Typed fast paths: stack = x,y (f64); constant tail in operand stream
+    OP_DRAW_CIRCLE_F64,            // radius f32, color const16
+    OP_DRAW_TEXTURE_RECT_F64,      // tex global const16, w f32, h f32, tile u8
 
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };

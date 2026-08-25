@@ -1789,11 +1789,13 @@ void VisualGasicInstance::notification(int32_t p_what) {
          if (script.is_valid()) {
              bool found;
              Array args;
+             begin_draw_batch();
              if (script->_has_method("_Draw")) {
                  call_internal("_Draw", args, found);
              } else if (script->_has_method("OnDraw")) {
                  call_internal("OnDraw", args, found);
              }
+             end_draw_batch_flush();
              if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>(owner)) {
                  vc->ExecuteQueuedCommands();
              }
