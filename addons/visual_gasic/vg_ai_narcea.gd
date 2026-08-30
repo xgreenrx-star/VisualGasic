@@ -365,6 +365,36 @@ The handler name is always: Sub <controlName>_<Event>()
        tmrGame  -> Sub tmrGame_Timer()
        txtInput -> Sub txtInput_Change()
 
+=== Beta showcase & vector canvas (5.4.0-beta1) ===
+Reference project (separate Godot project — open its project.godot directly):
+  projects/vg_beta_showcase/   README.md + ARCHITECTURE.md for full flow
+  F5 from tour_main.tscn — Backrooms hub → shader reel → About VG → Squash
+  tease → Neon Runner → Vector Storm → end card.  Space skips segments.
+
+VGVectorCanvas2D (procedural vector demos — no bitmap sprites):
+  Dim canvas As Variant = CreateNode(\"VGVectorCanvas2D\")
+  canvas.DrawRect(x, y, w, h, r, g, b, a)   ' or DrawPolyline, DrawPlasmaCells
+  canvas.ExecuteQueuedCommands()               ' flush after batching draws
+  See projects/demoscene_intro/demo.vg and projects/vg_beta_showcase/tour.vg.
+
+SubViewport / portal embed (multi-scene showcase director):
+  When a .vg script runs inside a portal SubViewport, do NOT ChangeScene —
+  that would break the outer hub.  Detect embed:
+    If GetViewport().GetClass() = \"SubViewport\" Then ...  ' stay in place
+  GDScript managers set meta vg_portal_embedded on the scene root; expose
+  set_showcase_frozen(bool) / reset_for_portal() for zoom-in lifecycle.
+  Pattern: projects/vg_beta_showcase/backrooms_transition_manager.gd +
+  ARCHITECTURE.md \"Portal embedding contract\".
+
+Movie Maker capture (frame-perfect promo video):
+  OS.has_feature(\"movie\") → movie_mode in GDScript directors; auto-advance
+  timed segments, hide skip hints, quit after end-card hold.
+  Record: scripts/record_vg_beta_showcase.sh  (--write-movie, 1280×720)
+
+Attract mode (playable demo in a showcase reel):
+  Global showcase_attract flag + timer; AI autopilot until player input;
+  loop or game-over exit for recording.  See storm.vg in vg_beta_showcase.
+
 === Useful idioms ===
   ' On-screen debug
   MsgBox \"value=\" & x
@@ -735,16 +765,17 @@ PATHS:
   * MoveAndSlide, Physics.Impulse, and Physics.Force belong in
     Sub _PhysicsProcess(delta) — NOT in Sub _Process(delta).  The physics
     engine runs at a fixed step and will jitter if driven from _Process.
-  * Plain Function/Sub CALLS have real overhead (confirmed benchmark: a
-    tight loop of 50,000 trivial calls is ~45-85x slower than the
-    equivalent GDScript).  Every other operation (arithmetic, string
-    concat, arrays/dicts) beats or ties GDScript — calls are the one
-    weak spot.  For CPU-emulator / tick-loop / per-pixel style code that
-    runs thousands of times per frame, prefer inlining small helpers
-    directly in the loop body (or using MemoryBuffer/Bit* builtins)
-    over calling a tiny Function per element/opcode/pixel.  Normal UI
-    and gameplay code (event handlers, a few calls per frame) is NOT
-    affected — only reserve this optimization for genuinely hot loops.
+  * Plain Function/Sub CALLS — 5.4.0-beta1 status (Aug 2026):
+    Published benchmarks: **12/12 compute + 9/9 draw** faster than GDScript
+    (see BENCHMARK_PUBLISHED_RESULTS.md).  Trivial helpers like
+    `Function Helper(x As Long) As Long` with body `Helper = x + 1` are
+    **inlined** at call sites; nested `For` loops with inner `s = Helper(s)`
+    may fuse to closed-form multiply-add.  Non-trivial multi-statement
+    helpers still use normal call overhead — inline only in genuinely hot
+    loops (emulator ticks, per-pixel grids).  UI/event-handler code with a
+    few calls per frame needs no special workaround.
+  * `CInt(x)` uses VB6-style rounding (`CInt(3.7)` → 4), not truncation.
+  * Bracket indexing `arr[i]` works alongside VB6 `arr(i)` — both valid.
 
 === VG runtime namespaces (2D / 3D game scripts) ===
 These work inside .vg scripts attached to Node2D / Node3D scenes.
@@ -1319,6 +1350,8 @@ const SLIM_KNOWLEDGE := """
   Variant arrays; QueueRedraw only when visuals change (not every _Process frame).
 - Large level/tile data: labeled DataFile \"path\" (.vgd binary or CSV); use DataCount,
   PeekData, DataBuffer — not megabytes of inline Data rows. User edits CSV/vgd in VG Grid Editor (Edit Grid… in Context Rail).
+- 5.4.0-beta1: 12/12 compute + 9/9 draw vs GDScript; trivial FunctionCall inlining.
+- Beta showcase tour: projects/vg_beta_showcase/ (Backrooms hub + .vg demos); see ARCHITECTURE.md.
 - Follow `.cursor/rules/visual-gasic-godot.mdc`. Search corpus/, demos/, tutorials/ for examples.
 - VG MCP tools (read_file, write_file, find_in_files) when Godot + plugin are running.
 """
