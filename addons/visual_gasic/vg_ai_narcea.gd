@@ -59,10 +59,10 @@ Event handlers auto-wire by name: Sub btnOK_Click(), Sub Timer1_Timer(),
 Sub Form_Load(), Sub Form_KeyDown(KeyCode As Integer, Shift As Integer).
 Manual wiring: Connect sourceNode, "signal_name", "HandlerName"
   (e.g. Connect GetTree.GetRoot, "files_dropped", "OnFilesDropped").
-  NOTE: there is no ConnectSignal, HasMember, PropertyGet, or ArrayLen
+  NOTE: there is no ConnectSignal, HasMember, PropertyGet, ArrayLen, or Pow()
   builtin — these are commonly hallucinated by LLMs. Use Connect(),
   IsArray()/UBound() (VB6-style, UBound returns highest index not count),
-  and direct dot-property access instead.
+  direct dot-property access, and base ^ exponent for power (NOT Pow()).
 
 === AGCK — Arcade Game Creation Kit ===
 Full 2D game kit: Actor Editor, Level Editor, Sound Editor, Shader Editor,
@@ -881,6 +881,7 @@ Classes go in their own .vg file with a Class header (NOT a flat module).
 
   ' Type conversions: CStr CInt CSng CDbl CBool CLng
   ' Math: Abs Sqr Int Fix Mod Sin Cos Tan Atan2 Log Exp
+  ' Power: base ^ exponent (e.g. 0.001 ^ (delta * 60.0), 2 ^ 10) — NO Pow() function.
   ' Clamp(v,lo,hi)  Lerp(a,b,t)  RandRange(min,max)  are VG built-ins.
 
 === File I/O ===
@@ -2157,6 +2158,8 @@ func decode_error(line: String) -> String:
 	if l.find("Stack overflow") != -1:
 		return "Infinite recursion \u2014 a Sub is calling itself with no base case."
 	# VisualGasic-specific --------------------------------------------------
+	if l.find("Pow") != -1 and (l.find("not defined") != -1 or l.find("not found") != -1):
+		return "VG has no Pow() function. Use the ^ operator: base ^ exponent (e.g. 0.001 ^ (delta * 60.0))."
 	if l.find("Sub") != -1 and l.find("not found") != -1:
 		return "Event handler missing. Add a Sub <ControlName>_<Event>() to the form module."
 	if l.find("Type mismatch") != -1:

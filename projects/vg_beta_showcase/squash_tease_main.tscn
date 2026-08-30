@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://vg_beta_showcase_squash"]
+
+[ext_resource type="Script" path="res://squash_tease.vg" id="1"]
+
+[node name="SquashTease" type="Node"]
+script = ExtResource("1")

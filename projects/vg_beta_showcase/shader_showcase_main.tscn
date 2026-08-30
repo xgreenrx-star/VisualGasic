@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://vg_beta_showcase_shader_showcase"]
+
+[ext_resource type="Script" path="res://shader_showcase_manager.gd" id="1"]
+
+[node name="ShaderShowcase" type="Node3D"]
+script = ExtResource("1")

@@ -904,6 +904,12 @@ func DrawVectorTextFlip(text: String, x_offset: float, base_y: float, time: floa
 		font_name: String = "") -> void:
 	pass  # implemented in C++ parent VGVectorCanvas2D
 
+# ── Tangent-aligned stroke text (border belts, orbit labels) ───────────────
+func DrawVectorTextPath(origin: Vector2, cw_angle: float, read_angle: float, text: String,
+		color: Color = Color(1, 1, 1, 1), scale: float = 1.0, width: float = 2.0,
+		spacing: float = 2.0, font_name: String = "") -> void:
+	pass  # implemented in C++ parent VGVectorCanvas2D
+
 # ── Batch draw helpers ─────────────────────────────────────────────────────
 func DrawLines(segments: PackedVector2Array, width: float = 2.0, color: Color = Color(1,1,1,1)) -> void:
 	pass  # implemented in C++ parent VGVectorCanvas2D
@@ -979,11 +985,11 @@ func _register_default_vector_font() -> void:
 		"Y": {"width": 10.0, "strokes": [[Vector2(0, 0), Vector2(4, 5), Vector2(8, 0)], [Vector2(4, 5), Vector2(4, 10)]]},
 		"Z": {"width": 10.0, "strokes": [[Vector2(0, 0), Vector2(8, 0), Vector2(0, 10), Vector2(8, 10)]]},
 		"0": {"width": 10.0, "strokes": [[Vector2(2, 0), Vector2(6, 0), Vector2(8, 2), Vector2(8, 8), Vector2(6, 10), Vector2(2, 10), Vector2(0, 8), Vector2(0, 2), Vector2(2, 0)]]},
-		"1": {"width": 10.0, "strokes": [[Vector2(4, 0), Vector2(4, 10)], [Vector2(2, 2), Vector2(4, 0), Vector2(6, 2)]]},
+		"1": {"width": 10.0, "strokes": [[Vector2(2, 3), Vector2(5, 0), Vector2(5, 10)], [Vector2(3, 10), Vector2(7, 10)]]},
 		"2": {"width": 10.0, "strokes": [[Vector2(0, 2), Vector2(2, 0), Vector2(6, 0), Vector2(8, 2), Vector2(8, 4), Vector2(0, 10), Vector2(8, 10)]]},
 		"3": {"width": 10.0, "strokes": [[Vector2(0, 0), Vector2(6, 0), Vector2(8, 2), Vector2(6, 4), Vector2(8, 6), Vector2(8, 8), Vector2(6, 10), Vector2(0, 10)]]},
 		"4": {"width": 10.0, "strokes": [[Vector2(0, 0), Vector2(0, 4), Vector2(8, 4)], [Vector2(8, 0), Vector2(8, 10)]]},
-		"5": {"width": 10.0, "strokes": [[Vector2(8, 0), Vector2(0, 0), Vector2(0, 4), Vector2(6, 4), Vector2(8, 6), Vector2(8, 10), Vector2(0, 10)]]},
+		"5": {"width": 10.0, "strokes": [[Vector2(0, 0), Vector2(8, 0)], [Vector2(0, 0), Vector2(0, 5), Vector2(8, 5), Vector2(4, 10), Vector2(0, 10)]]},
 		"6": {"width": 10.0, "strokes": [[Vector2(8, 0), Vector2(2, 0), Vector2(0, 2), Vector2(0, 8), Vector2(2, 10), Vector2(6, 10), Vector2(8, 8), Vector2(8, 6), Vector2(6, 4), Vector2(2, 4)]]},
 		"7": {"width": 10.0, "strokes": [[Vector2(0, 0), Vector2(8, 0), Vector2(4, 10)]]},
 		"8": {"width": 10.0, "strokes": [[Vector2(2, 0), Vector2(6, 0), Vector2(8, 2), Vector2(8, 4), Vector2(6, 6), Vector2(8, 8), Vector2(8, 10), Vector2(6, 10), Vector2(2, 10), Vector2(0, 8), Vector2(0, 6), Vector2(2, 4), Vector2(0, 2), Vector2(2, 0)]]},

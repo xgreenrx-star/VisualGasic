@@ -1,0 +1,685 @@
+' ============================================================================
+' VG Beta Showcase — Geometry Dash-style auto demo (30 seconds)
+' Neon grid shaders (dash_bg/dash_post) + vector obstacles. carrier_embedded guard on scene change.
+' ============================================================================
+
+Const SW As Single = 1280.0
+Const SH As Single = 720.0
+Const DemoDuration As Single = 30.0
+Const GroundY As Single = 580.0
+Const PlayerScreenX As Single = 320.0
+Const CubeSize As Single = 44.0
+Const Gravity As Single = 2100.0
+Const JumpVel As Single = -760.0
+Const Tau As Single = 6.28318530717959
+Const PhysSteps As Integer = 6
+
+Const ObsMax As Integer = 512
+Const LevelEndX As Single = 20500.0
+Const PartMax As Integer = 256
+Const BurstMax As Integer = 48
+
+Dim canvas_world As Object
+Dim canvas_fx As Object
+Dim canvas_ui As Object
+Dim bg_node As Object
+Dim post_node As Object
+
+Dim t As Single
+Dim scroll As Single
+Dim scroll_speed As Single
+Dim is_headless As Boolean
+Dim carrier_embedded As Boolean
+
+Dim player_mode As Integer
+Dim player_y As Single
+Dim player_vy As Single
+Dim player_rot As Single
+Dim on_ground As Boolean
+Dim was_on_ground As Boolean
+
+Dim obs_count As Integer
+Dim obs_x(ObsMax - 1) As Single
+Dim obs_y(ObsMax - 1) As Single
+Dim obs_w(ObsMax - 1) As Single
+Dim obs_h(ObsMax - 1) As Single
+Dim obs_kind(ObsMax - 1) As Integer
+Dim obs_base_y(ObsMax - 1) As Single
+Dim obs_motion(ObsMax - 1) As Integer
+Dim jump_at_scroll(ObsMax - 1) As Single
+Dim jump_done(ObsMax - 1) As Integer
+
+Dim part_count As Integer
+Dim part_x(PartMax - 1) As Single
+Dim part_y(PartMax - 1) As Single
+Dim part_vx(PartMax - 1) As Single
+Dim part_vy(PartMax - 1) As Single
+Dim part_life(PartMax - 1) As Single
+Dim part_hue(PartMax - 1) As Single
+
+Dim burst_count As Integer
+Dim burst_x(BurstMax - 1) As Single
+Dim burst_y(BurstMax - 1) As Single
+Dim burst_life(BurstMax - 1) As Single
+Dim burst_scale(BurstMax - 1) As Single
+
+Dim shake As Single
+Dim shake_phase As Single
+Dim beat_pulse As Single
+Dim flash_t As Single
+Dim invuln_t As Single
+Dim trail_t As Single
+Dim deaths As Integer
+Dim orbs_collected As Integer
+Dim near_misses As Integer
+
+Const GapTopY As Single = 160.0
+Const GapBotY As Single = 500.0
+Const GapCenterY As Single = 330.0
+
+Function _Frac(ByVal x As Single) As Single
+	_Frac = x - Int(x)
+	If _Frac < 0.0 Then _Frac = _Frac + 1.0
+End Function
+
+Function _ScrollSpeedAt(ByVal sec As Single) As Single
+	_ScrollSpeedAt = 360.0 + sec * 18.0
+End Function
+
+Function _JumpLead(ByVal spd As Single) As Single
+	' Time-accurate lead: ~0.46s before obstacle at player line.
+	_JumpLead = spd * 0.46 + 72.0
+	If _JumpLead > 340.0 Then _JumpLead = 340.0
+End Function
+
+Sub _Ready()
+	is_headless = DisplayServer.get_name() = "headless"
+	carrier_embedded = (GetViewport().GetClass() = "SubViewport")
+	Set bg_node = GetNode("Bg")
+	Set post_node = GetNode("PostFX/Chromatic")
+	Set canvas_world = CreateNode("VGVectorCanvas2D")
+	Set canvas_fx = CreateNode("VGVectorCanvas2D")
+	Set canvas_ui = CreateNode("VGVectorCanvas2D")
+	AddChild(canvas_world)
+	AddChild(canvas_fx)
+	AddChild(canvas_ui)
+	canvas_fx.SetAdditiveBlend(True)
+
+	t = 0.0
+	scroll = 0.0
+	scroll_speed = 360.0
+	player_mode = 0
+	player_y = GroundY - CubeSize
+	player_vy = 0.0
+	player_rot = 0.0
+	on_ground = True
+	was_on_ground = True
+	shake = 0.0
+	shake_phase = 0.0
+	beat_pulse = 0.0
+	flash_t = 0.0
+	invuln_t = 0.0
+	trail_t = 0.0
+	deaths = 0
+	orbs_collected = 0
+	near_misses = 0
+	part_count = 0
+	burst_count = 0
+
+	Call _BuildLevel()
+	Set_Process(True)
+End Sub
+
+Sub _BuildLevel()
+	obs_count = 0
+	Dim wx As Single = 820.0
+	Dim seg As Integer = 0
+
+	Do While wx < LevelEndX And obs_count < ObsMax - 6
+		If wx < 4300.0 Then
+			Call _AppendCubeChunk(wx, seg)
+			wx = wx + 238.0 + (seg Mod 3) * 12.0
+		ElseIf wx < 9900.0 Then
+			Call _AppendShipChunk(wx, seg)
+			wx = wx + 112.0
+		ElseIf wx < 14300.0 Then
+			Call _AppendCubeChunk(wx, seg)
+			wx = wx + 228.0 + (seg Mod 4) * 14.0
+		Else
+			Call _AppendShipChunk(wx, seg)
+			wx = wx + 102.0
+		End If
+		seg = seg + 1
+	Loop
+End Sub
+
+Sub _AppendCubeChunk(ByVal wx As Single, ByVal seg As Integer)
+	' GD-style cadence: singles, occasional doubles, one orb reward.
+	Dim pat As Integer = seg Mod 6
+	If pat = 0 Or pat = 1 Then
+		Call _AddObs(wx, GroundY - 36.0, 36.0, 36.0, 1, 0, True)
+	ElseIf pat = 2 Then
+		Call _AddObs(wx, GroundY - 52.0, 48.0, 52.0, 0, 0, True)
+	ElseIf pat = 3 Then
+		Call _AddObs(wx, GroundY - 36.0, 36.0, 36.0, 1, 0, True)
+		Call _AddObs(wx + 52.0, GroundY - 36.0, 36.0, 36.0, 1, 0, False)
+	ElseIf pat = 4 Then
+		Call _AddObs(wx, GroundY - 44.0, 44.0, 44.0, 0, 0, True)
+	Else
+		Call _AddObs(wx, GroundY - 36.0, 36.0, 36.0, 1, 0, True)
+		If seg Mod 2 = 0 Then Call _AddObs(wx + 40.0, GroundY - 108.0, 28.0, 28.0, 3, 0, False)
+	End If
+End Sub
+
+Sub _AppendShipChunk(ByVal wx As Single, ByVal seg As Integer)
+	Dim gap_shift As Single = Sin(seg * 1.1 + wx * 0.0006) * 28.0
+	Call _AddObs(wx, 0.0, 52.0, GapTopY + gap_shift, 2, 1, False)
+	Call _AddObs(wx, GapBotY + gap_shift, 52.0, GroundY - GapBotY - gap_shift + 20.0, 4, 1, False)
+	Call _AddObs(wx + 22.0, GapCenterY + gap_shift - 14.0, 28.0, 28.0, 5, 2, False)
+	If seg Mod 3 = 1 Then Call _AddObs(wx + 36.0, GapCenterY + gap_shift + 22.0, 24.0, 24.0, 5, 2, False)
+End Sub
+
+Sub _AddObs(ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal h As Single, ByVal kind As Integer, ByVal motion As Integer, ByVal needs_jump As Boolean)
+	If obs_count >= ObsMax Then Exit Sub
+	obs_x(obs_count) = x
+	obs_base_y(obs_count) = y
+	obs_y(obs_count) = y
+	obs_w(obs_count) = w
+	obs_h(obs_count) = h
+	obs_kind(obs_count) = kind
+	obs_motion(obs_count) = motion
+	jump_done(obs_count) = 0
+	If needs_jump Then
+		Dim est_t As Single = (x - PlayerScreenX) / 420.0
+		If est_t < 0.0 Then est_t = 0.0
+		Dim est_spd As Single = _ScrollSpeedAt(est_t)
+		jump_at_scroll(obs_count) = x - _JumpLead(est_spd)
+	Else
+		jump_at_scroll(obs_count) = -1.0
+	End If
+	obs_count = obs_count + 1
+End Sub
+
+Sub _UpdateObstacleMotion()
+	Dim i As Integer
+	For i = 0 To obs_count - 1
+		If obs_motion(i) = 0 Then
+			obs_y(i) = obs_base_y(i)
+		ElseIf obs_motion(i) = 1 Then
+			obs_y(i) = obs_base_y(i) + Sin(t * 1.8 + obs_x(i) * 0.0028) * 32.0
+		ElseIf obs_motion(i) = 2 Then
+			obs_y(i) = obs_base_y(i) + Sin(t * 4.2 + obs_x(i) * 0.006) * 58.0
+		End If
+	Next
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	t = t + delta
+	beat_pulse = 0.5 + 0.5 * Sin(t * 8.5)
+	scroll_speed = _ScrollSpeedAt(t)
+	scroll = scroll + scroll_speed * delta
+	shake_phase = shake_phase + delta * 38.0
+	trail_t = trail_t + delta
+
+	If invuln_t > 0.0 Then invuln_t = invuln_t - delta
+	If flash_t > 0.0 Then flash_t = flash_t - delta
+	If shake > 0.0 Then shake = shake - delta * 4.5
+	If shake < 0.0 Then shake = 0.0
+
+	Call _UpdateMode(delta)
+	Call _UpdateObstacleMotion()
+	Call _TryScheduledJumps()
+	Call _UpdatePlayerPhysics(delta)
+	Call _UpdateParticles(delta)
+	Call _UpdateBursts(delta)
+
+	If Not bg_node Is Nothing Then
+		bg_node.material.set_shader_parameter("scroll", scroll)
+		bg_node.material.set_shader_parameter("pulse", beat_pulse)
+	End If
+	If Not post_node Is Nothing Then
+		Dim post_pulse As Single = beat_pulse * 0.35 + flash_t * 2.5
+		post_node.material.set_shader_parameter("pulse", post_pulse)
+		post_node.material.set_shader_parameter("strength", 0.0025 + flash_t * 0.012)
+	End If
+
+	Call _DrawFrame()
+
+	If t >= DemoDuration Then
+		If is_headless Then
+			GetTree().Quit()
+		ElseIf Not carrier_embedded Then
+			Call ChangeScene("res://storm_main.tscn")
+		End If
+	End If
+End Sub
+
+Sub _UpdateMode(ByVal delta As Single)
+	If t >= 9.0 And t < 9.05 And player_mode <> 1 Then
+		player_mode = 1
+		player_y = GapCenterY - CubeSize * 0.35
+		player_vy = 0.0
+		flash_t = 0.35
+		Call _SpawnBurst(PlayerScreenX, player_y, 1.8)
+		Call _SpawnParticles(PlayerScreenX, player_y, 48, _Frac(t * 0.1))
+	End If
+	If t >= 18.0 And t < 18.05 And player_mode <> 0 Then
+		player_mode = 0
+		player_y = GroundY - CubeSize
+		player_vy = 0.0
+		on_ground = True
+		player_rot = 0.0
+		flash_t = 0.35
+		Call _SpawnBurst(PlayerScreenX, player_y, 1.5)
+		Call _SpawnParticles(PlayerScreenX, player_y, 40, _Frac(t * 0.2))
+	End If
+	If t >= 24.0 And t < 24.05 And player_mode <> 1 Then
+		player_mode = 1
+		flash_t = 0.3
+		Call _SpawnBurst(PlayerScreenX, player_y, 1.6)
+	End If
+End Sub
+
+Sub _TryScheduledJumps()
+	If player_mode <> 0 Or Not on_ground Then Exit Sub
+	Dim i As Integer
+	For i = 0 To obs_count - 1
+		If jump_at_scroll(i) >= 0.0 And jump_done(i) = 0 Then
+			If scroll >= jump_at_scroll(i) Then
+				Call _DoJump()
+				jump_done(i) = 1
+				Exit Sub
+			End If
+		End If
+	Next
+End Sub
+
+Sub _DoJump()
+	player_vy = JumpVel
+	on_ground = False
+	Call _SpawnBurst(PlayerScreenX, player_y + CubeSize * 0.85, 0.85)
+	Call _SpawnParticles(PlayerScreenX, player_y + CubeSize, 22, _Frac(t * 0.17))
+	Call _SpawnParticles(PlayerScreenX - 18.0, GroundY, 10, 0.55)
+	flash_t = 0.08
+	Call _AddShake(2.5)
+End Sub
+
+Sub _UpdatePlayerPhysics(ByVal delta As Single)
+	Dim step As Single = delta / CSng(PhysSteps)
+	Dim s As Integer
+	was_on_ground = on_ground
+
+	If player_mode = 0 Then
+		For s = 0 To PhysSteps - 1
+			player_vy = player_vy + Gravity * step
+			Dim next_y As Single = player_y + player_vy * step
+			If next_y >= GroundY - CubeSize Then
+				next_y = GroundY - CubeSize
+				player_vy = 0.0
+				on_ground = True
+			Else
+				on_ground = False
+			End If
+			player_y = next_y
+			If Not on_ground Then
+				player_rot = player_rot + step * 380.0
+			End If
+			Call _CheckCollisionsOnce()
+		Next
+		If on_ground Then
+			player_rot = 0.0
+			If Not was_on_ground Then
+				Call _SpawnBurst(PlayerScreenX, player_y + CubeSize, 0.55)
+				Call _SpawnParticles(PlayerScreenX, player_y + CubeSize, 12, 0.08)
+			End If
+		End If
+	Else
+		Dim ship_h As Single = CubeSize * 0.65
+		Dim target As Single = _ShipGapCenter() - ship_h * 0.5
+		Dim smooth As Single = 1.0 - 0.001 ^ (delta * 60.0)
+		player_y = player_y + (target - player_y) * smooth
+		player_rot = Sin(t * 10.0) * 18.0
+		For s = 0 To PhysSteps - 1
+			Call _CheckCollisionsOnce()
+		Next
+	End If
+
+	If trail_t >= 0.028 Then
+		trail_t = 0.0
+		Call _SpawnTrail()
+	End If
+End Sub
+
+Sub _SpawnTrail()
+	If part_count >= PartMax Then Exit Sub
+	Dim hue As Single = _Frac(t * 0.14)
+	part_x(part_count) = PlayerScreenX - 8.0 - Rnd() * 10.0
+	part_y(part_count) = player_y + CubeSize * 0.5 + (Rnd() - 0.5) * 12.0
+	part_vx(part_count) = -scroll_speed * 0.15 - Rnd() * 40.0
+	part_vy(part_count) = (Rnd() - 0.5) * 30.0
+	part_life(part_count) = 0.22 + Rnd() * 0.18
+	part_hue(part_count) = hue
+	part_count = part_count + 1
+End Sub
+
+Function _ShipGapCenter() As Single
+	Dim i As Integer
+	Dim j As Integer
+	Dim best_d As Single = 300.0
+	Dim best_y As Single = GapCenterY
+	For i = 0 To obs_count - 1
+		If obs_kind(i) = 2 Then
+			Dim dx As Single = obs_x(i) - scroll
+			If dx > 30.0 And dx < best_d Then
+				Dim top_bot As Single = obs_y(i) + obs_h(i)
+				Dim bot_top As Single = GapBotY
+				For j = 0 To obs_count - 1
+					If obs_kind(j) = 4 And Abs(obs_x(j) - obs_x(i)) < 4.0 Then
+						bot_top = obs_y(j)
+					End If
+				Next
+				best_d = dx
+				best_y = (top_bot + bot_top) * 0.5
+			End If
+		End If
+	Next
+	_ShipGapCenter = best_y
+End Function
+
+Sub _CheckCollisionsOnce()
+	If invuln_t > 0.0 Then Exit Sub
+	Dim i As Integer
+	For i = 0 To obs_count - 1
+		If obs_kind(i) < 0 Then GoTo NextObs
+		Dim sx As Single = obs_x(i) - scroll + PlayerScreenX
+		If sx < -140.0 Or sx > SW + 140.0 Then GoTo NextObs
+
+		If obs_kind(i) = 2 Or obs_kind(i) = 4 Or obs_kind(i) = 5 Then
+			If player_mode <> 1 Then GoTo NextObs
+		ElseIf obs_kind(i) = 0 Or obs_kind(i) = 1 Then
+			If player_mode <> 0 Then GoTo NextObs
+		End If
+
+		If obs_kind(i) = 3 Then
+			If Abs(sx + obs_w(i) * 0.5 - PlayerScreenX) < 34.0 And Abs(player_y + CubeSize * 0.5 - (obs_y(i) + obs_h(i) * 0.5)) < 36.0 Then
+				orbs_collected = orbs_collected + 1
+				Call _SpawnBurst(sx + obs_w(i) * 0.5, obs_y(i) + obs_h(i) * 0.5, 1.1)
+				Call _SpawnParticles(sx + obs_w(i) * 0.5, obs_y(i) + obs_h(i) * 0.5, 36, _Frac(i * 0.17 + t * 0.1))
+				flash_t = 0.15
+				obs_kind(i) = -1
+			End If
+		Else
+			Dim pw As Single = CubeSize * 0.72
+			Dim ph As Single = CubeSize * 0.92
+			Dim px As Single = PlayerScreenX - pw * 0.5
+			Dim py As Single = player_y + CubeSize - ph
+			If player_mode = 1 Then
+				pw = CubeSize * 0.7
+				ph = CubeSize * 0.5
+				px = PlayerScreenX - pw * 0.35
+				py = player_y + CubeSize * 0.15
+			End If
+			Dim shrink As Single = 4.0
+			If _AabbHit(px + shrink, py + shrink, pw - shrink * 2.0, ph - shrink * 2.0, sx, obs_y(i), obs_w(i), obs_h(i)) Then
+				Call _OnDeath()
+			ElseIf player_mode = 0 And (obs_kind(i) = 0 Or obs_kind(i) = 1) Then
+				Dim gap As Single = sx - (px + pw)
+				If gap > -6.0 And gap < 28.0 And Abs(player_y + CubeSize - (obs_y(i))) < 18.0 Then
+					near_misses = near_misses + 1
+					Call _SpawnParticles(PlayerScreenX + 20.0, player_y + CubeSize * 0.6, 6, _Frac(t * 0.3))
+				End If
+			End If
+		End If
+NextObs:
+	Next
+End Sub
+
+Sub _OnDeath()
+	Call _SpawnBurst(PlayerScreenX, player_y + CubeSize * 0.5, 2.2)
+	Call _SpawnParticles(PlayerScreenX, player_y + CubeSize * 0.5, 64, _Frac(t * 0.3))
+	Call _SpawnParticles(PlayerScreenX, player_y + CubeSize * 0.5, 32, _Frac(t * 0.3 + 0.5))
+	Call _AddShake(14.0)
+	flash_t = 0.45
+	deaths = deaths + 1
+	invuln_t = 1.0
+	If player_mode = 0 Then
+		player_y = GroundY - CubeSize
+		player_vy = 0.0
+		on_ground = True
+		player_rot = 0.0
+	Else
+		player_y = _ShipGapCenter() - CubeSize * 0.35
+	End If
+End Sub
+
+Function _AabbHit(ByVal ax As Single, ByVal ay As Single, ByVal aw As Single, ByVal ah As Single, ByVal bx As Single, ByVal by As Single, ByVal bw As Single, ByVal bh As Single) As Boolean
+	_AabbHit = ax < bx + bw And ax + aw > bx And ay < by + bh And ay + ah > by
+End Function
+
+Sub _SpawnParticles(ByVal x As Single, ByVal y As Single, ByVal n As Integer, ByVal hue As Single)
+	Dim i As Integer
+	For i = 0 To n - 1
+		If part_count >= PartMax Then Exit Sub
+		Dim ang As Single = Rnd() * Tau
+		Dim spd As Single = 100.0 + Rnd() * 520.0
+		part_x(part_count) = x
+		part_y(part_count) = y
+		part_vx(part_count) = Cos(ang) * spd - scroll_speed * 0.08
+		part_vy(part_count) = Sin(ang) * spd
+		part_life(part_count) = 0.3 + Rnd() * 0.55
+		part_hue(part_count) = _Frac(hue + Rnd() * 0.35)
+		part_count = part_count + 1
+	Next
+End Sub
+
+Sub _SpawnBurst(ByVal x As Single, ByVal y As Single, ByVal sc As Single)
+	If burst_count >= BurstMax Then Exit Sub
+	burst_x(burst_count) = x
+	burst_y(burst_count) = y
+	burst_life(burst_count) = 0.62
+	burst_scale(burst_count) = sc
+	burst_count = burst_count + 1
+End Sub
+
+Sub _UpdateParticles(ByVal delta As Single)
+	Dim i As Integer
+	For i = 0 To part_count - 1
+		If part_life(i) > 0.0 Then
+			part_x(i) = part_x(i) + part_vx(i) * delta
+			part_y(i) = part_y(i) + part_vy(i) * delta
+			part_vy(i) = part_vy(i) + 880.0 * delta
+			part_life(i) = part_life(i) - delta
+		End If
+	Next
+End Sub
+
+Sub _UpdateBursts(ByVal delta As Single)
+	Dim i As Integer
+	For i = 0 To burst_count - 1
+		If burst_life(i) > 0.0 Then burst_life(i) = burst_life(i) - delta
+	Next
+End Sub
+
+Sub _AddShake(ByVal mag As Single)
+	If mag > shake Then shake = mag
+End Sub
+
+Sub _DrawFrame()
+	Dim ox As Single = Sin(shake_phase) * shake * 0.35
+	Dim oy As Single = Cos(shake_phase * 1.37) * shake * 0.35
+	canvas_world.Clear()
+	canvas_fx.Clear()
+	canvas_ui.Clear()
+
+	Call canvas_world.BeginGroup("Ground")
+	Call canvas_world.DrawRect(Rect2(-ox, GroundY - oy, SW, SH - GroundY), 0, Color(0, 0, 0, 0), True, Color(0.08, 0.02, 0.14, 0.95))
+	Call canvas_world.DrawPolylinePacked(Array(Vector2(0 - ox, GroundY - oy), Vector2(SW - ox, GroundY - oy)), 4.0, Color(0.2, 0.95, 1.0, 0.9), True)
+	Call canvas_world.EndGroup()
+
+	Call _DrawObstacles(canvas_world, ox, oy)
+	Call _DrawPlayer(canvas_world, ox, oy)
+	Call _DrawParticles(canvas_fx, ox, oy)
+	Call _DrawBursts(canvas_fx, ox, oy)
+	Call _DrawFlash(canvas_fx)
+	Call _DrawHud(canvas_ui)
+End Sub
+
+Sub _DrawObstacles(ByVal cv As Object, ByVal ox As Single, ByVal oy As Single)
+	Dim i As Integer
+	Call cv.BeginGroup("Obs")
+	For i = 0 To obs_count - 1
+		If obs_kind(i) < 0 Then GoTo NextDraw
+		Dim sx As Single = obs_x(i) - scroll + PlayerScreenX - ox
+		If sx < -160.0 Or sx > SW + 160.0 Then GoTo NextDraw
+		Dim hue As Single = _Frac(i * 0.11 + t * 0.07)
+		Dim cr As Single
+		Dim cg As Single
+		Dim cb As Single
+		Call _HsvToRgb(hue, 0.9, 1.0, cr, cg, cb)
+		If obs_kind(i) = 0 Then
+			Call cv.DrawRect(Rect2(sx, obs_y(i) - oy, obs_w(i), obs_h(i)), 3.0, Color(cr, cg, cb, 1.0), True, Color(cr * 0.35, cg * 0.35, cb * 0.35, 0.9))
+			Call cv.DrawRect(Rect2(sx + 3, obs_y(i) + 3 - oy, obs_w(i) - 6, obs_h(i) - 6), 0, Color(0, 0, 0, 0), True, Color(cr * 1.2, cg * 1.2, cb * 1.2, 0.25))
+		ElseIf obs_kind(i) = 1 Then
+			Dim tri(2) As Vector2
+			tri(0) = Vector2(sx, obs_y(i) + obs_h(i) - oy)
+			tri(1) = Vector2(sx + obs_w(i) * 0.5, obs_y(i) - oy)
+			tri(2) = Vector2(sx + obs_w(i), obs_y(i) + obs_h(i) - oy)
+			Call cv.DrawPolylinePacked(tri, 3.0, Color(1.0, 0.25, 0.55, 1.0), True)
+			Call cv.DrawRect(Rect2(sx + 4, obs_y(i) + obs_h(i) * 0.35 - oy, obs_w(i) - 8, obs_h(i) * 0.65), 0, Color(0, 0, 0, 0), True, Color(1.0, 0.2, 0.5, 0.85))
+		ElseIf obs_kind(i) = 3 Then
+			Dim orb_pulse As Single = 0.65 + Sin(t * 14.0 + obs_x(i) * 0.02) * 0.35
+			Call cv.DrawCircle(Vector2(sx + obs_w(i) * 0.5, obs_y(i) + obs_h(i) * 0.5 - oy), obs_w(i) * (0.5 + orb_pulse * 0.15), Color(1.0, 0.95, 0.2, 0.25), False, Color(1.0, 0.85, 0.1, 0.95))
+		ElseIf obs_kind(i) = 2 Then
+			Call cv.DrawRect(Rect2(sx, obs_y(i) - oy, obs_w(i), obs_h(i)), 3.0, Color(0.3, 0.7, 1.0, 1.0), True, Color(0.05, 0.15, 0.35, 0.92))
+		ElseIf obs_kind(i) = 4 Then
+			Call cv.DrawRect(Rect2(sx, obs_y(i) - oy, obs_w(i), obs_h(i)), 3.0, Color(1.0, 0.35, 0.75, 1.0), True, Color(0.25, 0.05, 0.18, 0.92))
+		ElseIf obs_kind(i) = 5 Then
+			Dim spin As Single = t * 7.0 + obs_x(i) * 0.01
+			Dim cx As Single = sx + obs_w(i) * 0.5
+			Dim cy As Single = obs_y(i) + obs_h(i) * 0.5 - oy
+			Dim r As Single = obs_w(i) * 0.55
+			Call cv.DrawCircle(Vector2(cx, cy), r, Color(1.0, 0.2, 0.45, 0.4), False, Color(1.0, 0.85, 0.2, 0.95))
+			Dim blade(3) As Vector2
+			blade(0) = Vector2(cx + Cos(spin) * r, cy + Sin(spin) * r)
+			blade(1) = Vector2(cx + Cos(spin + Tau * 0.5) * r, cy + Sin(spin + Tau * 0.5) * r)
+			blade(2) = Vector2(cx + Cos(spin + Tau * 0.25) * r * 0.3, cy + Sin(spin + Tau * 0.25) * r * 0.3)
+			blade(3) = blade(0)
+			Call cv.DrawPolylinePacked(blade, 2.5, Color(1.0, 0.95, 0.4, 0.9), True)
+		End If
+NextDraw:
+	Next
+	Call cv.EndGroup()
+End Sub
+
+Sub _DrawPlayer(ByVal cv As Object, ByVal ox As Single, ByVal oy As Single)
+	Dim px As Single = PlayerScreenX - ox
+	Dim py As Single = player_y - oy
+	Dim cr As Single
+	Dim cg As Single
+	Dim cb As Single
+	Call _HsvToRgb(_Frac(t * 0.15), 0.85, 1.0, cr, cg, cb)
+	Dim blink As Single = 1.0
+	If invuln_t > 0.0 Then blink = 0.35 + Abs(Sin(t * 28.0)) * 0.65
+	Call cv.BeginGroup("Player")
+	If player_mode = 0 Then
+		Call cv.DrawRect(Rect2(px - 6, py + CubeSize * 0.2, 14, 8), 0, Color(0, 0, 0, 0), True, Color(0.3, 1.0, 1.0, 0.35 * blink))
+		Call cv.DrawRect(Rect2(px, py, CubeSize, CubeSize), 3.0, Color(1, 1, 1, blink), True, Color(cr, cg, cb, blink))
+		Dim eye As Single = CubeSize * 0.22
+		Call cv.DrawRect(Rect2(px + CubeSize * 0.55, py + CubeSize * 0.28, eye, eye), 0, Color(0, 0, 0, 0), True, Color(1, 1, 1, 0.95 * blink))
+	Else
+		Dim ship_h As Single = CubeSize * 0.65
+		Dim ship_w As Single = CubeSize * 1.05
+		Call cv.DrawRect(Rect2(px - 4, py + ship_h * 0.35, 10, 6), 0, Color(0, 0, 0, 0), True, Color(1.0, 0.5, 0.2, 0.5 * blink))
+		Dim ship(3) As Vector2
+		ship(0) = Vector2(px + ship_w * 0.5, py)
+		ship(1) = Vector2(px + ship_w, py + ship_h * 0.55)
+		ship(2) = Vector2(px + ship_w * 0.5, py + ship_h * 0.35)
+		ship(3) = Vector2(px, py + ship_h * 0.55)
+		Call cv.DrawPolylinePacked(ship, 3.0, Color(0.4, 1.0, 1.0, blink), True)
+		Call cv.DrawRect(Rect2(px + ship_w * 0.2, py + ship_h * 0.22, ship_w * 0.6, ship_h * 0.38), 0, Color(0, 0, 0, 0), True, Color(cr, cg, cb, 0.9 * blink))
+	End If
+	Call cv.EndGroup()
+End Sub
+
+Sub _DrawParticles(ByVal cv As Object, ByVal ox As Single, ByVal oy As Single)
+	Dim i As Integer
+	Call cv.BeginGroup("Parts")
+	For i = 0 To part_count - 1
+		If part_life(i) > 0.0 Then
+			Dim cr As Single
+			Dim cg As Single
+			Dim cb As Single
+			Call _HsvToRgb(part_hue(i), 1.0, 1.0, cr, cg, cb)
+			Dim a As Single = part_life(i) / 0.55
+			If a > 1.0 Then a = 1.0
+			Dim sz As Single = 3.0 + (1.0 - a) * 14.0
+			Call cv.DrawRect(Rect2(part_x(i) - ox - sz * 0.5, part_y(i) - oy - sz * 0.5, sz, sz), 0, Color(0, 0, 0, 0), True, Color(cr, cg, cb, a))
+		End If
+	Next
+	Call cv.EndGroup()
+End Sub
+
+Sub _DrawBursts(ByVal cv As Object, ByVal ox As Single, ByVal oy As Single)
+	Dim i As Integer
+	Call cv.BeginGroup("Bursts")
+	For i = 0 To burst_count - 1
+		If burst_life(i) > 0.0 Then
+			Dim prog As Single = 1.0 - burst_life(i) / 0.62
+			Dim r As Single = (30.0 + prog * 200.0) * burst_scale(i)
+			Dim a As Single = (1.0 - prog) * 0.9
+			Call cv.DrawCircle(Vector2(burst_x(i) - ox, burst_y(i) - oy), r, Color(1.0, 0.4, 0.9, a * 0.3), False, Color(1.0, 0.9, 0.3, a))
+			Call cv.DrawCircle(Vector2(burst_x(i) - ox, burst_y(i) - oy), r * 0.55, Color(0.2, 0.9, 1.0, a * 0.45), False, Color(1.0, 1.0, 1.0, a * 0.65))
+			Call cv.DrawCircle(Vector2(burst_x(i) - ox, burst_y(i) - oy), r * 0.22, Color(1.0, 1.0, 1.0, a * 0.75), False, Color(1.0, 1.0, 1.0, a))
+		End If
+	Next
+	Call cv.EndGroup()
+End Sub
+
+Sub _DrawFlash(ByVal cv As Object)
+	If flash_t <= 0.0 Then Exit Sub
+	Dim a As Single = flash_t * 1.8
+	If a > 0.55 Then a = 0.55
+	Call cv.BeginGroup("Flash")
+	Call cv.DrawRect(Rect2(0, 0, SW, SH), 0, Color(0, 0, 0, 0), True, Color(0.85, 0.95, 1.0, a))
+	Call cv.EndGroup()
+End Sub
+
+Sub _DrawHud(ByVal cv As Object)
+	Dim remain As Single = DemoDuration - t
+	If remain < 0.0 Then remain = 0.0
+	Call cv.BeginGroup("HUD")
+	Call cv.DrawVectorText(Vector2(16, 22), "NEON RUNNER", Color(0.3, 1.0, 1.0, 0.95), 1.6, 1.4, "left", 2.0, "")
+	Call cv.DrawVectorText(Vector2(16, 48), Str(Int(remain + 0.5)) & "S  SCROLL " & Str(Int(scroll_speed)), Color(1, 1, 1, 0.75), 1.2, 1.0, "left", 1.6, "")
+	If player_mode = 1 Then
+		Call cv.DrawVectorTextCentered(Vector2(SW * 0.5, 56), "SHIP MODE", Color(1.0, 0.5, 1.0, 0.85), 1.8, 1.6, 2.2, "")
+	Else
+		Call cv.DrawVectorTextCentered(Vector2(SW * 0.5, 56), "CUBE MODE", Color(0.4, 1.0, 1.0, 0.75), 1.6, 1.4, 2.0, "")
+	End If
+	Call cv.DrawVectorTextCentered(Vector2(SW * 0.5, SH - 36), "SPACE SKIP TO VECTOR STORM", Color(1, 0.85, 0.3, 0.7), 1.3, 1.1, 1.8, "")
+	Call cv.EndGroup()
+End Sub
+
+Sub _HsvToRgb(ByVal h As Single, ByVal s As Single, ByVal v As Single, ByRef r As Single, ByRef g As Single, ByRef b As Single)
+	Dim i As Integer = Int(h * 6.0)
+	Dim f As Single = h * 6.0 - i
+	Dim p As Single = v * (1.0 - s)
+	Dim q As Single = v * (1.0 - f * s)
+	Dim t2 As Single = v * (1.0 - (1.0 - f) * s)
+	Select Case i Mod 6
+		Case 0 : r = v : g = t2 : b = p
+		Case 1 : r = q : g = v : b = p
+		Case 2 : r = p : g = v : b = t2
+		Case 3 : r = p : g = q : b = v
+		Case 4 : r = t2 : g = p : b = v
+		Case Else : r = v : g = p : b = q
+	End Select
+End Sub
+
+Sub _UnhandledInput(ByVal Event As Object)
+	If Event Is InputEventKey Then
+		If Event.Pressed And Event.Keycode = KEY_ESCAPE Then GetTree().Quit()
+		If Event.Pressed And (Event.Keycode = KEY_SPACE Or Event.Keycode = KEY_ENTER) Then
+			If Not carrier_embedded Then Call ChangeScene("res://storm_main.tscn")
+		End If
+	End If
+End Sub

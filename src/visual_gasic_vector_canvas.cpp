@@ -135,6 +135,10 @@ void VGVectorCanvas2D::_bind_methods() {
 			&VGVectorCanvas2D::DrawVectorTextFlip,
 			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f), DEFVAL(2.0f),
 			DEFVAL(52.0f), DEFVAL(0.9f), DEFVAL(0.38f), DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("DrawVectorTextPath",
+			"origin", "cw_angle", "read_angle", "text", "color", "scale", "width", "spacing", "font_name"),
+			&VGVectorCanvas2D::DrawVectorTextPath,
+			DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f), DEFVAL(2.0f), DEFVAL(2.0f), DEFVAL(""));
 	ClassDB::bind_method(D_METHOD("RegisterVectorFont", "name", "glyphs", "make_default"),
 			&VGVectorCanvas2D::RegisterVectorFont, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("SetVectorFont", "name"), &VGVectorCanvas2D::SetVectorFont);
@@ -798,8 +802,13 @@ void VGVectorCanvas2D::_draw_polygon_command(const Dictionary &cmd) {
 }
 
 void VGVectorCanvas2D::_draw_polyline_command(const Dictionary &cmd) {
-	Transform2D t = (Transform2D)cmd["transform"];
-	PackedVector2Array points = _transform_points_packed((PackedVector2Array)cmd["points"], t);
+	PackedVector2Array points;
+	if (cmd.has("absolute") && (bool)cmd["absolute"]) {
+		points = (PackedVector2Array)cmd["points"];
+	} else {
+		Transform2D t = (Transform2D)cmd["transform"];
+		points = _transform_points_packed((PackedVector2Array)cmd["points"], t);
+	}
 	bool fill = (bool)cmd["fill"];
 	float width = (float)cmd["width"];
 	bool close = (bool)cmd["close"];
@@ -1310,6 +1319,10 @@ void VGVectorCanvas2D::Clear() {
 	_group_stack.clear();
 	_frame_line_ord.clear();
 	_pending_redraw = false;
+	// Reset transform stack — DrawVectorText bakes absolute coords; a stale
+	// Scale/Rotate on the stack mirrors all subsequent vector text strokes.
+	_transform_stack.clear();
+	_transform_stack.append(Transform2D());
 	// Re-attach runtime-placed commands so they survive Clear/Draw cycles.
 	for (int i = 0; i < _runtime_commands.size(); ++i) {
 		Dictionary rc = _runtime_commands[i];
@@ -1495,8 +1508,8 @@ void VGVectorCanvas2D::_ensure_default_vector_font() {
 		STROKE_APPEND(__strokes, V2(2, 0), V2(6, 0), V2(8, 2), V2(8, 8), V2(6, 10), V2(2, 10), V2(0, 8), V2(0, 2), V2(2, 0))
 	);
 	GLYPH(font, "1", 10.0,
-		STROKE_APPEND(__strokes, V2(4, 0), V2(4, 10))
-		STROKE_APPEND(__strokes, V2(2, 2), V2(4, 0), V2(6, 2))
+		STROKE_APPEND(__strokes, V2(2, 3), V2(5, 0), V2(5, 10))
+		STROKE_APPEND(__strokes, V2(3, 10), V2(7, 10))
 	);
 	GLYPH(font, "2", 10.0,
 		STROKE_APPEND(__strokes, V2(0, 2), V2(2, 0), V2(6, 0), V2(8, 2), V2(8, 4), V2(0, 10), V2(8, 10))
@@ -1509,7 +1522,8 @@ void VGVectorCanvas2D::_ensure_default_vector_font() {
 		STROKE_APPEND(__strokes, V2(8, 0), V2(8, 10))
 	);
 	GLYPH(font, "5", 10.0,
-		STROKE_APPEND(__strokes, V2(8, 0), V2(0, 0), V2(0, 4), V2(6, 4), V2(8, 6), V2(8, 10), V2(0, 10))
+		STROKE_APPEND(__strokes, V2(0, 0), V2(8, 0))
+		STROKE_APPEND(__strokes, V2(0, 0), V2(0, 5), V2(8, 5), V2(4, 10), V2(0, 10))
 	);
 	GLYPH(font, "6", 10.0,
 		STROKE_APPEND(__strokes, V2(8, 0), V2(2, 0), V2(0, 2), V2(0, 8), V2(2, 10), V2(6, 10), V2(8, 8), V2(8, 6), V2(6, 4), V2(2, 4))
@@ -1638,6 +1652,24 @@ Dictionary VGVectorCanvas2D::_get_vector_font(const String &name) {
 	return _vector_fonts.get("default", Dictionary());
 }
 
+// Queue polyline in absolute canvas coordinates (identity transform).
+void VGVectorCanvas2D::_queue_polyline_absolute(const PackedVector2Array &points, float width, const Color &color) {
+	if (points.size() < 2) {
+		return;
+	}
+	Dictionary c;
+	c["type"] = (int)CMD_POLYLINE;
+	c["points"] = points;
+	c["width"] = width;
+	c["color"] = color;
+	c["fill"] = false;
+	c["fill_color"] = Color(1, 1, 1, 0);
+	c["close"] = false;
+	c["absolute"] = true;
+	c["transform"] = Transform2D();
+	_queue_command(c);
+}
+
 void VGVectorCanvas2D::DrawVectorText(const Vector2 &position, const String &text, const Color &color, float scale, float width, const String &align, float spacing, const String &font_name) {
 	String upper_text = text.to_upper();
 	Dictionary font_map = _get_vector_font(font_name);
@@ -1686,14 +1718,7 @@ void VGVectorCanvas2D::DrawVectorText(const Vector2 &position, const String &tex
 						(real_t)((double)op.y * (double)scale));
 			}
 			if (pts.size() > 1) {
-				// Push directly through DrawPolyline → _queue_command so tweaks
-				// still apply to vector-rendered text strokes.
-				Array as_array;
-				as_array.resize(pts.size());
-				for (int i = 0; i < pts.size(); ++i) {
-					as_array[i] = pts[i];
-				}
-				DrawPolyline(as_array, width, color, false, Color(1, 1, 1, 0), false);
+				_queue_polyline_absolute(pts, width, color);
 			}
 		}
 		x_offset += (double)((real_t)g["width"]) * (double)scale + (double)spacing;
@@ -1780,7 +1805,7 @@ void VGVectorCanvas2D::DrawVectorTextHelix(const String &text, float cx, float c
 		for (int si = 0; si < strokes.size(); ++si) {
 			Array stroke = strokes[si];
 			if (stroke.size() < 2) continue;
-			Array pts_array;
+			PackedVector2Array pts_packed;
 			for (int pi = 0; pi < stroke.size(); ++pi) {
 				Vector2 op = (Vector2)stroke[pi];
 				// Local glyph space: x along baseline (centred), y up into normal
@@ -1789,9 +1814,9 @@ void VGVectorCanvas2D::DrawVectorTextHelix(const String &text, float cx, float c
 				// Transform into world space using tangent/normal basis
 				float wx = px + tan_x * lx + nor_x * ly;
 				float wy = py + tan_y * lx + nor_y * ly;
-				pts_array.append(Vector2(wx, wy));
+				pts_packed.append(Vector2(wx, wy));
 			}
-			DrawPolyline(pts_array, width * persp, char_color, false, Color(1, 1, 1, 0), false);
+			_queue_polyline_absolute(pts_packed, width * persp, char_color);
 		}
 	}
 }
@@ -1823,10 +1848,15 @@ void VGVectorCanvas2D::DrawVectorTextWave(const String &text, float x_offset, fl
 		}
 		float gw = (float)(real_t)g["width"];
 
-		// Wave: Y displacement + slight scale foreshortening
+		// Wave: Y displacement, tangent rotation, gentle foreshortening
 		float phase = x_cur * wave_freq + time * wave_speed;
 		float dy = ::sinf(phase) * amplitude;
-		float char_scale = scale * (1.0f + 0.18f * ::cosf(phase));
+		float angle = ::atanf(::cosf(phase) * wave_freq * amplitude);
+		float char_scale = scale * (1.0f + 0.05f * ::cosf(phase));
+		float cos_a = ::cosf(angle);
+		float sin_a = ::sinf(angle);
+		float cx = x_cur + gw * char_scale * 0.5f;
+		float cy = base_y + dy;
 
 		// Hue cycling
 		Color char_color = color;
@@ -1842,15 +1872,17 @@ void VGVectorCanvas2D::DrawVectorTextWave(const String &text, float x_offset, fl
 		for (int si = 0; si < strokes.size(); ++si) {
 			Array stroke = strokes[si];
 			if (stroke.size() < 2) continue;
-			Array pts_array;
+			PackedVector2Array pts_packed;
 			for (int pi = 0; pi < stroke.size(); ++pi) {
 				Vector2 op = (Vector2)stroke[pi];
-				pts_array.append(Vector2(
-					x_cur + op.x * char_scale,
-					base_y + dy + op.y * char_scale
+				float lx = op.x * char_scale - gw * char_scale * 0.5f;
+				float ly = op.y * char_scale;
+				pts_packed.append(Vector2(
+					cx + lx * cos_a - ly * sin_a,
+					cy + lx * sin_a + ly * cos_a
 				));
 			}
-			DrawPolyline(pts_array, width, char_color, false, Color(1, 1, 1, 0), false);
+			_queue_polyline_absolute(pts_packed, width, char_color);
 		}
 		x_cur += gw * char_scale + spacing;
 	}
@@ -1908,7 +1940,7 @@ void VGVectorCanvas2D::DrawVectorTextFlip(const String &text, float x_offset, fl
 		for (int si = 0; si < strokes.size(); ++si) {
 			Array stroke = strokes[si];
 			if (stroke.size() < 2) continue;
-			Array pts_array;
+			PackedVector2Array pts_packed;
 			for (int pi = 0; pi < stroke.size(); ++pi) {
 				Vector2 op = (Vector2)stroke[pi];
 				float local_x = op.x * scale;
@@ -1917,9 +1949,57 @@ void VGVectorCanvas2D::DrawVectorTextFlip(const String &text, float x_offset, fl
 				float sx = char_cx + (local_x - glyph_center_lx);
 				// Y: squish around vertical centre — creates head-over-heels spin
 				float sy = base_y + glyph_cy + (local_y - glyph_cy) * y_squish;
-				pts_array.append(Vector2(sx, sy));
+				pts_packed.append(Vector2(sx, sy));
 			}
-			DrawPolyline(pts_array, width * (0.5f + abs_sq * 0.5f), char_color, false, Color(1, 1, 1, 0), false);
+			_queue_polyline_absolute(pts_packed, width * (0.5f + abs_sq * 0.5f), char_color);
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// DrawVectorTextPath — border belt. read_angle = baseline (LTR on screen);
+// cw_angle = path tangent used for inward hang (right-side-up on all edges).
+// ---------------------------------------------------------------------------
+void VGVectorCanvas2D::DrawVectorTextPath(const Vector2 &origin, float cw_angle, float read_angle, const String &text,
+		const Color &color, float scale, float width, float spacing, const String &font_name) {
+	_ensure_default_vector_font();
+	String upper_text = text.to_upper();
+	Dictionary font_map = _get_vector_font(font_name);
+	int n = upper_text.length();
+	float lay_x = ::cosf(read_angle);
+	float lay_y = ::sinf(read_angle);
+	float in_x = -::sinf(cw_angle);
+	float in_y = ::cosf(cw_angle);
+	float x_along = 0.0f;
+
+	for (int gi = 0; gi < n; ++gi) {
+		String ch = upper_text.substr(gi, 1);
+		Variant g_v = font_map.get(ch, Variant());
+		Dictionary g;
+		if (g_v.get_type() == Variant::DICTIONARY) {
+			g = (Dictionary)g_v;
+		} else {
+			g["width"] = (real_t)8.0;
+			g["strokes"] = Array();
+		}
+		float gw = (float)(real_t)g["width"] * scale;
+		Array strokes = g["strokes"];
+		for (int si = 0; si < strokes.size(); ++si) {
+			Array stroke = strokes[si];
+			if (stroke.size() < 2) {
+				continue;
+			}
+			PackedVector2Array pts_packed;
+			for (int pi = 0; pi < stroke.size(); ++pi) {
+				Vector2 op = (Vector2)stroke[pi];
+				float lx = x_along + op.x * scale;
+				float ly = op.y * scale;
+				float wx = origin.x + lay_x * lx + in_x * ly;
+				float wy = origin.y + lay_y * lx + in_y * ly;
+				pts_packed.append(Vector2(wx, wy));
+			}
+			_queue_polyline_absolute(pts_packed, width, color);
+		}
+		x_along += gw + spacing;
 	}
 }

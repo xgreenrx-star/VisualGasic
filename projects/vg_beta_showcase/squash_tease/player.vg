@@ -1,0 +1,196 @@
+' ============================================================================
+' PLAYER - Squash the Creeps 3D (VisualGasic Conversion)
+' Converted from the official Godot demo: godotengine/godot-demo-projects
+' ============================================================================
+' Demonstrates VisualGasic driving a Godot CharacterBody3D in 3D space with:
+'   - _PhysicsProcess for frame-rate-independent 3D physics
+'   - SetVelocity(Me, vx, vy, vz) for 3-component velocity
+'   - MoveAndSlide / IsOnFloor builtins
+'   - Slide collision iteration for stomp detection
+'   - Signal emission (RaiseEvent) for player death
+' ============================================================================
+' Original GDScript: extends CharacterBody3D
+' This script attaches to a CharacterBody3D node in player.tscn
+' ============================================================================
+Attribute VB_Name = "Player"
+
+' --- Custom signals ---
+' Emitted when the player is hit by a mob from the side.
+' Connected in main.tscn to Main._on_player_hit
+Event hit()
+
+' --- Movement constants ---
+Const SPEED As Integer = 14
+Const JUMP_IMPULSE As Integer = 20
+Const BOUNCE_IMPULSE As Integer = 16
+Const FALL_ACCELERATION As Integer = 75
+
+' --- Node references (set in _Ready via GetNode) ---
+Dim animPlayer As Object            ' AnimationPlayer - bounce animation
+Dim pivot As Object                 ' Node3D - rotates to face movement direction
+
+' --- Velocity components ---
+Dim vx As Single
+Dim vy As Single
+Dim vz As Single
+
+' --- State ---
+Dim dead As Boolean                 ' True after die() — skip further processing
+Dim score As Integer                ' Running stomp score
+Dim autopilot As Boolean            ' Showcase tease: scripted movement
+Dim ap_timer As Single
+Dim ap_jump_cd As Single
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    animPlayer = GetNode("AnimationPlayer")
+    pivot = GetNode("Pivot")
+    autopilot = True
+    ap_timer = 0.0
+    ap_jump_cd = 0.15
+End Sub
+
+' ============================================================================
+' PHYSICS - Movement, Jumping, Stomp Detection
+' ============================================================================
+Sub _PhysicsProcess(delta As Single)
+    ' --- Guard: skip if already dead ---
+    If dead Then Exit Sub
+
+    ' --- Save floor state BEFORE this frame's movement ---
+    ' Stomp detection is only allowed when the player was airborne.
+    ' This prevents ground-level capsule-vs-box normals from auto-squashing.
+    Dim wasOnFloor As Boolean
+    wasOnFloor = IsOnFloor(Me)
+
+    ' --- Input Direction (WASD / Arrow Keys) or showcase autopilot ---
+    Dim dirX As Single
+    Dim dirZ As Single
+    If autopilot Then
+        ap_timer = ap_timer + delta
+        dirX = Sin(ap_timer * 1.35) * 0.75 + Sin(ap_timer * 0.41) * 0.25
+        dirZ = Cos(ap_timer * 0.92) * 0.75 + Cos(ap_timer * 0.27) * 0.25
+        Dim alen As Single
+        alen = Sqr(dirX * dirX + dirZ * dirZ)
+        If alen > 0.001 Then
+            dirX = dirX / alen
+            dirZ = dirZ / alen
+        End If
+        ap_jump_cd = ap_jump_cd - delta
+    Else
+        dirX = GetAxis("move_left", "move_right")
+        dirZ = GetAxis("move_forward", "move_back")
+    End If
+
+    ' --- Normalize diagonal movement ---
+    Dim length As Single
+    length = Sqr(dirX * dirX + dirZ * dirZ)
+    If length > 0 Then
+        dirX = dirX / length
+        dirZ = dirZ / length
+        ' Face movement direction using Pivot LookAt
+        Dim targetX As Single
+        Dim targetZ As Single
+        targetX = Me.position.x + dirX
+        targetZ = Me.position.z + dirZ
+        Dim lookTarget As Object
+        lookTarget = Vector3(targetX, Me.position.y, targetZ)
+        Dim upVec As Object
+        upVec = Vector3(0, 1, 0)
+        pivot.LookAt(lookTarget, upVec)
+        ' Speed up animation when moving
+        animPlayer.set("speed_scale", 4)
+    Else
+        animPlayer.set("speed_scale", 1)
+    End If
+
+    ' --- Set horizontal velocity ---
+    vx = dirX * SPEED
+    vz = dirZ * SPEED
+
+    ' --- Jumping ---
+    If IsOnFloor(Me) Then
+        If autopilot And ap_jump_cd <= 0.0 Then
+            vy = JUMP_IMPULSE
+            ap_jump_cd = 0.58 + Rnd() * 0.12
+        ElseIf Not autopilot And IsActionJustPressed("jump") Then
+            vy = JUMP_IMPULSE
+        End If
+    End If
+
+    ' --- Gravity ---
+    vy = vy - FALL_ACCELERATION * delta
+
+    ' --- Move ---
+    SetVelocity(Me, vx, vy, vz)
+    MoveAndSlide(Me)
+
+    ' --- Read back Y velocity after collision response ---
+    vy = Me.velocity.y
+
+    ' --- Stomp Detection: Iterate slide collisions ---
+    ' Only check when the player was airborne (not standing on ground).
+    ' Ground-level capsule-vs-box collisions produce upward normals
+    ' that would falsely trigger stomps every frame.
+    If Not wasOnFloor Then
+        Dim collisionCount As Integer
+        collisionCount = GetCollisionCount(Me)
+        Dim i As Integer
+        For i = 0 To collisionCount - 1
+            Dim collision As Object
+            collision = Me.get_slide_collision(i)
+            If Not (collision Is Nothing) Then
+                Dim collider As Object
+                collider = collision.get_collider()
+                If Not (collider Is Nothing) Then
+                    If collider.is_in_group("mob") Then
+                        Dim normal As Object
+                        normal = collision.get_normal()
+                        ' Landing from above — normal points up
+                        If normal.y > 0.1 Then
+                            ' Squash the mob
+                            collider.squash()
+                            ' Bounce
+                            vy = BOUNCE_IMPULSE
+                            SetVelocity(Me, vx, vy, vz)
+                            ' Update score directly on the label
+                            score = score + 1
+                            Dim scoreLabel As Object
+                            scoreLabel = GetNode("../UserInterface/ScoreLabel")
+                            If Not (scoreLabel Is Nothing) Then
+                                scoreLabel.set("text", "Score: " & CStr(score))
+                            End If
+                            Exit For
+                        End If
+                    End If
+                End If
+            End If
+        Next i
+    End If
+
+    ' --- Visual tilt based on vertical velocity ---
+    ' Applied to the root CharacterBody3D (X-axis only).
+    ' The Pivot child handles Y-facing via LookAt separately.
+    Dim tiltAngle As Single
+    tiltAngle = 0.5236 * vy / JUMP_IMPULSE
+    Dim tiltVec As Object
+    tiltVec = Vector3(tiltAngle, 0, 0)
+    Me.set("rotation", tiltVec)
+End Sub
+
+' ============================================================================
+' DEATH - Called when a mob touches the player from the side
+' ============================================================================
+Sub die()
+    If dead Then Exit Sub
+    dead = True
+    RaiseEvent hit
+    Me.queue_free()
+End Sub
+
+' --- Signal handler: MobDetector Area3D body_entered ---
+Sub _on_MobDetector_body_entered(body As Object)
+    die()
+End Sub

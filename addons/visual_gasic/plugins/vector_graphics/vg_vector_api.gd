@@ -178,6 +178,12 @@ static func DrawVectorTextFlip(canvas: Node, text: String, x_offset: float, base
 	if canvas and canvas.has_method("DrawVectorTextFlip"):
 		canvas.DrawVectorTextFlip(text, x_offset, base_y, time, color, scale, width, char_spacing, flip_speed, flip_wave, font_name)
 
+static func DrawVectorTextPath(canvas: Node, origin: Vector2, cw_angle: float, read_angle: float, text: String,
+		color: Color = Color(1, 1, 1, 1), scale: float = 1.0, width: float = 2.0,
+		spacing: float = 2.0, font_name: String = "") -> void:
+	if canvas and canvas.has_method("DrawVectorTextPath"):
+		canvas.DrawVectorTextPath(origin, cw_angle, read_angle, text, color, scale, width, spacing, font_name)
+
 static func DrawLines(canvas: Node, segments: PackedVector2Array, width: float = 2.0, color: Color = Color(1,1,1,1)) -> void:
 	if canvas and canvas.has_method("DrawLines"):
 		canvas.DrawLines(segments, width, color)

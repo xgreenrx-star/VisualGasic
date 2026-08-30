@@ -168,10 +168,12 @@ cp CONTRIBUTING.md "$STAGING/" 2>/dev/null || true
 cp -r docs "$STAGING/" 2>/dev/null || true
 rm -rf "$STAGING/docs/archive" "$STAGING/docs/development" 2>/dev/null || true
 
-# Copy examples, demos, tutorials
+# Copy examples, demos, tutorials, beta showcase project
 cp -r examples "$STAGING/" 2>/dev/null || true
 cp -r demos "$STAGING/" 2>/dev/null || true
 cp -r tutorials "$STAGING/" 2>/dev/null || true
+mkdir -p "$STAGING/projects"
+[[ -d projects/vg_beta_showcase ]] && cp -r projects/vg_beta_showcase "$STAGING/projects/"
 
 # Clean caches and dev artifacts
 find "$STAGING" -name "*.uid" -delete 2>/dev/null || true

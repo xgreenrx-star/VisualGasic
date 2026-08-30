@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://vg_beta_showcase_about_vg"]
+
+[ext_resource type="Script" path="res://about_vg_manager.gd" id="1"]
+
+[node name="AboutVG" type="Node2D"]
+script = ExtResource("1")

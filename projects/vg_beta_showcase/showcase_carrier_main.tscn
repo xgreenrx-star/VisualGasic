@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://vg_beta_showcase_carrier"]
+
+[ext_resource type="Script" path="res://showcase_carrier_manager.gd" id="1"]
+
+[node name="ShowcaseCarrier" type="Node3D"]
+script = ExtResource("1")

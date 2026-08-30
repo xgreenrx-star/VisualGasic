@@ -1,0 +1,71 @@
+' ============================================================================
+' VG Beta Showcase — Title splash (5 seconds) -> Backrooms hub
+' Vector text via VGVectorCanvas2D. ESC quit / Space skip when not embedded.
+' carrier_embedded = running inside SubViewport (carrier or portal) — no scene change.
+' is_headless = CI smoke: auto-quit at T_TOUR_END without loading backrooms.
+' ============================================================================
+
+Const SW As Single = 1280.0
+Const SH As Single = 720.0
+Const CX As Single = 640.0
+Const CY As Single = 360.0
+
+Const T_TOUR_END As Single = 5.0
+
+Dim canvas As Object
+Dim t As Single
+Dim is_headless As Boolean
+Dim movie_mode As Boolean
+Dim carrier_embedded As Boolean
+
+Sub _Ready()
+	is_headless = DisplayServer.get_name() = "headless"
+	movie_mode = OS.has_feature("movie")
+	carrier_embedded = (GetViewport().GetClass() = "SubViewport")
+	Set canvas = CreateNode("VGVectorCanvas2D")
+	AddChild(canvas)
+	t = 0.0
+	Set_Process(True)
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	t = t + delta
+	Call canvas.Clear()
+	Call canvas.DrawRect(Rect2(0, 0, SW, SH), 0, Color(0, 0, 0, 0), True, Color(0.008, 0.012, 0.028, 1))
+
+	Dim glow As Single = 0.35 + Sin(t * 2.4) * 0.12
+	Call canvas.SetAdditiveBlend(True)
+	Call canvas.DrawCircle(Vector2(CX, CY - 20), 220.0, Color(0.1 * glow, 0.25 * glow, 0.55 * glow, glow), True, Color(0, 0, 0, 0))
+	Call canvas.SetAdditiveBlend(False)
+
+	Dim a As Single = t / 1.2
+	If a > 1.0 Then a = 1.0
+	Call canvas.DrawVectorTextCentered(Vector2(CX, CY - 48), "VISUAL GASIC", Color(1, 1, 1, a), 2.8, 2.2, 3.0, "")
+	Call canvas.DrawVectorTextCentered(Vector2(CX, CY + 8), "5.4.0-BETA1", Color(0.4, 0.92, 1, a), 2.0, 1.6, 2.2, "")
+	Call canvas.DrawVectorTextCentered(Vector2(CX, CY + 52), "SHADER SHOWCASE", Color(0.85, 0.55, 1, a * 0.9), 1.5, 1.25, 1.8, "")
+
+	Dim remain As Single = T_TOUR_END - t
+	If remain < 0.0 Then remain = 0.0
+	Call canvas.DrawVectorTextRightAligned(Vector2(SW - 16, 24), Str(Int(remain + 0.5)) & "S", Color(1, 0.9, 0.45, 0.85), 1.4, 1.2, 1.6, "")
+	If Not is_headless And Not movie_mode Then
+		Call canvas.DrawVectorTextCentered(Vector2(CX, SH - 28), "SPACE SKIP", Color(1, 1, 1, 0.45), 1.1, 1.0, 1.4, "")
+	End If
+
+	If t >= T_TOUR_END Then
+		If is_headless Then
+			GetTree().Quit()
+		ElseIf Not carrier_embedded Then
+			Call ChangeScene("res://backrooms_showcase_main.tscn")
+		End If
+	End If
+End Sub
+
+Sub _UnhandledInput(ByVal Event As Object)
+	If movie_mode Then Exit Sub
+	If Event Is InputEventKey Then
+		If Event.Pressed And Event.Keycode = KEY_ESCAPE Then GetTree().Quit()
+		If Event.Pressed And (Event.Keycode = KEY_SPACE Or Event.Keycode = KEY_ENTER) Then
+			If Not carrier_embedded Then Call ChangeScene("res://backrooms_showcase_main.tscn")
+		End If
+	End If
+End Sub

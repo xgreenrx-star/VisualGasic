@@ -11,7 +11,8 @@
 | Version | Status | ETA | Milestone | Key features |
 |---------|--------|-----|-----------|--------------|
 | **5.3.0-Beta7** | 🟢 SHIPPED | Aug 21, 2026 | M1–M4 (+ M5 progress) | Bracket indexing, CI `.vg` gate, Narcea reference offers — [notes](RELEASE_NOTES_5.3.0-Beta7.md) |
-| **5.4.0-beta1** | 🔄 SHIPPING | Aug 30, 2026 | pre-M5 | **12/12 compute + 9/9 draw**, draw fusion, FunctionCall inlining, CI benchmark gate — [notes](RELEASE_NOTES_v5.4.0-beta1.md) |
+| **5.4.0-beta1** | 🟢 SHIPPED | Aug 30, 2026 | pre-M5 | **12/12 compute + 9/9 draw**, draw fusion, FunctionCall inlining, CI benchmark gate, **Beta Showcase** — [notes](RELEASE_NOTES_v5.4.0-beta1.md) |
+| **5.4.0-beta1 showcase** | 🟢 SHIPPED | Aug 30, 2026 | pre-M5 | `projects/vg_beta_showcase/` — full tour + Movie Maker script ([README](projects/vg_beta_showcase/README.md)) |
 | **5.4.0-beta2** | — | Oct 15, 2026 | M5 | Narcea AI pair, Buffer type, optimizer hints |
 | **5.5.0-beta1** | — | Nov 2026 | M6–M7 | Causal chain (text), Python bridge hardening |
 | **6.0.0-rc1** | — | Dec 1, 2026 | M6–M8 | Try/Catch, `Let`, C++ FFI, language parity |
@@ -80,11 +81,12 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 - Context rail sidecar, literal convert, sprite Data editor, Track D groundwork (`.vgd` / Tiled)
 
 **Release criteria:**
-- [ ] `scripts/ci_smoke.sh` passes on `projects/vg_narcea_test`
-- [ ] `./run_test_suite.sh` green (891 assertions)
+- [x] `scripts/ci_smoke.sh` passes on `projects/vg_narcea_test`
+- [x] `./run_test_suite.sh` green (891 assertions)
 - [x] `CHANGELOG.md` + `RELEASE_NOTES_v5.4.0-beta1.md`
 - [x] Tag `v5.4.0-beta1`; GitHub Pre-release
 - [x] Update `docs/guides/GET_STARTED.md` current version
+- [x] `projects/vg_beta_showcase/` committed; Movie Maker script
 
 ---
 

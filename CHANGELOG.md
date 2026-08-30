@@ -39,6 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Context rail sidecar, literal convert panel, sprite Data editor, New Level wizard.
 - Track D groundwork — `DataFile` / `.vgd` sidecar, Tiled import hooks.
 
+### ✅ Added — Beta Showcase (`projects/vg_beta_showcase/`)
+
+- **~6-minute tour** — Speed Bench title → Backrooms hub → Shader Showcase → About VG → Squash tease → Neon Runner → Vector Storm → end card.
+- **Movie Maker pipeline** — `scripts/record_vg_beta_showcase.sh` for frame-perfect `--write-movie` capture (same flow as `demoscene_intro`).
+- **Vector canvas polish** — native draw path fixes for About page feature panels and benchmark scroller.
+- **Lucid music playlists** — scene-specific tracks for dash, about, and end screen.
+
 ## [5.3.0-Beta7] - 2026-08-21
 
 **Key numbers:** 871/871 regression assertions · 117 test files · 332/332 Programmer's Reference examples parse-clean · **bracket indexing** fixed for 3D AI scaffolds.

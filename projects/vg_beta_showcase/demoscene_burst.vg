@@ -1,0 +1,265 @@
+' ============================================================================
+' VG Beta Showcase — Demoscene Burst (25 seconds)
+' Torus wireframe + tunnel + Doom fire + helix text — zero sprites, .vg only.
+' Adapted from projects/demoscene_intro/demo.vg
+' ============================================================================
+
+Const SW As Single = 1280.0
+Const SH As Single = 720.0
+Const CX As Single = 640.0
+Const CY As Single = 360.0
+Const Pi As Single = 3.14159265358979
+Const Tau As Single = 6.28318530717959
+Const DemoDuration As Single = 25.0
+Const T_OVERLAP As Single = 0.55
+
+Const T_TORUS_END As Single = 11.0
+Const T_TUNNEL_START As Single = 9.0
+Const T_TUNNEL_END As Single = 19.0
+Const T_FIRE_START As Single = 17.0
+
+Const FireW As Integer = 32
+Const FireH As Integer = 18
+Const PulseDecay As Single = 6.0
+Const HeartFreq As Single = 0.13
+Const HueRotSpeed As Single = 0.06
+
+Dim canvas As Object
+Dim t As Single
+Dim is_headless As Boolean
+
+Dim tunnel_ring(39) As Vector2
+Dim fire_grid(575) As Single
+Dim fire_acc As Single
+
+Dim torus_hue_offset As Single
+Dim torus_rot_x As Single
+Dim torus_rot_y As Single
+Dim heart_phase As Single
+Dim heart_pulse As Single
+Dim beat_phase As Single
+Dim bpm_current As Single
+
+Function _Frac(ByVal x As Single) As Single
+	_Frac = x - Int(x)
+	If _Frac < 0.0 Then _Frac = _Frac + 1.0
+End Function
+
+Sub _Ready()
+	is_headless = DisplayServer.get_name() = "headless"
+	Set canvas = CreateNode("VGVectorCanvas2D")
+	AddChild(canvas)
+	Randomize()
+	t = 0.0
+	torus_hue_offset = 0.0
+	torus_rot_x = 0.0
+	torus_rot_y = 0.0
+	heart_phase = 0.0
+	heart_pulse = 0.0
+	beat_phase = 0.0
+	bpm_current = 118.0
+	fire_acc = 0.0
+	Dim i As Integer
+	For i = 0 To 575
+		fire_grid(i) = 0.0
+	Next
+	Set_Process(True)
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	t = t + delta
+	Call _UpdateBeat(delta)
+	Call canvas.Clear()
+	Call canvas.DrawRect(Rect2(0, 0, SW, SH), 0, Color(0, 0, 0, 0), True, Color(0, 0, 0, 1))
+
+	If t < T_TORUS_END + T_OVERLAP Then
+		Dim tf As Single = 1.0
+		If t > T_TORUS_END Then tf = 1.0 - (t - T_TORUS_END) / T_OVERLAP
+		If tf > 0.01 Then Call _DrawTorus(t, tf)
+	End If
+
+	If t >= T_TUNNEL_START And t < T_TUNNEL_END + T_OVERLAP Then
+		Dim tnf As Single = 1.0
+		If t < T_TUNNEL_START + T_OVERLAP Then tnf = (t - T_TUNNEL_START) / T_OVERLAP
+		If t > T_TUNNEL_END Then tnf = tnf * (1.0 - (t - T_TUNNEL_END) / T_OVERLAP)
+		If tnf > 0.01 Then Call _DrawTunnel(t - T_TUNNEL_START, tnf)
+	End If
+
+	If t >= T_FIRE_START And t < DemoDuration Then
+		Dim ff As Single = 1.0
+		If t < T_FIRE_START + T_OVERLAP Then ff = (t - T_FIRE_START) / T_OVERLAP
+		Call _DrawFire(delta, ff)
+		Call _DrawFireText(t - T_FIRE_START, ff)
+	End If
+
+	Call _DrawHud()
+
+	If t >= DemoDuration Then
+		If is_headless Then
+			GetTree().Quit()
+		Else
+			Call ChangeScene("res://squash_tease_main.tscn")
+		End If
+	End If
+End Sub
+
+Sub _UpdateBeat(ByVal delta As Single)
+	bpm_current = 118.0 + Sin(t * 0.08) * 8.0
+	Dim step_dur As Single = 60.0 / (bpm_current * 4.0)
+	beat_phase = beat_phase + delta / step_dur
+	Do While beat_phase >= 1.0
+		beat_phase = beat_phase - 1.0
+	Loop
+
+	torus_rot_x = torus_rot_x + delta * (bpm_current / 100.0) * 1.1
+	torus_rot_y = torus_rot_y + delta * (bpm_current / 100.0) * 0.65
+	torus_hue_offset = torus_hue_offset + delta * (bpm_current / 100.0) * HueRotSpeed
+
+	If t < T_TORUS_END + 1.0 Then
+		Dim heart_bpm As Single = 50.0 + 18.0 * Sin(t * HeartFreq)
+		heart_phase = heart_phase + delta * heart_bpm / 60.0
+		If heart_phase >= 1.0 Then
+			heart_phase = heart_phase - 1.0
+			heart_pulse = 1.0
+		End If
+	End If
+	heart_pulse = heart_pulse * (1.0 - delta * PulseDecay)
+	If heart_pulse < 0.0 Then heart_pulse = 0.0
+End Sub
+
+Sub _DrawTorus(ByVal tt As Single, ByVal fade As Single)
+	Dim torus_scale As Single = 1.0 + 0.22 * heart_pulse
+	Dim ring_hue As Single = _Frac(torus_hue_offset)
+	Dim ring_cr As Single
+	Dim ring_cg As Single
+	Dim ring_cb As Single
+	Dim ring_age As Single = 1.0 - heart_pulse
+	Dim ring_r As Single = ring_age * 440.0
+	Dim ring_a As Single = heart_pulse * fade
+	Call _HsvToRgb(ring_hue, 0.7, 1.0, ring_cr, ring_cg, ring_cb)
+	Call canvas.SetAdditiveBlend(True)
+	If ring_a > 0.02 Then
+		Call canvas.DrawCircle(Vector2(CX, CY), ring_r, Color(ring_cr * ring_a, ring_cg * ring_a, ring_cb * ring_a, ring_a), False, Color(0, 0, 0, 0))
+	End If
+	Call canvas.SetAdditiveBlend(False)
+	Call canvas.DrawTorusWireframe(torus_rot_y, torus_rot_x, torus_hue_offset, tt, fade, CX, CY, torus_scale)
+
+	Dim htx As Single = CX + Sin(tt * 0.47) * 95.0
+	Dim hty As Single = CY + Cos(tt * 0.33) * 62.0
+	Dim helix_r As Single = 270.0 + heart_pulse * 50.0
+	Dim htxt_a As Single = fade * (0.55 + heart_pulse * 0.45)
+	Call canvas.SetAdditiveBlend(True)
+	Call canvas.DrawVectorTextHelix("VISUAL GASIC", htx, hty, tt, Color(0.15 * htxt_a, 0.85 * htxt_a, 1.0 * htxt_a, htxt_a), 1.65, 2.1, helix_r, 0.88, 0.0, 1.35, 0.30, "")
+	Call canvas.DrawVectorTextHelix("ZERO SPRITES", htx - 40.0, hty + 48.0, tt * 1.1, Color(1.0 * htxt_a, 0.35 * htxt_a, 0.9 * htxt_a, htxt_a * 0.75), 1.35, 1.8, helix_r * 0.82, 0.88, 0.0, 1.05, 0.30, "")
+	Call canvas.SetAdditiveBlend(False)
+End Sub
+
+Sub _DrawTunnel(ByVal tt As Single, ByVal fade As Single)
+	Dim NRings As Integer = 28
+	Dim NSeg As Integer = 20
+	Dim ri As Integer
+	Dim si As Integer
+	Dim seg_step As Single = Tau / 20.0
+	Dim flow As Single = _Frac(tt * 1.1)
+	Call canvas.SetAdditiveBlend(True)
+	For ri = 0 To NRings - 1
+		Dim z_par As Single = (CSng(NRings - 1 - ri) + flow) / CSng(NRings)
+		Dim pz As Single = 1.0 / (1.0 + z_par * 13.0)
+		Dim rx As Single = pz * 820.0
+		Dim ry As Single = pz * 510.0
+		Dim ds As Single = pz * 9.0 + 1.0
+		Dim alpha As Single = pz * pz * pz * 2.2 * fade
+		If alpha > fade Then alpha = fade
+		Dim twist As Single = z_par * Pi * 1.2 + tt * 0.55
+		Dim off_x As Single = CX + Sin(tt * 0.53 + z_par * 1.3) * 340.0 * (1.0 - pz)
+		Dim off_y As Single = CY + Cos(tt * 0.41 + z_par * 0.9) * 220.0 * (1.0 - pz)
+		Dim hue As Single = _Frac(z_par * 0.7 + tt * 0.09)
+		Dim cr As Single
+		Dim cg As Single
+		Dim cb As Single
+		Call _HsvToRgb(hue, 0.85, 1.0, cr, cg, cb)
+		For si = 0 To NSeg - 1
+			Dim angle As Single = CSng(si) * seg_step + twist
+			tunnel_ring(si * 2) = Vector2(off_x + Cos(angle) * rx - ds * 0.5, off_y + Sin(angle) * ry - ds * 0.5)
+			tunnel_ring(si * 2 + 1) = Vector2(ds, ds)
+		Next
+		Call canvas.DrawRectsUniform(tunnel_ring, Color(cr, cg, cb, alpha), True)
+	Next
+	Call canvas.SetAdditiveBlend(False)
+End Sub
+
+Sub _DrawFire(ByVal delta As Single, ByVal fade As Single)
+	Dim x As Integer
+	Dim y As Integer
+	fire_acc = fire_acc + delta
+	Do While fire_acc >= 0.05
+		fire_acc = fire_acc - 0.05
+		For y = 0 To FireH - 2
+			For x = 0 To FireW - 1
+				Dim xl As Integer = (x - 1 + FireW) Mod FireW
+				Dim xr As Integer = (x + 1) Mod FireW
+				Dim y2 As Integer = y + 1
+				Dim y3 As Integer = y + 2
+				If y3 >= FireH Then y3 = FireH - 1
+				Dim avg As Single = (fire_grid(y2 * FireW + x) + fire_grid(y2 * FireW + xl) + fire_grid(y2 * FireW + xr) + fire_grid(y3 * FireW + x)) / 4.6
+				avg = avg - 0.018
+				If avg < 0.0 Then avg = 0.0
+				fire_grid(y * FireW + x) = avg
+			Next
+		Next
+		Dim fire_base As Single = 0.40 + Sin(beat_phase * Tau) * 0.09
+		Dim fire_kick As Single = heart_pulse * 0.48
+		For x = 0 To FireW - 1
+			fire_grid((FireH - 1) * FireW + x) = Rnd() * 0.22 + fire_base + fire_kick
+			If fire_grid((FireH - 1) * FireW + x) > 1.0 Then fire_grid((FireH - 1) * FireW + x) = 1.0
+		Next
+	Loop
+	Call canvas.DrawFireCells(fire_grid, FireW, FireH, SW / FireW, SH / FireH, fade, 4)
+End Sub
+
+Sub _DrawFireText(ByVal tt As Single, ByVal fade As Single)
+	Dim tf As Single = tt / 2.0
+	If tf > 1.0 Then tf = 1.0
+	Dim a1 As Single = tf * fade
+	Dim x1 As Single = SW + 180.0 - tt * 92.0
+	Call canvas.DrawRect(Rect2(0, 0, SW, 180), 0, Color(0, 0, 0, 0), True, Color(0, 0, 0.04, a1 * 0.7))
+	Call canvas.SetAdditiveBlend(True)
+	Call canvas.DrawVectorTextFlip("CODING FOR THE MASSES NOT THE CLASSES", x1, 62.0, tt, Color(1.0 * a1, 0.7 * a1, 0.1 * a1, a1), 2.4, 3.4, 54.0, 2.6, 0.37, "")
+	Call canvas.DrawVectorTextFlip("FUSED C++ DRAW  NO SHADER GRAPH", x1 - 40.0, 132.0, tt, Color(0.3 * a1, 0.9 * a1, 1.0 * a1, a1 * 0.85), 2.0, 2.8, 52.0, 2.2, 0.42, "")
+	Call canvas.SetAdditiveBlend(False)
+End Sub
+
+Sub _DrawHud()
+	Call canvas.DrawRect(Rect2(0, 0, SW, 56), 0, Color(0, 0, 0, 0), True, Color(0, 0, 0, 0.5))
+	Call canvas.DrawVectorText(Vector2(16, 18), "DEMOSCENE BURST", Color(1.0, 0.45, 1.0, 0.95), 1.6, 1.4, "left", 2.0, "")
+	Call canvas.DrawVectorText(Vector2(16, 42), "TORUS  TUNNEL  FIRE  |  0 PNG  |  PROCEDURAL .VG", Color(0.5, 1.0, 1.0, 0.8), 1.1, 1.0, "left", 1.4, "")
+	Dim remain As Single = DemoDuration - t
+	If remain < 0.0 Then remain = 0.0
+	Call canvas.DrawVectorTextRightAligned(Vector2(SW - 16, 22), Str(Int(remain + 0.5)) & "S", Color(1, 0.9, 0.4, 0.85), 1.4, 1.2, 1.6, "")
+	Call canvas.DrawVectorTextCentered(Vector2(SW * 0.5, SH - 26), "SPACE SKIP", Color(1, 1, 1, 0.4), 1.0, 0.9, 1.2, "")
+End Sub
+
+Sub _HsvToRgb(ByVal h As Single, ByVal s As Single, ByVal v As Single, ByRef r As Single, ByRef g As Single, ByRef b As Single)
+	Dim i As Integer = Int(h * 6.0)
+	Dim f As Single = h * 6.0 - i
+	Dim p As Single = v * (1.0 - s)
+	Dim q As Single = v * (1.0 - f * s)
+	Dim t2 As Single = v * (1.0 - (1.0 - f) * s)
+	Select Case i Mod 6
+		Case 0 : r = v : g = t2 : b = p
+		Case 1 : r = q : g = v : b = p
+		Case 2 : r = p : g = v : b = t2
+		Case 3 : r = p : g = q : b = v
+		Case 4 : r = t2 : g = p : b = v
+		Case Else : r = v : g = p : b = q
+	End Select
+End Sub
+
+Sub _UnhandledInput(ByVal Event As Object)
+	If Event Is InputEventKey Then
+		If Event.Pressed And Event.Keycode = KEY_ESCAPE Then GetTree().Quit()
+		If Event.Pressed And (Event.Keycode = KEY_SPACE Or Event.Keycode = KEY_ENTER) Then
+			Call ChangeScene("res://squash_tease_main.tscn")
+		End If
+	End If
+End Sub

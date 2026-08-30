@@ -1,0 +1,1951 @@
+' Vector Storm — twin-stick vector shooter (VG Beta Showcase finale).
+'
+' Portal / backrooms hooks (called from GDScript via subs):
+'   set_showcase_frozen — pause sim while visible in portal frame before zoom-in
+'   reset_for_portal    — fresh attract state on load and when zoom-in begins
+'
+' Modes:
+'   showcase_attract    — autopilot for 60s in portal; loops via _ResetForAttract()
+'   showcase_play_storm — root meta from end screen P: skip attract, playable immediately
+'   showcase_from_end   — ESC returns to backrooms end card (not quit)
+'
+' Input: use KEY_ESCAPE / KEY_SPACE (VG builtins), not KeyEscape alias.
+Option Explicit
+
+Dim vg As Object
+Dim canvas_bg As Object
+Dim canvas_game As Object
+Dim canvas_fx As Object
+Dim canvas_ui As Object
+
+Const ScreenSize As Vector2 = Vector2(1280, 720)
+Const StickDeadzone As Single = 0.15
+
+Const PlayerAccel As Single = 1400.0
+
+Const PlayerMaxSpeed As Single = 460.0
+Const PlayerFriction As Single = 0.92
+Const PlayerRadius As Single = 16.0
+
+Const BulletPoolSize As Integer = 256
+Const BulletSpeed As Single = 700.0
+Const BulletLifetime As Single = 0.8
+Const FireInterval As Single = 0.125
+Const BulletTracerSec As Single = 0.02
+
+Const EnemyPoolSize As Integer = 128
+Const EBulletPoolSize As Integer = 64
+Const EBulletSpeed As Single = 320.0
+Const EBulletLifetime As Single = 3.5
+Const EBulletTracerSec As Single = 0.04
+
+Const KindDrifter As Integer = 1
+Const KindDiamond As Integer = 2
+Const KindPinwheel As Integer = 3
+Const KindSnakeHead As Integer = 4
+Const KindSnakeSeg As Integer = 5
+
+Const DrifterSpeed As Single = 60.0
+Const DrifterRadius As Single = 12.0
+Const DiamondSpeed As Single = 230.0
+Const DiamondRadius As Single = 12.0
+Const PinwheelOrbitR As Single = 200.0
+Const PinwheelAngSpeed As Single = 1.2
+Const PinwheelSteer As Single = 4.0
+Const PinwheelFireInterval As Single = 2.0
+Const PinwheelRadius As Single = 16.0
+Const SnakeHeadAccel As Single = 280.0
+Const SnakeHeadMaxSpeed As Single = 220.0
+Const SnakeHeadRadius As Single = 11.0
+Const SnakeSegRadius As Single = 8.0
+Const SnakeSegSpacing As Single = 19.0
+Const SnakeLength As Integer = 5
+
+Const SpawnIntervalStart As Single = 0.8
+Const SpawnIntervalMin As Single = 0.25
+Const SpawnIntervalMinAttract As Single = 0.36
+Const SpawnDifficultySec As Single = 60.0
+Const EnemyMaxAlive As Integer = 24
+Const EnemyMaxAliveAttract As Integer = 24
+Const FireIntervalAttract As Single = 0.155
+
+Const StartingLives As Integer = 3
+Const RespawnDelay As Single = 2.0
+Const InvulnDuration As Single = 3.5
+Const InvulnBlinkHz As Single = 8.0
+Const InvulnWarnTime As Single = 0.8
+
+' Warping grid (A7). Cells = Cols*Rows = 20*12 = 240.
+Const GridCols As Integer = 20
+Const GridRows As Integer = 12
+Const GridCells As Integer = 240
+Const GridSpringK As Single = 55.0
+Const GridDamping As Single = 7.5
+Const GridRippleRadius As Single = 320.0
+Const GridRippleFalloff As Single = 120.0
+Const GridRestEpsilon As Single = 0.05
+
+Dim player_pos As Vector2
+Dim player_vel As Vector2
+Dim player_angle As Single
+Dim player_thrusting As Boolean
+
+Dim bullet_pos(255) As Vector2
+Dim bullet_vel(255) As Vector2
+Dim bullet_life(255) As Single
+Dim bullet_cursor As Integer
+Dim bullet_max As Integer
+Dim fire_cooldown As Single
+
+Dim enemy_pos(127) As Vector2
+Dim enemy_vel(127) As Vector2
+Dim enemy_kind(127) As Integer
+Dim enemy_hp(127) As Integer
+Dim enemy_value(127) As Integer
+Dim enemy_t(127) As Single
+Dim enemy_phase(127) As Single
+Dim enemy_parent(127) As Integer
+Dim enemy_max As Integer
+
+Dim ebullet_pos(63) As Vector2
+Dim ebullet_vel(63) As Vector2
+Dim ebullet_life(63) As Single
+Dim ebullet_cursor As Integer
+Dim ebullet_max As Integer
+
+Dim spawn_timer As Single
+Dim game_time As Single
+Dim fps_timer As Single
+Dim fps_value As Single
+
+Dim score As Long
+Dim lives As Integer
+Dim respawn_timer As Single
+Dim invuln_timer As Single
+Dim game_over As Boolean
+Dim restart_armed As Boolean
+
+' Cached per-frame input snapshot (updated once at top of _Process).
+' Caching avoids redundant singleton lookups when helpers are called from
+' multiple call sites and keeps DisplayServer.get_name() out of the hot loop.
+Dim is_headless As Boolean
+Dim cached_joy_connected As Boolean
+Dim cached_move As Vector2
+Dim cached_aim As Vector2
+Dim cached_fire As Boolean
+
+' Showcase attract mode — 60s auto-play demo after tour handoff
+Dim showcase_attract As Boolean
+Dim showcase_frozen As Boolean
+Dim showcase_from_end As Boolean
+Dim attract_timer As Single
+Dim attract_wobble_t As Single
+Const AttractDuration As Single = 60.0
+Dim movie_mode As Boolean
+Dim movie_over_t As Single
+Const MovieOverHold As Single = 4.0
+Const MovieAttractCap As Single = 36.0
+Const SpawnIntervalMinMovie As Single = 0.28
+Const EnemyMaxAliveMovie As Integer = 30
+
+' HUD cache: canvas_ui is only repainted when a displayed value changes.
+' Without this, DrawVectorText strokes hundreds of line segments every frame
+' even though most HUD fields update only a few times per second.
+Dim hud_last_fps As Integer
+Dim hud_last_score As Long
+Dim hud_last_lives As Integer
+Dim hud_last_n_enemies As Integer
+Dim hud_last_n_bullets As Integer
+Dim hud_last_game_over As Boolean
+
+Dim grid_dx(239) As Single
+Dim grid_dy(239) As Single
+Dim grid_vx(239) As Single
+Dim grid_vy(239) As Single
+' Throttle/skip flags: physics steps every 2nd frame; bg canvas only repaints
+' while the spring lattice is in motion (plus one final at-rest frame).
+Dim grid_tick As Integer
+Dim grid_accum_delta As Single
+Dim grid_active As Boolean
+Dim grid_was_active As Boolean
+Dim grid_throttle As Boolean
+' Pre-baked white glow sprite shared by player + enemy bullets (tinted per call).
+Dim bullet_glow_tex As Object
+' Isotropic radial glow used for additive halos behind enemies and player ship.
+Dim halo_tex As Object
+Const EnemyHaloSize As Single = 36.0
+Const PlayerHaloSize As Single = 56.0
+
+' --- A8 Particle Blooms ---------------------------------------------------
+' Pool of short-lived sparks drawn on canvas_fx as additive glowing tracers.
+Const ParticlePoolSize As Integer = 1024
+Const ParticleMaxLife As Single = 0.65
+Const ParticleSpeedMin As Single = 90.0
+Const ParticleSpeedMax As Single = 380.0
+Dim particle_pos(1023) As Vector2
+Dim particle_vel(1023) As Vector2
+Dim particle_life(1023) As Single
+Dim particle_cursor As Integer
+Dim particle_max As Integer
+
+' --- Screen shake --------------------------------------------------------
+' Applied to bg/game/fx canvases (HUD stays put). Triggered on kills and
+' player hits; magnitude decays linearly to zero.
+Dim shake_mag As Single
+
+' --- A11 score multiplier ------------------------------------------------
+' Each kill within MultiplierWindow seconds of the previous one bumps the
+' multiplier by +0.1 (capped at MultiplierMax). After the window expires the
+' multiplier drifts back toward 1.0 at MultiplierDecayRate per second.
+Const MultiplierWindow As Single = 1.5
+Const MultiplierMax As Single = 8.0
+Const MultiplierDecayRate As Single = 1.2
+Dim multiplier As Single
+Dim multiplier_decay_t As Single
+Dim hud_last_multiplier As Integer
+Dim hud_last_attract As Boolean
+
+' --- A9 real-time audio -------------------------------------------------
+' Three voices mixed sample-by-sample into a SoundGen stream:
+'   1. Square-wave arpeggio (always on, 8-note A-minor pattern)
+'   2. Bass kick (sine sweep, triggered on player fire)
+'   3. White-noise burst (triggered on enemy kill, pitched by multiplier)
+Const AudioSampleRate As Single = 22050.0
+Const AudioSampleRateInv As Single = 0.0000453514739229025
+Const ArpNoteDur As Single = 0.13
+Const KickDur As Single = 0.10
+Const NoiseDur As Single = 0.18
+Dim sg_handle As Long
+Dim arp_notes(7) As Single
+Dim arp_idx As Integer
+Dim arp_phase As Single
+Dim arp_freq As Single
+Dim arp_note_t As Single
+Dim kick_active As Boolean
+Dim kick_t As Single
+Dim noise_active As Boolean
+Dim noise_t As Single
+Dim noise_decay As Single
+
+' Warp-grid red flash on kills (A9 spec).
+Dim grid_flash_t As Single
+
+Sub _Ready()
+	' Instantiate C++ VGVectorCanvas2D nodes directly — bypasses the GDScript
+	' vg_vector_api wrapper which fails to compile outside the editor (its
+	' class_name VGVectorAPI is only registered when the editor plugin is active).
+	Set canvas_bg = CreateNode("VGVectorCanvas2D")
+	Set canvas_game = CreateNode("VGVectorCanvas2D")
+	Set canvas_fx = CreateNode("VGVectorCanvas2D")
+	Set canvas_ui = CreateNode("VGVectorCanvas2D")
+
+	AddChild(canvas_bg)
+	AddChild(canvas_game)
+	AddChild(canvas_fx)
+	AddChild(canvas_ui)
+
+	' Additive blend on the FX layer so overlapping bullet glows brighten
+	' each other instead of just stacking alpha.
+	canvas_fx.SetAdditiveBlend(True)
+
+	player_pos = Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.5)
+	player_vel = Vector2(0, 0)
+	player_angle = 0.0
+	player_thrusting = False
+
+	Dim i As Integer
+	For i = 0 To BulletPoolSize - 1
+		bullet_life(i) = 0.0
+		bullet_pos(i) = Vector2(0, 0)
+		bullet_vel(i) = Vector2(0, 0)
+	Next
+	bullet_cursor = 0
+	bullet_max = 0
+	fire_cooldown = 0.0
+
+	For i = 0 To EnemyPoolSize - 1
+		enemy_kind(i) = 0
+		enemy_pos(i) = Vector2(0, 0)
+		enemy_vel(i) = Vector2(0, 0)
+		enemy_hp(i) = 0
+		enemy_value(i) = 0
+		enemy_phase(i) = 0.0
+		enemy_t(i) = 0.0
+		enemy_parent(i) = - 1
+	Next
+	enemy_max = 0
+	For i = 0 To EBulletPoolSize - 1
+		ebullet_life(i) = 0.0
+		ebullet_pos(i) = Vector2(0, 0)
+		ebullet_vel(i) = Vector2(0, 0)
+	Next
+	ebullet_cursor = 0
+	ebullet_max = 0
+	spawn_timer = 1.0
+	game_time = 0.0
+	fps_timer = 0.0
+	fps_value = 0.0
+
+	score = 0
+	lives = StartingLives
+	respawn_timer = 0.0
+	invuln_timer = InvulnDuration
+	game_over = False
+	restart_armed = False
+
+	is_headless = DisplayServer.get_name() = "headless"
+	movie_mode = OS.has_feature("movie")
+	movie_over_t = 0.0
+	cached_joy_connected = False
+	cached_move = Vector2(0, 0)
+	cached_aim = Vector2(0, 0)
+	cached_fire = False
+
+	showcase_attract = True
+	showcase_frozen = False
+	attract_timer = AttractDuration
+	attract_wobble_t = 0.0
+	If GetTree().root.has_meta("showcase_play_storm") Then
+		showcase_attract = False
+		GetTree().root.remove_meta("showcase_play_storm")
+	End If
+	If has_meta("vg_portal_embedded") Then
+		showcase_frozen = True
+	End If
+	showcase_from_end = GetTree().root.has_meta("showcase_storm_from_end")
+
+	hud_last_fps = - 1
+	hud_last_score = - 1
+	hud_last_lives = - 1
+	hud_last_n_enemies = - 1
+	hud_last_n_bullets = - 1
+	hud_last_game_over = False
+
+	grid_tick = 0
+	grid_accum_delta = 0.0
+	grid_active = False
+	grid_was_active = True
+	grid_throttle = False
+
+	particle_cursor = 0
+	particle_max = 0
+	Dim pp As Integer
+	For pp = 0 To ParticlePoolSize - 1
+		particle_life(pp) = 0.0
+		particle_pos(pp) = Vector2(0, 0)
+		particle_vel(pp) = Vector2(0, 0)
+	Next
+	shake_mag = 0.0
+
+	multiplier = 1.0
+	multiplier_decay_t = 999.0
+	hud_last_multiplier = - 1
+	hud_last_attract = False
+
+	' Audio: open the 22 kHz mono stream and load the arpeggio scale.
+	sg_handle = SoundGen.Open(22050, 0.15)
+	arp_notes(0) = 110.0
+	arp_notes(1) = 130.8
+	arp_notes(2) = 164.8
+	arp_notes(3) = 220.0
+	arp_notes(4) = 164.8
+	arp_notes(5) = 196.0
+	arp_notes(6) = 164.8
+	arp_notes(7) = 130.8
+	arp_idx = 0
+	arp_freq = arp_notes(0)
+	arp_phase = 0.0
+	arp_note_t = 0.0
+	kick_active = False
+	kick_t = 0.0
+	noise_active = False
+	noise_t = 0.0
+	noise_decay = 12.0
+	grid_flash_t = 0.0
+
+	Set bullet_glow_tex = canvas_game.MakeGlowTexture(32, Color(1, 1, 1, 1))
+	Set halo_tex = canvas_game.MakeRadialGlowTexture(48, Color(1, 1, 1, 1))
+
+	Randomize()
+	Set_Process(True)
+End Sub
+
+' Backrooms portal — hold first attract frame until zoom-in, then fresh reset.
+Sub set_showcase_frozen(frozen As Boolean)
+	showcase_frozen = frozen
+End Sub
+
+Sub reset_for_portal()
+	showcase_attract = True
+	attract_timer = AttractDuration
+	attract_wobble_t = 0.0
+	movie_over_t = 0.0
+	If GetTree().root.has_meta("showcase_play_storm") Then
+		showcase_attract = False
+		GetTree().root.remove_meta("showcase_play_storm")
+	End If
+	Call _ResetForAttract()
+	shake_mag = 0.0
+	grid_flash_t = 0.0
+	grid_active = False
+	grid_was_active = True
+	particle_max = 0
+	Dim pp As Integer
+	For pp = 0 To ParticlePoolSize - 1
+		particle_life(pp) = 0.0
+	Next
+	hud_last_attract = Not showcase_attract
+End Sub
+
+Function movie_play_complete() As Boolean
+	movie_play_complete = movie_mode And game_over And movie_over_t > = MovieOverHold
+End Function
+
+Sub _Process(ByVal delta As Single)
+	If showcase_frozen Then
+		Call _DrawScene()
+		Call _DrawHud(delta)
+		Exit Sub
+	End If
+
+	game_time = game_time + delta
+
+	' Sample player input once; attract mode may override cached_* below.
+	Dim player_move As Vector2 = TwinStickLeft()
+	Dim player_aim As Vector2 = TwinStickRight()
+	Dim player_fire As Boolean = TwinStickFire()
+	cached_joy_connected = Joypad.Connected(0)
+
+	If showcase_attract Then
+		attract_timer = attract_timer - delta
+		attract_wobble_t = attract_wobble_t + delta
+		Call _AttractAutoPilot(delta)
+		' Player takeover: real stick/key/fire exits attract (not autopilot values).
+		Dim pm_len As Single = Sqr(player_move.x * player_move.x + player_move.y * player_move.y)
+		If pm_len > StickDeadzone Or player_fire Or cached_joy_connected And pm_len > StickDeadzone Then
+			showcase_attract = False
+			cached_move = player_move
+			cached_aim = player_aim
+			cached_fire = player_fire
+		End If
+		If attract_timer < = 0.0 Then
+			If Not movie_mode Then
+				attract_timer = AttractDuration
+				Call _ResetForAttract()
+			End If
+		End If
+		If movie_mode And Not game_over And game_time > = MovieAttractCap Then
+			lives = 0
+			game_over = True
+			restart_armed = False
+			movie_over_t = 0.0
+		End If
+	Else
+		cached_move = player_move
+		cached_aim = player_aim
+		cached_fire = player_fire
+	End If
+
+	If game_over Then
+		Call _TickGameOver(delta)
+		Call _UpdateGrid(delta)
+		Call _UpdateParticles(delta)
+		Call _UpdateShake(delta)
+		Call _UpdateMultiplier(delta)
+		Call _UpdateAudio(delta)
+		Call _DrawScene()
+		Call _DrawHud(delta)
+		Exit Sub
+	End If
+
+	If invuln_timer > 0.0 Then
+		invuln_timer = invuln_timer - delta
+		If invuln_timer < 0.0 Then invuln_timer = 0.0
+	End If
+
+	If respawn_timer > 0.0 Then
+		respawn_timer = respawn_timer - delta
+		Call _UpdateBullets(delta)
+		Call _UpdateEnemies(delta)
+		Call _UpdateEBullets(delta)
+		Call _UpdateCollisions(delta)
+		Call _UpdateGrid(delta)
+		Call _UpdateParticles(delta)
+		Call _UpdateShake(delta)
+		Call _UpdateMultiplier(delta)
+		Call _UpdateAudio(delta)
+		If respawn_timer < = 0.0 Then
+			respawn_timer = 0.0
+			Call _RespawnPlayer()
+		End If
+		Call _DrawScene()
+		Call _DrawHud(delta)
+		Exit Sub
+	End If
+
+	Call _UpdatePlayer(delta)
+	Call _UpdateBullets(delta)
+	Call _UpdateEnemies(delta)
+	Call _UpdateEBullets(delta)
+	Call _UpdateCollisions(delta)
+	Call _UpdateGrid(delta)
+	Call _UpdateParticles(delta)
+	Call _UpdateShake(delta)
+	Call _UpdateMultiplier(delta)
+	Call _UpdateAudio(delta)
+	Call _SpawnTick(delta)
+	Call _DrawScene()
+	Call _DrawHud(delta)
+End Sub
+
+Sub _UpdatePlayer(ByVal delta As Single)
+	Dim move As Vector2 = cached_move
+	Dim move_len As Single = Sqr(move.x * move.x + move.y * move.y)
+	player_thrusting = move_len > StickDeadzone
+	If player_thrusting Then
+		player_vel = player_vel + move * (PlayerAccel * delta)
+	End If
+
+	' Friction (assumes ~60 fps)
+	player_vel = player_vel * 0.94
+
+	Dim speed As Single = Sqr(player_vel.x * player_vel.x + player_vel.y * player_vel.y)
+	If speed > PlayerMaxSpeed Then
+		player_vel = player_vel * (PlayerMaxSpeed / speed)
+	End If
+
+	player_pos = player_pos + player_vel * delta
+
+	If player_pos.x < PlayerRadius Then
+		player_pos.x = PlayerRadius
+		player_vel.x = 0.0
+	End If
+	If player_pos.x > ScreenSize.x - PlayerRadius Then
+		player_pos.x = ScreenSize.x - PlayerRadius
+		player_vel.x = 0.0
+	End If
+	If player_pos.y < PlayerRadius Then
+		player_pos.y = PlayerRadius
+		player_vel.y = 0.0
+	End If
+	If player_pos.y > ScreenSize.y - PlayerRadius Then
+		player_pos.y = ScreenSize.y - PlayerRadius
+		player_vel.y = 0.0
+	End If
+
+	' Aim: right stick if active, else mouse cursor
+	Dim aim As Vector2 = cached_aim
+	Dim aim_len As Single = Sqr(aim.x * aim.x + aim.y * aim.y)
+	If aim_len > = StickDeadzone Then
+		player_angle = Atan2(aim.y, aim.x)
+	ElseIf Not is_headless Then
+		Dim mouse_pos As Vector2 = get_global_mouse_position()
+		Dim dx As Single = mouse_pos.x - player_pos.x
+		Dim dy As Single = mouse_pos.y - player_pos.y
+		If Sqr(dx * dx + dy * dy) > 1.0 Then
+			player_angle = Atan2(dy, dx)
+		End If
+	End If
+End Sub
+
+Sub _DrawScene()
+	' #4: skip bg repaint when the grid is at rest (one final draw after
+	' activity ends so the resting lattice is captured).
+	If grid_active Or grid_was_active Then
+		canvas_bg.Clear()
+		Call _DrawGrid(canvas_bg)
+	End If
+	grid_was_active = grid_active
+	canvas_game.Clear()
+	Call _DrawEnemies(canvas_game)
+	canvas_fx.Clear()
+	Call _DrawHalos(canvas_fx)
+	Call _DrawEBullets(canvas_fx)
+	Call _DrawBullets(canvas_fx)
+	Call _DrawParticles(canvas_fx)
+	Call _DrawPlayer(canvas_game)
+End Sub
+
+Sub _UpdateBullets(ByVal delta As Single)
+	fire_cooldown = fire_cooldown - delta
+	If fire_cooldown < 0.0 Then fire_cooldown = 0.0
+        If cached_fire And fire_cooldown < = 0.0 And respawn_timer < = 0.0 And Not game_over Then
+                Call _SpawnBullet()
+                If showcase_attract Then
+                        fire_cooldown = FireIntervalAttract
+                Else
+                        fire_cooldown = FireInterval
+                End If
+                ' Fire SFX disabled — arp square-wave + kick/noise blips all click at 8 Hz.
+        End If
+
+	Dim i As Integer
+	Dim life As Single
+	Dim p As Vector2
+	For i = 0 To bullet_max - 1
+		life = bullet_life(i)
+		If life > 0.0 Then
+			p = bullet_pos(i) + bullet_vel(i) * delta
+			bullet_pos(i) = p
+			life = life - delta
+			If life < = 0.0 Or p.x < 0.0 Or p.x > ScreenSize.x Or p.y < 0.0 Or p.y > ScreenSize.y Then
+				bullet_life(i) = 0.0
+			Else
+				bullet_life(i) = life
+			End If
+		End If
+	Next
+	Dim trimming As Boolean = True
+	Do While trimming
+		If bullet_max < = 0 Then
+			trimming = False
+		ElseIf bullet_life(bullet_max - 1) > 0.0 Then
+			trimming = False
+		Else
+			bullet_max = bullet_max - 1
+		End If
+	Loop
+End Sub
+
+Sub _SpawnBullet()
+	Dim ca As Single = Cos(player_angle)
+	Dim sa As Single = Sin(player_angle)
+	Dim nose As Vector2 = Vector2(player_pos.x + PlayerRadius * ca, player_pos.y + PlayerRadius * sa)
+	Dim vel As Vector2 = Vector2(ca * BulletSpeed + player_vel.x, sa * BulletSpeed + player_vel.y)
+
+	Dim slot As Integer = bullet_cursor
+	Dim tries As Integer = 0
+	Do While bullet_life(slot) > 0.0 And tries < BulletPoolSize
+		slot = slot + 1
+		If slot > = BulletPoolSize Then slot = 0
+		tries = tries + 1
+	Loop
+	bullet_pos(slot) = nose
+	bullet_vel(slot) = vel
+	bullet_life(slot) = BulletLifetime
+	bullet_cursor = slot + 1
+	If bullet_cursor > = BulletPoolSize Then bullet_cursor = 0
+	If slot + 1 > bullet_max Then bullet_max = slot + 1
+End Sub
+
+Sub _DrawBullets(ByVal canvas As Object)
+	' #3: render bullets as additive-feel glowing sprites via MultiMesh batch.
+	' Tracer is lengthened so the soft glow has a visible body.
+	Dim segs(511) As Vector2 ' BulletPoolSize * 2 - 1
+	Dim n As Integer = 0
+	Dim i As Integer
+	Dim p As Vector2
+	Dim v As Vector2
+	Dim trail As Single = BulletTracerSec * 3.0
+	For i = 0 To bullet_max - 1
+		If bullet_life(i) > 0.0 Then
+			p = bullet_pos(i)
+			If p.x > = - 20.0 And p.x < = ScreenSize.x + 20.0 And p.y > = - 20.0 And p.y < = ScreenSize.y + 20.0 Then
+				v = bullet_vel(i)
+				segs(n) = Vector2(p.x - v.x * trail, p.y - v.y * trail)
+				segs(n + 1) = p
+				n = n + 2
+			End If
+		End If
+	Next
+	If n > 0 Then
+		ReDim Preserve segs(n - 1)
+		Call canvas.DrawSpriteLines(bullet_glow_tex, segs, 10.0, Color8(255, 240, 160))
+	End If
+End Sub
+
+Sub _DrawPlayer(ByVal canvas As Object)
+	If respawn_timer > 0.0 Or game_over Then Exit Sub
+	If invuln_timer > 0.0 Then
+		If (Int(invuln_timer * InvulnBlinkHz) Mod 2) = 1 Then Exit Sub
+	End If
+	Dim r As Single = PlayerRadius
+	Dim ca As Single = Cos(player_angle)
+	Dim sa As Single = Sin(player_angle)
+	Dim i As Integer
+
+	' Local-space ship verts (angle 0 = pointing right):
+	'   nose, rear-right, rear-notch, rear-left
+	Dim verts(3) As Vector2
+	verts(0) = Vector2(r, 0)
+	verts(1) = Vector2(0 - r * 0.7, r * 0.7)
+	verts(2) = Vector2(0 - r * 0.35, 0)
+	verts(3) = Vector2(0 - r * 0.7, 0 - r * 0.7)
+
+	Dim pts(3) As Vector2
+	Dim lx As Single
+	Dim ly As Single
+	For i = 0 To 3
+		lx = verts(i).x
+		ly = verts(i).y
+		pts(i) = Vector2(player_pos.x + lx * ca - ly * sa, player_pos.y + lx * sa + ly * ca)
+	Next
+
+	Call canvas.DrawPolyline(pts, 2.5, Color8(180, 230, 255), False, Color8(0, 0, 0, 0), True)
+
+	' Shield ring: visible while invulnerable, pulses with cyan glow
+	If invuln_timer > 0.0 Then
+		Dim shield_pulse As Single = Sin(invuln_timer * 12.0) * 0.5 + 0.5
+		Dim shield_r As Single = PlayerRadius * 1.6 + shield_pulse * 6.0
+		Dim shield_fade As Single = invuln_timer / InvulnDuration
+		If shield_fade > 1.0 Then shield_fade = 1.0
+		Dim shield_a As Single = (0.5 + shield_pulse * 0.5) * shield_fade
+		Dim shield_segs(33) As Vector2
+		Dim si As Integer
+		For si = 0 To 33
+			Dim sang As Single = si * 0.18479956785822313
+			shield_segs(si) = Vector2(player_pos.x + Cos(sang) * shield_r, player_pos.y + Sin(sang) * shield_r)
+		Next
+		Call canvas.DrawPolyline(shield_segs, 2.0, Color8(80, 220, 255, Int(shield_a * 220)), False, Color8(0, 0, 0, 0), True)
+	End If
+
+	' Thrust flame (small line out the back when accelerating)
+	If player_thrusting Then
+		Dim bx As Single = 0 - r * 0.9
+		Dim by As Single = 0.0
+		Dim fx As Single = 0 - r * 1.6 - Rnd() * 6.0
+		Dim fy As Single = 0.0
+		Dim back_world As Vector2 = Vector2(player_pos.x + bx * ca - by * sa, player_pos.y + bx * sa + by * ca)
+		Dim flame_world As Vector2 = Vector2(player_pos.x + fx * ca - fy * sa, player_pos.y + fx * sa + fy * ca)
+		Call canvas.DrawLine(back_world, flame_world, 2.0, Color8(255, 180, 80))
+	End If
+End Sub
+
+' ===========================================================================
+' Twin-stick input. Gamepad first, keyboard/mouse fallback.
+'   TwinStickLeft  → analog move vector (length 0..1)
+'   TwinStickRight → analog aim vector  (length 0..1), zero if no aim input
+'   TwinStickFire  → True while firing
+' ===========================================================================
+
+Function TwinStickLeft() As Vector2
+	Dim v As Vector2 = Vector2(0, 0)
+	If cached_joy_connected Then
+		v = Vector2(Joypad.Axis(0, 0), Joypad.Axis(0, 1))
+	End If
+	Dim mag As Single = Sqr(v.x * v.x + v.y * v.y)
+	If mag < StickDeadzone Then
+		v = Vector2(0, 0)
+		If Input.IsMouseButtonPressed(2) Then
+			Dim mp As Vector2 = get_global_mouse_position()
+			Dim mdx As Single = mp.x - player_pos.x
+			Dim mdy As Single = mp.y - player_pos.y
+			Dim mdist As Single = Sqr(mdx * mdx + mdy * mdy)
+			If mdist > 4.0 Then v = Vector2(mdx / mdist, mdy / mdist)
+		Else
+			If Input.IsKeyPressed(KEY_A) Or Input.IsKeyPressed(KEY_LEFT) Then v.x = v.x - 1.0
+			If Input.IsKeyPressed(KEY_D) Or Input.IsKeyPressed(KEY_RIGHT) Then v.x = v.x + 1.0
+			If Input.IsKeyPressed(KEY_W) Or Input.IsKeyPressed(KEY_UP) Then v.y = v.y - 1.0
+			If Input.IsKeyPressed(KEY_S) Or Input.IsKeyPressed(KEY_DOWN) Then v.y = v.y + 1.0
+			mag = Sqr(v.x * v.x + v.y * v.y)
+			If mag > 1.0 Then
+				v = Vector2(v.x / mag, v.y / mag)
+			End If
+		End If
+	End If
+	TwinStickLeft = v
+End Function
+
+Function TwinStickRight() As Vector2
+	Dim v As Vector2 = Vector2(0, 0)
+	If cached_joy_connected Then
+		v = Vector2(Joypad.Axis(0, 2), Joypad.Axis(0, 3))
+	End If
+	Dim mag As Single = Sqr(v.x * v.x + v.y * v.y)
+	If mag > = StickDeadzone Then
+		TwinStickRight = v
+	Else
+		TwinStickRight = Vector2(0, 0)
+	End If
+End Function
+
+Function TwinStickFire() As Boolean
+	If cached_joy_connected And Joypad.Axis(0, 5) > 0.5 Then
+		TwinStickFire = True
+	ElseIf cached_joy_connected And Joypad.Button(0, 7) Then
+		TwinStickFire = True
+	ElseIf Input.IsMouseButtonPressed(1) Then
+		TwinStickFire = True
+	ElseIf Input.IsKeyPressed(KEY_SPACE) Then
+		TwinStickFire = True
+	Else
+		TwinStickFire = False
+	End If
+End Function
+
+' ===========================================================================
+' Enemies: shared pool of 128, dispatched by enemy_kind.
+' ===========================================================================
+
+Function _FindFreeEnemySlot() As Integer
+	Dim i As Integer
+	For i = 0 To EnemyPoolSize - 1
+		If enemy_kind(i) = 0 Then
+			If i + 1 > enemy_max Then enemy_max = i + 1
+			_FindFreeEnemySlot = i
+			Exit Function
+		End If
+	Next
+	_FindFreeEnemySlot = 0 - 1
+End Function
+
+Function _EdgeSpawnPos() As Vector2
+	Dim edge As Integer = Int(Rnd() * 4.0)
+	Dim m As Single = 24.0
+	If edge = 0 Then
+		_EdgeSpawnPos = Vector2(Rnd() * ScreenSize.x, 0.0 - m)
+	ElseIf edge = 1 Then
+		_EdgeSpawnPos = Vector2(ScreenSize.x + m, Rnd() * ScreenSize.y)
+	ElseIf edge = 2 Then
+		_EdgeSpawnPos = Vector2(Rnd() * ScreenSize.x, ScreenSize.y + m)
+	Else
+		_EdgeSpawnPos = Vector2(0.0 - m, Rnd() * ScreenSize.y)
+	End If
+End Function
+
+Sub _SpawnTick(ByVal delta As Single)
+	spawn_timer = spawn_timer - delta
+	If spawn_timer > 0.0 Then Exit Sub
+
+	Dim ramp As Single = game_time / SpawnDifficultySec
+	If ramp > 1.0 Then ramp = 1.0
+	Dim interval As Single = SpawnIntervalStart + (SpawnIntervalMin - SpawnIntervalStart) * ramp
+	If showcase_attract Then
+		If movie_mode Then
+			interval = interval * 0.72
+			If interval < SpawnIntervalMinMovie Then interval = SpawnIntervalMinMovie
+		Else
+			interval = interval * 1.2
+			If interval < SpawnIntervalMinAttract Then interval = SpawnIntervalMinAttract
+		End If
+	End If
+	spawn_timer = interval
+
+	Dim alive As Integer = 0
+	Dim ai As Integer
+	For ai = 0 To enemy_max - 1
+		If enemy_kind(ai) < > 0 Then alive = alive + 1
+	Next
+	Dim max_alive As Integer = EnemyMaxAlive
+	If showcase_attract Then
+		If movie_mode Then
+			max_alive = EnemyMaxAliveMovie
+		Else
+			max_alive = EnemyMaxAliveAttract
+		End If
+	End If
+	If alive > = max_alive Then Exit Sub
+
+	Dim r As Single = Rnd()
+	If r < 0.5 Then
+		Call _SpawnDrifter()
+	ElseIf r < 0.78 Then
+		Call _SpawnDiamond()
+	ElseIf r < 0.93 Then
+		Call _SpawnPinwheel()
+	Else
+		Call _SpawnSnake()
+	End If
+End Sub
+
+Sub _SpawnDrifter()
+	Dim s As Integer = _FindFreeEnemySlot()
+	If s < 0 Then Exit Sub
+	Dim p As Vector2 = _EdgeSpawnPos()
+	Dim toward As Vector2 = Vector2(ScreenSize.x * 0.5 - p.x, ScreenSize.y * 0.5 - p.y)
+	Dim n As Single = Sqr(toward.x * toward.x + toward.y * toward.y)
+	If n < 1.0 Then n = 1.0
+	enemy_pos(s) = p
+	enemy_vel(s) = Vector2(toward.x / n * DrifterSpeed, toward.y / n * DrifterSpeed)
+	enemy_kind(s) = KindDrifter
+	enemy_hp(s) = 1
+	enemy_value(s) = 10
+	enemy_t(s) = 0.0
+	enemy_phase(s) = Rnd() * 6.2832
+	enemy_parent(s) = 0 - 1
+End Sub
+
+Sub _SpawnDiamond()
+	Dim s As Integer = _FindFreeEnemySlot()
+	If s < 0 Then Exit Sub
+	enemy_pos(s) = _EdgeSpawnPos()
+	enemy_vel(s) = Vector2(0, 0)
+	enemy_kind(s) = KindDiamond
+	enemy_hp(s) = 1
+	enemy_value(s) = 25
+	enemy_t(s) = 0.0
+	enemy_phase(s) = 0.0
+	enemy_parent(s) = 0 - 1
+End Sub
+
+Sub _SpawnPinwheel()
+	Dim s As Integer = _FindFreeEnemySlot()
+	If s < 0 Then Exit Sub
+	enemy_pos(s) = _EdgeSpawnPos()
+	enemy_vel(s) = Vector2(0, 0)
+	enemy_kind(s) = KindPinwheel
+	enemy_hp(s) = 2
+	enemy_value(s) = 50
+	enemy_t(s) = PinwheelFireInterval
+	enemy_phase(s) = Rnd() * 6.2832
+	enemy_parent(s) = 0 - 1
+End Sub
+
+Sub _SpawnSnake()
+	Dim head As Integer = _FindFreeEnemySlot()
+	If head < 0 Then Exit Sub
+	Dim p As Vector2 = _EdgeSpawnPos()
+	enemy_pos(head) = p
+	enemy_vel(head) = Vector2(0, 0)
+	enemy_kind(head) = KindSnakeHead
+	enemy_hp(head) = 3
+	enemy_value(head) = 100
+	enemy_t(head) = 0.0
+	enemy_phase(head) = 0.0
+	enemy_parent(head) = 0 - 1
+
+	Dim prev As Integer = head
+	Dim i As Integer
+	For i = 0 To SnakeLength - 2
+		Dim seg As Integer = _FindFreeEnemySlot()
+		If seg < 0 Then Exit Sub
+		enemy_pos(seg) = p
+		enemy_vel(seg) = Vector2(0, 0)
+		enemy_kind(seg) = KindSnakeSeg
+		enemy_hp(seg) = 999
+		enemy_value(seg) = 0
+		enemy_t(seg) = 0.0
+		enemy_phase(seg) = 0.0
+		enemy_parent(seg) = prev
+		prev = seg
+	Next
+End Sub
+
+Sub _UpdateEnemies(ByVal delta As Single)
+	Dim i As Integer
+	Dim k As Integer
+	For i = 0 To enemy_max - 1
+		k = enemy_kind(i)
+		If k = KindDrifter Then
+			Call _UpdateDrifter(i, delta)
+		ElseIf k = KindDiamond Then
+			Call _UpdateDiamond(i, delta)
+		ElseIf k = KindPinwheel Then
+			Call _UpdatePinwheel(i, delta)
+		ElseIf k = KindSnakeHead Then
+			Call _UpdateSnakeHead(i, delta)
+		ElseIf k = KindSnakeSeg Then
+			Call _UpdateSnakeSeg(i, delta)
+		End If
+	Next
+	Dim trimming As Boolean = True
+	Do While trimming
+		If enemy_max < = 0 Then
+			trimming = False
+		ElseIf enemy_kind(enemy_max - 1) < > 0 Then
+			trimming = False
+		Else
+			enemy_max = enemy_max - 1
+		End If
+	Loop
+End Sub
+
+Sub _UpdateDrifter(ByVal i As Integer, ByVal delta As Single)
+	enemy_pos(i) = enemy_pos(i) + enemy_vel(i) * delta
+	Dim p As Vector2 = enemy_pos(i)
+	If p.x < 0.0 - 40.0 Or p.x > ScreenSize.x + 40.0 Or p.y < 0.0 - 40.0 Or p.y > ScreenSize.y + 40.0 Then
+		enemy_kind(i) = 0
+	End If
+End Sub
+
+Sub _UpdateDiamond(ByVal i As Integer, ByVal delta As Single)
+	Dim toward As Vector2 = Vector2(player_pos.x - enemy_pos(i).x, player_pos.y - enemy_pos(i).y)
+	Dim n As Single = Sqr(toward.x * toward.x + toward.y * toward.y)
+	If n < 1.0 Then n = 1.0
+	enemy_vel(i) = Vector2(toward.x / n * DiamondSpeed, toward.y / n * DiamondSpeed)
+	enemy_pos(i) = enemy_pos(i) + enemy_vel(i) * delta
+End Sub
+
+Sub _UpdatePinwheel(ByVal i As Integer, ByVal delta As Single)
+	Dim ang As Single = enemy_phase(i) + game_time * PinwheelAngSpeed
+	Dim target As Vector2 = Vector2(player_pos.x + Cos(ang) * PinwheelOrbitR, player_pos.y + Sin(ang) * PinwheelOrbitR)
+	Dim toward As Vector2 = Vector2(target.x - enemy_pos(i).x, target.y - enemy_pos(i).y)
+	enemy_vel(i) = enemy_vel(i) + toward * (PinwheelSteer * delta)
+	Dim damp As Single = 0.92
+	enemy_vel(i) = enemy_vel(i) * damp
+	enemy_pos(i) = enemy_pos(i) + enemy_vel(i) * delta
+
+	enemy_t(i) = enemy_t(i) - delta
+	If enemy_t(i) < = 0.0 Then
+		Call _FireEBulletAtPlayer(enemy_pos(i))
+		enemy_t(i) = PinwheelFireInterval
+	End If
+End Sub
+
+Sub _UpdateSnakeHead(ByVal i As Integer, ByVal delta As Single)
+	Dim toward As Vector2 = Vector2(player_pos.x - enemy_pos(i).x, player_pos.y - enemy_pos(i).y)
+	Dim n As Single = Sqr(toward.x * toward.x + toward.y * toward.y)
+	If n < 1.0 Then n = 1.0
+	enemy_vel(i) = enemy_vel(i) + Vector2(toward.x / n * SnakeHeadAccel * delta, toward.y / n * SnakeHeadAccel * delta)
+	Dim sp As Single = Sqr(enemy_vel(i).x * enemy_vel(i).x + enemy_vel(i).y * enemy_vel(i).y)
+	If sp > SnakeHeadMaxSpeed Then
+		enemy_vel(i) = enemy_vel(i) * (SnakeHeadMaxSpeed / sp)
+	End If
+	enemy_pos(i) = enemy_pos(i) + enemy_vel(i) * delta
+End Sub
+
+Sub _UpdateSnakeSeg(ByVal i As Integer, ByVal delta As Single)
+	Dim p As Integer = enemy_parent(i)
+	If p < 0 Or enemy_kind(p) = 0 Then
+		' Parent gone: promote to drifter
+		enemy_kind(i) = KindDrifter
+		enemy_hp(i) = 1
+		enemy_value(i) = 10
+		Exit Sub
+	End If
+	Dim parent_pos As Vector2 = enemy_pos(p)
+	Dim v As Vector2 = Vector2(enemy_pos(i).x - parent_pos.x, enemy_pos(i).y - parent_pos.y)
+	Dim d As Single = Sqr(v.x * v.x + v.y * v.y)
+	If d > SnakeSegSpacing Then
+		Dim nx As Single = v.x / d
+		Dim ny As Single = v.y / d
+		enemy_pos(i) = Vector2(parent_pos.x + nx * SnakeSegSpacing, parent_pos.y + ny * SnakeSegSpacing)
+	End If
+End Sub
+
+Sub _FireEBulletAtPlayer(ByVal from As Vector2)
+	Dim toward As Vector2 = Vector2(player_pos.x - from.x, player_pos.y - from.y)
+	Dim n As Single = Sqr(toward.x * toward.x + toward.y * toward.y)
+	If n < 1.0 Then n = 1.0
+	Dim vel As Vector2 = Vector2(toward.x / n * EBulletSpeed, toward.y / n * EBulletSpeed)
+
+	Dim slot As Integer = ebullet_cursor
+	Dim tries As Integer = 0
+	Do While ebullet_life(slot) > 0.0 And tries < EBulletPoolSize
+		slot = slot + 1
+		If slot > = EBulletPoolSize Then slot = 0
+		tries = tries + 1
+	Loop
+	ebullet_pos(slot) = from
+	ebullet_vel(slot) = vel
+	ebullet_life(slot) = EBulletLifetime
+	ebullet_cursor = slot + 1
+	If ebullet_cursor > = EBulletPoolSize Then ebullet_cursor = 0
+	If slot + 1 > ebullet_max Then ebullet_max = slot + 1
+End Sub
+
+Sub _UpdateEBullets(ByVal delta As Single)
+	Dim i As Integer
+	Dim life As Single
+	Dim p As Vector2
+	For i = 0 To ebullet_max - 1
+		life = ebullet_life(i)
+		If life > 0.0 Then
+			p = ebullet_pos(i) + ebullet_vel(i) * delta
+			ebullet_pos(i) = p
+			life = life - delta
+			If life < = 0.0 Or p.x < 0.0 Or p.x > ScreenSize.x Or p.y < 0.0 Or p.y > ScreenSize.y Then
+				ebullet_life(i) = 0.0
+			Else
+				ebullet_life(i) = life
+			End If
+		End If
+	Next
+	Dim trimming As Boolean = True
+	Do While trimming
+		If ebullet_max < = 0 Then
+			trimming = False
+		ElseIf ebullet_life(ebullet_max - 1) > 0.0 Then
+			trimming = False
+		Else
+			ebullet_max = ebullet_max - 1
+		End If
+	Loop
+End Sub
+
+Sub _DrawEnemies(ByVal canvas As Object)
+	Dim i As Integer
+	Dim k As Integer
+	Dim ep As Vector2
+	For i = 0 To enemy_max - 1
+		k = enemy_kind(i)
+		If k = 0 Then
+			' empty slot
+		Else
+			' #5: skip draw if entity is fully offscreen (max radius ~16).
+			ep = enemy_pos(i)
+			If ep.x > = - 20.0 And ep.x < = ScreenSize.x + 20.0 And ep.y > = - 20.0 And ep.y < = ScreenSize.y + 20.0 Then
+				If k = KindDrifter Then
+					Call _DrawDrifter(canvas, i)
+				ElseIf k = KindDiamond Then
+					Call _DrawDiamond(canvas, i)
+				ElseIf k = KindPinwheel Then
+					Call _DrawPinwheel(canvas, i)
+				ElseIf k = KindSnakeHead Then
+					Call _DrawSnakeBlob(canvas, i, SnakeHeadRadius, Color8(255, 120, 200))
+				ElseIf k = KindSnakeSeg Then
+					Call _DrawSnakeBlob(canvas, i, SnakeSegRadius, Color8(220, 100, 180))
+				End If
+			End If
+		End If
+	Next
+End Sub
+
+Sub _DrawDrifter(ByVal canvas As Object, ByVal i As Integer)
+	Dim p As Vector2 = enemy_pos(i)
+	Dim r As Single = DrifterRadius
+	Dim pts(4) As Vector2
+	pts(0) = Vector2(p.x - r, p.y - r)
+	pts(1) = Vector2(p.x + r, p.y - r)
+	pts(2) = Vector2(p.x + r, p.y + r)
+	pts(3) = Vector2(p.x - r, p.y + r)
+	pts(4) = Vector2(p.x - r, p.y - r)
+	Call canvas.DrawPolyline(pts, 2.0, Color8(120, 220, 140), False, Color8(0, 0, 0, 0), True)
+End Sub
+
+Sub _DrawDiamond(ByVal canvas As Object, ByVal i As Integer)
+	Dim p As Vector2 = enemy_pos(i)
+	Dim r As Single = DiamondRadius
+	Dim pts(4) As Vector2
+	pts(0) = Vector2(p.x, p.y - r)
+	pts(1) = Vector2(p.x + r, p.y)
+	pts(2) = Vector2(p.x, p.y + r)
+	pts(3) = Vector2(p.x - r, p.y)
+	pts(4) = Vector2(p.x, p.y - r)
+	Call canvas.DrawPolyline(pts, 2.0, Color8(255, 90, 90), False, Color8(0, 0, 0, 0), True)
+End Sub
+
+Sub _DrawPinwheel(ByVal canvas As Object, ByVal i As Integer)
+	Dim p As Vector2 = enemy_pos(i)
+	Dim r As Single = PinwheelRadius
+	Dim spin As Single = enemy_phase(i) + game_time * 3.0
+	Dim col As Color = Color8(255, 200, 80)
+	Dim j As Integer
+	For j = 0 To 3
+		Dim a As Single = spin + j * 1.5708
+		Dim ax As Single = Cos(a)
+		Dim ay As Single = Sin(a)
+		Dim a2 As Single = a + 0.6
+		Dim bx As Single = Cos(a2) * 0.55
+		Dim by As Single = Sin(a2) * 0.55
+		Dim pts(2) As Vector2
+		pts(0) = p
+		pts(1) = Vector2(p.x + bx * r, p.y + by * r)
+		pts(2) = Vector2(p.x + ax * r, p.y + ay * r)
+		Call canvas.DrawPolyline(pts, 2.0, col, False, Color8(0, 0, 0, 0), True)
+	Next
+End Sub
+
+Sub _DrawSnakeBlob(ByVal canvas As Object, ByVal i As Integer, ByVal r As Single, ByVal col As Color)
+	Dim p As Vector2 = enemy_pos(i)
+	' Hex approximation - 6 sides costs ~30% less than the previous 8
+	Dim pts(6) As Vector2
+	pts(0) = Vector2(p.x + r, p.y)
+	pts(1) = Vector2(p.x + r * 0.5, p.y + r * 0.866)
+	pts(2) = Vector2(p.x - r * 0.5, p.y + r * 0.866)
+	pts(3) = Vector2(p.x - r, p.y)
+	pts(4) = Vector2(p.x - r * 0.5, p.y - r * 0.866)
+	pts(5) = Vector2(p.x + r * 0.5, p.y - r * 0.866)
+	pts(6) = pts(0)
+	Call canvas.DrawPolyline(pts, 2.0, col, False, Color8(0, 0, 0, 0), True)
+End Sub
+
+Sub _DrawEBullets(ByVal canvas As Object)
+	' #3: enemy bullets share the white glow texture, tinted red.
+	Dim segs(127) As Vector2 ' EBulletPoolSize * 2 - 1
+	Dim n As Integer = 0
+	Dim i As Integer
+	Dim p As Vector2
+	Dim v As Vector2
+	Dim trail As Single = EBulletTracerSec * 3.0
+	For i = 0 To ebullet_max - 1
+		If ebullet_life(i) > 0.0 Then
+			p = ebullet_pos(i)
+			If p.x > = - 20.0 And p.x < = ScreenSize.x + 20.0 And p.y > = - 20.0 And p.y < = ScreenSize.y + 20.0 Then
+				v = ebullet_vel(i)
+				segs(n) = Vector2(p.x - v.x * trail, p.y - v.y * trail)
+				segs(n + 1) = p
+				n = n + 2
+			End If
+		End If
+	Next
+	If n > 0 Then
+		ReDim Preserve segs(n - 1)
+		Call canvas.DrawSpriteLines(bullet_glow_tex, segs, 10.0, Color8(255, 90, 90))
+	End If
+End Sub
+
+Sub _DrawHud(ByVal delta As Single)
+	fps_timer = fps_timer + delta
+	Dim fps_tick As Boolean = False
+	If fps_timer > = 0.25 Then
+		fps_timer = 0.0
+		fps_value = Engine.get_frames_per_second()
+		fps_tick = True
+	End If
+
+	' Cheap state checks first; skip the count loops + repaint if nothing changed.
+	Dim fps_int As Integer = Int(fps_value)
+	Dim need_repaint As Boolean = False
+	If fps_tick And fps_int < > hud_last_fps Then need_repaint = True
+	If score < > hud_last_score Then need_repaint = True
+	If lives < > hud_last_lives Then need_repaint = True
+	If game_over < > hud_last_game_over Then need_repaint = True
+	If showcase_attract < > hud_last_attract Then need_repaint = True
+	Dim mult_int As Integer = Int(multiplier * 10.0 + 0.5)
+	If mult_int < > hud_last_multiplier Then need_repaint = True
+
+	' Counters only matter when we're already repainting (they're displayed),
+	' but they also drive the diag string so recount when an fps tick fires.
+	Dim n_enemies As Integer = hud_last_n_enemies
+	Dim n_bullets As Integer = hud_last_n_bullets
+	If need_repaint Or fps_tick Then
+		n_enemies = 0
+		n_bullets = 0
+		Dim i As Integer
+		For i = 0 To enemy_max - 1
+			If enemy_kind(i) < > 0 Then n_enemies = n_enemies + 1
+		Next
+		For i = 0 To bullet_max - 1
+			If bullet_life(i) > 0.0 Then n_bullets = n_bullets + 1
+		Next
+		If n_enemies < > hud_last_n_enemies Then need_repaint = True
+		If n_bullets < > hud_last_n_bullets Then need_repaint = True
+	End If
+
+	If Not need_repaint Then Exit Sub
+
+	hud_last_fps = fps_int
+	hud_last_score = score
+	hud_last_lives = lives
+	hud_last_n_enemies = n_enemies
+	hud_last_n_bullets = n_bullets
+	hud_last_game_over = game_over
+	hud_last_multiplier = mult_int
+	hud_last_attract = showcase_attract
+
+	canvas_ui.Clear()
+	Dim diag As String = "FPS " & fps_int & " E " & n_enemies & " B " & n_bullets
+	Call canvas_ui.DrawVectorText(Vector2(12, 18), diag, Color8(180, 230, 255), 1.6, 1.5, "left", 2.0, "")
+	Dim score_str As String = "SCORE " & score
+	Call canvas_ui.DrawVectorText(Vector2(12, 46), score_str, Color8(255, 240, 160), 2.0, 1.8, "left", 2.4, "")
+	If mult_int > 10 Then
+		' Hotter tint as the combo climbs (10 -> pale, 80 -> bright orange-red).
+		Dim t As Single = (multiplier - 1.0) / (MultiplierMax - 1.0)
+		If t < 0.0 Then t = 0.0
+		If t > 1.0 Then t = 1.0
+		Dim mr As Integer = 255
+		Dim mg As Integer = Int(220.0 - t * 140.0)
+		Dim mb As Integer = Int(120.0 - t * 100.0)
+		Dim whole As Integer = mult_int \ 10
+		Dim frac As Integer = mult_int Mod 10
+		Dim mult_str As String = "x" & whole & "." & frac
+		Call canvas_ui.DrawVectorText(Vector2(12, 78), mult_str, Color8(mr, mg, mb), 1.8, 1.6, "left", 2.2, "")
+	End If
+	Dim lives_str As String = "LIVES " & lives
+	Call canvas_ui.DrawVectorTextRightAligned(Vector2(ScreenSize.x - 12, 46), lives_str, Color8(255, 200, 200), 2.0, 1.8, 2.4, "")
+
+	If showcase_attract Then
+		Call canvas_ui.DrawVectorTextCentered(Vector2(ScreenSize.x * 0.5, ScreenSize.y - 28), "5.4.0-BETA1  12/12 COMPUTE  9/9 DRAW  WASD TO PLAY", Color8(160, 220, 255), 1.3, 1.1, 1.5, "")
+	ElseIf showcase_from_end Then
+		Call canvas_ui.DrawVectorTextCentered(Vector2(ScreenSize.x * 0.5, ScreenSize.y - 28), "ESC — BACK TO SHOWCASE", Color8(160, 220, 255), 1.3, 1.1, 1.5, "")
+	End If
+
+	If game_over Then
+		Call canvas_ui.DrawVectorTextCentered(Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.42), "GAME OVER", Color8(255, 90, 90), 4.0, 3.0, 3.5, "")
+		Call canvas_ui.DrawVectorTextCentered(Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.52), "FINAL SCORE " & score, Color8(255, 240, 160), 2.4, 2.0, 2.8, "")
+		If Not movie_mode Then
+			Call canvas_ui.DrawVectorTextCentered(Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.62), "PRESS FIRE TO RESTART", Color8(180, 230, 255), 1.8, 1.6, 2.2, "")
+		End If
+	End If
+End Sub
+
+' ===========================================================================
+' A6 — Collision, death, respawn, game over.
+' ===========================================================================
+
+Function _EnemyRadius(ByVal k As Integer) As Single
+	If k = KindDrifter Then
+		_EnemyRadius = DrifterRadius
+	ElseIf k = KindDiamond Then
+		_EnemyRadius = DiamondRadius
+	ElseIf k = KindPinwheel Then
+		_EnemyRadius = PinwheelRadius
+	ElseIf k = KindSnakeHead Then
+		_EnemyRadius = SnakeHeadRadius
+	ElseIf k = KindSnakeSeg Then
+		_EnemyRadius = SnakeSegRadius
+	Else
+		_EnemyRadius = 0.0
+	End If
+End Function
+
+Sub _UpdateCollisions(ByVal delta As Single)
+	Dim i As Integer
+	Dim j As Integer
+	Dim k As Integer
+	Dim er As Single
+	Dim ep As Vector2
+	Dim bp As Vector2
+	Dim dx As Single
+	Dim dy As Single
+	Dim hit_r As Single
+
+	' Bullet -> enemy (snake segments excluded; only head is killable)
+	For i = 0 To bullet_max - 1
+		If bullet_life(i) < = 0.0 Then GoTo _next_bullet
+		bp = bullet_pos(i)
+		For j = 0 To enemy_max - 1
+			k = enemy_kind(j)
+			If k = 0 Or k = KindSnakeSeg Then GoTo _next_enemy
+			ep = enemy_pos(j)
+			dx = ep.x - bp.x
+			dy = ep.y - bp.y
+			hit_r = _EnemyRadius(k) + 4.0
+			If dx * dx + dy * dy < = hit_r * hit_r Then
+				bullet_life(i) = 0.0
+				enemy_hp(j) = enemy_hp(j) - 1
+				If enemy_hp(j) < = 0 Then
+					score = score + Int(enemy_value(j) * multiplier)
+					If multiplier_decay_t < MultiplierWindow Then
+						multiplier = multiplier + 0.1
+						If multiplier > MultiplierMax Then multiplier = MultiplierMax
+					Else
+						multiplier = 1.1
+					End If
+					multiplier_decay_t = 0.0
+					enemy_kind(j) = 0
+					Call _SpawnBloom(ep, 18)
+					Call _AddShake(4.0)
+					noise_active = True
+					noise_t = 0.0
+					noise_decay = 8.0 + multiplier * 4.0
+					grid_flash_t = 0.15
+				End If
+				GoTo _next_bullet
+			End If
+			_next_enemy:
+		Next
+		_next_bullet:
+	Next
+
+	If respawn_timer > 0.0 Or invuln_timer > 0.0 Or game_over Then Exit Sub
+
+	' Enemy -> player
+	For j = 0 To enemy_max - 1
+		k = enemy_kind(j)
+		If k = 0 Then GoTo _next_enemy2
+		ep = enemy_pos(j)
+		dx = ep.x - player_pos.x
+		dy = ep.y - player_pos.y
+		hit_r = _EnemyRadius(k) + PlayerRadius
+		If dx * dx + dy * dy < = hit_r * hit_r Then
+			Call _OnPlayerHit()
+			Exit Sub
+		End If
+		_next_enemy2:
+	Next
+
+	' Enemy bullet -> player
+	For i = 0 To ebullet_max - 1
+		If ebullet_life(i) < = 0.0 Then GoTo _next_eb
+		bp = ebullet_pos(i)
+		dx = bp.x - player_pos.x
+		dy = bp.y - player_pos.y
+		hit_r = PlayerRadius + 4.0
+		If dx * dx + dy * dy < = hit_r * hit_r Then
+			ebullet_life(i) = 0.0
+			Call _OnPlayerHit()
+			Exit Sub
+		End If
+		_next_eb:
+	Next
+End Sub
+
+Sub _OnPlayerHit()
+	lives = lives - 1
+	Call _GridRipple(player_pos, 2.2)
+	Call _SpawnBloom(player_pos, 56)
+	Call _AddShake(14.0)
+	multiplier = 1.0
+	multiplier_decay_t = 999.0
+	If lives < = 0 Then
+		lives = 0
+		game_over = True
+		restart_armed = False
+		If movie_mode Then movie_over_t = 0.0
+	Else
+		respawn_timer = RespawnDelay
+	End If
+End Sub
+
+Sub _RespawnPlayer()
+	player_pos = Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.5)
+	player_vel = Vector2(0, 0)
+	invuln_timer = InvulnDuration
+	' Clear enemies and bullets near respawn point so the player isn't insta-killed
+	Dim j As Integer
+	Dim dx As Single
+	Dim dy As Single
+	Dim clear_r As Single = 200.0
+	For j = 0 To enemy_max - 1
+		If enemy_kind(j) < > 0 Then
+			dx = enemy_pos(j).x - player_pos.x
+			dy = enemy_pos(j).y - player_pos.y
+			If dx * dx + dy * dy < clear_r * clear_r Then
+				enemy_kind(j) = 0
+			End If
+		End If
+	Next
+	For j = 0 To ebullet_max - 1
+		If ebullet_life(j) > 0.0 Then
+			dx = ebullet_pos(j).x - player_pos.x
+			dy = ebullet_pos(j).y - player_pos.y
+			If dx * dx + dy * dy < clear_r * clear_r Then
+				ebullet_life(j) = 0.0
+			End If
+		End If
+	Next
+End Sub
+
+' Handler: _AttractAutoPilot — gentle drift + aim/fire at nearest enemy
+Sub _AttractAutoPilot(ByVal delta As Single)
+	Dim cx As Single = ScreenSize.x * 0.5
+	Dim cy As Single = ScreenSize.y * 0.5
+	Dim dx As Single = cx - player_pos.x
+	Dim dy As Single = cy - player_pos.y
+	Dim wob_x As Single = Sin(attract_wobble_t * 1.7) * 0.4
+	Dim wob_y As Single = Cos(attract_wobble_t * 2.3) * 0.4
+	Dim move_x As Single = dx * 0.002 + wob_x
+	Dim move_y As Single = dy * 0.002 + wob_y
+	Dim ml As Single = Sqr(move_x * move_x + move_y * move_y)
+	If ml > StickDeadzone Then
+		cached_move = Vector2(move_x / ml, move_y / ml)
+	Else
+		cached_move = Vector2(0, 0)
+	End If
+
+	Dim best_d2 As Single = 99999999.0
+	Dim aim_x As Single = Cos(attract_wobble_t)
+	Dim aim_y As Single = Sin(attract_wobble_t)
+	Dim i As Integer
+	For i = 0 To enemy_max - 1
+		If enemy_kind(i) < > 0 Then
+			Dim ex As Single = enemy_pos(i).x - player_pos.x
+			Dim ey As Single = enemy_pos(i).y - player_pos.y
+			Dim d2 As Single = ex * ex + ey * ey
+			If d2 < best_d2 Then
+				best_d2 = d2
+				aim_x = ex
+				aim_y = ey
+			End If
+		End If
+	Next
+	Dim aim_len As Single = Sqr(aim_x * aim_x + aim_y * aim_y)
+	If aim_len > 0.001 Then
+		cached_aim = Vector2(aim_x / aim_len, aim_y / aim_len)
+	Else
+		cached_aim = Vector2(aim_x, aim_y)
+		aim_len = 1.0
+	End If
+	cached_fire = aim_len > 0.2
+End Sub
+
+' Handler: _ResetForAttract — light reset when 60s attract loop restarts
+Sub _ResetForAttract()
+	Dim i As Integer
+	For i = 0 To EnemyPoolSize - 1
+		enemy_kind(i) = 0
+	Next
+	enemy_max = 0
+	For i = 0 To BulletPoolSize - 1
+		bullet_life(i) = 0.0
+	Next
+	bullet_max = 0
+	bullet_cursor = 0
+	For i = 0 To EBulletPoolSize - 1
+		ebullet_life(i) = 0.0
+	Next
+	ebullet_max = 0
+	ebullet_cursor = 0
+
+	player_pos = Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.5)
+	player_vel = Vector2(0, 0)
+	player_angle = 0.0
+	player_thrusting = False
+	fire_cooldown = 0.0
+
+	score = 0
+	lives = StartingLives
+	respawn_timer = 0.0
+	invuln_timer = InvulnDuration
+	game_over = False
+	restart_armed = False
+	movie_over_t = 0.0
+	spawn_timer = 0.5
+	game_time = 0.0
+	multiplier = 1.0
+	multiplier_decay_t = 999.0
+
+	Dim g As Integer
+	For g = 0 To GridCells - 1
+		grid_dx(g) = 0.0
+		grid_dy(g) = 0.0
+		grid_vx(g) = 0.0
+		grid_vy(g) = 0.0
+	Next
+End Sub
+
+Sub _TickGameOver(ByVal delta As Single)
+	If movie_mode Then
+		movie_over_t = movie_over_t + delta
+		Exit Sub
+	End If
+	Dim firing As Boolean = cached_fire
+	If Not restart_armed Then
+		If Not firing Then restart_armed = True
+		Exit Sub
+	End If
+	If firing Then Call _RestartGame()
+End Sub
+
+Sub _RestartGame()
+	Dim i As Integer
+	For i = 0 To EnemyPoolSize - 1
+		enemy_kind(i) = 0
+	Next
+	enemy_max = 0
+	For i = 0 To BulletPoolSize - 1
+		bullet_life(i) = 0.0
+	Next
+	bullet_max = 0
+	bullet_cursor = 0
+	For i = 0 To EBulletPoolSize - 1
+		ebullet_life(i) = 0.0
+	Next
+	ebullet_max = 0
+	ebullet_cursor = 0
+
+	player_pos = Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.5)
+	player_vel = Vector2(0, 0)
+	player_angle = 0.0
+	player_thrusting = False
+	fire_cooldown = 0.0
+
+	score = 0
+	lives = StartingLives
+	respawn_timer = 0.0
+	invuln_timer = InvulnDuration
+	game_over = False
+	restart_armed = False
+	spawn_timer = 1.0
+	game_time = 0.0
+
+	Dim g As Integer
+	For g = 0 To GridCells - 1
+		grid_dx(g) = 0.0
+		grid_dy(g) = 0.0
+		grid_vx(g) = 0.0
+		grid_vy(g) = 0.0
+	Next
+End Sub
+
+' ===========================================================================
+' A7 — Warping grid background. 32x18 vertices, damped-spring per node.
+' Ripples are emitted on enemy kill and player hit.
+' ===========================================================================
+
+Sub _UpdateGrid(ByVal delta As Single)
+	' Showcase attract: skip spring sim when grid is settled (major CPU save).
+	If showcase_attract And Not grid_active And grid_flash_t < = 0.0 Then Exit Sub
+	' #4 + adaptive #2: full-rate spring physics normally. If FPS drops
+	' under 50 (sampled at 4Hz for the HUD), throttle to 30 Hz with a
+	' 5-fps hysteresis band so the rate doesn't flap on/off.
+	If fps_value > 0.0 And fps_value < 50.0 Then
+		grid_throttle = True
+	ElseIf fps_value > 55.0 Then
+		grid_throttle = False
+	End If
+	If grid_throttle Then
+		grid_tick = grid_tick + 1
+		grid_accum_delta = grid_accum_delta + delta
+		If (grid_tick Mod 2) = 1 Then Exit Sub
+		delta = grid_accum_delta
+		grid_accum_delta = 0.0
+	Else
+		grid_accum_delta = 0.0
+	End If
+	Dim n As Integer = GridCells
+	Dim k As Single = GridSpringK
+	Dim c As Single = GridDamping
+	Dim eps As Single = GridRestEpsilon
+	Dim i As Integer
+	Dim ax As Single
+	Dim ay As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim vx As Single
+	Dim vy As Single
+	Dim any_moving As Boolean = False
+	For i = 0 To n - 1
+		dx = grid_dx(i)
+		dy = grid_dy(i)
+		vx = grid_vx(i)
+		vy = grid_vy(i)
+		If Abs(dx) < eps And Abs(dy) < eps And Abs(vx) < eps And Abs(vy) < eps Then
+			grid_dx(i) = 0.0
+			grid_dy(i) = 0.0
+			grid_vx(i) = 0.0
+			grid_vy(i) = 0.0
+		Else
+			ax = 0.0 - k * dx - c * vx
+			ay = 0.0 - k * dy - c * vy
+			vx = vx + ax * delta
+			vy = vy + ay * delta
+			grid_vx(i) = vx
+			grid_vy(i) = vy
+			grid_dx(i) = dx + vx * delta
+			grid_dy(i) = dy + vy * delta
+			any_moving = True
+		End If
+	Next
+	grid_active = any_moving
+End Sub
+
+Sub _GridRipple(ByVal center As Vector2, ByVal strength As Single)
+	Dim sx As Single = ScreenSize.x / (GridCols - 1)
+	Dim sy As Single = ScreenSize.y / (GridRows - 1)
+	Dim r2_max As Single = GridRippleRadius * GridRippleRadius
+	Dim row As Integer
+	Dim col As Integer
+	Dim idx As Integer
+	Dim rx As Single
+	Dim ry As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim d2 As Single
+	Dim d As Single
+	Dim falloff As Single
+	Dim push As Single
+	For row = 0 To GridRows - 1
+		ry = row * sy
+		For col = 0 To GridCols - 1
+			rx = col * sx
+			dx = rx - center.x
+			dy = ry - center.y
+			d2 = dx * dx + dy * dy
+			If d2 < r2_max Then
+				d = Sqr(d2)
+				If d < 0.5 Then d = 0.5
+				falloff = 1.0 / (1.0 + d / GridRippleFalloff)
+				push = strength * 280.0 * falloff
+				idx = row * GridCols + col
+				grid_vx(idx) = grid_vx(idx) + (dx / d) * push
+				grid_vy(idx) = grid_vy(idx) + (dy / d) * push
+				grid_active = True
+			End If
+		Next
+	Next
+End Sub
+
+Sub _DrawGrid(ByVal canvas As Object)
+	' #1: 3 fade bands (dim/mid/bright) classified by distance from the
+	' middle row/col. 6 DrawLines calls total; restores depth cue lost when
+	' the original 32-polyline path was collapsed to a flat color.
+	Dim sx As Single = ScreenSize.x / (GridCols - 1)
+	Dim sy As Single = ScreenSize.y / (GridRows - 1)
+	Dim col_dim As Color = Color8(25, 45, 75)
+	Dim col_mid As Color = Color8(45, 75, 115)
+	Dim col_bright As Color = Color8(75, 115, 165)
+	Dim row As Integer
+	Dim col As Integer
+	Dim idx As Integer
+	Dim tier As Integer
+	Dim px As Single
+	Dim py As Single
+	Dim qx As Single
+	Dim qy As Single
+	Dim yc As Single
+	Dim xc As Single
+
+	' Horizontal segments per band. GridRows=12 split 4/4/4 rows.
+	Dim h_dim(151) As Vector2 ' 4 rows * 19 segs * 2 - 1
+	Dim h_mid(151) As Vector2
+	Dim h_bri(151) As Vector2
+	Dim hn_d As Integer = 0
+	Dim hn_m As Integer = 0
+	Dim hn_b As Integer = 0
+	For row = 0 To GridRows - 1
+		If row < 2 Or row > 9 Then
+			tier = 0
+		ElseIf row < 4 Or row > 7 Then
+			tier = 1
+		Else
+			tier = 2
+		End If
+		yc = row * sy
+		idx = row * GridCols
+		px = grid_dx(idx)
+		py = yc + grid_dy(idx)
+		For col = 1 To GridCols - 1
+			idx = row * GridCols + col
+			qx = col * sx + grid_dx(idx)
+			qy = yc + grid_dy(idx)
+			If tier = 0 Then
+				h_dim(hn_d) = Vector2(px, py)
+				h_dim(hn_d + 1) = Vector2(qx, qy)
+				hn_d = hn_d + 2
+			ElseIf tier = 1 Then
+				h_mid(hn_m) = Vector2(px, py)
+				h_mid(hn_m + 1) = Vector2(qx, qy)
+				hn_m = hn_m + 2
+			Else
+				h_bri(hn_b) = Vector2(px, py)
+				h_bri(hn_b + 1) = Vector2(qx, qy)
+				hn_b = hn_b + 2
+			End If
+			px = qx
+			py = qy
+		Next
+	Next
+	Call canvas.DrawLines(h_dim, 1.0, col_dim)
+	Call canvas.DrawLines(h_mid, 1.0, col_mid)
+	Call canvas.DrawLines(h_bri, 1.0, col_bright)
+
+	' Vertical segments per band. GridCols=20 split 8/6/6 cols.
+	Dim v_dim(175) As Vector2 ' 8 cols * 11 segs * 2 - 1
+	Dim v_mid(131) As Vector2 ' 6 cols * 11 segs * 2 - 1
+	Dim v_bri(131) As Vector2
+	Dim vn_d As Integer = 0
+	Dim vn_m As Integer = 0
+	Dim vn_b As Integer = 0
+	For col = 0 To GridCols - 1
+		If col < 4 Or col > 15 Then
+			tier = 0
+		ElseIf col < 7 Or col > 12 Then
+			tier = 1
+		Else
+			tier = 2
+		End If
+		xc = col * sx
+		idx = col
+		px = xc + grid_dx(idx)
+		py = grid_dy(idx)
+		For row = 1 To GridRows - 1
+			idx = row * GridCols + col
+			qx = xc + grid_dx(idx)
+			qy = row * sy + grid_dy(idx)
+			If tier = 0 Then
+				v_dim(vn_d) = Vector2(px, py)
+				v_dim(vn_d + 1) = Vector2(qx, qy)
+				vn_d = vn_d + 2
+			ElseIf tier = 1 Then
+				v_mid(vn_m) = Vector2(px, py)
+				v_mid(vn_m + 1) = Vector2(qx, qy)
+				vn_m = vn_m + 2
+			Else
+				v_bri(vn_b) = Vector2(px, py)
+				v_bri(vn_b + 1) = Vector2(qx, qy)
+				vn_b = vn_b + 2
+			End If
+			px = qx
+			py = qy
+		Next
+	Next
+	Call canvas.DrawLines(v_dim, 1.0, col_dim)
+	Call canvas.DrawLines(v_mid, 1.0, col_mid)
+	Call canvas.DrawLines(v_bri, 1.0, col_bright)
+End Sub
+
+' --- A8: particle bloom system -------------------------------------------
+Sub _SpawnBloom(ByVal pos As Vector2, ByVal count As Integer)
+	Dim i As Integer
+	Dim slot As Integer
+	Dim ang As Single
+	Dim spd As Single
+	For i = 0 To count - 1
+		slot = particle_cursor
+		particle_cursor = particle_cursor + 1
+		If particle_cursor > = ParticlePoolSize Then particle_cursor = 0
+		ang = Rnd() * 6.28318530718
+		spd = ParticleSpeedMin + Rnd() * (ParticleSpeedMax - ParticleSpeedMin)
+		particle_pos(slot) = pos
+		particle_vel(slot) = Vector2(Cos(ang) * spd, Sin(ang) * spd)
+		particle_life(slot) = ParticleMaxLife
+		If slot > = particle_max Then particle_max = slot + 1
+	Next
+End Sub
+
+Sub _UpdateParticles(ByVal delta As Single)
+	Dim i As Integer
+	Dim drag As Single = 0.93
+	For i = 0 To particle_max - 1
+		If particle_life(i) > 0.0 Then
+			particle_life(i) = particle_life(i) - delta
+			If particle_life(i) > 0.0 Then
+				particle_pos(i) = particle_pos(i) + particle_vel(i) * delta
+				particle_vel(i) = particle_vel(i) * drag
+			End If
+		End If
+	Next
+End Sub
+
+' -------------------------------------------------------------------
+' A9 real-time audio — three voices mixed in C++ via SoundGen.FillVoices.
+' No VG loop: the entire synthesis runs natively for zero frame cost.
+'   Voice 1: square-wave arpeggio (A-minor, always on)
+'   Voice 2: bass kick (sine sweep, fires on player shoot)
+'   Voice 3: white-noise burst (fires on enemy kill)
+' -------------------------------------------------------------------
+Sub _UpdateAudio(ByVal delta As Single)
+	If sg_handle = 0 Then Exit Sub
+
+	' Advance arpeggio note timer
+	arp_note_t = arp_note_t + delta
+	If arp_note_t > = ArpNoteDur Then
+		arp_note_t = arp_note_t - ArpNoteDur
+		arp_idx = arp_idx + 1
+		If arp_idx > = 8 Then arp_idx = 0
+		arp_freq = arp_notes(arp_idx)
+	End If
+
+	' Advance kick / noise lifetime timers (expire stale voices)
+	If kick_active Then
+		kick_t = kick_t + delta
+		If kick_t > = KickDur Then kick_active = False : kick_t = 0.0
+	End If
+	If noise_active Then
+		noise_t = noise_t + delta
+		If noise_t > = NoiseDur Then noise_active = False : noise_t = 0.0
+	End If
+
+	' FillVoices does all synthesis + pushes frames in C++ — no VG loop.
+	' Returns [new_arp_phase, new_kick_t, new_noise_t] as a packed array.
+	Dim state As Variant = SoundGen.FillVoices(sg_handle, AudioSampleRate, arp_phase, arp_freq, kick_active, kick_t, KickDur, noise_active, noise_t, noise_decay)
+	arp_phase = state(0)
+	kick_t = state(1)
+	noise_t = state(2)
+End Sub
+
+Sub _DrawParticles(ByVal canvas As Object)
+	If particle_max < = 0 Then Exit Sub
+	Dim segs(2047) As Vector2
+	Dim n As Integer = 0
+	Dim i As Integer
+	Dim p As Vector2
+	Dim v As Vector2
+	For i = 0 To particle_max - 1
+		If particle_life(i) > 0.0 Then
+			p = particle_pos(i)
+			v = particle_vel(i)
+			segs(n) = Vector2(p.x - v.x * 0.035, p.y - v.y * 0.035)
+			segs(n + 1) = p
+			n = n + 2
+		End If
+	Next
+	If n < = 0 Then Exit Sub
+	ReDim Preserve segs(n - 1) As Vector2
+	Call canvas.DrawSpriteLines(bullet_glow_tex, segs, 6.0, Color8(255, 220, 140, 220))
+End Sub
+
+' --- Screen shake --------------------------------------------------------
+Sub _AddShake(ByVal mag As Single)
+	If mag > shake_mag Then shake_mag = mag
+End Sub
+
+Sub _UpdateShake(ByVal delta As Single)
+	If shake_mag > 0.05 Then
+		Dim ox As Single = (Rnd() - 0.5) * 2.0 * shake_mag
+		Dim oy As Single = (Rnd() - 0.5) * 2.0 * shake_mag
+		Dim off As Vector2 = Vector2(ox, oy)
+		Call canvas_bg.set_position(off)
+		Call canvas_game.set_position(off)
+		Call canvas_fx.set_position(off)
+		shake_mag = shake_mag - delta * 32.0
+		If shake_mag < 0.0 Then shake_mag = 0.0
+	ElseIf shake_mag > 0.0 Then
+		shake_mag = 0.0
+		Dim zero As Vector2 = Vector2(0, 0)
+		Call canvas_bg.set_position(zero)
+		Call canvas_game.set_position(zero)
+		Call canvas_fx.set_position(zero)
+	End If
+End Sub
+
+' --- Additive halo pass --------------------------------------------------
+' Draws a soft radial glow behind every alive enemy and the player ship
+' onto canvas_fx (which has additive blending enabled).  All enemies are
+' drawn in a single sprite-batch call; the player gets a second call with
+' a warmer tint and a touch more size for emphasis.
+Sub _DrawHalos(ByVal canvas As Object)
+	Dim half_e As Single = EnemyHaloSize * 0.5
+	Dim half_p As Single = PlayerHaloSize * 0.5
+	' Enemy halos: count alive on-screen enemies first to size the array.
+	Dim i As Integer
+	Dim n_alive As Integer = 0
+	For i = 0 To enemy_max - 1
+		If enemy_kind(i) < > 0 Then
+			Dim ep As Vector2 = enemy_pos(i)
+			If ep.x > = - 20.0 And ep.x < = ScreenSize.x + 20.0 And ep.y > = - 20.0 And ep.y < = ScreenSize.y + 20.0 Then
+				n_alive = n_alive + 1
+			End If
+		End If
+	Next
+	If n_alive > 0 Then
+		Dim segs(0) As Vector2
+		ReDim segs(n_alive * 2 - 1) As Vector2
+		Dim j As Integer = 0
+		For i = 0 To enemy_max - 1
+			If enemy_kind(i) < > 0 Then
+				Dim p As Vector2 = enemy_pos(i)
+				If p.x > = - 20.0 And p.x < = ScreenSize.x + 20.0 And p.y > = - 20.0 And p.y < = ScreenSize.y + 20.0 Then
+					segs(j) = Vector2(p.x - half_e, p.y)
+					segs(j + 1) = Vector2(p.x + half_e, p.y)
+					j = j + 2
+				End If
+			End If
+		Next
+		Call canvas.DrawSpriteLines(halo_tex, segs, EnemyHaloSize, Color8(140, 180, 230, 90))
+	End If
+	' Player halo: brighter, warmer, only when not respawning.
+	If respawn_timer < = 0.0 And Not game_over Then
+		Dim psegs(1) As Vector2
+		psegs(0) = Vector2(player_pos.x - half_p, player_pos.y)
+		psegs(1) = Vector2(player_pos.x + half_p, player_pos.y)
+		Dim a As Integer = 130
+		If invuln_timer > 0.0 Then
+			' Flicker during invulnerability frames.
+			If invuln_timer < InvulnWarnTime Then
+				If Int(invuln_timer * 12.0) Mod 2 = 0 Then a = 60
+			Else
+				a = 180
+			End If
+		End If
+		Call canvas.DrawSpriteLines(halo_tex, psegs, PlayerHaloSize, Color8(255, 200, 130, a))
+	End If
+End Sub
+
+' --- A11 multiplier update -----------------------------------------------
+' Tracks time since the last kill; once past MultiplierWindow the multiplier
+' decays linearly back toward 1.0×.
+Sub _UpdateMultiplier(ByVal delta As Single)
+	multiplier_decay_t = multiplier_decay_t + delta
+	If multiplier_decay_t > MultiplierWindow And multiplier > 1.0 Then
+		multiplier = multiplier - delta * MultiplierDecayRate
+		If multiplier < 1.0 Then multiplier = 1.0
+	End If
+End Sub
+
+Sub _UnhandledInput(ByVal Event As Object)
+	If Event Is InputEventKey Then
+		If Event.Pressed And Event.Keycode = KEY_ESCAPE Then
+			If showcase_from_end Or GetTree().root.has_meta("showcase_storm_from_end") Then
+				GetTree().root.remove_meta("showcase_storm_from_end")
+				GetTree().root.set_meta("showcase_resume_end", True)
+				Call ChangeScene("res://backrooms_showcase_main.tscn")
+			Else
+				GetTree().Quit()
+			End If
+		End If
+	End If
+End Sub

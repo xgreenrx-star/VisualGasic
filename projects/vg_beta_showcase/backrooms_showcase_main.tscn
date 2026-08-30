@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://backrooms_showcase_main"]
+
+[ext_resource type="Script" path="res://backrooms_transition_manager.gd" id="1_mgr"]
+
+[node name="BackroomsShowcase" type="Node3D"]
+script = ExtResource("1_mgr")

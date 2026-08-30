@@ -95,6 +95,7 @@ private:
 	static Array _arc_corner_points(const Vector2 &center, float radius, float start_angle, float end_angle, int segments);
 	void _apply_override_to_command(Dictionary &command, const Dictionary &override_dict);
 	void _queue_command(Dictionary command);
+	void _queue_polyline_absolute(const PackedVector2Array &points, float width, const Color &color);
 
 	void _dispatch_command(const Dictionary &cmd, int t);
 	void _draw_line_command(const Dictionary &cmd);
@@ -187,6 +188,10 @@ public:
 			const Color &color = Color(1, 1, 1, 1), float scale = 1.0f, float width = 2.0f,
 			float char_spacing = 52.0f, float flip_speed = 0.9f, float flip_wave = 0.38f,
 			const String &font_name = "");
+	// Path: border belt — cw_angle sets inward hang; read_angle sets LTR baseline.
+	void DrawVectorTextPath(const Vector2 &origin, float cw_angle, float read_angle, const String &text,
+			const Color &color = Color(1, 1, 1, 1), float scale = 1.0f, float width = 2.0f,
+			float spacing = 2.0f, const String &font_name = "");
 	void RegisterVectorFont(const String &name, const Dictionary &glyphs, bool make_default = false);
 	void SetVectorFont(const String &name);
 	Array GetVectorFontNames();

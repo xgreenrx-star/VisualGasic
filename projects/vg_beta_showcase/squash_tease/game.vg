@@ -1,0 +1,79 @@
+' ============================================================================
+' MAIN - Game Controller for Squash the Creeps 3D (VisualGasic Conversion)
+' Converted from the official Godot demo: godotengine/godot-demo-projects
+' ============================================================================
+' Attached to the root Node of main.tscn.
+' Handles mob spawning on timer, game-over on player death, and retry.
+'
+' Original GDScript: extends Node
+' ============================================================================
+Attribute VB_Name = "Main"
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    ' Hide the retry overlay at start
+    GetNode("UserInterface/Retry").hide()
+End Sub
+
+' ============================================================================
+' INPUT - Restart on Space/Enter after game over
+' ============================================================================
+Sub _UnhandledInput(event As Object)
+    Dim retryPanel As Object
+    retryPanel = GetNode("UserInterface/Retry")
+    If retryPanel.visible Then
+        If IsActionJustPressed("ui_accept") Then
+            Dim tree As Object
+            tree = Me.get_tree()
+            tree.reload_current_scene()
+        End If
+    End If
+End Sub
+
+' ============================================================================
+' MOB SPAWNING - Timer fires every 0.5 seconds
+' ============================================================================
+' Signal handler: MobTimer timeout
+Sub _on_MobTimer_timeout()
+    ' --- Create a mob instance ---
+    Dim mobScene As Object
+    mobScene = Load("res://squash_tease/mob.tscn")
+    Dim mob As Object
+    mob = mobScene.instantiate()
+
+    ' --- Random spawn location along the arena perimeter ---
+    Dim spawnLoc As Object
+    spawnLoc = GetNode("SpawnPath/SpawnLocation")
+    spawnLoc.set("progress_ratio", Rnd())
+
+    ' --- Get player position ---
+    Dim player As Object
+    player = GetNode("Player")
+    If player Is Nothing Then
+        ' Player already dead, don't spawn
+        mob.queue_free()
+        Exit Sub
+    End If
+    Dim playerPos As Object
+    playerPos = player.position
+
+    ' --- Add mob to the scene tree (triggers _Ready → sets animPlayer) ---
+    Me.add_child(mob)
+
+    ' --- Initialize mob: position, direction, speed ---
+    ' Must be called AFTER add_child so _Ready has set up node references.
+    mob.initialize(spawnLoc.global_position, playerPos)
+End Sub
+
+' ============================================================================
+' GAME OVER - Player was hit by a mob
+' ============================================================================
+' Signal handler: Player hit
+Sub _on_player_hit()
+    ' Stop spawning mobs
+    GetNode("MobTimer").stop()
+    ' Show retry overlay
+    GetNode("UserInterface/Retry").show()
+End Sub
