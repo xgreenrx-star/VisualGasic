@@ -5,7 +5,7 @@
 ### Highlights
 
 - **12/12 compute + 9/9 draw** — draw grid-loop fusion + FunctionCall inlining (~60× faster on FunctionCall)
-- **VG Beta Showcase** — Backrooms hub → shaders → About VG → Squash → Neon Runner → Vector Storm ([README](https://github.com/xgreenrx-star/VisualGasic/blob/main/projects/vg_beta_showcase/README.md))
+- **VG Beta Showcase** — Backrooms hub → shaders → About VG → Squash → Neon Runner → Vector Storm ([README](https://github.com/xgreenrx-star/VisualGasic/blob/main/projects/vg_beta_showcase/README.md) · [YouTube](https://youtu.be/FUw8zgbn_tU))
 - **Movie Maker recording** — `scripts/record_vg_beta_showcase.sh` for promo video capture
 - **891/891** regression assertions · CI benchmark regression gate
 - **On the road to VG6** — 5.x betas now; **v6.0.0** stable targets January 2027

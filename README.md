@@ -63,7 +63,7 @@ VG is a public beta. The language, JIT compiler, and debugger work. The Form Des
 
 **Recently shipped (5.4.0-beta1):**
 - **12/12 compute + 9/9 draw** — full published benchmark suite faster than GDScript
-- **VG Beta Showcase** — `projects/vg_beta_showcase/` (~6 min tour: Backrooms hub → shaders → About VG → Squash → Neon Runner → Vector Storm)
+- **VG Beta Showcase** — `projects/vg_beta_showcase/` (~6 min tour: Backrooms hub → shaders → About VG → Squash → Neon Runner → Vector Storm) · [Watch on YouTube](https://youtu.be/FUw8zgbn_tU)
 - **891/891** regression assertions · CI benchmark regression gate
 
 **Shipping next:**

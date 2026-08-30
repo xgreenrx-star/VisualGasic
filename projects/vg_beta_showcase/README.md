@@ -2,6 +2,8 @@
 
 ~6-minute full tour (~3 min with Space skips): **Title** → **Backrooms transitions** → **Shader Showcase** → **About VG** → **Squash tease** → **Neon Runner** → **Vector Storm attract**.
 
+**Watch:** [Beta Showcase on YouTube](https://youtu.be/FUw8zgbn_tU)
+
 ## Quick start
 
 1. Open `project.godot` in Godot 4.6.1 with Visual Gasic enabled.

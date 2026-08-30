@@ -50,6 +50,8 @@ Narcea AI Pair, `.vgd` DataFile preview, sprite Data editor, and multi-platform 
 
 ### VG Beta Showcase (`projects/vg_beta_showcase/`)
 
+**Watch:** [Beta Showcase on YouTube](https://youtu.be/FUw8zgbn_tU)
+
 | Segment | What you see |
 |---------|----------------|
 | **Speed Bench Tour** | Title splash with live **12/12 compute · 9/9 draw** counters |
