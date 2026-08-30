@@ -54,6 +54,10 @@ End Sub
 
 Press **F5** to run.
 
+### 4. Try the Beta Showcase (optional)
+
+Open `projects/vg_beta_showcase/project.godot` in Godot 4.6.1, enable VisualGasic, press **F5**. **Space** skips segments. See [projects/vg_beta_showcase/README.md](../../projects/vg_beta_showcase/README.md).
+
 ---
 
 ## Learning Paths

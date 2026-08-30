@@ -1,36 +1,35 @@
 # Godot Asset Library — VisualGasic
 
-Status of the VisualGasic listing on the [Godot Asset Library](https://godotengine.org/asset-library/asset).
+Status of the VisualGasic listing on the [Godot Asset Library](https://godotengine.org/asset-library/asset/visual-gasic/visual-gasic/).
 
 ---
 
-## Current status (v5.3.0-Beta7)
+## Current status (v5.4.0-beta1)
 
 | Field | Value |
 |-------|--------|
-| **Version submitted** | 5.3.0-Beta7 |
+| **Version submitted** | 5.4.0-beta1 |
 | **Godot version** | 4.6+ |
 | **License** | GPL v3.0 |
-| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.3.0-Beta7.zip` |
-| **Listing state** | **Submitted — awaiting moderator approval** |
+| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.4.0-beta1.zip` |
+| **Listing state** | **Live** — update pending moderator approval for 5.4.0-beta1 |
 
-Changelog copy for the Asset Library version field: [`ASSET_LIBRARY_CHANGELOG_5.3.0-Beta7.md`](../ASSET_LIBRARY_CHANGELOG_5.3.0-Beta7.md) (BBCode variant available in release notes workflow).
+Changelog copy for the Asset Library version field: [`ASSET_LIBRARY_CHANGELOG_5.4.0-beta1.md`](../../ASSET_LIBRARY_CHANGELOG_5.4.0-beta1.md) (BBCode variant available in release notes workflow).
 
 User-facing install steps: [Installation Guide — Method 0](../guides/INSTALLATION.md#-method-0-godot-asset-library-recommended-if-you-already-have-godot)
 
 ---
 
-## Submission checklist (completed)
+## Submission checklist (5.4.0-beta1)
 
-- [x] Plugin metadata in `addons/visual_gasic/plugin.cfg` (version **5.3.0-Beta7**)
+- [x] Plugin metadata in `addons/visual_gasic/plugin.cfg` (version **5.4.0-beta1**)
 - [x] Asset library metadata in `.assetlib.json`
 - [x] Installation documentation — [`docs/guides/INSTALLATION.md`](../guides/INSTALLATION.md)
-- [x] GitHub release **v5.3.0-Beta7** with Asset Library zip attached
+- [x] GitHub release **v5.4.0-beta1** with Asset Library zip attached
 - [x] GPL v3.0 license
-- [x] Asset Library submission uploaded (August 2026)
-- [ ] Moderator approval
+- [x] Asset Library listing live (store.godotengine.org)
+- [ ] Moderator approval for **5.4.0-beta1** version update
 - [ ] Post-approval: verify search/install from Godot AssetLib tab
-- [ ] Post-approval: update README badge if AssetLib download stats are available
 
 ---
 
@@ -45,18 +44,18 @@ Use these values when submitting updates:
 | **Godot Version** | 4.6 |
 | **Repository URL** | https://github.com/xgreenrx-star/VisualGasic |
 | **Issues URL** | https://github.com/xgreenrx-star/VisualGasic/issues |
-| **Download URL** | `https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.3.0-Beta7/VisualGasic_AssetLibrary_v5.3.0-Beta7.zip` |
-| **Version** | 5.3.0-Beta7 |
+| **Download URL** | `https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_AssetLibrary_v5.4.0-beta1.zip` |
+| **Version** | 5.4.0-beta1 |
 | **Icon URL** | https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/addons/visual_gasic/icon.svg |
 | **Download Method** | GitHub Release |
 
-**Description (short):** VB6-style programming language and full IDE for Godot 4.6 — Form Designer, JIT bytecode, debugger, Narcea AI pair, and 122+ built-in functions. GDExtension binaries for Linux, Windows, and macOS included.
+**Description (short):** VB6-style programming language and full IDE for Godot 4.6 — Form Designer, JIT bytecode, debugger, Narcea AI pair, and 122+ built-in functions. **12/12 compute + 9/9 draw** vs GDScript (Aug 2026). GDExtension binaries for Linux, Windows, and macOS included.
 
 **Screenshots to include:**
 1. Code editor with `.vg` file and Command Help
-2. Form Designer / Narcea menu form
-3. IDE debugger or Immediate Window
-4. Running demo (Pong or calculator)
+2. Beta Showcase title screen (12/12 compute HUD)
+3. IDE debugger or Immediate Window / DataFile sidecar
+4. Running demo (Pong or Beta Showcase)
 
 ---
 

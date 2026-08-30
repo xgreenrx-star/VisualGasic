@@ -1,9 +1,9 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: August 23, 2026  
+**Last Updated**: August 30, 2026  
 **Current Version**: 5.4.0-beta1 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
 **Current Scope**: M0–M9 milestones (Jul 2026 – Jan 2027 stable release)  
-**Next Cut**: v5.4.0-beta1 — see [`RELEASE_SCHEDULE.md`](RELEASE_SCHEDULE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md)
+**Next Cut**: v5.4.0-beta2 (Oct 15, 2026) — see [`RELEASE_SCHEDULE.md`](RELEASE_SCHEDULE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md)
 
 **Roadmap Scope**:
 - ✅ **M0–M9 milestones** (Jul 2026 – Jan 1 2027): Current active development
@@ -21,6 +21,22 @@ This document outlines the planned improvements and features for Visual Gasic. I
 > Write your Godot game logic in plain English with AI, get back code that reads like a document, not a puzzle. VisualGasic brings the clarity of VB6 to Godot — AI writes it, you understand it.
 
 LLMs were trained on decades of VB/VBA/VBScript. That prior knowledge transfers directly to VisualGasic. The Godot indie developer using AI-assisted workflows gets code that is linearly auditable — explicit `End Sub`, `Dim x As String`, `If...Then...End If` — not a wall of braces that requires an IDE to follow. The language is the audit trail.
+
+---
+
+## ✅ Shipped in v5.4.0-beta1 (Aug 30, 2026)
+
+| Feature | Notes |
+|---------|--------|
+| **12/12 compute + 9/9 draw** | Full published benchmark suite faster than GDScript; FunctionCall fixed via compiler inlining + nested-loop fusion |
+| **Draw grid-loop fusion** | Hot `_Draw` paths compile to native `OP_DRAW_*_GRID_LOOP` opcodes |
+| **CI benchmark regression gate** | `scripts/benchmark_regression_check.sh` blocks speed regressions |
+| **891/891 regression assertions** | `.vg` test suite green (122 runnable files) |
+| **VG Beta Showcase** | `projects/vg_beta_showcase/` — Backrooms hub tour, shader reel, About VG, Squash tease, Neon Runner, Vector Storm; Movie Maker script |
+| **Track D groundwork** | `DataFile` / `.vgd` sidecar, context rail preview, Tiled import hooks |
+| **CInt VB6 rounding** | `CInt(3.7)` → 4, not truncated 3 |
+
+Full notes: [`RELEASE_NOTES_v5.4.0-beta1.md`](RELEASE_NOTES_v5.4.0-beta1.md)
 
 ---
 
@@ -878,7 +894,7 @@ Short, finishable list. **No new aspirational items.**
 | **Type-Tagged Locals** | Specialize VM locals storage: variables declared `As Integer`/`As Long`/`As Double` use direct int64/double registers instead of Variant dispatch. All arithmetic ops (ADD, SUBTRACT, DIVIDE, etc.) check local type tags and use fast-path int64/double handlers. No new opcodes. | 2-5× speedup on Arithmetic, ArraySum, ArrayDict, Allocations (affect ~6 benchmarks) | Medium (2-3 weeks: VM layout redesign, hot-path handler specialization, regression test suite) | **HIGH** — most transformative single optimization |
 | **On-Stack Replacement (OSR)** | Tier-2 JIT enhancement: instrumentation in tier-1 detects loops running N iterations; pauses execution, compiles a specialized trace of the loop body (with type-specific operations and optimization passes); jumps into compiled code and resumes. Classical implementation from Lua/LuaJIT/V8. | 3-10× speedup on long-running loops (big-O workloads) | High (3-6 months: tracer design, stop-the-world mechanism, compiled trace cache, correctness testing) | **MEDIUM** — long-term correctness investment, not immediate ROI |
 | **String Arena** | Thread-local `String` accumulator: chained `&` ops append to buffer instead of creating intermediate `String` objects. Drain buffer on scope exit or explicit flush. No new opcodes. | 1.5-3× speedup on StringConcat and string-heavy code | Low (1-2 weeks: buffer management, escape analysis for drain points) | **LOW** — niche optimization, already at 74× vs GDScript |
-| **Sub/Function Call Overhead Reduction** | **PARTIALLY FIXED (Jul 29 2026)** — root-caused and quantified via a new `BenchCall`/`FunctionCall` entry in the built-in benchmark suite (`demo/bench.vg` + `demo/test_suites/run_benchmarks.gd`): 50,000 trivial one-line Function calls originally took GDScript ~5.3ms vs **VG ~2.72 seconds average — VG was ~490-530× SLOWER than GDScript**, the only benchmark in the suite where VG lost this badly (every other benchmark shows VG winning 10-70×). Root cause in `visual_gasic_instance_call.inc::call_internal()` (shared dispatcher for BOTH the tree-walk interpreter and the bytecode VM's `OP_CALL`): every call did (a) a linear case-insensitive scan of all module Subs to resolve the callee, (b) a second linear scan for overload-mangling, (c) a string-keyed bytecode-chunk lookup, (d) allocated+populated a heap-backed `Dictionary saved_locals` for save/restore bookkeeping. **Applied the low-risk slice of the fix**: added a per-instance `HashMap<String, CallResolutionCacheEntry> _call_resolution_cache` (keyed by `"<name_lower>#<arg_count>"`) that caches the resolved `SubDefinition*`, owning-module index, mangled bytecode key, and `BytecodeChunk*` — eliminating (a),(b),(d) as repeated per-call work (computed once, reused thereafter). Same-session `git stash` A/B (3 runs each side): before avg **2,717,335µs**, after avg **2,147,551µs — a real ~21% reduction** in VG's absolute call time. 777/777 regression suite passing after the change. **(c), the Dictionary-based `saved_locals` allocation/hash-populate per call, was deliberately left untouched** — it's the majority of the remaining cost and requires replacing it with an array-based frame (touches recursion/`ByRef` save-restore semantics), a larger and riskier change than fit in this scoped pass. | **Remaining work**: replace `Dictionary saved_locals` with a pre-sized `Vector<Variant>`/array-based frame using the already-available `local_names` index positions instead of hashing string keys per call — this is where the majority of the remaining gap almost certainly lives, since resolution-caching alone only recovered ~21%. Real engine work, needs careful correctness testing around recursion/`ByRef` beyond the 777-assertion suite. | **HIGH — real, hard-measured, hurts ANY call-heavy VG program** (emulators, AST walkers, state machines, recursive algorithms), not a niche demo issue. Partial fix committed; see `/memories/repo/vg_bytecode_perf.md` for full measurement + root-cause writeup. |
+| **Sub/Function Call Overhead Reduction** | **FIXED for hot paths in 5.4.0-beta1 (Aug 2026).** Trivial helpers (`Function Helper(x As Long) As Long` with body `Helper = x + 1`) **inline at call sites**; nested `For` loops with inner `s = Helper(s)` fuse to closed-form multiply-add. FunctionCall went from ~8× slower than GDScript to **~60× faster** — part of **12/12 compute** wins. CI gate: `scripts/benchmark_regression_check.sh`. Regression test: `test_function_call_inline.vg`. **Earlier work (Jul 2026):** per-instance `HashMap` call-resolution cache (~21% absolute call-time reduction) remains; general multi-statement helpers still use normal call overhead — only fusion/inlining patterns covered by tests. Non-trivial call-heavy code (emulators, AST walkers) may still benefit from inlining or MemoryBuffer/Bit* builtins. See [`BENCHMARK_PUBLISHED_RESULTS.md`](BENCHMARK_PUBLISHED_RESULTS.md). |
 
 **Timeline**:
 - **M7 (Nov 15)**: Research phase — validate approach on benchmark suite, prototype type-tagged locals
@@ -1067,8 +1083,9 @@ Headless work shipped in **v5.3.0-Beta7+** (`95f44490`): Tier B manifest gate (o
 
 **User story:** Narcea scaffolds a playable game quickly; the user then **replaces placeholder art** in a normal editor (Sprite Editor, external paint tool, VGAIArt) instead of rewriting `_Draw()` math. Art must live **on disk** (PNG or an editable structured format), not only as runtime `DrawRect` / `DrawCircle` calls.
 
-**Today (Beta7):**
+**Today (5.4.0-beta1):**
 - Default 2D scaffolds use **Node2D + `_Draw()`** procedural shapes (`vg_ai_project_synth.gd` → `pure_2d_game_prompt_extra`).
+- **Beta Showcase** (`projects/vg_beta_showcase/`) demonstrates VGVectorCanvas2D, SubViewport portal embed, and attract-mode games — see `ARCHITECTURE.md`.
 - Narcea **does not** emit PNG binaries (`write_file` / SafeWrite are UTF-8 text only).
 - **VGAIArt**, **Sprite Editor**, **Kenney browser**, and **AGCK Build** can produce `.png`, but none are agent-callable from chat.
 - Classic **`Data` / `Read` / `Restore`** exists (piano notes, pong power-up tables) — **not used for pixel art** in current Narcea output.

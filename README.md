@@ -57,10 +57,14 @@ If the next decade really is auditor-bound, then the language that wins is the o
 VG is a public beta. The language, JIT compiler, and debugger work. The Form Designer has known bugs and is being **actively replaced** by UI Forms. Here is the explicit priority list:
 
 **Fixing now (these block the positioning story):**
-- `Boolean Or` runtime regression — basic operator, must be solid
 - Unhandled errors corrupt app state — demos that hit a bug should fail gracefully, not freeze
 - Double-click ignores existing `.tscn` signal connections — directly undermines AI+VG workflow
 - Phantom button double-press on blocking async calls
+
+**Recently shipped (5.4.0-beta1):**
+- **12/12 compute + 9/9 draw** — full published benchmark suite faster than GDScript
+- **VG Beta Showcase** — `projects/vg_beta_showcase/` (~6 min tour: Backrooms hub → shaders → About VG → Squash → Neon Runner → Vector Storm)
+- **891/891** regression assertions · CI benchmark regression gate
 
 **Shipping next:**
 - **20 proven working examples** — every file in the repo compiles and runs correctly, no exceptions

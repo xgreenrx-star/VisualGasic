@@ -208,16 +208,18 @@ See docs/guides/GET_STARTED.md and GitHub Releases assets.
 
 ### GitHub Release Checklist
 
-- [ ] Tag: `git tag -a v5.4.0-beta1 -m "…"`
-- [ ] Push: `git push origin v5.4.0-beta1`
+- [x] Tag: `git tag -a v5.4.0-beta1 -m "…"`
+- [ ] Push: `git push origin main && git push origin v5.4.0-beta1`
 - [ ] Upload installer + Asset Library zip
-- [ ] Release notes from CHANGELOG; title includes milestone name (not tag)
+- [x] Release notes from CHANGELOG; title includes milestone name (not tag)
 - [ ] Mark **Pre-release** for beta/rc; **Latest** only for 6.0.0 stable
-- [ ] Update GET_STARTED.md and README release section
+- [x] Update GET_STARTED.md and README release section
+- [x] Update ROADMAP, DOCS hub, Asset Library submission doc
+- [ ] Deploy GitHub Pages (`website/temporary-placeholder-site/`)
 
 ---
 
 ## Reminder
 
-**Next release:** `v5.4.0-beta1` (Aug 30, 2026) — full benchmark wins · road to **VG6** (`v6.0.0` stable, Jan 2027)  
+**Current release:** `v5.4.0-beta1` (Aug 30, 2026) — full benchmark wins + Beta Showcase · road to **VG6** (`v6.0.0` stable, Jan 2027)  
 **Next milestone gate:** M5 → `v5.4.0-beta2` (Oct 15, 2026)
