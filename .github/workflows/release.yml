@@ -204,12 +204,20 @@ jobs:
         working-directory: staging
         run: zip -r "../VisualGasic-v${{ steps.version.outputs.version }}.zip" addons/
 
+      - name: Build Godot Asset Library zip
+        run: |
+          rm -rf addons/visual_gasic/bin
+          ln -sf ../../demo/bin addons/visual_gasic/bin
+          bash scripts/build_asset_library_zip.sh "${{ steps.version.outputs.version }}"
+          cp "release/v${{ steps.version.outputs.version }}/VisualGasic_AssetLibrary_v${{ steps.version.outputs.version }}.zip" .
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: "VisualGasic v${{ steps.version.outputs.version }}"
-          body_path: RELEASE_NOTES_v${{ steps.version.outputs.version }}.md
+          body_path: RELEASE_BODY_${{ steps.version.outputs.version }}.md
           files: |
             VisualGasic-v${{ steps.version.outputs.version }}.zip
+            VisualGasic_AssetLibrary_v${{ steps.version.outputs.version }}.zip
           draft: false
           prerelease: ${{ contains(steps.version.outputs.version, 'rc') || contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'Beta') || contains(steps.version.outputs.version, 'alpha') }}

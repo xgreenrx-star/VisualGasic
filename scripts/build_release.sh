@@ -240,8 +240,19 @@ fi
 # Clean staging
 rm -rf "$STAGING"
 
+# ── Godot Asset Library zip (addon-only, all platform binaries) ─────────────
+step "7/8" "Building Godot Asset Library zip..."
+
+# build_asset_library_zip.sh requires bin/ to dereference to demo/bin with all targets.
+if [[ ! -L addons/visual_gasic/bin ]]; then
+    rm -rf addons/visual_gasic/bin
+    ln -sf ../../demo/bin addons/visual_gasic/bin
+fi
+bash "$SCRIPT_DIR/build_asset_library_zip.sh" "$VERSION"
+success "Asset Library zip ready"
+
 # ── Summary ─────────────────────────────────────────────────────────────────
-step "7/7" "Release build complete!"
+step "8/8" "Release build complete!"
 
 echo ""
 echo -e "${GREEN}${BOLD}  ╔══════════════════════════════════════════╗"
@@ -261,5 +272,5 @@ echo -e "  ${BOLD}Next steps:${NC}"
 echo "    1. Test each zip in a fresh Godot project"
 echo "    2. Tag the release:  git tag v${VERSION} && git push origin v${VERSION}"
 echo "    3. CI will build + publish the GitHub Release automatically"
-echo "    4. Or upload manually:  gh release create v${VERSION} ${RELEASE_DIR}/*.zip"
+echo "    4. Or upload manually:  gh release create v${VERSION} ${RELEASE_DIR}/*.zip ${RELEASE_DIR}/*.AppImage ${RELEASE_DIR}/*.exe"
 echo ""

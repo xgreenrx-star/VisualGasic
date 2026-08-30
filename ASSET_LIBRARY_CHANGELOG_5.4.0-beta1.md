@@ -24,6 +24,10 @@ Visual Gasic now beats GDScript on **every published compute and draw benchmark*
 
 - Context rail sidecar, literal convert, sprite Data editor, Track D `.vgd` groundwork
 
+### Beta Showcase project (repo)
+
+- `projects/vg_beta_showcase/` — full tour demo (not inside this AssetLib zip; clone repo or use platform release zip)
+
 ---
 
 ## Quality
