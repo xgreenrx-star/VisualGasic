@@ -1,88 +1,77 @@
-# VisualGasic 5.3.0-Beta3 — Facebook Release Message
+# VisualGasic 5.4.0-beta1 — Facebook Release Message
 
-Copy-paste ready. Pick the option that fits your page's tone.
+Copy-paste the **Recommended post** below into Facebook. Plain URLs — no markdown.
 
----
-
-## Option 1: Short & Catchy (Recommended for main announcement)
-
-🚀 **VisualGasic 5.3.0-Beta3 is out!**
-
-This release ships two brand-new hardware emulator demos — a full **Commodore 64** (6510 CPU, VIC-II, real KERNAL/BASIC ROMs) and a **Game Boy Advance** (ARM7TDMI) — built entirely in VisualGasic. Building them shook loose a whole chain of real interpreter bugs (a sneaky boot-time stack corruption bug that was silently eating the C64's startup banner!), plus cross-module bytecode compilation, a new buffer type, a `Global` keyword, and ~21-40% less call overhead.
-
-777/777 tests passing. 54 corpus examples. Godot 4.6.1. Linux + Windows.
-
-**Download:** https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta3
-
-Yes, it boots to a real "READY." prompt. 👀
-
-#GameDev #Godot #VisualGasic #BASIC #OpenSource #IndieGames #RetroGaming
+**Suggested image:** `docs/screenshots/Screenshot at 2026-08-25 13-59-02.png` (Beta Showcase title — 12/12 compute · 9/9 draw HUD)  
+**Or:** link the YouTube video directly — Facebook will pull the preview thumbnail.
 
 ---
 
-## Option 2: Technical Deep-Dive (For developer audiences)
+## Recommended post (copy from here ↓)
 
-🎯 **VisualGasic 5.3.0-Beta3 — C64/GBA Emulators, Cross-Module Bytecode, Buffer Type**
+🚀 **VisualGasic 5.4.0-beta1 is out — the full-speed beta.**
 
-Highlights from this release:
+Nine days after Beta7, this is the release we've been building toward: Visual Gasic now beats GDScript on **every published speed test** we ship.
 
-✅ **Commodore 64 Emulator demo** — full 6510 CPU (151 opcodes), VIC-II graphics chip, CIA I/O, running the real KERNAL + BASIC V2 ROMs. Boots to the actual `**** COMMODORE 64 BASIC V2 ****` banner.
+📊 **The numbers (verified, checksums on static workloads):**
+• **12/12 compute** benchmarks — faster than GDScript
+• **9/9 draw** benchmarks — faster than GDScript
+• **891/891** automated regression tests passing (up from 871)
+• FunctionCall — previously our weak spot — is now **~60× faster** than GDScript after compiler inlining and loop fusion
 
-✅ **Game Boy Advance Emulator demo** — ARM7TDMI/Thumb core, with a fresh batch of decode and class-visibility bug fixes from real-ROM testing.
+This isn't a marketing claim. CI runs a benchmark regression gate on every build. If VG slips behind GDScript, the build fails.
 
-✅ **Cross-module bytecode compilation** — Subs/Functions in `Import`'d files now compile to bytecode instead of falling back to the slower AST interpreter.
+🎬 **Watch the ~6-minute Beta Showcase tour:**
+https://youtu.be/FUw8zgbn_tU
 
-✅ **Buffer Type + Optimizer Hints** — `Dim buf As New MemoryBuffer(N)` now uses 10 dedicated opcodes for direct `PackedByteArray` access.
+Backrooms hub → shader reel → About VG → Squash the Creeps in pure .vg → Neon Runner → Vector Storm bullet-hell. Open the same project in Godot and press F5, or just watch the video first.
 
-✅ **`Global` keyword, cross-file class `Import`, `Exit While`** — three language additions closing real gaps.
+⚡ **What's new since 5.3.0-Beta7 (Aug 21):**
+• Draw grid-loop fusion — hot _Draw paths compile straight to native C++
+• FunctionCall inlining + nested-loop closed-form fusion
+• CI benchmark regression gate (`benchmark_regression_check.sh`)
+• **VG Beta Showcase** — full release tour project in the repo
+• IDE: context rail sidecar, sprite Data editor, `.vgd` DataFile groundwork
+• Fixed: `CInt(3.7)` now returns 4 (VB6-style rounding)
 
-✅ **~21-40% less call/hot-path overhead** measured via new micro-benchmarks.
+Visual Gasic is VB6-style BASIC for Godot 4.6 — a language designed so **you can read and audit AI-generated code line by line**, with a real IDE, debugger, and Narcea AI Pair built in.
 
-🐛 **The bug of the release:** the C64 emulator reached "READY." but never printed its boot banner. Root cause: the boot stub didn't replicate the real 6502 reset sequence (`LDX #$FF : TXS`), so a `JSR` return address landed exactly where the KERNAL's RAM-init routine writes — corrupting the stack and silently triggering a warm-start. Found via cycle-by-cycle PC tracing. Full writeup in the release notes.
+📥 **Download (Linux & Windows):**
+https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1
 
-**Download:** https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta3
-**Roadmap:** 5.4-beta Oct 15 (Narcea AI pair), 6.0 stable Jan 1, 2027
+One-click installers (AppImage / .exe), offline bundles, Godot Asset Library zip, or install from AssetLib inside Godot 4.6.1+.
 
-#Godot #GameDev #OpenSource #BASIC #VisualGasic #EmulationDev
-
----
-
-## Option 3: Story-Driven (For building community narrative)
-
-✨ **VisualGasic 5.3.0-Beta3 is live — and it boots a real Commodore 64**
-
-We wanted a stress test that would find bugs no synthetic unit test ever would, so we built a Commodore 64 emulator in VisualGasic — real 6510 CPU, real VIC-II graphics chip, and the *actual, unmodified* KERNAL and BASIC V2 ROMs from 1982.
-
-It found bugs immediately. A `BlitImage` call that silently did nothing because it got a `Rect2` instead of a `Rect2i`. A frame-render race that painted the whole screen border color forever. A border that was scaled to monitor resolution instead of the game window, cutting off 90% of the screen. And then the big one: the emulator would boot cleanly, reach the "READY." prompt... and never print the startup banner.
-
-Turned out the boot code wasn't resetting the stack pointer the way real 6502 hardware does. One JSR call, one wrong stack address, and the KERNAL's own memory-test routine overwrote its own return address — a silent warm-start that skipped the banner every single time. We traced it cycle-by-cycle until we caught the exact corrupted jump.
-
-Alongside the C64, we also fixed a pile of real bugs in our Game Boy Advance emulator demo, added cross-module bytecode compilation (so imported files run at full speed, not falling back to the slow interpreter path), a new buffer type for raw memory access, and a `Global` keyword.
-
-**Try it:** https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta3
-
-If you write BASIC, love Godot, or think emulating a 1982 computer inside a game engine is a completely reasonable way to stress-test a language — this is for you. 🎮
-
-#GameDev #Godot #OpenSource #VisualGasic #IndieGames #RetroGaming #Commodore64
+🌐 Website: https://xgreenrx-star.github.io/VisualGasic/
 
 ---
 
-## Option 4: Minimal (Quick share / cross-post)
+**What's next?** This was a big cut — the next beta will take longer.
 
-🎉 **VisualGasic 5.3.0-Beta3 — download now**
+**v5.4.0-beta2** — target **October 15, 2026** — Narcea AI pair (describe a form or game in plain English, get working VG code), Buffer type, optimizer hints.
 
-New C64 + GBA emulator demos (real ROMs!) · cross-module bytecode compilation · Buffer Type · `Global` keyword · Exit While · ~21-40% less call overhead.
+Stable **v6.0.0 (VG6)** remains targeted for **January 1, 2027**.
 
-777/777 tests passing · 54 corpus examples.
+Questions, bugs, or "I tried it and here's what happened" — drop them in the GitHub issues or reply here. We read everything.
 
-[Download](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.3.0-Beta3) · [Release Notes](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_5.3.0-Beta3.md) · [Roadmap](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_SCHEDULE.md)
-
-#Godot #GameDev #VisualGasic #OpenSource
+#GameDev #Godot #GodotEngine #VisualGasic #BASIC #OpenSource #IndieGames #AI #Programming
 
 ---
 
-**Suggested hashtags (any option):** #GameDev #Godot #VisualGasic #BASIC #OpenSource #IndieGames #GodotEngine #RetroGaming
+## Short version (if character limit bites)
 
-**Best posting window:** Tuesday–Thursday, 10am–2pm local time for dev-community engagement.
+🚀 **VisualGasic 5.4.0-beta1** — VG beats GDScript on **12/12 compute + 9/9 draw** benchmarks. FunctionCall fixed (~60× faster). 891/891 tests. Full Beta Showcase tour.
 
-**Suggested image:** `docs/screenshots/c64_emulator_running.png` (C64 emulator running in the Godot editor — real `**** COMMODORE 64 BASIC V2 ****` boot banner and `READY.` prompt visible).
+🎬 Demo: https://youtu.be/FUw8zgbn_tU
+📥 Download: https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1
+
+Next: **v5.4.0-beta2** (Oct 15, 2026). Stable **v6.0.0** Jan 1, 2027.
+
+#GameDev #Godot #VisualGasic #OpenSource
+
+---
+
+## Posting tips
+
+- **Best window:** Tuesday–Thursday, 10am–2pm local time
+- **Pin the YouTube link** as first comment if the post preview doesn't embed it
+- **Asset Library:** https://store.godotengine.org/asset/visual-gasic/visual-gasic/
