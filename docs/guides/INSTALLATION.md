@@ -20,12 +20,13 @@ All assets live on the [v5.4.0-beta1 release page](https://github.com/xgreenrx-s
 | 🪟 **Windows x64** | One-click installer (`.exe`) | [`VisualGasic-Installer-v5.4.0-beta1-x86_64.exe`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-v5.4.0-beta1-x86_64.exe) (~70 MB) |
 | 🐧 Linux | Offline bundle (Godot included) | [`VisualGasic-Installer-Offline-v5.4.0-beta1-linux-x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-Offline-v5.4.0-beta1-linux-x86_64.zip) (~169 MB) |
 | 🪟 Windows | Offline bundle (Godot included) | [`VisualGasic-Installer-Offline-v5.4.0-beta1-windows-x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-Offline-v5.4.0-beta1-windows-x86_64.zip) (~146 MB) |
-| 🐧 Linux | Portable zip (bring your own Godot) | [`VisualGasic_v5.4.0-beta1_linux_x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_v5.4.0-beta1_linux_x86_64.zip) (~1 GB) |
-| 🪟 Windows | Portable zip (bring your own Godot) | [`VisualGasic_v5.4.0-beta1_windows_x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_v5.4.0-beta1_windows_x86_64.zip) (~320 MB) |
 | 📦 Asset Library | Godot editor install | [`VisualGasic_AssetLibrary_v5.4.0-beta1.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_AssetLibrary_v5.4.0-beta1.zip) — or use Method 0 below |
+| 🔧 Manual (BYO Godot) | Minimal addon zip | [`VisualGasic-v5.4.0-beta1.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-v5.4.0-beta1.zip) (~7 MB) — extract `addons/visual_gasic/` into your project |
 | 🍎 **macOS** | *not yet available* | Use the `vg` CLI (Method 2) or build from source (Method 5) for now. macOS `.dmg` is the last platform still in progress; we're looking for a tester. |
 
-> 💡 **Not sure which to pick?** Use the one-click installer for your OS if you're starting fresh. Use **Method 0 (Asset Library)** if you already have Godot open. The offline bundle is for air-gapped installs. The portable zip is for people who already have Godot 4.6.1+ and want to drop the addon into an existing project.
+> **Portable platform zips discontinued:** We no longer publish `VisualGasic_v*_linux_x86_64.zip` / `*_windows_x86_64.zip` (they exceeded GitHub’s 2 GB asset limit). If you already have **Godot 4.6.1+**, use **Method 0 (Asset Library)**, the **Asset Library zip**, or the **minimal addon zip** above.
+
+> 💡 **Not sure which to pick?** Use the one-click installer for your OS if you're starting fresh. Use **Method 0 (Asset Library)** if you already have Godot open. The offline bundle is for air-gapped installs. Use the **minimal addon zip** if AssetLib is unavailable and you want to copy the plugin by hand.
 
 ---
 
@@ -286,12 +287,17 @@ Within an existing project, use the VG IDE's File menu:
 
 ## 📥 Method 4: Manual Installation (From GitHub Release)
 
+For users who **already have Godot 4.6.1+** and want to add VisualGasic to an existing project.
+
+> **Note:** Full portable platform zips are no longer published. Download the **Asset Library zip** or **minimal addon zip** instead.
+
 ### Download
 
 1. Go to [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1)
-2. Download the platform zip for your OS:
-   - Linux: `VisualGasic_v5.4.0-beta1_linux_x86_64.zip`
-   - Windows: `VisualGasic_v5.4.0-beta1_windows_x86_64.zip`
+2. Download one of:
+   - **Asset Library zip:** `VisualGasic_AssetLibrary_v5.4.0-beta1.zip` (recommended — all platform binaries)
+   - **Minimal addon zip:** `VisualGasic-v5.4.0-beta1.zip` (smaller; same `addons/visual_gasic/` layout)
+3. Or install from the **Godot Asset Library** in-editor (see Method 0).
 
 ### Install into a New Project
 
@@ -303,8 +309,8 @@ echo 'config_version=5
 [application]
 config/name="MyGame"' > project.godot
 
-# Extract the addon
-unzip VisualGasic_v5.4.0-beta1_linux_x86_64.zip
+# Extract the addon zip
+unzip ~/Downloads/VisualGasic_AssetLibrary_v5.4.0-beta1.zip
 cp -r addons/ .
 
 # Open in Godot
@@ -317,7 +323,7 @@ Then enable the plugin: **Project → Project Settings → Plugins → VisualGas
 
 ```bash
 cd /path/to/your/godot/project
-unzip VisualGasic_v5.4.0-beta1_linux_x86_64.zip -d /tmp/vg_temp
+unzip ~/Downloads/VisualGasic-v5.4.0-beta1.zip -d /tmp/vg_temp
 cp -r /tmp/vg_temp/addons/visual_gasic addons/
 rm -rf /tmp/vg_temp
 ```
@@ -386,7 +392,7 @@ For building distributable release packages:
 ./scripts/build_release.sh
 ```
 
-Output goes to `release/v<version>/`. The release script auto-strips dev/debug-symbol GDExtension variants (`*.editor.dev.*`, `*.template_debug.dev.*`) so the Linux portable zip lands around 1 GB instead of 2 GB.
+Output goes to `release/v<version>/` (Asset Library zip, addon zip, and installer artifacts from the other build scripts). The release script auto-strips dev/debug-symbol GDExtension variants (`*.editor.dev.*`, `*.template_debug.dev.*`) from staged content. **Portable platform zips are no longer built** — they exceeded GitHub’s 2 GB upload limit.
 
 ---
 

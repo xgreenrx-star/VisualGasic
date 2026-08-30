@@ -99,7 +99,7 @@ If the project matters to you, support helps move v6.0 forward faster. Current f
 | 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.4.0-beta1-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-v5.4.0-beta1-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
 | 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.4.0-beta1-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-v5.4.0-beta1-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
 | 🍏 **macOS (Intel & Apple Silicon)** | *not yet available* — use the `vg` CLI for now | Cross-compiled `.dmg` planned; needs a tester. |
-| 📦 **Source zip / portable** | [VisualGasic_v5.4.0-beta1_linux_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_v5.4.0-beta1_linux_x86_64.zip) · [windows_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_v5.4.0-beta1_windows_x86_64.zip) | For users who prefer to unzip and run. Bring your own Godot 4.6.1+. |
+| 🔧 **Manual (BYO Godot)** | [Asset Library zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_AssetLibrary_v5.4.0-beta1.zip) · [addon zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-v5.4.0-beta1.zip) | Install Godot 4.6.1+, then copy `addons/visual_gasic/` or use AssetLib. Portable platform zips are **no longer published**. |
 | 🌐 **Offline bundle** (Godot included) | [linux-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-Offline-v5.4.0-beta1-linux-x86_64.zip) · [windows-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-Offline-v5.4.0-beta1-windows-x86_64.zip) | No internet needed during install — ships Godot 4.6.1 inside. |
 
 **Linux one-shot bootstrap (alternative to AppImage):**
@@ -380,7 +380,7 @@ Downloads Godot 4.6.1, installs the addon globally, drops a `~/.local/bin/visual
 
 **📦 From the GitHub release (all platforms):**
 
-Download the AppImage/exe installer from [v5.4.0-beta1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1), or a platform zip from the same release (e.g. `VisualGasic_v5.4.0-beta1_linux_x86_64.zip`), extract, and either point the `vg` CLI at it or copy `addons/visual_gasic/` into your project. Release notes: [v5.4.0-beta1](RELEASE_NOTES_v5.4.0-beta1.md).
+Download the AppImage/exe installer from [v5.4.0-beta1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1), or — if you already have Godot 4.6.1+ — install from the **Asset Library** or download the [Asset Library zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_AssetLibrary_v5.4.0-beta1.zip) / [addon zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-v5.4.0-beta1.zip) and copy `addons/visual_gasic/` into your project. Release notes: [v5.4.0-beta1](RELEASE_NOTES_v5.4.0-beta1.md).
 
 **From Godot Asset Library:**
 1. Open your Godot project

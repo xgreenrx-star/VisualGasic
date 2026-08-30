@@ -20,18 +20,20 @@
 | Draw | **9/9** faster than GDScript |
 | Regression | **891/891** `.vg` assertions + CI benchmark gate |
 
-Full details: [RELEASE_NOTES_v5.4.0-beta1.md](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_v5.4.0-beta1.md) · [BENCHMARK_PUBLISHED_RESULTS.md](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/BENCHMARK_PUBLISHED_RESULTS.md) · [Website](https://xgreenrx-star.github.io/VisualGasic/)
+Full details: [RELEASE_NOTES_v5.4.0-beta1.md](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_v5.4.0-beta1.md) · [BENCHMARK_PUBLISHED_RESULTS.md](https://github.com/xgreenrx-star/VisualGasic/blob/main/BENCHMARK_PUBLISHED_RESULTS.md) · [Website](https://xgreenrx-star.github.io/VisualGasic/)
 
 ### Downloads
 
+> **Portable platform zips** (`VisualGasic_v*_linux_x86_64.zip` / `*_windows_x86_64.zip`) are **no longer provided** — they exceeded GitHub’s 2 GB limit. Install **Godot 4.6.1+**, then use a one-click installer, offline bundle, **Asset Library zip**, or minimal **addon zip**.
+
 | Platform | Asset |
 |----------|-------|
-| **Linux** | [`VisualGasic-Installer-v5.4.0-beta1-x86_64.AppImage`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-v5.4.0-beta1-x86_64.AppImage) · [`VisualGasic_v5.4.0-beta1_linux_x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_v5.4.0-beta1_linux_x86_64.zip) |
-| **Windows** | [`VisualGasic-Installer-v5.4.0-beta1-x86_64.exe`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-v5.4.0-beta1-x86_64.exe) · [`VisualGasic_v5.4.0-beta1_windows_x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_v5.4.0-beta1_windows_x86_64.zip) |
+| **Linux** | [`VisualGasic-Installer-v5.4.0-beta1-x86_64.AppImage`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-v5.4.0-beta1-x86_64.AppImage) |
+| **Windows** | [`VisualGasic-Installer-v5.4.0-beta1-x86_64.exe`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-v5.4.0-beta1-x86_64.exe) |
 | **Offline** | [`VisualGasic-Installer-Offline-v5.4.0-beta1-linux-x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-Offline-v5.4.0-beta1-linux-x86_64.zip) · [`VisualGasic-Installer-Offline-v5.4.0-beta1-windows-x86_64.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-Offline-v5.4.0-beta1-windows-x86_64.zip) |
-| **Asset Library** | [`VisualGasic_AssetLibrary_v5.4.0-beta1.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_AssetLibrary_v5.4.0-beta1.zip) |
-| **Addon only** | [`VisualGasic-v5.4.0-beta1.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-v5.4.0-beta1.zip) |
+| **Asset Library** | [`VisualGasic_AssetLibrary_v5.4.0-beta1.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_AssetLibrary_v5.4.0-beta1.zip) · [store listing](https://store.godotengine.org/asset/visual-gasic/visual-gasic/) |
+| **Manual (BYO Godot)** | [`VisualGasic-v5.4.0-beta1.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-v5.4.0-beta1.zip) — extract `addons/visual_gasic/` into your project |
 
 **Godot:** 4.6.1+ · **Mark as Pre-release**
 
-**Try the showcase:** open `projects/vg_beta_showcase/project.godot` → **F5**
+**Try the showcase:** clone the repo → open `projects/vg_beta_showcase/project.godot` → **F5**

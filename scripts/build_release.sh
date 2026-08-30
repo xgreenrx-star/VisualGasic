@@ -8,10 +8,13 @@
 #   ./scripts/build_release.sh 4.4.0-rc1       # Override version
 #
 # Output:
-#   release/v<version>/VisualGasic_v<version>_linux_x86_64.zip
-#   release/v<version>/VisualGasic_v<version>_windows_x86_64.zip
-#   release/v<version>/VisualGasic_v<version>_macos_universal.zip  (macOS host only)
+#   release/v<version>/VisualGasic_AssetLibrary_v<version>.zip
+#   release/v<version>/VisualGasic-v<version>.zip  (via build_asset_library_zip.sh)
+#   (+ installer artifacts from build_appimage.sh, build_windows_installer.sh, build_offline_bundle.sh)
 #
+# Note: Full portable platform zips (VisualGasic_v*_linux_x86_64.zip) are no longer built —
+# they exceeded GitHub's 2 GB asset limit. Users install Godot separately and use Asset Library
+# or the addon zip.
 # Requirements:
 #   - scons, g++  (Linux build)
 #   - x86_64-w64-mingw32-g++  (Windows cross-compile, install: sudo apt install g++-mingw-w64-x86-64)
@@ -204,44 +207,15 @@ find -L "$STAGING" -type f \( -name '*.template_debug.dev.*' -o -name '*.editor.
 
 success "Staging complete"
 
-# ── Create platform zips ───────────────────────────────────────────────────
-step "6/7" "Creating release archives..."
+# ── Portable platform zips (deprecated — skipped) ─────────────────────────
+step "6/7" "Skipping portable platform zips (discontinued)..."
 
-# Linux zip
-LINUX_DIR="$RELEASE_DIR/VisualGasic_v${VERSION}_linux_x86_64"
-cp -r "$STAGING" "$LINUX_DIR"
-# Copy non-dev variants only (skip *.editor.dev.* / *.template_debug.dev.* — ~80 MB each)
-find demo/bin -name "*.linux.*" ! -name "*.dev.*" -exec cp {} "$LINUX_DIR/addons/visual_gasic/bin/" \; 2>/dev/null || true
-(cd "$RELEASE_DIR" && zip -qr "VisualGasic_v${VERSION}_linux_x86_64.zip" "VisualGasic_v${VERSION}_linux_x86_64")
-rm -rf "$LINUX_DIR"
-success "Linux zip: VisualGasic_v${VERSION}_linux_x86_64.zip"
-
-# Windows zip
-if $HAS_MINGW; then
-    WIN_DIR="$RELEASE_DIR/VisualGasic_v${VERSION}_windows_x86_64"
-    cp -r "$STAGING" "$WIN_DIR"
-    # Copy non-dev variants only (skip *.editor.dev.* / *.template_debug.dev.* — ~80 MB each)
-    find demo/bin -name "*.windows.*" ! -name "*.dev.*" -exec cp {} "$WIN_DIR/addons/visual_gasic/bin/" \; 2>/dev/null || true
-    (cd "$RELEASE_DIR" && zip -qr "VisualGasic_v${VERSION}_windows_x86_64.zip" "VisualGasic_v${VERSION}_windows_x86_64")
-    rm -rf "$WIN_DIR"
-    success "Windows zip: VisualGasic_v${VERSION}_windows_x86_64.zip"
-fi
-
-# macOS zip
-if $IS_MACOS; then
-    MAC_DIR="$RELEASE_DIR/VisualGasic_v${VERSION}_macos_universal"
-    cp -r "$STAGING" "$MAC_DIR"
-    find demo/bin -name "*.macos.*" -exec cp -r {} "$MAC_DIR/addons/visual_gasic/bin/" \; 2>/dev/null || true
-    (cd "$RELEASE_DIR" && zip -qr "VisualGasic_v${VERSION}_macos_universal.zip" "VisualGasic_v${VERSION}_macos_universal")
-    rm -rf "$MAC_DIR"
-    success "macOS zip: VisualGasic_v${VERSION}_macos_universal.zip"
-fi
-
-# Clean staging
+warn "Portable platform zips are no longer built (GitHub 2 GB asset limit)."
+warn "  Publish: Asset Library zip, minimal addon zip, installers, offline bundles."
 rm -rf "$STAGING"
 
 # ── Godot Asset Library zip (addon-only, all platform binaries) ─────────────
-step "7/8" "Building Godot Asset Library zip..."
+step "7/7" "Building Godot Asset Library zip..."
 
 # build_asset_library_zip.sh requires bin/ to dereference to demo/bin with all targets.
 if [[ ! -L addons/visual_gasic/bin ]]; then
@@ -252,7 +226,7 @@ bash "$SCRIPT_DIR/build_asset_library_zip.sh" "$VERSION"
 success "Asset Library zip ready"
 
 # ── Summary ─────────────────────────────────────────────────────────────────
-step "8/8" "Release build complete!"
+step "Done" "Release build complete!"
 
 echo ""
 echo -e "${GREEN}${BOLD}  ╔══════════════════════════════════════════╗"
@@ -269,8 +243,8 @@ done
 
 echo ""
 echo -e "  ${BOLD}Next steps:${NC}"
-echo "    1. Test each zip in a fresh Godot project"
-echo "    2. Tag the release:  git tag v${VERSION} && git push origin v${VERSION}"
-echo "    3. CI will build + publish the GitHub Release automatically"
-echo "    4. Or upload manually:  gh release create v${VERSION} ${RELEASE_DIR}/*.zip ${RELEASE_DIR}/*.AppImage ${RELEASE_DIR}/*.exe"
+echo "    1. Test the Asset Library zip in a fresh Godot project"
+echo "    2. Run build_appimage.sh / build_windows_installer.sh / build_offline_bundle.sh"
+echo "    3. Tag the release:  git tag v${VERSION} && git push origin v${VERSION}"
+echo "    4. Upload:  gh release create v${VERSION} ${RELEASE_DIR}/*.zip ${RELEASE_DIR}/*.AppImage ${RELEASE_DIR}/*.exe"
 echo ""

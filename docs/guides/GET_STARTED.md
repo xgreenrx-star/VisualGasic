@@ -24,7 +24,9 @@ cd VisualGasic && ./scripts/bootstrap_install.sh
 |----------|-----------|
 | 🐧 Linux x86_64 | `VisualGasic-Installer-v5.4.0-beta1-x86_64.AppImage` |
 | 🪟 Windows x64 | `VisualGasic-Installer-v5.4.0-beta1-x86_64.exe` |
-| 📦 Portable zip | `VisualGasic_v5.4.0-beta1_linux_x86_64.zip` |
+| 🔧 Manual (BYO Godot) | `VisualGasic_AssetLibrary_v5.4.0-beta1.zip` or `VisualGasic-v5.4.0-beta1.zip` — or install from Godot AssetLib |
+
+> **Portable platform zips** are no longer published. Install Godot 4.6.1+, then use AssetLib or a release zip above.
 
 See the [Installation Guide](INSTALLATION.md) for full details including manual plugin copy and uninstall instructions.
 

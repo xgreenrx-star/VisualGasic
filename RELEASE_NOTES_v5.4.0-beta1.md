@@ -112,16 +112,16 @@ Movie mode auto-advances segments, hides skip hints, and quits after the end-car
 
 All assets for this release: **[github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1)**
 
+> **Portable platform zips discontinued:** We no longer ship `VisualGasic_v*_linux_x86_64.zip` / `*_windows_x86_64.zip` (they exceeded GitHub’s 2 GB limit and duplicated demos/docs). **Install Godot 4.6.1+**, then add VisualGasic via the **Asset Library** (in-editor), the **Asset Library zip**, the **minimal addon zip**, or a **one-click / offline installer** below.
+
 | Platform | Asset | Direct link |
 |----------|-------|-------------|
 | **Linux (recommended)** | AppImage installer | [VisualGasic-Installer-v5.4.0-beta1-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-v5.4.0-beta1-x86_64.AppImage) |
 | **Linux (offline)** | Bundled Godot + addon | [VisualGasic-Installer-Offline-v5.4.0-beta1-linux-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-Offline-v5.4.0-beta1-linux-x86_64.zip) |
-| **Linux (manual)** | Addon + docs zip | [VisualGasic_v5.4.0-beta1_linux_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_v5.4.0-beta1_linux_x86_64.zip) |
 | **Windows (recommended)** | NSIS installer | [VisualGasic-Installer-v5.4.0-beta1-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-v5.4.0-beta1-x86_64.exe) |
 | **Windows (offline)** | Bundled Godot + addon | [VisualGasic-Installer-Offline-v5.4.0-beta1-windows-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-Offline-v5.4.0-beta1-windows-x86_64.zip) |
-| **Windows (manual)** | Addon + docs zip | [VisualGasic_v5.4.0-beta1_windows_x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_v5.4.0-beta1_windows_x86_64.zip) |
 | **Godot Asset Library** | Single-addon zip | [VisualGasic_AssetLibrary_v5.4.0-beta1.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_AssetLibrary_v5.4.0-beta1.zip) |
-| **Any (addon only)** | Minimal zip | [VisualGasic-v5.4.0-beta1.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-v5.4.0-beta1.zip) |
+| **Manual (addon only)** | Minimal zip | [VisualGasic-v5.4.0-beta1.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-v5.4.0-beta1.zip) |
 
 **Godot Asset Library (in-editor):** [store.godotengine.org/asset/visual-gasic/visual-gasic](https://store.godotengine.org/asset/visual-gasic/visual-gasic/)
 
@@ -147,7 +147,7 @@ curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/scrip
 
 Install **VisualGasic** from the AssetLib tab inside Godot 4.6.1+, or download [`VisualGasic_AssetLibrary_v5.4.0-beta1.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_AssetLibrary_v5.4.0-beta1.zip).
 
-**Try the showcase:** clone or extract the release zip, open `projects/vg_beta_showcase/project.godot`, enable the VisualGasic plugin, press **F5**.
+**Try the showcase:** clone this repo (or use the one-click installer), open `projects/vg_beta_showcase/project.godot`, enable VisualGasic, press **F5**.
 
 ### Windows
 
@@ -158,9 +158,15 @@ Invoke-WebRequest -Uri "https://github.com/xgreenrx-star/VisualGasic/releases/do
 
 ### Manual (existing Godot project)
 
-1. Extract `VisualGasic_v5.4.0-beta1_<platform>_x86_64.zip` into your project's `addons/` folder (or copy only `addons/visual_gasic/` from the minimal zip).
-2. Enable **VisualGasic** in Project Settings → Plugins.
-3. Restart Godot.
+You need **Godot 4.6.1+** installed separately. Then either:
+
+- **Asset Library (in-editor):** AssetLib tab → search **VisualGasic** → Download → Install → enable the plugin, or
+- **Release zip:** download [`VisualGasic_AssetLibrary_v5.4.0-beta1.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_AssetLibrary_v5.4.0-beta1.zip) or [`VisualGasic-v5.4.0-beta1.zip`](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-v5.4.0-beta1.zip), extract `addons/visual_gasic/` into your project’s `addons/` folder.
+
+1. Enable **VisualGasic** in Project Settings → Plugins.
+2. Restart Godot.
+
+Full steps: [docs/guides/INSTALLATION.md](docs/guides/INSTALLATION.md#-method-4-manual-installation-from-github-release).
 
 ---
 
