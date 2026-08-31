@@ -74,6 +74,71 @@ scripts/sync_addons.sh restore   # inverse, for packaging
 CI runs `sync_addons.sh check` on every push. Do not commit a real-directory
 addon copy under `demos/`, `examples/`, `game_projects/`, or `test_proj/`.
 
+## Corpus Examples
+
+The [corpus](corpus/) directory contains a curated collection of hand-audited VisualGasic programs intended as **reference material for human readers** and **high-quality training data for language models**. Every file is intentionally small (20–60 lines), idiomatic, and self-contained.
+
+### Contributing a Corpus Example
+
+We accept high-quality corpus contributions. The bar is high: every example must be:
+
+1. **Idiomatic** — Uses standard VG patterns and best practices
+2. **Audited** — Verified to compile and run correctly
+3. **Self-contained** — No external files or setup required
+4. **Small** — Typically 20–60 lines of VG code
+5. **Well-commented** — Clear purpose stated at the top
+
+### Example Template
+
+Each corpus file follows this structure:
+
+```vb
+' One-line description of what this example demonstrates.
+' Optional: Additional context or teaching points.
+
+Sub Main()
+    ' Your VG code here
+    Print "Example output"
+End Sub
+
+' Expected output:
+' Example output
+```
+
+### Where to Contribute
+
+- **Basics** (types, variables, I/O) → `corpus/01_basics/`
+- **Control flow** (If/For/While/Select) → `corpus/02_control_flow/`
+- **Strings** (search, split, format) → `corpus/03_strings/`
+- **Arrays** (sort, search, iterate) → `corpus/04_arrays/`
+- **Dictionaries** (lookup, grouping) → `corpus/05_dictionaries/`
+- **Classes** (inheritance, properties, generics) → `corpus/06_classes/`
+- **File I/O** (read, write, parse) → `corpus/07_file_io/`
+- **Math** (sequences, geometry, stats) → `corpus/08_math/`
+- **State Machines** (game patterns) → `corpus/09_state_machines/`
+- **Godot Integration** (signals, nodes, events) → `corpus/10_godot_integration/`
+
+### Running Your Example
+
+Test your example before submitting:
+
+```bash
+./vg run corpus/01_basics/my_example.vg
+```
+
+Or open in the IDE and press F5. The output must match the `Expected output:` comment exactly.
+
+### What We Accept
+
+✅ **Yes** — A clear example of a single feature (even if similar examples exist)  
+✅ **Yes** — Progressive difficulty (simple version, then with more features)  
+✅ **Yes** — Real-world patterns (caching, validation, round-robin assignment)  
+❌ **No** — Obscure language edge cases (we favor common patterns)  
+❌ **No** — Dense, clever code (readability > cleverness)  
+❌ **No** — Code that requires external files or user input  
+
+**See [corpus/README.md](corpus/README.md) for the full corpus philosophy and licensing.**
+
 ## Coding Standards
 
 ### C++ Style Guide

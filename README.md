@@ -48,6 +48,8 @@ BASIC the syntax family is the right answer; **VisualGasic is a serious 2026 imp
 - **A real ecosystem.** A package manager (`vg pkg`), a plugin SDK with capability-based routing, a multi-module import system, ECS, GPU, FFI, and a 14-demo gallery in the box.
 - **Receipts, not promises.** Every claim above is backed by a benchmark or a test in this repo. The AI-correctness numbers (next section down) are reproducible from `bench/ai_correctness/` on your own model in fifteen minutes.
 
+**Working examples for every major feature are in the [corpus](corpus/README.md):** [Hello World](corpus/01_basics/01_hello_world.vg) · [Type Conversions](corpus/01_basics/05_type_conversions.vg) · [Generics](corpus/06_classes/06_class_generics.vg) · [Optional Types](corpus/01_basics/06_optional_types.vg) · [Exception Handling](corpus/01_basics/07_exception_patterns.vg) · [Classes & Inheritance](corpus/06_classes/01_class_basics.vg) · [State Machines](corpus/09_state_machines/01_traffic_light.vg) · [Godot Integration](corpus/10_godot_integration/01_button_events.vg) — and 49 more.
+
 If the next decade really is auditor-bound, then the language that wins is the one that minimizes time-to-confidence per line. That language already exists, and it has had its tooling problem solved. **It's this one.**
 
 ➡ **Read the full argument: [Why the AI Era Needs BASIC Again](docs/manifesto.md)**

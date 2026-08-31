@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✅ Added — Corpus Examples
+
+- **Generic Classes** — [corpus/06_classes/06_class_generics.vg](corpus/06_classes/06_class_generics.vg) · Demonstrates `Class Container(Of T)` pattern with type-safe generics, instantiation, and type-specific use cases.
+- **Optional Types** — [corpus/01_basics/06_optional_types.vg](corpus/01_basics/06_optional_types.vg) · Shows `Optional(String)` handling, null-coalescing patterns, and defensive `Nothing` checking.
+- **Advanced Exception Handling** — [corpus/01_basics/07_exception_patterns.vg](corpus/01_basics/07_exception_patterns.vg) · Multiple `Catch` blocks, nested `Try/Catch`, `Finally` cleanup, and real-world error recovery patterns.
+- Corpus now contains **57 total examples** across 10 categories, providing working reference implementations for all major language features.
+
 ## [5.4.0-beta1] - 2026-08-30
 
 **Key numbers:** 891/891 regression assertions · **12/12 compute** + **9/9 draw** faster than GDScript · CI benchmark regression gate · canonical tables in [BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md).
