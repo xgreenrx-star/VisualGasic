@@ -948,6 +948,44 @@ End Sub
 
 > **Note:** `Return` checks the GoSub return stack first. If no GoSub is pending, bare `Return` acts as `Exit Sub`.
 
+#### Try-Catch-Finally (Modern Error Handling)
+
+Modern exception handling with `Try/Catch/Finally` provides structured error recovery without label jumps.
+
+```vb
+Function ParseInteger(str As String) As Integer
+    Try
+        Return CInt(str)
+    Catch ex As Exception
+        Print "Invalid integer: " & str
+        Return 0
+    Finally
+        Print "Parse attempt complete"  ' Always runs
+    End Try
+End Function
+
+Sub ProcessWithFallback()
+    Try
+        Dim value As Integer = ParseInteger("abc")
+        Print "Parsed: " & CStr(value)
+    Catch ex As Exception
+        Print "Caught error: " & ex.Message
+    Finally
+        Print "Cleanup complete"
+    End Try
+End Sub
+```
+
+**Key points:**
+- `Try` wraps code that might raise an exception
+- `Catch` handles exceptions (optionally typed, defaults to all)
+- `Finally` runs regardless of success or failure — use for cleanup
+- Multiple `Catch` blocks handle different exception types
+- Nested `Try/Catch` blocks are allowed for granular error handling
+- `Throw` re-raises the current exception or throws a new one
+
+**For comprehensive examples of nested handlers, multiple catch blocks, and defensive patterns, see** [corpus/01_basics/07_exception_patterns.vg](../../corpus/01_basics/07_exception_patterns.vg).
+
 ---
 
 
@@ -1147,6 +1185,91 @@ anything.Add 3.14
 
 **Supported type parameters:** `Integer`, `Long`, `LongLong`, `Double`, `Single`, `Float`,
 `String`, `Boolean`, `Variant` (any type), and any class name.
+
+### Generic Classes — Class(Of T)
+
+Define your own generic classes using the `Class ClassName(Of T)` syntax. This allows a single class definition to work safely with any type parameter.
+
+```vb
+Class Container(Of T)
+    Private _value As T
+    Private _isEmpty As Boolean
+    
+    Sub New()
+        _isEmpty = True
+    End Sub
+    
+    Sub Set(val As T)
+        _value = val
+        _isEmpty = False
+    End Sub
+    
+    Function Get() As T
+        If _isEmpty Then
+            Throw New Exception("Container is empty")
+        End If
+        Return _value
+    End Function
+End Class
+
+Sub Main()
+    ' Create a container for integers
+    Dim intBox As Variant = New Container(Of Integer)
+    intBox.Set(42)
+    Print CStr(intBox.Get())  ' 42
+    
+    ' Create a container for strings
+    Dim strBox As Variant = New Container(Of String)
+    strBox.Set("Hello, Generics!")
+    Print strBox.Get()  ' Hello, Generics!
+End Sub
+```
+
+**Key points:**
+- Type parameter `T` acts as a placeholder for any type
+- Type safety is enforced — `Container(Of Integer)` can only hold integers
+- Methods using `T` work transparently with any type
+- Multiple type parameters are supported: `Class Pair(Of T, U)`
+
+**For a working example with more patterns, see** [corpus/06_classes/06_class_generics.vg](../../corpus/06_classes/06_class_generics.vg).
+
+### Optional Types — Nullable Values
+
+Optional types can hold either a real value or `Nothing` (null). Use the `Optional(T)` syntax to declare a variable that may not contain a value.
+
+```vb
+Function LookupUser(id As Integer) As Optional(String)
+    If id = 1 Then
+        Return "Alice"
+    Else
+        Return Nothing  ' User not found
+    End If
+End Function
+
+Sub Main()
+    Dim user As Optional(String) = LookupUser(1)
+    
+    ' Check if the optional has a value
+    If Not (user Is Nothing) Then
+        Print "Found: " & user
+    Else
+        Print "User not found"
+    End If
+    
+    ' Provide a default value
+    Dim userName As String = IIf(user Is Nothing, "Guest", user)
+    Print "Welcome, " & userName
+End Sub
+```
+
+**Key points:**
+- `Optional(T)` variables can be `Nothing` or contain a value of type `T`
+- Always check `Is Nothing` before using the value to avoid runtime errors
+- Default return value for `Optional` with no explicit return is `Nothing`
+- Pairs well with `IIf()` for concise null-coalescing patterns
+- Safer alternative to using `Variant` for optional references
+
+**For a complete example with defensive programming patterns, see** [corpus/01_basics/06_optional_types.vg](../../corpus/01_basics/06_optional_types.vg).
 
 ### Classes and Types
 
