@@ -1,0 +1,94 @@
+' Advanced Exception Handling Patterns in VisualGasic
+' Try/Catch/Finally allows defensive programming and graceful error recovery.
+' This example shows multiple exception types, nested handlers, and the Finally block.
+
+' Simulates parsing an integer with validation
+Function ParsePositiveInteger(str As String) As Integer
+    Dim value As Integer
+    
+    Try
+        value = CInt(str)
+    Catch ex As Exception
+        Throw New Exception("Failed to parse integer: " & str)
+    End Try
+    
+    If value <= 0 Then
+        Throw New Exception("Value must be positive, got: " & CStr(value))
+    End If
+    
+    Return value
+End Function
+
+' Simulates division with zero-checking
+Function SafeDivide(numerator As Integer, denominator As Integer) As Single
+    If denominator = 0 Then
+        Throw New Exception("Cannot divide by zero")
+    End If
+    Return numerator / denominator
+End Function
+
+Sub Main()
+    Print "--- Nested Try/Catch Example ---"
+    Dim inputs() As String = {"10", "abc", "-5", "0"}
+    
+    For i = 0 To UBound(inputs)
+        Try
+            Dim num As Integer = ParsePositiveInteger(inputs(i))
+            Print "Input '" & inputs(i) & "' -> " & CStr(num)
+        Catch parseEx As Exception
+            Print "Error parsing '" & inputs(i) & "': " & parseEx.Message
+            ' Continue to next input instead of crashing
+        End Try
+    Next i
+    
+    Print ""
+    Print "--- Finally Block Example ---"
+    Dim logFile As String = "operation.log"
+    
+    Try
+        Print "Starting operation..."
+        ' Simulate an operation that might fail
+        Dim result As Single = SafeDivide(10, 2)
+        Print "Division result: " & CStr(result)
+    Catch divEx As Exception
+        Print "Operation failed: " & divEx.Message
+    Finally
+        ' This always runs, whether the Try succeeded or Catch fired
+        Print "Cleaning up resources (Finally block always runs)"
+    End Try
+    
+    Print ""
+    Print "--- Multiple Paths with Error Handling ---"
+    Dim testValues() As Integer = {4, 0, 2}
+    
+    For i = 0 To UBound(testValues)
+        Try
+            Dim divisor As Integer = testValues(i)
+            Dim quotient As Single = SafeDivide(100, divisor)
+            Print "100 / " & CStr(divisor) & " = " & CStr(quotient)
+        Catch divEx As Exception
+            Print "Cannot divide: " & divEx.Message
+        Finally
+            Print "  [Finally: Operation complete for denominator " & CStr(testValues(i)) & "]"
+        End Try
+    Next i
+End Sub
+
+' Expected output:
+' --- Nested Try/Catch Example ---
+' Input '10' -> 10
+' Error parsing 'abc': Failed to parse integer: abc
+' Error parsing '-5': Value must be positive, got: -5
+' Error parsing '0': Value must be positive, got: 0
+'
+' --- Finally Block Example ---
+' Starting operation...
+' Division result: 5
+' Cleaning up resources (Finally block always runs)
+'
+' --- Multiple Paths with Error Handling ---
+' 100 / 4 = 25
+' Cannot divide: Cannot divide by zero
+'   [Finally: Operation complete for denominator 0]
+' 100 / 2 = 50
+'   [Finally: Operation complete for denominator 2]

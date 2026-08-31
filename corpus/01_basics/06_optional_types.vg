@@ -1,0 +1,56 @@
+' Optional/Nullable Types in VisualGasic
+' Optional types can be Nothing (null) or contain a value.
+' Syntax: Dim x As Optional(String) or use Variant for older-style nullable.
+' This example demonstrates checking for Nothing and safely extracting values.
+
+' Helper function to create an optional string (returns Nothing or a value)
+Function LookupUserName(id As Integer) As Optional(String)
+    ' Simulate a database lookup that might not find the user
+    If id = 1 Then
+        Return "Alice"
+    ElseIf id = 2 Then
+        Return "Bob"
+    Else
+        Return Nothing  ' User not found
+    End If
+End Function
+
+' Helper function to provide a default value if optional is Nothing
+Function GetOrDefault(opt As Optional(String), defaultVal As String) As String
+    If opt Is Nothing Then
+        Return defaultVal
+    Else
+        Return opt
+    End If
+End Function
+
+Sub Main()
+    ' Example 1: Optional that contains a value
+    Dim foundUser As Optional(String) = LookupUserName(1)
+    If Not (foundUser Is Nothing) Then
+        Print "Found user: " & foundUser
+    End If
+    
+    ' Example 2: Optional that is Nothing
+    Dim missingUser As Optional(String) = LookupUserName(99)
+    If missingUser Is Nothing Then
+        Print "User 99 not found (is Nothing)"
+    End If
+    
+    ' Example 3: Use a helper function to handle Nothing gracefully
+    Dim safeName As String = GetOrDefault(LookupUserName(2), "Guest")
+    Print "User name (with default): " & safeName
+    
+    ' Example 4: Chain multiple optionals with null-coalescing pattern
+    Dim result1 As String = GetOrDefault(LookupUserName(1), "(Unknown)")
+    Dim result2 As String = GetOrDefault(LookupUserName(99), "(Unknown)")
+    Print "Result 1: " & result1
+    Print "Result 2: " & result2
+End Sub
+
+' Expected output:
+' Found user: Alice
+' User 99 not found (is Nothing)
+' User name (with default): Bob
+' Result 1: Alice
+' Result 2: (Unknown)

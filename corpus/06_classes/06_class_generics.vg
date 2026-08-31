@@ -1,0 +1,66 @@
+' Generic/Parameterized Classes in VisualGasic
+' A generic class can work with any type, providing type safety without code duplication.
+' Syntax: Class MyClass(Of T) where T is the type parameter.
+' This example shows a simple Container that holds one value of any type.
+
+' A generic container that can hold any single value.
+Class Container(Of T)
+    Private _value As T
+    Private _isEmpty As Boolean
+    
+    Sub New()
+        _isEmpty = True
+    End Sub
+    
+    Sub Set(val As T)
+        _value = val
+        _isEmpty = False
+    End Sub
+    
+    Function Get() As T
+        If _isEmpty Then
+            Throw New Exception("Container is empty")
+        End If
+        Return _value
+    End Function
+    
+    Function HasValue() As Boolean
+        Return Not _isEmpty
+    End Function
+    
+    Sub Clear()
+        _isEmpty = True
+    End Sub
+End Class
+
+Sub Main()
+    ' Create a container for integers
+    Dim intContainer As Variant = New Container(Of Integer)
+    intContainer.Set(42)
+    Print "Integer container: " & CStr(intContainer.Get())
+    
+    ' Create a container for strings
+    Dim strContainer As Variant = New Container(Of String)
+    strContainer.Set("Hello, Generics!")
+    Print "String container: " & strContainer.Get()
+    
+    ' Check if container has value before accessing
+    Dim emptyContainer As Variant = New Container(Of Single)
+    If emptyContainer.HasValue() Then
+        Print "This should not print"
+    Else
+        Print "Empty container correctly reports no value"
+    End If
+    
+    ' Clear and verify
+    intContainer.Clear()
+    If Not intContainer.HasValue() Then
+        Print "Container cleared successfully"
+    End If
+End Sub
+
+' Expected output:
+' Integer container: 42
+' String container: Hello, Generics!
+' Empty container correctly reports no value
+' Container cleared successfully
