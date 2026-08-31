@@ -10,6 +10,7 @@ This page links to every documentation file in the project, organized by topic. 
 
 | I want to... | Go to |
 |---|---|
+| See working code examples | [Corpus: 57 Hand-Audited Examples](../corpus/README.md) — Hello World, Generics, Optional types, Exception handling, Classes, State Machines, and more |
 | Install VisualGasic | [Installation Guide](guides/INSTALLATION.md) (Asset Library, one-click installer, manual) |
 | Get running in 15 minutes | [Quick Start](getting_started/QUICK_START.md) |
 | Learn the basics | [Getting Started](#-getting-started) |

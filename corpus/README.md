@@ -41,6 +41,67 @@ The programs are organized into ten categories with 57 total examples covering l
 | [09_state_machines](09_state_machines/) | Game-style state patterns | Where verbose syntax shines |
 | [10_godot_integration](10_godot_integration/) | Signals, nodes, events | What makes VG a real game language |
 
+## Feature Coverage Matrix
+
+Quick reference: which examples demonstrate which language features?
+
+| Feature | Examples | Status |
+|---------|----------|--------|
+| **Basics** | | |
+| Variables & types | 01_basics/02_variables | ✅ |
+| Arithmetic | 01_basics/03_arithmetic | ✅ |
+| User input | 01_basics/04_user_input | ✅ |
+| Type conversion | 01_basics/05_type_conversions | ✅ |
+| String formatting | 03_strings/01_concat | ✅ |
+| **Control Flow** | | |
+| If/Else | 02_control_flow/01_if_else | ✅ |
+| For loops | 02_control_flow/02_for_loop | ✅ |
+| While loops | 02_control_flow/03_while_loop | ✅ |
+| Select/Case | 02_control_flow/04_select_case | ✅ |
+| Nested loops | 02_control_flow/05_nested_loops | ✅ |
+| **Collections** | | |
+| Array basics | 04_arrays/01_array_basics | ✅ |
+| Array search | 04_arrays/04_linear_search | ✅ |
+| Array sort | 04_arrays/05_bubble_sort | ✅ |
+| Dictionary/lookup | 05_dictionaries/01_dict_basics | ✅ |
+| Word counting | 05_dictionaries/02_word_count | ✅ |
+| **Procedures** | | |
+| Functions | 01_basics/05_type_conversions | ✅ |
+| Subroutines | 08_math/03_distance_2d | ✅ |
+| Parameters & return | 08_math/04_statistics | ✅ |
+| **Object-Oriented** | | |
+| Classes | 06_classes/01_class_basics | ✅ |
+| Constructors | 06_classes/02_class_constructor | ✅ |
+| Inheritance | 06_classes/03_class_inheritance | ✅ |
+| Properties | 06_classes/04_class_properties | ✅ |
+| Collections of objects | 06_classes/05_class_collection | ✅ |
+| **Advanced** | | |
+| Generics/Templates | 06_classes/06_class_generics | ✅ |
+| Optional types | 01_basics/06_optional_types | ✅ |
+| Try/Catch/Finally | 01_basics/07_exception_patterns | ✅ |
+| **File I/O** | | |
+| Read/write files | 07_file_io/01_write, 02_read | ✅ |
+| Line-by-line parsing | 07_file_io/04_read_csv | ✅ |
+| **Algorithms** | | |
+| Fibonacci | 08_math/01_fibonacci | ✅ |
+| Prime sieve | 08_math/02_prime_sieve | ✅ |
+| Distance calculations | 08_math/03_distance_2d | ✅ |
+| Statistics | 08_math/04_statistics | ✅ |
+| **Game/App Patterns** | | |
+| State machines | 09_state_machines (all) | ✅ |
+| **Godot Integration** | | |
+| Event handlers | 10_godot_integration/01_event_handler | ✅ |
+| Timers | 10_godot_integration/02_timer_event | ✅ |
+| Input handling | 10_godot_integration/03_input_handling | ✅ |
+| Signals | 10_godot_integration/04_signal_connect | ✅ |
+| Property aliases | 10_godot_integration/05_scene_property | ✅ |
+| **Not Yet Covered** | | |
+| Lambda expressions | — | ⏳ (blocked on M8 compiler) |
+| Async/Await | — | ⏳ (blocked on M8 compiler) |
+| Pattern matching | — | ⏳ (future) |
+| Optional chaining `?.` | — | ⏳ (blocked on M8 compiler) |
+| Interfaces | — | ⏳ (future) |
+
 ## For human readers
 
 If you are new to VisualGasic, start at [01_basics/01_hello_world.vg](01_basics/01_hello_world.vg)
