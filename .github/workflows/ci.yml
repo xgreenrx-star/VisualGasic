@@ -44,6 +44,17 @@ jobs:
           chmod +x ./scripts/prepare_ci_gdextension.sh
           ./scripts/prepare_ci_gdextension.sh
 
+      - name: Verify GDExtension smoke load
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
+        run: |
+          echo "res://test_suite/test_arr_simple.vg" > test_proj/current_test.txt
+          out=$(timeout 30 "$GODOT" --headless --path test_proj --user-data-dir "$VG_GODOT_USER_DATA_DIR" -s run_suite.gd 2>&1) || true
+          echo "$out" | tail -20
+          echo "$out" | grep -q "^PASS:"
+
       - name: Run VisualGasic test suite (.vg)
         timeout-minutes: 15
         env:
