@@ -14,6 +14,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Advanced Exception Handling** — [corpus/01_basics/07_exception_patterns.vg](corpus/01_basics/07_exception_patterns.vg) · Multiple `Catch` blocks, nested `Try/Catch`, `Finally` cleanup, and real-world error recovery patterns.
 - Corpus now contains **57 total examples** across 10 categories, providing working reference implementations for all major language features.
 
+## [5.4.0-beta2] - 2026-10-15
+
+**Key numbers:** target M5 release cut — Buffer + optimizer-hint runtime and Narcea Tier A/B golden path validated.
+
+### 🚀 Added — M5 language & Narcea release gate
+
+- **Buffer Type** — zero-overhead byte-level access (`Dim mem As Buffer`) is now wired through the compiler and bytecode VM with dedicated `OP_BUF_*` fast paths.
+- **Optimizer Hints** — `@accumulator`, `@loop_counter`, `@fast_loop`, `@simd_candidate`, and `@pure`-style metadata compile cleanly and remain runtime NOPs for safe optimization passes.
+- **Narcea Tier A/B** — recorded golden path validation covers the canonical form scaffold plus Tier B replay coverage for the platformer game flow.
+- **CI release hardening** — the GDExtension prep script now materializes a real addon tree instead of preserving broken nested symlinks on GitHub runners.
+
+### 🛠 Fixed — AST Godot type-constructor dispatch (Track A)
+
+- **`visual_gasic_godot_ctors.h`** — shared constructor list and `construct_godot_type()` used by compiler, VM, AST tree-walk, and expression evaluator.
+- **`Vector2i()` / `Rect2i()` / `Color()`** — no longer throw “Sub or Function not defined” on AST fallback paths (cross-module helpers, C64-style code).
+
+### 🔧 Improved — Causal chain & Python bridge (partial Tracks B/C)
+
+- **Causal chain** — recursive `Call` expansion and function return-value lines in `vg_causal_chain.gd`; headless fixture in `tests/test_vg_causal_chain.gd`.
+- **Python worker** — length-prefixed binary blob framing on stdin/stdout for large ndarray payloads (msgpack Phase 1 still pending).
+
+### ✅ Added — Regression coverage
+
+- **`test_buffer_type.vg`** — local buffer round-trips and data integrity checks.
+- **`test_optimizer_hints.vg`** — directives accepted without changing runtime semantics.
+- **`test_godot_type_ctor_ast.vg`** / **`test_godot_type_ctor_simple.vg`** — Godot type constructors on AST and bytecode paths.
+- **Tier B recorded replay** — platformer scenario included in the Narcea manifest and response set.
+
 ## [5.4.0-beta1] - 2026-08-30
 
 **Key numbers:** 891/891 regression assertions · **12/12 compute** + **9/9 draw** faster than GDScript · CI benchmark regression gate · canonical tables in [BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md).
@@ -104,13 +132,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Disabled the GDScript code-completion overlay on Godot's native Script editor tabs — it segfaulted (signal 11) when combined with the C++ `ScriptLanguageExtension` completion path (`_on_native_code_completion_requested`).
 - Native Enter-key handling now inserts correct indentation and auto-closes `For`/`If`/`While`/`Sub`/`Function` blocks with `Next`/`End If`/`Wend`/`End Sub`/`End Function` stubs via new `vg_native_editor_indent.gd`.
 - Shared VB6 keyword capitalization (`for` → `For`, `dim` → `Dim`, etc.) on line leave for both the embedded `VGCodeEdit` and native Script tabs via new `vg_keyword_autocorrect.gd`.
-
-### 🔜 Upcoming (M5 — October 2026)
-
-- **Buffer Type** — zero-overhead byte-level access (`Dim mem As Buffer`) for emulation and I/O workloads.
-- **Optimizer Hints** — `@fast_loop`, `@accumulator`, `@simd_candidate` directives for user-tunable hot paths.
-- **Speed improvements** — unboxed typed operand stack redesign (3–4× call overhead reduction target) and additional VM fast paths.
-- **Narcea AI Pair** — continued agent-loop reliability fixes, provider routing polish, and end-to-end "describe → working VG code" demo hardening.
 
 ## [5.3.0-Beta4] - 2026-08-07
 

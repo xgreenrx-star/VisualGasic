@@ -1,0 +1,102 @@
+' Test: Godot Type Constructor AST Fallback
+' Verifies that type constructors (Vector2i, Rect2i, Color, etc.)
+' work when code falls back to AST interpretation (cross-module helper subs).
+'
+' This test file uses helper functions that will force AST evaluation.
+Attribute VB_Name = "TestGodotTypeCtorAST"
+
+Sub _Ready()
+    ' Test Vector2i constructor
+    Dim v As Vector2i
+    v = MakeVector2i(10, 20)
+    If v.x = 10 And v.y = 20 Then
+        Print "PASS: vector2i_constructor"
+    Else
+        Print "FAIL: vector2i_constructor: v.x=" & v.x & " v.y=" & v.y
+    End If
+
+    ' Test Rect2i constructor
+    Dim r As Rect2i
+    r = MakeRect2i(0, 0, 100, 50)
+    If r.position.x = 0 And r.position.y = 0 And r.size.x = 100 And r.size.y = 50 Then
+        Print "PASS: rect2i_constructor"
+    Else
+        Print "FAIL: rect2i_constructor"
+    End If
+
+    ' Test Color constructor
+    Dim c As Color
+    c = MakeColor(1, 0, 0, 1)  ' Red
+    If c.r > 0.9 And c.r < 1.1 And c.g < 0.1 And c.b < 0.1 And c.a > 0.9 Then
+        Print "PASS: color_constructor"
+    Else
+        Print "FAIL: color_constructor: r=" & c.r & " g=" & c.g & " b=" & c.b & " a=" & c.a
+    End If
+
+    ' Test Vector2 constructor (float version)
+    Dim v2 As Vector2
+    v2 = MakeVector2(3.5, 4.5)
+    If v2.x > 3.4 And v2.x < 3.6 And v2.y > 4.4 And v2.y < 4.6 Then
+        Print "PASS: vector2_constructor"
+    Else
+        Print "FAIL: vector2_constructor"
+    End If
+
+    ' Test Vector3i constructor
+    Dim v3i As Vector3i
+    v3i = MakeVector3i(1, 2, 3)
+    If v3i.x = 1 And v3i.y = 2 And v3i.z = 3 Then
+        Print "PASS: vector3i_constructor"
+    Else
+        Print "FAIL: vector3i_constructor"
+    End If
+
+    ' Test Vector3 constructor (float version)
+    Dim v3 As Vector3
+    v3 = MakeVector3(1.5, 2.5, 3.5)
+    If v3.x > 1.4 And v3.x < 1.6 And v3.y > 2.4 And v3.y < 2.6 And v3.z > 3.4 And v3.z < 3.6 Then
+        Print "PASS: vector3_constructor"
+    Else
+        Print "FAIL: vector3_constructor"
+    End If
+
+    ' Test Rect2 constructor (float version)
+    Dim r2 As Rect2
+    r2 = MakeRect2(1.5, 2.5, 10.5, 20.5)
+    If r2.position.x > 1.4 And r2.position.x < 1.6 And r2.size.x > 10.4 And r2.size.x < 10.6 Then
+        Print "PASS: rect2_constructor"
+    Else
+        Print "FAIL: rect2_constructor"
+    End If
+
+    Print "test_godot_type_ctor_ast: 7 assertions"
+End Sub
+
+' Helper functions that will force AST evaluation when called
+Function MakeVector2i(x As Long, y As Long) As Vector2i
+    Return Vector2i(x, y)
+End Function
+
+Function MakeRect2i(x As Long, y As Long, w As Long, h As Long) As Rect2i
+    Return Rect2i(x, y, w, h)
+End Function
+
+Function MakeColor(r As Long, g As Long, b As Long, a As Long) As Color
+    Return Color(r, g, b, a)
+End Function
+
+Function MakeVector2(x As Double, y As Double) As Vector2
+    Return Vector2(x, y)
+End Function
+
+Function MakeVector3i(x As Long, y As Long, z As Long) As Vector3i
+    Return Vector3i(x, y, z)
+End Function
+
+Function MakeVector3(x As Double, y As Double, z As Double) As Vector3
+    Return Vector3(x, y, z)
+End Function
+
+Function MakeRect2(x As Double, y As Double, w As Double, h As Double) As Rect2
+    Return Rect2(x, y, w, h)
+End Function

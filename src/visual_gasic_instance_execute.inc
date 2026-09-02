@@ -2155,11 +2155,11 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                                      if (owner->has_method(snake)) {
                                          owner->callv(snake, call_args);
                                      } else {
-                                         raise_error("Sub or Function not defined: " + s->method_name, 35);
+                                         raise_error("[FROM EXECUTE_INC_2158] Sub or Function not defined: " + s->method_name, 35);
                                      }
                                 }
                             } else {
-                                 raise_error("Sub or Function not defined: " + s->method_name, 35);
+                                 raise_error("[FROM EXECUTE_INC_2162] Sub or Function not defined: " + s->method_name, 35);
                             }
                         }
                     }

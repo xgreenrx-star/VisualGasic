@@ -2,6 +2,7 @@
 // Bytecode VM execution — extracted from visual_gasic_instance.cpp
 // ============================================================================
 #include "visual_gasic_instance.h"
+#include "visual_gasic_godot_ctors.h"
 #include "visual_gasic_instance_internal.h"
 #include "visual_gasic_language.h"
 #include "visual_gasic_parser.h"
@@ -239,6 +240,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                            const Vector<Variant>* p_initial_locals,
                                            const Variant* p_fast_args, int p_fast_count,
                                            VMState* p_vm) {
+
     if (!chunk) {
         r_ret = Variant();
         return false;
@@ -1782,6 +1784,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         push_value(inst);
                         break;
                     }
+                }
+                // Godot built-in type constructors (Vector2i, Rect2i, Color, etc.)
+                if (is_godot_type_constructor(class_name)) {
+                    Variant result = construct_godot_type(class_name, args_arr);
+                    push_value(result);
+                    break;
                 }
                 // Unknown class — push Nil
                 push_value(Variant());
@@ -3593,6 +3601,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 const String &method = (name_idx >= 0 && name_idx < chunk->constants.size())
                     ? ensure_member_cache_entry(name_idx).primary_string
                     : _vg_empty_method_name;
+                
                 // ── Draw builtin fast path (perf) ──
                 if (name_idx >= 0 && name_idx < chunk->constants.size()) {
                     MemberNameCacheEntry &_mc = ensure_member_cache_entry(name_idx);
@@ -3725,7 +3734,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 static const HashSet<String> _vg_special_call_names = []() {
                     HashSet<String> s;
                     const char *names[] = {
-                        "array", "getnode", "vector2", "load", "createtween",
+                        "array", "getnode", "vector2", "vector2i", "vector3i", "vector4i", "rect2i",
+                        "load", "createtween",
                         "isonfloor", "isonwall", "moveandslide", "setvelocity",
                         "getcollisioncount", "getaxis", "isactionpressed",
                         "isactionjustpressed", "isactionjustreleased", "connect",
@@ -3760,6 +3770,30 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Vector2(x, y) — convenience constructor
                 if (!handled && method.nocasecmp_to("Vector2") == 0 && args.size() == 2) {
                     call_ret = Vector2(args[0], args[1]);
+                    handled = true;
+                }
+
+                // Vector2i(x, y) — integer vector constructor
+                if (!handled && method.nocasecmp_to("Vector2i") == 0 && args.size() == 2) {
+                    call_ret = Vector2i((int)args[0], (int)args[1]);
+                    handled = true;
+                }
+
+                // Vector3i(x, y, z) — integer 3D vector constructor
+                if (!handled && method.nocasecmp_to("Vector3i") == 0 && args.size() == 3) {
+                    call_ret = Vector3i((int)args[0], (int)args[1], (int)args[2]);
+                    handled = true;
+                }
+
+                // Vector4i(x, y, z, w) — integer 4D vector constructor
+                if (!handled && method.nocasecmp_to("Vector4i") == 0 && args.size() == 4) {
+                    call_ret = Vector4i((int)args[0], (int)args[1], (int)args[2], (int)args[3]);
+                    handled = true;
+                }
+
+                // Rect2i(x, y, width, height) — integer rectangle constructor
+                if (!handled && method.nocasecmp_to("Rect2i") == 0 && args.size() == 4) {
+                    call_ret = Rect2i((int)args[0], (int)args[1], (int)args[2], (int)args[3]);
                     handled = true;
                 }
 
@@ -4077,7 +4111,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                         call_ret = owner->callv(snake, args);
                                         _pc_resolved_deep = true;
                                     } else {
-                                        raise_error("Sub or Function not defined: " + method, 35);
+                                        raise_error("[FROM BYTECODE_VM_4090] Sub or Function not defined: " + method, 35);
                                         if (try_recover_error(Variant())) {
                                             call_ret = Variant();
                                         } else {
@@ -4087,7 +4121,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                     }
                                 }
                             } else if (!stmt_found) {
-                                raise_error("Sub or Function not defined: " + method, 35);
+                                raise_error("[FROM BYTECODE_VM_4103] Sub or Function not defined: " + method, 35);
                                 if (try_recover_error(Variant())) {
                                     call_ret = Variant();
                                 } else {
@@ -4905,6 +4939,30 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     String member = cache.primary_string.to_lower();
                     if (member == "x") result = vec.x;
                     else if (member == "y") result = vec.y;
+                } else if (base.get_type() == Variant::VECTOR2I) {
+                    Vector2i vec = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "x") result = vec.x;
+                    else if (member == "y") result = vec.y;
+                } else if (base.get_type() == Variant::VECTOR3I) {
+                    Vector3i vec = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "x") result = vec.x;
+                    else if (member == "y") result = vec.y;
+                    else if (member == "z") result = vec.z;
+                } else if (base.get_type() == Variant::VECTOR4I) {
+                    Vector4i vec = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "x") result = vec.x;
+                    else if (member == "y") result = vec.y;
+                    else if (member == "z") result = vec.z;
+                    else if (member == "w") result = vec.w;
+                } else if (base.get_type() == Variant::RECT2I) {
+                    Rect2i rect = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "position") result = rect.position;
+                    else if (member == "size") result = rect.size;
+                    else if (member == "end") result = rect.get_end();
                 } else if (base.get_type() == Variant::VECTOR3) {
                     // Handle Vector3.x, Vector3.y, Vector3.z member access
                     Vector3 vec = base;

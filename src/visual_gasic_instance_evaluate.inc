@@ -1,5 +1,7 @@
 Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
-    if (!expr) return Variant();
+    if (!expr) {
+        return Variant();
+    }
 
     if (expr->type == ExpressionNode::EXPRESSION_IIF) {
         IIfNode* iif = (IIfNode*)expr;
@@ -631,6 +633,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              Array call_args; 
              for(int i=0; i<aa->indices.size(); i++) call_args.push_back(evaluate_expression(aa->indices[i]));
              
+             // ── Godot type constructors (Vector2i, Rect2i, Vector3i, etc.) ──
+             // Check these BEFORE call_internal so we don't route them to "Sub or Function not defined"
+             if (is_godot_type_constructor(func_name)) {
+                 return construct_godot_type(func_name, call_args);
+             }
+             
              bool found = false;
              Variant v_ret = call_internal(func_name, call_args, found);
              if (found) return v_ret;
@@ -939,6 +947,17 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
         if (call->method_name.nocasecmp_to("Vector2") == 0 && call_args.size() == 2) {
              return Vector2(call_args[0], call_args[1]);
+        }
+        // Handle all Godot type constructors (Vector2i, Rect2i, Vector3i, Color, etc.)
+        if (is_godot_type_constructor(call->method_name)) {
+            if (call->method_name.nocasecmp_to("Vector2i") == 0 || call->method_name.nocasecmp_to("Vector2") == 0) {
+                UtilityFunctions::print("[EXPR_CALL_HANDLER] Constructing: " + call->method_name + " with " + String::num_int64(call_args.size()) + " args");
+            }
+            Variant result = construct_godot_type(call->method_name, call_args);
+            if (call->method_name.nocasecmp_to("Vector2i") == 0 || call->method_name.nocasecmp_to("Vector2") == 0) {
+                UtilityFunctions::print("[EXPR_CALL_HANDLER] Result: " + UtilityFunctions::var_to_str(result));
+            }
+            return result;
         }
         if (call->method_name.nocasecmp_to("TweenProperty") == 0 && call_args.size() == 4) {
              Object *obj = call_args[0];

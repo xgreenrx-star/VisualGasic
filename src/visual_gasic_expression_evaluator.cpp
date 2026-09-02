@@ -293,6 +293,22 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
             }
             return container;
         }
+        // Check if base is a type constructor (Vector2i, Rect2i, etc.) being called as a function
+        // aa->base is parsed as a VariableNode even though it's a type name
+        if (aa->base->type == ExpressionNode::VARIABLE) {
+            String func_name = ((VariableNode*)aa->base)->name;
+            if (func_name.nocasecmp_to("Vector2i") == 0 || func_name.nocasecmp_to("Vector3i") == 0 ||
+                func_name.nocasecmp_to("Vector4i") == 0 || func_name.nocasecmp_to("Rect2i") == 0) {
+                Array call_args;
+                for(int i=0; i<aa->indices.size(); i++) {
+                    call_args.push_back(evaluate(aa->indices[i], ctx));
+                }
+                if (ctx.instance) {
+                    return ctx.instance->evaluate_expression_full(expr);
+                }
+                return Variant();
+            }
+        }
         // Function call fallback omitted for brevity
         return Variant();
     }

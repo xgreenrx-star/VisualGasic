@@ -30,7 +30,7 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 				call_internal(c->method_name, args, found);
 			}
 			if (!found) {
-				raise_error("Sub or Function not defined: " + c->method_name, 35);
+				raise_error("[FROM STATEMENT_CPP] Sub or Function not defined: " + c->method_name, 35);
 			}
 			break;
 		}

@@ -772,8 +772,8 @@ These features shipped between March 10–21, 2026:
 
 ### ✅ Medium Priority — Ecosystem Features (ALL COMPLETE)
 
-4. **✅ Database Controls (Data, DBGrid, DBCombo)** *(Completed v4.3.0)*  
-   VGRecordset C++ class with ADODB.Recordset-compatible API, Data/DBGrid/DBCombo toolbox controls, 13 tests pass.
+4. **✅ Database Controls (Data, DBGrid, DBCombo)** *(Completed v4.3.0 — SQLite path; ODBC parity planned v6.1+)*  
+   VGRecordset C++ class with ADODB.Recordset-compatible API, Data/DBGrid/DBCombo toolbox controls, 13 tests pass. **Limitation (Sept 2026):** recordset + bound controls are wired to **`Database` / SQLite** today, not to **`VGOdbc`**. Server DBs (Postgres, MySQL/MariaDB) work via **`VGOdbc` programmatic SQL** only. See [ODBC / Database — Phased Improvement Plan](#odbc--database--phased-improvement-plan-v61).
 
 5. **✅ Package Manager** *(Completed v4.3.0)*  
    `vg pkg` CLI, `vg.json` manifests, GitHub-backed registry, GUI Package Browser panel, 11 tests pass.
@@ -905,6 +905,45 @@ Short, finishable list. **No new aspirational items.**
 - Type-Tagged Locals: Arithmetic 215 µs → ~130 µs (4.4× closer to C++ baseline 49 µs)
 - OSR: Branching 60 µs → ~30 µs (achieves parity with C++ 23 µs on hot loops)
 - String Arena: StringConcat 47 µs → ~35-40 µs (still 80-100× vs GDScript)
+
+#### ODBC / Database — Phased Improvement Plan (v6.1+)
+
+**User signal (Sept 2026):** Former VB6 developers on r/visualbasic flagged **forms designer** and **standard ODBC** (Postgres/MySQL/MariaDB via vendor drivers, not Jet/ACE/COM ADO) as adoption blockers.
+
+**What ships today (v5.4.x):**
+
+| Layer | Class / API | Status | Notes |
+|-------|-------------|--------|-------|
+| **ODBC connectivity** | `VGOdbc` (`New VGOdbc`, `New Odbc`) | ✅ Shipped v3.0 | Any installed ODBC driver; `ConnectionString`, `Open`, `Query`, `Execute`, `QueryParams`, transactions. Linux: `unixODBC` + `odbc-postgresql` / `odbc-mariadb`. Demo: `demos/Data_and_Files/ODBC/demo_odbc.vg`. Docs: `docs/SYSTEM_INTEGRATION.md` §2. |
+| **Embedded SQL** | `Database` / `VGDatabase` | ✅ Shipped | SQLite file via dynamic `libsqlite3` load. |
+| **ADO-*style* cursor** | `Recordset` / `VGRecordset` | ✅ Partial | `MoveNext`, `Fields`, `AddNew`, `Update`, `EOF`/`BOF` — **SQLite backend only** (`rs.Open sql, db`). Tests: `demo/test_suites/test_db_controls.vg`. |
+| **Bound controls** | Data / DBGrid / DBCombo toolbox | ✅ Partial | Prototype scenes; **SQLite recordset path** only. |
+| **Legacy stub** | `OpenDatabase(path)` | ⚠️ Misleading | Reads a **JSON file**, not SQL/ODBC — do not use for server DBs. |
+
+**Gaps vs VB6 LOB workflow:**
+
+1. No **`Recordset` over `VGOdbc`** — server queries return `Array` of `Dictionary`; no navigable cursor on Postgres/MySQL.
+2. No **DBGrid/Data binding to ODBC recordsets** — grid workflow requires SQLite today.
+3. No COM **`ADODB.Connection`** — by design (no Jet/ACE); ODBC-native API only.
+4. **`OpenDatabase` naming** confuses users expecting DAO/ADO file or DSN open.
+5. **CI/live-driver tests** missing — ODBC demo documents API when no driver installed; no automated Postgres/MySQL regression.
+
+**Phased plan:**
+
+| Phase | Target | Scope | Effort | Priority |
+|-------|--------|-------|--------|----------|
+| **1 — ODBC hardening** | v6.1 | Live-driver docs + optional CI job (Postgres/MySQL via unixODBC); map ODBC diag → VG `Err`; deprecate/document `OpenDatabase` JSON stub; corpus example: connect + `Query` + loop rows. | ~1 week | 🔴 **HIGH** |
+| **2 — Recordset over ODBC** | v6.1–v6.2 | Extend `VGRecordset` (or sibling `OdbcRecordset`) to open on `Ref<VGOdbc>`; forward-only cursor from `Query`/`Execute`; `Requery`, `Fields`, CRUD where driver supports it. | ~2–3 weeks | 🔴 **HIGH** |
+| **3 — Bound controls + forms** | v6.2 | Wire Data/DBGrid/DBCombo to ODBC-backed recordset; pairs with **UI Forms** leaving experimental. Exit: bind grid to live Postgres/MySQL table in a form. | ~2–3 weeks | 🔴 **HIGH** |
+| **4 — RAII & ergonomics** | v6.2+ | `Using conn = …` / `End Using` for `VGOdbc` + `Database` (see v6.1 `Using...End Using` row); connection-string helpers for common DSN-less Postgres/MySQL templates. | ~1–2 weeks | 🟡 MEDIUM |
+
+**Success criteria (v6.2):**
+
+- Former VB6 dev can connect to **Postgres or MySQL/MariaDB** with a standard ODBC driver, run `SELECT`, navigate rows with **Recordset** semantics, and display rows in **DBGrid** without hand-rolling loops.
+- No Microsoft Jet/ACE/COM dependency required.
+- Regression: SQLite recordset path unchanged; new `test_odbc_recordset.vg` (or CI service container) for server driver path.
+
+**Out of scope:** COM ADO, Access `.mdb` native, ORM/query builder, connection pooling microservice.
 
 ---
 
@@ -1356,7 +1395,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 
 | Feature | Description | Priority | Rationale |
 |---------|-------------|----------|-----------|
-| **Unboxed Typed Value Stack Redesign** | **Performance optimization:** Replace the current Variant-boxed operand stack (`std::vector<Variant>` with 24-byte heap allocations per value) with a type-tagged unboxed stack (tagged union of int64/double/pointer). Expected impact: **3–4× speedup on call performance** (8,323 instr/call → 2,000–2,700 instr/call), closing the 6–8× gap to GDScript. Current bottleneck: ~30% of remaining instructions are Variant construction/destruction/copy/move overhead. Unboxed stack eliminates this entirely. Runtime already tracks typed locals; this extends that model to the operand stack. **Implementation scope:** (1) Define `StackValue` as a union<int64, double, void*> with a 4-byte type tag; (2) Rewrite operand stack operations in `execute_bytecode()` to work with `StackValue[]` instead of `Variant[]`; (3) Specialize arithmetic opcodes (OP_ADD_I64, OP_ADD_F64, etc.) with direct register operations; (4) Handle Godot interop (boxing at API boundary only); (5) Update JIT tier code emission. **Risk:** High-regression-risk redesign affecting entire interpreter loop and all opcode handlers. Estimated effort: 2–4 weeks + full regression suite validation. **Decision gate:** Bank the current 5.5× win (Parts AC–AG) at v6.0 stable; defer this redesign to v6.1 post-release. | High | Determines whether VG can achieve parity with GDScript for performance-critical code. Current win (5.5×) is substantial but still 6–8× behind. Unboxed stack is the sole remaining architectural lever. Deferred to v6.1 to preserve v6.0 stability. |
+| **~~Unboxed Typed Value Stack Redesign~~ — MEASUREMENT RESULT (NOT PURSUED, v6.1+)** | **Performance optimization (measured Sept 1, 2026 — recommend HOLD).** Prototyped behind `VG_TAGGED_STACK` flag: unbox operand stack (`std::vector<StackValue>` int64/float64/bool tags instead of 24-byte Variant) for arith/compare opcodes. Measured two-point (1M/100k iters) instruction delta via `perf stat -e instructions:u`: **`BenchArithStack` (14 unboxed ADD/SUB+cmp/iter) on 6.1% faster, but `BenchArithNoFuse` (realistic code) on 4.8% *slower*** because locals stay boxed → each load/store pays a Variant↔StackValue conversion tax. **Conclusion:** Stack-only wins only when generic stack arithmetic dominates (ceiling ~6%); net-negative on normal code. **Root cause:** The 6.2× GDScript gap (8,323 vs 1,338 instr/call) is NOT operand-stack boxing — it's boxed *locals* + per-opcode dispatch + call marshalling. Full typed-VM conversion (unboxed locals + fused local opcodes + stack) would be required to capture the theoretical 2–3× win, but that is a multi-month effort for the team. **Recommendation:** HOLD. If perf is revisited, prioritize (a) unboxed *locals* (removes the conversion tax), (b) per-opcode dispatch overhead, (c) fused `OP_*_LOCAL_I64_STACK` opcodes. Slice code flag-gated in src/ and uncommitted. **Files:** `src/visual_gasic_stack_value.h`, `src/visual_gasic_stack_value_selftest.cpp`, `src/visual_gasic_bytecode.h`, `src/visual_gasic_instance_bytecode_vm.cpp` (flag-gated edits), `docs/vm_tagged_stack_migration.md` (migration plan for future reference). Full measurement details: `/memories/repo/vg_bytecode_perf.md` (top entry) and `/memories/session/vm_perf_sprint.md`. | Low | Measurement showed the isolated stack optimization does not deliver promised returns. Multi-week effort no longer justified. Future perf work should target the real bottlenecks (typed locals, dispatch, fused local opcodes) instead. |
 | **`Let` keyword — block-scoped variables** | Add `Let x As Type` as a block-scoped variable declaration (C++/JS semantics: variable is re-initialized on each block entry and destroyed on exit). `Dim` retains VB6 sub-scope hoisting behavior. This keeps VB6 compatibility while giving C++/modern programmers an intuitive opt-in for loop-local variables. `Let` is already obsolete in VB6 (it was just an optional prefix for assignment: `Let x = 5`), so repurposing it is safe and zero-breaking. AI code generators trained on JavaScript will naturally reach for `let`-style semantics inside loops — this makes their output correct without restructuring. IDE IntelliSense should suggest `Let` when `Dim` is typed inside a block. Runtime: requires a scope stack in the bytecode VM (push/pop on block enter/exit). Implementation notes: (1) parser: if keyword is `LET` followed by an identifier and `AS`, treat as block-scoped `DimStatement` with a `is_block_scoped` flag; (2) compiler: don't hoist to sub-level slots — allocate a fresh slot on each block entry via a new `OP_PUSH_SCOPE`/`OP_POP_SCOPE` pair; (3) VM: small scope stack alongside `locals[]`. See also: conversation thread Jun 26, 2026. | High |
 | **AST Interpreter Performance Overhaul** | **CRITICAL BLOCKER for emulator use cases.** The C64/GBA emulator demos currently run at ~600-700 cycles/sec because cross-module Subs/Functions fall back to slow tree-walk AST interpretation instead of bytecode. Real hardware: ~985,000 cycles/sec. Fix requires either: (a) enabling bytecode compilation for Class methods (not just module-level Subs), or (b) implementing a specialized fast path in the AST interpreter for hot loops (cache node evaluation, reduce allocations). Current bottleneck confirmed: `C64_Step()` and `Vic_Tick()` are tree-walked ~985K times per second. Estimated impact: 20–50× speedup would bring emulation from "glacial 30+ minute boot" to "real-time playable" (~5–10 sec to READY prompt). **Timeline:** v6.0 stable must have a solution (either full bytecode for methods or fast-path AST). Defer implementation details until core language features (Nullable Types, Generics) are finalized. | **Critical** | Determines whether VG is viable for performance-critical applications (emulators, physics engines, audio DSP). Current state is unusable for real-time code. Blocking C64/GBA demo quality. Fix is mandatory for v6.0 credibility. |
 | **Fix: AST Evaluator Type-Constructor Dispatch** | **Known bug (documented Jul 30 2026).** Bytecode compiler recognizes `Vector2i()`, `Rect2i()`, `Color()`, etc. as type constructors (emits `OP_NEW_OBJECT`), but AST tree-walk evaluator has no equivalent dispatch. Calling e.g. `Rect2i(...)` in a Sub that's fallen back to AST interpretation throws `Sub or Function not defined`. Found while debugging C64 emulator `BlitImage` calls. **Fix scope:** Add type-constructor dispatch to `VisualGasicExpressionEvaluator::evaluate_expression()` (C++ side) for all Godot built-in constructors. Mirror the bytecode path (`src/visual_gasic_compiler.cpp` line ~6953 `_godot_type_ctors[]`). **Fallback:** If this doesn't make v6.0, defer to v6.1 with a workaround (wrap type constructors in module-level helper functions). | High | Blocks cross-module code using Godot type constructors. Low frequency in typical code, but high severity (silent crashes). Pre-v6.0 fix preferred; v6.1 fallback acceptable. |
@@ -1459,6 +1498,8 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **Packed Arrays (Fast-Path Opcodes)** | Fast-path opcodes for common array patterns: `OP_ARRAY_ADD_I64_INPLACE [slot] [index_slot]`, `OP_ARRAY_MUL_I64_INPLACE`, etc. Direct memory access without Variant dispatch for numeric array operations. Expected 1.5-2× speedup on particle systems, mesh manipulation, audio DSP. | High | 2-3 weeks |
 | **String Arena** | Thread-local string accumulator for chained `&` operations. Expected 1.5-2× speedup on StringConcat-heavy code. | Medium | 1-2 weeks |
 | **Literal Type Annotations** | Optional `0i` for int literal, `0.0d` for double literal syntax to fix Python bridge encode-path type loss. Allows `PyCall(builtins, "range", Array(0i, 5i))` to work correctly. | Medium | 1 week |
+| **ODBC / Database parity (Phase 1–2)** | Harden `VGOdbc`; **`Recordset` over ODBC** (Postgres/MySQL/MariaDB via standard drivers). User-driven priority from ex-VB6 feedback. Full plan: [ODBC phased plan](#odbc--database--phased-improvement-plan-v61). | **High** | 3–4 weeks |
+| **ODBC bound controls (Phase 3)** | DBGrid/Data over ODBC recordset + UI Forms. Depends on Phase 2 + UI Forms stable. | **High** | 2–3 weeks |
 
 ### Programmer's Reference — remaining language gaps (v6.1)
 
@@ -1479,7 +1520,7 @@ Tracked by `scripts/audit_command_implementation.py` against `addons/visual_gasi
 
 | Feature | Description | Timeline | Rationale |
 |---------|-------------|----------|-----------|
-| **Tagged Stack** | Union-based stack with type tags (int64, float64, ptr) to eliminate Variant constructor/destructor overhead on every push/pop. Expected 2-3× speedup on all operations. Requires full opcode handler refactor (~3-4 months). Largest performance win available. | M7+ (Dec 2026) | Wait for stable v6.0; too risky pre-release. Foundational for all future VM optimizations. |
+| **~~Tagged Stack~~ — Measured Sept 2026: NOT PURSUED** | Prototyped operand stack unboxing (`std::vector<StackValue>` int64/float64/bool). Measured real instruction delta on arith-heavy and realistic-mixed workloads via two-point `perf stat -e instructions:u` isolation: unboxed stack wins ~6% on pure arithmetic but **loses ~5% on realistic code** (locals boxed → conversion tax per load/store). Root cause: 6.2× GDScript gap is not stack boxing (only ~6% upside), but boxed locals + dispatch + call marshalling. Multi-week effort not justified for ceiling of ~6%. **Recommendation:** HOLD. If perf revisited later, prioritize typed unboxed *locals* (removes tax + speeds every GET/SET), per-opcode dispatch, and fused OP_*_LOCAL_I64_STACK opcodes instead. Slice code flag-gated and uncommitted (in src/ + docs/). Measurement: `/memories/repo/vg_bytecode_perf.md` top entry. | Not Planned | Measurement proved the isolated win too small to justify multi-week migration. Larger architectural wins available. Team should focus on v6.0 stable release. |
 | **SIMD Hinting** | Vector opcodes (OP_VEC_ADD, OP_VEC_MUL, OP_VEC_DOT) with JIT code generation hints for AVX2/AVX-512. Expected 3-5× speedup on batch math (physics, 3D transforms, audio DSP, image processing). Pairs well with v7.0 3D kit. | v7.0 research | Niche use case; valuable for game engines and scientific computing; research phase only. |
 | **On-Stack Replacement (OSR)** | Tier-2 JIT enhancement: detect hot loops running N iterations, compile specialized trace, jump into compiled code. Expected 3-10× on long-running loops. Classic implementation (Lua/LuaJIT). | v7.0 research | Complements tier-1 JIT; requires stop-the-world mechanism; research before committing. |
 | **VG → C++ transpiler ("Build & Run" IDE option)** | Ahead-of-time compile selected VG modules to C++ (reusing the existing bytecode compiler's AST + the JIT Tier2 IR-lowering stage as a front end, with a new textual-C++ backend instead of x86 codegen) as an alternative to today's "Run" (bytecode VM). IDE would offer per-module opt-in so incompatible/dynamic modules stay interpreted. Requires bundling or detecting a C++ toolchain (see `/memories/repo/vg_bytecode_perf.md` for the full feasibility writeup, incl. why `Asic`'s line-based VB6→Arduino-C++ transpiler is a conceptual reference only, not reusable code). Real native-speed win for numeric/call-heavy VG code; distinct from Option 1B (a hand-written native C64 core). | v7.0 research | Large (multi-month) compiler-team project; needs its own supervised design pass (dynamic-feature fallback, error mapping, build/link pipeline) before scheduling. |
@@ -2438,11 +2479,11 @@ End Function
 
 | Feature | Scope | Estimate | Priority |
 |---------|-------|----------|----------|
-| **ODBC Database Driver Wrapper** | 1. C++ wrapper: VG ↔ ODBC via `visual_gasic_odbc.cpp` (new module). 2. Native builtins: `ODBCConnection.Open()`, `Execute()`, `Fetch()`, `Close()`. 3. Result sets as VG `Collection(Of Dictionary)`. 4. Error handling: ODBC error codes → VG `Err` object. 5. Tested on: Linux (unixODBC), Windows (ODBC Data Source Admin). | 4–5 weeks | 🔴 HIGH |
+| **ODBC enterprise polish** | **Base `VGOdbc` shipped v3.0** (`src/visual_gasic_odbc.cpp`). v7.0 scope: enterprise hardening — pooled connections, structured `Err` from SQLSTATE, audited query logging, DSN management UI, compliance docs. **Recordset + bound-grid over ODBC** tracked in [v6.1 ODBC plan](#odbc--database--phased-improvement-plan-v61) (not deferred to v7). | 2–3 weeks | 🟡 MEDIUM |
 | **Java Interop (JNI Bridge)** | 1. C++ layer: `visual_gasic_jni.cpp` marshals VG Variants ↔ Java objects. 2. `JavaClass.New()` instantiation, method calls, property access. 3. VG callbacks as Java lambda expressions. 4. Tested on: Android (via existing JNI bindings in Godot), desktop JVM. 5. Example: call Android sensor APIs from VG. | 5–6 weeks | 🟡 MEDIUM |
 | **.NET Interop (P/Invoke Alternative)** | 1. C++ marshaling layer for .NET types (int, string, arrays, delegates). 2. VG bindings for managed .NET libraries via DLL imports + type reflection. 3. Alternative: CppCLI wrapper for cleaner interop. 4. Tested on: Windows desktop, future .NET cross-platform (MAUI). 5. Example: call Prism MVVM framework from VG app logic. | 6–8 weeks | 🟡 MEDIUM |
 
-**Deliverable**: v7.0 ships ODBC (database access). Java/JNI and .NET are v7.1.
+**Deliverable**: v6.1–v6.2 ships **ODBC recordset + bound-control parity** (ex-VB6 LOB path). v7.0 adds enterprise ODBC polish. Java/JNI and .NET are v7.1.
 
 ---
 
@@ -2482,7 +2523,7 @@ These ship v7.0 alongside enterprise bridges if time permits; otherwise v7.1.
 | Phase | Milestone | Target | Deliverable |
 |-------|-----------|--------|-------------|
 | **Phase 1** | Package signing & audit | Feb 2027 | Code signing + vulnerability DB operational |
-| **Phase 2** | ODBC bridge | Mar 2027 | VG ↔ SQL database end-to-end demo |
+| **Phase 2** | ODBC enterprise polish | Mar 2027 | Pooling, audit logging, compliance docs (base `VGOdbc` + v6.1 recordset/grid parity already shipped) |
 | **Phase 3** | Registry enhancements | Apr 2027 | Private registries + private artifact support |
 | **Phase 4** | Java/JNI bridge | May 2027 | Android sensor access from VG demo |
 | **Phase 5** | .NET interop | Jun 2027 | Prism MVVM example or similar |

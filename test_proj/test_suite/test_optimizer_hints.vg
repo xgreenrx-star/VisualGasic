@@ -1,0 +1,37 @@
+' Test: optimizer hints are accepted and do not change semantics
+' These directives are compiler metadata markers; runtime behavior should stay identical.
+Attribute VB_Name = "TestOptimizerHints"
+
+'@accumulator total
+'@loop_counter i
+Function SumTo(n As Integer) As Integer
+    Dim total As Integer = 0
+    Dim i As Integer
+    For i = 0 To n
+        total = total + i
+    Next i
+    SumTo = total
+End Function
+
+'@pure
+Function Square(x As Integer) As Integer
+    Square = x * x
+End Function
+
+Sub _Ready()
+    Dim s As Integer
+    s = SumTo(10)
+    If s = 55 Then
+        Print "PASS: optimizer_hint_sum"
+    Else
+        Print "FAIL: optimizer_hint_sum: got " & CStr(s)
+    End If
+
+    Dim q As Integer
+    q = Square(9)
+    If q = 81 Then
+        Print "PASS: optimizer_hint_pure"
+    Else
+        Print "FAIL: optimizer_hint_pure: got " & CStr(q)
+    End If
+End Sub

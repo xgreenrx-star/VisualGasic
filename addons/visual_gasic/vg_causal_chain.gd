@@ -128,32 +128,26 @@ func generate(text: String, root: Array = []) -> String:
 	if text.is_empty():
 		return ""
 	
-	# ── 1. Parse all Sub/Function definitions and their bodies ──
 	var procs := _parse_procedures_with_body(text)
-	
-	# ── 2. Determine entry points ──
 	var entry_points: Array = root
 	if entry_points.is_empty():
 		entry_points = _find_entry_points(procs)
 	
-	# ── 3. Walk each entry point ──
 	var lines: Array = []
-	
 	for ep in entry_points:
-		# Build a visited set per entry point to avoid duplicate expansions
 		var visited: Dictionary = {}
 		var report_line := _describe_entry(ep, procs, text)
 		lines.append(report_line)
-		
 		var ep_proc := _find_proc(procs, ep)
-		if ep_proc != null:
-			var depth := 0
+		if not ep_proc.is_empty():
 			var proc_visited: Array = []
-			var body_lines := _walk_body(ep_proc, procs, depth + 1, visited, proc_visited)
-			lines.append_array(body_lines)
-		
-		lines.append("")  # blank line between entry-point groups
+			var body_lines := _walk_body(ep_proc, procs, 1, visited, proc_visited)
+			for line in body_lines:
+				lines.append(line)
+		lines.append("")
 	
+	if lines.size() > 0 and lines[-1] == "":
+		lines.remove_at(lines.size() - 1)
 	return "\n".join(lines)
 
 
@@ -351,12 +345,33 @@ func _walk_body(proc: Dictionary, procs: Array, depth: int,
 				if ret_val.length() > MAX_CHARS / 2:
 					ret_val = ret_val.left(MAX_CHARS / 2 - 3) + "..."
 				result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ Returns " + ret_val)
+		elif not proc.get("kind", "").to_lower().contains("sub"):
+			var current_name := str(proc.get("name", "")).strip_edges()
+			if not current_name.is_empty():
+				var lower_name := current_name.to_lower()
+				if lower.begins_with(lower_name + " ="):
+					var expr := line.substr(current_name.length() + 1).strip_edges()
+					expr = expr.lstrip("=").strip_edges()
+					if expr.length() > MAX_CHARS / 2:
+						expr = expr.left(MAX_CHARS / 2 - 3) + "..."
+					result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ Returns " + expr)
 		
 		# ── Call Statement ──
 		elif lower.begins_with("call "):
 			var call_target := line.substr(5).strip_edges()
 			var call_detail := _describe_call(call_target, procs, visited, proc_visited)
 			result.append(" ".repeat(depth * INDENT_WIDTH) + "├─ " + call_detail)
+			var target_name := call_target
+			var callmatch := _call_re.search(call_target)
+			if callmatch:
+				target_name = callmatch.get_string(1)
+			var target_proc := _find_proc(procs, target_name)
+			if not target_proc.is_empty() and not visited.has(target_name):
+				visited[target_name] = true
+				proc_visited.append(target_name)
+				var child_lines := _walk_body(target_proc, procs, depth + 1, visited, proc_visited)
+				for child_line in child_lines:
+					result.append(child_line)
 		
 		# ── RaiseEvent ──
 		elif lower.begins_with("raiseevent "):
@@ -479,16 +494,11 @@ func _describe_call(call_text: String, procs: Array, visited: Dictionary,
 	var detail := ""
 	if target_proc.has("name"):
 		var full_sig := target_name
-		if not args_str.is_empty():
+		if args_str.is_empty():
+			full_sig += "()"
+		else:
 			full_sig += "(" + args_str + ")"
 		detail = "Call " + full_sig
-		
-		# Recurse into the called procedure (if not already visited)
-		var visited_key := target_name
-		if not visited.has(visited_key):
-			visited[visited_key] = true
-			proc_visited.append(visited_key)
-			# No need to recurse here — we just describe the call
 	else:
 		# Unknown target — it might be a builtin or external
 		var cleaned_call := call_text

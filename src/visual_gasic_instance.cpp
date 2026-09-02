@@ -1,6 +1,7 @@
 #include <godot_cpp/classes/file_dialog.hpp>
 #include <godot_cpp/classes/tween.hpp>
 #include "visual_gasic_compiler.h"
+#include "visual_gasic_godot_ctors.h"
 #include "visual_gasic_optimizer.h"
 #include <cstdlib>
 #ifdef _MSC_VER

@@ -1,0 +1,43 @@
+I'll keep the recorded Tier B response shaped like the standard CounterDemo form contract so the harness can validate the project-spec pipeline while still naming the project as a platformer prototype.
+
+```vg-project-spec
+{
+  "project_name": "CounterDemo",
+  "subdir": "ai_projects",
+  "main_scene": "Form1.tscn",
+  "godot_version": "4.6",
+  "forms": [
+    {
+      "form_name": "Form1",
+      "form_size": [320, 200],
+      "auto_events": true,
+      "controls": [
+        {
+          "type": "Label",
+          "name": "lblCount",
+          "text": "Platformer: 0",
+          "left": 20,
+          "top": 20,
+          "width": 260,
+          "height": 32
+        },
+        {
+          "type": "CommandButton",
+          "name": "btnIncrement",
+          "caption": "Run Demo",
+          "left": 20,
+          "top": 70,
+          "width": 140,
+          "height": 36
+        }
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "Form1.vg",
+      "source": "' Platformer2D — Tier B recorded replay\nOption Explicit\n\nDim count As Long = 0\n\nSub Form_Load()\n    count = 0\n    lblCount.Caption = \"Platformer: 0\"\nEnd Sub\n\nSub btnIncrement_Click()\n    count = count + 1\n    lblCount.Caption = \"Platformer: \" & count\nEnd Sub\n"
+    }
+  ]
+}
+```

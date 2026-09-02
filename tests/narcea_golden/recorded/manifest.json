@@ -7,6 +7,13 @@
       "ndjson": "fixture_counter.ndjson",
       "require_ndjson": true,
       "allowed_end_reasons": ["complete", "mutation_stop", "user_new_turn"]
+    },
+    {
+      "id": "platformer_2d",
+      "label": "2D platformer gameplay prototype",
+      "response": "platformer_2d_response.txt",
+      "require_ndjson": false,
+      "allowed_end_reasons": ["complete", "mutation_stop", "user_new_turn"]
     }
   ],
   "notes": "Tier B runs only scenarios listed here. Local failure_* captures are gitignored regression artifacts — add passing live captures with a manifest entry."

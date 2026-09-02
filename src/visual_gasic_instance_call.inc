@@ -2867,7 +2867,11 @@ Variant VisualGasicInstance::call_method_by_name(const String &p_name, const Arr
             return Variant();
         }
     }
-    raise_error("Sub or Function not defined: " + p_name, 35);
+    if (p_name.nocasecmp_to("Vector2i") == 0 || p_name.nocasecmp_to("Vector3i") == 0 ||
+        p_name.nocasecmp_to("Vector4i") == 0 || p_name.nocasecmp_to("Rect2i") == 0) {
+        UtilityFunctions::print("[CALL_INC_ERROR_POINT] About to raise error for: " + p_name);
+    }
+    raise_error("[FROM CALL_INC_2870] Sub or Function not defined: " + p_name, 35);
     return Variant();
 }
 

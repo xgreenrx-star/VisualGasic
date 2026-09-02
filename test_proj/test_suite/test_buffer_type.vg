@@ -1,0 +1,29 @@
+' Test: Buffer Type fast path
+' Covers local MemoryBuffer allocation and indexed byte access.
+Attribute VB_Name = "TestBufferType"
+
+Sub _Ready()
+    Dim buf As New MemoryBuffer(8)
+    buf(0) = 7
+    buf(1) = 11
+    buf(7) = 255
+
+    If buf(0) = 7 And buf(1) = 11 And buf(7) = 255 Then
+        Print "PASS: buffer_type_roundtrip"
+    Else
+        Print "FAIL: buffer_type_roundtrip: got " & CStr(buf(0)) & ", " & CStr(buf(1)) & ", " & CStr(buf(7))
+    End If
+
+    Dim total As Integer
+    total = 0
+    Dim i As Integer
+    For i = 0 To 7
+        total = total + buf(i)
+    Next i
+
+    If total = 273 Then
+        Print "PASS: buffer_type_sum"
+    Else
+        Print "FAIL: buffer_type_sum: got " & CStr(total)
+    End If
+End Sub

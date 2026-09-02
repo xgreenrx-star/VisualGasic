@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Materialize GDExtension libraries for headless Godot in CI and local runs.
 # Fresh clones keep addons/visual_gasic/bin as a symlink → ../../demo/bin (gitignored).
-# Godot's extension loader is more reliable with real bin/ dirs and non-symlinked
-# project addon paths (GitHub Actions runners can fail to load through symlinks).
+# GitHub Actions is especially sensitive to nested symlinks inside the copied addon
+# tree: cp -a preserves symlinks, which leaves bin/ as a broken link even when the
+# real library exists elsewhere. We must replace the addon tree with a real, mounted
+# copy so Godot can register the GDExtension loader reliably.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -19,30 +21,39 @@ fi
 materialize_bin() {
 	local dir="$1"
 	if [[ -L "$dir" ]] || [[ ! -d "$dir" ]]; then
-		rm -f "$dir"
+		rm -rf "$dir"
 		mkdir -p "$dir"
 	fi
 	cp -f "$SO" "$dir/$SO_NAME"
 }
 
-replace_addon_symlink() {
+materialize_addon_tree() {
 	local dest="$1"
-	if [[ -L "$dest" ]]; then
-		echo "==> Replacing addon symlink with real tree: $dest"
-		rm -f "$dest"
-		cp -a addons/visual_gasic "$dest"
-	elif [[ ! -d "$dest" ]]; then
-		echo "==> Copying addon tree: $dest"
-		mkdir -p "$(dirname "$dest")"
-		cp -a addons/visual_gasic "$dest"
+	local src="$ROOT/addons/visual_gasic"
+	if [[ -L "$dest" || -e "$dest" ]]; then
+		echo "==> Replacing addon tree: $dest"
+		rm -rf "$dest"
 	fi
+	mkdir -p "$(dirname "$dest")"
+	cp -aL "$src" "$dest"
+	materialize_bin "$dest/bin"
 }
 
-echo "==> Materializing GDExtension bin from $SO"
+# Materialize the canonical repo addon first, then mirror into every project that
+# loads the extension in CI or headless smoke runs.
 materialize_bin "addons/visual_gasic/bin"
+materialize_addon_tree "test_proj/addons/visual_gasic"
+materialize_addon_tree "demo/addons/visual_gasic"
 
-replace_addon_symlink "test_proj/addons/visual_gasic"
-replace_addon_symlink "demo/addons/visual_gasic"
+# Also refresh project copies that are not under demo/test_proj but still load the
+# extension in automation or local game-project smoke runs.
+while IFS= read -r project_dir; do
+	[[ -n "$project_dir" ]] || continue
+	if [[ "$project_dir" == "$ROOT/addons" ]]; then
+		continue
+	fi
+	materialize_addon_tree "$project_dir/addons/visual_gasic"
+done < <(find "$ROOT" -mindepth 1 -maxdepth 2 -type d \( -path "$ROOT/projects" -o -path "$ROOT/demos" -o -path "$ROOT/demo" -o -path "$ROOT/test_proj" \) -print)
 
 for check in \
 	"addons/visual_gasic/visual_gasic.gdextension" \

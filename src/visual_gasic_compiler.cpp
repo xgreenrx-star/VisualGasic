@@ -9028,6 +9028,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 bool is_dict = is_dictionary_var(var_name);
                 bool is_local = local_slots.has(var_name.to_lower());
                 bool is_param = param_vars.has(var_name.to_lower());
+                
                 // A fast-call Function's return variable occupies a local slot
                 // named after the function itself.  `FuncName(args)` appearing
                 // inside FuncName is therefore a RECURSIVE SELF-CALL, not an
@@ -9422,6 +9423,46 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                  emit_byte(1);
                  break;
              }
+
+             // ── Godot Variant type constructors (Vector2i, Rect2i, Color, …) ──
+             // Vector2(x,y), Vector2i(x,y), etc. must emit OP_NEW_OBJECT (which
+             // routes through construct_godot_type at runtime), NOT OP_CALL —
+             // OP_CALL returns NIL for these since they are not VG subs/builtins.
+             bool _emitted_godot_ctor = false;
+             {
+                 static const char* _godot_type_ctors_call[] = {
+                     "vector2", "vector2i", "vector3", "vector3i",
+                     "vector4", "vector4i", "rect2", "rect2i",
+                     "color", "transform2d", "transform3d",
+                     "basis", "quaternion", "plane", "aabb",
+                     nullptr
+                 };
+                 for (int _gi = 0; _godot_type_ctors_call[_gi]; ++_gi) {
+                     if (call_name == _godot_type_ctors_call[_gi]) {
+                         if (call_name == "color" && call->arguments.size() >= 3) {
+                             bool all_const = true;
+                             for (int i = 0; i < call->arguments.size(); i++) {
+                                 if (!is_constant_expr(call->arguments[i])) { all_const = false; break; }
+                             }
+                             if (all_const) {
+                                 emit_constant(eval_constant_expr(call));
+                                 _emitted_godot_ctor = true;
+                                 break;
+                             }
+                         }
+                         for (int i = 0; i < call->arguments.size(); i++) {
+                             compile_expression(call->arguments[i]);
+                         }
+                         int name_idx = current_chunk->add_constant(call->method_name);
+                         emit_byte(OP_NEW_OBJECT);
+                         emit_const_index(name_idx);
+                         emit_byte((uint8_t)call->arguments.size());
+                         _emitted_godot_ctor = true;
+                         break;
+                     }
+                 }
+             }
+             if (_emitted_godot_ctor) break;
 
              if (call_name == "len" && call->arguments.size() == 1) {
                  compile_expression(call->arguments[0]);

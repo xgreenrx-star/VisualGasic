@@ -1,0 +1,26 @@
+' Test: Simple Godot Type Constructor
+Attribute VB_Name = "TestGodotTypeCtorSimple"
+
+' Global variable created at module level — this forces OP_NEW_OBJECT at compile time
+' NOT at _Ready() time
+Dim globalV2i As Vector2i = Vector2i(5, 6)
+
+Sub _Ready()
+    Print "globalV2i from module level: " & globalV2i.ToString()
+    
+    If globalV2i.x = 5 And globalV2i.y = 6 Then
+        Print "PASS: module_level_vector2i"
+    Else
+        Print "FAIL: module_level_vector2i"
+    End If
+    
+    ' Test function-level assignment
+    Dim localV2i As Vector2i
+    localV2i = Vector2i(10, 20)
+    
+    If localV2i.x = 10 And localV2i.y = 20 Then
+        Print "PASS: local_vector2i_constructor"
+    Else
+        Print "FAIL: local_vector2i_constructor: x=" & localV2i.x & " y=" & localV2i.y
+    End If
+End Sub
