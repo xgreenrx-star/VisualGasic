@@ -48,7 +48,7 @@ BASIC the syntax family is the right answer; **VisualGasic is a serious 2026 imp
 - **A real ecosystem.** A package manager (`vg pkg`), a plugin SDK with capability-based routing, a multi-module import system, ECS, GPU, FFI, and a 14-demo gallery in the box.
 - **Receipts, not promises.** Every claim above is backed by a benchmark or a test in this repo. The AI-correctness numbers (next section down) are reproducible from `bench/ai_correctness/` on your own model in fifteen minutes.
 
-**Working examples for every major feature are in the [corpus](corpus/README.md):** [Hello World](corpus/01_basics/01_hello_world.vg) · [Type Conversions](corpus/01_basics/05_type_conversions.vg) · [Generics](corpus/06_classes/06_class_generics.vg) · [Optional Types](corpus/01_basics/06_optional_types.vg) · [Exception Handling](corpus/01_basics/07_exception_patterns.vg) · [Classes & Inheritance](corpus/06_classes/01_class_basics.vg) · [State Machines](corpus/09_state_machines/01_traffic_light.vg) · [Godot Integration](corpus/10_godot_integration/01_button_events.vg) — and 49 more.
+**Working examples for every major feature are in the [corpus](corpus/README.md):** [Hello World](corpus/01_basics/01_hello_world.vg) · [Type Conversions](corpus/01_basics/05_type_conversions.vg) · [Generics](corpus/06_classes/06_class_generics.vg) · [Optional Types](corpus/01_basics/06_optional_types.vg) · [Exception Handling](corpus/01_basics/07_exception_patterns.vg) · [Classes & Inheritance](corpus/06_classes/01_class_basics.vg) · [State Machines](corpus/09_state_machines/01_traffic_light.vg) · [Godot Integration](corpus/10_godot_integration/01_event_handler_button.vg) — and 49 more.
 
 If the next decade really is auditor-bound, then the language that wins is the one that minimizes time-to-confidence per line. That language already exists, and it has had its tooling problem solved. **It's this one.**
 
@@ -564,24 +564,15 @@ The automated ClassDB fuzzer generates and runs **2421 tests** across 210 `.vg` 
 python3 tools/classdb_fuzzer.py --run   # Generate + run all 2421 tests
 ```
 
-### Bytecode Regression Harness
-Use the regression harness in [Makefile.tests](Makefile.tests) to keep builds, tests, and benchmarks reproducible:
+### Regression Test Suite
+Run the test suite via the standard build harness:
 
 ```bash
-make -f Makefile.tests test           # Headless bytecode test suite
-make -f Makefile.tests bench          # Cross-language benchmark harness
-make -f Makefile.tests bytecode-dump  # Deterministic bytecode JSON capture
-make -f Makefile.tests update-bytecode-baseline  # Refresh baseline + changelog entry
+./run_test_suite.sh                    # Full regression test suite
+./run_test_suite.sh --vg-only          # VG-only bytecode tests
 ```
 
-`make bytecode-dump` drives [demo/dump_bytecode.gd](demo/dump_bytecode.gd) in headless Godot to emit the JSON file pointed to by `BYTECODE_DUMP_OUTPUT` (defaults to `./bytecode_dump.json`). Customize what gets captured with `BYTECODE_DUMP_ENTRIES` (comma-delimited entry points) and `BYTECODE_DUMP_OUTPUT` (absolute or relative destination). The committed baseline at [tests/bytecode_baseline.json](tests/bytecode_baseline.json) is compared against the freshly generated dump via [scripts/compare_bytecode_dump.py](scripts/compare_bytecode_dump.py); CI fails if the opcode stream changes unexpectedly. When an intentional opcode change lands, refresh the baseline after reviewing the diff:
-
-```bash
-make -f Makefile.tests update-bytecode-baseline
-git add tests/bytecode_baseline.json README_UPDATES.md
-```
-
-The helper script [scripts/update_bytecode_changelog.py](scripts/update_bytecode_changelog.py) drives the changelog entry automatically, listing the entry points captured in the refreshed dump under the "Bytecode Baseline Updates" section of [README_UPDATES.md](README_UPDATES.md). Every CI run now captures release **and** debug Godot builds, compares both against the baseline, uploads the resulting dumps, and posts an inline PR comment containing the diff whenever mismatches occur.
+The CI pipeline captures deterministic bytecode dumps for release and debug builds, compares against established baselines, and alerts on unexpected opcode changes. All regression data is tracked in [tests/](tests/) and [CHANGELOG.md](CHANGELOG.md).
 
 ## 🤝 **Contributing**
 

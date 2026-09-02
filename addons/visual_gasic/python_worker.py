@@ -46,6 +46,161 @@ import struct
 import traceback
 import importlib
 
+USE_TYPED_PROTOCOL = "--typed-protocol" in sys.argv
+
+
+# ── Minimal msgpack codec (subset matching vg_msgpack.cpp) ──────────────────
+
+class _MsgPackReader:
+    def __init__(self, data):
+        self.data = data
+        self.pos = 0
+
+    def _read(self, n):
+        if self.pos + n > len(self.data):
+            raise ValueError("Unexpected end of msgpack payload")
+        chunk = self.data[self.pos:self.pos + n]
+        self.pos += n
+        return chunk
+
+    def read_value(self):
+        if self.pos >= len(self.data):
+            raise ValueError("Unexpected end of msgpack payload")
+        tag = self.data[self.pos]
+        self.pos += 1
+        if tag <= 0x7f:
+            return tag
+        if tag >= 0xe0:
+            return struct.unpack("b", bytes([tag]))[0]
+        if 0xa0 <= tag <= 0xbf:
+            return self._read(tag & 0x1f).decode("utf-8")
+        if 0x90 <= tag <= 0x9f:
+            n = tag & 0x0f
+            return [self.read_value() for _ in range(n)]
+        if 0x80 <= tag <= 0x8f:
+            n = tag & 0x0f
+            out = {}
+            for _ in range(n):
+                k = self.read_value()
+                v = self.read_value()
+                out[k] = v
+            return out
+        if tag == 0xc0:
+            return None
+        if tag == 0xc2:
+            return False
+        if tag == 0xc3:
+            return True
+        if tag == 0xd0:
+            return struct.unpack("b", self._read(1))[0]
+        if tag == 0xd1:
+            return struct.unpack("<h", self._read(2))[0]
+        if tag == 0xd2:
+            return struct.unpack("<i", self._read(4))[0]
+        if tag == 0xd3:
+            return struct.unpack("<q", self._read(8))[0]
+        if tag == 0xcb:
+            return struct.unpack("<d", self._read(8))[0]
+        if tag == 0xd9:
+            n = self._read(1)[0]
+            return self._read(n).decode("utf-8")
+        if tag == 0xda:
+            n = struct.unpack("<H", self._read(2))[0]
+            return self._read(n).decode("utf-8")
+        if tag == 0xdb:
+            n = struct.unpack("<I", self._read(4))[0]
+            return self._read(n).decode("utf-8")
+        if tag == 0xdc:
+            n = struct.unpack("<H", self._read(2))[0]
+            return [self.read_value() for _ in range(n)]
+        if tag == 0xdd:
+            n = struct.unpack("<I", self._read(4))[0]
+            return [self.read_value() for _ in range(n)]
+        if tag == 0xde:
+            n = struct.unpack("<H", self._read(2))[0]
+            out = {}
+            for _ in range(n):
+                k = self.read_value()
+                v = self.read_value()
+                out[k] = v
+            return out
+        if tag == 0xdf:
+            n = struct.unpack("<I", self._read(4))[0]
+            out = {}
+            for _ in range(n):
+                k = self.read_value()
+                v = self.read_value()
+                out[k] = v
+            return out
+        raise ValueError(f"Unsupported msgpack tag: 0x{tag:02x}")
+
+
+def _msgpack_encode(obj):
+    if obj is None:
+        return b"\xc0"
+    if obj is False:
+        return b"\xc2"
+    if obj is True:
+        return b"\xc3"
+    if isinstance(obj, int):
+        if 0 <= obj <= 127:
+            return bytes([obj])
+        if -32 <= obj < 0:
+            return bytes([0xe0 | (obj & 0x1f)])
+        if -128 <= obj <= 127:
+            return b"\xd0" + struct.pack("b", obj)
+        if -32768 <= obj <= 32767:
+            return b"\xd1" + struct.pack("<h", obj)
+        if -2147483648 <= obj <= 2147483647:
+            return b"\xd2" + struct.pack("<i", obj)
+        return b"\xd3" + struct.pack("<q", obj)
+    if isinstance(obj, float):
+        return b"\xcb" + struct.pack("<d", obj)
+    if isinstance(obj, str):
+        data = obj.encode("utf-8")
+        n = len(data)
+        if n <= 31:
+            return bytes([0xa0 | n]) + data
+        if n <= 0xFF:
+            return b"\xd9" + bytes([n]) + data
+        if n <= 0xFFFF:
+            return b"\xda" + struct.pack("<H", n) + data
+        return b"\xdb" + struct.pack("<I", n) + data
+    if isinstance(obj, (list, tuple)):
+        n = len(obj)
+        out = bytearray()
+        if n <= 15:
+            out.append(0x90 | n)
+        elif n <= 0xFFFF:
+            out.extend(b"\xdc" + struct.pack("<H", n))
+        else:
+            out.extend(b"\xdd" + struct.pack("<I", n))
+        for item in obj:
+            out.extend(_msgpack_encode(item))
+        return bytes(out)
+    if isinstance(obj, dict):
+        n = len(obj)
+        out = bytearray()
+        if n <= 15:
+            out.append(0x80 | n)
+        elif n <= 0xFFFF:
+            out.extend(b"\xde" + struct.pack("<H", n))
+        else:
+            out.extend(b"\xdf" + struct.pack("<I", n))
+        for k, v in obj.items():
+            out.extend(_msgpack_encode(str(k)))
+            out.extend(_msgpack_encode(v))
+        return bytes(out)
+    return _msgpack_encode(str(obj))
+
+
+def _msgpack_decode(data):
+    reader = _MsgPackReader(data)
+    value = reader.read_value()
+    if reader.pos != len(data):
+        raise ValueError("Trailing bytes in msgpack payload")
+    return value
+
 
 def read_exact(size):
     """Read exactly size bytes from stdin, or None on EOF."""
@@ -59,8 +214,11 @@ def read_exact(size):
 
 
 def send_response(response, binary_blob=None):
-    """Write a JSON response to stdout with optional trailing binary blob."""
-    payload = json.dumps(response, ensure_ascii=False).encode("utf-8")
+    """Write a response to stdout with optional trailing binary blob."""
+    if USE_TYPED_PROTOCOL:
+        payload = _msgpack_encode(response)
+    else:
+        payload = json.dumps(response, ensure_ascii=False).encode("utf-8")
     header = struct.pack("<I", len(payload))
     sys.stdout.buffer.write(header)
     sys.stdout.buffer.write(payload)
@@ -71,7 +229,7 @@ def send_response(response, binary_blob=None):
 
 
 def read_message():
-    """Read one length-prefixed JSON message from stdin, with optional blob."""
+    """Read one length-prefixed message from stdin, with optional blob."""
     raw_len = read_exact(4)
     if not raw_len:
         return None
@@ -82,7 +240,10 @@ def read_message():
         payload = read_exact(payload_len)
         if payload is None:
             return None
-        request = json.loads(payload.decode("utf-8"))
+        if USE_TYPED_PROTOCOL:
+            request = _msgpack_decode(payload)
+        else:
+            request = json.loads(payload.decode("utf-8"))
 
     blob_size = request.get("blob_size")
     if blob_size is not None:
@@ -259,6 +420,7 @@ def handle_ping(request):
     info = {
         "python_version": sys.version,
         "python_executable": sys.executable,
+        "typed_protocol": USE_TYPED_PROTOCOL,
     }
     return {"kind": "result", "request_id": request.get("request_id", 0),
             "status": "ok", "value": info}

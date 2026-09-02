@@ -104,6 +104,10 @@ public:
     ///   VisualGasicLanguage.vg_validate_code(source, path)
     static Dictionary vg_validate_code(const String &p_code, const String &p_path);
 
+    /// AST-based causal chain report — callable from GDScript as
+    ///   VisualGasicLanguage.vg_analyze_causal_graph(source, roots)
+    static Dictionary vg_analyze_causal_graph(const String &p_code, const Array &p_roots);
+
     // ── Profiler bridge (static, backed by VisualGasicProfiler singleton) ──
     // Exposed to GDScript as VisualGasicLanguage.vg_profiler_enable() etc.
     // The editor Profiler panel drives the C++ profiler through these.

@@ -1,0 +1,62 @@
+' test_py_msgpack_typed.vg — C2 typed msgpack protocol round-trip (int args preserved).
+' Requires ProjectSettings vg/python/use_typed_protocol = true
+Attribute VB_Name = "TestPyMsgpackTyped"
+
+Sub _Ready()
+    Dim bridge As Object
+    Set bridge = New PyBridgeFacade
+    If Not bridge.InitializeBridge() Then
+        Print "SKIP: test_py_msgpack_typed (bridge unavailable)"
+        Exit Sub
+    End If
+
+    Dim builtins
+    builtins = bridge.PyImport("builtins")
+    If IsEmpty(builtins) Then
+        Print "SKIP: test_py_msgpack_typed (builtins import failed)"
+        bridge.shutdown()
+        Exit Sub
+    End If
+
+    ' range(0, 5) requires integer args on the wire — msgpack preserves Variant::INT.
+    Dim rangeList
+    rangeList = bridge.PyCall(builtins, "list", Array(bridge.PyCall(builtins, "range", Array(0, 5))))
+    If IsEmpty(rangeList) Then
+        Print "FAIL: test_py_msgpack_typed: range/list call failed"
+        bridge.shutdown()
+        Exit Sub
+    End If
+
+    If TypeName(rangeList) <> "Array" Then
+        Print "FAIL: test_py_msgpack_typed: expected Array got " & TypeName(rangeList)
+        bridge.shutdown()
+        Exit Sub
+    End If
+
+    If rangeList.size() <> 5 Then
+        Print "FAIL: test_py_msgpack_typed: expected 5 elements got " & CStr(rangeList.size())
+        bridge.shutdown()
+        Exit Sub
+    End If
+
+    Dim idx As Long
+    For idx = 0 To 4
+        Dim elem
+        elem = rangeList(idx)
+        Dim tn As String
+        tn = TypeName(elem)
+        If tn <> "Integer" And tn <> "Long" And tn <> "Int" Then
+            Print "FAIL: test_py_msgpack_typed: element " & CStr(idx) & " type=" & tn
+            bridge.shutdown()
+            Exit Sub
+        End If
+        If CDbl(elem) <> idx Then
+            Print "FAIL: test_py_msgpack_typed: element " & CStr(idx) & " value=" & CStr(elem)
+            bridge.shutdown()
+            Exit Sub
+        End If
+    Next idx
+
+    bridge.shutdown()
+    Print "PASS: test_py_msgpack_typed"
+End Sub

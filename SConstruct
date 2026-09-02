@@ -22,6 +22,14 @@ if ARGUMENTS.get("nostrip", "0") == "1":
     while "-s" in env["LINKFLAGS"]:
         env["LINKFLAGS"].remove("-s")
 
+# Optional: Phase 2 VM perf sprint — unboxed typed value stack (`tagged_stack=1`).
+# Defines VG_TAGGED_STACK, which compiles the StackValue foundation self-test
+# (src/visual_gasic_stack_value_selftest.cpp) and its init hook. Default (flag
+# unset) leaves the shipping binary byte-identical — the self-test TU is empty and
+# the register_types hook is #ifdef'd out. See docs/vm_tagged_stack_migration.md.
+if ARGUMENTS.get("tagged_stack", "0") == "1":
+    env.Append(CPPDEFINES=["VG_TAGGED_STACK"])
+
 # For the reference:
 # - godot-cpp/test/src and godot-cpp/test/header are the includes
 # - src is our local source

@@ -14,6 +14,7 @@
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/json.hpp>
 #include "vg_json_typed.h"
+#include "vg_msgpack.h"
 #include <godot_cpp/variant/char_string.hpp>
 
 #include <cstdio>
@@ -272,6 +273,8 @@ bool PyBridgeFacade::initialize_bridge() {
         max_payload_bytes_ = (int)ps->get_setting("vg/python/max_payload_bytes");
     if (ps->has_setting("vg/python/auto_restart"))
         auto_restart_ = (bool)ps->get_setting("vg/python/auto_restart");
+    if (ps->has_setting("vg/python/use_typed_protocol"))
+        use_typed_protocol_ = (bool)ps->get_setting("vg/python/use_typed_protocol");
 
     bool embed = false;
     if (ps->has_setting("vg/python/embedded_enabled"))
@@ -385,8 +388,13 @@ bool PyBridgeFacade::launch_worker() {
         ::close(stdin_pipe[0]);
         ::close(stdout_pipe[1]);
         CharString script_path = worker_script.utf8();
-        execlp("python3", "python3", script_path.get_data(), nullptr);
-        execlp("python", "python", script_path.get_data(), nullptr);
+        if (use_typed_protocol_) {
+            execlp("python3", "python3", script_path.get_data(), "--typed-protocol", nullptr);
+            execlp("python", "python", script_path.get_data(), "--typed-protocol", nullptr);
+        } else {
+            execlp("python3", "python3", script_path.get_data(), nullptr);
+            execlp("python", "python", script_path.get_data(), nullptr);
+        }
         const char *err_msg = "[PyBridgeFacade Worker] Python not found\n";
         ::write(STDERR_FILENO, err_msg, strlen(err_msg));
         _exit(127);
@@ -591,7 +599,20 @@ Dictionary PyBridgeFacade::send_request_binary(const String &p_kind, const Strin
     }
 
     String json = vg_json_stringify_typed(request);
-    if (!write_to_worker(json)) {
+    if (use_typed_protocol_) {
+        PackedByteArray payload;
+        String pack_err;
+        if (!vg_msgpack_encode(request, payload, pack_err)) {
+            Dictionary err = make_error(String("msgpack encode failed: ") + pack_err);
+            last_error_details_ = err;
+            return err;
+        }
+        if (!write_to_worker_raw(payload.ptr(), payload.size())) {
+            Dictionary err = make_error("Failed to write to worker");
+            last_error_details_ = err;
+            return err;
+        }
+    } else if (!write_to_worker(json)) {
         Dictionary err = make_error("Failed to write to worker");
         last_error_details_ = err;
         return err;
@@ -613,20 +634,52 @@ Dictionary PyBridgeFacade::send_request_binary(const String &p_kind, const Strin
         }
     }
 
-    String response = read_from_worker(worker_timeout_ms_);
-    if (response.is_empty()) {
-        Dictionary err = make_error("Worker timed out or disconnected");
-        last_error_details_ = err;
-        return err;
-    }
-
     Variant parsed;
     String parse_err;
-    if (!vg_json_parse_typed(response, parsed, parse_err) ||
-        parsed.get_type() != Variant::DICTIONARY) {
-        Dictionary err = make_error(parse_err.is_empty()
-            ? String("Invalid JSON response from worker")
-            : (String("Invalid JSON response from worker: ") + parse_err));
+    if (use_typed_protocol_) {
+        uint8_t hdr[4];
+        if (!read_exact(worker_stdout_fd, hdr, 4)) {
+            Dictionary err = make_error("Worker timed out or disconnected");
+            last_error_details_ = err;
+            return err;
+        }
+        uint32_t payload_len = (uint32_t)hdr[0] | ((uint32_t)hdr[1] << 8) |
+                               ((uint32_t)hdr[2] << 16) | ((uint32_t)hdr[3] << 24);
+        if (payload_len == 0 || payload_len > (uint32_t)max_payload_bytes_) {
+            Dictionary err = make_error("Invalid msgpack response size");
+            last_error_details_ = err;
+            return err;
+        }
+        PackedByteArray payload;
+        payload.resize(payload_len);
+        if (!read_exact(worker_stdout_fd, payload.ptrw(), payload_len)) {
+            Dictionary err = make_error("Worker timed out or disconnected");
+            last_error_details_ = err;
+            return err;
+        }
+        if (!vg_msgpack_decode(payload.ptr(), payload.size(), parsed, parse_err)) {
+            Dictionary err = make_error(String("Invalid msgpack response: ") + parse_err);
+            last_error_details_ = err;
+            return err;
+        }
+    } else {
+        String response = read_from_worker(worker_timeout_ms_);
+        if (response.is_empty()) {
+            Dictionary err = make_error("Worker timed out or disconnected");
+            last_error_details_ = err;
+            return err;
+        }
+        if (!vg_json_parse_typed(response, parsed, parse_err)) {
+            Dictionary err = make_error(parse_err.is_empty()
+                ? String("Invalid JSON response from worker")
+                : (String("Invalid JSON response from worker: ") + parse_err));
+            last_error_details_ = err;
+            return err;
+        }
+    }
+
+    if (parsed.get_type() != Variant::DICTIONARY) {
+        Dictionary err = make_error("Invalid response payload from worker");
         last_error_details_ = err;
         return err;
     }
@@ -786,6 +839,7 @@ Dictionary PyBridgeFacade::py_env_info() {
     settings["worker_timeout_ms"] = worker_timeout_ms_;
     settings["max_payload_bytes"] = max_payload_bytes_;
     settings["auto_restart"] = auto_restart_;
+    settings["use_typed_protocol"] = use_typed_protocol_;
     info["settings"] = settings;
     return info;
 }

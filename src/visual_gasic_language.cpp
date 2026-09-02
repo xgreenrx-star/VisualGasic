@@ -1,4 +1,5 @@
 #include "visual_gasic_language.h"
+#include "visual_gasic_causal_graph.h"
 #include "visual_gasic_bracket_completion.h"
 #include "visual_gasic_snippets.h"
 #include "visual_gasic_cbm_completion.h"
@@ -106,6 +107,10 @@ Dictionary VisualGasicLanguage::vg_validate_code(const String &p_code, const Str
         return result;
     }
     return lang->_validate(p_code, p_path, true, true, true, false);
+}
+
+Dictionary VisualGasicLanguage::vg_analyze_causal_graph(const String &p_code, const Array &p_roots) {
+    return ::godot::vg_analyze_causal_graph(p_code, p_roots);
 }
 
 VisualGasicLanguage::VisualGasicLanguage() {
@@ -3462,6 +3467,7 @@ void VisualGasicLanguage::_bind_methods() {
 
     // Code validation — callable from GDScript as VisualGasicLanguage.vg_validate_code(source, path)
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_validate_code", "code", "path"), &VisualGasicLanguage::vg_validate_code);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_analyze_causal_graph", "code", "roots"), &VisualGasicLanguage::vg_analyze_causal_graph);
     
     // Step debugging methods - these are instance methods that delegate to static methods
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_debug_continue"), &VisualGasicLanguage::debug_continue);

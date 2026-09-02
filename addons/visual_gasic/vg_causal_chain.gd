@@ -118,6 +118,13 @@ func _init() -> void:
 	_dot_call_re.compile("^\\s*(\\w+(?:\\.\\w+)*)\\s*\\.\\s*(\\w+)\\s*\\(")
 
 
+func _ast_report_usable(report: String) -> bool:
+	# Known AST gaps (e.g. `If Call Func() Then`, `End If` mis-parse) — use regex fallback.
+	if report.contains("End(If)") or report.contains("If Call Then"):
+		return false
+	return not report.is_empty()
+
+
 ## Generate a causal chain report from VG source text.
 ##
 ## @param text   The full .vg file text.
@@ -127,7 +134,16 @@ func _init() -> void:
 func generate(text: String, root: Array = []) -> String:
 	if text.is_empty():
 		return ""
-	
+
+	# Prefer C++ AST walker when the extension is loaded.
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		var ast_result: Dictionary = VisualGasicLanguage.vg_analyze_causal_graph(text, root)
+		if ast_result.get("ok", false):
+			var ast_report := String(ast_result.get("report", ""))
+			if _ast_report_usable(ast_report):
+				return ast_report
+
+	# Regex fallback (legacy path when extension unavailable or AST gaps).
 	var procs := _parse_procedures_with_body(text)
 	var entry_points: Array = root
 	if entry_points.is_empty():

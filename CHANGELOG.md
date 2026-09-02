@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🚀 Added — Python bridge C2 typed msgpack protocol
+
+- **`vg_msgpack.cpp`** — binary encode/decode preserving `Variant::INT` / `FLOAT` on the PyBridge wire (M7 Phase 1).
+- **`vg/python/use_typed_protocol`** — project setting (default `false`); worker `--typed-protocol` CLI mirrors the C++ path.
+- **`test_py_msgpack_typed.vg`** — `range(0, 5)` → `list` round-trip with integer element types preserved.
+
+### 🚀 Added — C++ causal-graph API (Track B)
+
+- **`VisualGasicLanguage.vg_analyze_causal_graph(code, roots)`** — AST-based call-chain analysis exposed to GDScript.
+- **`vg_causal_chain.gd`** — prefers the C++ API when available, falls back to the regex walker.
+
+### 🔬 Added — Tagged-stack VM prototype (opt-in, not pursued for shipping)
+
+- **`scons tagged_stack=1`** / `VG_TAGGED_STACK` — optional `StackValue` representation and selftest hook.
+- **`docs/vm_tagged_stack_migration.md`** — migration notes; ROADMAP marks this as **not pursued** (~6% arith win, net loss on realistic workloads).
+
 ### ✅ Added — Corpus Examples
 
 - **Generic Classes** — [corpus/06_classes/06_class_generics.vg](corpus/06_classes/06_class_generics.vg) · Demonstrates `Class Container(Of T)` pattern with type-safe generics, instantiation, and type-specific use cases.

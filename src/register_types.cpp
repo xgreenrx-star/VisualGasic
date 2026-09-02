@@ -64,6 +64,10 @@
 // v6.0 – Python integration bridge (PyImport / PyCallAsync)
 #include "python_bridge/visual_gasic_py_facade.h"
 
+#ifdef VG_TAGGED_STACK
+void vg_stack_value_selftest();
+#endif
+
 // v6.1 – native emulator CPU cores (VGCpuCore family)
 #include "cpu_cores/visual_gasic_cpu_6502.h"
 #include "cpu_cores/visual_gasic_c64_machine.h"
@@ -78,6 +82,7 @@ static Ref<VisualGasicFormatLoader> visual_gasic_loader;
 static Ref<VisualGasicFormatSaver> visual_gasic_saver;
 
 #include <godot_cpp/classes/project_settings.hpp>
+#include <godot_cpp/classes/os.hpp>
 
 void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
     if (p_level == MODULE_INITIALIZATION_LEVEL_SCENE) {
@@ -164,9 +169,19 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
             ProjectSettings::get_singleton()->set_setting("vg/python/embedded_enabled", false);
             ProjectSettings::get_singleton()->set_initial_value("vg/python/embedded_enabled", false);
         }
+        if (!ProjectSettings::get_singleton()->has_setting("vg/python/use_typed_protocol")) {
+            ProjectSettings::get_singleton()->set_setting("vg/python/use_typed_protocol", false);
+            ProjectSettings::get_singleton()->set_initial_value("vg/python/use_typed_protocol", false);
+        }
 
         visual_gasic_language = memnew(VisualGasicLanguage);
         Engine::get_singleton()->register_script_language(visual_gasic_language);
+
+#ifdef VG_TAGGED_STACK
+        if (OS::get_singleton()->get_environment("VG_STACKVALUE_SELFTEST") == "1") {
+            vg_stack_value_selftest();
+        }
+#endif
     
         visual_gasic_loader.instantiate();
         ResourceLoader::get_singleton()->add_resource_format_loader(visual_gasic_loader);

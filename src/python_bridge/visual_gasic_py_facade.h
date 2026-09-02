@@ -169,6 +169,7 @@ private:
     int worker_timeout_ms_;
     int max_payload_bytes_;
     bool auto_restart_;
+    bool use_typed_protocol_ = false;
 
     // Request tracking
     std::mutex request_mutex;
