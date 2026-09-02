@@ -525,6 +525,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // seeding step below unconditionally overwrites every slot [0,local_count),
     // so a reused buffer's stale contents are always replaced before any read.
     const int _locals_frame = vm.locals_depth++;
+    vm.block_scope_frames.clear();
     while ((int)vm.locals_pool.size() <= _locals_frame) {
         vm.locals_pool.emplace_back();
     }
@@ -1056,7 +1057,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     // M6: Optimization hints (opcode + slot/idx)
                     case OP_HINT_ACCUMULATOR: case OP_HINT_LOOP_COUNTER:
                     case OP_HINT_PURE_CALL:
+                    case OP_PUSH_SCOPE:
                         scan_ip += 1; break;
+                    case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
+                        scan_ip += 2; break;
+                    case OP_POP_SCOPE:
+                        break;
                     // M6: Jump table (variable-length: 8 header + count*2 table bytes)
                     case OP_JUMP_TABLE: {
                         if (scan_ip + 8 <= code_size) {
@@ -2287,6 +2293,79 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 Variant value = pop_value();
                 sync_local(slot, value);
+                break;
+            }
+            VG_CASE(vg_op_push_scope, OP_PUSH_SCOPE): {
+                if (vm.ip >= code_size) {
+                    success = false;
+                    goto cleanup;
+                }
+                uint8_t count = code[vm.ip++];
+                VMState::BlockScopeFrame frame;
+                frame.base_slot = locals.size();
+                frame.slot_count = count;
+                locals.resize(frame.base_slot + count);
+                for (int i = 0; i < count; i++) {
+                    locals.write[frame.base_slot + i] = Variant();
+                }
+                vm.block_scope_frames.push_back(frame);
+                break;
+            }
+            VG_CASE(vg_op_pop_scope, OP_POP_SCOPE): {
+                if (vm.block_scope_frames.empty()) {
+                    success = false;
+                    goto cleanup;
+                }
+                VMState::BlockScopeFrame frame = vm.block_scope_frames.back();
+                vm.block_scope_frames.pop_back();
+                if (frame.base_slot >= 0 && frame.base_slot <= locals.size()) {
+                    locals.resize(frame.base_slot);
+                }
+                break;
+            }
+            VG_CASE(vg_op_get_block_local, OP_GET_BLOCK_LOCAL): {
+                if (vm.ip + 1 >= code_size) {
+                    success = false;
+                    goto cleanup;
+                }
+                uint8_t frame_from_top = code[vm.ip++];
+                uint8_t offset = code[vm.ip++];
+                int frame_idx = (int)vm.block_scope_frames.size() - 1 - (int)frame_from_top;
+                if (frame_idx < 0 || frame_idx >= (int)vm.block_scope_frames.size()) {
+                    push_value(Variant());
+                    break;
+                }
+                const VMState::BlockScopeFrame &frame = vm.block_scope_frames[frame_idx];
+                int slot = frame.base_slot + offset;
+                if (slot >= 0 && slot < locals.size()) {
+                    push_value(locals[slot]);
+                } else {
+                    push_value(Variant());
+                }
+                break;
+            }
+            VG_CASE(vg_op_set_block_local, OP_SET_BLOCK_LOCAL): {
+                if (vm.ip + 1 >= code_size) {
+                    success = false;
+                    goto cleanup;
+                }
+                uint8_t frame_from_top = code[vm.ip++];
+                uint8_t offset = code[vm.ip++];
+                if (!ensure_stack(1)) {
+                    success = false;
+                    goto cleanup;
+                }
+                Variant value = pop_value();
+                int frame_idx = (int)vm.block_scope_frames.size() - 1 - (int)frame_from_top;
+                if (frame_idx < 0 || frame_idx >= (int)vm.block_scope_frames.size()) {
+                    break;
+                }
+                VMState::BlockScopeFrame &frame = vm.block_scope_frames[frame_idx];
+                int slot = frame.base_slot + offset;
+                if (slot >= 0) {
+                    while (locals.size() <= slot) locals.push_back(Variant());
+                    locals.write[slot] = value;
+                }
                 break;
             }
             VG_CASE(vg_op_add, OP_ADD):

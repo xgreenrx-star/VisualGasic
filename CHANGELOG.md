@@ -30,16 +30,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`visual_gasic_godot_ctors.h`** — shared constructor list and `construct_godot_type()` used by compiler, VM, AST tree-walk, and expression evaluator.
 - **`Vector2i()` / `Rect2i()` / `Color()`** — no longer throw “Sub or Function not defined” on AST fallback paths (cross-module helpers, C64-style code).
 
-### 🔧 Improved — Causal chain & Python bridge (partial Tracks B/C)
+### 🔧 Improved — Causal chain & Python bridge (Tracks B/C)
 
-- **Causal chain** — recursive `Call` expansion and function return-value lines in `vg_causal_chain.gd`; headless fixture in `tests/test_vg_causal_chain.gd`.
-- **Python worker** — length-prefixed binary blob framing on stdin/stdout for large ndarray payloads (msgpack Phase 1 still pending).
+- **Causal chain** — recursive `Call` expansion and function return-value lines; **8 headless fixtures** in `tests/test_vg_causal_chain.gd`.
+- **Python bridge C1** — `vg_json_stringify_typed()` preserves `Variant::INT` on encode; worker converts `range` → list for JSON-safe return; `test_py_range_int.vg` passes.
+
+### 🚀 Added — `Let` block-scoped variables (Track D)
+
+- **`Let x As Type`** inside `For`/`If`/`While` bodies — block-local slots via `OP_PUSH_SCOPE` / `OP_POP_SCOPE` / `OP_GET_BLOCK_LOCAL` / `OP_SET_BLOCK_LOCAL`.
+- Obsolete **`Let x = expr`** assignment prefix still parses.
+- **`test_let_block_scope.vg`** — loop re-entry and sum regression.
 
 ### ✅ Added — Regression coverage
 
 - **`test_buffer_type.vg`** — local buffer round-trips and data integrity checks.
 - **`test_optimizer_hints.vg`** — directives accepted without changing runtime semantics.
 - **`test_godot_type_ctor_ast.vg`** / **`test_godot_type_ctor_simple.vg`** — Godot type constructors on AST and bytecode paths.
+- **`test_let_block_scope.vg`** — `Let` block scope in loops.
+- **`test_py_range_int.vg`** — Python bridge int-literal encode/decode round-trip.
 - **Tier B recorded replay** — platformer scenario included in the Narcea manifest and response set.
 
 ## [5.4.0-beta1] - 2026-08-30

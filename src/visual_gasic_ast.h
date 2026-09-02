@@ -368,8 +368,9 @@ struct DimStatement : public Statement {
     bool is_dynamic_array; // True for Dim arr() As Integer (empty parentheses)
     bool is_with_events;   // True for Dim WithEvents obj As ClassName (v3.5.0)
     bool is_export;          // True for Export Dim x (v4.2.0)
+    bool is_block_scoped;    // True for Let x As Type (block-scoped, v6.0)
     
-    DimStatement() : Statement(STMT_DIM) { initializer = nullptr; is_static = false; is_dynamic_array = false; is_with_events = false; is_export = false; }
+    DimStatement() : Statement(STMT_DIM) { initializer = nullptr; is_static = false; is_dynamic_array = false; is_with_events = false; is_export = false; is_block_scoped = false; }
     virtual ~DimStatement() { 
         for(int i=0; i<array_sizes.size(); i++) {
              if (array_sizes[i]) delete array_sizes[i];

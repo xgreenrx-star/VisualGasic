@@ -314,6 +314,12 @@ enum OpCode {
     OP_DRAW_RECT_OFFSET_LOOP,       // cs_slot u8, offset_arr const16, y_mul i32, y_mod i32, cell i32, w f32, h f32, color const16, filled u8, cs_add i32
     OP_VECTOR_UNIFORM_RECT_GRID_LOOP, // cs_slot u8, cols i32, cell i32, w f32, h f32, color const16, filled u8, cs_add i32
 
+    // Block-scoped Let variables (v6.0)
+    OP_PUSH_SCOPE,       // [OP] [COUNT u8] — allocate COUNT block-local slots (Variant nil)
+    OP_POP_SCOPE,        // [OP] — release innermost block-local slots
+    OP_GET_BLOCK_LOCAL,  // [OP] [FRAME u8] [OFFSET u8] — read block local (0 = innermost)
+    OP_SET_BLOCK_LOCAL,  // [OP] [FRAME u8] [OFFSET u8] — write block local
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 
@@ -407,6 +413,13 @@ struct VMState {
     // to reach it, and each OS thread's tl_vm owns an isolated pool.
     std::deque<Vector<Variant>> locals_pool;
     int locals_depth = 0;
+
+    // Block-scoped Let variables: stack of {base_slot, slot_count} into locals[].
+    struct BlockScopeFrame {
+        int base_slot = 0;
+        int slot_count = 0;
+    };
+    std::vector<BlockScopeFrame> block_scope_frames;
 
     // In-VM fast calls: module-level fast_params Subs switch frames inside one
     // execute_bytecode() run instead of recursing through call_internal().

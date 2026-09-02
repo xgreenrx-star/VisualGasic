@@ -279,6 +279,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     loop_exit_jumps.clear();
     loop_continue_targets.clear();
     loop_continue_forward_jumps.clear();
+    block_scope_stack.clear();
     temp_local_id = 0;
     current_sub = nullptr;
     
@@ -684,6 +685,7 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
     switch (stmt->type) {
         case STMT_DIM: {
             DimStatement* s = (DimStatement*)stmt;
+            if (s->is_block_scoped) break; // block locals allocated at runtime in block body
             if (s->array_sizes.size() > 0) {
                 array_vars.insert(s->variable_name.to_lower());
                 String t = s->type_name.to_lower();
@@ -5316,6 +5318,32 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 compile_ok = false;
                 break;
             }
+
+            if (s->is_block_scoped) {
+                if (block_scope_stack.is_empty()) {
+                    UtilityFunctions::print("Compiler: Let declaration outside For/If/While block");
+                    compile_ok = false;
+                    break;
+                }
+                ValueType vt = VT_UNKNOWN;
+                if (!s->type_name.is_empty()) {
+                    String t = s->type_name.to_lower();
+                    if (t == "integer" || t == "long" || t == "longlong") vt = VT_INT;
+                    else if (t == "single" || t == "double") vt = VT_FLOAT;
+                }
+                int offset = allocate_block_local(s->variable_name, vt);
+                if (s->initializer) {
+                    compile_expression(s->initializer);
+                } else if (vt == VT_INT) {
+                    emit_constant(Variant((int64_t)0));
+                } else {
+                    emit_byte(OP_NIL);
+                }
+                emit_byte(OP_SET_BLOCK_LOCAL);
+                emit_byte(0);
+                emit_byte((uint8_t)offset);
+                break;
+            }
             
             if (s->initializer) {
                 // Handle simple initializers that we can compile
@@ -5680,6 +5708,16 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     }
                 }
                 compile_expression(s->value);
+                {
+                    int frame = 0;
+                    int offset = 0;
+                    if (lookup_block_local(tv->name, frame, offset)) {
+                        emit_byte(OP_SET_BLOCK_LOCAL);
+                        emit_byte((uint8_t)frame);
+                        emit_byte((uint8_t)offset);
+                        break;
+                    }
+                }
                  int slot = get_or_add_local(tv->name, infer_type(s->value));
                  if (slot >= 0) {
                      emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
@@ -6858,6 +6896,13 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 }
             }
             int exit_jump = emit_jump(OP_JUMP_IF_FALSE);
+            int block_n = count_block_scoped_lets_in_stmts(f->body);
+            if (block_n > 0) {
+                emit_byte(OP_PUSH_SCOPE);
+                emit_byte((uint8_t)block_n);
+                BlockScopeCompile bsc;
+                block_scope_stack.push_back(bsc);
+            }
             auto compile_statement_list = [&](const Vector<Statement*> &stmts) {
                 for (int i = 0; i < stmts.size(); i++) {
                     Statement *stmt = stmts[i];
@@ -6900,6 +6945,10 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             };
 
             compile_statement_list(f->body);
+            if (block_n > 0) {
+                emit_byte(OP_POP_SCOPE);
+                block_scope_stack.remove_at(block_scope_stack.size() - 1);
+            }
 
             // Continue For target: the increment point
             int continue_target = current_chunk->code.size();
@@ -7003,9 +7052,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             compile_expression(s->condition);
             int exit_jump = emit_jump(OP_JUMP_IF_FALSE);
             
-            for (int i = 0; i < s->body.size(); i++) {
-                compile_statement(s->body[i]);
-            }
+            compile_statement_block(s->body);
             
             emit_loop(loop_start);
             patch_jump(exit_jump);
@@ -7034,17 +7081,13 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             compile_expression(s->condition);
             int else_jump = emit_jump(OP_JUMP_IF_FALSE);
 
-            for (int i = 0; i < s->then_branch.size(); i++) {
-                compile_statement(s->then_branch[i]);
-            }
+            compile_statement_block(s->then_branch);
 
             if (s->else_branch.size() > 0) {
                 int end_jump = emit_jump(OP_JUMP);
                 patch_jump(else_jump);
 
-                for (int i = 0; i < s->else_branch.size(); i++) {
-                    compile_statement(s->else_branch[i]);
-                }
+                compile_statement_block(s->else_branch);
 
                 patch_jump(end_jump);
             } else {
@@ -8714,6 +8757,16 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 emit_constant(local_const_map[lower_name]);
                 break;
             }
+            {
+                int frame = 0;
+                int offset = 0;
+                if (lookup_block_local(v->name, frame, offset)) {
+                    emit_byte(OP_GET_BLOCK_LOCAL);
+                    emit_byte((uint8_t)frame);
+                    emit_byte((uint8_t)offset);
+                    break;
+                }
+            }
             int slot = get_or_add_local(v->name, VT_UNKNOWN);
             if (slot >= 0) {
                 emit_bytes(OP_GET_LOCAL, (uint8_t)slot);
@@ -9645,3 +9698,59 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
     }
 }
 
+int VisualGasicCompiler::count_block_scoped_lets_stmt(Statement *stmt) const {
+    if (!stmt || stmt->type != STMT_DIM) return 0;
+    DimStatement *d = (DimStatement *)stmt;
+    return d->is_block_scoped ? 1 : 0;
+}
+
+int VisualGasicCompiler::count_block_scoped_lets_in_stmts(const Vector<Statement*> &stmts) const {
+    int n = 0;
+    for (int i = 0; i < stmts.size(); i++) {
+        n += count_block_scoped_lets_stmt(stmts[i]);
+    }
+    return n;
+}
+
+bool VisualGasicCompiler::lookup_block_local(const String &name, int &r_frame, int &r_offset) const {
+    String key = name.to_lower();
+    for (int i = block_scope_stack.size() - 1; i >= 0; i--) {
+        if (block_scope_stack[i].slots.has(key)) {
+            r_frame = block_scope_stack.size() - 1 - i;
+            r_offset = block_scope_stack[i].slots[key];
+            return true;
+        }
+    }
+    return false;
+}
+
+int VisualGasicCompiler::allocate_block_local(const String &name, ValueType vt) {
+    BlockScopeCompile &scope = block_scope_stack.write[block_scope_stack.size() - 1];
+    String key = name.to_lower();
+    if (scope.slots.has(key)) {
+        return scope.slots[key];
+    }
+    int offset = scope.count++;
+    scope.slots[key] = offset;
+    if (vt != VT_UNKNOWN) {
+        typed_locals.insert(key);
+    }
+    return offset;
+}
+
+void VisualGasicCompiler::compile_statement_block(const Vector<Statement*> &stmts) {
+    int block_n = count_block_scoped_lets_in_stmts(stmts);
+    if (block_n > 0) {
+        emit_byte(OP_PUSH_SCOPE);
+        emit_byte((uint8_t)block_n);
+        BlockScopeCompile bsc;
+        block_scope_stack.push_back(bsc);
+    }
+    for (int i = 0; i < stmts.size(); i++) {
+        compile_statement(stmts[i]);
+    }
+    if (block_n > 0) {
+        emit_byte(OP_POP_SCOPE);
+        block_scope_stack.remove_at(block_scope_stack.size() - 1);
+    }
+}

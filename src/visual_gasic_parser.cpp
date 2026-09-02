@@ -972,6 +972,42 @@ Statement* VisualGasicParser::parse_statement() {
             // Use the pending_dim_statements vector to store extras
             return set_line(parse_dim());
         }
+        if (val == "let") {
+            advance(); // Eat Let
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+                int save = current_pos;
+                advance(); // peek past identifier
+                bool is_decl = check(VisualGasicTokenizer::TOKEN_KEYWORD) &&
+                    String(peek().value).nocasecmp_to("As") == 0;
+                bool is_assign = check(VisualGasicTokenizer::TOKEN_OPERATOR) &&
+                    String(peek().value) == "=";
+                current_pos = save;
+                if (is_decl) {
+                    return set_line(parse_dim(true, true));
+                }
+                if (is_assign) {
+                    String var_name = peek().value;
+                    advance(); // name
+                    advance(); // =
+                    VariableNode *var = static_cast<VariableNode *>(register_node(new VariableNode()));
+                    var->name = var_name;
+                    AssignmentStatement *asgn = static_cast<AssignmentStatement *>(register_node(new AssignmentStatement()));
+                    asgn->target = var;
+                    ExpressionNode *rhs = parse_expression();
+                    if (rhs) {
+                        asgn->value = rhs;
+                        unregister_node(rhs);
+                    }
+                    unregister_node(var);
+                    return set_line(asgn);
+                }
+            }
+            UtilityFunctions::print("Parser Error: Expected identifier and As or = after Let");
+            while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+                advance();
+            }
+            return nullptr;
+        }
         if (val == "static") {
             DimStatement* ds = parse_dim();
             if (ds) ds->is_static = true;
@@ -2420,8 +2456,10 @@ WithStatement* VisualGasicParser::parse_with() {
     return stmt;
 }
 
-DimStatement* VisualGasicParser::parse_dim() {
-    advance(); // Eat Dim
+DimStatement* VisualGasicParser::parse_dim(bool block_scoped, bool keyword_already_eaten) {
+    if (!keyword_already_eaten) {
+        advance(); // Eat Dim
+    }
     
     // Check for WithEvents modifier: Dim WithEvents obj As ClassName
     bool with_events = false;
@@ -2441,13 +2479,14 @@ DimStatement* VisualGasicParser::parse_dim() {
     
     // Helper to parse a single variable declaration (name, optional array bounds, optional type, optional initializer)
     // Returns nullptr on error
-    auto parse_single_var = [this]() -> DimStatement* {
+    auto parse_single_var = [this, block_scoped]() -> DimStatement* {
         if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER) && !check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
             return nullptr;
         }
         
         DimStatement* stmt = static_cast<DimStatement*>(register_node(new DimStatement()));
         stmt->variable_name = peek().value;
+        stmt->is_block_scoped = block_scoped;
         advance();
         
         // Check for Array declaration: A(10), A(5, 5), or A() for dynamic arrays

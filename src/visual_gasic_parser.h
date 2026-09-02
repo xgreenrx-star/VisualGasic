@@ -51,7 +51,7 @@ private:
     Statement* parse_statement();
     
     // Detailed statement parsers
-    DimStatement* parse_dim();
+    DimStatement* parse_dim(bool block_scoped = false, bool keyword_already_eaten = false);
     ConstStatement* parse_const();
     RaiseEventStatement* parse_raise_event(); // Helper
     IfStatement* parse_if();

@@ -274,6 +274,8 @@ def _make_json_safe(obj):
         return obj.decode("utf-8", errors="replace")
     if isinstance(obj, (list, tuple)):
         return [_make_json_safe(item) for item in obj]
+    if isinstance(obj, range):
+        return list(obj)
     if isinstance(obj, dict):
         return {str(k): _make_json_safe(v) for k, v in obj.items()}
     # For numpy types, try to convert to native Python type

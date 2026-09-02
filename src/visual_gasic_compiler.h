@@ -78,6 +78,18 @@ private:
     SubDefinition* current_sub = nullptr;
     ModuleNode* current_module = nullptr;
 
+    struct BlockScopeCompile {
+        HashMap<String, int> slots;
+        int count = 0;
+    };
+    Vector<BlockScopeCompile> block_scope_stack;
+
+    int count_block_scoped_lets_in_stmts(const Vector<Statement*> &stmts) const;
+    int count_block_scoped_lets_stmt(Statement *stmt) const;
+    bool lookup_block_local(const String &name, int &r_frame, int &r_offset) const;
+    int allocate_block_local(const String &name, ValueType vt);
+    void compile_statement_block(const Vector<Statement*> &stmts);
+
     void emit_byte(uint8_t byte);
     void emit_f32(float p_value);
     void emit_i32(int32_t p_value);

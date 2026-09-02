@@ -1,0 +1,32 @@
+' Test: Let keyword block-scoped variables
+Attribute VB_Name = "TestLetBlockScope"
+
+Sub _Ready()
+    Dim i As Long
+    i = 0
+    For outer = 1 To 3
+        Let j As Long
+        j = outer * 10
+        i = i + j
+    Next outer
+
+    If i = 60 Then
+        Print "PASS: let_block_scope_sum"
+    Else
+        Print "FAIL: let_block_scope_sum: got " & CStr(i)
+    End If
+
+    ' Re-entry: each iteration gets fresh j (not stale from prior)
+    Dim lastJ As Long
+    lastJ = -1
+    For k = 1 To 2
+        Let j2 As Long
+        j2 = k * 100
+        If lastJ >= 0 And j2 <= lastJ Then
+            Print "FAIL: let_block_scope_fresh: stale j2=" & CStr(j2) & " last=" & CStr(lastJ)
+            Exit Sub
+        End If
+        lastJ = j2
+    Next k
+    Print "PASS: let_block_scope_fresh"
+End Sub

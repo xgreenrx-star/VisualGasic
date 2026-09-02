@@ -7,6 +7,7 @@
 
 #include "vg_json_typed.h"
 
+#include <godot_cpp/classes/json.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include <cstdint>
@@ -350,6 +351,100 @@ static bool parse_value(JsonCursor &c, Variant &r_out, String &r_err, int depth)
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Typed JSON encode (mirror of parse — preserves int vs float)
+// ---------------------------------------------------------------------------
+
+static void append_json_string(String &out, const String &s) {
+    out += "\"";
+    for (int i = 0; i < s.length(); i++) {
+        char32_t ch = s[i];
+        switch (ch) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b"; break;
+            case '\f': out += "\\f"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (ch < 0x20) {
+                    out += "\\u";
+                    String hex = String::num_int64(ch, 16);
+                    while (hex.length() < 4) hex = "0" + hex;
+                    out += hex;
+                } else {
+                    out += ch;
+                }
+                break;
+        }
+    }
+    out += "\"";
+}
+
+static void stringify_value(const Variant &v, String &out);
+
+static void stringify_array(const Array &arr, String &out) {
+    out += "[";
+    for (int i = 0; i < arr.size(); i++) {
+        if (i > 0) out += ",";
+        stringify_value(arr[i], out);
+    }
+    out += "]";
+}
+
+static void stringify_dict(const Dictionary &dict, String &out) {
+    out += "{";
+    bool first = true;
+    Array keys = dict.keys();
+    for (int i = 0; i < keys.size(); i++) {
+        Variant key = keys[i];
+        if (key.get_type() != Variant::STRING) continue;
+        if (!first) out += ",";
+        first = false;
+        append_json_string(out, String(key));
+        out += ":";
+        stringify_value(dict[key], out);
+    }
+    out += "}";
+}
+
+static void stringify_value(const Variant &v, String &out) {
+    switch (v.get_type()) {
+        case Variant::NIL:
+            out += "null";
+            break;
+        case Variant::BOOL:
+            out += ((bool)v) ? "true" : "false";
+            break;
+        case Variant::INT:
+            out += String::num_int64((int64_t)v);
+            break;
+        case Variant::FLOAT:
+            out += String::num((double)v, 16);
+            break;
+        case Variant::STRING:
+            append_json_string(out, String(v));
+            break;
+        case Variant::ARRAY:
+            stringify_array(Array(v), out);
+            break;
+        case Variant::DICTIONARY:
+            stringify_dict(Dictionary(v), out);
+            break;
+        default:
+            // Fallback for bridge payloads (PackedByteArray metadata, etc.)
+            out += JSON::stringify(v);
+            break;
+    }
+}
+
+String vg_json_stringify_typed(const Variant &p_value) {
+    String out;
+    stringify_value(p_value, out);
+    return out;
+}
+
 bool vg_json_parse_typed(const String &p_json, Variant &r_out, String &r_err_str) {
     if (p_json.is_empty()) {
         r_err_str = "Empty JSON string";

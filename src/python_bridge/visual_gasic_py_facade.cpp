@@ -461,7 +461,7 @@ void PyBridgeFacade::kill_worker() {
     Dictionary shutdown_req;
     shutdown_req["kind"] = "shutdown";
     shutdown_req["request_id"] = 0;
-    write_to_worker(JSON::stringify(shutdown_req));
+    write_to_worker(vg_json_stringify_typed(shutdown_req));
 
     int status;
     for (int i = 0; i < 50; i++) {
@@ -478,7 +478,7 @@ void PyBridgeFacade::kill_worker() {
     Dictionary shutdown_req;
     shutdown_req["kind"] = "shutdown";
     shutdown_req["request_id"] = 0;
-    write_to_worker(JSON::stringify(shutdown_req));
+    write_to_worker(vg_json_stringify_typed(shutdown_req));
     HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, (DWORD)worker_pid);
     if (hProcess) {
         WaitForSingleObject(hProcess, 500);
@@ -590,7 +590,7 @@ Dictionary PyBridgeFacade::send_request_binary(const String &p_kind, const Strin
         request["blob_size"] = p_blob.size();
     }
 
-    String json = JSON::stringify(request);
+    String json = vg_json_stringify_typed(request);
     if (!write_to_worker(json)) {
         Dictionary err = make_error("Failed to write to worker");
         last_error_details_ = err;
@@ -819,7 +819,7 @@ Array PyBridgeFacade::py_call_many(const Array &p_calls) {
     request["calls"] = call_list;
     request["request_id"] = next_request_id++;
 
-    String json = JSON::stringify(request);
+    String json = vg_json_stringify_typed(request);
     if (!write_to_worker(json)) {
         UtilityFunctions::printerr("[PyBridgeFacade] Failed to write call_many");
         return results;
