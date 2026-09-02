@@ -88,6 +88,37 @@ Inline **Sprite data** (≤32×32, label ending in `Sprite`) uses a separate **S
 
 ---
 
+## Causal Chain — Static analysis (v5.4+)
+
+Trace what happens when a user clicks a button or loads a form — **before running the game**. VG's explicit event model (`Sub btnOK_Click()`, `Call ValidateForm()`) makes the full call chain statically traceable from the AST.
+
+| Location | How to open |
+|----------|-------------|
+| **Code Navigator** | **Show Causal Chain** button (chain icon) in the navigator toolbar |
+| **Context Rail** | Move the caret into an event handler (e.g. `btnOK_Click`) — **Causal chain** section shows a preview |
+| **Programmatic** | `VGCausalChain.new().generate(source_text, roots)` or `VisualGasicLanguage.vg_analyze_causal_graph(code, roots)` |
+
+**Output format (text-mode):**
+
+```
+User triggers btnSubmit.Click
+  └─ Sub btnSubmit_Click()
+      ├─ Call ValidateForm()
+      │   ├─ If txtName.Text = "" → MsgBox "Name required" → EXIT
+      │   └─ Returns True
+      └─ Call SaveRecord()
+```
+
+The C++ AST walker (`VisualGasicLanguage.vg_analyze_causal_graph`) is preferred when the GDExtension is loaded. `VGCausalChain` falls back to a regex walker if the extension is unavailable or the AST hits known gaps (`If Call Func() Then`, etc.).
+
+**Auditor workflow (Narcea):** After AI generates or edits `.vg` code, open **Show Causal Chain** to verify event → Sub → Call flow without reading every line. Full interactive graph panel is v6.1+ scope.
+
+**Tests:** `tests/test_vg_causal_chain.gd` (8 headless fixtures).
+
+> **See also:** [Language Reference — VisualGasicLanguage.vg_analyze_causal_graph](../VisualGasic_Language_Reference.md#visualgasiclanguage-gdextension-static-api), [Debugging Guide — static vs runtime call stack](debugging.md#static-causal-chain-vs-runtime-call-stack).
+
+---
+
 ## 2D Canvas Toolbar
 
 Three VG-specific buttons are added to the Godot 2D editor toolbar:

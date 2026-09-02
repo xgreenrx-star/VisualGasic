@@ -122,3 +122,10 @@ regressions, make `VG_TAGGED_STACK` the default, then remove the `#else` Variant
 - Keep the Variant-stack `#else` branch as the always-available fallback until parity is proven.
 - Never combine two Step-B opcode groups in one unvalidated change.
 - Re-measure a FRESH baseline each session (git stash + rebuild); never trust a cached `.so`.
+
+## 9. See also
+
+- [ROADMAP.md](../ROADMAP.md) — M7+ performance table (NOT PURSUED conclusion)
+- [manual/performance.md](manual/performance.md) — benchmark context
+- [development/TODO_FUTURE_OPTIMIZATIONS.md](development/TODO_FUTURE_OPTIMIZATIONS.md) — closed research entry
+- [CONTRIBUTING.md](../CONTRIBUTING.md) — `scons tagged_stack=1` build flag for contributors

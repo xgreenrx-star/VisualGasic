@@ -19,6 +19,7 @@ This page links to every documentation file in the project, organized by topic. 
 | Look up a property | [Runtime Properties Reference](reference/RUNTIME_PROPERTIES_REFERENCE.md) |
 | Look up a control | [Controls Reference](reference/CONTROLS_REFERENCE.md) |
 | Learn the full language | [Language Reference](VisualGasic_Language_Reference.md) |
+| Use Python from VG | [System Integration §17 — PyBridge](SYSTEM_INTEGRATION.md#17-python-bridge-pybridgefacade) · [Python Bridge demo](../demos/Utilities/PythonBridge/) |
 | Use the IDE tools | [IDE Tools Guide](manual/ide_tools.md) |
 | Debug my code | [Debugging Guide](manual/debugging.md) |
 | Build a game | [Game Development Tutorial](tutorials/GAME_DEVELOPMENT.md) |
@@ -68,7 +69,7 @@ The Visual Basic 6-style integrated development environment.
 
 | Document | Description |
 |----------|-------------|
-| [IDE Tools Guide](manual/ide_tools.md) | **Complete IDE tools reference** — Watch Window, IntelliSense (62+ property completions), Alignment, Linting, Snippets, Themes, and more |
+| [IDE Tools Guide](manual/ide_tools.md) | **Complete IDE tools reference** — Watch Window, IntelliSense (62+ property completions), Alignment, Linting, Snippets, Themes, **Causal Chain**, and more |
 | [IDE Keyboard Shortcuts](manual/IDE_SHORTCUTS.md) | Every keyboard shortcut — canvas, menus, properties, code editor, debugging |
 | [Controls Reference](reference/CONTROLS_REFERENCE.md) | **All 40+ Toolbox controls** with properties, events, and design-time configuration |
 | [WinForms Form Guide](WINFORMS_FORM_GUIDE.md) | Creating and managing WinForms-style form windows |
@@ -123,7 +124,7 @@ Interactive debugging, REPL, Watch Window, and data breakpoints.
 
 | Document | Description |
 |----------|-------------|
-| [Debugging Guide](manual/debugging.md) | **Full debugging reference** — Debug toolbar, breakpoints, conditional breakpoints, Step Into/Over/Out, Set Next Statement, Exception Assistant, Variables panel, Watch expressions (with VB6 property eval), Call Stack, data breakpoints |
+| [Debugging Guide](manual/debugging.md) | **Full debugging reference** — Debug toolbar, breakpoints, conditional breakpoints, Step Into/Over/Out, Set Next Statement, Exception Assistant, Variables panel, Watch expressions (with VB6 property eval), Call Stack, **static causal chain vs runtime stack**, data breakpoints |
 | [Immediate Window](IMMEDIATE_WINDOW.md) | **Interactive REPL console** (900+ lines) — multi-line input, variable inspector, Watch tab (with VB6 property evaluation), Whenever tab, remote debugging, data breakpoints, VB6-style output formatting (True/False, no `.0`) |
 
 ---
@@ -139,7 +140,7 @@ Features that go beyond classic VB6 — generics, lambdas, GPU, async, pattern m
 | [Modern Features](guides/MODERN_FEATURES.md) | All modern extensions beyond VB6 — concise, readable, backward-compatible |
 | [Modern Features Overview](guides/MODERN_FEATURES_README.md) | Quick-start overview of 13 modern syntax features with examples |
 | [Modern Syntax Quick Ref](reference/MODERN_SYNTAX_QUICK_REF.md) | Side-by-side comparison of traditional vs. modern syntax (arrays, dicts, lambdas) |
-| [System Integration](SYSTEM_INTEGRATION.md) | **v3.0/v3.1 system-level APIs** — FFI, ODBC, Crypto, XML, ZIP, Async Tasks, Packages, IPC, Android Bridge, Memory Buffers |
+| [System Integration](SYSTEM_INTEGRATION.md) | **v3.0/v3.1 system-level APIs** — FFI, ODBC, Crypto, XML, ZIP, Async Tasks, Packages, IPC, Android Bridge, Memory Buffers, **Python Bridge (PyBridgeFacade + typed msgpack C2)** |
 
 ---
 
@@ -237,7 +238,8 @@ Internal docs for contributors and maintainers.
 |----------|-------------|
 | [Implementation Status](development/IMPLEMENTATION_STATUS.md) | What's been built — error reporter, scope system, bytecode cache, property HashMap, remote debugging |
 | [Debugging TODO](development/TODO_VG_DEBUGGING.md) | Debugging system implementation status and roadmap |
-| [Future Optimizations](development/TODO_FUTURE_OPTIMIZATIONS.md) | Planned optimizations (dictionary perf already 2–5× faster than GDScript) |
+| [Future Optimizations](development/TODO_FUTURE_OPTIMIZATIONS.md) | Planned optimizations; tagged-stack operand prototype **not pursued** (see [vm_tagged_stack_migration.md](vm_tagged_stack_migration.md)) |
+| [Tagged-stack migration notes](vm_tagged_stack_migration.md) | Opt-in `scons tagged_stack=1` research prototype — measurement results and why it is not shipping |
 | [Bug Testing Plan](BUG_TESTING_PLAN.md) | Systematic QA plan based on v3.1 audit |
 | [Known Issues](KNOWN_ISSUES.md) | Confirmed engine bugs and limitations discovered during testing |
 | [GitHub Upload Checklist](development/GITHUB_UPLOAD_CHECKLIST.md) | Release checklist for GitHub uploads |

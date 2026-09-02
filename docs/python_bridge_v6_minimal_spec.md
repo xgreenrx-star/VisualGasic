@@ -20,7 +20,9 @@ Scope: v6.0 baseline for Python library integration
 1. Default backend: Tier A out-of-process worker.
 2. Optional backend: Tier B embedded CPython (feature-gated by build flag).
 3. Single C++ facade API used by VG runtime regardless of backend.
-4. Worker protocol: length-prefixed JSON frames on stdout/stdin.
+4. Worker protocol: length-prefixed frames on stdout/stdin.
+   - **Default:** JSON payload.
+   - **Opt-in C2:** msgpack payload when `vg/python/use_typed_protocol = true` (preserves int/float; same framing).
 5. Diagnostics channel: stderr only (not mixed into protocol channel).
 
 ## 4. Public VG Surface (Minimal)
@@ -162,9 +164,10 @@ Required:
 1. vg/python/embedded_enabled (bool, default false)
 
 Recommended:
-1. vg/python/worker_timeout_ms (int, default 5000)
-2. vg/python/max_payload_bytes (int, default 1048576)
-3. vg/python/auto_restart (bool, default true)
+1. vg/python/use_typed_protocol (bool, default false) — when true, C++ facade and worker use msgpack instead of JSON; preserves Variant::INT on the wire. Worker CLI: `--typed-protocol`.
+2. vg/python/worker_timeout_ms (int, default 5000)
+3. vg/python/max_payload_bytes (int, default 1048576)
+4. vg/python/auto_restart (bool, default true)
 
 ## 11. Build and Packaging
 1. Include src/python_bridge/*.cpp in SConstruct sources.

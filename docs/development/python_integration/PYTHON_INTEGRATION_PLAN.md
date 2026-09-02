@@ -1,6 +1,6 @@
 # VisualGasic Python Integration — Implementation Plan
 
-**Status:** Design / planning. No code written yet.
+**Status:** Tier A shipped (Jul 2026). **C2 typed msgpack** shipped Sep 2026 (`vg/python/use_typed_protocol`, opt-in). Tier B embedded CPython remains planned.
 **Source input:** `Python_Implimentation_ideas/Googles AI Said` (embedded-CPython blueprint).
 **Authoring constraints (ranked):** 1) Performance, 2) Compatibility, 3) Ease of use.
 **Target release window:** v6.0 (see `ROADMAP.md` v6.0 + `/memories/repo/v6.0_blockers.md`).

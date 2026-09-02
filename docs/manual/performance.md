@@ -4,6 +4,8 @@ This page summarizes the built‑in benchmark suite results for Visual Gasic ver
 
 > **Profiling your own code?** See the [Profiler Panel](ide_tools.md#profiler-panel) section in the IDE Tools guide for the live in‑editor profiler (hot‑path timing, counter tracking, JSON export).
 
+> **VM research — tagged operand stack:** An opt-in prototype (`scons tagged_stack=1`) was measured in Sept 2026 and **not pursued for shipping** (~6% win on pure arithmetic, net loss on realistic workloads because locals stay boxed). See [vm_tagged_stack_migration.md](../vm_tagged_stack_migration.md). Higher-ROI target: **type-tagged locals** (ROADMAP M7+).
+
 ## Test Setup
 
 - Engine: Godot 4.6.1 (headless)

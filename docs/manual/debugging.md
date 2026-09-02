@@ -198,6 +198,21 @@ Watch expressions persist across debug sessions.
 
 ---
 
+## Static causal chain vs runtime call stack
+
+These are different tools:
+
+| Tool | When | What it shows |
+|------|------|---------------|
+| **Causal Chain** (static) | Before or without running | AST walk: user event → Sub → Call → If/MsgBox branches. Code Navigator **Show Causal Chain** button or Context Rail preview. |
+| **Call Stack** (runtime) | While paused in debugger | Actual procedure call chain at the breakpoint — what *did* run. |
+
+Use the causal chain to audit AI-generated or unfamiliar `.vg` code. Use the call stack while stepping through a live session.
+
+> **See also:** [IDE Tools — Causal Chain](ide_tools.md#causal-chain-static-analysis-v54)
+
+---
+
 ## Call Stack
 
 The **Call Stack** tab shows the chain of procedure calls:

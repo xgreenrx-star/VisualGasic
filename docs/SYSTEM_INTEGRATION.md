@@ -1070,8 +1070,28 @@ bufResult = bridge.PyProcessBuffer(jsonMod, "dumps", buffer)
 ### Architecture
 
 - **Tier A (v6 baseline):** Launches `python_worker.py` as a child process.
-  Protocol: length‑prefixed JSON frames over stdin/stdout.
+  Protocol: length‑prefixed frames over stdin/stdout.
+  - **Default:** JSON payload (compatible with all existing demos).
+  - **Opt-in typed msgpack (C2):** When `vg/python/use_typed_protocol = true` in Project Settings, payloads use msgpack so `Variant::INT` and `Variant::FLOAT` survive the wire. Required for integer-arg Python APIs such as `range(0, 5)` without `CInt()` workarounds. Framing is unchanged (4-byte little-endian length + payload).
 - **Tier B (planned Phase 6):** Embedded CPython — requires `python=1` build flag.
+
+### Typed protocol (C2, opt-in)
+
+Enable in **Project → Project Settings → Vg → Python → Use Typed Protocol** (`vg/python/use_typed_protocol`, default `false`).
+
+```ini
+# project.godot
+[vg]
+python/use_typed_protocol=true
+```
+
+When enabled, the C++ facade and worker use msgpack instead of JSON for call arguments and return values. Integer literals in `Array(0, 5)` arrive in Python as `int`, not `float`. Regression test: `test_proj/test_suite/test_py_msgpack_typed.vg`.
+
+**When to enable:** numpy/scipy calls that require integer shape arguments (`range`, `zeros`, `eye`, `linspace` count), or any bridge workload where int/float distinction matters.
+
+**When to leave off:** Legacy demos, minimal dependencies (msgpack is bundled in the worker), or when JSON debuggability is preferred.
+
+See also: [python_bridge_v6_minimal_spec.md](python_bridge_v6_minimal_spec.md), [demos/Utilities/PythonBridge/README.md](../demos/Utilities/PythonBridge/README.md).
 
 ### Demo
 

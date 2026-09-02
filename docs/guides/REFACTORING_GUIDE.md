@@ -186,6 +186,18 @@ String result = VisualGasicLanguage::evaluate_expression_in_context("player_heal
 var result = VisualGasicLanguage.vg_evaluate_expression("player_health * 2")
 ```
 
+#### Static causal-graph analysis ✅ NEW (Sep 2026)
+
+AST-based call-chain report for auditor workflows:
+
+```gdscript
+var result := VisualGasicLanguage.vg_analyze_causal_graph(vg_source, ["btnOK_Click"])
+if result.get("ok"):
+    print(result.get("report"))
+```
+
+Editor code should prefer `VGCausalChain.new().generate(text, roots)` — wraps the C++ API with regex fallback. See [IDE Tools — Causal Chain](../manual/ide_tools.md#causal-chain-static-analysis-v54).
+
 #### Features
 - Breakpoints with optional conditions
 - Step Into/Over/Out navigation

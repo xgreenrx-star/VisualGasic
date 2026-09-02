@@ -57,9 +57,12 @@ It is ordered to keep performance, compatibility, and ease of use intact.
 
 ## Phase 3 — IPC protocol and async control path
 
+> **Sep 2026 update:** JSON framing is the default. **C2 typed msgpack** shipped behind `vg/python/use_typed_protocol` — see `src/python_bridge/vg_msgpack.cpp`, `test_py_msgpack_typed.vg`, [python_bridge_v6_minimal_spec.md](../../python_bridge_v6_minimal_spec.md).
+
 ### Tasks
-- Implement the 4-byte length-prefixed frame format.
-- Define MsgPack control payloads for `ping`, `import`, `call`, `call_many`, `result`, `error`, `shutdown`.
+- ✅ Implement the 4-byte length-prefixed frame format.
+- ✅ Define typed msgpack payloads for `import`, `call`, `result`, `error` (opt-in via project setting).
+- ✅ JSON control payloads remain default for backward compatibility.
 - Add request IDs for correlating responses.
 - Add binary-safe handling for large payloads.
 - Route calls through the existing async queue.

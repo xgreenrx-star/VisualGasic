@@ -35,3 +35,13 @@
 - Pre-allocated array objects for common sizes
 - Expected: 10-20% speedup on array-heavy code
 - Adds memory overhead
+
+### ~~Tagged Operand Stack~~ — NOT PURSUED (Sept 2026)
+
+**Status:** Prototype shipped behind `scons tagged_stack=1` for research only.
+
+Measured ~6% instruction reduction on pure stack arithmetic (`BenchArithStack`) but ~5% **slowdown** on realistic mixed code because VM locals remain boxed Variant — every load/store pays conversion tax.
+
+**Recommendation:** Do not migrate the main VM to tagged stack. If revisiting VM perf, prioritize **type-tagged unboxed locals** and fused local opcodes instead.
+
+**Reference:** [vm_tagged_stack_migration.md](../vm_tagged_stack_migration.md), `src/visual_gasic_stack_value.h`

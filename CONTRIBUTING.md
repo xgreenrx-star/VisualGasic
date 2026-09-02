@@ -59,6 +59,8 @@ src/
   under `tools/` so they can be fuzzed and unit-tested without Godot.
   Do not use it for shipping builds.
 
+**Experimental VM flag (contributors only):** `scons platform=linux target=editor tagged_stack=1` enables the tagged operand-stack prototype (`VG_TAGGED_STACK`). Run selftest with `VG_STACKVALUE_SELFTEST=1` in the environment. Not for production — see [docs/vm_tagged_stack_migration.md](docs/vm_tagged_stack_migration.md).
+
 ### Addon layout & the sync script
 The canonical addon lives at **`addons/visual_gasic/`** and every demo and
 game project holds a relative symlink to it. Edit the canonical copy; all

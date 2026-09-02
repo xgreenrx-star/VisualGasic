@@ -29,6 +29,7 @@
 
 ### Editor Features
 - [ide_tools.md](manual/ide_tools.md) - **Complete IDE tools guide** (Watch Window, Alignment, IntelliSense, Debugging, Linting, Snippets, Themes, **Profiler / Controls / Packages / AI Help** bottom-dock panels)
+- [ide_tools.md#causal-chain-static-analysis-v54](manual/ide_tools.md#causal-chain-static-analysis-v54) - **Causal Chain** — static event→Sub→Call report (Code Navigator button, Context Rail preview, C++ AST API)
 - [ide_tools.md#profiler-panel](manual/ide_tools.md#profiler-panel) - **Profiler Panel** — bytecode-level hot-path timing, counters, JSON export (C++ `VisualGasicProfiler` bridge)
 - [ide_tools.md#controls-panel-controls-inspector](manual/ide_tools.md#controls-panel-controls-inspector) - **Controls Panel** — VB6-style live inspector for form controls at breakpoints
 - [ide_tools.md#packages-panel-vg-packages](manual/ide_tools.md#packages-panel-vg-packages) - **VG Packages Panel** — install, remove, and search VG packages (pip/npm for VG)
@@ -53,7 +54,9 @@
 
 ## API Documentation
 
-- [SYSTEM_INTEGRATION.md](SYSTEM_INTEGRATION.md) - **System Integration Reference** (FFI, ODBC, Crypto, XML, ZIP, Async, Packages, System Info, Signals, Permissions, Memory, IPC, Android)
+- [SYSTEM_INTEGRATION.md](SYSTEM_INTEGRATION.md) - **System Integration Reference** (FFI, ODBC, Crypto, XML, ZIP, Async, Packages, System Info, Signals, Permissions, Memory, IPC, Android, **Python Bridge + typed msgpack C2**)
+- [python_bridge_v6_minimal_spec.md](python_bridge_v6_minimal_spec.md) - Python bridge wire protocol, project settings, acceptance checklist
+- [vm_tagged_stack_migration.md](vm_tagged_stack_migration.md) - Tagged operand-stack prototype (opt-in build; not pursued for shipping)
 - [VisualGasic_Language_Reference.md](VisualGasic_Language_Reference.md) - **Complete language reference** (7000+ lines, incl. v4.x–v5.1 Godot namespace wrappers)
 - [WINFORMS_FORM_GUIDE.md](WINFORMS_FORM_GUIDE.md) - WinForms-style form development
 - [BUILTINS.md](BUILTINS.md) - Built-in functions overview
@@ -96,6 +99,7 @@
 | **ZIP** | `demos/Utilities/ZIP/` | Create, read, extract archives |
 | **ODBC** | `demos/Data_and_Files/ODBC/` | Database connect, query, transactions |
 | **Async Tasks** | `demos/Threading/` | VGTask, VGTaskRunner, background work |
+| **Python Bridge** | `demos/Utilities/PythonBridge/` | PyBridgeFacade, stdlib + numpy; opt-in typed msgpack (`vg/python/use_typed_protocol`) |
 | **Package Manager** | `demos/Utilities/PackageManager/` | Install, registries, semver |
 
 ### System-Level Programming Classes

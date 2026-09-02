@@ -158,7 +158,9 @@ End Sub
 
 ### 🔴 Outgoing PyCall Argument Typing
 
-See "Critical Fix — Python Bridge" above. Workaround: `Array(CInt(0), CInt(5))` instead of `Array(0, 5)` when the receiving Python function requires actual `int` arguments (e.g. `range()`, `numpy.zeros()`, `numpy.eye()`).
+See "Critical Fix — Python Bridge" above. Workaround for **JSON-default** projects: `Array(CInt(0), CInt(5))` instead of `Array(0, 5)` when the receiving Python function requires actual `int` arguments (e.g. `range()`, `numpy.zeros()`, `numpy.eye()`).
+
+> **Update (Sep 2026):** Enable **`vg/python/use_typed_protocol = true`** for msgpack C2 — integer args survive the wire without `CInt()`. See [CHANGELOG.md](CHANGELOG.md) and [demos/Utilities/PythonBridge/README.md](demos/Utilities/PythonBridge/README.md).
 
 ### 🧪 UI Forms — Experimental
 

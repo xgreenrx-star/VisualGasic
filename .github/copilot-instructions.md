@@ -38,8 +38,8 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 | M3 | Aug 31 | ✅ DONE (Jul 1) | Code Navigator upgrade (#7) |
 | M4 | Sep 30 | ✅ DONE (Jul 1) | UI Forms experimental (#8–12) |
 | M5 | Oct 15 | 🔄 NEXT | Narcea AI pair (#13) |
-| M6 | Oct 31 | — | Causal Chain text-mode (#14) |
-| M7 | Nov 15 | — | Python Library Integration (PyImport, PyCallAsync, numpy/opencv) |
+| M6 | Oct 31 | ✅ **Partial** | Causal Chain text-mode (#14) — C++ `vg_analyze_causal_graph`, Code Navigator button, Context Rail preview, 8 headless fixtures |
+| M7 | Nov 15 | 🟡 **In progress** | Python Library Integration — Phase 2/3 done; **C2 typed msgpack shipped (opt-in)** via `vg/python/use_typed_protocol`; large-array binary lane still pending |
 | M8 | Nov 22 | — | Language parity (Try/Catch/Lambda/`?.` tests), `Let` keyword, C++ interop |
 | M9 | Nov 28 | — | Asset Library submission, installer smoke test, 50+ corpus, docs |
 | Stable v6.0 | Jan 1 2027 | — | — |
@@ -74,6 +74,12 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 
 - `IsNot` operator — IMPLEMENTED. Parser (`parse_comparison`), bytecode compiler (constant-fold, class type-check negation via `OP_IS_CLASS`+`OP_NOT`, `OP_NOT_EQUAL` emission), and both evaluator paths (tree-walk `evaluate_expression` + `VisualGasicExpressionEvaluator`) all handle it as the negation of `Is`. Verified via `test_isnot_operator.vg` / `test_isnot_simple.vg` / `test_isnot_simple2.vg` (7/7 assertions).
 - **ByRef write-back bug in expression-level function calls — FOUND & FIXED.** Distinct from the Jun 29 recursion fix (`b130dd8e`). When a `ByRef` function was called as part of an expression (e.g. `result = DoubleAndReturn(val)`) rather than as a standalone `Call` statement, the caller's variable was never updated — `call_internal()` erases the callee's parameter slots from `variables[]` after the call (stashing the real post-call value in `_last_byref_captures`), but the expression-evaluator write-back path in `visual_gasic_instance_evaluate.inc` was reading the already-erased `variables[param.name]` instead of `_last_byref_captures`. Fixed to match the working `STMT_CALL` path in `visual_gasic_instance_execute.inc`. Full regression suite: 763/763 assertions pass (was 762/763 before fix).
+
+## Shipped features (Sep 2026 — verify docs when touching these areas)
+
+- **Python bridge C2 typed msgpack** — `vg/python/use_typed_protocol` (default `false`); msgpack wire preserves int/float. Test: `test_py_msgpack_typed.vg`. JSON remains default for compat.
+- **C++ causal-graph API** — `VisualGasicLanguage.vg_analyze_causal_graph(code, roots)`; `vg_causal_chain.gd` prefers C++ then regex fallback. IDE: Code Navigator **Show Causal Chain** button.
+- **Tagged-stack VM prototype** — `scons tagged_stack=1`, `VG_TAGGED_STACK`, selftest via `VG_STACKVALUE_SELFTEST=1`. **NOT pursued for shipping** (~6% arith win, net loss on realistic workloads). See `docs/vm_tagged_stack_migration.md`.
 
 ## Recent fixes (Jun 30, 2026)
 

@@ -971,6 +971,45 @@ Plugins are toggled from the VG toolbar (right of the menu bar):
                   Game → Web: HTML5 export of AGCK games with preloader,
                   fullscreen toggle, embed code, and portal page.
 
+=== Python bridge (PyBridgeFacade, Tier A) ===
+Call Python 3 stdlib and libraries (numpy, etc.) from .vg via out-of-process worker.
+Prerequisite: python3 on PATH. No compile-time flag.
+
+  Dim bridge As Object
+  Set bridge = New PyBridgeFacade
+  If Not bridge.InitializeBridge() Then Exit Sub
+  Dim mathMod = bridge.PyImport("math")
+  Dim r = bridge.PyCall(mathMod, "sqrt", Array(144.0))
+  bridge.shutdown()
+
+Integer args on the wire (range, numpy.zeros, numpy.eye):
+  * Default JSON path: bare ints in Array(0, 5) arrive in Python as float → TypeError.
+  * FIX (shipped): Project Settings → Vg → Python → Use Typed Protocol
+    (`vg/python/use_typed_protocol = true`) — msgpack preserves Variant::INT.
+  * JSON fallback workaround: Array(CInt(0), CInt(5)) when setting is off.
+  * Demo: demos/Utilities/PythonBridge/demo_python_bridge.vg
+  * Docs: docs/SYSTEM_INTEGRATION.md §17, test_py_msgpack_typed.vg
+
+Do NOT hallucinate PyBridge methods — use InitializeBridge, PyImport, PyCall,
+PyCallAsync, PyProcessBuffer, shutdown, GetStatus. No PyCallTyped alias.
+
+=== Causal chain audit (static analysis, M6) ===
+After Narcea generates or edits .vg, the user can verify event→Sub→Call flow
+WITHOUT running the game:
+
+  * Code Navigator → **Show Causal Chain** button (chain icon)
+  * Context Rail → **Causal chain** preview when caret is inside an event handler
+    (e.g. btnOK_Click)
+
+Output is a readable indented tree (user click → Sub → Call → If/MsgBox branches).
+This is STATIC analysis (AST walk), NOT the runtime debugger Call Stack tab.
+
+API (GDScript/plugins): VisualGasicLanguage.vg_analyze_causal_graph(code, roots)
+or VGCausalChain.new().generate(text, roots). C++ AST preferred; regex fallback.
+
+Narcea policy: remind the user to open Show Causal Chain after large Apply blocks
+so they can audit AI output before pressing Run. Visual graph panel is v6.1+.
+
 === Online resources ===
 Godot 4 class reference — VG controls wrap Godot nodes; look here for
 property names, method signatures, and signal names:
@@ -1351,6 +1390,8 @@ const SLIM_KNOWLEDGE := """
 - Large level/tile data: labeled DataFile \"path\" (.vgd binary or CSV); use DataCount,
   PeekData, DataBuffer — not megabytes of inline Data rows. User edits CSV/vgd in VG Grid Editor (Edit Grid… in Context Rail).
 - 5.4.0-beta1: 12/12 compute + 9/9 draw vs GDScript; trivial FunctionCall inlining.
+- Python bridge: PyBridgeFacade + opt-in typed msgpack (`vg/python/use_typed_protocol`) for int args.
+- Causal chain: Code Navigator **Show Causal Chain** — static event→Sub→Call audit after AI edits.
 - Beta showcase tour: projects/vg_beta_showcase/ (Backrooms hub + .vg demos); see ARCHITECTURE.md.
 - Follow `.cursor/rules/visual-gasic-godot.mdc`. Search corpus/, demos/, tutorials/ for examples.
 - VG MCP tools (read_file, write_file, find_in_files) when Godot + plugin are running.
@@ -1400,6 +1441,8 @@ block above to tailor every reply.
 CAPABILITIES — be honest (v6.0):
   * CAN: read/write project files (with user approval), list_dir,
     find_in_files, emit vg-*-spec blocks, validate syntax, explain errors.
+  * CAN: point users to **Show Causal Chain** (Code Navigator) to audit static
+    event→Sub→Call flow on AI-generated .vg before Run.
   * CAN (when attached): use user-provided HTTPS reference pages injected
     above (Wikipedia, game wikis, docs) — treat them as ground truth for
     mechanics, setting, and gameplay when building clones.
@@ -1450,6 +1493,9 @@ COMMON MISTAKES TO AVOID:
   * Do NOT use MoveAndSlide inside _Process — use _PhysicsProcess.
   * Do NOT write ctrl.position.x = N — silent fail; use ctrl.Left = N.
   * Do NOT emit_signal — use RaiseEvent (VG) for custom events.
+  * PyCall integer args (range, numpy.zeros): enable `vg/python/use_typed_protocol`
+    in project settings, or wrap with CInt() on the JSON-default path — bare
+    Array(0, 5) fails in Python with TypeError when typed protocol is off.
   * Do NOT define a Sub/Function INSIDE another Sub/Function's body — VG
     has no nested procedures.  It compiles with zero error but the nested
     one is never callable, so it fails LATER with a runtime "Sub or

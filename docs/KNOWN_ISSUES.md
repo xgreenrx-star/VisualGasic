@@ -1,8 +1,8 @@
 # VisualGasic — Known Issues & Engine Limitations
 
-*Last updated: v5.4.0-beta1 (August 2026)*
+*Last updated: v5.4.0-beta2 (September 2026)*
 
-This document lists **confirmed** engine bugs and limitations. Test baseline: **891/891** VG regression assertions passing (122 runnable `.vg` files); **332/332** Programmer's Reference examples parse-clean; **47/47** corpus examples with expected output.
+This document lists **confirmed** engine bugs and limitations. Test baseline: **916/916** VG regression assertions passing; **8/8** causal-chain headless fixtures; **332/332** Programmer's Reference examples parse-clean; **47/47** corpus examples with expected output.
 
 See also [ROADMAP.md](../ROADMAP.md) for active development priorities.
 
@@ -41,12 +41,13 @@ See also [ROADMAP.md](../ROADMAP.md) for active development priorities.
 
 ---
 
-## Beta — Active Issues (v5.4.0-beta1)
+## Beta — Active Issues (v5.4.0-beta2)
 
 These are tracked on the roadmap and may affect demos or daily use:
 
 | Issue | Detail | Workaround |
 |-------|--------|------------|
+| **Python bridge JSON int args** | On the **default JSON wire path**, integer literals in `Array(0, 5)` PyCall args arrive in Python as `float`. | Enable **`vg/python/use_typed_protocol = true`** (msgpack C2), or wrap with `CInt()`. |
 | **Unhandled errors corrupt state** | Some unhandled runtime errors can leave the app in a bad state instead of failing cleanly. | Use `Try/Catch` or `On Error` around risky blocks during development. |
 | **Double-click ignores existing `.tscn` signal connections** | Form Designer double-click may not respect pre-wired Godot signals. | Wire handlers via VG naming convention (`btnOK_Click`) in `.vg` instead. |
 | **Phantom button double-press on blocking async** | Blocking async calls may duplicate button press events. | Avoid long blocking work in click handlers; use `Await` patterns. |
@@ -139,4 +140,4 @@ Report new issues: [GitHub Issues](https://github.com/xgreenrx-star/VisualGasic/
   **Fixed in v3.2** by adding an `Array()` handler that returns the evaluated
   argument list as a Godot Array.
 
-- Regression suite: `test_proj/test_suite/` and CI gates — **891/891** VG assertions pass as of v5.4.0-beta1 (122 runnable files + 1 data fixture via GDScript harness).
+- Regression suite: `test_proj/test_suite/` and CI gates — **916/916** VG assertions pass as of v5.4.0-beta2 (139 runnable files + 1 data fixture via GDScript harness).

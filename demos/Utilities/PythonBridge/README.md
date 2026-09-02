@@ -12,9 +12,21 @@ These examples demonstrate VisualGasic's Python integration via the `PyBridgeFac
 
 1. VG script creates a `New PyBridgeFacade` object
 2. `InitializeBridge()` launches `python_worker.py` as a subprocess
-3. The worker communicates over stdin/stdout with length-prefixed JSON frames
-4. `PyImport("module")` imports a Python module and returns an opaque handle
-5. `PyCall(handle, "method", args)` calls a function on that module
+3. The worker communicates over stdin/stdout with **length-prefixed frames** (4-byte LE size + payload)
+4. **Default payload:** JSON. **Opt-in (C2):** msgpack when `vg/python/use_typed_protocol = true` — preserves int vs float on the wire.
+5. `PyImport("module")` imports a Python module and returns an opaque handle
+6. `PyCall(handle, "method", args)` calls a function on that module
+
+### Enabling typed msgpack (recommended for numpy integer args)
+
+**Project → Project Settings → Vg → Python → Use Typed Protocol** (`vg/python/use_typed_protocol`, default `false`).
+
+```ini
+[vg]
+python/use_typed_protocol=true
+```
+
+With typed protocol enabled, `PyCall(builtins, "range", Array(0, 5))` works without wrapping arguments in `CInt()`. Regression: `test_proj/test_suite/test_py_msgpack_typed.vg`.
 
 ## Examples
 
@@ -59,6 +71,8 @@ The demo includes a numpy section that tests core operations through the JSON IP
 | `numpy.float32(x)` | `bridge.PyCall(npMod, "float32", Array(x))` | ✅ Works |
 | 2D arrays | `numpy.array([[1,2],[3,4]])` → nested VG arrays | ✅ Works |
 
-**Limitation:** VG `Array()` stores all numbers as floats. Functions requiring integer arguments (e.g. `numpy.zeros(5)`, `numpy.eye(3)`, `numpy.linspace(0,1,5)`) receive `[5.0]` which numpy rejects with `TypeError: 'float' object cannot be interpreted as an integer`. **Fix planned in Phase 1** — a typed binary protocol that preserves int/float type information across the IPC wire, so numpy receives actual Python `int` arguments.
+**Limitation (JSON default):** VG `Array()` stores all numbers as floats on the **JSON wire path**. Functions requiring integer arguments (e.g. `numpy.zeros(5)`, `numpy.eye(3)`, `numpy.linspace(0,1,5)`) receive `[5.0]` which numpy rejects with `TypeError: 'float' object cannot be interpreted as an integer`.
 
-**Performance:** Small arrays (< 100×100 elements) are fine over JSON. Large arrays incur serialization overhead. Phase 1 (typed binary protocol) will provide a fast binary transfer path alongside the type-fidelity fix.
+**Fix (shipped C2):** Enable **`vg/python/use_typed_protocol = true`** — msgpack preserves `Variant::INT` on encode. Alternatively wrap args with `CInt()` on the JSON path.
+
+**Performance:** Small arrays (< 100×100 elements) are fine over JSON. Large-array binary lane (PackedFloat64Array fast path) remains planned for a future phase.

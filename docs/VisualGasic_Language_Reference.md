@@ -2071,6 +2071,12 @@ Call Python 3 modules and functions from VisualGasic using an out-of-process wor
 | `PyProcessBuffer(handle, method, buffer)` | Bulk data processing |
 | `shutdown()` | Graceful worker termination |
 
+**Project setting — typed wire protocol (C2, opt-in):**
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `vg/python/use_typed_protocol` | `false` | When `true`, IPC uses msgpack instead of JSON so integer arguments (`Array(0, 5)`) reach Python as `int`. Enable for numpy integer-arg APIs. Test: `test_py_msgpack_typed.vg`. |
+
 ```vb
 Dim bridge As New PyBridgeFacade
 
@@ -2090,6 +2096,30 @@ bridge.shutdown()
 ```
 
 > **See also:** [demos/Utilities/PythonBridge/demo_python_bridge.vg](../demos/Utilities/PythonBridge/demo_python_bridge.vg) and [docs/SYSTEM_INTEGRATION.md](SYSTEM_INTEGRATION.md#17-python-bridge-pybridgefacade).
+
+
+### VisualGasicLanguage (GDExtension static API)
+
+Static methods on the registered `VisualGasicLanguage` class. Callable from GDScript plugins and editor tools when the GDExtension is loaded.
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `vg_analyze_causal_graph(code, roots)` | `Dictionary` | Static AST walk of VG source. Keys: `ok` (`bool`), `report` (`String` — indented causal chain). `roots` is an optional `Array` of Sub names to start from (e.g. `["btnOK_Click"]`); empty = all event handlers. Used by `VGCausalChain.generate()` and the Code Navigator **Show Causal Chain** button. |
+| `vg_profiler_enable(enabled)` | — | Enable/disable bytecode profiler |
+| `vg_profiler_get_report()` | `Dictionary` | Hot-path timing report |
+| `vg_profiler_clear()` | — | Reset profiler counters |
+
+**Causal chain from GDScript:**
+
+```gdscript
+var result := VisualGasicLanguage.vg_analyze_causal_graph(vg_source, ["btnSubmit_Click"])
+if result.get("ok"):
+    print(result.get("report"))
+```
+
+Prefer `VGCausalChain.new().generate(text, roots)` in editor code — it falls back to a regex walker when the C++ path is unavailable or hits known AST gaps.
+
+> **See also:** [IDE Tools — Causal Chain](manual/ide_tools.md#causal-chain-static-analysis-v54), [tests/test_vg_causal_chain.gd](../tests/test_vg_causal_chain.gd).
 
 
 ---
