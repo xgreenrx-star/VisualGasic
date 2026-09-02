@@ -1,0 +1,90 @@
+' demo_python_typed_protocol.vg — msgpack C2 typed wire (integer args preserved)
+'
+' Requires Project Settings: vg/python/use_typed_protocol = true
+' (enabled in test_proj/project.godot and recommended for numpy integer shapes)
+'
+' Run: scripts/run_python_bridge_demo.sh demo_python_typed_protocol.vg
+
+Sub Main()
+    Print "=== Python Bridge: Typed Protocol (msgpack C2) ==="
+    Print ""
+
+    Dim bridge As Object
+    Set bridge = New PyBridgeFacade
+
+    If Not bridge.InitializeBridge() Then
+        Print "FAIL: " & bridge.GetStatus()
+        Exit Sub
+    End If
+    Print "Bridge: " & bridge.GetStatus()
+    Print "Note: enable vg/python/use_typed_protocol in Project Settings."
+    Print "      Without it, integer-arg calls below fail on the JSON wire path."
+    Print ""
+
+    Dim builtins As Variant
+    builtins = bridge.PyImport("builtins")
+    If IsEmpty(builtins) Then
+        Print "FAIL: builtins import"
+        bridge.shutdown()
+        Exit Sub
+    End If
+
+    ' --- 1. range(0, 5) with bare integer literals in Array(...) ---
+    Print "--- 1. builtins.range(0, 5) ---"
+    Dim rng As Variant
+    rng = bridge.PyCall(builtins, "range", Array(0, 5))
+    If IsEmpty(rng) Then
+        Print "  FAIL: range — enable use_typed_protocol or use Array(CInt(0), CInt(5))"
+        bridge.shutdown()
+        Exit Sub
+    End If
+    Print "  range type: " & TypeName(rng)
+
+    Dim asList As Variant
+    asList = bridge.PyCall(builtins, "list", Array(rng))
+    If IsEmpty(asList) Or TypeName(asList) <> "Array" Then
+        Print "  FAIL: list(range)"
+        bridge.shutdown()
+        Exit Sub
+    End If
+    Print "  list(range) length: " & CStr(asList.size()) & "  (expected 5)"
+
+    Dim idx As Long
+    For idx = 0 To asList.size() - 1
+        Dim elem
+        elem = asList(idx)
+        Print "    [" & CStr(idx) & "] = " & CStr(elem) & " (" & TypeName(elem) & ")"
+    Next idx
+
+    ' --- 2. numpy.zeros(5) — integer shape argument ---
+    Print ""
+    Print "--- 2. numpy.zeros(5) ---"
+    Dim npMod As Variant
+    npMod = bridge.PyImport("numpy")
+    If IsEmpty(npMod) Then
+        Print "  SKIP: numpy not installed (pip install numpy)"
+    Else
+        Dim zerosArr As Variant
+        zerosArr = bridge.PyCall(npMod, "zeros", Array(5))
+        If IsEmpty(zerosArr) Then
+            Print "  FAIL: zeros(5) — check use_typed_protocol and numpy install"
+        Else
+            Print "  zeros(5) = " & CStr(zerosArr)
+            Dim sumZ As Variant
+            sumZ = bridge.PyCall(npMod, "sum", Array(zerosArr))
+            Print "  sum(zeros) = " & CStr(sumZ) & "  (expected 0)"
+        End If
+
+        Dim eyeArr As Variant
+        eyeArr = bridge.PyCall(npMod, "eye", Array(3))
+        If IsEmpty(eyeArr) Then
+            Print "  FAIL: eye(3)"
+        Else
+            Print "  eye(3) ok, sum = " & CStr(bridge.PyCall(npMod, "sum", Array(eyeArr)))
+        End If
+    End If
+
+    bridge.shutdown()
+    Print ""
+    Print "PASS: demo_python_typed_protocol"
+End Sub

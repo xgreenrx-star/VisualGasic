@@ -645,6 +645,9 @@ xl.Cells(1, 1).Value = "Hello from VisualGasic!"
 | **Async Tasks** | `demos/Threading/demo_async_tasks.vg` | VGTask, VGTaskRunner, cancellation |
 | **Packages** | `demos/Utilities/PackageManager/demo_packages.vg` | Install, registries, dependencies |
 | **Python Bridge** | `demos/Utilities/PythonBridge/demo_python_bridge.vg` | Import Python stdlib, call functions |
+| | `demos/Utilities/PythonBridge/demo_python_typed_protocol.vg` | msgpack C2 — `range`, `numpy.zeros` with integer args |
+| | `demos/Utilities/PythonBridge/demo_python_await.vg` | `PyCallAsync` — poll until complete (`Await pyJob` planned) |
+| | `scripts/run_python_bridge_demo.sh` | Headless runner (uses `test_proj` + GDExtension) |
 | **Smoke Test** | `demo/test_v3_features.vg` | Automated test of all system classes |
 
 Run the smoke test:

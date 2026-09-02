@@ -99,7 +99,7 @@
 | **ZIP** | `demos/Utilities/ZIP/` | Create, read, extract archives |
 | **ODBC** | `demos/Data_and_Files/ODBC/` | Database connect, query, transactions |
 | **Async Tasks** | `demos/Threading/` | VGTask, VGTaskRunner, background work |
-| **Python Bridge** | `demos/Utilities/PythonBridge/` | PyBridgeFacade, stdlib + numpy; opt-in typed msgpack (`vg/python/use_typed_protocol`) |
+| **Python Bridge** | `demos/Utilities/PythonBridge/` | PyBridgeFacade — see `demo_python_bridge.vg`, `demo_python_typed_protocol.vg`, `demo_python_await.vg`; run via `scripts/run_python_bridge_demo.sh` |
 | **Package Manager** | `demos/Utilities/PackageManager/` | Install, registries, semver |
 
 ### System-Level Programming Classes

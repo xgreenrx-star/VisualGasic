@@ -7,6 +7,7 @@ These examples demonstrate VisualGasic's Python integration via the `PyBridgeFac
 - **VisualGasic v6.0+** compiled with default settings
 - **Python 3** installed and on `PATH`
 - No `python=1` build flag required — Tier A works with any Python 3 installation
+- Optional: **`pip install numpy`** for numpy sections
 
 ## How It Works
 
@@ -26,53 +27,67 @@ These examples demonstrate VisualGasic's Python integration via the `PyBridgeFac
 python/use_typed_protocol=true
 ```
 
-With typed protocol enabled, `PyCall(builtins, "range", Array(0, 5))` works without wrapping arguments in `CInt()`. Regression: `test_proj/test_suite/test_py_msgpack_typed.vg`.
+`test_proj/project.godot` ships with this enabled for regression tests. The run script below uses `test_proj`.
+
+With typed protocol enabled, `PyCall(builtins, "range", Array(0, 5))` and `numpy.zeros(5)` work without `CInt()` wrappers.
 
 ## Examples
 
-| File | Description |
-|------|-------------|
-| `demo_python_bridge.vg` | Full walkthrough: import `math`/`json`, call functions, error handling, bulk data |
+| File | Description | Typed protocol |
+|------|-------------|----------------|
+| `demo_python_bridge.vg` | Full walkthrough: math, json, numpy, errors, `PyProcessBuffer` | Optional (`zeros` falls back to `CInt`) |
+| `demo_python_game_dev.vg` | Game-flavored math, numpy vectors, JSON config, seeded RNG | Optional |
+| `demo_python_typed_protocol.vg` | **C2 showcase:** `range`, `list(range)`, `numpy.zeros` / `eye` with bare int args | **Required** |
+| `demo_python_await.vg` | **`PyCallAsync`** — poll `IsRunning` / `Result` until complete (`Await pyJob` planned) | Optional |
+| `demo/test_py_async.vg` | Polling `IsRunning` / `PyCallMany` / `PyEnvInfo` (in `demo/` project) | Optional |
 
 ## Running
 
+From the repo root (recommended):
+
 ```bash
-godot --headless --script demos/Utilities/PythonBridge/demo_python_bridge.vg
+# Default: full bridge walkthrough
+scripts/run_python_bridge_demo.sh
+
+# Typed msgpack C2 (uses test_proj with use_typed_protocol=true)
+scripts/run_python_bridge_demo.sh demo_python_typed_protocol.vg
+
+# Async PyCallAsync (poll until complete)
+scripts/run_python_bridge_demo.sh demo_python_await.vg
+
+# Game dev patterns
+scripts/run_python_bridge_demo.sh demo_python_game_dev.vg
 ```
 
-Or copy the `Main()` sub into any VG script and call it.
+The script copies the demo into `test_proj/demos/python/`, prepares the GDExtension, and runs headless via `run_suite.gd`.
 
 ## Error Diagnostics
 
 If the worker fails to launch:
+
 - Check that `python3 --version` works in your terminal
 - The bridge prints a descriptive error via `GetStatus()`
 - Worker Python errors appear in Godot's output console (stderr is not redirected)
 
 ## Notes
 
-- The demo avoids `PyBridgeFacade.IsAvailable()` and lets `InitializeBridge()` report startup errors directly.
-- `PyProcessBuffer()` in v6 serializes a `PackedByteArray` through JSON, so the demo shows the resulting JSON byte array text.
+- The demos let `InitializeBridge()` report startup errors directly (no separate `IsAvailable()` preflight).
+- `PyProcessBuffer()` serializes bulk bytes through the worker's binary lane; the main demo shows JSON byte-array round-trip.
+- Do not name async handles `task` — **`Task` is a reserved VG keyword**; use `pyJob` instead.
 
 ## Reference
 
-See `docs/python_bridge_v6_minimal_spec.md` for the full spec.
+- [docs/python_bridge_v6_minimal_spec.md](../../docs/python_bridge_v6_minimal_spec.md)
+- [docs/SYSTEM_INTEGRATION.md §17](../../docs/SYSTEM_INTEGRATION.md#17-python-bridge-pybridgefacade)
+- Regression: `test_proj/test_suite/test_py_msgpack_typed.vg`, `test_py_range_int.vg`
 
 ## numpy Support
 
-The demo includes a numpy section that tests core operations through the JSON IPC:
+| Operation | Example | JSON default | With typed protocol |
+|-----------|---------|--------------|---------------------|
+| `numpy.array([1,2,3])` | `PyCall(np, "array", …)` | ✅ | ✅ |
+| `numpy.dot` / `sum` / `linalg.norm` | float arrays | ✅ | ✅ |
+| `builtins.range(0, 5)` | `Array(0, 5)` | ❌ (float args) | ✅ |
+| `numpy.zeros(5)` / `eye(3)` | `Array(5)` / `Array(3)` | ❌ unless `CInt()` | ✅ |
 
-| Operation | Example | Status |
-|-----------|---------|--------|
-| `numpy.array([1,2,3])` | `bridge.PyCall(npMod, "array", Array(Array(1,2,3)))` | ✅ Works |
-| `numpy.dot(a, b)` | `bridge.PyCall(npMod, "dot", Array(a, b))` | ✅ Works |
-| `numpy.sum(a)` | `bridge.PyCall(npMod, "sum", Array(a))` | ✅ Works |
-| `numpy.linalg.norm(v)` | `bridge.PyCall(linAlgMod, "norm", Array(v))` | ✅ Works |
-| `numpy.float32(x)` | `bridge.PyCall(npMod, "float32", Array(x))` | ✅ Works |
-| 2D arrays | `numpy.array([[1,2],[3,4]])` → nested VG arrays | ✅ Works |
-
-**Limitation (JSON default):** VG `Array()` stores all numbers as floats on the **JSON wire path**. Functions requiring integer arguments (e.g. `numpy.zeros(5)`, `numpy.eye(3)`, `numpy.linspace(0,1,5)`) receive `[5.0]` which numpy rejects with `TypeError: 'float' object cannot be interpreted as an integer`.
-
-**Fix (shipped C2):** Enable **`vg/python/use_typed_protocol = true`** — msgpack preserves `Variant::INT` on encode. Alternatively wrap args with `CInt()` on the JSON path.
-
-**Performance:** Small arrays (< 100×100 elements) are fine over JSON. Large-array binary lane (PackedFloat64Array fast path) remains planned for a future phase.
+**Performance:** Small arrays (< 100×100) are fine over JSON. Large-array binary fast path remains planned.

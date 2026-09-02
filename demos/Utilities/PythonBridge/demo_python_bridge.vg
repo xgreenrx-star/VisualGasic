@@ -142,6 +142,18 @@ Sub Main()
         Dim f32 As Variant
         f32 = bridge.PyCall(npMod, "float32", Array(3.14159))
         Print "  numpy.float32  = " & CStr(f32)
+
+        ' Integer shape args (numpy.zeros, eye) require Python int, not float.
+        ' With vg/python/use_typed_protocol=true (msgpack C2), bare Array(5) works.
+        ' On the JSON-default path, use Array(CInt(5)) instead — see demo_python_typed_protocol.vg.
+        Dim zerosArr As Variant
+        zerosArr = bridge.PyCall(npMod, "zeros", Array(5))
+        If IsEmpty(zerosArr) Then
+            zerosArr = bridge.PyCall(npMod, "zeros", Array(CInt(5)))
+            Print "  numpy.zeros(5) via CInt fallback = " & CStr(zerosArr)
+        Else
+            Print "  numpy.zeros(5) = " & CStr(zerosArr)
+        End If
     End If
 
     ' ================================================================
@@ -168,7 +180,9 @@ Sub Main()
     End If
 
     ' ================================================================
-    ' 6. PyProcessBuffer — bulk data lane (v6 baseline uses JSON)
+    ' 6. PyProcessBuffer — bulk data lane
+    '    The worker accepts a trailing binary blob for the method call,
+    '    so byte-heavy payloads are not forced through a JSON-only path.
     ' ================================================================
     Print ""
     Print "--- 6. PyProcessBuffer (bulk data) ---"
