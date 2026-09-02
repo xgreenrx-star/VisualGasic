@@ -1094,6 +1094,17 @@ const VB6_TYPES: Array[String] = [
 	"List", "Dictionary", "Array", "Task", "Optional",
 ]
 
+# VG extension / ClassDB classes commonly used with New …
+const VG_EXTENSION_CLASSES: Array[String] = [
+	"PyBridgeFacade", "VGTask", "VGTaskRunner", "VGMemoryBuffer",
+	"VGEcs", "VGGpu", "NativeLibrary", "NativeStruct",
+]
+
+# Keyword-specific completion detail (overrides generic "VB6 Keyword").
+const KEYWORD_DETAILS: Dictionary = {
+	"let": "Block-scoped local (Let x As Type) or Property Let accessor",
+}
+
 # =============================================================================
 # VB6 BUILT-IN CONSTANTS — available at runtime via C++ global variables
 # =============================================================================
@@ -1649,6 +1660,8 @@ const SNIPPETS: Array[Dictionary] = [
 	{"trigger": "prop", "code": "Private _${1:name} As ${2:Type}\n\nPublic Property Get ${1:name}() As ${2:Type}\n\t${1:name} = _${1:name}\nEnd Property\n\nPublic Property Let ${1:name}(value As ${2:Type})\n\t_${1:name} = value\nEnd Property", "description": "Property with backing field"},
 	{"trigger": "async", "code": "Async Function ${1:Name}() As Task\n\t${0}\nEnd Function", "description": "Async function"},
 	{"trigger": "whenever", "code": "Whenever ${1:condition} Then\n\t${0}\nEnd Whenever", "description": "Whenever reactive block"},
+	{"trigger": "letscope", "code": "Let ${1:name} As ${2:Type}", "description": "Block-scoped local (inside For/If/While)"},
+	{"trigger": "pybridge", "code": "Dim bridge As Object\nSet bridge = New PyBridgeFacade\nIf Not bridge.InitializeBridge() Then\n\tPrint bridge.GetStatus()\n\tExit Sub\nEnd If\nDim ${1:mod} = bridge.PyImport(\"${2:math}\")\nDim ${3:result} = bridge.PyCall(${1:mod}, \"${4:sqrt}\", Array(${5:144.0}))\nbridge.shutdown()", "description": "PyBridgeFacade worker bootstrap"},
 ]
 
 # =============================================================================
@@ -1933,10 +1946,13 @@ static func get_completions(prefix: String, context: Dictionary = {}) -> Array[D
 	# Keywords
 	for keyword in VB6_KEYWORDS:
 		if keyword.to_lower().begins_with(prefix_lower):
+			var detail := "VB6 Keyword"
+			if KEYWORD_DETAILS.has(keyword.to_lower()):
+				detail = KEYWORD_DETAILS[keyword.to_lower()]
 			results.append({
 				"text": keyword,
 				"kind": "keyword",
-				"detail": "VB6 Keyword"
+				"detail": detail
 			})
 	
 	# Types
@@ -1946,6 +1962,15 @@ static func get_completions(prefix: String, context: Dictionary = {}) -> Array[D
 				"text": type_name,
 				"kind": "type",
 				"detail": "VB6 Type"
+			})
+	
+	# VG extension classes (PyBridgeFacade, VGTask, …)
+	for class_name in VG_EXTENSION_CLASSES:
+		if class_name.to_lower().begins_with(prefix_lower):
+			results.append({
+				"text": class_name,
+				"kind": "class",
+				"detail": "VG Extension Class"
 			})
 	
 	# Godot Types

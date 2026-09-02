@@ -200,6 +200,11 @@ static func _build_db() -> void:
 		"Assigns an object reference to a variable. Required for object types (not needed for simple types).",
 		"Dim player As Object\nSet player = New Player\nSet player = Nothing  ' Release reference", 11030)
 
+	_add("Let",
+		"Let variableName As DataType [= initialValue]",
+		"Declares a block-scoped local inside For, If, While, or other block bodies. The variable is visible only until the block ends (re-created each loop iteration). Distinct from Property Let on classes.",
+		"Dim total As Long\nFor i = 1 To 10\n    Let x As Long = i * 2\n    total = total + x\nNext\n\nIf score > 0 Then\n    Let bonus As Integer = score \\ 10\n    Print bonus\nEnd If", 6195)
+
 	# =========================================================================
 	# CONTROL FLOW — CONDITIONALS
 	# =========================================================================
@@ -1820,6 +1825,39 @@ static func _build_db() -> void:
 		"Async Sub FetchData()\n    Dim response As String = Await Http.Get(\"https://api.example.com/data\")\n    Print response\nEnd Sub", 4523)
 
 	# =========================================================================
+	# PYTHON BRIDGE (PyBridgeFacade)
+	# =========================================================================
+	_add("PyBridgeFacade",
+		"Dim bridge As Object\nSet bridge = New PyBridgeFacade",
+		"Out-of-process Python 3 worker (Tier A). Requires python3 on PATH. Enable vg/python/use_typed_protocol in Project Settings when calling Python functions that require integer arguments (range, numpy.zeros).",
+		"Dim bridge As Object\nSet bridge = New PyBridgeFacade\nIf Not bridge.InitializeBridge() Then\n    Print bridge.GetStatus()\n    Exit Sub\nEnd If\nDim mathMod = bridge.PyImport(\"math\")\nDim r = bridge.PyCall(mathMod, \"sqrt\", Array(144.0))\nPrint r\nbridge.shutdown()", 2056)
+
+	_add("InitializeBridge",
+		"bridge.InitializeBridge() As Boolean",
+		"Launches python_worker.py and verifies connectivity. Returns False if Python 3 is missing or the worker fails to start.",
+		"If Not bridge.InitializeBridge() Then\n    Print \"Bridge failed: \" & bridge.GetStatus()\n    Exit Sub\nEnd If", 2056)
+
+	_add("PyImport",
+		"bridge.PyImport(moduleName As String) As Variant",
+		"Imports a Python module and returns an opaque handle for PyCall.",
+		"Dim npMod = bridge.PyImport(\"numpy\")\nDim jsonMod = bridge.PyImport(\"json\")", 2056)
+
+	_add("PyCall",
+		"bridge.PyCall(handle, methodName As String, args As Array) As Variant",
+		"Calls a function on an imported Python module. For integer args (range, numpy shape), enable vg/python/use_typed_protocol or wrap literals with CInt().",
+		"Dim builtins = bridge.PyImport(\"builtins\")\nDim r = bridge.PyCall(builtins, \"range\", Array(0, 5))\nDim v = bridge.PyCall(mathMod, \"sqrt\", Array(144.0))", 2056)
+
+	_add("PyCallAsync",
+		"bridge.PyCallAsync(moduleName As String, methodName As String, args As Array) As Variant",
+		"Runs a Python call on a background thread. Use Await on the returned task object.",
+		"Async Sub FetchPy()\n    Dim pyJob = bridge.PyCallAsync(\"math\", \"sqrt\", Array(144.0))\n    Dim result = Await pyJob\nEnd Sub", 2056)
+
+	_add("shutdown",
+		"bridge.shutdown()",
+		"Gracefully terminates the Python worker subprocess.",
+		"bridge.shutdown()", 2056)
+
+	# =========================================================================
 	# MODERN FEATURES
 	# =========================================================================
 	_add("Lambda",
@@ -2405,7 +2443,7 @@ static func _build_see_also() -> void:
 	# Helper: assign bidirectional see-also for a group of keywords
 	var groups: Array = [
 		# Variable declaration
-		["Dim", "Private", "Public", "Global", "Static", "Const", "ReDim", "Type"],
+		["Dim", "Let", "Private", "Public", "Global", "Static", "Const", "ReDim", "Set", "Type"],
 		# Data types
 		["Integer", "Long", "Single", "Double", "String", "Boolean", "Variant", "Array"],
 		# If / branching
@@ -2458,6 +2496,8 @@ static func _build_see_also() -> void:
 		["Array", "ReDim", "LBound", "UBound"],
 		# Async
 		["Async", "Await", "DoEvents"],
+		# Python bridge
+		["PyBridgeFacade", "InitializeBridge", "PyImport", "PyCall", "PyCallAsync", "shutdown"],
 		# Scope modifiers
 		["With", "End With", "Using"],
 		# Game
