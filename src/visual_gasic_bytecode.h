@@ -221,7 +221,7 @@ enum OpCode {
     OP_TASK_RUN_BEGIN, // [OP] [NAME_CONST] [BG_FLAG] [BODY_LEN_HI] [BODY_LEN_LO] - Submit body to WorkerThreadPool
     OP_TASK_RUN_END,   // [OP] - Marker: end of task run body
     OP_TASK_WAIT,      // [OP] [WAIT_ALL_FLAG] - Wait for active tasks (1=all, 0=any)
-    OP_AWAIT,          // [OP] - Pop expression result, push back (future: async dispatch)
+    OP_AWAIT,          // [OP] - Pop task/signal/timer; yield until ready
 
     // Event system (v3.5.0)
     OP_RAISE_EVENT,    // [OP] [NAME_IDX] [ARG_COUNT] - emit_signal on owner

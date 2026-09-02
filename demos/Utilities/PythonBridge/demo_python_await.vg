@@ -1,13 +1,10 @@
-' demo_python_await.vg — PyCallAsync async Python calls from VG
-'
-' Poll pyJob.IsComplete / pyJob.Result until the worker responds.
-' (Full `Await pyJob` for PyAsyncTask is planned — OP_AWAIT does not dispatch yet.)
+' demo_python_await.vg — PyCallAsync + Await for non-blocking Python calls
 '
 ' Use pyJob (not "task") — Task is a reserved VG keyword.
 ' Run: scripts/run_python_bridge_demo.sh demo_python_await.vg
 
 Sub Main()
-    Print "=== Python Bridge: PyCallAsync ==="
+    Print "=== Python Bridge: PyCallAsync + Await ==="
     Print ""
 
     Dim bridge As Object
@@ -28,21 +25,12 @@ Sub Main()
     End If
 
     Print ""
-    Print "--- PyCallAsync(sqrt, 256) ---"
+    Print "--- Await PyCallAsync(sqrt, 256) ---"
     Dim pyJob As Variant
     pyJob = bridge.PyCallAsync(mathMod, "sqrt", Array(256.0))
     Print "  Job type: " & TypeName(pyJob)
 
-    Dim spins As Integer
-    spins = 0
-    Do While pyJob.IsRunning
-        spins = spins + 1
-        If spins > 5000 Then
-            Print "  FAIL: async timeout"
-            bridge.shutdown()
-            Exit Sub
-        End If
-    Loop
+    Await pyJob
 
     If pyJob.IsFailed Then
         Print "  FAIL: " & pyJob.Error
@@ -50,34 +38,21 @@ Sub Main()
         Exit Sub
     End If
 
-    If pyJob.IsComplete Then
-        Print "  Result = " & CStr(pyJob.Result) & "  (expected 16)"
-        If CDbl(pyJob.Result) <> 16.0 Then
-            Print "FAIL: demo_python_await unexpected sqrt"
-            bridge.shutdown()
-            Exit Sub
-        End If
+    Print "  Result = " & CStr(pyJob.Result) & "  (expected 16)"
+    If CDbl(pyJob.Result) <> 16.0 Then
+        Print "FAIL: demo_python_await unexpected sqrt"
+        bridge.shutdown()
+        Exit Sub
     End If
 
     Print ""
     Print "--- Chained async calls ---"
     Dim pyJob2 As Variant
     pyJob2 = bridge.PyCallAsync(mathMod, "pow", Array(2.0, 10.0))
-    spins = 0
-    Do While pyJob2.IsRunning
-        spins = spins + 1
-        If spins > 5000 Then Exit Do
-    Loop
+    Await pyJob2
     If pyJob2.IsComplete Then
         Print "  pow(2,10) = " & CStr(pyJob2.Result) & "  (expected 1024)"
     End If
-
-    Print ""
-    Print "Note: when OP_AWAIT gains PyAsyncTask dispatch, prefer:"
-    Print "  Async Sub RunPy()"
-    Print "      Dim pyJob = bridge.PyCallAsync(...)"
-    Print "      Dim result = Await pyJob"
-    Print "  End Sub"
 
     bridge.shutdown()
     Print ""

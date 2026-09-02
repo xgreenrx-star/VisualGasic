@@ -1,8 +1,10 @@
 extends SceneTree
-## Headless runner for Python bridge demos (Sub Main entry point).
+## Headless runner for Python bridge demos (Sub Main or _Ready entry point).
 ## Path: res://current_test.txt (one line, e.g. res://demos/python/demo_python_bridge.vg)
 
 var max_frames: int = 180
+var _demo_node: Node
+var _started: bool = false
 
 func _init() -> void:
 	var f := FileAccess.open("res://current_test.txt", FileAccess.READ)
@@ -27,19 +29,21 @@ func _init() -> void:
 	node.name = "DemoNode"
 	node.set_script(script)
 	root.add_child(node)
-
-	if node.has_method("Main"):
-		node.Main()
-	elif node.has_method("_Ready"):
-		node._Ready()
-	else:
-		print("ERROR: No Main() or _Ready() in ", vg_path)
-		quit(1)
-		return
+	_demo_node = node
 
 var _frame: int = 0
 
 func _process(_delta) -> bool:
+	if not _started and _demo_node:
+		_started = true
+		if _demo_node.has_method("Main"):
+			_demo_node.Main()
+		elif _demo_node.has_method("_Ready"):
+			_demo_node._Ready()
+		else:
+			print("ERROR: No Main() or _Ready() in demo script")
+			quit(1)
+			return false
 	_frame += 1
 	if _frame >= max_frames:
 		quit()

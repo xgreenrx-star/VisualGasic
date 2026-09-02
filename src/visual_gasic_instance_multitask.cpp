@@ -120,7 +120,11 @@ void VisualGasicInstance::_resume_coroutine() {
     for (int i = 0; i < keys.size(); i++) {
         variables[keys[i]] = cs.local_variables[keys[i]];
     }
-    
+
+    if (cs.await_result.get_type() != Variant::NIL) {
+        pending_await_handle = cs.await_result;
+    }
+
     Variant ret;
     execute_bytecode(chunk, func_def, ret, cs.instruction_pointer);
 }

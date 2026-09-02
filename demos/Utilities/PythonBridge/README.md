@@ -38,7 +38,7 @@ With typed protocol enabled, `PyCall(builtins, "range", Array(0, 5))` and `numpy
 | `demo_python_bridge.vg` | Full walkthrough: math, json, numpy, errors, `PyProcessBuffer` | Optional (`zeros` falls back to `CInt`) |
 | `demo_python_game_dev.vg` | Game-flavored math, numpy vectors, JSON config, seeded RNG | Optional |
 | `demo_python_typed_protocol.vg` | **C2 showcase:** `range`, `list(range)`, `numpy.zeros` / `eye` with bare int args | **Required** |
-| `demo_python_await.vg` | **`PyCallAsync`** — poll `IsRunning` / `Result` until complete (`Await pyJob` planned) | Optional |
+| `demo_python_await.vg` | **`PyCallAsync` + `Await`** — non-blocking Python calls | Optional |
 | `demo/test_py_async.vg` | Polling `IsRunning` / `PyCallMany` / `PyEnvInfo` (in `demo/` project) | Optional |
 
 ## Running
@@ -52,7 +52,7 @@ scripts/run_python_bridge_demo.sh
 # Typed msgpack C2 (uses test_proj with use_typed_protocol=true)
 scripts/run_python_bridge_demo.sh demo_python_typed_protocol.vg
 
-# Async PyCallAsync (poll until complete)
+# Async PyCallAsync + Await
 scripts/run_python_bridge_demo.sh demo_python_await.vg
 
 # Game dev patterns

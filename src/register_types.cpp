@@ -159,6 +159,7 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
 
         // v6.0 – Python integration
         ClassDB::register_class<PyBridgeFacade>();        // PyImport / PyCallAsync bridge
+        ClassDB::register_class<PyAsyncTask>();           // PyCallAsync task handle (Await duck-type)
 
         // v6.1 – native emulator CPU cores
         ClassDB::register_class<VGCpu6502>();             // Reentrant 6502/6510 core for emulator projects

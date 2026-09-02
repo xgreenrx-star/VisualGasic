@@ -267,6 +267,8 @@ class VisualGasicInstance {
         CoroutineState() : instruction_pointer(0), is_awaiting(false) {}
     };
     Vector<CoroutineState> coroutine_stack;
+    // Task handle re-supplied when resuming OP_AWAIT after a frame yield.
+    Variant pending_await_handle;
 
     struct ErrorState {
         enum Mode { NONE, RESUME_NEXT, GOTO_LABEL, EXIT_SUB, EXIT_FOR, EXIT_DO, EXIT_WHILE, EXIT_OSCILLATE, CONTINUE_FOR, CONTINUE_DO, CONTINUE_WHILE, CONTINUE_OSCILLATE };
