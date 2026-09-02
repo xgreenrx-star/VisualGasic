@@ -1,6 +1,6 @@
 # VisualGasic Release Schedule
 
-**Last Updated:** August 25, 2026  
+**Last Updated:** September 2, 2026  
 **Target:** Stable **v6.0.0** on January 1, 2027  
 **Version policy:** [docs/VERSIONING.md](docs/VERSIONING.md)
 
@@ -13,13 +13,13 @@
 | **5.3.0-Beta7** | 🟢 SHIPPED | Aug 21, 2026 | M1–M4 (+ M5 progress) | Bracket indexing, CI `.vg` gate, Narcea reference offers — [notes](RELEASE_NOTES_5.3.0-Beta7.md) |
 | **5.4.0-beta1** | 🟢 SHIPPED | Aug 30, 2026 | pre-M5 | **12/12 compute + 9/9 draw**, draw fusion, FunctionCall inlining, CI benchmark gate, **Beta Showcase** — [notes](RELEASE_NOTES_v5.4.0-beta1.md) |
 | **5.4.0-beta1 showcase** | 🟢 SHIPPED | Aug 30, 2026 | pre-M5 | `projects/vg_beta_showcase/` — full tour + Movie Maker script ([README](projects/vg_beta_showcase/README.md)) |
-| **5.4.0-beta2** | — | Oct 15, 2026 | M5 | Narcea AI pair, Buffer type, optimizer hints |
-| **5.5.0-beta1** | — | Nov 2026 | M6–M7 | Causal chain (text), Python bridge hardening |
-| **6.0.0-rc1** | — | Dec 1, 2026 | M6–M8 | Try/Catch, `Let`, C++ FFI, language parity |
-| **6.0.0-rc2** | — | Dec 15, 2026 | M9 | Installer smoke, docs, corpus 50+ |
+| **5.4.0-beta2** | 🟢 ON `main` | Oct 15, 2026 tag | M5 (+ M6/M7/M8 prep) | Buffer type, optimizer hints, Narcea Tier A/B, causal-chain teaser, msgpack C2, `Await`/`PyAsyncTask`, `Let`, AST Godot ctors — [CHANGELOG](CHANGELOG.md) |
+| **5.5.0-beta1** | — | Nov 2026 | M7–M8 | Python bridge close-out (Windows e2e, numpy Phase 2), FFI `Declare`/`DllImport`, language stress corpus |
+| **6.0.0-rc1** | — | Dec 1, 2026 | M8–M9 | Try/Catch/Lambda/`?.` hardening, installer smoke, docs/corpus gate |
+| **6.0.0-rc2** | — | Dec 15, 2026 | M9 | Final docs, 57+ corpus, release checklist |
 | **6.0.0** | — | Jan 1, 2027 | M1–M9 | 🎉 Production stable |
 
-**Buffer month:** October. If M5 slips, compress M6/M7 scope — not the Jan 1 stable target unless explicitly re-planned.
+**Buffer month:** October. M5 shipped on `main`; remaining prerelease work is **M7 close-out → M8 → M9**, not re-expanding M5/M6 scope.
 
 ---
 
@@ -27,18 +27,30 @@
 
 Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full policy: [docs/VERSIONING.md](docs/VERSIONING.md).
 
+| Milestone | Status (Sep 2026) | Notes |
+|-----------|-------------------|-------|
+| M0–M4 | ✅ Done | Bugs, corpus, Code Navigator, UI Forms |
+| M5 | ✅ Done | Buffer, optimizer hints, Narcea Tier A/B |
+| M6 | ✅ Teaser | Text causal chain; visual panel → v6.1 |
+| M7 | 🔄 Close-out | Core async/sync Python ✅; Windows e2e, Phase 2 numpy ecosystem pending |
+| M8 | 🔄 Partial | `Let` ✅; FFI syntax + stress tests pending |
+| M9 | 🔄 Pending | Installer smoke; Asset Library ✅ live |
+
 ---
 
 ## 5.3 line — shipped (Jul–Aug 2026)
 
-**Latest public beta:** `v5.4.0-beta1` (Aug 30, 2026) — on the **5.x** train toward stable **`v6.0.0` (VG6)**, target Jan 1, 2027.
+**Latest public beta tag:** `v5.4.0-beta1` (Aug 30, 2026). **Current `main`:** v5.4.0-beta2 prep (M5 complete; Oct 15 tag planned).
 
 **Milestones included:**
 - ✅ M1 — Critical bug fixes
-- ✅ M2 — Corpus validation (54+ examples)
+- ✅ M2 — Corpus validation (57 examples as of Sep 2026)
 - ✅ M3 — Code Navigator upgrade
 - ✅ M4 — UI Forms experimental plugin
-- 🔄 M5 — Narcea AI pair (partial; continues in 5.4)
+- ✅ M5 — Narcea AI pair + Buffer + optimizer hints (on `main`)
+- ✅ M6 — Causal chain teaser (on `main`)
+- 🔄 M7 — Python bridge close-out
+- 🔄 M8 — Language parity (`Let` done; FFI pending)
 
 ### Beta7 highlights (Aug 21, 2026)
 
@@ -65,11 +77,11 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 | Beta2 | Jul 15 | Python int/float decode fix, `IsNot`, ByRef write-back |
 | Beta1 | Jul 3 | Narcea floating window, Thrust demo |
 
-**Known issue (carried forward):** VG numeric literals sent to Python via `Array(0, 5)` arrive as float — [ROADMAP.md](ROADMAP.md), v6.1 candidate.
+**Python int encode:** mitigated by opt-in msgpack C2 (`vg/python/use_typed_protocol`); JSON-default users use `CInt()`. Literal `0i` syntax → v6.1.
 
 ---
 
-## 5.4.0-beta1 — shipping (Aug 30, 2026)
+## 5.4.0-beta1 — shipped (Aug 30, 2026)
 
 **Milestone:** pre-M5 (performance + IDE sidecar)
 
@@ -90,52 +102,57 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 
 ---
 
-## 5.4.0-beta2 — M5 (Oct 15, 2026)
+## 5.4.0-beta2 — M5 (+ prep tracks) (Oct 15, 2026 tag)
 
-**Milestone:** M5 — Narcea AI pair
+**Milestone:** M5 complete; M6/M7/M8 prep landed on `main` (Sep 2026)
 
-**Expected features:**
-- End-to-end “describe form → working VG code” on Claude + Ollama
-- Buffer type (`Dim mem As Buffer`) + BufRead/BufWrite opcodes
-- Optimizer hints (`@fast_loop`, `@accumulator`, `@simd_candidate`)
-- Provider polish (DeepSeek, Qwen, Codeium, Amazon Q)
+**Shipped on `main`:**
+- Buffer type (`Dim mem As Buffer`) + `OP_BUF_*` opcodes
+- Optimizer hints (`@fast_loop`, `@accumulator`, `@simd_candidate`, `@pure`)
+- Narcea Tier A/B golden-path validation
+- Causal chain teaser (C++ API + Code Navigator)
+- Python msgpack C2 + `PyCallAsync`/`Await` + demo suite
+- `Let` block scope; AST Godot type constructors
+- **916/916** regression assertions; **57** corpus examples
 
-**Release criteria:**
-- 50+ corpus examples pass
-- No regressions from 5.4.0-beta1
-- Narcea integration / agent-loop tests green
+**Release criteria (for tag):**
+- [x] M5 features on `main` with regression tests
+- [x] No regressions from 5.4.0-beta1 baseline
+- [ ] Git tag `v5.4.0-beta2` at Oct 15 cut
+- [ ] GitHub Pre-release notes published
 
 ---
 
-## 5.5.0-beta1 — M6–M7 (Nov 2026)
+## 5.5.0-beta1 — M7–M8 (Nov 2026)
 
 **Milestones:**
-- M6 — Causal Chain text-mode report
-- M7 — Python library integration close-out (numpy Phase 1, Windows async validation)
-- Track D follow-ups — image `.vgd` sections, CSV bulk export, Narcea data-file prompts
+- M7 — Python bridge **close-out** (not core path — that's done)
+- M8 — `Declare`/`DllImport`, Try/Catch/Lambda/`?.`/`:=` stress corpus
 
 **Expected features:**
-- Static AST call-chain report for forms
-- `PyImport` / `PyCallAsync` / `Await` hardened on Linux + Windows
-- numpy/opencv basic demos updated
-- Track D follow-ups — image `.vgd` sections, CSV bulk export from sidecar
+- Windows e2e: `PyCallAsync` + `Await` on clean VM
+- numpy/opencv (or pandas) Phase 2 demo + tests
+- Worker hardening: venv detection, `PYTHONPATH`, timeout recovery
+- C++ FFI syntax + packaging docs
+- Optional: large-array binary lane (>100×100) or defer to v6.1
+
+**Explicitly not in 5.5 scope:** M6 visual graph panel (v6.1), tagged stack VM (not pursued).
 
 ---
 
 ## 6.0.0-rc1 (Dec 1, 2026)
 
-**Milestones:** M6–M8
+**Milestones:** M8–M9
 
 **Expected features:**
-- Try/Catch/Finally, Lambda, `?.`, AndAlso/OrElse corpus tests
-- `Let` block-scoped variables
-- C++ FFI (`Declare` / `DllImport`) documentation and packaging
-- Python encode-path literal typing mitigations where feasible
+- Try/Catch/Finally, Lambda, `?.`, AndAlso/OrElse stress corpus
+- C++ FFI Windows validation + docs
+- Installer smoke on clean Linux + Windows VMs
 
 **Testing:**
-- 60+ corpus examples
+- 57+ corpus examples (current baseline)
 - Python bridge fuzzing (stdlib + numpy)
-- C++ FFI validation (Linux, Windows, macOS)
+- C++ FFI validation (Linux + Windows)
 
 ---
 
@@ -167,59 +184,11 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 # Full regression suite
 ./run_test_suite.sh
 
-# CI-style VG-only gate
-./run_test_suite.sh --vg-only
-
-# Editor smoke (after GDScript plugin changes)
+# CI smoke (GDScript addon parse + load)
 scripts/ci_smoke.sh projects/vg_narcea_test
 
-# Build editor binary
-scons target=editor -j$(nproc)
-
-# Build template_debug binary
-scons -j$(nproc)
+# Python bridge demos
+scripts/run_python_bridge_demo.sh
 ```
 
-### Release Notes Template
-
-```markdown
-## vX.Y.Z-betaN / vX.Y.Z
-
-**Release Date:** YYYY-MM-DD
-**Milestone:** M# — short name
-
-### Features
-- Feature description
-
-### Bug Fixes
-- Bug title + commit hash
-
-### Known Issues
-- Title + workaround link
-
-### Installation
-See docs/guides/GET_STARTED.md and GitHub Releases assets.
-
-### Compatibility
-- Godot 4.6.1+
-- Linux x86_64, Windows x86_64 (desktop)
-- Python 3.10+ (Python bridge)
-```
-
-### GitHub Release Checklist
-
-- [x] Tag: `git tag -a v5.4.0-beta1 -m "…"`
-- [ ] Push: `git push origin main && git push origin v5.4.0-beta1`
-- [ ] Upload installer + Asset Library zip
-- [x] Release notes from CHANGELOG; title includes milestone name (not tag)
-- [ ] Mark **Pre-release** for beta/rc; **Latest** only for 6.0.0 stable
-- [x] Update GET_STARTED.md and README release section
-- [x] Update ROADMAP, DOCS hub, Asset Library submission doc
-- [ ] Deploy GitHub Pages (`website/temporary-placeholder-site/`)
-
----
-
-## Reminder
-
-**Current release:** `v5.4.0-beta1` (Aug 30, 2026) — full benchmark wins + Beta Showcase · road to **VG6** (`v6.0.0` stable, Jan 2027)  
-**Next milestone gate:** M5 → `v5.4.0-beta2` (Oct 15, 2026)
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full pre-release checklist.

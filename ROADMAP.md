@@ -1,9 +1,9 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: August 30, 2026  
-**Current Version**: 5.4.0-beta1 (current public beta) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
+**Last Updated**: September 2, 2026  
+**Current Version**: 5.4.0-beta2 (on `main`; tag at Oct 15 cut) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
 **Current Scope**: M0–M9 milestones (Jul 2026 – Jan 2027 stable release)  
-**Next Cut**: v5.4.0-beta2 (Oct 15, 2026) — see [`RELEASE_SCHEDULE.md`](RELEASE_SCHEDULE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md)
+**Next Cut**: 5.5.0-beta1 (Nov 2026) — M7 close-out + M9 prep — see [`RELEASE_SCHEDULE.md`](RELEASE_SCHEDULE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md)
 
 **Roadmap Scope**:
 - ✅ **M0–M9 milestones** (Jul 2026 – Jan 1 2027): Current active development
@@ -32,6 +32,23 @@ LLMs were trained on decades of VB/VBA/VBScript. That prior knowledge transfers 
 | **Draw grid-loop fusion** | Hot `_Draw` paths compile to native `OP_DRAW_*_GRID_LOOP` opcodes |
 | **CI benchmark regression gate** | `scripts/benchmark_regression_check.sh` blocks speed regressions |
 | **891/891 regression assertions** | `.vg` test suite green (122 runnable files) |
+
+## ✅ Shipped in v5.4.0-beta2 (Sep 2026 on `main`; Oct 15 tag)
+
+| Feature | Notes |
+|---------|--------|
+| **M5 — Buffer type** | `Dim mem As Buffer`, `OP_BUF_*` fast paths, `test_buffer_type.vg` |
+| **M5 — Optimizer hints** | `@fast_loop`, `@accumulator`, `@simd_candidate`, `@pure` — compile cleanly; runtime NOPs until optimizer consumes them |
+| **M5 — Narcea Tier A/B** | Golden-path form scaffold + Tier B platformer replay in manifest |
+| **M6 teaser — Causal chain** | C++ `vg_analyze_causal_graph`, Code Navigator button, 8 headless fixtures |
+| **M7 — Python C1/C2** | Typed JSON encode + opt-in msgpack (`vg/python/use_typed_protocol`), `test_py_msgpack_typed.vg` |
+| **M7 — `PyCallAsync` + `Await`** | `PyAsyncTask` registered; `OP_AWAIT` yields until complete; demo suite + `test_py_await.vg` |
+| **M8 — `Let` block scope** | `OP_PUSH_SCOPE` / `OP_POP_SCOPE`; IntelliSense + Command Help |
+| **Track A — AST Godot ctors** | Shared `visual_gasic_godot_ctors.h`; `Vector2i`/`Rect2i`/`Color` on AST fallback |
+| **916/916 regression assertions** | `.vg` test suite + causal-chain fixtures (see [`KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md)) |
+| **57 corpus examples** | Generics, optional types, advanced exception patterns added |
+
+Full notes: [`CHANGELOG.md`](CHANGELOG.md) — `[5.4.0-beta2]`
 | **VG Beta Showcase** | `projects/vg_beta_showcase/` — Backrooms hub tour, shader reel, About VG, Squash tease, Neon Runner, Vector Storm; Movie Maker script |
 | **Track D groundwork** | `DataFile` / `.vgd` sidecar, context rail preview, Tiled import hooks |
 | **CInt VB6 rounding** | `CInt(3.7)` → 4, not truncated 3 |
@@ -855,6 +872,25 @@ Short, finishable list. **No new aspirational items.**
 
 **Why January 1:** The AI code trust collapse window runs through Q4 2026 – Q2 2027. A credible, working stable release by January 1 2027 puts VG in position to be the answer when the question becomes mainstream — and allows time to ship Python integration, C++ interop, `Let` keyword, and language parity before tagging stable.
 
+### ✅ Decisions closed (Sep 2026)
+
+| Decision | Outcome |
+|----------|---------|
+| **Tagged operand stack** | ❌ **NOT PURSUED** — ~6% arith win, net loss on realistic code ([`docs/vm_tagged_stack_migration.md`](docs/vm_tagged_stack_migration.md)) |
+| **M6 visual graph panel** | ⏭️ **v6.1+** — text-mode teaser ships in v6.0; interactive graph deferred |
+| **M5 Buffer + optimizer hints** | ✅ **Shipped** — see v5.4.0-beta2 |
+| **Python int encode on JSON wire** | ✅ **Mitigated** — msgpack C2 opt-in; `0i` literal syntax → v6.1 candidate |
+
+### 📍 Current focus (Sep 2026 → Jan 2027)
+
+| Milestone | Status | Remaining for v6.0 stable |
+|-----------|--------|---------------------------|
+| **M5** | ✅ **DONE** | — (Narcea Tier A/B validated on `main`) |
+| **M6** | ✅ **Teaser done** | Visual panel explicitly v6.1+ |
+| **M7** | 🔄 **Close-out** | Windows e2e, worker hardening, numpy Phase 2 (opencv/torch/pandas), large-array binary lane, typed-protocol default-on decision |
+| **M8** | 🔄 **Partial** | `Let` ✅; `Declare`/`DllImport`, Try/Catch/Lambda/`?.`/`:=` stress corpus |
+| **M9** | 🔄 **Pending** | Installer smoke (Linux + Windows), docs/corpus release gate (Asset Library ✅ live) |
+
 | Milestone | Target Date | Exit Criteria |
 |-----------|------------|---------------|
 | **M0 — Restart** | July 1 2026 | Codebase reviewed, bug list confirmed, all known regressions documented |
@@ -863,14 +899,10 @@ Short, finishable list. **No new aspirational items.**
 | **M2 — Corpus / examples proof** | August 15 2026 | ✅ **DONE** (Jun 30) — 44/44 corpus examples pass across basics, control flow, strings, arrays, dictionaries, classes, file I/O, math, state machines, and Godot integration. |
 | **M3 — Code Navigator upgrade** | August 31 2026 | ✅ **DONE** (Jul 1) — Object dropdown surfaces all scripts on all scene nodes; GDScript `func` definitions in Event dropdown; clicking navigates to correct line. |
 | **M4 — UI Forms experimental** | September 30 2026 | ✅ **DONE** (Jul 1) — Control picker popup → ghost placement → single-click place → double-click wire → `Sub Button1_Click()` in `Form1.vg`. Save/reopen preserves everything. Gated behind `vg/enable_experimental_plugins`. |
-| **M5 — Narcea AI pair** | October 15 2026 | (1) "Describe a form in English → Narcea generates working VG code" demo runs end-to-end on Claude and local Ollama. (2) **NEW: Buffer Type** — Dim mem As Buffer; BufRead/BufWrite/BufRead16/BufWrite32 opcodes for zero-overhead byte-level access; 10-100× faster than Array(As Byte) for emulation/I/O. (3) **NEW: Optimizer Hints** — @fast_loop, @accumulator, @simd_candidate directives; user-extensible optimizer; users tune hot paths without compiler pattern-matching. Expected 1.5-3× speedup on common loops. |
-✅ **DeepSeek, Qwen, and other low-cost API providers on the roadmap** — provider list to be expanded in v5.4 (Phase 6c): DeepSeek (Chat API, function-calling via OpenAI-compatible schema), Qwen (DashScope / Alibaba Cloud API), and any OpenAI-compatible endpoint. Goal: give users affordable cloud alternatives to Claude/OpenAI for agent-mode coding. See `vg_ai_providers.gd` and `vg_ai_function_calling.gd` — new providers need a `ProviderInfo` entry and, if they advertise native function-calling, a `PROVIDERS_WITH_NATIVE_FC` entry. Free/cheap model tiers (DeepSeek-V2, Qwen2.5-Coder-32B-API) should be enabled by default alongside existing local Ollama path.
-✅ **Codeium (Windsurf) and Amazon Q Developer agents added to roadmap (v5.4+)** — both offer free/low-cost tiers and support OpenAI-compatible API patterns. Codeium's Windsurf models (stable-code, stable-cascade) and Amazon Q Developer's LLM backend are accessible via API. These expand the "budget AI assistant" tier for users who want agent-mode coding without Claude/OpenAI pricing. Implementation reuses the existing OpenAI-compatible provider path. |
-| **M6 — Causal Chain Visualization (teaser)** | October 31 2026 | ✅ **Partial (Sep 2026)** — C++ `VisualGasicLanguage.vg_analyze_causal_graph`, `vg_causal_chain.gd`, Code Navigator **Show Causal Chain** button, Context Rail preview, 8 headless fixtures. Visual graph panel is v6.1+. |
-| **M7 — Python Library Integration (Tier A)** | November 15 2026 | `PyImport("numpy")` / `PyCallAsync` / `Await` works end-to-end on Linux + Windows desktop. Out-of-process worker via existing IPC/process/async stack. Native wheels (numpy, opencv) load without engine changes. Clean error on missing Python. |
-| **M7+ — Performance Optimizations (Phase 1)** | December 2026+ | (1) **~~Tagged Stack~~ — measured Sept 2026: NOT PURSUED** (prototype behind `scons tagged_stack=1`; ~6% arith win, ~5% loss on realistic code — see [vm_tagged_stack_migration.md](docs/vm_tagged_stack_migration.md)). (2) **Packed Arrays** (v6.1 candidate): Fast-path opcodes for common array patterns. (3) **SIMD Hinting** (research for v7.0): batch math opcodes with AVX hints. |
-✅ **EARLY PROGRESS (Jul 11)** — `PyImport("math")` / `PyImport("json")` + `PyCall` working end-to-end via `demo_python_bridge.vg`. Synchronous call, serialisation (json.dumps/loads), error handling, buffer processing, and graceful shutdown all tested. Demo, README, and documentation in `docs/SYSTEM_INTEGRATION.md` §17 and `docs/VisualGasic_Language_Reference.md` complete. numpy Phase 0 (array, dot, sum, linalg.norm, scalars) added to demo and tested Jul 11. **Remaining**: numpy Phase 1 (binary protocol for large arrays), Phase 2 (opencv, torch, structured data), `PyCallAsync`/`Await`, Windows validation.
-✅ **Phase 2/3 shipped (Jul 14)** — Real `PyCallAsync` implemented via `PyAsyncTask` (new `RefCounted` in `visual_gasic_py_facade.h/cpp`): runs the Python call on a background `std::thread`, mirrors `VGTask`'s public surface (`IsComplete`/`IsFailed`/`Result`/`ErrorMessage`) so VG's `Await` keyword duck-types on it with zero runtime changes. Also added: binary data lane for `PyProcessBuffer`, Windows `CreateProcess` launch path (was Linux/macOS-only), auto-restart on worker crash, a structured error model, project settings for the Python bridge, `PyEnvInfo`/`PyLastError`/`PyCallMany` helpers, and a fuller test matrix. **Remaining for M7 close-out**: Windows end-to-end validation of the new async path, numpy Phase 1 (typed binary protocol), numpy Phase 2 (opencv/torch/pandas).
+| **M5 — Narcea AI pair** | October 15 2026 | ✅ **DONE (Sep 2026)** — Buffer type, optimizer hints, Narcea Tier A/B golden path, 8 AI providers (Ollama, Claude, Gemini, DeepSeek, Qwen, Codeium, Amazon Q, Cursor). See v5.4.0-beta2 in [`CHANGELOG.md`](CHANGELOG.md). |
+| **M6 — Causal Chain Visualization (teaser)** | October 31 2026 | ✅ **Teaser done (Sep 2026)** — C++ `VisualGasicLanguage.vg_analyze_causal_graph`, `vg_causal_chain.gd`, Code Navigator **Show Causal Chain** button, Context Rail preview, 8 headless fixtures. **Visual graph panel → v6.1+.** |
+| **M7 — Python Library Integration (Tier A)** | November 15 2026 | 🔄 **Core path done; close-out pending** — `PyImport` / `PyCall` / `PyCallAsync` / `Await`, msgpack C2 (opt-in), demo suite, docs/Narcea/IntelliSense. **Remaining:** Windows e2e validation, worker hardening, numpy Phase 2 (opencv/torch/pandas), large-array binary lane (>100×100). |
+| **M7+ — Performance Optimizations (Phase 1)** | December 2026+ | (1) **~~Tagged Stack~~ — NOT PURSUED** (Sept 2026). (2) **Type-Tagged Locals** — highest ROI; research in M7, ship target v6.1. (3) **Packed Arrays** (v6.1). (4) **SIMD Hinting** (v7.0 research). |
 
 #### numpy Support — Phased Plan (within M7 scope)
 
@@ -879,7 +911,7 @@ Short, finishable list. **No new aspirational items.**
 | **0 — JSON-serializable numpy** | `numpy.array()`, `dot()`, `sum()`, `linalg.norm()`, `float32()`, scalars, small 2D arrays | ✅ **Done** (Jul 11) | All work via existing `_make_json_safe()` in `python_worker.py` (has `tolist()`/`item()` fallbacks). Demo tested with 5 operations. |
 | **1 — Type-fidelity binary protocol** | Typed msgpack wire (C2) preserving int/float/string/array distinction; eliminates float-only limitation on `Array()` args when `vg/python/use_typed_protocol = true`. Large-array PackedFloat64Array fast path still pending. | ✅ **C2 shipped (Sep 2026, opt-in)** | `vg_msgpack.cpp`, worker `--typed-protocol`, `test_py_msgpack_typed.vg`. Remaining: default-on decision, large-array binary lane (>100×100). |
 | **2 — Ecosystem expansion** | opencv (image load/process/return pixels), torch (tensor round-trip), pandas (DataFrame via JSON). Structured dtype support. | 🟡 **Not started** | ~3-5 days: (1) per-ecosystem handler patterns; (2) structured array support; (3) error quality; (4) example demos. |
-| **3 — Worker hardening** | venv detection, `PYTHONPATH` config, Windows validation, timeout recovery. | 🟡 **Not started** | ~2 days |
+| **3 — Worker hardening** | venv detection, `PYTHONPATH` config, Windows e2e validation, timeout recovery. | 🟡 **Partial** | Windows `CreateProcess` launch shipped Jul 2026; **`Await` e2e Sep 2026**. Remaining: venv/`PYTHONPATH`, timeout recovery, clean-VM Windows smoke. |
 
 **Current limitation**: Two separate int/float type-loss bugs in the Python bridge (discovered + fixed/documented Jul 15, 2026):
 1. ✅ **Decode-path int loss (FIXED)** — Worker sends correct Python int (e.g., `math.floor(5.7)` → `5`), but Godot's `JSON::parse_string()` collapsed every number to float. Fixed via custom `vg_json_parse_typed()` decoder in C++ that preserves int vs float semantics. Verified end-to-end via `demo/test_python_int_float.vg` — scalar int, negative int, nested dict/array, mixed types all round-trip correctly.
@@ -948,9 +980,9 @@ Short, finishable list. **No new aspirational items.**
 ---
 
 
-✅ **EARLY PROGRESS (Jul 11)** — C++ FFI interop proven via `demo_ffi_cpp_lib.vg` (Vec2 C++ class with C ABI wrappers: create/destroy, get/set, length, dot product, scale, add, normalize, string representation). All 7 sections pass on Linux. `QuickCall` alias added to `visual_gasic_ffi.cpp` for docs-compatible calling. Demo, README, and documentation in `docs/SYSTEM_INTEGRATION.md` §1 and `docs/VisualGasic_Language_Reference.md` complete. **Remaining**: `Declare`/`DllImport` syntax, Windows validation, packaging docs. |
-| **M9 — Release readiness** | November 28 2026 | (1) ✅ **Godot Asset Library acceptance: COMPLETE (Aug 13, 2026)** — Now live at https://store.godotengine.org/asset/visual-gasic/visual-gasic/. (2) Installer smoke-tested on clean Linux + Windows VMs — first-run works without manual steps. (3) 50+ corpus examples pass. (4) README and CHANGELOG reflect v6.0 features accurately. |
-| **🎉 Stable v6.0 release** | January 1 2027 | All M1–M9 complete. Installer works first try. ✅ Asset Library submission accepted and live. Public announcement. |
+✅ **FFI demo (Jul 11, partial Sep 2026):** Vec2 C++ class via C ABI — `demo_ffi_cpp_lib.vg`, `QuickCall` alias, docs in §1. **Remaining:** `Declare`/`DllImport` syntax, Windows validation, packaging docs. |
+| **M9 — Release readiness** | November 28 2026 | 🔄 **Partial** — Asset Library ✅ live (Aug 2026). **Remaining:** installer smoke (Linux + Windows), docs/corpus release gate, tag rc cuts. |
+| **🎉 Stable v6.0 release** | January 1 2027 | All M1–M9 complete. Installer works first try. Public announcement. |
 
 **Buffer**: October is the buffer month. If M4 slips, M5 and M6 compress, not the release date.
 
@@ -1396,13 +1428,11 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | Feature | Description | Priority | Rationale |
 |---------|-------------|----------|-----------|
 | **~~Unboxed Typed Value Stack Redesign~~ — MEASUREMENT RESULT (NOT PURSUED, v6.1+)** | **Performance optimization (measured Sept 1, 2026 — recommend HOLD).** Prototyped behind `VG_TAGGED_STACK` flag: unbox operand stack (`std::vector<StackValue>` int64/float64/bool tags instead of 24-byte Variant) for arith/compare opcodes. Measured two-point (1M/100k iters) instruction delta via `perf stat -e instructions:u`: **`BenchArithStack` (14 unboxed ADD/SUB+cmp/iter) on 6.1% faster, but `BenchArithNoFuse` (realistic code) on 4.8% *slower*** because locals stay boxed → each load/store pays a Variant↔StackValue conversion tax. **Conclusion:** Stack-only wins only when generic stack arithmetic dominates (ceiling ~6%); net-negative on normal code. **Root cause:** The 6.2× GDScript gap (8,323 vs 1,338 instr/call) is NOT operand-stack boxing — it's boxed *locals* + per-opcode dispatch + call marshalling. Full typed-VM conversion (unboxed locals + fused local opcodes + stack) would be required to capture the theoretical 2–3× win, but that is a multi-month effort for the team. **Recommendation:** HOLD. If perf is revisited, prioritize (a) unboxed *locals* (removes the conversion tax), (b) per-opcode dispatch overhead, (c) fused `OP_*_LOCAL_I64_STACK` opcodes. Slice code flag-gated in src/ and uncommitted. **Files:** `src/visual_gasic_stack_value.h`, `src/visual_gasic_stack_value_selftest.cpp`, `src/visual_gasic_bytecode.h`, `src/visual_gasic_instance_bytecode_vm.cpp` (flag-gated edits), `docs/vm_tagged_stack_migration.md` (migration plan for future reference). Full measurement details: `/memories/repo/vg_bytecode_perf.md` (top entry) and `/memories/session/vm_perf_sprint.md`. | Low | Measurement showed the isolated stack optimization does not deliver promised returns. Multi-week effort no longer justified. Future perf work should target the real bottlenecks (typed locals, dispatch, fused local opcodes) instead. |
-| **`Let` keyword — block-scoped variables** | Add `Let x As Type` as a block-scoped variable declaration (C++/JS semantics: variable is re-initialized on each block entry and destroyed on exit). `Dim` retains VB6 sub-scope hoisting behavior. This keeps VB6 compatibility while giving C++/modern programmers an intuitive opt-in for loop-local variables. `Let` is already obsolete in VB6 (it was just an optional prefix for assignment: `Let x = 5`), so repurposing it is safe and zero-breaking. AI code generators trained on JavaScript will naturally reach for `let`-style semantics inside loops — this makes their output correct without restructuring. IDE IntelliSense should suggest `Let` when `Dim` is typed inside a block. Runtime: requires a scope stack in the bytecode VM (push/pop on block enter/exit). Implementation notes: (1) parser: if keyword is `LET` followed by an identifier and `AS`, treat as block-scoped `DimStatement` with a `is_block_scoped` flag; (2) compiler: don't hoist to sub-level slots — allocate a fresh slot on each block entry via a new `OP_PUSH_SCOPE`/`OP_POP_SCOPE` pair; (3) VM: small scope stack alongside `locals[]`. See also: conversation thread Jun 26, 2026. | High |
+| **`Let` keyword — block-scoped variables** | ✅ **Shipped v5.4.0-beta2** — `Let x As Type` with `OP_PUSH_SCOPE`/`OP_POP_SCOPE`; IntelliSense + Command Help updated. | — |
 | **AST Interpreter Performance Overhaul** | **CRITICAL BLOCKER for emulator use cases.** The C64/GBA emulator demos currently run at ~600-700 cycles/sec because cross-module Subs/Functions fall back to slow tree-walk AST interpretation instead of bytecode. Real hardware: ~985,000 cycles/sec. Fix requires either: (a) enabling bytecode compilation for Class methods (not just module-level Subs), or (b) implementing a specialized fast path in the AST interpreter for hot loops (cache node evaluation, reduce allocations). Current bottleneck confirmed: `C64_Step()` and `Vic_Tick()` are tree-walked ~985K times per second. Estimated impact: 20–50× speedup would bring emulation from "glacial 30+ minute boot" to "real-time playable" (~5–10 sec to READY prompt). **Timeline:** v6.0 stable must have a solution (either full bytecode for methods or fast-path AST). Defer implementation details until core language features (Nullable Types, Generics) are finalized. | **Critical** | Determines whether VG is viable for performance-critical applications (emulators, physics engines, audio DSP). Current state is unusable for real-time code. Blocking C64/GBA demo quality. Fix is mandatory for v6.0 credibility. |
-| **Fix: AST Evaluator Type-Constructor Dispatch** | **Known bug (documented Jul 30 2026).** Bytecode compiler recognizes `Vector2i()`, `Rect2i()`, `Color()`, etc. as type constructors (emits `OP_NEW_OBJECT`), but AST tree-walk evaluator has no equivalent dispatch. Calling e.g. `Rect2i(...)` in a Sub that's fallen back to AST interpretation throws `Sub or Function not defined`. Found while debugging C64 emulator `BlitImage` calls. **Fix scope:** Add type-constructor dispatch to `VisualGasicExpressionEvaluator::evaluate_expression()` (C++ side) for all Godot built-in constructors. Mirror the bytecode path (`src/visual_gasic_compiler.cpp` line ~6953 `_godot_type_ctors[]`). **Fallback:** If this doesn't make v6.0, defer to v6.1 with a workaround (wrap type constructors in module-level helper functions). | High | Blocks cross-module code using Godot type constructors. Low frequency in typical code, but high severity (silent crashes). Pre-v6.0 fix preferred; v6.1 fallback acceptable. |
-| **Full Python library support** | Include full Python library support in v6.0 so VG projects can use Python ecosystems through a supported integration path. Start with a stable bridge/service architecture and document export/runtime limits clearly. Detailed implementation plan: [`/memories/repo/v6.0_blockers.md`](/memories/repo/v6.0_blockers.md), section "v6.0 plan — Full Python library support". |
-🟡 **Early demo (Jul 11):** Phase 0 (stdlib + numpy JSON-serializable ops) complete. Phase 1–3 planned. See numpy phased plan above. | High |
-| **C++ library interoperability support** | Add a supported C++ interop path (native bridge/FFI + packaging docs) so VG projects can call external C++ libraries without custom engine forks. Ship desktop-first and clearly document mobile/web constraints. |
-🟡 **Early demo (Jul 11):** Vec2 C++ class called via C ABI wrappers — create/destroy, get/set, length, dot, scale, add, normalize, to_string. `QuickCall` alias added. All tested and documented. **Remaining:** `Declare`/`DllImport` syntax, Windows validation, packaging docs. | High |
+| **Fix: AST Evaluator Type-Constructor Dispatch** | ✅ **Fixed v5.4.0-beta2** — shared `visual_gasic_godot_ctors.h`; AST + bytecode paths aligned. | — |
+| **Full Python library support** | Include full Python library support in v6.0 so VG projects can use Python ecosystems through a supported integration path. **Shipped core (Sep 2026):** stdlib + numpy JSON, msgpack C2, `PyCallAsync`/`Await`, demo suite. **Remaining:** Phase 2 ecosystem (opencv/torch/pandas), Windows e2e, worker hardening, large-array lane. Plan: [`docs/SYSTEM_INTEGRATION.md`](docs/SYSTEM_INTEGRATION.md) §17. | High | M7 close-out |
+| **C++ library interoperability support** | Supported C++ interop path (native bridge/FFI + packaging docs). Desktop-first; document mobile/web constraints. **Partial (Sep 2026):** Vec2 demo via C ABI + `QuickCall`. **Remaining:** `Declare`/`DllImport` syntax, Windows validation, packaging docs. | High | M8 |
 | **Browser embed stack** | Add a browser surface to VG for InfoView-style workflows and web-powered tools. The goal is a VG-owned browser/window experience that feels integrated into the app and supports the project's browser-driven workflows. **Precursor:** v6.1 Narcea `fetch_url` tool (read-only HTTPS, agent loop) — see [Narcea Online Data](#v61-roadmap-narcea-online-data-after-v60-stable--jan-2027). | High |
 | **Java library support (v6.x, Android-first)** | Add Java interop for Android plugins and Java ecosystems, with import tooling and runtime bridge documentation. Stage this for v6.x after Python/C++ foundations are stable. | Medium |
 | **AGCK advanced behaviors / user templates** | Promote hard-coded actor magic numbers (`rotation_speed`, `snap_angle_deg`, `jump_force`, `jump_velocity`, etc.) into actor-data fields, surface them in an "Advanced" card in the Actor editor, add Save/Load Template buttons that round-trip user-authored game templates as JSON in `user://agck_templates/`. Long-term: extract behaviors into external `.vg` files with typed param schemas. Plan parked in [`/memories/repo/visualgasic_todo.md`](/memories/repo/visualgasic_todo.md). | High |
@@ -1479,11 +1509,11 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **M2** | 44 corpus examples pass (all domains: basics, control flow, strings, arrays, dicts, classes, I/O, math, state machines, Godot) | Aug 15 | ✅ **DONE** (Jun 30) |
 | **M3** | Code Navigator upgrade (#7): multi-file symbol search, definition/reference indexing, call hierarchy | Aug 31 | ✅ **DONE** (Jul 1) |
 | **M4** | UI Forms experimental (#8–#12): VB6 visual form designer, control picker popup, ghost placement, signal wiring, two-layer events | Sep 30 | ✅ **DONE** (Jul 1) |
-| **M5** | Narcea AI pair (#13): pair-programming mode, provider routing, system prompt templates. **NEW:** Buffer Type (zero-overhead byte access) + Optimizer Hints (@fast_loop, @accumulator directives). | Oct 15 | 🔄 **NEXT** — ✅ 8 providers + architecture (Jul 13); 🚀 **Performance foundation laid (Aug 1):** Parts D/E/F bytecode VM optimizations (+47% C64 throughput, general benefit to all VG code). Remaining: Buffer Type (1-2 weeks), Optimizer Hints (1-2 weeks). |
-| **M6** | Causal Chain text-mode (#14): C++ AST API, `vg_causal_chain.gd`, Code Navigator + Context Rail UI | Oct 31 | ✅ **Partial (Sep 2026)** — text mode + 8 fixtures; visual panel v6.1 |
-| **M7** | Python Library Integration: `PyImport` / `PyCallAsync` / `Await` via out-of-process worker. numpy, opencv, torch usable from VG scripts. | Nov 15 | 🟡 **Phase 2/3 + C2 msgpack done** (Sep 2026): async path, Windows launch, typed protocol opt-in. numpy Phase 1 large-array lane + Phase 2 ecosystem pending |
-| **M8** | Language parity (Try/Catch/Lambda/`?.` corpus tests), `Let` block-scoped vars, C++ library interop via `Declare`/`DllImport`, optional named arguments (`:=`). **Post-v6.0 (v6.1):** `Interface...End Interface`, `Using...End Using`, Programmer's Reference runtime harness — see [v6.1 Programmer's Reference gaps](#programmers-reference--remaining-language-gaps-v61). | Nov 22 | 🟡 **Early demo done** (Jul 11): Vec2 C++ class via C ABI, `QuickCall` alias |
-| **M9** | Release readiness: Asset Library submission, installer smoke test (Linux + Windows), 50+ corpus, docs current | Nov 28 | — |
+| **M5** | Narcea AI pair (#13): Buffer Type, Optimizer Hints, Tier A/B golden path, 8 providers | Oct 15 | ✅ **DONE** (Sep 2026) — shipped on `main` as v5.4.0-beta2 prep |
+| **M6** | Causal Chain text-mode (#14): C++ AST API, `vg_causal_chain.gd`, Code Navigator + Context Rail UI | Oct 31 | ✅ **Teaser done** (Sep 2026) — visual panel → v6.1 |
+| **M7** | Python bridge: `PyImport` / `PyCallAsync` / `Await`, msgpack C2, numpy demos | Nov 15 | 🔄 **Close-out** — core Linux path ✅; Windows e2e, Phase 2 ecosystem (opencv/torch/pandas), large-array lane pending |
+| **M8** | Language parity: Try/Catch/Lambda/`?.`/`:=` tests; `Let`; `Declare`/`DllImport` FFI | Nov 22 | 🔄 **Partial** — `Let` ✅ (beta2); FFI demo ✅; syntax + stress corpus pending |
+| **M9** | Release readiness: installer smoke, 50+ corpus, docs current | Nov 28 | 🔄 **Pending** — Asset Library ✅ live (Aug 2026) |
 | **v6.0** | Stable release | Jan 1 2027 | — |
 | **Bugfix** | C64 Emulator: native `FOR`/assignment statements raised `?SYNTAX ERROR` on run — **FIXED Sep 2026**. Root cause was NOT a 6502 CPU-core or ROM emulation gap (CPU/ROM traced instruction-by-instruction and confirmed correct/unmodified); it was VG's own `c64_main.vg` BASIC tokenizer omitting the 8 single-character operator tokens (`+ - * / ^ > = <` → `$AA`-`$B3`) that real C64 BASIC V2 tokenizes alongside its 68 keyword tokens (confirmed via c64-wiki.com). Any statement with `=` (virtually all `FOR`/assignment statements) got a literal ASCII byte instead of the ROM-expected token, so the real ROM correctly rejected it. Fixed by adding `OperatorToken()` tokenization to `TokenizeLine()` in `c64_main.vg`, respecting string-literal/REM boundaries. Verified: `FOR X=1 TO 5 / PRINT X / NEXT X` now prints 1-5; 855/855 regression suite unaffected. Full findings: `/memories/repo/c64_native_for_loop_bug.md`. | Sep 2026 | ✅ **DONE** (Sep 2026) |
 
