@@ -1,0 +1,6 @@
+' Backward-compatible alias for older README / bookmark links.
+' Canonical example: 01_event_handler_button.vg
+'
+' https://github.com/xgreenrx-star/VisualGasic/blob/main/corpus/10_godot_integration/01_event_handler_button.vg
+
+#Include "01_event_handler_button.vg"

@@ -90,7 +90,7 @@ Quick reference: which examples demonstrate which language features?
 | **Game/App Patterns** | | |
 | State machines | 09_state_machines (all) | ✅ |
 | **Godot Integration** | | |
-| Event handlers | 10_godot_integration/01_event_handler | ✅ |
+| Event handlers | 10_godot_integration/01_event_handler_button.vg | ✅ |
 | Timers | 10_godot_integration/02_timer_event | ✅ |
 | Input handling | 10_godot_integration/03_input_handling | ✅ |
 | Signals | 10_godot_integration/04_signal_connect | ✅ |
