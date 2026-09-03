@@ -7,7 +7,8 @@ not symlinked copies) and reports issues with the [capabilities] block:
 
   - capabilities outside the documented namespaces:
         asset_editor.*, asset_generator.*, game_builder.*,
-        panel.*, command.*
+        panel.*, command.*, form_designer.*, ui_forms.*,
+        ai.*, vector.*
   - extensions with leading dots ("png" is right, ".png" is wrong)
   - extensions that aren't lowercase
   - priority outside the recommended 1..100 range
@@ -38,6 +39,10 @@ KNOWN_NAMESPACES = {
     "game_builder",
     "panel",
     "command",
+    "form_designer",
+    "ui_forms",
+    "ai",
+    "vector",
 }
 
 # Plugin.cfg paths to check. Only scan the canonical addons/ tree —
