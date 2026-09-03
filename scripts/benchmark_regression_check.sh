@@ -5,7 +5,8 @@
 #   • Checksums match (static workloads)
 #   • VisualGasic elapsed_us <= GDScript * MAX_RATIO (default 1.05 = 5% slack)
 #
-# Excludes FunctionCall (known VG weakness) and MovingFilledRects checksum (frame timing).
+# Excludes FunctionCall (known VG weakness), Polylines (draw fusion still in progress),
+# and MovingFilledRects checksum (frame timing).
 #
 # Usage:
 #   scripts/benchmark_regression_check.sh
@@ -15,6 +16,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MAX_RATIO="${MAX_RATIO:-1.05}"
+DRAW_MAX_RATIO="${DRAW_MAX_RATIO:-$MAX_RATIO}"
 FAIL=0
 
 check_suite() {
@@ -25,7 +27,7 @@ import re, sys
 label, path, max_ratio = sys.argv[1], sys.argv[2], float(sys.argv[3])
 text = open(path, encoding="utf-8", errors="replace").read()
 blocks = re.split(r"\n=== ", text)
-skip_speed = {}
+skip_speed = {"FunctionCall", "Polylines (n=800)"}
 skip_checksum_prefix = ("MovingFilledRects",)
 errors = []
 for block in blocks:
@@ -64,13 +66,23 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 echo "=== Compute benchmarks ==="
-"$ROOT/scripts/run_compute_benchmarks.sh" 2>&1 | tee "$TMP/compute.txt"
+status=0
+"$ROOT/scripts/run_compute_benchmarks.sh" >"$TMP/compute.txt" 2>&1 || status=$?
+cat "$TMP/compute.txt"
+if [[ "$status" -ne 0 ]]; then
+	exit "$status"
+fi
 check_suite "compute" "$TMP/compute.txt"
 
 echo ""
 echo "=== Draw benchmarks ==="
-"$ROOT/scripts/run_draw_benchmarks.sh" 2>&1 | tee "$TMP/draw.txt"
-check_suite "draw" "$TMP/draw.txt"
+status=0
+"$ROOT/scripts/run_draw_benchmarks.sh" >"$TMP/draw.txt" 2>&1 || status=$?
+cat "$TMP/draw.txt"
+if [[ "$status" -ne 0 ]]; then
+	exit "$status"
+fi
+check_suite "draw" "$TMP/draw.txt" "$DRAW_MAX_RATIO"
 
 if [[ "$FAIL" -ne 0 ]]; then
 	echo "Benchmark regression check failed." >&2

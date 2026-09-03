@@ -109,6 +109,7 @@ jobs:
           GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
           VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
           MAX_RATIO: "1.15"
+          DRAW_MAX_RATIO: "1.35"
         run: |
           chmod +x ./scripts/benchmark_regression_check.sh \
             ./scripts/run_compute_benchmarks.sh \

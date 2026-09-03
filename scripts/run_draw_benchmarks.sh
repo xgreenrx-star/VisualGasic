@@ -34,9 +34,9 @@ echo "Running draw benchmarks (demo project)..."
 output="$(timeout 180 "$GODOT" --headless --path "$DEMO" \
 	--user-data-dir "$GODOT_USER_DATA_DIR" \
 	-s res://benchmarks/draw/run_draw_benchmarks.gd 2>&1 || true)"
-echo "$output"
+printf '%s\n' "$output" || true
 
-bench_fatal="$(echo "$output" | grep -E '^ERROR: Failed to load script|^ERROR: Failed to instantiate VisualGasicDrawBenchmark' \
+bench_fatal="$(printf '%s\n' "$output" | grep -E '^ERROR: Failed to load script|^ERROR: Failed to instantiate VisualGasicDrawBenchmark' \
 	| grep -E 'run_benchmarks|run_draw_benchmarks|bench\.vg|benchmarks/draw|VisualGasicDrawBenchmark' \
 	|| true)"
 if [[ -n "$bench_fatal" ]]; then
@@ -45,12 +45,12 @@ if [[ -n "$bench_fatal" ]]; then
 	exit 1
 fi
 
-if ! echo "$output" | grep -q '=== Visual Gasic Draw Benchmarks ==='; then
+if [[ "$output" != *"=== Visual Gasic Draw Benchmarks ==="* ]]; then
 	echo "Draw benchmark did not produce expected header output." >&2
 	exit 1
 fi
 
-if ! echo "$output" | grep -q 'VisualGasic: { "elapsed_us":'; then
+if [[ "$output" != *'VisualGasic: { "elapsed_us":'* ]]; then
 	echo "Draw benchmark did not report VisualGasic timings (extension may not have loaded)." >&2
 	exit 1
 fi
