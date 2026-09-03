@@ -157,6 +157,45 @@ That substrate looks a lot more like BASIC than it looks like Rust.
 
 VisualGasic intends to be that substrate.
 
+## Historical note: abstraction, tooling, and review
+
+Every leap in programming history looked, at first, like surrendering control.
+
+When C replaced hand-written assembly, many engineers rejected it. Early compilers
+generated slower, bulkier machine code than a skilled assembler programmer. Debugging
+was harder because the mapping from source to instructions was opaque. Critics said
+real engineers needed to understand registers and memory layout — that higher-level
+languages would produce a generation who could paste syntax but not reason about systems.
+
+They were half right and wholly wrong about the conclusion. The discipline did change.
+Developers stopped proving every cycle by hand and started proving **design, interfaces,
+and tests**. Compilers did not stay naive: optimizers, debuggers, linters, and static
+analyzers turned the "black box" into something you could trust with verification, not
+faith. Economics followed tooling: a team shipping in C in weeks beat a team hand-tuning
+assembly for months, even when individual routines were slower.
+
+Java, Python, and garbage collection repeated the pattern — "lazy" until the productivity
+gain was undeniable. Each time, the winning move was not rejecting abstraction but
+**building better guardrails** around it.
+
+AI-assisted coding is the same category of shift, with one critical difference:
+**compilers are deterministic; LLMs are probabilistic.** Input A always yields the same
+bytecode from a correct compiler. A prompt may yield B, C, or D. That is not an argument
+for pretending AI did not write the draft. It is an argument for a different job
+description. The developer becomes **reviewer and architect**: system design, explicit
+requirements, tests, diff inspection, and languages where wrong output is easy to spot.
+
+VisualGasic is aimed at that reviewer — explicit blocks, declared types, no hidden control
+flow — plus tooling (tests, bytecode visibility, causal-chain reports) around AI-generated
+`.vg`. We publish **runtime** benchmarks where VG is faster than GDScript on our suite,
+and **compile-time** benchmarks where GDScript reload is faster (~1.6–1.9× in our
+published harness). Honest tradeoffs: iteration speed is not our headline; auditable
+semantics and verified runtime behavior are.
+
+History does not guarantee every new abstraction wins. It does show that purism loses to
+teams who adopt the new layer **and** invest in the discipline and tools to make it safe.
+We are building for that second part.
+
 ---
 
 *Comments, critiques, and contributions welcome. The conversation is happening on
