@@ -107,6 +107,7 @@ jobs:
         env:
           DISPLAY: ""
           GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
           MAX_RATIO: "1.15"
         run: |
           chmod +x ./scripts/benchmark_regression_check.sh \
