@@ -15,6 +15,7 @@ This is the **canonical marketing / docs reference** for VG vs GDScript vs C++ s
 scons platform=linux target=editor
 scripts/run_compute_benchmarks.sh   | tee demo/benchmarks/bench_output.txt
 scripts/run_draw_benchmarks.sh    | tee demo/benchmarks/draw/bench_output.txt
+scripts/run_compile_benchmarks.sh   | tee demo/benchmarks/compile/bench_output.txt
 scripts/benchmark_regression_check.sh   # fails if VG loses to GD (5% slack)
 ```
 
@@ -80,6 +81,25 @@ Key enablers (Aug 2026): bytecode optimizer operand sizes for draw opcodes, whol
 
 ---
 
+## Compile / reload benchmarks (3 workloads)
+
+**Runner:** `demo/test_suites/run_compile_benchmarks.gd` · **`scripts/run_compile_benchmarks.sh`**  
+**Metric:** median `Script.reload()` elapsed µs (lower is faster) · **Scope:** tokenize + parse + compile (+ VG optimizer)
+
+| Workload | Visual Gasic µs | GDScript µs | VG vs GD |
+|----------|----------------:|------------:|---------:|
+| HelloWorld (~4 lines) | 33 | 21 | **1.57× slower** |
+| BenchCompute (~340 lines, real `bench.vg`) | 6,034 | 3,219 | **1.87× slower** |
+| SyntheticLarge (~1800 lines) | 25,225 | 15,705 | **1.61× slower** |
+
+### Compile headline (safe to advertise)
+
+> **GDScript reloads faster** in this suite (~1.6–1.9×). VG pays compile cost for bytecode + optimizer passes; **runtime** is where the published compute/draw wins apply. Normal game-script sizes are fine day-to-day; large files / heavy recompile sessions are where VG compile cost shows up most.
+
+Details: `demo/benchmarks/compile/README.md` · Raw: `demo/benchmarks/compile/bench_output.txt`
+
+---
+
 ## Combined claim (Facebook / website / README)
 
 1. **Compute:** VG faster than GDScript on **12/12** published microbenchmarks (deterministic checksums).
@@ -97,6 +117,7 @@ Key enablers (Aug 2026): bytecode optimizer operand sizes for draw opcodes, whol
 | Call inlining | `demo/prototypes/dump_bytecode.gd` on `BenchCall` — inner loop should show `OP_INC_LOCAL_I64` or fused multiply-add, not `OP_CALL` |
 | Optimizer ↔ disasm sync | Keep `visual_gasic_optimizer.cpp` draw opcode sizes aligned with `visual_gasic_script.cpp` |
 | CI | Run regression script on `target=editor` build after `src/` changes (`.github/workflows/ci.yml`) |
+| Compile time (informational) | `scripts/run_compile_benchmarks.sh` — not a regression gate |
 
 ---
 
@@ -104,6 +125,7 @@ Key enablers (Aug 2026): bytecode optimizer operand sizes for draw opcodes, whol
 
 - Compute: `demo/benchmarks/bench_output.txt`
 - Draw: `demo/benchmarks/draw/bench_output.txt`
+- Compile: `demo/benchmarks/compile/bench_output.txt`
 
 ---
 

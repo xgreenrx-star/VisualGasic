@@ -1,0 +1,5 @@
+' Compile benchmark — small script (~corpus hello world size).
+
+Sub Main()
+    Print "Hello, Visual Gasic!"
+End Sub

@@ -1,0 +1,148 @@
+Running compile benchmarks (demo project)...
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+=== Visual Gasic Compile Benchmarks ===
+Metric: median script reload time (microseconds, lower is faster)
+Phases: tokenize + parse + compile + optimizer (VG); GDScript analyzer + compile
+
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://benchmarks/compile/hello.vg
+[VG] Parse completed, errors: 0
+=== HelloWorld ===
+  lines (approx): vg=4 gd=3
+  VisualGasic reload: { "elapsed_us": 32 }
+  GDScript reload:    { "elapsed_us": 22 }
+  VG vs GDScript: 1.455x
+
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+=== BenchCompute ===
+  lines (approx): vg=284 gd=302
+  VisualGasic reload: { "elapsed_us": 6857 }
+  GDScript reload:    { "elapsed_us": 3575 }
+  VG vs GDScript: 1.918x
+
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+[VG] Parsing: user://compile_bench_large.vg
+[VG] Parse completed, errors: 0
+=== SyntheticLarge ===
+  lines (approx): vg=1805 gd=1576
+  VisualGasic reload: { "elapsed_us": 31090 }
+  GDScript reload:    { "elapsed_us": 23791 }
+  VG vs GDScript: 1.307x
+
+Compile benchmarks finished.
+Compile benchmarks finished.

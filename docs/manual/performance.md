@@ -15,6 +15,16 @@ This page summarizes the built‑in benchmark suite results for Visual Gasic ver
 - Date: **2026-08-25** (compute + draw refresh)
 - Canonical published table: **[BENCHMARK_PUBLISHED_RESULTS.md](../../BENCHMARK_PUBLISHED_RESULTS.md)**
 
+## Compile / reload time (VG vs GDScript)
+
+Separate from runtime microbenchmarks. Measures median **`Script.reload()`** time (parse + compile; VG includes optimizer passes).
+
+```bash
+scripts/run_compile_benchmarks.sh
+```
+
+**Sept 2026 (Linux, Godot 4.6.1 headless):** GDScript reload is **~1.6–1.9× faster** than VG across hello (~4 lines), `bench.vg` (~340 lines), and a ~1800-line synthetic script. Normal iteration is fine; very large files are where VG compile cost is most visible. Full table: [compile README](../../demo/benchmarks/compile/README.md).
+
 ## Latest Results (elapsed time in microseconds, lower is faster)
 
 **12 compute benchmarks faster than GDScript.** Draw suite: **9/9 workloads faster than GDScript** (Aug 2026 grid-loop fusion + FunctionCall inlining). Checksums verified on static workloads.
