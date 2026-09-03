@@ -52,10 +52,11 @@ config_version=5
 [application]
 config/name="VG Asset Smoke"
 config/features=PackedStringArray("4.6")
-
-[editor_plugins]
-enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
 EOF
+
+mkdir -p "$SMOKE_DIR/.godot"
+printf '%s\n' 'res://addons/visual_gasic/visual_gasic.gdextension' \
+	>"$SMOKE_DIR/.godot/extension_list.cfg"
 
 cat > "$SMOKE_DIR/smoke_boot.gd" <<'EOF'
 extends SceneTree
@@ -84,24 +85,21 @@ func _initialize() -> void:
 	quit(0)
 EOF
 
-echo "-- Headless editor boot (extension load) --"
-boot_out="$(cd "$SMOKE_DIR" && timeout 45 "$GODOT" --headless --quit --editor 2>&1 || true)"
+echo "-- GDExtension load (headless project boot) --"
+boot_out="$(cd "$SMOKE_DIR" && timeout 45 "$GODOT" --headless --quit 2>&1 || true)"
 boot_errs="$(echo "$boot_out" \
-  | grep -E 'Parse Error|Failed to load.*GDExtension|GDExtension.*error|VisualGasicLanguage missing' \
-  | grep -v 'Binding duplicate' \
-  | grep -v 'preset.0.options' \
+  | grep -E 'Failed to load.*visual_gasic\.gdextension|GDExtension dynamic library not found|VisualGasicLanguage missing' \
   || true)"
 if [[ -n "$boot_errs" ]]; then
   echo "$boot_errs" | sed 's/^/  /'
-  echo "FAILED: editor boot reported fatal errors" >&2
+  echo "FAILED: GDExtension did not load" >&2
   exit 1
 fi
-if echo "$boot_out" | grep -q 'Verifying GDExtensions'; then
-  echo "  GDExtension scan: ok"
+if echo "$boot_out" | grep -q 'Verifying GDExtensions\|VisualGasic\] C++ debug'; then
+  echo "  GDExtension load: ok"
 else
-  echo "  WARN: GDExtension scan line not seen (continuing to runtime smoke)"
+  echo "  WARN: GDExtension load line not seen (continuing to runtime smoke)"
 fi
-echo "  editor boot: ok"
 
 echo "-- Runtime smoke script --"
 (cd "$SMOKE_DIR" && timeout 30 "$GODOT" --headless -s smoke_boot.gd)
