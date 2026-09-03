@@ -94,7 +94,7 @@ Quick reference: which examples demonstrate which language features?
 | Timers | 10_godot_integration/02_timer_event | ✅ |
 | Input handling | 10_godot_integration/03_input_handling | ✅ |
 | Signals | 10_godot_integration/04_signal_connect | ✅ |
-| Property aliases | 10_godot_integration/05_scene_property | ✅ |
+| Property aliases | 10_godot_integration/05_scene_property_aliases.vg | ✅ |
 | **Not Yet Covered** | | |
 | Lambda expressions | — | ⏳ (blocked on M8 compiler) |
 | Async/Await | — | ⏳ (blocked on M8 compiler) |

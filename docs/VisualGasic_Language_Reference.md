@@ -984,7 +984,7 @@ End Sub
 - Nested `Try/Catch` blocks are allowed for granular error handling
 - `Throw` re-raises the current exception or throws a new one
 
-**For comprehensive examples of nested handlers, multiple catch blocks, and defensive patterns, see** [corpus/01_basics/07_exception_patterns.vg](../../corpus/01_basics/07_exception_patterns.vg).
+**For comprehensive examples of nested handlers, multiple catch blocks, and defensive patterns, see** [corpus/01_basics/07_exception_patterns.vg](../corpus/01_basics/07_exception_patterns.vg).
 
 ---
 
@@ -1231,7 +1231,7 @@ End Sub
 - Methods using `T` work transparently with any type
 - Multiple type parameters are supported: `Class Pair(Of T, U)`
 
-**For a working example with more patterns, see** [corpus/06_classes/06_class_generics.vg](../../corpus/06_classes/06_class_generics.vg).
+**For a working example with more patterns, see** [corpus/06_classes/06_class_generics.vg](../corpus/06_classes/06_class_generics.vg).
 
 ### Optional Types — Nullable Values
 
@@ -1269,7 +1269,7 @@ End Sub
 - Pairs well with `IIf()` for concise null-coalescing patterns
 - Safer alternative to using `Variant` for optional references
 
-**For a complete example with defensive programming patterns, see** [corpus/01_basics/06_optional_types.vg](../../corpus/01_basics/06_optional_types.vg).
+**For a complete example with defensive programming patterns, see** [corpus/01_basics/06_optional_types.vg](../corpus/01_basics/06_optional_types.vg).
 
 ### Classes and Types
 

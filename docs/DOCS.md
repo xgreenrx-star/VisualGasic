@@ -262,14 +262,14 @@ Internal docs for contributors and maintainers.
 | **v5.4.0-beta1** | [RELEASE_NOTES_v5.4.0-beta1.md](../RELEASE_NOTES_v5.4.0-beta1.md) | **Current public beta** — 12/12 compute + 9/9 draw, FunctionCall inlining, CI benchmark gate, Beta Showcase tour, 891/891 tests. |
 | **v5.3.0-Beta7** | [RELEASE_NOTES_5.3.0-Beta7.md](../RELEASE_NOTES_5.3.0-Beta7.md) | Bracket array indexing fix, CI `.vg` regression gate, ByRef array slots, Narcea scaffold hardening. |
 | **v5.3.0-Beta5** | [RELEASE_NOTES_5.3.0-Beta5.md](../RELEASE_NOTES_5.3.0-Beta5.md) | Native Script editor crash fix, VB6 Enter/block closing, keyword auto-correct. |
-| **v5.2.0-Beta4** | [RELEASE_NOTES_v5.2.0-Beta4.md](../RELEASE_NOTES_v5.2.0-Beta4.md) | Call-overhead campaign, native 6502 core, silent miscompilation fixes. |
-| **v5.2.0-Beta1** | [RELEASE_NOTES_v5.2.0-Beta1.md](../RELEASE_NOTES_v5.2.0-Beta1.md) | **Android plugin** (GPS, step counter, permissions auto-wire), **Pass-6 namespace gap-fillers** (Camera/Crypto/Physics/Ray/Joypad/Sensor/Theme/Shader/Speaker), **358-entry Command Help DB** with see-also navigation, **AI correctness 100%** on Claude 4.5 + qwen2.5-coder:7b, Linux + Windows installers (macOS deferred). |
-| v5.1.0-rc.2 | [RELEASE_NOTES_v5.1.0-rc.2.md](../RELEASE_NOTES_v5.1.0-rc.2.md) | **Welcome shell loading overhaul** (always-on-top fullscreen cover + circular spinner), **15 new Form Designer toolbox controls** (10 Standard + 5 Game UI: pixel/segmented/retro progress bars, badge, toggle switch, breadcrumbs, splits, …) |
-| v5.1.0-rc.1 | [RELEASE_NOTES_v5.1.0-rc.1.md](../RELEASE_NOTES_v5.1.0-rc.1.md) | VGAssetBus/Broker/Registry, Default Editors UI, Command Palette MRU, External Watcher, Cross-asset rename rewriter, AGCK 8 templates, plugin capability lint |
-| v5.1.0-Beta1 | [RELEASE_NOTES_v5.1.0-Beta1.md](../RELEASE_NOTES_v5.1.0-Beta1.md) | One-click installers (AppImage/EXE), unified ▶ Play menu, Form Designer as toggleable plugin |
-| v5.0.1-beta5 | [RELEASE_NOTES_v5.0.1-beta5.md](../RELEASE_NOTES_v5.0.1-beta5.md) | Working Nodes plugin, AGCK, sprite editor, 3D tools |
-| v5.0.1-beta1 | [RELEASE_NOTES_v5.0.1-beta1.md](../RELEASE_NOTES_v5.0.1-beta1.md) | Plugin system, major version jump |
-| v4.4.0-rc5 | [RELEASE_NOTES_v4.4.0-rc5.md](../RELEASE_NOTES_v4.4.0-rc5.md) | Debugger stability, built-in constants |
+| **v5.2.0-Beta4** | [RELEASE_NOTES_v5.2.0-Beta4.md](release/RELEASE_NOTES_v5.2.0-Beta4.md) | Call-overhead campaign, native 6502 core, silent miscompilation fixes. |
+| **v5.2.0-Beta1** | [RELEASE_NOTES_v5.2.0-Beta1.md](release/RELEASE_NOTES_v5.2.0-Beta1.md) | **Android plugin** (GPS, step counter, permissions auto-wire), **Pass-6 namespace gap-fillers** (Camera/Crypto/Physics/Ray/Joypad/Sensor/Theme/Shader/Speaker), **358-entry Command Help DB** with see-also navigation, **AI correctness 100%** on Claude 4.5 + qwen2.5-coder:7b, Linux + Windows installers (macOS deferred). |
+| v5.1.0-rc.2 | [RELEASE_NOTES_v5.1.0-rc.2.md](release/RELEASE_NOTES_v5.1.0-rc.2.md) | **Welcome shell loading overhaul** (always-on-top fullscreen cover + circular spinner), **15 new Form Designer toolbox controls** (10 Standard + 5 Game UI: pixel/segmented/retro progress bars, badge, toggle switch, breadcrumbs, splits, …) |
+| v5.1.0-rc.1 | [RELEASE_NOTES_v5.1.0-rc.1.md](release/RELEASE_NOTES_v5.1.0-rc.1.md) | VGAssetBus/Broker/Registry, Default Editors UI, Command Palette MRU, External Watcher, Cross-asset rename rewriter, AGCK 8 templates, plugin capability lint |
+| v5.1.0-Beta1 | [RELEASE_NOTES_v5.1.0-Beta1.md](release/RELEASE_NOTES_v5.1.0-Beta1.md) | One-click installers (AppImage/EXE), unified ▶ Play menu, Form Designer as toggleable plugin |
+| v5.0.1-beta5 | [RELEASE_NOTES_v5.0.1-beta5.md](release/RELEASE_NOTES_v5.0.1-beta5.md) | Working Nodes plugin, AGCK, sprite editor, 3D tools |
+| v5.0.1-beta1 | [RELEASE_NOTES_v5.0.1-beta1.md](release/RELEASE_NOTES_v5.0.1-beta1.md) | Plugin system, major version jump |
+| v4.4.0-rc5 | [RELEASE_NOTES_v4.4.0-rc5.md](release/RELEASE_NOTES_v4.4.0-rc5.md) | Debugger stability, built-in constants |
 
 Older release notes: see git tags / [GitHub Releases](https://github.com/xgreenrx-star/VisualGasic/releases).
 

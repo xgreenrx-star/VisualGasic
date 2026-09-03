@@ -445,7 +445,7 @@ After installation, verify VisualGasic is working:
 
 1. **Check the plugin is enabled**: Project → Project Settings → Plugins → VisualGasic should show ✓
 2. **Switch to the Visual Gasic IDE** main screen — you should see the Form Designer with Toolbox, Canvas, and Properties Panel
-3. **Confirm the toolbox controls are present** — the Toolbox panel should show **Spinner**, **BusyDots**, **ToggleSwitch**, **ColorPicker**, and other Standard 2D controls. Switch to the **Game UI** tab for **PixelProgressBar**, **Badge**, and related controls. (See [`RELEASE_NOTES_5.4.0-beta1.md`](../../RELEASE_NOTES_5.4.0-beta1.md).)
+3. **Confirm the toolbox controls are present** — the Toolbox panel should show **Spinner**, **BusyDots**, **ToggleSwitch**, **ColorPicker**, and other Standard 2D controls. Switch to the **Game UI** tab for **PixelProgressBar**, **Badge**, and related controls. (See [`RELEASE_NOTES_v5.4.0-beta1.md`](../../RELEASE_NOTES_v5.4.0-beta1.md).)
 4. **Create a test file** — create `hello.vg`:
    ```vb
    Sub Main()

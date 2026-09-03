@@ -10,7 +10,7 @@ syntax with full Godot engine integration.
 
 ## Screenshot
 
-![Pixel Platformer](../../docs/screenshots/platformer_preview.png)
+Run the demo in Godot (F5) to preview the platformer scene.
 
 ## Features
 

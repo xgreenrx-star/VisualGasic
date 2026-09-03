@@ -77,8 +77,8 @@ If the worker fails to launch:
 
 ## Reference
 
-- [docs/python_bridge_v6_minimal_spec.md](../../docs/python_bridge_v6_minimal_spec.md)
-- [docs/SYSTEM_INTEGRATION.md §17](../../docs/SYSTEM_INTEGRATION.md#17-python-bridge-pybridgefacade)
+- [docs/python_bridge_v6_minimal_spec.md](../../../docs/python_bridge_v6_minimal_spec.md)
+- [docs/SYSTEM_INTEGRATION.md §17](../../../docs/SYSTEM_INTEGRATION.md#17-python-bridge-pybridgefacade)
 - Regression: `test_proj/test_suite/test_py_msgpack_typed.vg`, `test_py_range_int.vg`
 
 ## numpy Support

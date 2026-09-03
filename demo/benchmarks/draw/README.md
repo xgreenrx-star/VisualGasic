@@ -82,7 +82,7 @@ Grid-loop fusion compiles hot `_Draw` for-loops to native C++ opcodes. **VG beat
 | VectorCanvasUniformRects ×2500 | 3,902 | **395** | 494 | **9.9×** |
 | MovingFilledRects ×500 | 238 avg/frame | **82 avg/frame** | 45 avg/frame | **2.9×** |
 
-Full tables and reproduction steps: [BENCHMARK_PUBLISHED_RESULTS.md](../../BENCHMARK_PUBLISHED_RESULTS.md). Raw output: `bench_output.txt` in this directory.
+Full tables and reproduction steps: [BENCHMARK_PUBLISHED_RESULTS.md](../../../BENCHMARK_PUBLISHED_RESULTS.md). Raw output: `bench_output.txt` in this directory.
 
 **Regression guard:** `scripts/benchmark_regression_check.sh` from repo root (after `scons`).
 

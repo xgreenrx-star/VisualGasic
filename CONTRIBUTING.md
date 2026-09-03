@@ -348,8 +348,8 @@ Each feature includes:
 
 ### Resources
 - [Godot GDExtension Documentation](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/index.html)
-- [VisualGasic Language Specification](docs/LANGUAGE_SPEC.md)
-- [Architecture Overview](docs/ARCHITECTURE.md)
+- [VisualGasic Language Reference](docs/VisualGasic_Language_Reference.md)
+- [Documentation hub](docs/DOCS.md)
 
 Thank you for contributing to VisualGasic! 🚀
 ## Versioning & Releases
@@ -363,5 +363,5 @@ dotted pre-release suffixes:
 
 The patch digit is **never** repurposed to mean "beta number" — pre-release
 information always lives in the suffix. See
-[`RELEASE_PROCESS.md`](RELEASE_PROCESS.md) for the full policy, the bump
+[`docs/release/RELEASE_PROCESS.md`](docs/release/RELEASE_PROCESS.md) for the full policy, the bump
 rules, and the step-by-step tagging / publishing workflow.
