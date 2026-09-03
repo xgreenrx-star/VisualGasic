@@ -118,7 +118,6 @@ tools/client_secrets.json
 
 # Corpus audit temp files (written and deleted by audit_corpus.sh and tests)
 test_proj/current_test.txt
-test_proj/run_corpus.gd
 test_proj/test_suite/corpus_audit_tmp.vg
 test_proj/test_suite/corpus_audit_wrap.vg
 test_proj/test_suite/corpus_test_tmp.vg

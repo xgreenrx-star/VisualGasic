@@ -1,20 +1,35 @@
 #!/bin/bash
 # M2 corpus audit: run every corpus/*.vg, compare stdout to Expected output.
 # Prints PASS/FAIL per file. Exits 0 only if all pass.
-set -uo pipefail
+set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-GODOT="$ROOT/Godot_v4.6.1-stable_linux.x86_64"
+GODOT="${GODOT:-$ROOT/Godot_v4.6.1-stable_linux.x86_64}"
 TEST_PROJ="$ROOT/test_proj"
 CORPUS="$ROOT/corpus"
+GODOT_USER_DATA_DIR="${VG_GODOT_USER_DATA_DIR:-${TMPDIR:-/tmp}/vg-godot-corpus-$$}"
 PASS=0; FAIL=0
+
+if [[ ! -x "$GODOT" ]]; then
+  GODOT="$(command -v godot || true)"
+fi
+if [[ -z "$GODOT" || ! -x "$GODOT" ]]; then
+  echo "No Godot binary found. Set GODOT=..." >&2
+  exit 2
+fi
+
+mkdir -p "$GODOT_USER_DATA_DIR"
+mkdir -p "$TEST_PROJ/.godot"
+if [[ ! -f "$TEST_PROJ/.godot/extension_list.cfg" ]]; then
+  printf '%s\n' 'res://addons/visual_gasic/visual_gasic.gdextension' \
+    >"$TEST_PROJ/.godot/extension_list.cfg"
+fi
 
 run_corpus_file() {
     local src="$1"
     local rel="${src#$ROOT/}"
 
     # Determine res:// path — copy to test_suite so the project can load it
-    local basename="$(basename "$src")"
     local dest="$TEST_PROJ/test_suite/corpus_audit_tmp.vg"
     cp "$src" "$dest"
     echo "res://test_suite/corpus_audit_tmp.vg" > "$TEST_PROJ/current_test.txt"
@@ -22,6 +37,7 @@ run_corpus_file() {
     # Run and capture stdout (strip Godot engine banner + VG debug lines)
     local raw
     raw="$(timeout 15 "$GODOT" --headless --path "$TEST_PROJ" \
+        --user-data-dir "$GODOT_USER_DATA_DIR" \
         -s run_corpus.gd 2>&1 || true)"
 
     # Filter to program-output lines only (skip engine/VG debug lines)
@@ -30,7 +46,7 @@ run_corpus_file() {
 
     # Extract expected output from trailing comment block
     local expected
-    expected="$(grep "^'" "$src" | awk '
+    expected="$(grep "^'" "$src" 2>/dev/null | awk '
         /Expected output:/ { found=1; next }
         found { line=$0; sub(/^'"'"' ?/, "", line); print line }
     ' | sed 's/[[:space:]]*$//')"
