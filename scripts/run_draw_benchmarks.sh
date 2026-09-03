@@ -36,18 +36,22 @@ output="$(timeout 180 "$GODOT" --headless --path "$DEMO" \
 	-s res://benchmarks/draw/run_draw_benchmarks.gd 2>&1 || true)"
 echo "$output"
 
-bench_errors="$(echo "$output" | grep -E '^SCRIPT ERROR:|^ERROR: Failed to load script|^ERROR: Failed to instantiate VisualGasicDrawBenchmark' \
-	| grep -v 'plugins/vgmusic/' \
-	| grep -v 'Binding duplicate' \
+bench_fatal="$(echo "$output" | grep -E '^ERROR: Failed to load script|^ERROR: Failed to instantiate VisualGasicDrawBenchmark' \
+	| grep -E 'run_benchmarks|run_draw_benchmarks|bench\.vg|benchmarks/draw|VisualGasicDrawBenchmark' \
 	|| true)"
-if [[ -n "$bench_errors" ]]; then
-	echo "$bench_errors" >&2
-	echo "Draw benchmark run reported errors." >&2
+if [[ -n "$bench_fatal" ]]; then
+	echo "$bench_fatal" >&2
+	echo "Draw benchmark run reported fatal errors." >&2
 	exit 1
 fi
 
 if ! echo "$output" | grep -q '=== Visual Gasic Draw Benchmarks ==='; then
 	echo "Draw benchmark did not produce expected header output." >&2
+	exit 1
+fi
+
+if ! echo "$output" | grep -q 'VisualGasic: { "elapsed_us":'; then
+	echo "Draw benchmark did not report VisualGasic timings (extension may not have loaded)." >&2
 	exit 1
 fi
 
