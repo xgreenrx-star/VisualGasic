@@ -42,15 +42,20 @@ if __name__ == '__main__':
     if not shutil.which(scons):
         scons = shutil.which('scons') or 'scons'
 
-    # Build
-    rc, _ = run(f'{scons} platform=linux target=editor -j4')
-    if rc != 0:
-        print('Build failed')
-        sys.exit(rc)
+    so_path = 'demo/bin/libvisualgasic.linux.editor.x86_64.so'
+    if os.environ.get('VG_SKIP_SCONS') != '1' and not os.path.isfile(so_path):
+        rc, _ = run(f'{scons} platform=linux target=editor -j4')
+        if rc != 0:
+            print('Build failed')
+            sys.exit(rc)
+    elif os.path.isfile(so_path):
+        print(f'Skipping scons; using existing {so_path}')
 
     # Detect Godot binary
-    godot = None
-    for pattern in ['./Godot_v4.5*_linux.x86_64', './Godot_v4.6*_linux.x86_64', './Godot_v*_linux.x86_64']:
+    godot = os.environ.get('GODOT') or None
+    if godot and not os.path.isfile(godot):
+        godot = None
+    for pattern in ['./Godot_v4.6*_linux.x86_64', './Godot_v4.5*_linux.x86_64', './Godot_v*_linux.x86_64']:
         matches = sorted(glob.glob(pattern))
         if matches:
             godot = matches[-1]
@@ -60,19 +65,19 @@ if __name__ == '__main__':
         sys.exit(1)
     print(f'Using Godot: {godot}')
 
-    # Ensure .godot/extension_list.cfg exists (may be gitignored)
-    ext_list = 'demo/.godot/extension_list.cfg'
-    os.makedirs('demo/.godot', exist_ok=True)
-    if not os.path.exists(ext_list):
-        with open(ext_list, 'w') as f:
-            f.write('res://addons/visual_gasic/visual_gasic.gdextension\n')
+    prepare = './scripts/prepare_ci_gdextension.sh'
+    if os.path.isfile(prepare):
+        rc, _ = run(f'bash {prepare}')
+        if rc != 0:
+            print('prepare_ci_gdextension.sh failed')
+            sys.exit(rc)
 
-    # Import project first to generate caches
-    print('Importing project...')
-    run(f'{godot} --path demo --headless --import')
+    user_data = os.environ.get('VG_GODOT_USER_DATA_DIR', '/tmp/vg-godot-builtin')
+    os.makedirs(user_data, exist_ok=True)
 
-    # Run headless demo test runner
-    rc, out_lines = run(f'{godot} --path demo --headless -s run_builtins.gd')
+    rc, out_lines = run(
+        f'{godot} --path demo --headless --user-data-dir {user_data} -s test_suites/run_builtins.gd'
+    )
     if rc != 0:
         print('Godot run failed')
         sys.exit(rc)

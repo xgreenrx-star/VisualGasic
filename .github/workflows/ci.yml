@@ -69,6 +69,9 @@ jobs:
       - name: Run smoke tests
         env:
           DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
+          VG_SKIP_SCONS: "1"
         run: |
           chmod +x ./tests/run_smoke_tests.py
           ./tests/run_smoke_tests.py
@@ -76,6 +79,9 @@ jobs:
       - name: Run builtin tests
         env:
           DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
+          VG_SKIP_SCONS: "1"
         run: |
           chmod +x ./tests/run_builtin_tests.py
           ./tests/run_builtin_tests.py

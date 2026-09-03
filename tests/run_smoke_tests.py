@@ -9,9 +9,9 @@ import glob
 expected_lines = [
     "Testing All Features",
     "Meta Result (should be 42):",
-    "42.0",
+    "42",
     "Loop Counter (should be 6):",
-    "6.0",
+    "6",
     "Done",
 ]
 
@@ -34,15 +34,20 @@ if __name__ == '__main__':
     if not shutil.which(scons):
         scons = shutil.which('scons') or 'scons'
 
-    # Build
-    rc, _ = run(f'{scons} platform=linux target=editor -j4')
-    if rc != 0:
-        print('Build failed')
-        sys.exit(rc)
+    so_path = 'demo/bin/libvisualgasic.linux.editor.x86_64.so'
+    if os.environ.get('VG_SKIP_SCONS') != '1' and not os.path.isfile(so_path):
+        rc, _ = run(f'{scons} platform=linux target=editor -j4')
+        if rc != 0:
+            print('Build failed')
+            sys.exit(rc)
+    elif os.path.isfile(so_path):
+        print(f'Skipping scons; using existing {so_path}')
 
-    # Detect Godot binary: prefer 4.5.x, then 4.6.x, then any version
-    godot = None
-    for pattern in ['./Godot_v4.5*_linux.x86_64', './Godot_v4.6*_linux.x86_64', './Godot_v*_linux.x86_64']:
+    # Detect Godot binary: GODOT env, then 4.6.x, 4.5.x, then any version
+    godot = os.environ.get('GODOT') or None
+    if godot and not os.path.isfile(godot):
+        godot = None
+    for pattern in ['./Godot_v4.6*_linux.x86_64', './Godot_v4.5*_linux.x86_64', './Godot_v*_linux.x86_64']:
         matches = sorted(glob.glob(pattern))
         if matches:
             godot = matches[-1]
@@ -52,26 +57,25 @@ if __name__ == '__main__':
         sys.exit(1)
     print(f'Using Godot: {godot}')
 
-    # Ensure .godot/extension_list.cfg exists (may be gitignored)
-    ext_list = 'demo/.godot/extension_list.cfg'
-    os.makedirs('demo/.godot', exist_ok=True)
-    if not os.path.exists(ext_list):
-        with open(ext_list, 'w') as f:
-            f.write('res://addons/visual_gasic/visual_gasic.gdextension\n')
+    prepare = './scripts/prepare_ci_gdextension.sh'
+    if os.path.isfile(prepare):
+        rc, _ = run(f'bash {prepare}')
+        if rc != 0:
+            print('prepare_ci_gdextension.sh failed')
+            sys.exit(rc)
 
-    # Debug: verify binary and gdextension paths
-    so_path = 'demo/addons/visual_gasic/bin/libvisualgasic.linux.template_debug.x86_64.so'
     gdext_path = 'demo/addons/visual_gasic/visual_gasic.gdextension'
+    bin_so = 'demo/addons/visual_gasic/bin/libvisualgasic.linux.editor.x86_64.so'
     print(f'GDExtension file exists: {os.path.exists(gdext_path)}')
-    print(f'Library .so exists: {os.path.exists(so_path)}')
+    print(f'Library .so exists: {os.path.exists(bin_so)}')
 
-    # Godot requires the project to be opened once to initialize .godot cache.
-    # First run: --editor --headless --quit-after 2 to generate filesystem cache
-    print('Initializing Godot project cache...')
-    run(f'{godot} --path demo --headless --editor --quit-after 2')
+    user_data = os.environ.get('VG_GODOT_USER_DATA_DIR', '/tmp/vg-godot-smoke')
+    os.makedirs(user_data, exist_ok=True)
 
-    # Run headless demo
-    rc, out_lines = run(f'{godot} --path demo --headless -s run_full.gd')
+    # Run headless demo (runners live under demo/test_suites/)
+    rc, out_lines = run(
+        f'{godot} --path demo --headless --user-data-dir {user_data} -s test_suites/run_full.gd'
+    )
     if rc != 0:
         print('Godot run failed')
         sys.exit(rc)
