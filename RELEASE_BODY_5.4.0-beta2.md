@@ -16,12 +16,12 @@ Full details: [RELEASE_NOTES_v5.4.0-beta2.md](https://github.com/xgreenrx-star/V
 - [Documentation Hub](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/DOCS.md)
 - [Getting Started](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/guides/GET_STARTED.md)
 - [Installation Guide](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/guides/INSTALLATION.md)
-- [Godot Programming Manual v3.0.0](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md) — Table of Contents below
-  - [Chapter 1: Introduction to Godot with VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#introduction)
-  - [Python Bridge Integration (Chapters 40-44)](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#python-interop)
-  - [Narcea AI Pair Integration (Chapters 45-48)](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#narcea-intro)
-  - [Causal Chains & Code Navigator (Chapters 49-50)](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#causal-chains)
-  - [Modern Language Features (Chapters 51-55)](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#try-catch)
+- **[Godot Programming Manual v3.0.0](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md)** — Key Sections:
+  - [Chapter 1: Introduction](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#L98)
+  - [Chapter 40: Python Bridge](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#L3924) (M7)
+  - [Chapter 45: Narcea AI Pair](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#L4101) (M5)
+  - [Chapter 49: Causal Chains](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#L4230) (M6)
+  - [Chapter 51: Exception Handling & Modern Syntax](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#L4301) (M8)
 - [Changelog](https://github.com/xgreenrx-star/VisualGasic/blob/main/CHANGELOG.md)
 
 ### Downloads
