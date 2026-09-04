@@ -8,94 +8,96 @@ Updated: September 2026
 
 ## Table of Contents
 
+*Links open the file in GitHub's Code view and jump to the exact line (`?plain=1#L<N>`) — GitHub's rendered Preview mode does not support line-number scrolling.*
+
 ### Part I: Getting Started with Godot
-1. [Introduction to Godot with VisualGasic](#introduction)
-2. [Understanding Godot's Architecture](#architecture)
-3. [Setting Up Your First Project](#setup)
-4. [Scenes, Nodes, and the Scene Tree](#scenes-nodes)
+1. [Introduction to Godot with VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L100)
+2. [Understanding Godot's Architecture](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L420)
+3. [Setting Up Your First Project](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L484)
+4. [Scenes, Nodes, and the Scene Tree](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L567)
 
 ### Part II: Core Godot Concepts in VisualGasic
-5. [Working with Nodes](#nodes)
-6. [Signals and Communication](#signals)
-7. [Input Handling](#input)
-8. [Timers and Processing](#timers)
+5. [Working with Nodes](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L643)
+6. [Signals and Communication](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L784)
+7. [Input Handling](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L956)
+8. [Timers and Processing](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1212)
 
 ### Part III: 2D Game Development
-9. [2D Foundations and Coordinate System](#2d-foundations)
-10. [Sprites and Animation](#sprites)
-11. [2D Physics and Movement](#2d-physics)
-12. [Collision Detection](#collision)
-13. [Case Study: 2D Platformer — GDScript vs VisualGasic](#platformer-case-study)
+9. 2D Foundations and Coordinate System *(not yet written)*
+10. Sprites and Animation *(not yet written)*
+11. 2D Physics and Movement *(not yet written)*
+12. Collision Detection *(not yet written)*
+13. [Case Study: 2D Platformer — GDScript vs VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1760)
 
 ### Part IV: 3D Game Development
-13. [3D Foundations and Coordinate System](#3d-foundations)
-14. [3D Models and Materials](#3d-models)
-15. [3D Physics and Movement](#3d-physics)
-16. [Lighting and Environment](#lighting)
-17. [Case Study: Squash the Creeps — GDScript vs VisualGasic](#squash-the-creeps)
+14. 3D Foundations and Coordinate System *(not yet written)*
+15. 3D Models and Materials *(not yet written)*
+16. 3D Physics and Movement *(not yet written)*
+17. Lighting and Environment *(not yet written)*
+18. [Case Study: Squash the Creeps — GDScript vs VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L2456)
 
 ### Part V: User Interface
-17. [UI System Overview](#ui-overview)
-18. [Control Nodes and Layouts](#ui-controls)
-19. [Theming and Styling](#ui-theming)
-20. [Interactive Elements](#ui-interactive)
+19. UI System Overview *(not yet written)*
+20. Control Nodes and Layouts *(not yet written)*
+21. Theming and Styling *(not yet written)*
+22. Interactive Elements *(not yet written)*
 
 ### Part VI: Advanced Features
-21. [File I/O and Data Management](#file-io)
-22. [Networking and Multiplayer](#networking)
-23. [Audio System](#audio)
-24. [Particle Systems](#particles)
+23. File I/O and Data Management *(not yet written)*
+24. Networking and Multiplayer *(not yet written)*
+25. Audio System *(not yet written)*
+26. Particle Systems *(not yet written)*
 
 ### Part VII: Performance and Optimization
-25. [Performance Best Practices](#performance)
-26. [Memory Management](#memory)
-27. [Platform-Specific Features](#platform)
+27. [Performance Best Practices](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L340)
+28. Memory Management *(not yet written)*
+29. Platform-Specific Features *(not yet written)*
 
 ### Part VIII: Deployment and Distribution
-28. [Export Settings](#export)
-29. [Platform Requirements](#requirements)
-30. [Distribution Strategies](#distribution)
+30. Export Settings *(not yet written)*
+31. Platform Requirements *(not yet written)*
+32. Distribution Strategies *(not yet written)*
 
 ### Part IX: IDE Tools and Productivity (NEW)
-31. [IntelliSense and Code Completion](#intellisense)
-32. [Debugging Tools](#debugging-tools)
-33. [Code Quality and Linting](#linting)
-34. [Snippets and Templates](#snippets)
-35. [Visual Gasic IDE Tools](#form-designer)
+33. [IntelliSense and Code Completion](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1473)
+34. [Debugging Tools](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1514)
+35. [Code Quality and Linting](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1561)
+36. [Snippets and Templates](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1600)
+37. [Visual Gasic IDE Tools](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1685)
 
 ### Part X: GDScript vs VisualGasic — Complete Reference
-36. [GDScript ↔ VisualGasic Quick Reference](#gdscript-vs-vg)
-37. [Case Study: Screen Space Shaders — GDScript vs VisualGasic](#screen-shaders-case-study)
-38. [Case Study: 3D Sky Shaders — GDScript vs VisualGasic](#sky-shaders-case-study)
-39. [Why VisualGasic — Advantages Over GDScript](#vg-advantages)
+38. [GDScript ↔ VisualGasic Quick Reference](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3082)
+39. [Case Study: Screen Space Shaders — GDScript vs VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3366)
+40. [Case Study: 3D Sky Shaders — GDScript vs VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3498)
+41. [Why VisualGasic — Advantages Over GDScript](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3778)
 
 ### Part XI: Python Bridge Integration (M7 — NEW)
-40. [Python Interoperability Overview](#python-interop)
-41. [Setting Up Python Bridge](#python-setup)
-42. [Typed MessagePack Protocol](#python-msgpack)
-43. [Python Function Calls from VisualGasic](#python-calls)
-44. [Working with NumPy Arrays](#python-numpy)
+42. [Python Interoperability Overview](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3926)
+43. [Setting Up Python Bridge](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3952)
+44. [Typed MessagePack Protocol](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3984)
+45. [Python Function Calls from VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4018)
+46. [Working with NumPy Arrays](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4059)
 
 ### Part XII: Narcea AI Pair Integration (M5 — NEW)
-45. [Introduction to Narcea](#narcea-intro)
-46. [Configuring AI Providers](#narcea-config)
-47. [AI-Assisted Code Generation](#narcea-codegen)
-48. [Command Help and Context](#narcea-help)
+47. [Introduction to Narcea](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4103)
+48. [Configuring AI Providers](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4124)
+49. [AI-Assisted Code Generation](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4162)
+50. [Command Help and Context](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4202)
 
 ### Part XIII: Advanced Analysis Tools (M6 — NEW)
-49. [Code Navigator and Causal Chains](#causal-chains)
-50. [Dependency Analysis](#dependency-analysis)
+51. [Code Navigator and Causal Chains](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4232)
+52. [Dependency Analysis](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4281)
 
 ### Part XIV: Modern Language Features (M8 — NEW)
-51. [Exception Handling (Try/Catch)](#try-catch)
-52. [Lambda Expressions](#lambda-expressions)
-53. [Optional Types and Null Safety](#optional-types)
-54. [The `Let` Keyword](#let-keyword)
-55. [The `IsNot` Operator](#isnot-operator)
+53. [Exception Handling (Try/Catch)](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4303)
+54. [Lambda Expressions](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4365)
+55. [Optional Types and Null Safety](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4419)
+56. [The `Let` Keyword](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4470)
+57. [The `IsNot` Operator](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4524)
 
 ---
 
-## Chapter 1: Introduction to Godot with VisualGasic {#introduction}
+## Chapter 1: Introduction to Godot with VisualGasic
 
 ### What is Godot?
 
@@ -335,7 +337,7 @@ Access via **Project > Tools**:
 
 ---
 
-## Performance Best Practices {#performance}
+## Performance Best Practices
 
 VisualGasic focuses on high performance in hot paths while preserving Gasic-style readability. Below is a benchmark snapshot (Godot 4.5.1 headless, v2.5). All 11 benchmarks faster than GDScript. See the full report and methodology in [docs/manual/performance.md](docs/manual/performance.md).
 
@@ -415,7 +417,7 @@ End Class
 
 ---
 
-## Chapter 2: Understanding Godot's Architecture {#architecture}
+## Chapter 2: Understanding Godot's Architecture
 
 ### The Scene System
 
@@ -479,7 +481,7 @@ MainGame (Node2D)
 
 ---
 
-## Chapter 3: Setting Up Your First Project {#setup}
+## Chapter 3: Setting Up Your First Project
 
 ### Creating a New Godot Project
 
@@ -562,7 +564,7 @@ End Class
 
 ---
 
-## Chapter 4: Scenes, Nodes, and the Scene Tree {#scenes-nodes}
+## Chapter 4: Scenes, Nodes, and the Scene Tree
 
 ### Understanding Scenes
 
@@ -638,7 +640,7 @@ End Class
 
 ---
 
-## Chapter 5: Working with Nodes {#nodes}
+## Chapter 5: Working with Nodes
 
 ### Node Lifecycle
 
@@ -779,7 +781,7 @@ End Class
 
 ---
 
-## Chapter 6: Signals and Communication {#signals}
+## Chapter 6: Signals and Communication
 
 ### Understanding Signals
 
@@ -951,7 +953,7 @@ End Class
 
 ---
 
-## Chapter 7: Input Handling {#input}
+## Chapter 7: Input Handling
 
 ### Core Input Detection
 
@@ -1207,7 +1209,7 @@ End Class
 
 ---
 
-## Chapter 8: Timers and Processing {#timers}
+## Chapter 8: Timers and Processing
 
 ### Using Godot Timers
 
@@ -1468,7 +1470,7 @@ End Class
 
 ## Part IX: IDE Tools and Productivity
 
-### Chapter 31: IntelliSense and Code Completion {#intellisense}
+### Chapter 31: IntelliSense and Code Completion
 
 VisualGasic provides a comprehensive code completion system that makes coding faster and reduces errors.
 
@@ -1509,7 +1511,7 @@ Type a snippet prefix and press Tab to expand:
 
 ---
 
-### Chapter 32: Debugging Tools {#debugging-tools}
+### Chapter 32: Debugging Tools
 
 VisualGasic includes professional debugging tools for finding and fixing issues.
 
@@ -1556,7 +1558,7 @@ During a breakpoint pause:
 
 ---
 
-### Chapter 33: Code Quality and Linting {#linting}
+### Chapter 33: Code Quality and Linting
 
 VisualGasic automatically analyzes your code for potential issues.
 
@@ -1595,7 +1597,7 @@ Dim value  ' Hint: Variable 'value' has no type - will be Variant
 
 ---
 
-### Chapter 34: Snippets and Templates {#snippets}
+### Chapter 34: Snippets and Templates
 
 #### Built-in Snippet Categories
 
@@ -1680,7 +1682,7 @@ Next ${1:i}
 
 ---
 
-### Chapter 35: Visual Gasic IDE Tools {#form-designer}
+### Chapter 35: Visual Gasic IDE Tools
 
 The Visual Gasic IDE is a **C++ GDExtension** that provides a complete WYSIWYG editing experience with 40+ controls, VB6-style properties, and a live preview system.
 
@@ -1755,7 +1757,7 @@ The refactoring is smart:
 
 ---
 
-## Chapter 13: Case Study — 2D Platformer (GDScript vs VisualGasic) {#platformer-case-study}
+## Chapter 13: Case Study — 2D Platformer (GDScript vs VisualGasic)
 
 This chapter compares the official Godot
 **2D Platformer** demo with its VisualGasic reimplementation. The original
@@ -2451,7 +2453,7 @@ cd demos/2D_Games/Platformer/
 
 ---
 
-## Chapter 17: Case Study — Squash the Creeps (GDScript vs VisualGasic) {#squash-the-creeps}
+## Chapter 17: Case Study — Squash the Creeps (GDScript vs VisualGasic)
 
 This chapter presents a complete, side-by-side conversion of the official Godot
 **"Squash the Creeps"** 3D tutorial. The original GDScript sources come from
@@ -3062,22 +3064,22 @@ demonstrates different Godot engine integration patterns:
 
 | Demo | Location | Features Shown |
 |------|----------|---------------|
-| **Pixel Platformer** | `demos/2D_Games/Platformer/` | Gravity, jumping, double jump, coyote time, jump buffering, tile-based levels (DATA statements), enemies with stomp mechanic, coins, scrolling camera, HUD, particle effects, 3 levels. Single-file game with manual physics and `_Draw()` rendering. Based on the official Godot 2D Platformer demo. See [Chapter 13](#platformer-case-study). |
-| **Squash the Creeps** | `demos/3D_Games/Squash_The_Creeps/` | 3D CharacterBody3D physics, MoveAndSlide/SetVelocity builtins, slide-collision iteration for stomp detection, signal events, random mob spawning on a Path3D, game-over/retry loop. Converted from the official Godot "Your First 3D Game" tutorial. See [Chapter 17](#squash-the-creeps). |
+| **Pixel Platformer** | `demos/2D_Games/Platformer/` | Gravity, jumping, double jump, coyote time, jump buffering, tile-based levels (DATA statements), enemies with stomp mechanic, coins, scrolling camera, HUD, particle effects, 3 levels. Single-file game with manual physics and `_Draw()` rendering. Based on the official Godot 2D Platformer demo. See [Chapter 13](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1760). |
+| **Squash the Creeps** | `demos/3D_Games/Squash_The_Creeps/` | 3D CharacterBody3D physics, MoveAndSlide/SetVelocity builtins, slide-collision iteration for stomp detection, signal events, random mob spawning on a Path3D, game-over/retry loop. Converted from the official Godot "Your First 3D Game" tutorial. See [Chapter 17](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L2456). |
 | **Space Shooter** | `demos/2D_Games/Space_Shooter/` | Parallel For loops, Lambda expressions, DATA-driven enemy waves, object pools, Select Match pattern matching. |
 | **Snake** | `demos/2D_Games/Snake/` | Grid-based movement, growing body, food spawning, game-over detection. |
 | **Pong** | `demos/2D_Games/Pong/` | Two-player input, ball physics, score tracking. |
 | **Pong Advanced** | `demos/2D_Games/Pong_Advanced/` | AI opponent, power-ups, enhanced graphics. |
 | **Calculator** | `demos/UI/Calculator/` | `_Input()` / `_UnhandledInput()`, `Is` operator type-checking, `_Draw()` UI, keyboard and mouse handling. |
-| **Screen Space Shaders** | `demos/Graphics/Screen_Space_Shaders/` | 2D full-screen post-processing effects (Vignette, Blur, Sepia, etc.), OptionButton UI, `For Each` node iteration, signal callbacks, `GetNode()`, `Is` type-checking. Ported from the official Godot demo. See [Chapter 37](#screen-shaders-case-study). |
-| **Sky Shaders** | `demos/Graphics/Sky_Shaders/` | 3D procedural sky with day/night cycle, `ClassName.new()` constructors, camera mouselook, shader parameters, `Select Case`, `AnimationPlayer` control. Ported from the official Godot demo. See [Chapter 38](#sky-shaders-case-study). |
+| **Screen Space Shaders** | `demos/Graphics/Screen_Space_Shaders/` | 2D full-screen post-processing effects (Vignette, Blur, Sepia, etc.), OptionButton UI, `For Each` node iteration, signal callbacks, `GetNode()`, `Is` type-checking. Ported from the official Godot demo. See [Chapter 37](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3366). |
+| **Sky Shaders** | `demos/Graphics/Sky_Shaders/` | 3D procedural sky with day/night cycle, `ClassName.new()` constructors, camera mouselook, shader parameters, `Select Case`, `AnimationPlayer` control. Ported from the official Godot demo. See [Chapter 38](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3498). |
 
 > **Tutorial**: For a step-by-step walkthrough of the Platformer demo's architecture,
 > see [Building a 2D Platformer](tutorials/2d_platformer.md).
 
 ---
 
-## Chapter 36: GDScript ↔ VisualGasic Quick Reference {#gdscript-vs-vg}
+## Chapter 36: GDScript ↔ VisualGasic Quick Reference
 
 This chapter is a comprehensive side-by-side reference for developers coming from
 GDScript to VisualGasic (or vice versa). Every common GDScript pattern is shown
@@ -3361,7 +3363,7 @@ GetNode("AnimationPlayer").speed_scale = 0.0
 
 ---
 
-## Chapter 37: Case Study — Screen Space Shaders (GDScript vs VisualGasic) {#screen-shaders-case-study}
+## Chapter 37: Case Study — Screen Space Shaders (GDScript vs VisualGasic)
 
 This chapter presents a side-by-side comparison of the official Godot
 **"2D Screen Space Shaders"** demo. The original GDScript source comes from
@@ -3493,7 +3495,7 @@ End Sub
 
 ---
 
-## Chapter 38: Case Study — 3D Sky Shaders (GDScript vs VisualGasic) {#sky-shaders-case-study}
+## Chapter 38: Case Study — 3D Sky Shaders (GDScript vs VisualGasic)
 
 This chapter compares the official Godot **"3D Sky Shaders"** demo. The original
 GDScript sources come from
@@ -3773,7 +3775,7 @@ All syntax differences in one table:
 
 ---
 
-## Chapter 39: Why VisualGasic — Advantages Over GDScript {#vg-advantages}
+## Chapter 39: Why VisualGasic — Advantages Over GDScript
 
 This chapter is a comprehensive inventory of capabilities that VisualGasic provides
 but GDScript does not. GDScript is an excellent language for what it does — this
@@ -3921,7 +3923,7 @@ VG provides modules that GDScript has no equivalent for:
 
 ---
 
-## Chapter 40: Python Interoperability Overview {#python-interop}
+## Chapter 40: Python Interoperability Overview
 
 VisualGasic includes a comprehensive Python bridge that allows seamless integration with Python libraries and scripts. This is particularly powerful for data science, machine learning, and automation tasks within Godot games.
 
@@ -3947,7 +3949,7 @@ VisualGasic (Godot)  ←→  Socket/Pipe  ←→  Python Process
 - **Module Caching**: Python modules loaded once, reused across calls
 - **Error Propagation**: Python exceptions surfaced as VG exceptions
 
-## Chapter 41: Setting Up Python Bridge {#python-setup}
+## Chapter 41: Setting Up Python Bridge
 
 ### Prerequisites
 
@@ -3979,7 +3981,7 @@ Sub InitPython()
 End Sub
 ```
 
-## Chapter 42: Typed MessagePack Protocol {#python-msgpack}
+## Chapter 42: Typed MessagePack Protocol
 
 By default, VisualGasic uses JSON for Python interop. The typed MessagePack protocol is an opt-in feature that preserves type information.
 
@@ -4013,7 +4015,7 @@ data.SetDouble("value", 3.14)   ' Explicitly float
 Dim result As Object = VGPython.Call("process_data", data)
 ```
 
-## Chapter 43: Python Function Calls from VisualGasic {#python-calls}
+## Chapter 43: Python Function Calls from VisualGasic
 
 ### Simple Function Calls
 
@@ -4054,7 +4056,7 @@ Sub PythonErrorHandling()
 End Sub
 ```
 
-## Chapter 44: Working with NumPy Arrays {#python-numpy}
+## Chapter 44: Working with NumPy Arrays
 
 NumPy integration is optimized for game development use cases.
 
@@ -4098,7 +4100,7 @@ End Sub
 
 ---
 
-## Chapter 45: Introduction to Narcea {#narcea-intro}
+## Chapter 45: Introduction to Narcea
 
 Narcea is VisualGasic's built-in **AI Pair Programmer** — an integrated coding assistant powered by Claude, GPT-4, Gemini, or Ollama.
 
@@ -4119,7 +4121,7 @@ Narcea is VisualGasic's built-in **AI Pair Programmer** — an integrated coding
 | **Google** | gemini-pro | API key |
 | **Ollama** | local models | Local Ollama server |
 
-## Chapter 46: Configuring AI Providers {#narcea-config}
+## Chapter 46: Configuring AI Providers
 
 ### Step 1: Enable Narcea
 
@@ -4157,7 +4159,7 @@ Sub TestNarceaConnection()
 End Sub
 ```
 
-## Chapter 47: AI-Assisted Code Generation {#narcea-codegen}
+## Chapter 47: AI-Assisted Code Generation
 
 ### Generate Event Handlers
 
@@ -4197,7 +4199,7 @@ End Sub
 3. Narcea creates Click, TextChanged, etc. stubs
 4. Implement logic in generated subs
 
-## Chapter 48: Command Help and Context {#narcea-help}
+## Chapter 48: Command Help and Context
 
 ### Real-Time Command Documentation
 
@@ -4227,7 +4229,7 @@ This ensures generated code fits your project's conventions.
 
 ---
 
-## Chapter 49: Code Navigator and Causal Chains {#causal-chains}
+## Chapter 49: Code Navigator and Causal Chains
 
 The **Code Navigator** provides visual analysis of code dependencies and data flow.
 
@@ -4276,7 +4278,7 @@ Causal chains help identify:
 - Hidden dependencies
 - Optimization opportunities
 
-## Chapter 50: Dependency Analysis {#dependency-analysis}
+## Chapter 50: Dependency Analysis
 
 ### Visualizing Import/Reference Graph
 
@@ -4298,7 +4300,7 @@ Right-click a `.vg` file in filesystem panel:
 
 ---
 
-## Chapter 51: Exception Handling (Try/Catch) {#try-catch}
+## Chapter 51: Exception Handling (Try/Catch)
 
 VisualGasic provides robust exception handling compatible with Godot's error system.
 
@@ -4360,7 +4362,7 @@ Sub ReadFileWithCleanup()
 End Sub
 ```
 
-## Chapter 52: Lambda Expressions {#lambda-expressions}
+## Chapter 52: Lambda Expressions
 
 Lambda expressions are anonymous functions useful for event handlers, map/filter operations, and callbacks.
 
@@ -4414,7 +4416,7 @@ Sub FilterEnemiesInRange()
 End Sub
 ```
 
-## Chapter 53: Optional Types and Null Safety {#optional-types}
+## Chapter 53: Optional Types and Null Safety
 
 Optional types help prevent `Null Reference Exception` errors.
 
@@ -4465,7 +4467,7 @@ Sub SafeNodeAccess()
 End Sub
 ```
 
-## Chapter 54: The `Let` Keyword {#let-keyword}
+## Chapter 54: The `Let` Keyword
 
 The `Let` keyword enables **immutable variable declarations** — values assigned once, never modified.
 
@@ -4519,7 +4521,7 @@ Sub Difference()
 End Sub
 ```
 
-## Chapter 55: The `IsNot` Operator {#isnot-operator}
+## Chapter 55: The `IsNot` Operator
 
 The `IsNot` operator tests for **object inequality** (opposite of `Is`).
 
