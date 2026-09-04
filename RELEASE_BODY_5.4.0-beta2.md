@@ -22,6 +22,7 @@ Full details: [RELEASE_NOTES_v5.4.0-beta2.md](https://github.com/xgreenrx-star/V
   - [Chapter 45: Narcea AI Pair](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#L4101) (M5)
   - [Chapter 49: Causal Chains](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#L4230) (M6)
   - [Chapter 51: Exception Handling & Modern Syntax](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#L4301) (M8)
+  - **Note:** Use the **Table of Contents** at the top of the manual for navigation. In GitHub's Code view (keyboard: `C` key), press `Ctrl+G` or `Cmd+G` to jump directly to a line number.
 - [Changelog](https://github.com/xgreenrx-star/VisualGasic/blob/main/CHANGELOG.md)
 
 ### Downloads
