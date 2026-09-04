@@ -16,13 +16,13 @@ Full details: [RELEASE_NOTES_v5.4.0-beta2.md](https://github.com/xgreenrx-star/V
 - [Documentation Hub](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/DOCS.md)
 - [Getting Started](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/guides/GET_STARTED.md)
 - [Installation Guide](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/guides/INSTALLATION.md)
-- **[Godot Programming Manual v3.0.0](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md)** — Key Sections:
-  - [Chapter 1: Introduction](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#L98)
-  - [Chapter 40: Python Bridge](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#L3924) (M7)
-  - [Chapter 45: Narcea AI Pair](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#L4101) (M5)
-  - [Chapter 49: Causal Chains](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#L4230) (M6)
-  - [Chapter 51: Exception Handling & Modern Syntax](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md#L4301) (M8)
-  - **Note:** Use the **Table of Contents** at the top of the manual for navigation. In GitHub's Code view (keyboard: `C` key), press `Ctrl+G` or `Cmd+G` to jump directly to a line number.
+- **[Godot Programming Manual v3.0.0](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md)** — Key Sections (links open in Code view and scroll/highlight the exact line):
+  - [Chapter 1: Introduction](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L98)
+  - [Chapter 40: Python Bridge](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3924) (M7)
+  - [Chapter 45: Narcea AI Pair](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4101) (M5)
+  - [Chapter 49: Causal Chains](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4230) (M6)
+  - [Chapter 51: Exception Handling & Modern Syntax](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4301) (M8)
+  - **Note:** GitHub shows `.md` files in rendered **Preview** by default, where line-number links don't scroll. The links above use `?plain=1` to force **Code** view, where `#L<N>` reliably jumps to and highlights that line. For general reading, use the **Table of Contents** at the top of the manual instead.
 - [Changelog](https://github.com/xgreenrx-star/VisualGasic/blob/main/CHANGELOG.md)
 
 ### Downloads
