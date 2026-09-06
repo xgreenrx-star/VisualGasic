@@ -1,6 +1,6 @@
 # VisualGasic 5.4.0-beta2 Release Notes
 
-**Release Date:** October 15, 2026  
+**Release Date:** September 2026  
 **Status:** Beta (Pre-release)  
 **Milestone:** M5 — Buffer Type + Optimizer Hints + Narcea golden path  
 **Previous Release:** [5.4.0-beta1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1)  
@@ -63,7 +63,16 @@ The release cut was validated with the project’s actual headless gates:
 - [x] Fix CI GDExtension loader registration path
 - [x] Validate `.vg` suite + smoke gate
 - [x] Validate Narcea Tier A/B
-- [ ] Create GitHub pre-release tag and publish release (Oct 15 target)
+- [ ] Create GitHub pre-release tag and publish release
+
+---
+
+## Also in this release (since 5.4.0-beta1)
+
+- **`Let` block scope**, Python typed msgpack (C2), causal-chain API, AST Godot type constructors
+- **916/916** regression assertions · **57** corpus examples
+- Compile-time benchmarks published (VG vs GDScript reload)
+- CI benchmark regression gate hardening · doc link audit
 
 ---
 

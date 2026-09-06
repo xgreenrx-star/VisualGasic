@@ -32,8 +32,13 @@ LLMs were trained on decades of VB/VBA/VBScript. That prior knowledge transfers 
 | **Draw grid-loop fusion** | Hot `_Draw` paths compile to native `OP_DRAW_*_GRID_LOOP` opcodes |
 | **CI benchmark regression gate** | `scripts/benchmark_regression_check.sh` blocks speed regressions |
 | **891/891 regression assertions** | `.vg` test suite green (122 runnable files) |
+| **VG Beta Showcase** | `projects/vg_beta_showcase/` — Backrooms hub tour, shader reel, About VG, Squash tease, Neon Runner, Vector Storm; Movie Maker script |
+| **Track D groundwork** | `DataFile` / `.vgd` sidecar, context rail preview, Tiled import hooks |
+| **CInt VB6 rounding** | `CInt(3.7)` → 4, not truncated 3 |
 
-## ✅ Shipped in v5.4.0-beta2 (Sep 2026 on `main`; Oct 15 tag)
+Full notes: [`RELEASE_NOTES_v5.4.0-beta1.md`](RELEASE_NOTES_v5.4.0-beta1.md)
+
+## ✅ Shipped in v5.4.0-beta2 (Sep 5, 2026)
 
 | Feature | Notes |
 |---------|--------|
@@ -48,12 +53,7 @@ LLMs were trained on decades of VB/VBA/VBScript. That prior knowledge transfers 
 | **916/916 regression assertions** | `.vg` test suite + causal-chain fixtures (see [`KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md)) |
 | **57 corpus examples** | Generics, optional types, advanced exception patterns added |
 
-Full notes: [`CHANGELOG.md`](CHANGELOG.md) — `[5.4.0-beta2]`
-| **VG Beta Showcase** | `projects/vg_beta_showcase/` — Backrooms hub tour, shader reel, About VG, Squash tease, Neon Runner, Vector Storm; Movie Maker script |
-| **Track D groundwork** | `DataFile` / `.vgd` sidecar, context rail preview, Tiled import hooks |
-| **CInt VB6 rounding** | `CInt(3.7)` → 4, not truncated 3 |
-
-Full notes: [`RELEASE_NOTES_v5.4.0-beta1.md`](RELEASE_NOTES_v5.4.0-beta1.md)
+Full notes: [`RELEASE_NOTES_v5.4.0-beta2.md`](RELEASE_NOTES_v5.4.0-beta2.md)
 
 ---
 

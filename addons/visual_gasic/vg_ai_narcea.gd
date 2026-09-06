@@ -365,7 +365,7 @@ The handler name is always: Sub <controlName>_<Event>()
        tmrGame  -> Sub tmrGame_Timer()
        txtInput -> Sub txtInput_Change()
 
-=== Beta showcase & vector canvas (5.4.0-beta1) ===
+=== Beta showcase & vector canvas (5.4.0-beta1; language M5 in 5.4.0-beta2) ===
 Reference project (separate Godot project — open its project.godot directly):
   projects/vg_beta_showcase/   README.md + ARCHITECTURE.md for full flow
   F5 from tour_main.tscn — Backrooms hub → shader reel → About VG → Squash
@@ -1389,7 +1389,7 @@ const SLIM_KNOWLEDGE := """
   Variant arrays; QueueRedraw only when visuals change (not every _Process frame).
 - Large level/tile data: labeled DataFile \"path\" (.vgd binary or CSV); use DataCount,
   PeekData, DataBuffer — not megabytes of inline Data rows. User edits CSV/vgd in VG Grid Editor (Edit Grid… in Context Rail).
-- 5.4.0-beta1: 12/12 compute + 9/9 draw vs GDScript; trivial FunctionCall inlining.
+- 5.4.0-beta2: Buffer type, Let block scope, Narcea Tier A/B, 916/916 tests; still 12/12 compute + 9/9 draw vs GDScript from beta1.
 - Python bridge: PyBridgeFacade + opt-in typed msgpack (`vg/python/use_typed_protocol`) for int args.
 - Causal chain: Code Navigator **Show Causal Chain** — static event→Sub→Call audit after AI edits.
 - Beta showcase tour: projects/vg_beta_showcase/ (Backrooms hub + .vg demos); see ARCHITECTURE.md.

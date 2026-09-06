@@ -20,7 +20,7 @@
           in plain English with AI, get back code that reads like a document, not a puzzle &mdash; AI writes it, you understand it.
           Get from curiosity to install, docs, demos, benchmarks, and release media below.
         </p>
-        <p class="roadmap-strip">v5.4.0-beta1 shipped: 12/12 compute + 9/9 draw, Beta Showcase tour, 891/891 tests. Next: Narcea M5 (beta2, Oct 2026).</p>
+        <p class="roadmap-strip">v5.4.0-beta2 shipped: Buffer type, Let block scope, Narcea Tier A/B, 916/916 tests. Still from beta1: 12/12 compute + 9/9 draw vs GDScript, Beta Showcase tour.</p>
         <div class="hero-actions">
           <a class="button primary" href="#downloads">Get Visual Gasic</a>
           <a class="button secondary" href="https://github.com/xgreenrx-star/VisualGasic/tree/main/projects/vg_beta_showcase">Try the Beta Showcase</a>
@@ -34,8 +34,9 @@
       <div class="hero-panel notice-card">
         <p class="notice-title">Status</p>
         <ul class="notice-list">
-            <li>✅ <strong>v5.4.0-beta1</strong> — 12/12 compute + 9/9 draw faster than GDScript</li>
-            <li>✅ 891/891 regression assertions · CI benchmark regression gate</li>
+            <li>✅ <strong>v5.4.0-beta2</strong> — Buffer type, Let block scope, Narcea Tier A/B golden path</li>
+            <li>✅ 916/916 regression assertions · 57 corpus examples</li>
+            <li>✅ <strong>v5.4.0-beta1</strong> — 12/12 compute + 9/9 draw faster than GDScript · Beta Showcase</li>
             <li>✅ <strong><a href="https://github.com/xgreenrx-star/VisualGasic/tree/main/projects/vg_beta_showcase">VG Beta Showcase</a></strong> — <a href="https://youtu.be/FUw8zgbn_tU">watch on YouTube</a> or open <code>projects/vg_beta_showcase/</code> and press F5</li>
             <li>✅ Core language, JIT compiler, and debugger stable (public beta)</li>
             <li>✅ Full Godot 4.6 IDE integration with autocomplete and Code Navigator</li>
@@ -51,7 +52,7 @@
           <p class="section-kicker">Downloads</p>
           <h2>Installers, offline bundles, and manual install for the current beta</h2>
           <p>
-            These links point at the current v5.4.0-beta1 release assets on GitHub. Use the one-click installer for a fresh setup.
+            These links point at the current v5.4.0-beta2 release assets on GitHub. Use the one-click installer for a fresh setup.
             If you already have Godot 4.6.1+, install from the Asset Library or download the addon zip. For air-gapped installs,
             use the offline bundle.
           </p>
@@ -76,39 +77,39 @@
           <article class="card download-card accent-cyan">
             <h3>Linux Installer</h3>
             <p>AppImage installer for Linux x86_64.</p>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-v5.4.0-beta1-x86_64.AppImage">Download AppImage</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic-Installer-v5.4.0-beta2-x86_64.AppImage">Download AppImage</a>
           </article>
           <article class="card download-card accent-gold">
             <h3>Windows Installer</h3>
             <p>One-click Windows x64 installer.</p>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-v5.4.0-beta1-x86_64.exe">Download EXE</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic-Installer-v5.4.0-beta2-x86_64.exe">Download EXE</a>
           </article>
           <article class="card download-card">
             <h3>Manual (BYO Godot)</h3>
             <p>Install Godot 4.6.1+, then add the addon from AssetLib or a release zip.</p>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_AssetLibrary_v5.4.0-beta1.zip">Asset Library Zip</a>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-v5.4.0-beta1.zip">Minimal Addon Zip</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic_AssetLibrary_v5.4.0-beta2.zip">Asset Library Zip</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic-v5.4.0-beta2.zip">Minimal Addon Zip</a>
             <a href="https://store.godotengine.org/asset/visual-gasic/visual-gasic/">AssetLib Listing</a>
           </article>
           <article class="card download-card">
             <h3>Offline Bundles</h3>
             <p>Includes the Godot download for offline installs.</p>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-Offline-v5.4.0-beta1-linux-x86_64.zip">Linux Offline Bundle</a>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic-Installer-Offline-v5.4.0-beta1-windows-x86_64.zip">Windows Offline Bundle</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic-Installer-Offline-v5.4.0-beta2-linux-x86_64.zip">Linux Offline Bundle</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic-Installer-Offline-v5.4.0-beta2-windows-x86_64.zip">Windows Offline Bundle</a>
           </article>
           <article class="card download-card">
             <h3>Godot Asset Library</h3>
             <p>Single-addon zip for in-editor AssetLib install.</p>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_AssetLibrary_v5.4.0-beta1.zip">Download Asset Library Zip</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic_AssetLibrary_v5.4.0-beta2.zip">Download Asset Library Zip</a>
             <a href="https://store.godotengine.org/asset/visual-gasic/visual-gasic/">Store Listing</a>
           </article>
         </div>
         <div class="meta-links">
           <a href="https://youtu.be/FUw8zgbn_tU">Beta Showcase Video</a>
           <a href="https://github.com/xgreenrx-star/VisualGasic/tree/main/projects/vg_beta_showcase">Beta Showcase Demo</a>
-          <a href="https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1">Latest Release Page</a>
+          <a href="https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta2">Latest Release Page</a>
           <a href="https://github.com/xgreenrx-star/VisualGasic/releases">All Releases</a>
-          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_v5.4.0-beta1.md">5.4.0-beta1 Release Notes</a>
+          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_v5.4.0-beta2.md">5.4.0-beta2 Release Notes</a>
         </div>
       </section>
 
@@ -174,9 +175,9 @@
         <p class="section-kicker">What We Are Building Now</p>
         <h2>Fixing the language, shipping examples, building the tools that prove the pitch</h2>
         <p>
-          VG is a public beta. **5.4.0-beta1** proved the speed thesis (12/12 + 9/9 vs GDScript) and shipped the
-          Beta Showcase tour. What comes next is Narcea M5 (end-to-end form generation), UI Forms parity,
-          and the examples corpus cleanup — so newcomers can install, watch the showcase, and write code they can read.
+          VG is a public beta. <strong>v5.4.0-beta1</strong> proved the speed thesis (12/12 + 9/9 vs GDScript) and shipped the
+          Beta Showcase tour. <strong>v5.4.0-beta2</strong> closes M5 with Buffer type, Let block scope, and Narcea Tier A/B validation.
+          What comes next is UI Forms parity and the examples corpus cleanup — so newcomers can install, watch the showcase, and write code they can read.
         </p>
         <div class="manual-grid">
           <a class="card link-card accent-cyan" href="https://github.com/xgreenrx-star/VisualGasic/tree/main/projects/vg_beta_showcase">
@@ -193,10 +194,11 @@
               CI regression gate blocks speed slips before they ship.
             </span>
           </article>
-          <article class="card link-card accent-gold">
-            <strong>Narcea AI pair — generate VG from plain English</strong>
+          <article class="card link-card accent-cyan">
+            <strong>✅ Shipped — Narcea Tier A/B golden path</strong>
             <span>
-              M5 target (beta2, Oct 2026): describe a form or game, Narcea writes working VG code you can read line by line.
+              Recorded form scaffold (Tier A) and platformer replay (Tier B) validation in the Narcea manifest.
+              Describe a form or game in plain English; Narcea writes VG code you can read line by line.
             </span>
           </article>
           <article class="card link-card accent-gold">
@@ -602,7 +604,7 @@ End Sub</pre>
       <section id="sponsor" class="section sponsor-section">
         <div class="sponsor-inner">
           <h2 class="sponsor-heading">Support Development</h2>
-          <p class="sponsor-body">Visual Gasic is an independent open-source project. v5.4.0-beta1 is the current public beta — sponsorship helps fund Narcea M5, docs, examples, and the road to stable VG6 in 2027.</p>
+          <p class="sponsor-body">Visual Gasic is an independent open-source project. v5.4.0-beta2 is the current public beta — sponsorship helps fund docs, examples, UI Forms, and the road to stable VG6 in 2027.</p>
           <a class="button sponsor" href="https://github.com/sponsors/xgreenrx-star" target="_blank" rel="noopener">&#9829; Sponsor on GitHub</a>
         </div>
       </section>
@@ -612,7 +614,7 @@ End Sub</pre>
       <p>Visual Gasic &mdash; Narcean Technologies &mdash; GPL-3.0</p>
       <div class="footer-links">
         <a href="https://github.com/xgreenrx-star/VisualGasic">GitHub Repository</a>
-        <a href="https://github.com/xgreenrx-star/VisualGasic/releases/latest">Latest Release</a>
+        <a href="https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta2">Latest Release</a>
         <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/DOCS.md">Documentation Hub</a>
       </div>
     </footer>

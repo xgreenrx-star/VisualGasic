@@ -252,14 +252,15 @@ Internal docs for contributors and maintainers.
 | Document | Description |
 |----------|-------------|
 | [README](../README.md) | Project overview, feature list, screenshots, and quick start |
-| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.4.0-beta1) |
+| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.4.0-beta2) |
 | [Roadmap](../ROADMAP.md) | Development roadmap and feature timeline |
 | [Security Policy](../SECURITY.md) | Security policy and vulnerability reporting |
 | [License](../LICENSE) | GPL-3.0
 
 | Version | File | Highlights |
 |---------|------|------------|
-| **v5.4.0-beta1** | [RELEASE_NOTES_v5.4.0-beta1.md](../RELEASE_NOTES_v5.4.0-beta1.md) | **Current public beta** — 12/12 compute + 9/9 draw, FunctionCall inlining, CI benchmark gate, Beta Showcase tour, 891/891 tests. |
+| **v5.4.0-beta2** | [RELEASE_NOTES_v5.4.0-beta2.md](../RELEASE_NOTES_v5.4.0-beta2.md) | **Current public beta** — Buffer type, `Let` block scope, optimizer hints, Narcea Tier A/B, Python typed msgpack, AST Godot ctors, 916/916 tests. |
+| **v5.4.0-beta1** | [RELEASE_NOTES_v5.4.0-beta1.md](../RELEASE_NOTES_v5.4.0-beta1.md) | 12/12 compute + 9/9 draw, FunctionCall inlining, CI benchmark gate, Beta Showcase tour, 891/891 tests. |
 | **v5.3.0-Beta7** | [RELEASE_NOTES_5.3.0-Beta7.md](../RELEASE_NOTES_5.3.0-Beta7.md) | Bracket array indexing fix, CI `.vg` regression gate, ByRef array slots, Narcea scaffold hardening. |
 | **v5.3.0-Beta5** | [RELEASE_NOTES_5.3.0-Beta5.md](../RELEASE_NOTES_5.3.0-Beta5.md) | Native Script editor crash fix, VB6 Enter/block closing, keyword auto-correct. |
 | **v5.2.0-Beta4** | [RELEASE_NOTES_v5.2.0-Beta4.md](release/RELEASE_NOTES_v5.2.0-Beta4.md) | Call-overhead campaign, native 6502 core, silent miscompilation fixes. |

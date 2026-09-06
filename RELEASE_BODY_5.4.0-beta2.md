@@ -6,7 +6,7 @@
 - **Optimizer Hints** — `@accumulator`, `@loop_counter`, `@simd_candidate` metadata for safe optimization passes
 - **AST Godot type constructors fixed** — `Vector2i()` / `Rect2i()` / `Color()` no longer throw "Sub or Function not defined"
 - **Narcea Tier A/B** — recorded platformer scenario + canonical scaffold validation
-- **891/891** regression assertions · **57** corpus examples
+- **916/916** regression assertions · **57** corpus examples
 - **CI hardening** — GDExtension materializes real addon tree on fresh clones
 
 Full details: [RELEASE_NOTES_v5.4.0-beta2.md](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_v5.4.0-beta2.md)

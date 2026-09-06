@@ -1,6 +1,6 @@
 # VisualGasic Release Schedule
 
-**Last Updated:** September 2, 2026  
+**Last Updated:** September 5, 2026  
 **Target:** Stable **v6.0.0** on January 1, 2027  
 **Version policy:** [docs/VERSIONING.md](docs/VERSIONING.md)
 
@@ -12,8 +12,8 @@
 |---------|--------|-----|-----------|--------------|
 | **5.3.0-Beta7** | 🟢 SHIPPED | Aug 21, 2026 | M1–M4 (+ M5 progress) | Bracket indexing, CI `.vg` gate, Narcea reference offers — [notes](RELEASE_NOTES_5.3.0-Beta7.md) |
 | **5.4.0-beta1** | 🟢 SHIPPED | Aug 30, 2026 | pre-M5 | **12/12 compute + 9/9 draw**, draw fusion, FunctionCall inlining, CI benchmark gate, **Beta Showcase** — [notes](RELEASE_NOTES_v5.4.0-beta1.md) |
+| **5.4.0-beta2** | 🟢 SHIPPED | Sep 5, 2026 | M5 (+ M6/M7/M8 prep) | Buffer type, optimizer hints, Narcea Tier A/B, causal-chain teaser, msgpack C2, `Await`/`PyAsyncTask`, `Let`, AST Godot ctors — [notes](RELEASE_NOTES_v5.4.0-beta2.md) |
 | **5.4.0-beta1 showcase** | 🟢 SHIPPED | Aug 30, 2026 | pre-M5 | `projects/vg_beta_showcase/` — full tour + Movie Maker script ([README](projects/vg_beta_showcase/README.md)) |
-| **5.4.0-beta2** | 🟢 ON `main` | Oct 15, 2026 tag | M5 (+ M6/M7/M8 prep) | Buffer type, optimizer hints, Narcea Tier A/B, causal-chain teaser, msgpack C2, `Await`/`PyAsyncTask`, `Let`, AST Godot ctors — [CHANGELOG](CHANGELOG.md) |
 | **5.5.0-beta1** | — | Nov 2026 | M7–M8 | Python bridge close-out (Windows e2e, numpy Phase 2), FFI `Declare`/`DllImport`, language stress corpus |
 | **6.0.0-rc1** | — | Dec 1, 2026 | M8–M9 | Try/Catch/Lambda/`?.` hardening, installer smoke, docs/corpus gate |
 | **6.0.0-rc2** | — | Dec 15, 2026 | M9 | Final docs, 57+ corpus, release checklist |
@@ -40,7 +40,7 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 
 ## 5.3 line — shipped (Jul–Aug 2026)
 
-**Latest public beta tag:** `v5.4.0-beta1` (Aug 30, 2026). **Current `main`:** v5.4.0-beta2 prep (M5 complete; Oct 15 tag planned).
+**Latest public beta tag:** `v5.4.0-beta2` (Sep 5, 2026). **Current `main`:** v5.4.0-beta2 (M5 complete).
 
 **Milestones included:**
 - ✅ M1 — Critical bug fixes
@@ -102,11 +102,11 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 
 ---
 
-## 5.4.0-beta2 — M5 (+ prep tracks) (Oct 15, 2026 tag)
+## 5.4.0-beta2 — M5 (+ prep tracks) (Sep 5, 2026)
 
 **Milestone:** M5 complete; M6/M7/M8 prep landed on `main` (Sep 2026)
 
-**Shipped on `main`:**
+**Shipped:**
 - Buffer type (`Dim mem As Buffer`) + `OP_BUF_*` opcodes
 - Optimizer hints (`@fast_loop`, `@accumulator`, `@simd_candidate`, `@pure`)
 - Narcea Tier A/B golden-path validation
@@ -115,11 +115,12 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 - `Let` block scope; AST Godot type constructors
 - **916/916** regression assertions; **57** corpus examples
 
-**Release criteria (for tag):**
+**Release criteria:**
 - [x] M5 features on `main` with regression tests
 - [x] No regressions from 5.4.0-beta1 baseline
-- [ ] Git tag `v5.4.0-beta2` at Oct 15 cut
-- [ ] GitHub Pre-release notes published
+- [x] README, website, docs, `.assetlib.json` updated for beta2
+- [ ] Git tag `v5.4.0-beta2` + GitHub Pre-release with installer zips
+- [ ] Asset Library version update submitted
 
 ---
 

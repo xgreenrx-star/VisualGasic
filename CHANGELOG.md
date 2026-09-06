@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Advanced Exception Handling** — [corpus/01_basics/07_exception_patterns.vg](corpus/01_basics/07_exception_patterns.vg) · Multiple `Catch` blocks, nested `Try/Catch`, `Finally` cleanup, and real-world error recovery patterns.
 - Corpus now contains **57 total examples** across 10 categories, providing working reference implementations for all major language features.
 
-## [5.4.0-beta2] - 2026-10-15
+## [5.4.0-beta2] - 2026-09-05
 
 **Key numbers:** target M5 release cut — Buffer + optimizer-hint runtime and Narcea Tier A/B golden path validated.
 

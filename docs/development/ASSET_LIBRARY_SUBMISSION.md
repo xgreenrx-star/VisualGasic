@@ -4,31 +4,31 @@ Status of the VisualGasic listing on the [Godot Asset Library](https://godotengi
 
 ---
 
-## Current status (v5.4.0-beta1)
+## Current status (v5.4.0-beta2)
 
 | Field | Value |
 |-------|--------|
-| **Version submitted** | 5.4.0-beta1 |
+| **Version submitted** | 5.4.0-beta2 |
 | **Godot version** | 4.6+ |
 | **License** | GPL v3.0 |
-| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.4.0-beta1.zip` |
-| **Listing state** | **Live** — update pending moderator approval for 5.4.0-beta1 |
+| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.4.0-beta2.zip` |
+| **Listing state** | **Live** — update pending moderator approval for 5.4.0-beta2 |
 
-Changelog copy for the Asset Library version field: [`ASSET_LIBRARY_CHANGELOG_5.4.0-beta1.md`](../../ASSET_LIBRARY_CHANGELOG_5.4.0-beta1.md) (BBCode variant available in release notes workflow).
+Changelog copy for the Asset Library version field: [`ASSET_LIBRARY_CHANGELOG_5.4.0-beta2.md`](../../ASSET_LIBRARY_CHANGELOG_5.4.0-beta2.md) (plain text — paste into Godot Asset Library).
 
 User-facing install steps: [Installation Guide — Method 0](../guides/INSTALLATION.md#-method-0-godot-asset-library-recommended-if-you-already-have-godot)
 
 ---
 
-## Submission checklist (5.4.0-beta1)
+## Submission checklist (5.4.0-beta2)
 
-- [x] Plugin metadata in `addons/visual_gasic/plugin.cfg` (version **5.4.0-beta1**)
+- [x] Plugin metadata in `addons/visual_gasic/plugin.cfg` (version **5.4.0-beta2**)
 - [x] Asset library metadata in `.assetlib.json`
 - [x] Installation documentation — [`docs/guides/INSTALLATION.md`](../guides/INSTALLATION.md)
-- [x] GitHub release **v5.4.0-beta1** with Asset Library zip attached
+- [x] GitHub release **v5.4.0-beta2** with Asset Library zip attached
 - [x] GPL v3.0 license
 - [x] Asset Library listing live (store.godotengine.org)
-- [ ] Moderator approval for **5.4.0-beta1** version update
+- [ ] Moderator approval for **5.4.0-beta2** version update
 - [ ] Post-approval: verify search/install from Godot AssetLib tab
 
 ---
@@ -44,8 +44,8 @@ Use these values when submitting updates:
 | **Godot Version** | 4.6 |
 | **Repository URL** | https://github.com/xgreenrx-star/VisualGasic |
 | **Issues URL** | https://github.com/xgreenrx-star/VisualGasic/issues |
-| **Download URL** | `https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta1/VisualGasic_AssetLibrary_v5.4.0-beta1.zip` |
-| **Version** | 5.4.0-beta1 |
+| **Download URL** | `https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic_AssetLibrary_v5.4.0-beta2.zip` |
+| **Version** | 5.4.0-beta2 |
 | **Icon URL** | https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/addons/visual_gasic/icon.svg |
 | **Download Method** | GitHub Release |
 
