@@ -2174,6 +2174,14 @@ Variant VisualGasicInstance::builtin_create_actor2d(const Array &p_args) {
     return body;
 }
 
+Variant VisualGasicInstance::dispatch_expr_compat_call(const String &p_method, const Array &p_args, bool &r_found) {
+    r_found = false;
+    const String &method = p_method;
+    const Array &call_args = p_args;
+#include "visual_gasic_instance_expr_compat.inc"
+    return Variant();
+}
+
 CanvasItem *VisualGasicInstance::get_draw_canvas_item() {
     if (_draw_ci_owner_cache != owner) {
         _draw_ci_owner_cache = owner;

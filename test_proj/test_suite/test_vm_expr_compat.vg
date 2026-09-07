@@ -1,0 +1,63 @@
+' Test: bytecode VM expr builtin parity (compat + file helpers)
+' Exercises builtins that previously only worked on the AST interpreter path.
+Attribute VB_Name = "TestVmExprCompat"
+
+Sub _Ready()
+	Dim rad As Double
+	Dim deg As Double
+	Dim sz As Double
+	Dim fileNum As Integer
+	Dim d As Double
+
+	rad = Deg2Rad(90)
+	If rad > 1.56 And rad < 1.58 Then
+		Print "PASS: deg2rad_90"
+	Else
+		Print "FAIL: deg2rad_90: got " & Str(rad)
+	End If
+
+	deg = Rad2Deg(3.14159265)
+	If deg > 179.9 And deg < 180.1 Then
+		Print "PASS: rad2deg_pi"
+	Else
+		Print "FAIL: rad2deg_pi: got " & Str(deg)
+	End If
+
+	Beep
+	Print "PASS: beep_no_crash"
+
+	sz = FileLen("res://project.godot")
+	If sz >= 1 Then
+		Print "PASS: filelen_project"
+	Else
+		Print "FAIL: filelen_project: got " & Str(sz)
+	End If
+
+	fileNum = FreeFile()
+	If fileNum >= 1 And fileNum <= 255 Then
+		Print "PASS: freefile_positive"
+	Else
+		Print "FAIL: freefile_positive: got " & Str(fileNum)
+	End If
+
+	If Len(CurDir()) >= 1 Then
+		Print "PASS: curdir_nonempty"
+	Else
+		Print "FAIL: curdir_nonempty"
+	End If
+
+	If Len(Environ("PATH")) >= 1 Then
+		Print "PASS: environ_path"
+	Else
+		Print "FAIL: environ_path"
+	End If
+
+	d = GetDelta()
+	If d >= 0 Then
+		Print "PASS: getdelta_expr"
+	Else
+		Print "FAIL: getdelta_expr: got " & Str(d)
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

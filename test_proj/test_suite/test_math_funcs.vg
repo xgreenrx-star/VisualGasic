@@ -98,6 +98,21 @@ Sub _Ready()
 		Print "FAIL: cos_zero: got " & Str(cosVal)
 	End If
 	
+	' --- Deg2Rad / Rad2Deg (Godot-style angle helpers) ---
+	Dim rad90 As Double = Deg2Rad(90)
+	If rad90 > 1.56 And rad90 < 1.58 Then
+		Print "PASS: deg2rad_90"
+	Else
+		Print "FAIL: deg2rad_90: got " & Str(rad90)
+	End If
+	
+	Dim degPi As Double = Rad2Deg(3.14159265)
+	If degPi > 179.9 And degPi < 180.1 Then
+		Print "PASS: rad2deg_pi"
+	Else
+		Print "FAIL: rad2deg_pi: got " & Str(degPi)
+	End If
+	
 	' --- Log (natural log of e ≈ 1) ---
 	Dim logVal As Double = Log(Exp(1))
 	If logVal > 0.99 And logVal < 1.01 Then

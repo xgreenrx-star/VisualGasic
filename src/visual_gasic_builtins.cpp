@@ -4001,6 +4001,8 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("sin") && args.size() == 1) { r_handled = true; return ::sin((double)args[0]); }
     if (METHOD_IS("cos") && args.size() == 1) { r_handled = true; return ::cos((double)args[0]); }
     if (METHOD_IS("tan") && args.size() == 1) { r_handled = true; return ::tan((double)args[0]); }
+    if (METHOD_IS("deg2rad") && args.size() == 1) { r_handled = true; return Math::deg_to_rad((float)(double)args[0]); }
+    if (METHOD_IS("rad2deg") && args.size() == 1) { r_handled = true; return Math::rad_to_deg((float)(double)args[0]); }
     if (METHOD_IS("log") && args.size() == 1) { r_handled = true; return ::log((double)args[0]); }
     if (METHOD_IS("exp") && args.size() == 1) { r_handled = true; return ::exp((double)args[0]); }
     if (METHOD_IS("atn") && args.size() == 1) { r_handled = true; return ::atan((double)args[0]); }
@@ -6225,6 +6227,78 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return true; // File not open → treated as EOF
     }
 
+    // VB6 file helpers (also in call_builtin_expr fallback — must exist on bytecode VM path)
+    if (METHOD_IS("lof") && args.size() == 1) { r_handled = true; return instance->file_lof((int)args[0]); }
+    if (METHOD_IS("loc") && args.size() == 1) { r_handled = true; return instance->file_loc((int)args[0]); }
+    if (METHOD_IS("freefile")) { r_handled = true; int range = 0; if (args.size() > 0) range = (int)args[0]; return instance->file_free(range); }
+    if (METHOD_IS("filelen") && args.size() == 1) { r_handled = true; return instance->file_len(String(args[0])); }
+    if (METHOD_IS("dir")) { r_handled = true; return instance->file_dir(args); }
+    if (METHOD_IS("mkdir") && args.size() >= 1) {
+        r_handled = true;
+        String path = String(args[0]);
+        Ref<DirAccess> dir = DirAccess::open("res://");
+        if (dir.is_valid()) {
+            dir->make_dir_recursive(path);
+        }
+        return Variant();
+    }
+    if (METHOD_IS("rmdir") && args.size() >= 1) {
+        r_handled = true;
+        String path = String(args[0]);
+        Ref<DirAccess> dir = DirAccess::open("res://");
+        if (dir.is_valid()) {
+            dir->remove(path);
+        }
+        return Variant();
+    }
+    if (METHOD_IS("chdir") && args.size() >= 1) {
+        r_handled = true;
+        String path = String(args[0]);
+        Ref<DirAccess> dir = DirAccess::open(path);
+        if (dir.is_valid()) {
+            get_cwd() = path;
+        }
+        return Variant();
+    }
+    if (METHOD_IS("filecopy") && args.size() >= 2) {
+        r_handled = true;
+        String src = String(args[0]);
+        String dst = String(args[1]);
+        Ref<DirAccess> dir = DirAccess::open("res://");
+        if (dir.is_valid()) {
+            dir->copy(src, dst);
+        }
+        return Variant();
+    }
+    if (METHOD_IS("beep")) {
+        r_handled = true;
+        UtilityFunctions::print("[VG] Beep");
+        return Variant();
+    }
+
+    if (METHOD_IS("weakref") && args.size() == 1) {
+        r_handled = true;
+        return UtilityFunctions::weakref(args[0]);
+    }
+
+    if (METHOD_IS("getcontrol") && args.size() == 1) {
+        r_handled = true;
+        String ctrl_name = String(args[0]);
+        if (instance->get_owner()) {
+            Node *n = Object::cast_to<Node>(instance->get_owner());
+            if (n) {
+                Node *found = n->find_child(ctrl_name, true, false);
+                if (!found && n->get_parent()) {
+                    found = n->get_parent()->find_child(ctrl_name, true, false);
+                }
+                if (found) {
+                    return found;
+                }
+            }
+        }
+        return Variant();
+    }
+
     // Input$(n, filenumber) — read n characters from file
     if ((METHOD_IS("input$") || METHOD_IS("inputstr")) && args.size() == 2) {
         r_handled = true;
@@ -6938,6 +7012,14 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         sb["__vg_stringbuilder"] = true;
         sb["__buffer"] = Array();
         return sb;
+    }
+
+    // Godot integration expr builtins (LoadTexture, CreateSprite, GetDelta, …)
+    if (!r_handled && instance) {
+        Variant compat = instance->dispatch_expr_compat_call(p_method, p_args, r_handled);
+        if (r_handled) {
+            return compat;
+        }
     }
 
 #undef METHOD_IS

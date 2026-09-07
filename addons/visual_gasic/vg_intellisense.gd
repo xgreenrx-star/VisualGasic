@@ -1501,6 +1501,8 @@ const BUILTIN_FUNCTIONS: Array[Dictionary] = [
 	{"name": "Sin", "signature": "Sin(angle As Double) As Double", "description": "Returns sine"},
 	{"name": "Cos", "signature": "Cos(angle As Double) As Double", "description": "Returns cosine"},
 	{"name": "Tan", "signature": "Tan(angle As Double) As Double", "description": "Returns tangent"},
+	{"name": "Deg2Rad", "signature": "Deg2Rad(degrees As Double) As Double", "description": "Converts degrees to radians"},
+	{"name": "Rad2Deg", "signature": "Rad2Deg(radians As Double) As Double", "description": "Converts radians to degrees"},
 	{"name": "Atn", "signature": "Atn(n As Double) As Double", "description": "Returns arctangent"},
 	{"name": "Rnd", "signature": "Rnd([seed]) As Double", "description": "Returns random number 0-1"},
 	{"name": "Round", "signature": "Round(n As Double, [decimals]) As Double", "description": "Rounds to nearest"},
@@ -1965,10 +1967,10 @@ static func get_completions(prefix: String, context: Dictionary = {}) -> Array[D
 			})
 	
 	# VG extension classes (PyBridgeFacade, VGTask, …)
-	for class_name in VG_EXTENSION_CLASSES:
-		if class_name.to_lower().begins_with(prefix_lower):
+	for vg_ext_class in VG_EXTENSION_CLASSES:
+		if vg_ext_class.to_lower().begins_with(prefix_lower):
 			results.append({
-				"text": class_name,
+				"text": vg_ext_class,
 				"kind": "class",
 				"detail": "VG Extension Class"
 			})

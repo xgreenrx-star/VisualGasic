@@ -400,6 +400,8 @@ public:
     // Public helper for other modules (builtins) to evaluate expression nodes
     Variant evaluate_expression_for_builtins(ExpressionNode* expr);
     Variant builtin_create_actor2d(const Array &p_args);
+    // Godot integration expr builtins (LoadTexture, CreateSprite, GetDelta, …) — shared by AST + bytecode VM.
+    Variant dispatch_expr_compat_call(const String &p_method, const Array &p_args, bool &r_found);
 
     // Full expression evaluation including builtins (for fallback from lightweight evaluator)
     Variant evaluate_expression_full(ExpressionNode* expr);
