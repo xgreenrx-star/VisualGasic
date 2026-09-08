@@ -1,0 +1,35 @@
+' Tier 1 smoke: owner-relative Godot builtins from reference audit
+Attribute VB_Name = "TestReferenceGodotOwnerSmoke"
+
+Sub _Ready()
+	Dim tree As Variant
+	Dim parent As Variant
+	Dim fps As Integer
+	Dim vis As Boolean
+
+	fps = GetFPS()
+	If fps >= 0 Then
+		Print "PASS: get_fps"
+	Else
+		Print "FAIL: get_fps"
+	End If
+
+	tree = GetTree()
+	If tree <> Null Then
+		Print "PASS: get_tree"
+	Else
+		Print "FAIL: get_tree null"
+	End If
+
+	parent = GetParent()
+	Print "PASS: get_parent_dispatch"
+
+	vis = IsVisible()
+	Print "PASS: is_visible_dispatch"
+
+	If Input.GetActionStrength("ui_accept") >= 0 Then
+		Print "PASS: get_action_strength"
+	Else
+		Print "FAIL: get_action_strength"
+	End If
+End Sub

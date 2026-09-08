@@ -2069,7 +2069,7 @@ Call Python 3 modules and functions from VisualGasic using an out-of-process wor
 | `PyCall(handle, method, args)` | Call a function |
 | `PyCallAsync(module, method, args)` | Async call path (v6 currently runs synchronously) |
 | `PyProcessBuffer(handle, method, buffer)` | Bulk data processing |
-| `shutdown()` | Graceful worker termination |
+| `shutdown()` | Graceful worker termination (**instance method** on `PyBridgeFacade`, not a global builtin) |
 
 **Project setting — typed wire protocol (C2, opt-in):**
 
@@ -7776,6 +7776,11 @@ A 32-bit signed integer type. Range: -2,147,483,648 to 2,147,483,647.
 
 Declares an interface — a contract that implementing classes must fulfill.
 
+**Known limitations**
+
+- **`Interface … End Interface` blocks are not parsed** — you cannot declare a standalone interface module yet.
+- **`Implements InterfaceName` works** — the compiler checks that the class defines `InterfaceName_MethodName` subs/functions for each required method (VB6 naming convention).
+
 **Example**
 
     Interface ISerializable
@@ -7936,7 +7941,51 @@ Returns True only on the frame the action was released.
 
 **Godot Mapping** — [`Input.is_action_just_released()`](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-method-is_action_just_released)
 
-**See Also** — [is_action_pressed](#isactionpressed), [is_action_just_pressed](#is_action_just_pressed)
+**See Also** — [is_action_pressed](#isactionpressed), [is_key_just_pressed](#is_key_just_pressed)
+
+---
+
+## is_key_just_pressed
+
+**Purpose** — Returns True on the frame a raw keyboard key was first pressed.
+
+**Syntax**
+
+    Input.IsKeyJustPressed(keyCode) As Boolean
+
+**Parameters**
+
+- `keyCode` — `KEY_*` constant (PascalCase alias of the snake_case Godot name).
+
+**Description**
+
+PascalCase VG spelling of raw key edge detection. See [IsKeyJustPressed](#iskeyjustpressed) for examples and **known limitations** (single-frame taps, startup held keys, rebinding vs actions, event-based alternative).
+
+**Godot Mapping** — VG engine edge tracker over [`Input.is_key_pressed()`](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-method-is-key-pressed)
+
+**See Also** — [IsKeyJustPressed](#iskeyjustpressed), [is_key_just_released](#is_key_just_released), [is_action_just_pressed](#is_action_just_pressed)
+
+---
+
+## is_key_just_released
+
+**Purpose** — Returns True on the frame a raw keyboard key was released.
+
+**Syntax**
+
+    Input.IsKeyJustReleased(keyCode) As Boolean
+
+**Parameters**
+
+- `keyCode` — `KEY_*` constant.
+
+**Description**
+
+PascalCase VG spelling. See [IsKeyJustReleased](#iskeyjustreleased) for **known limitations**.
+
+**Godot Mapping** — VG engine edge tracker over [`Input.is_key_pressed()`](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-method-is-key-pressed)
+
+**See Also** — [IsKeyJustReleased](#iskeyjustreleased), [is_key_just_pressed](#is_key_just_pressed)
 
 ---
 
@@ -8067,7 +8116,78 @@ Returns True if the specified keyboard key is currently held down.
     If IsKeyPressed("left") Then x = x - speed
     If IsKeyPressed("right") Then x = x + speed
 
-**See Also** — [IsActionPressed](#isactionpressed), [PlaySound](#playsound), [ChangeScene](#changescene), [CreateActor2D](#createactor2d)
+**See Also** — [IsActionPressed](#isactionpressed), [IsKeyJustPressed](#iskeyjustpressed), [PlaySound](#playsound), [ChangeScene](#changescene), [CreateActor2D](#createactor2d)
+
+---
+
+## IsKeyJustPressed
+
+**Purpose** — Returns True on the frame a raw keyboard key was first pressed (rising edge).
+
+**Syntax**
+
+    Input.IsKeyJustPressed(keyCode) As Boolean
+
+**Parameters**
+
+- `keyCode` — Godot `KEY_*` constant (e.g. `KEY_SPACE`, `KEY_F1`, `KEY_1`). Integer key codes also work.
+
+**Description**
+
+Polls Godot's `Input.is_key_pressed()` against a per-frame snapshot of keys that were down at the start of the current frame. Use for single-fire hotkeys (menu toggles, digit shortcuts) that are **not** defined in Project → Input Map.
+
+For gameplay actions that players rebind (jump, fire, interact), prefer [is_action_just_pressed](#is_action_just_pressed) so Project Settings input actions apply.
+
+**Example**
+
+    If Input.IsKeyJustPressed(KEY_SPACE) And IsOnFloor() Then
+        Jump()
+    End If
+
+    If Input.IsKeyJustPressed(KEY_F1) Then
+        devMenuOpen = Not devMenuOpen
+    End If
+
+**Known limitations**
+
+- **Single-frame taps** — A key pressed and released within one physics frame may not register (same class of limitation as Godot's polled `Input.is_action_just_pressed()`).
+- **Startup** — The first poll for a key that is *already held* when the script starts returns False (avoids a spurious "just pressed" on boot).
+- **Rebinding** — Raw `KEY_*` codes are fixed to physical keys; use input **actions** when players must remap controls.
+- **Sample-perfect capture** — For every transition (including sub-frame taps), handle `InputEventKey` via `_Input` / signal wiring instead of polling.
+
+**Godot Mapping** — Engine-side edge tracker over [`Input.is_key_pressed()`](https://docs.godotengine.org/en/stable/classes/class_input.html#class-input-method-is-key-pressed) (Godot has no built-in `is_key_just_pressed`).
+
+**See Also** — [IsKeyJustReleased](#iskeyjustreleased), [IsKeyPressed](#iskeypressed), [is_action_just_pressed](#is_action_just_pressed)
+
+---
+
+## IsKeyJustReleased
+
+**Purpose** — Returns True on the frame a raw keyboard key was released (falling edge).
+
+**Syntax**
+
+    Input.IsKeyJustReleased(keyCode) As Boolean
+
+**Parameters**
+
+- `keyCode` — Godot `KEY_*` constant or integer key code.
+
+**Description**
+
+Companion to [IsKeyJustPressed](#iskeyjustpressed). True when the key is **not** pressed now but **was** down at the start of the current frame.
+
+**Example**
+
+    If Input.IsKeyJustReleased(KEY_SHIFT) Then
+        StopSprint()
+    End If
+
+**Known limitations**
+
+Same polled-input constraints as [IsKeyJustPressed](#iskeyjustpressed): single-frame taps may be missed; prefer input **actions** for rebindable gameplay; use `InputEventKey` when event-accurate timing is required.
+
+**See Also** — [IsKeyJustPressed](#iskeyjustpressed), [IsKeyPressed](#iskeypressed), [is_action_just_released](#is_action_just_released)
 
 ---
 
@@ -11729,10 +11849,12 @@ Sets volume in percent (0..100). With a handle, changes that one sound. Without 
 
 **Description**
 
-Alias of the Speaker namespace — same verbs (Volume, Mute, Solo, etc.) just spelled `Speaker.Bus.Volume`. Provided for readers who think "bus" first.
+Compile-time alias: `Speaker.Bus.*` resolves to the same handlers as `Speaker.*` (e.g. `Speaker.Bus.Volume` → `Speaker.Volume`). Prefer **`Speaker.Volume`**, **`Speaker.Mute`**, etc. in new code.
 
 **Example**
 
+    Speaker.Volume "Master", 75
+    ' Equivalent (alias):
     Speaker.Bus.Volume "Master", 75
 
 **See Also** — [Speaker.Volume](#speakervolume), [Speaker.Mute](#speakermute), [Speaker.IsMuted](#speakerismuted), [Speaker.Solo](#speakersolo), [Speaker.Exists](#speakerexists), [Speaker.Count](#speakercount), [Speaker.Name](#speakername)
@@ -12979,6 +13101,10 @@ Pushes updated Image pixel data to an existing ImageTexture. Call this after mod
 **Description**
 
 Ensures a resource is properly disposed/cleaned up when the block exits.
+
+**Known limitations**
+
+- **`Using … End Using` is not parsed or executed** — use explicit `Close` / cleanup in `Finally` blocks or manual resource management until this syntax is implemented.
 
 **Example**
 
@@ -14536,11 +14662,15 @@ This index lists command-reference entries grouped by first letter.
 - [Interface](#interface)
 - [is_action_just_pressed](#is_action_just_pressed)
 - [is_action_just_released](#is_action_just_released)
+- [is_key_just_pressed](#is_key_just_pressed)
+- [is_key_just_released](#is_key_just_released)
 - [is_action_pressed](#is_action_pressed)
 - [is_on_floor](#is_on_floor)
 - [is_on_wall](#is_on_wall)
 - [IsActionPressed](#isactionpressed)
 - [IsKeyPressed](#iskeypressed)
+- [IsKeyJustPressed](#iskeyjustpressed)
+- [IsKeyJustReleased](#iskeyjustreleased)
 - [InputStr](#inputstr)
 - [IsKeyDown](#iskeydown)
 - [IsMissing](#ismissing)

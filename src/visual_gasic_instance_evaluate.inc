@@ -1312,6 +1312,20 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  }
              }
         }
+        if (call->method_name == "Disconnect") {
+             if (owner && call_args.size() == 3) {
+                 Object *source = call_args[0];
+                 String signal = call_args[1];
+                 String method = call_args[2];
+                 if (source) {
+                     Callable callable = Callable(owner, method);
+                     if (source->is_connected(signal, callable)) {
+                         source->disconnect(signal, callable);
+                     }
+                     return (int)0;
+                 }
+             }
+        }
         
         // Expression-level builtins (strings, array helpers, file/dir, math, etc.)
         // are delegated to VisualGasicBuiltins::call_builtin_expr /

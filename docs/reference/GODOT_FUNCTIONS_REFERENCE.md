@@ -1,6 +1,8 @@
 # Godot-Specific Builtin Functions Reference
 
-This document provides a complete reference for all Godot-specific builtin functions available in VisualGasic. These functions provide direct integration with Godot 4 engine features for game development.
+This document provides a complete reference for Godot-specific builtin functions available in Visual Gasic (PascalCase VB-style names). Snake_case equivalents (`get_tree`, `emit_signal`, …) are also supported and appear in IDE intellisense under **Godot API**.
+
+**Authoritative sources:** [VisualGasic Language Reference](../VisualGasic_Language_Reference.md) (Part II) for full command coverage; this file focuses on Godot game-dev globals. Signal wiring uses **`Connect(node, signal, handler)`** — not `ConnectSignal` (legacy name in older examples).
 
 ---
 
@@ -382,7 +384,7 @@ End If
 ## Timing Functions
 
 ### GetDeltaTime() As Float
-Returns the time elapsed since the last frame (in seconds).
+Returns the time elapsed since the last frame (in seconds) for the script owner node.
 
 **Syntax:**
 ```vb
@@ -391,20 +393,20 @@ Dim delta = GetDeltaTime()
 
 **Example:**
 ```vb
-Sub _process()
-    Dim delta = GetDeltaTime()
+Sub _Process(delta As Single)
+    ' Prefer the delta parameter when available:
+    Dim dt = delta
     Dim pos = GetPosition()
-    Dim speed = 200
-    
-    ' Frame-independent movement
-    SetPosition(pos.x + speed * delta, pos.y)
+    SetPosition(pos.x + 200 * dt, pos.y)
 End Sub
 ```
+
+**Note:** `GetDeltaTime()` reads the owner's process delta. It is accurate inside `_Process`; outside that callback it returns `0`. Prefer the `delta` parameter passed to `_Process`.
 
 ---
 
 ### GetPhysicsDeltaTime() As Float
-Returns the physics time step (in seconds).
+Returns the physics time step (in seconds) for the script owner node.
 
 **Syntax:**
 ```vb
@@ -413,15 +415,15 @@ Dim delta = GetPhysicsDeltaTime()
 
 **Example:**
 ```vb
-Sub _physics_process()
-    Dim delta = GetPhysicsDeltaTime()
+Sub _PhysicsProcess(delta As Single)
+    Dim dt = delta
     Dim vel = GetVelocity()
-    
-    ' Apply gravity
-    vel.y = vel.y + 980 * delta
-    SetVelocity(vel.x, vel.y)
+    SetVelocity(vel.x, vel.y + 980 * dt)
+    MoveAndSlide()
 End Sub
 ```
+
+**Note:** Accurate inside `_PhysicsProcess`; otherwise falls back to `1 / physics_ticks_per_second`. Prefer the `delta` parameter passed to `_PhysicsProcess`.
 
 ---
 
@@ -679,16 +681,16 @@ SetScale(-1, 1)
 These functions work with CharacterBody2D and other physics bodies.
 
 ### MoveAndSlide() As Boolean
-Moves the body using current velocity with collision detection.
+Moves the body using current velocity with collision detection. Returns True if the body collided with something during the slide (VG convenience; Godot's native method is void).
 
 **Syntax:**
 ```vb
-Dim moved = MoveAndSlide()
+Dim collided = MoveAndSlide()
 ```
 
 **Example:**
 ```vb
-Sub _physics_process()
+Sub _PhysicsProcess(delta As Single)
     Dim vel = GetVelocity()
     vel.x = GetActionStrength("ui_right") * 200
     SetVelocity(vel.x, vel.y)
@@ -844,38 +846,24 @@ EmitSignal("item_collected", "gold_coin", 5)
 ---
 
 ### ConnectSignal(signal_name As String, method_name As String) As Integer
-Connects a signal to a method. Returns error code (0 = OK).
+**Deprecated name.** Use **`Connect(sourceNode, signalName, handlerMethod)`** instead (VB-style global builtin). `ConnectSignal` is not a runtime builtin.
 
-**Syntax:**
+**Correct syntax:**
 ```vb
-Dim result = ConnectSignal(signal_name, method_name)
+Connect Me, "ready", "OnReady"
+Connect timer, "timeout", "OnTimerDone"
 ```
 
-**Example:**
-```vb
-Sub _ready()
-    ' Connect ready signal to OnReady method
-    ConnectSignal("ready", "OnReady")
-End Sub
-
-Sub OnReady()
-    Print "Node is ready!"
-End Sub
-```
+**See also:** [Connect](../VisualGasic_Language_Reference.md) in the Language Reference; IDE help entry **Connect**.
 
 ---
 
 ### DisconnectSignal(signal_name As String, method_name As String)
-Disconnects a signal from a method.
+**Deprecated name.** Use **`Disconnect(sourceNode, signalName, handlerMethod)`** instead.
 
-**Syntax:**
+**Correct syntax:**
 ```vb
-DisconnectSignal(signal_name, method_name)
-```
-
-**Example:**
-```vb
-DisconnectSignal("ready", "OnReady")
+Disconnect timer, "timeout", "OnTimerDone"
 ```
 
 ---

@@ -1,0 +1,35 @@
+' Tier 1 smoke: Input.* methods documented in Language Reference / GODOT_FUNCTIONS_REFERENCE
+Attribute VB_Name = "TestReferenceInputSmoke"
+
+Sub _Ready()
+	Dim b As Boolean
+	Dim axis As Single
+	Dim pos As Variant
+
+	b = Input.IsActionPressed("ui_accept")
+	Print "PASS: input_is_action_pressed"
+
+	b = Input.IsActionJustPressed("ui_accept")
+	Print "PASS: input_is_action_just_pressed"
+
+	b = Input.IsActionJustReleased("ui_accept")
+	Print "PASS: input_is_action_just_released"
+
+	b = Input.IsKeyPressed(KEY_SPACE)
+	Print "PASS: input_is_key_pressed"
+
+	b = Input.IsKeyJustPressed(KEY_SPACE)
+	Print "PASS: input_is_key_just_pressed"
+
+	b = Input.IsKeyJustReleased(KEY_SPACE)
+	Print "PASS: input_is_key_just_released"
+
+	b = Input.IsMouseButtonPressed(1)
+	Print "PASS: input_is_mouse_button_pressed"
+
+	axis = Input.GetAxis("ui_left", "ui_right")
+	Print "PASS: input_get_axis"
+
+	pos = Input.GetMousePosition()
+	Print "PASS: input_get_mouse_position"
+End Sub

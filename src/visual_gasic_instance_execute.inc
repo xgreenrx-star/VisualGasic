@@ -996,6 +996,19 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                      }
                      break;
                 }
+                if (s->method_name.nocasecmp_to("Disconnect") == 0 && call_args.size() == 3) {
+                     Object *obj = call_args[0];
+                     String signal_name = call_args[1];
+                     String target_method = call_args[2];
+                     
+                     if (obj && owner) {
+                          Callable callable = Callable(owner, target_method);
+                          if (obj->is_connected(signal_name, callable)) {
+                              obj->disconnect(signal_name, callable);
+                          }
+                     }
+                     break;
+                }
 
                 if (s->method_name.nocasecmp_to("Randomize") == 0) {
                     UtilityFunctions::randomize();

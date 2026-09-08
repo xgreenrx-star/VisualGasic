@@ -4122,6 +4122,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                     handled = true;
                 }
+                if (!handled && method.nocasecmp_to("Disconnect") == 0 && args.size() == 3) {
+                    Object *source = args[0];
+                    String sig = args[1];
+                    String target = args[2];
+                    if (source && owner) {
+                        Callable callable = Callable(owner, target);
+                        if (source->is_connected(sig, callable)) {
+                            source->disconnect(sig, callable);
+                        }
+                        call_ret = (int64_t)0;
+                    } else {
+                        call_ret = (int64_t)0;
+                    }
+                    handled = true;
+                }
 
                 // Sleep(ms) — block the calling thread for N milliseconds.
                 // Mirror the AST interpreter handler (execute.inc ~1006).

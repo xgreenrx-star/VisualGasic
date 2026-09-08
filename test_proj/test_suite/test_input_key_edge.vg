@@ -1,0 +1,11 @@
+' Regression: Input.IsKeyJustPressed / IsKeyJustReleased dispatch (no crash)
+Attribute VB_Name = "TestInputKeyEdge"
+
+Sub _Ready()
+	Dim pressed As Boolean
+	Dim released As Boolean
+
+	pressed = Input.IsKeyJustPressed(KEY_SPACE)
+	released = Input.IsKeyJustReleased(KEY_SPACE)
+	Print "PASS: input_key_edge_dispatch"
+End Sub

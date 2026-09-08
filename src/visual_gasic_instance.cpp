@@ -40,6 +40,7 @@
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/input.hpp>
+#include "vg_input_edge.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/godot.hpp>
 #include <godot_cpp/classes/engine.hpp>

@@ -98,6 +98,7 @@ KEYWORD_PARSER_HINTS: dict[str, list[str]] = {
     "lambda": ['parse_lambda', 'LambdaNode', '"Lambda"'],
     "option explicit": ['"Option Explicit"', 'option_explicit'],
     "then": ['"Then"'],
+    "let": ['val == "let"', 'is_block_scoped'],
 }
 
 # Statement keywords that must compile to bytecode (not interpreter-only)
@@ -119,6 +120,11 @@ NAMESPACE_ROOTS = {
     "cell", "nav", "screen", "joypad", "touch", "sensor", "permission",
     "gps", "steps", "crypto", "theme", "js", "shader", "material",
     "skeleton", "bone", "video", "soundgen", "music", "tracker",
+}
+
+# Documented as globals but implemented on PyBridgeFacade (ClassDB)
+CLASS_METHOD_SYMBOLS = {
+    "pybridgefacade", "pyimport", "pycall", "pycallasync", "initializebridge",
 }
 
 # Aliases documented but not wired in compiler
@@ -189,7 +195,10 @@ def check_builtin(name: str, texts: dict[str, str]) -> tuple[str, str, list[str]
     needles = _builtin_needles(name)
     impl_files = {
         k: v for k, v in texts.items()
-        if any(x in k for x in ("builtins.cpp", "visual_gasic_instance.cpp", "instance_evaluate.inc", "bytecode_vm.cpp"))
+        if any(x in k for x in (
+            "builtins.cpp", "visual_gasic_instance.cpp", "instance_evaluate.inc",
+            "bytecode_vm.cpp", "expr_compat.inc",
+        ))
     }
     hits = any_in_sources(impl_files, needles)
     if hits:
@@ -301,6 +310,7 @@ def classify_entry(kw: str, syntax: str, source_kind: str) -> str:
         "synclock", "end synclock", "parallel", "end parallel", "task", "end task",
         "whenever", "end whenever", "pattern", "end pattern", "oscillate", "repeat",
         "end repeat", "cycle", "end cycle", "every", "end every", "tween", "lambda",
+        "let",
     }
     if kw.lower() in control:
         return "keyword"
@@ -328,6 +338,8 @@ def audit() -> list[Entry]:
                 status, detail, evidence = "ok", "If-Then syntax token (not a standalone command)", any_in_sources(texts, ['"Then"'])
             else:
                 status, detail, evidence = "ok", "language type/operator (parser)", any_in_sources(texts, [f'"{kw}"'])
+        elif kw.lower().replace(" ", "") in CLASS_METHOD_SYMBOLS:
+            status, detail, evidence = "ok", "PyBridgeFacade ClassDB method (not a global builtin)", []
         else:
             status, detail, evidence = check_builtin(kw, texts)
 

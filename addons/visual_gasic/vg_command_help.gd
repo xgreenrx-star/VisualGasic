@@ -1791,6 +1791,16 @@ static func _build_db() -> void:
 		"Returns True if the specified keyboard key is currently held down.",
 		"If IsKeyPressed(\"space\") Then\n    Jump()\nEnd If\n\nIf IsKeyPressed(\"left\") Then x = x - speed\nIf IsKeyPressed(\"right\") Then x = x + speed", 8061)
 
+	_add("IsKeyJustPressed",
+		"Input.IsKeyJustPressed(keyCode) As Boolean",
+		"Returns True on the frame a keyboard key was first pressed (rising edge). Use KEY_* constants.",
+		"If Input.IsKeyJustPressed(KEY_SPACE) And Player.IsOnFloor() Then\n    Jump()\nEnd If", 8062)
+
+	_add("IsKeyJustReleased",
+		"Input.IsKeyJustReleased(keyCode) As Boolean",
+		"Returns True on the frame a keyboard key was released (falling edge). Use KEY_* constants.",
+		"If Input.IsKeyJustReleased(KEY_SHIFT) Then\n    StopSprint()\nEnd If", 8063)
+
 	_add("IsActionPressed",
 		"IsActionPressed(actionName) As Boolean",
 		"Returns True if the specified input action (defined in Project Settings) is active.",
@@ -1854,8 +1864,8 @@ static func _build_db() -> void:
 
 	_add("shutdown",
 		"bridge.shutdown()",
-		"Gracefully terminates the Python worker subprocess.",
-		"bridge.shutdown()", 2056)
+		"PyBridgeFacade instance method — gracefully terminates the Python worker subprocess. Not a global builtin; call on your bridge object.",
+		"Dim bridge As Object\nSet bridge = New PyBridgeFacade\n' ... use bridge ...\nbridge.shutdown()", 2056)
 
 	# =========================================================================
 	# MODERN FEATURES
@@ -2313,6 +2323,40 @@ static func _build_db() -> void:
 		"Returns True only on the frame the action was released.",
 		"If Input.is_action_just_released(\"shoot\") Then\n    ' fire charged shot\nEnd If",
 		"Input", "is_action_just_released")
+
+	# PascalCase owner-relative globals (mirror GODOT_FUNCTIONS_REFERENCE)
+	_add("GetTree",
+		"GetTree() As SceneTree",
+		"Returns the SceneTree for the script owner node. Snake_case alias: get_tree().",
+		"GetTree().change_scene_to_file(\"res://MainMenu.tscn\")", 2267)
+	_add("GetParent",
+		"GetParent() As Node",
+		"Returns the parent node of the script owner.",
+		"Dim parent As Node = GetParent()", 2267)
+	_add("GetDeltaTime",
+		"GetDeltaTime() As Single",
+		"Frame delta for the owner (accurate in _Process; 0 elsewhere). Prefer the delta parameter passed to _Process.",
+		"Sub _Process(delta As Single)\n    position.x += speed * delta\nEnd Sub", 2165)
+	_add("GetPhysicsDeltaTime",
+		"GetPhysicsDeltaTime() As Single",
+		"Physics step for the owner (accurate in _PhysicsProcess). Prefer the delta parameter passed to _PhysicsProcess.",
+		"Sub _PhysicsProcess(delta As Single)\n    velocity.y += gravity * delta\n    MoveAndSlide()\nEnd Sub", 2165)
+	_add("GetFPS",
+		"GetFPS() As Integer",
+		"Current frames per second from the Godot engine.",
+		"Print \"FPS: \" & GetFPS()", 2267)
+	_add("Connect",
+		"Connect(sourceNode, signalName As String, handlerMethod As String)",
+		"Connects a Godot signal on sourceNode to a handler Sub on the script owner. Prefer this over legacy ConnectSignal.",
+		"Connect timer, \"timeout\", \"OnTimerDone\"\nConnect Me, \"ready\", \"OnReady\"", 2195)
+	_add("Disconnect",
+		"Disconnect(sourceNode, signalName As String, handlerMethod As String)",
+		"Disconnects a signal handler wired with Connect.",
+		"Disconnect timer, \"timeout\", \"OnTimerDone\"", 2195)
+	_add("MoveAndSlide",
+		"MoveAndSlide() As Boolean",
+		"Slides CharacterBody2D using velocity. Returns True if a collision occurred. Call from _PhysicsProcess.",
+		"Sub _PhysicsProcess(delta As Single)\n    velocity.y += 980 * delta\n    MoveAndSlide()\nEnd Sub", 2123)
 
 	# =========================================================================
 	# PASS 6 — v5.1 GAP-FILLERS

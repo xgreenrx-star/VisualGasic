@@ -1,4 +1,6 @@
 #include "visual_gasic_builtins.h"
+#include "vg_godot_owner_builtins.h"
+#include "vg_input_edge.h"
 #include <cstring>
 #include <algorithm>
 #include <godot_cpp/classes/json.hpp>
@@ -485,6 +487,10 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
     r_ret = Variant();
 
     if (!instance) return false;
+
+    if (VGGodotOwnerBuiltins::try_call(instance, p_method, p_args, r_found, r_ret)) {
+        return true;
+    }
 
     String method = p_method;
 
@@ -981,6 +987,11 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
 Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String &p_method, const Array &p_args, bool &r_handled) {
     r_handled = false;
     const Array &args = p_args;
+
+    Variant _owner_ret;
+    if (VGGodotOwnerBuiltins::try_call(instance, p_method, p_args, r_handled, _owner_ret)) {
+        return _owner_ret;
+    }
 
     String lowercase_name = p_method;
     lowercase_name = lowercase_name.to_lower();
@@ -3855,6 +3866,28 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             key = (Key)OS::get_singleton()->find_keycode_from_string(k);
         }
         return Input::get_singleton()->is_key_pressed(key);
+    }
+    if ((METHOD_IS("iskeyjustpressed")) && args.size() == 1) {
+        r_handled = true;
+        Key key = Key::KEY_NONE;
+        if (args[0].get_type() == Variant::INT || args[0].get_type() == Variant::FLOAT) {
+            key = (Key)(int)args[0];
+        } else {
+            String k = args[0];
+            key = (Key)OS::get_singleton()->find_keycode_from_string(k);
+        }
+        return VGInputEdge::is_key_just_pressed(key);
+    }
+    if ((METHOD_IS("iskeyjustreleased")) && args.size() == 1) {
+        r_handled = true;
+        Key key = Key::KEY_NONE;
+        if (args[0].get_type() == Variant::INT || args[0].get_type() == Variant::FLOAT) {
+            key = (Key)(int)args[0];
+        } else {
+            String k = args[0];
+            key = (Key)OS::get_singleton()->find_keycode_from_string(k);
+        }
+        return VGInputEdge::is_key_just_released(key);
     }
     if (METHOD_IS("loadpicture") && args.size() == 1) {
         r_handled = true;
@@ -7651,6 +7684,21 @@ bool call_builtin_for_base_object(VisualGasicInstance *instance, const Variant &
             r_ret = 0;
             return true;
         }
+    }
+    if (p_method.nocasecmp_to("Disconnect") == 0 && p_args.size() == 3) {
+        Object *source = p_args[0];
+        String signal = p_args[1];
+        String method = p_args[2];
+        if (source && instance->get_owner()) {
+            Callable callable = Callable(instance->get_owner(), method);
+            if (source->is_connected(signal, callable)) {
+                source->disconnect(signal, callable);
+            }
+            r_ret = 0;
+            return true;
+        }
+        r_ret = 0;
+        return true;
     }
 
     return false;

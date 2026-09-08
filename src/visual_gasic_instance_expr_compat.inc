@@ -377,6 +377,14 @@
 	    int key = call_args[0];
 	    return Input::get_singleton()->is_key_pressed((Key)key);
 	}
+	if (method == "IsKeyJustPressed" && call_args.size() == 1) {
+	    int key = call_args[0];
+	    return VGInputEdge::is_key_just_pressed((Key)key);
+	}
+	if (method == "IsKeyJustReleased" && call_args.size() == 1) {
+	    int key = call_args[0];
+	    return VGInputEdge::is_key_just_released((Key)key);
+	}
 	if (method == "IsMouseButtonPressed" && call_args.size() == 1) {
 	    int btn = call_args[0];
 	    return Input::get_singleton()->is_mouse_button_pressed((MouseButton)btn);
