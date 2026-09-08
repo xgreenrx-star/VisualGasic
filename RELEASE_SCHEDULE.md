@@ -136,6 +136,7 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 - Worker hardening: venv detection, `PYTHONPATH`, timeout recovery
 - C++ FFI syntax + packaging docs
 - Optional: large-array binary lane (>100×100) or defer to v6.1
+- Reference dispatch **R1** (`Interface` parser) if M8 bandwidth allows — see [`ROADMAP.md`](ROADMAP.md) § Reference dispatch — remaining TODO
 
 **Explicitly not in 5.5 scope:** M6 visual graph panel (v6.1), tagged stack VM (not pursued).
 
@@ -147,6 +148,7 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 
 **Expected features:**
 - Try/Catch/Finally, Lambda, `?.`, AndAlso/OrElse stress corpus
+- Reference dispatch **R3–R4, R7** — Connect/Disconnect smoke test, Narcea/copilot limitations, optional Part II promotion — see [`ROADMAP.md`](ROADMAP.md)
 - C++ FFI Windows validation + docs
 - Installer smoke on clean Linux + Windows VMs
 

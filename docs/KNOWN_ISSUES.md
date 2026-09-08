@@ -1,6 +1,6 @@
 # VisualGasic — Known Issues & Engine Limitations
 
-*Last updated: v5.4.0-beta2 (September 2026)*
+*Last updated: v5.4.0-beta2 + reference dispatch pass (September 2026)*
 
 This document lists **confirmed** engine bugs and limitations. Test baseline: **916/916** VG regression assertions passing; **8/8** causal-chain headless fixtures; **332/332** Programmer's Reference examples parse-clean; **47/47** corpus examples with expected output.
 
@@ -53,6 +53,21 @@ These are tracked on the roadmap and may affect demos or daily use:
 | **Phantom button double-press on blocking async** | Blocking async calls may duplicate button press events. | Avoid long blocking work in click handlers; use `Await` patterns. |
 | **Form Designer bugs** | Classic Form Designer has known UI issues; **UI Forms** replacement is experimental. | Enable UI Forms via `vg/enable_experimental_plugins` or build forms manually. |
 | **MovingFilledRects checksum drift** | Draw benchmark moving workload frame count differs slightly from GDScript. | Static draw workloads use full checksum verification. |
+
+### Documented but not fully implemented (reference audit, Sep 2026)
+
+These appear in the Language Reference or GODOT_FUNCTIONS_REFERENCE but are **not** complete runtime/parser features. Do not generate workarounds in game code — fix the engine or use the documented alternative.
+
+| Feature | Status | Use instead |
+|---------|--------|-------------|
+| **`Interface … End Interface`** | Not parsed | `Implements InterfaceName` + `InterfaceName_MethodName` subs |
+| **`Using … End Using`** | Not parsed | Explicit `Close` / `Try/Finally` cleanup |
+| **`ConnectSignal` / `DisconnectSignal`** | Deprecated names | `Connect()` / `Disconnect()` |
+| **`shutdown()` global** | Wrong — instance method only | `bridge.shutdown()` on `PyBridgeFacade` |
+| **`Speaker.Bus.*`** | Compile-time alias only | `Speaker.Volume`, `Speaker.Mute`, etc. |
+| **`DataFile` / `LoadData` in audit** | Statement-level ops (work) | Not global builtins — audit allowlists them |
+
+Full audit: [`docs/audit/reference_dispatch_report.md`](audit/reference_dispatch_report.md). Roadmap items R1–R8: [`ROADMAP.md`](../ROADMAP.md).
 
 Report new issues: [GitHub Issues](https://github.com/xgreenrx-star/VisualGasic/issues)
 

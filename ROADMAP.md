@@ -1,6 +1,6 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: September 2, 2026  
+**Last Updated**: September 8, 2026  
 **Current Version**: 5.4.0-beta2 (on `main`; tag at Oct 15 cut) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
 **Current Scope**: M0–M9 milestones (Jul 2026 – Jan 2027 stable release)  
 **Next Cut**: 5.5.0-beta1 (Nov 2026) — M7 close-out + M9 prep — see [`RELEASE_SCHEDULE.md`](RELEASE_SCHEDULE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md)
@@ -54,6 +54,31 @@ Full notes: [`RELEASE_NOTES_v5.4.0-beta1.md`](RELEASE_NOTES_v5.4.0-beta1.md)
 | **57 corpus examples** | Generics, optional types, advanced exception patterns added |
 
 Full notes: [`RELEASE_NOTES_v5.4.0-beta2.md`](RELEASE_NOTES_v5.4.0-beta2.md)
+
+## ✅ Shipped in reference-dispatch pass (Sep 8 2026)
+
+| Feature | Notes |
+|---------|--------|
+| **Tier 0 dispatch audit** | `scripts/audit_reference_dispatch.py` — Language Reference vs `src/` vs `command_help`; report at [`docs/audit/reference_dispatch_report.md`](docs/audit/reference_dispatch_report.md) |
+| **Owner-relative Godot builtins** | `src/vg_godot_owner_builtins.cpp` — `GetTree`, `MoveAndSlide`, `GetFPS`, scene/physics/transform globals (+ snake_case aliases) |
+| **Input key edge APIs** | `Input.IsKeyJustPressed` / `IsKeyJustReleased` — `src/vg_input_edge.cpp` + `test_input_key_edge.vg` |
+| **`Disconnect()` builtin** | Parity with `Connect()` across bytecode VM, AST, and builtins |
+| **Strict CI gate** | `run_command_reference_gate.sh` fails on missing dispatch (no `--warn-only`) |
+| **command_help parity** | 40+ PascalCase GODOT_FUNCTIONS_REFERENCE symbols promoted; **0 doc source mismatches** |
+| **Graven slice project** | `projects/vg_graven_slice/` — playable 8-room demo scaffold + dev menu |
+
+### 📋 Reference dispatch — remaining TODO (ordered)
+
+| # | Item | Priority | Target | Effort |
+|---|------|----------|--------|--------|
+| R1 | **`Interface … End Interface` parser** | Medium | M8 / 5.5.0-beta1 | ~1 week — `Implements` + `InterfaceName_MethodName` works today; standalone interface modules do not parse |
+| R2 | **`Using … End Using` parser + RAII** | Medium | M8 / v6.1 | ~1–2 weeks — align with RAII row in ODBC/database roadmap; explicit `Close`/`Finally` required until shipped |
+| R3 | **`Disconnect()` regression test** | Low | M9 | ~1 hr — `test_reference_connect_smoke.vg` (Connect + Disconnect round-trip) |
+| R4 | **Narcea / copilot known limitations** | Medium | M9 | ~2 hr — add Interface/Using/ConnectSignal/DataFile caveats to `.github/copilot-instructions.md` and `vg_ai_narcea.gd` system prompt |
+| R5 | **Graven root duplicate cleanup** | Low | — | ~30 min — remove stale `projects/vg_graven_slice/GravenMain.vg` + `main.tscn` at project root (canonical path: `ai_projects/graven_slice/`) |
+| R6 | **Audit PascalCase ↔ snake_case aliasing** | Low | v6.0 | ~2 hr — teach `audit_reference_dispatch.py` that `GetTree` ↔ `get_tree` are the same symbol |
+| R7 | **Promote GODOT_FUNCTIONS_REFERENCE → Language Reference Part II** | Medium | M9 | ~1 day — optional; intellisense already covered via `command_help`; Part II still lacks many PascalCase Godot globals |
+| R8 | **Allowlisted doc gaps (17)** | — | track only | `ConnectSignal`/`DisconnectSignal` deprecated names, `DataFile`/`LoadData` statement-level (not globals), `shutdown` instance method, `Speaker.Bus` alias, `Sprite Data` IDE feature — see audit report |
 
 ---
 
