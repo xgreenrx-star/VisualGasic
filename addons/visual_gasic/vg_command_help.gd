@@ -2358,6 +2358,172 @@ static func _build_db() -> void:
 		"Slides CharacterBody2D using velocity. Returns True if a collision occurred. Call from _PhysicsProcess.",
 		"Sub _PhysicsProcess(delta As Single)\n    velocity.y += 980 * delta\n    MoveAndSlide()\nEnd Sub", 2123)
 
+	# PascalCase owner-relative globals (GODOT_FUNCTIONS_REFERENCE parity)
+	_add("GetNode",
+		"GetNode(path As String) As Node",
+		"Returns a child node by path relative to the script owner. Alias: get_node().",
+		"Dim player As Node = GetNode(\"Player\")", 2171)
+	_add("HasNode",
+		"HasNode(path As String) As Boolean",
+		"True if the owner has a node at path. Alias: has_node().",
+		"If HasNode(\"Enemies/Slime\") Then\n    GetNode(\"Enemies/Slime\").QueueFree()\nEnd If", 2171)
+	_add("GetChildren",
+		"GetChildren() As Array",
+		"Returns direct child nodes of the script owner.",
+		"Dim kids As Array = GetChildren()", 2171)
+	_add("FindChild",
+		"FindChild(name As String, [recursive As Boolean]) As Node",
+		"Finds first child by name. recursive defaults to True.",
+		"Dim ui As Node = FindChild(\"ScoreLabel\", True)", 2171)
+	_add("GetRoot",
+		"GetRoot() As Node",
+		"Scene tree root (Window). Requires owner in tree.",
+		"GetRoot().add_child(enemy)", 2267)
+	_add("GetCurrentScene",
+		"GetCurrentScene() As Node",
+		"Currently active scene node.",
+		"Dim scene As Node = GetCurrentScene()", 2267)
+	_add("ReloadCurrentScene",
+		"ReloadCurrentScene() As Integer",
+		"Reloads the active scene. Returns Godot error code.",
+		"ReloadCurrentScene()", 2267)
+	_add("LoadScene",
+		"LoadScene(path As String) As PackedScene",
+		"Loads a .tscn resource (does not change scene tree). Prefix res:// if omitted.",
+		"Dim scene = LoadScene(\"enemies/slime.tscn\")\nIf Not IsNull(scene) Then\n    GetRoot().add_child(scene.instantiate())\nEnd If", 2267)
+	_add("GetPosition",
+		"GetPosition() As Vector2",
+		"Owner Node2D local position.",
+		"Dim p As Vector2 = GetPosition()", 2135)
+	_add("SetPosition",
+		"SetPosition(x As Single, y As Single)\nSetPosition(pos As Vector2)",
+		"Sets owner Node2D local position.",
+		"SetPosition 100, 200", 2135)
+	_add("GetGlobalPosition",
+		"GetGlobalPosition() As Vector2",
+		"Owner Node2D world position.",
+		"Dim gp As Vector2 = GetGlobalPosition()", 2159)
+	_add("SetGlobalPosition",
+		"SetGlobalPosition(x As Single, y As Single)\nSetGlobalPosition(pos As Vector2)",
+		"Sets owner Node2D world position.",
+		"SetGlobalPosition 500, 300", 2159)
+	_add("GetRotation",
+		"GetRotation() As Single",
+		"Owner Node2D rotation in radians.",
+		"Dim a As Single = GetRotation()", 2141)
+	_add("SetRotation",
+		"SetRotation(angle As Single)",
+		"Sets owner Node2D rotation (radians).",
+		"SetRotation 1.57", 2141)
+	_add("GetScale",
+		"GetScale() As Vector2",
+		"Owner Node2D scale.",
+		"Dim s As Vector2 = GetScale()", 2153)
+	_add("SetScale",
+		"SetScale(x As Single, y As Single)\nSetScale(scale As Vector2)",
+		"Sets owner Node2D scale.",
+		"SetScale 2, 2", 2153)
+	_add("GetVelocity",
+		"GetVelocity() As Vector2",
+		"CharacterBody2D velocity vector.",
+		"Dim v As Vector2 = GetVelocity()", 2129)
+	_add("SetVelocity",
+		"SetVelocity(x As Single, y As Single)\nSetVelocity(velocity As Vector2)",
+		"Sets CharacterBody2D velocity before MoveAndSlide().",
+		"SetVelocity 200, velocity.y", 2129)
+	_add("MoveAndCollide",
+		"MoveAndCollide(motion As Vector2) As Variant",
+		"Moves CharacterBody2D by motion; returns collision info or Null.",
+		"Dim hit = MoveAndCollide(Vector2(0, 16))", 2123)
+	_add("IsOnCeiling",
+		"IsOnCeiling() As Boolean",
+		"True if CharacterBody2D touched ceiling after last MoveAndSlide().",
+		"If IsOnCeiling() Then velocity.y = 0", 2279)
+	_add("IsVisible",
+		"IsVisible() As Boolean",
+		"CanvasItem visibility on the script owner.",
+		"If IsVisible() Then hide()", 2237)
+	_add("SetVisible",
+		"SetVisible(visible As Boolean)",
+		"Shows or hides the owner CanvasItem.",
+		"SetVisible False", 2237)
+	_add("GetModulate",
+		"GetModulate() As Color",
+		"Owner CanvasItem modulate color.",
+		"Dim c As Color = GetModulate()", 2243)
+	_add("SetModulate",
+		"SetModulate(color As Color)",
+		"Sets owner CanvasItem modulate (tint/fade).",
+		"SetModulate Color(1, 1, 1, 0.5)", 2243)
+	_add("GetActionStrength",
+		"GetActionStrength(action As String) As Single",
+		"Input action axis strength 0..1 (e.g. analog stick).",
+		"Dim t As Single = GetActionStrength(\"thrust\")", 2309)
+	_add("GetMousePosition",
+		"GetMousePosition() As Vector2",
+		"Mouse position (viewport/display coordinates).",
+		"Dim m As Vector2 = GetMousePosition()", 2297)
+	_add("GetLastMouseVelocity",
+		"GetLastMouseVelocity() As Vector2",
+		"Mouse velocity from last Input frame.",
+		"Dim mv As Vector2 = GetLastMouseVelocity()", 2297)
+	_add("GetKey",
+		"GetKey(key As String|Integer) As Boolean",
+		"True while key is held (string name or KEY_* code).",
+		"If GetKey(KEY_SPACE) Then Jump()", 2309)
+	_add("IsMouseButtonPressed",
+		"IsMouseButtonPressed(button As Integer) As Boolean",
+		"True while mouse button is held (MOUSE_BUTTON_*).",
+		"If IsMouseButtonPressed(MOUSE_BUTTON_LEFT) Then Fire()", 2309)
+	_add("IsEditorHint",
+		"IsEditorHint() As Boolean",
+		"True when running inside the Godot editor.",
+		"If Not IsEditorHint() Then RunGameLogic()", 2267)
+	_add("GetEngineVersion",
+		"GetEngineVersion() As Dictionary",
+		"Godot engine version info dictionary.",
+		"Print GetEngineVersion()[\"string\"]", 2267)
+	_add("MoveToward",
+		"MoveToward(from As Single, to As Single, delta As Single) As Single",
+		"Moves a scalar toward a target by at most delta.",
+		"heat = MoveToward(heat, 0, coolRate * delta)", 2267)
+	_add("Deg2Rad",
+		"Deg2Rad(degrees As Single) As Single",
+		"Converts degrees to radians.",
+		"rotation = Deg2Rad(90)", 10529)
+	_add("Rad2Deg",
+		"Rad2Deg(radians As Single) As Single",
+		"Converts radians to degrees.",
+		"Print Rad2Deg(rotation)", 10529)
+	_add("ConnectSignal",
+		"ConnectSignal(signal, method) — DEPRECATED",
+		"Legacy name. Use Connect(sourceNode, signalName, handlerMethod) instead.",
+		"Connect Me, \"ready\", \"OnReady\"", 2195)
+	_add("DisconnectSignal",
+		"DisconnectSignal(signal, method) — DEPRECATED",
+		"Legacy name. Use Disconnect(sourceNode, signalName, handlerMethod) instead.",
+		"Disconnect timer, \"timeout\", \"OnTimerDone\"", 2195)
+	_add_godot("Engine",
+		"Engine.method(...)",
+		"Godot Engine singleton — FPS, editor hint, physics ticks, version info.",
+		"Dim fps As Integer = Engine.get_frames_per_second()\nDim ed As Boolean = Engine.is_editor_hint()", "Engine")
+	_add_godot("OS",
+		"OS.method(...)",
+		"Godot OS singleton — platform name, CPU count, memory stats.",
+		"Print OS.get_name()\nPrint OS.get_processor_count()", "OS")
+	_add_godot("Time",
+		"Time.method(...)",
+		"Godot Time singleton — ticks, unix time, datetime helpers.",
+		"Dim ms As Integer = Time.get_ticks_msec()", "Time")
+	_add_godot("DisplayServer",
+		"DisplayServer.method(...)",
+		"Godot DisplayServer singleton — screen, clipboard, TTS, window mode.",
+		"Dim sz As Vector2i = DisplayServer.screen_get_size()", "DisplayServer")
+	_add_godot("AudioServer",
+		"AudioServer.method(...)",
+		"Godot AudioServer singleton — bus count, mix rate, playback speed.",
+		"Print AudioServer.get_bus_count()", "AudioServer")
+
 	# =========================================================================
 	# PASS 6 — v5.1 GAP-FILLERS
 	#

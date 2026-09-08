@@ -8,9 +8,6 @@ Tier 0 static checks that Programmer's Reference claims match engine dispatch si
 # Full report (exit 1 if any missing dispatch)
 python3 scripts/audit_reference_dispatch.py --write-report
 
-# CI / gate mode (writes report, does not fail the build yet)
-python3 scripts/audit_reference_dispatch.py --write-report --warn-only
-
 # Full release gate (static + parse harness)
 ./scripts/run_command_reference_gate.sh
 ```
@@ -41,7 +38,3 @@ Input APIs: `test_proj/test_suite/test_reference_input_smoke.vg`
 ```bash
 ./run_test_suite.sh "test_reference_input*"
 ```
-
-## Enabling strict CI
-
-When missing dispatch count reaches zero, remove `--warn-only` from `scripts/run_command_reference_gate.sh`.

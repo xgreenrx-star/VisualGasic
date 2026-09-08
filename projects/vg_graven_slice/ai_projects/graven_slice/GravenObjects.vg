@@ -1,0 +1,764 @@
+' GravenObjects.vg — crate, plate, beacon, spikes, orbit gate, heat, skiff, end card
+
+' Constants — hazard palette #ffb020 from BLUEPRINT
+Const HAZARD_R As Single = 1.0
+Const HAZARD_G As Single = 0.6901961
+Const HAZARD_B As Single = 0.0784314
+
+' Constants — orbit band radii (BLUEPRINT R6)
+Const ORBIT_R_MIN As Single = 80
+Const ORBIT_R_MAX As Single = 200
+Const ORBIT_DEG_NEED As Single = 540
+
+' Constants — Room 4 floor plate (tile center; crate rests on row 20)
+Const PLATE_TX As Integer = 28
+Const PLATE_TY As Integer = 20
+Const PLATE_HIT_R As Single = 38
+Const CRATE_SUBSTEPS As Integer = 4
+
+' Handler: InitRoomObjects — reset per-room interactables
+Sub InitRoomObjects()
+	crateActive = False
+	plateSatisfied = False
+	terminalOpen = False
+	terminalTimer = 0
+	If roomId = 4 Then
+		crateActive = True
+		crateX = 400
+		crateY = 528
+		crateVX = 0
+		crateVY = 0
+	End If
+End Sub
+
+' Handler: InitHeatForRoom — full heat tank on R7 entry; stress off elsewhere
+Sub InitHeatForRoom()
+	If roomId = 7 Then
+		podHeat = HEAT_MAX
+		heatStress = 0
+	Else
+		heatStress = 0
+	End If
+End Sub
+
+' Handler: InitOrbitForRoom — reset angle tracker on R6 entry (keep orbitComplete)
+Sub InitOrbitForRoom()
+	orbitInBand = False
+	lastOrbitRad = 0
+	If roomId = 6 Then
+		If Not orbitComplete Then
+			orbitAngle = 0
+		End If
+	End If
+End Sub
+
+' Handler: SetBeaconCheckpointAt — save respawn room + pixel coords
+Sub SetBeaconCheckpointAt(br As Integer, bx As Single, by As Single)
+	beaconRoom = br
+	beaconX = bx
+	beaconY = by
+End Sub
+
+' Handler: PodInHeatZone — R7 corridor tx 10–30 drains ×1.8
+Function PodInHeatZone() As Boolean
+	Dim tx As Integer
+	tx = Int(podX / TILE)
+	PodInHeatZone = (tx >= HEAT_ZONE_TX0 And tx <= HEAT_ZONE_TX1)
+End Function
+
+' Handler: UpdateHeat — idle + thrust drain; empty heat = beacon respawn (R7 only)
+Sub UpdateHeat(delta As Single, thrusting As Boolean)
+	Dim drain As Single
+	Dim mul As Single
+	Dim heatBefore As Single
+	If roomId <> 7 Then
+		heatStress = 0
+		Exit Sub
+	End If
+	heatBefore = podHeat
+	drain = HEAT_IDLE
+	If thrusting Then
+		drain = drain + HEAT_THRUST_R7
+	End If
+	mul = 1.0
+	If PodInHeatZone() Then mul = HEAT_ZONE_MUL
+	podHeat = podHeat - drain * mul * delta
+	If podHeat < 0 Then podHeat = 0
+	heatStress = 1.0 - (podHeat / HEAT_MAX)
+	If Abs(podHeat - heatBefore) > 0.08 Then needRedraw = True
+	If podHeat <= 0 Then
+		Call RespawnPod()
+		podHeat = HEAT_MAX
+		heatStress = 0
+	End If
+End Sub
+
+' Handler: UpdateOrbit — accumulate angle around M0 while dist in [80,200]
+Sub UpdateOrbit(delta As Single)
+	Dim mx As Single
+	Dim my As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim dist As Single
+	Dim ang As Single
+	Dim dAng As Single
+	Dim degAdd As Single
+	If roomId <> 6 Then Exit Sub
+	If orbitComplete Then Exit Sub
+	mx = massX(0)
+	my = massY(0)
+	dx = podX - mx
+	dy = podY - my
+	dist = Sqr(dx * dx + dy * dy)
+	If dist >= ORBIT_R_MIN And dist <= ORBIT_R_MAX Then
+		ang = Atan2(dy, dx)
+		If orbitInBand Then
+			dAng = ang - lastOrbitRad
+			While dAng > 3.14159265
+				dAng = dAng - 6.2831853
+			Wend
+			While dAng < -3.14159265
+				dAng = dAng + 6.2831853
+			Wend
+			degAdd = Abs(dAng) * 57.2958
+			If degAdd > 0.02 Then
+				orbitAngle = orbitAngle + degAdd
+				needRedraw = True
+			End If
+		End If
+		lastOrbitRad = ang
+		orbitInBand = True
+	Else
+		orbitInBand = False
+	End If
+	If orbitAngle >= ORBIT_DEG_NEED And Not orbitComplete Then
+		orbitComplete = True
+		statusText = GetRoomHint()
+		needRedraw = True
+	End If
+End Sub
+
+' Handler: CircleHitsSolid — generic circle vs # and closed G tiles
+Function CircleHitsSolid(cx As Single, cy As Single, cr As Single) As Boolean
+	Dim tx0 As Integer
+	Dim ty0 As Integer
+	Dim tx1 As Integer
+	Dim ty1 As Integer
+	Dim tx As Integer
+	Dim ty As Integer
+	tx0 = Int((cx - cr) / TILE)
+	If tx0 < 0 Then tx0 = 0
+	ty0 = Int((cy - cr) / TILE)
+	If ty0 < 0 Then ty0 = 0
+	tx1 = Int((cx + cr) / TILE)
+	If tx1 >= COLS Then tx1 = COLS - 1
+	ty1 = Int((cy + cr) / TILE)
+	If ty1 >= ROWS Then ty1 = ROWS - 1
+	For ty = ty0 To ty1
+		For tx = tx0 To tx1
+			If IsSolidTile(tx, ty) Then
+				If CircleRectOverlap(cx, cy, cr, tx * TILE, ty * TILE, TILE, TILE) Then
+					CircleHitsSolid = True
+					Exit Function
+				End If
+			End If
+		Next tx
+	Next ty
+	CircleHitsSolid = False
+End Function
+
+' Handler: ResolveBodyTileOverlap — MTV push a circle out of one solid tile
+Sub ResolveBodyTileOverlap(ByRef cx As Single, ByRef cy As Single, cr As Single, rx As Single, ry As Single, rw As Single, rh As Single)
+	Dim clx As Single
+	Dim cly As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim distSq As Single
+	Dim dist As Single
+	Dim pen As Single
+	Dim penL As Single
+	Dim penR As Single
+	Dim penU As Single
+	Dim penD As Single
+	Dim minPen As Single
+	Dim nx As Single
+	Dim ny As Single
+	clx = cx
+	If clx < rx Then clx = rx
+	If clx > rx + rw Then clx = rx + rw
+	cly = cy
+	If cly < ry Then cly = ry
+	If cly > ry + rh Then cly = ry + rh
+	dx = cx - clx
+	dy = cy - cly
+	distSq = dx * dx + dy * dy
+	If distSq >= cr * cr Then Exit Sub
+	If distSq < 0.001 Then
+		penL = (cx + cr) - rx
+		penR = (rx + rw) - (cx - cr)
+		penU = (cy + cr) - ry
+		penD = (ry + rh) - (cy - cr)
+		minPen = penL
+		nx = 1
+		ny = 0
+		If penR < minPen Then minPen = penR: nx = -1: ny = 0
+		If penU < minPen Then minPen = penU: nx = 0: ny = 1
+		If penD < minPen Then minPen = penD: nx = 0: ny = -1
+		pen = minPen + 0.5
+	Else
+		dist = Sqr(distSq)
+		pen = cr - dist + 0.5
+		nx = dx / dist
+		ny = dy / dist
+	End If
+	cx = cx + nx * pen
+	cy = cy + ny * pen
+End Sub
+
+' Handler: SeparateBodyFromTiles — resolve circle vs all # / closed G tiles
+Sub SeparateBodyFromTiles(ByRef cx As Single, ByRef cy As Single, cr As Single)
+	Dim iter As Integer
+	Dim tx As Integer
+	Dim ty As Integer
+	Dim tx0 As Integer
+	Dim ty0 As Integer
+	Dim tx1 As Integer
+	Dim ty1 As Integer
+	Dim px As Single
+	Dim py As Single
+	For iter = 0 To 11
+		If Not CircleHitsSolid(cx, cy, cr) Then Exit Sub
+		tx0 = Int((cx - cr) / TILE)
+		If tx0 < 0 Then tx0 = 0
+		ty0 = Int((cy - cr) / TILE)
+		If ty0 < 0 Then ty0 = 0
+		tx1 = Int((cx + cr) / TILE)
+		If tx1 >= COLS Then tx1 = COLS - 1
+		ty1 = Int((cy + cr) / TILE)
+		If ty1 >= ROWS Then ty1 = ROWS - 1
+		For ty = ty0 To ty1
+			For tx = tx0 To tx1
+				If IsSolidTile(tx, ty) Then
+					px = tx * TILE
+					py = ty * TILE
+					If CircleRectOverlap(cx, cy, cr, px, py, TILE, TILE) Then
+						Call ResolveBodyTileOverlap(cx, cy, cr, px, py, TILE, TILE)
+					End If
+				End If
+			Next tx
+		Next ty
+	Next iter
+End Sub
+
+' Handler: DampCrateVelocityIntoTiles — stop crate velocity into wall faces
+Sub DampCrateVelocityIntoTiles()
+	Dim tx As Integer
+	Dim ty As Integer
+	Dim tx0 As Integer
+	Dim ty0 As Integer
+	Dim tx1 As Integer
+	Dim ty1 As Integer
+	Dim px As Single
+	Dim py As Single
+	Dim cx As Single
+	Dim cy As Single
+	tx0 = Int((crateX - CRATE_R) / TILE)
+	If tx0 < 0 Then tx0 = 0
+	ty0 = Int((crateY - CRATE_R) / TILE)
+	If ty0 < 0 Then ty0 = 0
+	tx1 = Int((crateX + CRATE_R) / TILE)
+	If tx1 >= COLS Then tx1 = COLS - 1
+	ty1 = Int((crateY + CRATE_R) / TILE)
+	If ty1 >= ROWS Then ty1 = ROWS - 1
+	For ty = ty0 To ty1
+		For tx = tx0 To tx1
+			If IsSolidTile(tx, ty) Then
+				px = tx * TILE
+				py = ty * TILE
+				If CircleRectOverlap(crateX, crateY, CRATE_R, px, py, TILE, TILE) Then
+					cx = px + TILE * 0.5
+					cy = py + TILE * 0.5
+					If crateX < cx And crateVX > 0 Then crateVX = 0
+					If crateX > cx And crateVX < 0 Then crateVX = 0
+					If crateY < cy And crateVY > 0 Then crateVY = 0
+					If crateY > cy And crateVY < 0 Then crateVY = 0
+				End If
+			End If
+		Next tx
+	Next ty
+End Sub
+
+' Handler: CircleHitsSpike — circle vs S hazard tiles (always deadly)
+Function CircleHitsSpike(cx As Single, cy As Single, cr As Single) As Boolean
+	Dim tx0 As Integer
+	Dim ty0 As Integer
+	Dim tx1 As Integer
+	Dim ty1 As Integer
+	Dim tx As Integer
+	Dim ty As Integer
+	tx0 = Int((cx - cr) / TILE)
+	If tx0 < 0 Then tx0 = 0
+	ty0 = Int((cy - cr) / TILE)
+	If ty0 < 0 Then ty0 = 0
+	tx1 = Int((cx + cr) / TILE)
+	If tx1 >= COLS Then tx1 = COLS - 1
+	ty1 = Int((cy + cr) / TILE)
+	If ty1 >= ROWS Then ty1 = ROWS - 1
+	For ty = ty0 To ty1
+		For tx = tx0 To tx1
+			If IsSpikeTile(tx, ty) Then
+				If CircleRectOverlap(cx, cy, cr, tx * TILE, ty * TILE, TILE, TILE) Then
+					CircleHitsSpike = True
+					Exit Function
+				End If
+			End If
+		Next tx
+	Next ty
+	CircleHitsSpike = False
+End Function
+
+' Handler: CheckSpikeDeath — R5 spikes kill → beacon respawn
+Sub CheckSpikeDeath()
+	If roomId <> 5 Then Exit Sub
+	If devGodMode Then Exit Sub
+	If CircleHitsSpike(podX, podY, POD_R) Then
+		Call RespawnPod()
+	End If
+End Sub
+
+' Handler: CheckSkiffWin — R8 circle overlap with skiff at (1100,400)
+Sub CheckSkiffWin()
+	Dim dx As Single
+	Dim dy As Single
+	Dim distSq As Single
+	Dim hitR As Single
+	If roomId <> 8 Then Exit Sub
+	If gameWon Then Exit Sub
+	dx = podX - SKIFF_X
+	dy = podY - SKIFF_Y
+	distSq = dx * dx + dy * dy
+	hitR = POD_R + SKIFF_R
+	If distSq <= hitR * hitR Then
+		gameWon = True
+		endFade = 0
+		podVX = 0
+		podVY = 0
+		statusText = ""
+		needRedraw = True
+	End If
+End Sub
+
+' Handler: UpdateEndSequence — ramp fade overlay after skiff contact
+Sub UpdateEndSequence(delta As Single)
+	If endFade < 1.0 Then
+		endFade = endFade + delta * 0.55
+		If endFade > 1.0 Then endFade = 1.0
+	End If
+End Sub
+
+' Handler: TryReplay — R key restarts full R1→R8 path
+Sub TryReplay()
+	If Input.IsKeyPressed(KEY_R) Or Input.IsActionJustPressed("interact") Then
+		gameWon = False
+		endFade = 0
+		orbitComplete = False
+		orbitAngle = 0
+		beaconRoom = 0
+		podHeat = HEAT_MAX
+		heatStress = 0
+		Call LoadRoom(1)
+	End If
+End Sub
+
+' Handler: ResolvePodCrateContact — circle overlap: block pod, push heavy crate
+Sub ResolvePodCrateContact()
+	Dim i As Integer
+	Dim dx As Single
+	Dim dy As Single
+	Dim distSq As Single
+	Dim dist As Single
+	Dim minD As Single
+	Dim overlap As Single
+	Dim nx As Single
+	Dim ny As Single
+	Dim rel As Single
+	Dim podSpd As Single
+	If Not crateActive Then Exit Sub
+	For i = 0 To 5
+		dx = crateX - podX
+		dy = crateY - podY
+		distSq = dx * dx + dy * dy
+		minD = POD_R + CRATE_R
+		If distSq >= minD * minD Then Exit Sub
+		If distSq < 0.01 Then
+			dx = 1
+			dy = 0
+			distSq = 1
+		End If
+		dist = Sqr(distSq)
+		overlap = minD - dist + 0.5
+		nx = dx / dist
+		ny = dy / dist
+		podX = podX - nx * overlap * 0.25
+		podY = podY - ny * overlap * 0.25
+		crateX = crateX + nx * overlap * 0.75
+		crateY = crateY + ny * overlap * 0.75
+		rel = (podVX - crateVX) * nx + (podVY - crateVY) * ny
+		If rel > 0 Then
+			podVX = podVX - rel * nx * 0.4
+			podVY = podVY - rel * ny * 0.4
+			crateVX = crateVX + rel * nx * 0.6
+			crateVY = crateVY + rel * ny * 0.6
+		Else
+			podSpd = Sqr(podVX * podVX + podVY * podVY)
+			If podSpd > 15 Then
+				crateVX = crateVX + podVX * 0.3
+				crateVY = crateVY + podVY * 0.3
+			End If
+		End If
+		Call SeparateBodyFromTiles(crateX, crateY, CRATE_R)
+		needRedraw = True
+	Next i
+End Sub
+
+' Handler: UpdateCrate — gravity, substeps, floor MTV, pod push
+Sub UpdateCrate(delta As Single)
+	Dim ax As Single
+	Dim ay As Single
+	Dim spd As Single
+	Dim cx As Single
+	Dim cy As Single
+	Dim cvx As Single
+	Dim cvy As Single
+	Dim i As Integer
+	Dim steps As Integer
+	Dim subDelta As Single
+	If Not crateActive Then Exit Sub
+	cx = crateX
+	cy = crateY
+	cvx = crateVX
+	cvy = crateVY
+	Call GravityAccelAt(cx, cy, ax, ay)
+	cvx = cvx + ax * delta
+	cvy = cvy + ay * delta
+	spd = Sqr(cvx * cvx + cvy * cvy)
+	If spd > CRATE_VMAX Then
+		cvx = cvx * (CRATE_VMAX / spd)
+		cvy = cvy * (CRATE_VMAX / spd)
+	End If
+	cvx = cvx * CRATE_DRAG
+	cvy = cvy * CRATE_DRAG
+	steps = CRATE_SUBSTEPS
+	If steps < 1 Then steps = 1
+	subDelta = delta / steps
+	For i = 0 To steps - 1
+		cx = cx + cvx * subDelta
+		cy = cy + cvy * subDelta
+		Call SeparateBodyFromTiles(cx, cy, CRATE_R)
+	Next i
+	crateX = cx
+	crateY = cy
+	crateVX = cvx
+	crateVY = cvy
+	Call DampCrateVelocityIntoTiles()
+	Call ResolvePodCrateContact()
+	Call UpdatePlateState()
+End Sub
+
+' Handler: UpdatePlateState — crate center on floor plate tile (28, 20)
+Sub UpdatePlateState()
+	Dim px As Single
+	Dim py As Single
+	Dim dx As Single
+	Dim dy As Single
+	If Not crateActive Then Exit Sub
+	px = PLATE_TX * TILE + 16
+	py = PLATE_TY * TILE + 16
+	dx = crateX - px
+	dy = crateY - py
+	If dx * dx + dy * dy <= PLATE_HIT_R * PLATE_HIT_R Then
+		If Not plateSatisfied Then
+			plateSatisfied = True
+			statusText = "Floor plate open — south exit to Room 5"
+			needRedraw = True
+		End If
+	Else
+		If plateSatisfied Then
+			plateSatisfied = False
+			statusText = GetRoomHint()
+			needRedraw = True
+		End If
+	End If
+End Sub
+
+' Handler: TryTerminalInteract — F near tile T (4,12) shows log overlay
+Sub TryTerminalInteract()
+	Dim tx As Single
+	Dim ty As Single
+	Dim dx As Single
+	Dim dy As Single
+	If roomId <> 4 Then Exit Sub
+	If Not Input.IsActionJustPressed("interact") Then Exit Sub
+	tx = 4 * TILE + 16
+	ty = 12 * TILE + 16
+	dx = podX - tx
+	dy = podY - ty
+	If dx * dx + dy * dy > 64 * 64 Then Exit Sub
+	terminalOpen = True
+	terminalTimer = 6.0
+	needRedraw = True
+End Sub
+
+' Handler: UpdateTerminal — auto-hide log after timer
+Sub UpdateTerminal(delta As Single)
+	If terminalOpen Then
+		terminalTimer = terminalTimer - delta
+		If terminalTimer <= 0 Then
+			terminalOpen = False
+			needRedraw = True
+		End If
+	End If
+End Sub
+
+' Handler: CheckOutOfBoundsDeath — OOB triggers beacon respawn
+Sub CheckOutOfBoundsDeath()
+	If podX < -40 Or podX > GAME_W + 40 Or podY < -40 Or podY > GAME_H + 40 Then
+		Call RespawnPod()
+	End If
+End Sub
+
+' Handler: RespawnPod — last beacon (R4/R6) or current room spawn
+Sub RespawnPod()
+	If beaconRoom >= 4 Then
+		Call LoadRoom(beaconRoom)
+		podX = beaconX
+		podY = beaconY
+	Else
+		Call ResetPodSpawn()
+	End If
+	podVX = 0
+	podVY = 0
+	needRedraw = True
+End Sub
+
+' Handler: DrawHeatZoneTint — subtle hazard wash over R7 heat corridor cols
+Sub DrawHeatZoneTint()
+	Dim px As Single
+	If roomId <> 7 Then Exit Sub
+	px = HEAT_ZONE_TX0 * TILE
+	DrawRect px, 0, (HEAT_ZONE_TX1 - HEAT_ZONE_TX0 + 1) * TILE, GAME_H, Lit(HAZARD_R, HAZARD_G, HAZARD_B, 0.04)
+End Sub
+
+' Handler: DrawHeatBar — top-center suit heat 0–100 (R7 only)
+Sub DrawHeatBar()
+	Dim barW As Single
+	Dim barH As Single
+	Dim barX As Single
+	Dim barY As Single
+	Dim fillW As Single
+	Dim pct As Single
+	If roomId <> 7 Then Exit Sub
+	barW = 200
+	barH = 12
+	barX = (GAME_W - barW) * 0.5
+	barY = 44
+	pct = podHeat / HEAT_MAX
+	If pct < 0 Then pct = 0
+	If pct > 1 Then pct = 1
+	fillW = barW * pct
+	DrawRect barX - 2, barY - 2, barW + 4, barH + 4, Lit(STONE_R, STONE_G, STONE_B, 0.85)
+	DrawRect barX, barY, barW, barH, Lit(VOID_R, VOID_G, VOID_B, 0.9)
+	If fillW > 0 Then
+		DrawRect barX, barY, fillW, barH, Lit(GLOW_R, GLOW_G, GLOW_B, 0.85)
+	End If
+	If pct < 0.25 Then
+		DrawRect barX, barY, fillW, barH, Lit(HAZARD_R, HAZARD_G, HAZARD_B, 0.55)
+	End If
+End Sub
+
+' Handler: DrawGateTiles — G cells visible as closed gate or open glow
+Sub DrawGateTiles()
+	Dim tx As Integer
+	Dim ty As Integer
+	Dim px As Single
+	Dim py As Single
+	If roomId <> 6 Then Exit Sub
+	For ty = 0 To ROWS - 1
+		For tx = 0 To COLS - 1
+			If IsGateTile(tx, ty) Then
+				px = tx * TILE
+				py = ty * TILE
+				If orbitComplete Then
+					DrawRect px + 4, py + 4, TILE - 8, TILE - 8, Lit(GLOW_R, GLOW_G, GLOW_B, 0.35)
+				Else
+					DrawRect px, py, TILE, TILE, Lit(STONE_R, STONE_G, STONE_B, 0.95)
+					DrawRect px + 6, py + 6, TILE - 12, TILE - 12, Lit(0.91, 0.96, 1, 0.25)
+				End If
+			End If
+		Next tx
+	Next ty
+End Sub
+
+' Handler: DrawSpikes — R5 hazards; high contrast during Pulse for screenshots
+Sub DrawSpikes()
+	Dim tx As Integer
+	Dim ty As Integer
+	Dim px As Single
+	Dim py As Single
+	Dim spikeAlpha As Single
+	Dim i As Integer
+	Dim pulseOn As Boolean
+	If roomId <> 5 Then Exit Sub
+	pulseOn = IsPulseActive()
+	If pulseOn Then
+		spikeAlpha = 1.0
+	ElseIf roomDark Then
+		spikeAlpha = 0.08
+	Else
+		spikeAlpha = 0.7
+	End If
+	For ty = 0 To ROWS - 1
+		For tx = 0 To COLS - 1
+			If IsSpikeTile(tx, ty) Then
+				px = tx * TILE
+				py = ty * TILE
+				If pulseOn Then
+					DrawRect px + 2, py + 1, TILE - 4, TILE - 2, Lit(0.91, 0.96, 1, 0.35)
+				End If
+				DrawRect px + 4, py + 2, TILE - 8, TILE - 4, Lit(HAZARD_R, HAZARD_G, HAZARD_B, spikeAlpha)
+				For i = 0 To 2
+					DrawLine px + 8 + i * 8, py + 6, px + 12 + i * 8, py + TILE - 6, Lit(HAZARD_R, HAZARD_G, HAZARD_B, spikeAlpha)
+				Next i
+			End If
+		Next tx
+	Next ty
+End Sub
+
+' Handler: DrawOrbitHud — orbit progress ring + percent in R6
+Sub DrawOrbitHud()
+	Dim pct As Single
+	Dim progText As String
+	Dim mx As Single
+	Dim my As Single
+	If roomId <> 6 Then Exit Sub
+	If orbitComplete Then Exit Sub
+	mx = massX(0)
+	my = massY(0)
+	pct = orbitAngle / ORBIT_DEG_NEED
+	If pct > 1 Then pct = 1
+	DrawArc mx, my, ORBIT_R_MIN, 0, 6.28318, 48, Lit(GLOW_R, GLOW_G, GLOW_B, 0.12), 1
+	DrawArc mx, my, ORBIT_R_MAX, 0, 6.28318, 64, Lit(GLOW_R, GLOW_G, GLOW_B, 0.08), 1
+	If orbitInBand Then
+		DrawArc mx, my, (ORBIT_R_MIN + ORBIT_R_MAX) * 0.5, 0, pct * 6.28318, 32, Lit(GLOW_R, GLOW_G, GLOW_B, 0.45), 2
+	End If
+	progText = "Orbit " & Str(Int(orbitAngle)) & " / 540 deg"
+	DrawString progText, 16, GAME_H - 72, Lit(GLOW_R, GLOW_G, GLOW_B, 0.7), 14
+End Sub
+
+' Handler: DrawEndCard — fade overlay + GRAVEN / Made in VG6 credits
+Sub DrawEndCard()
+	Dim alpha As Single
+	Dim titleY As Single
+	If Not gameWon Then Exit Sub
+	alpha = endFade
+	If alpha < 0.05 Then Exit Sub
+	DrawRect 0, 0, GAME_W, GAME_H, Color(0.02, 0.04, 0.08, alpha * 0.92)
+	If alpha > 0.35 Then
+		titleY = GAME_H * 0.38
+		DrawString "GRAVEN", GAME_W * 0.5 - 72, titleY, Color(0.91, 0.96, 1, alpha), 42
+		DrawString "Made in VG6", GAME_W * 0.5 - 68, titleY + 56, Color(GLOW_R, GLOW_G, GLOW_B, alpha * 0.95), 24
+		DrawString "Game logic in readable .vg — audit every line", GAME_W * 0.5 - 210, titleY + 96, Color(0.91, 0.96, 1, alpha * 0.7), 16
+	End If
+	If alpha > 0.65 Then
+		DrawString "Press R to replay", GAME_W * 0.5 - 72, GAME_H * 0.72, Color(0.91, 0.96, 1, alpha * 0.55), 16
+	End If
+End Sub
+
+' Handler: DrawRoom4Scene — crate puzzle, beacon, terminal (coords match BLUEPRINT table)
+Sub DrawRoom4Scene()
+	Dim px As Single
+	Dim py As Single
+	Dim bx As Single
+	Dim by As Single
+	Dim tx As Single
+	Dim ty As Single
+	bx = 6 * TILE + 16
+	by = 10 * TILE + 16
+	DrawCircle bx, by, 10, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55)
+	DrawCircle bx, by, 4, Lit(GLOW_R, GLOW_G, GLOW_B, 1.0)
+	px = PLATE_TX * TILE + 16
+	py = PLATE_TY * TILE + 16
+	If plateSatisfied Then
+		DrawRect px - 20, py - 8, 40, 16, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55)
+	Else
+		DrawRect px - 20, py - 8, 40, 16, Lit(STONE_R, STONE_G, STONE_B, 0.95)
+		DrawRect px - 16, py - 4, 32, 8, Lit(0.91, 0.96, 1, 0.25)
+	End If
+	tx = 4 * TILE + 16
+	ty = 12 * TILE + 16
+	DrawRect tx - 10, ty - 10, 20, 20, Lit(0.91, 0.96, 1, 0.2)
+	DrawRect tx - 6, ty - 6, 12, 12, Lit(STONE_R, STONE_G, STONE_B, 0.85)
+	If plateSatisfied Then
+		DrawRect 592, 650, 96, 48, Lit(GLOW_R, GLOW_G, GLOW_B, 0.25)
+	Else
+		DrawRect 592, 650, 96, 48, Lit(STONE_R, STONE_G, STONE_B, 0.6)
+	End If
+	If crateActive Then
+		DrawRect crateX - CRATE_R, crateY - CRATE_R, CRATE_R * 2, CRATE_R * 2, Lit(0.91, 0.96, 1, 0.85)
+		DrawRect crateX - CRATE_R + 3, crateY - CRATE_R + 3, CRATE_R * 2 - 6, CRATE_R * 2 - 6, Lit(STONE_R, STONE_G, STONE_B, 1.0)
+	End If
+	If terminalOpen Then
+		DrawRect 80, 200, 720, 120, Lit(VOID_R, VOID_G, VOID_B, 0.92)
+		DrawString "MASSWELL SURVEY — LOG 7", 100, 220, Lit(0.91, 0.96, 1, 1.0), 18
+		DrawString "Don't trust the floor. Trust the needle.", 100, 252, Lit(0.91, 0.96, 1, 0.9), 16
+		DrawString "— Chen", 100, 284, Lit(GLOW_R, GLOW_G, GLOW_B, 0.95), 16
+	Else
+		If Abs(podX - tx) < 56 And Abs(podY - ty) < 56 Then
+			DrawString "Press F — terminal", tx - 48, ty - 36, Lit(0.91, 0.96, 1, 0.6), 14
+		End If
+	End If
+End Sub
+
+' Handler: DrawRoom5Scene — east exit glow while Pulse active
+Sub DrawRoom5Scene()
+	If IsPulseActive() Then
+		DrawRect 1216, 512, 64, 48, Lit(GLOW_R, GLOW_G, GLOW_B, 0.45)
+	End If
+End Sub
+
+' Handler: DrawRoom6Scene — beacon alcove + mass well + open gate hint
+Sub DrawRoom6Scene()
+	Dim mx As Single
+	Dim my As Single
+	mx = massX(0)
+	my = massY(0)
+	DrawCircle 3 * TILE + 16, 2 * TILE + 16, 10, Lit(GLOW_R, GLOW_G, GLOW_B, 0.5)
+	DrawCircle 3 * TILE + 16, 2 * TILE + 16, 4, Lit(GLOW_R, GLOW_G, GLOW_B, 1.0)
+	DrawCircle mx, my, 80, Lit(GLOW_R, GLOW_G, GLOW_B, 0.06)
+	DrawCircle mx, my, 12, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55)
+	If orbitComplete Then
+		DrawRect 1216, 528, 64, 64, Lit(GLOW_R, GLOW_G, GLOW_B, 0.35)
+	End If
+End Sub
+
+' Handler: DrawRoom8Scene — skiff goal at (1100, 400)
+Sub DrawRoom8Scene()
+	DrawCircle SKIFF_X, SKIFF_Y, SKIFF_R + 8, Lit(0.91, 0.96, 1, 0.12)
+	DrawRect SKIFF_X - 36, SKIFF_Y - 14, 72, 28, Lit(0.91, 0.96, 1, 0.75)
+	DrawRect SKIFF_X - 28, SKIFF_Y - 8, 56, 16, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55)
+	DrawCircle SKIFF_X + 30, SKIFF_Y, 6, Lit(GLOW_R, GLOW_G, GLOW_B, 0.9)
+End Sub
+
+' Handler: DrawRoomObjects — dispatch per-room overlays (spikes + scene props)
+Sub DrawRoomObjects()
+	Call DrawSpikes()
+	If roomId = 4 Then
+		Call DrawRoom4Scene()
+	ElseIf roomId = 5 Then
+		Call DrawRoom5Scene()
+	ElseIf roomId = 6 Then
+		Call DrawRoom6Scene()
+	ElseIf roomId = 8 Then
+		Call DrawRoom8Scene()
+	End If
+End Sub

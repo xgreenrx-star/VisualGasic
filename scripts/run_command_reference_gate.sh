@@ -3,13 +3,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 echo "== Tier 0: reference vs dispatch audit =="
-python3 "$ROOT/scripts/audit_reference_dispatch.py" --write-report --warn-only || {
-  code=$?
-  if [[ $code -ne 1 ]]; then
-    exit "$code"
-  fi
-  echo "(reference dispatch audit reported missing symbols — see docs/audit/reference_dispatch_report.md)"
-}
+python3 "$ROOT/scripts/audit_reference_dispatch.py" --write-report
 echo ""
 echo "== VM expr builtin parity =="
 python3 "$ROOT/scripts/audit_vm_builtins.py"

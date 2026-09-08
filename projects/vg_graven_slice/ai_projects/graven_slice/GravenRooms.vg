@@ -1,0 +1,518 @@
+' GravenRooms.vg — room tile maps, mass tables, spawn/exit transitions (R2 mass physics fix)
+
+' Handler: LoadRoomTiles — parse ASCII Data rows into tileChar grid for roomId
+Sub LoadRoomTiles()
+	Dim ty As Integer
+	Dim row As String
+	For ty = 0 To ROWS - 1
+		Call ClearRoomRow(ty)
+	Next ty
+	If roomId = 1 Then
+		Restore R1Map
+	ElseIf roomId = 2 Then
+		Restore R2Map
+	ElseIf roomId = 3 Then
+		Restore R3Map
+	ElseIf roomId = 4 Then
+		Restore R4Map
+	ElseIf roomId = 5 Then
+		Restore R5Map
+	ElseIf roomId = 6 Then
+		Restore R6Map
+	ElseIf roomId = 7 Then
+		Restore R7Map
+	ElseIf roomId = 8 Then
+		Restore R8Map
+	Else
+		Exit Sub
+	End If
+	For ty = 0 To ROWS - 1
+		Read row
+		Call ParseRoomRow(row, ty)
+	Next ty
+End Sub
+
+' Handler: ClearRoomRow — fill one row with air markers
+Sub ClearRoomRow(ty As Integer)
+	Dim tx As Integer
+	For tx = 0 To COLS - 1
+		tileChar(tx, ty) = "."
+	Next tx
+End Sub
+
+' Handler: ParseRoomRow — copy row string into tileChar (40 cols)
+Sub ParseRoomRow(row As String, ty As Integer)
+	Dim tx As Integer
+	Dim ch As String
+	For tx = 0 To COLS - 1
+		If tx < Len(row) Then
+			ch = Mid(row, tx + 1, 1)
+		Else
+			ch = "."
+		End If
+		tileChar(tx, ty) = ch
+	Next tx
+End Sub
+
+' Handler: IsSolidTile — # and closed G gate block pod/crate; OOB solid
+Function IsSolidTile(tx As Integer, ty As Integer) As Boolean
+	Dim ch As String
+	If tx < 0 Or tx >= COLS Or ty < 0 Or ty >= ROWS Then
+		IsSolidTile = True
+		Exit Function
+	End If
+	ch = tileChar(tx, ty)
+	If ch = "#" Then
+		IsSolidTile = True
+		Exit Function
+	End If
+	' Gate tiles stay solid until orbitComplete (R6 east exit)
+	If ch = "G" And Not orbitComplete Then
+		IsSolidTile = True
+		Exit Function
+	End If
+	IsSolidTile = False
+End Function
+
+' Handler: IsSpikeTile — S cells kill pod on touch (R5 hazard row)
+Function IsSpikeTile(tx As Integer, ty As Integer) As Boolean
+	If tx < 0 Or tx >= COLS Or ty < 0 Or ty >= ROWS Then
+		IsSpikeTile = False
+		Exit Function
+	End If
+	IsSpikeTile = (tileChar(tx, ty) = "S")
+End Function
+
+' Handler: IsGateTile — G marker for draw overlay (not # solid)
+Function IsGateTile(tx As Integer, ty As Integer) As Boolean
+	If tx < 0 Or tx >= COLS Or ty < 0 Or ty >= ROWS Then
+		IsGateTile = False
+		Exit Function
+	End If
+	IsGateTile = (tileChar(tx, ty) = "G")
+End Function
+
+' Handler: LoadRoomMasses — inverse-square sources per BLUEPRINT.md
+Sub LoadRoomMasses()
+	massCount = 0
+	If roomId = 1 Then
+		massCount = 1
+		massX(0) = 640
+		massY(0) = 780
+		massS(0) = 2.0
+	ElseIf roomId = 2 Then
+		' R2 Bend — M1 loft pulls into ceiling channel (BLUEPRINT 0.6 / 1.8)
+		massCount = 2
+		massX(0) = 640
+		massY(0) = 780
+		massS(0) = 0.8
+		massX(1) = 1040
+		massY(1) = 320
+		massS(1) = 2.2
+	ElseIf roomId = 3 Then
+		massCount = 1
+		massX(0) = 640
+		massY(0) = -60
+		massS(0) = 0.85
+	ElseIf roomId = 4 Then
+		massCount = 1
+		massX(0) = 640
+		massY(0) = 780
+		massS(0) = 1.0
+	ElseIf roomId = 5 Then
+		massCount = 2
+		massX(0) = 200
+		massY(0) = 400
+		massS(0) = 1.4
+		massX(1) = 1080
+		massY(1) = 400
+		massS(1) = 1.4
+	ElseIf roomId = 6 Then
+		massCount = 1
+		massX(0) = 640
+		massY(0) = 352
+		massS(0) = 2.5
+	ElseIf roomId = 7 Then
+		massCount = 1
+		massX(0) = 640
+		massY(0) = 780
+		massS(0) = 1.2
+	ElseIf roomId = 8 Then
+		massCount = 0
+	End If
+End Sub
+
+' Handler: ResetPodSpawn — pixel spawn from BLUEPRINT markers / tables
+Sub ResetPodSpawn()
+	podVX = 0
+	podVY = 0
+	podAngle = 0
+	If roomId = 1 Then
+		podX = 272
+		podY = 560
+	ElseIf roomId = 2 Then
+		podX = 48
+		podY = 560
+	ElseIf roomId = 3 Then
+		podX = 112
+		podY = 560
+	ElseIf roomId = 4 Then
+		podX = 144
+		podY = 496
+	ElseIf roomId = 5 Then
+		podX = 144
+		podY = 528
+	ElseIf roomId = 6 Then
+		podX = 80
+		podY = 560
+	ElseIf roomId = 7 Then
+		podX = 48
+		podY = 368
+	ElseIf roomId = 8 Then
+		podX = 48
+		podY = 496
+	Else
+		podX = 64
+		podY = 560
+	End If
+End Sub
+
+' Handler: GetRoomCaption — HUD title string
+Function GetRoomCaption() As String
+	If roomId = 1 Then
+		GetRoomCaption = "GRAVEN — Room 1 Airlock"
+	ElseIf roomId = 2 Then
+		GetRoomCaption = "GRAVEN — Room 2 Bend"
+	ElseIf roomId = 3 Then
+		GetRoomCaption = "GRAVEN — Room 3 Shelf"
+	ElseIf roomId = 4 Then
+		GetRoomCaption = "GRAVEN — Room 4 Crate"
+	ElseIf roomId = 5 Then
+		GetRoomCaption = "GRAVEN — Room 5 Dark pool"
+	ElseIf roomId = 6 Then
+		GetRoomCaption = "GRAVEN — Room 6 Orbit"
+	ElseIf roomId = 7 Then
+		GetRoomCaption = "GRAVEN — Room 7 Heat run"
+	ElseIf roomId = 8 Then
+		GetRoomCaption = "GRAVEN — Room 8 Skiff"
+	Else
+		GetRoomCaption = "GRAVEN"
+	End If
+End Function
+
+' Handler: GetRoomHint — status bar blurb
+Function GetRoomHint() As String
+	If roomId = 1 Then
+		GetRoomHint = "Fly east along the floor — glowing exit leads to Room 2"
+	ElseIf roomId = 2 Then
+		GetRoomHint = "Curve into the ceiling channel — fly into the EXIT glow"
+	ElseIf roomId = 3 Then
+		GetRoomHint = "Floor alcove — thrust UP the left ramp, east along shelf to EXIT"
+	ElseIf roomId = 4 Then
+		GetRoomHint = "Push crate onto floor plate (F at terminal for log)"
+	ElseIf roomId = 5 Then
+		GetRoomHint = "Space — Pulse sonar; cross spikes to east exit"
+	ElseIf roomId = 6 Then
+		If orbitComplete Then
+			GetRoomHint = "Orbit gate open — exit east"
+		Else
+			GetRoomHint = "Orbit the mass (80–200 px) — 540° opens east gate"
+		End If
+	ElseIf roomId = 7 Then
+		GetRoomHint = "Manage heat — thrust drains suit; hot zone ×1.8 drain"
+	ElseIf roomId = 8 Then
+		GetRoomHint = "Reach the skiff — escape the masswell"
+	Else
+		GetRoomHint = ""
+	End If
+End Function
+
+' Handler: LoadRoom — swap tiles, masses, entities, beacon saves
+Sub LoadRoom(newId As Integer)
+	roomId = newId
+	Call LoadRoomTiles()
+	Call LoadRoomMasses()
+	Call InitRoomObjects()
+	Call InitPulseForRoom()
+	Call InitOrbitForRoom()
+	Call InitHeatForRoom()
+	Call ResetPodSpawn()
+	statusText = GetRoomHint()
+	If roomId = 4 Then
+		Call SetBeaconCheckpointAt(4, 144, 496)
+	End If
+	If roomId = 6 Then
+		Call SetBeaconCheckpointAt(6, 3 * TILE + 16, 2 * TILE + 16)
+	End If
+	If roomLabel <> Null Then
+		roomLabel.Caption = GetRoomCaption()
+	End If
+	needRedraw = True
+End Sub
+
+' Handler: PodInZone — pod circle overlaps exit trigger (not center-point only)
+Function PodInZone(zx As Single, zy As Single, zw As Single, zh As Single) As Boolean
+	PodInZone = CircleRectOverlap(podX, podY, POD_R + 4, zx, zy, zw, zh)
+End Function
+
+' Handler: PodNearExitMarker — overlap any E tile in current room map
+Function PodNearExitMarker() As Boolean
+	Dim tx As Integer
+	Dim ty As Integer
+	For ty = 0 To ROWS - 1
+		For tx = 0 To COLS - 1
+			If IsExitTile(tx, ty) Then
+				If PodInZone(tx * TILE - 24, ty * TILE - 24, TILE + 48, TILE + 48) Then
+					PodNearExitMarker = True
+					Exit Function
+				End If
+			End If
+		Next tx
+	Next ty
+	PodNearExitMarker = False
+End Function
+
+' Handler: TryRoomTransition — E tiles + special south/gate exits
+Sub TryRoomTransition()
+	If roomId = 1 Or roomId = 2 Or roomId = 3 Or roomId = 5 Then
+		If PodNearExitMarker() Then
+			Call LoadRoom(roomId + 1)
+		End If
+	ElseIf roomId = 4 Then
+		If plateSatisfied Then
+			If PodInZone(18 * TILE, 20 * TILE, 4 * TILE, 3 * TILE) Then
+				Call LoadRoom(5)
+			End If
+		End If
+	ElseIf roomId = 6 Then
+		If orbitComplete Then
+			If PodInZone(37 * TILE, 16 * TILE, 3 * TILE, 4 * TILE) Then
+				Call LoadRoom(7)
+			End If
+		End If
+	ElseIf roomId = 7 Then
+		If PodInZone(37 * TILE, 10 * TILE, 3 * TILE, 9 * TILE) Then
+			Call LoadRoom(8)
+		End If
+	End If
+End Sub
+
+' Handler: IsExitTile — E marker from ASCII maps (transition target hint)
+Function IsExitTile(tx As Integer, ty As Integer) As Boolean
+	If tx < 0 Or tx >= COLS Or ty < 0 Or ty >= ROWS Then
+		IsExitTile = False
+		Exit Function
+	End If
+	IsExitTile = (tileChar(tx, ty) = "E")
+End Function
+
+' Handler: DrawExitMarkers — bright cyan glow on E tiles (post shader dims — overdraw)
+Sub DrawExitMarkers()
+	Dim tx As Integer
+	Dim ty As Integer
+	Dim px As Single
+	Dim py As Single
+	For ty = 0 To ROWS - 1
+		For tx = 0 To COLS - 1
+			If IsExitTile(tx, ty) Then
+				px = tx * TILE
+				py = ty * TILE
+				DrawRect px - 14, py - 18, TILE + 32, TILE + 36, Color(GLOW_R, GLOW_G, GLOW_B, 0.28)
+				DrawRect px - 6, py - 8, TILE + 16, TILE + 16, Color(GLOW_R, GLOW_G, GLOW_B, 0.5)
+				DrawRect px, py, TILE, TILE, Color(0.35, 0.82, 1.0, 0.95)
+				DrawString "EXIT", px + 3, py + 21, Color(1.0, 1.0, 1.0, 1.0), 13
+			End If
+		Next tx
+	Next ty
+End Sub
+
+R1Map:
+Data "########################################"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#........P.............................#"
+Data "#....................................E.#"
+Data "########################################"
+Data "########################################"
+Data "########################################"
+Data "########################################"
+
+R2Map:
+Data "########################################"
+Data "#......................................#"
+Data "#...............................####...#"
+Data "#............................E..#......#"
+Data "#...............................#......#"
+Data "#..............................##......#"
+Data "#.............................##.......#"
+Data "#............................##........#"
+Data "#...........................##.........#"
+Data "#..........................##..........#"
+Data "#.........................##...........#"
+Data "#........................##............#"
+Data "#.......................##.............#"
+Data "#......................##..............#"
+Data "#.....................##...............#"
+Data "#....................##................#"
+Data "#...P...............##.................#"
+Data "#..................##..................#"
+Data "#.................##...................#"
+Data "#................##....................#"
+Data "#...............##.....................#"
+Data "########################################"
+
+R3Map:
+Data "########################################"
+Data "#......................................#"
+Data "#..#################################E..#"
+Data "#..##..................................#"
+Data "#...##.................................#"
+Data "#....##................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#..####................................#"
+Data "#..P...................................#"
+Data "#..####................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "########################################"
+R4Map:
+Data "########################################"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#............C.........................#"
+Data "#...P....................................#"
+Data "#......................................#"
+Data "#..................S...................#"
+Data "#......................................#"
+Data "#...........................+..........#"
+Data "########################################"
+
+R5Map:
+Data "########################################"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#P................SSSSSSSS...........E.#"
+Data "#................SSSSSSSS..............#"
+Data "#................SSSSSSSS..............#"
+Data "#......................................#"
+Data "########################################"
+
+R6Map:
+Data "########################################"
+Data "#......................................#"
+Data "#..B...................................#"
+Data "#..##..................................#"
+Data "#...#..................................#"
+Data "#...#..................................#"
+Data "#...#..................................#"
+Data "#...#..................................#"
+Data "#...#..................................#"
+Data "#...#..............P...................#"
+Data "#...#..................................#"
+Data "#...#..................................#"
+Data "#...#..................................#"
+Data "#...#..................................#"
+Data "#...#..................................#"
+Data "#...#..................................#"
+Data "#...#..................................#"
+Data "#...#..................................#"
+Data "#...#................................GE#"
+Data "#...#..................................#"
+Data "#...#..................................#"
+Data "########################################"
+
+R7Map:
+Data "########################################"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#P..............#######................#"
+Data "#...............#.....#................#"
+Data "#...............#.....#................#"
+Data "#...............#.....#................#"
+Data "#...............#.....#................#"
+Data "#...............#.....#................#"
+Data "#...............#.....#................#"
+Data "#...............#.....E................#"
+Data "#...............#######................#"
+Data "#......................................#"
+Data "########################################"
+
+R8Map:
+Data "########################################"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#P.....................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "########################################"

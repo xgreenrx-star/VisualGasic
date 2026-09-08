@@ -429,7 +429,7 @@ def check_entry(entry: DocEntry, dispatch: set[str], locs: dict[str, list[str]],
 def doc_source_mismatches(all_entries: dict[str, list[DocEntry]]) -> list[Finding]:
     """Symbols in one authoritative doc but absent from others."""
     lr = {norm(e.name): e for e in all_entries.get("language_reference", [])}
-    ch = {norm(e.name): e for e in all_entries.get("command_help", []) if e.kind != "godot_doc_link"}
+    ch = {norm(e.name): e for e in all_entries.get("command_help", [])}
     gr = {norm(e.name): e for e in all_entries.get("godot_functions_reference", [])}
 
     findings: list[Finding] = []

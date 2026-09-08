@@ -8,60 +8,19 @@ Generated: 2026-09-08 by `scripts/audit_reference_dispatch.py`
 |--------|------:|
 | Language Reference commands (Part II) | 445 |
 | GODOT_FUNCTIONS_REFERENCE entries | 64 |
-| command_help entries | 405 |
-| OK / dispatch found | 740 |
-| Known gaps (allowlisted) | 17 |
+| command_help entries | 446 |
+| OK / dispatch found | 773 |
+| Known gaps (allowlisted) | 19 |
 | **Missing dispatch** | **0** |
-| Doc source mismatch | 40 |
-
-## Doc source mismatches
-
-- **AudioServer** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **ConnectSignal** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **Deg2Rad** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **DisconnectSignal** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **DisplayServer** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **Engine** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **FindChild** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetActionStrength** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetChildren** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetCurrentScene** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetEngineVersion** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetGlobalPosition** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetKey** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetLastMouseVelocity** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetModulate** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetMousePosition** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetPosition** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetRoot** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetRotation** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetScale** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **GetVelocity** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **HasNode** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **IsEditorHint** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **IsMouseButtonPressed** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **IsOnCeiling** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **IsVisible** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **LoadScene** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **MoveAndCollide** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **MoveToward** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **OS** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **Rad2Deg** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **ReloadCurrentScene** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **SetGlobalPosition** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **SetModulate** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **SetPosition** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **SetRotation** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **SetScale** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **SetVelocity** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **SetVisible** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
-- **Time** — in GODOT_FUNCTIONS_REFERENCE but not Language Reference or command_help
+| Doc source mismatch | 0 |
 
 ## Known gaps (allowlisted)
 
 - **ConnectSignal** — Deprecated name; runtime uses Connect()
+- **ConnectSignal** — Deprecated name; runtime uses Connect()
 - **DataFile** — Parse-time DATA statement — not a runtime call_builtin
 - **DataFile** — Parse-time DATA statement — not a runtime call_builtin
+- **DisconnectSignal** — Deprecated name; runtime uses Disconnect()
 - **DisconnectSignal** — Deprecated name; runtime uses Disconnect()
 - **emit_signal** — Use emit_signal() on owner or RaiseEvent for VB events
 - **EmitSignal** — Use emit_signal() on owner or RaiseEvent for VB events

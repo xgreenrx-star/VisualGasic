@@ -1,0 +1,40 @@
+[gd_scene load_steps=4 format=3 uid="uid://cgravenmain001"]
+
+[ext_resource type="VisualGasicScript" path="res://ai_projects/graven_slice/GravenMain.vg" id="1_graven"]
+[ext_resource type="Shader" path="res://ai_projects/graven_slice/shaders/graven_post.gdshader" id="2_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_post"]
+shader = ExtResource("2_shader")
+
+[node name="GravenMain" type="Node2D"]
+script = ExtResource("1_graven")
+
+[node name="Solid" type="TileMapLayer" parent="."]
+tile_set = null
+cell_size = Vector2i(32, 32)
+modulate = Color(0.15, 0.18, 0.22, 1)
+
+[node name="PostFX" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="PulseRect" type="ColorRect" parent="PostFX"]
+material = SubResource("ShaderMaterial_post")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="HUD" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="RoomLabel" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 520.0
+offset_bottom = 40.0
+theme_override_colors/font_color = Color(0.91, 0.96, 1, 0.85)
+theme_override_font_sizes/font_size = 18
+text = "GRAVEN — R1→R8 full slice (W thrust, Q/E rotate, Space sonar)"

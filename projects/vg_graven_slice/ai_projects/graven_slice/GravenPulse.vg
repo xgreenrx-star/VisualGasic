@@ -1,0 +1,225 @@
+' GravenPulse.vg — sonar Pulse, ambient dark room, graven_post shader uniform export
+
+' Constants — BLUEPRINT PULSE_TIME / PULSE_CD
+Const PULSE_TIME As Single = 2.8
+Const PULSE_CD As Single = 4.0
+Const AMBIENT_DARK As Single = 0.10
+Const AMBIENT_NORMAL As Single = 0.5
+Const SHADER_DARK As Single = 0.42
+
+' State — pulse timing + Room 5 dark flag + post material cache
+Dim pulseTimer As Single
+Dim pulseCooldown As Single
+Dim roomDark As Boolean
+Dim postRect As Variant
+Dim postMaterial As Variant
+Dim pulseHudSec As Integer
+
+' Handler: InitPulseNodes — cache PostFX ColorRect material for shader uniforms
+Sub InitPulseNodes()
+	postRect = GetNode("PostFX/PulseRect")
+	postMaterial = Null
+	pulseHudSec = -1
+	If postRect <> Null Then
+		postMaterial = postRect.material
+	End If
+End Sub
+
+' Handler: InitPulseForRoom — reset dark flag and pulse state on room swap
+Sub InitPulseForRoom()
+	roomDark = (roomId = 5)
+	pulseHudSec = -1
+	If roomId <> 5 Then
+		pulseTimer = 0
+		pulseCooldown = 0
+	End If
+	Call UpdatePostShader()
+End Sub
+
+' Handler: TryStartPulse — Space action; 4s cooldown, 2.8s reveal
+Sub TryStartPulse()
+	If devMenuOpen Then Exit Sub
+	If pulseTimer > 0 Then Exit Sub
+	If pulseCooldown > 0 Then Exit Sub
+	If Not Input.IsActionJustPressed("pulse") Then Exit Sub
+	pulseTimer = PULSE_TIME
+	pulseCooldown = PULSE_CD
+	pulseHudSec = -1
+	needRedraw = True
+End Sub
+
+' Handler: UpdatePulse — tick active pulse and cooldown; redraw only on visible change
+Sub UpdatePulse(delta As Single)
+	Dim wasActive As Boolean
+	Dim cdSec As Integer
+	wasActive = (pulseTimer > 0)
+	If pulseTimer > 0 Then
+		pulseTimer = pulseTimer - delta
+		If pulseTimer < 0 Then pulseTimer = 0
+		needRedraw = True
+	End If
+	If pulseCooldown > 0 Then
+		pulseCooldown = pulseCooldown - delta
+		If pulseCooldown < 0 Then pulseCooldown = 0
+		If roomDark Then
+			cdSec = Int(pulseCooldown)
+			If cdSec <> pulseHudSec Then
+				pulseHudSec = cdSec
+				needRedraw = True
+			End If
+		End If
+	End If
+	If wasActive And pulseTimer <= 0 Then needRedraw = True
+End Sub
+
+' Handler: IsPulseActive — true while sonar reveal window is open
+Function IsPulseActive() As Boolean
+	IsPulseActive = (pulseTimer > 0)
+End Function
+
+' Handler: GetPulsePhase — 0 at pulse start → 1 at end (shader + ring expansion)
+Function GetPulsePhase() As Single
+	If pulseTimer <= 0 Then
+		GetPulsePhase = 0
+		Exit Function
+	End If
+	GetPulsePhase = 1.0 - (pulseTimer / PULSE_TIME)
+End Function
+
+' Handler: GetShaderAmbient — post-process brightness (less crush than canvas Lit in R5)
+Function GetShaderAmbient() As Single
+	If roomDark And Not devLightsOn Then
+		If pulseTimer > 0 Then
+			GetShaderAmbient = 1.0
+		Else
+			GetShaderAmbient = SHADER_DARK
+		End If
+	Else
+		GetShaderAmbient = AMBIENT_NORMAL
+	End If
+End Function
+
+' Handler: HudCol — HUD / pod emissive; not dimmed by dark-room Lit()
+Function HudCol(r As Single, g As Single, b As Single, a As Single) As Variant
+	HudCol = Color(r, g, b, a)
+End Function
+
+' Handler: GetAmbientMul — R5 dark dims world geometry until Pulse
+Function GetAmbientMul() As Single
+	If roomDark And Not devLightsOn Then
+		If pulseTimer > 0 Then
+			GetAmbientMul = 1.0
+		Else
+			GetAmbientMul = AMBIENT_DARK
+		End If
+	Else
+		GetAmbientMul = AMBIENT_NORMAL
+	End If
+End Function
+
+' Handler: Lit — R5 dark pool dims canvas; other rooms draw at full palette
+Function Lit(r As Single, g As Single, b As Single, a As Single) As Variant
+	Dim amb As Single
+	If roomDark And Not devLightsOn Then
+		amb = GetAmbientMul()
+	Else
+		amb = 1.0
+	End If
+	Lit = Color(r * amb, g * amb, b * amb, a)
+End Function
+
+' Handler: UpdatePostShader — all graven_post uniforms from nearest mass + accel
+Sub UpdatePostShader()
+	Dim i As Integer
+	Dim bestI As Integer
+	Dim bestD As Single
+	Dim d As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim gx As Single
+	Dim gy As Single
+	Dim glen As Single
+	Dim mx As Single
+	Dim my As Single
+	If postMaterial = Null Then Exit Sub
+	If devMenuOpen Then
+		Shader.Param postMaterial, "ambient", 1.0
+		Shader.Param postMaterial, "pulse_phase", GetPulsePhase()
+		Shader.Param postMaterial, "heat_stress", heatStress
+		Exit Sub
+	End If
+	bestI = 0
+	bestD = 999999999
+	For i = 0 To massCount - 1
+		mx = massX(i)
+		my = massY(i)
+		dx = podX - mx
+		dy = podY - my
+		d = dx * dx + dy * dy
+		If d < bestD Then
+			bestD = d
+			bestI = i
+		End If
+	Next i
+	If massCount > 0 Then
+		mx = massX(bestI)
+		my = massY(bestI)
+		Shader.Param postMaterial, "mass_uv", Vector2(mx / GAME_W, my / GAME_H)
+	Else
+		Shader.Param postMaterial, "mass_uv", Vector2(0.5, 0.5)
+	End If
+	glen = Sqr(gravAX * gravAX + gravAY * gravAY)
+	If glen > 0.01 Then
+		gx = gravAX / glen
+		gy = gravAY / glen
+		If glen > G_MAX Then glen = G_MAX
+		gx = gx * (glen / G_MAX)
+		gy = gy * (glen / G_MAX)
+	Else
+		gx = 0
+		gy = 1
+	End If
+	Shader.Param postMaterial, "gravity_vec", Vector2(gx, gy)
+	Shader.Param postMaterial, "pulse_phase", GetPulsePhase()
+	Shader.Param postMaterial, "heat_stress", heatStress
+	Shader.Param postMaterial, "ambient", GetShaderAmbient()
+End Sub
+
+' Handler: DrawPulseRing — expanding sonar outline; boosted contrast in R5 dark
+Sub DrawPulseRing()
+	Dim phase As Single
+	Dim ringR As Single
+	Dim alpha As Single
+	Dim lineW As Single
+	If Not IsPulseActive() Then Exit Sub
+	phase = GetPulsePhase()
+	ringR = 48 + phase * 380
+	alpha = 0.85 * (1.0 - phase * 0.65)
+	lineW = 2
+	If roomDark Then
+		alpha = alpha * 1.35
+		If alpha > 1.0 Then alpha = 1.0
+		lineW = 3
+	End If
+	DrawArc podX, podY, ringR, 0, 6.28318, 64, Lit(GLOW_R, GLOW_G, GLOW_B, alpha), lineW
+	If phase > 0.15 Then
+		DrawArc podX, podY, ringR * 0.55, 0, 6.28318, 48, Lit(GLOW_R, GLOW_G, GLOW_B, alpha * 0.55), lineW
+	End If
+	If roomDark Then
+		DrawCircle podX, podY, 10, Lit(GLOW_R, GLOW_G, GLOW_B, 0.35)
+	End If
+End Sub
+
+' Handler: DrawPulseHud — cooldown hint in Room 5
+Sub DrawPulseHud()
+	Dim cdText As String
+	If Not roomDark Then Exit Sub
+	If IsPulseActive() Then
+		DrawString "PULSE ACTIVE", 16, GAME_H - 48, HudCol(GLOW_R, GLOW_G, GLOW_B, 1.0), 15
+	ElseIf pulseCooldown > 0 Then
+		cdText = "Pulse recharge " & Str(Int(pulseCooldown * 10) / 10) & "s"
+		DrawString cdText, 16, GAME_H - 48, HudCol(0.91, 0.96, 1, 0.85), 14
+	Else
+		DrawString "Space — Pulse sonar (reveals walls + spikes)", 16, GAME_H - 48, HudCol(GLOW_R, GLOW_G, GLOW_B, 0.95), 14
+	End If
+End Sub

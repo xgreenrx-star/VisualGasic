@@ -1,0 +1,180 @@
+' GravenDev.vg — playtest cheat overlay (dev_menu action: F1 or `)
+
+' Handler: InitDevMenu — reset dev toggles on boot
+Sub InitDevMenu()
+	devMenuOpen = False
+	devThrustMul = 1.0
+	devGScaleMul = 1.0
+	devDragCoastMul = 1.0
+	devGodMode = False
+	devLightsOn = False
+End Sub
+
+' Handler: DevResetTweaks — restore physics multipliers to 1.0
+Sub DevResetTweaks()
+	devThrustMul = 1.0
+	devGScaleMul = 1.0
+	devDragCoastMul = 1.0
+	needRedraw = True
+End Sub
+
+' Handler: DevWarpRoom — jump to room 1–8 (playtest skip)
+Sub DevWarpRoom(targetId As Integer)
+	If targetId < 1 Or targetId > 8 Then Exit Sub
+	gameWon = False
+	endFade = 0
+	Call LoadRoom(targetId)
+	podVX = 0
+	podVY = 0
+	statusText = GetRoomHint()
+	needRedraw = True
+	Print "DEV warp -> Room " & Str(targetId)
+End Sub
+
+' Handler: DevApplyCheats — room puzzle flags + pulse/heat shortcuts
+Sub DevApplyCheats()
+	If Input.IsKeyJustPressed(KEY_C) Then
+		plateSatisfied = True
+		statusText = "DEV: floor plate satisfied"
+		needRedraw = True
+	End If
+	If Input.IsKeyJustPressed(KEY_O) Then
+		orbitComplete = True
+		statusText = "DEV: orbit gate open"
+		needRedraw = True
+	End If
+	If Input.IsKeyJustPressed(KEY_H) Then
+		podHeat = HEAT_MAX
+		heatStress = 0
+		statusText = "DEV: heat tank full"
+		needRedraw = True
+	End If
+	If Input.IsKeyJustPressed(KEY_S) Then
+		Call PulseActivate()
+		statusText = "DEV: pulse fired"
+		needRedraw = True
+	End If
+	If Input.IsKeyJustPressed(KEY_N) Then
+		devGodMode = Not devGodMode
+		If devGodMode Then
+			statusText = "DEV: god mode ON"
+		Else
+			statusText = "DEV: god mode OFF"
+		End If
+		needRedraw = True
+	End If
+	If Input.IsKeyJustPressed(KEY_L) Then
+		devLightsOn = Not devLightsOn
+		If devLightsOn Then
+			statusText = "DEV: lights ON"
+		Else
+			statusText = "DEV: lights OFF"
+		End If
+		needRedraw = True
+	End If
+	If Input.IsKeyJustPressed(KEY_B) Then
+		showMassDebug = Not showMassDebug
+		needRedraw = True
+	End If
+	If Input.IsKeyJustPressed(KEY_0) Then
+		Call DevResetTweaks()
+		statusText = "DEV: tweaks reset"
+	End If
+End Sub
+
+' Handler: DevAdjustTweaks — [ ] thrust, - = gravity, , . drag coast
+Sub DevAdjustTweaks()
+	If Input.IsKeyJustPressed(KEY_BRACKETRIGHT) Then
+		devThrustMul = devThrustMul * 1.12
+		If devThrustMul > 4.0 Then devThrustMul = 4.0
+		needRedraw = True
+	End If
+	If Input.IsKeyJustPressed(KEY_BRACKETLEFT) Then
+		devThrustMul = devThrustMul / 1.12
+		If devThrustMul < 0.25 Then devThrustMul = 0.25
+		needRedraw = True
+	End If
+	If Input.IsKeyJustPressed(KEY_EQUAL) Then
+		devGScaleMul = devGScaleMul * 1.12
+		If devGScaleMul > 4.0 Then devGScaleMul = 4.0
+		needRedraw = True
+	End If
+	If Input.IsKeyJustPressed(KEY_MINUS) Then
+		devGScaleMul = devGScaleMul / 1.12
+		If devGScaleMul < 0.25 Then devGScaleMul = 0.25
+		needRedraw = True
+	End If
+	If Input.IsKeyJustPressed(KEY_PERIOD) Then
+		devDragCoastMul = devDragCoastMul * 1.05
+		If devDragCoastMul > 1.5 Then devDragCoastMul = 1.5
+		needRedraw = True
+	End If
+	If Input.IsKeyJustPressed(KEY_COMMA) Then
+		devDragCoastMul = devDragCoastMul / 1.05
+		If devDragCoastMul < 0.5 Then devDragCoastMul = 0.5
+		needRedraw = True
+	End If
+End Sub
+
+' Handler: ProcessDevInput — dev_menu toggles overlay; keys only while open
+Sub ProcessDevInput()
+	If Input.IsActionJustPressed("dev_menu") Then
+		devMenuOpen = Not devMenuOpen
+		needRedraw = True
+		If devMenuOpen Then
+			Print "DEV menu open — 1-8 warp rooms, F1/` close"
+		Else
+			Print "DEV menu closed"
+		End If
+		Exit Sub
+	End If
+	If Not devMenuOpen Then Exit Sub
+	If Input.IsKeyJustPressed(KEY_1) Then Call DevWarpRoom(1)
+	If Input.IsKeyJustPressed(KEY_2) Then Call DevWarpRoom(2)
+	If Input.IsKeyJustPressed(KEY_3) Then Call DevWarpRoom(3)
+	If Input.IsKeyJustPressed(KEY_4) Then Call DevWarpRoom(4)
+	If Input.IsKeyJustPressed(KEY_5) Then Call DevWarpRoom(5)
+	If Input.IsKeyJustPressed(KEY_6) Then Call DevWarpRoom(6)
+	If Input.IsKeyJustPressed(KEY_7) Then Call DevWarpRoom(7)
+	If Input.IsKeyJustPressed(KEY_8) Then Call DevWarpRoom(8)
+	Call DevApplyCheats()
+	Call DevAdjustTweaks()
+End Sub
+
+' Handler: DevBlocksGameplay — true while overlay consumes input
+Function DevBlocksGameplay() As Boolean
+	DevBlocksGameplay = devMenuOpen
+End Function
+
+' Handler: DrawDevHint — small hint when menu closed
+Sub DrawDevHint()
+	If devMenuOpen Then Exit Sub
+	DrawString "F1 dev menu", GAME_W - 120, 8, HudCol(0.91, 0.96, 1, 0.75), 14
+End Sub
+
+' Handler: DrawDevOverlay — semi-transparent cheat panel
+Sub DrawDevOverlay()
+	If Not devMenuOpen Then Exit Sub
+	Dim thrustPct As Integer
+	Dim gravPct As Integer
+	Dim dragPct As Integer
+	Dim y As Single
+	thrustPct = Int(devThrustMul * 100)
+	gravPct = Int(devGScaleMul * 100)
+	dragPct = Int(devDragCoastMul * 100)
+	DrawRect 0, 0, GAME_W, GAME_H, 0, 0, 0, 0.45
+	y = 40
+	DrawString "DEV MENU — F1/` close", 24, y, HudCol(0.91, 0.96, 1, 1.0), 20
+	y = y + 28
+	DrawString "1-8 warp rooms", 24, y, HudCol(0.91, 0.96, 1, 0.9), 16
+	y = y + 22
+	DrawString "C plate  O orbit  H heat  S pulse", 24, y, HudCol(0.91, 0.96, 1, 0.9), 16
+	y = y + 22
+	DrawString "N god mode  L lights  B mass dbg  0 reset", 24, y, HudCol(0.91, 0.96, 1, 0.9), 16
+	y = y + 22
+	DrawString "[ ] thrust " & Str(thrustPct) & "%", 24, y, HudCol(GLOW_R, GLOW_G, GLOW_B, 0.95), 16
+	y = y + 22
+	DrawString "- = gravity " & Str(gravPct) & "%", 24, y, HudCol(GLOW_R, GLOW_G, GLOW_B, 0.95), 16
+	y = y + 22
+	DrawString ", . drag coast " & Str(dragPct) & "%", 24, y, HudCol(GLOW_R, GLOW_G, GLOW_B, 0.95), 16
+End Sub
