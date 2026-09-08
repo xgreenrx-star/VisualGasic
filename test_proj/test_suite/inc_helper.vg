@@ -1,0 +1,4 @@
+' Helper included by test_include_relative.vg
+Sub IncHelper()
+	Print "PASS: include_relative_call"
+End Sub

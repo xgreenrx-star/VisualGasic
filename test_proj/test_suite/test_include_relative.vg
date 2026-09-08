@@ -1,0 +1,7 @@
+' Test: relative Include resolves against the hosting script directory
+Include "inc_helper.vg"
+
+Sub _Ready()
+	Call IncHelper()
+	Print "TEST_COMPLETE"
+End Sub

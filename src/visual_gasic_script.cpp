@@ -538,15 +538,14 @@ String resolve_includes(const String& path, const String& code, int depth = 0) {
         String line = lines[i].strip_edges();
         if (line.begins_with("Include ")) {
              String file_name = line.substr(8).strip_edges().replace("\"", "");
-             UtilityFunctions::print("Including file: ", file_name);
+             UtilityFunctions::print("Including file: ", file_name, " (from ", path, ")");
              
-             // Check if path is absolute or relative
              String full_path = file_name;
              if (!full_path.contains("://")) {
-                  // Relative to current script path
-                  // We need the path of the script being loaded?
-                  // path arg should be the directory of the current file being processed?
-                  // But 'path' passed to us is... ?
+                  String base_dir = path.get_base_dir();
+                  if (!base_dir.is_empty()) {
+                      full_path = base_dir.path_join(file_name);
+                  }
              }
              
              if (FileAccess::file_exists(full_path)) {
@@ -598,7 +597,7 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     format_source_code();
     
     // Reload logic: Validate tokens
-    String processed_code = resolve_includes("", source_code);
+    String processed_code = resolve_includes(get_path(), source_code);
     Vector<VisualGasicTokenizer::Token> tokens = tokenizer.tokenize(processed_code);
     // Scan ALL tokens for errors (not just the last — error tokens in the middle
     // can cause the parser to enter an invalid state and crash)
