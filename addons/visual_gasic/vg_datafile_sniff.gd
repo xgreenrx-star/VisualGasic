@@ -6,6 +6,7 @@ enum Kind {
 	MISSING,
 	RAW,
 	VGD,
+	VGV,
 	CSV,
 	PNG,
 	IMAGE,
@@ -45,6 +46,10 @@ static func sniff_path(abs_path: String) -> Dictionary:
 			out["palette_id"] = head[17]
 		return out
 	var ext := abs_path.get_extension().to_lower()
+	if ext == "vgv":
+		out["kind"] = Kind.VGV
+		out["kind_name"] = "vgv"
+		return out
 	if ext == "csv":
 		out["kind"] = Kind.CSV
 		out["kind_name"] = "csv"
@@ -70,6 +75,10 @@ static func sniff_path(abs_path: String) -> Dictionary:
 		_sniff_csv_dims(abs_path, out)
 		return out
 	var txt_head := head.get_string_from_utf8().strip_edges()
+	if txt_head.begins_with("VGV1"):
+		out["kind"] = Kind.VGV
+		out["kind_name"] = "vgv"
+		return out
 	if not txt_head.is_empty() and _is_mostly_printable(txt_head):
 		out["kind"] = Kind.TEXT
 		out["kind_name"] = "text"

@@ -4,6 +4,7 @@ extends RefCounted
 
 const VGCommandHelp = preload("res://addons/visual_gasic/vg_command_help.gd")
 const Resolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
+const VectorResolver := preload("res://addons/visual_gasic/vg_vector_data_resolver.gd")
 
 
 static func get_keyword_at_cursor(code_edit: CodeEdit) -> String:
@@ -61,13 +62,16 @@ static func update_sprite_panel(sprite_panel: Control, code_edit: CodeEdit) -> v
 	if code_edit == null:
 		sprite_panel.call("clear_section")
 		return
-	var path := ""
-	if code_edit.has_method("get_meta") and code_edit.has_meta("vg_file_path"):
-		path = str(code_edit.get_meta("vg_file_path"))
-	if not path.ends_with(".vg"):
-		# Still allow if buffer looks like VG (Godot script editor path).
-		pass
 	sprite_panel.call("update_for_caret", code_edit.text, code_edit.get_caret_line())
+
+
+static func update_vector_panel(vector_panel: Control, code_edit: CodeEdit) -> void:
+	if vector_panel == null or not vector_panel.has_method("update_for_caret"):
+		return
+	if code_edit == null:
+		vector_panel.call("clear_section")
+		return
+	vector_panel.call("update_for_caret", code_edit.text, code_edit.get_caret_line())
 
 
 static func caret_assist_update(
@@ -76,6 +80,7 @@ static func caret_assist_update(
 	sprite_panel: Control,
 	state: Dictionary,
 	help_scroll: ScrollContainer = null,
+	vector_panel: Control = null,
 ) -> void:
 	if code_edit == null:
 		return
@@ -84,5 +89,8 @@ static func caret_assist_update(
 		state["last_keyword"] = keyword
 		render_command_help(help_label, keyword, help_scroll)
 	update_sprite_panel(sprite_panel, code_edit)
+	update_vector_panel(vector_panel, code_edit)
 	var sec := Resolver.resolve_at_line(code_edit.text, code_edit.get_caret_line())
 	state["in_sprite_block"] = not sec.is_empty()
+	var vsec := VectorResolver.resolve_at_line(code_edit.text, code_edit.get_caret_line())
+	state["in_vector_block"] = not vsec.is_empty()

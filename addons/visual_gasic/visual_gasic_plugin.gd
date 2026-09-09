@@ -46,6 +46,7 @@ const _ECE_SCRIPT = preload("res://addons/visual_gasic/vg_embedded_code_editor.g
 const _AssistFactory = preload("res://addons/visual_gasic/vg_assist_panel_factory.gd")
 const _EditorAssist = preload("res://addons/visual_gasic/vg_editor_assist.gd")
 const _SpriteHighlight = preload("res://addons/visual_gasic/vg_sprite_data_highlight.gd")
+const _VectorHighlight = preload("res://addons/visual_gasic/vg_vector_data_highlight.gd")
 const _SpriteResolver = preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
 const _DatafileExternal = preload("res://addons/visual_gasic/vg_datafile_external.gd")
 const NATIVE_SPRITE_MENU_ID := 98501
@@ -271,6 +272,7 @@ var _vg_help_toolbar_btn: Button = null
 var _float_assist: Dictionary = {}
 var _native_assist_connected: CodeEdit = null
 var _native_sprite_lines: Array = []
+var _native_vector_lines: Array = []
 const _DualEditorBridge := preload("res://addons/visual_gasic/vg_dual_editor_bridge.gd")
 var _dual_editor_bridge = _DualEditorBridge.new()
 var _native_stale_strip: PanelContainer = null
@@ -13836,7 +13838,9 @@ func _check_script_editor_for_vg():
 	if not script_path.ends_with(".vg") and not script_path.ends_with(".gd"):
 		if _native_assist_connected and is_instance_valid(_native_assist_connected):
 			_SpriteHighlight.clear_native_lines(_native_assist_connected, _native_sprite_lines)
+			_VectorHighlight.clear_native_lines(_native_assist_connected, _native_vector_lines)
 		_native_sprite_lines.clear()
+		_native_vector_lines.clear()
 		_current_code_edit = null
 		# Not a navigable script — hide navigator
 		if _code_navigator:
@@ -14790,7 +14794,9 @@ func _hook_native_assist_caret(code_edit: CodeEdit) -> void:
 		if _native_assist_connected.text_changed.is_connected(_on_native_code_edit_text_changed):
 			_native_assist_connected.text_changed.disconnect(_on_native_code_edit_text_changed)
 		_SpriteHighlight.clear_native_lines(_native_assist_connected, _native_sprite_lines)
+		_VectorHighlight.clear_native_lines(_native_assist_connected, _native_vector_lines)
 		_native_sprite_lines.clear()
+		_native_vector_lines.clear()
 	_native_assist_connected = code_edit
 	if not code_edit.caret_changed.is_connected(_on_native_script_caret_moved):
 		code_edit.caret_changed.connect(_on_native_script_caret_moved)
@@ -14800,6 +14806,9 @@ func _hook_native_assist_caret(code_edit: CodeEdit) -> void:
 	var sp: VBoxContainer = _float_assist.get("sprite_panel")
 	if sp and sp.has_method("bind_code_edit"):
 		sp.bind_code_edit(code_edit)
+	var vp: VBoxContainer = _float_assist.get("vector_panel")
+	if vp and vp.has_method("bind_code_edit"):
+		vp.bind_code_edit(code_edit)
 	_hook_native_sprite_context_menu(code_edit)
 
 
@@ -14881,29 +14890,38 @@ func _update_native_editor_assist(code_edit: CodeEdit) -> void:
 	var help_label: RichTextLabel = _float_assist.get("help_label")
 	var help_scroll: ScrollContainer = _float_assist.get("help_scroll")
 	var sprite_panel: Control = _float_assist.get("sprite_panel")
+	var vector_panel: Control = _float_assist.get("vector_panel")
 	var tabs: TabContainer = _float_assist.get("tabs")
 	var state: Dictionary = _float_assist.get("state", {})
 	if is_vg:
-		_EditorAssist.caret_assist_update(code_edit, help_label, sprite_panel, state, help_scroll)
+		_EditorAssist.caret_assist_update(code_edit, help_label, sprite_panel, state, help_scroll, vector_panel)
 	else:
-		_EditorAssist.caret_assist_update(code_edit, help_label, null, state, help_scroll)
+		_EditorAssist.caret_assist_update(code_edit, help_label, null, state, help_scroll, null)
 		if sprite_panel and sprite_panel.has_method("clear_section"):
 			sprite_panel.clear_section()
+		if vector_panel and vector_panel.has_method("clear_section"):
+			vector_panel.clear_section()
 	_float_assist["state"] = state
-	if is_vg and tabs and state.get("in_sprite_block", false):
-		tabs.current_tab = 1
-	_apply_native_sprite_highlights(code_edit, script_path)
+	if is_vg and tabs:
+		if state.get("in_vector_block", false):
+			tabs.current_tab = 2
+		elif state.get("in_sprite_block", false):
+			tabs.current_tab = 1
+	_apply_native_data_highlights(code_edit, script_path)
 
 
-func _apply_native_sprite_highlights(code_edit: CodeEdit, script_path: String) -> void:
+func _apply_native_data_highlights(code_edit: CodeEdit, script_path: String) -> void:
 	if code_edit == null:
 		return
 	_SpriteHighlight.clear_native_lines(code_edit, _native_sprite_lines)
+	_VectorHighlight.clear_native_lines(code_edit, _native_vector_lines)
 	_native_sprite_lines.clear()
+	_native_vector_lines.clear()
 	if not script_path.ends_with(".vg"):
 		return
-	_native_sprite_lines = _SpriteHighlight.paint_native_lines(
-		code_edit, code_edit.text, code_edit.get_caret_line())
+	var caret := code_edit.get_caret_line()
+	_native_sprite_lines = _SpriteHighlight.paint_native_lines(code_edit, code_edit.text, caret)
+	_native_vector_lines = _VectorHighlight.paint_native_lines(code_edit, code_edit.text, caret)
 
 
 func _on_native_code_edit_text_changed() -> void:
@@ -14914,7 +14932,7 @@ func _on_native_code_edit_text_changed() -> void:
 			path = se.get_current_script().resource_path
 		if not _native_stale_applying and path.ends_with(".vg"):
 			_dual_editor_bridge.note_modified(path, _DualEditorBridge.SIDE_NATIVE)
-		_apply_native_sprite_highlights(_current_code_edit, path)
+		_apply_native_data_highlights(_current_code_edit, path)
 	_poll_dual_editor_stale.call_deferred()
 
 

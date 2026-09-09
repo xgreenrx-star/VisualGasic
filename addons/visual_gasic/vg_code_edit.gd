@@ -50,12 +50,16 @@ var _highlight_word: String = ""  # Word under cursor — all occurrences are hi
 var _highlight_scope: Vector2i = Vector2i(-1, -1)  # Scope range for scope-aware highlighting
 var _sprite_block_ranges: Array = []  # labeled *Sprite Data blocks for background tint
 var _sprite_active_label: String = ""
+var _vector_block_ranges: Array = []  # labeled *Vector Data blocks for background tint
+var _vector_active_label: String = ""
 var _file_path_ranges: Array = []     # Actionable path literals (right-click menu)
 var _string_literal_ranges: Array = [] # Ordinary "..." strings (warm tint only)
 var _file_path_hover: Dictionary = {}
 
 const _SpriteResolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
 const _SpriteHighlight := preload("res://addons/visual_gasic/vg_sprite_data_highlight.gd")
+const _VectorResolver := preload("res://addons/visual_gasic/vg_vector_data_resolver.gd")
+const _VectorHighlight := preload("res://addons/visual_gasic/vg_vector_data_highlight.gd")
 const _OpenPathResolver := preload("res://addons/visual_gasic/vg_open_path_resolver.gd")
 const _OpenPathHighlight := preload("res://addons/visual_gasic/vg_open_path_highlight.gd")
 const _VGTheme := preload("res://addons/visual_gasic/vg_theme_utils.gd")
@@ -930,6 +934,7 @@ func _on_features_overlay_draw() -> void:
 	var last_visible: int = first_visible + get_visible_line_count() + 1
 	last_visible = mini(last_visible, get_line_count())
 	_draw_sprite_data_block_highlights(first_visible, last_visible)
+	_draw_vector_data_block_highlights(first_visible, last_visible)
 	_draw_string_literal_highlights(first_visible, last_visible)
 	_draw_file_path_links(first_visible, last_visible)
 	_draw_procedure_separators(first_visible, last_visible)
@@ -2587,6 +2592,9 @@ func _refresh_sprite_data_highlights() -> void:
 	_sprite_block_ranges = _SpriteResolver.enumerate_blocks(get_text())
 	var sec := _SpriteResolver.resolve_at_line(get_text(), get_caret_line())
 	_sprite_active_label = str(sec.get("label", "")) if not sec.is_empty() else ""
+	_vector_block_ranges = _VectorResolver.enumerate_blocks(get_text())
+	var vsec := _VectorResolver.resolve_at_line(get_text(), get_caret_line())
+	_vector_active_label = str(vsec.get("label", "")) if not vsec.is_empty() else ""
 	_file_path_ranges = _OpenPathResolver.enumerate_path_literals(text)
 	_string_literal_ranges = []
 	for ref in _OpenPathHighlight.enumerate_quoted_strings(text):
@@ -2694,18 +2702,26 @@ func _update_file_path_link_cursor(at: Vector2) -> void:
 
 
 func _draw_sprite_data_block_highlights(first_visible: int, last_visible: int) -> void:
-	if _sprite_block_ranges.is_empty() or _features_overlay == null:
+	_draw_labeled_data_block_highlights(_sprite_block_ranges, _sprite_active_label, _SpriteHighlight, first_visible, last_visible)
+
+
+func _draw_vector_data_block_highlights(first_visible: int, last_visible: int) -> void:
+	_draw_labeled_data_block_highlights(_vector_block_ranges, _vector_active_label, _VectorHighlight, first_visible, last_visible)
+
+
+func _draw_labeled_data_block_highlights(block_ranges: Array, active_label: String, highlight, first_visible: int, last_visible: int) -> void:
+	if block_ranges.is_empty() or _features_overlay == null:
 		return
 	var row_height := get_line_height()
 	var from_x := get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
 	var to_x := size.x
-	var colors := _SpriteHighlight.overlay_colors(self)
-	for block in _sprite_block_ranges:
+	var colors := highlight.overlay_colors(self)
+	for block in block_ranges:
 		var start: int = block.get("label_line", -1)
 		var end: int = block.get("end_line", -1)
 		if start < 0 or end < start:
 			continue
-		var is_active: bool = block.get("label", "") == _sprite_active_label
+		var is_active: bool = block.get("label", "") == active_label
 		var col: Color = colors["active"] if is_active else colors["block"]
 		for line_idx in range(maxi(start, first_visible), mini(end + 1, last_visible)):
 			var pos := get_pos_at_line_column(line_idx, 0)

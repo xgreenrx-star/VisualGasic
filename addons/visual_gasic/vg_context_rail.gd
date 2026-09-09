@@ -14,6 +14,8 @@ const EditorAssist := preload("res://addons/visual_gasic/vg_editor_assist.gd")
 const VGCommandHelp := preload("res://addons/visual_gasic/vg_command_help.gd")
 const VGCausalChain := preload("res://addons/visual_gasic/vg_causal_chain.gd")
 const SpritePanelScript := preload("res://addons/visual_gasic/vg_sprite_data_panel.gd")
+const VectorPanelScript := preload("res://addons/visual_gasic/vg_vector_data_panel.gd")
+const VectorFilePanelScript := preload("res://addons/visual_gasic/vg_vector_file_panel.gd")
 const FilePreviewScript := preload("res://addons/visual_gasic/vg_file_preview_panel.gd")
 const LiteralPanelScript := preload("res://addons/visual_gasic/vg_literal_convert_panel.gd")
 const LiteralResolver := preload("res://addons/visual_gasic/vg_literal_resolver.gd")
@@ -44,6 +46,8 @@ var _summary_btn: Button
 var _wire_label: Label
 var _symbol_label: Label
 var _sprite_panel: VBoxContainer
+var _vector_panel: VBoxContainer
+var _vector_file_panel: VBoxContainer
 var _datafile_panel: VBoxContainer
 var _file_panel: VBoxContainer
 var _literal_panel: VBoxContainer
@@ -119,6 +123,10 @@ func _ready() -> void:
 	_symbol_label = _body_label()
 	_sprite_panel = SpritePanelScript.new()
 	_sprite_panel.name = "SpriteEditor"
+	_vector_panel = VectorPanelScript.new()
+	_vector_panel.name = "VectorEditor"
+	_vector_file_panel = VectorFilePanelScript.new()
+	_vector_file_panel.name = "VgvEditor"
 	_datafile_panel = DataFilePanelScript.new()
 	_datafile_panel.name = "DataFilePreview"
 	if _datafile_panel.has_signal("action_requested"):
@@ -152,6 +160,8 @@ func _ready() -> void:
 	_add_section("wire", "Wire", _wire_label)
 	_add_section("symbol", "Symbol", _symbol_label)
 	_add_section("sprite", "Sprite data", _sprite_panel)
+	_add_section("vector", "Vector data", _vector_panel)
+	_add_section("vector_file", "Vector file", _vector_file_panel)
 	_add_section("datafile", "Data file", _datafile_panel)
 	_add_section("file", "File", _file_panel)
 	_add_section("convert", "Convert", _literal_panel)
@@ -211,6 +221,8 @@ func _apply_code_edit_bind() -> void:
 		return
 	if is_instance_valid(_sprite_panel) and _sprite_panel.has_method("bind_code_edit"):
 		_sprite_panel.bind_code_edit(_code_edit)
+	if is_instance_valid(_vector_panel) and _vector_panel.has_method("bind_code_edit"):
+		_vector_panel.bind_code_edit(_code_edit)
 	if is_instance_valid(_literal_panel) and _literal_panel.has_method("bind_code_edit"):
 		_literal_panel.bind_code_edit(_code_edit)
 
@@ -243,11 +255,13 @@ func _update_from_caret_impl(caret: int) -> void:
 	var source := _code_edit.text
 	_last_source = source
 	var ctx := Analyzer.analyze(source, caret)
-	var key := "%s|%s|%dx%d|%s|%s|%s" % [
+	var key := "%s|%s|%dx%d|%dx%d|%s|%s|%s" % [
 		caret,
 		ctx.get("region_title", ""),
 		int(ctx.get("sprite", {}).get("w", 0)),
 		int(ctx.get("sprite", {}).get("h", 0)),
+		int(ctx.get("vector", {}).get("view_w", 0)),
+		int(ctx.get("vector", {}).get("view_h", 0)),
 		_file_key_at_caret(source, caret),
 		_literal_key_at_caret(source, caret),
 		_datafile_key_at_caret(source, caret),
@@ -282,6 +296,12 @@ func _render_idle() -> void:
 	_set_section_active("chain", false)
 	_sprite_panel.visible = false
 	_set_section_active("sprite", false)
+	if is_instance_valid(_vector_panel) and _vector_panel.has_method("clear_section"):
+		_vector_panel.clear_section()
+	_set_section_active("vector", false)
+	if is_instance_valid(_vector_file_panel) and _vector_file_panel.has_method("clear_preview"):
+		_vector_file_panel.clear_preview()
+	_set_section_active("vector_file", false)
 	if is_instance_valid(_datafile_panel) and _datafile_panel.has_method("clear_preview"):
 		_datafile_panel.clear_preview()
 	_set_section_active("datafile", false)
@@ -332,6 +352,16 @@ func _render(ctx: Dictionary, source: String, caret: int) -> void:
 		_set_section_active("sprite", true)
 		if _sprite_panel.has_method("update_for_caret"):
 			_sprite_panel.update_for_caret(source, caret)
+
+	var vector: Dictionary = ctx.get("vector", {})
+	if vector.is_empty():
+		if is_instance_valid(_vector_panel) and _vector_panel.has_method("clear_section"):
+			_vector_panel.clear_section()
+		_set_section_active("vector", false)
+	else:
+		_set_section_active("vector", true)
+		if _vector_panel.has_method("update_for_caret"):
+			_vector_panel.update_for_caret(source, caret)
 
 	var kw := EditorAssist.get_keyword_at_cursor(_code_edit) if _code_edit else ""
 	_render_keyword(kw)
@@ -422,6 +452,9 @@ func _update_outline(ctx: Dictionary, caret: int) -> void:
 	var sprite_ctx: Dictionary = ctx.get("sprite", {})
 	if not sprite_ctx.is_empty():
 		active_label_line = int(sprite_ctx.get("label_line", -1))
+	var vector_ctx: Dictionary = ctx.get("vector", {})
+	if not vector_ctx.is_empty():
+		active_label_line = int(vector_ctx.get("label_line", -1))
 	for e in outline:
 		var btn := LinkButton.new()
 		var label := str(e.get("label", ""))
@@ -431,6 +464,8 @@ func _update_outline(ctx: Dictionary, caret: int) -> void:
 			btn.text = label + "  (Data)"
 		elif kind == "datafile":
 			btn.text = label + "  (DataFile)"
+		elif kind == "vector":
+			btn.text = label + "  (Vector)"
 		elif kind == "type":
 			btn.text = label
 		else:
@@ -454,6 +489,9 @@ func _update_heavy_panels(source: String, caret: int) -> void:
 	if not ctx_sprite_empty(source, caret):
 		if _sprite_panel.has_method("update_for_caret"):
 			_sprite_panel.update_for_caret(source, caret)
+	if not ctx_vector_empty(source, caret):
+		if _vector_panel.has_method("update_for_caret"):
+			_vector_panel.update_for_caret(source, caret)
 	_update_file_at_caret(source, caret)
 	_update_datafile_at_caret(source, caret)
 	_update_literal_at_caret(source, caret)
@@ -461,6 +499,10 @@ func _update_heavy_panels(source: String, caret: int) -> void:
 
 func ctx_sprite_empty(source: String, caret: int) -> bool:
 	return Analyzer.analyze(source, caret).get("sprite", {}).is_empty()
+
+
+func ctx_vector_empty(source: String, caret: int) -> bool:
+	return Analyzer.analyze(source, caret).get("vector", {}).is_empty()
 
 
 func _render_keyword(keyword: String) -> void:
@@ -607,6 +649,16 @@ func _update_datafile_at_caret(source: String, caret: int) -> void:
 		_datafile_panel.update_for_caret(source, caret)
 	var ref := DataFileResolver.resolve_at_line(source, caret)
 	_set_section_active("datafile", not ref.is_empty())
+	var is_vgv := false
+	if not ref.is_empty():
+		var sniff: Dictionary = ref.get("sniff", {})
+		is_vgv = str(sniff.get("kind_name", "")) == "vgv"
+	if is_vgv and is_instance_valid(_vector_file_panel):
+		_vector_file_panel.show_vgv_ref(ref)
+		_set_section_active("vector_file", true)
+	elif is_instance_valid(_vector_file_panel):
+		_vector_file_panel.clear_preview()
+		_set_section_active("vector_file", false)
 
 
 func _on_datafile_action(action: String, ref: Dictionary) -> void:

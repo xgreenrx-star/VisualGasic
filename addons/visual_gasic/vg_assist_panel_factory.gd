@@ -3,6 +3,7 @@ extends RefCounted
 ## Builds the shared Help + Sprite tab panel used in VG IDE and floating window.
 
 const SpritePanelScript := preload("res://addons/visual_gasic/vg_sprite_data_panel.gd")
+const VectorPanelScript := preload("res://addons/visual_gasic/vg_vector_data_panel.gd")
 
 
 static func create_panel() -> Dictionary:
@@ -50,11 +51,18 @@ static func create_panel() -> Dictionary:
 	tabs.add_child(sprite_panel)
 	tabs.set_tab_title(1, "Sprite")
 
+	# --- Vector tab ---
+	var vector_panel: VBoxContainer = VectorPanelScript.new()
+	vector_panel.name = "VectorTab"
+	tabs.add_child(vector_panel)
+	tabs.set_tab_title(2, "Vector")
+
 	return {
 		"root": root,
 		"tabs": tabs,
 		"help_scroll": help_scroll,
 		"help_label": help_label,
 		"sprite_panel": sprite_panel,
+		"vector_panel": vector_panel,
 		"state": {"last_keyword": ""},
 	}
